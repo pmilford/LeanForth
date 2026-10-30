@@ -15,7 +15,14 @@ claiming it works for others. Do not require GitHub authentication for local use
 - `.tools/gforth/bin/gforth --version` reports `gforth 1.0.0 amd64`. A simple arithmetic invocation succeeded outside the sandbox; within the sandbox startup failed while creating its libcc configuration directory. This does not validate FFI or the LeanForth project.
 - Downloaded the official elan installer from `https://elan.lean-lang.org/elan-init.sh`; ran it with `ELAN_HOME=/home/peter/code/LeanForth/.tools/elan`, `-y --no-modify-path --default-toolchain leanprover/lean4:v4.35.0`. Running `ELAN_HOME=/home/peter/code/LeanForth/.tools/elan .tools/elan/bin/lean --version` downloaded and reported Lean 4.35.0, commit `eb6cafb7290e8bd5f2937522d8d804f58f02bafc`.
 - Local `.tools/` is ignored; paths above are machine-specific and need parameterizing in a future installer. No shell PATH was changed.
-- GitHub CLI reports the existing `pmilford` token invalid; remote creation is pending reauthentication and explicit authorization.
+- GitHub CLI was reauthenticated; the private `pmilford/LeanForth` repository
+  was created. The first push required refreshing the token's `workflow` scope;
+  the subsequent push succeeded.
 - Initialized the local repository with `git init -b main`. `make smoke` passed
   using the local Gforth outside the sandbox; `make smoke GFORTH=false` exited
-  nonzero as expected. CI has not run. GNU Make version is 4.3.
+  nonzero as expected. GitHub Actions Smoke run 41120284014 passed for initial
+  commit `44ca571`; it warned about checkout v4's Node 20 deprecation. GNU Make
+  version is 4.3.
+- `ELAN_HOME="$PWD/.tools/elan" make reference LEAN="$PWD/.tools/elan/bin/lean"`
+  passed the Lean 4.35.0 composition oracle: the valid example was accepted and
+  the incompatible application rejected. This is not a LeanForth kernel test.

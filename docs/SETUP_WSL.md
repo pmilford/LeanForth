@@ -6,21 +6,20 @@ Recommended: Windows 11 with WSL2 Ubuntu; VS Code installed on Windows with its 
 
 1. In **PowerShell as Administrator**, if WSL/Ubuntu is not yet installed: `wsl --install -d Ubuntu` (restart if prompted). If already installed, inspect using `wsl --list --verbose`; avoid replacing a working installation.
 2. Install current **Visual Studio Code for Windows** and the **WSL** extension. Open Ubuntu from Windows Terminal; run `code .` from the Linux project directory to open it in WSL mode.
-3. Download the handoff ZIP from this ChatGPT conversation and put it in Windows `Downloads`.
+3. Obtain access to the project repository. GitHub authentication is only needed
+   if the repository is private; it is not needed to run a local checkout.
 
 ## In Ubuntu/WSL shell
 
 ```bash
 sudo apt update
 sudo apt install -y git gh build-essential make pkg-config curl wget unzip jq python3 python3-venv gforth
-mkdir -p ~/src/LeanForth
-cd ~/src/LeanForth
-# Replace <WindowsUser> with your Windows user directory name:
-unzip /mnt/c/Users/<WindowsUser>/Downloads/LeanForth_Codex_Starter.zip
+# Clone the authorized repository, then enter its directory.
 bash scripts/check-env.sh
+make smoke
 ```
 
-The distro `gforth` apt package may be older than **Gforth 1.0.0**. It is suitable for initial setup only. During Codex's first task, confirm its version and, where necessary, build/install the **pinned Gforth 1.0.0 release** using verified upstream instructions from https://gforth.org/; record its installation location and build dependencies. Do not accidentally rely on newly added Gforth 1.0 extensions in portable kernel modules.
+The distro `gforth` apt package may be older than **Gforth 1.0.0**. It is suitable for the smoke check only. The observed 1.0 build, its dependencies, hash and unresolved installation issues are recorded in `docs/INSTALLATION_LOG.md`. A clean, reproducible 1.0 installer is still a project task; do not treat those machine-specific notes as a tested installer. Do not rely on newly added Gforth 1.0 extensions in portable kernel modules.
 
 Install a supported **Node.js LTS and npm** in Ubuntu (Codex should validate required Node version against current official CLI docs). Then:
 

@@ -24,7 +24,8 @@ limits and negative tests in an ADR before any kernel semantics are implemented.
   types. Compare both with pinned Lean when the supported fragment exists.
 - Program track: specify and verify a bounded integer clamp, including its
   range and behavior inside the bounds; reject a faulty implementation or
-  contract. State integer overflow and runtime assumptions before implementing.
+  contract. See `docs/PROGRAM_EXAMPLE.md` for the proposed contract and runtime
+  assumptions to resolve before implementing.
 
 Neither example is implemented or verified. A smaller identity proof may be
 needed first to validate the core typing rules.

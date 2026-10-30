@@ -1,6 +1,6 @@
 # LeanForth — Codex starter handoff
 
-**Status: design/handoff only, no LeanForth implementation has been written.**
+**Status: bootstrap and design; no theorem checker or program verifier exists yet.**
 
 LeanForth is a Forth-friendly mathematical theorem-proving **and verified-programming** system, with an independently trustworthy checker and efficient executable Forth backends. Its mathematical data and presentation notation must never redefine or ambiguously overload the Forth source grammar.
 
@@ -15,6 +15,18 @@ with `make smoke GFORTH=/path/to/gforth`. A missing or failing host makes the
 command fail. Lean is pinned in `lean-toolchain`; local installation details
 and remaining reproducibility work are in [the installation log](docs/INSTALLATION_LOG.md).
 
-GitHub CI has not run yet. Its Ubuntu job uses the distribution Gforth package
+Run `make reference` with Lean 4.35.0 available on PATH to check the Lean
+oracle's valid and invalid composition examples. With this machine's local
+elan installation, use:
+
+```bash
+ELAN_HOME="$PWD/.tools/elan" make reference LEAN="$PWD/.tools/elan/bin/lean"
+```
+
+These tests check Lean itself; they do not test a LeanForth kernel. The draft
+[core ADR](docs/adr/0001-core-fragment.md) and [program example](docs/PROGRAM_EXAMPLE.md)
+require human review before implementation.
+
+GitHub CI passed for the initial commit. Its Ubuntu job uses the distribution Gforth package
 as an additional host smoke check; pinned Gforth 1.0 CI remains to be set up.
 The project code is MIT licensed; Gforth is a separately licensed dependency.
