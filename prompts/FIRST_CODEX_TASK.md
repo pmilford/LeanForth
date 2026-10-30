@@ -1,0 +1,17 @@
+# First Codex task: environment and repository setup, not a simulated prover
+
+Read `AGENTS.md`, `docs/CODEX_HANDOFF.md`, `docs/IMPLEMENTATION_PLAN.md`, `docs/SETUP_WSL.md` and `docs/INTERFACE_CONTRACTS.md` in full. We are starting the LeanForth project from scratch on **Windows 11 + Ubuntu WSL2**, targeting **Gforth 1.0.0** and pinned **Lean 4.35.0**. The project has TWO first-class goals: mathematical theorem checking and **verified executable Forth programs**. It also needs step-by-step proof explanations, external math notation input, LLM-first machine APIs, and efficient large-tensor processing with CPU fallback.
+
+**Your first session deliverables:**
+
+1. Inventory the real environment by running `bash scripts/check-env.sh`. Report versions, Linux/WSL status and missing tools. Make no assumptions about preinstalled software.
+2. Propose the smallest safe installation actions for Git, GitHub CLI, build-essential, Gforth 1.0.0, Node LTS, Codex, Lean via elan pinned to 4.35.0, Python and JSON tooling. For installs that need `sudo` or external authentication, request approval. Prefer official releases and pinned versions. Carry out approved installs and show tested versions.
+3. Initialize the local Git repo if it does not already exist; preserve these handoff files; produce a proposed source tree, `Makefile`/`justfile` plan, gitignore and `docs/DECISIONS.md` (ADRs), `docs/VERSIONS.md` (real versions, not fabricated), a simple GitHub Actions CI proposal, and test runner skeleton. Make sure the first CI action has a meaningful smoke check, not a false-green placeholder.
+4. Ask for approval **before** authenticating to GitHub, creating the PRIVATE remote repository or pushing. Verify chosen owner, name and visibility. Configure branch protection / PR reviews after remote creation if permissions allow, or document manual steps.
+5. Implement only one honest first smoke test: an actual `gforth` load/invocation of a tiny module with a reproducible test invocation. Do not claim this is already a theorem prover or verified program engine. Draft the smallest next kernel test for proof acceptance AND proof rejection, and one minimal executable-with-contract example.
+6. Create a milestone/issue breakdown with measurable acceptance criteria. Begin a short architecture decision record comparing AST layouts and allocator/FFI approaches. Avoid premature GPU dependencies.
+7. Update README with exact run/test/verify commands and CI status. Record which commands were run and their observed outcomes. Stop with a concise reviewable diff and recommendations for the next issue.
+
+**Non-negotiable restrictions:** No new logical axioms; no `admit`/`sorry`/dummy proof acceptance; no truth claims based on a tactic/LLM/SMT/GPU output alone; no unsafe `eval` of untrusted imports; no automatic approval of privileged actions or new dependencies. Kernel changes require negative tests, differential reference cases and human review. Use portable Forth-2012 words for the core where practical. In program-verification documentation distinguish checking a source specification from proving optimized executable code respects that specification.
+
+Also preserve the UI/API decisions: MathLive -> MathJSON/LaTeX -> semantic elaborator -> checked AST, and explainable proof-step records with verified derivation references. First versions may document the interfaces rather than implement the UI.
