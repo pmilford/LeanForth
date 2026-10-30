@@ -26,3 +26,9 @@ claiming it works for others. Do not require GitHub authentication for local use
 - `ELAN_HOME="$PWD/.tools/elan" make reference LEAN="$PWD/.tools/elan/bin/lean"`
   passed the Lean 4.35.0 composition oracle: the valid example was accepted and
   the incompatible application rejected. This is not a LeanForth kernel test.
+- `make test-harness` passed with the local Gforth 1.0.0: the passing fixture
+  exited zero, while wrong-value and wrong-depth fixtures exited nonzero with
+  their expected diagnostics. Other Gforth installations have not been tested.
+- The same pinned Lean reference command also passed identity and binder cases
+  and a separate Lean integer-clamp proof experiment. These do not check a
+  LeanForth program or a LeanForth kernel.

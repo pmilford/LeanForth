@@ -16,7 +16,8 @@ command fail. Lean is pinned in `lean-toolchain`; local installation details
 and remaining reproducibility work are in [the installation log](docs/INSTALLATION_LOG.md).
 
 Run `make reference` with Lean 4.35.0 available on PATH to check the Lean
-oracle's valid and invalid composition examples. With this machine's local
+oracle's valid and invalid function and binder examples and its integer clamp
+proof experiment. With this machine's local
 elan installation, use:
 
 ```bash
@@ -26,6 +27,14 @@ ELAN_HOME="$PWD/.tools/elan" make reference LEAN="$PWD/.tools/elan/bin/lean"
 These tests check Lean itself; they do not test a LeanForth kernel. The draft
 [core ADR](docs/adr/0001-core-fragment.md) and [program example](docs/PROGRAM_EXAMPLE.md)
 require human review before implementation.
+See [starting the kernel](docs/KERNEL_START.md) for the remaining prerequisites.
+
+`make test-harness` evaluates Gforth's bundled test harness with a passing
+test and intentional wrong-value and wrong-stack-depth failures. It currently
+requires a Gforth installation containing `test/ttester.fs`; it has only been
+tested locally with Gforth 1.0. See [the testing strategy](docs/TESTING_STRATEGY.md).
+`make test-core` tests an experimental bounded structural arena; it does not
+check Lean terms or proofs. Its limits are in [the prototype notes](docs/ARENA_PROTOTYPE.md).
 
 GitHub CI passed for the initial commit. Its Ubuntu job uses the distribution Gforth package
 as an additional host smoke check; pinned Gforth 1.0 CI remains to be set up.

@@ -16,6 +16,7 @@ Read `docs/CODEX_HANDOFF.md`, `docs/IMPLEMENTATION_PLAN.md`, `docs/INTERFACE_CON
 
 ## Work process
 
+- Document Forth modules and public words with readable comments, including stack effects, behavior, error cases and relevant assumptions. Explain non-obvious implementation details where helpful.
 - **First task: environment, repository foundation, specification, CI skeleton and honest smoke tests — not a fabricated theorem prover.** Follow `prompts/FIRST_CODEX_TASK.md`.
 - Divide later work into narrowly scoped issues and test-first changes. Keep a running `docs/DECISIONS.md` with rationale and rejected alternatives.
 - Before changing kernel semantics: propose an ADR; add positive/negative tests; compare with pinned Lean 4.35.0 on available cases; request human review. Do not merge kernel changes solely on LLM review.

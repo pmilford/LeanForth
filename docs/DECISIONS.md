@@ -38,3 +38,5 @@ needed first to validate the core typing rules.
 3. Review the first kernel ADR and Lean oracle cases, including invalid terms.
 4. Specify the executable example and separate source proof from runtime trust.
 5. Design versioned API schemas and explicit proof-step provenance.
+6. Evaluate the bundled Forth tester with deliberate failures and establish the
+   unit, interface, functional and regression layers in `docs/TESTING_STRATEGY.md`.

@@ -2,6 +2,13 @@
 
 **Plan status: proposal.** Dates are intentionally replaced by correctness/acceptance gates; time estimates on a new theorem checker are not reliable. Keep **theorem-checking and verified-program execution equally visible** at every design review.
 
+The long-term target is to use Lean and Mathlib as a reusable, independently
+checked theorem base and provide a Forth-native way to build and check proofs
+and verified programs using Lean's logical approach. Early fragments are steps
+toward that target, not a replacement with an incompatible toy logic. Full
+Mathlib compatibility requires substantial staged work; report the exact
+supported corpus and semantics rather than implying completeness.
+
 ## Decision gates (before coding)
 
 A. Confirm public project name and default private GitHub repository; license to be proposed after auditing Gforth and native library license interactions (Apache-2.0/MIT are candidates; don't guess compatibility).

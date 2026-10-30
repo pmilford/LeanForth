@@ -2,6 +2,11 @@
 
 Status: specification for review; not implemented or verified.
 
+The separate Lean oracle `tests/reference/clamp.lean` proves the range and
+in-range properties for an unbounded integer definition using Lean 4.35.0.
+It is a reference experiment, not a LeanForth implementation, a proof of a
+Forth program, or evidence that the future importer supports these proofs.
+
 For mathematical integers `lower`, `upper`, and `value`, assume
 `lower <= upper`. Define the result as `lower` if `value < lower`, `upper` if
 `value > upper`, and `value` otherwise. A successful verification should show:
