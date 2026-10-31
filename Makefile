@@ -29,6 +29,7 @@ test-core:
 
 test-composition-fixture:
 	python3 tests/core/test_composition_fixture.py
+	GFORTH=$(GFORTH) python3 tests/core/test_ndjson_preview.py
 	GFORTH=$(GFORTH) python3 tests/core/check_composition_fixture.py
 
 test-scope-differential:

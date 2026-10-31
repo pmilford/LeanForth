@@ -56,6 +56,8 @@ expression records in a pinned Lean export. It uses Python 3 for this test-only
 inspection and stages the decoded nodes in Forth through a test-only data stream;
 it also exercises an experimental declaration probe on the staged nodes. It is not a
 general importer or proof checker.
+The development-only [NDJSON preview](docs/NDJSON_PREVIEW.md) decodes a bounded
+subset and reports unsupported records explicitly; its output is unchecked.
 The scope differential target compares 64 bounded expression shapes with Lean's
 loose-variable analysis; it does not compare type checking or theorem validity.
 The shift differential target compares an untrusted Forth shift experiment with
