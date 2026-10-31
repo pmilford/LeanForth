@@ -29,5 +29,7 @@ The fixture test independently compares preview nodes against the existing
 fixture inspector and feeds the resulting fields as test-only binary data to
 the untrusted Forth staging and declaration probe. Neither the preview nor the
 probe registers a theorem; declaration import and the trusted boundary require
-independent human review. The pipeline currently covers only the composition
-fixture and does not demonstrate general Lean or Mathlib compatibility.
+independent human review. The pipeline currently covers composition and identity
+exports, with a test-only byte protocol carrying declaration indices and node
+records. Altered values return non-success, and truncated or extended streams
+fail. These examples do not demonstrate general Lean or Mathlib compatibility.

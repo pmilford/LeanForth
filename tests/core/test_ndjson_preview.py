@@ -121,6 +121,40 @@ class PreviewTests(unittest.TestCase):
         self.assertIs(result["checked"], False)
         self.assertEqual(result["expressions"][1], {"tag": "bvar", "index": 2})
 
+    def test_multiple_real_lean_exports_reach_forth_probe(self):
+        for name in ("identity", "composition"):
+            with self.subTest(name=name):
+                raw = Path(f"tests/reference/{name}.ndjson").read_bytes()
+                decoded = preview(io.BytesIO(raw))
+                declaration = decoded["declarations"][0]
+                stream = bytearray((len(decoded["expressions"]), declaration["type"],
+                                    declaration["value"]))
+                for index, node in enumerate(decoded["expressions"]):
+                    tag = node["tag"]
+                    if tag == "sort":
+                        fields = (1, node["level"], 0)
+                    elif tag == "bvar":
+                        fields = (2, node["index"], 0)
+                    elif tag == "app":
+                        fields = (3, node["fn"], node["arg"])
+                    else:
+                        fields = (4 if tag == "lam" else 5, node["type"], node["body"])
+                    stream.extend((index, *fields))
+                command = [os.environ.get("GFORTH", "gforth"),
+                           "tests/core/load-declaration-stream.fs"]
+                result = subprocess.run(command, input=stream, capture_output=True, check=True)
+                self.assertEqual(result.stdout.split(), [b"0"])
+                # Use the root of the claim as the proof value; its type does not
+                # match the claim, so no successful diagnostic is possible.
+                stream[2] = stream[1]
+                result = subprocess.run(command, input=stream, capture_output=True, check=True)
+                self.assertNotEqual(result.stdout.split(), [b"0"])
+                # A truncated or extended stream must emit no diagnostic.
+                for malformed in (stream[:-1], stream + b"\x00"):
+                    result = subprocess.run(command, input=malformed, capture_output=True)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(result.stdout.strip(), b"")
+
 
 if __name__ == "__main__":
     unittest.main()
