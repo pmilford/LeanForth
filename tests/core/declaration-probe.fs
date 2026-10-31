@@ -27,6 +27,19 @@ T{ -1 6 100 lf-declaration-probe -> lf-infer-invalid }T
 T{ 4 -1 50000 lf-declaration-probe -> lf-infer-invalid }T
 T{ 4 10 50000 lf-declaration-probe -> lf-infer-invalid }T
 T{ 0 -1 50000 lf-declaration-probe -> lf-infer-invalid }T
+\ A non-proposition claim cannot hide an open or malformed value root.
+T{ 0 1 50000 lf-declaration-probe -> lf-infer-invalid }T
+T{ 1 6 50000 lf-declaration-probe -> lf-infer-invalid }T
+\ With one visit the claim is inspected but the open value is not yet seen.
+T{ 0 1 1 lf-declaration-probe -> lf-infer-exhausted }T
+T{ 0 1 2 lf-declaration-probe -> lf-infer-invalid }T
+999 6 lf-term-slot !
+T{ 0 6 50000 lf-declaration-probe -> lf-infer-invalid }T
+lf-tag-lam 6 lf-term-slot !
+6 6 lf-term-slot 2 cells + !
+T{ 0 6 50000 lf-declaration-probe -> lf-infer-invalid }T
+5 6 lf-term-slot 2 cells + !
+T{ 4 6 50000 lf-declaration-probe -> lf-infer-ok }T
 T{ 4 6 -1 lf-declaration-probe -> lf-infer-invalid }T
 T{ lf-compare-equal lf-probe-compare-status -> lf-infer-ok }T
 T{ lf-compare-invalid lf-probe-compare-status -> lf-infer-invalid }T

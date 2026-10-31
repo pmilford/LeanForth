@@ -20,10 +20,24 @@ variable lf-probe-start
     drop lf-infer-invalid 0
   endcase ;
 
+\ Validate the shape and scope of one closed root using the remaining shared
+\ budget. Structural success is not a typing or proof judgment.
+: lf-probe-scope ( root -- status )
+  lf-infer-fuel @ lf-scope-check lf-scope-fuel @ lf-infer-fuel !
+  case
+    lf-scope-ok of lf-infer-ok endof
+    lf-scope-invalid of lf-infer-invalid endof
+    lf-scope-exhausted of lf-infer-exhausted endof
+    drop lf-infer-invalid 0
+  endcase ;
+
 \ Exercise the candidate checks with a shared work budget. A non-proposition
 \ or an inconclusive comparison is unknown, never an accepted theorem.
 : lf-probe-walk ( fuel -- status )
-  lf-probe-type @ swap lf-infer dup if nip exit then drop
+  lf-infer-fuel !
+  lf-probe-type @ lf-probe-scope ?dup if exit then
+  lf-probe-value @ lf-probe-scope ?dup if exit then
+  lf-probe-type @ lf-infer-fuel @ lf-infer dup if nip exit then drop
   lf-infer-sortlevel dup if nip exit then drop
   0<> if lf-infer-unknown exit then
   lf-probe-value @ lf-infer-fuel @ lf-infer dup if nip exit then drop

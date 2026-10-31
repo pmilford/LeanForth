@@ -136,6 +136,9 @@ covered by tests, along with a budget sweep. Unknown or exhausted is not a Lean
 rejection; status zero is not a checked theorem. The global scratch state,
 interactions between inference and conversion, and underlying storage require
 soundness work and human review before any trusted implementation.
+The probe first scope-checks the claim and then the value using shared fuel;
+inference repeats its own scope checks. Exhaustion can stop before a defect is
+visited, and a successful scope scan does not establish that a term is typed.
 
 `make test-declaration-differential` compares five matching manually built
 declarations with Lean's pinned kernel declaration API. Lean accepts identity

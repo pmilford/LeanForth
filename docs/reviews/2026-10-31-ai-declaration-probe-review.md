@@ -17,7 +17,9 @@ more malformed and open-root tests, and a direct declaration differential test
 including Lean-valid cases requiring unsupported conversion. The new five-case
 differential includes a Lean-valid beta-equivalent binder domain identified by
 the reviewer, which the probe reports unknown. A budget sweep and full-arena
-test exist, but targeted per-stage failures, additional malformed cases and full
-structural validation ordering remain open. Global mutable state, unhandled host
+test exist. The probe now scope-checks both original roots before inference,
+claim first, with the same budget, and tests open and corrupted roots and the
+fuel boundary between visits. Targeted failures in every inference stage and
+additional malformed cases remain open. Global mutable state, unhandled host
 exceptions, immutable declaration storage and inference/conversion soundness
 remain unresolved.
