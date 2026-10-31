@@ -137,6 +137,13 @@ rejection; status zero is not a checked theorem. The global scratch state,
 interactions between inference and conversion, and underlying storage require
 soundness work and human review before any trusted implementation.
 
+`make test-declaration-differential` compares five matching manually built
+declarations with Lean's pinned kernel declaration API. Lean accepts identity
+and a beta-equivalent binder-domain case, and rejects three invalid candidates;
+the Forth probe reports success for identity, non-success for the invalid cases,
+and unknown for the second Lean-valid case. The cases are finite test evidence,
+not imported declarations or a measure of full Lean compatibility.
+
 `src/experimental/beta.fs` prototypes weak-head beta reduction using the
 experimental instantiation and shift modules. It validates input structure,
 tracks a finite visit budget and rolls back allocation count on failure. Its

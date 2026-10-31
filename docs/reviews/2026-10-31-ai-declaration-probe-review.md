@@ -14,7 +14,10 @@ find a demonstrated false success, and these fixes do not establish soundness.
 
 The review also requested targeted exhaustion tests for each internal stage,
 more malformed and open-root tests, and a direct declaration differential test
-including Lean-valid cases requiring unsupported conversion. A budget sweep and
-full-arena test exist, but these additional cases and full structural validation
-ordering remain open. Global mutable state, unhandled host exceptions, immutable
-declaration storage and inference/conversion soundness remain unresolved.
+including Lean-valid cases requiring unsupported conversion. The new five-case
+differential includes a Lean-valid beta-equivalent binder domain identified by
+the reviewer, which the probe reports unknown. A budget sweep and full-arena
+test exist, but targeted per-stage failures, additional malformed cases and full
+structural validation ordering remain open. Global mutable state, unhandled host
+exceptions, immutable declaration storage and inference/conversion soundness
+remain unresolved.

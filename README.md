@@ -29,6 +29,7 @@ ELAN_HOME="$PWD/.tools/elan" make test-instantiate-differential LEAN="$PWD/.tool
 ELAN_HOME="$PWD/.tools/elan" make test-beta-differential LEAN="$PWD/.tools/elan/bin/lean"
 ELAN_HOME="$PWD/.tools/elan" make test-compare-differential LEAN="$PWD/.tools/elan/bin/lean"
 ELAN_HOME="$PWD/.tools/elan" make test-infer-differential LEAN="$PWD/.tools/elan/bin/lean"
+ELAN_HOME="$PWD/.tools/elan" make test-declaration-differential LEAN="$PWD/.tools/elan/bin/lean"
 ELAN_HOME="$PWD/.tools/elan" make test-program-differential LEAN="$PWD/.tools/elan/bin/lean"
 ```
 
@@ -67,6 +68,9 @@ The comparison differential target checks six closed cases and preserves an
 explicit unknown result for a Lean equality outside its conservative fragment.
 The inference differential target compares seven inferred types with Lean and
 checks that six Lean-rejected inputs do not succeed in the Forth experiment.
+The declaration differential target compares five manually constructed cases:
+one success, three Lean rejections, and one Lean-valid declaration reported
+unknown by the Forth probe because binder-domain conversion is incomplete.
 `make test-program` tests a host Forth clamp against sample cases and a small
 finite input domain; it is not a proof of the program or its runtime.
 The differential target additionally compares those bounded results against
