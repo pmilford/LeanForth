@@ -42,9 +42,10 @@ ID checks; it does not provide structured-name identity or an immutable context.
 graphs return unknown unless its separate instance evaluator receives explicit
 numeric assignments. An instance is not a polymorphic equality judgment.
 `src/experimental/level-compare.fs` explores a conservative equality rule:
-after checking both graphs, identical syntax under one ID-to-name mapping may
-match; otherwise two unassigned, concrete evaluations may match if their values
-are equal. All other cases are unknown. No finite assignment sampling may
+after checking both graphs, literal-zero rewrites `max(u,0)`, `max(0,u)` and
+`imax(u,0)` may be applied before structural comparison under one ID-to-name
+mapping; otherwise two unassigned, concrete evaluations may match if their
+values are equal. All other cases are unknown. No finite assignment sampling may
 authorize symbolic equality. This is a proposal and untrusted diagnostic, not a
 reviewed kernel conversion rule. The mapping from opaque IDs to Lean names,
 context ownership and its interaction with typing remain unresolved.

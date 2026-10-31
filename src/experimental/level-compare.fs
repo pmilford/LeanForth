@@ -15,6 +15,9 @@ variable lf-lcmp-fuel
 variable lf-lcmp-left
 variable lf-lcmp-right
 variable lf-lcmp-concrete
+variable lf-lcmp-shrink-tag
+variable lf-lcmp-shrink-first
+variable lf-lcmp-shrink-second
 
 \ Address the active comparison frame; callers must hold an active frame.
 : lf-lcmp-frame ( -- addr )
@@ -42,6 +45,27 @@ variable lf-lcmp-concrete
     drop lf-lcmp-invalid 0
   endcase ;
 
+\ Reduce only literal-zero level identities. Both inputs were completely
+\ scope-checked first; each rewrite points to an earlier node and costs fuel.
+\ This is not general Lean universe normalization.
+: lf-lcmp-shrink ( node -- node status )
+  begin
+    lf-lcmp-fuel @ 0= if drop -1 lf-lcmp-exhausted exit then
+    -1 lf-lcmp-fuel +!
+    dup lf-level-read 0= if drop -1 lf-lcmp-invalid exit then
+    lf-lcmp-shrink-second ! lf-lcmp-shrink-first ! lf-lcmp-shrink-tag !
+    lf-lcmp-shrink-tag @ lf-level-tag-max = if
+      lf-lcmp-shrink-first @ 0= if
+        drop lf-lcmp-shrink-second @
+      else lf-lcmp-shrink-second @ 0= if
+        drop lf-lcmp-shrink-first @
+      else lf-lcmp-equal exit then then
+    else lf-lcmp-shrink-tag @ lf-level-tag-imax =
+         lf-lcmp-shrink-second @ 0= and if
+      drop 0
+    else lf-lcmp-equal exit then then
+  again ;
+
 \ Compare syntax after both roots have passed scope validation. Work and
 \ recursion are bounded; any unmatched constructor or ID is unknown.
 : lf-lcmp-walk ( left right -- status )
@@ -49,6 +73,8 @@ variable lf-lcmp-concrete
     2drop lf-lcmp-exhausted exit
   then
   -1 lf-lcmp-fuel +! 1 lf-lcmp-depth +!
+  lf-lcmp-shrink dup if nip nip lf-lcmp-leave exit then drop
+  swap lf-lcmp-shrink dup if nip nip lf-lcmp-leave exit then drop swap
   lf-level-read 0= if drop lf-lcmp-invalid lf-lcmp-leave exit then
   5 lf-lcmp! 4 lf-lcmp! 3 lf-lcmp!
   lf-level-read 0= if lf-lcmp-invalid lf-lcmp-leave exit then
@@ -78,11 +104,12 @@ variable lf-lcmp-concrete
 \ before any equality shortcut and share fuel with comparison and evaluation.
 \ Only one status is returned; this word cannot register a declaration.
 : lf-level-compare ( left right fuel -- status )
-  dup 0< if drop 2drop lf-lcmp-invalid exit then lf-lcmp-fuel !
+  dup 0< if drop 2drop 0 lf-lcmp-fuel ! lf-lcmp-invalid exit then lf-lcmp-fuel !
   lf-lcmp-right ! lf-lcmp-left !
   lf-lcmp-left @ lf-lcmp-fuel @ lf-lscope-check lf-lcmp-scope-status
-  ?dup if exit then lf-lscope-fuel @ lf-lcmp-fuel !
+  ?dup if 0 lf-lcmp-fuel ! exit then lf-lscope-fuel @ lf-lcmp-fuel !
   lf-lcmp-right @ lf-lcmp-fuel @ lf-lscope-check lf-lcmp-scope-status
-  ?dup if exit then lf-lscope-fuel @ lf-lcmp-fuel !
+  ?dup if 0 lf-lcmp-fuel ! exit then lf-lscope-fuel @ lf-lcmp-fuel !
   0 lf-lcmp-depth ! lf-lcmp-left @ lf-lcmp-right @ lf-lcmp-walk
-  dup lf-lcmp-unknown = if drop lf-lcmp-concrete-fallback then ;
+  dup lf-lcmp-unknown = if drop lf-lcmp-concrete-fallback
+  else dup if 0 lf-lcmp-fuel ! then then ;
