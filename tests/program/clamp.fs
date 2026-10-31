@@ -15,6 +15,14 @@ T{ -1 3 3 lf-clamp -> 3 true }T
 T{ 3 3 3 lf-clamp -> 3 true }T
 T{ 5 3 3 lf-clamp -> 3 true }T
 T{ 5 10 0 lf-clamp -> false }T
+\ Host regression: a data-stack prefix and a caller's return-stack value
+\ survive both ordered and reversed-bound paths. This is not a runtime proof.
+: clamp-return-stack-probe ( value lower upper -- result true marker | false marker )
+  765 >r lf-clamp r> ;
+T{ 123 4 0 10 lf-clamp -> 123 4 true }T
+T{ 123 4 10 0 lf-clamp -> 123 false }T
+T{ 123 4 0 10 clamp-return-stack-probe -> 123 4 true 765 }T
+T{ 123 4 10 0 clamp-return-stack-probe -> 123 false 765 }T
 \ Exercise host comparisons at signed 32-bit limits without arithmetic.
 T{ -2147483648 -2147483648 2147483647 lf-clamp -> -2147483648 true }T
 T{ 2147483647 -2147483648 2147483647 lf-clamp -> 2147483647 true }T

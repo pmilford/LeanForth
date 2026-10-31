@@ -35,6 +35,7 @@ ELAN_HOME="$PWD/.tools/elan" make test-level-assignment-differential LEAN="$PWD/
 ELAN_HOME="$PWD/.tools/elan" make test-level-compare-differential LEAN="$PWD/.tools/elan/bin/lean"
 ELAN_HOME="$PWD/.tools/elan" make test-poly-specialization-differential LEAN="$PWD/.tools/elan/bin/lean"
 ELAN_HOME="$PWD/.tools/elan" make test-program-differential LEAN="$PWD/.tools/elan/bin/lean"
+ELAN_HOME="$PWD/.tools/elan" make test-program-stack-differential LEAN="$PWD/.tools/elan/bin/lean"
 ```
 
 These tests exercise Lean and untrusted Forth experiments; they do not test a
@@ -82,6 +83,9 @@ finite input domain; it is not a proof of the program or its runtime.
 The differential target additionally compares 686 small-domain and signed
 32-bit boundary triples against the Lean integer model; it does not establish
 Forth program correctness or execution on a 32-bit host.
+The stack-model differential also compares 686 executions against a Lean-proved
+finite stack-machine model; the handwritten model and host remain separate
+assumptions, as described in [the program example](docs/PROGRAM_EXAMPLE.md).
 
 GitHub CI passed for the initial commit. The updated Ubuntu job uses the
 distribution Gforth package for smoke, harness, core and program tests; this updated job

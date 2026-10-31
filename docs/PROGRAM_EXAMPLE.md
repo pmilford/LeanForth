@@ -9,6 +9,22 @@ in-range and endpoint properties for an unbounded integer definition using Lean
 It is a reference experiment, not a LeanForth implementation, a proof of a
 Forth program, or evidence that the future importer supports these proofs.
 
+`tests/reference/stack-clamp.lean` separately defines a finite stack-machine
+semantics for the operations in the host word. Pinned Lean checks that this
+model implements the clamp specification and preserves arbitrary modeled data
+and return-stack suffixes; for ordered bounds it also proves the result is in
+range. Model underflow returns `none`, a model policy rather than a claim about
+host behavior. The model assumes signed mathematical integers, zero as false,
+and `-1` as true. `#print axioms` on both model theorems reports Lean's
+`propext`, `Classical.choice`, and `Quot.sound`; no LeanForth axiom is added.
+The reference file's SHA-256 at this checkpoint is
+`a418e7ccc979cd972453b96a235b3299c3518d31a877b652193e7a2531187563`.
+
+This is a handwritten model, not a semantics-preserving translation from Forth
+source. It abstracts return addresses, control flow, finite stack capacity and
+host word behavior. The Lean proof establishes the model's result under its
+semantics, not the compiled Forth word or the LeanForth kernel.
+
 For mathematical integers `lower`, `upper`, and `value`, assume
 `lower <= upper`. Define the result as `lower` if `value < lower`, `upper` if
 `value > upper`, and `value` otherwise. A successful verification should show:
@@ -42,3 +58,7 @@ it does not connect the Lean proof to the Forth source, prove cell arithmetic or
 the compiler, or cover inputs outside those sets. The endpoint cases were run
 on the available Gforth hosts; they do not establish execution on a 32-bit host.
 The program model, proof rules and connection to execution require human review.
+`make test-program-stack-differential` compares 686 executions of the proved
+stack model with the Gforth word. Host tests also exercise preservation of one
+data-stack prefix and a caller's return-stack value on both branch paths. These
+are finite runtime tests, not a proof of the host or compiler.
