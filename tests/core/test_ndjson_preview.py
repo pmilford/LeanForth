@@ -110,12 +110,11 @@ class PreviewTests(unittest.TestCase):
             with self.subTest(record=record), self.assertRaises(PreviewError):
                 self.parse(lines)
         lines = self.lines.copy()
-        lines.insert(position, '{"il":1,"max":[0,0]}')
+        lines.insert(position, '{"il":1,"param":1}')
         with self.assertRaises(PreviewError) as raised:
             self.parse(lines)
         self.assertEqual(raised.exception.code, "LF_PREVIEW_UNSUPPORTED")
-        # Exactly 256 successor records are allowed, although the separate
-        # byte-sized test transport cannot encode the resolved level 256.
+        # Exactly 256 successor records are allowed by the preview.
         lines = self.lines.copy()
         levels = [json.dumps({"il": i, "succ": i - 1}) for i in range(1, 257)]
         lines[position:position] = levels
@@ -126,6 +125,46 @@ class PreviewTests(unittest.TestCase):
         with self.assertRaises(PreviewError) as raised:
             self.parse(lines)
         self.assertEqual(raised.exception.code, "LF_PREVIEW_LIMIT")
+
+    def test_concrete_max_imax_and_malformed_pairs(self):
+        position = next(i for i, line in enumerate(self.lines) if '"ie":0' in line)
+        lines = self.lines.copy()
+        lines[position:position] = [
+            '{"il":1,"succ":0}', '{"il":2,"succ":1}',
+            '{"il":3,"max":[1,2]}', '{"il":4,"imax":[2,0]}',
+            '{"il":5,"imax":[1,2]}',
+        ]
+        self.assertEqual(self.parse(lines)["levels"], [0, 1, 2, 2, 0, 2])
+        for kind in ("max", "imax"):
+            for value in ([], [0], [0, 0, 0], [True, 0], [0, 1], "bad"):
+                lines = self.lines.copy()
+                lines.insert(position, json.dumps({"il": 1, kind: value}))
+                with self.subTest(kind=kind, value=value), self.assertRaises(PreviewError):
+                    self.parse(lines)
+
+    def test_nested_universe_sorts_reach_forth(self):
+        raw = Path("tests/reference/identity.ndjson").read_text().splitlines()
+        position = next(i for i, line in enumerate(raw) if '"thm"' in line)
+        raw[position:position] = [
+            '{"il":1,"succ":0}', '{"il":2,"succ":1}',
+            '{"il":3,"imax":[2,0]}', '{"il":4,"max":[3,1]}',
+            '{"il":5,"imax":[2,3]}', '{"ie":7,"sort":5}',
+            '{"ie":8,"sort":4}',
+        ]
+        decoded = self.parse(raw)
+        self.assertEqual(decoded["levels"], [0, 1, 2, 0, 1, 0])
+        nodes = [(1, 0, 0), (2, 0, 0), (2, 1, 0), (5, 1, 2),
+                 (5, 0, 3), (4, 1, 1), (4, 0, 5)]
+        nodes += [(1, node["level"], 0) for node in decoded["expressions"][-2:]]
+        stream = bytearray(struct.pack("<III", len(nodes), 4, 6))
+        for index, fields in enumerate(nodes):
+            stream.extend(struct.pack("<IIII", index, *fields))
+        command = [os.environ.get("GFORTH", "gforth"), "tests/core/load-declaration-stream.fs"]
+        result = subprocess.run(command, input=stream, capture_output=True, check=True)
+        rows = result.stdout.splitlines()
+        self.assertEqual(rows[0].split(), [b"0"])
+        self.assertEqual(tuple(map(int, rows[-2].split())), (7, 1, 0, 0))
+        self.assertEqual(tuple(map(int, rows[-1].split())), (8, 1, 1, 0))
 
     def test_limits_and_missing_declaration(self):
         with self.assertRaises(PreviewError) as raised:

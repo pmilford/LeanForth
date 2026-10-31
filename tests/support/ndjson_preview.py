@@ -111,12 +111,24 @@ def preview(stream):
                 fail("universe level limit exceeded", "LF_PREVIEW_LIMIT")
             if index != len(levels):
                 fail("nonsequential universe level index")
-            if set(record) != {"il", "succ"}:
+            kinds = set(record) - {"il"}
+            if len(kinds) != 1:
+                fail("ambiguous universe level")
+            kind = next(iter(kinds))
+            if kind == "succ":
+                predecessor = integer(record[kind], index - 1)
+                if levels[predecessor] >= MAX_INTEGER:
+                    fail("universe level overflow", "LF_PREVIEW_LIMIT")
+                level = levels[predecessor] + 1
+            elif kind in ("max", "imax"):
+                pair = record[kind]
+                if not isinstance(pair, list) or len(pair) != 2:
+                    fail("universe operation requires two references")
+                left, right = (levels[integer(ref, index - 1)] for ref in pair)
+                level = 0 if kind == "imax" and right == 0 else max(left, right)
+            else:
                 fail("unsupported universe level", "LF_PREVIEW_UNSUPPORTED")
-            predecessor = integer(record["succ"], index - 1)
-            if levels[predecessor] >= MAX_INTEGER:
-                fail("universe level overflow", "LF_PREVIEW_LIMIT")
-            levels.append(levels[predecessor] + 1)
+            levels.append(level)
         elif "ie" in record:
             index = integer(record["ie"])
             if index >= MAX_NODES:
