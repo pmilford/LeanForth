@@ -11,6 +11,7 @@ LEAN_HASH = "eb6cafb7290e8bd5f2937522d8d804f58f02bafc"
 MAX_LINE = 4096
 MAX_TOTAL = 1048576
 MAX_NAMES = 256
+MAX_LEVELS = 256
 MAX_NODES = 64
 MAX_DECLARATIONS = 64
 MAX_INTEGER = 2147483647
@@ -51,6 +52,7 @@ def preview(stream):
     """Decode a bounded byte stream, returning unchecked records or raising."""
     names = [None]  # Lean name zero is anonymous.
     name_keys = [()]
+    levels = [0]  # Export index zero denotes universe zero.
     nodes = []
     declarations = []
     declared = set()
@@ -103,6 +105,18 @@ def preview(stream):
                 integer(component)
             names.append({"kind": kind, "prefix": item["pre"], "component": component})
             name_keys.append(name_keys[item["pre"]] + ((kind, component),))
+        elif "il" in record:
+            index = integer(record["il"])
+            if index > MAX_LEVELS:
+                fail("universe level limit exceeded", "LF_PREVIEW_LIMIT")
+            if index != len(levels):
+                fail("nonsequential universe level index")
+            if set(record) != {"il", "succ"}:
+                fail("unsupported universe level", "LF_PREVIEW_UNSUPPORTED")
+            predecessor = integer(record["succ"], index - 1)
+            if levels[predecessor] >= MAX_INTEGER:
+                fail("universe level overflow", "LF_PREVIEW_LIMIT")
+            levels.append(levels[predecessor] + 1)
         elif "ie" in record:
             index = integer(record["ie"])
             if index >= MAX_NODES:
@@ -114,9 +128,8 @@ def preview(stream):
                 fail("ambiguous expression record")
             kind = next(iter(kinds))
             if kind == "sort":
-                if integer(record[kind]) != 0:
-                    fail("nonzero universe is unsupported", "LF_PREVIEW_UNSUPPORTED")
-                node = {"tag": "sort", "level": 0}
+                level_index = integer(record[kind], len(levels) - 1)
+                node = {"tag": "sort", "level": levels[level_index], "levelIndex": level_index}
             elif kind == "bvar":
                 node = {"tag": kind, "index": integer(record[kind])}
             elif kind in ("app", "lam", "forallE"):
@@ -151,7 +164,7 @@ def preview(stream):
     if metadata is None or not declarations:
         fail("missing metadata or theorem")
     return {"version": "0.1", "checked": False, "metadata": metadata,
-            "names": names, "expressions": nodes, "declarations": declarations}
+            "names": names, "levels": levels, "expressions": nodes, "declarations": declarations}
 
 
 def main():

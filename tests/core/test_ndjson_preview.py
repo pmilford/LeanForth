@@ -75,7 +75,7 @@ class PreviewTests(unittest.TestCase):
         lines = self.alter('"ie":0', lambda r: r.update(sort=1))
         with self.assertRaises(PreviewError) as raised:
             self.parse(lines)
-        self.assertEqual(raised.exception.code, "LF_PREVIEW_UNSUPPORTED")
+        self.assertEqual(raised.exception.code, "LF_PREVIEW_MALFORMED")
 
     def test_invalid_references_and_boolean_integers(self):
         mutations = [
@@ -87,6 +87,44 @@ class PreviewTests(unittest.TestCase):
         for needle, mutate in mutations:
             with self.subTest(needle=needle), self.assertRaises(PreviewError):
                 self.parse(self.alter(needle, mutate))
+
+    def test_universe_indices_resolve_successors_not_index_numbers(self):
+        lines = self.lines.copy()
+        position = next(i for i, line in enumerate(lines) if '"ie":0' in line)
+        lines[position:position] = [
+            '{"il":1,"succ":0}', '{"il":2,"succ":0}', '{"il":3,"succ":1}',
+        ]
+        lines[position + 3] = '{"ie":0,"sort":2}'
+        result = self.parse(lines)
+        self.assertEqual(result["levels"], [0, 1, 1, 2])
+        self.assertEqual(result["expressions"][0]["level"], 1)
+        self.assertEqual(result["expressions"][0]["levelIndex"], 2)
+
+    def test_invalid_and_unsupported_universe_records(self):
+        position = next(i for i, line in enumerate(self.lines) if '"ie":0' in line)
+        for record in ('{"il":1,"succ":1}', '{"il":2,"succ":0}',
+                       '{"il":1,"succ":true}'):
+            lines = self.lines.copy()
+            lines.insert(position, record)
+            with self.subTest(record=record), self.assertRaises(PreviewError):
+                self.parse(lines)
+        lines = self.lines.copy()
+        lines.insert(position, '{"il":1,"max":[0,0]}')
+        with self.assertRaises(PreviewError) as raised:
+            self.parse(lines)
+        self.assertEqual(raised.exception.code, "LF_PREVIEW_UNSUPPORTED")
+        # Exactly 256 successor records are allowed, although the separate
+        # byte-sized test transport cannot encode the resolved level 256.
+        lines = self.lines.copy()
+        levels = [json.dumps({"il": i, "succ": i - 1}) for i in range(1, 257)]
+        lines[position:position] = levels
+        lines[position + len(levels)] = '{"ie":0,"sort":256}'
+        self.assertEqual(self.parse(lines)["expressions"][0]["level"], 256)
+        lines = [self.lines[0]] + [json.dumps({"il": i, "succ": i - 1})
+                                   for i in range(1, 258)]
+        with self.assertRaises(PreviewError) as raised:
+            self.parse(lines)
+        self.assertEqual(raised.exception.code, "LF_PREVIEW_LIMIT")
 
     def test_limits_and_missing_declaration(self):
         with self.assertRaises(PreviewError) as raised:
@@ -122,7 +160,7 @@ class PreviewTests(unittest.TestCase):
         self.assertEqual(result["expressions"][1], {"tag": "bvar", "index": 2})
 
     def test_multiple_real_lean_exports_reach_forth_probe(self):
-        for name in ("identity", "composition"):
+        for name in ("identity", "composition", "type-identity"):
             with self.subTest(name=name):
                 raw = Path(f"tests/reference/{name}.ndjson").read_bytes()
                 decoded = preview(io.BytesIO(raw))

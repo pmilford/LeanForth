@@ -14,7 +14,7 @@ if [ "$revision" != eb6cafb7290e8bd5f2937522d8d804f58f02bafc ]; then
 fi
 toolchain=$("$lean" --print-prefix)
 temporary=$(mktemp -d)
-trap 'rm -f "$temporary/LeanForthComposition.olean" "$temporary/LeanForthIdentity.olean" "$temporary/export.ndjson"; rmdir "$temporary"' EXIT
+trap 'rm -f "$temporary/LeanForthComposition.olean" "$temporary/LeanForthIdentity.olean" "$temporary/LeanForthTypeIdentity.olean" "$temporary/export.ndjson"; rmdir "$temporary"' EXIT
 "$lean" -o "$temporary/LeanForthComposition.olean" tests/reference/composition.lean
 PATH="$toolchain/bin:$PATH" LEAN_PATH="$temporary" \
   "$toolchain/bin/leanexport" LeanForthComposition -- composition >"$temporary/export.ndjson"
@@ -31,4 +31,12 @@ if ! cmp -s tests/reference/identity.ndjson "$temporary/export.ndjson"; then
   diff -u tests/reference/identity.ndjson "$temporary/export.ndjson" >&2 || true
   exit 1
 fi
-printf '%s\n' 'Lean composition and identity exports match their pinned fixtures.'
+"$lean" -o "$temporary/LeanForthTypeIdentity.olean" tests/reference/type-identity.lean
+PATH="$toolchain/bin:$PATH" LEAN_PATH="$temporary" \
+  "$toolchain/bin/leanexport" LeanForthTypeIdentity -- type_identity >"$temporary/export.ndjson"
+if ! cmp -s tests/reference/type-identity.ndjson "$temporary/export.ndjson"; then
+  printf '%s\n' 'Lean type identity export differs from the pinned fixture' >&2
+  diff -u tests/reference/type-identity.ndjson "$temporary/export.ndjson" >&2 || true
+  exit 1
+fi
+printf '%s\n' 'Lean composition, identity and type identity exports match their pinned fixtures.'
