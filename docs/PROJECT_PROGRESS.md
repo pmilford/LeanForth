@@ -5,6 +5,11 @@ Prototype success is not theorem acceptance. Update this report after each
 meaningful milestone, with the inventory from `python3 scripts/code-inventory.py`.
 The two paths share the eventual checked proof infrastructure.
 
+The intended deliverable is a finished, usable LeanForth system, including
+Lean/Mathlib-compatible theorem proving and verification of executable Forth
+programs. The experimental work reported below is an interim development
+stage, not the project's final scope or quality target.
+
 ## Lean-compatible theorem proving and Mathlib
 
 | Milestone | Status and evidence / remaining work |

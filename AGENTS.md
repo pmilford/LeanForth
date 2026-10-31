@@ -4,6 +4,7 @@ Read `docs/CODEX_HANDOFF.md`, `docs/IMPLEMENTATION_PLAN.md`, `docs/INTERFACE_CON
 
 ## Non-negotiable design decisions
 
+- The goal is a finished, usable LeanForth product: a Lean- and Mathlib-compatible theorem prover and a checker for provably correct executable Forth programs. Experiments and prototypes are temporary development stages, not the intended deliverable; carry work forward toward production-quality implementations, documentation and tests.
 - The canonical language is ordinary Forth tokens and words; mathematics is represented as typed AST/data. Mathematical brackets, subscripts and infix symbols belong to an external notation/editor/rendering layer, not the canonical Forth grammar.
 - The project must develop **two equally visible product paths**: theorem proofs and verified executable Forth programs. Each early milestone should show both if technically feasible.
 - Small **trusted kernel** checks all proof terms. Parsers, LLMs, tactics, proof explanations, MathJSON/LaTeX adapters, solvers, fast compilers, GPU backends and tensor libraries are **untrusted** and can never confer theorem validity.
