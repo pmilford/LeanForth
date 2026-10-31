@@ -53,7 +53,7 @@ indices are mutable data, not checked theorem handles. Their limits are in
 `make test-composition-fixture` compares a manually built Forth DAG with 21
 expression records in a pinned Lean export. It uses Python 3 for this test-only
 inspection and stages the decoded nodes in Forth through a test-only data stream;
-it also exercises experimental inference on the staged nodes. It is not a
+it also exercises an experimental declaration probe on the staged nodes. It is not a
 general importer or proof checker.
 The scope differential target compares 64 bounded expression shapes with Lean's
 loose-variable analysis; it does not compare type checking or theorem validity.

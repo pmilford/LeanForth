@@ -68,9 +68,10 @@ record. The owner's acknowledgement is recorded in
   rejected expressions with the pinned Lean kernel. This evidence does not
   resolve the mutable arena or conversion soundness obligations.
 - The Lean NDJSON composition fixture reproduces byte-for-byte. Its expression
-  records can be staged through a test-only decoder and exercised by untrusted
-  Forth inference; the declaration has not been imported or checked by a
-  trusted LeanForth kernel.
+  records can be staged through a test-only decoder and exercised by an
+  untrusted Forth declaration probe; the declaration has not been imported or
+  checked by a trusted LeanForth kernel. The probe also exercises the Lean
+  reference identity and selected invalid shapes without registering a theorem.
 
 From the repository root, with this machine's pinned tools, run:
 

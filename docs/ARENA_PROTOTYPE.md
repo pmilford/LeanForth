@@ -107,13 +107,13 @@ required before these experiments can be used in a trusted kernel.
 
 The fixture test also sends those decoded node fields to the Forth staging
 interface through a test-only byte stream, and compares the resulting arena
-records. It also infers the staged value's type and experimentally compares it
-with the staged claim; a deliberately altered value fails this test. The
+records. An untrusted declaration probe checks whether the staged claim has
+sort zero and compares the staged value's inferred type with it; a deliberately
+altered value fails this test. The
 stream is data, not executable Forth; truncated and malformed streams must fail
 without printing staged records. This covers one fixture and does not validate
-general NDJSON or theorem correctness. In particular,
-this test does not check that the claim itself is a proposition or register a
-declaration, and the inference and conversion code remains untrusted.
+general NDJSON or theorem correctness. The probe does not register a declaration,
+and the inference and conversion code remains untrusted.
 The fixture inspector rejects duplicate JSON keys, unexpected expression and
 theorem fields, invalid binder metadata, and unexpected fixture declaration
 references. It is intentionally specific to this fixture and is not a complete
@@ -127,6 +127,15 @@ indices need a reviewed design before this can support trusted checking.
 The core tests repeatedly infer an identity term until exhaustion, checking that
 failure restores the preceding count and that an earlier result remains readable.
 These checks assume callers do not mutate the arena or reset it between calls.
+
+`src/experimental/declaration-probe.fs` experiments with the candidate closed,
+axiom-free theorem checks in ADR 0002. It returns a diagnostic status only and
+restores the arena count on all paths, including successful experiments. The
+identity, incorrect-value, non-type, non-proposition and composition cases are
+covered by tests, along with a budget sweep. Unknown or exhausted is not a Lean
+rejection; status zero is not a checked theorem. The global scratch state,
+interactions between inference and conversion, and underlying storage require
+soundness work and human review before any trusted implementation.
 
 `src/experimental/beta.fs` prototypes weak-head beta reduction using the
 experimental instantiation and shift modules. It validates input structure,

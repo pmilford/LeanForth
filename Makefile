@@ -24,6 +24,7 @@ test-core:
 	$(GFORTH) tests/core/beta.fs
 	$(GFORTH) tests/core/compare.fs
 	$(GFORTH) tests/core/infer.fs
+	$(GFORTH) tests/core/declaration-probe.fs
 	$(GFORTH) tests/core/infer-composition-probe.fs
 
 test-composition-fixture:
