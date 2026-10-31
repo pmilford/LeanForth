@@ -35,6 +35,16 @@ is not a proof acceptance test. The final kernel's representation and handling
 of untrusted inputs remain subject to review; prototype internals must not be
 exposed as a theorem-checking interface.
 
+`src/experimental/load.fs` stages already-decoded integer records into that
+arena in a bounded batch. Record indices and child references are batch-local;
+invalid records or allocation failure discard the batch while preserving prior
+nodes, assuming no outside mutation. It is neither a JSON decoder nor a
+declaration importer. It does not resolve Lean universe references, validate
+scope or types, or issue theorem handles. Its transactional behavior is an
+untrusted prototype and needs review before use at the declaration boundary.
+`make test-core` covers successful staging, malformed records, abort, preexisting
+nodes and capacity exhaustion.
+
 `src/experimental/scope.fs` performs a separate, untrusted structural traversal
 with explicit success, malformed, and budget-exhausted statuses. It checks
 binder depth, node tags, nonnegative leaf payloads, backward child references,
