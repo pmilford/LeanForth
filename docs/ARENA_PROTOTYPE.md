@@ -1,5 +1,11 @@
 # Structural arena prototype
 
+`src/experimental/names.fs` interns structured byte-string and numeric name
+components in bounded global storage. It is not connected to declaration or
+level checking and does not validate UTF-8 or protect against raw mutation or
+stale IDs. See `docs/adr/0005-structured-names.md` for the proposed review
+boundary and `make test-name-differential` for nine selected Lean comparisons.
+
 `src/experimental/levels.fs` separately stores symbolic universe syntax:
 zero, successor, max, imax and opaque parameter identifiers. Constructors
 check basic allocation and backward references but do not check parameter scope,

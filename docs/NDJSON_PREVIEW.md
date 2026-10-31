@@ -63,6 +63,11 @@ experimental Forth structural scope check in a separate test-only byte stream.
 That check uses opaque IDs and does not resolve structured Lean names or check
 the polymorphic theorem. The stream checks only the final level root: unrelated
 nodes printed in its table are not thereby shown to be in scope.
+Another test-only stream interns selected previewed structured names in Forth
+and checks alias mapping, including aliases used as prefixes. It uses one-byte
+indices, lengths and numeric components and is limited to 63 exported names;
+it is not a general Lean name transport and does not apply the map to the
+universe or declaration checker.
 
 A separate test-only stream specializes the polymorphic fixture under explicit
 numeric assignments and feeds the resulting concrete expression nodes to the

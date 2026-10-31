@@ -194,6 +194,43 @@ class PreviewTests(unittest.TestCase):
         with self.assertRaises(PreviewError):
             self.parse(lines)
 
+    def test_exported_names_intern_with_structured_aliases(self):
+        lines = self.lines.copy()
+        lines.insert(-1, '{"in":13,"str":{"pre":0,"str":"composition"}}')
+        lines.insert(-1, '{"in":14,"str":{"pre":1,"str":"leaf"}}')
+        lines.insert(-1, '{"in":15,"str":{"pre":13,"str":"leaf"}}')
+        result = self.parse(lines)
+        names = result["names"]
+        stream = bytearray((len(names) - 1,))
+        keys = [()]
+        expected = [0]
+        interned = {(): 0}
+        for index, name in enumerate(names[1:], start=1):
+            component = name["component"]
+            prefix = name["prefix"]
+            kind = name["kind"]
+            key = keys[prefix] + ((kind, component),)
+            keys.append(key)
+            if key not in interned:
+                interned[key] = len(interned)
+            expected.append(interned[key])
+            if kind == "str":
+                encoded = component.encode("utf-8")
+                stream.extend((index, 1, prefix, len(encoded)))
+                stream.extend(encoded)
+            else:
+                stream.extend((index, 2, prefix, component))
+        command = [os.environ.get("GFORTH", "gforth"), "tests/core/name-fixture-stream.fs"]
+        output = subprocess.run(command, input=stream, capture_output=True, check=True).stdout
+        rows = [tuple(map(int, line.split())) for line in output.splitlines()]
+        self.assertEqual(rows, list(enumerate(expected)))
+        self.assertEqual(expected[1], expected[13])
+        self.assertEqual(expected[14], expected[15])
+        for bad in (stream[:-1], stream + b"\0", bytes((1, 1, 1, 1, 1, 65))):
+            failed = subprocess.run(command, input=bad, capture_output=True)
+            self.assertNotEqual(failed.returncode, 0)
+            self.assertEqual(failed.stdout.strip(), b"")
+
     def test_preview_does_not_claim_scope_or_typing(self):
         lines = self.alter('"thm"', lambda r: r["thm"].update(type=1))
         result = self.parse(lines)
