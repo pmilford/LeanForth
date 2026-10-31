@@ -12,20 +12,23 @@ make test-composition-fixture
 ```
 
 The preview supports the pinned Lean 4.35.0 and export format 3.1.0 metadata,
-sequential string and numeric names, concrete successor, `max` and `imax`
-universes, bound variables,
-applications, lambdas, Pi expressions and non-polymorphic singleton theorem
+sequential string and numeric names, successor, `max`, `imax`, and parameter
+universe expressions, bound variables,
+applications, lambdas, Pi expressions and singleton theorem
 records. Child and name references must refer to existing records. It preserves
 binder metadata in its output, but does not check scope, types or proof terms.
-Universe parameters, constants, axioms, definitions, inductives, recursors,
-quotients, polymorphic and mutual declarations are unsupported, never assumed.
+Constants, axioms, definitions, inductives, recursors, quotients and mutual
+declarations are unsupported, never assumed. Polymorphic theorem metadata is
+retained as unchecked data. The preview checks that reachable universe
+parameters are listed by each declaration, but does not type-check the result.
 
 Universe records use sequential table indices: zero is implicit, and `succ`
 refers to an earlier table entry. Concrete `max` and `imax` refer to two earlier
-entries; `imax(a, 0)` is zero, and otherwise it is `max(a, b)`. Sorts refer to
-a table index; the preview preserves this index and resolves its concrete
-value. Different table indices may resolve to the same level. The preview does
-not preserve the original structure of level expressions in its output.
+entries; for concrete levels `imax(a, 0)` is zero, and otherwise it is
+`max(a, b)`. Sorts refer to a table index; the preview preserves this index and
+the level-expression graph. Concrete values are resolved where all operands
+are concrete. A symbolic expression remains `null`, even when simplification
+could determine its value. Different table indices may resolve to the same level.
 `make test-level-differential` compares 76 concrete and nested cases with pinned Lean's
 level normalization; it is finite test evidence, not a proof.
 
@@ -41,7 +44,13 @@ fixture inspector and feeds the resulting fields as test-only binary data to
 the untrusted Forth staging and declaration probe. Neither the preview nor the
 probe registers a theorem; declaration import and the trusted boundary require
 independent human review. The pipeline currently covers composition, identity,
-and a theorem quantified over `Type`. The general test-only byte protocol uses
+and a theorem quantified over `Type`. A fourth, universe-polymorphic Lean export
+is decoded but is not sent to the concrete-only Forth probe. The test transport
+explicitly rejects previews containing symbolic levels or level parameters;
+it recomputes concrete level values and checks sort references. Its flag and
+mutable input are untrusted metadata; a consistently altered input is a
+different declaration, not proof of provenance or validity. The general
+test-only byte protocol uses
 little-endian nonnegative 32-bit fields up to 2,147,483,647, carrying declaration
 indices and node records. A synthetic test stages and reads back level 256;
 this is not a production serialization. An older, composition-specific test

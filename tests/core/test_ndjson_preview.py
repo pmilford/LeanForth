@@ -11,6 +11,7 @@ import unittest
 
 sys.path.insert(0, str(Path("tests/support")))
 from ndjson_preview import MAX_LINE, PreviewError, preview
+from fixture_transport import encode_concrete
 from check_composition_fixture import fixture_nodes
 
 
@@ -110,7 +111,7 @@ class PreviewTests(unittest.TestCase):
             with self.subTest(record=record), self.assertRaises(PreviewError):
                 self.parse(lines)
         lines = self.lines.copy()
-        lines.insert(position, '{"il":1,"param":1}')
+        lines.insert(position, '{"il":1,"mvar":1}')
         with self.assertRaises(PreviewError) as raised:
             self.parse(lines)
         self.assertEqual(raised.exception.code, "LF_PREVIEW_UNSUPPORTED")
@@ -199,14 +200,135 @@ class PreviewTests(unittest.TestCase):
         self.assertIs(result["checked"], False)
         self.assertEqual(result["expressions"][1], {"tag": "bvar", "index": 2})
 
+    def test_polymorphic_export_is_preserved_but_not_forth_concrete(self):
+        raw = Path("tests/reference/poly-identity.ndjson").read_bytes()
+        result = preview(io.BytesIO(raw))
+        self.assertIs(result["checked"], False)
+        self.assertIs(result["concreteLevelDataOnly"], False)
+        self.assertEqual(result["levels"], [0, None])
+        self.assertEqual(result["levelExpressions"][1], {"tag": "param", "name": 2})
+        self.assertEqual(result["declarations"][0]["levelParams"], [2])
+        self.assertEqual(result["expressions"][0]["levelIndex"], 1)
+        self.assertIsNone(result["expressions"][0]["level"])
+        with self.assertRaises(ValueError):
+            encode_concrete(result)
+        result["concreteLevelDataOnly"] = True  # A forged flag is insufficient.
+        result["expressions"][0]["level"] = 0
+        with self.assertRaises(ValueError):
+            encode_concrete(result)
+        result["declarations"][0]["levelParams"] = []
+        with self.assertRaises(ValueError):
+            encode_concrete(result)  # The symbolic graph is still present.
+
+    def test_concrete_transport_rejects_inconsistent_sort_level(self):
+        result = preview(io.BytesIO(Path("tests/reference/type-identity.ndjson").read_bytes()))
+        result["expressions"][0]["level"] = 0
+        with self.assertRaises(ValueError):
+            encode_concrete(result)
+
+    def test_symbolic_levels_remain_symbolic_and_keep_their_structure(self):
+        raw = Path("tests/reference/poly-identity.ndjson").read_text().splitlines()
+        position = next(i for i, line in enumerate(raw) if '"ie":0' in line)
+        raw[position:position] = [
+            '{"il":2,"succ":1}', '{"il":3,"max":[0,2]}',
+            '{"il":4,"imax":[3,0]}',
+        ]
+        result = self.parse(raw)
+        self.assertEqual(result["levels"], [0, None, None, None, None])
+        self.assertEqual(result["levelExpressions"][4], {"tag": "imax", "left": 3, "right": 0})
+        self.assertIs(result["concreteLevelDataOnly"], False)
+
+    def test_invalid_symbolic_parameter_references_fail(self):
+        raw = Path("tests/reference/poly-identity.ndjson").read_text().splitlines()
+        position = next(i for i, line in enumerate(raw) if '"param"' in line)
+        for name in (0, 999, True):
+            lines = raw.copy()
+            lines[position] = json.dumps({"il": 1, "param": name})
+            with self.subTest(name=name), self.assertRaises(PreviewError):
+                self.parse(lines)
+        for params in ([2, 2], [0], [999], [True], "bad"):
+            lines = raw.copy()
+            record = json.loads(lines[-1])
+            record["thm"]["levelParams"] = params
+            lines[-1] = json.dumps(record)
+            with self.subTest(params=params), self.assertRaises(PreviewError):
+                self.parse(lines)
+
+    def test_preview_rejects_undeclared_universe_parameter(self):
+        raw = Path("tests/reference/poly-identity.ndjson").read_text().splitlines()
+        record = json.loads(raw[-1])
+        record["thm"]["levelParams"] = []
+        raw[-1] = json.dumps(record)
+        with self.assertRaises(PreviewError):
+            self.parse(raw)
+
+    def test_parameter_scope_uses_reconstructed_names_and_reachable_levels(self):
+        raw = Path("tests/reference/poly-identity.ndjson").read_text().splitlines()
+        # A second name index for the same Lean name is a valid scope match.
+        raw.insert(-1, '{"in":12,"str":{"pre":0,"str":"u"}}')
+        record = json.loads(raw[-1])
+        record["thm"]["levelParams"] = [12]
+        raw[-1] = json.dumps(record)
+        self.assertIs(self.parse(raw)["checked"], False)
+        # A distinct symbolic record unrelated to either root need not be listed.
+        raw.insert(-1, '{"in":13,"str":{"pre":0,"str":"v"}}')
+        raw.insert(-1, '{"il":2,"param":13}')
+        self.assertIs(self.parse(raw)["checked"], False)
+        record = json.loads(raw[-1])
+        record["thm"]["levelParams"] = [13]
+        raw[-1] = json.dumps(record)
+        with self.assertRaises(PreviewError):
+            self.parse(raw)
+
+    def test_theorem_all_allows_equivalent_name_index(self):
+        raw = Path("tests/reference/poly-identity.ndjson").read_text().splitlines()
+        raw.insert(-1, '{"in":12,"str":{"pre":0,"str":"poly_identity"}}')
+        record = json.loads(raw[-1])
+        record["thm"]["all"] = [12]
+        raw[-1] = json.dumps(record)
+        self.assertIs(self.parse(raw)["checked"], False)
+        record["thm"]["all"] = [True]
+        raw[-1] = json.dumps(record)
+        with self.assertRaises(PreviewError):
+            self.parse(raw)
+
+    def test_parameter_scope_traverses_nested_level_graph(self):
+        raw = Path("tests/reference/poly-identity.ndjson").read_text().splitlines()
+        position = next(i for i, line in enumerate(raw) if '"ie":0' in line)
+        raw[position:position] = ['{"il":2,"succ":1}', '{"il":3,"max":[0,2]}',
+                                  '{"il":4,"imax":[3,0]}']
+        raw[position + 3] = '{"ie":0,"sort":4}'
+        self.assertIs(self.parse(raw)["checked"], False)
+        record = json.loads(raw[-1])
+        record["thm"]["levelParams"] = []
+        raw[-1] = json.dumps(record)
+        with self.assertRaises(PreviewError):
+            self.parse(raw)
+
+    def test_each_declaration_and_value_has_its_own_parameter_scope(self):
+        raw = Path("tests/reference/poly-identity.ndjson").read_text().splitlines()
+        record = json.loads(raw[-1])
+        record["thm"]["type"] = 2  # Sort 0 has no parameters; value still uses u.
+        raw[-1] = json.dumps(record)
+        self.assertIs(self.parse(raw)["checked"], False)
+        record["thm"]["levelParams"] = []
+        raw[-1] = json.dumps(record)
+        with self.assertRaises(PreviewError):
+            self.parse(raw)
+        # A prior declaration's successful check cannot authorize a second one.
+        original = Path("tests/reference/poly-identity.ndjson").read_text().splitlines()
+        original.extend(['{"in":12,"str":{"pre":0,"str":"other"}}',
+                         '{"thm":{"all":[12],"levelParams":[],"name":12,"type":2,"value":15}}'])
+        with self.assertRaises(PreviewError):
+            self.parse(original)
+
     def test_multiple_real_lean_exports_reach_forth_probe(self):
         for name in ("identity", "composition", "type-identity"):
             with self.subTest(name=name):
                 raw = Path(f"tests/reference/{name}.ndjson").read_bytes()
                 decoded = preview(io.BytesIO(raw))
                 declaration = decoded["declarations"][0]
-                stream = bytearray(struct.pack("<III", len(decoded["expressions"]),
-                                               declaration["type"], declaration["value"]))
+                stream = encode_concrete(decoded)
                 expected = []
                 for index, node in enumerate(decoded["expressions"]):
                     tag = node["tag"]
@@ -219,7 +341,6 @@ class PreviewTests(unittest.TestCase):
                     else:
                         fields = (4 if tag == "lam" else 5, node["type"], node["body"])
                     expected.append((index, *fields))
-                    stream.extend(struct.pack("<IIII", index, *fields))
                 command = [os.environ.get("GFORTH", "gforth"),
                            "tests/core/load-declaration-stream.fs"]
                 result = subprocess.run(command, input=stream, capture_output=True, check=True)

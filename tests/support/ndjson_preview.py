@@ -48,11 +48,49 @@ def fields(value, expected):
     return value
 
 
+def check_level_parameter_scope(roots, nodes, level_expressions, name_keys, allowed):
+    """Reject undeclared universe parameters reachable from these two roots.
+
+    This is a bounded syntactic check, not a proof or full declaration check.
+    Existing DAG references have already been validated by the decoder.
+    """
+    pending_nodes = list(roots)
+    seen_nodes = set()
+    pending_levels = []
+    seen_levels = set()
+    while pending_nodes:
+        index = pending_nodes.pop()
+        if index in seen_nodes:
+            continue
+        seen_nodes.add(index)
+        node = nodes[index]
+        if node["tag"] == "sort":
+            pending_levels.append(node["levelIndex"])
+        elif node["tag"] == "app":
+            pending_nodes.extend((node["fn"], node["arg"]))
+        elif node["tag"] in ("lam", "forallE"):
+            pending_nodes.extend((node["type"], node["body"]))
+    while pending_levels:
+        index = pending_levels.pop()
+        if index in seen_levels:
+            continue
+        seen_levels.add(index)
+        level = level_expressions[index]
+        if level["tag"] == "param":
+            if name_keys[level["name"]] not in allowed:
+                fail("undeclared universe parameter")
+        elif level["tag"] == "succ":
+            pending_levels.append(level["of"])
+        elif level["tag"] in ("max", "imax"):
+            pending_levels.extend((level["left"], level["right"]))
+
+
 def preview(stream):
     """Decode a bounded byte stream, returning unchecked records or raising."""
     names = [None]  # Lean name zero is anonymous.
     name_keys = [()]
     levels = [0]  # Export index zero denotes universe zero.
+    level_expressions = [{"tag": "zero"}]
     nodes = []
     declarations = []
     declared = set()
@@ -117,18 +155,31 @@ def preview(stream):
             kind = next(iter(kinds))
             if kind == "succ":
                 predecessor = integer(record[kind], index - 1)
-                if levels[predecessor] >= MAX_INTEGER:
+                if levels[predecessor] is not None and levels[predecessor] >= MAX_INTEGER:
                     fail("universe level overflow", "LF_PREVIEW_LIMIT")
-                level = levels[predecessor] + 1
+                level = None if levels[predecessor] is None else levels[predecessor] + 1
+                expression = {"tag": kind, "of": predecessor}
             elif kind in ("max", "imax"):
                 pair = record[kind]
                 if not isinstance(pair, list) or len(pair) != 2:
                     fail("universe operation requires two references")
-                left, right = (levels[integer(ref, index - 1)] for ref in pair)
-                level = 0 if kind == "imax" and right == 0 else max(left, right)
+                left_index, right_index = (integer(ref, index - 1) for ref in pair)
+                left, right = levels[left_index], levels[right_index]
+                if left is None or right is None:
+                    level = None
+                else:
+                    level = 0 if kind == "imax" and right == 0 else max(left, right)
+                expression = {"tag": kind, "left": left_index, "right": right_index}
+            elif kind == "param":
+                name = integer(record[kind], len(names) - 1)
+                if name == 0:
+                    fail("anonymous universe parameter")
+                level = None
+                expression = {"tag": kind, "name": name}
             else:
                 fail("unsupported universe level", "LF_PREVIEW_UNSUPPORTED")
             levels.append(level)
+            level_expressions.append(expression)
         elif "ie" in record:
             index = integer(record["ie"])
             if index >= MAX_NODES:
@@ -167,8 +218,23 @@ def preview(stream):
                 fail("invalid or duplicate declaration name")
             integer(item["type"], len(nodes) - 1)
             integer(item["value"], len(nodes) - 1)
-            if item["levelParams"] != [] or item["all"] != [name] or type(item["all"][0]) is not int:
-                fail("polymorphic or mutual theorem is unsupported", "LF_PREVIEW_UNSUPPORTED")
+            params = item["levelParams"]
+            if not isinstance(params, list):
+                fail("level parameters are not a list")
+            param_keys = set()
+            for param in params:
+                param = integer(param, len(names) - 1)
+                if param == 0 or name_keys[param] in param_keys:
+                    fail("anonymous or duplicate universe parameter")
+                param_keys.add(name_keys[param])
+            all_names = item["all"]
+            if not isinstance(all_names, list) or len(all_names) != 1:
+                fail("mutual theorem is unsupported", "LF_PREVIEW_UNSUPPORTED")
+            all_name = integer(all_names[0], len(names) - 1)
+            if name_keys[all_name] != name_keys[name]:
+                fail("mutual theorem is unsupported", "LF_PREVIEW_UNSUPPORTED")
+            check_level_parameter_scope((item["type"], item["value"]), nodes,
+                                        level_expressions, name_keys, param_keys)
             declarations.append(dict(item))
             declared.add(name_keys[name])
         else:
@@ -176,7 +242,10 @@ def preview(stream):
     if metadata is None or not declarations:
         fail("missing metadata or theorem")
     return {"version": "0.1", "checked": False, "metadata": metadata,
-            "names": names, "levels": levels, "expressions": nodes, "declarations": declarations}
+            "names": names, "levels": levels, "levelExpressions": level_expressions,
+            "concreteLevelDataOnly": all(level is not None for level in levels)
+                and all(not decl["levelParams"] for decl in declarations),
+            "expressions": nodes, "declarations": declarations}
 
 
 def main():
