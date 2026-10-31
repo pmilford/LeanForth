@@ -1,6 +1,7 @@
 GFORTH ?= $(if $(wildcard .tools/gforth/bin/gforth),.tools/gforth/bin/gforth,gforth)
 LEAN ?= lean
 
+.PHONY: test-tagged-infer-differential
 .PHONY: smoke reference reference-export test-harness test-core test-symbolic-infer-draft test-composition-fixture test-name-differential test-scope-differential test-shift-differential test-instantiate-differential test-beta-differential test-compare-differential test-infer-differential test-declaration-differential test-level-differential test-level-assignment-differential test-level-compare-differential test-poly-specialization-differential test-program test-program-differential test-program-stack-differential
 smoke:
 	$(GFORTH) tests/smoke/smoke.fs
@@ -22,6 +23,9 @@ test-core:
 	$(GFORTH) tests/core/symbolic-session-extra.fs
 	$(GFORTH) tests/core/generation-handles.fs
 	$(GFORTH) tests/core/handle-reference-integrity.fs
+	$(GFORTH) tests/core/tagged-infer.fs
+	$(GFORTH) tests/core/tagged-shift.fs
+	$(GFORTH) tests/core/tagged-integration.fs
 	$(GFORTH) tests/core/names.fs
 	$(GFORTH) tests/core/levels.fs
 	$(GFORTH) tests/core/level-scope.fs
@@ -40,6 +44,9 @@ test-core:
 # Explicitly opt in to the unsafe draft; this target does not enable it for use.
 test-symbolic-infer-draft:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/core/symbolic-infer-draft.sh
+
+test-tagged-infer-differential:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/core/tagged-infer-differential.sh
 
 test-composition-fixture:
 	python3 tests/core/test_composition_fixture.py

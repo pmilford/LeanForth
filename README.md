@@ -60,6 +60,10 @@ locally with Gforth 1.0 and Ubuntu's Gforth 0.7.3. See
 type inference. These untrusted prototypes cannot authorize a theorem; inferred
 indices are mutable data, not checked theorem handles. Their limits are in
 [the prototype notes](docs/ARENA_PROTOTYPE.md).
+The tagged symbolic Sort/Pi inference fragment and tagged shifting are likewise
+untrusted; variables and general dependent expressions are not yet inferred.
+`make test-tagged-infer-differential` checks selected shared universe expectations
+with pinned Lean, not the full Lean checker corpus.
 `make test-composition-fixture` compares a manually built Forth DAG with 21
 expression records in a pinned Lean export. It uses Python 3 for this test-only
 inspection and stages the decoded nodes in Forth through a test-only data stream;

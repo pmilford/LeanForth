@@ -80,3 +80,11 @@ are finite runtime tests, not a proof of the host or compiler.
 result back through `lf-clamp` with the same bounds for all 196 ordered triples
 in `[-3, 3]`. Both success flags and the repeated result are checked; reversed
 bounds are covered separately and are excluded from this composition test.
+It also exercises `clampCode_nested`'s composition property on the host for
+all 1,470 combinations of a value and nested intervals with endpoints in
+`[-3, 3]`, including equal endpoints and equal intervals. Each of the three
+calls must succeed, the composed and direct results must agree, and a
+data-stack prefix must survive. This is finite regression evidence under the
+host's signed-cell comparison and stack behavior assumptions, not a proof that
+the host word implements the Lean model; return-stack preservation for nested
+calls is not established by this test.

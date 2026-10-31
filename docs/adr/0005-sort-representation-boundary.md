@@ -90,3 +90,11 @@ append-only allocation and suffix rollback, same-arena parents cannot survive
 the removal of earlier children; arbitrary count restoration and raw mutation
 are outside this assumption. All raw Forth words remain accessible, and no
 consumer may treat this development check as a trusted interface.
+
+`tagged-infer.fs` now uses the handle-based input check for a restricted
+Sort/Pi fragment; it returns `unknown` for variables, lambdas, applications and
+other forms. `tagged-shift.fs` separately shifts tagged syntax while retaining
+Sort stamps. Both are untrusted, and their composition has no shared outer
+transaction or enforced combined budget yet. The tagged inference test and the
+pinned Lean oracle check the same limited Sort and Pi universe expectations;
+this is not a broad Lean compatibility result or proof of soundness.

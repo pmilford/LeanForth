@@ -91,4 +91,40 @@ variable test-first-result
     loop
   loop ;
 check-clamp-idempotence-domain
+
+\ Mirror clampCode_nested on finite host inputs. The marker is a data-stack
+\ prefix; the caller consumes each success flag before the next clamp.
+variable test-outer-lower
+variable test-outer-upper
+variable test-inner-lower
+variable test-inner-upper
+variable test-nested-result
+: check-clamp-nested ( -- )
+  123456
+  test-value @ test-outer-lower @ test-outer-upper @ lf-clamp
+  0= if -1 throw then
+  test-inner-lower @ test-inner-upper @ lf-clamp
+  0= if -1 throw then
+  test-nested-result !
+  test-value @ test-inner-lower @ test-inner-upper @ lf-clamp
+  0= if -1 throw then
+  test-nested-result @ <> if -1 throw then
+  123456 <> if -1 throw then ;
+
+\ Seven values times 210 nondecreasing quadruples of bounds: 1470 cases.
+: check-clamp-nested-domain ( -- )
+  4 -3 do i test-outer-lower !
+    4 -3 do i test-inner-lower !
+      4 -3 do i test-inner-upper !
+        4 -3 do i test-outer-upper !
+          test-outer-lower @ test-inner-lower @ <=
+          test-inner-lower @ test-inner-upper @ <= and
+          test-inner-upper @ test-outer-upper @ <= and if
+            4 -3 do i test-value ! check-clamp-nested loop
+          then
+        loop
+      loop
+    loop
+  loop ;
+check-clamp-nested-domain
 bye

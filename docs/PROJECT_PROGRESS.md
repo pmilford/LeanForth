@@ -16,9 +16,9 @@ stage, not the project's final scope or quality target.
 | --- | --- |
 | 1. Development foundation | Established in part: repository, MIT license, Lean 4.35.0 pin, Gforth, tests and CI skeleton. Installation and portability need further work. |
 | 2. Terms, names and universes | Partial untrusted bounded Forth arenas and symbolic universe experiments; handle-based checks reject replaced referenced levels, while raw consumers and human review remain open. |
-| 3. Scope and substitutions | Partial experimental operations with selected differential comparisons to Lean, not a proof of correctness. |
+| 3. Scope and substitutions | Partial experimental operations, including tagged shifting, with selected comparisons to Lean; not a proof of correctness. |
 | 4. Definitional equality | Partial conservative comparison and reductions; significant Lean rules remain unsupported. |
-| 5. Small trusted checker | Not complete: inference and declaration probes are experiments, not a trusted kernel or theorem handles. Human review remains required. |
+| 5. Small trusted checker | Not complete: tagged symbolic Sort/Pi inference and declaration probes are untrusted experiments, not a kernel or theorem handles. Human review remains required. |
 | 6. Lean NDJSON importer | Bounded development preview and selected fixture bridges only; full declaration import and checking remain. See `NDJSON_PREVIEW.md`. |
 | 7. Lean checker compatibility corpus | Selected differential cases exist; the official checker corpus has not been demonstrated to pass. |
 | 8. Lean declaration features | Full constants, definitions, inductives, recursors, quotients, polymorphic checking and other core features remain. |
@@ -36,7 +36,7 @@ Do not use it until the representations are isolated and reviewed.
 | 1. Contract and assumptions | Partial: the clamp example documents a mathematical contract and runtime assumptions. |
 | 2. Tested Forth example | A host Forth clamp and finite tests exist; tests alone do not prove it correct. |
 | 3. Formal execution model | A separate Lean reference model proves properties of a small stack-machine clamp, including nested-clamp composition, monotonicity and idempotence; the handwritten model is an assumption when relating it to Forth. |
-| 4. Model/runtime comparisons | Finite differential examples compare the reference model and Forth execution; host idempotence is tested over 196 ordered triples, not all executions or a verified compiler. |
+| 4. Model/runtime comparisons | Finite differential examples compare the reference model and Forth execution; host idempotence and 1,470 nested-clamp cases are tested, not all executions or a verified compiler. |
 | 5. Shared proof kernel | Depends on theorem milestone 5; no trusted LeanForth proof checker exists yet. |
 | 6. Forth program representation | A general formal representation, semantics and stack/effect contracts are still needed. |
 | 7. Verification conditions | General generation of proof obligations and checked certificates is not implemented; depends on the shared kernel. |
