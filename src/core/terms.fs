@@ -16,7 +16,10 @@
 create lf-term-storage lf-term-capacity 3 * cells allot
 variable lf-term-count
 variable lf-term-generation
+variable lf-term-serial
+create lf-term-identities lf-term-capacity cells allot
 0 lf-term-generation !
+0 lf-term-serial !
 
 \ Empty storage and advance its epoch. Saturation permanently invalidates
 \ this arena instead of wrapping; bare reused indices remain unauthenticated.
@@ -44,9 +47,18 @@ variable lf-term-generation
 : lf-term-add ( tag first second -- index true | false )
   lf-term-count-valid? 0= if 2drop drop false exit then
   lf-term-count @ lf-term-capacity >= if 2drop drop false exit then
+  lf-term-serial @ -1 1 rshift = if 2drop drop false exit then
+  1 lf-term-serial +!
+  lf-term-serial @ lf-term-count @ cells lf-term-identities + !
   lf-term-count @ lf-term-slot >r
   r@ 2 cells + ! r@ cell+ ! r> !
   lf-term-count @ 1 lf-term-count +! true ;
+
+\ Return the live slot's allocation identity, or false for invalid indices.
+\ Identities never roll back with the allocation count and never wrap.
+: lf-term-identity ( index -- identity true | false )
+  dup lf-term-valid? 0= if drop false exit then
+  cells lf-term-identities + @ true ;
 
 \ Construct a sort with a concrete nonnegative universe level.
 \ This stores syntax only; no universe or type judgment is performed.

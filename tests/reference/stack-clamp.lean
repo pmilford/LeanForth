@@ -92,6 +92,22 @@ theorem clampCode_idempotent (lower upper value : Int) (tail rs : List Int)
     show ¬ result < lower by omega, show ¬ result > upper by omega] using
       clampCode_spec lower upper result tail rs
 
+-- Clamping preserves the order of two inputs, including when either input
+-- lies outside the interval. Each execution preserves its own stack context.
+theorem clampCode_monotone (lower upper x y : Int) (tailX tailY rsX rsY : List Int)
+    (ordered : lower ≤ upper) (inputsOrdered : x ≤ y) :
+    ∃ resultX resultY,
+      execute clampCode ⟨upper :: lower :: x :: tailX, rsX⟩ =
+        some ⟨(-1) :: resultX :: tailX, rsX⟩ ∧
+      execute clampCode ⟨upper :: lower :: y :: tailY, rsY⟩ =
+        some ⟨(-1) :: resultY :: tailY, rsY⟩ ∧
+      resultX ≤ resultY := by
+  refine ⟨clampSpec lower upper x, clampSpec lower upper y, ?_, ?_, ?_⟩
+  · simpa [show ¬ lower > upper by omega] using clampCode_spec lower upper x tailX rsX
+  · simpa [show ¬ lower > upper by omega] using clampCode_spec lower upper y tailY rsY
+  · unfold clampSpec
+    repeat' split <;> omega
+
 -- Fewer than three data cells always underflow, irrespective of their values
 -- and of the existing return stack. This is a property of this model: an
 -- actual Forth host need not detect stack underflow or fail in the same way.

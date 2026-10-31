@@ -20,6 +20,7 @@ test-core:
 	$(GFORTH) tests/core/tagged-sort-boundary.fs
 	$(GFORTH) tests/core/symbolic-session.fs
 	$(GFORTH) tests/core/symbolic-session-extra.fs
+	$(GFORTH) tests/core/generation-handles.fs
 	$(GFORTH) tests/core/names.fs
 	$(GFORTH) tests/core/levels.fs
 	$(GFORTH) tests/core/level-scope.fs

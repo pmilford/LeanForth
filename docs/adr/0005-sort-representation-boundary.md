@@ -75,3 +75,13 @@ session has the same problem. Raw mutation of arena counters and slots is also
 outside the session assumptions. No immutable ownership or production handle contract
 has been established. Term syntax passes, term level passes, and level graph
 visits share fuel; bounded quadratic context validation is outside that budget.
+
+The untrusted `generation-handles.fs` experiment now returns pairs of index and
+non-repeating allocation identity. Term and level identity serials never
+roll back and fail rather than wrap; the implicit zero level gets a new identity
+on reset. Tests exercise reset, rollback and reuse, and counter saturation.
+The pair is forgeable and has no arena-kind tag. Critically, term nodes still
+store bare child/level indices: reusing a referenced slot can change a surviving
+term without changing its own handle. Avoiding that requires an ownership rule
+or identities on internal references, not just handles at API entry. The raw
+Forth words remain accessible and the experiment is not a trusted interface.

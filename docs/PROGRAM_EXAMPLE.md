@@ -16,13 +16,18 @@ and return-stack suffixes; for ordered bounds it also proves the result is in
 range. For ordered bounds, `clampCode_idempotent` proves that feeding the
 first result back into the modeled clamp with the same bounds returns that
 result again, preserving arbitrary surrounding stacks in both executions.
+`clampCode_monotone` proves that two ordered inputs clamped to the same
+ordered interval produce ordered results, even when either input is outside
+the interval; the executions may have different surrounding stacks. This
+supports reasoning about composition with order-sensitive modeled code.
 A further theorem proves that every modeled data stack with fewer than
 three cells returns `none`, regardless of its values and return stack. Model
 underflow is a policy rather than a claim about host behavior. The model assumes signed mathematical integers, zero as false,
-and `-1` as true. `#print axioms` on the idempotence theorem reports Lean's
-`propext`, `Classical.choice`, and `Quot.sound`; no LeanForth axiom is added.
+and `-1` as true. `#print axioms` on the idempotence and monotonicity theorems
+reports Lean's `propext`, `Classical.choice`, and `Quot.sound`; no LeanForth
+axiom is added.
 The reference file's SHA-256 at this checkpoint is
-`0c3cf789492aa8a85eff5cf878f41882e37068c82995bd9a7cadf971f6635a6a`.
+`923bf64c437f75505fa315b997911348689855e0ab0458714993cb5e4d4018da`.
 
 This is a handwritten model, not a semantics-preserving translation from Forth
 source. It abstracts return addresses, control flow, finite stack capacity and
