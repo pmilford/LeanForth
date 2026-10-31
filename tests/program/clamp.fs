@@ -68,6 +68,38 @@ variable test-value
   loop ;
 check-clamp-small-domain
 
+\ Check multiple distinct caller cells on both stacks across both branches.
+\ The host must have sufficient stack space; this does not test underflow.
+: check-clamp-frames ( -- )
+  101 202 303 404 >r 505 >r 606 >r
+  test-value @ test-lower @ test-upper @ lf-clamp
+  test-lower @ test-upper @ > if
+    false <> if -1 throw then
+  else
+    true <> if -1 throw then
+    test-value @ test-lower @ < if
+      test-lower @
+    else
+      test-value @ test-upper @ > if test-upper @ else test-value @ then
+    then
+    <> if -1 throw then
+  then
+  r> 606 <> if -1 throw then
+  r> 505 <> if -1 throw then
+  r> 404 <> if -1 throw then
+  303 <> if -1 throw then
+  202 <> if -1 throw then
+  101 <> if -1 throw then ;
+
+\ All 343 triples, including equal and reversed bounds.
+: check-clamp-frames-domain ( -- )
+  4 -3 do i test-lower !
+    4 -3 do i test-upper !
+      4 -3 do i test-value ! check-clamp-frames loop
+    loop
+  loop ;
+check-clamp-frames-domain
+
 \ Check composition as well as single calls: clamping an already clamped
 \ result to the same ordered interval must leave it unchanged. The flag is
 \ checked on each call; no assertion is made about reversed intervals here.

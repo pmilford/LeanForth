@@ -76,6 +76,8 @@ it also exercises an experimental declaration probe on the staged nodes. It is n
 general importer or proof checker.
 The development-only [NDJSON preview](docs/NDJSON_PREVIEW.md) decodes a bounded
 subset and reports unsupported records explicitly; its output is unchecked.
+A test-only bridge stages one Lean polymorphic identity export with its symbolic
+universe and runs an untrusted type/value diagnostic; it cannot register a theorem.
 The scope differential target compares 64 bounded expression shapes with Lean's
 loose-variable analysis; it does not compare type checking or theorem validity.
 The shift differential target compares an untrusted Forth shift experiment with

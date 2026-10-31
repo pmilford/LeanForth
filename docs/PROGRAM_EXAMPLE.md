@@ -35,8 +35,19 @@ underflow is a policy rather than a claim about host behavior. The model assumes
 and `-1` as true. `#print axioms` on the idempotence, monotonicity, nonexpansiveness, and nested-interval theorems
 reports Lean's `propext`, `Classical.choice`, and `Quot.sound`; no LeanForth
 axiom is added.
+
+The more general `step_frame` and `execute_frame` theorems apply to every
+instruction and finite program in this model, including branches and transfers
+between the two stacks. If execution succeeds on a state, appending arbitrary
+suffixes to its data and return stacks yields the same result with those
+suffixes preserved. The success premise is essential: a program that
+underflows on the original state can consume a cell from an appended suffix;
+examples demonstrate this for `drop` and `fromReturn`. This result does not
+assert isolation after failure or model finite stack capacity. Lean's axiom
+audit reports `propext` for `step_frame` and `propext`, `Classical.choice`,
+and `Quot.sound` for `execute_frame`.
 The reference file's SHA-256 at this checkpoint is
-`25c97b1babc9e1a3b94e01c7b9ad4eedb03f46ca38d204b76888e0907ce0511d`.
+`d010a8945e32f32acc17a5ed228e39a2d88e8301e5b42abf6159749cd8b971ce`.
 
 This is a handwritten model, not a semantics-preserving translation from Forth
 source. It abstracts return addresses, control flow, finite stack capacity and
@@ -105,10 +116,17 @@ The host suite also checks nonexpansiveness for those 784 ordered input and
 interval combinations. It checks both success flags and computes the input and
 output differences only over `[-3, 3]`, where subtraction cannot overflow a
 standard Forth cell. This is finite runtime evidence, not a Forth proof.
+It also checks three distinct data-stack cells and three return-stack cells
+for each of the 343 small-domain triples, including both ordered and reversed
+bounds; it checks the result and canonical flag before checking the markers.
+This assumes adequate host stack space and provides finite evidence for this
+word only, not the general frame theorem on arbitrary Forth programs.
 At this checkpoint, `ELAN_HOME="$PWD/.tools/elan" .tools/elan/bin/lean
 tests/reference/stack-clamp.lean` passed with Lean 4.35.0 revision
 `eb6cafb7290e8bd5f2937522d8d804f58f02bafc`; `XDG_CACHE_HOME=/tmp make
-test-program` passed with Gforth 1.0.0 amd64. A first `make test-program`
-attempt failed during Gforth cache initialization in the sandbox. The Forth
+test-program` passed with Gforth 1.0.0 amd64. The stack differential also
+passed with `XDG_CACHE_HOME=/tmp ELAN_HOME="$PWD/.tools/elan" make
+test-program-stack-differential LEAN="$PWD/.tools/elan/bin/lean"` (686 cases).
+CI was not run for this checkpoint. The Forth
 test file SHA-256 is
-`ab7b1b938af129a34370dc2c5cfae533670fa179d4834c0cb2643c7563f1e25d`.
+`8a165216badb90969b8f037e78c544378a6cb9cffe64e3d6572c4ffd076bc4fe`.

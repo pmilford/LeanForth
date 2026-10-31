@@ -1,7 +1,7 @@
 GFORTH ?= $(if $(wildcard .tools/gforth/bin/gforth),.tools/gforth/bin/gforth,gforth)
 LEAN ?= lean
 
-.PHONY: test-tagged-infer-differential test-tagged-binder-differential test-tagged-application-differential
+.PHONY: test-tagged-infer-differential test-tagged-binder-differential test-tagged-application-differential test-tagged-beta-differential
 .PHONY: smoke reference reference-export test-harness test-core test-symbolic-infer-draft test-composition-fixture test-name-differential test-scope-differential test-shift-differential test-instantiate-differential test-beta-differential test-compare-differential test-infer-differential test-declaration-differential test-level-differential test-level-assignment-differential test-level-compare-differential test-poly-specialization-differential test-program test-program-differential test-program-stack-differential
 smoke:
 	$(GFORTH) tests/smoke/smoke.fs
@@ -28,6 +28,8 @@ test-core:
 	$(GFORTH) tests/core/tagged-instantiate.fs
 	$(GFORTH) tests/core/tagged-compare.fs
 	$(GFORTH) tests/core/tagged-application.fs
+	$(GFORTH) tests/core/tagged-beta.fs
+	$(GFORTH) tests/core/tagged-declaration-probe.fs
 	$(GFORTH) tests/core/tagged-integration.fs
 	$(GFORTH) tests/core/names.fs
 	$(GFORTH) tests/core/levels.fs
@@ -57,11 +59,15 @@ test-tagged-binder-differential:
 test-tagged-application-differential:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/core/tagged-application-differential.sh
 
+test-tagged-beta-differential:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/core/tagged-beta-differential.sh
+
 test-composition-fixture:
 	python3 tests/core/test_composition_fixture.py
 	GFORTH=$(GFORTH) python3 tests/core/test_ndjson_preview.py
 	GFORTH=$(GFORTH) python3 tests/core/test_named_levels.py
 	GFORTH=$(GFORTH) python3 tests/core/test_poly_specialization.py
+	GFORTH=$(GFORTH) python3 tests/core/test_tagged_poly_fixture.py
 	GFORTH=$(GFORTH) python3 tests/core/check_composition_fixture.py
 
 test-name-differential:

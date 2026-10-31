@@ -45,6 +45,52 @@ def execute : Code → State → Option State
       if flag != 0 then execute yes ⟨rest, rs⟩ else execute no ⟨rest, rs⟩
   | .branch _ _, ⟨[], _⟩ => none
 
+-- A successful instruction cannot inspect or alter cells below either stack.
+-- The success premise matters: a missing operand may come from the suffix.
+theorem step_frame (op : Op) (s t : State) (ds rs : List Int)
+    (success : step op s = some t) :
+    step op ⟨s.data ++ ds, s.returns ++ rs⟩ =
+      some ⟨t.data ++ ds, t.returns ++ rs⟩ := by
+  cases s with
+  | mk data returns =>
+    rcases data with _ | ⟨a, _ | ⟨b, data⟩⟩ <;>
+      cases returns <;> cases op <;>
+      simp [step] at success <;> subst t <;> simp [step]
+
+-- Any successful finite program preserves independently appended data and
+-- return-stack frames, even through branches and transfers between stacks.
+theorem execute_frame (code : Code) (s t : State) (ds rs : List Int)
+    (success : execute code s = some t) :
+    execute code ⟨s.data ++ ds, s.returns ++ rs⟩ =
+      some ⟨t.data ++ ds, t.returns ++ rs⟩ := by
+  induction code generalizing s t with
+  | done =>
+    cases s; cases t; simp_all [execute]
+  | op op next ih =>
+    simp only [execute] at success ⊢
+    cases h : step op s with
+    | none => simp [h] at success
+    | some u =>
+      simp only [h, Option.bind_some] at success
+      rw [step_frame op s u ds rs h]
+      exact ih u t success
+  | branch yes no ihYes ihNo =>
+    cases s with
+    | mk data returns =>
+      cases data with
+      | nil => simp [execute] at success
+      | cons flag data =>
+        cases h : (flag != 0) <;> simp [execute, h] at success ⊢
+        · exact ihNo _ t success
+        · exact ihYes _ t success
+
+-- Appending a frame can supply an otherwise missing operand: failure is not
+-- preserved by framing, so this theorem does not prove stack isolation on error.
+example : execute (.op .drop .done) ⟨[], []⟩ = none := by decide
+example : execute (.op .drop .done) ⟨[42], []⟩ = some ⟨[], []⟩ := by decide
+example : execute (.op .fromReturn .done) ⟨[], []⟩ = none := by decide
+example : execute (.op .fromReturn .done) ⟨[], [42]⟩ = some ⟨[42], []⟩ := by decide
+
 -- The instruction order mirrors `2dup > if 2drop drop false exit then
 -- >r max r> min true`. Zero is false and -1 represents the host true flag.
 def clampCode : Code :=

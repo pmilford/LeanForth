@@ -83,3 +83,13 @@ the test uses bounded host integers, opaque name IDs, and untrusted mutable
 storage. This exercises four instances, not the polymorphic theorem. No checked
 declaration is registered, and no supported runtime or interchange API exists.
 Run `make test-poly-specialization-differential` with pinned Lean and Gforth.
+
+An additional test-only stream stages the pinned polymorphic identity's 16
+expressions with tagged symbolic Sorts and its single opaque universe parameter.
+The untrusted tagged declaration diagnostic infers both its proposition and
+proof and finds their types syntactically compatible without specializing the
+parameter. Selected altered type or proof fields produce a non-success diagnostic.
+This is a single fixture and a restricted byte protocol; binder names, binder
+information and declaration names are not preserved. A zero diagnostic does
+not register or accept a theorem. Full NDJSON import, trusted checking and
+Mathlib remain unavailable. Run `make test-composition-fixture` for the test.
