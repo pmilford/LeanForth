@@ -11,6 +11,16 @@ import subprocess
 import sys
 
 
+def unique_object(pairs):
+    """Reject duplicate keys at every object depth, including metadata."""
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate JSON object key")
+        result[key] = value
+    return result
+
+
 def fixture_nodes(lines):
     """Extract the fixture's supported expression records or fail closed."""
     nodes = []
@@ -18,7 +28,7 @@ def fixture_nodes(lines):
     theorem_seen = False
     name_count = 0
     for line_number, line in enumerate(lines, start=1):
-        record = json.loads(line)
+        record = json.loads(line, object_pairs_hook=unique_object)
         if not isinstance(record, dict):
             raise ValueError("record is not an object")
         if line_number == 1 and set(record) != {"meta"}:
@@ -52,6 +62,15 @@ def fixture_nodes(lines):
                 fields = record[kind]
                 if not isinstance(fields, dict):
                     raise ValueError("expression fields are not an object")
+                expected_fields = {"fn", "arg"} if kind == "app" else {"name", "binderInfo", "type", "body"}
+                if set(fields) != expected_fields:
+                    raise ValueError("unexpected expression fields")
+                if kind != "app":
+                    name = fields["name"]
+                    if type(name) is not int or not 0 <= name <= name_count:
+                        raise ValueError("binder name is not an earlier name")
+                    if fields["binderInfo"] not in ("default", "implicit", "strictImplicit", "instImplicit"):
+                        raise ValueError("unsupported binder information")
                 first_key, second_key = ("fn", "arg") if kind == "app" else ("type", "body")
                 first, second = fields.get(first_key), fields.get(second_key)
                 if any(type(value) is not int or not 0 <= value < index for value in (first, second)):
@@ -64,8 +83,14 @@ def fixture_nodes(lines):
             theorem = record["thm"]
             if not isinstance(theorem, dict):
                 raise ValueError("theorem is not an object")
-            if theorem_seen or len(nodes) != 21 or theorem.get("type") != 10 or theorem.get("value") != 20:
+            if set(theorem) != {"all", "levelParams", "name", "type", "value"}:
+                raise ValueError("unexpected theorem fields")
+            if any(type(theorem[key]) is not int for key in ("name", "type", "value")):
+                raise ValueError("invalid theorem references")
+            if theorem_seen or len(nodes) != 21 or theorem["name"] != 1 or theorem["type"] != 10 or theorem["value"] != 20:
                 raise ValueError("unexpected theorem references")
+            if theorem["levelParams"] != [] or theorem["all"] != [1] or type(theorem["all"][0]) is not int:
+                raise ValueError("unexpected theorem metadata")
             theorem_seen = True
         elif set(record) in ({"in", "str"}, {"in", "num"}):
             if not metadata_seen or theorem_seen:

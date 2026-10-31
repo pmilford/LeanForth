@@ -75,6 +75,37 @@ class FixtureTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             fixture_nodes(altered)
 
+    def test_duplicate_keys_fail_at_any_depth(self):
+        altered = self.lines.copy()
+        altered[0] = altered[0].replace('"version":"3.1.0"', '"version":"3.1.0","version":"3.1.0"', 1)
+        with self.assertRaises(ValueError):
+            fixture_nodes(altered)
+        altered = self.lines.copy()
+        index = next(i for i, line in enumerate(altered) if '"ie":0' in line)
+        altered[index] = '{"ie":0,"sort":0,"sort":0}'
+        with self.assertRaises(ValueError):
+            fixture_nodes(altered)
+
+    def test_binder_metadata_and_extra_fields_fail(self):
+        index = next(i for i, line in enumerate(self.lines) if '"forallE"' in line)
+        for key, value in (("name", 999), ("name", True), ("binderInfo", "bogus"), ("extra", 0)):
+            altered = self.lines.copy()
+            record = json.loads(altered[index])
+            record["forallE"][key] = value
+            altered[index] = json.dumps(record)
+            with self.subTest(key=key, value=value), self.assertRaises(ValueError):
+                fixture_nodes(altered)
+
+    def test_declaration_metadata_fails_closed(self):
+        for key, value in (("name", True), ("all", [True]), ("all", []),
+                           ("levelParams", [1]), ("extra", 0)):
+            altered = self.lines.copy()
+            record = json.loads(altered[-1])
+            record["thm"][key] = value
+            altered[-1] = json.dumps(record)
+            with self.subTest(key=key, value=value), self.assertRaises(ValueError):
+                fixture_nodes(altered)
+
 
 if __name__ == "__main__":
     unittest.main()

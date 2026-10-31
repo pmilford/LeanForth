@@ -111,9 +111,13 @@ records. It also infers the staged value's type and experimentally compares it
 with the staged claim; a deliberately altered value fails this test. The
 stream is data, not executable Forth; truncated and malformed streams must fail
 without printing staged records. This covers one fixture and does not validate
-general NDJSON, declaration metadata, or theorem correctness. In particular,
+general NDJSON or theorem correctness. In particular,
 this test does not check that the claim itself is a proposition or register a
 declaration, and the inference and conversion code remains untrusted.
+The fixture inspector rejects duplicate JSON keys, unexpected expression and
+theorem fields, invalid binder metadata, and unexpected fixture declaration
+references. It is intentionally specific to this fixture and is not a complete
+validator for the export format.
 
 `make test-infer-differential` compares seven inferred types with the pinned
 Lean kernel and checks six Lean-rejected cases for invalid or unknown results.
