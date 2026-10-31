@@ -67,4 +67,28 @@ variable test-value
     loop
   loop ;
 check-clamp-small-domain
+
+\ Check composition as well as single calls: clamping an already clamped
+\ result to the same ordered interval must leave it unchanged. The flag is
+\ checked on each call; no assertion is made about reversed intervals here.
+variable test-first-result
+: check-clamp-idempotence ( -- )
+  test-value @ test-lower @ test-upper @ lf-clamp
+  0= if -1 throw then
+  test-first-result !
+  test-first-result @ test-lower @ test-upper @ lf-clamp
+  0= if -1 throw then
+  test-first-result @ <> if -1 throw then ;
+
+\ Run all 196 ordered triples from the same small domain.
+: check-clamp-idempotence-domain ( -- )
+  4 -3 do i test-lower !
+    4 -3 do i test-upper !
+      test-lower @ test-upper @ <= if
+        4 -3 do i test-value !
+          check-clamp-idempotence loop
+      then
+    loop
+  loop ;
+check-clamp-idempotence-domain
 bye

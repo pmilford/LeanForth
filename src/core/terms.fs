@@ -15,13 +15,20 @@
 5 constant lf-tag-pi
 create lf-term-storage lf-term-capacity 3 * cells allot
 variable lf-term-count
+variable lf-term-generation
+0 lf-term-generation !
 
-\ Empty the storage; callers must discard every previously returned index.
-: lf-term-reset ( -- ) 0 lf-term-count ! ;
+\ Empty storage and advance its epoch. Saturation permanently invalidates
+\ this arena instead of wrapping; bare reused indices remain unauthenticated.
+: lf-term-reset ( -- )
+  0 lf-term-count !
+  lf-term-generation @ dup 0< if drop exit then
+  dup -1 1 rshift = if drop -1 else 1+ then lf-term-generation ! ;
 
 \ Validate the mutable allocation count before using it for addressing.
 : lf-term-count-valid? ( -- flag )
-  lf-term-count @ dup 0< 0= swap lf-term-capacity <= and ;
+  lf-term-count @ dup 0< 0= swap lf-term-capacity <= and
+  lf-term-generation @ 0< 0= and ;
 
 \ Return true only for an index in a valid current allocation range.
 : lf-term-valid? ( index -- flag )

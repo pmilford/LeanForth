@@ -15,7 +15,7 @@ stage, not the project's final scope or quality target.
 | Milestone | Status and evidence / remaining work |
 | --- | --- |
 | 1. Development foundation | Established in part: repository, MIT license, Lean 4.35.0 pin, Gforth, tests and CI skeleton. Installation and portability need further work. |
-| 2. Terms, names and universes | Partial untrusted bounded Forth arenas and symbolic universe experiments; ADR 0005 proposes a boundary, with an isolated tagged-syntax validator under test. Human review remains required. |
+| 2. Terms, names and universes | Partial untrusted bounded Forth arenas and symbolic universe experiments; ADR 0005 proposes a boundary, with a tagged-syntax and generation-bound level-session validator under test. Human review remains required. |
 | 3. Scope and substitutions | Partial experimental operations with selected differential comparisons to Lean, not a proof of correctness. |
 | 4. Definitional equality | Partial conservative comparison and reductions; significant Lean rules remain unsupported. |
 | 5. Small trusted checker | Not complete: inference and declaration probes are experiments, not a trusted kernel or theorem handles. Human review remains required. |
@@ -36,7 +36,7 @@ Do not use it until the representations are isolated and reviewed.
 | 1. Contract and assumptions | Partial: the clamp example documents a mathematical contract and runtime assumptions. |
 | 2. Tested Forth example | A host Forth clamp and finite tests exist; tests alone do not prove it correct. |
 | 3. Formal execution model | A separate Lean reference model proves properties of a small stack-machine clamp, including idempotence for ordered bounds and failure for every data stack shorter than three cells; the handwritten model is an assumption when relating it to Forth. |
-| 4. Model/runtime comparisons | Finite differential examples compare the reference model and Forth execution, not all executions or a verified compiler. |
+| 4. Model/runtime comparisons | Finite differential examples compare the reference model and Forth execution; host idempotence is tested over 196 ordered triples, not all executions or a verified compiler. |
 | 5. Shared proof kernel | Depends on theorem milestone 5; no trusted LeanForth proof checker exists yet. |
 | 6. Forth program representation | A general formal representation, semantics and stack/effect contracts are still needed. |
 | 7. Verification conditions | General generation of proof obligations and checked certificates is not implemented; depends on the shared kernel. |

@@ -57,9 +57,21 @@ establish this proposed boundary. The draft remains outside the standard suite.
 
 `src/experimental/tagged-sort-boundary.fs` separately tests a tagged Sort and
 a bounded reachable-syntax representation validator. Its results are not wired
-into symbolic inference, level checking, or declaration acceptance. In
-particular, symbolic indices are not bound to a level arena generation, and
-the validator checks neither level scope nor type correctness. Existing concrete
+into symbolic inference or declaration acceptance. The syntax validator alone
+checks neither level scope, generation nor type correctness. Existing concrete
 inference and shift tests reject the new tag, but this does not show that every
 consumer enforces the proposed boundary. Unreachable nodes are intentionally
 outside the syntax check; shared nodes cost fuel on each visit.
+
+`src/experimental/symbolic-session.fs` now combines tagged syntax checks with
+reachable level/context checks and captures the term, level and parameter-context
+generations at session start, which requires an empty term arena. A reset or
+context change invalidates the session. This is an untrusted development
+consumer, not yet integrated with symbolic inference. Term resets now advance
+an experimental term generation and saturate instead of wrapping. A bare term
+index reused in a later newly started session is still indistinguishable from
+an old caller handle; a stale bare level index used to construct a Sort in a new
+session has the same problem. Raw mutation of arena counters and slots is also
+outside the session assumptions. No immutable ownership or production handle contract
+has been established. Term syntax passes, term level passes, and level graph
+visits share fuel; bounded quadratic context validation is outside that budget.

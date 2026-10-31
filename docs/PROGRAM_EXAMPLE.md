@@ -66,3 +66,7 @@ The program model, proof rules and connection to execution require human review.
 stack model with the Gforth word. Host tests also exercise preservation of one
 data-stack prefix and a caller's return-stack value on both branch paths. These
 are finite runtime tests, not a proof of the host or compiler.
+`make test-program` also checks host-word idempotence by feeding each successful
+result back through `lf-clamp` with the same bounds for all 196 ordered triples
+in `[-3, 3]`. Both success flags and the repeated result are checked; reversed
+bounds are covered separately and are excluded from this composition test.

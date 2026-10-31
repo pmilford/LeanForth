@@ -18,6 +18,8 @@ test-core:
 	$(GFORTH) tests/core/arena.fs
 	$(GFORTH) tests/core/terms.fs
 	$(GFORTH) tests/core/tagged-sort-boundary.fs
+	$(GFORTH) tests/core/symbolic-session.fs
+	$(GFORTH) tests/core/symbolic-session-extra.fs
 	$(GFORTH) tests/core/names.fs
 	$(GFORTH) tests/core/levels.fs
 	$(GFORTH) tests/core/level-scope.fs
