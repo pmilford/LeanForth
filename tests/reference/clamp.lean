@@ -23,6 +23,13 @@ theorem clamp_above (lower upper value : Int) (ordered : lower ≤ upper)
   unfold clamp
   split <;> (try split) <;> omega
 
+-- Print one test case in the same stable format as the Forth table.
+def emitClamp (lower upper value : Int) : IO Unit := do
+  if lower > upper then
+    IO.println s!"{lower} {upper} {value} invalid"
+  else
+    IO.println s!"{lower} {upper} {value} {clamp lower upper value} "
+
 def main : IO Unit := do
   for lowerNat in [0:7] do
     for upperNat in [0:7] do
@@ -30,7 +37,10 @@ def main : IO Unit := do
         let lower := (Int.ofNat lowerNat) - 3
         let upper := (Int.ofNat upperNat) - 3
         let value := (Int.ofNat valueNat) - 3
-        if lower > upper then
-          IO.println s!"{lower} {upper} {value} invalid"
-        else
-          IO.println s!"{lower} {upper} {value} {clamp lower upper value} "
+        emitClamp lower upper value
+  -- These seven values fit a signed 32-bit cell and exercise its endpoints.
+  let boundaries : List Int := [-2147483648, -2147483647, -1, 0, 1, 2147483646, 2147483647]
+  for lower in boundaries do
+    for upper in boundaries do
+      for value in boundaries do
+        emitClamp lower upper value

@@ -28,8 +28,8 @@ if ! cmp -s "$temporary/lean.txt" "$temporary/forth.txt"; then
   diff -u "$temporary/lean.txt" "$temporary/forth.txt" >&2 || true
   exit 1
 fi
-if [ "$(wc -l <"$temporary/lean.txt")" -ne 343 ]; then
+if [ "$(wc -l <"$temporary/lean.txt")" -ne 686 ]; then
   printf '%s\n' 'Unexpected clamp table size' >&2
   exit 1
 fi
-printf '%s\n' 'Lean and Forth clamp results agree for 343 bounded input triples.'
+printf '%s\n' 'Lean and Forth clamp results agree for 686 small-domain and signed 32-bit boundary triples.'

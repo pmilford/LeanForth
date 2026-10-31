@@ -73,8 +73,9 @@ one success, three Lean rejections, and one Lean-valid declaration reported
 unknown by the Forth probe because binder-domain conversion is incomplete.
 `make test-program` tests a host Forth clamp against sample cases and a small
 finite input domain; it is not a proof of the program or its runtime.
-The differential target additionally compares those bounded results against
-the Lean integer model; it does not establish Forth program correctness.
+The differential target additionally compares 686 small-domain and signed
+32-bit boundary triples against the Lean integer model; it does not establish
+Forth program correctness or execution on a 32-bit host.
 
 GitHub CI passed for the initial commit. The updated Ubuntu job uses the
 distribution Gforth package for smoke, harness, core and program tests; this updated job

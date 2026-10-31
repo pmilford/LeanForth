@@ -15,6 +15,20 @@ T{ -1 3 3 lf-clamp -> 3 true }T
 T{ 3 3 3 lf-clamp -> 3 true }T
 T{ 5 3 3 lf-clamp -> 3 true }T
 T{ 5 10 0 lf-clamp -> false }T
+\ Exercise host comparisons at signed 32-bit limits without arithmetic.
+T{ -2147483648 -2147483648 2147483647 lf-clamp -> -2147483648 true }T
+T{ 2147483647 -2147483648 2147483647 lf-clamp -> 2147483647 true }T
+T{ -2147483648 2147483647 2147483647 lf-clamp -> 2147483647 true }T
+T{ 2147483647 -2147483648 -2147483648 lf-clamp -> -2147483648 true }T
+T{ 0 2147483647 -2147483648 lf-clamp -> false }T
+\ Exercise the actual host-cell extrema, independent of the cell width.
+-1 1 rshift constant test-cell-max
+test-cell-max invert constant test-cell-min
+T{ test-cell-min test-cell-min test-cell-max lf-clamp -> test-cell-min true }T
+T{ test-cell-max test-cell-min test-cell-max lf-clamp -> test-cell-max true }T
+T{ test-cell-min test-cell-max test-cell-max lf-clamp -> test-cell-max true }T
+T{ test-cell-max test-cell-min test-cell-min lf-clamp -> test-cell-min true }T
+T{ 0 test-cell-max test-cell-min lf-clamp -> false }T
 
 \ Independently check every input and bound in [-3, 3], including reversed
 \ intervals. This finite regression test does not replace a universal proof.

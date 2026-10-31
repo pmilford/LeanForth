@@ -33,10 +33,12 @@ cell comparisons; reversed bounds return `false` without a result. Run
 behavior of this word or its host. Sample executions are tests, not proof that
 compiled code implements the model.
 
-`make test-program-differential` executes the Lean model and Forth word for
-each of 343 input triples in `[-3, 3]`, including reversed bounds, and compares
-their output tables. It requires pinned Lean and Gforth; see the README for
+`make test-program-differential` compares the Lean model and Forth word on
+343 triples in `[-3, 3]` and 343 triples drawn from signed 32-bit endpoints,
+their neighbors, and `-1`, `0`, and `1`, including reversed bounds. It requires
+pinned Lean and Gforth; see the README for
 local toolchain selection. This provides finite cross-runtime evidence only:
 it does not connect the Lean proof to the Forth source, prove cell arithmetic or
-the compiler, or cover inputs outside that set.
+the compiler, or cover inputs outside those sets. The endpoint cases were run
+on the available Gforth hosts; they do not establish execution on a 32-bit host.
 The program model, proof rules and connection to execution require human review.
