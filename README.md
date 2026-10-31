@@ -52,7 +52,8 @@ indices are mutable data, not checked theorem handles. Their limits are in
 [the prototype notes](docs/ARENA_PROTOTYPE.md).
 `make test-composition-fixture` compares a manually built Forth DAG with 21
 expression records in a pinned Lean export. It uses Python 3 for this test-only
-inspection; it is not a general importer or proof checker.
+inspection and stages the decoded nodes in Forth through a test-only data stream;
+it is not a general importer or proof checker.
 The scope differential target compares 64 bounded expression shapes with Lean's
 loose-variable analysis; it does not compare type checking or theorem validity.
 The shift differential target compares an untrusted Forth shift experiment with

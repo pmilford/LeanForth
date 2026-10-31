@@ -105,6 +105,12 @@ NDJSON fixture. This inspector is not a general importer, does not register
 declarations and cannot confer theorem validity. A separate human review is
 required before these experiments can be used in a trusted kernel.
 
+The fixture test also sends those decoded node fields to the Forth staging
+interface through a test-only byte stream, and compares the resulting arena
+records. The stream is data, not executable Forth; truncated and malformed
+streams must fail without printing staged records. This covers one fixture and
+does not validate general NDJSON, declaration metadata, or theorem correctness.
+
 `make test-infer-differential` compares seven inferred types with the pinned
 Lean kernel and checks six Lean-rejected cases for invalid or unknown results.
 Successful inference retains intermediate arena allocations, so repeated checks

@@ -116,6 +116,28 @@ def main():
         raise ValueError("Forth composition DAG differs from the pinned Lean fixture")
     print("Forth composition DAG matches the 21 pinned Lean expression records.")
 
+    # The compact byte stream is a test adapter for this small fixture, not a
+    # public wire format. It is passed to Forth as data, never as source code.
+    stream = bytes(value for index, node in enumerate(expected) for value in (index, *node))
+    staged = subprocess.run(
+        [gforth, "tests/core/load-fixture-stream.fs"], input=stream,
+        check=True, capture_output=True,
+    )
+    staged_rows = [tuple(map(int, line.split())) for line in staged.stdout.splitlines()]
+    if staged_rows != [(index, *node) for index, node in enumerate(expected)]:
+        raise ValueError("Staged Forth DAG differs from decoded fixture records")
+    for bad_stream in (
+        b"", stream[:-1], bytes((0, 255, 0, 0)), bytes((1, 1, 0, 0)),
+        bytes((0, 1, 0, 0, 1, 3, 0, 1)),  # Forward child after a valid node.
+    ):
+        failed = subprocess.run(
+            [gforth, "tests/core/load-fixture-stream.fs"], input=bad_stream,
+            capture_output=True,
+        )
+        if failed.returncode == 0 or failed.stdout.strip():
+            raise ValueError("Malformed fixture stream did not fail closed")
+    print("Decoded fixture nodes staged in Forth; malformed streams failed closed.")
+
 
 if __name__ == "__main__":
     try:
