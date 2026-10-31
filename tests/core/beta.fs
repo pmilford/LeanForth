@@ -31,5 +31,18 @@ T{ 3 100 lf-beta-whnf -> -1 lf-beta-invalid }T
 lf-tag-lam 2 lf-term-slot !
 T{ lf-term-count @ -> 6 }T
 T{ 3 100 lf-beta-whnf -> 0 lf-beta-ok }T
+
+\ The untyped self-application loop must exhaust resources rather than hang or
+\ leave intermediate nodes reachable. It is not a valid theorem candidate.
+lf-term-reset
+T{ 0 lf-term-sort -> 0 true }T
+T{ 0 lf-term-bvar -> 1 true }T
+T{ 1 1 lf-term-app -> 2 true }T
+T{ 0 2 lf-term-lam -> 3 true }T
+T{ 3 3 lf-term-app -> 4 true }T
+T{ 4 100 lf-beta-whnf -> -1 lf-beta-exhausted }T
+T{ lf-term-count @ -> 5 }T
+T{ 4 100 lf-beta-whnf -> -1 lf-beta-exhausted }T
+T{ lf-term-count @ -> 5 }T
 lf-term-reset
 bye

@@ -26,6 +26,7 @@ ELAN_HOME="$PWD/.tools/elan" make reference-export LEAN="$PWD/.tools/elan/bin/le
 ELAN_HOME="$PWD/.tools/elan" make test-scope-differential LEAN="$PWD/.tools/elan/bin/lean"
 ELAN_HOME="$PWD/.tools/elan" make test-shift-differential LEAN="$PWD/.tools/elan/bin/lean"
 ELAN_HOME="$PWD/.tools/elan" make test-instantiate-differential LEAN="$PWD/.tools/elan/bin/lean"
+ELAN_HOME="$PWD/.tools/elan" make test-beta-differential LEAN="$PWD/.tools/elan/bin/lean"
 ELAN_HOME="$PWD/.tools/elan" make test-program-differential LEAN="$PWD/.tools/elan/bin/lean"
 ```
 
@@ -52,6 +53,8 @@ The shift differential target compares an untrusted Forth shift experiment with
 Lean on 80 cases; neither target establishes proof-checker correctness.
 The instantiation differential target compares an untrusted substitution
 experiment with Lean on 25 cases; it likewise establishes no theorem validity.
+The beta differential target compares untrusted weak-head reduction with the
+Lean kernel on 15 closed cases, without verifying the implementation.
 `make test-program` tests a host Forth clamp against sample cases and a small
 finite input domain; it is not a proof of the program or its runtime.
 The differential target additionally compares those bounded results against

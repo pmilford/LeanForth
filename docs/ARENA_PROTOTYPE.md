@@ -85,6 +85,8 @@ experimental instantiation and shift modules. It validates input structure,
 tracks a finite visit budget and rolls back allocation count on failure. Its
 global mutable state, bounded host recursion and host-cell assumptions remain
 untrusted. `tests/core/beta.fs` checks identity reduction, stuck applications,
-unreduced lambda bodies and several failure paths on two Gforth versions. It has
-not yet been directly compared with Lean's weak-head-normalization operation.
-Reduction of syntax alone is not evidence that a term is well typed or a proof.
+unreduced lambda bodies, a nonterminating untyped term and several failure paths
+on two Gforth versions. `make test-beta-differential` compares 15 closed,
+Lean-kernel-type-checked cases with `Lean.Kernel.whnf`. This finite comparison
+does not prove reduction correct. Reduction of syntax alone is not evidence that
+a term is well typed or a proof.

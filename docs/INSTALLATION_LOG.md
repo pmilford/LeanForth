@@ -107,5 +107,7 @@ claiming it works for others. Do not require GitHub authentication for local use
   substitution implementation or proof of correctness is claimed.
 - `make test-core` passed on Gforth 1.0.0 and extracted Ubuntu Gforth 0.7.3
   after adding the untrusted weak-head beta prototype. Its basic cases and
-  failure paths passed; direct differential testing of beta reduction against
-  Lean has not yet been performed.
+  failure paths passed. The subsequent `make test-beta-differential` compared
+  15 closed cases against pinned Lean's kernel weak-head normalization on both
+  Gforth versions. A nonterminating untyped term exhausts the prototype's
+  resources and restores the arena count in the regression suite.
