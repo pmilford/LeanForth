@@ -136,7 +136,15 @@ def main():
         )
         if failed.returncode == 0 or failed.stdout.strip():
             raise ValueError("Malformed fixture stream did not fail closed")
-    print("Decoded fixture nodes staged in Forth; malformed streams failed closed.")
+    altered = bytearray(stream)
+    altered[-1] = 18  # Give the outer lambda the wrong body while keeping a DAG.
+    mismatch = subprocess.run(
+        [gforth, "tests/core/load-fixture-stream.fs"], input=altered,
+        capture_output=True,
+    )
+    if mismatch.returncode == 0 or mismatch.stdout.strip():
+        raise ValueError("Altered composition unexpectedly passed experimental comparison")
+    print("Staged fixture inference matches its claim; malformed or altered input fails.")
 
 
 if __name__ == "__main__":

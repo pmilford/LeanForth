@@ -3,7 +3,7 @@
 \ The caller resolves exported universe references to concrete levels and
 \ supplies zero-based record indices and children relative to this batch.
 \ The global transaction assumes no concurrent or external arena mutation.
-include ../core/terms.fs
+\ The caller must load the experimental term arena before this module.
 
 variable lf-load-start
 variable lf-load-active

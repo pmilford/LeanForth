@@ -1,5 +1,6 @@
 \ Tests for the untrusted decoded-node staging interface. No proof is checked.
 include ../support/tester.fs
+include ../../src/core/terms.fs
 include ../../src/experimental/load.fs
 
 \ A batch can follow existing nodes, but its child indices are batch-local.

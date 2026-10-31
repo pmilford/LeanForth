@@ -107,9 +107,13 @@ required before these experiments can be used in a trusted kernel.
 
 The fixture test also sends those decoded node fields to the Forth staging
 interface through a test-only byte stream, and compares the resulting arena
-records. The stream is data, not executable Forth; truncated and malformed
-streams must fail without printing staged records. This covers one fixture and
-does not validate general NDJSON, declaration metadata, or theorem correctness.
+records. It also infers the staged value's type and experimentally compares it
+with the staged claim; a deliberately altered value fails this test. The
+stream is data, not executable Forth; truncated and malformed streams must fail
+without printing staged records. This covers one fixture and does not validate
+general NDJSON, declaration metadata, or theorem correctness. In particular,
+this test does not check that the claim itself is a proposition or register a
+declaration, and the inference and conversion code remains untrusted.
 
 `make test-infer-differential` compares seven inferred types with the pinned
 Lean kernel and checks six Lean-rejected cases for invalid or unknown results.

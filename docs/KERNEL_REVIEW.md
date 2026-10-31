@@ -67,8 +67,10 @@ record. The owner's acknowledgement is recorded in
 - A separate finite differential test compares seven inferred types and six
   rejected expressions with the pinned Lean kernel. This evidence does not
   resolve the mutable arena or conversion soundness obligations.
-- The Lean NDJSON composition fixture reproduces byte-for-byte. It has not been
-  imported or checked by LeanForth.
+- The Lean NDJSON composition fixture reproduces byte-for-byte. Its expression
+  records can be staged through a test-only decoder and exercised by untrusted
+  Forth inference; the declaration has not been imported or checked by a
+  trusted LeanForth kernel.
 
 From the repository root, with this machine's pinned tools, run:
 
