@@ -7,6 +7,7 @@ include ../../src/experimental/level-scope.fs
 include ../../src/experimental/tagged-sort-boundary.fs
 include ../../src/experimental/symbolic-session.fs
 include ../../src/experimental/generation-handles.fs
+include ../../src/experimental/tagged-shift.fs
 include ../../src/experimental/tagged-infer.fs
 
 variable test-u-id
@@ -39,6 +40,83 @@ T{ 4 lf-term-read -> lf-tag-symbolic-sort 4 0 true }T
 T{ 4 lf-level-read -> lf-level-tag-imax 2 3 true }T
 T{ 2 lf-level-read -> lf-level-tag-succ 1 0 true }T
 T{ 3 lf-level-read -> lf-level-tag-succ 1 0 true }T
+
+\ Polymorphic identity: fun (A : Sort u) (x : A) => x. The inner
+\ bound variable's type must be shifted under the x binder, yielding bvar 1.
+lf-term-reset lf-level-reset lf-lscope-context-reset
+T{ 42 lf-lscope-context-add -> true }T
+T{ 42 lf-hlevel-param -> 1 lf-level-serial @ true }T
+lf-level-serial @ test-u-id !
+T{ lf-ssession-begin -> true }T
+T{ 1 test-u-id @ lf-hterm-sort -> 0 lf-term-serial @ true }T
+T{ 0 lf-hterm-bvar -> 1 lf-term-serial @ true }T
+T{ 1 1 lf-term-lam -> 2 true }T
+T{ 0 2 lf-term-lam -> 3 true }T
+lf-term-serial @ test-root-id !
+T{ 3 test-root-id @ 10000 lf-tinfer -> 7 lf-term-serial @ lf-tinfer-ok }T
+T{ 5 lf-term-read -> lf-tag-bvar 1 0 true }T
+T{ 6 lf-term-read -> lf-tag-pi 1 5 true }T
+T{ 7 lf-term-read -> lf-tag-pi 0 6 true }T
+T{ 7 lf-term-serial @ 1000 lf-hterm-check -> lf-repr-ok }T
+
+\ Dependent Pi: (A : Sort u) -> A. Its universe is imax(succ u, u),
+\ including Lean's impredicative zero case when u is instantiated to zero.
+lf-term-reset lf-level-reset lf-lscope-context-reset
+T{ 42 lf-lscope-context-add -> true }T
+T{ 42 lf-hlevel-param -> 1 lf-level-serial @ true }T
+T{ lf-ssession-begin -> true }T
+T{ 1 lf-level-serial @ lf-hterm-sort -> 0 lf-term-serial @ true }T
+T{ 0 lf-hterm-bvar -> 1 lf-term-serial @ true }T
+T{ 0 1 lf-term-pi -> 2 true }T
+lf-term-serial @ test-root-id !
+T{ 2 test-root-id @ 10000 lf-tinfer -> 4 lf-term-serial @ lf-tinfer-ok }T
+T{ 4 lf-term-read -> lf-tag-symbolic-sort 3 0 true }T
+T{ 3 lf-level-read -> lf-level-tag-imax 2 1 true }T
+T{ 2 lf-level-read -> lf-level-tag-succ 1 0 true }T
+
+\ A variable in a binder annotation is outside that binder's scope. Reject
+\ it and restore both arenas, then verify that the context is empty.
+lf-term-reset lf-level-reset lf-lscope-context-reset
+T{ lf-ssession-begin -> true }T
+T{ 0 lf-hterm-bvar -> 0 lf-term-serial @ true }T
+T{ 0 0 lf-term-lam -> 1 true }T
+lf-term-serial @ test-root-id !
+T{ 1 test-root-id @ 10000 lf-tinfer -> -1 0 lf-tinfer-invalid }T
+T{ lf-term-count @ -> 2 }T
+T{ lf-level-count @ -> 1 }T
+T{ lf-tinfer-context-depth @ -> 0 }T
+
+\ Sweep budgets through nested binder inference and shifting. A failed
+\ operation restores counts and always unwinds the logical binder context.
+variable binder-saw-success
+variable binder-saw-exhaustion
+: tagged-binder-fuel-sweep ( -- )
+  0 binder-saw-success ! 0 binder-saw-exhaustion !
+  160 0 do
+    lf-term-reset lf-level-reset lf-lscope-context-reset
+    42 lf-lscope-context-add 0= abort" context setup"
+    42 lf-hlevel-param 0= abort" level setup" drop drop
+    lf-ssession-begin 0= abort" session setup"
+    1 lf-level-serial @ lf-hterm-sort 0= abort" sort setup" 2drop
+    0 lf-term-bvar 0= abort" variable setup" drop
+    1 1 lf-term-lam 0= abort" lambda setup" drop
+    0 2 lf-term-lam 0= abort" lambda setup" drop
+    3 lf-term-serial @ i lf-tinfer
+    dup lf-tinfer-exhausted = if
+      drop 0<> abort" failure identity" -1 <> abort" failure index"
+      lf-term-count @ 4 <> abort" term rollback"
+      lf-level-count @ 2 <> abort" level rollback"
+      true binder-saw-exhaustion !
+    else
+      lf-tinfer-ok <> abort" unexpected status"
+      lf-hterm-valid? 0= abort" invalid result"
+      true binder-saw-success !
+    then
+    lf-tinfer-context-depth @ 0<> abort" context leak"
+  loop
+  binder-saw-success @ 0= abort" no successful binder budget"
+  binder-saw-exhaustion @ 0= abort" no exhausted binder budget" ;
+tagged-binder-fuel-sweep
 
 \ Each budget begins from the same Pi input. Failed traversals, including
 \ failures after intermediate allocations, restore both arena counts.
@@ -92,7 +170,7 @@ T{ lf-ssession-begin -> true }T
 T{ lf-hlevel-zero -> 0 lf-level-identities @ true }T
 T{ 0 lf-level-identities @ lf-hterm-sort -> 0 lf-term-serial @ true }T
 lf-term-serial @ test-root-id !
-T{ 0 lf-hterm-bvar -> 1 lf-term-serial @ true }T
+T{ 0 test-root-id @ 0 test-root-id @ lf-hterm-app -> 1 lf-term-serial @ true }T
 T{ 0 test-root-id @ 1 lf-term-serial @ lf-hterm-pi -> 2 lf-term-serial @ true }T
 lf-term-serial @ test-root-id !
 T{ 2 test-root-id @ 1000 lf-tinfer -> -1 0 lf-tinfer-unknown }T
@@ -138,7 +216,7 @@ lf-term-reset lf-level-reset lf-lscope-context-reset
 T{ lf-ssession-begin -> true }T
 T{ 0 lf-hterm-bvar -> 0 lf-term-serial @ true }T
 lf-term-serial @ test-root-id !
-T{ 0 test-root-id @ 100 lf-tinfer -> -1 0 lf-tinfer-unknown }T
+T{ 0 test-root-id @ 100 lf-tinfer -> -1 0 lf-tinfer-invalid }T
 T{ 0 test-root-id @ 0 lf-tinfer -> -1 0 lf-tinfer-exhausted }T
 T{ lf-term-count @ -> 1 }T
 T{ lf-level-count @ -> 1 }T

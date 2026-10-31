@@ -88,3 +88,11 @@ data-stack prefix must survive. This is finite regression evidence under the
 host's signed-cell comparison and stack behavior assumptions, not a proof that
 the host word implements the Lean model; return-stack preservation for nested
 calls is not established by this test.
+
+The host suite also tests the model's `clampCode_monotone` property for all
+784 combinations of ordered intervals and ordered input pairs in `[-3, 3]`,
+including equal values and values outside the interval. Both calls must return
+the canonical true flag, preserve their distinct data-stack and return-stack
+markers, and produce ordered results. This is finite host regression evidence;
+it does not establish the modeled property for all host cells or prove that
+the host implementation follows the Lean model.

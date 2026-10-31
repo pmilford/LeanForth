@@ -92,6 +92,40 @@ variable test-first-result
   loop ;
 check-clamp-idempotence-domain
 
+\ Exercise clampCode_monotone with distinct data and return-stack contexts.
+\ Each call must return the canonical true flag and preserve both markers.
+variable test-x
+variable test-y
+variable test-x-result
+: check-clamp-monotone ( -- )
+  111 222 >r
+  test-x @ test-lower @ test-upper @ lf-clamp
+  true <> if -1 throw then
+  test-x-result !
+  r> 222 <> if -1 throw then
+  111 <> if -1 throw then
+  333 444 >r
+  test-y @ test-lower @ test-upper @ lf-clamp
+  true <> if -1 throw then
+  test-x-result @ < if -1 throw then
+  r> 444 <> if -1 throw then
+  333 <> if -1 throw then ;
+
+\ 28 ordered intervals times 28 ordered input pairs: 784 cases.
+: check-clamp-monotone-domain ( -- )
+  4 -3 do i test-lower !
+    4 -3 do i test-upper !
+      test-lower @ test-upper @ <= if
+        4 -3 do i test-x !
+          4 -3 do i test-y !
+            test-x @ test-y @ <= if check-clamp-monotone then
+          loop
+        loop
+      then
+    loop
+  loop ;
+check-clamp-monotone-domain
+
 \ Mirror clampCode_nested on finite host inputs. The marker is a data-stack
 \ prefix; the caller consumes each success flag before the next clamp.
 variable test-outer-lower

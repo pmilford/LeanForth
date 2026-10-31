@@ -1,8 +1,8 @@
-\ Untrusted inference for a limited symbolic-universe fragment: Sort and Pi
-\ whose recursively inferred domain/body types are Sorts. Variables, lambdas,
-\ applications, constants and all other forms return unknown. This is NOT a
+\ Untrusted inference for a limited symbolic-universe fragment: Sort, bound
+\ variables, Pi and lambda. Applications, constants and other unsupported
+\ forms return unknown; Pi bodies must infer directly to Sorts. This is NOT a
 \ theorem checker or a trusted kernel. Load the term, level, scope, tagged
-\ representation, session and handle modules first. Mutable arenas, no raw
+\ representation, session, handle and tagged-shift modules first. Mutable arenas, no raw
 \ writes, suffix-only rollback and single-threaded execution are assumptions.
 
 0 constant lf-tinfer-ok
@@ -15,6 +15,8 @@ variable lf-tinfer-depth
 variable lf-tinfer-fuel
 variable lf-tinfer-term-start
 variable lf-tinfer-level-start
+variable lf-tinfer-context-depth
+create lf-tinfer-context lf-term-capacity cells allot
 
 \ Access fields of the active bounded recursion frame.
 : lf-tinfer-frame ( depth -- addr )
@@ -23,6 +25,21 @@ variable lf-tinfer-level-start
 : lf-tinfer@ ( offset -- value ) cells lf-tinfer-current + @ ;
 : lf-tinfer! ( value offset -- ) cells lf-tinfer-current + ! ;
 : lf-tinfer-leave ( result status -- result status ) -1 lf-tinfer-depth +! ;
+
+\ Save a binder domain in the preceding context. Remove it after the body,
+\ including when inference fails; the stack has a fixed finite capacity.
+: lf-tinfer-push ( domain -- flag )
+  lf-tinfer-context-depth @ lf-term-capacity >= if drop false exit then
+  lf-tinfer-context-depth @ cells lf-tinfer-context + !
+  1 lf-tinfer-context-depth +! true ;
+: lf-tinfer-pop ( -- ) -1 lf-tinfer-context-depth +! ;
+
+\ Shift a binder's stored type into the current context. Validation, shifting
+\ and the outer inference consume one shared remaining visit budget.
+: lf-tinfer-shift ( node amount -- result status )
+  >r dup lf-term-identity 0= if r> drop drop -1 lf-tinfer-invalid exit then
+  0 r> lf-tinfer-fuel @ lf-tagged-shift
+  lf-tshift-fuel @ lf-tinfer-fuel ! swap drop ;
 
 \ Make a stamped symbolic Sort from an allocated level. An allocator failure
 \ is reported as exhaustion and cannot yield an inferred type.
@@ -56,10 +73,26 @@ variable lf-tinfer-level-start
     then
     lf-tinfer-sort lf-tinfer-leave exit
   then
-  1 lf-tinfer@ lf-tag-pi = if
+  1 lf-tinfer@ lf-tag-bvar = if
+    2 lf-tinfer@ lf-tinfer-context-depth @ >= if
+      -1 lf-tinfer-invalid lf-tinfer-leave exit
+    then
+    lf-tinfer-context-depth @ 1- 2 lf-tinfer@ - cells lf-tinfer-context + @
+    2 lf-tinfer@ 1+ lf-tinfer-shift lf-tinfer-leave exit
+  then
+  1 lf-tinfer@ lf-tag-pi = 1 lf-tinfer@ lf-tag-lam = or if
     2 lf-tinfer@ recurse dup if lf-tinfer-leave exit then drop
     lf-tinfer-sort-level dup if lf-tinfer-leave exit then drop 4 lf-tinfer!
-    3 lf-tinfer@ recurse dup if lf-tinfer-leave exit then drop
+    2 lf-tinfer@ lf-tinfer-push 0= if
+      -1 lf-tinfer-exhausted lf-tinfer-leave exit
+    then
+    3 lf-tinfer@ recurse lf-tinfer-pop
+    dup if lf-tinfer-leave exit then drop
+    1 lf-tinfer@ lf-tag-lam = if
+      2 lf-tinfer@ swap lf-term-pi if
+        lf-tinfer-ok else -1 lf-tinfer-exhausted then
+      lf-tinfer-leave exit
+    then
     lf-tinfer-sort-level dup if lf-tinfer-leave exit then drop
     dup 0= if drop 0 else
       4 lf-tinfer@ swap lf-level-imax 0= if
@@ -81,7 +114,7 @@ variable lf-tinfer-level-start
   drop lf-href-fuel @ lf-tinfer-fuel !
   lf-term-count @ lf-tinfer-term-start !
   lf-level-count @ lf-tinfer-level-start !
-  0 lf-tinfer-depth ! lf-tinfer-walk
+  0 lf-tinfer-depth ! 0 lf-tinfer-context-depth ! lf-tinfer-walk
   dup if
     >r drop lf-tinfer-term-start @ lf-term-count !
     lf-tinfer-level-start @ lf-level-count ! -1 0 r> exit
