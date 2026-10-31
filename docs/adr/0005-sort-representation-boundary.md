@@ -80,8 +80,13 @@ The untrusted `generation-handles.fs` experiment now returns pairs of index and
 non-repeating allocation identity. Term and level identity serials never
 roll back and fail rather than wrap; the implicit zero level gets a new identity
 on reset. Tests exercise reset, rollback and reuse, and counter saturation.
-The pair is forgeable and has no arena-kind tag. Critically, term nodes still
-store bare child/level indices: reusing a referenced slot can change a surviving
-term without changing its own handle. Avoiding that requires an ownership rule
-or identities on internal references, not just handles at API entry. The raw
-Forth words remain accessible and the experiment is not a trusted interface.
+The pair is forgeable and has no arena-kind tag. The handle-based term checker
+now separately records the allocation identity of every Sort created with its
+constructor, and checks it on every reachable Sort. A cross-arena level rollback
+and replacement is rejected even if the replacement is otherwise valid. Raw
+Sorts lack this stamp and fail this handle-based check. This does **not** protect
+the raw session or inference paths, which still use bare level indices. Under
+append-only allocation and suffix rollback, same-arena parents cannot survive
+the removal of earlier children; arbitrary count restoration and raw mutation
+are outside this assumption. All raw Forth words remain accessible, and no
+consumer may treat this development check as a trusted interface.

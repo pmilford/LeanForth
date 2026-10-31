@@ -4,10 +4,22 @@
 \ Handles are two stack cells: index followed by its allocation identity.
 \ Identities detect reuse after reset or rollback, but are forgeable and do not
 \ distinguish arena kinds. Callers must prevent concurrent mutation, raw
-\ writes, cross-arena confusion, and invalidation of referenced level slots.
+\ writes and cross-arena confusion. Sort references created here retain a
+\ level allocation identity; raw symbolic Sorts cannot pass lf-hterm-check.
 \ All underlying storage and scratch state remain global and non-reentrant.
 
 variable lf-hterm-tag
+create lf-hsort-term-identities lf-term-capacity cells allot
+create lf-hsort-level-identities lf-term-capacity cells allot
+lf-hsort-term-identities lf-term-capacity cells erase
+lf-hsort-level-identities lf-term-capacity cells erase
+create lf-href-work lf-term-capacity cells allot
+variable lf-href-pending
+variable lf-href-fuel
+variable lf-href-node
+variable lf-href-tag
+variable lf-href-first
+variable lf-href-second
 
 \ Test a level pair against the current slot identity and allocation range.
 \ This does not check level graph shape, context scope or handle provenance.
@@ -40,7 +52,11 @@ variable lf-hterm-tag
 : lf-hterm-sort ( level-index level-identity -- index identity true | false )
   lf-ssession-current? 0= if 2drop false exit then
   2dup lf-hlevel-valid? 0= if 2drop false exit then
-  drop lf-term-symbolic-sort lf-hterm-result ;
+  >r lf-term-symbolic-sort lf-hterm-result
+  dup if
+    2 pick cells lf-hsort-level-identities + r> swap !
+    over 3 pick cells lf-hsort-term-identities + !
+  else r> drop then ;
 
 \ Construct a variable in the active session; binding scope is not checked.
 : lf-hterm-bvar ( depth -- index identity true | false )
@@ -62,9 +78,47 @@ variable lf-hterm-tag
 : lf-hterm-pi ( domain did body bid -- index identity true | false )
   lf-tag-pi lf-hterm-binary ;
 
-\ Check a live pair's reachable symbolic syntax and level graphs. Success is
-\ structural evidence and level-parameter scope only; term binder scope,
-\ typing and theorem validity are not checked.
+\ Push a reachable term index into a bounded audit stack.
+: lf-href-push ( index -- flag )
+  lf-href-pending @ lf-term-capacity >= if drop false exit then
+  lf-href-pending @ cells lf-href-work + ! 1 lf-href-pending +! true ;
+
+\ Audit one structurally checked term. A Sort must have a stamp for this exact
+\ term allocation and its referenced level must still have the captured ID.
+\ Term and level children point backwards, so count rollback cannot preserve a
+\ parent while removing its child in the same arena. Raw mutation is excluded.
+: lf-href-visit ( node -- status )
+  dup lf-href-node ! lf-term-read 0= if lf-repr-invalid exit then
+  lf-href-second ! lf-href-first ! lf-href-tag !
+  lf-href-tag @ lf-tag-symbolic-sort = if
+    lf-href-node @ lf-term-identity 0= if lf-repr-invalid exit then
+    lf-href-node @ cells lf-hsort-term-identities + @ <> if lf-repr-invalid exit then
+    lf-href-first @ lf-level-identity 0= if lf-repr-invalid exit then
+    lf-href-node @ cells lf-hsort-level-identities + @ <>
+    if lf-repr-invalid else lf-repr-ok then exit
+  then
+  lf-href-tag @ lf-tag-bvar = if lf-repr-ok exit then
+  lf-href-tag @ lf-tag-app = lf-href-tag @ lf-tag-lam = or
+  lf-href-tag @ lf-tag-pi = or 0= if lf-repr-invalid exit then
+  lf-href-first @ lf-href-push 0= if lf-repr-exhausted exit then
+  lf-href-second @ lf-href-push 0= if lf-repr-exhausted exit then
+  lf-repr-ok ;
+
+\ Internal helper: audit structurally validated terms with nonnegative fuel.
+: lf-href-check ( root fuel -- status )
+  lf-href-fuel ! 0 lf-href-pending !
+  lf-href-push 0= if lf-repr-exhausted exit then
+  begin lf-href-pending @ 0> while
+    lf-href-fuel @ 0= if lf-repr-exhausted exit then
+    -1 lf-href-fuel +! -1 lf-href-pending +!
+    lf-href-pending @ cells lf-href-work + @ lf-href-visit
+    ?dup if exit then
+  repeat lf-repr-ok ;
+
+\ Check a live pair's reachable symbolic syntax, levels and Sort identities.
+\ This gives structural and level-parameter-scope evidence only; term binder
+\ scope, typing and theorem validity are not checked.
 : lf-hterm-check ( index identity fuel -- status )
   >r 2dup lf-hterm-valid? 0= if 2drop r> drop lf-repr-invalid exit then
-  drop r> lf-ssession-check ;
+  drop dup r> lf-ssession-check ?dup if nip exit then
+  lf-ssession-fuel @ lf-href-check ;

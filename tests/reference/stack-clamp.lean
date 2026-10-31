@@ -108,6 +108,32 @@ theorem clampCode_monotone (lower upper x y : Int) (tailX tailY rsX rsY : List I
   · unfold clampSpec
     repeat' split <;> omega
 
+-- A preliminary clamp to a wider interval cannot change the final result of
+-- clamping to a contained interval. Both executions preserve their contexts.
+theorem clampCode_nested (outerLower outerUpper innerLower innerUpper value : Int)
+    (tail rs : List Int)
+    (left : outerLower ≤ innerLower) (inner : innerLower ≤ innerUpper)
+    (right : innerUpper ≤ outerUpper) :
+    ∃ intermediate result,
+      execute clampCode ⟨outerUpper :: outerLower :: value :: tail, rs⟩ =
+        some ⟨(-1) :: intermediate :: tail, rs⟩ ∧
+      execute clampCode ⟨innerUpper :: innerLower :: intermediate :: tail, rs⟩ =
+        some ⟨(-1) :: result :: tail, rs⟩ ∧
+      execute clampCode ⟨innerUpper :: innerLower :: value :: tail, rs⟩ =
+        some ⟨(-1) :: result :: tail, rs⟩ := by
+  refine ⟨clampSpec outerLower outerUpper value, clampSpec innerLower innerUpper value,
+    ?_, ?_, ?_⟩
+  · simpa [show ¬ outerLower > outerUpper by omega] using
+      clampCode_spec outerLower outerUpper value tail rs
+  · have nested : clampSpec innerLower innerUpper (clampSpec outerLower outerUpper value) =
+        clampSpec innerLower innerUpper value := by
+      unfold clampSpec
+      repeat' split <;> omega
+    simpa [show ¬ innerLower > innerUpper by omega, nested] using
+      clampCode_spec innerLower innerUpper (clampSpec outerLower outerUpper value) tail rs
+  · simpa [show ¬ innerLower > innerUpper by omega] using
+      clampCode_spec innerLower innerUpper value tail rs
+
 -- Fewer than three data cells always underflow, irrespective of their values
 -- and of the existing return stack. This is a property of this model: an
 -- actual Forth host need not detect stack underflow or fail in the same way.

@@ -20,14 +20,19 @@ result again, preserving arbitrary surrounding stacks in both executions.
 ordered interval produce ordered results, even when either input is outside
 the interval; the executions may have different surrounding stacks. This
 supports reasoning about composition with order-sensitive modeled code.
+`clampCode_nested` proves that, when one ordered interval is contained in
+another, clamping first to the wider interval and then to the narrower one
+produces the same result as clamping directly to the narrower interval. It
+also preserves the modeled data-stack suffix and return stack at every call;
+the caller removes each success flag before supplying the next input.
 A further theorem proves that every modeled data stack with fewer than
 three cells returns `none`, regardless of its values and return stack. Model
 underflow is a policy rather than a claim about host behavior. The model assumes signed mathematical integers, zero as false,
-and `-1` as true. `#print axioms` on the idempotence and monotonicity theorems
+and `-1` as true. `#print axioms` on the idempotence, monotonicity, and nested-interval theorems
 reports Lean's `propext`, `Classical.choice`, and `Quot.sound`; no LeanForth
 axiom is added.
 The reference file's SHA-256 at this checkpoint is
-`923bf64c437f75505fa315b997911348689855e0ab0458714993cb5e4d4018da`.
+`70ae7e84f9555160655cecd2dbb0c49e0da49b69102ec3b2cd7229508e8f8d9f`.
 
 This is a handwritten model, not a semantics-preserving translation from Forth
 source. It abstracts return addresses, control flow, finite stack capacity and
