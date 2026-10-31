@@ -111,3 +111,8 @@ claiming it works for others. Do not require GitHub authentication for local use
   15 closed cases against pinned Lean's kernel weak-head normalization on both
   Gforth versions. A nonterminating untyped term exhausts the prototype's
   resources and restores the arena count in the regression suite.
+- `make test-core` passed locally on Gforth 1.0.0 with the experimental
+  comparison and its budget/rollback cases. `make test-compare-differential`
+  passed on Gforth 1.0.0 and extracted Ubuntu Gforth 0.7.3 against pinned Lean
+  on six closed cases, including a Lean-valid equality reported as unknown.
+  This comparison is untrusted and is not a proof checker.

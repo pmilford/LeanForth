@@ -90,3 +90,12 @@ on two Gforth versions. `make test-beta-differential` compares 15 closed,
 Lean-kernel-type-checked cases with `Lean.Kernel.whnf`. This finite comparison
 does not prove reduction correct. Reduction of syntax alone is not evidence that
 a term is well typed or a proof.
+
+`src/experimental/compare.fs` experiments with the conservative comparison in
+ADR 0003, using beta reduction and exact binder-domain syntax. It returns
+`equal`, `unknown`, `invalid`, or `exhausted`; `equal` is not proof that its
+inputs are well typed and must not authorize a theorem. Its global mutable
+storage, host recursion, budget accounting and semantics remain unreviewed for
+trusted use. `make test-compare-differential` checks six closed examples against
+Lean's kernel, including a Lean equality intentionally reported as unknown.
+This finite test is not a soundness proof or evidence of full Lean compatibility.

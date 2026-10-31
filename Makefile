@@ -1,7 +1,7 @@
 GFORTH ?= $(if $(wildcard .tools/gforth/bin/gforth),.tools/gforth/bin/gforth,gforth)
 LEAN ?= lean
 
-.PHONY: smoke reference reference-export test-harness test-core test-scope-differential test-shift-differential test-instantiate-differential test-beta-differential test-program test-program-differential
+.PHONY: smoke reference reference-export test-harness test-core test-scope-differential test-shift-differential test-instantiate-differential test-beta-differential test-compare-differential test-program test-program-differential
 smoke:
 	$(GFORTH) tests/smoke/smoke.fs
 
@@ -21,6 +21,7 @@ test-core:
 	$(GFORTH) tests/core/shift.fs
 	$(GFORTH) tests/core/instantiate.fs
 	$(GFORTH) tests/core/beta.fs
+	$(GFORTH) tests/core/compare.fs
 
 test-scope-differential:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/core/scope-differential.sh
@@ -33,6 +34,9 @@ test-instantiate-differential:
 
 test-beta-differential:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/core/beta-differential.sh
+
+test-compare-differential:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/core/compare-differential.sh
 
 test-program:
 	$(GFORTH) tests/program/clamp.fs
