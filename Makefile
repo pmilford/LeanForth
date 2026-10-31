@@ -19,6 +19,7 @@ test-core:
 	$(GFORTH) tests/core/terms.fs
 	$(GFORTH) tests/core/levels.fs
 	$(GFORTH) tests/core/level-scope.fs
+	$(GFORTH) tests/core/level-value.fs
 	$(GFORTH) tests/core/load.fs
 	$(GFORTH) tests/core/scope.fs
 	$(GFORTH) tests/core/shift.fs
@@ -56,7 +57,7 @@ test-declaration-differential:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/core/declaration-differential.sh
 
 test-level-differential:
-	LEAN=$(LEAN) python3 tests/core/level-differential.py
+	LEAN=$(LEAN) GFORTH=$(GFORTH) python3 tests/core/level-differential.py
 
 test-program:
 	$(GFORTH) tests/program/clamp.fs

@@ -29,8 +29,9 @@ entries; for concrete levels `imax(a, 0)` is zero, and otherwise it is
 the level-expression graph. Concrete values are resolved where all operands
 are concrete. A symbolic expression remains `null`, even when simplification
 could determine its value. Different table indices may resolve to the same level.
-`make test-level-differential` compares 76 concrete and nested cases with pinned Lean's
-level normalization; it is finite test evidence, not a proof.
+`make test-level-differential` compares the preview and experimental Forth
+evaluator on 76 concrete and nested cases with pinned Lean's level normalization;
+it is finite test evidence, not a proof.
 
 It bounds each input line to 4096 bytes, the stream to 1 MiB, names and explicit
 universe entries to 256 each, expression nodes to 64 and declarations to 64.
@@ -60,4 +61,5 @@ fail. These examples do not demonstrate general Lean or Mathlib compatibility.
 The polymorphic fixture's universe graph and parameter ID also reach an
 experimental Forth structural scope check in a separate test-only byte stream.
 That check uses opaque IDs and does not resolve structured Lean names or check
-the polymorphic theorem.
+the polymorphic theorem. The stream checks only the final level root: unrelated
+nodes printed in its table are not thereby shown to be in scope.

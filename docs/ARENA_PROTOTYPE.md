@@ -11,6 +11,12 @@ also checks the distinguished zero slot and rejects corrupted counts, fields,
 cycles and forward references. Repeated shared nodes consume repeated visit
 fuel; context validation has a separate bounded quadratic cost. Opaque IDs are
 not Lean name equality, and structural success is not a type or proof judgment.
+`src/experimental/level-value.fs` evaluates validated concrete level DAGs
+using bounded fuel; symbolic parameters return unknown. The concrete result is
+not a level equality judgment or theorem. Validation and evaluation share visit
+fuel, while bounded context processing is separate; the global mutable arena
+and bounded host recursion remain assumptions. The 64-node limit makes the
+host-cell overflow guard unreachable through valid constructors today.
 
 `src/core/arena.fs` is a bounded experiment in storing integer-indexed nodes.
 It does not represent Lean expressions, validate terms, check types, issue

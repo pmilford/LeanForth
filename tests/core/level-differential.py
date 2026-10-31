@@ -44,7 +44,12 @@ def main():
             in zip(cases, values, strict=True)]
     if len(rows) != 76 or rows != lean_rows:
         raise ValueError("concrete universe results differ from Lean")
-    print("Lean and preview agree on 76 concrete and nested max and imax cases.")
+    gforth = os.environ.get("GFORTH", "gforth")
+    forth = subprocess.run([gforth, "tests/core/level-value-table.fs"],
+                           check=True, capture_output=True, text=True).stdout.splitlines()
+    if [line.split() for line in forth] != [line.split() for line in lean_rows]:
+        raise ValueError("Forth concrete universe results differ from Lean")
+    print("Lean, Forth and preview agree on 76 concrete and nested max and imax cases.")
 
 
 if __name__ == "__main__":
