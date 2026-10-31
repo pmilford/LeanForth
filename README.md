@@ -33,6 +33,7 @@ ELAN_HOME="$PWD/.tools/elan" make test-declaration-differential LEAN="$PWD/.tool
 ELAN_HOME="$PWD/.tools/elan" make test-level-differential LEAN="$PWD/.tools/elan/bin/lean"
 ELAN_HOME="$PWD/.tools/elan" make test-level-assignment-differential LEAN="$PWD/.tools/elan/bin/lean"
 ELAN_HOME="$PWD/.tools/elan" make test-level-compare-differential LEAN="$PWD/.tools/elan/bin/lean"
+ELAN_HOME="$PWD/.tools/elan" make test-poly-specialization-differential LEAN="$PWD/.tools/elan/bin/lean"
 ELAN_HOME="$PWD/.tools/elan" make test-program-differential LEAN="$PWD/.tools/elan/bin/lean"
 ```
 

@@ -44,10 +44,10 @@ The fixture test independently compares preview nodes against the existing
 fixture inspector and feeds the resulting fields as test-only binary data to
 the untrusted Forth staging and declaration probe. Neither the preview nor the
 probe registers a theorem; declaration import and the trusted boundary require
-independent human review. The pipeline currently covers composition, identity,
+independent human review. The concrete pipeline covers composition, identity,
 and a theorem quantified over `Type`. A fourth, universe-polymorphic Lean export
-is decoded but is not sent to the concrete-only Forth probe. The test transport
-explicitly rejects previews containing symbolic levels or level parameters;
+is also decoded. The ordinary concrete test transport rejects previews
+containing symbolic levels or level parameters;
 it recomputes concrete level values and checks sort references. Its flag and
 mutable input are untrusted metadata; a consistently altered input is a
 different declaration, not proof of provenance or validity. The general
@@ -63,3 +63,15 @@ experimental Forth structural scope check in a separate test-only byte stream.
 That check uses opaque IDs and does not resolve structured Lean names or check
 the polymorphic theorem. The stream checks only the final level root: unrelated
 nodes printed in its table are not thereby shown to be in scope.
+
+A separate test-only stream specializes the polymorphic fixture under explicit
+numeric assignments and feeds the resulting concrete expression nodes to the
+untrusted Forth declaration probe. It checks four assignments against pinned
+Lean's kernel and compares canonical type and value syntax for all four with
+Lean's instantiated expressions. It also compares the complete `u = 1` node
+table with a separately exported concrete theorem. Missing, invalid or
+duplicate assignments fail;
+the test uses bounded host integers, opaque name IDs, and untrusted mutable
+storage. This exercises four instances, not the polymorphic theorem. No checked
+declaration is registered, and no supported runtime or interchange API exists.
+Run `make test-poly-specialization-differential` with pinned Lean and Gforth.

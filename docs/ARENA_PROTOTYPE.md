@@ -25,6 +25,10 @@ Assigned maximum-cell successors exercise the overflow
 guard, which was unreachable using concrete constructor chains alone.
 `make test-level-assignment-differential` compares 36 instances of one nested
 symbolic expression with Lean's parameter instantiation and normalization.
+The test-only `make test-poly-specialization-differential` specializes an actual
+polymorphic Lean export for four explicit levels and compares Forth's untrusted
+declaration diagnostics with Lean's kernel. This does not check the original
+polymorphic declaration or create any theorem handle.
 `src/experimental/level-compare.fs` compares scoped level graphs using a few
 literal-zero rewrites and structural comparison, and falls back to unassigned
 concrete evaluation; it reports unknown for many
