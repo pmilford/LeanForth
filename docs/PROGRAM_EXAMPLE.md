@@ -13,13 +13,16 @@ Forth program, or evidence that the future importer supports these proofs.
 semantics for the operations in the host word. Pinned Lean checks that this
 model implements the clamp specification and preserves arbitrary modeled data
 and return-stack suffixes; for ordered bounds it also proves the result is in
-range. A further theorem proves that every modeled data stack with fewer than
+range. For ordered bounds, `clampCode_idempotent` proves that feeding the
+first result back into the modeled clamp with the same bounds returns that
+result again, preserving arbitrary surrounding stacks in both executions.
+A further theorem proves that every modeled data stack with fewer than
 three cells returns `none`, regardless of its values and return stack. Model
 underflow is a policy rather than a claim about host behavior. The model assumes signed mathematical integers, zero as false,
-and `-1` as true. `#print axioms` on both model theorems reports Lean's
+and `-1` as true. `#print axioms` on the idempotence theorem reports Lean's
 `propext`, `Classical.choice`, and `Quot.sound`; no LeanForth axiom is added.
 The reference file's SHA-256 at this checkpoint is
-`a418e7ccc979cd972453b96a235b3299c3518d31a877b652193e7a2531187563`.
+`0c3cf789492aa8a85eff5cf878f41882e37068c82995bd9a7cadf971f6635a6a`.
 
 This is a handwritten model, not a semantics-preserving translation from Forth
 source. It abstracts return addresses, control flow, finite stack capacity and

@@ -76,6 +76,22 @@ theorem clampCode_bounds (lower upper value : Int) (tail rs : List Int)
   · unfold clampSpec
     split <;> (try split) <;> omega
 
+-- Feeding the first result back with the same ordered bounds leaves it
+-- unchanged and preserves the surrounding stacks on both executions.
+theorem clampCode_idempotent (lower upper value : Int) (tail rs : List Int)
+    (ordered : lower ≤ upper) :
+    ∃ result,
+      execute clampCode ⟨upper :: lower :: value :: tail, rs⟩ =
+        some ⟨(-1) :: result :: tail, rs⟩ ∧
+      execute clampCode ⟨upper :: lower :: result :: tail, rs⟩ =
+        some ⟨(-1) :: result :: tail, rs⟩ := by
+  obtain ⟨result, first, lowerBound, upperBound⟩ :=
+    clampCode_bounds lower upper value tail rs ordered
+  refine ⟨result, first, ?_⟩
+  simpa [clampSpec, show ¬ lower > upper by omega,
+    show ¬ result < lower by omega, show ¬ result > upper by omega] using
+      clampCode_spec lower upper result tail rs
+
 -- Fewer than three data cells always underflow, irrespective of their values
 -- and of the existing return stack. This is a property of this model: an
 -- actual Forth host need not detect stack underflow or fail in the same way.

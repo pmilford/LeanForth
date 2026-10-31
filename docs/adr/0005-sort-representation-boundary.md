@@ -54,3 +54,12 @@ the actual implementation before kernel semantics are accepted or merged.
 The opt-in `make test-symbolic-infer-draft` exercises the existing **unsafe**
 draft and checks a symbolic Pi universe against Lean. It intentionally does not
 establish this proposed boundary. The draft remains outside the standard suite.
+
+`src/experimental/tagged-sort-boundary.fs` separately tests a tagged Sort and
+a bounded reachable-syntax representation validator. Its results are not wired
+into symbolic inference, level checking, or declaration acceptance. In
+particular, symbolic indices are not bound to a level arena generation, and
+the validator checks neither level scope nor type correctness. Existing concrete
+inference and shift tests reject the new tag, but this does not show that every
+consumer enforces the proposed boundary. Unreachable nodes are intentionally
+outside the syntax check; shared nodes cost fuel on each visit.
