@@ -100,6 +100,7 @@ variable lf-tshift-amount
 \ Success returns index identity ok; failure returns -1 0 status. The
 \ original Sort nodes and their stamps are reused, never reconstructed.
 \ Rollback restores the term count but deliberately does not rewind serials.
+\ Failed validation leaves zero remaining fuel as a conservative bound.
 \ No raw mutation or concurrent access is permitted. Not a type judgment.
 : lf-tagged-shift ( index identity cutoff amount fuel -- index identity status )
   dup 0< if 2drop 2drop drop -1 0 lf-tshift-invalid exit then
@@ -107,7 +108,7 @@ variable lf-tshift-amount
   2dup 0< swap 0< or if 2drop 2drop -1 0 lf-tshift-invalid exit then
   lf-tshift-amount ! lf-tshift-cutoff !
   2dup lf-tshift-fuel @ lf-hterm-check
-  dup if >r 2drop -1 0 r> exit then drop
+  dup if 0 lf-tshift-fuel ! >r 2drop -1 0 r> exit then drop
   drop
   lf-href-fuel @ lf-tshift-fuel !
   lf-term-count @ lf-tshift-start ! 0 lf-tshift-level !

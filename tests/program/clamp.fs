@@ -126,6 +126,33 @@ variable test-x-result
   loop ;
 check-clamp-monotone-domain
 
+\ Check the nonexpansive property for ordered inputs and bounds. Differences
+\ are safe from host-cell overflow because all operands lie in [-3, 3].
+: check-clamp-distance ( -- )
+  test-x @ test-lower @ test-upper @ lf-clamp
+  true <> if -1 throw then
+  test-x-result !
+  test-y @ test-lower @ test-upper @ lf-clamp
+  true <> if -1 throw then
+  test-x-result @ -
+  dup 0< if -1 throw then
+  test-y @ test-x @ - > if -1 throw then ;
+
+\ 28 ordered intervals times 28 ordered input pairs: 784 cases.
+: check-clamp-distance-domain ( -- )
+  4 -3 do i test-lower !
+    4 -3 do i test-upper !
+      test-lower @ test-upper @ <= if
+        4 -3 do i test-x !
+          4 -3 do i test-y !
+            test-x @ test-y @ <= if check-clamp-distance then
+          loop
+        loop
+      then
+    loop
+  loop ;
+check-clamp-distance-domain
+
 \ Mirror clampCode_nested on finite host inputs. The marker is a data-stack
 \ prefix; the caller consumes each success flag before the next clamp.
 variable test-outer-lower

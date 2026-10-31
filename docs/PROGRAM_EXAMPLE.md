@@ -20,6 +20,10 @@ result again, preserving arbitrary surrounding stacks in both executions.
 ordered interval produce ordered results, even when either input is outside
 the interval; the executions may have different surrounding stacks. This
 supports reasoning about composition with order-sensitive modeled code.
+`clampCode_nonexpansive` additionally proves that for ordered inputs and
+ordered bounds, their output distance is nonnegative and no greater than
+their input distance, with independent modeled stack contexts. Distances use
+unbounded integer subtraction; this does not establish finite-cell arithmetic.
 `clampCode_nested` proves that, when one ordered interval is contained in
 another, clamping first to the wider interval and then to the narrower one
 produces the same result as clamping directly to the narrower interval. It
@@ -28,11 +32,11 @@ the caller removes each success flag before supplying the next input.
 A further theorem proves that every modeled data stack with fewer than
 three cells returns `none`, regardless of its values and return stack. Model
 underflow is a policy rather than a claim about host behavior. The model assumes signed mathematical integers, zero as false,
-and `-1` as true. `#print axioms` on the idempotence, monotonicity, and nested-interval theorems
+and `-1` as true. `#print axioms` on the idempotence, monotonicity, nonexpansiveness, and nested-interval theorems
 reports Lean's `propext`, `Classical.choice`, and `Quot.sound`; no LeanForth
 axiom is added.
 The reference file's SHA-256 at this checkpoint is
-`70ae7e84f9555160655cecd2dbb0c49e0da49b69102ec3b2cd7229508e8f8d9f`.
+`25c97b1babc9e1a3b94e01c7b9ad4eedb03f46ca38d204b76888e0907ce0511d`.
 
 This is a handwritten model, not a semantics-preserving translation from Forth
 source. It abstracts return addresses, control flow, finite stack capacity and
@@ -96,3 +100,15 @@ the canonical true flag, preserve their distinct data-stack and return-stack
 markers, and produce ordered results. This is finite host regression evidence;
 it does not establish the modeled property for all host cells or prove that
 the host implementation follows the Lean model.
+
+The host suite also checks nonexpansiveness for those 784 ordered input and
+interval combinations. It checks both success flags and computes the input and
+output differences only over `[-3, 3]`, where subtraction cannot overflow a
+standard Forth cell. This is finite runtime evidence, not a Forth proof.
+At this checkpoint, `ELAN_HOME="$PWD/.tools/elan" .tools/elan/bin/lean
+tests/reference/stack-clamp.lean` passed with Lean 4.35.0 revision
+`eb6cafb7290e8bd5f2937522d8d804f58f02bafc`; `XDG_CACHE_HOME=/tmp make
+test-program` passed with Gforth 1.0.0 amd64. A first `make test-program`
+attempt failed during Gforth cache initialization in the sandbox. The Forth
+test file SHA-256 is
+`ab7b1b938af129a34370dc2c5cfae533670fa179d4834c0cb2643c7563f1e25d`.

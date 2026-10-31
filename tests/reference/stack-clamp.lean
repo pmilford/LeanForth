@@ -108,6 +108,22 @@ theorem clampCode_monotone (lower upper x y : Int) (tailX tailY rsX rsY : List I
   · unfold clampSpec
     repeat' split <;> omega
 
+-- For ordered inputs, clamping cannot increase their distance. Subtraction
+-- here is over unbounded integers, not finite-width Forth cells.
+theorem clampCode_nonexpansive (lower upper x y : Int) (tailX tailY rsX rsY : List Int)
+    (ordered : lower ≤ upper) (inputsOrdered : x ≤ y) :
+    ∃ resultX resultY,
+      execute clampCode ⟨upper :: lower :: x :: tailX, rsX⟩ =
+        some ⟨(-1) :: resultX :: tailX, rsX⟩ ∧
+      execute clampCode ⟨upper :: lower :: y :: tailY, rsY⟩ =
+        some ⟨(-1) :: resultY :: tailY, rsY⟩ ∧
+      0 ≤ resultY - resultX ∧ resultY - resultX ≤ y - x := by
+  refine ⟨clampSpec lower upper x, clampSpec lower upper y, ?_, ?_, ?_⟩
+  · simpa [show ¬ lower > upper by omega] using clampCode_spec lower upper x tailX rsX
+  · simpa [show ¬ lower > upper by omega] using clampCode_spec lower upper y tailY rsY
+  · unfold clampSpec
+    repeat' split <;> omega
+
 -- A preliminary clamp to a wider interval cannot change the final result of
 -- clamping to a contained interval. Both executions preserve their contexts.
 theorem clampCode_nested (outerLower outerUpper innerLower innerUpper value : Int)

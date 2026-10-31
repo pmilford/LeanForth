@@ -92,12 +92,14 @@ are outside this assumption. All raw Forth words remain accessible, and no
 consumer may treat this development check as a trusted interface.
 
 `tagged-infer.fs` now uses the handle-based input check for a restricted
-Sort, Pi, bound-variable and lambda fragment; it returns `unknown` for
-applications and other unsupported forms. `tagged-shift.fs` shifts tagged syntax while retaining
-Sort stamps. Both are untrusted, and their composition has no shared outer
+Sort, Pi, bound-variable, lambda and application fragment. An application
+requires a directly visible Pi and a conservative syntax-only argument-type
+comparison; other cases return `unknown`. Tagged shifting and substitution
+preserve Sort stamps. These components are untrusted, and separate calls have no shared outer
 transaction or enforced combined budget for separate public calls. Within one
 inference, binder shifts use its remaining budget and failure restores both
 arena counts. The tagged inference test and pinned Lean oracle check limited
 Sort/Pi universe expectations; the binder differential compares 18 finite
-actual inferred types and rejections at three concrete universe assignments.
+actual inferred types and rejections at three concrete universe assignments;
+the application differential adds 12 finite valid and invalid cases.
 These are not broad Lean compatibility results or a proof of soundness.

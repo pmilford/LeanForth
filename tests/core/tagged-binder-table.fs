@@ -6,6 +6,8 @@ include ../../src/experimental/tagged-sort-boundary.fs
 include ../../src/experimental/symbolic-session.fs
 include ../../src/experimental/generation-handles.fs
 include ../../src/experimental/tagged-shift.fs
+include ../../src/experimental/tagged-instantiate.fs
+include ../../src/experimental/tagged-compare.fs
 include ../../src/experimental/tagged-infer.fs
 decimal
 variable assignment

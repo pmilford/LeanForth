@@ -29,6 +29,7 @@ T{ 7 lf-term-read -> lf-tag-lam 0 6 true }T
 T{ 7 shifted-id @ 100 lf-hterm-check -> lf-repr-ok }T
 T{ 0 sort-id @ 0 4 5 lf-tagged-shift -> 0 sort-id @ lf-tshift-ok }T
 T{ 0 sort-id @ 0 4 4 lf-tagged-shift -> -1 0 lf-tshift-exhausted }T
+T{ lf-tshift-fuel @ -> 0 }T
 T{ 4 root-id @ -1 1 100 lf-tagged-shift -> -1 0 lf-tshift-invalid }T
 T{ 4 root-id @ 0 -1 100 lf-tagged-shift -> -1 0 lf-tshift-invalid }T
 T{ 4 root-id @ 0 1 -1 lf-tagged-shift -> -1 0 lf-tshift-invalid }T

@@ -1,15 +1,17 @@
 \ Untrusted inference for a limited symbolic-universe fragment: Sort, bound
-\ variables, Pi and lambda. Applications, constants and other unsupported
-\ forms return unknown; Pi bodies must infer directly to Sorts. This is NOT a
+\ variables, Pi, lambda and a conservative application fragment. Applications
+\ require a directly visible Pi and syntactically matching argument type;
+\ constants and unsupported forms return unknown. This is NOT a
 \ theorem checker or a trusted kernel. Load the term, level, scope, tagged
-\ representation, session, handle and tagged-shift modules first. Mutable arenas, no raw
+\ representation, session, handle, tagged-shift, tagged-instantiate and
+\ tagged-compare modules first. Mutable arenas, no raw
 \ writes, suffix-only rollback and single-threaded execution are assumptions.
 
 0 constant lf-tinfer-ok
 1 constant lf-tinfer-invalid
 2 constant lf-tinfer-exhausted
 3 constant lf-tinfer-unknown
-5 constant lf-tinfer-frame-cells
+6 constant lf-tinfer-frame-cells
 create lf-tinfer-frames lf-term-capacity lf-tinfer-frame-cells * cells allot
 variable lf-tinfer-depth
 variable lf-tinfer-fuel
@@ -40,6 +42,21 @@ create lf-tinfer-context lf-term-capacity cells allot
   >r dup lf-term-identity 0= if r> drop drop -1 lf-tinfer-invalid exit then
   0 r> lf-tinfer-fuel @ lf-tagged-shift
   lf-tshift-fuel @ lf-tinfer-fuel ! swap drop ;
+
+\ Compare two inferred/declared types using the conservative syntax test.
+\ Both graphs are validated and compared with the remaining shared budget.
+: lf-tinfer-compare ( left right -- status )
+  dup lf-term-identity 0= if 2drop lf-tinfer-invalid exit then >r
+  swap dup lf-term-identity 0= if 2drop r> drop lf-tinfer-invalid exit then
+  rot r> lf-tinfer-fuel @ lf-tagged-compare
+  lf-tcompare-fuel @ lf-tinfer-fuel ! ;
+
+\ Substitute the original argument into a Pi body after conversion succeeds.
+: lf-tinfer-instantiate ( body argument -- result status )
+  dup lf-term-identity 0= if 2drop -1 lf-tinfer-invalid exit then >r
+  swap dup lf-term-identity 0= if 2drop r> drop -1 lf-tinfer-invalid exit then
+  rot r> lf-tinfer-fuel @ lf-tagged-instantiate
+  lf-tinst-fuel @ lf-tinfer-fuel ! swap drop ;
 
 \ Make a stamped symbolic Sort from an allocated level. An allocator failure
 \ is reported as exhaustion and cannot yield an inferred type.
@@ -79,6 +96,16 @@ create lf-tinfer-context lf-term-capacity cells allot
     then
     lf-tinfer-context-depth @ 1- 2 lf-tinfer@ - cells lf-tinfer-context + @
     2 lf-tinfer@ 1+ lf-tinfer-shift lf-tinfer-leave exit
+  then
+  1 lf-tinfer@ lf-tag-app = if
+    2 lf-tinfer@ recurse dup if lf-tinfer-leave exit then drop
+    lf-term-read 0= if -1 lf-tinfer-invalid lf-tinfer-leave exit then
+    5 lf-tinfer! 4 lf-tinfer!
+    lf-tag-pi <> if -1 lf-tinfer-unknown lf-tinfer-leave exit then
+    3 lf-tinfer@ recurse dup if lf-tinfer-leave exit then drop
+    4 lf-tinfer@ lf-tinfer-compare
+    ?dup if -1 swap lf-tinfer-leave exit then
+    5 lf-tinfer@ 3 lf-tinfer@ lf-tinfer-instantiate lf-tinfer-leave exit
   then
   1 lf-tinfer@ lf-tag-pi = 1 lf-tinfer@ lf-tag-lam = or if
     2 lf-tinfer@ recurse dup if lf-tinfer-leave exit then drop
