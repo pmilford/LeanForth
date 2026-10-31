@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import struct
 import sys
 import unittest
 
@@ -165,8 +166,9 @@ class PreviewTests(unittest.TestCase):
                 raw = Path(f"tests/reference/{name}.ndjson").read_bytes()
                 decoded = preview(io.BytesIO(raw))
                 declaration = decoded["declarations"][0]
-                stream = bytearray((len(decoded["expressions"]), declaration["type"],
-                                    declaration["value"]))
+                stream = bytearray(struct.pack("<III", len(decoded["expressions"]),
+                                               declaration["type"], declaration["value"]))
+                expected = []
                 for index, node in enumerate(decoded["expressions"]):
                     tag = node["tag"]
                     if tag == "sort":
@@ -177,21 +179,54 @@ class PreviewTests(unittest.TestCase):
                         fields = (3, node["fn"], node["arg"])
                     else:
                         fields = (4 if tag == "lam" else 5, node["type"], node["body"])
-                    stream.extend((index, *fields))
+                    expected.append((index, *fields))
+                    stream.extend(struct.pack("<IIII", index, *fields))
                 command = [os.environ.get("GFORTH", "gforth"),
                            "tests/core/load-declaration-stream.fs"]
                 result = subprocess.run(command, input=stream, capture_output=True, check=True)
-                self.assertEqual(result.stdout.split(), [b"0"])
+                rows = result.stdout.splitlines()
+                self.assertEqual(rows[0].split(), [b"0"])
+                self.assertEqual([tuple(map(int, row.split())) for row in rows[1:]], expected)
                 # Use the root of the claim as the proof value; its type does not
                 # match the claim, so no successful diagnostic is possible.
-                stream[2] = stream[1]
+                stream[8:12] = stream[4:8]
                 result = subprocess.run(command, input=stream, capture_output=True, check=True)
-                self.assertNotEqual(result.stdout.split(), [b"0"])
+                self.assertNotEqual(result.stdout.splitlines()[0].split(), [b"0"])
                 # A truncated or extended stream must emit no diagnostic.
                 for malformed in (stream[:-1], stream + b"\x00"):
                     result = subprocess.run(command, input=malformed, capture_output=True)
                     self.assertNotEqual(result.returncode, 0)
                     self.assertEqual(result.stdout.strip(), b"")
+
+    def test_wide_transport_stages_universe_256(self):
+        raw = Path("tests/reference/identity.ndjson").read_text().splitlines()
+        position = next(i for i, line in enumerate(raw) if '"thm"' in line)
+        records = [json.dumps({"il": i, "succ": i - 1}) for i in range(1, 257)]
+        raw[position:position] = records + ['{"ie":7,"sort":256}']
+        decoded = self.parse(raw)
+        self.assertEqual(decoded["expressions"][-1]["level"], 256)
+        nodes = [(1, 0, 0), (2, 0, 0), (2, 1, 0), (5, 1, 2),
+                 (5, 0, 3), (4, 1, 1), (4, 0, 5),
+                 (1, decoded["expressions"][-1]["level"], 0)]
+        stream = bytearray(struct.pack("<III", 8, 4, 6))
+        for index, fields in enumerate(nodes):
+            stream.extend(struct.pack("<IIII", index, *fields))
+        command = [os.environ.get("GFORTH", "gforth"), "tests/core/load-declaration-stream.fs"]
+        result = subprocess.run(command, input=stream, capture_output=True, check=True)
+        rows = result.stdout.splitlines()
+        self.assertEqual(rows[0].split(), [b"0"])
+        self.assertEqual(tuple(map(int, rows[-1].split())), (7, 1, 256, 0))
+        # Values outside signed 32-bit range cannot be passed to a 32-bit host.
+        stream[-1] = 128
+        bad = subprocess.run(command, input=stream, capture_output=True)
+        self.assertNotEqual(bad.returncode, 0)
+        self.assertEqual(bad.stdout.strip(), b"")
+        # Truncation inside every header field and node field must fail without
+        # emitting a status; a rejected stream cannot leave a partial result.
+        for length in (0, 1, 3, 4, 7, 8, 11, 12, 13, 15, 16, len(stream) - 1):
+            bad = subprocess.run(command, input=stream[:length], capture_output=True)
+            self.assertNotEqual(bad.returncode, 0, msg=f"accepted length {length}")
+            self.assertEqual(bad.stdout.strip(), b"")
 
 
 if __name__ == "__main__":

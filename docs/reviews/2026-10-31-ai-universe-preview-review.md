@@ -8,9 +8,10 @@ The reviewer found the supported zero and successor index-to-value mapping
 consistent with the pinned Lean reader and reproduced the type-identity export.
 The synthetic equal-level index alias test exercises reader behavior; the
 exporter normally deduplicates those levels. The preview can resolve level 256,
-but the current test-only byte transport can encode at most 255. This limitation
-is now documented and the maximum preview level is tested. The transport is
-not a production serialization or an implementation of general import.
+but the original test-only byte transport could encode at most 255. A later
+test transport uses little-endian 32-bit nonnegative fields and stages level
+256. The older composition-specific test still uses bytes. Neither transport
+is a production serialization or an implementation of general import.
 
 Additional malformed level-record and exact limit tests remain useful. Lean's
 reader also supports level `max`, `imax`, parameters and nonsequential indices;

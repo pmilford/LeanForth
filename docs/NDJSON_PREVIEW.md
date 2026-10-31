@@ -36,8 +36,10 @@ fixture inspector and feeds the resulting fields as test-only binary data to
 the untrusted Forth staging and declaration probe. Neither the preview nor the
 probe registers a theorem; declaration import and the trusted boundary require
 independent human review. The pipeline currently covers composition, identity,
-and a theorem quantified over `Type`, with a test-only byte protocol carrying declaration indices and node
-records. That protocol can encode only fields up to 255, so it cannot carry
-every level supported by the preview (which can resolve a level of 256).
+and a theorem quantified over `Type`. The general test-only byte protocol uses
+little-endian nonnegative 32-bit fields up to 2,147,483,647, carrying declaration
+indices and node records. A synthetic test stages and reads back level 256;
+this is not a production serialization. An older, composition-specific test
+still uses one-byte fields.
 Altered values return non-success, and truncated or extended streams
 fail. These examples do not demonstrate general Lean or Mathlib compatibility.
