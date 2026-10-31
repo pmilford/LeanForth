@@ -16,6 +16,9 @@ Read `docs/CODEX_HANDOFF.md`, `docs/IMPLEMENTATION_PLAN.md`, `docs/INTERFACE_CON
 
 ## Work process
 
+- After each meaningful milestone, update `docs/PROJECT_PROGRESS.md` and report both approximately ten-milestone tracks, their overlap, NDJSON support, code inventory, and relevant verification and limitations.
+- Develop and maintain user manuals, installation, contributor, testing and interface documentation alongside each feature; distinguish implemented behavior from plans and state trust boundaries.
+- Use scoped independent subagents when they materially improve parallel work or reviews, especially for Lean, Forth and kernel integrity. Measure usage where feasible; subagents do not necessarily save tokens and cannot replace required human review.
 - Document Forth modules and public words with readable comments, including stack effects, behavior, error cases and relevant assumptions. Explain non-obvious implementation details where helpful.
 - **First task: environment, repository foundation, specification, CI skeleton and honest smoke tests — not a fabricated theorem prover.** Follow `prompts/FIRST_CODEX_TASK.md`.
 - Divide later work into narrowly scoped issues and test-first changes. Keep a running `docs/DECISIONS.md` with rationale and rejected alternatives.

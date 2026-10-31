@@ -2,6 +2,9 @@
 
 **Status: bootstrap and design; no theorem checker or program verifier exists yet.**
 
+See the [project progress report](docs/PROJECT_PROGRESS.md) for both product
+tracks, importer limits, and a reproducible code inventory.
+
 LeanForth is a Forth-friendly mathematical theorem-proving **and verified-programming** system, with an independently trustworthy checker and efficient executable Forth backends. Its mathematical data and presentation notation must never redefine or ambiguously overload the Forth source grammar.
 
 Start with **[docs/CODEX_HANDOFF.md](docs/CODEX_HANDOFF.md)**, then **[docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md)** and **[AGENTS.md](AGENTS.md)**. Launch the first Codex task from **[prompts/FIRST_CODEX_TASK.md](prompts/FIRST_CODEX_TASK.md)**. Follow **[docs/SETUP_WSL.md](docs/SETUP_WSL.md)** for the recommended Windows/WSL2 setup.
