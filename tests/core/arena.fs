@@ -1,6 +1,6 @@
 \ Exercise arena construction, failure paths, capacity, and reset.
-\ The bundled tester counts errors; finish-tests makes failures visible to CI.
-require test/ttester.fs
+\ The tester adapter makes assertion failures visible to CI.
+include ../support/tester.fs
 include ../../src/core/arena.fs
 
 lf-arena-reset
@@ -29,7 +29,16 @@ T{ 0 1 lf-node-pair -> false }T
 T{ lf-arena-count @ -> lf-arena-capacity }T
 lf-arena-reset
 T{ 0 lf-node-valid? -> false }T
-\ Convert reported assertion failures into a nonzero host process status.
-: finish-tests #errors @ if -1 throw then ;
-finish-tests
+\ A corrupted allocation count must not authorize accesses or writes.
+-1 lf-arena-count !
+T{ 0 lf-node-valid? -> false }T
+T{ 1 lf-node-atom -> false }T
+T{ 0 0 lf-node-pair -> false }T
+T{ lf-arena-count @ -> -1 }T
+lf-arena-capacity 1+ lf-arena-count !
+T{ 0 lf-node-valid? -> false }T
+T{ 1 lf-node-atom -> false }T
+T{ 0 0 lf-node-pair -> false }T
+T{ lf-arena-count @ -> lf-arena-capacity 1+ }T
+lf-arena-reset
 bye

@@ -14,13 +14,20 @@ variable lf-arena-count
 \ Return a node's address. Caller must first ensure index is valid.
 : lf-node-address ( index -- addr ) lf-node-cells * cells lf-arena + ;
 
-\ Test whether an index names a node in the current allocation range.
+\ Validate the mutable count before using it to calculate an address.
+: lf-arena-count-valid? ( -- flag )
+  lf-arena-count @ dup 0< 0= swap lf-arena-capacity <= and ;
+
+\ Test whether an index names a node in a valid current allocation range.
 \ This cannot detect an index retained across reset and subsequently reused.
-: lf-node-valid? ( index -- flag ) dup 0>= swap lf-arena-count @ < and ;
+: lf-node-valid? ( index -- flag )
+  lf-arena-count-valid? 0= if drop false exit then
+  dup 0< 0= swap lf-arena-count @ < and ;
 
 \ Allocate an atom with an opaque single-cell payload.
 \ Returns index and true, or false when full; failure leaves count unchanged.
 : lf-node-atom ( payload -- index true | false )
+  lf-arena-count-valid? 0= if drop false exit then
   lf-arena-count @ lf-arena-capacity >= if drop false exit then
   lf-arena-count @ lf-node-address
   1 over ! cell+ !

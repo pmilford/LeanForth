@@ -1,0 +1,48 @@
+\ Runtime examples for the ordinary host-cell clamp; not a formal proof.
+\ Include normal, boundary, negative and invalid-precondition cases.
+include ../support/tester.fs
+include ../../src/program/clamp.fs
+
+T{ -1 0 10 lf-clamp -> 0 true }T
+T{ 0 0 10 lf-clamp -> 0 true }T
+T{ 4 0 10 lf-clamp -> 4 true }T
+T{ 10 0 10 lf-clamp -> 10 true }T
+T{ 11 0 10 lf-clamp -> 10 true }T
+T{ -20 -10 -5 lf-clamp -> -10 true }T
+T{ -7 -10 -5 lf-clamp -> -7 true }T
+T{ -1 -10 -5 lf-clamp -> -5 true }T
+T{ -1 3 3 lf-clamp -> 3 true }T
+T{ 3 3 3 lf-clamp -> 3 true }T
+T{ 5 3 3 lf-clamp -> 3 true }T
+T{ 5 10 0 lf-clamp -> false }T
+
+\ Independently check every input and bound in [-3, 3], including reversed
+\ intervals. This finite regression test does not replace a universal proof.
+variable test-lower
+variable test-upper
+variable test-value
+
+\ Check the current triple against a conditional reference specification.
+: check-clamp-triple ( -- )
+  test-value @ test-lower @ test-upper @ lf-clamp
+  test-lower @ test-upper @ > if
+    if -1 throw then
+    exit
+  then
+  0= if -1 throw then
+  test-value @ test-lower @ < if
+    test-lower @
+  else
+    test-value @ test-upper @ > if test-upper @ else test-value @ then
+  then
+  <> if -1 throw then ;
+
+\ Evaluate 343 triples; every result or invalid-input status must agree.
+: check-clamp-small-domain ( -- )
+  4 -3 do i test-lower !
+    4 -3 do i test-upper !
+      4 -3 do i test-value ! check-clamp-triple loop
+    loop
+  loop ;
+check-clamp-small-domain
+bye

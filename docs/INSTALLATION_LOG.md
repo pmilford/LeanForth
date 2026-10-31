@@ -32,3 +32,80 @@ claiming it works for others. Do not require GitHub authentication for local use
 - The same pinned Lean reference command also passed identity and binder cases
   and a separate Lean integer-clamp proof experiment. These do not check a
   LeanForth program or a LeanForth kernel.
+- `ELAN_HOME="$PWD/.tools/elan" make reference-export LEAN="$PWD/.tools/elan/bin/lean"`
+  rebuilt the composition theorem and matched its bundled `leanexport` 3.1.0
+  output with `tests/reference/composition.ndjson` (SHA-256
+  `7778d2ef5da2f0935fb0180c953afa9371843f4ceec2660122f8c792b9ca2fec`).
+  The fixture was not independently checked. `lake help check` states that its
+  normal checking mode requires `bwrap`, which is missing on this host; sandbox
+  checks have not been bypassed.
+- The reference suite additionally checks concrete universe classification,
+  beta conversion and rejection of an incorrect clamp example. Command:
+  `ELAN_HOME="$PWD/.tools/elan" make reference LEAN="$PWD/.tools/elan/bin/lean"`.
+- `tests/reference/core-oracle.lean` constructs Lean core expressions directly
+  and calls `Lean.Kernel.check` and `Lean.Kernel.isDefEq` on identity, wrong
+  binder, invalid application, loose variable, sorts and beta conversion. The
+  reference and export scripts require the exact pinned Lean revision. These
+  oracle cases do not yet compare against a LeanForth implementation.
+- Extended `tests/reference/core-oracle.lean` with direct kernel examples for
+  impredicative and data Pi universes, beta substitution below a binder,
+  function eta, proof irrelevance, and variables outside binder scope. The
+  pinned Lean kernel accepted and rejected the cases as specified. These are
+  oracle cases only and include features outside the proposed first fragment.
+- `tests/reference/substitution-oracle.lean` checked pinned Lean expression
+  operations on open terms, including cutoff handling, binder-domain traversal,
+  capture avoidance and removal of an outer binder. These are not closed proof
+  acceptance tests or LeanForth implementation tests.
+- `tests/reference/transform-model.lean`, run through `make reference`,
+  compared an untrusted Lean model of the draft shift and substitution rules
+  with Lean 4.35.0 expression operations on 155 generated expressions: 2,480
+  shift configurations and 8,525 instantiations. These finite tests do not
+  prove the algorithm sound, cover Forth overflow, or constitute kernel review.
+- `tests/reference/type-model.lean` ran with pinned Lean 4.35.0. For 105
+  generated expressions, the untrusted model and Lean's kernel inferred
+  definitionally equal types for 26 and both failed to produce types for 79;
+  none was model-inconclusive in that corpus. Separate identity, composition,
+  unsupported, resource and eta-incompleteness cases also passed. The model
+  uses Lean's instantiation operation and is not a LeanForth proof checker.
+- `make smoke test-harness test-core` passed locally with Gforth 1.0.0 after
+  adding structural sort, variable, application, lambda and Pi storage tests.
+  The structural tests do not check Lean typing or validate imported terms.
+- Downloaded Ubuntu 24.04 packages `gforth`, `gforth-lib` and `gforth-common`
+  version `0.7.3+dfsg-9build4.1` with `apt-get download` into `/tmp` and
+  extracted them using `dpkg-deb -x` without installing. The older tester lacks
+  `#ERRORS`; the test adapter uses `ERROR-XT` to throw on the first failure.
+  `GFORTHPATH=.:/tmp/leanforth-gforth073/usr/share/gforth/0.7.3:/tmp/leanforth-gforth073/usr/lib/x86_64-linux-gnu/gforth/0.7.3 make smoke test-harness test-core GFORTH=/tmp/leanforth-gforth073/usr/bin/gforth-0.7.3`
+  passed, including intentional assertion failures. CI has been updated to run
+  these targets but the new workflow has not yet run remotely.
+- `make test-program` passed on local Gforth 1.0.0 and on the extracted Ubuntu
+  0.7.3 host. It checks sample cases and all 343 combinations of value and
+  bounds from -3 through 3, including reversed bounds. It is not a proof.
+- `ELAN_HOME="$PWD/.tools/elan" make test-program-differential LEAN="$PWD/.tools/elan/bin/lean"`
+  compared 343 Lean and Gforth 1.0 clamp rows successfully. The same target
+  passed on the extracted Gforth 0.7.3 host with `GFORTHPATH` and `GFORTH` as
+  above. Running it with `GFORTH=false` exited nonzero, as expected. These are
+  finite runtime comparisons and do not verify the host or implementation.
+- `make test-core` passed on both local Gforth 1.0.0 and extracted Ubuntu Gforth
+  0.7.3 after adding the untrusted scope traversal. Tests include invalid
+  binders, deliberately corrupted nodes, forward/self references, and a shared
+  DAG at its exact node-visit budget. This is not a Lean type checker.
+- `ELAN_HOME="$PWD/.tools/elan" make test-scope-differential LEAN="$PWD/.tools/elan/bin/lean"`
+  compared 64 structural cases to Lean's `Expr.hasLooseBVars` successfully
+  using Gforth 1.0.0. The same comparison passed on extracted Ubuntu Gforth
+  0.7.3 with the `GFORTHPATH` and `GFORTH` values above; `GFORTH=false` exited
+  nonzero. These comparisons check scope only, not proof or type acceptance.
+- `make test-core` passed on Gforth 1.0.0 and extracted Ubuntu Gforth 0.7.3
+  after adding the experimental shift implementation and its negative/resource
+  tests. `make test-shift-differential` with the pinned Lean toolchain compared
+  80 shifts successfully on both hosts. This is finite differential evidence,
+  not a proof or authorization for trusted kernel use.
+- `make test-core` passed on both Gforth versions after adding experimental
+  single-binder instantiation. `make test-shift-differential` and
+  `make test-instantiate-differential` passed on both hosts against the pinned
+  Lean revision, covering 80 and 25 cases respectively. Tests include resource
+  exhaustion, malformed input and allocation-count rollback. No trusted
+  substitution implementation or proof of correctness is claimed.
+- `make test-core` passed on Gforth 1.0.0 and extracted Ubuntu Gforth 0.7.3
+  after adding the untrusted weak-head beta prototype. Its basic cases and
+  failure paths passed; direct differential testing of beta reduction against
+  Lean has not yet been performed.

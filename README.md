@@ -22,20 +22,42 @@ elan installation, use:
 
 ```bash
 ELAN_HOME="$PWD/.tools/elan" make reference LEAN="$PWD/.tools/elan/bin/lean"
+ELAN_HOME="$PWD/.tools/elan" make reference-export LEAN="$PWD/.tools/elan/bin/lean"
+ELAN_HOME="$PWD/.tools/elan" make test-scope-differential LEAN="$PWD/.tools/elan/bin/lean"
+ELAN_HOME="$PWD/.tools/elan" make test-shift-differential LEAN="$PWD/.tools/elan/bin/lean"
+ELAN_HOME="$PWD/.tools/elan" make test-instantiate-differential LEAN="$PWD/.tools/elan/bin/lean"
+ELAN_HOME="$PWD/.tools/elan" make test-program-differential LEAN="$PWD/.tools/elan/bin/lean"
 ```
 
 These tests check Lean itself; they do not test a LeanForth kernel. The draft
 [core ADR](docs/adr/0001-core-fragment.md) and [program example](docs/PROGRAM_EXAMPLE.md)
 require human review before implementation.
+The export check recompiles the composition theorem, uses the `leanexport`
+bundled with Lean 4.35.0, and compares its output byte-for-byte with the checked-in
+NDJSON fixture. It is not an independent proof check or an importer test.
 See [starting the kernel](docs/KERNEL_START.md) for the remaining prerequisites.
 
 `make test-harness` evaluates Gforth's bundled test harness with a passing
 test and intentional wrong-value and wrong-stack-depth failures. It currently
-requires a Gforth installation containing `test/ttester.fs`; it has only been
-tested locally with Gforth 1.0. See [the testing strategy](docs/TESTING_STRATEGY.md).
-`make test-core` tests an experimental bounded structural arena; it does not
-check Lean terms or proofs. Its limits are in [the prototype notes](docs/ARENA_PROTOTYPE.md).
+requires a Gforth installation containing `test/ttester.fs`; it has been tested
+locally with Gforth 1.0 and Ubuntu's Gforth 0.7.3. See
+[the testing strategy](docs/TESTING_STRATEGY.md).
+`make test-core` tests experimental bounded storage for a subset of Lean term
+syntax; it does not check scope, types or proofs. Its limits are in
+[the prototype notes](docs/ARENA_PROTOTYPE.md). An untrusted structural scope
+experiment is included in the same tests; it cannot authorize a theorem.
+The scope differential target compares 64 bounded expression shapes with Lean's
+loose-variable analysis; it does not compare type checking or theorem validity.
+The shift differential target compares an untrusted Forth shift experiment with
+Lean on 80 cases; neither target establishes proof-checker correctness.
+The instantiation differential target compares an untrusted substitution
+experiment with Lean on 25 cases; it likewise establishes no theorem validity.
+`make test-program` tests a host Forth clamp against sample cases and a small
+finite input domain; it is not a proof of the program or its runtime.
+The differential target additionally compares those bounded results against
+the Lean integer model; it does not establish Forth program correctness.
 
-GitHub CI passed for the initial commit. Its Ubuntu job uses the distribution Gforth package
-as an additional host smoke check; pinned Gforth 1.0 CI remains to be set up.
+GitHub CI passed for the initial commit. The updated Ubuntu job uses the
+distribution Gforth package for smoke, harness, core and program tests; this updated job
+has not yet run remotely. Pinned Gforth 1.0 CI remains to be set up.
 The project code is MIT licensed; Gforth is a separately licensed dependency.

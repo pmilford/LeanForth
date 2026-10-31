@@ -5,6 +5,12 @@ not a complete set of rules. A human has read the overview; a technical review
 of the exact rules and trust boundary is still required before implementing
 kernel semantics, as specified in `AGENTS.md`.
 
+The first candidate rules are in `docs/adr/0002-core-rules.md`; a conservative
+conversion algorithm is proposed in `docs/adr/0003-conversion.md`. Both remain
+drafts, including their binder-manipulation algorithms, for human review.
+The Lean reference tests do not establish compatibility of LeanForth itself.
+The plain-language checklist and review scope are in `docs/KERNEL_REVIEW.md`.
+
 ## What must be decided
 
 1. **What inputs mean.** Define the precise expression forms, variable binding,

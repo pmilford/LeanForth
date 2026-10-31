@@ -9,6 +9,21 @@ toward that target, not a replacement with an incompatible toy logic. Full
 Mathlib compatibility requires substantial staged work; report the exact
 supported corpus and semantics rather than implying completeness.
 
+The implementation sequence is: a minimal Lean-compatible kernel; a Lean
+NDJSON importer; differential testing against pinned Lean checker cases and
+eventually the official corpus; a Forth-native term-building vocabulary;
+metavariables, unification and elaboration; then tactics and rewriting as
+untrusted Forth. Implement verified-program execution and compilation with
+explicit semantics and runtime boundaries; only investigate acceleration after
+correctness and CPU behavior can be measured. Program-specification design and
+reference experiments proceed alongside the kernel so that this remains a
+first-class product path, without claiming verified execution prematurely.
+
+These stages overlap where useful: importer fixtures and Lean oracle tests can
+be prepared before the kernel exists. Compatibility is established only by
+actual checker agreement over a specified, pinned corpus; early examples cannot
+prove compatibility with all of Lean or Mathlib.
+
 ## Decision gates (before coding)
 
 A. Confirm public project name and default private GitHub repository; license to be proposed after auditing Gforth and native library license interactions (Apache-2.0/MIT are candidates; don't guess compatibility).

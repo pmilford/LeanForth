@@ -15,12 +15,12 @@ unit-test vocabulary instead of inventing a new framework. The installed Gforth
 checked before depending on or distributing it. The bundled file requires its
 copyright notice to remain if redistributed.
 
-The tester counts errors in `#ERRORS`; printing an error alone is insufficient
-for CI. `make test-harness` demonstrated those three cases with the locally
-installed Gforth 1.0.0; other hosts and CI have not been checked. Before wider
-adoption, repeat the checks on each claimed host. Do not rely on a green
-exit code without these failure tests. Capture independent failures without
-leaking test state when practical.
+Printing an error alone is insufficient for CI. The test adapter assigns the
+tester's `ERROR-XT` to print the assertion and throw, so the process fails on
+the first error. `make test-harness` checks a passing test and two deliberate
+failures. This adapter and the core tests pass locally with Gforth 1.0.0 and
+the Ubuntu 24.04 Gforth 0.7.3 package extracted into a temporary directory. The
+updated CI workflow has not yet run. Test other hosts before claiming support.
 
 ## Layers
 

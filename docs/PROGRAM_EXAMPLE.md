@@ -1,9 +1,11 @@
 # Proposed verified program: bounded clamp
 
-Status: specification for review; not implemented or verified.
+Status: specification for review; a host Forth implementation exists and is
+tested, but it is not verified.
 
-The separate Lean oracle `tests/reference/clamp.lean` proves the range and
-in-range properties for an unbounded integer definition using Lean 4.35.0.
+The separate Lean oracle `tests/reference/clamp.lean` proves the range,
+in-range and endpoint properties for an unbounded integer definition using Lean
+4.35.0. A negative example checks that a faulty clamp cannot satisfy its bound.
 It is a reference experiment, not a LeanForth implementation, a proof of a
 Forth program, or evidence that the future importer supports these proofs.
 
@@ -25,5 +27,16 @@ and assumptions.
 The initial mathematical model uses unbounded integers. A Gforth execution
 example must separately state the host cell range, conversion and comparison
 semantics, input representation, and the assumed correctness of the host.
-Sample executions are tests, not proof that compiled code implements the model.
+The ordinary Forth word `lf-clamp` in `src/program/clamp.fs` uses signed host
+cell comparisons; reversed bounds return `false` without a result. Run
+`make test-program` for sample tests. The Lean proofs do not establish the
+behavior of this word or its host. Sample executions are tests, not proof that
+compiled code implements the model.
+
+`make test-program-differential` executes the Lean model and Forth word for
+each of 343 input triples in `[-3, 3]`, including reversed bounds, and compares
+their output tables. It requires pinned Lean and Gforth; see the README for
+local toolchain selection. This provides finite cross-runtime evidence only:
+it does not connect the Lean proof to the Forth source, prove cell arithmetic or
+the compiler, or cover inputs outside that set.
 The program model, proof rules and connection to execution require human review.
