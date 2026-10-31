@@ -8,6 +8,7 @@
 2 constant lf-lscope-exhausted
 create lf-lscope-context lf-level-capacity cells allot
 variable lf-lscope-context-count
+variable lf-lscope-generation
 create lf-lscope-work lf-level-capacity cells allot
 variable lf-lscope-pending
 variable lf-lscope-fuel
@@ -17,25 +18,23 @@ variable lf-lscope-first
 variable lf-lscope-second
 
 \ Clear the context of opaque positive parameter identifiers.
-: lf-lscope-context-reset ( -- ) 0 lf-lscope-context-count ! ;
+: lf-lscope-advance ( -- )
+  lf-lscope-generation @ dup 0< if drop exit then
+  dup -1 1 rshift = if drop -1 else 1+ then lf-lscope-generation ! ;
+
+\ Reset or successfully extend the context, invalidating prior snapshots.
+: lf-lscope-context-reset ( -- ) 0 lf-lscope-context-count ! lf-lscope-advance ;
 
 \ Test context count before using it as an array bound.
 : lf-lscope-count-valid? ( -- flag )
-  lf-lscope-context-count @ dup 0< 0= swap lf-level-capacity <= and ;
+  lf-lscope-context-count @ dup 0< 0= swap lf-level-capacity <= and
+  lf-lscope-generation @ 0< 0= and ;
 
 \ Search a valid context for an opaque identifier; caller must validate count.
 : lf-lscope-member? ( id -- flag )
   lf-lscope-context-count @ 0 ?do
     dup i cells lf-lscope-context + @ = if drop true unloop exit then
   loop drop false ;
-
-\ Add a positive, unique identifier without changing the context on failure.
-: lf-lscope-context-add ( id -- flag )
-  lf-lscope-count-valid? 0= if drop false exit then
-  dup 0<= lf-lscope-context-count @ lf-level-capacity >= or if drop false exit then
-  dup lf-lscope-member? if drop false exit then
-  lf-lscope-context-count @ cells lf-lscope-context + !
-  1 lf-lscope-context-count +! true ;
 
 \ Validate all context slots, including uniqueness, before searching them.
 \ The quadratic work is bounded by 64 entries and is separate from visit fuel.
@@ -49,6 +48,17 @@ variable lf-lscope-second
       then
     loop
   loop true ;
+
+\ Add a positive, unique identifier to a valid context. Failure, including
+\ corrupted existing entries and generation saturation, leaves it unchanged.
+: lf-lscope-context-add ( id -- flag )
+  lf-lscope-context-valid? 0= if drop false exit then
+  lf-lscope-generation @ -1 1 rshift = if drop false exit then
+  dup 0<= lf-lscope-context-count @ lf-level-capacity >= or if drop false exit then
+  dup lf-lscope-member? if drop false exit then
+  lf-lscope-context-count @ cells lf-lscope-context + !
+  1 lf-lscope-context-count +! lf-lscope-advance
+  lf-lscope-count-valid? ;
 
 \ Push one work item, failing if the bounded work stack is full.
 : lf-lscope-push ( index -- flag )
@@ -109,4 +119,5 @@ variable lf-lscope-second
     lf-lscope-visit ?dup if exit then
   repeat lf-lscope-ok ;
 
+0 lf-lscope-generation !
 lf-lscope-context-reset

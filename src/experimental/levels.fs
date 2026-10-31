@@ -13,6 +13,7 @@
 4 constant lf-level-tag-param
 create lf-level-storage lf-level-capacity 3 * cells allot
 variable lf-level-count
+variable lf-level-generation
 
 \ Return a slot address; the caller must ensure the index is in bounds.
 : lf-level-slot ( index -- addr ) 3 * cells lf-level-storage + ;
@@ -20,11 +21,15 @@ variable lf-level-count
 \ Reset to the implicit zero node at index zero, invalidating all old indices.
 : lf-level-reset ( -- )
   0 lf-level-slot dup 0 swap ! dup cell+ 0 swap ! 2 cells + 0 swap !
-  1 lf-level-count ! ;
+  1 lf-level-count !
+  \ Saturation fails closed instead of wrapping and reusing an old generation.
+  lf-level-generation @ dup 0< if drop exit then
+  dup -1 1 rshift = if drop -1 else 1+ then lf-level-generation ! ;
 
 \ Check that the mutable count is in its valid range, including the zero node.
 : lf-level-count-valid? ( -- flag )
-  lf-level-count @ dup 1 >= swap lf-level-capacity <= and ;
+  lf-level-count @ dup 1 >= swap lf-level-capacity <= and
+  lf-level-generation @ 0< 0= and ;
 
 \ Test whether an index is currently allocated. It cannot detect stale indices
 \ reused after reset, or corruption of the node fields themselves.
@@ -72,4 +77,5 @@ variable lf-level-count
   dup lf-level-valid? 0= if drop false exit then
   lf-level-slot dup @ swap cell+ dup @ swap cell+ @ true ;
 
+0 lf-level-generation !
 lf-level-reset

@@ -53,6 +53,8 @@ T{ 2 lf-lscope-context-add -> true }T
 T{ 3 lf-lscope-context-add -> true }T
 2 lf-lscope-context cell+ !
 T{ 0 10 lf-lscope-check -> lf-lscope-invalid }T
+T{ 4 lf-lscope-context-add -> false }T
+T{ lf-lscope-context-count @ -> 2 }T
 0 lf-lscope-context cell+ !
 T{ 0 10 lf-lscope-check -> lf-lscope-invalid }T
 -1 lf-lscope-context-count !

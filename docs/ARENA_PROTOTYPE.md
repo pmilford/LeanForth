@@ -15,8 +15,16 @@ not Lean name equality, and structural success is not a type or proof judgment.
 using bounded fuel; symbolic parameters return unknown. The concrete result is
 not a level equality judgment or theorem. Validation and evaluation share visit
 fuel, while bounded context processing is separate; the global mutable arena
-and bounded host recursion remain assumptions. The 64-node limit makes the
-host-cell overflow guard unreachable through valid constructors today.
+and bounded host recursion remain assumptions. A separate entry point evaluates
+one explicit map of parameter IDs to nonnegative host-cell values; missing
+assignments remain unknown, and evaluation of an instance does not prove a
+polymorphic property. Arena resets and context changes invalidate that map via
+generation snapshots; generation saturation fails closed. These global mutable
+snapshots do not protect against raw memory mutation or establish name identity.
+Assigned maximum-cell successors exercise the overflow
+guard, which was unreachable using concrete constructor chains alone.
+`make test-level-assignment-differential` compares 36 instances of one nested
+symbolic expression with Lean's parameter instantiation and normalization.
 
 `src/core/arena.fs` is a bounded experiment in storing integer-indexed nodes.
 It does not represent Lean expressions, validate terms, check types, issue
