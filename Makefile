@@ -1,7 +1,7 @@
 GFORTH ?= $(if $(wildcard .tools/gforth/bin/gforth),.tools/gforth/bin/gforth,gforth)
 LEAN ?= lean
 
-.PHONY: smoke reference reference-export test-harness test-core test-composition-fixture test-name-differential test-scope-differential test-shift-differential test-instantiate-differential test-beta-differential test-compare-differential test-infer-differential test-declaration-differential test-level-differential test-level-assignment-differential test-level-compare-differential test-poly-specialization-differential test-program test-program-differential test-program-stack-differential
+.PHONY: smoke reference reference-export test-harness test-core test-symbolic-infer-draft test-composition-fixture test-name-differential test-scope-differential test-shift-differential test-instantiate-differential test-beta-differential test-compare-differential test-infer-differential test-declaration-differential test-level-differential test-level-assignment-differential test-level-compare-differential test-poly-specialization-differential test-program test-program-differential test-program-stack-differential
 smoke:
 	$(GFORTH) tests/smoke/smoke.fs
 
@@ -31,6 +31,10 @@ test-core:
 	$(GFORTH) tests/core/infer.fs
 	$(GFORTH) tests/core/declaration-probe.fs
 	$(GFORTH) tests/core/infer-composition-probe.fs
+
+# Explicitly opt in to the unsafe draft; this target does not enable it for use.
+test-symbolic-infer-draft:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/core/symbolic-infer-draft.sh
 
 test-composition-fixture:
 	python3 tests/core/test_composition_fixture.py

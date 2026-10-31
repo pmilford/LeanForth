@@ -28,6 +28,59 @@ T{ 0 0 lf-sinfer -> -1 lf-sinfer-exhausted }T
 T{ lf-term-count @ -> 1 }T
 T{ lf-level-count @ -> 2 }T
 
+\ Pi (A : Sort u), Sort u has a sort whose level is formed from the
+\ inferred domain and body levels. The two successors need not share an ID.
+lf-term-reset lf-level-reset lf-lscope-context-reset
+T{ 42 lf-lscope-context-add -> true }T
+T{ 42 lf-level-param -> 1 true }T
+T{ 1 lf-term-sort -> 0 true }T
+T{ 0 0 lf-term-pi -> 1 true }T
+T{ 1 1000 lf-sinfer -> 4 lf-sinfer-ok }T
+T{ 4 lf-term-read -> lf-tag-sort 4 0 true }T
+T{ 4 lf-level-read -> lf-level-tag-imax 2 3 true }T
+T{ 2 lf-level-read -> lf-level-tag-succ 1 0 true }T
+T{ 3 lf-level-read -> lf-level-tag-succ 1 0 true }T
+
+\ A sort is not a function. The current experiment conservatively reports
+\ unknown; the Lean oracle separately rejects this application outright.
+lf-term-reset lf-level-reset lf-lscope-context-reset
+T{ 42 lf-lscope-context-add -> true }T
+T{ 42 lf-level-param -> 1 true }T
+T{ 1 lf-term-sort -> 0 true }T
+T{ 0 0 lf-term-app -> 1 true }T
+T{ 1 1000 lf-sinfer -> -1 lf-sinfer-unknown }T
+T{ lf-term-count @ -> 2 }T
+T{ lf-level-count @ -> 2 }T
+
+\ Check every small fuel budget independently. In particular, exhaustion
+\ after intermediate allocation must restore both arenas; a successful run
+\ must be possible once enough fuel is supplied. This is not a soundness proof.
+variable fuel-saw-success
+variable fuel-saw-exhaustion
+: symbolic-fuel-regressions ( -- )
+  0 fuel-saw-success ! 0 fuel-saw-exhaustion !
+  100 0 do
+    lf-term-reset lf-level-reset lf-lscope-context-reset
+    42 lf-lscope-context-add 0= abort" context allocation failed"
+    42 lf-level-param 0= abort" parameter allocation failed" drop
+    1 lf-term-sort 0= abort" sort allocation failed" drop
+    0 0 lf-term-pi 0= abort" pi allocation failed" drop
+    1 i lf-sinfer
+    dup lf-sinfer-exhausted = if
+      drop -1 <> abort" exhaustion returned a result"
+      lf-term-count @ 2 <> abort" exhaustion leaked terms"
+      lf-level-count @ 2 <> abort" exhaustion leaked levels"
+      true fuel-saw-exhaustion !
+    else
+      lf-sinfer-ok <> abort" unexpected inference status"
+      lf-term-valid? 0= abort" invalid successful result"
+      true fuel-saw-success !
+    then
+  loop
+  fuel-saw-success @ 0= abort" no successful budget"
+  fuel-saw-exhaustion @ 0= abort" no exhausted budget" ;
+symbolic-fuel-regressions
+
 \ Build the expression DAG of the pinned polymorphic identity export. This
 \ tests inference on its syntax, not declaration import or theorem acceptance.
 : build-symbolic-identity ( -- )

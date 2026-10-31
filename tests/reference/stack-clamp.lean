@@ -76,7 +76,20 @@ theorem clampCode_bounds (lower upper value : Int) (tail rs : List Int)
   · unfold clampSpec
     split <;> (try split) <;> omega
 
--- Underflow is a failure, not a successful execution.
+-- Fewer than three data cells always underflow, irrespective of their values
+-- and of the existing return stack. This is a property of this model: an
+-- actual Forth host need not detect stack underflow or fail in the same way.
+theorem clampCode_underflow (data rs : List Int) (short : data.length < 3) :
+    execute clampCode ⟨data, rs⟩ = none := by
+  rcases data with _ | ⟨a, _ | ⟨b, _ | ⟨c, rest⟩⟩⟩
+  · rfl
+  · rfl
+  · simp only [clampCode, execute, step, Option.bind_some]
+    split <;> rfl
+  · simp only [List.length_cons] at short
+    omega
+
+-- Concrete examples exercise both outcomes of the initial comparison.
 example : execute clampCode ⟨[1, 2], []⟩ = none := by decide
 example : execute clampCode ⟨[2, 1], []⟩ = none := by decide
 example : execute (.branch (.op (.push 9) .done) (.op (.push 4) .done))

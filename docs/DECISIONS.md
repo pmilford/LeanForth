@@ -48,3 +48,5 @@ cannot be represented by concrete levels alone. Alternatives such as treating
 parameters as arbitrary concrete numbers or adding them as axioms are rejected:
 neither checks a polymorphic declaration. Name resolution, equality, immutable
 storage and the typing interaction remain open and require human review.
+ADR 0005 proposes distinct concrete/symbolic Sort representations, complete
+consumer validation and generation-bound lifetimes; it is not approved.

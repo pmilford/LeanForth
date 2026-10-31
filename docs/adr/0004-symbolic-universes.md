@@ -32,8 +32,10 @@ implicit zero at index zero and opaque positive numeric parameter identifiers.
 Its constructors check basic bounds and backward references; they do not
 establish name identity, parameter binding, well-formedness after raw mutation,
 level equivalence or typing. Reset invalidates handles, storage is mutable and
-host-specific, and no serialized format or trusted API is defined. It is not
-connected to expression `Sort` nodes, inference or the declaration probe.
+host-specific, and no serialized format or trusted API is defined. An excluded
+unsafe draft connects levels to inference using the same Sort tag as concrete
+levels; ADR 0005 proposes a boundary to resolve that ambiguity. It is not
+connected to the declaration probe.
 The prototype uses `2drop` and `0<=` in addition to basic Forth words; these
 host requirements must be accounted for when targeting another Forth system.
 `src/experimental/level-scope.fs` experiments with bounded shape and parameter
