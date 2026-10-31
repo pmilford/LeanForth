@@ -14,4 +14,6 @@ not protect against raw changes that create duplicate names, in-range count
 corruption or stale IDs. The follow-up review also noted that the fixture
 transport is one-byte and test-only, and its map is not yet connected to the
 universe or declaration checker. Nested alias regression tests were added after
-that review. This is AI feedback, not human approval for trusted use.
+that review. A later test-only integration maps those IDs into an experimental
+level context; it does not create a trusted declaration. This is AI feedback,
+not human approval for trusted use.

@@ -28,7 +28,8 @@ and nonnegative host-cell numeric components. It interns equivalent components
 under the same prefix and checks basic storage bounds before reading strings.
 It does not validate UTF-8, protect raw memory, authenticate stale IDs or prove
 canonical uniqueness after corruption. Caller-supplied input addresses must be
-readable; output IDs are not connected to declarations or level checking.
+readable. A test-only stream maps interned IDs into an experimental level
+context; the IDs are not connected to trusted declaration or level checking.
 `make test-name-differential` compares nine hand-selected cases with Lean
 4.35.0; this is finite evidence, not proof of general name compatibility.
 
