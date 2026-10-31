@@ -49,6 +49,44 @@ T{ 5 lf-term-read -> lf-tag-bvar 1 0 true }T
 T{ 6 lf-term-read -> lf-tag-pi 1 5 true }T
 T{ 7 lf-term-read -> lf-tag-pi 0 6 true }T
 
+\ Repeated successful checks allocate additional nodes. Earlier result indices
+\ must remain readable until reset; exhaustion must restore the prior count and
+\ must not corrupt either the original term or a previously returned type.
+variable first-inferred-type
+variable last-infer-count
+variable successful-inferences
+lf-term-reset
+T{ 0 lf-term-sort -> 0 true }T
+T{ 0 lf-term-bvar -> 1 true }T
+T{ 1 1 lf-term-lam -> 2 true }T
+T{ 0 2 lf-term-lam -> 3 true }T
+T{ 3 2000 lf-infer -> 7 lf-infer-ok }T
+7 first-inferred-type !
+1 successful-inferences !
+: exhaust-repeated-inference ( -- )
+  lf-term-capacity 0 do
+    lf-term-count @ last-infer-count !
+    3 2000 lf-infer
+    dup lf-infer-ok = if
+      2drop 1 successful-inferences +!
+      lf-term-count @ last-infer-count @ <= if -1 throw then
+    else
+      lf-infer-exhausted <> if -1 throw then
+      -1 <> if -1 throw then
+      lf-term-count @ last-infer-count @ <> if -1 throw then
+      unloop exit
+    then
+  loop
+  -1 throw ;
+exhaust-repeated-inference
+T{ successful-inferences @ 1 > -> true }T
+T{ 3 lf-term-read -> lf-tag-lam 0 2 true }T
+T{ first-inferred-type @ lf-term-read -> lf-tag-pi 0 6 true }T
+T{ 6 lf-term-read -> lf-tag-pi 1 5 true }T
+T{ 5 lf-term-read -> lf-tag-bvar 1 0 true }T
+T{ 3 2000 lf-infer -> -1 lf-infer-exhausted }T
+T{ lf-term-count @ last-infer-count @ = -> true }T
+
 \ Every insufficient visit budget must fail closed and leave the input arena
 \ intact. Successful experimental results are discarded before the next case.
 lf-term-reset

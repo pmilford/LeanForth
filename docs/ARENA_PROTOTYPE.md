@@ -100,6 +100,9 @@ Lean kernel and checks six Lean-rejected cases for invalid or unknown results.
 Successful inference retains intermediate arena allocations, so repeated checks
 can exhaust the 64-node arena. Ownership, reclamation, and preservation of
 indices need a reviewed design before this can support trusted checking.
+The core tests repeatedly infer an identity term until exhaustion, checking that
+failure restores the preceding count and that an earlier result remains readable.
+These checks assume callers do not mutate the arena or reset it between calls.
 
 `src/experimental/beta.fs` prototypes weak-head beta reduction using the
 experimental instantiation and shift modules. It validates input structure,
