@@ -41,6 +41,13 @@ ID checks; it does not provide structured-name identity or an immutable context.
 `src/experimental/level-value.fs` evaluates concrete graphs only; symbolic
 graphs return unknown unless its separate instance evaluator receives explicit
 numeric assignments. An instance is not a polymorphic equality judgment.
+`src/experimental/level-compare.fs` explores a conservative equality rule:
+after checking both graphs, identical syntax under one ID-to-name mapping may
+match; otherwise two unassigned, concrete evaluations may match if their values
+are equal. All other cases are unknown. No finite assignment sampling may
+authorize symbolic equality. This is a proposal and untrusted diagnostic, not a
+reviewed kernel conversion rule. The mapping from opaque IDs to Lean names,
+context ownership and its interaction with typing remain unresolved.
 An independent AI review of this later scope experiment was requested but did
 not complete because the reviewer hit its usage limit. No review or approval
 of that experiment should be inferred from the earlier level-arena review.

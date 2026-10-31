@@ -25,6 +25,11 @@ Assigned maximum-cell successors exercise the overflow
 guard, which was unreachable using concrete constructor chains alone.
 `make test-level-assignment-differential` compares 36 instances of one nested
 symbolic expression with Lean's parameter instantiation and normalization.
+`src/experimental/level-compare.fs` compares scoped level graphs structurally
+and falls back to unassigned concrete evaluation; it reports unknown for many
+Lean equalities. Equal is an untrusted diagnostic dependent on stable opaque ID
+identity, not a theorem or type judgment. `make test-level-compare-differential`
+compares eight selected cases with Lean, including deliberate unknowns.
 
 `src/core/arena.fs` is a bounded experiment in storing integer-indexed nodes.
 It does not represent Lean expressions, validate terms, check types, issue
