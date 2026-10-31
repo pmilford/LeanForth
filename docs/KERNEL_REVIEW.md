@@ -60,23 +60,29 @@ record. The owner's acknowledgement is recorded in
 - An untrusted Lean inference model compares its results with Lean's kernel on
   a small generated corpus and identity/composition terms. It uses Lean's own
   instantiation operation and is not a Forth implementation or a soundness proof.
-- Forth tests cover experimental storage and scope traversal, including invalid
-  nodes and budgets. No current Forth component accepts or rejects theorems.
+- Forth tests cover experimental storage, scope traversal and incomplete type
+  inference, including invalid nodes and budgets. A composition-shaped term's
+  inferred type matches its manually constructed claim in the experiment; no
+  current Forth component accepts or rejects theorems.
+- A separate finite differential test compares seven inferred types and six
+  rejected expressions with the pinned Lean kernel. This evidence does not
+  resolve the mutable arena or conversion soundness obligations.
 - The Lean NDJSON composition fixture reproduces byte-for-byte. It has not been
   imported or checked by LeanForth.
 
 From the repository root, with this machine's pinned tools, run:
 
 ```sh
-make smoke test-harness test-core test-program
+make smoke test-harness test-core test-composition-fixture test-program
 ELAN_HOME="$PWD/.tools/elan" make reference reference-export LEAN="$PWD/.tools/elan/bin/lean"
 ELAN_HOME="$PWD/.tools/elan" make test-scope-differential test-program-differential LEAN="$PWD/.tools/elan/bin/lean"
+ELAN_HOME="$PWD/.tools/elan" make test-infer-differential LEAN="$PWD/.tools/elan/bin/lean"
 ```
 
 These commands require the tools and permissions described in the setup docs.
 They must not be represented as a LeanForth kernel acceptance test. The two ADRs
-and this packet are currently uncommitted; a reviewer should inspect the exact
-worktree or a specific future revision, not assume `main` contains them.
+and this packet must be reviewed at a specific revision; the owner's prior
+acknowledgement does not approve subsequent implementation changes.
 
 ## Independent review
 

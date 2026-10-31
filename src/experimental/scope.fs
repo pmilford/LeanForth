@@ -3,7 +3,7 @@
 \ Success does not mean a term is well typed, a proof is valid, or a Lean
 \ declaration can be accepted. This module is not part of a trusted kernel.
 \ Storage and traversal scratch space are global and not reentrant or thread-safe.
-include ../core/terms.fs
+\ The caller must load the term module before including this traversal.
 
 0 constant lf-scope-ok
 1 constant lf-scope-invalid

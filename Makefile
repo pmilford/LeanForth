@@ -1,7 +1,7 @@
 GFORTH ?= $(if $(wildcard .tools/gforth/bin/gforth),.tools/gforth/bin/gforth,gforth)
 LEAN ?= lean
 
-.PHONY: smoke reference reference-export test-harness test-core test-scope-differential test-shift-differential test-instantiate-differential test-beta-differential test-compare-differential test-program test-program-differential
+.PHONY: smoke reference reference-export test-harness test-core test-composition-fixture test-scope-differential test-shift-differential test-instantiate-differential test-beta-differential test-compare-differential test-infer-differential test-program test-program-differential
 smoke:
 	$(GFORTH) tests/smoke/smoke.fs
 
@@ -22,6 +22,12 @@ test-core:
 	$(GFORTH) tests/core/instantiate.fs
 	$(GFORTH) tests/core/beta.fs
 	$(GFORTH) tests/core/compare.fs
+	$(GFORTH) tests/core/infer.fs
+	$(GFORTH) tests/core/infer-composition-probe.fs
+
+test-composition-fixture:
+	python3 tests/core/test_composition_fixture.py
+	GFORTH=$(GFORTH) python3 tests/core/check_composition_fixture.py
 
 test-scope-differential:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/core/scope-differential.sh
@@ -37,6 +43,9 @@ test-beta-differential:
 
 test-compare-differential:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/core/compare-differential.sh
+
+test-infer-differential:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/core/infer-differential.sh
 
 test-program:
 	$(GFORTH) tests/program/clamp.fs

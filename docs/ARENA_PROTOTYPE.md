@@ -80,6 +80,27 @@ invalid source and replacement nodes, allocation failure, fuel exhaustion and
 rollback. This finite evidence does not constitute a soundness proof or human
 review for trusted kernel use.
 
+`src/experimental/infer.fs` combines the untrusted transformations and
+comparison to experiment with type inference for concrete sorts, bound
+variables, Pi, lambda and application. Its results are mutable arena indices,
+not checked theorem handles. It assumes global, single-threaded host state and
+bounded host recursion; it is not a reviewed trusted kernel or a declaration
+checker. Unknown comparisons, malformed nodes and exhausted resources do not
+produce successful inference. The full Lean/Mathlib feature set is unsupported.
+
+The local Forth suite tests identity, universe cases, invalid inputs and a
+manually constructed composition DAG. `make test-composition-fixture` uses a
+test-only Python inspector to compare its 21 node records with the pinned Lean
+NDJSON fixture. This inspector is not a general importer, does not register
+declarations and cannot confer theorem validity. A separate human review is
+required before these experiments can be used in a trusted kernel.
+
+`make test-infer-differential` compares seven inferred types with the pinned
+Lean kernel and checks six Lean-rejected cases for invalid or unknown results.
+Successful inference retains intermediate arena allocations, so repeated checks
+can exhaust the 64-node arena. Ownership, reclamation, and preservation of
+indices need a reviewed design before this can support trusted checking.
+
 `src/experimental/beta.fs` prototypes weak-head beta reduction using the
 experimental instantiation and shift modules. It validates input structure,
 tracks a finite visit budget and rolls back allocation count on failure. Its

@@ -111,6 +111,11 @@ claiming it works for others. Do not require GitHub authentication for local use
   15 closed cases against pinned Lean's kernel weak-head normalization on both
   Gforth versions. A nonterminating untyped term exhausts the prototype's
   resources and restores the arena count in the regression suite.
+- `make test-core test-composition-fixture` passed on Gforth 1.0.0 and the
+  extracted Ubuntu Gforth 0.7.3 host. The incomplete inference experiment
+  infers a matching type for a manually built composition DAG; the test-only
+  Python inspector matched its 21 node records to the pinned Lean fixture and
+  passed nine positive and malformed-input tests. No theorem was registered.
 - `make test-core` passed locally on Gforth 1.0.0 with the experimental
   comparison and its budget/rollback cases. `make test-compare-differential`
   passed on Gforth 1.0.0 and extracted Ubuntu Gforth 0.7.3 against pinned Lean

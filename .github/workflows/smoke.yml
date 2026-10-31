@@ -12,4 +12,4 @@ jobs:
       - name: Report host version
         run: gforth --version
       - name: Run Forth tests
-        run: make smoke test-harness test-core test-program
+        run: make smoke test-harness test-core test-composition-fixture test-program

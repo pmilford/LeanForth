@@ -1,6 +1,7 @@
 \ Structural-scope regression tests for the untrusted prototype. These cases
 \ inspect syntax and budget behavior; they do not test theorem acceptance.
 include ../support/tester.fs
+include ../../src/core/terms.fs
 include ../../src/experimental/scope.fs
 
 lf-term-reset

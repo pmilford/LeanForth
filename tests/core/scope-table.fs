@@ -1,5 +1,6 @@
 \ Emit scope statuses for the same structurally constructed cases as the Lean
 \ reference. These are syntax-closure observations, not theorem judgments.
+include ../../src/core/terms.fs
 include ../../src/experimental/scope.fs
 decimal
 

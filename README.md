@@ -28,10 +28,12 @@ ELAN_HOME="$PWD/.tools/elan" make test-shift-differential LEAN="$PWD/.tools/elan
 ELAN_HOME="$PWD/.tools/elan" make test-instantiate-differential LEAN="$PWD/.tools/elan/bin/lean"
 ELAN_HOME="$PWD/.tools/elan" make test-beta-differential LEAN="$PWD/.tools/elan/bin/lean"
 ELAN_HOME="$PWD/.tools/elan" make test-compare-differential LEAN="$PWD/.tools/elan/bin/lean"
+ELAN_HOME="$PWD/.tools/elan" make test-infer-differential LEAN="$PWD/.tools/elan/bin/lean"
 ELAN_HOME="$PWD/.tools/elan" make test-program-differential LEAN="$PWD/.tools/elan/bin/lean"
 ```
 
-These tests check Lean itself; they do not test a LeanForth kernel. The draft
+These tests exercise Lean and untrusted Forth experiments; they do not test a
+LeanForth theorem-checking kernel. The draft
 [core ADR](docs/adr/0001-core-fragment.md) and [program example](docs/PROGRAM_EXAMPLE.md)
 require human review before implementation.
 The export check recompiles the composition theorem, uses the `leanexport`
@@ -44,10 +46,13 @@ test and intentional wrong-value and wrong-stack-depth failures. It currently
 requires a Gforth installation containing `test/ttester.fs`; it has been tested
 locally with Gforth 1.0 and Ubuntu's Gforth 0.7.3. See
 [the testing strategy](docs/TESTING_STRATEGY.md).
-`make test-core` tests experimental bounded storage for a subset of Lean term
-syntax; it does not check scope, types or proofs. Its limits are in
-[the prototype notes](docs/ARENA_PROTOTYPE.md). An untrusted structural scope
-experiment is included in the same tests; it cannot authorize a theorem.
+`make test-core` tests experimental term storage, structural scope and partial
+type inference. These untrusted prototypes cannot authorize a theorem; inferred
+indices are mutable data, not checked theorem handles. Their limits are in
+[the prototype notes](docs/ARENA_PROTOTYPE.md).
+`make test-composition-fixture` compares a manually built Forth DAG with 21
+expression records in a pinned Lean export. It uses Python 3 for this test-only
+inspection; it is not a general importer or proof checker.
 The scope differential target compares 64 bounded expression shapes with Lean's
 loose-variable analysis; it does not compare type checking or theorem validity.
 The shift differential target compares an untrusted Forth shift experiment with
@@ -58,6 +63,8 @@ The beta differential target compares untrusted weak-head reduction with the
 Lean kernel on 15 closed cases, without verifying the implementation.
 The comparison differential target checks six closed cases and preserves an
 explicit unknown result for a Lean equality outside its conservative fragment.
+The inference differential target compares seven inferred types with Lean and
+checks that six Lean-rejected inputs do not succeed in the Forth experiment.
 `make test-program` tests a host Forth clamp against sample cases and a small
 finite input domain; it is not a proof of the program or its runtime.
 The differential target additionally compares those bounded results against
