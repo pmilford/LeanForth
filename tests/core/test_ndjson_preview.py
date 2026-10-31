@@ -220,6 +220,33 @@ class PreviewTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             encode_concrete(result)  # The symbolic graph is still present.
 
+    def test_symbolic_universe_graph_stages_in_forth(self):
+        raw = Path("tests/reference/poly-identity.ndjson").read_text().splitlines()
+        position = next(i for i, line in enumerate(raw) if '"ie":0' in line)
+        raw[position:position] = [
+            '{"il":2,"succ":1}', '{"il":3,"max":[0,2]}',
+            '{"il":4,"imax":[3,1]}',
+        ]
+        result = self.parse(raw)
+        expected = [(0, 0, 0, 0), (1, 4, 2, 0), (2, 1, 1, 0),
+                    (3, 2, 0, 2), (4, 3, 3, 1)]
+        graph = result["levelExpressions"]
+        tags = {"zero": 0, "succ": 1, "max": 2, "imax": 3, "param": 4}
+        rows = []
+        for index, node in enumerate(graph):
+            tag = node["tag"]
+            first = node.get("of", node.get("name", node.get("left", 0)))
+            rows.append((index, tags[tag], first, node.get("right", 0)))
+        self.assertEqual(rows, expected)
+        stream = bytes([len(rows)] + [value for row in rows for value in row])
+        command = [os.environ.get("GFORTH", "gforth"), "tests/core/level-fixture-stream.fs"]
+        output = subprocess.run(command, input=stream, capture_output=True, check=True).stdout
+        self.assertEqual([tuple(map(int, line.split())) for line in output.splitlines()], expected)
+        for bad in (stream[:-1], stream + b"\x00", bytes((1, 0, 4, 2, 0))):
+            result = subprocess.run(command, input=bad, capture_output=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout.strip(), b"")
+
     def test_concrete_transport_rejects_inconsistent_sort_level(self):
         result = preview(io.BytesIO(Path("tests/reference/type-identity.ndjson").read_bytes()))
         result["expressions"][0]["level"] = 0

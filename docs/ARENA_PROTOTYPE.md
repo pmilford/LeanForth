@@ -1,5 +1,11 @@
 # Structural arena prototype
 
+`src/experimental/levels.fs` separately stores symbolic universe syntax:
+zero, successor, max, imax and opaque parameter identifiers. Constructors
+check basic allocation and backward references but do not check parameter scope,
+level equality or types, and the arena is not connected to the term checker.
+See the unapproved symbolic-universe proposal in `docs/adr/0004-symbolic-universes.md`.
+
 `src/core/arena.fs` is a bounded experiment in storing integer-indexed nodes.
 It does not represent Lean expressions, validate terms, check types, issue
 theorem handles or establish mathematical truth. It is not a kernel API.

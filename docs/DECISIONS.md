@@ -40,3 +40,11 @@ needed first to validate the core typing rules.
 5. Design versioned API schemas and explicit proof-step provenance.
 6. Evaluate the bundled Forth tester with deliberate failures and establish the
    unit, interface, functional and regression layers in `docs/TESTING_STRATEGY.md`.
+
+## Symbolic universes — proposed, not trusted
+
+ADR 0004 proposes symbolic universe DAGs because Lean's polymorphic library
+cannot be represented by concrete levels alone. Alternatives such as treating
+parameters as arbitrary concrete numbers or adding them as axioms are rejected:
+neither checks a polymorphic declaration. Name resolution, equality, immutable
+storage and the typing interaction remain open and require human review.
