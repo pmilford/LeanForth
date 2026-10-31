@@ -57,3 +57,7 @@ this is not a production serialization. An older, composition-specific test
 still uses one-byte fields.
 Altered values return non-success, and truncated or extended streams
 fail. These examples do not demonstrate general Lean or Mathlib compatibility.
+The polymorphic fixture's universe graph and parameter ID also reach an
+experimental Forth structural scope check in a separate test-only byte stream.
+That check uses opaque IDs and does not resolve structured Lean names or check
+the polymorphic theorem.

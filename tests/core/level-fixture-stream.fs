@@ -1,7 +1,8 @@
 \ Test-only byte stream for staging a small symbolic level DAG from preview.
 \ Bytes are data, never executable Forth. This is not a public serialization,
-\ importer, scope checker, level equality algorithm or theorem interface.
+\ importer, trusted scope checker, level equality algorithm or theorem interface.
 include ../../src/experimental/levels.fs
+include ../../src/experimental/level-scope.fs
 decimal
 create level-stream-byte 1 allot
 variable level-stream-count
@@ -41,11 +42,15 @@ variable level-stream-second
   0= if -1 throw then
   level-stream-index @ <> if -1 throw then ;
 
-\ Stage and print exactly the supplied table after validating the full stream.
+\ Read a byte-sized context, stage the table, then structurally check its last
+\ root. Context IDs are opaque, not verified Lean names. No partial table is
+\ printed if the stream or check fails.
 : level-stream-run ( -- )
-  lf-level-reset
+  lf-level-reset lf-lscope-context-reset
   level-stream-byte@ dup 1 < over lf-level-capacity > or if drop -1 throw then
   level-stream-count !
+  level-stream-byte@ dup lf-level-capacity > if drop -1 throw then
+  0 ?do level-stream-byte@ lf-lscope-context-add 0= if -1 throw then loop
   level-stream-count @ 0 do
     level-stream-byte@ dup i <> if drop -1 throw then level-stream-index !
     level-stream-byte@ level-stream-tag !
@@ -56,6 +61,7 @@ variable level-stream-second
   loop
   level-stream-byte 1 stdin read-file throw 0<> if -1 throw then
   lf-level-count @ level-stream-count @ <> if -1 throw then
+  level-stream-count @ 1- 10000 lf-lscope-check lf-lscope-ok <> if -1 throw then
   level-stream-count @ 0 do
     i . i lf-level-read 0= if -1 throw then
     >r >r . r> . r> . cr

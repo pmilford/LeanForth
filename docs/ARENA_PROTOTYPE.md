@@ -5,6 +5,12 @@ zero, successor, max, imax and opaque parameter identifiers. Constructors
 check basic allocation and backward references but do not check parameter scope,
 level equality or types, and the arena is not connected to the term checker.
 See the unapproved symbolic-universe proposal in `docs/adr/0004-symbolic-universes.md`.
+`src/experimental/level-scope.fs` adds a bounded, untrusted traversal checking
+reachable node shape and opaque parameter IDs against an explicit context. It
+also checks the distinguished zero slot and rejects corrupted counts, fields,
+cycles and forward references. Repeated shared nodes consume repeated visit
+fuel; context validation has a separate bounded quadratic cost. Opaque IDs are
+not Lean name equality, and structural success is not a type or proof judgment.
 
 `src/core/arena.fs` is a bounded experiment in storing integer-indexed nodes.
 It does not represent Lean expressions, validate terms, check types, issue

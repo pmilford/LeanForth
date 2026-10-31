@@ -36,6 +36,11 @@ host-specific, and no serialized format or trusted API is defined. It is not
 connected to expression `Sort` nodes, inference or the declaration probe.
 The prototype uses `2drop` and `0<=` in addition to basic Forth words; these
 host requirements must be accounted for when targeting another Forth system.
+`src/experimental/level-scope.fs` experiments with bounded shape and parameter
+ID checks; it does not provide structured-name identity or an immutable context.
+An independent AI review of this later scope experiment was requested but did
+not complete because the reviewer hit its usage limit. No review or approval
+of that experiment should be inferred from the earlier level-arena review.
 
 The development NDJSON preview preserves a symbolic graph and a real pinned
 polymorphic export as unchecked data. Its concrete-only transport rejects that

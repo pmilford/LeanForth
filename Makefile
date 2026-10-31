@@ -18,6 +18,7 @@ test-core:
 	$(GFORTH) tests/core/arena.fs
 	$(GFORTH) tests/core/terms.fs
 	$(GFORTH) tests/core/levels.fs
+	$(GFORTH) tests/core/level-scope.fs
 	$(GFORTH) tests/core/load.fs
 	$(GFORTH) tests/core/scope.fs
 	$(GFORTH) tests/core/shift.fs

@@ -238,11 +238,14 @@ class PreviewTests(unittest.TestCase):
             first = node.get("of", node.get("name", node.get("left", 0)))
             rows.append((index, tags[tag], first, node.get("right", 0)))
         self.assertEqual(rows, expected)
-        stream = bytes([len(rows)] + [value for row in rows for value in row])
+        context = result["declarations"][0]["levelParams"]
+        stream = bytes([len(rows), len(context), *context] + [value for row in rows for value in row])
         command = [os.environ.get("GFORTH", "gforth"), "tests/core/level-fixture-stream.fs"]
         output = subprocess.run(command, input=stream, capture_output=True, check=True).stdout
         self.assertEqual([tuple(map(int, line.split())) for line in output.splitlines()], expected)
-        for bad in (stream[:-1], stream + b"\x00", bytes((1, 0, 4, 2, 0))):
+        wrong_context = bytearray(stream)
+        wrong_context[2] = 3
+        for bad in (stream[:-1], stream + b"\x00", bytes((1, 0, 0, 4, 2, 0)), wrong_context):
             result = subprocess.run(command, input=bad, capture_output=True)
             self.assertNotEqual(result.returncode, 0)
             self.assertEqual(result.stdout.strip(), b"")
