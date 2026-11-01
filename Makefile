@@ -2,6 +2,7 @@ GFORTH ?= $(if $(wildcard .tools/gforth/bin/gforth),.tools/gforth/bin/gforth,gfo
 LEAN ?= lean
 
 .PHONY: test-tagged-infer-differential test-tagged-binder-differential test-tagged-application-differential test-tagged-beta-differential test-tagged-convert-differential test-tagged-universe-differential test-program-depth-differential
+.PHONY: test-level-substitute-differential
 .PHONY: smoke reference reference-export test-harness test-core test-symbolic-infer-draft test-composition-fixture test-name-differential test-scope-differential test-shift-differential test-instantiate-differential test-beta-differential test-compare-differential test-infer-differential test-declaration-differential test-level-differential test-level-assignment-differential test-level-compare-differential test-poly-specialization-differential test-program test-program-differential test-program-stack-differential
 smoke:
 	$(GFORTH) tests/smoke/smoke.fs
@@ -37,6 +38,7 @@ test-core:
 	$(GFORTH) tests/core/names.fs
 	$(GFORTH) tests/core/levels.fs
 	$(GFORTH) tests/core/level-scope.fs
+	$(GFORTH) tests/core/level-substitute.fs
 	$(GFORTH) tests/core/level-value.fs
 	$(GFORTH) tests/core/level-compare.fs
 	$(GFORTH) tests/core/load.fs
@@ -110,6 +112,9 @@ test-level-differential:
 
 test-level-assignment-differential:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/core/level-assignment-differential.sh
+
+test-level-substitute-differential:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/core/level-substitute-differential.sh
 
 test-level-compare-differential:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/core/level-compare-differential.sh

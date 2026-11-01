@@ -16,7 +16,7 @@ stage, not the project's final scope or quality target.
 | --- | --- |
 | 1. Development foundation | Established in part: repository, MIT license, Lean 4.35.0 pin, Gforth, tests and CI skeleton. Installation and portability need further work. |
 | 2. Terms, names and universes | Partial untrusted bounded Forth arenas and symbolic universe experiments; handle-based checks reject replaced referenced levels, while raw consumers and human review remain open. |
-| 3. Scope and substitutions | Partial experimental operations, including tagged shifting and substitution; not a proof of correctness. |
+| 3. Scope and substitutions | Partial experimental operations, including tagged term substitution and bounded simultaneous universe substitution; 48 finite universe cases agree with Lean. These tests do not prove general correctness. |
 | 4. Definitional equality | Partial beta-aware conversion with selected symbolic universe identities; many Lean equivalences remain unknown. Independent review found no demonstrated false equality; human review remains outstanding. |
 | 5. Small trusted checker | Not complete: an untrusted tagged diagnostic checks a symbolic polymorphic identity type/value pair, but creates no theorem; application inference passes 18 finite Lean comparisons. Human review remains required. |
 | 6. Lean NDJSON importer | Bounded preview preserves constants and definitions and reports local dependency/order/arity observations; dependency validity remains unchecked. Full import and trusted checking remain. |

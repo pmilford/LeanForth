@@ -131,6 +131,22 @@ It runs as part of `make reference` with the pinned Lean version and revision.
 This is a limited reference suite, not a LeanForth differential test or
 evidence that a LeanForth declaration environment exists.
 
+The untrusted `src/experimental/level-substitute.fs` implements a bounded
+simultaneous substitution of level DAGs. Its formal parameter IDs and actual
+level roots are caller-owned cell arrays; actual roots must be valid in the
+current caller level context. Its public word `lf-lsubst` takes
+`( root formal-addr actual-addr count fuel -- result ok | status )`. It does
+not recursively substitute inside replacement levels. Its inputs are raw
+arena indices, not generation-bound handles: callers must protect lifetimes,
+memory and mutation. The caller must supply aligned, accessible input arrays
+disjoint from arena, context and module scratch storage; overlap is not
+detected. Invalid inputs and resource exhaustion do not append
+nodes, subject to these ownership assumptions. This experiment is not wired
+into declaration checking and has not received the human semantic review
+required for trusted use. `make test-level-substitute-differential` compares
+48 finite concrete observations to pinned Lean, which does not prove general
+symbolic equivalence or establish kernel compatibility.
+
 Reproduction: inspect the cited files and ADRs; run the version command above
 and `sha256sum lean-toolchain` plus the four cited Lean source files. SHA-256:
 `lean-toolchain` ca5f1f601d34c49079e38d7e7041eb0f2a9c227fbc1df0f404820069a052330c;
