@@ -10,6 +10,8 @@ Forth implementations correspond to those models.
 The [factorial reference](FACTORIAL_REFERENCE.md) proves bounded mathematical
 factorial properties; it uses a different algorithm and does not prove the
 Forth word equivalent.
+The [gcd reference](GCD_REFERENCE.md) proves termination and mathematical
+properties of Euclid's algorithm, without establishing Forth correspondence.
 The [checked-add reference](CHECKED_ADD_REFERENCE.md) also proves the modeled
 overflow checks and their arithmetic bounds, subject to the same limitation.
 

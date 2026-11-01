@@ -21,7 +21,7 @@ stage, not the project's final scope or quality target.
 | 5. Small trusted checker | Not complete: an untrusted tagged diagnostic checks a symbolic polymorphic identity type/value pair, but creates no theorem; application inference passes 18 finite Lean comparisons. Human review remains required. |
 | 6. Lean NDJSON importer | Bounded preview preserves constants and definitions; a test-only bridge stages all 19 nodes of one constant-containing fixture. Dependency validity, full import and trusted checking remain. |
 | 7. Lean checker compatibility corpus | Selected differential cases exist. Direct Lean kernel reference cases now cover constant lookup and universe arguments; LeanForth cannot yet compare those cases. The official checker corpus has not been demonstrated to pass. |
-| 8. Lean declaration features | An untrusted single-constant diagnostic and separately composed test reconstruct one Lean application result; a wrong argument remains unknown. Integrated application inference and checked declarations remain absent, along with inductives, recursors and quotients. |
+| 8. Lean declaration features | An untrusted single-constant application diagnostic reconstructs one Lean result conditional on an unchecked signature; a wrong argument remains unknown. General application inference and checked declarations remain absent, along with inductives, recursors and quotients. |
 | 9. Full Mathlib | Goal: use all of Mathlib, including its dependencies, as a usable and independently checked theorem and rules base under a reviewed, explicit axiom policy. It is not imported or independently checked; full Lean compatibility, dependency handling, access and practical capacity remain. |
 | 10. Native proof authoring | Forth-native term building, elaboration, unification, tactics and rewriting remain to be developed. |
 
@@ -33,7 +33,7 @@ Do not use it until the representations are isolated and reviewed.
 
 | Milestone | Status and evidence / remaining work |
 | --- | --- |
-| 1. Contract and assumptions | Partial: Lean models cover clamp, checked addition, absolute value, interval membership and factorial without proving Forth correspondence. |
+| 1. Contract and assumptions | Partial: Lean models cover clamp, checked addition, absolute value, interval membership, factorial and gcd without proving Forth correspondence. |
 | 2. Tested Forth example | Host Forth clamp and five additional examples have finite tests run by `make test-program`; tests alone do not prove them correct. |
 | 3. Formal execution model | A Lean reference model proves clamp properties and frame preservation for successful modeled programs; the handwritten model is an assumption when relating it to Forth. |
 | 4. Model/runtime comparisons | Finite comparisons include actual-stack instructions, interval membership, checked addition, absolute value and 152 factorial inputs against Lean models; they do not establish all executions or a verified compiler. |

@@ -38,6 +38,7 @@ test-core:
 	$(GFORTH) tests/core/constant-term-boundary.fs
 	$(GFORTH) tests/core/constant-term-type-probe.fs
 	$(GFORTH) tests/core/constant-application-oracle.fs
+	$(GFORTH) tests/core/constant-application-probe.fs
 	$(GFORTH) tests/core/constant-signature-probe.fs
 	$(GFORTH) tests/core/raw-declaration-capacity.fs
 	$(GFORTH) tests/core/raw-signature-specialize.fs

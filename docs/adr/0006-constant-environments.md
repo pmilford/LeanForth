@@ -166,10 +166,14 @@ to lookup and substitution. `make test-constant-term-type-differential`
 compares 48 finite substitution syntax observations with pinned Lean; the
 synthetic candidates in this comparison are not established as valid types.
 
-An integrated constant-application diagnostic is not implemented. Existing
-tagged inference and conversion audits reject constant-bearing graphs; simply
-chaining them with the constant boundary would need explicit treatment of
-unsupported nested constants, budgets, status mapping and both-arena rollback.
+`constant-application-probe.fs` composes the experimental operations for one
+constant root applied to one closed ordinary symbolic argument. Its result is
+conditional on the unchecked candidate signature and is not a typing judgment
+or proof. It checks candidate closure before reduction; arguments containing
+constants are currently classified as invalid even when valid Lean syntax.
+It uses fixed, separate per-operation budgets and restores arena counts on
+failure, without rewinding identity serials. Existing inference and conversion
+still do not support nested constants or general constant-bearing graphs.
 `tests/reference/constant-application-oracle.lean` records Lean kernel
 acceptance of a polymorphic identity applied to `Prop` and rejection of a wrong
 argument or missing constant; these observations do not check LeanForth.
