@@ -320,3 +320,14 @@ binders, shared nodes at distinct depths, stale later inputs, missing metadata,
 wrong universe arity, capture-sensitive substitution, resource exhaustion and
 rollback after allocations in both arenas. Compare supported cases with the
 pinned Lean kernel; obtain the required human review before trusted use.
+
+`src/experimental/mixed-shift.fs` now provides one prerequisite: bounded
+de Bruijn shifting across mixed syntax, reusing constant and Sort leaves
+after validating their identities and universe scopes. It is untrusted syntax
+manipulation, not inference or declaration checking. It shares fuel between
+the audit and traversal, and rolls back appended terms on failure without
+rewinding allocation serials. `make test-core` exercises error and rollback
+cases; `make test-mixed-shift-differential` compares 45 finite observations
+against pinned Lean's `Expr.liftLooseBVars`. Those observations do not prove
+correctness for all inputs. Mixed substitution, conversion and inference
+still need implementation, tests and review.

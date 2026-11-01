@@ -14,6 +14,7 @@ LEAN ?= lean
 .PHONY: test-gcd-reference-differential
 .PHONY: test-range-64-differential
 .PHONY: test-memory-reference-differential
+.PHONY: test-mixed-shift-differential
 .PHONY: profile-existing
 .PHONY: smoke reference reference-export test-harness test-core test-symbolic-infer-draft test-composition-fixture test-name-differential test-scope-differential test-shift-differential test-instantiate-differential test-beta-differential test-compare-differential test-infer-differential test-declaration-differential test-level-differential test-level-assignment-differential test-level-compare-differential test-poly-specialization-differential test-program test-program-differential test-program-stack-differential
 smoke:
@@ -41,6 +42,7 @@ test-core:
 	$(GFORTH) tests/core/constant-references.fs
 	$(GFORTH) tests/core/constant-term-boundary.fs
 	$(GFORTH) tests/core/constant-term-scope.fs
+	$(GFORTH) tests/core/mixed-shift.fs
 	$(GFORTH) tests/core/constant-term-type-probe.fs
 	$(GFORTH) tests/core/constant-application-oracle.fs
 	$(GFORTH) tests/core/constant-application-probe.fs
@@ -85,6 +87,9 @@ test-symbolic-infer-draft:
 
 test-tagged-infer-differential:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/core/tagged-infer-differential.sh
+
+test-mixed-shift-differential:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/core/mixed-shift-differential.sh
 
 test-tagged-binder-differential:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/core/tagged-binder-differential.sh

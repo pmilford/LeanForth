@@ -29,6 +29,12 @@ concurrency and real memory effects. No correspondence to Forth-2012 or Gforth
 is established. Human review remains necessary for any future integration
 across a trusted boundary.
 
+`tests/reference/memory-copy-properties.lean` also proves that the copy
+succeeds exactly when both addresses are in bounds, that operand/tag errors
+and bounds failures persist through a following instruction sequence, and
+that a successful copy passes the unchanged stack tail to that continuation.
+These results have the same abstract-model limitations described above.
+
 ## Reproduction
 
 From the repository root, the following commands passed on 2026-11-01 using
