@@ -31,6 +31,25 @@ where instruction order changes the bound and where an empty stack fails it.
 The bound concerns stack depth only: it does not establish an arbitrary value
 postcondition; use `wp` and a separate proof for that.
 
+`src/experimental/program-depth.fs` implements a separate untrusted Forth
+diagnostic for arrays of the three opcode tags. It does not execute programs or
+issue a proof. `make test-program-depth-differential` compares its results with
+the Lean reference on all 1,093 opcode lists of length at most six. This is
+finite evidence, not a proof that the Forth implementation matches the model.
+The Gforth development host needs a writable library cache; in a restricted
+environment set `libccnameddir` to a writable temporary directory before running
+the test if its normal cache is unavailable.
+At this checkpoint, `libccnameddir=/tmp/leanforth-gforth-libcc
+ELAN_HOME="$PWD/.tools/elan" make test-program-depth-differential
+LEAN="$PWD/.tools/elan/bin/lean"` passed with Gforth 1.0.0 amd64 and pinned
+Lean 4.35.0; Gforth printed library-reopen warnings. CI was not run for this
+checkpoint. The analyzer SHA-256 is
+`6d16b3c4ca766637e82970a61a44de7c28a2df55e9a0a155a5eaad96160863d3`.
+The caller must provide genuinely readable, aligned storage and its capacity;
+Forth cannot validate memory ownership or prevent concurrent mutation. Push
+values, actual Forth source, finite-cell arithmetic and effects are outside
+this depth-only representation.
+
 Run with the pinned toolchain:
 
 ```sh

@@ -88,6 +88,53 @@ def check_level_parameter_scope(roots, nodes, level_expressions, name_keys, allo
             pending_levels.extend((level["left"], level["right"]))
 
 
+def observe_dependencies(declarations, nodes, name_keys):
+    """Describe local constant references; this never validates dependencies.
+
+    Expression DAGs and name references were checked by preview(). Work is
+    bounded by its declaration and node limits; shared nodes are visited once
+    per root. Structured-name aliases resolve by the same key as declarations.
+    """
+    by_name = {name_keys[decl["name"]]: index
+               for index, decl in enumerate(declarations)}
+    result = []
+    for index, decl in enumerate(declarations):
+        roots = {}
+        for root_name in ("type", "value"):
+            pending = [decl[root_name]]
+            seen = set()
+            while pending:
+                current = pending.pop()
+                if current in seen:
+                    continue
+                seen.add(current)
+                node = nodes[current]
+                if node["tag"] == "const":
+                    roots.setdefault(current, set()).add(root_name)
+                elif node["tag"] == "app":
+                    pending.extend((node["fn"], node["arg"]))
+                elif node["tag"] in ("lam", "forallE"):
+                    pending.extend((node["type"], node["body"]))
+        references = []
+        for expression in sorted(roots):
+            node = nodes[expression]
+            target = by_name.get(name_keys[node["name"]])
+            declared_arity = None if target is None else len(declarations[target]["levelParams"])
+            provided_arity = len(node["us"])
+            status = ("missing" if target is None else "self" if target == index
+                      else "earlier_in_stream" if target < index else "later_in_stream")
+            references.append({
+                "expression": expression, "name": node["name"],
+                "inType": "type" in roots[expression],
+                "inValue": "value" in roots[expression],
+                "targetRecord": target, "status": status,
+                "providedUniverses": provided_arity, "declaredUniverses": declared_arity,
+                "arityMatches": None if target is None else provided_arity == declared_arity,
+            })
+        result.append({"declaration": index, "references": references})
+    return result
+
+
 def preview(stream):
     """Decode a bounded byte stream, returning unchecked records or raising."""
     names = [None]  # Lean name zero is anonymous.
@@ -269,7 +316,9 @@ def preview(stream):
             fail("unsupported record", "LF_PREVIEW_UNSUPPORTED")
     if metadata is None or not declarations:
         fail("missing metadata or declaration")
-    return {"version": "0.2", "checked": False, "dependenciesChecked": False,
+    return {"version": "0.3", "checked": False, "dependenciesChecked": False,
+            "cyclesChecked": False,
+            "dependencyDiagnostics": observe_dependencies(declarations, nodes, name_keys),
             "metadata": metadata,
             "names": names, "levels": levels, "levelExpressions": level_expressions,
             "concreteLevelDataOnly": all(level is not None for level in levels)

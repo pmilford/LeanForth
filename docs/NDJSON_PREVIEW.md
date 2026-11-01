@@ -25,8 +25,22 @@ The preview checks that reachable universe
 parameters are listed by each declaration, but does not type-check the result.
 For constants, it validates name and level-table indices and preserves the
 ordered `us` list; it does not resolve referenced declarations, check universe
-arity, authorize axioms or establish dependencies. The output has
-`dependenciesChecked: false` and `checked: false`.
+arity as a validity judgment, authorize axioms or establish dependencies.
+The preview reports bounded **observations** for constants reachable from each
+declaration's type or value: the expression and name indices, whether the
+referenced name appears earlier, later, on the same declaration, or nowhere in
+the stream, and whether locally observed universe-argument counts match. It
+matches full structured names, not rendered names or raw name indices. Missing
+means only absent from this stream. `targetRecord` is a zero-based index in the
+returned `declarations` list, not an NDJSON line number. `arityMatches` compares
+only the two observed counts; it does not validate a declaration or type.
+Cycle analysis, external environments,
+declaration validity and completeness are not checked; the output explicitly
+has `cyclesChecked: false`, `dependenciesChecked: false` and `checked: false`.
+The provisional output is version `0.3`; observations are ordered by declaration
+and expression index. Shared occurrences use `inType` and `inValue` flags.
+These are diagnostics for planning an import, not authorization to use a
+declaration or an axiom.
 
 The pinned `constant-fixture.ndjson` contains two definitions and a theorem
 with symbolic and concrete universe instances of a referenced constant.

@@ -1,7 +1,7 @@
 GFORTH ?= $(if $(wildcard .tools/gforth/bin/gforth),.tools/gforth/bin/gforth,gforth)
 LEAN ?= lean
 
-.PHONY: test-tagged-infer-differential test-tagged-binder-differential test-tagged-application-differential test-tagged-beta-differential test-tagged-convert-differential test-tagged-universe-differential
+.PHONY: test-tagged-infer-differential test-tagged-binder-differential test-tagged-application-differential test-tagged-beta-differential test-tagged-convert-differential test-tagged-universe-differential test-program-depth-differential
 .PHONY: smoke reference reference-export test-harness test-core test-symbolic-infer-draft test-composition-fixture test-name-differential test-scope-differential test-shift-differential test-instantiate-differential test-beta-differential test-compare-differential test-infer-differential test-declaration-differential test-level-differential test-level-assignment-differential test-level-compare-differential test-poly-specialization-differential test-program test-program-differential test-program-stack-differential
 smoke:
 	$(GFORTH) tests/smoke/smoke.fs
@@ -73,6 +73,7 @@ test-composition-fixture:
 	python3 tests/core/test_composition_fixture.py
 	GFORTH=$(GFORTH) python3 tests/core/test_ndjson_preview.py
 	python3 tests/core/test_preview_constants.py
+	python3 tests/core/test_preview_dependencies.py
 	GFORTH=$(GFORTH) python3 tests/core/test_named_levels.py
 	GFORTH=$(GFORTH) python3 tests/core/test_poly_specialization.py
 	GFORTH=$(GFORTH) python3 tests/core/test_tagged_poly_fixture.py
@@ -116,6 +117,10 @@ test-poly-specialization-differential:
 
 test-program:
 	$(GFORTH) tests/program/clamp.fs
+	$(GFORTH) tests/program/program-depth.fs
+
+test-program-depth-differential:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/program/program-depth-differential.sh
 
 test-program-differential:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/program/differential.sh
