@@ -8,6 +8,25 @@ successful modeled execution with the postcondition, and proves a composition
 rule for two instruction lists. The reference checks a symbolic duplicate-and-
 add example and rejects duplicate on an empty stack.
 
+`add_three` proves a second value contract for all mathematical integers and
+stack tails: two adds transform `b :: c :: a :: tail` into
+`((c + b) + a) :: tail`. Its weakest precondition includes successful
+execution and preserves the untouched tail.
+
+The same file also defines a separate bounded-memory model: a natural-number
+size and a total function from addresses to mathematical integers. `load` and
+`store` return `none` outside the half-open range `[0, size)`; a successful
+store preserves the size. `store_read_frame` proves, for every in-bounds
+address and value, that reading the address returns the stored value and all
+other backing cells remain unchanged. `out_of_bounds_access` proves both
+operations fail at the boundary and beyond, including for an empty memory.
+These are symbolic results for arbitrary sizes, addresses, values and initial
+memories. The backing function includes inaccessible addresses; preserving
+those cells is a property of this model, not a claim about physical memory.
+Memory is separate from the stack interpreter: there are no modeled Forth
+load/store instructions, byte addressing, allocation, ownership, aliasing,
+alignment, concurrency or host memory semantics.
+
 `wp_weakest` states the general contract rule: for arbitrary finite modeled
 code and predicates `pre` and `post`, `pre` implies `wp code post` for every
 initial stack exactly when every stack satisfying `pre` executes successfully
@@ -59,12 +78,12 @@ ELAN_HOME="$PWD/.tools/elan" .tools/elan/bin/lean tests/reference/program-contra
 The command passed locally with Lean 4.35.0 (commit
 `eb6cafb7290e8bd5f2937522d8d804f58f02bafc`). This is a local reference check;
 it does not establish CI status or cross-platform behavior.
-The reference file SHA-256 at this checkpoint is
-`1775e3a6116ce0495d2de27e3791af70e2f160b1e7a9b997e2ced23ee6583d9a`.
+The reference file SHA-256 for this check is
+`507c3066e213cf15143009d1b7279bb88acb8a4e40b342bec46cac987b077c85`.
 
 This is a reference specification for future verification-condition work, not
 a LeanForth program verifier. It models unbounded mathematical integers and a
-partial data stack; it does not model host cell overflow, a return stack,
-memory, I/O, loops, Forth parsing, a compiler or a runtime. The Lean proof is
+partial data stack and the separate abstract memory above; it does not model
+host cell overflow, a return stack, I/O, loops, Forth parsing, a compiler or a runtime. The Lean proof is
 checked by Lean, not by LeanForth. Its `wp` is a Lean function rather than an
 implemented Forth-facing contract language or production VC generator.

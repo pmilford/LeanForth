@@ -120,6 +120,44 @@ theorem duplicate_and_add (n : Int) (tail : Stack) :
 theorem duplicate_empty_fails (post : Stack → Prop) : ¬ wp [.dup] post [] := by
   simp [wp, step]
 
+-- Two additions consume three inputs, preserving the rest of the stack.
+theorem add_three (a b c : Int) (tail : Stack) :
+    wp [.add, .add] (fun out => out = ((c + b) + a) :: tail)
+      (b :: c :: a :: tail) := by
+  simp [wp, step, Int.add_comm]
+
+-- Bounds are explicit and independent of the backing function's totality.
+-- A failed access returns none; it cannot produce a modified memory.
+structure Memory where
+  size : Nat
+  cells : Nat → Int
+
+def load (m : Memory) (address : Nat) : Option Int :=
+  if address < m.size then some (m.cells address) else none
+
+def store (m : Memory) (address : Nat) (value : Int) : Option Memory :=
+  if address < m.size then
+    some ⟨m.size, fun i => if i = address then value else m.cells i⟩
+  else none
+
+-- For every in-bounds address and value, a successful store reads back the
+-- value and leaves every other address unchanged (the frame property).
+theorem store_read_frame (m : Memory) (address : Nat) (value : Int)
+    (h : address < m.size) :
+    ∃ updated, store m address value = some updated ∧
+      updated.size = m.size ∧ load updated address = some value ∧
+      ∀ other, other ≠ address → updated.cells other = m.cells other := by
+  refine ⟨⟨m.size, fun i => if i = address then value else m.cells i⟩, ?_⟩
+  simp [store, load, h]
+  intro other hne heq
+  exact False.elim (hne heq)
+
+-- The boundary itself and every address beyond it fail closed on both paths.
+theorem out_of_bounds_access (m : Memory) (address : Nat) (value : Int)
+    (h : m.size ≤ address) :
+    load m address = none ∧ store m address value = none := by
+  simp [load, store, Nat.not_lt.mpr h]
+
 -- Composition works for arbitrary modeled code and predicates, rather than
 -- proving only a specific example. This supplies a reusable reference rule.
 theorem wp_append (first second : List Op) (post : Stack → Prop) (s : Stack) :

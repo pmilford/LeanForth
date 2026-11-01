@@ -1,0 +1,129 @@
+# ADR 0006: constant environments — proposal
+
+Status: **draft for human review; not approved or implemented**. This proposes
+a conservative extension of ADRs 0002–0005, not full Lean compatibility.
+The existing experimental probes and NDJSON preview do not validate or
+register declarations. No theorem may be accepted on this proposal alone.
+
+## Candidate contract
+
+- A check uses one protected, immutable environment snapshot mapping full
+  structured Lean names (ADR 0005) to immutable declaration records: kind,
+  ordered distinct universe parameters, closed type, value where applicable,
+  safety, dependencies and axiom provenance. No shadowing or duplicate names.
+  Lookup of `Const(name, levels)` requires an existing record validated under
+  this snapshot's prior environment, or an explicitly authorized axiom below.
+  Unknown, forward, self, cyclic and unsupported references cannot be assumed.
+  Start with nonrecursive safe definitions and theorems; reject or report
+  unsupported for mutual blocks, unsafe/partial declarations, inductives,
+  recursors, quotients and other unreviewed features. A later extension needs
+  its own rules rather than interpreting those records as axioms.
+- Validate each parameter list and all level expressions in the declaration's
+  type and value: names are distinct, each parameter occurrence is in scope,
+  and unsupported metavariables, malformed graphs and overflow fail closed.
+  Parameters may be unused. A reference supplies **exactly** as many levels as
+  the target has parameters: monomorphic means zero, polymorphic means the
+  ordered list length, independent of the number of term arguments. Validate
+  actual levels in the *caller's* universe context before inference.
+- Infer the constant's type by simultaneously substituting actual levels for
+  the target's formal parameters by structured name and position throughout
+  the stored type, including sorts and universe arguments of nested constants.
+  Actual levels may themselves contain caller parameters; do not recursively
+  substitute within a replacement or confuse same-named caller and callee
+  scopes. Preserve `succ`, `max`, `imax` and symbolic structure; arbitrary
+  concrete instantiations do not prove a polymorphic declaration. Apply the
+  same substitution to a definition's value when unfolding. Level equality
+  remains governed by reviewed symbolic conversion, not syntactic sampling.
+- Check each proposed declaration against the prior snapshot, never itself:
+  validate closed terms and universe scope, infer that its declared type is a
+  sort, check its value against that type, and require a theorem's type to be
+  a proposition as in ADR 0002. Publish only after all checks succeed. A
+  definition or theorem may depend only on already accepted records, with
+  transitive assumptions computed from those records. Imported names, export
+  order, hashes and successful parsing are not proof of validation.
+- Keep the initial axiom allowlist empty. Any later entry requires explicit
+  human approval of its structured name, exact universe parameters and type,
+  safety and provenance, with versioned policy and an audit trail; a name alone
+  is insufficient. Check that an authorized axiom's type is well formed in
+  the prior environment, reject altered or unauthorized entries, and record
+  and report the complete transitive axiom set with each accepted result.
+  Do not silently authorize Lean's standard axioms or turn unsupported
+  declarations into axioms.
+
+## Conversion and state
+
+Initially permit constant typing with conservative conversion: identical
+constant heads may compare equal only with reviewed equality of all universe
+arguments; unknown remains unknown. Definition unfolding is a separately
+reviewed extension: unfold only a previously checked safe definition, with its
+instantiated value and bounded work. Axioms, theorems and opaque declarations
+must not be unfolded in this proposed kernel conversion. In Lean's source,
+`.opaque` *reducibility hints on definitions* guide unfolding order and do not
+make a definition opaque; elaborator transparency attributes are distinct.
+Do not mistake either for an opaque declaration. Missing delta, eta, proof
+irrelevance or symbolic equality can make a valid Lean case inconclusive.
+
+Make registration transactional: validate and allocate in isolated staging,
+then atomically publish the complete immutable snapshot and checked handle.
+On any rejection, unsupported operation, resource exhaustion or interruption,
+publish nothing and leave the previous snapshot unchanged. Handles and caches
+must bind to snapshot identity, arena kind and non-reused generation/lifetime;
+stale or cross-environment references fail closed even after rollback, reset,
+reuse or generation exhaustion. Preserve old snapshots while live handles use
+them, or explicitly invalidate those handles. Include environment, universe
+substitution, context and policy in cache keys; never cache inconclusive or
+exhausted results as success. Serialized references encode structure, not host
+pointers or unauthenticated arena indices. Ownership, concurrency, generation
+overflow and recovery need a concrete reviewed implementation design.
+
+## Required tests and review
+
+Before trusted implementation, add direct pinned Lean kernel oracle and
+LeanForth differential cases for zero, exact, too few and too many levels;
+unknown, duplicate, forward and self names; earlier valid/invalid dependencies;
+and invalid type/value versus valid definition/theorem. Exercise two parameters
+in swapped order, nested `max`/`imax`, levels in nested constants and sorts,
+caller/callee name collisions, unused and unbound parameters, and repeated
+substitution without capture. Compare inferred types and accept/reject results,
+distinguishing Lean acceptance from LeanForth `unsupported`.
+
+Add conversion tests for checked definitions at concrete and symbolic levels,
+opaque/theorem non-unfolding, hints versus opaque declarations, and cases
+requiring unsupported conversion. Test exact allowlist matches, altered types,
+unauthorized axioms and transitive assumptions. Independently test malformed
+DAGs, invalid IDs, policy changes, interruption, every allocation/budget failure,
+rollback, reset/reuse, cross-snapshot and stale cache/handle rejection, and
+deterministic replay. Include both accepted proof and rejected invalid proof;
+verify no failure path issues a handle or mutates an existing snapshot.
+
+An expert human must review the semantic rules, substitutions, conversion
+soundness and ordering, axiom policy, declaration import, lifetimes, atomicity,
+tests and actual trusted implementation before use or merge. AI review and
+finite differential tests do not replace that gate. A concrete transaction
+identity scheme, formal symbolic level equality and the exact handling of
+Lean's broader declaration forms remain open.
+
+## Local evidence and reproducibility
+
+The installed `lean-toolchain` pins Lean 4.35.0; `ELAN_HOME="$PWD/.tools/elan"
+.tools/elan/bin/lean --version` reported commit
+`eb6cafb7290e8bd5f2937522d8d804f58f02bafc`. In its distributed source,
+`Lean/Meta/InferType.lean:121` checks arity before instantiating the type;
+`Lean/Environment.lean:1216` instantiates type and value;
+`Lean/Util/InstantiateLevelParams.lean:18` substitutes in sorts and constant
+levels. Its general substitution helper truncates unequal lists, so arity must
+be checked separately. `Lean/Declaration.lean:16` describes definition hints;
+`:95` and `:470` distinguish declaration records and reducible values.
+These Lean-level APIs and comments are evidence, not a direct audit of the
+kernel C++ implementation: the installed `src/lean/kernel` directory is empty.
+The meta checker is not itself the kernel oracle. Existing
+`tests/reference/declaration-oracle.lean` and `constant-fixture.lean` cover
+limited examples; no new tests or CI were run for this documentation draft.
+
+Reproduction: inspect the cited files and ADRs; run the version command above
+and `sha256sum lean-toolchain` plus the four cited Lean source files. SHA-256:
+`lean-toolchain` ca5f1f601d34c49079e38d7e7041eb0f2a9c227fbc1df0f404820069a052330c;
+`Declaration.lean` 1cf2f06d848086f165b3df0afe494924ae26aaea248d5e0135d5efc2d588948f;
+`InstantiateLevelParams.lean` a18331b9ac993ffb11dac917c03df342df962de31321340e07749c606f9d1aa4;
+`Meta/InferType.lean` ed92098c36a75443312d2d474b4ad7a5c12434cd78bf1a7453e91c876880859e;
+`Environment.lean` 6c90105aecc4d28efe94cc9aef1704c284e7a748b28270b5f8513d2562331e43.

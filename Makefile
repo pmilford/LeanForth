@@ -23,6 +23,8 @@ test-core:
 	$(GFORTH) tests/core/symbolic-session-extra.fs
 	$(GFORTH) tests/core/generation-handles.fs
 	$(GFORTH) tests/core/handle-reference-integrity.fs
+	$(GFORTH) tests/core/raw-declaration-index.fs
+	$(GFORTH) tests/core/raw-declaration-capacity.fs
 	$(GFORTH) tests/core/tagged-infer.fs
 	$(GFORTH) tests/core/tagged-shift.fs
 	$(GFORTH) tests/core/tagged-instantiate.fs

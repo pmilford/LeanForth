@@ -9,6 +9,17 @@ toward that target, not a replacement with an incompatible toy logic. Full
 Mathlib compatibility requires substantial staged work; report the exact
 supported corpus and semantics rather than implying completeness.
 
+The product target is **all of Mathlib**, not a handpicked useful subset.
+LeanForth must ultimately make the entire library usable as a theorem and
+rules base, including its transitive Lean/Std dependencies, with declarations
+independently checked under an explicit, audited axiom policy. Compatibility
+also requires the practical capacity and interfaces to find and apply those
+results when developing proofs and verifying Forth programs. Pinned releases
+define reproducible acceptance runs; they do not limit the product goal to one
+snapshot. Some Mathlib results depend on standard axioms: report their actual
+assumptions and obtain approval for the exact policy instead of silently
+accepting axioms or claiming an axiom-free library.
+
 The implementation sequence is: a minimal Lean-compatible kernel; a Lean
 NDJSON importer; differential testing against pinned Lean checker cases and
 eventually the official corpus; a Forth-native term-building vocabulary;
@@ -70,7 +81,12 @@ Implement a small verification-condition generator and explicit specification la
 
 Extend universes, normalization, definitional equality, inductives, recursors, quotients and proof irrelevance to match Lean 4.35 semantics; progressively import Std/Mathlib slices; maintain allowlisted axioms and differential negative tests. Then add elaboration conveniences and tactics as untrusted proof generators.
 
-**Acceptance:** objective pass fractions for pinned corpus, no false acceptance on negative tests, recorded resource performance and diagnosis of every discrepancy. Kernel remains small and human reviewed.
+**Acceptance:** progressively report objective pass fractions for a pinned
+complete Mathlib release and its dependencies, not only selected examples;
+completion requires the full corpus to be usable and independently checked
+under the reviewed axiom policy. Require no false acceptance on negative
+tests, recorded resource performance and diagnosis of every discrepancy.
+Kernel remains small and human reviewed.
 
 ## Phase 6 — optimization, portable ports and external math UI
 
