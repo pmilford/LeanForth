@@ -9,6 +9,8 @@ include ../../src/experimental/generation-handles.fs
 include ../../src/experimental/tagged-shift.fs
 include ../../src/experimental/tagged-instantiate.fs
 include ../../src/experimental/tagged-beta.fs
+include ../../src/experimental/level-value.fs
+include ../../src/experimental/level-compare.fs
 include ../../src/experimental/tagged-convert.fs
 
 : handle ( node -- node identity ) dup lf-term-identity 0= abort" identity" ;
@@ -58,5 +60,56 @@ T{ 0 0 lf-term-lam -> 8 true }T
 T{ 8 7 lf-term-app -> 9 true }T
 T{ 9 handle 0 handle 10000 lf-tagged-convert -> lf-tconvert-invalid }T
 T{ 0 handle 9 handle 10000 lf-tagged-convert -> lf-tconvert-invalid }T
+T{ lf-term-count @ -> 10 }T
+
+\ Distinct universe DAGs may still represent Lean-equivalent levels. These
+\ checks are conservative: unresolved symbolic equations remain unknown.
+lf-term-reset lf-level-reset lf-lscope-context-reset
+T{ 42 lf-lscope-context-add -> true }T
+T{ 43 lf-lscope-context-add -> true }T
+T{ 42 lf-hlevel-param -> 1 lf-level-serial @ true }T
+T{ 43 lf-hlevel-param -> 2 lf-level-serial @ true }T
+T{ 1 0 lf-level-max -> 3 true }T
+T{ 1 0 lf-level-imax -> 4 true }T
+T{ lf-ssession-begin -> true }T
+T{ 1 lf-level-identities cell+ @ lf-hterm-sort -> 0 lf-term-serial @ true }T
+T{ 3 lf-level-identities 3 cells + @ lf-hterm-sort -> 1 lf-term-serial @ true }T
+T{ 4 lf-level-identities 4 cells + @ lf-hterm-sort -> 2 lf-term-serial @ true }T
+T{ 0 lf-level-identities @ lf-hterm-sort -> 3 lf-term-serial @ true }T
+T{ 2 lf-level-identities 2 cells + @ lf-hterm-sort -> 4 lf-term-serial @ true }T
+T{ 0 handle 1 handle 10000 lf-tagged-convert -> lf-tconvert-equal }T
+T{ 2 handle 3 handle 10000 lf-tagged-convert -> lf-tconvert-equal }T
+T{ 0 handle 4 handle 10000 lf-tagged-convert -> lf-tconvert-unknown }T
+T{ lf-term-count @ -> 5 }T
+T{ lf-level-count @ -> 5 }T
+\ Level validation and normalization share the conversion visit budget.
+: level-conversion-fuel-sweep ( -- )
+  100 0 do
+    0 handle 1 handle i lf-tagged-convert
+    dup lf-tconvert-equal <> swap lf-tconvert-exhausted <> and
+    if -1 throw then
+    lf-term-count @ 5 <> if -1 throw then
+    lf-level-count @ 5 <> if -1 throw then
+  loop ;
+level-conversion-fuel-sweep
+
+\ Beta reduction under binders must avoid capture: fun z =>
+\ (fun x => fun y => x) z equals fun z => fun y => z, but not
+\ fun z => fun y => y. The latter remains unknown, not an inequality proof.
+lf-term-reset lf-level-reset lf-lscope-context-reset
+T{ lf-ssession-begin -> true }T
+T{ lf-hlevel-zero -> 0 lf-level-serial @ true }T
+T{ 0 lf-level-serial @ lf-hterm-sort -> 0 lf-term-serial @ true }T
+T{ 0 lf-term-bvar -> 1 true }T
+T{ 1 lf-term-bvar -> 2 true }T
+T{ 0 2 lf-term-lam -> 3 true }T
+T{ 0 3 lf-term-lam -> 4 true }T
+T{ 4 1 lf-term-app -> 5 true }T
+T{ 0 5 lf-term-lam -> 6 true }T
+T{ 0 3 lf-term-lam -> 7 true }T
+T{ 0 1 lf-term-lam -> 8 true }T
+T{ 0 8 lf-term-lam -> 9 true }T
+T{ 6 handle 7 handle 10000 lf-tagged-convert -> lf-tconvert-equal }T
+T{ 6 handle 9 handle 10000 lf-tagged-convert -> lf-tconvert-unknown }T
 T{ lf-term-count @ -> 10 }T
 bye

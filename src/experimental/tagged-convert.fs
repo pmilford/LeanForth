@@ -1,8 +1,10 @@
 \ Untrusted conservative beta conversion for tagged terms. Load the tagged
-\ handle and beta modules first. This is not a trusted kernel or proof checker.
+\ handle, beta, level-value and level-compare modules first. This is not a trusted kernel or proof checker.
 \ Both inputs are audited; beta normalization and comparison share fuel. Sorts
-\ match only at the same live level index. Other differences are unknown.
+\ use a conservative symbolic level comparator. Other differences are unknown.
 \ Global mutable state is non-reentrant; no raw or concurrent mutation is safe.
+\ The audit checks universe parameter scope, not term binder scope or typing;
+\ callers must establish those independently before using a conversion result.
 
 0 constant lf-tconvert-equal
 1 constant lf-tconvert-invalid
@@ -32,6 +34,19 @@ variable lf-tconvert-rid
   lf-tconvert-fuel @ lf-tagged-beta
   lf-tbeta-fuel @ lf-tconvert-fuel ! swap drop ;
 
+\ Map the conservative level result explicitly; unexpected statuses fail
+\ closed. Both reachable level graphs are checked under the current context.
+: lf-tconvert-levels ( left right -- status )
+  lf-tconvert-fuel @ lf-level-compare
+  lf-lcmp-fuel @ lf-tconvert-fuel !
+  case
+    lf-lcmp-equal of lf-tconvert-equal endof
+    lf-lcmp-invalid of lf-tconvert-invalid endof
+    lf-lcmp-exhausted of lf-tconvert-exhausted endof
+    lf-lcmp-unknown of lf-tconvert-unknown endof
+    drop lf-tconvert-invalid 0
+  endcase ;
+
 \ Compare reduced heads recursively. Constructors not known here are invalid;
 \ distinct valid syntax is unknown, not a proof of inequality. Both operands
 \ have already passed the full public audit, including discarded arguments.
@@ -50,7 +65,12 @@ variable lf-tconvert-rid
   1 lf-tconvert@ lf-term-read 0= if lf-tconvert-invalid lf-tconvert-leave exit then
   5 lf-tconvert! swap 4 lf-tconvert@ <> if
     drop lf-tconvert-unknown lf-tconvert-leave exit then
-  4 lf-tconvert@ lf-tag-symbolic-sort = 4 lf-tconvert@ lf-tag-bvar = or if
+  4 lf-tconvert@ lf-tag-symbolic-sort = if
+    3 lf-tconvert@ 5 lf-tconvert@ <> if
+      drop lf-tconvert-invalid lf-tconvert-leave exit then
+    2 lf-tconvert@ swap lf-tconvert-levels lf-tconvert-leave exit
+  then
+  4 lf-tconvert@ lf-tag-bvar = if
     2 lf-tconvert@ = 3 lf-tconvert@ 5 lf-tconvert@ = and if
       lf-tconvert-equal else lf-tconvert-unknown then lf-tconvert-leave exit then
   4 lf-tconvert@ lf-tag-app = 4 lf-tconvert@ lf-tag-lam = or

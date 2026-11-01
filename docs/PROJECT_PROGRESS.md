@@ -17,8 +17,8 @@ stage, not the project's final scope or quality target.
 | 1. Development foundation | Established in part: repository, MIT license, Lean 4.35.0 pin, Gforth, tests and CI skeleton. Installation and portability need further work. |
 | 2. Terms, names and universes | Partial untrusted bounded Forth arenas and symbolic universe experiments; handle-based checks reject replaced referenced levels, while raw consumers and human review remain open. |
 | 3. Scope and substitutions | Partial experimental operations, including tagged shifting and substitution; not a proof of correctness. |
-| 4. Definitional equality | Partial beta-aware conversion, directly compared with Lean on six cases; symbolic universe equivalence and significant Lean rules remain unsupported. Independent subagent and human review remain outstanding. |
-| 5. Small trusted checker | Not complete: an untrusted tagged diagnostic checks a symbolic polymorphic identity type/value pair, but creates no theorem; beta-aware application inference now passes 15 finite Lean comparisons. Human review remains required. |
+| 4. Definitional equality | Partial beta-aware conversion with selected symbolic universe identities; many Lean equivalences remain unknown. Independent review found no demonstrated false equality; human review remains outstanding. |
+| 5. Small trusted checker | Not complete: an untrusted tagged diagnostic checks a symbolic polymorphic identity type/value pair, but creates no theorem; application inference passes 18 finite Lean comparisons. Human review remains required. |
 | 6. Lean NDJSON importer | Bounded development preview and test-only bridges; one polymorphic identity export reaches the diagnostic. Full import and trusted checking remain. See `NDJSON_PREVIEW.md`. |
 | 7. Lean checker compatibility corpus | Selected differential cases exist; the official checker corpus has not been demonstrated to pass. |
 | 8. Lean declaration features | Full constants, definitions, inductives, recursors, quotients, polymorphic checking and other core features remain. |

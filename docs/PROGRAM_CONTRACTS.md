@@ -8,6 +8,17 @@ successful modeled execution with the postcondition, and proves a composition
 rule for two instruction lists. The reference checks a symbolic duplicate-and-
 add example and rejects duplicate on an empty stack.
 
+`wp_weakest` states the general contract rule: for arbitrary finite modeled
+code and predicates `pre` and `post`, `pre` implies `wp code post` for every
+initial stack exactly when every stack satisfying `pre` executes successfully
+to a result satisfying `post`. Thus modeled underflow cannot discharge the
+contract vacuously. `wp_mono` shows that a postcondition can be weakened when
+the stronger postcondition implies the weaker one for every result stack;
+successful execution is still required. These results assume precisely the
+file's deterministic `step` and `execute` definitions, finite instruction
+lists, and Lean's integer and list semantics. They impose no separate
+precondition on the initial stack beyond the stated predicates.
+
 Run with the pinned toolchain:
 
 ```sh

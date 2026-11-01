@@ -9,6 +9,8 @@ include ../../src/experimental/tagged-shift.fs
 include ../../src/experimental/tagged-instantiate.fs
 include ../../src/experimental/tagged-compare.fs
 include ../../src/experimental/tagged-beta.fs
+include ../../src/experimental/level-value.fs
+include ../../src/experimental/level-compare.fs
 include ../../src/experimental/tagged-convert.fs
 include ../../src/experimental/tagged-infer.fs
 decimal
@@ -18,6 +20,10 @@ variable assignment
 : lam ( domain body -- index ) handle rot handle 2swap lf-hterm-lam node ;
 : app-node ( fn arg -- index ) handle rot handle 2swap lf-hterm-app node ;
 : var-node ( index -- node ) lf-hterm-bvar node ;
+\ Make Sort (max u 0) with the same parameter used in node zero.
+: sort-max-zero ( -- node )
+  1 0 lf-level-max 0= abort" max level"
+  dup lf-level-identity 0= abort" level identity" lf-hterm-sort node ;
 \ All cases use Sort u (node 0), bvar 0 (node 1), bvar 1 (node 2).
 : fixture ( case -- root )
   lf-term-reset lf-level-reset lf-lscope-context-reset
@@ -29,8 +35,9 @@ variable assignment
     0 of 2 1 lam 1 app-node 1 swap lam 0 swap lam endof
     1 of 0 1 lam 1 app-node 0 swap lam endof
     2 of 0 1 lam 2 app-node 1 lam 1 app-node 1 swap lam 0 swap lam endof
-    3 of 1 1 app-node 0 swap lam endof
-    4 of 0 1 lam 1 app-node 1 swap lam 0 swap lam endof
+    3 of sort-max-zero 0 1 lam 1 app-node lam endof
+    4 of 1 1 app-node 0 swap lam endof
+    5 of 0 1 lam 1 app-node 1 swap lam 0 swap lam endof
     -1 throw
   endcase ;
 \ Evaluate a level graph at u = assignment; constructors have backward edges.
@@ -60,9 +67,9 @@ variable assignment
   endcase ;
 : emit-binder-table ( -- )
   3 0 do i assignment !
-    5 0 do
+    6 0 do
       assignment @ . i . i fixture handle 10000 lf-tinfer
-      i 3 < if
+      i 4 < if
         lf-tinfer-ok <> abort" positive inference failed"
         drop ." OK " emit-term cr
       else

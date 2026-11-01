@@ -70,6 +70,8 @@ and unbound-variable rejections against pinned Lean at three universe instances.
 `make test-tagged-application-differential` compares selected valid and invalid
 applications in the same finite setting.
 `make test-tagged-convert-differential` compares six conversion cases with Lean.
+`make test-tagged-universe-differential` compares selected symbolic universe
+conversions, including an equivalence the current implementation leaves unknown.
 `make test-composition-fixture` compares a manually built Forth DAG with 21
 expression records in a pinned Lean export. It uses Python 3 for this test-only
 inspection and stages the decoded nodes in Forth through a test-only data stream;

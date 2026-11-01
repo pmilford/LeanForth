@@ -8,6 +8,8 @@ include ../../src/experimental/generation-handles.fs
 include ../../src/experimental/tagged-shift.fs
 include ../../src/experimental/tagged-instantiate.fs
 include ../../src/experimental/tagged-beta.fs
+include ../../src/experimental/level-value.fs
+include ../../src/experimental/level-compare.fs
 include ../../src/experimental/tagged-convert.fs
 decimal
 : node ( index identity true | false -- index ) 0= abort" allocation" drop ;

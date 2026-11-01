@@ -16,10 +16,10 @@ temporary=$(mktemp -d)
 trap 'rm -f "$temporary/lean.txt" "$temporary/forth.txt"; rmdir "$temporary"' EXIT
 "$lean" tests/reference/tagged-application-table.lean >"$temporary/lean.txt"
 "$gforth" tests/core/tagged-application-table.fs >"$temporary/forth.txt"
-if [ "$(wc -l <"$temporary/lean.txt")" -ne 15 ]; then
+if [ "$(wc -l <"$temporary/lean.txt")" -ne 18 ]; then
   printf '%s\n' 'Unexpected Lean table size' >&2; exit 1
 fi
 if ! diff -u "$temporary/lean.txt" "$temporary/forth.txt"; then
   printf '%s\n' 'Tagged application inference differs from Lean' >&2; exit 1
 fi
-printf '%s\n' 'Tagged application inference matches Lean on 15 finite cases.'
+printf '%s\n' 'Tagged application inference matches Lean on 18 finite cases.'

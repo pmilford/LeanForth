@@ -55,6 +55,7 @@ T{ 5 0 200 lf-tagged-beta -> -1 0 lf-tbeta-invalid }T
 T{ 5 root-id @ 200 lf-tagged-beta -> -1 0 lf-tbeta-invalid }T
 0 1 lf-term-slot 2 cells + !
 T{ 5 root-id @ -1 lf-tagged-beta -> -1 0 lf-tbeta-invalid }T
+T{ lf-tbeta-fuel @ -> 0 }T
 T{ 5 root-id @ 0 lf-tagged-beta -> -1 0 lf-tbeta-exhausted }T
 \ Locate a budget that fails after allocating, and prove rollback/serial advance.
 : rollback-probe ( -- flag )

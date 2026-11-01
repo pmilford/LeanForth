@@ -101,10 +101,14 @@ inference, binder shifts use its remaining budget and failure restores both
 arena counts. The tagged inference test and pinned Lean oracle check limited
 Sort/Pi universe expectations; the binder differential compares 18 finite
 actual inferred types and rejections at three concrete universe assignments;
-the application differential adds 15 finite valid and invalid cases, and the
-conversion differential compares six selected cases.
+the application differential covers 18 finite valid and invalid cases, and the
+conversion differential compares six selected cases. Tagged conversion also
+uses the conservative symbolic level comparison. A separate seven-case Lean
+comparison includes one valid equivalence that still returns unknown.
 These are not broad Lean compatibility results or a proof of soundness.
 
-An independent subagent review was requested for the beta-conversion integration,
-but the subagent service reported its usage limit. No independent review or
-human approval of this integration should be inferred. It remains untrusted.
+An independent subagent reviewed the beta-conversion and symbolic level
+integration and found no demonstrated false equality for well-scoped,
+well-typed terms under the documented arena/context assumptions. The review
+found a negative-fuel beta reporting defect, which was fixed. The review does
+not establish soundness or term scope; human review is still required.

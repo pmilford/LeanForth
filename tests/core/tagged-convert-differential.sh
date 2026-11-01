@@ -15,6 +15,7 @@ fi
 temporary=$(mktemp -d)
 trap 'rm -f "$temporary/lean.txt" "$temporary/forth.txt"; rmdir "$temporary"' EXIT
 "$lean" tests/reference/compare-table.lean >"$temporary/lean.txt"
+"$lean" tests/reference/tagged-capture-convert.lean
 "$gforth" tests/core/tagged-convert-table.fs >"$temporary/forth.txt"
 if ! paste "$temporary/lean.txt" "$temporary/forth.txt" | awk '
   NF != 4 || $1 != $3 || ($2 == 1 && $4 != 0) || ($2 == 0 && $4 != 3) { exit 1 }

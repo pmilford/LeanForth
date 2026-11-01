@@ -53,7 +53,7 @@ variable lf-tbeta-start
 \ Failed preflight conservatively reports zero fuel remaining. Sorts are reused
 \ by substitution, preserving their level and allocation identity stamps.
 : lf-tagged-beta ( index identity fuel -- index identity status )
-  dup 0< if drop 2drop -1 0 lf-tbeta-invalid exit then
+  dup 0< if drop 2drop 0 lf-tbeta-fuel ! -1 0 lf-tbeta-invalid exit then
   lf-tbeta-fuel !
   2dup lf-tbeta-fuel @ lf-hterm-check
   dup if 0 lf-tbeta-fuel ! >r 2drop -1 0 r> exit then drop
