@@ -8,6 +8,8 @@ include ../../src/experimental/generation-handles.fs
 include ../../src/experimental/tagged-shift.fs
 include ../../src/experimental/tagged-instantiate.fs
 include ../../src/experimental/tagged-compare.fs
+include ../../src/experimental/tagged-beta.fs
+include ../../src/experimental/tagged-convert.fs
 include ../../src/experimental/tagged-infer.fs
 decimal
 variable assignment
@@ -26,8 +28,9 @@ variable assignment
   case
     0 of 2 1 lam 1 app-node 1 swap lam 0 swap lam endof
     1 of 0 1 lam 1 app-node 0 swap lam endof
-    2 of 1 1 app-node 0 swap lam endof
-    3 of 0 1 lam 1 app-node 1 swap lam 0 swap lam endof
+    2 of 0 1 lam 2 app-node 1 lam 1 app-node 1 swap lam 0 swap lam endof
+    3 of 1 1 app-node 0 swap lam endof
+    4 of 0 1 lam 1 app-node 1 swap lam 0 swap lam endof
     -1 throw
   endcase ;
 \ Evaluate a level graph at u = assignment; constructors have backward edges.
@@ -41,8 +44,11 @@ variable assignment
     lf-level-tag-imax of >r recurse r> recurse dup 0= if nip else max then endof
     -1 throw
   endcase ;
-\ Prefix syntax: S level, V index, P domain body, L domain body, A fn arg.
+\ Recursively render weak-head-normalized syntax. Lean's inferred types may
+\ normalize earlier than the Forth inference result, so compare normalized
+\ trees rather than asserting identical allocation or reduction strategies.
 : emit-term ( index -- )
+  handle 10000 lf-tagged-beta lf-tbeta-ok <> abort" result normalization" drop
   lf-term-read 0= abort" bad term"
   rot case
     lf-tag-symbolic-sort of drop ." S " level-value . endof
@@ -54,9 +60,9 @@ variable assignment
   endcase ;
 : emit-binder-table ( -- )
   3 0 do i assignment !
-    4 0 do
+    5 0 do
       assignment @ . i . i fixture handle 10000 lf-tinfer
-      i 2 < if
+      i 3 < if
         lf-tinfer-ok <> abort" positive inference failed"
         drop ." OK " emit-term cr
       else

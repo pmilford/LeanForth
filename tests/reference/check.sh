@@ -21,6 +21,7 @@ fi
 "$lean" tests/reference/type-model.lean
 "$lean" tests/reference/clamp.lean
 "$lean" tests/reference/stack-clamp.lean
+"$lean" tests/reference/program-contracts.lean
 output=$(mktemp)
 trap 'rm -f "$output"' EXIT
 for test_name in composition-invalid binders-invalid universes-invalid; do

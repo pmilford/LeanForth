@@ -61,7 +61,7 @@ type inference. These untrusted prototypes cannot authorize a theorem; inferred
 indices are mutable data, not checked theorem handles. Their limits are in
 [the prototype notes](docs/ARENA_PROTOTYPE.md).
 The tagged symbolic inference and shifting experiments are likewise untrusted;
-application inference currently uses conservative syntax-only type comparison,
+application inference currently uses conservative beta-aware type comparison,
 so many valid Lean terms remain unsupported.
 `make test-tagged-infer-differential` checks selected shared universe expectations
 with pinned Lean, not the full Lean checker corpus.
@@ -69,6 +69,7 @@ with pinned Lean, not the full Lean checker corpus.
 and unbound-variable rejections against pinned Lean at three universe instances.
 `make test-tagged-application-differential` compares selected valid and invalid
 applications in the same finite setting.
+`make test-tagged-convert-differential` compares six conversion cases with Lean.
 `make test-composition-fixture` compares a manually built Forth DAG with 21
 expression records in a pinned Lean export. It uses Python 3 for this test-only
 inspection and stages the decoded nodes in Forth through a test-only data stream;

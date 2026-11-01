@@ -1,10 +1,10 @@
 \ Untrusted inference for a limited symbolic-universe fragment: Sort, bound
 \ variables, Pi, lambda and a conservative application fragment. Applications
-\ require a directly visible Pi and syntactically matching argument type;
+\ require a directly visible Pi and conservatively convertible argument type;
 \ constants and unsupported forms return unknown. This is NOT a
 \ theorem checker or a trusted kernel. Load the term, level, scope, tagged
 \ representation, session, handle, tagged-shift, tagged-instantiate and
-\ tagged-compare modules first. Mutable arenas, no raw
+\ tagged-compare, tagged-beta and tagged-convert modules first. Mutable arenas, no raw
 \ writes, suffix-only rollback and single-threaded execution are assumptions.
 
 0 constant lf-tinfer-ok
@@ -43,13 +43,13 @@ create lf-tinfer-context lf-term-capacity cells allot
   0 r> lf-tinfer-fuel @ lf-tagged-shift
   lf-tshift-fuel @ lf-tinfer-fuel ! swap drop ;
 
-\ Compare two inferred/declared types using the conservative syntax test.
+\ Compare two inferred/declared types using conservative beta conversion.
 \ Both graphs are validated and compared with the remaining shared budget.
 : lf-tinfer-compare ( left right -- status )
   dup lf-term-identity 0= if 2drop lf-tinfer-invalid exit then >r
   swap dup lf-term-identity 0= if 2drop r> drop lf-tinfer-invalid exit then
-  rot r> lf-tinfer-fuel @ lf-tagged-compare
-  lf-tcompare-fuel @ lf-tinfer-fuel ! ;
+  rot r> lf-tinfer-fuel @ lf-tagged-convert
+  lf-tconvert-fuel @ lf-tinfer-fuel ! ;
 
 \ Substitute the original argument into a Pi body after conversion succeeds.
 : lf-tinfer-instantiate ( body argument -- result status )

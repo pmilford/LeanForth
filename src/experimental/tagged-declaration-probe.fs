@@ -19,7 +19,7 @@ variable lf-tprobe-level-start
 variable lf-tprobe-fuel
 
 \ Check that the claim infers directly to literal Sort zero, then check that
-\ the value's inferred type matches the claim using conservative syntax.
+\ the value's inferred type matches the claim using conservative conversion.
 \ A nonliteral or unsupported conversion is unknown, never theorem acceptance.
 : lf-tprobe-walk ( -- status )
   \ Validate both roots before any early unknown result from the claim.
@@ -35,8 +35,8 @@ variable lf-tprobe-fuel
   lf-tprobe-value @ lf-tprobe-value-id @ lf-tprobe-fuel @ lf-tinfer
   dup if 0 lf-tprobe-fuel ! >r 2drop r> exit then drop
   lf-tinfer-fuel @ lf-tprobe-fuel !
-  lf-tprobe-type @ lf-tprobe-type-id @ lf-tprobe-fuel @ lf-tagged-compare
-  lf-tcompare-fuel @ lf-tprobe-fuel ! ;
+  lf-tprobe-type @ lf-tprobe-type-id @ lf-tprobe-fuel @ lf-tagged-convert
+  lf-tconvert-fuel @ lf-tprobe-fuel ! ;
 
 \ Validate a pair of handles through inference with one shared visit budget.
 \ Restore both arena counts on every result; allocation IDs never roll back.

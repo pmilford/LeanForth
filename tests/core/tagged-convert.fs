@@ -1,0 +1,62 @@
+\ Untrusted conversion tests: no status creates an accepted theorem.
+include ../support/tester.fs
+include ../../src/core/terms.fs
+include ../../src/experimental/levels.fs
+include ../../src/experimental/level-scope.fs
+include ../../src/experimental/tagged-sort-boundary.fs
+include ../../src/experimental/symbolic-session.fs
+include ../../src/experimental/generation-handles.fs
+include ../../src/experimental/tagged-shift.fs
+include ../../src/experimental/tagged-instantiate.fs
+include ../../src/experimental/tagged-beta.fs
+include ../../src/experimental/tagged-convert.fs
+
+: handle ( node -- node identity ) dup lf-term-identity 0= abort" identity" ;
+lf-term-reset lf-level-reset lf-lscope-context-reset
+T{ lf-ssession-begin -> true }T
+T{ lf-hlevel-zero -> 0 lf-level-identities @ true }T
+T{ 0 lf-level-identities @ lf-hterm-sort -> 0 lf-term-serial @ true }T
+T{ 0 lf-level-identities @ lf-hlevel-succ -> 1 lf-level-serial @ true }T
+T{ 1 lf-level-serial @ lf-hterm-sort -> 1 lf-term-serial @ true }T
+T{ 0 lf-term-bvar -> 2 true }T
+T{ 1 2 lf-term-lam -> 3 true }T
+T{ 3 0 lf-term-app -> 4 true }T
+T{ 4 0 lf-term-pi -> 5 true }T
+T{ 0 0 lf-term-pi -> 6 true }T
+\ Beta at the root and inside a binder domain; temporary results roll back.
+T{ 4 handle 0 handle 10000 lf-tagged-convert -> lf-tconvert-equal }T
+T{ 5 handle 6 handle 10000 lf-tagged-convert -> lf-tconvert-equal }T
+T{ lf-term-count @ -> 7 }T
+\ Nonidentical Sort levels remain unknown; exhausted work is never equality.
+T{ 0 handle 1 handle 10000 lf-tagged-convert -> lf-tconvert-unknown }T
+T{ 4 handle 0 handle 0 lf-tagged-convert -> lf-tconvert-exhausted }T
+T{ 4 handle 0 handle -1 lf-tagged-convert -> lf-tconvert-invalid }T
+T{ lf-term-count @ -> 7 }T
+\ Sweep budgets for beta conversion inside a binder. Temporary beta and
+\ substitution allocations are discarded even when the comparison fails.
+variable conversion-saw-success
+variable conversion-saw-exhaustion
+: conversion-fuel-sweep ( -- )
+  0 conversion-saw-success ! 0 conversion-saw-exhaustion !
+  300 0 do
+    5 handle 6 handle i lf-tagged-convert
+    dup lf-tconvert-exhausted = if
+      drop true conversion-saw-exhaustion !
+    else
+      lf-tconvert-equal <> abort" conversion status"
+      true conversion-saw-success !
+    then
+    lf-term-count @ 7 <> abort" conversion allocation leak"
+  loop
+  conversion-saw-success @ 0= abort" no successful conversion budget"
+  conversion-saw-exhaustion @ 0= abort" no exhausted conversion budget" ;
+conversion-fuel-sweep
+\ Even an argument discarded by beta must be audited. A raw, unstamped Sort
+\ is invalid as either input, including below a lambda body or application.
+T{ 0 lf-term-symbolic-sort -> 7 true }T
+T{ 0 0 lf-term-lam -> 8 true }T
+T{ 8 7 lf-term-app -> 9 true }T
+T{ 9 handle 0 handle 10000 lf-tagged-convert -> lf-tconvert-invalid }T
+T{ 0 handle 9 handle 10000 lf-tagged-convert -> lf-tconvert-invalid }T
+T{ lf-term-count @ -> 10 }T
+bye

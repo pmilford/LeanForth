@@ -12,6 +12,8 @@ include ../../src/experimental/generation-handles.fs
 include ../../src/experimental/tagged-shift.fs
 include ../../src/experimental/tagged-instantiate.fs
 include ../../src/experimental/tagged-compare.fs
+include ../../src/experimental/tagged-beta.fs
+include ../../src/experimental/tagged-convert.fs
 include ../../src/experimental/tagged-infer.fs
 include ../../src/experimental/tagged-declaration-probe.fs
 decimal

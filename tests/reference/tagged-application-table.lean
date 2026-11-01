@@ -23,13 +23,14 @@ run_cmd do
     let cases := [
       lam s (lam v0 (Expr.app (lam v1 v0) v0)),
       lam s (Expr.app (lam s v0) v0),
+      lam s (lam v0 (Expr.app (lam (Expr.app (lam s v0) v1) v0) v0)),
       lam s (Expr.app v0 v0),
       lam s (lam v0 (Expr.app (lam s v0) v0))]
     for (e, index) in cases.zipIdx do
       match Kernel.check env {} e with
       | .ok ty =>
-        if index ≥ 2 then throwError "Lean accepted invalid application {index}"
+        if index ≥ 3 then throwError "Lean accepted invalid application {index}"
         liftIO <| IO.println s!"{uval} {index} OK {renderApplicationType ty}"
       | .error _ =>
-        if index < 2 then throwError "Lean rejected valid application {index}"
+        if index < 3 then throwError "Lean rejected valid application {index}"
         liftIO <| IO.println s!"{uval} {index} REJECT "
