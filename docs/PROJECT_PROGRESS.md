@@ -38,7 +38,7 @@ Do not use it until the representations are isolated and reviewed.
 | 3. Formal execution model | A Lean reference model proves clamp properties and frame preservation for successful modeled programs; the handwritten model is an assumption when relating it to Forth. |
 | 4. Model/runtime comparisons | Finite comparisons cover stack instructions, arithmetic and 28 bounded-memory cases against Lean models; they do not establish all executions or a verified compiler. |
 | 5. Shared proof kernel | Depends on theorem milestone 5; no trusted LeanForth proof checker exists yet. |
-| 6. Forth program representation | A Lean reference language models a small stack plus abstract memory, with read-after-write, frame and failure proofs. It is not connected to the Forth interpreter; general Forth semantics and effects remain. |
+| 6. Forth program representation | A Lean reference language models a small stack plus abstract memory, with read-after-write, frame and failure proofs. A composed memory-copy program is proved for bounds, aliasing and frame preservation in that model. It is not connected to the Forth interpreter; general Forth semantics and effects remain. |
 | 7. Verification conditions | A Lean reference proves weakest-precondition, stack-depth and sequential failure rules; an untrusted Forth depth diagnostic matches 1,093 finite cases. A general generator and checked certificates remain unimplemented. |
 | 8. User-facing verifier | A general workflow to specify, prove and check Forth programs is not implemented. |
 | 9. Verified execution/compilation | Source-to-runtime correspondence and compilation assurance remain; runtime and machine assumptions must be explicit. |
