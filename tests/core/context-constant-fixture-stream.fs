@@ -1,0 +1,126 @@
+\ Test-only bounded u32 little-endian transport; stdin is data, never code.
+\ Structural results do not check declarations, dependencies, types or proofs.
+include ../../src/core/terms.fs
+include ../../src/experimental/names.fs
+include ../../src/experimental/levels.fs
+include ../../src/experimental/level-scope.fs
+include ../../src/experimental/tagged-sort-boundary.fs
+include ../../src/experimental/symbolic-session.fs
+include ../../src/experimental/generation-handles.fs
+include ../../src/experimental/constant-references.fs
+include ../../src/experimental/constant-term-boundary.fs
+include ../../src/experimental/raw-declaration-index.fs
+include ../../src/experimental/level-substitute.fs
+include ../../src/experimental/term-level-substitute.fs
+include ../../src/experimental/raw-signature-specialize.fs
+include ../../src/experimental/constant-signature-probe.fs
+include ../../src/experimental/constant-term-type-probe.fs
+include ../../src/experimental/tagged-shift.fs
+include ../../src/experimental/tagged-instantiate.fs
+include ../../src/experimental/tagged-compare.fs
+include ../../src/experimental/tagged-beta.fs
+include ../../src/experimental/level-value.fs
+include ../../src/experimental/level-compare.fs
+include ../../src/experimental/tagged-convert.fs
+include ../../src/experimental/tagged-infer.fs
+include ../../src/experimental/tagged-context-infer.fs
+include ../../src/experimental/constant-application-probe.fs
+include ../../src/experimental/constant-spine-probe.fs
+include ../../src/experimental/context-constant-spine.fs
+decimal
+create cb 1 allot
+create buf 255 allot
+create names 64 cells allot
+create lids 2 cells allot
+create levels 2 cells allot
+create tids lf-term-capacity cells allot
+create args 2 cells allot
+variable n variable k variable a variable b variable count-n
+: byte-in ( -- u ) cb 1 stdin read-file throw 1 <> if -1 throw then cb c@ ;
+: field ( -- u ) byte-in byte-in 8 lshift or byte-in 16 lshift or
+  byte-in dup 128 >= if 2drop -1 throw then 24 lshift or ;
+: handle ( index -- index identity ) dup n @ >= if -1 throw then dup cells tids + @ ;
+: level-handle ( index -- index identity ) dup 2 >= if -1 throw then
+  dup cells levels + @ swap cells lids + @ ;
+: name-row ( index -- )
+  field dup 255 > if 2drop -1 throw then dup >r
+  0 ?do field dup 255 > if drop -1 throw then buf i + c! loop
+  0 buf r> lf-name-str 0= if drop -1 throw then swap cells names + ! ;
+: node ( -- )
+  field n ! field k ! field a ! field b !
+  n @ lf-term-count @ <> if -1 throw then
+  k @ case
+    1 of b @ if -1 throw then a @ level-handle lf-hterm-sort endof
+    2 of b @ if -1 throw then a @ lf-hterm-bvar endof
+    3 of a @ handle b @ handle lf-hterm-app endof
+    4 of a @ handle b @ handle lf-hterm-lam endof
+    5 of a @ handle b @ handle lf-hterm-pi endof
+    7 of
+      a @ dup 0= swap 8 > or if -1 throw then
+      b @ level-handle args cell+ ! args !
+      a @ cells names + @ lf-name-generation @ args 1 lf-cref-new
+      0= if -1 throw then lf-cterm-new
+    endof
+    -1 throw
+  endcase
+  0= if -1 throw then n @ cells tids + ! n @ <> if -1 throw then ;
+create binder-context 4 cells allot
+create app-arguments 4 cells allot
+create formals 1 cells allot
+variable expected-tag variable expected-a variable expected-b
+\ Require the exported binder/application links used by this fixture test.
+: expect-node ( index tag first second -- )
+  expected-b ! expected-a ! expected-tag !
+  lf-term-read 0= if -1 throw then
+  expected-b @ <> if -1 throw then
+  expected-a @ <> if -1 throw then
+  expected-tag @ <> if -1 throw then ;
+: run ( -- )
+  lf-name-reset lf-level-reset lf-term-reset lf-lscope-context-reset lf-cref-reset
+  field 8 <> if -1 throw then 9 1 do i name-row loop
+  2 cells names + @ lf-lscope-context-add 0= if -1 throw then
+  lf-hlevel-zero 0= if -1 throw then lids ! levels !
+  2 cells names + @ lf-hlevel-param 0= if -1 throw then lids cell+ ! levels cell+ !
+  lf-ssession-begin 0= if -1 throw then
+  field count-n ! count-n @ 19 <> if -1 throw then
+  count-n @ 0 do node loop
+  cb 1 stdin read-file throw 0<> if -1 throw then
+  count-n @ n !
+  \ fixturePoly is lambda A, lambda x, (fixtureId A) x. Check links before
+  \ using the corresponding handles; a different valid graph must not pass.
+  0 lf-tag-symbolic-sort 1 0 expect-node
+  1 lf-tag-bvar 0 0 expect-node
+  2 lf-tag-bvar 1 0 expect-node
+  3 lf-tag-pi 1 2 expect-node
+  4 lf-tag-pi 0 3 expect-node
+  11 lf-tag-lam 0 10 expect-node
+  10 lf-tag-lam 1 9 expect-node
+  9 lf-tag-app 8 1 expect-node
+  8 lf-tag-app 7 2 expect-node
+  7 lf-term-read 0= if -1 throw then
+  rot lf-tag-constant <> if 2drop -1 throw then
+  2dup lf-cref-read 0= if 2drop -1 throw then
+  1 <> if 2drop 2drop -1 throw then
+  lf-name-generation @ <> if 2drop drop -1 throw then
+  1 cells names + @ <> if 2drop -1 throw then
+  0 lf-cref-level 0= if -1 throw then
+  lids cell+ @ <> if drop -1 throw then
+  levels cell+ @ <> if -1 throw then
+  lf-rawdecl-begin 0= if -1 throw then
+  1 cells names + @ 4 handle 50000 lf-rawdecl-put lf-rawdecl-ok <> if -1 throw then
+  lf-rspec-begin 0= if -1 throw then
+  2 cells names + @ formals !
+  lf-rawdecl-token 0= if -1 throw then
+  dup 1 cells names + @ 4 handle formals 1 50000 lf-rspec-put lf-rspec-ok <> if -1 throw then
+  0 binder-context ! 0 cells tids + @ binder-context cell+ !
+  1 binder-context 2 cells + ! 1 cells tids + @ binder-context 3 cells + !
+  2 app-arguments ! 2 cells tids + @ app-arguments cell+ !
+  1 app-arguments 2 cells + ! 1 cells tids + @ app-arguments 3 cells + !
+  7 handle app-arguments 2 binder-context 2 lf-context-constant-spine
+  lf-caprobe-ok <> if -1 throw then
+  2dup 10000 lf-hterm-check lf-repr-ok <> if -1 throw then
+  drop lf-term-read 0= if -1 throw then
+  0 <> if -1 throw then 1 <> if -1 throw then
+  lf-tag-bvar <> if -1 throw then
+  s" 2 1" type cr ;
+run bye

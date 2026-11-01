@@ -42,6 +42,7 @@ test-core:
 	$(GFORTH) tests/core/constant-application-oracle.fs
 	$(GFORTH) tests/core/constant-application-probe.fs
 	$(GFORTH) tests/core/constant-spine-probe.fs
+	$(GFORTH) tests/core/context-constant-spine.fs
 	$(GFORTH) tests/core/constant-signature-probe.fs
 	$(GFORTH) tests/core/raw-declaration-capacity.fs
 	$(GFORTH) tests/core/raw-signature-specialize.fs
@@ -99,6 +100,7 @@ test-composition-fixture:
 	GFORTH=$(GFORTH) python3 tests/core/test_ndjson_preview.py
 	python3 tests/core/test_preview_constants.py
 	GFORTH=$(GFORTH) python3 tests/core/constant-term-fixture-test.py
+	GFORTH=$(GFORTH) python3 tests/core/context-constant-fixture-test.py
 	python3 tests/core/test_preview_dependencies.py
 	GFORTH=$(GFORTH) python3 tests/core/test_named_levels.py
 	GFORTH=$(GFORTH) python3 tests/core/test_poly_specialization.py

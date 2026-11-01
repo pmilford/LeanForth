@@ -187,6 +187,16 @@ still conditional on unchecked candidate signatures. Constants in arguments
 and candidate types are unsupported; `invalid` in that case is not a claim
 that Lean rejects the expression. The fixed per-operation budgets and eight
 argument limit are experimental, not restrictions on the final system.
+The untrusted `context-constant-spine.fs` experiment accepts explicit
+oldest-first binder-domain handles and open arguments. It validates all domain
+and argument structures and scopes before allocation, then performs conditional
+argument inference and substitution under the supplied context. Candidate
+signatures and context-domain typing remain assumptions. Input arrays and all
+mutable scratch/arena storage must be disjoint; failures restore arena counts,
+not serials. A test-only bridge stages the pinned constant fixture and obtains
+the expected `#1` result for `fixtureId A x` under binders `A` and `x`. It does
+not independently check the declaration or its proof, and arbitrary nested
+constants and general elaboration remain unsupported.
 `tests/reference/constant-application-oracle.lean` records Lean kernel
 acceptance of a polymorphic identity applied to `Prop` and rejection of a wrong
 argument or missing constant; these observations do not check LeanForth.
