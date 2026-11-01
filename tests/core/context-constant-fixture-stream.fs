@@ -9,6 +9,7 @@ include ../../src/experimental/symbolic-session.fs
 include ../../src/experimental/generation-handles.fs
 include ../../src/experimental/constant-references.fs
 include ../../src/experimental/constant-term-boundary.fs
+include ../../src/experimental/constant-term-scope.fs
 include ../../src/experimental/raw-declaration-index.fs
 include ../../src/experimental/level-substitute.fs
 include ../../src/experimental/term-level-substitute.fs
@@ -109,6 +110,17 @@ variable expected-tag variable expected-a variable expected-b
   0 lf-cref-level 0= if -1 throw then
   lids cell+ @ <> if drop -1 throw then
   levels cell+ @ <> if -1 throw then
+  \ Check scope on the exported declaration roots before any diagnostic
+  \ allocates. This does not establish that their types or dependencies hold.
+  4 handle 0 50000 lf-constant-term-scope lf-repr-ok <> if -1 throw then
+  6 handle 0 50000 lf-constant-term-scope lf-repr-ok <> if -1 throw then
+  11 handle 0 50000 lf-constant-term-scope lf-repr-ok <> if -1 throw then
+  13 handle 0 50000 lf-constant-term-scope lf-repr-ok <> if -1 throw then
+  18 handle 0 50000 lf-constant-term-scope lf-repr-ok <> if -1 throw then
+  \ fixturePoly's application refers to both binders: it is scoped under
+  \ two binders, but must be rejected when only one is available.
+  9 handle 2 50000 lf-constant-term-scope lf-repr-ok <> if -1 throw then
+  9 handle 1 50000 lf-constant-term-scope lf-repr-invalid <> if -1 throw then
   \ Probe the fixtureId type/value pair. Even a successful diagnostic is not
   \ declaration registration or a theorem; unsupported constructs fail.
   4 handle 6 handle 50000 lf-candidate-definition-probe

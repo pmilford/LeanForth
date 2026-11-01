@@ -296,3 +296,27 @@ and `sha256sum lean-toolchain` plus the four cited Lean source files. SHA-256:
 `InstantiateLevelParams.lean` a18331b9ac993ffb11dac917c03df342df962de31321340e07749c606f9d1aa4;
 `Meta/InferType.lean` ed92098c36a75443312d2d474b4ad7a5c12434cd78bf1a7453e91c876880859e;
 `Environment.lean` 6c90105aecc4d28efe94cc9aef1704c284e7a748b28270b5f8513d2562331e43.
+# Follow-up: mixed-term inference diagnostic
+
+An independent AI review on 2026-11-01 found that composing the existing
+constant-spine and ordinary definition diagnostics is insufficient for
+constants inside binder domains, arguments, or general application trees.
+The next diagnostic needs mixed-term transformations and conservative
+conversion, not only constant lookup. This review is advisory and does not
+replace human review of kernel or declaration semantics.
+
+Before inference allocates, audit both roots and any external context and
+metadata handles, including their scope and universe references. Preserve a
+single documented fuel policy and restore both arena counts on every outcome
+without rewinding serials or exposing rolled-back handles. Distinguish input
+nodes from generated specialized signatures, which the existing ordinary
+inference walker cannot simply revisit. Context domains are scoped before
+their binder; substitution must avoid capture; missing metadata or unsupported
+conversion must not become success. Candidate signatures are assumptions
+until independently checked, and successful diagnostics confer no theorem.
+
+Tests should include constants in domains and arguments, nested dependent
+binders, shared nodes at distinct depths, stale later inputs, missing metadata,
+wrong universe arity, capture-sensitive substitution, resource exhaustion and
+rollback after allocations in both arenas. Compare supported cases with the
+pinned Lean kernel; obtain the required human review before trusted use.

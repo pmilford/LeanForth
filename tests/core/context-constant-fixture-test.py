@@ -39,6 +39,20 @@ class ContextConstantFixture(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertEqual(result.stdout.strip(), b"")
 
+    def test_unscoped_theorem_annotation_is_rejected(self):
+        data, _ = fixture.encode(Path("tests/reference/constant-fixture.ndjson").read_bytes())
+        changed = bytearray(data)
+        node_start = len(data) - 19 * 16
+        # Node 17 is nested under one lambda. Make its domain refer to #1,
+        # which is a valid earlier node but escapes the available binder.
+        # The other fixture link checks do not inspect node 17.
+        struct.pack_into("<I", changed, node_start + 17 * 16 + 8, 2)
+        result = subprocess.run(
+            [os.environ.get("GFORTH", "gforth"), "tests/core/context-constant-fixture-stream.fs"],
+            input=changed, capture_output=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.stdout.strip(), b"")
+
 
 if __name__ == "__main__":
     unittest.main()
