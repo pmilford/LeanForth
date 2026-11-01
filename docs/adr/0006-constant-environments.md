@@ -329,5 +329,10 @@ the audit and traversal, and rolls back appended terms on failure without
 rewinding allocation serials. `make test-core` exercises error and rollback
 cases; `make test-mixed-shift-differential` compares 45 finite observations
 against pinned Lean's `Expr.liftLooseBVars`. Those observations do not prove
-correctness for all inputs. Mixed substitution, conversion and inference
-still need implementation, tests and review.
+correctness for all inputs. `src/experimental/mixed-instantiate.fs` adds
+single-binder capture-avoiding substitution across the same mixed syntax; it
+audits both inputs before allocating and rolls back on failure. The opt-in
+`make test-mixed-instantiate-differential` compares 30 cases against pinned
+Lean, including two constants and Sort levels and open replacements under
+binders. These tests do not establish general correctness. Mixed conversion
+and inference still need implementation, tests and review.
