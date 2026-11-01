@@ -21,6 +21,10 @@ run_cmd do
   let specializedType := Expr.forallE `x prop prop .default
   let function := Expr.const idName [.succ .zero]
   let valid := mkDef `LeanForthApplicationOracle.Valid [] specializedType (.app function prop)
+  let proposition := Expr.forallE `P prop
+    (Expr.forallE `h (.bvar 0) (.bvar 1) .default) .default
+  let validTwo := mkDef `LeanForthApplicationOracle.ValidTwo [] prop
+    (.app (.app function prop) proposition)
   let wrong := mkDef `LeanForthApplicationOracle.Wrong [] specializedType
     (.app function (.sort (.succ (.succ .zero))))
   let missing := mkDef `LeanForthApplicationOracle.Missing [] specializedType
@@ -28,6 +32,9 @@ run_cmd do
   match env.addDeclCore 1000000 1000 valid none with
   | .ok _ => pure ()
   | .error _ => throwError "kernel rejected valid constant application"
+  match env.addDeclCore 1000000 1000 validTwo none with
+  | .ok _ => pure ()
+  | .error _ => throwError "kernel rejected valid two-argument application"
   for (name, candidate) in [("wrong argument", wrong), ("missing constant", missing)] do
     match env.addDeclCore 1000000 1000 candidate none with
     | .error _ => pure ()

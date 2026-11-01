@@ -57,3 +57,7 @@ two's-complement cells; it is finite evidence, not a runtime proof.
 Lean model on 152 inputs, including the first signed 64-bit overflow. The
 optional test requires Gforth 1.0.0 and 64-bit two's-complement cells. It
 does not prove the algorithms equivalent or verify the Forth runtime.
+
+`make test-gcd-reference-differential` compares `lf-gcd` against the Lean
+model on 150 finite input pairs, including negative and signed-cell boundary
+inputs. It requires 64-bit cells and is not a runtime or compiler proof.

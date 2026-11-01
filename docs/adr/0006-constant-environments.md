@@ -174,6 +174,13 @@ constants are currently classified as invalid even when valid Lean syntax.
 It uses fixed, separate per-operation budgets and restores arena counts on
 failure, without rewinding identity serials. Existing inference and conversion
 still do not support nested constants or general constant-bearing graphs.
+The untrusted `constant-spine-probe.fs` extends that diagnostic to zero through
+eight ordered, closed ordinary arguments, validating all argument handles
+before allocation and restoring both arena counts on any failure. Results are
+still conditional on unchecked candidate signatures. Constants in arguments
+and candidate types are unsupported; `invalid` in that case is not a claim
+that Lean rejects the expression. The fixed per-operation budgets and eight
+argument limit are experimental, not restrictions on the final system.
 `tests/reference/constant-application-oracle.lean` records Lean kernel
 acceptance of a polymorphic identity applied to `Prop` and rejection of a wrong
 argument or missing constant; these observations do not check LeanForth.

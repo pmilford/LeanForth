@@ -11,6 +11,7 @@ LEAN ?= lean
 .PHONY: test-abs-reference-differential
 .PHONY: test-constant-term-type-differential
 .PHONY: test-factorial-reference-differential
+.PHONY: test-gcd-reference-differential
 .PHONY: smoke reference reference-export test-harness test-core test-symbolic-infer-draft test-composition-fixture test-name-differential test-scope-differential test-shift-differential test-instantiate-differential test-beta-differential test-compare-differential test-infer-differential test-declaration-differential test-level-differential test-level-assignment-differential test-level-compare-differential test-poly-specialization-differential test-program test-program-differential test-program-stack-differential
 smoke:
 	$(GFORTH) tests/smoke/smoke.fs
@@ -39,6 +40,7 @@ test-core:
 	$(GFORTH) tests/core/constant-term-type-probe.fs
 	$(GFORTH) tests/core/constant-application-oracle.fs
 	$(GFORTH) tests/core/constant-application-probe.fs
+	$(GFORTH) tests/core/constant-spine-probe.fs
 	$(GFORTH) tests/core/constant-signature-probe.fs
 	$(GFORTH) tests/core/raw-declaration-capacity.fs
 	$(GFORTH) tests/core/raw-signature-specialize.fs
@@ -171,6 +173,9 @@ test-abs-reference-differential:
 
 test-factorial-reference-differential:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/program/factorial-reference-differential.sh
+
+test-gcd-reference-differential:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/program/gcd-reference-differential.sh
 
 test-program-depth-differential:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/program/program-depth-differential.sh
