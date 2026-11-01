@@ -28,13 +28,16 @@ class ContextConstantFixture(unittest.TestCase):
         # Node 9's argument changes from x (#0) to A (#1), preserving valid
         # backwards references but changing the exported application.
         struct.pack_into("<I", changed, node_start + 9 * 16 + 12, 2)
-        for bad in (data[:-1], data + b"\x00", changed):
+        changed_value = bytearray(data)
+        # Replace fixtureId's lambda body with an earlier, valid Pi node.
+        struct.pack_into("<I", changed_value, node_start + 6 * 16 + 12, 3)
+        for bad in (data[:-1], data + b"\x00", changed, changed_value):
             with self.subTest(size=len(bad)):
                 result = subprocess.run(
                     [os.environ.get("GFORTH", "gforth"), "tests/core/context-constant-fixture-stream.fs"],
                     input=bad, capture_output=True)
                 self.assertNotEqual(result.returncode, 0)
-                self.assertEqual(result.stdout, b"")
+                self.assertEqual(result.stdout.strip(), b"")
 
 
 if __name__ == "__main__":

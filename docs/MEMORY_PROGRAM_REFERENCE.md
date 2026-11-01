@@ -57,6 +57,12 @@ Rebuild the import when the source changes. `make reference` now builds the
 dependency in an isolated temporary directory and checks this file. CI was not
 run for this change.
 
+`make test-memory-reference-differential` separately compares 28 finite
+test-only Forth memory operations with the Lean model, including reads,
+writes, bounds failures and the four-cell memory frame. The Forth harness
+rejects negative indices before converting them to the model's natural-number
+addresses. This is local runtime evidence, not a verified Forth memory model.
+
 SHA-256 at verification time:
 
 ```text

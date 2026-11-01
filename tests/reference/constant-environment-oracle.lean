@@ -15,6 +15,12 @@ run_cmd do
     .defnDecl { name, levelParams := params, type, value, hints := .abbrev, safety := .safe }
   let idName := `LeanForthConstants.Identity
   let idDecl := mkDef idName [`u] target identity
+  let wrongBody := Expr.lam `A (.sort u)
+    (Expr.forallE `x (.bvar 0) (.bvar 1) .default) .default
+  match initial.addDeclCore 1000000 1000
+      (mkDef `LeanForthConstants.WrongBody [`u] target wrongBody) none with
+    | .error _ => pure ()
+    | .ok _ => throwError "kernel accepted a Pi in place of the identity body"
   let env ← match initial.addDeclCore 1000000 1000 idDecl none with
     | .ok env => pure env
     | .error _ => throwError "kernel rejected polymorphic identity"

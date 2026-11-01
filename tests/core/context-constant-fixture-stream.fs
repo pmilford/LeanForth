@@ -23,6 +23,7 @@ include ../../src/experimental/level-value.fs
 include ../../src/experimental/level-compare.fs
 include ../../src/experimental/tagged-convert.fs
 include ../../src/experimental/tagged-infer.fs
+include ../../src/experimental/candidate-definition-probe.fs
 include ../../src/experimental/tagged-context-infer.fs
 include ../../src/experimental/constant-application-probe.fs
 include ../../src/experimental/constant-spine-probe.fs
@@ -108,6 +109,10 @@ variable expected-tag variable expected-a variable expected-b
   0 lf-cref-level 0= if -1 throw then
   lids cell+ @ <> if drop -1 throw then
   levels cell+ @ <> if -1 throw then
+  \ Probe the fixtureId type/value pair. Even a successful diagnostic is not
+  \ declaration registration or a theorem; unsupported constructs fail.
+  4 handle 6 handle 50000 lf-candidate-definition-probe
+  lf-candidate-ok <> if -1 throw then
   lf-rawdecl-begin 0= if -1 throw then
   1 cells names + @ 4 handle 50000 lf-rawdecl-put lf-rawdecl-ok <> if -1 throw then
   lf-rspec-begin 0= if -1 throw then

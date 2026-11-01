@@ -208,6 +208,15 @@ handles. The fixture test now uses that composition. This reduces one explicit
 context assumption but does not check the candidate declaration, establish
 general context well-formedness, or authorize theorem validity; nested constants
 and definitional reductions remain incomplete and human review is required.
+
+`candidate-definition-probe.fs` is an untrusted diagnostic for an ordinary
+closed symbolic type/value pair: it infers that the claim has a Sort, infers
+the value and conservatively compares the resulting type. It restores both
+arena counts after every outcome. It neither registers nor independently
+certifies a declaration, and cannot infer constant-containing values. The
+fixture test applies it to the exported `fixtureId` type and value and checks
+that a mutated value does not succeed; subsequent use still assumes candidate
+metadata because no trusted environment or theorem receipt exists.
 `tests/reference/constant-application-oracle.lean` records Lean kernel
 acceptance of a polymorphic identity applied to `Prop` and rejection of a wrong
 argument or missing constant; these observations do not check LeanForth.
