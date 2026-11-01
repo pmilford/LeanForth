@@ -8,6 +8,7 @@ LEAN ?= lean
 .PHONY: test-signature-fixture-differential
 .PHONY: test-example-reference-differential
 .PHONY: test-constant-signature-differential test-add-reference-differential
+.PHONY: test-abs-reference-differential
 .PHONY: smoke reference reference-export test-harness test-core test-symbolic-infer-draft test-composition-fixture test-name-differential test-scope-differential test-shift-differential test-instantiate-differential test-beta-differential test-compare-differential test-infer-differential test-declaration-differential test-level-differential test-level-assignment-differential test-level-compare-differential test-poly-specialization-differential test-program test-program-differential test-program-stack-differential
 smoke:
 	$(GFORTH) tests/smoke/smoke.fs
@@ -32,6 +33,7 @@ test-core:
 	$(GFORTH) tests/core/raw-declaration-index.fs
 	$(GFORTH) tests/core/raw-index-reset.fs
 	$(GFORTH) tests/core/constant-references.fs
+	$(GFORTH) tests/core/constant-term-boundary.fs
 	$(GFORTH) tests/core/constant-signature-probe.fs
 	$(GFORTH) tests/core/raw-declaration-capacity.fs
 	$(GFORTH) tests/core/raw-signature-specialize.fs
@@ -87,6 +89,7 @@ test-composition-fixture:
 	python3 tests/core/test_composition_fixture.py
 	GFORTH=$(GFORTH) python3 tests/core/test_ndjson_preview.py
 	python3 tests/core/test_preview_constants.py
+	GFORTH=$(GFORTH) python3 tests/core/constant-term-fixture-test.py
 	python3 tests/core/test_preview_dependencies.py
 	GFORTH=$(GFORTH) python3 tests/core/test_named_levels.py
 	GFORTH=$(GFORTH) python3 tests/core/test_poly_specialization.py
@@ -154,6 +157,9 @@ test-example-reference-differential:
 
 test-add-reference-differential:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/program/add-reference-differential.sh
+
+test-abs-reference-differential:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/program/abs-reference-differential.sh
 
 test-program-depth-differential:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/program/program-depth-differential.sh

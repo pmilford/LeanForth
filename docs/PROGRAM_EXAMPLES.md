@@ -42,3 +42,8 @@ evidence, not a proof of Forth semantics or compiler behavior.
 Lean model on 410 small and signed 32-/64-bit boundary pairs, including
 overflow and stack-sentinel cases. This optional test requires 64-bit cells;
 it does not prove host arithmetic, the compiler, or the Forth implementation.
+
+`make test-abs-reference-differential` compares `lf-checked-abs` with its
+Lean model on 263 small and signed 64-bit boundary inputs, including the
+minimum-cell failure and stack sentinel. This optional test requires 64-bit
+two's-complement cells; it is finite evidence, not a runtime proof.

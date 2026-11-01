@@ -140,6 +140,15 @@ single-threaded ownership assumptions preclude treating it as a checked Lean
 environment. Eight arguments is a current experimental capacity, not a
 restriction on the intended Lean or full Mathlib compatibility.
 
+The experimental `constant-term-boundary.fs` supports mixed syntax graphs
+containing constant references, symbolic sorts, variables, applications and
+binders. It checks reachable node and level structure, scope of levels and
+captured identities, but does not check binder scope, declaration existence,
+typing or proofs. The ordinary inference and substitution experiments do not
+consume these nodes. A test-only transport stages 19 nodes from the pinned
+constant fixture; staging and structural validation do not import or check
+its declarations.
+
 The untrusted `constant-signature-probe.fs` bridge looks up a reference's
 name and ordered level handles in the candidate metadata and specializes the
 stored signature with exact arity. It does not make constants term nodes,
