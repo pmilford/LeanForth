@@ -140,6 +140,14 @@ single-threaded ownership assumptions preclude treating it as a checked Lean
 environment. Eight arguments is a current experimental capacity, not a
 restriction on the intended Lean or full Mathlib compatibility.
 
+The untrusted `constant-signature-probe.fs` bridge looks up a reference's
+name and ordered level handles in the candidate metadata and specializes the
+stored signature with exact arity. It does not make constants term nodes,
+infer their type, validate declarations or confer theorem validity. Its
+session, lifetime and mutation assumptions are inherited from its components.
+`make test-constant-signature-differential` compares 48 finite syntax
+observations with pinned Lean, not general declaration acceptance.
+
 The untrusted candidate-signature index exposes an index-lifetime generation
 through `lf-rawdecl-token`. Each begin attempt advances it and clears the
 index; saturation disables further begins rather than reusing an old token.

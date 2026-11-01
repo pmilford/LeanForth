@@ -37,3 +37,8 @@ ELAN_HOME="$PWD/.tools/elan" make test-program-values-differential LEAN="$PWD/.t
 its Lean model on 686 finite triples, including signed 32-bit boundary values.
 That optional boundary test requires cells of at least 64 bits. It is runtime
 evidence, not a proof of Forth semantics or compiler behavior.
+
+`make test-add-reference-differential` compares `lf-checked-add` with its
+Lean model on 410 small and signed 32-/64-bit boundary pairs, including
+overflow and stack-sentinel cases. This optional test requires 64-bit cells;
+it does not prove host arithmetic, the compiler, or the Forth implementation.
