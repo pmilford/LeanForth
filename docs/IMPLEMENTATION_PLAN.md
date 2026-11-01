@@ -2,6 +2,11 @@
 
 **Plan status: proposal.** Dates are intentionally replaced by correctness/acceptance gates; time estimates on a new theorem checker are not reliable. Keep **theorem-checking and verified-program execution equally visible** at every design review.
 
+The detailed, ordered submilestones, dependencies and acceptance evidence for
+both tracks are in [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md); update
+that roadmap as work progresses and use it alongside the current progress
+snapshot rather than treating the broad phases below as an execution backlog.
+
 The long-term target is to use Lean and Mathlib as a reusable, independently
 checked theorem base and provide a Forth-native way to build and check proofs
 and verified programs using Lean's logical approach. Early fragments are steps

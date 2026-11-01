@@ -13,6 +13,7 @@ include ../../src/experimental/raw-declaration-index.fs
 variable alpha-name
 variable beta-name
 variable signature-id
+T{ 99 lf-rawdecl-hterm-status -> lf-rawdecl-invalid }T
 lf-name-reset lf-term-reset lf-level-reset lf-lscope-context-reset
 T{ 0 s" alpha" lf-name-str -> 1 true }T
 1 alpha-name !

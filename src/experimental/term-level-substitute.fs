@@ -30,6 +30,22 @@ create lf-tls-actuals lf-level-capacity cells allot
 create lf-tls-seen lf-term-capacity cells allot
 create lf-tls-results lf-term-capacity cells allot
 
+\ Keep module statuses independent; unknown codes must never become success.
+: lf-tls-repr-status ( status -- status )
+  case
+    lf-repr-ok of lf-tlsubst-ok endof
+    lf-repr-invalid of lf-tlsubst-invalid endof
+    lf-repr-exhausted of lf-tlsubst-exhausted endof
+    drop lf-tlsubst-invalid 0
+  endcase ;
+: lf-tls-level-status ( status -- status )
+  case
+    lf-lsubst-ok of lf-tlsubst-ok endof
+    lf-lsubst-invalid of lf-tlsubst-invalid endof
+    lf-lsubst-exhausted of lf-tlsubst-exhausted endof
+    drop lf-tlsubst-invalid 0
+  endcase ;
+
 : lf-tls-rollback ( status -- status )
   lf-tls-terms-before @ lf-term-count !
   lf-tls-levels-before @ lf-level-count ! ;
@@ -56,7 +72,7 @@ create lf-tls-results lf-term-capacity cells allot
 \ Return substituted level or status; lsubst charges its own occurrence fuel.
 : lf-tls-level ( root -- result 0 | status )
   lf-tls-formals @ lf-tls-actuals lf-tls-count @ lf-tls-fuel @ lf-lsubst
-  lf-lsubst-fuel @ lf-tls-fuel ! ;
+  lf-lsubst-fuel @ lf-tls-fuel ! lf-tls-level-status ;
 
 \ Build in topological order. Reuse unchanged nodes and their original stamps.
 : lf-tls-build ( -- status )
@@ -108,9 +124,9 @@ create lf-tls-results lf-term-capacity cells allot
   \ Validate the formal list and every actual even if no Sort is reachable.
   0 lf-tls-level ?dup if lf-tls-rollback exit then drop
   lf-tls-root @ lf-repr-symbolic lf-tls-fuel @ lf-repr-check
-  lf-repr-fuel @ lf-tls-fuel ! ?dup if lf-tls-rollback exit then
+  lf-repr-fuel @ lf-tls-fuel ! lf-tls-repr-status ?dup if lf-tls-rollback exit then
   lf-tls-root @ lf-tls-fuel @ lf-href-check
-  lf-href-fuel @ lf-tls-fuel ! ?dup if lf-tls-rollback exit then
+  lf-href-fuel @ lf-tls-fuel ! lf-tls-repr-status ?dup if lf-tls-rollback exit then
   lf-tls-mark ?dup if lf-tls-rollback exit then
   lf-tls-build ?dup if lf-tls-rollback exit then
   lf-tls-root @ cells lf-tls-results + @ dup lf-term-identity 0= if

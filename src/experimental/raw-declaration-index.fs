@@ -59,6 +59,15 @@ variable lf-rawdecl-fuel
     dup i cells lf-rawdecl-names + @ = if drop i unloop exit then
   loop drop -1 ;
 
+\ Translate representation statuses explicitly; unexpected statuses fail closed.
+: lf-rawdecl-hterm-status ( status -- status )
+  case
+    lf-repr-ok of lf-rawdecl-ok endof
+    lf-repr-invalid of lf-rawdecl-invalid endof
+    lf-repr-exhausted of lf-rawdecl-exhausted endof
+    drop lf-rawdecl-invalid 0
+  endcase ;
+
 \ Add an unchecked candidate signature. Full representation/level validation
 \ uses the supplied finite fuel; invalid, duplicate and exhausted insertions
 \ leave all entries and the count unchanged. No typing or proof is checked.
@@ -70,6 +79,7 @@ variable lf-rawdecl-fuel
   lf-rawdecl-name @ lf-rawdecl-position 0>= if lf-rawdecl-invalid exit then
   lf-rawdecl-count @ lf-rawdecl-capacity >= if lf-rawdecl-exhausted exit then
   lf-rawdecl-type @ lf-rawdecl-identity @ lf-rawdecl-fuel @ lf-hterm-check
+  lf-rawdecl-hterm-status
   ?dup if exit then
   lf-rawdecl-name @ lf-rawdecl-count @ cells lf-rawdecl-names + !
   lf-rawdecl-type @ lf-rawdecl-count @ cells lf-rawdecl-types + !
@@ -85,5 +95,5 @@ variable lf-rawdecl-fuel
   dup 0<= over lf-name-valid? 0= or if drop -1 0 lf-rawdecl-invalid exit then
   lf-rawdecl-position dup 0< if drop -1 0 lf-rawdecl-unknown exit then
   dup cells lf-rawdecl-types + @ swap cells lf-rawdecl-identities + @
-  2dup lf-rawdecl-fuel @ lf-hterm-check
+  2dup lf-rawdecl-fuel @ lf-hterm-check lf-rawdecl-hterm-status
   ?dup if >r 2drop -1 0 r> exit then lf-rawdecl-ok ;

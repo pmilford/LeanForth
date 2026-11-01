@@ -4,6 +4,7 @@ LEAN ?= lean
 .PHONY: test-tagged-infer-differential test-tagged-binder-differential test-tagged-application-differential test-tagged-beta-differential test-tagged-convert-differential test-tagged-universe-differential test-program-depth-differential
 .PHONY: test-level-substitute-differential
 .PHONY: test-term-level-substitute-differential
+.PHONY: test-program-values-differential
 .PHONY: smoke reference reference-export test-harness test-core test-symbolic-infer-draft test-composition-fixture test-name-differential test-scope-differential test-shift-differential test-instantiate-differential test-beta-differential test-compare-differential test-infer-differential test-declaration-differential test-level-differential test-level-assignment-differential test-level-compare-differential test-poly-specialization-differential test-program test-program-differential test-program-stack-differential
 smoke:
 	$(GFORTH) tests/smoke/smoke.fs
@@ -129,7 +130,11 @@ test-poly-specialization-differential:
 
 test-program:
 	$(GFORTH) tests/program/clamp.fs
+	$(GFORTH) tests/program/examples.fs
 	$(GFORTH) tests/program/program-depth.fs
+
+test-program-values-differential:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/program/program-values-differential.sh
 
 test-program-depth-differential:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/program/program-depth-differential.sh

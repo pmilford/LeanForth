@@ -10,6 +10,8 @@ include ../../src/experimental/term-level-substitute.fs
 
 create formals 2 cells allot
 create actual-handles 4 cells allot
+T{ 99 lf-tls-repr-status -> lf-tlsubst-invalid }T
+T{ 99 lf-tls-level-status -> lf-tlsubst-invalid }T
 : actual! ( index position -- )
   2 * cells actual-handles + >r dup r@ ! lf-level-identity drop r> cell+ ! ;
 lf-term-reset lf-level-reset lf-lscope-context-reset

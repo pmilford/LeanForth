@@ -1,6 +1,6 @@
 # LeanForth project progress
 
-Snapshot: 2026-10-31. These are milestones, not estimates of percentage complete.
+Snapshot: 2026-11-01. These are milestones, not estimates of percentage complete.
 Prototype success is not theorem acceptance. Update this report after each
 meaningful milestone, with the inventory from `python3 scripts/code-inventory.py`.
 The two paths share the eventual checked proof infrastructure.
@@ -34,9 +34,9 @@ Do not use it until the representations are isolated and reviewed.
 | Milestone | Status and evidence / remaining work |
 | --- | --- |
 | 1. Contract and assumptions | Partial: the clamp example documents a mathematical contract and runtime assumptions. |
-| 2. Tested Forth example | A host Forth clamp and finite tests exist; tests alone do not prove it correct. |
+| 2. Tested Forth example | Host Forth clamp and five additional examples have finite tests run by `make test-program`; tests alone do not prove them correct. |
 | 3. Formal execution model | A Lean reference model proves clamp properties and frame preservation for successful modeled programs; the handwritten model is an assumption when relating it to Forth. |
-| 4. Model/runtime comparisons | Finite differential examples compare the reference model and Forth execution; host tests include 1,470 nested-clamp and 784 monotonicity cases, not all executions or a verified compiler. |
+| 4. Model/runtime comparisons | Finite differential examples include 15,624 bounded actual-stack instruction sequences compared with the Lean model, plus clamp tests; they do not establish all executions or a verified compiler. |
 | 5. Shared proof kernel | Depends on theorem milestone 5; no trusted LeanForth proof checker exists yet. |
 | 6. Forth program representation | A small Lean reference language models push, duplicate and addition; an exact static stack-depth bound is proved for that model. A separate abstract bounded-memory model has read, write and copy properties, but is not connected to the Forth interpreter. General Forth semantics and effects remain. |
 | 7. Verification conditions | A Lean reference proves weakest-precondition, stack-depth and sequential failure rules; an untrusted Forth depth diagnostic matches 1,093 finite cases. A general generator and checked certificates remain unimplemented. |

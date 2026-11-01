@@ -4,6 +4,8 @@
 
 See the [project progress report](docs/PROJECT_PROGRESS.md) for both product
 tracks, importer limits, and a reproducible code inventory.
+The [development roadmap](docs/DEVELOPMENT_ROADMAP.md) breaks each track into
+ordered submilestones with dependencies and acceptance evidence.
 
 LeanForth is a Forth-friendly mathematical theorem-proving **and verified-programming** system, with an independently trustworthy checker and efficient executable Forth backends. Its mathematical data and presentation notation must never redefine or ambiguously overload the Forth source grammar.
 
@@ -40,7 +42,11 @@ ELAN_HOME="$PWD/.tools/elan" make test-level-compare-differential LEAN="$PWD/.to
 ELAN_HOME="$PWD/.tools/elan" make test-poly-specialization-differential LEAN="$PWD/.tools/elan/bin/lean"
 ELAN_HOME="$PWD/.tools/elan" make test-program-differential LEAN="$PWD/.tools/elan/bin/lean"
 ELAN_HOME="$PWD/.tools/elan" make test-program-stack-differential LEAN="$PWD/.tools/elan/bin/lean"
+ELAN_HOME="$PWD/.tools/elan" make test-program-values-differential LEAN="$PWD/.tools/elan/bin/lean"
 ```
+
+`make test-program` includes clamp and [five additional executable Forth
+examples](docs/PROGRAM_EXAMPLES.md). They are runtime tested, not verified.
 
 These tests exercise Lean and untrusted Forth experiments; they do not test a
 LeanForth theorem-checking kernel. The draft
