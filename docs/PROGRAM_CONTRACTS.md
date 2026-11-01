@@ -27,6 +27,17 @@ Memory is separate from the stack interpreter: there are no modeled Forth
 load/store instructions, byte addressing, allocation, ownership, aliasing,
 alignment, concurrency or host memory semantics.
 
+`copyCell` composes the separate memory model's load and store, reading the
+source before writing the destination. `copyCell_success` proves that when
+both addresses are in bounds, the destination receives the original source
+value, the size is unchanged, and every other backing cell is unchanged.
+`copyCell_self` covers equal source and destination and proves all backing
+cells unchanged. Two negative theorems prove that an out-of-bounds source or
+destination produces `none`, including the boundary. Failure produces no
+resulting memory in this pure model; it does not establish atomicity of a
+real Forth or concurrent memory operation. This operation is not an instruction
+in the stack interpreter and has no ownership or physical-memory guarantees.
+
 `wp_weakest` states the general contract rule: for arbitrary finite modeled
 code and predicates `pre` and `post`, `pre` implies `wp code post` for every
 initial stack exactly when every stack satisfying `pre` executes successfully
@@ -79,7 +90,7 @@ The command passed locally with Lean 4.35.0 (commit
 `eb6cafb7290e8bd5f2937522d8d804f58f02bafc`). This is a local reference check;
 it does not establish CI status or cross-platform behavior.
 The reference file SHA-256 for this check is
-`507c3066e213cf15143009d1b7279bb88acb8a4e40b342bec46cac987b077c85`.
+`c537747e313b496bffd0eba213246c79d439f391669f6c1fa82e33c3925fb428`.
 
 This is a reference specification for future verification-condition work, not
 a LeanForth program verifier. It models unbounded mathematical integers and a

@@ -120,6 +120,17 @@ The meta checker is not itself the kernel oracle. Existing
 `tests/reference/declaration-oracle.lean` and `constant-fixture.lean` cover
 limited examples; no new tests or CI were run for this documentation draft.
 
+Subsequently, `tests/reference/constant-environment-oracle.lean` added direct
+`Kernel.Environment.addDeclCore` cases for a checked polymorphic identity,
+aliases, a concrete specialization, exact level arity, unknown and self
+references, duplicate names, an unbound universe, swapped two-parameter
+substitution and a nested `max`/`imax` argument. The valid and invalid cases
+are checked independently against immutable prior kernel environments. Its
+SHA-256 is `2332d01b9952754a30186b1130fd9e76686d9ffc5c8c13f51730d2a860df5466`.
+It runs as part of `make reference` with the pinned Lean version and revision.
+This is a limited reference suite, not a LeanForth differential test or
+evidence that a LeanForth declaration environment exists.
+
 Reproduction: inspect the cited files and ADRs; run the version command above
 and `sha256sum lean-toolchain` plus the four cited Lean source files. SHA-256:
 `lean-toolchain` ca5f1f601d34c49079e38d7e7041eb0f2a9c227fbc1df0f404820069a052330c;

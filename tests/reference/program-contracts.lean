@@ -158,6 +158,43 @@ theorem out_of_bounds_access (m : Memory) (address : Nat) (value : Int)
     load m address = none ∧ store m address value = none := by
   simp [load, store, Nat.not_lt.mpr h]
 
+-- Read before writing. A failed source or destination access yields no
+-- resulting memory; source and destination are allowed to be the same.
+def copyCell (m : Memory) (source destination : Nat) : Option Memory :=
+  (load m source).bind (store m destination)
+
+theorem copyCell_success (m : Memory) (source destination : Nat)
+    (hs : source < m.size) (hd : destination < m.size) :
+    ∃ updated, copyCell m source destination = some updated ∧
+      updated.size = m.size ∧
+      load updated destination = load m source ∧
+      ∀ other, other ≠ destination → updated.cells other = m.cells other := by
+  obtain ⟨updated, hstore, hsize, hload, hframe⟩ :=
+    store_read_frame m destination (m.cells source) hd
+  refine ⟨updated, ?_, hsize, ?_, hframe⟩
+  · simpa [copyCell, load, hs] using hstore
+  · simpa [load, hs] using hload
+
+theorem copyCell_source_out_of_bounds (m : Memory) (source destination : Nat)
+    (h : m.size ≤ source) : copyCell m source destination = none := by
+  simp [copyCell, load, Nat.not_lt.mpr h]
+
+theorem copyCell_destination_out_of_bounds (m : Memory) (source destination : Nat)
+    (h : m.size ≤ destination) : copyCell m source destination = none := by
+  simp [copyCell, load, store, Nat.not_lt.mpr h]
+
+-- Self-copy preserves every backing cell, including inaccessible ones.
+theorem copyCell_self (m : Memory) (address : Nat) (h : address < m.size) :
+    ∃ updated, copyCell m address address = some updated ∧
+      updated.size = m.size ∧ ∀ i, updated.cells i = m.cells i := by
+  obtain ⟨updated, hc, hsize, hread, hframe⟩ := copyCell_success m address address h h
+  refine ⟨updated, hc, hsize, ?_⟩
+  intro i
+  by_cases hi : i = address
+  · subst i
+    simpa [load, h, hsize] using hread
+  · exact hframe i hi
+
 -- Composition works for arbitrary modeled code and predicates, rather than
 -- proving only a specific example. This supplies a reusable reference rule.
 theorem wp_append (first second : List Op) (post : Stack → Prop) (s : Stack) :
