@@ -197,6 +197,17 @@ not serials. A test-only bridge stages the pinned constant fixture and obtains
 the expected `#1` result for `fixtureId A x` under binders `A` and `x`. It does
 not independently check the declaration or its proof, and arbitrary nested
 constants and general elaboration remain unsupported.
+
+The untrusted `context-validation-probe.fs` checks each supplied binder domain
+in its preceding context using limited inference. It audits all handles and
+scope before allocating, checks for a syntactic inferred Sort, and reports
+unknown when that form is inconclusive. Arena counts are restored on all
+outcomes, while identity serials advance. `validated-context-spine.fs` composes
+this with the context-aware constant diagnostic after prevalidating all input
+handles. The fixture test now uses that composition. This reduces one explicit
+context assumption but does not check the candidate declaration, establish
+general context well-formedness, or authorize theorem validity; nested constants
+and definitional reductions remain incomplete and human review is required.
 `tests/reference/constant-application-oracle.lean` records Lean kernel
 acceptance of a polymorphic identity applied to `Prop` and rejection of a wrong
 argument or missing constant; these observations do not check LeanForth.

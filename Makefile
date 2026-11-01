@@ -43,11 +43,13 @@ test-core:
 	$(GFORTH) tests/core/constant-application-probe.fs
 	$(GFORTH) tests/core/constant-spine-probe.fs
 	$(GFORTH) tests/core/context-constant-spine.fs
+	$(GFORTH) tests/core/validated-context-spine.fs
 	$(GFORTH) tests/core/constant-signature-probe.fs
 	$(GFORTH) tests/core/raw-declaration-capacity.fs
 	$(GFORTH) tests/core/raw-signature-specialize.fs
 	$(GFORTH) tests/core/tagged-infer.fs
 	$(GFORTH) tests/core/tagged-context-infer.fs
+	$(GFORTH) tests/core/context-validation-probe.fs
 	$(GFORTH) tests/core/tagged-shift.fs
 	$(GFORTH) tests/core/tagged-instantiate.fs
 	$(GFORTH) tests/core/tagged-compare.fs

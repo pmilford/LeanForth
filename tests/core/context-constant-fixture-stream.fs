@@ -27,6 +27,8 @@ include ../../src/experimental/tagged-context-infer.fs
 include ../../src/experimental/constant-application-probe.fs
 include ../../src/experimental/constant-spine-probe.fs
 include ../../src/experimental/context-constant-spine.fs
+include ../../src/experimental/context-validation-probe.fs
+include ../../src/experimental/validated-context-spine.fs
 decimal
 create cb 1 allot
 create buf 255 allot
@@ -116,7 +118,7 @@ variable expected-tag variable expected-a variable expected-b
   1 binder-context 2 cells + ! 1 cells tids + @ binder-context 3 cells + !
   2 app-arguments ! 2 cells tids + @ app-arguments cell+ !
   1 app-arguments 2 cells + ! 1 cells tids + @ app-arguments 3 cells + !
-  7 handle app-arguments 2 binder-context 2 lf-context-constant-spine
+  7 handle app-arguments 2 binder-context 2 lf-validated-context-spine
   lf-caprobe-ok <> if -1 throw then
   2dup 10000 lf-hterm-check lf-repr-ok <> if -1 throw then
   drop lf-term-read 0= if -1 throw then

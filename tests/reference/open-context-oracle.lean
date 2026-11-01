@@ -26,3 +26,16 @@ run_cmd do
   match env.addDeclCore 1000000 1000 (mkDef `ContextOracle.Wrong (mkValue 0)) none with
   | .error _ => pure ()
   | .ok _ => throwError "kernel accepted a value from the wrong binder"
+  -- A domain cannot refer to a future binder, or be an expression whose type
+  -- is a function rather than a Sort. The rejection reason is not inspected.
+  let badScope := Expr.forallE `x (.bvar 0) (.sort .zero) .default
+  let notAType := Expr.lam `x sortOne (.bvar 0) .default
+  let badDomain := Expr.forallE `x notAType (.sort .zero) .default
+  for (name, badType) in [("scope", badScope), ("domain", badDomain)] do
+    let decl : Declaration := .defnDecl {
+      name := Name.mkSimple s!"ContextOracleBad_{name}", levelParams := [],
+      type := badType, value := .sort .zero, hints := .abbrev, safety := .safe
+    }
+    match env.addDeclCore 1000000 1000 decl none with
+    | .error _ => pure ()
+    | .ok _ => throwError "kernel accepted invalid {name}"
