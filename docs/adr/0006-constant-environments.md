@@ -131,6 +131,15 @@ It runs as part of `make reference` with the pinned Lean version and revision.
 This is a limited reference suite, not a LeanForth differential test or
 evidence that a LeanForth declaration environment exists.
 
+The separate untrusted `constant-references.fs` data structure stores a
+structured-name ID and up to eight ordered level handles. It checks name-table
+generation and level allocation identities on access; it does not validate
+level graph shape or scope, enforce declaration arity, integrate constants
+into terms, or infer types. Its limits, forgeable instance-local handles and
+single-threaded ownership assumptions preclude treating it as a checked Lean
+environment. Eight arguments is a current experimental capacity, not a
+restriction on the intended Lean or full Mathlib compatibility.
+
 The untrusted candidate-signature index exposes an index-lifetime generation
 through `lf-rawdecl-token`. Each begin attempt advances it and clears the
 index; saturation disables further begins rather than reusing an old token.

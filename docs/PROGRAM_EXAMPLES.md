@@ -32,3 +32,8 @@ after setup with:
 ```sh
 ELAN_HOME="$PWD/.tools/elan" make test-program-values-differential LEAN="$PWD/.tools/elan/bin/lean"
 ```
+
+`make test-example-reference-differential` also compares `lf-in-range` with
+its Lean model on 686 finite triples, including signed 32-bit boundary values.
+That optional boundary test requires cells of at least 64 bits. It is runtime
+evidence, not a proof of Forth semantics or compiler behavior.
