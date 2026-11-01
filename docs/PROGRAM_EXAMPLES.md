@@ -61,3 +61,7 @@ does not prove the algorithms equivalent or verify the Forth runtime.
 `make test-gcd-reference-differential` compares `lf-gcd` against the Lean
 model on 150 finite input pairs, including negative and signed-cell boundary
 inputs. It requires 64-bit cells and is not a runtime or compiler proof.
+
+`make test-range-64-differential` compares interval membership on 343 triples
+drawn from signed 64-bit boundaries. It also checks canonical flags and caller
+stack preservation; it is finite testing and requires 64-bit cells.

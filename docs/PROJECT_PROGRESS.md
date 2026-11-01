@@ -16,7 +16,7 @@ stage, not the project's final scope or quality target.
 | --- | --- |
 | 1. Development foundation | Established in part: repository, MIT license, Lean 4.35.0 pin, Gforth, tests and CI skeleton. Installation and portability need further work. |
 | 2. Terms, names and universes | Partial untrusted bounded arenas, symbolic universes and mixed constant-term validation; handle checks reject replaced references. Typing integration and human review remain open. |
-| 3. Scope and substitutions | Partial experimental operations include tagged term substitution and simultaneous universe substitution in levels and terms; 48 finite cases of each agree with Lean. These tests do not prove general correctness. |
+| 3. Scope and substitutions | Partial experimental operations include conditional inference under explicit scoped binder contexts. Related finite cases agree with Lean, but context-domain typing is assumed and general correctness is unproved. |
 | 4. Definitional equality | Partial beta-aware conversion with selected symbolic universe identities; many Lean equivalences remain unknown. Independent review found no demonstrated false equality; human review remains outstanding. |
 | 5. Small trusted checker | Not complete: an untrusted tagged diagnostic checks a symbolic polymorphic identity type/value pair, but creates no theorem; application inference passes 18 finite Lean comparisons. Human review remains required. |
 | 6. Lean NDJSON importer | Bounded preview preserves constants and definitions; a test-only bridge stages all 19 nodes of one constant-containing fixture. Dependency validity, full import and trusted checking remain. |
@@ -36,7 +36,7 @@ Do not use it until the representations are isolated and reviewed.
 | 1. Contract and assumptions | Partial: Lean models cover clamp, checked addition, absolute value, interval membership, factorial and gcd without proving Forth correspondence. |
 | 2. Tested Forth example | Host Forth clamp and five additional examples have finite tests run by `make test-program`; tests alone do not prove them correct. |
 | 3. Formal execution model | A Lean reference model proves clamp properties and frame preservation for successful modeled programs; the handwritten model is an assumption when relating it to Forth. |
-| 4. Model/runtime comparisons | Finite comparisons include actual-stack instructions, arithmetic examples and 150 gcd input pairs against Lean models; they do not establish all executions or a verified compiler. |
+| 4. Model/runtime comparisons | Finite comparisons include actual-stack instructions, arithmetic examples and 343 signed 64-bit range triples against Lean models; they do not establish all executions or a verified compiler. |
 | 5. Shared proof kernel | Depends on theorem milestone 5; no trusted LeanForth proof checker exists yet. |
 | 6. Forth program representation | A small Lean reference language models push, duplicate and addition; an exact static stack-depth bound is proved for that model. A separate abstract bounded-memory model has read, write and copy properties, but is not connected to the Forth interpreter. General Forth semantics and effects remain. |
 | 7. Verification conditions | A Lean reference proves weakest-precondition, stack-depth and sequential failure rules; an untrusted Forth depth diagnostic matches 1,093 finite cases. A general generator and checked certificates remain unimplemented. |

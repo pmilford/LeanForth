@@ -174,6 +174,12 @@ constants are currently classified as invalid even when valid Lean syntax.
 It uses fixed, separate per-operation budgets and restores arena counts on
 failure, without rewinding identity serials. Existing inference and conversion
 still do not support nested constants or general constant-bearing graphs.
+`tagged-context-infer.fs` separately extends the ordinary symbolic inference
+experiment to explicit oldest-first binder domains. It checks representation,
+allocation identities and de Bruijn scope relative to preceding binders, but
+does not establish that domains are well-formed types. Its results depend on
+that unchecked assumption and are not typing judgments or theorem receipts.
+It is not yet integrated with the constant-application diagnostic.
 The untrusted `constant-spine-probe.fs` extends that diagnostic to zero through
 eight ordered, closed ordinary arguments, validating all argument handles
 before allocation and restoring both arena counts on any failure. Results are
