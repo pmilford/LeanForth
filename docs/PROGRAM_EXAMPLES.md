@@ -7,6 +7,9 @@ LeanForth proof connects them to a specification or runtime yet.
 The [independent Lean reference](PROGRAM_EXAMPLES_REFERENCE.md) proves
 properties of mathematical models for two examples; it does not prove the
 Forth implementations correspond to those models.
+The [factorial reference](FACTORIAL_REFERENCE.md) proves bounded mathematical
+factorial properties; it uses a different algorithm and does not prove the
+Forth word equivalent.
 The [checked-add reference](CHECKED_ADD_REFERENCE.md) also proves the modeled
 overflow checks and their arithmetic bounds, subject to the same limitation.
 

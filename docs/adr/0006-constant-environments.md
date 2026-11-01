@@ -157,6 +157,15 @@ session, lifetime and mutation assumptions are inherited from its components.
 `make test-constant-signature-differential` compares 48 finite syntax
 observations with pinned Lean, not general declaration acceptance.
 
+`constant-term-type-probe.fs` connects a single validated constant node to
+the candidate-signature bridge. Its output is an untrusted specialized term,
+not a typing judgment: candidate declarations and their signatures are not
+checked. It does not infer applications or resolve nested constants. Boundary
+fuel and signature fuel are separate, and the latter is applied independently
+to lookup and substitution. `make test-constant-term-type-differential`
+compares 48 finite substitution syntax observations with pinned Lean; the
+synthetic candidates in this comparison are not established as valid types.
+
 The untrusted candidate-signature index exposes an index-lifetime generation
 through `lf-rawdecl-token`. Each begin attempt advances it and clears the
 index; saturation disables further begins rather than reusing an old token.

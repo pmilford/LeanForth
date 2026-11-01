@@ -9,6 +9,7 @@ LEAN ?= lean
 .PHONY: test-example-reference-differential
 .PHONY: test-constant-signature-differential test-add-reference-differential
 .PHONY: test-abs-reference-differential
+.PHONY: test-constant-term-type-differential
 .PHONY: smoke reference reference-export test-harness test-core test-symbolic-infer-draft test-composition-fixture test-name-differential test-scope-differential test-shift-differential test-instantiate-differential test-beta-differential test-compare-differential test-infer-differential test-declaration-differential test-level-differential test-level-assignment-differential test-level-compare-differential test-poly-specialization-differential test-program test-program-differential test-program-stack-differential
 smoke:
 	$(GFORTH) tests/smoke/smoke.fs
@@ -34,6 +35,7 @@ test-core:
 	$(GFORTH) tests/core/raw-index-reset.fs
 	$(GFORTH) tests/core/constant-references.fs
 	$(GFORTH) tests/core/constant-term-boundary.fs
+	$(GFORTH) tests/core/constant-term-type-probe.fs
 	$(GFORTH) tests/core/constant-signature-probe.fs
 	$(GFORTH) tests/core/raw-declaration-capacity.fs
 	$(GFORTH) tests/core/raw-signature-specialize.fs
@@ -137,6 +139,9 @@ test-signature-fixture-differential:
 
 test-constant-signature-differential:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/core/constant-signature-differential.sh
+
+test-constant-term-type-differential:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/core/constant-term-type-differential.sh
 
 test-level-compare-differential:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/core/level-compare-differential.sh
