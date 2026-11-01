@@ -151,6 +151,10 @@ the index requires candidate levels and actual levels to share its session
 context. It is not an implementation of the reviewed declaration environment,
 does not establish typing, scope of term binders or proof validity, and cannot
 register any declaration. Its metadata must not be persisted across processes.
+`make test-signature-fixture-differential` stages the pinned polymorphic
+identity NDJSON fixture as untrusted test data and compares its specialized
+type shape at two universe instances to pinned Lean. It does not import or
+check the declaration, its value, or other NDJSON records in general.
 The token is forgeable, does not validate a declaration, and does not make
 bare name IDs safe across name-table resets. This is not a checked environment.
 

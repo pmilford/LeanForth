@@ -5,6 +5,7 @@ LEAN ?= lean
 .PHONY: test-level-substitute-differential
 .PHONY: test-term-level-substitute-differential
 .PHONY: test-program-values-differential
+.PHONY: test-signature-fixture-differential
 .PHONY: smoke reference reference-export test-harness test-core test-symbolic-infer-draft test-composition-fixture test-name-differential test-scope-differential test-shift-differential test-instantiate-differential test-beta-differential test-compare-differential test-infer-differential test-declaration-differential test-level-differential test-level-assignment-differential test-level-compare-differential test-poly-specialization-differential test-program test-program-differential test-program-stack-differential
 smoke:
 	$(GFORTH) tests/smoke/smoke.fs
@@ -27,6 +28,7 @@ test-core:
 	$(GFORTH) tests/core/generation-handles.fs
 	$(GFORTH) tests/core/handle-reference-integrity.fs
 	$(GFORTH) tests/core/raw-declaration-index.fs
+	$(GFORTH) tests/core/raw-index-reset.fs
 	$(GFORTH) tests/core/raw-declaration-capacity.fs
 	$(GFORTH) tests/core/raw-signature-specialize.fs
 	$(GFORTH) tests/core/tagged-infer.fs
@@ -122,6 +124,9 @@ test-level-substitute-differential:
 
 test-term-level-substitute-differential:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/core/term-level-substitute-differential.sh
+
+test-signature-fixture-differential:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) python3 tests/core/signature-fixture-test.py
 
 test-level-compare-differential:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/core/level-compare-differential.sh

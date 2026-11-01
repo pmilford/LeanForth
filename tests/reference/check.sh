@@ -24,6 +24,7 @@ fi
 "$lean" tests/reference/stack-clamp.lean
 "$lean" tests/reference/program-contracts.lean
 "$lean" tests/reference/program-examples.lean
+"$lean" tests/reference/checked-add.lean
 output=$(mktemp)
 trap 'rm -f "$output"' EXIT
 for test_name in composition-invalid binders-invalid universes-invalid; do

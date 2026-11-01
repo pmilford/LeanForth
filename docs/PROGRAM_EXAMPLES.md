@@ -7,6 +7,8 @@ LeanForth proof connects them to a specification or runtime yet.
 The [independent Lean reference](PROGRAM_EXAMPLES_REFERENCE.md) proves
 properties of mathematical models for two examples; it does not prove the
 Forth implementations correspond to those models.
+The [checked-add reference](CHECKED_ADD_REFERENCE.md) also proves the modeled
+overflow checks and their arithmetic bounds, subject to the same limitation.
 
 | Word | Behavior and failure |
 | --- | --- |
