@@ -19,6 +19,7 @@ create lf-rawdecl-types lf-rawdecl-capacity cells allot
 create lf-rawdecl-identities lf-rawdecl-capacity cells allot
 variable lf-rawdecl-count
 variable lf-rawdecl-active
+variable lf-rawdecl-generation
 variable lf-rawdecl-name-generation
 variable lf-rawdecl-term-generation
 variable lf-rawdecl-level-generation
@@ -29,11 +30,15 @@ variable lf-rawdecl-identity
 variable lf-rawdecl-fuel
 0 lf-rawdecl-active !
 0 lf-rawdecl-count !
+0 lf-rawdecl-generation !
 
 \ Start a fresh index against one live name table and symbolic session.
 \ Prior entries are discarded; failure leaves the index inactive and empty.
 : lf-rawdecl-begin ( -- flag )
   0 lf-rawdecl-active ! 0 lf-rawdecl-count !
+  lf-rawdecl-generation @ dup 0< if drop false exit then
+  dup -1 1 rshift = if drop -1 lf-rawdecl-generation ! false exit then
+  1+ lf-rawdecl-generation !
   lf-name-storage-valid? lf-ssession-current? and 0= if false exit then
   lf-name-generation @ lf-rawdecl-name-generation !
   lf-term-generation @ lf-rawdecl-term-generation !
@@ -45,12 +50,21 @@ variable lf-rawdecl-fuel
 \ already detect term, level and parameter-context resets; names are separate.
 : lf-rawdecl-current? ( -- flag )
   lf-rawdecl-active @ 0= if false exit then
+  lf-rawdecl-generation @ 0< if false exit then
   lf-rawdecl-count @ dup 0< 0= swap lf-rawdecl-capacity <= and
   lf-name-storage-valid? and lf-ssession-current? and
   lf-name-generation @ lf-rawdecl-name-generation @ = and
   lf-term-generation @ lf-rawdecl-term-generation @ = and
   lf-level-generation @ lf-rawdecl-level-generation @ = and
   lf-lscope-generation @ lf-rawdecl-context-generation @ = and ;
+
+\ Return this index lifetime's token only while its captured session is live.
+\ It is an untrusted counter, not an unforgeable capability or theorem handle.
+\ Tokens are unique only within this loaded instance, not across reloads or
+\ processes. Insertions do not advance it; it is not a content revision and
+\ cannot invalidate cached lookup results when entries are added.
+: lf-rawdecl-token ( -- generation true | false )
+  lf-rawdecl-current? if lf-rawdecl-generation @ true else false then ;
 
 \ Locate a name within a validated index; -1 means absent. Interning supplies
 \ equal IDs only within the same unmodified name table and lifetime.

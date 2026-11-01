@@ -63,4 +63,28 @@ T{ 1 1000 lf-rawdecl-find -> -1 0 lf-rawdecl-invalid }T
 T{ lf-rawdecl-begin -> true }T
 T{ 1 0 lf-term-serial @ 1000 lf-rawdecl-put -> lf-rawdecl-ok }T
 T{ 1 1000 lf-rawdecl-find -> 0 lf-term-serial @ lf-rawdecl-ok }T
+\ Rebuilding identical content still starts a distinct index lifetime.
+lf-rawdecl-token drop constant old-token
+T{ lf-rawdecl-begin -> true }T
+T{ 1 0 lf-term-serial @ 1000 lf-rawdecl-put -> lf-rawdecl-ok }T
+T{ lf-rawdecl-token -> old-token 1+ true }T
+\ Even a failed begin invalidates the preceding index lifetime.
+0 lf-ssession-active !
+T{ lf-rawdecl-begin -> false }T
+T{ lf-rawdecl-token -> false }T
+T{ lf-ssession-begin -> false }T
+\ Restore only the session-active flag for the isolated saturation test;
+\ no term or context generation has changed.
+true lf-ssession-active !
+T{ lf-rawdecl-begin -> true }T
+T{ lf-rawdecl-token -> old-token 3 + true }T
+\ The largest generation can be issued once before permanent saturation.
+-1 1 rshift 1- lf-rawdecl-generation !
+T{ lf-rawdecl-begin -> true }T
+T{ lf-rawdecl-token -> -1 1 rshift true }T
+\ Saturation permanently disables fresh lifetimes rather than wrapping.
+T{ lf-rawdecl-begin -> false }T
+T{ lf-rawdecl-token -> false }T
+T{ lf-rawdecl-begin -> false }T
+T{ 1 1000 lf-rawdecl-find -> -1 0 lf-rawdecl-invalid }T
 bye

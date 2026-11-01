@@ -131,6 +131,18 @@ It runs as part of `make reference` with the pinned Lean version and revision.
 This is a limited reference suite, not a LeanForth differential test or
 evidence that a LeanForth declaration environment exists.
 
+The untrusted candidate-signature index exposes an index-lifetime generation
+through `lf-rawdecl-token`. Each begin attempt advances it and clears the
+index; saturation disables further begins rather than reusing an old token.
+Consumers must explicitly capture and compare the token and all relevant
+session identities; the index does not enforce that external metadata does so.
+Tokens are unique only within one loaded module instance, not across reloads
+or processes, and identify lifetimes rather than content revisions: insertions
+do not invalidate caches. Cross-instance or content-sensitive consumers need
+separate identities or invalidation.
+The token is forgeable, does not validate a declaration, and does not make
+bare name IDs safe across name-table resets. This is not a checked environment.
+
 The untrusted `src/experimental/level-substitute.fs` implements a bounded
 simultaneous substitution of level DAGs. Its formal parameter IDs and actual
 level roots are caller-owned cell arrays; actual roots must be valid in the
