@@ -16,7 +16,7 @@ stage, not the project's final scope or quality target.
 | --- | --- |
 | 1. Development foundation | Established in part: repository, MIT license, Lean 4.35.0 pin, Gforth, tests and CI skeleton. Installation and portability need further work. |
 | 2. Terms, names and universes | Partial untrusted bounded Forth arenas and symbolic universe experiments; handle-based checks reject replaced referenced levels, while raw consumers and human review remain open. |
-| 3. Scope and substitutions | Partial experimental operations, including tagged term substitution and bounded simultaneous universe substitution; 48 finite universe cases agree with Lean. These tests do not prove general correctness. |
+| 3. Scope and substitutions | Partial experimental operations include tagged term substitution and simultaneous universe substitution in levels and terms; 48 finite cases of each agree with Lean. These tests do not prove general correctness. |
 | 4. Definitional equality | Partial beta-aware conversion with selected symbolic universe identities; many Lean equivalences remain unknown. Independent review found no demonstrated false equality; human review remains outstanding. |
 | 5. Small trusted checker | Not complete: an untrusted tagged diagnostic checks a symbolic polymorphic identity type/value pair, but creates no theorem; application inference passes 18 finite Lean comparisons. Human review remains required. |
 | 6. Lean NDJSON importer | Bounded preview preserves constants and definitions and reports local dependency/order/arity observations; dependency validity remains unchecked. Full import and trusted checking remain. |
@@ -39,7 +39,7 @@ Do not use it until the representations are isolated and reviewed.
 | 4. Model/runtime comparisons | Finite differential examples compare the reference model and Forth execution; host tests include 1,470 nested-clamp and 784 monotonicity cases, not all executions or a verified compiler. |
 | 5. Shared proof kernel | Depends on theorem milestone 5; no trusted LeanForth proof checker exists yet. |
 | 6. Forth program representation | A small Lean reference language models push, duplicate and addition; an exact static stack-depth bound is proved for that model. A separate abstract bounded-memory model has read, write and copy properties, but is not connected to the Forth interpreter. General Forth semantics and effects remain. |
-| 7. Verification conditions | A Lean reference proves weakest-precondition and stack-depth rules; an untrusted Forth depth diagnostic matches 1,093 finite cases. A general generator and checked certificates remain unimplemented. |
+| 7. Verification conditions | A Lean reference proves weakest-precondition, stack-depth and sequential failure rules; an untrusted Forth depth diagnostic matches 1,093 finite cases. A general generator and checked certificates remain unimplemented. |
 | 8. User-facing verifier | A general workflow to specify, prove and check Forth programs is not implemented. |
 | 9. Verified execution/compilation | Source-to-runtime correspondence and compilation assurance remain; runtime and machine assumptions must be explicit. |
 | 10. Larger executable programs | Broader examples, typed memory/tensor contracts and CPU execution remain future work. |

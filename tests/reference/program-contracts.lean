@@ -205,4 +205,29 @@ theorem wp_append (first second : List Op) (post : Stack → Prop) (s : Stack) :
     simp only [List.cons_append, wp]
     cases h : step op s <;> simp [ih]
 
+-- A sequence succeeds exactly when its first part produces an intermediate
+-- stack deep enough for the second part. Both lists and the stack are arbitrary.
+theorem append_success_iff_intermediate_depth (first second : List Op) (s : Stack) :
+    (∃ result, execute (first ++ second) s = some result) ↔
+      ∃ middle, execute first s = some middle ∧
+        requiredDepth second ≤ middle.length := by
+  have hwp := wp_append first second (fun _ => True) s
+  simp only [wp_iff_execution, and_true] at hwp
+  simpa only [← requiredDepth_iff_execution] using hwp
+
+-- Failure distinguishes failure of the first part from underflow in the
+-- second part after a successful first part, including the exact boundary.
+theorem append_failure_iff (first second : List Op) (s : Stack) :
+    execute (first ++ second) s = none ↔
+      execute first s = none ∨
+        ∃ middle, execute first s = some middle ∧ middle.length < requiredDepth second := by
+  have h := append_success_iff_intermediate_depth first second s
+  cases hf : execute first s with
+  | none =>
+    simp [hf] at h ⊢
+    cases he : execute (first ++ second) s <;> simp_all
+  | some middle =>
+    simp [hf] at h ⊢
+    cases he : execute (first ++ second) s <;> simp_all <;> omega
+
 end LeanForthProgramReference

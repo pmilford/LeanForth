@@ -147,6 +147,18 @@ required for trusted use. `make test-level-substitute-differential` compares
 48 finite concrete observations to pinned Lean, which does not prove general
 symbolic equivalence or establish kernel compatibility.
 
+The experimental `src/experimental/term-level-substitute.fs` applies this
+operation to Sorts in a bounded symbolic term DAG containing variables,
+applications, lambdas and Pi nodes. Formal IDs are scoped separately from
+the caller context of the actual levels. It checks allocation identities,
+reuses unchanged nodes, and restores both arena counts on failure without
+rewinding allocation serials. Input arrays must be aligned, accessible and
+disjoint from arena, context and scratch storage; session and arena mutation
+must be excluded. Raw and forgeable identities are not capabilities. Constants,
+typing, binder scope and declaration checking are not supported. The
+`make test-term-level-substitute-differential` target compares 48 finite
+observations with pinned Lean; it does not establish general correctness.
+
 Reproduction: inspect the cited files and ADRs; run the version command above
 and `sha256sum lean-toolchain` plus the four cited Lean source files. SHA-256:
 `lean-toolchain` ca5f1f601d34c49079e38d7e7041eb0f2a9c227fbc1df0f404820069a052330c;

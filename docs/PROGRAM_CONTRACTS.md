@@ -61,6 +61,17 @@ where instruction order changes the bound and where an empty stack fails it.
 The bound concerns stack depth only: it does not establish an arbitrary value
 postcondition; use `wp` and a separate proof for that.
 
+`append_success_iff_intermediate_depth` connects sequential composition to
+that bound: arbitrary `first ++ second` code succeeds exactly when `first`
+produces an intermediate stack whose depth meets `requiredDepth second`.
+`append_failure_iff` gives the complementary partial-failure rule: the sequence
+returns `none` exactly when the first part fails, or it succeeds with an
+intermediate stack strictly shallower than the second part requires. Equality
+with the bound is sufficient for the second part to execute; this says nothing
+about its values or any desired postcondition. These results apply to the
+abstract stack operations only, not to the separate memory model or a Forth
+runtime.
+
 `src/experimental/program-depth.fs` implements a separate untrusted Forth
 diagnostic for arrays of the three opcode tags. It does not execute programs or
 issue a proof. `make test-program-depth-differential` compares its results with
@@ -90,7 +101,7 @@ The command passed locally with Lean 4.35.0 (commit
 `eb6cafb7290e8bd5f2937522d8d804f58f02bafc`). This is a local reference check;
 it does not establish CI status or cross-platform behavior.
 The reference file SHA-256 for this check is
-`c537747e313b496bffd0eba213246c79d439f391669f6c1fa82e33c3925fb428`.
+`3cb499863916d2c5ccaa44eba24ece852b59f81ad25843a5336212f93f646d27`.
 
 This is a reference specification for future verification-condition work, not
 a LeanForth program verifier. It models unbounded mathematical integers and a
