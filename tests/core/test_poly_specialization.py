@@ -17,6 +17,8 @@ def specialization_stream(decoded, assignments, value_override=None):
     if decoded.get("checked") is not False:
         raise ValueError("expected unchecked preview data")
     declaration = decoded["declarations"][0]
+    if declaration.get("kind") != "thm":
+        raise ValueError("only theorem fixtures are supported by this transport")
     context = declaration["levelParams"]
     levels = decoded["levelExpressions"]
     expressions = decoded["expressions"]

@@ -18,7 +18,8 @@ COMMAND = [os.environ.get("GFORTH", "gforth"), "tests/core/tagged-poly-fixture-s
 def encode(raw):
     decoded = preview(io.BytesIO(raw))
     declarations = decoded["declarations"]
-    if len(declarations) != 1 or len(declarations[0]["levelParams"]) != 1:
+    if (len(declarations) != 1 or declarations[0].get("kind") != "thm"
+            or len(declarations[0]["levelParams"]) != 1):
         raise ValueError("expected one declaration and one parameter")
     parameter = declarations[0]["levelParams"][0]
     levels = decoded["levelExpressions"]

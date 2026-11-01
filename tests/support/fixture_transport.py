@@ -46,6 +46,8 @@ def encode_concrete(decoded, declaration_index=0):
     if type(declaration_index) is not int or not 0 <= declaration_index < len(declarations):
         raise ValueError("invalid declaration index")
     declaration = declarations[declaration_index]
+    if declaration.get("kind") != "thm":
+        raise ValueError("only theorem fixtures are supported by this transport")
     nodes = decoded["expressions"]
     stream = bytearray(struct.pack("<III", len(nodes), declaration["type"], declaration["value"]))
     for index, node in enumerate(nodes):

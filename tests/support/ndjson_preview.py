@@ -14,6 +14,7 @@ MAX_NAMES = 256
 MAX_LEVELS = 256
 MAX_NODES = 64
 MAX_DECLARATIONS = 64
+MAX_LEVEL_ARGUMENTS = 256
 MAX_INTEGER = 2147483647
 
 
@@ -66,6 +67,8 @@ def check_level_parameter_scope(roots, nodes, level_expressions, name_keys, allo
         node = nodes[index]
         if node["tag"] == "sort":
             pending_levels.append(node["levelIndex"])
+        elif node["tag"] == "const":
+            pending_levels.extend(node["us"])
         elif node["tag"] == "app":
             pending_nodes.extend((node["fn"], node["arg"]))
         elif node["tag"] in ("lam", "forallE"):
@@ -195,6 +198,19 @@ def preview(stream):
                 node = {"tag": "sort", "level": levels[level_index], "levelIndex": level_index}
             elif kind == "bvar":
                 node = {"tag": kind, "index": integer(record[kind])}
+            elif kind == "const":
+                item = fields(record[kind], {"name", "us"})
+                name = integer(item["name"], len(names) - 1)
+                if name == 0:
+                    fail("anonymous constant name")
+                args = item["us"]
+                if not isinstance(args, list):
+                    fail("constant universe arguments are not a list")
+                if len(args) > MAX_LEVEL_ARGUMENTS:
+                    fail("constant universe argument limit exceeded", "LF_PREVIEW_LIMIT")
+                for level in args:
+                    integer(level, len(levels) - 1)
+                node = {"tag": "const", "name": name, "us": list(args)}
             elif kind in ("app", "lam", "forallE"):
                 keys = {"fn", "arg"} if kind == "app" else {"name", "binderInfo", "type", "body"}
                 item = fields(record[kind], keys)
@@ -209,10 +225,22 @@ def preview(stream):
             else:
                 fail("unsupported expression kind", "LF_PREVIEW_UNSUPPORTED")
             nodes.append(node)
-        elif set(record) == {"thm"}:
+        elif set(record) in ({"thm"}, {"def"}):
             if len(declarations) >= MAX_DECLARATIONS:
                 fail("declaration limit exceeded", "LF_PREVIEW_LIMIT")
-            item = fields(record["thm"], {"all", "levelParams", "name", "type", "value"})
+            declaration_kind = next(iter(record))
+            expected = {"all", "levelParams", "name", "type", "value"}
+            if declaration_kind == "def":
+                expected |= {"hints", "safety"}
+            item = fields(record[declaration_kind], expected)
+            if declaration_kind == "def":
+                hints = item["hints"]
+                if isinstance(hints, dict):
+                    integer(fields(hints, {"regular"})["regular"])
+                elif hints not in ("opaque", "abbrev"):
+                    fail("unsupported reducibility hints", "LF_PREVIEW_UNSUPPORTED")
+                if item["safety"] not in ("safe", "unsafe", "partial"):
+                    fail("unsupported definition safety", "LF_PREVIEW_UNSUPPORTED")
             name = integer(item["name"], len(names) - 1)
             if name == 0 or name_keys[name] in declared:
                 fail("invalid or duplicate declaration name")
@@ -235,13 +263,14 @@ def preview(stream):
                 fail("mutual theorem is unsupported", "LF_PREVIEW_UNSUPPORTED")
             check_level_parameter_scope((item["type"], item["value"]), nodes,
                                         level_expressions, name_keys, param_keys)
-            declarations.append(dict(item))
+            declarations.append({"kind": declaration_kind, **item})
             declared.add(name_keys[name])
         else:
             fail("unsupported record", "LF_PREVIEW_UNSUPPORTED")
     if metadata is None or not declarations:
-        fail("missing metadata or theorem")
-    return {"version": "0.1", "checked": False, "metadata": metadata,
+        fail("missing metadata or declaration")
+    return {"version": "0.2", "checked": False, "dependenciesChecked": False,
+            "metadata": metadata,
             "names": names, "levels": levels, "levelExpressions": level_expressions,
             "concreteLevelDataOnly": all(level is not None for level in levels)
                 and all(not decl["levelParams"] for decl in declarations),

@@ -1,6 +1,8 @@
 /- A Lean reference for a small executable Forth-like stack language.
    This is not a LeanForth verifier, parser, compiler, or host semantics. -/
 
+import Std.Tactic
+
 namespace LeanForthProgramReference
 
 abbrev Stack := List Int
@@ -22,6 +24,53 @@ def step : Op → Stack → Option Stack
 def execute : List Op → Stack → Option Stack
   | [], s => some s
   | op :: rest, s => (step op s).bind (execute rest)
+
+-- Minimum initial depth required by the remaining instructions. Subtraction
+-- on Nat saturates at zero; DUP needs one item even if the suffix needs none.
+def requiredDepth : List Op → Nat
+  | [] => 0
+  | .push _ :: rest => requiredDepth rest - 1
+  | .dup :: rest => max 1 (requiredDepth rest - 1)
+  | .add :: rest => max 2 (requiredDepth rest + 1)
+
+-- Exactness includes soundness (sufficient depth prevents underflow) and
+-- necessity (no smaller initial stack can execute this particular model).
+theorem requiredDepth_iff_execution (code : List Op) (s : Stack) :
+    requiredDepth code ≤ s.length ↔ ∃ result, execute code s = some result := by
+  induction code generalizing s with
+  | nil => simp [requiredDepth, execute]
+  | cons op rest ih =>
+    cases op with
+    | push n =>
+      simpa [requiredDepth, execute, step, List.length_cons] using
+        (show requiredDepth rest - 1 ≤ s.length ↔
+          ∃ result, execute rest (n :: s) = some result by
+            rw [← ih]; simp only [List.length_cons]; omega)
+    | dup =>
+      cases s with
+      | nil => simp [requiredDepth, execute, step]
+      | cons x tail =>
+        simp only [requiredDepth, execute, step, Option.bind_some, ← ih,
+          List.length_cons, Nat.max_le]
+        omega
+    | add =>
+      cases s with
+      | nil => simp [requiredDepth, execute, step]
+      | cons x tail =>
+        cases tail with
+        | nil =>
+          have h := Nat.le_max_left 2 (requiredDepth rest + 1)
+          simp [requiredDepth, execute, step]
+          omega
+        | cons y tail =>
+          simp only [requiredDepth, execute, step, Option.bind_some, ← ih,
+            List.length_cons, Nat.max_le]
+          omega
+
+example : requiredDepth [.dup, .add] = 1 := by decide
+example : requiredDepth [.push 4, .add] = 1 := by decide
+example : requiredDepth [.add, .push 4] = 2 := by decide
+example : ¬ requiredDepth [.dup, .add] ≤ ([] : Stack).length := by decide
 
 -- The reference weakest precondition requires successful execution; a proof
 -- about it therefore includes absence of modeled stack underflow.

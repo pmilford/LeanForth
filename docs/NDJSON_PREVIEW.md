@@ -13,14 +13,30 @@ make test-composition-fixture
 
 The preview supports the pinned Lean 4.35.0 and export format 3.1.0 metadata,
 sequential string and numeric names, successor, `max`, `imax`, and parameter
-universe expressions, bound variables,
-applications, lambdas, Pi expressions and singleton theorem
+universe expressions, bound variables, constant references with ordered universe
+arguments, applications, lambdas, Pi expressions and singleton definition and theorem
 records. Child and name references must refer to existing records. It preserves
-binder metadata in its output, but does not check scope, types or proof terms.
-Constants, axioms, definitions, inductives, recursors, quotients and mutual
-declarations are unsupported, never assumed. Polymorphic theorem metadata is
-retained as unchecked data. The preview checks that reachable universe
+binder metadata in its output, but does not check term-variable scope, types or proof terms.
+Definitions and their safety/reducibility fields are returned as **unchecked
+data**, not registered or unfolded; even a `safe` field is just exported input.
+Axioms, inductives, recursors, quotients and mutual declarations are unsupported,
+never assumed. Polymorphic declaration metadata is retained as unchecked data.
+The preview checks that reachable universe
 parameters are listed by each declaration, but does not type-check the result.
+For constants, it validates name and level-table indices and preserves the
+ordered `us` list; it does not resolve referenced declarations, check universe
+arity, authorize axioms or establish dependencies. The output has
+`dependenciesChecked: false` and `checked: false`.
+
+The pinned `constant-fixture.ndjson` contains two definitions and a theorem
+with symbolic and concrete universe instances of a referenced constant.
+`make reference-export` reproduces it with Lean's exporter. This preview can
+read those records, but neither existing Forth transport accepts constants or
+definitions, and the fixture cannot yet be independently checked by LeanForth.
+At this checkpoint the source SHA-256 is
+`e09e14555a4faad4874a96ed9fc76374ef5d4f326ab37f2c85ce23dc79b7b710` and
+the export SHA-256 is
+`b6444346ee56d77f6936fb1bdca389b25bc76330b146fb7612fb6fc5c1be0249`.
 
 Universe records use sequential table indices: zero is implicit, and `succ`
 refers to an earlier table entry. Concrete `max` and `imax` refer to two earlier

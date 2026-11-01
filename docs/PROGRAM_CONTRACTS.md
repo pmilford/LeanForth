@@ -19,11 +19,29 @@ file's deterministic `step` and `execute` definitions, finite instruction
 lists, and Lean's integer and list semantics. They impose no separate
 precondition on the initial stack beyond the stated predicates.
 
+`requiredDepth` computes a static minimum input depth by walking the modeled
+instruction list backwards. For a suffix needing `r` items, push needs
+`r - 1` (natural-number subtraction saturates at zero), duplicate needs
+`max 1 (r - 1)`, and add needs `max 2 (r + 1)`. The empty list needs zero.
+`requiredDepth_iff_execution` proves for every finite modeled instruction list
+and every initial stack that this bound is met exactly when execution returns
+some result. In particular, meeting the bound rules out modeled stack
+underflow, and failing it guarantees failure. The file also checks examples
+where instruction order changes the bound and where an empty stack fails it.
+The bound concerns stack depth only: it does not establish an arbitrary value
+postcondition; use `wp` and a separate proof for that.
+
 Run with the pinned toolchain:
 
 ```sh
 ELAN_HOME="$PWD/.tools/elan" .tools/elan/bin/lean tests/reference/program-contracts.lean
 ```
+
+The command passed locally with Lean 4.35.0 (commit
+`eb6cafb7290e8bd5f2937522d8d804f58f02bafc`). This is a local reference check;
+it does not establish CI status or cross-platform behavior.
+The reference file SHA-256 at this checkpoint is
+`1775e3a6116ce0495d2de27e3791af70e2f160b1e7a9b997e2ced23ee6583d9a`.
 
 This is a reference specification for future verification-condition work, not
 a LeanForth program verifier. It models unbounded mathematical integers and a

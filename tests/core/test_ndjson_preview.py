@@ -70,7 +70,7 @@ class PreviewTests(unittest.TestCase):
         with self.assertRaises(PreviewError) as raised:
             self.parse(lines)
         self.assertEqual(raised.exception.code, "LF_PREVIEW_UNSUPPORTED")
-        lines = self.alter('"ie":0', lambda r: (r.pop("sort"), r.update(const={"name": 1})))
+        lines = self.alter('"ie":0', lambda r: (r.pop("sort"), r.update(letE={})))
         with self.assertRaises(PreviewError) as raised:
             self.parse(lines)
         self.assertEqual(raised.exception.code, "LF_PREVIEW_UNSUPPORTED")
