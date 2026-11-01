@@ -140,6 +140,17 @@ Tokens are unique only within one loaded module instance, not across reloads
 or processes, and identify lifetimes rather than content revisions: insertions
 do not invalidate caches. Cross-instance or content-sensitive consumers need
 separate identities or invalidation.
+
+The untrusted `raw-signature-specialize.fs` experiment associates copied,
+ordered formal IDs with a candidate in that index lifetime and requires exact
+arity when specializing its stored term. Insertion checks that the formal
+list covers the source levels by a temporary substitution; arena counts are
+restored but allocation serials advance, and resource exhaustion can reject
+an otherwise adequate list. It remains bounded and session-local:
+the index requires candidate levels and actual levels to share its session
+context. It is not an implementation of the reviewed declaration environment,
+does not establish typing, scope of term binders or proof validity, and cannot
+register any declaration. Its metadata must not be persisted across processes.
 The token is forgeable, does not validate a declaration, and does not make
 bare name IDs safe across name-table resets. This is not a checked environment.
 

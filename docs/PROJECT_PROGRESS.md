@@ -21,7 +21,7 @@ stage, not the project's final scope or quality target.
 | 5. Small trusted checker | Not complete: an untrusted tagged diagnostic checks a symbolic polymorphic identity type/value pair, but creates no theorem; application inference passes 18 finite Lean comparisons. Human review remains required. |
 | 6. Lean NDJSON importer | Bounded preview preserves constants and definitions and reports local dependency/order/arity observations; dependency validity remains unchecked. Full import and trusted checking remain. |
 | 7. Lean checker compatibility corpus | Selected differential cases exist. Direct Lean kernel reference cases now cover constant lookup and universe arguments; LeanForth cannot yet compare those cases. The official checker corpus has not been demonstrated to pass. |
-| 8. Lean declaration features | A bounded untrusted candidate-signature index has a non-reused lifetime token, and a draft constant-environment ADR exists. These do not check scope, types, dependencies, proofs or declarations. Full constants, definitions, inductives, recursors, quotients, polymorphic checking and other core features remain. |
+| 8. Lean declaration features | A bounded untrusted candidate-signature index supports copied universe-parameter metadata and exact-arity term specialization. It and the draft ADR do not check types, dependencies, proofs or declarations. Full constants, definitions, inductives, recursors, quotients, polymorphic checking and other core features remain. |
 | 9. Full Mathlib | Goal: use all of Mathlib, including its dependencies, as a usable and independently checked theorem and rules base under a reviewed, explicit axiom policy. It is not imported or independently checked; full Lean compatibility, dependency handling, access and practical capacity remain. |
 | 10. Native proof authoring | Forth-native term building, elaboration, unification, tactics and rewriting remain to be developed. |
 
@@ -33,7 +33,7 @@ Do not use it until the representations are isolated and reviewed.
 
 | Milestone | Status and evidence / remaining work |
 | --- | --- |
-| 1. Contract and assumptions | Partial: the clamp example documents a mathematical contract and runtime assumptions. |
+| 1. Contract and assumptions | Partial: the clamp example documents a mathematical contract and runtime assumptions; Lean reference models now cover absolute value and interval membership without proving Forth correspondence. |
 | 2. Tested Forth example | Host Forth clamp and five additional examples have finite tests run by `make test-program`; tests alone do not prove them correct. |
 | 3. Formal execution model | A Lean reference model proves clamp properties and frame preservation for successful modeled programs; the handwritten model is an assumption when relating it to Forth. |
 | 4. Model/runtime comparisons | Finite differential examples include 15,624 bounded actual-stack instruction sequences compared with the Lean model, plus clamp tests; they do not establish all executions or a verified compiler. |

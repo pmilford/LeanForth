@@ -4,6 +4,9 @@
 and the stack-depth diagnostic tests. The existing CI smoke workflow invokes
 that target. These are tested host Forth programs, not verified programs: no
 LeanForth proof connects them to a specification or runtime yet.
+The [independent Lean reference](PROGRAM_EXAMPLES_REFERENCE.md) proves
+properties of mathematical models for two examples; it does not prove the
+Forth implementations correspond to those models.
 
 | Word | Behavior and failure |
 | --- | --- |
