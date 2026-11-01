@@ -166,6 +166,22 @@ to lookup and substitution. `make test-constant-term-type-differential`
 compares 48 finite substitution syntax observations with pinned Lean; the
 synthetic candidates in this comparison are not established as valid types.
 
+An integrated constant-application diagnostic is not implemented. Existing
+tagged inference and conversion audits reject constant-bearing graphs; simply
+chaining them with the constant boundary would need explicit treatment of
+unsupported nested constants, budgets, status mapping and both-arena rollback.
+`tests/reference/constant-application-oracle.lean` records Lean kernel
+acceptance of a polymorphic identity applied to `Prop` and rejection of a wrong
+argument or missing constant; these observations do not check LeanForth.
+`tests/core/constant-application-oracle.fs` reconstructs the positive case by
+calling the candidate-specialization, inference, conversion and substitution
+experiments separately. It obtains the same result syntax, while the wrong
+argument yields `unknown` in conservative conversion. Its signature is an
+unchecked assumption, and it neither implements application inference nor
+checks a declaration or proof. The Lean negative cases assert kernel rejection
+but do not inspect the reason, and the Forth test does not construct an
+application or cover Lean's missing-constant case.
+
 The untrusted candidate-signature index exposes an index-lifetime generation
 through `lf-rawdecl-token`. Each begin attempt advances it and clears the
 index; saturation disables further begins rather than reusing an old token.

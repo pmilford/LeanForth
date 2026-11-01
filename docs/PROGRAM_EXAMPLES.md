@@ -50,3 +50,8 @@ it does not prove host arithmetic, the compiler, or the Forth implementation.
 Lean model on 263 small and signed 64-bit boundary inputs, including the
 minimum-cell failure and stack sentinel. This optional test requires 64-bit
 two's-complement cells; it is finite evidence, not a runtime proof.
+
+`make test-factorial-reference-differential` compares `lf-factorial` with its
+Lean model on 152 inputs, including the first signed 64-bit overflow. The
+optional test requires Gforth 1.0.0 and 64-bit two's-complement cells. It
+does not prove the algorithms equivalent or verify the Forth runtime.

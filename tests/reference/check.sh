@@ -17,6 +17,7 @@ fi
 "$lean" tests/reference/core-oracle.lean
 "$lean" tests/reference/declaration-oracle.lean
 "$lean" tests/reference/constant-environment-oracle.lean
+"$lean" tests/reference/constant-application-oracle.lean
 "$lean" tests/reference/substitution-oracle.lean
 "$lean" tests/reference/transform-model.lean
 "$lean" tests/reference/type-model.lean
