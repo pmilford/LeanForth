@@ -11,6 +11,67 @@ Planning baseline: 2026-11-01, using the 2026-10-31 [progress snapshot](PROJECT_
 5. Kernel semantics changes require an ADR, positive and negative tests, comparison to pinned Lean 4.35.0 where available, and explicit human review before merge. Human review also gates declaration import, certificate formats, axiom policy, verifier bypasses, compiler/FFI assumptions and mathematical parser semantics. LLM review cannot replace it. New runtime/network dependencies require user approval; preserve the audited axiom allowlist, rejecting unapproved axioms.
 6. CHECK checks without arbitrary execution; VERIFY requires kernel-checked obligations and records assumptions; RUN reports the actual backend and its separate validation status. Fail closed; never promote parser, tactic, solver, explanation or runtime success into proof acceptance. Canonical source remains ordinary Forth; typed mathematical ASTs and external notation adapters remain separate.
 
+## Cross-cutting work: profiling and research validation
+
+These are planned tasks, not claims that the current experimental checker can
+run the examples or that performance data has already been collected.
+
+### Near term: low-friction time and memory profiling
+
+- **M1 — measurement interface:** Provide an opt-in command or flag for
+  elapsed time and memory with concise default output, scriptable structured
+  results and a detailed mode. Normal tests and use should not require a
+  profiler or suffer significant overhead; measure and report that overhead.
+  Profiling must not affect proof decisions or depend on GPU/network services.
+- **M2 — useful attribution:** Measure end-to-end operations and selected
+  lower-level stages, including decoding/staging, checking, normalization,
+  substitution, allocation and program verification/execution as those stages
+  become available. Track allocation counts and arena high-water marks where
+  practical, alongside process peak memory. Define each metric and distinguish
+  Forth-managed counts from process RSS; unsupported metrics must be reported
+  as unavailable, not zero. Avoid instrumenting every inner operation by
+  default; verify that disabled profiling leaves behavior unchanged.
+- **M3 — repeatable Lean comparisons:** Select equivalent inputs and clearly
+  comparable work; record exact Lean and LeanForth versions, input and corpus
+  hashes, hardware, OS, warm/cold cache conditions, setup, repetitions and
+  timing/memory collection method. Separate startup, parsing, elaboration,
+  checking and execution where possible. Report mismatches in supported work,
+  unverified assumptions and measurement limitations rather than presenting
+  different workloads as a speed comparison. Start with currently runnable
+  matched operations and report experimental diagnostics as such; establish
+  checker and full-workflow baselines as those operations become available.
+- **M4 — replaceable hot paths:** Document stable contracts and identify
+  measured costs before optimizing. Factor storage, traversal and execution
+  boundaries so a slower implementation can be replaced behind the same
+  interface and rechecked against regression, differential and trust-boundary
+  tests. Do not trade correctness or review for speed. Record prerequisites
+  and obtain approval before adding any new runtime/network dependency.
+
+### Long term: reproduce published work and investigate open problems
+
+- **R1 — several substantial results:** Find several published Lean results
+  whose statements and proofs span several pages. Record source links, exact
+  versions, licenses, dependencies, theorem statements and assumptions.
+  Translate each *problem statement* into canonical LeanForth; construct or
+  import the corresponding proof as supported, run the checker, and compare
+  statements, assumptions, outcomes and reproducible measurements with Lean.
+  Do not present a parsed statement or a hand-written proof narrative as a
+  checked result. This depends on the needed T5–T10 features and library.
+- **R2 — longer recent theorem:** Select a longer, recent but tractable
+  published Lean-proved theorem with accessible sources. Record selection date,
+  exact source and dependencies; translate its problem statement, run
+  LeanForth and Lean, and compare verified results, assumptions and metrics.
+  Clearly report omissions or unsupported features. This extends R1; it does
+  not imply that one example demonstrates complete Mathlib compatibility.
+- **R3 — open-problem investigation:** After substantial verified examples,
+  identify a plausibly approachable unsolved mathematical problem, verify its
+  status against dated primary sources, record the precise statement and
+  assumptions, and express it in LeanForth. Attempt a solution with the
+  assistant guiding exploration, preserving failed attempts and partial results.
+  Report a solution only with a kernel-checked proof of the exact statement and
+  explicit axioms; otherwise identify it as open or unresolved. An inability to
+  select or solve an open problem is not evidence of a LeanForth defect.
+
 ## Track T: Lean-compatible theorem proving and full Mathlib
 
 ### T1. Development foundation — partial

@@ -53,3 +53,14 @@ tests and Lean comparisons, then apply it to narrowly specified components and
 retain independent regression and adversarial tests. A verifier checking itself
 does not independently establish its own soundness; record the trusted kernel,
 host, compiler and runtime assumptions separately.
+
+## Source and test filenames
+
+Matching filenames under `src/` and `tests/` intentionally pair an
+implementation module with its tests; the directory is part of the path.
+For example, `src/experimental/tagged-infer.fs` defines experimental words,
+while `tests/core/tagged-infer.fs` includes that module and exercises it.
+Likewise `src/program/clamp.fs` is a Forth word and `tests/program/clamp.fs`
+is its test suite. The two `check.sh` files run different harness and Lean
+reference checks. Same names do not mean the files are copies; use full paths
+in documentation, commands and review comments to avoid ambiguity.
