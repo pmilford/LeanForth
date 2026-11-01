@@ -148,6 +148,11 @@ typing or proofs. The ordinary inference and substitution experiments do not
 consume these nodes. A test-only transport stages 19 nodes from the pinned
 constant fixture; staging and structural validation do not import or check
 its declarations.
+`constant-term-scope.fs` adds a bounded binder-scope traversal for these mixed
+graphs, auditing all reference identities and levels before scope traversal.
+It does not establish that binder domains are types or resolve constants. This
+is groundwork for a definition diagnostic whose body contains constants, not
+an implemented constant-aware type checker.
 
 The untrusted `constant-signature-probe.fs` bridge looks up a reference's
 name and ordered level handles in the candidate metadata and specializes the

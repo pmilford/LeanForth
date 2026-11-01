@@ -1,0 +1,27 @@
+Term-level substitution: 48 matching rows; 2 repetitions
+UTC: 2026-11-01T21:52:03Z
+Platform: Linux Surefall2 6.18.54.1-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Tue Oct  6 19:13:07 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+Revision: a623824a019ea8336656377f949caa8c20bbae16
+Worktree: dirty (revision alone does not identify inputs)
+Lean: Lean (version 4.35.0, x86_64-unknown-linux-gnu, commit eb6cafb7290e8bd5f2937522d8d804f58f02bafc, Release); git eb6cafb7290e8bd5f2937522d8d804f58f02bafc
+Forth: gforth 1.0.0 amd64
+Timer: gnu; elapsed seconds and peak RSS KiB (unavailable when unsupported)
+run implementation elapsed_s peak_RSS_KiB
+1 Lean 1.03 1591188
+1 Forth 0.01 9064
+2 Forth 0.01 8880
+2 Lean 0.92 1589320
+Normalized output SHA-256: 844fc23602fbd1e45476204064bd38b6760306d9acb27a8fa3c961c7ef00b9f2
+Input SHA-256 (individual files):
+e06f4e31a9fe9dc02ce6ff6abfa867ddcf4415d56d9f80571d48574f27a60c5e  scripts/profile-existing.sh
+81e13ee8b2db6ae9e5b7a5a0d8b1a3340e51a95fc5dc0f5c5c9bd4a26f091006  tests/reference/term-level-substitute-table.lean
+1e5865daebff9378d7e16610f32f66c62b849a878ca33b464c97f681d56b9896  tests/core/term-level-substitute-table.fs
+c7e8f2549bd11169a284359e06d2f719c1de42ed952a7a8c8b20ffecc6468de8  src/core/terms.fs
+7947a5cd8658fca05b10cec0a6e07865e763e063781b8d66f7ab95d8466a7835  src/experimental/levels.fs
+fe8d1d8f9c8a3567d1ca765a2fa0a3c76dac0f1595053d3a173b8b1e6e20d4d7  src/experimental/level-scope.fs
+7bf6d8402a03caa249ca63935d2048fe0e31d8cf214a46fe67120ab925afc5b4  src/experimental/level-value.fs
+2af56c7123688365b3b64f13ef5ff77ceef6b22506cf742f8f3160bae1575681  src/experimental/tagged-sort-boundary.fs
+f4a24ce7e802a79b2713c708c13d5c6525af2ecd5bd77df221e3f43de2fa1417  src/experimental/symbolic-session.fs
+136ce54525981ba309095828e2a4e4190ee375f46c089b06e9d7b21df80acc36  src/experimental/generation-handles.fs
+9b9ec8b9df162cb711a25add2137388e0b1234e45dfa8018db5ddee3f5c1afc4  src/experimental/level-substitute.fs
+df4e3f8c7002448950012f9228dbe2fa1a0ff4ac2ec026348205e59a3e115697  src/experimental/term-level-substitute.fs

@@ -34,6 +34,18 @@ run_cmd do
     | .ok _ => throwError "kernel accepted invalid constant case: {label}"
   -- The alias checks the value using the prior environment, not its own name.
   expectValid "polymorphic alias" <| mkDef `LeanForthConstants.Alias [`u] target (.const idName [u])
+  -- Reconstruct the fixturePoly shape: lambda A, lambda x, Identity A x.
+  -- The prior environment, not the candidate itself, supplies Identity.
+  let dependencyBody := Expr.lam `A (.sort u)
+    (Expr.lam `x (.bvar 0)
+      (.app (.app (.const idName [u]) (.bvar 1)) (.bvar 0)) .default) .default
+  let wrongDependencyBody := Expr.lam `A (.sort u)
+    (Expr.lam `x (.bvar 0)
+      (.app (.app (.const idName [u]) (.bvar 1)) (.bvar 1)) .default) .default
+  expectValid "definition with constant application" <|
+    mkDef `LeanForthConstants.Dependent [`u] target dependencyBody
+  expectInvalid "wrong constant argument under binders" <|
+    mkDef `LeanForthConstants.DependentWrong [`u] target wrongDependencyBody
   let zeroTarget := target.instantiateLevelParams [`u] [.zero]
   expectValid "monomorphic specialization" <|
     mkDef `LeanForthConstants.Specialized [] zeroTarget (.const idName [.zero])

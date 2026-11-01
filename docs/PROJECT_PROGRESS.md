@@ -16,7 +16,7 @@ stage, not the project's final scope or quality target.
 | --- | --- |
 | 1. Development foundation | Established in part: repository, MIT license, Lean 4.35.0 pin, Gforth, tests and CI skeleton. Installation and portability need further work. |
 | 2. Terms, names and universes | Partial untrusted bounded arenas, symbolic universes and mixed constant-term validation; handle checks reject replaced references. Typing integration and human review remain open. |
-| 3. Scope and substitutions | Partial untrusted inference and bounded sequential context-domain diagnostics exist; finite binder cases agree with Lean. Incomplete conversion and unsupported syntax prevent general context validation. |
+| 3. Scope and substitutions | Partial untrusted context-domain diagnostics and mixed constant-term scope checks exist; finite binder cases agree with Lean. Incomplete conversion and unsupported syntax prevent general context validation. |
 | 4. Definitional equality | Partial beta-aware conversion with selected symbolic universe identities; many Lean equivalences remain unknown. Independent review found no demonstrated false equality; human review remains outstanding. |
 | 5. Small trusted checker | Not complete: an untrusted tagged diagnostic checks a symbolic polymorphic identity type/value pair, but creates no theorem; application inference passes 18 finite Lean comparisons. Human review remains required. |
 | 6. Lean NDJSON importer | Bounded preview preserves constants and definitions; a test-only bridge stages all 19 nodes of one constant-containing fixture. Dependency validity, full import and trusted checking remain. |
@@ -56,6 +56,11 @@ Documentation is maintained manually alongside development, including setup,
 testing, decisions, API plans, prototype limits and the program example. It is
 not automatically generated, and complete user manuals remain to be written.
 Future features must include their corresponding documentation and manuals.
+
+An [opt-in profiling wrapper](PROFILING.md) measures elapsed time and process
+peak RSS for an existing finite Lean/Forth substitution workload. It does not
+measure checker performance, internal allocation or verified programs; more
+granular profiling and fair comparisons remain roadmap work.
 
 ## Inventory and testing
 
