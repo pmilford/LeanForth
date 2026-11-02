@@ -11,4 +11,5 @@ include ./node.fs
 include ./outcome.fs
 include ./walk.fs
 include ./frame.fs
+include ./context.fs
 [then]

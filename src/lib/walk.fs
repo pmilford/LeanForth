@@ -5,7 +5,9 @@
 \ global state, and a task or process with its own records can walk in
 \ parallel with others. A module that owns one walk record is still not
 \ re-entrant itself: its check must not run again while that record is in
-\ use. Requires: store.fs (store-zeroed,), node.fs, outcome.fs.
+\ use. A record is made in the dictionary by walk: or walk2:, or at run
+\ time in memory the caller provides by walk-init or walk2-init, with the
+\ same layout. Requires: bounds.fs, node.fs, outcome.fs.
 \
 \ walk-run pushes a root, then repeatedly spends one unit of fuel, pops a
 \ node into walk-node and calls the visitor ( walk -- outcome ), which reads
@@ -31,12 +33,28 @@ end-structure
 : walk-stack ( walk -- addr ) walk-header + ;
 : walk-bytes ( cells -- u ) cells walk-header + ;
 : walk-paired? ( walk -- flag ) walk-width @ 2 = ;
-\ Defining words: name ( -- walk ), zeroed, with room for capacity items of
-\ one cell (walk:) or of a node and its context (walk2:). A capacity below
-\ 1 aborts the definition.
+
+\ Making a walk record with room for capacity items of one cell (walk-size,
+\ walk-init, walk:) or of a node and its context (walk2-size, walk2-init,
+\ walk2:). A capacity must be at least 1 and small enough for the size to
+\ fit in a cell. walk-init and walk2-init zero walk-size or walk2-size
+\ bytes at walk, or for a bad capacity give false and write nothing. The
+\ defining words make name ( -- walk ) in the dictionary and abort on a bad
+\ capacity.
+\ Unchecked: width is 1 or 2.
+: walk-span ( capacity width -- u ) * walk-bytes ;
+: walk-plan? ( capacity width -- flag ) cells max-n walk-header - swap / 1 swap between? ;
+: walk-format ( capacity width walk -- )
+  >r tuck * r@ over walk-bytes erase r@ walk-capacity ! r> walk-width ! ;
+: walk-sized-init ( capacity width walk -- flag )
+  >r 2dup walk-plan? if r> walk-format true else 2drop r> drop false then ;
+: walk-size ( capacity -- u ) 1 walk-span ;
+: walk2-size ( capacity -- u ) 2 walk-span ;
+: walk-init ( capacity walk -- flag ) 1 swap walk-sized-init ;
+: walk2-init ( capacity walk -- flag ) 2 swap walk-sized-init ;
 : walk-sized ( capacity width "name" -- )
-  over 0> 0= abort" walk: bad capacity"
-  create tuck * dup walk-bytes store-zeroed, tuck walk-capacity ! walk-width ! ;
+  2dup walk-plan? 0= abort" walk: bad capacity"
+  create 2dup walk-span here swap allot walk-sized-init drop ;
 : walk: ( capacity "name" -- ) 1 walk-sized ;
 : walk2: ( capacity "name" -- ) 2 walk-sized ;
 

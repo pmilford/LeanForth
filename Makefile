@@ -95,10 +95,18 @@ reference-export:
 test-harness:
 	GFORTH=$(GFORTH) $(RUN) bash tests/harness/check.sh
 
-# The general Forth library in src/lib.
+# The general Forth library in src/lib. The task adapter is not loaded by
+# src/main.fs, so it gets its own silent-load check; task.fs tests the
+# host's tasks (threads on Gforth 1.0, cooperative on 0.7.3) and
+# task-serial.fs the serial path. tests/lib/task-bench.fs is report-only.
 test-lib:
 	$(RUN) $(GFORTH) tests/lib/lib.fs
 	$(RUN) $(GFORTH) tests/lib/lib-model.fs
+	$(RUN) $(GFORTH) tests/lib/context.fs
+	@out=$$($(RUN) $(GFORTH) src/lib/task.fs -e bye 2>&1) || { printf '%s\n' "$$out" >&2; exit 1; }; \
+	if [ -n "$$out" ]; then printf 'src/lib/task.fs printed while loading:\n%s\n' "$$out" >&2; exit 1; fi
+	$(RUN) $(GFORTH) tests/lib/task.fs
+	$(RUN) $(GFORTH) tests/lib/task-serial.fs
 
 test-core:
 	$(RUN) $(GFORTH) tests/core/terms.fs
