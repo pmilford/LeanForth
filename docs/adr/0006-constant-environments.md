@@ -362,3 +362,11 @@ counts on failure without rewinding identities. The optional
 `make test-mixed-level-substitute-differential` checks 27 evaluated syntax
 observations against pinned Lean; finite numeric evaluations do not prove
 general symbolic equivalence or declaration validity.
+
+`mixed-signature-probe.fs` stages explicitly unchecked candidate signature
+metadata for this substitution, checks arity and formal coverage, and uses a
+generation-bound session token. Its output is conditional syntax, not a checked
+type, environment entry, declaration or theorem. Its same-session constraint
+is inherited from mixed universe substitution. The optional
+`make test-mixed-signature-differential` compares 27 evaluated specializations
+against Lean; it does not validate nested dependencies or prove soundness.

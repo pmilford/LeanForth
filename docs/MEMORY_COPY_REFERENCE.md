@@ -42,6 +42,14 @@ includes `propext` and `Quot.sound`; the exact-success theorem also uses
 `Classical.choice`. These are reported assumptions of the Lean reference,
 not an approved LeanForth axiom policy. `make reference` checks the file.
 
+`tests/reference/memory-copy-frame-composition.lean` proves that a copied value
+is preserved by a successful continuation whose stated write footprint excludes
+the destination, and that cells outside both footprints retain their original
+values. It also proves the footprint contract for a modeled store. The footprint
+is an assumption about the continuation, not an automatic analysis or a proof
+about the Forth runtime. Lean reports `propext` and `Quot.sound` for these
+reference theorems; `make reference` checks them.
+
 ## Reproduction
 
 From the repository root, the following commands passed on 2026-11-01 using
