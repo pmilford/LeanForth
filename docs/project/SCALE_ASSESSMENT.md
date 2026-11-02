@@ -10,6 +10,17 @@ measurements used copies in the scratchpad. Confidence labels:
 page), **published, reported** (read by a research subagent; I did not
 re-open it), and **estimate** (my own reasoning, with the basis given).
 
+**Measured since (2026-11-02, later):** the pinned Mathlib for Lean 4.35.0
+(tag `v4.35.0`, commit `56a0058`) was exported and counted on this machine
+([measurements](../development/measurements/mathlib-2026-11-02/README.md)):
+6.26 GB, 110.9 M lines, **729,263 constants**, 105.9 M expression nodes,
+4.24 M names, 47,805 levels; export 6.6 minutes and 13.8 GB peak memory;
+1.03 GB with `zstd -3`. Corrections to the estimates below: names are 4.2 M,
+not 5–6 M; **up to 30 universe arguments** occur (1,831 declarations exceed
+LeanForth's limit of 8); expression depth reaches 1,221; the largest
+declaration has 95,123 distinct nodes and one has a tree size of 1.2×10¹⁴,
+so walking shared nodes once per path is impossible at Mathlib scale.
+
 ## Summary for the owner
 
 Full Mathlib is big, but within reach of an ordinary workstation **if the
@@ -175,8 +186,9 @@ signatures, at most 8 universe arguments, and a 2,048-byte name pool.
   (59,800) exceed 64 distinct nodes on their own.
 - The name pool needs about 1.4 MB for `Init` and about 2.5 MB for `Std`;
   Mathlib likely needs about 25–30 MB (estimate).
-- Seven universe arguments is the maximum seen in `Init` and `Std`. Mathlib's
-  maximum is unknown, so the limit of 8 is a risk.
+- Seven universe arguments is the maximum seen in `Init` and `Std`. Mathlib
+  has up to 30 (measured later the same day), so the fixed limit of 8 must
+  become variable-length.
 - Sort payloads and `bvar` indices are plain cells, but literals need bignums.
 
 **Linear and whole-table work on every call.** Measured from the code; each

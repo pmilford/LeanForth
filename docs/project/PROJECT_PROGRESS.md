@@ -61,8 +61,10 @@ sets out open human-review decisions.
   can be parsed; the complete schema denominator has not been established.
 - **Full Mathlib acceptance-task completion: 0% (0 of 5 T9 tasks done).**
   Independently checked Mathlib declaration coverage is also **0%**: none
-  have been independently accepted by a LeanForth checker. The total corpus
-  has not been pinned, so a numerical declaration denominator is unavailable.
+  have been independently accepted by a LeanForth checker. Denominator,
+  pinned 2026-11-02: **0 of 729,263 constants** in the full export of
+  Mathlib `v4.35.0` (commit `56a0058`) with its dependencies, sha256
+  `18448e5d…59c6` ([measurements](../development/measurements/mathlib-2026-11-02/README.md)).
   Library modules share the Lean kernel and importer primitives; track the
   entire library and later module-level coverage, rather than inventing three
   independent compatibility percentages without defined sections.

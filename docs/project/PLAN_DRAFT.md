@@ -509,7 +509,8 @@ workstream (W7):
 | ID | Task | Acceptance | Needs | Gates | Size |
 | --- | --- | --- | --- | --- | --- |
 | 6.0.1 | Intake the scale report: turn its estimates and recommended data-structure changes into tasks and stage budgets | Table above filled; tasks added under 6.2 | scale report | [owner] | S |
-| 6.1.1 | Pin the Mathlib commit matching Lean 4.35.0; manifest of every declaration with hashes (T9.1) | Denominator recorded in PROJECT_PROGRESS.md | — | [owner] (network, disk) | M |
+| 6.1.1 | Pin the Mathlib commit matching Lean 4.35.0; manifest of every declaration with hashes (T9.1). *Commit pinned and denominator recorded 2026-11-02 (729,263 constants); per-declaration manifest still to do.* | Denominator recorded in PROJECT_PROGRESS.md | — | [owner] (network, disk) | M |
+| 6.2.0 | Variable-length universe argument and parameter lists (Mathlib has up to 30; today's limit is 8) and depth limits sized for expression depth 1,221 | Every Mathlib signature representable; limits documented | 6.0.1 | [kernel] | S–M |
 | 6.2.1 | Hash tables and hash-consing for names, levels and terms (§6.2) | Same verdicts; measured memory change | 6.0.1 | [kernel] | M |
 | 6.2.2 | Growable stores; per-declaration scratch released after each check; streaming import without holding the whole file | Peak memory bounded by the largest declaration plus the environment | 6.0.1 | [kernel] | M–L |
 | 6.2.3 | Further changes from the scale report (compact nodes, possibly file-backed environment) | per task | 6.0.1 | [kernel] | *[scale report]* |

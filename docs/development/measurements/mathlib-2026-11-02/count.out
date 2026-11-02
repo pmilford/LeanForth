@@ -1,0 +1,23 @@
+decl.axiom                      4            294 B    73.5 B/rec
+decl.def                  184,355     23,947,418 B   129.9 B/rec
+decl.inductive              7,013      4,428,374 B   631.5 B/rec
+decl.opaque                 2,913        332,153 B   114.0 B/rec
+decl.quot                       4            274 B    68.5 B/rec
+decl.thm                  517,916     49,685,418 B    95.9 B/rec
+expr.app               90,514,763  4,603,891,630 B    50.9 B/rec
+expr.bvar                     360          9,323 B    25.9 B/rec
+expr.const              1,426,722     76,671,590 B    53.7 B/rec
+expr.forallE            5,437,711    514,427,042 B    94.6 B/rec
+expr.lam                8,207,621    741,116,823 B    90.3 B/rec
+expr.letE                 242,083     24,221,283 B   100.1 B/rec
+expr.natVal                 5,616        295,825 B    52.7 B/rec
+expr.proj                  38,389      2,475,061 B    64.5 B/rec
+expr.sort                   1,757         49,226 B    28.0 B/rec
+expr.strVal                19,235      3,688,190 B   191.7 B/rec
+level                      47,805      1,404,410 B    29.4 B/rec
+meta                            1            173 B   173.0 B/rec
+name                    4,241,558    211,697,994 B    49.9 B/rec
+names 4241558 levels 47805 exprs 105894257
+total bytes 6258342501 name string bytes 19787897
+max const universe args 30 max decl level params 30 lp histogram [(0, 146073), (1, 231055), (2, 186873), (3, 77394), (4, 42514), (5, 10879), (6, 10508), (7, 2850), (8, 2228), (9, 432), (10, 493), (11, 59), (12, 340), (13, 57), (14, 88), (15, 98), (16, 95), (18, 135), (19, 5), (20, 9), (22, 1), (24, 16), (26, 1), (30, 2)]
+inductive types 7046 ctors 9863 recursors 7162

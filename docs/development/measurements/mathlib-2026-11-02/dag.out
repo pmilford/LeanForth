@@ -1,0 +1,34 @@
+exprs 105894257 max depth 1221
+decls 712205
+DAG nodes per decl: sum 226236107 median 134 p90 672 p99 3010 max 95123
+tree nodes per decl: sum 1.296e+14 median 436 p90 12202 p99 4.549e+05 max 1.246e+14
+tree/DAG ratio: median 3.10 p90 20.69 p99 251.6 max 1.497e+10; total tree/total dag 5.728e+05
+decls with tree size > 1e+04: 79945
+decls with tree size > 1e+06: 3913
+decls with tree size > 1e+09: 30
+decls with tree size > 1e+12: 2
+decls with DAG size > 64: 527201, > 1e4: 535, > 1e5: 0
+sum DAG per decl / distinct exprs = 2.14
+expression depth per decl: median 24 p99 90 max 1221
+top 10 declarations by DAG size:
+  95123          thm        CategoryTheory.Functor.IsDenseSubsite.isIso_ranCounit_app_of_isDenseSubsite
+  79001          thm        Std.Tactic.BVDecide.BVExpr.bitblast.goCache_Inv_of_Inv._mutual
+  70430          thm        _private.Mathlib.LinearAlgebra.RootSystem.Finite.G2.0.RootPairing.EmbeddedG2.isOrthogonal_short_and_long_aux._proof_1_1
+  65996          thm        AlgebraicGeometry.Proj.lift_awayMapₐ_awayMapₐ_surjective
+  65466          thm        Algebra.exists_etale_isIdempotentElem_forall_liesOver_eq_aux
+  63521          thm        WeierstrassCurve.variableChange_Δ
+  60890          thm        WeierstrassCurve.isHomogeneous_addSubMapCoeff
+  53590          thm        AlgebraicGeometry.isIso_pushoutSection_of_iSup_eq
+  53277          thm        _private.Mathlib.RingTheory.Etale.QuasiFinite.0.Algebra.exists_etale_completeOrthogonalIdempotents_forall_liesOver_eq'
+  50497          thm        CategoryTheory.Bicategory.mateEquiv_vcomp
+top 10 declarations by tree size:
+  1.24628e+14    thm        _private.Mathlib.Condensed.Light.Sequence.0.InternalProjectivityProof.aux
+  4.67087e+12    thm        CategoryTheory.Limits.colimitLimitToLimitColimit_surjective
+  1.00945e+11    thm        IsEvenlyCovered.toTrivialization_apply
+  2.43288e+10    thm        groupCohomology.H1InfRes_exact
+  2.19924e+10    thm        _private.Mathlib.CategoryTheory.Functor.TypeValuedFlat.0.CategoryTheory.FunctorToTypes.fromOverFunctorElementsEquivalence._proof_19
+  1.58347e+10    thm        Rep.instMonoidalCategory._proof_14
+  8.16571e+09    thm        AlgebraicGeometry.isIso_fromTildeΓ_of_presentation
+  5.80868e+09    thm        LieModule.Cohomology.d₂₃._proof_12
+  4.17615e+09    thm        _private.Mathlib.Condensed.Light.Sequence.0.InternalProjectivityProof.cocone._proof_1
+  3.74181e+09    thm        CategoryTheory.MonoidalCategory.Arrow.PushoutProduct.associator._proof_19

@@ -50,6 +50,7 @@ are planned and do not exist yet.
 - [DEVELOPMENT_ROADMAP.md](project/DEVELOPMENT_ROADMAP.md) — milestones, acceptance criteria and the near-term queue.
 - [PLAN_DRAFT.md](project/PLAN_DRAFT.md) — draft next-level plan (nine phases, about 130 tasks, library gaps, readable-proof mock-ups, owner questions); not approved.
 - [SCALE_ASSESSMENT.md](project/SCALE_ASSESSMENT.md) — memory and CPU needed to check all of Mathlib, what in today's design would not scale, and the recommended data structures (2026-11-02 assessment).
+- [Mathlib export measurements](development/measurements/mathlib-2026-11-02/README.md) — the pinned Mathlib for Lean 4.35.0 exported and counted on this machine: 729,263 constants, 105.9 M expression nodes, up to 30 universe arguments (2026-11-02).
 - [OWNER_DECISIONS.md](project/OWNER_DECISIONS.md) — the owner's plain-language policy decisions.
 - [DECISIONS.md](project/DECISIONS.md) — running decision log with rejected alternatives.
 - [IMPLEMENTATION_PLAN.md](project/IMPLEMENTATION_PLAN.md) — staged implementation plan.
