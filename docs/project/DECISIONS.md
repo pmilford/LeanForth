@@ -287,3 +287,48 @@ create through another defining word (`walk2:` through `walk-sized`).
 Rejected: one walk record type with a width-two stack only (doubles the
 memory of every one-cell walk); encoding node and depth in one cell (limits
 both to half a cell and hides the layout).
+
+## Kernel refactor in parallel groups — 2026-11-02
+
+At the owner's request the remaining modules were refactored by five
+agents working in parallel, each in its own git worktree from the same
+commit with a shared brief (behaviour-preserving, state in named records,
+shared outcomes, style guide), then merged one at a time with `make test`
+on Gforth 1.0 and 0.7.3, `make check` and every group's randomized
+differential rerun on the merged tree:
+
+- **A, level passes:** level substitution and mixed level substitution got
+  their own walk and job records instead of borrowing other modules' work
+  stacks; each constant reference is validated once instead of once per
+  position; level value and level comparison recurse through a deferred word
+  with values on the data stack.
+- **B, rebuild passes:** a new library defining word, `frames:`, gives shift,
+  instantiate and beta one record each for fuel, depth limit and binder
+  context. They use more return stack per level than before (about 1,200
+  cells in the worst case at today's capacity, under Gforth 0.7.3's default
+  of 1,920); the plan (task 6.2.0) moves recursive passes to explicit stacks
+  before the capacity grows.
+- **C, probes, loader and program examples:** state in records; the program
+  examples keep the exact instruction sequences the Lean models assume.
+- **D, compare, convert and infer:** compare and convert now run on paired
+  walks instead of recursion; infer keeps bounded recursion with one job
+  record. Deliberate change: convert no longer writes compare's fuel cell.
+- **E, legacy tests:** moved to `tests/legacy/` beside the legacy code, with
+  a coverage map for retiring both.
+
+Evidence: about 17 million randomized operations against the previous code
+across the groups, with differences only in the two documented fuel cells,
+and planted faults caught. Fifteen status-translation words were deleted
+after tracing that every code the wrapped helper can return maps to itself;
+four narrowing words remain for review.
+
+Open: three recursion patterns now coexist (frames, deferred recursion with
+data-stack values, and explicit paired walks); one should be chosen after
+the independent reviews. Several modules still write each other's record
+fields; stack interfaces replace them next. Cost: about 2 million agent
+tokens in total, including one group that started five helper agents
+unasked; later briefs forbid that.
+
+Rejected: converting module by module in one session (several times
+slower); letting each group also change shared library files (conflicting
+merges; only group B was allowed one new library file).
