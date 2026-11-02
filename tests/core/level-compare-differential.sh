@@ -12,7 +12,7 @@ if [ "$("$lean" --githash)" != eb6cafb7290e8bd5f2937522d8d804f58f02bafc ]; then
 fi
 temporary=$(mktemp -d)
 trap 'rm -f "$temporary/lean.txt" "$temporary/forth.txt"; rmdir "$temporary"' EXIT
-"$lean" --run tests/reference/level-compare-table.lean >"$temporary/lean.txt"
+"$lean" -DwarningAsError=true --run tests/reference/level-compare-table.lean >"$temporary/lean.txt"
 "$gforth" tests/core/level-compare-table.fs >"$temporary/forth.txt"
 if ! paste "$temporary/lean.txt" "$temporary/forth.txt" | awk '
   NF != 4 || $1 != NR - 1 || $3 != $1 { exit 1 }

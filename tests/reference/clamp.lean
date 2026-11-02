@@ -23,6 +23,49 @@ theorem clamp_above (lower upper value : Int) (ordered : lower ≤ upper)
   unfold clamp
   split <;> (try split) <;> omega
 
+-- The four properties above, as one contract over candidate functions.
+def ClampContract (f : Int → Int → Int → Int) : Prop :=
+  ∀ lower upper value, lower ≤ upper →
+    (lower ≤ f lower upper value ∧ f lower upper value ≤ upper) ∧
+    (lower ≤ value → value ≤ upper → f lower upper value = value) ∧
+    (value < lower → f lower upper value = lower) ∧
+    (value > upper → f lower upper value = upper)
+
+theorem clamp_contract : ClampContract clamp := by
+  intro lower upper value ordered
+  exact ⟨clamp_bounds lower upper value ordered,
+    fun above below => clamp_inside lower upper value above below,
+    fun below => clamp_below lower upper value below,
+    fun above => clamp_above lower upper value ordered above⟩
+
+-- Deliberately wrong candidates must fail the contract. Returning an input
+-- above the interval breaks the `clamp_bounds` statement itself.
+def aboveEscapesClamp (lower upper value : Int) : Int :=
+  if value < lower then lower else if value > upper then value else value
+
+theorem aboveEscapesClamp_violates_bounds :
+    ¬ ∀ lower upper value : Int, lower ≤ upper →
+      lower ≤ aboveEscapesClamp lower upper value ∧
+        aboveEscapesClamp lower upper value ≤ upper := by
+  intro h
+  have bad := (h 0 10 11 (by decide)).2
+  simp [aboveEscapesClamp] at bad
+
+-- Swapping the endpoints keeps every result in range, so `clamp_bounds`
+-- alone cannot reject it; the endpoint clauses of the contract do.
+def swappedClamp (lower upper value : Int) : Int :=
+  if value < lower then upper else if value > upper then lower else value
+
+theorem swappedClamp_in_range (lower upper value : Int) (ordered : lower ≤ upper) :
+    lower ≤ swappedClamp lower upper value ∧ swappedClamp lower upper value ≤ upper := by
+  unfold swappedClamp
+  split <;> (try split) <;> omega
+
+theorem swappedClamp_violates_contract : ¬ ClampContract swappedClamp := by
+  intro h
+  have bad := (h 0 10 (-1) (by decide)).2.2.1 (by decide)
+  simp [swappedClamp] at bad
+
 -- Print one test case in the same stable format as the Forth table.
 def emitClamp (lower upper value : Int) : IO Unit := do
   if lower > upper then

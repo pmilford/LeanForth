@@ -11,7 +11,7 @@ if [ "$("$lean" --githash)" != eb6cafb7290e8bd5f2937522d8d804f58f02bafc ]; then
 fi
 temporary=$(mktemp -d)
 trap 'rm -f "$temporary/lean.txt" "$temporary/forth.txt" "$temporary/lean-normalized.txt" "$temporary/forth-normalized.txt"; rmdir "$temporary"' EXIT
-"$lean" --run tests/reference/term-level-substitute-table.lean >"$temporary/lean.txt"
+"$lean" -DwarningAsError=true --run tests/reference/term-level-substitute-table.lean >"$temporary/lean.txt"
 "$gforth" tests/core/constant-term-type-table.fs >"$temporary/forth.txt"
 if [ "$(wc -l <"$temporary/lean.txt")" -ne 48 ] ||
    [ "$(wc -l <"$temporary/forth.txt")" -ne 48 ]; then

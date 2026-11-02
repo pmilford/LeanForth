@@ -14,4 +14,4 @@ if [ "$revision" != eb6cafb7290e8bd5f2937522d8d804f58f02bafc ]; then
   exit 1
 fi
 "$gforth" tests/core/symbolic-infer.fs
-"$lean" tests/reference/symbolic-infer-oracle.lean
+"$lean" -DwarningAsError=true tests/reference/symbolic-infer-oracle.lean

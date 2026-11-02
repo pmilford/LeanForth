@@ -14,8 +14,8 @@ if [ "$revision" != eb6cafb7290e8bd5f2937522d8d804f58f02bafc ]; then
 fi
 temporary=$(mktemp -d)
 trap 'rm -f "$temporary/ProgramContracts.olean" "$temporary/lean.txt" "$temporary/forth.txt"; rmdir "$temporary"' EXIT
-"$lean" -o "$temporary/ProgramContracts.olean" tests/reference/program-contracts.lean
-LEAN_PATH="$temporary" "$lean" --run tests/reference/program-depth-table.lean >"$temporary/lean.txt"
+"$lean" -DwarningAsError=true -o "$temporary/ProgramContracts.olean" tests/reference/program-contracts.lean
+LEAN_PATH="$temporary" "$lean" -DwarningAsError=true --run tests/reference/program-depth-table.lean >"$temporary/lean.txt"
 "$gforth" tests/program/program-depth-table.fs >"$temporary/forth.txt"
 if [ "$(wc -l <"$temporary/lean.txt")" -ne 1093 ] ||
    [ "$(wc -l <"$temporary/forth.txt")" -ne 1093 ]; then

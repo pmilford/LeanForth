@@ -34,6 +34,17 @@ theorem greatest (a b d : Nat) (ha : d ∣ a) (hb : d ∣ b) :
   rw [euclid_correct]
   exact Nat.dvd_gcd ha hb
 
+-- A deliberately wrong guard that rejects only when both inputs are negative
+-- fails the negative-rejection contract stated by `negative_rejected`.
+def checkedBothNegative (a b : Int) : Option Nat :=
+  if a < 0 ∧ b < 0 then none else some (euclid a.toNat b.toNat)
+
+theorem checkedBothNegative_violates :
+    ¬ ∀ a b : Int, (a < 0 ∨ b < 0) → checkedBothNegative a b = none := by
+  intro h
+  have bad := h (-1) 2 (by decide)
+  simp [checkedBothNegative] at bad
+
 example : checked 0 0 = some 0 := by simp [checked, euclid.eq_def]
 example : checked 0 17 = some 17 := by simp [checked, euclid.eq_def]
 example : checked 17 0 = some 17 := by simp [checked, euclid.eq_def]

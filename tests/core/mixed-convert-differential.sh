@@ -9,7 +9,7 @@ if [ "$("$lean" --githash)" != eb6cafb7290e8bd5f2937522d8d804f58f02bafc ]; then
 fi
 temporary=$(mktemp -d)
 trap 'rm -f "$temporary/lean.txt" "$temporary/forth.txt"; rmdir "$temporary"' EXIT
-"$lean" tests/reference/mixed-convert-table.lean >"$temporary/lean.txt"
+"$lean" -DwarningAsError=true tests/reference/mixed-convert-table.lean >"$temporary/lean.txt"
 "$gforth" tests/core/mixed-convert-table.fs >"$temporary/forth.txt"
 python3 - "$temporary/lean.txt" "$temporary/forth.txt" <<'PY'
 import sys

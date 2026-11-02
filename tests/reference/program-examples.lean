@@ -45,4 +45,29 @@ theorem inRange_ordered_false (v lo hi : Int) (h : lo ≤ hi) :
   simp [inRange, Int.not_lt.mpr h]
   omega
 
+-- The `inRange_ordered` statement, as a contract on candidate functions.
+def OrderedContract (f : Int → Int → Int → Option Bool) : Prop :=
+  ∀ v lo hi : Int, lo ≤ hi → (f v lo hi = some true ↔ lo ≤ v ∧ v ≤ hi)
+
+theorem inRange_contract : OrderedContract inRange :=
+  fun v lo hi h => inRange_ordered v lo hi h
+
+-- Deliberately wrong variants: an exclusive upper bound, and rejection of
+-- the one-point interval as if it were reversed.
+def inRangeExclusiveUpper (value lower upper : Int) : Option Bool :=
+  if lower > upper then none else some (decide (lower ≤ value ∧ value < upper))
+
+def inRangeRejectsEqual (value lower upper : Int) : Option Bool :=
+  if lower ≥ upper then none else some (decide (lower ≤ value ∧ value ≤ upper))
+
+theorem inRangeExclusiveUpper_violates : ¬ OrderedContract inRangeExclusiveUpper := by
+  intro h
+  have bad := h 10 0 10 (by decide)
+  simp [inRangeExclusiveUpper] at bad
+
+theorem inRangeRejectsEqual_violates : ¬ OrderedContract inRangeRejectsEqual := by
+  intro h
+  have bad := h 3 3 3 (by decide)
+  simp [inRangeRejectsEqual] at bad
+
 end ProgramExamplesReference

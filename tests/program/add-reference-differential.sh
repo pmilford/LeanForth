@@ -13,8 +13,8 @@ esac
 }
 temporary=$(mktemp -d)
 trap 'rm -f "$temporary/CheckedAdd.olean" "$temporary/lean.txt" "$temporary/forth.txt"; rmdir "$temporary"' EXIT
-"$lean" -o "$temporary/CheckedAdd.olean" tests/reference/checked-add.lean
-LEAN_PATH="$temporary" "$lean" --run tests/reference/add-reference-table.lean >"$temporary/lean.txt"
+"$lean" -DwarningAsError=true -o "$temporary/CheckedAdd.olean" tests/reference/checked-add.lean
+LEAN_PATH="$temporary" "$lean" -DwarningAsError=true --run tests/reference/add-reference-table.lean >"$temporary/lean.txt"
 "$gforth" tests/program/add-reference-table.fs >"$temporary/forth.txt"
 [ "$(wc -l <"$temporary/lean.txt")" -eq 410 ] &&
 [ "$(wc -l <"$temporary/forth.txt")" -eq 410 ] || {

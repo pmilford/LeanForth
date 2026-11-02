@@ -14,7 +14,7 @@ if [ "$revision" != eb6cafb7290e8bd5f2937522d8d804f58f02bafc ]; then
 fi
 temporary=$(mktemp -d)
 trap 'rm -f "$temporary/lean.txt" "$temporary/forth.txt"; rmdir "$temporary"' EXIT
-"$lean" tests/reference/beta-table.lean >"$temporary/lean.txt"
+"$lean" -DwarningAsError=true tests/reference/beta-table.lean >"$temporary/lean.txt"
 "$gforth" tests/core/tagged-beta-table.fs >"$temporary/forth.txt"
 if [ "$(wc -l <"$temporary/lean.txt")" -ne 15 ] ||
    [ "$(wc -l <"$temporary/forth.txt")" -ne 15 ]; then

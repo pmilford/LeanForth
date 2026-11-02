@@ -10,8 +10,8 @@ esac
 [ "$("$lean" --githash)" = eb6cafb7290e8bd5f2937522d8d804f58f02bafc ] || exit 1
 temporary=$(mktemp -d)
 trap 'rm -f "$temporary/GcdReference.olean" "$temporary/lean.txt" "$temporary/forth.txt"; rmdir "$temporary"' EXIT
-"$lean" -o "$temporary/GcdReference.olean" tests/reference/gcd-reference.lean >/dev/null
-LEAN_PATH="$temporary" "$lean" --run tests/reference/gcd-table.lean >"$temporary/lean.txt"
+"$lean" -DwarningAsError=true -o "$temporary/GcdReference.olean" tests/reference/gcd-reference.lean >/dev/null
+LEAN_PATH="$temporary" "$lean" -DwarningAsError=true --run tests/reference/gcd-table.lean >"$temporary/lean.txt"
 "$gforth" tests/program/gcd-reference-table.fs >"$temporary/forth.txt"
 [ "$(wc -l <"$temporary/lean.txt")" -eq 150 ] && [ "$(wc -l <"$temporary/forth.txt")" -eq 150 ] || exit 1
 diff -u "$temporary/lean.txt" "$temporary/forth.txt"

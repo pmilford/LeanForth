@@ -83,6 +83,13 @@ sets out open human-review decisions.
   for commit `1c9b75a`, passed both jobs: distribution Gforth in 29 s, and
   the pinned full suite in 6 min 31 s including building Gforth and
   downloading Lean with empty caches.
+- [Run 41505351525](https://github.com/pmilford/LeanForth/actions/runs/41505351525)
+  for commit `2b76f35` (documentation reorganisation) failed in both jobs:
+  the new documentation link check flagged two placeholder paths that were
+  not checked locally because the files were not yet committed. Commit
+  `844a829` fixed the text and made the checker include new files;
+  [run 41505559829](https://github.com/pmilford/LeanForth/actions/runs/41505559829)
+  passed both jobs, the pinned full suite in 3 min 53 s.
 - Infrastructure follow-up: roadmap task Q9 tracks consolidation of the three
   successive experimental variants (plain, `tagged-`, `mixed-`) of several
   operations.

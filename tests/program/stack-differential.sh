@@ -12,7 +12,7 @@ if [ "$("$lean" --githash)" != eb6cafb7290e8bd5f2937522d8d804f58f02bafc ]; then
 fi
 temporary=$(mktemp -d)
 trap 'rm -f "$temporary/lean.txt" "$temporary/forth.txt"; rmdir "$temporary"' EXIT
-"$lean" --run tests/reference/stack-clamp.lean >"$temporary/lean.txt"
+"$lean" -DwarningAsError=true --run tests/reference/stack-clamp.lean >"$temporary/lean.txt"
 "$gforth" tests/program/clamp-table.fs >"$temporary/forth.txt"
 if [ "$(wc -l <"$temporary/lean.txt")" -ne 686 ] ||
    ! cmp -s "$temporary/lean.txt" "$temporary/forth.txt"; then

@@ -12,8 +12,8 @@ if [ "$("$lean" --githash)" != eb6cafb7290e8bd5f2937522d8d804f58f02bafc ]; then
 fi
 temporary=$(mktemp -d)
 trap 'rm -f "$temporary/LeanForthPolyIdentity.olean" "$temporary/lean.txt" "$temporary/forth.txt"; rmdir "$temporary"' EXIT
-"$lean" -o "$temporary/LeanForthPolyIdentity.olean" tests/reference/poly-identity.lean
-LEAN_PATH="$temporary" "$lean" tests/reference/poly-specialization-table.lean >"$temporary/lean.txt"
+"$lean" -DwarningAsError=true -o "$temporary/LeanForthPolyIdentity.olean" tests/reference/poly-identity.lean
+LEAN_PATH="$temporary" "$lean" -DwarningAsError=true tests/reference/poly-specialization-table.lean >"$temporary/lean.txt"
 GFORTH="$gforth" python3 tests/core/poly-specialization-table.py >"$temporary/forth.txt"
 if ! paste "$temporary/lean.txt" "$temporary/forth.txt" | awk '
   NF != 10 || $1 != $6 || $2 != $7 || $1 != int((NR - 1) / 2) || $2 != (NR - 1) % 2 { exit 1 }

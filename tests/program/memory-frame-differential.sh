@@ -8,11 +8,11 @@ case "$("$lean" --version)" in 'Lean (version 4.35.0,'*) ;; *) echo 'Expected Le
 case "$("$gforth" --version 2>&1)" in 'gforth 1.0.0 '*) ;; *) echo 'Expected Gforth 1.0.0' >&2; exit 1;; esac
 temporary=$(mktemp -d)
 trap 'rm -rf "$temporary"' EXIT
-"$lean" -o "$temporary/program-contracts.olean" tests/reference/program-contracts.lean
-LEAN_PATH="$temporary" "$lean" -o "$temporary/memory-program-reference.olean" tests/reference/memory-program-reference.lean
-LEAN_PATH="$temporary" "$lean" -o "$temporary/memory-copy-reference.olean" tests/reference/memory-copy-reference.lean
-LEAN_PATH="$temporary" "$lean" -o "$temporary/memory-swap-reference.olean" tests/reference/memory-swap-reference.lean
-LEAN_PATH="$temporary" "$lean" --run tests/reference/memory-frame-differential.lean >"$temporary/lean.txt"
+"$lean" -DwarningAsError=true -o "$temporary/program-contracts.olean" tests/reference/program-contracts.lean
+LEAN_PATH="$temporary" "$lean" -DwarningAsError=true -o "$temporary/memory-program-reference.olean" tests/reference/memory-program-reference.lean
+LEAN_PATH="$temporary" "$lean" -DwarningAsError=true -o "$temporary/memory-copy-reference.olean" tests/reference/memory-copy-reference.lean
+LEAN_PATH="$temporary" "$lean" -DwarningAsError=true -o "$temporary/memory-swap-reference.olean" tests/reference/memory-swap-reference.lean
+LEAN_PATH="$temporary" "$lean" -DwarningAsError=true --run tests/reference/memory-frame-differential.lean >"$temporary/lean.txt"
 "$gforth" tests/program/memory-frame-differential.fs >"$temporary/forth.txt"
 if [ "$(wc -l <"$temporary/lean.txt")" -ne 1296 ] ||
    [ "$(wc -l <"$temporary/forth.txt")" -ne 1296 ]; then

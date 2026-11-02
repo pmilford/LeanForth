@@ -46,6 +46,27 @@ fixtures must be assessed for portability and license compatibility before
 adoption. No test suite replaces human review of kernel rules or proof of
 compiler and runtime correctness.
 
+## Fail-closed safeguards (added 2026-11-02)
+
+- **No proof by `sorry`.** Every Lean invocation in the test scripts passes
+  `-DwarningAsError=true`, so `sorry` and other warnings fail the run.
+  `tests/reference/sorry-must-fail.lean` is a false theorem proved with
+  `sorry`; `make reference` requires Lean to reject it.
+- **Static Lean guard.** `make check-lean-sources` (part of `make test`, no
+  Lean needed) fails if a Lean test file uses `sorry`, `admit`,
+  `native_decide`, a `warningAsError` override or an `axiom` outside the
+  allowlist in `scripts/check-lean-sources.py`, or if a script runs Lean on a
+  file without the strict flag.
+- **Timeouts.** Every Make recipe runs its command under
+  `timeout $(TEST_TIMEOUT)` (default 600 s), and each CI job has a
+  `timeout-minutes` limit, so a looping test fails instead of hanging.
+- **Size guards.** Differential scripts check both tables' line counts and
+  exit on mismatch before comparing them.
+- **Documentation links.** `make check-docs` fails on broken links.
+
+The 2026-11-02 coverage review and its open items are recorded in
+[the test coverage review](TEST_COVERAGE_REVIEW.md).
+
 ## Self-verification
 
 LeanForth's program correctness system should eventually verify selected

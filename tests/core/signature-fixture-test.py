@@ -58,10 +58,10 @@ class SignatureFixture(unittest.TestCase):
         result = run_forth(data)
         self.assertEqual(result.returncode, 0, result.stderr.decode())
         with tempfile.TemporaryDirectory() as temp:
-            subprocess.run([LEAN, "-o", str(Path(temp) / "LeanForthPolyIdentity.olean"),
+            subprocess.run([LEAN, "-DwarningAsError=true", "-o", str(Path(temp) / "LeanForthPolyIdentity.olean"),
                             "tests/reference/poly-identity.lean"], check=True)
             env = dict(os.environ, LEAN_PATH=temp)
-            oracle = subprocess.check_output([LEAN, "tests/reference/signature-fixture.lean"],
+            oracle = subprocess.check_output([LEAN, "-DwarningAsError=true", "tests/reference/signature-fixture.lean"],
                                              env=env, text=True).splitlines()
         self.assertEqual(len(oracle), 2)
         self.assertEqual(shapes(result.stdout), oracle)

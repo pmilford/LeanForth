@@ -12,8 +12,8 @@ esac
 }
 temporary=$(mktemp -d)
 trap 'rm -f "$temporary/ProgramExamples.olean" "$temporary/lean.txt" "$temporary/forth.txt"; rmdir "$temporary"' EXIT
-"$lean" -o "$temporary/ProgramExamples.olean" tests/reference/program-examples.lean
-LEAN_PATH="$temporary" "$lean" --run tests/reference/extra-program-range-table.lean >"$temporary/lean.txt"
+"$lean" -DwarningAsError=true -o "$temporary/ProgramExamples.olean" tests/reference/program-examples.lean
+LEAN_PATH="$temporary" "$lean" -DwarningAsError=true --run tests/reference/extra-program-range-table.lean >"$temporary/lean.txt"
 "$gforth" tests/program/extra-program-range-table.fs >"$temporary/forth.txt"
 [ "$(wc -l <"$temporary/lean.txt")" -eq 343 ] &&
 [ "$(wc -l <"$temporary/forth.txt")" -eq 343 ] || {

@@ -15,7 +15,7 @@ fi
 toolchain=$("$lean" --print-prefix)
 temporary=$(mktemp -d)
 trap 'rm -f "$temporary/LeanForthComposition.olean" "$temporary/LeanForthIdentity.olean" "$temporary/LeanForthTypeIdentity.olean" "$temporary/LeanForthPolyIdentity.olean" "$temporary/LeanForthConstFixture.olean" "$temporary/export.ndjson"; rmdir "$temporary"' EXIT
-"$lean" -o "$temporary/LeanForthComposition.olean" tests/reference/composition.lean
+"$lean" -DwarningAsError=true -o "$temporary/LeanForthComposition.olean" tests/reference/composition.lean
 PATH="$toolchain/bin:$PATH" LEAN_PATH="$temporary" \
   "$toolchain/bin/leanexport" LeanForthComposition -- composition >"$temporary/export.ndjson"
 if ! cmp -s tests/reference/composition.ndjson "$temporary/export.ndjson"; then
@@ -23,7 +23,7 @@ if ! cmp -s tests/reference/composition.ndjson "$temporary/export.ndjson"; then
   diff -u tests/reference/composition.ndjson "$temporary/export.ndjson" >&2 || true
   exit 1
 fi
-"$lean" -o "$temporary/LeanForthIdentity.olean" tests/reference/identity.lean
+"$lean" -DwarningAsError=true -o "$temporary/LeanForthIdentity.olean" tests/reference/identity.lean
 PATH="$toolchain/bin:$PATH" LEAN_PATH="$temporary" \
   "$toolchain/bin/leanexport" LeanForthIdentity -- identity >"$temporary/export.ndjson"
 if ! cmp -s tests/reference/identity.ndjson "$temporary/export.ndjson"; then
@@ -31,7 +31,7 @@ if ! cmp -s tests/reference/identity.ndjson "$temporary/export.ndjson"; then
   diff -u tests/reference/identity.ndjson "$temporary/export.ndjson" >&2 || true
   exit 1
 fi
-"$lean" -o "$temporary/LeanForthTypeIdentity.olean" tests/reference/type-identity.lean
+"$lean" -DwarningAsError=true -o "$temporary/LeanForthTypeIdentity.olean" tests/reference/type-identity.lean
 PATH="$toolchain/bin:$PATH" LEAN_PATH="$temporary" \
   "$toolchain/bin/leanexport" LeanForthTypeIdentity -- type_identity >"$temporary/export.ndjson"
 if ! cmp -s tests/reference/type-identity.ndjson "$temporary/export.ndjson"; then
@@ -39,7 +39,7 @@ if ! cmp -s tests/reference/type-identity.ndjson "$temporary/export.ndjson"; the
   diff -u tests/reference/type-identity.ndjson "$temporary/export.ndjson" >&2 || true
   exit 1
 fi
-"$lean" -o "$temporary/LeanForthPolyIdentity.olean" tests/reference/poly-identity.lean
+"$lean" -DwarningAsError=true -o "$temporary/LeanForthPolyIdentity.olean" tests/reference/poly-identity.lean
 PATH="$toolchain/bin:$PATH" LEAN_PATH="$temporary" \
   "$toolchain/bin/leanexport" LeanForthPolyIdentity -- poly_identity >"$temporary/export.ndjson"
 if ! cmp -s tests/reference/poly-identity.ndjson "$temporary/export.ndjson"; then
@@ -47,7 +47,7 @@ if ! cmp -s tests/reference/poly-identity.ndjson "$temporary/export.ndjson"; the
   diff -u tests/reference/poly-identity.ndjson "$temporary/export.ndjson" >&2 || true
   exit 1
 fi
-"$lean" -o "$temporary/LeanForthConstFixture.olean" tests/reference/constant-fixture.lean
+"$lean" -DwarningAsError=true -o "$temporary/LeanForthConstFixture.olean" tests/reference/constant-fixture.lean
 PATH="$toolchain/bin:$PATH" LEAN_PATH="$temporary" \
   "$toolchain/bin/leanexport" LeanForthConstFixture -- fixturePoly fixtureUse >"$temporary/export.ndjson"
 if ! cmp -s tests/reference/constant-fixture.ndjson "$temporary/export.ndjson"; then

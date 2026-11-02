@@ -14,8 +14,8 @@ revision=$("$lean" --githash)
 }
 temporary=$(mktemp -d)
 trap 'rm -f "$temporary/ProgramExamples.olean" "$temporary/lean.txt" "$temporary/forth.txt"; rmdir "$temporary"' EXIT
-"$lean" -o "$temporary/ProgramExamples.olean" tests/reference/program-examples.lean
-LEAN_PATH="$temporary" "$lean" --run tests/reference/abs-reference-table.lean >"$temporary/lean.txt"
+"$lean" -DwarningAsError=true -o "$temporary/ProgramExamples.olean" tests/reference/program-examples.lean
+LEAN_PATH="$temporary" "$lean" -DwarningAsError=true --run tests/reference/abs-reference-table.lean >"$temporary/lean.txt"
 "$gforth" tests/program/abs-reference-table.fs >"$temporary/forth.txt"
 [ "$(wc -l <"$temporary/lean.txt")" -eq 263 ] &&
 [ "$(wc -l <"$temporary/forth.txt")" -eq 263 ] || {

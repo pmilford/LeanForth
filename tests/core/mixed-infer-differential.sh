@@ -11,7 +11,7 @@ if [ "$revision" != eb6cafb7290e8bd5f2937522d8d804f58f02bafc ]; then
 fi
 temporary=$(mktemp -d)
 trap 'rm -f "$temporary/lean.txt" "$temporary/forth.txt"; rmdir "$temporary"' EXIT
-"$lean" tests/reference/mixed-infer-differential.lean >"$temporary/lean.txt"
+"$lean" -DwarningAsError=true tests/reference/mixed-infer-differential.lean >"$temporary/lean.txt"
 "$gforth" tests/core/mixed-infer-differential.fs >"$temporary/forth.txt"
 if [ "$(wc -l <"$temporary/lean.txt")" -ne 21 ] || [ "$(wc -l <"$temporary/forth.txt")" -ne 21 ]; then
   printf '%s\n' 'Unexpected differential table size' >&2; exit 1

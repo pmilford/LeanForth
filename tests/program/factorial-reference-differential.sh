@@ -20,8 +20,8 @@ case "$version" in
 esac
 temporary=$(mktemp -d)
 trap 'rm -f "$temporary/FactorialReference.olean" "$temporary/lean.txt" "$temporary/forth.txt"; rmdir "$temporary"' EXIT
-"$lean" -o "$temporary/FactorialReference.olean" tests/reference/factorial-reference.lean
-LEAN_PATH="$temporary" "$lean" --run tests/reference/factorial-table.lean >"$temporary/lean.txt"
+"$lean" -DwarningAsError=true -o "$temporary/FactorialReference.olean" tests/reference/factorial-reference.lean
+LEAN_PATH="$temporary" "$lean" -DwarningAsError=true --run tests/reference/factorial-table.lean >"$temporary/lean.txt"
 "$gforth" tests/program/factorial-reference-table.fs >"$temporary/forth.txt"
 [ "$(wc -l <"$temporary/lean.txt")" -eq 152 ] &&
 [ "$(wc -l <"$temporary/forth.txt")" -eq 152 ] || {

@@ -43,11 +43,11 @@ run_one() {
 }
 for ((i=1; i<=repetitions; i++)); do
   if (( i % 2 )); then
-    run_one Lean "$i" "$lean" --run tests/reference/term-level-substitute-table.lean
+    run_one Lean "$i" "$lean" -DwarningAsError=true --run tests/reference/term-level-substitute-table.lean
     run_one Forth "$i" "$gforth" tests/core/term-level-substitute-table.fs
   else
     run_one Forth "$i" "$gforth" tests/core/term-level-substitute-table.fs
-    run_one Lean "$i" "$lean" --run tests/reference/term-level-substitute-table.lean
+    run_one Lean "$i" "$lean" -DwarningAsError=true --run tests/reference/term-level-substitute-table.lean
   fi
   if ! cmp -s "$temporary/Lean.normalized" "$temporary/Forth.normalized"; then
     echo "Output mismatch in repetition $i" >&2
