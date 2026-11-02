@@ -1,5 +1,6 @@
 \ Structural transformation tests; these do not establish theorem validity.
 include ../support/tester.fs
+include ../support/checks.fs
 include ../../src/core/terms.fs
 include ../../src/core/names.fs
 include ../../src/core/levels.fs
@@ -111,4 +112,24 @@ T{ lf-term-count @ -> 9 }T
 fill-arena
 T{ 3 3 lf-term-identity drop 0 cid @ 100 lf-mixed-instantiate -> -1 0 lf-minst-exhausted }T
 T{ lf-term-count @ -> lf-term-capacity }T
+\ Interface: the replacement shift runs on mixed-shift's record with the
+\ instantiation's remaining fuel and hands back what it leaves, so both
+\ fuel cells end equal; mixed-beta and mixed-infer continue with it.
+setup
+T{ 2 3 lf-term-app -> 7 true }T
+T{ 0 7 lf-term-lam -> 8 true }T
+lf-term-serial @ rootid !
+T{ 1 2 lf-term-app -> 9 true }T
+lf-term-serial @ rid !
+T{ 8 rootid @ 9 rid @ 100 ' lf-mixed-instantiate rs-checked lf-minst-fuel @ lf-mshift-fuel @ ->
+  13 lf-term-serial @ lf-minst-ok 82 82 }T
+\ A chain that fills the store (node 0 is bvar 0, node k is lam(k-1, 0)) is
+\ visited 64 frames deep down to node 0, the target, whose replacement
+\ cannot be copied into the full store: audits 127 and 1 visits, the walk
+\ 64, the shift 1.
+: chain ( -- root identity )
+  lf-term-reset lf-ssession-begin 0= abort" session" 0 lf-term-bvar 2drop
+  63 0 do i 0 lf-term-lam 0= abort" chain" drop loop 63 dup lf-term-identity drop ;
+T{ chain 0 0 lf-term-identity drop 1000 lf-mixed-instantiate
+  lf-minst-fuel @ lf-mshift-fuel @ lf-term-count @ -> -1 0 lf-minst-exhausted 807 807 64 }T
 bye

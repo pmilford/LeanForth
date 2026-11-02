@@ -1,5 +1,6 @@
 \ Structural transformation tests; these do not establish theorem validity.
 include ../support/tester.fs
+include ../support/checks.fs
 include ../../src/core/terms.fs
 include ../../src/core/names.fs
 include ../../src/core/levels.fs
@@ -85,4 +86,22 @@ T{ 6 rootid @ 0 1 100 lf-mixed-shift -> -1 0 lf-mshift-invalid }T
 setup
 lf-level-reset
 T{ 6 rootid @ 0 1 100 lf-mixed-shift -> -1 0 lf-mshift-invalid }T
+\ Interface: the fuel a shift leaves, which mixed-infer continues with
+\ (audit 9 visits, shift 7), and a balanced return stack.
+setup
+T{ 6 rootid @ 0 1 100 lf-mixed-shift lf-mshift-fuel @ -> 10 lf-term-serial @ lf-mshift-ok 84 }T
+setup
+T{ 6 rootid @ 0 1 100 ' lf-mixed-shift rs-checked -> 10 lf-term-serial @ lf-mshift-ok }T
+T{ 6 rootid @ 0 1 -1 ' lf-mixed-shift rs-checked -> -1 0 lf-mshift-invalid }T
+\ The frame limit equals the store capacity, so a chain that fills the store
+\ is visited all the way down: node 0 is bvar 0 and node k is lam(k-1, 0).
+\ The audit costs 127 visits and the shift 64 more, reaching node 0 at the
+\ 64th frame; with cutoff 1 the variable is kept and node 1, after one more
+\ visit, cannot be rebuilt in the full store.
+: chain ( -- root identity )
+  lf-term-reset lf-ssession-begin 0= abort" session" 0 lf-term-bvar 2drop
+  63 0 do i 0 lf-term-lam 0= abort" chain" drop loop 63 dup lf-term-identity drop ;
+T{ chain 0 1 1000 lf-mixed-shift lf-mshift-fuel @ lf-term-count @ ->
+  -1 0 lf-mshift-exhausted 809 64 }T
+T{ chain 1 1 1000 lf-mixed-shift lf-mshift-fuel @ -> -1 0 lf-mshift-exhausted 808 }T
 bye

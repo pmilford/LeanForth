@@ -1,6 +1,7 @@
 \ Unit tests of the general Forth library (src/lib): portability words,
-\ range checks, bounded stores, tagged nodes, outcomes and walk records. T{ }T checks results and
-\ data-stack depth; rs-checked also checks the return stack around a call.
+\ range checks, bounded stores, tagged nodes, outcomes, walk and frame
+\ records. T{ }T checks results and data-stack depth; rs-checked also checks
+\ the return stack around a call.
 include ../support/tester.fs
 include ../support/checks.fs
 include ../../src/lib/lib.fs
@@ -330,4 +331,45 @@ T{ 5 0 ' depth-visit p3 walk-run-pair -> outcome-exhausted }T
 20 p3 walk-budget drop
 T{ 5 0 ' depth-visit p3 walk-run-pair p3 walk-fuel @ -> outcome-exhausted 20 }T
 T{ s" 0 walk2: pbad0" bad-walk? s" -1 walk2: pbad1" bad-walk? s" 1 walk2: pone" bad-walk? -> true true false }T
+
+\ Frame records: bounded recursion. The test visitor rebuilds the DAG above
+\ (node n >= 2 has children n-1 and n-2) bottom-up: its result is the number
+\ of leaves below n, and the second child is visited one context level
+\ deeper. A visit of node n is n frames deep, so node 5 needs 5 frames.
+T{ 4 frames: f1 -> }T
+T{ f1 frame-limit @ f1 frame-depth @ f1 frame-fuel @ f1 frame-context @ -> 4 0 0 0 }T
+T{ -1 f1 frame-budget f1 frame-fuel @ -> false 0 }T
+T{ 7 f1 frame-budget f1 frame-fuel @ -> true 7 }T
+T{ s" 0 frames: fbad0" bad-walk? s" -3 frames: fbad1" bad-walk? s" 1 frames: fone" bad-walk? -> true true false }T
+variable deepest-frame  variable deepest-context
+: note-depth ( frames -- )
+  dup frame-depth @ deepest-frame @ max deepest-frame !
+  frame-context @ deepest-context @ max deepest-context ! ;
+: no-result ( outcome -- -1 outcome ) -1 swap ;
+: leaves-pair ( n frames -- result outcome )
+  over 1- over frame-call ok-then? 0= if nip nip no-result exit then
+  -rot swap 2 - swap frame-under ok-then? if + outcome-ok else nip no-result then ;
+: leaves-visit ( n -- result outcome )
+  f1 note-depth dup 2 < if drop 1 outcome-ok else f1 leaves-pair then ;
+: leaves-run ( n context limit fuel -- result outcome )
+  f1 frame-budget drop f1 frame-limit ! 0 deepest-frame ! 0 deepest-context !
+  ['] leaves-visit f1 frame-run ;
+\ Node 5: 15 visits, 8 leaves, 5 frames deep, context 2 above the root's.
+T{ 5 10 5 100 leaves-run f1 frame-fuel @ f1 frame-depth @ -> 8 outcome-ok 85 0 }T
+T{ deepest-frame @ deepest-context @ f1 frame-context @ -> 5 12 10 }T
+T{ 5 0 5 15 leaves-run f1 frame-fuel @ -> 8 outcome-ok 0 }T
+\ One unit or one frame short: exhausted, no result, nothing left in progress.
+T{ 5 0 5 14 leaves-run f1 frame-fuel @ f1 frame-depth @ -> -1 outcome-exhausted 0 0 }T
+T{ 5 0 4 100 leaves-run f1 frame-depth @ f1 frame-context @ -> -1 outcome-exhausted 0 0 }T
+T{ 4 0 4 100 leaves-run f1 frame-fuel @ -> 5 outcome-ok 91 }T
+\ No fuel, or a corrupted limit, opens no visit and spends nothing.
+T{ 3 0 4 0 leaves-run f1 frame-fuel @ -> -1 outcome-exhausted 0 }T
+T{ 3 0 -1 9 leaves-run f1 frame-fuel @ -> -1 outcome-exhausted 9 }T
+T{ 5 0 5 100 f1 frame-budget drop f1 frame-limit ! ' leaves-visit f1 ' frame-run rs-checked -> 8 outcome-ok }T
+\ A context that cannot grow refuses the deeper visit and stays unchanged.
+max-n f1 frame-context !
+T{ 3 f1 frame-under f1 frame-context @ -> -1 outcome-exhausted max-n }T
+\ A visitor result outside the outcome vocabulary counts as invalid.
+: odd-visit ( n -- result outcome ) 7 ;
+T{ 2 0 ' odd-visit f1 frame-run f1 frame-depth @ -> 2 outcome-invalid 0 }T
 bye

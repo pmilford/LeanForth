@@ -10,4 +10,5 @@ include ./store.fs
 include ./node.fs
 include ./outcome.fs
 include ./walk.fs
+include ./frame.fs
 [then]
