@@ -125,4 +125,20 @@ T{ 3 lf-lscope-context-add -> true }T
 T{ 0 sort-id @ 0 sort-id @ 10000 lf-candidate-definition-probe -> lf-candidate-invalid }T
 T{ lf-term-count @ -> 1 }T
 T{ lf-level-count @ -> 2 }T
+\ Helper statuses keep their meaning; other codes are invalid, never ok.
+T{ lf-repr-ok lf-candidate-repr-status -> lf-candidate-ok }T
+T{ lf-repr-invalid lf-candidate-repr-status -> lf-candidate-invalid }T
+T{ lf-repr-exhausted lf-candidate-repr-status -> lf-candidate-exhausted }T
+T{ 3 lf-candidate-repr-status -> lf-candidate-invalid }T
+T{ 99 lf-candidate-repr-status -> lf-candidate-invalid }T
+T{ lf-tinfer-ok lf-candidate-infer-status -> lf-candidate-ok }T
+T{ lf-tinfer-invalid lf-candidate-infer-status -> lf-candidate-invalid }T
+T{ lf-tinfer-exhausted lf-candidate-infer-status -> lf-candidate-exhausted }T
+T{ lf-tinfer-unknown lf-candidate-infer-status -> lf-candidate-unknown }T
+T{ 99 lf-candidate-infer-status -> lf-candidate-invalid }T
+T{ lf-tconvert-equal lf-candidate-convert-status -> lf-candidate-ok }T
+T{ lf-tconvert-invalid lf-candidate-convert-status -> lf-candidate-invalid }T
+T{ lf-tconvert-exhausted lf-candidate-convert-status -> lf-candidate-exhausted }T
+T{ lf-tconvert-unknown lf-candidate-convert-status -> lf-candidate-unknown }T
+T{ 99 lf-candidate-convert-status -> lf-candidate-invalid }T
 bye

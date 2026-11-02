@@ -131,4 +131,15 @@ T{ lf-level-count @ -> before-levels }T
 lf-term-reset
 T{ tok3 1 actuals 2 1000 lf-rspec-specialize -> lf-rspec-invalid }T
 T{ lf-rspec-begin -> false }T
+\ Helper statuses keep their meaning; other codes are invalid, never ok.
+T{ lf-rawdecl-ok lf-rspec-decl-status -> lf-rspec-ok }T
+T{ lf-rawdecl-invalid lf-rspec-decl-status -> lf-rspec-invalid }T
+T{ lf-rawdecl-exhausted lf-rspec-decl-status -> lf-rspec-exhausted }T
+T{ lf-rawdecl-unknown lf-rspec-decl-status -> lf-rspec-unknown }T
+T{ 99 lf-rspec-decl-status -> lf-rspec-invalid }T
+T{ lf-tlsubst-ok lf-rspec-subst-status -> lf-rspec-ok }T
+T{ lf-tlsubst-invalid lf-rspec-subst-status -> lf-rspec-invalid }T
+T{ lf-tlsubst-exhausted lf-rspec-subst-status -> lf-rspec-exhausted }T
+T{ 3 lf-rspec-subst-status -> lf-rspec-invalid }T
+T{ 99 lf-rspec-subst-status -> lf-rspec-invalid }T
 bye

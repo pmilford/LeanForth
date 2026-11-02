@@ -23,6 +23,7 @@ T{ 5 -1 lf-level-value -> -1 lf-lvalue-invalid }T
 T{ lf-lscope-ok lf-lvalue-scope-status -> lf-lvalue-ok }T
 T{ lf-lscope-invalid lf-lvalue-scope-status -> lf-lvalue-invalid }T
 T{ lf-lscope-exhausted lf-lvalue-scope-status -> lf-lvalue-exhausted }T
+T{ 3 lf-lvalue-scope-status -> lf-lvalue-invalid }T
 T{ 99 lf-lvalue-scope-status -> lf-lvalue-invalid }T
 \ Exhaustion during validation or evaluation leaves the original DAG intact.
 : check-level-budgets ( -- )

@@ -1,6 +1,7 @@
 \ Experimental inference contract tests. Candidate signatures are assumptions;
 \ a successful inference is not a checked theorem or declaration.
 include ../support/tester.fs
+include ../support/checks.fs
 include ../../src/core/terms.fs
 include ../../src/experimental/names.fs
 include ../../src/experimental/levels.fs
@@ -48,7 +49,8 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
 : serials-unchanged? ( -- flag )
   lf-term-serial @ term-serial-before @ = lf-level-serial @ level-serial-before @ = and
   lf-cref-serial @ cref-serial-before @ = and ;
-: infer ( root fuel -- type identity status ) >r h token @ -rot r> lf-mixed-infer ;
+: infer ( root fuel -- type identity status )
+  >r h token @ -rot r> ['] lf-mixed-infer rs-checked ;
 : setup ( -- )
   lf-name-reset lf-level-reset lf-term-reset lf-lscope-context-reset lf-cref-reset
   42 lf-lscope-context-add 0= abort" level context"
@@ -85,8 +87,16 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
   >r h lf-mdefinition-value-id ! lf-mdefinition-value !
   h lf-mdefinition-type-id ! lf-mdefinition-type !
   token @ lf-mdefinition-type @ lf-mdefinition-type-id @
-  lf-mdefinition-value @ lf-mdefinition-value-id @ r> lf-mixed-definition-probe ;
+  lf-mdefinition-value @ lf-mdefinition-value-id @ r>
+  ['] lf-mixed-definition-probe rs-checked ;
 : assert-rollback ( -- ) counts-unchanged? 0= abort" arena counts changed" ;
+
+\ Every inference status keeps its meaning; any other value is invalid.
+T{ lf-minfer-ok lf-mdefinition-infer-status -> lf-mdefinition-ok }T
+T{ lf-minfer-invalid lf-mdefinition-infer-status -> lf-mdefinition-invalid }T
+T{ lf-minfer-exhausted lf-mdefinition-infer-status -> lf-mdefinition-exhausted }T
+T{ lf-minfer-unknown lf-mdefinition-infer-status -> lf-mdefinition-unknown }T
+T{ 99 lf-mdefinition-infer-status -> lf-mdefinition-invalid }T
 : basic-case ( -- )
   setup snapshot 4 9 50000 probe lf-mdefinition-ok expect-status assert-rollback
   lf-mdefinition-fuel @ 0<= abort" success fuel"
@@ -137,6 +147,31 @@ variable other-name variable value-name
   value-name @ lf-name-generation @ actuals 1 lf-cref-new 0= abort" value cref"
   lf-cterm-new save \ 16 value
   snapshot 14 16 50000 probe lf-mdefinition-unknown expect-status assert-rollback ;
+
+\ Assume, unchecked, that a constant has the type at a fixture index.
+: assume ( name index -- )
+  h 2>r token @ swap 2r> formals 1 50000 lf-msp-put lf-msp-ok expect-status ;
+\ Save a constant term with the given universe arguments as the next fixture.
+: reference ( name args count -- )
+  2>r lf-name-generation @ 2r> lf-cref-new 0= abort" reference" lf-cterm-new save ;
+create two-u-args 4 cells allot
+\ Two copies of the universe argument u.
+: two-u ( -- args count )
+  actuals 2@ two-u-args 2! actuals 2@ two-u-args 2 cells + 2! two-u-args 2 ;
+: ill-arity-case ( -- )
+  \ B : Sort u and an ill-formed v : B.{u,u} are assumed. The claim B.{u}
+  \ differs from v's type only in universe arity, so it is never accepted.
+  setup s" B" new-name dup 0 assume dup actuals 1 reference \ 14 B.{u}
+  two-u reference                                              \ 15 B.{u,u}
+  s" v" new-name dup 15 assume actuals 1 reference           \ 16 v
+  snapshot 14 16 50000 probe lf-mdefinition-unknown expect-status assert-rollback
+  lf-mdefinition-fuel @ 0<> abort" unknown fuel" ;
+: non-type-case ( -- )
+  \ fun (x : fun A => A) => x has a binder domain whose type is not a Sort;
+  \ (A : Sort u) -> fun (x : A) => x has such a Pi body. Neither is accepted.
+  setup 13 h 1 h lf-hterm-lam save 0 h 12 h lf-hterm-pi save \ 14, 15
+  snapshot 4 14 50000 probe lf-mdefinition-unknown expect-status assert-rollback
+  snapshot 15 9 50000 probe lf-mdefinition-unknown expect-status assert-rollback ;
 : future-handle-case ( -- )
   \ A forged future identity would become live after the first allocation if
   \ the second source or later index record were checked too late.
@@ -163,16 +198,12 @@ variable saw-exhaustion variable saw-success variable saw-partial
   saw-partial @ 0= abort" no partial exhaustion"
   saw-success @ 0= abort" no success"
   setup snapshot 4 9 -1 probe lf-mdefinition-invalid expect-status assert-rollback ;
-variable failures variable initial-depth
-: run-case ( xt addr len -- ) type cr depth 1- initial-depth ! catch ?dup if
-  .error-string cr 1 failures +! then
-  depth initial-depth @ <> if abort" test stack imbalance" then ;
 ' basic-case s" mixed definition" run-case
 ' stale-case s" preflight stale handles" run-case
 ' distinct-case s" distinct constants" run-case
+' ill-arity-case s" universe arity mismatch" run-case
+' non-type-case s" non-type binder domain and Pi body" run-case
 ' generated-rollback-case s" generated allocations and rollback" run-case
 ' future-handle-case s" future handles" run-case
 ' fuel-case s" shared fuel and rollback" run-case
-failures @ . ." case(s) failed" cr
-: finish ( -- ) failures @ if -1 throw then ;
-finish bye
+cases-done bye

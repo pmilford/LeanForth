@@ -110,4 +110,10 @@ T{ 28 lf-term-read -> lf-tag-sort 0 0 true }T
 16 lf-term-count ! 2 lf-level-count !
 T{ 15 50000 lf-sinfer -> 28 lf-sinfer-ok }T
 T{ 28 11 50000 lf-compare -> lf-compare-equal }T
+\ Level statuses keep their meaning; other codes are invalid, never ok.
+T{ lf-lscope-ok lf-sinfer-level-status -> lf-sinfer-ok }T
+T{ lf-lscope-invalid lf-sinfer-level-status -> lf-sinfer-invalid }T
+T{ lf-lscope-exhausted lf-sinfer-level-status -> lf-sinfer-exhausted }T
+T{ 3 lf-sinfer-level-status -> lf-sinfer-invalid }T
+T{ 99 lf-sinfer-level-status -> lf-sinfer-invalid }T
 bye

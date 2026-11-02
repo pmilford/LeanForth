@@ -1,6 +1,7 @@
 \ Experimental inference contract tests. Candidate signatures are assumptions;
 \ a successful inference is not a checked theorem or declaration.
 include ../support/tester.fs
+include ../support/checks.fs
 include ../../src/core/terms.fs
 include ../../src/experimental/names.fs
 include ../../src/experimental/levels.fs
@@ -47,7 +48,8 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
 : serials-unchanged? ( -- flag )
   lf-term-serial @ term-serial-before @ = lf-level-serial @ level-serial-before @ = and
   lf-cref-serial @ cref-serial-before @ = and ;
-: infer ( root fuel -- type identity status ) >r h token @ -rot r> lf-mixed-infer ;
+: infer ( root fuel -- type identity status )
+  >r h token @ -rot r> ['] lf-mixed-infer rs-checked ;
 : setup ( -- )
   lf-name-reset lf-level-reset lf-term-reset lf-lscope-context-reset lf-cref-reset
   42 lf-lscope-context-add 0= abort" level context"
@@ -79,6 +81,31 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
 
 : expect-status ( actual expected -- )
   2dup <> if ." expected status " . ." actual " . cr -2 throw then 2drop ;
+\ A failed inference returns no root and no identity.
+: no-result ( type identity -- )
+  0<> abort" failure identity" -1 <> abort" failure root" ;
+
+\ Helper statuses keep their meaning; any other value is invalid, never ok.
+T{ lf-repr-ok lf-minfer-repr-status -> lf-minfer-ok }T
+T{ lf-repr-invalid lf-minfer-repr-status -> lf-minfer-invalid }T
+T{ lf-repr-exhausted lf-minfer-repr-status -> lf-minfer-exhausted }T
+T{ 3 lf-minfer-repr-status -> lf-minfer-invalid }T
+T{ lf-msp-ok lf-minfer-msp-status -> lf-minfer-ok }T
+T{ lf-msp-invalid lf-minfer-msp-status -> lf-minfer-invalid }T
+T{ lf-msp-exhausted lf-minfer-msp-status -> lf-minfer-exhausted }T
+T{ lf-msp-unknown lf-minfer-msp-status -> lf-minfer-unknown }T
+T{ lf-mshift-ok lf-minfer-shift-status -> lf-minfer-ok }T
+T{ lf-mshift-invalid lf-minfer-shift-status -> lf-minfer-invalid }T
+T{ lf-mshift-exhausted lf-minfer-shift-status -> lf-minfer-exhausted }T
+T{ 3 lf-minfer-shift-status -> lf-minfer-invalid }T
+T{ lf-minst-ok lf-minfer-inst-status -> lf-minfer-ok }T
+T{ lf-minst-invalid lf-minfer-inst-status -> lf-minfer-invalid }T
+T{ lf-minst-exhausted lf-minfer-inst-status -> lf-minfer-exhausted }T
+T{ 3 lf-minfer-inst-status -> lf-minfer-invalid }T
+T{ lf-mconvert-equal lf-minfer-convert-status -> lf-minfer-ok }T
+T{ lf-mconvert-invalid lf-minfer-convert-status -> lf-minfer-invalid }T
+T{ lf-mconvert-exhausted lf-minfer-convert-status -> lf-minfer-exhausted }T
+T{ lf-mconvert-unknown lf-minfer-convert-status -> lf-minfer-unknown }T
 
 : fixture-case ( -- )
   setup
@@ -114,6 +141,14 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
   snapshot 12 50000 infer lf-minfer-invalid <> abort" open binder domain"
   0<> abort" failure identity" -1 <> abort" failure root"
   counts-unchanged? 0= abort" scope rollback" ;
+: unknown-rolled-back ( root -- )
+  snapshot 50000 infer lf-minfer-unknown expect-status no-result
+  counts-unchanged? 0= abort" unknown rollback" ;
+: non-type-case ( -- )
+  \ fun (x : fun A => A) => x has a binder domain whose type is not a Sort;
+  \ (A : Sort u) -> fun (x : A) => x has such a Pi body. Both are unknown.
+  setup 13 h 1 h lf-hterm-lam save 0 h 12 h lf-hterm-pi save \ 14, 15
+  14 unknown-rolled-back 15 unknown-rolled-back ;
 : preflight-fuel-case ( -- )
   setup
   99 lf-minfer-repr-status lf-minfer-invalid expect-status
@@ -195,20 +230,15 @@ variable saw-exhaustion variable saw-success variable saw-partial
   saw-partial @ 0= abort" no post-allocation exhaustion"
   saw-success @ 0= abort" no sufficient fuel" ;
 
-\ Run every case despite failures; CATCH restores the data stack on THROW.
-variable failures
-: run-case ( xt addr len -- ) type cr catch ?dup if
-  .error-string cr 1 failures +! then ;
 ' fixture-case s" fixture preflight and specialization" run-case
 ' poly-case s" fixturePoly" run-case
 ' invalid-argument-case s" invalid argument" run-case
 ' missing-case s" missing constant" run-case
 ' stale-case s" stale later candidate" run-case
 ' context-case s" binder context" run-case
+' non-type-case s" non-type binder domain and Pi body" run-case
 ' preflight-fuel-case s" preflight fuel" run-case
 ' generated-reference-case s" generated reference and rollback" run-case
 ' fuel-case s" fuel and rollback" run-case
-failures @ . ." case(s) failed" cr
- : finish ( -- ) failures @ if -1 throw then ;
-finish
+cases-done
 bye

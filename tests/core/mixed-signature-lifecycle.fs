@@ -1,6 +1,7 @@
 \ Session-local candidate signatures never become checked declarations.
 \ Exercise suffix rollback and slot reuse outside any active probe call.
 include ../support/tester.fs
+include ../support/checks.fs
 include ../../src/core/terms.fs
 include ../../src/experimental/names.fs
 include ../../src/experimental/levels.fs
@@ -68,4 +69,40 @@ T{ 11 lf-hlevel-param -> 1 lf-level-serial @ true }T
 T{ specialize -> lf-msp-invalid }T
 T{ token @ 5000 lf-mixed-signature-audit -> lf-msp-invalid }T
 T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> 1 2 1 }T
+
+\ Malformed put and specialize requests are invalid and change nothing.
+: put-with ( name count fuel -- status )
+  2>r token @ swap 0 root-id @ formals 2r> ['] lf-msp-put rs-checked ;
+: specialize-with ( name count fuel -- index identity 0 | status )
+  2>r token @ swap actuals 2r> ['] lf-msp-specialize rs-checked ;
+begin-fixture
+T{ 1 level-id @ lf-hterm-sort -> 0 lf-term-serial @ true }T
+lf-term-serial @ root-id !
+T{ candidate @ 1 -1 put-with -> lf-msp-invalid }T
+T{ candidate @ -1 5000 put-with -> lf-msp-invalid }T
+T{ candidate @ lf-level-capacity 1+ 5000 put-with -> lf-msp-invalid }T
+T{ 0 1 5000 put-with -> lf-msp-invalid }T
+T{ 999 1 5000 put-with -> lf-msp-invalid }T
+T{ lf-msp-count @ lf-term-count @ lf-level-count @ -> 0 1 2 }T
+T{ candidate @ 1 5000 put-with -> lf-msp-ok }T
+T{ candidate @ 1 -1 specialize-with -> lf-msp-invalid }T
+T{ candidate @ -1 5000 specialize-with -> lf-msp-invalid }T
+T{ candidate @ lf-level-capacity 1+ 5000 specialize-with -> lf-msp-invalid }T
+T{ 0 1 5000 specialize-with -> lf-msp-invalid }T
+T{ 999 1 5000 specialize-with -> lf-msp-invalid }T
+T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> 1 2 0 }T
+T{ candidate @ 1 5000 specialize-with nip nip -> lf-msp-ok }T
+
+\ The index holds lf-msp-capacity records. One more is exhausted and changes
+\ nothing, so a capacity check cannot write past the record arrays.
+: numbered ( n -- name ) 0 swap lf-name-num 0= abort" numbered name" ;
+: fill-index ( -- )
+  lf-msp-capacity 1 do i numbered 1 5000 put-with lf-msp-ok <> abort" fill" loop ;
+fill-index
+T{ lf-msp-count @ -> lf-msp-capacity }T
+T{ lf-msp-capacity numbered 1 5000 put-with -> lf-msp-exhausted }T
+T{ lf-msp-count @ -> lf-msp-capacity }T
+T{ candidate @ 1 5000 specialize-with nip nip -> lf-msp-ok }T
+T{ lf-msp-capacity 1- numbered 1 5000 specialize-with nip nip -> lf-msp-ok }T
+T{ token @ 5000 lf-mixed-signature-audit -> lf-msp-ok }T
 bye

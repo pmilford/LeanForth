@@ -16,7 +16,10 @@ It is a review of tests, not evidence that any code is correct.
   colon definitions entered. Of 15 deliberately planted faults (mutants),
   **14 passed the tests**; three of those are reachable through public words
   and give a wrong answer (a false "equal", an out-of-bounds index write, a
-  stale handle accepted).
+  stale handle accepted). After the fixes below, 7 of the 15 are caught,
+  including all three reachable ones, and block coverage is 92.5%. Of the 8
+  left, 3 need the deferred tests T7 and T8, 3 guard paths the public words
+  do not seem to reach, and 2 are in superseded code.
 - **Program track.** Of 46 mutants of the six example words and the depth
   analyzer, 39 were caught and 7 survived (2 behave identically to the
   original). 13 were caught only by the unit tests, not by the Lean
@@ -72,12 +75,12 @@ comparison must reject a known-wrong table).
 
 | ID | Finding | Status |
 | --- | --- | --- |
-| T1 | Depth guard at `tests/core/mixed-definition-probe.fs:169` pops an extra cell, so a leftover `0` passes; `mixed-infer.fs` and `tagged-application.fs` tests lack depth guards | In progress |
-| T2 | Constants differing only in universe-argument count can compare *equal* under a one-token fault (M4); untested | In progress |
-| T3 | Signature index capacity: an off-by-one lets a 33rd entry write past the arrays (M7); untested | In progress |
-| T4 | Stale level handle after reset accepted under a one-token fault (M8); untested | In progress |
-| T5 | Binder domain or Pi body that is not a type: unknown and rollback untested | In progress |
-| T6 | 19 of 34 status-mapping words have no direct test; 103 mapping arms never run | In progress |
+| T1 | Depth guard at `tests/core/mixed-definition-probe.fs:169` pops an extra cell, so a leftover `0` passes; `mixed-infer.fs` and `tagged-application.fs` tests lack depth guards | **Fixed**: shared `run-case` helper in `tests/support/checks.fs` stops on any leftover cell |
+| T2 | Constants differing only in universe-argument count can compare *equal* under a one-token fault (M4); untested | **Fixed**: unknown in both orders, and through the definition probe |
+| T3 | Signature index capacity: an off-by-one lets a 33rd entry write past the arrays (M7); untested | **Fixed**, with bad fuel, arity and name cases |
+| T4 | Stale level handle after reset accepted under a one-token fault (M8); untested | **Fixed**, with constructors called outside a session |
+| T5 | Binder domain or Pi body that is not a type: unknown and rollback untested | **Fixed** in `mixed-infer`, the definition probe and `tagged-infer` |
+| T6 | 19 of 34 status-mapping words have no direct test; 103 mapping arms never run | **Fixed** for every mapping word; mappings written inline in five larger words remain untestable until factored out (later, with the style work) |
 | T7 | Level, reference and term arena exhaustion inside `mixed-*` inference never exercised | Later |
 | T8 | Corrupted global counts, generation saturation, inactive index token | Later |
 | T9 | Stream drivers: only 59 of 249 throw guards are exercised; no malformed stream bytes | Later |

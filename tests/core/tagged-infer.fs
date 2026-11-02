@@ -1,6 +1,7 @@
 \ Untrusted tagged symbolic inference tests. Results are mutable syntax, not
 \ theorem handles; this deliberately limited fragment rejects unsupported work.
 include ../support/tester.fs
+include ../support/checks.fs
 include ../../src/core/terms.fs
 include ../../src/experimental/levels.fs
 include ../../src/experimental/level-scope.fs
@@ -226,4 +227,23 @@ T{ 0 test-root-id @ 100 lf-tinfer -> -1 0 lf-tinfer-invalid }T
 T{ 0 test-root-id @ 0 lf-tinfer -> -1 0 lf-tinfer-exhausted }T
 T{ lf-term-count @ -> 1 }T
 T{ lf-level-count @ -> 1 }T
+
+\ A binder domain or Pi body that infers but whose type is not a Sort is
+\ unknown, never a type, and rolls back the work done to infer it.
+lf-term-reset lf-level-reset lf-lscope-context-reset
+T{ 42 lf-lscope-context-add -> true }T
+T{ 42 lf-hlevel-param -> 1 lf-level-serial @ true }T
+T{ lf-ssession-begin -> true }T
+T{ 1 lf-level-serial @ lf-hterm-sort -> 0 lf-term-serial @ true }T
+T{ 0 lf-hterm-bvar -> 1 lf-term-serial @ true }T
+T{ 0 1 lf-term-lam -> 2 true }T \ fun (A : Sort u) => A
+T{ 2 1 lf-term-lam -> 3 true }T \ fun (x : fun A => A) => x
+T{ 1 1 lf-term-lam -> 4 true }T \ fun (x : A) => x, open
+T{ 0 4 lf-term-pi -> 5 true }T  \ (A : Sort u) -> fun (x : A) => x
+: infer-live ( index -- type identity status )
+  dup lf-term-identity drop 10000 ['] lf-tinfer rs-checked ;
+T{ 3 infer-live -> -1 0 lf-tinfer-unknown }T
+T{ lf-term-count @ lf-level-count @ -> 6 2 }T
+T{ 5 infer-live -> -1 0 lf-tinfer-unknown }T
+T{ lf-term-count @ lf-level-count @ -> 6 2 }T
 bye

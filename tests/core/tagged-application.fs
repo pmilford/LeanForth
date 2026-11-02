@@ -57,5 +57,6 @@ variable application-saw-exhaustion
   loop
   application-saw-success @ 0= abort" no successful budget"
   application-saw-exhaustion @ 0= abort" no exhausted budget" ;
-application-budget-sweep
+\ T{ }T also checks that the whole sweep leaves the data stack unchanged.
+T{ application-budget-sweep -> }T
 bye

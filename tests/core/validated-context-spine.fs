@@ -154,4 +154,10 @@ T{ token constant-root constant-root-id arguments 0 binder-context -1 lf-validat
    -> -1 0 lf-caprobe-invalid }T
 T{ token constant-root constant-root-id arguments 9 binder-context 2 lf-validated-context-spine
    -> -1 0 lf-caprobe-invalid }T
+\ Inference statuses keep their meaning; other codes are invalid, never ok.
+T{ lf-tinfer-ok lf-vcsp-status -> lf-caprobe-ok }T
+T{ lf-tinfer-invalid lf-vcsp-status -> lf-caprobe-invalid }T
+T{ lf-tinfer-exhausted lf-vcsp-status -> lf-caprobe-exhausted }T
+T{ lf-tinfer-unknown lf-vcsp-status -> lf-caprobe-unknown }T
+T{ 99 lf-vcsp-status -> lf-caprobe-invalid }T
 bye

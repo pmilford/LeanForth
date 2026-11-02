@@ -1,4 +1,5 @@
 include ../support/tester.fs
+include ../support/checks.fs
 include ../../src/core/terms.fs
 include ../../src/experimental/names.fs
 include ../../src/experimental/levels.fs
@@ -50,10 +51,17 @@ name-x @ 0 ref-term
 1 h 9 h lf-hterm-pi save ;
 setup
 
-\ Unrecognized dependency statuses must never translate to equality.
+\ Dependency statuses keep their meaning; unrecognized values are never equal.
+T{ lf-mbeta-ok lf-mconvert-beta-status -> lf-mconvert-equal }T
+T{ lf-mbeta-invalid lf-mconvert-beta-status -> lf-mconvert-invalid }T
+T{ lf-mbeta-exhausted lf-mconvert-beta-status -> lf-mconvert-exhausted }T
+T{ 3 lf-mconvert-beta-status -> lf-mconvert-invalid }T
 T{ 99 lf-mconvert-beta-status -> lf-mconvert-invalid }T
-T{ 99 lf-mconvert-compare-status -> lf-mconvert-invalid }T
+T{ lf-mcompare-equal lf-mconvert-compare-status -> lf-mconvert-equal }T
+T{ lf-mcompare-invalid lf-mconvert-compare-status -> lf-mconvert-invalid }T
+T{ lf-mcompare-exhausted lf-mconvert-compare-status -> lf-mconvert-exhausted }T
 T{ lf-mcompare-unknown lf-mconvert-compare-status -> lf-mconvert-unknown }T
+T{ 99 lf-mconvert-compare-status -> lf-mconvert-invalid }T
 
 T{ 0 h 1 h 10000 lf-mixed-convert -> lf-mconvert-equal }T
 T{ 0 h 2 h 10000 lf-mixed-convert -> lf-mconvert-unknown }T
@@ -61,6 +69,10 @@ T{ 4 h 5 h 10000 lf-mixed-convert -> lf-mconvert-equal }T
 T{ 0 h 4 h 10000 lf-mixed-convert -> lf-mconvert-unknown }T
 T{ 6 h 7 h 10000 lf-mixed-convert -> lf-mconvert-equal }T
 T{ 8 h 9 h 10000 lf-mixed-convert -> lf-mconvert-unknown }T
+\ Universe arity is part of a constant: x.{0} and x.{} are never equal, in
+\ either order, even though their names and shared arguments agree.
+T{ 0 h 3 h 10000 ' lf-mixed-convert rs-checked -> lf-mconvert-unknown }T
+T{ 3 h 0 h 10000 ' lf-mixed-convert rs-checked -> lf-mconvert-unknown }T
 \ Nested reduction: ((fun x => x) (fun x => x)) constant.
 : more ( -- )
   0 h 8 h lf-hterm-lam save

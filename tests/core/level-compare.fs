@@ -109,4 +109,15 @@ T{ 0 lf-level-succ -> 1 true }T
     lf-level-count @ 2 <> if -1 throw then
   loop ;
 check-comparison-budgets
+\ Helper statuses keep their meaning; other codes are invalid, never equal.
+T{ lf-lscope-ok lf-lcmp-scope-status -> lf-lcmp-equal }T
+T{ lf-lscope-invalid lf-lcmp-scope-status -> lf-lcmp-invalid }T
+T{ lf-lscope-exhausted lf-lcmp-scope-status -> lf-lcmp-exhausted }T
+T{ 3 lf-lcmp-scope-status -> lf-lcmp-invalid }T
+T{ 99 lf-lcmp-scope-status -> lf-lcmp-invalid }T
+T{ lf-lvalue-ok lf-lcmp-value-status -> lf-lcmp-equal }T
+T{ lf-lvalue-invalid lf-lcmp-value-status -> lf-lcmp-invalid }T
+T{ lf-lvalue-exhausted lf-lcmp-value-status -> lf-lcmp-exhausted }T
+T{ lf-lvalue-unknown lf-lcmp-value-status -> lf-lcmp-unknown }T
+T{ 99 lf-lcmp-value-status -> lf-lcmp-invalid }T
 bye

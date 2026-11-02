@@ -165,6 +165,7 @@ return-sentinels
 T{ lf-repr-ok lf-tci-audit-status -> lf-tinfer-ok }T
 T{ lf-repr-invalid lf-tci-audit-status -> lf-tinfer-invalid }T
 T{ lf-repr-exhausted lf-tci-audit-status -> lf-tinfer-exhausted }T
+T{ 3 lf-tci-audit-status -> lf-tinfer-invalid }T
 T{ 99 lf-tci-audit-status -> lf-tinfer-invalid }T
 \ Sweep fuel over validation, shifting and inference; every failure rolls back.
 variable successes

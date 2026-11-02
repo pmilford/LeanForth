@@ -164,4 +164,35 @@ T{ replacement lf-term-identity -> lf-term-serial @ true }T
 T{ replacement rolled-back-id lf-hterm-valid? -> false }T
 T{ lf-term-serial @ serial-before 1+ > -> true }T
 filler-start lf-term-count !
+\ Helper statuses keep their meaning; other codes are invalid, never ok.
+T{ lf-repr-ok lf-caprobe-repr-status -> lf-caprobe-ok }T
+T{ lf-repr-invalid lf-caprobe-repr-status -> lf-caprobe-invalid }T
+T{ lf-repr-exhausted lf-caprobe-repr-status -> lf-caprobe-exhausted }T
+T{ 3 lf-caprobe-repr-status -> lf-caprobe-invalid }T
+T{ 99 lf-caprobe-repr-status -> lf-caprobe-invalid }T
+T{ lf-rspec-ok lf-caprobe-candidate-status -> lf-caprobe-ok }T
+T{ lf-rspec-invalid lf-caprobe-candidate-status -> lf-caprobe-invalid }T
+T{ lf-rspec-exhausted lf-caprobe-candidate-status -> lf-caprobe-exhausted }T
+T{ lf-rspec-unknown lf-caprobe-candidate-status -> lf-caprobe-unknown }T
+T{ 99 lf-caprobe-candidate-status -> lf-caprobe-invalid }T
+T{ lf-tinfer-ok lf-caprobe-infer-status -> lf-caprobe-ok }T
+T{ lf-tinfer-invalid lf-caprobe-infer-status -> lf-caprobe-invalid }T
+T{ lf-tinfer-exhausted lf-caprobe-infer-status -> lf-caprobe-exhausted }T
+T{ lf-tinfer-unknown lf-caprobe-infer-status -> lf-caprobe-unknown }T
+T{ 99 lf-caprobe-infer-status -> lf-caprobe-invalid }T
+T{ lf-tconvert-equal lf-caprobe-convert-status -> lf-caprobe-ok }T
+T{ lf-tconvert-invalid lf-caprobe-convert-status -> lf-caprobe-invalid }T
+T{ lf-tconvert-exhausted lf-caprobe-convert-status -> lf-caprobe-exhausted }T
+T{ lf-tconvert-unknown lf-caprobe-convert-status -> lf-caprobe-unknown }T
+T{ 99 lf-caprobe-convert-status -> lf-caprobe-invalid }T
+T{ lf-tbeta-ok lf-caprobe-beta-status -> lf-caprobe-ok }T
+T{ lf-tbeta-invalid lf-caprobe-beta-status -> lf-caprobe-invalid }T
+T{ lf-tbeta-exhausted lf-caprobe-beta-status -> lf-caprobe-exhausted }T
+T{ 3 lf-caprobe-beta-status -> lf-caprobe-invalid }T
+T{ 99 lf-caprobe-beta-status -> lf-caprobe-invalid }T
+T{ lf-tinst-ok lf-caprobe-inst-status -> lf-caprobe-ok }T
+T{ lf-tinst-invalid lf-caprobe-inst-status -> lf-caprobe-invalid }T
+T{ lf-tinst-exhausted lf-caprobe-inst-status -> lf-caprobe-exhausted }T
+T{ 3 lf-caprobe-inst-status -> lf-caprobe-invalid }T
+T{ 99 lf-caprobe-inst-status -> lf-caprobe-invalid }T
 bye

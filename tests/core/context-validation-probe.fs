@@ -89,6 +89,10 @@ T{ unchanged -> true }T
 T{ 0 -1 100 lf-context-validation-probe -> lf-tinfer-invalid }T
 T{ 0 lf-term-capacity 1+ 100 lf-context-validation-probe -> lf-tinfer-invalid }T
 T{ 0 0 -1 lf-context-validation-probe -> lf-tinfer-invalid }T
+T{ lf-tinfer-ok lf-cv-status -> lf-tinfer-ok }T
+T{ lf-tinfer-invalid lf-cv-status -> lf-tinfer-invalid }T
+T{ lf-tinfer-exhausted lf-cv-status -> lf-tinfer-exhausted }T
+T{ lf-tinfer-unknown lf-cv-status -> lf-tinfer-unknown }T
 T{ 99 lf-cv-status -> lf-tinfer-invalid }T
 \ Full capacity, including its last entry; no intermediate results persist.
 setup

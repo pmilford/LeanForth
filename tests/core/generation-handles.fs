@@ -1,6 +1,7 @@
 \ Development-only handle tests: slot identities detect resets and reuse, not
 \ forgery, raw mutation, wrong arena kinds or stale references stored in nodes.
 include ../support/tester.fs
+include ../support/checks.fs
 include ../../src/core/terms.fs
 include ../../src/experimental/levels.fs
 include ../../src/experimental/level-scope.fs
@@ -16,6 +17,11 @@ lf-term-reset lf-level-reset lf-lscope-context-reset
 T{ 42 lf-lscope-context-add -> true }T
 T{ 42 lf-hlevel-param -> 1 lf-level-serial @ true }T
 lf-level-serial @ old-level-identity !
+\ Before any session begins, no term is built even from a live level handle.
+T{ lf-ssession-current? -> false }T
+T{ 1 old-level-identity @ ' lf-hterm-sort rs-checked -> false }T
+T{ 0 ' lf-hterm-bvar rs-checked -> false }T
+T{ lf-term-count @ -> 0 }T
 T{ lf-ssession-begin -> true }T
 T{ 1 old-level-identity @ lf-hterm-sort -> 0 lf-term-serial @ true }T
 lf-term-serial @ old-term-identity !
@@ -31,6 +37,14 @@ T{ 2 lf-term-serial @ 100 lf-hterm-check -> lf-repr-ok }T
 \ by the new session even when their integer indices are currently allocated.
 lf-term-reset lf-level-reset
 T{ 42 lf-hlevel-param -> 1 lf-level-serial @ true }T
+\ The reset ended the old session: even the new live level builds no term.
+T{ lf-ssession-current? -> false }T
+T{ 1 lf-level-serial @ ' lf-hterm-sort rs-checked -> false }T
+T{ 0 ' lf-hterm-bvar rs-checked -> false }T
+T{ lf-term-count @ -> 0 }T
+\ The old level handle names a reused, live index but cannot extend it.
+T{ 1 old-level-identity @ ' lf-hlevel-succ rs-checked -> false }T
+T{ lf-level-count @ -> 2 }T
 T{ lf-ssession-begin -> true }T
 T{ 1 lf-level-serial @ lf-hterm-sort -> 0 lf-term-serial @ true }T
 T{ 1 old-level-identity @ lf-hlevel-valid? -> false }T

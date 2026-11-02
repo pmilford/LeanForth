@@ -83,4 +83,10 @@ T{ 0 h 1 0 1000 lf-mixed-compare -> lf-mcompare-invalid }T
 0 0 cells lf-cterm-stamps + !
 T{ 8 h 10 h 1000 lf-mixed-compare -> lf-mcompare-invalid }T
 T{ 10 h 8 h 1000 lf-mixed-compare -> lf-mcompare-invalid }T
+\ Audit statuses keep their meaning; an unknown or other code is invalid.
+T{ lf-repr-ok lf-mcompare-audit-status -> lf-mcompare-equal }T
+T{ lf-repr-invalid lf-mcompare-audit-status -> lf-mcompare-invalid }T
+T{ lf-repr-exhausted lf-mcompare-audit-status -> lf-mcompare-exhausted }T
+T{ 3 lf-mcompare-audit-status -> lf-mcompare-invalid }T
+T{ 99 lf-mcompare-audit-status -> lf-mcompare-invalid }T
 bye

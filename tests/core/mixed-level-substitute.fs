@@ -152,4 +152,15 @@ lf-cref-reset
 : reuse-cref 0 lf-name-generation @ 0 0 lf-cref-new 0= abort" reuse cref" 2drop ;
 reuse-cref
 T{ 500 run-substitution -> lf-mlsubst-invalid }T
+\ Helper statuses keep their meaning; an unknown or other code is invalid.
+T{ lf-repr-ok lf-mls-repr-status -> lf-mlsubst-ok }T
+T{ lf-repr-invalid lf-mls-repr-status -> lf-mlsubst-invalid }T
+T{ lf-repr-exhausted lf-mls-repr-status -> lf-mlsubst-exhausted }T
+T{ 3 lf-mls-repr-status -> lf-mlsubst-invalid }T
+T{ 99 lf-mls-repr-status -> lf-mlsubst-invalid }T
+T{ lf-lsubst-ok lf-mls-level-status -> lf-mlsubst-ok }T
+T{ lf-lsubst-invalid lf-mls-level-status -> lf-mlsubst-invalid }T
+T{ lf-lsubst-exhausted lf-mls-level-status -> lf-mlsubst-exhausted }T
+T{ 3 lf-mls-level-status -> lf-mlsubst-invalid }T
+T{ 99 lf-mls-level-status -> lf-mlsubst-invalid }T
 bye
