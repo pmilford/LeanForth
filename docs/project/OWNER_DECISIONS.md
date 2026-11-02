@@ -252,3 +252,18 @@ records in the same Claude Code session. Quoted words are the owner's own.
 - **Each file loads what it uses, and only that.** Every module `require`s
   its direct dependencies; *"main should only require its direct
   requirements, not the ones needed by the modules."*
+
+## Legacy retirement and the first checker's rules (2026-11-02, evening)
+
+- **Retiring `src/legacy/`:** the four capabilities only legacy code had are
+  not ported first. Theorem mode (statement must be a proposition) is
+  rebuilt in phase 2; the old loader (`src/import/load.fs`) stays with its
+  round-trip tests until the Forth NDJSON reader replaces it; open terms
+  under a supplied context wait for a Lean-style local context; the stricter
+  universe rule stays, and the checked environment needs a per-declaration
+  universe scope. All four answers were the recommended options.
+- **First checker gate, rules only** ([gate summary](../reviews/FIRST_CHECKER_GATE.md#owners-answer),
+  [ADR 0011](../adr/0011-definite-rejection.md)): the rule list is approved
+  before coding (G1); *rejected* means Lean would reject it too (G2); axioms
+  are *unsupported* in the first checker (G3); rule D5 is included (G4). The
+  checker code still needs its own approval with test results.

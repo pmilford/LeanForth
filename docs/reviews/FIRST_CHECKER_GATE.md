@@ -140,5 +140,15 @@ published behaviour; the first checker is unaffected.
 
 ## Owner's answer
 
-*Not yet given.* Record the date, the answer to each question and the
-commit reviewed here.
+2026-11-02, reviewing commit `b30dc84`, in a Claude Code session; the owner
+chose the recommended option on G1–G4:
+
+- **G1:** the rule list is approved now; the code needs separate approval
+  with its test results.
+- **G2:** *rejected* always means Lean would reject it too.
+- **G3:** a declaration assumed without proof is *unsupported* in the first
+  checker, never accepted.
+- **G4:** rule D5 (rejecting a wrong variable inside an argument) is in.
+- **G5** was not asked: it follows owner decision 1 (follow Lean's published
+  behaviour), so the earlier documents are corrected when the unfolding ADR
+  is written in phase 4. The owner may still overrule it.

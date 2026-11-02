@@ -1,6 +1,6 @@
 # ADR 0011: definite rejection and the first checker's scope
 
-Status: **proposed**, 2026-11-02 (plan task 2.1.1). A checker rule: it must
+Status: **rules accepted** by the owner on 2026-11-02 (gate questions G1–G4 in [the gate summary](../reviews/FIRST_CHECKER_GATE.md#owners-answer)); the implementation still needs its own gate approval with test results. Previously: **proposed**, 2026-11-02 (plan task 2.1.1). A checker rule: it must
 pass the review gate in `AGENTS.md` — rules that follow Lean's published
 kernel, agreeing pinned-Lean differential tests that reach every outcome, an
 independent AI review with no unresolved findings, and the owner's approval
