@@ -80,7 +80,7 @@ T{ 0 h 0 h -1 lf-mixed-compare -> lf-mcompare-invalid }T
 T{ 0 h 0 h 0 lf-mixed-compare -> lf-mcompare-exhausted }T
 T{ 0 h 1 0 1000 lf-mixed-compare -> lf-mcompare-invalid }T
 \ Corruption beneath a mismatched root must still be audited on either side.
-0 0 cells lf-cterm-stamps + !
+0 0 lf-cterm-stamp-cell !
 T{ 8 h 10 h 1000 lf-mixed-compare -> lf-mcompare-invalid }T
 T{ 10 h 8 h 1000 lf-mixed-compare -> lf-mcompare-invalid }T
 \ Audit statuses keep their meaning; an unknown or other code is invalid.

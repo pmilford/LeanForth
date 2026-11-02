@@ -83,11 +83,11 @@ T{ bad-root @ bad-id @ formals actuals 2 500 lf-mixed-level-substitute -> lf-mls
 lf-term-count @ variable audit-terms audit-terms !
 lf-level-count @ variable audit-levels audit-levels !
 lf-cref-count @ variable audit-crefs audit-crefs !
-0 cells lf-cterm-stamps + @ variable saved-stamp saved-stamp !
-0 0 cells lf-cterm-stamps + !
+0 lf-cterm-stamp-cell @ variable saved-stamp saved-stamp !
+0 0 lf-cterm-stamp-cell !
 T{ 500 run-substitution -> lf-mlsubst-invalid }T
 T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> audit-terms @ audit-levels @ audit-crefs @ }T
-saved-stamp @ 0 cells lf-cterm-stamps + !
+saved-stamp @ 0 lf-cterm-stamp-cell !
 \ A later constant uses session parameter 33, absent from the formal list.
 \ An earlier sibling would allocate if building began before the full audit.
 variable bad-constant-root variable bad-constant-id

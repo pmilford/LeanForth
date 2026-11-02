@@ -86,4 +86,32 @@ lf-cref-reset
 -1 1 rshift lf-cref-serial !
 T{ 0 lf-name-generation @ 0 0 lf-cref-new -> false }T
 T{ lf-cref-count @ -> 0 }T
+
+\ A negative serial invalidates the whole store; nothing is allocated or read.
+0 lf-cref-serial !
+setup prepare-eight
+T{ 0 lf-name-generation @ eight-args 8 lf-cref-new -> 0 1 true }T
+-1 lf-cref-serial !
+T{ lf-cref-state-valid? -> false }T
+T{ 0 1 lf-cref-valid? -> false }T
+T{ 0 lf-name-generation @ 0 0 lf-cref-new -> false }T
+T{ lf-cref-count @ -> 1 }T
+1 lf-cref-serial !
+
+\ lf-cref-levels: the validated level pairs of a live reference, in order;
+\ a stale identity or a reset name table gives only false.
+T{ 0 1 lf-cref-levels -> 0 lf-cref-slot lf-ref-levels 8 true }T
+T{ 0 1 lf-cref-levels 2drop 7 2* cells + 2@ swap -> 1 lf-level-serial @ }T
+T{ 0 2 lf-cref-levels -> false }T
+T{ 1 1 lf-cref-levels -> false }T
+lf-name-reset
+T{ 0 1 lf-cref-levels -> false }T
+T{ 0 1 0 lf-cref-level -> false }T
+
+\ A failed construction changes neither the count nor the serial.
+lf-cref-reset
+lf-cref-serial @ constant cref-serial1
+T{ 0 lf-name-generation @ eight-args 9 lf-cref-new -> false }T
+T{ 999 lf-name-generation @ 0 0 lf-cref-new -> false }T
+T{ lf-cref-count @ lf-cref-serial @ -> 0 cref-serial1 }T
 bye

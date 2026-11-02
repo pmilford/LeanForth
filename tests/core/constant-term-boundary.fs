@@ -61,12 +61,12 @@ T{ 0 cid @ 10 lf-cterm-check -> lf-repr-invalid }T
 repeat ;
 fill-terms
 0 lf-name-generation @ 0 0 lf-cref-new drop rid ! rindex !
-63 cells lf-cterm-stamps + @ saved-child !
+63 lf-cterm-stamp-cell @ saved-child !
 rindex @ rid @ lf-cterm-new drop cid ! drop
 T{ 63 cid @ 10 lf-cterm-check -> lf-repr-ok }T
 T{ cid @ lf-term-capacity > -> true }T
-T{ 63 cells lf-cterm-stamps + @ -> cid @ }T
-T{ 62 cells lf-cterm-stamps + @ -> 0 }T
+T{ 63 lf-cterm-stamp-cell @ -> cid @ }T
+T{ 62 lf-cterm-stamp-cell @ -> 0 }T
 T{ rindex @ rid @ lf-cterm-new -> false }T
 lf-level-reset
 T{ 63 cid @ 10 lf-cterm-check -> lf-repr-invalid }T

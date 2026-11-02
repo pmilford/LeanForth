@@ -1,108 +1,67 @@
-\ Untrusted constant syntax boundary. Load terms, names, levels, level-scope,
+\ Constant nodes in symbolic terms, and the structural check of a whole
+\ constant-bearing term graph. Untrusted: no lookup, typing, binder scope or
+\ proof checking. Requires terms, names, levels, level-scope,
 \ tagged-sort-boundary, symbolic-session, generation-handles and
-\ constant-references first. No lookup, typing, binder scope or proof checking.
-\ Global scratch is single-threaded and non-reentrant. Exclude raw mutation,
-\ module reload and concurrent access; identities are forgeable, instance-local
-\ diagnostics, not capabilities. Memory layout is not a serialization format.
-\ Existing binary constructors capture indices, not child identities: their
-\ safety relies on backward edges and no raw mutation or arbitrary count edits.
-\ A reset invalidates the session; allocation identities prevent resurrection
-\ of captured roots, constants, Sort levels and constant references on reuse.
+\ constant-references.
+\ A constant node's fields hold a full reference pair, and a stamp table
+\ binds it to this exact term allocation, so a reset cannot resurrect it.
+\ Binary constructors capture child indices, not identities; their safety
+\ relies on backward edges and no raw mutation or count edits.
+\ State: the stamp table (global, indexed by term index) and one walk
+\ record, lf-cterm-walker. Not re-entrant and single-threaded. Identities
+\ are forgeable, instance-local diagnostics; the memory layout is not a
+\ serialization format.
 
 7 constant lf-tag-constant
 create lf-cterm-stamps lf-term-capacity cells allot
 lf-cterm-stamps lf-term-capacity cells erase
-create lf-cterm-work lf-term-capacity cells allot
-variable lf-cterm-pending
-variable lf-cterm-fuel
-variable lf-cterm-node
-variable lf-cterm-tag
-variable lf-cterm-first
-variable lf-cterm-second
-variable lf-cterm-ref
-variable lf-cterm-ref-id
-variable lf-cterm-count
+lf-term-capacity walk: lf-cterm-walker
 
-\ Allocate a constant node only for a live reference in the active session.
-\ Payload contains the full reference pair; the side stamp binds it to this
-\ exact term allocation. Failure leaves the term arena unchanged.
+\ Fuel left after a check; the kernel passes continue with it.
+: lf-cterm-fuel ( -- addr ) lf-cterm-walker walk-fuel ;
+
+\ Stamp cell of a constant node at a valid term index.
+: lf-cterm-stamp-cell ( index -- addr ) cells lf-cterm-stamps + ;
+
+\ Allocate a constant node for a live reference in the current session and
+\ stamp it with its own identity. Failure leaves the term store unchanged.
+: lf-cterm-stamp ( term identity -- ) swap lf-cterm-stamp-cell ! ;
 : lf-cterm-new ( cref identity -- term identity true | false )
   lf-ssession-current? 0= if 2drop false exit then
   2dup lf-cref-valid? 0= if 2drop false exit then
   lf-tag-constant -rot lf-term-add lf-hterm-result
-  dup if over 3 pick cells lf-cterm-stamps + ! then ;
+  if 2dup lf-cterm-stamp true else false then ;
 
-: lf-cterm-push ( index -- flag )
-  lf-cterm-pending @ lf-term-capacity >= if drop false exit then
-  lf-cterm-pending @ cells lf-cterm-work + !
-  1 lf-cterm-pending +! true ;
+\ Check each level of a reference's (index identity) pairs in the current
+\ context from inside this walk, with its fuel.
+: lf-cterm-levels ( addr count walk -- outcome )
+  swap 0 ?do over i 2* cells + @ over lf-lscope-walk-check dup ok? 0=
+    if nip nip unloop exit then drop loop 2drop outcome-ok ;
 
-\ Check a level graph in the current context, charging the shared budget.
-: lf-cterm-level ( index -- status )
-  lf-cterm-fuel @ lf-lscope-check lf-lscope-fuel @ lf-cterm-fuel !
-  case
-    lf-lscope-ok of lf-repr-ok endof
-    lf-lscope-invalid of lf-repr-invalid endof
-    lf-lscope-exhausted of lf-repr-exhausted endof
-    drop lf-repr-invalid 0
-  endcase ;
+\ Visiting one node. A constant must carry its own stamp and a live
+\ reference whose levels all pass; a symbolic Sort must carry the handle
+\ stamps (lf-hterm-sort) and a level that passes; binary children must come
+\ earlier.
+: lf-cterm-stamped? ( node -- flag )
+  dup lf-term-identity if swap lf-cterm-stamp-cell @ = else drop false then ;
+: lf-cterm-reference ( first second walk -- outcome )
+  dup walk-node @ lf-cterm-stamped? 0= if drop 2drop outcome-invalid exit then
+  >r lf-cref-levels if r> lf-cterm-levels else r> drop outcome-invalid then ;
+: lf-cterm-sort ( first second walk -- outcome )
+  >r over swap lf-repr-leaf? if dup r@ walk-node @ lf-hsort-stamped?
+    if r> lf-lscope-walk-check exit then then drop r> drop outcome-invalid ;
+: lf-cterm-dispatch ( first second walk tag -- outcome )
+  dup lf-term-binary-tag? if drop walk-children exit then
+  case lf-tag-constant of lf-cterm-reference endof
+    lf-tag-bvar of lf-repr-bvar endof
+    lf-tag-symbolic-sort of lf-cterm-sort endof walk-bad-tag endcase ;
+: lf-cterm-visit ( walk -- outcome ) lf-terms ['] lf-cterm-dispatch walk-visit ;
 
-\ The reference accessors revalidate all captured identities on every call.
-: lf-cterm-reference ( -- status )
-  lf-cterm-first @ lf-cterm-ref ! lf-cterm-second @ lf-cterm-ref-id !
-  lf-cterm-node @ lf-term-identity 0= if lf-repr-invalid exit then
-  lf-cterm-node @ cells lf-cterm-stamps + @ <> if lf-repr-invalid exit then
-  lf-cterm-ref @ lf-cterm-ref-id @ lf-cref-read 0= if lf-repr-invalid exit then
-  lf-cterm-count ! 2drop
-  lf-cterm-count @ 0 ?do
-    lf-cterm-ref @ lf-cterm-ref-id @ i lf-cref-level 0= if
-      lf-repr-invalid unloop exit
-    then
-    drop lf-cterm-level ?dup if unloop exit then
-  loop lf-repr-ok ;
-
-: lf-cterm-child? ( index -- flag )
-  dup 0< 0= swap lf-cterm-node @ < and ;
-
-\ Inspect one node; children must precede their parent. Sorts must have been
-\ constructed by lf-hterm-sort and retain their captured level identity.
-: lf-cterm-visit ( -- status )
-  lf-cterm-node @ lf-term-read 0= if lf-repr-invalid exit then
-  lf-cterm-second ! lf-cterm-first ! lf-cterm-tag !
-  lf-cterm-tag @ lf-tag-constant = if lf-cterm-reference exit then
-  lf-cterm-tag @ lf-tag-bvar = if
-    lf-cterm-first @ 0< lf-cterm-second @ 0<> or
-    if lf-repr-invalid else lf-repr-ok then exit
-  then
-  lf-cterm-tag @ lf-tag-symbolic-sort = if
-    lf-cterm-first @ 0< lf-cterm-second @ 0<> or if lf-repr-invalid exit then
-    lf-cterm-node @ lf-term-identity 0= if lf-repr-invalid exit then
-    lf-cterm-node @ cells lf-hsort-term-identities + @ <> if lf-repr-invalid exit then
-    lf-cterm-first @ lf-level-identity 0= if lf-repr-invalid exit then
-    lf-cterm-node @ cells lf-hsort-level-identities + @ <> if lf-repr-invalid exit then
-    lf-cterm-first @ lf-cterm-level exit
-  then
-  lf-cterm-tag @ lf-tag-app = lf-cterm-tag @ lf-tag-lam = or
-  lf-cterm-tag @ lf-tag-pi = or 0= if lf-repr-invalid exit then
-  lf-cterm-first @ lf-cterm-child? lf-cterm-second @ lf-cterm-child? and 0= if
-    lf-repr-invalid exit
-  then
-  lf-cterm-first @ lf-cterm-push 0= if lf-repr-exhausted exit then
-  lf-cterm-second @ lf-cterm-push 0= if lf-repr-exhausted exit then
-  lf-repr-ok ;
-
-\ Validate a live root and reachable mixed symbolic graph. Each term and level
-\ visit costs one fuel unit, including repeated DAG visits; bounded context and
-\ cref identity scans are unmetered. Negative fuel is invalid; zero exhausts.
-\ Success is structural evidence only, never authority to accept a theorem.
+\ Validate a live root and its reachable mixed symbolic graph. Each term and
+\ level visit costs one unit of fuel, including repeated DAG visits; the
+\ bounded context and reference scans are not charged. Negative fuel is
+\ invalid; zero exhausts. Success is structural evidence only.
+: lf-cterm-run ( root -- status ) ['] lf-cterm-visit lf-cterm-walker walk-run ;
 : lf-cterm-check ( index identity fuel -- status )
-  dup 0< if drop 2drop lf-repr-invalid exit then lf-cterm-fuel !
-  2dup lf-hterm-valid? 0= if 2drop lf-repr-invalid exit then
-  drop 0 lf-cterm-pending !
-  lf-cterm-push 0= if lf-repr-exhausted exit then
-  begin lf-cterm-pending @ 0> while
-    lf-cterm-fuel @ 0= if lf-repr-exhausted exit then
-    -1 lf-cterm-fuel +! -1 lf-cterm-pending +!
-    lf-cterm-pending @ cells lf-cterm-work + @ lf-cterm-node !
-    lf-cterm-visit ?dup if exit then
-  repeat lf-repr-ok ;
+  lf-cterm-walker walk-budget 0= if 2drop outcome-invalid exit then
+  2dup lf-hterm-valid? if drop lf-cterm-run else 2drop outcome-invalid then ;

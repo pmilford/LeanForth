@@ -11,6 +11,17 @@ the cited files or from read-only commands run today (Appendix B).
 13 GB of free disk (99% used), which limits any Mathlib download. The scale
 assessment (W7) is still in progress.
 
+**Owner to-dos added 2026-11-02 (not yet placed in phases):**
+- *Binary quick import.* If importing Mathlib from NDJSON is slow, a
+  serialized binary snapshot of the decoded records could load much faster.
+  Worth it only if measured parsing dominates (the scale assessment estimates
+  about a minute to parse all of Mathlib in Forth). A snapshot of *decoded,
+  unchecked* records is a cache the checker still re-checks; a snapshot of
+  *checked* results is OQ-3 (trusting saved results) and needs a decision.
+- *Profiling alongside the tests.* `make profile-existing` and
+  `make profile-history` exist (roadmap M1–M4) but are not run regularly or
+  in CI. Add a report-only profiling job and keep a measurement history.
+
 **How to read it in 20–30 minutes.** Read §1 (where we stand, 3 min), §3 (the
 nine phases on one page, 5 min) and §8 (questions for you, 10 min). Skim the
 task tables in §4 and the sample proof output in §7. §5 and §6 are reference
