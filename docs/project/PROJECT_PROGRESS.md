@@ -1,6 +1,6 @@
 # LeanForth project progress
 
-Snapshot: 2026-11-01, with CI and infrastructure notes updated 2026-11-02.
+Snapshot: 2026-11-01, with CI, infrastructure and source-layout notes updated 2026-11-02.
 These are milestones, not estimates of percentage complete.
 Prototype success is not theorem acceptance. Update this report after each
 meaningful milestone, with the inventory from `python3 scripts/code-inventory.py`.
@@ -152,6 +152,7 @@ granular profiling and fair comparisons remain roadmap work.
 
 Run `python3 scripts/code-inventory.py` for current counts of tracked and
 untracked, non-ignored files. Counts are physical lines, including comments and
-blank lines, and are not a coverage percentage. Experimental Forth is counted
-as source but is not a production checker. Generated and ignored toolchains are
+blank lines, and are not a coverage percentage. Forth source is counted per
+`src/` folder ([layout](../../src/README.md)); none of it is a trusted checker,
+and `legacy/` holds superseded variants awaiting retirement (roadmap Q9). Generated and ignored toolchains are
 excluded. See `docs/development/TESTING_STRATEGY.md` for the testing approach and limitations.

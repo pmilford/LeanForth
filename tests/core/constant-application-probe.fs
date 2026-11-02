@@ -4,29 +4,29 @@
 \ Exercises the isolated application adapter and its failure boundaries.
 include ../support/tester.fs
 include ../../src/core/terms.fs
-include ../../src/experimental/names.fs
-include ../../src/experimental/levels.fs
-include ../../src/experimental/level-scope.fs
-include ../../src/experimental/tagged-sort-boundary.fs
-include ../../src/experimental/symbolic-session.fs
-include ../../src/experimental/generation-handles.fs
-include ../../src/experimental/constant-references.fs
-include ../../src/experimental/raw-declaration-index.fs
-include ../../src/experimental/level-substitute.fs
-include ../../src/experimental/term-level-substitute.fs
-include ../../src/experimental/raw-signature-specialize.fs
-include ../../src/experimental/constant-signature-probe.fs
-include ../../src/experimental/constant-term-boundary.fs
-include ../../src/experimental/constant-term-type-probe.fs
-include ../../src/experimental/tagged-shift.fs
-include ../../src/experimental/tagged-instantiate.fs
-include ../../src/experimental/tagged-compare.fs
-include ../../src/experimental/tagged-beta.fs
-include ../../src/experimental/level-value.fs
-include ../../src/experimental/level-compare.fs
-include ../../src/experimental/tagged-convert.fs
-include ../../src/experimental/tagged-infer.fs
-include ../../src/experimental/constant-application-probe.fs
+include ../../src/core/names.fs
+include ../../src/core/levels.fs
+include ../../src/core/level-scope.fs
+include ../../src/core/tagged-sort-boundary.fs
+include ../../src/core/symbolic-session.fs
+include ../../src/core/generation-handles.fs
+include ../../src/core/constant-references.fs
+include ../../src/legacy/raw-declaration-index.fs
+include ../../src/core/level-substitute.fs
+include ../../src/legacy/term-level-substitute.fs
+include ../../src/legacy/raw-signature-specialize.fs
+include ../../src/legacy/constant-signature-probe.fs
+include ../../src/core/constant-term-boundary.fs
+include ../../src/legacy/constant-term-type-probe.fs
+include ../../src/legacy/tagged-shift.fs
+include ../../src/legacy/tagged-instantiate.fs
+include ../../src/legacy/tagged-compare.fs
+include ../../src/legacy/tagged-beta.fs
+include ../../src/core/level-value.fs
+include ../../src/core/level-compare.fs
+include ../../src/legacy/tagged-convert.fs
+include ../../src/legacy/tagged-infer.fs
+include ../../src/legacy/constant-application-probe.fs
 
 decimal
 10000 constant budget

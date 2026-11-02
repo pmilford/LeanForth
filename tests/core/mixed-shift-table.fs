@@ -1,14 +1,14 @@
 \ Finite syntax comparison with Lean; no typing or proof is asserted.
 include ../../src/core/terms.fs
-include ../../src/experimental/names.fs
-include ../../src/experimental/levels.fs
-include ../../src/experimental/level-scope.fs
-include ../../src/experimental/tagged-sort-boundary.fs
-include ../../src/experimental/symbolic-session.fs
-include ../../src/experimental/generation-handles.fs
-include ../../src/experimental/constant-references.fs
-include ../../src/experimental/constant-term-boundary.fs
-include ../../src/experimental/mixed-shift.fs
+include ../../src/core/names.fs
+include ../../src/core/levels.fs
+include ../../src/core/level-scope.fs
+include ../../src/core/tagged-sort-boundary.fs
+include ../../src/core/symbolic-session.fs
+include ../../src/core/generation-handles.fs
+include ../../src/core/constant-references.fs
+include ../../src/core/constant-term-boundary.fs
+include ../../src/core/mixed-shift.fs
 decimal
 create actual 2 cells allot
 variable mixed-root

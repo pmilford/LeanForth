@@ -72,7 +72,7 @@ about its values or any desired postcondition. These results apply to the
 abstract stack operations only, not to the separate memory model or a Forth
 runtime.
 
-`src/experimental/program-depth.fs` implements a separate untrusted Forth
+`src/program/program-depth.fs` implements a separate untrusted Forth
 diagnostic for arrays of the three opcode tags. It does not execute programs or
 issue a proof. `make test-program-depth-differential` compares its results with
 the Lean reference on all 1,093 opcode lists of length at most six. This is

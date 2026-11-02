@@ -1,8 +1,8 @@
 \ Tests for an untrusted syntax-only representation boundary. These cases
 \ do not establish Lean typing, level validity, or theorem acceptance.
 include ../support/tester.fs
-include ../../src/experimental/infer.fs
-include ../../src/experimental/tagged-sort-boundary.fs
+include ../../src/legacy/infer.fs
+include ../../src/core/tagged-sort-boundary.fs
 
 lf-term-reset
 T{ 1 lf-term-sort -> 0 true }T

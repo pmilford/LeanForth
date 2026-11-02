@@ -1,14 +1,14 @@
 \ Finite differential fixture for untrusted tagged weak-head reduction.
 \ Prefix output is a test representation, not a proof certificate.
 include ../../src/core/terms.fs
-include ../../src/experimental/levels.fs
-include ../../src/experimental/level-scope.fs
-include ../../src/experimental/tagged-sort-boundary.fs
-include ../../src/experimental/symbolic-session.fs
-include ../../src/experimental/generation-handles.fs
-include ../../src/experimental/tagged-shift.fs
-include ../../src/experimental/tagged-instantiate.fs
-include ../../src/experimental/tagged-beta.fs
+include ../../src/core/levels.fs
+include ../../src/core/level-scope.fs
+include ../../src/core/tagged-sort-boundary.fs
+include ../../src/core/symbolic-session.fs
+include ../../src/core/generation-handles.fs
+include ../../src/legacy/tagged-shift.fs
+include ../../src/legacy/tagged-instantiate.fs
+include ../../src/legacy/tagged-beta.fs
 decimal
 variable chain-input
 variable chain-identity

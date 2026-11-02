@@ -1,6 +1,6 @@
 \ Tests of untrusted symbolic universe storage; no theorem is checked.
 include ../support/tester.fs
-include ../../src/experimental/levels.fs
+include ../../src/core/levels.fs
 
 \ Zero, parameters and operations retain distinct syntax and child order.
 lf-level-reset

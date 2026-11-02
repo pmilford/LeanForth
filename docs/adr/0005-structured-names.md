@@ -23,7 +23,7 @@ host pointer or cell layout.
 
 ## Experimental evidence and limitations
 
-`src/experimental/names.fs` uses global mutable bounded storage, byte strings
+`src/core/names.fs` uses global mutable bounded storage, byte strings
 and nonnegative host-cell numeric components. It interns equivalent components
 under the same prefix and checks basic storage bounds before reading strings.
 It does not validate UTF-8, protect raw memory, authenticate stale IDs or prove

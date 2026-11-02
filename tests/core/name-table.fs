@@ -1,6 +1,6 @@
 \ Emit equality of interned experimental names for pinned Lean comparisons.
 \ IDs and byte strings are mutable test data, not a trusted declaration name.
-include ../../src/experimental/names.fs
+include ../../src/core/names.fs
 decimal
 
 \ Require an intern operation to return an ID; failure stops the test.

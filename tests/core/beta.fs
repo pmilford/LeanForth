@@ -1,7 +1,7 @@
 \ Tests for the untrusted weak-head beta experiment. These are syntax checks,
 \ not proofs or theorem acceptance tests.
 include ../support/tester.fs
-include ../../src/experimental/beta.fs
+include ../../src/legacy/beta.fs
 
 \ The identity application reduces to its argument.
 lf-term-reset

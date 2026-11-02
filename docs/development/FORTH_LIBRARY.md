@@ -3,24 +3,26 @@
 What reusable Forth facilities exist, how mature they are, and what the
 product will need that does not exist yet. Everything listed is untrusted
 experimental code unless stated otherwise; none is a reviewed kernel
-component. Measured 2026-11-02 at commit `4779924`.
+component. Measured 2026-11-02 at commit `4779924`. Modules are in
+`src/core/` unless named with another folder; superseded variants are in
+`src/legacy/` ([source layout](../../src/README.md)).
 
 ## What exists
 
 | Facility | Module(s) | What it is | State |
 | --- | --- | --- | --- |
 | Expression store | `src/core/terms.fs` | Index-based nodes for sorts, bound variables, application, λ, Π and constants; nodes refer to earlier indices, so a term is a DAG with sharing | 64 nodes; global; constructors check ranges only |
-| Universe-level store | `src/experimental/levels.fs` | Level DAGs: zero, succ, max, imax, parameters | 64 levels; global |
-| Name interning | `src/experimental/names.fs` | Lean structured names (string and numeric components) stored once and referred to by index | 64 names, 2,048 bytes; lookup is a linear scan, no hashing |
-| Stale-handle detection | `src/experimental/generation-handles.fs`, `symbolic-session.fs` | Handles carry a generation number so a handle from before a reset is rejected | Works; tests found one unguarded path |
-| Constant references | `src/experimental/constant-references.fs`, `constant-term-*.fs` | A constant's name plus universe arguments, with syntax and scope audits | Global, 32 references |
-| DAG walkers | `shift`, `instantiate`, `beta`, `compare`/`convert`, `infer` in three variants (plain, `tagged-`, `mixed-`) | Bounded traversals with explicit work stacks and fuel, rolling back on failure | `mixed-*` is current; the other two variants are superseded (roadmap Q9) |
+| Universe-level store | `src/core/levels.fs` | Level DAGs: zero, succ, max, imax, parameters | 64 levels; global |
+| Name interning | `src/core/names.fs` | Lean structured names (string and numeric components) stored once and referred to by index | 64 names, 2,048 bytes; lookup is a linear scan, no hashing |
+| Stale-handle detection | `src/core/generation-handles.fs`, `symbolic-session.fs` | Handles carry a generation number so a handle from before a reset is rejected | Works; tests found one unguarded path |
+| Constant references | `src/core/constant-references.fs`, `constant-term-*.fs` | A constant's name plus universe arguments, with syntax and scope audits | Global, 32 references |
+| DAG walkers | `shift`, `instantiate`, `beta`, `compare`/`convert`, `infer` in three variants: current `mixed-` in `src/core/`; plain and `tagged-` in `src/legacy/` | Bounded traversals with explicit work stacks and fuel, rolling back on failure | `mixed-*` is current; the other two variants are superseded (roadmap Q9) |
 | Level algorithms | `level-scope`, `level-value`, `level-compare`, `level-substitute`, `mixed-level-substitute` | Scope checks, evaluation, conservative equality and simultaneous substitution of levels | Current |
-| Signature index | `mixed-signature-probe.fs`, `mixed-signature-audit.fs` (older: `raw-declaration-index`, `raw-signature-specialize`) | Candidate signatures of constants, specialised to universe arguments | 32 entries; unchecked assumptions |
-| Record staging | `src/experimental/load.fs` | Copies already-decoded expression records into the term store | Not a parser |
-| Generic pair arena | `src/core/arena.fs` | Early atom/pair storage experiment | No dependants; retirement candidate |
+| Signature index | `mixed-signature-probe.fs`, `mixed-signature-audit.fs` (older, in `src/legacy/`: `raw-declaration-index`, `raw-signature-specialize`) | Candidate signatures of constants, specialised to universe arguments | 32 entries; unchecked assumptions |
+| Record staging | `src/import/load.fs` | Copies already-decoded expression records into the term store | Not a parser |
+| Generic pair arena | `src/legacy/arena.fs` | Early atom/pair storage experiment | No dependants; retirement candidate |
 | Program examples | `src/program/clamp.fs`, `examples.fs` | Six executable words (clamp, checked add, abs, factorial, gcd, in-range) | Runtime tested against Lean models, not verified |
-| Depth analyzer | `src/experimental/program-depth.fs` | Stack-depth diagnostic for a tiny opcode list | Not connected to real Forth words |
+| Depth analyzer | `src/program/program-depth.fs` | Stack-depth diagnostic for a tiny opcode list | Not connected to real Forth words |
 | Test support | `tests/support/tester.fs`, `checks.fs`, `term-cases.fs`, `composition.fs` | Adapter for Gforth's bundled tester that fails the run on the first error; shared checks and fixtures | Test-only |
 
 ## JSON and NDJSON

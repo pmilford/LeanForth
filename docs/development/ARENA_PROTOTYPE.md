@@ -1,23 +1,23 @@
 # Structural arena prototype
 
-`src/experimental/names.fs` interns structured byte-string and numeric name
+`src/core/names.fs` interns structured byte-string and numeric name
 components in bounded global storage. It is not connected to declaration or
 level checking and does not validate UTF-8 or protect against raw mutation or
 stale IDs. See `docs/adr/0005-structured-names.md` for the proposed review
 boundary and `make test-name-differential` for nine selected Lean comparisons.
 
-`src/experimental/levels.fs` separately stores symbolic universe syntax:
+`src/core/levels.fs` separately stores symbolic universe syntax:
 zero, successor, max, imax and opaque parameter identifiers. Constructors
 check basic allocation and backward references but do not check parameter scope,
 level equality or types, and the arena is not connected to the term checker.
 See the unapproved symbolic-universe proposal in `docs/adr/0004-symbolic-universes.md`.
-`src/experimental/level-scope.fs` adds a bounded, untrusted traversal checking
+`src/core/level-scope.fs` adds a bounded, untrusted traversal checking
 reachable node shape and opaque parameter IDs against an explicit context. It
 also checks the distinguished zero slot and rejects corrupted counts, fields,
 cycles and forward references. Repeated shared nodes consume repeated visit
 fuel; context validation has a separate bounded quadratic cost. Opaque IDs are
 not Lean name equality, and structural success is not a type or proof judgment.
-`src/experimental/level-value.fs` evaluates validated concrete level DAGs
+`src/core/level-value.fs` evaluates validated concrete level DAGs
 using bounded fuel; symbolic parameters return unknown. The concrete result is
 not a level equality judgment or theorem. Validation and evaluation share visit
 fuel, while bounded context processing is separate; the global mutable arena
@@ -35,14 +35,14 @@ The test-only `make test-poly-specialization-differential` specializes an actual
 polymorphic Lean export for four explicit levels and compares Forth's untrusted
 declaration diagnostics with Lean's kernel. This does not check the original
 polymorphic declaration or create any theorem handle.
-`src/experimental/level-compare.fs` compares scoped level graphs using a few
+`src/core/level-compare.fs` compares scoped level graphs using a few
 literal-zero rewrites and structural comparison, and falls back to unassigned
 concrete evaluation; it reports unknown for many
 Lean equalities. Equal is an untrusted diagnostic dependent on stable opaque ID
 identity, not a theorem or type judgment. `make test-level-compare-differential`
 compares fifteen selected cases with Lean, including deliberate unknowns.
 
-`src/core/arena.fs` is a bounded experiment in storing integer-indexed nodes.
+`src/legacy/arena.fs` is a bounded experiment in storing integer-indexed nodes.
 It does not represent Lean expressions, validate terms, check types, issue
 theorem handles or establish mathematical truth. It is not a kernel API.
 
@@ -77,7 +77,7 @@ is not a proof acceptance test. The final kernel's representation and handling
 of untrusted inputs remain subject to review; prototype internals must not be
 exposed as a theorem-checking interface.
 
-`src/experimental/load.fs` stages already-decoded integer records into that
+`src/import/load.fs` stages already-decoded integer records into that
 arena in a bounded batch. Record indices and child references are batch-local;
 invalid records or allocation failure discard the batch while preserving prior
 nodes, assuming no outside mutation. It is neither a JSON decoder nor a
@@ -87,7 +87,7 @@ untrusted prototype and needs review before use at the declaration boundary.
 `make test-core` covers successful staging, malformed records, abort, preexisting
 nodes and capacity exhaustion.
 
-`src/experimental/scope.fs` performs a separate, untrusted structural traversal
+`src/legacy/scope.fs` performs a separate, untrusted structural traversal
 with explicit success, malformed, and budget-exhausted statuses. It checks
 binder depth, node tags, nonnegative leaf payloads, backward child references,
 and bounded work; tests deliberately corrupt storage and exercise a shared DAG
@@ -103,7 +103,7 @@ and Forth, then compares the prototype's closed-scope status to Lean's
 because scope is a syntactic property. It is not a comparison with Lean's type
 checker, and it does not establish correctness beyond the tested shapes.
 
-`src/experimental/shift.fs` implements an untrusted, bounded de Bruijn shift
+`src/legacy/shift.fs` implements an untrusted, bounded de Bruijn shift
 experiment. It checks source-node references, detects signed-cell overflow,
 limits recursion and visit work, and rolls the arena allocation count back on
 failure. The arena is mutable, global and non-reentrant; resetting the count is
@@ -117,7 +117,7 @@ shapes against pinned Lean's `Expr.liftLooseBVars`. `make test-core` also tests
 invalid references, malformed fields, exhaustion, rollback and signed-cell
 overflow. These are finite tests, not a proof of the transformation.
 
-`src/experimental/instantiate.fs` is a separate untrusted experiment for
+`src/legacy/instantiate.fs` is a separate untrusted experiment for
 single-binder instantiation. It validates the replacement through a zero shift,
 shares a visit budget with shifts, and restores the allocation count on failure.
 Like the shift module, it uses global mutable state and bounded host recursion;
@@ -132,7 +132,7 @@ invalid source and replacement nodes, allocation failure, fuel exhaustion and
 rollback. This finite evidence does not constitute a soundness proof or human
 review for trusted kernel use.
 
-`src/experimental/infer.fs` combines the untrusted transformations and
+`src/legacy/infer.fs` combines the untrusted transformations and
 comparison to experiment with type inference for concrete sorts, bound
 variables, Pi, lambda and application. Its results are mutable arena indices,
 not checked theorem handles. It assumes global, single-threaded host state and
@@ -170,7 +170,7 @@ The core tests repeatedly infer an identity term until exhaustion, checking that
 failure restores the preceding count and that an earlier result remains readable.
 These checks assume callers do not mutate the arena or reset it between calls.
 
-`src/experimental/declaration-probe.fs` experiments with the candidate closed,
+`src/legacy/declaration-probe.fs` experiments with the candidate closed,
 axiom-free theorem checks in ADR 0002. It returns a diagnostic status only and
 restores the arena count on all paths, including successful experiments. The
 identity, incorrect-value, non-type, non-proposition and composition cases are
@@ -189,7 +189,7 @@ the Forth probe reports success for identity, non-success for the invalid cases,
 and unknown for the second Lean-valid case. The cases are finite test evidence,
 not imported declarations or a measure of full Lean compatibility.
 
-`src/experimental/beta.fs` prototypes weak-head beta reduction using the
+`src/legacy/beta.fs` prototypes weak-head beta reduction using the
 experimental instantiation and shift modules. It validates input structure,
 tracks a finite visit budget and rolls back allocation count on failure. Its
 global mutable state, bounded host recursion and host-cell assumptions remain
@@ -200,7 +200,7 @@ Lean-kernel-type-checked cases with `Lean.Kernel.whnf`. This finite comparison
 does not prove reduction correct. Reduction of syntax alone is not evidence that
 a term is well typed or a proof.
 
-`src/experimental/compare.fs` experiments with the conservative comparison in
+`src/legacy/compare.fs` experiments with the conservative comparison in
 ADR 0003, using beta reduction and exact binder-domain syntax. It returns
 `equal`, `unknown`, `invalid`, or `exhausted`; `equal` is not proof that its
 inputs are well typed and must not authorize a theorem. Its global mutable

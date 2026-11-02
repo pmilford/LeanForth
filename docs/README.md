@@ -11,7 +11,7 @@ see [project progress](project/PROJECT_PROGRESS.md). Documents marked
 | New to the project or to Lean terms | [Terms for new readers](user/TERMS_FOR_NEW_READERS.md), then the [project README](../README.md) |
 | Installing and running the tests | [Project README](../README.md#installing-the-pinned-tools-and-running-the-tests), [WSL setup](user/SETUP_WSL.md) |
 | Following progress or plans | [Project progress](project/PROJECT_PROGRESS.md), [development roadmap](project/DEVELOPMENT_ROADMAP.md) |
-| Writing or reviewing code (human or agent) | [AGENTS.md](../AGENTS.md), [testing strategy](development/TESTING_STRATEGY.md), [Forth reviewer guide](development/FORTH_REVIEWER.md) |
+| Writing or reviewing code (human or agent) | [AGENTS.md](../AGENTS.md), [source layout](../src/README.md), [testing strategy](development/TESTING_STRATEGY.md), [Forth reviewer guide](development/FORTH_REVIEWER.md) |
 
 ## `user/` — end-user documentation
 

@@ -1,6 +1,6 @@
 \ Emit untrusted inferred type syntax for comparison with Lean's kernel.
 \ Neither inference nor matching output registers or validates a theorem.
-include ../../src/experimental/infer.fs
+include ../../src/legacy/infer.fs
 include ../support/term-cases.fs
 include ../support/composition.fs
 decimal

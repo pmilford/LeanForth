@@ -55,7 +55,7 @@ The opt-in `make test-symbolic-infer-draft` exercises the existing **unsafe**
 draft and checks a symbolic Pi universe against Lean. It intentionally does not
 establish this proposed boundary. The draft remains outside the standard suite.
 
-`src/experimental/tagged-sort-boundary.fs` separately tests a tagged Sort and
+`src/core/tagged-sort-boundary.fs` separately tests a tagged Sort and
 a bounded reachable-syntax representation validator. Its results are not wired
 into symbolic inference or declaration acceptance. The syntax validator alone
 checks neither level scope, generation nor type correctness. Existing concrete
@@ -63,7 +63,7 @@ inference and shift tests reject the new tag, but this does not show that every
 consumer enforces the proposed boundary. Unreachable nodes are intentionally
 outside the syntax check; shared nodes cost fuel on each visit.
 
-`src/experimental/symbolic-session.fs` now combines tagged syntax checks with
+`src/core/symbolic-session.fs` now combines tagged syntax checks with
 reachable level/context checks and captures the term, level and parameter-context
 generations at session start, which requires an empty term arena. A reset or
 context change invalidates the session. This is an untrusted development

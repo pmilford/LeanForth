@@ -1,7 +1,7 @@
 \ Tests for the untrusted inference experiment. Inferred indices are not
 \ theorem handles; these cases do not establish soundness or Lean parity.
 include ../support/tester.fs
-include ../../src/experimental/infer.fs
+include ../../src/legacy/infer.fs
 
 \ Read an inferred concrete sort level, retaining a distinct failure status.
 : inferred-sort ( root fuel -- level status )

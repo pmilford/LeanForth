@@ -1,6 +1,6 @@
 \ Emit experimental comparison statuses for terms constructed independently
 \ in the Lean reference. Equality is not a theorem-validity judgment.
-include ../../src/experimental/compare.fs
+include ../../src/legacy/compare.fs
 include ../support/term-cases.fs
 decimal
 

@@ -1,9 +1,9 @@
 \ Compare finite evaluations of simultaneous symbolic substitutions to Lean.
 \ These values do not establish general symbolic equality or proof validity.
-include ../../src/experimental/levels.fs
-include ../../src/experimental/level-scope.fs
-include ../../src/experimental/level-value.fs
-include ../../src/experimental/level-substitute.fs
+include ../../src/core/levels.fs
+include ../../src/core/level-scope.fs
+include ../../src/core/level-value.fs
+include ../../src/core/level-substitute.fs
 decimal
 
 create formal-ids 2 cells allot

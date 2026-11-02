@@ -118,7 +118,7 @@ as automatic verdicts.
 | Signal | Value |
 | --- | --- |
 | 1–2 lines / 3–5 / 6–10 / over 10 | 37% / 20% / 19% / 22% |
-| Longest word | 59 lines (`lf-minfer-walk`, `src/experimental/mixed-infer.fs`) |
+| Longest word | 59 lines (`lf-minfer-walk`, `src/core/mixed-infer.fs`) |
 | `VARIABLE`s / `CREATE`d arrays | 378 / 81, in 56 files |
 | Locals | 0 |
 | `ROT`, `-ROT`, `PICK`, `ROLL`, `2SWAP`, `2OVER` | 40 |

@@ -130,7 +130,7 @@ comparison must reject a known-wrong table).
 The `mixed-*` modules are the current path. `tagged-*` and the plain
 variants are superseded but still used by tests, fixtures and 14 Lean
 comparison targets, so they can only be retired after those are migrated.
-`src/core/arena.fs` and the unsafe `symbolic-infer.fs` draft have no
+`src/legacy/arena.fs` and the unsafe `symbolic-infer.fs` draft have no
 dependants. On 2026-11-02 the owner decided to keep them for now and mark
 them for possible later removal (roadmap Q9); the Lean oracle
 `tests/reference/symbolic-infer-oracle.lean` must stay either way because

@@ -1,6 +1,6 @@
 \ Emit deterministic prefix-form syntax after experimental de Bruijn shifts.
 \ This output is a test representation, not a proof certificate or API format.
-include ../../src/experimental/shift.fs
+include ../../src/legacy/shift.fs
 include ../support/term-cases.fs
 decimal
 variable shift-case

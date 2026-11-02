@@ -2,10 +2,10 @@
 \ check establishes representation and level structure, not typing or proof.
 include ../support/tester.fs
 include ../../src/core/terms.fs
-include ../../src/experimental/levels.fs
-include ../../src/experimental/level-scope.fs
-include ../../src/experimental/tagged-sort-boundary.fs
-include ../../src/experimental/symbolic-session.fs
+include ../../src/core/levels.fs
+include ../../src/core/level-scope.fs
+include ../../src/core/tagged-sort-boundary.fs
+include ../../src/core/symbolic-session.fs
 
 \ A session can start only with an empty term arena. New terms and levels
 \ may then be allocated without invalidating the snapshot.

@@ -102,7 +102,7 @@ listed limitation. Meanwhile 22% of words grew past ten lines and the code
 accumulated 378 `VARIABLE`s. The style section of step 3, the
 [style guide](FORTH_STYLE.md) and the metrics script were added in response.
 
-A review of `src/experimental/mixed-infer.fs` with these in place found no
+A review of `src/core/mixed-infer.fs` with these in place found no
 bugs, and it raised the 59-line walker, unnamed frame slots, nine repeated
 error exits, raw slot offsets that bypass the module's own accessors,
 variables used as registers, an internal word used as an undocumented

@@ -261,7 +261,7 @@ check the declaration, its value, or other NDJSON records in general.
 The token is forgeable, does not validate a declaration, and does not make
 bare name IDs safe across name-table resets. This is not a checked environment.
 
-The untrusted `src/experimental/level-substitute.fs` implements a bounded
+The untrusted `src/core/level-substitute.fs` implements a bounded
 simultaneous substitution of level DAGs. Its formal parameter IDs and actual
 level roots are caller-owned cell arrays; actual roots must be valid in the
 current caller level context. Its public word `lf-lsubst` takes
@@ -277,7 +277,7 @@ required for trusted use. `make test-level-substitute-differential` compares
 48 finite concrete observations to pinned Lean, which does not prove general
 symbolic equivalence or establish kernel compatibility.
 
-The experimental `src/experimental/term-level-substitute.fs` applies this
+The experimental `src/legacy/term-level-substitute.fs` applies this
 operation to Sorts in a bounded symbolic term DAG containing variables,
 applications, lambdas and Pi nodes. Formal IDs are scoped separately from
 the caller context of the actual levels. It checks allocation identities,
@@ -321,7 +321,7 @@ wrong universe arity, capture-sensitive substitution, resource exhaustion and
 rollback after allocations in both arenas. Compare supported cases with the
 pinned Lean kernel; obtain the required human review before trusted use.
 
-`src/experimental/mixed-shift.fs` now provides one prerequisite: bounded
+`src/core/mixed-shift.fs` now provides one prerequisite: bounded
 de Bruijn shifting across mixed syntax, reusing constant and Sort leaves
 after validating their identities and universe scopes. It is untrusted syntax
 manipulation, not inference or declaration checking. It shares fuel between
@@ -329,7 +329,7 @@ the audit and traversal, and rolls back appended terms on failure without
 rewinding allocation serials. `make test-core` exercises error and rollback
 cases; `make test-mixed-shift-differential` compares 45 finite observations
 against pinned Lean's `Expr.liftLooseBVars`. Those observations do not prove
-correctness for all inputs. `src/experimental/mixed-instantiate.fs` adds
+correctness for all inputs. `src/core/mixed-instantiate.fs` adds
 single-binder capture-avoiding substitution across the same mixed syntax; it
 audits both inputs before allocating and rolls back on failure. The opt-in
 `make test-mixed-instantiate-differential` compares 30 cases against pinned

@@ -1,8 +1,8 @@
 \ Emit explicit symbolic-universe instances for comparison with Lean.
 \ These are untrusted evaluations, not polymorphic proof judgments.
-include ../../src/experimental/levels.fs
-include ../../src/experimental/level-scope.fs
-include ../../src/experimental/level-value.fs
+include ../../src/core/levels.fs
+include ../../src/core/level-scope.fs
+include ../../src/core/level-value.fs
 decimal
 
 \ Build imax(max(succ(u),v), imax(v,u)) with opaque IDs 1 and 2.

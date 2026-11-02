@@ -3,8 +3,8 @@
 \ three fields are node count, claim index, and value index; each following
 \ node has four fields (index, tag, first, second). This is not a public format.
 \ Input is read as data; no input bytes are evaluated as Forth source.
-include ../../src/experimental/declaration-probe.fs
-include ../../src/experimental/load.fs
+include ../../src/legacy/declaration-probe.fs
+include ../../src/import/load.fs
 decimal
 create stream-byte 1 allot
 variable stream-count

@@ -71,4 +71,4 @@ cat "$temporary/results"
 printf 'Normalized output SHA-256: '; sha256sum "$temporary/baseline" | awk '{print $1}'
 printf 'Input SHA-256 (individual files):\n'
 sha256sum scripts/profile-existing.sh tests/reference/term-level-substitute-table.lean tests/core/term-level-substitute-table.fs \
-  src/core/terms.fs src/experimental/{levels,level-scope,level-value,tagged-sort-boundary,symbolic-session,generation-handles,level-substitute,term-level-substitute}.fs
+  src/core/{terms,levels,level-scope,level-value,tagged-sort-boundary,symbolic-session,generation-handles,level-substitute}.fs src/legacy/term-level-substitute.fs

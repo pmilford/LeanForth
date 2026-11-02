@@ -1,6 +1,6 @@
 \ Exercise candidate declaration checks without creating theorem handles.
 include ../support/tester.fs
-include ../../src/experimental/declaration-probe.fs
+include ../../src/legacy/declaration-probe.fs
 include ../support/term-cases.fs
 include ../support/composition.fs
 

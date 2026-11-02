@@ -3,11 +3,11 @@
 \ This is an untrusted handle-boundary test, not a theorem check.
 include ../support/tester.fs
 include ../../src/core/terms.fs
-include ../../src/experimental/levels.fs
-include ../../src/experimental/level-scope.fs
-include ../../src/experimental/tagged-sort-boundary.fs
-include ../../src/experimental/symbolic-session.fs
-include ../../src/experimental/generation-handles.fs
+include ../../src/core/levels.fs
+include ../../src/core/level-scope.fs
+include ../../src/core/tagged-sort-boundary.fs
+include ../../src/core/symbolic-session.fs
+include ../../src/core/generation-handles.fs
 
 variable saved-level-id
 variable saved-sort-id

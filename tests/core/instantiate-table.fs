@@ -1,6 +1,6 @@
 \ Emit test-only prefix representations of instantiations for Lean comparison.
 \ This is neither a serialized proof format nor a theorem acceptance test.
-include ../../src/experimental/instantiate.fs
+include ../../src/legacy/instantiate.fs
 include ../support/term-cases.fs
 decimal
 variable inst-case

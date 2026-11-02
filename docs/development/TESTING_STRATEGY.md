@@ -81,7 +81,7 @@ host, compiler and runtime assumptions separately.
 
 Matching filenames under `src/` and `tests/` intentionally pair an
 implementation module with its tests; the directory is part of the path.
-For example, `src/experimental/tagged-infer.fs` defines experimental words,
+For example, `src/legacy/tagged-infer.fs` defines experimental words,
 while `tests/core/tagged-infer.fs` includes that module and exercises it.
 Likewise `src/program/clamp.fs` is a Forth word and `tests/program/clamp.fs`
 is its test suite. The two `check.sh` files run different harness and Lean

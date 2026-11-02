@@ -2,11 +2,11 @@
 \ little-endian nonnegative signed-32-bit integers, never Forth source. This
 \ stages one concrete instance and runs an untrusted declaration diagnostic;
 \ it does not import, register, or prove the polymorphic theorem.
-include ../../src/experimental/declaration-probe.fs
-include ../../src/experimental/load.fs
-include ../../src/experimental/levels.fs
-include ../../src/experimental/level-scope.fs
-include ../../src/experimental/level-value.fs
+include ../../src/legacy/declaration-probe.fs
+include ../../src/import/load.fs
+include ../../src/core/levels.fs
+include ../../src/core/level-scope.fs
+include ../../src/core/level-value.fs
 decimal
 create sp-byte 1 allot
 variable sp-level-count

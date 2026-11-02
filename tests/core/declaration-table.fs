@@ -1,6 +1,6 @@
 \ Emit experimental statuses for the same closed declaration candidates as
 \ declaration-table.lean. A zero status is not a checked theorem handle.
-include ../../src/experimental/declaration-probe.fs
+include ../../src/legacy/declaration-probe.fs
 include ../support/term-cases.fs
 decimal
 

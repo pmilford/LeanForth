@@ -65,7 +65,11 @@ test-differential: $(DIFFERENTIAL_TARGETS)
 
 check: test test-differential
 
+# src/main.fs must load silently: a "redefined" warning means two modules
+# define the same word. Then one word from each loaded layer must run.
 smoke:
+	@out=$$($(RUN) $(GFORTH) src/main.fs -e bye 2>&1) || { printf '%s\n' "$$out" >&2; exit 1; }; \
+	if [ -n "$$out" ]; then printf 'src/main.fs printed while loading:\n%s\n' "$$out" >&2; exit 1; fi
 	$(RUN) $(GFORTH) tests/smoke/smoke.fs
 
 reference:

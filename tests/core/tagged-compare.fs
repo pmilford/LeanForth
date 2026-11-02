@@ -1,12 +1,12 @@
 \ Standalone Gforth tests for the untrusted comparator.
 include ../support/tester.fs
 include ../../src/core/terms.fs
-include ../../src/experimental/levels.fs
-include ../../src/experimental/level-scope.fs
-include ../../src/experimental/tagged-sort-boundary.fs
-include ../../src/experimental/symbolic-session.fs
-include ../../src/experimental/generation-handles.fs
-include ../../src/experimental/tagged-compare.fs
+include ../../src/core/levels.fs
+include ../../src/core/level-scope.fs
+include ../../src/core/tagged-sort-boundary.fs
+include ../../src/core/symbolic-session.fs
+include ../../src/core/generation-handles.fs
+include ../../src/legacy/tagged-compare.fs
 create tids 16 cells allot
 : save-id ( index identity true | false -- ) 0= abort" setup" swap cells tids + ! ;
 : h ( index -- index identity ) dup cells tids + @ ;

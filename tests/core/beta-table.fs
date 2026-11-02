@@ -1,6 +1,6 @@
 \ Emit untrusted Forth weak-head beta results for direct comparison with Lean.
 \ The shared prefix renderer is test-only and is not a proof serialization.
-include ../../src/experimental/beta.fs
+include ../../src/legacy/beta.fs
 include ../support/term-cases.fs
 decimal
 variable beta-chain-input

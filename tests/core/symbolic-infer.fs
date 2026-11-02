@@ -2,7 +2,7 @@
 \ Tests for untrusted symbolic-universe inference; no theorem is accepted.
 \ Sort payloads in this test are level indices, not concrete universe values.
 include ../support/tester.fs
-include ../../src/experimental/symbolic-infer.fs
+include ../../src/legacy/symbolic-infer.fs
 
 \ A symbolic Sort(u) has type Sort(succ(u)); inspect the resulting level DAG.
 lf-term-reset lf-level-reset lf-lscope-context-reset

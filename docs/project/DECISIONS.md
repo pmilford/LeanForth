@@ -104,3 +104,29 @@ These are infrastructure decisions; none changes kernel semantics.
   `scripts/check-doc-links.py` runs in `make test` so links cannot silently
   break again. Rejected: moving `adr/` under a design folder, which would
   have broken more historical references for no gain in findability.
+
+## Source layout — 2026-11-02 (owner approved)
+
+`src/` is organised by what the code does, not by a single "experimental"
+label that applied to everything: `lib/` (general Forth tools, no Lean
+knowledge), `core/` (Lean data and operations, current path), `kernel/`
+(trusted checker; empty until code passes the review gate), `import/`,
+`program/`, `legacy/` (superseded variants kept only for their tests), and
+`main.fs`, one loader for all current code. `src/README.md` states the rules
+and the old-to-new map. The split was computed, not guessed: the 22 modules
+in `core/` beside `terms.fs` are exactly those the current `mixed-*` path
+uses, found from which `lf-` words each file uses. That is why
+`tagged-sort-boundary.fs`, `symbolic-session.fs` and `generation-handles.fs`
+are in `core/` despite their names, while all `tagged-*` passes, the
+`raw-*` signature index and the `constant-*`/`context-*` probes are
+`legacy/`. This identifies the variant each later step builds on (the first
+part of roadmap Q9). File names were kept, so history and the frozen review
+records stay traceable; modules are renamed when they are refactored.
+`make smoke` loads `main.fs` and fails if loading prints anything, which
+catches two modules defining the same word.
+
+Rejected: keeping `core/` versus `experimental/` (the names said nothing
+about content and `core/` was mistaken for the trusted kernel); leaving
+superseded copies in `core/` (mixes current and old code); deleting them now
+(their 14 Lean comparisons must first move to the current path; owner chose
+to keep them); one wordlist per folder in this step (needs an ADR; later).

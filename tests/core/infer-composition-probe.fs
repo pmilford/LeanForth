@@ -1,7 +1,7 @@
 \ Construct the pinned Lean composition term in the experimental term arena.
 \ This is an untrusted inference regression, not a theorem acceptance test.
 include ../support/tester.fs
-include ../../src/experimental/infer.fs
+include ../../src/legacy/infer.fs
 include ../support/term-cases.fs
 include ../support/composition.fs
 

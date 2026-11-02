@@ -1,6 +1,6 @@
 \ Tests for untrusted structured-name interning; no theorem is checked.
 include ../support/tester.fs
-include ../../src/experimental/names.fs
+include ../../src/core/names.fs
 
 \ Equal components under equal prefixes are interned; different prefixes and
 \ numeric versus string components remain distinct.

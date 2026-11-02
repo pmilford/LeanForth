@@ -1,7 +1,7 @@
 \ Regression tests for the untrusted instantiation experiment. No result from
 \ this module authorizes a proof, declaration or theorem.
 include ../support/tester.fs
-include ../../src/experimental/instantiate.fs
+include ../../src/legacy/instantiate.fs
 
 \ Substituting loose variable one beneath a lambda must shift the replacement
 \ to variable two, while the lambda's locally bound variable remains zero.

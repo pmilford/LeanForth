@@ -1,14 +1,14 @@
 include ../support/tester.fs
 include ../../src/core/terms.fs
-include ../../src/experimental/names.fs
-include ../../src/experimental/levels.fs
-include ../../src/experimental/level-scope.fs
-include ../../src/experimental/tagged-sort-boundary.fs
-include ../../src/experimental/symbolic-session.fs
-include ../../src/experimental/generation-handles.fs
-include ../../src/experimental/constant-references.fs
-include ../../src/experimental/constant-term-boundary.fs
-include ../../src/experimental/mixed-compare.fs
+include ../../src/core/names.fs
+include ../../src/core/levels.fs
+include ../../src/core/level-scope.fs
+include ../../src/core/tagged-sort-boundary.fs
+include ../../src/core/symbolic-session.fs
+include ../../src/core/generation-handles.fs
+include ../../src/core/constant-references.fs
+include ../../src/core/constant-term-boundary.fs
+include ../../src/core/mixed-compare.fs
 create ids 32 cells allot
 create args 4 cells allot
 variable name-x variable name-y variable num-root variable num-child

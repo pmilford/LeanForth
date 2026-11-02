@@ -122,11 +122,20 @@ def main(argv):
     roots = [pathlib.Path(p) for p in (argv or ["src"])]
     files = sorted(f for r in roots for f in ([r] if r.is_file() else r.rglob("*.fs")))
     all_defs, all_stats = [], Counter()
+    by_dir = {}
     for path in files:
         defs, stats = analyse(path)
         print(summarise(str(path), defs, stats))
         all_defs += [dict(d, file=str(path)) for d in defs]
         all_stats.update(stats)
+        group = by_dir.setdefault(str(path.parent), [[], Counter(), 0])
+        group[0].extend(defs)
+        group[1].update(stats)
+        group[2] += 1
+    if len(by_dir) > 1:
+        print()
+        for folder, (defs, stats, count) in sorted(by_dir.items()):
+            print(summarise(f"{folder}/ ({count} files)", defs, stats))
     print()
     print(summarise(f"TOTAL ({len(files)} files)", all_defs, all_stats))
     kinds = sorted((k[7:], v) for k, v in all_stats.items() if k.startswith("global:"))

@@ -18,7 +18,8 @@ for raw in set(names):
     if not path.is_file():
         continue
     if name.startswith("src/") and name.endswith(".fs"):
-        category = "Forth product/experimental source"
+        folder = name.split("/")[1] if name.count("/") > 1 else "main.fs"
+        category = f"Forth source, untrusted ({folder})"
     elif name.startswith("tests/") and name.endswith(".fs"):
         category = "Forth tests and support"
     elif name.startswith("tests/") and name.endswith(".lean"):

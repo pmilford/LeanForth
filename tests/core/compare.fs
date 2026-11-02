@@ -1,7 +1,7 @@
 \ Unit tests for untrusted conversion experiments. An equal result is not a
 \ checked theorem and does not establish that either input is well typed.
 include ../support/tester.fs
-include ../../src/experimental/compare.fs
+include ../../src/legacy/compare.fs
 
 lf-term-reset
 T{ 0 lf-term-sort -> 0 true }T

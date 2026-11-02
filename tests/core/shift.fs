@@ -1,7 +1,7 @@
 \ Tests for the untrusted shift experiment. These exercise syntax operations
 \ and failure cleanup only; they do not establish kernel or proof validity.
 include ../support/tester.fs
-include ../../src/experimental/shift.fs
+include ../../src/legacy/shift.fs
 
 lf-term-reset
 T{ 0 lf-term-sort -> 0 true }T

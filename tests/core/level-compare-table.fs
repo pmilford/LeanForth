@@ -1,8 +1,8 @@
 \ Emit untrusted comparison diagnostics for the pinned Lean level cases.
-include ../../src/experimental/levels.fs
-include ../../src/experimental/level-scope.fs
-include ../../src/experimental/level-value.fs
-include ../../src/experimental/level-compare.fs
+include ../../src/core/levels.fs
+include ../../src/core/level-scope.fs
+include ../../src/core/level-value.fs
+include ../../src/core/level-compare.fs
 decimal
 
 \ Construct the two scoped parameters and corresponding test level DAGs.

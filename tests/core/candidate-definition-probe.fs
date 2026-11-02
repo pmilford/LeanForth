@@ -1,20 +1,20 @@
 \ Untrusted diagnostic only. Manual reconstruction, not NDJSON import.
 include ../support/tester.fs
 include ../../src/core/terms.fs
-include ../../src/experimental/levels.fs
-include ../../src/experimental/level-scope.fs
-include ../../src/experimental/tagged-sort-boundary.fs
-include ../../src/experimental/symbolic-session.fs
-include ../../src/experimental/generation-handles.fs
-include ../../src/experimental/tagged-shift.fs
-include ../../src/experimental/tagged-instantiate.fs
-include ../../src/experimental/tagged-compare.fs
-include ../../src/experimental/tagged-beta.fs
-include ../../src/experimental/level-value.fs
-include ../../src/experimental/level-compare.fs
-include ../../src/experimental/tagged-convert.fs
-include ../../src/experimental/tagged-infer.fs
-include ../../src/experimental/candidate-definition-probe.fs
+include ../../src/core/levels.fs
+include ../../src/core/level-scope.fs
+include ../../src/core/tagged-sort-boundary.fs
+include ../../src/core/symbolic-session.fs
+include ../../src/core/generation-handles.fs
+include ../../src/legacy/tagged-shift.fs
+include ../../src/legacy/tagged-instantiate.fs
+include ../../src/legacy/tagged-compare.fs
+include ../../src/legacy/tagged-beta.fs
+include ../../src/core/level-value.fs
+include ../../src/core/level-compare.fs
+include ../../src/legacy/tagged-convert.fs
+include ../../src/legacy/tagged-infer.fs
+include ../../src/legacy/candidate-definition-probe.fs
 
 variable claim-id
 variable value-id

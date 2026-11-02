@@ -2,7 +2,7 @@
 \ inspect syntax and budget behavior; they do not test theorem acceptance.
 include ../support/tester.fs
 include ../../src/core/terms.fs
-include ../../src/experimental/scope.fs
+include ../../src/legacy/scope.fs
 
 lf-term-reset
 T{ 0 lf-term-sort -> 0 true }T

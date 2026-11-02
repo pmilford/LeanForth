@@ -2,8 +2,8 @@
 \ four unsigned bytes: local index, tag, first field, second field. This is
 \ not a public serialization format, parser, declaration checker or proof API.
 \ Input is data read from stdin; it is never evaluated as Forth source.
-include ../../src/experimental/declaration-probe.fs
-include ../../src/experimental/load.fs
+include ../../src/legacy/declaration-probe.fs
+include ../../src/import/load.fs
 decimal
 create fixture-byte 1 allot
 

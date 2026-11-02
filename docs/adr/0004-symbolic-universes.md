@@ -27,7 +27,7 @@ soundness argument for their use in sort and Pi typing.
 
 ## Experiment and trust boundary
 
-`src/experimental/levels.fs` allocates a separate global 64-node arena with an
+`src/core/levels.fs` allocates a separate global 64-node arena with an
 implicit zero at index zero and opaque positive numeric parameter identifiers.
 Its constructors check basic bounds and backward references; they do not
 establish name identity, parameter binding, well-formedness after raw mutation,
@@ -38,12 +38,12 @@ levels; ADR 0007 proposes a boundary to resolve that ambiguity. It is not
 connected to the declaration probe.
 The prototype uses `2drop` and `0<=` in addition to basic Forth words; these
 host requirements must be accounted for when targeting another Forth system.
-`src/experimental/level-scope.fs` experiments with bounded shape and parameter
+`src/core/level-scope.fs` experiments with bounded shape and parameter
 ID checks; it does not provide structured-name identity or an immutable context.
-`src/experimental/level-value.fs` evaluates concrete graphs only; symbolic
+`src/core/level-value.fs` evaluates concrete graphs only; symbolic
 graphs return unknown unless its separate instance evaluator receives explicit
 numeric assignments. An instance is not a polymorphic equality judgment.
-`src/experimental/level-compare.fs` explores a conservative equality rule:
+`src/core/level-compare.fs` explores a conservative equality rule:
 after checking both graphs, literal-zero rewrites `max(u,0)`, `max(0,u)` and
 `imax(u,0)` may be applied before structural comparison under one ID-to-name
 mapping; otherwise two unassigned, concrete evaluations may match if their

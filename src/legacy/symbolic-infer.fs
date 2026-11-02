@@ -9,8 +9,8 @@
 \ are assumptions; callers must prevent concurrent mutation and stale IDs.
 include compare.fs
 include scope.fs
-include levels.fs
-include level-scope.fs
+include ../core/levels.fs
+include ../core/level-scope.fs
 
 0 constant lf-sinfer-ok
 1 constant lf-sinfer-invalid

@@ -1,6 +1,6 @@
 \ Emit experimental inference statuses for malformed or ill-typed terms.
 \ Statuses remain untrusted and cannot authorize or reject a theorem.
-include ../../src/experimental/infer.fs
+include ../../src/legacy/infer.fs
 include ../support/term-cases.fs
 decimal
 

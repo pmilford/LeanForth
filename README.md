@@ -19,18 +19,21 @@ Proposed baseline: Windows 11 desktop; WSL2 Ubuntu development; Gforth 1.0 (refe
 
 ## Where the code is
 
-There is **no main program yet**: no command-line tool, no checker and no
-verifier to run. What exists are experimental building blocks, exercised only
-by the tests. Each test file loads the modules it needs with `include`, in
-dependency order.
+There is **no checker or command-line tool yet**. `src/main.fs` loads every
+current module in dependency order (`gforth src/main.fs`); what it loads are
+untrusted building blocks, exercised by the tests. Each test file loads the
+modules it needs with `include`. [`src/README.md`](src/README.md) gives the
+layout rules.
 
 | Path | Contents |
 | --- | --- |
-| `src/leanforth.fs` | A one-word host smoke test (`lf-double`); a placeholder, not an entry point. |
-| `src/core/terms.fs` | The expression store every other module builds on: Lean terms as index-based nodes. Despite the folder name, it is not a reviewed trusted kernel. |
-| `src/core/arena.fs` | An early generic storage experiment that nothing uses any more; kept for now as a removal candidate. |
-| `src/experimental/` | All the functional logic, 51 untrusted modules: universe levels, names, stale-handle checks, substitution, reduction, type inference and signature indexes. The `mixed-*` modules are the current path; `tagged-*` and the unprefixed variants are older versions still used by some tests. |
-| `src/program/` | The program track's six executable example words (clamp, checked add, abs, factorial, gcd, in-range). |
+| `src/main.fs` | The loader for all current code; later the command-line entry point. |
+| `src/lib/` | General Forth tools with no Lean knowledge (result codes, records, stores, portability). Created as the refactor extracts them. |
+| `src/core/` | The functional logic, current path, 23 untrusted modules: the term store (`terms.fs`), names, universe levels, sessions and stale-handle checks, constant references, and the `mixed-*` substitution, reduction, comparison, conversion, signature and inference passes. |
+| `src/kernel/` | The trusted checker. Empty until code passes the review gate in `AGENTS.md`. |
+| `src/import/` | Staging of decoded Lean exports into the term store. |
+| `src/program/` | The program track: six executable example words (clamp, checked add, abs, factorial, gcd, in-range) and a stack-depth analyzer. |
+| `src/legacy/` | 28 superseded earlier variants (plain and `tagged-*` passes, probes, `arena.fs`), kept only while tests use them; not loaded by `main.fs`. |
 | `tests/` | Forth unit tests (`core/`, `program/`), Python tools that decode Lean exports for tests (`support/`), and Lean reference files (`reference/`). |
 | `scripts/` | Install scripts, documentation and Lean-source checks, Forth style metrics and profiling. |
 

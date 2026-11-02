@@ -1,7 +1,7 @@
 \ Exercise arena construction, failure paths, capacity, and reset.
 \ The tester adapter makes assertion failures visible to CI.
 include ../support/tester.fs
-include ../../src/core/arena.fs
+include ../../src/legacy/arena.fs
 
 lf-arena-reset
 T{ 100 lf-node-atom -> 0 true }T

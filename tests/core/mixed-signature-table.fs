@@ -1,17 +1,17 @@
 \ Evaluate substituted levels for finite comparison with Lean; no typing.
 include ../../src/core/terms.fs
-include ../../src/experimental/names.fs
-include ../../src/experimental/levels.fs
-include ../../src/experimental/level-scope.fs
-include ../../src/experimental/level-value.fs
-include ../../src/experimental/tagged-sort-boundary.fs
-include ../../src/experimental/symbolic-session.fs
-include ../../src/experimental/generation-handles.fs
-include ../../src/experimental/constant-references.fs
-include ../../src/experimental/constant-term-boundary.fs
-include ../../src/experimental/level-substitute.fs
-include ../../src/experimental/mixed-level-substitute.fs
-include ../../src/experimental/mixed-signature-probe.fs
+include ../../src/core/names.fs
+include ../../src/core/levels.fs
+include ../../src/core/level-scope.fs
+include ../../src/core/level-value.fs
+include ../../src/core/tagged-sort-boundary.fs
+include ../../src/core/symbolic-session.fs
+include ../../src/core/generation-handles.fs
+include ../../src/core/constant-references.fs
+include ../../src/core/constant-term-boundary.fs
+include ../../src/core/level-substitute.fs
+include ../../src/core/mixed-level-substitute.fs
+include ../../src/core/mixed-signature-probe.fs
 decimal
 create formals 2 cells allot
 create actuals 4 cells allot
