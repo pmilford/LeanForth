@@ -32,8 +32,7 @@ lf-level-capacity walk: lf-lsubst-walker
 create lf-lsubst-job /lf-lsrec allot
 lf-lsubst-job /lf-lsrec erase
 
-\ Fuel left after a call or check; mixed-level-substitute and
-\ legacy/term-level-substitute continue with it.
+\ Fuel left after a call or check; mixed-level-substitute continues with it.
 : lf-lsubst-fuel ( -- addr ) lf-lsubst-walker walk-fuel ;
 \ The substitution in use, set only by lf-lsubst-use. A source audit alone
 \ reads no actuals and may give address 0 for them.

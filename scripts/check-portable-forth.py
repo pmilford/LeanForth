@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Fail on Forth that is not portable across the hosts CI runs.
 
-1. Byte order and cell size, in every .fs file under src/ except
-   src/legacy/ (superseded code):
+1. Byte order and cell size, in every .fs file under src/:
 
 - byte-access words (C@ C! C, W@ L@ X@ and similar host extensions) appear
   only in files listed in BYTE_MODULES, each with a reason; reading a
@@ -92,8 +91,6 @@ def main():
             problems.append(f"{rel}:{lineno}: compile-only '{word}' outside a definition")
     for path in sorted((ROOT / "src").rglob("*.fs")):
         rel = path.relative_to(ROOT).as_posix()
-        if rel.startswith("src/legacy/"):
-            continue
         for lineno, line in enumerate(strip(path.read_text()).splitlines(), 1):
             for tok in line.split():
                 if tok.lower() in BYTE_WORDS and rel not in BYTE_MODULES:

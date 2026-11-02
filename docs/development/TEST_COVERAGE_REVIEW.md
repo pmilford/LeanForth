@@ -137,7 +137,11 @@ them for possible later removal (roadmap Q9); the Lean oracle
 `tagged-infer-differential.sh` uses it. Update (later on 2026-11-02): a copy,
 `tests/reference/symbolic-infer-oracle.lean`, is now run against the current
 `lf-mixed-infer` by `make test-mixed-infer-plain-differential`, so the oracle
-stays when `tests/legacy/` is deleted.
+stays when `tests/legacy/` is deleted. Resolved 2026-11-02: once every
+coverage gap had been closed with tests of current code, the owner's approval
+was applied and the superseded modules, their tests and their 18 Lean
+comparison targets were deleted (roadmap Q9 done; [decisions
+record](../project/DECISIONS.md), "Legacy retired — 2026-11-02").
 
 ## How the reviews were run
 

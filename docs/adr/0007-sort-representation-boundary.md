@@ -30,11 +30,17 @@ polymorphic correctness.
    saturation, context ownership and stale term handles must fail closed; a
    reused integer index is not evidence of the same universe. Mutable global
    arenas and raw memory writes remain experimental host assumptions.
-5. Concrete inference, declaration probes and the current concrete staging
-   path reject symbolic Sorts. A symbolic path validates its own parameter
-   context and level graphs; specialization explicitly evaluates levels
-   before constructing concrete terms. Representation validation alone does
-   not accept a proof.
+5. *Updated 2026-11-02 (owner answer O2).* Concrete inference and the
+   concrete declaration probes were retired with the other superseded
+   modules; every current checker pass accepts symbolic Sorts only (a
+   concrete universe n is the level succ^n zero) and rejects a concrete
+   `lf-tag-sort` node as invalid. The concrete staging path,
+   `src/import/load.fs`, rejects symbolic Sorts and stays, with its
+   round-trip tests, until the Forth NDJSON reader replaces it; no checker
+   pass accepts what it stages. The symbolic path validates its own
+   parameter context and level graphs; specialization substitutes levels
+   into symbolic Sorts. Representation validation alone does not accept a
+   proof.
 
 An implicit global mode cannot authenticate mixed terms. Replacing parameters
 with sampled numbers does not establish a polymorphic judgment. Separate
@@ -51,16 +57,18 @@ An independent AI review identified the tag, validation and generation
 requirements; it is not human approval. A human must review this proposal and
 the actual implementation before kernel semantics are accepted or merged.
 
-The opt-in `make test-symbolic-infer-draft` exercises the existing **unsafe**
-draft and checks a symbolic Pi universe against Lean. It intentionally does not
-establish this proposed boundary. The draft remains outside the standard suite.
+The **unsafe** symbolic inference draft, and the opt-in
+`make test-symbolic-infer-draft` that checked a symbolic Pi universe against
+Lean, were retired on 2026-11-02. Its Lean oracle,
+`tests/reference/symbolic-infer-oracle.lean`, now checks the current
+`lf-mixed-infer` (`make test-mixed-infer-plain-differential`).
 
 `src/core/tagged-sort-boundary.fs` separately tests a tagged Sort and
 a bounded reachable-syntax representation validator. Its results are not wired
 into symbolic inference or declaration acceptance. The syntax validator alone
-checks neither level scope, generation nor type correctness. Existing concrete
-inference and shift tests reject the new tag, but this does not show that every
-consumer enforces the proposed boundary. Unreachable nodes are intentionally
+checks neither level scope, generation nor type correctness. The retired
+concrete inference and shift tests rejected the new tag, but this did not show
+that every consumer enforces the proposed boundary. Unreachable nodes are intentionally
 outside the syntax check; shared nodes cost fuel on each visit.
 
 `src/core/symbolic-session.fs` now combines tagged syntax checks with
@@ -91,7 +99,8 @@ the removal of earlier children; arbitrary count restoration and raw mutation
 are outside this assumption. All raw Forth words remain accessible, and no
 consumer may treat this development check as a trusted interface.
 
-`tagged-infer.fs` now uses the handle-based input check for a restricted
+`tagged-infer.fs` (retired 2026-11-02; superseded by
+`src/kernel/mixed-infer.fs`) used the handle-based input check for a restricted
 Sort, Pi, bound-variable, lambda and application fragment. An application
 requires a directly visible Pi and conservative beta-aware argument-type
 comparison; other cases return `unknown`. Tagged shifting and substitution

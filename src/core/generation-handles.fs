@@ -20,14 +20,8 @@ lf-term-capacity walk: lf-href-walker
 : lf-hsort-term-stamp ( index -- addr ) cells lf-hsort-term-identities + ;
 : lf-hsort-level-stamp ( index -- addr ) cells lf-hsort-level-identities + ;
 
-\ The walk record's fields under their established names. Legacy modules
-\ read the fuel left; only legacy/term-level-substitute still borrows the
-\ work stack between checks (and calls lf-href-check directly); these three
-\ words go when legacy is retired.
+\ The fuel the last audit left, under its established name.
 : lf-href-fuel ( -- addr ) lf-href-walker walk-fuel ;
-: lf-href-pending ( -- addr ) lf-href-walker walk-pending ;
-: lf-href-work ( -- addr ) lf-href-walker walk-stack ;
-: lf-href-push ( index -- flag ) lf-href-walker walk-push ;
 
 \ A pair names a live slot with that identity. Level pairs say nothing about
 \ shape or scope; term pairs also need the session to be current.

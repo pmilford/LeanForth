@@ -2,8 +2,8 @@
 \ Usage: gforth src/main.fs   (paths resolve relative to this file).
 \ Nothing loaded here is verified: the checker in kernel/ is under
 \ development and counts as trusted only once the owner declares it so after
-\ the review gate in AGENTS.md. Superseded code in legacy/ is not loaded.
-\ Later this file becomes the command-line entry point.
+\ the review gate in AGENTS.md. Later this file becomes the command-line
+\ entry point.
 \ Loading leaves both stacks empty and prints nothing; tests/smoke checks it.
 
 \ Lean data model: terms, names, universe levels and their scope, Sort

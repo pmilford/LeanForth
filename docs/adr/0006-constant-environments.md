@@ -154,6 +154,21 @@ It does not establish that binder domains are types or resolve constants. This
 is groundwork for a definition diagnostic whose body contains constants, not
 an implemented constant-aware type checker.
 
+*Update 2026-11-02:* the experiments described from here to the end of
+this section, apart from `src/kernel/level-substitute.fs`, were superseded
+variants and were retired with their tests and Make targets once the current
+code had at least the same coverage ([decisions record](../project/DECISIONS.md),
+"Legacy retired — 2026-11-02"); the paragraphs below record what they did.
+Their operations are now done by `lf-mixed-infer` (constants through candidate
+signatures, applications and spines), `lf-msp-*` in
+`src/kernel/mixed-signature-probe.fs` (the signature index, its lifetime token
+and specialization) and `lf-mixed-level-substitute`; their pinned-Lean
+comparisons are ported to `make test-mixed-infer-constant-differential`,
+`test-export-signature-differential` and
+`test-mixed-level-substitute-plain-differential`. Inference of open terms
+under a caller-supplied context has no current interface; it waits for a
+Lean-style local context.
+
 The untrusted `constant-signature-probe.fs` bridge looks up a reference's
 name and ordered level handles in the candidate metadata and specializes the
 stored signature with exact arity. It does not make constants term nodes,
@@ -225,8 +240,8 @@ metadata because no trusted environment or theorem receipt exists.
 `tests/reference/constant-application-oracle.lean` records Lean kernel
 acceptance of a polymorphic identity applied to `Prop` and rejection of a wrong
 argument or missing constant; these observations do not check LeanForth.
-`tests/legacy/constant-application-oracle.fs` reconstructs the positive case by
-calling the candidate-specialization, inference, conversion and substitution
+The retired Forth test `constant-application-oracle.fs` reconstructed the
+positive case by calling the candidate-specialization, inference, conversion and substitution
 experiments separately. It obtains the same result syntax, while the wrong
 argument yields `unknown` in conservative conversion. Its signature is an
 unchecked assumption, and it neither implements application inference nor
@@ -277,7 +292,7 @@ required for trusted use. `make test-level-substitute-differential` compares
 48 finite concrete observations to pinned Lean, which does not prove general
 symbolic equivalence or establish kernel compatibility.
 
-The experimental `src/legacy/term-level-substitute.fs` applies this
+The retired experimental `term-level-substitute.fs` applied this
 operation to Sorts in a bounded symbolic term DAG containing variables,
 applications, lambdas and Pi nodes. Formal IDs are scoped separately from
 the caller context of the actual levels. It checks allocation identities,

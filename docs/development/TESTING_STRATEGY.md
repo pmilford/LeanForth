@@ -88,26 +88,23 @@ is its test suite. The two `check.sh` files run different harness and Lean
 reference checks. Same names do not mean the files are copies; use full paths
 in documentation, commands and review comments to avoid ambiguity.
 
-## Tests of superseded code
+## Retired tests of superseded code
 
-`tests/legacy/` sits beside `src/legacy/` and goes with it when the
-superseded modules are retired (roadmap item Q9). It holds every test file
-that loads a `src/legacy/` module, directly or through another test file,
-together with the fixture streams, Python helpers and Lean tables that only
-those tests use. `make test-legacy` runs its unit and fixture tests as part of
-`make test`; `make test-legacy-differential` runs its pinned-Lean comparisons,
-listed in `LEGACY_DIFFERENTIAL_TARGETS`, as part of `make check`.
-
-The [owner approved](../project/OWNER_DECISIONS.md) deleting `src/legacy/`
-once the current code has at least the same test coverage. Do not add new
-tests to `tests/legacy/`. The tests that exercised current modules through a
-legacy helper have been rebuilt on current code and moved to `tests/core/`
-(2026-11-02): the NDJSON preview suite (`tests/core/test_ndjson_preview.py`)
-now checks the `src/import/load.fs` staging round trip without a checker,
+Until 2026-11-02 the superseded plain and `tagged-*` modules had their own
+tests beside them, run by `make test-legacy` and, for 18 pinned-Lean
+comparisons, by `make check`. The [owner approved](../project/OWNER_DECISIONS.md)
+deleting that code once the current code had at least the same test
+coverage. Every coverage gap was first closed with tests of current code;
+then the superseded modules and their tests (119 files) were deleted
+together with their Make targets ([decisions record](../project/DECISIONS.md),
+"Legacy retired — 2026-11-02"). The tests that had exercised current modules
+through a superseded helper were rebuilt on current code in `tests/core/`:
+the NDJSON preview suite (`tests/core/test_ndjson_preview.py`) checks the
+`src/import/load.fs` staging round trip without a checker,
 `tests/core/test_export_definitions.py` runs the current definition probe on
 the pinned exports, and `tests/core/tagged-sort-boundary.fs`,
-`declaration-chain-test.py` and `context-constant-fixture-test.py` load no
-legacy module.
+`declaration-chain-test.py` and `context-constant-fixture-test.py` were
+rebuilt on current modules only.
 
 ### Ports of the legacy pinned-Lean comparisons
 

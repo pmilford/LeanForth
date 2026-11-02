@@ -332,3 +332,73 @@ unasked; later briefs forbid that.
 Rejected: converting module by module in one session (several times
 slower); letting each group also change shared library files (conflicting
 merges; only group B was allowed one new library file).
+
+## Legacy retired — 2026-11-02
+
+With the owner's approval (OQ-8 and the answers of the same evening in
+[owner decisions](OWNER_DECISIONS.md#legacy-retirement-and-the-first-checkers-rules-2026-11-02-evening)),
+the superseded code was deleted by exact path: `src/legacy/` (28 modules,
+2,676 lines) and `tests/legacy/` (91 files), with the Make targets
+`test-legacy`, `test-legacy-differential`, `test-symbolic-infer-draft` and
+the 18 pinned-Lean comparisons in `LEGACY_DIFFERENTIAL_TARGETS`. Roadmap Q9
+is done. Deletion came only after the coverage map of groups E and F had
+closed every gap: tests that reached current modules through a legacy
+helper were rebuilt on current code, each legacy-only case got a unit test
+of current code, and all 18 comparisons were ported to the current passes
+(`tests/core/lean-differential.py`, 11 tables, every Sort symbolic).
+
+| Retired | Replaced by |
+| --- | --- |
+| plain and `tagged-` shift, instantiate, beta | `mixed-shift`, `mixed-instantiate`, `mixed-beta` |
+| `compare`, `tagged-compare`, `tagged-convert` | `mixed-compare`, `mixed-convert` |
+| `infer`, `tagged-infer`, the unsafe `symbolic-infer` draft | `mixed-infer` |
+| `scope` | `core/constant-term-scope` |
+| `declaration-probe`, `tagged-declaration-probe`, `candidate-definition-probe` | `mixed-definition-probe` (any Sort; see O1) |
+| `raw-declaration-index`, `raw-signature-specialize` | `lf-msp-*` in `mixed-signature-probe` |
+| `constant-signature-probe`, `constant-term-type-probe`, `constant-application-probe`, `constant-spine-probe` | `lf-mixed-infer` on constant roots and applications |
+| `term-level-substitute` | `mixed-level-substitute` (see O4) |
+| `arena.fs` | `lib/store.fs` and `lib/node.fs` |
+| `tagged-context-infer`, `context-constant-spine`, `context-validation-probe`, `validated-context-spine` | none (see O3) |
+
+The owner's answers on what only legacy code could do (all four were the
+recommended options):
+
+- **O1, theorem mode.** Only the legacy probes required a theorem's
+  statement to be a proposition; the definition probe accepts a claim in
+  any Sort. Not ported first: theorem mode is rebuilt in phase 2 (roadmap
+  Q7, "check a real closed definition and a theorem").
+- **O2, concrete Sorts.** No current checker pass accepts a concrete
+  `lf-tag-sort`. The old loader, `src/import/load.fs`, which stages only
+  concrete Sorts, stays with its round-trip tests until the Forth NDJSON
+  reader replaces it; nothing checks what it stages. ADR 0007 item 5 is
+  updated.
+- **O3, open terms under a supplied context.** No current interface;
+  closing a term with lambdas exercises the same rules. It waits for a
+  Lean-style local context.
+- **O4, universe parameters of a declaration.** Legacy substitution let a
+  declaration's universe parameters lie outside the use-site context; the
+  current substitution rejects that, and this stricter rule stays. The
+  checked environment needs a per-declaration universe scope.
+- **O5, profiling** (approved with the retirement): the profiling workload
+  now times the current universe substitution and is renamed
+  `mixed-level-substitution-48`, a new timing series not comparable with
+  the old `term-level-substitution-48`.
+
+Also removed: three words of the handle audit (`lf-href-pending`,
+`lf-href-work`, `lf-href-push`) that only legacy code used to borrow its
+work stack, and the legacy exemption in `scripts/check-portable-forth.py`.
+Kept: `tests/support/term-cases.fs` and `composition.fs`, still used by
+`tests/core/composition-table.fs`.
+
+Accepted losses, with no current need: the pair arena, the two-tier raw
+index and its lookup word, standalone constant probes with separate budgets,
+the eight-argument spine and external context-array interfaces, and
+concrete-universe overflow handling. Two semantic changes are intended:
+syntactic comparison treats Sorts with equal level syntax as equal, and
+conversion reduces binder domains instead of requiring them to match.
+
+Rejected: porting the four legacy-only capabilities before deleting (they
+would have been rebuilt on superseded designs; the owner chose to rebuild
+them where the plan needs them); keeping legacy as a reference copy (two
+versions of each operation, where AGENTS.md prefers retiring superseded
+experiments).

@@ -1,6 +1,6 @@
 # LeanForth project progress
 
-Snapshot: 2026-11-01, with CI, infrastructure and source-layout notes updated 2026-11-02.
+Snapshot: 2026-11-01, with CI, infrastructure, source-layout and legacy-retirement notes updated 2026-11-02.
 These are milestones, not estimates of percentage complete.
 Prototype success is not theorem acceptance. Update this report after each
 meaningful milestone, with the inventory from `python3 scripts/code-inventory.py`.
@@ -92,9 +92,13 @@ sets out open human-review decisions.
   `844a829` fixed the text and made the checker include new files;
   [run 41505559829](https://github.com/pmilford/LeanForth/actions/runs/41505559829)
   passed both jobs, the pinned full suite in 3 min 53 s.
-- Infrastructure follow-up: roadmap task Q9 tracks consolidation of the three
-  successive experimental variants (plain, `tagged-`, `mixed-`) of several
-  operations.
+- Infrastructure: roadmap task Q9 (consolidate the three successive
+  experimental variants, plain, `tagged-` and `mixed-`, of several
+  operations) is **done** as of 2026-11-02. Every test and pinned-Lean
+  comparison of the superseded variants was first rebuilt on the current
+  `mixed-*` code; then the 28 superseded modules, their 91 test files and
+  their Make targets were deleted with the owner's approval, leaving one
+  variant per operation.
 
 ## Lean-compatible theorem proving and Mathlib
 
@@ -111,9 +115,10 @@ sets out open human-review decisions.
 | 9. Full Mathlib | Goal: use all of Mathlib, including its dependencies, as a usable and independently checked theorem and rules base under a reviewed, explicit axiom policy. It is not imported or independently checked; full Lean compatibility, dependency handling, access and practical capacity remain. |
 | 10. Native proof authoring | Forth-native term building, elaboration, unification, tactics and rewriting are not started. |
 
-The symbolic inference draft is excluded from the normal suite: concrete
-universe values and symbolic level indices share an unprotected representation.
-Do not use it until the representations are isolated and reviewed.
+The unsafe symbolic inference draft, in which concrete universe values and
+symbolic level indices shared an unprotected representation, was retired on
+2026-11-02 with the other superseded code; current checker passes accept only
+symbolic Sorts, which have their own tag.
 
 ## Provably correct executable Forth
 
@@ -155,6 +160,24 @@ granular profiling and fair comparisons remain roadmap work.
 Run `python3 scripts/code-inventory.py` for current counts of tracked and
 untracked, non-ignored files. Counts are physical lines, including comments and
 blank lines, and are not a coverage percentage. Forth source is counted per
-`src/` folder ([layout](../../src/README.md)); none of it is a trusted checker,
-and `legacy/` holds superseded variants awaiting retirement (roadmap Q9). Generated and ignored toolchains are
+`src/` folder ([layout](../../src/README.md)); none of it is a trusted checker.
+The superseded `legacy/` folder (28 files, 2,676 lines) and its 91 test files
+were retired on 2026-11-02 (roadmap Q9). Generated and ignored toolchains are
 excluded. See `docs/development/TESTING_STRATEGY.md` for the testing approach and limitations.
+
+Inventory on 2026-11-02 after the legacy retirement (`python3 scripts/code-inventory.py`):
+
+| Category | Files | Physical lines |
+| --- | ---: | ---: |
+| Forth source, `src/lib/` | 10 | 667 |
+| Forth source, `src/core/` | 10 | 851 |
+| Forth source, `src/kernel/` | 13 | 1,799 |
+| Forth source, `src/import/` | 1 | 67 |
+| Forth source, `src/program/` | 3 | 124 |
+| Forth source, `src/main.fs` | 1 | 45 |
+| Forth tests and support | 95 | 8,327 |
+| Other test code and support (Python, shell) | 45 | 4,030 |
+| Lean references and tests | 80 | 4,239 |
+| NDJSON fixtures | 5 | 138 |
+| Markdown documentation | 74 | 9,059 |
+| Other project files | 31 | 1,806 |

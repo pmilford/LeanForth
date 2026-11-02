@@ -4,8 +4,9 @@ Usage: python3 tests/core/lean-differential.py NAME   (from the repository root;
 LEAN and GFORTH name the toolchains). NAME is one of the TABLES below. Each
 compares one Forth table (or export stream) of current src/core and
 src/kernel code with a Lean 4.35.0 table in tests/reference. They port the
-pinned-Lean comparisons of the superseded tests/legacy code (D1-D11 of the
-legacy coverage map) onto the current passes.
+pinned-Lean comparisons of the superseded legacy code (D1-D11 of the legacy
+coverage map; the legacy code was retired on 2026-11-02) onto the current
+passes.
 
 Every comparison is finite differential evidence about the stated cases; it
 never accepts a theorem. Where the current Forth code is knowingly more
