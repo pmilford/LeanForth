@@ -1,123 +1,163 @@
-\ Untrusted mixed-term syntax comparison. Load constant-term-boundary.fs and
-\ its dependencies first. Global scratch is non-reentrant; exclude arena,
-\ context and name mutation during a call. Not a typing or proof judgment.
+\ Untrusted syntactic comparison of mixed terms: equal means the same
+\ constructors, bound variables, constant names and ordered universe
+\ arguments, and the same level syntax without normalization; any
+\ difference is unknown, never a proof of inequality. Not a typing or proof
+\ judgment. Load constant-term-boundary.fs and its dependencies first.
 \ Equal opaque level parameter IDs are assumed to denote the same Lean name.
-0 constant lf-mcompare-equal
-1 constant lf-mcompare-invalid
-2 constant lf-mcompare-exhausted
-3 constant lf-mcompare-unknown
-variable lf-mcompare-fuel
-variable lf-mcompare-left
-variable lf-mcompare-lid
-variable lf-mcompare-right
-variable lf-mcompare-rid
-variable lf-mcompare-na
-variable lf-mcompare-nb
-variable lf-mcompare-ca
-variable lf-mcompare-cb
-variable lf-mcompare-count
+\ State: two paired walk records, lf-mcompare-walker (left and right terms)
+\ and lf-mcompare-level-walker (left and right levels); level comparisons
+\ charge the term walk's fuel. Not re-entrant and single-threaded; exclude
+\ arena, context and name mutation during a call. mixed-convert.fs reuses
+\ the pair-visiting, name, reference and audit words with its own walk.
 
-: lf-mcompare-spend ( -- flag )
-  lf-mcompare-fuel @ 0= if false exit then -1 lf-mcompare-fuel +! true ;
-\ Both names have passed the complete name-table audit. Compare components,
-\ including bytes, even if their indices coincide. One unit per component;
-\ byte comparisons are bounded by the name arena capacity.
-: lf-mcompare-names ( a b -- status )
-  lf-mcompare-nb ! lf-mcompare-na !
-  begin
-    lf-mcompare-spend 0= if lf-mcompare-exhausted exit then
-    lf-mcompare-na @ 0 lf-name-field lf-mcompare-nb @ 0 lf-name-field <> if
-      lf-mcompare-unknown exit then
-    lf-mcompare-na @ 0= lf-mcompare-nb @ 0= and if lf-mcompare-equal exit then
-    lf-mcompare-na @ 0 lf-name-field lf-name-tag-num = if
-      lf-mcompare-na @ 2 lf-name-field lf-mcompare-nb @ 2 lf-name-field <> if
-        lf-mcompare-unknown exit then
-    else
-      lf-mcompare-na @ 2 lf-name-field lf-name-bytes +
-      lf-mcompare-na @ 3 lf-name-field
-      lf-mcompare-nb @ 2 lf-name-field lf-name-bytes +
-      lf-mcompare-nb @ 3 lf-name-field compare if lf-mcompare-unknown exit then
-    then
-    lf-mcompare-na @ 1 lf-name-field lf-mcompare-na !
-    lf-mcompare-nb @ 1 lf-name-field lf-mcompare-nb !
-  again ;
+lf-term-capacity walk2: lf-mcompare-walker
+lf-level-capacity walk2: lf-mcompare-level-walker
 
-6 constant lf-mcompare-frame-cells
-create lf-mcompare-level-frames lf-level-capacity lf-mcompare-frame-cells * cells allot
-variable lf-mcompare-level-depth
-: lf-mcompare-level@ ( field -- x ) cells lf-mcompare-level-depth @ 1- lf-mcompare-frame-cells * cells lf-mcompare-level-frames + + @ ;
-: lf-mcompare-level! ( x field -- ) cells lf-mcompare-level-depth @ 1- lf-mcompare-frame-cells * cells lf-mcompare-level-frames + + ! ;
-: lf-mcompare-level-leave ( status -- status ) -1 lf-mcompare-level-depth +! ;
-\ Compare audited level syntax in order, without normalization.
-: lf-mcompare-level ( a b -- status )
-  lf-mcompare-level-depth @ lf-level-capacity >= lf-mcompare-spend 0= or if
-    2drop lf-mcompare-exhausted exit then
-  1 lf-mcompare-level-depth +!
-  lf-level-read 0= if drop lf-mcompare-invalid lf-mcompare-level-leave exit then
-  5 lf-mcompare-level! 4 lf-mcompare-level! 3 lf-mcompare-level!
-  lf-level-read 0= if lf-mcompare-invalid lf-mcompare-level-leave exit then
-  2 lf-mcompare-level! 1 lf-mcompare-level! 0 lf-mcompare-level!
-  0 lf-mcompare-level@ 3 lf-mcompare-level@ <> if lf-mcompare-unknown lf-mcompare-level-leave exit then
-  0 lf-mcompare-level@ lf-level-tag-zero = if lf-mcompare-equal lf-mcompare-level-leave exit then
-  0 lf-mcompare-level@ lf-level-tag-param = if
-    1 lf-mcompare-level@ 4 lf-mcompare-level@ = if lf-mcompare-equal else lf-mcompare-unknown then
-    lf-mcompare-level-leave exit then
-  1 lf-mcompare-level@ 4 lf-mcompare-level@ recurse ?dup if lf-mcompare-level-leave exit then
-  0 lf-mcompare-level@ lf-level-tag-succ = if lf-mcompare-equal lf-mcompare-level-leave exit then
-  2 lf-mcompare-level@ 5 lf-mcompare-level@ recurse lf-mcompare-level-leave ;
+\ Former status names, still used by tests.
+outcome-ok constant lf-mcompare-equal
+outcome-invalid constant lf-mcompare-invalid
+outcome-exhausted constant lf-mcompare-exhausted
+outcome-unknown constant lf-mcompare-unknown
 
-\ Reference slots were audited; compare name and each ordered level tree.
-: lf-mcompare-constants ( a b -- status )
-  lf-cref-slot lf-mcompare-cb ! lf-cref-slot lf-mcompare-ca !
-  lf-mcompare-ca @ 3 cells + @ lf-mcompare-cb @ 3 cells + @ <> if lf-mcompare-unknown exit then
-  lf-mcompare-ca @ cell+ @ lf-mcompare-cb @ cell+ @ lf-mcompare-names ?dup if exit then
-  lf-mcompare-ca @ 3 cells + @ lf-mcompare-count !
-  lf-mcompare-count @ 0 ?do
-    lf-mcompare-ca @ i lf-cref-arg @ lf-mcompare-cb @ i lf-cref-arg @
-    0 lf-mcompare-level-depth ! lf-mcompare-level ?dup if unloop exit then
-  loop lf-mcompare-equal ;
+\ Fuel left after a comparison; zero after negative fuel or a failed audit.
+: lf-mcompare-fuel ( -- addr ) lf-mcompare-walker walk-fuel ;
+: lf-mcompare-level-fuel ( -- addr ) lf-mcompare-level-walker walk-fuel ;
 
-create lf-mcompare-frames lf-term-capacity lf-mcompare-frame-cells * cells allot
-variable lf-mcompare-depth
-: lf-mcompare@ ( field -- x ) cells lf-mcompare-depth @ 1- lf-mcompare-frame-cells * cells lf-mcompare-frames + + @ ;
-: lf-mcompare! ( x field -- ) cells lf-mcompare-depth @ 1- lf-mcompare-frame-cells * cells lf-mcompare-frames + + ! ;
-: lf-mcompare-leave ( status -- status ) -1 lf-mcompare-depth +! ;
-: lf-mcompare-walk ( a b -- status )
-  lf-mcompare-depth @ lf-term-capacity >= lf-mcompare-spend 0= or if
-    2drop lf-mcompare-exhausted exit then
-  1 lf-mcompare-depth +!
-  lf-term-read 0= if drop lf-mcompare-invalid lf-mcompare-leave exit then
-  5 lf-mcompare! 4 lf-mcompare! 3 lf-mcompare!
-  lf-term-read 0= if lf-mcompare-invalid lf-mcompare-leave exit then
-  2 lf-mcompare! 1 lf-mcompare! 0 lf-mcompare!
-  0 lf-mcompare@ 3 lf-mcompare@ <> if lf-mcompare-unknown lf-mcompare-leave exit then
-  0 lf-mcompare@ lf-tag-constant = if
-    1 lf-mcompare@ 4 lf-mcompare@ lf-mcompare-constants lf-mcompare-leave exit then
-  0 lf-mcompare@ lf-tag-bvar = if
-    1 lf-mcompare@ 4 lf-mcompare@ = if lf-mcompare-equal else lf-mcompare-unknown then
-    lf-mcompare-leave exit then
-  0 lf-mcompare@ lf-tag-symbolic-sort = if
-    1 lf-mcompare@ 4 lf-mcompare@ 0 lf-mcompare-level-depth !
-    lf-mcompare-level lf-mcompare-leave exit then
-  1 lf-mcompare@ 4 lf-mcompare@ recurse ?dup if lf-mcompare-leave exit then
-  2 lf-mcompare@ 5 lf-mcompare@ recurse lf-mcompare-leave ;
+\ Visiting a pair of nodes of one store, the left in walk-node and the
+\ right in walk-context: an unallocated node is invalid, different tags are
+\ unknown, and otherwise xt ( a b walk tag -- outcome ) gets both node
+\ addresses and their tag. Fields are then read without further checks.
+: lf-mcompare-pair@ ( walk -- left right ) dup walk-node @ swap walk-context @ ;
+: lf-mcompare-slots ( left right store -- a b ) tuck store-slot >r store-slot r> ;
+: lf-mcompare-nodes ( walk store -- a b true | false )
+  >r lf-mcompare-pair@ 2dup r@ store-pair-valid?
+  if r> lf-mcompare-slots true else 2drop r> drop false then ;
+: lf-mcompare-tags? ( a b -- flag ) node-tag @ swap node-tag @ = ;
+: lf-mcompare-tagged ( a b walk xt -- outcome )
+  >r >r over node-tag @ r> swap r> execute ;
+: lf-mcompare-match ( a b walk xt -- outcome )
+  2over lf-mcompare-tags? if lf-mcompare-tagged else 2drop 2drop outcome-unknown then ;
+: lf-mcompare-visit-pair ( walk store xt -- outcome )
+  >r over swap lf-mcompare-nodes
+  if rot r> lf-mcompare-match else drop r> drop outcome-invalid then ;
+
+\ The fields of both nodes, left first. Pushing the first fields as a pair,
+\ or both pairs with the second fields underneath, visits the children in
+\ order; a full work stack is exhaustion.
+: lf-mcompare-firsts ( a b -- x y ) node-first @ swap node-first @ swap ;
+: lf-mcompare-seconds ( a b -- x y ) node-second @ swap node-second @ swap ;
+: lf-mcompare-first ( a b walk -- outcome ) >r lf-mcompare-firsts r> walk-pair-outcome ;
+: lf-mcompare-children ( a b walk -- outcome )
+  >r 2dup lf-mcompare-seconds r@ walk-push-pair
+  if r> lf-mcompare-first else 2drop r> drop outcome-exhausted then ;
+\ Equal syntax is ok; a difference is unknown.
+: lf-mcompare-verdict ( flag -- outcome ) if outcome-ok else outcome-unknown then ;
+: lf-mcompare-same-first ( a b walk -- outcome )
+  drop lf-mcompare-firsts = lf-mcompare-verdict ;
+
+\ Names. Both passed the name-table audit with their references, so every
+\ ID and prefix is readable. Components are compared from the last back to
+\ the anonymous root, by kind and then by number or bytes, even when the
+\ IDs coincide; each component costs one unit of the given walk's fuel.
+: lf-mcompare-kinds? ( a b -- flag ) lf-name-tag@ swap lf-name-tag@ = ;
+: lf-mcompare-numbers? ( a b -- flag )
+  lf-name-slot lf-entry-payload @ swap lf-name-slot lf-entry-payload @ = ;
+: lf-mcompare-bytes? ( a b -- flag )
+  lf-name-slot lf-name-bytes@ rot lf-name-slot lf-name-bytes@ compare 0= ;
+: lf-mcompare-payloads? ( a b -- flag )
+  over lf-name-tag@ lf-name-tag-num =
+  if lf-mcompare-numbers? else lf-mcompare-bytes? then ;
+: lf-mcompare-components? ( a b -- flag )
+  2dup lf-mcompare-kinds? if lf-mcompare-payloads? else 2drop false then ;
+: lf-mcompare-prefixes ( a b -- a' b' ) lf-name-prefix@ swap lf-name-prefix@ swap ;
+\ One component decides when both names are anonymous (ok) or the
+\ components differ (unknown); otherwise both prefixes come next.
+: lf-mcompare-component ( a b -- a' b' false | outcome true )
+  2dup or 0= if 2drop outcome-ok true exit then
+  2dup lf-mcompare-components?
+  if lf-mcompare-prefixes false else 2drop outcome-unknown true then ;
+: lf-mcompare-names ( a b walk -- outcome )
+  >r begin r@ walk-spend? 0= if 2drop r> drop outcome-exhausted exit then
+    lf-mcompare-component until r> drop ;
+
+\ Levels, in order and without normalization. Both graphs passed the
+\ level-scope audit, so children come earlier, every tag is known and the
+\ work stack (one pending pair per node on a path) cannot overflow. A level
+\ walk runs on the term walk's fuel and continues with what it leaves.
+: lf-mcompare-level-dispatch ( a b walk tag -- outcome )
+  dup lf-level-binary-tag? if drop lf-mcompare-children exit then
+  case lf-level-tag-zero of drop 2drop outcome-ok endof
+    lf-level-tag-param of lf-mcompare-same-first endof
+    lf-level-tag-succ of lf-mcompare-first endof walk-bad-tag endcase ;
+: lf-mcompare-level-visit ( walk -- outcome )
+  lf-levels ['] lf-mcompare-level-dispatch lf-mcompare-visit-pair ;
+: lf-mcompare-level-run ( a b -- outcome )
+  ['] lf-mcompare-level-visit lf-mcompare-level-walker walk-run-pair ;
+: lf-mcompare-level ( a b -- outcome )
+  lf-mcompare-fuel @ lf-mcompare-level-fuel ! lf-mcompare-level-run
+  lf-mcompare-level-fuel @ lf-mcompare-fuel ! ;
+
+\ Constant references, already audited, as reference records. The heads
+\ match when the arities are equal (checked first, at no cost) and the
+\ names are, charging the given walk's fuel; each module then compares the
+\ ordered level arguments its own way.
+: lf-mcompare-crefs ( a b -- slot slot )
+  lf-mcompare-firsts lf-cref-slot swap lf-cref-slot swap ;
+: lf-mcompare-arity? ( slot slot -- flag ) lf-crec-arity @ swap lf-crec-arity @ = ;
+: lf-mcompare-name-ids ( slot slot -- name name )
+  lf-crec-name @ swap lf-crec-name @ swap ;
+: lf-mcompare-continue? ( x y outcome -- x y true | outcome false )
+  dup ok? if drop true else nip nip false then ;
+: lf-mcompare-heads ( slot slot walk -- slot slot true | outcome false )
+  >r 2dup lf-mcompare-arity? 0= if 2drop r> drop outcome-unknown false exit then
+  2dup lf-mcompare-name-ids r> lf-mcompare-names lf-mcompare-continue? ;
+\ The level arrays of two references of equal arity, and their level
+\ indices at one position.
+: lf-mcompare-arrays ( slot slot -- addr addr count )
+  lf-cref-pairs >r swap lf-crec-levels swap r> ;
+: lf-mcompare-arg ( addr addr i -- level level )
+  tuck lf-cref-pair@ drop >r lf-cref-pair@ drop r> ;
+: lf-mcompare-args ( slot slot -- outcome )
+  lf-mcompare-arrays 0 ?do 2dup i lf-mcompare-arg lf-mcompare-level
+    dup ok? 0= if nip nip unloop exit then drop loop 2drop outcome-ok ;
+: lf-mcompare-constant ( a b walk -- outcome )
+  >r lf-mcompare-crefs r> lf-mcompare-heads if lf-mcompare-args then ;
+
+\ Terms. Both graphs passed the full audit, so only binary nodes, bound
+\ variables, symbolic Sorts and constants occur, children come earlier and
+\ the work stack cannot overflow. Each visit costs one unit of fuel.
+: lf-mcompare-sort ( a b walk -- outcome ) drop lf-mcompare-firsts lf-mcompare-level ;
+: lf-mcompare-dispatch ( a b walk tag -- outcome )
+  dup lf-term-binary-tag? if drop lf-mcompare-children exit then
+  case lf-tag-constant of lf-mcompare-constant endof
+    lf-tag-bvar of lf-mcompare-same-first endof
+    lf-tag-symbolic-sort of lf-mcompare-sort endof walk-bad-tag endcase ;
+: lf-mcompare-visit ( walk -- outcome )
+  lf-terms ['] lf-mcompare-dispatch lf-mcompare-visit-pair ;
+: lf-mcompare-run ( left right -- outcome )
+  ['] lf-mcompare-visit lf-mcompare-walker walk-run-pair ;
+
+\ Audit both roots completely, left first, with the walk's fuel; a failed
+\ audit leaves no fuel. lf-cterm-check fails only as invalid or exhausted.
+\ Five inputs: two handles and the walk. Shared with mixed-convert.fs, as
+\ is the refusal of negative fuel, which also leaves no fuel.
+: lf-mcompare-refuel ( outcome walk -- )
+  swap ok? if lf-cterm-fuel @ else 0 then swap walk-fuel ! ;
+: lf-mcompare-audit ( root identity walk -- outcome )
+  >r r@ walk-fuel @ lf-cterm-check dup r> lf-mcompare-refuel ;
+: lf-mcompare-audits ( left lid right rid walk -- outcome )
+  >r 2swap r@ lf-mcompare-audit dup ok?
+  if drop r> lf-mcompare-audit else nip nip r> drop then ;
+: lf-mcompare-roots ( left lid right rid walk -- left right outcome )
+  >r 2over 2over r> lf-mcompare-audits >r drop nip r> ;
+: lf-mcompare-refused ( left lid right rid walk -- outcome )
+  0 swap walk-fuel ! 2drop 2drop outcome-invalid ;
 
 \ ( left identity right identity fuel -- status ) Both complete structural
 \ audits precede comparison and share its fuel. Scope of term binders, typing,
-\ declaration lookup and Lean string encoding are not checked. Failed audits
-\ zero remaining fuel. Exhaustion can prevent discovery of a later invalidity.
-: lf-mcompare-audit-status ( status -- status )
-  case
-    lf-repr-ok of lf-mcompare-equal endof
-    lf-repr-invalid of lf-mcompare-invalid endof
-    lf-repr-exhausted of lf-mcompare-exhausted endof
-    drop lf-mcompare-invalid 0
-  endcase ;
+\ declaration lookup and Lean string encoding are not checked. Negative fuel
+\ and failed audits leave zero fuel. Exhaustion can prevent discovery of a
+\ later invalidity.
 : lf-mixed-compare ( left lid right rid fuel -- status )
-  dup 0< if drop 2drop 2drop 0 lf-mcompare-fuel ! lf-mcompare-invalid exit then
-  lf-mcompare-fuel ! lf-mcompare-rid ! lf-mcompare-right ! lf-mcompare-lid ! lf-mcompare-left !
-  lf-mcompare-left @ lf-mcompare-lid @ lf-mcompare-fuel @ lf-cterm-check lf-mcompare-audit-status
-  ?dup if 0 lf-mcompare-fuel ! exit then lf-cterm-fuel @ lf-mcompare-fuel !
-  lf-mcompare-right @ lf-mcompare-rid @ lf-mcompare-fuel @ lf-cterm-check lf-mcompare-audit-status
-  ?dup if 0 lf-mcompare-fuel ! exit then lf-cterm-fuel @ lf-mcompare-fuel !
-  0 lf-mcompare-depth ! lf-mcompare-left @ lf-mcompare-right @ lf-mcompare-walk ;
+  lf-mcompare-walker tuck walk-budget 0= if lf-mcompare-refused exit then
+  lf-mcompare-roots ok-then? if lf-mcompare-run else nip then ;

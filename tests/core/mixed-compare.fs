@@ -1,4 +1,5 @@
 include ../support/tester.fs
+include ../support/checks.fs
 include ../../src/core/terms.fs
 include ../../src/core/names.fs
 include ../../src/core/levels.fs
@@ -53,6 +54,17 @@ T{ 10 h 11 h 1000 lf-mixed-compare -> lf-mcompare-equal }T
 T{ 12 h 13 h 1000 lf-mixed-compare -> lf-mcompare-equal }T
 T{ 14 h 15 h 1000 lf-mixed-compare -> lf-mcompare-unknown }T
 T{ 10 h 12 h 1000 lf-mixed-compare -> lf-mcompare-unknown }T
+\ Fuel left, pinned against the previous implementation: each audit visit
+\ and each term, level and name-component comparison costs one unit; the
+\ arity check costs nothing.
+: compare-fuel ( a aid b bid -- status fuel )
+  1000 ['] lf-mixed-compare rs-checked lf-mcompare-fuel @ ;
+T{ 0 h 1 h compare-fuel -> lf-mcompare-equal 992 }T
+T{ 4 h 5 h compare-fuel -> lf-mcompare-equal 989 }T
+T{ 12 h 13 h compare-fuel -> lf-mcompare-equal 986 }T
+T{ 14 h 15 h compare-fuel -> lf-mcompare-unknown 986 }T
+T{ 0 h 2 h compare-fuel -> lf-mcompare-unknown 994 }T
+T{ 0 h 3 h compare-fuel -> lf-mcompare-unknown 996 }T
 \ Same numeric component is equal only when the structured prefix agrees.
 : numeric-fixtures ( -- )
   0 10 lf-name-num 0= abort" numeric name" num-root !
@@ -83,10 +95,18 @@ T{ 0 h 1 0 1000 lf-mixed-compare -> lf-mcompare-invalid }T
 0 0 lf-cterm-stamp-cell !
 T{ 8 h 10 h 1000 lf-mixed-compare -> lf-mcompare-invalid }T
 T{ 10 h 8 h 1000 lf-mixed-compare -> lf-mcompare-invalid }T
-\ Audit statuses keep their meaning; an unknown or other code is invalid.
-T{ lf-repr-ok lf-mcompare-audit-status -> lf-mcompare-equal }T
-T{ lf-repr-invalid lf-mcompare-audit-status -> lf-mcompare-invalid }T
-T{ lf-repr-exhausted lf-mcompare-audit-status -> lf-mcompare-exhausted }T
-T{ 3 lf-mcompare-audit-status -> lf-mcompare-invalid }T
-T{ 99 lf-mcompare-audit-status -> lf-mcompare-invalid }T
+\ Names compare one component per unit of the given walk's fuel, down to the
+\ anonymous root; the walk's work stack is not used.
+4 walk2: name-walk
+: names ( a b fuel -- outcome fuel' )
+  name-walk walk-fuel ! name-walk ['] lf-mcompare-names rs-checked name-walk walk-fuel @ ;
+T{ name-x @ name-x @ 5 names -> lf-mcompare-equal 3 }T
+T{ 0 0 5 names -> lf-mcompare-equal 4 }T
+T{ name-x @ name-y @ 5 names -> lf-mcompare-unknown 4 }T
+T{ name-x @ 0 5 names -> lf-mcompare-unknown 4 }T
+T{ num-root @ num-child @ 5 names -> lf-mcompare-unknown 3 }T
+T{ num-child @ num-child @ 3 names -> lf-mcompare-equal 0 }T
+T{ num-child @ num-child @ 2 names -> lf-mcompare-exhausted 0 }T
+T{ 0 0 0 names -> lf-mcompare-exhausted 0 }T
+T{ name-walk walk-pending @ -> 0 }T
 bye

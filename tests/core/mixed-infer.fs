@@ -85,27 +85,22 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
 : no-result ( type identity -- )
   0<> abort" failure identity" -1 <> abort" failure root" ;
 
-\ Helper statuses keep their meaning; any other value is invalid, never ok.
+\ The two narrowing words keep only the outcomes their helper can return;
+\ any other value, including a valid outcome the helper never gives, is
+\ invalid, never ok.
 T{ lf-repr-ok lf-minfer-repr-status -> lf-minfer-ok }T
 T{ lf-repr-invalid lf-minfer-repr-status -> lf-minfer-invalid }T
 T{ lf-repr-exhausted lf-minfer-repr-status -> lf-minfer-exhausted }T
 T{ 3 lf-minfer-repr-status -> lf-minfer-invalid }T
+T{ outcome-rejected lf-minfer-repr-status -> lf-minfer-invalid }T
+T{ -1 lf-minfer-repr-status -> lf-minfer-invalid }T
 T{ lf-msp-ok lf-minfer-msp-status -> lf-minfer-ok }T
 T{ lf-msp-invalid lf-minfer-msp-status -> lf-minfer-invalid }T
 T{ lf-msp-exhausted lf-minfer-msp-status -> lf-minfer-exhausted }T
 T{ lf-msp-unknown lf-minfer-msp-status -> lf-minfer-unknown }T
-T{ lf-mshift-ok lf-minfer-shift-status -> lf-minfer-ok }T
-T{ lf-mshift-invalid lf-minfer-shift-status -> lf-minfer-invalid }T
-T{ lf-mshift-exhausted lf-minfer-shift-status -> lf-minfer-exhausted }T
-T{ 3 lf-minfer-shift-status -> lf-minfer-invalid }T
-T{ lf-minst-ok lf-minfer-inst-status -> lf-minfer-ok }T
-T{ lf-minst-invalid lf-minfer-inst-status -> lf-minfer-invalid }T
-T{ lf-minst-exhausted lf-minfer-inst-status -> lf-minfer-exhausted }T
-T{ 3 lf-minfer-inst-status -> lf-minfer-invalid }T
-T{ lf-mconvert-equal lf-minfer-convert-status -> lf-minfer-ok }T
-T{ lf-mconvert-invalid lf-minfer-convert-status -> lf-minfer-invalid }T
-T{ lf-mconvert-exhausted lf-minfer-convert-status -> lf-minfer-exhausted }T
-T{ lf-mconvert-unknown lf-minfer-convert-status -> lf-minfer-unknown }T
+T{ outcome-rejected lf-minfer-msp-status -> lf-minfer-invalid }T
+T{ outcome-unsupported lf-minfer-msp-status -> lf-minfer-invalid }T
+T{ -1 lf-minfer-msp-status -> lf-minfer-invalid }T
 
 : fixture-case ( -- )
   setup
@@ -153,9 +148,6 @@ T{ lf-mconvert-unknown lf-minfer-convert-status -> lf-minfer-unknown }T
   setup
   99 lf-minfer-repr-status lf-minfer-invalid expect-status
   99 lf-minfer-msp-status lf-minfer-invalid expect-status
-  99 lf-minfer-shift-status lf-minfer-invalid expect-status
-  99 lf-minfer-inst-status lf-minfer-invalid expect-status
-  99 lf-minfer-convert-status lf-minfer-invalid expect-status
   9 -1 infer lf-minfer-invalid expect-status 2drop
   lf-minfer-fuel @ 0<> abort" negative fuel remainder"
   12 50000 infer lf-minfer-invalid expect-status 2drop
