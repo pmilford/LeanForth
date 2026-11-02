@@ -63,20 +63,21 @@ are planned and do not exist yet.
 All are proposals; none is approved for trusted implementation.
 [0001](adr/0001-core-fragment.md) core fragment ·
 [0002](adr/0002-core-rules.md) typing rules ·
-[0003](adr/0003-conversion.md) conservative conversion ·
+[0003](adr/0003-conversion.md) conservative conversion, with Amendment 1 on binders whose domains differ (proposed) ·
 [0004](adr/0004-symbolic-universes.md) symbolic universes ·
 [0005](adr/0005-structured-names.md) structured names ·
 [0006](adr/0006-constant-environments.md) constant environments ·
 [0007](adr/0007-sort-representation-boundary.md) Sort representation boundary ·
 [0008](adr/0008-outcome-vocabulary.md) one outcome vocabulary (proposed) ·
 [0009](adr/0009-reentrant-state-and-parallel-checking.md) re-entrant state and parallel checking (proposed) ·
-[0011](adr/0011-definite-rejection.md) definite rejection and the first checker's scope (proposed).
+[0011](adr/0011-definite-rejection.md) definite rejection and the first checker's scope (proposed) ·
+[0012](adr/0012-checked-environment.md) the checked environment's implementation (proposed).
 
 ## `reviews/` — review packets and records
 
 - [KERNEL_REVIEW.md](reviews/KERNEL_REVIEW.md) — review packet for the first kernel fragment (ADRs 0002 and 0003).
 - [CHECKED_ENVIRONMENT_REVIEW.md](reviews/CHECKED_ENVIRONMENT_REVIEW.md) — review packet for ADR 0006.
-- [FIRST_CHECKER_GATE.md](reviews/FIRST_CHECKER_GATE.md) — draft plain-language gate summary and owner questions for the first checker (ADR 0011).
+- [FIRST_CHECKER_GATE.md](reviews/FIRST_CHECKER_GATE.md) — draft plain-language gate summary and owner questions for the first checker (ADR 0011), and a second set for binder comparison (ADR 0003, Amendment 1) and the checked environment (ADR 0012).
 - [FIRST_CHECKER_EXPECTED.md](reviews/FIRST_CHECKER_EXPECTED.md) — expected results: Lean's verdict and LeanForth's required outcome for the five fixtures, 53 variants and 27 source copies.
 - Dated files (`reviews/YYYY-MM-DD-*.md`) record individual AI and human reviews. They are historical: their text, including file paths, is kept exactly as written.
 

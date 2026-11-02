@@ -15,7 +15,7 @@ RUN := timeout $(TEST_TIMEOUT)
 # Every pinned-Lean oracle and differential comparison. Excludes the
 # profiling targets.
 DIFFERENTIAL_TARGETS := \
-	reference reference-export reference-first-checker \
+	reference reference-export reference-first-checker reference-binder-domains \
 	test-name-differential \
 	test-level-differential \
 	test-level-assignment-differential test-level-compare-differential \
@@ -88,6 +88,11 @@ reference:
 # 60 kernel cases and 27 broken source copies Lean must reject.
 reference-first-checker:
 	LEAN=$(LEAN) $(RUN) bash tests/reference/first-checker-check.sh
+
+# Lean's answers when two binders' domains differ (ADR 0003, Amendment 1):
+# 10 comparisons, each in both orders, and 12 declarations.
+reference-binder-domains:
+	LEAN=$(LEAN) $(RUN) bash tests/reference/binder-domains-check.sh
 
 reference-export:
 	LEAN=$(LEAN) $(RUN) bash tests/reference/export-check.sh
