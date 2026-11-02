@@ -5,8 +5,8 @@
 \ State: the parameter context (a duplicate-free list of positive IDs with
 \ a generation that advances on every change) and one walk record,
 \ lf-lscope-walk, are global. Not re-entrant and single-threaded: the check
-\ must not run again while its walk record is in use, including by the
-\ modules that borrow its stack. Callers prevent external mutation.
+\ must not run again while its walk record is in use. Callers prevent
+\ external mutation.
 
 outcome-ok constant lf-lscope-ok
 outcome-invalid constant lf-lscope-invalid
@@ -16,14 +16,9 @@ variable lf-lscope-context-count
 variable lf-lscope-generation
 lf-level-capacity walk: lf-lscope-walk
 
-\ The walk record's fields under their established names. level-value,
-\ level-compare, level-substitute and constant-term-boundary read the fuel
-\ left after a check; level-substitute and legacy/symbolic-infer borrow the
-\ work stack between checks.
+\ Fuel left after a check, under its established name; level-value,
+\ level-compare, level-substitute and constant-term-boundary read it.
 : lf-lscope-fuel ( -- addr ) lf-lscope-walk walk-fuel ;
-: lf-lscope-pending ( -- addr ) lf-lscope-walk walk-pending ;
-: lf-lscope-work ( -- addr ) lf-lscope-walk walk-stack ;
-: lf-lscope-push ( index -- flag ) lf-lscope-walk walk-push ;
 
 \ The parameter context. Every change advances the generation, so sessions
 \ that captured the old one become stale; saturation poisons the context.

@@ -21,9 +21,9 @@ lf-term-capacity walk: lf-href-walker
 : lf-hsort-level-stamp ( index -- addr ) cells lf-hsort-level-identities + ;
 
 \ The walk record's fields under their established names. Legacy modules
-\ read the fuel left; mixed-level-substitute and legacy/term-level-substitute
-\ borrow the work stack between checks, and the latter also calls
-\ lf-href-check directly.
+\ read the fuel left; only legacy/term-level-substitute still borrows the
+\ work stack between checks (and calls lf-href-check directly); these three
+\ words go when legacy is retired.
 : lf-href-fuel ( -- addr ) lf-href-walker walk-fuel ;
 : lf-href-pending ( -- addr ) lf-href-walker walk-pending ;
 : lf-href-work ( -- addr ) lf-href-walker walk-stack ;
