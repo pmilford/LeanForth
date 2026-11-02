@@ -137,4 +137,20 @@ lf-term-serial @ serial-start !
 T{ 31 dup lf-term-identity drop 18 h 20000 lf-mixed-convert -> lf-mconvert-invalid }T
 T{ 18 h 31 dup lf-term-identity drop 20000 lf-mixed-convert -> lf-mconvert-invalid }T
 T{ lf-term-serial @ -> serial-start @ }T
+\ Visit order. app(bvar 0, P) against app(bvar 1, P), with P a nested Pi
+\ shared by both sides: the first children differ (unknown), so a
+\ pre-order walk stops before the shared second children. Both conversion
+\ and comparison pin the fuel this leaves (values from the code before the
+\ paired-walk refactor; visiting second children first gives 643 and 925).
+: order-setup ( -- )
+  lf-name-reset lf-level-reset lf-term-reset lf-lscope-context-reset lf-cref-reset
+  42 lf-lscope-context-add 0= abort" ctx" 42 lf-level-param 0= abort" level" drop
+  lf-ssession-begin 0= abort" session"
+  1 dup lf-level-identity 0= abort" lid" lf-hterm-sort save
+  0 lf-hterm-bvar save 1 lf-hterm-bvar save
+  0 h 0 h lf-hterm-pi save 3 h 3 h lf-hterm-pi save 4 h 4 h lf-hterm-pi save
+  1 h 5 h lf-hterm-app save 2 h 5 h lf-hterm-app save ;
+order-setup
+T{ 6 h 7 h 1000 lf-mixed-convert lf-mconvert-fuel @ -> lf-mconvert-unknown 890 }T
+T{ 6 h 7 h 1000 lf-mixed-compare lf-mcompare-fuel @ -> lf-mcompare-unknown 948 }T
 bye

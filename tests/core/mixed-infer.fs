@@ -229,4 +229,9 @@ variable saw-exhaustion variable saw-success variable saw-partial
 ' start-case s" job started directly" run-case
 ' fuel-case s" fuel and rollback" run-case
 cases-done
+\ The frame limit: with every frame in use a visit is exhaustion and spends
+\ no fuel (unreachable from lf-mixed-infer at today's capacity).
+T{ lf-term-capacity lf-minfer-depth ! 100 lf-minfer-fuel ! 0 lf-minfer-walk -> -1 lf-minfer-exhausted }T
+T{ lf-minfer-fuel @ -> 100 }T
+0 lf-minfer-depth !
 bye

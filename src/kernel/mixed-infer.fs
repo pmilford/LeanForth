@@ -11,6 +11,10 @@
 \ and a copy of a reference's levels. A node's intermediate results stay on
 \ the data stack. Not re-entrant and single-threaded. lf-minfer-walk is
 \ deferred only for the mutual recursion and set once, at load time.
+\ Stack use: the recursion runs on the host stacks, about 6 return-stack
+\ and up to 3 data-stack cells per level, at most lf-term-capacity levels
+\ (plus the nested rebuild passes); a host stack overflow throws and never
+\ yields a result.
 \ mixed-definition-probe.fs starts a job with lf-minfer-start, calls
 \ lf-minfer-walk, lf-minfer-sort-level and lf-minfer-compare directly, and
 \ reads lf-minfer-fuel afterwards.
@@ -28,7 +32,7 @@ begin-structure /lf-ijob
 end-structure
 create lf-minfer-job /lf-ijob store-zeroed, drop
 
-\ Former status names, still used by other modules and tests.
+\ Former status names, still used by tests.
 outcome-ok constant lf-minfer-ok
 outcome-invalid constant lf-minfer-invalid
 outcome-exhausted constant lf-minfer-exhausted
@@ -166,14 +170,18 @@ defer lf-minfer-walk ( node -- type status )
 
 \ Infer an original source node; nodes made by this inference are output
 \ data, never input. Constructors outside this subset are unknown.
-: lf-minfer-dispatch ( first second tag -- type status )
-  case lf-tag-symbolic-sort of drop lf-minfer-sort-type endof
-    lf-tag-constant of drop lf-minfer-constant endof
-    lf-tag-bvar of drop lf-minfer-bvar endof
-    lf-tag-app of lf-minfer-app endof
+: lf-minfer-leaf ( first tag -- type status )
+  case lf-tag-symbolic-sort of lf-minfer-sort-type endof
+    lf-tag-constant of lf-minfer-constant endof
+    lf-tag-bvar of lf-minfer-bvar endof
+    >r drop -1 outcome-unknown r> endcase ;
+: lf-minfer-binary ( first second tag -- type status )
+  case lf-tag-app of lf-minfer-app endof
     lf-tag-lam of lf-minfer-lam endof
     lf-tag-pi of lf-minfer-pi endof
     >r 2drop -1 outcome-unknown r> endcase ;
+: lf-minfer-dispatch ( first second tag -- type status )
+  dup lf-term-binary-tag? if lf-minfer-binary else nip lf-minfer-leaf then ;
 : lf-minfer-source? ( node -- flag ) dup 0< 0= swap lf-minfer-job lf-ijob-terms @ < and ;
 : lf-minfer-read ( node -- first second tag true | false )
   dup lf-minfer-source? 0= if drop false exit then lf-term-read dup if >r rot r> then ;
@@ -184,7 +192,7 @@ defer lf-minfer-walk ( node -- type status )
 \ lf-term-capacity frames; running out of either is exhaustion and spends
 \ nothing.
 : lf-minfer-room? ( -- flag )
-  lf-minfer-fuel @ 0<> lf-minfer-depth @ lf-term-capacity < and ;
+  lf-minfer-fuel @ 0> lf-minfer-depth @ lf-term-capacity < and ;
 : lf-minfer-enter ( -- ) -1 lf-minfer-fuel +! 1 lf-minfer-depth +! ;
 : lf-minfer-in-frame ( node -- type status )
   lf-minfer-room? if lf-minfer-enter lf-minfer-visit -1 lf-minfer-depth +!

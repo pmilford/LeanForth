@@ -109,4 +109,11 @@ T{ num-child @ num-child @ 3 names -> lf-mcompare-equal 0 }T
 T{ num-child @ num-child @ 2 names -> lf-mcompare-exhausted 0 }T
 T{ 0 0 0 names -> lf-mcompare-exhausted 0 }T
 T{ name-walk walk-pending @ -> 0 }T
+\ Guard paths that the audits make unreachable from lf-mixed-compare: a
+\ full work stack is exhaustion, an unallocated node and an unknown tag are
+\ invalid.
+2 walk2: tiny
+T{ tiny walk-capacity @ tiny walk-pending ! 0 lf-term-slot dup tiny lf-mcompare-children -> outcome-exhausted }T
+T{ lf-term-count @ tiny walk-node ! 0 tiny walk-context ! tiny lf-mcompare-visit -> outcome-invalid }T
+T{ 0 lf-term-slot dup tiny lf-tag-sort lf-mcompare-dispatch -> outcome-invalid }T
 bye

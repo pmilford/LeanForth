@@ -100,7 +100,10 @@ outcome-unknown constant lf-mcompare-unknown
 \ Constant references, already audited, as reference records. The heads
 \ match when the arities are equal (checked first, at no cost) and the
 \ names are, charging the given walk's fuel; each module then compares the
-\ ordered level arguments its own way.
+\ ordered level arguments its own way. lf-mcompare-args,
+\ lf-mcompare-constant and lf-mcompare-sort charge levels to compare's own
+\ term walk (through lf-mcompare-level), so only compare may call them;
+\ convert reuses lf-mcompare-heads and compares levels with its own walk.
 : lf-mcompare-crefs ( a b -- slot slot )
   lf-mcompare-firsts lf-cref-slot swap lf-cref-slot swap ;
 : lf-mcompare-arity? ( slot slot -- flag ) lf-crec-arity @ swap lf-crec-arity @ = ;

@@ -128,6 +128,7 @@ test-core:
 	$(RUN) $(GFORTH) tests/core/level-value.fs
 	$(RUN) $(GFORTH) tests/core/level-compare.fs
 	$(RUN) $(GFORTH) tests/core/level-deep.fs
+	$(RUN) $(GFORTH) tests/core/infer-deep.fs
 	$(RUN) $(GFORTH) tests/core/load.fs
 
 test-mixed-shift-differential:
