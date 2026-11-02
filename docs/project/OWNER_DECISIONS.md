@@ -240,7 +240,7 @@ records in the same Claude Code session. Quoted words are the owner's own.
 ## Product dependencies and module loading (2026-11-02)
 
 - **End users need only a Forth system and an NDJSON file.** *"overall I'd
-  like not to have any python dependency, and hopefully not any lean
+  like not [to] have any python dependency, and hopefully not any lean
   dependency, except a ndjson file ... during development it doesn't matter,
   but keeping end user downloads and installs and updating to a minimum is a
   good thing."* Everything on the user's path — reading Lean exports,
