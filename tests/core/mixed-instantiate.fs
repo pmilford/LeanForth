@@ -132,4 +132,15 @@ T{ 8 rootid @ 9 rid @ 100 ' lf-mixed-instantiate rs-checked lf-minst-fuel @ lf-m
   63 0 do i 0 lf-term-lam 0= abort" chain" drop loop 63 dup lf-term-identity drop ;
 T{ chain 0 0 lf-term-identity drop 1000 lf-mixed-instantiate
   lf-minst-fuel @ lf-mshift-fuel @ lf-term-count @ -> -1 0 lf-minst-exhausted 807 807 64 }T
+\ A loose variable above the target under a binder is lowered there too:
+\ fun _ : c => #0 #2 with #0 replaced by #0 becomes fun _ : c => #0 #1.
+setup
+T{ 2 lf-term-bvar -> 7 true }T
+T{ 2 7 lf-term-app -> 8 true }T
+T{ 0 8 lf-term-lam -> 9 true }T
+T{ 9 9 lf-term-identity drop 2 2 lf-term-identity drop 100 lf-mixed-instantiate
+  -> 12 lf-term-serial @ lf-minst-ok }T
+T{ 10 lf-term-read -> lf-tag-bvar 1 0 true }T
+T{ 11 lf-term-read -> lf-tag-app 2 10 true }T
+T{ 12 lf-term-read -> lf-tag-lam 0 11 true }T
 bye

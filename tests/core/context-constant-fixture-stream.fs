@@ -10,27 +10,9 @@ include ../../src/core/generation-handles.fs
 include ../../src/core/constant-references.fs
 include ../../src/core/constant-term-boundary.fs
 include ../../src/core/constant-term-scope.fs
-include ../../src/legacy/raw-declaration-index.fs
 include ../../src/kernel/level-substitute.fs
-include ../../src/legacy/term-level-substitute.fs
-include ../../src/legacy/raw-signature-specialize.fs
-include ../../src/legacy/constant-signature-probe.fs
-include ../../src/legacy/constant-term-type-probe.fs
-include ../../src/legacy/tagged-shift.fs
-include ../../src/legacy/tagged-instantiate.fs
-include ../../src/legacy/tagged-compare.fs
-include ../../src/legacy/tagged-beta.fs
 include ../../src/kernel/level-value.fs
 include ../../src/kernel/level-compare.fs
-include ../../src/legacy/tagged-convert.fs
-include ../../src/legacy/tagged-infer.fs
-include ../../src/legacy/candidate-definition-probe.fs
-include ../../src/legacy/tagged-context-infer.fs
-include ../../src/legacy/constant-application-probe.fs
-include ../../src/legacy/constant-spine-probe.fs
-include ../../src/legacy/context-constant-spine.fs
-include ../../src/legacy/context-validation-probe.fs
-include ../../src/legacy/validated-context-spine.fs
 include ../../src/kernel/mixed-level-substitute.fs
 include ../../src/kernel/mixed-signature-probe.fs
 include ../../src/kernel/mixed-signature-audit.fs
@@ -78,8 +60,6 @@ variable n variable k variable a variable b variable count-n
     -1 throw
   endcase
   0= if -1 throw then n @ cells tids + ! n @ <> if -1 throw then ;
-create binder-context 4 cells allot
-create app-arguments 4 cells allot
 create formals 1 cells allot
 variable expected-tag variable expected-a variable expected-b
 variable infer-term-count variable infer-level-count variable infer-cref-count
@@ -190,25 +170,14 @@ variable infer-term-count variable infer-level-count variable infer-cref-count
   13 handle 50000 lf-mixed-convert lf-mconvert-equal <> if -1 throw then
   infer-term-count @ lf-term-count ! infer-level-count @ lf-level-count !
   infer-cref-count @ lf-cref-count !
-  \ Probe the fixtureId type/value pair. Even a successful diagnostic is not
-  \ declaration registration or a theorem; unsupported constructs fail.
-  4 handle 6 handle 50000 lf-candidate-definition-probe
-  lf-candidate-ok <> if -1 throw then
-  lf-rawdecl-begin 0= if -1 throw then
-  1 cells names + @ 4 handle 50000 lf-rawdecl-put lf-rawdecl-ok <> if -1 throw then
-  lf-rspec-begin 0= if -1 throw then
-  2 cells names + @ formals !
-  lf-rawdecl-token 0= if -1 throw then
-  dup 1 cells names + @ 4 handle formals 1 50000 lf-rspec-put lf-rspec-ok <> if -1 throw then
-  0 binder-context ! 0 cells tids + @ binder-context cell+ !
-  1 binder-context 2 cells + ! 1 cells tids + @ binder-context 3 cells + !
-  2 app-arguments ! 2 cells tids + @ app-arguments cell+ !
-  1 app-arguments 2 cells + ! 1 cells tids + @ app-arguments 3 cells + !
-  7 handle app-arguments 2 binder-context 2 lf-validated-context-spine
-  lf-caprobe-ok <> if -1 throw then
-  2dup 10000 lf-hterm-check lf-repr-ok <> if -1 throw then
-  drop lf-term-read 0= if -1 throw then
-  0 <> if -1 throw then 1 <> if -1 throw then
-  lf-tag-bvar <> if -1 throw then
-  s" 2 1" type cr ;
+  \ Probe the fixtureId type/value pair with an empty signature index. Even a
+  \ successful diagnostic is not declaration registration or a theorem.
+  lf-msp-begin 0= if -1 throw then
+  lf-msp-token 0= if -1 throw then
+  4 handle 6 handle 50000 lf-mixed-definition-probe
+  dup lf-mdefinition-ok <> if
+    dup lf-mdefinition-unknown = if s" fixtureId pair inconclusive" stderr write-file throw then
+    drop -1 throw
+  then drop
+  s" fixture ok" type cr ;
 run bye

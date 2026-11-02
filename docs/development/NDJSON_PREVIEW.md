@@ -8,7 +8,7 @@ no partial result. For example:
 
 ```sh
 python3 tests/support/ndjson_preview.py < tests/reference/composition.ndjson
-make test-composition-fixture test-legacy
+make test-composition-fixture
 ```
 
 ## Outcomes and error contract
@@ -130,14 +130,19 @@ or a stable serialization. No Python code is part of the trusted kernel.
 
 `tests/core/test_preview_contract.py` holds the outcome-contract tests (framing,
 classification, limits, numeric edges and the command-line contract); `make
-test` runs them through `tests/legacy/test_ndjson_preview.py`, which also pins the
-SHA-256 of all five `tests/reference/*.ndjson` fixtures.
+test` runs it directly (target `test-composition-fixture`), and
+`tests/core/test_ndjson_preview.py` pins the SHA-256 of all five
+`tests/reference/*.ndjson` fixtures.
 
 The fixture test independently compares preview nodes against the existing
 fixture inspector and feeds the resulting fields as test-only binary data to
-the untrusted Forth staging and declaration probe. Neither the preview nor the
-probe registers a theorem; declaration import and the trusted boundary require
-independent human review. The concrete pipeline covers composition, identity,
+the untrusted Forth staging (`src/import/load.fs`), which must give back the
+same nodes. The current checker accepts symbolic Sorts only, so
+`tests/core/test_export_definitions.py` stages the same exports as handle
+terms with symbolic levels (`tests/core/export-definition-stream.fs`) and runs
+`lf-mixed-definition-probe` on each claim and value. Neither the preview nor
+the probe registers a theorem; declaration import and the trusted boundary
+require independent human review. The pipeline covers composition, identity,
 and a theorem quantified over `Type`. A fourth, universe-polymorphic Lean export
 is also decoded. The ordinary concrete test transport rejects previews
 containing symbolic levels or level parameters;
@@ -165,17 +170,19 @@ with different export indices. It does not register a declaration or establish
 the identity of names across mutable table lifetimes. Only the selected level
 roots are scope-checked; disconnected staged levels do not inherit that result.
 
-A separate test-only stream specializes the polymorphic fixture under explicit
-numeric assignments and feeds the resulting concrete expression nodes to the
-untrusted Forth declaration probe. It checks four assignments against pinned
-Lean's kernel and compares canonical type and value syntax for all four with
-Lean's instantiated expressions. It also compares the complete `u = 1` node
-table with a separately exported concrete theorem. Missing, invalid or
-duplicate assignments fail;
-the test uses bounded host integers, opaque name IDs, and untrusted mutable
-storage. This exercises four instances, not the polymorphic theorem. No checked
-declaration is registered, and no supported runtime or interchange API exists.
-Run `make test-poly-specialization-differential` with pinned Lean and Gforth.
+The same stream can replace the polymorphic fixture's universe parameter by
+`succ^k zero` (`lf-mixed-level-substitute`) before the definition probe. It
+checks four instances against pinned Lean's kernel and compares canonical type
+and value syntax for all four with Lean's instantiated expressions
+(`make test-export-specialization-differential`); `test_export_definitions.py`
+also compares the `u = 1` instance with the separately exported concrete
+theorem. `tests/core/export-signature-stream.fs` puts the fixture's claim into
+the candidate signature index and compares its `lf-msp-specialize` results with
+Lean's `instantiateLevelParams` (`make test-export-signature-differential`).
+Missing or extra replacements fail; the test uses bounded host integers,
+opaque name IDs, and untrusted mutable storage. This exercises four instances,
+not the polymorphic theorem. No checked declaration is registered, and no
+supported runtime or interchange API exists.
 
 An additional test-only stream stages the pinned polymorphic identity's 16
 expressions with tagged symbolic Sorts and its single opaque universe parameter.
@@ -185,4 +192,6 @@ parameter. Selected altered type or proof fields produce a non-success diagnosti
 This is a single fixture and a restricted byte protocol; binder names, binder
 information and declaration names are not preserved. A zero diagnostic does
 not register or accept a theorem. Full NDJSON import, trusted checking and
-Mathlib remain unavailable. Run `make test-legacy` for the test.
+Mathlib remain unavailable. This test is superseded code in `tests/legacy/`;
+the unspecialized polymorphic pair is checked by the current definition probe
+in `tests/core/test_export_definitions.py`.

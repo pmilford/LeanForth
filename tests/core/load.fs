@@ -1,6 +1,7 @@
 \ Tests for the untrusted decoded-node staging interface. No proof is checked.
 include ../support/tester.fs
 include ../../src/core/terms.fs
+include ../../src/core/tagged-sort-boundary.fs
 include ../../src/import/load.fs
 
 \ A batch can follow existing nodes, but its child indices are batch-local.
@@ -42,6 +43,17 @@ T{ 0 lf-tag-sort -1 0 lf-load-node -> false }T
 T{ lf-load-begin -> true }T
 T{ 0 lf-tag-bvar 0 1 lf-load-node -> false }T
 T{ lf-term-count @ -> 4 }T
+
+\ The loader stages concrete Sorts only (ADR 0007): a symbolic Sort record
+\ is refused, as the first record or after a valid one, and the batch rolls
+\ back.
+T{ lf-load-begin -> true }T
+T{ 0 lf-tag-symbolic-sort 0 0 lf-load-node -> false }T
+T{ lf-load-begin -> true }T
+T{ 0 lf-tag-sort 0 0 lf-load-node -> true }T
+T{ 1 lf-tag-symbolic-sort 0 0 lf-load-node -> false }T
+T{ lf-term-count @ -> 4 }T
+T{ lf-load-finish -> false }T
 
 \ Explicit abort is idempotent and preserves preexisting arena nodes.
 T{ lf-load-begin -> true }T

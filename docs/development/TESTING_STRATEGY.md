@@ -98,11 +98,41 @@ those tests use. `make test-legacy` runs its unit and fixture tests as part of
 `make test`; `make test-legacy-differential` runs its pinned-Lean comparisons,
 listed in `LEGACY_DIFFERENTIAL_TARGETS`, as part of `make check`.
 
-Some of these tests also exercise current modules through a legacy helper:
-for example the NDJSON preview suite (`tests/legacy/test_ndjson_preview.py`)
-stages its fixtures with `src/import/load.fs` and the superseded declaration
-probe, and `tests/legacy/tagged-sort-boundary.fs` tests
-`src/core/tagged-sort-boundary.fs` with the plain inference module. The
-[owner approved](../project/OWNER_DECISIONS.md) deleting `src/legacy/` once
-the current code has at least the same test coverage, so those checks must
-first be rebuilt on current code. Do not add new tests to `tests/legacy/`.
+The [owner approved](../project/OWNER_DECISIONS.md) deleting `src/legacy/`
+once the current code has at least the same test coverage. Do not add new
+tests to `tests/legacy/`. The tests that exercised current modules through a
+legacy helper have been rebuilt on current code and moved to `tests/core/`
+(2026-11-02): the NDJSON preview suite (`tests/core/test_ndjson_preview.py`)
+now checks the `src/import/load.fs` staging round trip without a checker,
+`tests/core/test_export_definitions.py` runs the current definition probe on
+the pinned exports, and `tests/core/tagged-sort-boundary.fs`,
+`declaration-chain-test.py` and `context-constant-fixture-test.py` load no
+legacy module.
+
+### Ports of the legacy pinned-Lean comparisons
+
+`tests/core/lean-differential.py NAME` compares a Forth table of current code
+with a Lean 4.35.0 table in `tests/reference/`; each `NAME` has a Make target
+in `DIFFERENTIAL_TARGETS`, so `make check` runs them all. They port the
+legacy comparisons onto the current passes, with every Sort symbolic (a
+concrete universe n is the level succ^n zero):
+
+| Make target | NAME | Forth side | Lean side | Cases |
+| --- | --- | --- | --- | --- |
+| `test-constant-term-scope-differential` | `scope` | `constant-term-scope-table.fs` | `scope-table.lean` | 64 |
+| `test-mixed-shift-plain-differential` | `shift` | `mixed-shift-plain-table.fs` | `shift-table.lean` | 80 |
+| `test-mixed-instantiate-plain-differential` | `instantiate` | `mixed-instantiate-plain-table.fs` | `instantiate-table.lean` | 25 |
+| `test-mixed-beta-plain-differential` | `beta` | `mixed-beta-plain-table.fs` | `beta-table.lean` | 15 |
+| `test-mixed-convert-plain-differential` | `convert` | `mixed-convert-plain-table.fs` | `convert-table.lean` | 15 |
+| `test-mixed-infer-plain-differential` | `infer` | `mixed-infer-plain-table.fs` | five tables | 52 |
+| `test-mixed-definition-differential` | `definition` | `mixed-definition-table.fs` | `definition-table.lean` | 9 |
+| `test-mixed-level-substitute-plain-differential` | `level-substitute` | `mixed-level-substitute-plain-table.fs` | `term-level-substitute-table.lean` | 48 |
+| `test-mixed-infer-constant-differential` | `constant` | `mixed-infer-constant-table.fs` | `term-level-substitute-table.lean` | 96 |
+| `test-export-signature-differential` | `signature-fixture` | `export-signature-stream.fs` | `signature-fixture.lean` | 4 |
+| `test-export-specialization-differential` | `poly-specialization` | `export-definition-stream.fs` | `poly-specialization-table.lean` | 8 |
+
+Rows must agree exactly, except that an ill-typed term may be invalid or
+unknown and that `KNOWN_UNKNOWN` in the driver lists the two cases where the
+current code is knowingly more conservative than Lean (it answers unknown
+where Lean accepts): `max u v` against `max v u`, and a binder domain whose
+type is an unreduced redex. Any other difference fails.

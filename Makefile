@@ -24,6 +24,12 @@ DIFFERENTIAL_TARGETS := \
 	test-mixed-beta-differential test-mixed-convert-differential \
 	test-mixed-level-substitute-differential test-mixed-signature-differential \
 	test-mixed-infer-differential \
+	test-constant-term-scope-differential test-mixed-shift-plain-differential \
+	test-mixed-instantiate-plain-differential test-mixed-beta-plain-differential \
+	test-mixed-convert-plain-differential test-mixed-infer-plain-differential \
+	test-mixed-definition-differential test-mixed-level-substitute-plain-differential \
+	test-mixed-infer-constant-differential test-export-signature-differential \
+	test-export-specialization-differential \
 	test-program-differential test-program-stack-differential \
 	test-program-values-differential test-program-depth-differential \
 	test-example-reference-differential test-add-reference-differential \
@@ -110,6 +116,7 @@ test-lib:
 
 test-core:
 	$(RUN) $(GFORTH) tests/core/terms.fs
+	$(RUN) $(GFORTH) tests/core/tagged-sort-boundary.fs
 	$(RUN) $(GFORTH) tests/core/symbolic-session.fs
 	$(RUN) $(GFORTH) tests/core/symbolic-session-extra.fs
 	$(RUN) $(GFORTH) tests/core/generation-handles.fs
@@ -128,6 +135,7 @@ test-core:
 	$(RUN) $(GFORTH) tests/core/mixed-signature-lifecycle.fs
 	$(RUN) $(GFORTH) tests/core/mixed-signature-audit.fs
 	$(RUN) $(GFORTH) tests/core/mixed-infer.fs
+	$(RUN) $(GFORTH) tests/core/mixed-infer-coverage.fs
 	$(RUN) $(GFORTH) tests/core/mixed-definition-probe.fs
 	$(RUN) $(GFORTH) tests/core/names.fs
 	$(RUN) $(GFORTH) tests/core/levels.fs
@@ -160,11 +168,55 @@ test-mixed-signature-differential:
 test-mixed-infer-differential:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/core/mixed-infer-differential.sh
 
+# Ports of the pinned-Lean comparisons of the retired legacy code onto the
+# current passes; tests/core/lean-differential.py documents each table.
+LEAN_TABLE := LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/core/lean-differential.py
+
+test-constant-term-scope-differential:
+	$(LEAN_TABLE) scope
+
+test-mixed-shift-plain-differential:
+	$(LEAN_TABLE) shift
+
+test-mixed-instantiate-plain-differential:
+	$(LEAN_TABLE) instantiate
+
+test-mixed-beta-plain-differential:
+	$(LEAN_TABLE) beta
+
+test-mixed-convert-plain-differential:
+	$(LEAN_TABLE) convert
+
+test-mixed-infer-plain-differential:
+	$(LEAN_TABLE) infer
+
+test-mixed-definition-differential:
+	$(LEAN_TABLE) definition
+
+test-mixed-level-substitute-plain-differential:
+	$(LEAN_TABLE) level-substitute
+
+test-mixed-infer-constant-differential:
+	$(LEAN_TABLE) constant
+
+test-export-signature-differential:
+	$(LEAN_TABLE) signature-fixture
+
+test-export-specialization-differential:
+	$(LEAN_TABLE) poly-specialization
+
 test-composition-fixture:
+	$(RUN) python3 tests/core/test_preview_contract.py
+	GFORTH=$(GFORTH) $(RUN) python3 tests/core/test_ndjson_preview.py
+	$(RUN) python3 tests/core/test_composition_fixture.py
+	GFORTH=$(GFORTH) $(RUN) python3 tests/core/check_composition_fixture.py
+	GFORTH=$(GFORTH) $(RUN) python3 tests/core/test_export_definitions.py
 	$(RUN) python3 tests/core/test_preview_constants.py
 	GFORTH=$(GFORTH) $(RUN) python3 tests/core/constant-term-fixture-test.py
 	$(RUN) python3 tests/core/test_preview_dependencies.py
 	GFORTH=$(GFORTH) $(RUN) python3 tests/core/test_named_levels.py
+	GFORTH=$(GFORTH) $(RUN) python3 tests/core/context-constant-fixture-test.py
+	GFORTH=$(GFORTH) $(RUN) python3 tests/core/declaration-chain-test.py
 
 test-name-differential:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/core/name-differential.sh
@@ -234,7 +286,6 @@ test-program-stack-differential:
 # before tests/legacy/ is deleted.
 test-legacy:
 	$(RUN) $(GFORTH) tests/legacy/arena.fs
-	$(RUN) $(GFORTH) tests/legacy/tagged-sort-boundary.fs
 	$(RUN) $(GFORTH) tests/legacy/raw-declaration-index.fs
 	$(RUN) $(GFORTH) tests/legacy/raw-index-reset.fs
 	$(RUN) $(GFORTH) tests/legacy/constant-term-type-probe.fs
@@ -267,13 +318,8 @@ test-legacy:
 	$(RUN) $(GFORTH) tests/legacy/infer.fs
 	$(RUN) $(GFORTH) tests/legacy/declaration-probe.fs
 	$(RUN) $(GFORTH) tests/legacy/infer-composition-probe.fs
-	$(RUN) python3 tests/legacy/test_composition_fixture.py
-	GFORTH=$(GFORTH) $(RUN) python3 tests/legacy/test_ndjson_preview.py
-	GFORTH=$(GFORTH) $(RUN) python3 tests/legacy/context-constant-fixture-test.py
-	GFORTH=$(GFORTH) $(RUN) python3 tests/legacy/declaration-chain-test.py
 	GFORTH=$(GFORTH) $(RUN) python3 tests/legacy/test_poly_specialization.py
 	GFORTH=$(GFORTH) $(RUN) python3 tests/legacy/test_tagged_poly_fixture.py
-	GFORTH=$(GFORTH) $(RUN) python3 tests/legacy/check_composition_fixture.py
 
 test-legacy-differential: $(LEGACY_DIFFERENTIAL_TARGETS)
 

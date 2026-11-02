@@ -194,6 +194,50 @@ variable saw-exhaustion variable saw-success variable saw-partial
   saw-partial @ 0= abort" no partial exhaustion"
   saw-success @ 0= abort" no success"
   setup snapshot 4 9 -1 probe lf-mdefinition-invalid expect-status assert-rollback ;
+\ Cases that only the retired legacy probes covered (gap T2 of the legacy
+\ coverage map).
+: open-claim-case ( -- )
+  \ (x : A) -> A has a loose A: the claim fails its preflight.
+  setup snapshot 3 9 50000 probe lf-mdefinition-invalid expect-status assert-rollback ;
+variable saw-invalid
+: open-value-fuel-case ( -- )
+  \ A closed claim and an open value: with too little fuel the preflight is
+  \ exhausted, with enough it reaches the value and finds it invalid.
+  false saw-exhaustion ! false saw-invalid !
+  200 0 do
+    setup snapshot 4 12 i probe dup lf-mdefinition-exhausted = if
+      drop true saw-exhaustion !
+    else lf-mdefinition-invalid expect-status true saw-invalid ! then
+    assert-rollback
+  loop
+  saw-exhaustion @ 0= abort" no exhaustion" saw-invalid @ 0= abort" no invalid" ;
+: corrupt-node-case ( -- )
+  \ A raw corrupted tag, or a node that is its own child, in the claim (node
+  \ 3) or the value (node 7) is invalid; restored, the pair checks again.
+  setup 3 lf-term-slot @ 99 3 lf-term-slot !
+  snapshot 4 9 50000 probe lf-mdefinition-invalid expect-status assert-rollback
+  3 lf-term-slot ! 7 lf-term-slot cell+ @ 7 7 lf-term-slot cell+ !
+  snapshot 4 9 50000 probe lf-mdefinition-invalid expect-status assert-rollback
+  7 lf-term-slot cell+ ! 3 lf-term-slot cell+ @ 3 3 lf-term-slot cell+ !
+  snapshot 4 9 50000 probe lf-mdefinition-invalid expect-status assert-rollback
+  3 lf-term-slot cell+ !
+  snapshot 4 9 50000 probe lf-mdefinition-ok expect-status assert-rollback ;
+: stale-value-non-type-case ( -- )
+  \ A lambda claim with a stale value: invalid before any allocation.
+  setup snapshot token @ 9 h 9 h 1+ 50000 lf-mixed-definition-probe
+  lf-mdefinition-invalid expect-status assert-rollback
+  serials-unchanged? 0= abort" stale value allocated" ;
+: prop-claim-case ( -- )
+  \ forall P : Prop, P -> P with fun P h => h: a claim in Sort 0.
+  setup 0 dup lf-level-identity 0= abort" zero" lf-hterm-sort save \ 14 Prop
+  14 h 3 h lf-hterm-pi save 14 h 12 h lf-hterm-lam save           \ 15, 16
+  snapshot 15 16 50000 probe lf-mdefinition-ok expect-status assert-rollback
+  snapshot 15 14 50000 probe lf-mdefinition-unknown expect-status assert-rollback ;
+' open-claim-case s" open claim" run-case
+' open-value-fuel-case s" open value behind the claim's preflight" run-case
+' corrupt-node-case s" corrupted claim and value nodes" run-case
+' stale-value-non-type-case s" stale value with a non-type claim" run-case
+' prop-claim-case s" claim in Prop" run-case
 ' basic-case s" mixed definition" run-case
 ' stale-case s" preflight stale handles" run-case
 ' distinct-case s" distinct constants" run-case
