@@ -11,3 +11,26 @@ commands are in `docs/INSTALLATION_LOG.md`.
 - GitHub Actions Smoke run 41120284014 passed on 2026-10-30 for commit
   `44ca571`. It uses Ubuntu's Gforth package, not the pinned local Gforth
   1.0.0 build. GitHub warned that checkout v4 targets deprecated Node 20.
+
+## Pinned downloads (2026-11-02)
+
+`scripts/install-gforth.sh` and `scripts/install-lean.sh` reject downloads
+whose SHA-256 differs from these values:
+
+- Gforth 1.0.0 source, `https://net2o.de/gforth-dist/Snapshots/1.0.0/gforth-1.0.0.tar.xz`:
+  `79c880b68a4a9aa817b7067c21b79acd5b07149fad78f3f630320db410886fa6`
+  (observed 2026-10-30; upstream publishes no authenticated hash).
+- Lean 4.35.0 Linux x86-64, `lean-4.35.0-linux.tar.zst` from the GitHub
+  `leanprover/lean4` v4.35.0 release:
+  `7289597a44543246c9227b8cae501767e095ce17f6d448b95fc4a8dc97268f6d`
+  (the digest GitHub reports for that release asset).
+- elan 4.2.4 (`227caca13`, 2026-08-25) manages the local `.tools/elan`
+  installation after it was reinstalled on 2026-11-02; the elan version used
+  on 2026-10-30 was not recorded.
+
+## CI actions (2026-11-02)
+
+`.github/workflows/ci.yml` pins actions to commit SHAs:
+`actions/checkout` v7.0.1 (`3d3c42e5aac5ba805825da76410c181273ba90b1`) and
+`actions/cache` v6.1.0 (`55cc8345863c7cc4c66a329aec7e433d2d1c52a9`).
+Upgrading from checkout v4 removes the Node 20 deprecation warning.

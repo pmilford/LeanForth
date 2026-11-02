@@ -1,30 +1,50 @@
-GFORTH ?= $(if $(wildcard .tools/gforth/bin/gforth),.tools/gforth/bin/gforth,gforth)
-LEAN ?= lean
+# Toolchains. Prefer the project-local copies under .tools/ (see
+# docs/INSTALLATION_LOG.md); override with GFORTH=... or LEAN=... .
+# LEAN names the pinned toolchain binary directly rather than the elan proxy,
+# so no ELAN_HOME is needed and nothing is downloaded into ~/.elan.
+LOCAL_GFORTH := .tools/gforth/bin/gforth
+LOCAL_LEAN := $(CURDIR)/.tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean
+GFORTH ?= $(if $(wildcard $(LOCAL_GFORTH)),$(LOCAL_GFORTH),gforth)
+LEAN ?= $(if $(wildcard $(LOCAL_LEAN)),$(LOCAL_LEAN),lean)
 
-.PHONY: test-tagged-infer-differential test-tagged-binder-differential test-tagged-application-differential test-tagged-beta-differential test-tagged-convert-differential test-tagged-universe-differential test-program-depth-differential
-.PHONY: test-level-substitute-differential
-.PHONY: test-term-level-substitute-differential
-.PHONY: test-program-values-differential
-.PHONY: test-signature-fixture-differential
-.PHONY: test-example-reference-differential
-.PHONY: test-constant-signature-differential test-add-reference-differential
-.PHONY: test-abs-reference-differential
-.PHONY: test-constant-term-type-differential
-.PHONY: test-factorial-reference-differential
-.PHONY: test-gcd-reference-differential
-.PHONY: test-range-64-differential
-.PHONY: test-memory-reference-differential
-.PHONY: test-memory-frame-differential
-.PHONY: test-mixed-shift-differential
-.PHONY: test-mixed-instantiate-differential
-.PHONY: test-mixed-beta-differential
-.PHONY: test-mixed-convert-differential
-.PHONY: test-mixed-level-substitute-differential
-.PHONY: test-mixed-signature-differential
-.PHONY: test-mixed-infer-differential
-.PHONY: profile-existing
-.PHONY: profile-history
-.PHONY: smoke reference reference-export test-harness test-core test-symbolic-infer-draft test-composition-fixture test-name-differential test-scope-differential test-shift-differential test-instantiate-differential test-beta-differential test-compare-differential test-infer-differential test-declaration-differential test-level-differential test-level-assignment-differential test-level-compare-differential test-poly-specialization-differential test-program test-program-differential test-program-stack-differential
+# Every pinned-Lean oracle and differential comparison. Excludes the unsafe
+# test-symbolic-infer-draft and the profiling targets.
+DIFFERENTIAL_TARGETS := \
+	reference reference-export \
+	test-name-differential test-scope-differential test-shift-differential \
+	test-instantiate-differential test-beta-differential \
+	test-compare-differential test-infer-differential \
+	test-declaration-differential test-level-differential \
+	test-level-assignment-differential test-level-compare-differential \
+	test-level-substitute-differential test-term-level-substitute-differential \
+	test-poly-specialization-differential test-signature-fixture-differential \
+	test-constant-signature-differential test-constant-term-type-differential \
+	test-tagged-infer-differential test-tagged-binder-differential \
+	test-tagged-application-differential test-tagged-beta-differential \
+	test-tagged-convert-differential test-tagged-universe-differential \
+	test-mixed-shift-differential test-mixed-instantiate-differential \
+	test-mixed-beta-differential test-mixed-convert-differential \
+	test-mixed-level-substitute-differential test-mixed-signature-differential \
+	test-mixed-infer-differential \
+	test-program-differential test-program-stack-differential \
+	test-program-values-differential test-program-depth-differential \
+	test-example-reference-differential test-add-reference-differential \
+	test-abs-reference-differential test-factorial-reference-differential \
+	test-gcd-reference-differential test-range-64-differential \
+	test-memory-reference-differential test-memory-frame-differential
+
+.PHONY: test test-differential check smoke test-harness test-core \
+	test-composition-fixture test-program test-symbolic-infer-draft \
+	profile-existing profile-history $(DIFFERENTIAL_TARGETS)
+
+# Gforth and Python 3 only; run on every CI host and before every commit.
+test: smoke test-harness test-core test-composition-fixture test-program
+
+# Requires pinned Lean 4.35.0 as well as Gforth and Python 3.
+test-differential: $(DIFFERENTIAL_TARGETS)
+
+check: test test-differential
+
 smoke:
 	$(GFORTH) tests/smoke/smoke.fs
 

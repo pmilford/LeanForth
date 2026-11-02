@@ -48,5 +48,33 @@ cannot be represented by concrete levels alone. Alternatives such as treating
 parameters as arbitrary concrete numbers or adding them as axioms are rejected:
 neither checks a polymorphic declaration. Name resolution, equality, immutable
 storage and the typing interaction remain open and require human review.
-ADR 0005 proposes distinct concrete/symbolic Sort representations, complete
+ADR 0007 proposes distinct concrete/symbolic Sort representations, complete
 consumer validation and generation-bound lifetimes; it is not approved.
+
+## Tooling, CI and agent handover — 2026-11-02
+
+These are infrastructure decisions; none changes kernel semantics.
+
+- **Agents.** Work after the `pre-claude` tag uses Claude Code alongside the
+  Codex setup. `AGENTS.md` stays the single shared rule set; `.claude/CLAUDE.md`
+  imports it rather than copying it, so the two cannot drift. The Forth
+  reviewer exists in both `.codex/agents/` and `.claude/agents/`.
+- **Lean invocation.** The Makefile calls the pinned toolchain binary under
+  `.tools/elan/toolchains/` directly. Rejected: relying on the elan proxy,
+  which silently downloads a 3 GB toolchain into `~/.elan` when `ELAN_HOME` is
+  unset.
+- **Installers.** `scripts/install-gforth.sh` and `scripts/install-lean.sh`
+  verify SHA-256 hashes and are used by both CI and users. Rejected for CI:
+  running the elan installer script, which adds an unpinned download step.
+- **CI.** One workflow with two jobs: distribution Gforth 0.7.3 for
+  portability, and pinned Gforth 1.0.0 plus Lean 4.35.0 running `make check`.
+  Toolchains are cached and actions are pinned to commit SHAs. Rejected:
+  running only Forth tests in CI, which left about 40 Lean comparisons
+  unchecked on every push.
+- **Aggregate targets.** `make test` (no Lean) and `make check` (everything
+  except the unsafe symbolic-inference draft and profiling) replace long
+  hand-written target lists in docs.
+- **ADR numbering.** The two ADRs numbered 0005 were disambiguated by keeping
+  the earlier one (structured names, 2026-10-31 08:45) as 0005 and renumbering
+  the later one (Sort representation boundary) to 0007. ADR contents are
+  unchanged apart from the title number.

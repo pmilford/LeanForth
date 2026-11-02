@@ -22,7 +22,8 @@ boundaries accurately, and that no untrusted result authorizes a proof.
 
 Use the bundled Gforth (`.tools/gforth/bin/gforth`) when available and say
 exactly what was or was not run. Bash is for running tests and read-only
-inspection only. If you run Lean, set `ELAN_HOME` to `.tools/elan` first.
+inspection only. Use `make test` or `make check` (which call the pinned Lean
+binary directly); never run the elan proxies without `ELAN_HOME=.tools/elan`.
 
 Report actionable findings first, ordered by severity, with `path:line`
 references, reproduction and suggested fix or factoring. State uncertainties

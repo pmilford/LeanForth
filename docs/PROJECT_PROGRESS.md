@@ -1,6 +1,7 @@
 # LeanForth project progress
 
-Snapshot: 2026-11-01. These are milestones, not estimates of percentage complete.
+Snapshot: 2026-11-01, with CI and infrastructure notes updated 2026-11-02.
+These are milestones, not estimates of percentage complete.
 Prototype success is not theorem acceptance. Update this report after each
 meaningful milestone, with the inventory from `python3 scripts/code-inventory.py`.
 The two paths share the eventual checked proof infrastructure.
@@ -71,6 +72,17 @@ sets out open human-review decisions.
   Gforth. The corrected assertion passed in [run 41379263819](https://github.com/pmilford/LeanForth/actions/runs/41379263819)
   for commit `3bcc348`. That run reported a separate `actions/checkout@v4`
   Node.js 20 deprecation warning. Check the latest run again after each push.
+- On 2026-11-02 the last Codex-era commit `1db530d` (tag `pre-claude`) passed
+  [run 41476841907](https://github.com/pmilford/LeanForth/actions/runs/41476841907).
+  The workflow was then replaced by `.github/workflows/ci.yml`: `make test` on
+  distribution Gforth, plus `make check` — including every pinned-Lean
+  comparison, previously never run in CI — on pinned Gforth 1.0.0 and Lean
+  4.35.0, with checkout upgraded to v7. Locally, `make check` passed with the
+  pinned tools on 2026-11-02. The first remote run of the new workflow has not
+  yet been recorded here.
+- Infrastructure follow-up: roadmap task Q9 tracks consolidation of the three
+  successive experimental variants (plain, `tagged-`, `mixed-`) of several
+  operations.
 
 ## Lean-compatible theorem proving and Mathlib
 

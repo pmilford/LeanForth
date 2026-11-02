@@ -14,25 +14,24 @@ OpenAI Codex. Codex-era docs (`docs/CODEX_HANDOFF.md`, `prompts/FIRST_CODEX_TASK
 
 ## Toolchain
 
-- Gforth 1.0.0 is at `.tools/gforth/bin/gforth`; the Makefile picks it up
-  automatically. CI uses Ubuntu's distribution Gforth (0.7.3), so behavior can
-  differ between local and CI runs.
-- Lean 4.35.0 lives under `.tools/elan`. **Never run `elan`, `lean` or `lake`
-  without `ELAN_HOME` pointing there**: the elan proxy otherwise downloads a
-  3 GB toolchain into `~/.elan`. `.claude/settings.local.json` sets `ELAN_HOME`
-  and `LEAN` for this machine; on another machine, export them yourself:
-  `ELAN_HOME="$PWD/.tools/elan" make <target> LEAN="$PWD/.tools/elan/bin/lean"`.
-- `.tools/` is gitignored and machine-local (~3 GB).
+- Gforth 1.0.0 is at `.tools/gforth/bin/gforth` and Lean 4.35.0 at
+  `.tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean`; the Makefile
+  uses both automatically. Reinstall them with `scripts/install-gforth.sh` and
+  `scripts/install-lean.sh` (see README).
+- **Never run the elan proxies (`.tools/elan/bin/{elan,lean,lake}`) without
+  `ELAN_HOME` pointing at `.tools/elan`**: elan otherwise downloads a 3 GB
+  toolchain into `~/.elan`. `.claude/settings.local.json` sets `ELAN_HOME` on
+  this machine. Prefer the toolchain binary above.
+- `.tools/` is gitignored, machine-local (~3 GB) and the user's data. Never
+  delete it or anything else that was not explicitly planned (see `AGENTS.md`).
 
 ## Checks
 
-- CI suite (about 3 s locally; must pass before every commit):
-  `make smoke test-harness test-core test-composition-fixture test-program`
-- Lean oracle and differential targets (`make reference`, `make test-*-differential`)
-  need Lean and are **not** run in CI. Run the ones relevant to a change and
-  report exactly which ones ran.
-- After pushing, check `gh run list --limit 3` and record the run URL and
-  outcome, as `AGENTS.md` requires.
+- `make test` — Forth and Python tests, about 3 s; run before every commit.
+- `make check` — `make test` plus every pinned-Lean comparison, about 70 s.
+- CI runs `make test` on Ubuntu's Gforth 0.7.3 and `make check` on pinned
+  Gforth 1.0.0 and Lean 4.35.0. After pushing, check `gh run list --limit 3`
+  and record the run URL and outcome, as `AGENTS.md` requires.
 
 ## Reviews
 

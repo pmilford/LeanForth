@@ -121,3 +121,31 @@ claiming it works for others. Do not require GitHub authentication for local use
   passed on Gforth 1.0.0 and extracted Ubuntu Gforth 0.7.3 against pinned Lean
   on six closed cases, including a Lean-valid equality reported as unknown.
   This comparison is untrusted and is not a proof checker.
+
+## Handover to Claude Code and toolchain reinstall: 2026-11-02
+
+- Running `.tools/elan/bin/lean --version` without `ELAN_HOME` made the elan
+  proxy download Lean 4.35.0 into a new `~/.elan` (3.0 GB). After checking that
+  it contained only that download and that no shell profile referred to it,
+  it was deleted. The Makefile now calls the toolchain binary directly.
+- An agent's `git clean -X -f -- '*:Zone.Identifier'`, intended to remove only
+  Windows `Zone.Identifier` files, also deleted the entire ignored `.tools/`
+  directory and the `__pycache__` directories. No tracked file was affected.
+  The toolchains were reinstalled at their original paths:
+  - `bash scripts/install-gforth.sh .tools/gforth` downloaded the Gforth 1.0.0
+    source, verified SHA-256 `79c880b6…886fa6`, configured with
+    `--prefix=/home/peter/code/LeanForth/.tools/gforth` (the original prefix)
+    and `--with-lispdir` under that prefix, and installed it without errors.
+    `gforth --version` reports `gforth 1.0.0 amd64`; the Emacs-related install
+    errors from 2026-10-30 did not recur.
+  - The official installer (`https://elan.lean-lang.org/elan-init.sh`, SHA-256
+    `a620ff1641616222c8d37c54845492004bb84d6877cdbc944dd65c1aa685bf53` on
+    2026-11-02) was run with `ELAN_HOME=/home/peter/code/LeanForth/.tools/elan`,
+    `-y --no-modify-path --default-toolchain leanprover/lean4:v4.35.0`, as on
+    2026-10-30. It installed elan 4.2.4; `lean --githash` reports
+    `eb6cafb7290e8bd5f2937522d8d804f58f02bafc`. No shell profile was modified.
+- `scripts/install-lean.sh` was tested separately into a scratch directory:
+  the release asset matched GitHub's SHA-256 digest and the extracted `lean`
+  reported the pinned revision. The scratch installation was then removed.
+- After the reinstall, `make check` (every Forth, Python and pinned-Lean test)
+  passed locally in about 69 seconds with Gforth 1.0.0 and Lean 4.35.0.

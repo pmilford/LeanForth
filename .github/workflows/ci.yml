@@ -1,0 +1,55 @@
+name: CI
+on: [push, pull_request]
+permissions:
+  contents: read
+
+# Actions are pinned to full commit SHAs; the comment gives the release tag.
+jobs:
+  distribution-gforth:
+    name: Ubuntu distribution Gforth (portability)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install distribution Gforth
+        run: sudo apt-get update && sudo apt-get install -y gforth
+      - name: Report host version
+        run: gforth --version
+      - name: Run Forth and Python tests
+        run: make test GFORTH=gforth
+
+  pinned:
+    name: Pinned Gforth 1.0.0 and Lean 4.35.0 (full suite)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install Gforth build and runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y m4 libtool-bin libffi-dev libltdl-dev pkg-config zstd
+      - name: Restore pinned Gforth
+        id: gforth-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/leanforth/gforth-1.0.0
+          key: gforth-1.0.0-${{ runner.os }}-${{ hashFiles('scripts/install-gforth.sh') }}
+      - name: Build pinned Gforth
+        if: steps.gforth-cache.outputs.cache-hit != 'true'
+        run: scripts/install-gforth.sh "$HOME/.cache/leanforth/gforth-1.0.0"
+      - name: Restore pinned Lean
+        id: lean-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/leanforth/lean-4.35.0
+          key: lean-4.35.0-${{ runner.os }}-${{ hashFiles('scripts/install-lean.sh') }}
+      - name: Install pinned Lean
+        if: steps.lean-cache.outputs.cache-hit != 'true'
+        run: scripts/install-lean.sh "$HOME/.cache/leanforth/lean-4.35.0"
+      - name: Select and report toolchains
+        run: |
+          echo "GFORTH=$HOME/.cache/leanforth/gforth-1.0.0/bin/gforth" >> "$GITHUB_ENV"
+          echo "LEAN=$HOME/.cache/leanforth/lean-4.35.0/bin/lean" >> "$GITHUB_ENV"
+          "$HOME/.cache/leanforth/gforth-1.0.0/bin/gforth" --version
+          "$HOME/.cache/leanforth/lean-4.35.0/bin/lean" --version
+          python3 --version
+      - name: Run Forth, Python and pinned-Lean tests
+        run: make check

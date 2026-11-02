@@ -1,7 +1,7 @@
 # ADR 0006: constant environments — proposal
 
 Status: **draft for human review; not approved or implemented**. This proposes
-a conservative extension of ADRs 0002–0005, not full Lean compatibility.
+a conservative extension of ADRs 0002–0005 and 0007, not full Lean compatibility.
 The existing experimental probes and NDJSON preview do not validate or
 register declarations. No theorem may be accepted on this proposal alone.
 

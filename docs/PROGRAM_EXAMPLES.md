@@ -1,7 +1,7 @@
 # Executable Forth examples
 
 `make test-program` routinely runs the clamp tests, the five examples below,
-and the stack-depth diagnostic tests. The existing CI smoke workflow invokes
+and the stack-depth diagnostic tests. The CI workflow invokes
 that target. These are tested host Forth programs, not verified programs: no
 LeanForth proof connects them to a specification or runtime yet.
 The [independent Lean reference](PROGRAM_EXAMPLES_REFERENCE.md) proves

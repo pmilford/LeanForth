@@ -19,8 +19,10 @@ Printing an error alone is insufficient for CI. The test adapter assigns the
 tester's `ERROR-XT` to print the assertion and throw, so the process fails on
 the first error. `make test-harness` checks a passing test and two deliberate
 failures. This adapter and the core tests pass locally with Gforth 1.0.0 and
-the Ubuntu 24.04 Gforth 0.7.3 package extracted into a temporary directory. The
-updated CI workflow has not yet run. Test other hosts before claiming support.
+the Ubuntu 24.04 Gforth 0.7.3 package extracted into a temporary directory.
+CI runs `make test` on Ubuntu's Gforth package and `make check`, which adds
+every pinned-Lean comparison, on pinned Gforth 1.0.0 and Lean 4.35.0. Both are
+the same x86-64 Linux platform; test other hosts before claiming support.
 
 ## Layers
 

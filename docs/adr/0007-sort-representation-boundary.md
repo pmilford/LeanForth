@@ -1,4 +1,4 @@
-# ADR 0005: distinguish concrete and symbolic Sorts — proposal
+# ADR 0007: distinguish concrete and symbolic Sorts — proposal
 
 Status: **proposed; human review required before trusted implementation**.
 This extends ADR 0004. It does not approve a kernel, importer, or theorem.

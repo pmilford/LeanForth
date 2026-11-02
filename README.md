@@ -1,4 +1,4 @@
-# LeanForth — Codex starter handoff
+# LeanForth
 
 **Status: bootstrap and design; no theorem checker or program verifier exists yet.**
 
@@ -11,41 +11,38 @@ for plain-language explanations of levels, `Sort`, proofs and the kernel.
 
 LeanForth is a Forth-friendly mathematical theorem-proving **and verified-programming** system, with an independently trustworthy checker and efficient executable Forth backends. Its mathematical data and presentation notation must never redefine or ambiguously overload the Forth source grammar.
 
-Start with **[docs/CODEX_HANDOFF.md](docs/CODEX_HANDOFF.md)**, then **[docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md)** and **[AGENTS.md](AGENTS.md)**. Launch the first Codex task from **[prompts/FIRST_CODEX_TASK.md](prompts/FIRST_CODEX_TASK.md)**. Follow **[docs/SETUP_WSL.md](docs/SETUP_WSL.md)** for the recommended Windows/WSL2 setup.
+Start with **[docs/CODEX_HANDOFF.md](docs/CODEX_HANDOFF.md)** (the original project brief), then **[docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md)** and **[AGENTS.md](AGENTS.md)**. Coding agents follow `AGENTS.md`: Codex reads it directly, and Claude Code loads it through `.claude/CLAUDE.md`. Work up to the `pre-claude` tag was developed with Codex. Follow **[docs/SETUP_WSL.md](docs/SETUP_WSL.md)** for the recommended Windows/WSL2 setup.
 
-Proposed baseline: Windows 11 desktop; WSL2 Ubuntu development; Gforth 1.0 (reference implementation); Forth-2012 subset for portability; Lean 4.35.0 pinned as interoperability oracle; GitHub; Codex CLI or VS Code extension. CPU tensors first, using high-performance C/BLAS libraries behind a portable FFI; optional ArrayFire/GPU after measured need.
+Proposed baseline: Windows 11 desktop; WSL2 Ubuntu development; Gforth 1.0 (reference implementation); Forth-2012 subset for portability; Lean 4.35.0 pinned as interoperability oracle; GitHub; Codex or Claude Code. CPU tensors first, using high-performance C/BLAS libraries behind a portable FFI; optional ArrayFire/GPU after measured need.
 
-The initial Forth module and `make smoke` exercise the host; they do not prove
-theorems or verify programs. Run `make smoke` from the repository root; it
-uses `.tools/gforth/bin/gforth` if present, otherwise `gforth` on PATH. Override
-with `make smoke GFORTH=/path/to/gforth`. A missing or failing host makes the
-command fail. Lean is pinned in `lean-toolchain`; local installation details
-and remaining reproducibility work are in [the installation log](docs/INSTALLATION_LOG.md).
+## Installing the pinned tools and running the tests
 
-Run `make reference` with Lean 4.35.0 available on PATH to check the Lean
-oracle's valid and invalid function and binder examples and its integer clamp
-proof experiment. With this machine's local
-elan installation, use:
+The Forth modules and tests exercise the host; they do not prove theorems or
+verify programs. Install the pinned toolchains into the ignored `.tools/`
+directory (each script checks the download's SHA-256 and fails otherwise):
 
 ```bash
-ELAN_HOME="$PWD/.tools/elan" make reference LEAN="$PWD/.tools/elan/bin/lean"
-ELAN_HOME="$PWD/.tools/elan" make reference-export LEAN="$PWD/.tools/elan/bin/lean"
-ELAN_HOME="$PWD/.tools/elan" make test-scope-differential LEAN="$PWD/.tools/elan/bin/lean"
-ELAN_HOME="$PWD/.tools/elan" make test-name-differential LEAN="$PWD/.tools/elan/bin/lean"
-ELAN_HOME="$PWD/.tools/elan" make test-shift-differential LEAN="$PWD/.tools/elan/bin/lean"
-ELAN_HOME="$PWD/.tools/elan" make test-instantiate-differential LEAN="$PWD/.tools/elan/bin/lean"
-ELAN_HOME="$PWD/.tools/elan" make test-beta-differential LEAN="$PWD/.tools/elan/bin/lean"
-ELAN_HOME="$PWD/.tools/elan" make test-compare-differential LEAN="$PWD/.tools/elan/bin/lean"
-ELAN_HOME="$PWD/.tools/elan" make test-infer-differential LEAN="$PWD/.tools/elan/bin/lean"
-ELAN_HOME="$PWD/.tools/elan" make test-declaration-differential LEAN="$PWD/.tools/elan/bin/lean"
-ELAN_HOME="$PWD/.tools/elan" make test-level-differential LEAN="$PWD/.tools/elan/bin/lean"
-ELAN_HOME="$PWD/.tools/elan" make test-level-assignment-differential LEAN="$PWD/.tools/elan/bin/lean"
-ELAN_HOME="$PWD/.tools/elan" make test-level-compare-differential LEAN="$PWD/.tools/elan/bin/lean"
-ELAN_HOME="$PWD/.tools/elan" make test-poly-specialization-differential LEAN="$PWD/.tools/elan/bin/lean"
-ELAN_HOME="$PWD/.tools/elan" make test-program-differential LEAN="$PWD/.tools/elan/bin/lean"
-ELAN_HOME="$PWD/.tools/elan" make test-program-stack-differential LEAN="$PWD/.tools/elan/bin/lean"
-ELAN_HOME="$PWD/.tools/elan" make test-program-values-differential LEAN="$PWD/.tools/elan/bin/lean"
+sudo apt-get install -y m4 libtool-bin libffi-dev libltdl-dev pkg-config zstd
+scripts/install-gforth.sh .tools/gforth
+scripts/install-lean.sh .tools/elan/toolchains/leanprover--lean4---v4.35.0
 ```
+
+An existing elan installation under `.tools/elan`, as described in
+[the installation log](docs/INSTALLATION_LOG.md), works too. Then, from the
+repository root:
+
+```bash
+make test    # Forth and Python tests; needs only Gforth and Python 3
+make check   # make test plus every pinned-Lean oracle and differential test
+```
+
+The Makefile uses `.tools/gforth/bin/gforth` and the Lean 4.35.0 toolchain
+binary under `.tools/elan` when present, otherwise `gforth` and `lean` on PATH;
+override with `GFORTH=...` or `LEAN=...`. It calls the toolchain binary
+directly, so no `ELAN_HOME` is needed. Individual targets such as
+`make reference` or `make test-scope-differential` can also be run on their
+own; `make check` lists them all in `DIFFERENTIAL_TARGETS`. A missing or
+failing tool makes the command fail.
 
 `make test-program` includes clamp and [five additional executable Forth
 examples](docs/PROGRAM_EXAMPLES.md). They are runtime tested, not verified.
@@ -113,7 +110,9 @@ The stack-model differential also compares 686 executions against a Lean-proved
 finite stack-machine model; the handwritten model and host remain separate
 assumptions, as described in [the program example](docs/PROGRAM_EXAMPLE.md).
 
-GitHub CI passed for the initial commit. The updated Ubuntu job uses the
-distribution Gforth package for smoke, harness, core and program tests; this updated job
-has not yet run remotely. Pinned Gforth 1.0 CI remains to be set up.
+GitHub CI (`.github/workflows/ci.yml`) has two jobs: `make test` on Ubuntu's
+distribution Gforth package as a portability check, and `make check` on the
+pinned Gforth 1.0.0 and Lean 4.35.0 toolchains, which also runs every Lean
+comparison. See [project progress](docs/PROJECT_PROGRESS.md) for recent run
+results.
 The project code is MIT licensed; Gforth is a separately licensed dependency.
