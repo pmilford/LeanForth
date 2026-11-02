@@ -12,8 +12,8 @@ LEAN ?= $(if $(wildcard $(LOCAL_LEAN)),$(LOCAL_LEAN),lean)
 TEST_TIMEOUT ?= 600
 RUN := timeout $(TEST_TIMEOUT)
 
-# Every pinned-Lean oracle and differential comparison of current code.
-# Excludes the unsafe test-symbolic-infer-draft and the profiling targets.
+# Every pinned-Lean oracle and differential comparison. Excludes the
+# profiling targets.
 DIFFERENTIAL_TARGETS := \
 	reference reference-export reference-first-checker \
 	test-name-differential \
@@ -37,29 +37,14 @@ DIFFERENTIAL_TARGETS := \
 	test-gcd-reference-differential test-range-64-differential \
 	test-memory-reference-differential test-memory-frame-differential
 
-# Pinned-Lean comparisons that use superseded code in src/legacy/. Their
-# scripts and Lean tables are in tests/legacy/ and are retired with it
-# (roadmap item Q9); `make check` still runs them through test-differential.
-LEGACY_DIFFERENTIAL_TARGETS := \
-	test-scope-differential test-shift-differential \
-	test-instantiate-differential test-beta-differential \
-	test-compare-differential test-infer-differential \
-	test-declaration-differential test-term-level-substitute-differential \
-	test-poly-specialization-differential test-signature-fixture-differential \
-	test-constant-signature-differential test-constant-term-type-differential \
-	test-tagged-infer-differential test-tagged-binder-differential \
-	test-tagged-application-differential test-tagged-beta-differential \
-	test-tagged-convert-differential test-tagged-universe-differential
-
 .PHONY: test test-differential check check-docs check-lean-sources check-portable-forth smoke \
 	test-harness test-lib test-core \
-	test-composition-fixture test-program test-legacy test-legacy-differential \
-	test-symbolic-infer-draft profile-existing profile-history forth-metrics \
-	$(DIFFERENTIAL_TARGETS) $(LEGACY_DIFFERENTIAL_TARGETS)
+	test-composition-fixture test-program profile-existing profile-history forth-metrics \
+	$(DIFFERENTIAL_TARGETS)
 
 # Gforth and Python 3 only; run on every CI host and before every commit.
 test: check-docs check-lean-sources check-portable-forth smoke test-harness test-lib test-core \
-	test-composition-fixture test-program test-legacy
+	test-composition-fixture test-program
 
 # Fails on broken documentation links or missing docs/ paths.
 check-docs:
@@ -81,7 +66,7 @@ forth-metrics:
 	python3 scripts/forth-metrics.py --words 20 src
 
 # Requires pinned Lean 4.35.0 as well as Gforth and Python 3.
-test-differential: $(DIFFERENTIAL_TARGETS) test-legacy-differential
+test-differential: $(DIFFERENTIAL_TARGETS)
 
 check: test test-differential
 
@@ -173,8 +158,9 @@ test-mixed-signature-differential:
 test-mixed-infer-differential:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/core/mixed-infer-differential.sh
 
-# Ports of the pinned-Lean comparisons of the retired legacy code onto the
-# current passes; tests/core/lean-differential.py documents each table.
+# Ports of the pinned-Lean comparisons of the legacy code (retired
+# 2026-11-02) onto the current passes; tests/core/lean-differential.py
+# documents each table.
 LEAN_TABLE := LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/core/lean-differential.py
 
 test-constant-term-scope-differential:
@@ -284,104 +270,3 @@ test-program-differential:
 
 test-program-stack-differential:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/program/stack-differential.sh
-
-# Tests of superseded code in src/legacy/ live beside it in tests/legacy/ and
-# are retired with it (roadmap item Q9). Some of them also exercise current
-# modules through a legacy dependency; they must be rebased onto current code
-# before tests/legacy/ is deleted.
-test-legacy:
-	$(RUN) $(GFORTH) tests/legacy/arena.fs
-	$(RUN) $(GFORTH) tests/legacy/raw-declaration-index.fs
-	$(RUN) $(GFORTH) tests/legacy/raw-index-reset.fs
-	$(RUN) $(GFORTH) tests/legacy/constant-term-type-probe.fs
-	$(RUN) $(GFORTH) tests/legacy/constant-application-oracle.fs
-	$(RUN) $(GFORTH) tests/legacy/constant-application-probe.fs
-	$(RUN) $(GFORTH) tests/legacy/constant-spine-probe.fs
-	$(RUN) $(GFORTH) tests/legacy/context-constant-spine.fs
-	$(RUN) $(GFORTH) tests/legacy/validated-context-spine.fs
-	$(RUN) $(GFORTH) tests/legacy/constant-signature-probe.fs
-	$(RUN) $(GFORTH) tests/legacy/raw-declaration-capacity.fs
-	$(RUN) $(GFORTH) tests/legacy/raw-signature-specialize.fs
-	$(RUN) $(GFORTH) tests/legacy/tagged-infer.fs
-	$(RUN) $(GFORTH) tests/legacy/tagged-context-infer.fs
-	$(RUN) $(GFORTH) tests/legacy/context-validation-probe.fs
-	$(RUN) $(GFORTH) tests/legacy/tagged-shift.fs
-	$(RUN) $(GFORTH) tests/legacy/tagged-instantiate.fs
-	$(RUN) $(GFORTH) tests/legacy/tagged-compare.fs
-	$(RUN) $(GFORTH) tests/legacy/tagged-application.fs
-	$(RUN) $(GFORTH) tests/legacy/tagged-beta.fs
-	$(RUN) $(GFORTH) tests/legacy/tagged-convert.fs
-	$(RUN) $(GFORTH) tests/legacy/tagged-declaration-probe.fs
-	$(RUN) $(GFORTH) tests/legacy/candidate-definition-probe.fs
-	$(RUN) $(GFORTH) tests/legacy/tagged-integration.fs
-	$(RUN) $(GFORTH) tests/legacy/term-level-substitute.fs
-	$(RUN) $(GFORTH) tests/legacy/scope.fs
-	$(RUN) $(GFORTH) tests/legacy/shift.fs
-	$(RUN) $(GFORTH) tests/legacy/instantiate.fs
-	$(RUN) $(GFORTH) tests/legacy/beta.fs
-	$(RUN) $(GFORTH) tests/legacy/compare.fs
-	$(RUN) $(GFORTH) tests/legacy/infer.fs
-	$(RUN) $(GFORTH) tests/legacy/declaration-probe.fs
-	$(RUN) $(GFORTH) tests/legacy/infer-composition-probe.fs
-	GFORTH=$(GFORTH) $(RUN) python3 tests/legacy/test_poly_specialization.py
-	GFORTH=$(GFORTH) $(RUN) python3 tests/legacy/test_tagged_poly_fixture.py
-
-test-legacy-differential: $(LEGACY_DIFFERENTIAL_TARGETS)
-
-# Explicitly opt in to the unsafe draft; this target does not enable it for use.
-test-symbolic-infer-draft:
-	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/legacy/symbolic-infer-draft.sh
-
-test-scope-differential:
-	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/legacy/scope-differential.sh
-
-test-shift-differential:
-	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/legacy/shift-differential.sh
-
-test-instantiate-differential:
-	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/legacy/instantiate-differential.sh
-
-test-beta-differential:
-	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/legacy/beta-differential.sh
-
-test-compare-differential:
-	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/legacy/compare-differential.sh
-
-test-infer-differential:
-	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/legacy/infer-differential.sh
-
-test-declaration-differential:
-	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/legacy/declaration-differential.sh
-
-test-term-level-substitute-differential:
-	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/legacy/term-level-substitute-differential.sh
-
-test-poly-specialization-differential:
-	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/legacy/poly-specialization-differential.sh
-
-test-signature-fixture-differential:
-	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/legacy/signature-fixture-test.py
-
-test-constant-signature-differential:
-	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/legacy/constant-signature-differential.sh
-
-test-constant-term-type-differential:
-	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/legacy/constant-term-type-differential.sh
-
-test-tagged-infer-differential:
-	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/legacy/tagged-infer-differential.sh
-
-test-tagged-binder-differential:
-	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/legacy/tagged-binder-differential.sh
-
-test-tagged-application-differential:
-	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/legacy/tagged-application-differential.sh
-
-test-tagged-beta-differential:
-	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/legacy/tagged-beta-differential.sh
-
-test-tagged-convert-differential:
-	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/legacy/tagged-convert-differential.sh
-
-test-tagged-universe-differential:
-	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/legacy/tagged-universe-differential.sh

@@ -1,7 +1,7 @@
 \ Interface tests of the four lowest walkers (level scope, Sort
 \ representation, session, handle audit) and the two substitution passes
 \ built on walk records: the fuel each check leaves, which other modules
-\ read back, and the work stack legacy code still borrows.
+\ read back, and that no pass disturbs another module's work stack.
 \ Expected fuel is counted by hand from the visit order: each node visit
 \ costs one unit before the node is read, children are pushed first then
 \ second and popped in reverse, and shared nodes are visited once per path.
@@ -103,9 +103,10 @@ T{ 2 term-app-id @ mls-formals mls-actuals 1 30 ' lf-mixed-level-substitute rs-c
    rot drop -> lf-term-serial @ outcome-ok }T
 T{ 2 mls-formals 1 30 lf-mls-audit-formals -> 25 outcome-ok }T
 \ The substitution walks its own record, not the handle audit's stack.
-0 lf-href-pending !  9 lf-href-push drop
+0 lf-href-walker walk-pending !  9 lf-href-walker walk-push drop
 T{ 2 term-app-id @ mls-formals mls-actuals 1 30 lf-mixed-level-substitute
-   nip nip lf-href-pending @ lf-href-work @ -> outcome-ok 1 9 }T
+   nip nip lf-href-walker walk-pending @ lf-href-walker walk-stack @
+   -> outcome-ok 1 9 }T
 
 \ Level substitution: inputs (one visit per actual), then the source walk,
 \ first child first. Levels 3 = max 1 2, 4 = param 3 (in the context but
@@ -123,13 +124,10 @@ T{ 3 subst-formals subst-actuals 2 4 lf-lsubst lf-lsubst-fuel @ -> outcome-exhau
 T{ 5 subst-formals subst-actuals 2 20 lf-lsubst lf-lsubst-fuel @ -> outcome-invalid 16 }T
 T{ 3 subst-formals subst-actuals 2 20 ' lf-lsubst rs-checked -> 7 outcome-ok }T
 
-\ legacy/term-level-substitute still borrows the handle audit's work
-\ stack: pending cells, pushed at pending cells from the work address,
-\ refused when full; a check started afterwards resets the stack and works.
-0 lf-href-pending !
-T{ 7 lf-href-push lf-href-work @ lf-href-pending @ -> true 7 1 }T
-lf-term-capacity lf-href-pending !
-T{ 8 lf-href-push lf-href-pending @ -> false lf-term-capacity }T
+\ A handle audit starts from an empty work stack, even when the last walk
+\ left it full.
+lf-term-capacity lf-href-walker walk-pending !
+T{ 8 lf-href-walker walk-push -> false }T
 lf-term-reset lf-level-reset lf-lscope-context-reset
 1 lf-lscope-context-add drop
 lf-ssession-begin drop

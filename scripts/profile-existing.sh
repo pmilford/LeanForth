@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Profile the existing finite term-level substitution tables, outside the checker.
+# Profile the finite universe-substitution tables, outside the checker: pinned
+# Lean's instantiateLevelParams against the current lf-mixed-level-substitute
+# (workload mixed-level-substitution-48, a new timing series from 2026-11-02).
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 lean=${LEAN:-lean}
@@ -9,7 +11,7 @@ if [[ ! $repetitions =~ ^[1-9][0-9]?$ ]]; then
   echo 'Usage: profile-existing.sh [repetitions: 1-99] (LEAN and GFORTH select executables)' >&2
   exit 2
 fi
-for tool in "$lean" "$gforth" git sha256sum awk cmp wc; do
+for tool in "$lean" "$gforth" git sha256sum awk cmp wc xargs; do
   command -v "$tool" >/dev/null 2>&1 || { printf 'Missing tool: %s\n' "$tool" >&2; exit 1; }
 done
 lean_version=$("$lean" --version)
@@ -41,13 +43,15 @@ run_one() {
   awk '{$1=$1; print}' "$temporary/$label.out" >"$temporary/$label.normalized"
   printf '%s %s %s\n' "$iteration" "$label" "$(cat "$temporary/metric")" >>"$temporary/results"
 }
+lean_table=tests/reference/term-level-substitute-table.lean
+forth_table=tests/core/mixed-level-substitute-plain-table.fs
 for ((i=1; i<=repetitions; i++)); do
   if (( i % 2 )); then
-    run_one Lean "$i" "$lean" -DwarningAsError=true --run tests/legacy/term-level-substitute-table.lean
-    run_one Forth "$i" "$gforth" tests/legacy/term-level-substitute-table.fs
+    run_one Lean "$i" "$lean" -DwarningAsError=true --run "$lean_table"
+    run_one Forth "$i" "$gforth" "$forth_table" </dev/null
   else
-    run_one Forth "$i" "$gforth" tests/legacy/term-level-substitute-table.fs
-    run_one Lean "$i" "$lean" -DwarningAsError=true --run tests/legacy/term-level-substitute-table.lean
+    run_one Forth "$i" "$gforth" "$forth_table" </dev/null
+    run_one Lean "$i" "$lean" -DwarningAsError=true --run "$lean_table"
   fi
   if ! cmp -s "$temporary/Lean.normalized" "$temporary/Forth.normalized"; then
     echo "Output mismatch in repetition $i" >&2
@@ -60,7 +64,7 @@ for ((i=1; i<=repetitions; i++)); do
     echo "Output changed in repetition $i" >&2; exit 1
   fi
 done
-printf 'Term-level substitution: 48 matching rows; %s repetitions\n' "$repetitions"
+printf 'Mixed level substitution: 48 matching rows; %s repetitions\n' "$repetitions"
 printf 'UTC: %s\nPlatform: %s\n' "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" "$(uname -a)"
 printf 'Revision: %s\n' "$(git rev-parse HEAD)"
 if [[ -n $(git status --porcelain --untracked-files=normal) ]]; then echo 'Worktree: dirty (revision alone does not identify inputs)'; else echo 'Worktree: clean'; fi
@@ -69,7 +73,9 @@ printf 'Timer: %s; elapsed seconds and peak RSS KiB (unavailable when unsupporte
 printf 'run implementation elapsed_s peak_RSS_KiB\n'
 cat "$temporary/results"
 printf 'Normalized output SHA-256: '; sha256sum "$temporary/baseline" | awk '{print $1}'
+# The Forth table loads src/main.fs, which loads every current module, so
+# every tracked Forth source under src/ is hashed (src/main.fs and
+# src/kernel/mixed-level-substitute.fs among them).
 printf 'Input SHA-256 (individual files):\n'
-sha256sum scripts/profile-existing.sh tests/legacy/term-level-substitute-table.lean tests/legacy/term-level-substitute-table.fs \
-  src/core/{terms,levels,level-scope,tagged-sort-boundary,symbolic-session,generation-handles}.fs \
-  src/kernel/{level-value,level-substitute}.fs src/legacy/term-level-substitute.fs
+sha256sum scripts/profile-existing.sh "$lean_table" "$forth_table"
+git ls-files -z -- 'src/*.fs' | xargs -0 sha256sum

@@ -19,4 +19,4 @@ Until an outside Lean expert has audited it, every accepted result is
 labelled *experimental — not independently audited*. Axiom policy:
 `docs/project/OWNER_DECISIONS.md`.
 
-Kernel modules may use `lib/` and `core/`, never `legacy/` or `import/`.
+Kernel modules may use `lib/` and `core/`, never `import/`.

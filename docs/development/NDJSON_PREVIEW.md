@@ -184,14 +184,13 @@ opaque name IDs, and untrusted mutable storage. This exercises four instances,
 not the polymorphic theorem. No checked declaration is registered, and no
 supported runtime or interchange API exists.
 
-An additional test-only stream stages the pinned polymorphic identity's 16
-expressions with tagged symbolic Sorts and its single opaque universe parameter.
-The untrusted tagged declaration diagnostic infers both its proposition and
-proof and finds their types syntactically compatible without specializing the
-parameter. Selected altered type or proof fields produce a non-success diagnostic.
-This is a single fixture and a restricted byte protocol; binder names, binder
-information and declaration names are not preserved. A zero diagnostic does
-not register or accept a theorem. Full NDJSON import, trusted checking and
-Mathlib remain unavailable. This test is superseded code in `tests/legacy/`;
-the unspecialized polymorphic pair is checked by the current definition probe
-in `tests/core/test_export_definitions.py`.
+`tests/core/test_export_definitions.py` stages the pinned polymorphic
+identity's expressions with symbolic Sorts and its single opaque universe
+parameter, and the untrusted definition probe checks the unspecialized
+proposition and proof without specializing the parameter; the proposition
+given as its own proof does not check. This is a single fixture and a
+restricted byte protocol; binder names, binder information and declaration
+names are not preserved. A zero diagnostic does not register or accept a
+theorem. Full NDJSON import, trusted checking and Mathlib remain unavailable.
+(An earlier test of the same pair through the superseded `tagged-*`
+declaration diagnostic was retired with that code on 2026-11-02.)

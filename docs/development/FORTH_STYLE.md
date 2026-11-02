@@ -142,7 +142,8 @@ lines, 27% of three to five, 3 of six to eight, none longer (the longest is
 records (`store:`, `walk:`, `walk2:`, `frames:`, or one structure instance
 per module), down from 225 globals, plus 7 remaining `VARIABLE`s. Four
 narrowing status words remain, under review. No module borrows another's
-work stack. `src/legacy/` (28 files) is unchanged and awaits retirement.
+work stack. The 28 superseded legacy files were left unchanged; they were
+retired later the same day.
 
 **Before the refactor (measured 2026-11-02, morning).**
 `scripts/forth-metrics.py src` reported 436 colon definitions:

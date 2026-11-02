@@ -13,21 +13,23 @@ audit, any accepted result is *experimental — not independently audited*.
 | `kernel/` | The proof checker, under development: universe substitution, value and comparison; candidate signatures; the `mixed-*` shift, instantiate, beta, compare, convert and inference passes; the definition probe. See [`kernel/README.md`](kernel/README.md). | yes |
 | `import/` | Staging of decoded Lean exports into the term store (`load.fs`); later a shared NDJSON reader. | yes |
 | `program/` | Verified-program track: the example words (clamp, checked add, abs, factorial, gcd, in-range) and the stack-depth analyzer. | yes |
-| `legacy/` | Superseded earlier variants (plain and `tagged-*` passes, the `raw-*` signature index, `constant-*`/`context-*` probes, `arena.fs`, the unsafe `symbolic-infer.fs` draft). Kept only because tests and Lean comparisons still use them; retired under roadmap item Q9. Do not build on them. | no |
 
 ## Rules
 
 - Dependencies point one way: `lib/` ← `core/` ← `kernel/`. `lib/` uses
   nothing outside `lib/`; `core/` never uses `kernel/`; neither uses
-  `legacy/`, `import/` or `program/`. `legacy/` may use anything.
+  `import/` or `program/`.
+- One variant per operation. The superseded variants that used to live in
+  `legacy/` were retired on 2026-11-02 (see below); do not re-add them or
+  keep a second version of a current module beside it.
 - Modules load the library with `require ../lib/lib.fs`, which compiles it
   once however many modules ask; other dependencies are still loaded by the
   caller in order. Every module states its load dependencies in its header comment. Add each
   new current module to `main.fs` in dependency order; `make smoke` fails if
   loading prints anything, such as a "redefined" warning.
 - Tests load modules directly with `include`; they live in `tests/lib/`,
-  `tests/core/` (for `core/` and `kernel/` modules), `tests/program/`, and
-  `tests/legacy/` (tests of `legacy/` modules, retired with them).
+  `tests/core/` (for `core/`, `kernel/` and `import/` modules) and
+  `tests/program/`.
 - Style: [the Forth style guide](../docs/development/FORTH_STYLE.md);
   `make forth-metrics` reports per-folder totals.
 
@@ -40,3 +42,9 @@ audit, any accepted result is *experimental — not independently audited*.
 `core/arena.fs` to `legacy/`. File names were kept. `src/leanforth.fs` (a
 one-word placeholder) was replaced by `main.fs`. Dated review records keep
 the old paths.
+
+Later the same day `legacy/` (28 files) and its tests in `tests/legacy/`
+(91 files) were deleted, with the owner's approval, once the current code
+had at least the same test coverage; what replaced each capability is in
+[the decisions record](../docs/project/DECISIONS.md) ("Legacy retired —
+2026-11-02").

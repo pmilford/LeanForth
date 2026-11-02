@@ -1,0 +1,58 @@
+Mixed level substitution: 48 matching rows; 3 repetitions
+UTC: 2026-11-02T23:23:11Z
+Platform: Linux Surefall2 6.18.54.1-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Tue Oct  6 19:13:07 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+Revision: 6f813ea06b0221e45c2d2ffdd66f19dfd598c8aa
+Worktree: dirty (revision alone does not identify inputs)
+Lean: Lean (version 4.35.0, x86_64-unknown-linux-gnu, commit eb6cafb7290e8bd5f2937522d8d804f58f02bafc, Release); git eb6cafb7290e8bd5f2937522d8d804f58f02bafc
+Forth: gforth 1.0.0 amd64
+Timer: gnu; elapsed seconds and peak RSS KiB (unavailable when unsupported)
+run implementation elapsed_s peak_RSS_KiB
+1 Lean 0.96 1596764
+1 Forth 0.01 9472
+2 Forth 0.02 9320
+2 Lean 0.96 1596784
+3 Lean 0.95 1596556
+3 Forth 0.02 9476
+Normalized output SHA-256: 844fc23602fbd1e45476204064bd38b6760306d9acb27a8fa3c961c7ef00b9f2
+Input SHA-256 (individual files):
+864ff78ae59abd20eb9789529b1dac8f099954f8cda67d41814ab118f05fee7a  scripts/profile-existing.sh
+81e13ee8b2db6ae9e5b7a5a0d8b1a3340e51a95fc5dc0f5c5c9bd4a26f091006  tests/reference/term-level-substitute-table.lean
+89bd79f2659a3b87329bc83dcff21a1ebfd2ed53c138f6009039bc36cab7caa8  tests/core/mixed-level-substitute-plain-table.fs
+6b8f9caa2f33aa48a3b786f36ff56b1d715e512e811239796f779980b8268e62  src/core/constant-references.fs
+97fcb26d9a63bf40d316dbb48a79405b0dc64bf4f1f171f7b5c00818c074c3ba  src/core/constant-term-boundary.fs
+d5cf84f0e40d1fd3dafd0881e1c1ebc060c33485c5b65580f3d3e3bfab9aadaa  src/core/constant-term-scope.fs
+3b19a4bac6eb2938e0ec101d2c098f68f06eaf5dbdeaf3332f3509c963378587  src/core/generation-handles.fs
+e9aed41e9d305c28456fa3ce7afaec7a3d8efa514d9fe7ec75672fbd9ce26317  src/core/level-scope.fs
+7a31ae4c14e6cce5eb6fe7a6aceb80fcc0f9b30f001b56813fb115af2b191d99  src/core/levels.fs
+db57a6d15ea61cb2bf2b2ac6fd82b7d3dfe23b9540b1944f99791236a5cf935b  src/core/names.fs
+84e7b11138045637b47af3e73c988c45220e4a55121d59a079be8501ee1d6d74  src/core/symbolic-session.fs
+7baf71aef04deeea866885cf0ad3cc4c622571aff940fe8a1386d6b9b7c6c744  src/core/tagged-sort-boundary.fs
+4922fb0d5752b3c06ffad5147a3a66ce827db10fa1a3acc910ae8b13ba0990bd  src/core/terms.fs
+1c263742fdf01b35921185491552d32ee851bd288b41fedc2627dd597f9dc825  src/import/load.fs
+12d171934206d546efe006dddb2ac8212a47397a4036266eb4169207883f33e1  src/kernel/level-compare.fs
+e5a5cfec76c766e28a8c1dc4f4855eae4ccd00ea3213621d65393721f64c9de4  src/kernel/level-substitute.fs
+6bdc30fa30f1e3878eae748015d7cba52f5908e126bd2187b666f9bcc89fa214  src/kernel/level-value.fs
+cdd2dc2fc3fd3e3c4f6879b20e1554010c1795d334cad380ddc2fd181e2d72b5  src/kernel/mixed-beta.fs
+c92ca2e267e67a4a84168ab458c5356b37afaa8b12d5dd64ec73e2afe2b402ba  src/kernel/mixed-compare.fs
+c1b48024918fe22b92f742a6af619875ac04955449fda0d08d48c0752cd355e4  src/kernel/mixed-convert.fs
+034e8f58d155460cee6dfa3d97a34f2689fb64b112aadee638fd61392f1dc6c9  src/kernel/mixed-definition-probe.fs
+d0414c27c0c79c4f3ed81e45360a7ede0fdafd7eda4f32406f62db4e6fa0193a  src/kernel/mixed-infer.fs
+562b989b5fb113cb9d631a6b747cb68f10778cc889b3a2893c84fe90fe6fcbb6  src/kernel/mixed-instantiate.fs
+e99200051aa1dd256a030880cae9ae8495b3f34804bea241963cad3c6e9ce886  src/kernel/mixed-level-substitute.fs
+c4afba82a8668fd3dc3f15a3a8c48d0d0028ad8e3e784c965d87fd6c8d428ef9  src/kernel/mixed-shift.fs
+d0231cc5eac5efff6c5ec4184b8b78d659bc247d66b49548ff42cc175b1a0b9b  src/kernel/mixed-signature-audit.fs
+43ae53d0014f6f895870efd9ec8942b37247493f3f1388fc50e793bcdcfa5925  src/kernel/mixed-signature-probe.fs
+8932c04712c45b416dd21340cf5e592f67c2969c5d2e365826296545abc6335c  src/lib/bounds.fs
+0759e1a37f52130247a3a3639c328e40717a02e1b8367e94a8228f02a2887646  src/lib/context.fs
+0a2e6e3ce6299d84235aa2e3bed9cf7558248fa428e7207f766c28c7584c0577  src/lib/frame.fs
+09bffefca8d10c9bbc9ce703f08219bf05cfe9c5208eab42e679804b89057e38  src/lib/lib.fs
+74e8be1aca61cf09a54e9f15e327e8e7eb0350e147e3f79eb7ee8ae8e02a6bbb  src/lib/node.fs
+1a268ffb754eb0af8e64edad6c41481c4728829bdeb38d7662b585abfd67a11b  src/lib/outcome.fs
+e8fb84bc147b939cccdcfcbd3a22d74365565acad2347f90969d6bca324b21b3  src/lib/portability.fs
+784197088274d8e67571bb45f927a5c768aafccab2c49608209e92639dec9ee0  src/lib/store.fs
+ba3255abab63d4408e04fa556948f20335002e66c89edff81bf78ff78cf57bf9  src/lib/task.fs
+40d0b109eb41f02a576aec6fdf2454941057bf57dd44b228c68f87e48bb1c4ac  src/lib/walk.fs
+d4359f6ff9ec13c15a0dba9c85f36512e62329fa399eeaf0b6a95b6ada236c33  src/main.fs
+e4444161f4a3436b1a4509338e15fe2aeb47cab1f4327069e31b401bf1dc6a30  src/program/clamp.fs
+72f5575434335d59800f4f0f8ce91983ffd686d34fee4539ca2d207936fb5583  src/program/examples.fs
+1a1015067f20a4bf9d122dfc5fe750adf72a56fb2ae9ddcc5260c05992d7b0db  src/program/program-depth.fs

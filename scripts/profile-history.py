@@ -11,6 +11,10 @@ import sys
 
 ROOT = Path(__file__).resolve().parent.parent
 ROW = re.compile(r"^(\d+) (Lean|Forth) ([0-9.]+) ([0-9]+|unavailable)$")
+# The workload names a timing series; only records of the same series are
+# compared. Until 2026-11-02 the series was "term-level-substitution-48",
+# timed on the retired legacy Forth table; its timings are not comparable.
+WORKLOAD = "mixed-level-substitution-48"
 
 
 def main():
@@ -36,8 +40,10 @@ def main():
     if args.history.exists():
         with args.history.open(encoding="utf-8") as stream:
             for line in stream:
-                previous = json.loads(line)
-    record = {"schema": 1, "workload": "term-level-substitution-48",
+                entry = json.loads(line)
+                if entry.get("schema") == 1 and entry.get("workload") == WORKLOAD:
+                    previous = entry
+    record = {"schema": 1, "workload": WORKLOAD,
               "recorded_utc": datetime.now(timezone.utc).isoformat(),
               "samples": samples, "raw_report": result.stdout}
     args.history.parent.mkdir(parents=True, exist_ok=True)
@@ -49,7 +55,7 @@ def main():
         rss = [row["peak_rss_kib"] for row in rows if row["peak_rss_kib"] is not None]
         memory = f"{statistics.median(rss):,.0f} KiB" if rss else "unavailable"
         print(f"{label}: median {seconds:g} s; peak RSS median {memory}")
-        if previous and previous.get("schema") == 1 and previous.get("workload") == record["workload"]:
+        if previous:
             old = previous.get("samples", {}).get(label, [])
             if old:
                 old_time = statistics.median(row["seconds"] for row in old)

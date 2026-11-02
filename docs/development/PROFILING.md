@@ -9,16 +9,20 @@ any toolchain-specific environment yourself, for example `ELAN_HOME`; no home
 directory or local installation layout is assumed. The script needs Bash,
 standard Unix utilities, Git, SHA-256, Lean and Gforth; it adds no dependency.
 
-Each repetition independently runs the existing Lean and Forth term-level
-substitution tables. It verifies 48 rows, normalizes whitespace as the existing
-differential test does, compares the two outputs, and checks consistency across
-repetitions. Workload failure or output mismatch stops before the report;
+Each repetition independently runs the Lean and Forth universe-substitution
+tables of `make test-mixed-level-substitute-plain-differential`:
+`tests/reference/term-level-substitute-table.lean` (Lean's
+`instantiateLevelParams`) and `tests/core/mixed-level-substitute-plain-table.fs`
+(the current `lf-mixed-level-substitute`). It verifies 48 rows, normalizes
+whitespace as that differential test does, compares the two outputs, and
+checks consistency across repetitions. Workload failure or output mismatch stops before the report;
 a later metadata failure can leave a partial report. The report
 contains individual elapsed times and peak process RSS, versions, platform,
 revision, worktree status, input file hashes and normalized output hash.
-Capture stdout to retain a record. Input hashes cover the wrapper and directly
-included Forth sources, but not runtime binaries, toolchain libraries, or the
-full environment; a dirty worktree needs additional provenance for reproduction.
+Capture stdout to retain a record. Input hashes cover the wrapper, both
+tables and every tracked Forth source under `src/` (the Forth table loads
+`src/main.fs`), but not runtime binaries, toolchain libraries, or the full
+environment; a dirty worktree needs additional provenance for reproduction.
 
 If compatible `/usr/bin/time` is available on Linux, elapsed time and maximum
 RSS are reported per process in KiB. Otherwise Bash's elapsed timer is
@@ -54,8 +58,27 @@ successive numbers incomparable; inspect the saved raw reports. These small
 samples have coarse timing resolution. Stage-level time and arena-memory
 instrumentation are still planned.
 
-A [local two-repetition sample](measurements/substitution-profile-2026-11-01.txt)
-was run from the repository root with:
+Each record names its workload, and a record is compared only with the
+previous record of the same workload. The workload is
+`mixed-level-substitution-48` from 2026-11-02, a new timing series. Until then
+it was `term-level-substitution-48`, which timed the same Lean table against a
+superseded Forth implementation that was retired on 2026-11-02; its timings
+are not comparable with the new series, and old records stay in the history
+file only as history.
+
+The first sample of the new series is a
+[local three-repetition run](measurements/mixed-substitution-profile-2026-11-02.txt)
+of `make profile-existing` with the pinned toolchains under `.tools/`. The
+Forth table took 0.01–0.02 s and Lean's about 0.95 s, almost all of it
+process start-up and loading; this is not a measure of checking speed. The
+worktree was dirty (the change that introduced the new workload was not yet
+committed); the report lists the hash of every input. The sample's
+normalized output has the same SHA-256 as the old series' (`844fc236…`): the
+current and the retired implementation print the same 48 rows.
+
+The last sample of the old series, a
+[local two-repetition sample](measurements/substitution-profile-2026-11-01.txt)
+of the retired implementation, was run from the repository root with:
 
 ```sh
 ELAN_HOME="$PWD/.tools/elan" libccnameddir=/tmp/leanforth-gforth-libcc \
@@ -63,6 +86,6 @@ ELAN_HOME="$PWD/.tools/elan" libccnameddir=/tmp/leanforth-gforth-libcc \
   bash scripts/profile-existing.sh 2
 ```
 
-The recorded worktree was dirty; the report includes source hashes and is not
-a general performance comparison. It does not establish CI status or benchmark
+Both recorded worktrees were dirty; the reports include source hashes and are
+not general performance comparisons. It does not establish CI status or benchmark
 trusted proof checking.
