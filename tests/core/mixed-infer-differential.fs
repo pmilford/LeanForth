@@ -15,6 +15,7 @@ include ../../src/kernel/mixed-signature-probe.fs
 include ../../src/core/constant-term-scope.fs
 include ../../src/kernel/mixed-signature-audit.fs
 include ../../src/kernel/mixed-compare.fs
+include ../../src/kernel/mixed-rebuild.fs
 include ../../src/kernel/mixed-shift.fs
 include ../../src/kernel/mixed-instantiate.fs
 include ../../src/kernel/mixed-beta.fs

@@ -10,6 +10,7 @@ include ../../src/core/symbolic-session.fs
 include ../../src/core/generation-handles.fs
 include ../../src/core/constant-references.fs
 include ../../src/core/constant-term-boundary.fs
+include ../../src/kernel/mixed-rebuild.fs
 include ../../src/kernel/mixed-shift.fs
 include ../../src/kernel/mixed-instantiate.fs
 include ../../src/kernel/mixed-beta.fs
@@ -57,7 +58,8 @@ T{ lf-term-serial @ -> serial-before @ }T
 6 lf-term-identity drop rootid !
 T{ 6 rootid @ -1 lf-mixed-beta -> -1 0 lf-mbeta-invalid }T
 T{ 6 rootid @ 0 lf-mixed-beta -> -1 0 lf-mbeta-exhausted }T
-T{ 6 0 500 lf-mixed-beta -> -1 0 lf-mbeta-invalid }T
+\ A failed audit leaves no fuel.
+T{ 6 0 500 lf-mixed-beta lf-mbeta-fuel @ -> -1 0 lf-mbeta-invalid 0 }T
 \ Find exhaustion after allocation and check atomic rollback and serial use.
 : rollback-probe ( -- flag )
   500 1 do
@@ -93,12 +95,11 @@ T{ 9 lf-term-read -> lf-tag-lam 0 8 true }T
 T{ 9 lf-term-serial @ 100 lf-cterm-check -> lf-repr-ok }T
 lf-cref-reset
 T{ 7 7 lf-term-identity drop 500 lf-mixed-beta -> -1 0 lf-mbeta-invalid }T
-\ The deepest nesting the store allows: R = app(F, L) with F = lam(c, L)
-\ and L = m lambdas over bvar m. Contracting R instantiates L (m+1 frames
-\ deep) and shifts L inside it (m+1 more). With m = 57 the store is full
-\ and the shift exhausts at the bottom, 117 frames deep, without
-\ overflowing the host's stacks; with m = 18 everything fits. The fuel
-\ cells of all three passes end equal.
+\ Deep nesting: R = app(F, L) with F = lam(c, L) and L = m lambdas over
+\ bvar m. Contracting R instantiates L (m+1 frames deep) and shifts L
+\ inside it (m+1 more). After this file's four-node setup, m = 57 fills the
+\ store and the shift exhausts at the bottom, 117 frames deep; with m = 18
+\ everything fits. The fuel cells of all three passes end equal.
 : lams ( body n -- node ) 0 ?do 0 swap lf-term-lam 0= abort" lam" loop ;
 : deep ( m -- root identity )
   setup >r r@ lf-term-bvar 0= abort" bvar" r> lams
@@ -110,4 +111,40 @@ T{ 57 deep 100000 ' lf-mixed-beta rs-checked fuels lf-term-count @ ->
 T{ 18 deep 100000 ' lf-mixed-beta rs-checked fuels ->
   61 lf-term-serial @ lf-mbeta-ok 99699 99700 99700 }T
 T{ 61 lf-term-read -> lf-tag-lam 0 60 true }T
+\ The deepest nesting found for a 64-node store: from a store holding only
+\ the constant c, R = app(T, T) with T = 61 lambdas over bvar 60. The
+\ contraction instantiates T's body (61 frames) and shifts T inside it (62
+\ frames), 124 frames in all; the store fills and the shift exhausts at
+\ the bottom without overflowing the host's stacks (about 700 return-stack
+\ and 500 data-stack cells, measured).
+: setup1 ( -- )
+  lf-name-reset lf-level-reset lf-term-reset lf-lscope-context-reset lf-cref-reset
+  lf-ssession-begin 0= abort" session" 0 s" x" lf-name-str 0= abort" name" drop
+  0 args ! 0 lf-level-identity 0= abort" level" args cell+ !
+  0 lf-name-generation @ args 1 lf-cref-new 0= abort" cref"
+  lf-cterm-new 0= abort" c" 2drop ;
+: twin ( m -- root identity )
+  setup1 dup 1- lf-term-bvar 0= abort" bvar" swap lams
+  dup lf-term-app 0= abort" R" dup lf-term-identity drop ;
+T{ 61 twin 100000 ' lf-mixed-beta rs-checked fuels lf-term-count @ ->
+  -1 0 lf-mbeta-exhausted 99020 99020 99020 64 }T
+T{ 60 twin 100000 lf-mixed-beta fuels lf-term-count @ ->
+  -1 0 lf-mbeta-exhausted 99036 99036 99036 63 }T
+
+\ Records in use. A record left busy (by a THROW out of a pass, or a pass
+\ asked again from inside itself) refuses its pass as invalid, changing
+\ nothing a running pass relies on, so the outer pass fails closed;
+\ lf-mixed-rebuild-reset makes the three records idle again.
+setup
+T{ 3 0 lf-term-app -> 4 true }T
+T{ 4 lf-term-serial @ 200 lf-mixed-beta -> 0 cid @ lf-mbeta-ok }T
+1 lf-minst-frames frame-depth !
+T{ 4 lf-term-serial @ 200 lf-mixed-beta lf-term-count @ -> -1 0 lf-mbeta-invalid 5 }T
+1 lf-mbeta-frames frame-depth !  1 lf-mshift-frames frame-depth !
+T{ 4 lf-term-serial @ 200 lf-mixed-beta -> -1 0 lf-mbeta-invalid }T
+T{ 0 cid @ 0 1 9 lf-mixed-shift -> -1 0 lf-mshift-invalid }T
+lf-mixed-rebuild-reset
+T{ lf-mbeta-frames frame-busy? lf-minst-frames frame-busy? lf-mshift-frames frame-busy? ->
+  false false false }T
+T{ 4 lf-term-serial @ 200 ' lf-mixed-beta rs-checked -> 0 cid @ lf-mbeta-ok }T
 bye

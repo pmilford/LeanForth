@@ -1,9 +1,11 @@
 \ Randomized model tests of the general Forth library (src/lib): long
 \ random sequences of store operations compared after every step with a
-\ simple independent model, and random DAG walks compared with recursive
-\ definitions of the visit visit-order, the fuel used and the deepest context.
-\ Also direct cases for public words that tests/lib/lib.fs reaches only
-\ indirectly. The generator is deterministic and cell-size neutral.
+\ simple independent model, random DAG walks compared with recursive
+\ definitions of the visit visit-order, the fuel used and the deepest context,
+\ and random recursive visits through frame records compared with a direct
+\ recursive model. Also direct cases for public words that tests/lib/lib.fs
+\ reaches only indirectly. The generator is deterministic and cell-size
+\ neutral.
 include ../support/tester.fs
 include ../support/checks.fs
 include ../../src/lib/lib.fs
@@ -181,4 +183,116 @@ T{ 9 ' dag-visit w2 walk-run -> outcome-ok }T
 10 chain-second
 1000 w9 walk-budget drop 1000 w8 walk-budget drop
 T{ 9 ' dag-visit w9 walk-run 9 ' dag-visit w8 walk-run -> outcome-ok outcome-exhausted }T
+
+\ ---------------------------------------------------------------------------
+\ Frame model: random DAGs as above, visited recursively through a frames
+\ record. The visitor's result for node k at context c is c+1 for a leaf
+\ and the sum of its children's results otherwise, the second child one
+\ context level deeper. A direct recursive model with explicit fuel and
+\ depth counters must agree on the outcome, the result, the fuel left, the
+\ deepest frame and the record afterwards, for random fuel and limits
+\ (too little of either, a corrupted limit), contexts near max-n, negative
+\ fuel and busy records. A second visitor of two values (frame-call2)
+\ compares the trees below two nodes.
+
+variable m-fuel  variable m-limit  variable m-deepest
+: model-open? ( depth -- flag ) m-limit @ < m-fuel @ 0> and ;
+: model-enter ( depth -- depth' ) -1 m-fuel +! 1+ dup m-deepest @ max m-deepest ! ;
+\ Node k at context c with d frames in use: its result and true, or false.
+: model-frame ( c d k -- r true | false )
+  over model-open? 0= if drop 2drop false exit then
+  swap model-enter swap dup 2 < if 2drop 1+ true exit then
+  >r 2dup r@ g-first@ recurse 0= if 2drop r> drop false exit then
+  -rot swap dup max-n = if 2drop drop r> drop false exit then
+  1+ swap r> g-second@ recurse if + true else drop false then ;
+\ Whether the trees below a and b are equal, d frames in use.
+: model-same ( a b d -- outcome )
+  dup model-open? 0= if drop 2drop outcome-exhausted exit then model-enter >r
+  2dup = if 2drop r> drop outcome-ok exit then
+  2dup min 2 < if 2drop r> drop outcome-rejected exit then
+  2dup g-first@ swap g-first@ r@ recurse dup ok? 0= if nip nip r> drop exit then drop
+  g-second@ swap g-second@ r> recurse ;
+
+
+\ The words under test: the same results through frame-call, frame-under
+\ and frame-call2. f-deepest records the most frames in use at a visit.
+variable f-deepest
+: f-note ( frames -- ) frame-depth @ f-deepest @ max f-deepest ! ;
+: fdag-visit ( k frames -- result outcome )
+  dup f-note over 2 < if nip frame-context @ 1+ outcome-ok exit then
+  over g-first@ over frame-call ok-keep2? 0= if exit then
+  -rot swap g-second@ swap frame-under ok-keep? if + outcome-ok then ;
+: fsame-visit ( a b frames -- outcome )
+  dup f-note >r 2dup = if 2drop r> drop outcome-ok exit then
+  2dup min 2 < if 2drop r> drop outcome-rejected exit then
+  2dup g-first@ swap g-first@ r@ frame-call2 dup ok? 0= if nip nip r> drop exit then drop
+  g-second@ swap g-second@ r> frame-call2 ;
+gmax 1+ ' fdag-visit frames: gf
+gmax 1+ ' fsame-visit frames: gs
+
+\ Random parameters: usually enough fuel and frames for the visit, else
+\ any amount up to that, or a negative fuel or a limit corrupted to -1; a
+\ small context, or one near max-n.
+variable p-fuel  variable p-limit  variable p-context  variable m-result
+: height ( k -- h ) dup 2 < if drop 1 exit then
+  dup g-first@ recurse swap g-second@ recurse max 1+ ;
+: some-amount ( need -- n )
+  8 lm-rnd ?dup 0= if drop -1 exit then 1 = if 1+ lm-rnd else 3 lm-rnd + then ;
+: random-fuel ( k -- fuel ) paths some-amount ;
+: random-limit ( k -- limit ) height some-amount ;
+: random-context ( -- c ) 4 lm-rnd if 9 lm-rnd else max-n 3 lm-rnd - then ;
+: random-params ( k -- )
+  dup random-fuel p-fuel ! random-limit p-limit ! random-context p-context ! ;
+\ Set both the model and a record to the parameters.
+: start ( frames -- )
+  p-fuel @ over frame-budget drop p-limit @ swap frame-limit !
+  p-fuel @ m-fuel ! p-limit @ m-limit ! 0 m-deepest ! 0 f-deepest ! ;
+\ After a pass the record holds the model's fuel, is idle, and its visits
+\ went as deep as the model's.
+: same-record? ( frames -- flag )
+  dup frame-fuel @ m-fuel @ = swap frame-depth @ 0= and f-deepest @ m-deepest @ = and ;
+\ A refused budget returns false and stores nothing.
+: refused? ( fuel frames -- flag )
+  dup frame-fuel @ >r tuck frame-budget 0= swap frame-fuel @ r> = and ;
+
+\ One pass from root: the model's result and ok, or -1 and exhausted.
+variable frame-oks  variable frame-fails
+: model-run ( root -- flag ) >r p-context @ 0 r> model-frame dup if swap m-result ! then ;
+: agree? ( result outcome flag -- flag )
+  if ok? swap m-result @ = and 1 frame-oks +!
+  else outcome-exhausted = swap -1 = and 1 frame-fails +! then ;
+: check-run ( root -- )
+  gf start dup model-run >r p-context @ gf frame-run r> agree?
+  0= if s" frame result" fail then
+  gf same-record? 0= if s" frame record" fail then
+  gf frame-context @ p-context @ <> if s" frame context" fail then ;
+: check-frame ( root -- )
+  dup random-params p-fuel @ 0<
+  if drop p-fuel @ gf refused? 0= if s" negative budget" fail then else check-run then ;
+\ A busy record refuses a budget and a pass, visiting nothing.
+: check-busy ( root frames -- )
+  1 over frame-depth !  5 over refused? 0= if s" busy budget" fail then
+  0 f-deepest !  tuck 7 swap frame-run outcome-invalid <> swap -1 <> or
+  f-deepest @ or if s" busy run" fail then  frame-reset ;
+\ Two nodes compared through frame-call2.
+create same-counts 6 cells allot  same-counts 6 cells erase
+: count-same ( outcome -- ) cells same-counts + 1 swap +! ;
+: check-same ( a b -- )
+  over random-params p-fuel @ 0< if 2drop exit then
+  gs start 2dup 0 model-same >r 0 gs frame-start drop gs frame-call2
+  dup count-same r> <> if s" same outcome" fail then
+  gs same-record? 0= if s" same record" fail then ;
+: some-node ( root -- k ) 1+ lm-rnd ;
+: frame-round ( n -- )
+  dup random-dag 1- dup check-frame dup check-frame
+  8 lm-rnd 0= if dup gf check-busy then
+  dup some-node over some-node check-same dup dup some-node check-same drop ;
+0 failures !  0 frame-oks !  0 frame-fails !
+: run-frames ( -- ) 600 0 do 3 13 lm-rnd + frame-round loop ;
+run-frames
+T{ failures @ -> 0 }T
+\ Every kind of ending was reached.
+T{ frame-oks @ 0> frame-fails @ 0> -> true true }T
+T{ same-counts @ 0> outcome-rejected cells same-counts + @ 0>
+  outcome-exhausted cells same-counts + @ 0> -> true true true }T
 bye

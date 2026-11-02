@@ -1,56 +1,72 @@
 \ Untrusted capture-avoiding single-binder instantiation of mixed terms.
 \ Load mixed-shift.fs and its dependencies first. This is syntax
 \ transformation, not type checking or theorem acceptance.
-\ State: one frame record, lf-minst-frames (fuel, nesting, the binder depth
-\ as its context, the replacement, the starting term count). The
-\ replacement is shifted on mixed-shift's record. Not re-entrant and
-\ single-threaded; callers must not mutate the stores concurrently.
+\ State: one job record, lf-minst-job (fields lf-instjob-*): the pass's
+\ frames (fuel, nesting, and the binder depth as context), the replacement
+\ and the term count before the pass. The replacement is shifted on
+\ mixed-shift's record. Not re-entrant and single-threaded; callers must
+\ not mutate the stores concurrently.
 
 outcome-ok constant lf-minst-ok
 outcome-invalid constant lf-minst-invalid
 outcome-exhausted constant lf-minst-exhausted
-lf-term-capacity frames: lf-minst-frames
 
+begin-structure /lf-instjob
+  /frames +field lf-instjob-frames   \ fuel, nesting, the binder depth as context
+  field: lf-instjob-replacement      \ the term put in for the target variable
+  field: lf-instjob-start            \ term count before the pass
+end-structure
+create lf-minst-job /lf-instjob allot
+
+: lf-minst-frames ( -- frames ) lf-minst-job lf-instjob-frames ;
 \ Fuel left after an instantiation; mixed-beta and mixed-infer continue
 \ with it.
 : lf-minst-fuel ( -- addr ) lf-minst-frames frame-fuel ;
-: lf-minst-replacement ( -- addr ) lf-minst-frames frame-arg ;
-: lf-minst-start ( -- addr ) lf-minst-frames frame-mark ;
-: lf-minst-depth ( -- depth ) lf-minst-frames frame-context @ ;
+: lf-minst-replacement ( -- addr ) lf-minst-job lf-instjob-replacement ;
+: lf-minst-start ( -- addr ) lf-minst-job lf-instjob-start ;
 
 \ Only nodes of the original input, below the starting count, are visited,
-\ and a child must precede its parent.
-: lf-minst-old? ( index -- flag ) dup 0< 0= swap lf-minst-start @ < and ;
-: lf-minst-child? ( child node -- flag ) over > swap lf-minst-old? and ;
-: lf-minst-children? ( node first second -- node flag )
-  rot tuck lf-minst-child? >r tuck lf-minst-child? r> and ;
+\ and a child must precede its parent (so it is old too).
+: lf-minst-old? ( node frames -- flag ) frame-job @ lf-instjob-start @ 0 swap within ;
+: lf-minst-readable? ( node frames -- flag )
+  over swap lf-minst-old? swap lf-term-valid? and ;
+: lf-minst-below? ( child node -- flag ) 0 swap within ;
+: lf-minst-first? ( node -- flag ) dup lf-term-first@ swap lf-minst-below? ;
+: lf-minst-second? ( node -- flag ) dup lf-term-second@ swap lf-minst-below? ;
+: lf-minst-children? ( node -- flag ) dup lf-minst-first? swap lf-minst-second? and ;
 
 \ Bound variables at binder depth d: a local one (index below d) is kept;
 \ the target (index d) becomes the replacement shifted by d, with the
 \ remaining shared fuel; outer ones are lowered by one. A negative index or
 \ a nonzero second field is malformed.
-: lf-minst-replace ( -- result outcome )
-  lf-minst-replacement @ lf-minst-depth lf-minst-frames lf-mshift-inside ;
-: lf-minst-lower ( index -- result outcome ) 1- lf-term-bvar lf-mshift-allocated ;
-: lf-minst-outer ( index -- result outcome )
-  dup lf-minst-depth = if drop lf-minst-replace else lf-minst-lower then ;
-: lf-minst-variable ( node index -- result outcome )
-  dup lf-minst-depth < if drop outcome-ok else nip lf-minst-outer then ;
-: lf-minst-bvar ( node first second -- result outcome )
-  0<> over 0< or if 2drop lf-rebuild-invalid else lf-minst-variable then ;
+: lf-minst-replace ( frames -- result outcome )
+  dup frame-job @ lf-instjob-replacement @ over frame-context @ rot lf-mshift-inside ;
+: lf-minst-lower ( index -- result outcome ) 1- lf-term-bvar lf-rebuild-allocated ;
+: lf-minst-outer ( index frames -- result outcome )
+  2dup frame-context @ = if nip lf-minst-replace else drop lf-minst-lower then ;
+: lf-minst-variable ( node index frames -- result outcome )
+  2dup frame-context @ < if 2drop outcome-ok else rot drop lf-minst-outer then ;
+: lf-minst-bvar? ( node -- flag ) dup lf-term-first@ swap lf-term-second@ lf-repr-leaf? ;
+: lf-minst-bvar ( node frames -- result outcome )
+  over lf-minst-bvar? 0= if lf-rebuild-bad exit then
+  over lf-term-first@ swap lf-minst-variable ;
 
 \ Visiting one source node. Application, lambda and Pi nodes are rebuilt;
-\ any other tag is malformed. Each visit costs one unit of fuel.
-: lf-minst-binary ( node first second -- result outcome )
-  lf-minst-children?
-  if lf-minst-frames lf-rebuild-binary else drop lf-rebuild-invalid then ;
-: lf-minst-dispatch ( node first second tag -- result outcome )
-  dup lf-term-binary-tag? if drop lf-minst-binary exit then
-  dup lf-tag-bvar = if drop lf-minst-bvar exit then
-  lf-rebuild-leaf? if lf-rebuild-keep else 2drop drop lf-rebuild-invalid then ;
-: lf-minst-visit ( node -- result outcome )
-  dup lf-minst-old? 0= if drop lf-rebuild-invalid exit then
-  dup lf-term-read if rot lf-minst-dispatch else drop lf-rebuild-invalid then ;
+\ leaves are kept; any other tag is malformed. Each visit costs one unit of
+\ fuel.
+: lf-minst-binary ( node frames -- result outcome )
+  over lf-minst-children? if lf-rebuild-binary else lf-rebuild-bad then ;
+: lf-minst-leaf ( node frames tag -- result outcome )
+  case lf-tag-bvar of lf-minst-bvar endof
+    lf-tag-constant of lf-rebuild-keep endof
+    lf-tag-symbolic-sort of lf-rebuild-keep endof
+    >r lf-rebuild-bad r> endcase ;
+: lf-minst-visit ( node frames -- result outcome )
+  2dup lf-minst-readable? lf-rebuild-tag
+  dup lf-term-binary-tag? if drop lf-minst-binary else lf-minst-leaf then ;
+\ The visitor is set once, here.
+lf-term-capacity ' lf-minst-visit lf-minst-frames frame-init
+lf-minst-job lf-minst-frames frame-job !
 
 \ Validate both complete handles with one fuel budget before allocating, even
 \ when the replacement is unused. Roll back term allocations on every failure;
@@ -68,7 +84,9 @@ lf-term-capacity frames: lf-minst-frames
   >r 2drop 2drop r> lf-rebuild-none ;
 : lf-minst-unfueled ( source sid replacement rid -- -1 0 status )
   0 lf-minst-fuel ! outcome-invalid lf-minst-refuse ;
+: lf-minst-begin ( source replacement -- source context frames )
+  lf-minst-replacement ! lf-term-count @ lf-minst-start ! 0 lf-minst-frames ;
 : lf-mixed-instantiate ( source sid replacement rid fuel -- result id status )
   lf-minst-frames frame-budget 0= if lf-minst-unfueled exit then
   lf-minst-audit dup ok? 0= if lf-minst-refuse exit then
-  2drop lf-minst-replacement ! drop 0 ['] lf-minst-visit lf-minst-frames lf-rebuild-run ;
+  2drop nip lf-minst-begin lf-rebuild-run ;

@@ -34,6 +34,7 @@ include ../../src/legacy/validated-context-spine.fs
 include ../../src/kernel/mixed-level-substitute.fs
 include ../../src/kernel/mixed-signature-probe.fs
 include ../../src/kernel/mixed-signature-audit.fs
+include ../../src/kernel/mixed-rebuild.fs
 include ../../src/kernel/mixed-shift.fs
 include ../../src/kernel/mixed-instantiate.fs
 include ../../src/kernel/mixed-beta.fs

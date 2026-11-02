@@ -21,6 +21,16 @@
 : flag>outcome ( flag -- outcome ) true = if outcome-ok else outcome-invalid then ;
 \ Continue only on ok: keep x and give true, or replace x by the failing
 \ outcome and give false.
-: ok-then? ( x outcome -- x true | outcome false ) dup ok? if drop true else nip false then ;
+: ok-then? ( x outcome -- x true | outcome false )
+  dup ok? if drop true else nip false then ;
+\ The same for a step that gives a result, with one or two values kept
+\ below it for the next step: keep them and give true, or drop them, keep
+\ the result beside the failing outcome and give false.
+: ok-keep? ( x result outcome -- x result true | result outcome false )
+  dup ok? if drop true else rot drop false then ;
+: ok-keep2? ( x1 x2 result outcome -- x1 x2 result true | result outcome false )
+  dup ok? if drop true else 2swap 2drop false then ;
+\ A failure that has no result: -1 in the result's place.
+: no-result ( outcome -- -1 outcome ) -1 swap ;
 \ Drop an argument and report invalid input.
 : drop-invalid ( x -- outcome ) drop outcome-invalid ;

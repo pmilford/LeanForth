@@ -1,22 +1,21 @@
 \ Untrusted mixed-term weak-head beta reduction. Load mixed-instantiate.fs
 \ and its dependencies first. Handles are session-local diagnostics, not
 \ capabilities or serialized values.
-\ State: one frame record, lf-mbeta-frames (fuel, nesting, the starting
-\ term count). Each contraction runs the public instantiate pass on its own
-\ record. Not re-entrant and single-threaded; exclude concurrent mutation,
-\ resets, raw edits and nested calls.
+\ State: one frames record, lf-mbeta-frames (fuel, nesting). Each
+\ contraction runs the public instantiate pass on its own record. Not
+\ re-entrant and single-threaded; exclude concurrent mutation, resets, raw
+\ edits and nested calls.
 
 outcome-ok constant lf-mbeta-ok
 outcome-invalid constant lf-mbeta-invalid
 outcome-exhausted constant lf-mbeta-exhausted
-lf-term-capacity frames: lf-mbeta-frames
+create lf-mbeta-frames /frames allot
 
 \ Fuel left after a reduction; mixed-convert continues with it.
 : lf-mbeta-fuel ( -- addr ) lf-mbeta-frames frame-fuel ;
-: lf-mbeta-reduce ( node -- result outcome ) lf-mbeta-frames frame-call ;
 \ The fields of an application node read earlier in this visit.
-: lf-mbeta-function ( node -- function ) lf-term-slot node-first @ ;
-: lf-mbeta-argument ( node -- argument ) lf-term-slot node-second @ ;
+: lf-mbeta-function ( node -- function ) lf-term-first@ ;
+: lf-mbeta-argument ( node -- argument ) lf-term-second@ ;
 
 \ Contract a lambda body with an argument through the public instantiate
 \ pass, which continues with this pass's fuel, then reduce the result.
@@ -24,31 +23,37 @@ lf-term-capacity frames: lf-mbeta-frames
 \ which are fetched once both nodes are known to be live.
 : lf-mbeta-live? ( body argument -- flag ) lf-term-valid? swap lf-term-valid? and ;
 : lf-mbeta-handle ( node -- node identity ) dup lf-term-identity drop ;
-: lf-mbeta-instantiate ( body argument -- result outcome )
-  >r lf-mbeta-handle r> lf-mbeta-handle
-  lf-mbeta-fuel @ lf-mixed-instantiate lf-minst-fuel @ lf-mbeta-fuel ! nip ;
-: lf-mbeta-contract ( body argument -- result outcome )
-  2dup lf-mbeta-live? 0= if 2drop lf-rebuild-invalid exit then
-  lf-mbeta-instantiate dup ok? if drop lf-mbeta-reduce then ;
+: lf-mbeta-handles ( body argument -- body bid argument aid )
+  >r lf-mbeta-handle r> lf-mbeta-handle ;
+: lf-mbeta-instantiate ( body argument frames -- result outcome )
+  >r lf-mbeta-handles r@ frame-fuel @ lf-mixed-instantiate nip
+  lf-minst-fuel @ r> frame-fuel ! ;
+: lf-mbeta-contract ( body argument frames -- result outcome )
+  >r 2dup lf-mbeta-live? 0= if 2drop r> drop lf-rebuild-invalid exit then
+  r@ lf-mbeta-instantiate dup ok? if drop r> frame-call else r> drop then ;
 
 \ After the function reduced to the head r: a lambda head contracts with
 \ the argument, an unchanged head keeps the node, and any other head is
 \ applied to the argument.
 : lf-mbeta-apply ( node r -- result outcome )
   over lf-mbeta-function over = if drop outcome-ok
-  else swap lf-mbeta-argument lf-term-app lf-mshift-allocated then ;
-: lf-mbeta-head ( node r -- result outcome )
-  dup lf-term-read 0= if 2drop lf-rebuild-invalid exit then
-  nip swap lf-tag-lam = if nip swap lf-mbeta-argument lf-mbeta-contract
-  else drop lf-mbeta-apply then ;
+  else swap lf-mbeta-argument lf-term-app lf-rebuild-allocated then ;
+: lf-mbeta-lambda? ( node -- flag ) lf-term-tag@ lf-tag-lam = ;
+: lf-mbeta-head ( node frames r -- result outcome )
+  dup lf-term-valid? 0= if drop lf-rebuild-bad exit then
+  dup lf-mbeta-lambda? if lf-term-second@ rot lf-mbeta-argument rot lf-mbeta-contract
+  else nip lf-mbeta-apply then ;
 
 \ Visit the function spine only; anything but an application is its own
 \ head. Each visit costs fuel; instantiation's audits, traversal and shifts
 \ share it.
-: lf-mbeta-visit ( node -- result outcome )
-  dup lf-term-read 0= if drop lf-rebuild-invalid exit then
-  2drop lf-tag-app <> if outcome-ok exit then
-  dup lf-mbeta-function lf-mbeta-reduce dup ok? if drop lf-mbeta-head else rot drop then ;
+: lf-mbeta-app? ( node -- flag ) lf-term-tag@ lf-tag-app = ;
+: lf-mbeta-visit ( node frames -- result outcome )
+  over lf-term-valid? 0= if lf-rebuild-bad exit then
+  over lf-mbeta-app? 0= if drop outcome-ok exit then
+  over lf-mbeta-function over frame-call ok-keep2? if lf-mbeta-head then ;
+\ The visitor is set once, here.
+lf-term-capacity ' lf-mbeta-visit lf-mbeta-frames frame-init
 
 \ ( index identity fuel -- index identity status )
 \ Audit the complete mixed graph before allocating, even discarded arguments
@@ -67,4 +72,32 @@ lf-term-capacity frames: lf-mbeta-frames
 : lf-mixed-beta ( index identity fuel -- index identity status )
   lf-mbeta-frames frame-budget 0= if lf-mbeta-unfueled exit then
   2dup lf-mbeta-frames lf-rebuild-audit dup ok? 0= if lf-mbeta-refuse exit then
-  2drop 0 ['] lf-mbeta-visit lf-mbeta-frames lf-rebuild-run ;
+  2drop 0 lf-mbeta-frames lf-rebuild-run ;
+
+\ Recovery. A THROW out of any of the three rebuilding passes (such as a
+\ host stack overflow) leaves their records busy, so that every later pass
+\ refuses as invalid, and leaves in the term store whatever the pass
+\ appended. The code that catches it must discard those nodes (reset the
+\ store, or restore lf-term-count) and then make the records idle again.
+: lf-mixed-rebuild-reset ( -- )
+  lf-mbeta-frames frame-reset lf-minst-frames frame-reset lf-mshift-frames frame-reset ;
+
+\ Host stacks. A beta visit runs instantiate passes and an instantiate
+\ visit runs shift passes, each pass up to lf-term-capacity frames deep, so
+\ up to three times lf-term-capacity frames can be nested at once. By stack
+\ painting (Gforth 0.7.3 and 1.0 agree), one frame holds at most 4
+\ return-stack and 3 data-stack cells in beta, 6 and 4 in instantiate, and
+\ 5 and 4 in shift; the slack covers the entry words, the work at the
+\ deepest frame and a shallow caller. Loading stops when the host's stacks
+\ are smaller, so that no input overflows them from a shallow caller (an
+\ overflow would throw, never give ok); a caller that itself recurses must
+\ add its own need. Hosts that do not report their stack sizes are not
+\ checked.
+15 constant lf-mbeta-rs-level   \ return-stack cells: one frame of each pass
+11 constant lf-mbeta-ds-level   \ data-stack cells: one frame of each pass
+256 constant lf-mbeta-stack-slack
+: lf-mbeta-need ( cells-per-level -- cells ) lf-term-capacity * lf-mbeta-stack-slack + ;
+: lf-mbeta-fits? ( need c-addr u -- flag ) environment? if > 0= else drop true then ;
+lf-mbeta-rs-level lf-mbeta-need s" RETURN-STACK-CELLS" lf-mbeta-fits?
+lf-mbeta-ds-level lf-mbeta-need s" STACK-CELLS" lf-mbeta-fits? and
+0= [if] .( mixed-beta.fs: host stacks too small for lf-term-capacity) cr abort [then]

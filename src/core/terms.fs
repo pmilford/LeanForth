@@ -70,3 +70,8 @@ lf-tag-bvar lf-tag-sort 1+ = lf-tag-lam lf-tag-app 1+ = and lf-tag-pi lf-tag-lam
 \ Read a node's tag and fields. An invalid index returns only false and no
 \ memory is read.
 : lf-term-read ( index -- tag first second true | false ) lf-terms node-read ;
+\ One field of a node. Unchecked: the index must already be validated,
+\ for instance by an earlier lf-term-read of the same node.
+: lf-term-tag@ ( index -- tag ) lf-term-slot node-tag @ ;
+: lf-term-first@ ( index -- first ) lf-term-slot node-first @ ;
+: lf-term-second@ ( index -- second ) lf-term-slot node-second @ ;
