@@ -133,10 +133,8 @@ T{ 2 500 specialize -> lf-msp-invalid }T
 lf-msp-token drop constant token2
 lf-name-reset
 T{ token2 second actuals 2 500 lf-msp-specialize -> lf-msp-invalid }T
-\ Substitution statuses keep their meaning; an unknown or other code is invalid.
-T{ lf-mlsubst-ok lf-msp-status -> lf-msp-ok }T
-T{ lf-mlsubst-invalid lf-msp-status -> lf-msp-invalid }T
-T{ lf-mlsubst-exhausted lf-msp-status -> lf-msp-exhausted }T
-T{ 3 lf-msp-status -> lf-msp-invalid }T
-T{ 99 lf-msp-status -> lf-msp-invalid }T
+\ The statuses are the shared outcomes, with their established values.
+T{ lf-msp-ok lf-msp-invalid lf-msp-exhausted lf-msp-unknown -> 0 1 2 3 }T
+T{ lf-msp-ok lf-msp-invalid lf-msp-exhausted lf-msp-unknown
+   -> outcome-ok outcome-invalid outcome-exhausted outcome-unknown }T
 bye
