@@ -11,11 +11,17 @@
       "Bash(git diff:*)",
       "Bash(git show:*)",
       "Bash(gh run list:*)",
-      "Bash(gh run view:*)"
+      "Bash(gh run view:*)",
+      "Bash(gh run watch:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push origin main)"
     ],
     "deny": [
       "Bash(git push --force:*)",
-      "Bash(git push -f:*)"
+      "Bash(git push --force-with-lease:*)",
+      "Bash(git push -f:*)",
+      "Bash(git clean:*)"
     ]
   }
 }

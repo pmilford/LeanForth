@@ -43,6 +43,9 @@ OpenAI Codex. Codex-era docs (`docs/CODEX_HANDOFF.md`, `prompts/FIRST_CODEX_TASK
 
 ## Git
 
-- Push, remote changes and tag pushes need the user's explicit approval.
+- Commit and push to `main` automatically after each work session and at safe
+  checkpoints once `make test` passes (owner instruction, 2026-11-02; see
+  `AGENTS.md`). Then check CI. Never force-push or rewrite pushed history.
+  Remote changes and new tags still need the user's approval.
 - Commit subjects follow the existing style: short imperative sentence, no
   prefix (for example "Diagnose mixed definition type and value pairs").
