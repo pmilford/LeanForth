@@ -126,7 +126,7 @@ def main():
     expected = fixture_nodes(fixture.read_text(encoding="utf-8").splitlines())
     gforth = os.environ.get("GFORTH", "gforth")
     result = subprocess.run(
-        [gforth, "tests/core/composition-table.fs"],
+        [gforth, "tests/legacy/composition-table.fs"],
         check=True,
         text=True,
         capture_output=True,
@@ -145,7 +145,7 @@ def main():
     # public wire format. It is passed to Forth as data, never as source code.
     stream = bytes(value for index, node in enumerate(expected) for value in (index, *node))
     staged = subprocess.run(
-        [gforth, "tests/core/load-fixture-stream.fs"], input=stream,
+        [gforth, "tests/legacy/load-fixture-stream.fs"], input=stream,
         check=True, capture_output=True,
     )
     staged_rows = [tuple(map(int, line.split())) for line in staged.stdout.splitlines()]
@@ -156,7 +156,7 @@ def main():
         bytes((0, 1, 0, 0, 1, 3, 0, 1)),  # Forward child after a valid node.
     ):
         failed = subprocess.run(
-            [gforth, "tests/core/load-fixture-stream.fs"], input=bad_stream,
+            [gforth, "tests/legacy/load-fixture-stream.fs"], input=bad_stream,
             capture_output=True,
         )
         if failed.returncode == 0 or failed.stdout.strip():
@@ -164,7 +164,7 @@ def main():
     altered = bytearray(stream)
     altered[-1] = 18  # Give the outer lambda the wrong body while keeping a DAG.
     mismatch = subprocess.run(
-        [gforth, "tests/core/load-fixture-stream.fs"], input=altered,
+        [gforth, "tests/legacy/load-fixture-stream.fs"], input=altered,
         capture_output=True,
     )
     if mismatch.returncode == 0 or mismatch.stdout.strip():

@@ -14,8 +14,8 @@ if [ "$revision" != eb6cafb7290e8bd5f2937522d8d804f58f02bafc ]; then
 fi
 temporary=$(mktemp -d)
 trap 'rm -f "$temporary/lean.txt" "$temporary/forth.txt"; rmdir "$temporary"' EXIT
-"$lean" -DwarningAsError=true tests/reference/tagged-application-table.lean >"$temporary/lean.txt"
-"$gforth" tests/core/tagged-application-table.fs >"$temporary/forth.txt"
+"$lean" -DwarningAsError=true tests/legacy/tagged-application-table.lean >"$temporary/lean.txt"
+"$gforth" tests/legacy/tagged-application-table.fs >"$temporary/forth.txt"
 if [ "$(wc -l <"$temporary/lean.txt")" -ne 18 ]; then
   printf '%s\n' 'Unexpected Lean table size' >&2; exit 1
 fi

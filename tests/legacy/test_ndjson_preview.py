@@ -11,6 +11,8 @@ import sys
 import unittest
 
 sys.path.insert(0, str(Path("tests/support")))
+# test_preview_contract.py tests current code and stays in tests/core.
+sys.path.append(str(Path("tests/core")))
 from ndjson_preview import MAX_LINE, preview
 from fixture_transport import encode_concrete
 from check_composition_fixture import fixture_nodes
@@ -77,7 +79,7 @@ class PreviewTests(PreviewAssertions, unittest.TestCase):
         # Feed decoded node data, never Forth source, into the existing probe.
         stream = bytes(value for index, node in enumerate(nodes) for value in (index, *node))
         result = subprocess.run([os.environ.get("GFORTH", "gforth"),
-                                 "tests/core/load-fixture-stream.fs"],
+                                 "tests/legacy/load-fixture-stream.fs"],
                                 input=stream, capture_output=True, check=True)
         rows = [tuple(map(int, line.split())) for line in result.stdout.splitlines()]
         self.assertEqual(rows, [(index, *node) for index, node in enumerate(nodes)])
@@ -184,7 +186,7 @@ class PreviewTests(PreviewAssertions, unittest.TestCase):
         stream = bytearray(struct.pack("<III", len(nodes), 4, 6))
         for index, fields in enumerate(nodes):
             stream.extend(struct.pack("<IIII", index, *fields))
-        command = [os.environ.get("GFORTH", "gforth"), "tests/core/load-declaration-stream.fs"]
+        command = [os.environ.get("GFORTH", "gforth"), "tests/legacy/load-declaration-stream.fs"]
         result = subprocess.run(command, input=stream, capture_output=True, check=True)
         rows = result.stdout.splitlines()
         self.assertEqual(rows[0].split(), [b"0"])
@@ -238,7 +240,7 @@ class PreviewTests(PreviewAssertions, unittest.TestCase):
                 stream.extend(encoded)
             else:
                 stream.extend((index, 2, prefix, component))
-        command = [os.environ.get("GFORTH", "gforth"), "tests/core/name-fixture-stream.fs"]
+        command = [os.environ.get("GFORTH", "gforth"), "tests/legacy/name-fixture-stream.fs"]
         output = subprocess.run(command, input=stream, capture_output=True, check=True).stdout
         rows = [tuple(map(int, line.split())) for line in output.splitlines()]
         self.assertEqual(rows, list(enumerate(expected)))
@@ -295,7 +297,7 @@ class PreviewTests(PreviewAssertions, unittest.TestCase):
         self.assertEqual(rows, expected)
         context = result["declarations"][0]["levelParams"]
         stream = bytes([len(rows), len(context), *context] + [value for row in rows for value in row])
-        command = [os.environ.get("GFORTH", "gforth"), "tests/core/level-fixture-stream.fs"]
+        command = [os.environ.get("GFORTH", "gforth"), "tests/legacy/level-fixture-stream.fs"]
         output = subprocess.run(command, input=stream, capture_output=True, check=True).stdout
         self.assertEqual([tuple(map(int, line.split())) for line in output.splitlines()], expected)
         wrong_context = bytearray(stream)
@@ -421,7 +423,7 @@ class PreviewTests(PreviewAssertions, unittest.TestCase):
                         fields = (4 if tag == "lam" else 5, node["type"], node["body"])
                     expected.append((index, *fields))
                 command = [os.environ.get("GFORTH", "gforth"),
-                           "tests/core/load-declaration-stream.fs"]
+                           "tests/legacy/load-declaration-stream.fs"]
                 result = subprocess.run(command, input=stream, capture_output=True, check=True)
                 rows = result.stdout.splitlines()
                 self.assertEqual(rows[0].split(), [b"0"])
@@ -450,7 +452,7 @@ class PreviewTests(PreviewAssertions, unittest.TestCase):
         stream = bytearray(struct.pack("<III", 8, 4, 6))
         for index, fields in enumerate(nodes):
             stream.extend(struct.pack("<IIII", index, *fields))
-        command = [os.environ.get("GFORTH", "gforth"), "tests/core/load-declaration-stream.fs"]
+        command = [os.environ.get("GFORTH", "gforth"), "tests/legacy/load-declaration-stream.fs"]
         result = subprocess.run(command, input=stream, capture_output=True, check=True)
         rows = result.stdout.splitlines()
         self.assertEqual(rows[0].split(), [b"0"])

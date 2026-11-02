@@ -15,21 +15,21 @@ if [ "$revision" != eb6cafb7290e8bd5f2937522d8d804f58f02bafc ]; then
 fi
 temporary=$(mktemp -d)
 trap 'rm -f "$temporary/lean.txt" "$temporary/forth.txt"; rmdir "$temporary"' EXIT
-if ! "$lean" -DwarningAsError=true --run tests/reference/shift-table.lean >"$temporary/lean.txt"; then
+if ! "$lean" -DwarningAsError=true --run tests/legacy/instantiate-table.lean >"$temporary/lean.txt"; then
   cat "$temporary/lean.txt" >&2
   exit 1
 fi
-if ! "$gforth" tests/core/shift-table.fs >"$temporary/forth.txt"; then
+if ! "$gforth" tests/legacy/instantiate-table.fs >"$temporary/forth.txt"; then
   cat "$temporary/forth.txt" >&2
   exit 1
 fi
 if ! cmp -s "$temporary/lean.txt" "$temporary/forth.txt"; then
-  printf '%s\n' 'Lean and Forth shift tables differ' >&2
+  printf '%s\n' 'Lean and Forth instantiation tables differ' >&2
   diff -u "$temporary/lean.txt" "$temporary/forth.txt" >&2 || true
   exit 1
 fi
-if [ "$(wc -l <"$temporary/lean.txt")" -ne 80 ]; then
-  printf '%s\n' 'Unexpected shift table size' >&2
+if [ "$(wc -l <"$temporary/lean.txt")" -ne 25 ]; then
+  printf '%s\n' 'Unexpected instantiation table size' >&2
   exit 1
 fi
-printf '%s\n' 'Lean and Forth agree on 80 bounded shift cases.'
+printf '%s\n' 'Lean and Forth agree on 25 bounded instantiation cases.'

@@ -32,7 +32,7 @@ are planned and do not exist yet.
 
 ## `development/` — contributing, testing and tooling
 
-- [TESTING_STRATEGY.md](development/TESTING_STRATEGY.md) — test layers, harness and CI.
+- [TESTING_STRATEGY.md](development/TESTING_STRATEGY.md) — test layers, harness and CI; the tests of superseded code in `tests/legacy/`.
 - [FORTH_STYLE.md](development/FORTH_STYLE.md) — the project's Forth style rules: short words, the stack over globals, structures, one error convention.
 - [FORTH_REVIEWER.md](development/FORTH_REVIEWER.md) — checklist for reviewing Forth changes.
 - [FORTH_LIBRARY.md](development/FORTH_LIBRARY.md) — inventory of reusable Forth facilities and what is still missing.

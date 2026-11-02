@@ -5,14 +5,14 @@ from pathlib import Path
 import subprocess
 import sys
 
-sys.path.insert(0, "tests/core")
+sys.path.insert(0, "tests/legacy")
 from test_poly_specialization import specialization_stream
 from ndjson_preview import preview
 
 
 def main():
     decoded = preview(io.BytesIO(Path("tests/reference/poly-identity.ndjson").read_bytes()))
-    command = [os.environ.get("GFORTH", "gforth"), "tests/core/specialize-fixture-stream.fs"]
+    command = [os.environ.get("GFORTH", "gforth"), "tests/legacy/specialize-fixture-stream.fs"]
     claim = decoded["declarations"][0]["type"]
     for level in range(4):
         for kind in range(2):

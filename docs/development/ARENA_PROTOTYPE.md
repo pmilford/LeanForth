@@ -55,7 +55,7 @@ must never be retained across a reset. The prototype is global, mutable and not
 thread-safe. Its raw address word assumes a valid index; it must not be exposed
 to untrusted inputs. Cell layout is host-specific and is not serialization.
 
-`make test-core` exercises construction, cell layout, invalid references,
+`make test-legacy` exercises construction, cell layout, invalid references,
 capacity and reset through the Gforth test harness. Future designs must address
 ownership, stale handles, input validation, portability, resource limits and
 an audited logical representation. Any change that confers proof validity
@@ -113,7 +113,7 @@ for trusted use, and its reliance on host cells, return-stack space and Forth
 runtime behavior remains an assumption.
 
 `make test-shift-differential` compares 80 bounded shifts on five expression
-shapes against pinned Lean's `Expr.liftLooseBVars`. `make test-core` also tests
+shapes against pinned Lean's `Expr.liftLooseBVars`. `make test-legacy` also tests
 invalid references, malformed fields, exhaustion, rollback and signed-cell
 overflow. These are finite tests, not a proof of the transformation.
 
@@ -127,7 +127,7 @@ arena capacity even for an unused replacement, so resource exhaustion is a
 possible conservative result.
 
 `make test-instantiate-differential` compares 25 open-expression cases against
-Lean's `Expr.instantiate1`. `make test-core` tests capture avoidance, lowering,
+Lean's `Expr.instantiate1`. `make test-legacy` tests capture avoidance, lowering,
 invalid source and replacement nodes, allocation failure, fuel exhaustion and
 rollback. This finite evidence does not constitute a soundness proof or human
 review for trusted kernel use.
@@ -141,7 +141,7 @@ checker. Unknown comparisons, malformed nodes and exhausted resources do not
 produce successful inference. The full Lean/Mathlib feature set is unsupported.
 
 The local Forth suite tests identity, universe cases, invalid inputs and a
-manually constructed composition DAG. `make test-composition-fixture` uses a
+manually constructed composition DAG. `make test-legacy` uses a
 test-only Python inspector to compare its 21 node records with the pinned Lean
 NDJSON fixture. This inspector is not a general importer, does not register
 declarations and cannot confer theorem validity. A separate human review is
@@ -193,7 +193,7 @@ not imported declarations or a measure of full Lean compatibility.
 experimental instantiation and shift modules. It validates input structure,
 tracks a finite visit budget and rolls back allocation count on failure. Its
 global mutable state, bounded host recursion and host-cell assumptions remain
-untrusted. `tests/core/beta.fs` checks identity reduction, stuck applications,
+untrusted. `tests/legacy/beta.fs` checks identity reduction, stuck applications,
 unreduced lambda bodies, a nonterminating untyped term and several failure paths
 on two Gforth versions. `make test-beta-differential` compares 15 closed,
 Lean-kernel-type-checked cases with `Lean.Kernel.whnf`. This finite comparison

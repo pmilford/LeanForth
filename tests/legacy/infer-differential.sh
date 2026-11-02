@@ -15,11 +15,11 @@ if [ "$revision" != eb6cafb7290e8bd5f2937522d8d804f58f02bafc ]; then
 fi
 temporary=$(mktemp -d)
 trap 'rm -f "$temporary/lean.txt" "$temporary/forth.txt" "$temporary/lean-negative.txt" "$temporary/forth-negative.txt"; rmdir "$temporary"' EXIT
-if ! "$lean" -DwarningAsError=true tests/reference/infer-table.lean >"$temporary/lean.txt"; then
+if ! "$lean" -DwarningAsError=true tests/legacy/infer-table.lean >"$temporary/lean.txt"; then
   cat "$temporary/lean.txt" >&2
   exit 1
 fi
-if ! "$gforth" tests/core/infer-table.fs >"$temporary/forth.txt"; then
+if ! "$gforth" tests/legacy/infer-table.fs >"$temporary/forth.txt"; then
   cat "$temporary/forth.txt" >&2
   exit 1
 fi
@@ -32,11 +32,11 @@ if [ "$(wc -l <"$temporary/lean.txt")" -ne 7 ]; then
   printf '%s\n' 'Unexpected inferred-type table size' >&2
   exit 1
 fi
-if ! "$lean" -DwarningAsError=true tests/reference/infer-negative-table.lean >"$temporary/lean-negative.txt"; then
+if ! "$lean" -DwarningAsError=true tests/legacy/infer-negative-table.lean >"$temporary/lean-negative.txt"; then
   cat "$temporary/lean-negative.txt" >&2
   exit 1
 fi
-if ! "$gforth" tests/core/infer-negative-table.fs >"$temporary/forth-negative.txt"; then
+if ! "$gforth" tests/legacy/infer-negative-table.fs >"$temporary/forth-negative.txt"; then
   cat "$temporary/forth-negative.txt" >&2
   exit 1
 fi

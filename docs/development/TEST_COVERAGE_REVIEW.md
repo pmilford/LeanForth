@@ -133,7 +133,7 @@ comparison targets, so they can only be retired after those are migrated.
 `src/legacy/arena.fs` and the unsafe `symbolic-infer.fs` draft have no
 dependants. On 2026-11-02 the owner decided to keep them for now and mark
 them for possible later removal (roadmap Q9); the Lean oracle
-`tests/reference/symbolic-infer-oracle.lean` must stay either way because
+`tests/legacy/symbolic-infer-oracle.lean` must stay either way because
 `tagged-infer-differential.sh` uses it.
 
 ## How the reviews were run

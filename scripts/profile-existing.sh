@@ -43,11 +43,11 @@ run_one() {
 }
 for ((i=1; i<=repetitions; i++)); do
   if (( i % 2 )); then
-    run_one Lean "$i" "$lean" -DwarningAsError=true --run tests/reference/term-level-substitute-table.lean
-    run_one Forth "$i" "$gforth" tests/core/term-level-substitute-table.fs
+    run_one Lean "$i" "$lean" -DwarningAsError=true --run tests/legacy/term-level-substitute-table.lean
+    run_one Forth "$i" "$gforth" tests/legacy/term-level-substitute-table.fs
   else
-    run_one Forth "$i" "$gforth" tests/core/term-level-substitute-table.fs
-    run_one Lean "$i" "$lean" -DwarningAsError=true --run tests/reference/term-level-substitute-table.lean
+    run_one Forth "$i" "$gforth" tests/legacy/term-level-substitute-table.fs
+    run_one Lean "$i" "$lean" -DwarningAsError=true --run tests/legacy/term-level-substitute-table.lean
   fi
   if ! cmp -s "$temporary/Lean.normalized" "$temporary/Forth.normalized"; then
     echo "Output mismatch in repetition $i" >&2
@@ -70,5 +70,6 @@ printf 'run implementation elapsed_s peak_RSS_KiB\n'
 cat "$temporary/results"
 printf 'Normalized output SHA-256: '; sha256sum "$temporary/baseline" | awk '{print $1}'
 printf 'Input SHA-256 (individual files):\n'
-sha256sum scripts/profile-existing.sh tests/reference/term-level-substitute-table.lean tests/core/term-level-substitute-table.fs \
-  src/core/{terms,levels,level-scope,level-value,tagged-sort-boundary,symbolic-session,generation-handles,level-substitute}.fs src/legacy/term-level-substitute.fs
+sha256sum scripts/profile-existing.sh tests/legacy/term-level-substitute-table.lean tests/legacy/term-level-substitute-table.fs \
+  src/core/{terms,levels,level-scope,tagged-sort-boundary,symbolic-session,generation-handles}.fs \
+  src/kernel/{level-value,level-substitute}.fs src/legacy/term-level-substitute.fs

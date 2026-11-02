@@ -26,7 +26,8 @@ audit, any accepted result is *experimental — not independently audited*.
   new current module to `main.fs` in dependency order; `make smoke` fails if
   loading prints anything, such as a "redefined" warning.
 - Tests load modules directly with `include`; they live in `tests/lib/`,
-  `tests/core/` (for `core/`, `kernel/` and `legacy/` modules) and `tests/program/`.
+  `tests/core/` (for `core/` and `kernel/` modules), `tests/program/`, and
+  `tests/legacy/` (tests of `legacy/` modules, retired with them).
 - Style: [the Forth style guide](../docs/development/FORTH_STYLE.md);
   `make forth-metrics` reports per-folder totals.
 

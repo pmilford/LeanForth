@@ -29,7 +29,7 @@ variable source-count
   lf-term-reset lf-level-reset lf-lscope-context-reset
   lf-ssession-begin 0= abort" session" ;
 
-\ Rebuild the six explicit expressions from tests/reference/beta-table.lean.
+\ Rebuild the six explicit expressions from tests/legacy/beta-table.lean.
 : build-case ( number -- root )
   reset-case
   case
