@@ -152,3 +152,158 @@ chose the recommended option on G1–G4:
 - **G5** was not asked: it follows owner decision 1 (follow Lean's published
   behaviour), so the earlier documents are corrected when the unfolding ADR
   is written in phase 4. The owner may still overrule it.
+
+## Second set of questions
+
+**Status: drafted 2026-11-02 (plan tasks 2.1.2 and 2.1.3); not yet
+answered.** Two more decisions the first checker needs before its code is
+written. Like G1–G4 they approve a rule and a design, not code: the code
+still comes back to you with its test results. Technical detail:
+[ADR 0003, Amendment 1](../adr/0003-conversion.md#amendment-1-proposed-comparing-under-binders-whose-domains-differ)
+and [ADR 0012](../adr/0012-checked-environment.md). Answering "agree"
+accepts all six recommendations.
+
+### Decision A — functions whose argument types are written differently
+
+**What it decides.** Checking a proof often means comparing two functions,
+or two "for all" statements. Sometimes their argument types are written
+differently but mean the same thing: `(fun T => T) A` is just `A` after one
+simplification step. Today's rule then answers *unknown*. Your review of
+2026-10-30 left open whether LeanForth may go further. The proposal: do what
+Lean does — first check that the two argument types are equal; if they are,
+compare the bodies, treating the argument as having the *expected* side's
+type (the type the statement claims, or that the function asks for).
+
+**Example.** "For every proposition A, (the identity applied to A) implies
+A" — that is, A implies A. Lean accepts
+`theorem bdStatement : ∀ (A : Prop), (fun T : Prop => T) A → A := fun (A : Prop) (h : A) => h`:
+the statement's argument type is `(fun T => T) A`, the proof's is `A`.
+Today LeanForth must answer *unknown*; with the change it answers
+*accepted*, like Lean.
+
+**Evidence.**
+
+- Lean 4.35.0's own code does exactly this; the amendment cites the
+  function (`is_def_eq_binding`) line by line, and Lean's published
+  description of its type theory (Carneiro, 2019) states the same rule.
+- A new Lean test file, run by `make reference-binder-domains` in
+  `make check`: 22 cases (10 comparisons, 12 declarations). Lean gave the
+  recorded answer in all 22. Every comparison gives the same answer with its
+  two sides swapped — evidence that *which* side's argument type is used
+  cannot change the result. 13 deliberately planted mistakes in the test
+  files were each caught.
+- 8 cases change from *unknown* to *accepted* (or equal); with G7, 5 more
+  change from *unknown* to *rejected*; 9 stay as they are. None of the 60
+  cases of [the first table](FIRST_CHECKER_EXPECTED.md) changes.
+- LeanForth's existing (untrusted) comparison experiment already behaves
+  this way; the written rule was stricter than the code.
+
+**Risks.** LeanForth could wrongly accept only if it called two different
+argument types equal — and that uses the same cautious comparison already
+used everywhere else; this step adds no new kind of equality. The checker
+must compare in Lean's order (found first, expected second); the tests pin
+it. As before, this is evidence about Lean, not yet about LeanForth's code.
+
+**Recommendation:** approve G6 and G7.
+
+### Decision B — how the library of accepted declarations is kept
+
+**What it decides.** Where accepted declarations are stored, and how checks
+running at the same time are kept from seeing each other's unfinished work
+(ADR 0012):
+
+- Each declaration of the input has a numbered place in the library, in
+  input order. The place is filled once, after the check ends, and never
+  changes.
+- Only accepted entries can be used, and only by later declarations.
+- A check works in its own scratch space. If it fails for any reason —
+  rejected, unknown, out of memory, a crash — that space is thrown away and
+  the library is unchanged.
+- One part of the program, the *publisher*, fills the places; checks only
+  read.
+- The proof that was checked is the proof stored; nothing is copied.
+- Each entry lists the axioms it depends on, directly or indirectly. In the
+  first checker the list is always empty, and is computed, not assumed.
+- Saved results are reused only in development mode, and labelled.
+
+**Evidence.** The design follows Lean's own kernel, cited in ADR 0012: Lean
+never changes its library in place, adds a declaration only after every
+check has passed, gives each declaration its own universe names, and
+collects axiom lists the same way. It matches ADR 0006, ADR 0009 (which you
+approved) and your earlier answers. It is a design only: there is no code
+and no LeanForth test yet. ADR 0012 lists the ten groups of tests the code
+must pass, including a failure injected at every memory allocation and
+"parallel gives exactly the serial result".
+
+**Risks.**
+
+1. Scratch space and library must really stay apart. Tests compare
+   fingerprints of the library before and after every failure.
+2. The imported records must not change after loading (G10). Inside one
+   Forth program this is a programming rule, not a hardware protection; a
+   fingerprint test catches accidental changes. The checker already runs as
+   its own program (your OQ-1 answer), so user code cannot reach it.
+3. The parallel version (phase 7) relies on Gforth's threads, which Gforth
+   marks experimental; the one-at-a-time path always works and is tested.
+
+**Recommendation:** approve G8–G11.
+
+### Questions for you
+
+**G6. Should LeanForth compare functions whose argument types are written
+differently, the way Lean does?**
+*Options:* (a) yes, as Lean: argument types first; if equal, the bodies,
+with the expected side's argument type; (b) keep today's rule, which
+answers *unknown*. *Recommendation: (a).* It is Lean's own rule (your
+decision 1), it turns *unknown* answers for correct proofs into *accepted*,
+it cannot make a wrong proof accepted, and it settles the question left
+open on 2026-10-30.
+
+**G7. Should the same step also let LeanForth answer *rejected*?**
+When the argument types are equal but the bodies certainly differ, Lean
+rejects. Rule D4, approved under G1, looks at the bodies only when the
+argument types are written identically. *Options:* (a) let D4 look at the
+bodies whenever the argument types are equal; (b) keep D4 as approved, so
+those 5 test cases stay *unknown*. *Recommendation: (a).* The reasons are
+those of G4: it catches real mistakes, every case is checked against Lean,
+and an error in it could only produce a wrong *rejected*, never a wrong
+*accepted*. Choose (b) if you prefer to approve G6 on its own first.
+
+**G8. Approve the library design of ADR 0012?**
+Grow-only, each place written once after the check ends, scratch thrown
+away on failure, one publisher, places numbered in input order.
+*Recommendation: yes.* It is the simplest design that cannot leave a failed
+or half-finished check in the library; it keeps the library the way Lean's
+kernel does; and it already works for checks in parallel without changing
+any rule.
+
+**G9. May a check ever rely on an earlier declaration that has not been
+accepted yet?**
+The scale assessment suggested a faster parallel method: check declarations
+before the ones they use are accepted, then accept them all together if
+every one passed. *Options:* (a) no — a check uses only declarations already
+accepted; (b) allow it later, after measurements. *Recommendation: (a) for
+now.* With (b), *accepted* would rest on a second, separate bookkeeping
+step — one more place where a mistake could produce a wrong *accepted* —
+and no measurement yet shows that the speed is needed. Revisit in phase 7
+with timings.
+
+**G10. [import] May the library point at the imported records that were
+checked, instead of copying them, if imported records never change after
+loading?**
+*Recommendation: yes, point rather than copy.* Then the stored statement is
+exactly the checked one; a copy could differ through a copying mistake and
+would need checking again. The risk is risk 2 above.
+
+**G11. Is this how your "development mode" for saved results should work?**
+A final run starts empty, refuses saved results and checks everything. A
+development run may load saved results; each of them, and everything that
+depends on one, is marked *not re-checked in this run* in every output.
+Only a final run's results support a claim. *Recommendation: yes.* It is how
+we read your answer to OQ-3; spreading the mark to everything that depends
+on a saved result keeps a result from looking fully checked when part of
+its foundation was not. Phase 2 builds only the final mode.
+
+### Owner's answer (second set)
+
+Not yet answered.
