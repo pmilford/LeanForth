@@ -10,6 +10,7 @@ include ../../src/core/symbolic-session.fs
 include ../../src/core/generation-handles.fs
 include ../../src/core/constant-references.fs
 include ../../src/core/constant-term-boundary.fs
+include ../../src/kernel/mixed-rebuild.fs
 include ../../src/kernel/mixed-shift.fs
 
 variable rid variable cid variable sid variable rootid variable outid variable serial-before
@@ -44,8 +45,14 @@ T{ 0 cid @ 0 0 1 lf-mixed-shift -> -1 0 lf-mshift-exhausted }T
 T{ 6 rootid @ -1 0 100 lf-mixed-shift -> -1 0 lf-mshift-invalid }T
 T{ 6 rootid @ 0 -1 100 lf-mixed-shift -> -1 0 lf-mshift-invalid }T
 T{ 6 rootid @ 0 0 -1 lf-mixed-shift -> -1 0 lf-mshift-invalid }T
-T{ 6 rootid @ lf-mshift-max 1 100 lf-mixed-shift -> -1 0 lf-mshift-exhausted }T
+\ A lambda at the largest cutoff cannot put its body one binder deeper; it
+\ is exhausted before its first child is visited: the audit spends 9 and
+\ the root's visit 1.
+T{ 6 rootid @ lf-mshift-max 1 100 lf-mixed-shift lf-mshift-fuel @ ->
+  -1 0 lf-mshift-exhausted 90 }T
 T{ lf-term-count @ -> 11 }T
+\ A failed audit leaves no fuel.
+T{ 6 0 0 1 100 lf-mixed-shift lf-mshift-fuel @ -> -1 0 lf-mshift-invalid 0 }T
 \ Force failure after the first child has allocated a shifted variable.
 setup
 T{ 2 3 lf-term-app -> 7 true }T
@@ -93,6 +100,22 @@ T{ 6 rootid @ 0 1 100 lf-mixed-shift lf-mshift-fuel @ -> 10 lf-term-serial @ lf-
 setup
 T{ 6 rootid @ 0 1 100 ' lf-mixed-shift rs-checked -> 10 lf-term-serial @ lf-mshift-ok }T
 T{ 6 rootid @ 0 1 -1 ' lf-mixed-shift rs-checked -> -1 0 lf-mshift-invalid }T
+\ lf-mshift-inside shifts on fuel lent by another pass's frames record and
+\ gives back what is left; nothing is rolled back.
+1 0 frames: lender
+setup 50 lender frame-budget drop
+T{ 3 2 lender lf-mshift-inside lender frame-fuel @ -> 7 lf-mshift-ok 49 }T
+T{ 7 lf-term-read -> lf-tag-bvar 3 0 true }T
+\ A shift record already in use (left busy by a THROW out of a pass, or
+\ asked again from inside its own pass) refuses both entries, changing
+\ nothing; frame-reset makes it idle again.
+1 lf-mshift-frames frame-depth !
+T{ 6 rootid @ 0 1 100 lf-mixed-shift -> -1 0 lf-mshift-invalid }T
+T{ 3 5 lender ' lf-mshift-inside rs-checked lender frame-fuel @ ->
+  -1 lf-mshift-invalid 49 }T
+T{ lf-mshift-fuel @ lf-mshift-amount @ lf-term-count @ -> 49 2 8 }T
+lf-mshift-frames frame-reset
+T{ 6 rootid @ 0 1 100 lf-mixed-shift -> 11 lf-term-serial @ lf-mshift-ok }T
 \ The frame limit equals the store capacity, so a chain that fills the store
 \ is visited all the way down: node 0 is bvar 0 and node k is lam(k-1, 0).
 \ The audit costs 127 visits and the shift 64 more, reaching node 0 at the

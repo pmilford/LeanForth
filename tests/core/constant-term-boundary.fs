@@ -136,4 +136,23 @@ T{ 5 pid @ -1 lf-cterm-check lf-cterm-fuel @ -> lf-repr-invalid 7 }T
 T{ 5 pid @ 100 ' lf-cterm-check rs-checked -> lf-repr-ok }T
 -3 0 lf-cterm-stamp-cell !
 T{ 5 pid @ 100 lf-cterm-check lf-cterm-fuel @ -> lf-repr-invalid 95 }T
+\ The contract's outcome set: only ok, invalid or exhausted, which the
+\ rebuilding passes pass on unnarrowed. Every index from -1 to 64 with its
+\ own identity and a wrong one, at every fuel from -1 to 12, on the store
+\ above, after corrupting a tag and a child, and after resetting the
+\ references and the levels.
+variable stray  variable oks
+: cterm-outcome? ( outcome -- flag )
+  dup outcome-invalid outcome-exhausted 1+ within swap ok? or ;
+: cterm-note ( outcome -- )
+  dup ok? if 1 oks +! then cterm-outcome? 0= if 1 stray +! then ;
+: cterm-try ( index identity fuel -- ) lf-cterm-check cterm-note ;
+: cterm-identity ( index -- index identity ) dup lf-term-identity 0= if 0 then ;
+: cterm-sweep ( -- )
+  65 -1 do 13 -1 do j cterm-identity i cterm-try j 77 i cterm-try loop loop ;
+0 stray !  0 oks !  0 dup lf-term-identity drop lf-cterm-stamp  cterm-sweep
+T{ stray @ oks @ 0> -> 0 true }T
+99 3 lf-term-slot !  -5 4 lf-term-slot cell+ !  cterm-sweep
+lf-cref-reset cterm-sweep  lf-level-reset cterm-sweep
+T{ stray @ -> 0 }T
 bye

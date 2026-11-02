@@ -10,6 +10,7 @@ include ../../src/core/generation-handles.fs
 include ../../src/core/constant-references.fs
 include ../../src/core/constant-term-boundary.fs
 include ../../src/kernel/mixed-compare.fs
+include ../../src/kernel/mixed-rebuild.fs
 include ../../src/kernel/mixed-shift.fs
 include ../../src/kernel/mixed-instantiate.fs
 include ../../src/kernel/mixed-beta.fs

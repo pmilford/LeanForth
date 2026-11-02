@@ -10,6 +10,7 @@ include ../../src/core/symbolic-session.fs
 include ../../src/core/generation-handles.fs
 include ../../src/core/constant-references.fs
 include ../../src/core/constant-term-boundary.fs
+include ../../src/kernel/mixed-rebuild.fs
 include ../../src/kernel/mixed-shift.fs
 include ../../src/kernel/mixed-instantiate.fs
 
@@ -59,7 +60,7 @@ T{ 0 cid @ 1 sid @ 5 lf-mixed-instantiate -> 0 cid @ lf-minst-ok }T
 T{ lf-minst-fuel @ -> 0 }T
 \ Even unused invalid or exhausted replacements are audited first.
 lf-term-count @ rootid ! lf-term-serial @ serial-before !
-T{ 0 cid @ 9 0 100 lf-mixed-instantiate -> -1 0 lf-minst-invalid }T
+T{ 0 cid @ 9 0 100 lf-mixed-instantiate lf-minst-fuel @ -> -1 0 lf-minst-invalid 0 }T
 T{ 0 cid @ 9 rid @ -1 lf-mixed-instantiate -> -1 0 lf-minst-invalid }T
 T{ 0 cid @ 9 rid @ 2 lf-mixed-instantiate -> -1 0 lf-minst-exhausted }T
 T{ lf-minst-fuel @ -> 0 }T
@@ -123,6 +124,28 @@ T{ 1 2 lf-term-app -> 9 true }T
 lf-term-serial @ rid !
 T{ 8 rootid @ 9 rid @ 100 ' lf-mixed-instantiate rs-checked lf-minst-fuel @ lf-mshift-fuel @ ->
   13 lf-term-serial @ lf-minst-ok 82 82 }T
+\ The fuel runs out inside the lent shift: with the replacement app(bvar 0,
+\ Sort) and 17 units, the shift moves the variable (one allocation) and
+\ cannot visit the Sort. Both fuel cells end at zero, the count is
+\ restored, and the serial keeps the allocation; 18 units suffice.
+setup
+T{ 2 3 lf-term-app -> 7 true }T
+T{ 0 7 lf-term-lam -> 8 true }T
+lf-term-serial @ rootid !
+T{ 2 1 lf-term-app -> 9 true }T
+lf-term-serial @ rid !  lf-term-serial @ serial-before !
+: inst-fuels ( -- inst shift count ) lf-minst-fuel @ lf-mshift-fuel @ lf-term-count @ ;
+T{ 8 rootid @ 9 rid @ 17 lf-mixed-instantiate inst-fuels -> -1 0 lf-minst-exhausted 0 0 10 }T
+T{ lf-term-serial @ serial-before @ - -> 1 }T
+\ A shift record already in use refuses the replacement's shift: the
+\ instantiation fails as invalid and rolls back, and the shift's fuel and
+\ amount stay as they were.
+77 lf-mshift-fuel !  5 lf-mshift-amount !  1 lf-mshift-frames frame-depth !
+T{ 8 rootid @ 9 rid @ 100 lf-mixed-instantiate lf-term-count @ lf-mshift-fuel @
+  lf-mshift-amount @ -> -1 0 lf-minst-invalid 10 77 5 }T
+lf-mshift-frames frame-reset
+T{ 8 rootid @ 9 rid @ 18 lf-mixed-instantiate lf-minst-fuel @ ->
+  13 lf-term-serial @ lf-minst-ok 0 }T
 \ A chain that fills the store (node 0 is bvar 0, node k is lam(k-1, 0)) is
 \ visited 64 frames deep down to node 0, the target, whose replacement
 \ cannot be copied into the full store: audits 127 and 1 visits, the walk

@@ -69,7 +69,10 @@ lf-term-capacity walk: lf-cterm-walker
 \ Validate a live root and its reachable mixed symbolic graph. Each term and
 \ level visit costs one unit of fuel, including repeated DAG visits; the
 \ bounded context and reference scans are not charged. Negative fuel is
-\ invalid; zero exhausts. Success is structural evidence only.
+\ invalid; zero exhausts. Success is structural evidence only. The outcome
+\ is always ok, invalid or exhausted, never another one: the kernel's
+\ rebuilding passes (mixed-rebuild.fs) pass it on without narrowing, and
+\ tests/core/constant-term-boundary.fs pins it.
 : lf-cterm-run ( root -- status ) ['] lf-cterm-visit lf-cterm-walker walk-run ;
 : lf-cterm-check ( index identity fuel -- status )
   lf-cterm-walker walk-budget 0= if 2drop outcome-invalid exit then

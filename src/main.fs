@@ -28,6 +28,7 @@ include ./kernel/level-compare.fs
 include ./kernel/mixed-level-substitute.fs
 include ./kernel/mixed-signature-probe.fs
 include ./kernel/mixed-signature-audit.fs
+include ./kernel/mixed-rebuild.fs
 include ./kernel/mixed-shift.fs
 include ./kernel/mixed-instantiate.fs
 include ./kernel/mixed-beta.fs

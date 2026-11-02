@@ -29,11 +29,9 @@ dag-nodes /node 0 context-store: dag-store
 dag-nodes 2* context-walk: dag-walker
 dag-nodes 2* context-walk2: dag-pairs
 /dag-state context-record: dag-state
-\ A frames record has no initialiser of its own yet: a zeroed record plus a
-\ setup word that sets its limit.
+\ A frames record in the context, initialised by a setup word (below,
+\ once its visitor exists) with frame-init.
 /frames context-record: dag-frames
-: dag-frames-setup ( -- ) dag-depth 1+ dag-frames frame-limit ! ;
-' dag-frames-setup context-setup
 
 \ The seed's cell; a planted fault redirects it to a shared variable.
 : dag-own-seed ( -- addr ) dag-state dag-seed ;
@@ -81,13 +79,15 @@ defer dag-seed-cell  ' dag-own-seed is dag-seed-cell
 : dag-measure ( -- )
   dag-state dag-rp @ rp@ - 1 cells / dag-state dag-deep dag-most
   depth dag-state dag-depth0 @ - dag-state dag-data dag-most ;
-: dag-sink ( x -- result outcome )
-  dup 0= if drop dag-measure 1000 dag-rnd outcome-ok exit then
+: dag-sink ( x frames -- result outcome )
+  drop dup 0= if drop dag-measure 1000 dag-rnd outcome-ok exit then
   dup 1- dag-frames frame-call ok-then? if 31 * + outcome-ok else nip -1 swap then ;
+: dag-frames-setup ( -- ) dag-depth 1+ ['] dag-sink dag-frames frame-init ;
+' dag-frames-setup context-setup
 : dag-recurse ( -- )
   rp@ dag-state dag-rp ! depth dag-state dag-depth0 !
   dag-depth 1+ dag-frames frame-budget drop
-  dag-depth 0 ['] dag-sink dag-frames frame-run dag-mix dag-mix ;
+  dag-depth 0 dag-frames frame-run dag-mix dag-mix ;
 
 \ Steps. dag-start ( seed rounds every -- ) begins a job in the current
 \ context; dag-step does one step and tells whether more remain.
