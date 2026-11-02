@@ -1,17 +1,23 @@
 \ Interface tests of the four lowest walkers (level scope, Sort
-\ representation, session, handle audit): the fuel each check leaves,
-\ which other modules read back, and the work stacks other modules borrow.
+\ representation, session, handle audit) and the two substitution passes
+\ built on walk records: the fuel each check leaves, which other modules
+\ read back, and the work stack legacy code still borrows.
 \ Expected fuel is counted by hand from the visit order: each node visit
 \ costs one unit before the node is read, children are pushed first then
 \ second and popped in reverse, and shared nodes are visited once per path.
 include ../support/tester.fs
 include ../support/checks.fs
 include ../../src/core/terms.fs
+include ../../src/core/names.fs
 include ../../src/core/levels.fs
 include ../../src/core/level-scope.fs
 include ../../src/core/tagged-sort-boundary.fs
 include ../../src/core/symbolic-session.fs
 include ../../src/core/generation-handles.fs
+include ../../src/core/constant-references.fs
+include ../../src/core/constant-term-boundary.fs
+include ../../src/kernel/level-substitute.fs
+include ../../src/kernel/mixed-level-substitute.fs
 
 \ Level scope. Levels: 1 = param 1, 2 = succ 1, 3 = max 2 1, 4 = param 2.
 \ Root 3 visits 3, 1, 2, 1: four units. Parameter 2 is not in the context.
@@ -80,16 +86,57 @@ T{ 2 term-app-id @ 30 lf-hterm-check -> outcome-ok }T
 T{ 2 -1 lf-href-check -> outcome-invalid }T
 T{ 2 term-app-id 1+ 30 lf-hterm-check -> outcome-invalid }T
 
-\ Borrowed work stacks keep their layout: pending cells, pushed at
-\ pending cells from the work address, refused when full; a check started
-\ afterwards resets the stack and works.
-0 lf-lscope-pending !
-T{ 5 lf-lscope-push lf-lscope-work @ lf-lscope-pending @ -> true 5 1 }T
-lf-level-capacity lf-lscope-pending !
-T{ 6 lf-lscope-push lf-lscope-pending @ -> false lf-level-capacity }T
+\ Mixed substitution of parameter 1 by zero in term 2 (app of the Sort
+\ over level 2 = succ 1, and bvar 0), all passes sharing one budget: the
+\ actual's scope 1 unit, the graph check 3 term and 2 level visits, the
+\ source audit the same 5, then the Sort's level substitution 3 (actual 1,
+\ source 2): 14 units. mixed-signature-audit runs the audit alone: 5 units.
+create mls-formals 1 ,
+create mls-actuals 0 , 0 lf-level-identity drop ,
+T{ 2 term-app-id @ mls-formals mls-actuals 1 30 lf-mixed-level-substitute
+   rot drop lf-mls-fuel @ -> lf-term-serial @ outcome-ok 16 }T
+T{ 2 term-app-id @ mls-formals mls-actuals 1 14 lf-mixed-level-substitute
+   rot drop lf-mls-fuel @ -> lf-term-serial @ outcome-ok 0 }T
+T{ 2 term-app-id @ mls-formals mls-actuals 1 13 lf-mixed-level-substitute
+   lf-mls-fuel @ -> outcome-exhausted 0 }T
+T{ 2 term-app-id @ mls-formals mls-actuals 1 30 ' lf-mixed-level-substitute rs-checked
+   rot drop -> lf-term-serial @ outcome-ok }T
+2 lf-mls-root !  30 lf-mls-fuel !  mls-formals lf-lsubst-formals !  1 lf-lsubst-count !
+T{ lf-mls-audit lf-mls-fuel @ -> outcome-ok 25 }T
+\ The substitution walks its own record, not the handle audit's stack.
+0 lf-href-pending !  9 lf-href-push drop
+T{ 2 term-app-id @ mls-formals mls-actuals 1 30 lf-mixed-level-substitute
+   nip nip lf-href-pending @ lf-href-work @ -> outcome-ok 1 9 }T
+
+\ Level substitution: inputs (one visit per actual), then the source walk,
+\ first child first. Levels 3 = max 1 2, 4 = param 3 (in the context but
+\ not a formal), 5 = max 4 3. Swapping parameters 1 and 2 in level 3 costs
+\ 2 + 3 units. In level 5 the source walk stops at its first child, level
+\ 4, after 2 visits; visiting level 3 first would cost 3 more.
+lf-level-reset lf-lscope-context-reset
+1 lf-lscope-context-add drop 2 lf-lscope-context-add drop 3 lf-lscope-context-add drop
+1 lf-level-param 2drop  2 lf-level-param 2drop  1 2 lf-level-max 2drop
+3 lf-level-param 2drop  4 3 lf-level-max 2drop
+create subst-formals 1 , 2 ,
+create subst-actuals 2 , 1 ,
+T{ 3 subst-formals subst-actuals 2 20 lf-lsubst lf-lsubst-fuel @ -> 6 outcome-ok 15 }T
+T{ 3 subst-formals subst-actuals 2 4 lf-lsubst lf-lsubst-fuel @ -> outcome-exhausted 0 }T
+T{ 5 subst-formals subst-actuals 2 20 lf-lsubst lf-lsubst-fuel @ -> outcome-invalid 16 }T
+T{ 3 subst-formals subst-actuals 2 20 ' lf-lsubst rs-checked -> 7 outcome-ok }T
+
+\ legacy/term-level-substitute still borrows the handle audit's work
+\ stack: pending cells, pushed at pending cells from the work address,
+\ refused when full; a check started afterwards resets the stack and works.
 0 lf-href-pending !
 T{ 7 lf-href-push lf-href-work @ lf-href-pending @ -> true 7 1 }T
 lf-term-capacity lf-href-pending !
 T{ 8 lf-href-push lf-href-pending @ -> false lf-term-capacity }T
+lf-term-reset lf-level-reset lf-lscope-context-reset
+1 lf-lscope-context-add drop
+lf-ssession-begin drop
+1 lf-hlevel-param drop lf-hlevel-succ drop
+lf-hterm-sort drop term-sort-id ! drop
+0 lf-hterm-bvar drop term-var-id ! drop
+0 term-sort-id @ 1 term-var-id @ lf-hterm-app drop term-app-id ! drop
 T{ 2 term-app-id @ 30 lf-hterm-check -> outcome-ok }T
 bye

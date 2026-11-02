@@ -1,163 +1,201 @@
 \ Untrusted same-session simultaneous universe substitution for mixed syntax.
-\ Load constant-term-boundary.fs and level-substitute.fs and dependencies.
-\ The current session context must contain every source parameter and every
-\ actual parameter. Every source parameter must also occur in the formal list;
-\ actuals are not recursively substituted. This is not type or proof checking.
-\ Global scratch and all arenas are single-threaded and non-reentrant. Exclude
-\ reset, raw mutation and callbacks during a call. Caller arrays must be aligned,
-\ readable and disjoint from arenas, contexts and scratch. Handles are forgeable.
-\ On failure all three arena counts roll back, but identities never rewind.
+\ Requires constant-term-boundary.fs, level-substitute.fs and their
+\ dependencies. The current session context must contain every source
+\ parameter and every actual parameter. Every source parameter must also
+\ occur in the formal list; actuals are not recursively substituted. This is
+\ not type or proof checking. Exclude reset, raw mutation and callbacks
+\ during a call. Caller arrays must be aligned, readable and disjoint from
+\ the stores, contexts and module data. Handles are forgeable. On failure
+\ all three store counts roll back, but identities never rewind.
+\ State: one walk record, lf-mls-walker (the source audit and the fuel left,
+\ shared by every pass), and one job record, lf-mls-job (the substitution,
+\ the counts to roll back to, reached terms and their images). Not
+\ re-entrant and single-threaded. mixed-signature-audit sets lf-mls-root,
+\ lf-mls-id and lf-mls-fuel and runs lf-mls-audit on its own.
 
-0 constant lf-mlsubst-ok
-1 constant lf-mlsubst-invalid
-2 constant lf-mlsubst-exhausted
-variable lf-mls-root
-variable lf-mls-id
-variable lf-mls-formals
-variable lf-mls-handles
-variable lf-mls-count
-variable lf-mls-fuel
-variable lf-mls-terms
-variable lf-mls-levels
-variable lf-mls-crefs
-variable lf-mls-node
-variable lf-mls-tag
-variable lf-mls-a
-variable lf-mls-b
-variable lf-mls-ref
-variable lf-mls-refid
-variable lf-mls-nargs
-variable lf-mls-changed
-create lf-mls-actuals lf-level-capacity cells allot
-create lf-mls-args lf-cref-argument-capacity 2 * cells allot
-create lf-mls-seen lf-term-capacity cells allot
-create lf-mls-results lf-term-capacity cells allot
+outcome-ok constant lf-mlsubst-ok
+outcome-invalid constant lf-mlsubst-invalid
+outcome-exhausted constant lf-mlsubst-exhausted
 
-: lf-mls-repr-status ( status -- status )
-  case lf-repr-ok of lf-mlsubst-ok endof
-    lf-repr-invalid of lf-mlsubst-invalid endof
-    lf-repr-exhausted of lf-mlsubst-exhausted endof
-    drop lf-mlsubst-invalid 0 endcase ;
-: lf-mls-level-status ( status -- status )
-  case lf-lsubst-ok of lf-mlsubst-ok endof
-    lf-lsubst-invalid of lf-mlsubst-invalid endof
-    lf-lsubst-exhausted of lf-mlsubst-exhausted endof
-    drop lf-mlsubst-invalid 0 endcase ;
+begin-structure /lf-mlsrec
+  field: lf-mlsrec-root        \ audit root, for mixed-signature-audit
+  field: lf-mlsrec-id          \ its identity, likewise
+  field: lf-mlsrec-formals     \ address of the formal parameter IDs
+  field: lf-mlsrec-count       \ number of formals
+  field: lf-mlsrec-terms       \ store counts to roll back to
+  field: lf-mlsrec-levels
+  field: lf-mlsrec-crefs
+  lf-level-capacity cells +field lf-mlsrec-actuals    \ replacement levels
+  lf-cref-argument-capacity 2* cells +field lf-mlsrec-args  \ new level pairs
+  lf-term-capacity cells +field lf-mlsrec-seen        \ reached by the audit
+  lf-term-capacity cells +field lf-mlsrec-results     \ each reached term's image
+end-structure
+lf-term-capacity walk: lf-mls-walker
+create lf-mls-job /lf-mlsrec allot
+lf-mls-job /lf-mlsrec erase
+
+\ Fuel left after a call or audit; mixed-infer and mixed-signature-audit
+\ continue with it.
+: lf-mls-fuel ( -- addr ) lf-mls-walker walk-fuel ;
+: lf-mls-root ( -- addr ) lf-mls-job lf-mlsrec-root ;
+: lf-mls-id ( -- addr ) lf-mls-job lf-mlsrec-id ;
+: lf-mls-formals ( -- addr ) lf-mls-job lf-mlsrec-formals ;
+: lf-mls-count ( -- addr ) lf-mls-job lf-mlsrec-count ;
+: lf-mls-actuals ( -- addr ) lf-mls-job lf-mlsrec-actuals ;
+: lf-mls-args ( -- addr ) lf-mls-job lf-mlsrec-args ;
+: lf-mls-seen ( index -- addr ) cells lf-mls-job lf-mlsrec-seen + ;
+: lf-mls-result ( index -- addr ) cells lf-mls-job lf-mlsrec-results + ;
+
+\ mixed-signature-audit narrows the scope check's status, and tests check
+\ both words: ok, invalid and exhausted keep their meaning, and any other
+\ code, unknown included, becomes invalid. Every helper this module calls
+\ returns only those three, so it needs no translation itself.
+: lf-mls-narrow ( status -- status )
+  dup outcome-ok outcome-unknown within 0= if drop-invalid then ;
+: lf-mls-repr-status ( status -- status ) lf-mls-narrow ;
+: lf-mls-level-status ( status -- status ) lf-mls-narrow ;
+
+\ The rollback point: the counts of the term, level and reference stores.
+: lf-mls-snapshot ( -- )
+  lf-term-count @ lf-mls-job lf-mlsrec-terms !
+  lf-level-count @ lf-mls-job lf-mlsrec-levels !
+  lf-cref-count @ lf-mls-job lf-mlsrec-crefs ! ;
 : lf-mls-rollback ( status -- status )
-  lf-mls-terms @ lf-term-count ! lf-mls-levels @ lf-level-count !
-  lf-mls-crefs @ lf-cref-count ! ;
+  lf-mls-job lf-mlsrec-terms @ lf-term-count !
+  lf-mls-job lf-mlsrec-levels @ lf-level-count !
+  lf-mls-job lf-mlsrec-crefs @ lf-cref-count ! ;
 
-\ Audit each source level against the formal list without allocating. The
-\ preceding mixed audit has separately checked it in its actual session scope.
-: lf-mls-source ( level -- status )
-  lf-lsubst-root ! lf-mls-fuel @ lf-lsubst-fuel !
-  lf-lsubst-source lf-lsubst-fuel @ lf-mls-fuel ! lf-mls-level-status ;
-: lf-mls-source-ref ( -- status )
-  lf-mls-a @ lf-mls-ref ! lf-mls-b @ lf-mls-refid !
-  lf-mls-ref @ lf-mls-refid @ lf-cref-read 0= if lf-mlsubst-invalid exit then
-  lf-mls-nargs ! 2drop
-  lf-mls-nargs @ 0 ?do
-    lf-mls-ref @ lf-mls-refid @ i lf-cref-level 0= if
-      lf-mlsubst-invalid unloop exit then
-    drop lf-mls-source ?dup if unloop exit then
-  loop lf-mlsubst-ok ;
+\ Level passes of level-substitute, charging this module's fuel. The full
+\ substitution revalidates every actual on each call, as metered work.
+: lf-mls-reclaim ( -- ) lf-lsubst-fuel @ lf-mls-fuel ! ;
+: lf-mls-substitution ( -- formals actuals count )
+  lf-mls-formals @ lf-mls-actuals lf-mls-count @ ;
+: lf-mls-inputs ( -- outcome )
+  lf-mls-substitution lf-lsubst-use lf-mls-walker lf-lsubst-inputs ;
+: lf-mls-level ( root -- result outcome )
+  lf-mls-substitution lf-mls-fuel @ lf-lsubst lf-mls-reclaim
+  dup ok? 0= if 0 swap then ;
 
-\ Mark reachable terms and audit every source level before any allocation.
-\ Occurrences, including repeated DAG edges, each consume fuel.
-: lf-mls-audit ( -- status )
-  lf-mls-seen lf-term-capacity cells erase
-  0 lf-href-pending ! lf-mls-root @ lf-href-push 0= if
-    lf-mlsubst-exhausted exit then
-  begin lf-href-pending @ 0> while
-    lf-mls-fuel @ 0= if lf-mlsubst-exhausted exit then
-    -1 lf-mls-fuel +! -1 lf-href-pending +!
-    lf-href-pending @ cells lf-href-work + @ lf-mls-node !
-    true lf-mls-node @ cells lf-mls-seen + !
-    lf-mls-node @ lf-term-read 0= if lf-mlsubst-invalid exit then
-    lf-mls-b ! lf-mls-a ! lf-mls-tag !
-    lf-mls-tag @ lf-tag-symbolic-sort = if
-      lf-mls-a @ lf-mls-source ?dup if exit then
-    else lf-mls-tag @ lf-tag-constant = if
-      lf-mls-source-ref ?dup if exit then
-    else lf-mls-tag @ lf-tag-bvar <> if
-      lf-mls-a @ lf-href-push 0= if lf-mlsubst-exhausted exit then
-      lf-mls-b @ lf-href-push 0= if lf-mlsubst-exhausted exit then
-    then then then
-  repeat lf-mlsubst-ok ;
+\ The audit marks every reachable term and checks every source level
+\ against the formals before anything is allocated: a symbolic Sort's level
+\ and each level of a constant's reference. The whole graph was validated
+\ first, so children are earlier nodes. Occurrences, including repeated DAG
+\ edges, each consume fuel.
+: lf-mls-mark ( walk -- ) true swap walk-node @ lf-mls-seen ! ;
+: lf-mls-sources ( addr count walk -- outcome )
+  swap 0 ?do over i lf-cref-pair@ drop over lf-lsubst-walk-source dup ok? 0=
+    if nip nip unloop exit then drop loop 2drop outcome-ok ;
+: lf-mls-reference ( cref identity walk -- outcome )
+  >r lf-cref-levels if r> lf-mls-sources else r> drop outcome-invalid then ;
+: lf-mls-dispatch ( first second walk tag -- outcome )
+  over lf-mls-mark dup lf-term-binary-tag? if drop walk-children exit then
+  case lf-tag-symbolic-sort of nip lf-lsubst-walk-source endof
+    lf-tag-constant of lf-mls-reference endof
+    lf-tag-bvar of drop 2drop outcome-ok endof walk-bad-tag endcase ;
+: lf-mls-visit ( walk -- outcome ) lf-terms ['] lf-mls-dispatch walk-visit ;
+: lf-mls-unseen ( -- ) 0 lf-mls-seen lf-term-capacity cells erase ;
+: lf-mls-audit-from ( root -- status )
+  lf-mls-unseen ['] lf-mls-visit lf-mls-walker walk-run ;
+\ The level formals and count are those last set in level-substitute.
+: lf-mls-audit ( -- status ) lf-mls-root @ lf-mls-audit-from ;
 
-: lf-mls-level ( root -- result 0 | status )
-  lf-mls-formals @ lf-mls-actuals lf-mls-count @ lf-mls-fuel @ lf-lsubst
-  lf-lsubst-fuel @ lf-mls-fuel ! lf-mls-level-status ;
+\ Building, in index order, so children come before parents: each reached
+\ term gets an image, the term itself when nothing under it changes.
+: lf-mls-made ( index identity true | false -- index outcome )
+  if drop outcome-ok else 0 outcome-exhausted then ;
+: lf-mls-failed ( x y outcome -- 0 outcome ) nip nip 0 swap ;
+\ A symbolic Sort over its substituted level.
+: lf-mls-new-sort ( level -- index outcome )
+  dup lf-level-identity
+  if lf-hterm-sort lf-mls-made else drop 0 outcome-invalid then ;
+: lf-mls-sort ( node level -- index outcome )
+  dup lf-mls-level ok-then? 0= if lf-mls-failed exit then
+  tuck = if drop outcome-ok else nip lf-mls-new-sort then ;
+\ A constant over a new reference whose levels are the substituted ones in
+\ lf-mls-args; the levels are unchanged exactly when the pairs are equal,
+\ since a live level's identity does not change during a call.
+: lf-mls-pair ( level -- index identity outcome )
+  lf-mls-level ok-then? 0= if 0 0 rot exit then
+  dup lf-level-identity if outcome-ok else 0 outcome-invalid then ;
+: lf-mls-arg! ( index identity position -- )
+  >r swap lf-mls-args r> lf-cref-pair 2! ;
+: lf-mls-arg ( addr position -- outcome )
+  tuck lf-cref-pair@ drop lf-mls-pair ok-then?
+  if rot lf-mls-arg! outcome-ok else nip nip then ;
+: lf-mls-args! ( addr count -- outcome )
+  0 ?do dup i lf-mls-arg dup ok? 0= if nip unloop exit then drop loop
+  drop outcome-ok ;
+: lf-mls-changed? ( addr count -- flag ) 2* cells lf-mls-args over compare 0<> ;
+: lf-mls-substituted ( slot -- changed outcome )
+  lf-cref-pairs 2dup lf-mls-args! dup ok?
+  if drop lf-mls-changed? outcome-ok else nip nip false swap then ;
+: lf-mls-new-constant ( slot -- index outcome )
+  dup lf-cref-name@ rot lf-crec-arity @ >r lf-mls-args r> lf-cref-new
+  if lf-cterm-new lf-mls-made else 0 outcome-exhausted then ;
+: lf-mls-rebuild ( node slot -- index outcome )
+  dup lf-mls-substituted ok-then? 0= if lf-mls-failed exit then
+  if nip lf-mls-new-constant else drop outcome-ok then ;
+: lf-mls-constant ( node cref identity -- index outcome )
+  lf-cref-record if lf-mls-rebuild else drop 0 outcome-invalid then ;
+\ An application, lambda or Pi over the images of its children.
+: lf-mls-images ( first second -- first' second' )
+  lf-mls-result @ swap lf-mls-result @ swap ;
+: lf-mls-kept? ( first second -- flag ) 2dup lf-mls-images rot = >r = r> and ;
+: lf-mls-binary ( node first second tag -- index outcome )
+  >r 2dup lf-mls-kept? if 2drop r> drop outcome-ok exit then
+  rot drop lf-mls-images r> lf-term-binary
+  if outcome-ok else 0 outcome-exhausted then ;
+: lf-mls-image ( node -- index outcome )
+  dup lf-term-read 0= if drop 0 outcome-invalid exit then rot case
+    lf-tag-symbolic-sort of drop lf-mls-sort endof
+    lf-tag-constant of lf-mls-constant endof
+    lf-tag-bvar of 2drop outcome-ok endof
+    dup >r lf-mls-binary r> endcase ;
+: lf-mls-build-node ( node -- outcome )
+  dup lf-mls-image ok-then? if swap lf-mls-result ! outcome-ok else nip then ;
+: lf-mls-build-at ( node -- outcome )
+  dup lf-mls-seen @ if lf-mls-build-node else drop outcome-ok then ;
+: lf-mls-build ( root -- outcome )
+  1+ 0 ?do i lf-mls-build-at dup ok? 0= if unloop exit then drop loop outcome-ok ;
 
-\ Build a new reference only when at least one argument changes.
-: lf-mls-constant ( -- index 0 | status )
-  lf-mls-a @ lf-mls-ref ! lf-mls-b @ lf-mls-refid !
-  lf-mls-ref @ lf-mls-refid @ lf-cref-read 0= if lf-mlsubst-invalid exit then
-  lf-mls-nargs ! 2drop 0 lf-mls-changed !
-  lf-mls-nargs @ 0 ?do
-    lf-mls-ref @ lf-mls-refid @ i lf-cref-level 0= if
-      lf-mlsubst-invalid unloop exit then
-    drop dup lf-mls-level ?dup if nip unloop exit then
-    2dup <> if true lf-mls-changed ! then nip
-    dup i 2 * cells lf-mls-args + !
-    lf-level-identity 0= if drop lf-mlsubst-invalid unloop exit then
-    i 2 * 1+ cells lf-mls-args + !
-  loop
-  lf-mls-changed @ 0= if lf-mls-node @ lf-mlsubst-ok exit then
-  lf-mls-ref @ lf-cref-slot dup cell+ @ swap 2 cells + @
-  lf-mls-args lf-mls-nargs @ lf-cref-new 0= if lf-mlsubst-exhausted exit then
-  lf-cterm-new 0= if lf-mlsubst-exhausted exit then drop lf-mlsubst-ok ;
+\ The passes in order: the root handle and stores, the replacements (live,
+\ and in level scope), the whole graph (lf-cterm-check), the source audit,
+\ then the build. A failed build rolls the counts back to the snapshot.
+: lf-mls-serials? ( -- flag ) lf-term-serial @ 0< 0= lf-level-serial @ 0< 0= and ;
+: lf-mls-ready? ( index id -- flag )
+  lf-hterm-valid? lf-cref-state-valid? and lf-mls-serials? and ;
+: lf-mls-actual ( pairs position -- flag )
+  tuck lf-cref-pair@ 2dup lf-hlevel-valid?
+  if drop swap cells lf-mls-actuals + ! true else 2drop drop false then ;
+: lf-mls-actuals! ( pairs count -- flag )
+  0 ?do dup i lf-mls-actual 0= if drop false unloop exit then loop drop true ;
+: lf-mls-graph ( index id -- outcome )
+  lf-mls-fuel @ lf-cterm-check lf-cterm-fuel @ lf-mls-fuel ! ;
+: lf-mls-checks ( index id -- index id outcome )
+  lf-mls-inputs dup ok? if drop 2dup lf-mls-graph then
+  dup ok? if drop over lf-mls-audit-from then ;
+: lf-mls-finish ( index -- index id 0 | status )
+  lf-mls-result @ dup lf-term-identity
+  if outcome-ok else drop outcome-invalid lf-mls-rollback then ;
+: lf-mls-apply ( index -- index id 0 | status )
+  dup lf-mls-build dup ok? if drop lf-mls-finish else nip lf-mls-rollback then ;
+: lf-mls-run ( index id -- index id 0 | status )
+  lf-mls-checks dup ok? if 2drop lf-mls-apply else nip nip then ;
+: lf-mls-use ( formals pairs count -- pairs count )
+  dup lf-mls-count ! rot lf-mls-formals ! ;
+: lf-mls-prepare ( index id pairs count -- index id outcome )
+  2over lf-mls-ready? 0= if 2drop outcome-invalid exit then
+  lf-mls-snapshot lf-mls-actuals! flag>outcome ;
 
-: lf-mls-build ( -- status )
-  lf-mls-root @ 1+ 0 ?do
-    i cells lf-mls-seen + @ if
-      i lf-mls-node ! i lf-term-read 0= if lf-mlsubst-invalid unloop exit then
-      lf-mls-b ! lf-mls-a ! lf-mls-tag !
-      lf-mls-tag @ lf-tag-symbolic-sort = if
-        lf-mls-a @ lf-mls-level ?dup if unloop exit then
-        dup lf-mls-a @ = if drop i else
-          dup lf-level-identity 0= if drop lf-mlsubst-invalid unloop exit then
-          lf-hterm-sort 0= if lf-mlsubst-exhausted unloop exit then drop
-        then
-      else lf-mls-tag @ lf-tag-constant = if
-        lf-mls-constant ?dup if unloop exit then
-      else lf-mls-tag @ lf-tag-bvar = if i else
-        lf-mls-a @ cells lf-mls-results + @
-        lf-mls-b @ cells lf-mls-results + @
-        2dup lf-mls-b @ = swap lf-mls-a @ = and if 2drop i else
-          lf-mls-tag @ lf-term-binary 0= if lf-mlsubst-exhausted unloop exit then
-        then
-      then then then
-      i cells lf-mls-results + !
-    then
-  loop lf-mlsubst-ok ;
-
-\ ( index id formals actual-pairs count fuel -- index id 0 | status )
-\ All syntax, source levels and replacements are audited before allocation.
+\ Substitute count actual (index identity) level pairs for count formal IDs
+\ in a live term. All syntax, source levels and replacements are audited
+\ before allocation.
 \ Audit and substitution share fuel; each term/level occurrence consumes fuel,
 \ including repeated replacement validation. Bounded list scans, identity
 \ checks and topological staging are additional bounded work. Status is invalid
 \ for malformed, stale or out-of-scope input, exhausted for resource limits.
-: lf-mixed-level-substitute ( index id formals actual-pairs count fuel -- index id 0 | status )
-  dup 0< if 2drop 2drop 2drop lf-mlsubst-invalid exit then lf-mls-fuel !
-  dup 0< over lf-level-capacity > or if 2drop 2drop drop lf-mlsubst-invalid exit then
-  lf-mls-count ! lf-mls-handles ! lf-mls-formals ! lf-mls-id ! lf-mls-root !
-  lf-mls-root @ lf-mls-id @ lf-hterm-valid? 0= if lf-mlsubst-invalid exit then
-  lf-cref-state-valid? 0= lf-term-serial @ 0< or lf-level-serial @ 0< or if
-    lf-mlsubst-invalid exit then
-  lf-term-count @ lf-mls-terms ! lf-level-count @ lf-mls-levels !
-  lf-cref-count @ lf-mls-crefs !
-  lf-mls-count @ 0 ?do
-    i 2 * cells lf-mls-handles @ + dup @ swap cell+ @
-    2dup lf-hlevel-valid? 0= if 2drop lf-mlsubst-invalid unloop exit then
-    drop i cells lf-mls-actuals + !
-  loop
-  lf-mls-formals @ lf-lsubst-formals ! lf-mls-actuals lf-lsubst-actuals !
-  lf-mls-count @ lf-lsubst-count ! lf-mls-fuel @ lf-lsubst-fuel !
-  lf-lsubst-inputs lf-lsubst-fuel @ lf-mls-fuel ! lf-mls-level-status ?dup if exit then
-  lf-mls-root @ lf-mls-id @ lf-mls-fuel @ lf-cterm-check
-  lf-cterm-fuel @ lf-mls-fuel ! lf-mls-repr-status ?dup if exit then
-  lf-mls-audit ?dup if exit then
-  lf-mls-build ?dup if lf-mls-rollback exit then
-  lf-mls-root @ cells lf-mls-results + @ dup lf-term-identity 0= if
-    drop lf-mlsubst-invalid lf-mls-rollback exit then lf-mlsubst-ok ;
+: lf-mixed-level-substitute
+  ( index id formals actual-pairs count fuel -- index id 0 | status )
+  lf-mls-walker walk-budget 0= if 2drop 2drop drop outcome-invalid exit then
+  dup lf-level-capacity upto? 0= if 2drop 2drop drop outcome-invalid exit then
+  lf-mls-use lf-mls-prepare dup ok? if drop lf-mls-run else nip nip then ;

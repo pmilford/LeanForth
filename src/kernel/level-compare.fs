@@ -1,115 +1,112 @@
 \ Untrusted conservative equality experiment for Lean-style level graphs.
 \ Equal is only an experimental diagnostic, never a theorem or type judgment.
-\ It assumes a single immutable-during-call arena and context, and that equal
-\ opaque parameter IDs denote the same Lean name. Global state is non-reentrant.
-\ The caller must include levels.fs, level-scope.fs and level-value.fs first.
+\ It assumes a store and context unchanged during a call, and that equal
+\ opaque parameter IDs denote the same Lean name. Requires levels.fs,
+\ level-scope.fs and level-value.fs.
+\ State: one record, lf-lcmp-state, holding the fuel left after a
+\ comparison, which mixed-convert reads. The comparison recurses on the host
+\ stacks through the deferred word lf-lcmp-walk, set once at load time. Not
+\ re-entrant and single-threaded.
 
-0 constant lf-lcmp-equal
-1 constant lf-lcmp-invalid
-2 constant lf-lcmp-exhausted
-3 constant lf-lcmp-unknown
-6 constant lf-lcmp-frame-cells
-create lf-lcmp-frames lf-level-capacity lf-lcmp-frame-cells * cells allot
-variable lf-lcmp-depth
-variable lf-lcmp-fuel
-variable lf-lcmp-left
-variable lf-lcmp-right
-variable lf-lcmp-concrete
-variable lf-lcmp-shrink-tag
-variable lf-lcmp-shrink-first
-variable lf-lcmp-shrink-second
+outcome-ok constant lf-lcmp-equal
+outcome-invalid constant lf-lcmp-invalid
+outcome-exhausted constant lf-lcmp-exhausted
+outcome-unknown constant lf-lcmp-unknown
 
-\ Address the active comparison frame; callers must hold an active frame.
-: lf-lcmp-frame ( -- addr )
-  lf-lcmp-depth @ 1- lf-lcmp-frame-cells * cells lf-lcmp-frames + ;
-\ Read and write fields in the active comparison frame.
-: lf-lcmp@ ( offset -- value ) cells lf-lcmp-frame + @ ;
-: lf-lcmp! ( value offset -- ) cells lf-lcmp-frame + ! ;
-\ Pop a frame while preserving the comparison status.
-: lf-lcmp-leave ( status -- status ) -1 lf-lcmp-depth +! ;
+begin-structure /lf-lcrec
+  field: lf-lcrec-fuel          \ visits left after a comparison
+end-structure
+create lf-lcmp-state /lf-lcrec allot
+lf-lcmp-state /lf-lcrec erase
 
-\ Explicitly translate helper statuses; unexpected values fail closed.
-: lf-lcmp-scope-status ( status -- status )
-  case
-    lf-lscope-ok of lf-lcmp-equal endof
-    lf-lscope-invalid of lf-lcmp-invalid endof
-    lf-lscope-exhausted of lf-lcmp-exhausted endof
-    drop lf-lcmp-invalid 0
-  endcase ;
-: lf-lcmp-value-status ( status -- status )
-  case
-    lf-lvalue-ok of lf-lcmp-equal endof
-    lf-lvalue-invalid of lf-lcmp-invalid endof
-    lf-lvalue-exhausted of lf-lcmp-exhausted endof
-    lf-lvalue-unknown of lf-lcmp-unknown endof
-    drop lf-lcmp-invalid 0
-  endcase ;
+: lf-lcmp-fuel ( -- addr ) lf-lcmp-state lf-lcrec-fuel ;
+\ Any failure except an unequal concrete value leaves no fuel: mixed-convert
+\ continues with lf-lcmp-fuel whatever the outcome.
+: lf-lcmp-fail ( status -- status ) 0 lf-lcmp-fuel ! ;
+: lf-lcmp-settle ( status -- status ) dup ok? 0= if lf-lcmp-fail then ;
 
-\ Reduce only literal-zero level identities. Both inputs were completely
-\ scope-checked first; each rewrite points to an earlier node and costs fuel.
-\ This is not general Lean universe normalization.
+\ Fields of a node that has been read successfully.
+: lf-lcmp-tag@ ( node -- tag ) lf-level-slot node-tag @ ;
+: lf-lcmp-firsts ( left right -- first first' )
+  lf-level-slot node-first @ swap lf-level-slot node-first @ swap ;
+: lf-lcmp-seconds ( left right -- second second' )
+  lf-level-slot node-second @ swap lf-level-slot node-second @ swap ;
+
+\ Reduce only literal-zero identities: max with a zero child is the other
+\ child, and imax with a zero second child is zero. Both roots were
+\ completely scope-checked first; each node read costs fuel, and each
+\ rewrite leads to an earlier node. This is not general Lean universe
+\ normalization.
+: lf-lcmp-max-zero ( first second -- node true | false )
+  over 0= if nip true exit then dup 0= if drop true else 2drop false then ;
+: lf-lcmp-rewrite ( tag first second -- node true | false )
+  rot case lf-level-tag-max of lf-lcmp-max-zero endof
+    lf-level-tag-imax of nip 0= if 0 true else false then endof
+    >r 2drop false r> endcase ;
+: lf-lcmp-spend? ( -- flag )
+  lf-lcmp-fuel @ 0= if false else -1 lf-lcmp-fuel +! true then ;
 : lf-lcmp-shrink ( node -- node status )
-  begin
-    lf-lcmp-fuel @ 0= if drop -1 lf-lcmp-exhausted exit then
-    -1 lf-lcmp-fuel +!
-    dup lf-level-read 0= if drop -1 lf-lcmp-invalid exit then
-    lf-lcmp-shrink-second ! lf-lcmp-shrink-first ! lf-lcmp-shrink-tag !
-    lf-lcmp-shrink-tag @ lf-level-tag-max = if
-      lf-lcmp-shrink-first @ 0= if
-        drop lf-lcmp-shrink-second @
-      else lf-lcmp-shrink-second @ 0= if
-        drop lf-lcmp-shrink-first @
-      else lf-lcmp-equal exit then then
-    else lf-lcmp-shrink-tag @ lf-level-tag-imax =
-         lf-lcmp-shrink-second @ 0= and if
-      drop 0
-    else lf-lcmp-equal exit then then
-  again ;
+  begin lf-lcmp-spend? 0= if drop -1 outcome-exhausted exit then
+    dup lf-level-read 0= if drop -1 outcome-invalid exit then
+    lf-lcmp-rewrite while nip repeat outcome-ok ;
+\ The right root shrinks first.
+: lf-lcmp-shrink2 ( left right -- left' right' true | status false )
+  lf-lcmp-shrink dup ok? 0= if nip nip false exit then drop
+  swap lf-lcmp-shrink dup ok? 0= if nip nip false exit then drop swap true ;
 
-\ Compare syntax after both roots have passed scope validation. Work and
-\ recursion are bounded; any unmatched constructor or ID is unknown.
-: lf-lcmp-walk ( left right -- status )
-  lf-lcmp-fuel @ 0= lf-lcmp-depth @ lf-level-capacity >= or if
-    2drop lf-lcmp-exhausted exit
-  then
-  -1 lf-lcmp-fuel +! 1 lf-lcmp-depth +!
-  lf-lcmp-shrink dup if nip nip lf-lcmp-leave exit then drop
-  swap lf-lcmp-shrink dup if nip nip lf-lcmp-leave exit then drop swap
-  lf-level-read 0= if drop lf-lcmp-invalid lf-lcmp-leave exit then
-  5 lf-lcmp! 4 lf-lcmp! 3 lf-lcmp!
-  lf-level-read 0= if lf-lcmp-invalid lf-lcmp-leave exit then
-  2 lf-lcmp! 1 lf-lcmp! 0 lf-lcmp!
-  0 lf-lcmp@ 3 lf-lcmp@ <> if lf-lcmp-unknown lf-lcmp-leave exit then
-  0 lf-lcmp@ lf-level-tag-zero = if lf-lcmp-equal lf-lcmp-leave exit then
-  0 lf-lcmp@ lf-level-tag-param = if
-    1 lf-lcmp@ 4 lf-lcmp@ = if lf-lcmp-equal else lf-lcmp-unknown then
-    lf-lcmp-leave exit
-  then
-  1 lf-lcmp@ 4 lf-lcmp@ recurse ?dup if lf-lcmp-leave exit then
-  0 lf-lcmp@ lf-level-tag-succ = if lf-lcmp-equal lf-lcmp-leave exit then
-  2 lf-lcmp@ 5 lf-lcmp@ recurse lf-lcmp-leave ;
+\ Compare syntax after both roots have passed scope validation. Depth
+\ counts the comparisons above; a visit needs fuel and a depth below the
+\ capacity. Any unmatched constructor or ID is unknown.
+defer lf-lcmp-walk ( left right depth -- status )
+: lf-lcmp-same-value ( x x' -- status ) = if outcome-ok else outcome-unknown then ;
+: lf-lcmp-param ( left right -- status ) lf-lcmp-firsts lf-lcmp-same-value ;
+\ Succ, max and imax: first children, then (except for succ) second children.
+: lf-lcmp-inner ( left right depth -- status )
+  >r 2dup lf-lcmp-firsts r@ lf-lcmp-walk dup ok? 0= if nip nip r> drop exit then drop
+  over lf-lcmp-tag@ lf-level-tag-succ = if 2drop r> drop outcome-ok
+  else lf-lcmp-seconds r> lf-lcmp-walk then ;
+\ Nodes with the same tag; depth is their children's depth.
+: lf-lcmp-same ( left right depth -- status )
+  over lf-lcmp-tag@ case lf-level-tag-zero of drop 2drop outcome-ok endof
+    lf-level-tag-param of drop lf-lcmp-param endof
+    >r lf-lcmp-inner r> endcase ;
+: lf-lcmp-node ( left right depth -- status )
+  >r 2dup lf-lcmp-tag@ swap lf-lcmp-tag@ =
+  if r> lf-lcmp-same else 2drop r> drop outcome-unknown then ;
+: lf-lcmp-readable? ( left right -- flag ) lf-level-valid? swap lf-level-valid? and ;
+: lf-lcmp-shrunk ( left right depth -- status )
+  >r 2dup lf-lcmp-readable? if r> lf-lcmp-node else 2drop r> drop outcome-invalid then ;
+: lf-lcmp-visit ( left right depth -- status )
+  >r lf-lcmp-shrink2 if r> lf-lcmp-shrunk else r> drop then ;
+: lf-lcmp-room? ( depth -- flag ) lf-level-capacity < lf-lcmp-fuel @ 0<> and ;
+: lf-lcmp-enter ( left right depth -- status )
+  dup lf-lcmp-room? 0= if drop 2drop outcome-exhausted exit then
+  -1 lf-lcmp-fuel +! 1+ lf-lcmp-visit ;
+' lf-lcmp-enter is lf-lcmp-walk
 
 \ If syntax did not match, independently evaluate both unassigned concrete
-\ graphs. Unequal or symbolic values are unknown, never an inequality verdict.
-: lf-lcmp-concrete-fallback ( -- status )
-  lf-lcmp-left @ lf-lcmp-fuel @ lf-level-value lf-lcmp-value-status
-  ?dup if nip 0 lf-lcmp-fuel ! exit then lf-lcmp-concrete !
-  lf-lvalue-fuel @ lf-lcmp-fuel !
-  lf-lcmp-right @ lf-lcmp-fuel @ lf-level-value lf-lcmp-value-status
-  ?dup if nip 0 lf-lcmp-fuel ! exit then
-  lf-lvalue-fuel @ lf-lcmp-fuel !
-  lf-lcmp-concrete @ = if lf-lcmp-equal else lf-lcmp-unknown then ;
+\ graphs, left first, each with the fuel left. Unequal or symbolic values are
+\ unknown, never an inequality verdict.
+: lf-lcmp-value ( root -- value status )
+  lf-lcmp-fuel @ lf-level-value dup ok? if lf-lvalue-fuel @ lf-lcmp-fuel ! then ;
+: lf-lcmp-values ( left right -- value value' true | status false )
+  swap lf-lcmp-value ok-then? 0= if nip false exit then
+  swap lf-lcmp-value ok-then? if true else nip false then ;
+: lf-lcmp-concrete ( left right -- status )
+  lf-lcmp-values if lf-lcmp-same-value else lf-lcmp-fail then ;
+
+\ Scope-check a root with the fuel left, continuing with what it leaves.
+: lf-lcmp-scope ( root -- status )
+  lf-lcmp-fuel @ lf-lscope-check lf-lscope-fuel @ lf-lcmp-fuel ! ;
+: lf-lcmp-scopes ( left right -- status )
+  swap lf-lcmp-scope ok-then? if lf-lcmp-scope then ;
+: lf-lcmp-roots ( left right -- status )
+  2dup 0 lf-lcmp-walk dup outcome-unknown =
+  if drop lf-lcmp-concrete else nip nip lf-lcmp-settle then ;
 
 \ Compare two roots against one explicit parameter context. Scope checks run
 \ before any equality shortcut and share fuel with comparison and evaluation.
 \ Only one status is returned; this word cannot register a declaration.
 : lf-level-compare ( left right fuel -- status )
-  dup 0< if drop 2drop 0 lf-lcmp-fuel ! lf-lcmp-invalid exit then lf-lcmp-fuel !
-  lf-lcmp-right ! lf-lcmp-left !
-  lf-lcmp-left @ lf-lcmp-fuel @ lf-lscope-check lf-lcmp-scope-status
-  ?dup if 0 lf-lcmp-fuel ! exit then lf-lscope-fuel @ lf-lcmp-fuel !
-  lf-lcmp-right @ lf-lcmp-fuel @ lf-lscope-check lf-lcmp-scope-status
-  ?dup if 0 lf-lcmp-fuel ! exit then lf-lscope-fuel @ lf-lcmp-fuel !
-  0 lf-lcmp-depth ! lf-lcmp-left @ lf-lcmp-right @ lf-lcmp-walk
-  dup lf-lcmp-unknown = if drop lf-lcmp-concrete-fallback
-  else dup if 0 lf-lcmp-fuel ! then then ;
+  dup 0< if drop 2drop outcome-invalid lf-lcmp-fail exit then lf-lcmp-fuel !
+  2dup lf-lcmp-scopes dup ok? if drop lf-lcmp-roots else nip nip lf-lcmp-fail then ;
