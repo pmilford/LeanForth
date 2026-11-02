@@ -94,7 +94,7 @@ lf-lvalue-state /lf-lvrec erase
 \ The value -1 is a symbolic result: with ok it ends the evaluation of
 \ every node above, and it cannot be confused with a concrete level.
 defer lf-lvalue-walk ( node depth -- value status )
-: lf-lvalue-room? ( depth -- flag ) lf-lvalue-depth-limit < lf-lvalue-fuel @ 0<> and ;
+: lf-lvalue-room? ( depth -- flag ) lf-lvalue-depth-limit < lf-lvalue-fuel @ 0> and ;
 \ A failure or a symbolic value is final; otherwise continue with the value.
 : lf-lvalue-done? ( value status -- value status true | value false )
   dup ok? 0= if true exit then over -1 = if true else drop false then ;

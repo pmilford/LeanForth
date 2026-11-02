@@ -83,7 +83,7 @@ defer lf-lcmp-walk ( left right depth -- status )
   >r 2dup lf-lcmp-readable? if r> lf-lcmp-node else 2drop r> drop outcome-invalid then ;
 : lf-lcmp-visit ( left right depth -- status )
   >r lf-lcmp-shrink2 if r> lf-lcmp-shrunk else r> drop then ;
-: lf-lcmp-room? ( depth -- flag ) lf-lcmp-depth-limit < lf-lcmp-fuel @ 0<> and ;
+: lf-lcmp-room? ( depth -- flag ) lf-lcmp-depth-limit < lf-lcmp-fuel @ 0> and ;
 : lf-lcmp-enter ( left right depth -- status )
   dup lf-lcmp-room? 0= if drop 2drop outcome-exhausted exit then
   -1 lf-lcmp-fuel +! 1+ lf-lcmp-visit ;
