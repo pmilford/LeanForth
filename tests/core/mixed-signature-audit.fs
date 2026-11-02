@@ -62,6 +62,7 @@ variable bad-domain-root variable bad-domain-id
   bad-domain-id ! bad-domain-root ! ;
 make-binders
 variable tc variable lc variable cc variable ts variable ls variable cs
+variable saved-value
 : snapshot ( -- ) lf-term-count @ tc ! lf-level-count @ lc ! lf-cref-count @ cc !
   lf-term-serial @ ts ! lf-level-serial @ ls ! lf-cref-serial @ cs ! ;
 : unchanged? ( -- flag )
@@ -105,29 +106,29 @@ T{ unchanged? -> true }T
 1 cells lf-msp-ids + dup @ 1+ swap !
 T{ token 1000 lf-mixed-signature-audit -> lf-msp-invalid }T
 1 cells lf-msp-ids + dup @ 1- swap !
-1 lf-msp-formals-at cell+ dup @ >r 11 swap !
+1 lf-msp-formals-at cell+ dup @ saved-value ! 11 swap !
 T{ token 1000 lf-mixed-signature-audit -> lf-msp-invalid }T
-r> 1 lf-msp-formals-at cell+ !
-1 lf-msp-formals-at dup @ >r 33 swap !
+saved-value @ 1 lf-msp-formals-at cell+ !
+1 lf-msp-formals-at dup @ saved-value ! 33 swap !
 T{ token 1000 lf-mixed-signature-audit -> lf-msp-invalid }T
-r> 1 lf-msp-formals-at !
-1 cells lf-msp-arities + dup @ >r -1 swap !
+saved-value @ 1 lf-msp-formals-at !
+1 cells lf-msp-arities + dup @ saved-value ! -1 swap !
 T{ token 1000 lf-mixed-signature-audit -> lf-msp-invalid }T
-r> 1 cells lf-msp-arities + !
-1 cells lf-msp-names + dup @ >r 0 swap !
+saved-value @ 1 cells lf-msp-arities + !
+1 cells lf-msp-names + dup @ saved-value ! 0 swap !
 T{ token 1000 lf-mixed-signature-audit -> lf-msp-invalid }T
-r> 1 cells lf-msp-names + !
-lf-lscope-context dup @ >r 0 swap !
+saved-value @ 1 cells lf-msp-names + !
+lf-lscope-context dup @ saved-value ! 0 swap !
 T{ token 1000 lf-mixed-signature-audit -> lf-msp-invalid }T
-r> lf-lscope-context !
+saved-value @ lf-lscope-context !
 \ A valid context that omits a used parameter also fails.
-lf-lscope-context dup @ >r 44 swap !
+lf-lscope-context dup @ saved-value ! 44 swap !
 T{ token 1000 lf-mixed-signature-audit -> lf-msp-invalid }T
-r> lf-lscope-context !
+saved-value @ lf-lscope-context !
 \ Malformed nested reference metadata is rejected.
-0 lf-cref-slot 3 cells + dup @ >r -1 swap !
+0 lf-cref-slot 3 cells + dup @ saved-value ! -1 swap !
 T{ token 1000 lf-mixed-signature-audit -> lf-msp-invalid }T
-r> 0 lf-cref-slot 3 cells + !
+saved-value @ 0 lf-cref-slot 3 cells + !
 T{ unchanged? -> true }T
 \ A stale nested reference is detected although the index token is current.
 lf-cref-reset
