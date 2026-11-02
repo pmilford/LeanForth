@@ -2,8 +2,8 @@
 \ These values do not establish general symbolic equality or proof validity.
 include ../../src/core/levels.fs
 include ../../src/core/level-scope.fs
-include ../../src/core/level-value.fs
-include ../../src/core/level-substitute.fs
+include ../../src/kernel/level-value.fs
+include ../../src/kernel/level-substitute.fs
 decimal
 
 create formal-ids 2 cells allot

@@ -9,19 +9,19 @@ include ../../src/core/symbolic-session.fs
 include ../../src/core/generation-handles.fs
 include ../../src/core/constant-references.fs
 include ../../src/core/constant-term-boundary.fs
-include ../../src/core/level-substitute.fs
-include ../../src/core/mixed-level-substitute.fs
-include ../../src/core/mixed-signature-probe.fs
+include ../../src/kernel/level-substitute.fs
+include ../../src/kernel/mixed-level-substitute.fs
+include ../../src/kernel/mixed-signature-probe.fs
 include ../../src/core/constant-term-scope.fs
-include ../../src/core/mixed-signature-audit.fs
-include ../../src/core/mixed-compare.fs
-include ../../src/core/mixed-shift.fs
-include ../../src/core/mixed-instantiate.fs
-include ../../src/core/mixed-beta.fs
-include ../../src/core/level-value.fs
-include ../../src/core/level-compare.fs
-include ../../src/core/mixed-convert.fs
-include ../../src/core/mixed-infer.fs
+include ../../src/kernel/mixed-signature-audit.fs
+include ../../src/kernel/mixed-compare.fs
+include ../../src/kernel/mixed-shift.fs
+include ../../src/kernel/mixed-instantiate.fs
+include ../../src/kernel/mixed-beta.fs
+include ../../src/kernel/level-value.fs
+include ../../src/kernel/level-compare.fs
+include ../../src/kernel/mixed-convert.fs
+include ../../src/kernel/mixed-infer.fs
 
 
 \ Finite comparisons only. Candidate signature is assumed, not a declaration.

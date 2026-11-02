@@ -8,7 +8,7 @@ include ../../src/core/symbolic-session.fs
 include ../../src/core/generation-handles.fs
 include ../../src/core/constant-references.fs
 include ../../src/core/constant-term-boundary.fs
-include ../../src/core/mixed-shift.fs
+include ../../src/kernel/mixed-shift.fs
 decimal
 create actual 2 cells allot
 variable mixed-root

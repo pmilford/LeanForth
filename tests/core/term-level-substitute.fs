@@ -5,7 +5,7 @@ include ../../src/core/level-scope.fs
 include ../../src/core/tagged-sort-boundary.fs
 include ../../src/core/symbolic-session.fs
 include ../../src/core/generation-handles.fs
-include ../../src/core/level-substitute.fs
+include ../../src/kernel/level-substitute.fs
 include ../../src/legacy/term-level-substitute.fs
 
 create formals 2 cells allot

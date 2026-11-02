@@ -6,7 +6,7 @@ include ../../src/legacy/declaration-probe.fs
 include ../../src/import/load.fs
 include ../../src/core/levels.fs
 include ../../src/core/level-scope.fs
-include ../../src/core/level-value.fs
+include ../../src/kernel/level-value.fs
 decimal
 create sp-byte 1 allot
 variable sp-level-count

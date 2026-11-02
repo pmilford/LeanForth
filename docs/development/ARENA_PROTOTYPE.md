@@ -17,7 +17,7 @@ also checks the distinguished zero slot and rejects corrupted counts, fields,
 cycles and forward references. Repeated shared nodes consume repeated visit
 fuel; context validation has a separate bounded quadratic cost. Opaque IDs are
 not Lean name equality, and structural success is not a type or proof judgment.
-`src/core/level-value.fs` evaluates validated concrete level DAGs
+`src/kernel/level-value.fs` evaluates validated concrete level DAGs
 using bounded fuel; symbolic parameters return unknown. The concrete result is
 not a level equality judgment or theorem. Validation and evaluation share visit
 fuel, while bounded context processing is separate; the global mutable arena
@@ -35,7 +35,7 @@ The test-only `make test-poly-specialization-differential` specializes an actual
 polymorphic Lean export for four explicit levels and compares Forth's untrusted
 declaration diagnostics with Lean's kernel. This does not check the original
 polymorphic declaration or create any theorem handle.
-`src/core/level-compare.fs` compares scoped level graphs using a few
+`src/kernel/level-compare.fs` compares scoped level graphs using a few
 literal-zero rewrites and structural comparison, and falls back to unassigned
 concrete evaluation; it reports unknown for many
 Lean equalities. Equal is an untrusted diagnostic dependent on stable opaque ID

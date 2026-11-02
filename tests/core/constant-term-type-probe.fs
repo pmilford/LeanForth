@@ -8,7 +8,7 @@ include ../../src/core/symbolic-session.fs
 include ../../src/core/generation-handles.fs
 include ../../src/core/constant-references.fs
 include ../../src/legacy/raw-declaration-index.fs
-include ../../src/core/level-substitute.fs
+include ../../src/kernel/level-substitute.fs
 include ../../src/legacy/term-level-substitute.fs
 include ../../src/legacy/raw-signature-specialize.fs
 include ../../src/legacy/constant-signature-probe.fs

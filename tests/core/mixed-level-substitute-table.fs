@@ -3,14 +3,14 @@ include ../../src/core/terms.fs
 include ../../src/core/names.fs
 include ../../src/core/levels.fs
 include ../../src/core/level-scope.fs
-include ../../src/core/level-value.fs
+include ../../src/kernel/level-value.fs
 include ../../src/core/tagged-sort-boundary.fs
 include ../../src/core/symbolic-session.fs
 include ../../src/core/generation-handles.fs
 include ../../src/core/constant-references.fs
 include ../../src/core/constant-term-boundary.fs
-include ../../src/core/level-substitute.fs
-include ../../src/core/mixed-level-substitute.fs
+include ../../src/kernel/level-substitute.fs
+include ../../src/kernel/mixed-level-substitute.fs
 decimal
 create formals 2 cells allot
 create actuals 4 cells allot

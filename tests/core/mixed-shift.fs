@@ -9,7 +9,7 @@ include ../../src/core/symbolic-session.fs
 include ../../src/core/generation-handles.fs
 include ../../src/core/constant-references.fs
 include ../../src/core/constant-term-boundary.fs
-include ../../src/core/mixed-shift.fs
+include ../../src/kernel/mixed-shift.fs
 
 variable rid variable cid variable sid variable rootid variable outid variable serial-before
 create args 2 cells allot

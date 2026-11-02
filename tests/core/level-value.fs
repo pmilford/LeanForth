@@ -2,7 +2,7 @@
 include ../support/tester.fs
 include ../../src/core/levels.fs
 include ../../src/core/level-scope.fs
-include ../../src/core/level-value.fs
+include ../../src/kernel/level-value.fs
 
 lf-level-reset lf-lscope-context-reset
 T{ 0 lf-level-succ -> 1 true }T

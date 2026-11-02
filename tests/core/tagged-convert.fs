@@ -9,8 +9,8 @@ include ../../src/core/generation-handles.fs
 include ../../src/legacy/tagged-shift.fs
 include ../../src/legacy/tagged-instantiate.fs
 include ../../src/legacy/tagged-beta.fs
-include ../../src/core/level-value.fs
-include ../../src/core/level-compare.fs
+include ../../src/kernel/level-value.fs
+include ../../src/kernel/level-compare.fs
 include ../../src/legacy/tagged-convert.fs
 
 : handle ( node -- node identity ) dup lf-term-identity 0= abort" identity" ;

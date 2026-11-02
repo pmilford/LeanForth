@@ -3,11 +3,11 @@ include ../../src/core/terms.fs
 include ../../src/core/names.fs
 include ../../src/core/levels.fs
 include ../../src/core/level-scope.fs
-include ../../src/core/level-value.fs
+include ../../src/kernel/level-value.fs
 include ../../src/core/tagged-sort-boundary.fs
 include ../../src/core/symbolic-session.fs
 include ../../src/core/generation-handles.fs
-include ../../src/core/level-substitute.fs
+include ../../src/kernel/level-substitute.fs
 include ../../src/legacy/term-level-substitute.fs
 include ../../src/legacy/raw-declaration-index.fs
 include ../../src/legacy/raw-signature-specialize.fs

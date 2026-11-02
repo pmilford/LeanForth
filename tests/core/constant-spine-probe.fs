@@ -12,7 +12,7 @@ include ../../src/core/symbolic-session.fs
 include ../../src/core/generation-handles.fs
 include ../../src/core/constant-references.fs
 include ../../src/legacy/raw-declaration-index.fs
-include ../../src/core/level-substitute.fs
+include ../../src/kernel/level-substitute.fs
 include ../../src/legacy/term-level-substitute.fs
 include ../../src/legacy/raw-signature-specialize.fs
 include ../../src/legacy/constant-signature-probe.fs
@@ -22,8 +22,8 @@ include ../../src/legacy/tagged-shift.fs
 include ../../src/legacy/tagged-instantiate.fs
 include ../../src/legacy/tagged-compare.fs
 include ../../src/legacy/tagged-beta.fs
-include ../../src/core/level-value.fs
-include ../../src/core/level-compare.fs
+include ../../src/kernel/level-value.fs
+include ../../src/kernel/level-compare.fs
 include ../../src/legacy/tagged-convert.fs
 include ../../src/legacy/tagged-infer.fs
 include ../../src/legacy/constant-application-probe.fs

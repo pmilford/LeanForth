@@ -8,7 +8,7 @@ include ../../src/core/symbolic-session.fs
 include ../../src/core/generation-handles.fs
 include ../../src/core/constant-references.fs
 include ../../src/core/constant-term-boundary.fs
-include ../../src/core/mixed-compare.fs
+include ../../src/kernel/mixed-compare.fs
 create ids 32 cells allot
 create args 4 cells allot
 variable name-x variable name-y variable num-root variable num-child

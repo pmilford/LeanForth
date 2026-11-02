@@ -5,8 +5,8 @@
 include ../../src/core/names.fs
 include ../../src/core/levels.fs
 include ../../src/core/level-scope.fs
-include ../../src/core/level-value.fs
-include ../../src/core/level-compare.fs
+include ../../src/kernel/level-value.fs
+include ../../src/kernel/level-compare.fs
 decimal
 create nl-byte 1 allot
 create nl-buffer 255 allot

@@ -40,10 +40,10 @@ The prototype uses `2drop` and `0<=` in addition to basic Forth words; these
 host requirements must be accounted for when targeting another Forth system.
 `src/core/level-scope.fs` experiments with bounded shape and parameter
 ID checks; it does not provide structured-name identity or an immutable context.
-`src/core/level-value.fs` evaluates concrete graphs only; symbolic
+`src/kernel/level-value.fs` evaluates concrete graphs only; symbolic
 graphs return unknown unless its separate instance evaluator receives explicit
 numeric assignments. An instance is not a polymorphic equality judgment.
-`src/core/level-compare.fs` explores a conservative equality rule:
+`src/kernel/level-compare.fs` explores a conservative equality rule:
 after checking both graphs, literal-zero rewrites `max(u,0)`, `max(0,u)` and
 `imax(u,0)` may be applied before structural comparison under one ID-to-name
 mapping; otherwise two unassigned, concrete evaluations may match if their

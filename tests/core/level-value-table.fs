@@ -2,7 +2,7 @@
 \ The emitted integers are diagnostics, never checked theorem judgments.
 include ../../src/core/levels.fs
 include ../../src/core/level-scope.fs
-include ../../src/core/level-value.fs
+include ../../src/kernel/level-value.fs
 decimal
 variable table-left
 variable table-right

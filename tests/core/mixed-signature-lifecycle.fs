@@ -11,11 +11,11 @@ include ../../src/core/symbolic-session.fs
 include ../../src/core/generation-handles.fs
 include ../../src/core/constant-references.fs
 include ../../src/core/constant-term-boundary.fs
-include ../../src/core/level-substitute.fs
-include ../../src/core/mixed-level-substitute.fs
-include ../../src/core/mixed-signature-probe.fs
+include ../../src/kernel/level-substitute.fs
+include ../../src/kernel/mixed-level-substitute.fs
+include ../../src/kernel/mixed-signature-probe.fs
 include ../../src/core/constant-term-scope.fs
-include ../../src/core/mixed-signature-audit.fs
+include ../../src/kernel/mixed-signature-audit.fs
 
 create formals 1 cells allot
 create actuals 2 cells allot

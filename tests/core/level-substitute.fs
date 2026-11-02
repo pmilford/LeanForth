@@ -1,7 +1,7 @@
 include ../support/tester.fs
 include ../../src/core/levels.fs
 include ../../src/core/level-scope.fs
-include ../../src/core/level-substitute.fs
+include ../../src/kernel/level-substitute.fs
 
 create formals 2 cells allot
 create actuals 2 cells allot

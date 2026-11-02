@@ -7,10 +7,10 @@ include ../../src/core/tagged-sort-boundary.fs
 include ../../src/core/symbolic-session.fs
 include ../../src/core/generation-handles.fs
 include ../../src/legacy/raw-declaration-index.fs
-include ../../src/core/level-substitute.fs
+include ../../src/kernel/level-substitute.fs
 include ../../src/legacy/term-level-substitute.fs
 include ../../src/legacy/raw-signature-specialize.fs
-include ../../src/core/level-value.fs
+include ../../src/kernel/level-value.fs
 decimal
 create input-byte 1 allot
 create identities lf-term-capacity cells allot

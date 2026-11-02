@@ -11,7 +11,7 @@ include ../../src/core/constant-references.fs
 include ../../src/core/constant-term-boundary.fs
 include ../../src/core/constant-term-scope.fs
 include ../../src/legacy/raw-declaration-index.fs
-include ../../src/core/level-substitute.fs
+include ../../src/kernel/level-substitute.fs
 include ../../src/legacy/term-level-substitute.fs
 include ../../src/legacy/raw-signature-specialize.fs
 include ../../src/legacy/constant-signature-probe.fs
@@ -20,8 +20,8 @@ include ../../src/legacy/tagged-shift.fs
 include ../../src/legacy/tagged-instantiate.fs
 include ../../src/legacy/tagged-compare.fs
 include ../../src/legacy/tagged-beta.fs
-include ../../src/core/level-value.fs
-include ../../src/core/level-compare.fs
+include ../../src/kernel/level-value.fs
+include ../../src/kernel/level-compare.fs
 include ../../src/legacy/tagged-convert.fs
 include ../../src/legacy/tagged-infer.fs
 include ../../src/legacy/candidate-definition-probe.fs
@@ -31,16 +31,16 @@ include ../../src/legacy/constant-spine-probe.fs
 include ../../src/legacy/context-constant-spine.fs
 include ../../src/legacy/context-validation-probe.fs
 include ../../src/legacy/validated-context-spine.fs
-include ../../src/core/mixed-level-substitute.fs
-include ../../src/core/mixed-signature-probe.fs
-include ../../src/core/mixed-signature-audit.fs
-include ../../src/core/mixed-shift.fs
-include ../../src/core/mixed-instantiate.fs
-include ../../src/core/mixed-beta.fs
-include ../../src/core/mixed-compare.fs
-include ../../src/core/mixed-convert.fs
-include ../../src/core/mixed-infer.fs
-include ../../src/core/mixed-definition-probe.fs
+include ../../src/kernel/mixed-level-substitute.fs
+include ../../src/kernel/mixed-signature-probe.fs
+include ../../src/kernel/mixed-signature-audit.fs
+include ../../src/kernel/mixed-shift.fs
+include ../../src/kernel/mixed-instantiate.fs
+include ../../src/kernel/mixed-beta.fs
+include ../../src/kernel/mixed-compare.fs
+include ../../src/kernel/mixed-convert.fs
+include ../../src/kernel/mixed-infer.fs
+include ../../src/kernel/mixed-definition-probe.fs
 decimal
 create cb 1 allot
 create buf 255 allot

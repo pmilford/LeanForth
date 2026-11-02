@@ -125,8 +125,18 @@ records stay traceable; modules are renamed when they are refactored.
 `make smoke` loads `main.fs` and fails if loading prints anything, which
 catches two modules defining the same word.
 
+Owner note, same day: the kernel is developed in `kernel/`; an in-progress
+project is not expected to have verified code, and nothing counts as
+verified until the owner says so after the review gate. The 13 checking
+modules (universe substitution, value and comparison; signatures; the
+`mixed-*` passes; the definition probe) therefore moved from `core/` to
+`kernel/`, leaving the 10 data-model modules in `core/`. No `core/` module
+uses a `kernel/` one. The owner also asked that user documentation show
+each example concretely in mathematical notation, Forth syntax and Lean.
+
 Rejected: keeping `core/` versus `experimental/` (the names said nothing
-about content and `core/` was mistaken for the trusted kernel); leaving
+about content and `core/` was mistaken for the trusted kernel); an empty
+`kernel/` reserved for reviewed code (superseded by the owner's note above); leaving
 superseded copies in `core/` (mixes current and old code); deleting them now
 (their 14 Lean comparisons must first move to the current path; owner chose
 to keep them); one wordlist per folder in this step (needs an ADR; later).
