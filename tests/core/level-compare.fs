@@ -1,5 +1,6 @@
 \ Conservative experimental level comparison tests; no theorem is checked.
 include ../support/tester.fs
+include ../support/checks.fs
 include ../../src/core/levels.fs
 include ../../src/core/level-scope.fs
 include ../../src/kernel/level-value.fs
@@ -109,15 +110,18 @@ T{ 0 lf-level-succ -> 1 true }T
     lf-level-count @ 2 <> if -1 throw then
   loop ;
 check-comparison-budgets
-\ Helper statuses keep their meaning; other codes are invalid, never equal.
-T{ lf-lscope-ok lf-lcmp-scope-status -> lf-lcmp-equal }T
-T{ lf-lscope-invalid lf-lcmp-scope-status -> lf-lcmp-invalid }T
-T{ lf-lscope-exhausted lf-lcmp-scope-status -> lf-lcmp-exhausted }T
-T{ 3 lf-lcmp-scope-status -> lf-lcmp-invalid }T
-T{ 99 lf-lcmp-scope-status -> lf-lcmp-invalid }T
-T{ lf-lvalue-ok lf-lcmp-value-status -> lf-lcmp-equal }T
-T{ lf-lvalue-invalid lf-lcmp-value-status -> lf-lcmp-invalid }T
-T{ lf-lvalue-exhausted lf-lcmp-value-status -> lf-lcmp-exhausted }T
-T{ lf-lvalue-unknown lf-lcmp-value-status -> lf-lcmp-unknown }T
-T{ 99 lf-lcmp-value-status -> lf-lcmp-invalid }T
+\ Fuel left, which mixed-convert reads. 1 1: two scope checks of two
+\ visits, then the walk visits the pair, shrinks both, and does the same
+\ for the children: ten units. 0 1: three scope visits, three walk visits,
+\ then the fallback evaluates both roots (two and four units). Any failure
+\ leaves no fuel.
+T{ 1 1 20 lf-level-compare lf-lcmp-fuel @ -> lf-lcmp-equal 10 }T
+T{ 1 1 10 lf-level-compare lf-lcmp-fuel @ -> lf-lcmp-equal 0 }T
+T{ 1 1 9 lf-level-compare lf-lcmp-fuel @ -> lf-lcmp-exhausted 0 }T
+T{ 0 1 20 lf-level-compare lf-lcmp-fuel @ -> lf-lcmp-unknown 8 }T
+5 lf-lcmp-fuel !
+T{ 1 1 -1 lf-level-compare lf-lcmp-fuel @ -> lf-lcmp-invalid 0 }T
+5 lf-lcmp-fuel !
+T{ -1 1 20 lf-level-compare lf-lcmp-fuel @ -> lf-lcmp-invalid 0 }T
+T{ 1 1 20 ' lf-level-compare rs-checked -> lf-lcmp-equal }T
 bye

@@ -1,5 +1,6 @@
 \ Tests for untrusted concrete level evaluation. Success is not a proof.
 include ../support/tester.fs
+include ../support/checks.fs
 include ../../src/core/levels.fs
 include ../../src/core/level-scope.fs
 include ../../src/kernel/level-value.fs
@@ -20,11 +21,14 @@ T{ 5 100 lf-level-value -> 2 lf-lvalue-ok }T
 T{ 5 0 lf-level-value -> -1 lf-lvalue-exhausted }T
 T{ -1 100 lf-level-value -> -1 lf-lvalue-invalid }T
 T{ 5 -1 lf-level-value -> -1 lf-lvalue-invalid }T
-T{ lf-lscope-ok lf-lvalue-scope-status -> lf-lvalue-ok }T
-T{ lf-lscope-invalid lf-lvalue-scope-status -> lf-lvalue-invalid }T
-T{ lf-lscope-exhausted lf-lvalue-scope-status -> lf-lvalue-exhausted }T
-T{ 3 lf-lvalue-scope-status -> lf-lvalue-invalid }T
-T{ 99 lf-lvalue-scope-status -> lf-lvalue-invalid }T
+\ lf-lvalue-fuel is set only once the scope check succeeds. Root 2 costs
+\ three scope visits and three evaluation visits; root 5 six scope visits.
+7 lf-lvalue-fuel !
+T{ 5 -1 lf-level-value lf-lvalue-fuel @ -> -1 lf-lvalue-invalid 7 }T
+T{ 5 3 lf-level-value lf-lvalue-fuel @ -> -1 lf-lvalue-exhausted 7 }T
+T{ 2 6 lf-level-value lf-lvalue-fuel @ -> 2 lf-lvalue-ok 0 }T
+T{ 2 5 lf-level-value lf-lvalue-fuel @ -> -1 lf-lvalue-exhausted 0 }T
+T{ 2 100 ' lf-level-value rs-checked -> 2 lf-lvalue-ok }T
 \ Exhaustion during validation or evaluation leaves the original DAG intact.
 : check-level-budgets ( -- )
   100 0 do
