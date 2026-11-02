@@ -36,7 +36,7 @@ FLAG = "-DwarningAsError=true"
 # A call is the Lean executable followed directly by its first argument.
 # `LEAN="$lean" bash other.sh` passes the path on and is not a call.
 SHELL_CALL = re.compile(r'"\$lean" +(?P<first>\S+)')
-PYTHON_CALL = re.compile(r"\[LEAN, *(?P<first>[^,\]]+)")
+PYTHON_CALL = re.compile(r"\[(?:LEAN|lean|lean_path|LEAN_PATH), *(?P<first>[^,\]]+)")
 
 
 def candidate_files(pattern):

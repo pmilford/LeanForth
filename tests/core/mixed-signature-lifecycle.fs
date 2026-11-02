@@ -158,8 +158,8 @@ T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> 2 2 0 }T
 \ No public request reaches this guard (the token is stale first), so the
 \ internal request record is filled directly.
 : coverage-without-zero ( -- status )
-  sort-fixture lf-msp-request >r 1 5000 r@ lf-msr-budget! formals r@ lf-msr-formals !
-  0 root-id @ r@ lf-msr-source! lf-level-count @ 0 lf-level-count !
+  sort-fixture lf-msp-request >r 1 5000 r@ lf-msp-budget! formals r@ lf-sigreq-formals !
+  0 root-id @ r@ lf-msp-source! lf-level-count @ 0 lf-level-count !
   r> lf-msp-coverage swap lf-level-count ! ;
 T{ 777 coverage-without-zero -> 777 lf-msp-invalid }T
 
