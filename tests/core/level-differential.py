@@ -16,7 +16,8 @@ def main():
     revision = subprocess.run([lean, "--githash"], check=True, capture_output=True, text=True).stdout.strip()
     if not version.startswith("Lean (version 4.35.0,") or revision != LEAN_HASH:
         raise ValueError("unexpected Lean toolchain")
-    lean_rows = subprocess.run([lean, "--run", "tests/reference/level-table.lean"],
+    lean_rows = subprocess.run([lean, "-DwarningAsError=true", "--run",
+                                "tests/reference/level-table.lean"],
                                check=True, capture_output=True, text=True).stdout.splitlines()
     fixture = Path("tests/reference/identity.ndjson").read_text().splitlines()
     position = next(i for i, line in enumerate(fixture) if '"ie":0' in line)
