@@ -72,7 +72,7 @@ All are proposals; none is approved for trusted implementation.
 
 Until 2026-11-02 every document lived directly in `docs/`. Dated review
 records and `prompts/FIRST_CODEX_TASK.md` still use those old paths. Old
-`docs/NAME.md` is now at:
+`docs/<name>.md` is now at:
 
 | Folder | Documents |
 | --- | --- |

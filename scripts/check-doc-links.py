@@ -3,9 +3,9 @@
 
 Usage: python3 scripts/check-doc-links.py   (run from the repository root)
 
-Checks every tracked Markdown file's relative links, and every mention of a
-`docs/...` file path in tracked Markdown, shell, Python, Forth, TOML, YAML
-and Makefile sources. Dated review records (docs/reviews/YYYY-MM-DD-*.md)
+Checks every tracked or new (not ignored) Markdown file's relative links, and every mention of a
+`docs/...` file path in such Markdown, shell, Python, Forth, TOML, YAML
+and Makefile sources. Dated review records (reviews/YYYY-MM-DD-*.md under docs)
 and prompts/ are historical and keep the paths current when they were
 written, so they are not checked; docs/README.md maps old paths to new ones.
 Exits 1 and lists each broken reference, or prints a summary and exits 0.
@@ -22,9 +22,12 @@ DOC_PATH = re.compile(r"(?<![A-Za-z0-9_./-])docs/[A-Za-z0-9_./-]*[A-Za-z0-9_]")
 
 
 def tracked_files():
-    listing = subprocess.check_output(["git", "ls-files"], text=True)
-    return [p for p in listing.splitlines()
-            if TEXT.search(p) and not HISTORICAL.match(p)]
+    # Include new, not yet committed files so problems are caught before commit.
+    listing = subprocess.check_output(
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard"], text=True)
+    return [p for p in sorted(set(listing.splitlines()))
+            if TEXT.search(p) and not HISTORICAL.match(p)
+            and pathlib.Path(p).exists()]
 
 
 def broken_references(path):

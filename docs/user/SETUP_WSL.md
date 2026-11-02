@@ -1,6 +1,6 @@
-# Windows -> WSL2 -> Codex startup
+# Windows → WSL2 setup
 
-Recommended: Windows 11 with WSL2 Ubuntu; VS Code installed on Windows with its WSL extension; all Linux toolchains and the git working tree inside `~/src/LeanForth` in Ubuntu (not `/mnt/c`). Development inside WSL is easier for Gforth, C compilers and Lean's Linux-specific sandboxing tools.
+Recommended: Windows 11 with WSL2 Ubuntu; VS Code installed on Windows with its WSL extension; all Linux toolchains and the git working tree inside your Ubuntu home directory (for example `~/code/LeanForth`), not under `/mnt/c`. Development inside WSL is easier for Gforth, C compilers and Lean's Linux-specific sandboxing tools.
 
 ## On Windows: one-time actions
 
@@ -9,53 +9,56 @@ Recommended: Windows 11 with WSL2 Ubuntu; VS Code installed on Windows with its 
 3. Obtain access to the project repository. GitHub authentication is only needed
    if the repository is private; it is not needed to run a local checkout.
 
-## In Ubuntu/WSL shell
+## In the Ubuntu/WSL shell
 
 ```bash
 sudo apt update
-sudo apt install -y git gh build-essential make pkg-config curl wget unzip jq python3 python3-venv gforth
-# Clone the authorized repository, then enter its directory.
+sudo apt install -y git gh build-essential make pkg-config curl python3 \
+  m4 libtool-bin libffi-dev libltdl-dev zstd
+git clone https://github.com/pmilford/LeanForth.git   # needs access if private
+cd LeanForth
+scripts/install-gforth.sh .tools/gforth
+scripts/install-lean.sh .tools/elan/toolchains/leanprover--lean4---v4.35.0
 bash scripts/check-env.sh
-make smoke
+make test     # Forth and Python tests
+make check    # adds every pinned-Lean comparison
 ```
 
-The distro `gforth` apt package may be older than **Gforth 1.0.0**. It is suitable for the smoke check only. The observed 1.0 build, its dependencies, hash and unresolved installation issues are recorded in `docs/development/INSTALLATION_LOG.md`. A clean, reproducible 1.0 installer is still a project task; do not treat those machine-specific notes as a tested installer. Do not rely on newly added Gforth 1.0 extensions in portable kernel modules.
+The install scripts download the pinned **Gforth 1.0.0** source and **Lean
+4.35.0** release, reject them unless their SHA-256 hashes match, and install
+into the ignored `.tools/` directory. Nothing is installed system-wide apart
+from the apt packages above, and no shell profile is changed. Ubuntu's own
+`gforth` package (0.7.3) is older; CI uses it only as a portability check. Do
+not rely on Gforth 1.0 extensions in portable kernel modules. Exact versions,
+hashes and every install command run so far are recorded in
+`docs/development/INSTALLATION_LOG.md` and `docs/development/VERSIONS.md`.
 
-Install a supported **Node.js LTS and npm** in Ubuntu (Codex should validate required Node version against current official CLI docs). Then:
+Lean can alternatively be managed with **elan**: install it with
+`ELAN_HOME="$PWD/.tools/elan"` and `--no-modify-path`, as described in the
+installation log. Always set `ELAN_HOME` when running elan's `lean` or
+`lake`; otherwise elan downloads another toolchain into `~/.elan`. The
+Makefile calls the toolchain binary directly and needs neither.
 
-```bash
-npm install -g @openai/codex@latest
-codex --version
-codex
-```
+Use Linux `bubblewrap` (`bwrap`) if supported by the local WSL kernel to exercise `lake check --paranoid`. Test sandboxing explicitly; do not disable it to claim a secure check.
 
-Sign in to Codex with the ChatGPT account when prompted. Alternatively install Codex in the VS Code WSL context and use the IDE extension. Official overview: https://help.openai.com/en/articles/11369540-using-codex-with-your-chatgpt-plan.
+## Coding agents
 
-GitHub CLI authentication is interactive and needs user authorization:
+The project rules for coding agents are in `AGENTS.md`. Both agents below
+follow them; install whichever you use from its official documentation.
 
-```bash
-gh auth login
-# after user review and permission:
-git init -b main
-# stage/commit after inspection of files and gitignore
-gh repo create leanforth --private --source=. --remote=origin --push
-```
+- **Claude Code** — run `claude` in the repository directory. It loads
+  `.claude/CLAUDE.md`, which imports `AGENTS.md`.
+- **Codex** — `npm install -g @openai/codex@latest`, then run `codex` in the
+  repository directory. It reads `AGENTS.md` directly.
 
-**Do not run `gh repo create` until the user has authorized the target GitHub account, repo name, visibility and first push.** Check whether a `leanforth` repository name is available in the user's namespace; choose a different name if necessary. `gh auth login` should open the supported browser flow. GitHub connection to ChatGPT is separate and optional.
+`prompts/FIRST_CODEX_TASK.md` was the first task given to Codex on
+2026-10-30. It is complete and kept only as a historical record; do not
+paste it as a new task.
 
-Install and pin Lean via official **elan** instructions (https://lean-lang.org/lean4/doc/setup.html or current Lean installation guide). The first oracle target is **Lean 4.35.0**, not moving `stable` or the 4.36 prerelease; keep version and export format lockfiles under version control. Use Linux `bubblewrap` (`bwrap`) if supported by the local WSL kernel to exercise `lake check --paranoid`. Test sandboxing explicitly; do not disable it to claim a secure check.
+## GitHub
 
-The setup process should first emit a version manifest and exact instructions for any unavailable component; do not proceed by claiming unexecuted tests passed.
+GitHub CLI authentication is interactive and needs the user's authorization:
+`gh auth login`. The project's repository already exists; creating, renaming
+or changing remotes requires the owner's explicit approval.
 
-## How to start Codex
-
-Inside `~/src/LeanForth`:
-
-```bash
-code .                  # optional VS Code + WSL
-codex                   # terminal coding agent
-```
-
-Paste the full text from `prompts/FIRST_CODEX_TASK.md` as the first task. This file supplies enough context that transferring the ChatGPT conversation history is unnecessary.
-
-Sources: https://learn.microsoft.com/en-us/windows/wsl/setup/environment , https://learn.microsoft.com/en-us/windows/wsl/tutorials/wsl-vscode , https://docs.github.com/en/github-cli/github-cli/quickstart , https://gforth.org/ , https://help.openai.com/en/articles/11369540-using-codex-with-your-chatgpt-plan.
+Sources: https://learn.microsoft.com/en-us/windows/wsl/setup/environment , https://learn.microsoft.com/en-us/windows/wsl/tutorials/wsl-vscode , https://docs.github.com/en/github-cli/github-cli/quickstart , https://gforth.org/ , https://lean-lang.org/ .
