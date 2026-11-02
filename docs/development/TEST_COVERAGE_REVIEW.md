@@ -134,7 +134,10 @@ comparison targets, so they can only be retired after those are migrated.
 dependants. On 2026-11-02 the owner decided to keep them for now and mark
 them for possible later removal (roadmap Q9); the Lean oracle
 `tests/legacy/symbolic-infer-oracle.lean` must stay either way because
-`tagged-infer-differential.sh` uses it.
+`tagged-infer-differential.sh` uses it. Update (later on 2026-11-02): a copy,
+`tests/reference/symbolic-infer-oracle.lean`, is now run against the current
+`lf-mixed-infer` by `make test-mixed-infer-plain-differential`, so the oracle
+stays when `tests/legacy/` is deleted.
 
 ## How the reviews were run
 

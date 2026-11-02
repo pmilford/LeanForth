@@ -34,7 +34,7 @@ class DeclarationChain(unittest.TestCase):
     def run_stream(self, data):
         result = subprocess.run(
             [os.environ.get("GFORTH", ".tools/gforth/bin/gforth"),
-             "tests/legacy/declaration-chain-stream.fs"],
+             "tests/core/declaration-chain-stream.fs"],
             input=data, capture_output=True)
         rows = [tuple(map(int, line.split())) for line in result.stdout.splitlines()]
         return result, rows

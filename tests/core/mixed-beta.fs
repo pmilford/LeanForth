@@ -110,4 +110,19 @@ T{ 57 deep 100000 ' lf-mixed-beta rs-checked fuels lf-term-count @ ->
 T{ 18 deep 100000 ' lf-mixed-beta rs-checked fuels ->
   61 lf-term-serial @ lf-mbeta-ok 99699 99700 99700 }T
 T{ 61 lf-term-read -> lf-tag-lam 0 60 true }T
+\ An audit failure (stale root) or negative fuel leaves zero fuel.
+setup
+T{ 3 lf-term-serial @ 1+ 100 lf-mixed-beta lf-mbeta-fuel @ -> -1 0 lf-mbeta-invalid 0 }T
+T{ 3 lf-term-serial @ -1 lf-mixed-beta lf-mbeta-fuel @ -> -1 0 lf-mbeta-invalid 0 }T
+\ An irreducible root comes back with its own index and identity and
+\ nothing is allocated: a variable head over a redex argument, and a lambda
+\ whose body is a redex (weak-head reduction stops at both).
+setup
+T{ 3 0 lf-term-app -> 4 true }T
+T{ 2 4 lf-term-app -> 5 true }T
+T{ 1 4 lf-term-lam -> 6 true }T
+lf-term-serial @ serial-before !
+T{ 5 5 lf-term-identity drop 100 lf-mixed-beta -> 5 5 lf-term-identity drop lf-mbeta-ok }T
+T{ 6 6 lf-term-identity drop 100 lf-mixed-beta -> 6 6 lf-term-identity drop lf-mbeta-ok }T
+T{ lf-term-count @ lf-term-serial @ -> 7 serial-before @ }T
 bye

@@ -105,4 +105,69 @@ T{ lf-msp-count @ -> lf-msp-capacity }T
 T{ candidate @ 1 5000 specialize-with nip nip -> lf-msp-ok }T
 T{ lf-msp-capacity 1- numbered 1 5000 specialize-with nip nip -> lf-msp-ok }T
 T{ token @ 5000 lf-mixed-signature-audit -> lf-msp-ok }T
+
+\ A token ends with any change to the stores or the level context it
+\ captured; a new session does not revive it, and lookups through it are
+\ invalid rather than unknown.
+: stale? ( -- flag ) lf-msp-token if drop false else true then ;
+\ A fixture whose Sort u (node 0) is not yet in the index.
+: sort-fixture ( -- )
+  begin-fixture 1 level-id @ lf-hterm-sort 0= abort" sort" root-id ! drop ;
+: put-sort ( -- status ) 0 root-id @ put-root ;
+begin-fixture
+T{ stale? -> false }T
+lf-term-reset
+T{ stale? -> true }T
+T{ lf-ssession-begin stale? -> true true }T
+T{ specialize -> lf-msp-invalid }T
+sort-fixture lf-level-reset
+T{ stale? -> true }T
+sort-fixture lf-lscope-context-reset
+T{ stale? put-sort -> true lf-msp-invalid }T
+sort-fixture 12 lf-lscope-context-add drop
+T{ stale? put-sort -> true lf-msp-invalid }T
+\ A failed begin (here: a corrupt reference count) also ends the lifetime;
+\ repairing the store does not revive the old token.
+sort-fixture
+lf-cref-count @ -1 lf-cref-count !
+T{ lf-msp-begin -> false }T
+lf-cref-count !
+T{ stale? put-sort -> true lf-msp-invalid }T
+T{ lf-msp-count @ -> 0 }T
+
+\ A forged or stale root identity is invalid and changes nothing.
+begin-fixture
+T{ 1 level-id @ lf-hterm-sort -> 0 lf-term-serial @ true }T
+lf-term-serial @ root-id !
+T{ 0 root-id @ 1+ put-root -> lf-msp-invalid }T
+T{ 0 root-id @ 1- put-root -> lf-msp-invalid }T
+T{ lf-msp-count @ lf-term-count @ lf-level-count @ lf-cref-count @ -> 0 1 2 0 }T
+
+\ Zero arity: Sort u is refused (u is not a formal), Sort 0 is put, and
+\ specialize gives back the identical root handle and allocates nothing; a
+\ request with an argument for it is invalid.
+T{ token @ candidate @ 0 root-id @ formals 0 5000 lf-msp-put -> lf-msp-invalid }T
+T{ 0 0 lf-level-identity drop lf-hterm-sort -> 1 lf-term-serial @ true }T
+lf-term-serial @ root-id !
+T{ token @ candidate @ 1 root-id @ formals 0 5000 lf-msp-put -> lf-msp-ok }T
+T{ token @ candidate @ actuals 0 5000 lf-msp-specialize -> 1 root-id @ lf-msp-ok }T
+T{ token @ candidate @ actuals 1 5000 lf-msp-specialize -> lf-msp-invalid }T
+T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> 2 2 0 }T
+
+\ Coverage refuses when the zero level is gone and keeps the caller's stack.
+\ No public request reaches this guard (the token is stale first), so the
+\ internal request record is filled directly.
+: coverage-without-zero ( -- status )
+  sort-fixture lf-msp-request >r 1 5000 r@ lf-msr-budget! formals r@ lf-msr-formals !
+  0 root-id @ r@ lf-msr-source! lf-level-count @ 0 lf-level-count !
+  r> lf-msp-coverage swap lf-level-count ! ;
+T{ 777 coverage-without-zero -> 777 lf-msp-invalid }T
+
+\ Generation saturation: one last begin succeeds, then begin fails for good
+\ (so this case comes last).
+begin-fixture
+max-n 1- lf-msp-generation !
+T{ lf-msp-begin -> true }T
+T{ lf-msp-begin lf-msp-begin -> false false }T
+T{ stale? -> true }T
 bye

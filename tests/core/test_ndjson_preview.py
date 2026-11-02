@@ -11,16 +11,13 @@ import sys
 import unittest
 
 sys.path.insert(0, str(Path("tests/support")))
-# test_preview_contract.py tests current code and stays in tests/core.
 sys.path.append(str(Path("tests/core")))
 from ndjson_preview import MAX_LINE, preview
 from fixture_transport import encode_concrete
 from check_composition_fixture import fixture_nodes
-# The Makefile runs this module; importing these TestCase classes makes
-# `make test` run the outcome-contract suite as well.
-from test_preview_contract import (  # noqa: F401
-    LIMIT, MALFORMED, UNSUPPORTED, CliContractTests, ClassificationTests, FramingTests,
-    LimitTests, NumericEdgeTests, PreviewAssertions)
+# The Makefile runs test_preview_contract.py itself; import only helpers here
+# so its TestCase classes do not run twice.
+from test_preview_contract import LIMIT, MALFORMED, UNSUPPORTED, PreviewAssertions
 
 # Pinned Lean 4.35.0 / lean4export 3.1.0 fixtures; `make reference-export`
 # regenerates them. A changed byte must be a reviewed fixture update.
@@ -76,10 +73,10 @@ class PreviewTests(PreviewAssertions, unittest.TestCase):
             else:
                 nodes.append((4 if tag == "lam" else 5, node["type"], node["body"]))
         self.assertEqual(nodes, fixture_nodes(self.lines))
-        # Feed decoded node data, never Forth source, into the existing probe.
+        # Feed decoded node data, never Forth source, into the staging bridge.
         stream = bytes(value for index, node in enumerate(nodes) for value in (index, *node))
         result = subprocess.run([os.environ.get("GFORTH", "gforth"),
-                                 "tests/legacy/load-fixture-stream.fs"],
+                                 "tests/core/load-fixture-stream.fs"],
                                 input=stream, capture_output=True, check=True)
         rows = [tuple(map(int, line.split())) for line in result.stdout.splitlines()]
         self.assertEqual(rows, [(index, *node) for index, node in enumerate(nodes)])
@@ -186,10 +183,10 @@ class PreviewTests(PreviewAssertions, unittest.TestCase):
         stream = bytearray(struct.pack("<III", len(nodes), 4, 6))
         for index, fields in enumerate(nodes):
             stream.extend(struct.pack("<IIII", index, *fields))
-        command = [os.environ.get("GFORTH", "gforth"), "tests/legacy/load-declaration-stream.fs"]
+        command = [os.environ.get("GFORTH", "gforth"), "tests/core/load-declaration-stream.fs"]
         result = subprocess.run(command, input=stream, capture_output=True, check=True)
         rows = result.stdout.splitlines()
-        self.assertEqual(rows[0].split(), [b"0"])
+        self.assertEqual(rows[0].split(), [b"4", b"6"])
         self.assertEqual(tuple(map(int, rows[-2].split())), (7, 1, 0, 0))
         self.assertEqual(tuple(map(int, rows[-1].split())), (8, 1, 1, 0))
 
@@ -240,7 +237,7 @@ class PreviewTests(PreviewAssertions, unittest.TestCase):
                 stream.extend(encoded)
             else:
                 stream.extend((index, 2, prefix, component))
-        command = [os.environ.get("GFORTH", "gforth"), "tests/legacy/name-fixture-stream.fs"]
+        command = [os.environ.get("GFORTH", "gforth"), "tests/core/name-fixture-stream.fs"]
         output = subprocess.run(command, input=stream, capture_output=True, check=True).stdout
         rows = [tuple(map(int, line.split())) for line in output.splitlines()]
         self.assertEqual(rows, list(enumerate(expected)))
@@ -297,7 +294,7 @@ class PreviewTests(PreviewAssertions, unittest.TestCase):
         self.assertEqual(rows, expected)
         context = result["declarations"][0]["levelParams"]
         stream = bytes([len(rows), len(context), *context] + [value for row in rows for value in row])
-        command = [os.environ.get("GFORTH", "gforth"), "tests/legacy/level-fixture-stream.fs"]
+        command = [os.environ.get("GFORTH", "gforth"), "tests/core/level-fixture-stream.fs"]
         output = subprocess.run(command, input=stream, capture_output=True, check=True).stdout
         self.assertEqual([tuple(map(int, line.split())) for line in output.splitlines()], expected)
         wrong_context = bytearray(stream)
@@ -403,7 +400,9 @@ class PreviewTests(PreviewAssertions, unittest.TestCase):
                          '{"thm":{"all":[12],"levelParams":[],"name":12,"type":2,"value":15}}'])
         self.assertPreviewError(MALFORMED, original, len(original))
 
-    def test_multiple_real_lean_exports_reach_forth_probe(self):
+    def test_multiple_real_lean_exports_stage_in_forth(self):
+        # tests/core/test_export_definitions.py runs the current checker on
+        # these exports; this test checks the concrete staging round trip.
         for name in ("identity", "composition", "type-identity"):
             with self.subTest(name=name):
                 raw = Path(f"tests/reference/{name}.ndjson").read_bytes()
@@ -423,16 +422,18 @@ class PreviewTests(PreviewAssertions, unittest.TestCase):
                         fields = (4 if tag == "lam" else 5, node["type"], node["body"])
                     expected.append((index, *fields))
                 command = [os.environ.get("GFORTH", "gforth"),
-                           "tests/legacy/load-declaration-stream.fs"]
+                           "tests/core/load-declaration-stream.fs"]
                 result = subprocess.run(command, input=stream, capture_output=True, check=True)
                 rows = result.stdout.splitlines()
-                self.assertEqual(rows[0].split(), [b"0"])
+                roots = [str(declaration[key]).encode() for key in ("type", "value")]
+                self.assertEqual(rows[0].split(), roots)
                 self.assertEqual([tuple(map(int, row.split())) for row in rows[1:]], expected)
-                # Use the root of the claim as the proof value; its type does not
-                # match the claim, so no successful diagnostic is possible.
+                # A root outside the staged nodes is refused.
+                stream[8:12] = struct.pack("<I", len(expected))
+                result = subprocess.run(command, input=stream, capture_output=True)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.stdout.strip(), b"")
                 stream[8:12] = stream[4:8]
-                result = subprocess.run(command, input=stream, capture_output=True, check=True)
-                self.assertNotEqual(result.stdout.splitlines()[0].split(), [b"0"])
                 # A truncated or extended stream must emit no diagnostic.
                 for malformed in (stream[:-1], stream + b"\x00"):
                     result = subprocess.run(command, input=malformed, capture_output=True)
@@ -452,10 +453,10 @@ class PreviewTests(PreviewAssertions, unittest.TestCase):
         stream = bytearray(struct.pack("<III", 8, 4, 6))
         for index, fields in enumerate(nodes):
             stream.extend(struct.pack("<IIII", index, *fields))
-        command = [os.environ.get("GFORTH", "gforth"), "tests/legacy/load-declaration-stream.fs"]
+        command = [os.environ.get("GFORTH", "gforth"), "tests/core/load-declaration-stream.fs"]
         result = subprocess.run(command, input=stream, capture_output=True, check=True)
         rows = result.stdout.splitlines()
-        self.assertEqual(rows[0].split(), [b"0"])
+        self.assertEqual(rows[0].split(), [b"4", b"6"])
         self.assertEqual(tuple(map(int, rows[-1].split())), (7, 1, 256, 0))
         # Values outside signed 32-bit range cannot be passed to a 32-bit host.
         stream[-1] = 128

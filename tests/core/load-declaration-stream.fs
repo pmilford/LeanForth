@@ -3,7 +3,11 @@
 \ three fields are node count, claim index, and value index; each following
 \ node has four fields (index, tag, first, second). This is not a public format.
 \ Input is read as data; no input bytes are evaluated as Forth source.
-include ../../src/legacy/declaration-probe.fs
+\ It checks the staging round trip of src/import/load.fs only: the claim and
+\ value must be staged nodes, but no checker runs (concrete Sorts are not
+\ accepted by the current checker; tests/core/test_export_definitions.py
+\ runs it on the same exports).
+include ../../src/core/terms.fs
 include ../../src/import/load.fs
 decimal
 create stream-byte 1 allot
@@ -24,10 +28,13 @@ variable stream-value
   stream-read-byte dup 128 >= if 2drop lf-load-abort -1 throw then
   24 lshift or ;
 
+\ A declaration root must be one of the staged nodes.
+: stream-root? ( index -- flag ) stream-count @ u< ;
+
 \ Stage exactly the declared number of nodes, reject trailing data, and emit
-\ the untrusted probe status followed by node fields. Zero never registers a
-\ theorem; the emitted nodes let tests verify the decoded values exactly.
-: stream-probe ( -- )
+\ the root pair followed by node fields, so tests can verify the decoded
+\ values exactly. No theorem is registered or checked.
+: stream-stage ( -- )
   lf-term-reset lf-load-begin 0= if -1 throw then
   stream-read-field stream-count !
   stream-read-field stream-claim ! stream-read-field stream-value !
@@ -40,10 +47,11 @@ variable stream-value
   loop
   stream-byte 1 stdin read-file throw 0<> if lf-load-abort -1 throw then
   lf-load-finish 0= if -1 throw then
-  stream-claim @ stream-value @ 50000 lf-declaration-probe . cr
+  stream-claim @ stream-root? stream-value @ stream-root? and 0= if -1 throw then
+  stream-claim @ . stream-value @ . cr
   stream-count @ 0 do
     i . i lf-term-read 0= if -1 throw then
     >r >r . r> . r> . cr
   loop ;
-stream-probe
+stream-stage
 bye

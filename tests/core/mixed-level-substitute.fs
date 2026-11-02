@@ -125,6 +125,26 @@ variable saw-partial variable sweep-fuel
     then
   loop false ;
 T{ fuel-sweep -> true }T
+\ A count below zero or above the level capacity is invalid before any
+\ allocation, and so is a stale or out-of-range actual, even when the source
+\ is a bare variable that has no level to substitute.
+: counts@ ( -- terms levels crefs ) lf-term-count @ lf-level-count @ lf-cref-count @ ;
+: substitute-count ( count -- index id 0 | status )
+  >r fixture-root @ root-id @ formals actuals r> 500 lf-mixed-level-substitute ;
+setup
+T{ -1 substitute-count -> lf-mlsubst-invalid }T
+T{ lf-level-capacity 1+ substitute-count -> lf-mlsubst-invalid }T
+T{ counts@ -> 4 5 1 }T
+: bare-variable ( -- ) 0 lf-hterm-bvar 0= abort" bvar" root-id ! fixture-root ! ;
+bare-variable
+T{ fixture-root @ root-id @ -> 4 lf-term-serial @ }T
+actuals cell+ @ 1+ actuals cell+ !
+T{ 2 substitute-count -> lf-mlsubst-invalid }T
+2 actuals pair! lf-level-capacity actuals !
+T{ 2 substitute-count -> lf-mlsubst-invalid }T
+T{ counts@ -> 5 5 1 }T
+2 actuals pair!
+T{ 2 substitute-count -> 4 root-id @ lf-mlsubst-ok }T
 setup
 \ Failure after a newly allocated level and reference restores all counts.
 lf-term-count @ constant before-term

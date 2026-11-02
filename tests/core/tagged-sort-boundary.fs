@@ -1,7 +1,7 @@
 \ Tests for an untrusted syntax-only representation boundary. These cases
 \ do not establish Lean typing, level validity, or theorem acceptance.
 include ../support/tester.fs
-include ../../src/legacy/infer.fs
+include ../../src/core/terms.fs
 include ../../src/core/tagged-sort-boundary.fs
 
 lf-term-reset
@@ -14,10 +14,7 @@ T{ 0 lf-repr-concrete 10 lf-repr-check -> lf-repr-ok }T
 T{ 0 lf-repr-symbolic 10 lf-repr-check -> lf-repr-invalid }T
 T{ 1 lf-repr-symbolic 10 lf-repr-check -> lf-repr-ok }T
 T{ 1 lf-repr-concrete 10 lf-repr-check -> lf-repr-invalid }T
-\ Existing concrete consumers must reject the new tag rather than treat its
-\ payload as a universe number. This does not make them symbolic consumers.
-T{ 1 0 0 10 lf-shift -> -1 lf-shift-invalid }T
-T{ 1 100 lf-infer -> -1 lf-infer-invalid }T
+\ The kernel passes reject a concrete Sort in tests/core/mixed-shift.fs.
 
 \ The wrong kind must be rejected anywhere in a reachable binary tree, even
 \ when the other root or another branch has no Sorts.
@@ -58,8 +55,6 @@ T{ 0 0 lf-repr-concrete 2 lf-repr-check-pair -> lf-repr-ok }T
 T{ 1 1 lf-repr-concrete 2 lf-repr-check-pair -> lf-repr-invalid }T
 T{ 0 99 lf-repr-concrete 20 lf-repr-check-pair -> lf-repr-invalid }T
 T{ 99 0 lf-repr-concrete 20 lf-repr-check-pair -> lf-repr-invalid }T
-T{ 1 0 0 10 lf-shift -> -1 lf-shift-invalid }T
-T{ 6 100 lf-infer -> -1 lf-infer-invalid }T
 T{ lf-term-count @ -> 12 }T
 
 \ Repeat the opposite child positions in each mode and check zero payloads;

@@ -104,4 +104,14 @@ T{ 6 rootid @ 0 1 -1 ' lf-mixed-shift rs-checked -> -1 0 lf-mshift-invalid }T
 T{ chain 0 1 1000 lf-mixed-shift lf-mshift-fuel @ lf-term-count @ ->
   -1 0 lf-mshift-exhausted 809 64 }T
 T{ chain 1 1 1000 lf-mixed-shift lf-mshift-fuel @ -> -1 0 lf-mshift-exhausted 808 }T
+\ An audit failure (stale root) or negative fuel leaves zero fuel, and a raw
+\ concrete Sort, which the current passes do not accept (ADR 0007), is
+\ invalid for the audit and for the shift.
+setup
+T{ 6 rootid @ 1+ 0 1 100 lf-mixed-shift lf-mshift-fuel @ -> -1 0 lf-mshift-invalid 0 }T
+T{ 6 rootid @ 0 1 -5 lf-mixed-shift lf-mshift-fuel @ -> -1 0 lf-mshift-invalid 0 }T
+T{ 0 lf-term-sort -> 7 true }T
+T{ 7 7 lf-term-identity drop 100 lf-cterm-check -> lf-repr-invalid }T
+T{ 7 7 lf-term-identity drop 0 1 100 lf-mixed-shift -> -1 0 lf-mshift-invalid }T
+T{ lf-term-count @ -> 8 }T
 bye
