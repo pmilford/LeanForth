@@ -1,8 +1,8 @@
 \ Compare untrusted Forth concrete level evaluation with Lean's level table.
 \ The emitted integers are diagnostics, never checked theorem judgments.
-include ../../src/core/levels.fs
-include ../../src/core/level-scope.fs
-include ../../src/kernel/level-value.fs
+require ../../src/core/level-scope.fs
+require ../../src/core/levels.fs
+require ../../src/kernel/level-value.fs
 decimal
 variable table-left
 variable table-right

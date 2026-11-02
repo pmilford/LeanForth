@@ -2,30 +2,18 @@
 \ a successful inference is not a checked theorem or declaration.
 include ../support/tester.fs
 include ../support/checks.fs
-include ../../src/core/terms.fs
-include ../../src/core/names.fs
-include ../../src/core/levels.fs
-include ../../src/core/level-scope.fs
-include ../../src/core/tagged-sort-boundary.fs
-include ../../src/core/symbolic-session.fs
-include ../../src/core/generation-handles.fs
-include ../../src/core/constant-references.fs
-include ../../src/core/constant-term-boundary.fs
-include ../../src/kernel/level-substitute.fs
-include ../../src/kernel/mixed-level-substitute.fs
-include ../../src/kernel/mixed-signature-probe.fs
-include ../../src/core/constant-term-scope.fs
-include ../../src/kernel/mixed-signature-audit.fs
-include ../../src/kernel/mixed-compare.fs
-include ../../src/kernel/mixed-rebuild.fs
-include ../../src/kernel/mixed-shift.fs
-include ../../src/kernel/mixed-instantiate.fs
-include ../../src/kernel/mixed-beta.fs
-include ../../src/kernel/level-value.fs
-include ../../src/kernel/level-compare.fs
-include ../../src/kernel/mixed-convert.fs
-include ../../src/kernel/mixed-infer.fs
-include ../../src/kernel/mixed-definition-probe.fs
+require ../../src/lib/lib.fs
+require ../../src/core/constant-references.fs
+require ../../src/core/constant-term-boundary.fs
+require ../../src/core/generation-handles.fs
+require ../../src/core/level-scope.fs
+require ../../src/core/levels.fs
+require ../../src/core/names.fs
+require ../../src/core/symbolic-session.fs
+require ../../src/core/terms.fs
+require ../../src/kernel/mixed-definition-probe.fs
+require ../../src/kernel/mixed-infer.fs
+require ../../src/kernel/mixed-signature-probe.fs
 
 \ Helpers adapted from mixed-convert.fs and mixed-signature-audit.fs.
 create ids 64 cells allot

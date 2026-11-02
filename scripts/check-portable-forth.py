@@ -13,6 +13,10 @@
    under src/ and tests/: Gforth 1.0 accepts some of them interpretively
    (abort", if, do, ...), Gforth 0.7.3 and Forth-2012 do not.
 
+3. Source modules are loaded with REQUIRE, never INCLUDE, in every .fs file
+   under src/ and tests/: INCLUDE reloads a file, which would make a second
+   copy of its stores. Each module requires its direct dependencies.
+
 Comments and strings are ignored. See docs/development/FORTH_STYLE.md,
 section 8.
 """
@@ -86,6 +90,10 @@ def main():
     problems = []
     for path in sorted(list((ROOT / "src").rglob("*.fs")) + list((ROOT / "tests").rglob("*.fs"))):
         rel = path.relative_to(ROOT).as_posix()
+        for lineno, line in enumerate(path.read_text(errors="replace").splitlines(), 1):
+            if re.match(r"\s*include\s+\S*src/\S+\.fs\b", line, re.I) or \
+               (rel.startswith("src/") and re.match(r"\s*include\s+\S+\.fs\b", line, re.I)):
+                problems.append(f"{rel}:{lineno}: source module loaded with include; use require")
         for lineno, tok in interpreted(raw_strip(path.read_text(errors="replace"))):
             word = 'abort"' if tok == "__abort__" else tok
             problems.append(f"{rel}:{lineno}: compile-only '{word}' outside a definition")
@@ -102,7 +110,7 @@ def main():
         print(p)
     if problems:
         return 1
-    print("No byte-order, cell-size or compile-only portability problems found.")
+    print("No byte-order, cell-size, compile-only or include problems found.")
     return 0
 
 

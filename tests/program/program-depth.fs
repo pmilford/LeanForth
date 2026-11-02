@@ -1,6 +1,6 @@
 \ Run: .tools/gforth/bin/gforth tests/program/program-depth.fs
 include ../support/tester.fs
-include ../../src/program/program-depth.fs
+require ../../src/program/program-depth.fs
 
 \ Typed tags only; no Forth code from the arrays is executed.
 create ops-dup-add lf-depth-dup , lf-depth-add ,

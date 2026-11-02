@@ -1,15 +1,19 @@
 \ Constant references: a constant's name plus an ordered list of universe
 \ level arguments, as they appear in a term. Untrusted bounded data, not a
-\ declaration environment. No type inference, level scope check,
-\ declaration acceptance or theorem acceptance is performed. Requires
-\ names.fs, levels.fs and generation-handles.fs.
-\ A name is a pair (index generation); a level is a pair (index identity);
-\ a reference is a pair (index identity). Every lookup revalidates the name
-\ and all level pairs, so a reset of the name table or a rolled-back level
-\ makes the reference stale. Handles are forgeable, instance-local
-\ diagnostics, not capabilities. State: one bounded store of reference
-\ records; single-threaded; callers exclude raw mutation, and input arrays
-\ must be aligned, readable and disjoint from this module's data.
+\ declaration environment. No type inference, level scope check, declaration
+\ acceptance or theorem acceptance is performed. A name is a pair (index
+\ generation); a level is a pair (index identity); a reference is a pair
+\ (index identity). Every lookup revalidates the name and all level pairs,
+\ so a reset of the name table or a rolled-back level makes the reference
+\ stale. Handles are forgeable, instance-local diagnostics, not
+\ capabilities.
+\ State: one bounded store of reference records; single-threaded; callers
+\ exclude raw mutation, and input arrays must be aligned, readable and
+\ disjoint from this module's data.
+
+require ../lib/lib.fs
+require ./generation-handles.fs
+require ./names.fs
 
 32 constant lf-cref-capacity
 8 constant lf-cref-argument-capacity

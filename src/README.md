@@ -22,12 +22,17 @@ audit, any accepted result is *experimental — not independently audited*.
 - One variant per operation. The superseded variants that used to live in
   `legacy/` were retired on 2026-11-02 (see below); do not re-add them or
   keep a second version of a current module beside it.
-- Modules load the library with `require ../lib/lib.fs`, which compiles it
-  once however many modules ask; other dependencies are still loaded by the
-  caller in order. Every module states its load dependencies in its header comment. Add each
-  new current module to `main.fs` in dependency order; `make smoke` fails if
-  loading prints anything, such as a "redefined" warning.
-- Tests load modules directly with `include`; they live in `tests/lib/`,
+- Each file loads exactly what it uses (owner rule, 2026-11-02): after its
+  header comment a module `require`s its direct dependencies, with paths
+  relative to itself (`./x.fs` in its own folder, `../core/x.fs` elsewhere)
+  and the library as a whole as `../lib/lib.fs`. `REQUIRE` loads a file once
+  however many modules ask; `INCLUDE` of a source module is refused by
+  `make check-portable-forth`, because a second load would make a second copy
+  of its stores. `main.fs` requires only the top modules, the ones no other
+  module requires. `make smoke` loads every module on its own and fails if
+  any of them, or `main.fs`, prints anything (a missing dependency or a
+  "redefined" warning).
+- Tests `require` the modules whose words they use; they live in `tests/lib/`,
   `tests/core/` (for `core/`, `kernel/` and `import/` modules) and
   `tests/program/`.
 - Style: [the Forth style guide](../docs/development/FORTH_STYLE.md);

@@ -1,6 +1,6 @@
 \ Finite host observations, not a proof of Forth or its runtime.
 \ Requires 64-bit two's-complement cells and examples.fs host assumptions.
-include ../../src/program/examples.fs
+require ../../src/program/examples.fs
 decimal
 
 : fr-check-cell ( -- )

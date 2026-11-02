@@ -4,8 +4,8 @@
 \ Input is data read from stdin; it is never evaluated as Forth source.
 \ It checks the staging round trip of src/import/load.fs only; the current
 \ checker examines the same export in tests/core/test_export_definitions.py.
-include ../../src/core/terms.fs
-include ../../src/import/load.fs
+require ../../src/core/terms.fs
+require ../../src/import/load.fs
 decimal
 create fixture-byte 1 allot
 

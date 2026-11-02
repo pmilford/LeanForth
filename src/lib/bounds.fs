@@ -1,8 +1,10 @@
 \ Range and memory predicates used to validate input before forming
-\ addresses. Signed comparisons only, so no bound can wrap around.
-\ No state. Requires: portability.fs.
+\ addresses. Signed comparisons only, so no bound can wrap around. No state.
 
 \ True when lo <= n <= hi; false whenever hi < lo.
+
+require ./portability.fs
+
 : between? ( n lo hi -- flag ) rot tuck < 0= -rot swap < 0= and ;
 \ True when 0 <= n <= limit; false for any negative limit.
 : upto? ( n limit -- flag ) 0 swap between? ;

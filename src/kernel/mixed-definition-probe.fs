@@ -8,6 +8,14 @@
 \ inference itself runs on mixed-infer's state, as a job this module starts
 \ with lf-minfer-start. Not re-entrant and single-threaded.
 
+require ../lib/lib.fs
+require ../core/constant-references.fs
+require ../core/constant-term-scope.fs
+require ../core/levels.fs
+require ../core/terms.fs
+require ./mixed-infer.fs
+require ./mixed-signature-audit.fs
+
 outcome-ok constant lf-mdefinition-ok
 outcome-invalid constant lf-mdefinition-invalid
 outcome-exhausted constant lf-mdefinition-exhausted

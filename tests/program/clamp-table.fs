@@ -1,7 +1,7 @@
 \ Emit a deterministic small-domain table for comparison with Lean's model.
 \ Each row records lower bound, upper bound, value and result or invalid.
 \ This is a finite test, not a proof that Forth executes the Lean definition.
-include ../../src/program/clamp.fs
+require ../../src/program/clamp.fs
 decimal
 variable table-lower
 variable table-upper

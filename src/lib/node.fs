@@ -1,5 +1,8 @@
 \ Tagged nodes: records of a tag and two fields, the record shape of the
-\ term and level stores. Requires: store.fs. No state of its own.
+\ term and level stores. No state of its own.
+
+require ./portability.fs
+require ./store.fs
 
 begin-structure /node
   field: node-tag

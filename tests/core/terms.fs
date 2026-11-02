@@ -1,7 +1,8 @@
 \ Check structural term storage, field ordering, failure behavior and reset.
 \ These are storage tests, not well-scopedness, type checking or proof tests.
 include ../support/tester.fs
-include ../../src/core/terms.fs
+require ../../src/lib/lib.fs
+require ../../src/core/terms.fs
 
 lf-term-reset
 T{ 0 lf-term-sort -> 0 true }T

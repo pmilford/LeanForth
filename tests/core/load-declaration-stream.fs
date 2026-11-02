@@ -7,8 +7,9 @@
 \ value must be staged nodes, but no checker runs (concrete Sorts are not
 \ accepted by the current checker; tests/core/test_export_definitions.py
 \ runs it on the same exports).
-include ../../src/core/terms.fs
-include ../../src/import/load.fs
+require ../../src/lib/lib.fs
+require ../../src/core/terms.fs
+require ../../src/import/load.fs
 decimal
 create stream-byte 1 allot
 variable stream-count

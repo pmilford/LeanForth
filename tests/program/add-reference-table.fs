@@ -1,5 +1,5 @@
 \ Finite host execution comparison; no proof of the runtime or Forth semantics.
-include ../../src/program/examples.fs
+require ../../src/program/examples.fs
 decimal
 : ar-check-cell ( -- )
   1 cells 8 <> abort" add-reference requires 64-bit cells" ;

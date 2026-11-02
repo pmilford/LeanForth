@@ -5,9 +5,9 @@
 \ global state, and a task or process with its own records can walk in
 \ parallel with others. A module that owns one walk record is still not
 \ re-entrant itself: its check must not run again while that record is in
-\ use. A record is made in the dictionary by walk: or walk2:, or at run
-\ time in memory the caller provides by walk-init or walk2-init, with the
-\ same layout. Requires: bounds.fs, node.fs, outcome.fs.
+\ use. A record is made in the dictionary by walk: or walk2:, or at run time
+\ in memory the caller provides by walk-init or walk2-init, with the same
+\ layout.
 \
 \ walk-run pushes a root, then repeatedly spends one unit of fuel, pops a
 \ node into walk-node and calls the visitor ( walk -- outcome ), which reads
@@ -19,6 +19,11 @@
 \ In a paired walk (walk2:) each item is a node plus one context cell, such
 \ as the number of binders around that node; walk-take puts the context in
 \ walk-context, and walk-run-pair and walk-push-pair take both cells.
+
+require ./bounds.fs
+require ./node.fs
+require ./outcome.fs
+require ./portability.fs
 
 begin-structure walk-header
   field: walk-fuel       \ visits left

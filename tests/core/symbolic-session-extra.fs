@@ -1,11 +1,11 @@
 \ Regression tests for the untrusted symbolic session guard. A successful
 \ check establishes representation and level structure, not typing or proof.
 include ../support/tester.fs
-include ../../src/core/terms.fs
-include ../../src/core/levels.fs
-include ../../src/core/level-scope.fs
-include ../../src/core/tagged-sort-boundary.fs
-include ../../src/core/symbolic-session.fs
+require ../../src/core/level-scope.fs
+require ../../src/core/levels.fs
+require ../../src/core/symbolic-session.fs
+require ../../src/core/tagged-sort-boundary.fs
+require ../../src/core/terms.fs
 
 \ A session can start only with an empty term arena. New terms and levels
 \ may then be allocated without invalidating the snapshot.

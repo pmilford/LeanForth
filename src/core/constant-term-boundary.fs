@@ -1,19 +1,23 @@
 \ Constant nodes in symbolic terms, and the structural check of a whole
 \ constant-bearing term graph. Untrusted: no lookup, typing, binder scope or
-\ proof checking. Requires terms, names, levels, level-scope,
-\ tagged-sort-boundary, symbolic-session, generation-handles and
-\ constant-references.
-\ A constant node's fields hold a full reference pair, and a stamp table
-\ binds it to this exact term allocation, so a reset cannot resurrect it.
-\ Binary constructors capture child indices, not identities; their safety
-\ relies on backward edges and no raw mutation or count edits.
+\ proof checking. A constant node's fields hold a full reference pair, and a
+\ stamp table binds it to this exact term allocation, so a reset cannot
+\ resurrect it. Binary constructors capture child indices, not identities;
+\ their safety relies on backward edges and no raw mutation or count edits.
 \ State: the stamp table (global, indexed by term index) and one walk
-\ record, lf-cterm-walker. Each constant and symbolic Sort visit also runs
-\ a level-scope check on level-scope's walk record (lf-lscope-walk), so
-\ this check must not run while another module borrows that record. Not
-\ re-entrant and single-threaded. Identities
-\ are forgeable, instance-local diagnostics; the memory layout is not a
-\ serialization format.
+\ record, lf-cterm-walker. Each constant and symbolic Sort visit also runs a
+\ level-scope check on level-scope's walk record (lf-lscope-walk), so this
+\ check must not run while another module borrows that record. Not
+\ re-entrant and single-threaded. Identities are forgeable, instance-local
+\ diagnostics; the memory layout is not a serialization format.
+
+require ../lib/lib.fs
+require ./constant-references.fs
+require ./generation-handles.fs
+require ./level-scope.fs
+require ./symbolic-session.fs
+require ./tagged-sort-boundary.fs
+require ./terms.fs
 
 7 constant lf-tag-constant
 create lf-cterm-stamps lf-term-capacity cells allot

@@ -1,16 +1,20 @@
 \ Untrusted helpers shared by the passes that rebuild mixed terms (shift,
 \ instantiate and beta): visit results, the audit before allocation,
 \ binary-node rebuilding and rollback. Structural transformation only; no
-\ proof judgment. Load constant-term-boundary.fs and its dependencies
-\ first.
-\ State: none. Every word works on the frames record (lib/frame.fs) that
-\ its pass passes on the stack.
+\ proof judgment.
+\ State: none. Every word works on the frames record (lib/frame.fs) that its
+\ pass passes on the stack.
 
 \ Visit results. Each node occurrence costs one unit of fuel and one frame,
 \ so the frames also bound the recursion depth. Leaf constants and
 \ symbolic Sorts are kept with their original stamps; rebuilt nodes are
 \ appended in post-order. A visit gives a node and ok, or -1 and the
 \ failure.
+
+require ../lib/lib.fs
+require ../core/constant-term-boundary.fs
+require ../core/terms.fs
+
 : lf-rebuild-invalid ( -- -1 outcome ) outcome-invalid no-result ;
 : lf-rebuild-exhausted ( -- -1 outcome ) outcome-exhausted no-result ;
 : lf-rebuild-bad ( node frames -- -1 outcome ) 2drop lf-rebuild-invalid ;

@@ -7,7 +7,7 @@
 \ yield every few visits; task-serial.fs runs this file on the serial host.
 include ../support/tester.fs
 include ../support/checks.fs
-include ../../src/lib/task.fs
+require ../../src/lib/task.fs
 include ./task-job.fs
 
 4 constant jobs

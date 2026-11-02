@@ -2,7 +2,7 @@
 \ tests/reference/beta-table.lean (Lean's Kernel.whnf): Prop, a Pi root,
 \ simple, dependent and nested polymorphic identity redexes, a lambda whose
 \ body is a redex, and identity chains of depth 1..3 at Sorts 0..2.
-include ../../src/main.fs
+require ../../src/main.fs
 include ../support/plain-terms.fs
 
 \ fun _ : Sort level => #0

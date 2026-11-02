@@ -1,6 +1,6 @@
 \ Exhaustive triples from selected signed 64-bit boundaries. Check the
 \ complete result shape, canonical flags and a sentinel below the arguments.
-include ../../src/program/examples.fs
+require ../../src/program/examples.fs
 decimal
 : xr-check-cell ( -- )
   1 cells 8 <> abort" extra range comparison requires 64-bit cells" ;

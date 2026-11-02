@@ -1,7 +1,7 @@
 \ Bounded record stores: the shared storage pattern of the term, level and
 \ name tables. A store holds up to capacity records of width address units,
 \ an allocation count, a reset generation, and for each record an identity
-\ that never repeats. Requires: portability.fs, bounds.fs.
+\ that never repeats.
 \
 \ The checked words (store-count-valid?, store-valid?, store-new and those
 \ built on it, store-identity@) validate before forming any address: the
@@ -25,6 +25,9 @@
 \ during a call. Separate stores are independent. The layout (header,
 \ capacity identity cells, then the records) is host-specific and must
 \ never be serialized directly.
+
+require ./bounds.fs
+require ./portability.fs
 
 begin-structure store-header
   field: store-capacity     \ maximum number of records

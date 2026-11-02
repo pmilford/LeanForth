@@ -1,23 +1,35 @@
-\ Experimental, untrusted mixed-term inference. Load mixed signature audit,
-\ mixed shift, instantiate and convert and their dependencies first. Closed
-\ source roots only. Signatures and nested dependencies are unchecked
-\ assumptions; no theorem authority. One stable index/session, no raw
-\ writes, resets or concurrent calls. Handles are local diagnostics.
-\ Fuel is shared by preflight, traversal, specialization and transformations;
-\ bounded metadata, identity scans and topological staging are additional work.
-\ Only a directly visible Pi is applied; uncertain conversion is unknown.
+\ Experimental, untrusted mixed-term inference. Closed source roots only.
+\ Signatures and nested dependencies are unchecked assumptions; no theorem
+\ authority. One stable index/session, no raw writes, resets or concurrent
+\ calls. Handles are local diagnostics. Fuel is shared by preflight,
+\ traversal, specialization and transformations; bounded metadata, identity
+\ scans and topological staging are additional work. Only a directly visible
+\ Pi is applied; uncertain conversion is unknown.
 \ State: one inference record, lf-minfer-job (fields lf-ijob-*): fuel, frame
 \ depth, index token, the arena counts before the call, the binder context
 \ and a copy of a reference's levels. A node's intermediate results stay on
 \ the data stack. Not re-entrant and single-threaded. lf-minfer-walk is
 \ deferred only for the mutual recursion and set once, at load time.
-\ Stack use: the recursion runs on the host stacks, about 6 return-stack
-\ and up to 3 data-stack cells per level, at most lf-term-capacity levels
-\ (plus the nested rebuild passes); a host stack overflow throws and never
-\ yields a result.
-\ mixed-definition-probe.fs starts a job with lf-minfer-start, calls
-\ lf-minfer-walk, lf-minfer-sort-level and lf-minfer-compare directly, and
-\ reads lf-minfer-fuel afterwards.
+\ Stack use: the recursion runs on the host stacks, about 6 return-stack and
+\ up to 3 data-stack cells per level, at most lf-term-capacity levels (plus
+\ the nested rebuild passes); a host stack overflow throws and never yields
+\ a result. mixed-definition-probe.fs starts a job with lf-minfer-start,
+\ calls lf-minfer-walk, lf-minfer-sort-level and lf-minfer-compare directly,
+\ and reads lf-minfer-fuel afterwards.
+
+require ../lib/lib.fs
+require ../core/constant-references.fs
+require ../core/constant-term-boundary.fs
+require ../core/constant-term-scope.fs
+require ../core/generation-handles.fs
+require ../core/levels.fs
+require ../core/tagged-sort-boundary.fs
+require ../core/terms.fs
+require ./mixed-convert.fs
+require ./mixed-instantiate.fs
+require ./mixed-shift.fs
+require ./mixed-signature-audit.fs
+require ./mixed-signature-probe.fs
 
 begin-structure /lf-ijob
   field: lf-ijob-fuel      \ visits left

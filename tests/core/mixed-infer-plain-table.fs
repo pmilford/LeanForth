@@ -8,7 +8,7 @@
 \   B  tagged-binder-table.lean: 6 binder terms over Sort u, u = 0..2;
 \   A  tagged-application-table.lean: 6 application terms, u = 0..2.
 \ Inferred types are untrusted observations, never theorem acceptance.
-include ../../src/main.fs
+require ../../src/main.fs
 include ../support/plain-terms.fs
 include ../support/plain-cases.fs
 

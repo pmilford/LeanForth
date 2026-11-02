@@ -1,17 +1,25 @@
-\ Untrusted same-session simultaneous universe substitution for mixed syntax.
-\ Requires constant-term-boundary.fs, level-substitute.fs and their
-\ dependencies. The current session context must contain every source
-\ parameter and every actual parameter. Every source parameter must also
-\ occur in the formal list; actuals are not recursively substituted. This is
-\ not type or proof checking. Exclude reset, raw mutation and callbacks
-\ during a call. Caller arrays must be aligned, readable and disjoint from
-\ the stores, contexts and module data. Handles are forgeable. On failure
-\ all three store counts roll back, but identities never rewind.
+\ Untrusted same-session simultaneous universe substitution for mixed
+\ syntax. The current session context must contain every source parameter
+\ and every actual parameter. Every source parameter must also occur in the
+\ formal list; actuals are not recursively substituted. This is not type or
+\ proof checking. Exclude reset, raw mutation and callbacks during a call.
+\ Caller arrays must be aligned, readable and disjoint from the stores,
+\ contexts and module data. Handles are forgeable. On failure all three
+\ store counts roll back, but identities never rewind.
 \ State: one walk record, lf-mls-walker (the source audit and the fuel left,
 \ shared by every pass), and one job record, lf-mls-job (the substitution,
 \ the counts to roll back to, reached terms and their images). Not
 \ re-entrant and single-threaded. mixed-signature-audit runs the source
 \ audit alone through lf-mls-audit-formals.
+
+require ../lib/lib.fs
+require ../core/constant-references.fs
+require ../core/constant-term-boundary.fs
+require ../core/generation-handles.fs
+require ../core/levels.fs
+require ../core/tagged-sort-boundary.fs
+require ../core/terms.fs
+require ./level-substitute.fs
 
 outcome-ok constant lf-mlsubst-ok
 outcome-invalid constant lf-mlsubst-invalid

@@ -4,7 +4,7 @@
 \ bench-rounds rounds and never yields. Uses Gforth's utime; run with
 \ `gforth tests/lib/task-bench.fs`. On a host without threads the ratio is
 \ about 1.
-include ../../src/lib/task.fs
+require ../../src/lib/task.fs
 include ./task-job.fs
 
 400 constant bench-rounds

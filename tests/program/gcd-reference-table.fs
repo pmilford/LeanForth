@@ -1,6 +1,7 @@
 \ Compare actual host results with the independent Lean model; finite tests
 \ are not a proof of Forth or its runtime. This table requires 64-bit cells.
-include ../../src/program/examples.fs
+require ../../src/lib/lib.fs
+require ../../src/program/examples.fs
 decimal
 : gr-check ( -- ) 1 cells 8 <> abort" gcd reference requires 64-bit cells" ;
 : gr-row ( a b -- )

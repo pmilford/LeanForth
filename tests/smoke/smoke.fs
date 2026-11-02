@@ -1,6 +1,6 @@
 \ Smoke test of the loader: everything in src/main.fs loads, the data stack
 \ is empty afterwards, and one word from each loaded layer runs.
-include ../../src/main.fs
+require ../../src/main.fs
 
 : smoke-fail ( flag -- ) if -1 throw then ;
 depth smoke-fail

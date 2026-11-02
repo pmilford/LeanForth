@@ -1,13 +1,18 @@
 \ A symbolic term/level session: binds an empty term store to the current
 \ level store and parameter context by recording their generations, so any
 \ later reset of one of them makes the session stale. Untrusted; not a type
-\ checker and cannot authorize a theorem. Requires terms.fs, levels.fs,
-\ level-scope.fs and tagged-sort-boundary.fs.
+\ checker and cannot authorize a theorem.
 \ State: the current session is one /lf-session record, and the check uses
 \ one walk record, lf-ssession-walker. Not re-entrant and single-threaded.
 \ Bare term or level indices reused after a new session are
 \ indistinguishable from stale ones; handles (generation-handles.fs) detect
 \ that.
+
+require ../lib/lib.fs
+require ./level-scope.fs
+require ./levels.fs
+require ./tagged-sort-boundary.fs
+require ./terms.fs
 
 begin-structure /lf-session
   field: lf-session-active

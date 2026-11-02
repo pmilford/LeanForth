@@ -1,8 +1,8 @@
 \ Checker contexts (ADR 0009): one record per worker holding all of a
 \ check's mutable state, so that several checks can run in one Forth image.
 \ The current task reaches its context through one pointer, lf-context: a
-\ USER variable on Gforth, so each task has its own, and a plain variable
-\ on other hosts, which then have one worker. Requires: store.fs, walk.fs.
+\ USER variable on Gforth, so each task has its own, and a plain variable on
+\ other hosts, which then have one worker.
 \
 \ Modules declare their state as members of the context layout while they
 \ load: context-record: (a zeroed record), context-store:, context-walk: and
@@ -26,6 +26,11 @@
 \ context switch or a declaration: while modules load, each declaration
 \ may move the main context. Never ALLOT or compile after tasks start.
 \ Untrusted. The layout is host-specific and must never be serialized.
+
+require ./bounds.fs
+require ./portability.fs
+require ./store.fs
+require ./walk.fs
 
 begin-structure /context-header
   field: context-size      \ bytes in the context; 0 once freed

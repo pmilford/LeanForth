@@ -1,13 +1,10 @@
 include ../support/tester.fs
 include ../support/checks.fs
-include ../../src/core/terms.fs
-include ../../src/core/names.fs
-include ../../src/core/levels.fs
-include ../../src/core/level-scope.fs
-include ../../src/core/tagged-sort-boundary.fs
-include ../../src/core/symbolic-session.fs
-include ../../src/core/generation-handles.fs
-include ../../src/core/constant-references.fs
+require ../../src/lib/lib.fs
+require ../../src/core/constant-references.fs
+require ../../src/core/generation-handles.fs
+require ../../src/core/levels.fs
+require ../../src/core/names.fs
 
 create args 4 cells allot
 variable name-id

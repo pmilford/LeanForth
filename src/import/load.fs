@@ -1,11 +1,14 @@
-\ Untrusted staging of decoded expression records into the experimental arena.
-\ This is not an NDJSON parser, declaration checker, or theorem interface.
-\ The caller resolves exported universe references to concrete levels and
-\ supplies zero-based record indices and children relative to this batch.
-\ The caller must load the experimental term arena (terms.fs) first.
+\ Untrusted staging of decoded expression records into the experimental
+\ arena. This is not an NDJSON parser, declaration checker, or theorem
+\ interface. The caller resolves exported universe references to concrete
+\ levels and supplies zero-based record indices and children relative to
+\ this batch.
 \ State: one batch record, lf-load-batch: whether a batch is open and the
 \ term count where it began. The transaction assumes no concurrent or
 \ external arena mutation; single-threaded and not re-entrant.
+
+require ../lib/lib.fs
+require ../core/terms.fs
 
 begin-structure /lf-batch
   field: lf-batch-open     \ true while a batch is open

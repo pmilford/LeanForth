@@ -1,8 +1,8 @@
 \ Tests for the untrusted decoded-node staging interface. No proof is checked.
 include ../support/tester.fs
-include ../../src/core/terms.fs
-include ../../src/core/tagged-sort-boundary.fs
-include ../../src/import/load.fs
+require ../../src/core/tagged-sort-boundary.fs
+require ../../src/core/terms.fs
+require ../../src/import/load.fs
 
 \ A batch can follow existing nodes, but its child indices are batch-local.
 lf-term-reset

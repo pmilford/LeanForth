@@ -2,10 +2,13 @@
 \ number, symbolic Sorts a level-store index under a distinct tag, and one
 \ term graph must use only the mode its caller expects. Untrusted; not a
 \ kernel or a type checker. Level validity, lifetime, context, scope, typing
-\ and proof validity are not established here. Requires terms.fs.
+\ and proof validity are not established here.
 \ State: one walk record, lf-repr-walker, holding the stack, fuel and mode.
-\ Not re-entrant and single-threaded; callers prevent concurrent mutation
-\ of the term store.
+\ Not re-entrant and single-threaded; callers prevent concurrent mutation of
+\ the term store.
+
+require ../lib/lib.fs
+require ./terms.fs
 
 6 constant lf-tag-symbolic-sort
 0 constant lf-repr-concrete

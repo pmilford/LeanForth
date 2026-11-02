@@ -402,3 +402,29 @@ would have been rebuilt on superseded designs; the owner chose to rebuild
 them where the plan needs them); keeping legacy as a reference copy (two
 versions of each operation, where AGENTS.md prefers retiring superseded
 experiments).
+
+## Each module requires its direct dependencies — 2026-11-02
+
+At the owner's direction ("main should only require its direct
+requirements, not the ones needed by the modules"), every source module
+now `require`s the files whose words it uses, with paths relative to
+itself, and `main.fs` requires only the five top modules (the definition
+probe, the loader and the three program files). The dependency lists were
+computed from the words each file actually defines and uses, not from the
+old header prose, which was removed. Tests `require` the modules whose
+words they use. `make smoke` now loads every module on its own and fails
+on any output, and `make check-portable-forth` refuses `include` of a
+source module.
+
+Why `require` and not `include`: Gforth's `REQUIRE` loads a file once even
+when two modules reach it by different relative paths (checked on Gforth
+1.0 and 0.7.3), whereas `INCLUDE` reloads it, and a second load would
+create a second term store with earlier words still bound to the first.
+`REQUIRE` is in Forth-2012's optional File-Access extension; how a path is
+resolved is host-defined, which `lib.fs`'s load marker guards against.
+
+Rejected: modules requiring individual library files (`../lib/store.fs`)
+rather than the library as one unit (more lines, and a host that treats
+different relative paths as different files could load a library file
+twice); keeping the dependency order in `main.fs` and every test (the
+order lived in 80 places and the header comments drifted).

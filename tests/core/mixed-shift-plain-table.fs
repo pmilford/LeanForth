@@ -1,7 +1,7 @@
 \ lf-mixed-shift on the five terms of tests/reference/shift-table.lean
 \ (Lean's liftLooseBVars) for cutoffs and amounts 0..3: 80 rows of case,
 \ cutoff, amount and the shifted syntax. Syntax only; no typing.
-include ../../src/main.fs
+require ../../src/main.fs
 include ../support/plain-terms.fs
 include ../support/plain-cases.fs
 

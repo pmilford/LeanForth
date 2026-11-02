@@ -110,7 +110,8 @@ as automatic verdicts.
   `SET-ORDER`), as the handoff's `LF.CORE`, `LF.KERNEL` plan intends, rather
   than relying only on long `lf-module-` prefixes. Adopting wordlists is an
   open design decision for the trusted kernel.
-- A module header states purpose, trust status, load dependencies, global
+- A module begins with a header comment and then `require`s each file it
+  uses directly (see `src/README.md`). The header states purpose, trust status, global
   state and re-entrancy.
 
 ## 8. Portability and tests

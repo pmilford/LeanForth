@@ -7,7 +7,7 @@
 \ dictionary records, and compares results and every byte.
 include ../support/tester.fs
 include ../support/checks.fs
-include ../../src/lib/lib.fs
+require ../../src/lib/lib.fs
 
 : same-bytes? ( addr1 addr2 u -- flag ) tuck compare 0= ;
 : aborts? ( addr u -- flag ) ['] evaluate catch dup if nip nip then 0<> ;

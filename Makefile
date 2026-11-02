@@ -76,6 +76,10 @@ smoke:
 	@out=$$($(RUN) $(GFORTH) src/main.fs -e bye 2>&1) || { printf '%s\n' "$$out" >&2; exit 1; }; \
 	if [ -n "$$out" ]; then printf 'src/main.fs printed while loading:\n%s\n' "$$out" >&2; exit 1; fi
 	$(RUN) $(GFORTH) tests/smoke/smoke.fs
+	@for f in src/*/*.fs; do \
+	  out=$$($(RUN) $(GFORTH) $$f -e bye </dev/null 2>&1) || { printf '%s\n' "$$out" >&2; exit 1; }; \
+	  if [ -n "$$out" ]; then printf '%s printed while loading on its own:\n%s\n' "$$f" "$$out" >&2; exit 1; fi; \
+	done; echo "Every source module loads on its own, silently."
 
 reference:
 	LEAN=$(LEAN) $(RUN) bash tests/reference/check.sh

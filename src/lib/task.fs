@@ -1,14 +1,12 @@
 \ Task adapter (ADR 0009): run a word in another Forth task with its own
-\ context, and wait for it. The few host-specific words of parallel
-\ checking live here. The host is chosen when this file loads:
-\ - threads: Gforth 1.0, whose tasks are POSIX threads and use all cores;
-\ - cooperative: Gforth 0.7.3 with its tasker.fs; tasks take turns on one
-\   core, switching only at task-yield and task-wait;
-\ - serial: any other Forth, or when forced (below); task-start runs the
-\   word at once, to the end.
-\ Words that share no mutable data give the same results on all three.
-\ Requires: lib.fs (context.fs). Loads tasker.fs on Gforth 0.7.3, which
-\ also makes TYPE, EMIT and KEY switch tasks.
+\ context, and wait for it. The few host-specific words of parallel checking
+\ live here. The host is chosen when this file loads: - threads: Gforth 1.0,
+\ whose tasks are POSIX threads and use all cores; - cooperative: Gforth
+\ 0.7.3 with its tasker.fs; tasks take turns on one core, switching only at
+\ task-yield and task-wait; - serial: any other Forth, or when forced
+\ (below); task-start runs the word at once, to the end. Words that share no
+\ mutable data give the same results on all three. Loads tasker.fs on Gforth
+\ 0.7.3, which also makes TYPE, EMIT and KEY switch tasks.
 \
 \ task-start ( context xt -- task ior ) seals the context layout and runs
 \ xt ( -- ) in a new task with context selected. On failure (ior nonzero,

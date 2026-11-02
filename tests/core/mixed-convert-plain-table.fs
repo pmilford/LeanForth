@@ -3,7 +3,7 @@
 \ symbolic universes (section 2). Each row is "section index status" with
 \ the conversion status (0 equal, 3 unknown); the differential driver maps
 \ it onto Lean's flag. Equality here is not a theorem judgment.
-include ../../src/main.fs
+require ../../src/main.fs
 include ../support/plain-terms.fs
 
 \ fun _ : domain => body

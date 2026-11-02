@@ -8,7 +8,7 @@
 \ neutral.
 include ../support/tester.fs
 include ../support/checks.fs
-include ../../src/lib/lib.fs
+require ../../src/lib/lib.fs
 
 variable lm-seed  12345 lm-seed !
 : lm-rnd ( n -- r ) lm-seed @ 1103515245 * 12345 + dup lm-seed ! 16 rshift 32767 and swap mod ;

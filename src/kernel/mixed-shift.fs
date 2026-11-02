@@ -1,11 +1,17 @@
 \ Untrusted mixed-term shift: add an amount to every bound variable at or
 \ above a cutoff, rebuilding the term. Structural transformation only; no
-\ proof judgment. Load mixed-rebuild.fs and its dependencies first.
+\ proof judgment.
 \ State: one job record, lf-mshift-job (fields lf-shiftjob-*): the pass's
 \ frames (fuel, nesting, and the cutoff as context) and the amount. Not
 \ re-entrant and single-threaded: the instantiate pass shifts its
-\ replacement on this record, which a shift in progress refuses. Exclude
-\ raw mutation, resets and concurrent access during a call.
+\ replacement on this record, which a shift in progress refuses. Exclude raw
+\ mutation, resets and concurrent access during a call.
+
+require ../lib/lib.fs
+require ../core/constant-term-boundary.fs
+require ../core/tagged-sort-boundary.fs
+require ../core/terms.fs
+require ./mixed-rebuild.fs
 
 outcome-ok constant lf-mshift-ok
 outcome-invalid constant lf-mshift-invalid

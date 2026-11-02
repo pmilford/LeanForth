@@ -1,10 +1,10 @@
 \ Conservative experimental level comparison tests; no theorem is checked.
 include ../support/tester.fs
 include ../support/checks.fs
-include ../../src/core/levels.fs
-include ../../src/core/level-scope.fs
-include ../../src/kernel/level-value.fs
-include ../../src/kernel/level-compare.fs
+require ../../src/core/level-scope.fs
+require ../../src/core/levels.fs
+require ../../src/kernel/level-compare.fs
+require ../../src/kernel/level-value.fs
 
 lf-level-reset lf-lscope-context-reset
 T{ 10 lf-lscope-context-add -> true }T

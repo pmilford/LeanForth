@@ -1,19 +1,28 @@
-\ Untrusted candidate signatures for mixed constant-bearing syntax.
-\ Load mixed-level-substitute.fs and its dependencies first. No declaration,
-\ binder scope, type, proof, dependency or theorem is checked or registered.
-\ Candidates and all nested constant signatures are unchecked assumptions.
-\ Caller arrays must be aligned, readable and disjoint from arenas,
-\ contexts, the index and all scratch. Handles/tokens are forgeable and
-\ instance-local, not capabilities or serialized identities. Bare name IDs
-\ belong to the captured name generation; callers must not reuse stale IDs.
-\ Source and actual parameters must be in the same live session context.
-\ A cref reset does not invalidate the index token; each use rechecks the
-\ reachable references and their allocation identities. No cache is provided.
+\ Untrusted candidate signatures for mixed constant-bearing syntax. No
+\ declaration, binder scope, type, proof, dependency or theorem is checked
+\ or registered. Candidates and all nested constant signatures are unchecked
+\ assumptions. Caller arrays must be aligned, readable and disjoint from
+\ arenas, contexts, the index and all scratch. Handles/tokens are forgeable
+\ and instance-local, not capabilities or serialized identities. Bare name
+\ IDs belong to the captured name generation; callers must not reuse stale
+\ IDs. Source and actual parameters must be in the same live session
+\ context. A cref reset does not invalidate the index token; each use
+\ rechecks the reachable references and their allocation identities. No
+\ cache is provided.
 \ State: the index record lf-msp-index (lifetime, captured generations and
 \ the candidate arrays) and the request record lf-msp-request (one put or
 \ specialize call's arguments and the zero actuals used by coverage).
 \ Single-threaded and not re-entrant: exclude resets, raw writes, callbacks
 \ and concurrent calls.
+
+require ../lib/lib.fs
+require ../core/constant-references.fs
+require ../core/level-scope.fs
+require ../core/levels.fs
+require ../core/names.fs
+require ../core/symbolic-session.fs
+require ../core/terms.fs
+require ./mixed-level-substitute.fs
 
 32 constant lf-msp-capacity
 outcome-ok constant lf-msp-ok

@@ -1,14 +1,14 @@
 \ Test-only bounded u32 little-endian transport; stdin is data, never code.
 \ Structural results do not check declarations, dependencies, types or proofs.
-include ../../src/core/terms.fs
-include ../../src/core/names.fs
-include ../../src/core/levels.fs
-include ../../src/core/level-scope.fs
-include ../../src/core/tagged-sort-boundary.fs
-include ../../src/core/symbolic-session.fs
-include ../../src/core/generation-handles.fs
-include ../../src/core/constant-references.fs
-include ../../src/core/constant-term-boundary.fs
+require ../../src/lib/lib.fs
+require ../../src/core/constant-references.fs
+require ../../src/core/constant-term-boundary.fs
+require ../../src/core/generation-handles.fs
+require ../../src/core/level-scope.fs
+require ../../src/core/levels.fs
+require ../../src/core/names.fs
+require ../../src/core/symbolic-session.fs
+require ../../src/core/terms.fs
 decimal
 create cb 1 allot
 create buf 255 allot

@@ -57,7 +57,9 @@ boundaries when relevant.
    report exactly which hosts and versions were actually exercised.
 7. Check comments on modules and public words against behavior: stack effects,
    ordering, types and units, ownership, side effects, failures, resource limits,
-   assumptions, loading dependencies and non-obvious algorithms. Keep internal
+   assumptions and non-obvious algorithms. Check that each module `require`s
+   exactly the files whose words it uses (never `include`), so it loads on
+   its own, and that `main.fs` lists only the top modules. Keep internal
    helpers' preconditions visible. Comments must distinguish checked facts from
    unchecked inputs, structural validation and host/runtime assumptions.
 8. Read the tests and identify missing meaningful cases: positive and negative

@@ -1,19 +1,23 @@
-\ Untrusted concrete evaluator for the experimental symbolic level store.
-\ A numeric result is not level equality, a checked type, or a theorem. A
-\ parameter yields unknown unless explicitly assigned in the separate instance
-\ evaluator; checking one instance does not prove a polymorphic claim. Host
-\ cells and bounded host recursion are assumptions, not a trusted boundary.
-\ Requires levels.fs and level-scope.fs.
+\ Untrusted concrete evaluator for the experimental symbolic level store. A
+\ numeric result is not level equality, a checked type, or a theorem. A
+\ parameter yields unknown unless explicitly assigned in the separate
+\ instance evaluator; checking one instance does not prove a polymorphic
+\ claim. Host cells and bounded host recursion are assumptions, not a
+\ trusted boundary.
 \ State: one record, lf-lvalue-state: the table of explicit parameter
-\ assignments with the level-store and context generations it was made
-\ for, the fuel left after an evaluation (level-compare reads it), and
-\ whether the evaluation reads the table. The evaluation recurses on the
-\ host stacks through the deferred word lf-lvalue-walk, which is set once
-\ at load time. Not re-entrant and single-threaded.
+\ assignments with the level-store and context generations it was made for,
+\ the fuel left after an evaluation (level-compare reads it), and whether
+\ the evaluation reads the table. The evaluation recurses on the host stacks
+\ through the deferred word lf-lvalue-walk, which is set once at load time.
+\ Not re-entrant and single-threaded.
 \ Stack use: about 8 return-stack cells per nesting level (measured about
 \ 500 cells at depth 63), so lf-lvalue-depth-limit must stay well below the
-\ return stack of every task that evaluates (Gforth 0.7.3's default is
-\ 1,920 cells). An overflow would throw, never return ok.
+\ return stack of every task that evaluates (Gforth 0.7.3's default is 1,920
+\ cells). An overflow would throw, never return ok.
+
+require ../lib/lib.fs
+require ../core/level-scope.fs
+require ../core/levels.fs
 
 outcome-ok constant lf-lvalue-ok
 outcome-invalid constant lf-lvalue-invalid

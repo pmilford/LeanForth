@@ -1,8 +1,8 @@
 \ Test-only byte stream for staging a small symbolic level DAG from preview.
 \ Bytes are data, never executable Forth. This is not a public serialization,
 \ importer, trusted scope checker, level equality algorithm or theorem interface.
-include ../../src/core/levels.fs
-include ../../src/core/level-scope.fs
+require ../../src/core/level-scope.fs
+require ../../src/core/levels.fs
 decimal
 create level-stream-byte 1 allot
 variable level-stream-count

@@ -4,10 +4,11 @@
 \ stack overflow would throw and fail this test.
 include ../support/tester.fs
 include ../support/checks.fs
-include ../../src/core/levels.fs
-include ../../src/core/level-scope.fs
-include ../../src/kernel/level-value.fs
-include ../../src/kernel/level-compare.fs
+require ../../src/lib/lib.fs
+require ../../src/core/level-scope.fs
+require ../../src/core/levels.fs
+require ../../src/kernel/level-compare.fs
+require ../../src/kernel/level-value.fs
 
 lf-level-reset lf-lscope-context-reset
 : succ-chain ( n -- top ) 0 swap 0 ?do lf-level-succ 0= abort" chain" loop ;

@@ -1,7 +1,7 @@
 \ Tests for untrusted symbolic universe structure and parameter contexts.
 include ../support/tester.fs
-include ../../src/core/levels.fs
-include ../../src/core/level-scope.fs
+require ../../src/core/level-scope.fs
+require ../../src/core/levels.fs
 
 \ Zero and a parameterized expression are structurally valid in context.
 lf-level-reset lf-lscope-context-reset

@@ -1,14 +1,21 @@
 \ Untrusted syntactic comparison of mixed terms: equal means the same
 \ constructors, bound variables, constant names and ordered universe
-\ arguments, and the same level syntax without normalization; any
-\ difference is unknown, never a proof of inequality. Not a typing or proof
-\ judgment. Load constant-term-boundary.fs and its dependencies first.
+\ arguments, and the same level syntax without normalization; any difference
+\ is unknown, never a proof of inequality. Not a typing or proof judgment.
 \ Equal opaque level parameter IDs are assumed to denote the same Lean name.
 \ State: two paired walk records, lf-mcompare-walker (left and right terms)
 \ and lf-mcompare-level-walker (left and right levels); level comparisons
 \ charge the term walk's fuel. Not re-entrant and single-threaded; exclude
 \ arena, context and name mutation during a call. mixed-convert.fs reuses
 \ the pair-visiting, name, reference and audit words with its own walk.
+
+require ../lib/lib.fs
+require ../core/constant-references.fs
+require ../core/constant-term-boundary.fs
+require ../core/levels.fs
+require ../core/names.fs
+require ../core/tagged-sort-boundary.fs
+require ../core/terms.fs
 
 lf-term-capacity walk2: lf-mcompare-walker
 lf-level-capacity walk2: lf-mcompare-level-walker

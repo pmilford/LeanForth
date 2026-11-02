@@ -2,12 +2,12 @@
 \ referenced level slot is rolled back and reused within the same session.
 \ This is an untrusted handle-boundary test, not a theorem check.
 include ../support/tester.fs
-include ../../src/core/terms.fs
-include ../../src/core/levels.fs
-include ../../src/core/level-scope.fs
-include ../../src/core/tagged-sort-boundary.fs
-include ../../src/core/symbolic-session.fs
-include ../../src/core/generation-handles.fs
+require ../../src/core/generation-handles.fs
+require ../../src/core/level-scope.fs
+require ../../src/core/levels.fs
+require ../../src/core/symbolic-session.fs
+require ../../src/core/tagged-sort-boundary.fs
+require ../../src/core/terms.fs
 
 variable saved-level-id
 variable saved-sort-id

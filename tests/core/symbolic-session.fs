@@ -1,10 +1,10 @@
 \ Tests for an untrusted symbolic syntax/level session; not proof checking.
 include ../support/tester.fs
-include ../../src/core/terms.fs
-include ../../src/core/levels.fs
-include ../../src/core/level-scope.fs
-include ../../src/core/tagged-sort-boundary.fs
-include ../../src/core/symbolic-session.fs
+require ../../src/core/level-scope.fs
+require ../../src/core/levels.fs
+require ../../src/core/symbolic-session.fs
+require ../../src/core/tagged-sort-boundary.fs
+require ../../src/core/terms.fs
 
 lf-term-reset lf-level-reset lf-lscope-context-reset
 T{ 42 lf-lscope-context-add -> true }T

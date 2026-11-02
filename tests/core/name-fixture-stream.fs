@@ -1,7 +1,8 @@
 \ Test-only byte stream for interning previewed Lean name records in Forth.
 \ Bytes are input data, never Forth source. Export indices map to this run's
 \ temporary name IDs; this is not a public format or trusted import boundary.
-include ../../src/core/names.fs
+require ../../src/lib/lib.fs
+require ../../src/core/names.fs
 decimal
 create ns-byte 1 allot
 create ns-buffer 255 allot

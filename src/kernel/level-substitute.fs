@@ -1,19 +1,23 @@
 \ Simultaneous substitution of universe levels: replace each parameter of a
 \ level DAG by the level given for it, appending only the nodes that change.
-\ Untrusted. Requires levels.fs and level-scope.fs. IDs are opaque cells,
-\ not Lean names; raw indices cannot detect stale references after a reset.
-\ This neither checks declarations nor authorizes proofs. No simplification,
-\ level equality, serialization or cross-store handles are provided.
-\ The caller's two arrays hold count cells each, aligned, readable and
-\ disjoint from every store and from this module's data; aliasing is not
-\ detected, and empty lists permit arbitrary unused addresses. The parameter
-\ context (level-scope) describes the caller's scope, not the formal scope.
+\ Untrusted. IDs are opaque cells, not Lean names; raw indices cannot detect
+\ stale references after a reset. This neither checks declarations nor
+\ authorizes proofs. No simplification, level equality, serialization or
+\ cross-store handles are provided. The caller's two arrays hold count cells
+\ each, aligned, readable and disjoint from every store and from this
+\ module's data; aliasing is not detected, and empty lists permit arbitrary
+\ unused addresses. The parameter context (level-scope) describes the
+\ caller's scope, not the formal scope.
 \ State: one walk record, lf-lsubst-walker (the source walk and the fuel
 \ left), and one job record, lf-lsubst-job (the substitution in use, the
 \ reachable nodes and the planned new nodes). Not re-entrant and
 \ single-threaded: the store, the context and the arrays must not change
 \ during a call. mixed-level-substitute sets the substitution with
 \ lf-lsubst-use and runs the checks below from its own passes.
+
+require ../lib/lib.fs
+require ../core/level-scope.fs
+require ../core/levels.fs
 
 outcome-ok constant lf-lsubst-ok
 outcome-invalid constant lf-lsubst-invalid

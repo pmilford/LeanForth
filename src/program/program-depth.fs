@@ -1,17 +1,18 @@
 \ Development-only stack-depth diagnostic for the Lean reference Op list.
 \ This is untrusted: it neither proves nor executes a program. PUSH's value
-\ is irrelevant to depth and is deliberately absent from this representation.
-\ An opcode array is a contiguous, aligned array of cells with these tags.
-\ The caller must supply genuinely readable allocated storage and its capacity;
-\ Forth cannot validate allocation, ownership, or concurrent mutation.
-\ ALIGNED is a Forth-2012 CORE word, but applying it to arbitrary fabricated
-\ addresses and detecting address wrap assume a flat, cell-sized address
-\ representation. Portability to other address models has not been tested.
-\ Requires ../lib/lib.fs (loaded here). State: none; every value is on the
-\ stack, so the analyzer is re-entrant.
+\ is irrelevant to depth and is deliberately absent from this
+\ representation. An opcode array is a contiguous, aligned array of cells
+\ with these tags. The caller must supply genuinely readable allocated
+\ storage and its capacity; Forth cannot validate allocation, ownership, or
+\ concurrent mutation. ALIGNED is a Forth-2012 CORE word, but applying it to
+\ arbitrary fabricated addresses and detecting address wrap assume a flat,
+\ cell-sized address representation. Portability to other address models has
+\ not been tested.
+\ State: none; every value is on the stack, so the analyzer is re-entrant.
+
+require ../lib/lib.fs
 
 decimal
-require ../lib/lib.fs
 
 0 constant lf-depth-push
 1 constant lf-depth-dup

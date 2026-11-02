@@ -1,6 +1,6 @@
 \ Actual Forth observations; the sentinel and depth check both result paths.
 \ Requires 64-bit two's-complement cells and the assumptions in examples.fs.
-include ../../src/program/examples.fs
+require ../../src/program/examples.fs
 decimal
 : ar-check-cell ( -- )
   1 cells 8 <> abort" abs-reference requires 64-bit cells"

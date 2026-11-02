@@ -7,17 +7,15 @@
 \ second and popped in reverse, and shared nodes are visited once per path.
 include ../support/tester.fs
 include ../support/checks.fs
-include ../../src/core/terms.fs
-include ../../src/core/names.fs
-include ../../src/core/levels.fs
-include ../../src/core/level-scope.fs
-include ../../src/core/tagged-sort-boundary.fs
-include ../../src/core/symbolic-session.fs
-include ../../src/core/generation-handles.fs
-include ../../src/core/constant-references.fs
-include ../../src/core/constant-term-boundary.fs
-include ../../src/kernel/level-substitute.fs
-include ../../src/kernel/mixed-level-substitute.fs
+require ../../src/lib/lib.fs
+require ../../src/core/generation-handles.fs
+require ../../src/core/level-scope.fs
+require ../../src/core/levels.fs
+require ../../src/core/symbolic-session.fs
+require ../../src/core/tagged-sort-boundary.fs
+require ../../src/core/terms.fs
+require ../../src/kernel/level-substitute.fs
+require ../../src/kernel/mixed-level-substitute.fs
 
 \ Level scope. Levels: 1 = param 1, 2 = succ 1, 3 = max 2 1, 4 = param 2.
 \ Root 3 visits 3, 1, 2, 1: four units. Parameter 2 is not in the context.

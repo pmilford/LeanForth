@@ -1,11 +1,17 @@
 \ Untrusted capture-avoiding single-binder instantiation of mixed terms.
-\ Load mixed-shift.fs and its dependencies first. This is syntax
-\ transformation, not type checking or theorem acceptance.
+\ This is syntax transformation, not type checking or theorem acceptance.
 \ State: one job record, lf-minst-job (fields lf-instjob-*): the pass's
 \ frames (fuel, nesting, and the binder depth as context), the replacement
 \ and the term count before the pass. The replacement is shifted on
-\ mixed-shift's record. Not re-entrant and single-threaded; callers must
-\ not mutate the stores concurrently.
+\ mixed-shift's record. Not re-entrant and single-threaded; callers must not
+\ mutate the stores concurrently.
+
+require ../lib/lib.fs
+require ../core/constant-term-boundary.fs
+require ../core/tagged-sort-boundary.fs
+require ../core/terms.fs
+require ./mixed-rebuild.fs
+require ./mixed-shift.fs
 
 outcome-ok constant lf-minst-ok
 outcome-invalid constant lf-minst-invalid

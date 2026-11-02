@@ -1,6 +1,6 @@
 \ Emit test-only integer fields for the reconstructed composition DAG.
 \ This table is neither a term interchange format nor a proof certificate.
-include ../../src/core/terms.fs
+require ../../src/core/terms.fs
 include ../support/term-cases.fs
 include ../support/composition.fs
 decimal

@@ -1,7 +1,7 @@
 \ Finite differential of actual lf-in-range against ProgramExamplesReference.
 \ Each row contains lower upper value and invalid/true/false. The sentinel
 \ checks that the word preserves the stack below its arguments.
-include ../../src/program/examples.fs
+require ../../src/program/examples.fs
 decimal
 : er-check-cell ( -- )
   1 cells 8 < abort" example-reference requires cells of at least 64 bits" ;

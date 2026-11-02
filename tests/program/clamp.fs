@@ -1,7 +1,8 @@
 \ Runtime examples for the ordinary host-cell clamp; not a formal proof.
 \ Include normal, boundary, negative and invalid-precondition cases.
 include ../support/tester.fs
-include ../../src/program/clamp.fs
+require ../../src/lib/lib.fs
+require ../../src/program/clamp.fs
 
 T{ -1 0 10 lf-clamp -> 0 true }T
 T{ 0 0 10 lf-clamp -> 0 true }T

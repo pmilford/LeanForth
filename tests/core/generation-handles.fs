@@ -2,12 +2,12 @@
 \ forgery, raw mutation, wrong arena kinds or stale references stored in nodes.
 include ../support/tester.fs
 include ../support/checks.fs
-include ../../src/core/terms.fs
-include ../../src/core/levels.fs
-include ../../src/core/level-scope.fs
-include ../../src/core/tagged-sort-boundary.fs
-include ../../src/core/symbolic-session.fs
-include ../../src/core/generation-handles.fs
+require ../../src/core/generation-handles.fs
+require ../../src/core/level-scope.fs
+require ../../src/core/levels.fs
+require ../../src/core/symbolic-session.fs
+require ../../src/core/tagged-sort-boundary.fs
+require ../../src/core/terms.fs
 
 variable old-level-identity
 variable old-term-identity

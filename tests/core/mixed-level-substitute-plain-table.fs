@@ -2,7 +2,7 @@
 \ tests/reference/term-level-substitute-table.lean: three simultaneous
 \ substitutions of u and v in a constant-free term, each evaluated at
 \ u, v = 0..3. Syntax only; no type is checked.
-include ../../src/main.fs
+require ../../src/main.fs
 decimal
 create formals 2 cells allot
 create actuals 4 cells allot

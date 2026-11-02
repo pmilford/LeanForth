@@ -6,7 +6,7 @@
 \ probe checks definitions: a claim in any Sort is allowed (owner question
 \ O1 in the coverage report), so it is compared with Lean's definition
 \ outcome. Status 0 is an untrusted diagnostic, never theorem acceptance.
-include ../../src/main.fs
+require ../../src/main.fs
 include ../support/plain-terms.fs
 create formals 1 cells allot
 create actuals 2 cells allot

@@ -1,18 +1,15 @@
 include ../support/tester.fs
-include ../../src/core/terms.fs
-include ../../src/core/names.fs
-include ../../src/core/levels.fs
-include ../../src/core/level-scope.fs
-include ../../src/core/tagged-sort-boundary.fs
-include ../../src/core/symbolic-session.fs
-include ../../src/core/generation-handles.fs
-include ../../src/core/constant-references.fs
-include ../../src/core/constant-term-boundary.fs
-include ../../src/kernel/level-substitute.fs
-include ../../src/kernel/mixed-level-substitute.fs
-include ../../src/kernel/mixed-signature-probe.fs
-include ../../src/core/constant-term-scope.fs
-include ../../src/kernel/mixed-signature-audit.fs
+require ../../src/lib/lib.fs
+require ../../src/core/constant-references.fs
+require ../../src/core/constant-term-boundary.fs
+require ../../src/core/generation-handles.fs
+require ../../src/core/level-scope.fs
+require ../../src/core/levels.fs
+require ../../src/core/names.fs
+require ../../src/core/symbolic-session.fs
+require ../../src/core/terms.fs
+require ../../src/kernel/mixed-signature-audit.fs
+require ../../src/kernel/mixed-signature-probe.fs
 
 create formals 2 cells allot
 create actuals 4 cells allot

@@ -3,10 +3,10 @@
 \ progress (frames) and their limit, the visitor, a context cell for the
 \ visit in progress (such as the number of binders around its node), and a
 \ job cell: the address of the pass's own record, where the visitor finds
-\ the pass's inputs (0 when it has none). A record stands alone (frames:)
-\ or is a field of a larger record (frame-init). Every word here takes the
-\ record's address, so separate records are independent and this module
-\ has no state. Requires: portability.fs (max-n), outcome.fs.
+\ the pass's inputs (0 when it has none). A record stands alone (frames:) or
+\ is a field of a larger record (frame-init). Every word here takes the
+\ record's address, so separate records are independent and this module has
+\ no state.
 \
 \ frame-call spends one unit of fuel and one frame, calls the visitor
 \ ( x frames -- result outcome ) on x and releases the frame; frame-call2
@@ -29,6 +29,9 @@
 \ The limit bounds the nesting of one record only; a module whose passes
 \ nest checks at load time that the host's stacks hold all of them (see
 \ mixed-beta.fs).
+
+require ./outcome.fs
+require ./portability.fs
 
 begin-structure /frames
   field: frame-fuel      \ visits left

@@ -1,10 +1,15 @@
-\ Untrusted mixed-term weak-head beta reduction. Load mixed-instantiate.fs
-\ and its dependencies first. Handles are session-local diagnostics, not
-\ capabilities or serialized values.
+\ Untrusted mixed-term weak-head beta reduction. Handles are session-local
+\ diagnostics, not capabilities or serialized values.
 \ State: one frames record, lf-mbeta-frames (fuel, nesting). Each
 \ contraction runs the public instantiate pass on its own record. Not
 \ re-entrant and single-threaded; exclude concurrent mutation, resets, raw
 \ edits and nested calls.
+
+require ../lib/lib.fs
+require ../core/terms.fs
+require ./mixed-instantiate.fs
+require ./mixed-rebuild.fs
+require ./mixed-shift.fs
 
 outcome-ok constant lf-mbeta-ok
 outcome-invalid constant lf-mbeta-invalid

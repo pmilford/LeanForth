@@ -1,12 +1,15 @@
 \ Bounded shape and parameter-scope validation for level DAGs: every node is
 \ well formed, children come earlier, and every parameter is in the current
 \ context. Untrusted. It does not compare levels, establish Lean name
-\ identity, check types or authorize a theorem. Requires levels.fs.
+\ identity, check types or authorize a theorem.
 \ State: one context record, lf-lscope-state (a duplicate-free list of
 \ positive parameter IDs with a generation that advances on every change),
 \ and one walk record, lf-lscope-walk. Not re-entrant and single-threaded:
 \ the check must not run again while its walk record is in use. Callers
 \ prevent external mutation.
+
+require ../lib/lib.fs
+require ./levels.fs
 
 outcome-ok constant lf-lscope-ok
 outcome-invalid constant lf-lscope-invalid

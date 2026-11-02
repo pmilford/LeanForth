@@ -5,7 +5,7 @@
 \ Output: the probe status; after a substitution also the Lean-style shapes
 \ of the claim and the value. A status of 0 is an untrusted diagnostic,
 \ never theorem acceptance. Malformed input prints nothing and fails.
-include ../../src/main.fs
+require ../../src/main.fs
 include ../support/export-reader.fs
 
 : substitute-root ( index identity -- index' identity' )

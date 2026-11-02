@@ -3,7 +3,7 @@
 \ host stacks; an overflow would throw and fail this test). Outcomes and
 \ fuel equal those of the code before the refactor.
 include ../support/tester.fs
-include ../../src/main.fs
+require ../../src/main.fs
 
 create ids 64 cells allot
 variable token

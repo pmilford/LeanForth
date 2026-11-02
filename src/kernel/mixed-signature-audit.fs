@@ -1,11 +1,11 @@
 \ Global nonallocating preflight for the untrusted mixed signature index.
-\ Load mixed-signature-probe.fs and constant-term-scope.fs first. Signatures
-\ are unchecked type assumptions: this checks neither types, declaration lookup,
-\ dependency closure nor proofs. Constant names/handles are validated, not
-\ resolved to index records; arities of referenced declarations are unknown.
-\ Universe formal IDs are opaque positive IDs, not name-table handles. Used
-\ parameters must belong both to the copied formals and the current session
-\ scope; unused formals need not occur in the session scope.
+\ Signatures are unchecked type assumptions: this checks neither types,
+\ declaration lookup, dependency closure nor proofs. Constant names/handles
+\ are validated, not resolved to index records; arities of referenced
+\ declarations are unknown. Universe formal IDs are opaque positive IDs, not
+\ name-table handles. Used parameters must belong both to the copied formals
+\ and the current session scope; unused formals need not occur in the
+\ session scope.
 \
 \ No reset, insertion, raw writes or callback during a call. The token fixes
 \ an index lifetime, not a content revision; the caller must keep the index
@@ -17,6 +17,13 @@
 \ The level audit is mixed-level-substitute's lf-mls-audit-formals, given
 \ its root, formal list and fuel on the stack. Not re-entrant and
 \ single-threaded.
+
+require ../lib/lib.fs
+require ../core/constant-term-scope.fs
+require ../core/level-scope.fs
+require ../core/levels.fs
+require ./mixed-level-substitute.fs
+require ./mixed-signature-probe.fs
 
 begin-structure /lf-audit
   field: lf-audit-left   \ fuel left by the last audit with nonnegative fuel

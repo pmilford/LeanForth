@@ -3,12 +3,17 @@
 \ longer matches. Untrusted; not a capability system, kernel interface,
 \ serialization or theorem checker. Handles are forgeable and do not record
 \ which store they belong to; callers prevent concurrent mutation, raw
-\ writes and cross-store confusion. Requires terms, levels, level-scope,
-\ tagged-sort-boundary and symbolic-session.
+\ writes and cross-store confusion.
 \ State: two stamp tables, indexed by term index, record which term and
-\ level identities each symbolic Sort was built from (raw symbolic Sorts have
-\ no stamp and fail lf-hterm-check); the audit uses one walk record,
+\ level identities each symbolic Sort was built from (raw symbolic Sorts
+\ have no stamp and fail lf-hterm-check); the audit uses one walk record,
 \ lf-href-walker. Not re-entrant and single-threaded.
+
+require ../lib/lib.fs
+require ./levels.fs
+require ./symbolic-session.fs
+require ./tagged-sort-boundary.fs
+require ./terms.fs
 
 create lf-hsort-term-identities lf-term-capacity cells allot
 create lf-hsort-level-identities lf-term-capacity cells allot

@@ -4,7 +4,7 @@
 \ the return stack around a call.
 include ../support/tester.fs
 include ../support/checks.fs
-include ../../src/lib/lib.fs
+require ../../src/lib/lib.fs
 
 \ Portability: comparisons and the largest cell.
 T{ 2 1 >= -> true }T

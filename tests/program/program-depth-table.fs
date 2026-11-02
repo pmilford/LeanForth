@@ -1,6 +1,6 @@
 \ Emit development analyzer results for finite comparison with pinned Lean.
 \ Inputs are opcode data, not executed Forth or proofs of program behavior.
-include ../../src/program/program-depth.fs
+require ../../src/program/program-depth.fs
 decimal
 create program-depth-table 6 cells allot
 variable program-depth-length

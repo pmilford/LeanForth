@@ -1,16 +1,20 @@
 \ Untrusted conservative equality experiment for Lean-style level graphs.
-\ Equal is only an experimental diagnostic, never a theorem or type judgment.
-\ It assumes a store and context unchanged during a call, and that equal
-\ opaque parameter IDs denote the same Lean name. Requires levels.fs,
-\ level-scope.fs and level-value.fs.
+\ Equal is only an experimental diagnostic, never a theorem or type
+\ judgment. It assumes a store and context unchanged during a call, and that
+\ equal opaque parameter IDs denote the same Lean name.
 \ State: one record, lf-lcmp-state, holding the fuel left after a
 \ comparison, which mixed-convert reads. The comparison recurses on the host
 \ stacks through the deferred word lf-lcmp-walk, set once at load time. Not
 \ re-entrant and single-threaded.
 \ Stack use: about 8 return-stack cells per nesting level (measured about
 \ 510 cells at depth 63), so lf-lcmp-depth-limit must stay well below the
-\ return stack of every task that compares (Gforth 0.7.3's default is
-\ 1,920 cells). An overflow would throw, never return equal.
+\ return stack of every task that compares (Gforth 0.7.3's default is 1,920
+\ cells). An overflow would throw, never return equal.
+
+require ../lib/lib.fs
+require ../core/level-scope.fs
+require ../core/levels.fs
+require ./level-value.fs
 
 outcome-ok constant lf-lcmp-equal
 outcome-invalid constant lf-lcmp-invalid

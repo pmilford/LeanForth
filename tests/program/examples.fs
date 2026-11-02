@@ -1,7 +1,8 @@
 \ Run from the repository root: .tools/gforth/bin/gforth tests/program/examples.fs
 \ Finite host-runtime tests only; these do not prove the words correct.
 include ../support/tester.fs
-include ../../src/program/examples.fs
+require ../../src/lib/lib.fs
+require ../../src/program/examples.fs
 
 T{ 0 0 lf-checked-add -> 0 true }T
 T{ -5 3 lf-checked-add -> -2 true }T
