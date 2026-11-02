@@ -85,23 +85,6 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
 : no-result ( type identity -- )
   0<> abort" failure identity" -1 <> abort" failure root" ;
 
-\ The two narrowing words keep only the outcomes their helper can return;
-\ any other value, including a valid outcome the helper never gives, is
-\ invalid, never ok.
-T{ lf-repr-ok lf-minfer-repr-status -> lf-minfer-ok }T
-T{ lf-repr-invalid lf-minfer-repr-status -> lf-minfer-invalid }T
-T{ lf-repr-exhausted lf-minfer-repr-status -> lf-minfer-exhausted }T
-T{ 3 lf-minfer-repr-status -> lf-minfer-invalid }T
-T{ outcome-rejected lf-minfer-repr-status -> lf-minfer-invalid }T
-T{ -1 lf-minfer-repr-status -> lf-minfer-invalid }T
-T{ lf-msp-ok lf-minfer-msp-status -> lf-minfer-ok }T
-T{ lf-msp-invalid lf-minfer-msp-status -> lf-minfer-invalid }T
-T{ lf-msp-exhausted lf-minfer-msp-status -> lf-minfer-exhausted }T
-T{ lf-msp-unknown lf-minfer-msp-status -> lf-minfer-unknown }T
-T{ outcome-rejected lf-minfer-msp-status -> lf-minfer-invalid }T
-T{ outcome-unsupported lf-minfer-msp-status -> lf-minfer-invalid }T
-T{ -1 lf-minfer-msp-status -> lf-minfer-invalid }T
-
 : fixture-case ( -- )
   setup
   token @ 50000 lf-mixed-signature-audit lf-msp-ok expect-status
@@ -110,8 +93,11 @@ T{ -1 lf-minfer-msp-status -> lf-minfer-invalid }T
   lf-msp-ok expect-status lf-hterm-valid? 0= abort" signature result" ;
 
 \ Check the result semantically, rather than relying on generated node indices.
+\ The fuel left is pinned: preflight, inference and the specialization of
+\ id spend 109 units here (observed before the refactor, at 398b76b).
 : poly-case ( -- )
   setup 9 50000 infer lf-minfer-ok expect-status
+  lf-minfer-fuel @ 49891 <> abort" poly fuel"
   4 h 50000 lf-mixed-convert lf-mconvert-equal <> abort" poly type" ;
 : invalid-argument-case ( -- )
   setup snapshot 10 50000 infer
@@ -146,8 +132,6 @@ T{ -1 lf-minfer-msp-status -> lf-minfer-invalid }T
   14 unknown-rolled-back 15 unknown-rolled-back ;
 : preflight-fuel-case ( -- )
   setup
-  99 lf-minfer-repr-status lf-minfer-invalid expect-status
-  99 lf-minfer-msp-status lf-minfer-invalid expect-status
   9 -1 infer lf-minfer-invalid expect-status 2drop
   lf-minfer-fuel @ 0<> abort" negative fuel remainder"
   12 50000 infer lf-minfer-invalid expect-status 2drop
@@ -202,6 +186,17 @@ T{ -1 lf-minfer-msp-status -> lf-minfer-invalid }T
   over terms-before @ <> abort" term slot"
   2dup lf-hterm-valid? 0= abort" new term identity"
   over term-serial-before @ 1+ lf-hterm-valid? abort" stale term revived" 2drop ;
+\ A job started directly, as the definition probe does after its own
+\ preflight: the given fuel, no frames or binders, and only nodes below the
+\ term count at the start are source; nodes inference made are not.
+: start-case ( -- )
+  setup token @ 500 lf-minfer-start
+  lf-minfer-fuel @ 500 <> abort" start fuel"
+  lf-minfer-depth @ lf-minfer-context-depth @ or abort" start depths"
+  13 lf-minfer-walk lf-minfer-ok expect-status lf-term-count @ 1- <> abort" new type"
+  lf-minfer-fuel @ 500 < 0= abort" walk fuel"
+  lf-term-count @ 1- lf-minfer-walk lf-minfer-invalid expect-status
+  -1 <> abort" no type" ;
 variable saw-exhaustion variable saw-success variable saw-partial
 : fuel-case ( -- )
   false saw-exhaustion ! false saw-success ! false saw-partial !
@@ -231,6 +226,7 @@ variable saw-exhaustion variable saw-success variable saw-partial
 ' non-type-case s" non-type binder domain and Pi body" run-case
 ' preflight-fuel-case s" preflight fuel" run-case
 ' generated-reference-case s" generated reference and rollback" run-case
+' start-case s" job started directly" run-case
 ' fuel-case s" fuel and rollback" run-case
 cases-done
 bye

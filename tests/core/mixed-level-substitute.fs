@@ -48,6 +48,22 @@ T{ 4 lf-term-read -> lf-tag-constant 1 lf-cref-serial @ true }T
 T{ 1 lf-cref-serial @ 0 lf-cref-level -> 5 lf-level-serial @ true }T
 T{ 5 lf-level-read -> lf-level-tag-max 2 3 true }T
 T{ 1 lf-cref-serial @ 1 lf-cref-level -> 3 3 lf-level-identity drop true }T
+\ The source audit alone, as mixed-signature-audit runs it, against the
+\ formals 11 and 22. Term 3 = app (app C C) (Sort 1): terms 3, 1, 2, 0, 0
+\ cost five units, level 1 one unit, and each C's levels 4 = max 1 2 and
+\ 2 four units: 14 in all. With only formal 11 the audit stops at level 2,
+\ the second child of level 4, after eight units. Nothing is allocated.
+lf-term-count @ constant source-terms
+lf-level-count @ lf-cref-count @ 2constant source-counts
+T{ 3 formals 2 100 lf-mls-audit-formals -> 86 lf-mlsubst-ok }T
+T{ 3 formals 2 14 lf-mls-audit-formals -> 0 lf-mlsubst-ok }T
+T{ 3 formals 2 13 lf-mls-audit-formals -> 0 lf-mlsubst-exhausted }T
+T{ 3 formals 1 100 lf-mls-audit-formals -> 92 lf-mlsubst-invalid }T
+T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> source-terms source-counts }T
+\ Negative fuel and a count outside 0..lf-level-capacity spend nothing.
+T{ 3 formals 2 -1 lf-mls-audit-formals -> -1 lf-mlsubst-invalid }T
+T{ 3 formals -1 100 lf-mls-audit-formals -> 100 lf-mlsubst-invalid }T
+T{ 3 formals lf-level-capacity 1+ 100 lf-mls-audit-formals -> 100 lf-mlsubst-invalid }T
 \ Source must be audited in its real session context, not merely formals.
 33 formals cell+ !
 T{ 500 run-substitution -> lf-mlsubst-invalid }T
@@ -72,6 +88,19 @@ lf-level-count @ variable unchanged-levels unchanged-levels !
 lf-cref-count @ variable unchanged-crefs unchanged-crefs !
 T{ 500 run-substitution -> fixture-root @ root-id @ lf-mlsubst-ok }T
 T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> unchanged-terms @ unchanged-levels @ unchanged-crefs @ }T
+\ Every level pair of a reference is compared: a constant over levels 1, 2
+\ whose first level stays and whose second becomes 3 is rebuilt.
+: kept-first-fixture ( -- index id )
+  1 args pair! 2 args 2 cells + pair!
+  0 lf-name-generation @ args 2 lf-cref-new 0= abort" cref"
+  lf-cterm-new 0= abort" const" ;
+kept-first-fixture 2constant kept-first
+1 actuals pair! 3 actuals 2 cells + pair!
+lf-term-count @ constant kept-index
+T{ kept-first formals actuals 2 500 lf-mixed-level-substitute
+   -> kept-index lf-term-serial @ lf-mlsubst-ok }T
+T{ kept-index lf-term-read -> lf-tag-constant 3 lf-cref-serial @ true }T
+T{ 3 lf-cref-serial @ 1 lf-cref-level -> 3 3 lf-level-identity drop true }T
 2 actuals pair! 3 actuals 2 cells + pair!
 \ Formal membership alone must not bless an out-of-context input level.
 44 formals !
@@ -152,15 +181,4 @@ lf-cref-reset
 : reuse-cref 0 lf-name-generation @ 0 0 lf-cref-new 0= abort" reuse cref" 2drop ;
 reuse-cref
 T{ 500 run-substitution -> lf-mlsubst-invalid }T
-\ Helper statuses keep their meaning; an unknown or other code is invalid.
-T{ lf-repr-ok lf-mls-repr-status -> lf-mlsubst-ok }T
-T{ lf-repr-invalid lf-mls-repr-status -> lf-mlsubst-invalid }T
-T{ lf-repr-exhausted lf-mls-repr-status -> lf-mlsubst-exhausted }T
-T{ 3 lf-mls-repr-status -> lf-mlsubst-invalid }T
-T{ 99 lf-mls-repr-status -> lf-mlsubst-invalid }T
-T{ lf-lsubst-ok lf-mls-level-status -> lf-mlsubst-ok }T
-T{ lf-lsubst-invalid lf-mls-level-status -> lf-mlsubst-invalid }T
-T{ lf-lsubst-exhausted lf-mls-level-status -> lf-mlsubst-exhausted }T
-T{ 3 lf-mls-level-status -> lf-mlsubst-invalid }T
-T{ 99 lf-mls-level-status -> lf-mlsubst-invalid }T
 bye

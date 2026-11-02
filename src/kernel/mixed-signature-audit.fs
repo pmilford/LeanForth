@@ -14,20 +14,19 @@
 \ reference is allocated, even on failure; counts and serials are
 \ unchanged. Handles are forgeable, instance-local diagnostics.
 \ State: one record, lf-msa-state, holding the fuel the last audit left.
-\ The level audit is mixed-level-substitute's lf-mls-audit, which reads its
-\ root and fuel from that module's cells and the formal list from
-\ level-substitute's; this module sets them just before each call. Not
-\ re-entrant and single-threaded.
+\ The level audit is mixed-level-substitute's lf-mls-audit-formals, given
+\ its root, formal list and fuel on the stack. Not re-entrant and
+\ single-threaded.
 
-begin-structure /lf-msa
-  field: lf-msa-left     \ fuel left by the last audit with nonnegative fuel
+begin-structure /lf-audit
+  field: lf-audit-left   \ fuel left by the last audit with nonnegative fuel
 end-structure
-create lf-msa-state /lf-msa allot
-lf-msa-state /lf-msa erase
+create lf-msa-state /lf-audit allot
+lf-msa-state /lf-audit erase
 
 \ Fuel left after an audit; mixed-infer and the definition probe continue
 \ with it. On failure it holds the fuel left where the audit stopped.
-: lf-msa-fuel ( -- addr ) lf-msa-state lf-msa-left ;
+: lf-msa-fuel ( -- addr ) lf-msa-state lf-audit-left ;
 
 \ Validate a record's bounded metadata before using it as a pointer or loop
 \ bound: a live positive name not used by an earlier record, an arity of
@@ -39,22 +38,22 @@ lf-msa-state /lf-msa erase
   2dup cells + @ dup 0> if -rot lf-msp-cell-index 0< else drop 2drop false then ;
 : lf-msa-formals? ( addr count -- flag )
   0 ?do dup i lf-msa-formal? 0= if drop false unloop exit then loop drop true ;
+: lf-msa-formal-list ( position -- formals count )
+  dup lf-msp-formals-at swap lf-msp-arity@ ;
 : lf-msa-metadata? ( position -- flag )
   dup lf-msa-name? over lf-msa-arity? and
-  if dup lf-msp-formals-at swap lf-msp-arity@ lf-msa-formals? else drop false then ;
+  if lf-msa-formal-list lf-msa-formals? else drop false then ;
 
 \ Each check takes the fuel left and returns the fuel it leaves, even on
-\ failure. lf-constant-term-scope and lf-mls-audit report only ok, invalid
-\ or exhausted.
+\ failure. lf-constant-term-scope and lf-mls-audit-formals report only ok,
+\ invalid or exhausted; outcome-sane passes any outcome on unchanged (so
+\ rejected or unsupported too, once ADR 0008 step 3 lets helpers return
+\ them; still not ok) and makes anything else invalid.
 : lf-msa-root ( position -- root identity ) dup lf-msp-root@ swap lf-msp-id@ ;
 : lf-msa-scope ( position fuel -- fuel' status )
   >r lf-msa-root 0 r> lf-constant-term-scope lf-cts-fuel @ swap outcome-sane ;
-: lf-msa-source! ( position -- ) lf-msa-root lf-mls-id ! lf-mls-root ! ;
-: lf-msa-formals! ( position -- )
-  dup lf-msp-arity@ lf-lsubst-count ! lf-msp-formals-at lf-lsubst-formals ! ;
 : lf-msa-levels ( position fuel -- fuel' status )
-  lf-mls-fuel ! dup lf-msa-source! lf-msa-formals!
-  lf-mls-audit lf-mls-fuel @ swap outcome-sane ;
+  >r dup lf-msp-root@ swap lf-msa-formal-list r> lf-mls-audit-formals outcome-sane ;
 
 \ One record: metadata, binder scope at outer depth zero, then every level
 \ against the copied formals.

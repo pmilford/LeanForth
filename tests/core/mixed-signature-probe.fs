@@ -81,6 +81,16 @@ actuals cell+ @ constant good-id
 good-id 1+ actuals cell+ !
 T{ 2 500 specialize -> lf-msp-invalid }T
 good-id actuals cell+ !
+\ lf-msp-specialize-fuel gives the same result and status, and on success
+\ also the fuel the substitution left, which mixed-infer continues with.
+lf-term-count @ constant spec-terms
+T{ token candidate actuals 2 500 lf-msp-specialize-fuel rot drop
+   -> spec-terms 3 + 459 lf-msp-ok }T
+T{ token candidate actuals 2 500 lf-msp-specialize-fuel 2swap 2drop
+   -> lf-mls-fuel @ lf-msp-ok }T
+T{ token second actuals 2 500 lf-msp-specialize-fuel -> lf-msp-unknown }T
+T{ token candidate actuals 2 0 lf-msp-specialize-fuel -> lf-msp-exhausted }T
+T{ token candidate actuals 2 -1 lf-msp-specialize-fuel -> lf-msp-invalid }T
 \ Repeated low budgets cover preaudit and partial allocation; every failed
 \ result must restore all three counts while serials may advance.
 variable saw-allocation variable sfuel
@@ -137,4 +147,10 @@ T{ token2 second actuals 2 500 lf-msp-specialize -> lf-msp-invalid }T
 T{ lf-msp-ok lf-msp-invalid lf-msp-exhausted lf-msp-unknown -> 0 1 2 3 }T
 T{ lf-msp-ok lf-msp-invalid lf-msp-exhausted lf-msp-unknown
    -> outcome-ok outcome-invalid outcome-exhausted outcome-unknown }T
+\ The lifetime generation saturates: the last begin before the limit
+\ succeeds, the next poisons the generation to -1, and it stays there.
+max-n 1- lf-msp-generation !
+T{ lf-msp-begin lf-msp-generation @ -> true max-n }T
+T{ lf-msp-begin lf-msp-generation @ lf-msp-active @ -> false -1 0 }T
+T{ lf-msp-begin lf-msp-generation @ -> false -1 }T
 bye

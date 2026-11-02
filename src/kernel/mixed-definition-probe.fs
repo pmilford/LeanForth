@@ -5,8 +5,8 @@
 \ assumed. Unsupported inference/conversion is unknown.
 \ State: one request record, lf-mdefinition-request: the claim, the value,
 \ the index token, the fuel and the arena marks of the current call. The
-\ inference itself runs on mixed-infer's state, which this module sets up.
-\ Not re-entrant and single-threaded.
+\ inference itself runs on mixed-infer's state, as a job this module starts
+\ with lf-minfer-start. Not re-entrant and single-threaded.
 
 outcome-ok constant lf-mdefinition-ok
 outcome-invalid constant lf-mdefinition-invalid
@@ -36,7 +36,7 @@ lf-mdefinition-request /lf-mdreq erase
 : lf-mdreq-claim@ ( req -- type tid ) dup lf-mdreq-claim-root @ swap lf-mdreq-claim-id @ ;
 : lf-mdreq-value@ ( req -- value id ) dup lf-mdreq-value-root @ swap lf-mdreq-value-id @ ;
 
-\ Arena counts when inference begins; inference restores them.
+\ Arena counts when the check begins; inference restores them.
 : lf-mdreq-mark ( req -- )
   lf-term-count @ over lf-mdreq-terms ! lf-level-count @ over lf-mdreq-levels !
   lf-cref-count @ swap lf-mdreq-crefs ! ;
@@ -62,14 +62,12 @@ lf-mdefinition-request /lf-mdreq erase
   dup lf-mdefinition-claim-scope ok-then?
   if dup lf-mdefinition-value-scope ok-then? if lf-mdefinition-audit then then ;
 
-\ Internal inference consumes the original preflighted roots only. Its shared
-\ state and all three arena marks are initialized once for the pair; these
-\ are mixed-infer's own cells, which it offers no single word to set.
-: lf-mdefinition-infer-setup ( req -- )
-  dup lf-mdreq-token @ lf-minfer-token ! dup lf-mdreq-fuel @ lf-minfer-fuel !
-  dup lf-mdreq-terms @ lf-minfer-term-start ! 0 lf-minfer-depth !
-  dup lf-mdreq-levels @ lf-minfer-level-start ! 0 lf-minfer-context-depth !
-  lf-mdreq-crefs @ lf-minfer-cref-start ! ;
+\ Internal inference consumes the original preflighted roots only. One
+\ mixed-infer job, started once with the fuel the preflight left, covers
+\ the pair; the preflight allocated nothing, so the job's arena marks are
+\ the request's.
+: lf-mdefinition-start ( req -- )
+  dup lf-mdreq-token @ swap lf-mdreq-fuel @ lf-minfer-start ;
 \ The claim's own type must be a Sort; the value's inferred type must then
 \ convert to the claim. Inference reports ok, invalid, exhausted or unknown.
 : lf-mdefinition-claim-sort ( type -- status )
@@ -80,7 +78,7 @@ lf-mdefinition-request /lf-mdreq erase
   dup lf-mdreq-claim-root @ lf-mdefinition-claim-sort ok-then?
   if dup lf-mdreq-value-root @ swap lf-mdreq-claim-root @ lf-mdefinition-value-type then ;
 : lf-mdefinition-walk ( req -- status )
-  dup lf-mdefinition-infer-setup lf-mdefinition-pair outcome-sane ;
+  dup lf-mdefinition-start lf-mdefinition-pair outcome-sane ;
 
 \ Infer, keep the fuel inference left, and restore the arena counts.
 : lf-mdefinition-infer ( req -- status )

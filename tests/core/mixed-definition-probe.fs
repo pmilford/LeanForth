@@ -92,9 +92,11 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
   lf-mdefinition-ok lf-mdefinition-invalid lf-mdefinition-exhausted lf-mdefinition-unknown ;
 T{ statuses -> lf-minfer-ok lf-minfer-invalid lf-minfer-exhausted lf-minfer-unknown }T
 T{ statuses -> outcome-ok outcome-invalid outcome-exhausted outcome-unknown }T
+\ The success fuel is pinned: preflight and the pair's inference spend 189
+\ units here (observed before the refactor, at 398b76b).
 : basic-case ( -- )
   setup snapshot 4 9 50000 probe lf-mdefinition-ok expect-status assert-rollback
-  lf-mdefinition-fuel @ 0<= abort" success fuel"
+  lf-mdefinition-fuel @ 49811 <> abort" success fuel"
   lf-term-serial @ term-serial-before @ <= abort" expected allocations"
   snapshot 0 10 50000 probe lf-mdefinition-unknown expect-status assert-rollback
   lf-mdefinition-fuel @ 0<> abort" unknown fuel"

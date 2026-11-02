@@ -101,8 +101,7 @@ T{ 2 term-app-id @ mls-formals mls-actuals 1 13 lf-mixed-level-substitute
    lf-mls-fuel @ -> outcome-exhausted 0 }T
 T{ 2 term-app-id @ mls-formals mls-actuals 1 30 ' lf-mixed-level-substitute rs-checked
    rot drop -> lf-term-serial @ outcome-ok }T
-2 lf-mls-root !  30 lf-mls-fuel !  mls-formals lf-lsubst-formals !  1 lf-lsubst-count !
-T{ lf-mls-audit lf-mls-fuel @ -> outcome-ok 25 }T
+T{ 2 mls-formals 1 30 lf-mls-audit-formals -> 25 outcome-ok }T
 \ The substitution walks its own record, not the handle audit's stack.
 0 lf-href-pending !  9 lf-href-push drop
 T{ 2 term-app-id @ mls-formals mls-actuals 1 30 lf-mixed-level-substitute
