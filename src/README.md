@@ -8,10 +8,10 @@ audit, any accepted result is *experimental — not independently audited*.
 | Folder | Holds | Loaded by `main.fs` |
 | --- | --- | --- |
 | `main.fs` | One loader that includes every current module in dependency order; later the command-line entry point. Run `gforth src/main.fs`. | — |
-| `lib/` | General Forth tools with no Lean knowledge: the portability adapter, range checks, the `store:` bounded-store defining word, tagged node records, the shared outcome vocabulary, `walk:` and paired `walk2:` re-entrant DAG walks, and `frames:` records for bounded recursive passes so far; hashing and byte-stream reading are planned. `lib.fs` loads them in order. | yes, through `core/` |
+| `lib/` | General Forth tools with no Lean knowledge: the portability adapter, range checks, the `store:` bounded-store defining word, tagged node records, the shared outcome vocabulary, `walk:` and paired `walk2:` re-entrant DAG walks, and `frames:` records for bounded recursive passes, which `lib.fs` loads in order; and, loaded only by the modules that use them, the line reader with UTF-8 checks (`bytes.fs`) and the JSON reader (`json.fs`). Hashing is planned. | yes, through `core/` and `import/` |
 | `core/` | Lean's data model: the term store, names, universe levels and their parameter scope, the Sort representation, sessions and stale-handle checks, constant references and their structural audits. | yes |
 | `kernel/` | The proof checker, under development: universe substitution, value and comparison; candidate signatures; the `mixed-*` shift, instantiate, beta, compare, convert and inference passes; the definition probe. See [`kernel/README.md`](kernel/README.md). | yes |
-| `import/` | Staging of decoded Lean exports into the term store (`load.fs`); later a shared NDJSON reader. | yes |
+| `import/` | The reader of Lean's lean4export NDJSON files (`ndjson.fs`, see [NDJSON_READER.md](../docs/development/NDJSON_READER.md)) and its record-counting tool (`ndjson-count.fs`, not loaded by `main.fs`); staging of decoded expression records into the term store (`load.fs`). | yes |
 | `program/` | Verified-program track: the example words (clamp, checked add, abs, factorial, gcd, in-range) and the stack-depth analyzer. | yes |
 | `legacy/` | Superseded earlier variants (plain and `tagged-*` passes, the `raw-*` signature index, `constant-*`/`context-*` probes, `arena.fs`, the unsafe `symbolic-infer.fs` draft). Kept only because tests and Lean comparisons still use them; retired under roadmap item Q9. Do not build on them. | no |
 

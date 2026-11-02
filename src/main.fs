@@ -36,8 +36,10 @@ include ./kernel/mixed-convert.fs
 include ./kernel/mixed-infer.fs
 include ./kernel/mixed-definition-probe.fs
 
-\ Staging of decoded Lean exports into the term store.
+\ Staging of decoded Lean exports into the term store, and the reader of
+\ lean4export NDJSON files (it loads lib/json.fs and lib/bytes.fs itself).
 include ./import/load.fs
+include ./import/ndjson.fs
 
 \ Verified-program track: example words and the stack-depth analyzer.
 include ./program/clamp.fs

@@ -18,6 +18,8 @@ with another folder; superseded variants are in
 | Outcome vocabulary | `src/lib/outcome.fs` | ok, invalid, exhausted, unknown, rejected, unsupported (ADR 0008), with `ok?`, `outcome-sane` and `flag>outcome` | New 2026-11-02; used by the four lowest walkers |
 | DAG walks | `src/lib/walk.fs` | `walk:` defining word: fuel, current node, one visitor cell and a bounded work stack in one record; `walk-run` drives a visitor and `walk-visit` reads and dispatches a node. The walk words keep no state of their own, but each module still owns one walk record, so a module's check is not re-entrant | New 2026-11-02; level scope, Sort representation, session and handle audits use it |
 | Bounded recursion | `src/lib/frame.fs` | `frames:` defining word: fuel, visits in progress and their limit, the visitor, a context cell (such as a binder depth) and two cells for the pass in one record; `frame-call` charges one unit of fuel and one frame per visit, `frame-under` visits one context level deeper, `frame-run` starts a pass. Values a visitor keeps across a child's visit stay on the data stack, so each nested visit uses a few host stack cells: measured 718 return-stack and 460 data-stack cells at 117 nested frames (beta, instantiate and shift), within Gforth 0.7.3's defaults of 1,920 and 2,048 | New 2026-11-02; the kernel's shift, instantiate and beta passes use it |
+| Line reader and UTF-8 | `src/lib/bytes.fs` | `reader:` record over a Forth-2012 file: whole lines in one heap buffer that grows for long lines up to a limit, strict framing (final line feed; `text-framed` refuses carriage returns and a byte-order mark), line numbers and double-cell file offsets; `utf8-length`, `utf8-valid?` and `utf8-put` (RFC 3629, no overlongs or surrogates); `counted,`. Uses Gforth's native `scan` behind an adapter, with a portable loop otherwise | New 2026-11-02; unit-tested against an independent UTF-8 model in `tests/lib/bytes.fs` |
+| JSON reader | `src/lib/json.fs` | `json:` view record: a fail-closed, non-recursive RFC 8259 parser of one text into a growable token tape (containers know their item count and extent), escapes decoded in place, numbers kept as digit text, limits on depth, tokens, string and number length; `json-find`, `json-next`, `json-natural`, `json-u`, `digits>u` | New 2026-11-02; malformed corpus and every limit tested in `tests/lib/json.fs` |
 | Portability adapter | `src/lib/portability.fs` | Forth-2012 definitions of `>=`, `<=`, `0<=`, `0>=`, `max-n` and the structure words, compiled only where the host lacks them | New 2026-11-02; defines nothing under Gforth except `max-n` |
 | Expression store | `src/core/terms.fs` | Index-based nodes for sorts, bound variables, application, λ, Π and constants; nodes refer to earlier indices, so a term is a DAG with sharing | 64 nodes; global; built on `store:`; constructors check ranges only |
 | Universe-level store | `src/core/levels.fs` | Level DAGs: zero, succ, max, imax, parameters | 64 levels; global; built on `store:` |
@@ -28,6 +30,7 @@ with another folder; superseded variants are in
 | Level algorithms | `level-scope`, `level-value`, `level-compare`, `level-substitute`, `mixed-level-substitute` | Scope checks, evaluation, conservative equality and simultaneous substitution of levels | Current |
 | Signature index | `mixed-signature-probe.fs`, `mixed-signature-audit.fs` (older, in `src/legacy/`: `raw-declaration-index`, `raw-signature-specialize`) | Candidate signatures of constants, specialised to universe arguments | 32 entries; unchecked assumptions |
 | Record staging | `src/import/load.fs` | Copies already-decoded expression records into the term store | Not a parser |
+| NDJSON export reader | `src/import/ndjson.fs`, `ndjson-count.fs` | Decodes every record kind of lean4export format 3.1.0 into decoded-record layouts and hands each to a handler per kind; checks exact field sets, dense indices and earlier references; a counting tool | New 2026-11-02; untrusted, fail-closed; equal to Python on all of Mathlib; see [NDJSON_READER.md](NDJSON_READER.md) |
 | Generic pair arena | `src/legacy/arena.fs` | Early atom/pair storage experiment | No dependants; retirement candidate |
 | Program examples | `src/program/clamp.fs`, `examples.fs` | Six executable words (clamp, checked add, abs, factorial, gcd, in-range) | Runtime tested against Lean models, not verified |
 | Depth analyzer | `src/program/program-depth.fs` | Stack-depth diagnostic for a tiny opcode list | Not connected to real Forth words |
@@ -35,15 +38,16 @@ with another folder; superseded variants are in
 
 ## JSON and NDJSON
 
-There is **no JSON or NDJSON reader in Forth**. Lean exports are decoded by
-the Python preview (`tests/support/ndjson_preview.py`), which turns a fixture
-into a compact byte stream; about eleven hand-written Forth stream readers
-(`tests/core/*-stream.fs` and `tests/legacy/*-stream.fs`) each load one
-fixture's stream. They duplicate
-the same framing code. The implementation plan allows an untrusted decoder in
-another language but requires the semantics to be checked in Forth; a
-production importer will need a streaming Forth NDJSON reader, or a reviewed
-decision to keep decoding outside Forth with a validated binary interchange.
+Since 2026-11-02 Forth reads Lean's NDJSON exports itself (owner decision
+OQ-4): `src/lib/bytes.fs`, `src/lib/json.fs` and `src/import/ndjson.fs`,
+described in [NDJSON_READER.md](NDJSON_READER.md). It decodes the whole
+pinned Mathlib export, field for field as Python's `json` module does, in
+under two minutes with `gforth-fast`. It does not yet stage records into
+the term, level and name stores (they hold 64 entries each). The Python
+preview (`tests/support/ndjson_preview.py`) and the eleven hand-written
+Forth stream readers of its byte transport (`tests/core/*-stream.fs` and
+`tests/legacy/*-stream.fs`) remain until their tests move to the Forth
+reader (plan item 3.2.5); the Python code stays as a test oracle only.
 
 ## Missing for a usable checker at Mathlib scale
 
@@ -71,7 +75,9 @@ decision to keep decoding outside Forth with a validated binary interchange.
   checked terms or receipts.
 - **Pretty-printing and explanation.** No printer for terms, levels or proof
   steps.
-- **A shared stream reader**, replacing the eleven test readers.
+- **Moving the test readers onto the Forth NDJSON reader**, retiring the
+  eleven byte-stream readers, and staging decoded records into growable
+  stores.
 
 How the existing code should be written and refactored is in
 [the Forth style guide](FORTH_STYLE.md).
