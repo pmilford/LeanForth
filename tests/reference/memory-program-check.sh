@@ -10,4 +10,5 @@ LEAN_PATH="$temporary" "$lean" -o "$temporary/memory-swap-reference.olean" tests
 LEAN_PATH="$temporary" "$lean" tests/reference/memory-swap-involution.lean
 LEAN_PATH="$temporary" "$lean" -o "$temporary/memory-copy-reference.olean" tests/reference/memory-copy-reference.lean
 LEAN_PATH="$temporary" "$lean" -o "$temporary/memory-copy-properties.olean" tests/reference/memory-copy-properties.lean
+LEAN_PATH="$temporary" "$lean" tests/reference/memory-copy-twice.lean
 LEAN_PATH="$temporary" "$lean" tests/reference/memory-sequence-reference.lean

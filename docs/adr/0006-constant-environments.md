@@ -352,3 +352,13 @@ Lean conversion. `make test-mixed-convert-differential` checks seven selected
 cases with pinned Lean and rejects any Forth equality that Lean rejects.
 Unknown is inconclusive, never a proof of inequality;
 no result authorizes a declaration or theorem.
+
+`mixed-level-substitute.fs` is an untrusted same-session universe substitution
+that also traverses universe arguments inside constants. The current session
+context must contain both source formals and actual parameters; handling truly
+separate source and caller contexts remains open and needs an explicit lifetime
+design. It preaudits inputs and rolls back term, level and constant-reference
+counts on failure without rewinding identities. The optional
+`make test-mixed-level-substitute-differential` checks 27 evaluated syntax
+observations against pinned Lean; finite numeric evaluations do not prove
+general symbolic equivalence or declaration validity.

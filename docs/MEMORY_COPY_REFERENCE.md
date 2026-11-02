@@ -35,6 +35,13 @@ and bounds failures persist through a following instruction sequence, and
 that a successful copy passes the unchanged stack tail to that continuation.
 These results have the same abstract-model limitations described above.
 
+`tests/reference/memory-copy-twice.lean` proves that two copies have the same
+modeled state as one, including aliased addresses, and covers bounds and
+failure through continuations. Lean's axiom audit for these reference results
+includes `propext` and `Quot.sound`; the exact-success theorem also uses
+`Classical.choice`. These are reported assumptions of the Lean reference,
+not an approved LeanForth axiom policy. `make reference` checks the file.
+
 ## Reproduction
 
 From the repository root, the following commands passed on 2026-11-01 using

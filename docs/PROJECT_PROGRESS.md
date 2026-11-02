@@ -75,7 +75,7 @@ done because a test fixture or untrusted diagnostic works.
 | --- | --- |
 | 1. Development foundation | In progress: repository, MIT license, Lean 4.35.0 pin, Gforth, tests and CI skeleton. Installation and portability need further work. |
 | 2. Terms, names and universes | In progress: untrusted bounded arenas, symbolic universes and mixed constant-term validation; handle checks reject replaced references. Typing integration and human review remain open. |
-| 3. Scope and substitutions | In progress: untrusted context-domain and mixed constant-term scope diagnostics exist. Experimental mixed shifting and single-binder instantiation agree with Lean on 45 and 30 finite syntax cases, respectively; mixed conversion and general context validation remain incomplete. |
+| 3. Scope and substitutions | In progress: untrusted scope, shifting and substitution diagnostics exist. A mixed universe substitution also reaches constant arguments and agrees with Lean on 27 finite evaluated cases under a shared-session constraint; general context handling and trusted integration remain incomplete. |
 | 4. Definitional equality | In progress: an untrusted mixed-term beta conversion diagnostic agrees with Lean on seven finite cases and compares constant names and universe arguments conservatively. Definition unfolding and many Lean equivalences remain unknown; human review remains outstanding. |
 | 5. Small trusted checker | In progress: an untrusted tagged diagnostic checks a symbolic polymorphic identity type/value pair, but creates no theorem; application inference passes 18 finite Lean comparisons. Human review remains required. |
 | 6. Lean NDJSON importer | Bounded preview preserves constants and definitions; a test-only bridge stages all 19 nodes of one constant-containing fixture and checks the scope of its definition and theorem roots, including an escaping-binder rejection. Dependency validity, full import and trusted checking remain. |
@@ -97,7 +97,7 @@ Do not use it until the representations are isolated and reviewed.
 | 3. Formal execution model | A Lean reference model proves clamp properties and frame preservation for successful modeled programs; the handwritten model is an assumption when relating it to Forth. |
 | 4. Model/runtime comparisons | Finite comparisons cover stack instructions, arithmetic and 28 bounded-memory cases against Lean models; they do not establish all executions or a verified compiler. |
 | 5. Shared proof kernel | Depends on theorem milestone 5; no trusted LeanForth proof checker exists yet. |
-| 6. Forth program representation | A Lean reference language models a small stack plus abstract memory, with read-after-write, frame and failure proofs. Copy, swap and composed operations have bounds, aliasing, frame and failure proofs; two swaps restore the model's memory and stack. It is not connected to the Forth interpreter; general Forth semantics and effects remain. |
+| 6. Forth program representation | A Lean reference language models a small stack plus abstract memory, with read-after-write, frame and failure proofs. Copy, swap and composed operations have bounds, aliasing, frame and failure proofs; two swaps restore the model's memory and stack, and two copies have the modeled effect of one. It is not connected to the Forth interpreter; general Forth semantics and effects remain. |
 | 7. Verification conditions | A Lean reference proves weakest-precondition, stack-depth and sequential failure rules; an untrusted Forth depth diagnostic matches 1,093 finite cases. A general generator and checked certificates remain unimplemented. |
 | 8. User-facing verifier | A general workflow to specify, prove and check Forth programs is not implemented. |
 | 9. Verified execution/compilation | Source-to-runtime correspondence and compilation assurance remain; runtime and machine assumptions must be explicit. |
@@ -115,6 +115,8 @@ Documentation is maintained manually alongside development, including setup,
 testing, decisions, API plans, prototype limits and the program example. It is
 not automatically generated, and complete user manuals remain to be written.
 Future features must include their corresponding documentation and manuals.
+[Terms for new readers](TERMS_FOR_NEW_READERS.md) explains the core vocabulary;
+the full audience-specific manuals and reviewed diagrams remain planned.
 
 An [opt-in profiling wrapper](PROFILING.md) measures elapsed time and process
 peak RSS for an existing finite Lean/Forth substitution workload. It does not

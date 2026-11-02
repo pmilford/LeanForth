@@ -6,6 +6,8 @@ See the [project progress report](docs/PROJECT_PROGRESS.md) for both product
 tracks, importer limits, and a reproducible code inventory.
 The [development roadmap](docs/DEVELOPMENT_ROADMAP.md) breaks each track into
 ordered submilestones with dependencies and acceptance evidence.
+New to Lean terminology? See [terms for new readers](docs/TERMS_FOR_NEW_READERS.md)
+for plain-language explanations of levels, `Sort`, proofs and the kernel.
 
 LeanForth is a Forth-friendly mathematical theorem-proving **and verified-programming** system, with an independently trustworthy checker and efficient executable Forth backends. Its mathematical data and presentation notation must never redefine or ambiguously overload the Forth source grammar.
 
