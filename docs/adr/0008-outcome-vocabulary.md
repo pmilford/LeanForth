@@ -1,8 +1,8 @@
 # ADR 0008: one outcome vocabulary — proposal
 
-Status: **proposed**, 2026-11-02; part 1 (the vocabulary in
-`src/lib/outcome.fs`) is in use by untrusted modules pending the owner's
-approval. A code-structure decision for untrusted,
+Status: **accepted** by the owner, 2026-11-02, with the split of
+*exhausted* into fuel and room ([owner decisions](../project/OWNER_DECISIONS.md#planning-answers-2026-11-02-later-the-same-day)).
+A code-structure decision for untrusted,
 in-progress modules. It changes no typing or conversion rule. Adding the
 *rejected* outcome to the checker (step 3 below) is a checker change and
 goes through the review gate in `AGENTS.md`.
@@ -31,10 +31,17 @@ outcomes: accepted, rejected, and unsupported/unknown. There is no
    | --- | --- | --- |
    | ok | 0 | The operation succeeded (for comparison: shown equal). |
    | invalid | 1 | Malformed input or corrupted state; fails closed. |
-   | exhausted | 2 | A fuel, capacity or depth limit was reached. |
+   | exhausted | 2 | Out of fuel: the processing budget ran out. |
    | unknown | 3 | Supported, but not decided by this cautious rule. |
    | rejected | 4 | Shown wrong: ill-typed, or definitely not equal. |
    | unsupported | 5 | Uses a feature LeanForth does not implement yet. |
+   | full | 6 | Out of room: a store, stack or depth limit was reached. |
+
+   *Exhausted* and *full* are different, at the owner's suggestion: the fix
+   for the first is more fuel (time), for the second more memory or a larger
+   limit, and at Mathlib scale the report must say which limit was hit.
+   Until each module is converted, capacity failures may still report
+   *exhausted*; the split is completed as modules are refactored.
 
    *Unsupported* and *unknown* are different, at the owner's suggestion.
    Unsupported means the input uses a construct LeanForth has not built

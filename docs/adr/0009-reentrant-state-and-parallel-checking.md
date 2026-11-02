@@ -1,6 +1,7 @@
 # ADR 0009: re-entrant state and parallel checking — proposal
 
-Status: **proposed**, 2026-11-02. Shapes the code structure of untrusted,
+Status: **accepted** by the owner, 2026-11-02, with native Forth tasks as
+the parallel method ([owner decisions](../project/OWNER_DECISIONS.md#planning-answers-2026-11-02-later-the-same-day)). Shapes the code structure of untrusted,
 in-progress modules; changes no typing or conversion rule. It answers roadmap
 item C1 in part and sets the direction for C2.
 
@@ -27,7 +28,10 @@ Nothing can run twice at once in one Forth image.
   1.8 s for the same work in sequence, using 1118% CPU: about 6×, which is
   consistent with 6 physical cores with two hardware threads each.
 - Gforth 0.7.3 (the CI portability host) has only the cooperative
-  multitasker. Forth-2012 standardizes no multitasking at all.
+  multitasker: tasks take turns on one core. Forth-2012 standardizes no
+  multitasking. The classic design — tasks with `USER` variables, `PAUSE`,
+  semaphores — is common to Gforth, SwiftForth and VFX Forth, with
+  different spellings of the task words.
 
 ## Decision (proposed)
 
@@ -40,25 +44,25 @@ Nothing can run twice at once in one Forth image.
 2. **One checker context per worker.** A check's records (term, level and
    name stores, walk records, session) are grouped into one context record.
    Module words reach their state through a single current-context pointer,
-   so their stack effects stay short. On Gforth 1.0 that pointer is a `USER`
-   variable, giving each native task its own context; elsewhere it is an
-   ordinary variable and there is one worker per process.
+   so their stack effects stay short. That pointer is a `USER` variable,
+   giving each Forth task its own context; a host without tasks has one
+   worker.
 3. **The checked environment is append-only, then read-only.** A declaration
    joins the shared environment only after it is checked, and is never
    modified afterwards. Workers read it without locks. A scheduler hands out
    declarations whose dependencies are all checked, and publishes results in
    dependency order. No worker can see another worker's partial results,
    scratch or assumptions (roadmap C2).
-4. **Two ways to run in parallel, the portable one first.**
-   - *Processes:* several Gforth processes, each with one context, loading a
-     serialized checked environment. Portable to every host, with crash
-     isolation, but it needs a serialization format and per-process loading.
-     This is the baseline and what CI can test.
-   - *Native tasks:* Gforth 1.0 pthread tasks in one image, sharing one
-     copy of the environment, each with its own context through its `USER`
-     pointer. Less memory and fast start-up; an optimization, enabled only
-     when the host provides the multitasker, and validated against serial
-     runs (roadmap C3).
+4. **Forth tasks, not operating-system processes.** The owner prefers a
+   Forth-compatible solution to Linux multiprocessing. Parallel checking runs
+   as Forth tasks in one image, sharing one copy of the environment, each
+   with its own context through its `USER` pointer. The few task words
+   (create, start, wait) live in one small adapter file per host. On Gforth
+   1.0 the tasks run on all cores; on a cooperative multitasker such as
+   Gforth 0.7.3 they take turns, which still tests in CI that interleaved
+   contexts do not interfere. One worker in one task is the serial path.
+   (Running the checker as its own program, apart from user Forth code, is
+   a separate protection decision, OQ-1.)
 5. **Parallelism never bypasses checking.** A result checked in parallel
    must equal the serial result; tests compare them.
 
@@ -71,8 +75,10 @@ Nothing can run twice at once in one Forth image.
 3. Introduce the context record and current-context pointer, with a test
    that runs two contexts interleaved in one image and compares with serial
    runs.
-4. Serialization of the checked environment (needed by processes), then a
-   dependency-ordered scheduler, then native tasks.
+4. A dependency-ordered scheduler and native tasks through the adapter,
+   validated against serial runs (roadmap C3). Serializing the checked
+   environment is needed later for the separate checker program and saved
+   results, not for parallelism.
 
 ## Rejected alternatives
 
@@ -83,8 +89,7 @@ Nothing can run twice at once in one Forth image.
 - **Locks around shared mutable stores.** Serializes the hot paths and
   invites races; an append-only environment and per-worker scratch need no
   locks on the read path.
-- **Native tasks only.** Not available on Gforth 0.7.3 or in Forth-2012,
-  and gives no crash isolation.
-- **Processes only.** Each process holds its own copy of the environment,
-  which at Mathlib scale may be the limiting memory cost; the scale
-  assessment under way will size this.
+- **Operating-system processes for parallelism.** Portable and crash
+  isolated, but each process holds its own copy of the environment (the
+  limiting memory cost at Mathlib scale) and needs serialization before any
+  speed-up; the owner prefers Forth's own multitasking.

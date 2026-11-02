@@ -184,3 +184,55 @@ this section and the status line were filled in.
 These answers are policy decisions. They do not approve any implementation,
 and they are not an expert review of the checker's rules; that is why
 decision 1 keeps the *not independently audited* label.
+
+## Planning answers (2026-11-02, later the same day)
+
+The owner answered the planning questions of
+[the draft plan](PLAN_DRAFT.md#8-questions-for-the-owner) and two design
+records in the same Claude Code session. Quoted words are the owner's own.
+
+- **Re-entrancy, [ADR 0009](../adr/0009-reentrant-state-and-parallel-checking.md):
+  approved, build it now** during the remaining refactor. Parallel checking
+  uses Forth's own multitasking design rather than separate operating-system
+  processes: *"I'd prefer a forth compatible solution, not a linux
+  multiprocessing solution."*
+- **Gforth-only features (OQ-7):** Forth-style tasks (`USER` variables,
+  tasks, `PAUSE`, semaphores) may be used, behind a small adapter, with a
+  serial path that CI tests. The C interface, timers and command-line
+  arguments were not discussed; ask when one is needed.
+- **Outcome vocabulary, [ADR 0008](../adr/0008-outcome-vocabulary.md):
+  approved**, with the owner's question *"is it worthwhile to split exhausted
+  into ran out of processing and ran out of memory?"* Answer adopted: yes —
+  *exhausted* (2) now means out of fuel, and a new *full* (6) means a store,
+  stack or depth limit was reached. Neither is ever accepted.
+- **Legacy (OQ-8): approved** deletion of `src/legacy/` once the current code
+  has at least the same test coverage; the owner does not need to see the
+  list first (the paths are still listed in the commit). Tests of legacy
+  code move to `tests/legacy/` beside it: *"I'm surprised the tests were not
+  already moved to legacy themselves."*
+- **Checker isolation (OQ-1): separate program.** The checker runs as its own
+  program and receives proofs only as data.
+- **Saved results (OQ-3): two modes.** *"Most of the time we are running in
+  development or research mode, so don't need high levels of trust. a 'final
+  run' would be in full trust mode."* Development and research runs may reuse
+  saved results, labelled as not re-checked in this run; a final run
+  re-checks everything and reads no saved results. Only a final run's results
+  support a claim.
+- **Lean reader (OQ-4): a Forth reader** on the checking path; Python stays
+  as an independent second reader for tests.
+- **Big numbers (OQ-6): our own Forth module**, *"but it should be able to be
+  very fast too."*
+- **Program track (OQ-5): the honest order** — the first program proof
+  checked by LeanForth itself arrives with data types (phase 5).
+- **Mathlib download (OQ-9): approved**, after the owner freed disk space
+  (160 GB free); into `.tools/` with hashes recorded.
+- **Outside Lean expert (OQ-10): only before a public trust claim.**
+- **Proof explanations (OQ-11): templates first**, *"but make very easy from
+  the start for ai written - and also human written that can stick with the
+  proof as it evolves."*
+- **Parallel publishing (OQ-2):** treated as answered by approving ADR 0009
+  (one publisher, append-only library, parallel verdicts identical to serial
+  ones), keeping the recommended condition that a feature is checked in
+  parallel only after its serial version has passed its gate.
+- **Tooling (OQ-12):** not asked; the default that installs nothing applies
+  (Mermaid checked on GitHub, standard-library JSON checks).

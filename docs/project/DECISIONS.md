@@ -236,3 +236,27 @@ Rejected: an execution-token dispatch table per walker (a five-arm `CASE`
 is as clear for these tag sets); one generic visitor taking a table of
 handlers (five stack items); keeping per-module status constants with
 different names but equal values (invites mapping mistakes).
+
+## Owner planning answers — 2026-11-02
+
+The owner answered the draft plan's questions and approved ADRs 0008 and
+0009 ([owner decisions](OWNER_DECISIONS.md#planning-answers-2026-11-02-later-the-same-day)).
+Three answers change designs:
+
+- **Parallelism uses Forth tasks.** The owner prefers Forth's own
+  multitasking (tasks with `USER` variables) to operating-system processes.
+  ADR 0009 now makes a task pool in one image the parallel method, with the
+  task words in one adapter file per host; process sharding is dropped from
+  phase 7. Rationale: one copy of the environment in memory, no
+  serialization needed before any speed-up, and the cooperative tasker of
+  Gforth 0.7.3 can still test interleaving in CI. Separately, the checker
+  runs as its own program apart from user Forth code (OQ-1), for
+  protection rather than speed.
+- **Out of fuel and out of room are different outcomes.** *Exhausted* (2)
+  keeps its number and now means the fuel budget ran out; *full* (6) means a
+  store, stack or depth limit was reached. Rejected: renumbering (breaks
+  tests and scripts); one combined code (hides which limit to raise).
+- **Development runs may reuse saved results; final runs never do.**
+  Results reused from a saved file are labelled as not re-checked in this
+  run. Rejected: always re-checking in development (slow at Mathlib scale
+  for no benefit to the owner's research use).

@@ -1,6 +1,8 @@
 # LeanForth — next-level project plan (draft for owner review)
 
-**Status: draft, not approved.** Prepared 2026-11-02 by a Claude Code planning
+**Status: draft; the owner answered §8 on 2026-11-02** (recorded in
+[owner decisions](OWNER_DECISIONS.md#planning-answers-2026-11-02-later-the-same-day));
+the phases themselves are not yet approved. Prepared 2026-11-02 by a Claude Code planning
 agent from the documents listed in Appendix B. It changes nothing in the
 repository, approves no checker rule, and replaces no existing document until
 the owner says so. Anything guessed is marked *speculative*. Numbers come from
@@ -8,16 +10,17 @@ the cited files or from read-only commands run today (Appendix B).
 
 **Answered since drafting:** OQ-13 — the machine has an AMD Ryzen 5 7600X
 (6 cores, 12 threads), 39 GiB RAM visible to WSL (about 25 GiB free) and only
-13 GB of free disk (99% used), which limits any Mathlib download. The scale
-assessment (W7) is still in progress.
+13 GB of free disk at first; the owner then freed space (160 GB free) and
+approved the Mathlib download (OQ-9).
 
 **Owner to-dos added 2026-11-02 (not yet placed in phases):**
 - *Binary quick import.* If importing Mathlib from NDJSON is slow, a
   serialized binary snapshot of the decoded records could load much faster.
   Worth it only if measured parsing dominates (the scale assessment estimates
   about a minute to parse all of Mathlib in Forth). A snapshot of *decoded,
-  unchecked* records is a cache the checker still re-checks; a snapshot of
-  *checked* results is OQ-3 (trusting saved results) and needs a decision.
+  unchecked* records is a cache the checker still re-checks; reusing
+  *checked* results is allowed in development and research mode only,
+  labelled, and never in a final full-trust run (OQ-3 answer).
 - *Profiling alongside the tests.* `make profile-existing` and
   `make profile-history` exist (roadmap M1–M4) but are not run regularly or
   in CI. Add a report-only profiling job and keep a measurement history.
@@ -526,8 +529,8 @@ workstream (W7):
 | --- | --- | --- | --- | --- | --- |
 | 7.1.1 | Investigate (C1): Gforth 1.0 threads (`newtask`, `initiate`, `User` variables, `mutex`, `cond`, `send-event`, `stick-to-core` in `unix/pthread.fs`, marked *gforth-experimental* and built through Gforth's C interface); which state is shared; behaviour on Gforth 0.7.3 | Written inventory; small thread test on Gforth 1.0 | — | [runtime] | S–M |
 | 7.2.1 | Context record (C2): all mutable state of one check reachable from one record (stores, walk records, caches, fuel, log, diagnostics) | No-behaviour-change review; two contexts interleaved in one process give serial results | 1.1.5, 1.2.* | [kernel] | M |
-| 7.3.1 | ADR 0016 and process sharding v1: a coordinator splits the dependency graph; worker processes check declarations; the coordinator requires every dependency to be accepted somewhere and verifies content hashes match | Parallel verdicts equal serial on S2–S3 | 7.2.1, 6.6.1 | [kernel], [bypass] | M–L |
-| 7.4.1 | Thread pool v2 (optional, Gforth 1.0 only): one image, shared read-only published environment, per-task contexts, one publisher | Same equality tests; serial path still mandatory | 7.1.1, 7.3.1 | [kernel], [runtime] | L |
+| 7.3.1 | Forth task pool (owner choice, ADR 0009): one image, shared read-only published environment, per-task contexts through a `USER` pointer, one publisher; the task words behind one adapter file per host | Parallel verdicts equal serial on S2–S3; serial path still mandatory; interleaving also tested on Gforth 0.7.3's cooperative tasks | 7.1.1, 7.2.1 | [kernel], [runtime] | L |
+| 7.4.1 | (Dropped: operating-system process sharding; the owner prefers Forth tasks. Reconsider only if one image's memory limits parallelism.) | — | — | — | — |
 | 7.5.1 | Validate (C3): interleaving stress, cancellation, exhaustion in one worker, stale handles | No cross-job effect | 7.3.1 | — | M |
 | 7.6.1 | Measure (C4): throughput and memory for 1 to 12 workers | Documented scaling curve | 7.5.1 | — | S |
 
@@ -839,9 +842,9 @@ exist on both CI Gforth versions.
   `unix/pthread.fs`): tasks share one dictionary, so nothing may compile or
   `ALLOT` after start-up — all run-time memory comes from `ALLOCATE`; thread
   support is marked *gforth-experimental* and is built through Gforth's C
-  interface; availability on Gforth 0.7.3 is unverified. Hence processes
-  first (7.3.1), threads optional (7.4.1), and a serial path that always
-  works.
+  interface; Gforth 0.7.3 has a cooperative tasker (to be confirmed in CI).
+  Hence Forth tasks behind an adapter (7.3.1, the owner's choice over
+  processes) and a serial path that always works.
 - **Trust.** Parallelism must never change a verdict: every corpus is run at
   `--jobs 1` and `--jobs 12` and the verdicts compared. Sharding by process
   changes what "accepted" rests on (a dependency checked in another process),
@@ -1030,6 +1033,7 @@ proofs only as data; (b) everything in one process, relying on care.
 *Recommendation: (a).* It makes "only the checker decides" a physical fact,
 not a convention, at little cost. Independent Lean checkers likewise run as
 separate programs that read exported data.
+*Answered: separate program.*
 
 **OQ-2 (phase 7). May many checks run at the same time if only one place
 adds results to the library, in dependency order?**
@@ -1040,6 +1044,7 @@ pass. *Recommendation: (b), but only after the serial checker has passed its
 gate for the same features, and only if parallel and serial verdicts are
 identical on every test corpus.* It keeps "added only after it fully passes"
 and gains the speed needed for Mathlib.
+*Treated as answered (b) by approving ADR 0009; condition kept.*
 
 **OQ-3 (phase 6). May LeanForth ever trust its own saved results instead of
 re-checking them?**
@@ -1049,12 +1054,14 @@ will say how slow). *Options:* (a) always re-check (your current rule);
 input hashes, with regular full re-checks. *Recommendation: (a) now; decide
 (b) with real timings.* Trusting saved results widens what must be trusted;
 there is no evidence yet that it is needed.
+*Answered: development and research runs may reuse labelled saved results; a final run re-checks everything.*
 
 **OQ-4 (phase 3). Should a Forth reader replace the Python preview on the
 checking path, keeping Python only as a test oracle?**
 *Recommendation: yes.* One toolchain for users; AGENTS.md wants semantics in
 Forth; and keeping the Python version as an independent second reader makes
 disagreements visible in tests.
+*Answered: Forth reader.*
 
 **OQ-5 (phase 2). Is it acceptable that the first program proof checked by
 LeanForth itself arrives with data types (phase 5)?**
@@ -1065,6 +1072,7 @@ but its proofs are checked by Lean, and receipts say so. *Options:* (a) this
 honest order; (b) an earlier, contrived demonstration using only functions.
 *Recommendation: (a).* (b) would look like progress without proving anything
 a Forth user cares about.
+*Answered: (a), the honest order.*
 
 **OQ-6 (phase 5). Big-number arithmetic inside the checker: our own Forth
 code or the GMP library?**
@@ -1073,6 +1081,7 @@ reviewed Forth big-number module; (b) call GMP, a widely used C library.
 *Recommendation: (a).* (b) puts an outside C library inside what must be
 trusted and adds a native dependency; (a) is a few hundred lines that can be
 tested exhaustively against Lean and Python.
+*Answered: own Forth module, and it must be very fast.*
 
 **OQ-7 (phases 3 and 7). May Gforth-only features (threads, the C interface,
 timers, command-line arguments) be used?**
@@ -1080,6 +1089,7 @@ timers, command-line arguments) be used?**
 convenience and speed, never inside checker rules, and always with a
 portable serial path that CI tests.* This keeps the Forth-2012 portability
 goal while using the 12 cores.
+*Answered for threads: Forth-style tasks behind an adapter, preferred over OS processes; other features not yet discussed.*
 
 **OQ-8 (phase 1). After the legacy tests have moved to the current code with
 at least the same coverage, may the listed `src/legacy/` paths be deleted?**
@@ -1088,12 +1098,14 @@ deletion of an exact, listed set of paths once 1.3.5's evidence is in.*
 Legacy is 2,680 lines — nearly as large as the current code — and its three
 variants of the same operations make every change and review more expensive.
 Git history keeps everything.
+*Answered: yes, once coverage has moved; legacy tests move to `tests/legacy/`.*
 
 **OQ-9 (phase 6, or earlier for the scale report). May I download and build
 a pinned Mathlib (several gigabytes, network) to count its declarations and
 produce exports?**
 *Recommendation: yes, into an ignored machine-local directory like `.tools/`,
 with hashes recorded.* Without it the Mathlib percentage has no denominator.
+*Answered: yes (disk freed).*
 
 **OQ-10 (after phase 2). When should an outside Lean expert be involved?**
 *Options:* (a) only before a public trust claim; (b) a short paid
@@ -1101,12 +1113,14 @@ consultation after phase 2 on the rules and ADRs, plus a full audit before
 any public claim. *Recommendation: (b).* Mistakes in the foundations are
 cheapest to fix early, and a small consultation is far cheaper than a full
 audit.
+*Answered: (a), a full audit only before a public claim.*
 
 **OQ-11 (phase 2). Where should the explanation text in printed proofs come
 from?**
 *Recommendation: fixed templates tied to checker steps now; AI-written
 explanations only later, always labelled, and never part of what is checked.*
 This follows the handoff's "no fake reasoning" rule.
+*Answered: templates first, with AI- and human-written explanations easy to attach from the start and kept with the proof as it evolves.*
 
 **OQ-12 (phases 2–3). Small tooling approvals.** (a) Diagrams: Mermaid
 source in Markdown, which GitHub renders without installing anything; render
@@ -1115,10 +1129,12 @@ Node.js and a headless browser). (b) JSON Schema validation of golden
 examples: Python standard library checks only, or approve the `jsonschema`
 package. *Recommendation:* Mermaid, checked visually on GitHub for now;
 standard-library checks only.
+*Not asked; the no-install default applies.*
 
 **OQ-13 (phase 6). What RAM and free disk does the 12-core machine have?**
 The scale report and stage budgets need it. No recommendation; a number is
 needed.
+*Answered (see the top of this plan).*
 
 Decisions this plan expects to settle through the ordinary ADR and review
 process unless you want to weigh in: the exceptions convention (§6.10),
