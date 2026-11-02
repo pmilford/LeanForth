@@ -126,7 +126,7 @@ T{ 0 cid @ 10 lf-cterm-check -> lf-repr-invalid }T
 \ what remains on success, zero on exhaustion, the given fuel for an
 \ invalid root, and unchanged for negative fuel.
 lf-name-reset lf-level-reset lf-term-reset lf-lscope-context-reset lf-cref-reset
-lf-ssession-begin 0= abort" session"
+T{ lf-ssession-begin -> true }T
 setup
 T{ 5 pid @ 100 lf-cterm-check lf-cterm-fuel @ -> lf-repr-ok 90 }T
 T{ 5 pid @ 10 lf-cterm-check lf-cterm-fuel @ -> lf-repr-ok 0 }T
