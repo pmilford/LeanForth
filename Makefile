@@ -38,12 +38,13 @@ DIFFERENTIAL_TARGETS := \
 	test-gcd-reference-differential test-range-64-differential \
 	test-memory-reference-differential test-memory-frame-differential
 
-.PHONY: test test-differential check check-docs check-lean-sources smoke test-harness test-lib test-core \
+.PHONY: test test-differential check check-docs check-lean-sources check-portable-memory smoke \
+	test-harness test-lib test-core \
 	test-composition-fixture test-program test-symbolic-infer-draft \
 	profile-existing profile-history forth-metrics $(DIFFERENTIAL_TARGETS)
 
 # Gforth and Python 3 only; run on every CI host and before every commit.
-test: check-docs check-lean-sources smoke test-harness test-lib test-core \
+test: check-docs check-lean-sources check-portable-memory smoke test-harness test-lib test-core \
 	test-composition-fixture test-program
 
 # Fails on broken documentation links or missing docs/ paths.
@@ -54,6 +55,11 @@ check-docs:
 # or a Lean invocation without -DwarningAsError=true. Needs no Lean.
 check-lean-sources:
 	$(RUN) python3 scripts/check-lean-sources.py
+
+# Fails if current Forth source could depend on byte order or cell size
+# (docs/development/FORTH_STYLE.md, section 8).
+check-portable-memory:
+	$(RUN) python3 scripts/check-portable-memory.py
 
 # Report-only Forth style metrics (word length, globals, locals, shuffling);
 # see docs/development/FORTH_STYLE.md. Never fails on style.
@@ -84,6 +90,7 @@ test-harness:
 # The general Forth library in src/lib.
 test-lib:
 	$(RUN) $(GFORTH) tests/lib/lib.fs
+	$(RUN) $(GFORTH) tests/lib/lib-model.fs
 
 test-core:
 	$(RUN) $(GFORTH) tests/core/arena.fs

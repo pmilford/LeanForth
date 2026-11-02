@@ -118,7 +118,20 @@ as automatic verdicts.
 - Use Forth-2012 words. Isolate Gforth-specific words behind a named adapter;
   CI also runs on Gforth 0.7.3.
 - Every public word has `T{ ... -> ... }T` tests for success and each failure
-  outcome, with data-stack depth and return-stack balance checked.
+  outcome, with data-stack depth and return-stack balance checked. Library
+  words also get randomized tests against a simple independent model
+  (`tests/lib/lib-model.fs`).
+- **Byte order and cell size never leak.** Memory is read the way it was
+  written: cells with `@`/`!`, pairs with `2@`/`2!` (whose cell order the
+  standard fixes), characters with `C@`/`C!`. Never read a cell's bytes, or
+  bytes as a cell. No literal may assume a cell size: write `cell`, `cells`
+  and `max-n`, not 8 or 9223372036854775807. Anything written to a file or
+  read from one (exports, saved results, hashes that are compared across
+  machines) is defined byte by byte — text, or fixed-width integers with an
+  explicit byte order built with shifts — never a memory image.
+  `scripts/check-portable-memory.py` (part of `make test`) enforces the
+  checkable part: byte-access words only in listed text modules, and no
+  numeric literal beyond 32 bits.
 
 ## Where the code stands (measured 2026-11-02)
 
