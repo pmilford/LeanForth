@@ -41,6 +41,19 @@ measures whole processes only: higher-level product workflows, internal
 operation timing, arena allocation counts and profiling-overhead measurement
 remain future work in the development roadmap.
 
+For a lightweight history, run `make profile-history`. It runs that same
+workload and appends one JSON record with individual samples and the complete
+reproducibility report to `.profiling/history.jsonl` (ignored by Git). It
+prints median elapsed time and peak RSS for each implementation, plus the
+change in elapsed median from the previous record. Use
+`python3 scripts/profile-history.py --repetitions 5 --history /path/history.jsonl`
+to choose repetitions or storage. `LEAN`, `GFORTH` and any toolchain environment
+must be configured as above. The history is local, not sent anywhere; back it
+up if needed. Changes in hardware, load, toolchain, code or workload can make
+successive numbers incomparable; inspect the saved raw reports. These small
+samples have coarse timing resolution. Stage-level time and arena-memory
+instrumentation are still planned.
+
 A [local two-repetition sample](measurements/substitution-profile-2026-11-01.txt)
 was run from the repository root with:
 

@@ -16,6 +16,24 @@ Planning baseline: 2026-11-01, using the 2026-10-31 [progress snapshot](PROJECT_
 These are planned tasks, not claims that the current experimental checker can
 run the examples or that performance data has already been collected.
 
+### Documentation and diagrams
+
+- **D1 — audiences:** Develop and keep current separate entry points for Forth
+  developers, Forth users, Lean users, mathematicians familiar with Lean,
+  mathematicians new to Lean, and AI tools. Explain level, Sort, theorem,
+  kernel and trust boundaries in plain language with examples. Give each
+  audience a path to the reference manual, setup, supported features and limits.
+- **D2 — diagrams:** Use a diagram tool to create readable, correctly rendered
+  flowcharts for using and understanding theorem proving and program
+  verification, and diagrams of principal data structures and ownership.
+  Review every arrow, label, direction and trust boundary against current code;
+  check rendered output and update diagrams with implementation changes.
+  Label future workflows as planned, not existing functionality.
+- **D3 — limits:** Document actual supported constructs and observed limits on
+  input size, term/dependency depth, resource budgets, compute and memory for
+  both paths, with tool versions and reproduction commands. Distinguish fixed
+  bounds, configurable limits, measured capacities and untested ranges.
+
 ### Near term: low-friction time and memory profiling
 
 - **M1 — measurement interface:** Provide an opt-in command or flag for

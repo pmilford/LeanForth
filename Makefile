@@ -17,6 +17,7 @@ LEAN ?= lean
 .PHONY: test-mixed-shift-differential
 .PHONY: test-mixed-instantiate-differential
 .PHONY: profile-existing
+.PHONY: profile-history
 .PHONY: smoke reference reference-export test-harness test-core test-symbolic-infer-draft test-composition-fixture test-name-differential test-scope-differential test-shift-differential test-instantiate-differential test-beta-differential test-compare-differential test-infer-differential test-declaration-differential test-level-differential test-level-assignment-differential test-level-compare-differential test-poly-specialization-differential test-program test-program-differential test-program-stack-differential
 smoke:
 	$(GFORTH) tests/smoke/smoke.fs
@@ -205,6 +206,9 @@ test-memory-reference-differential:
 
 profile-existing:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) bash scripts/profile-existing.sh
+
+profile-history:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) python3 scripts/profile-history.py
 
 test-program-depth-differential:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/program/program-depth-differential.sh

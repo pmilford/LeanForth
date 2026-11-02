@@ -96,7 +96,9 @@ class Fixture(unittest.TestCase):
         for bad in corruptions:
             result = run(bad)
             self.assertNotEqual(result.returncode, 0)
-            self.assertEqual(result.stdout, b'')
+            # Some Gforth releases emit a newline while reporting THROW.
+            # No non-whitespace fixture data may escape on failure.
+            self.assertEqual(result.stdout.strip(), b'')
 
 if __name__ == "__main__":
     unittest.main()

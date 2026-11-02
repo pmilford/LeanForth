@@ -10,20 +10,78 @@ Lean/Mathlib-compatible theorem proving, use of the full Mathlib library, and ve
 programs. The experimental work reported below is an interim development
 stage, not the project's final scope or quality target.
 
+## Subtask status
+
+Each count refers to the numbered acceptance tasks in the
+[development roadmap](DEVELOPMENT_ROADMAP.md), not a percentage of effort.
+**Done** means every stated acceptance criterion and review gate is met;
+**in progress** means evidence exists but the criterion is incomplete;
+**not started** means no qualifying implementation or evidence has been
+identified. Counts are conservative assessments, not schedules. A Lean
+reference model is a mathematical model checked by Lean; it is not yet a
+LeanForth proof or proof that the real Forth runtime follows the model.
+
+| Milestone | Done | In progress | Not started |
+| --- | ---: | ---: | ---: |
+| T1 foundation | 0 | 4 | 0 |
+| T2 terms, names, levels | 0 | 4 | 0 |
+| T3 scope and substitution | 0 | 3 | 0 |
+| T4 equality | 0 | 3 | 0 |
+| T5 checker | 0 | 3 | 1 |
+| T6 NDJSON | 0 | 3 | 1 |
+| T7 Lean corpus | 0 | 3 | 1 |
+| T8 declarations | 0 | 2 | 2 |
+| T9 full Mathlib | 0 | 0 | 5 |
+| T10 native authoring | 0 | 1 | 3 |
+| P1 contracts | 0 | 3 | 0 |
+| P2 Forth examples | 0 | 3 | 0 |
+| P3 execution model | 0 | 3 | 0 |
+| P4 model/runtime comparisons | 0 | 3 | 0 |
+| P5 shared kernel | 0 | 1 | 2 |
+| P6 program representation | 0 | 3 | 0 |
+| P7 verification conditions | 0 | 2 | 1 |
+| P8 user verifier | 0 | 0 | 3 |
+| P9 execution and compilation | 0 | 1 | 3 |
+| P10 larger programs | 0 | 0 | 4 |
+
+The high number of in-progress tasks reflects broad acceptance criteria, not
+completion of their component work. Split tasks further when an individual
+change can be reviewed and accepted independently; do not mark a broad task
+done because a test fixture or untrusted diagnostic works.
+
+## Import coverage and CI
+
+- **Full NDJSON importer task completion: 0% (0 of 4 T6 acceptance tasks
+  done).** Three have work in progress. This is a task-count measure, not an
+  estimate of effort remaining or a percentage of all exporter records that
+  can be parsed; the complete schema denominator has not been established.
+- **Full Mathlib acceptance-task completion: 0% (0 of 5 T9 tasks done).**
+  Independently checked Mathlib declaration coverage is also **0%**: none
+  have been independently accepted by a LeanForth checker. The total corpus
+  has not been pinned, so a numerical declaration denominator is unavailable.
+  Library modules share the Lean kernel and importer primitives; track the
+  entire library and later module-level coverage, rather than inventing three
+  independent compatibility percentages without defined sections.
+- As of the 2026-11-01 query, the latest 15 GitHub Smoke runs failed; the
+  [latest run](https://github.com/pmilford/LeanForth/actions/runs/41354899009)
+  failed in the constant fixture's whitespace assertion on distribution
+  Gforth. A local fix is being tested; no successful remote run is claimed
+  until GitHub actually runs the corrected revision.
+
 ## Lean-compatible theorem proving and Mathlib
 
 | Milestone | Status and evidence / remaining work |
 | --- | --- |
-| 1. Development foundation | Established in part: repository, MIT license, Lean 4.35.0 pin, Gforth, tests and CI skeleton. Installation and portability need further work. |
-| 2. Terms, names and universes | Partial untrusted bounded arenas, symbolic universes and mixed constant-term validation; handle checks reject replaced references. Typing integration and human review remain open. |
-| 3. Scope and substitutions | Partial untrusted context-domain and mixed constant-term scope diagnostics exist. Experimental mixed shifting and single-binder instantiation agree with Lean on 45 and 30 finite syntax cases, respectively; mixed conversion and general context validation remain incomplete. |
-| 4. Definitional equality | Partial beta-aware conversion with selected symbolic universe identities; many Lean equivalences remain unknown. Independent review found no demonstrated false equality; human review remains outstanding. |
-| 5. Small trusted checker | Not complete: an untrusted tagged diagnostic checks a symbolic polymorphic identity type/value pair, but creates no theorem; application inference passes 18 finite Lean comparisons. Human review remains required. |
+| 1. Development foundation | In progress: repository, MIT license, Lean 4.35.0 pin, Gforth, tests and CI skeleton. Installation and portability need further work. |
+| 2. Terms, names and universes | In progress: untrusted bounded arenas, symbolic universes and mixed constant-term validation; handle checks reject replaced references. Typing integration and human review remain open. |
+| 3. Scope and substitutions | In progress: untrusted context-domain and mixed constant-term scope diagnostics exist. Experimental mixed shifting and single-binder instantiation agree with Lean on 45 and 30 finite syntax cases, respectively; mixed conversion and general context validation remain incomplete. |
+| 4. Definitional equality | In progress: beta-aware conversion with selected symbolic universe identities; many Lean equivalences remain unknown. Independent review found no demonstrated false equality; human review remains outstanding. |
+| 5. Small trusted checker | In progress: an untrusted tagged diagnostic checks a symbolic polymorphic identity type/value pair, but creates no theorem; application inference passes 18 finite Lean comparisons. Human review remains required. |
 | 6. Lean NDJSON importer | Bounded preview preserves constants and definitions; a test-only bridge stages all 19 nodes of one constant-containing fixture and checks the scope of its definition and theorem roots, including an escaping-binder rejection. Dependency validity, full import and trusted checking remain. |
 | 7. Lean checker compatibility corpus | Selected differential cases exist. Direct Lean kernel reference cases now cover constant lookup and universe arguments; LeanForth cannot yet compare those cases. The official checker corpus has not been demonstrated to pass. |
 | 8. Lean declaration features | An untrusted diagnostic compares an exported definition's type and value, and another applies its candidate signature to open arguments. No declaration is registered as checked; general inference, inductives, recursors and quotients remain absent. |
 | 9. Full Mathlib | Goal: use all of Mathlib, including its dependencies, as a usable and independently checked theorem and rules base under a reviewed, explicit axiom policy. It is not imported or independently checked; full Lean compatibility, dependency handling, access and practical capacity remain. |
-| 10. Native proof authoring | Forth-native term building, elaboration, unification, tactics and rewriting remain to be developed. |
+| 10. Native proof authoring | Forth-native term building, elaboration, unification, tactics and rewriting are not started. |
 
 The symbolic inference draft is excluded from the normal suite: concrete
 universe values and symbolic level indices share an unprotected representation.
@@ -33,7 +91,7 @@ Do not use it until the representations are isolated and reviewed.
 
 | Milestone | Status and evidence / remaining work |
 | --- | --- |
-| 1. Contract and assumptions | Partial: Lean models cover clamp, checked addition, absolute value, interval membership, factorial and gcd without proving Forth correspondence. |
+| 1. Contract and assumptions | In progress: Lean models cover clamp, checked addition, absolute value, interval membership, factorial and gcd without proving Forth correspondence. |
 | 2. Tested Forth example | Host Forth clamp and five additional examples have finite tests run by `make test-program`; tests alone do not prove them correct. |
 | 3. Formal execution model | A Lean reference model proves clamp properties and frame preservation for successful modeled programs; the handwritten model is an assumption when relating it to Forth. |
 | 4. Model/runtime comparisons | Finite comparisons cover stack instructions, arithmetic and 28 bounded-memory cases against Lean models; they do not establish all executions or a verified compiler. |
