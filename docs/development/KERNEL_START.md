@@ -9,7 +9,7 @@ The first candidate rules are in `docs/adr/0002-core-rules.md`; a conservative
 conversion algorithm is proposed in `docs/adr/0003-conversion.md`. Both remain
 drafts, including their binder-manipulation algorithms, for human review.
 The Lean reference tests do not establish compatibility of LeanForth itself.
-The plain-language checklist and review scope are in `docs/KERNEL_REVIEW.md`.
+The plain-language checklist and review scope are in `docs/reviews/KERNEL_REVIEW.md`.
 
 ## What must be decided
 

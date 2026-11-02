@@ -50,7 +50,7 @@ completion of their component work. Split tasks further when an individual
 change can be reviewed and accepted independently; do not mark a broad task
 done because a test fixture or untrusted diagnostic works.
 The nearer-term [execution queue](DEVELOPMENT_ROADMAP.md#near-term-execution-queue-first-checked-declaration)
-tracks smaller preparation tasks; the [checked environment review packet](CHECKED_ENVIRONMENT_REVIEW.md)
+tracks smaller preparation tasks; the [checked environment review packet](../reviews/CHECKED_ENVIRONMENT_REVIEW.md)
 sets out open human-review decisions.
 
 ## Import coverage and CI
@@ -78,8 +78,11 @@ sets out open human-review decisions.
   distribution Gforth, plus `make check` — including every pinned-Lean
   comparison, previously never run in CI — on pinned Gforth 1.0.0 and Lean
   4.35.0, with checkout upgraded to v7. Locally, `make check` passed with the
-  pinned tools on 2026-11-02. The first remote run of the new workflow has not
-  yet been recorded here.
+  pinned tools on 2026-11-02. The first run of the new workflow,
+  [run 41504003139](https://github.com/pmilford/LeanForth/actions/runs/41504003139)
+  for commit `1c9b75a`, passed both jobs: distribution Gforth in 29 s, and
+  the pinned full suite in 6 min 31 s including building Gforth and
+  downloading Lean with empty caches.
 - Infrastructure follow-up: roadmap task Q9 tracks consolidation of the three
   successive experimental variants (plain, `tagged-`, `mixed-`) of several
   operations.
@@ -130,10 +133,10 @@ Documentation is maintained manually alongside development, including setup,
 testing, decisions, API plans, prototype limits and the program example. It is
 not automatically generated, and complete user manuals remain to be written.
 Future features must include their corresponding documentation and manuals.
-[Terms for new readers](TERMS_FOR_NEW_READERS.md) explains the core vocabulary;
+[Terms for new readers](../user/TERMS_FOR_NEW_READERS.md) explains the core vocabulary;
 the full audience-specific manuals and reviewed diagrams remain planned.
 
-An [opt-in profiling wrapper](PROFILING.md) measures elapsed time and process
+An [opt-in profiling wrapper](../development/PROFILING.md) measures elapsed time and process
 peak RSS for an existing finite Lean/Forth substitution workload. It does not
 measure checker performance, internal allocation or verified programs; more
 granular profiling and fair comparisons remain roadmap work.
@@ -144,4 +147,4 @@ Run `python3 scripts/code-inventory.py` for current counts of tracked and
 untracked, non-ignored files. Counts are physical lines, including comments and
 blank lines, and are not a coverage percentage. Experimental Forth is counted
 as source but is not a production checker. Generated and ignored toolchains are
-excluded. See `TESTING_STRATEGY.md` for the testing approach and limitations.
+excluded. See `docs/development/TESTING_STRATEGY.md` for the testing approach and limitations.

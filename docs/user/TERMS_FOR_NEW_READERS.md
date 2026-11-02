@@ -8,7 +8,7 @@ of all Lean typing rules.
 **Current status:** LeanForth does not yet have a trusted theorem checker or
 fully import Lean or Mathlib. The Forth code described as experimental is
 development work, and its successful diagnostics do not establish a theorem.
-See [project progress](PROJECT_PROGRESS.md) for what has actually been tested.
+See [project progress](../project/PROJECT_PROGRESS.md) for what has actually been tested.
 
 ## Core ideas
 
@@ -103,4 +103,4 @@ behaves like it. The future verifier must connect the program and its stated
 semantics to checked proofs and report runtime and compiler assumptions.
 
 For the development roadmap and test strategy, see
-[development roadmap](DEVELOPMENT_ROADMAP.md) and [testing strategy](TESTING_STRATEGY.md).
+[development roadmap](../project/DEVELOPMENT_ROADMAP.md) and [testing strategy](../development/TESTING_STRATEGY.md).

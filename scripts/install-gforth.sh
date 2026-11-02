@@ -6,7 +6,7 @@
 # Requires curl, a C compiler, make, m4, libtool-bin, libffi-dev, libltdl-dev
 # and pkg-config (Ubuntu package names). The download is rejected unless its
 # SHA-256 matches. That hash was observed on 2026-10-30 and recorded in
-# docs/INSTALLATION_LOG.md; upstream does not publish an authenticated one.
+# docs/development/INSTALLATION_LOG.md; upstream does not publish an authenticated one.
 # Emacs integration is installed under PREFIX, never into system directories.
 set -euo pipefail
 

@@ -9,7 +9,7 @@ them here.
 ## History
 
 Commits up to the `pre-claude` tag (`1db530d`, 2026-11-02) were developed with
-OpenAI Codex. Codex-era docs (`docs/CODEX_HANDOFF.md`, `prompts/FIRST_CODEX_TASK.md`,
+OpenAI Codex. Codex-era docs (`docs/project/CODEX_HANDOFF.md`, `prompts/FIRST_CODEX_TASK.md`,
 `.codex/`) remain the reference for intent; the first-task prompt is complete.
 
 ## Toolchain
@@ -36,10 +36,18 @@ OpenAI Codex. Codex-era docs (`docs/CODEX_HANDOFF.md`, `prompts/FIRST_CODEX_TASK
 ## Reviews
 
 - `.claude/agents/forth-reviewer.md` is the Claude Code version of
-  `.codex/agents/forth-reviewer.toml`; it follows `docs/FORTH_REVIEWER.md`.
+  `.codex/agents/forth-reviewer.toml`; it follows `docs/development/FORTH_REVIEWER.md`.
   Keep the two agent definitions in sync. Use it for meaningful Forth changes.
-- AI reviews never satisfy the human-review gates in `AGENTS.md`. Open human
-  decisions are listed in `docs/CHECKED_ENVIRONMENT_REVIEW.md`.
+- An AI review alone never satisfies the review gates in `AGENTS.md`; the
+  gate process and the owner's policy decisions are in `AGENTS.md` and
+  `docs/project/OWNER_DECISIONS.md`. The owner is not a Lean expert: ask gate
+  questions in plain language with a recommendation and reasons.
+
+## Docs
+
+- `docs/README.md` indexes all documentation by folder. Put new documents in
+  the matching folder and add them to the index; `make check-docs` (part of
+  `make test`) fails on broken links or missing `docs/` paths.
 
 ## Git
 

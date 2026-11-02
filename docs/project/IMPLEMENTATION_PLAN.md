@@ -50,7 +50,7 @@ C. Record architecture ADRs: AST/binders/de Bruijn indices; trusted kernel bound
 
 ## Phase 0 — actual environment and repository (first Codex session)
 
-**Deliverables:** `README.md`, `AGENTS.md`, `docs/VERSIONS.md`, `docs/DECISIONS.md`, actual `Makefile`, a minimal `src/` Forth module, `tests/smoke/` that invokes Gforth, `scripts/check-env.sh`, scoped CI workflow and `docs/SETUP_WSL.md` updated with tested commands; local Git repo and private GitHub remote only after approval.
+**Deliverables:** `README.md`, `AGENTS.md`, `docs/development/VERSIONS.md`, `docs/project/DECISIONS.md`, actual `Makefile`, a minimal `src/` Forth module, `tests/smoke/` that invokes Gforth, `scripts/check-env.sh`, scoped CI workflow and `docs/user/SETUP_WSL.md` updated with tested commands; local Git repo and private GitHub remote only after approval.
 
 **Acceptance:** exact `gforth`, `lean`, `lake`, `gh`, `codex`, C compiler versions observed and recorded; `make smoke` invokes *real* Gforth and passes or exits nonzero on error; CI runs that exact command on supported Ubuntu. Any unavailable tool is explicitly shown as blocked, not silently skipped. User can clone (if remote approved) into WSL and repeat.
 

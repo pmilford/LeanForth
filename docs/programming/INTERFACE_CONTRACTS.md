@@ -57,4 +57,4 @@ Future source-proof status `kernel-accepted` and backend validation `runtime-tes
 
 ## LLM documentation requirements
 
-Deliver `docs/LLM_GUIDE.md`, `schemas/*.json`, `examples/api/*.ndjson`, `docs/ERROR_CODES.md` and `docs/STACK_EFFECTS.md`. All word docs include stack effects, semantics, trust boundary, one valid example and one invalid example. Error results should contain symbolic error code, source location, expected and inferred types, open goals, remaining assumptions and next machine-action suggestions. Tool invocations should be replayable without a GUI.
+Deliver (planned; none exists yet) an LLM guide, error-code catalogue and stack-effect reference as `LLM_GUIDE.md`, `ERROR_CODES.md` and `STACK_EFFECTS.md` in this directory, plus `schemas/*.json` and `examples/api/*.ndjson` at the repository root. All word docs include stack effects, semantics, trust boundary, one valid example and one invalid example. Error results should contain symbolic error code, source location, expected and inferred types, open goals, remaining assumptions and next machine-action suggestions. Tool invocations should be replayable without a GUI.

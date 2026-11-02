@@ -19,7 +19,7 @@ bash scripts/check-env.sh
 make smoke
 ```
 
-The distro `gforth` apt package may be older than **Gforth 1.0.0**. It is suitable for the smoke check only. The observed 1.0 build, its dependencies, hash and unresolved installation issues are recorded in `docs/INSTALLATION_LOG.md`. A clean, reproducible 1.0 installer is still a project task; do not treat those machine-specific notes as a tested installer. Do not rely on newly added Gforth 1.0 extensions in portable kernel modules.
+The distro `gforth` apt package may be older than **Gforth 1.0.0**. It is suitable for the smoke check only. The observed 1.0 build, its dependencies, hash and unresolved installation issues are recorded in `docs/development/INSTALLATION_LOG.md`. A clean, reproducible 1.0 installer is still a project task; do not treat those machine-specific notes as a tested installer. Do not rely on newly added Gforth 1.0 extensions in portable kernel modules.
 
 Install a supported **Node.js LTS and npm** in Ubuntu (Codex should validate required Node version against current official CLI docs). Then:
 

@@ -1,11 +1,11 @@
 # Checked declaration environment: proposal for human review
 
 **Status: proposed; not approved or implemented.** This document presents
-[ADR 0006](adr/0006-constant-environments.md) for decision; it does not grant
+[ADR 0006](../adr/0006-constant-environments.md) for decision; it does not grant
 approval or establish that LeanForth can accept a theorem.
 
 **Update 2026-11-02.** The owner answered the policy questions below in plain
-language; see [owner decisions](OWNER_DECISIONS.md). In short: questions 1
+language; see [owner decisions](../project/OWNER_DECISIONS.md). In short: questions 1
 and 3 are answered by the narrow first scope with three outcomes (failure
 paths tested) and by cautious conversion with unfolding next. Question 4 is
 answered by the empty-then-standard-three axiom policy with no
@@ -131,7 +131,7 @@ source observations in the ADR are useful evidence, but are not a direct
 audit of the kernel implementation. None establishes a trusted LeanForth
 checker, transactional checked environment or general Lean compatibility.
 
-The [project status](PROJECT_PROGRESS.md) snapshot dated 2026-11-01 reports
+The [project status](../project/PROJECT_PROGRESS.md) snapshot dated 2026-11-01 reports
 zero of four full NDJSON importer acceptance tasks complete and zero of five
 full Mathlib acceptance tasks complete; no Mathlib declaration has been
 independently accepted by LeanForth. The full declaration denominator is not

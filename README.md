@@ -2,16 +2,18 @@
 
 **Status: bootstrap and design; no theorem checker or program verifier exists yet.**
 
-See the [project progress report](docs/PROJECT_PROGRESS.md) for both product
+See the [project progress report](docs/project/PROJECT_PROGRESS.md) for both product
 tracks, importer limits, and a reproducible code inventory.
-The [development roadmap](docs/DEVELOPMENT_ROADMAP.md) breaks each track into
+The [development roadmap](docs/project/DEVELOPMENT_ROADMAP.md) breaks each track into
 ordered submilestones with dependencies and acceptance evidence.
-New to Lean terminology? See [terms for new readers](docs/TERMS_FOR_NEW_READERS.md)
+New to Lean terminology? See [terms for new readers](docs/user/TERMS_FOR_NEW_READERS.md)
 for plain-language explanations of levels, `Sort`, proofs and the kernel.
+All documentation is indexed in [docs/README.md](docs/README.md), grouped
+into user, programming, development, project, ADR and review folders.
 
 LeanForth is a Forth-friendly mathematical theorem-proving **and verified-programming** system, with an independently trustworthy checker and efficient executable Forth backends. Its mathematical data and presentation notation must never redefine or ambiguously overload the Forth source grammar.
 
-Start with **[docs/CODEX_HANDOFF.md](docs/CODEX_HANDOFF.md)** (the original project brief), then **[docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md)** and **[AGENTS.md](AGENTS.md)**. Coding agents follow `AGENTS.md`: Codex reads it directly, and Claude Code loads it through `.claude/CLAUDE.md`. Work up to the `pre-claude` tag was developed with Codex. Follow **[docs/SETUP_WSL.md](docs/SETUP_WSL.md)** for the recommended Windows/WSL2 setup.
+Start with **[docs/project/CODEX_HANDOFF.md](docs/project/CODEX_HANDOFF.md)** (the original project brief), then **[docs/project/IMPLEMENTATION_PLAN.md](docs/project/IMPLEMENTATION_PLAN.md)** and **[AGENTS.md](AGENTS.md)**. Coding agents follow `AGENTS.md`: Codex reads it directly, and Claude Code loads it through `.claude/CLAUDE.md`. Work up to the `pre-claude` tag was developed with Codex. Follow **[docs/user/SETUP_WSL.md](docs/user/SETUP_WSL.md)** for the recommended Windows/WSL2 setup.
 
 Proposed baseline: Windows 11 desktop; WSL2 Ubuntu development; Gforth 1.0 (reference implementation); Forth-2012 subset for portability; Lean 4.35.0 pinned as interoperability oracle; GitHub; Codex or Claude Code. CPU tensors first, using high-performance C/BLAS libraries behind a portable FFI; optional ArrayFire/GPU after measured need.
 
@@ -28,7 +30,7 @@ scripts/install-lean.sh .tools/elan/toolchains/leanprover--lean4---v4.35.0
 ```
 
 An existing elan installation under `.tools/elan`, as described in
-[the installation log](docs/INSTALLATION_LOG.md), works too. Then, from the
+[the installation log](docs/development/INSTALLATION_LOG.md), works too. Then, from the
 repository root:
 
 ```bash
@@ -45,26 +47,26 @@ own; `make check` lists them all in `DIFFERENTIAL_TARGETS`. A missing or
 failing tool makes the command fail.
 
 `make test-program` includes clamp and [five additional executable Forth
-examples](docs/PROGRAM_EXAMPLES.md). They are runtime tested, not verified.
+examples](docs/programming/PROGRAM_EXAMPLES.md). They are runtime tested, not verified.
 
 These tests exercise Lean and untrusted Forth experiments; they do not test a
 LeanForth theorem-checking kernel. The draft
-[core ADR](docs/adr/0001-core-fragment.md) and [program example](docs/PROGRAM_EXAMPLE.md)
+[core ADR](docs/adr/0001-core-fragment.md) and [program example](docs/programming/PROGRAM_EXAMPLE.md)
 require human review before implementation.
 The export check recompiles the composition theorem, uses the `leanexport`
 bundled with Lean 4.35.0, and compares its output byte-for-byte with the checked-in
 NDJSON fixture. It is not an independent proof check or an importer test.
-See [starting the kernel](docs/KERNEL_START.md) for the remaining prerequisites.
+See [starting the kernel](docs/development/KERNEL_START.md) for the remaining prerequisites.
 
 `make test-harness` evaluates Gforth's bundled test harness with a passing
 test and intentional wrong-value and wrong-stack-depth failures. It currently
 requires a Gforth installation containing `test/ttester.fs`; it has been tested
 locally with Gforth 1.0 and Ubuntu's Gforth 0.7.3. See
-[the testing strategy](docs/TESTING_STRATEGY.md).
+[the testing strategy](docs/development/TESTING_STRATEGY.md).
 `make test-core` tests experimental term storage, structural scope and partial
 type inference. These untrusted prototypes cannot authorize a theorem; inferred
 indices are mutable data, not checked theorem handles. Their limits are in
-[the prototype notes](docs/ARENA_PROTOTYPE.md).
+[the prototype notes](docs/development/ARENA_PROTOTYPE.md).
 The tagged symbolic inference and shifting experiments are likewise untrusted;
 application inference currently uses conservative beta-aware type comparison,
 so many valid Lean terms remain unsupported.
@@ -82,7 +84,7 @@ expression records in a pinned Lean export. It uses Python 3 for this test-only
 inspection and stages the decoded nodes in Forth through a test-only data stream;
 it also exercises an experimental declaration probe on the staged nodes. It is not a
 general importer or proof checker.
-The development-only [NDJSON preview](docs/NDJSON_PREVIEW.md) decodes a bounded
+The development-only [NDJSON preview](docs/development/NDJSON_PREVIEW.md) decodes a bounded
 subset and reports unsupported records explicitly; its output is unchecked.
 A test-only bridge stages one Lean polymorphic identity export with its symbolic
 universe and runs an untrusted type/value diagnostic; it cannot register a theorem.
@@ -108,11 +110,11 @@ The differential target additionally compares 686 small-domain and signed
 Forth program correctness or execution on a 32-bit host.
 The stack-model differential also compares 686 executions against a Lean-proved
 finite stack-machine model; the handwritten model and host remain separate
-assumptions, as described in [the program example](docs/PROGRAM_EXAMPLE.md).
+assumptions, as described in [the program example](docs/programming/PROGRAM_EXAMPLE.md).
 
 GitHub CI (`.github/workflows/ci.yml`) has two jobs: `make test` on Ubuntu's
 distribution Gforth package as a portability check, and `make check` on the
 pinned Gforth 1.0.0 and Lean 4.35.0 toolchains, which also runs every Lean
-comparison. See [project progress](docs/PROJECT_PROGRESS.md) for recent run
+comparison. See [project progress](docs/project/PROJECT_PROGRESS.md) for recent run
 results.
 The project code is MIT licensed; Gforth is a separately licensed dependency.

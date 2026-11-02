@@ -1,7 +1,7 @@
 # Observed versions
 
 Inventory taken 2026-10-30 on Ubuntu 24.04.4 WSL2 x86-64; details and setup
-commands are in `docs/INSTALLATION_LOG.md`.
+commands are in `docs/development/INSTALLATION_LOG.md`.
 
 - Gforth 1.0.0 amd64, locally built; basic invocation tested.
 - Lean 4.35.0, commit `eb6cafb7290e8bd5f2937522d8d804f58f02bafc`; Lake 5.0.0-src+eb6cafb.

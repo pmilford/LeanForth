@@ -66,5 +66,5 @@ No CI run was made for this change; the previous
 recorded GitHub Actions Smoke run 41120284014 passed for commit `44ca571`,
 which does not include it.
 
-See [project progress](PROJECT_PROGRESS.md) for current milestone status,
+See [project progress](../project/PROJECT_PROGRESS.md) for current milestone status,
 import limitations, and the shared proof-kernel dependency.

@@ -104,7 +104,7 @@ Goal: For every natural number x, x = x.
 
 The exact proof-term construction must be checked; the prose must map to proof objects and not just be generated from a vague goal description. The same proof should export structured JSON with lemma IDs and hypothesis references.
 
-See `docs/INTERFACE_CONTRACTS.md`.
+See `docs/programming/INTERFACE_CONTRACTS.md`.
 
 ## 5. Priority B — external mathematical notation input and interchange
 

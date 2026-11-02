@@ -74,6 +74,6 @@ bf8d54e4714cc4b03d3f6bb34c83b7202b87e49c8bfcbff6895c085bb90ceb38  .tools/elan/to
 This advances the program track's abstract representation and execution
 model; it does not change the theorem track, shared proof kernel, or NDJSON
 import status. The approximately ten milestones on each track and their
-remaining work are recorded in `docs/PROJECT_PROGRESS.md`; full Mathlib
+remaining work are recorded in `docs/project/PROJECT_PROGRESS.md`; full Mathlib
 compatibility, independent proof checking, and verified Forth execution remain
 open. See the progress report for the current status.

@@ -24,7 +24,7 @@ limits and negative tests in an ADR before any kernel semantics are implemented.
   types. Compare both with pinned Lean when the supported fragment exists.
 - Program track: specify and verify a bounded integer clamp, including its
   range and behavior inside the bounds; reject a faulty implementation or
-  contract. See `docs/PROGRAM_EXAMPLE.md` for the proposed contract and runtime
+  contract. See `docs/programming/PROGRAM_EXAMPLE.md` for the proposed contract and runtime
   assumptions to resolve before implementing.
 
 Neither example is implemented or verified. A smaller identity proof may be
@@ -39,7 +39,7 @@ needed first to validate the core typing rules.
 4. Specify the executable example and separate source proof from runtime trust.
 5. Design versioned API schemas and explicit proof-step provenance.
 6. Evaluate the bundled Forth tester with deliberate failures and establish the
-   unit, interface, functional and regression layers in `docs/TESTING_STRATEGY.md`.
+   unit, interface, functional and regression layers in `docs/development/TESTING_STRATEGY.md`.
 
 ## Symbolic universes — proposed, not trusted
 
@@ -54,7 +54,7 @@ consumer validation and generation-bound lifetimes; it is not approved.
 ## Owner policy decisions — 2026-11-02
 
 The owner answered four plain-language questions; details, options and
-reasons are in `docs/OWNER_DECISIONS.md`. Lean is the referee for checker
+reasons are in `docs/project/OWNER_DECISIONS.md`. Lean is the referee for checker
 correctness: follow Lean's rules, require pinned-Lean differential evidence,
 an independent AI review and owner approval of a plain-language summary,
 and label results *not independently audited* until an outside expert
@@ -96,3 +96,11 @@ These are infrastructure decisions; none changes kernel semantics.
   the earlier one (structured names, 2026-10-31 08:45) as 0005 and renumbering
   the later one (Sort representation boundary) to 0007. ADR contents are
   unchanged apart from the title number.
+- **Documentation layout.** Documents moved from a flat `docs/` into
+  `user/`, `programming/`, `development/`, `project/` and `reviews/`, with
+  `adr/` unchanged and an index in `docs/README.md`. Dated review records and
+  `prompts/` keep their original text and paths, because they record what
+  was reviewed or requested at the time; the index maps old paths to new.
+  `scripts/check-doc-links.py` runs in `make test` so links cannot silently
+  break again. Rejected: moving `adr/` under a design folder, which would
+  have broken more historical references for no gain in findability.

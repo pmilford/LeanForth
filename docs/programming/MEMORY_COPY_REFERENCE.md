@@ -82,5 +82,5 @@ bf8d54e4714cc4b03d3f6bb34c83b7202b87e49c8bfcbff6895c085bb90ceb38  .tools/elan/to
 
 This advances the abstract verified-program path. The theorem path, shared
 kernel and NDJSON importer are unchanged; their approximately ten-milestone
-tracks and current code inventory are recorded in `docs/PROJECT_PROGRESS.md`.
+tracks and current code inventory are recorded in `docs/project/PROJECT_PROGRESS.md`.
 Full Mathlib compatibility and verified executable Forth remain open.

@@ -23,7 +23,7 @@ overflow checks and their arithmetic bounds, subject to the same limitation.
 | `lf-gcd` | Computes the greatest common divisor of nonnegative cells, with `gcd(0,0) = 0`; rejects negatives. |
 | `lf-in-range` | Tests inclusive interval membership; rejects reversed bounds. |
 
-See [the source](../src/program/examples.fs) for stack effects and signed-cell
+See [the source](../../src/program/examples.fs) for stack effects and signed-cell
 assumptions. Tests cover boundary and error cases, stack preservation, and
 small input domains. They run on the installed Gforth host; other Forth hosts
 and cell representations have not been established by these tests.

@@ -4,7 +4,7 @@ description: Independent, read-only reviewer for idiomatic, portable, well-facto
 tools: Read, Grep, Glob, Bash
 ---
 
-Review only; do not modify files. Read `AGENTS.md`, `docs/FORTH_REVIEWER.md`,
+Review only; do not modify files. Read `AGENTS.md`, `docs/development/FORTH_REVIEWER.md`,
 and the task's relevant contracts and tests before reviewing the actual code.
 
 Treat Forth as its own language: assess factoring into short, composable words,

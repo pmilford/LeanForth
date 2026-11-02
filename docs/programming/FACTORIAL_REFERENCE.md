@@ -1,8 +1,8 @@
 # Factorial arithmetic reference
 
-[`factorial-reference.lean`](../tests/reference/factorial-reference.lean) is an
+[`factorial-reference.lean`](../../tests/reference/factorial-reference.lean) is an
 independent Lean model motivated by `lf-factorial` in
-[`examples.fs`](../src/program/examples.fs). It is a mathematical reference,
+[`examples.fs`](../../src/program/examples.fs). It is a mathematical reference,
 not a proof of the Forth source or its execution.
 
 The model takes a mathematical signed integer input and a natural-number upper

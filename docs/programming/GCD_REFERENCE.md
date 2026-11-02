@@ -1,8 +1,8 @@
 # Euclidean gcd mathematical reference
 
-[`gcd-reference.lean`](../tests/reference/gcd-reference.lean) defines an
+[`gcd-reference.lean`](../../tests/reference/gcd-reference.lean) defines an
 independent mathematical model inspired by `lf-gcd` in
-[`examples.fs`](../src/program/examples.fs). It proves properties for all
+[`examples.fs`](../../src/program/examples.fs). It proves properties for all
 natural inputs, including zero, using Lean 4.35.0 and its standard library.
 
 `euclid a b` returns `a` when `b = 0`; otherwise it recurs on

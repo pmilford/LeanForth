@@ -2,8 +2,8 @@
 
 **Status: decided by the project owner on 2026-11-02; answers are recorded
 at the end.** This document restates the open review
-questions from [the kernel review packet](KERNEL_REVIEW.md) and
-[the checked environment review](CHECKED_ENVIRONMENT_REVIEW.md) for a reader
+questions from [the kernel review packet](../reviews/KERNEL_REVIEW.md) and
+[the checked environment review](../reviews/CHECKED_ENVIRONMENT_REVIEW.md) for a reader
 who does not know Lean, theorem proving or program verification. Each
 question gives the background, the options, a recommendation and the reasons.
 

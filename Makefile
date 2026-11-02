@@ -1,5 +1,5 @@
 # Toolchains. Prefer the project-local copies under .tools/ (see
-# docs/INSTALLATION_LOG.md); override with GFORTH=... or LEAN=... .
+# docs/development/INSTALLATION_LOG.md); override with GFORTH=... or LEAN=... .
 # LEAN names the pinned toolchain binary directly rather than the elan proxy,
 # so no ELAN_HOME is needed and nothing is downloaded into ~/.elan.
 LOCAL_GFORTH := .tools/gforth/bin/gforth
@@ -33,12 +33,16 @@ DIFFERENTIAL_TARGETS := \
 	test-gcd-reference-differential test-range-64-differential \
 	test-memory-reference-differential test-memory-frame-differential
 
-.PHONY: test test-differential check smoke test-harness test-core \
+.PHONY: test test-differential check check-docs smoke test-harness test-core \
 	test-composition-fixture test-program test-symbolic-infer-draft \
 	profile-existing profile-history $(DIFFERENTIAL_TARGETS)
 
 # Gforth and Python 3 only; run on every CI host and before every commit.
-test: smoke test-harness test-core test-composition-fixture test-program
+test: check-docs smoke test-harness test-core test-composition-fixture test-program
+
+# Fails on broken documentation links or missing docs/ paths.
+check-docs:
+	python3 scripts/check-doc-links.py
 
 # Requires pinned Lean 4.35.0 as well as Gforth and Python 3.
 test-differential: $(DIFFERENTIAL_TARGETS)
