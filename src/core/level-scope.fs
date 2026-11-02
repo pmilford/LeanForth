@@ -2,19 +2,30 @@
 \ well formed, children come earlier, and every parameter is in the current
 \ context. Untrusted. It does not compare levels, establish Lean name
 \ identity, check types or authorize a theorem. Requires levels.fs.
-\ State: the parameter context (a duplicate-free list of positive IDs with
-\ a generation that advances on every change) and one walk record,
-\ lf-lscope-walk, are global. Not re-entrant and single-threaded: the check
-\ must not run again while its walk record is in use. Callers prevent
-\ external mutation.
+\ State: one context record, lf-lscope-state (a duplicate-free list of
+\ positive parameter IDs with a generation that advances on every change),
+\ and one walk record, lf-lscope-walk. Not re-entrant and single-threaded:
+\ the check must not run again while its walk record is in use. Callers
+\ prevent external mutation.
 
 outcome-ok constant lf-lscope-ok
 outcome-invalid constant lf-lscope-invalid
 outcome-exhausted constant lf-lscope-exhausted
-create lf-lscope-context lf-level-capacity cells allot
-variable lf-lscope-context-count
-variable lf-lscope-generation
+
+begin-structure /lf-lsctx
+  field: lf-lsctx-count         \ parameter IDs in the context
+  field: lf-lsctx-generation    \ advances on every change; negative when spent
+  lf-level-capacity cells +field lf-lsctx-ids
+end-structure
+create lf-lscope-state /lf-lsctx allot
+lf-lscope-state /lf-lsctx erase
 lf-level-capacity walk: lf-lscope-walk
+
+\ The context's fields under their established names (other modules read
+\ the count and generation; tests corrupt them).
+: lf-lscope-context ( -- addr ) lf-lscope-state lf-lsctx-ids ;
+: lf-lscope-context-count ( -- addr ) lf-lscope-state lf-lsctx-count ;
+: lf-lscope-generation ( -- addr ) lf-lscope-state lf-lsctx-generation ;
 
 \ Fuel left after a check, under its established name; level-value,
 \ level-compare, level-substitute and constant-term-boundary read it.

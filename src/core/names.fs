@@ -4,11 +4,12 @@
 \ Untrusted. Bytes compare exactly; UTF-8 validity and Lean String meaning
 \ are not checked. Not a trusted name table, declaration environment,
 \ serialization or theorem-checking boundary.
-\ Entries live in a bounded store (lib/store.fs) whose record 0 is the
-\ anonymous name; string bytes are appended to lf-name-bytes. Global,
-\ single-threaded, not re-entrant: callers keep input memory readable and
-\ prevent raw mutation during a call. A reset makes every ID stale, and a
-\ reused stale ID is not detectable here.
+\ State: entries live in a bounded store, lf-names (lib/store.fs), whose
+\ record 0 is the anonymous name; string bytes are appended to the byte
+\ pool of one record, lf-name-pool. Single-threaded, not re-entrant:
+\ callers keep input memory readable and prevent raw mutation during a
+\ call. A reset makes every ID stale, and a reused stale ID is not
+\ detectable here.
 
 require ../lib/lib.fs
 
@@ -29,10 +30,19 @@ end-structure
 /lf-entry 1 cells / constant lf-name-slot-cells
 
 lf-name-capacity /lf-entry 1 store: lf-names
-create lf-name-bytes lf-name-byte-capacity allot
-\ Each query is copied here first, so it may alias any buffer of this module.
-create lf-name-input-copy lf-name-byte-capacity allot
-variable lf-name-used   \ bytes of lf-name-bytes in use
+
+\ The byte pool: bytes in use, the pool itself, and a copy of each query,
+\ made first so that the query may alias any buffer of this module.
+begin-structure /lf-npool
+  field: lf-npool-used
+  lf-name-byte-capacity +field lf-npool-bytes
+  lf-name-byte-capacity +field lf-npool-input
+end-structure
+create lf-name-pool /lf-npool allot
+lf-name-pool /lf-npool erase
+: lf-name-used ( -- addr ) lf-name-pool lf-npool-used ;
+: lf-name-bytes ( -- addr ) lf-name-pool lf-npool-bytes ;
+: lf-name-input-copy ( -- addr ) lf-name-pool lf-npool-input ;
 
 \ The store's fields under their established names (tests corrupt them).
 : lf-name-count ( -- addr ) lf-names store-count ;
