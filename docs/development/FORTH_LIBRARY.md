@@ -37,7 +37,8 @@ with another folder; superseded variants are in
 There is **no JSON or NDJSON reader in Forth**. Lean exports are decoded by
 the Python preview (`tests/support/ndjson_preview.py`), which turns a fixture
 into a compact byte stream; about eleven hand-written Forth stream readers
-(`tests/core/*-stream.fs`) each load one fixture's stream. They duplicate
+(`tests/core/*-stream.fs` and `tests/legacy/*-stream.fs`) each load one
+fixture's stream. They duplicate
 the same framing code. The implementation plan allows an untrusted decoder in
 another language but requires the semantics to be checked in Forth; a
 production importer will need a streaming Forth NDJSON reader, or a reviewed

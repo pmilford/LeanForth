@@ -13,8 +13,8 @@ if [ "$("$lean" --githash)" != eb6cafb7290e8bd5f2937522d8d804f58f02bafc ]; then
 fi
 temporary=$(mktemp -d)
 trap 'rm -f "$temporary/lean.txt" "$temporary/forth.txt"; rmdir "$temporary"' EXIT
-"$lean" -DwarningAsError=true tests/reference/declaration-table.lean >"$temporary/lean.txt"
-"$gforth" tests/core/declaration-table.fs >"$temporary/forth.txt"
+"$lean" -DwarningAsError=true tests/legacy/declaration-table.lean >"$temporary/lean.txt"
+"$gforth" tests/legacy/declaration-table.fs >"$temporary/forth.txt"
 if ! paste "$temporary/lean.txt" "$temporary/forth.txt" | awk '
   NF != 4 || $1 != NR - 1 || $3 != $1 { exit 1 }
   NR == 1 && ($2 != 0 || $4 != 0) { exit 1 }

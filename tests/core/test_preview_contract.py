@@ -5,7 +5,7 @@ The three owner outcomes are accepted (unchecked data), rejected
 ``LF_PREVIEW_LIMIT`` is the resource outcome. No test here accepts a bare
 failure: each negative case pins its error code and NDJSON line.
 
-``make test`` runs these classes through tests/core/test_ndjson_preview.py,
+``make test`` runs these classes through tests/legacy/test_ndjson_preview.py,
 which imports them; this file can also be run directly.
 """
 import io

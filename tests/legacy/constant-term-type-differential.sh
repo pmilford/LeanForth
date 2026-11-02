@@ -11,8 +11,8 @@ if [ "$("$lean" --githash)" != eb6cafb7290e8bd5f2937522d8d804f58f02bafc ]; then
 fi
 temporary=$(mktemp -d)
 trap 'rm -f "$temporary/lean.txt" "$temporary/forth.txt" "$temporary/lean-normalized.txt" "$temporary/forth-normalized.txt"; rmdir "$temporary"' EXIT
-"$lean" -DwarningAsError=true --run tests/reference/term-level-substitute-table.lean >"$temporary/lean.txt"
-"$gforth" tests/core/term-level-substitute-table.fs >"$temporary/forth.txt"
+"$lean" -DwarningAsError=true --run tests/legacy/term-level-substitute-table.lean >"$temporary/lean.txt"
+"$gforth" tests/legacy/constant-term-type-table.fs >"$temporary/forth.txt"
 if [ "$(wc -l <"$temporary/lean.txt")" -ne 48 ] ||
    [ "$(wc -l <"$temporary/forth.txt")" -ne 48 ]; then
   printf '%s\n' 'Unexpected term substitution table length' >&2; exit 1
@@ -23,4 +23,4 @@ if ! cmp -s "$temporary/lean-normalized.txt" "$temporary/forth-normalized.txt"; 
   diff -u "$temporary/lean-normalized.txt" "$temporary/forth-normalized.txt" >&2 || true
   exit 1
 fi
-printf '%s\n' 'Lean and Forth agree on 48 finite term-level substitution observations.'
+printf '%s\n' 'Lean and Forth agree on 48 finite constant-node candidate-type observations.'

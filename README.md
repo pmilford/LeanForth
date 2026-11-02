@@ -34,7 +34,7 @@ layout rules.
 | `src/import/` | Staging of decoded Lean exports into the term store. |
 | `src/program/` | The program track: six executable example words (clamp, checked add, abs, factorial, gcd, in-range) and a stack-depth analyzer. |
 | `src/legacy/` | 28 superseded earlier variants (plain and `tagged-*` passes, probes, `arena.fs`), kept only while tests use them; not loaded by `main.fs`. |
-| `tests/` | Forth unit tests (`core/`, `program/`), Python tools that decode Lean exports for tests (`support/`), and Lean reference files (`reference/`). |
+| `tests/` | Forth unit tests (`core/`, `program/`), Python tools that decode Lean exports for tests (`support/`), Lean reference files (`reference/`), and the tests of the superseded code in `src/legacy/` (`legacy/`), which go with it. |
 | `scripts/` | Install scripts, documentation and Lean-source checks, Forth style metrics and profiling. |
 
 [The Forth library inventory](docs/development/FORTH_LIBRARY.md) describes
@@ -66,7 +66,8 @@ binary under `.tools/elan` when present, otherwise `gforth` and `lean` on PATH;
 override with `GFORTH=...` or `LEAN=...`. It calls the toolchain binary
 directly, so no `ELAN_HOME` is needed. Individual targets such as
 `make reference` or `make test-scope-differential` can also be run on their
-own; `make check` lists them all in `DIFFERENTIAL_TARGETS`. A missing or
+own; `make check` lists them all in `DIFFERENTIAL_TARGETS` and, for the
+comparisons that use superseded code, `LEGACY_DIFFERENTIAL_TARGETS`. A missing or
 failing tool makes the command fail.
 
 `make test-program` includes clamp and [five additional executable Forth
@@ -90,6 +91,9 @@ locally with Gforth 1.0 and Ubuntu's Gforth 0.7.3. See
 type inference. These untrusted prototypes cannot authorize a theorem; inferred
 indices are mutable data, not checked theorem handles. Their limits are in
 [the prototype notes](docs/development/ARENA_PROTOTYPE.md).
+`make test-legacy` (part of `make test`) runs the tests in `tests/legacy/` of
+the superseded modules in `src/legacy/`, including the tagged, plain and
+composition-fixture tests described next.
 The tagged symbolic inference and shifting experiments are likewise untrusted;
 application inference currently uses conservative beta-aware type comparison,
 so many valid Lean terms remain unsupported.
@@ -102,7 +106,7 @@ applications in the same finite setting.
 `make test-tagged-convert-differential` compares six conversion cases with Lean.
 `make test-tagged-universe-differential` compares selected symbolic universe
 conversions, including an equivalence the current implementation leaves unknown.
-`make test-composition-fixture` compares a manually built Forth DAG with 21
+The composition fixture test compares a manually built Forth DAG with 21
 expression records in a pinned Lean export. It uses Python 3 for this test-only
 inspection and stages the decoded nodes in Forth through a test-only data stream;
 it also exercises an experimental declaration probe on the staged nodes. It is not a

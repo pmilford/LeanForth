@@ -8,7 +8,7 @@ no partial result. For example:
 
 ```sh
 python3 tests/support/ndjson_preview.py < tests/reference/composition.ndjson
-make test-composition-fixture
+make test-composition-fixture test-legacy
 ```
 
 ## Outcomes and error contract
@@ -130,7 +130,7 @@ or a stable serialization. No Python code is part of the trusted kernel.
 
 `tests/core/test_preview_contract.py` holds the outcome-contract tests (framing,
 classification, limits, numeric edges and the command-line contract); `make
-test` runs them through `tests/core/test_ndjson_preview.py`, which also pins the
+test` runs them through `tests/legacy/test_ndjson_preview.py`, which also pins the
 SHA-256 of all five `tests/reference/*.ndjson` fixtures.
 
 The fixture test independently compares preview nodes against the existing
@@ -185,4 +185,4 @@ parameter. Selected altered type or proof fields produce a non-success diagnosti
 This is a single fixture and a restricted byte protocol; binder names, binder
 information and declaration names are not preserved. A zero diagnostic does
 not register or accept a theorem. Full NDJSON import, trusted checking and
-Mathlib remain unavailable. Run `make test-composition-fixture` for the test.
+Mathlib remain unavailable. Run `make test-legacy` for the test.

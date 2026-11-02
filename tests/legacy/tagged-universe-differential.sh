@@ -14,8 +14,8 @@ if [ "$revision" != eb6cafb7290e8bd5f2937522d8d804f58f02bafc ]; then
 fi
 temporary=$(mktemp -d)
 trap 'rm -f "$temporary/lean.txt" "$temporary/forth.txt"; rmdir "$temporary"' EXIT
-"$lean" -DwarningAsError=true tests/reference/tagged-universe-convert.lean >"$temporary/lean.txt"
-"$gforth" tests/core/tagged-universe-convert.fs >"$temporary/forth.txt"
+"$lean" -DwarningAsError=true tests/legacy/tagged-universe-convert.lean >"$temporary/lean.txt"
+"$gforth" tests/legacy/tagged-universe-convert.fs >"$temporary/forth.txt"
 if ! paste "$temporary/lean.txt" "$temporary/forth.txt" | awk '
   NF != 4 || $1 != $3 { exit 1 }
   $1 != 6 && (($2 == 1 && $4 != 0) || ($2 == 0 && $4 != 3)) { exit 1 }

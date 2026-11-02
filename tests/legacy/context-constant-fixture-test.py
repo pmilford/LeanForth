@@ -16,7 +16,7 @@ class ContextConstantFixture(unittest.TestCase):
     def test_fixture_application_under_binders(self):
         data, _ = fixture.encode(Path("tests/reference/constant-fixture.ndjson").read_bytes())
         result = subprocess.run(
-            [os.environ.get("GFORTH", "gforth"), "tests/core/context-constant-fixture-stream.fs"],
+            [os.environ.get("GFORTH", "gforth"), "tests/legacy/context-constant-fixture-stream.fs"],
             input=data, capture_output=True)
         self.assertEqual(result.returncode, 0, result.stderr.decode())
         self.assertEqual(result.stdout.strip(), b"2 1")
@@ -34,12 +34,12 @@ class ContextConstantFixture(unittest.TestCase):
         for bad in (data[:-1], data + b"\x00", changed_value):
             with self.subTest(size=len(bad)):
                 result = subprocess.run(
-                    [os.environ.get("GFORTH", "gforth"), "tests/core/context-constant-fixture-stream.fs"],
+                    [os.environ.get("GFORTH", "gforth"), "tests/legacy/context-constant-fixture-stream.fs"],
                     input=bad, capture_output=True)
                 self.assertNotEqual(result.returncode, 0)
                 self.assertEqual(result.stdout.strip(), b"")
         result = subprocess.run(
-            [os.environ.get("GFORTH", "gforth"), "tests/core/context-constant-fixture-stream.fs"],
+            [os.environ.get("GFORTH", "gforth"), "tests/legacy/context-constant-fixture-stream.fs"],
             input=changed, capture_output=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(result.stdout.strip(), b"")
@@ -54,7 +54,7 @@ class ContextConstantFixture(unittest.TestCase):
         # The other fixture link checks do not inspect node 17.
         struct.pack_into("<I", changed, node_start + 17 * 16 + 8, 2)
         result = subprocess.run(
-            [os.environ.get("GFORTH", "gforth"), "tests/core/context-constant-fixture-stream.fs"],
+            [os.environ.get("GFORTH", "gforth"), "tests/legacy/context-constant-fixture-stream.fs"],
             input=changed, capture_output=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(result.stdout.strip(), b"")
@@ -67,7 +67,7 @@ class ContextConstantFixture(unittest.TestCase):
         # in scope and reference earlier nodes, but their types differ.
         struct.pack_into("<I", changed, node_start + 16 * 16 + 12, 2)
         result = subprocess.run(
-            [os.environ.get("GFORTH", "gforth"), "tests/core/context-constant-fixture-stream.fs"],
+            [os.environ.get("GFORTH", "gforth"), "tests/legacy/context-constant-fixture-stream.fs"],
             input=changed, capture_output=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(result.stdout.strip(), b"")
@@ -81,7 +81,7 @@ class ContextConstantFixture(unittest.TestCase):
         # not the exported graph this test claims to exercise.
         struct.pack_into("<I", changed, node_start + 17 * 16 + 12, 1)
         result = subprocess.run(
-            [os.environ.get("GFORTH", "gforth"), "tests/core/context-constant-fixture-stream.fs"],
+            [os.environ.get("GFORTH", "gforth"), "tests/legacy/context-constant-fixture-stream.fs"],
             input=changed, capture_output=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(result.stdout.strip(), b"")

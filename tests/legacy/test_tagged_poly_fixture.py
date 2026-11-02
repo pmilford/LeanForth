@@ -12,7 +12,7 @@ sys.path.insert(0, "tests/support")
 from ndjson_preview import PreviewError, preview
 
 FIXTURE = Path("tests/reference/poly-identity.ndjson")
-COMMAND = [os.environ.get("GFORTH", "gforth"), "tests/core/tagged-poly-fixture-stream.fs"]
+COMMAND = [os.environ.get("GFORTH", "gforth"), "tests/legacy/tagged-poly-fixture-stream.fs"]
 
 
 def encode(raw):

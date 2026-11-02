@@ -225,7 +225,7 @@ metadata because no trusted environment or theorem receipt exists.
 `tests/reference/constant-application-oracle.lean` records Lean kernel
 acceptance of a polymorphic identity applied to `Prop` and rejection of a wrong
 argument or missing constant; these observations do not check LeanForth.
-`tests/core/constant-application-oracle.fs` reconstructs the positive case by
+`tests/legacy/constant-application-oracle.fs` reconstructs the positive case by
 calling the candidate-specialization, inference, conversion and substitution
 experiments separately. It obtains the same result syntax, while the wrong
 argument yields `unknown` in conservative conversion. Its signature is an

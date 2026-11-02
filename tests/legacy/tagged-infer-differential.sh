@@ -13,6 +13,6 @@ if [ "$revision" != eb6cafb7290e8bd5f2937522d8d804f58f02bafc ]; then
   printf 'Unexpected Lean revision: %s\n' "$revision" >&2
   exit 1
 fi
-"$gforth" tests/core/tagged-infer.fs
-"$lean" -DwarningAsError=true tests/reference/symbolic-infer-oracle.lean
+"$gforth" tests/legacy/tagged-infer.fs
+"$lean" -DwarningAsError=true tests/legacy/symbolic-infer-oracle.lean
 printf '%s\n' 'Tagged Sort and Pi results match the shared Lean universe expectations.'

@@ -81,9 +81,28 @@ host, compiler and runtime assumptions separately.
 
 Matching filenames under `src/` and `tests/` intentionally pair an
 implementation module with its tests; the directory is part of the path.
-For example, `src/legacy/tagged-infer.fs` defines experimental words,
-while `tests/core/tagged-infer.fs` includes that module and exercises it.
+For example, `src/kernel/mixed-infer.fs` defines experimental words,
+while `tests/core/mixed-infer.fs` includes that module and exercises it.
 Likewise `src/program/clamp.fs` is a Forth word and `tests/program/clamp.fs`
 is its test suite. The two `check.sh` files run different harness and Lean
 reference checks. Same names do not mean the files are copies; use full paths
 in documentation, commands and review comments to avoid ambiguity.
+
+## Tests of superseded code
+
+`tests/legacy/` sits beside `src/legacy/` and goes with it when the
+superseded modules are retired (roadmap item Q9). It holds every test file
+that loads a `src/legacy/` module, directly or through another test file,
+together with the fixture streams, Python helpers and Lean tables that only
+those tests use. `make test-legacy` runs its unit and fixture tests as part of
+`make test`; `make test-legacy-differential` runs its pinned-Lean comparisons,
+listed in `LEGACY_DIFFERENTIAL_TARGETS`, as part of `make check`.
+
+Some of these tests also exercise current modules through a legacy helper:
+for example the NDJSON preview suite (`tests/legacy/test_ndjson_preview.py`)
+stages its fixtures with `src/import/load.fs` and the superseded declaration
+probe, and `tests/legacy/tagged-sort-boundary.fs` tests
+`src/core/tagged-sort-boundary.fs` with the plain inference module. The
+[owner approved](../project/OWNER_DECISIONS.md) deleting `src/legacy/` once
+the current code has at least the same test coverage, so those checks must
+first be rebuilt on current code. Do not add new tests to `tests/legacy/`.

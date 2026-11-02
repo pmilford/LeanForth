@@ -7,7 +7,7 @@ import sys
 import tempfile
 import unittest
 
-sys.path.insert(0, "tests/core")
+sys.path.insert(0, "tests/legacy")
 from test_tagged_poly_fixture import encode, FIXTURE
 
 LEAN = os.environ.get("LEAN", "lean")
@@ -16,7 +16,7 @@ REVISION = "eb6cafb7290e8bd5f2937522d8d804f58f02bafc"
 
 
 def run_forth(data):
-    return subprocess.run([GFORTH, "tests/core/signature-fixture-stream.fs"],
+    return subprocess.run([GFORTH, "tests/legacy/signature-fixture-stream.fs"],
                           input=data, capture_output=True)
 
 
@@ -61,7 +61,7 @@ class SignatureFixture(unittest.TestCase):
             subprocess.run([LEAN, "-DwarningAsError=true", "-o", str(Path(temp) / "LeanForthPolyIdentity.olean"),
                             "tests/reference/poly-identity.lean"], check=True)
             env = dict(os.environ, LEAN_PATH=temp)
-            oracle = subprocess.check_output([LEAN, "-DwarningAsError=true", "tests/reference/signature-fixture.lean"],
+            oracle = subprocess.check_output([LEAN, "-DwarningAsError=true", "tests/legacy/signature-fixture.lean"],
                                              env=env, text=True).splitlines()
         self.assertEqual(len(oracle), 2)
         self.assertEqual(shapes(result.stdout), oracle)

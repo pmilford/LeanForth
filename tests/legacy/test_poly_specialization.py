@@ -64,7 +64,7 @@ class SpecializationTests(unittest.TestCase):
         raw = Path("tests/reference/poly-identity.ndjson").read_bytes()
         self.decoded = preview(io.BytesIO(raw))
         self.command = [os.environ.get("GFORTH", "gforth"),
-                        "tests/core/specialize-fixture-stream.fs"]
+                        "tests/legacy/specialize-fixture-stream.fs"]
 
     def test_four_explicit_instances(self):
         self.assertIs(self.decoded["checked"], False)
