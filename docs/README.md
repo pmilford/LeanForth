@@ -66,7 +66,8 @@ All are proposals; none is approved for trusted implementation.
 [0005](adr/0005-structured-names.md) structured names ·
 [0006](adr/0006-constant-environments.md) constant environments ·
 [0007](adr/0007-sort-representation-boundary.md) Sort representation boundary ·
-[0008](adr/0008-outcome-vocabulary.md) one outcome vocabulary (proposed).
+[0008](adr/0008-outcome-vocabulary.md) one outcome vocabulary (proposed) ·
+[0009](adr/0009-reentrant-state-and-parallel-checking.md) re-entrant state and parallel checking (proposed).
 
 ## `reviews/` — review packets and records
 

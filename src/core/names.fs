@@ -20,15 +20,15 @@ require ../lib/lib.fs
 
 \ One entry: kind, prefix ID, then the number or the string's byte offset in
 \ lf-name-bytes, then the string length (always 0 for a number).
-begin-structure /lf-name
-  field: lf-name>tag
-  field: lf-name>prefix
-  field: lf-name>payload
-  field: lf-name>length
+begin-structure /lf-entry
+  field: lf-entry-tag
+  field: lf-entry-prefix
+  field: lf-entry-payload
+  field: lf-entry-length
 end-structure
-/lf-name 1 cells / constant lf-name-slot-cells
+/lf-entry 1 cells / constant lf-name-slot-cells
 
-lf-name-capacity /lf-name 1 store: lf-names
+lf-name-capacity /lf-entry 1 store: lf-names
 create lf-name-bytes lf-name-byte-capacity allot
 \ Each query is copied here first, so it may alias any buffer of this module.
 create lf-name-input-copy lf-name-byte-capacity allot
@@ -43,12 +43,12 @@ variable lf-name-used   \ bytes of lf-name-bytes in use
 \ kept for existing callers, new code uses the named fields.
 : lf-name-field ( id field# -- value ) cells swap lf-name-slot + @ ;
 \ Kind and prefix of a valid ID.
-: lf-name-tag@ ( id -- tag ) lf-name-slot lf-name>tag @ ;
-: lf-name-prefix@ ( id -- prefix ) lf-name-slot lf-name>prefix @ ;
+: lf-name-tag@ ( id -- tag ) lf-name-slot lf-entry-tag @ ;
+: lf-name-prefix@ ( id -- prefix ) lf-name-slot lf-entry-prefix @ ;
 
 \ Reset to the anonymous name alone and advance the generation; saturation
 \ poisons the table rather than wrapping (see store-clear).
-: lf-name-reset ( -- ) 0 lf-name-slot /lf-name erase 0 lf-name-used ! lf-names store-clear ;
+: lf-name-reset ( -- ) 0 lf-name-slot /lf-entry erase 0 lf-name-used ! lf-names store-clear ;
 
 \ Count, byte use and generation are in range; checked before addressing.
 : lf-name-state-valid? ( -- flag )
@@ -62,15 +62,15 @@ variable lf-name-used   \ bytes of lf-name-bytes in use
 \ backwards; not uniqueness or immutability.
 : lf-name-span? ( offset length -- flag )
   over lf-name-used @ upto? if swap lf-name-used @ swap - upto? else 2drop false then ;
-: lf-name-num-ok? ( entry -- flag ) dup lf-name>payload @ 0< 0= swap lf-name>length @ 0= and ;
-: lf-name-str-ok? ( entry -- flag ) dup lf-name>payload @ swap lf-name>length @ lf-name-span? ;
+: lf-name-num-ok? ( entry -- flag ) dup lf-entry-payload @ 0< 0= swap lf-entry-length @ 0= and ;
+: lf-name-str-ok? ( entry -- flag ) dup lf-entry-payload @ swap lf-entry-length @ lf-name-span? ;
 : lf-name-body-ok? ( entry -- flag )
-  dup lf-name>tag @ case
+  dup lf-entry-tag @ case
     lf-name-tag-num of lf-name-num-ok? endof
     lf-name-tag-str of lf-name-str-ok? endof
     nip false swap endcase ;   \ any other kind is invalid; ENDCASE drops the tag
 : lf-name-entry-ok? ( id -- flag )
-  dup lf-name-slot tuck lf-name>prefix @ 0 rot within if lf-name-body-ok? else drop false then ;
+  dup lf-name-slot tuck lf-entry-prefix @ 0 rot within if lf-name-body-ok? else drop false then ;
 : lf-names-ok? ( -- flag )
   lf-name-count @ 1 ?do i lf-name-entry-ok? 0= if false unloop exit then loop true ;
 : lf-name-storage-valid? ( -- flag )
@@ -79,11 +79,11 @@ variable lf-name-used   \ bytes of lf-name-bytes in use
 
 \ Entry matching: same kind and prefix, then same number or same bytes. A
 \ string query is the first length bytes of lf-name-input-copy.
-: lf-name-head? ( prefix tag entry -- flag ) tuck lf-name>tag @ = -rot lf-name>prefix @ = and ;
+: lf-name-head? ( prefix tag entry -- flag ) tuck lf-entry-tag @ = -rot lf-entry-prefix @ = and ;
 : lf-name-num-match? ( prefix number entry -- flag )
-  tuck lf-name>payload @ = >r lf-name-tag-num swap lf-name-head? r> and ;
+  tuck lf-entry-payload @ = >r lf-name-tag-num swap lf-name-head? r> and ;
 : lf-name-query ( length -- addr length ) lf-name-input-copy swap ;
-: lf-name-bytes@ ( entry -- addr length ) dup lf-name>payload @ lf-name-bytes + swap lf-name>length @ ;
+: lf-name-bytes@ ( entry -- addr length ) dup lf-entry-payload @ lf-name-bytes + swap lf-entry-length @ ;
 : lf-name-str-match? ( prefix length entry -- flag )
   >r swap lf-name-tag-str r@ lf-name-head?
   if lf-name-query r> lf-name-bytes@ compare 0= else drop r> drop false then ;
@@ -101,15 +101,15 @@ variable lf-name-used   \ bytes of lf-name-bytes in use
 : lf-name-room? ( -- flag ) lf-names store-open? ;
 : lf-name-byte-room? ( length -- flag ) lf-name-byte-capacity lf-name-used @ - upto? ;
 : lf-name-new ( prefix tag -- entry id )
-  lf-names store-claim dup >r lf-name-slot tuck lf-name>tag ! tuck lf-name>prefix ! r> ;
+  lf-names store-claim dup >r lf-name-slot tuck lf-entry-tag ! tuck lf-entry-prefix ! r> ;
 : lf-name-add-num ( prefix number -- id )
-  >r lf-name-tag-num lf-name-new swap r> over lf-name>payload ! 0 swap lf-name>length ! ;
+  >r lf-name-tag-num lf-name-new swap r> over lf-entry-payload ! 0 swap lf-entry-length ! ;
 : lf-name-store-bytes ( length -- offset )
   >r lf-name-input-copy lf-name-bytes lf-name-used @ + r@ move
   lf-name-used @ r> lf-name-used +! ;
 : lf-name-add-str ( prefix length -- id )
   swap lf-name-tag-str lf-name-new >r
-  over lf-name-store-bytes over lf-name>payload ! lf-name>length ! r> ;
+  over lf-name-store-bytes over lf-entry-payload ! lf-entry-length ! r> ;
 
 \ Interning valid input: an existing identical name keeps its ID even when
 \ the table is full; exhaustion changes nothing.

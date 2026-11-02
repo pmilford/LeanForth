@@ -8,4 +8,6 @@ include ./portability.fs
 include ./bounds.fs
 include ./store.fs
 include ./node.fs
+include ./outcome.fs
+include ./walk.fs
 [then]

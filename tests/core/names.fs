@@ -33,26 +33,26 @@ T{ 123 0 0 -1 lf-name-str -> 123 false }T
 T{ lf-name-count @ -> 9 }T
 
 \ Internal offset corruption is detected before byte comparison or allocation.
-lf-name-byte-capacity 1+ 1 lf-name-slot lf-name>payload !
+lf-name-byte-capacity 1+ 1 lf-name-slot lf-entry-payload !
 T{ 0 s" u" lf-name-str -> false }T
 T{ 0 7 lf-name-num -> false }T
 T{ lf-name-count @ -> 9 }T
-0 1 lf-name-slot lf-name>payload !
+0 1 lf-name-slot lf-entry-payload !
 T{ 0 s" u" lf-name-str -> 1 true }T
-99 1 lf-name-slot lf-name>tag !
+99 1 lf-name-slot lf-entry-tag !
 T{ 0 1 lf-name-num -> false }T
-lf-name-tag-str 1 lf-name-slot lf-name>tag !
-1 1 lf-name-slot lf-name>prefix !
+lf-name-tag-str 1 lf-name-slot lf-entry-tag !
+1 1 lf-name-slot lf-entry-prefix !
 T{ 0 s" u" lf-name-str -> false }T
-0 1 lf-name-slot lf-name>prefix !
--1 1 lf-name-slot lf-name>length !
+0 1 lf-name-slot lf-entry-prefix !
+-1 1 lf-name-slot lf-entry-length !
 T{ 0 s" u" lf-name-str -> false }T
-lf-name-used @ 1+ 1 lf-name-slot lf-name>length !
+lf-name-used @ 1+ 1 lf-name-slot lf-entry-length !
 T{ 0 s" u" lf-name-str -> false }T
-1 1 lf-name-slot lf-name>length !
-1 0 lf-name-slot lf-name>tag !
+1 1 lf-name-slot lf-entry-length !
+1 0 lf-name-slot lf-entry-tag !
 T{ 0 1 lf-name-num -> false }T
-0 0 lf-name-slot lf-name>tag !
+0 0 lf-name-slot lf-entry-tag !
 T{ 0 s" u" lf-name-str -> 1 true }T
 
 \ A query may alias this module's own buffers, because it is copied before

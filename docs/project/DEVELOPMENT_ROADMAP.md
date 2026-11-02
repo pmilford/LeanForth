@@ -18,11 +18,18 @@ run the examples or that performance data has already been collected.
 
 ### Very long term: concurrent proof work
 
-**Current state:** the experimental arenas, session, indexes and scratch
-variables are global and documented as non-reentrant. Do not run concurrent
-proof jobs in the same image or claim Gforth multitasking support today.
+**Current state:** most arenas, sessions, indexes and scratch variables are
+global and documented as non-reentrant. Do not run concurrent proof jobs in
+the same image or claim Gforth multitasking support today. Direction, as a
+proposal: [ADR 0009](../adr/0009-reentrant-state-and-parallel-checking.md)
+(per-check state in records, one context per worker, an append-only checked
+environment, processes first and Gforth 1.0 native tasks second). The term,
+level and name stores and the four lowest walkers already keep their state
+in records (2026-11-02).
 
-- **C1 — investigate:** Document the actual Gforth multitasking and task-local
+- **C1 — investigate** (in progress: Gforth 1.0's pthread multitasker gave
+  about 6× on 12 CPU-bound tasks on the development machine; Gforth 0.7.3 has
+  only cooperative tasks; see ADR 0009): Document the actual Gforth multitasking and task-local
   facilities on supported hosts, distinguishing cooperative tasks, operating
   system threads and separate processes. Inventory all shared Forth state,
   allocators, I/O, exceptions and foreign interfaces in the eventual checker.
@@ -59,7 +66,7 @@ preparation**, not completed trusted-kernel milestones.
 | Q7. First independently checked declaration | Not started | A test-only chain can diagnose three fixture pairs and stage conditional signatures in order, but does not check dependencies or accept declarations. After Q3–Q6 and the kernel review gate, check a real closed definition and a theorem against the prior checked environment, reject mutations and unapproved assumptions, and preserve replayable evidence. |
 | Q8. Parallel program path | In progress | Connect a specified bounded Forth program and its obligations to the same reviewed checker; compare model and actual execution while keeping runtime assumptions explicit. |
 | Q9. Consolidate experiments | In progress | Done: the variant each later step builds on is identified and the source tree reorganised to match ([source layout](../../src/README.md), 2026-11-02): the current `mixed-*` path and the modules it uses are in `src/core/` (data model, 10 modules) and `src/kernel/` (checker under development, 13 modules); 28 superseded modules (plain and `tagged-` shift, instantiate, beta, compare, convert and infer, the `raw-*` signature index, the `constant-*`/`context-*` probes, `arena.fs` and the unsafe `symbolic-infer.fs` draft) are in `src/legacy/`, with the mapping recorded in `docs/project/DECISIONS.md`. Remaining: move the 14 Lean comparisons that still use legacy modules onto the current path with at least as strong coverage, then retire `src/legacy/` with its tests and Make targets. Owner decision 2026-11-02: remove nothing yet (keep `tests/reference/symbolic-infer-oracle.lean`, which `tagged-infer-differential.sh` uses). |
-| Q10. Refactor core to the Forth style guide | In progress | Owner direction 2026-11-02, before the planning review: rework `src/core/` and `src/kernel/` from the lowest layer up (bounded stores, record fields and shared result codes in `src/lib/`, then terms, names, levels, handles, then the kernel passes) to the [style guide](../development/FORTH_STYLE.md): short words, data on the stack rather than global variables, named fields, one outcome vocabulary, Forth-2012 comparisons. Add missing unit and interface tests and update module comments and docs alongside. Each step keeps `make check` green, gets a Forth review, and must not change behavior; `make forth-metrics` tracks progress (baseline for `src/core/` plus `src/kernel/`: 218 words, 23% over ten lines, 225 globals). |
+| Q10. Refactor core to the Forth style guide | In progress | Owner direction 2026-11-02, before the planning review: rework `src/core/` and `src/kernel/` from the lowest layer up (bounded stores, record fields and shared result codes in `src/lib/`, then terms, names, levels, handles, then the kernel passes) to the [style guide](../development/FORTH_STYLE.md): short words, data on the stack rather than global variables, named fields, one outcome vocabulary, Forth-2012 comparisons. Add missing unit and interface tests and update module comments and docs alongside. Each step keeps `make check` green, gets a Forth review, and must not change behavior; `make forth-metrics` tracks progress (baseline for `src/core/` plus `src/kernel/`: 218 words, 23% over ten lines, 225 globals). Done 2026-11-02: `src/lib` (portability, range checks, `store:`, tagged nodes, outcomes, `walk:`); terms, levels, names, level scope, Sort representation, session and handles rebuilt on it, each batch independently reviewed. Next: the three constant-reference modules, then the kernel passes, then the context record of [ADR 0009](../adr/0009-reentrant-state-and-parallel-checking.md). |
 
 Run focused tests while developing. Group roughly two coherent increments
 before the full regression suite and commit when feasible; checkpoint earlier

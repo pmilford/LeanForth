@@ -193,3 +193,46 @@ library file individually (more chances of a double load on a Forth that
 does not normalize paths); trusting the shape fields as the old constants
 were trusted (they are now writable memory); locals (factoring
 kept every word to one to three lines without them).
+
+## Walk records and the next refactor layer — 2026-11-02
+
+The level-scope, Sort-representation, session and handle checks each had
+their own work stack, fuel variable and `tag`/`first`/`second` variables
+used as registers, with near-identical loops. `src/lib/walk.fs` now holds
+that loop once: a `walk:` record keeps the fuel, the current node, one cell
+for the visitor and the work stack, and every walk word takes the record's
+address. The walk words keep no state, so a visitor may run a complete walk
+on another record, as the session check does with level scope; but each
+module owns a single walk record, so a module's own check is still not
+re-entrant (ADR 0009 plans per-worker contexts). Visitors read
+the node's fields onto the stack and dispatch with `CASE`. The
+`src/lib/outcome.fs` vocabulary (ADR 0008) replaces the modules' own status
+constants, which remain as aliases with the same values, and one
+`outcome-sane` replaces a status-translation `CASE`. The fuel each walk
+leaves is still read back by its callers, and the stacks that
+`level-substitute.fs` and `mixed-level-substitute.fs` borrow keep their old
+names and layout until those modules get records of their own.
+
+At the owner's request, `make forth-metrics` now counts every table made by
+a project defining word as a global, and the owner asked for re-entrant
+code with parallel checking in mind: ADR 0009 proposes the direction, after
+measuring Gforth 1.0's native pthread tasks (about 6× on 12 tasks).
+The owner also suggested a "not yet implemented" outcome; ADR 0008 adds it
+as *unsupported*, distinct from *unknown*.
+
+An independent Forth review ran a randomized old/new differential (41
+seeds, about 122,000 operations, every fuel cell compared) and found no
+behavior difference. Its safety findings are fixed: `walk:` and
+`walk-room?` no longer trust a negative capacity, `flag>outcome` accepts
+only a true flag, and a visitor's result is passed through `outcome-sane`.
+`lf-href-check` now refuses negative fuel (previously it never ran out);
+callers always pass nonnegative fuel. Record fields are named
+`record-field` with hyphens, never with `>` (style guide, section 5).
+`tests/core/walker-interface.fs` pins the fuel each check leaves and the
+layout of the borrowed stacks; it also passes against the previous code,
+apart from the deliberate `lf-href-check` change.
+
+Rejected: an execution-token dispatch table per walker (a five-arm `CASE`
+is as clear for these tag sets); one generic visitor taking a table of
+handlers (five stack items); keeping per-module status constants with
+different names but equal values (invites mapping mistakes).

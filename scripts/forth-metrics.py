@@ -5,11 +5,16 @@ Usage: python3 scripts/forth-metrics.py [--words N] [PATH ...]
 Default paths: src/. Prints, per file and in total:
   - colon definitions and their length in source lines (1-2, 3-5, 6-10, >10)
   - definitions without a stack comment `( ... -- ... )` right after the name
-  - globals: VARIABLE, 2VARIABLE, VALUE, CREATE, BUFFER: (CONSTANTs are counted
-    separately; they are not mutable state)
+  - globals: VARIABLE, 2VARIABLE, VALUE, CREATE, BUFFER:, and every top-level
+    use of a project defining word (a colon definition whose body uses
+    CREATE, such as store: or walk:), since each use creates mutable state.
+    CONSTANTs are counted separately; structure words define layouts, not
+    state, and are not counted
   - locals: Gforth `{: ... :}` / `{ ... }` and standard `LOCALS|`
   - deep stack shuffling (ROT -ROT PICK ROLL 2SWAP 2OVER 2ROT) and
     return-stack use (>R R> R@ 2>R 2R> 2R@)
+  - source lines longer than 90 characters, which make the line-based
+    length buckets look better than the code is
 With --words N, also lists the N longest definitions.
 
 These are review signals for docs/development/FORTH_REVIEWER.md, not proofs
@@ -26,6 +31,8 @@ CONSTANTS = {"constant", "2constant"}
 SHUFFLES = {"rot", "-rot", "pick", "roll", "2swap", "2over", "2rot"}
 RSTACK = {">r", "r>", "r@", "2>r", "2r>", "2r@"}
 STRING_WORDS = {'."', 's"', 'c"', 'abort"', '.(', 's\\"'}
+# Defining words that create layouts or constants, not mutable state.
+NOT_STATE = {"begin-structure", "end-structure", "+field", "field:", "cfield:"}
 
 
 def tokens(text):
@@ -62,13 +69,28 @@ def tokens(text):
             i = j
 
 
-def analyse(path):
-    toks = list(tokens(path.read_text(encoding="utf-8", errors="replace")))
+def definers(paths):
+    """Names of colon definitions whose body uses CREATE: defining words."""
+    found = set()
+    for path in paths:
+        toks = [t for _, t in tokens(path.read_text(encoding="utf-8", errors="replace"))]
+        for k, tok in enumerate(toks[:-1]):
+            if tok == ":":
+                end = toks.index(";", k) if ";" in toks[k:] else len(toks)
+                if "create" in toks[k + 2:end] and toks[k + 1] not in NOT_STATE:
+                    found.add(toks[k + 1])
+    return found
+
+
+def analyse(path, defining=frozenset()):
+    text = path.read_text(encoding="utf-8", errors="replace")
+    toks = list(tokens(text))
     defs, stats = [], Counter()
+    stats["long lines"] = sum(len(line) > 90 for line in text.splitlines())
     k = 0
     while k < len(toks):
         line, tok = toks[k]
-        if tok in GLOBALS:
+        if tok in GLOBALS or tok in defining:
             stats["globals"] += 1
             stats["global:" + tok] += 1
         elif tok in CONSTANTS:
@@ -110,7 +132,8 @@ def summarise(label, defs, stats):
             f"globals {stats['globals']}, constants {stats['constants']}; "
             f"locals {sum(d['locals'] for d in defs)}; "
             f"deep shuffles {sum(d['shuffles'] for d in defs)}; "
-            f"return-stack ops {sum(d['rstack'] for d in defs)}")
+            f"return-stack ops {sum(d['rstack'] for d in defs)}; "
+            f"lines over 90 chars {stats['long lines']}")
 
 
 def main(argv):
@@ -123,8 +146,11 @@ def main(argv):
     files = sorted(f for r in roots for f in ([r] if r.is_file() else r.rglob("*.fs")))
     all_defs, all_stats = [], Counter()
     by_dir = {}
+    # Defining words are found in all of src/, whichever files are reported.
+    project = sorted(pathlib.Path(__file__).resolve().parent.parent.glob("src/**/*.fs"))
+    defining = definers(files + project)
     for path in files:
-        defs, stats = analyse(path)
+        defs, stats = analyse(path, defining)
         print(summarise(str(path), defs, stats))
         all_defs += [dict(d, file=str(path)) for d in defs]
         all_stats.update(stats)

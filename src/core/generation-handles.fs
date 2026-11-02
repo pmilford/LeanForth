@@ -1,124 +1,102 @@
-\ Untrusted allocation-identity handle experiment; not a capability system,
-\ kernel interface, portable serialization, or theorem checker. Load terms,
-\ levels, level-scope, tagged-sort-boundary and symbolic-session first.
-\ Handles are two stack cells: index followed by its allocation identity.
-\ Identities detect reuse after reset or rollback, but are forgeable and do not
-\ distinguish arena kinds. Callers must prevent concurrent mutation, raw
-\ writes and cross-arena confusion. Sort references created here retain a
-\ level allocation identity; raw symbolic Sorts cannot pass lf-hterm-check.
-\ All underlying storage and scratch state remain global and non-reentrant.
+\ Allocation-identity handles: a handle is two stack cells, an index and
+\ that slot's identity, so a handle from before a reset or rollback no
+\ longer matches. Untrusted; not a capability system, kernel interface,
+\ serialization or theorem checker. Handles are forgeable and do not record
+\ which store they belong to; callers prevent concurrent mutation, raw
+\ writes and cross-store confusion. Requires terms, levels, level-scope,
+\ tagged-sort-boundary and symbolic-session.
+\ State: two stamp tables, indexed by term index, record which term and
+\ level identities each symbolic Sort was built from (raw symbolic Sorts have
+\ no stamp and fail lf-hterm-check); the audit uses one walk record,
+\ lf-href-walker. Not re-entrant and single-threaded.
 
-variable lf-hterm-tag
 create lf-hsort-term-identities lf-term-capacity cells allot
 create lf-hsort-level-identities lf-term-capacity cells allot
 lf-hsort-term-identities lf-term-capacity cells erase
 lf-hsort-level-identities lf-term-capacity cells erase
-create lf-href-work lf-term-capacity cells allot
-variable lf-href-pending
-variable lf-href-fuel
-variable lf-href-node
-variable lf-href-tag
-variable lf-href-first
-variable lf-href-second
+lf-term-capacity walk: lf-href-walker
 
-\ Test a level pair against the current slot identity and allocation range.
-\ This does not check level graph shape, context scope or handle provenance.
-: lf-hlevel-valid? ( index identity -- flag )
-  swap lf-level-identity if = else drop false then ;
+\ Stamp cells of a symbolic Sort at a valid term index.
+: lf-hsort-term-stamp ( index -- addr ) cells lf-hsort-term-identities + ;
+: lf-hsort-level-stamp ( index -- addr ) cells lf-hsort-level-identities + ;
 
-\ Test a term pair against the active session and term identity. The result says
-\ nothing about the node's syntax or its level graph.
+\ The walk record's fields under their established names. Legacy modules
+\ read the fuel left; mixed-level-substitute and legacy/term-level-substitute
+\ borrow the work stack between checks, and the latter also calls
+\ lf-href-check directly.
+: lf-href-fuel ( -- addr ) lf-href-walker walk-fuel ;
+: lf-href-pending ( -- addr ) lf-href-walker walk-pending ;
+: lf-href-work ( -- addr ) lf-href-walker walk-stack ;
+: lf-href-push ( index -- flag ) lf-href-walker walk-push ;
+
+\ A pair names a live slot with that identity. Level pairs say nothing about
+\ shape or scope; term pairs also need the session to be current.
+: lf-hlevel-valid? ( index identity -- flag ) swap lf-level-identity if = else drop false then ;
 : lf-hterm-valid? ( index identity -- flag )
   swap lf-term-identity if = else drop false then lf-ssession-current? and ;
+: lf-hterms-valid? ( left lid right rid -- flag ) lf-hterm-valid? >r lf-hterm-valid? r> and ;
 
-\ Convert the raw allocator's optional result to an allocation-identity pair.
+\ Turn an allocator's result into a handle.
 : lf-hlevel-result ( index true | false -- index identity true | false )
-  if dup lf-level-identity 0= if drop false else true then else false then ;
+  if dup lf-level-identity dup 0= if nip then else false then ;
 : lf-hterm-result ( index true | false -- index identity true | false )
-  if dup lf-term-identity 0= if drop false else true then else false then ;
+  if dup lf-term-identity dup 0= if nip then else false then ;
 
-\ Produce handles to zero, an opaque parameter, or a successor of a live level.
-\ Parameters are still required to be in the session context when checked.
+\ Level handles: zero, an opaque parameter, or the successor of a live level.
+\ Parameters must still be in the session context when checked.
 : lf-hlevel-zero ( -- index identity true | false )
   0 lf-level-valid? if 0 dup lf-level-identity else false then ;
-: lf-hlevel-param ( name-id -- index identity true | false )
-  lf-level-param lf-hlevel-result ;
+: lf-hlevel-param ( name-id -- index identity true | false ) lf-level-param lf-hlevel-result ;
 : lf-hlevel-succ ( index identity -- index identity true | false )
-  2dup lf-hlevel-valid? 0= if 2drop false exit then
-  drop lf-level-succ lf-hlevel-result ;
+  2dup lf-hlevel-valid? if drop lf-level-succ lf-hlevel-result else 2drop false then ;
 
-\ Construct tagged symbolic Sort syntax only from a current level pair, while
-\ the destination term session is active. Level scope is checked separately.
+\ Symbolic Sort from a live level handle while the session is current; the
+\ stamps tie the new term to both identities. Level scope is checked later.
+: lf-hsort-stamp ( level-identity term-index term-identity -- )
+  over lf-hsort-term-stamp ! lf-hsort-level-stamp ! ;
+: lf-hsort-source? ( level-index level-identity -- flag ) lf-hlevel-valid? lf-ssession-current? and ;
+: lf-hsort-new ( level-identity level-index -- index identity true | false )
+  lf-term-symbolic-sort lf-hterm-result if >r tuck r@ lf-hsort-stamp r> true else drop false then ;
 : lf-hterm-sort ( level-index level-identity -- index identity true | false )
-  lf-ssession-current? 0= if 2drop false exit then
-  2dup lf-hlevel-valid? 0= if 2drop false exit then
-  >r lf-term-symbolic-sort lf-hterm-result
-  dup if
-    2 pick cells lf-hsort-level-identities + r> swap !
-    over 3 pick cells lf-hsort-term-identities + !
-  else r> drop then ;
+  2dup lf-hsort-source? if swap lf-hsort-new else 2drop false then ;
 
-\ Construct a variable in the active session; binding scope is not checked.
+\ Variable in the current session; binding scope is not checked.
 : lf-hterm-bvar ( depth -- index identity true | false )
-  lf-ssession-current? 0= if drop false exit then
-  lf-term-bvar lf-hterm-result ;
+  lf-ssession-current? if lf-term-bvar lf-hterm-result else drop false then ;
 
-\ Construct binary syntax after validating both handle identities. The raw
-\ constructor checks child indices and supported tags, but not typing or scope.
+\ Binary syntax from two live handles. The raw constructor checks the tag
+\ and child indices, not typing or scope. Five inputs: two handles and a tag.
 : lf-hterm-binary ( left lid right rid tag -- index identity true | false )
-  lf-hterm-tag !
-  2over lf-hterm-valid? >r 2dup lf-hterm-valid? r> and 0= if
-    2drop 2drop false exit
-  then
-  drop swap drop lf-hterm-tag @ lf-term-binary lf-hterm-result ;
-: lf-hterm-app ( left lid right rid -- index identity true | false )
-  lf-tag-app lf-hterm-binary ;
-: lf-hterm-lam ( domain did body bid -- index identity true | false )
-  lf-tag-lam lf-hterm-binary ;
-: lf-hterm-pi ( domain did body bid -- index identity true | false )
-  lf-tag-pi lf-hterm-binary ;
+  >r 2over 2over lf-hterms-valid?
+  if drop nip r> lf-term-binary lf-hterm-result else 2drop 2drop r> drop false then ;
+: lf-hterm-app ( left lid right rid -- index identity true | false ) lf-tag-app lf-hterm-binary ;
+: lf-hterm-lam ( domain did body bid -- index identity true | false ) lf-tag-lam lf-hterm-binary ;
+: lf-hterm-pi ( domain did body bid -- index identity true | false ) lf-tag-pi lf-hterm-binary ;
 
-\ Push a reachable term index into a bounded audit stack.
-: lf-href-push ( index -- flag )
-  lf-href-pending @ lf-term-capacity >= if drop false exit then
-  lf-href-pending @ cells lf-href-work + ! 1 lf-href-pending +! true ;
-
-\ Audit one structurally checked term. A Sort must have a stamp for this exact
-\ term allocation and its referenced level must still have the captured ID.
-\ Term and level children point backwards, so count rollback cannot preserve a
-\ parent while removing its child in the same arena. Raw mutation is excluded.
-: lf-href-visit ( node -- status )
-  dup lf-href-node ! lf-term-read 0= if lf-repr-invalid exit then
-  lf-href-second ! lf-href-first ! lf-href-tag !
-  lf-href-tag @ lf-tag-symbolic-sort = if
-    lf-href-node @ lf-term-identity 0= if lf-repr-invalid exit then
-    lf-href-node @ cells lf-hsort-term-identities + @ <> if lf-repr-invalid exit then
-    lf-href-first @ lf-level-identity 0= if lf-repr-invalid exit then
-    lf-href-node @ cells lf-hsort-level-identities + @ <>
-    if lf-repr-invalid else lf-repr-ok then exit
-  then
-  lf-href-tag @ lf-tag-bvar = if lf-repr-ok exit then
-  lf-href-tag @ lf-tag-app = lf-href-tag @ lf-tag-lam = or
-  lf-href-tag @ lf-tag-pi = or 0= if lf-repr-invalid exit then
-  lf-href-first @ lf-href-push 0= if lf-repr-exhausted exit then
-  lf-href-second @ lf-href-push 0= if lf-repr-exhausted exit then
-  lf-repr-ok ;
-
-\ Internal helper: audit structurally validated terms with nonnegative fuel.
+\ Audit of a structurally checked term: each symbolic Sort must carry the
+\ stamps of this exact term allocation and a level that still has the
+\ stamped identity. Children point backwards, so a count rollback cannot
+\ keep a parent while removing its child. Raw mutation is excluded.
+: lf-hsort-term-ok? ( node -- flag )
+  dup lf-term-identity if swap lf-hsort-term-stamp @ = else drop false then ;
+: lf-hsort-level-ok? ( level node -- flag )
+  swap lf-level-identity if swap lf-hsort-level-stamp @ = else drop false then ;
+: lf-hsort-stamped? ( level node -- flag )
+  dup lf-hsort-term-ok? if lf-hsort-level-ok? else 2drop false then ;
+: lf-href-sort ( first second walk -- outcome ) nip walk-node @ lf-hsort-stamped? flag>outcome ;
+: lf-href-dispatch ( first second walk tag -- outcome )
+  dup lf-term-binary-tag? if drop walk-push2 exit then
+  case lf-tag-symbolic-sort of lf-href-sort endof
+    lf-tag-bvar of drop 2drop outcome-ok endof walk-bad-tag endcase ;
+: lf-href-visit ( walk -- outcome ) lf-terms ['] lf-href-dispatch walk-visit ;
+\ Internal: audit an already structurally checked root. Negative fuel is
+\ invalid.
 : lf-href-check ( root fuel -- status )
-  lf-href-fuel ! 0 lf-href-pending !
-  lf-href-push 0= if lf-repr-exhausted exit then
-  begin lf-href-pending @ 0> while
-    lf-href-fuel @ 0= if lf-repr-exhausted exit then
-    -1 lf-href-fuel +! -1 lf-href-pending +!
-    lf-href-pending @ cells lf-href-work + @ lf-href-visit
-    ?dup if exit then
-  repeat lf-repr-ok ;
+  lf-href-walker walk-budget if ['] lf-href-visit lf-href-walker walk-run else drop-invalid then ;
 
-\ Check a live pair's reachable symbolic syntax, levels and Sort identities.
-\ This gives structural and level-parameter-scope evidence only; term binder
-\ scope, typing and theorem validity are not checked.
+\ Check a live handle's reachable syntax, levels and Sort stamps with one
+\ budget. Structural and level-scope evidence only: binder scope, typing and
+\ theorem validity are not checked.
 : lf-hterm-check ( index identity fuel -- status )
-  >r 2dup lf-hterm-valid? 0= if 2drop r> drop lf-repr-invalid exit then
-  drop dup r> lf-ssession-check ?dup if nip exit then
-  lf-ssession-fuel @ lf-href-check ;
+  >r 2dup lf-hterm-valid? 0= if 2drop r> drop outcome-invalid exit then
+  drop dup r> lf-ssession-check ok-then? if lf-ssession-fuel @ lf-href-check then ;

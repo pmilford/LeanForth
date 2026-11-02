@@ -15,6 +15,8 @@ with another folder; superseded variants are in
 | Bounded record stores | `src/lib/store.fs` | `store:` defining word: a fixed number of fixed-width records with an allocation count, a reset generation that saturates to a poisoned state, an identity per record that never repeats, and a sealed shape so header corruption fails closed | New 2026-11-02; used by the term, level and name stores; unit-tested in `tests/lib/lib.fs` |
 | Tagged nodes | `src/lib/node.fs` | `BEGIN-STRUCTURE` record of tag and two fields, with whole-node `node!`/`node@` and `node-new`/`node-read` on a store | New 2026-11-02; terms and levels |
 | Range checks | `src/lib/bounds.fs` | `between?` and `upto?` (inclusive, signed, never wrapping) and `cells-zero?` | New 2026-11-02 |
+| Outcome vocabulary | `src/lib/outcome.fs` | ok, invalid, exhausted, unknown, rejected, unsupported (ADR 0008), with `ok?`, `outcome-sane` and `flag>outcome` | New 2026-11-02; used by the four lowest walkers |
+| DAG walks | `src/lib/walk.fs` | `walk:` defining word: fuel, current node, one visitor cell and a bounded work stack in one record; `walk-run` drives a visitor and `walk-visit` reads and dispatches a node. The walk words keep no state of their own, but each module still owns one walk record, so a module's check is not re-entrant | New 2026-11-02; level scope, Sort representation, session and handle audits use it |
 | Portability adapter | `src/lib/portability.fs` | Forth-2012 definitions of `>=`, `<=`, `0<=`, `0>=`, `max-n` and the structure words, compiled only where the host lacks them | New 2026-11-02; defines nothing under Gforth except `max-n` |
 | Expression store | `src/core/terms.fs` | Index-based nodes for sorts, bound variables, application, λ, Π and constants; nodes refer to earlier indices, so a term is a DAG with sharing | 64 nodes; global; built on `store:`; constructors check ranges only |
 | Universe-level store | `src/core/levels.fs` | Level DAGs: zero, succ, max, imax, parameters | 64 levels; global; built on `store:` |
@@ -60,8 +62,9 @@ decision to keep decoding outside Forth with a validated binary interchange.
   execution-token tables are used.
 - **Namespaces.** No wordlists; the `LF.CORE`, `LF.KERNEL` modules planned in
   the handoff do not exist.
-- **Re-entrancy.** All state is global, so only one check can run per Forth
-  image (roadmap C1–C4).
+- **Re-entrancy.** Most state is still global, so only one check can run per
+  Forth image (roadmap C1–C4). Stores and walks are now records; the plan to
+  finish the job and run checks in parallel is ADR 0009.
 - **Serialization.** No deterministic, architecture-independent format for
   checked terms or receipts.
 - **Pretty-printing and explanation.** No printer for terms, levels or proof

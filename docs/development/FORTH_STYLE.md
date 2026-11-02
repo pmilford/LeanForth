@@ -56,7 +56,11 @@ as automatic verdicts.
   invariant, reset behaviour and re-entrancy.
 - Group related state into one record (`BEGIN-STRUCTURE` ... `END-STRUCTURE`)
   rather than a cluster of loose variables, so that a later re-entrant design
-  can allocate one record per job.
+  can allocate one record per job. A table made by a defining word such as
+  `store:` or `walk:` is still a global and counts as one; per-check state
+  belongs in records reached through the worker's context
+  ([ADR 0009](../adr/0009-reentrant-state-and-parallel-checking.md)), never in
+  another module's scratch.
 - Constants (`CONSTANT`) are not globals; use them for every magic number,
   field offset and capacity.
 
@@ -79,6 +83,11 @@ as automatic verdicts.
   each module.
 - Bounds are checked in the accessor or constructor, once, not re-derived at
   every use.
+- Name a record's fields `record-field` with hyphens (`node-tag`,
+  `walk-fuel`, `lf-entry-prefix`) and its size `/record`. Do not use `>` in
+  field names: in Forth `>x` reads as a conversion. Choose a record name that
+  cannot be confused with its module's own prefix (the name table's entries
+  are `lf-entry-…`, because `lf-name-…` are the module's words).
 
 ## 6. One error convention
 

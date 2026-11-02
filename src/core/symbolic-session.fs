@@ -1,87 +1,68 @@
-\ Untrusted, bounded symbolic term/level session. Load terms.fs, levels.fs,
-\ level-scope.fs and tagged-sort-boundary.fs first. This is not a type checker
-\ and cannot authorize a theorem. All state is global, mutable, single-threaded
-\ and non-reentrant; raw arena writes and concurrent mutation are excluded.
-\ A session captures arena/context generations, but bare term OR level indices
-\ reused after a NEW session are indistinguishable from stale caller handles.
+\ A symbolic term/level session: binds an empty term store to the current
+\ level store and parameter context by recording their generations, so any
+\ later reset of one of them makes the session stale. Untrusted; not a type
+\ checker and cannot authorize a theorem. Requires terms.fs, levels.fs,
+\ level-scope.fs and tagged-sort-boundary.fs.
+\ State: the current session is one /lf-session record, and the check uses
+\ one walk record, lf-ssession-walker. Not re-entrant and single-threaded.
+\ Bare term or level indices reused after a new session are
+\ indistinguishable from stale ones; handles (generation-handles.fs) detect
+\ that.
 
-variable lf-ssession-active
-variable lf-ssession-term-generation
-variable lf-ssession-level-generation
-variable lf-ssession-context-generation
-variable lf-ssession-fuel
-variable lf-ssession-pending
-variable lf-ssession-tag
-variable lf-ssession-first
-variable lf-ssession-second
-create lf-ssession-work lf-term-capacity cells allot
-0 lf-ssession-active !
+begin-structure /lf-session
+  field: lf-session-active
+  field: lf-session-terms      \ captured term-store generation
+  field: lf-session-levels     \ captured level-store generation
+  field: lf-session-context    \ captured parameter-context generation
+end-structure
+create lf-ssession /lf-session allot
+lf-ssession /lf-session erase
+lf-term-capacity walk: lf-ssession-walker
 
-\ Bind an empty term arena to the currently valid level arena and parameter
-\ context. Failure invalidates any previous session; no arena is modified.
+: lf-ssession-active ( -- addr ) lf-ssession lf-session-active ;
+\ Fuel left after a check; generation-handles continues with it.
+: lf-ssession-fuel ( -- addr ) lf-ssession-walker walk-fuel ;
+
+\ The stores a session depends on are all in a valid state.
+: lf-ssession-stores-valid? ( -- flag )
+  lf-term-count-valid? lf-level-count-valid? and lf-lscope-context-valid? and ;
+: lf-ssession-capture ( session -- )
+  lf-term-generation @ over lf-session-terms !
+  lf-level-generation @ over lf-session-levels !
+  lf-lscope-generation @ swap lf-session-context ! ;
+: lf-ssession-same? ( session -- flag )
+  dup lf-session-terms @ lf-term-generation @ =
+  over lf-session-levels @ lf-level-generation @ = and
+  swap lf-session-context @ lf-lscope-generation @ = and ;
+
+\ Begin a session on an empty term store. Failure ends any previous session;
+\ no store is modified.
 : lf-ssession-begin ( -- flag )
-  0 lf-ssession-active !
-  lf-term-count-valid? lf-level-count-valid? and
-  lf-lscope-context-valid? and 0= if false exit then
-  lf-term-count @ 0<> if false exit then
-  lf-term-generation @ lf-ssession-term-generation !
-  lf-level-generation @ lf-ssession-level-generation !
-  lf-lscope-generation @ lf-ssession-context-generation !
-  true dup lf-ssession-active ! ;
+  false lf-ssession-active !
+  lf-ssession-stores-valid? lf-term-count @ 0= and 0= if false exit then
+  lf-ssession lf-ssession-capture true dup lf-ssession-active ! ;
 
-\ Check all captured epochs and current counts; repeated begin after a reset
-\ is only permitted while the term arena is empty.
+\ The session is active and no store was reset since it began.
 : lf-ssession-current? ( -- flag )
   lf-ssession-active @ 0= if false exit then
-  lf-term-count-valid? lf-level-count-valid? and
-  lf-lscope-context-valid? and 0= if false exit then
-  lf-term-generation @ lf-ssession-term-generation @ =
-  lf-level-generation @ lf-ssession-level-generation @ = and
-  lf-lscope-generation @ lf-ssession-context-generation @ = and ;
+  lf-ssession-stores-valid? lf-ssession lf-ssession-same? and ;
 
-\ Add one validated child to the session worklist, or report capacity failure.
-: lf-ssession-push ( node -- flag )
-  lf-ssession-pending @ lf-term-capacity >= if drop false exit then
-  lf-ssession-pending @ cells lf-ssession-work + !
-  1 lf-ssession-pending +! true ;
+\ Visiting a node already checked for shape and representation: each
+\ symbolic Sort's level is scope-checked with the same budget.
+: lf-ssession-sort ( first second walk -- outcome ) nip lf-lscope-walk-check ;
+: lf-ssession-dispatch ( first second walk tag -- outcome )
+  dup lf-term-binary-tag? if drop walk-push2 exit then
+  case lf-tag-symbolic-sort of lf-ssession-sort endof
+    lf-tag-bvar of drop 2drop outcome-ok endof walk-bad-tag endcase ;
+: lf-ssession-visit ( walk -- outcome ) lf-terms ['] lf-ssession-dispatch walk-visit ;
 
-\ Visit a node already checked for shape and representation; validate each
-\ reachable symbolic level using the same budget and captured context.
-: lf-ssession-visit ( node -- status )
-  lf-term-read 0= if lf-repr-invalid exit then
-  lf-ssession-second ! lf-ssession-first ! lf-ssession-tag !
-  lf-ssession-tag @ lf-tag-symbolic-sort = if
-    lf-ssession-first @ lf-ssession-fuel @ lf-lscope-check
-    lf-lscope-fuel @ lf-ssession-fuel !
-    case
-      lf-lscope-ok of lf-repr-ok endof
-      lf-lscope-invalid of lf-repr-invalid endof
-      lf-lscope-exhausted of lf-repr-exhausted endof
-      drop lf-repr-invalid 0
-    endcase exit
-  then
-  lf-ssession-tag @ lf-tag-bvar = if lf-repr-ok exit then
-  lf-ssession-tag @ lf-tag-app = lf-ssession-tag @ lf-tag-lam = or
-  lf-ssession-tag @ lf-tag-pi = or 0= if lf-repr-invalid exit then
-  lf-ssession-first @ lf-ssession-push 0= if lf-repr-exhausted exit then
-  lf-ssession-second @ lf-ssession-push 0= if lf-repr-exhausted exit then
-  lf-repr-ok ;
-
-\ Check one root: syntax validation first, followed by level validation for
-\ every reachable Sort. Both term passes and every level visit share fuel;
+\ Check one root: representation and shape first, then the level of every
+\ reachable Sort. Both passes and every level visit share one budget, and
 \ repeated DAG visits are charged repeatedly. Unreachable nodes are ignored.
-\ The result establishes no binding scope, typing, equality or proof validity.
+\ Establishes no binder scope, typing, equality or proof validity.
+: lf-ssession-repr ( root -- root outcome )
+  dup lf-repr-symbolic lf-ssession-fuel @ lf-repr-check lf-repr-fuel @ lf-ssession-fuel ! ;
+: lf-ssession-levels ( root -- outcome ) ['] lf-ssession-visit lf-ssession-walker walk-run ;
+: lf-ssession-ready? ( fuel -- flag ) lf-ssession-walker walk-budget lf-ssession-current? and ;
 : lf-ssession-check ( root fuel -- status )
-  dup 0< if 2drop lf-repr-invalid exit then lf-ssession-fuel !
-  lf-ssession-current? 0= if drop lf-repr-invalid exit then
-  dup lf-repr-symbolic lf-ssession-fuel @ lf-repr-check
-  lf-repr-fuel @ lf-ssession-fuel !
-  ?dup if nip exit then
-  0 lf-ssession-pending !
-  lf-ssession-push 0= if lf-repr-exhausted exit then
-  begin lf-ssession-pending @ 0> while
-    lf-ssession-fuel @ 0= if lf-repr-exhausted exit then
-    -1 lf-ssession-fuel +! -1 lf-ssession-pending +!
-    lf-ssession-pending @ cells lf-ssession-work + @
-    lf-ssession-visit ?dup if exit then
-  repeat lf-repr-ok ;
+  lf-ssession-ready? if lf-ssession-repr ok-then? if lf-ssession-levels then else drop-invalid then ;

@@ -1,6 +1,8 @@
 # ADR 0008: one outcome vocabulary — proposal
 
-Status: **proposed**, 2026-11-02. A code-structure decision for untrusted,
+Status: **proposed**, 2026-11-02; part 1 (the vocabulary in
+`src/lib/outcome.fs`) is in use by untrusted modules pending the owner's
+approval. A code-structure decision for untrusted,
 in-progress modules. It changes no typing or conversion rule. Adding the
 *rejected* outcome to the checker (step 3 below) is a checker change and
 goes through the review gate in `AGENTS.md`.

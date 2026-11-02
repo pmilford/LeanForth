@@ -92,6 +92,7 @@ test-core:
 	$(RUN) $(GFORTH) tests/core/symbolic-session.fs
 	$(RUN) $(GFORTH) tests/core/symbolic-session-extra.fs
 	$(RUN) $(GFORTH) tests/core/generation-handles.fs
+	$(RUN) $(GFORTH) tests/core/walker-interface.fs
 	$(RUN) $(GFORTH) tests/core/handle-reference-integrity.fs
 	$(RUN) $(GFORTH) tests/core/raw-declaration-index.fs
 	$(RUN) $(GFORTH) tests/core/raw-index-reset.fs

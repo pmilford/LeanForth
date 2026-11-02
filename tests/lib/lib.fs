@@ -1,5 +1,5 @@
 \ Unit tests of the general Forth library (src/lib): portability words,
-\ range checks, bounded stores and tagged nodes. T{ }T checks results and
+\ range checks, bounded stores, tagged nodes, outcomes and walk records. T{ }T checks results and
 \ data-stack depth; rs-checked also checks the return stack around a call.
 include ../support/tester.fs
 include ../support/checks.fs
@@ -178,4 +178,114 @@ T{ 0 s2 node-read -> 1 2 3 true }T
 T{ 1 s2 ' node-read rs-checked -> 4 5 6 true }T
 T{ 2 s2 node-read -> false }T
 T{ -1 s2 node-read -> false }T
+
+\ Outcomes: the vocabulary, the sanitizer and the flag conversion.
+T{ outcome-ok outcome-invalid outcome-exhausted -> 0 1 2 }T
+T{ outcome-unknown outcome-rejected outcome-unsupported -> 3 4 5 }T
+T{ 0 outcome? 5 outcome? -1 outcome? 6 outcome? -> true true false false }T
+T{ 3 outcome-sane 6 outcome-sane -1 outcome-sane true outcome-sane -> 3 1 1 1 }T
+T{ outcome-ok ok? outcome-unknown ok? -> true false }T
+T{ true flag>outcome false flag>outcome -> outcome-ok outcome-invalid }T
+
+\ Walk records: definition, budget and the bounded work stack.
+T{ 4 walk: w1 -> }T
+T{ w1 walk-capacity @ w1 walk-pending @ w1 walk-fuel @ -> 4 0 0 }T
+T{ -1 w1 walk-budget w1 walk-fuel @ -> false 0 }T
+T{ 7 w1 walk-budget w1 walk-fuel @ -> true 7 }T
+T{ 10 w1 walk-push 11 w1 walk-push 12 w1 walk-push 13 w1 walk-push -> true true true true }T
+T{ 14 w1 walk-push w1 walk-pending @ -> false 4 }T
+T{ w1 walk-pop w1 walk-pop -> 13 12 }T
+-1 w1 walk-pending !
+T{ 15 w1 ' walk-push rs-checked -> false }T
+2 w1 walk-pending !
+
+\ Children must come before the node being visited.
+3 w1 walk-node !
+T{ 0 w1 walk-child? 2 w1 walk-child? 3 w1 walk-child? -1 w1 walk-child? -> true true false false }T
+0 w1 walk-pending !
+T{ 2 w1 walk-child 3 w1 walk-child -> outcome-ok outcome-invalid }T
+T{ 0 1 w1 walk-children 0 3 w1 walk-children 3 0 w1 walk-children -> outcome-ok outcome-invalid outcome-invalid }T
+T{ w1 walk-pending @ -> 3 }T
+T{ 0 1 w1 walk-push2 w1 walk-pending @ -> outcome-exhausted 4 }T
+T{ 1 2 w1 99 walk-bad-tag -> outcome-invalid 99 }T
+
+\ walk-run over a DAG where node n >= 2 has children n-1 and n-2: shared
+\ nodes are visited once per path, so root n costs V(n) = 1 + V(n-1) +
+\ V(n-2) visits with V(0) = V(1) = 1, and V(5) = 15.
+: fib-visit ( walk -- outcome )
+  dup walk-node @ dup 2 < if 2drop outcome-ok else dup 1- swap 2 - rot walk-push2 then ;
+T{ 8 walk: w2 -> }T
+15 w2 walk-budget drop
+T{ 5 ' fib-visit w2 walk-run w2 walk-fuel @ -> outcome-ok 0 }T
+14 w2 walk-budget drop
+T{ 5 ' fib-visit w2 walk-run -> outcome-exhausted }T
+100 w2 walk-budget drop
+T{ 5 ' fib-visit w2 ' walk-run rs-checked w2 walk-fuel @ -> outcome-ok 85 }T
+T{ 0 w2 walk-budget drop 5 ' fib-visit w2 walk-run -> outcome-exhausted }T
+T{ 2 walk: w3 -> }T
+100 w3 walk-budget drop
+T{ 5 ' fib-visit w3 walk-run -> outcome-exhausted }T
+
+\ The first outcome that is not ok stops the walk.
+: stop-at-3 ( walk -- outcome ) dup walk-node @ 3 = if drop outcome-unknown else fib-visit then ;
+100 w2 walk-budget drop
+T{ 5 ' stop-at-3 w2 walk-run -> outcome-unknown }T
+
+\ Re-entrancy: a visitor may run a complete walk on another record, as the
+\ session check runs a level-scope check inside its own walk.
+: nested-visit ( walk -- outcome ) 2 ['] fib-visit w1 walk-run dup ok? if drop fib-visit else nip then ;
+0 w1 walk-pending !
+1000 w1 walk-budget drop
+100 w2 walk-budget drop
+T{ 4 ' nested-visit w2 walk-run w2 walk-fuel @ w1 walk-fuel @ -> outcome-ok 91 973 }T
+
+\ Outcomes at the edges, the strict flag conversion and the helpers.
+T{ 0 outcome-sane 4 outcome-sane 5 outcome-sane -> 0 4 5 }T
+T{ max-n outcome-sane max-n 1+ outcome-sane -> 1 1 }T
+T{ 1 flag>outcome 2 flag>outcome 3 flag>outcome -> 1 1 1 }T
+T{ 7 outcome-ok ok-then? -> 7 true }T
+T{ 7 outcome-unknown ok-then? -> outcome-unknown false }T
+T{ 7 drop-invalid -> outcome-invalid }T
+
+\ walk: refuses a capacity below 1.
+: bad-walk? ( addr u -- flag ) ['] evaluate catch dup if nip nip then 0<> ;
+T{ s" 0 walk: wbad0" bad-walk? s" -1 walk: wbad1" bad-walk? s" -100 walk: wbad2" bad-walk? -> true true true }T
+T{ s" 1 walk: wone" bad-walk? -> false }T
+
+\ A corrupted capacity or pending count refuses pushes, and walk-run then
+\ reports exhaustion without spending fuel.
+-1 w2 walk-capacity !
+20 w2 walk-budget drop
+T{ 5 ' fib-visit w2 walk-run w2 walk-fuel @ -> outcome-exhausted 20 }T
+8 w2 walk-capacity !
+9 w2 walk-pending !
+T{ 1 w2 walk-push w2 walk-pending @ -> false 9 }T
+0 w2 walk-pending !
+
+\ After exhaustion part way, fuel is 0 and work is left on the stack.
+14 w2 walk-budget drop
+T{ 5 ' fib-visit w2 walk-run w2 walk-fuel @ w2 walk-pending @ -> outcome-exhausted 0 1 }T
+
+\ Node 0 has no possible children.
+0 w1 walk-node !
+T{ 0 w1 walk-child? -1 w1 walk-child? -> false false }T
+
+\ A visitor result outside the vocabulary counts as invalid.
+: bad-visit ( walk -- outcome ) drop 7 ;
+100 w2 walk-budget drop
+T{ 3 ' bad-visit w2 walk-run -> outcome-invalid }T
+
+\ The pushing helpers keep the return stack balanced.
+0 w1 walk-pending !
+3 w1 walk-node !
+T{ 0 1 w1 ' walk-children rs-checked 0 1 w1 ' walk-push2 rs-checked -> outcome-ok outcome-ok }T
+
+\ walk-visit reads the current node of a node store and dispatches on it.
+: show-node ( first second walk tag -- outcome ) nip + + ;
+T{ 2 /node 0 store: s3 -> }T
+4 5 6 s3 node-new 2drop
+0 w1 walk-node !
+T{ w1 s3 ' show-node walk-visit -> 15 }T
+1 w1 walk-node !
+T{ w1 s3 ' show-node walk-visit -> outcome-invalid }T
 bye
