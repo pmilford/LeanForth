@@ -31,7 +31,7 @@ Read `docs/CODEX_HANDOFF.md`, `docs/IMPLEMENTATION_PLAN.md`, `docs/INTERFACE_CON
 - Treat Forth as its own language: write clear, idiomatic, concise and well-factored words with simple stack effects. Prefer small composable words and meaningful Forth names; do not mechanically translate another language or sacrifice readability, safety or performance to minimize word length. Use the independent Forth reviewer described in `docs/FORTH_REVIEWER.md` for meaningful Forth changes and act on concrete findings.
 - Preserve the profiling and research-validation tasks in `docs/DEVELOPMENT_ROADMAP.md`: lightweight optional time and memory measurement and fair Lean comparisons; later reproduce several substantial published Lean results and a longer recent theorem, then investigate an appropriately chosen open problem with transparent proof status.
 - Divide later work into narrowly scoped issues and test-first changes. Keep a running `docs/DECISIONS.md` with rationale and rejected alternatives.
-- Before changing kernel semantics: propose an ADR; add positive/negative tests; compare with pinned Lean 4.35.0 on available cases; request human review. Do not merge kernel changes solely on LLM review.
+- Before changing kernel semantics: propose an ADR; add positive/negative tests that reach every outcome (accepted, rejected, unsupported/unknown); compare with pinned Lean 4.35.0 on available cases; then complete the review gate below. Do not merge kernel changes solely on LLM review.
 - Do not claim a check/benchmark/platform test was run if it was not actually run. Document missing tools and blocked tests.
 - User approval is required for GitHub authentication/remote creation/push, external service authorization, destructive actions, installing system packages with privilege, and adding new runtime/network dependencies.
 - Never delete files or directories that were not explicitly planned. Ignored, machine-local directories such as `.tools/` are user data. List exact paths before deleting and delete only those paths by name; never run a dry run and the real deletion in one command, and do not use pattern-based cleaners such as `git clean -X`.
@@ -41,3 +41,12 @@ Read `docs/CODEX_HANDOFF.md`, `docs/IMPLEMENTATION_PLAN.md`, `docs/INTERFACE_CON
 ## Review gates
 
 Kernel integrity, declaration import, proof certificate formats, new axioms, verifier bypasses, compiler/FFI assumptions and mathematical parser semantics require explicit human review. All malformed-input tests must fail closed. Maintain at least one acceptance test that constructs a valid proof and one that rejects an invalid proof, once the minimal kernel exists.
+
+The project owner is not a Lean expert. Under the owner's decisions of 2026-11-02 (`docs/OWNER_DECISIONS.md`), human review of a checker change means all of:
+
+1. The rules follow Lean's own published kernel behavior; do not invent new typing or conversion rules.
+2. Pinned-Lean differential tests agree, including deliberately invalid or mutated proofs that must be rejected, and tests reaching each outcome: accepted, rejected and unsupported/unknown. No failure outcome may ever be reported or stored as accepted.
+3. An independent AI review of the exact change records no unresolved findings.
+4. The owner approves a short plain-language summary of the change: what it does, the evidence, the risks and a recommendation with reasons.
+
+Until an outside Lean expert has audited the checker, label every accepted result *experimental — not independently audited*. Axioms: none for the first checker; later only `propext`, `Classical.choice` and `Quot.sound` with their exact Lean statements, in a versioned allowlist the owner approves; never `Lean.ofReduceBool` or `Lean.trustCompiler`. Report each accepted theorem's axiom dependencies. Ask the owner every gate question in plain language with a clear recommendation and reasons.

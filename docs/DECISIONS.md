@@ -51,6 +51,24 @@ storage and the typing interaction remain open and require human review.
 ADR 0007 proposes distinct concrete/symbolic Sort representations, complete
 consumer validation and generation-bound lifetimes; it is not approved.
 
+## Owner policy decisions — 2026-11-02
+
+The owner answered four plain-language questions; details, options and
+reasons are in `docs/OWNER_DECISIONS.md`. Lean is the referee for checker
+correctness: follow Lean's rules, require pinned-Lean differential evidence,
+an independent AI review and owner approval of a plain-language summary,
+and label results *not independently audited* until an outside expert
+audit. The first checker accepts only simple definitions and theorems, with
+three tested outcomes (accepted, rejected, unsupported/unknown). Conversion
+is cautious first, with Lean-style unfolding next. There are no axioms at
+first, later exactly `propext`, `Classical.choice` and `Quot.sound`, and
+never the compiler-trust axioms. Rejected alternatives: blocking on an
+outside expert before any checker work (stalls the project); treating AI
+review as sufficient (shared blind spots); including data types in the first
+checker (too large a first step); full Lean equality at once (too large and
+risky); no axioms ever, or whatever Lean allows (respectively, Mathlib
+unusable, or Lean's compiler silently trusted).
+
 ## Tooling, CI and agent handover — 2026-11-02
 
 These are infrastructure decisions; none changes kernel semantics.
