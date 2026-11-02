@@ -84,8 +84,10 @@ At this checkpoint, `libccnameddir=/tmp/leanforth-gforth-libcc
 ELAN_HOME="$PWD/.tools/elan" make test-program-depth-differential
 LEAN="$PWD/.tools/elan/bin/lean"` passed with Gforth 1.0.0 amd64 and pinned
 Lean 4.35.0; Gforth printed library-reopen warnings. CI was not run for this
-checkpoint. The analyzer SHA-256 is
-`6d16b3c4ca766637e82970a61a44de7c28a2df55e9a0a155a5eaad96160863d3`.
+checkpoint. The analyzer's SHA-256 at that checkpoint was
+`6d16b3c4ca766637e82970a61a44de7c28a2df55e9a0a155a5eaad96160863d3`; the
+file has since been refactored to the style guide without changing its
+results (randomized and boundary differentials, 2026-11-02).
 The caller must provide genuinely readable, aligned storage and its capacity;
 Forth cannot validate memory ownership or prevent concurrent mutation. Push
 values, actual Forth source, finite-cell arithmetic and effects are outside

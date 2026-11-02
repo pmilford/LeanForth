@@ -47,8 +47,9 @@ max-n constant lf-depth-max
 
 \ Step back from depth 0 through the tags from last to first.
 : lf-depth-op ( addr i -- opcode ) cells + @ ;
+: lf-depth-last ( count -- limit start ) 0 swap 1- ;
 : lf-depth-fold ( addr count -- depth true | 0 false )
-  0 0 rot 1- do over i lf-depth-op lf-depth-step 0= if nip false unloop exit then
+  0 swap lf-depth-last do over i lf-depth-op lf-depth-step 0= if nip false unloop exit then
   -1 +loop nip true ;
 : lf-depth-run ( addr count -- depth true | 0 false )
   dup 0= if 2drop 0 true exit then

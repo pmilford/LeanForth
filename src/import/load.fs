@@ -39,7 +39,6 @@ lf-load-batch /lf-batch erase
 \ must have a zero second field. Any other tag is staged as a binary node
 \ whose children are earlier records of this batch; lf-term-binary refuses
 \ a tag that is not binary.
-: lf-load-leaf-tag? ( tag -- flag ) dup lf-tag-sort = swap lf-tag-bvar = or ;
 : lf-load-leaf ( first second tag -- index true | false )
   swap 0<> if 2drop false else lf-term-leaf then ;
 : lf-load-child? ( child -- flag ) dup 0< 0= swap lf-load-staged < and ;
@@ -49,15 +48,16 @@ lf-load-batch /lf-batch erase
   >r 2dup lf-load-children? if lf-load-rebase r> lf-term-binary
   else 2drop r> drop false then ;
 : lf-load-record ( first second tag -- index true | false )
-  dup lf-load-leaf-tag? if lf-load-leaf else lf-load-binary then ;
+  dup lf-term-leaf-tag? if lf-load-leaf else lf-load-binary then ;
 
 \ A record must carry the next batch-local index of a valid arena.
 : lf-load-next? ( index -- flag ) lf-load-staged = lf-term-count-valid? and ;
 : lf-load-fail ( x1 x2 -- false ) 2drop lf-load-abort false ;
+: lf-load-reject ( first second tag -- false ) drop lf-load-fail ;
 : lf-load-stage ( first second tag -- flag )
   lf-load-record if drop true else lf-load-abort false then ;
 : lf-load-checked ( index tag first second -- flag )
-  rot >r rot lf-load-next? if r> lf-load-stage else r> drop lf-load-fail then ;
+  2swap swap lf-load-next? if lf-load-stage else lf-load-reject then ;
 
 \ Decode one integer record into a batch-local node. Binary children must
 \ refer to earlier nodes in this same batch; unused leaf fields must be zero.

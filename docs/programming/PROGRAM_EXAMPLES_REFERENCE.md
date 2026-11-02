@@ -27,7 +27,7 @@ two refutations. The SHA-256 under "Reproduction and trust" predates them.
 
 The `Option` values abstract the different stack results on failure and
 success. No theorem connects these definitions to Forth words, stack effects,
-flag encodings, signed comparisons, `NEGATE`, cell representation, stack
+flag encodings, signed comparisons, `ABS`, cell representation, stack
 capacity, execution, a compiler, or a runtime. No machine arithmetic or
 source-to-model correspondence is verified. In particular, these proofs do
 not establish correctness or safety of the executable examples, nor do they
