@@ -236,3 +236,19 @@ records in the same Claude Code session. Quoted words are the owner's own.
   parallel only after its serial version has passed its gate.
 - **Tooling (OQ-12):** not asked; the default that installs nothing applies
   (Mermaid checked on GitHub, standard-library JSON checks).
+
+## Product dependencies and module loading (2026-11-02)
+
+- **End users need only a Forth system and an NDJSON file.** *"overall I'd
+  like not to have any python dependency, and hopefully not any lean
+  dependency, except a ndjson file ... during development it doesn't matter,
+  but keeping end user downloads and installs and updating to a minimum is a
+  good thing."* Everything on the user's path — reading Lean exports,
+  checking, the command-line tool, printing proofs and receipts — is Forth.
+  Python and Lean remain development tools (tests, oracles, metrics,
+  producing exports). Users who check existing Lean or Mathlib developments
+  use a published export; only users who write new Lean source need Lean, to
+  produce its export.
+- **Each file loads what it uses, and only that.** Every module `require`s
+  its direct dependencies; *"main should only require its direct
+  requirements, not the ones needed by the modules."*
