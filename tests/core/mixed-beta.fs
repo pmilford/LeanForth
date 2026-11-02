@@ -1,5 +1,6 @@
 \ Structural reduction tests, not proof or type checking.
 include ../support/tester.fs
+include ../support/checks.fs
 include ../../src/core/terms.fs
 include ../../src/core/names.fs
 include ../../src/core/levels.fs
@@ -92,4 +93,21 @@ T{ 9 lf-term-read -> lf-tag-lam 0 8 true }T
 T{ 9 lf-term-serial @ 100 lf-cterm-check -> lf-repr-ok }T
 lf-cref-reset
 T{ 7 7 lf-term-identity drop 500 lf-mixed-beta -> -1 0 lf-mbeta-invalid }T
+\ The deepest nesting the store allows: R = app(F, L) with F = lam(c, L)
+\ and L = m lambdas over bvar m. Contracting R instantiates L (m+1 frames
+\ deep) and shifts L inside it (m+1 more). With m = 57 the store is full
+\ and the shift exhausts at the bottom, 117 frames deep, without
+\ overflowing the host's stacks; with m = 18 everything fits. The fuel
+\ cells of all three passes end equal.
+: lams ( body n -- node ) 0 ?do 0 swap lf-term-lam 0= abort" lam" loop ;
+: deep ( m -- root identity )
+  setup >r r@ lf-term-bvar 0= abort" bvar" r> lams
+  dup 0 swap lf-term-lam 0= abort" F" swap lf-term-app 0= abort" R"
+  dup lf-term-identity drop ;
+: fuels ( -- beta inst shift ) lf-mbeta-fuel @ lf-minst-fuel @ lf-mshift-fuel @ ;
+T{ 57 deep 100000 ' lf-mixed-beta rs-checked fuels lf-term-count @ ->
+  -1 0 lf-mbeta-exhausted 99076 99076 99076 64 }T
+T{ 18 deep 100000 ' lf-mixed-beta rs-checked fuels ->
+  61 lf-term-serial @ lf-mbeta-ok 99699 99700 99700 }T
+T{ 61 lf-term-read -> lf-tag-lam 0 60 true }T
 bye
