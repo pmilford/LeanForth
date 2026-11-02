@@ -11,6 +11,61 @@ python3 tests/support/ndjson_preview.py < tests/reference/composition.ndjson
 make test-composition-fixture
 ```
 
+## Outcomes and error contract
+
+Every input ends in exactly one outcome, following the owner's three-outcome
+policy plus a resource outcome. No failure is ever reported as success.
+
+| Outcome | Exit | `code` on standard error | Meaning |
+| --- | --- | --- | --- |
+| accepted | 0 | none | One JSON line on standard output: **unchecked** data, never a checked theorem |
+| rejected | 1 | `LF_PREVIEW_MALFORMED` | Not a well-formed pinned lean4export 3.1.0 stream |
+| unsupported | 2 | `LF_PREVIEW_UNSUPPORTED` | A well-formed record or version this preview does not handle yet |
+| limit | 3 | `LF_PREVIEW_LIMIT` | A prototype bound was exceeded; the input may be valid Lean |
+| internal fault | 4 | `LF_PREVIEW_INTERNAL` | An unexpected error in the preview itself; still a failure |
+
+A failure writes nothing to standard output and one JSON object to standard
+error with the keys `code`, `message` and `line`: the 1-based NDJSON line of the
+failing record, the last line read when the stream ends without metadata or a
+declaration, or `null` for empty input. Messages are diagnostic text and may change; tests pin
+codes and lines. Output is byte-identical across runs and `PYTHONHASHSEED`
+values.
+
+**Framing is strict and fails closed.** The pinned exporter writes plain UTF-8
+with one JSON object per line, each terminated by a line feed. The preview
+therefore rejects, as malformed: invalid UTF-8 (including encoded surrogates and
+overlong forms), a byte order mark, any carriage return (so CRLF line endings
+too), a final line without its line feed, blank lines, and strings holding lone
+surrogate escapes. Spaces between JSON tokens are accepted.
+
+**Malformed versus unsupported.** Record kinds not defined by export format
+3.1.0 are malformed: unknown name, level, expression or top-level record kinds
+(including level `mvar` and expression `fvar`), records mixing kinds, a second
+metadata record, and enumeration values outside the format (`binderInfo`,
+`hints`, `safety`, quotient `kind`). Metadata fields that are not strings are
+malformed; well-typed metadata naming another exporter, format, Lean version or
+revision is unsupported. A declaration's `all` list must be nonempty, hold
+distinct names and contain the declaration itself; a longer, well-formed list is
+an unsupported mutual block. Format kinds the preview does not handle (`letE`,
+`proj`, `natVal`, `strVal`, `mdata`, `axiom`, `opaque`, `quot` and `inductive`)
+are unsupported once their shape matches the records observed in pinned Lean
+4.35.0 exports: exact field sets, earlier references for their direct name and
+expression fields, booleans, canonical decimal `natVal` text, and the nested
+field sets of inductive types, constructors, recursors and recursor rules. A
+malformed payload of one of these kinds is rejected. No pinned export has yet
+produced `mdata`, so its payload is **not** validated and any `mdata` record is
+reported as unsupported. Nested values inside inductive records are not
+reference-checked. The stream stops at its first failing record, so an
+unsupported report names only the first unsupported kind.
+
+**Numbers.** Integer fields accept JSON integers only: booleans, floats, strings
+and negative values are malformed. Record indices must be sequential, so an
+index far beyond a table, such as name index 300, is malformed rather than a
+limit. Lean natural numbers that are valid but exceed the preview's signed
+32-bit bound (name `num` components, `bvar` indices and `hints.regular` up to
+the `UInt32` maximum) are a limit; a reducibility height beyond `UInt32` is
+malformed.
+
 The preview supports the pinned Lean 4.35.0 and export format 3.1.0 metadata,
 sequential string and numeric names, successor, `max`, `imax`, and parameter
 universe expressions, bound variables, constant references with ordered universe
@@ -37,7 +92,9 @@ only the two observed counts; it does not validate a declaration or type.
 Cycle analysis, external environments,
 declaration validity and completeness are not checked; the output explicitly
 has `cyclesChecked: false`, `dependenciesChecked: false` and `checked: false`.
-The provisional output is version `0.3`; observations are ordered by declaration
+The provisional output is version `0.4` (0.4 introduced the strict framing,
+reclassified outcomes, distinct exit codes and error lines described above;
+the success payload is otherwise unchanged from 0.3); observations are ordered by declaration
 and expression index. Shared occurrences use `inType` and `inValue` flags.
 These are diagnostics for planning an import, not authorization to use a
 declaration or an axiom.
@@ -63,12 +120,18 @@ could determine its value. Different table indices may resolve to the same level
 evaluator on 76 concrete and nested cases with pinned Lean's level normalization;
 it is finite test evidence, not a proof.
 
-It bounds each input line to 4096 bytes, the stream to 1 MiB, names and explicit
-universe entries to 256 each, expression nodes to 64 and declarations to 64.
-JSON nesting is subject to the
-Python decoder's recursion limit. These limits are prototype constraints, not a
+It bounds each input line to 4096 bytes including its line feed, the stream to
+1 MiB (1,048,576 bytes), names and explicit universe entries to 256 each,
+expression nodes to 64, declarations to 64 and a constant's universe arguments
+to 256. Tests check each bound both at the limit (accepted) and one step beyond
+it (`LF_PREVIEW_LIMIT`). Overlong JSON nesting is rejected as malformed. These limits are prototype constraints, not a
 Mathlib-scale design. The output format is not yet a versioned production API
 or a stable serialization. No Python code is part of the trusted kernel.
+
+`tests/core/test_preview_contract.py` holds the outcome-contract tests (framing,
+classification, limits, numeric edges and the command-line contract); `make
+test` runs them through `tests/core/test_ndjson_preview.py`, which also pins the
+SHA-256 of all five `tests/reference/*.ndjson` fixtures.
 
 The fixture test independently compares preview nodes against the existing
 fixture inspector and feeds the resulting fields as test-only binary data to

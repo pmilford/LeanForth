@@ -89,13 +89,13 @@ comparison must reject a known-wrong table).
 
 | ID | Finding | Status |
 | --- | --- | --- |
-| N1 | Invalid UTF-8 accepted; byte-order mark and CRLF accepted silently | In progress |
-| N2 | Many malformed records reported as *unsupported* (unknown kinds, extra keys, second `meta`, bad `binderInfo`, `all: []`, …) | In progress |
-| N3 | Lean-valid values of 2^31 or more rejected as malformed instead of a limit | In progress |
-| N4 | Only 7 of ~35 negative preview tests check the error code | In progress |
-| N5 | About 40% of malformed-input classes tested only on a separate hard-coded inspector, not the preview | In progress |
-| N6 | Limits `MAX_TOTAL`, `MAX_NAMES`, `MAX_DECLARATIONS` and the 4095/4096-byte line boundary untested | In progress |
-| N7 | CLI success output, exit codes and determinism untested; only 1 of 5 fixtures hash-pinned | In progress |
+| N1 | Invalid UTF-8 accepted; byte-order mark and CRLF accepted silently | **Fixed**: strict UTF-8 framing; BOM, CR, blank lines, missing final newline and escaped lone surrogates are malformed |
+| N2 | Many malformed records reported as *unsupported* (unknown kinds, extra keys, second `meta`, bad `binderInfo`, `all: []`, …) | **Fixed**: all reclassified; the nine unsupported kinds are shape-checked first (validated on 142 real records). `mdata` payloads stay unchecked: no export produced one |
+| N3 | Lean-valid values of 2^31 or more rejected as malformed instead of a limit | **Fixed** |
+| N4 | Only 7 of ~35 negative preview tests check the error code | **Fixed** in the preview tests; three bare assertions remain in `test_tagged_poly_fixture.py` and `constant-term-fixture-test.py` (later) |
+| N5 | About 40% of malformed-input classes tested only on a separate hard-coded inspector, not the preview | **Fixed** |
+| N6 | Limits `MAX_TOTAL`, `MAX_NAMES`, `MAX_DECLARATIONS` and the 4095/4096-byte line boundary untested | **Fixed**: every limit tested at and one past its boundary |
+| N7 | CLI success output, exit codes and determinism untested; only 1 of 5 fixtures hash-pinned | **Fixed**: exact output for all fixtures (preview version 0.4), distinct exit codes per outcome, byte-identical across hash seeds, all fixtures pinned. A JSON Schema for the output is later |
 | N8 | No real-export fixtures for unsupported kinds (axiom, inductive, quot, opaque, let, proj, literals, mutual) | Later |
 | N9 | Mutated NDJSON is not checked by Lean itself (replay through Lean's kernel) | Later |
 | N10 | Kernel negative oracles accept any Lean error; the reason is not checked | Later |

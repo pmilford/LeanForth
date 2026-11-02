@@ -7,16 +7,23 @@ import unittest
 
 sys.path.insert(0, "tests/support")
 from fixture_transport import encode_concrete
-from ndjson_preview import PreviewError, preview
+from ndjson_preview import preview
+from test_preview_contract import LIMIT, MALFORMED, PreviewAssertions
+
+CONSTANT_LINE = 16  # `{"const":...,"ie":7}` in the pinned constant fixture.
+DEFINITION_LINE = 14  # fixtureId's definition record.
 
 
-class ConstantPreviewTests(unittest.TestCase):
+class ConstantPreviewTests(PreviewAssertions, unittest.TestCase):
     def setUp(self):
         self.lines = Path("tests/reference/constant-fixture.ndjson").read_text().splitlines()
 
     def parse(self, records):
+        return preview(io.BytesIO(self.encode(records)))
+
+    def encode(self, records):
         data = "\n".join(json.dumps(record, ensure_ascii=False) for record in records) + "\n"
-        return preview(io.BytesIO(data.encode()))
+        return data.encode()
 
     def records(self):
         return [json.loads(line) for line in self.lines]
@@ -51,16 +58,18 @@ class ConstantPreviewTests(unittest.TestCase):
             encode_concrete(with_constant, 0)
 
     def test_constant_shape_and_index_validation(self):
-        for replacement in ({"name": 0, "us": []}, {"name": 999, "us": []},
-                            {"name": 1, "us": [True]}, {"name": 1, "us": [999]},
-                            {"name": 1, "us": "bad"}, {"name": 1},
-                            {"name": 1, "us": [], "extra": 0},
-                            {"name": 1, "us": [0] * 257}):
+        for replacement, code in (({"name": 0, "us": []}, MALFORMED),
+                                  ({"name": 999, "us": []}, MALFORMED),
+                                  ({"name": 1, "us": [True]}, MALFORMED),
+                                  ({"name": 1, "us": [999]}, MALFORMED),
+                                  ({"name": 1, "us": "bad"}, MALFORMED), ({"name": 1}, MALFORMED),
+                                  ({"name": 1, "us": [], "extra": 0}, MALFORMED),
+                                  ({"name": 1, "us": [0] * 257}, LIMIT)):
             records = self.records()
             record = next(record for record in records if record.get("ie") == 7)
             record["const"] = replacement
-            with self.subTest(replacement=replacement), self.assertRaises(PreviewError):
-                self.parse(records)
+            with self.subTest(replacement=replacement):
+                self.assertPreviewError(code, self.encode(records), CONSTANT_LINE)
 
     def test_constant_universe_parameters_obey_declaration_scope(self):
         records = self.records()
@@ -68,8 +77,7 @@ class ConstantPreviewTests(unittest.TestCase):
         definition.update(levelParams=[], type=7, value=7)
         # Its constant argument references u, so a missing declaration parameter
         # must not be hidden by an otherwise valid constant name.
-        with self.assertRaises(PreviewError):
-            self.parse(records)
+        self.assertPreviewError(MALFORMED, self.encode(records), 21)
 
     def test_universe_arguments_keep_order_without_assuming_arity(self):
         records = self.records()
@@ -89,15 +97,17 @@ class ConstantPreviewTests(unittest.TestCase):
                 self.assertEqual(result["declarations"][0]["hints"], hints)
                 self.assertEqual(result["declarations"][0]["safety"], safety)
                 self.assertFalse(result["checked"])
-        for hints in ("bogus", {"regular": True}, {"regular": 1, "extra": 0}, []):
+        # Values outside the exporter's enumerations are malformed, not unsupported.
+        for hints in ("bogus", {"regular": True}, {"regular": 1, "extra": 0}, [], {}):
             records = self.records()
             next(record["def"] for record in records if "def" in record)["hints"] = hints
-            with self.subTest(hints=hints), self.assertRaises(PreviewError):
-                self.parse(records)
-        records = self.records()
-        next(record["def"] for record in records if "def" in record)["safety"] = "bogus"
-        with self.assertRaises(PreviewError):
-            self.parse(records)
+            with self.subTest(hints=hints):
+                self.assertPreviewError(MALFORMED, self.encode(records), DEFINITION_LINE)
+        for safety in ("bogus", "Safe", None, True):
+            records = self.records()
+            next(record["def"] for record in records if "def" in record)["safety"] = safety
+            with self.subTest(safety=safety):
+                self.assertPreviewError(MALFORMED, self.encode(records), DEFINITION_LINE)
 
     def test_unresolved_dependency_is_explicitly_unchecked(self):
         records = self.records()

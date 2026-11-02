@@ -1,5 +1,6 @@
 """Tests for the untrusted bounded development export preview."""
 
+import hashlib
 import io
 import json
 import os
@@ -10,12 +11,37 @@ import sys
 import unittest
 
 sys.path.insert(0, str(Path("tests/support")))
-from ndjson_preview import MAX_LINE, PreviewError, preview
+from ndjson_preview import MAX_LINE, preview
 from fixture_transport import encode_concrete
 from check_composition_fixture import fixture_nodes
+# The Makefile runs this module; importing these TestCase classes makes
+# `make test` run the outcome-contract suite as well.
+from test_preview_contract import (  # noqa: F401
+    LIMIT, MALFORMED, UNSUPPORTED, CliContractTests, ClassificationTests, FramingTests,
+    LimitTests, NumericEdgeTests, PreviewAssertions)
+
+# Pinned Lean 4.35.0 / lean4export 3.1.0 fixtures; `make reference-export`
+# regenerates them. A changed byte must be a reviewed fixture update.
+FIXTURE_SHA256 = {
+    "composition": "7778d2ef5da2f0935fb0180c953afa9371843f4ceec2660122f8c792b9ca2fec",
+    "constant-fixture": "b6444346ee56d77f6936fb1bdca389b25bc76330b146fb7612fb6fc5c1be0249",
+    "identity": "ba672d3e08f67a6871dfaceb45238f8f283e4ee31af2cac4ee1b5423b62e878b",
+    "poly-identity": "d1780587219fb0e680f3e39a8c8e19349ebf2e5c39ee8e9f365d58a51fc842da",
+    "type-identity": "0d998bf9119f19e32ca19e624f3111f8f2bf613b16aa00da253108ffc961ecde",
+}
 
 
-class PreviewTests(unittest.TestCase):
+class FixtureHashTests(unittest.TestCase):
+    def test_all_pinned_exports_are_unchanged(self):
+        present = sorted(path.stem for path in Path("tests/reference").glob("*.ndjson"))
+        self.assertEqual(present, sorted(FIXTURE_SHA256))
+        for name, digest in FIXTURE_SHA256.items():
+            with self.subTest(name=name):
+                data = Path(f"tests/reference/{name}.ndjson").read_bytes()
+                self.assertEqual(hashlib.sha256(data).hexdigest(), digest)
+
+
+class PreviewTests(PreviewAssertions, unittest.TestCase):
     def setUp(self):
         self.raw = Path("tests/reference/composition.ndjson").read_bytes()
         self.lines = self.raw.decode().splitlines()
@@ -62,22 +88,21 @@ class PreviewTests(unittest.TestCase):
 
     def test_bad_json_and_duplicate_keys_fail(self):
         for line in (b'{"x":', b'{"x":0,"x":1}', b'\xff', b'NaN'):
-            with self.subTest(line=line), self.assertRaises(PreviewError):
-                preview(io.BytesIO(line + b"\n"))
+            with self.subTest(line=line):
+                self.assertPreviewError(MALFORMED, line + b"\n", 1)
 
     def test_versions_and_unsupported_nodes(self):
         lines = self.alter('"meta"', lambda r: r["meta"]["format"].update(version="9"))
-        with self.assertRaises(PreviewError) as raised:
-            self.parse(lines)
-        self.assertEqual(raised.exception.code, "LF_PREVIEW_UNSUPPORTED")
+        self.assertPreviewError(UNSUPPORTED, lines, 1)
+        line = next(i for i, text in enumerate(self.lines, 1) if '"ie":0' in text)
+        well_formed_let = {"body": 0, "name": 0, "nondep": False, "type": 0, "value": 0}
+        lines = self.lines[:line] + [json.dumps({"ie": 1, "letE": well_formed_let})]
+        self.assertPreviewError(UNSUPPORTED, lines, line + 1)
+        # A spec-listed kind with a malformed payload is rejected, not unsupported.
         lines = self.alter('"ie":0', lambda r: (r.pop("sort"), r.update(letE={})))
-        with self.assertRaises(PreviewError) as raised:
-            self.parse(lines)
-        self.assertEqual(raised.exception.code, "LF_PREVIEW_UNSUPPORTED")
+        self.assertPreviewError(MALFORMED, lines, line)
         lines = self.alter('"ie":0', lambda r: r.update(sort=1))
-        with self.assertRaises(PreviewError) as raised:
-            self.parse(lines)
-        self.assertEqual(raised.exception.code, "LF_PREVIEW_MALFORMED")
+        self.assertPreviewError(MALFORMED, lines, line)
 
     def test_invalid_references_and_boolean_integers(self):
         mutations = [
@@ -87,8 +112,9 @@ class PreviewTests(unittest.TestCase):
             ('"thm"', lambda r: r["thm"].update(value=999)),
         ]
         for needle, mutate in mutations:
-            with self.subTest(needle=needle), self.assertRaises(PreviewError):
-                self.parse(self.alter(needle, mutate))
+            line = next(i for i, text in enumerate(self.lines, 1) if needle in text)
+            with self.subTest(needle=needle):
+                self.assertPreviewError(MALFORMED, self.alter(needle, mutate), line)
 
     def test_universe_indices_resolve_successors_not_index_numbers(self):
         lines = self.lines.copy()
@@ -108,13 +134,13 @@ class PreviewTests(unittest.TestCase):
                        '{"il":1,"succ":true}'):
             lines = self.lines.copy()
             lines.insert(position, record)
-            with self.subTest(record=record), self.assertRaises(PreviewError):
-                self.parse(lines)
+            with self.subTest(record=record):
+                self.assertPreviewError(MALFORMED, lines, position + 1)
+        # Lean 4.35.0 export format 3.1.0 has no level metavariable record, so
+        # it is malformed rather than a valid record awaiting support.
         lines = self.lines.copy()
         lines.insert(position, '{"il":1,"mvar":1}')
-        with self.assertRaises(PreviewError) as raised:
-            self.parse(lines)
-        self.assertEqual(raised.exception.code, "LF_PREVIEW_UNSUPPORTED")
+        self.assertPreviewError(MALFORMED, lines, position + 1)
         # Exactly 256 successor records are allowed by the preview.
         lines = self.lines.copy()
         levels = [json.dumps({"il": i, "succ": i - 1}) for i in range(1, 257)]
@@ -123,9 +149,7 @@ class PreviewTests(unittest.TestCase):
         self.assertEqual(self.parse(lines)["expressions"][0]["level"], 256)
         lines = [self.lines[0]] + [json.dumps({"il": i, "succ": i - 1})
                                    for i in range(1, 258)]
-        with self.assertRaises(PreviewError) as raised:
-            self.parse(lines)
-        self.assertEqual(raised.exception.code, "LF_PREVIEW_LIMIT")
+        self.assertPreviewError(LIMIT, lines, 258)
 
     def test_concrete_max_imax_and_malformed_pairs(self):
         position = next(i for i, line in enumerate(self.lines) if '"ie":0' in line)
@@ -140,8 +164,8 @@ class PreviewTests(unittest.TestCase):
             for value in ([], [0], [0, 0, 0], [True, 0], [0, 1], "bad"):
                 lines = self.lines.copy()
                 lines.insert(position, json.dumps({"il": 1, kind: value}))
-                with self.subTest(kind=kind, value=value), self.assertRaises(PreviewError):
-                    self.parse(lines)
+                with self.subTest(kind=kind, value=value):
+                    self.assertPreviewError(MALFORMED, lines, position + 1)
 
     def test_nested_universe_sorts_reach_forth(self):
         raw = Path("tests/reference/identity.ndjson").read_text().splitlines()
@@ -168,20 +192,15 @@ class PreviewTests(unittest.TestCase):
         self.assertEqual(tuple(map(int, rows[-1].split())), (8, 1, 1, 0))
 
     def test_limits_and_missing_declaration(self):
-        with self.assertRaises(PreviewError) as raised:
-            preview(io.BytesIO(b" " * (MAX_LINE + 1)))
-        self.assertEqual(raised.exception.code, "LF_PREVIEW_LIMIT")
-        with self.assertRaises(PreviewError):
-            self.parse(self.lines[:-1])
+        self.assertPreviewError(LIMIT, b" " * (MAX_LINE + 1), 1)
+        self.assertPreviewError(MALFORMED, self.lines[:-1], len(self.lines) - 1)
         lines = [self.lines[0]] + [json.dumps({"ie": i, "sort": 0}) for i in range(65)]
-        with self.assertRaises(PreviewError) as raised:
-            self.parse(lines)
-        self.assertEqual(raised.exception.code, "LF_PREVIEW_LIMIT")
+        self.assertPreviewError(LIMIT, lines, 66)
 
     def test_cli_failure_has_no_partial_output(self):
         result = subprocess.run([sys.executable, "tests/support/ndjson_preview.py"],
                                 input=self.raw + b"{\n", capture_output=True)
-        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.returncode, 1)
         self.assertEqual(result.stdout, b"")
         self.assertEqual(json.loads(result.stderr)["code"], "LF_PREVIEW_MALFORMED")
 
@@ -191,8 +210,7 @@ class PreviewTests(unittest.TestCase):
             json.dumps({"thm": {"all": [13], "levelParams": [], "name": 13,
                                 "type": 10, "value": 20}}),
         ]
-        with self.assertRaises(PreviewError):
-            self.parse(lines)
+        self.assertPreviewError(MALFORMED, lines, len(lines))
 
     def test_exported_names_intern_with_structured_aliases(self):
         lines = self.lines.copy()
@@ -311,23 +329,22 @@ class PreviewTests(unittest.TestCase):
         for name in (0, 999, True):
             lines = raw.copy()
             lines[position] = json.dumps({"il": 1, "param": name})
-            with self.subTest(name=name), self.assertRaises(PreviewError):
-                self.parse(lines)
+            with self.subTest(name=name):
+                self.assertPreviewError(MALFORMED, lines, position + 1)
         for params in ([2, 2], [0], [999], [True], "bad"):
             lines = raw.copy()
             record = json.loads(lines[-1])
             record["thm"]["levelParams"] = params
             lines[-1] = json.dumps(record)
-            with self.subTest(params=params), self.assertRaises(PreviewError):
-                self.parse(lines)
+            with self.subTest(params=params):
+                self.assertPreviewError(MALFORMED, lines, len(lines))
 
     def test_preview_rejects_undeclared_universe_parameter(self):
         raw = Path("tests/reference/poly-identity.ndjson").read_text().splitlines()
         record = json.loads(raw[-1])
         record["thm"]["levelParams"] = []
         raw[-1] = json.dumps(record)
-        with self.assertRaises(PreviewError):
-            self.parse(raw)
+        self.assertPreviewError(MALFORMED, raw, len(raw))
 
     def test_parameter_scope_uses_reconstructed_names_and_reachable_levels(self):
         raw = Path("tests/reference/poly-identity.ndjson").read_text().splitlines()
@@ -344,8 +361,7 @@ class PreviewTests(unittest.TestCase):
         record = json.loads(raw[-1])
         record["thm"]["levelParams"] = [13]
         raw[-1] = json.dumps(record)
-        with self.assertRaises(PreviewError):
-            self.parse(raw)
+        self.assertPreviewError(MALFORMED, raw, len(raw))
 
     def test_theorem_all_allows_equivalent_name_index(self):
         raw = Path("tests/reference/poly-identity.ndjson").read_text().splitlines()
@@ -356,8 +372,7 @@ class PreviewTests(unittest.TestCase):
         self.assertIs(self.parse(raw)["checked"], False)
         record["thm"]["all"] = [True]
         raw[-1] = json.dumps(record)
-        with self.assertRaises(PreviewError):
-            self.parse(raw)
+        self.assertPreviewError(MALFORMED, raw, len(raw))
 
     def test_parameter_scope_traverses_nested_level_graph(self):
         raw = Path("tests/reference/poly-identity.ndjson").read_text().splitlines()
@@ -369,8 +384,7 @@ class PreviewTests(unittest.TestCase):
         record = json.loads(raw[-1])
         record["thm"]["levelParams"] = []
         raw[-1] = json.dumps(record)
-        with self.assertRaises(PreviewError):
-            self.parse(raw)
+        self.assertPreviewError(MALFORMED, raw, len(raw))
 
     def test_each_declaration_and_value_has_its_own_parameter_scope(self):
         raw = Path("tests/reference/poly-identity.ndjson").read_text().splitlines()
@@ -380,14 +394,12 @@ class PreviewTests(unittest.TestCase):
         self.assertIs(self.parse(raw)["checked"], False)
         record["thm"]["levelParams"] = []
         raw[-1] = json.dumps(record)
-        with self.assertRaises(PreviewError):
-            self.parse(raw)
+        self.assertPreviewError(MALFORMED, raw, len(raw))
         # A prior declaration's successful check cannot authorize a second one.
         original = Path("tests/reference/poly-identity.ndjson").read_text().splitlines()
         original.extend(['{"in":12,"str":{"pre":0,"str":"other"}}',
                          '{"thm":{"all":[12],"levelParams":[],"name":12,"type":2,"value":15}}'])
-        with self.assertRaises(PreviewError):
-            self.parse(original)
+        self.assertPreviewError(MALFORMED, original, len(original))
 
     def test_multiple_real_lean_exports_reach_forth_probe(self):
         for name in ("identity", "composition", "type-identity"):
