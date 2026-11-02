@@ -635,6 +635,8 @@ the critical path; each summary should take under ten minutes to read.
 
 ### W7 Scale (placeholder for the separate scale workstream)
 
+
+**Update:** the scale assessment is in [SCALE_ASSESSMENT.md](SCALE_ASSESSMENT.md) (2026-11-02); its figures still need folding into phase 6.
 A separate agent is estimating Mathlib-scale memory, CPU and the required
 data-structure changes. This plan reserves 6.0.1 to absorb its results and
 leaves every scale number blank. What the plan needs from that report:
