@@ -8,7 +8,10 @@
 \ Binary constructors capture child indices, not identities; their safety
 \ relies on backward edges and no raw mutation or count edits.
 \ State: the stamp table (global, indexed by term index) and one walk
-\ record, lf-cterm-walker. Not re-entrant and single-threaded. Identities
+\ record, lf-cterm-walker. Each constant and symbolic Sort visit also runs
+\ a level-scope check on level-scope's walk record (lf-lscope-walk), so
+\ this check must not run while another module borrows that record. Not
+\ re-entrant and single-threaded. Identities
 \ are forgeable, instance-local diagnostics; the memory layout is not a
 \ serialization format.
 
@@ -17,25 +20,29 @@ create lf-cterm-stamps lf-term-capacity cells allot
 lf-cterm-stamps lf-term-capacity cells erase
 lf-term-capacity walk: lf-cterm-walker
 
-\ Fuel left after a check; the kernel passes continue with it.
+\ Fuel left after a check; the kernel passes continue with it. Negative
+\ fuel leaves it unchanged; an invalid root leaves the fuel given.
 : lf-cterm-fuel ( -- addr ) lf-cterm-walker walk-fuel ;
 
 \ Stamp cell of a constant node at a valid term index.
 : lf-cterm-stamp-cell ( index -- addr ) cells lf-cterm-stamps + ;
 
+: lf-cterm-stamp ( term identity -- ) swap lf-cterm-stamp-cell ! ;
+
 \ Allocate a constant node for a live reference in the current session and
 \ stamp it with its own identity. Failure leaves the term store unchanged.
-: lf-cterm-stamp ( term identity -- ) swap lf-cterm-stamp-cell ! ;
+: lf-cterm-source? ( cref identity -- flag ) lf-cref-valid? lf-ssession-current? and ;
 : lf-cterm-new ( cref identity -- term identity true | false )
-  lf-ssession-current? 0= if 2drop false exit then
-  2dup lf-cref-valid? 0= if 2drop false exit then
+  2dup lf-cterm-source? 0= if 2drop false exit then
   lf-tag-constant -rot lf-term-add lf-hterm-result
   if 2dup lf-cterm-stamp true else false then ;
 
 \ Check each level of a reference's (index identity) pairs in the current
-\ context from inside this walk, with its fuel.
+\ context from inside this walk, with its fuel. The pairs come from
+\ lf-cref-levels, already validated, so count is 0..8 and identities are
+\ not checked again.
 : lf-cterm-levels ( addr count walk -- outcome )
-  swap 0 ?do over i 2* cells + @ over lf-lscope-walk-check dup ok? 0=
+  swap 0 ?do over i lf-cref-pair@ drop over lf-lscope-walk-check dup ok? 0=
     if nip nip unloop exit then drop loop 2drop outcome-ok ;
 
 \ Visiting one node. A constant must carry its own stamp and a live
@@ -47,9 +54,11 @@ lf-term-capacity walk: lf-cterm-walker
 : lf-cterm-reference ( first second walk -- outcome )
   dup walk-node @ lf-cterm-stamped? 0= if drop 2drop outcome-invalid exit then
   >r lf-cref-levels if r> lf-cterm-levels else r> drop outcome-invalid then ;
+: lf-cterm-sort? ( first second node -- flag )
+  >r over swap lf-repr-leaf? if r> lf-hsort-stamped? else r> 2drop false then ;
 : lf-cterm-sort ( first second walk -- outcome )
-  >r over swap lf-repr-leaf? if dup r@ walk-node @ lf-hsort-stamped?
-    if r> lf-lscope-walk-check exit then then drop r> drop outcome-invalid ;
+  >r 2dup r@ walk-node @ lf-cterm-sort?
+  if drop r> lf-lscope-walk-check else 2drop r> drop outcome-invalid then ;
 : lf-cterm-dispatch ( first second walk tag -- outcome )
   dup lf-term-binary-tag? if drop walk-children exit then
   case lf-tag-constant of lf-cterm-reference endof

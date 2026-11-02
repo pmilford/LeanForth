@@ -1,4 +1,5 @@
 include ../support/tester.fs
+include ../support/checks.fs
 include ../../src/core/terms.fs
 include ../../src/core/names.fs
 include ../../src/core/levels.fs
@@ -100,7 +101,7 @@ T{ lf-cref-count @ -> 1 }T
 
 \ lf-cref-levels: the validated level pairs of a live reference, in order;
 \ a stale identity or a reset name table gives only false.
-T{ 0 1 lf-cref-levels -> 0 lf-cref-slot lf-ref-levels 8 true }T
+T{ 0 1 lf-cref-levels -> 0 lf-cref-slot lf-crec-levels 8 true }T
 T{ 0 1 lf-cref-levels 2drop 7 2* cells + 2@ swap -> 1 lf-level-serial @ }T
 T{ 0 2 lf-cref-levels -> false }T
 T{ 1 1 lf-cref-levels -> false }T
@@ -114,4 +115,46 @@ lf-cref-serial @ constant cref-serial1
 T{ 0 lf-name-generation @ eight-args 9 lf-cref-new -> false }T
 T{ 999 lf-name-generation @ 0 0 lf-cref-new -> false }T
 T{ lf-cref-count @ lf-cref-serial @ -> 0 cref-serial1 }T
+\ An invalid name or store is refused before the level array is read, so
+\ even an unreadable address is never touched.
+T{ 999 lf-name-generation @ 0 1 lf-cref-new -> false }T
+-1 lf-cref-count !
+T{ name-id @ lf-name-generation @ 0 1 lf-cref-new -> false }T
+0 lf-cref-count !
+
+\ A corrupted count makes every reference invalid; nothing is allocated.
+setup
+T{ name-id @ lf-name-generation @ args 2 lf-cref-new -> 0 cref-serial1 1+ true }T
+cref-serial1 1+ constant live-id
+33 lf-cref-count !
+T{ 0 live-id lf-cref-valid? name-id @ lf-name-generation @ 0 0 lf-cref-new -> false false }T
+-1 lf-cref-count !
+T{ 0 live-id lf-cref-valid? 0 live-id lf-cref-levels -> false false }T
+1 lf-cref-count !
+
+\ A stored argument count outside 0..8 makes the record invalid everywhere.
+: arity! ( n -- ) 0 lf-cref-slot lf-crec-arity ! ;
+9 arity!
+T{ 0 live-id lf-cref-valid? 0 live-id lf-cref-read -> false false }T
+T{ 0 live-id lf-cref-levels 0 live-id 0 lf-cref-level -> false false }T
+-1 arity!
+T{ 0 live-id lf-cref-valid? 0 live-id lf-cref-levels -> false false }T
+0 arity!
+T{ 0 live-id lf-cref-levels -> 0 lf-cref-slot lf-crec-levels 0 true }T
+T{ 0 live-id 0 lf-cref-level -> false }T
+2 arity!
+
+\ The serial never wraps: at max-n one more reference is refused.
+max-n 1- lf-cref-serial !
+T{ name-id @ lf-name-generation @ 0 0 lf-cref-new -> 1 max-n true }T
+T{ name-id @ lf-name-generation @ 0 0 lf-cref-new -> false }T
+T{ lf-cref-count @ -> 2 }T
+
+\ The public words keep the return stack balanced.
+T{ 0 live-id ' lf-cref-valid? rs-checked -> true }T
+T{ 0 live-id ' lf-cref-read rs-checked -> name-id @ lf-name-generation @ 2 true }T
+T{ 0 live-id 1 ' lf-cref-level rs-checked -> 1 level-id @ true }T
+T{ 0 live-id ' lf-cref-levels rs-checked rot drop -> 2 true }T
+lf-cref-reset 0 lf-cref-serial !
+T{ name-id @ lf-name-generation @ args 2 ' lf-cref-new rs-checked -> 0 1 true }T
 bye

@@ -1,4 +1,5 @@
 include ../support/tester.fs
+include ../support/checks.fs
 include ../../src/core/terms.fs
 include ../../src/core/names.fs
 include ../../src/core/levels.fs
@@ -121,4 +122,18 @@ fresh
 raw-reuse
 T{ 0 lf-term-identities @ 10 lf-cterm-check -> lf-repr-invalid }T
 T{ 0 cid @ 10 lf-cterm-check -> lf-repr-invalid }T
+\ The fuel a check leaves, which seven kernel callers continue with:
+\ what remains on success, zero on exhaustion, the given fuel for an
+\ invalid root, and unchanged for negative fuel.
+lf-name-reset lf-level-reset lf-term-reset lf-lscope-context-reset lf-cref-reset
+lf-ssession-begin 0= abort" session"
+setup
+T{ 5 pid @ 100 lf-cterm-check lf-cterm-fuel @ -> lf-repr-ok 90 }T
+T{ 5 pid @ 10 lf-cterm-check lf-cterm-fuel @ -> lf-repr-ok 0 }T
+T{ 5 pid @ 9 lf-cterm-check lf-cterm-fuel @ -> lf-repr-exhausted 0 }T
+T{ 5 pid @ 1+ 7 lf-cterm-check lf-cterm-fuel @ -> lf-repr-invalid 7 }T
+T{ 5 pid @ -1 lf-cterm-check lf-cterm-fuel @ -> lf-repr-invalid 7 }T
+T{ 5 pid @ 100 ' lf-cterm-check rs-checked -> lf-repr-ok }T
+-3 0 lf-cterm-stamp-cell !
+T{ 5 pid @ 100 lf-cterm-check lf-cterm-fuel @ -> lf-repr-invalid 95 }T
 bye

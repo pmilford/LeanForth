@@ -1,5 +1,6 @@
 \ Mixed syntax scope checks do not resolve or validate declarations.
 include ../support/tester.fs
+include ../support/checks.fs
 include ../../src/core/terms.fs
 include ../../src/core/names.fs
 include ../../src/core/levels.fs
@@ -35,6 +36,17 @@ T{ 0 const-id @ 0 100 lf-constant-term-scope -> lf-repr-ok }T
 T{ 2 var-id @ 0 100 lf-constant-term-scope -> lf-repr-invalid }T
 T{ 2 var-id @ 1 100 lf-constant-term-scope -> lf-repr-ok }T
 T{ 4 lambda-id @ 0 100 lf-constant-term-scope -> lf-repr-ok }T
+\ Fuel left, which kernel passes continue with: what remains after both
+\ passes, zero on exhaustion, the given fuel when validation or the depth
+\ fails, two visits used when only the scope pass fails, and unchanged for
+\ negative fuel.
+T{ 4 lambda-id @ 0 100 lf-constant-term-scope lf-cts-fuel @ -> lf-repr-ok 89 }T
+T{ 2 var-id @ 1 2 lf-constant-term-scope lf-cts-fuel @ -> lf-repr-ok 0 }T
+T{ 2 var-id @ 1 1 lf-constant-term-scope lf-cts-fuel @ -> lf-repr-exhausted 0 }T
+T{ 2 var-id @ -1 30 lf-constant-term-scope lf-cts-fuel @ -> lf-repr-invalid 30 }T
+T{ 2 var-id @ 0 30 lf-constant-term-scope lf-cts-fuel @ -> lf-repr-invalid 28 }T
+T{ 4 lambda-id @ 1+ 0 40 lf-constant-term-scope lf-cts-fuel @ -> lf-repr-invalid 40 }T
+T{ 2 var-id @ 1 -1 lf-constant-term-scope lf-cts-fuel @ -> lf-repr-invalid 40 }T
 \ Sharing a bound variable outside the lambda must fail regardless of order.
 T{ 4 lambda-id @ 2 var-id @ lf-hterm-app -> 5 lf-term-serial @ true }T
 T{ 5 lf-term-serial @ 0 100 lf-constant-term-scope -> lf-repr-invalid }T
@@ -74,6 +86,7 @@ T{ lf-term-count @ lf-level-count @ -> 11 1 }T
 T{ 4 lambda-id @ -1 100 lf-constant-term-scope -> lf-repr-invalid }T
 T{ 4 lambda-id @ lf-term-capacity 1+ 100 lf-constant-term-scope -> lf-repr-invalid }T
 T{ 4 lambda-id @ 0 0 lf-constant-term-scope -> lf-repr-exhausted }T
+T{ 4 lambda-id @ 0 100 ' lf-constant-term-scope rs-checked -> lf-repr-ok }T
 T{ 4 lambda-id @ 1+ 0 100 lf-constant-term-scope -> lf-repr-invalid }T
 \ Reuse the referenced slot: the original constant must remain stale.
 lf-cref-reset

@@ -288,4 +288,46 @@ T{ 2 /node 0 store: s3 -> }T
 T{ w1 s3 ' show-node walk-visit -> 15 }T
 1 w1 walk-node !
 T{ w1 s3 ' show-node walk-visit -> outcome-invalid }T
+\ Paired walks: each item is a node and a context cell, popped together.
+T{ 3 walk2: p1 -> }T
+T{ p1 walk-capacity @ p1 walk-width @ w1 walk-width @ p1 walk-pending @ -> 6 2 1 0 }T
+T{ 10 100 p1 walk-push-pair 11 101 p1 walk-push-pair 12 102 p1 walk-push-pair -> true true true }T
+T{ 13 103 p1 walk-push-pair p1 walk-pending @ -> false 6 }T
+T{ p1 walk-pop-pair -> 12 102 }T
+T{ p1 walk-take p1 walk-node @ p1 walk-context @ p1 walk-pending @ -> 11 101 2 }T
+T{ 2 p1 walk-room-for? 4 p1 walk-room-for? 5 p1 walk-room-for? -> true true false }T
+-1 p1 walk-pending !
+T{ 1 2 p1 walk-push-pair p1 walk-pending @ -> false -1 }T
+5 p1 walk-pending !
+T{ 1 2 p1 walk-push-pair -> false }T
+
+\ walk-children-at pushes the first child with the current context and the
+\ second with the given one, so the second is visited first.
+0 p1 walk-pending ! 7 p1 walk-context !
+T{ 1 2 9 p1 walk-children-at p1 walk-pop-pair p1 walk-pop-pair -> outcome-ok 2 9 1 7 }T
+4 p1 walk-pending !
+T{ 1 2 9 p1 walk-children-at p1 walk-pending @ -> outcome-exhausted 6 }T
+T{ 1 2 9 p1 walk-children-at p1 walk-pending @ -> outcome-exhausted 6 }T
+0 p1 walk-pending !
+T{ 1 2 3 p1 ' walk-children-at rs-checked 4 5 p1 ' walk-pair-outcome rs-checked -> outcome-ok outcome-ok }T
+
+\ walk-run-pair over the DAG above, where the second child (n-2) sits one
+\ level deeper: 15 visits, and the deepest context is two below the root.
+variable deepest
+: depth-visit ( walk -- outcome )
+  dup walk-context @ deepest @ max deepest !
+  dup walk-node @ dup 2 < if 2drop outcome-ok exit then
+  dup 1- swap 2 - rot dup walk-context @ 1+ swap walk-children-at ;
+T{ 8 walk2: p2 -> }T
+0 deepest ! 100 p2 walk-budget drop
+T{ 5 10 ' depth-visit p2 walk-run-pair p2 walk-fuel @ deepest @ -> outcome-ok 85 12 }T
+14 p2 walk-budget drop
+T{ 5 10 ' depth-visit p2 walk-run-pair -> outcome-exhausted }T
+T{ 2 walk2: p3 -> }T
+100 p3 walk-budget drop
+T{ 5 0 ' depth-visit p3 walk-run-pair -> outcome-exhausted }T
+-1 p3 walk-capacity !
+20 p3 walk-budget drop
+T{ 5 0 ' depth-visit p3 walk-run-pair p3 walk-fuel @ -> outcome-exhausted 20 }T
+T{ s" 0 walk2: pbad0" bad-walk? s" -1 walk2: pbad1" bad-walk? s" 1 walk2: pone" bad-walk? -> true true false }T
 bye

@@ -260,3 +260,30 @@ Three answers change designs:
   Results reused from a saved file are labelled as not re-checked in this
   run. Rejected: always re-checking in development (slow at Mathlib scale
   for no benefit to the owner's research use).
+
+## Paired walks and the constant-term scope check — 2026-11-02
+
+`src/lib/walk.fs` gains paired walks (`walk2:`): each work item is a node
+plus one context cell, here the number of binders available at that node,
+popped together into `walk-node` and `walk-context`. The constant-term scope
+check is rebuilt on one, removing its seven register variables; a
+randomized differential against the previous code (40 seeds, 28,160
+comparisons of outcome and fuel) found no difference, and a planted fault
+was caught in every seed. The kernel's shift and instantiate passes, which
+also carry a binder depth, are expected to reuse it where they walk rather
+than rebuild.
+
+The independent review of the previous batch found no behavior change for
+inputs within the module contract. Acted on: `lf-cref-new` no longer reads
+the level array when the name or store is already invalid (an unreadable
+address now fails instead of crashing), `lf-cref-store` uses the store's
+allocation flag instead of dropping it, the reference record's fields are
+renamed `lf-crec-*` so they are not confused with the public `lf-cref-*`
+words, comments state which callers rely on the fuel left, and tests cover
+corrupted counts, argument counts outside 0..8, serial exhaustion and
+return-stack balance. `make forth-metrics` now finds defining words that
+create through another defining word (`walk2:` through `walk-sized`).
+
+Rejected: one walk record type with a width-two stack only (doubles the
+memory of every one-cell walk); encoding node and depth in one cell (limits
+both to half a cell and hides the layout).

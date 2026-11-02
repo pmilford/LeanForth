@@ -70,15 +70,22 @@ def tokens(text):
 
 
 def definers(paths):
-    """Names of colon definitions whose body uses CREATE: defining words."""
-    found = set()
+    """Names of colon definitions whose body uses CREATE, directly or through
+    another defining word (such as walk2: through walk-sized)."""
+    bodies = {}
     for path in paths:
         toks = [t for _, t in tokens(path.read_text(encoding="utf-8", errors="replace"))]
         for k, tok in enumerate(toks[:-1]):
             if tok == ":":
                 end = toks.index(";", k) if ";" in toks[k:] else len(toks)
-                if "create" in toks[k + 2:end] and toks[k + 1] not in NOT_STATE:
-                    found.add(toks[k + 1])
+                if toks[k + 1] not in NOT_STATE:
+                    bodies[toks[k + 1]] = set(toks[k + 2:end])
+    found, grown = set(), True
+    while grown:
+        new = {name for name, body in bodies.items()
+               if name not in found and ("create" in body or body & found)}
+        found |= new
+        grown = bool(new)
     return found
 
 

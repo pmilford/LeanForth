@@ -14,41 +14,65 @@
 \ with ok when the stack empties. A visitor result outside the outcome
 \ vocabulary counts as invalid. A node shared by several parents is
 \ visited, and charged, once per path.
+\ In a paired walk (walk2:) each item is a node plus one context cell, such
+\ as the number of binders around that node; walk-take puts the context in
+\ walk-context, and walk-run-pair and walk-push-pair take both cells.
 
 begin-structure walk-header
   field: walk-fuel       \ visits left
   field: walk-node       \ node being visited
+  field: walk-context    \ its context cell, in a paired walk
   field: walk-arg        \ one cell for the visitor
-  field: walk-pending    \ items on the work stack
-  field: walk-capacity   \ maximum items
+  field: walk-pending    \ cells on the work stack
+  field: walk-capacity   \ maximum cells
+  field: walk-width      \ cells per item: 1, or 2 in a paired walk
 end-structure
 
 : walk-stack ( walk -- addr ) walk-header + ;
-: walk-bytes ( capacity -- u ) cells walk-header + ;
-\ Defining word: name ( -- walk ), zeroed, with room for capacity items. A
-\ capacity below 1 aborts the definition.
-: walk: ( capacity "name" -- )
-  dup 0> 0= abort" walk: bad capacity" create dup walk-bytes store-zeroed, walk-capacity ! ;
+: walk-bytes ( cells -- u ) cells walk-header + ;
+: walk-paired? ( walk -- flag ) walk-width @ 2 = ;
+\ Defining words: name ( -- walk ), zeroed, with room for capacity items of
+\ one cell (walk:) or of a node and its context (walk2:). A capacity below
+\ 1 aborts the definition.
+: walk-sized ( capacity width "name" -- )
+  over 0> 0= abort" walk: bad capacity"
+  create tuck * dup walk-bytes store-zeroed, tuck walk-capacity ! walk-width ! ;
+: walk: ( capacity "name" -- ) 1 walk-sized ;
+: walk2: ( capacity "name" -- ) 2 walk-sized ;
 
 \ Set the budget for a walk; a negative fuel is refused and stores nothing.
 : walk-budget ( fuel walk -- flag ) over 0< if 2drop false else walk-fuel ! true then ;
 
 \ The work stack. A push fails, changing nothing, when the stack is full or
 \ its count or capacity is out of range; signed comparisons only.
-: walk-room? ( walk -- flag ) dup walk-pending @ swap walk-capacity @ over > swap 0< 0= and ;
+: walk-room-for? ( n walk -- flag )
+  dup walk-pending @ swap walk-capacity @ rot - 0 swap between? ;
+: walk-room? ( walk -- flag ) 1 swap walk-room-for? ;
 : walk-top ( walk -- addr ) dup walk-pending @ cells swap walk-stack + ;
 : walk-push ( index walk -- flag )
   dup walk-room? if tuck walk-top ! 1 swap walk-pending +! true else 2drop false then ;
-\ Unchecked: 0 < pending <= capacity (walk-loop only pops a nonempty stack).
+: walk-push-pair ( node context walk -- flag )
+  2 over walk-room-for? if dup >r walk-top 2! 2 r> walk-pending +! true
+  else drop 2drop false then ;
+\ Unchecked: width <= pending <= capacity, and pending is a multiple of the
+\ width (walk-loop only pops a nonempty stack).
 : walk-pop ( walk -- index ) -1 over walk-pending +! walk-top @ ;
+: walk-pop-pair ( walk -- node context ) -2 over walk-pending +! walk-top 2@ ;
 
 \ Pushing children from a visitor. walk-child and walk-children require an
 \ earlier node than the one being visited, which rules out cycles and
-\ forward edges; walk-push-outcome and walk-push2 do not check, for inputs
-\ whose shape an earlier pass validated.
+\ forward edges; walk-push-outcome, walk-push2 and the paired words do not
+\ check, for inputs whose shape an earlier pass validated.
 : walk-push-outcome ( index walk -- outcome ) walk-push if outcome-ok else outcome-exhausted then ;
 : walk-push2 ( first second walk -- outcome )
   rot over walk-push if walk-push-outcome else 2drop outcome-exhausted then ;
+: walk-pair-outcome ( node context walk -- outcome )
+  walk-push-pair if outcome-ok else outcome-exhausted then ;
+\ Paired: push first with the current node's context, then second with
+\ the given one (so second is visited first).
+: walk-children-at ( first second context walk -- outcome )
+  >r rot r@ walk-context @ r@ walk-push-pair
+  if r> walk-pair-outcome else 2drop r> drop outcome-exhausted then ;
 : walk-child? ( index walk -- flag ) walk-node @ 0 swap within ;
 : walk-child ( index walk -- outcome )
   2dup walk-child? if walk-push-outcome else 2drop outcome-invalid then ;
@@ -65,7 +89,9 @@ end-structure
 
 \ The loop.
 : walk-spend? ( walk -- flag ) walk-fuel dup @ 0= if drop false else -1 swap +! true then ;
-: walk-take ( walk -- ) dup walk-pop swap walk-node ! ;
+: walk-take-pair ( walk -- ) dup walk-pop-pair rot tuck walk-context ! walk-node ! ;
+: walk-take ( walk -- )
+  dup walk-paired? if walk-take-pair else dup walk-pop swap walk-node ! then ;
 : walk-step ( xt walk -- outcome )
   dup walk-spend? if dup walk-take swap execute outcome-sane else 2drop outcome-exhausted then ;
 : walk-loop ( xt walk -- outcome )
@@ -75,3 +101,6 @@ end-structure
 : walk-start ( root walk -- flag ) 0 over walk-pending ! walk-push ;
 : walk-run ( root xt walk -- outcome )
   rot over walk-start if walk-loop else 2drop outcome-exhausted then ;
+: walk-start-pair ( node context walk -- flag ) 0 over walk-pending ! walk-push-pair ;
+: walk-run-pair ( node context xt walk -- outcome )
+  >r -rot r@ walk-start-pair if r> walk-loop else drop r> drop outcome-exhausted then ;
