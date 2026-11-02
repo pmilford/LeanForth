@@ -84,19 +84,14 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
   2dup <> if ." expected status " . ." actual " . cr -2 throw then 2drop ;
 
 : probe ( claim value fuel -- status )
-  >r h lf-mdefinition-value-id ! lf-mdefinition-value !
-  h lf-mdefinition-type-id ! lf-mdefinition-type !
-  token @ lf-mdefinition-type @ lf-mdefinition-type-id @
-  lf-mdefinition-value @ lf-mdefinition-value-id @ r>
-  ['] lf-mixed-definition-probe rs-checked ;
+  >r >r h token @ -rot r> h r> ['] lf-mixed-definition-probe rs-checked ;
 : assert-rollback ( -- ) counts-unchanged? 0= abort" arena counts changed" ;
 
-\ Every inference status keeps its meaning; any other value is invalid.
-T{ lf-minfer-ok lf-mdefinition-infer-status -> lf-mdefinition-ok }T
-T{ lf-minfer-invalid lf-mdefinition-infer-status -> lf-mdefinition-invalid }T
-T{ lf-minfer-exhausted lf-mdefinition-infer-status -> lf-mdefinition-exhausted }T
-T{ lf-minfer-unknown lf-mdefinition-infer-status -> lf-mdefinition-unknown }T
-T{ 99 lf-mdefinition-infer-status -> lf-mdefinition-invalid }T
+\ The statuses are the shared outcomes, with the inference statuses' values.
+: statuses ( -- ok invalid exhausted unknown )
+  lf-mdefinition-ok lf-mdefinition-invalid lf-mdefinition-exhausted lf-mdefinition-unknown ;
+T{ statuses -> lf-minfer-ok lf-minfer-invalid lf-minfer-exhausted lf-minfer-unknown }T
+T{ statuses -> outcome-ok outcome-invalid outcome-exhausted outcome-unknown }T
 : basic-case ( -- )
   setup snapshot 4 9 50000 probe lf-mdefinition-ok expect-status assert-rollback
   lf-mdefinition-fuel @ 0<= abort" success fuel"
@@ -106,8 +101,7 @@ T{ 99 lf-mdefinition-infer-status -> lf-mdefinition-invalid }T
   snapshot 0 9 50000 probe lf-mdefinition-unknown expect-status assert-rollback
   snapshot 0 12 50000 probe lf-mdefinition-invalid expect-status assert-rollback
   lf-mdefinition-fuel @ 0<> abort" invalid fuel"
-  snapshot 9 9 50000 probe lf-mdefinition-unknown expect-status assert-rollback
-  99 lf-mdefinition-infer-status lf-mdefinition-invalid expect-status ;
+  snapshot 9 9 50000 probe lf-mdefinition-unknown expect-status assert-rollback ;
 : stale-case ( -- )
   setup snapshot token @ 4 h 9 h 1+ 50000 lf-mixed-definition-probe
   lf-mdefinition-invalid expect-status assert-rollback
