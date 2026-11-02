@@ -379,3 +379,12 @@ metadata remains an assumption. The lifetime token is not a content revision,
 so callers must exclude index/session mutation and rerun the audit before use.
 This audit is a prerequisite for an inference diagnostic, not a checked
 environment or a trusted boundary.
+
+`mixed-infer.fs` now combines the preflight and mixed-term transformations
+for a closed-source inference diagnostic. Staged signatures and their nested
+dependencies remain unchecked assumptions. The test-only exported fixture
+uses an assumed `fixtureId` signature to infer `fixturePoly` and rejects an
+ill-typed argument; the direct Lean kernel oracle exercises the same shape.
+The diagnostic does not create checked declarations, and its finite tests do
+not establish general Lean compatibility or kernel soundness. Human review
+is still required for any trusted implementation or declaration import.

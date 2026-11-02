@@ -16,6 +16,54 @@ Planning baseline: 2026-11-01, using the 2026-10-31 [progress snapshot](PROJECT_
 These are planned tasks, not claims that the current experimental checker can
 run the examples or that performance data has already been collected.
 
+### Very long term: concurrent proof work
+
+**Current state:** the experimental arenas, session, indexes and scratch
+variables are global and documented as non-reentrant. Do not run concurrent
+proof jobs in the same image or claim Gforth multitasking support today.
+
+- **C1 — investigate:** Document the actual Gforth multitasking and task-local
+  facilities on supported hosts, distinguishing cooperative tasks, operating
+  system threads and separate processes. Inventory all shared Forth state,
+  allocators, I/O, exceptions and foreign interfaces in the eventual checker.
+- **C2 — isolate:** Design explicit per-job sessions, arenas, scratch, resource
+  budgets and ownership/lifetime rules. Define how any shared immutable checked
+  environment is published and protected; no job may observe another job's
+  partial declarations, scratch, assumptions or proof results. Review changes
+  to the trusted boundary and serialization before implementation.
+- **C3 — validate:** Test repeated interleavings, cancellation, exhaustion,
+  stale handles, independent axiom policies and adversarial inputs. Compare
+  results with isolated serial runs and run actual tests on each claimed host.
+  Separate processes may be an interim isolation strategy, not evidence that a
+  shared Forth image is reentrant.
+- **C4 — measure:** Benchmark throughput, memory and scheduling overhead on
+  representative proof and program-verification workloads; document supported
+  concurrency and limits. Never let parallelism bypass proof checking.
+
+## Near-term execution queue: first checked declaration
+
+The earlier roadmap has useful acceptance goals but its items combine many
+changes and review gates, so a count of finished broad tasks conceals progress
+and makes the next step hard to see. This queue splits the current critical
+path into smaller deliverables. The first two are completed **experimental
+preparation**, not completed trusted-kernel milestones.
+
+| Task | Status | Acceptance evidence or next step |
+| --- | --- | --- |
+| Q1. Mixed syntax and scope | Done, untrusted | Constant-bearing source graphs and binder scope are audited with negative and resource tests. |
+| Q2. Candidate signature preflight | Done, untrusted | All staged candidate roots are audited before later allocations; identity reuse and malformed metadata are tested. |
+| Q3. Mixed inference transaction | Done, untrusted | Closed mixed-term inference preaudits source and signature snapshots, bounds fuel, and rolls back all arenas on failure. Tests include stale later signatures, exhaustion and generated references. No theorem is accepted. |
+| Q4. Real exported fixture | Done, untrusted | The pinned `fixturePoly` export is staged and its value inferred using `fixtureId` as an unchecked assumption. A wrong argument and stale candidate signatures are rejected by diagnostic tests. |
+| Q5. Lean comparison | In progress | A direct Lean kernel oracle checks the fixture-shaped inferred type and rejects a wrong argument; broaden and automate comparable cases including symbolic universes, malformed inputs and limitations. |
+| Q6. Checked environment design | In progress | Turn the draft environment ADR into a concrete review packet covering dependency order, universe contexts, identity lifetimes, axiom policy and transaction behavior. Obtain explicit human review before trusted integration. |
+| Q7. First independently checked declaration | Not started | After Q3–Q6 and the kernel review gate, check a real closed definition and a theorem against the prior checked environment, reject mutations and unapproved assumptions, and preserve replayable evidence. |
+| Q8. Parallel program path | In progress | Connect a specified bounded Forth program and its obligations to the same reviewed checker; compare model and actual execution while keeping runtime assumptions explicit. |
+
+Run focused tests while developing. Group roughly two coherent increments
+before the full regression suite and commit when feasible; checkpoint earlier
+for risk, CI failure or a review boundary. Larger batches do not waive negative
+tests, independent review, human approval of trusted changes, or CI checks.
+
 ### Documentation and diagrams
 
 - **D1 — audiences:** Develop and keep current separate entry points for Forth

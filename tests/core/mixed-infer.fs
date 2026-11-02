@@ -1,0 +1,214 @@
+\ Experimental inference contract tests. Candidate signatures are assumptions;
+\ a successful inference is not a checked theorem or declaration.
+include ../support/tester.fs
+include ../../src/core/terms.fs
+include ../../src/experimental/names.fs
+include ../../src/experimental/levels.fs
+include ../../src/experimental/level-scope.fs
+include ../../src/experimental/tagged-sort-boundary.fs
+include ../../src/experimental/symbolic-session.fs
+include ../../src/experimental/generation-handles.fs
+include ../../src/experimental/constant-references.fs
+include ../../src/experimental/constant-term-boundary.fs
+include ../../src/experimental/level-substitute.fs
+include ../../src/experimental/mixed-level-substitute.fs
+include ../../src/experimental/mixed-signature-probe.fs
+include ../../src/experimental/constant-term-scope.fs
+include ../../src/experimental/mixed-signature-audit.fs
+include ../../src/experimental/mixed-compare.fs
+include ../../src/experimental/mixed-shift.fs
+include ../../src/experimental/mixed-instantiate.fs
+include ../../src/experimental/mixed-beta.fs
+include ../../src/experimental/level-value.fs
+include ../../src/experimental/level-compare.fs
+include ../../src/experimental/mixed-convert.fs
+include ../../src/experimental/mixed-infer.fs
+
+\ Helpers adapted from mixed-convert.fs and mixed-signature-audit.fs.
+create ids 64 cells allot
+create actuals 2 cells allot
+create formals 1 cells allot
+variable token variable id-name variable missing-name variable later-name
+create nested-args 2 cells allot
+variable outer-name variable nested-root variable nested-id
+variable outer-root variable outer-id variable generated-ref variable generated-ref-id
+variable terms-before variable levels-before variable crefs-before
+variable term-serial-before variable level-serial-before variable cref-serial-before
+: save ( index identity true | false -- ) 0= abort" fixture allocation" swap cells ids + ! ;
+: h ( index -- index identity ) dup cells ids + @ ;
+: new-name ( addr len -- id ) 0 -rot lf-name-str 0= abort" name" ;
+: snapshot ( -- )
+  lf-term-count @ terms-before ! lf-level-count @ levels-before !
+  lf-cref-count @ crefs-before ! lf-term-serial @ term-serial-before !
+  lf-level-serial @ level-serial-before ! lf-cref-serial @ cref-serial-before ! ;
+: counts-unchanged? ( -- flag )
+  lf-term-count @ terms-before @ = lf-level-count @ levels-before @ = and
+  lf-cref-count @ crefs-before @ = and ;
+: serials-unchanged? ( -- flag )
+  lf-term-serial @ term-serial-before @ = lf-level-serial @ level-serial-before @ = and
+  lf-cref-serial @ cref-serial-before @ = and ;
+: infer ( root fuel -- type identity status ) >r h token @ -rot r> lf-mixed-infer ;
+: setup ( -- )
+  lf-name-reset lf-level-reset lf-term-reset lf-lscope-context-reset lf-cref-reset
+  42 lf-lscope-context-add 0= abort" level context"
+  42 lf-level-param 0= abort" level" drop
+  lf-ssession-begin 0= abort" session"
+  s" fixtureId" new-name id-name ! s" missing" new-name missing-name !
+  s" later" new-name later-name !
+  1 actuals ! 1 lf-level-identity 0= abort" level identity" actuals cell+ !
+  42 formals !
+  1 dup lf-level-identity 0= abort" level identity" lf-hterm-sort save \ 0 Sort u
+  0 lf-hterm-bvar save                                             \ 1 bvar 0
+  1 lf-hterm-bvar save                                             \ 2 bvar 1
+  1 h 2 h lf-hterm-pi save                                        \ 3 (x : A) -> A
+  0 h 3 h lf-hterm-pi save                                        \ 4 (A : Sort u) -> (x : A) -> A
+  id-name @ lf-name-generation @ actuals 1 lf-cref-new 0= abort" cref"
+  lf-cterm-new save                                                \ 5 id.{u}
+  5 h 2 h lf-hterm-app save                                       \ 6 id A
+  6 h 1 h lf-hterm-app save                                       \ 7 id A x
+  1 h 7 h lf-hterm-lam save                                       \ 8 fun x : A => id A x
+  0 h 8 h lf-hterm-lam save                                       \ 9 fun A : Sort u => ...
+  5 h 0 h lf-hterm-app save                                       \ 10 id Sort u (wrong universe)
+  missing-name @ lf-name-generation @ actuals 1 lf-cref-new 0= abort" missing cref"
+  lf-cterm-new save                                                \ 11 missing constant
+  1 h 1 h lf-hterm-lam save                                       \ 12 open domain
+  0 h 1 h lf-hterm-lam save                                       \ 13 fun A : Sort u => A
+  lf-msp-begin 0= abort" index" lf-msp-token 0= abort" token" token !
+  token @ id-name @ 4 h formals 1 50000 lf-msp-put lf-msp-ok <> abort" id signature"
+  token @ later-name @ 0 h formals 1 50000 lf-msp-put lf-msp-ok <> abort" later signature" ;
+
+: expect-status ( actual expected -- )
+  2dup <> if ." expected status " . ." actual " . cr -2 throw then 2drop ;
+
+: fixture-case ( -- )
+  setup
+  token @ 50000 lf-mixed-signature-audit lf-msp-ok expect-status
+  9 h 0 50000 lf-constant-term-scope lf-repr-ok expect-status
+  token @ id-name @ actuals 1 50000 lf-msp-specialize
+  lf-msp-ok expect-status lf-hterm-valid? 0= abort" signature result" ;
+
+\ Check the result semantically, rather than relying on generated node indices.
+: poly-case ( -- )
+  setup 9 50000 infer lf-minfer-ok expect-status
+  4 h 50000 lf-mixed-convert lf-mconvert-equal <> abort" poly type" ;
+: invalid-argument-case ( -- )
+  setup snapshot 10 50000 infer
+  lf-minfer-unknown expect-status
+  0<> abort" failure identity" -1 <> abort" failure root"
+  counts-unchanged? 0= abort" invalid argument rollback" ;
+: missing-case ( -- )
+  setup snapshot 11 50000 infer
+  lf-minfer-unknown expect-status
+  0<> abort" failure identity" -1 <> abort" failure root"
+  counts-unchanged? 0= abort" missing rollback" ;
+: stale-case ( -- )
+  setup 1 cells lf-msp-ids + dup @ 1+ swap ! snapshot
+  9 50000 infer lf-minfer-invalid <> abort" stale later signature"
+  0<> abort" failure identity" -1 <> abort" failure root"
+  counts-unchanged? 0= abort" preflight counts"
+  serials-unchanged? 0= abort" preflight allocated" ;
+: context-case ( -- )
+  setup 13 50000 infer lf-minfer-ok <> abort" binder inference"
+  lf-hterm-valid? 0= abort" binder result handle"
+  lf-minfer-context-depth @ 0<> abort" binder context leak"
+  snapshot 12 50000 infer lf-minfer-invalid <> abort" open binder domain"
+  0<> abort" failure identity" -1 <> abort" failure root"
+  counts-unchanged? 0= abort" scope rollback" ;
+: preflight-fuel-case ( -- )
+  setup
+  99 lf-minfer-repr-status lf-minfer-invalid expect-status
+  99 lf-minfer-msp-status lf-minfer-invalid expect-status
+  99 lf-minfer-shift-status lf-minfer-invalid expect-status
+  99 lf-minfer-inst-status lf-minfer-invalid expect-status
+  99 lf-minfer-convert-status lf-minfer-invalid expect-status
+  9 -1 infer lf-minfer-invalid expect-status 2drop
+  lf-minfer-fuel @ 0<> abort" negative fuel remainder"
+  12 50000 infer lf-minfer-invalid expect-status 2drop
+  lf-minfer-fuel @ 0<> abort" scope failure remainder"
+  9 1 infer lf-minfer-exhausted expect-status 2drop
+  lf-minfer-fuel @ 0<> abort" exhausted preflight remainder"
+  token @ 1+ 9 h 50000 lf-mixed-infer lf-minfer-invalid expect-status 2drop
+  lf-minfer-fuel @ 0<> abort" invalid token remainder" ;
+\ This deliberately assumes a candidate signature without claiming it is a
+\ type. Substitution changes a universe inside a nested constant reference.
+: generated-reference-case ( -- )
+  setup s" outer" new-name outer-name !
+  1 dup lf-level-identity 0= abort" parameter" lf-hlevel-succ 0= abort" succ"
+  nested-args cell+ ! nested-args !
+  id-name @ lf-name-generation @ nested-args 1 lf-cref-new 0= abort" nested cref"
+  lf-cterm-new 0= abort" nested constant" nested-id ! nested-root !
+  token @ outer-name @ nested-root @ nested-id @ formals 1 50000 lf-msp-put
+  lf-msp-ok expect-status
+  0 nested-args ! 0 lf-level-identity 0= abort" zero" nested-args cell+ !
+  outer-name @ lf-name-generation @ nested-args 1 lf-cref-new 0= abort" outer cref"
+  lf-cterm-new 0= abort" outer constant" outer-id ! outer-root !
+  token @ outer-root @ outer-id @ 50000 lf-mixed-infer lf-minfer-ok expect-status
+  2dup 50000 lf-cterm-check lf-repr-ok expect-status
+  drop lf-term-read 0= abort" generated term"
+  rot lf-tag-constant <> abort" generated constant"
+  generated-ref-id ! generated-ref !
+  generated-ref @ generated-ref-id @ lf-cref-read 0= abort" generated cref"
+  1 <> abort" generated arity" lf-name-generation @ <> abort" generated generation"
+  id-name @ <> abort" generated name"
+  generated-ref @ generated-ref-id @ 0 lf-cref-level 0= abort" generated level"
+  drop lf-level-read 0= abort" generated level node"
+  0<> abort" succ payload" 0<> abort" succ predecessor"
+  lf-level-tag-succ <> abort" expected succ zero"
+  \ Applying this assumed non-Pi candidate causes a later unknown after
+  \ generating a level, reference and term. All three counts must roll back.
+  outer-root @ outer-id @ 0 h lf-hterm-app save
+  lf-term-count @ 1- snapshot 50000 infer lf-minfer-unknown expect-status 2drop
+  counts-unchanged? 0= abort" generated rollback"
+  lf-term-serial @ term-serial-before @ <= abort" no term allocation"
+  lf-level-serial @ level-serial-before @ <= abort" no level allocation"
+  lf-cref-serial @ cref-serial-before @ <= abort" no cref allocation"
+  \ Reuse each first rolled-back slot and reject its discarded identity.
+  0 dup lf-level-identity 0= abort" zero" lf-hlevel-succ 0= abort" reuse level"
+  over levels-before @ <> abort" level slot"
+  2dup lf-hlevel-valid? 0= abort" new level identity"
+  over level-serial-before @ 1+ lf-hlevel-valid? abort" stale level revived" 2drop
+  id-name @ lf-name-generation @ nested-args 1 lf-cref-new 0= abort" reuse cref"
+  over crefs-before @ <> abort" cref slot"
+  2dup lf-cref-valid? 0= abort" new cref identity"
+  over cref-serial-before @ 1+ lf-cref-valid? abort" stale cref revived" 2drop
+  0 lf-hterm-bvar 0= abort" reuse term"
+  over terms-before @ <> abort" term slot"
+  2dup lf-hterm-valid? 0= abort" new term identity"
+  over term-serial-before @ 1+ lf-hterm-valid? abort" stale term revived" 2drop ;
+variable saw-exhaustion variable saw-success variable saw-partial
+: fuel-case ( -- )
+  false saw-exhaustion ! false saw-success ! false saw-partial !
+  500 0 do
+    setup snapshot 13 i infer
+    dup lf-minfer-exhausted = if
+      drop 0<> abort" fuel identity" -1 <> abort" fuel root"
+      counts-unchanged? 0= abort" fuel rollback"
+      serials-unchanged? 0= if true saw-partial ! then
+      true saw-exhaustion !
+    else
+      lf-minfer-ok expect-status
+      lf-hterm-valid? 0= abort" fuel result handle" true saw-success !
+    then
+    lf-minfer-context-depth @ 0<> abort" fuel context leak"
+  loop
+  saw-exhaustion @ 0= abort" no exhaustion"
+  saw-partial @ 0= abort" no post-allocation exhaustion"
+  saw-success @ 0= abort" no sufficient fuel" ;
+
+\ Run every case despite failures; CATCH restores the data stack on THROW.
+variable failures
+: run-case ( xt addr len -- ) type cr catch ?dup if
+  .error-string cr 1 failures +! then ;
+' fixture-case s" fixture preflight and specialization" run-case
+' poly-case s" fixturePoly" run-case
+' invalid-argument-case s" invalid argument" run-case
+' missing-case s" missing constant" run-case
+' stale-case s" stale later candidate" run-case
+' context-case s" binder context" run-case
+' preflight-fuel-case s" preflight fuel" run-case
+' generated-reference-case s" generated reference and rollback" run-case
+' fuel-case s" fuel and rollback" run-case
+failures @ . ." case(s) failed" cr
+ : finish ( -- ) failures @ if -1 throw then ;
+finish
+bye

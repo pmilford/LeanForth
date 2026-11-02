@@ -50,6 +50,12 @@ is an assumption about the continuation, not an automatic analysis or a proof
 about the Forth runtime. Lean reports `propext` and `Quot.sound` for these
 reference theorems; `make reference` checks them.
 
+`tests/reference/memory-copy-commute.lean` shows two modeled copies commute
+when each destination differs from the other destination and the other source.
+It also gives a concrete counterexample when one copy reads the other's
+destination. The proof applies to the abstract memory and instruction model,
+not to the Forth runtime; `make reference` checks it.
+
 ## Reproduction
 
 From the repository root, the following commands passed on 2026-11-01 using

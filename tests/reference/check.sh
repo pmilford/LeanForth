@@ -18,6 +18,7 @@ fi
 "$lean" tests/reference/declaration-oracle.lean
 "$lean" tests/reference/constant-environment-oracle.lean
 "$lean" tests/reference/nested-signature-oracle.lean
+"$lean" tests/reference/mixed-infer-oracle.lean
 "$lean" tests/reference/constant-application-oracle.lean
 "$lean" tests/reference/open-context-oracle.lean
 "$lean" tests/reference/substitution-oracle.lean

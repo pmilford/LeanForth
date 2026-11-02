@@ -1,5 +1,5 @@
 \ Test-only bounded u32 little-endian transport; stdin is data, never code.
-\ Structural results do not check declarations, dependencies, types or proofs.
+\ Conditional diagnostics do not check declarations, dependencies or proofs.
 include ../../src/core/terms.fs
 include ../../src/experimental/names.fs
 include ../../src/experimental/levels.fs
@@ -31,6 +31,15 @@ include ../../src/experimental/constant-spine-probe.fs
 include ../../src/experimental/context-constant-spine.fs
 include ../../src/experimental/context-validation-probe.fs
 include ../../src/experimental/validated-context-spine.fs
+include ../../src/experimental/mixed-level-substitute.fs
+include ../../src/experimental/mixed-signature-probe.fs
+include ../../src/experimental/mixed-signature-audit.fs
+include ../../src/experimental/mixed-shift.fs
+include ../../src/experimental/mixed-instantiate.fs
+include ../../src/experimental/mixed-beta.fs
+include ../../src/experimental/mixed-compare.fs
+include ../../src/experimental/mixed-convert.fs
+include ../../src/experimental/mixed-infer.fs
 decimal
 create cb 1 allot
 create buf 255 allot
@@ -72,6 +81,7 @@ create binder-context 4 cells allot
 create app-arguments 4 cells allot
 create formals 1 cells allot
 variable expected-tag variable expected-a variable expected-b
+variable infer-term-count variable infer-level-count variable infer-cref-count
 \ Require the exported binder/application links used by this fixture test.
 : expect-node ( index tag first second -- )
   expected-b ! expected-a ! expected-tag !
@@ -99,7 +109,8 @@ variable expected-tag variable expected-a variable expected-b
   4 lf-tag-pi 0 3 expect-node
   11 lf-tag-lam 0 10 expect-node
   10 lf-tag-lam 1 9 expect-node
-  9 lf-tag-app 8 1 expect-node
+  \ Node 9's argument is checked by conditional inference below, so a
+  \ well-scoped but ill-typed mutation reaches the inference path.
   8 lf-tag-app 7 2 expect-node
   7 lf-term-read 0= if -1 throw then
   rot lf-tag-constant <> if 2drop -1 throw then
@@ -121,6 +132,20 @@ variable expected-tag variable expected-a variable expected-b
   \ two binders, but must be rejected when only one is available.
   9 handle 2 50000 lf-constant-term-scope lf-repr-ok <> if -1 throw then
   9 handle 1 50000 lf-constant-term-scope lf-repr-invalid <> if -1 throw then
+  \ Conditional inference of fixturePoly, using fixtureId's staged signature
+  \ as an unchecked assumption. No declaration or theorem is accepted.
+  lf-term-count @ infer-term-count ! lf-level-count @ infer-level-count !
+  lf-cref-count @ infer-cref-count !
+  lf-msp-begin 0= if -1 throw then
+  2 cells names + @ formals !
+  lf-msp-token 0= if -1 throw then
+  1 cells names + @ 4 handle formals 1 50000 lf-msp-put
+  lf-msp-ok <> if -1 throw then
+  lf-msp-token 0= if -1 throw then
+  11 handle 50000 lf-mixed-infer lf-minfer-ok <> if -1 throw then
+  4 handle 50000 lf-mixed-convert lf-mconvert-equal <> if -1 throw then
+  infer-term-count @ lf-term-count ! infer-level-count @ lf-level-count !
+  infer-cref-count @ lf-cref-count !
   \ Probe the fixtureId type/value pair. Even a successful diagnostic is not
   \ declaration registration or a theorem; unsupported constructs fail.
   4 handle 6 handle 50000 lf-candidate-definition-probe
