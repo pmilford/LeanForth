@@ -20,6 +20,8 @@ variants were retired on 2026-11-02.
 | Bounded recursion | `src/lib/frame.fs` | A frames record: fuel, visits in progress and their limit, the visitor (set once), a context cell (such as a binder depth) and a job cell pointing at the pass's own record. `frames:` defines a standalone record and `frame-init` sets one up inside a larger record. `frame-call` charges one unit of fuel and one frame per visit of a visitor `( x frames -- result outcome )`, `frame-call2` the same for `( x y frames -- outcome )`, `frame-under` visits one context level deeper, `frame-run` starts a pass. A busy record refuses a new budget or pass, so a pass cannot be restarted from inside itself; `frame-reset` recovers after a THROW. Values a visitor keeps across a child's visit stay on the data stack, so each nested visit holds host stack cells: measured 2 to 6 return-stack and 3 to 4 data-stack cells per frame, and 701 and 494 cells at the deepest nesting found for a 64-node store (124 frames of beta, instantiate and shift), the same on Gforth 0.7.3 and 1.0. `mixed-beta.fs` checks at load time that the host's stacks hold three times `lf-term-capacity` frames | New 2026-11-02; the kernel's shift, instantiate and beta passes use it; unit tests and a randomized model test |
 | Checker contexts | `src/lib/context.fs` | One `ALLOCATE`d record per worker for all of a check's mutable state ([ADR 0009](../adr/0009-reentrant-state-and-parallel-checking.md)), reached through the `USER` variable `lf-context` (a plain variable on hosts without Gforth's `USER`). Modules declare members while they load: `context-record:`, `context-store:`, `context-walk:`, `context-walk2:`, and `context-setup` for set-up words; `context-new`, `context-use` and `context-free` make, select and free contexts | New 2026-11-02; no module uses it yet (see the design below); tested in `tests/lib/context.fs`, including a randomized model with context switches at every step |
 | Task adapter | `src/lib/task.fs` | `task-start ( context xt -- task ior )`, `task-wait ( task -- ior )` and `task-yield`: POSIX-thread tasks on Gforth 1.0, the cooperative `tasker.fs` on Gforth 0.7.3, and a serial path elsewhere (or when forced, for tests). Not loaded by `src/main.fs`; the scheduler will load it | New 2026-11-02; `tests/lib/task.fs` and `task-serial.fs` compare tasks and interleaved contexts with serial runs; `tests/lib/task-bench.fs` measures speed-up |
+| Line reader and UTF-8 | `src/lib/bytes.fs` | `reader:` record over a Forth-2012 file: whole lines in one heap buffer that grows for long lines up to a limit, strict framing (final line feed; `text-framed` refuses carriage returns and a byte-order mark), line numbers and double-cell file offsets; `utf8-length`, `utf8-valid?` and `utf8-put` (RFC 3629, no overlongs or surrogates); `counted,`. Uses Gforth's native `scan` behind an adapter, with a portable loop otherwise | New 2026-11-02; unit-tested against an independent UTF-8 model in `tests/lib/bytes.fs` |
+| JSON reader | `src/lib/json.fs` | `json:` view record: a fail-closed, non-recursive RFC 8259 parser of one text into a growable token tape (containers know their item count and extent), escapes decoded in place, numbers kept as digit text, limits on depth, tokens, string and number length; `json-find`, `json-next`, `json-natural`, `json-u`, `digits>u` | New 2026-11-02; malformed corpus and every limit tested in `tests/lib/json.fs` |
 | Portability adapter | `src/lib/portability.fs` | Forth-2012 definitions of `>=`, `<=`, `0<=`, `0>=`, `max-n` and the structure words, compiled only where the host lacks them | New 2026-11-02; defines nothing under Gforth except `max-n` |
 | Expression store | `src/core/terms.fs` | Index-based nodes for sorts, bound variables, application, λ, Π and constants; nodes refer to earlier indices, so a term is a DAG with sharing | 64 nodes; global; built on `store:`; constructors check ranges only |
 | Universe-level store | `src/core/levels.fs` | Level DAGs: zero, succ, max, imax, parameters | 64 levels; global; built on `store:` |
@@ -30,20 +32,22 @@ variants were retired on 2026-11-02.
 | Level algorithms | `level-scope`, `level-value`, `level-compare`, `level-substitute`, `mixed-level-substitute` | Scope checks, evaluation, conservative equality and simultaneous substitution of levels | Current |
 | Signature index | `mixed-signature-probe.fs`, `mixed-signature-audit.fs` | Candidate signatures of constants, specialised to universe arguments | 32 entries; unchecked assumptions |
 | Record staging | `src/import/load.fs` | Copies already-decoded expression records into the term store | Not a parser; stages concrete Sorts, which no current checker pass accepts; kept with its round-trip tests until the Forth NDJSON reader replaces it |
+| NDJSON export reader | `src/import/ndjson.fs`, `ndjson-count.fs` | Decodes every record kind of lean4export format 3.1.0 into decoded-record layouts and hands each to a handler per kind; checks exact field sets, dense indices and earlier references; a counting tool | New 2026-11-02; untrusted, fail-closed; equal to Python on all of Mathlib; see [NDJSON_READER.md](NDJSON_READER.md) |
 | Program examples | `src/program/clamp.fs`, `examples.fs` | Six executable words (clamp, checked add, abs, factorial, gcd, in-range) | Runtime tested against Lean models, not verified |
 | Depth analyzer | `src/program/program-depth.fs` | Stack-depth diagnostic for a tiny opcode list | Not connected to real Forth words |
 | Test support | `tests/support/tester.fs`, `checks.fs`, `term-cases.fs`, `composition.fs` | Adapter for Gforth's bundled tester that fails the run on the first error; shared checks and fixtures | Test-only |
 
 ## JSON and NDJSON
 
-There is **no JSON or NDJSON reader in Forth**. Lean exports are decoded by
-the Python preview (`tests/support/ndjson_preview.py`), which turns a fixture
-into a compact byte stream; ten hand-written Forth stream readers
-(`tests/core/*-stream.fs`) each load one fixture's stream. They duplicate
-the same framing code. The implementation plan allows an untrusted decoder in
-another language but requires the semantics to be checked in Forth; a
-production importer will need a streaming Forth NDJSON reader, or a reviewed
-decision to keep decoding outside Forth with a validated binary interchange.
+Since 2026-11-02 Forth reads Lean's NDJSON exports itself (owner decision
+OQ-4): `src/lib/bytes.fs`, `src/lib/json.fs` and `src/import/ndjson.fs`,
+described in [NDJSON_READER.md](NDJSON_READER.md). It decodes the whole
+pinned Mathlib export, field for field as Python's `json` module does, in
+under two minutes with `gforth-fast`. It does not yet stage records into
+the term, level and name stores (they hold 64 entries each). The Python
+preview (`tests/support/ndjson_preview.py`) and the eleven hand-written
+Forth stream readers of its byte transport (`tests/core/*-stream.fs`) remain until their tests move to the Forth
+reader (plan item 3.2.5); the Python code stays as a test oracle only.
 
 ## Missing for a usable checker at Mathlib scale
 
@@ -73,7 +77,9 @@ decision to keep decoding outside Forth with a validated binary interchange.
   checked terms or receipts.
 - **Pretty-printing and explanation.** No printer for terms, levels or proof
   steps.
-- **A shared stream reader**, replacing the ten test readers.
+- **Moving the test readers onto the Forth NDJSON reader**, retiring the
+  eleven byte-stream readers, and staging decoded records into growable
+  stores.
 
 ## Design: per-task contexts and how modules convert
 

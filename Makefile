@@ -107,6 +107,8 @@ test-lib:
 	if [ -n "$$out" ]; then printf 'src/lib/task.fs printed while loading:\n%s\n' "$$out" >&2; exit 1; fi
 	$(RUN) $(GFORTH) tests/lib/task.fs
 	$(RUN) $(GFORTH) tests/lib/task-serial.fs
+	$(RUN) $(GFORTH) tests/lib/bytes.fs
+	$(RUN) $(GFORTH) tests/lib/json.fs
 
 test-core:
 	$(RUN) $(GFORTH) tests/core/terms.fs
@@ -140,6 +142,8 @@ test-core:
 	$(RUN) $(GFORTH) tests/core/level-deep.fs
 	$(RUN) $(GFORTH) tests/core/infer-deep.fs
 	$(RUN) $(GFORTH) tests/core/load.fs
+	$(RUN) $(GFORTH) tests/core/ndjson.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/core/test_ndjson_reader.py
 
 test-mixed-shift-differential:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/core/mixed-shift-differential.sh

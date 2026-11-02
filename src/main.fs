@@ -13,8 +13,10 @@
 \ signatures, level algorithms and the Lean data model.
 require ./kernel/mixed-definition-probe.fs
 
-\ Staging of decoded Lean exports into the term store.
+\ Staging of decoded Lean exports into the term store, and the reader of
+\ lean4export NDJSON files.
 require ./import/load.fs
+require ./import/ndjson.fs
 
 \ Verified-program track: example words and the stack-depth analyzer.
 require ./program/clamp.fs

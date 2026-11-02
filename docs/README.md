@@ -43,6 +43,7 @@ are planned and do not exist yet.
 - [KERNEL_START.md](development/KERNEL_START.md) — prerequisites for starting the trusted kernel.
 - [ARENA_PROTOTYPE.md](development/ARENA_PROTOTYPE.md) — notes and limits of the experimental term storage.
 - [NDJSON_PREVIEW.md](development/NDJSON_PREVIEW.md) — the development-only Lean NDJSON preview.
+- [NDJSON_READER.md](development/NDJSON_READER.md) — the Forth reader of Lean NDJSON exports: use, checks, limits, differential evidence and measured speed on all of Mathlib.
 
 ## `project/` — status, plans and decisions
 
@@ -89,7 +90,7 @@ records and `prompts/FIRST_CODEX_TASK.md` still use those old paths. Old
 | --- | --- |
 | `docs/user/` | `TERMS_FOR_NEW_READERS`, `SETUP_WSL` |
 | `docs/programming/` | `INTERFACE_CONTRACTS`, `PROGRAM_CONTRACTS`, `PROGRAM_EXAMPLE`, `PROGRAM_EXAMPLES`, `PROGRAM_EXAMPLES_REFERENCE`, `CHECKED_ADD_REFERENCE`, `FACTORIAL_REFERENCE`, `GCD_REFERENCE`, `MEMORY_COPY_REFERENCE`, `MEMORY_PROGRAM_REFERENCE`, `MEMORY_SWAP_REFERENCE` |
-| `docs/development/` | `TESTING_STRATEGY`, `FORTH_REVIEWER`, `INSTALLATION_LOG`, `VERSIONS`, `PROFILING`, `ARENA_PROTOTYPE`, `KERNEL_START`, `NDJSON_PREVIEW`, and `measurements/` |
+| `docs/development/` | `TESTING_STRATEGY`, `FORTH_REVIEWER`, `INSTALLATION_LOG`, `VERSIONS`, `PROFILING`, `ARENA_PROTOTYPE`, `KERNEL_START`, `NDJSON_PREVIEW`, `NDJSON_READER`, and `measurements/` |
 | `docs/project/` | `PROJECT_PROGRESS`, `DEVELOPMENT_ROADMAP`, `IMPLEMENTATION_PLAN`, `CODEX_HANDOFF`, `OWNER_DECISIONS`, `DECISIONS`, `RESEARCH_NOTES` |
 | `docs/reviews/` | `KERNEL_REVIEW`, `CHECKED_ENVIRONMENT_REVIEW` |
 

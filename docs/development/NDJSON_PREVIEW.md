@@ -1,5 +1,11 @@
 # Development preview of Lean NDJSON
 
+**Forth now reads Lean exports itself:** see
+[NDJSON_READER.md](NDJSON_READER.md). Under the owner's product rule (end
+users need only a Forth system and an NDJSON file) and decision OQ-4, the
+Python preview described here is a development tool and a test oracle, not
+part of the user's path.
+
 `tests/support/ndjson_preview.py` is an untrusted Python 3 development tool,
 not a supported runtime importer. It reads an export on standard input and
 prints deterministic JSON with `checked: false`; malformed or unsupported

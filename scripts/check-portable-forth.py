@@ -31,6 +31,8 @@ BYTE_WORDS = {
 }
 # Files allowed to use byte access, with the reason. Text modules only.
 BYTE_MODULES = {
+    "src/lib/bytes.fs": "line reader and UTF-8 checks read and write text bytes",
+    "src/lib/json.fs": "JSON tokenizer reads text bytes and decodes escapes in place",
 }
 LIMIT = 2**31
 COMPILE_ONLY = {
