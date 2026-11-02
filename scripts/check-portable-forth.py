@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
-"""Fail if current Forth source could depend on byte order or cell size.
+"""Fail on Forth that is not portable across the hosts CI runs.
 
-Checks every .fs file under src/ except src/legacy/ (superseded code):
+1. Byte order and cell size, in every .fs file under src/ except
+   src/legacy/ (superseded code):
 
 - byte-access words (C@ C! C, W@ L@ X@ and similar host extensions) appear
   only in files listed in BYTE_MODULES, each with a reason; reading a
   cell's bytes is what makes code depend on byte order;
 - no numeric literal needs more than 32 bits, so nothing assumes 64-bit
   cells (use cell, cells and max-n instead).
+
+2. Compile-only words used outside a colon definition, in every .fs file
+   under src/ and tests/: Gforth 1.0 accepts some of them interpretively
+   (abort", if, do, ...), Gforth 0.7.3 and Forth-2012 do not.
 
 Comments and strings are ignored. See docs/development/FORTH_STYLE.md,
 section 8.
@@ -25,6 +30,12 @@ BYTE_WORDS = {
 BYTE_MODULES = {
 }
 LIMIT = 2**31
+COMPILE_ONLY = {
+    "if", "else", "then", "begin", "while", "repeat", "until", "again",
+    "do", "?do", "loop", "+loop", "leave", "unloop", "case", "of", "endof",
+    "endcase", "exit", "recurse", ">r", "r>", "r@", "2>r", "2r>", "2r@",
+    "abort\"", "__abort__", "does>", "[\']", "[char]", "literal", "postpone",
+}
 
 
 def strip(text):
@@ -51,8 +62,34 @@ def number(token):
         return None
 
 
+def interpreted(text):
+    """(line, word) for compile-only words outside colon definitions."""
+    found, depth = [], 0
+    for lineno, line in enumerate(text.splitlines(), 1):
+        for tok in line.split():
+            low = tok.lower()
+            if low in (":", ":noname", "]"):
+                depth = 1
+            elif low in (";", "["):
+                depth = 0
+            elif depth == 0 and low in COMPILE_ONLY:
+                found.append((lineno, tok))
+    return found
+
+
+def raw_strip(text):
+    """Comments and strings removed, but abort" kept as a token."""
+    text = re.sub(r'(^|\s)abort"\s[^"]*"', ' __abort__ ', text, flags=re.I)
+    return strip(text)
+
+
 def main():
     problems = []
+    for path in sorted(list((ROOT / "src").rglob("*.fs")) + list((ROOT / "tests").rglob("*.fs"))):
+        rel = path.relative_to(ROOT).as_posix()
+        for lineno, tok in interpreted(raw_strip(path.read_text(errors="replace"))):
+            word = 'abort"' if tok == "__abort__" else tok
+            problems.append(f"{rel}:{lineno}: compile-only '{word}' outside a definition")
     for path in sorted((ROOT / "src").rglob("*.fs")):
         rel = path.relative_to(ROOT).as_posix()
         if rel.startswith("src/legacy/"):
@@ -68,7 +105,7 @@ def main():
         print(p)
     if problems:
         return 1
-    print("No byte-order or cell-size dependence found in current Forth source.")
+    print("No byte-order, cell-size or compile-only portability problems found.")
     return 0
 
 

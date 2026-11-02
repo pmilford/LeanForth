@@ -129,7 +129,7 @@ as automatic verdicts.
   read from one (exports, saved results, hashes that are compared across
   machines) is defined byte by byte — text, or fixed-width integers with an
   explicit byte order built with shifts — never a memory image.
-  `scripts/check-portable-memory.py` (part of `make test`) enforces the
+  `scripts/check-portable-forth.py` (part of `make test`) enforces the
   checkable part: byte-access words only in listed text modules, and no
   numeric literal beyond 32 bits.
 

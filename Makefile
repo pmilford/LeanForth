@@ -38,13 +38,13 @@ DIFFERENTIAL_TARGETS := \
 	test-gcd-reference-differential test-range-64-differential \
 	test-memory-reference-differential test-memory-frame-differential
 
-.PHONY: test test-differential check check-docs check-lean-sources check-portable-memory smoke \
+.PHONY: test test-differential check check-docs check-lean-sources check-portable-forth smoke \
 	test-harness test-lib test-core \
 	test-composition-fixture test-program test-symbolic-infer-draft \
 	profile-existing profile-history forth-metrics $(DIFFERENTIAL_TARGETS)
 
 # Gforth and Python 3 only; run on every CI host and before every commit.
-test: check-docs check-lean-sources check-portable-memory smoke test-harness test-lib test-core \
+test: check-docs check-lean-sources check-portable-forth smoke test-harness test-lib test-core \
 	test-composition-fixture test-program
 
 # Fails on broken documentation links or missing docs/ paths.
@@ -58,8 +58,8 @@ check-lean-sources:
 
 # Fails if current Forth source could depend on byte order or cell size
 # (docs/development/FORTH_STYLE.md, section 8).
-check-portable-memory:
-	$(RUN) python3 scripts/check-portable-memory.py
+check-portable-forth:
+	$(RUN) python3 scripts/check-portable-forth.py
 
 # Report-only Forth style metrics (word length, globals, locals, shuffling);
 # see docs/development/FORTH_STYLE.md. Never fails on style.
