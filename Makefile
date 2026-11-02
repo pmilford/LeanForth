@@ -15,7 +15,7 @@ RUN := timeout $(TEST_TIMEOUT)
 # Every pinned-Lean oracle and differential comparison of current code.
 # Excludes the unsafe test-symbolic-infer-draft and the profiling targets.
 DIFFERENTIAL_TARGETS := \
-	reference reference-export \
+	reference reference-export reference-first-checker \
 	test-name-differential \
 	test-level-differential \
 	test-level-assignment-differential test-level-compare-differential \
@@ -94,6 +94,11 @@ smoke:
 
 reference:
 	LEAN=$(LEAN) $(RUN) bash tests/reference/check.sh
+
+# Lean's verdicts on the first checker's expected-results table (ADR 0011):
+# 60 kernel cases and 27 broken source copies Lean must reject.
+reference-first-checker:
+	LEAN=$(LEAN) $(RUN) bash tests/reference/first-checker-check.sh
 
 reference-export:
 	LEAN=$(LEAN) $(RUN) bash tests/reference/export-check.sh

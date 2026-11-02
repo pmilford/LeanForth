@@ -68,12 +68,15 @@ All are proposals; none is approved for trusted implementation.
 [0006](adr/0006-constant-environments.md) constant environments ·
 [0007](adr/0007-sort-representation-boundary.md) Sort representation boundary ·
 [0008](adr/0008-outcome-vocabulary.md) one outcome vocabulary (proposed) ·
-[0009](adr/0009-reentrant-state-and-parallel-checking.md) re-entrant state and parallel checking (proposed).
+[0009](adr/0009-reentrant-state-and-parallel-checking.md) re-entrant state and parallel checking (proposed) ·
+[0011](adr/0011-definite-rejection.md) definite rejection and the first checker's scope (proposed).
 
 ## `reviews/` — review packets and records
 
 - [KERNEL_REVIEW.md](reviews/KERNEL_REVIEW.md) — review packet for the first kernel fragment (ADRs 0002 and 0003).
 - [CHECKED_ENVIRONMENT_REVIEW.md](reviews/CHECKED_ENVIRONMENT_REVIEW.md) — review packet for ADR 0006.
+- [FIRST_CHECKER_GATE.md](reviews/FIRST_CHECKER_GATE.md) — draft plain-language gate summary and owner questions for the first checker (ADR 0011).
+- [FIRST_CHECKER_EXPECTED.md](reviews/FIRST_CHECKER_EXPECTED.md) — expected results: Lean's verdict and LeanForth's required outcome for the five fixtures, 53 variants and 27 source copies.
 - Dated files (`reviews/YYYY-MM-DD-*.md`) record individual AI and human reviews. They are historical: their text, including file paths, is kept exactly as written.
 
 ## Paths before 2026-11-02
