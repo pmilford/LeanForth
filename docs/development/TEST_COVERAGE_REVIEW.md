@@ -70,6 +70,7 @@ comparison must reject a known-wrong table).
 | X7 | Only 64-bit x86 Linux tested; no 32-bit host; number base never varied | Later |
 | X8 | Comparison scripts have no self-test that a known-wrong table is rejected | Later |
 | X9 | Status 0 means success but is also Forth `false`; nothing checks statuses are never used as flags | Later |
+| X10 | `>=` (74 uses in 40 files) and `<=` (11) are Gforth extensions, not Forth-2012; CI's Gforth 0.7.3 also has them, so nothing detects the dependency | Later: a small portability adapter, or `< 0=` / `> 0=` |
 
 ### Theorem path (Forth)
 
@@ -87,6 +88,7 @@ comparison must reject a known-wrong table).
 | T10 | `compare-` and `mixed-convert-differential.sh` allow every row to become *unknown* | Later: pin per-row verdicts |
 | T11 | The API has no *rejected* status — a wrong value returns *unknown* — so the owner's three outcomes cannot all be tested | Later: design decision for the checker |
 | T12 | `tests/support/tester.fs` never checks the return stack | Later |
+| T13 | `tests/core/mixed-infer.fs`: no test checks the level of a Π term's type (`imax`), reaches the Prop shortcut, an arity mismatch, a stale root or the identity function; the fuel sweep covers one root only (found by the Forth reviewer; its scratch probe passed all of them) | Later |
 
 ### NDJSON import and Lean compatibility
 
@@ -129,8 +131,10 @@ The `mixed-*` modules are the current path. `tagged-*` and the plain
 variants are superseded but still used by tests, fixtures and 14 Lean
 comparison targets, so they can only be retired after those are migrated.
 `src/core/arena.fs` and the unsafe `symbolic-infer.fs` draft have no
-dependants and are candidates for retirement now; nothing is removed without
-the owner's approval of the exact list.
+dependants. On 2026-11-02 the owner decided to keep them for now and mark
+them for possible later removal (roadmap Q9); the Lean oracle
+`tests/reference/symbolic-infer-oracle.lean` must stay either way because
+`tagged-infer-differential.sh` uses it.
 
 ## How the reviews were run
 

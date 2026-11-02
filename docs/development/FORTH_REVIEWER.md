@@ -92,3 +92,21 @@ Include the review scope, commands and observed tool versions, tests actually
 run, and limitations. For kernel-semantic changes, identify the required ADR,
 positive/negative tests, pinned Lean comparison and human review. Never claim
 that review or test execution proves correctness.
+
+## Evaluation of the reviewer (2026-11-02)
+
+The 18 AI reviews recorded in `docs/reviews/` from 2026-10-30 and 10-31
+checked correctness and trust boundaries carefully but never raised
+factoring, idiom or word length; global mutable state appeared only as a
+listed limitation. Meanwhile 22% of words grew past ten lines and the code
+accumulated 378 `VARIABLE`s. The style section of step 3, the
+[style guide](FORTH_STYLE.md) and the metrics script were added in response.
+
+A review of `src/experimental/mixed-infer.fs` with these in place found no
+bugs, and it raised the 59-line walker, unnamed frame slots, nine repeated
+error exits, raw slot offsets that bypass the module's own accessors,
+variables used as registers, an internal word used as an undocumented
+interface by another module, and the non-standard `>=`. Each came with a
+Forth refactoring. That review ran while the style guide was still
+uncommitted, so it is not a clean before-and-after comparison. Repeat such
+an evaluation on another module after major guideline changes.
