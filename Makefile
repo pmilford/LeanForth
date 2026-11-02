@@ -60,6 +60,7 @@ test-core:
 	$(GFORTH) tests/core/mixed-signature-lifecycle.fs
 	$(GFORTH) tests/core/mixed-signature-audit.fs
 	$(GFORTH) tests/core/mixed-infer.fs
+	$(GFORTH) tests/core/mixed-definition-probe.fs
 	$(GFORTH) tests/core/constant-term-type-probe.fs
 	$(GFORTH) tests/core/constant-application-oracle.fs
 	$(GFORTH) tests/core/constant-application-probe.fs

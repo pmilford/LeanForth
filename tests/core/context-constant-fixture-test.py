@@ -43,7 +43,7 @@ class ContextConstantFixture(unittest.TestCase):
             input=changed, capture_output=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(result.stdout.strip(), b"")
-        self.assertIn(b"definition inference inconclusive", result.stderr)
+        self.assertIn(b"definition pair inconclusive", result.stderr)
 
     def test_unscoped_theorem_annotation_is_rejected(self):
         data, _ = fixture.encode(Path("tests/reference/constant-fixture.ndjson").read_bytes())
@@ -71,7 +71,7 @@ class ContextConstantFixture(unittest.TestCase):
             input=changed, capture_output=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(result.stdout.strip(), b"")
-        self.assertIn(b"theorem inference inconclusive", result.stderr)
+        self.assertIn(b"theorem pair inconclusive", result.stderr)
 
     def test_theorem_body_must_match_exported_application(self):
         data, _ = fixture.encode(Path("tests/reference/constant-fixture.ndjson").read_bytes())

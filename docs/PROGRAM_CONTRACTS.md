@@ -116,3 +116,6 @@ including a modeled clamp followed by `DROP`. Its frame theorem requires both
 components to succeed: the file includes a counterexample showing that an
 extra frame can supply an otherwise missing operand. `make reference` checks
 this Lean model; it does not establish source-to-Gforth correspondence.
+`tests/reference/program-stack-swap.lean` further proves a modeled swap, its
+double-swap property and underflow propagation through a continuation. Both
+data and return-stack frames are covered; the same runtime limitation applies.

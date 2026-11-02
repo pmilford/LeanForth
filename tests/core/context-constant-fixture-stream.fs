@@ -40,6 +40,7 @@ include ../../src/experimental/mixed-beta.fs
 include ../../src/experimental/mixed-compare.fs
 include ../../src/experimental/mixed-convert.fs
 include ../../src/experimental/mixed-infer.fs
+include ../../src/experimental/mixed-definition-probe.fs
 decimal
 create cb 1 allot
 create buf 255 allot
@@ -158,6 +159,19 @@ variable infer-term-count variable infer-level-count variable infer-cref-count
   lf-msp-token 0= if -1 throw then
   1 cells names + @ 4 handle formals 1 50000 lf-msp-put
   lf-msp-ok <> if -1 throw then
+  \ Check pairs first so negative fixtures must reach this diagnostic.
+  lf-msp-token 0= if -1 throw then
+  4 handle 11 handle 50000 lf-mixed-definition-probe
+  dup lf-mdefinition-ok <> if
+    dup lf-mdefinition-unknown = if s" definition pair inconclusive" stderr write-file throw then
+    drop -1 throw
+  then drop
+  lf-msp-token 0= if -1 throw then
+  13 handle 18 handle 50000 lf-mixed-definition-probe
+  dup lf-mdefinition-ok <> if
+    dup lf-mdefinition-unknown = if s" theorem pair inconclusive" stderr write-file throw then
+    drop -1 throw
+  then drop
   lf-msp-token 0= if -1 throw then
   11 handle 50000 lf-mixed-infer dup lf-minfer-ok <> if
     dup lf-minfer-unknown = if s" definition inference inconclusive" stderr write-file throw then

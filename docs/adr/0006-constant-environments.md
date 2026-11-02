@@ -386,6 +386,11 @@ dependencies remain unchecked assumptions. The test-only exported fixture
 uses an assumed `fixtureId` signature to infer `fixturePoly` and `fixtureUse`;
 wrong-argument mutations return unknown and fail closed. The direct Lean kernel
 oracle exercises the same shapes and rejects the corresponding invalid terms.
+`mixed-definition-probe.fs` additionally checks each candidate type/value
+pair under the same unchecked assumptions, preauditing both roots and all
+staged signatures before any allocation. It restores temporary term, level
+and reference counts on every result and creates no checked handle. A direct
+Lean declaration oracle covers a valid pair and selected invalid alternatives.
 The diagnostic does not create checked declarations, and its finite tests do
 not establish general Lean compatibility or kernel soundness. Human review
 is still required for any trusted implementation or declaration import.
