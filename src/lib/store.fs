@@ -15,8 +15,11 @@
 \ a reset does not rewind it.
 \
 \ The shape (capacity, width, base) is fixed and checked when the store is
-\ defined, and sealed: corrupting any one shape field breaks the seal, and
-\ every check then fails.
+\ made, and sealed: corrupting any one shape field breaks the seal, and
+\ every check then fails. A store is made in the dictionary by store:, or
+\ at run time in store-size bytes of memory the caller provides (from
+\ ALLOCATE or inside a larger record) by store-init; both give the same
+\ layout and behaviour.
 \
 \ Untrusted. One store is single-threaded: callers must not change it
 \ during a call. Separate stores are independent. The layout (header,
@@ -49,17 +52,38 @@ end-structure
   dup store-base @ over store-capacity @ upto? over store-width @ store-width? and
   swap store-sealed? and ;
 
-\ Defining word: name ( -- store ), with zeroed counters and records. A bad
-\ shape (negative capacity, base above capacity, width not a positive
-\ aligned size) aborts the definition.
+\ Planning a store: its size in address units, and whether a shape is
+\ sound. A sound shape has 0 <= base <= capacity, a positive aligned width,
+\ and a size that fits in a cell. store-size of an unsound shape means
+\ nothing.
+: store-size ( capacity width -- u ) cell+ * store-header + ;
+\ Unchecked: width is positive.
+: store-fits? ( capacity width -- flag ) cell+ max-n store-header - swap / upto? ;
+: store-plan? ( capacity width base -- flag )
+  over store-width? 0= if drop 2drop false exit then
+  >r 2dup store-fits? -rot drop r> swap upto? and ;
+
+\ Making a store. store-init formats store-size bytes at store as an empty
+\ store, or for an unsound shape gives false and writes nothing; a base-1
+\ store is still invalid until its first store-clear. store: defines
+\ name ( -- store ) in the dictionary and aborts on an unsound shape.
 : store-zeroed, ( u -- addr ) here swap dup allot over swap erase ;
 : store-bytes ( store -- u ) dup store-capacity @ swap store-width @ cell+ * ;
 : store-shape! ( capacity width base store -- )
   >r r@ store-base ! r@ store-width ! r> store-capacity ! ;
 : store-seal! ( store -- ) dup store-shape@ >store-seal swap store-seal ! ;
+\ Unchecked: the shape fields are set; zero everything after them.
+: store-end ( store -- addr ) dup store-shape@ drop store-size + ;
+: store-zero ( store -- ) dup store-end swap store-count tuck - erase ;
+: store-format ( capacity width base store -- )
+  dup >r store-shape! r@ store-seal! r> store-zero ;
+: store-init ( capacity width base store -- flag )
+  >r 2>r dup 2r@ store-plan? 2r> rot
+  if r> store-format true else 2drop drop r> drop false then ;
+: store-allot ( capacity width -- addr ) store-size here swap allot ;
 : store: ( capacity width base "name" -- )
-  create store-header store-zeroed, >r r@ store-shape! r@ store-seal!
-  r@ store-shape? 0= abort" store: bad shape" r> store-bytes store-zeroed, drop ;
+  >r 2dup r@ store-plan? 0= abort" store: bad shape"
+  create 2dup store-allot r> swap store-init drop ;
 
 \ Validity checks; none of them reads a record.
 : store-live? ( store -- flag ) dup store-generation @ 0< 0= swap store-shape? and ;
