@@ -343,3 +343,12 @@ constant-bearing terms after auditing the complete input; the optional
 pinned Lean kernel. `mixed-compare.fs` compares audited mixed syntax and
 returns unknown for differences; it does not unfold definitions or establish
 definitional equality. Both remain experimental and cannot authorize a proof.
+
+`mixed-convert.fs` composes mixed beta reduction and conservative comparison
+under a shared fuel budget, preaudits both operands, and rolls back temporary
+term and level allocations. It handles beta under binders and selected
+symbolic universe identities, but not declaration unfolding, eta or general
+Lean conversion. `make test-mixed-convert-differential` checks seven selected
+cases with pinned Lean and rejects any Forth equality that Lean rejects.
+Unknown is inconclusive, never a proof of inequality;
+no result authorizes a declaration or theorem.

@@ -20,3 +20,8 @@ and swap operations. Its Lean proofs cover arbitrary address aliasing,
 preservation of the remaining stack and unaffected cells, success exactly
 when the four addresses are in range, and failures through a continuation.
 It is checked by `make reference` and has the same abstract-model limits.
+
+`tests/reference/memory-swap-involution.lean` proves that applying the modeled
+swap twice restores the original abstract memory and stack when the addresses
+are in bounds, including aliases. Out-of-bounds inputs fail through any
+continuation. This reference is also included in `make reference`.
