@@ -25,3 +25,13 @@ It is checked by `make reference` and has the same abstract-model limits.
 swap twice restores the original abstract memory and stack when the addresses
 are in bounds, including aliases. Out-of-bounds inputs fail through any
 continuation. This reference is also included in `make reference`.
+
+`make test-memory-frame-differential` compares 1,296 finite copy-then-swap
+observations between the Lean step model and a test-only Gforth bounded-memory
+fixture, including aliased and out-of-bounds addresses. On failure, it compares
+the memory present immediately before the failing access; earlier writes are
+not claimed to roll back. This is not a proof of the runtime or a general
+comparison of Forth programs. It currently requires Gforth 1.0.0 and pinned
+Lean 4.35.0; set `GFORTH`, `LEAN` and `ELAN_HOME` as needed. Because each swap
+address is read before it is written, the two later swap-store failure paths
+are unreachable in this fixture and are not covered by the table.

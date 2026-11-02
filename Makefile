@@ -14,6 +14,7 @@ LEAN ?= lean
 .PHONY: test-gcd-reference-differential
 .PHONY: test-range-64-differential
 .PHONY: test-memory-reference-differential
+.PHONY: test-memory-frame-differential
 .PHONY: test-mixed-shift-differential
 .PHONY: test-mixed-instantiate-differential
 .PHONY: test-mixed-beta-differential
@@ -55,6 +56,8 @@ test-core:
 	$(GFORTH) tests/core/mixed-convert.fs
 	$(GFORTH) tests/core/mixed-level-substitute.fs
 	$(GFORTH) tests/core/mixed-signature-probe.fs
+	$(GFORTH) tests/core/mixed-signature-lifecycle.fs
+	$(GFORTH) tests/core/mixed-signature-audit.fs
 	$(GFORTH) tests/core/constant-term-type-probe.fs
 	$(GFORTH) tests/core/constant-application-oracle.fs
 	$(GFORTH) tests/core/constant-application-probe.fs
@@ -224,6 +227,9 @@ test-range-64-differential:
 
 test-memory-reference-differential:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/program/memory-reference-differential.sh
+
+test-memory-frame-differential:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/program/memory-frame-differential.sh
 
 profile-existing:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) bash scripts/profile-existing.sh

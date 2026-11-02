@@ -370,3 +370,12 @@ type, environment entry, declaration or theorem. Its same-session constraint
 is inherited from mixed universe substitution. The optional
 `make test-mixed-signature-differential` compares 27 evaluated specializations
 against Lean; it does not validate nested dependencies or prove soundness.
+
+`mixed-signature-audit.fs` provides a nonallocating preflight across every
+staged candidate in one index lifetime, checking source binder scope, captured
+identities, mixed syntax and formal-level coverage. It neither resolves nested
+constant names nor checks their declarations, types, arities or proofs; the
+metadata remains an assumption. The lifetime token is not a content revision,
+so callers must exclude index/session mutation and rerun the audit before use.
+This audit is a prerequisite for an inference diagnostic, not a checked
+environment or a trusted boundary.
