@@ -336,3 +336,10 @@ audits both inputs before allocating and rolls back on failure. The opt-in
 Lean, including two constants and Sort levels and open replacements under
 binders. These tests do not establish general correctness. Mixed conversion
 and inference still need implementation, tests and review.
+
+The untrusted `mixed-beta.fs` performs weak-head beta reduction through
+constant-bearing terms after auditing the complete input; the optional
+`make test-mixed-beta-differential` compares seven well-typed cases with the
+pinned Lean kernel. `mixed-compare.fs` compares audited mixed syntax and
+returns unknown for differences; it does not unfold definitions or establish
+definitional equality. Both remain experimental and cannot authorize a proof.

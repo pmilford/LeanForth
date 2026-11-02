@@ -14,3 +14,9 @@ compiler, byte layout, finite-width addresses or hardware behavior. No new
 axioms or `sorry` are introduced; execution proofs use Lean's existing
 `propext` and `Quot.sound` foundations. Human review remains required before
 using any model across the trusted verification boundary.
+
+`tests/reference/memory-sequence-reference.lean` combines the modeled copy
+and swap operations. Its Lean proofs cover arbitrary address aliasing,
+preservation of the remaining stack and unaffected cells, success exactly
+when the four addresses are in range, and failures through a continuation.
+It is checked by `make reference` and has the same abstract-model limits.
