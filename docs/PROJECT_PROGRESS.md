@@ -62,11 +62,12 @@ done because a test fixture or untrusted diagnostic works.
   Library modules share the Lean kernel and importer primitives; track the
   entire library and later module-level coverage, rather than inventing three
   independent compatibility percentages without defined sections.
-- As of the 2026-11-01 query, the latest 15 GitHub Smoke runs failed; the
-  [latest run](https://github.com/pmilford/LeanForth/actions/runs/41354899009)
+- On 2026-11-01, 15 consecutive GitHub Smoke runs failed; the
+  [last failing run](https://github.com/pmilford/LeanForth/actions/runs/41354899009)
   failed in the constant fixture's whitespace assertion on distribution
-  Gforth. A local fix is being tested; no successful remote run is claimed
-  until GitHub actually runs the corrected revision.
+  Gforth. The corrected assertion passed in [run 41379263819](https://github.com/pmilford/LeanForth/actions/runs/41379263819)
+  for commit `3bcc348`. That run reported a separate `actions/checkout@v4`
+  Node.js 20 deprecation warning. Check the latest run again after each push.
 
 ## Lean-compatible theorem proving and Mathlib
 
