@@ -38,12 +38,12 @@ DIFFERENTIAL_TARGETS := \
 	test-gcd-reference-differential test-range-64-differential \
 	test-memory-reference-differential test-memory-frame-differential
 
-.PHONY: test test-differential check check-docs check-lean-sources smoke test-harness test-core \
+.PHONY: test test-differential check check-docs check-lean-sources smoke test-harness test-lib test-core \
 	test-composition-fixture test-program test-symbolic-infer-draft \
 	profile-existing profile-history forth-metrics $(DIFFERENTIAL_TARGETS)
 
 # Gforth and Python 3 only; run on every CI host and before every commit.
-test: check-docs check-lean-sources smoke test-harness test-core \
+test: check-docs check-lean-sources smoke test-harness test-lib test-core \
 	test-composition-fixture test-program
 
 # Fails on broken documentation links or missing docs/ paths.
@@ -80,6 +80,10 @@ reference-export:
 
 test-harness:
 	GFORTH=$(GFORTH) $(RUN) bash tests/harness/check.sh
+
+# The general Forth library in src/lib.
+test-lib:
+	$(RUN) $(GFORTH) tests/lib/lib.fs
 
 test-core:
 	$(RUN) $(GFORTH) tests/core/arena.fs

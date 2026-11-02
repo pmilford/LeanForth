@@ -1,125 +1,139 @@
-\ Untrusted bounded interning experiment for structured name components.
-\ Names are anonymous, prefix+byte-string, or prefix+nonnegative integer.
-\ Exact byte equality is used; UTF-8 validity and Lean String interpretation
-\ are not checked here. The caller must provide readable input memory and
-\ prevent concurrent or raw mutation. This is not a trusted name table, API,
-\ declaration environment, serialization, or theorem-checking boundary.
-\ All IDs become stale after reset; generation values are mutable diagnostics.
+\ Bounded interning of Lean structured names, one component at a time. A
+\ name is anonymous (ID 0), or a prefix name extended by a byte string or a
+\ nonnegative number; equal components under equal prefixes get one ID.
+\ Untrusted. Bytes compare exactly; UTF-8 validity and Lean String meaning
+\ are not checked. Not a trusted name table, declaration environment,
+\ serialization or theorem-checking boundary.
+\ Entries live in a bounded store (lib/store.fs) whose record 0 is the
+\ anonymous name; string bytes are appended to lf-name-bytes. Global,
+\ single-threaded, not re-entrant: callers keep input memory readable and
+\ prevent raw mutation during a call. A reset makes every ID stale, and a
+\ reused stale ID is not detectable here.
+
+require ../lib/lib.fs
 
 64 constant lf-name-capacity
 2048 constant lf-name-byte-capacity
 0 constant lf-name-tag-anon
 1 constant lf-name-tag-str
 2 constant lf-name-tag-num
-4 constant lf-name-slot-cells
-create lf-name-storage lf-name-capacity lf-name-slot-cells * cells allot
+
+\ One entry: kind, prefix ID, then the number or the string's byte offset in
+\ lf-name-bytes, then the string length (always 0 for a number).
+begin-structure /lf-name
+  field: lf-name>tag
+  field: lf-name>prefix
+  field: lf-name>payload
+  field: lf-name>length
+end-structure
+/lf-name 1 cells / constant lf-name-slot-cells
+
+lf-name-capacity /lf-name 1 store: lf-names
 create lf-name-bytes lf-name-byte-capacity allot
+\ Each query is copied here first, so it may alias any buffer of this module.
 create lf-name-input-copy lf-name-byte-capacity allot
-variable lf-name-count
-variable lf-name-used
-variable lf-name-generation
-variable lf-name-query-prefix
-variable lf-name-query-number
-variable lf-name-query-source
-variable lf-name-query-length
+variable lf-name-used   \ bytes of lf-name-bytes in use
 
-\ Internal slot address; the caller must supply an in-range index.
-: lf-name-slot ( index -- addr ) lf-name-slot-cells * cells lf-name-storage + ;
-\ Read a numbered field of an already allocated slot.
-: lf-name-field ( index field -- value ) cells swap lf-name-slot + @ ;
+\ The store's fields under their established names (tests corrupt them).
+: lf-name-count ( -- addr ) lf-names store-count ;
+: lf-name-generation ( -- addr ) lf-names store-generation ;
+\ Entry address; the ID must already be validated.
+: lf-name-slot ( id -- addr ) lf-names store-slot ;
+\ Numbered field of a valid entry (0 tag, 1 prefix, 2 payload, 3 length);
+\ kept for existing callers, new code uses the named fields.
+: lf-name-field ( id field# -- value ) cells swap lf-name-slot + @ ;
+\ Kind and prefix of a valid ID.
+: lf-name-tag@ ( id -- tag ) lf-name-slot lf-name>tag @ ;
+: lf-name-prefix@ ( id -- prefix ) lf-name-slot lf-name>prefix @ ;
 
-\ Reset to anonymous name zero, invalidating every prior ID. Generation
-\ saturation poisons the table rather than silently wrapping an old value.
-: lf-name-reset ( -- )
-  0 lf-name-slot lf-name-slot-cells cells erase
-  1 lf-name-count ! 0 lf-name-used !
-  lf-name-generation @ dup 0< if drop exit then
-  dup -1 1 rshift = if drop -1 else 1+ then lf-name-generation ! ;
+\ Reset to the anonymous name alone and advance the generation; saturation
+\ poisons the table rather than wrapping (see store-clear).
+: lf-name-reset ( -- ) 0 lf-name-slot /lf-name erase 0 lf-name-used ! lf-names store-clear ;
 
-\ Check count and byte bounds before deriving internal addresses.
+\ Count, byte use and generation are in range; checked before addressing.
 : lf-name-state-valid? ( -- flag )
-  lf-name-count @ dup 1 >= swap lf-name-capacity <= and
-  lf-name-used @ dup 0< 0= swap lf-name-byte-capacity <= and and
-  lf-name-generation @ 0< 0= and ;
-
-\ Test whether an ID is currently allocated; reused stale IDs are undetectable.
+  lf-names store-count-valid? lf-name-used @ lf-name-byte-capacity upto? and ;
+\ An ID is allocated now; a reused stale ID is undetectable.
 : lf-name-valid? ( id -- flag )
-  lf-name-state-valid? 0= if drop false exit then
-  dup 0< 0= swap lf-name-count @ < and ;
+  lf-name-state-valid? if lf-names store-valid? else drop false then ;
 
-\ Guard internal byte reads against corrupted tags, lengths and offsets. This
-\ validates bounds and backward prefixes, not uniqueness or immutable storage.
+\ Full structural audit, guarding later byte reads against corrupted tags,
+\ prefixes, offsets and lengths. Checks bounds and that prefixes point
+\ backwards; not uniqueness or immutability.
+: lf-name-span? ( offset length -- flag )
+  over lf-name-used @ upto? if swap lf-name-used @ swap - upto? else 2drop false then ;
+: lf-name-num-ok? ( entry -- flag ) dup lf-name>payload @ 0< 0= swap lf-name>length @ 0= and ;
+: lf-name-str-ok? ( entry -- flag ) dup lf-name>payload @ swap lf-name>length @ lf-name-span? ;
+: lf-name-body-ok? ( entry -- flag )
+  dup lf-name>tag @ case
+    lf-name-tag-num of lf-name-num-ok? endof
+    lf-name-tag-str of lf-name-str-ok? endof
+    nip false swap endcase ;   \ any other kind is invalid; ENDCASE drops the tag
+: lf-name-entry-ok? ( id -- flag )
+  dup lf-name-slot tuck lf-name>prefix @ 0 rot within if lf-name-body-ok? else drop false then ;
+: lf-names-ok? ( -- flag )
+  lf-name-count @ 1 ?do i lf-name-entry-ok? 0= if false unloop exit then loop true ;
 : lf-name-storage-valid? ( -- flag )
   lf-name-state-valid? 0= if false exit then
-  0 lf-name-slot dup @ over cell+ @ or
-  over 2 cells + @ or swap 3 cells + @ or if false exit then
-  lf-name-count @ 1 ?do
-    i 1 lf-name-field dup 0< swap i >= or if false unloop exit then
-    i 0 lf-name-field case
-      lf-name-tag-num of
-        i 2 lf-name-field 0< i 3 lf-name-field 0<> or if false unloop exit then
-      endof
-      lf-name-tag-str of
-        i 2 lf-name-field dup 0< over lf-name-used @ > or if
-          drop false unloop exit
-        then
-        lf-name-used @ swap -
-        i 3 lf-name-field dup 0< swap rot > or if false unloop exit then
-      endof
-      drop false unloop exit
-    endcase
-  loop true ;
+  0 lf-name-slot lf-name-slot-cells cells-zero? lf-names-ok? and ;
 
-\ Compare a valid numeric slot with the current intern query.
-: lf-name-number-match? ( index -- flag )
-  dup 0 lf-name-field lf-name-tag-num =
-  over 1 lf-name-field lf-name-query-prefix @ = and
-  swap 2 lf-name-field lf-name-query-number @ = and ;
+\ Entry matching: same kind and prefix, then same number or same bytes. A
+\ string query is the first length bytes of lf-name-input-copy.
+: lf-name-head? ( prefix tag entry -- flag ) tuck lf-name>tag @ = -rot lf-name>prefix @ = and ;
+: lf-name-num-match? ( prefix number entry -- flag )
+  tuck lf-name>payload @ = >r lf-name-tag-num swap lf-name-head? r> and ;
+: lf-name-query ( length -- addr length ) lf-name-input-copy swap ;
+: lf-name-bytes@ ( entry -- addr length ) dup lf-name>payload @ lf-name-bytes + swap lf-name>length @ ;
+: lf-name-str-match? ( prefix length entry -- flag )
+  >r swap lf-name-tag-str r@ lf-name-head?
+  if lf-name-query r> lf-name-bytes@ compare 0= else drop r> drop false then ;
 
-\ Compare a valid byte-string slot with the current intern query.
-: lf-name-string-match? ( index -- flag )
-  dup 0 lf-name-field lf-name-tag-str <> if drop false exit then
-  dup 1 lf-name-field lf-name-query-prefix @ <> if drop false exit then
-  dup 3 lf-name-field lf-name-query-length @ <> if drop false exit then
-  2 lf-name-field lf-name-bytes + lf-name-query-length @
-  lf-name-query-source @ lf-name-query-length @ compare 0= ;
+\ Linear search of entries 1 .. count-1.
+: lf-name-find-num ( prefix number -- id true | false )
+  lf-name-count @ 1 ?do 2dup i lf-name-slot lf-name-num-match?
+    if 2drop i true unloop exit then loop 2drop false ;
+: lf-name-find-str ( prefix length -- id true | false )
+  lf-name-count @ 1 ?do 2dup i lf-name-slot lf-name-str-match?
+    if 2drop i true unloop exit then loop 2drop false ;
 
-\ Intern a numeric component. Existing identical names retain their ID, even
-\ when the table is full; invalid inputs or exhaustion leave counts unchanged.
+\ Appending; callers have checked validity, absence and room. The store's
+\ identities are issued but unused: names are compared by content.
+: lf-name-room? ( -- flag ) lf-names store-open? ;
+: lf-name-byte-room? ( length -- flag ) lf-name-byte-capacity lf-name-used @ - upto? ;
+: lf-name-new ( prefix tag -- entry id )
+  lf-names store-claim dup >r lf-name-slot tuck lf-name>tag ! tuck lf-name>prefix ! r> ;
+: lf-name-add-num ( prefix number -- id )
+  >r lf-name-tag-num lf-name-new swap r> over lf-name>payload ! 0 swap lf-name>length ! ;
+: lf-name-store-bytes ( length -- offset )
+  >r lf-name-input-copy lf-name-bytes lf-name-used @ + r@ move
+  lf-name-used @ r> lf-name-used +! ;
+: lf-name-add-str ( prefix length -- id )
+  swap lf-name-tag-str lf-name-new >r
+  over lf-name-store-bytes over lf-name>payload ! lf-name>length ! r> ;
+
+\ Interning valid input: an existing identical name keeps its ID even when
+\ the table is full; exhaustion changes nothing.
+: lf-name-intern-num ( prefix number -- id true | false )
+  2dup lf-name-find-num if nip nip true exit then
+  lf-name-room? if lf-name-add-num true else 2drop false then ;
+: lf-name-intern-str ( prefix length -- id true | false )
+  2dup lf-name-find-str if nip nip true exit then
+  lf-name-room? over lf-name-byte-room? and if lf-name-add-str true else 2drop false then ;
+
+\ Intern a numeric component; invalid input changes nothing.
+: lf-name-num-args? ( prefix number -- flag )
+  0< 0= swap lf-name-valid? and lf-name-storage-valid? and ;
 : lf-name-num ( prefix number -- id true | false )
-  lf-name-storage-valid? 0= if 2drop false exit then
-  dup 0< 2 pick lf-name-valid? 0= or if 2drop false exit then
-  lf-name-query-number ! lf-name-query-prefix !
-  lf-name-count @ 1 ?do
-    i lf-name-number-match? if i true unloop exit then
-  loop
-  lf-name-count @ lf-name-capacity >= if false exit then
-  lf-name-count @ lf-name-slot >r
-  lf-name-tag-num r@ ! lf-name-query-prefix @ r@ cell+ !
-  lf-name-query-number @ r@ 2 cells + ! 0 r> 3 cells + !
-  lf-name-count @ 1 lf-name-count +! true ;
+  2dup lf-name-num-args? if lf-name-intern-num else 2drop false then ;
 
-\ Intern a byte-string component, copying the query before modifying scratch
-\ variables. Input memory must remain readable during the copy; no UTF-8 check
-\ occurs. MOVE permits input to overlap either byte buffer.
+\ Intern a byte-string component. The input is copied before anything else
+\ changes, so it may overlap any buffer here; it must stay readable during
+\ the copy. Invalid input changes nothing.
+: lf-name-str-args? ( prefix length -- flag )
+  lf-name-byte-capacity upto? swap lf-name-valid? and lf-name-storage-valid? and ;
+: lf-name-copy-in ( addr length -- length ) tuck lf-name-input-copy swap move ;
 : lf-name-str ( prefix addr length -- id true | false )
-  lf-name-storage-valid? 0= if 2drop drop false exit then
-  dup 0< over lf-name-byte-capacity > or if 2drop drop false exit then
-  2 pick lf-name-valid? 0= if 2drop drop false exit then
-  2dup lf-name-input-copy swap move
-  lf-name-query-length ! drop
-  lf-name-input-copy lf-name-query-source ! lf-name-query-prefix !
-  lf-name-count @ 1 ?do
-    i lf-name-string-match? if i true unloop exit then
-  loop
-  lf-name-count @ lf-name-capacity >= if false exit then
-  lf-name-query-length @ lf-name-byte-capacity lf-name-used @ - > if false exit then
-  lf-name-query-source @ lf-name-bytes lf-name-used @ + lf-name-query-length @ move
-  lf-name-count @ lf-name-slot >r
-  lf-name-tag-str r@ ! lf-name-query-prefix @ r@ cell+ !
-  lf-name-used @ r@ 2 cells + ! lf-name-query-length @ r> 3 cells + !
-  lf-name-query-length @ lf-name-used +!
-  lf-name-count @ 1 lf-name-count +! true ;
+  >r over r@ lf-name-str-args? r> swap
+  if lf-name-copy-in lf-name-intern-str else 2drop drop false then ;
 
-0 lf-name-generation !
 lf-name-reset

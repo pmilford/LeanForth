@@ -3,7 +3,7 @@
 What reusable Forth facilities exist, how mature they are, and what the
 product will need that does not exist yet. Everything listed is untrusted
 experimental code unless stated otherwise; none is a reviewed kernel
-component. Measured 2026-11-02 at commit `4779924`. Modules are in
+component. Measured 2026-11-02 at commit `4779924`; library entries updated the same day. Modules are in
 `src/core/` (data model) or `src/kernel/` (checker passes) unless named
 with another folder; superseded variants are in
 `src/legacy/` ([source layout](../../src/README.md)).
@@ -12,9 +12,13 @@ with another folder; superseded variants are in
 
 | Facility | Module(s) | What it is | State |
 | --- | --- | --- | --- |
-| Expression store | `src/core/terms.fs` | Index-based nodes for sorts, bound variables, application, λ, Π and constants; nodes refer to earlier indices, so a term is a DAG with sharing | 64 nodes; global; constructors check ranges only |
-| Universe-level store | `src/core/levels.fs` | Level DAGs: zero, succ, max, imax, parameters | 64 levels; global |
-| Name interning | `src/core/names.fs` | Lean structured names (string and numeric components) stored once and referred to by index | 64 names, 2,048 bytes; lookup is a linear scan, no hashing |
+| Bounded record stores | `src/lib/store.fs` | `store:` defining word: a fixed number of fixed-width records with an allocation count, a reset generation that saturates to a poisoned state, an identity per record that never repeats, and a sealed shape so header corruption fails closed | New 2026-11-02; used by the term, level and name stores; unit-tested in `tests/lib/lib.fs` |
+| Tagged nodes | `src/lib/node.fs` | `BEGIN-STRUCTURE` record of tag and two fields, with whole-node `node!`/`node@` and `node-new`/`node-read` on a store | New 2026-11-02; terms and levels |
+| Range checks | `src/lib/bounds.fs` | `between?` and `upto?` (inclusive, signed, never wrapping) and `cells-zero?` | New 2026-11-02 |
+| Portability adapter | `src/lib/portability.fs` | Forth-2012 definitions of `>=`, `<=`, `0<=`, `0>=`, `max-n` and the structure words, compiled only where the host lacks them | New 2026-11-02; defines nothing under Gforth except `max-n` |
+| Expression store | `src/core/terms.fs` | Index-based nodes for sorts, bound variables, application, λ, Π and constants; nodes refer to earlier indices, so a term is a DAG with sharing | 64 nodes; global; built on `store:`; constructors check ranges only |
+| Universe-level store | `src/core/levels.fs` | Level DAGs: zero, succ, max, imax, parameters | 64 levels; global; built on `store:` |
+| Name interning | `src/core/names.fs` | Lean structured names (string and numeric components) stored once and referred to by index | 64 names, 2,048 bytes; built on `store:` with named entry fields; lookup is a linear scan, no hashing |
 | Stale-handle detection | `src/core/generation-handles.fs`, `symbolic-session.fs` | Handles carry a generation number so a handle from before a reset is rejected | Works; tests found one unguarded path |
 | Constant references | `src/core/constant-references.fs`, `constant-term-*.fs` | A constant's name plus universe arguments, with syntax and scope audits | Global, 32 references |
 | DAG walkers | `shift`, `instantiate`, `beta`, `compare`/`convert`, `infer` in three variants: current `mixed-` in `src/kernel/`; plain and `tagged-` in `src/legacy/` | Bounded traversals with explicit work stacks and fuel, rolling back on failure | `mixed-*` is current; the other two variants are superseded (roadmap Q9) |
@@ -45,9 +49,10 @@ decision to keep decoding outside Forth with a validated binary interchange.
 - **Hashing and hash-consing.** Names are found by linear search and terms are
   not shared by content. Needed: hash tables for names and structural sharing
   of identical terms and levels.
-- **Records and defining words.** No `BEGIN-STRUCTURE`/`FIELD:` layouts and no
-  `CREATE ... DOES>` defining words; each module re-implements array-plus-count
-  storage with raw offsets. One `arena:`-style defining word would replace many.
+- **Records and defining words.** `store:` and the node and name records now
+  cover the term, level and name stores (2026-11-02). The other modules still
+  re-implement array-plus-count storage with raw offsets and should move onto
+  `store:` and named fields as they are refactored (roadmap Q10).
 - **One outcome vocabulary.** 34 words translate one module's status codes
   into another's. A shared set of outcomes (ok, rejected, unknown, invalid,
   exhausted) would remove them.

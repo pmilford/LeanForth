@@ -1,11 +1,15 @@
-\ Experimental bounded storage for the syntax of a small Lean expression subset.
-\ Constructors validate indices and payload ranges only; they do not check scope,
-\ types, universe semantics, declarations, or proofs. This is not a kernel API.
-\ Nodes occupy three cells: tag, first field, second field. Child references
-\ must name already allocated nodes, so constructors cannot create cycles.
-\ The arena is global and single-threaded. Reset invalidates all old indices;
-\ reused indices cannot be distinguished from stale ones. No host pointer or
-\ cell layout is a portable serialization format.
+\ Bounded storage for the syntax of a small Lean expression subset: Sort,
+\ bound variable, application, lambda and Pi nodes. Untrusted; not a kernel
+\ API. Constructors validate indices and payload ranges only; they do not
+\ check scope, types, universe semantics, declarations or proofs.
+\ Each term is a tagged node (lib/node.fs) in a bounded store
+\ (lib/store.fs). Children must already exist, so terms are acyclic DAGs.
+\ Global, single-threaded and not re-entrant. A reset invalidates every
+\ index, and a reused index cannot be told from a stale one; identities
+\ never repeat and are what handles check. No host address or cell layout
+\ is a portable serialization format.
+
+require ../lib/lib.fs
 
 64 constant lf-term-capacity
 1 constant lf-tag-sort
@@ -13,89 +17,56 @@
 3 constant lf-tag-app
 4 constant lf-tag-lam
 5 constant lf-tag-pi
-create lf-term-storage lf-term-capacity 3 * cells allot
-variable lf-term-count
-variable lf-term-generation
-variable lf-term-serial
-create lf-term-identities lf-term-capacity cells allot
-0 lf-term-generation !
-0 lf-term-serial !
 
-\ Empty storage and advance its epoch. Saturation permanently invalidates
-\ this arena instead of wrapping; bare reused indices remain unauthenticated.
-: lf-term-reset ( -- )
-  0 lf-term-count !
-  lf-term-generation @ dup 0< if drop exit then
-  dup -1 1 rshift = if drop -1 else 1+ then lf-term-generation ! ;
+lf-term-capacity /node 0 store: lf-terms
 
-\ Validate the mutable allocation count before using it for addressing.
-: lf-term-count-valid? ( -- flag )
-  lf-term-count @ dup 0< 0= swap lf-term-capacity <= and
-  lf-term-generation @ 0< 0= and ;
+\ The store's fields under their established names. Other modules save and
+\ restore lf-term-count to roll back a failed transaction, and tests corrupt
+\ these cells on purpose to check that every operation fails closed.
+: lf-term-count ( -- addr ) lf-terms store-count ;
+: lf-term-generation ( -- addr ) lf-terms store-generation ;
+: lf-term-serial ( -- addr ) lf-terms store-serial ;
+: lf-term-identities ( -- addr ) lf-terms store-identities ;
+\ Node address; the index must already be validated.
+: lf-term-slot ( index -- addr ) lf-terms store-slot ;
 
-\ Return true only for an index in a valid current allocation range.
-: lf-term-valid? ( index -- flag )
-  lf-term-count-valid? 0= if drop false exit then
-  dup 0< 0= swap lf-term-count @ < and ;
+\ Empty the store and advance its generation (see store-clear).
+: lf-term-reset ( -- ) lf-terms store-clear ;
+: lf-term-count-valid? ( -- flag ) lf-terms store-count-valid? ;
+: lf-term-valid? ( index -- flag ) lf-terms store-valid? ;
+\ A live node's identity; identities never roll back and never wrap.
+: lf-term-identity ( index -- identity true | false ) lf-terms store-identity@ ;
 
-\ Compute a slot address; this internal helper requires a valid index or the
-\ current count during allocation, and must not be called on untrusted input.
-: lf-term-slot ( index -- addr ) 3 * cells lf-term-storage + ;
+\ Append a node whose tag and fields the caller validated. An invalid count,
+\ a full store or a spent serial returns false and changes nothing.
+: lf-term-add ( tag first second -- index true | false ) lf-terms node-new ;
 
-\ Store a validated node; callers supply a supported tag and validated fields.
-\ On exhaustion return false without changing the arena or allocation count.
-: lf-term-add ( tag first second -- index true | false )
-  lf-term-count-valid? 0= if 2drop drop false exit then
-  lf-term-count @ lf-term-capacity >= if 2drop drop false exit then
-  lf-term-serial @ -1 1 rshift = if 2drop drop false exit then
-  1 lf-term-serial +!
-  lf-term-serial @ lf-term-count @ cells lf-term-identities + !
-  lf-term-count @ lf-term-slot >r
-  r@ 2 cells + ! r@ cell+ ! r> !
-  lf-term-count @ 1 lf-term-count +! true ;
+\ Leaves carry a nonnegative payload: a concrete universe level for Sort, a
+\ de Bruijn index for a bound variable. Scope and typing are not checked.
+\ Any other tag is refused, so a leaf can never hold a dangling child.
+: lf-term-leaf-tag? ( tag -- flag ) lf-tag-sort lf-tag-bvar 1+ within ;
+: lf-term-leaf ( payload tag -- index true | false )
+  over 0< over lf-term-leaf-tag? 0= or if 2drop false else swap 0 lf-term-add then ;
+: lf-term-sort ( level -- index true | false ) lf-tag-sort lf-term-leaf ;
+: lf-term-bvar ( index -- index true | false ) lf-tag-bvar lf-term-leaf ;
 
-\ Return the live slot's allocation identity, or false for invalid indices.
-\ Identities never roll back with the allocation count and never wrap.
-: lf-term-identity ( index -- identity true | false )
-  dup lf-term-valid? 0= if drop false exit then
-  cells lf-term-identities + @ true ;
-
-\ Construct a sort with a concrete nonnegative universe level.
-\ This stores syntax only; no universe or type judgment is performed.
-: lf-term-sort ( level -- index true | false )
-  dup 0< if drop false exit then
-  lf-tag-sort swap 0 lf-term-add ;
-
-\ Construct a nonnegative de Bruijn variable index. Scope is not checked.
-: lf-term-bvar ( index -- index true | false )
-  dup 0< if drop false exit then
-  lf-tag-bvar swap 0 lf-term-add ;
-
-\ Store a binary node after validating the tag and both child references.
-\ Invalid tags, invalid children or exhaustion leave the arena unchanged.
+\ Binary nodes: an application, lambda or Pi over two existing children. An
+\ invalid tag, an invalid child or a failed allocation changes nothing. The
+\ tag ranges rely on the tags being consecutive, checked here at load time.
+lf-tag-bvar lf-tag-sort 1+ = lf-tag-lam lf-tag-app 1+ = and lf-tag-pi lf-tag-lam 1+ = and
+0= [if] .( terms.fs: term tags must be consecutive) cr abort [then]
+: lf-term-binary-tag? ( tag -- flag ) lf-tag-app lf-tag-pi 1+ within ;
+: lf-term-pair-valid? ( left right -- flag ) lf-terms store-pair-valid? ;
 : lf-term-binary ( left right tag -- index true | false )
-  dup lf-tag-app = over lf-tag-lam = or over lf-tag-pi = or 0= if
-    drop 2drop false exit
-  then
-  >r over lf-term-valid? over lf-term-valid? and 0= if
-    r> drop 2drop false exit
-  then
-  r> -rot lf-term-add ;
+  >r 2dup lf-term-pair-valid? r@ lf-term-binary-tag? and
+  if r> -rot lf-term-add else r> drop 2drop false then ;
+\ Application: function, then argument.
+: lf-term-app ( function argument -- index true | false ) lf-tag-app lf-term-binary ;
+\ Lambda: binder type annotation, then body. The body is not scope-checked.
+: lf-term-lam ( annotation body -- index true | false ) lf-tag-lam lf-term-binary ;
+\ Dependent function type: domain, then body. Nothing is typed.
+: lf-term-pi ( domain body -- index true | false ) lf-tag-pi lf-term-binary ;
 
-\ Construct an application, with function and argument in that order.
-: lf-term-app ( function argument -- index true | false )
-  lf-tag-app lf-term-binary ;
-
-\ Construct a lambda from an annotation and body. The body is not scope-checked.
-: lf-term-lam ( annotation body -- index true | false )
-  lf-tag-lam lf-term-binary ;
-
-\ Construct a dependent function type from its domain and body, without typing.
-: lf-term-pi ( domain body -- index true | false )
-  lf-tag-pi lf-term-binary ;
-
-\ Read a node by index, returning its tag and fields followed by true. Invalid
-\ indices return only false; no memory is accessed for an invalid index.
-: lf-term-read ( index -- tag first second true | false )
-  dup lf-term-valid? 0= if drop false exit then
-  lf-term-slot dup @ swap cell+ dup @ swap cell+ @ true ;
+\ Read a node's tag and fields. An invalid index returns only false and no
+\ memory is read.
+: lf-term-read ( index -- tag first second true | false ) lf-terms node-read ;

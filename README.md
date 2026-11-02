@@ -28,7 +28,7 @@ layout rules.
 | Path | Contents |
 | --- | --- |
 | `src/main.fs` | The loader for all current code; later the command-line entry point. |
-| `src/lib/` | General Forth tools with no Lean knowledge (result codes, records, stores, portability). Created as the refactor extracts them. |
+| `src/lib/` | General Forth tools with no Lean knowledge: a bounded-store defining word, tagged node records, range checks and a portability adapter. |
 | `src/core/` | Lean's data model, 10 modules: the term store (`terms.fs`), names, universe levels, sessions and stale-handle checks, constant references. |
 | `src/kernel/` | The proof checker under development, 13 modules: universe substitution and comparison, signatures, and the `mixed-*` substitution, reduction, comparison, conversion and inference passes. Not verified until the owner declares it so after the review gate in `AGENTS.md`. |
 | `src/import/` | Staging of decoded Lean exports into the term store. |

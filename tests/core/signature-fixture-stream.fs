@@ -21,7 +21,7 @@ variable param-id
 variable level-index
 variable level-id
 variable node-index
-variable node-tag
+variable record-tag
 variable first-n
 variable second-n
 variable level-start
@@ -34,20 +34,20 @@ variable level-start
 : handle-at ( index -- index identity )
   dup node-index @ >= if -1 throw then dup cells identities + @ ;
 : stage-node ( -- )
-  field-in node-index ! field-in node-tag !
+  field-in node-index ! field-in record-tag !
   field-in first-n ! field-in second-n !
   node-index @ lf-term-count @ <> if -1 throw then
-  node-tag @ 1 = if
+  record-tag @ 1 = if
     second-n @ 0<> if -1 throw then
     first-n @ 0 = if lf-hlevel-zero else
       first-n @ 1 <> if -1 throw then level-index @ level-id @ true
     then
     0= if -1 throw then lf-hterm-sort
-  else node-tag @ 2 = if
+  else record-tag @ 2 = if
     second-n @ 0<> if -1 throw then first-n @ lf-hterm-bvar
   else
     first-n @ handle-at second-n @ handle-at
-    node-tag @ case
+    record-tag @ case
       3 of lf-hterm-app endof
       4 of lf-hterm-lam endof
       5 of lf-hterm-pi endof

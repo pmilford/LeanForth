@@ -140,3 +140,56 @@ about content and `core/` was mistaken for the trusted kernel); an empty
 superseded copies in `core/` (mixes current and old code); deleting them now
 (their 14 Lean comparisons must first move to the current path; owner chose
 to keep them); one wordlist per folder in this step (needs an ADR; later).
+
+## Forth library and the bottom-layer refactor — 2026-11-02
+
+The term, level and name stores repeated the same array-plus-count code
+with raw offsets. They now share `src/lib/store.fs`: a `store:` defining
+word whose header is a `BEGIN-STRUCTURE` record (capacity, width, base,
+count, generation, serial), with identities and records after it.
+`src/lib/node.fs` names the three node fields. The refactor keeps every
+public word and stack effect: words that were `VARIABLE`s (`lf-term-count`,
+`lf-level-serial`, `lf-name-generation`, …) are now colon words returning
+the same field addresses, because about 33 modules save and restore them
+for rollback and tests corrupt them on purpose. `names.fs` no longer passes
+its query through four `VARIABLE` registers; the prefix, number or length
+travel on the stack and string bytes are read from the existing input copy.
+The new tests also pass against the previous implementation, which is the
+evidence that behavior did not change.
+
+Modules load the library with `require ../lib/lib.fs`. The name `REQUIRE`
+sees depends on the chain of includers (for example
+`tests/core/../../src/legacy/../core/../lib/lib.fs`), so a Forth that does not
+normalize paths could load it twice; Gforth 1.0 normalizes them. `lib.fs`
+therefore also guards itself with a marker word, `lf-lib-loaded`, and
+`make smoke` reports any second load as a "redefined" warning. Library
+words carry no `lf-` prefix: they are generic, and collisions with Gforth
+and project words were checked. The portability adapter defines Forth-2012
+versions of the few Gforth extensions the code uses (`>=`, `<=`, `0<=`,
+`-rot`) only where a host lacks them, rather than editing 85 call sites.
+
+An independent Forth review of the change found no behavior difference
+from the previous code on any API result: it ran a randomized differential
+of old and new code, 8–16 seeds of 20,000 operations per module, with
+corrupted counters and aliased inputs, plus `make check`. It found library
+defects, now fixed, which are deliberate changes from the first version:
+`cells-zero?` with a negative count read past its buffer; `lf-term-leaf`
+accepted a binary tag and could create a dangling child; and the store's
+shape (capacity, width, base) became writable header cells that every bound
+trusted, where the old code used constants. The shape is now checked when
+a store is defined and sealed with a check value, so corrupting any one
+shape field makes every check fail closed. `upto?` and the new `between?`
+use signed comparisons only, because `WITHIN` wraps around for negative
+limits. Removed public words, none still referenced: `lf-term-storage`,
+`lf-level-storage`, `lf-name-storage`, the four `lf-name-query-*`
+variables, `lf-name-number-match?` and `lf-name-string-match?`. One order
+changed: allocation now advances the count before the record is written;
+nothing can fail in between today, but a future `CATCH`/`THROW` convention
+must roll the count back (ADR needed, style guide section 6).
+
+Rejected: renaming the store fields' public words now (would touch 100 test
+files for no behavior gain; do it module by module); `require` of each
+library file individually (more chances of a double load on a Forth that
+does not normalize paths); trusting the shape fields as the old constants
+were trusted (they are now writable memory); locals (factoring
+kept every word to one to three lines without them).

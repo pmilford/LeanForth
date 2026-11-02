@@ -8,7 +8,7 @@ audit, any accepted result is *experimental — not independently audited*.
 | Folder | Holds | Loaded by `main.fs` |
 | --- | --- | --- |
 | `main.fs` | One loader that includes every current module in dependency order; later the command-line entry point. Run `gforth src/main.fs`. | — |
-| `lib/` | General Forth tools with no Lean knowledge: shared result codes, record fields, bounded stores, hashing, byte-stream reading, portability words. Created as the refactor extracts them. | yes, through `core/` |
+| `lib/` | General Forth tools with no Lean knowledge: the portability adapter, range checks, the `store:` bounded-store defining word and tagged node records so far; shared result codes, hashing and byte-stream reading are planned. `lib.fs` loads them in order. | yes, through `core/` |
 | `core/` | Lean's data model: the term store, names, universe levels and their parameter scope, the Sort representation, sessions and stale-handle checks, constant references and their structural audits. | yes |
 | `kernel/` | The proof checker, under development: universe substitution, value and comparison; candidate signatures; the `mixed-*` shift, instantiate, beta, compare, convert and inference passes; the definition probe. See [`kernel/README.md`](kernel/README.md). | yes |
 | `import/` | Staging of decoded Lean exports into the term store (`load.fs`); later a shared NDJSON reader. | yes |
@@ -20,11 +20,13 @@ audit, any accepted result is *experimental — not independently audited*.
 - Dependencies point one way: `lib/` ← `core/` ← `kernel/`. `lib/` uses
   nothing outside `lib/`; `core/` never uses `kernel/`; neither uses
   `legacy/`, `import/` or `program/`. `legacy/` may use anything.
-- Every module states its load dependencies in its header comment. Add each
+- Modules load the library with `require ../lib/lib.fs`, which compiles it
+  once however many modules ask; other dependencies are still loaded by the
+  caller in order. Every module states its load dependencies in its header comment. Add each
   new current module to `main.fs` in dependency order; `make smoke` fails if
   loading prints anything, such as a "redefined" warning.
-- Tests load modules directly with `include`; they live in `tests/core/`
-  (for `core/`, `kernel/` and `legacy/` modules) and `tests/program/`.
+- Tests load modules directly with `include`; they live in `tests/lib/`,
+  `tests/core/` (for `core/`, `kernel/` and `legacy/` modules) and `tests/program/`.
 - Style: [the Forth style guide](../docs/development/FORTH_STYLE.md);
   `make forth-metrics` reports per-folder totals.
 

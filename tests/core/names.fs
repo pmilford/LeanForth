@@ -33,42 +33,58 @@ T{ 123 0 0 -1 lf-name-str -> 123 false }T
 T{ lf-name-count @ -> 9 }T
 
 \ Internal offset corruption is detected before byte comparison or allocation.
-lf-name-byte-capacity 1+ 1 lf-name-slot 2 cells + !
+lf-name-byte-capacity 1+ 1 lf-name-slot lf-name>payload !
 T{ 0 s" u" lf-name-str -> false }T
 T{ 0 7 lf-name-num -> false }T
 T{ lf-name-count @ -> 9 }T
-0 1 lf-name-slot 2 cells + !
+0 1 lf-name-slot lf-name>payload !
 T{ 0 s" u" lf-name-str -> 1 true }T
-99 1 lf-name-slot !
+99 1 lf-name-slot lf-name>tag !
 T{ 0 1 lf-name-num -> false }T
-lf-name-tag-str 1 lf-name-slot !
-1 1 lf-name-slot cell+ !
+lf-name-tag-str 1 lf-name-slot lf-name>tag !
+1 1 lf-name-slot lf-name>prefix !
 T{ 0 s" u" lf-name-str -> false }T
-0 1 lf-name-slot cell+ !
--1 1 lf-name-slot 3 cells + !
+0 1 lf-name-slot lf-name>prefix !
+-1 1 lf-name-slot lf-name>length !
 T{ 0 s" u" lf-name-str -> false }T
-lf-name-used @ 1+ 1 lf-name-slot 3 cells + !
+lf-name-used @ 1+ 1 lf-name-slot lf-name>length !
 T{ 0 s" u" lf-name-str -> false }T
-1 1 lf-name-slot 3 cells + !
-1 0 lf-name-slot !
+1 1 lf-name-slot lf-name>length !
+1 0 lf-name-slot lf-name>tag !
 T{ 0 1 lf-name-num -> false }T
-0 0 lf-name-slot !
+0 0 lf-name-slot lf-name>tag !
 T{ 0 s" u" lf-name-str -> 1 true }T
 
-\ A query may alias scratch variables: copy its original bytes before updating
-\ the query metadata. The caller still guarantees that source memory is valid.
+\ A query may alias this module's own buffers, because it is copied before
+\ anything changes: the whole input copy, and the unused tail of the byte
+\ store. The caller still guarantees that source memory is valid.
 create name-test-scratch 2 allot
+s" xy" name-test-scratch swap move
 lf-name-reset
-1 lf-name-query-length !
-lf-name-query-length name-test-scratch 2 move
-T{ 0 lf-name-query-length 2 lf-name-str -> 1 true }T
+name-test-scratch lf-name-input-copy 2 move
+T{ 0 lf-name-input-copy 2 lf-name-str -> 1 true }T
 T{ 1 2 lf-name-field lf-name-bytes + 2 name-test-scratch 2 compare -> 0 }T
+s" pq" lf-name-bytes lf-name-used @ + swap move
+T{ 0 lf-name-bytes lf-name-used @ + 2 lf-name-str -> 2 true }T
+T{ 0 s" pq" lf-name-str -> 2 true }T
+T{ lf-name-count @ -> 3 }T
 lf-name-reset
 T{ 0 s" abc" lf-name-str -> 1 true }T
 T{ 0 lf-name-bytes 1+ 2 lf-name-str -> 2 true }T
 T{ 0 s" bc" lf-name-str -> 2 true }T
 T{ 0 s" abc" lf-name-str -> 1 true }T
 T{ 0 lf-name-input-copy 1+ 2 lf-name-str -> 2 true }T
+
+\ A query may also alias the next free entry, or an existing entry's own
+\ record; the stored names stay intact.
+lf-name-reset
+T{ 0 s" u" lf-name-str -> 1 true }T
+s" ab" lf-name-count @ lf-name-slot swap move
+T{ 0 lf-name-count @ lf-name-slot 2 lf-name-str -> 2 true }T
+T{ 0 s" ab" lf-name-str -> 2 true }T
+T{ 0 1 lf-name-slot 1 cells lf-name-str -> 3 true }T
+T{ 0 s" u" lf-name-str -> 1 true }T
+T{ lf-name-storage-valid? -> true }T
 
 \ Exhaust node storage. A duplicate may still be found without allocating.
 lf-name-reset

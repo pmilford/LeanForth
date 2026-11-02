@@ -61,4 +61,50 @@ lf-level-reset
 T{ lf-level-count @ -> 1 }T
 T{ 0 lf-level-read -> lf-level-tag-zero 0 0 true }T
 T{ 1 lf-level-read -> false }T
+
+\ Each reset gives the zero level a fresh identity and advances the
+\ generation; identities are never reused.
+lf-level-serial @ constant level-serial0
+lf-level-generation @ constant level-generation0
+T{ 0 lf-level-identity -> level-serial0 true }T
+T{ 1 lf-level-param -> 1 true }T
+T{ 1 lf-level-identity -> level-serial0 1+ true }T
+lf-level-reset
+T{ 0 lf-level-identity -> level-serial0 2 + true }T
+T{ lf-level-generation @ -> level-generation0 1+ }T
+T{ 1 lf-level-identity -> false }T
+
+\ A spent serial at reset poisons the store instead of reusing an identity.
+max-n lf-level-serial !
+lf-level-reset
+T{ lf-level-count @ lf-level-generation @ -> 0 -1 }T
+T{ 0 lf-level-read -> false }T
+T{ 1 lf-level-param -> false }T
+0 lf-level-serial !
+0 lf-level-generation !
+lf-level-reset
+T{ lf-level-count @ 0 lf-level-read -> 1 lf-level-tag-zero 0 0 true }T
+
+\ Failed constructors leave the serial unchanged; identities are unreadable
+\ under a corrupted count.
+lf-level-serial @ constant level-serial1
+T{ 0 0 99 lf-level-binary -> false }T
+T{ 5 0 lf-level-max -> false }T
+T{ 5 0 99 lf-level-binary -> false }T
+T{ 0 lf-level-param -> false }T
+T{ lf-level-serial @ lf-level-count @ -> level-serial1 1 }T
+-1 lf-level-count !
+T{ 0 lf-level-identity -> false }T
+1 lf-level-count !
+
+\ A reset with a poisoned generation but a live serial leaves the store
+\ invalid: the generation stays negative.
+-1 lf-level-generation !
+lf-level-reset
+T{ lf-level-generation @ lf-level-count-valid? -> -1 false }T
+T{ 0 lf-level-read -> false }T
+T{ 1 lf-level-param -> false }T
+0 lf-level-generation !
+lf-level-reset
+T{ lf-level-count-valid? -> true }T
 bye

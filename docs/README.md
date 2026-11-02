@@ -63,7 +63,8 @@ All are proposals; none is approved for trusted implementation.
 [0004](adr/0004-symbolic-universes.md) symbolic universes ·
 [0005](adr/0005-structured-names.md) structured names ·
 [0006](adr/0006-constant-environments.md) constant environments ·
-[0007](adr/0007-sort-representation-boundary.md) Sort representation boundary.
+[0007](adr/0007-sort-representation-boundary.md) Sort representation boundary ·
+[0008](adr/0008-outcome-vocabulary.md) one outcome vocabulary (proposed).
 
 ## `reviews/` — review packets and records
 
