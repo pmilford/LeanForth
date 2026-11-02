@@ -16,6 +16,10 @@ approved the Mathlib download (OQ-9).
 **Owner to-dos added 2026-11-02 (not yet placed in phases):**
 - *Binary quick import.* If importing Mathlib from NDJSON is slow, a
   serialized binary snapshot of the decoded records could load much faster.
+  *Measured 2026-11-02:* the Forth reader decodes and checks all of Mathlib
+  in 1 min 43 s (`gforth-fast`, 17 MB), against 6.5 min to produce the
+  export and an estimated hours of checking, so it is **not worth building
+  now**; revisit only if reading becomes a large share of a run.
   Worth it only if measured parsing dominates (the scale assessment estimates
   about a minute to parse all of Mathlib in Forth). A snapshot of *decoded,
   unchecked* records is a cache the checker still re-checks; reusing

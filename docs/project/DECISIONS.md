@@ -428,3 +428,25 @@ rather than the library as one unit (more lines, and a host that treats
 different relative paths as different files could load a library file
 twice); keeping the dependency order in `main.fs` and every test (the
 order lived in 80 places and the header comments drifted).
+
+## Forth NDJSON reader, and no binary quick import yet — 2026-11-02
+
+Following the owner's decision that a Forth reader replaces Python on the
+user's path (OQ-4), `src/lib/bytes.fs`, `src/lib/json.fs` and
+`src/import/ndjson.fs` read lean4export format 3.1.0
+([NDJSON_READER.md](../development/NDJSON_READER.md)). Each record is
+checked whole (exact fields, JSON types, dense in-order indices, earlier
+references, pinned metadata) before a handler per kind receives it; an
+inductive block is handed over only after the whole block passes; a kind
+with no handler stops the read. On all of Mathlib the reader's counts and
+field-by-field decoding equal Python's `json` module; it takes 1 min 43 s
+with `gforth-fast` (3.3 times faster than `gforth`) and 17 MB.
+
+The owner's proposed binary quick-import is not built: reading is under two
+minutes against 6.5 minutes to export and hours to check, a second format
+would need its own specification and tests, and a final run re-reads the
+source anyway (owner answer to OQ-3). Open: the reader classifies nesting
+deeper than 64 as a limit and unknown fields as malformed, where the Python
+preview differs in places; plan item 3.2.1 settles one classification
+through the import review gate. Staging decoded records into growable
+stores is next (plan 3.2–3.3).
