@@ -67,6 +67,15 @@ lf-level-serial @ constant saved-serial
 T{ tree formals actuals 2 20 lf-lsubst -> lf-lsubst-exhausted }T
 T{ lf-level-count @ -> 10 }T
 saved-serial lf-level-serial !
+\ A commit that fails part way appends nothing. The plan stages two nodes;
+\ then, as if the store changed during the call (which callers must
+\ exclude), only one identity is left: the first node is added and the
+\ second refused, and the count goes back. White-box: the passes of lf-lsubst.
+20 lf-lsubst-walker walk-budget drop formals actuals 2 lf-lsubst-use
+T{ tree lf-lsubst-prepare lf-lsubst-new-count @ -> tree lf-lsubst-ok 2 }T
+-1 1 rshift 1- lf-level-serial !
+T{ tree lf-lsubst-finish lf-level-count @ -> lf-lsubst-invalid 10 }T
+saved-serial lf-level-serial !
 : fill-arena ( -- )
   begin lf-level-count @ lf-level-capacity < while
     0 lf-level-succ 0= if -1 throw then drop

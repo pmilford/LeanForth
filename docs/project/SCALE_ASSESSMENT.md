@@ -199,7 +199,7 @@ cost below is per call.
   every constant-reference check (`lf-cref-name-valid?`). Interning about
   5.5 M names would take on the order of 10¹³ entry visits, which is days of
   work. Each constant visit would also audit millions of names.
-- **Level substitution** (`lf-mls-audit`) erases a capacity-sized `seen`
+- **Level substitution** (`lf-mls-audit-from`) erases a capacity-sized `seen`
   array, and `lf-mls-build` loops over every index from 0 to the root.
   `level-substitute.fs` erases five capacity-sized arrays. At 10⁸ nodes, each
   specialisation of a constant would touch gigabytes.

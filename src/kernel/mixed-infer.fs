@@ -11,9 +11,9 @@
 \ and a copy of a reference's levels. A node's intermediate results stay on
 \ the data stack. Not re-entrant and single-threaded. lf-minfer-walk is
 \ deferred only for the mutual recursion and set once, at load time.
-\ mixed-definition-probe.fs sets the record's fields through the words
-\ below and calls lf-minfer-walk, lf-minfer-sort-level, lf-minfer-compare
-\ and the two status words directly.
+\ mixed-definition-probe.fs starts a job with lf-minfer-start, calls
+\ lf-minfer-walk, lf-minfer-sort-level and lf-minfer-compare directly, and
+\ reads lf-minfer-fuel afterwards.
 
 begin-structure /lf-ijob
   field: lf-ijob-fuel      \ visits left
@@ -34,28 +34,18 @@ outcome-invalid constant lf-minfer-invalid
 outcome-exhausted constant lf-minfer-exhausted
 outcome-unknown constant lf-minfer-unknown
 
-\ The record's fields under their established names; mixed-definition-probe
-\ sets them before calling lf-minfer-walk, and tests read the fuel and the
-\ binder count.
+\ Fields of the record. Tests read the fuel left and the binder count, and
+\ mixed-definition-probe reads the fuel left.
 : lf-minfer-fuel ( -- addr ) lf-minfer-job lf-ijob-fuel ;
 : lf-minfer-depth ( -- addr ) lf-minfer-job lf-ijob-depth ;
 : lf-minfer-token ( -- addr ) lf-minfer-job lf-ijob-token ;
-: lf-minfer-term-start ( -- addr ) lf-minfer-job lf-ijob-terms ;
-: lf-minfer-level-start ( -- addr ) lf-minfer-job lf-ijob-levels ;
-: lf-minfer-cref-start ( -- addr ) lf-minfer-job lf-ijob-crefs ;
 : lf-minfer-context-depth ( -- addr ) lf-minfer-job lf-ijob-binders ;
 
-\ A helper's status as an outcome, keeping only the outcomes that helper
-\ can return: the scope audit fails only as invalid or exhausted (1-2), the
-\ signature index also as unknown (3). Any other value is invalid, so no
-\ unexpected status passes. Shared with mixed-definition-probe.fs.
-: lf-minfer-narrow ( status limit -- outcome )
-  over 0 rot within 0= if drop outcome-invalid then ;
-: lf-minfer-repr-status ( status -- outcome ) outcome-unknown lf-minfer-narrow ;
-: lf-minfer-msp-status ( status -- outcome ) outcome-rejected lf-minfer-narrow ;
-
 \ Helpers run on the fuel left and inference continues with what they leave.
-\ A failed step has no type (-1).
+\ They report only ok, invalid or exhausted, and the signature lookup also
+\ unknown; outcome-sane passes any outcome on unchanged (so rejected or
+\ unsupported too, once ADR 0008 step 3 lets helpers return them; still not
+\ ok) and makes anything else invalid. A failed step has no type (-1).
 : lf-minfer-refuel ( fuel-addr -- ) @ lf-minfer-fuel ! ;
 : lf-minfer-none ( status -- type status ) -1 swap ;
 
@@ -109,16 +99,17 @@ outcome-unknown constant lf-minfer-unknown
 
 \ A constant: specialize its candidate signature to the reference's levels,
 \ first copied into this record (specialization needs its input disjoint
-\ from every arena and scratch area). A failure leaves no fuel.
+\ from every arena and scratch area). Success continues with the fuel the
+\ specialization left; a failure leaves no fuel.
 : lf-minfer-actuals ( -- addr ) lf-minfer-job lf-ijob-actuals ;
 : lf-minfer-copy ( slot -- addr count )
   lf-cref-pairs tuck 2* cells lf-minfer-actuals swap move lf-minfer-actuals swap ;
-: lf-minfer-specialized ( root identity 0 | status -- type status )
-  lf-minfer-msp-status dup ok? if 2drop lf-mls-fuel lf-minfer-refuel outcome-ok
+: lf-minfer-specialized ( root identity fuel' 0 | status -- type status )
+  outcome-sane dup ok? if drop lf-minfer-fuel ! drop outcome-ok
   else 0 lf-minfer-fuel ! lf-minfer-none then ;
 : lf-minfer-constant ( reference -- type status )
   lf-cref-slot dup lf-crec-name @ swap lf-minfer-copy 2>r lf-minfer-token @ swap 2r>
-  lf-minfer-fuel @ lf-msp-specialize lf-minfer-specialized ;
+  lf-minfer-fuel @ lf-msp-specialize-fuel lf-minfer-specialized ;
 
 \ A bound variable has its binder's domain, shifted past the binders between.
 : lf-minfer-bvar ( index -- type status )
@@ -183,7 +174,7 @@ defer lf-minfer-walk ( node -- type status )
     lf-tag-lam of lf-minfer-lam endof
     lf-tag-pi of lf-minfer-pi endof
     >r 2drop -1 outcome-unknown r> endcase ;
-: lf-minfer-source? ( node -- flag ) dup 0< 0= swap lf-minfer-term-start @ < and ;
+: lf-minfer-source? ( node -- flag ) dup 0< 0= swap lf-minfer-job lf-ijob-terms @ < and ;
 : lf-minfer-read ( node -- first second tag true | false )
   dup lf-minfer-source? 0= if drop false exit then lf-term-read dup if >r rot r> then ;
 : lf-minfer-visit ( node -- type status )
@@ -203,28 +194,40 @@ defer lf-minfer-walk ( node -- type status )
 \ Preflight before any allocation: the closed root's binder scope, then the
 \ whole signature index, each continuing with the fuel the last one left.
 : lf-minfer-scope ( root identity -- status )
-  0 lf-minfer-fuel @ lf-constant-term-scope lf-minfer-repr-status
+  0 lf-minfer-fuel @ lf-constant-term-scope outcome-sane
   dup ok? if lf-cts-fuel lf-minfer-refuel then ;
 : lf-minfer-index ( -- status )
-  lf-minfer-token @ lf-minfer-fuel @ lf-mixed-signature-audit lf-minfer-msp-status
+  lf-minfer-token @ lf-minfer-fuel @ lf-mixed-signature-audit outcome-sane
   dup ok? if lf-msa-fuel lf-minfer-refuel then ;
 : lf-minfer-preflight ( root identity -- status )
   lf-minfer-scope dup ok? if drop lf-minfer-index then ;
 
 \ The three arena counts before allocation, and their rollback; allocation
-\ serials never rewind. A failure reports no type and leaves zero fuel.
-: lf-minfer-mark ( -- )
-  lf-term-count @ lf-minfer-term-start ! lf-level-count @ lf-minfer-level-start !
-  lf-cref-count @ lf-minfer-cref-start ! ;
+\ serials never rewind.
+: lf-minfer-mark ( job -- )
+  lf-term-count @ over lf-ijob-terms ! lf-level-count @ over lf-ijob-levels !
+  lf-cref-count @ swap lf-ijob-crefs ! ;
 : lf-minfer-rollback ( -- )
-  lf-minfer-term-start @ lf-term-count ! lf-minfer-level-start @ lf-level-count !
-  lf-minfer-cref-start @ lf-cref-count ! ;
+  lf-minfer-job dup lf-ijob-terms @ lf-term-count ! dup lf-ijob-levels @ lf-level-count !
+  lf-ijob-crefs @ lf-cref-count ! ;
+: lf-minfer-idle ( job -- ) 0 over lf-ijob-depth ! 0 swap lf-ijob-binders ! ;
+
+\ Start a job on lf-minfer-job: the index token and nonnegative fuel, no
+\ frames or binders in use, and the arena counts to roll back to. Neither
+\ preflight allocates, so the counts are the same before and after it; the
+\ definition probe starts a job after its own preflight. Only original
+\ source nodes, those below the term count, are then inferred.
+: lf-minfer-start ( token fuel -- )
+  lf-minfer-job tuck lf-ijob-fuel ! tuck lf-ijob-token !
+  dup lf-minfer-idle lf-minfer-mark ;
+
+\ A failure reports no type and leaves zero fuel.
 : lf-minfer-failed ( status -- type identity status ) 0 lf-minfer-fuel ! -1 0 rot ;
 : lf-minfer-result ( type -- type identity status )
   dup lf-term-identity if outcome-ok exit then
   drop lf-minfer-rollback outcome-invalid lf-minfer-failed ;
 : lf-minfer-run ( root -- type identity status )
-  lf-minfer-mark 0 lf-minfer-depth ! 0 lf-minfer-context-depth ! lf-minfer-walk
+  lf-minfer-walk
   dup ok? if drop lf-minfer-result else nip lf-minfer-rollback lf-minfer-failed then ;
 
 \ ( token root identity fuel -- type identity status ) Full source and global
@@ -233,5 +236,5 @@ defer lf-minfer-walk ( node -- type status )
 \ Every failure reports zero remaining fuel conservatively.
 : lf-mixed-infer ( token root identity fuel -- type identity status )
   dup 0< if 2drop 2drop outcome-invalid lf-minfer-failed exit then
-  lf-minfer-fuel ! rot lf-minfer-token ! over swap lf-minfer-preflight
+  >r rot r> lf-minfer-start over swap lf-minfer-preflight
   dup ok? if drop lf-minfer-run else nip lf-minfer-failed then ;

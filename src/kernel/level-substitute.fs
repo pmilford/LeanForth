@@ -12,8 +12,8 @@
 \ left), and one job record, lf-lsubst-job (the substitution in use, the
 \ reachable nodes and the planned new nodes). Not re-entrant and
 \ single-threaded: the store, the context and the arrays must not change
-\ during a call. mixed-level-substitute and mixed-signature-audit set the
-\ substitution and run the checks below from their own passes.
+\ during a call. mixed-level-substitute sets the substitution with
+\ lf-lsubst-use and runs the checks below from its own passes.
 
 outcome-ok constant lf-lsubst-ok
 outcome-invalid constant lf-lsubst-invalid
@@ -35,8 +35,8 @@ lf-lsubst-job /lf-lsrec erase
 \ Fuel left after a call or check; mixed-level-substitute and
 \ legacy/term-level-substitute continue with it.
 : lf-lsubst-fuel ( -- addr ) lf-lsubst-walker walk-fuel ;
-\ The substitution in use. mixed-signature-audit sets the formals and count
-\ itself to validate a signature's formal list and to audit its levels.
+\ The substitution in use, set only by lf-lsubst-use. A source audit alone
+\ reads no actuals and may give address 0 for them.
 : lf-lsubst-formals ( -- addr ) lf-lsubst-job lf-lsrec-formals ;
 : lf-lsubst-actuals ( -- addr ) lf-lsubst-job lf-lsrec-actuals ;
 : lf-lsubst-count ( -- addr ) lf-lsubst-job lf-lsrec-count ;
@@ -105,8 +105,7 @@ lf-lsubst-job /lf-lsrec erase
 : lf-lsubst-new-node ( n -- addr ) /node * lf-lsubst-job lf-lsrec-new-nodes + ;
 \ A succ keeps its unused second field.
 : lf-lsubst-images ( tag first second -- tag first' second' )
-  2>r dup lf-level-tag-succ = 2r> rot
-  if swap lf-lsubst-image swap else lf-lsubst-image swap lf-lsubst-image swap then ;
+  >r lf-lsubst-image over lf-level-tag-succ = r> swap 0= if lf-lsubst-image then ;
 : lf-lsubst-kept? ( first' second' index -- flag )
   lf-level-slot dup node-first @ swap node-second @ rot = >r = r> and ;
 \ The index the next staged node will receive.
@@ -141,13 +140,15 @@ lf-lsubst-job /lf-lsrec erase
 
 \ Appending the staged nodes. The plan checked every precondition of the
 \ allocation, so a failure means the store changed during the call: the
-\ call then reports invalid input.
+\ call then reports invalid input and puts the level count back, so no
+\ node stays appended (identities already issued are not reused).
 : lf-lsubst-add ( n -- flag ) lf-lsubst-new-node node@ lf-level-add dup if nip then ;
 : lf-lsubst-commit ( -- outcome )
   lf-lsubst-new-count @ 0 ?do i lf-lsubst-add 0= if outcome-invalid unloop exit then loop
   outcome-ok ;
 : lf-lsubst-finish ( root -- result ok | status )
-  lf-lsubst-commit ok-then? if lf-lsubst-image outcome-ok then ;
+  lf-level-count @ >r lf-lsubst-commit ok-then?
+  if r> drop lf-lsubst-image outcome-ok else r> lf-level-count ! then ;
 : lf-lsubst-prepare ( root -- root outcome )
   lf-lsubst-walker lf-lsubst-inputs dup ok? if drop dup lf-lsubst-source then
   dup ok? if drop dup lf-lsubst-plan then ;

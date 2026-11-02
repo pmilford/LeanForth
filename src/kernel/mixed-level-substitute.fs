@@ -10,16 +10,14 @@
 \ State: one walk record, lf-mls-walker (the source audit and the fuel left,
 \ shared by every pass), and one job record, lf-mls-job (the substitution,
 \ the counts to roll back to, reached terms and their images). Not
-\ re-entrant and single-threaded. mixed-signature-audit sets lf-mls-root,
-\ lf-mls-id and lf-mls-fuel and runs lf-mls-audit on its own.
+\ re-entrant and single-threaded. mixed-signature-audit runs the source
+\ audit alone through lf-mls-audit-formals.
 
 outcome-ok constant lf-mlsubst-ok
 outcome-invalid constant lf-mlsubst-invalid
 outcome-exhausted constant lf-mlsubst-exhausted
 
 begin-structure /lf-mlsrec
-  field: lf-mlsrec-root        \ audit root, for mixed-signature-audit
-  field: lf-mlsrec-id          \ its identity, likewise
   field: lf-mlsrec-formals     \ address of the formal parameter IDs
   field: lf-mlsrec-count       \ number of formals
   field: lf-mlsrec-terms       \ store counts to roll back to
@@ -34,26 +32,16 @@ lf-term-capacity walk: lf-mls-walker
 create lf-mls-job /lf-mlsrec allot
 lf-mls-job /lf-mlsrec erase
 
-\ Fuel left after a call or audit; mixed-infer and mixed-signature-audit
-\ continue with it.
+\ Fuel left after a call; the signature probe continues with it, and tests
+\ read it. Every helper this module calls reports only ok, invalid or
+\ exhausted, and so does every word here.
 : lf-mls-fuel ( -- addr ) lf-mls-walker walk-fuel ;
-: lf-mls-root ( -- addr ) lf-mls-job lf-mlsrec-root ;
-: lf-mls-id ( -- addr ) lf-mls-job lf-mlsrec-id ;
 : lf-mls-formals ( -- addr ) lf-mls-job lf-mlsrec-formals ;
 : lf-mls-count ( -- addr ) lf-mls-job lf-mlsrec-count ;
 : lf-mls-actuals ( -- addr ) lf-mls-job lf-mlsrec-actuals ;
 : lf-mls-args ( -- addr ) lf-mls-job lf-mlsrec-args ;
 : lf-mls-seen ( index -- addr ) cells lf-mls-job lf-mlsrec-seen + ;
 : lf-mls-result ( index -- addr ) cells lf-mls-job lf-mlsrec-results + ;
-
-\ mixed-signature-audit narrows the scope check's status, and tests check
-\ both words: ok, invalid and exhausted keep their meaning, and any other
-\ code, unknown included, becomes invalid. Every helper this module calls
-\ returns only those three, so it needs no translation itself.
-: lf-mls-narrow ( status -- status )
-  dup outcome-ok outcome-unknown within 0= if drop-invalid then ;
-: lf-mls-repr-status ( status -- status ) lf-mls-narrow ;
-: lf-mls-level-status ( status -- status ) lf-mls-narrow ;
 
 \ The rollback point: the counts of the term, level and reference stores.
 : lf-mls-snapshot ( -- )
@@ -94,10 +82,20 @@ lf-mls-job /lf-mlsrec erase
     lf-tag-bvar of drop 2drop outcome-ok endof walk-bad-tag endcase ;
 : lf-mls-visit ( walk -- outcome ) lf-terms ['] lf-mls-dispatch walk-visit ;
 : lf-mls-unseen ( -- ) 0 lf-mls-seen lf-term-capacity cells erase ;
+\ The formals and count are those last given to lf-lsubst-use.
 : lf-mls-audit-from ( root -- status )
   lf-mls-unseen ['] lf-mls-visit lf-mls-walker walk-run ;
-\ The level formals and count are those last set in level-substitute.
-: lf-mls-audit ( -- status ) lf-mls-root @ lf-mls-audit-from ;
+
+\ The source audit alone, as mixed-signature-audit runs it on a candidate
+\ signature: every term reachable from root and every source level against
+\ count formal IDs at formals, with the given fuel; gives the fuel left.
+\ The caller has validated root's graph (lf-cterm-check). An audit reads
+\ no actuals, so none are given. Nothing is allocated. Negative fuel or a
+\ count outside 0..lf-level-capacity is invalid and spends nothing.
+: lf-mls-audit-input? ( count fuel -- flag ) 0< 0= swap lf-level-capacity upto? and ;
+: lf-mls-audit-formals ( root formals count fuel -- fuel' status )
+  2dup lf-mls-audit-input? 0= if nip nip nip outcome-invalid exit then
+  lf-mls-fuel ! 0 swap lf-lsubst-use lf-mls-audit-from lf-mls-fuel @ swap ;
 
 \ Building, in index order, so children come before parents: each reached
 \ term gets an image, the term itself when nothing under it changes.
@@ -125,7 +123,11 @@ lf-mls-job /lf-mlsrec erase
 : lf-mls-args! ( addr count -- outcome )
   0 ?do dup i lf-mls-arg dup ok? 0= if nip unloop exit then drop loop
   drop outcome-ok ;
-: lf-mls-changed? ( addr count -- flag ) 2* cells lf-mls-args over compare 0<> ;
+\ Cell arrays compared cell by cell (never as bytes); n <= 0 is equal.
+: lf-mls-cell= ( addr addr' i -- flag ) cells tuck + @ -rot + @ = ;
+: lf-mls-cells= ( addr addr' n -- flag )
+  0 max 0 ?do 2dup i lf-mls-cell= 0= if 2drop false unloop exit then loop 2drop true ;
+: lf-mls-changed? ( addr count -- flag ) 2* lf-mls-args swap lf-mls-cells= 0= ;
 : lf-mls-substituted ( slot -- changed outcome )
   lf-cref-pairs 2dup lf-mls-args! dup ok?
   if drop lf-mls-changed? outcome-ok else nip nip false swap then ;
@@ -145,12 +147,13 @@ lf-mls-job /lf-mlsrec erase
   >r 2dup lf-mls-kept? if 2drop r> drop outcome-ok exit then
   rot drop lf-mls-images r> lf-term-binary
   if outcome-ok else 0 outcome-exhausted then ;
-: lf-mls-image ( node -- index outcome )
-  dup lf-term-read 0= if drop 0 outcome-invalid exit then rot case
-    lf-tag-symbolic-sort of drop lf-mls-sort endof
+: lf-mls-image-of ( node first second tag -- index outcome )
+  case lf-tag-symbolic-sort of drop lf-mls-sort endof
     lf-tag-constant of lf-mls-constant endof
     lf-tag-bvar of 2drop outcome-ok endof
     dup >r lf-mls-binary r> endcase ;
+: lf-mls-image ( node -- index outcome )
+  dup lf-term-read if rot lf-mls-image-of else drop 0 outcome-invalid then ;
 : lf-mls-build-node ( node -- outcome )
   dup lf-mls-image ok-then? if swap lf-mls-result ! outcome-ok else nip then ;
 : lf-mls-build-at ( node -- outcome )
