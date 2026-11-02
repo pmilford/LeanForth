@@ -391,6 +391,14 @@ pair under the same unchecked assumptions, preauditing both roots and all
 staged signatures before any allocation. It restores temporary term, level
 and reference counts on every result and creates no checked handle. A direct
 Lean declaration oracle covers a valid pair and selected invalid alternatives.
+
+The test-only `declaration-chain-stream.fs` diagnoses the exported identity,
+dependent definition and theorem-shaped fixture in order. After each success
+it stages only a conditional signature, and it stops on unknown or failure.
+It performs no independent proposition check and never creates a checked
+environment or accepted theorem. A separate Lean kernel oracle exercises
+dependency ordering, forward-reference rejection and a valid theorem after
+its dependency. These narrow experiments do not approve the transaction model.
 The diagnostic does not create checked declarations, and its finite tests do
 not establish general Lean compatibility or kernel soundness. Human review
 is still required for any trusted implementation or declaration import.

@@ -119,3 +119,10 @@ this Lean model; it does not establish source-to-Gforth correspondence.
 `tests/reference/program-stack-swap.lean` further proves a modeled swap, its
 double-swap property and underflow propagation through a continuation. Both
 data and return-stack frames are covered; the same runtime limitation applies.
+
+`tests/reference/program-verified-obligations.lean` characterizes the weakest
+precondition for a modeled `DOUBLE` sequence, proves its stated contract for
+any stack suffix and refutes that contract for an add-one variant. Lean checks
+these abstract obligations in `make reference`; this does not connect them to
+Forth source or runtime behavior. The file prints its Lean axiom dependencies
+(`propext`, and `Quot.sound` for the weakest-precondition characterization).
