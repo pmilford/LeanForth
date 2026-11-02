@@ -10,12 +10,17 @@
 \ whether the evaluation reads the table. The evaluation recurses on the
 \ host stacks through the deferred word lf-lvalue-walk, which is set once
 \ at load time. Not re-entrant and single-threaded.
+\ Stack use: about 8 return-stack cells per nesting level (measured about
+\ 500 cells at depth 63), so lf-lvalue-depth-limit must stay well below the
+\ return stack of every task that evaluates (Gforth 0.7.3's default is
+\ 1,920 cells). An overflow would throw, never return ok.
 
 outcome-ok constant lf-lvalue-ok
 outcome-invalid constant lf-lvalue-invalid
 outcome-exhausted constant lf-lvalue-exhausted
 outcome-unknown constant lf-lvalue-unknown
 max-n constant lf-lvalue-cell-max
+64 constant lf-lvalue-depth-limit
 
 begin-structure /lf-lvrec
   field: lf-lvrec-fuel          \ visits left after an evaluation
@@ -85,11 +90,11 @@ lf-lvalue-state /lf-lvrec erase
   if lf-lassign-append true else 2drop false then ;
 
 \ Evaluation of a node already validated by the scope check. Depth counts
-\ the nodes above it; a visit needs fuel and a depth below the capacity.
+\ the nodes above it; a visit needs fuel and a depth below the limit.
 \ The value -1 is a symbolic result: with ok it ends the evaluation of
 \ every node above, and it cannot be confused with a concrete level.
 defer lf-lvalue-walk ( node depth -- value status )
-: lf-lvalue-room? ( depth -- flag ) lf-level-capacity < lf-lvalue-fuel @ 0<> and ;
+: lf-lvalue-room? ( depth -- flag ) lf-lvalue-depth-limit < lf-lvalue-fuel @ 0<> and ;
 \ A failure or a symbolic value is final; otherwise continue with the value.
 : lf-lvalue-done? ( value status -- value status true | value false )
   dup ok? 0= if true exit then over -1 = if true else drop false then ;
@@ -110,17 +115,16 @@ defer lf-lvalue-walk ( node depth -- value status )
 : lf-lvalue-imax-of ( left right -- value ) dup 0= if nip else max then ;
 : lf-lvalue-imax ( first second depth -- value status )
   lf-lvalue-pair if lf-lvalue-imax-of outcome-ok then ;
-: lf-lvalue-binary ( depth first second tag -- value status )
-  >r rot r> lf-level-tag-imax = if lf-lvalue-imax else lf-lvalue-max then ;
-\ Depth here is the children's depth.
-: lf-lvalue-dispatch ( depth tag first second -- value status )
-  rot dup lf-level-binary-tag? if lf-lvalue-binary exit then
-  case lf-level-tag-zero of 2drop drop 0 outcome-ok endof
-    lf-level-tag-param of drop nip lf-lvalue-param outcome-ok endof
-    lf-level-tag-succ of drop swap lf-lvalue-succ endof
-    >r 2drop drop -1 outcome-invalid r> endcase ;
+\ One arm per level tag; depth here is the children's depth.
+: lf-lvalue-dispatch ( first second depth tag -- value status )
+  case lf-level-tag-zero of drop 2drop 0 outcome-ok endof
+    lf-level-tag-param of 2drop lf-lvalue-param outcome-ok endof
+    lf-level-tag-succ of nip lf-lvalue-succ endof
+    lf-level-tag-max of lf-lvalue-max endof
+    lf-level-tag-imax of lf-lvalue-imax endof
+    >r drop 2drop -1 outcome-invalid r> endcase ;
 : lf-lvalue-visit ( node depth -- value status )
-  1+ swap lf-level-read if lf-lvalue-dispatch else drop -1 outcome-invalid then ;
+  1+ swap lf-level-read if 2swap lf-lvalue-dispatch else drop -1 outcome-invalid then ;
 : lf-lvalue-enter ( node depth -- value status )
   dup lf-lvalue-room? 0= if 2drop -1 outcome-exhausted exit then
   -1 lf-lvalue-fuel +! lf-lvalue-visit ;

@@ -7,11 +7,16 @@
 \ comparison, which mixed-convert reads. The comparison recurses on the host
 \ stacks through the deferred word lf-lcmp-walk, set once at load time. Not
 \ re-entrant and single-threaded.
+\ Stack use: about 8 return-stack cells per nesting level (measured about
+\ 510 cells at depth 63), so lf-lcmp-depth-limit must stay well below the
+\ return stack of every task that compares (Gforth 0.7.3's default is
+\ 1,920 cells). An overflow would throw, never return equal.
 
 outcome-ok constant lf-lcmp-equal
 outcome-invalid constant lf-lcmp-invalid
 outcome-exhausted constant lf-lcmp-exhausted
 outcome-unknown constant lf-lcmp-unknown
+64 constant lf-lcmp-depth-limit
 
 begin-structure /lf-lcrec
   field: lf-lcrec-fuel          \ visits left after a comparison
@@ -78,7 +83,7 @@ defer lf-lcmp-walk ( left right depth -- status )
   >r 2dup lf-lcmp-readable? if r> lf-lcmp-node else 2drop r> drop outcome-invalid then ;
 : lf-lcmp-visit ( left right depth -- status )
   >r lf-lcmp-shrink2 if r> lf-lcmp-shrunk else r> drop then ;
-: lf-lcmp-room? ( depth -- flag ) lf-level-capacity < lf-lcmp-fuel @ 0<> and ;
+: lf-lcmp-room? ( depth -- flag ) lf-lcmp-depth-limit < lf-lcmp-fuel @ 0<> and ;
 : lf-lcmp-enter ( left right depth -- status )
   dup lf-lcmp-room? 0= if drop 2drop outcome-exhausted exit then
   -1 lf-lcmp-fuel +! 1+ lf-lcmp-visit ;
