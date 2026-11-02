@@ -48,6 +48,9 @@ The high number of in-progress tasks reflects broad acceptance criteria, not
 completion of their component work. Split tasks further when an individual
 change can be reviewed and accepted independently; do not mark a broad task
 done because a test fixture or untrusted diagnostic works.
+The nearer-term [execution queue](DEVELOPMENT_ROADMAP.md#near-term-execution-queue-first-checked-declaration)
+tracks smaller preparation tasks; the [checked environment review packet](CHECKED_ENVIRONMENT_REVIEW.md)
+sets out open human-review decisions.
 
 ## Import coverage and CI
 
@@ -77,8 +80,8 @@ done because a test fixture or untrusted diagnostic works.
 | 2. Terms, names and universes | In progress: untrusted bounded arenas, symbolic universes and mixed constant-term validation; handle checks reject replaced references. Typing integration and human review remain open. |
 | 3. Scope and substitutions | In progress: untrusted scope, shifting and substitution diagnostics exist. A mixed universe substitution also reaches constant arguments and agrees with Lean on 27 finite evaluated cases under a shared-session constraint; general context handling and trusted integration remain incomplete. |
 | 4. Definitional equality | In progress: an untrusted mixed-term beta conversion diagnostic agrees with Lean on seven finite cases and compares constant names and universe arguments conservatively. Definition unfolding and many Lean equivalences remain unknown; human review remains outstanding. |
-| 5. Small trusted checker | In progress: an untrusted mixed-term diagnostic infers the exported `fixturePoly` value conditional on an assumed `fixtureId` signature. A Lean kernel oracle checks the corresponding type and rejects a wrong argument. No theorem is created; human review remains required. |
-| 6. Lean NDJSON importer | Bounded preview preserves constants and definitions; a test-only bridge stages all 19 nodes of one constant-containing fixture, checks scope and conditionally infers `fixturePoly`. Dependency validity, full import and trusted checking remain. |
+| 5. Small trusted checker | In progress: an untrusted mixed-term diagnostic infers exported `fixturePoly` and `fixtureUse` values conditional on an assumed `fixtureId` signature. A Lean oracle checks corresponding types and rejects wrong arguments; 21 finite inference observations are compared across three universes. No theorem is created; human review remains required. |
+| 6. Lean NDJSON importer | Bounded preview preserves constants and definitions; a test-only bridge stages all 19 nodes of one constant-containing fixture, checks scope and conditionally infers `fixturePoly` and `fixtureUse`. Dependency validity, full import and trusted checking remain. |
 | 7. Lean checker compatibility corpus | Selected differential cases exist. Direct Lean kernel reference cases now cover constant lookup and universe arguments; LeanForth cannot yet compare those cases. The official checker corpus has not been demonstrated to pass. |
 | 8. Lean declaration features | An untrusted index can specialize assumed candidate signatures containing constants; a nonallocating preflight audits all staged signatures before future inference. A separate Lean oracle checks a declaration with a nested constant in its type, but LeanForth cannot yet check that declaration. General inference, checked declarations, inductives, recursors and quotients remain absent. |
 | 9. Full Mathlib | Goal: use all of Mathlib, including its dependencies, as a usable and independently checked theorem and rules base under a reviewed, explicit axiom policy. It is not imported or independently checked; full Lean compatibility, dependency handling, access and practical capacity remain. |
@@ -94,7 +97,7 @@ Do not use it until the representations are isolated and reviewed.
 | --- | --- |
 | 1. Contract and assumptions | In progress: Lean models cover clamp, checked addition, absolute value, interval membership, factorial and gcd without proving Forth correspondence. |
 | 2. Tested Forth example | Host Forth clamp and five additional examples have finite tests run by `make test-program`; tests alone do not prove them correct. |
-| 3. Formal execution model | A Lean reference model proves clamp properties and frame preservation for successful modeled programs; the handwritten model is an assumption when relating it to Forth. |
+| 3. Formal execution model | A Lean reference model proves clamp and successful stack-frame composition properties; a modeled clamp followed by `DROP` is one example. The handwritten model is an assumption when relating it to Forth. |
 | 4. Model/runtime comparisons | Finite comparisons cover stack, arithmetic and bounded-memory cases; a test-only copy-then-swap fixture agrees with the Lean model on 1,296 cases including aliases and failures. They do not establish all executions or a verified compiler. |
 | 5. Shared proof kernel | Depends on theorem milestone 5; no trusted LeanForth proof checker exists yet. |
 | 6. Forth program representation | A Lean reference language models a small stack plus abstract memory, with read-after-write, frame and failure proofs. Copy, swap and composed operations have bounds, aliasing, frame and failure proofs; a copy result is preserved by a continuation satisfying a stated disjoint-write contract. It is not connected to the Forth interpreter; general Forth semantics and effects remain. |

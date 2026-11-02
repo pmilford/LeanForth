@@ -21,6 +21,7 @@ LEAN ?= lean
 .PHONY: test-mixed-convert-differential
 .PHONY: test-mixed-level-substitute-differential
 .PHONY: test-mixed-signature-differential
+.PHONY: test-mixed-infer-differential
 .PHONY: profile-existing
 .PHONY: profile-history
 .PHONY: smoke reference reference-export test-harness test-core test-symbolic-infer-draft test-composition-fixture test-name-differential test-scope-differential test-shift-differential test-instantiate-differential test-beta-differential test-compare-differential test-infer-differential test-declaration-differential test-level-differential test-level-assignment-differential test-level-compare-differential test-poly-specialization-differential test-program test-program-differential test-program-stack-differential
@@ -121,6 +122,9 @@ test-mixed-level-substitute-differential:
 
 test-mixed-signature-differential:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/core/mixed-signature-differential.sh
+
+test-mixed-infer-differential:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/core/mixed-infer-differential.sh
 
 test-tagged-binder-differential:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) bash tests/core/tagged-binder-differential.sh

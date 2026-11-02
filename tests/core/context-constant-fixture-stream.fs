@@ -89,6 +89,11 @@ variable infer-term-count variable infer-level-count variable infer-cref-count
   expected-b @ <> if -1 throw then
   expected-a @ <> if -1 throw then
   expected-tag @ <> if -1 throw then ;
+\ Check the application function but leave its argument to inference.
+: expect-app-head ( index first -- )
+  expected-a ! lf-term-read 0= if -1 throw then
+  drop expected-a @ <> if drop -1 throw then
+  lf-tag-app <> if -1 throw then ;
 : run ( -- )
   lf-name-reset lf-level-reset lf-term-reset lf-lscope-context-reset lf-cref-reset
   field 8 <> if -1 throw then 9 1 do i name-row loop
@@ -112,6 +117,10 @@ variable infer-term-count variable infer-level-count variable infer-cref-count
   \ Node 9's argument is checked by conditional inference below, so a
   \ well-scoped but ill-typed mutation reaches the inference path.
   8 lf-tag-app 7 2 expect-node
+  18 lf-tag-lam 12 17 expect-node
+  17 lf-tag-lam 1 16 expect-node
+  16 15 expect-app-head
+  15 lf-tag-app 14 2 expect-node
   7 lf-term-read 0= if -1 throw then
   rot lf-tag-constant <> if 2drop -1 throw then
   2dup lf-cref-read 0= if 2drop -1 throw then
@@ -121,6 +130,14 @@ variable infer-term-count variable infer-level-count variable infer-cref-count
   0 lf-cref-level 0= if -1 throw then
   lids cell+ @ <> if drop -1 throw then
   levels cell+ @ <> if -1 throw then
+  14 lf-term-read 0= if -1 throw then
+  rot lf-tag-constant <> if 2drop -1 throw then
+  2dup lf-cref-read 0= if 2drop -1 throw then
+  1 <> if 2drop 2drop -1 throw then
+  lf-name-generation @ <> if 2drop drop -1 throw then
+  1 cells names + @ <> if 2drop -1 throw then
+  0 lf-cref-level 0= if -1 throw then
+  lids @ <> if drop -1 throw then levels @ <> if -1 throw then
   \ Check scope on the exported declaration roots before any diagnostic
   \ allocates. This does not establish that their types or dependencies hold.
   4 handle 0 50000 lf-constant-term-scope lf-repr-ok <> if -1 throw then
@@ -142,8 +159,21 @@ variable infer-term-count variable infer-level-count variable infer-cref-count
   1 cells names + @ 4 handle formals 1 50000 lf-msp-put
   lf-msp-ok <> if -1 throw then
   lf-msp-token 0= if -1 throw then
-  11 handle 50000 lf-mixed-infer lf-minfer-ok <> if -1 throw then
+  11 handle 50000 lf-mixed-infer dup lf-minfer-ok <> if
+    dup lf-minfer-unknown = if s" definition inference inconclusive" stderr write-file throw then
+    drop 2drop -1 throw
+  then drop
   4 handle 50000 lf-mixed-convert lf-mconvert-equal <> if -1 throw then
+  infer-term-count @ lf-term-count ! infer-level-count @ lf-level-count !
+  infer-cref-count @ lf-cref-count !
+  \ The theorem value also uses fixtureId, specialized at universe zero.
+  \ This remains conditional inference, not proof or declaration acceptance.
+  lf-msp-token 0= if -1 throw then
+  18 handle 50000 lf-mixed-infer dup lf-minfer-ok <> if
+    dup lf-minfer-unknown = if s" theorem inference inconclusive" stderr write-file throw then
+    drop 2drop -1 throw
+  then drop
+  13 handle 50000 lf-mixed-convert lf-mconvert-equal <> if -1 throw then
   infer-term-count @ lf-term-count ! infer-level-count @ lf-level-count !
   infer-cref-count @ lf-cref-count !
   \ Probe the fixtureId type/value pair. Even a successful diagnostic is not

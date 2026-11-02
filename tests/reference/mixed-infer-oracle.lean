@@ -23,3 +23,19 @@ run_cmd do
   match Kernel.check env {} (mkBody 1) with
     | .error _ => pure ()
     | .ok _ => throwError "Lean accepted the wrong nested argument"
+  -- The exported theorem-shaped fixture specializes identity at Prop.
+  let prop := Expr.sort .zero
+  let theoremType := Expr.forallE `P prop
+    (Expr.forallE `h (.bvar 0) (.bvar 1) .default) .default
+  let theoremBody (arg : Nat) := Expr.lam `P prop
+    (Expr.lam `h (.bvar 0)
+      (.app (.app (.const `mixedInferIdentity [.zero]) (.bvar 1)) (.bvar arg)) .default) .default
+  let theoremInferred ← match Kernel.check env {} (theoremBody 0) with
+    | .ok type => pure type
+    | .error _ => throwError "Lean rejected valid theorem-shaped fixture"
+  match Kernel.isDefEq env {} theoremInferred theoremType with
+    | .ok true => pure ()
+    | _ => throwError "Lean inferred a different theorem-shaped fixture type"
+  match Kernel.check env {} (theoremBody 1) with
+    | .error _ => pure ()
+    | .ok _ => throwError "Lean accepted the wrong theorem argument"

@@ -109,3 +109,10 @@ partial data stack and the separate abstract memory above; it does not model
 host cell overflow, a return stack, I/O, loops, Forth parsing, a compiler or a runtime. The Lean proof is
 checked by Lean, not by LeanForth. Its `wp` is a Lean function rather than an
 implemented Forth-facing contract language or production VC generator.
+
+Separately, `tests/reference/program-stack-composition.lean` proves composition
+and data- and return-stack frame properties for the `stack-clamp.lean` model,
+including a modeled clamp followed by `DROP`. Its frame theorem requires both
+components to succeed: the file includes a counterexample showing that an
+extra frame can supply an otherwise missing operand. `make reference` checks
+this Lean model; it does not establish source-to-Gforth correspondence.

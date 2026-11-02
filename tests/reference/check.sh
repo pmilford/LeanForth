@@ -26,6 +26,7 @@ fi
 "$lean" tests/reference/type-model.lean
 "$lean" tests/reference/clamp.lean
 "$lean" tests/reference/stack-clamp.lean
+LEAN="$lean" bash tests/reference/stack-composition-check.sh
 "$lean" tests/reference/program-contracts.lean
 LEAN="$lean" bash tests/reference/memory-program-check.sh
 "$lean" tests/reference/program-examples.lean
