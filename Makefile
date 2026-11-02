@@ -40,7 +40,7 @@ DIFFERENTIAL_TARGETS := \
 
 .PHONY: test test-differential check check-docs check-lean-sources smoke test-harness test-core \
 	test-composition-fixture test-program test-symbolic-infer-draft \
-	profile-existing profile-history $(DIFFERENTIAL_TARGETS)
+	profile-existing profile-history forth-metrics $(DIFFERENTIAL_TARGETS)
 
 # Gforth and Python 3 only; run on every CI host and before every commit.
 test: check-docs check-lean-sources smoke test-harness test-core \
@@ -54,6 +54,11 @@ check-docs:
 # or a Lean invocation without -DwarningAsError=true. Needs no Lean.
 check-lean-sources:
 	$(RUN) python3 scripts/check-lean-sources.py
+
+# Report-only Forth style metrics (word length, globals, locals, shuffling);
+# see docs/development/FORTH_STYLE.md. Never fails on style.
+forth-metrics:
+	python3 scripts/forth-metrics.py --words 20 src
 
 # Requires pinned Lean 4.35.0 as well as Gforth and Python 3.
 test-differential: $(DIFFERENTIAL_TARGETS)

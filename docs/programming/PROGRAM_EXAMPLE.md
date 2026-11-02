@@ -9,6 +9,22 @@ in-range and endpoint properties for an unbounded integer definition using Lean
 It is a reference experiment, not a LeanForth implementation, a proof of a
 Forth program, or evidence that the future importer supports these proofs.
 
+`ClampContract` in `clamp.lean` combines the four properties as a predicate on
+candidate functions; `clamp_contract` proves the model meets it. Two
+deliberately wrong candidates are refuted by proof:
+- `aboveEscapesClamp_violates_bounds` shows that returning an input above the
+  interval violates the `clamp_bounds` statement.
+- `swappedClamp_violates_contract` shows that returning the opposite
+  endpoint violates the contract. `swappedClamp_in_range` proves that variant
+  still stays in range, so the bound alone cannot reject it; its endpoint
+  clauses do.
+
+`tests/reference/clamp-invalid.lean` must be rejected by `make reference`. It
+claims the `clamp_bounds` statement for the escaping clamp, using the proof
+script that succeeds for the correct clamp, and states three false concrete
+instances that `decide` rejects. These are Lean-model checks; no Forth
+mutant is checked by them.
+
 `tests/reference/stack-clamp.lean` separately defines a finite stack-machine
 semantics for the operations in the host word. Pinned Lean checks that this
 model implements the clamp specification and preserves arbitrary modeled data
@@ -130,3 +146,21 @@ test-program-stack-differential LEAN="$PWD/.tools/elan/bin/lean"` (686 cases).
 CI was not run for this checkpoint. The Forth
 test file SHA-256 is
 `8a165216badb90969b8f037e78c544378a6cb9cffe64e3d6572c4ffd076bc4fe`.
+
+On 2026-11-02 the host suite was extended at the actual cell width. The
+differential samples only signed 32-bit values, which are mid-range on a
+64-bit host, so these cases add the host extremes it misses:
+- the reference check and the six-cell frame check run on all 343 triples
+  drawn from `min`, `min+1`, `-1`, `0`, `1`, `max-1` and `max` of the host
+  cell, including equal and reversed bounds;
+- idempotence is checked for every ordered triple from that set;
+- all of these checks use comparisons only, so no test arithmetic can wrap.
+
+These cases reject implementations that compare by subtraction or truncate
+values to 32 bits, which the Lean differential alone would accept. The suite
+also records host behavior on underflow: `lf-clamp` with one of three inputs
+missing, on an otherwise empty data stack, must throw -4. This holds on
+Gforth 1.0.0 and the Ubuntu Gforth 0.7.3 package. It is not a LeanForth
+guarantee: with caller cells present the word would consume them silently.
+`make test-program` passed with Gforth 1.0.0, and the same file passed with
+an extracted Gforth 0.7.3, both on x86-64 Linux.

@@ -31,6 +31,13 @@ relies on Lean's kernel and imported library, including its gcd theorems;
 theorem, and `propext` for negative rejection. There are no new axiom
 declarations or admitted proofs in this file.
 
+`checkedBothNegative_violates` proves that a deliberately wrong guard, which
+rejects only when both inputs are negative, fails the negative-rejection
+contract at `(-1, 2)`. Lean reports `propext` for it. The Forth unit tests in
+`tests/program/examples.fs` separately exercise Euclid's long remainder chains
+with consecutive Fibonacci inputs and the signed-cell extremes beside zero;
+those are runtime tests, not consequences of this model.
+
 Run from the repository root:
 
 ```sh

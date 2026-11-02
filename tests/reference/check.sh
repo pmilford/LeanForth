@@ -52,9 +52,13 @@ if "$lean" -DwarningAsError=true tests/reference/clamp-invalid.lean >"$output" 2
   printf '%s\n' 'Incorrect clamp was unexpectedly accepted' >&2
   exit 1
 fi
-if ! grep -q 'is false' "$output"; then
+# clamp-invalid.lean makes four wrong claims; each must fail on its own, so a
+# claim that accidentally became provable is caught. Three are refuted by
+# `decide` ("is false") and one by omega.
+if [ "$(grep -c ': error' "$output")" -ne 4 ] ||
+   [ "$(grep -c 'is false' "$output")" -ne 3 ]; then
   cat "$output" >&2
-  printf '%s\n' 'Incorrect clamp failed for an unexpected reason' >&2
+  printf '%s\n' 'Incorrect clamp claims failed for an unexpected reason or count' >&2
   exit 1
 fi
 # Every Lean invocation uses -DwarningAsError=true so that `sorry` fails.

@@ -37,4 +37,20 @@ T{ 0 -1 lf-depth-step -> 0 false }T
 \ A failed call must not contaminate the next call's scratch state.
 T{ ops-dup-add 2 2 2 lf-program-required-depth -> 1 true }T
 T{ 0 lf-depth-dup lf-depth-step -> 1 true }T
+
+\ Zero-filled storage: a misaligned read here would decode as a valid PUSH
+\ tag, so only the alignment check can reject it. (The ops-dup-add 1+ case
+\ above would also fail on an unknown tag, even without an alignment check.)
+create ops-zeros lf-depth-push , lf-depth-push ,
+T{ ops-zeros 2 2 2 lf-program-required-depth -> 0 true }T
+T{ ops-zeros 1+ 1 1 1 lf-program-required-depth -> 0 false }T
+\ The smallest count whose byte size exceeds the largest signed cell, with
+\ matching capacity and fuel. Unless the storage lies in the upper half of
+\ the address space, its end address does not wrap, so only the size check
+\ rejects it.
+T{ ops-zeros lf-depth-max 1 cells / 1+ dup dup
+   lf-program-required-depth -> 0 false }T
+\ A negative count whose byte size wraps to exactly zero, so the address-wrap
+\ check cannot reject it; only the negative-size check does.
+T{ ops-zeros 2 lf-depth-max invert 2 lf-program-required-depth -> 0 false }T
 bye

@@ -31,6 +31,17 @@ opposite-sign additions. These examples supplement the general proofs. Lean's
 `omega` tactic constructs proof terms checked by Lean; no new axioms or
 `sorry` are introduced in this file.
 
+`SuccessContract` restates `success_iff` as a predicate on candidate
+functions, and `checkedAdd_contract` shows the model meets it. Two
+deliberately wrong variants, each off by one at a single threshold, are proved
+to violate it: `upperOffByOne` (rejects when `max - b ≤ a`) wrongly rejects
+`6 + 1 = 7` in a four-bit cell, and `lowerOffByOne` (rejects when
+`a ≤ min - b`) wrongly rejects `0 + (-8) = -8`. These are proved refutations
+of the stated contract, so a model with either mistake could not satisfy it.
+On 2026-11-02 the file passed with `lean -DwarningAsError=true`; `#print
+axioms` reported `propext`, `Classical.choice` and `Quot.sound` for the new
+theorems. The SHA-256 below is from the earlier 2026-11-01 check.
+
 ## Forth and trust boundary
 
 Relating these results to execution requires a separate proof of the word's

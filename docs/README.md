@@ -33,7 +33,10 @@ are planned and do not exist yet.
 ## `development/` — contributing, testing and tooling
 
 - [TESTING_STRATEGY.md](development/TESTING_STRATEGY.md) — test layers, harness and CI.
+- [FORTH_STYLE.md](development/FORTH_STYLE.md) — the project's Forth style rules: short words, the stack over globals, structures, one error convention.
 - [FORTH_REVIEWER.md](development/FORTH_REVIEWER.md) — checklist for reviewing Forth changes.
+- [FORTH_LIBRARY.md](development/FORTH_LIBRARY.md) — inventory of reusable Forth facilities and what is still missing.
+- [TEST_COVERAGE_REVIEW.md](development/TEST_COVERAGE_REVIEW.md) — 2026-11-02 coverage review: findings and their status.
 - [INSTALLATION_LOG.md](development/INSTALLATION_LOG.md) — every install and verification command actually run.
 - [VERSIONS.md](development/VERSIONS.md) — observed tool versions and pinned download hashes.
 - [PROFILING.md](development/PROFILING.md) — opt-in time and memory measurement; results in [measurements/](development/measurements/).

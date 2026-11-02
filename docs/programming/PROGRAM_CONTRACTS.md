@@ -91,6 +91,19 @@ Forth cannot validate memory ownership or prevent concurrent mutation. Push
 values, actual Forth source, finite-cell arithmetic and effects are outside
 this depth-only representation.
 
+`tests/program/program-depth.fs` also tests the input validation:
+- Misaligned zero-filled storage must be rejected. Its misaligned bytes would
+  decode as valid push tags, so only the alignment check can reject it.
+- The smallest count whose byte size exceeds the largest signed cell must be
+  rejected.
+- A negative count whose byte size wraps to zero must be rejected.
+
+The tests observe only the returned result. They cannot show that a rejection
+happened before any array read: a 2026-11-02 review mutant without the
+negative-size check read outside the array and still returned `0 false`.
+Proving read-free rejection needs an instrumented fetch, which is not
+implemented.
+
 Run with the pinned toolchain:
 
 ```sh

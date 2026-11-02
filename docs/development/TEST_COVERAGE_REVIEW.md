@@ -20,7 +20,8 @@ It is a review of tests, not evidence that any code is correct.
 - **Program track.** Of 46 mutants of the six example words and the depth
   analyzer, 39 were caught and 7 survived (2 behave identically to the
   original). 13 were caught only by the unit tests, not by the Lean
-  comparisons. Nothing has run on a 32-bit host.
+  comparisons. Nothing has run on a 32-bit host. After the fixes below, 43
+  of 46 are caught: the two equivalent mutants and one that needs P9.
 - **NDJSON import.** The Python preview supports 15 of the 24 record kinds in
   Lean's export format v3.1.0 and reports the other 9 as unsupported. Any real
   export that mentions `Nat`, `Bool` or `Eq` contains an unsupported
@@ -106,13 +107,13 @@ comparison must reject a known-wrong table).
 
 | ID | Finding | Status |
 | --- | --- | --- |
-| P1 | `lf-checked-add`: exact overflow thresholds missing from the portable tests; a fault rejecting valid large sums survives | In progress |
-| P2 | `lf-gcd`: no worst-case (consecutive Fibonacci) inputs; a fault capping the loop at 8 iterations survives | In progress |
-| P3 | No golden answers independent of Lean (20!, gcd of Fibonacci pairs) | In progress |
-| P4 | `lf-in-range` uses the return stack but no test checks it is preserved | In progress |
-| P5 | Depth analyzer: misalignment test does not detect removal of the alignment check | In progress |
-| P6 | Wrong contracts are rarely refuted in Lean (only `brokenCode`, a swap and a commute counterexample); the swapped-endpoints clamp required by `PROGRAM_EXAMPLE.md` is missing | In progress |
-| P7 | Underflow (calling a word with too few stack items) untested | Later |
+| P1 | `lf-checked-add`: exact overflow thresholds missing from the portable tests; a fault rejecting valid large sums survives | **Fixed**: thresholds and host-derived half-range cases in `tests/program/examples.fs` |
+| P2 | `lf-gcd`: no worst-case (consecutive Fibonacci) inputs; a fault capping the loop at 8 iterations survives | **Fixed**: F(46)/F(45), 7·F(30)/7·F(29), extremes; F(92)/F(91) on 64-bit cells |
+| P3 | No golden answers independent of Lean (20!, gcd of Fibonacci pairs) | **Fixed**: 13!, 20!, 21! overflow and the gcd pairs above |
+| P4 | `lf-in-range` uses the return stack but no test checks it is preserved | **Fixed**: data- and return-stack caller cells checked over 343 triples |
+| P5 | Depth analyzer: misalignment test does not detect removal of the alignment check | **Fixed** (alignment and size overflow); a negative-count fault still survives until P9's read-count seam exists |
+| P6 | Wrong contracts are rarely refuted in Lean (only `brokenCode`, a swap and a commute counterexample); the swapped-endpoints clamp required by `PROGRAM_EXAMPLE.md` is missing | **Fixed**: off-by-one and swapped-endpoint refutations for clamp, checked add, in-range and gcd; `check.sh` requires all four wrong clamp claims to fail |
+| P7 | Underflow (calling a word with too few stack items) untested | **Fixed** as a host observation: each word throws −4 on an empty stack under Gforth 1.0.0 and 0.7.3. Silent consumption of caller cells is not detectable and remains a documented assumption |
 | P8 | Comparison tables print only results, not flags, depth or return-stack markers | Later |
 | P9 | Depth analyzer cannot show it rejects before reading; running out of fuel returns the same result as invalid input | Later |
 | P10 | Nothing ties the Forth source of `lf-clamp` to the Lean model `clampCode` | Later |

@@ -16,6 +16,15 @@ translate or execute the Forth source.
   false exactly when the value is outside. These statements use arbitrary
   integers; applying them to cells requires representable inputs.
 
+`OrderedContract` restates `inRange_ordered` as a predicate on candidate
+functions; `inRange_contract` shows the model meets it. Two deliberately
+wrong variants are proved to violate it: `inRangeExclusiveUpper` reports
+`10` outside `[0, 10]`, and `inRangeRejectsEqual` rejects the one-point
+interval `[3, 3]` as if it were reversed. On 2026-11-02 the file passed with
+`lean -DwarningAsError=true`; `#print axioms` reported `propext` for
+`inRange_contract` and `propext`, `Classical.choice` and `Quot.sound` for the
+two refutations. The SHA-256 under "Reproduction and trust" predates them.
+
 The `Option` values abstract the different stack results on failure and
 success. No theorem connects these definitions to Forth words, stack effects,
 flag encodings, signed comparisons, `NEGATE`, cell representation, stack

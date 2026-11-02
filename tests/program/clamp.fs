@@ -100,6 +100,28 @@ check-clamp-small-domain
   loop ;
 check-clamp-frames-domain
 
+\ Repeat the reference and frame checks for every triple drawn from the
+\ host-cell extremes and their neighbours, so overflowing or truncating
+\ comparisons are caught at the actual cell width (the Lean differential
+\ samples only signed 32-bit values). The checks use comparisons only.
+create test-extremes
+  test-cell-min , test-cell-min 1+ , -1 , 0 , 1 ,
+  test-cell-max 1- , test-cell-max ,
+
+\ ( index -- n ) Fetch one extreme value by an index in [0, 7).
+: test-extreme cells test-extremes + @ ;
+
+\ All 343 triples, including equal and reversed extreme bounds.
+: check-clamp-extremes ( -- )
+  7 0 do i test-extreme test-lower !
+    7 0 do i test-extreme test-upper !
+      7 0 do i test-extreme test-value !
+        check-clamp-triple check-clamp-frames
+      loop
+    loop
+  loop ;
+check-clamp-extremes
+
 \ Check composition as well as single calls: clamping an already clamped
 \ result to the same ordered interval must leave it unchanged. The flag is
 \ checked on each call; no assertion is made about reversed intervals here.
@@ -123,6 +145,17 @@ variable test-first-result
     loop
   loop ;
 check-clamp-idempotence-domain
+
+\ Idempotence at the host-cell extremes: all ordered extreme triples.
+: check-clamp-extreme-idempotence ( -- )
+  7 0 do i test-extreme test-lower !
+    7 0 do i test-extreme test-upper !
+      test-lower @ test-upper @ <= if
+        7 0 do i test-extreme test-value ! check-clamp-idempotence loop
+      then
+    loop
+  loop ;
+check-clamp-extreme-idempotence
 
 \ Exercise clampCode_monotone with distinct data and return-stack contexts.
 \ Each call must return the canonical true flag and preserve both markers.
@@ -220,4 +253,16 @@ variable test-nested-result
     loop
   loop ;
 check-clamp-nested-domain
+
+\ Host observation, not a LeanForth guarantee: on Gforth 1.0.0 and the
+\ Ubuntu Gforth 0.7.3 package, lf-clamp with one of three inputs missing on
+\ an otherwise empty data stack throws -4 (stack underflow). With caller
+\ cells present it would consume them silently, which no host can detect;
+\ the stack model's underflow theorem has no stronger runtime counterpart.
+: underflow-clamp ( -- ) 1 2 lf-clamp ;
+: check-clamp-underflow ( -- )
+  depth 0<> abort" underflow check needs an empty data stack"
+  ['] underflow-clamp catch -4 <> abort" expected host stack underflow -4"
+  depth 0<> abort" underflow check left data-stack items" ;
+check-clamp-underflow
 bye

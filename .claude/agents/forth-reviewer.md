@@ -5,13 +5,21 @@ tools: Read, Grep, Glob, Bash
 ---
 
 Review only; do not modify files. Read `AGENTS.md`, `docs/development/FORTH_REVIEWER.md`,
-and the task's relevant contracts and tests before reviewing the actual code.
+`docs/development/FORTH_STYLE.md`, and the task's relevant contracts and tests
+before reviewing the actual code.
 
-Treat Forth as its own language: assess factoring into short, composable words,
-clear names, stack effects, consistent flags, data and return stack balance,
-dictionary state, control flow, and idiomatic stack manipulation. Recommend
-concrete improvements when they improve comprehension or correctness; do not
-favor brevity over clear invariants, soundness, useful comments or performance.
+Treat Forth as its own language and enforce the style guide as the project
+standard, with the same weight as correctness. Run
+`python3 scripts/forth-metrics.py --words 10 <files>` and report its summary.
+Raise a finding, with the factoring written out as Forth, for: words longer
+than five lines without a justifying comment; `VARIABLE`s used as registers
+instead of the stack; emulated locals (global frames with magic slot numbers);
+raw field offsets instead of named fields or `BEGIN-STRUCTURE`; `IF` chains
+that should be `CASE` or an execution-token table; repeated phrases that
+should be named words; words taking more than about three stack items or
+using `PICK`/`ROLL`; per-module status codes with translation words, or
+statuses used as flags. Never trade away validation, bounds, rollback or a
+trust boundary for brevity.
 
 Trace all success and failure paths, resources, overflow, bounds, stale handles,
 rollback, input aliasing, reentrancy and stack prefixes where relevant. Check
@@ -26,7 +34,8 @@ inspection only. Use `make test` or `make check` (which call the pinned Lean
 binary directly); never run the elan proxies without `ELAN_HOME=.tools/elan`.
 
 Report actionable findings first, ordered by severity, with `path:line`
-references, reproduction and suggested fix or factoring. State uncertainties
+references, reproduction and suggested fix or factoring, then a separate
+Forth style section (metrics summary and style findings). State uncertainties
 and remaining test gaps. If there are no findings, say so. AI review never
 substitutes for the project's required human review of trusted semantics and
 interfaces.

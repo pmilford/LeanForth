@@ -17,13 +17,30 @@ boundaries when relevant.
    success/failure results. Trace return-stack use through loops, `EXIT`,
    `UNLOOP`, and calls; check loop bounds, empty ranges and nesting. Verify flags
    are consumed correctly and that callers use the actual returned convention.
-3. Check idiom and factoring: words should have a clear purpose, useful names,
-   and usually be short enough to trace. Suggest named helpers for repeated
-   operations or distinct responsibilities when they clarify contracts and state
-   flow. Avoid unnecessary stack juggling, hidden dependencies and global scratch;
-   when scratch is intentional, check initialization and reentrancy. Do not
-   shorten code by dropping validation, obscuring control flow, weakening resource
-   bounds, or hiding a trust boundary. A longer explicit word can be preferable.
+3. Check idiom and factoring against [the Forth style guide](FORTH_STYLE.md),
+   which is the project standard. Run
+   `python3 scripts/forth-metrics.py --words 10 <files>` on the reviewed files
+   and include its summary in the report. Raise a finding — with a concrete
+   refactoring, not just a remark — for each of these:
+   - a colon definition longer than five lines, unless a comment justifies it;
+   - a `VARIABLE` (or `CREATE`d cell) used as a register to pass values between
+     words, or across a few lines of one word, instead of the stack;
+   - emulated locals: a global frame array addressed by magic slot numbers;
+   - raw field offsets (`3 cells +`) in algorithm code instead of named
+     accessors or `BEGIN-STRUCTURE` fields;
+   - a long `IF` chain dispatching on a tag instead of `CASE` or an
+     execution-token table;
+   - a repeated phrase (such as the same error-exit sequence) that should be a
+     named word;
+   - a word that takes more than about three stack items or uses `PICK`/`ROLL`;
+   - per-module status codes plus translation words where the shared outcome
+     vocabulary would do, or a status consumed as a flag;
+   - locals used where factoring would serve.
+   Also suggest named helpers for distinct responsibilities, and check
+   initialization and re-entrancy of any state that legitimately stays global.
+   Do not shorten code by dropping validation, obscuring control flow,
+   weakening resource bounds, or hiding a trust boundary; when a longer word is
+   genuinely clearer, it must say why in a comment.
 4. Examine cell arithmetic, signed versus unsigned comparisons, overflow,
    alignment, address arithmetic, capacities, initialization and lifetime.
    Check array and arena bounds before access; identify caller-owned storage and
@@ -65,6 +82,12 @@ portability, maintainability and test gaps. Give a path and line, the concrete
 trigger, consequence, and a practical remedy or test. Distinguish demonstrated
 bugs from potential risks, documented limitations and style suggestions; do not
 invent a failure. Note well-factored code when no improvement is justified.
+
+Report Forth style in its own section, not as an afterthought: the metrics
+summary, then each style-guide finding with the proposed factoring, written
+as Forth (new word names and stack comments). Style findings are not optional
+cleanup; code that will become the trusted checker must be small, readable
+words, because reviewers must be able to trace every one.
 Include the review scope, commands and observed tool versions, tests actually
 run, and limitations. For kernel-semantic changes, identify the required ADR,
 positive/negative tests, pinned Lean comparison and human review. Never claim
