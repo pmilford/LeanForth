@@ -306,4 +306,21 @@ its foundation was not. Phase 2 builds only the final mode.
 
 ### Owner's answer (second set)
 
-Not yet answered.
+2026-11-02, reviewing commit `e3188de`, in a Claude Code session; the owner
+chose the recommended option on all six:
+
+- **G6:** compare under differing argument types as Lean does (ADR 0003,
+  Amendment 1).
+- **G7:** rule D4 rejects through *equal*, not only identical, argument
+  types (ADR 0011 amended).
+- **G8:** ADR 0012's library design is approved.
+- **G9:** a check relies only on declarations already accepted; revisit
+  speculative checking in phase 7 with timings.
+- **G10:** the library points at the checked imported records, which never
+  change after loading.
+- **G11:** development mode as designed: saved results and everything that
+  depends on them are labelled *not re-checked in this run*; only a final
+  run supports a claim.
+
+As before, these approve rules and a design; the checker code needs its
+own approval with test results.

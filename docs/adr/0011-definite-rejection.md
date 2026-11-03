@@ -247,6 +247,10 @@ irrelevance); **P3** not exactly one of them a `λ` (no eta) — and one of:
   the result *unknown*. Bodies are entered only under identical domains, the
   case ADR 0003 already allows, so this adds no new context-conversion
   obligation (plan task 2.1.2 is unaffected).
+  *Amended 2026-11-02 (owner answer G7):* with ADR 0003 Amendment 1 (G6),
+  "identical" above reads "equal by the cautious comparison": the bodies
+  are entered, under the expected side's domain, whenever the domains are
+  shown equal, so a body pair that is apart rejects there too.
 - **D5** — both apply the same head variable to the same number of
   arguments, and some argument pair is apart (recursively, with P1–P3 for
   that pair): `is_def_eq_app` then fails, and fact 4 leaves no other route.

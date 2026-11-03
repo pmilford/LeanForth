@@ -267,3 +267,10 @@ records in the same Claude Code session. Quoted words are the owner's own.
   before coding (G1); *rejected* means Lean would reject it too (G2); axioms
   are *unsupported* in the first checker (G3); rule D5 is included (G4). The
   checker code still needs its own approval with test results.
+- **Second set of first-checker gate questions (G6–G11), same evening:**
+  compare under differing argument types as Lean does (ADR 0003 Amendment
+  1); rule D4 rejects through equal argument types (ADR 0011 amended); ADR
+  0012's library design approved; no speculative checking for now; the
+  library points at the checked imported records; development mode
+  labels saved results and their dependents. All recommended options; the
+  checker code still needs its own approval with test results.

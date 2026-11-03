@@ -1,6 +1,6 @@
 # ADR 0012: the checked environment — implementation design
 
-Status: **proposed**, 2026-11-02 (plan task 2.1.3). A checker design: it
+Status: **design accepted** by the owner on 2026-11-02 (G8–G11; [gate](../reviews/FIRST_CHECKER_GATE.md#owners-answer-second-set)); the implementation still needs its own gate approval. Previously: proposed, 2026-11-02 (plan task 2.1.3). A checker design: it
 passes the [kernel] and [import] gates in `AGENTS.md` only with the owner's
 approval of the plain-language summary in
 [the gate document](../reviews/FIRST_CHECKER_GATE.md#second-set-of-questions)

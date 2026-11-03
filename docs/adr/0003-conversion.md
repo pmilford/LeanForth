@@ -103,7 +103,7 @@ accepted theorem. An expert human review is required by the project gate.
 
 ## Amendment 1 (proposed): comparing under binders whose domains differ
 
-Status: **proposed**, 2026-11-02 (plan task 2.1.2). A checker rule: it
+Status: **rule accepted** by the owner on 2026-11-02 (G6, with G7 extending ADR 0011's D4; [gate](../reviews/FIRST_CHECKER_GATE.md#owners-answer-second-set)); the implementation still needs its own gate approval. Previously: proposed, 2026-11-02 (plan task 2.1.2). A checker rule: it
 passes the [kernel] gate in `AGENTS.md` only with the owner's approval of
 the plain-language summary in
 [the gate document](../reviews/FIRST_CHECKER_GATE.md#second-set-of-questions)
