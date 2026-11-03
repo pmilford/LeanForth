@@ -13,6 +13,7 @@
 
 require ../lib/lib.fs
 require ../core/constant-term-boundary.fs
+require ../core/diagnostics.fs
 require ../core/terms.fs
 
 : lf-rebuild-invalid ( -- -1 outcome ) outcome-invalid no-result ;
@@ -35,12 +36,16 @@ require ../core/terms.fs
 \ which cannot be entered at context max-n (full); that is checked before
 \ the first child is visited, so such a node spends no fuel on its children.
 \ The check is independent of fuel (ADR 0008): a node whose own visit took
-\ the last unit is still full there, not exhausted.
+\ the last unit is still full there, not exhausted, and it is recorded as
+\ a full binder context.
 \ Every nested visit holds a few cells of the host's stacks, so the words
 \ between two visits are kept few and flat (see mixed-beta.fs).
 : lf-rebuild-binder? ( node -- flag ) lf-term-tag@ lf-tag-app <> ;
 : lf-rebuild-stuck? ( node frames -- flag )
   frame-context @ max-n = swap lf-rebuild-binder? and ;
+: lf-rebuild-deep ( -- -1 outcome )
+  max-n dup c" mixed-rebuild lf-rebuild-binary" lf-diag-binders-full lf-diag-note
+  lf-rebuild-full ;
 : lf-rebuild-build ( r1 node r2 -- result outcome )
   swap lf-term-tag@ lf-term-binary lf-rebuild-allocated ;
 : lf-rebuild-descend ( node -- xt )
@@ -50,7 +55,7 @@ require ../core/terms.fs
   ok-keep2? if lf-rebuild-build then ;
 \ Visit both children with the pass's frames record, then append the node.
 : lf-rebuild-binary ( node frames -- result outcome )
-  2dup lf-rebuild-stuck? if 2drop lf-rebuild-full exit then
+  2dup lf-rebuild-stuck? if 2drop lf-rebuild-deep exit then
   over lf-term-first@ over frame-call ok-keep2? if -rot lf-rebuild-join then ;
 
 \ Audit a whole root with the pass's fuel before anything is allocated. The

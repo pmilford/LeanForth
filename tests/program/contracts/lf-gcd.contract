@@ -1,0 +1,17 @@
+lf-contract 0.1
+# lf-gcd loops (BEGIN ... WHILE ... REPEAT in lf-euclid): generator v0 has no
+# loop invariants, so it reports the word unsupported. Its correctness is
+# proved by induction directly on the IR semantics instead (gcd_correct in
+# tests/reference/program-ir.lean).
+id lf-gcd/0
+word lf-gcd
+ir tests/program/ir/examples.ir
+stack ( a b -- gcd true | false )
+inputs a b
+statement For integers a, b in the cell range: if either is negative the word returns false; otherwise their greatest common divisor and true.
+case a < 0 || b < 0
+  out false
+case a >= 0 && b >= 0
+  out g true
+  ensure g >= 0
+expect unsupported

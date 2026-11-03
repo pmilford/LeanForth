@@ -1,0 +1,13 @@
+lf-contract 0.1
+# A deliberately wrong contract: claims lf-checked-add always succeeds with
+# the mathematical sum. It fails, for example, on the largest cell plus 1.
+id lf-checked-add/wrong-total
+word lf-checked-add
+ir tests/program/ir/examples.ir
+stack ( a b -- sum true | false )
+inputs a b
+statement Wrong on purpose: claims every sum of two cells is returned with true.
+case true
+  out s true
+  ensure s = a + b
+expect refuted

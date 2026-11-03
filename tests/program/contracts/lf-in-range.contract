@@ -1,0 +1,13 @@
+lf-contract 0.1
+id lf-in-range/0
+word lf-in-range
+ir tests/program/ir/examples.ir
+stack ( value lower upper -- flag true | false )
+inputs value lower upper
+statement For integers v, l, u in the cell range: if l > u the word returns false; otherwise it returns a flag that is true (-1) exactly when l ≤ v ≤ u and false (0) otherwise, then true. Cells below are kept.
+case lower > upper
+  out false
+case lower <= upper
+  out f true
+  ensure f = flag(lower <= value && value <= upper)
+expect discharged

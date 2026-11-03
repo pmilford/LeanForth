@@ -2,24 +2,31 @@
 \ above a cutoff, rebuilding the term. Structural transformation only; no
 \ proof judgment.
 \ State: one job record, lf-mshift-job (fields lf-shiftjob-*): the pass's
-\ frames (fuel, nesting, and the cutoff as context) and the amount. Not
-\ re-entrant and single-threaded: the instantiate pass shifts its
-\ replacement on this record, which a shift in progress refuses. Exclude raw
-\ mutation, resets and concurrent access during a call.
+\ frames (fuel, nesting, and the cutoff as context) and the amount; a
+\ member of the checker context (lib/context.fs), whose frames a set-up
+\ word prepares in every context. Single-threaded within one context: the
+\ instantiate pass shifts its replacement on this record, which a shift in
+\ progress refuses. Exclude raw mutation, resets and concurrent access
+\ during a call.
 
 require ../lib/lib.fs
 require ../core/constant-term-boundary.fs
+require ../core/diagnostics.fs
 require ../core/tagged-sort-boundary.fs
 require ../core/terms.fs
 require ./mixed-rebuild.fs
 
 max-n constant lf-mshift-max
 
+\ The frames come first, so the visitor finds the job record at the
+\ address of the frames it is given (checked here) and needs no pointer
+\ to it, which would go stale when a context moves.
 begin-structure /lf-shiftjob
   /frames +field lf-shiftjob-frames   \ fuel, nesting, the cutoff as context
   field: lf-shiftjob-amount           \ added to each variable at or above the cutoff
 end-structure
-create lf-mshift-job /lf-shiftjob allot
+0 lf-shiftjob-frames 0<> [if] .( mixed-shift.fs: frames must come first) cr abort [then]
+/lf-shiftjob context-record: lf-mshift-job
 
 : lf-mshift-frames ( -- frames ) lf-mshift-job lf-shiftjob-frames ;
 \ Fuel left after a shift; mixed-infer continues with it.
@@ -30,9 +37,13 @@ create lf-mshift-job /lf-shiftjob allot
 \ and backward edges. A variable below the cutoff is kept; the others move
 \ up by the amount, which is full past lf-mshift-max (no room in a cell).
 \ Leaves are kept and binary nodes rebuilt; any other tag is invalid.
-: lf-mshift-amount@ ( frames -- amount ) frame-job @ lf-shiftjob-amount @ ;
+: lf-mshift-amount@ ( frames -- amount ) lf-shiftjob-amount @ ;
+: lf-mshift-site ( -- site ) c" mixed-shift lf-mixed-shift" ;
+\ No room in a cell: recorded with the index and the amount.
+: lf-mshift-past ( index amount -- -1 outcome )
+  lf-mshift-site lf-diag-cell-maximum lf-diag-note lf-rebuild-full ;
 : lf-mshift-up ( index amount -- result outcome )
-  2dup lf-mshift-max swap - > if 2drop lf-rebuild-full
+  2dup lf-mshift-max swap - > if lf-mshift-past
   else + lf-term-bvar lf-rebuild-allocated then ;
 : lf-mshift-bvar ( node frames -- result outcome )
   over lf-term-first@ over frame-context @ < if lf-rebuild-keep exit then
@@ -46,18 +57,23 @@ create lf-mshift-job /lf-shiftjob allot
 : lf-mshift-visit ( node frames -- result outcome )
   over lf-term-valid? lf-rebuild-tag
   dup lf-term-binary-tag? if drop lf-rebuild-binary else lf-mshift-leaf then ;
-\ The visitor is set once, here.
-lf-term-capacity ' lf-mshift-visit lf-mshift-frames frame-init
-lf-mshift-job lf-mshift-frames frame-job !
+\ The frames and their visitor, set up once in every context.
+: lf-mshift-setup ( -- )
+  lf-term-capacity ['] lf-mshift-visit lf-mshift-frames frame-init ;
+' lf-mshift-setup context-setup
 
 \ Shift a node by amount from cutoff zero, from inside another pass whose
 \ frames record lends its fuel and gets back what is left. A shift in
 \ progress refuses, changing nothing: no result, invalid. Nothing is rolled
-\ back here; the caller's pass does that.
+\ back here; the caller's pass does that. Running out of fuel or frames is
+\ recorded as a diagnostic.
+: lf-mshift-explain ( outcome -- outcome )
+  lf-mshift-frames lf-mshift-site lf-diag-frames ;
 : lf-mshift-borrow ( frames -- flag ) frame-fuel @ lf-mshift-frames frame-budget ;
 : lf-mshift-inside ( node amount frames -- result outcome )
   dup lf-mshift-borrow 0= if drop 2drop lf-rebuild-invalid exit then
-  >r lf-mshift-amount ! 0 lf-mshift-frames frame-run lf-mshift-fuel @ r> frame-fuel ! ;
+  >r lf-mshift-amount ! 0 lf-mshift-frames frame-run lf-mshift-explain
+  lf-mshift-fuel @ r> frame-fuel ! ;
 
 \ Shift a live mixed root. Validation and traversal share fuel; invalid
 \ input, running out of fuel (exhausted) and running out of room (full) are
@@ -78,4 +94,5 @@ lf-mshift-job lf-mshift-frames frame-job !
   if drop r> lf-mshift-copy else r> drop nip nip lf-rebuild-none then ;
 : lf-mixed-shift ( index identity cutoff amount fuel -- index identity status )
   lf-mshift-frames frame-budget 0= if lf-mshift-refuse exit then
-  2dup lf-mshift-args? if lf-mshift-amount ! lf-mshift-root else lf-mshift-refuse then ;
+  2dup lf-mshift-args? if lf-mshift-amount ! lf-mshift-root lf-mshift-explain
+  else lf-mshift-refuse then ;

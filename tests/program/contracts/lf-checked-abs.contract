@@ -1,0 +1,14 @@
+lf-contract 0.1
+id lf-checked-abs/0
+word lf-checked-abs
+ir tests/program/ir/examples.ir
+stack ( n -- magnitude true | false )
+inputs n
+statement For an integer n in the cell range: if n is the smallest cell the word returns false; otherwise it returns |n| and true, and |n| is in the cell range. Cells below are kept.
+case n = cell.min
+  out false
+case n <> cell.min
+  out m true
+  ensure m = abs(n)
+  ensure 0 <= m && m <= cell.max
+expect discharged

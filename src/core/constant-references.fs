@@ -7,11 +7,13 @@
 \ so a reset of the name table or a rolled-back level makes the reference
 \ stale. Handles are forgeable, instance-local diagnostics, not
 \ capabilities.
-\ State: one bounded store of reference records; single-threaded; callers
-\ exclude raw mutation, and input arrays must be aligned, readable and
-\ disjoint from this module's data.
+\ State: one bounded store of reference records, lf-crefs, a member of the
+\ checker context (lib/context.fs); single-threaded within one context;
+\ callers exclude raw mutation, and input arrays must be aligned, readable
+\ and disjoint from this module's data.
 
 require ../lib/lib.fs
+require ./diagnostics.fs
 require ./generation-handles.fs
 require ./names.fs
 
@@ -30,7 +32,7 @@ begin-structure /lf-crec
 end-structure
 /lf-crec 1 cells / constant lf-cref-slot-cells
 
-lf-cref-capacity /lf-crec 0 store: lf-crefs
+lf-cref-capacity /lf-crec 0 context-store: lf-crefs
 
 \ The store's fields under their established names (kernel modules roll
 \ back lf-cref-count; tests corrupt the count and serial).
@@ -83,9 +85,13 @@ lf-cref-capacity /lf-crec 0 store: lf-crefs
 : lf-cref-levels! ( addr count slot -- ) 2dup lf-crec-arity ! lf-crec-levels swap 2* cells move ;
 : lf-cref-name! ( name generation slot -- ) tuck lf-crec-generation ! lf-crec-name ! ;
 : lf-cref-stamp ( slot -- identity ) lf-cref-serial @ tuck swap lf-crec-identity ! ;
-\ Unchecked input; refuses only when the store has no free record.
+\ Unchecked input; refuses only when the store has no free record or its
+\ serial is spent, which is recorded as a diagnostic.
+: lf-cref-refused ( -- false )
+  lf-crefs c" constant-references lf-cref-new" lf-diag-references-full lf-diag-store
+  false ;
 : lf-cref-store ( name generation addr count -- index identity true | false )
-  lf-crefs store-new-slot 0= if 2drop 2drop false exit then
+  lf-crefs store-new-slot 0= if 2drop 2drop lf-cref-refused exit then
   >r >r r@ lf-cref-levels! r@ lf-cref-name! r> lf-cref-stamp r> swap true ;
 : lf-cref-source? ( name generation -- flag ) lf-cref-name-valid? lf-cref-state-valid? and ;
 : lf-cref-new ( name generation addr count -- index identity true | false )
