@@ -19,9 +19,17 @@
 
 4. Every module under src/ that uses a word src/lib/portability.fs defines
    for hosts that lack it (cell, max-n, field:, -rot, ...; read from that
-   file's [undefined] guards) has portability.fs among the files it loads,
-   directly or through other files: otherwise it works on Gforth only.
-   Test helpers are loaded after the modules under test and are not checked.
+   file's [undefined] guards) loads portability.fs, directly or through
+   other files, before its first use of such a word: otherwise it works on
+   Gforth only. Loads are REQUIRE or INCLUDE anywhere in a line, outside
+   comments (including ( ... ) across lines) and outside an [IF] branch
+   that a literal condition skips (0 [IF], FALSE [IF], or the [ELSE] of
+   a nonzero or TRUE one). Other conditions cannot be read statically, so
+   a load under one, such as lib.fs's load-once guard, counts. A word
+   named after [UNDEFINED] or [DEFINED] is not a use. Test helpers are
+   loaded after the modules under test and are not checked. Before the
+   repository, the check runs on a scratch tree of its own (LOAD_CASES)
+   and fails if it misjudges a module there.
 
 Comments and strings are ignored. See docs/development/FORTH_STYLE.md,
 section 8.
@@ -29,6 +37,7 @@ section 8.
 import pathlib
 import re
 import sys
+import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 BYTE_WORDS = {
@@ -97,57 +106,176 @@ def raw_strip(text):
     return strip(text)
 
 
-PORTABILITY = ROOT / "src/lib/portability.fs"
-LOAD = re.compile(r"^\s*(?:require|include)\s+(\S+)", re.I)
+PORTABILITY = "src/lib/portability.fs"
+LOADING = {"require", "include"}
+NAMING = {"[undefined]", "[defined]"}   # the next word is named, not used
+STRINGS = {'s"', 'c"', '."', 'abort"'}
 
 
-def adapted_words():
+def source_words(text):
+    """The words of Forth source in order, as written, without comments or
+    the text of strings: \\ to the end of the line, ( ... ) and .( ... )
+    across lines, and s" c" ." abort" and s\\" strings."""
+    words, i, n = [], 0, len(text)
+    while True:
+        while i < n and text[i].isspace():
+            i += 1
+        if i >= n:
+            return words
+        j = i
+        while j < n and not text[j].isspace():
+            j += 1
+        low = text[i:j].lower()
+        if low == "\\":
+            end = text.find("\n", j)
+        elif low in ("(", ".("):
+            end = text.find(")", j)
+        elif low in STRINGS:
+            end = text.find('"', j + 1)
+        elif low == 's\\"':
+            end = j + 1
+            while end < n and text[end] != '"':
+                end += 2 if text[end] == "\\" else 1
+        else:
+            words.append(text[i:j])
+            i = j
+            continue
+        i = n if end < 0 else end + 1
+
+
+def literal_flag(word):
+    """True or False for a flag a static check can read (a number, TRUE or
+    FALSE); None for anything else."""
+    low = (word or "").lower()
+    if low in ("true", "false"):
+        return low == "true"
+    value = number(low)
+    return None if value is None else value != 0
+
+
+def compiled_words(text):
+    """The words of Forth source that may be compiled: those inside an
+    [IF] branch a literal condition skips are left out, with the [IF],
+    [ELSE] and [THEN] words themselves."""
+    words, branches, previous = [], [], None
+    for word in source_words(text):
+        low = word.lower()
+        if low == "[if]":
+            branches.append(literal_flag(previous))
+        elif low == "[else]" and branches:
+            branches[-1] = None if branches[-1] is None else not branches[-1]
+        elif low == "[then]" and branches:
+            branches.pop()
+        elif False not in branches:
+            words.append(word)
+        previous = word
+    return words
+
+
+def adapted_words(portability):
     """The words portability.fs defines where the host lacks them."""
-    text = PORTABILITY.read_text()
+    text = portability.read_text()
     return {w.lower() for w in re.findall(r"\[undefined\]\s+(\S+)\s+\[if\]", text, re.I)}
 
 
-def loaded(path):
-    """The repository files that path loads with REQUIRE or INCLUDE. Paths
-    starting with ./ or ../ are relative to the loading file, as Gforth
-    reads them; others to the repository root; host library files such as
-    test/ttester.fs are not in the repository and are skipped."""
-    for line in strip(path.read_text(errors="replace")).splitlines():
-        hit = LOAD.match(line)
-        if hit:
-            name = hit.group(1)
-            base = path.parent if name.startswith(("./", "../")) else ROOT
+def loads(path, words, root):
+    """(position, file) for each file of the tree under root that path loads
+    with REQUIRE or INCLUDE, position being the index in words, path's
+    compiled words. Paths starting with ./ or ../ are relative to the
+    loading file, as Gforth reads them; others to root; host library files
+    such as test/ttester.fs are not in the tree and are skipped."""
+    for k in range(len(words) - 1):
+        if words[k].lower() in LOADING:
+            name = words[k + 1]
+            base = path.parent if name.startswith(("./", "../")) else root
             target = (base / name).resolve()
             if target.is_file():
-                yield target
+                yield k, target
 
 
-def closure(path):
+def closure(path, root):
     """Every file that loading path loads, directly or indirectly."""
     seen, todo = set(), [path.resolve()]
     while todo:
-        for target in loaded(todo.pop()):
+        file = todo.pop()
+        words = compiled_words(file.read_text(errors="replace"))
+        for _, target in loads(file, words, root):
             if target not in seen:
                 seen.add(target)
                 todo.append(target)
     return seen
 
 
-def unadapted(words):
-    """(module, words) for modules under src/ that use adapted words without
-    loading portability.fs."""
-    found = []
-    for path in sorted((ROOT / "src").rglob("*.fs")):
-        if path.resolve() == PORTABILITY.resolve():
+def uses(words, adapted):
+    """(position, word) for each use of an adapted word in words."""
+    for k, word in enumerate(words):
+        if word.lower() in adapted and (k == 0 or words[k - 1].lower() not in NAMING):
+            yield k, word.lower()
+
+
+def unadapted(root):
+    """(module, words) for each module under root/src that uses adapted words
+    before it loads portability.fs (or never loads it)."""
+    port = (root / PORTABILITY).resolve()
+    adapted, found = adapted_words(port), []
+    for path in sorted((root / "src").rglob("*.fs")):
+        if path.resolve() == port:
             continue
-        used = sorted({t.lower() for t in strip(path.read_text()).split()} & words)
-        if used and PORTABILITY.resolve() not in closure(path):
-            found.append((path.relative_to(ROOT).as_posix(), used))
+        words = compiled_words(path.read_text(errors="replace"))
+        loaded = (k for k, target in loads(path, words, root)
+                  if target == port or port in closure(target, root))
+        first = next(loaded, len(words))
+        early = sorted({word for k, word in uses(words, adapted) if k < first})
+        if early:
+            found.append((path.relative_to(root).as_posix(), early))
     return found
 
 
+# The load check's own test: a scratch tree with this portability.fs and
+# one module per case under src/m/, and whether the check must report it.
+SCRATCH_PORTABILITY = """\\ Adapted words for the load check's test.
+[undefined] cell [if] 1 cells constant cell [then]
+[undefined] max-n [if] -1 1 rshift constant max-n [then]
+[undefined] -rot [if] : -rot ( x y z -- z x y ) rot rot ; [then]
+"""
+LOAD_CASES = {
+    "plain.fs": (": a ( -- n ) cell ;\n", True),
+    "loads.fs": ("require ../lib/portability.fs\n: a ( -- n ) cell ;\n", False),
+    "through.fs": ("require ./loads.fs\n: b ( -- n ) max-n ;\n", False),
+    "late.fs": (": a ( -- n ) cell ;\nrequire ../lib/portability.fs\n", True),
+    "comment.fs": ("( Once this file did\nrequire ../lib/portability.fs\nbut no more. )\n"
+                   ": a ( -- n ) cell ;\n", True),
+    "skipped.fs": ("0 [if]\nrequire ../lib/portability.fs\n[then]\n"
+                   ": a ( x y z -- z x y ) -rot ;\n", True),
+    "else.fs": ("true [if] [else] require ../lib/portability.fs [then]\n"
+                ": a ( -- n ) max-n ;\n", True),
+    "guarded.fs": ("[undefined] max-n [if] require ../lib/portability.fs [then]\n"
+                   ": a ( -- n ) max-n ;\n", False),
+    "midline.fs": ("decimal require ../lib/portability.fs hex\n: a ( -- n ) cell ;\n", False),
+    "texts.fs": (': a ( -- c-addr u ) s\\" say \\"hi\\" to a cell here\\n" ;\n'
+                 ': b ( -- ) ." a cell here" ;\n: c ( -- c-addr u ) s" cell size" ;\n'
+                 ".( no cell here ) cr \\ nor cell here\n[undefined] cell [if] [then]\n",
+                 False),
+}
+
+
+def load_check_misjudged():
+    """The modules of LOAD_CASES that the load check judges wrongly."""
+    with tempfile.TemporaryDirectory() as scratch:
+        root = pathlib.Path(scratch)
+        (root / "src/m").mkdir(parents=True)
+        (root / "src/lib").mkdir()
+        (root / PORTABILITY).write_text(SCRATCH_PORTABILITY)
+        for name, (text, _) in LOAD_CASES.items():
+            (root / "src/m" / name).write_text(text)
+        reported = {pathlib.PurePosixPath(rel).name for rel, _ in unadapted(root)}
+    expected = {name for name, (_, report) in LOAD_CASES.items() if report}
+    return sorted(reported ^ expected)
+
+
 def main():
-    problems = []
+    problems = [f"load check misjudges its test module src/m/{name}"
+                for name in load_check_misjudged()]
     for path in sorted(list((ROOT / "src").rglob("*.fs")) + list((ROOT / "tests").rglob("*.fs"))):
         rel = path.relative_to(ROOT).as_posix()
         for lineno, line in enumerate(path.read_text(errors="replace").splitlines(), 1):
@@ -166,8 +294,8 @@ def main():
                 value = number(tok)
                 if value is not None and value >= LIMIT:
                     problems.append(f"{rel}:{lineno}: literal {tok} assumes cells wider than 32 bits")
-    for rel, used in unadapted(adapted_words()):
-        problems.append(f"{rel}: uses {' '.join(used)} without loading src/lib/portability.fs")
+    for rel, used in unadapted(ROOT):
+        problems.append(f"{rel}: uses {' '.join(used)} before loading {PORTABILITY}")
     for p in problems:
         print(p)
     if problems:
