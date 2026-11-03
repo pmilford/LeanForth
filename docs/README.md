@@ -17,6 +17,7 @@ see [project progress](project/PROJECT_PROGRESS.md). Documents marked
 
 - [TERMS_FOR_NEW_READERS.md](user/TERMS_FOR_NEW_READERS.md) — plain-language glossary: level, `Sort`, theorem, kernel.
 - [SETUP_WSL.md](user/SETUP_WSL.md) — Windows / WSL2 development setup.
+- [TERM_PRINTER.md](user/TERM_PRINTER.md) — printing terms readably in Lean notation, ASCII and LaTeX (Markdown math); binder names without capture; the presentation side table.
 
 Full user manuals for Forth users, Lean users, mathematicians and AI tools
 are planned and do not exist yet.

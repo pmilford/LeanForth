@@ -1,0 +1,147 @@
+unicode	prop	Prop
+ascii	prop	Prop
+latex	prop	\mathrm{Prop}
+unicode	type	Type
+ascii	type	Type
+latex	type	\mathrm{Type}
+unicode	type-1	Type 1
+ascii	type-1	Type 1
+latex	type-1	\mathrm{Type}\ 1
+unicode	sort-max	Sort (max u v)
+ascii	sort-max	Sort (max u v)
+latex	sort-max	\mathrm{Sort}\ (\max\ u\ v)
+unicode	type-max	Type (max u v)
+ascii	type-max	Type (max u v)
+latex	type-max	\mathrm{Type}\ (\max\ u\ v)
+unicode	sort-imax	Sort (imax u v)
+ascii	sort-imax	Sort (imax u v)
+latex	sort-imax	\mathrm{Sort}\ (\operatorname{imax}\ u\ v)
+unicode	type-succ	Type (u + 1)
+ascii	type-succ	Type (u + 1)
+latex	type-succ	\mathrm{Type}\ (u + 1)
+unicode	type-max-succ	Type ((max u v) + 1)
+ascii	type-max-succ	Type ((max u v) + 1)
+latex	type-max-succ	\mathrm{Type}\ ((\max\ u\ v) + 1)
+unicode	sort-max-right	Sort (max u v w)
+ascii	sort-max-right	Sort (max u v w)
+latex	sort-max-right	\mathrm{Sort}\ (\max\ u\ v\ w)
+unicode	sort-max-left	Sort (max (max u v) w)
+ascii	sort-max-left	Sort (max (max u v) w)
+latex	sort-max-left	\mathrm{Sort}\ (\max\ (\max\ u\ v)\ w)
+unicode	sort-succ-max	Sort (max (u + 1) v)
+ascii	sort-succ-max	Sort (max (u + 1) v)
+latex	sort-succ-max	\mathrm{Sort}\ (\max\ (u + 1)\ v)
+unicode	identity-type	∀ {P : Prop}, P → P
+ascii	identity-type	forall {P : Prop}, P -> P
+latex	identity-type	\forall \{P : \mathrm{Prop}\},\ P \to P
+unicode	identity-value	fun {P} proof ↦ proof
+ascii	identity-value	fun {P} proof => proof
+latex	identity-value	\lambda\ \{P\}\ \mathit{proof} \mapsto \mathit{proof}
+unicode	composition-type	∀ {A B C : Prop}, (A → B) → (B → C) → A → C
+ascii	composition-type	forall {A B C : Prop}, (A -> B) -> (B -> C) -> A -> C
+latex	composition-type	\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C
+unicode	composition-value	fun {A B C} f g value ↦ g (f value)
+ascii	composition-value	fun {A B C} f g value => g (f value)
+latex	composition-value	\lambda\ \{A\ B\ C\}\ f\ g\ \mathit{value} \mapsto g\ (f\ \mathit{value})
+unicode	poly-type	{α : Sort (max u v)} → α → α
+ascii	poly-type	{α : Sort (max u v)} -> α -> α
+latex	poly-type	\{\alpha : \mathrm{Sort}\ (\max\ u\ v)\} \to \alpha \to \alpha
+unicode	dep-explicit	(α : Type) → α → α
+ascii	dep-explicit	(α : Type) -> α -> α
+latex	dep-explicit	(\alpha : \mathrm{Type}) \to \alpha \to \alpha
+unicode	rfc-1834	∀ (x y : Prop), x
+ascii	rfc-1834	forall (x y : Prop), x
+latex	rfc-1834	\forall (x\ y : \mathrm{Prop}),\ x
+unicode	strict	∀ ⦃x : Prop⦄, x → x
+ascii	strict	forall {{x : Prop}}, x -> x
+latex	strict	\forall \{\{x : \mathrm{Prop}\}\},\ x \to x
+unicode	inst-named	∀ {α : Prop} [h : α], α
+ascii	inst-named	forall {α : Prop} [h : α], α
+latex	inst-named	\forall \{\alpha : \mathrm{Prop}\}\ [h : \alpha],\ \alpha
+unicode	inst-anon	∀ {α : Prop} [α], α
+ascii	inst-anon	forall {α : Prop} [α], α
+latex	inst-anon	\forall \{\alpha : \mathrm{Prop}\}\ [\alpha],\ \alpha
+unicode	fun-inst-used	fun {α} [h : α] ↦ h
+ascii	fun-inst-used	fun {α} [h : α] => h
+latex	fun-inst-used	\lambda\ \{\alpha\}\ [h : \alpha] \mapsto h
+unicode	fun-inst-unused	fun {α} [α] x ↦ x
+ascii	fun-inst-unused	fun {α} [α] x => x
+latex	fun-inst-unused	\lambda\ \{\alpha\}\ [\alpha]\ x \mapsto x
+unicode	fun-strict	fun ⦃α β⦄ ↦ α
+ascii	fun-strict	fun {{α β}} => α
+latex	fun-strict	\lambda\ \{\{\alpha\ \beta\}\} \mapsto \alpha
+unicode	nested-app	fun {A} f x ↦ f (f x)
+ascii	nested-app	fun {A} f x => f (f x)
+latex	nested-app	\lambda\ \{A\}\ f\ x \mapsto f\ (f\ x)
+unicode	shadow-fun	fun x x_1 ↦ x_1
+ascii	shadow-fun	fun x x_1 => x_1
+latex	shadow-fun	\lambda\ x\ x_{1} \mapsto x_{1}
+unicode	capture-fun	fun x x_1 ↦ x
+ascii	capture-fun	fun x x_1 => x
+latex	capture-fun	\lambda\ x\ x_{1} \mapsto x
+unicode	shadow-pi	∀ (x x : Prop), x
+ascii	shadow-pi	forall (x x : Prop), x
+latex	shadow-pi	\forall (x\ x : \mathrm{Prop}),\ x
+unicode	capture-pi	∀ (x x_1 : Prop), x
+ascii	capture-pi	forall (x x_1 : Prop), x
+latex	capture-pi	\forall (x\ x_{1} : \mathrm{Prop}),\ x
+unicode	capture-twice	(x x_1 x_2 : Prop) → @x x_1 x_2
+ascii	capture-twice	(x x_1 x_2 : Prop) -> @x x_1 x_2
+latex	capture-twice	(x\ x_{1}\ x_{2} : \mathrm{Prop}) \to @x\ x_{1}\ x_{2}
+unicode	capture-suffix	fun x x_1 x_2 ↦ @x x_1 x_2
+ascii	capture-suffix	fun x x_1 x_2 => @x x_1 x_2
+latex	capture-suffix	\lambda\ x\ x_{1}\ x_{2} \mapsto @x\ x_{1}\ x_{2}
+unicode	hygienic-fun	fun a ↦ a
+ascii	hygienic-fun	fun a => a
+latex	hygienic-fun	\lambda\ a \mapsto a
+unicode	anonymous-fun	fun a ↦ a
+ascii	anonymous-fun	fun a => a
+latex	anonymous-fun	\lambda\ a \mapsto a
+unicode	name-shapes	fun x' x₁ h_2 a_b α' proof₁₂ ↦ @x' x₁ h_2 a_b α' proof₁₂
+ascii	name-shapes	fun x' x₁ h_2 a_b α' proof₁₂ => @x' x₁ h_2 a_b α' proof₁₂
+latex	name-shapes	\lambda\ x'\ x_{1}\ h_{2}\ \mathit{a\_b}\ \alpha'\ \mathit{proof}_{12} \mapsto @x'\ x_{1}\ h_{2}\ \mathit{a\_b}\ \alpha'\ \mathit{proof}_{12}
+unicode	fun-last-arg	fun g ↦ g fun x ↦ x
+ascii	fun-last-arg	fun g => g fun x => x
+latex	fun-last-arg	\lambda\ g \mapsto g\ \lambda\ x \mapsto x
+unicode	fun-inner-arg	fun f p ↦ f (fun x ↦ x) p
+ascii	fun-inner-arg	fun f p => f (fun x => x) p
+latex	fun-inner-arg	\lambda\ f\ p \mapsto f\ (\lambda\ x \mapsto x)\ p
+unicode	beta-head	fun p ↦ (fun x ↦ x) p
+ascii	beta-head	fun p => (fun x => x) p
+latex	beta-head	\lambda\ p \mapsto (\lambda\ x \mapsto x)\ p
+unicode	forall-domain	(∀ (x : Prop), x) → Prop
+ascii	forall-domain	(forall (x : Prop), x) -> Prop
+latex	forall-domain	(\forall (x : \mathrm{Prop}),\ x) \to \mathrm{Prop}
+unicode	arrow-domain	(Prop → Prop) → Prop
+ascii	arrow-domain	(Prop -> Prop) -> Prop
+latex	arrow-domain	(\mathrm{Prop} \to \mathrm{Prop}) \to \mathrm{Prop}
+unicode	sort-arg	fun f ↦ f Type
+ascii	sort-arg	fun f => f Type
+latex	sort-arg	\lambda\ f \mapsto f\ \mathrm{Type}
+unicode	type1-arg	fun f ↦ f (Type 1)
+ascii	type1-arg	fun f => f (Type 1)
+latex	type1-arg	\lambda\ f \mapsto f\ (\mathrm{Type}\ 1)
+unicode	const-implicit	fun {P} h ↦ fixtureId h
+ascii	const-implicit	fun {P} h => fixtureId h
+latex	const-implicit	\lambda\ \{P\}\ h \mapsto \mathsf{fixtureId}\ h
+unicode	const-bare	@fixtureId
+ascii	const-bare	@fixtureId
+latex	const-bare	@\mathsf{fixtureId}
+unicode	const-partial	fixtureId
+ascii	const-partial	fixtureId
+latex	const-partial	\mathsf{fixtureId}
+unicode	const-unknown-levels	fun y ↦ @undeclaredC y
+ascii	const-unknown-levels	fun y => @undeclaredC y
+latex	const-unknown-levels	\lambda\ y \mapsto @\mathsf{undeclaredC}\ y
+unicode	const-unknown	fun y ↦ undeclaredK y
+ascii	const-unknown	fun y => undeclaredK y
+latex	const-unknown	\lambda\ y \mapsto \mathsf{undeclaredK}\ y
+unicode	const-dotted	My.name.space
+ascii	const-dotted	My.name.space
+latex	const-dotted	\mathsf{My.name.space}
+unicode	universes-implicit	fun {P} h ↦ fixtureId.{0} h
+ascii	universes-implicit	fun {P} h => fixtureId.{0} h
+latex	universes-implicit	\lambda\ \{P\}\ h \mapsto \mathsf{fixtureId}.\{0\}\ h
+unicode	universes-list	undeclaredL.{max u v, u + 1, 0}
+ascii	universes-list	undeclaredL.{max u v, u + 1, 0}
+latex	universes-list	\mathsf{undeclaredL}.\{\max\ u\ v,\ u + 1,\ 0\}
