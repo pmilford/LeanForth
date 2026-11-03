@@ -104,7 +104,7 @@ designs and Lean proofs rather than on LeanForth code.
 | 2. Terms, names and universes | In progress: bounded 64-entry stores on the library's `store:` records, handles that detect stale references, symbolic Sorts kept apart from concrete ones, which no checker pass accepts (ADR 0007; the unsafe draft that mixed them was retired), structured names. Human review of the representation and serialization remain. |
 | 3. Scope and substitutions | In progress: shift, instantiation and universe substitution passes compared with Lean on finite tables (80, 25 and 48 cases and others). General specification and review remain. |
 | 4. Definitional equality | 1 of 3 done (T4.1, rules approved). The experimental conversion compares after beta reduction and answers *unknown* where it cannot decide; unfolding, eta and proof irrelevance are later phases. No pass answers *rejected* yet. |
-| 5. Small trusted checker | 1 of 4 done (T5.1, rules and design approved). Expected results: 60 cases (14 must be accepted, 28 rejected, 1 invalid, 9 unknown, 8 unsupported) checked against Lean. The checker code, its failure-path suite, replay and the code gate are not started. |
+| 5. Small trusted checker | 1 of 4 done (T5.1, rules and design approved). Expected results: 60 cases (14 must be accepted, 28 rejected, 1 invalid, 9 unknown, 8 unsupported) checked against Lean. In progress: the rejection rules in comparison and inference (plan 2.2.1) agree with Lean on all 60 rows of the table (28 rejected with Lean's error kind) and the checked environment v0 (2.2.2) is written; both are under independent review before the owner's [kernel] gate. Next: the declaration check (2.2.3), the failure-path suite (2.2.4) and replay (2.2.5). |
 | 6. Lean NDJSON importer | In progress: the Forth reader decodes every record kind of lean4export 3.1.0 and all of Mathlib (below). Staging into the stores, feeding the checker and comparing verdicts remain. |
 | 7. Lean checker compatibility corpus | In progress: selected differential tables and the first checker's expected-results table; no official corpus run. |
 | 8. Lean declaration features | In progress: the checked environment is designed (ADR 0012, per-declaration universe scope); candidate signatures remain unchecked assumptions; inductive types, recursors and quotients are decoded by the reader but not checked. |
@@ -282,8 +282,10 @@ was the first CI run of the pinned-Lean comparisons.
 
 ## Limitations
 
-- No LeanForth checker: nothing has been accepted or rejected, and every
-  "ok" in the experiments is an untrusted diagnostic. When the checker
+- No complete LeanForth checker yet: the rejection rules and the checked
+  environment exist but are not through their review gate, and no
+  declaration has been accepted; every "ok" in the experiments is an
+  untrusted diagnostic. When the checker
   exists, every accepted result will be labelled *experimental — not
   independently audited* until an outside Lean expert audits it.
 - Stores hold 64 entries and constants at most 8 universe arguments;

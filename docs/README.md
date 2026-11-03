@@ -90,10 +90,12 @@ approval; the others are proposals.
 [0007](adr/0007-sort-representation-boundary.md) Sort representation boundary ·
 [0008](adr/0008-outcome-vocabulary.md) one outcome vocabulary (accepted) ·
 [0009](adr/0009-reentrant-state-and-parallel-checking.md) re-entrant state and parallel checking (accepted) ·
+[0010](adr/0010-wordlists.md) wordlists and module boundaries (proposed; piloted on `src/lib`) ·
 [0011](adr/0011-definite-rejection.md) definite rejection and the first checker's scope (rules accepted) ·
 [0012](adr/0012-checked-environment.md) the checked environment's implementation (design accepted) ·
 [0013](adr/0013-derivation-log.md) the derivation log and the proof outline (proposed) ·
-[0017](adr/0017-leanforth-syntax.md) LeanForth Forth syntax for theorems and proofs (accepted as the design basis).
+[0017](adr/0017-leanforth-syntax.md) LeanForth Forth syntax for theorems and proofs (accepted as the design basis) ·
+[0018](adr/0018-exceptions.md) when to use `CATCH` and `THROW` (proposed; piloted on level substitution).
 
 ## `reviews/` — review packets and records
 
