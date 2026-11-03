@@ -81,10 +81,11 @@ What each step means for you:
    fixtures reach them, through a test-only Python bridge.
 4. **The checker** gives each declaration exactly one outcome
    ([outcomes](CONCEPTS.md#outcomes)). Its rules are approved; the rules
-   that answer *rejected* are being written (task 2.2.1) and the
-   declaration check comes next (2.2.3). What runs today is the
-   experimental probe, which can show a value has its claimed type but
-   never rejects and never accepts.
+   that answer *rejected* are written for comparison and inference (task
+   2.2.1, awaiting its review gate) and the declaration check comes next
+   (2.2.3). What runs today is the experimental definition and theorem
+   probe, which can show that a value has its claimed type, or reject it
+   where Lean certainly would, but never accepts a declaration.
 5. **The publisher and the checked environment** keep the accepted
    declarations; a later declaration may use only earlier accepted ones,
    and a failed check changes nothing

@@ -83,16 +83,24 @@ T{ statuses -> outcome-ok outcome-invalid outcome-exhausted outcome-unknown }T
 T{ statuses -> outcome-ok outcome-invalid outcome-exhausted outcome-unknown }T
 \ The success fuel is pinned: preflight and the pair's inference spend 189
 \ units here (observed before the refactor, at 398b76b).
+\ The rejections are ADR 0011's, each as Lean's kernel decides: the value
+\ id.{u} (Sort u) applies id to an argument of the wrong universe (D1 in
+\ the value: appTypeMismatch); a function claimed to be a Sort u (D2:
+\ declTypeMismatch); a lambda as the claimed type (S1: typeExpected).
+: rejected-code? ( code -- flag ) lf-diag-code@ = ;
 : basic-case ( -- )
   setup snapshot 4 9 50000 probe outcome-ok expect-status assert-rollback
   lf-mdefinition-fuel @ 49811 <> abort" success fuel"
   lf-term-serial @ term-serial-before @ <= abort" expected allocations"
-  snapshot 0 10 50000 probe outcome-unknown expect-status assert-rollback
-  lf-mdefinition-fuel @ 0<> abort" unknown fuel"
-  snapshot 0 9 50000 probe outcome-unknown expect-status assert-rollback
+  snapshot 0 10 50000 probe outcome-rejected expect-status assert-rollback
+  lf-mdefinition-fuel @ 0<> abort" rejected fuel"
+  lf-diag-argument-apart rejected-code? 0= abort" D1 in the value"
+  snapshot 0 9 50000 probe outcome-rejected expect-status assert-rollback
+  lf-diag-value-apart rejected-code? 0= abort" D2 for the value"
   snapshot 0 12 50000 probe outcome-invalid expect-status assert-rollback
   lf-mdefinition-fuel @ 0<> abort" invalid fuel"
-  snapshot 9 9 50000 probe outcome-unknown expect-status assert-rollback ;
+  snapshot 9 9 50000 probe outcome-rejected expect-status assert-rollback
+  lf-diag-type-expected rejected-code? 0= abort" S1" ;
 : stale-case ( -- )
   setup snapshot token @ 4 h 9 h 1+ 50000 lf-mixed-definition-probe
   outcome-invalid expect-status assert-rollback
@@ -152,10 +160,12 @@ create two-u-args 4 cells allot
   snapshot 14 16 50000 probe outcome-unknown expect-status assert-rollback
   lf-mdefinition-fuel @ 0<> abort" unknown fuel" ;
 : non-type-case ( -- )
-  \ fun (x : fun A => A) => x has a binder domain whose type is not a Sort;
-  \ (A : Sort u) -> fun (x : A) => x has such a Pi body. Neither is accepted.
+  \ fun (x : fun A => A) => x has a binder domain whose type is not a Sort
+  \ (S2: typeExpected); (A : Sort u) -> fun (x : A) => x has such a Pi
+  \ body, which no rule covers (unknown). Neither is accepted.
   setup 13 h 1 h lf-hterm-lam save 0 h 12 h lf-hterm-pi save \ 14, 15
-  snapshot 4 14 50000 probe outcome-unknown expect-status assert-rollback
+  snapshot 4 14 50000 probe outcome-rejected expect-status assert-rollback
+  lf-diag-domain-type rejected-code? 0= abort" S2"
   snapshot 15 9 50000 probe outcome-unknown expect-status assert-rollback ;
 : future-handle-case ( -- )
   \ A forged future identity would become live after the first allocation if
@@ -217,11 +227,13 @@ variable saw-invalid
   outcome-invalid expect-status assert-rollback
   serials-unchanged? 0= abort" stale value allocated" ;
 : prop-claim-case ( -- )
-  \ forall P : Prop, P -> P with fun P h => h: a claim in Sort 0.
+  \ forall P : Prop, P -> P with fun P h => h: a claim in Sort 0. Prop
+  \ itself as the value has type Sort 1, apart from the claim (D2).
   setup 0 dup lf-level-identity 0= abort" zero" lf-hterm-sort save \ 14 Prop
   14 h 3 h lf-hterm-pi save 14 h 12 h lf-hterm-lam save           \ 15, 16
   snapshot 15 16 50000 probe outcome-ok expect-status assert-rollback
-  snapshot 15 14 50000 probe outcome-unknown expect-status assert-rollback ;
+  snapshot 15 14 50000 probe outcome-rejected expect-status assert-rollback
+  lf-diag-value-apart rejected-code? 0= abort" D2" ;
 ' open-claim-case s" open claim" run-case
 ' open-value-fuel-case s" open value behind the claim's preflight" run-case
 ' corrupt-node-case s" corrupted claim and value nodes" run-case

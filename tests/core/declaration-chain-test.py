@@ -52,11 +52,15 @@ class DeclarationChain(unittest.TestCase):
                                 (3, 1, 0, 2), (3, 2, 0, 3)])
 
     def test_bad_pairs_stop_without_staging(self):
-        # Both are scoped, but inference currently reports unknown for these
-        # ill-typed pairs. Never promote unknown to a rejection or a success.
-        for node, expected in [(6, [(1, 1, 3, 0)]),
+        # Both are scoped and ill-typed, and rules of ADR 0011 reject them
+        # (status 4), as Lean's kernel does: fixtureId's body made a Pi
+        # gives a Sort where the claim has a variable (D2 under D4:
+        # declTypeMismatch); fixturePoly's argument x made A passes a type
+        # where a value of A is needed (D2: appTypeMismatch). Neither is
+        # staged.
+        for node, expected in [(6, [(1, 1, 4, 0)]),
                                (9, [(1, 1, 0, 0), (1, 2, 0, 1),
-                                    (2, 1, 3, 1)])]:
+                                    (2, 1, 4, 1)])]:
             with self.subTest(node=node):
                 result, rows = self.run_stream(self.mutate(node, 3, 3 if node == 6 else 2))
                 self.assertNotEqual(result.returncode, 0)

@@ -66,7 +66,11 @@ outcomes: accepted, rejected, and unsupported/unknown. There is no
    rules show a term ill-typed or two terms definitely different, and
    *unsupported* where it meets a construct it does not implement (today
    such inputs return *invalid* or *unknown*), with pinned-Lean tests for
-   every outcome.
+   every outcome. *Rejected* is implemented by ADR 0011's rules (plan task
+   2.2.1 for comparison and inference, 2026-11-02, gate pending; the
+   checked environment for N1, N2 and L1–L3); *unsupported* for a
+   construct inside a term still waits for the declaration audit (plan
+   task 2.2.3): inference reports such a node as *unknown*.
 
 Status codes and flags stay distinct: a status is tested with the success
 predicate or compared with a named outcome, never consumed by `IF` as a

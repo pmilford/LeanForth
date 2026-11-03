@@ -136,12 +136,14 @@ variable infer-term-count variable infer-level-count variable infer-cref-count
   4 handle 11 handle 50000 lf-mixed-definition-probe
   dup outcome-ok <> if
     dup outcome-unknown = if s" definition pair inconclusive" stderr write-file throw then
+    dup outcome-rejected = if s" definition pair rejected" stderr write-file throw then
     drop -1 throw
   then drop
   lf-msp-token 0= if -1 throw then
   13 handle 18 handle 50000 lf-mixed-definition-probe
   dup outcome-ok <> if
     dup outcome-unknown = if s" theorem pair inconclusive" stderr write-file throw then
+    dup outcome-rejected = if s" theorem pair rejected" stderr write-file throw then
     drop -1 throw
   then drop
   lf-msp-token 0= if -1 throw then
@@ -169,6 +171,7 @@ variable infer-term-count variable infer-level-count variable infer-cref-count
   4 handle 6 handle 50000 lf-mixed-definition-probe
   dup outcome-ok <> if
     dup outcome-unknown = if s" fixtureId pair inconclusive" stderr write-file throw then
+    dup outcome-rejected = if s" fixtureId pair rejected" stderr write-file throw then
     drop -1 throw
   then drop
   s" fixture ok" type cr ;

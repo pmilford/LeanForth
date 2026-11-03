@@ -59,12 +59,20 @@ require ../lib/lib.fs
 \ or a dependency that is unsupported.
 40 constant lf-diag-unsupported        \ the node's tag, 0
 41 constant lf-diag-dependency-unsupported \ the slot, 0
-\ Rejected by a rule of ADR 0011 (outcome rejected).
+\ Rejected by a rule of ADR 0011 (outcome rejected): 50-54 by the checked
+\ environment, 55-60 by comparison and inference, where a rejection
+\ replaces the record of the undecided step it decides.
 50 constant lf-diag-unknown-constant   \ name ID, the declaration (N1)
 51 constant lf-diag-already-declared   \ name ID, the accepted slot (N2)
 52 constant lf-diag-level-count        \ levels given, parameters (L1)
 53 constant lf-diag-undeclared-param   \ name ID, 0 (L2)
 54 constant lf-diag-duplicate-param    \ the declaration, 0 (L3)
+55 constant lf-diag-type-expected      \ S1: the declared type's type, reduced, 0
+56 constant lf-diag-domain-type        \ S2: a binder domain's type, reduced, 0
+57 constant lf-diag-not-proposition    \ S3: the statement's Sort level, 0
+58 constant lf-diag-function-expected  \ F1: the function's type, reduced, 0
+59 constant lf-diag-argument-apart     \ D1-D5, an argument: the rules used, 0
+60 constant lf-diag-value-apart        \ D1-D5, the value: the rules used, 0
 
 begin-structure /lf-diag
   field: lf-diag-code       \ reason code; lf-diag-none while clear
@@ -180,6 +188,12 @@ create lf-diag-catalogue
   lf-diag-level-count s" rejected: wrong number of universe levels" lf-diag-entry,
   lf-diag-undeclared-param s" rejected: undeclared universe parameter" lf-diag-entry,
   lf-diag-duplicate-param s" rejected: duplicate universe parameter" lf-diag-entry,
+  lf-diag-type-expected s" rejected: type expected (S1)" lf-diag-entry,
+  lf-diag-domain-type s" rejected: binder domain not a type (S2)" lf-diag-entry,
+  lf-diag-not-proposition s" rejected: theorem type not a proposition (S3)" lf-diag-entry,
+  lf-diag-function-expected s" rejected: function expected (F1)" lf-diag-entry,
+  lf-diag-argument-apart s" rejected: argument type mismatch (D1-D5)" lf-diag-entry,
+  lf-diag-value-apart s" rejected: declared type mismatch (D1-D5)" lf-diag-entry,
   lf-diag-none s" unknown code" lf-diag-entry,
 : lf-diag-end? ( code entry -- flag ) lf-diag-entry-code tuck = swap lf-diag-none = or ;
 \ The entry of code, or the last entry.

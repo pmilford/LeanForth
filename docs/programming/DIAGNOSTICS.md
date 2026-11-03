@@ -25,7 +25,10 @@ Rules:
   are ignored until the caller clears the record. A failure deep inside a
   check therefore keeps its own, more specific reason: a type inference
   that runs out of room because the term store is full reports *term store
-  full at `terms lf-term-add`*, not the inference's own *full*.
+  full at `terms lf-term-add`*, not the inference's own *full*. One
+  exception: a rejection rule of ADR 0011 that decides an undecided step
+  replaces that step's record with the rule's (codes 55–60), so that a
+  *rejected* outcome is always explained by its rule.
 - **Clear before, read after.** Call `lf-diag-clear` before a check and read
   the record only after a failed outcome. A record holds whatever failed
   first since it was last cleared, even in an earlier check.
@@ -105,12 +108,30 @@ what was used and the limit.
 | 52 | rejected: wrong number of universe levels | rejected | levels given | the constant's parameters | `environment lf-env-arity?` (L1) |
 | 53 | rejected: undeclared universe parameter | rejected | the name ID | 0 | `environment lf-env-param?` (L2) |
 | 54 | rejected: duplicate universe parameter | rejected | the declaration | 0 | `environment lf-env-own-params` (L3) |
+| 55 | rejected: type expected (S1) | rejected | the declared type's type, reduced (whnfβ) | 0 | `mixed-definition-probe lf-mixed-definition-probe` |
+| 56 | rejected: binder domain not a type (S2) | rejected | the domain's type, reduced | 0 | `mixed-infer lf-mixed-infer` (a λ's or Π's domain) |
+| 57 | rejected: theorem type not a proposition (S3) | rejected | the level of the statement's Sort | 0 | `mixed-definition-probe lf-mixed-definition-probe` (`lf-mixed-theorem-probe`) |
+| 58 | rejected: function expected (F1) | rejected | the function's type, reduced | 0 | `mixed-infer lf-mixed-infer` (an application) |
+| 59 | rejected: argument type mismatch (D1-D5) | rejected | the D rules used: 1 D1, 2 D2, 4 D3, 8 D4, 16 D5, added | 0 | `mixed-infer lf-mixed-infer` (an argument's type against the function's domain) |
+| 60 | rejected: declared type mismatch (D1-D5) | rejected | the D rules used, as for 59 | 0 | `mixed-definition-probe lf-mixed-definition-probe` (the value's type against the claim) |
 
 Codes 1–16 explain *exhausted* (more fuel would help) and *full* (more
 memory or a larger limit would help); 20–29 explain *invalid* input or
 state; 30–35 explain *unknown* (a stronger rule, or a decided dependency,
-would help); 40–41 name a construct still to be built; 50–54 explain
-*rejected* (ADR 0011's rules N1, N2, L1–L3).
+would help); 40–41 name a construct still to be built; 50–60 explain
+*rejected*: 50–54 by the checked environment (ADR 0011's rules N1, N2,
+L1–L3), 55–60 by comparison and inference (S1–S3, F1, D1–D5; plan task
+2.2.1). A rejection by 55, 56, 58, 59 or 60 decides a step that was
+undecided and had recorded why (codes 31, 32 or 30); the rejection
+*replaces* that record, the one exception to "the first failure wins",
+because the rule is the more specific reason for the same failure. When
+the rule cannot decide, the undecided record stays. The D rules record the
+rules used from the compared pair down to the pair that decided: in
+`type-identity.wrong-argument` of the
+[expected results](../reviews/FIRST_CHECKER_EXPECTED.md) the claim and
+the proof's type are Πs (D4) whose bodies `P y` and `P x` apply the same
+variable (D5) to different variables (D3), so the first number is
+8 + 16 + 4 = 28.
 
 Codes 15, 16, 25–29, 35, 41 and 50–54 are the checked environment's
 ([its page](CHECKED_ENVIRONMENT.md)), added 2026-11-02.
@@ -158,7 +179,10 @@ is kept.
   its family: 9,953 checks, 0 unexplained; 4,567 ok with nothing recorded;
   all 1,923 exhausted and 44 full outcomes recorded (codes 1 and 2); 1,999
   of 1,999 unknown and 1,112 of 1,420 invalid outcomes recorded (codes 21,
-  22, 23, 30–34).
+  22, 23, 30–34). Since the rejection rules (plan task 2.2.1), 248 of the
+  1,999 unknown checks are rejected instead, each recorded with its rule
+  (55: 34, 56: 1, 58: 50, 59: 39, 60: 124), and every other count is the
+  same.
 - Outcomes, results and fuel are unchanged: the randomized differentials
   against the code before diagnostics and contexts (commit `f8aa35d`;
   group H's harnesses, seeds 1–150; group B's, seeds 1–300 of 3,000

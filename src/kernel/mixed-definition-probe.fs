@@ -3,11 +3,17 @@
 \ registers nothing, proves no theorem, and returns no term or certificate.
 \ One stable session/index, suffix-only rollback and no raw mutation are
 \ assumed. Unsupported inference/conversion is unknown.
+\ It checks a definition, or a theorem, in Lean's order (ADR 0011, fact 1):
+\ the claim's type is a Sort (S1 rejects a rigid non-Sort: typeExpected);
+\ for a theorem that Sort is a proposition (S3: thmTypeIsNotProp); the
+\ value's type converts to the claim (D1-D5 reject: declTypeMismatch).
+\ Inference rejects by F1, S2 and D1-D5 inside the terms. Rejection is
+\ [kernel] code, not yet through the review gate.
 \ State: one request record, lf-mdefinition-request: the claim, the value,
-\ the index token, the fuel and the arena marks of the current call; a
-\ member of the checker context (lib/context.fs). The inference itself
-\ runs on mixed-infer's state, as a job this module starts with
-\ lf-minfer-start. Single-threaded within one context.
+\ whether it is a theorem, the index token, the fuel and the arena marks of
+\ the current call; a member of the checker context (lib/context.fs). The
+\ inference itself runs on mixed-infer's state, as a job this module starts
+\ with lf-minfer-start. Single-threaded within one context.
 
 require ../lib/lib.fs
 require ../core/constant-references.fs
@@ -24,6 +30,7 @@ begin-structure /lf-mdreq
   field: lf-mdreq-value-root  \ value: root and identity
   field: lf-mdreq-value-id
   field: lf-mdreq-fuel        \ fuel left; the result once a call returns
+  field: lf-mdreq-theorem     \ true for a theorem: its type must be a proposition
   field: lf-mdreq-terms       \ arena counts when the call began
   field: lf-mdreq-levels
   field: lf-mdreq-crefs
@@ -71,15 +78,29 @@ end-structure
 \ the request's.
 : lf-mdefinition-start ( req -- )
   dup lf-mdreq-token @ swap lf-mdreq-fuel @ lf-minfer-start ;
-\ The claim's own type must be a Sort; the value's inferred type must then
-\ convert to the claim. Inference reports ok, invalid, exhausted, full or
-\ unknown.
-: lf-mdefinition-claim-sort ( type -- status )
-  lf-minfer-walk ok-then? if lf-minfer-sort-level nip then ;
+\ The claim's own type must be a Sort (S1); for a theorem its level must be
+\ zero under every assignment (S3, Lean's is_prop); the value's inferred
+\ type must then convert to the claim (D1-D5). Inference reports ok,
+\ invalid, exhausted, full, unknown or rejected.
+: lf-mdefinition-site ( -- site ) c" mixed-definition-probe lf-mixed-definition-probe" ;
+: lf-mdefinition-claim-level ( type -- level status )
+  lf-minfer-walk ok-then? 0= if no-result exit then
+  lf-mdefinition-site lf-diag-type-expected lf-minfer-sort-rule ;
+: lf-mdefinition-not-prop ( level -- status )
+  lf-mdefinition-site lf-diag-not-proposition lf-minfer-reject ;
+: lf-mdefinition-prop ( level -- status )
+  dup lf-minfer-zero? ok-then? if if drop outcome-ok else lf-mdefinition-not-prop then
+  else nip then ;
+: lf-mdefinition-claim-sort ( req type -- status )
+  lf-mdefinition-claim-level ok-then? 0= if nip exit then
+  swap lf-mdreq-theorem @ if lf-mdefinition-prop else drop outcome-ok then ;
 : lf-mdefinition-value-type ( value type -- status )
-  swap lf-minfer-walk ok-then? if swap lf-minfer-compare else nip then ;
+  swap lf-minfer-walk ok-then? 0= if nip exit then
+  swap lf-minfer-agree lf-mdefinition-site lf-diag-value-apart lf-minfer-verdict ;
+: lf-mdefinition-claim ( req -- status )
+  dup lf-mdreq-claim-root @ lf-mdefinition-claim-sort ;
 : lf-mdefinition-pair ( req -- status )
-  dup lf-mdreq-claim-root @ lf-mdefinition-claim-sort ok-then?
+  dup lf-mdefinition-claim ok-then?
   if dup lf-mdreq-value-root @ swap lf-mdreq-claim-root @ lf-mdefinition-value-type then ;
 : lf-mdefinition-walk ( req -- status )
   dup lf-mdefinition-start lf-mdefinition-pair outcome-sane ;
@@ -99,7 +120,13 @@ end-structure
 \ One shared visit fuel; all failures conservatively report zero in
 \ lf-mdefinition-fuel. Success reports the remaining fuel. Every result
 \ leaves all three arena counts as they were; allocation serials never
-\ rewind. No generated handles escape this word.
+\ rewind. No generated handles escape this word. The definition probe
+\ allows a claim in any Sort; the theorem probe also requires the claim to
+\ be a proposition (rule S3).
+: lf-mdefinition-probe ( token type tid value vid fuel theorem -- status )
+  lf-mdefinition-request >r r@ lf-mdreq-theorem ! r@ lf-mdreq-fuel ! r@ lf-mdreq-value!
+  r@ lf-mdreq-claim! r@ lf-mdreq-token ! r> lf-mdefinition-run ;
 : lf-mixed-definition-probe ( token type tid value vid fuel -- status )
-  lf-mdefinition-request >r r@ lf-mdreq-fuel ! r@ lf-mdreq-value! r@ lf-mdreq-claim!
-  r@ lf-mdreq-token ! r> lf-mdefinition-run ;
+  false lf-mdefinition-probe ;
+: lf-mixed-theorem-probe ( token type tid value vid fuel -- status )
+  true lf-mdefinition-probe ;

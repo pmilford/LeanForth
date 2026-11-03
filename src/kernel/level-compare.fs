@@ -3,7 +3,8 @@
 \ judgment. It assumes a store and context unchanged during a call, and that
 \ equal opaque parameter IDs denote the same Lean name.
 \ State: one record, lf-lcmp-state, holding the fuel left after a
-\ comparison, which mixed-convert reads; a member of the checker context
+\ comparison, which mixed-convert reads, and whether an undecided
+\ comparison keeps that fuel; a member of the checker context
 \ (lib/context.fs). The comparison recurses on the host stacks through the
 \ deferred word lf-lcmp-walk, set once at load time and shared.
 \ Single-threaded within one context.
@@ -23,13 +24,19 @@ require ./level-value.fs
 
 begin-structure /lf-lcrec
   field: lf-lcrec-fuel          \ visits left after a comparison
+  field: lf-lcrec-keep          \ true: an undecided comparison keeps its fuel
 end-structure
 /lf-lcrec context-record: lf-lcmp-state
 
 : lf-lcmp-fuel ( -- addr ) lf-lcmp-state lf-lcrec-fuel ;
+: lf-lcmp-keep ( -- addr ) lf-lcmp-state lf-lcrec-keep ;
 \ Any failure except an unequal concrete value leaves no fuel: mixed-convert
-\ continues with lf-lcmp-fuel whatever the outcome.
+\ continues with lf-lcmp-fuel whatever the outcome. In keeping mode
+\ (lf-level-compare-keeping) a symbolic, undecided comparison keeps the fuel
+\ its evaluation left too, so that the caller's rejection analysis (ADR
+\ 0011, mixed-infer.fs) can go on with it.
 : lf-lcmp-fail ( status -- status ) 0 lf-lcmp-fuel ! ;
+: lf-lcmp-kept? ( status -- flag ) outcome-unknown = lf-lcmp-keep @ and ;
 : lf-lcmp-settle ( status -- status ) dup ok? 0= if lf-lcmp-fail then ;
 
 \ Fields of a node that has been read successfully.
@@ -104,14 +111,18 @@ defer lf-lcmp-walk ( left right depth -- status )
 
 \ If syntax did not match, independently evaluate both unassigned concrete
 \ graphs, left first, each with the fuel left. Unequal or symbolic values are
-\ unknown, never an inequality verdict.
+\ unknown, never an inequality verdict. A symbolic value is unknown only
+\ after a complete evaluation, so lf-lvalue-fuel is then what it left.
+: lf-lcmp-evaluated? ( status -- flag ) dup ok? swap lf-lcmp-kept? or ;
 : lf-lcmp-value ( root -- value status )
-  lf-lcmp-fuel @ lf-level-value dup ok? if lf-lvalue-fuel @ lf-lcmp-fuel ! then ;
+  lf-lcmp-fuel @ lf-level-value
+  dup lf-lcmp-evaluated? if lf-lvalue-fuel @ lf-lcmp-fuel ! then ;
 : lf-lcmp-values ( left right -- value value' true | status false )
   swap lf-lcmp-value ok-then? 0= if nip false exit then
   swap lf-lcmp-value ok-then? if true else nip false then ;
+: lf-lcmp-unvalued ( status -- status ) dup lf-lcmp-kept? 0= if lf-lcmp-fail then ;
 : lf-lcmp-concrete ( left right -- status )
-  lf-lcmp-values if lf-lcmp-same-value else lf-lcmp-fail then ;
+  lf-lcmp-values if lf-lcmp-same-value else lf-lcmp-unvalued then ;
 
 \ Scope-check a root with the fuel left, continuing with what it leaves.
 : lf-lcmp-scope ( root -- status )
@@ -133,6 +144,10 @@ defer lf-lcmp-walk ( left right depth -- status )
 \ Compare two roots against one explicit parameter context. Scope checks run
 \ before any equality shortcut and share fuel with comparison and evaluation.
 \ Only one status is returned; this word cannot register a declaration.
-: lf-level-compare ( left right fuel -- status )
-  dup 0< if lf-lcmp-negative exit then lf-lcmp-fuel !
+\ lf-level-compare-keeping differs only in the fuel a symbolic, undecided
+\ comparison leaves (see lf-lcmp-fail).
+: lf-level-compare-run ( left right fuel keep -- status )
+  lf-lcmp-keep ! dup 0< if lf-lcmp-negative exit then lf-lcmp-fuel !
   2dup lf-lcmp-scopes dup ok? if drop lf-lcmp-decide else nip nip lf-lcmp-fail then ;
+: lf-level-compare ( left right fuel -- status ) false lf-level-compare-run ;
+: lf-level-compare-keeping ( left right fuel -- status ) true lf-level-compare-run ;

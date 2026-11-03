@@ -3,11 +3,14 @@
 \ parameter yields unknown unless explicitly assigned in the separate
 \ instance evaluator; checking one instance does not prove a polymorphic
 \ claim. Host cells and bounded host recursion are assumptions, not a
-\ trusted boundary.
+\ trusted boundary. Two exact tests of ADR 0011 evaluate under witness
+\ assignments: lf-level-zero? (Lean's normalizes_to_zero, rule S3 and
+\ the proof test P2) and lf-level-apart? (rule D1).
 \ State: one record, lf-lvalue-state: the table of explicit parameter
 \ assignments with the level-store and context generations it was made for,
-\ the fuel left after an evaluation (level-compare reads it), and whether
-\ the evaluation reads the table; a member of the checker context
+\ the fuel left after an evaluation (level-compare reads it), how the
+\ evaluation gives parameters values (free, from the table, or a witness
+\ assignment) and the witness; a member of the checker context
 \ (lib/context.fs), whose table a set-up word binds to the context's own
 \ stores. The evaluation recurses on the host stacks through the deferred
 \ word lf-lvalue-walk, which is set once at load time and shared.
@@ -25,9 +28,15 @@ require ../core/levels.fs
 max-n constant lf-lvalue-cell-max
 64 constant lf-lvalue-depth-limit
 
+\ How an evaluation gives a parameter its value.
+0 constant lf-lvalue-free       \ none: a parameter is symbolic
+1 constant lf-lvalue-table      \ the assignment table's value, else symbolic
+2 constant lf-lvalue-witness    \ the witness assignment's value
+
 begin-structure /lf-lvrec
   field: lf-lvrec-fuel          \ visits left after an evaluation
-  field: lf-lvrec-assigned      \ true while an evaluation reads the table
+  field: lf-lvrec-mode          \ lf-lvalue-free, -table or -witness
+  field: lf-lvrec-witness       \ the witness assignment in witness mode
   field: lf-lvrec-count         \ assignments in the table
   field: lf-lvrec-levels        \ level-store generation of the table
   field: lf-lvrec-context       \ parameter-context generation of the table
@@ -112,8 +121,16 @@ defer lf-lvalue-walk ( node depth -- value status )
 : lf-lvalue-done? ( value status -- value status true | value false )
   dup ok? 0= if true exit then over -1 = if true else drop false then ;
 : lf-lvalue-assigned ( id -- value ) lf-lassign-find 0= if -1 then ;
+\ A witness assignment is one cell: -1 gives every parameter 1, 0 every
+\ parameter 0, and a parameter ID w gives w 1 and every other parameter 0
+\ (IDs are positive, so 0 and -1 name no parameter).
+: lf-lvalue-witnessed ( id -- value )
+  lf-lvalue-state lf-lvrec-witness @ dup 0< if 2drop 1 else = 1 and then ;
 : lf-lvalue-param ( id -- value )
-  lf-lvalue-state lf-lvrec-assigned @ if lf-lvalue-assigned else drop -1 then ;
+  lf-lvalue-state lf-lvrec-mode @ case
+    lf-lvalue-table of lf-lvalue-assigned endof
+    lf-lvalue-witness of lf-lvalue-witnessed endof
+    nip -1 swap endcase ;
 : lf-lvalue-ceiling ( value -- -1 status )
   1 lf-lvalue-site lf-diag-cell-maximum lf-diag-note -1 outcome-full ;
 : lf-lvalue-succ+ ( value -- value status )
@@ -159,17 +176,67 @@ defer lf-lvalue-walk ( node depth -- value status )
 : lf-lvalue-checked ( root fuel -- value status )
   over swap lf-lscope-check ok-then? if lf-lvalue-eval else -1 swap then ;
 \ With assignments the table must be valid first.
-: lf-lvalue-mode? ( use-assignments -- flag ) if lf-lassign-valid? else true then ;
-: lf-level-value-run ( root fuel use-assignments -- value status )
+: lf-lvalue-mode? ( mode -- flag )
+  case lf-lvalue-table of lf-lassign-valid? endof
+    lf-lvalue-free of true endof lf-lvalue-witness of true endof false swap endcase ;
+: lf-level-value-run ( root fuel mode -- value status )
   dup lf-lvalue-mode? 0= if drop 2drop -1 outcome-invalid exit then
-  lf-lvalue-state lf-lvrec-assigned ! lf-lvalue-checked ;
+  lf-lvalue-state lf-lvrec-mode ! lf-lvalue-checked ;
 
 \ Evaluate without assignments; symbolic parameters remain unknown.
-: lf-level-value ( root fuel -- value status ) false lf-level-value-run ;
+: lf-level-value ( root fuel -- value status ) lf-lvalue-free lf-level-value-run ;
 
 \ Evaluate one explicit assignment instance. Missing assignments stay unknown;
 \ an invalid assignment table or context never produces a concrete value.
-: lf-level-value-assigned ( root fuel -- value status ) true lf-level-value-run ;
+: lf-level-value-assigned ( root fuel -- value status )
+  lf-lvalue-table lf-level-value-run ;
+
+\ Evaluate under a witness assignment (see lf-lvalue-witnessed); every
+\ parameter in the context gets a value, so ok always gives a number.
+\ Like the other evaluations it scope-checks first; unlike them, any
+\ failure leaves no fuel (lf-lvalue-fuel 0), so a caller that goes on
+\ after a failure never continues with the fuel of an earlier call.
+: lf-lvalue-dry ( value status -- value status ) dup ok? 0= if 0 lf-lvalue-fuel ! then ;
+: lf-level-value-witness ( root fuel witness -- value status )
+  lf-lvalue-state lf-lvrec-witness ! lf-lvalue-witness lf-level-value-run
+  lf-lvalue-dry ;
+
+\ Lean's normalizes_to_zero (level.cpp 174-187; ADR 0011 fact 6): whether
+\ a level is zero under every assignment of its parameters. It equals
+\ "zero when every parameter is 1": zero is 0, a successor or a parameter
+\ at least 1, max is 0 exactly when both sides are, and imax exactly when
+\ its right side is (imax u v is 0 for v = 0, else max u v) -- the cases
+\ of normalizes_to_zero, by induction. (flag ok), or (false failure) as
+\ lf-level-value-witness.
+: lf-level-zero? ( root fuel -- flag status )
+  -1 lf-level-value-witness dup ok? if swap 0= swap else nip false swap then ;
+
+\ Rule D1 (ADR 0011): whether some witness assignment gives two levels
+\ different values -- every parameter 0, or one parameter of the context 1
+\ and the others 0 -- so that Lean's level equivalence is false (fact 7).
+\ (flag ok), or (false failure) at the first evaluation that fails; both
+\ roots are scope-checked at every evaluation, left first.
+: lf-lvalue-witness@ ( i -- w ) dup 0< if drop 0 else lf-lscope-id@ then ;
+: lf-lvalue-under ( root w -- value status )
+  lf-lvalue-fuel @ swap lf-level-value-witness ;
+: lf-lvalue-left ( left right w -- right w v1 true | status false )
+  rot over lf-lvalue-under dup ok? if drop true else nip nip nip false then ;
+: lf-lvalue-both ( left right w -- v1 v2 true | status false )
+  lf-lvalue-left 0= if false exit then
+  -rot lf-lvalue-under dup ok? if drop true else nip nip false then ;
+: lf-lvalue-differ ( left right w -- flag status )
+  lf-lvalue-both if <> outcome-ok else false swap then ;
+: lf-lvalue-settled? ( flag status -- flag status stop? ) 2dup ok? 0= or ;
+: lf-lvalue-witnesses ( left right -- flag status )
+  lf-lscope-context-count @ -1 ?do
+    2dup i lf-lvalue-witness@ lf-lvalue-differ lf-lvalue-settled?
+    if 2swap 2drop unloop exit then 2drop
+  loop 2drop false outcome-ok ;
+: lf-lvalue-refuse ( left right fuel -- false status )
+  drop 2drop 0 lf-lvalue-fuel ! false outcome-invalid ;
+: lf-level-apart? ( left right fuel -- flag status )
+  dup 0< lf-lscope-context-valid? 0= or if lf-lvalue-refuse exit then
+  lf-lvalue-fuel ! lf-lvalue-witnesses ;
 
 \ Every context starts with an empty table bound to its own stores.
 ' lf-lassign-reset context-setup

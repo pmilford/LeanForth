@@ -174,12 +174,14 @@ T{ id-signature level-u id-at 1 make-var make-app 0 make-var swap make-lam
 T{ second-signature s" second" 0 reference 0 make-sort make-app prop-arrow make-app
   inferred-with prop-arrow prop-arrow make-pi convert-terms -> outcome-ok }T
 
-\ T1.6 A binder domain that is a proof rather than a type is unknown; a
-\ variable two binders up is the right one (open-context-oracle.lean's
-\ Valid) and the wrong binder is not accepted (Wrong).
+\ T1.6 A binder domain that is a proof rather than a type is rejected (rule
+\ S2 of ADR 0011: its type A is a variable, rigid and not a Sort; Lean's
+\ typeExpected); a variable two binders up is the right one
+\ (open-context-oracle.lean's Valid) and the wrong binder is rejected
+\ (Wrong: D3 under D4, Lean's declTypeMismatch).
 fresh-session
 T{ 0 make-sort 0 make-var 0 make-var 0 make-var make-lam make-lam make-lam status-of
-  -> outcome-unknown }T
+  -> outcome-rejected }T
 : context-claim ( -- node )
   1 make-sort 0 make-var 1 make-sort 0 make-var 3 make-var
   make-pi make-pi make-pi make-pi ;
@@ -188,7 +190,7 @@ T{ 0 make-sort 0 make-var 0 make-var 0 make-var make-lam make-lam make-lam statu
   make-lam make-lam ;
 fresh-session
 T{ context-claim 2 context-value probe -> outcome-ok }T
-T{ context-claim 0 context-value probe -> outcome-unknown }T
+T{ context-claim 0 context-value probe -> outcome-rejected }T
 
 \ T5.3 lf-mixed-compare is syntactic: different Sort levels and a redex
 \ against its reduct are unknown, never equal.

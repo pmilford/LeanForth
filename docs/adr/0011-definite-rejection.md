@@ -1,12 +1,15 @@
 # ADR 0011: definite rejection and the first checker's scope
 
-Status: **rules accepted** by the owner on 2026-11-02 (gate questions G1–G4 in [the gate summary](../reviews/FIRST_CHECKER_GATE.md#owners-answer)); the implementation still needs its own gate approval with test results. Previously: **proposed**, 2026-11-02 (plan task 2.1.1). A checker rule: it must
+Status: **rules accepted** by the owner on 2026-11-02 (gate questions G1–G4 in [the gate summary](../reviews/FIRST_CHECKER_GATE.md#owners-answer)); the implementation still needs its own gate approval with test results. **Implemented** for comparison and inference on 2026-11-02 (plan task 2.2.1; see [Implementation](#implementation-plan-task-221)); its gate is pending. Previously: **proposed**, 2026-11-02 (plan task 2.1.1). A checker rule: it must
 pass the review gate in `AGENTS.md` — rules that follow Lean's published
 kernel, agreeing pinned-Lean differential tests that reach every outcome, an
 independent AI review with no unresolved findings, and the owner's approval
 of the plain-language summary in
-[the gate draft](../reviews/FIRST_CHECKER_GATE.md). Nothing here is
-implemented. It refines ADRs 0002, 0003, 0006 and 0008 for the first checker
+[the gate draft](../reviews/FIRST_CHECKER_GATE.md). When proposed, nothing
+here was implemented; the rules of comparison and inference now are (see
+[Implementation](#implementation-plan-task-221)), the environment's (N1,
+N2, L1–L3) by [ADR 0012](0012-checked-environment.md), and the declaration
+audit (U1, U2) waits for check-declaration (plan task 2.2.3). It refines ADRs 0002, 0003, 0006 and 0008 for the first checker
 and supersedes none of them. The plan reserves ADR 0012 for the
 checked-environment implementation (task 2.1.3), so the first checker's scope
 is decided here rather than in a separate record.
@@ -337,11 +340,57 @@ Run on 2026-11-02 with `.tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/l
   original that differs from the fixture, a changed table row, an unmarked
   error, a wrong message and a broken copy made valid — each made it fail.
 
-This is evidence about Lean, not about LeanForth: no LeanForth code returns
-*rejected* yet. The LeanForth differential against this table is plan task
-2.2.1. It must check that accepted, rejected and invalid rows agree with the
-table and Lean, that every *rejected* carries the row's exception kind, and
-that no *unknown* row becomes *rejected* without a rule.
+This was evidence about Lean, not about LeanForth: when proposed, no
+LeanForth code returned *rejected*. The LeanForth differential against this
+table is plan task 2.2.1. It must check that accepted, rejected and invalid
+rows agree with the table and Lean, that every *rejected* carries the row's
+exception kind, and that no *unknown* row becomes *rejected* without a rule.
+It does: see [Implementation](#implementation-plan-task-221).
+
+## Implementation (plan task 2.2.1)
+
+Written 2026-11-02; [kernel] code, experimental, not through the review
+gate. Each place that returns *rejected* names its rule in a comment and
+records a diagnostic naming it
+([codes 55–60](../programming/DIAGNOSTICS.md#catalogue)).
+
+| Rule | Where | What it computes |
+| --- | --- | --- |
+| S1 | `mixed-definition-probe` `lf-mdefinition-claim-level` → `mixed-infer` `lf-minfer-sort-rule` | the claim's type is not a visible Sort, and its whnfβ is rigid and not a Sort (`mixed-head` `lf-mhead-not-sort?`) |
+| S2 | `mixed-infer` `lf-minfer-domain` → `lf-minfer-sort-rule` | the same for a λ's or Π's domain; a Π's *body* that is no type stays unknown (no rule) |
+| S3 | `mixed-definition-probe` `lf-mdefinition-prop`, in the new `lf-mixed-theorem-probe` | `level-value` `lf-level-zero?`: Lean's `normalizes_to_zero`, computed as "zero when every parameter is 1" (equivalent, by induction on the level) |
+| F1 | `mixed-infer` `lf-minfer-not-pi` | a function's type is not a visible Pi, and its whnfβ is rigid and not a Pi |
+| D1 | `mixed-infer` `lf-minfer-sorts-apart` | `level-value` `lf-level-apart?`: the witness assignments of *Terms the rules talk about* |
+| D2–D5 | `mixed-infer` `lf-minfer-apart` and the words before it; at an application (`lf-minfer-argument`) and for the declaration (`lf-mdefinition-value-type`) | P1 and P3 on head kinds (`mixed-head`), P2 by `lf-minfer-proof-free?`, then the shapes; D4 enters bodies under the right (expected) side's domain (ADR 0003 Amendment 1, B2) |
+
+Decisions of the implementation, none of which adds or widens a rule:
+
+- **The analysis only turns *unknown* into *rejected*.** It runs after the
+  step it decides was undecided; if it cannot decide, or runs out of fuel,
+  room or frames, the step stays *unknown*. A rejection replaces the
+  undecided step's diagnostic with the rule's.
+- **P2 runs inference "aside"**: with every rule off, on the analysis's own
+  nodes (whnfβ results and inferred types, made by the checker's passes
+  from the audited input), in the current binder context, discarding what
+  it allocates. A failure of that inference means "not known".
+- **Fuel.** Inference's comparisons keep the fuel an undecided level
+  comparison leaves (`lf-mixed-convert-keeping`; the direct
+  `lf-mixed-convert` still leaves none), so that the analysis can run
+  after it. Each level of the analysis costs one unit of fuel and one of
+  inference's frames.
+- **P2 is checked for every compared pair, including two Πs or two λs**,
+  although Lean decides those at once (fact 5): stricter than needed, and
+  equally sound.
+- The D diagnostic records the set of D rules used from the compared pair
+  down to the pair that decided (1 D1, 2 D2, 4 D3, 8 D4, 16 D5).
+
+Evidence: `make test-first-checker-differential` runs all 60 table cases
+through these paths and the checked environment (with a test stand-in for
+the U1/U2 audit) and checks every row against Lean (see
+[the expected results](../reviews/FIRST_CHECKER_EXPECTED.md#measured-2026-11-02));
+`tests/core/definite-rejection.fs` tests each rule and its K boundary; the
+randomized differentials against the code before the change show only
+*unknown* → *rejected* changes, each with its rule.
 
 ## Consequences
 

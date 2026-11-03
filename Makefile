@@ -30,7 +30,7 @@ DIFFERENTIAL_TARGETS := \
 	test-mixed-convert-plain-differential test-mixed-infer-plain-differential \
 	test-mixed-definition-differential test-mixed-level-substitute-plain-differential \
 	test-mixed-infer-constant-differential test-export-signature-differential \
-	test-export-specialization-differential \
+	test-export-specialization-differential test-first-checker-differential \
 	test-program-differential test-program-stack-differential \
 	test-program-values-differential test-program-depth-differential \
 	test-example-reference-differential test-add-reference-differential \
@@ -162,6 +162,7 @@ test-core:
 	$(RUN) $(GFORTH) tests/core/mixed-infer.fs
 	$(RUN) $(GFORTH) tests/core/mixed-infer-coverage.fs
 	$(RUN) $(GFORTH) tests/core/mixed-definition-probe.fs
+	$(RUN) $(GFORTH) tests/core/definite-rejection.fs
 	$(RUN) $(GFORTH) tests/core/names.fs
 	$(RUN) $(GFORTH) tests/core/levels.fs
 	$(RUN) $(GFORTH) tests/core/level-scope.fs
@@ -237,6 +238,12 @@ test-export-signature-differential:
 
 test-export-specialization-differential:
 	$(LEAN_TABLE) poly-specialization
+
+# The first checker's 60 table cases (ADR 0011, plan task 2.2.1) through
+# today's kernel paths: every rejection agrees with Lean's exception, and
+# every other row keeps the table's outcome.
+test-first-checker-differential:
+	$(LEAN_TABLE) first-checker
 
 test-composition-fixture:
 	$(RUN) python3 tests/core/test_preview_contract.py

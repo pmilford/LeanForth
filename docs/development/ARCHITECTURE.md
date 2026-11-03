@@ -76,7 +76,7 @@ text, never a verdict.
 | --- | ---: | --- |
 | `src/lib/` | 12 | Records only: stores, walks and frames are passed by address; contexts and the job pool exist, but no module keeps its state in a context yet |
 | `src/core/` | 10 | Each module's state is in named records listed on its "State:" header line, still one global copy per module |
-| `src/kernel/` | 14 | Same; the passes return the shared outcomes; none returns *rejected* yet |
+| `src/kernel/` | 17 | Same; the passes return the shared outcomes; inference and the definition and theorem probes return *rejected* by ADR 0011's rules S1–S3, F1 and D1–D5 (plan task 2.2.1, gate pending), the checked environment by N1, N2 and L1–L3 |
 | `src/import/` | 3 | The reader keeps all state in the `export:` record passed to it |
 | `src/program/` | 4 | Example words, depth analyzer, IR reader with one reader record |
 | `src/present/` | 8 | Term printer with its print-job record and the presentation side table (64 term entries, 32 declarations) |

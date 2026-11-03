@@ -108,7 +108,10 @@ passes the [kernel] gate in `AGENTS.md` only with the owner's approval of
 the plain-language summary in
 [the gate document](../reviews/FIRST_CHECKER_GATE.md#second-set-of-questions)
 (questions G6 and G7). Until then the identical-domain rule above stands.
-Nothing here is implemented. The amendment is recorded here rather than in a
+When proposed, nothing here was implemented; plan task 2.2.1 (2026-11-02)
+implements D4 read with *equal* domains and B2 in the rejection analysis
+of `src/kernel/mixed-infer.fs` (ADR 0011, *Implementation*), and
+`mixed-convert.fs` already compared domains up to beta (B1). The amendment is recorded here rather than in a
 new ADR because it settles a question this record left open; the plan gives
 ADR 0014 to Lean's full definitional-equality procedure (task 4.1.1).
 
@@ -301,8 +304,10 @@ accepts. By inspection, no row of
 none of its 60 cases compares two binders whose domains are equal without
 being identical.
 
-This is evidence about Lean, not LeanForth: no LeanForth code implements
-B1–B3. The untrusted experiment `src/kernel/mixed-convert.fs` already
+This is evidence about Lean, not LeanForth: when this was written no
+LeanForth code implemented B1–B3 (since plan task 2.2.1, the rejection
+analysis does, for D4; the 22 rows' LeanForth columns are not yet run
+against LeanForth code). The untrusted experiment `src/kernel/mixed-convert.fs` already
 compares binder domains up to beta and then the bodies, unlike the
 identical-domain text above: in `make test-mixed-convert-differential`, row
 2 (`∀ x : (fun x => x) C, C` against `∀ x : C, C`) is *equal* in Forth and
