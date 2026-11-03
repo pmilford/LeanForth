@@ -10,8 +10,10 @@
 \ function's type is no Pi), S2 (a binder domain is no type) and D1-D5 (an
 \ argument's type and the function's domain are apart) may show that
 \ Lean's kernel certainly fails the same step, and the outcome is then
-\ rejected, recorded with the rule; otherwise it stays unknown. The
-\ analysis only ever turns an unknown into rejected: when it cannot decide,
+\ rejected, recorded with the rule; otherwise it stays unknown. Like every
+\ result here, a rejection holds only if the candidate signatures are the
+\ constants' true types: they are unchecked assumptions at this interface.
+\ The analysis only ever turns an unknown into rejected: when it cannot decide,
 \ or runs out of fuel or room, the step stays unknown. The proof test P2
 \ runs inference "aside": with no rule, on any live node (whnf results and
 \ inferred types, which the checker's own passes made from the audited
@@ -74,6 +76,11 @@ end-structure
 : lf-minfer-aside ( -- addr ) lf-minfer-job lf-ijob-aside ;
 \ Rejection rules run only when inference does not run aside.
 : lf-minfer-deciding? ( -- flag ) lf-minfer-aside @ 0= ;
+\ Mode flags are registers of the checker context, never shared between
+\ contexts: the aside flag here, set around one nested inference and
+\ restored (lf-minfer-proof-free?), and the keep flags of the comparisons
+\ (mixed-convert's walk-arg, level-compare's lf-lcrec-keep), which each
+\ call sets afresh (lf-mixed-convert-keeping, lf-level-compare-keeping).
 
 \ Helpers run on the fuel left and inference continues with what they leave.
 \ They report only ok, invalid, exhausted or full, and the signature lookup
@@ -217,7 +224,7 @@ defer lf-minfer-walk ( node -- type status )
 \ latter's whnfB is Sort l with l not zero under every assignment, so
 \ Lean's is_prop of T is false (fact 6). Inference runs aside in the
 \ current binder context; every failure means "not known". The arena
-\ counts are restored afterwards.
+\ counts and the aside flag are restored afterwards.
 : lf-minfer-type2 ( node -- type status )
   lf-minfer-walk dup ok? if drop lf-minfer-walk then ;
 : lf-minfer-sort? ( node -- level true | false )
@@ -235,8 +242,8 @@ defer lf-minfer-walk ( node -- type status )
 : lf-minfer-counts! ( terms levels crefs -- )
   lf-cref-count ! lf-level-count ! lf-term-count ! ;
 : lf-minfer-proof-free? ( node -- flag )
-  >r lf-minfer-counts r> true lf-minfer-aside ! lf-minfer-free?
-  false lf-minfer-aside ! >r lf-minfer-counts! r> ;
+  >r lf-minfer-counts lf-minfer-aside @ r> true lf-minfer-aside !
+  lf-minfer-free? swap lf-minfer-aside ! >r lf-minfer-counts! r> ;
 : lf-minfer-free2? ( left right -- flag )
   swap lf-minfer-proof-free? if lf-minfer-proof-free? else drop false then ;
 
@@ -495,7 +502,14 @@ defer lf-minfer-apart ( left right -- mask flag )
 \ conversion, of the definition probe and of the analysis's leaf steps:
 \ test P2, which nests inference within the same frame limit, a
 \ reduction, and the witness evaluation of level-value, whose own depth
-\ limit needs fewer cells than beta). So a check nests at most
+\ limit needs fewer cells than beta). The frame that hands over from
+\ inference to the analysis, from the inference frame whose argument is
+\ compared to the analysis's first frame (in-frame, visit, dispatch,
+\ binary, app, apply, argument, agree, mismatch, apart-frame), holds 9
+\ return cells, one more than a level (painted on both hosts, review of
+\ 2026-11-02), and the slack holds the extra cell. There is at most one
+\ such frame on any path: inference within the analysis (P2) runs aside,
+\ with no rule, so it never hands over again. So a check nests at most
 \ lf-term-capacity levels of inference or analysis plus beta's need:
 \ 1,728 return and 1,280 data cells. Loading stops when the host's stacks
 \ are smaller, and the need is stated for the job pool (context-need).

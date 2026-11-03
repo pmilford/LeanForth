@@ -301,6 +301,53 @@ T{ fresh 0 make-sort 1 make-sort tok @ 0 lf-minfer-start lf-minfer-apart -> 0 fa
 T{ eta-context 0 make-var eta-of-p lf-minfer-apart -> 0 false }T
 T{ eta-context eta-of-p 0 make-var lf-minfer-apart -> 0 false }T
 T{ eta-context 0 make-var 0 make-sort lf-minfer-apart -> lf-rule-d2 true }T
+\ P2 directly, on pairs where it alone keeps the analysis from D3 and D5
+\ (review M1): two proofs of one proposition are never apart, as Lean
+\ equates them (K2), while the same terms as data are. Context A : Type,
+\ P : Sort s, x : A -> P, y : P, a b : A. With s = 0, x a, x b and y are
+\ proofs, and Lean accepts a w : R (x a) as an R (x b) and as an R y; with
+\ s = 1, x a and x b are apart by their arguments (D5, D3), and x a and y
+\ by their counts (D3). Through the table such pairs fill the store first.
+: bind ( domain -- ) lf-minfer-push must ;
+: proof-context ( s -- )
+  fresh tok @ 100000 lf-minfer-start 1 make-sort bind make-sort bind
+  1 make-var 1 make-var make-pi bind 1 make-var bind 3 make-var bind 4 make-var bind ;
+: x-a ( -- node ) 3 make-var 1 make-var make-app ;
+: x-b ( -- node ) 3 make-var 0 make-var make-app ;
+: y-var ( -- node ) 2 make-var ;
+T{ 0 proof-context x-a x-b lf-minfer-apart -> 0 false }T
+T{ 0 proof-context x-a y-var lf-minfer-apart -> 0 false }T
+T{ 1 proof-context x-a x-b lf-minfer-apart -> lf-rule-d3 lf-rule-d5 or true }T
+T{ 1 proof-context x-a y-var lf-minfer-apart -> lf-rule-d3 true }T
+\ Two lambdas, fun (h : X) => h and fun (h : X) => g h, in the context
+\ X : Sort s, g : X -> X: proofs when s = 0 (Lean accepts one for the
+\ other), apart by their bodies' counts when s = 1 (D4, D3).
+: lam-context ( s -- )
+  fresh tok @ 100000 lf-minfer-start make-sort bind 0 make-var 1 make-var make-pi bind ;
+: lam-pair ( -- left right )
+  1 make-var 0 make-var make-lam 1 make-var 1 make-var 0 make-var make-app make-lam ;
+T{ 0 lam-context lam-pair lf-minfer-apart -> 0 false }T
+T{ 0 lam-context lam-pair swap lf-minfer-apart -> 0 false }T
+T{ 1 lam-context lam-pair lf-minfer-apart -> lf-rule-d3 lf-rule-d4 or true }T
+\ P2 decides "not a proof" by Lean's normalizes_to_zero, not the level's
+\ spelling. Context P : Sort l, Q : P -> Prop, p q : P; the pair Q p
+\ against Q q. Sort (imax u 0) and Sort (max 0 0) are Prop, so p and q
+\ are proofs (Lean accepts; the table's proof-irrelevance-imax and
+\ -max-zero rows); under Sort u or Type they are not (D5, D3).
+: level-context ( level -- )
+  tok @ 100000 lf-minfer-start make-sort bind 0 make-var 0 make-sort make-pi bind
+  1 make-var bind 2 make-var bind ;
+: q-pair ( -- left right ) 2 make-var 1 make-var make-app 2 make-var 0 make-var make-app ;
+: q-apart ( level -- mask flag ) level-context q-pair lf-minfer-apart ;
+T{ fresh level-u 0 imax-of q-apart -> 0 false }T
+T{ fresh 0 0 max-of q-apart -> 0 false }T
+T{ fresh 0 q-apart -> 0 false }T
+T{ fresh level-u q-apart -> lf-rule-d3 lf-rule-d5 or true }T
+T{ fresh 1 q-apart -> lf-rule-d3 lf-rule-d5 or true }T
+\ P2 leaves the aside flag as it found it, off or on (review L2).
+: aside-after ( node -- flag aside ) lf-minfer-proof-free? lf-minfer-aside @ ;
+T{ 0 proof-context y-var aside-after -> false false }T
+T{ 1 proof-context true lf-minfer-aside ! x-a aside-after -> true true }T
 \ Each level gives back what it allocated: (fun X : Type => X -> X) Prop
 \ reduces to a new Pi, apart from Type (D2); the counts are as before.
 : redex-pair ( -- left right )
