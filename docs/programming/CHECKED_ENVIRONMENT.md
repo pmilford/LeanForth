@@ -2,8 +2,9 @@
 
 Status: implemented 2026-11-02 as plan task 2.2.2, following
 [ADR 0012](../adr/0012-checked-environment.md), whose design the owner
-accepted (gate answers G8–G11). **Experimental [kernel] code, not through
-the review gate and not independently audited.** It decides nothing about
+accepted (gate answers G8–G11); the findings of its independent review
+were fixed the same day (see *Trust*). **Experimental [kernel] code, not
+through the review gate and not independently audited.** It decides nothing about
 a declaration's terms: the type check that fills it, `check-declaration`
 (plan task 2.2.3), is not written yet, so nothing in LeanForth accepts a
 theorem today. Until an outside Lean expert has audited the checker, every
@@ -52,7 +53,7 @@ terms, and stands in for `check-declaration` (task 2.2.3).
 
 ```forth
 \ Helpers for the example (documentation only, not part of LeanForth).
-[undefined] lf-env-publish [if] require ~+/src/kernel/env-publish.fs [then]
+[undefined] lf-env-hand-over [if] require ~+/src/kernel/env-publish.fs [then]
 : made ( flag -- ) 0= abort" refused" ;
 : ok! ( outcome -- ) outcome-ok <> abort" not ok" ;
 : id ( c-addr u -- name ) 0 -rot lf-name-str made ;
@@ -106,6 +107,10 @@ lf-input-end ok!
 : uses-myId ( -- flag ) theorem? if myId lf-env-resolve nip go-on? else true then ;
 : stand-in ( -- )
   lf-env-own-name go-on? 0= if exit then uses-myId if outcome-ok lf-env-finish then ;
+\ After a THROW in a check the run goes on in a new context holding the
+\ same input (G-P6). This example has no way to load it again, so a THROW
+\ would stop the run, failing closed.
+: no-spare ( -- context ior ) 0 -1 ;
 
 \ Reports: a slot's outcome, the slots it uses and its axioms; the
 \ diagnostic's code, site and numbers.
@@ -135,16 +140,16 @@ fun p h ↦ myId p h
 ```
 
 A new environment with room for 8 dependencies, the serial run of phase
-2, each slot, the diagnostic of the last check (code 51, *name already
-declared*: the name's ID 2 and the accepted slot 0), and a handle to slot
-0 checked in a view of the whole environment:
+2, then, in a view of the whole environment, each slot, the diagnostic of
+the last check (code 51, *name already declared*: the name's ID 2 and the
+accepted slot 0), and a handle to slot 0 checked:
 
 ```forth
 8 lf-env-new ok! lf-env-use ok!
-' stand-in lf-env-run outcome-text type cr
-0 .slot 1 .slot 2 .slot
+' stand-in ' no-spare lf-env-run outcome-text type cr
+lf-env-view ok!  0 .slot 1 .slot 2 .slot
 .diag cr
-lf-env-view ok!  0 lf-env-handle ok! lf-env-handle? outcome-text type cr
+0 lf-env-handle ok! lf-env-handle? outcome-text type cr
 ```
 
 ```text
@@ -198,8 +203,8 @@ ever turns a failure into ok.
 | --- | --- | --- |
 | `/lf-idecl`, `lf-idecl-name`, `-kind`, `-safety`, `-type`, `-value`, `-hint`, `-height`, `-arity`, `-params` | record and fields | one input declaration: name ID, kind (`lf-kind-definition` … `lf-kind-recursor`), safety and hint coded as the NDJSON reader codes them, type and value term indices (value −1 for none), up to `lf-param-capacity` (8) universe parameter name IDs |
 | `lf-input-add` | `( decl -- i outcome )` | copy a filled record while loading: ok; invalid after loading ended or for a record out of range or with a reference that is not live; full when the input is full |
-| `lf-input-end` | `( -- outcome )` | end loading: mark every input store (terms, levels, names, references, declarations) and record the input's fingerprint; invalid when already ended |
-| `lf-input-intact?` | `( -- flag )` | loading ended and every mark still valid (no reset, nothing rolled back below it) |
+| `lf-input-end` | `( -- outcome )` | end loading: mark every input store (terms, levels, names, references, declarations) and record the input's fingerprint; invalid when already ended or the name store or its byte count is out of range |
+| `lf-input-intact?` | `( -- flag )` | loading ended, every mark still valid (no reset, nothing rolled back below it) and the name bytes still in use |
 | `lf-input-rollback` | `( -- outcome )` | return every input store to its mark (a check's scratch); invalid, with nothing changed, when the input is not intact |
 | `lf-input-reset` | `( -- )` | start a new input in this context; every environment over the old one fails closed |
 | `lf-input-count`, `lf-input-decl`, `lf-input-name`, `lf-input-params`, `lf-input-read`, `lf-input-fingerprint` | readers | `lf-input-read ( i -- decl outcome )` is the checked one |
@@ -208,35 +213,37 @@ ever turns a failure into ok.
 
 | Word | Stack effect | Does |
 | --- | --- | --- |
-| `lf-env-new` | `( deps -- env outcome )` | a new environment over this context's intact input, one slot per declaration, room for `deps` dependencies (0 … 65,536), allowlist version 0 (empty), final mode; invalid for an input that is not intact, full when identities are spent or memory is short |
-| `lf-env-use`, `lf-env`, `lf-env-free` | `( env -- outcome )`, `( -- env )`, `( env -- outcome )` | choose, read and free the current environment; only while no job runs |
-| `lf-env-begin` | `( i -- outcome )` | start the check of declaration `i` in this context: records the snapshot (identity, `i`), clears the candidate and the diagnostic; invalid without a valid environment or for a slot out of range or already final |
+| `lf-env-new` | `( deps -- env outcome )` | a new environment over this context's intact input, one slot per declaration, room for `deps` dependencies (0 … 65,536), allowlist version 0 (empty), final mode; invalid inside a job or for an input that is not intact, full when identities are spent or memory is short |
+| `lf-env-use`, `lf-env`, `lf-env-free` | `( env -- outcome )`, `( -- env )`, `( env -- outcome )` | choose, read and free the current environment; `lf-env-use` and `lf-env-free` refuse (invalid) inside a job |
+| `lf-env-begin` | `( i -- outcome )` | start the check of declaration `i` in this context: records the snapshot (identity, `i`), clears the candidate and the diagnostic; invalid in a spent context (below), without a valid environment or for a slot out of range or already final |
+| `lf-env-spent?` | `( -- flag )` | whether a check threw in this context (G-P6): it can begin no other check and must be replaced |
 | `lf-env-view` | `( -- outcome )` | a snapshot of every slot, for queries after a run |
-| `lf-env-own-name` | `( -- outcome )` | N2 on the checked declaration's name: ok, rejected (an earlier one accepted), unknown or unsupported (an earlier one undecided, K5) |
-| `lf-env-lookup` | `( name -- d outcome )` | find a constant (E5): `d ok` for the accepted earlier declaration of that name; rejected (N1: unknown, forward or self reference); unknown or unsupported (K5); invalid when a same-named earlier slot is not final (started too early) |
+| `lf-env-own-name` | `( -- outcome )` | N2 on the checked declaration's name: ok, rejected (an earlier one accepted), unknown or unsupported (an earlier one undecided or unsupported, K5, unknown first) |
+| `lf-env-lookup` | `( name -- d outcome )` | find a constant (E5): `d ok` for the accepted earlier declaration of that name; rejected (N1: unknown, forward or self reference); unknown when an earlier one is undecided, else unsupported when one is unsupported (K5, unknown first); invalid when a same-named earlier slot is not final (started too early) |
 | `lf-env-depend`, `lf-env-resolve` | `( d -- outcome )`, `( name -- d outcome )` | record a dependency on accepted slot `d` (ascending, distinct; its axiom set and provenance joined); full at `lf-env-dep-capacity` (16); resolve is lookup then depend |
 | `lf-env-finish` | `( outcome -- )` | end the check with its outcome (invalid until called) |
 | `lf-env-params`, `lf-env-arity?`, `lf-env-param?`, `lf-env-own-params` | | universe parameters: a slot's own list; L1 (exact number of levels), L2 (a parameter of the checked declaration), L3 (no parameter twice): ok or rejected |
-| `lf-env-handle`, `lf-env-handle?` | `( d -- identity d outcome )`, `( identity d -- outcome )` | a handle to an accepted slot; valid in a snapshot (identity′, `i`) only for the same identity, `d < i`, a final accepted slot; anything else is invalid |
+| `lf-env-handle`, `lf-env-handle?` | `( d -- identity d outcome )`, `( identity d -- outcome )` | a handle to an accepted slot this context's snapshot may read; valid in a snapshot (identity′, `i`) only for the same identity, `d < i`, a final accepted slot; anything else is invalid |
 | `lf-env-ready?` | `( name i -- flag )` | for a scheduler (G-P5): every declaration before `i` with that name has a final slot |
-| `lf-env-outcome`, `lf-env-axioms` | `( d -- outcome )`, `( d -- bits outcome )` | results: a final slot's outcome (invalid before), an accepted slot's axiom set |
+| `lf-env-outcome`, `lf-env-axioms` | `( d -- outcome )`, `( d -- bits outcome )` | results, read within this context's snapshot (G-P4), so after a run within `lf-env-view`'s: a readable slot's outcome (invalid otherwise), an accepted slot's axiom set |
 
 ### Publishing (`src/kernel/env-publish.fs`)
 
 | Word | Stack effect | Does |
 | --- | --- | --- |
-| `lf-env-publish` | `( -- outcome )` | E4: for an ok candidate, re-check (every same-named earlier slot final and none accepted; dependencies ascending, below, final, accepted; axiom set and provenance the unions of theirs, within the allowlist and "checked" in a final run; a safe definition or theorem with a value and distinct parameters), then append the dependencies (full if no room) and copy the input declaration; any other outcome alone; last, mark the slot final |
-| `lf-env-hand-over` | `( -- outcome fault? )` | publish under `CATCH`: after a `THROW` the slot stays not final and cleared, the pool rolled back; `fault?` true means the run must stop |
-| `lf-env-step` | `( xt i -- outcome fault? )` | begin, run the check `xt ( -- )` (a `THROW` makes it invalid), hand over, roll the scratch back |
-| `lf-env-run` | `( xt -- outcome )` | the serial publisher of phase 2: every declaration in input order; ok when all slots are final, invalid when a fault stopped it |
-| `lf-env-before-final` | deferred `( -- )` | test-only fault injection between writing a slot and marking it final |
+| `lf-env-hand-over` | `( -- outcome fault? )` | the publisher's only entry (E4), refused inside a job (G-P1): for an ok candidate, re-check (every same-named earlier slot final and rejected; dependencies ascending, below, final, accepted; axiom set and provenance the unions of theirs, within the allowlist and "checked" in a final run; a safe definition or theorem with a value and distinct parameters), then append the dependencies (full if no room) and copy the input declaration; any other outcome alone; last, mark the slot final. It marks the pool first and publishes under `CATCH`: after a `THROW` the slot stays not final and cleared, the pool rolled back. `fault?` true (the run must stop) after a `THROW`, inside a job, with no slot to publish, or when the pool cannot be marked |
+| `lf-env-step` | `( xt i -- outcome fault? )` | begin, run the check `xt ( -- )` (a `THROW` makes it invalid and spends the context), make sure the snapshot is still of `i` (else a fault, nothing published), hand over, roll the scratch back |
+| `lf-env-thrown` | `( ior -- )` | for a parallel scheduler: the check in this context ended with a `THROW` (a job's ior): invalid, recorded, the context spent |
+| `lf-env-run` | `( check maker -- outcome )` | the serial publisher of phase 2: every declaration in input order, in the current context until a check throws, then in a new one from `maker ( -- context ior )`, which must hold the same input (G-P6); it frees the contexts it made and returns to the caller's. ok when all slots are final; invalid when a fault stopped it, inside a job, or when no new context could be made |
+| `lf-env-before-final` | deferred `( -- )` | test-only fault injection between writing a slot and marking it final; compiled as a `DEFER` only when a test defines `lf-env-fault-hooks` before loading, otherwise an empty word |
 
 ### Diagnostics
 
 Failures record a reason in the context's diagnostic
 ([catalogue](DIAGNOSTICS.md)): 15 dependency list full, 16 dependency
 pool full, 25 environment handle, 26 check started too early, 27 no
-snapshot, 28 publisher re-check failed, 29 internal fault (a `THROW`),
+snapshot, 28 publisher re-check failed (part 6: a check that moved its
+snapshot), 29 internal fault (a `THROW`, or a begin in a spent context),
 35 dependency undecided, 41 dependency unsupported, 50 unknown constant
 (N1), 51 name already declared (N2), 52 wrong number of universe levels
 (L1), 53 undeclared universe parameter (L2), 54 duplicate universe
@@ -252,18 +259,31 @@ level, name and reference stores are context members, so in v0 the input
 loaded it. The environment itself is outside every context, shared and
 written only by the publisher. An environment records the fingerprint of
 the input it was made over (every input store's records, identities,
-count and generation below its mark; not the name bytes) and is valid only
-in a context whose input is intact and has that fingerprint. So:
+count and generation below its mark, then the name bytes in use and
+their count) and is valid only in a context whose input is intact and has
+that fingerprint. So:
 
-- the serial driver runs in the context that loaded the input;
+- the serial driver runs in the context that loaded the input, and after
+  a `THROW` in a check in a new context from the caller's maker, which
+  must load the same input again (G-P6);
 - for checks in several contexts, each context must load the same input
   from a fresh start (the tests do this; a context then gets the same IDs,
   indices and fingerprint);
-- a context holding no input, or another one, sees no environment: every
-  word fails closed with invalid.
+- a context holding no input, or another one (even one that differs only
+  in the text of its names), sees no environment: every word fails closed
+  with invalid.
+
+**What the fingerprint is for, and its limits** (ADR 0012, amended
+2026-11-02). It guards against mistakes, such as checking in a context
+that loaded another input. It is not a defence against forgery: its
+FNV-style mixing is not a cryptographic hash, and two different inputs
+can share one. It is computed once, when loading ends; later changes to
+the input are caught by `lf-input-intact?`, as far as counts and
+identities show, and by the tests' digests, never by the fingerprint.
 
 Plan task 7.2.1 splits the stores into a shared input tier and
-per-context scratch, after which one loaded input serves every context.
+per-context scratch, after which one loaded input serves every context
+and a replacement context needs no reload.
 
 ## What is implemented, and what is not
 
@@ -271,11 +291,11 @@ per-context scratch, after which one loaded input serves every context.
 | --- | --- |
 | E1 three kinds of storage | input (per context, see above), environment (shared, `ALLOCATE`d), context (candidate and snapshot); store marks end loading and roll scratch back after every check |
 | E2 the record | state, outcome, the input declaration copied whole (name, kind, safety, type and value roots, hint, parameters), dependencies, axiom set, provenance |
-| E3 snapshots and handles | identity serial that never repeats; snapshots (identity, `i`); handles validated as above; caches: none (task 4.2.7) |
-| E4 staging and publishing | done, with the re-check, the final mark last and `THROW` recovery |
-| E5 finding a constant | linear scan of earlier input names, structural name comparison; the name index is task 6.2.1 |
+| E3 snapshots and handles | identity serial that never repeats; snapshots (identity, `i`); handles and results read only within the snapshot; caches: none (task 4.2.7) |
+| E4 staging and publishing | done, with the re-check (the name part as amended: every same-named earlier slot final and rejected), the final mark last and `THROW` recovery; a check that begins another declaration is a fault |
+| E5 finding a constant | linear scan of earlier input names, structural name comparison, K5 unknown first; the name index is task 6.2.1 |
 | E6 axiom sets | bit sets joined from direct dependencies and re-checked; allowlist version 0 is empty, so every set is empty; a test-only allowlist bit exercises the union |
-| E7 contexts and one publisher | the candidate is a context record; the publisher is one task; parallel checks by a scheduler are shown in the tests, not built (phase 7). The test scheduler publishes only between jobs, and the pool's lock in `job-submit` orders each publication before every check handed out later. Publishing while other checks still run relies on a slot's fields becoming visible before its final mark, as stores in program order do on x86-64; a lock or memory barrier around the mark (G-P2) belongs to the phase-7 scheduler |
+| E7 contexts and one publisher | the candidate is a context record; the publisher is one task, and its entry, `lf-env-hand-over`, and the words that make, choose and free environments refuse inside a job (G-P1); a context in which a check threw is spent and replaced (G-P6); parallel checks by a scheduler are shown in the tests, not built (phase 7). The test scheduler publishes only between jobs, and the pool's lock in `job-submit` orders each publication before every check handed out later. Publishing while other checks still run relies on a slot's fields becoming visible before its final mark, as stores in program order do on x86-64; a lock or memory barrier around the mark (G-P2) belongs to the phase-7 scheduler |
 | E8 run modes | final mode only; a provenance bit is joined and re-checked, but nothing loads saved results (tasks 2.2.5, 3.4.3) |
 | E9 outcomes | as above |
 
@@ -295,9 +315,9 @@ count saving in the existing modules with store marks.
 | Universe parameters per declaration | 8 (`lf-param-capacity`); Mathlib uses up to 30 |
 | Dependencies per check | 16 (`lf-env-dep-capacity`) |
 | Dependencies per environment | at most 65,536 (`lf-env-pool-max`), chosen when made |
-| Memory | slot 176 bytes, candidate 176, input declaration 128, header 48 (64-bit cells); an environment of 27 slots and 8 dependencies 4,984 bytes, of 32 slots and 65,536 dependencies 1,054,312 |
-| Time, Gforth 1.0 | 0.63 ms per run of the 27-declaration test input (1,000 runs, including making and freeing the environment); 14.6 µs per lookup among 27 declarations |
-| Time, Gforth 0.7.3 | 1.39 ms per run; 26 µs per lookup |
+| Memory | slot 176 bytes, candidate 176, worker record 16, input declaration 128, header 80 with the publisher's pool mark (64-bit cells); an environment of 27 slots and 8 dependencies 5,016 bytes, of 32 slots and 65,536 dependencies 1,054,344 |
+| Time, Gforth 1.0 | 0.65 ms per run of the 27-declaration test input (1,000 runs, including making and freeing the environment); 16.9 µs per lookup among 27 declarations |
+| Time, Gforth 0.7.3 | 1.41 ms per run; 27 µs per lookup |
 
 A lookup costs time linear in the input, and audits the name store each
 time: fine for phase 2, far too slow at Mathlib scale (the name index,
@@ -314,17 +334,32 @@ task 6.2.1, and the scale assessment's data structures).
   invalid, exhausted, full), with a digest check after every step (only
   the declaration's own slot changes; the input region never; a failure
   appends nothing); handles; fuel at every step, no room, a `THROW` in the
-  publisher and in a check; axiom sets and provenance on synthetic records;
-  the publisher's re-check against wrong claims; corrupted state;
-  determinism; diagnostics.
+  publisher and in a check (the context spent, the serial run going on
+  in a new one from its maker, and stopping when the maker fails); axiom
+  sets and provenance on synthetic records; the publisher's re-check
+  against wrong claims, including an ok claim after an undecided or
+  unsupported earlier declaration of its name; K5's tie-break (unknown
+  first, in either order); a check that begins another declaration;
+  results read within the snapshot; the fingerprint's coverage of every
+  input store and the name bytes; refusals inside a job (simulated);
+  corrupted state; determinism; diagnostics.
 - `tests/core/environment-tasks.fs` and `environment-tasks-serial.fs`
   (row 9): checks as jobs in two contexts, threads on Gforth 1.0,
   cooperative on 0.7.3 (interleaving confirmed by overlapping steps), and
   the serial host, publishing in two different orders, give the serial
-  verdicts and the same environment content; a check started too early
-  ends invalid; a context without the input sees nothing.
-- Row 10: 26 planted faults in a scratch copy, including the six ADR 0012
-  names, all caught; listed in the change's gate summary.
+  verdicts and the same environment content, also when one check throws
+  in its job (its lane's context is then replaced); a check started too
+  early ends invalid; a context without the input, or with names of other
+  text, sees nothing; a real job can neither publish nor make, choose or
+  free an environment.
+- Row 10: planted faults in a scratch copy, one at a time, all caught:
+  the 26 of the first version (including the six ADR 0012 names) and 8
+  in the store marks, re-run after the review fixes, and 24 more that
+  bring back each fault the independent review found (the swapped K5
+  order, `lf-input-intact?` without its name-bytes clause, each input
+  store and the name bytes left out of the fingerprint, the old name
+  re-check, and the removal of each new guard); listed in the gate
+  summary.
 
 The tests drive the environment with a *synthetic check* that does what
 `check-declaration` will do with it (own name, lookups, dependencies) and
@@ -334,8 +369,12 @@ row 4 need task 2.2.3.
 ## Trust
 
 This is [kernel] code under the review gate of `AGENTS.md`: its rules
-follow ADR 0011 and 0012 (Lean's behaviour as those records trace it), the
-tests above agree, and it still needs an independent AI review of the
-exact change and the owner's approval of a plain-language summary. It is
-untrusted until then, and every accepted result is *experimental — not
-independently audited* after that.
+follow ADR 0011 and 0012 (Lean's behaviour as those records trace it), and
+the tests above agree. An independent AI review of the first version
+(2026-11-02) found two faults (an ok claim after an undecided earlier
+declaration of its name, and a fingerprint blind to name text) and
+several gaps; they are fixed here and recorded as amendments to ADR 0012.
+The fixes still need an independent review of the exact change and the
+owner's approval of a plain-language summary. It is untrusted until then,
+and every accepted result is *experimental — not independently audited*
+after that.

@@ -14,7 +14,11 @@
 \ Digests (FNV-style mixing of cells, compared only within one run): one
 \ per slot (0 for a slot that is not final), of the dependency pool, and
 \ of the input region below the input marks, including the name bytes.
+\
+\ Defining lf-env-fault-hooks first compiles the publisher's test-only
+\ fault-injection hook, lf-env-before-final.
 
+: lf-env-fault-hooks ( -- ) ;
 require ../../src/kernel/env-publish.fs
 
 \ ---------------------------------------------------------------------------
@@ -163,8 +167,14 @@ defer syn-pause
 \ Making and running environments.
 : fresh-env ( deps -- ) lf-env-new ok? 0= abort" env" lf-env-use ok? 0= abort" use" ;
 : env-free ( -- ) lf-env lf-env-free ok? 0= abort" free" ;
+\ Results are read in a view of the whole environment.
 : verdicts-match? ( n -- flag )
-  true swap 0 ?do i lf-env-outcome i expected@ = and loop ;
+  lf-env-view drop true swap 0 ?do i lf-env-outcome i expected@ = and loop ;
+\ A maker for lf-env-run (G-P6): a new, idle context holding the same
+\ world and the main input; the current context stays selected.
+: main-maker ( -- context ior )
+  context-new ?dup if exit then
+  lf-context @ over context-use world-again main-input context-use 0 ;
 
 \ ---------------------------------------------------------------------------
 \ Digests.

@@ -133,9 +133,14 @@ end-structure
 \ an earlier mark went below it): records below a mark's count must be
 \ older than the mark, and the record at its count newer. Within one
 \ generation identities grow with the index, so two identities show it.
-\ A mark of an invalid store names no store and is always refused. Marks
-\ are not capabilities: a forged record that passes these checks is
-\ accepted. Like the store, a mark is host-specific memory.
+\ That argument assumes the count only moves by store-new, store-clear
+\ and store-rollback: code that saves a count and later restores it by
+\ hand (as some older modules still do for the term store) can raise it
+\ over records rolled back and allocated again, and a stale mark may then
+\ pass. Converting those modules to marks is a follow-up. A mark of an
+\ invalid store names no store and is always refused. Marks are not
+\ capabilities: a forged record that passes these checks is accepted.
+\ Like the store, a mark is host-specific memory.
 begin-structure /store-mark
   field: mark-store         \ the store marked; 0 when marking failed
   field: mark-generation    \ its generation then
