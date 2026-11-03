@@ -288,7 +288,9 @@ was the first CI run of the pinned-Lean comparisons.
   untrusted diagnostic. When the checker
   exists, every accepted result will be labelled *experimental — not
   independently audited* until an outside Lean expert audits it.
-- Stores hold 64 entries and constants at most 8 universe arguments;
+- Stores hold 64 entries and constants at most 8 universe arguments (the
+  compact store of [ADR 0016](../adr/0016-compact-store.md), proposed, held all
+  of Mathlib in a 2.94 GB prototype, not yet in the checker);
   Mathlib needs millions of entries and 30 arguments. The rebuild passes
   recurse on the host's return stack (about 1,200 cells at worst today).
 - The program track's proofs are about the IR's Lean semantics, checked by
