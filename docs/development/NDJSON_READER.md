@@ -66,6 +66,80 @@ A kind without a handler stops the reading as **unsupported**, so a
 consumer never skips records silently; `ndjson-count.fs` and
 `tests/core/ndjson-dump.fs` set a handler for every kind.
 
+### Threat model
+
+The reader defends against **hostile input**: whatever an export file, or
+a line given to `export-line`, holds, the reader refuses it or hands over
+exactly the records format 3.1.0 gives it, each checked whole before any
+handler sees it ([what is checked](#what-is-checked-and-the-outcomes)).
+
+**Handlers and the caller are trusted code**, relied on to keep the
+handler contract below and to use only the words this document describes.
+Even so, the reader fails closed on the breaches it can detect cheaply,
+and this is the whole list; each is refused as it says, with *invalid*, an
+exception or no result, never taken as *ok*:
+
+- a handler leaves no outcome, or extra items (invalid);
+- a handler's outcome is a number outside the outcome vocabulary (invalid);
+- a handler takes more than its record and leaves fewer items than it was
+  given, or changes either of the two cells under its record (`THROW` -4);
+- a handler calls `export-read` or `export-line` on its own export (that
+  call reads nothing and gives invalid);
+- a handler calls `export-init`, `export-free` or `export-restart` on its
+  own export (`ABORT"`, -2);
+- a handler changes the line's JSON view so that one of a block's three
+  lists is lost (invalid);
+- `list-count`, `list-item` or `recursor-rule` is given a record of an
+  earlier line, that is, a record kept past its handler once the export
+  has counted a later line, even one that failed, and also after
+  `export-restart` or `export-init` (no list and no rule: 0, -1 and 0);
+- `list-count`, `list-item` or `recursor-rule` is given a field that holds
+  no list, an index outside the list, a list of objects (`list-item`) or a
+  record that is not a recursor (`recursor-rule`) (0, -1 and 0);
+- `export-handler` is given a number that is not a record kind (`ABORT"`,
+  -2).
+
+A `THROW` from a handler, -4 and -2 included, passes on to the caller of
+`export-line` or `export-read` with the export idle; `export-read` closes
+the file first.
+
+**Not detected**, and outside what the reader defends against:
+
+- a handler that changes data-stack cells below the two canaries and puts
+  the canaries back. Those cells hold only the data of whoever called
+  `export-line` or `export-read`: while a handler runs, nothing of the
+  reader's lies on the data stack, so such a handler changes its caller's
+  data, never what the reader does;
+- a handler that changes or unbalances the return stack, where the reader
+  keeps what it needs after the handler;
+- a handler that writes its record; this misleads only the handler, since
+  the reader never reads a record back after its handler;
+- a handler that writes the export (its counters, flags, handler table,
+  decoded records, or position in a block's list) or the line's JSON view
+  or bytes, other than so that a block's list is lost. Such a write can
+  make later records be checked against wrong counts, let the handler read
+  its export again, or make a block's elements be skipped, repeated or
+  decoded from changed tokens (each still checked);
+- a handler or caller that keeps a record's texts or digits past its
+  handler: they point into the line, which the next line overwrites;
+- a caller that uses an export before `export-init` gave ok or after
+  `export-free`, uses one export from two tasks at once, or stores
+  anything but the execution token of a handler with `export-handler`;
+- a caller that gives `list-count`, `list-item` or `recursor-rule`
+  anything but a record the reader handed over or a copy of one, or gives
+  `export-line` an address and length that are not one readable line
+  without its line feed (JSON reads a line feed inside as white space;
+  `export-read` never gives one);
+- a handler or caller that uses words of `ndjson.fs` this document does
+  not describe, such as `export-next` or `export-lines`.
+
+A review judges the reader against this model: input that gets malformed
+data accepted, decoded wrongly or handed over stale is a soundness bug;
+misuse by a handler or the caller is a bug only where the first list says
+the reader detects it.
+
+### The handler contract
+
 A handler must keep this contract:
 
 - It takes its record and leaves exactly one outcome, nothing else. The
@@ -75,13 +149,11 @@ A handler must keep this contract:
   export as canaries. A handler that takes more than its record throws -4
   (stack underflow), since its caller's data is gone, when it leaves fewer
   items than it was given or changes either canary. Deeper cells are not
-  checked: Forth cannot isolate a handler's stack. Below the canaries lie
-  the data of whoever called `export-line` or `export-read` and the
-  reader's own loops (the export `export-read` reads and, while a block's
-  elements are handed over, the list being walked); a handler that reaches
-  that deep and puts the canaries back is not detected. What the reader
-  needs after a handler, the counter it adds the record to and a
-  declaration's kind, waits on the return stack, out of the way.
+  checked: Forth cannot isolate a handler's stack. They hold only the data
+  of whoever called `export-line` or `export-read`, nothing of the
+  reader's: the export being read, the counter it adds the record to, a
+  declaration's kind and the table of a block's list wait on the return
+  stack, and the position in a block's list in the export.
 - It does not call `export-read` or `export-line` on the same export; the
   reader refuses that as invalid ("export read again by its own handler").
   Nor does it call `export-init`, `export-free` or `export-restart` on it:
@@ -98,6 +170,9 @@ A handler must keep this contract:
   other writes to the export are not detected.
 - It copies any text, digits or list it wants to keep: they point into the
   current line and its JSON tape, valid only until the handler returns.
+  The lists and rules of a record kept past its line read as none
+  (`list-count` gives 0, `list-item` -1, `recursor-rule` 0); texts and
+  digits are not checked.
 - A `THROW` from a handler, including the two above, passes on to the
   caller of `export-line` or `export-read` with the export idle again;
   `export-read` closes the file first.
@@ -130,10 +205,14 @@ lists with their reasons.
 
 Each record is handed over in a decoded record. Every decoded record starts
 with `record-kind`, `record-index` (its own index; declarations and the
-elements of an inductive block count from 0), `record-line` and
-`record-export`. The line is the line of the file for `export-read`; for
-`export-line`, which may be given lines from memory, it is the number of
-lines given to the export since `export-restart` or `export-init`.
+elements of an inductive block count from 0), `record-line`,
+`record-export` and `record-generation`. The line is the line of the file
+for `export-read`; for `export-line`, which may be given lines from
+memory, it is the number of lines given to the export since
+`export-restart` or `export-init`. The generation is the export's count
+of lines since `export:` made it, which nothing resets; the list and rule
+readers compare it with the export's to tell whether the export's JSON
+view still holds the record's line.
 References are indices of earlier records. Lists are read
 with `list-count ( list record -- n )` and `list-item ( i list record -- u )`;
 a list field holds its JSON array's token index inverted (below -1), so a
@@ -149,11 +228,14 @@ handler reads only the fields of its record's kind. The readers check
 their arguments: `list-count` gives 0 for a field that holds no list;
 `list-item` is for lists of references and gives -1 for an index outside
 the list or for a list of objects (a block's lists, a recursor's rules);
-`recursor-rule` gives 0 for a record that is not a recursor, an index
-outside its rules, or a recursor record kept after its handler whose rules
-are no longer in the JSON view. A rule record has a header of its own:
-kind `kind-rule` (a kind no handler takes), the rule's index, and the line
-and export of its recursor; reading it leaves `export-error` as it was.
+`recursor-rule` gives 0 for a record that is not a recursor or an index
+outside its rules. All three give no list and no rule (0, -1 and 0) for a
+record of an earlier line, kept past its handler: once the export has
+counted a later line, even one that failed, whatever that line holds at
+the same token index, and also after `export-restart`, when line numbers
+start again. A rule record has a header of its own: kind `kind-rule` (a
+kind no handler takes), the rule's index, and the line, export and
+generation of its recursor; reading it leaves `export-error` as it was.
 
 | Kind | JSON | Fields |
 | --- | --- | --- |
@@ -247,12 +329,16 @@ portability host.
   accepted and 65 full; checked list and rule readers, including a
   reference equal to an array's token index, a list of objects, a rule's
   header and a recursor kept past its line, also after a failed line,
-  which keeps its field and reason; no field or reason carried over to
+  which keeps its field and reason, with an array or objects shaped like
+  rules at the token index of its lists, a line later and at the same
+  line number after `export-restart`; no field or reason carried over to
   the next line; the line numbers of `export-line`; handler outcomes and
   their reasons, a broken stack contract (taking more than the record,
   also when one item is left, the item under the record is replaced or
-  the handler reaches two cells down; one that reaches three cells down
-  changes its caller's data, never the reader's count), re-entry,
+  the handler reaches two cells down; one that reaches three cells down,
+  also under `export-read`, or three or four cells down in a block's
+  walk, changes only its caller's data, and every record is still handed
+  over; a `THROW` from one still closes the file), re-entry,
   `export-init`, `export-free` and `export-restart` from a handler, block
   lists redirected to an empty array of the line or spoilt (every element
   still handed over) or lost from the JSON view (invalid), a changed kind
@@ -261,12 +347,15 @@ portability host.
   export freed by `export-init` again and by `export-free`; the five
   reference fixtures). `scripts/check-portable-forth.py` tests its load
   check on a scratch tree it writes itself before it checks the
-  repository: ten modules, of which the five that use an adapted word
+  repository: twelve modules, of which the seven that use an adapted word
   with no load, a load after the use, a load in a multi-line comment, in
-  a `0 [IF]` branch or in the `[ELSE]` of `TRUE [IF]` must be reported, and
-  the five that load it first (directly, through another module, under a
-  guard, or in the middle of a line) or only mention a word in strings,
-  comments or after `[UNDEFINED]` must not.
+  a `0 [IF]` branch or in the `[ELSE]` of `TRUE [IF]`, or a use after
+  `[CHAR] \` or `CHAR (` on the same line must be reported, and the five
+  that load it first (directly, through another module, under a guard,
+  or in the middle of a line) or only mention a word in strings, comments
+  or after `[UNDEFINED]` must not; and three lines that its line checks
+  must read with the comments and strings, but not the `\` of `[CHAR] \`
+  or the `(` of `CHAR (`, taken out.
 - **File tests** (`tests/core/test_ndjson_reader.py`, in `make test`):
   counts equal to `count.py` and field-by-field dumps equal to
   `tests/support/ndjson_dump.py` (Python's `json` module) and to the strict
@@ -315,7 +404,15 @@ portability host.
   counting its line, or `record-line` taken from the file reader; and in
   the load check, `( )` comments, literal `[IF]` conditions, loads under
   other `[IF]` conditions, the order of load and use, `[UNDEFINED]`
-  names, strings, or the escapes of `s\"` not handled.
+  names, strings, or the escapes of `s\"` not handled. After the fourth
+  review's fixes, ten more, each undoing one fix, were each caught on
+  Gforth 1.0 and 0.7.3, by the unit tests or the script's own tests:
+  `export-lines`, `export-caught` or the walk of a block's three lists
+  keeping the export on the data stack; a block's list walked with its
+  visit and export on the data stack; the list readers not checking the
+  generation, or comparing line numbers instead; a line not advancing the
+  generation; records not stamped with it; and a word after `[CHAR]` read
+  as a comment or a string, by the load check or by the line checks.
 - **Independent AI review** (2026-11-02; not a substitute for the human
   review that `AGENTS.md` requires for declaration import): its fuzzer
   found no malformed input reaching a handler in 19,000 files, and it
@@ -375,6 +472,33 @@ portability host.
   stale for lines given from memory (now counted, with a test), and five
   points of style, all applied. The `cell` fallback of
   `src/lib/portability.fs` stays untested: both CI hosts define `cell`.
+- **Fourth independent AI review** (2026-11-02, of the third review's
+  fixes; also not a substitute for the human review): no defect with
+  input alone or with a handler that keeps its contract, and no high or
+  medium finding. Its three low findings were fixed the same day, each
+  with a test that fails before the fix and reproduces its probe. The
+  reader's own data still lay under the canaries: during `export-read`
+  two copies of the export being read, and during a block's walk the
+  list's visit and export (and, deeper, the block's export), so a handler
+  that reached three or four cells down and put the canaries back could
+  end the reading ok after two of 35 records, or skip a constructor with
+  the line ok. The reader now keeps nothing of its own on the data stack
+  while a handler runs: the export waits on the return stack and a block
+  list's position in the export. The review suggested keeping the walk
+  and checking afterwards that every element was handed over; that left
+  the block's export five cells down, and a changed export under the walk
+  could make it read another export's tape. `recursor-rule` on a kept
+  recursor could decode objects of a later line at the token index of its
+  rules; records now carry the export's generation, which nothing
+  resets, and the list and rule readers give nothing for a record of an
+  earlier line (the review suggested comparing line numbers, which repeat
+  after `export-restart`). The load check read the `\` of `[CHAR] \` as a
+  comment; a word after `CHAR`, `[CHAR]`, `'`, `[']`, `POSTPONE`,
+  `[COMPILE]`, `[DEFINED]` or `[UNDEFINED]` is now taken as it is, in the
+  load check and in the line checks. Three points of style were applied.
+  At the coordinator's request the threat model above is now written
+  down, here and in the header of `ndjson.fs`, for later reviews to judge
+  the reader against.
 - **Differentials on real exports**: the counting reports equal `count.py`
   byte for byte on `Init`, `Std` and all of Mathlib (and the recorded
   `count.out` of [the Mathlib measurements](measurements/mathlib-2026-11-02/README.md));
@@ -387,7 +511,7 @@ portability host.
   Mathlib count still equals `count.out` byte for byte. After the second
   review's fixes the `Init` dump is again the same (6,455,017 lines, the
   same SHA-256), and the `Init` count report is byte-identical; so are
-  both after the third review's fixes.
+  both after the third and the fourth review's fixes.
 
 ## Measured speed and memory
 
@@ -419,7 +543,10 @@ on the machine, moved by less than their run-to-run spread (five
 alternating runs each: 6.18 s and 6.27 s of user time on average). The
 third review's fixes add 0.37% of instructions (109.13 billion before
 them, 109.53 billion after); in three alternating runs each the task
-time was 6.46 s both before and after.
+time was 6.46 s both before and after. The fourth review's fixes add
+0.15% (109.53 billion before them, 109.69 billion after); in three
+alternating runs each the task time was 6.78 s before and 6.84 s after,
+within the runs' spread (6.70 to 6.83 s, and 6.72 to 7.01 s).
 
 So the Forth reader decodes about 60 MB/s with `gforth-fast`, twice
 Python's line-parsing rate, in constant memory (the resident size is
