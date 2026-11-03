@@ -217,13 +217,13 @@ $f0 $f0 6 utf8-class!  $f1 $f3 7 utf8-class!  $f4 $f4 8 utf8-class!
   over utf8-size >r over r@ 1- 6 * rshift r@ utf8-prefix or over c!
   r@ + r@ utf8-put-tail r> ;
 
-\ Mix the bytes addr u into the hash h, one at a time, FNV-style: h
-\ xor the byte, times 16777619, modulo the cell. The same mixing step as
-\ the input fingerprint's (src/core/input.fs), which gives the name bytes
-\ to it here because only text modules read bytes. A guard against
-\ mistakes, not forgery; valid within one host only, never compared
-\ across machines or written out.
-: bytes-mix ( h addr u -- h' )
-  0 ?do dup c@ rot xor 16777619 um* drop swap char+ loop drop ;
+\ FNV-style mixing: fnv-step mixes x into the hash h, h xor x times
+\ 16777619, modulo the cell; bytes-mix mixes the bytes addr u, one at a
+\ time. The input fingerprint (src/core/input.fs) mixes cells with
+\ fnv-step and gives the name bytes to bytes-mix, because only text
+\ modules read bytes. A guard against mistakes, not forgery; valid within
+\ one host only, never compared across machines or written out.
+: fnv-step ( h x -- h' ) xor 16777619 um* drop ;
+: bytes-mix ( h addr u -- h' ) 0 ?do dup c@ rot fnv-step swap char+ loop drop ;
 
 base !   \ the BASE this file was loaded with

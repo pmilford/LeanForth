@@ -191,5 +191,12 @@ variable claimed
 T{ 16 heap-claim swap claimed ! -> true }T
 T{ claimed heap-release claimed @ claimed heap-release claimed @ -> 0 0 }T
 
+\ FNV-style mixing: one step is h xor x, times 16777619, modulo the cell;
+\ bytes-mix takes the bytes one at a time, in order, with that step.
+T{ 0 0 fnv-step 1 0 fnv-step 0 1 fnv-step 3 3 fnv-step -> 0 16777619 16777619 0 }T
+T{ 2 1 fnv-step 3 16777619 * = -> true }T
+T{ 5 s" ab" bytes-mix 5 char a fnv-step char b fnv-step = -> true }T
+T{ 5 s" ab" bytes-mix 5 s" ba" bytes-mix = 7 pad 0 bytes-mix -> false 7 }T
+
 cases-done
 bye
