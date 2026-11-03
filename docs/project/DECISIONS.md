@@ -545,3 +545,15 @@ SEARCH-WORDLIST`), because acceptance would then depend on what the
 reading session had loaded and differ between Gforth versions; instead
 receipts assume that nothing compiled after the file uses a host word it
 redefines.
+
+## Tag `refactor-parallel` — 2026-11-02
+
+The owner asked to tag the refactor and parallel version once it was
+ready, before new features. The annotated tag `refactor-parallel` marks
+`ada6dba`: the core and kernel rebuilt on `src/lib`, legacy retired,
+every module requiring its own dependencies, all checker state in
+per-task contexts with diagnostics, and the job pool; each change
+independently reviewed with its findings fixed; CI run 41568918311
+passed. It was placed after the review fixes of the context conversion
+(agent Z) rather than at the conversion itself, so that the tagged
+version has no known open finding in that work.
