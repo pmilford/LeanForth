@@ -506,8 +506,12 @@ redefinition and refused. A line holding any byte other than printable
 ASCII, space or tab is refused, comments included (both Gforths end a line
 at a lone carriage return, which could hide code), because how a system
 folds other characters is implementation-defined. The reader splits lines
-itself and never hands source text to the host's interpreter; numbers are
-written in decimal whatever `BASE` is; literals have at most 10 digits.
+into tokens itself and never hands source text to the host's interpreter
+(a second review found that the file's lines were still split by the
+host's `READ-LINE`; the reader now reads blocks with `READ-FILE` and
+splits them at LF itself, dropping one CR just before an LF and refusing
+any other CR); numbers are written in decimal whatever `BASE` is;
+literals have at most 10 digits.
 The owner prompted the choice ("Forth is case independent"). Rejected:
 refusing upper-case names (the review's first suggestion), because that
 refuses the standard spelling of the standard words; exact comparison,

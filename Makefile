@@ -326,6 +326,7 @@ test-program-ir:
 	$(RUN) python3 tests/program/test_receipts.py
 	$(RUN) python3 tests/program/check_program_ir.py
 	$(RUN) $(GFORTH) tests/program/ir-reader.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/program/ir_reader_files.py
 
 # The IR's Lean model: its proofs, their axioms, and its IR text against the
 # reader's golden output for src/program/clamp.fs and examples.fs.
