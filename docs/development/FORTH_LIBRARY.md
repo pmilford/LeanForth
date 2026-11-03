@@ -182,11 +182,11 @@ as the diagnostic catalogue), the deferred words set once while loading
 (`lf-lvalue-walk`, `lf-lcmp-walk`, `lf-minfer-walk`) and the site names —
 except the checked environment's records (`lf-envs`, `lf-pub-mark`), which
 only the task driving the checks writes, outside jobs. Each context holds
-104,288 bytes on a 64-bit host (`context-bytes` after `src/main.fs` loads,
+104,296 bytes on a 64-bit host (`context-bytes` after `src/main.fs` loads,
 Gforth 0.7.3 and 1.0 alike; measured 2026-11-02, once the program reader
-had joined). Every context's stores are its own, so the term, level and
-name stores are *not* yet the shared, read-only input that ADR 0012 (E1)
-describes; splitting them is plan task 7.2.1.
+and interpreter had joined). Every context's stores are its own, so the
+term, level and name stores are *not* yet the shared, read-only input that
+ADR 0012 (E1) describes; splitting them is plan task 7.2.1.
 
 `tests/core/contexts.fs` (and `contexts-serial.fs` on the serial host)
 checks the conversion of the core and kernel modules, and
@@ -205,8 +205,8 @@ checks the conversion of the core and kernel modules, and
   fails even when it is only a register within one call, on every host,
   which the interleaving and job tests below cannot promise (the
   cooperative and serial hosts switch only between whole steps). Today
-  this covers 485,984 bytes with `src/main.fs` loaded (64-bit Gforth 1.0;
-  496,192 on 0.7.3).
+  this covers 488,752 bytes with `src/main.fs` loaded (64-bit Gforth 1.0;
+  498,632 on 0.7.3).
 - *Members* other modules and tests name lie inside the current context,
   at the same offset in every context (a hand-kept list, a second line of
   defence), and a new context starts with exactly the bytes the main
