@@ -214,14 +214,21 @@ and an outcome from `src/lib/outcome.fs`:
 
 | Outcome | When |
 | --- | --- |
-| *unsupported* | an unknown word or a word outside IR 0.1 (`UNTIL`, `DO`, `@`, …); a literal of more than ten digits or beyond 2,147,483,647, or in any other number syntax (`$FF`, `#10`, `'a'`, `1.`, `1e`, `+5`, …); a control word or `>R`/`R>`/`R@` outside a definition, or `CONSTANT`/`DECIMAL` inside one; `/` or `MOD` before `CONSTANT`; a second `WHILE` in one loop; a recursive call; a redefinition of a word the reader knows (also in another case, such as `: Dup … ;`); a name over 31 characters; a `(` comment not closed on its line; a character outside printable ASCII, a space or a tab anywhere on a line, comments included (a CR just before an LF ends the line and is not part of it); tokens before `CONSTANT` that do not leave exactly one value, or take values the file did not give, `CONSTANT` with nothing before it included; values left outside a definition |
-| *invalid* | unbalanced `IF`/`ELSE`/`THEN`/`BEGIN`/`WHILE`/`REPEAT`; `:` inside a definition; `:` or `CONSTANT` without its name on the same line; a definition not closed at the end; an unreadable file or a line of 128 characters or more, not counting its line end; `lf-ir-feed` or `lf-ir-finish` before `lf-ir-start` |
+| *unsupported* | an unknown word or a word outside IR 0.1 (`UNTIL`, `DO`, `@`, …); a literal of more than ten digits or beyond 2,147,483,647, or in any other number syntax (`$FF`, `#10`, `'a'`, `1.`, `1e`, `+5`, …); a control word or `>R`/`R>`/`R@` outside a definition, or `CONSTANT`/`DECIMAL` inside one; `/` or `MOD` before `CONSTANT`; a second `WHILE` in one loop; a recursive call; a redefinition of a word the reader knows (also in another case, such as `: Dup … ;`); a name over 31 characters; a `(` comment not closed on its line; a character other than printable ASCII, a space or a tab anywhere on a line, comments included (a CR just before an LF ends the line and is not part of it); tokens before `CONSTANT` that do not leave exactly one value, or take values the file did not give, `CONSTANT` with nothing before it included; values left outside a definition |
+| *invalid* | unbalanced `IF`/`ELSE`/`THEN`/`BEGIN`/`WHILE`/`REPEAT`; `:` inside a definition; `:` or `CONSTANT` without its name on the same line; a definition not closed at the end; an unreadable file (a directory, for example) or a line of 128 characters or more, not counting its line end; `lf-ir-feed` or `lf-ir-finish` before `lf-ir-start`; a line fed after `lf-ir-finish` ("reader already finished"); an output word that throws or uses the reader ("output word failed") |
 | *full* | more than 32 definitions, 8 open structures or 8 tokens before `CONSTANT`, or an output line over 96 characters (a `source` path of 90 characters or more does not fit its header line) |
 
 Lines written before a diagnostic are incomplete and must not be used.
-If the output word throws, the exception passes to the caller; a file
-being read is closed first. `lf-ir-feed` copies each line before reading
-it, so the line may be in a transient buffer.
+The output word must not use the reader. While it runs, the reader is
+stopped (`lf-ir-reason` then gives "output word running"); if it throws,
+or calls `lf-ir-start`, `lf-ir-feed`, `lf-ir-finish` or `lf-ir-read-file`,
+the read stops as *invalid* ("output word failed"), and an exception
+passes to the caller, after a file being read is closed. `lf-ir-finish`
+ends a read: finishing again gives the same outcome, and a line fed after
+it stops the reader as *invalid* and writes nothing. `lf-ir-feed` copies
+each line before reading it, so the line may be in a transient buffer; its
+length is unsigned, and a line of 128 characters or more is refused
+without being read.
 
 **It accepts less than Gforth, never more,** and gives what it accepts
 Gforth's meaning (checked on Gforth 1.0.0 and 0.7.3):
@@ -239,7 +246,9 @@ Gforth's meaning (checked on Gforth 1.0.0 and 0.7.3):
   is refused, comments included, and the diagnostic never contains the
   character; so is any CR not just before an LF (a lone CR, CR CR LF, a
   CR at the end of the file). A line of 128 characters or more, not
-  counting its LF and that CR, is refused. Nothing is handed to Gforth's
+  counting its LF and that CR, is refused, as soon as a block of the file
+  shows it too long, so a file without LF is not read to its end (nor is
+  `/dev/zero`, which never ends). Nothing is handed to Gforth's
   interpreter: no source token is ever executed, whatever the caller's
   `STATE`, `BASE` or search order (tests feed it `bye`, and `[ 1 throw ]`
   from inside a definition being compiled).
@@ -307,12 +316,17 @@ into a word list of its own), and the words that read as numbers return
 on the host what their IR says. `tests/program/ir_reader_files.py` writes
 files with every kind of line end (LF, CRLF, a lone CR, CR CR LF, a CR at
 the end, no final LF, lines of 127 and 128 characters, a CR at the end of
-the reader's first block), runs the reader on each, and has a fresh Gforth
-load every accepted file and the fixtures: the IR of a CRLF file equals
-that of its LF twin, and the host gives each word the value its IR gives.
-It also records why three files are refused: Gforth ends a line at a lone
-CR, and stops loading at `1 0 /` (−10) and at the smallest cell divided by
-−1 (−11) before `CONSTANT`.
+the reader's first block, a long file without LF), runs the reader on
+each, and has a fresh Gforth load every accepted file and the fixtures:
+the IR of a CRLF file equals that of its LF twin, and the host gives each
+word the value its IR gives. It also records why three files are refused:
+Gforth ends a line at a lone CR, and stops loading at `1 0 /` (−10) and at
+the smallest cell divided by −1 (−11) before `CONSTANT`. The Forth tests
+count the files opened, closed and read: a directory opens but cannot be
+read, `/dev/zero` is refused after two blocks, and every file is closed.
+They also give the reader output words that throw, feed a line, finish,
+or start another read, each of which must stop the read as *invalid*, and
+feed lines after `lf-ir-finish`.
 
 The reader is trusted for the translation: nothing proves that the IR means
 what the source means on the host. Receipts list it as the assumption

@@ -18,8 +18,10 @@ There are two ways in, and both end at the same checker:
 - **In LeanForth itself** (planned): you write the theorem and its proof
   with Forth words. An authoring program, separate from the checker, turns
   them into terms and hands the checker serialized terms only, so nothing
-  the author's code does can reach the checker's memory. The syntax is not
-  designed yet (plan task 8.1.1, ADR 0017); the term builder, the
+  the author's code does can reach the checker's memory. The syntax is
+  proposed, not yet approved or implemented
+  ([ADR 0017](../adr/0017-leanforth-syntax.md), plan task 8.1.1; a short
+  [design sketch](LEANFORTH_SYNTAX_SKETCH.md)); the term builder, the
   separate authoring process and untrusted helpers such as implicit
   arguments and tactics follow (tasks 8.1.2, 8.2.1, 8.3). The same checker
   decides; a LeanForth-written theorem can also be printed as Lean source
@@ -28,7 +30,7 @@ There are two ways in, and both end at the same checker:
 ```mermaid
 flowchart TD
   src["Lean source file (.lean)"]
-  lfsrc["LeanForth source file (.fs)<br/>theorem and proof written with Forth words<br/>syntax: task 8.1.1"]
+  lfsrc["LeanForth source file (.lf, proposed)<br/>theorem and proof written with Forth words<br/>syntax: ADR 0017, proposed"]
   author["Authoring program, its own Gforth process<br/>term builder, implicit arguments, tactics<br/>untrusted; tasks 8.1.2, 8.2.1, 8.3"]
   lean["Lean 4.35.0 elaborates and checks it"]
   exp["leanexport (lean4export 3.1.0)<br/>writes the declarations"]

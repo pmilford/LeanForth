@@ -12,23 +12,32 @@
 \ whatever its outcome. lf-input-intact? tells whether the input is still
 \ as loading left it, as far as counts and identities show: every mark
 \ still valid (no reset, nothing rolled back below it) and the name bytes
-\ still there. Records below the marks are never written again by any
-\ word; tests check that with a digest. lf-input-add checks each record's
-\ ranges and that its references are live, not its typing or scope.
+\ still there (their count not below the count when loading ended).
+\ Records below the marks are never written again by any word; tests
+\ check that with a digest. lf-input-add checks each record's ranges and
+\ that its references are live, not its typing or scope.
 \
 \ Per context, for now. ADR 0012 (E1) makes the input one shared, read-only
 \ tier; today the term, level, name and reference stores are members of
 \ the checker context (lib/context.fs), so the input lives in the context
 \ that loaded it, and so do its declarations and marks. A check can run
 \ only in a context holding the input. lf-input-end records a fingerprint
-\ of the input region (every input store's records, identities, count and
-\ generation below its mark; not the name bytes, which are text); two
-\ contexts that loaded the same input from a fresh start have the same
-\ fingerprint, and an environment (kernel/environment.fs) is bound to the
-\ fingerprint it was made over, so a context holding no input or another
-\ one fails closed. Plan task 7.2.1 splits the stores into a shared input
-\ tier and per-context scratch. Seal only after every context member is
-\ declared: a marked store whose context moves no longer matches its mark.
+\ of the input region: every input store's records, identities, count and
+\ generation below its mark, then the name bytes in use and their count.
+\ Two contexts that loaded the same input from a fresh start have the
+\ same fingerprint, and an environment (kernel/environment.fs) is bound to
+\ the fingerprint it was made over, so a context holding no input or a
+\ different one fails closed.
+\
+\ The fingerprint's limits (ADR 0012, amended 2026-11-02): it guards
+\ against mistakes, such as checking in a context that loaded another
+\ input, not against forgery: FNV-style mixing is not a cryptographic
+\ hash, and two different inputs can share one. It is computed once, when
+\ loading ends; later changes are caught by lf-input-intact? as far as
+\ counts and identities show, never by the fingerprint. Plan task 7.2.1
+\ splits the stores into a shared input tier and per-context scratch.
+\ Seal only after every context member is declared: a marked store whose
+\ context moves no longer matches its mark.
 \
 \ Untrusted [import] data; part of the first checker's [kernel] path, not
 \ yet through the review gate. Up to lf-param-capacity universe
@@ -40,6 +49,7 @@
 \ host-specific and never serialized.
 
 require ../lib/lib.fs
+require ../lib/bytes.fs
 require ./terms.fs
 require ./levels.fs
 require ./names.fs
@@ -99,8 +109,8 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
 : lf-input-bytes ( -- addr ) lf-input-state lf-inrec-name-bytes ;
 : lf-input-sealed? ( -- flag ) lf-input-state lf-inrec-sealed @ true = ;
 
-\ The fingerprint: cells mixed in order (FNV-style, within one host only;
-\ never compared across machines or written out).
+\ The fingerprint: cells, then bytes, mixed in order (FNV-style, within
+\ one host only; never compared across machines or written out).
 : lf-fp-mix ( h x -- h' ) xor 16777619 um* drop ;
 : lf-fp-cells ( h addr n -- h' ) 0 ?do dup @ rot swap lf-fp-mix swap cell+ loop drop ;
 : lf-fp-width ( store -- n ) store-width @ 1 cells / ;
@@ -114,7 +124,11 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
   rot over lf-fp-state -rot 2dup 2>r lf-fp-records 2r> lf-fp-identities ;
 : lf-input-marked ( k -- count store )
   dup lf-input-mark mark-count @ swap lf-input-store ;
-: lf-input-print ( -- h ) 0 lf-input-stores# 0 ?do i lf-input-marked lf-fp-store loop ;
+\ The name bytes in use when loading ended, and their count. Unchecked:
+\ the count is within the pool (lf-input-end checks it).
+: lf-fp-names ( h -- h' ) lf-input-bytes @ tuck lf-fp-mix lf-name-bytes rot bytes-mix ;
+: lf-input-print ( -- h )
+  0 lf-input-stores# 0 ?do i lf-input-marked lf-fp-store loop lf-fp-names ;
 \ The fingerprint recorded when loading ended; 0 before.
 : lf-input-fingerprint ( -- h ) lf-input-state lf-inrec-fingerprint @ ;
 
@@ -163,8 +177,8 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
 \ gives its index: ok; invalid, adding nothing, after loading has ended or
 \ for a record that fails the checks above; full when the store has no
 \ room. lf-input-end marks every input store and ends loading: ok; or
-\ invalid, still loading, when loading had already ended or a store is
-\ invalid.
+\ invalid, still loading, when loading had already ended, the name store
+\ or its byte count is out of range, or a store is invalid.
 : lf-input-copy ( decl -- i outcome )
   lf-inputs store-new-slot 0= if drop -1 outcome-full exit then
   >r /lf-idecl move r> outcome-ok ;
@@ -176,7 +190,7 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
   lf-name-used @ lf-input-bytes ! lf-input-print lf-input-state lf-inrec-fingerprint !
   true lf-input-state lf-inrec-sealed ! ;
 : lf-input-end ( -- outcome )
-  lf-input-sealed? if outcome-invalid exit then
+  lf-input-sealed? lf-name-state-valid? 0= or if outcome-invalid exit then
   ['] lf-mark-ok? lf-input-all? if lf-input-seal outcome-ok else outcome-invalid then ;
 
 \ After a check: every input store back to its mark and the name bytes

@@ -13,7 +13,10 @@
 \ one. It is bound to the fingerprint of the input it was made over: it is
 \ valid only in a context whose input is intact and has that fingerprint,
 \ so a context holding no input, or another one, fails closed (see
-\ input.fs on why the input is per context in v0).
+\ input.fs on why the input is per context in v0, and on the
+\ fingerprint's limits). Environments are made, chosen and freed only
+\ outside jobs (G-P1): inside one, lf-env-new, lf-env-use and lf-env-free
+\ refuse with invalid.
 \
 \ Checks (E4, E5, E7). The check of declaration i runs in its own context
 \ (ADR 0009) and records there its snapshot, (identity, i), with
@@ -23,17 +26,22 @@
 \ union of their axiom sets and provenance, and ends with lf-env-finish.
 \ lf-env-lookup scans the earlier declarations of a name: the accepted one
 \ gives it; else an undecided one (unknown, exhausted, full, invalid)
-\ gives unknown and an unsupported one unsupported (K5); else rejected
-\ (N1: unknown, forward and self references). A same-named earlier slot
-\ that is not final means the check started too early: invalid. In a
-\ parallel run a scheduler starts a check only when lf-env-ready? holds
-\ for every name it uses and its own (G-P5).
+\ gives unknown, and else an unsupported one unsupported (K5; unknown
+\ first when there are both, ADR 0012 E5 as amended); else rejected (N1:
+\ unknown, forward and self references). A same-named earlier slot that
+\ is not final means the check started too early: invalid. In a parallel
+\ run a scheduler starts a check only when lf-env-ready? holds for every
+\ name it uses and its own (G-P5). A context in which a check threw is
+\ spent (G-P6, env-publish.fs): lf-env-begin refuses it, for good.
 \
 \ Handles (E3): (identity, d) of an accepted slot. In a snapshot
 \ (identity', i) one is valid only when identity = identity', d < i and
 \ slot d is final and accepted; every other handle is invalid. In a
 \ parallel run a check must use handles only for slots its readiness made
-\ final; phase 2 checks find constants by name and use none.
+\ final; phase 2 checks find constants by name and use none. Results
+\ (lf-env-outcome, lf-env-axioms, lf-env-handle) are read within the
+\ snapshot too, so a check never reads a later slot (G-P4); after a run,
+\ lf-env-view gives a snapshot of every slot.
 \
 \ Outcomes (E9) are ADR 0008's. Every refusal is invalid; a candidate with
 \ no room for another dependency is full. Nothing here ever makes a failed
@@ -48,9 +56,11 @@
 \ State: the shared record lf-envs (the identity serial and the current
 \ environment; changed only while no job runs), each environment's
 \ ALLOCATEd record (shared, outside every context: written only by the
-\ publisher, read by every check), and the context record lf-env-cand
-\ (one per context, ADR 0009). An environment must be freed only when no
-\ task uses it. The layout is host-specific and never serialized.
+\ publisher, which keeps its pool mark in the header, read by every
+\ check), and two context records, one per context (ADR 0009): the
+\ candidate lf-env-cand and the worker record lf-env-worker. An
+\ environment must be freed only when no task uses it. The layout is
+\ host-specific and never serialized.
 
 require ../lib/lib.fs
 require ../core/diagnostics.fs
@@ -88,6 +98,7 @@ begin-structure /lf-env
                             \ (a test may set one on a synthetic environment)
   field: lf-envh-version    \ allowlist version
   field: lf-envh-mode       \ run mode
+  /store-mark +field lf-envh-pub-mark   \ the publisher's pool mark while it publishes
 end-structure
 
 \ A slot (E2). Only the state and outcome mean anything for a declaration
@@ -114,6 +125,18 @@ begin-structure /lf-cand
 end-structure
 /lf-cand context-record: lf-env-cand
 
+\ A context as a worker (G-P6). Zero in a new context; never cleared.
+begin-structure /lf-worker
+  field: lf-worker-spent    \ true once a check in this context threw
+  field: lf-worker-made     \ true when lf-env-run made this context
+end-structure
+/lf-worker context-record: lf-env-worker
+
+\ Keep x with a true flag, drop it with a false one.
+: ?keep ( x flag -- x true | false ) dup 0= if nip then ;
+\ Whether the current task runs a job (lib/context.fs's owner token).
+: lf-env-in-job? ( -- flag ) lf-owner @ 0<> ;
+
 \ Layout. Unchecked: d is below the length.
 : lf-env ( -- env ) lf-envs lf-envs-current @ ;
 : lf-env-length ( env -- n ) lf-envh-length @ ;
@@ -137,37 +160,45 @@ end-structure
 : lf-env-valid? ( env -- flag ) dup lf-env-live? if lf-env-input? else drop false then ;
 \ The current environment, when it is live and this context's input is
 \ intact and the one it was made over.
-: lf-env-current ( -- env true | false ) lf-env dup lf-env-valid? dup 0= if nip then ;
+: lf-env-current ( -- env true | false ) lf-env dup lf-env-valid? ?keep ;
 
-\ Making, freeing and choosing environments, only while no job runs.
+\ Making, freeing and choosing environments, only outside jobs (G-P1).
 \ lf-env-new gives a new environment over this context's intact input,
 \ with room for deps dependencies and the empty allowlist of version 0, in
-\ final mode: (env ok); (0 invalid) for an input that is not intact or
-\ deps outside 0..lf-env-pool-max; (0 full) when the identities are spent
-\ or memory cannot be allocated.
+\ final mode: (env ok); (0 invalid) inside a job, for an input that is not
+\ intact or deps outside 0..lf-env-pool-max; (0 full) when the identities
+\ are spent or memory cannot be allocated.
 : lf-env-fields ( env -- env )
   lf-input-count over lf-envh-length ! lf-input-fingerprint over lf-envh-input !
   lf-mode-final over lf-envh-mode ! ;
 : lf-env-identity+ ( env -- env )
   1 lf-env-serial +! lf-env-serial @ over lf-envh-identity ! ;
-: lf-env-made ( deps env -- env )
-  lf-env-fields tuck lf-env-pool >r 1 cells 0 r> store-init drop lf-env-identity+ ;
+\ Format the pool and give the environment its identity: (env ok); or
+\ (0 invalid), the memory freed, for a pool shape store-init refuses.
+: lf-env-made ( deps env -- env outcome )
+  lf-env-fields tuck lf-env-pool >r 1 cells 0 r> store-init
+  if lf-env-identity+ outcome-ok else free drop 0 outcome-invalid then ;
 : lf-env-deps? ( deps -- flag ) 0 lf-env-pool-max between? ;
+: lf-env-new-ok? ( deps -- flag )
+  lf-env-deps? lf-input-intact? and lf-env-in-job? 0= and ;
 : lf-env-new ( deps -- env outcome )
-  lf-input-intact? over lf-env-deps? and 0= if drop 0 outcome-invalid exit then
+  dup lf-env-new-ok? 0= if drop 0 outcome-invalid exit then
   lf-env-serial @ max-n = if drop 0 outcome-full exit then
   lf-input-count over lf-env-bytes allocate0 if 2drop 0 outcome-full exit then
-  lf-env-made outcome-ok ;
-\ Free a live environment: ok, or invalid when it is not live (nothing is
-\ freed) or FREE fails. Its identity is cleared first and it stops being
-\ current.
+  lf-env-made ;
+\ Free a live environment: ok, or invalid when it is not live or inside
+\ a job (nothing is freed) or FREE fails. Its identity is cleared first
+\ and it stops being current.
+: lf-env-choosable? ( env -- flag ) lf-env-live? lf-env-in-job? 0= and ;
 : lf-env-forget ( env -- env )
   dup lf-env = if 0 lf-envs lf-envs-current ! then 0 over lf-envh-identity ! ;
 : lf-env-free ( env -- outcome )
-  dup lf-env-live? if lf-env-forget free 0= flag>outcome else drop outcome-invalid then ;
-\ Make a live environment current: ok, or invalid with nothing changed.
+  dup lf-env-choosable? 0= if drop outcome-invalid exit then
+  lf-env-forget free 0= flag>outcome ;
+\ Make a live environment current: ok, or invalid with nothing changed
+\ when it is not live or inside a job.
 : lf-env-use ( env -- outcome )
-  dup lf-env-live? 0= if drop outcome-invalid exit then
+  dup lf-env-choosable? 0= if drop outcome-invalid exit then
   lf-envs lf-envs-current ! outcome-ok ;
 
 \ Slots.
@@ -179,11 +210,7 @@ end-structure
 \ Undecided (K5): unknown, exhausted, full or invalid.
 : lf-slot-undecided? ( slot -- flag )
   lf-slot-outcome@ dup ok? over outcome-rejected = or swap outcome-unsupported = or 0= ;
-: lf-final-slot ( slot -- slot true | false ) dup lf-slot-final? dup 0= if nip then ;
-\ Slot d of the current environment, when d is in range and it is final.
-: lf-env-final-at ( d -- slot true | false )
-  lf-env-current 0= if drop false exit then
-  2dup lf-env-in? if lf-env-slot lf-final-slot else 2drop false then ;
+: lf-final-slot ( slot -- slot true | false ) dup lf-slot-final? ?keep ;
 
 \ Snapshots. lf-env-snapshot gives the current environment and this
 \ context's snapshot of it, (env i true), when the snapshot is of that
@@ -195,9 +222,9 @@ end-structure
 : lf-env-unseen ( -- false )
   lf-env-cand lf-cand-identity @ lf-env-id c" environment lf-env-snapshot"
   lf-diag-no-snapshot lf-diag-note false ;
-: lf-env-keep ( env i flag -- env i true | false ) dup 0= if nip nip then ;
+: lf-env-keep ( env i flag -- env i true | false ) ?keep ?keep ;
 : lf-env-ours ( -- env true | false )
-  lf-env-current 0= if false exit then dup lf-env-mine? dup 0= if nip then ;
+  lf-env-current 0= if false exit then dup lf-env-mine? ?keep ;
 : lf-env-snapshot ( -- env i true | false )
   lf-env-ours 0= if lf-env-unseen exit then
   lf-env-limit 2dup swap lf-env-length upto? lf-env-keep
@@ -212,15 +239,22 @@ end-structure
   2dup lf-env-in? if lf-env-slot lf-slot-open? else 2drop false then ;
 : lf-env-bad-start ( i -- outcome )
   0 c" environment lf-env-begin" lf-diag-bad-argument lf-diag-note outcome-invalid ;
-\ Start the check of declaration i in this context: ok, recording its
-\ snapshot; invalid, with no snapshot, without a valid current environment
-\ or when slot i is out of range or already final. The diagnostic is
-\ cleared, and the candidate starts empty, its outcome invalid until
-\ lf-env-finish.
-: lf-env-begin ( i -- outcome )
-  lf-diag-clear lf-env-clear
+\ A context in which a check threw is spent (G-P6): it must be freed and
+\ replaced, never used for another check.
+: lf-env-spent? ( -- flag ) lf-env-worker lf-worker-spent @ ;
+: lf-env-spend ( -- ) true lf-env-worker lf-worker-spent ! ;
+: lf-env-spent ( i -- outcome )
+  0 c" environment lf-env-begin" lf-diag-publisher-fault lf-diag-note outcome-invalid ;
+: lf-env-start ( i -- outcome )
   lf-env-current 0= if lf-env-unseen 2drop outcome-invalid exit then
   2dup lf-env-open? if lf-env-snap! outcome-ok else drop lf-env-bad-start then ;
+\ Start the check of declaration i in this context: ok, recording its
+\ snapshot; invalid, with no snapshot, in a spent context, without a
+\ valid current environment or when slot i is out of range or already
+\ final. The diagnostic is cleared, and the candidate starts empty, its
+\ outcome invalid until lf-env-finish.
+: lf-env-begin ( i -- outcome )
+  lf-diag-clear lf-env-clear lf-env-spent? if lf-env-spent else lf-env-start then ;
 \ A snapshot of every slot, for queries once a run has ended: ok, or
 \ invalid without a valid current environment. It is not a check.
 : lf-env-view ( -- outcome )
@@ -245,11 +279,11 @@ end-structure
   dup lf-slot-accepted? if nip outcome-ok else drop lf-env-refuse then ;
 
 \ Handles. lf-env-handle gives a handle to slot d of the current
-\ environment, (identity d ok), when the slot is final and accepted, else
-\ (0 -1 invalid). lf-env-handle? checks a handle in this context's
-\ snapshot: ok, or invalid recording lf-diag-env-handle.
+\ environment, (identity d ok), when this context's snapshot may read it
+\ and it is accepted, else (0 -1 invalid). lf-env-handle? checks a handle
+\ in this context's snapshot: ok, or invalid recording lf-diag-env-handle.
 : lf-env-handle ( d -- identity d outcome )
-  dup lf-env-final-at if lf-slot-accepted? else false then
+  dup lf-env-readable if lf-slot-accepted? else false then
   if lf-env lf-envh-identity @ swap outcome-ok else drop 0 -1 outcome-invalid then ;
 : lf-env-foreign ( identity d -- outcome )
   c" environment lf-env-handle?" lf-diag-env-handle lf-diag-note outcome-invalid ;
@@ -271,19 +305,22 @@ end-structure
 : lf-env-any? ( name limit test -- flag ) swap lf-env-first 0< 0= ;
 
 \ Finding a constant (E5) once every same-named slot below limit is final.
-\ K5 records the undecided or unsupported slot; a slot not final records
-\ lf-diag-too-early.
-: lf-env-k5 ( d code -- )
-  >r dup lf-env lf-env-slot lf-slot-outcome@
-  r@ lf-diag-dependency-unsupported = if drop 0 then
-  c" environment lf-env-lookup" r> lf-diag-note ;
-: lf-env-undecided-at ( name limit test code -- flag )
-  >r swap lf-env-first dup 0< if r> 2drop false exit then r> lf-env-k5 true ;
+\ With none accepted, K5 (unknown first, ADR 0012 E5 as amended): the
+\ first undecided slot makes the user unknown, else the first unsupported
+\ one unsupported, each recording that slot; else N1 rejects. A slot not
+\ final records lf-diag-too-early.
+: lf-env-k5-unknown ( d -- outcome )
+  dup lf-env lf-env-slot lf-slot-outcome@ c" environment lf-env-lookup"
+  lf-diag-dependency-undecided lf-diag-note outcome-unknown ;
+: lf-env-k5-unsupported ( d -- outcome )
+  0 c" environment lf-env-lookup" lf-diag-dependency-unsupported lf-diag-note
+  outcome-unsupported ;
+: lf-env-unsupported ( name limit -- outcome )
+  ['] lf-slot-unsupported? swap lf-env-first
+  dup 0< if drop outcome-rejected else lf-env-k5-unsupported then ;
 : lf-env-undecided ( name limit -- outcome )
-  2dup ['] lf-slot-undecided? lf-diag-dependency-undecided lf-env-undecided-at
-  if 2drop outcome-unknown exit then
-  ['] lf-slot-unsupported? lf-diag-dependency-unsupported lf-env-undecided-at
-  if outcome-unsupported else outcome-rejected then ;
+  2dup ['] lf-slot-undecided? swap lf-env-first
+  dup 0< if drop lf-env-unsupported else nip nip lf-env-k5-unknown then ;
 : lf-env-decide ( name limit -- d outcome )
   2dup ['] lf-slot-accepted? swap lf-env-matches case
     0 of lf-env-undecided no-result endof
@@ -302,8 +339,9 @@ end-structure
   lf-diag-note r> else nip nip then ;
 \ Find the constant named name for the check in this context: (d ok) for
 \ the accepted earlier declaration of that name; (-1 rejected) when none
-\ was accepted or undecided (N1); (-1 unknown) or (-1 unsupported) when
-\ one was undecided or unsupported (K5, unknown first); (-1 invalid)
+\ was accepted, undecided or unsupported (N1); (-1 unknown) when one was
+\ undecided, else (-1 unsupported) when one was unsupported (K5, unknown
+\ first); (-1 invalid)
 \ without a valid snapshot or name, when a same-named earlier slot is not
 \ final (started too early), or when two were accepted.
 : lf-env-lookup ( name -- d outcome )
@@ -313,13 +351,16 @@ end-structure
 \ N2 for the declaration being checked, by the same lookup on its own
 \ name: ok when no earlier one of that name was accepted (none, or all
 \ rejected); rejected when one was; unknown or unsupported when one was
-\ undecided or unsupported (K5); invalid as for lf-env-lookup.
+\ undecided or unsupported (K5, unknown first); invalid as for
+\ lf-env-lookup.
 : lf-env-declared ( d -- outcome )
   lf-env-limit lf-input-name swap c" environment lf-env-own-name"
   lf-diag-already-declared lf-diag-note outcome-rejected ;
+\ N2 from the lookup's (d outcome): accepted is a conflict, rejected none;
+\ any other outcome stands.
 : lf-env-n2 ( d outcome -- outcome )
-  case outcome-ok of lf-env-declared endof
-    outcome-rejected of drop outcome-ok endof nip dup endcase ;
+  dup outcome-rejected = if 2drop outcome-ok exit then
+  dup ok? if drop lf-env-declared else nip then ;
 : lf-env-own-name ( -- outcome )
   lf-env-checking 0= if outcome-invalid exit then nip
   lf-name-storage-valid? 0= if drop outcome-invalid exit then
@@ -413,12 +454,14 @@ end-structure
   lf-name-storage-valid? 0= if drop outcome-invalid exit then
   dup lf-input-params lf-params-distinct? if drop outcome-ok else lf-env-repeated then ;
 
-\ Results. The outcome of declaration d in the current environment once
-\ its slot is final, else invalid; the axiom set of an accepted one,
-\ (bits ok), else (0 invalid). Accepted results print "accepted —
-\ experimental, not independently audited; axioms: none" (ADR 0011).
+\ Results, read within this context's snapshot (G-P4; after a run, take
+\ one with lf-env-view). The outcome of declaration d when the snapshot
+\ may read its slot (below its declaration, final), else invalid; the
+\ axiom set of an accepted one, (bits ok), else (0 invalid). Accepted
+\ results print "accepted — experimental, not independently audited;
+\ axioms: none" (ADR 0011).
 : lf-env-outcome ( d -- outcome )
-  lf-env-final-at if lf-slot-outcome@ else outcome-invalid then ;
+  lf-env-readable if lf-slot-outcome@ else outcome-invalid then ;
 : lf-env-axioms ( d -- bits outcome )
-  lf-env-final-at 0= if 0 outcome-invalid exit then
+  lf-env-readable 0= if 0 outcome-invalid exit then
   dup lf-slot-accepted? if lf-slot-axioms @ outcome-ok else drop 0 outcome-invalid then ;

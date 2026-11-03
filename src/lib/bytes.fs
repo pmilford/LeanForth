@@ -18,7 +18,8 @@
 \ reader-position gives the current line's number and file offset for
 \ error messages. Offsets are doubles, so files beyond 2 GB work on
 \ 32-bit hosts too. The file loads in decimal whatever BASE is, then
-\ restores it.
+\ restores it at the end of a successful load (a THROW while loading
+\ leaves BASE decimal: Forth-2012 gives a file no way to restore it then).
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ./lib.fs
@@ -217,4 +218,13 @@ $f0 $f0 6 utf8-class!  $f1 $f3 7 utf8-class!  $f4 $f4 8 utf8-class!
   over utf8-size >r over r@ 1- 6 * rshift r@ utf8-prefix or over c!
   r@ + r@ utf8-put-tail r> ;
 
-base !   \ the BASE this file was loaded with
+\ Mix the bytes addr u into the hash h, one at a time, FNV-style: h
+\ xor the byte, times 16777619, modulo the cell. The same mixing step as
+\ the input fingerprint's (src/core/input.fs), which gives the name bytes
+\ to it here because only text modules read bytes. A guard against
+\ mistakes, not forgery; valid within one host only, never compared
+\ across machines or written out.
+: bytes-mix ( h addr u -- h' )
+  0 ?do dup c@ rot xor 16777619 um* drop swap char+ loop drop ;
+
+base !   \ the BASE this file was loaded with (not reached when loading throws)

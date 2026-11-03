@@ -6,7 +6,8 @@ Usage (from the repository root):
 
 The reader (src/program/ir-reader.fs) splits a file into lines at LF
 itself, drops one CR just before an LF, refuses any other CR and refuses
-a line of 128 characters or more. This test writes files with exactly
+a line of 128 characters or more, without reading the rest of a file that
+has no LF after it. This test writes files with exactly
 such bytes into a temporary directory and runs the reader on each in one
 Gforth: the outcome and the last line written must be as expected, and
 an accepted file must give the IR its LF-only twin gives. Then a second
@@ -70,6 +71,8 @@ CASES = {
     "128": (LINE_128 + b"\n: g 8 ;\n", 1, TOO_LONG, None, None),
     "128-crlf": (LINE_128 + b"\r\n", 1, TOO_LONG, None, None),
     "128-last": (LINE_128, 1, TOO_LONG, None, None),
+    # Refused once a block ends with the line too long, before the file ends.
+    "long-no-lf": (b"\\ " + b"x" * 1000, 1, TOO_LONG, None, None),
     "lone-cr": (b"\\ x\r" + F7 + b"\n", 5, f"unsupported @1:4: {CHARACTER}", "f", "7"),
     "cr-cr-lf": (F7 + b"\r\r\n: g 8 ;\n", 5, f"unsupported @1:8: {CHARACTER}", None, None),
     "cr-at-end": (F7 + b"\r", 5, f"unsupported @1:8: {CHARACTER}", None, None),

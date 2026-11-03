@@ -11,7 +11,8 @@
 \ environment made over it beforehand, a serial run of the synthetic
 \ checks with every publication. Allowed by name is the one record that
 \ shared state only the publishing task writes, outside jobs: the
-\ publisher's pool mark lf-pub-mark (env-publish.fs). The layout is
+\ environment registry lf-envs (environment.fs); the environments
+\ themselves, with the publisher's pool mark, are on the heap. The layout is
 \ sealed before the copy is taken, since the first context-new sets its
 \ flag once. Include after checker-trial.fs and env-cases.fs. Test-only.
 
@@ -29,11 +30,11 @@ variable dict-lane     \ the environment run's context
 
 \ The work; the environment run's outcome (ok when every declaration ran).
 : dict-trial-run ( -- ) dict-trial @ context-use 3 2000 0 trial-start trial-run ;
-: dict-env-run ( -- outcome ) dict-lane @ context-use ['] syn-check lf-env-run ;
+: dict-env-run ( -- outcome ) dict-lane @ context-use ['] syn-check ['] main-maker lf-env-run ;
 : dict-work ( -- outcome ) dict-trial-run dict-env-run context-main context-use ;
 
 \ Bytes that differ from the copy, outside the allowed record.
-: dict-shared? ( addr -- flag ) lf-pub-mark dup /store-mark + within ;
+: dict-shared? ( addr -- flag ) lf-envs dup /lf-envs + within ;
 : dict-changed? ( i -- flag )
   dup dict-start + dup dict-shared? if 2drop false exit then c@ swap dict-copy + c@ <> ;
 : dict-changes ( -- n ) 0 dict-bytes 0 ?do i dict-changed? - loop ;

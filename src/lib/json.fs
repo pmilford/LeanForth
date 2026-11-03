@@ -16,7 +16,8 @@
 \ keep their digits as text, whatever their size; json-natural and json-u
 \ read natural numbers from them, always in decimal: nothing here depends
 \ on BASE, and the file itself loads in decimal whatever BASE is, then
-\ restores it.
+\ restores it at the end of a successful load (a THROW while loading
+\ leaves BASE decimal: Forth-2012 gives a file no way to restore it then).
 \
 \ Failure is total: json-parse gives ok only for a complete, valid text,
 \ and otherwise invalid (bad syntax, bad escape, invalid UTF-8, a control
@@ -454,4 +455,4 @@ max-n decimal-width constant cell-digits
   dup 0= if 2drop false exit then over c@ [char] 0 = over 1 > and if 2drop false exit then
   over + swap digits-end = ;
 
-base !   \ the BASE this file was loaded with
+base !   \ the BASE this file was loaded with (not reached when loading throws)

@@ -11,6 +11,10 @@ structure of [ADR 0009](0009-reentrant-state-and-parallel-checking.md)
 (accepted), and answers questions 2, 5 and 6 of
 [the checked-environment review packet](../reviews/CHECKED_ENVIRONMENT_REVIEW.md).
 
+Amended 2026-11-02 ([Amendment 1](#amendment-1-2026-11-02-after-the-independent-review-of-v0)):
+stricter or clarifying changes after the independent review of the
+implementation; the status above is unchanged.
+
 ## Summary in plain words
 
 The checked environment is LeanForth's library of accepted declarations.
@@ -222,10 +226,13 @@ A check of declaration `i` runs entirely in its context:
 The publisher then fills slot `i`:
 
 1. For ok, it re-checks the candidate's cheap invariants against the
-   environment: no accepted slot below `i` has the same name (N2); every
-   dependency is below `i`, final and accepted; the axiom set is the union
-   of the dependencies' sets; kind and safety are in scope. A failure means
-   a fault in LeanForth, and the outcome becomes *invalid*.
+   environment: every slot below `i` with the same name is final and
+   *rejected* (N2 with K5: an accepted, undecided or unsupported one, or
+   one not yet final, fails the re-check; amended 2026-11-02, see
+   [Amendment 1](#amendment-1-2026-11-02-after-the-independent-review-of-v0));
+   every dependency is below `i`, final and accepted; the axiom set is the
+   union of the dependencies' sets; kind and safety are in scope. A failure
+   means a fault in LeanForth, and the outcome becomes *invalid*.
 2. It writes the record fields (ok) or only the outcome (anything else).
 3. Last, under the publisher's lock, it marks the slot final. This is the
    single point at which a result becomes visible.
@@ -247,7 +254,11 @@ the scheduler) looks at the earlier declarations whose input name is `X`:
 - one of them is final and accepted: use it (by N2 there is at most one);
 - otherwise, if one is final with *unknown*, *exhausted*, *full* or
   *invalid*: the user ends *unknown*; with *unsupported*: *unsupported*
-  (K5);
+  (K5). When there are both an undecided and an unsupported one, the user
+  is *unknown*, whatever their order: unknown first, the cautious answer
+  (amended 2026-11-02, see
+  [Amendment 1](#amendment-1-2026-11-02-after-the-independent-review-of-v0);
+  the owner is asked to confirm);
 - otherwise (none, or all *rejected*): `X` is unknown to Lean too, and the
   user is *rejected* (N1).
 
@@ -259,7 +270,8 @@ If a needed slot is not final when the checker looks, the scheduler started
 the check too early: the check ends *invalid*, never accepted. The same
 lookup on the declaration's own name decides N2: an accepted earlier
 declaration of that name makes it *rejected*, an undecided one *unknown*
-(K5), and a rejected one is no conflict.
+and an unsupported one *unsupported* (K5, unknown first), and a rejected
+one is no conflict.
 
 ### E6 The transitive axiom set
 
@@ -333,7 +345,10 @@ How ADR 0009's contexts fit, phase 7 in view (phase 2 has one task):
 - **G-P6 Failures stay inside the job.** A `THROW` in a check is caught at
   the job boundary (`job-run` in `src/lib/task.fs`); the declaration ends
   *invalid* (internal fault), the worker's context is freed and replaced
-  rather than reused, and no slot is affected.
+  rather than reused, and no slot is affected. The same holds for the
+  serial driver of phase 2, which catches the `THROW` itself (amended
+  2026-11-02, see
+  [Amendment 1](#amendment-1-2026-11-02-after-the-independent-review-of-v0)).
 - **G-P7 No speculation.** No check uses a declaration that is not final
   and accepted (question G9).
 
@@ -462,6 +477,61 @@ success.
   and generation counters; a new environment is cheap.
 - **Checks writing their own results into the environment under a lock.**
   More writers and harder review than one publisher.
+
+## Amendment 1 (2026-11-02): after the independent review of v0
+
+The independent review of the first implementation (plan task 2.2.2,
+`src/kernel/environment.fs` and `env-publish.fs`) found two faults and
+several gaps. The changes below are stricter than, or clarify, the design
+the owner accepted; they leave its status unchanged. The owner is asked
+to confirm item 3.
+
+1. **The publisher's name re-check (E4 step 1).** The design said "no
+   accepted slot below `i` has the same name". That let an ok claim
+   through when an earlier declaration of the same name was *undecided*
+   or *unsupported*, where the check's own N2 lookup (E5) gives *unknown*
+   or *unsupported* (K5): Lean may have accepted that earlier declaration
+   and would then reject this one as already declared. The re-check now
+   requires every same-named slot below `i` to be final and *rejected*,
+   exactly the case in which the check's own N2 lookup says ok. A claim
+   that fails it is a fault in LeanForth and is recorded as *invalid*.
+2. **Replacing the context after a `THROW` (G-P6), also in the serial
+   driver.** A `THROW` in a check can leave a context's state
+   inconsistent (for example, walk frames still marked busy). The
+   declaration is *invalid*, and the context is *spent*: it can begin no
+   further check, and is freed and replaced rather than reused. In v0 the
+   input is per context (E1, `src/core/input.fs`), so the serial driver
+   gets a replacement from a maker the caller supplies, which must load the
+   same input; the environment's input fingerprint (item 4) refuses any
+   other. The driver frees the contexts it made and never frees the
+   caller's. A parallel scheduler does the same at the job boundary. Once
+   the input is a shared tier (plan task 7.2.1) the maker needs no reload.
+3. **K5's tie-break (E5).** When the earlier declarations of a name
+   include both an *undecided* and an *unsupported* one and none is
+   accepted, a use of the name, and N2 on it, give *unknown*, whatever
+   their order. This is the cautious choice: *unknown* says that more work
+   might decide the question; neither answer is ever accepted.
+   Recommendation to the owner: confirm unknown first.
+4. **The input fingerprint: purpose and limits (E1).** Because the input
+   is per context in v0, an environment records a fingerprint of the input
+   it was made over, and is usable only in a context whose input is intact
+   and has that fingerprint. The fingerprint covers every input store's
+   records, identities, count and generation below its mark, and, since
+   this amendment, the name bytes and their count (before, two inputs
+   differing only in the text of their names had the same fingerprint).
+   It guards against mistakes, such as checking in a context that loaded
+   another input; it is not a defence against forgery (its FNV-style
+   mixing is not a cryptographic hash, and two inputs can share one). It is
+   computed once, when loading ends; later changes to the input are caught
+   by the store marks as far as counts and identities show, and by the
+   tests' digests, never by the fingerprint.
+
+The same review led to further implementation fixes that change no rule
+of this design: only the publisher's entry may publish, and environments
+are made, chosen and freed only outside jobs (G-P1); a check that begins
+another declaration is a fault; results and handles are read within the
+check's snapshot (G-P4); a pool that cannot be marked is a fault; and the
+test-only fault-injection hook is compiled only into tests.
 
 ## Reproduction
 

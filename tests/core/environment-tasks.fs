@@ -12,8 +12,12 @@
 \ order opposite to their submission; it picks the lowest ready
 \ declarations in one run and the highest in another, so the order of
 \ publication differs from the input's. A context without the input, or
-\ with another one, sees no environment; a check started before a slot it
-\ needs is final ends invalid, never accepted.
+\ with another one, even one that differs only in the text of its names,
+\ sees no environment; a check started before a slot it needs is final
+\ ends invalid, never accepted. A check that throws in its job is
+\ invalid and its lane's context is replaced (G-P6), giving the verdicts
+\ of the serial run with the same THROW. Inside a job nothing publishes,
+\ makes, chooses or frees an environment (G-P1).
 include ../support/tester.fs
 include ../support/checks.fs
 require ../../src/lib/task.fs
@@ -36,14 +40,25 @@ end-structure
   tick trace trace-first @ 0= if dup trace trace-first ! then trace trace-last ! task-yield ;
 ' traced is syn-pause
 
-\ The serial reference, in the main context.
+\ The serial reference, in the main context; and, with a check that
+\ throws for declaration 1, in a context the run's maker gives.
 main-input
 lf-input-fingerprint constant main-print
 8 fresh-env
-T{ ' syn-check lf-env-run -> outcome-ok }T
+T{ ' syn-check ' main-maker lf-env-run -> outcome-ok }T
 env-content constant serial-content
 T{ main-count verdicts-match? -> true }T
 env-free
+variable throw-in  -1 throw-in !
+: lane-check ( -- ) me throw-in @ = if -79 throw then syn-check ;
+main-maker throw constant spare
+spare context-use
+1 throw-in ! 8 fresh-env
+T{ ' lane-check ' main-maker lf-env-run lf-env-spent? -> outcome-ok true }T
+env-content constant thrown-content
+-1 throw-in !
+env-free context-main context-use
+T{ spare context-free -> 0 }T
 
 \ Two lanes, each a context holding the same world and input, with its
 \ job and the job's result.
@@ -83,6 +98,24 @@ T{ bare context-free -> 0 }T
 T{ 0 lf-env-begin -> outcome-ok }T
 home
 env-free
+\ Nor does a context whose input differs only in the text of its names:
+\ the same structure, lengths and IDs, other letters. The environment
+\ holds the main input's verdicts; nothing named a was checked there.
+: lower ( -- c-addr u ) s" abcdefghijklmnpqrstxyzUVW" ;
+: lower-world ( -- )
+  lower nip 0 ?do lower drop i + 1 intern i name-at ! loop
+  s" Nzt" intern dup 25 name-at ! s" adx" sub 26 name-at !
+  0 sort-term t-type <> 1 sort-term t-value <> or abort" lower: terms" ;
+8 fresh-env
+T{ ' syn-check ' main-maker lf-env-run -> outcome-ok }T
+name-ids ids-before most-names cells move
+context-new throw constant other
+other context-use lower-world main-input
+T{ lf-input-fingerprint main-print = lf-env-view 0 lf-env-outcome -> false outcome-invalid outcome-invalid }T
+T{ 0 s" a" lf-name-str drop lf-env-lookup 0 lf-env-handle -> -1 outcome-invalid 0 -1 outcome-invalid }T
+home ids-before name-ids most-names cells move
+T{ other context-free -> 0 }T
+env-free
 
 \ Readiness (G-P5): the declaration's own name and every name it uses.
 : used ( i k -- name ) cells swap plan plan-uses + @ ;
@@ -106,15 +139,20 @@ variable high?
   in-lane trace /trace erase lf-env-begin ok? 0= if fault then home ;
 : submit ( i k -- )
   over unpend tuck begin-in
-  dup lane-contexts lane @ ['] syn-check job-submit throw swap lane-jobs lane ! ;
+  dup lane-contexts lane @ ['] lane-check job-submit throw swap lane-jobs lane ! ;
 \ Waiting for n lanes, then publishing them, the last lane first, each in
-\ its own context, whose scratch is then rolled back; a job that did not
-\ return cleanly makes its declaration invalid (G-P6).
+\ its own context, whose scratch is then rolled back. A job that did not
+\ return cleanly makes its declaration invalid and spends its context,
+\ which is then freed and replaced (G-P6).
+variable renewals
 : await-all ( n -- ) 0 ?do i lane-jobs lane @ job-wait i lane-iors lane ! loop ;
 : rollback ( -- ) lf-input-rollback ok? 0= if fault then ;
+: renew-lane ( k -- ) dup lane-contexts lane @ context-free throw make-lane 1 renewals +! ;
+: hand-lane ( ior -- spent? )
+  ?dup if lf-env-thrown then lf-env-hand-over nip if fault then rollback lf-env-spent? ;
 : publish-lane ( k -- )
-  dup lane-iors lane @ swap in-lane if outcome-invalid lf-env-finish then
-  lf-env-hand-over nip if fault then rollback 1 published +! home ;
+  dup lane-iors lane @ over in-lane hand-lane home 1 published +!
+  if renew-lane else drop then ;
 : publish-all ( n -- ) begin dup while 1- dup publish-lane repeat drop ;
 : trace@ ( k -- first last ) in-lane trace trace-first @ trace trace-last @ home ;
 : overlap? ( -- flag ) 0 trace@ 1 trace@ rot < >r < r> and ;
@@ -127,17 +165,50 @@ variable high?
 : round ( -- n ) fill-lanes dup await-all dup count-overlap dup publish-all ;
 : schedule ( -- ) mark-pending begin round 0= until ;
 : parallel-run ( high? -- )
-  high? ! 0 faults ! 0 published ! 0 overlaps ! 8 fresh-env schedule ;
+  high? ! 0 faults ! 0 published ! 0 overlaps ! 0 renewals ! 8 fresh-env schedule ;
 
 false parallel-run
 T{ faults @ published @ main-count verdicts-match? -> 0 main-count true }T
-T{ env-content serial-content = -> true }T
+T{ env-content serial-content = renewals @ -> true 0 }T
 T{ cooperative? overlaps @ 0> and cooperative? 0= or -> true }T
 env-free
 true parallel-run
 T{ faults @ published @ main-count verdicts-match? -> 0 main-count true }T
-T{ env-content serial-content = -> true }T
+T{ env-content serial-content = renewals @ -> true 0 }T
 T{ cooperative? overlaps @ 0> and cooperative? 0= or -> true }T
+env-free
+\ The check of declaration 1 throws in its job: it is invalid, its lane's
+\ context is replaced once, and the environment is the serial run's with
+\ the same THROW.
+1 throw-in !
+false parallel-run
+T{ faults @ published @ renewals @ env-content thrown-content = -> 0 main-count 1 true }T
+lf-env-view drop
+T{ 1 lf-env-outcome 8 lf-env-outcome 26 lf-env-outcome -> outcome-invalid outcome-unknown outcome-ok }T
+env-free
+true parallel-run
+T{ faults @ published @ renewals @ env-content thrown-content = -> 0 main-count 1 true }T
+env-free
+-1 throw-in !
+
+\ Inside a job nothing publishes, makes, chooses or frees an environment
+\ (G-P1): a job that checks declaration 0 and then tries all four is
+\ refused each time, and slot 0 stays open until the scheduler publishes.
+create tries 6 cells allot
+: try! ( x k -- ) cells tries + ! ;
+: job-tries ( -- )
+  syn-check lf-env-hand-over 1 try! 0 try! 8 lf-env-new 3 try! 2 try!
+  lf-env lf-env-use 4 try! lf-env lf-env-free 5 try! ;
+: try@ ( k -- x ) cells tries + @ ;
+8 fresh-env
+0 0 begin-in
+T{ 0 lane-contexts lane @ ' job-tries job-submit throw job-wait -> 0 }T
+T{ 0 try@ 1 try@ 2 try@ 3 try@ -> outcome-invalid true 0 outcome-invalid }T
+T{ 4 try@ 5 try@ 0 slot@ lf-slot-final? -> outcome-invalid outcome-invalid false }T
+0 in-lane
+T{ lf-env-hand-over rollback -> outcome-ok false }T
+home
+T{ 0 slot@ lf-slot-final? lf-env-view 0 lf-env-outcome -> true outcome-ok outcome-ok }T
 env-free
 
 \ A check started before a slot it needs is final ends invalid: 1 uses 0,
@@ -145,7 +216,7 @@ env-free
 : early ( -- ) 0 0 submit 1 1 submit 2 await-all 2 publish-all ;
 8 fresh-env
 0 faults !
-T{ early faults @ 0 lf-env-outcome 1 lf-env-outcome -> 0 outcome-ok outcome-invalid }T
+T{ early faults @ lf-env-view 0 lf-env-outcome 1 lf-env-outcome -> 0 outcome-ok outcome-ok outcome-invalid }T
 T{ 1 lf-env-handle nip nip -> outcome-invalid }T
 1 in-lane
 T{ lf-diag@ nip -> 0 1 lf-diag-too-early }T

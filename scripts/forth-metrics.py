@@ -12,7 +12,12 @@ Default paths: src/. Prints, per file and in total:
     context-walk2:, context-frames:; src/lib/context.fs) are state too, but
     one copy per checker context, and are counted separately as members.
     CONSTANTs are counted separately; structure words define layouts, not
-    state, and are not counted
+    state, and are not counted. A word that the word before it reads as a
+    name is not counted either, such as the JSON key after nd-member in
+    `0 let-value ' v-expr nd-member value`: the words that read one are
+    the defining and parsing words above, ' ['] POSTPONE CHAR [CHAR]
+    [DEFINED] [UNDEFINED], and every colon definition that uses CREATE,
+    PARSE-NAME, PARSE or WORD, directly or through another such word
   - locals: Gforth `{: ... :}` / `{ ... }` and standard `LOCALS|`
   - deep stack shuffling (ROT -ROT PICK ROLL 2SWAP 2OVER 2ROT) and
     return-stack use (>R R> R@ 2>R 2R> 2R@)
@@ -39,6 +44,10 @@ NOT_STATE = {"begin-structure", "end-structure", "+field", "field:", "cfield:"}
 # Defining words that declare per-context state (src/lib/context.fs).
 MEMBERS = {"context-record:", "context-store:", "context-walk:", "context-walk2:",
            "context-frames:"}
+# Standard words that read the next word of the source as a name.
+NAMING = {"'", "[']", "postpone", "char", "[char]", "[defined]", "[undefined]"}
+# Words whose use in a colon definition makes it read a name too.
+READERS = {"create", "parse-name", "parse", "word"}
 
 
 def tokens(text):
@@ -75,34 +84,56 @@ def tokens(text):
             i = j
 
 
-def definers(paths):
-    """Names of colon definitions whose body uses CREATE, directly or through
-    another defining word (such as walk2: through walk-sized)."""
-    bodies = {}
+def bodies(paths):
+    """The words of each colon definition's body, by name, leaving out the
+    structure words."""
+    found = {}
     for path in paths:
         toks = [t for _, t in tokens(path.read_text(encoding="utf-8", errors="replace"))]
         for k, tok in enumerate(toks[:-1]):
             if tok == ":":
                 end = toks.index(";", k) if ";" in toks[k:] else len(toks)
                 if toks[k + 1] not in NOT_STATE:
-                    bodies[toks[k + 1]] = set(toks[k + 2:end])
+                    found[toks[k + 1]] = set(toks[k + 2:end])
+    return found
+
+
+def users(bodies, seeds):
+    """Names whose body uses one of seeds, directly or through another such
+    name."""
     found, grown = set(), True
     while grown:
         new = {name for name, body in bodies.items()
-               if name not in found and ("create" in body or body & found)}
+               if name not in found and (body & seeds or body & found)}
         found |= new
         grown = bool(new)
-    return found - MEMBERS
+    return found
 
 
-def analyse(path, defining=frozenset()):
+def definers(paths):
+    """Names of colon definitions whose body uses CREATE, directly or through
+    another defining word (such as walk2: through walk-sized)."""
+    return users(bodies(paths), {"create"}) - MEMBERS
+
+
+def namers(paths):
+    """Every word that reads the next word of the source as a name."""
+    return (users(bodies(paths), READERS) | NAMING | GLOBALS | CONSTANTS | MEMBERS
+            | NOT_STATE - {"end-structure"})
+
+
+def analyse(path, defining=frozenset(), naming=frozenset()):
     text = path.read_text(encoding="utf-8", errors="replace")
     toks = list(tokens(text))
     defs, stats = [], Counter()
     stats["long lines"] = sum(len(line) > 90 for line in text.splitlines())
-    k = 0
+    k, named = 0, False
     while k < len(toks):
         line, tok = toks[k]
+        if named:                # a name the word before reads, not a use
+            named = False
+            k += 1
+            continue
         if tok in MEMBERS:
             stats["members"] += 1
             stats["member:" + tok] += 1
@@ -111,6 +142,7 @@ def analyse(path, defining=frozenset()):
             stats["global:" + tok] += 1
         elif tok in CONSTANTS:
             stats["constants"] += 1
+        named = tok in naming or tok in defining
         if tok in (":", ":noname"):
             name = toks[k + 1][1] if tok == ":" and k + 1 < len(toks) else ":noname"
             body_start = k + (2 if tok == ":" else 1)
@@ -165,9 +197,9 @@ def main(argv):
     by_dir = {}
     # Defining words are found in all of src/, whichever files are reported.
     project = sorted(pathlib.Path(__file__).resolve().parent.parent.glob("src/**/*.fs"))
-    defining = definers(files + project)
+    defining, naming = definers(files + project), namers(files + project)
     for path in files:
-        defs, stats = analyse(path, defining)
+        defs, stats = analyse(path, defining, naming)
         print(summarise(str(path), defs, stats))
         all_defs += [dict(d, file=str(path)) for d in defs]
         all_stats.update(stats)

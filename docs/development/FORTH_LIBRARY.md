@@ -180,7 +180,7 @@ interpreter (`program/ir-reader.fs`, `ir-run.fs`). What stays shared is
 read-only once loading ends — constants, tables filled while loading (such
 as the diagnostic catalogue), the deferred words set once while loading
 (`lf-lvalue-walk`, `lf-lcmp-walk`, `lf-minfer-walk`) and the site names —
-except the checked environment's records (`lf-envs`, `lf-pub-mark`), which
+except the checked environment's registry (`lf-envs`; environments are on the heap), which
 only the task driving the checks writes, outside jobs. Each context holds
 104,296 bytes on a 64-bit host (`context-bytes` after `src/main.fs` loads,
 Gforth 0.7.3 and 1.0 alike; measured 2026-11-02, once the program reader
@@ -195,7 +195,7 @@ checks the conversion of the core and kernel modules, and
 - *No state outside the context.* The dictionary that the library, the job
   pool and the modules lay down while loading must be unchanged, byte for
   byte, after real checker work in contexts (`tests/support/dictionary-check.fs`;
-  allowed by name is the publisher's mark `lf-pub-mark`, written only by
+  allowed by name is the environment registry `lf-envs`, written only by
   the driving task): a trial of 2,000 steps (below) in one context, and a
   serial run of the checked environment's synthetic checks with every
   publication in another; `contexts-main.fs` also stages a loader batch,

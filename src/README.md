@@ -42,8 +42,8 @@ audit, any accepted result is *experimental — not independently audited*.
   `frames:`. Constants, tables filled while loading and deferred words set
   once while loading are shared and read-only. Shared and writable, besides
   the job pool's own records (`lib/task.fs`), are only the checked
-  environment's records (`lf-envs` in `kernel/environment.fs`,
-  `lf-pub-mark` in `kernel/env-publish.fs`), which only the task driving
+  environment's registry (`lf-envs` in `kernel/environment.fs`; the
+  environments themselves are on the heap), which only the task driving
   the checks writes, outside jobs, and the NDJSON counter's export record
   (below).
   `tests/core/contexts.fs` (the core and kernel modules) and
