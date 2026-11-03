@@ -6,12 +6,24 @@ reader (src/import/ndjson.fs). It assumes a valid export; with --check it
 also checks, independently of the Forth code, that record indices are dense
 and in order and that every reference names an earlier record, and fails
 otherwise. The Forth reader's other fail-closed checks are tested
-separately. Untrusted, development only.
+separately. It is lenient where Python's json module is (a duplicate key
+keeps its last value), so it is meant for valid exports, such as all of
+Mathlib, where it is fast; the strict oracle for malformed input is
+tests/support/ndjson_oracle.py. NaN and Infinity are refused, and integers
+of any length are read. Untrusted, development only.
 Usage: python3 tests/support/ndjson_dump.py [--check] FILE
 """
 
 import json
 import sys
+
+if hasattr(sys, "set_int_max_str_digits"):
+    sys.set_int_max_str_digits(0)
+
+
+def no_constant(name):
+    raise ValueError("not JSON: " + name)
+
 
 BINDER = {"default": 0, "implicit": 1, "strictImplicit": 2, "instImplicit": 3}
 SAFETY = {"safe": 0, "unsafe": 1, "partial": 2}
@@ -212,7 +224,7 @@ def main():
     counts = Counts()
     with open(sys.argv[-1], "rb") as f:
         for raw in f:
-            o = json.loads(raw.decode("utf-8"))
+            o = json.loads(raw.decode("utf-8"), parse_constant=no_constant)
             if check:
                 check_refs(o, counts)
             if "meta" in o:

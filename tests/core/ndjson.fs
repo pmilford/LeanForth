@@ -102,6 +102,11 @@ T{ s\" {\"ie\":0,\"sort\":4}" feed kind@ index@ snap sort-level @ -> outcome-ok 
 T{ s\" {\"bvar\":3,\"ie\":1}" feed kind@ snap bvar-index @ -> outcome-ok kind-bvar 3 }T
 T{ s\" {\"const\":{\"name\":1,\"us\":[0,4,2]},\"ie\":2}" feed kind@ snap const-name @ -> outcome-ok kind-const 1 }T
 T{ snap const-levels @ snap list-count 1 snap const-levels @ snap list-item -> 3 4 }T
+\ List readers check their index and their list.
+T{ 2 snap const-levels @ snap list-item 3 snap const-levels @ snap list-item -> 2 -1 }T
+T{ -1 snap const-levels @ snap list-item -> -1 }T
+T{ -1 snap list-count 0 snap list-count 1 snap list-count 99 snap list-count -> 0 0 0 0 }T
+T{ 0 -1 snap list-item -> -1 }T
 T{ s\" {\"app\":{\"arg\":1,\"fn\":2},\"ie\":3}" feed kind@ snap app-fn @ snap app-arg @ -> outcome-ok kind-app 2 1 }T
 T{ s\" {\"ie\":4,\"lam\":{\"binderInfo\":\"implicit\",\"body\":1,\"name\":0,\"type\":0}}" feed
    kind@ snap binder-name @ snap binder-type @ snap binder-body @ snap binder-info @
@@ -201,8 +206,11 @@ T{ kind@ index@ snap decl-name @ snap recursor-num-minors @ snap recursor-k @ ->
 T{ snap recursor-rules @ snap list-count -> 2 }T
 T{ 1 snap recursor-rule dup rule-ctor @ over rule-fields @ rot rule-rhs @ -> 4 0 6 }T
 T{ 0 snap recursor-rule rule-rhs @ -> 5 }T
+T{ 2 snap recursor-rule -1 snap recursor-rule -> 0 0 }T
 T{ ex export-decls @ -> 7 }T
-: bad-block ( c-addr u c-addr u c-addr u -- outcome ) block-of feed ex export-decls @ 7 <> if drop -9 then ;
+\ A bad block hands nothing over, not even the block's own record.
+: bad-block ( c-addr u c-addr u c-addr u -- outcome )
+  0 calls ! block-of feed ex export-decls @ 7 <> calls @ 0<> or if drop -9 then ;
 T{ s" " s" " s" " bad-block why s" inductive block without types" compare -> outcome-invalid 0 }T
 T{ ctor-json rec-json s" 1" bad-block -> outcome-invalid }T
 T{ ctor-json s\" {\"all\":[1]}" type-json bad-block -> outcome-invalid }T
@@ -211,15 +219,43 @@ T{ s\" {\"cidx\":0,\"induct\":0,\"isUnsafe\":false,\"levelParams\":[],\"name\":2
 T{ ctor-json s\" {\"all\":[1],\"isUnsafe\":false,\"k\":true,\"levelParams\":[3],\"name\":4,\"numIndices\":0,\"numMinors\":1,\"numMotives\":1,\"numParams\":1,\"rules\":[{\"ctor\":2,\"nfields\":2,\"rhs\":13}],\"type\":0}"
    type-json bad-block failed-field s" rhs" compare -> outcome-invalid 0 }T
 
-\ Handlers: a missing one is unsupported; their outcomes stop reading.
+\ Handlers: a missing one is unsupported; their outcomes stop reading, with
+\ a reason and no field left over from decoding.
 : refuse-app ( -- ) ['] export-refused kind-app ex export-handler ! ;
 : allow-app ( -- ) ['] capture kind-app ex export-handler ! ;
+: app-handler ( xt -- ) kind-app ex export-handler ! ;
 : says-rejected ( record -- outcome ) drop outcome-rejected ;
 : says-garbage ( record -- outcome ) drop 77 ;
-T{ refuse-app s\" {\"app\":{\"arg\":1,\"fn\":2},\"ie\":13}" feed ex export-exprs @ -> outcome-unsupported 13 }T
-T{ ' says-rejected kind-app ex export-handler ! s\" {\"app\":{\"arg\":1,\"fn\":2},\"ie\":13}" feed -> outcome-rejected }T
-T{ ' says-garbage kind-app ex export-handler ! s\" {\"app\":{\"arg\":1,\"fn\":2},\"ie\":13}" feed -> outcome-invalid }T
-T{ allow-app s\" {\"app\":{\"arg\":1,\"fn\":2},\"ie\":13}" feed ex export-exprs @ -> outcome-ok 14 }T
+: app-13 ( -- c-addr u ) s\" {\"app\":{\"arg\":1,\"fn\":2},\"ie\":13}" ;
+T{ refuse-app app-13 feed ex export-exprs @ -> outcome-unsupported 13 }T
+T{ why s" no handler for this record kind" compare failed-field nip -> 0 0 }T
+T{ ' says-rejected app-handler app-13 feed why s" handler refused the record" compare
+   failed-field nip -> outcome-rejected 0 0 }T
+T{ ' says-garbage app-handler app-13 feed why s" handler refused the record" compare
+   -> outcome-invalid 0 }T
+\ The handler contract: exactly one outcome, checked by depth.
+: says-twice ( record -- outcome x ) drop outcome-ok 5 ;
+: says-nothing ( record -- ) drop ;
+: takes-two ( x record -- ) 2drop ;
+T{ ' says-twice app-handler app-13 feed why s" handler left no outcome or extra items" compare
+   ex export-exprs @ -> outcome-invalid 0 13 }T
+T{ ' says-nothing app-handler app-13 feed -> outcome-invalid }T
+T{ ' takes-two app-handler app-13 ' feed catch nip nip ex export-busy @ -> -4 true }T
+\ export-restart ends the busy mark the THROW left; then 13 sorts again.
+T{ ex export-restart ex export-busy @ ex export-exprs @ -> 0 0 }T
+: sort-line ( n -- c-addr u )
+  0 block-length ! s\" {\"ie\":" +block-text 0 <# #s #> +block-text
+  s\" ,\"sort\":0}" +block-text block-text block-length @ ;
+: thirteen ( -- outcome ) started 13 0 do i sort-line feed or loop ;
+T{ thirteen ex export-exprs @ -> outcome-ok 13 }T
+\ No reading the same export again from its handler.
+: reads-line ( record -- outcome ) drop app-13 ex export-line ;
+: reads-file ( record -- outcome ) drop s" tests/reference/identity.ndjson" ex export-read ;
+T{ ' reads-line app-handler app-13 feed why s" export read again by its own handler" compare
+   ex export-busy @ -> outcome-invalid 0 0 }T
+T{ ' reads-file app-handler app-13 feed ex export-busy @ ex export-exprs @
+   -> outcome-invalid 0 13 }T
+T{ allow-app app-13 feed ex export-exprs @ -> outcome-ok 14 }T
 
 \ Framing and syntax inside a line.
 T{ s\" {\"ie\":14,\"sort\":0}\r" feed why s" carriage return or byte-order mark" compare -> outcome-invalid 0 }T
@@ -237,12 +273,72 @@ T{ s" tests/reference/identity.ndjson" read-fixture -> outcome-ok 12 }T
 T{ s" tests/reference/poly-identity.ndjson" read-fixture -> outcome-ok 30 }T
 T{ s" tests/reference/type-identity.ndjson" read-fixture -> outcome-ok 29 }T
 T{ s" tests/reference/no-such.ndjson" read-fixture -> outcome-invalid 0 }T
+T{ why s" cannot open the file" compare -> 0 }T
 T{ refuse-app s" tests/reference/composition.ndjson" read-fixture drop ex export-error 2drop 2drop -> outcome-unsupported 27 }T
 T{ allow-app s" tests/reference/composition.ndjson" ex ' export-read rs-checked -> outcome-ok }T
+\ A THROW from a handler passes on, with the file closed and the export idle.
+: throws ( record -- outcome ) drop 77 throw ;
+T{ ' throws app-handler s" tests/reference/composition.ndjson" ex ' export-read catch
+   nip nip nip ex export-reader reader-fid @ ex export-busy @ -> 77 0 0 }T
+T{ allow-app s" tests/reference/composition.ndjson" read-fixture -> outcome-ok 35 }T
 \ The end of input needs metadata and a declaration.
 T{ fresh ex export-end why s" missing metadata or declaration" compare -> outcome-invalid 0 }T
 T{ started ex export-end -> outcome-ok outcome-invalid }T
 
+\ A fresh prefix: names 1 to 4, expressions 0 to 7 (sorts).
+: name-line ( n -- c-addr u )
+  0 block-length ! s\" {\"in\":" +block-text 0 <# #s #> +block-text
+  s\" ,\"str\":{\"pre\":0,\"str\":\"x\"}}" +block-text block-text block-length @ ;
+: prefix ( -- outcome ) started 5 1 do i name-line feed or loop 8 0 do i sort-line feed or loop ;
+T{ prefix ex export-names @ ex export-exprs @ -> outcome-ok 5 8 }T
+
+\ Decoding never depends on BASE: heights, and numbers as wide as max-n.
+: def-1000 ( -- c-addr u )
+  s\" {\"def\":{\"all\":[1],\"hints\":{\"regular\":1000},\"levelParams\":[],\"name\":1,\"safety\":\"safe\",\"type\":0,\"value\":0}}" ;
+T{ hex def-1000 feed decimal snap decl-height @ -> outcome-ok 1000 }T
+T{ 2 base ! def-1000 feed decimal snap decl-height @ -> outcome-ok 1000 }T
+: max-n-text ( -- c-addr u ) max-n 0 <# #s #> ;
+\ Expression n: a bvar whose index has the digits of max-n.
+: bvar-max ( n -- c-addr u )
+  0 block-length ! s\" {\"ie\":" +block-text 0 <# #s #> +block-text
+  s\" ,\"bvar\":" +block-text max-n-text +block-text s" }" +block-text block-text block-length @ ;
+T{ 8 bvar-max 2 base ! feed decimal snap bvar-index @ -> outcome-ok max-n }T
+T{ 9 bvar-max hex feed decimal snap bvar-index @ ex export-exprs @ -> outcome-ok max-n 10 }T
+
+\ No field survives from an earlier record: a field the kind does not
+\ have reads -1, in declarations and in the elements of a block.
+: unsafe-axiom ( -- c-addr u )
+  s\" {\"axiom\":{\"isUnsafe\":true,\"levelParams\":[],\"name\":1,\"type\":0}}" ;
+: plain-thm ( -- c-addr u )
+  s\" {\"thm\":{\"all\":[1],\"levelParams\":[],\"name\":1,\"type\":0,\"value\":0}}" ;
+: abbrev-def ( -- c-addr u )
+  s\" {\"def\":{\"all\":[1],\"hints\":\"abbrev\",\"levelParams\":[],\"name\":1,\"safety\":\"safe\",\"type\":0,\"value\":0}}" ;
+T{ unsafe-axiom feed snap decl-unsafe @ -> outcome-ok true }T
+T{ plain-thm feed snap decl-unsafe @ snap decl-hints @ snap decl-height @ -> outcome-ok -1 -1 -1 }T
+T{ def-1000 feed abbrev-def feed snap decl-hints @ snap decl-height @ -> outcome-ok outcome-ok 1 -1 }T
+T{ 0 calls ! ctor-json s" " type-json block-of feed calls @ -> outcome-ok 3 }T
+T{ kind@ index@ snap ctor-unsafe @ snap type-reflexive @ -> kind-ctor 0 false -1 }T
+T{ 0 snap recursor-rule -> 0 }T
+
+\ The token limit bounds one line's tape: expression n, a constant with k
+\ level arguments, has 9 + k tokens.
+140000 constant big-room
+create big-line big-room allot  variable big-length
+: big+ ( c-addr u -- )
+  dup big-length @ + big-room > abort" big-line too small"
+  tuck big-line big-length @ + swap move big-length +! ;
+: zeros+ ( k -- ) 0 ?do s" 0," big+ loop -1 big-length +! ;
+: const-line ( n k -- c-addr u )
+  0 big-length ! s\" {\"ie\":" big+ swap 0 <# #s #> big+
+  s\" ,\"const\":{\"name\":1,\"us\":[" big+ zeros+ s" ]}}" big+ big-line big-length @ ;
+T{ 10 export-token-limit 9 - const-line ex export-line ex export-json json-count @
+   -> outcome-ok export-token-limit }T
+T{ 11 export-token-limit 8 - const-line ex export-line why s" too many tokens" compare
+   -> outcome-full 0 }T
+T{ ex export-json json-room @ export-token-limit <= -> true }T
+
+\ export-init again frees the old buffers and refuses every kind.
+T{ ex export-init kind-app ex export-handler @ ' export-refused = -> outcome-ok true }T
 T{ ex export-free ex export-json json-tape @ ex export-reader reader-buffer @ -> 0 0 }T
 cases-done
 bye
