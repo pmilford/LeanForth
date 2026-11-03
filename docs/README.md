@@ -29,7 +29,9 @@ are planned and do not exist yet.
 - [PROGRAM_EXAMPLES.md](programming/PROGRAM_EXAMPLES.md) — the executable Forth examples and their tests.
 - [PROGRAM_EXAMPLES_REFERENCE.md](programming/PROGRAM_EXAMPLES_REFERENCE.md) — independent Lean references for those examples.
 - [PROGRAM_IR.md](programming/PROGRAM_IR.md) — program IR 0.1: its text form, its Lean semantics, the reader from Forth source, and the proofs that the six example words' IR equals their reference models (implemented, untrusted, checked by Lean).
-- [PROGRAM_RECEIPTS.md](programming/PROGRAM_RECEIPTS.md) — program receipt schema 0.1: separate CHECK, VERIFY and RUN statuses, assumptions, and the standard-library validator (implemented; no receipts are generated yet).
+- [PROGRAM_IR_RUN.md](programming/PROGRAM_IR_RUN.md) — the program IR interpreter in Forth and the three-way comparison of the interpreter, the host words and Lean's evaluation of the model (implemented, untrusted; testing, not proof).
+- [PROGRAM_RECEIPTS.md](programming/PROGRAM_RECEIPTS.md) — program receipt schema 0.1: separate CHECK, VERIFY and RUN statuses, assumptions, and the standard-library validator (implemented; the clamp receipt is generated).
+- [PROGRAM_VC.md](programming/PROGRAM_VC.md) — verification-condition generator v0 and contract language: obligations and contract theorems checked by Lean (not by LeanForth), wrong contracts refuted, and the generated clamp receipt.
 - Lean reference models for individual programs: [checked addition](programming/CHECKED_ADD_REFERENCE.md), [factorial](programming/FACTORIAL_REFERENCE.md), [gcd](programming/GCD_REFERENCE.md), [stack and memory](programming/MEMORY_PROGRAM_REFERENCE.md), [memory copy](programming/MEMORY_COPY_REFERENCE.md), [memory swap](programming/MEMORY_SWAP_REFERENCE.md).
 
 ## `development/` — contributing, testing and tooling

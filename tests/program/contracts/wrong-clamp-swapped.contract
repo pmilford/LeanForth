@@ -1,0 +1,15 @@
+lf-contract 0.1
+# A deliberately wrong contract: MAX and MIN exchanged in the result. The
+# generator must find a counterexample and Lean must prove it false.
+id lf-clamp/wrong-swapped
+word lf-clamp
+ir tests/program/ir/clamp.ir
+stack ( value lower upper -- result true | false )
+inputs value lower upper
+statement Wrong on purpose: claims the result is max(min(v, l), u).
+case lower > upper
+  out false
+case lower <= upper
+  out r true
+  ensure r = max(min(value, lower), upper)
+expect refuted

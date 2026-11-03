@@ -1,0 +1,234 @@
+{
+  "generator": "0.1",
+  "contracts": [
+    {
+      "id": "lf-clamp/0",
+      "word": "lf-clamp",
+      "contract": "tests/program/contracts/lf-clamp.contract",
+      "ir": "tests/program/ir/clamp.ir",
+      "stackEffect": "( value lower upper -- result true | false )",
+      "statement": "For integers v, l, u in the cell range: if l ≤ u the word returns r = min(max(v, l), u) and true, so l ≤ r ≤ u, r = v when l ≤ v ≤ u, r = l when v < l and r = u when v > u; if l > u it consumes its three inputs and returns false. Cells below are kept.",
+      "namespace": "ProgramVC.LfClamp0",
+      "fuel": 1,
+      "theorems": [
+        "ProgramVC.LfClamp0.O1",
+        "ProgramVC.LfClamp0.O2",
+        "ProgramVC.LfClamp0.contract"
+      ],
+      "status": "discharged",
+      "obligations": [
+        {
+          "id": "O1",
+          "path": "lower > upper",
+          "statement": "the word leaves false (bottom first), and the postcondition holds",
+          "theorem": "ProgramVC.LfClamp0.O1"
+        },
+        {
+          "id": "O2",
+          "path": "lower ≤ upper",
+          "statement": "the word leaves min(max(value, lower), upper), true (bottom first), and the postcondition holds",
+          "theorem": "ProgramVC.LfClamp0.O2"
+        }
+      ]
+    },
+    {
+      "id": "lf-checked-add/0",
+      "word": "lf-checked-add",
+      "contract": "tests/program/contracts/lf-checked-add.contract",
+      "ir": "tests/program/ir/examples.ir",
+      "stackEffect": "( a b -- sum true | false )",
+      "statement": "For integers a, b in the cell range: if a + b is in the cell range the word returns a + b and true, otherwise false; no addition it performs wraps. Cells below are kept.",
+      "namespace": "ProgramVC.LfCheckedAdd0",
+      "fuel": 5,
+      "theorems": [
+        "ProgramVC.LfCheckedAdd0.O1",
+        "ProgramVC.LfCheckedAdd0.O2",
+        "ProgramVC.LfCheckedAdd0.O3",
+        "ProgramVC.LfCheckedAdd0.O4",
+        "ProgramVC.LfCheckedAdd0.O5",
+        "ProgramVC.LfCheckedAdd0.contract"
+      ],
+      "status": "discharged",
+      "obligations": [
+        {
+          "id": "O1",
+          "path": "b > 0 and a > wrap(cell max - b)",
+          "statement": "the word leaves false (bottom first), and the postcondition holds",
+          "theorem": "ProgramVC.LfCheckedAdd0.O1"
+        },
+        {
+          "id": "O2",
+          "path": "b > 0 and a ≤ wrap(cell max - b)",
+          "statement": "the word leaves wrap(a + b), true (bottom first), and the postcondition holds",
+          "theorem": "ProgramVC.LfCheckedAdd0.O2"
+        },
+        {
+          "id": "O3",
+          "path": "b ≤ 0 and b < 0 and a < wrap(cell min - b)",
+          "statement": "the word leaves false (bottom first), and the postcondition holds",
+          "theorem": "ProgramVC.LfCheckedAdd0.O3"
+        },
+        {
+          "id": "O4",
+          "path": "b ≤ 0 and b < 0 and a ≥ wrap(cell min - b)",
+          "statement": "the word leaves wrap(a + b), true (bottom first), and the postcondition holds",
+          "theorem": "ProgramVC.LfCheckedAdd0.O4"
+        },
+        {
+          "id": "O5",
+          "path": "b ≤ 0 and b ≥ 0",
+          "statement": "the word leaves wrap(a + b), true (bottom first), and the postcondition holds",
+          "theorem": "ProgramVC.LfCheckedAdd0.O5"
+        }
+      ]
+    },
+    {
+      "id": "lf-checked-abs/0",
+      "word": "lf-checked-abs",
+      "contract": "tests/program/contracts/lf-checked-abs.contract",
+      "ir": "tests/program/ir/examples.ir",
+      "stackEffect": "( n -- magnitude true | false )",
+      "statement": "For an integer n in the cell range: if n is the smallest cell the word returns false; otherwise it returns |n| and true, and |n| is in the cell range. Cells below are kept.",
+      "namespace": "ProgramVC.LfCheckedAbs0",
+      "fuel": 3,
+      "theorems": [
+        "ProgramVC.LfCheckedAbs0.O1",
+        "ProgramVC.LfCheckedAbs0.O2",
+        "ProgramVC.LfCheckedAbs0.contract"
+      ],
+      "status": "discharged",
+      "obligations": [
+        {
+          "id": "O1",
+          "path": "n = cell min",
+          "statement": "the word leaves false (bottom first), and the postcondition holds",
+          "theorem": "ProgramVC.LfCheckedAbs0.O1"
+        },
+        {
+          "id": "O2",
+          "path": "n ≠ cell min",
+          "statement": "the word leaves wrap(|n|), true (bottom first), and the postcondition holds",
+          "theorem": "ProgramVC.LfCheckedAbs0.O2"
+        }
+      ]
+    },
+    {
+      "id": "lf-in-range/0",
+      "word": "lf-in-range",
+      "contract": "tests/program/contracts/lf-in-range.contract",
+      "ir": "tests/program/ir/examples.ir",
+      "stackEffect": "( value lower upper -- flag true | false )",
+      "statement": "For integers v, l, u in the cell range: if l > u the word returns false; otherwise it returns a flag that is true (-1) exactly when l ≤ v ≤ u and false (0) otherwise, then true. Cells below are kept.",
+      "namespace": "ProgramVC.LfInRange0",
+      "fuel": 2,
+      "theorems": [
+        "ProgramVC.LfInRange0.O1",
+        "ProgramVC.LfInRange0.O2",
+        "ProgramVC.LfInRange0.contract"
+      ],
+      "status": "discharged",
+      "obligations": [
+        {
+          "id": "O1",
+          "path": "lower > upper",
+          "statement": "the word leaves false (bottom first), and the postcondition holds",
+          "theorem": "ProgramVC.LfInRange0.O1"
+        },
+        {
+          "id": "O2",
+          "path": "lower ≤ upper",
+          "statement": "the word leaves flag((lower ≤ value) and (value ≤ upper)), true (bottom first), and the postcondition holds",
+          "theorem": "ProgramVC.LfInRange0.O2"
+        }
+      ]
+    },
+    {
+      "id": "lf-gcd/0",
+      "word": "lf-gcd",
+      "contract": "tests/program/contracts/lf-gcd.contract",
+      "ir": "tests/program/ir/examples.ir",
+      "status": "unsupported",
+      "reason": "loops need invariants (IR version 1, task 4.4.1)",
+      "obligations": [],
+      "theorems": []
+    },
+    {
+      "id": "lf-factorial/0",
+      "word": "lf-factorial",
+      "contract": "tests/program/contracts/lf-factorial.contract",
+      "ir": "tests/program/ir/examples.ir",
+      "status": "unsupported",
+      "reason": "loops need invariants (IR version 1, task 4.4.1)",
+      "obligations": [],
+      "theorems": []
+    },
+    {
+      "id": "lf-clamp/wrong-swapped",
+      "word": "lf-clamp",
+      "contract": "tests/program/contracts/wrong-clamp-swapped.contract",
+      "ir": "tests/program/ir/clamp.ir",
+      "stackEffect": "( value lower upper -- result true | false )",
+      "statement": "Wrong on purpose: claims the result is max(min(v, l), u).",
+      "namespace": "ProgramVC.LfClampWrongSwapped",
+      "fuel": 1,
+      "theorems": [
+        "ProgramVC.LfClampWrongSwapped.refuted"
+      ],
+      "status": "refuted",
+      "counterexample": {
+        "inputs": {
+          "value": -3,
+          "lower": -3,
+          "upper": -2
+        },
+        "reason": "the postcondition fails"
+      },
+      "obligations": []
+    },
+    {
+      "id": "lf-checked-add/wrong-total",
+      "word": "lf-checked-add",
+      "contract": "tests/program/contracts/wrong-checked-add-total.contract",
+      "ir": "tests/program/ir/examples.ir",
+      "stackEffect": "( a b -- sum true | false )",
+      "statement": "Wrong on purpose: claims every sum of two cells is returned with true.",
+      "namespace": "ProgramVC.LfCheckedAddWrongTotal",
+      "fuel": 5,
+      "theorems": [
+        "ProgramVC.LfCheckedAddWrongTotal.refuted"
+      ],
+      "status": "refuted",
+      "counterexample": {
+        "inputs": {
+          "a": -3,
+          "b": -9223372036854775808
+        },
+        "reason": "the postcondition fails"
+      },
+      "obligations": []
+    },
+    {
+      "id": "lf-in-range/wrong-exclusive",
+      "word": "lf-in-range",
+      "contract": "tests/program/contracts/wrong-in-range-exclusive.contract",
+      "ir": "tests/program/ir/examples.ir",
+      "stackEffect": "( value lower upper -- flag true | false )",
+      "statement": "Wrong on purpose: claims the flag is true exactly when l < v < u.",
+      "namespace": "ProgramVC.LfInRangeWrongExclusive",
+      "fuel": 2,
+      "theorems": [
+        "ProgramVC.LfInRangeWrongExclusive.refuted"
+      ],
+      "status": "refuted",
+      "counterexample": {
+        "inputs": {
+          "value": -3,
+          "lower": -3,
+          "upper": -3
+        },
+        "reason": "the postcondition fails"
+      },
+      "obligations": []
+    }
+  ]
+}

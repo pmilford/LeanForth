@@ -1,0 +1,17 @@
+lf-contract 0.1
+# lf-factorial loops (in lf-factorial-from): generator v0 has no loop
+# invariants, so it reports the word unsupported. Its correctness is proved
+# by induction directly on the IR semantics instead (factorial_correct in
+# tests/reference/program-ir.lean).
+id lf-factorial/0
+word lf-factorial
+ir tests/program/ir/examples.ir
+stack ( n -- factorial true | false )
+inputs n
+statement For an integer n in the cell range: if n is negative or n! is above the largest cell the word returns false; otherwise n! and true.
+case n < 0
+  out false
+case n >= 0
+  out f true
+  ensure f >= 1
+expect unsupported

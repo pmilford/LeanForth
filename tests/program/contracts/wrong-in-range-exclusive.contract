@@ -1,0 +1,15 @@
+lf-contract 0.1
+# A deliberately wrong contract: an exclusive interval. The word includes
+# both bounds, so a value equal to a bound refutes it.
+id lf-in-range/wrong-exclusive
+word lf-in-range
+ir tests/program/ir/examples.ir
+stack ( value lower upper -- flag true | false )
+inputs value lower upper
+statement Wrong on purpose: claims the flag is true exactly when l < v < u.
+case lower > upper
+  out false
+case lower <= upper
+  out f true
+  ensure f = flag(lower < value && value < upper)
+expect refuted
