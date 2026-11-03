@@ -1,0 +1,17 @@
+lf-ir 0.1
+source src/program/clamp.fs
+word lf-clamp @12:1
+  prim 2dup @13:3
+  prim > @13:8
+  if @13:10
+    prim 2drop @13:13
+    prim drop @13:19
+    prim false @13:24
+    exit @13:30
+  then @13:35
+  prim >r @14:3
+  prim max @14:6
+  prim r> @14:10
+  prim min @14:13
+  prim true @14:17
+end @14:22

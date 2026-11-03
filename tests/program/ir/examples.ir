@@ -1,0 +1,148 @@
+lf-ir 0.1
+source src/program/examples.fs
+constant lf-example-max @7:22
+  lit -1 @7:1
+  lit 1 @7:4
+  prim rshift @7:6
+end @7:22
+constant lf-example-min @8:32
+  call lf-example-max @8:1
+  prim invert @8:16
+end @8:32
+word lf-add-above? @14:1
+  call lf-example-max @14:33
+  prim swap @14:48
+  prim - @14:53
+  prim > @14:55
+end @14:57
+word lf-add-below? @15:1
+  call lf-example-min @15:33
+  prim swap @15:48
+  prim - @15:53
+  prim < @15:55
+end @15:57
+word lf-add-overflow? @16:1
+  prim dup @17:3
+  prim 0> @17:7
+  if @17:10
+    call lf-add-above? @17:13
+    exit @17:27
+  then @17:32
+  prim dup @17:37
+  prim 0< @17:41
+  if @17:44
+    call lf-add-below? @17:47
+  else @17:61
+    prim 2drop @17:66
+    prim false @17:72
+  then @17:78
+end @17:83
+word lf-checked-add @18:1
+  prim 2dup @19:3
+  call lf-add-overflow? @19:8
+  if @19:25
+    prim 2drop @19:28
+    prim false @19:34
+  else @19:40
+    prim + @19:45
+    prim true @19:47
+  then @19:52
+end @19:57
+word lf-checked-abs @23:1
+  prim dup @24:3
+  call lf-example-min @24:7
+  prim = @24:22
+  if @24:24
+    prim drop @24:27
+    prim false @24:32
+  else @24:38
+    prim abs @24:43
+    prim true @24:47
+  then @24:52
+end @24:57
+word lf-product-over? @29:1
+  call lf-example-max @29:42
+  prim swap @29:57
+  prim / @29:62
+  prim > @29:64
+end @29:66
+word lf-factorial-from @30:1
+  begin @31:3
+    prim dup @31:9
+    lit 1 @31:13
+    prim > @31:15
+  while @31:17
+    prim 2dup @32:5
+    call lf-product-over? @32:10
+    if @32:27
+      prim 2drop @32:30
+      prim false @32:36
+      exit @32:42
+    then @32:47
+    prim tuck @32:52
+    prim * @32:57
+    prim swap @32:59
+    prim 1- @32:64
+  repeat @33:3
+  prim drop @33:10
+  prim true @33:15
+end @33:20
+word lf-factorial @34:1
+  prim dup @35:3
+  prim 0< @35:7
+  if @35:10
+    prim drop @35:13
+    prim false @35:18
+  else @35:24
+    lit 1 @35:29
+    prim swap @35:31
+    call lf-factorial-from @35:36
+  then @35:54
+end @35:59
+word lf-euclid @39:1
+  begin @39:28
+    prim dup @39:34
+    prim 0<> @39:38
+  while @39:42
+    prim tuck @39:48
+    prim mod @39:53
+  repeat @39:57
+  prim drop @39:64
+end @39:69
+word lf-gcd @40:1
+  prim 2dup @41:3
+  prim 0< @41:8
+  prim swap @41:11
+  prim 0< @41:16
+  prim or @41:19
+  if @41:22
+    prim 2drop @41:25
+    prim false @41:31
+  else @41:37
+    call lf-euclid @41:42
+    prim true @41:52
+  then @41:57
+end @41:62
+word lf-within-closed? @45:1
+  prim >r @45:51
+  prim over @45:54
+  prim > @45:59
+  prim 0= @45:61
+  prim swap @45:64
+  prim r> @45:69
+  prim > @45:72
+  prim 0= @45:74
+  prim and @45:77
+end @45:81
+word lf-in-range @46:1
+  prim 2dup @47:3
+  prim > @47:8
+  if @47:10
+    prim 2drop @47:13
+    prim drop @47:19
+    prim false @47:24
+  else @47:30
+    call lf-within-closed? @47:35
+    prim true @47:53
+  then @47:58
+end @47:63

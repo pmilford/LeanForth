@@ -18,7 +18,9 @@ require ./kernel/mixed-definition-probe.fs
 require ./import/load.fs
 require ./import/ndjson.fs
 
-\ Verified-program track: example words and the stack-depth analyzer.
+\ Verified-program track: example words, the stack-depth analyzer and the
+\ reader from restricted Forth source to the program IR.
 require ./program/clamp.fs
 require ./program/examples.fs
 require ./program/program-depth.fs
+require ./program/ir-reader.fs

@@ -1,0 +1,279 @@
+# Program IR, version 0.1
+
+**Status: implemented and untrusted (2026-11-02, tasks 2.5.2 and 2.5.3 of
+the [plan draft](../project/PLAN_DRAFT.md)).** The IR's semantics is a Lean
+model, checked by Lean, not by LeanForth. The reader that turns Forth
+source into IR is ordinary, unverified Forth.
+
+The verified-program track needs an exact, small description of what a
+Forth word does, between its source text and the proof obligations about
+it:
+
+```text
+Forth source ──reader──▶ IR ──(2.5.5) obligations──▶ proofs ──▶ receipt
+ src/program/*.fs        text form, Lean model           checked by Lean now, LeanForth later
+```
+
+IR 0.1 covers straight-line words with `IF`/`ELSE`/`THEN`, `EXIT`, signed
+cells, explicit failure and source locations, as planned, and also
+`BEGIN`/`WHILE`/`REPEAT` loops, so that all six example words translate
+(see "Loops" below).
+
+## One example in four forms
+
+`lf-clamp` from [`src/program/clamp.fs`](../../src/program/clamp.fs).
+
+**Mathematics.** For integers v, l, u: if l ≤ u the word returns
+r = min(max(v, l), u) and *true*, so l ≤ r ≤ u, r = v when l ≤ v ≤ u,
+r = l when v < l and r = u when v > u; if l > u it returns *false*. Cells
+below the three inputs are untouched.
+
+**Forth** (lines 12–14):
+
+```forth
+: lf-clamp ( value lower upper -- result true | false )
+  2dup > if 2drop drop false exit then
+  >r max r> min true ;
+```
+
+**IR text**, as the reader writes it ([`tests/program/ir/clamp.ir`](../../tests/program/ir/clamp.ir));
+`@line:column` is where each token stands in the source:
+
+```text
+lf-ir 0.1
+source src/program/clamp.fs
+word lf-clamp @12:1
+  prim 2dup @13:3
+  prim > @13:8
+  if @13:10
+    prim 2drop @13:13
+    prim drop @13:19
+    prim false @13:24
+    exit @13:30
+  then @13:35
+  prim >r @14:3
+  prim max @14:6
+  prim r> @14:10
+  prim min @14:13
+  prim true @14:17
+end @14:22
+```
+
+**Lean** ([`tests/reference/program-ir.lean`](../../tests/reference/program-ir.lean)):
+the same word as a term, and the theorem about it. `clamp` is the reference
+model of `tests/reference/clamp.lean`, copied verbatim.
+
+```lean
+def clampBody : List Instr :=
+  [prim .twoDup, prim .gt, ifElse [prim .twoDrop, prim .drop, prim .false, exit] [],
+   prim .toR, prim .max, prim .fromR, prim .min, prim .true]
+
+theorem clamp_correct (c : Cells) (fuel : Nat) (lower upper value : Int) (tail rs : List Int)
+    (enough : 1 ≤ fuel) :
+    callWord c clampProgram fuel "lf-clamp" ⟨upper :: lower :: value :: tail, rs⟩ =
+      .next ⟨(if lower > upper then [0] else [-1, clamp lower upper value]) ++ tail, rs⟩
+```
+
+Stacks are lists with the top first, so `upper :: lower :: value :: tail`
+is `value lower upper` in Forth order. `make reference-program-ir` checks
+that the IR Lean prints for `clampProgram` is the reader's output with the
+locations removed, so the theorem is about the IR the reader produced from
+the actual source.
+
+## Abstract syntax
+
+A **program** is the list of definitions of one source file, in order. A
+**definition** is a *word* (`: name … ;`) or a *constant*
+(`… constant name`), each with a body. A **body** is a list of
+instructions:
+
+| Instruction | Forth | Meaning |
+| --- | --- | --- |
+| `prim p` | one of the 38 primitives below | one step on the stacks |
+| `lit n` | a decimal literal | push n |
+| `call name` | an earlier definition | run it (a constant pushes its value) |
+| `if` *yes* `else` *no* `then` | `IF … ELSE … THEN` | pop a flag; nonzero runs *yes*, zero runs *no* (empty without `ELSE`) |
+| `begin` *test* `while` *body* `repeat` | `BEGIN … WHILE … REPEAT` | run *test*, pop a flag, stop on zero, else run *body* and repeat |
+| `exit` | `EXIT` | leave the current word |
+
+Primitives, with Forth-2012 stack effects (the top is on the right):
+
+| Group | Words |
+| --- | --- |
+| Stack | `dup drop swap over nip tuck rot 2dup 2drop` |
+| Return stack | `>r r> r@` |
+| Arithmetic (wraps) | `+ - * negate abs 1+ 1-` |
+| Division | `/ mod` |
+| Comparison (flags) | `= <> < > 0= 0<> 0< 0>` |
+| Bits | `and or xor invert rshift` |
+| Other | `max min true false` |
+
+## Semantics
+
+The normative definition is `ProgramIR.run` in
+`tests/reference/program-ir.lean`. In words:
+
+- **Cells.** A cell has w ≥ 2 bits (Forth-2012 requires at least 16; the
+  model allows fewer so that small cases can be checked exhaustively). A
+  value is an integer from −2^(w−1) to 2^(w−1) − 1. `+ - * negate abs 1+ 1-`
+  wrap in two's complement, so on 64-bit cells max + 1 is min. Bitwise
+  words act on the two's-complement bit pattern.
+- **Flags.** Comparisons give −1 for true and 0 for false; `IF` and `WHILE`
+  treat any nonzero cell as true.
+- **Return stack.** A called word starts with an empty return stack of its
+  own and must leave it empty. It cannot see its caller's return-stack
+  items, which on a real host hold return addresses.
+- **Constants.** A constant's body runs on empty stacks and must leave
+  exactly one value.
+- **Not modeled.** `/` and `MOD` are defined only for a dividend ≥ 0 and a
+  divisor > 0, where Forth-2012's floored and symmetric division agree;
+  `RSHIFT` only for a shift below the cell width. Everything else about them
+  is the failure *unmodeled*, not a guess.
+- **Failures** are explicit results, never success: *underflow* (a missing
+  data or return-stack item), *unmodeled*, *unbalanced* (a word returned
+  with return-stack items), *unknownWord*, *badConstant*, *outOfFuel*.
+- **Fuel.** Each call and each loop iteration uses one unit of fuel, so
+  every run ends; the theorems state how much fuel suffices.
+- **Outside the IR:** memory (`@`, `!`, `ALLOT`), I/O, return addresses,
+  stack capacity (overflow), floating point, `DO` loops, `CASE`,
+  `RECURSE`, defining words, and every word not listed above.
+
+### Loops
+
+The plan put loops into IR version 1 (task 4.4.1, "loops with invariants").
+IR 0.1 already *executes* `BEGIN … WHILE … REPEAT`, with fuel, because
+`lf-factorial` and `lf-gcd` need it and the reader task asks for all six
+words. What waits for version 1 is reasoning about loops through
+*invariants* in generated obligations; the two loop words below are proved
+by induction directly on the semantics instead.
+
+## Text form
+
+```text
+program    = "lf-ir 0.1" NL "source " path NL { definition }
+definition = ( "word " name | "constant " name ) [loc] NL { line } "end" [loc] NL
+line       = indent ( "prim " word | "lit " integer | "call " name | "exit"
+                    | "if" | "else" | "then" | "begin" | "while" | "repeat" ) [loc] NL
+loc        = " @" line-number ":" column-number
+```
+
+Indentation is two spaces per open structure: `else` and `while` sit at
+the level of their `if` and `begin`, the lines they enclose one level
+deeper. The reader writes a location on every line except the two header
+lines: for `word` the location of `:`, for `constant` and its `end` that of
+the constant's name, for `end` of a word that of `;`, otherwise the token's
+own. Line and column count from 1. The Lean printer writes the same text
+without locations. It writes `else` only when that branch is not empty,
+while the reader writes it whenever the source has it, so `IF … ELSE THEN`
+with an empty `ELSE` part prints differently but means the same.
+
+## The reader
+
+[`src/program/ir-reader.fs`](../../src/program/ir-reader.fs) translates a
+source file into the text form:
+
+```forth
+' type-line s" src/program/clamp.fs" lf-ir-read-file  ( -- outcome )
+```
+
+`type-line ( c-addr u -- )` receives each output line. `lf-ir-start`,
+`lf-ir-feed` and `lf-ir-finish` do the same for lines given one at a time,
+and `lf-ir-reason` and `lf-ir-where` tell why and where it stopped.
+
+It accepts colon definitions and constants made only of the IR's
+primitives, control words, decimal literals and earlier definitions, with
+`\` and `( )` comments and `DECIMAL`. Everything else stops it with one
+diagnostic line such as
+
+```text
+unsupported @1:7: not a known word or 32-bit decimal: foo
+```
+
+and an outcome from `src/lib/outcome.fs`:
+
+| Outcome | When |
+| --- | --- |
+| *unsupported* | an unknown word or a word outside IR 0.1 (`UNTIL`, `DO`, `@`, …); a control word outside a definition, or `CONSTANT`/`DECIMAL` inside one; a recursive call; a redefinition; a name over 31 characters; a `(` comment not closed on its line; values left outside a definition |
+| *invalid* | unbalanced `IF`/`ELSE`/`THEN`/`BEGIN`/`WHILE`/`REPEAT`; `:` inside a definition; a definition or constant not closed at the end; `CONSTANT` without a value; an unreadable file or a line of 128 characters or more |
+| *full* | more than 32 definitions, 8 open structures or 8 tokens before `CONSTANT`, or an output line over 96 characters |
+
+Lines written before a diagnostic are incomplete and must not be used.
+
+It accepts less than Gforth: names are compared exactly (Gforth ignores
+case), and literals must be plain decimal digits with an optional minus
+sign, at most 2,147,483,647 in size, so the same source suits 32-bit
+cells. It never executes the source: each line is passed to `EVALUATE`
+behind the word `lf-ir-tokens`, which reads the rest of the line itself
+with the host's `PARSE-NAME`, so tokens are split exactly as Gforth splits
+them but none reaches Gforth's interpreter (a test feeds it `bye`).
+
+The reader is trusted for the translation: nothing checks that the IR means
+what the source means on the host. Receipts list it as the assumption
+`trusted-reader` ([program receipts](PROGRAM_RECEIPTS.md)).
+
+## What is proved, and what is not
+
+In `tests/reference/program-ir.lean`, for every cell width w ≥ 2, every
+stack below the inputs and every caller's return stack, given the fuel
+shown, the IR of each word returns exactly the result of its existing
+reference model, copied verbatim from that model's file:
+
+| Word | Theorem | Reference model | Inputs | Fuel |
+| --- | --- | --- | --- | --- |
+| `lf-clamp` | `clamp_correct`, `clamp_matches_stack_model` | `clamp` (clamp.lean), `execute clampCode` (stack-clamp.lean) | any integers | 1 |
+| `lf-checked-add` | `checkedAdd_correct` | `CheckedAddReference.checkedAdd` | fit in a cell | 5 |
+| `lf-checked-abs` | `checkedAbs_correct` | `ProgramExamplesReference.checkedAbs` | fits in a cell | 3 |
+| `lf-in-range` | `inRange_correct` | `ProgramExamplesReference.inRange` | any integers | 2 |
+| `lf-gcd` | `gcd_correct` | `GcdReference.checked` | any integers | b + 3 |
+| `lf-factorial` | `factorial_correct` | `FactorialReference.checked` with the largest cell as limit | fits in a cell | n + 4 |
+
+These say more than the reference models alone: the IR's arithmetic wraps,
+so `checkedAdd_correct` and `factorial_correct` also prove that no addition
+or multiplication the words perform overflows, and that `lf-factorial`'s
+descending product with its division test equals the ascending reference
+product.
+
+The file also proves that every failure outcome is reachable (underflow,
+unmodeled division by zero, out of fuel, unbalanced return stack, bad
+constant, unknown word), and refutes two deliberately wrong programs: clamp
+with `MAX` and `MIN` exchanged, and checked add without its overflow test,
+which on 64-bit cells wraps max + 1 to min. `make check-lean-sources`
+forbids `sorry`, `native_decide` and axioms in the file, and
+`make reference-program-ir` accepts each theorem only if it uses no axioms
+beyond Lean's `propext`, `Classical.choice` and `Quot.sound` (all nine
+report exactly these three).
+
+`make test` checks that the copies of the reference models are verbatim.
+
+Not established: that Gforth executes these words as the IR semantics says
+(task 2.5.4 will compare an IR interpreter with the host on the existing
+tables); that the reader's translation is faithful (it is tested on the
+six words and on every diagnostic, not proved); anything about stack
+overflow, the compiler or other hosts; and anything checked by LeanForth.
+The theorems are checked by Lean 4.35.0 and labelled *checked by the Lean
+reference, not by LeanForth*.
+
+## Versioning
+
+The version string `0.1` appears in the text form's first line, in the
+reader's output and in receipts (`program.ir.version`). Any change to the
+syntax, the primitives or the semantics gives a new version; the Lean
+model, the reader, its golden files and the receipt schema change together.
+
+## Running the checks
+
+```sh
+make test-program-ir        # receipts, verbatim copies, reader tests (Gforth, Python)
+make reference-program-ir   # the Lean model, its axioms, its IR against the reader's
+```
+
+Both are part of `make test` and `make check` respectively. Measured on
+2026-11-02 (Ryzen 5 7600X, WSL2): `make reference-program-ir` takes about
+5.3 s with Lean 4.35.0; the reader tests pass on Gforth 1.0.0 and 0.7.3.
+
+Files: [`tests/reference/program-ir.lean`](../../tests/reference/program-ir.lean)
+(model and proofs), [`src/program/ir-reader.fs`](../../src/program/ir-reader.fs)
+(reader), [`tests/program/ir-reader.fs`](../../tests/program/ir-reader.fs)
+(reader tests), [`tests/program/ir/`](../../tests/program/ir/) (golden IR),
+[`tests/program/check_program_ir.py`](../../tests/program/check_program_ir.py)
+(copies, axioms, Lean-versus-reader comparison).
