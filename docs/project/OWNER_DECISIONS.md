@@ -288,3 +288,20 @@ strings and I/O as effects with stated assumptions. Compile-time
 metaprogramming (`IMMEDIATE`, `POSTPONE`, `EVALUATE`, run-time dictionary
 changes) stays *unsupported* inside verified words; only the words it
 produces can be verified.
+
+## Progress marks and program-reader names (2026-11-02, night)
+
+- **Done marks.** The owner kept the five tasks the progress report marks
+  done: T1.3 (CI on Gforth 0.7.3 and the pinned tools), T4.1 and T5.1 (the
+  approved conversion and rejection rules and the checked-environment
+  design) and P3.1 and P3.2 (IR 0.1 and its Lean semantics). Design and
+  specification tasks count as done when they meet their own acceptance
+  text; the report says which ones are designs only.
+- **Names in Forth source are case-independent.** Prompted by the owner
+  ("Forth is case independent"): the program reader finds names ignoring
+  ASCII case, as Gforth 0.7.3 and 1.0 do and as Forth-2012 3.4.2 allows
+  (standard words must be found in upper case). A definition whose name
+  equals an existing one apart from case is a redefinition and refused;
+  names with bytes outside printable ASCII are refused, because how a
+  system folds them is implementation-defined. This replaces the review's
+  first suggestion of refusing upper-case names.
