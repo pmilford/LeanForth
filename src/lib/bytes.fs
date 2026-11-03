@@ -18,7 +18,8 @@
 \ reader-position gives the current line's number and file offset for
 \ error messages. Offsets are doubles, so files beyond 2 GB work on
 \ 32-bit hosts too. The file loads in decimal whatever BASE is, then
-\ restores it.
+\ restores it at the end of a successful load (a THROW while loading
+\ leaves BASE decimal: Forth-2012 gives a file no way to restore it then).
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ./lib.fs
@@ -226,4 +227,4 @@ $f0 $f0 6 utf8-class!  $f1 $f3 7 utf8-class!  $f4 $f4 8 utf8-class!
 : bytes-mix ( h addr u -- h' )
   0 ?do dup c@ rot xor 16777619 um* drop swap char+ loop drop ;
 
-base !   \ the BASE this file was loaded with
+base !   \ the BASE this file was loaded with (not reached when loading throws)

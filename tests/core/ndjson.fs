@@ -1,5 +1,5 @@
 \ Unit tests of src/import/ndjson.fs: every record kind of lean4export
-\ format 3.1.0 decoded failed-field by failed-field, the metadata rules, and for each
+\ format 3.1.0 decoded field by field, the metadata rules, and for each
 \ kind the malformed, unsupported and limit cases that must fail closed;
 \ handler outcomes; list and rule readers; whole fixture files.
 \ Lines are fed one at a time to export-line from memory; file framing is
@@ -179,6 +179,8 @@ T{ s\" {\"opaque\":{\"all\":[1],\"isUnsafe\":true,\"levelParams\":[],\"name\":1,
 T{ s\" {\"quot\":{\"kind\":\"lift\",\"levelParams\":[1,3],\"name\":1,\"type\":0}}" feed kind@ snap decl-quot-kind @
    -> outcome-ok kind-quot 2 }T
 T{ ex export-decls @ -> 6 }T
+: plain-thm ( -- c-addr u )
+  s\" {\"thm\":{\"all\":[1],\"levelParams\":[],\"name\":1,\"type\":0,\"value\":0}}" ;
 : bad-decl ( c-addr u -- outcome ) feed ex export-decls @ 6 <> if drop -9 then ;
 T{ s\" {\"def\":{\"all\":[1],\"hints\":{\"regular\":4294967296},\"levelParams\":[],\"name\":1,\"safety\":\"safe\",\"type\":0,\"value\":3}}" bad-decl
    why s" height beyond UInt32" compare -> outcome-invalid 0 }T
@@ -197,7 +199,7 @@ T{ s\" {\"thm\":{},\"def\":{}}" bad-decl -> outcome-invalid }T
 T{ s\" {\"lemma\":{}}" bad-decl why s" unknown record kind" compare -> outcome-invalid 0 }T
 T{ s" {}" bad-decl -> outcome-invalid }T
 
-\ An inductive block-text: the block-text, then its types, constructors and recursors.
+\ An inductive block: the block, then its types, constructors and recursors.
 : type-json ( -- c-addr u ) s\" {\"all\":[1],\"ctors\":[2],\"isRec\":false,\"isReflexive\":false,\"isUnsafe\":false,\"levelParams\":[],\"name\":1,\"numIndices\":0,\"numNested\":0,\"numParams\":1,\"type\":0}" ;
 : ctor-json ( -- c-addr u ) s\" {\"cidx\":0,\"induct\":1,\"isUnsafe\":false,\"levelParams\":[],\"name\":2,\"numFields\":2,\"numParams\":1,\"type\":3}" ;
 : rec-json ( -- c-addr u ) s\" {\"all\":[1],\"isUnsafe\":false,\"k\":true,\"levelParams\":[3],\"name\":4,\"numIndices\":0,\"numMinors\":1,\"numMotives\":1,\"numParams\":1,\"rules\":[{\"ctor\":2,\"nfields\":2,\"rhs\":5},{\"ctor\":4,\"nfields\":0,\"rhs\":6}],\"type\":0}" ;
@@ -257,6 +259,20 @@ variable victim
 T{ ' swaps-under app-handler app-13 ' feed catch nip nip ex export-busy @ ex export-exprs @
    victim @ -> -4 0 13 0 }T
 T{ ' takes-two-gives-one app-handler app-13 ' feed catch nip nip ex export-exprs @ -> -4 13 }T
+\ Two cells under the record are canaries: reaching two cells down (the
+\ third review's probe, which once made the reader count through victim)
+\ throws as well. Below them lies the caller's data, never the reader's
+\ count or a declaration's kind: a handler that reaches three cells down
+\ changes the caller's 77, and the record is counted as usual.
+: reaches-two ( y canary record -- y' canary outcome ) drop nip victim swap outcome-ok ;
+: reaches-three ( z c c record -- z' c c outcome ) drop 2>r drop victim 2r> outcome-ok ;
+T{ ' reaches-two app-handler app-13 ' feed catch nip nip ex export-exprs @ victim @
+   -> -4 13 0 }T
+T{ 77 ' reaches-three app-handler app-13 feed ex export-exprs @ victim @
+   -> victim outcome-ok 14 0 }T
+T{ 77 ' reaches-three kind-thm ex export-handler ! plain-thm feed ex export-decls @
+   -> victim outcome-ok 8 }T
+T{ victim @ ' capture kind-thm ex export-handler ! -> 0 }T
 \ export-restart starts again; then 13 sorts again.
 T{ ex export-restart ex export-busy @ ex export-exprs @ -> 0 0 }T
 : sort-line ( n -- c-addr u )
@@ -318,6 +334,10 @@ T{ started ex export-end -> outcome-ok outcome-invalid }T
   s\" ,\"str\":{\"pre\":0,\"str\":\"x\"}}" +block-text block-text block-length @ ;
 : prefix ( -- outcome ) started 5 1 do i name-line feed or loop 8 0 do i sort-line feed or loop ;
 T{ prefix ex export-names @ ex export-exprs @ -> outcome-ok 5 8 }T
+\ export-line numbers the lines it is given from export-restart on: the
+\ last record came from line 13, and a failure on the next is at line 14.
+T{ ex export-at @ snap record-line @ -> 13 13 }T
+T{ s\" {\"ie\":9,\"sort\":0}" feed ex export-error 2drop 2drop -> outcome-invalid 14 }T
 
 \ Decoding never depends on BASE: heights, and numbers as wide as max-n.
 : def-1000 ( -- c-addr u )
@@ -336,8 +356,6 @@ T{ 9 bvar-max hex feed decimal snap bvar-index @ ex export-exprs @ -> outcome-ok
 \ have reads -1, in declarations and in the elements of a block.
 : unsafe-axiom ( -- c-addr u )
   s\" {\"axiom\":{\"isUnsafe\":true,\"levelParams\":[],\"name\":1,\"type\":0}}" ;
-: plain-thm ( -- c-addr u )
-  s\" {\"thm\":{\"all\":[1],\"levelParams\":[],\"name\":1,\"type\":0,\"value\":0}}" ;
 : abbrev-def ( -- c-addr u )
   s\" {\"def\":{\"all\":[1],\"hints\":\"abbrev\",\"levelParams\":[],\"name\":1,\"safety\":\"safe\",\"type\":0,\"value\":0}}" ;
 T{ unsafe-axiom feed snap decl-unsafe @ -> outcome-ok true }T
@@ -403,37 +421,58 @@ variable block-items  variable block-item  variable type-numbers
 T{ 0 type-numbers ! ' on-block kind-inductive ex export-handler !
    ' renumbers kind-type ex export-handler ! four-type-block
    block-items @ block-item @ type-numbers @ -> outcome-ok 4 -1 6 }T
-\ A handler must not write its record. The reader reads a block's lists
-\ again after its handler: a field that no longer holds a list is
-\ invalid, and nothing more is handed over. A changed kind changes
-\ nothing: the reader read it before the handler.
-: scribbles ( record -- outcome ) 0 swap block-types ! outcome-ok ;
+\ A handler must not write its record, and what it writes there changes
+\ nothing the reader does next. A block's lists are found again in the
+\ line's JSON view: a handler that points block-ctors at an empty array
+\ of the same line (the third review's probe, which once handed no
+\ constructor over) and spoils the other two lists still gets every
+\ element handed over. A changed kind changes nothing either: the reader
+\ read it before the handler.
+: empty-array? ( index -- flag ) json-array ex export-json json-items-of if 0= else false then ;
+: empty-list ( -- list )
+  ex export-json json-count @ 0 do i empty-array? if i invert unloop exit then loop -1 ;
+variable redirected
+: redirects ( record -- outcome )
+  empty-list dup redirected ! over block-ctors ! 0 over block-types !
+  -1 swap block-recursors ! outcome-ok ;
 : makes-block ( record -- outcome ) kind-inductive swap record-kind ! outcome-ok ;
-T{ capture-all ' scribbles kind-inductive ex export-handler ! 0 calls ! four-type-block
-   why s" handler changed its record" compare calls @ -> outcome-invalid 0 0 }T
+T{ capture-all ' redirects kind-inductive ex export-handler ! 0 calls !
+   ctor-json rec-json type-json block-of feed calls @ redirected @ -1 <> -> outcome-ok 3 true }T
+T{ 0 kind-at 1 kind-at 2 kind-at -> kind-type kind-ctor kind-recursor }T
 T{ capture-all ' makes-block kind-thm ex export-handler ! 0 calls ! plain-thm feed calls @
    -> outcome-ok 0 }T
+\ Only a handler that writes the export's JSON view can lose a list, here
+\ the constructors (token 3 is the key "ctors"): that is invalid, and
+\ nothing after the types is handed over.
+: hides-ctors ( record -- outcome ) drop 0 3 ex export-json json-token token-size ! outcome-ok ;
+T{ capture-all ' hides-ctors kind-inductive ex export-handler ! 0 calls !
+   ctor-json rec-json type-json block-of feed why s" handler changed the export" compare
+   calls @ 0 kind-at -> outcome-invalid 0 1 kind-type }T
+T{ capture-all ctor-json rec-json type-json block-of feed -> outcome-ok }T
 
 \ A rule record's header: kind-rule, the rule's index, the line and the
 \ export. Kept after its handler, a recursor's rules are gone once the next
-\ line is read: recursor-rule then gives 0 and leaves no field or reason.
+\ line is read: recursor-rule then gives 0 and leaves export-error as it
+\ was, even after a failed line.
 : marks ( -- key-u why-u ) ex export-error nip >r nip nip r> ;
 : head@ ( record -- kind index export line )
   >r r@ record-kind @ r@ record-index @ r@ record-export @ r> record-line @ ;
 T{ capture-all ctor-json rec-json type-json block-of feed kind@ -> outcome-ok kind-recursor }T
 T{ 1 snap recursor-rule head@ snap record-line @ = -> kind-rule 1 ex true }T
-\ Expression 10, whose data holds one-item arrays, one of them at the
-\ token index of the kept recursor's rules (tokens 0 to 8 lead to the
-\ data's array).
+\ Expression n (10 or 11, two digits), whose data holds one-item arrays,
+\ one of them at the token index of the kept recursor's rules (tokens 0
+\ to 8 lead to the data's array), and whose expr is e.
 create kept /record allot  snap kept /record move
 : stale-index ( -- index ) kept recursor-rules @ invert ;
-: arrays-line ( -- c-addr u )
-  0 block-length ! s\" {\"ie\":10,\"mdata\":{\"data\":{\"k\":[" +block-text
-  stale-index 1 and 0= if s" 0," +block-text then
-  40 0 do s" [0]," +block-text loop s\" [0]]},\"expr\":0}}" +block-text
-  block-text block-length @ ;
-T{ arrays-line feed stale-index ex export-json json-kind-at -> outcome-ok json-array }T
+: arrays-line ( n e -- c-addr u )
+  swap 0 block-length ! s\" {\"ie\":" +block-text 0 <# #s #> +block-text
+  s\" ,\"mdata\":{\"data\":{\"k\":[" +block-text stale-index 1 and 0= if s" 0," +block-text then
+  40 0 do s" [0]," +block-text loop s\" [0]]},\"expr\":" +block-text
+  0 <# #s #> +block-text s" }}" +block-text block-text block-length @ ;
+T{ 10 0 arrays-line feed stale-index ex export-json json-kind-at -> outcome-ok json-array }T
 T{ 0 kept recursor-rule marks -> 0 0 0 }T
+T{ 11 99 arrays-line feed stale-index ex export-json json-kind-at -> outcome-invalid json-array }T
+T{ 0 kept recursor-rule failed-field s" expr" compare why s" bad reference" compare -> 0 0 0 }T
 
 \ export-handler takes only a record kind.
 T{ kind-count ex ' export-handler catch nip nip -1 ex ' export-handler catch nip nip -> -2 -2 }T
