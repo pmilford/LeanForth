@@ -539,6 +539,25 @@ workstream (W7):
 | 7.5.1 | Validate (C3): interleaving stress, cancellation, exhaustion in one worker, stale handles | No cross-job effect | 7.3.1 | — | M |
 | 7.6.1 | Measure (C4): throughput and memory for 1 to 12 workers | Documented scaling curve | 7.5.1 | — | S |
 
+### Program-track goal: most of Forth-2012 Core (owner, 2026-11-02)
+
+The program track's destination is verifying words written in most of the
+Forth-2012 Core word set ([owner decision](OWNER_DECISIONS.md#program-track-goal-most-of-forth-2012-core-2026-11-02-night)).
+Each stage extends the program IR, its Lean model, the Forth reader, the IR
+interpreter's three-way comparison (interpreter, host word, Lean model) and
+the verification-condition generator together, with refuted wrong programs:
+
+| ID | Stage | Fits after | Acceptance |
+| --- | --- | --- | --- |
+| G1 | Core arithmetic and stack words: double-cell and unsigned arithmetic, comparisons, `DO`/`?DO`/`LOOP`/`+LOOP`/`LEAVE`/`I`/`J`, `RECURSE` | 4.4.1 (IR v1) | Every Core word of this group has an IR rule, a Lean semantics and a three-way comparison; wrapping and edge cases (min, max, zero divisor) tested |
+| G2 | Memory model: cells, characters, `ALLOT`ed buffers, `@ ! C@ C! +! MOVE FILL`, with ownership, bounds and no-overlap contracts (AGENTS.md's aliasing rule) | 4.4.2 | Copy/fill/swap verified; an overlapping or out-of-bounds use refuted |
+| G3 | Execution tokens with known targets (`'`, `EXECUTE`, `DEFER`/`IS`), `CATCH`/`THROW` with stated exception semantics | phase 5 | Higher-order example and an error-handling example verified |
+| G4 | Data defined with `CREATE`/`DOES>`, `VALUE`/`TO`, `CONSTANT`, `VARIABLE`, as declared data | phase 8 | A table-driven word verified against its declared table |
+| G5 | Characters, strings and I/O (`TYPE`, `EMIT`, `ACCEPT`, files) as effects with stated assumptions | phase 9 | A text-processing word verified with its I/O assumptions in the receipt |
+
+Always *unsupported* inside verified words: `IMMEDIATE`, `POSTPONE`,
+`[COMPILE]`, `EVALUATE`, `STATE` games and run-time dictionary changes.
+
 ### Phase 8 — Writing proofs and verified programs in LeanForth
 
 **Outcome.** A user writes a theorem, or a Forth word with its contract, in

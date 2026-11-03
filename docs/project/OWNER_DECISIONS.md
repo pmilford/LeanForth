@@ -274,3 +274,17 @@ records in the same Claude Code session. Quoted words are the owner's own.
   library points at the checked imported records; development mode
   labels saved results and their dependents. All recommended options; the
   checker code still needs its own approval with test results.
+
+## Program-track goal: most of Forth-2012 Core (2026-11-02, night)
+
+The owner approved an explicit destination for the verified-program track,
+comparable to "all of Mathlib" for theorems: verify words written in most of
+the Forth-2012 Core word set, in stages — (1) core arithmetic and stack
+words, double-cell and unsigned arithmetic, `DO`/`LOOP`; (2) a memory model
+for cells, characters and buffers with explicit ownership and no-overlap
+contracts; (3) execution tokens with known targets, `DEFER`, `CATCH`/
+`THROW`; (4) `CREATE`/`DOES>`/`VALUE` data treated as declared data; (5)
+strings and I/O as effects with stated assumptions. Compile-time
+metaprogramming (`IMMEDIATE`, `POSTPONE`, `EVALUATE`, run-time dictionary
+changes) stays *unsupported* inside verified words; only the words it
+produces can be verified.
