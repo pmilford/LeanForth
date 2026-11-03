@@ -1,0 +1,16 @@
+{"il":3,"max":[1,2]}
+{"il":4,"imax":[2,3]}
+{"in":11,"num":{"i":18446744073709551616,"pre":10}}
+{"ie":20,"letE":{"body":0,"name":1,"nondep":true,"type":0,"value":5}}
+{"ie":21,"proj":{"idx":0,"struct":3,"typeName":1}}
+{"ie":22,"natVal":"123456789012345678901234567890"}
+{"ie":23,"strVal":"a\nb\t\"q\"\\/ \u0000\u001f\b\f\r é € 😀 "}
+{"ie":24,"mdata":{"data":{"k":[1,{"x":null,"y":[true,false,-7,0]}]},"expr":9}}
+{"ie":25,"lam":{"binderInfo":"instImplicit","body":0,"name":1,"type":0}}
+{"forallE":{"binderInfo":"strictImplicit","body":0,"name":1,"type":0},"ie":26}
+{"axiom":{"isUnsafe":false,"levelParams":[1],"name":2,"type":0}}
+{"opaque":{"all":[1],"isUnsafe":true,"levelParams":[],"name":1,"type":0,"value":3}}
+{"quot":{"kind":"lift","levelParams":[1,3],"name":1,"type":0}}
+{"def":{"all":[1],"hints":"abbrev","levelParams":[],"name":1,"safety":"partial","type":0,"value":3}}
+{"def":{"all":[1],"hints":{"regular":4294967295},"levelParams":[],"name":1,"safety":"unsafe","type":0,"value":3}}
+{"inductive":{"ctors":[{"cidx":0,"induct":1,"isUnsafe":false,"levelParams":[],"name":2,"numFields":2,"numParams":1,"type":3}],"recs":[{"all":[1],"isUnsafe":false,"k":true,"levelParams":[3],"name":4,"numIndices":0,"numMinors":1,"numMotives":1,"numParams":1,"rules":[{"ctor":2,"nfields":2,"rhs":5},{"ctor":4,"nfields":0,"rhs":6}],"type":0}],"types":[{"all":[1],"ctors":[2],"isRec":false,"isReflexive":false,"isUnsafe":false,"levelParams":[],"name":1,"numIndices":0,"numNested":0,"numParams":1,"type":0}]}}

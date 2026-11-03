@@ -22,6 +22,7 @@ variants were retired on 2026-11-02.
 | Job pool | `src/lib/task.fs` | `job-submit ( context xt -- job ior )` and `job-wait ( job -- ior )`: a fixed pool of long-lived workers (at most one per logical core, setting `task-workers`) fed from a bounded queue; POSIX threads with a mutex and two condition variables on Gforth 1.0, the cooperative `tasker.fs` on Gforth 0.7.3, and a serial path elsewhere (or when forced, for tests). A job's context is owned by the job until it is waited for. Wrong stack effects give `task-unbalanced`; stack overflows never report success (guard pages on 1.0, canary zones on 0.7.3); a worker that cannot be created is reported (`task-no-worker`). `job-stacks-cover?` tells whether the workers' stacks hold a recursion requirement, and the pool refuses to start with stack settings below the largest need modules stated (`task-stacks-small`). Not loaded by `src/main.fs`; the scheduler will load it | New 2026-11-02; pool replaced one thread per task the same day; `tests/lib/task.fs` and `task-serial.fs` compare jobs and interleaved contexts with serial runs for 1, 2 and all workers and reach every refusal; `task-overflow.fs` and `task-overflow-serial.fs` overflow both stacks inside jobs; `tests/lib/task-bench.fs` measures speed-up |
 | Line reader and UTF-8 | `src/lib/bytes.fs` | `reader:` record over a Forth-2012 file: whole lines in one heap buffer that grows for long lines up to a limit, strict framing (final line feed; `text-framed` refuses carriage returns and a byte-order mark), line numbers and double-cell file offsets; `utf8-length`, `utf8-valid?` and `utf8-put` (RFC 3629, no overlongs or surrogates); `counted,`; `heap-claim` and `heap-release` for owned heap buffers. Uses Gforth's native `scan` behind an adapter, with a portable loop otherwise. Loads in decimal whatever `BASE` is, and restores it | New 2026-11-02; unit-tested against an independent UTF-8 model in `tests/lib/bytes.fs`, which loads it under `HEX` and counts heap blocks to show that a second `reader-init` frees the first buffer |
 | JSON reader | `src/lib/json.fs` | `json:` view record: a fail-closed, non-recursive RFC 8259 parser of one text into a growable token tape (containers know their item count and extent), escapes decoded in place, numbers kept as digit text, limits on depth, tokens, string and number length; `json-find`, `json-next`, `json-natural`, `json-u`, `digits>u` and `decimal>u` (decimal, independent of `BASE`); kind-checked `json-items-of` and `json-kind-at`. Loads in decimal whatever `BASE` is, and restores it | New 2026-11-02; malformed corpus and every limit tested in `tests/lib/json.fs`, loaded under `HEX` |
+| JSON writer | `src/lib/json-write.fs` | Plan task 3.1.3. A writer record (`json-writer: ( depth room "name" -- )`, or `jw-size` and `jw-init` in memory the caller owns, such as a context member) writes one JSON text to the caller's sink xt `( c-addr u -- )`: `jw-start ( sink writer -- )`, then `jw-string`, `jw-n` (signed cell), `jw-u` (unsigned cell), `jw-digits` (integer text of any size, as `json.fs` keeps it), `jw-bool`, `jw-null`, `jw-open-object`, `jw-key`, `jw-close-object`, `jw-open-array`, `jw-close-array`, or `jw-copy ( index view writer -- )` of a value `json.fs` parsed; `jw-end ( writer -- outcome )`. Every call takes the writer last and returns nothing. Deterministic bytes: no whitespace; members in call order, and with `jw-sorted` set each object's keys must strictly increase in byte order (code point order), checked against the last key kept in a key pool of `room` bytes; integers in decimal whatever `BASE` is, `-0` written `0`; strings escaped only as `\"`, `\\`, `\b \f \n \r \t` and `\u00xx` (lowercase) for other bytes below 32, everything else, valid UTF-8 included, as itself, which are the bytes of Python's `json.dumps(v, separators=(",", ":"), ensure_ascii=False)`; no real numbers (`jw-copy` of one is unsupported). The first failing call writes nothing and its outcome sticks until the next `jw-start` (`jw-outcome` reads it): invalid for calls out of order (a close that does not match its open or follows a key, a value where a key is due, a second value, `jw-end` before the value is complete, writes before `jw-start` or after `jw-end`), invalid UTF-8, bad integer text or flags, keys out of order in sorted mode, and any call from inside the writer's own sink; full past the byte limit `jw-limit` (so a buffer of n bytes never overflows), the depth or the key pool. So `jw-end` gives ok only for exactly one complete JSON value, and the sink only ever receives a prefix of one. No state of its own; `jw-copy` recurses once per open container (3 data and 6 return-stack cells each). Loads in decimal whatever `BASE` is, and restores it | New 2026-11-02; `tests/lib/json-write.fs` (157 assertions: every word's positive and negative cases, every limit at and one past its bound, sorted keys, the sink rules, two interleaved writers and a context member, 2,000 random strings and 2,000 random cells written and read back by `json.fs`, and all 138 lines of `tests/reference/*.ndjson` plus 16 lines with every other record kind of lean4export 3.1.0, `tests/lib/json-write-corpus.ndjson`, copied back byte for byte in both key modes), loaded and partly run under `HEX`; `tests/lib/test_json_write.py` compares 300 random values written with the writer's words and 150 non-canonical texts copied with `jw-copy` against Python's `json.dumps`, plus 50 refusals with their exact prefixes; 21 planted faults each caught |
 | Portability adapter | `src/lib/portability.fs` | Forth-2012 definitions of `>=`, `<=`, `0<=`, `0>=`, `-rot`, `max-n`, `cell` and the structure words, compiled only where the host lacks them. `scripts/check-portable-forth.py` refuses a module under `src/` that uses one of them without loading this file, directly or through the files it loads | New 2026-11-02; defines nothing under Gforth except `max-n`; `cell` and the load check added 2026-11-02 |
 | Diagnostics | `src/core/diagnostics.fs` | One record per checker context explaining the first failure of a check: a reason code, the site (module and word, a counted string) and two numbers; first failure wins until `lf-diag-clear`; `lf-diag@`, `lf-diag.`; helpers `lf-diag-walk`, `lf-diag-frames` and `lf-diag-store` explain a walk's, a pass's or a store's failure. Never changes an outcome; catalogue in [DIAGNOSTICS.md](../programming/DIAGNOSTICS.md) | New 2026-11-02 (plan 6.7, first form); every core and kernel module records its full and exhausted sites; `tests/core/diagnostics.fs` |
 | Expression store | `src/core/terms.fs` | Index-based nodes for sorts, bound variables, application, λ, Π and constants; nodes refer to earlier indices, so a term is a DAG with sharing | 64 nodes per checker context; built on `context-store:`; constructors check ranges only |
@@ -52,6 +53,37 @@ preview (`tests/support/ndjson_preview.py`) and the eleven hand-written
 Forth stream readers of its byte transport (`tests/core/*-stream.fs`) remain until their tests move to the Forth
 reader (plan item 3.2.5); the Python code stays as a test oracle only.
 
+Forth also writes JSON, deterministically (`src/lib/json-write.fs`, plan
+task 3.1.3; see the table above), for receipts, the derivation log, the API
+and the round trip of decoded export records (plan 3.2.4, 3.4.3 and 3.5).
+A writer record goes with each text in progress; the output goes to the
+caller's sink, here `TYPE`:
+
+```forth
+require src/lib/json-write.fs
+8 256 json-writer: receipt    \ containers nested 8 deep, 256 bytes for sorted keys
+true receipt jw-sorted !      \ each object's keys must increase: canonical text
+: write-receipt ( -- outcome )
+  ['] type receipt jw-start
+  receipt jw-open-object
+    s" checked" receipt jw-key  42 receipt jw-u
+    s" name" receipt jw-key  s\" Nat.add_comm \xe2\x9c\x93\n" receipt jw-string
+    s" ok" receipt jw-key  true receipt jw-bool
+  receipt jw-close-object
+  receipt jw-end ;
+write-receipt .
+```
+
+prints `{"checked":42,"name":"Nat.add_comm ✓\n","ok":true}` and then `0`
+(ok). Writing the keys in another order, closing with `jw-close-array`,
+or passing invalid UTF-8 would print only the part written before that
+call and give 1 (invalid); a 40-byte `jw-limit` would give 6 (full) before
+the string. A caller that keeps the text checks the outcome and discards
+the text unless it is ok. `jw-copy ( index view writer -- )` writes a
+value parsed by `json.fs` the same way; every line of the reference
+exports, whose keys are already in increasing order, comes back byte for
+byte.
+
 ## Missing for a usable checker at Mathlib scale
 
 - **Capacity and memory.** Every store holds 64 entries in fixed arrays,
@@ -78,8 +110,9 @@ reader (plan item 3.2.5); the Python code stays as a test oracle only.
   stores are per context rather than a shared, read-only input (ADR 0012
   E1 needs that split later). The scheduler is still to be written
   (roadmap C1–C4, ADR 0009).
-- **Serialization.** No deterministic, architecture-independent format for
-  checked terms or receipts.
+- **Serialization.** The JSON writer (`src/lib/json-write.fs`, 2026-11-02)
+  gives deterministic, architecture-independent bytes; the formats for
+  checked terms and receipts built on it are still to be defined.
 - **Pretty-printing and explanation.** No printer for terms, levels or proof
   steps.
 - **Moving the test readers onto the Forth NDJSON reader**, retiring the
