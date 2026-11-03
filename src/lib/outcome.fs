@@ -23,6 +23,15 @@
 \ A validity flag as an outcome: only a true flag (all bits set) is ok;
 \ false, or a status passed by mistake, is invalid.
 : flag>outcome ( flag -- outcome ) true = if outcome-ok else outcome-invalid then ;
+\ A room flag as an outcome: only a true flag is ok; false, or a status
+\ passed by mistake, is full.
+: room>outcome ( flag -- outcome ) true = if outcome-ok else outcome-full then ;
+\ Whether a visit bounded by fuel and by room (a frame, a depth or a level)
+\ can go ahead: no fuel left (zero or a corrupted negative fuel) is
+\ exhausted whatever the room, so the fuel decides when both are short;
+\ otherwise no room is full.
+: visit-outcome ( fuel room? -- outcome )
+  swap 0> if room>outcome else drop outcome-exhausted then ;
 \ Continue only on ok: keep x and give true, or replace x by the failing
 \ outcome and give false.
 : ok-then? ( x outcome -- x true | outcome false )
@@ -36,5 +45,13 @@
   dup ok? if drop true else 2swap 2drop false then ;
 \ A failure that has no result: -1 in the result's place.
 : no-result ( outcome -- -1 outcome ) -1 swap ;
+\ The outcome's name, as diagnostics write it. A value outside the
+\ vocabulary is named "invalid", as outcome-sane reads it.
+: outcome-text ( outcome -- c-addr u )
+  outcome-sane case
+    outcome-ok of s" ok" endof  outcome-invalid of s" invalid" endof
+    outcome-exhausted of s" exhausted" endof  outcome-unknown of s" unknown" endof
+    outcome-rejected of s" rejected" endof  outcome-unsupported of s" unsupported" endof
+    s" full" rot endcase ;
 \ Drop an argument and report invalid input.
 : drop-invalid ( x -- outcome ) drop outcome-invalid ;

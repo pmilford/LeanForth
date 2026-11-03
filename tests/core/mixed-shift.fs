@@ -30,34 +30,43 @@ create args 2 cells allot
   1 5 lf-term-lam 0= abort" lam" drop
   lf-term-serial @ rootid ! ;
 setup
-T{ 6 rootid @ 0 1 100 lf-mixed-shift -> 10 lf-term-serial @ lf-mshift-ok }T
+T{ 6 rootid @ 0 1 100 lf-mixed-shift -> 10 lf-term-serial @ outcome-ok }T
 lf-term-serial @ outid !
 T{ 7 lf-term-read -> lf-tag-bvar 2 0 true }T
 T{ 8 lf-term-read -> lf-tag-app 0 7 true }T
 T{ 9 lf-term-read -> lf-tag-app 2 8 true }T
 T{ 10 lf-term-read -> lf-tag-lam 1 9 true }T
-T{ 10 outid @ 100 lf-cterm-check -> lf-repr-ok }T
-T{ 0 cid @ 0 3 3 lf-mixed-shift -> 0 cid @ lf-mshift-ok }T
-T{ 0 cid @ 0 0 3 lf-mixed-shift -> 0 cid @ lf-mshift-ok }T
+T{ 10 outid @ 100 lf-cterm-check -> outcome-ok }T
+T{ 0 cid @ 0 3 3 lf-mixed-shift -> 0 cid @ outcome-ok }T
+T{ 0 cid @ 0 0 3 lf-mixed-shift -> 0 cid @ outcome-ok }T
 T{ lf-mshift-fuel @ -> 1 }T
-T{ 1 sid @ 0 3 3 lf-mixed-shift -> 1 sid @ lf-mshift-ok }T
-T{ 0 cid @ 0 0 1 lf-mixed-shift -> -1 0 lf-mshift-exhausted }T
-T{ 6 rootid @ -1 0 100 lf-mixed-shift -> -1 0 lf-mshift-invalid }T
-T{ 6 rootid @ 0 -1 100 lf-mixed-shift -> -1 0 lf-mshift-invalid }T
-T{ 6 rootid @ 0 0 -1 lf-mixed-shift -> -1 0 lf-mshift-invalid }T
+T{ 1 sid @ 0 3 3 lf-mixed-shift -> 1 sid @ outcome-ok }T
+T{ 0 cid @ 0 0 1 lf-mixed-shift -> -1 0 outcome-exhausted }T
+T{ 6 rootid @ -1 0 100 lf-mixed-shift -> -1 0 outcome-invalid }T
+T{ 6 rootid @ 0 -1 100 lf-mixed-shift -> -1 0 outcome-invalid }T
+T{ 6 rootid @ 0 0 -1 lf-mixed-shift -> -1 0 outcome-invalid }T
 \ A lambda at the largest cutoff cannot put its body one binder deeper; it
 \ is full (out of room, not fuel) before its first child is visited: the
 \ audit spends 9 and the root's visit 1.
 T{ 6 rootid @ lf-mshift-max 1 100 lf-mixed-shift lf-mshift-fuel @ ->
   -1 0 outcome-full 90 }T
 T{ lf-term-count @ -> 11 }T
+\ That binder check is independent of fuel (ADR 0008): when the root's
+\ visit takes the last unit (fuel 10) the lambda is still full, with no
+\ fuel left. With fuel 9 the audit takes it all and the root's visit is
+\ exhausted.
+T{ 6 rootid @ lf-mshift-max 1 10 lf-mixed-shift lf-mshift-fuel @ ->
+  -1 0 outcome-full 0 }T
+T{ 6 rootid @ lf-mshift-max 1 9 lf-mixed-shift lf-mshift-fuel @ ->
+  -1 0 outcome-exhausted 0 }T
+T{ lf-term-count @ -> 11 }T
 \ A failed audit leaves no fuel.
-T{ 6 0 0 1 100 lf-mixed-shift lf-mshift-fuel @ -> -1 0 lf-mshift-invalid 0 }T
+T{ 6 0 0 1 100 lf-mixed-shift lf-mshift-fuel @ -> -1 0 outcome-invalid 0 }T
 \ Force failure after the first child has allocated a shifted variable.
 setup
 T{ 2 3 lf-term-app -> 7 true }T
 lf-term-serial @ serial-before !
-T{ 7 lf-term-serial @ 0 1 5 lf-mixed-shift -> -1 0 lf-mshift-exhausted }T
+T{ 7 lf-term-serial @ 0 1 5 lf-mixed-shift -> -1 0 outcome-exhausted }T
 T{ lf-term-count @ -> 8 }T
 T{ lf-term-serial @ -> serial-before @ 1+ }T
 \ A rolled-back identity cannot resurrect when its slot is reused.
@@ -67,56 +76,56 @@ T{ 8 outid @ lf-hterm-valid? -> false }T
 T{ 8 lf-term-serial @ lf-hterm-valid? -> true }T
 \ Overflow and stale references fail without retaining output: an index
 \ past lf-mshift-max has no room in a cell, which is full.
-T{ 3 lf-term-serial @ 0 lf-mshift-max 100 lf-mixed-shift -> -1 0 lf-mshift-invalid }T
+T{ 3 lf-term-serial @ 0 lf-mshift-max 100 lf-mixed-shift -> -1 0 outcome-invalid }T
 T{ 7 lf-term-identities 7 cells + @ 0 lf-mshift-max 100 lf-mixed-shift -> -1 0 outcome-full }T
 T{ lf-term-count @ -> 9 }T
 \ Shared constant occurrences each consume audit and traversal fuel.
 setup
 T{ 0 0 lf-term-pi -> 7 true }T
-T{ 7 lf-term-serial @ 0 1 7 lf-mixed-shift -> -1 0 lf-mshift-exhausted }T
-T{ 7 lf-term-serial @ 0 1 8 lf-mixed-shift -> 8 lf-term-serial @ lf-mshift-ok }T
+T{ 7 lf-term-serial @ 0 1 7 lf-mixed-shift -> -1 0 outcome-exhausted }T
+T{ 7 lf-term-serial @ 0 1 8 lf-mixed-shift -> 8 lf-term-serial @ outcome-ok }T
 T{ 8 lf-term-read -> lf-tag-pi 0 0 true }T
 \ A malformed leaf fails before allocation.
 1 3 lf-term-slot 2 cells + !
-T{ 6 rootid @ 0 1 100 lf-mixed-shift -> -1 0 lf-mshift-invalid }T
+T{ 6 rootid @ 0 1 100 lf-mixed-shift -> -1 0 outcome-invalid }T
 0 3 lf-term-slot 2 cells + !
 \ Full arena: a variable requiring reconstruction is full, without mutation.
 : fill-arena ( -- ) begin lf-term-count @ lf-term-capacity < while
   0 lf-term-bvar 0= abort" fill" drop repeat ;
 fill-arena
 T{ 3 lf-term-identities 3 cells + @ 0 0 100 lf-mixed-shift ->
-  3 lf-term-identities 3 cells + @ lf-mshift-ok }T
+  3 lf-term-identities 3 cells + @ outcome-ok }T
 T{ 3 lf-term-identities 3 cells + @ 0 1 100 lf-mixed-shift -> -1 0 outcome-full }T
 T{ lf-term-count @ -> lf-term-capacity }T
 setup
 lf-cref-reset
-T{ 6 rootid @ 0 1 100 lf-mixed-shift -> -1 0 lf-mshift-invalid }T
+T{ 6 rootid @ 0 1 100 lf-mixed-shift -> -1 0 outcome-invalid }T
 setup
 lf-level-reset
-T{ 6 rootid @ 0 1 100 lf-mixed-shift -> -1 0 lf-mshift-invalid }T
+T{ 6 rootid @ 0 1 100 lf-mixed-shift -> -1 0 outcome-invalid }T
 \ Interface: the fuel a shift leaves, which mixed-infer continues with
 \ (audit 9 visits, shift 7), and a balanced return stack.
 setup
-T{ 6 rootid @ 0 1 100 lf-mixed-shift lf-mshift-fuel @ -> 10 lf-term-serial @ lf-mshift-ok 84 }T
+T{ 6 rootid @ 0 1 100 lf-mixed-shift lf-mshift-fuel @ -> 10 lf-term-serial @ outcome-ok 84 }T
 setup
-T{ 6 rootid @ 0 1 100 ' lf-mixed-shift rs-checked -> 10 lf-term-serial @ lf-mshift-ok }T
-T{ 6 rootid @ 0 1 -1 ' lf-mixed-shift rs-checked -> -1 0 lf-mshift-invalid }T
+T{ 6 rootid @ 0 1 100 ' lf-mixed-shift rs-checked -> 10 lf-term-serial @ outcome-ok }T
+T{ 6 rootid @ 0 1 -1 ' lf-mixed-shift rs-checked -> -1 0 outcome-invalid }T
 \ lf-mshift-inside shifts on fuel lent by another pass's frames record and
 \ gives back what is left; nothing is rolled back.
 1 0 frames: lender
 setup 50 lender frame-budget drop
-T{ 3 2 lender lf-mshift-inside lender frame-fuel @ -> 7 lf-mshift-ok 49 }T
+T{ 3 2 lender lf-mshift-inside lender frame-fuel @ -> 7 outcome-ok 49 }T
 T{ 7 lf-term-read -> lf-tag-bvar 3 0 true }T
 \ A shift record already in use (left busy by a THROW out of a pass, or
 \ asked again from inside its own pass) refuses both entries, changing
 \ nothing; frame-reset makes it idle again.
 1 lf-mshift-frames frame-depth !
-T{ 6 rootid @ 0 1 100 lf-mixed-shift -> -1 0 lf-mshift-invalid }T
+T{ 6 rootid @ 0 1 100 lf-mixed-shift -> -1 0 outcome-invalid }T
 T{ 3 5 lender ' lf-mshift-inside rs-checked lender frame-fuel @ ->
-  -1 lf-mshift-invalid 49 }T
+  -1 outcome-invalid 49 }T
 T{ lf-mshift-fuel @ lf-mshift-amount @ lf-term-count @ -> 49 2 8 }T
 lf-mshift-frames frame-reset
-T{ 6 rootid @ 0 1 100 lf-mixed-shift -> 11 lf-term-serial @ lf-mshift-ok }T
+T{ 6 rootid @ 0 1 100 lf-mixed-shift -> 11 lf-term-serial @ outcome-ok }T
 \ The frame limit equals the store capacity, so a chain that fills the store
 \ is visited all the way down: node 0 is bvar 0 and node k is lam(k-1, 0).
 \ The audit costs 127 visits and the shift 64 more, reaching node 0 at the
@@ -132,10 +141,10 @@ T{ chain 1 1 1000 lf-mixed-shift lf-mshift-fuel @ -> -1 0 outcome-full 808 }T
 \ concrete Sort, which the current passes do not accept (ADR 0007), is
 \ invalid for the audit and for the shift.
 setup
-T{ 6 rootid @ 1+ 0 1 100 lf-mixed-shift lf-mshift-fuel @ -> -1 0 lf-mshift-invalid 0 }T
-T{ 6 rootid @ 0 1 -5 lf-mixed-shift lf-mshift-fuel @ -> -1 0 lf-mshift-invalid 0 }T
+T{ 6 rootid @ 1+ 0 1 100 lf-mixed-shift lf-mshift-fuel @ -> -1 0 outcome-invalid 0 }T
+T{ 6 rootid @ 0 1 -5 lf-mixed-shift lf-mshift-fuel @ -> -1 0 outcome-invalid 0 }T
 T{ 0 lf-term-sort -> 7 true }T
-T{ 7 7 lf-term-identity drop 100 lf-cterm-check -> lf-repr-invalid }T
-T{ 7 7 lf-term-identity drop 0 1 100 lf-mixed-shift -> -1 0 lf-mshift-invalid }T
+T{ 7 7 lf-term-identity drop 100 lf-cterm-check -> outcome-invalid }T
+T{ 7 7 lf-term-identity drop 0 1 100 lf-mixed-shift -> -1 0 outcome-invalid }T
 T{ lf-term-count @ -> 8 }T
 bye

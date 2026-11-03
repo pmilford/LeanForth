@@ -20,12 +20,6 @@ require ../core/terms.fs
 lf-term-capacity walk2: lf-mcompare-walker
 lf-level-capacity walk2: lf-mcompare-level-walker
 
-\ Former status names, still used by tests.
-outcome-ok constant lf-mcompare-equal
-outcome-invalid constant lf-mcompare-invalid
-outcome-exhausted constant lf-mcompare-exhausted
-outcome-unknown constant lf-mcompare-unknown
-
 \ Fuel left after a comparison; zero after negative fuel or a failed audit.
 : lf-mcompare-fuel ( -- addr ) lf-mcompare-walker walk-fuel ;
 : lf-mcompare-level-fuel ( -- addr ) lf-mcompare-level-walker walk-fuel ;
@@ -149,9 +143,8 @@ outcome-unknown constant lf-mcompare-unknown
 
 \ Audit both roots completely, left first, with the walk's fuel; a failed
 \ audit leaves no fuel. lf-cterm-check fails only as invalid, exhausted or
-\ full.
-\ Five inputs: two handles and the walk. Shared with mixed-convert.fs, as
-\ is the refusal of negative fuel, which also leaves no fuel.
+\ full. Five inputs: two handles and the walk. Shared with mixed-convert.fs,
+\ as is the refusal of negative fuel, which also leaves no fuel.
 : lf-mcompare-refuel ( outcome walk -- )
   swap ok? if lf-cterm-fuel @ else 0 then swap walk-fuel ! ;
 : lf-mcompare-audit ( root identity walk -- outcome )

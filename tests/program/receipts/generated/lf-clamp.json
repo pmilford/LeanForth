@@ -54,11 +54,11 @@
     "evidence": [
       {
         "path": "tests/program/vc/obligations.lean",
-        "sha256": "91a9b0650a17a3d1ca19050aa62c8d204212f2575d7da2170e80d1b8c768a70a"
+        "sha256": "8eca805030d431fcca39d5503435433ddf6ccf5dc4143955ae6a81ed88b92df2"
       },
       {
         "path": "scripts/program_vc.py",
-        "sha256": "1a9eb96bd33be65a3d997366c884def282cb7a60f506328b363b3e77c1420622"
+        "sha256": "2be3fb1a81593e2c34699681597246472417b1763e7de8893bfbace540efbd18"
       }
     ],
     "note": "Lean proved ProgramVC.LfClamp0.contract, the contract stated against the IR semantics for every cell width, input and stack below, from the path obligations listed under verify. Checked by Lean 4.35.0, not by LeanForth, whose checker cannot check programs yet."
@@ -100,19 +100,19 @@
     "evidence": [
       {
         "path": "tests/program/ir-run-table.fs",
-        "sha256": "92f8567b8dc508de428e4f564235de91d8a9e4a40b3e18b7d5a564cc1512dd9f"
+        "sha256": "a7db049ff02fef09b36c8e5eb1cb1349e7418b22fc56ff1d214446f5ca7b4bfc"
       },
       {
         "path": "src/program/ir-run.fs",
-        "sha256": "c2b9ffccd7a8267a7043efba7672c850ec45dd821461020ab45db9a53267c301"
+        "sha256": "462487dd4f070017b021c0221988cdcedd1aa2eb54eb002485c05b26c4467312"
       },
       {
         "path": "tests/program/ir_run_differential.py",
-        "sha256": "ae4b89c4bd9124948b44e9ff8a9f747219091b0bc6f19c15e7f868c70c22bd3f"
+        "sha256": "6439b5c9bc9e6e82caa4eb5b674001e7557bad8f0e086d9a757988508fbdf986"
       },
       {
         "path": "tests/reference/program-ir-run.lean",
-        "sha256": "c2a9c24e2ee39b8df5440d15b7c6fc1ff04acc18e43c91cff9b7ec5dd89935c5"
+        "sha256": "062fc4ea1f3120485c8172bd325abd16b170bd2525d9893779a5230f0bbf501f"
       }
     ],
     "note": "On 986 inputs (the existing clamp tables and seeded random cells) the host word and the IR interpreter left the same stack; Lean's evaluation of the model agreed on all 991 clamp cases, including failures the host cannot run (too few inputs, no fuel)."

@@ -189,6 +189,23 @@ T{ 3 outcome-sane 6 outcome-sane 7 outcome-sane -1 outcome-sane true outcome-san
 T{ outcome-full ok? outcome-exhausted ok? -> false false }T
 T{ outcome-ok ok? outcome-unknown ok? -> true false }T
 T{ true flag>outcome false flag>outcome -> outcome-ok outcome-invalid }T
+\ room>outcome: only a true flag is room. visit-outcome: no fuel (zero or
+\ negative) is exhausted whatever the room; with fuel, the room decides.
+T{ true room>outcome false room>outcome 1 room>outcome -> outcome-ok outcome-full 6 }T
+T{ 1 true visit-outcome 1 false visit-outcome max-n true visit-outcome ->
+  outcome-ok outcome-full outcome-ok }T
+T{ 0 true visit-outcome 0 false visit-outcome -1 false visit-outcome ->
+  outcome-exhausted outcome-exhausted outcome-exhausted }T
+T{ max-n 1+ true visit-outcome 1 2 visit-outcome 3 true ' visit-outcome rs-checked ->
+  outcome-exhausted outcome-full outcome-ok }T
+\ outcome-text: every outcome's name; anything else reads as invalid.
+: named? ( outcome c-addr u -- flag ) rot outcome-text compare 0= ;
+T{ outcome-ok s" ok" named? outcome-invalid s" invalid" named? -> true true }T
+T{ outcome-exhausted s" exhausted" named? outcome-unknown s" unknown" named? -> true true }T
+T{ outcome-rejected s" rejected" named? outcome-unsupported s" unsupported" named?
+   -> true true }T
+T{ outcome-full s" full" named? 7 s" invalid" named? -1 s" invalid" named? -> true true true }T
+T{ outcome-full ' outcome-text rs-checked nip max-n outcome-text nip -> 4 7 }T
 
 \ Walk records: definition, budget and the bounded work stack.
 T{ 4 walk: w1 -> }T
@@ -233,6 +250,15 @@ T{ 0 w2 walk-budget drop 5 ' fib-visit w2 walk-run -> outcome-exhausted }T
 T{ 2 walk: w3 -> }T
 100 w3 walk-budget drop
 T{ 5 ' fib-visit w3 walk-run w3 walk-fuel @ 0> -> outcome-full true }T
+\ Room for a push is checked where it happens, independently of fuel (ADR
+\ 0008): a visit that took the last unit and finds no room for its second
+\ child is full, with no fuel left; with room for both it is exhausted at
+\ the next step.
+T{ 1 walk: w4 -> }T
+1 w4 walk-budget drop
+T{ 5 ' fib-visit w4 walk-run w4 walk-fuel @ -> outcome-full 0 }T
+1 w3 walk-budget drop
+T{ 5 ' fib-visit w3 walk-run w3 walk-fuel @ -> outcome-exhausted 0 }T
 
 \ The first outcome that is not ok stops the walk.
 : stop-at-3 ( walk -- outcome ) dup walk-node @ 3 = if drop outcome-unknown else fib-visit then ;
@@ -272,11 +298,14 @@ T{ outcome-exhausted no-result outcome-ok no-result ->
 T{ s" 0 walk: wbad0" bad-walk? s" -1 walk: wbad1" bad-walk? s" -100 walk: wbad2" bad-walk? -> true true true }T
 T{ s" 1 walk: wone" bad-walk? -> false }T
 
-\ A corrupted capacity or pending count refuses pushes, and walk-run then
-\ reports full without spending fuel.
+\ A corrupted capacity or pending count refuses pushes. A root that cannot
+\ be pushed can only mean a corrupted capacity, so walk-run reports invalid
+\ without spending fuel, with fuel or without.
 -1 w2 walk-capacity !
 20 w2 walk-budget drop
-T{ 5 ' fib-visit w2 walk-run w2 walk-fuel @ -> outcome-full 20 }T
+T{ 5 ' fib-visit w2 walk-run w2 walk-fuel @ -> outcome-invalid 20 }T
+0 w2 walk-capacity !  0 w2 walk-budget drop
+T{ 5 ' fib-visit w2 ' walk-run rs-checked w2 walk-fuel @ -> outcome-invalid 0 }T
 8 w2 walk-capacity !
 9 w2 walk-pending !
 T{ 1 w2 walk-push w2 walk-pending @ -> false 9 }T
@@ -347,9 +376,16 @@ T{ 5 10 ' depth-visit p2 walk-run-pair -> outcome-exhausted }T
 T{ 2 walk2: p3 -> }T
 100 p3 walk-budget drop
 T{ 5 0 ' depth-visit p3 walk-run-pair -> outcome-full }T
+\ As above, the last unit of fuel spent and no room for a child is full.
+T{ 1 walk2: p4 -> }T
+1 p4 walk-budget drop
+T{ 5 0 ' depth-visit p4 walk-run-pair p4 walk-fuel @ -> outcome-full 0 }T
+\ A corrupted capacity (-1, or one cell: less than an item) is invalid.
 -1 p3 walk-capacity !
 20 p3 walk-budget drop
-T{ 5 0 ' depth-visit p3 walk-run-pair p3 walk-fuel @ -> outcome-full 20 }T
+T{ 5 0 ' depth-visit p3 walk-run-pair p3 walk-fuel @ -> outcome-invalid 20 }T
+1 p3 walk-capacity !
+T{ 5 0 ' depth-visit p3 ' walk-run-pair rs-checked p3 walk-fuel @ -> outcome-invalid 20 }T
 T{ s" 0 walk2: pbad0" bad-walk? s" -1 walk2: pbad1" bad-walk? s" 1 walk2: pone" bad-walk? -> true true false }T
 
 \ Frame records: bounded recursion. The test visitor rebuilds the DAG above
@@ -386,13 +422,21 @@ T{ 5 0 5 14 leaves-run f1 frame-fuel @ f1 frame-depth @ -> -1 outcome-exhausted 
 T{ 5 0 4 100 leaves-run f1 frame-depth @ f1 frame-context @ -> -1 outcome-full 0 0 }T
 T{ 4 0 4 100 leaves-run f1 frame-fuel @ -> 5 outcome-ok 91 }T
 \ No fuel or a corrupted negative fuel is exhausted, and a corrupted limit
-\ full; neither opens a visit or spends anything. With neither fuel nor a
-\ free frame, the fuel decides: exhausted.
+\ (below 1, which frame-init never sets) invalid, with fuel or without;
+\ none opens a visit or spends anything. With neither fuel nor a free
+\ frame, the fuel decides: exhausted.
 T{ 3 0 4 0 leaves-run f1 frame-fuel @ -> -1 outcome-exhausted 0 }T
-T{ 3 0 -1 9 leaves-run f1 frame-fuel @ -> -1 outcome-full 9 }T
-T{ 3 0 -1 0 leaves-run f1 frame-fuel @ -> -1 outcome-exhausted 0 }T
+T{ 3 0 -1 9 leaves-run f1 frame-fuel @ -> -1 outcome-invalid 9 }T
+T{ 3 0 -1 0 leaves-run f1 frame-fuel @ -> -1 outcome-invalid 0 }T
+T{ 3 0 0 9 leaves-run f1 frame-fuel @ f1 frame-depth @ -> -1 outcome-invalid 9 0 }T
 4 f1 frame-limit !  -5 f1 frame-fuel !
 T{ 3 0 f1 frame-run f1 frame-fuel @ f1 frame-depth @ -> -1 outcome-exhausted -5 0 }T
+\ frame-room: why a visit would not open, the limit first, then the fuel,
+\ then the frames.
+: room-of ( limit fuel depth -- outcome )
+  f1 frame-depth ! f1 frame-fuel ! f1 frame-limit ! f1 frame-room 0 f1 frame-depth ! ;
+T{ 4 1 3 room-of 4 1 4 room-of 4 0 4 room-of 4 0 0 room-of -> 0 6 2 2 }T
+T{ 0 1 0 room-of -1 0 0 room-of max-n 1 max-n room-of 2 max-n 1 room-of -> 1 1 6 0 }T
 5 f1 frame-limit !  100 f1 frame-budget drop
 T{ 5 0 f1 ' frame-run rs-checked -> 8 outcome-ok }T
 \ The failure paths keep both stacks balanced. A context that cannot grow
@@ -402,6 +446,20 @@ T{ 3 f1 ' frame-call rs-checked f1 frame-depth @ -> -1 outcome-exhausted 0 }T
 100 f1 frame-budget drop  max-n f1 frame-context !
 T{ 3 f1 ' frame-under rs-checked f1 frame-context @ f1 frame-fuel @ ->
   -1 outcome-full max-n 100 }T
+\ frame-under checks the fuel before the context (ADR 0008): with no fuel
+\ left, a context at max-n is exhausted, as any other context is.
+0 f1 frame-budget drop
+T{ 3 f1 ' frame-under rs-checked f1 frame-context @ f1 frame-fuel @ ->
+  -1 outcome-exhausted max-n 0 }T
+max-n 1- f1 frame-context !
+T{ 3 f1 frame-under f1 frame-context @ -> -1 outcome-exhausted max-n 1- }T
+\ With fuel, every frame in use is full and a corrupted limit invalid, both
+\ before the context is examined.
+100 f1 frame-budget drop  5 f1 frame-depth !
+T{ 3 f1 frame-under f1 frame-context @ f1 frame-fuel @ -> -1 outcome-full max-n 1- 100 }T
+0 f1 frame-depth !  -1 f1 frame-limit !  max-n f1 frame-context !
+T{ 3 f1 frame-under f1 frame-context @ -> -1 outcome-invalid max-n }T
+5 f1 frame-limit !  0 f1 frame-context !
 \ A visitor result outside the outcome vocabulary counts as invalid.
 : odd-visit ( n frames -- result outcome ) drop 7 ;
 ' odd-visit f1 frame-visitor !
@@ -444,10 +502,16 @@ T{ 3 ' same-visit frames: f2 -> }T
 T{ 2 2 100 same-run f2 frame-fuel @ f2 frame-depth @ -> outcome-ok 97 0 }T
 T{ 3 3 100 same-run f2 frame-depth @ -> outcome-full 0 }T
 T{ 2 2 2 same-run f2 frame-fuel @ -> outcome-exhausted 0 }T
-\ No free frame with fuel left is full, spending nothing.
-0 f2 frame-limit !  100 f2 frame-budget drop
-T{ 2 2 f2 ' frame-call2 rs-checked f2 frame-fuel @ -> outcome-full 100 }T
-3 f2 frame-limit !
+\ No free frame with fuel left is full, spending nothing; a corrupted limit
+\ is invalid, with fuel or without.
+100 f2 frame-budget drop  3 f2 frame-depth !
+T{ 2 2 f2 ' frame-call2 rs-checked f2 frame-fuel @ f2 frame-depth @ ->
+  outcome-full 100 3 }T
+0 f2 frame-depth !  0 f2 frame-limit !
+T{ 2 2 f2 ' frame-call2 rs-checked f2 frame-fuel @ -> outcome-invalid 100 }T
+0 f2 frame-budget drop
+T{ 2 2 f2 frame-call2 -> outcome-invalid }T
+3 f2 frame-limit !  100 f2 frame-budget drop
 T{ 2 1 100 same-run f2 frame-fuel @ -> outcome-rejected 99 }T
 0 f2 frame-budget drop
 T{ 2 2 f2 ' frame-call2 rs-checked -> outcome-exhausted }T

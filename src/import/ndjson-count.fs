@@ -13,9 +13,7 @@ require ../lib/bytes.fs
 require ../lib/json.fs
 require ./ndjson.fs
 
-\ Report categories in count.py's sorted order, and the category of each
-\ record kind (-1 for the types, constructors and recursors of a block,
-\ which count.py counts separately).
+\ Report categories in count.py's sorted order.
 20 constant categories
 create category-names
   s" decl.axiom" counted,  s" decl.def" counted,  s" decl.inductive" counted,
@@ -25,12 +23,27 @@ create category-names
   s" expr.mdata" counted,  s" expr.natVal" counted,  s" expr.proj" counted,
   s" expr.sort" counted,  s" expr.strVal" counted,  s" level" counted,
   s" meta" counted,  s" name" counted,
-6 constant first-expr-category     16 constant last-expr-category
-17 constant level-category         19 constant name-category
-create kind-categories   \ indexed by kind-meta ... kind-recursor
-  18 , 19 , 19 , 17 , 17 , 17 , 17 , 7 , 15 , 8 , 6 , 10 , 9 , 11 , 14 , 13 , 16 , 12 ,
-  0 , 1 , 5 , 3 , 4 , 2 , -1 , -1 , -1 ,
 : category-name ( n -- c-addr u ) category-names swap 0 ?do count + aligned loop count ;
+\ The number of the category named c-addr u, looked up while loading.
+: category-of ( c-addr u -- n )
+  categories 0 do 2dup i category-name compare 0= if 2drop i unloop exit then loop
+  true abort" ndjson-count: unknown category" ;
+s" expr.app" category-of constant first-expr-category
+s" expr.strVal" category-of constant last-expr-category
+s" level" category-of constant level-category
+s" name" category-of constant name-category
+\ The category of each record kind, or -1 for the types, constructors and
+\ recursors of a block, which count.py counts separately.
+: category, ( c-addr u -- ) category-of , ;
+create kind-categories   \ indexed by kind-meta ... kind-recursor
+  s" meta" category,  s" name" category,  s" name" category,
+  s" level" category,  s" level" category,  s" level" category,  s" level" category,
+  s" expr.bvar" category,  s" expr.sort" category,  s" expr.const" category,
+  s" expr.app" category,  s" expr.lam" category,  s" expr.forallE" category,
+  s" expr.letE" category,  s" expr.proj" category,  s" expr.natVal" category,
+  s" expr.strVal" category,  s" expr.mdata" category,  s" decl.axiom" category,
+  s" decl.def" category,  s" decl.thm" category,  s" decl.opaque" category,
+  s" decl.quot" category,  s" decl.inductive" category,  -1 , -1 , -1 ,
 : kind-category ( kind -- n ) cells kind-categories + @ ;
 
 \ Level-parameter counts are tallied exactly up to 255; larger ones
@@ -47,11 +60,11 @@ begin-structure /tally
   field: tally-recursors
   lp-buckets cells +field tally-lp
 end-structure
-create tally /tally allot
+create count-tally /tally allot
 export: counted-export
 
-: bytes-of ( n -- addr ) 2* cells tally tally-bytes + ;
-: count-of ( n -- addr ) cells tally tally-counts + ;
+: bytes-of ( n -- addr ) 2* cells count-tally tally-bytes + ;
+: count-of ( n -- addr ) cells count-tally tally-counts + ;
 : d+! ( d addr -- ) dup >r 2@ d+ r> 2! ;
 : max! ( n addr -- ) tuck @ max swap ! ;
 : line-bytes ( record -- n ) record-export @ export-bytes @ ;
@@ -59,20 +72,22 @@ export: counted-export
 : tally-category ( bytes n -- ) dup >r bytes-of 0 swap d+! 1 r> count-of +! ;
 : tally-line ( record -- outcome )
   dup line-bytes swap record-kind @ kind-category tally-category outcome-ok ;
-: lp-bucket ( n -- addr ) lp-buckets 1- min cells tally tally-lp + ;
+: lp-bucket ( n -- addr ) lp-buckets 1- min cells count-tally tally-lp + ;
 : tally-params ( record -- )
-  dup decl-params @ swap list-count dup tally tally-max-lp max! 1 swap lp-bucket +! ;
+  dup decl-params @ swap list-count
+  dup count-tally tally-max-lp max! 1 swap lp-bucket +! ;
 
 \ Handlers.
 : on-name-str ( record -- outcome )
-  dup name-part 2@ nip 0 tally tally-name-bytes d+! tally-line ;
+  dup name-part 2@ nip 0 count-tally tally-name-bytes d+! tally-line ;
 : on-const ( record -- outcome )
-  dup const-levels @ over list-count tally tally-max-us max! tally-line ;
+  dup const-levels @ over list-count count-tally tally-max-us max! tally-line ;
 : on-decl ( record -- outcome ) dup tally-params tally-line ;
 : on-type ( record -- outcome )
-  1 tally tally-types +! dup record-index @ 0= if tally-params else drop then outcome-ok ;
-: on-ctor ( record -- outcome ) drop 1 tally tally-ctors +! outcome-ok ;
-: on-recursor ( record -- outcome ) drop 1 tally tally-recursors +! outcome-ok ;
+  1 count-tally tally-types +! dup record-index @ 0= if tally-params else drop then
+  outcome-ok ;
+: on-ctor ( record -- outcome ) drop 1 count-tally tally-ctors +! outcome-ok ;
+: on-recursor ( record -- outcome ) drop 1 count-tally tally-recursors +! outcome-ok ;
 \ Set the handler of the kinds first to last.
 : on-kinds ( xt last first -- )
   swap 1+ swap ?do dup i counted-export export-handler ! loop drop ;
@@ -86,18 +101,19 @@ export: counted-export
 \ average with one decimal, rounded half to even.
 : #group ( ud -- ud' ) # 2dup d0= if exit then # 2dup d0= if exit then # ;
 : grouped ( ud -- c-addr u ) <# begin #group 2dup d0= 0= while [char] , hold repeat #> ;
-: right ( c-addr u width -- ) over - 0 max spaces type ;
-: left ( c-addr u width -- ) over - 0 max >r type r> spaces ;
+: type-right ( c-addr u width -- ) over - 0 max spaces type ;
+: type-left ( c-addr u width -- ) over - 0 max >r type r> spaces ;
 \ Round the quotient q up when twice the remainder exceeds the divisor n,
 \ or equals it and q is odd.
-: round-half-even ( rem q n -- u )
-  rot 2* swap 2dup > -rot = rot dup 1 and rot and rot or if 1+ then ;
+: round-up? ( rem n q -- flag ) 1 and 0<> >r swap 2* 2dup < -rot = r> and or ;
+: round-half-even ( rem q n -- u ) over >r swap round-up? r> swap - ;
 \ Ten times bytes per record, rounded half to even.
 : tenths ( ud n -- u ) >r 10 1 m*/ r@ um/mod r> round-half-even ;
-: .tenths ( u width -- ) >r 0 <# # [char] . hold #s #> r> right ;
+: .tenths ( u width -- ) >r 0 <# # [char] . hold #s #> r> type-right ;
+: .average ( ud count -- ) ."  B  " tenths 6 .tenths ."  B/rec" ;
 : .category ( n -- )
-  dup category-name 20 left space dup count-of @ dup >r 0 grouped 12 right space
-  bytes-of 2@ 2dup grouped 14 right ."  B  " r> tenths 6 .tenths ."  B/rec" cr ;
+  dup category-name 20 type-left space dup count-of @ dup >r 0 grouped 12 type-right
+  space bytes-of 2@ 2dup grouped 14 type-right r> .average cr ;
 : .categories ( -- ) categories 0 do i count-of @ if i .category then loop ;
 : category-sum ( lo hi -- n ) 0 -rot 1+ swap ?do i count-of @ + loop ;
 : total-bytes ( -- ud ) 0 0 categories 0 do i bytes-of 2@ d+ loop ;
@@ -112,23 +128,24 @@ export: counted-export
   ."  exprs " first-expr-category last-expr-category category-sum .int cr ;
 : .bytes ( -- )
   ." total bytes " total-bytes 0 d.r
-  ."  name string bytes " tally tally-name-bytes 2@ 0 d.r cr ;
+  ."  name string bytes " count-tally tally-name-bytes 2@ 0 d.r cr ;
 : .maxima ( -- )
-  ." max const universe args " tally tally-max-us @ .int
-  ."  max decl level params " tally tally-max-lp @ .int ."  lp histogram " .histogram cr ;
+  ." max const universe args " count-tally tally-max-us @ .int ."  max decl level params "
+  count-tally tally-max-lp @ .int ."  lp histogram " .histogram cr ;
 : .blocks ( -- )
-  ." inductive types " tally tally-types @ .int ."  ctors " tally tally-ctors @ .int
-  ."  recursors " tally tally-recursors @ .int cr ;
+  ." inductive types " count-tally tally-types @ .int
+  ."  ctors " count-tally tally-ctors @ .int
+  ."  recursors " count-tally tally-recursors @ .int cr ;
 : .report ( -- ) .categories .tables .bytes .maxima .blocks ;
 
 \ Errors: the outcome's name, why, the field, the line and, for a JSON
-\ syntax error, the byte within the line.
+\ syntax error, the byte within the line. Every outcome has a name, and
+\ any other value, which no reader path gives, is an internal fault.
 : .outcome ( outcome -- )
-  case outcome-invalid of ." invalid" endof
-    outcome-full of ." full (a limit)" endof
-    outcome-unsupported of ." unsupported" endof
-    outcome-unknown of ." unknown" endof
-    outcome-rejected of ." rejected" endof
+  case outcome-ok of ." ok" endof  outcome-invalid of ." invalid" endof
+    outcome-exhausted of ." exhausted (out of fuel)" endof
+    outcome-unknown of ." unknown" endof  outcome-rejected of ." rejected" endof
+    outcome-unsupported of ." unsupported" endof  outcome-full of ." full (a limit)" endof
     ." internal fault" endcase ;
 : .json-offset ( export -- )
   export-json dup json-why @ if ." , byte " json-offset .int else drop then ;
@@ -138,13 +155,13 @@ export: counted-export
 : .count-error ( outcome -- ) ." error: " .outcome counted-export .why cr ;
 
 \ Read the export named c-addr u with fresh counts; the outcome of the
-\ read, or internal fault (-1) for any Forth exception.
+\ read, or invalid (corrupted state) for any Forth exception, after which
+\ export-read has closed the file.
 : count-start ( -- outcome )
-  tally /tally erase counted-export export-free counted-export export-init
-  dup ok? if count-handlers then ;
-: count-fault ( x x x -- -1 )
-  2drop drop counted-export export-reader reader-close drop 0 counted-export export-key !
-  c" a Forth exception" counted-export export-why ! -1 ;
+  count-tally /tally erase counted-export export-init dup ok? if count-handlers then ;
+: count-fault ( x x x -- outcome )
+  2drop drop 0 counted-export export-key !
+  c" a Forth exception" counted-export export-why ! outcome-invalid ;
 : count-read ( c-addr u -- outcome )
   count-start ok-then? 0= if nip exit then
   counted-export ['] export-read catch if count-fault then ;

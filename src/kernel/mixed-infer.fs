@@ -44,12 +44,6 @@ begin-structure /lf-ijob
 end-structure
 create lf-minfer-job /lf-ijob store-zeroed, drop
 
-\ Former status names, still used by tests.
-outcome-ok constant lf-minfer-ok
-outcome-invalid constant lf-minfer-invalid
-outcome-exhausted constant lf-minfer-exhausted
-outcome-unknown constant lf-minfer-unknown
-
 \ Fields of the record. Tests read the fuel left and the binder count, and
 \ mixed-definition-probe reads the fuel left.
 : lf-minfer-fuel ( -- addr ) lf-minfer-job lf-ijob-fuel ;
@@ -155,7 +149,8 @@ defer lf-minfer-walk ( node -- type status )
   lf-minfer-pi-parts if rot lf-minfer-apply else nip lf-minfer-none then ;
 
 \ Binders: the domain's type must be a Sort; the body is inferred with the
-\ domain pushed on the binder context (a full context is full).
+\ domain pushed on the binder context. A full context is full, checked
+\ before the body's visit and so whatever fuel is left (ADR 0008).
 : lf-minfer-domain ( domain -- level status )
   lf-minfer-walk dup ok? if drop lf-minfer-sort-level then ;
 : lf-minfer-under ( domain body -- type status )
@@ -205,8 +200,7 @@ defer lf-minfer-walk ( node -- type status )
 \ lf-term-capacity frames. No fuel left is exhausted and no free frame is
 \ full (with neither, the fuel decides); both spend nothing.
 : lf-minfer-room ( -- outcome )
-  lf-minfer-fuel @ 0> 0= if outcome-exhausted exit then
-  lf-minfer-depth @ lf-term-capacity < if outcome-ok else outcome-full then ;
+  lf-minfer-fuel @ lf-minfer-depth @ lf-term-capacity < visit-outcome ;
 : lf-minfer-enter ( -- ) -1 lf-minfer-fuel +! 1 lf-minfer-depth +! ;
 : lf-minfer-in-frame ( node -- type status )
   lf-minfer-room ok-then? 0= if no-result exit then

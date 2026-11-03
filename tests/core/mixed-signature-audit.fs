@@ -66,11 +66,11 @@ variable saved-value
   lf-term-count @ tc @ = lf-level-count @ lc @ = and lf-cref-count @ cc @ = and
   lf-term-serial @ ts @ = and lf-level-serial @ ls @ = and lf-cref-serial @ cs @ = and ;
 snapshot
-T{ token 1000 lf-mixed-signature-audit -> lf-msp-ok }T
+T{ token 1000 lf-mixed-signature-audit -> outcome-ok }T
 T{ unchanged? -> true }T
-T{ token 0 lf-mixed-signature-audit -> lf-msp-exhausted }T
-T{ token -1 lf-mixed-signature-audit -> lf-msp-invalid }T
-T{ token 1+ 1000 lf-mixed-signature-audit -> lf-msp-invalid }T
+T{ token 0 lf-mixed-signature-audit -> outcome-exhausted }T
+T{ token -1 lf-mixed-signature-audit -> outcome-invalid }T
+T{ token 1+ 1000 lf-mixed-signature-audit -> outcome-invalid }T
 T{ unchanged? -> true }T
 \ The shared budget covers both records and repeated constant DAG edges.
 variable saw-exhausted variable saw-success
@@ -78,8 +78,8 @@ variable saw-exhausted variable saw-success
   false saw-exhausted ! false saw-success !
   500 0 do
     token i lf-mixed-signature-audit
-    dup lf-msp-exhausted = if drop true saw-exhausted ! else
-      lf-msp-ok <> abort" unexpected audit status" true saw-success !
+    dup outcome-exhausted = if drop true saw-exhausted ! else
+      outcome-ok <> abort" unexpected audit status" true saw-success !
     then
     unchanged? 0= abort" audit mutated arenas"
   loop
@@ -87,52 +87,52 @@ variable saw-exhausted variable saw-success
 budget-sweep
 \ Bodies acquire a binder, domains do not.
 lam-root @ 1 cells lf-msp-roots + ! lam-id @ 1 cells lf-msp-ids + !
-T{ token 1000 lf-mixed-signature-audit -> lf-msp-ok }T
+T{ token 1000 lf-mixed-signature-audit -> outcome-ok }T
 pi-root @ 1 cells lf-msp-roots + ! pi-id @ 1 cells lf-msp-ids + !
-T{ token 1000 lf-mixed-signature-audit -> lf-msp-ok }T
+T{ token 1000 lf-mixed-signature-audit -> outcome-ok }T
 bad-domain-root @ 1 cells lf-msp-roots + ! bad-domain-id @ 1 cells lf-msp-ids + !
-T{ token 1000 lf-mixed-signature-audit -> lf-msp-invalid }T
+T{ token 1000 lf-mixed-signature-audit -> outcome-invalid }T
 result @ 1 cells lf-msp-roots + ! result-id @ 1 cells lf-msp-ids + !
 T{ unchanged? -> true }T
 \ An otherwise live root with an unbound variable fails at depth zero.
 open-root 1 cells lf-msp-roots + ! open-id 1 cells lf-msp-ids + !
-T{ token 1000 lf-mixed-signature-audit -> lf-msp-invalid }T
+T{ token 1000 lf-mixed-signature-audit -> outcome-invalid }T
 result @ 1 cells lf-msp-roots + ! result-id @ 1 cells lf-msp-ids + !
 T{ unchanged? -> true }T
 \ Corrupt the later record; restore it after each check.
 1 cells lf-msp-ids + dup @ 1+ swap !
-T{ token 1000 lf-mixed-signature-audit -> lf-msp-invalid }T
+T{ token 1000 lf-mixed-signature-audit -> outcome-invalid }T
 1 cells lf-msp-ids + dup @ 1- swap !
 1 lf-msp-formals-at cell+ dup @ saved-value ! 11 swap !
-T{ token 1000 lf-mixed-signature-audit -> lf-msp-invalid }T
+T{ token 1000 lf-mixed-signature-audit -> outcome-invalid }T
 saved-value @ 1 lf-msp-formals-at cell+ !
 1 lf-msp-formals-at dup @ saved-value ! 33 swap !
-T{ token 1000 lf-mixed-signature-audit -> lf-msp-invalid }T
+T{ token 1000 lf-mixed-signature-audit -> outcome-invalid }T
 saved-value @ 1 lf-msp-formals-at !
 1 cells lf-msp-arities + dup @ saved-value ! -1 swap !
-T{ token 1000 lf-mixed-signature-audit -> lf-msp-invalid }T
+T{ token 1000 lf-mixed-signature-audit -> outcome-invalid }T
 saved-value @ 1 cells lf-msp-arities + !
 1 cells lf-msp-names + dup @ saved-value ! 0 swap !
-T{ token 1000 lf-mixed-signature-audit -> lf-msp-invalid }T
+T{ token 1000 lf-mixed-signature-audit -> outcome-invalid }T
 saved-value @ 1 cells lf-msp-names + !
 lf-lscope-context dup @ saved-value ! 0 swap !
-T{ token 1000 lf-mixed-signature-audit -> lf-msp-invalid }T
+T{ token 1000 lf-mixed-signature-audit -> outcome-invalid }T
 saved-value @ lf-lscope-context !
 \ A valid context that omits a used parameter also fails.
 lf-lscope-context dup @ saved-value ! 44 swap !
-T{ token 1000 lf-mixed-signature-audit -> lf-msp-invalid }T
+T{ token 1000 lf-mixed-signature-audit -> outcome-invalid }T
 saved-value @ lf-lscope-context !
 \ Malformed nested reference metadata is rejected.
 0 lf-cref-slot 3 cells + dup @ saved-value ! -1 swap !
-T{ token 1000 lf-mixed-signature-audit -> lf-msp-invalid }T
+T{ token 1000 lf-mixed-signature-audit -> outcome-invalid }T
 saved-value @ 0 lf-cref-slot 3 cells + !
 T{ unchanged? -> true }T
 \ A stale nested reference is detected although the index token is current.
 lf-cref-reset
-T{ token 1000 lf-mixed-signature-audit -> lf-msp-invalid }T
+T{ token 1000 lf-mixed-signature-audit -> outcome-invalid }T
 T{ unchanged? -> false }T
 \ Reset changed the reference count itself; audit changed neither count nor serial.
 snapshot
-T{ token 1000 lf-mixed-signature-audit -> lf-msp-invalid }T
+T{ token 1000 lf-mixed-signature-audit -> outcome-invalid }T
 T{ unchanged? -> true }T
 bye

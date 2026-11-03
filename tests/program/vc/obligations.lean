@@ -30,7 +30,7 @@ namespace ProgramIR
 
 -- Part 1. The IR semantics, copied.
 
--- BEGIN VERBATIM tests/reference/program-ir.lean 185-544
+-- BEGIN VERBATIM tests/reference/program-ir.lean 187-577
 /-- A host cell of `bits` bits holding a two's-complement signed integer.
 Forth-2012 cells have at least 16 bits; narrower cells are allowed here so
 that small cases can be checked exhaustively. -/
@@ -87,6 +87,22 @@ theorem signed_unsigned_neg_one : c.signed (c.unsigned (-1)) = -1 := by
 
 theorem unsigned_zero : c.unsigned 0 = 0 := by
   simp [unsigned]
+
+-- The literals the example words use fit every cell.
+theorem fits_zero : c.Fits 0 := by
+  have := c.two_le_half
+  simp only [Fits, max, min]
+  omega
+
+theorem fits_one : c.Fits 1 := by
+  have := c.two_le_half
+  simp only [Fits, max, min]
+  omega
+
+theorem fits_neg_one : c.Fits (-1) := by
+  have := c.two_le_half
+  simp only [Fits, max, min]
+  omega
 
 theorem rshift_neg_one : c.signed (c.unsigned (-1) >>> 1) = c.max := by
   have := c.two_le_half
@@ -214,15 +230,21 @@ attribute [local simp] step.eq_1 step.eq_2 step.eq_3 step.eq_4 step.eq_5 step.eq
   step.eq_32 step.eq_33 step.eq_34 step.eq_35 step.eq_36 step.eq_37 step.eq_38
 
 /-- Run a block. A called word starts with an empty return stack of its own
-and must leave it empty. Calls and loop iterations each use one unit of
-fuel, so every run terminates; running out is the failure `outOfFuel`. -/
+and must leave it empty. A literal must fit in a cell; one that does not is
+`unmodeled` (the reader writes only literals that fit in 32 bits, so on
+cells of 32 bits or more every literal it writes fits). Fuel bounds the nesting depth
+of calls and the repetitions of each loop: a callee runs with one unit
+less than its caller, which continues with its own fuel afterwards, and
+each repetition of a loop leaves one unit less for the repetitions after
+it. So every run terminates; running out is the failure `outOfFuel`. -/
 def run (c : Cells) (p : Program) : Nat → List Instr → State → Result
   | _, [], s => .next s
   | fuel, .prim op :: rest, s =>
       match step c op s with
       | .next s' => run c p fuel rest s'
       | other => other
-  | fuel, .lit n :: rest, ⟨d, r⟩ => run c p fuel rest ⟨n :: d, r⟩
+  | fuel, .lit n :: rest, ⟨d, r⟩ =>
+      if c.min ≤ n ∧ n ≤ c.max then run c p fuel rest ⟨n :: d, r⟩ else .failed .unmodeled
   | _, .exit :: _, s => .exited s
   | _, .ifElse _ _ :: _, ⟨[], _⟩ => .failed .underflow
   | fuel, .ifElse yes no :: rest, ⟨f :: d, r⟩ =>
@@ -282,9 +304,17 @@ theorem run_prim (fuel : Nat) (op : Prim) (rest : List Instr) (s : State) :
       | other => other := by
   rw [run]
 
-theorem run_lit (fuel : Nat) (n : Int) (rest : List Instr) (d r : List Int) :
+theorem run_lit (fuel : Nat) (n : Int) (rest : List Instr) (d r : List Int)
+    (fits : c.Fits n) :
     run c p fuel (.lit n :: rest) ⟨d, r⟩ = run c p fuel rest ⟨n :: d, r⟩ := by
   rw [run]
+  exact ite_eq_left fits
+
+theorem run_lit_unfit (fuel : Nat) (n : Int) (rest : List Instr) (d r : List Int)
+    (unfit : ¬ c.Fits n) :
+    run c p fuel (.lit n :: rest) ⟨d, r⟩ = .failed .unmodeled := by
+  rw [run]
+  exact ite_eq_right unfit
 
 theorem run_exit (fuel : Nat) (rest : List Instr) (s : State) :
     run c p fuel (.exit :: rest) s = .exited s := by
@@ -383,6 +413,7 @@ theorem or_flags (c : Cells) (x y : Bool) :
 instruction, and `step` only where the stacks have a known shape (the
 equations `step.eq_1` to `step.eq_38` are its 38 primitive cases). -/
 macro "ir_simp" : tactic => `(tactic| simp only [run_prim, run_lit, run_exit, run_nil, run_if,
+  Cells.fits_zero, Cells.fits_one, Cells.fits_neg_one,
   flag_ne_zero, flag_beq_zero, flag_true, flag_false, and_flags, or_flags, beq_iff_eq,
   bne_iff_ne, decide_eq_true_eq, ↓reduceIte,
   step.eq_1, step.eq_2, step.eq_3, step.eq_4, step.eq_5, step.eq_6, step.eq_7, step.eq_8,
@@ -395,7 +426,7 @@ macro "ir_simp" : tactic => `(tactic| simp only [run_prim, run_lit, run_exit, ru
 
 -- The IR text printer, copied.
 
--- BEGIN VERBATIM tests/reference/program-ir.lean 1176-1215
+-- BEGIN VERBATIM tests/reference/program-ir.lean 1215-1254
 def irVersion : String := "0.1"
 
 /-- The Forth word a primitive models. -/
@@ -464,13 +495,13 @@ IF by the path's hypotheses, and name the IR's MAX, MIN and constants. -/
 macro "vc_run" p:ident : tactic => `(tactic| (simp [callWord, run_call, run_prim, run_lit, run_exit,
   run_if, run_nil, step, lookup, $p:ident, flag_ne_zero, flag_beq_zero, and_flags, or_flags,
   decide_eq_true_eq, ir_max, ir_min, ir_cell_min, ir_shift_one, ir_not_lt,
-  Cells.rshift_neg_one, *]))
+  Cells.rshift_neg_one, Cells.fits_zero, Cells.fits_one, Cells.fits_neg_one, *]))
 
 /-- Run IR code on concrete inputs on 64-bit cells. -/
 macro "vc_eval" p:ident "at" h:ident : tactic => `(tactic| (simp [callWord, run_call, run_prim,
   run_lit, run_exit, run_if, run_nil, step, lookup, $p:ident, flag, bitwise, cells64,
   Cells.wrap, Cells.min, Cells.max, Cells.half, Cells.modulus, Cells.unsigned,
-  Cells.signed] at $h:ident))
+  Cells.signed, Cells.fits_zero, Cells.fits_one, Cells.fits_neg_one] at $h:ident))
 
 /-- A concrete value fits in a 64-bit cell. -/
 macro "vc_fits" : tactic => `(tactic| (simp [Cells.Fits, cells64, Cells.min, Cells.max,

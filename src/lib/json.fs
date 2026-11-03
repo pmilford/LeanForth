@@ -14,13 +14,17 @@
 \ itself: escaped strings are decoded in place, which never needs more
 \ room than the escape took, so the text bytes may change. Number tokens
 \ keep their digits as text, whatever their size; json-natural and json-u
-\ read natural numbers from them.
+\ read natural numbers from them, always in decimal: nothing here depends
+\ on BASE.
 \
 \ Failure is total: json-parse gives ok only for a complete, valid text,
 \ and otherwise invalid (bad syntax, bad escape, invalid UTF-8, a control
 \ byte in a string, text after the value, empty input) or full (too
 \ deep, too many tokens, a string or number past its limit, no heap). The
 \ tape is then meaningless. json-offset and json-reason say where and why.
+\ The tape takes /token bytes per token and grows up to the token limit,
+\ which json-init sets as large as memory; a caller that reads untrusted
+\ text bounds it (json-token-limit) to bound the memory of one text.
 \ Whitespace is space, tab, line feed and carriage return; outside strings
 \ only ASCII is valid, so a text that parses is valid UTF-8. Duplicate
 \ object keys are kept: json-find returns the first, and a caller that
@@ -84,17 +88,19 @@ end-structure
   tuck json-depth-limit ! max-n over json-string-limit ! max-n over json-digit-limit !
   max-n /token / swap json-token-limit ! ;
 : json-heap-stack ( view -- outcome )
-  dup json-depth-limit @ 1 max cells heap
+  dup json-depth-limit @ 1 max cells heap-claim
   if swap json-stack ! outcome-ok else drop outcome-full then ;
 : json-heap-tape ( view -- outcome )
-  json-first-room dup /token * heap
+  json-first-room dup /token * heap-claim
   if rot json-tape! outcome-ok else 2drop outcome-full then ;
-\ Prepare a view for texts nested at most depth containers deep. Exhausted
-\ when the heap has no room; json-free then releases what was allocated.
+\ Free a view's heap memory and zero it.
+: json-free ( view -- )
+  dup json-tape heap-release dup json-stack heap-release /json erase ;
+\ Prepare a view for texts nested at most depth containers deep, freeing
+\ the memory of an earlier json-init first. Full when the heap has no
+\ room; json-free then releases what was allocated.
 : json-init ( depth view -- outcome )
-  tuck json-limits! dup json-heap-stack ok-then? if json-heap-tape then ;
-: free-cell ( addr -- ) dup @ ?dup if free drop then 0 swap ! ;
-: json-free ( view -- ) dup json-tape free-cell dup json-stack free-cell /json erase ;
+  dup json-free tuck json-limits! dup json-heap-stack ok-then? if json-heap-tape then ;
 
 \ Failure: remember why, and give invalid or full.
 : json-bad ( view c-addr -- outcome ) swap json-why ! outcome-invalid ;
@@ -109,9 +115,9 @@ end-structure
 : json-skip ( view -- ) 1 swap json-pos +! ;
 \ The next byte, or -1 at the end of the text.
 : json-peek ( view -- c ) json-rest 2dup u> if nip c@ else 2drop -1 then ;
-: space? ( c -- flag ) dup bl = over 9 = or over lf-byte = or swap cr-byte = or ;
+: json-space? ( c -- flag ) dup bl = over 9 = or over lf-byte = or swap cr-byte = or ;
 : spaces-end ( end addr -- end addr' )
-  begin 2dup u> while dup c@ space? while 1+ repeat then ;
+  begin 2dup u> while dup c@ json-space? while 1+ repeat then ;
 : json-skip-space ( view -- ) dup json-rest spaces-end nip swap json-pos ! ;
 
 \ The token tape. A token's address is valid only until the next token is
@@ -131,17 +137,19 @@ end-structure
 : json-room? ( view -- outcome )
   dup json-at-limit? if c" too many tokens" json-over exit then
   dup json-full? if json-grow else drop outcome-ok then ;
-: token! ( kind text size token -- ) tuck token-size ! tuck token-text ! token-kind ! ;
+\ A new token of this kind, with zero text fields (no items yet, for a container).
+: token-new ( kind token -- token )
+  tuck token-kind ! 0 over token-text ! 0 over token-size ! ;
+: token-text! ( addr u token -- ) tuck token-size ! token-text ! ;
 : json-claim ( view -- index ) dup json-count @ 1 rot json-count +! ;
 \ Append a token of this kind with zero text fields.
 : json-add ( kind view -- token outcome )
   dup json-room? ok-then? 0= if nip 0 swap exit then
-  dup json-claim swap json-token tuck >r 0 0 r> token! outcome-ok ;
-: scalar! ( addr u kind token -- ) tuck token-kind ! tuck token-size ! token-text ! ;
-\ Append a scalar token whose text is addr u.
+  dup json-claim swap json-token token-new outcome-ok ;
+\ Append a scalar token of this kind whose text is the string addr u.
 : json-scalar ( addr u kind view -- outcome )
   dup json-room? ok-then? 0= if nip nip nip exit then
-  dup json-claim swap json-token scalar! outcome-ok ;
+  dup json-claim swap json-token tuck token-kind ! token-text! outcome-ok ;
 
 \ Open containers: a stack of token indices.
 : json-slot ( view -- addr ) dup json-depth @ cells swap json-stack @ + ;
@@ -173,15 +181,18 @@ end-structure
 \ for, or 0 when it is not a one-byte escape.
 34 constant quote-byte
 92 constant backslash
-create string-classes 256 allot  string-classes 256 erase
-create escapes 256 allot  escapes 256 erase
-: classes! ( lo hi class -- ) -rot 1+ swap ?do dup string-classes i + c! loop drop ;
-0 31 3 classes!  quote-byte dup 1 classes!  backslash dup 2 classes!  128 255 4 classes!
-: escape! ( byte c -- ) escapes + c! ;
-quote-byte quote-byte escape!  backslash backslash escape!  47 47 escape!
-8 char b escape!  12 char f escape!  9 char t escape!
-lf-byte char n escape!  cr-byte char r escape!
-: string-class ( c -- class ) string-classes + c@ ;
+create json-string-classes 256 allot  json-string-classes 256 erase
+create json-escapes 256 allot  json-escapes 256 erase
+: json-classes! ( lo hi class -- )
+  -rot 1+ swap ?do dup json-string-classes i + c! loop drop ;
+0 31 3 json-classes!  quote-byte dup 1 json-classes!  backslash dup 2 json-classes!
+128 255 4 json-classes!
+: json-escape-byte! ( byte c -- ) json-escapes + c! ;
+quote-byte quote-byte json-escape-byte!  backslash backslash json-escape-byte!
+47 47 json-escape-byte!  8 char b json-escape-byte!  12 char f json-escape-byte!
+9 char t json-escape-byte!  lf-byte char n json-escape-byte!
+cr-byte char r json-escape-byte!
+: string-class ( c -- class ) json-string-classes + c@ ;
 : plain-end ( end addr -- end addr' )
   begin 2dup u> while dup c@ string-class 0= while 1+ repeat then ;
 
@@ -227,7 +238,7 @@ lf-byte char n escape!  cr-byte char r escape!
 : json-escape ( view -- outcome )
   dup json-remaining 2 < if drop c" bad escape" json-bad exit then 1+ c@
   dup [char] u = if drop json-unicode exit then
-  escapes + c@ ?dup 0= if c" bad escape" json-bad exit then
+  json-escapes + c@ ?dup 0= if c" bad escape" json-bad exit then
   over json-emit 2 swap json-pos +! outcome-ok ;
 
 \ One byte that does not stand for itself: an escape, a multibyte
@@ -331,7 +342,7 @@ create value-actions 256 cells allot
 \ one comparison.
 : json-byte ( view -- c )
   dup json-peek dup bl > if nip exit then
-  dup space? if drop dup json-skip-space json-peek else nip then ;
+  dup json-space? if drop dup json-skip-space json-peek else nip then ;
 
 \ The parser's states, each given the next byte c that is not whitespace.
 : json-value ( c view -- outcome ) swap cells value-actions + @ execute ;
@@ -377,11 +388,19 @@ create json-steps   \ indexed by state
   repeat json-finish ;
 
 \ Reading the tape after a successful parse. Token 0 is the whole value.
-\ Indices are not checked: callers stay within json-count and within the
-\ extents recorded in container tokens.
+\ Indices are not checked, except by json-kind-at and json-items-of:
+\ callers stay within json-count and within the extents recorded in
+\ container tokens, and read json-items@ only from a container.
 : json-kind@ ( index view -- kind ) json-token token-kind @ ;
 : json-text@ ( index view -- addr u ) json-token dup token-text @ swap token-size @ ;
 : json-items@ ( index view -- n ) json-token token-items @ ;
+\ The kind of the token at any index, or -1 outside the tape.
+: json-kind-at ( index view -- kind )
+  2dup json-count @ u< if json-kind@ else 2drop -1 then ;
+\ The item count of the token at any index, when it is a container of
+\ this kind (json-object or json-array).
+: json-items-of ( index kind view -- n true | false )
+  >r over r@ json-kind-at = if r> json-items@ true else r> 2drop false then ;
 \ The index after the value at index, skipping a container's contents.
 : json-next ( index view -- index' )
   over swap json-token dup token-kind @ json-array >
@@ -410,15 +429,20 @@ create json-steps   \ indexed by state
 : json-natural ( index view -- addr u true | false )
   2dup json-kind@ json-integer <> if 2drop false exit then json-text@ natural-text ;
 \ Decimal digits of the largest cell, computed once.
-: digits-of ( u -- n ) 0 swap begin swap 1+ swap 10 / dup 0= until drop ;
-max-n digits-of constant cell-digits
-\ The value of decimal digits that fit in a nonnegative cell; false when larger.
-\ Unchecked: addr u holds only decimal digits, as json-natural returns.
-\ Fewer digits than max-n has always fit, so they take the fast loop.
+: decimal-width ( u -- n ) 0 swap begin swap 1+ swap 10 / dup 0= until drop ;
+max-n decimal-width constant cell-digits
+\ Decimal numbers, read by hand, so that BASE never matters. Unchecked:
+\ addr u holds only decimal digits, as json-natural returns.
+\ decimal>u is the value modulo the cell size, exact whenever it fits in
+\ an unsigned cell, which is always so for fewer digits than max-n has.
 : decimal>u ( addr u -- u ) 0 -rot over + swap ?do 10 * i c@ [char] 0 - + loop ;
+\ Ten times u plus the digit c, when that fits in a nonnegative cell.
+: digit+ ( u c -- u' true | false )
+  [char] 0 - 2dup max-n swap - 10 / > if 2drop false exit then swap 10 * + true ;
+\ The value of decimal digits that fit in a nonnegative cell; false when larger.
 : digits>u ( addr u -- u true | false )
   dup cell-digits < if decimal>u true exit then dup cell-digits > if 2drop false exit then
-  0 0 2swap >number nip 0<> or over 0< or if drop false else true then ;
+  1- 2dup decimal>u -rot + c@ digit+ ;
 \ The natural number at index as a cell; false when it is not a natural
 \ number or does not fit.
 : json-u ( index view -- u true | false ) json-natural if digits>u else false then ;

@@ -11,10 +11,6 @@
 require ../lib/lib.fs
 require ./levels.fs
 
-outcome-ok constant lf-lscope-ok
-outcome-invalid constant lf-lscope-invalid
-outcome-exhausted constant lf-lscope-exhausted
-
 begin-structure /lf-lsctx
   field: lf-lsctx-count         \ parameter IDs in the context
   field: lf-lsctx-generation    \ advances on every change; negative when spent

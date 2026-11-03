@@ -17,8 +17,9 @@
 \ the model's failure unmodeled, never a host result.
 \
 \ Outcomes (src/lib/outcome.fs). Loading: ok; invalid for text that is not
-\ the IR 0.1 text form (including a name defined twice); unsupported for a
-\ literal beyond the host's cells; full when a capacity below is reached.
+\ the IR 0.1 text form (including a name defined twice); full when a
+\ capacity below is reached. A literal beyond the host's cells loads and,
+\ as in the model, runs as the failure unmodeled.
 \ Running: ok when the word returns normally; exhausted when it runs out of
 \ fuel; unsupported for the failure unmodeled; invalid for underflow, an
 \ unbalanced return stack, an unknown word or a bad constant, and for a run
@@ -27,9 +28,10 @@
 \ does. irx-result tells which of the model's results ended the run.
 \
 \ State: one context record, irx-state (the loaded program, the machine's
-\ stacks and the frames of a run); and irx-keywords, irx-prims and
-\ irx-actions, tables filled while this file loads and never changed
-\ afterwards. One load or run at a time in each context. A program loaded
+\ stacks and the frames of a run); and the stores irx-keywords and
+\ irx-prims and the dispatch tables irx-actions, irx-body-actions,
+\ irx-top-actions and irx-modes, all filled while this file loads and never
+\ changed afterwards. One load or run at a time in each context. A program loaded
 \ in one context can be run only there.
 
 require ../lib/lib.fs
@@ -172,6 +174,9 @@ begin-structure /irx-def
   field: irx-def-end        \ the body ends before this index
 end-structure
 
+\ The irx-op-end of a literal that does not fit in a cell (others: -1).
+1 constant irx-unfit
+
 \ Instructions, in a store in text order: the body of IF is the
 \ instructions up to its ELSE (or THEN), the ELSE part those after ELSE up
 \ to THEN; likewise BEGIN's test and WHILE's body. The markers ELSE, THEN,
@@ -282,19 +287,25 @@ end-structure
   dup if irx-split irx-keep then begin dup while 1 /string irx-split irx-keep repeat
   2drop irx-locate ;
 
-\ A literal: an optional minus sign and digits. Other text is malformed; a
-\ magnitude beyond the largest cell is unsupported. At most 19 digits are
-\ converted, which is exact on every host.
+\ A literal: an optional minus sign and digits; other text is malformed.
+\ The model gives a literal outside the cell no meaning, so one that does
+\ not fit a host cell loads as unfit and runs as the failure unmodeled. Up
+\ to 19 digits are read exactly on every host; more never fit a cell of at
+\ most 64 bits.
 : irx-sign ( c-addr u -- c-addr' u' negative? )
   2dup 1 min s" -" compare 0= dup if >r 1 /string r> then ;
-: irx-magnitude ( c-addr u -- u outcome )
-  dup 0= if 2drop 0 outcome-invalid exit then
-  dup >r irx-convert nip r> swap if drop 2drop 0 outcome-invalid exit then
-  19 > if 2drop 0 outcome-unsupported exit then
-  over 0< or if drop 0 outcome-unsupported else outcome-ok then ;
-: irx-literal ( c-addr u -- n true | false )
-  irx-sign >r irx-magnitude dup ok? if drop r> if negate then true exit then
-  irx-stop drop r> drop false ;
+: irx-digits? ( c-addr u -- flag )
+  dup if irx-convert nip nip nip 0= else 2drop false then ;
+\ The largest magnitude that fits, unsigned: max-n 1+ is the smallest cell's.
+: irx-limit ( negative? -- u ) if max-n 1+ else max-n then ;
+: irx-fits? ( ud negative? -- flag ) irx-limit rot u< 0= swap 0= and ;
+: irx-signed ( u negative? -- n ) if negate then ;
+: irx-magnitude ( c-addr u negative? -- n fits? )
+  over 19 > if drop 2drop 0 false exit then
+  >r irx-convert 2drop 2dup r@ irx-fits? nip swap r> irx-signed swap ;
+: irx-literal ( c-addr u -- n fits? true | false )
+  irx-sign >r 2dup irx-digits? 0= if 2drop r> drop irx-malformed false exit then
+  r> irx-magnitude true ;
 
 \ Names. A definition's header names a fresh or only-called name.
 : irx-new-name ( c-addr u -- index true | false )
@@ -320,6 +331,9 @@ end-structure
 : irx-add ( kind arg -- index true | false )
   irx-code store-new-slot if >r irx-op! r> true else 2drop irx-full false then ;
 : irx-append ( kind arg -- ) irx-add if drop then ;
+: irx-unfit! ( index -- ) irx-op irx-unfit swap irx-op-end ! ;
+: irx-lit-op ( n fits? -- )
+  irx-k-lit rot irx-add if swap if drop else irx-unfit! then else drop then ;
 
 \ IF and BEGIN open while loading.
 : irx-top ( -- addr ) irx-open# @ 1- cells irx-state irx-s-open + ;
@@ -347,8 +361,7 @@ end-structure
 : irx-body-prim ( -- )
   2 irx-plain? if 1 irx-token irx-prims irx-find
     if irx-k-prim swap irx-append else irx-malformed then then ;
-: irx-body-lit ( -- )
-  2 irx-plain? if 1 irx-token irx-literal if irx-k-lit swap irx-append then then ;
+: irx-body-lit ( -- ) 2 irx-plain? if 1 irx-token irx-literal if irx-lit-op then then ;
 : irx-body-call ( -- )
   2 irx-plain? if 1 irx-token irx-name if irx-k-call swap irx-append then then ;
 : irx-opening ( kind -- )
@@ -563,7 +576,8 @@ create irx-actions irx-op-kinds cells allot
   begin dup irx-iterate dup irx-next = while drop repeat nip ;
 
 : irx-do-prim ( op -- result ) irx-op-arg @ irx-prim ;
-: irx-do-lit ( op -- result ) irx-op-arg @ irx-lit ;
+: irx-do-lit ( op -- result )
+  dup irx-op-end @ irx-unfit = if drop irx-unmodeled exit then irx-op-arg @ irx-lit ;
 \ A callee that returned lets its caller go on.
 : irx-do-call ( op -- result )
   irx-op-arg @ irx-call dup irx-next = if drop irx-going then ;

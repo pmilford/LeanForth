@@ -50,24 +50,24 @@ setup
 \ its own walk and never changes the comparison's fuel.
 : convert-fuel ( a aid b bid -- status fuel )
   1000 ['] lf-mixed-convert rs-checked lf-mconvert-fuel @ ;
-T{ 0 h 1 h 1000 lf-mixed-compare -> lf-mcompare-equal }T
-T{ 0 h 1 h convert-fuel -> lf-mconvert-equal 982 }T
-T{ 4 h 5 h convert-fuel -> lf-mconvert-equal 973 }T
-T{ 8 h 8 h convert-fuel -> lf-mconvert-equal 993 }T
-T{ 0 h 3 h convert-fuel -> lf-mconvert-unknown 991 }T
-T{ 8 h 9 h convert-fuel -> lf-mconvert-unknown 993 }T
+T{ 0 h 1 h 1000 lf-mixed-compare -> outcome-ok }T
+T{ 0 h 1 h convert-fuel -> outcome-ok 982 }T
+T{ 4 h 5 h convert-fuel -> outcome-ok 973 }T
+T{ 8 h 8 h convert-fuel -> outcome-ok 993 }T
+T{ 0 h 3 h convert-fuel -> outcome-unknown 991 }T
+T{ 8 h 9 h convert-fuel -> outcome-unknown 993 }T
 T{ lf-mcompare-fuel @ -> 992 }T
 
-T{ 0 h 1 h 10000 lf-mixed-convert -> lf-mconvert-equal }T
-T{ 0 h 2 h 10000 lf-mixed-convert -> lf-mconvert-unknown }T
-T{ 4 h 5 h 10000 lf-mixed-convert -> lf-mconvert-equal }T
-T{ 0 h 4 h 10000 lf-mixed-convert -> lf-mconvert-unknown }T
-T{ 6 h 7 h 10000 lf-mixed-convert -> lf-mconvert-equal }T
-T{ 8 h 9 h 10000 lf-mixed-convert -> lf-mconvert-unknown }T
+T{ 0 h 1 h 10000 lf-mixed-convert -> outcome-ok }T
+T{ 0 h 2 h 10000 lf-mixed-convert -> outcome-unknown }T
+T{ 4 h 5 h 10000 lf-mixed-convert -> outcome-ok }T
+T{ 0 h 4 h 10000 lf-mixed-convert -> outcome-unknown }T
+T{ 6 h 7 h 10000 lf-mixed-convert -> outcome-ok }T
+T{ 8 h 9 h 10000 lf-mixed-convert -> outcome-unknown }T
 \ Universe arity is part of a constant: x.{0} and x.{} are never equal, in
 \ either order, even though their names and shared arguments agree.
-T{ 0 h 3 h 10000 ' lf-mixed-convert rs-checked -> lf-mconvert-unknown }T
-T{ 3 h 0 h 10000 ' lf-mixed-convert rs-checked -> lf-mconvert-unknown }T
+T{ 0 h 3 h 10000 ' lf-mixed-convert rs-checked -> outcome-unknown }T
+T{ 3 h 0 h 10000 ' lf-mixed-convert rs-checked -> outcome-unknown }T
 \ Nested reduction: ((fun x => x) (fun x => x)) constant.
 : more ( -- )
   0 h 8 h lf-hterm-lam save
@@ -76,10 +76,10 @@ T{ 3 h 0 h 10000 ' lf-mixed-convert rs-checked -> lf-mconvert-unknown }T
   0 h 18 h lf-hterm-pi save
   1 h 1 h lf-hterm-pi save ;
 more
-T{ 18 h 0 h 10000 lf-mixed-convert -> lf-mconvert-equal }T
-T{ 19 h 20 h 10000 lf-mixed-convert -> lf-mconvert-equal }T
-T{ 18 h 0 h convert-fuel -> lf-mconvert-equal 944 }T
-T{ 19 h 20 h convert-fuel -> lf-mconvert-equal 901 }T
+T{ 18 h 0 h 10000 lf-mixed-convert -> outcome-ok }T
+T{ 19 h 20 h 10000 lf-mixed-convert -> outcome-ok }T
+T{ 18 h 0 h convert-fuel -> outcome-ok 944 }T
+T{ 19 h 20 h convert-fuel -> outcome-ok 901 }T
 variable term-start variable level-start variable serial-start variable saw-allocated
 : sweep ( -- )
   lf-term-count @ term-start ! lf-level-count @ level-start !
@@ -87,19 +87,19 @@ variable term-start variable level-start variable serial-start variable saw-allo
   700 0 do
     lf-term-serial @ serial-start !
     19 h 20 h i lf-mixed-convert
-    dup lf-mconvert-exhausted = if
+    dup outcome-exhausted = if
       lf-term-serial @ serial-start @ > if true saw-allocated ! then
-    else dup lf-mconvert-equal <> abort" unexpected sweep result" then drop
+    else dup outcome-ok <> abort" unexpected sweep result" then drop
     lf-term-count @ term-start @ <> abort" term leak"
     lf-level-count @ level-start @ <> abort" level leak"
   loop
   saw-allocated @ 0= abort" no exhaustion after allocation" ;
 sweep
-T{ 18 h 0 h -1 lf-mixed-convert -> lf-mconvert-invalid }T
-T{ 18 h 0 h 0 lf-mixed-convert -> lf-mconvert-exhausted }T
+T{ 18 h 0 h -1 lf-mixed-convert -> outcome-invalid }T
+T{ 18 h 0 h 0 lf-mixed-convert -> outcome-exhausted }T
 \ Later stale input must be caught before the reducible first input allocates.
 lf-term-serial @ serial-start !
-T{ 18 h 0 0 10000 lf-mixed-convert -> lf-mconvert-invalid }T
+T{ 18 h 0 0 10000 lf-mixed-convert -> outcome-invalid }T
 T{ lf-term-serial @ -> serial-start @ }T
 \ Capture avoidance under a binder: (fun x => fun y => x) z.
 : capture-fixtures ( -- )
@@ -111,8 +111,8 @@ T{ lf-term-serial @ -> serial-start @ }T
   0 h 8 h lf-hterm-lam save
   0 h 26 h lf-hterm-lam save ;
 capture-fixtures
-T{ 24 h 25 h 20000 lf-mixed-convert -> lf-mconvert-equal }T
-T{ 24 h 27 h 20000 lf-mixed-convert -> lf-mconvert-unknown }T
+T{ 24 h 25 h 20000 lf-mixed-convert -> outcome-ok }T
+T{ 24 h 27 h 20000 lf-mixed-convert -> outcome-unknown }T
 \ Equivalent but differently represented universe arguments.
  : universe-fixtures ( -- )
 42 lf-hlevel-param 0= abort" parameter" 2drop
@@ -122,15 +122,15 @@ name-x @ 1 ref-term
 4 args ! 4 lf-level-identity 0= abort" level" args cell+ !
 name-x @ 1 ref-term ;
 universe-fixtures
-T{ 28 h 29 h 20000 lf-mixed-convert -> lf-mconvert-equal }T
+T{ 28 h 29 h 20000 lf-mixed-convert -> outcome-ok }T
 \ A bad discarded argument is audited even below a redex on either side.
  : malformed-fixture ( -- )
 0 lf-term-symbolic-sort 0= abort" malformed sort" drop
 16 30 lf-term-app 0= abort" application" drop ;
 malformed-fixture
 lf-term-serial @ serial-start !
-T{ 31 dup lf-term-identity drop 18 h 20000 lf-mixed-convert -> lf-mconvert-invalid }T
-T{ 18 h 31 dup lf-term-identity drop 20000 lf-mixed-convert -> lf-mconvert-invalid }T
+T{ 31 dup lf-term-identity drop 18 h 20000 lf-mixed-convert -> outcome-invalid }T
+T{ 18 h 31 dup lf-term-identity drop 20000 lf-mixed-convert -> outcome-invalid }T
 T{ lf-term-serial @ -> serial-start @ }T
 \ Visit order. app(bvar 0, P) against app(bvar 1, P), with P a nested Pi
 \ shared by both sides: the first children differ (unknown), so a
@@ -146,6 +146,6 @@ T{ lf-term-serial @ -> serial-start @ }T
   0 h 0 h lf-hterm-pi save 3 h 3 h lf-hterm-pi save 4 h 4 h lf-hterm-pi save
   1 h 5 h lf-hterm-app save 2 h 5 h lf-hterm-app save ;
 order-setup
-T{ 6 h 7 h 1000 lf-mixed-convert lf-mconvert-fuel @ -> lf-mconvert-unknown 890 }T
-T{ 6 h 7 h 1000 lf-mixed-compare lf-mcompare-fuel @ -> lf-mcompare-unknown 948 }T
+T{ 6 h 7 h 1000 lf-mixed-convert lf-mconvert-fuel @ -> outcome-unknown 890 }T
+T{ 6 h 7 h 1000 lf-mixed-compare lf-mcompare-fuel @ -> outcome-unknown 948 }T
 bye

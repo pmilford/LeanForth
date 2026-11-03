@@ -57,8 +57,17 @@ T{ s"   frob" in-body -> outcome-invalid }T
 T{ s"   lit 12a" in-body -> outcome-invalid }T
 T{ s"   lit -" in-body -> outcome-invalid }T
 T{ s"   lit -9223372036854775807" in-body -> outcome-ok }T
-T{ s"   lit 9223372036854775808" in-body -> outcome-unsupported }T
-T{ s"   lit 99999999999999999999" in-body -> outcome-unsupported }T
+\ A literal beyond the cell loads, and runs as the model's unmodeled.
+T{ s"   lit 9223372036854775808" in-body -> outcome-ok }T
+T{ 0 given 1 s" f" run irx-result -> outcome-unsupported irx-unmodeled }T
+T{ s"   lit 99999999999999999999" in-body -> outcome-ok }T
+T{ 0 given 1 s" f" run -> outcome-unsupported }T
+T{ s"   lit -9223372036854775809" in-body -> outcome-ok }T
+T{ 0 given 1 s" f" run -> outcome-unsupported }T
+T{ s"   lit -9223372036854775808" in-body -> outcome-ok }T
+T{ 0 given 1 s" f" run out-stack -> outcome-ok max-n invert }T
+T{ s"   lit 9223372036854775807" in-body -> outcome-ok }T
+T{ 0 given 1 s" f" run out-stack -> outcome-ok max-n }T
 T{ s"   lit 9x" in-body -> outcome-invalid }T
 T{ s"  prim dup" in-body -> outcome-invalid }T
 T{ s"    prim dup" in-body -> outcome-invalid }T

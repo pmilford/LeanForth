@@ -52,8 +52,8 @@ variable beta-root
   7 0 do
     build-base i build-case beta-root ! i .
     beta-root @ dup lf-term-identity 0= if -1 throw then
-    10000 lf-mixed-beta lf-mbeta-ok <> if 2drop -1 throw then
-    2dup 10000 lf-cterm-check lf-repr-ok <> if 2drop -1 throw then
+    10000 lf-mixed-beta outcome-ok <> if 2drop -1 throw then
+    2dup 10000 lf-cterm-check outcome-ok <> if 2drop -1 throw then
     drop emit-term cr
   loop ;
 emit-table bye

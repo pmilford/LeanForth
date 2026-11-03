@@ -25,14 +25,14 @@ T{ lf-term-count @ -> 0 }T
 T{ lf-ssession-begin -> true }T
 T{ 1 old-level-identity @ lf-hterm-sort -> 0 lf-term-serial @ true }T
 lf-term-serial @ old-term-identity !
-T{ 0 old-term-identity @ 100 lf-hterm-check -> lf-repr-ok }T
+T{ 0 old-term-identity @ 100 lf-hterm-check -> outcome-ok }T
 T{ 0 old-term-identity @ lf-hterm-valid? -> true }T
 T{ 1 old-level-identity @ lf-hlevel-valid? -> true }T
 T{ 777 999 true lf-hlevel-result -> 777 false }T
 T{ 777 999 true lf-hterm-result -> 777 false }T
 T{ 0 lf-hterm-bvar -> 1 lf-term-serial @ true }T
 T{ 0 old-term-identity @ 1 lf-term-serial @ lf-hterm-app -> 2 lf-term-serial @ true }T
-T{ 2 lf-term-serial @ 100 lf-hterm-check -> lf-repr-ok }T
+T{ 2 lf-term-serial @ 100 lf-hterm-check -> outcome-ok }T
 \ Reset both arenas and reuse their indices. Old handles must not be accepted
 \ by the new session even when their integer indices are currently allocated.
 lf-term-reset lf-level-reset
@@ -50,11 +50,11 @@ T{ 1 lf-level-serial @ lf-hterm-sort -> 0 lf-term-serial @ true }T
 T{ 1 old-level-identity @ lf-hlevel-valid? -> false }T
 T{ 1 old-level-identity @ lf-hterm-sort -> false }T
 T{ 0 old-term-identity @ lf-hterm-valid? -> false }T
-T{ 0 old-term-identity @ 100 lf-hterm-check -> lf-repr-invalid }T
+T{ 0 old-term-identity @ 100 lf-hterm-check -> outcome-invalid }T
 T{ 0 old-term-identity @ 0 lf-term-serial @ lf-hterm-app -> false }T
 T{ 0 lf-term-serial @ 0 old-term-identity @ lf-hterm-app -> false }T
 T{ lf-term-count @ -> 1 }T
-T{ 0 lf-term-serial @ 100 lf-hterm-check -> lf-repr-ok }T
+T{ 0 lf-term-serial @ 100 lf-hterm-check -> outcome-ok }T
 \ Simulate an allocation transaction that discards its last slot and then
 \ reuses it. The old handle must not match the new occupant even though the
 \ arena generation did not change. No node may retain a rolled-back level.

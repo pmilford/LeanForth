@@ -456,10 +456,67 @@ stores is next (plan 3.2–3.3).
 ADR 0008's split, approved by the owner, is implemented: *exhausted* (2)
 now means only that the fuel budget ran out, and *full* (6) that a store,
 work stack, frame or depth limit, binder context, or a value at the cell
-maximum left no room. When a visit has neither fuel nor room, fuel
-decides. The site-by-site classification is in ADR 0008's "Implemented"
-section. Evidence: on 616 randomized seeds (2.2 million lines) every
+maximum left no room. When a visit is admitted against both fuel and room
+(a frame, a depth limit or a context level) and has neither, fuel decides.
+Limits checked inside a visit that has already been paid for (work-stack
+pushes, a binder depth at `max-n` while rebuilding or scope-checking, and
+mixed-infer's binder context) are checked independently of fuel and
+report full even after the last unit was spent. The site-by-site
+classification is in ADR 0008's "Implemented" section. Evidence: on 616 randomized seeds (2.2 million lines) every
 difference from the previous code was exhausted becoming full, each traced
 to a room site; 36 planted misclassifications were caught by unit tests;
 no pinned-Lean table changed. The NDJSON reader, merged meanwhile, reports
 its limits (line length, nesting, token and string limits, heap) as full.
+
+Review follow-up, the same day. An independent review found no
+correctness or trust problem and three low findings, now acted on.
+`frame-under` checked its context before the fuel, so with no fuel left at
+`max-n` it reported full; it now admits the visit first (fuel, then
+frames) and only then examines the context. A frames record with a limit
+below 1 and a walk whose root cannot be pushed (possible only with a
+corrupted capacity) reported full; both are now invalid, before fuel or
+room is considered. The test of `lf-cterm-check`'s outcome set now
+includes full, which its contract allows but today's capacities never
+reach. `visit-outcome` in `outcome.fs` states the fuel-first
+rule once (`frame-room` replaces `frame-open?` and `frame-shut`, and the
+level-value, level-compare and mixed-infer room words use it), and the 49
+per-module status aliases were removed: tests use the `outcome-*` names.
+Evidence: through the public entry points, 800 randomized seeds (2.80
+million output lines) give exactly the output of the previous code; a
+library-level differential (250 seeds, 450,156 operations, and 20 more
+seeds on Gforth 0.7.3) differs only in the three intended
+reclassifications; eight planted faults were each caught by unit or model
+tests. Rejected: moving the work-stack and
+binder-depth checks behind a fuel check (they occur inside a visit that
+is already paid for, and a walk visitor has no fuel interface); keeping
+exhausted for a corrupted limit when no fuel is left (a corrupted record
+is invalid whatever its fuel).
+
+## Program reader: names ignore ASCII case; receipt schema 0.1 tightened — 2026-11-02
+
+The independent review of the program reader found that it compared names
+exactly while Gforth finds them ignoring case: a file defining
+`: True 0 ;` got the IR of the proven clamp although Gforth then runs the
+file's own `True`. The reader now looks every token up with A–Z folded to
+a–z, as Gforth 0.7.3 and 1.0 do and as Forth-2012 3.4.2 allows (a system
+must find the standard words spelled in upper case), and writes names to
+the IR in lower case, so `CLAMP`, `clamp` and `Clamp` give byte-identical
+IR. A definition or constant whose folded name is already known is a
+redefinition and refused. A line holding any byte other than printable
+ASCII, space or tab is refused, comments included (both Gforths end a line
+at a lone carriage return, which could hide code), because how a system
+folds other characters is implementation-defined. The reader splits lines
+itself and never hands source text to the host's interpreter; numbers are
+written in decimal whatever `BASE` is; literals have at most 10 digits.
+The owner prompted the choice ("Forth is case independent"). Rejected:
+refusing upper-case names (the review's first suggestion), because that
+refuses the standard spelling of the standard words; exact comparison,
+because it is unsound against a case-insensitive host.
+
+Receipt schema 0.1 was tightened in place rather than renumbered: no
+receipt has been produced under it and it is an unapproved draft. Once
+the owner approves it, every change gets a new version number. Rules the
+schema cannot express (an empty axiom list, a theorem missing from the
+check, duplicate assumption IDs, more failures than cases, the Lean
+version, the receipt's generator) are left to the receipt generator and
+replay.

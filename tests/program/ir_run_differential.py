@@ -82,6 +82,14 @@ def value(rng):
     return (rng.next() & MASK) - (1 << 63) if rng.below(2) else rng.below(1000)
 
 
+def literal(rng):
+    """A literal: mostly a value, sometimes one at or beyond the cell's edge,
+    which the model and the interpreter must both treat as unmodeled."""
+    if rng.below(12) == 0:
+        return rng.choice([-(1 << 63), 1 << 63, -(1 << 63) - 1, 10 ** 20, -(10 ** 20)])
+    return value(rng)
+
+
 def block(rng, names, depth, in_loop, pad):
     lines = []
     for _ in range(rng.below(6)):
@@ -89,7 +97,7 @@ def block(rng, names, depth, in_loop, pad):
         if kind < 55:
             lines.append(f"{pad}prim {rng.choice(PRIMS)}")
         elif kind < 73:
-            lines.append(f"{pad}lit {value(rng)}")
+            lines.append(f"{pad}lit {literal(rng)}")
         elif kind < 83:
             lines.append(f"{pad}call {rng.choice(names + ['zz'])}")
         elif kind < 91 and depth < 3:

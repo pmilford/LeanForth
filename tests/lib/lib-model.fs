@@ -192,27 +192,40 @@ T{ 9 ' dag-visit w9 walk-run 9 ' dag-visit w8 walk-run w8 walk-fuel @ 0> ->
 \ context level deeper. A direct recursive model with explicit fuel and
 \ depth counters must agree on the outcome, the result, the fuel left, the
 \ deepest frame and the record afterwards, for random fuel and limits
-\ (too little of either, a corrupted limit), contexts near max-n, negative
-\ fuel and busy records. A second visitor of two values (frame-call2)
-\ compares the trees below two nodes.
+\ (too little of either, a corrupted limit, which is invalid), contexts
+\ near max-n (where the fuel decides before the context), negative fuel
+\ and busy records. A second visitor of two values (frame-call2) compares
+\ the trees below two nodes.
 
 variable m-fuel  variable m-limit  variable m-deepest  variable m-why
-: model-open? ( depth -- flag ) m-limit @ < m-fuel @ 0> and ;
+\ Whether a visit opens with d frames in use: ok, or why not. A limit
+\ below 1 is corrupted (invalid); then no fuel is exhausted, and no free
+\ frame full.
+: model-room ( d -- outcome )
+  m-limit @ 1 < if drop outcome-invalid exit then
+  m-fuel @ 1 < if drop outcome-exhausted exit then
+  m-limit @ < if outcome-ok else outcome-full then ;
+\ A visit one context level deeper from context c: as model-room, and
+\ then a context at max-n is full. m-dry counts the refusals for lack of
+\ fuel at max-n, where the fuel decides.
+variable m-dry
+: model-deeper ( c d -- outcome )
+  model-room dup outcome-exhausted = if over max-n = if 1 m-dry +! then then
+  dup ok? if drop max-n = if outcome-full else outcome-ok then else nip then ;
 : model-enter ( depth -- depth' ) -1 m-fuel +! 1+ dup m-deepest @ max m-deepest ! ;
-\ Why a visit did not open: no fuel is exhausted, else no frame is full.
-: model-why ( -- outcome ) m-fuel @ 0> if outcome-full else outcome-exhausted then ;
 : model-fail ( outcome -- false ) m-why ! false ;
+: model-refuse ( c d k outcome -- false ) model-fail >r drop 2drop r> ;
 \ Node k at context c with d frames in use: its result and true, or false
-\ with the failure in m-why. A context that cannot grow is full.
+\ with the failure in m-why.
 : model-frame ( c d k -- r true | false )
-  over model-open? 0= if drop 2drop model-why model-fail exit then
+  over model-room dup ok? 0= if model-refuse exit then drop
   swap model-enter swap dup 2 < if 2drop 1+ true exit then
   >r 2dup r@ g-first@ recurse 0= if 2drop r> drop false exit then
-  -rot swap dup max-n = if 2drop drop r> drop outcome-full model-fail exit then
-  1+ swap r> g-second@ recurse if + true else drop false then ;
+  >r 2dup model-deeper dup ok? 0= if nip nip r> r> 2drop model-fail exit then
+  drop swap 1+ swap r> r> g-second@ swap >r recurse if r> + true else r> drop false then ;
 \ Whether the trees below a and b are equal, d frames in use.
 : model-same ( a b d -- outcome )
-  dup model-open? 0= if drop 2drop model-why exit then model-enter >r
+  dup model-room dup ok? 0= if nip nip nip exit then drop model-enter >r
   2dup = if 2drop r> drop outcome-ok exit then
   2dup min 2 < if 2drop r> drop outcome-rejected exit then
   2dup g-first@ swap g-first@ r@ recurse dup ok? 0= if nip nip r> drop exit then drop
@@ -261,7 +274,7 @@ variable p-fuel  variable p-limit  variable p-context  variable m-result
   dup frame-fuel @ >r tuck frame-budget 0= swap frame-fuel @ r> = and ;
 
 \ One pass from root: the model's result and ok, or -1 and the model's
-\ failure (exhausted or full). The failures are counted by outcome.
+\ failure (invalid, exhausted or full). The failures are counted by outcome.
 variable frame-oks
 create frame-fails 7 cells allot  frame-fails 7 cells erase
 : fails-of ( outcome -- addr ) cells frame-fails + ;
@@ -295,13 +308,15 @@ create same-counts 7 cells allot  same-counts 7 cells erase
   dup random-dag 1- dup check-frame dup check-frame
   8 lm-rnd 0= if dup gf check-busy then
   dup some-node over some-node check-same dup dup some-node check-same drop ;
-0 failures !  0 frame-oks !
+0 failures !  0 frame-oks !  0 m-dry !
 : run-frames ( -- ) 600 0 do 3 13 lm-rnd + frame-round loop ;
 run-frames
 T{ failures @ -> 0 }T
-\ Every kind of ending was reached: out of fuel and out of room separately.
+\ Every kind of ending was reached: out of fuel and out of room separately,
+\ a corrupted limit, and a deeper visit at max-n with no fuel left.
 T{ frame-oks @ 0> outcome-exhausted fails-of @ 0> outcome-full fails-of @ 0> ->
   true true true }T
+T{ outcome-invalid fails-of @ 0> m-dry @ 0> -> true true }T
 : same-count ( outcome -- n ) cells same-counts + @ ;
 T{ outcome-ok same-count 0> outcome-rejected same-count 0>
   outcome-exhausted same-count 0> outcome-full same-count 0> -> true true true true }T

@@ -131,6 +131,15 @@ T{ max-n-text drop cell-digits 1- digits>u nip -> true }T
 T{ past-max-n digits>u -> false }T
 T{ s" 123456789012345678901234567890" digits>u -> false }T
 T{ cell-digits max-n-text nip = -> true }T
+\ Nothing depends on BASE: digits are decimal on every path.
+T{ max-n-text 2 base ! digits>u decimal -> max-n true }T
+T{ max-n-text hex digits>u decimal -> max-n true }T
+T{ past-max-n hex digits>u decimal -> false }T
+T{ s" 1000" 2 base ! decimal>u decimal -> 1000 }T
+\ digit+ at the edge of a cell.
+T{ max-n 10 / max-n 10 mod char 0 + digit+ -> max-n true }T
+T{ max-n 10 / max-n 10 mod char 1 + digit+ -> false }T
+T{ 0 char 7 digit+ -> 7 true }T
 
 \ canonical-natural?: digits only, no leading zero except 0 itself.
 T{ s" 0" canonical-natural? s" 10" canonical-natural? s" 123456789012345678901234567890" canonical-natural?
@@ -138,10 +147,19 @@ T{ s" 0" canonical-natural? s" 10" canonical-natural? s" 12345678901234567890123
 T{ s" " canonical-natural? s" 01" canonical-natural? s" 1a" canonical-natural? s" -1" canonical-natural?
    -> false false false false }T
 
+\ json-kind-at and json-items-of check the index and the kind.
+T{ s" [1,{}]" parsed -> outcome-ok }T
+T{ 0 json-array jv json-items-of 0 json-object jv json-items-of -> 2 true false }T
+T{ 2 json-object jv json-items-of 1 json-array jv json-items-of -> 0 true false }T
+T{ 3 json-array jv json-items-of -1 json-array jv json-items-of -> false false }T
+T{ -1 jv json-kind-at 3 jv json-kind-at 1 jv json-kind-at -> -1 -1 json-integer }T
+
 \ Stack and return-stack balance of a whole parse.
 : copied ( c-addr u -- c-addr' u ) tuck text-buffer swap move text-buffer swap ;
 T{ s" [1,{}]" copied jv ' json-parse rs-checked -> outcome-ok }T
 
+\ json-init again frees the old memory first; json-free frees it all.
+T{ 8 jv json-init 4 jv json-init jv json-depth-limit @ -> outcome-ok outcome-ok 4 }T
 T{ jv json-free jv json-tape @ jv json-stack @ -> 0 0 }T
 cases-done
 bye

@@ -18,7 +18,8 @@ lf-term-capacity walk2: lf-cts-walker
 
 \ Visiting a node at the depth in walk-context. Pi and lambda bind in their
 \ body (second child) only, so a node shared under different binders is
-\ revisited at each depth. A depth that cannot grow (max-n) is full.
+\ revisited at each depth. A depth that cannot grow (max-n) is full, like a
+\ push without room, whatever fuel is left (ADR 0008).
 : lf-cts-bvar ( first second walk -- outcome ) nip walk-context @ < flag>outcome ;
 : lf-cts-leaf ( first second walk -- outcome ) drop 2drop outcome-ok ;
 : lf-cts-inner ( depth tag -- depth' true | false )

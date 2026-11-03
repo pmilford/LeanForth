@@ -2,16 +2,19 @@
 
 1. Differentials on every reference fixture: the Forth record counts must
    equal docs/development/measurements/scale-2026-11-02/count.py, and the
-   Forth field-by-field dump must equal tests/support/ndjson_dump.py.
+   Forth field-by-field dump must equal both tests/support/ndjson_dump.py
+   (Python's json module) and the strict oracle
+   tests/support/ndjson_oracle.py.
 2. Framing and stream failures on temporary files: each must fail closed
    with the expected outcome and line.
-3. A seeded mutation sweep over the fixtures: whenever the Forth reader
-   accepts a mutated file, Python's json module must read every line and
-   the two field-by-field dumps must agree, and an independent Python
-   check of indices and references must pass; whenever a line is not
-   JSON, the Forth reader must fail. So the reader never decodes a
-   different term than the file holds, and never accepts what is not JSON
-   or refers forward.
+3. The line limit through export-read: a line of exactly 64 MiB is read,
+   one byte more is full at that line.
+4. A seeded mutation sweep over the fixtures, with ASCII and non-ASCII
+   bytes: for every mutated file the Forth reader must agree with the
+   strict oracle on the outcome, the line of a failure and every record it
+   hands over, so it never decodes a different term than the file holds,
+   never accepts what is not JSON or not a record, and never hands over a
+   record of a line that fails.
 
 Run with GFORTH set to the Forth binary (the Makefile does this). Set
 LF_NDJSON_MUTATIONS to change the number of mutated files (default 300).
@@ -26,6 +29,9 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "tests" / "support"))
+import ndjson_oracle  # noqa: E402
+
 GFORTH = os.environ.get("GFORTH", "gforth")
 FIXTURES = sorted((ROOT / "tests" / "reference").glob("*.ndjson"))
 COUNT_PY = ROOT / "docs" / "development" / "measurements" / "scale-2026-11-02" / "count.py"
@@ -35,6 +41,8 @@ DUMP_FS = "tests/core/ndjson-dump.fs"
 SEED = 20261102
 MUTATIONS = int(os.environ.get("LF_NDJSON_MUTATIONS", "300"))
 MARK = "@@@"
+OUTCOMES = {1: "invalid", 2: "exhausted", 3: "unknown", 4: "rejected", 5: "unsupported",
+            6: "full"}
 
 
 def forth_each(driver, word, paths, batch=400):
@@ -73,6 +81,27 @@ def error_of(output):
     return None if match is None else (match.group(1), int(match.group(2)))
 
 
+def disagreement(data, output):
+    """None when the Forth dump of data agrees with the strict oracle, else why."""
+    dump, result = ndjson_oracle.oracle(data)
+    lines = output.rstrip("\n").split("\n") if output.strip() else []
+    if result == "ok":
+        return None if lines == dump + ["ok"] else "accepted with a different decoding"
+    outcomes, line = result
+    match = re.fullmatch(r"error: (-?\d+) (\d+)", lines[-1]) if lines else None
+    if match is None:
+        return f"accepted; the oracle expects {sorted(outcomes)} at line {line}"
+    problems = []
+    outcome = OUTCOMES.get(int(match.group(1)), match.group(1))
+    if outcome not in outcomes:
+        problems.append(f"outcome {outcome}, the oracle expects {sorted(outcomes)}")
+    if int(match.group(2)) != line:
+        problems.append(f"line {match.group(2)}, the oracle expects {line}")
+    if lines[:-1] != dump:
+        problems.append(f"{len(lines) - 1} records handed over, the oracle expects {len(dump)}")
+    return "; ".join(problems) or None
+
+
 class FixtureDifferential(unittest.TestCase):
     def test_counts_equal_count_py(self):
         outputs = forth_each(COUNT_FS, "count-export", FIXTURES)
@@ -88,6 +117,7 @@ class FixtureDifferential(unittest.TestCase):
             self.assertEqual(code, 0)
             self.assertEqual(output, expected, path.name)
             self.assertTrue(output.endswith("ok\n"))
+            self.assertIsNone(disagreement(path.read_bytes(), output), path.name)
 
 
 class FramingFailures(unittest.TestCase):
@@ -128,19 +158,55 @@ class FramingFailures(unittest.TestCase):
             self.assertEqual(output.count("\n"), 1, f"{name}: partial output {output}")
 
 
+class LineLimit(unittest.TestCase):
+    """A line of exactly 64 MiB (line 4) is read, and one byte more is full
+    there. The two files, 128 MiB in all, are deleted by name afterwards."""
+
+    def test_line_limit(self):
+        meta = (ROOT / "tests" / "reference" / "composition.ndjson").read_bytes().split(b"\n")[0]
+        head = [meta, b'{"in":1,"str":{"pre":0,"str":"x"}}', b'{"ie":0,"sort":0}']
+        last = b'{"axiom":{"isUnsafe":false,"levelParams":[],"name":1,"type":0}}'
+        start, end = b'{"ie":1,"strVal":"', b'"}'
+        folder = tempfile.mkdtemp(prefix="lf-line-limit-")
+        paths = []
+        try:
+            for extra in (0, 1):
+                path = os.path.join(folder, f"limit{extra}.ndjson")
+                paths.append(path)
+                size = ndjson_oracle.LINE_LIMIT + extra - len(start) - len(end)
+                long_line = start + b"a" * size + end
+                with open(path, "wb") as f:
+                    f.write(b"\n".join(head + [long_line, last]) + b"\n")
+            outputs = forth_each(COUNT_FS, "count-export", paths)
+        finally:
+            for path in paths:
+                if os.path.exists(path):
+                    os.remove(path)
+            os.rmdir(folder)
+        self.assertIsNone(error_of(outputs[0]), outputs[0])
+        self.assertRegex(outputs[0], r"(?m)^expr\.strVal +1 +67,108,865 B ")
+        self.assertEqual(error_of(outputs[1]), ("full", 4))
+
+
+SEQUENCES = [b"\xc3\xa9", b"\xe2\x82\xac", b"\xf0\x9f\x98\x80", b"\xed\xa0\x80", b"\xc0\xaf",
+             b"\xf4\x90\x80\x80", b"\xe2\x82", b"\\ud800", b"\\udc00\\ud800", b"\\u00e9", b"NaN",
+             b"1e400", b"-0", b"12345678901234567890"]
+ALPHABET = b'{}[]":,0123456789-.eE abcxyz\\u' + bytes(
+    [0, 9, 13, 0x7f, 0x80, 0xa9, 0xbf, 0xc0, 0xc3, 0xe2, 0xed, 0xef, 0xf0, 0xf4, 0xff])
+
+
 def mutate(rng, lines):
     """One random edit of a copy of the fixture lines (bytes, no line feeds)."""
     lines = list(lines)
     i = rng.randrange(len(lines))
     line = bytearray(lines[i])
-    choice = rng.randrange(8)
-    alphabet = b'{}[]":,0123456789-.eE abcxyz\\u'
+    choice = rng.randrange(9)
     if choice == 0 and len(line) > 1:
         del line[rng.randrange(len(line))]
     elif choice == 1:
-        line.insert(rng.randrange(len(line) + 1), rng.choice(alphabet))
+        line.insert(rng.randrange(len(line) + 1), rng.choice(ALPHABET))
     elif choice == 2 and line:
-        line[rng.randrange(len(line))] = rng.choice(alphabet)
+        line[rng.randrange(len(line))] = rng.choice(ALPHABET)
     elif choice == 3:
         digits = [k for k, c in enumerate(line) if 48 <= c <= 57]
         if digits:
@@ -155,6 +221,9 @@ def mutate(rng, lines):
         return lines
     elif choice == 6:
         line = bytearray(line.replace(b":", b": ", 1).replace(b",", b" ,", 1))
+    elif choice == 7:
+        k = rng.randrange(len(line) + 1)
+        line[k:k] = rng.choice(SEQUENCES)
     else:
         cut = rng.randrange(len(line) + 1)
         line = line[:cut] + line[rng.randrange(cut, len(line) + 1):]
@@ -162,18 +231,8 @@ def mutate(rng, lines):
     return lines
 
 
-def all_json(data):
-    import json
-    try:
-        for raw in data.split(b"\n")[:-1]:
-            json.loads(raw.decode("utf-8"))
-    except (ValueError, UnicodeDecodeError):
-        return False
-    return True
-
-
 class MutationSweep(unittest.TestCase):
-    def test_accepted_means_same_decoding(self):
+    def test_agrees_with_strict_oracle(self):
         rng = random.Random(SEED)
         sources = [p.read_bytes().split(b"\n")[:-1] for p in FIXTURES]
         with tempfile.TemporaryDirectory() as folder:
@@ -185,20 +244,12 @@ class MutationSweep(unittest.TestCase):
                 paths.append(path)
                 datas.append(data)
             outputs = forth_each(DUMP_FS, "dump-export", paths)
-            accepted = rejected = 0
-            for path, data, output in zip(paths, datas, outputs):
-                if output.endswith("ok\n"):
-                    accepted += 1
-                    self.assertTrue(all_json(data), f"accepted non-JSON: {data[:300]!r}")
-                    code, expected = python_output(DUMP_PY, path, "--check")
-                    self.assertEqual(code, 0, f"python check failed on accepted file {path.name}")
-                    self.assertEqual(output, expected, f"different decoding: {path.name}")
-                else:
-                    rejected += 1
-                    self.assertRegex(output.splitlines()[-1], r"^error: -?\d+ \d+$")
+        accepted = sum(output.endswith("ok\n") for output in outputs)
+        for path, data, output in zip(paths, datas, outputs):
+            self.assertIsNone(disagreement(data, output), f"{path.name}: {data[:300]!r}")
         print(f"mutation sweep: seed {SEED}, {MUTATIONS} files, {accepted} accepted, "
-              f"{rejected} rejected", file=sys.stderr)
-        self.assertGreater(rejected, 0)
+              f"{MUTATIONS - accepted} rejected", file=sys.stderr)
+        self.assertGreater(MUTATIONS - accepted, 0)
         self.assertGreater(accepted, 0)
 
 

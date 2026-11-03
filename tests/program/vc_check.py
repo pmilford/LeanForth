@@ -123,7 +123,8 @@ def printed_programs(output):
 def lean_problems(lean):
     code, output = run_lean(lean, GOLDEN_LEAN)
     if code != 0:
-        return [f"Lean rejected {GOLDEN_LEAN} ({code}):\n{output}"]
+        errors = [line for line in output.splitlines() if "error" in line]
+        return [f"Lean rejected {GOLDEN_LEAN} ({code}):\n" + "\n".join(errors[:20])]
     problems, summary = [], json.loads(GOLDEN_JSON.read_text(encoding="utf-8"))
     programs = printed_programs(output)
     for entry in summary["contracts"]:

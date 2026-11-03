@@ -215,8 +215,8 @@ variable caught-times
   ." # clamp cases " cases @ .int ."  host " host-cases @ .int ."  mismatches "
   mismatches @ .int cr ;
 : summary ( -- )
-  ." # cases " cases @ .int ."  host " host-cases @ .int ."  mismatches " mismatches @ .int
-  ."  seed " ir-run-seed .int cr ;
+  ." # cases " cases @ .int ."  host " host-cases @ .int
+  ."  mismatches " mismatches @ .int ."  seed " ir-run-seed .int cr ;
 : main ( -- )
   clamp-program clamp-summary example-program summary plant-faults
   mismatches @ abort" the interpreter and the host disagree" ;

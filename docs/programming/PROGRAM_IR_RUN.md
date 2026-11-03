@@ -54,6 +54,7 @@ exactly as `ProgramIR.run` does:
 | --- | --- |
 | Cells | host cells; `+ - negate 1+ 1-` wrap (two's complement), `*` keeps the low cell (`UM* DROP`), `abs` of the smallest cell is itself |
 | Partial words | `/` and `MOD` only for dividend ≥ 0 and divisor > 0, `RSHIFT` only for a count below the cell width; anything else is *unmodeled*, never a host result |
+| Literals | a literal outside the cell is *unmodeled* when it runs; it still loads (the reader writes only literals of at most 10 digits, which fit 64-bit cells) |
 | Calls | a word runs on its caller's data stack with a return stack of its own and must leave it empty (*unbalanced*); a constant runs on empty stacks and must leave one value and not EXIT (*bad constant*); an undefined name fails only when called (*unknown word*), after the fuel check |
 | Fuel | a call gives its callee one unit less; each loop iteration costs one unit of the block's fuel, and what the body spent is gone for the rest of the block; an IF part's own spending is not |
 | Failures | *underflow*, *unmodeled*, *unbalanced*, *unknownWord*, *badConstant*, *outOfFuel*, each an explicit result |
@@ -74,7 +75,7 @@ Outcomes ([`src/lib/outcome.fs`](../../src/lib/outcome.fs)):
 | --- | --- | --- |
 | ok | well-formed IR 0.1 text | the word returned normally |
 | invalid | anything else, including a name defined twice | underflow, unbalanced, unknown word, bad constant; no program; negative fuel |
-| unsupported | a literal beyond the host's cells | the model's *unmodeled* |
+| unsupported | — | the model's *unmodeled*, including a literal outside the cell |
 | exhausted | — | out of fuel |
 | full | more than 512 instructions, 64 names, 16 open IF/BEGIN, a name over 31 characters, a line of 128 characters or more | the data stack (128 cells), return stack (32) or frames (64) are full — the model has no limits, so this is never a model result |
 
@@ -109,21 +110,22 @@ interpreter and the host; Lean printed all 5,152 lines identically (5,112
 
 The six words use only some primitives, so `make check` also generates 300
 random IR programs (every primitive, IF, loops, calls forward and back,
-EXIT, constants, unknown names, literals at the cell edges) with 4 runs
+EXIT, constants, unknown names, literals at and beyond the cell edges) with 4 runs
 each at fuel 0 to 6, runs them on the interpreter
 ([`tests/program/ir-run-cases.fs`](../../tests/program/ir-run-cases.fs))
 and in Lean, which reads the same IR text back, and requires identical
-results: 1,200 cases, every failure kind reached (463 *ok*, 358
-*underflow*, 262 *outOfFuel*, 51 *unknownWord*, 29 *badConstant*, 22
-*unmodeled*, 15 *unbalanced*). Four more seeds with 1,500 programs each
-(24,000 cases) also agreed.
+results: 1,200 cases, every failure kind reached (425 *ok*, 347
+*underflow*, 262 *outOfFuel*, 72 *unknownWord*, 44 *unmodeled*, 37
+*badConstant*, 13 *unbalanced*). Other seeds with 1,500 programs each
+(seeds 1 to 4 before the model's literal rule, 1 and 2 after it: 36,000
+cases) also agreed.
 
 ### Planted faults
 
 | Fault | Caught by |
 | --- | --- |
 | `MAX` and `MIN` exchanged; `*` computed as `+` | the host comparison (281 and 239 differing cases), in `make test` |
-| `XOR` as `OR`, `0>` as `0<`, `NIP` as `DROP` | the random programs against Lean (4, 17 and 10 cases), in `make check` |
+| `XOR` as `OR`, `0>` as `0<`, `NIP` as `DROP` | the random programs against Lean (5, 4 and 1 cases with the default seed), in `make check` |
 | loops spend no fuel; a callee keeps its caller's fuel; a constant may EXIT; `/` defined for negative operands; a word sees its caller's return stack | the unit tests (`tests/program/ir-run.fs`, `make test`); the first four also by the Lean comparison (`make check`). The host comparison alone misses all five: the host has no fuel, and the tables never divide negative numbers or misuse the return stack |
 
 ## What this does and does not establish

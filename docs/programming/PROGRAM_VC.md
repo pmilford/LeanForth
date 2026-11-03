@@ -132,6 +132,11 @@ changed without its proofs, and the program's MAX and MIN exchanged.
 | `lf-gcd` | false for a negative input, else g ≥ 0 and true | — | unsupported: its loop (in `lf-euclid`) needs an invariant |
 | `lf-factorial` | false for n < 0, else f ≥ 1 and true | — | unsupported: its loop (in `lf-factorial-from`) needs an invariant |
 
+Version 0 also accepts only the literals −1, 0 and 1, which fit every cell
+width (`Cells.fits_*` in the model); a larger literal may not fit a small
+cell, where the model makes it *unmodeled*, so such a word is reported
+unsupported rather than given a cell-width precondition.
+
 Loops are executed by IR 0.1 but reasoning about them needs invariants,
 which the plan puts in IR and VC version 1 (tasks 4.4.1 and 4.4.2). The two
 loop words are already proved correct by induction directly on the

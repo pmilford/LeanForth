@@ -38,21 +38,21 @@ variable candidate variable token variable root-id variable level-id
 begin-fixture
 T{ 1 level-id @ lf-hterm-sort -> 0 lf-term-serial @ true }T
 lf-term-serial @ root-id !
-T{ 0 root-id @ put-root -> lf-msp-ok }T
+T{ 0 root-id @ put-root -> outcome-ok }T
 0 lf-term-count !
 T{ 1 level-id @ lf-hterm-sort -> 0 lf-term-serial @ true }T
-T{ specialize -> lf-msp-invalid }T
-T{ token @ 5000 lf-mixed-signature-audit -> lf-msp-invalid }T
+T{ specialize -> outcome-invalid }T
+T{ token @ 5000 lf-mixed-signature-audit -> outcome-invalid }T
 T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> 1 2 0 }T
 
 \ A reused level index cannot validate the old Sort's captured level stamp.
 begin-fixture
 T{ 1 level-id @ lf-hterm-sort -> 0 lf-term-serial @ true }T
-T{ 0 lf-term-serial @ put-root -> lf-msp-ok }T
+T{ 0 lf-term-serial @ put-root -> outcome-ok }T
 1 lf-level-count !
 T{ 11 lf-hlevel-param -> 1 lf-level-serial @ true }T
-T{ specialize -> lf-msp-invalid }T
-T{ token @ 5000 lf-mixed-signature-audit -> lf-msp-invalid }T
+T{ specialize -> outcome-invalid }T
+T{ token @ 5000 lf-mixed-signature-audit -> outcome-invalid }T
 T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> 1 2 0 }T
 
 \ The same stale-level rule applies inside a captured constant argument.
@@ -60,11 +60,11 @@ begin-fixture
 1 args pair!
 T{ candidate @ lf-name-generation @ args 1 lf-cref-new -> 0 lf-cref-serial @ true }T
 T{ 0 lf-cref-serial @ lf-cterm-new -> 0 lf-term-serial @ true }T
-T{ 0 lf-term-serial @ put-root -> lf-msp-ok }T
+T{ 0 lf-term-serial @ put-root -> outcome-ok }T
 1 lf-level-count !
 T{ 11 lf-hlevel-param -> 1 lf-level-serial @ true }T
-T{ specialize -> lf-msp-invalid }T
-T{ token @ 5000 lf-mixed-signature-audit -> lf-msp-invalid }T
+T{ specialize -> outcome-invalid }T
+T{ token @ 5000 lf-mixed-signature-audit -> outcome-invalid }T
 T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> 1 2 1 }T
 
 \ Malformed put and specialize requests are invalid and change nothing.
@@ -75,33 +75,33 @@ T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> 1 2 1 }T
 begin-fixture
 T{ 1 level-id @ lf-hterm-sort -> 0 lf-term-serial @ true }T
 lf-term-serial @ root-id !
-T{ candidate @ 1 -1 put-with -> lf-msp-invalid }T
-T{ candidate @ -1 5000 put-with -> lf-msp-invalid }T
-T{ candidate @ lf-level-capacity 1+ 5000 put-with -> lf-msp-invalid }T
-T{ 0 1 5000 put-with -> lf-msp-invalid }T
-T{ 999 1 5000 put-with -> lf-msp-invalid }T
+T{ candidate @ 1 -1 put-with -> outcome-invalid }T
+T{ candidate @ -1 5000 put-with -> outcome-invalid }T
+T{ candidate @ lf-level-capacity 1+ 5000 put-with -> outcome-invalid }T
+T{ 0 1 5000 put-with -> outcome-invalid }T
+T{ 999 1 5000 put-with -> outcome-invalid }T
 T{ lf-msp-count @ lf-term-count @ lf-level-count @ -> 0 1 2 }T
-T{ candidate @ 1 5000 put-with -> lf-msp-ok }T
-T{ candidate @ 1 -1 specialize-with -> lf-msp-invalid }T
-T{ candidate @ -1 5000 specialize-with -> lf-msp-invalid }T
-T{ candidate @ lf-level-capacity 1+ 5000 specialize-with -> lf-msp-invalid }T
-T{ 0 1 5000 specialize-with -> lf-msp-invalid }T
-T{ 999 1 5000 specialize-with -> lf-msp-invalid }T
+T{ candidate @ 1 5000 put-with -> outcome-ok }T
+T{ candidate @ 1 -1 specialize-with -> outcome-invalid }T
+T{ candidate @ -1 5000 specialize-with -> outcome-invalid }T
+T{ candidate @ lf-level-capacity 1+ 5000 specialize-with -> outcome-invalid }T
+T{ 0 1 5000 specialize-with -> outcome-invalid }T
+T{ 999 1 5000 specialize-with -> outcome-invalid }T
 T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> 1 2 0 }T
-T{ candidate @ 1 5000 specialize-with nip nip -> lf-msp-ok }T
+T{ candidate @ 1 5000 specialize-with nip nip -> outcome-ok }T
 
 \ The index holds lf-msp-capacity records. One more is full and changes
 \ nothing, so a capacity check cannot write past the record arrays.
 : numbered ( n -- name ) 0 swap lf-name-num 0= abort" numbered name" ;
 : fill-index ( -- )
-  lf-msp-capacity 1 do i numbered 1 5000 put-with lf-msp-ok <> abort" fill" loop ;
+  lf-msp-capacity 1 do i numbered 1 5000 put-with outcome-ok <> abort" fill" loop ;
 fill-index
 T{ lf-msp-count @ -> lf-msp-capacity }T
 T{ lf-msp-capacity numbered 1 5000 put-with -> outcome-full }T
 T{ lf-msp-count @ -> lf-msp-capacity }T
-T{ candidate @ 1 5000 specialize-with nip nip -> lf-msp-ok }T
-T{ lf-msp-capacity 1- numbered 1 5000 specialize-with nip nip -> lf-msp-ok }T
-T{ token @ 5000 lf-mixed-signature-audit -> lf-msp-ok }T
+T{ candidate @ 1 5000 specialize-with nip nip -> outcome-ok }T
+T{ lf-msp-capacity 1- numbered 1 5000 specialize-with nip nip -> outcome-ok }T
+T{ token @ 5000 lf-mixed-signature-audit -> outcome-ok }T
 
 \ A token ends with any change to the stores or the level context it
 \ captured; a new session does not revive it, and lookups through it are
@@ -116,39 +116,39 @@ T{ stale? -> false }T
 lf-term-reset
 T{ stale? -> true }T
 T{ lf-ssession-begin stale? -> true true }T
-T{ specialize -> lf-msp-invalid }T
+T{ specialize -> outcome-invalid }T
 sort-fixture lf-level-reset
 T{ stale? -> true }T
 sort-fixture lf-lscope-context-reset
-T{ stale? put-sort -> true lf-msp-invalid }T
+T{ stale? put-sort -> true outcome-invalid }T
 sort-fixture 12 lf-lscope-context-add drop
-T{ stale? put-sort -> true lf-msp-invalid }T
+T{ stale? put-sort -> true outcome-invalid }T
 \ A failed begin (here: a corrupt reference count) also ends the lifetime;
 \ repairing the store does not revive the old token.
 sort-fixture
 lf-cref-count @ -1 lf-cref-count !
 T{ lf-msp-begin -> false }T
 lf-cref-count !
-T{ stale? put-sort -> true lf-msp-invalid }T
+T{ stale? put-sort -> true outcome-invalid }T
 T{ lf-msp-count @ -> 0 }T
 
 \ A forged or stale root identity is invalid and changes nothing.
 begin-fixture
 T{ 1 level-id @ lf-hterm-sort -> 0 lf-term-serial @ true }T
 lf-term-serial @ root-id !
-T{ 0 root-id @ 1+ put-root -> lf-msp-invalid }T
-T{ 0 root-id @ 1- put-root -> lf-msp-invalid }T
+T{ 0 root-id @ 1+ put-root -> outcome-invalid }T
+T{ 0 root-id @ 1- put-root -> outcome-invalid }T
 T{ lf-msp-count @ lf-term-count @ lf-level-count @ lf-cref-count @ -> 0 1 2 0 }T
 
 \ Zero arity: Sort u is refused (u is not a formal), Sort 0 is put, and
 \ specialize gives back the identical root handle and allocates nothing; a
 \ request with an argument for it is invalid.
-T{ token @ candidate @ 0 root-id @ formals 0 5000 lf-msp-put -> lf-msp-invalid }T
+T{ token @ candidate @ 0 root-id @ formals 0 5000 lf-msp-put -> outcome-invalid }T
 T{ 0 0 lf-level-identity drop lf-hterm-sort -> 1 lf-term-serial @ true }T
 lf-term-serial @ root-id !
-T{ token @ candidate @ 1 root-id @ formals 0 5000 lf-msp-put -> lf-msp-ok }T
-T{ token @ candidate @ actuals 0 5000 lf-msp-specialize -> 1 root-id @ lf-msp-ok }T
-T{ token @ candidate @ actuals 1 5000 lf-msp-specialize -> lf-msp-invalid }T
+T{ token @ candidate @ 1 root-id @ formals 0 5000 lf-msp-put -> outcome-ok }T
+T{ token @ candidate @ actuals 0 5000 lf-msp-specialize -> 1 root-id @ outcome-ok }T
+T{ token @ candidate @ actuals 1 5000 lf-msp-specialize -> outcome-invalid }T
 T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> 2 2 0 }T
 
 \ Coverage refuses when the zero level is gone and keeps the caller's stack.
@@ -158,7 +158,7 @@ T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> 2 2 0 }T
   sort-fixture lf-msp-request >r 1 5000 r@ lf-msp-budget! formals r@ lf-sigreq-formals !
   0 root-id @ r@ lf-msp-source! lf-level-count @ 0 lf-level-count !
   r> lf-msp-coverage swap lf-level-count ! ;
-T{ 777 coverage-without-zero -> 777 lf-msp-invalid }T
+T{ 777 coverage-without-zero -> 777 outcome-invalid }T
 
 \ Generation saturation: one last begin succeeds, then begin fails for good
 \ (so this case comes last).

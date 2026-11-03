@@ -6,14 +6,15 @@
 \ reader:, so separate readers are independent; one reader is
 \ single-threaded. The two byte tables below are constant after loading.
 \
-\ A reader keeps whole lines in one heap buffer (ALLOCATE). A line longer
-\ than the buffer grows it (RESIZE), up to the reader's line limit; a longer
-\ line is reported as full (out of room), never cut. reader-line returns the
-\ next line without its line feed. Those bytes stay valid, and the caller
-\ may change them in place, until the next reader call. Every line must end
-\ with a line feed: a last line without one is invalid, as is reading past
-\ the end; an unreadable file or a failed read is invalid; running out of
-\ heap is full.
+\ A reader keeps whole lines in one heap buffer (ALLOCATE); reader-init
+\ frees the buffer of an earlier reader-init first, and reader-free frees
+\ it at the end. A line longer than the buffer grows it (RESIZE), up to
+\ the reader's line limit; a longer line is reported as full (out of
+\ room), never cut. reader-line returns the next line without its line
+\ feed. Those bytes stay valid, and the caller may change them in place,
+\ until the next reader call. Every line must end with a line feed: a last
+\ line without one is invalid, as is reading past the end; an unreadable
+\ file or a failed read is invalid; running out of heap is full.
 \ reader-position gives the current line's number and file offset for
 \ error messages. Offsets are doubles, so files beyond 2 GB work on
 \ 32-bit hosts too.
@@ -43,16 +44,20 @@ end-structure
 : reader: ( "name" -- ) create /reader store-zeroed, drop ;
 
 \ Heap memory as a flag: true with the address, or false alone.
-: heap ( u -- addr true | false ) allocate if drop false else true then ;
+: heap-claim ( u -- addr true | false ) allocate if drop false else true then ;
+\ Free the heap block whose address is in the cell at a-addr, if there is
+\ one, and zero the cell.
+: heap-release ( a-addr -- ) dup @ ?dup if free drop then 0 swap ! ;
 : reader-buffer! ( addr size reader -- ) tuck reader-size ! reader-buffer ! ;
+: reader-release ( reader -- ) 0 over reader-size ! reader-buffer heap-release ;
 \ Give a reader a buffer of size bytes (at least one) for lines of at most
-\ limit bytes; a negative limit refuses every line. Exhausted, changing
-\ nothing but the limit, when the heap has no room.
+\ limit bytes, freeing its earlier buffer; a negative limit refuses every
+\ line. Full, with no buffer, when the heap has no room.
 : reader-init ( size limit reader -- outcome )
-  tuck reader-limit ! swap 1 max dup heap
+  dup reader-release tuck reader-limit ! swap 1 max dup heap-claim
   if swap rot reader-buffer! outcome-ok else 2drop outcome-full then ;
 \ Free the buffer and zero the record; the caller closes the file first.
-: reader-free ( reader -- ) dup reader-buffer @ ?dup if free drop then /reader erase ;
+: reader-free ( reader -- ) dup reader-release /reader erase ;
 
 \ Start reading an open file from its current position.
 : reader-attach ( fid reader -- ) tuck reader-fid ! reader-start /reader-progress erase ;
@@ -91,8 +96,9 @@ s" gforth" environment? [if] 2drop
 \ Taking a line: remember where it starts, then step past it and its line feed.
 : reader-mark ( reader -- )
   >r r@ reader-base 2@ r@ reader-start @ m+ r@ reader-at 2! 1 r> reader-lines +! ;
+: reader-skip ( n reader -- ) swap 1+ swap reader-start +! ;
 : reader-take ( n reader -- addr n )
-  dup reader-mark tuck reader-unread drop swap rot over 1+ swap reader-start +! ;
+  dup reader-mark dup reader-unread drop -rot over swap reader-skip ;
 
 \ Refilling. reader-shift moves the unread bytes to the front of the
 \ buffer, adding the bytes before them to reader-base. A full buffer grows

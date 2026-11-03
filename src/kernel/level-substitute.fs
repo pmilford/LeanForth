@@ -19,10 +19,6 @@ require ../lib/lib.fs
 require ../core/level-scope.fs
 require ../core/levels.fs
 
-outcome-ok constant lf-lsubst-ok
-outcome-invalid constant lf-lsubst-invalid
-outcome-exhausted constant lf-lsubst-exhausted
-
 begin-structure /lf-lsrec
   field: lf-lsrec-formals      \ address of the formal parameter IDs
   field: lf-lsrec-actuals      \ address of their replacement levels
@@ -168,7 +164,7 @@ lf-lsubst-job /lf-lsrec erase
 \ and staging nodes are additional bounded work. The job record and the
 \ level-scope walk record change even on failure.
 : lf-lsubst-levels? ( -- flag ) lf-level-count-valid? lf-level-serial @ 0< 0= and ;
-: lf-lsubst ( root formal-addr actual-addr count fuel -- result lf-lsubst-ok | status )
+: lf-lsubst ( root formal-addr actual-addr count fuel -- result ok | status )
   lf-lsubst-walker walk-budget 0= if 2drop 2drop outcome-invalid exit then
   dup lf-level-capacity upto? 0= if 2drop 2drop outcome-invalid exit then
   lf-lsubst-use lf-lsubst-levels? if lf-lsubst-run else drop-invalid then ;

@@ -46,8 +46,30 @@ import sys
 
 GENERATOR_VERSION = "0.1"
 MODEL = "tests/reference/program-ir.lean"
-PRELUDE_LINES = (185, 544)   # cells, primitives, step, run, callWord, equations, ir_simp
-PRINTER_LINES = (1176, 1215)  # the IR text printer, `render`
+# The literals v0 accepts: those that fit every cell width (Cells.fits_*).
+SMALL_LITERALS = (-1, 0, 1)
+
+
+def model_ranges(lines):
+    """The copied parts of the model, by anchors: the semantics (cells to the
+    ir_simp tactic) and the IR text printer (irVersion to render)."""
+    def at(prefix):
+        for i, line in enumerate(lines):
+            if line.startswith(prefix):
+                return i + 1
+        raise Malformed(f"{MODEL}: no line starting {prefix!r}")
+
+    def last_before_blank(start):
+        i = start
+        while lines[i].strip():
+            i += 1
+        return i
+
+    part3 = at("-- Part 3. The six example words")
+    prelude_end = max(i for i in range(1, part3) if lines[i - 1].strip())
+    return (at("/-- A host cell of"), prelude_end), \
+        (at("def irVersion"), last_before_blank(at("def render ")))
+
 RESERVED = re.compile(r"(c|fuel|tail|rs|out|g|h|this|[fhp][0-9]+|pre[0-9]+)$")
 CELL_BITS = 64               # counterexamples are searched and refuted on 64-bit cells
 CMIN, CMAX = -(1 << (CELL_BITS - 1)), (1 << (CELL_BITS - 1)) - 1
@@ -496,6 +518,8 @@ class Executor:
         if kind == "prim":
             return self.prim(instr[1], st)
         if kind == "lit":
+            if instr[1] not in SMALL_LITERALS:
+                raise Unsupported("a literal outside -1..1 may not fit every cell width")
             return [(st.but(data=st.data + [("lit", instr[1])]), "next")]
         if kind == "exit":
             return [(st, "exit")]
@@ -1141,13 +1165,13 @@ IF by the path's hypotheses, and name the IR's MAX, MIN and constants. -/
 macro "vc_run" p:ident : tactic => `(tactic| (simp [callWord, run_call, run_prim, run_lit, run_exit,
   run_if, run_nil, step, lookup, $p:ident, flag_ne_zero, flag_beq_zero, and_flags, or_flags,
   decide_eq_true_eq, ir_max, ir_min, ir_cell_min, ir_shift_one, ir_not_lt,
-  Cells.rshift_neg_one, *]))
+  Cells.rshift_neg_one, Cells.fits_zero, Cells.fits_one, Cells.fits_neg_one, *]))
 
 /-- Run IR code on concrete inputs on 64-bit cells. -/
 macro "vc_eval" p:ident "at" h:ident : tactic => `(tactic| (simp [callWord, run_call, run_prim,
   run_lit, run_exit, run_if, run_nil, step, lookup, $p:ident, flag, bitwise, cells64,
   Cells.wrap, Cells.min, Cells.max, Cells.half, Cells.modulus, Cells.unsigned,
-  Cells.signed] at $h:ident))
+  Cells.signed, Cells.fits_zero, Cells.fits_one, Cells.fits_neg_one] at $h:ident))
 
 /-- A concrete value fits in a 64-bit cell. -/
 macro "vc_fits" : tactic => `(tactic| (simp [Cells.Fits, cells64, Cells.min, Cells.max,
@@ -1158,7 +1182,7 @@ macro "vc_fits" : tactic => `(tactic| (simp [Cells.Fits, cells64, Cells.min, Cel
 
 def generate(contract_paths):
     model_lines = Path(MODEL).read_text(encoding="utf-8").splitlines()
-    first, last = PRELUDE_LINES
+    (first, last), printer = model_ranges(model_lines)
     sections, summary, sources = [], [], []
     for path in contract_paths:
         contract = parse_contract(Path(path).read_text(encoding="utf-8"), path)
@@ -1179,8 +1203,8 @@ def generate(contract_paths):
                          first=first, last=last)
     text += "\n".join(model_lines[first - 1:last]) + "\n-- END VERBATIM\n\n"
     text += "-- The IR text printer, copied.\n\n"
-    text += f"-- BEGIN VERBATIM {MODEL} {PRINTER_LINES[0]}-{PRINTER_LINES[1]}\n"
-    text += "\n".join(model_lines[PRINTER_LINES[0] - 1:PRINTER_LINES[1]]) + "\n" + COMMON
+    text += f"-- BEGIN VERBATIM {MODEL} {printer[0]}-{printer[1]}\n"
+    text += "\n".join(model_lines[printer[0] - 1:printer[1]]) + "\n" + COMMON
     text += "\n".join(sections) + "end ProgramVC\n"
     return text, summary
 
