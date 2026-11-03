@@ -54,7 +54,7 @@ exactly as `ProgramIR.run` does:
 | --- | --- |
 | Cells | host cells; `+ - negate 1+ 1-` wrap (two's complement), `*` keeps the low cell (`UM* DROP`), `abs` of the smallest cell is itself |
 | Partial words | `/` and `MOD` only for dividend ≥ 0 and divisor > 0, `RSHIFT` only for a count below the cell width; anything else is *unmodeled*, never a host result |
-| Literals | a literal outside the cell is *unmodeled* when it runs; it still loads (the reader writes only literals of at most 10 digits, which fit 64-bit cells) |
+| Literals | read as the model's parser reads them (`String.toInt?`): an optional `-` and decimal digits, where leading zeros change nothing (`-0007` is −7); a literal outside the cell is *unmodeled* when it runs; it still loads (the reader writes only literals of at most 10 digits, which fit 64-bit cells). Whether it fits is decided from its digits without the leading zeros, compared with the digits of `max-n 1+`, so the rule is exact for every cell width of 16 bits or more |
 | Calls | a word runs on its caller's data stack with a return stack of its own and must leave it empty (*unbalanced*); a constant runs on empty stacks and must leave one value and not EXIT (*bad constant*); an undefined name fails only when called (*unknown word*), after the fuel check |
 | Fuel | a call gives its callee one unit less; each loop iteration costs one unit of the block's fuel, and what the body spent is gone for the rest of the block; an IF part's own spending is not |
 | Failures | *underflow*, *unmodeled*, *unbalanced*, *unknownWord*, *badConstant*, *outOfFuel*, each an explicit result |
@@ -63,9 +63,9 @@ Public words:
 
 | Word | Effect |
 | --- | --- |
-| `irx-load-start` `irx-load-line ( c-addr u -- )` `irx-load-finish ( -- outcome )` | load IR text a line at a time; `irx-load-line` suits the reader's output word, so `' irx-load-line` can be given to `lf-ir-read-file` |
+| `irx-load-start` `irx-load-line ( c-addr u -- )` `irx-load-finish ( -- outcome )` | load IR text a line at a time; `irx-load-line` suits the reader's output word, so `' irx-load-line` can be given to `lf-ir-read-file`. `irx-load-finish` closes the load: a program runs only after a finish that gave *ok*, and a line or a second finish after it is *invalid* and leaves no program to run, so a word left half-loaded never runs |
 | `irx-load-file ( c-addr u -- outcome )` | load an IR text file |
-| `irx-clear` `irx-push ( x -- outcome )` `irx-depth ( -- n )` `irx-item ( i -- x )` | the data stack, bottom first |
+| `irx-clear` `irx-push ( x -- outcome )` `irx-depth ( -- n )` `irx-item ( i -- x true \| false )` | the data stack, bottom first; `irx-item` gives *false* outside `0 ≤ i < irx-depth` |
 | `irx-run ( fuel c-addr u -- outcome )` | the model's `callWord`: run a word |
 | `irx-result ( -- result )` `irx-result-text ( result -- c-addr u )` `irx-last ( -- line column )` | which model result ended the run, its Lean name, and where |
 
@@ -74,10 +74,14 @@ Outcomes ([`src/lib/outcome.fs`](../../src/lib/outcome.fs)):
 | Outcome | Loading | Running |
 | --- | --- | --- |
 | ok | well-formed IR 0.1 text | the word returned normally |
-| invalid | anything else, including a name defined twice | underflow, unbalanced, unknown word, bad constant; no program; negative fuel |
+| invalid | anything else, including a name defined twice, a line of 128 characters or more (fed by `irx-load-line` or read from a file, as the reader refuses it), and any line or second `irx-load-finish` after a finished load | underflow, unbalanced, unknown word, bad constant; no program; negative fuel |
 | unsupported | — | the model's *unmodeled*, including a literal outside the cell |
 | exhausted | — | out of fuel |
-| full | more than 512 instructions, 64 names, 16 open IF/BEGIN, a name over 31 characters, a line of 128 characters or more | the data stack (128 cells), return stack (32) or frames (64) are full — the model has no limits, so this is never a model result |
+| full | more than 512 instructions, 64 names, 16 open IF/BEGIN, a name over 31 characters | the data stack (128 cells), return stack (32) or frames (64) are full — the model has no limits, so this is never a model result |
+
+Every run starts from an empty return stack, as `callWord` does, even
+when a failed run left items on it. A failed load reports through
+`irx-load-lines` the line that stopped it.
 
 Its state is one context record (`context-record:`,
 [ADR 0009](../adr/0009-reentrant-state-and-parallel-checking.md)), so a
@@ -109,24 +113,32 @@ interpreter and the host; Lean printed all 5,152 lines identically (5,112
 *ok*, 27 *outOfFuel*, 7 *underflow*, 4 *unmodeled*, 2 *unknownWord*).
 
 The six words use only some primitives, so `make check` also generates 300
-random IR programs (every primitive, IF, loops, calls forward and back,
-EXIT, constants, unknown names, literals at and beyond the cell edges) with 4 runs
+random IR programs (every primitive, IF, loops, also inside loops, calls
+forward and back, EXIT, constants, unknown names, literals at and beyond
+the cell edges, some written with leading zeros) with 4 runs
 each at fuel 0 to 6, runs them on the interpreter
 ([`tests/program/ir-run-cases.fs`](../../tests/program/ir-run-cases.fs))
 and in Lean, which reads the same IR text back, and requires identical
-results: 1,200 cases, every failure kind reached (425 *ok*, 347
-*underflow*, 262 *outOfFuel*, 72 *unknownWord*, 44 *unmodeled*, 37
-*badConstant*, 13 *unbalanced*). Other seeds with 1,500 programs each
-(seeds 1 to 4 before the model's literal rule, 1 and 2 after it: 36,000
-cases) also agreed.
+results: 1,200 cases, every failure kind reached (444 *ok*, 319
+*underflow*, 258 *outOfFuel*, 71 *unmodeled*, 52 *badConstant*, 43
+*unknownWord*, 13 *unbalanced*); the programs hold 77 literals with
+leading zeros and 20 loops inside loops. Other seeds with 1,500 programs
+each also agreed: seeds 1 to 4 before the model's literal rule, 1 and 2
+after it, and seeds 1 to 3 with loops inside loops and leading zeros
+(54,000 cases in all). Lean's parser of the text is more lenient than the
+interpreter's loader (it ignores indentation and blank lines, and reads
+`1_000` as 1000); text only Lean accepts stops the Forth run, so it can
+never count as agreement, and the generator writes none.
 
 ### Planted faults
 
 | Fault | Caught by |
 | --- | --- |
 | `MAX` and `MIN` exchanged; `*` computed as `+` | the host comparison (281 and 239 differing cases), in `make test` |
-| `XOR` as `OR`, `0>` as `0<`, `NIP` as `DROP` | the random programs against Lean (5, 4 and 1 cases with the default seed), in `make check` |
+| `XOR` as `OR`, `0>` as `0<`, `NIP` as `DROP` | the random programs against Lean (4, 11 and 11 cases with the default seed), in `make check` |
 | loops spend no fuel; a callee keeps its caller's fuel; a constant may EXIT; `/` defined for negative operands; a word sees its caller's return stack | the unit tests (`tests/program/ir-run.fs`, `make test`); the first four also by the Lean comparison (`make check`). The host comparison alone misses all five: the host has no fuel, and the tables never divide negative numbers or misuse the return stack |
+| leading zeros counted as digits, so `lit 0…05` is *unmodeled* | the unit tests, and the random programs against Lean (11 cases with the default seed) |
+| lines still loaded after `irx-load-finish`, so a half-loaded word runs; a run that does not start from an empty return stack | the unit tests |
 
 ## What this does and does not establish
 
@@ -135,10 +147,10 @@ the six words as the reader's IR says, and on 6,352 cases that the
 interpreter computes what the Lean model computes. It does not prove
 either: the host is trusted (*trusted-runtime* in receipts), the reader is
 trusted (*trusted-reader*), and other hosts, cell sizes and inputs are
-untested. A known gap of the reader (it compares names exactly, Gforth
-ignores case, so a source file could redefine `True` and change what
-`true` means on the host but not in the IR) is being fixed separately;
-the comparison would catch it only for the inputs it runs.
+untested. The reader finds names ignoring the case of A–Z, as Gforth does,
+and refuses a redefinition under any spelling, so a source file cannot
+make `true` mean one thing on the host and another in the IR
+([program IR](PROGRAM_IR.md), "Names").
 
 ## Running
 
