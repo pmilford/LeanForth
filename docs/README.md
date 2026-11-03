@@ -26,6 +26,7 @@ see [project progress](project/PROJECT_PROGRESS.md). Documents marked
 - [SETUP_WSL.md](user/SETUP_WSL.md) — Windows / WSL2 development setup.
 - [TERM_PRINTER.md](user/TERM_PRINTER.md) — printing terms readably in Lean notation, ASCII and LaTeX (Markdown math); binder names without capture; the presentation side table.
 - [LEANFORTH_SYNTAX_SKETCH.md](user/LEANFORTH_SYNTAX_SKETCH.md) — design sketch, not implemented: writing theorems and proofs in LeanForth's own Forth syntax ([ADR 0017](adr/0017-leanforth-syntax.md)), with notes that stay with the proof; four examples in three forms.
+- [READABLE_PROOFS_SKETCH.md](user/READABLE_PROOFS_SKETCH.md) — design sketch, not implemented: the proof of `composition` as the planned proof-outline printer would show it, in mathematics, LeanForth Forth and Lean, and which parts of it are checked and which are only explanation.
 
 The user guide is a start: manuals for each audience grow with the
 features they describe.
@@ -91,7 +92,8 @@ approval; the others are proposals.
 [0009](adr/0009-reentrant-state-and-parallel-checking.md) re-entrant state and parallel checking (accepted) ·
 [0011](adr/0011-definite-rejection.md) definite rejection and the first checker's scope (rules accepted) ·
 [0012](adr/0012-checked-environment.md) the checked environment's implementation (design accepted) ·
-[0017](adr/0017-leanforth-syntax.md) LeanForth Forth syntax for theorems and proofs (proposed).
+[0013](adr/0013-derivation-log.md) the derivation log and the proof outline (proposed) ·
+[0017](adr/0017-leanforth-syntax.md) LeanForth Forth syntax for theorems and proofs (accepted as the design basis).
 
 ## `reviews/` — review packets and records
 
