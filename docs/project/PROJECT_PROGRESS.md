@@ -90,7 +90,7 @@ designs and Lean proofs rather than on LeanForth code.
 | --- | --- |
 | Q1–Q4 | Done earlier, untrusted experimental preparation |
 | Q5 Lean comparison | In progress: Lean's verdicts on 60 kernel cases and 27 broken source copies are pinned ([expected results](../reviews/FIRST_CHECKER_EXPECTED.md)); LeanForth's answers wait for the checker |
-| Q6 checked environment design | Design approved (ADR 0012, G8–G11); implementation not started |
+| Q6 checked environment design | Design approved (ADR 0012, G8–G11); v0 implemented (plan task 2.2.2, with the store marks of task 1.1.3): write-once slots published only after full success, snapshots and handles, name rules N1/N2/K5, transitive axiom sets, a single publisher; 237 assertions, 34 planted faults caught, interleaved checks equal to serial ones. Awaiting its independent review and the owner's [kernel] gate; it accepts nothing until `check-declaration` (2.2.3) exists |
 | Q7 first independently checked declaration | Not started: rules approved, code not written |
 | Q8 parallel program path | In progress: receipt schema 0.1, IR 0.1 with its Lean model and reader (plan 2.5.1–2.5.3), the IR interpreter's three-way comparison (2.5.4), the verification-condition generator v0 (2.5.5) and the first clamp receipt (2.5.6) are done; the reader ([parser]) and receipt format ([format]) await the owner's approval |
 | Q9 consolidate experiments | Done 2026-11-02: 28 superseded modules and 91 test files retired with the owner's approval |
@@ -197,7 +197,7 @@ through the import review gate.
   numbers; first failure wins), documented in
   [DIAGNOSTICS.md](../programming/DIAGNOSTICS.md).
 - **Not done:** the scheduler, the single publisher and the shared
-  environment (ADR 0012; implementation in progress). The input stores are
+  environment (ADR 0012; v0 implemented, awaiting review). The input stores are
   per context today; ADR 0012 wants one shared read-only input (plan task
   7.2.1). Roadmap C1 and C2 are in progress, C3 and C4 partly.
 

@@ -357,3 +357,17 @@ reference-program-ir-run:
 .PHONY: test-program-ir-run reference-program-ir-run
 test: test-program-ir-run
 test-differential: reference-program-ir-run
+
+# Store marks (plan task 1.1.3) and the checked environment v0 (ADR 0012,
+# plan task 2.2.2): unit and failure-path tests, and checks interleaved as
+# jobs in two contexts (threads on Gforth 1.0, cooperative on 0.7.3, and
+# the serial host). Gforth only.
+test-environment:
+	$(RUN) $(GFORTH) tests/lib/store-mark.fs
+	$(RUN) $(GFORTH) tests/core/environment.fs
+	$(RUN) $(GFORTH) tests/core/environment-tasks.fs
+	$(RUN) $(GFORTH) tests/core/environment-tasks-serial.fs
+
+.PHONY: test-environment
+test: test-environment
+DOC_EXAMPLE_PAGES += docs/programming/CHECKED_ENVIRONMENT.md
