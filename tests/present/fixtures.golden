@@ -1,0 +1,62 @@
+== identity
+-- unicode
+theorem identity : ∀ {P : Prop}, P → P :=
+fun {P} proof ↦ proof
+-- ascii
+theorem identity : forall {P : Prop}, P -> P :=
+fun {P} proof => proof
+-- latex
+theorem \mathsf{identity} : \forall \{P : \mathrm{Prop}\},\ P \to P :=
+\lambda\ \{P\}\ \mathit{proof} \mapsto \mathit{proof}
+== composition
+-- unicode
+theorem composition : ∀ {A B C : Prop}, (A → B) → (B → C) → A → C :=
+fun {A B C} f g value ↦ g (f value)
+-- ascii
+theorem composition : forall {A B C : Prop}, (A -> B) -> (B -> C) -> A -> C :=
+fun {A B C} f g value => g (f value)
+-- latex
+theorem \mathsf{composition} : \forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C :=
+\lambda\ \{A\ B\ C\}\ f\ g\ \mathit{value} \mapsto g\ (f\ \mathit{value})
+== type-identity
+-- unicode
+theorem type_identity : ∀ {A : Type} {P : A → Prop} {x : A}, P x → P x :=
+fun {A} {P} {x} proof ↦ proof
+-- ascii
+theorem type_identity : forall {A : Type} {P : A -> Prop} {x : A}, P x -> P x :=
+fun {A} {P} {x} proof => proof
+-- latex
+theorem \mathsf{type\_identity} : \forall \{A : \mathrm{Type}\}\ \{P : A \to \mathrm{Prop}\}\ \{x : A\},\ P\ x \to P\ x :=
+\lambda\ \{A\}\ \{P\}\ \{x\}\ \mathit{proof} \mapsto \mathit{proof}
+== poly-identity
+-- unicode
+theorem poly_identity.{u} : ∀ {A : Sort u} {P : A → Prop} {x : A}, P x → P x :=
+fun {A} {P} {x} proof ↦ proof
+-- ascii
+theorem poly_identity.{u} : forall {A : Sort u} {P : A -> Prop} {x : A}, P x -> P x :=
+fun {A} {P} {x} proof => proof
+-- latex
+theorem \mathsf{poly\_identity}.{\mathsf{u}} : \forall \{A : \mathrm{Sort}\ u\}\ \{P : A \to \mathrm{Prop}\}\ \{x : A\},\ P\ x \to P\ x :=
+\lambda\ \{A\}\ \{P\}\ \{x\}\ \mathit{proof} \mapsto \mathit{proof}
+== constant-fixture
+-- unicode
+def fixtureId.{u} : {α : Sort u} → α → α :=
+fun {α} x ↦ x
+def fixturePoly.{u} : {α : Sort u} → α → α :=
+fun {α} x ↦ fixtureId x
+theorem fixtureUse : ∀ {P : Prop}, P → P :=
+fun {P} h ↦ fixtureId h
+-- ascii
+def fixtureId.{u} : {α : Sort u} -> α -> α :=
+fun {α} x => x
+def fixturePoly.{u} : {α : Sort u} -> α -> α :=
+fun {α} x => fixtureId x
+theorem fixtureUse : forall {P : Prop}, P -> P :=
+fun {P} h => fixtureId h
+-- latex
+def \mathsf{fixtureId}.{\mathsf{u}} : \{\alpha : \mathrm{Sort}\ u\} \to \alpha \to \alpha :=
+\lambda\ \{\alpha\}\ x \mapsto x
+def \mathsf{fixturePoly}.{\mathsf{u}} : \{\alpha : \mathrm{Sort}\ u\} \to \alpha \to \alpha :=
+\lambda\ \{\alpha\}\ x \mapsto \mathsf{fixtureId}\ x
+theorem \mathsf{fixtureUse} : \forall \{P : \mathrm{Prop}\},\ P \to P :=
+\lambda\ \{P\}\ h \mapsto \mathsf{fixtureId}\ h

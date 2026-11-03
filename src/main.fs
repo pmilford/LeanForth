@@ -24,3 +24,6 @@ require ./program/clamp.fs
 require ./program/examples.fs
 require ./program/program-depth.fs
 require ./program/ir-reader.fs
+
+\ Presentation: the term printer and its side table (untrusted output).
+require ./present/term-printer.fs

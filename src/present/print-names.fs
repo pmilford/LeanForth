@@ -1,0 +1,121 @@
+\ Names for the term printer: structured names as text, Lean's hygienic
+\ names, and capture-free display names for binders, chosen as Lean's
+\ delaborator does (pp.safeShadowing). Untrusted presentation code.
+\ Requires print-job.fs and the core modules loaded below.
+\ State: one paired walk record in the context, lf-pp-scan-walk, for the
+\ scans that ask whether a body mentions a binder.
+
+require ./print-job.fs
+require ../core/levels.fs
+require ../core/level-scope.fs
+require ../core/tagged-sort-boundary.fs
+require ../core/symbolic-session.fs
+require ../core/generation-handles.fs
+require ../core/constant-references.fs
+require ../core/constant-term-boundary.fs
+
+lf-term-capacity context-walk2: lf-pp-scan-walk
+
+\ A structured name as text, components joined by dots, sent to xt
+\ ( c-addr u -- ). Unchecked: the ID is valid and the name store passed
+\ lf-name-storage-valid?, so every prefix is an earlier entry and the
+\ recursion is at most as deep as the ID. The anonymous name gives nothing.
+: lf-pp-part ( id xt -- )
+  >r lf-name-slot dup lf-entry-tag @ lf-name-tag-str =
+  if lf-name-bytes@ r> execute else lf-entry-payload @ r> lf-pp-number-to then ;
+: lf-pp-dot-to ( xt -- ) s" ." rot execute ;
+: lf-pp-name-to ( id xt -- )
+  over 0= if 2drop exit then
+  over lf-name-prefix@ ?dup if over recurse dup lf-pp-dot-to then lf-pp-part ;
+
+\ Hygienic names (Lean's macro scopes, such as a._@._internal._hyg.0)
+\ print as the part before _@, as Lean's delaborator prints them.
+: lf-pp-str? ( id c-addr u -- flag )
+  rot dup lf-name-tag@ lf-name-tag-str =
+  if lf-name-slot lf-name-bytes@ compare 0= else drop 2drop false then ;
+: lf-pp-skip-nums ( id -- id' ) begin dup lf-name-tag@ lf-name-tag-num = while
+  lf-name-prefix@ repeat ;
+: lf-pp-hygienic? ( id -- flag ) lf-pp-skip-nums s" _hyg" lf-pp-str? ;
+: lf-pp-erase ( id -- id' )
+  begin dup s" _@" lf-pp-str? 0= over and while lf-name-prefix@ repeat lf-name-prefix@ ;
+: lf-pp-hygienic ( name kind -- flag ) drop lf-pp-hygienic? ;
+
+\ A binder's suggested name, placed in the pool: its recorded name with
+\ macro scopes erased; a for the anonymous name, as Lean; x when the side
+\ table has no name for the binder.
+: lf-pp-base ( id -- )
+  dup lf-pp-hygienic? if lf-pp-erase then
+  ?dup if ['] lf-pp-put lf-pp-name-to else s" a" lf-pp-put then ;
+: lf-pp-suggest ( node -- ) lf-pres-binder@ if drop lf-pp-base else s" x" lf-pp-put then ;
+
+\ Does any binder in scope from bottom index from upwards show this text?
+: lf-pp-shows? ( c-addr u i -- c-addr u flag ) lf-pp-bind-at lf-pp-text 2over compare 0= ;
+: lf-pp-any? ( c-addr u from -- flag )
+  lf-pp-depth swap ?do i lf-pp-shows? if 2drop true unloop exit then loop 2drop false ;
+: lf-pp-taken? ( mark -- flag ) lf-pp-pending 0 lf-pp-any? ;
+
+\ Scans of a body with the print's fuel. In the body, bound variable i at
+\ binder depth d (inside the body) is the body's own binder when i = d and
+\ binder j = i - d - 1 of the scope (innermost first) when i > d. A scan
+\ stops at the first hit, which it reports internally as rejected.
+: lf-pp-hit ( flag -- outcome ) if outcome-rejected else outcome-ok then ;
+: lf-pp-hit? ( outcome -- flag outcome )
+  dup outcome-rejected = if drop true outcome-ok else false swap then ;
+: lf-pp-inner ( depth tag -- depth' true | false )
+  lf-tag-app = if true exit then dup max-n = if drop false else 1+ true then ;
+: lf-pp-scan-binary ( first second walk tag -- outcome )
+  over walk-context @ swap lf-pp-inner if swap walk-children-at else drop 2drop
+  outcome-full then ;
+: lf-pp-leaf-tag? ( tag -- flag )
+  dup lf-tag-sort = over lf-tag-symbolic-sort = or swap lf-tag-constant = or ;
+: lf-pp-scan-other ( first second walk tag -- outcome )
+  dup lf-term-binary-tag? if lf-pp-scan-binary exit then
+  lf-pp-leaf-tag? if drop 2drop outcome-ok else drop 2drop outcome-invalid then ;
+\ Variable i mentions bound variable k of the body's context (walk-arg).
+: lf-pp-var-is ( i walk -- outcome ) dup walk-context @ swap walk-arg @ + = lf-pp-hit ;
+: lf-pp-loose-dispatch ( first second walk tag -- outcome )
+  dup lf-tag-bvar = if drop nip lf-pp-var-is else lf-pp-scan-other then ;
+: lf-pp-loose-visit ( walk -- outcome ) lf-terms ['] lf-pp-loose-dispatch walk-visit ;
+\ Variable i mentions a binder of the scope that shows the text pending at
+\ mark (walk-arg). A variable beyond the scope is left to the printer.
+: lf-pp-outer ( i d -- j true | false ) - 1- dup 0< if drop false else true then ;
+: lf-pp-shows-pending? ( j mark -- flag )
+  lf-pp-pending rot lf-pp-entry lf-pp-text compare 0= ;
+: lf-pp-var-shows ( i walk -- outcome )
+  tuck walk-context @ lf-pp-outer 0= if drop outcome-ok exit then
+  dup lf-pp-depth < 0= if 2drop outcome-ok exit then
+  swap walk-arg @ lf-pp-shows-pending? lf-pp-hit ;
+: lf-pp-uses-dispatch ( first second walk tag -- outcome )
+  dup lf-tag-bvar = if drop nip lf-pp-var-shows else lf-pp-scan-other then ;
+: lf-pp-uses-visit ( walk -- outcome ) lf-terms ['] lf-pp-uses-dispatch walk-visit ;
+: lf-pp-scan ( term arg xt -- flag outcome )
+  >r lf-pp-scan-walk dup lf-pp-lend walk-arg !
+  0 r> lf-pp-scan-walk walk-run-pair lf-pp-scan-walk lf-pp-repay lf-pp-hit? ;
+\ Does term mention its context's bound variable k (0 = innermost)?
+: lf-pp-loose? ( term k -- flag outcome ) ['] lf-pp-loose-visit lf-pp-scan ;
+\ Does body (under one new binder) mention a binder in scope that shows
+\ the name pending at mark?
+: lf-pp-uses? ( body mark -- flag outcome ) ['] lf-pp-uses-visit lf-pp-scan ;
+
+\ Choosing a binder's display name (Lean's getUnusedName with
+\ pp.safeShadowing): keep the suggestion when no binder in scope shows it,
+\ or when none from bottom index from upwards (a fun's earlier binders)
+\ shows it and the body uses no binder in scope that shows it; otherwise
+\ append _1, _2, ... until no binder in scope shows the result. The name is
+\ left pending in the pool from mark; lf-pp-bind brings it into scope.
+: lf-pp-suffix ( mark base-length k -- )
+  >r + lf-pp-used ! s" _" lf-pp-put r> ['] lf-pp-put lf-pp-number-to ;
+: lf-pp-retry? ( mark -- flag ) lf-pp-taken? lf-pp-full? 0= and ;
+: lf-pp-fresh ( mark -- )
+  dup lf-pp-pending nip 0
+  begin 1+ >r 2dup r@ lf-pp-suffix over lf-pp-retry? while r> repeat r> drop 2drop ;
+: lf-pp-clash? ( mark from -- flag ) swap lf-pp-pending rot lf-pp-any? ;
+: lf-pp-shadow? ( mark body from -- flag outcome )
+  rot tuck swap lf-pp-clash? if 2drop false outcome-ok else lf-pp-uses? >r 0= r> then ;
+: lf-pp-kept? ( body from mark -- mark flag outcome )
+  dup lf-pp-taken? 0= if nip nip true outcome-ok exit then
+  dup >r -rot lf-pp-shadow? r> -rot ;
+: lf-pp-renamed ( mark flag -- mark ) 0= if dup lf-pp-fresh then ;
+: lf-pp-choose ( node body from -- mark outcome )
+  rot lf-pp-used @ swap lf-pp-suggest lf-pp-kept?
+  dup ok? if drop lf-pp-renamed lf-pp-pool-outcome else nip then ;

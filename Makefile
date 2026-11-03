@@ -35,16 +35,17 @@ DIFFERENTIAL_TARGETS := \
 	test-example-reference-differential test-add-reference-differential \
 	test-abs-reference-differential test-factorial-reference-differential \
 	test-gcd-reference-differential test-range-64-differential \
-	test-memory-reference-differential test-memory-frame-differential
+	test-memory-reference-differential test-memory-frame-differential \
+	test-printer-differential
 
 .PHONY: test test-differential check check-docs check-lean-sources check-portable-forth smoke \
 	test-harness test-lib test-core \
-	test-composition-fixture test-program profile-existing profile-history forth-metrics \
-	$(DIFFERENTIAL_TARGETS)
+	test-composition-fixture test-program test-present profile-existing profile-history \
+	forth-metrics $(DIFFERENTIAL_TARGETS)
 
 # Gforth and Python 3 only; run on every CI host and before every commit.
 test: check-docs check-lean-sources check-portable-forth smoke test-harness test-lib test-core \
-	test-composition-fixture test-program
+	test-composition-fixture test-program test-present
 
 # Fails on broken documentation links or missing docs/ paths.
 check-docs:
@@ -271,6 +272,22 @@ test-memory-reference-differential:
 
 test-memory-frame-differential:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/program/memory-frame-differential.sh
+
+# The presentation layer in src/present: the term printer and its side
+# table. Untrusted and not loaded by src/main.fs, so it gets its own
+# silent-load check; print-sweep.fs reaches every failure exit of the
+# printer, check_golden.py compares the printed text with the golden files.
+test-present:
+	@out=$$($(RUN) $(GFORTH) src/present/term-printer.fs -e bye 2>&1) || { printf '%s\n' "$$out" >&2; exit 1; }; \
+	if [ -n "$$out" ]; then printf 'src/present/term-printer.fs printed while loading:\n%s\n' "$$out" >&2; exit 1; fi
+	$(RUN) $(GFORTH) tests/present/term-printer.fs
+	$(RUN) $(GFORTH) tests/present/print-sweep.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/present/check_golden.py
+
+# The printer's Unicode output against pinned Lean's own printing, and its
+# ASCII output read back by Lean.
+test-printer-differential:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/present/printer-differential.py
 
 profile-existing:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash scripts/profile-existing.sh
