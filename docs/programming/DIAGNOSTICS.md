@@ -179,7 +179,10 @@ is kept.
   its family: 9,953 checks, 0 unexplained; 4,567 ok with nothing recorded;
   all 1,923 exhausted and 44 full outcomes recorded (codes 1 and 2); 1,999
   of 1,999 unknown and 1,112 of 1,420 invalid outcomes recorded (codes 21,
-  22, 23, 30–34).
+  22, 23, 30–34). Since the rejection rules (plan task 2.2.1), 248 of the
+  1,999 unknown checks are rejected instead, each recorded with its rule
+  (55: 34, 56: 1, 58: 50, 59: 39, 60: 124), and every other count is the
+  same.
 - Outcomes, results and fuel are unchanged: the randomized differentials
   against the code before diagnostics and contexts (commit `f8aa35d`;
   group H's harnesses, seeds 1–150; group B's, seeds 1–300 of 3,000
