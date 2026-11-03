@@ -16,19 +16,28 @@
 \ a file holds, the reader refuses it or gives IR that means what Gforth
 \ does with it (the rule below). Its caller and the output word are
 \ trusted harness code (the receipt generator, the tests), relied on to
-\ use the reader as documented here. Even so, the reader fails closed on
-\ the misuse it can detect cheaply, and only on that: the read ends as
-\ invalid, never ok, when the output word throws, starts, feeds or
-\ finishes a read, or returns in another context or with the data stack
-\ at another depth (these two abort); when a line is fed before
-\ lf-ir-start or after lf-ir-finish; and when an exception, such as THROW
-\ -28 from Ctrl-C in READ-FILE, stops lf-ir-feed or a file's read. A fed
-\ line's length is unsigned, so a negative one is too long. Every
-\ exception passes to the caller, after a file being read is closed.
+\ use the reader as documented here. Even so, it enforces this, and only
+\ this, on them (ir-enter and ir-emit below):
+\ - The four reader words, lf-ir-start, lf-ir-feed, lf-ir-finish and
+\   lf-ir-read-file, keep the reader of their context busy while they
+\   run, and so while the output word runs. A reader word called while
+\   it is busy refuses (THROW -2), changing nothing but a count of calls.
+\ - The read fails as invalid if its output word throws, calls a reader
+\   word in its context, or returns with the data stack at another depth
+\   (which also aborts). One that returns in another context aborts at
+\   once, touching no record: the reader it left stays busy for good.
+\ - An exception inside a reader word fails the read as invalid, or
+\   leaves the reader busy for good (just before the word's handler is
+\   set up, or just after its work threw), or, during the entry check or
+\   after the work returned, acts as if it came before or after the call:
+\   a read whose work an exception cut short never ends ok. Every
+\   exception passes on; one that stops the reading of a file's lines
+\   closes the file first.
+\ - A line fed before lf-ir-start or after lf-ir-finish fails the read; a
+\   fed line's length is unsigned, so a negative one is too long.
 \ Other misuse is not detected (docs/programming/PROGRAM_IR.md lists it),
 \ such as an output word that writes into the reader's record or
-\ unbalances the return stack, or a caller that goes on with a read after
-\ an exception from lf-ir-start that the output word did not throw.
+\ unbalances the return stack.
 \
 \ It must accept less than Gforth (1.0 and 0.7.3) does, never more, and
 \ give what it accepts Gforth's meaning:
@@ -57,7 +66,8 @@
 \ check that.
 \
 \ Requires ../lib/lib.fs. State: lf-ir-reader, one context record (in a
-\ new context the reader is stopped until lf-ir-start), reached only
+\ new context the reader is stopped until lf-ir-start; its entry state,
+\ busy and the count of calls, outlives each read), reached only
 \ through the accessors below; and lf-ir-vocabulary, lf-ir-reasons and
 \ three dispatch tables, filled while this file loads and never changed
 \ afterwards. One read at a time in each context.
@@ -188,7 +198,7 @@ ir-other s" @" ir-word      ir-other s" !" ir-word      ir-other s" lshift" ir-w
 22 constant ir-why-stopped   s" reader not started" ir-reason
 23 constant ir-why-output    s" output word failed" ir-reason
 24 constant ir-why-finished  s" reader already finished" ir-reason
-25 constant ir-why-running   s" output word running" ir-reason
+25 constant ir-why-busy      s" reader busy" ir-reason
 26 constant ir-why-interrupted s" read stopped by an exception" ir-reason
 27 constant ir-reasons
 lf-ir-reasons store-count @ ir-reasons <> [if] .( lf-ir: reason table ) abort [then]
@@ -224,6 +234,10 @@ end-structure
 4 constant ir-modes
 
 begin-structure /lf-ir-reader
+  \ The entry state (ir-enter), which a new read keeps.
+  field: irr-busy          \ true while a reader word runs in this context
+  field: irr-calls         \ reader words called in this context, refused ones too
+  \ The read, which lf-ir-start erases.
   field: irr-emit          \ output word ( c-addr u -- ), one line per call
   field: irr-outcome       \ outcome-ok until the first diagnostic
   field: irr-reason        \ why it stopped, or ir-why-none
@@ -253,6 +267,8 @@ end-structure
 /lf-ir-reader context-record: lf-ir-reader
 
 \ Accessors: the only words that name lf-ir-reader.
+: ir-busy ( -- addr ) lf-ir-reader irr-busy ;
+: ir-calls ( -- addr ) lf-ir-reader irr-calls ;
 : ir-outcome ( -- addr ) lf-ir-reader irr-outcome ;
 : ir-why ( -- addr ) lf-ir-reader irr-reason ;
 : ir-finished ( -- addr ) lf-ir-reader irr-finished ;
@@ -280,6 +296,9 @@ end-structure
 : ir-text ( -- c-addr ) lf-ir-reader irr-text ;
 : ir-block ( -- c-addr ) lf-ir-reader irr-block ;
 : ir-emit! ( xt -- ) lf-ir-reader irr-emit ! ;
+: ir-emit@ ( -- xt ) lf-ir-reader irr-emit @ ;
+\ The read: the record after its entry state.
+: ir-the-read ( -- addr u ) lf-ir-reader irr-emit /lf-ir-reader 0 irr-emit - ;
 : ir-here ( -- line column ) ir-line# @ ir-column @ ;
 
 \ Until lf-ir-start, the reader of every context is stopped: lf-ir-feed
@@ -290,52 +309,55 @@ end-structure
 
 \ Stopping. Only the first diagnostic counts; later tokens are skipped.
 : ir-ok? ( -- flag ) ir-outcome @ ok? ;
-: ir-state ( -- outcome reason ) ir-outcome @ ir-why @ ;
 : ir-state! ( outcome reason -- ) ir-why ! ir-outcome ! ;
 : ir-stop ( outcome reason -- ) ir-ok? if ir-state! else 2drop then ;
 : ir-unsupported ( reason -- ) outcome-unsupported swap ir-stop ;
 : ir-invalid ( reason -- ) outcome-invalid swap ir-stop ;
 : ir-full ( -- ) outcome-full ir-why-capacity ir-stop ;
 
-\ The output word. While it runs, the reader is stopped with the reason
-\ "output word running", which nothing else sets. It must not use the
-\ reader: lf-ir-feed and lf-ir-finish called from it fail the read, and
-\ lf-ir-start or lf-ir-read-file start another read, which replaces that
-\ reason. Afterwards the reader goes on as before only if the output word
-\ returned and the reason is still there; otherwise the read stops as
-\ invalid ("output word failed"), and any exception passes on. It must
-\ also return in the context it was called in, with the data stack as
-\ deep as before less its two arguments. If not, ir-output aborts and
-\ touches no record, nor restores the context (the output word may have
-\ freed the one it left): that read stays stopped as "output word
-\ running", and fails ("output word failed") when fed or finished.
-: ir-running? ( -- flag ) ir-why @ ir-why-running = ;
+\ Entry. Each reader word (lf-ir-start, lf-ir-feed, lf-ir-finish and
+\ lf-ir-read-file) does its work through ir-enter, the one entry check.
+\ It counts the call, and refuses it (THROW -2), changing nothing else,
+\ while the reader of this context is busy: while a reader word runs in
+\ it, and so while the output word runs. Otherwise it makes the reader
+\ busy, and the work makes it idle when it returns. If the work throws,
+\ the read stops as invalid ("read stopped by an exception"), the reader
+\ is made idle and the exception passes on; but if the context has
+\ changed, which only an output word does (ir-emit has then aborted), no
+\ record is touched. An exception that comes after the reader is made
+\ busy but before the handler is set up, or after the work threw but
+\ before the handler made the reader idle, leaves it busy for good:
+\ every reader word then refuses, so that read never ends.
+: ir-home? ( context -- flag ) lf-context @ = ;
+: ir-claim ( -- ) 1 ir-calls +! ir-busy @ abort" lf-ir: reader busy" true ir-busy ! ;
+: ir-work ( i*x xt -- j*x ) execute false ir-busy ! ;
+: ir-thrown ( code context -- code )
+  ir-home? over 0<> and if ir-why-interrupted ir-invalid false ir-busy ! then ;
+: ir-enter ( i*x xt -- j*x )
+  ir-claim lf-context @ >r ['] ir-work catch r> ir-thrown throw ;
+
+\ The output word. It runs while the reader is busy, so a reader word it
+\ calls in this context is refused, and counted. The read goes on only if
+\ the output word returned normally, in the context it was called in,
+\ having called no reader word there, with the data stack as deep as
+\ before less its two arguments. Otherwise the read stops as invalid
+\ ("output word failed"), and any exception passes on; a change of depth
+\ also aborts. A change of context aborts at once and touches no record,
+\ nor switches back, since the output word may have freed the context it
+\ left; the reader there stays busy.
 : ir-failed ( -- ) outcome-invalid ir-why-output ir-state! ;
-: ir-reentry ( -- ) ir-running? if ir-failed then ;
-: ir-halt ( -- outcome reason ) ir-state outcome-invalid ir-why-running ir-state! ;
-: ir-resume ( outcome reason flag -- ) if ir-state! else 2drop ir-failed then ;
-: ir-called ( c-addr u -- code ) lf-ir-reader irr-emit @ catch dup if nip nip then ;
-: ir-same-context ( context -- )
-  lf-context @ <> abort" lf-ir: output word changed context" ;
+: ir-call ( c-addr u -- code ) ir-emit@ catch dup if nip nip then ;
+: ir-same-context ( context -- ) ir-home? 0= abort" lf-ir: output word changed context" ;
 \ depth was taken with the output word's two arguments on the stack; its
 \ code and depth itself now take their place, so DEPTH must equal it.
 : ir-same-depth ( code depth -- code )
-  depth <> abort" lf-ir: output word changed stack depth" ;
-: ir-output ( c-addr u -- code )
-  depth lf-context @ 2>r ir-called 2r> ir-same-context ir-same-depth ;
-: ir-clean? ( code -- flag ) 0= ir-running? and ;
-: ir-emit ( c-addr u -- ) ir-halt 2>r ir-output dup ir-clean? 2r> rot ir-resume throw ;
-
-\ Exceptions. One that stops lf-ir-feed or a file's read, such as THROW
-\ -28 from Ctrl-C during a blocked READ-FILE, stops the read as invalid
-\ ("read stopped by an exception") and passes on. One from the output
-\ word has stopped it already, unless the output word left its context,
-\ whose record is then not touched.
-: ir-home? ( context -- flag ) lf-context @ = ;
-: ir-interrupted ( code context -- code )
-  ir-home? over 0<> and if ir-why-interrupted ir-invalid then ;
-\ Run xt, giving its THROW code, which stops the read if it is not 0.
-: ir-catch ( i*x xt -- j*x code ) lf-context @ >r catch r> ir-interrupted ;
+  depth <> dup if ir-failed then abort" lf-ir: output word changed stack depth" ;
+\ Stop the read unless the output word gave code 0 and no reader word was
+\ called since the count of calls was calls.
+: ir-clean ( code calls -- code ) ir-calls @ <> over or if ir-failed then ;
+: ir-emit ( c-addr u -- )
+  ir-calls @ >r depth lf-context @ 2>r ir-call 2r> ir-same-context ir-same-depth
+  r> ir-clean throw ;
 
 \ The output line under construction. Text that would not fit stops the
 \ reader instead of overrunning the buffer.
@@ -617,40 +639,40 @@ ir-mode-actions ir-modes ir-filled? 0= [if] .( lf-ir: mode actions ) abort [then
   ir-ok? 0= if 2drop exit then
   1 ir-line# +! dup ir-line-chars u< if ir-scan-line else 2drop ir-unreadable then ;
 
-\ Reading. lf-ir-start resets the record and writes the header; lines then
+\ Reading. lf-ir-start erases the read and writes the header; lines then
 \ come from a file (lf-ir-read-file) or one at a time (lf-ir-feed), and
-\ lf-ir-finish checks the end of the input and gives the outcome.
+\ lf-ir-finish checks the end of the input and gives the outcome. Each
+\ reader word does its work through ir-enter.
 : ir-reset ( xt -- )
-  lf-ir-reader /lf-ir-reader erase ir-emit!
+  ir-the-read erase ir-emit!
   outcome-ok ir-outcome ! ir-why-none ir-why ! -1 ir-current ! ir-to-top ;
 : ir-source-header ( c-addr u -- ) s" source " ir-append ir-append ir-flush ;
 \ A path too long for its header line stops the reader with a diagnostic.
 : ir-header ( c-addr u -- )
   s" lf-ir 0.1" ir-append ir-flush 2dup ir-source-header ir-blame ;
-: lf-ir-start ( xt c-addr u -- )
+: ir-new-read ( xt c-addr u -- )
   rot ir-reset ir-def-capacity /ir-slot 0 ir-defs store-init 0= abort" lf-ir: store"
   ir-header ;
+: lf-ir-start ( xt c-addr u -- ) ['] ir-new-read ir-enter ;
 \ A fed line is copied first, so it may live in a transient buffer such as
 \ the pictured-numeric one, which the reader itself uses. A line too long
 \ to copy, its length u taken as unsigned, is cut to the buffer's size,
 \ which ir-scan then refuses. A fed line has no line end: any CR in it is
-\ refused. Nothing is copied into a stopped reader, whose line buffer may
-\ hold the line it was reading when its output word fed this one.
+\ refused. Nothing is copied into a stopped reader.
 : ir-cut ( u -- u' ) dup ir-line-chars u> if drop ir-line-chars then ;
 : ir-feed-line ( c-addr u -- ) ir-cut tuck ir-text swap chars move ir-text swap ir-scan ;
 \ A line fed after lf-ir-finish stops the reader, and is not written about.
 : ir-unfinished ( -- ) ir-finished @ if ir-why-finished ir-invalid then ;
-\ Stop the read if the output word feeds it or it has finished.
-: ir-check-feed ( -- ) ir-reentry ir-unfinished ;
-: lf-ir-feed ( c-addr u -- )
-  ir-check-feed ir-ok? if ['] ir-feed-line ir-catch throw else 2drop then ;
+: ir-feed ( c-addr u -- ) ir-unfinished ir-ok? if ir-feed-line else 2drop then ;
+: lf-ir-feed ( c-addr u -- ) ['] ir-feed ir-enter ;
 : ir-at-end ( -- )
   ir-mode @ ir-mode-top <> if ir-why-unclosed ir-invalid exit then
   ir-kept# @ if ir-why-left-over ir-unsupported then ;
 : ir-end-of-input ( -- ) 0 ir-column ! ir-at-end ir-ok? 0= if ir-diagnose then ;
 \ Finishing ends the read; finishing again gives the same outcome.
-: lf-ir-finish ( -- outcome )
-  ir-reentry ir-ok? if ir-end-of-input then true ir-finished ! ir-outcome @ ;
+: ir-finish ( -- outcome )
+  ir-ok? if ir-end-of-input then true ir-finished ! ir-outcome @ ;
+: lf-ir-finish ( -- outcome ) ['] ir-finish ir-enter ;
 
 \ A file, read a block at a time and split into lines at LF only, so that
 \ the reader, not the host's READ-LINE, decides where a line ends. The
@@ -660,8 +682,9 @@ ir-mode-actions ir-modes ir-filled? 0= [if] .( lf-ir: mode actions ) abort [then
 \ a file without LF is not read to its end. One CR just before an LF is
 \ dropped, as both Gforths drop it; any other CR stays in its line and is
 \ refused as a character outside printable ASCII. A last line without LF
-\ is read too. A read error stops the reader. The file is closed even
-\ when an exception stops the read, and the exception is passed on.
+\ is read too. A read error stops the reader. The file is closed when an
+\ exception stops the reading of its lines; the exception passes on, and
+\ ir-enter stops the read, as for any exception, OPEN-FILE's included.
 10 constant ir-lf
 13 constant ir-cr
 : ir-hold ( char -- )
@@ -688,13 +711,15 @@ ir-mode-actions ir-modes ir-filled? 0= [if] .( lf-ir: mode actions ) abort [then
 : ir-read-lines ( fileid -- ) begin dup ir-more? 0= until drop ;
 : ir-close-file ( fileid -- ) close-file drop ;
 : ir-read-open ( fileid -- )
-  dup >r ['] ir-read-lines ir-catch dup if nip then r> ir-close-file throw ;
+  dup >r ['] ir-read-lines catch dup if nip then r> ir-close-file throw ;
 \ Opened as a binary file, so that no host translates its line ends.
 : ir-read-path ( c-addr u -- )
   r/o bin open-file if drop ir-unreadable else ir-read-open then ;
-: lf-ir-read-file ( xt c-addr u -- outcome )
-  2dup 2>r lf-ir-start 2r> ir-ok? if ir-read-path else 2drop then lf-ir-finish ;
+: ir-read-file ( xt c-addr u -- outcome )
+  2dup 2>r ir-new-read 2r> ir-ok? if ir-read-path else 2drop then ir-finish ;
+: lf-ir-read-file ( xt c-addr u -- outcome ) ['] ir-read-file ir-enter ;
 
-\ For tests and callers: why the reader stopped, and where.
-: lf-ir-reason ( -- reason ) ir-why @ ;
+\ For tests and callers: why the reader stopped, or that it is busy (as
+\ the output word sees it), and where.
+: lf-ir-reason ( -- reason ) ir-busy @ if ir-why-busy else ir-why @ then ;
 : lf-ir-where ( -- line column ) ir-here ;
