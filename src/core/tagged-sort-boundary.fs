@@ -8,6 +8,7 @@
 \ one context; callers prevent concurrent mutation of the term store.
 
 require ../lib/lib.fs
+require ./diagnostics.fs
 require ./terms.fs
 
 6 constant lf-tag-symbolic-sort
@@ -40,7 +41,9 @@ lf-term-capacity context-walk: lf-repr-walker
 : lf-repr-visit ( walk -- outcome ) lf-terms ['] lf-repr-dispatch walk-visit ;
 
 \ Walk one root with the current mode and the fuel left.
-: lf-repr-walk ( root -- status ) ['] lf-repr-visit lf-repr-walker walk-run ;
+: lf-repr-walk ( root -- status )
+  ['] lf-repr-visit lf-repr-walker walk-run
+  lf-repr-walker c" tagged-sort-boundary lf-repr-check" lf-diag-walk ;
 
 \ Set an explicit mode and budget; false means a bad mode or negative fuel.
 : lf-repr-mode? ( mode -- flag ) dup lf-repr-concrete = swap lf-repr-symbolic = or ;

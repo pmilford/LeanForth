@@ -11,6 +11,7 @@
 \ external mutation.
 
 require ../lib/lib.fs
+require ./diagnostics.fs
 require ./levels.fs
 
 begin-structure /lf-lsctx
@@ -68,9 +69,15 @@ lf-level-capacity context-walk: lf-lscope-walk
 \ Visiting one level node. Zero is valid only as node 0 with zero fields; a
 \ parameter needs a positive ID in the context; succ, max and imax push
 \ their earlier children.
+: lf-lscope-site ( -- site ) c" level-scope lf-lscope-check" ;
 : lf-lscope-zero ( first second walk -- outcome ) walk-node @ or or 0= flag>outcome ;
+\ A parameter outside the context is recorded as out of scope.
+: lf-lscope-outside ( id -- outcome )
+  0 lf-lscope-site lf-diag-out-of-scope lf-diag-note outcome-invalid ;
+: lf-lscope-in ( id -- outcome )
+  dup lf-lscope-member? if drop outcome-ok else lf-lscope-outside then ;
 : lf-lscope-param ( first second walk -- outcome )
-  drop 0= over 0> and if lf-lscope-member? flag>outcome else drop outcome-invalid then ;
+  drop 0= over 0> and if lf-lscope-in else drop outcome-invalid then ;
 : lf-lscope-succ ( first second walk -- outcome ) swap 0<> if 2drop outcome-invalid else walk-child then ;
 : lf-lscope-dispatch ( first second walk tag -- outcome )
   dup lf-level-binary-tag? if drop walk-children exit then
@@ -86,7 +93,8 @@ lf-level-capacity context-walk: lf-lscope-walk
 : lf-lscope-zero-ok? ( -- flag ) 0 lf-level-read if or or 0= else false then ;
 : lf-lscope-ready? ( root -- flag )
   lf-lscope-context-valid? swap lf-level-valid? and lf-lscope-zero-ok? and ;
-: lf-lscope-run ( root -- status ) ['] lf-lscope-visit lf-lscope-walk walk-run ;
+: lf-lscope-run ( root -- status )
+  ['] lf-lscope-visit lf-lscope-walk walk-run lf-lscope-walk lf-lscope-site lf-diag-walk ;
 : lf-lscope-check ( root fuel -- status )
   lf-lscope-walk walk-budget 0= if drop-invalid exit then
   dup lf-lscope-ready? if lf-lscope-run else drop-invalid then ;

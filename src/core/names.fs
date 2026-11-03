@@ -14,6 +14,7 @@
 \ not detectable here.
 
 require ../lib/lib.fs
+require ./diagnostics.fs
 
 64 constant lf-name-capacity
 2048 constant lf-name-byte-capacity
@@ -123,13 +124,24 @@ end-structure
   over lf-name-store-bytes over lf-entry-payload ! lf-entry-length ! r> ;
 
 \ Interning valid input: an existing identical name keeps its ID even when
-\ the table is full; exhaustion changes nothing.
+\ the table is full; exhaustion changes nothing and is recorded as a
+\ diagnostic: no free entry or a spent serial, or for a string, no room
+\ for its bytes (the bytes needed and the capacity).
+: lf-name-site ( -- site ) c" names lf-name-intern" ;
+: lf-name-refused ( -- false )
+  lf-names lf-name-site lf-diag-names-full lf-diag-store false ;
+: lf-name-bytes-refused ( length -- false )
+  lf-name-used @ + lf-name-byte-capacity lf-name-site lf-diag-name-bytes-full lf-diag-note
+  false ;
+: lf-name-str-refused ( prefix length -- false )
+  nip lf-name-room? if lf-name-bytes-refused else drop lf-name-refused then ;
 : lf-name-intern-num ( prefix number -- id true | false )
   2dup lf-name-find-num if nip nip true exit then
-  lf-name-room? if lf-name-add-num true else 2drop false then ;
+  lf-name-room? if lf-name-add-num true else 2drop lf-name-refused then ;
 : lf-name-intern-str ( prefix length -- id true | false )
   2dup lf-name-find-str if nip nip true exit then
-  lf-name-room? over lf-name-byte-room? and if lf-name-add-str true else 2drop false then ;
+  lf-name-room? over lf-name-byte-room? and
+  if lf-name-add-str true else lf-name-str-refused then ;
 
 \ Intern a numeric component; invalid input changes nothing.
 : lf-name-num-args? ( prefix number -- flag )

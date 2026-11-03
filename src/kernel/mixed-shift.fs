@@ -11,6 +11,7 @@
 
 require ../lib/lib.fs
 require ../core/constant-term-boundary.fs
+require ../core/diagnostics.fs
 require ../core/tagged-sort-boundary.fs
 require ../core/terms.fs
 require ./mixed-rebuild.fs
@@ -37,8 +38,12 @@ end-structure
 \ up by the amount, which is full past lf-mshift-max (no room in a cell).
 \ Leaves are kept and binary nodes rebuilt; any other tag is invalid.
 : lf-mshift-amount@ ( frames -- amount ) lf-shiftjob-amount @ ;
+: lf-mshift-site ( -- site ) c" mixed-shift lf-mixed-shift" ;
+\ No room in a cell: recorded with the index and the amount.
+: lf-mshift-past ( index amount -- -1 outcome )
+  lf-mshift-site lf-diag-cell-maximum lf-diag-note lf-rebuild-full ;
 : lf-mshift-up ( index amount -- result outcome )
-  2dup lf-mshift-max swap - > if 2drop lf-rebuild-full
+  2dup lf-mshift-max swap - > if lf-mshift-past
   else + lf-term-bvar lf-rebuild-allocated then ;
 : lf-mshift-bvar ( node frames -- result outcome )
   over lf-term-first@ over frame-context @ < if lf-rebuild-keep exit then
@@ -60,11 +65,15 @@ end-structure
 \ Shift a node by amount from cutoff zero, from inside another pass whose
 \ frames record lends its fuel and gets back what is left. A shift in
 \ progress refuses, changing nothing: no result, invalid. Nothing is rolled
-\ back here; the caller's pass does that.
+\ back here; the caller's pass does that. Running out of fuel or frames is
+\ recorded as a diagnostic.
+: lf-mshift-explain ( outcome -- outcome )
+  lf-mshift-frames lf-mshift-site lf-diag-frames ;
 : lf-mshift-borrow ( frames -- flag ) frame-fuel @ lf-mshift-frames frame-budget ;
 : lf-mshift-inside ( node amount frames -- result outcome )
   dup lf-mshift-borrow 0= if drop 2drop lf-rebuild-invalid exit then
-  >r lf-mshift-amount ! 0 lf-mshift-frames frame-run lf-mshift-fuel @ r> frame-fuel ! ;
+  >r lf-mshift-amount ! 0 lf-mshift-frames frame-run lf-mshift-explain
+  lf-mshift-fuel @ r> frame-fuel ! ;
 
 \ Shift a live mixed root. Validation and traversal share fuel; invalid
 \ input, running out of fuel (exhausted) and running out of room (full) are
@@ -85,4 +94,5 @@ end-structure
   if drop r> lf-mshift-copy else r> drop nip nip lf-rebuild-none then ;
 : lf-mixed-shift ( index identity cutoff amount fuel -- index identity status )
   lf-mshift-frames frame-budget 0= if lf-mshift-refuse exit then
-  2dup lf-mshift-args? if lf-mshift-amount ! lf-mshift-root else lf-mshift-refuse then ;
+  2dup lf-mshift-args? if lf-mshift-amount ! lf-mshift-root lf-mshift-explain
+  else lf-mshift-refuse then ;

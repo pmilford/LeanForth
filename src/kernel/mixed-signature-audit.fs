@@ -20,6 +20,7 @@
 
 require ../lib/lib.fs
 require ../core/constant-term-scope.fs
+require ../core/diagnostics.fs
 require ../core/level-scope.fs
 require ../core/levels.fs
 require ./mixed-level-substitute.fs
@@ -70,9 +71,15 @@ end-structure
 : lf-msa-records ( fuel -- fuel' status )
   lf-msp-count @ 0 ?do i swap lf-msa-record dup ok? 0= if unloop exit then drop loop
   outcome-ok ;
+: lf-msa-site ( -- site ) c" mixed-signature-audit lf-mixed-signature-audit" ;
+\ Zero fuel is exhausted and negative fuel invalid; both are recorded as
+\ diagnostics.
+: lf-msa-dry ( fuel -- fuel status ) dup lf-msa-site lf-diag-exhausted outcome-exhausted ;
 : lf-msa-run ( token fuel -- fuel' status )
   swap lf-msp-current? lf-lscope-context-valid? and 0= if outcome-invalid exit then
-  dup 0= if outcome-exhausted else lf-msa-records then ;
+  dup 0= if lf-msa-dry else lf-msa-records then ;
+: lf-msa-negative ( token fuel -- status )
+  nip 0 lf-msa-site lf-diag-bad-argument lf-diag-note outcome-invalid ;
 
 \ Validate every live record, including complete root identity, reachable
 \ constant references, session level scope, copied formals, structural
@@ -84,4 +91,4 @@ end-structure
 \ exhausted, including for an empty index. No lookup, specialization or
 \ inference is done.
 : lf-mixed-signature-audit ( token fuel -- status )
-  dup 0< if 2drop outcome-invalid exit then lf-msa-run swap lf-msa-fuel ! ;
+  dup 0< if lf-msa-negative exit then lf-msa-run swap lf-msa-fuel ! ;

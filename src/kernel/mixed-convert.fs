@@ -12,6 +12,7 @@
 
 require ../lib/lib.fs
 require ../core/constant-term-boundary.fs
+require ../core/diagnostics.fs
 require ../core/levels.fs
 require ../core/tagged-sort-boundary.fs
 require ../core/terms.fs
@@ -73,9 +74,11 @@ lf-term-capacity context-walk2: lf-mconvert-walker
 \ result, discarding all temporary allocations (serials never rewind).
 : lf-mconvert-marks ( -- terms levels ) lf-term-count @ lf-level-count @ ;
 : lf-mconvert-restore ( terms levels -- ) lf-level-count ! lf-term-count ! ;
+: lf-mconvert-walk ( left right -- outcome )
+  ['] lf-mconvert-visit lf-mconvert-walker walk-run-pair
+  lf-mconvert-walker c" mixed-convert lf-mixed-convert" lf-diag-walk ;
 : lf-mconvert-run ( left right -- outcome )
-  lf-mconvert-marks 2>r ['] lf-mconvert-visit lf-mconvert-walker walk-run-pair
-  2r> lf-mconvert-restore ;
+  lf-mconvert-marks 2>r lf-mconvert-walk 2r> lf-mconvert-restore ;
 
 \ ( left left-id right right-id fuel -- status )
 \ Validate both complete graphs, then compare; restore all temporary term

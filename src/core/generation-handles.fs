@@ -11,6 +11,7 @@
 \ (lib/context.fs). Single-threaded within one context.
 
 require ../lib/lib.fs
+require ./diagnostics.fs
 require ./levels.fs
 require ./symbolic-session.fs
 require ./tagged-sort-boundary.fs
@@ -89,8 +90,11 @@ lf-term-capacity context-walk: lf-href-walker
 : lf-href-visit ( walk -- outcome ) lf-terms ['] lf-href-dispatch walk-visit ;
 \ Internal: audit an already structurally checked root. Negative fuel is
 \ invalid.
+: lf-href-run ( root -- status )
+  ['] lf-href-visit lf-href-walker walk-run
+  lf-href-walker c" generation-handles lf-hterm-check" lf-diag-walk ;
 : lf-href-check ( root fuel -- status )
-  lf-href-walker walk-budget if ['] lf-href-visit lf-href-walker walk-run else drop-invalid then ;
+  lf-href-walker walk-budget if lf-href-run else drop-invalid then ;
 
 \ Check a live handle's reachable syntax, levels and Sort stamps with one
 \ budget. Structural and level-scope evidence only: binder scope, typing and

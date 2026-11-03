@@ -14,6 +14,7 @@
 require ../lib/lib.fs
 require ../core/constant-references.fs
 require ../core/constant-term-boundary.fs
+require ../core/diagnostics.fs
 require ../core/levels.fs
 require ../core/names.fs
 require ../core/tagged-sort-boundary.fs
@@ -94,8 +95,10 @@ lf-level-capacity context-walk2: lf-mcompare-level-walker
     lf-level-tag-succ of lf-mcompare-first endof walk-bad-tag endcase ;
 : lf-mcompare-level-visit ( walk -- outcome )
   lf-levels ['] lf-mcompare-level-dispatch lf-mcompare-visit-pair ;
+: lf-mcompare-site ( -- site ) c" mixed-compare lf-mixed-compare" ;
 : lf-mcompare-level-run ( a b -- outcome )
-  ['] lf-mcompare-level-visit lf-mcompare-level-walker walk-run-pair ;
+  ['] lf-mcompare-level-visit lf-mcompare-level-walker walk-run-pair
+  lf-mcompare-level-walker lf-mcompare-site lf-diag-walk ;
 : lf-mcompare-level ( a b -- outcome )
   lf-mcompare-fuel @ lf-mcompare-level-fuel ! lf-mcompare-level-run
   lf-mcompare-level-fuel @ lf-mcompare-fuel ! ;
@@ -141,7 +144,8 @@ lf-level-capacity context-walk2: lf-mcompare-level-walker
 : lf-mcompare-visit ( walk -- outcome )
   lf-terms ['] lf-mcompare-dispatch lf-mcompare-visit-pair ;
 : lf-mcompare-run ( left right -- outcome )
-  ['] lf-mcompare-visit lf-mcompare-walker walk-run-pair ;
+  ['] lf-mcompare-visit lf-mcompare-walker walk-run-pair
+  lf-mcompare-walker lf-mcompare-site lf-diag-walk ;
 
 \ Audit both roots completely, left first, with the walk's fuel; a failed
 \ audit leaves no fuel. lf-cterm-check fails only as invalid, exhausted or

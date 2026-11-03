@@ -11,6 +11,7 @@
 \ cell layout is host-specific and must never be serialized directly.
 
 require ../lib/lib.fs
+require ./diagnostics.fs
 
 64 constant lf-level-capacity
 0 constant lf-level-tag-zero
@@ -47,8 +48,12 @@ lf-level-capacity /node 1 context-store: lf-levels
 : lf-level-identity ( index -- identity true | false ) lf-levels store-identity@ ;
 
 \ Append a node whose tag and fields the caller validated; a failed
-\ allocation returns false and changes nothing.
-: lf-level-add ( tag first second -- index true | false ) lf-levels node-new ;
+\ allocation returns false, changes nothing and is recorded as a
+\ diagnostic.
+: lf-level-refused ( -- false )
+  lf-levels c" levels lf-level-add" lf-diag-levels-full lf-diag-store false ;
+: lf-level-add ( tag first second -- index true | false )
+  lf-levels node-new dup 0= if drop lf-level-refused then ;
 
 \ Successor of an existing level; the second field is unused.
 : lf-level-succ ( child -- index true | false )

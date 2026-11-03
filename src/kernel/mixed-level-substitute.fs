@@ -16,6 +16,7 @@
 require ../lib/lib.fs
 require ../core/constant-references.fs
 require ../core/constant-term-boundary.fs
+require ../core/diagnostics.fs
 require ../core/generation-handles.fs
 require ../core/levels.fs
 require ../core/tagged-sort-boundary.fs
@@ -88,7 +89,8 @@ lf-term-capacity context-walk: lf-mls-walker
 : lf-mls-unseen ( -- ) 0 lf-mls-seen lf-term-capacity cells erase ;
 \ The formals and count are those last given to lf-lsubst-use.
 : lf-mls-audit-from ( root -- status )
-  lf-mls-unseen ['] lf-mls-visit lf-mls-walker walk-run ;
+  lf-mls-unseen ['] lf-mls-visit lf-mls-walker walk-run
+  lf-mls-walker c" mixed-level-substitute lf-mixed-level-substitute" lf-diag-walk ;
 
 \ The source audit alone, as mixed-signature-audit runs it on a candidate
 \ signature: every term reachable from root and every source level against

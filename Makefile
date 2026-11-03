@@ -151,6 +151,7 @@ test-core:
 	$(RUN) $(GFORTH) tests/core/infer-deep.fs
 	$(RUN) $(GFORTH) tests/core/contexts.fs
 	$(RUN) $(GFORTH) tests/core/contexts-serial.fs
+	$(RUN) $(GFORTH) tests/core/diagnostics.fs
 	$(RUN) $(GFORTH) tests/core/load.fs
 	$(RUN) $(GFORTH) tests/core/ndjson.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/core/test_ndjson_reader.py

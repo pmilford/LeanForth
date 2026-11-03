@@ -29,6 +29,7 @@ are planned and do not exist yet.
 - [PROGRAM_EXAMPLES.md](programming/PROGRAM_EXAMPLES.md) — the executable Forth examples and their tests.
 - [PROGRAM_EXAMPLES_REFERENCE.md](programming/PROGRAM_EXAMPLES_REFERENCE.md) — independent Lean references for those examples.
 - [PROGRAM_IR.md](programming/PROGRAM_IR.md) — program IR 0.1: its text form, its Lean semantics, the reader from Forth source, and the proofs that the six example words' IR equals their reference models (implemented, untrusted, checked by Lean).
+- [DIAGNOSTICS.md](programming/DIAGNOSTICS.md) — why a check failed: the first failure's reason code, site and numbers, recorded per checker context; the code catalogue (implemented, first form, untrusted).
 - [PROGRAM_RECEIPTS.md](programming/PROGRAM_RECEIPTS.md) — program receipt schema 0.1: separate CHECK, VERIFY and RUN statuses, assumptions, and the standard-library validator (implemented; no receipts are generated yet).
 - Lean reference models for individual programs: [checked addition](programming/CHECKED_ADD_REFERENCE.md), [factorial](programming/FACTORIAL_REFERENCE.md), [gcd](programming/GCD_REFERENCE.md), [stack and memory](programming/MEMORY_PROGRAM_REFERENCE.md), [memory copy](programming/MEMORY_COPY_REFERENCE.md), [memory swap](programming/MEMORY_SWAP_REFERENCE.md).
 

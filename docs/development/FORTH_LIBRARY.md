@@ -23,6 +23,7 @@ variants were retired on 2026-11-02.
 | Line reader and UTF-8 | `src/lib/bytes.fs` | `reader:` record over a Forth-2012 file: whole lines in one heap buffer that grows for long lines up to a limit, strict framing (final line feed; `text-framed` refuses carriage returns and a byte-order mark), line numbers and double-cell file offsets; `utf8-length`, `utf8-valid?` and `utf8-put` (RFC 3629, no overlongs or surrogates); `counted,`. Uses Gforth's native `scan` behind an adapter, with a portable loop otherwise | New 2026-11-02; unit-tested against an independent UTF-8 model in `tests/lib/bytes.fs` |
 | JSON reader | `src/lib/json.fs` | `json:` view record: a fail-closed, non-recursive RFC 8259 parser of one text into a growable token tape (containers know their item count and extent), escapes decoded in place, numbers kept as digit text, limits on depth, tokens, string and number length; `json-find`, `json-next`, `json-natural`, `json-u`, `digits>u` | New 2026-11-02; malformed corpus and every limit tested in `tests/lib/json.fs` |
 | Portability adapter | `src/lib/portability.fs` | Forth-2012 definitions of `>=`, `<=`, `0<=`, `0>=`, `max-n` and the structure words, compiled only where the host lacks them | New 2026-11-02; defines nothing under Gforth except `max-n` |
+| Diagnostics | `src/core/diagnostics.fs` | One record per checker context explaining the first failure of a check: a reason code, the site (module and word, a counted string) and two numbers; first failure wins until `lf-diag-clear`; `lf-diag@`, `lf-diag.`; helpers `lf-diag-walk`, `lf-diag-frames` and `lf-diag-store` explain a walk's, a pass's or a store's failure. Never changes an outcome; catalogue in [DIAGNOSTICS.md](../programming/DIAGNOSTICS.md) | New 2026-11-02 (plan 6.7, first form); every core and kernel module records its full and exhausted sites; `tests/core/diagnostics.fs` |
 | Expression store | `src/core/terms.fs` | Index-based nodes for sorts, bound variables, application, λ, Π and constants; nodes refer to earlier indices, so a term is a DAG with sharing | 64 nodes per checker context; built on `context-store:`; constructors check ranges only |
 | Universe-level store | `src/core/levels.fs` | Level DAGs: zero, succ, max, imax, parameters | 64 levels per checker context; built on `context-store:` |
 | Name interning | `src/core/names.fs` | Lean structured names (string and numeric components) stored once and referred to by index | 64 names, 2,048 bytes; built on `store:` with named entry fields; lookup is a linear scan, no hashing |
@@ -160,16 +161,18 @@ Rules for converted modules:
   for the length of one call (for example a caller array in a request
   record), never across calls.
 
-**Converted modules (2026-11-02).** All 24 modules of `src/core/` and
+**Converted modules (2026-11-02).** All 25 modules of `src/core/` and
 `src/kernel/` keep their state in the context: 4 stores, 11 walk records,
-1 frames record and 17 module records, with set-up words for the level
+1 frames record and 18 module records (one of them the diagnostic record,
+`core/diagnostics.fs`), with set-up words for the level
 and name stores, the parameter context, the assignment table and the shift
 and instantiate frames. `mixed-rebuild.fs` has no state. What stays
 global is read-only once loading ends: constants and the deferred words
 set once while loading (`lf-lvalue-walk`, `lf-lcmp-walk`,
-`lf-minfer-walk`). Each context holds
-51,624 bytes on a 64-bit host (`context-bytes` after `src/main.fs`
-loads, Gforth 0.7.3 and 1.0 alike). Every context's stores are its
+`lf-minfer-walk`), and the diagnostics' site names, counted strings
+compiled into the recording words. Each context holds 51,656 bytes on a
+64-bit host (`context-bytes` after `src/main.fs` loads, Gforth 0.7.3 and
+1.0 alike). Every context's stores are its
 own, so the term, level and name stores are *not* yet the shared, read-only
 input that ADR 0012 (E1) describes; splitting them is plan task 7.2.1.
 

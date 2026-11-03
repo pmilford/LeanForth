@@ -15,6 +15,7 @@
 
 require ../lib/lib.fs
 require ./constant-references.fs
+require ./diagnostics.fs
 require ./generation-handles.fs
 require ./level-scope.fs
 require ./symbolic-session.fs
@@ -80,7 +81,12 @@ lf-term-capacity context-walk: lf-cterm-walker
 \ pass it on without narrowing, and tests/core/constant-term-boundary.fs
 \ pins that set. Full cannot occur with today's capacities: children come
 \ earlier, so a work stack never holds more items than its store has nodes.
-: lf-cterm-run ( root -- status ) ['] lf-cterm-visit lf-cterm-walker walk-run ;
+\ A root that is not a live handle is recorded as a stale handle.
+: lf-cterm-site ( -- site ) c" constant-term-boundary lf-cterm-check" ;
+: lf-cterm-run ( root -- status )
+  ['] lf-cterm-visit lf-cterm-walker walk-run lf-cterm-walker lf-cterm-site lf-diag-walk ;
+: lf-cterm-stale ( index identity -- status )
+  lf-cterm-site lf-diag-stale-handle lf-diag-note outcome-invalid ;
 : lf-cterm-check ( index identity fuel -- status )
   lf-cterm-walker walk-budget 0= if 2drop outcome-invalid exit then
-  2dup lf-hterm-valid? if drop lf-cterm-run else 2drop outcome-invalid then ;
+  2dup lf-hterm-valid? if drop lf-cterm-run else lf-cterm-stale then ;

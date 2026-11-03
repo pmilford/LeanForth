@@ -18,6 +18,7 @@
 
 require ../lib/lib.fs
 require ../core/constant-references.fs
+require ../core/diagnostics.fs
 require ../core/level-scope.fs
 require ../core/levels.fs
 require ../core/names.fs
@@ -156,8 +157,11 @@ end-structure
 \ index is full.
 : lf-msp-new? ( token req -- flag )
   tuck lf-msp-well-formed? if lf-sigreq-name @ lf-msp-position 0< else drop false then ;
+: lf-msp-full ( -- outcome )
+  lf-msp-count @ lf-msp-capacity c" mixed-signature-probe lf-msp-put"
+  lf-diag-signatures-full lf-diag-note outcome-full ;
 : lf-msp-room ( -- outcome )
-  lf-msp-count @ lf-msp-capacity < if outcome-ok else outcome-full then ;
+  lf-msp-count @ lf-msp-capacity < if outcome-ok else lf-msp-full then ;
 : lf-msp-addable ( token req -- status )
   lf-msp-new? if lf-msp-room else outcome-invalid then ;
 : lf-msp-next ( array -- addr ) lf-msp-count @ cells + ;
@@ -182,14 +186,17 @@ end-structure
   lf-msp-request >r r@ lf-msp-budget! r@ lf-sigreq-formals ! r@ lf-msp-source!
   r@ lf-sigreq-name ! r> lf-msp-add ;
 
-\ Lookup: a name with no candidate is unknown; a candidate whose arity
-\ differs from the request is invalid.
+\ Lookup: a name with no candidate is unknown, recorded as no signature; a
+\ candidate whose arity differs from the request is invalid.
 : lf-msp-arity= ( req position -- flag ) lf-msp-arity@ swap lf-sigreq-arity @ = ;
 : lf-msp-entry! ( position req -- )
   over lf-msp-root@ over lf-sigreq-root ! over lf-msp-id@ over lf-sigreq-id !
   swap lf-msp-formals-at swap lf-sigreq-formals ! ;
+: lf-msp-missing ( req position -- status )
+  drop lf-sigreq-name @ 0 c" mixed-signature-probe lf-msp-specialize"
+  lf-diag-no-signature lf-diag-note outcome-unknown ;
 : lf-msp-select ( req -- status )
-  dup lf-sigreq-name @ lf-msp-position dup 0< if 2drop outcome-unknown exit then
+  dup lf-sigreq-name @ lf-msp-position dup 0< if lf-msp-missing exit then
   2dup lf-msp-arity= if swap lf-msp-entry! outcome-ok else 2drop outcome-invalid then ;
 : lf-msp-found ( req -- root identity 0 | status )
   dup lf-msp-select ok-then? if lf-msp-substitute then ;

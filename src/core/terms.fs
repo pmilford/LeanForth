@@ -13,6 +13,7 @@
 \ format.
 
 require ../lib/lib.fs
+require ./diagnostics.fs
 
 64 constant lf-term-capacity
 1 constant lf-tag-sort
@@ -41,8 +42,12 @@ lf-term-capacity /node 0 context-store: lf-terms
 : lf-term-identity ( index -- identity true | false ) lf-terms store-identity@ ;
 
 \ Append a node whose tag and fields the caller validated. An invalid count,
-\ a full store or a spent serial returns false and changes nothing.
-: lf-term-add ( tag first second -- index true | false ) lf-terms node-new ;
+\ a full store or a spent serial returns false, changes nothing and is
+\ recorded as a diagnostic.
+: lf-term-refused ( -- false )
+  lf-terms c" terms lf-term-add" lf-diag-terms-full lf-diag-store false ;
+: lf-term-add ( tag first second -- index true | false )
+  lf-terms node-new dup 0= if drop lf-term-refused then ;
 
 \ Leaves carry a nonnegative payload: a concrete universe level for Sort, a
 \ de Bruijn index for a bound variable. Scope and typing are not checked.

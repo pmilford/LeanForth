@@ -7,6 +7,7 @@
 \ raw edits and nested calls.
 
 require ../lib/lib.fs
+require ../core/diagnostics.fs
 require ../core/terms.fs
 require ./mixed-instantiate.fs
 require ./mixed-rebuild.fs
@@ -71,10 +72,12 @@ lf-term-capacity ' lf-mbeta-visit context-frames: lf-mbeta-frames
 : lf-mbeta-refuse ( index identity outcome -- -1 0 outcome ) nip nip lf-rebuild-none ;
 : lf-mbeta-unfueled ( index identity -- -1 0 status )
   0 lf-mbeta-fuel ! outcome-invalid lf-mbeta-refuse ;
+: lf-mbeta-explain ( outcome -- outcome )
+  lf-mbeta-frames c" mixed-beta lf-mixed-beta" lf-diag-frames ;
 : lf-mixed-beta ( index identity fuel -- index identity status )
   lf-mbeta-frames frame-budget 0= if lf-mbeta-unfueled exit then
   2dup lf-mbeta-frames lf-rebuild-audit dup ok? 0= if lf-mbeta-refuse exit then
-  2drop 0 lf-mbeta-frames lf-rebuild-run ;
+  2drop 0 lf-mbeta-frames lf-rebuild-run lf-mbeta-explain ;
 
 \ Recovery. A THROW out of any of the three rebuilding passes (such as a
 \ host stack overflow) leaves their records busy, so that every later pass
