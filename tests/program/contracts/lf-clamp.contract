@@ -1,0 +1,18 @@
+lf-contract 0.1
+# The clamp contract of the plan draft's §7.4, for scripts/program_vc.py.
+id lf-clamp/0
+word lf-clamp
+ir tests/program/ir/clamp.ir
+stack ( value lower upper -- result true | false )
+inputs value lower upper
+statement For integers v, l, u in the cell range: if l ≤ u the word returns r = min(max(v, l), u) and true, so l ≤ r ≤ u, r = v when l ≤ v ≤ u, r = l when v < l and r = u when v > u; if l > u it consumes its three inputs and returns false. Cells below are kept.
+case lower > upper
+  out false
+case lower <= upper
+  out r true
+  ensure r = min(max(value, lower), upper)
+  ensure lower <= r && r <= upper
+  ensure lower <= value && value <= upper -> r = value
+  ensure value < lower -> r = lower
+  ensure value > upper -> r = upper
+expect discharged

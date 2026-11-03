@@ -291,10 +291,11 @@ report exactly these three).
 `make test` checks that the copies of the reference models are verbatim.
 
 Not established: that Gforth executes these words as the IR semantics says
-(task 2.5.4 will compare an IR interpreter with the host on the existing
-tables); that the reader's translation is faithful (it is tested on the
-six words, every primitive and every diagnostic, not proved); anything about stack
-overflow, the compiler or other hosts; and anything checked by LeanForth.
+(task 2.5.4 tests it, without proving it: an IR interpreter, the host and
+Lean's evaluation of the model agree on 5,152 cases, see
+[the IR interpreter](PROGRAM_IR_RUN.md)); that the reader's translation is
+faithful (it is tested on the six words, every primitive and every
+diagnostic, not proved); anything about stack overflow, the compiler or other hosts; and anything checked by LeanForth.
 The theorems are checked by Lean 4.35.0 and labelled *checked by the Lean
 reference, not by LeanForth*.
 

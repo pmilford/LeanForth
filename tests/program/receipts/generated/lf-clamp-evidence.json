@@ -1,0 +1,33 @@
+{
+  "recordedAt": "2026-11-02",
+  "lean": {
+    "version": "4.35.0",
+    "commit": "eb6cafb7290e8bd5f2937522d8d804f58f02bafc",
+    "axioms": {
+      "ProgramVC.LfClamp0.O1": [
+        "propext",
+        "Quot.sound"
+      ],
+      "ProgramVC.LfClamp0.O2": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ],
+      "ProgramVC.LfClamp0.contract": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    }
+  },
+  "run": {
+    "forth": "gforth",
+    "version": "1.0.0",
+    "os": "linux",
+    "arch": "x86-64",
+    "cellBits": 64,
+    "cases": 986,
+    "failures": 0,
+    "leanAgreed": 991
+  }
+}

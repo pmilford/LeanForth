@@ -2,8 +2,10 @@
 
 **Status: implemented as a schema with examples and a validator
 (2026-11-02, task 2.5.1 of the [plan draft](../project/PLAN_DRAFT.md)).
-Nothing writes receipts yet;** the first generated one is the clamp receipt
-of task 2.5.6. The format falls under the *[format]* review gate of
+The first generated receipt is the clamp receipt of task 2.5.6,**
+written by `scripts/program_receipt.py` from the actual checks
+([verification conditions and the clamp receipt](PROGRAM_VC.md)). The
+format falls under the *[format]* review gate of
 `AGENTS.md`: it is a proposal until the owner approves it.
 
 A program receipt records what is known about one Forth word, and on what

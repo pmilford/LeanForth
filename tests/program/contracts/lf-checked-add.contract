@@ -1,0 +1,13 @@
+lf-contract 0.1
+id lf-checked-add/0
+word lf-checked-add
+ir tests/program/ir/examples.ir
+stack ( a b -- sum true | false )
+inputs a b
+statement For integers a, b in the cell range: if a + b is in the cell range the word returns a + b and true, otherwise false; no addition it performs wraps. Cells below are kept.
+case fits(a + b)
+  out s true
+  ensure s = a + b
+case !fits(a + b)
+  out false
+expect discharged

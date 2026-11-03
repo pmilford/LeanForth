@@ -335,3 +335,25 @@ reference-program-ir:
 .PHONY: test-program-ir reference-program-ir
 test: test-program-ir
 test-differential: reference-program-ir
+
+# Program track, phase 2, tasks 2.5.4 to 2.5.6 (docs/programming/PROGRAM_IR_RUN.md,
+# PROGRAM_VC.md and PROGRAM_RECEIPTS.md): the IR interpreter against the host's
+# own words, the verification-condition generator's golden output, and the
+# generated clamp receipt. Gforth and Python 3 only.
+test-program-ir-run:
+	$(RUN) $(GFORTH) tests/program/ir-run.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/program/ir_run_differential.py
+	$(RUN) python3 tests/program/vc_check.py
+	$(RUN) python3 tests/program/receipt_check.py
+
+# The same against pinned Lean: the interpreter against Lean's evaluation of the
+# model (tables and random programs), the obligations and contract theorems
+# checked by Lean with planted faults, and the receipt's evidence recorded afresh.
+reference-program-ir-run:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/program/ir_run_differential.py --lean
+	LEAN=$(LEAN) $(RUN) python3 tests/program/vc_check.py --lean
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/program/receipt_check.py --record
+
+.PHONY: test-program-ir-run reference-program-ir-run
+test: test-program-ir-run
+test-differential: reference-program-ir-run
