@@ -18,12 +18,13 @@ require ./kernel/mixed-definition-probe.fs
 require ./import/load.fs
 require ./import/ndjson.fs
 
-\ Verified-program track: example words, the stack-depth analyzer and the
-\ reader from restricted Forth source to the program IR.
+\ Verified-program track: example words, the stack-depth analyzer, the
+\ reader from restricted Forth source to the program IR and its interpreter.
 require ./program/clamp.fs
 require ./program/examples.fs
 require ./program/program-depth.fs
 require ./program/ir-reader.fs
+require ./program/ir-run.fs
 
 \ Presentation: the term printer and its side table (untrusted output).
 require ./present/term-printer.fs
