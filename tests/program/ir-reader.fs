@@ -2,12 +2,13 @@
 \ of the six example words, every diagnostic with its location, the
 \ capacities, ASCII case folding, refused characters, names and numbers,
 \ independence from the caller's BASE, STATE and search order, that no
-\ source token is ever executed, an output word that throws or uses the
-\ reader, read errors, the end of a read, and a reader stopped until it
-\ starts in every context. Gforth itself also loads every source the
-\ reader accepts here, and must neither throw nor keep values; files with
-\ every kind of line end are tested by ir_reader_files.py. Run from the
-\ repository root, like every test file.
+\ source token is ever executed, an output word that throws, uses the
+\ reader, changes the stack depth or returns in another context, read
+\ errors, exceptions that stop a read, the end of a read, and a reader
+\ stopped until it starts in every context. Gforth itself also loads
+\ every source the reader accepts here, and must neither throw nor keep
+\ values; files with every kind of line end are tested by
+\ ir_reader_files.py. Run from the repository root, like every test file.
 include ../support/tester.fs
 
 \ Gforth loading a file the reader accepted, with the host's own words,
@@ -19,19 +20,23 @@ include ../support/tester.fs
 \ Files opened and closed, counted to show that the reader closes a file
 \ even when its output word throws, and the reads of the file opened last.
 \ A read after the 64th of one file fails, as a read error would, so that
-\ a file that never ends cannot hang these tests. The reader, compiled
-\ after these three words, calls them instead of the host's (Gforth's
-\ redefinition warnings are turned off around them).
+\ a file that never ends cannot hang these tests. Once interrupt-next is
+\ set, the next read or number conversion throws -28, as Ctrl-C would.
+\ The reader, compiled after these four words, calls them instead of the
+\ host's (Gforth's redefinition warnings are turned off around them).
 variable opened
 variable closed
 variable reads
 64 constant reads-max
+variable interrupt-next
+: interrupting ( -- ) interrupt-next @ if false interrupt-next ! -28 throw then ;
 [defined] warnings [if] warnings @ false warnings ! [then]
 : open-file ( c-addr u fam -- fileid ior )
   open-file dup 0= if 1 opened +! 0 reads ! then ;
 : close-file ( fileid -- ior ) 1 closed +! close-file ;
 : read-file ( c-addr u fileid -- u2 ior )
-  1 reads +! reads @ reads-max > if drop 2drop 0 -1 else read-file then ;
+  interrupting 1 reads +! reads @ reads-max > if drop 2drop 0 -1 else read-file then ;
+: >number ( ud c-addr u -- ud' c-addr' u' ) interrupting >number ;
 [defined] warnings [if] warnings ! [then]
 : open-files ( -- n ) opened @ closed @ - ;
 require ../../src/program/ir-reader.fs
@@ -488,11 +493,12 @@ T{ ' note-reason s" t.fs" start-reader seen @ lf-ir-finish -> ir-why-running out
 \ The output word must not use the reader. Given its first "end", each
 \ word below feeds a line, finishes, starts another read, or starts one
 \ whose output word throws and catches that. Each fails the read, and the
-\ line being read is neither overwritten nor read further.
+\ line being read is neither overwritten nor read further: the fed line
+\ is long enough to overwrite the ; that the diagnostic then quotes.
 variable used
 : at-first-end ( c-addr u -- flag )
   2dup transcribe s" end" search nip nip used @ 0= and dup if true used ! then ;
-: feed-at-end ( c-addr u -- ) at-first-end if s" 1 ;" lf-ir-feed then ;
+: feed-at-end ( c-addr u -- ) at-first-end if s" 1 1 1 1 1 ;" lf-ir-feed then ;
 : finish-at-end ( c-addr u -- ) at-first-end if lf-ir-finish drop then ;
 : start-at-end ( c-addr u -- ) at-first-end if ['] 2drop s" u.fs" lf-ir-start then ;
 : catch-at-end ( c-addr u -- )
@@ -507,6 +513,26 @@ T{ transcript-text 47 min s" lf-ir 0.1|source t.fs|word f @1:1|  lit 7 @1:5|" co
 T{ ' finish-at-end read-using -> outcome-invalid ir-why-output 1 7 }T
 T{ ' start-at-end read-using -> outcome-invalid ir-why-output 0 0 }T
 T{ ' catch-at-end read-using -> outcome-invalid ir-why-output 0 0 }T
+\ The output word must take its two cells and leave none. One that leaves
+\ a cell, or takes one more, makes the reader abort (THROW -2) when it
+\ returns; the read stays stopped as "output word running", and fails
+\ when finished.
+: leave-cell ( c-addr u -- x ) 2drop 0 ;
+: take-cell ( x c-addr u -- ) 2drop drop ;
+T{ ' leave-cell start-catching lf-ir-reason lf-ir-finish lf-ir-reason
+   -> -2 ir-why-running outcome-invalid ir-why-output }T
+T{ ' take-cell start-catching lf-ir-reason lf-ir-finish lf-ir-reason
+   -> -2 ir-why-running outcome-invalid ir-why-output }T
+
+\ An exception that stops a read, such as THROW -28 from Ctrl-C during a
+\ blocked READ-FILE, stops it as invalid too, and passes on: here at the
+\ first read of a file, which is closed, and at the first number of a fed
+\ line, with nothing left open, so that finishing would otherwise give ok.
+: feed-catching ( c-addr u -- code ) ['] lf-ir-feed catch dup if nip nip then ;
+T{ true interrupt-next ! ' 2drop read-catching open-files lf-ir-finish lf-ir-reason
+   -> -28 0 outcome-invalid ir-why-interrupted }T
+T{ start true interrupt-next ! s" 1 constant k" feed-catching lf-ir-finish lf-ir-reason
+   -> -28 outcome-invalid ir-why-interrupted }T
 
 \ lf-ir-finish ends a read: finishing again gives the same outcome, and a
 \ line fed afterwards stops the reader and is not written about.
@@ -543,8 +569,15 @@ T{ start long-text 127 feed verdict -> outcome-ok ir-why-none 1 0 }T
 T{ start long-text 128 feed verdict -> outcome-invalid ir-why-unreadable 1 0 }T
 T{ start long-text 200 feed verdict -> outcome-invalid ir-why-unreadable 1 0 }T
 \ A fed line's length is unsigned: -1 is too long, so the line is cut to
-\ the line buffer and refused, not read past its end.
+\ the line buffer and refused, not read past its end. The copy stays in
+\ the line buffer: the block buffer after it, zeroed by lf-ir-start, is
+\ untouched.
 T{ start s" : f ;" drop -1 lf-ir-feed verdict -> outcome-invalid ir-why-unreadable 1 0 }T
+T{ start long-text -1 lf-ir-feed ir-block c@ -> 0 }T
+\ So does ir-scan, which lf-ir-feed calls after the cut: a line of length
+\ -1 is refused, not read until a character that stops it (NUL here).
+T{ start s" : f ;?" odd-line 0 5 poke drop -1 ir-scan verdict
+   -> outcome-invalid ir-why-unreadable 1 0 }T
 T{ ' keep-last s" tests/program/no-such-file.fs" lf-ir-read-file lf-ir-reason
    -> outcome-invalid ir-why-unreadable }T
 T{ written s" invalid @0:0: file not readable or line too long" compare -> 0 }T
@@ -578,6 +611,20 @@ T{ s" : g ;" lf-ir-feed lf-ir-finish lf-ir-reason -> outcome-invalid ir-why-stop
 T{ start s" : g 2 ;" feed verdict -> outcome-ok ir-why-none 1 0 }T
 context-main context-use
 T{ lf-ir-finish lf-ir-reason lf-ir-where -> outcome-ok ir-why-none 1 0 }T
+\ The output word must return in the context it was called in. One that
+\ returns in another makes the reader abort (THROW -2) there, touching
+\ neither context's record: the read it left stays stopped and fails when
+\ finished. Unchecked, the second feed below resumed the first read, whose
+\ IR then gave c the value 5, where Gforth gives -5.
+variable switch-to   \ the context to switch to at the next "lit" line, or 0
+: switching ( c-addr u -- )
+  s" lit" search nip nip switch-to @ and ?dup if 0 switch-to ! context-use then ;
+: in? ( context -- flag ) lf-context @ = ;
+T{ ' switching s" a.fs" lf-ir-start  other context-use  ' switching s" b.fs" lf-ir-start
+   context-main context-use  other switch-to !  s" 5 negate constant c" feed-catching
+   other in? lf-ir-reason -> -2 true ir-why-none }T
+T{ context-main switch-to !  s" 7 constant d" feed-catching context-main in? -> -2 true }T
+T{ lf-ir-finish lf-ir-reason -> outcome-invalid ir-why-output }T
 T{ other context-free -> 0 }T
 
 bye
