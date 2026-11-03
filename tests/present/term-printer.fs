@@ -87,12 +87,52 @@ T{ t-prop t3 ! 99 t3 @ lf-term-slot node-tag ! t3 @ fuel lf-print-term -> outcom
   }T
 T{ 999 lf-level-param must ssort fuel lf-print-term -> outcome-invalid }T
 
-\ A busy printer refuses a nested print from its sink; afterwards it works.
-variable nested   variable nested-result
-: nested-sink ( c-addr u -- )
-  cap-sink nested @ if exit then true nested ! t1 @ fuel lf-print-term nested-result ! ;
-T{ false nested ! ' nested-sink 0 lf-print-setup -> }T
-T{ cap-reset t1 @ fuel lf-print-term nested-result @ -> outcome-ok outcome-invalid }T
+\ A sink that breaks the rules: sink-calls sets one that runs xt at its
+\ n-th call and captures the text.
+variable calls   variable trigger   variable trigger-xt
+: trigger-sink ( c-addr u -- )
+  cap-sink 1 calls +! calls @ trigger @ = if trigger-xt @ execute then ;
+: sink-calls ( n xt options -- )
+  >r trigger-xt ! trigger ! 0 calls ! ['] trigger-sink r> lf-print-setup ;
+
+\ A busy printer refuses every print from its sink, writing nothing more,
+\ and lf-print-limit! too; afterwards it works. The names and levels the
+\ nested prints use exist beforehand: a sink must not change a store.
+variable nested-result   variable nat-id   variable u-level
+: inner-term ( -- ) t1 @ fuel lf-print-term nested-result ! ;
+: inner-name ( -- ) nat-id @ lf-print-name nested-result ! ;
+: inner-level ( -- ) u-level @ fuel lf-print-level nested-result ! ;
+: inner-inline ( -- ) t1 @ fuel lf-print-inline nested-result ! ;
+: inner-display ( -- ) t1 @ fuel lf-print-display nested-result ! ;
+: inner-statement ( -- ) t1 @ fuel lf-print-statement nested-result ! ;
+: inner-limit ( -- )
+  5 lf-print-limit! if outcome-ok else outcome-invalid then nested-result ! ;
+T{ s" Nat" nm nat-id ! s" u" lparam u-level ! -> }T
+: refused-inside ( xt -- outcome )
+  1 swap 0 sink-calls cap-reset t1 @ fuel lf-print-term must-ok nested-result @ ;
+T{ ' inner-term refused-inside -> outcome-invalid }T
+T{ s" ∀ {P : Prop}, P → P" expect-text -> }T
+T{ ' inner-name refused-inside ' inner-level refused-inside
+  -> outcome-invalid outcome-invalid }T
+T{ ' inner-inline refused-inside ' inner-display refused-inside
+  -> outcome-invalid outcome-invalid }T
+T{ ' inner-statement refused-inside ' inner-limit refused-inside
+  -> outcome-invalid outcome-invalid }T
+T{ s" ∀ {P : Prop}, P → P" expect-text lf-pjob lf-pjob-limit @
+  -> lf-print-default-limit }T
+\ lf-print-name, lf-print-level and lf-print-inline are busy too: the
+\ name's LaTeX spelling in the pool stays intact. (Markdown math writes
+\ its delimiters while no print is in progress, so the nested print here
+\ is at the second call, inside the term.)
+T{ 1 ' inner-term lf-print-latex sink-calls cap-reset s" Nat" nm s" add" nm. lf-print-name
+  nested-result @ -> outcome-ok outcome-invalid }T
+T{ s" \mathsf{Nat.add}" expect-text -> }T
+T{ 1 ' inner-term 0 sink-calls cap-reset u-level @ fuel lf-print-level nested-result @
+  -> outcome-ok outcome-invalid }T
+T{ s" u" expect-text -> }T
+T{ 2 ' inner-name 0 sink-calls cap-reset t1 @ fuel lf-print-inline nested-result @
+  -> outcome-ok outcome-invalid }T
+T{ s" $\forall \{P : \mathrm{Prop}\},\ P \to P$" expect-text -> }T
 T{ 0 mode cap-reset t1 @ fuel lf-print-term -> outcome-ok }T
 
 \ Binder names fill the pool: 45 binders of 98 bytes that must all differ
@@ -126,4 +166,132 @@ T{ cap-reset t2 @ fuel lf-print-term -> outcome-ok }T
 T{ s" (x : Prop) → c x" expect-text -> }T
 T{ cap-reset t2 @ fuel lf-print-statement -> outcome-ok }T
 T{ s" ∀ (x : Prop), c x" expect-text -> }T
+\ A binder with no side-table entry prints as x; the anonymous name 0 as
+\ [anonymous].
+T{ t-prop 0 t-var t-lam s" fun x ↦ x" shows -> }T
+T{ cap-reset 0 lf-print-name -> outcome-ok }T
+T{ s" [anonymous]" expect-text -> }T
+
+\ The failure exits of lf-print-level, lf-print-statement, lf-print-inline
+\ and lf-print-display, each with the stack as it was. A level index that
+\ is no level of the store is invalid, also one whose double would wrap
+\ round to a good index (2 * (min-n + i) is 2 * i).
+: P ( -- t ) t-prop ;
+fresh 0 mode
+T{ s" u" lparam s" v" lparam lmax t1 ! P 0 t-var t-pi s" x" ex. t2 ! -> }T
+T{ cap-reset t1 @ max-n invert + fuel lf-print-level cap nip -> outcome-invalid 0 }T
+T{ -1 fuel lf-print-level lf-level-count @ fuel lf-print-level
+  -> outcome-invalid outcome-invalid }T
+T{ t1 @ 0 lf-print-level t1 @ -1 lf-print-level -> outcome-exhausted outcome-invalid }T
+T{ 1 lf-print-limit! t1 @ fuel lf-print-level -> true outcome-full }T
+T{ lf-print-default-limit lf-print-limit! -> true }T
+T{ 63 fuel lf-print-statement t2 @ 0 lf-print-statement t2 @ -1 lf-print-statement
+  -> outcome-invalid outcome-exhausted outcome-invalid }T
+T{ cap-reset 63 fuel lf-print-inline -> outcome-invalid }T
+T{ s" $$" expect-text -> }T
+T{ t2 @ 0 lf-print-inline t2 @ 0 lf-print-display
+  -> outcome-exhausted outcome-exhausted }T
+T{ t2 @ -1 lf-print-inline t2 @ -1 lf-print-display -> outcome-invalid outcome-invalid }T
+
+\ A corrupted name store (a count beyond the table, or an entry whose
+\ prefix points forward) makes every print invalid.
+variable names-count
+: corrupt-count ( -- ) lf-name-count @ names-count ! 99 lf-name-count ! ;
+: heal-count ( -- ) names-count @ lf-name-count ! ;
+: corrupt-prefix ( id -- ) 50 swap lf-name-slot lf-entry-prefix ! ;
+fresh 0 mode
+T{ P 0 t-var t-lam t1 ! s" q" nm t2 ! s" u" lparam t3 ! corrupt-count -> }T
+T{ t1 @ fuel lf-print-term t2 @ lf-print-name t3 @ fuel lf-print-level
+  -> outcome-invalid outcome-invalid outcome-invalid }T
+T{ t1 @ fuel lf-print-statement t1 @ fuel lf-print-inline
+  -> outcome-invalid outcome-invalid }T
+T{ heal-count t1 @ s" fun x ↦ x" shows -> }T
+T{ t2 @ corrupt-prefix t2 @ lf-print-name t1 @ fuel lf-print-term
+  -> outcome-invalid outcome-invalid }T
+
+\ Numbers print in decimal whatever BASE is, and BASE is kept: a Sort, a
+\ numeric name component, a binder suffix and a LaTeX subscript.
+: in-base ( i*x xt n -- j*x n' ) base @ >r base ! execute base @ r> base ! ;
+fresh 0 mode
+T{ 12 t-sort t1 ! s" x" nm 10 nm# t2 ! -> }T
+T{ cap-reset t1 @ fuel ' lf-print-term 16 in-base -> outcome-ok 16 }T
+T{ s" Type 11" expect-text -> }T
+T{ cap-reset t2 @ ' lf-print-name 16 in-base -> outcome-ok 16 }T
+T{ s" x.10" expect-text -> }T
+T{ P P P 2 t-var 1 t-var t-app 0 t-var t-app t-pi s" x" ex. t-pi s" x" ex. t-pi s" x" ex.
+  t3 ! -> }T
+T{ cap-reset t3 @ fuel ' lf-print-term 2 in-base -> outcome-ok 2 }T
+T{ s" (x x_1 x_2 : Prop) → @x x_1 x_2" expect-text -> }T
+T{ lf-print-latex mode cap-reset s" proof₁₂" ' lf-tex-ident 16 in-base -> 16 }T
+T{ s" \mathit{proof}_{12}" expect-text -> }T
+
+\ LaTeX spelling takes a Greek letter or a subscript digit only as a whole
+\ UTF-8 character: the bytes B1 CE (the end of α and the start of β) and
+\ x 80 E2 82 (a stray byte, then the start of ₀) stay as they are.
+create odd 4 allot
+: odd2 ( -- c-addr u ) $B1 odd c! $CE odd 1+ c! odd 2 ;
+: odd4 ( -- c-addr u ) [char] x odd c! $80 odd 1+ c! $E2 odd 2 + c! $82 odd 3 + c! odd 4 ;
+create want 16 allot   variable want#
+: want+ ( c-addr u -- ) tuck want want# @ + swap move want# +! ;
+: mathit ( c-addr u -- c-addr' u' )
+  0 want# ! s" \mathit{" want+ want+ s" }" want+ want want# @ ;
+T{ cap-reset odd2 lf-tex-ident odd2 mathit expect-text -> }T
+T{ cap-reset odd4 lf-tex-ident odd4 mathit expect-text -> }T
+T{ cap-reset s" α" lf-tex-ident s" \alpha" expect-text -> }T
+T{ cap-reset s" x₀" lf-tex-ident s" x_{0}" expect-text -> }T
+
+\ A constant's LaTeX spelling that does not fit in the name pool behind
+\ binder names that nearly fill it makes the print full; in Unicode the
+\ constant takes no pool room.
+: long-const ( -- t )   \ the constant long-name.long-name, 197 bytes
+  long-name nm long-name nm. lf-name-generation @ cargs 0 lf-cref-new must
+  lf-cterm-new must drop ;
+: crowded ( n -- t ) t-prop long-const rot 0 do over swap t-lam long-name ex. loop nip ;
+T{ fresh ' no-sink 0 lf-print-setup 40 crowded t1 ! -> }T
+T{ t1 @ fuel lf-print-term -> outcome-ok }T
+T{ ' no-sink lf-print-latex lf-print-setup t1 @ fuel lf-print-term -> outcome-full }T
+
+\ lf-print-reset from the sink, against the sink rules, ends the print
+\ invalid and leaves the printer idle; a THROW leaves it busy, and in a
+\ Markdown math print in LaTeX mode, until lf-print-reset.
+: throw-7 ( -- ) 7 throw ;
+fresh
+T{ P 0 t-var 1 t-var t-pi s" h" in. t-pi s" al" im. t1 ! -> }T
+T{ s" Nat" nm nat-id ! s" u" lparam u-level ! -> }T
+T{ cap-reset 5 ' lf-print-reset 0 sink-calls t1 @ fuel lf-print-term lf-pp-busy?
+  -> outcome-invalid false }T
+T{ 1 ' lf-print-reset 0 sink-calls nat-id @ lf-print-name -> outcome-invalid }T
+T{ 1 ' lf-print-reset 0 sink-calls u-level @ fuel lf-print-level -> outcome-invalid }T
+T{ 3 ' lf-print-reset 0 sink-calls t1 @ fuel lf-print-inline lf-pp-math?
+  -> outcome-invalid false }T
+T{ 0 mode t1 @ s" ∀ {al : Prop} [h : al], al" shows -> }T
+T{ 2 ' throw-7 0 sink-calls t1 @ fuel ' lf-print-inline catch nip nip -> 7 }T
+T{ lf-pp-math? lf-pp-busy? -> true true }T
+T{ 0 mode t1 @ fuel lf-print-term -> outcome-invalid }T
+T{ lf-print-reset lf-pp-math? lf-pp-busy? -> false false }T
+T{ t1 @ s" ∀ {al : Prop} [h : al], al" shows -> }T
+\ Defence in depth: counts read from the printer's state are clamped.
+T{ t1 @ -1 lf-pp-bodies -> t1 @ }T
+T{ -5 lf-pjob lf-pjob-binders ! lf-pp-depth -> 0 }T
+T{ lf-print-binder-capacity 9 + lf-pjob lf-pjob-binders ! lf-pp-depth
+  -> lf-print-binder-capacity }T
+T{ 0 lf-pjob lf-pjob-binders ! s" x" 5 lf-pp-any? -> false }T
+T{ 0 lf-pp-used ! 7 lf-pp-pending nip -> 0 }T
+lf-print-reset
+
+\ Known differences from Lean, confirmed with pinned Lean 4.35.0 (see the
+\ guide's limits): when Lean's quick test cannot decide, Lean infers the
+\ type and prints ∀. Lean prints these as ∀ (x : Prop), (fun y ↦ y) x and
+\ ∀ (p : MyProp), p, where def MyProp : Type := Prop.
+fresh 0 mode
+T{ P P 0 t-var t-lam s" y" ex. 0 t-var t-app t-pi s" x" ex.
+  s" (x : Prop) → (fun y ↦ y) x" shows -> }T
+T{ args{ s" MyProp" t-const 0 t-var t-pi s" p" ex. s" (p : MyProp) → p" shows -> }T
+\ A Sort refers to its level by index alone (a limit of the data model):
+\ after a reset of the level store it is invalid, or prints whatever
+\ level has that index now.
+fresh 0 mode
+T{ s" u" lparam ssort t1 ! t1 @ s" Sort u" shows -> }T
+T{ lf-level-reset t1 @ fuel lf-print-term -> outcome-invalid }T
+T{ s" v" lparam drop t1 @ s" Sort v" shows -> }T
 bye

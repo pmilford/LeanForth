@@ -40,7 +40,7 @@ they hold whatever a tool is asked to do.
 | Interface | Call | Result | On failure |
 | --- | --- | --- | --- |
 | Test suites | `make test`, `make check`, or one target ([running the checks](RUNNING_THE_CHECKS.md)) | Exit status 0 | Nonzero exit status; the failing command's output on standard error |
-| Export counter | `.tools/gforth/bin/gforth-fast src/import/ndjson-count.fs -e 's" FILE" count-export bye'` | A text report of record counts by kind | One line `error: OUTCOME: REASON (field F, line N)` or `(line N, byte B)`; **the exit status is 0 in both cases**, so test for the `error:` prefix |
+| Export counter | `.tools/gforth/bin/gforth-fast src/import/ndjson-count.fs -e 's" FILE" count-export bye'` | A text report of record counts by kind; exit status 0 | One line `error: OUTCOME: REASON (field F, line N)` or `(line N, byte B)` and exit status 1 |
 | Forth words | `.tools/gforth/bin/gforth src/main.fs`, then the words of `src/` (each module's header gives stack effects, state and error cases) | Values on the data stack; an outcome number 0–6 | An outcome other than 0; refused constructions give `false` |
 | IR reader | `lf-ir-read-file ( xt c-addr u -- outcome )`; `xt ( c-addr u -- )` receives each line | IR 0.1 text ([program IR](../programming/PROGRAM_IR.md)) | One line such as `unsupported @1:7: not a known word or 32-bit decimal: foo` and *unsupported*, *invalid* or *full*; lines written before it must not be used |
 | Receipt validator | `python3 -I tests/support/schema_subset.py schemas/program-receipt-0.1.schema.json FILE...` | Exit status 0 and no output | One line per problem, such as `FILE: $: additional property 'verified' is not allowed`, and exit status 1 |

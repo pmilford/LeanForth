@@ -4,9 +4,12 @@
 \ untrusted, like the reader. Usage:
 \   gforth src/import/ndjson-count.fs -e 's" FILE" count-export bye'
 \ On failure it prints one line starting "error:" with the outcome, the
-\ reason, the field and the NDJSON line, and no counts.
+\ reason, the field and the NDJSON line, and no counts, and Gforth exits
+\ at once with status 1; after the report, BYE exits with status 0.
+\ count-report prints the same without ever exiting, for a Forth session
+\ or a batch of files in one process.
 \ Requires: ndjson.fs. State: one export record and one tally record,
-\ reset by every count-export; not re-entrant.
+\ reset by every count; not re-entrant.
 
 require ../lib/lib.fs
 require ../lib/bytes.fs
@@ -165,5 +168,21 @@ export: counted-export
 : count-read ( c-addr u -- outcome )
   count-start ok-then? 0= if nip exit then
   counted-export ['] export-read catch if count-fault then ;
-\ Print the report, or one error line.
-: count-export ( c-addr u -- ) count-read dup ok? if drop .report else .count-error then ;
+\ Print the report, or one error line; true after the report.
+: count-shown? ( c-addr u -- flag )
+  count-read dup ok? if drop .report true else .count-error false then ;
+: count-report ( c-addr u -- ) count-shown? drop ;
+
+\ Leaving the host with a failure status. Forth-2012 has no BYE with a
+\ status; Gforth 0.7.3 and 1.0 (the CI hosts) both have (bye) ( n -- ),
+\ which flushes the output and ends the process with status n (checked on
+\ both, 2026-11-02). Elsewhere an uncaught THROW (ABORT) ends the run,
+\ which a host running a command line reports as a failure.
+[defined] (bye) [if]
+  : exit-failure ( -- ) 1 (bye) ;
+[else]
+  : exit-failure ( -- ) -1 throw ;
+[then]
+\ The command line's word: print, and after an error line exit at once
+\ with status 1.
+: count-export ( c-addr u -- ) count-shown? 0= if exit-failure then ;

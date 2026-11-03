@@ -13,20 +13,24 @@ lf-level-capacity context-walk: lf-pp-level-walk
 \ no successor or parameter is reachable through max operands or imax's
 \ second operand. Decrementable (Lean's Level.dec succeeds): every path
 \ through max and imax ends in a successor. A scan stops at the first
-\ witness against, reported internally as rejected.
+\ witness against, reported internally as rejected: an answer that
+\ lf-pp-hit? (print-names.fs) turns into a flag, never a verdict.
+\ Each dispatch is a CASE with one arm per level tag (six lines, read as
+\ a table); a leaf ends its path with an outcome.
+: lf-pp-leaf ( first second walk outcome -- outcome ) nip nip nip ;
 : lf-pp-zero-dispatch ( first second walk tag -- outcome )
-  case lf-level-tag-zero of drop 2drop outcome-ok endof
+  case lf-level-tag-zero of outcome-ok lf-pp-leaf endof
     lf-level-tag-max of walk-children endof
     lf-level-tag-imax of rot drop walk-child endof
-    lf-level-tag-succ of drop 2drop outcome-rejected endof
-    lf-level-tag-param of drop 2drop outcome-rejected endof
+    lf-level-tag-succ of outcome-rejected lf-pp-leaf endof
+    lf-level-tag-param of outcome-rejected lf-pp-leaf endof
     walk-bad-tag endcase ;
 : lf-pp-dec-dispatch ( first second walk tag -- outcome )
-  case lf-level-tag-succ of drop 2drop outcome-ok endof
+  case lf-level-tag-succ of outcome-ok lf-pp-leaf endof
     lf-level-tag-max of walk-children endof
     lf-level-tag-imax of walk-children endof
-    lf-level-tag-zero of drop 2drop outcome-rejected endof
-    lf-level-tag-param of drop 2drop outcome-rejected endof
+    lf-level-tag-zero of outcome-rejected lf-pp-leaf endof
+    lf-level-tag-param of outcome-rejected lf-pp-leaf endof
     walk-bad-tag endcase ;
 : lf-pp-zero-visit ( walk -- outcome ) lf-levels ['] lf-pp-zero-dispatch walk-visit ;
 : lf-pp-dec-visit ( walk -- outcome ) lf-levels ['] lf-pp-dec-dispatch walk-visit ;
@@ -40,10 +44,16 @@ lf-level-capacity context-walk: lf-pp-level-walk
 \ be printed decremented (the u of Type u). A view reads as a node whose
 \ operands are views again; a parameter's operand is its name ID. The
 \ decrement of succ u is u; of max a b and imax a b it is max of the
-\ decremented operands; zero and parameters have none (invalid).
+\ decremented operands; zero and parameters have none (invalid). An
+\ index that is no level of the store becomes the view -1, which reads as
+\ no node, so doubling a bad index can never wrap round to a good one.
+: lf-pp-view-of ( level -- view ) dup lf-level-valid? if 2* else drop -1 then ;
+: lf-pp-dec-view-of ( level -- view ) lf-pp-view-of 1 or ;
+: lf-pp-views ( a b -- view-a view-b ) lf-pp-view-of swap lf-pp-view-of swap ;
 : lf-pp-plain ( tag first second -- tag a b )
-  rot dup >r lf-level-tag-param <> if 2* swap 2* swap then r> -rot ;
-: lf-pp-dec-max ( first second -- tag a b ) 2* 1+ swap 2* 1+ swap lf-level-tag-max -rot ;
+  rot dup >r lf-level-tag-param <> if lf-pp-views then r> -rot ;
+: lf-pp-dec-max ( first second -- tag a b )
+  lf-pp-dec-view-of swap lf-pp-dec-view-of swap lf-level-tag-max -rot ;
 : lf-pp-dec-succ ( first second -- tag a b true | false )
   drop lf-level-read if lf-pp-plain true else false then ;
 : lf-pp-dec ( tag first second -- tag a b true | false )
@@ -77,7 +87,7 @@ defer lf-pp-level-print ( view arg? -- outcome )
   lf-pp-view-tag if lf-level-tag-zero = else false then ;
 : lf-pp-offset ( arg? base k -- outcome )
   rot dup >r if s" (" lf-pp-emit then swap true lf-pp-level-call
-  dup ok? if drop lf-pp-plus lf-pp-number outcome-ok else nip then r> lf-pp-wrap ;
+  ok-then? if lf-pp-plus lf-pp-number outcome-ok then r> lf-pp-wrap ;
 : lf-pp-level-succ ( view arg? -- outcome )
   swap lf-pp-succs dup ok? 0= if nip nip nip exit then drop
   over lf-pp-zero-view? if nip nip lf-pp-number outcome-ok else lf-pp-offset then ;
@@ -90,12 +100,13 @@ defer lf-pp-level-print ( view arg? -- outcome )
 : lf-pp-same-tag? ( view tag -- flag ) swap lf-pp-view-tag if = else drop false then ;
 : lf-pp-items ( view tag -- outcome )
   begin
-    >r lf-pp-operands swap lf-pp-item dup ok? 0= if nip r> drop exit then drop
+    >r lf-pp-operands swap lf-pp-item ok-then? 0= if r> drop exit then
     dup r@ lf-pp-same-tag? 0= r> swap
   until drop lf-pp-item ;
 : lf-pp-level-list ( view arg? tag -- outcome )
   swap dup >r if s" (" lf-pp-emit then dup lf-pp-keyword lf-pp-items r> lf-pp-wrap ;
 
+\ A CASE with one arm per level tag (eight lines, read as a table).
 : lf-pp-level-impl ( view arg? -- outcome )
   over lf-pp-view-tag 0= if 2drop outcome-invalid exit then
   case lf-level-tag-zero of 2drop s" 0" lf-pp-emit outcome-ok endof
@@ -107,7 +118,7 @@ defer lf-pp-level-print ( view arg? -- outcome )
 ' lf-pp-level-impl is lf-pp-level-print
 
 \ A level by index, in argument position or not.
-: lf-pp-level ( level arg? -- outcome ) swap 2* swap lf-pp-level-call ;
+: lf-pp-level ( level arg? -- outcome ) swap lf-pp-view-of swap lf-pp-level-call ;
 
 \ Sorts. Sort 0 is Prop, Sort 1 is Type, Sort (u + 1) is Type u, any
 \ other Sort u stays Sort u; Prop and Type are atoms, Type u and Sort u
@@ -120,10 +131,11 @@ defer lf-pp-level-print ( view arg? -- outcome )
   lf-level-read 0= if false exit then
   drop swap lf-level-tag-succ = if lf-pp-zero-level? else drop false then ;
 : lf-pp-level-atom? ( level -- flag ) dup lf-pp-zero-level? swap lf-pp-type-level? or ;
+\ Type and the level's decrement when it has one, else Sort and the level.
+: lf-pp-sort-word ( level dec? -- view )
+  if lf-pp-type lf-pp-dec-view-of else lf-pp-sort lf-pp-view-of then lf-pp-space ;
 : lf-pp-sort-body ( level -- outcome )
-  dup lf-pp-can-dec? ok-keep? 0= if nip exit then
-  if lf-pp-type lf-pp-space 2* 1+ else lf-pp-sort lf-pp-space 2* then true
-  lf-pp-level-call ;
+  dup lf-pp-can-dec? ok-keep? 0= if nip exit then lf-pp-sort-word true lf-pp-level-call ;
 : lf-pp-sort-level ( level -- outcome )
   dup lf-pp-zero-level? if drop lf-pp-prop outcome-ok exit then
   dup lf-pp-type-level? if drop lf-pp-type outcome-ok exit then lf-pp-sort-body ;

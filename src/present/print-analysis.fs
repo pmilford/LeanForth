@@ -11,10 +11,14 @@ require ./print-levels.fs
 \ A node's tag when it is a valid term; a term with a given tag.
 : lf-pp-tag ( term -- tag true | false ) lf-term-read if 2drop true else false then ;
 : lf-pp-is? ( term tag -- flag ) swap lf-pp-tag if = else drop false then ;
-\ Unchecked: k bodies down a chain, k functions down a spine.
-: lf-pp-bodies ( node k -- node' ) 0 ?do lf-term-second@ loop ;
+\ Unchecked: k bodies down a chain, k functions down a spine. A negative
+\ k (only after a forbidden reset from a sink) counts as none.
+: lf-pp-bodies ( node k -- node' ) 0 max 0 ?do lf-term-second@ loop ;
 : lf-pp-fns ( node k -- node' ) 0 ?do lf-term-first@ loop ;
-\ Map a comparison's outcome: ok means yes, rejected means no.
+\ Comparisons answer inside the printer with ok for equal and rejected for
+\ different; rejected here is an answer, never a verdict, and
+\ lf-pp-decided turns it into a false flag beside ok. Any other outcome is
+\ a failure that ends the print.
 : lf-pp-equal ( flag -- outcome ) if outcome-ok else outcome-rejected then ;
 : lf-pp-decided ( outcome -- flag outcome )
   dup ok? if true swap exit then lf-pp-hit? >r drop false r> ;
@@ -28,8 +32,9 @@ defer lf-pp-lsame-visit ( l1 l2 -- outcome )
 : lf-pp-lseconds ( l1 l2 -- s1 s2 )
   lf-level-slot node-second @ swap lf-level-slot node-second @ swap ;
 : lf-pp-lsame-both ( l1 l2 -- outcome )
-  2dup lf-pp-lfirsts lf-pp-lsame-call dup ok?
-  if drop lf-pp-lseconds lf-pp-lsame-call else nip nip then ;
+  2dup lf-pp-lfirsts lf-pp-lsame-call ok-then2? if lf-pp-lseconds lf-pp-lsame-call then ;
+\ A CASE with one short arm per level tag (six lines, kept together so the
+\ tags read as a table); an unknown tag is invalid.
 : lf-pp-lsame-by ( l1 l2 tag -- outcome )
   case lf-level-tag-zero of 2drop outcome-ok endof
     lf-level-tag-param of lf-pp-lfirsts = lf-pp-equal endof
@@ -51,7 +56,7 @@ defer lf-pp-lsame-visit ( l1 l2 -- outcome )
 : lf-pp-level-at ( addr i -- level ) lf-cref-pair@ drop ;
 : lf-pp-lsame-list ( addr1 addr2 n -- outcome )
   0 ?do over i lf-pp-level-at over i lf-pp-level-at lf-pp-lsame-call
-    dup ok? 0= if nip nip unloop exit then drop loop 2drop outcome-ok ;
+    ok-then2? 0= if unloop exit then loop 2drop outcome-ok ;
 : lf-pp-names-same ( a b -- outcome )
   lf-pp-const-name 0= if drop-invalid exit then
   swap lf-pp-const-name 0= if drop-invalid exit then = lf-pp-equal ;
@@ -60,7 +65,7 @@ defer lf-pp-lsame-visit ( l1 l2 -- outcome )
   rot lf-pp-const-levels 0= if 2drop outcome-invalid exit then
   rot over <> if 2drop drop outcome-rejected exit then lf-pp-lsame-list ;
 : lf-pp-const-same ( a b -- outcome )
-  2dup lf-pp-names-same dup ok? if drop lf-pp-levels-same else nip nip then ;
+  2dup lf-pp-names-same ok-then2? if lf-pp-levels-same then ;
 
 \ Structural equality of b with a lifted over one binder: the test of
 \ Lean's shouldGroupWithNext, which compares the next binder's domain with
@@ -78,11 +83,11 @@ defer lf-pp-same-visit ( a b -- outcome )
 : lf-pp-under ( a b -- outcome )
   1 lf-pp-cmp-depth +! lf-pp-same-call -1 lf-pp-cmp-depth +! ;
 : lf-pp-same-app ( a b -- outcome )
-  2dup lf-pp-firsts lf-pp-same-call dup ok?
-  if drop lf-pp-seconds lf-pp-same-call else nip nip then ;
+  2dup lf-pp-firsts lf-pp-same-call ok-then2? if lf-pp-seconds lf-pp-same-call then ;
 : lf-pp-same-binder ( a b -- outcome )
-  2dup lf-pp-firsts lf-pp-same-call dup ok?
-  if drop lf-pp-seconds lf-pp-under else nip nip then ;
+  2dup lf-pp-firsts lf-pp-same-call ok-then2? if lf-pp-seconds lf-pp-under then ;
+\ A CASE with one short arm per term tag (six lines, kept together so the
+\ tags read as a table); λ and Π, the remaining known tags, compare alike.
 : lf-pp-same-by ( a b tag -- outcome )
   case lf-tag-sort of lf-pp-firsts = lf-pp-equal endof
     lf-tag-bvar of lf-pp-firsts lf-pp-var-same? lf-pp-equal endof
@@ -147,6 +152,7 @@ defer lf-pp-same-visit ( a b -- outcome )
 : lf-pp-const-type ( head -- type true | false )
   lf-pp-const-name if lf-pres-type@ else false then ;
 : lf-pp-known ( type true | false -- chain tag ) if lf-tag-pi else 0 0 then ;
+\ A CASE with one arm per kind of head (six lines, read as a table).
 : lf-pp-params ( head -- chain tag )
   dup lf-pp-tag 0= if drop 0 0 exit then
   case lf-tag-bvar of lf-term-first@ lf-pp-var-type lf-pp-known endof

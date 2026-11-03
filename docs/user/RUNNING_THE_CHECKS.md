@@ -88,8 +88,7 @@ On the whole pinned Mathlib export (6.26 GB) it takes about 1 min 49 s in 17 MB
 ([reader guide](../development/NDJSON_READER.md)). Every record is decoded
 and checked for shape and references; nothing is type-checked. A bad file
 gives one line instead, for example `error: invalid: unexpected character
-(line 1, byte 0)`. The exit status is 0 either way, so a script must look
-for the `error:` prefix.
+(line 1, byte 0)`, and exit status 1; a report ends with exit status 0.
 
 Translate a Forth file into the program IR (from inside Gforth, after
 `.tools/gforth/bin/gforth src/main.fs`):

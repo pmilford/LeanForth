@@ -3,9 +3,11 @@
 \ command (α as \alpha), a longer name as \mathit{...}; a trailing _2 or ₂
 \ becomes the subscript _{2}, trailing primes stay primes. A constant
 \ prints upright as \mathsf{...}. The characters _ # % & { } $ ^ ~ \
-\ are escaped. Text is examined as one-byte slices with COMPARE and
-\ SEARCH, never byte by byte. Untrusted presentation code. Requires
-\ print-job.fs. No state.
+\ are escaped. A Greek letter or a subscript digit counts only as a whole
+\ UTF-8 character; other bytes, valid UTF-8 or not, are written as they
+\ are. Text is examined as one-byte slices with COMPARE and SEARCH, never
+\ byte by byte. Untrusted presentation code. Requires print-job.fs. No
+\ state.
 
 require ./print-job.fs
 
@@ -31,29 +33,40 @@ require ./print-job.fs
   0 ?do lf-tex-skip loop 2dup s"  " search drop nip - ;
 : lf-tex-greek-name ( i -- c-addr u )
   dup 10 < if lf-tex-greek-low else 10 - lf-tex-greek-high then rot lf-tex-word ;
-\ Each letter is two bytes, and a match can only start on a letter.
-: lf-tex-letter-at ( c-addr u -- i ) nip lf-tex-greek-letters nip swap - 2/ ;
+\ A match that SEARCH found u-left bytes before the end of a table of
+\ u-table bytes, whose characters are width bytes each: the index of the
+\ character, when the match starts at a character boundary. The first
+\ byte of a whole UTF-8 character occurs in such a table only at a
+\ boundary, so a first match elsewhere (invalid UTF-8 such as the bytes
+\ B1 CE, the end of α and the start of β) is no character of the table.
+: lf-tex-index ( u-table u-left width -- i true | false )
+  >r - r> /mod swap if drop false else true then ;
+\ Each letter is two bytes.
+: lf-tex-letter-at ( u-left -- i true | false )
+  lf-tex-greek-letters nip swap 2 lf-tex-index ;
 : lf-tex-greek ( c-addr u -- i true | false )
   dup 2 <> if 2drop false exit then 2>r lf-tex-greek-letters 2r> search
-  if lf-tex-letter-at true else 2drop false then ;
+  if nip lf-tex-letter-at else 2drop false then ;
 : lf-tex-greek-out ( i -- ) s" \" lf-pp-emit lf-tex-greek-name lf-pp-emit ;
 
-\ The tail of a text: does it end with a string, with an ASCII digit, with
+\ The tail of a text: does it end with a prime, with an ASCII digit, with
 \ a subscript digit (three bytes each, giving its value)?
-: lf-tex-ends? ( c-addr u c-addr2 u2 -- flag )
-  2swap 2 pick over > if 2drop 2drop false exit then + over - over compare 0= ;
+\ Unchecked: n <= u.
+: lf-tex-tail ( c-addr u n -- c-addr' n ) >r + r@ - r> ;
+: lf-tex-prime-end? ( c-addr u -- flag ) 1 lf-tex-tail s" '" compare 0= ;
 : lf-tex-digit-end? ( c-addr u -- flag )
-  dup 0> if + 1- s" 0123456789" lf-tex-in? nip else 2drop false then ;
+  dup 0> if 1 lf-tex-tail drop s" 0123456789" lf-tex-in? nip else 2drop false then ;
 : lf-tex-subscripts ( -- c-addr u ) s" ₀₁₂₃₄₅₆₇₈₉" ;
+: lf-tex-sub-at ( u-left -- d true | false ) lf-tex-subscripts nip swap 3 lf-tex-index ;
 : lf-tex-sub-end ( c-addr u -- d true | false )
-  dup 3 < if 2drop false exit then + 3 - 3 2>r lf-tex-subscripts 2r> search
-  if nip lf-tex-subscripts nip swap - 3 / true else 2drop false then ;
+  dup 3 < if 2drop false exit then 3 lf-tex-tail 2>r lf-tex-subscripts 2r> search
+  if nip lf-tex-sub-at else 2drop false then ;
 : lf-tex-sub? ( c-addr u -- flag ) lf-tex-sub-end dup if nip then ;
 
 \ Counting trailing primes, ASCII digits and subscript digits; each count
 \ leaves at least one byte of base.
 : lf-tex-primes ( c-addr u -- c-addr u' n )
-  0 >r begin dup 1 > while 2dup s" '" lf-tex-ends? while 1- r> 1+ >r repeat then r> ;
+  0 >r begin dup 1 > while 2dup lf-tex-prime-end? while 1- r> 1+ >r repeat then r> ;
 : lf-tex-digits ( c-addr u -- c-addr u' k )
   0 >r begin dup 1 > while 2dup lf-tex-digit-end? while 1- r> 1+ >r repeat then r> ;
 : lf-tex-subs ( c-addr u -- c-addr u' k )
