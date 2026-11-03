@@ -31,7 +31,10 @@
    repository, the check runs on a scratch tree of its own (LOAD_CASES)
    and fails if it misjudges a module there.
 
-Comments and strings are ignored. See docs/development/FORTH_STYLE.md,
+Comments and strings are ignored. A word that CHAR, [CHAR], ', ['],
+POSTPONE, [COMPILE], [DEFINED] or [UNDEFINED] takes, such as the \\ of
+[CHAR] \\, never starts one; the line checks' reading of comments has a
+self-test too (STRIP_CASES). See docs/development/FORTH_STYLE.md,
 section 8.
 """
 import pathlib
@@ -63,9 +66,20 @@ COMPILE_ONLY = {
 }
 
 
+NAMING = {"[undefined]", "[defined]"}   # the next word is named, not used
+# Words that take the next word as a character or a name, so that it never
+# starts a comment or a string: [char] \ is the character \, not a comment.
+PARSING = NAMING | {"char", "[char]", "'", "[']", "postpone", "[compile]"}
+# A comment or string opener taken by one of them, as strip() masks it.
+PARSED_OPENER = re.compile(
+    r"((?:^|\s)(?:" + "|".join(re.escape(w) for w in sorted(PARSING)) + r")\s+)"
+    r"(\\|\.?\(|s\\?\"|\.\"|c\"|abort\")(?=\s|$)", re.I)
+
+
 def strip(text):
     lines = []
     for line in text.splitlines():
+        line = PARSED_OPENER.sub(r"\1_", line)              # [char] \ and the like
         line = re.sub(r"(^|\s)\\(\s.*)?$", " ", line)        # \ comments
         line = re.sub(r'(^|\s)(\.?\(|s"|\."|c"|abort")\s[^")]*[")]', " ", line, flags=re.I)
         lines.append(line)
@@ -110,15 +124,15 @@ def raw_strip(text):
 
 PORTABILITY = "src/lib/portability.fs"
 LOADING = {"require", "include"}
-NAMING = {"[undefined]", "[defined]"}   # the next word is named, not used
 STRINGS = {'s"', 'c"', '."', 'abort"'}
 
 
 def source_words(text):
     """The words of Forth source in order, as written, without comments or
     the text of strings: \\ to the end of the line, ( ... ) and .( ... )
-    across lines, and s" c" ." abort" and s\\" strings."""
-    words, i, n = [], 0, len(text)
+    across lines, and s" c" ." abort" and s\\" strings. A word after one
+    of PARSING is kept as it is, even \\ or ( ."""
+    words, i, n, parsed = [], 0, len(text), False
     while True:
         while i < n and text[i].isspace():
             i += 1
@@ -128,6 +142,10 @@ def source_words(text):
         while j < n and not text[j].isspace():
             j += 1
         low = text[i:j].lower()
+        if parsed:
+            words.append(text[i:j])
+            i, parsed = j, False
+            continue
         if low == "\\":
             end = text.find("\n", j)
         elif low in ("(", ".("):
@@ -140,7 +158,7 @@ def source_words(text):
                 end += 2 if text[end] == "\\" else 1
         else:
             words.append(text[i:j])
-            i = j
+            i, parsed = j, low in PARSING
             continue
         i = n if end < 0 else end + 1
 
@@ -258,7 +276,22 @@ LOAD_CASES = {
                  ': b ( -- ) ." a cell here" ;\n: c ( -- c-addr u ) s" cell size" ;\n'
                  ".( no cell here ) cr \\ nor cell here\n[undefined] cell [if] [then]\n",
                  False),
+    "charback.fs": ("[char] \\ constant bs : a ( -- n ) cell ;\n", True),
+    "charparen.fs": ("char ( constant lp cell constant c ( n )\n", True),
 }
+# The same for strip(), which the line checks read: each line and the
+# words that must remain of it.
+STRIP_CASES = {
+    "[char] \\ c@ \\ a comment": ["[char]", "_", "c@"],
+    "char ( c@ ( a comment ) postpone \\ cell":
+        ["char", "_", "c@", "postpone", "_", "cell"],
+    ': a ( -- ) ." c@" ; \\ c@': [":", "a", ";"],
+}
+
+
+def strip_misjudged():
+    """The lines of STRIP_CASES that strip() reads wrongly."""
+    return [line for line, words in STRIP_CASES.items() if strip(line).split() != words]
 
 
 def load_check_misjudged():
@@ -278,6 +311,7 @@ def load_check_misjudged():
 def main():
     problems = [f"load check misjudges its test module src/m/{name}"
                 for name in load_check_misjudged()]
+    problems += [f"strip() misreads its test line {line!r}" for line in strip_misjudged()]
     for path in sorted(list((ROOT / "src").rglob("*.fs")) + list((ROOT / "tests").rglob("*.fs"))):
         rel = path.relative_to(ROOT).as_posix()
         for lineno, line in enumerate(path.read_text(errors="replace").splitlines(), 1):
