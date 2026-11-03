@@ -57,6 +57,8 @@ BYTE_MODULES = {
     "src/lib/u32.fs":
         "packed 32-bit fields of the compact store (ADR 0016): Gforth's l@ and l!, or a "
         "Forth-2012 version with c@ and c! in a byte order the module fixes",
+    "src/lib/bignum.fs":
+        "big numbers read and write decimal digit characters; limbs are only read as cells",
     "src/program/ir-reader.fs":
         "program reader splits source lines into tokens, checks that every character is "
         "printable ASCII and folds A-Z to a-z, as Gforth finds names",
