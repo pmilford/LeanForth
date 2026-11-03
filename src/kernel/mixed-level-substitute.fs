@@ -8,9 +8,10 @@
 \ store counts roll back, but identities never rewind.
 \ State: one walk record, lf-mls-walker (the source audit and the fuel left,
 \ shared by every pass), and one job record, lf-mls-job (the substitution,
-\ the counts to roll back to, reached terms and their images). Not
-\ re-entrant and single-threaded. mixed-signature-audit runs the source
-\ audit alone through lf-mls-audit-formals.
+\ the counts to roll back to, reached terms and their images), both
+\ members of the checker context (lib/context.fs). Single-threaded within
+\ one context. mixed-signature-audit runs the source audit alone through
+\ lf-mls-audit-formals.
 
 require ../lib/lib.fs
 require ../core/constant-references.fs
@@ -32,9 +33,8 @@ begin-structure /lf-mlsrec
   lf-term-capacity cells +field lf-mlsrec-seen        \ reached by the audit
   lf-term-capacity cells +field lf-mlsrec-results     \ each reached term's image
 end-structure
-lf-term-capacity walk: lf-mls-walker
-create lf-mls-job /lf-mlsrec allot
-lf-mls-job /lf-mlsrec erase
+lf-term-capacity context-walk: lf-mls-walker
+/lf-mlsrec context-record: lf-mls-job
 
 \ Fuel left after a call; the signature probe continues with it, and tests
 \ read it. Every helper this module calls reports only ok, invalid,

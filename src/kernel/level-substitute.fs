@@ -10,10 +10,11 @@
 \ caller's scope, not the formal scope.
 \ State: one walk record, lf-lsubst-walker (the source walk and the fuel
 \ left), and one job record, lf-lsubst-job (the substitution in use, the
-\ reachable nodes and the planned new nodes). Not re-entrant and
-\ single-threaded: the store, the context and the arrays must not change
-\ during a call. mixed-level-substitute sets the substitution with
-\ lf-lsubst-use and runs the checks below from its own passes.
+\ reachable nodes and the planned new nodes), both members of the checker
+\ context (lib/context.fs). Single-threaded within one context: the store,
+\ the parameter context and the arrays must not change during a call.
+\ mixed-level-substitute sets the substitution with lf-lsubst-use and runs
+\ the checks below from its own passes.
 
 require ../lib/lib.fs
 require ../core/level-scope.fs
@@ -28,9 +29,8 @@ begin-structure /lf-lsrec
   lf-level-capacity cells +field lf-lsrec-results    \ each reached node's image
   lf-level-capacity /node * +field lf-lsrec-new-nodes
 end-structure
-lf-level-capacity walk: lf-lsubst-walker
-create lf-lsubst-job /lf-lsrec allot
-lf-lsubst-job /lf-lsrec erase
+lf-level-capacity context-walk: lf-lsubst-walker
+/lf-lsrec context-record: lf-lsubst-job
 
 \ Fuel left after a call or check; mixed-level-substitute continues with it.
 : lf-lsubst-fuel ( -- addr ) lf-lsubst-walker walk-fuel ;

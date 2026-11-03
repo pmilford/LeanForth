@@ -13,10 +13,10 @@
 \ fresh audit. Scratch of the called auditors changes. No term, level or
 \ reference is allocated, even on failure; counts and serials are
 \ unchanged. Handles are forgeable, instance-local diagnostics.
-\ State: one record, lf-msa-state, holding the fuel the last audit left.
-\ The level audit is mixed-level-substitute's lf-mls-audit-formals, given
-\ its root, formal list and fuel on the stack. Not re-entrant and
-\ single-threaded.
+\ State: one record, lf-msa-state, holding the fuel the last audit left; a
+\ member of the checker context (lib/context.fs). The level audit is
+\ mixed-level-substitute's lf-mls-audit-formals, given its root, formal
+\ list and fuel on the stack. Single-threaded within one context.
 
 require ../lib/lib.fs
 require ../core/constant-term-scope.fs
@@ -28,8 +28,7 @@ require ./mixed-signature-probe.fs
 begin-structure /lf-audit
   field: lf-audit-left   \ fuel left by the last audit with nonnegative fuel
 end-structure
-create lf-msa-state /lf-audit allot
-lf-msa-state /lf-audit erase
+/lf-audit context-record: lf-msa-state
 
 \ Fuel left after an audit; mixed-infer and the definition probe continue
 \ with it. On failure it holds the fuel left where the audit stopped.

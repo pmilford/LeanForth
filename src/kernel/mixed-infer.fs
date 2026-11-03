@@ -7,9 +7,10 @@
 \ Pi is applied; uncertain conversion is unknown.
 \ State: one inference record, lf-minfer-job (fields lf-ijob-*): fuel, frame
 \ depth, index token, the arena counts before the call, the binder context
-\ and a copy of a reference's levels. A node's intermediate results stay on
-\ the data stack. Not re-entrant and single-threaded. lf-minfer-walk is
-\ deferred only for the mutual recursion and set once, at load time.
+\ and a copy of a reference's levels; a member of the checker context
+\ (lib/context.fs). A node's intermediate results stay on the data stack.
+\ Single-threaded within one context. lf-minfer-walk is deferred only for
+\ the mutual recursion and set once, at load time, and shared.
 \ Stack use: the recursion runs on the host stacks, about 6 return-stack and
 \ up to 3 data-stack cells per level, at most lf-term-capacity levels (plus
 \ the nested rebuild passes); a host stack overflow throws and never yields
@@ -42,7 +43,7 @@ begin-structure /lf-ijob
   lf-term-capacity cells +field lf-ijob-domains
   lf-cref-argument-capacity 2* cells +field lf-ijob-actuals
 end-structure
-create lf-minfer-job /lf-ijob store-zeroed, drop
+/lf-ijob context-record: lf-minfer-job
 
 \ Fields of the record. Tests read the fuel left and the binder count, and
 \ mixed-definition-probe reads the fuel left.

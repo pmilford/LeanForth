@@ -5,9 +5,10 @@
 \ parameter scope, not term binder scope or typing; callers must establish
 \ those independently before using a conversion result.
 \ State: one paired walk record, lf-mconvert-walker, whose items are a left
-\ and a right term; reduction and level comparison run in mixed-beta and
-\ level-compare with this walk's fuel. Not re-entrant and single-threaded;
-\ no raw or concurrent mutation is safe.
+\ and a right term, a member of the checker context (lib/context.fs);
+\ reduction and level comparison run in mixed-beta and level-compare with
+\ this walk's fuel. Single-threaded within one context; no raw or
+\ concurrent mutation is safe.
 
 require ../lib/lib.fs
 require ../core/constant-term-boundary.fs
@@ -18,7 +19,7 @@ require ./level-compare.fs
 require ./mixed-beta.fs
 require ./mixed-compare.fs
 
-lf-term-capacity walk2: lf-mconvert-walker
+lf-term-capacity context-walk2: lf-mconvert-walker
 
 \ Fuel left after a conversion; mixed-infer continues with it. Negative
 \ fuel and a failed audit leave zero.

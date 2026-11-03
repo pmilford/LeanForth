@@ -6,10 +6,12 @@
 \ serialization or theorem-checking boundary.
 \ State: entries live in a bounded store, lf-names (lib/store.fs), whose
 \ record 0 is the anonymous name; string bytes are appended to the byte
-\ pool of one record, lf-name-pool. Single-threaded, not re-entrant:
-\ callers keep input memory readable and prevent raw mutation during a
-\ call. A reset makes every ID stale, and a reused stale ID is not
-\ detectable here.
+\ pool of one record, lf-name-pool. Both are members of the checker
+\ context (lib/context.fs), reset by a set-up word in every context, so
+\ IDs mean something only in their own context. Single-threaded within one
+\ context: callers keep input memory readable and prevent raw mutation
+\ during a call. A reset makes every ID stale, and a reused stale ID is
+\ not detectable here.
 
 require ../lib/lib.fs
 
@@ -29,7 +31,7 @@ begin-structure /lf-entry
 end-structure
 /lf-entry 1 cells / constant lf-name-slot-cells
 
-lf-name-capacity /lf-entry 1 store: lf-names
+lf-name-capacity /lf-entry 1 context-store: lf-names
 
 \ The byte pool: bytes in use, the pool itself, and a copy of each query,
 \ made first so that the query may alias any buffer of this module.
@@ -38,8 +40,7 @@ begin-structure /lf-npool
   lf-name-byte-capacity +field lf-npool-bytes
   lf-name-byte-capacity +field lf-npool-input
 end-structure
-create lf-name-pool /lf-npool allot
-lf-name-pool /lf-npool erase
+/lf-npool context-record: lf-name-pool
 : lf-name-used ( -- addr ) lf-name-pool lf-npool-used ;
 : lf-name-bytes ( -- addr ) lf-name-pool lf-npool-bytes ;
 : lf-name-input-copy ( -- addr ) lf-name-pool lf-npool-input ;
@@ -146,4 +147,5 @@ lf-name-pool /lf-npool erase
   >r over r@ lf-name-str-args? r> swap
   if lf-name-copy-in lf-name-intern-str else 2drop drop false then ;
 
-lf-name-reset
+\ Every context starts with the anonymous name alone.
+' lf-name-reset context-setup

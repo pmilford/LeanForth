@@ -2,9 +2,10 @@
 \ This is syntax transformation, not type checking or theorem acceptance.
 \ State: one job record, lf-minst-job (fields lf-instjob-*): the pass's
 \ frames (fuel, nesting, and the binder depth as context), the replacement
-\ and the term count before the pass. The replacement is shifted on
-\ mixed-shift's record. Not re-entrant and single-threaded; callers must not
-\ mutate the stores concurrently.
+\ and the term count before the pass; a member of the checker context
+\ (lib/context.fs), whose frames a set-up word prepares in every context.
+\ The replacement is shifted on mixed-shift's record. Single-threaded
+\ within one context; callers must not mutate the stores concurrently.
 
 require ../lib/lib.fs
 require ../core/constant-term-boundary.fs
@@ -13,12 +14,15 @@ require ../core/terms.fs
 require ./mixed-rebuild.fs
 require ./mixed-shift.fs
 
+\ The frames come first, so the visitor finds the job record at the
+\ address of the frames it is given (checked here), as in mixed-shift.fs.
 begin-structure /lf-instjob
   /frames +field lf-instjob-frames   \ fuel, nesting, the binder depth as context
   field: lf-instjob-replacement      \ the term put in for the target variable
   field: lf-instjob-start            \ term count before the pass
 end-structure
-create lf-minst-job /lf-instjob allot
+0 lf-instjob-frames 0<> [if] .( mixed-instantiate.fs: frames come first) cr abort [then]
+/lf-instjob context-record: lf-minst-job
 
 : lf-minst-frames ( -- frames ) lf-minst-job lf-instjob-frames ;
 \ Fuel left after an instantiation; mixed-beta and mixed-infer continue
@@ -29,7 +33,7 @@ create lf-minst-job /lf-instjob allot
 
 \ Only nodes of the original input, below the starting count, are visited,
 \ and a child must precede its parent (so it is old too).
-: lf-minst-old? ( node frames -- flag ) frame-job @ lf-instjob-start @ 0 swap within ;
+: lf-minst-old? ( node frames -- flag ) lf-instjob-start @ 0 swap within ;
 : lf-minst-readable? ( node frames -- flag )
   over swap lf-minst-old? swap lf-term-valid? and ;
 : lf-minst-below? ( child node -- flag ) 0 swap within ;
@@ -42,7 +46,7 @@ create lf-minst-job /lf-instjob allot
 \ remaining shared fuel; outer ones are lowered by one. A negative index or
 \ a nonzero second field is malformed.
 : lf-minst-replace ( frames -- result outcome )
-  dup frame-job @ lf-instjob-replacement @ over frame-context @ rot lf-mshift-inside ;
+  dup lf-instjob-replacement @ over frame-context @ rot lf-mshift-inside ;
 : lf-minst-lower ( index -- result outcome ) 1- lf-term-bvar lf-rebuild-allocated ;
 : lf-minst-outer ( index frames -- result outcome )
   2dup frame-context @ = if nip lf-minst-replace else drop lf-minst-lower then ;
@@ -66,9 +70,10 @@ create lf-minst-job /lf-instjob allot
 : lf-minst-visit ( node frames -- result outcome )
   2dup lf-minst-readable? lf-rebuild-tag
   dup lf-term-binary-tag? if drop lf-minst-binary else lf-minst-leaf then ;
-\ The visitor is set once, here.
-lf-term-capacity ' lf-minst-visit lf-minst-frames frame-init
-lf-minst-job lf-minst-frames frame-job !
+\ The frames and their visitor, set up once in every context.
+: lf-minst-setup ( -- )
+  lf-term-capacity ['] lf-minst-visit lf-minst-frames frame-init ;
+' lf-minst-setup context-setup
 
 \ Validate both complete handles with one fuel budget before allocating, even
 \ when the replacement is unused. Roll back term allocations on every failure;

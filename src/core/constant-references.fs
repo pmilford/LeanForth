@@ -7,9 +7,10 @@
 \ so a reset of the name table or a rolled-back level makes the reference
 \ stale. Handles are forgeable, instance-local diagnostics, not
 \ capabilities.
-\ State: one bounded store of reference records; single-threaded; callers
-\ exclude raw mutation, and input arrays must be aligned, readable and
-\ disjoint from this module's data.
+\ State: one bounded store of reference records, lf-crefs, a member of the
+\ checker context (lib/context.fs); single-threaded within one context;
+\ callers exclude raw mutation, and input arrays must be aligned, readable
+\ and disjoint from this module's data.
 
 require ../lib/lib.fs
 require ./generation-handles.fs
@@ -30,7 +31,7 @@ begin-structure /lf-crec
 end-structure
 /lf-crec 1 cells / constant lf-cref-slot-cells
 
-lf-cref-capacity /lf-crec 0 store: lf-crefs
+lf-cref-capacity /lf-crec 0 context-store: lf-crefs
 
 \ The store's fields under their established names (kernel modules roll
 \ back lf-cref-count; tests corrupt the count and serial).

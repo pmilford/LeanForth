@@ -4,10 +4,13 @@
 \ check scope, types, universe semantics, declarations or proofs.
 \ Each term is a tagged node (lib/node.fs) in a bounded store
 \ (lib/store.fs). Children must already exist, so terms are acyclic DAGs.
-\ Global, single-threaded and not re-entrant. A reset invalidates every
-\ index, and a reused index cannot be told from a stale one; identities
-\ never repeat and are what handles check. No host address or cell layout
-\ is a portable serialization format.
+\ State: the store lf-terms, a member of the checker context
+\ (lib/context.fs), so each context has its own terms; single-threaded
+\ within one context. A reset invalidates every index, and a reused index
+\ cannot be told from a stale one; identities never repeat and are what
+\ handles check. Indices and identities mean something only in their own
+\ context. No host address or cell layout is a portable serialization
+\ format.
 
 require ../lib/lib.fs
 
@@ -18,7 +21,7 @@ require ../lib/lib.fs
 4 constant lf-tag-lam
 5 constant lf-tag-pi
 
-lf-term-capacity /node 0 store: lf-terms
+lf-term-capacity /node 0 context-store: lf-terms
 
 \ The store's fields under their established names. Other modules save and
 \ restore lf-term-count to roll back a failed transaction, and tests corrupt

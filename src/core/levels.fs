@@ -4,8 +4,10 @@
 \ theorem validity. Parameter identifiers are opaque positive cell values,
 \ not a complete Lean name representation.
 \ Each level is a tagged node (lib/node.fs) in a bounded store
-\ (lib/store.fs) whose record 0 is always the zero level. Global,
-\ single-threaded and not re-entrant; a reset invalidates all indices. The
+\ (lib/store.fs) whose record 0 is always the zero level.
+\ State: the store lf-levels, a member of the checker context
+\ (lib/context.fs), reset by a set-up word in every context;
+\ single-threaded within one context. A reset invalidates all indices. The
 \ cell layout is host-specific and must never be serialized directly.
 
 require ../lib/lib.fs
@@ -17,7 +19,7 @@ require ../lib/lib.fs
 3 constant lf-level-tag-imax
 4 constant lf-level-tag-param
 
-lf-level-capacity /node 1 store: lf-levels
+lf-level-capacity /node 1 context-store: lf-levels
 
 \ The store's fields under their established names; other modules roll back
 \ lf-level-count, and tests corrupt these cells to check fail-closed behavior.
@@ -70,4 +72,5 @@ lf-level-tag-imax lf-level-tag-max 1+ <>
 \ Read an allocated node. A valid index alone does not authenticate fields.
 : lf-level-read ( index -- tag first second true | false ) lf-levels node-read ;
 
-lf-level-reset
+\ Every context starts with the zero level alone.
+' lf-level-reset context-setup

@@ -11,9 +11,10 @@
 \ cache is provided.
 \ State: the index record lf-msp-index (lifetime, captured generations and
 \ the candidate arrays) and the request record lf-msp-request (one put or
-\ specialize call's arguments and the zero actuals used by coverage).
-\ Single-threaded and not re-entrant: exclude resets, raw writes, callbacks
-\ and concurrent calls.
+\ specialize call's arguments and the zero actuals used by coverage), both
+\ members of the checker context (lib/context.fs): the index refers to its
+\ own context's stores. Single-threaded within one context: exclude
+\ resets, raw writes, callbacks and concurrent calls.
 
 require ../lib/lib.fs
 require ../core/constant-references.fs
@@ -55,10 +56,8 @@ begin-structure /lf-sigreq
   lf-level-capacity 2* cells +field lf-sigreq-zeros
 end-structure
 
-create lf-msp-index /lf-sigs allot
-lf-msp-index /lf-sigs erase
-create lf-msp-request /lf-sigreq allot
-lf-msp-request /lf-sigreq erase
+/lf-sigs context-record: lf-msp-index
+/lf-sigreq context-record: lf-msp-request
 
 \ The index fields under their established names (tests and stream fixtures
 \ read the arrays and the count).

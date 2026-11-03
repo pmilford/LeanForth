@@ -3,9 +3,10 @@
 \ judgment. It assumes a store and context unchanged during a call, and that
 \ equal opaque parameter IDs denote the same Lean name.
 \ State: one record, lf-lcmp-state, holding the fuel left after a
-\ comparison, which mixed-convert reads. The comparison recurses on the host
-\ stacks through the deferred word lf-lcmp-walk, set once at load time. Not
-\ re-entrant and single-threaded.
+\ comparison, which mixed-convert reads; a member of the checker context
+\ (lib/context.fs). The comparison recurses on the host stacks through the
+\ deferred word lf-lcmp-walk, set once at load time and shared.
+\ Single-threaded within one context.
 \ Stack use: about 8 return-stack cells per nesting level (measured about
 \ 510 cells at depth 63), so lf-lcmp-depth-limit must stay well below the
 \ return stack of every task that compares (Gforth 0.7.3's default is 1,920
@@ -21,8 +22,7 @@ require ./level-value.fs
 begin-structure /lf-lcrec
   field: lf-lcrec-fuel          \ visits left after a comparison
 end-structure
-create lf-lcmp-state /lf-lcrec allot
-lf-lcmp-state /lf-lcrec erase
+/lf-lcrec context-record: lf-lcmp-state
 
 : lf-lcmp-fuel ( -- addr ) lf-lcmp-state lf-lcrec-fuel ;
 \ Any failure except an unequal concrete value leaves no fuel: mixed-convert

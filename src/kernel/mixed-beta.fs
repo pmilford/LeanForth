@@ -1,9 +1,10 @@
 \ Untrusted mixed-term weak-head beta reduction. Handles are session-local
 \ diagnostics, not capabilities or serialized values.
-\ State: one frames record, lf-mbeta-frames (fuel, nesting). Each
-\ contraction runs the public instantiate pass on its own record. Not
-\ re-entrant and single-threaded; exclude concurrent mutation, resets, raw
-\ edits and nested calls.
+\ State: one frames record, lf-mbeta-frames (fuel, nesting), a member of
+\ the checker context (lib/context.fs), declared after its visitor below.
+\ Each contraction runs the public instantiate pass on its own record.
+\ Single-threaded within one context; exclude concurrent mutation, resets,
+\ raw edits and nested calls.
 
 require ../lib/lib.fs
 require ../core/terms.fs
@@ -11,10 +12,6 @@ require ./mixed-instantiate.fs
 require ./mixed-rebuild.fs
 require ./mixed-shift.fs
 
-create lf-mbeta-frames /frames allot
-
-\ Fuel left after a reduction; mixed-convert continues with it.
-: lf-mbeta-fuel ( -- addr ) lf-mbeta-frames frame-fuel ;
 \ The fields of an application node read earlier in this visit.
 : lf-mbeta-function ( node -- function ) lf-term-first@ ;
 : lf-mbeta-argument ( node -- argument ) lf-term-second@ ;
@@ -54,8 +51,11 @@ create lf-mbeta-frames /frames allot
   over lf-term-valid? 0= if lf-rebuild-bad exit then
   over lf-mbeta-app? 0= if drop outcome-ok exit then
   over lf-mbeta-function over frame-call ok-keep2? if lf-mbeta-head then ;
-\ The visitor is set once, here.
-lf-term-capacity ' lf-mbeta-visit lf-mbeta-frames frame-init
+\ The frames, whose visitor is set once, here.
+lf-term-capacity ' lf-mbeta-visit context-frames: lf-mbeta-frames
+
+\ Fuel left after a reduction; mixed-convert continues with it.
+: lf-mbeta-fuel ( -- addr ) lf-mbeta-frames frame-fuel ;
 
 \ ( index identity fuel -- index identity status )
 \ Audit the complete mixed graph before allocating, even discarded arguments
@@ -94,12 +94,22 @@ lf-term-capacity ' lf-mbeta-visit lf-mbeta-frames frame-init
 \ are smaller, so that no input overflows them from a shallow caller (an
 \ overflow would throw, never give ok); a caller that itself recurses must
 \ add its own need. Hosts that do not report their stack sizes are not
-\ checked.
+\ checked. Jobs (lib/task.fs) run on their workers' stacks instead: when
+\ task.fs is loaded before this file, loading also stops unless
+\ job-stacks-cover? holds for the same need. A job's word that recurses
+\ itself checks its own need the same way, and so does a program that
+\ lowers the workers' stack settings later.
 15 constant lf-mbeta-rs-level   \ return-stack cells: one frame of each pass
 11 constant lf-mbeta-ds-level   \ data-stack cells: one frame of each pass
 256 constant lf-mbeta-stack-slack
 : lf-mbeta-need ( cells-per-level -- cells ) lf-term-capacity * lf-mbeta-stack-slack + ;
+lf-mbeta-rs-level lf-mbeta-need constant lf-mbeta-return-cells
+lf-mbeta-ds-level lf-mbeta-need constant lf-mbeta-data-cells
 : lf-mbeta-fits? ( need c-addr u -- flag ) environment? if > 0= else drop true then ;
-lf-mbeta-rs-level lf-mbeta-need s" RETURN-STACK-CELLS" lf-mbeta-fits?
-lf-mbeta-ds-level lf-mbeta-need s" STACK-CELLS" lf-mbeta-fits? and
+lf-mbeta-return-cells s" RETURN-STACK-CELLS" lf-mbeta-fits?
+lf-mbeta-data-cells s" STACK-CELLS" lf-mbeta-fits? and
 0= [if] .( mixed-beta.fs: host stacks too small for lf-term-capacity) cr abort [then]
+[defined] job-stacks-cover? [if]
+lf-mbeta-data-cells lf-mbeta-return-cells job-stacks-cover?
+0= [if] .( mixed-beta.fs: job stacks too small for lf-term-capacity) cr abort [then]
+[then]

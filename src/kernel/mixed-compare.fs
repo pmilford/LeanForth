@@ -5,9 +5,11 @@
 \ Equal opaque level parameter IDs are assumed to denote the same Lean name.
 \ State: two paired walk records, lf-mcompare-walker (left and right terms)
 \ and lf-mcompare-level-walker (left and right levels); level comparisons
-\ charge the term walk's fuel. Not re-entrant and single-threaded; exclude
-\ arena, context and name mutation during a call. mixed-convert.fs reuses
-\ the pair-visiting, name, reference and audit words with its own walk.
+\ charge the term walk's fuel. Both are members of the checker context
+\ (lib/context.fs). Single-threaded within one context; exclude arena,
+\ parameter-context and name mutation during a call. mixed-convert.fs
+\ reuses the pair-visiting, name, reference and audit words with its own
+\ walk.
 
 require ../lib/lib.fs
 require ../core/constant-references.fs
@@ -17,8 +19,8 @@ require ../core/names.fs
 require ../core/tagged-sort-boundary.fs
 require ../core/terms.fs
 
-lf-term-capacity walk2: lf-mcompare-walker
-lf-level-capacity walk2: lf-mcompare-level-walker
+lf-term-capacity context-walk2: lf-mcompare-walker
+lf-level-capacity context-walk2: lf-mcompare-level-walker
 
 \ Fuel left after a comparison; zero after negative fuel or a failed audit.
 : lf-mcompare-fuel ( -- addr ) lf-mcompare-walker walk-fuel ;

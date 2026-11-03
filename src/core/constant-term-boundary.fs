@@ -4,12 +4,14 @@
 \ stamp table binds it to this exact term allocation, so a reset cannot
 \ resurrect it. Binary constructors capture child indices, not identities;
 \ their safety relies on backward edges and no raw mutation or count edits.
-\ State: the stamp table (global, indexed by term index) and one walk
-\ record, lf-cterm-walker. Each constant and symbolic Sort visit also runs a
+\ State: the stamp table lf-cterm-stamps (indexed by term index) and one
+\ walk record, lf-cterm-walker, both members of the checker context
+\ (lib/context.fs). Each constant and symbolic Sort visit also runs a
 \ level-scope check on level-scope's walk record (lf-lscope-walk), so this
-\ check must not run while another module borrows that record. Not
-\ re-entrant and single-threaded. Identities are forgeable, instance-local
-\ diagnostics; the memory layout is not a serialization format.
+\ check must not run while another module borrows that record.
+\ Single-threaded within one context. Identities are forgeable,
+\ context-local diagnostics; the memory layout is not a serialization
+\ format.
 
 require ../lib/lib.fs
 require ./constant-references.fs
@@ -20,9 +22,8 @@ require ./tagged-sort-boundary.fs
 require ./terms.fs
 
 7 constant lf-tag-constant
-create lf-cterm-stamps lf-term-capacity cells allot
-lf-cterm-stamps lf-term-capacity cells erase
-lf-term-capacity walk: lf-cterm-walker
+lf-term-capacity cells context-record: lf-cterm-stamps
+lf-term-capacity context-walk: lf-cterm-walker
 
 \ Fuel left after a check; the kernel passes continue with it. Negative
 \ fuel leaves it unchanged; an invalid root leaves the fuel given.

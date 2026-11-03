@@ -3,15 +3,16 @@
 \ check types, declarations, dependencies or proofs. Handles are forgeable
 \ diagnostics.
 \ State: one paired walk record, lf-cts-walker, whose items are a node and
-\ the number of binders available at it. Not re-entrant and single-threaded;
-\ raw mutation and lifecycle changes during a call are excluded.
+\ the number of binders available at it; a member of the checker context
+\ (lib/context.fs). Single-threaded within one context; raw mutation and
+\ lifecycle changes during a call are excluded.
 
 require ../lib/lib.fs
 require ./constant-term-boundary.fs
 require ./tagged-sort-boundary.fs
 require ./terms.fs
 
-lf-term-capacity walk2: lf-cts-walker
+lf-term-capacity context-walk2: lf-cts-walker
 
 \ Fuel left after an audit; kernel passes continue with it.
 : lf-cts-fuel ( -- addr ) lf-cts-walker walk-fuel ;

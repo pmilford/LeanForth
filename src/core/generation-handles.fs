@@ -7,7 +7,8 @@
 \ State: two stamp tables, indexed by term index, record which term and
 \ level identities each symbolic Sort was built from (raw symbolic Sorts
 \ have no stamp and fail lf-hterm-check); the audit uses one walk record,
-\ lf-href-walker. Not re-entrant and single-threaded.
+\ lf-href-walker. All three are members of the checker context
+\ (lib/context.fs). Single-threaded within one context.
 
 require ../lib/lib.fs
 require ./levels.fs
@@ -15,11 +16,9 @@ require ./symbolic-session.fs
 require ./tagged-sort-boundary.fs
 require ./terms.fs
 
-create lf-hsort-term-identities lf-term-capacity cells allot
-create lf-hsort-level-identities lf-term-capacity cells allot
-lf-hsort-term-identities lf-term-capacity cells erase
-lf-hsort-level-identities lf-term-capacity cells erase
-lf-term-capacity walk: lf-href-walker
+lf-term-capacity cells context-record: lf-hsort-term-identities
+lf-term-capacity cells context-record: lf-hsort-level-identities
+lf-term-capacity context-walk: lf-href-walker
 
 \ Stamp cells of a symbolic Sort at a valid term index.
 : lf-hsort-term-stamp ( index -- addr ) cells lf-hsort-term-identities + ;

@@ -2,11 +2,13 @@
 \ well formed, children come earlier, and every parameter is in the current
 \ context. Untrusted. It does not compare levels, establish Lean name
 \ identity, check types or authorize a theorem.
-\ State: one context record, lf-lscope-state (a duplicate-free list of
-\ positive parameter IDs with a generation that advances on every change),
-\ and one walk record, lf-lscope-walk. Not re-entrant and single-threaded:
-\ the check must not run again while its walk record is in use. Callers
-\ prevent external mutation.
+\ State: one parameter-context record, lf-lscope-state (a duplicate-free
+\ list of positive parameter IDs with a generation that advances on every
+\ change), and one walk record, lf-lscope-walk, both members of the
+\ checker context (lib/context.fs); a set-up word starts every context's
+\ parameter context empty. Single-threaded within one context: the check
+\ must not run again while its walk record is in use. Callers prevent
+\ external mutation.
 
 require ../lib/lib.fs
 require ./levels.fs
@@ -16,9 +18,8 @@ begin-structure /lf-lsctx
   field: lf-lsctx-generation    \ advances on every change; negative when spent
   lf-level-capacity cells +field lf-lsctx-ids
 end-structure
-create lf-lscope-state /lf-lsctx allot
-lf-lscope-state /lf-lsctx erase
-lf-level-capacity walk: lf-lscope-walk
+/lf-lsctx context-record: lf-lscope-state
+lf-level-capacity context-walk: lf-lscope-walk
 
 \ The context's fields under their established names (other modules read
 \ the count and generation; tests corrupt them).
@@ -95,5 +96,6 @@ lf-level-capacity walk: lf-lscope-walk
 : lf-lscope-walk-check ( level walk -- outcome )
   tuck walk-fuel @ lf-lscope-check lf-lscope-fuel @ rot walk-fuel ! outcome-sane ;
 
-0 lf-lscope-generation !
-lf-lscope-context-reset
+\ Every context starts with an empty parameter context of generation 1
+\ (the record starts zeroed).
+' lf-lscope-context-reset context-setup

@@ -2,8 +2,9 @@
 \ level store and parameter context by recording their generations, so any
 \ later reset of one of them makes the session stale. Untrusted; not a type
 \ checker and cannot authorize a theorem.
-\ State: the current session is one /lf-session record, and the check uses
-\ one walk record, lf-ssession-walker. Not re-entrant and single-threaded.
+\ State: the current session is one /lf-session record, lf-ssession, and
+\ the check uses one walk record, lf-ssession-walker; both are members of
+\ the checker context (lib/context.fs). Single-threaded within one context.
 \ Bare term or level indices reused after a new session are
 \ indistinguishable from stale ones; handles (generation-handles.fs) detect
 \ that.
@@ -20,9 +21,8 @@ begin-structure /lf-session
   field: lf-session-levels     \ captured level-store generation
   field: lf-session-context    \ captured parameter-context generation
 end-structure
-create lf-ssession /lf-session allot
-lf-ssession /lf-session erase
-lf-term-capacity walk: lf-ssession-walker
+/lf-session context-record: lf-ssession
+lf-term-capacity context-walk: lf-ssession-walker
 
 : lf-ssession-active ( -- addr ) lf-ssession lf-session-active ;
 \ Fuel left after a check; generation-handles continues with it.

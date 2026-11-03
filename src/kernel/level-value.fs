@@ -7,9 +7,11 @@
 \ State: one record, lf-lvalue-state: the table of explicit parameter
 \ assignments with the level-store and context generations it was made for,
 \ the fuel left after an evaluation (level-compare reads it), and whether
-\ the evaluation reads the table. The evaluation recurses on the host stacks
-\ through the deferred word lf-lvalue-walk, which is set once at load time.
-\ Not re-entrant and single-threaded.
+\ the evaluation reads the table; a member of the checker context
+\ (lib/context.fs), whose table a set-up word binds to the context's own
+\ stores. The evaluation recurses on the host stacks through the deferred
+\ word lf-lvalue-walk, which is set once at load time and shared.
+\ Single-threaded within one context.
 \ Stack use: about 8 return-stack cells per nesting level (measured about
 \ 500 cells at depth 63), so lf-lvalue-depth-limit must stay well below the
 \ return stack of every task that evaluates (Gforth 0.7.3's default is 1,920
@@ -31,8 +33,7 @@ begin-structure /lf-lvrec
   lf-level-capacity cells +field lf-lvrec-ids
   lf-level-capacity cells +field lf-lvrec-values
 end-structure
-create lf-lvalue-state /lf-lvrec allot
-lf-lvalue-state /lf-lvrec erase
+/lf-lvrec context-record: lf-lvalue-state
 
 \ The record's fields under their established names; tests corrupt the
 \ table through them.
@@ -157,4 +158,5 @@ defer lf-lvalue-walk ( node depth -- value status )
 \ an invalid assignment table or context never produces a concrete value.
 : lf-level-value-assigned ( root fuel -- value status ) true lf-level-value-run ;
 
-lf-lassign-reset
+\ Every context starts with an empty table bound to its own stores.
+' lf-lassign-reset context-setup

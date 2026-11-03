@@ -72,9 +72,24 @@ Nothing can run twice at once in one Forth image.
    the four lowest walkers converted (roadmap Q10).
 2. Convert the remaining modules' registers and borrowed stacks to records
    during the refactor.
-3. Introduce the context record and current-context pointer, with a test
-   that runs two contexts interleaved in one image and compares with serial
-   runs.
+3. Done (2026-11-02): introduce the context record and current-context
+   pointer, with a test that runs two contexts interleaved in one image and
+   compares with serial runs. `src/lib/context.fs` and the job pool
+   `src/lib/task.fs` came first; then every module of `src/core/` and
+   `src/kernel/` moved its state into the context (stores, walk and frames
+   records, module records, and set-up words for what used to be reset
+   while loading). `tests/core/contexts.fs` checks that every state word
+   lies inside the current context, that a new context starts with the
+   bytes the main context had after loading, and that a trial of real
+   checker work gives its serial digest when contexts are interleaved in
+   one task and when trials run as jobs (threads on Gforth 1.0,
+   cooperative on 0.7.3, serial); `contexts-serial.fs` runs it on the
+   serial host. Reaching state through the context costs about 13% of
+   checker time on `gforth` and 23% on `gforth-fast` (measured in
+   [the library notes](../development/FORTH_LIBRARY.md#design-per-task-contexts-and-how-modules-convert)).
+   Still global by design: the job pool, the context layout, constant
+   tables and the deferred words set once while loading. Not yet converted:
+   `src/import/`, `src/program/` and the line and JSON readers.
 4. A dependency-ordered scheduler and native tasks through the adapter,
    validated against serial runs (roadmap C3). Serializing the checked
    environment is needed later for the separate checker program and saved
