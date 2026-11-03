@@ -685,10 +685,13 @@ through the review gate): its type ends in `Sort u` where the claim ends
 in `A`, a Sort against a variable that is not a proof, so rule D2 shows
 them different inside D4 — like the `returns-the-proposition` row of the
 [expected results](../reviews/FIRST_CHECKER_EXPECTED.md). The diagnostic
-names the rules used, as a set of bits (2 for D2, 8 for D4: 10). A full
-check of a declaration, which would print the good value as *accepted —
-experimental, not independently audited; axioms: none*, is plan task
-2.2.3 and is not written yet.
+names the rules used, as a set of bits (2 for D2, 8 for D4: 10). The full
+check of a declaration, `check-declaration` (plan task 2.2.3; also
+experimental and not yet through its gate), adds the name, the universe
+parameters, the lookups of constants in the checked environment and, for
+a theorem, the proposition test, and prints an accepted result as
+*accepted (experimental, not independently audited); axioms: none*
+([first check](FIRST_CHECK.md)).
 
 **Lean.** Lean accepts `polyId` (under [Term](#term)) and rejects the wrong
 value:
@@ -708,8 +711,8 @@ of sort `Type u` but is expected to have type
 of sort `Sort u`
 ```
 
-Lean also reports the axioms a theorem depends on; the first checker will
-print the same list (always empty in its scope):
+Lean also reports the axioms a theorem depends on; the first checker
+prints the same list (always empty in its scope):
 
 ```lean
 theorem composition {A B C : Prop} (f : A → B) (g : B → C) : A → C :=

@@ -1,7 +1,11 @@
 # LeanForth user guide
 
 **Status, 2026-11-02 (commit `fc558cc`): LeanForth does not yet check a
-proof or verify a program.** It has a Forth data model for Lean's terms,
+proof or verify a program that you can rely on.** Its first checker
+(plan task 2.2.3, [first check](FIRST_CHECK.md)) checks small definitions
+and theorems, but it is experimental [kernel] code that has not passed its
+review gate, and every result it accepts is labelled *accepted
+(experimental, not independently audited)*. It has a Forth data model for Lean's terms,
 experimental checking passes, a Forth reader for Lean's export format, a
 term printer that prints as Lean does, and the first steps of a
 program-verification pipeline whose proofs are checked by Lean, not by
@@ -13,6 +17,7 @@ boundaries are. The detailed status is in
 | --- | --- |
 | This page | What LeanForth is and is not; trust boundaries; reading paths |
 | [Reading a Lean proof](READING_A_LEAN_PROOF.md) | For readers new to Lean and logic notation: every symbol, three small theorems read as textbook proofs, and each in all its forms (Lean source, `#print`, fully explicit, the kernel's nodes, the NDJSON export, LeanForth's Forth words, the term printer) |
+| [First check](FIRST_CHECK.md) | The first checker, experimental: a theorem read from Lean's export, checked and accepted; a broken copy rejected |
 | [Concepts, in three forms](CONCEPTS.md) | Level, `Sort`, `Prop`/`Type`, term, binder, de Bruijn index, constant, declaration, theorem and definition, kernel, outcomes — each as mathematics, LeanForth Forth and Lean, with Forth you can run |
 | [Workflows](WORKFLOWS.md) | Diagrams of checking a theorem and verifying a program, marking what exists and what is planned |
 | [Running the checks](RUNNING_THE_CHECKS.md) | The `make` targets, what a pass shows and what it does not |
@@ -99,6 +104,8 @@ and *full* (out of room). Only *ok* is ever accepted. See
   ([running the checks](RUNNING_THE_CHECKS.md)).
 - Read and count any Lean 4.35.0 export, up to all of Mathlib, with the
   Forth reader ([reader guide](../development/NDJSON_READER.md)).
+- Check the pinned fixtures' exports with the experimental first checker
+  ([first check](FIRST_CHECK.md)); its answers are not yet to be relied on.
 - Build terms with the data model's words, run the experimental
   inference and definition probe on them, and print them in Lean's
   notation, ASCII or LaTeX ([concepts](CONCEPTS.md),

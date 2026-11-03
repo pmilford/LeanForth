@@ -55,10 +55,13 @@ require ../lib/lib.fs
 33 constant lf-diag-no-signature       \ the constant's name ID, 0
 34 constant lf-diag-symbolic-level     \ the level, 0
 35 constant lf-diag-dependency-undecided   \ the slot, its outcome
-\ A construct not implemented yet (outcome unknown until ADR 0008 step 3),
-\ or a dependency that is unsupported.
+\ A construct not implemented yet (outcome unknown in inference; the
+\ declaration audit makes it unsupported), a dependency that is
+\ unsupported, or a declaration outside the first checker's scope.
 40 constant lf-diag-unsupported        \ the node's tag, 0
 41 constant lf-diag-dependency-unsupported \ the slot, 0
+42 constant lf-diag-unsupported-kind   \ the declaration's kind, its safety (U1)
+43 constant lf-diag-unsupported-form   \ the form, the node (U2)
 \ Rejected by a rule of ADR 0011 (outcome rejected): 50-54 by the checked
 \ environment, 55-60 by comparison and inference, where a rejection
 \ replaces the record of the undecided step it decides.
@@ -183,6 +186,8 @@ create lf-diag-catalogue
   lf-diag-dependency-undecided s" undecided: dependency undecided" lf-diag-entry,
   lf-diag-unsupported s" unsupported construct" lf-diag-entry,
   lf-diag-dependency-unsupported s" unsupported: dependency unsupported" lf-diag-entry,
+  lf-diag-unsupported-kind s" unsupported: declaration kind (U1)" lf-diag-entry,
+  lf-diag-unsupported-form s" unsupported: term form (U2)" lf-diag-entry,
   lf-diag-unknown-constant s" rejected: unknown constant" lf-diag-entry,
   lf-diag-already-declared s" rejected: name already declared" lf-diag-entry,
   lf-diag-level-count s" rejected: wrong number of universe levels" lf-diag-entry,

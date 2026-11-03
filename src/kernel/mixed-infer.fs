@@ -16,9 +16,18 @@
 \ runs inference "aside": with no rule, on any live node (whnf results and
 \ inferred types, which the checker's own passes made from the audited
 \ input), discarding what it allocates.
+\ Environment mode (plan task 2.2.3; [kernel] code, not yet through the
+\ review gate): a job started with lf-minfer-start-env, by
+\ check-declaration.fs, takes a constant's type from the checked
+\ environment within the check's snapshot instead of the signature index,
+\ and checks a Sort's level against the declaration's universe parameters
+\ when it visits the Sort: rules N1, K5, L1 and L2 at the place and in the
+\ order Lean's kernel checks them (env-signature.fs). A job started with
+\ lf-minfer-start, as by lf-mixed-infer and the probes, never uses it.
 \ State: one inference record, lf-minfer-job (fields lf-ijob-*): fuel, frame
 \ depth, index token, the arena counts before the call, the binder context,
-\ whether inference runs aside, and a copy of a reference's levels; a
+\ whether inference runs aside, whether it runs in environment mode, and a
+\ copy of a reference's levels; a
 \ member of the checker context (lib/context.fs). A node's intermediate
 \ results stay on the data stack. Single-threaded within one context.
 \ lf-minfer-walk and lf-minfer-apart are deferred only for the mutual
@@ -31,7 +40,8 @@
 \ yields a result. mixed-definition-probe.fs starts a job with
 \ lf-minfer-start, calls lf-minfer-walk, lf-minfer-sort-rule,
 \ lf-minfer-zero?, lf-minfer-agree, lf-minfer-verdict and lf-minfer-reject
-\ directly, and reads lf-minfer-fuel afterwards.
+\ directly, and reads lf-minfer-fuel afterwards; check-declaration.fs does
+\ the same with lf-minfer-start-env.
 
 require ../lib/lib.fs
 require ../core/constant-references.fs
@@ -42,6 +52,7 @@ require ../core/generation-handles.fs
 require ../core/levels.fs
 require ../core/tagged-sort-boundary.fs
 require ../core/terms.fs
+require ./env-signature.fs
 require ./level-value.fs
 require ./mixed-beta.fs
 require ./mixed-convert.fs
@@ -60,6 +71,7 @@ begin-structure /lf-ijob
   field: lf-ijob-crefs     \ reference count before the call
   field: lf-ijob-binders   \ binder domains in the context
   field: lf-ijob-aside     \ true while inference runs aside, for test P2
+  field: lf-ijob-env       \ true in environment mode (lf-minfer-start-env)
   lf-term-capacity cells +field lf-ijob-domains
   lf-cref-argument-capacity 2* cells +field lf-ijob-actuals
 end-structure
@@ -74,6 +86,7 @@ end-structure
 : lf-minfer-aside ( -- addr ) lf-minfer-job lf-ijob-aside ;
 \ Rejection rules run only when inference does not run aside.
 : lf-minfer-deciding? ( -- flag ) lf-minfer-aside @ 0= ;
+: lf-minfer-env? ( -- flag ) lf-minfer-job lf-ijob-env @ ;
 
 \ Helpers run on the fuel left and inference continues with what they leave.
 \ They report only ok, invalid, exhausted or full, and the signature lookup
@@ -129,7 +142,16 @@ end-structure
 : lf-minfer-sort ( level -- type status )
   dup lf-level-identity 0= if drop -1 outcome-invalid exit then
   lf-hterm-sort if drop outcome-ok else -1 outcome-full then ;
+\ A visited Sort's type. In environment mode, while deciding, its level
+\ must first use only the declaration's universe parameters (L2), checked
+\ with the job's fuel (env-signature.fs).
+: lf-minfer-scoped? ( -- flag ) lf-minfer-env? lf-minfer-deciding? and ;
+: lf-minfer-scope-level ( level -- level status )
+  dup lf-minfer-fuel @ lf-env-level-scope swap lf-minfer-fuel ! ;
+: lf-minfer-sort-scope ( level -- level status )
+  lf-minfer-scoped? if lf-minfer-scope-level else outcome-ok then ;
 : lf-minfer-sort-type ( level -- type status )
+  lf-minfer-sort-scope ok-then? 0= if no-result exit then
   lf-level-succ if lf-minfer-sort else -1 outcome-full then ;
 
 \ The level of an inferred Sort. Any other type is unknown, not a judgment,
@@ -142,7 +164,10 @@ end-structure
 
 \ A constant: specialize its candidate signature to the reference's levels,
 \ first copied into this record (specialization needs its input disjoint
-\ from every arena and scratch area). Success continues with the fuel the
+\ from every arena and scratch area). In environment mode the signature is
+\ the accepted declaration's stored type, found in the checked environment
+\ (env-signature.fs: N1, K5, L1, then L2 while deciding), else the
+\ candidate in the index. Success continues with the fuel the
 \ specialization left; a failure leaves no fuel.
 : lf-minfer-actuals ( -- addr ) lf-minfer-job lf-ijob-actuals ;
 : lf-minfer-copy ( slot -- addr count )
@@ -150,9 +175,15 @@ end-structure
 : lf-minfer-specialized ( root identity fuel' 0 | status -- type status )
   outcome-sane dup ok? if drop lf-minfer-fuel ! drop outcome-ok
   else 0 lf-minfer-fuel ! lf-minfer-none then ;
+: lf-minfer-candidate ( name pairs count -- root identity fuel' 0 | status )
+  2>r lf-minfer-token @ swap 2r> lf-minfer-fuel @ lf-msp-specialize-fuel ;
+: lf-minfer-stored ( name pairs count -- root identity fuel' 0 | status )
+  lf-minfer-fuel @ lf-minfer-deciding? lf-env-signature ;
+: lf-minfer-signature ( name pairs count -- root identity fuel' 0 | status )
+  lf-minfer-env? if lf-minfer-stored else lf-minfer-candidate then ;
 : lf-minfer-constant ( reference -- type status )
-  lf-cref-slot dup lf-crec-name @ swap lf-minfer-copy 2>r lf-minfer-token @ swap 2r>
-  lf-minfer-fuel @ lf-msp-specialize-fuel lf-minfer-specialized ;
+  lf-cref-slot dup lf-crec-name @ swap lf-minfer-copy lf-minfer-signature
+  lf-minfer-specialized ;
 
 \ A bound variable has its binder's domain, shifted past the binders between.
 : lf-minfer-bvar ( index -- type status )
@@ -450,16 +481,22 @@ defer lf-minfer-apart ( left right -- mask flag )
   lf-minfer-job dup lf-ijob-terms @ lf-term-count ! dup lf-ijob-levels @ lf-level-count !
   lf-ijob-crefs @ lf-cref-count ! ;
 : lf-minfer-idle ( job -- )
-  0 over lf-ijob-depth ! 0 over lf-ijob-binders ! false swap lf-ijob-aside ! ;
+  0 over lf-ijob-depth ! 0 over lf-ijob-binders ! false over lf-ijob-aside !
+  false swap lf-ijob-env ! ;
 
 \ Start a job on lf-minfer-job: the index token and nonnegative fuel, no
-\ frames or binders in use, rules on, and the arena counts to roll back to. Neither
+\ frames or binders in use, rules on, not in environment mode, and the
+\ arena counts to roll back to. Neither
 \ preflight allocates, so the counts are the same before and after it; the
 \ definition probe starts a job after its own preflight. Only original
 \ source nodes, those below the term count, are then inferred.
 : lf-minfer-start ( token fuel -- )
   lf-minfer-job tuck lf-ijob-fuel ! tuck lf-ijob-token !
   dup lf-minfer-idle lf-minfer-mark ;
+\ Start a job in environment mode (check-declaration.fs), inside a check
+\ of the checked environment: as lf-minfer-start, with no index token.
+: lf-minfer-start-env ( fuel -- )
+  0 swap lf-minfer-start true lf-minfer-job lf-ijob-env ! ;
 
 \ A failure reports no type and leaves zero fuel.
 : lf-minfer-failed ( status -- type identity status ) 0 lf-minfer-fuel ! -1 0 rot ;

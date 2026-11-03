@@ -13,9 +13,11 @@
 \ signatures, level algorithms and the Lean data model.
 require ./kernel/mixed-definition-probe.fs
 
-\ The checked environment v0 (ADR 0012): the input marks, write-once slots,
-\ snapshots and handles, and the single publisher.
-require ./kernel/env-publish.fs
+\ The first checker: check-declaration (plan task 2.2.3), which requires
+\ the checked environment v0 (ADR 0012: the input marks, write-once slots,
+\ snapshots and handles, and the single publisher) and inference in
+\ environment mode.
+require ./kernel/check-declaration.fs
 
 \ Staging of decoded Lean exports into the term store, and the reader of
 \ lean4export NDJSON files.

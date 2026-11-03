@@ -9,7 +9,8 @@ of the plain-language summary in
 here was implemented; the rules of comparison and inference now are (see
 [Implementation](#implementation-plan-task-221)), the environment's (N1,
 N2, L1–L3) by [ADR 0012](0012-checked-environment.md), and the declaration
-audit (U1, U2) waits for check-declaration (plan task 2.2.3). It refines ADRs 0002, 0003, 0006 and 0008 for the first checker
+audit (U1, U2) and the whole check in Lean's order by check-declaration
+(plan task 2.2.3; see [its implementation](#implementation-plan-task-223)). It refines ADRs 0002, 0003, 0006 and 0008 for the first checker
 and supersedes none of them. The plan reserves ADR 0012 for the
 checked-environment implementation (task 2.1.3), so the first checker's scope
 is decided here rather than in a separate record.
@@ -391,6 +392,62 @@ the U1/U2 audit) and checks every row against Lean (see
 `tests/core/definite-rejection.fs` tests each rule and its K boundary; the
 randomized differentials against the code before the change show only
 *unknown* → *rejected* changes, each with its rule.
+
+## Implementation (plan task 2.2.3)
+
+Written 2026-11-02; [kernel] and [bypass] code, experimental, not through
+the review gate. `src/kernel/check-declaration.fs` is the check the
+publisher of [ADR 0012](0012-checked-environment.md) runs for each
+declaration, in the order of *Order* above, step by step: the audit (U1,
+U2, V1), N2, L3, the declared type's inference, S1, S3 for a theorem, the
+value's inference and the final comparison (D1–D5). Decisions, none of
+which adds or widens a rule:
+
+- **Lookups where Lean makes them.** N1, K5, L1 and L2 are not checked in
+  a pass before typing: inference runs in an *environment mode*
+  (`lf-minfer-start-env`, `src/kernel/mixed-infer.fs`) in which a constant
+  is looked up in the check's snapshot when inference visits it, as
+  `infer_constant` does (lookup, number of levels, each level in the
+  declaration's scope, then the stored type instantiated), and a `Sort`'s
+  level is checked when it is visited, as `infer_type_core` does
+  (`src/kernel/env-signature.fs`). So when a declaration has two faults,
+  the one Lean meets first decides, with Lean's reason. While inference
+  runs aside (test P2), as in Lean's `infer_only` mode, L2 is skipped and
+  no dependency is recorded; aside runs happen only inside the rejection
+  analysis, after the step has already failed.
+- **The stored type is the accepted declaration's own input term**,
+  specialized by the existing simultaneous level substitution; no
+  candidate signature is involved. The dependencies are the accepted
+  declarations the type and value name, recorded as inference meets them.
+- **The audit's forms.** An importer stages `let`, a literal, metadata or
+  a projection as a leaf of its own tag that records only which form it
+  was (`src/core/unsupported-forms.fs`), so U2 is a walk of the
+  declaration's terms, not a flag an importer sets. A concrete `Sort` in
+  the symbolic term graph is the wrong representation (ADR 0007) and is
+  *invalid* (V1), as are free and meta variables (the importer refuses
+  them) and a definition or theorem without a value. Inference itself
+  still reports an unknown constructor as *unknown*; in a declaration's
+  check none reaches it.
+- **Scratch between the type and the value.** After step 6 nothing built
+  for the type is needed, so the scratch is rolled back to the input marks
+  before the value is inferred. With the 64-node term store this turns
+  `composition.proof-irrelevance` from *full* into the table's *unknown*.
+- **Fuel.** One budget per check (`lf-check-budget`, 0 in a new context:
+  every check *exhausted*) covers the audit and inference; a lookup and
+  the arity test cost none, L2 one unit per level node.
+- **Label.** `lf-check-verdict.` prints an accepted slot as *accepted
+  (experimental, not independently audited); axioms: none*, the axiom set
+  read from the slot.
+
+Evidence: the 60 table rows end to end through the environment, all
+equal to the table (`make test-first-checker-differential`); the 22
+binder-domain rows (ADR 0003, Amendment 1), 19 equal and three that meet
+the 64-node store answering a failure (`test-binder-domains-differential`);
+17 universe-scope rows (`test-universe-scope-differential`);
+`tests/core/check-declaration.fs` (every outcome, Lean's order, fuel
+sweeps) and `check-declaration-ndjson.fs` (the pinned exports); planted
+faults; randomized differentials of the paths that existed before, with no
+difference ([expected results](../reviews/FIRST_CHECKER_EXPECTED.md)).
 
 ## Consequences
 
