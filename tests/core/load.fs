@@ -84,4 +84,27 @@ T{ 0 lf-tag-sort 0 0 lf-load-node -> true }T
 T{ 1 lf-tag-sort 0 0 lf-load-node -> false }T
 T{ lf-term-count @ -> lf-term-capacity 1- }T
 T{ lf-load-finish -> false }T
+
+\ A batch belongs to the context it was opened in, like the term store it
+\ rolls back. A batch open in the main context is not open in another: a
+\ record there is refused and changes nothing (no rollback to the main
+\ batch's start, which would bring rolled-back nodes back), a batch opened
+\ and aborted there rolls back only that context's store, and the main
+\ batch stays open.
+lf-term-reset
+: bvars ( n -- ) 0 ?do 0 lf-term-bvar 0= abort" bvar" drop loop ;
+context-new throw constant other
+other context-use 8 bvars 2 lf-term-count !
+context-main context-use 10 bvars
+T{ lf-load-begin -> true }T
+other context-use
+T{ lf-load-open? 0 lf-tag-sort 0 0 lf-load-node lf-term-count @ -> false false 2 }T
+T{ 5 lf-term-valid? -> false }T
+T{ lf-load-begin 0 lf-tag-sort 0 0 lf-load-node lf-term-count @ -> true true 3 }T
+lf-load-abort
+T{ lf-load-open? lf-term-count @ -> false 2 }T
+context-main context-use
+T{ lf-load-open? lf-term-count @ -> true 10 }T
+T{ 0 lf-tag-sort 0 0 lf-load-node lf-load-finish lf-term-count @ -> true true 11 }T
+T{ other context-free -> 0 }T
 bye

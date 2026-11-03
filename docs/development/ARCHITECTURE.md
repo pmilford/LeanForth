@@ -207,6 +207,8 @@ classDiagram
     layout-last
     layout-main
     layout-sealed
+    layout-data-need
+    layout-return-need
   }
   class Member {
     member-offset

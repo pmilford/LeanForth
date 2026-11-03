@@ -74,10 +74,10 @@ lf-level-capacity context-walk: lf-lscope-walk
 \ A parameter outside the context is recorded as out of scope.
 : lf-lscope-outside ( id -- outcome )
   0 lf-lscope-site lf-diag-out-of-scope lf-diag-note outcome-invalid ;
-: lf-lscope-in ( id -- outcome )
+: lf-lscope-param-in ( id -- outcome )
   dup lf-lscope-member? if drop outcome-ok else lf-lscope-outside then ;
 : lf-lscope-param ( first second walk -- outcome )
-  drop 0= over 0> and if lf-lscope-in else drop outcome-invalid then ;
+  drop 0= over 0> and if lf-lscope-param-in else drop outcome-invalid then ;
 : lf-lscope-succ ( first second walk -- outcome ) swap 0<> if 2drop outcome-invalid else walk-child then ;
 : lf-lscope-dispatch ( first second walk tag -- outcome )
   dup lf-level-binary-tag? if drop walk-children exit then

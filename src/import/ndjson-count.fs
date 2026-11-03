@@ -8,8 +8,11 @@
 \ at once with status 1; after the report, BYE exits with status 0.
 \ count-report prints the same without ever exiting, for a Forth session
 \ or a batch of files in one process.
-\ Requires: ndjson.fs. State: one export record and one tally record,
-\ reset by every count; not re-entrant.
+\ Requires: ndjson.fs. State: the tally record, count-tally, a member of
+\ the checker context (lib/context.fs), and one export record,
+\ counted-export, which stays shared because it owns heap buffers (a
+\ context member may not: context-free has no release hook); both are
+\ reset by every count, so one count runs at a time, in any context.
 
 require ../lib/lib.fs
 require ../lib/bytes.fs
@@ -68,7 +71,7 @@ begin-structure /tally
   field: tally-recursors
   lp-buckets cells +field tally-lp
 end-structure
-create count-tally /tally allot
+/tally context-record: count-tally
 export: counted-export
 
 : bytes-of ( n -- addr ) 2* cells count-tally tally-bytes + ;

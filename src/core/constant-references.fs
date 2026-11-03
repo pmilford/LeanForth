@@ -87,9 +87,9 @@ lf-cref-capacity /lf-crec 0 context-store: lf-crefs
 : lf-cref-stamp ( slot -- identity ) lf-cref-serial @ tuck swap lf-crec-identity ! ;
 \ Unchecked input; refuses only when the store has no free record or its
 \ serial is spent, which is recorded as a diagnostic.
+: lf-cref-site ( -- site ) c" constant-references lf-cref-new" ;
 : lf-cref-refused ( -- false )
-  lf-crefs c" constant-references lf-cref-new" lf-diag-references-full lf-diag-store
-  false ;
+  lf-crefs lf-cref-site lf-diag-references-full lf-diag-store false ;
 : lf-cref-store ( name generation addr count -- index identity true | false )
   lf-crefs store-new-slot 0= if 2drop 2drop lf-cref-refused exit then
   >r >r r@ lf-cref-levels! r@ lf-cref-name! r> lf-cref-stamp r> swap true ;

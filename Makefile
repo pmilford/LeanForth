@@ -116,7 +116,8 @@ test-harness:
 # The general Forth library in src/lib. The job pool is not loaded by
 # src/main.fs, so it gets its own silent-load check; task.fs tests the
 # host's workers (threads on Gforth 1.0, cooperative on 0.7.3) and
-# task-serial.fs the serial path; task-overflow.fs and its serial twin test
+# task-serial.fs the serial path (task-no-env.fs on a host that does not
+# report its stack sizes); task-overflow.fs and its serial twin test
 # stack overflows inside jobs. tests/lib/task-bench.fs is report-only.
 test-lib:
 	$(RUN) $(GFORTH) tests/lib/lib.fs
@@ -126,6 +127,7 @@ test-lib:
 	if [ -n "$$out" ]; then printf 'src/lib/task.fs printed while loading:\n%s\n' "$$out" >&2; exit 1; fi
 	$(RUN) $(GFORTH) tests/lib/task.fs
 	$(RUN) $(GFORTH) tests/lib/task-serial.fs
+	$(RUN) $(GFORTH) tests/lib/task-no-env.fs
 	$(RUN) $(GFORTH) tests/lib/bytes.fs
 	$(RUN) $(GFORTH) tests/lib/json.fs
 	$(RUN) $(GFORTH) tests/lib/task-overflow.fs
@@ -164,7 +166,9 @@ test-core:
 	$(RUN) $(GFORTH) tests/core/infer-deep.fs
 	$(RUN) $(GFORTH) tests/core/contexts.fs
 	$(RUN) $(GFORTH) tests/core/contexts-serial.fs
+	$(RUN) $(GFORTH) tests/core/contexts-main.fs
 	$(RUN) $(GFORTH) tests/core/diagnostics.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/core/check_diagnostics_catalogue.py
 	$(RUN) $(GFORTH) tests/core/load.fs
 	$(RUN) $(GFORTH) tests/core/ndjson.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/core/test_ndjson_reader.py

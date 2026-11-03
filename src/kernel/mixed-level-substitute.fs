@@ -87,10 +87,11 @@ lf-term-capacity context-walk: lf-mls-walker
     lf-tag-bvar of drop 2drop outcome-ok endof walk-bad-tag endcase ;
 : lf-mls-visit ( walk -- outcome ) lf-terms ['] lf-mls-dispatch walk-visit ;
 : lf-mls-unseen ( -- ) 0 lf-mls-seen lf-term-capacity cells erase ;
+: lf-mls-site ( -- site ) c" mixed-level-substitute lf-mixed-level-substitute" ;
 \ The formals and count are those last given to lf-lsubst-use.
 : lf-mls-audit-from ( root -- status )
   lf-mls-unseen ['] lf-mls-visit lf-mls-walker walk-run
-  lf-mls-walker c" mixed-level-substitute lf-mixed-level-substitute" lf-diag-walk ;
+  lf-mls-walker lf-mls-site lf-diag-walk ;
 
 \ The source audit alone, as mixed-signature-audit runs it on a candidate
 \ signature: every term reachable from root and every source level against

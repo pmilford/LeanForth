@@ -96,6 +96,11 @@ end-structure
   tuck lf-entry-payload @ = >r lf-name-tag-num swap lf-name-head? r> and ;
 : lf-name-query ( length -- addr length ) lf-name-input-copy swap ;
 : lf-name-bytes@ ( entry -- addr length ) dup lf-entry-payload @ lf-name-bytes + swap lf-entry-length @ ;
+\ The component of a name: the bytes of a string component, the number of
+\ a numeric one. Unchecked: the ID is valid and of that kind (lf-name-tag@),
+\ and the bytes are read before the name store changes.
+: lf-name-text ( id -- c-addr u ) lf-name-slot lf-name-bytes@ ;
+: lf-name-payload ( id -- n ) lf-name-slot lf-entry-payload @ ;
 : lf-name-str-match? ( prefix length entry -- flag )
   >r swap lf-name-tag-str r@ lf-name-head?
   if lf-name-query r> lf-name-bytes@ compare 0= else drop r> drop false then ;

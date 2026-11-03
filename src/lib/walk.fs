@@ -117,7 +117,9 @@ end-structure
 : walk-bad-tag ( first second walk tag -- outcome tag ) >r drop 2drop outcome-invalid r> ;
 
 \ The loop. A step with no fuel left is exhausted; a root that cannot be
-\ pushed (only a corrupted capacity) is invalid, spending nothing.
+\ pushed (only a corrupted capacity) is invalid, spending nothing. A walk
+\ starts with an empty work stack and no node being visited (-1), so a
+\ walk that ends before its first visit names no node of an earlier one.
 : walk-spend? ( walk -- flag )
   walk-fuel dup @ 0= if drop false else -1 swap +! true then ;
 : walk-take-pair ( walk -- ) dup walk-pop-pair rot tuck walk-context ! walk-node ! ;
@@ -130,9 +132,10 @@ end-structure
   begin dup walk-pending @ 0> while
     2dup walk-step dup ok? 0= if nip nip exit then drop
   repeat 2drop outcome-ok ;
-: walk-start ( root walk -- flag ) 0 over walk-pending ! walk-push ;
+: walk-clear ( walk -- ) 0 over walk-pending ! -1 swap walk-node ! ;
+: walk-start ( root walk -- flag ) dup walk-clear walk-push ;
 : walk-run ( root xt walk -- outcome )
   rot over walk-start if walk-loop else 2drop outcome-invalid then ;
-: walk-start-pair ( node context walk -- flag ) 0 over walk-pending ! walk-push-pair ;
+: walk-start-pair ( node context walk -- flag ) dup walk-clear walk-push-pair ;
 : walk-run-pair ( node context xt walk -- outcome )
   >r -rot r@ walk-start-pair if r> walk-loop else drop r> drop outcome-invalid then ;

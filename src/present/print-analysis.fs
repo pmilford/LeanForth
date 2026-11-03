@@ -26,11 +26,8 @@ require ./print-levels.fs
 \ Structural equality of levels (Lean's Level ==).
 defer lf-pp-lsame-visit ( l1 l2 -- outcome )
 : lf-pp-lsame-call ( l1 l2 -- outcome ) ['] lf-pp-lsame-visit lf-pp-call ;
-: lf-pp-ltag@ ( level -- tag ) lf-level-slot node-tag @ ;
-: lf-pp-lfirsts ( l1 l2 -- f1 f2 ) lf-level-slot node-first @ swap lf-level-slot
-  node-first @ swap ;
-: lf-pp-lseconds ( l1 l2 -- s1 s2 )
-  lf-level-slot node-second @ swap lf-level-slot node-second @ swap ;
+: lf-pp-lfirsts ( l1 l2 -- f1 f2 ) lf-level-first@ swap lf-level-first@ swap ;
+: lf-pp-lseconds ( l1 l2 -- s1 s2 ) lf-level-second@ swap lf-level-second@ swap ;
 : lf-pp-lsame-both ( l1 l2 -- outcome )
   2dup lf-pp-lfirsts lf-pp-lsame-call ok-then2? if lf-pp-lseconds lf-pp-lsame-call then ;
 \ A CASE with one short arm per level tag (six lines, kept together so the
@@ -44,8 +41,8 @@ defer lf-pp-lsame-visit ( l1 l2 -- outcome )
     >r 2drop outcome-invalid r> endcase ;
 : lf-pp-lsame ( l1 l2 -- outcome )
   2dup lf-level-pair-valid? 0= if 2drop outcome-invalid exit then
-  over lf-pp-ltag@ over lf-pp-ltag@ <> if 2drop outcome-rejected exit then
-  over lf-pp-ltag@ lf-pp-lsame-by ;
+  over lf-level-tag@ over lf-level-tag@ <> if 2drop outcome-rejected exit then
+  over lf-level-tag@ lf-pp-lsame-by ;
 ' lf-pp-lsame is lf-pp-lsame-visit
 
 \ Constants: name and universe arguments of a constant node.

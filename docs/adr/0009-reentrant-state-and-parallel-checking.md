@@ -84,12 +84,20 @@ Nothing can run twice at once in one Forth image.
    checker work gives its serial digest when contexts are interleaved in
    one task and when trials run as jobs (threads on Gforth 1.0,
    cooperative on 0.7.3, serial); `contexts-serial.fs` runs it on the
-   serial host. Reaching state through the context costs about 13% of
-   checker time on `gforth` and 23% on `gforth-fast` (measured in
+   serial host. Reaching state through the context cost about 13% of
+   checker time on `gforth` and 23% on `gforth-fast`; since members became
+   colon definitions with compiled offsets (2026-11-02) it costs about 9%
+   and 15% (measured in
    [the library notes](../development/FORTH_LIBRARY.md#design-per-task-contexts-and-how-modules-convert)).
    Still global by design: the job pool, the context layout, constant
-   tables and the deferred words set once while loading. Not yet converted:
-   `src/import/`, `src/program/` and the line and JSON readers.
+   tables and the deferred words set once while loading. Converted since:
+   the loader's batch, the NDJSON counter's tally (its export record owns
+   heap buffers and stays shared), the term printer, and the program reader
+   and interpreter; the line and JSON readers keep their state in records
+   their callers pass. Since 2026-11-02 `tests/core/contexts.fs` and
+   `contexts-main.fs` also check that the dictionary the modules lay down
+   while loading is unchanged after real checker work, which finds state
+   left outside the context without a list.
 4. A dependency-ordered scheduler and native tasks through the adapter,
    validated against serial runs (roadmap C3). Serializing the checked
    environment is needed later for the separate checker program and saved

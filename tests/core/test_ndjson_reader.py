@@ -110,6 +110,20 @@ class FixtureDifferential(unittest.TestCase):
             self.assertEqual(code, 0)
             self.assertEqual(output, expected, path.name)
 
+    def test_tally_per_context(self):
+        """The counter's tally is a member of the checker context (ADR 0009):
+        a count in another context leaves this context's report as it was."""
+        first, second = FIXTURES[0], FIXTURES[-1]
+        calls = (f's" {first}" count-report .( {MARK}) cr '
+                 f'context-new throw dup context-use s" {second}" count-report .( {MARK}) cr '
+                 f'context-main context-use .report .( {MARK}) cr context-free throw bye')
+        result = subprocess.run([GFORTH, COUNT_FS, "-e", calls], cwd=ROOT,
+                                stdin=subprocess.DEVNULL, capture_output=True, timeout=600)
+        self.assertEqual(result.returncode, 0, result.stderr.decode(errors="replace")[-2000:])
+        own, other, again = result.stdout.decode("utf-8", errors="replace").split(MARK + "\n")[:3]
+        self.assertNotEqual(own, other)
+        self.assertEqual(again, own)
+
     def test_dumps_equal_python(self):
         outputs = forth_each(DUMP_FS, "dump-export", FIXTURES)
         for path, output in zip(FIXTURES, outputs):

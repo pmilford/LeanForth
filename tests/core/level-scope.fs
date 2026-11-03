@@ -88,4 +88,12 @@ T{ lf-level-capacity 1+ lf-lscope-context-add -> false }T
 T{ lf-lscope-context-count @ -> lf-level-capacity }T
 T{ 1 10 lf-lscope-check -> outcome-ok }T
 T{ lf-level-count @ -> 2 }T
+
+\ A parameter's visit: ok for an ID in the context, invalid outside it
+\ (lf-lscope-param-in, beside the flag lf-lscope-in? that searches a
+\ prefix of the context).
+lf-lscope-context-reset
+T{ 5 lf-lscope-context-add -> true }T
+T{ 5 lf-lscope-param-in 6 lf-lscope-param-in -> outcome-ok outcome-invalid }T
+T{ 5 1 lf-lscope-in? 6 1 lf-lscope-in? -> true false }T
 bye
