@@ -215,20 +215,59 @@ and an outcome from `src/lib/outcome.fs`:
 | Outcome | When |
 | --- | --- |
 | *unsupported* | an unknown word or a word outside IR 0.1 (`UNTIL`, `DO`, `@`, …); a literal of more than ten digits or beyond 2,147,483,647, or in any other number syntax (`$FF`, `#10`, `'a'`, `1.`, `1e`, `+5`, …); a control word or `>R`/`R>`/`R@` outside a definition, or `CONSTANT`/`DECIMAL` inside one; `/` or `MOD` before `CONSTANT`; a second `WHILE` in one loop; a recursive call; a redefinition of a word the reader knows (also in another case, such as `: Dup … ;`); a name over 31 characters; a `(` comment not closed on its line; a character other than printable ASCII, a space or a tab anywhere on a line, comments included (a CR just before an LF ends the line and is not part of it); tokens before `CONSTANT` that do not leave exactly one value, or take values the file did not give, `CONSTANT` with nothing before it included; values left outside a definition |
-| *invalid* | unbalanced `IF`/`ELSE`/`THEN`/`BEGIN`/`WHILE`/`REPEAT`; `:` inside a definition; `:` or `CONSTANT` without its name on the same line; a definition not closed at the end; an unreadable file (a directory, for example) or a line of 128 characters or more, not counting its line end; `lf-ir-feed` or `lf-ir-finish` before `lf-ir-start`; a line fed after `lf-ir-finish` ("reader already finished"); an output word that throws or uses the reader ("output word failed") |
+| *invalid* | unbalanced `IF`/`ELSE`/`THEN`/`BEGIN`/`WHILE`/`REPEAT`; `:` inside a definition; `:` or `CONSTANT` without its name on the same line; a definition not closed at the end; an unreadable file (a directory, for example) or a line of 128 characters or more, not counting its line end; `lf-ir-feed` or `lf-ir-finish` before `lf-ir-start`; a line fed after `lf-ir-finish` ("reader already finished"); an output word that throws, uses the reader, or returns in another context or with the data stack at another depth ("output word failed"); an exception that stops `lf-ir-feed` or the reading of a file ("read stopped by an exception") |
 | *full* | more than 32 definitions, 8 open structures or 8 tokens before `CONSTANT`, or an output line over 96 characters (a `source` path of 90 characters or more does not fit its header line) |
 
-Lines written before a diagnostic are incomplete and must not be used.
-The output word must not use the reader. While it runs, the reader is
-stopped (`lf-ir-reason` then gives "output word running"); if it throws,
-or calls `lf-ir-start`, `lf-ir-feed`, `lf-ir-finish` or `lf-ir-read-file`,
-the read stops as *invalid* ("output word failed"), and an exception
-passes to the caller, after a file being read is closed. `lf-ir-finish`
-ends a read: finishing again gives the same outcome, and a line fed after
-it stops the reader as *invalid* and writes nothing. `lf-ir-feed` copies
-each line before reading it, so the line may be in a transient buffer; its
-length is unsigned, and a line of 128 characters or more is refused
-without being read.
+Lines written before a diagnostic or an exception are incomplete and must
+not be used. `lf-ir-finish` ends a read: finishing again gives the same
+outcome, and a line fed after it stops the reader as *invalid* and writes
+nothing. `lf-ir-feed` copies each line before reading it, so the line may
+be in a transient buffer; its length is unsigned, and a line of 128
+characters or more is refused without being read.
+
+The output word must not use the reader, and must return in the context
+it was called in, having taken its two arguments and left nothing. While
+it runs, the reader is stopped (`lf-ir-reason` then gives "output word
+running"). If it throws, or calls `lf-ir-start`, `lf-ir-feed`,
+`lf-ir-finish` or `lf-ir-read-file`, the read stops as *invalid* ("output
+word failed"). If it returns in another context, or with the data stack
+at another depth, the reader aborts (`THROW` −2) without touching any
+context's record, not even to switch back, since the output word may have
+freed the context it left; that read stays stopped as "output word
+running" and fails ("output word failed") when it is fed or finished. An
+exception that stops `lf-ir-feed` or the reading of a file, such as
+`THROW` −28 from Ctrl-C during a blocked `READ-FILE`, stops the read as
+*invalid* ("read stopped by an exception"). Every exception passes to the
+caller, after a file being read is closed.
+
+**Threat model.** The reader defends against hostile *source files*:
+whatever a file holds, the reader refuses it or gives IR that means what
+Gforth does with the file (the rule below). Its caller and the output
+word are *trusted* harness code, such as the receipt generator and the
+tests, relied on to use the reader as this section says. Even so, the
+reader fails closed on the misuse it can detect cheaply, and this is the
+whole list; after each, the read ends *invalid*, never *ok*:
+
+- the output word throws;
+- the output word starts, feeds or finishes a read;
+- the output word returns in another context;
+- the output word returns with the data stack at another depth;
+- a line is fed before `lf-ir-start` or after `lf-ir-finish`;
+- an exception stops `lf-ir-feed` or the reading of a file;
+- a fed line's length is negative as a signed number (being unsigned, it
+  is too long, and the line is refused unread).
+
+Other misuse is not detected and is outside what the reader defends
+against: an output word that writes into the reader's record or other
+memory, changes data-stack cells below its arguments without changing the
+depth, unbalances the return stack, or frees its context and makes a new
+one at the same address; a caller that sets `lf-context` to anything but
+a live context, ignores the outcome, uses lines written before a
+diagnostic or an exception, or goes on with a read after an exception
+from `lf-ir-start` that the output word did not throw. A review judges
+the reader against this model: an accepted file whose IR does not mean
+what Gforth does with it is a soundness bug; caller misuse is a bug only
+where the list above says the reader detects it.
 
 **It accepts less than Gforth, never more,** and gives what it accepts
 Gforth's meaning (checked on Gforth 1.0.0 and 0.7.3):
@@ -325,8 +364,11 @@ the smallest cell divided by −1 (−11) before `CONSTANT`. The Forth tests
 count the files opened, closed and read: a directory opens but cannot be
 read, `/dev/zero` is refused after two blocks, and every file is closed.
 They also give the reader output words that throw, feed a line, finish,
-or start another read, each of which must stop the read as *invalid*, and
-feed lines after `lf-ir-finish`.
+start another read, return in another context, or leave or take a cell,
+and interrupt a file's first read and a fed line with `THROW` −28, as
+Ctrl-C would; each must stop the read as *invalid*, and a switch of
+context must leave the other context's read untouched. They also feed
+lines after `lf-ir-finish`.
 
 The reader is trusted for the translation: nothing proves that the IR means
 what the source means on the host. Receipts list it as the assumption
