@@ -17,6 +17,12 @@ include ./task-job.fs
 \ Nested-job results, recorded inside a job.
 4 cells context-record: notes
 
+\ Stack needs (context.fs): the largest stated data and return need is
+\ kept, each on its own; pool-start refuses settings below it (below).
+T{ context-needs -> 0 0 }T
+600 300 context-need  100 700 context-need  50 50 context-need
+T{ context-needs -> 600 700 }T
+
 6 constant jobs
 3 constant job-rounds
 16 constant job-every
@@ -176,6 +182,9 @@ free-pair
 T{ depths task-slack-cells - swap task-slack-cells - swap job-stacks-cover? -> true }T
 : at-limit ( -- data return ) depths task-slack-cells - swap task-slack-cells - swap ;
 T{ at-limit 1+ job-stacks-cover? at-limit swap 1+ swap job-stacks-cover? -> false false }T
+\ The layout is sealed: no need can be stated any more.
+: need-refused? ( -- flag ) s" 1 1 context-need" ['] evaluate catch dup if nip nip then 0<> ;
+T{ need-refused? context-needs -> true 600 700 }T
 
 T{ lf-context @ context-main = -> true }T
 T{ depth -> 0 }T
@@ -211,6 +220,15 @@ task-data-cells constant normal-cells
 T{ pool-stop max-n 8 cells / to task-data-cells pool-start live -> task-no-worker 0 }T
 T{ c3 ' noop job-submit c3 context-idle? -> 0 task-no-worker true }T
 normal-cells to task-data-cells
+T{ pool-start live c3 ' noop job-submit throw job-wait -> 0 pooled? task-cores and 0 }T
+\ Stack settings below the stated need: the pool does not start, every
+\ submission is refused and nothing is claimed, until the setting is back.
+task-return-cells constant normal-return
+T{ pool-stop 600 to task-data-cells pool-start live -> task-stacks-small 0 }T
+T{ c3 ' noop job-submit c3 context-idle? -> 0 task-stacks-small true }T
+normal-cells to task-data-cells  700 to task-return-cells
+T{ pool-start live -> task-stacks-small 0 }T
+normal-return to task-return-cells
 T{ pool-start live c3 ' noop job-submit throw job-wait -> 0 pooled? task-cores and 0 }T
 c3 context-free throw
 T{ depth -> 0 }T

@@ -68,9 +68,10 @@ lf-term-capacity context-walk: lf-ssession-walker
 \ Establishes no binder scope, typing, equality or proof validity.
 : lf-ssession-repr ( root -- root outcome )
   dup lf-repr-symbolic lf-ssession-fuel @ lf-repr-check lf-repr-fuel @ lf-ssession-fuel ! ;
+: lf-ssession-site ( -- site ) c" symbolic-session lf-ssession-check" ;
 : lf-ssession-levels ( root -- outcome )
   ['] lf-ssession-visit lf-ssession-walker walk-run
-  lf-ssession-walker c" symbolic-session lf-ssession-check" lf-diag-walk ;
+  lf-ssession-walker lf-ssession-site lf-diag-walk ;
 : lf-ssession-ready? ( fuel -- flag ) lf-ssession-walker walk-budget lf-ssession-current? and ;
 : lf-ssession-check ( root fuel -- status )
   lf-ssession-ready? if lf-ssession-repr ok-then? if lf-ssession-levels then else drop-invalid then ;

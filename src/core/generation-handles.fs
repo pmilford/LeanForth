@@ -90,9 +90,9 @@ lf-term-capacity context-walk: lf-href-walker
 : lf-href-visit ( walk -- outcome ) lf-terms ['] lf-href-dispatch walk-visit ;
 \ Internal: audit an already structurally checked root. Negative fuel is
 \ invalid.
+: lf-href-site ( -- site ) c" generation-handles lf-hterm-check" ;
 : lf-href-run ( root -- status )
-  ['] lf-href-visit lf-href-walker walk-run
-  lf-href-walker c" generation-handles lf-hterm-check" lf-diag-walk ;
+  ['] lf-href-visit lf-href-walker walk-run lf-href-walker lf-href-site lf-diag-walk ;
 : lf-href-check ( root fuel -- status )
   lf-href-walker walk-budget if lf-href-run else drop-invalid then ;
 

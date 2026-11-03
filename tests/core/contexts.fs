@@ -16,16 +16,25 @@
 \   threads on Gforth 1.0, cooperative on 0.7.3 with a yield every few
 \   steps, serial in contexts-serial.fs), with the main context untouched;
 \ - the deepest recursive passes fit the job stacks (job-stacks-cover?)
-\   and give their serial results inside jobs.
+\   and give their serial results inside jobs;
+\ - the dictionary that the library, the job pool and every core and
+\   kernel module (the checked environment too) lay down while loading
+\   is unchanged after real checker work (tests/support/dictionary-check.fs),
+\   so no module keeps state outside the context, not even a register
+\   within one call. contexts-main.fs does the same with src/main.fs.
+\ The trial folds each check's diagnostic into its digest too.
 \ Constants defined before this file set the stress: stress-rounds job
 \ batches (default 2) of trial-jobs jobs (8) of trial-steps steps (300).
 \ Nothing here checks or accepts a theorem.
 include ../support/tester.fs
 include ../support/checks.fs
+here constant dict-start
 \ The pool first, so that mixed-beta.fs's load-time guard also checks the
 \ job stacks.
 require ../../src/lib/task.fs
 require ../../src/kernel/mixed-definition-probe.fs
+require ../../src/kernel/env-publish.fs
+here constant dict-end
 include ../support/plain-terms.fs
 include ../support/plain-cases.fs
 
@@ -41,10 +50,16 @@ end-structure
 /depths context-record: depths
 
 \ The main context right after loading, before any test changes it.
-create loaded context-bytes allot
-context-main loaded context-bytes move
+context-bytes constant loaded-bytes
+create loaded loaded-bytes allot
+context-main loaded loaded-bytes move
+\ The checked environment's test world and input (part d); including it
+\ declares a member and builds the world in the main context.
+include ../support/env-cases.fs
 
-\ Members: each state word's address lies inside the current context.
+\ Members: the state words of the core and kernel modules, which other
+\ modules and tests address, lie inside the current context. The list is
+\ kept by hand; part (d) finds state left outside the context without one.
 create state-words
   ' lf-terms , ' lf-levels , ' lf-names , ' lf-name-pool , ' lf-crefs ,
   ' lf-lscope-state , ' lf-lscope-walk , ' lf-cterm-stamps , ' lf-cterm-walker ,
@@ -54,7 +69,8 @@ create state-words
   ' lf-mshift-job , ' lf-minst-job , ' lf-mbeta-frames , ' lf-mcompare-walker ,
   ' lf-mcompare-level-walker , ' lf-mconvert-walker , ' lf-minfer-job ,
   ' lf-mls-walker , ' lf-mls-job , ' lf-mdefinition-request , ' lf-msp-index ,
-  ' lf-msp-request , ' lf-msa-state , ' lf-diagnostic ,
+  ' lf-msp-request , ' lf-msa-state , ' lf-diagnostic , ' lf-inputs ,
+  ' lf-input-state , ' lf-env-cand ,
 here state-words - 1 cells / constant state-count
 : state-word ( i -- addr ) cells state-words + @ execute ;
 : state-offset ( addr -- n ) lf-context @ - ;
@@ -65,9 +81,23 @@ T{ all-inside? -> true }T
 context-new throw constant other
 other context-use
 T{ all-inside? offsets -> true context-main context-use offsets }T
-\ A new context starts exactly as the main context did after loading.
-T{ other loaded context-bytes tuck compare -> 0 }T
+\ A new context starts exactly as the main context did after loading
+\ (after the header, whose size grew; the member env-cases.fs declared
+\ later starts zeroed).
+: past-header ( addr -- addr' u ) /context-header + loaded-bytes /context-header - ;
+T{ other past-header loaded past-header compare -> 0 }T
+T{ other loaded-bytes + context-bytes loaded-bytes - 1 cells / cells-zero? -> true }T
 T{ other context-free -> 0 }T
+
+\ (d) The dictionary is unchanged after a trial and an environment run.
+include ../support/dictionary-check.fs
+dict-prepare dict-snap
+T{ dict-work -> outcome-ok }T
+T{ dict-changes dict-first -> 0 0 }T
+." dictionary unchanged: " dict-bytes . ." bytes after a trial and an environment run" cr
+dict-finish
+T{ lf-context @ context-main = -> true }T
+T{ depth -> 0 }T
 
 \ The serial reference: each trial alone, to the end, in a fresh context.
 [defined] trial-jobs [if] trial-jobs [else] 8 [then] constant jobs
@@ -128,11 +158,16 @@ T{ lf-context @ context-main = -> true }T
 T{ depth -> 0 }T
 
 \ (c) Recursion inside jobs. The beta, instantiate and shift passes nest
-\ up to three times lf-term-capacity frames; mixed-beta.fs states the
-\ cells that need, which the job stacks cover (also checked when it
-\ loads). The deepest inputs known then run inside jobs, with both stacks
-\ painted below the job's word to measure what they used.
-T{ lf-mbeta-data-cells lf-mbeta-return-cells job-stacks-cover? -> true }T
+\ up to three times lf-term-capacity frames, and inference can nest them
+\ at its deepest level; mixed-beta.fs and mixed-infer.fs state the cells
+\ that needs (context-need), the largest being inference's, which the job
+\ stacks cover (pool-start refuses settings that do not). The deepest
+\ inputs known then run inside jobs, with both stacks painted below the
+\ job's word to measure what they used.
+T{ context-needs -> lf-minfer-data-cells lf-minfer-return-cells }T
+T{ lf-minfer-data-cells lf-mbeta-data-cells > lf-minfer-return-cells lf-mbeta-return-cells >
+  -> true true }T
+T{ context-needs job-stacks-cover? -> true }T
 1400 constant paint-cells
 48879 constant paint-mark
 : paint-span ( top -- end start ) dup paint-cells cells - ;

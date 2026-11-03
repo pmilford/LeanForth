@@ -4,8 +4,11 @@
 \ levels and supplies zero-based record indices and children relative to
 \ this batch.
 \ State: one batch record, lf-load-batch: whether a batch is open and the
-\ term count where it began. The transaction assumes no concurrent or
-\ external arena mutation; single-threaded and not re-entrant.
+\ term count where it began; a member of the checker context
+\ (lib/context.fs), like the term store it rolls back, so a batch belongs
+\ to the context it was opened in and every context starts with none open.
+\ The transaction assumes no concurrent or external arena mutation;
+\ single-threaded within one context and not re-entrant.
 
 require ../lib/lib.fs
 require ../core/terms.fs
@@ -14,8 +17,7 @@ begin-structure /lf-batch
   field: lf-batch-open     \ true while a batch is open
   field: lf-batch-start    \ term count when the open batch began
 end-structure
-create lf-load-batch /lf-batch allot
-lf-load-batch /lf-batch erase
+/lf-batch context-record: lf-load-batch
 
 : lf-load-open? ( -- flag ) lf-load-batch lf-batch-open @ ;
 : lf-load-close ( -- ) false lf-load-batch lf-batch-open ! ;

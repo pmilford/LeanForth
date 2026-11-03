@@ -44,8 +44,9 @@ lf-term-capacity /node 0 context-store: lf-terms
 \ Append a node whose tag and fields the caller validated. An invalid count,
 \ a full store or a spent serial returns false, changes nothing and is
 \ recorded as a diagnostic.
+: lf-term-site ( -- site ) c" terms lf-term-add" ;
 : lf-term-refused ( -- false )
-  lf-terms c" terms lf-term-add" lf-diag-terms-full lf-diag-store false ;
+  lf-terms lf-term-site lf-diag-terms-full lf-diag-store false ;
 : lf-term-add ( tag first second -- index true | false )
   lf-terms node-new dup 0= if drop lf-term-refused then ;
 

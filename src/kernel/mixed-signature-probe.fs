@@ -60,6 +60,11 @@ end-structure
 /lf-sigs context-record: lf-msp-index
 /lf-sigreq context-record: lf-msp-request
 
+\ Failures are recorded as diagnostics at the module's one site, whose
+\ name gives the prefix of its public words: a full index (lf-msp-put) and
+\ a missing candidate (lf-msp-specialize) differ by their codes.
+: lf-msp-site ( -- site ) c" mixed-signature-probe lf-msp" ;
+
 \ The index fields under their established names (tests and stream fixtures
 \ read the arrays and the count).
 : lf-msp-count ( -- addr ) lf-msp-index lf-sigs-count ;
@@ -158,8 +163,8 @@ end-structure
 : lf-msp-new? ( token req -- flag )
   tuck lf-msp-well-formed? if lf-sigreq-name @ lf-msp-position 0< else drop false then ;
 : lf-msp-full ( -- outcome )
-  lf-msp-count @ lf-msp-capacity c" mixed-signature-probe lf-msp-put"
-  lf-diag-signatures-full lf-diag-note outcome-full ;
+  lf-msp-count @ lf-msp-capacity lf-msp-site lf-diag-signatures-full lf-diag-note
+  outcome-full ;
 : lf-msp-room ( -- outcome )
   lf-msp-count @ lf-msp-capacity < if outcome-ok else lf-msp-full then ;
 : lf-msp-addable ( token req -- status )
@@ -193,8 +198,7 @@ end-structure
   over lf-msp-root@ over lf-sigreq-root ! over lf-msp-id@ over lf-sigreq-id !
   swap lf-msp-formals-at swap lf-sigreq-formals ! ;
 : lf-msp-missing ( req position -- status )
-  drop lf-sigreq-name @ 0 c" mixed-signature-probe lf-msp-specialize"
-  lf-diag-no-signature lf-diag-note outcome-unknown ;
+  drop lf-sigreq-name @ 0 lf-msp-site lf-diag-no-signature lf-diag-note outcome-unknown ;
 : lf-msp-select ( req -- status )
   dup lf-sigreq-name @ lf-msp-position dup 0< if lf-msp-missing exit then
   2dup lf-msp-arity= if swap lf-msp-entry! outcome-ok else 2drop outcome-invalid then ;

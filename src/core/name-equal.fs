@@ -9,10 +9,9 @@
 require ../lib/lib.fs
 require ./names.fs
 
-\ Unchecked: one component of two valid entries, without their prefixes.
-: lf-name-payload ( id -- n ) lf-name-slot lf-entry-payload @ ;
+\ Unchecked: one component of two valid entries, without their prefixes
+\ (lf-name-payload and lf-name-text are names.fs's).
 : lf-name-num= ( a b -- flag ) lf-name-payload swap lf-name-payload = ;
-: lf-name-text ( id -- addr u ) lf-name-slot lf-name-bytes@ ;
 : lf-name-str= ( a b -- flag ) lf-name-text rot lf-name-text compare 0= ;
 : lf-name-tags= ( a b -- flag ) lf-name-tag@ swap lf-name-tag@ = ;
 : lf-name-part= ( a b -- flag )

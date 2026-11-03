@@ -11,10 +11,11 @@
 \ (lib/context.fs). A node's intermediate results stay on the data stack.
 \ Single-threaded within one context. lf-minfer-walk is deferred only for
 \ the mutual recursion and set once, at load time, and shared.
-\ Stack use: the recursion runs on the host stacks, about 6 return-stack and
-\ up to 3 data-stack cells per level, at most lf-term-capacity levels (plus
-\ the nested rebuild passes); a host stack overflow throws and never yields
-\ a result. mixed-definition-probe.fs starts a job with lf-minfer-start,
+\ Stack use: the recursion runs on the host stacks, at most 7 return-stack
+\ and 5 data-stack cells per level, at most lf-term-capacity levels, and a
+\ conversion at the deepest level nests beta's passes (see the need stated
+\ at the end); a host stack overflow throws and never yields a result.
+\ mixed-definition-probe.fs starts a job with lf-minfer-start,
 \ calls lf-minfer-walk, lf-minfer-sort-level and lf-minfer-compare directly,
 \ and reads lf-minfer-fuel afterwards.
 
@@ -27,6 +28,7 @@ require ../core/generation-handles.fs
 require ../core/levels.fs
 require ../core/tagged-sort-boundary.fs
 require ../core/terms.fs
+require ./mixed-beta.fs
 require ./mixed-convert.fs
 require ./mixed-instantiate.fs
 require ./mixed-shift.fs
@@ -278,3 +280,23 @@ defer lf-minfer-walk ( node -- type status )
   dup 0< if lf-minfer-negative exit then
   >r rot r> lf-minfer-start over swap lf-minfer-preflight
   dup ok? if drop lf-minfer-run else nip lf-minfer-failed then ;
+
+\ Host stacks. Each level of the recursion holds at most 7 return-stack
+\ and 5 data-stack cells: stack painting on Gforth 0.7.3 and 1.0 (which
+\ agree) along its five paths, an application's argument and function, a
+\ binder's body and domain, and a Pi's body, at every depth that ends ok
+\ (2026-11-02). At any level a comparison runs conversion, whose beta
+\ reductions nest instantiate and shift passes (lf-mbeta-*-cells, whose
+\ slack also covers the entry words of conversion and of the definition
+\ probe, which nests no deeper than inference). So a check nests at most
+\ lf-term-capacity levels of inference plus beta's need: 1,664 return and
+\ 1,280 data cells. Loading stops when the host's stacks are smaller, and
+\ the need is stated for the job pool (context-need).
+7 constant lf-minfer-rs-level   \ return-stack cells per level
+5 constant lf-minfer-ds-level   \ data-stack cells per level
+: lf-minfer-need ( cells-per-level beta-cells -- cells ) swap lf-term-capacity * + ;
+lf-minfer-rs-level lf-mbeta-return-cells lf-minfer-need constant lf-minfer-return-cells
+lf-minfer-ds-level lf-mbeta-data-cells lf-minfer-need constant lf-minfer-data-cells
+lf-minfer-data-cells lf-minfer-return-cells lf-mbeta-host?
+0= [if] .( mixed-infer.fs: host stacks too small for lf-term-capacity) cr abort [then]
+lf-minfer-data-cells lf-minfer-return-cells context-need

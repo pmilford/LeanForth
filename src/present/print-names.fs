@@ -21,8 +21,8 @@ lf-term-capacity context-walk2: lf-pp-scan-walk
 \ lf-name-storage-valid?, so every prefix is an earlier entry and the
 \ recursion is at most as deep as the ID. The anonymous name gives nothing.
 : lf-pp-part ( id xt -- )
-  >r lf-name-slot dup lf-entry-tag @ lf-name-tag-str =
-  if lf-name-bytes@ r> execute else lf-entry-payload @ r> lf-pp-number-to then ;
+  >r dup lf-name-tag@ lf-name-tag-str =
+  if lf-name-text r> execute else lf-name-payload r> lf-pp-number-to then ;
 : lf-pp-dot-to ( xt -- ) s" ." rot execute ;
 : lf-pp-name-to ( id xt -- )
   over 0= if 2drop exit then
@@ -32,7 +32,7 @@ lf-term-capacity context-walk2: lf-pp-scan-walk
 \ print as the part before _@, as Lean's delaborator prints them.
 : lf-pp-str? ( id c-addr u -- flag )
   rot dup lf-name-tag@ lf-name-tag-str =
-  if lf-name-slot lf-name-bytes@ compare 0= else drop 2drop false then ;
+  if lf-name-text compare 0= else drop 2drop false then ;
 : lf-pp-skip-nums ( id -- id' ) begin dup lf-name-tag@ lf-name-tag-num = while
   lf-name-prefix@ repeat ;
 : lf-pp-hygienic? ( id -- flag ) lf-pp-skip-nums s" _hyg" lf-pp-str? ;

@@ -45,13 +45,23 @@ first-context context-use
 ." example: " lf-diag. cr
 end-check
 \ Every code of the catalogue has a name.
-create codes 1 , 2 , 3 , 4 , 5 , 6 , 7 , 8 , 9 , 10 , 11 , 12 , 13 , 14 ,
-  20 , 21 , 22 , 23 , 24 , 30 , 31 , 32 , 33 , 34 , 40 ,
+create codes 1 , 2 , 3 , 4 , 5 , 6 , 7 , 8 , 9 , 10 , 11 , 12 , 13 , 14 , 15 , 16 ,
+  20 , 21 , 22 , 23 , 24 , 25 , 26 , 27 , 28 , 29 , 30 , 31 , 32 , 33 , 34 , 35 ,
+  40 , 41 , 50 , 51 , 52 , 53 , 54 ,
 here codes - 1 cells / constant code-count
 : named? ( code -- flag ) lf-diag-name s" unknown code" compare 0<> ;
 : all-named? ( -- flag ) true code-count 0 ?do i cells codes + @ named? and loop ;
 T{ all-named? 0 named? -> true false }T
 T{ lf-diag-fuel lf-diag-name s" fuel exhausted" compare -> 0 }T
+\ The catalogue table lists exactly these codes, in this order, and ends
+\ with the entry that names every other code.
+: listed? ( entry i -- entry' flag )
+  cells codes + @ over lf-diag-entry-code = swap lf-diag-entry-next swap ;
+: catalogue-codes? ( -- flag )
+  lf-diag-catalogue true code-count 0 ?do swap i listed? rot and loop
+  swap lf-diag-entry-code lf-diag-none = and ;
+T{ catalogue-codes? -> true }T
+T{ 99 lf-diag-name s" unknown code" compare -> 0 }T
 
 \ Stores: full, a spent serial, and a store that fails its own checks.
 : fill-terms ( -- ) lf-term-capacity lf-term-count @ ?do 0 lf-term-bvar must drop loop ;
@@ -92,7 +102,7 @@ end-check
 : fill-index ( -- ) lf-msp-capacity 0 ?do 0 i 1+ lf-name-num must put ok? must loop ;
 begin-check fill-index lf-diag-clear
 T{ 0 99 lf-name-num must put diag -> outcome-full 32 32 lf-diag-signatures-full }T
-T{ s" mixed-signature-probe lf-msp-put" at? -> true }T
+T{ s" mixed-signature-probe lf-msp" at? -> true }T
 end-check
 
 \ Walks and recursive passes running out of fuel: over every fuel up to a
@@ -162,6 +172,18 @@ end-check
 begin-check samples 1 lf-cterm-walker walk-capacity ! lf-diag-clear
 T{ 2 handle 10 lf-cterm-check diag -> outcome-full 1 1 lf-diag-work-stack-full }T
 T{ s" constant-term-boundary lf-cterm-check" at? -> true }T
+end-check
+\ A walk that ends before its first visit records no node (-1), not the
+\ node an earlier walk visited last: a work stack that cannot hold the
+\ root (a corrupted capacity) is malformed at -1. An unpaired walk that
+\ ends undecided records its node and 0, never its unused context cell.
+begin-check samples 2 handle 10 lf-cterm-check drop 0 lf-cterm-walker walk-capacity !
+lf-diag-clear
+T{ 2 handle 10 lf-cterm-check diag -> outcome-invalid -1 0 lf-diag-malformed }T
+end-check
+begin-check 5 lf-cterm-walker walk-node ! 7 lf-cterm-walker walk-context ! lf-diag-clear
+T{ outcome-unknown lf-cterm-walker test-site lf-diag-walk diag
+  -> outcome-unknown 5 0 lf-diag-undecided }T
 end-check
 begin-check samples 1 lf-mbeta-frames frame-limit ! lf-diag-clear
 T{ 9 handle 1000 lf-mixed-beta nip nip diag -> outcome-full 1 1 lf-diag-frame-limit }T
@@ -248,6 +270,9 @@ T{ level-u 1000 lf-level-value nip diag -> outcome-unknown level-u 0 lf-diag-sym
 lf-diag-clear
 T{ token u-name pairs 0 1000 lf-msp-specialize diag
   -> outcome-unknown u-name 0 lf-diag-no-signature }T
+\ One site per module: the signature index records both of its failures
+\ at the same site.
+T{ s" mixed-signature-probe lf-msp" at? -> true }T
 lf-diag-clear
 T{ 0 9 lf-minfer-leaf diag -> -1 outcome-unknown 9 0 lf-diag-unsupported }T
 end-check
@@ -265,10 +290,10 @@ T{ token 4 handle 1000 lf-mixed-infer nip nip lf-diag-code@ -> outcome-unknown l
 end-check
 
 \ Random checker work: each check's outcome is explained by its family.
-: room-code? ( code -- flag ) lf-diag-terms-full lf-diag-heap-failed 1+ within ;
-: input-code? ( code -- flag ) lf-diag-bad-argument lf-diag-corrupted 1+ within ;
+: room-code? ( code -- flag ) lf-diag-terms-full lf-diag-pool-full 1+ within ;
+: input-code? ( code -- flag ) lf-diag-bad-argument lf-diag-publisher-fault 1+ within ;
 : undecided-code? ( code -- flag )
-  dup lf-diag-undecided lf-diag-symbolic-level 1+ within swap lf-diag-unsupported = or ;
+  dup lf-diag-undecided lf-diag-dependency-undecided 1+ within swap lf-diag-unsupported = or ;
 : or-none ( code flag -- flag ) swap lf-diag-none = or ;
 : explained? ( outcome -- flag )
   lf-diag-code@ swap case
@@ -280,7 +305,7 @@ end-check
     nip false swap endcase ;
 create counts 7 cells allot  counts 7 cells erase
 create recorded 7 cells allot  recorded 7 cells erase
-41 constant code-limit
+55 constant code-limit
 create code-counts code-limit cells allot  code-counts code-limit cells erase
 variable unexplained  0 unexplained !
 : count-code ( -- ) lf-diag-code@ 0 max code-limit 1- min cells code-counts + 1 swap +! ;

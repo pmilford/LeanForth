@@ -264,6 +264,18 @@ T{ 5 ' fib-visit w3 walk-run w3 walk-fuel @ -> outcome-exhausted 0 }T
 : stop-at-3 ( walk -- outcome ) dup walk-node @ 3 = if drop outcome-unknown else fib-visit then ;
 100 w2 walk-budget drop
 T{ 5 ' stop-at-3 w2 walk-run -> outcome-unknown }T
+\ A walk that ends before its first visit names no node (-1), not the node
+\ of the walk before: here the root cannot be pushed (a corrupted
+\ capacity, invalid), or no fuel is left (exhausted).
+T{ w2 walk-node @ -> 3 }T
+w2 walk-capacity @  0 w2 walk-capacity !
+T{ 5 ' fib-visit w2 walk-run w2 walk-node @ -> outcome-invalid -1 }T
+w2 walk-capacity !
+T{ 5 ' stop-at-3 w2 walk-run w2 walk-node @ -> outcome-unknown 3 }T
+T{ 0 w2 walk-budget drop 5 ' fib-visit w2 walk-run w2 walk-node @ -> outcome-exhausted -1 }T
+T{ 2 walk2: pz -> }T
+3 pz walk-node !
+T{ 5 6 ' fib-visit pz walk-run-pair pz walk-node @ -> outcome-exhausted -1 }T
 
 \ Re-entrancy: a visitor may run a complete walk on another record, as the
 \ session check runs a level-scope check inside its own walk.

@@ -124,4 +124,12 @@ lf-name-reset
 lf-name-reset
 T{ lf-name-generation @ -> -1 }T
 T{ 0 1 lf-name-num -> false }T
+
+\ The component of a valid name: a string's bytes, a number.
+0 lf-name-generation !
+lf-name-reset
+T{ 0 s" Nat" lf-name-str -> 1 true }T
+T{ 1 41 lf-name-num -> 2 true }T
+T{ 1 lf-name-text s" Nat" compare 2 lf-name-payload -> 0 41 }T
+T{ 1 lf-name-tag@ 2 lf-name-tag@ -> lf-name-tag-str lf-name-tag-num }T
 bye
