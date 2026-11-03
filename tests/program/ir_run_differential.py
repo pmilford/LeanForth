@@ -15,7 +15,8 @@ faults in the interpreter must be caught.
 With --lean it also gives every line of that table to Lean's evaluation of
 the model (tests/reference/program-ir-run.lean), which must print exactly
 the same lines; generates random IR programs and cases (every primitive,
-IF, loops, calls, EXIT, constants, unknown words, small fuel), which the
+IF, loops also inside loops, calls, EXIT, constants, unknown words,
+literals with leading zeros, small fuel), which the
 interpreter (tests/program/ir-run-cases.fs) and Lean must also agree on
 exactly; checks that faults planted in the interpreter's primitive table
 make that comparison fail; and checks that the comparison notices one
@@ -83,14 +84,21 @@ def value(rng):
 
 
 def literal(rng):
-    """A literal: mostly a value, sometimes one at or beyond the cell's edge,
-    which the model and the interpreter must both treat as unmodeled."""
+    """A literal's text: mostly a value, sometimes one at or beyond the cell's
+    edge, which the model and the interpreter must both treat as unmodeled;
+    sometimes with leading zeros, which the model's parser (String.toInt?)
+    reads as the same number, and so must the interpreter."""
     if rng.below(12) == 0:
-        return rng.choice([-(1 << 63), 1 << 63, -(1 << 63) - 1, 10 ** 20, -(10 ** 20)])
-    return value(rng)
+        n = rng.choice([-(1 << 63), 1 << 63, -(1 << 63) - 1, 10 ** 20, -(10 ** 20)])
+    else:
+        n = value(rng)
+    zeros = "0" * (1 + rng.below(25)) if rng.below(8) == 0 else ""
+    return ("-" if n < 0 else "") + zeros + str(abs(n))
 
 
-def block(rng, names, depth, in_loop, pad):
+def block(rng, names, depth, pad):
+    """Up to five lines at one depth; IF up to three deep, and loops, also
+    inside loops, up to two deep."""
     lines = []
     for _ in range(rng.below(6)):
         kind = rng.below(100)
@@ -102,16 +110,16 @@ def block(rng, names, depth, in_loop, pad):
             lines.append(f"{pad}call {rng.choice(names + ['zz'])}")
         elif kind < 91 and depth < 3:
             lines.append(f"{pad}if")
-            lines += block(rng, names, depth + 1, in_loop, pad + "  ")
+            lines += block(rng, names, depth + 1, pad + "  ")
             if rng.below(2):
                 lines.append(f"{pad}else")
-                lines += block(rng, names, depth + 1, in_loop, pad + "  ")
+                lines += block(rng, names, depth + 1, pad + "  ")
             lines.append(f"{pad}then")
-        elif kind < 96 and depth < 2 and not in_loop:
+        elif kind < 96 and depth < 2:
             lines.append(f"{pad}begin")
-            lines += block(rng, names, depth + 1, True, pad + "  ")
+            lines += block(rng, names, depth + 1, pad + "  ")
             lines.append(f"{pad}while")
-            lines += block(rng, names, depth + 1, True, pad + "  ")
+            lines += block(rng, names, depth + 1, pad + "  ")
             lines.append(f"{pad}repeat")
         else:
             lines.append(f"{pad}exit")
@@ -124,7 +132,7 @@ def program(rng, number):
     for name in names:
         kind = "constant" if rng.below(5) == 0 else "word"
         lines.append(f"{kind} {name}")
-        lines += block(rng, names, 0, False, "  ")
+        lines += block(rng, names, 0, "  ")
         lines.append("end")
     return names, "\n".join(lines) + "\n"
 

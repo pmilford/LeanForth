@@ -161,7 +161,14 @@ definition = ( "word " name | "constant " name ) [loc] NL { line } "end" [loc] N
 line       = indent ( "prim " word | "lit " integer | "call " name | "exit"
                     | "if" | "else" | "then" | "begin" | "while" | "repeat" ) [loc] NL
 loc        = " @" line-number ":" column-number
+integer    = [ "-" ] digit { digit }      (decimal)
 ```
+
+An integer is read as the mathematical integer it denotes, so leading
+zeros are allowed and change nothing (`-007` is −7). An integer outside
+the cell is still well-formed text; running it is the failure
+*unmodeled*. The reader itself always writes integers without leading
+zeros.
 
 Names (after `word`, `constant` and `call`) are written in lower case
 whatever case the source uses, since Gforth finds names ignoring the case

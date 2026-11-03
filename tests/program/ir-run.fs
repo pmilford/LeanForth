@@ -1,8 +1,10 @@
 \ Tests of the program IR interpreter (src/program/ir-run.fs): loading the
-\ reader's golden IR and its live output, every loading diagnostic, every
-\ primitive's edge cases, every failure of the model, the exact fuel that
-\ calls and loops spend, the capacities, and separate contexts. Lean's
-\ agreement on all of this is checked by tests/program/ir_run_differential.py.
+\ reader's golden IR and its live output, every loading diagnostic (long
+\ lines, lines after a finished load), literals at the cell's edges and
+\ with leading zeros, every primitive's edge cases, every failure of the
+\ model, the exact fuel that calls and loops (also nested) spend, the
+\ capacities (frames through nested blocks), and separate contexts. Lean's
+\ agreement is checked by tests/program/ir_run_differential.py.
 include ../support/tester.fs
 require ../../src/program/ir-reader.fs
 require ../../src/program/ir-run.fs
@@ -14,7 +16,8 @@ decimal
 : loaded ( -- outcome ) irx-load-finish ;
 \ Running: the stack is set from the host stack, n items.
 : given ( x1..xn n -- ) irx-clear 0 ?do irx-push drop loop ;
-: out-stack ( -- x1..xn ) irx-depth 0 ?do i irx-item loop ;
+: item ( i -- x ) irx-item 0= abort" no such item" ;
+: out-stack ( -- x1..xn ) irx-depth 0 ?do i item loop ;
 \ given pushes in reverse, so stacks are written with reversed helpers.
 : in1 ( a -- ) 1 given ;
 : in2 ( a b -- ) swap 2 given ;
@@ -56,19 +59,70 @@ T{ s"   prim pick" in-body -> outcome-invalid }T
 T{ s"   frob" in-body -> outcome-invalid }T
 T{ s"   lit 12a" in-body -> outcome-invalid }T
 T{ s"   lit -" in-body -> outcome-invalid }T
-T{ s"   lit -9223372036854775807" in-body -> outcome-ok }T
-\ A literal beyond the cell loads, and runs as the model's unmodeled.
-T{ s"   lit 9223372036854775808" in-body -> outcome-ok }T
-T{ 0 given 1 s" f" run irx-result -> outcome-unsupported irx-unmodeled }T
-T{ s"   lit 99999999999999999999" in-body -> outcome-ok }T
-T{ 0 given 1 s" f" run -> outcome-unsupported }T
-T{ s"   lit -9223372036854775809" in-body -> outcome-ok }T
-T{ 0 given 1 s" f" run -> outcome-unsupported }T
-T{ s"   lit -9223372036854775808" in-body -> outcome-ok }T
-T{ 0 given 1 s" f" run out-stack -> outcome-ok max-n invert }T
-T{ s"   lit 9223372036854775807" in-body -> outcome-ok }T
-T{ 0 given 1 s" f" run out-stack -> outcome-ok max-n }T
+T{ s"   lit +5" in-body -> outcome-invalid }T
+T{ s"   lit 1_000" in-body -> outcome-invalid }T
+T{ s"   lit --1" in-body -> outcome-invalid }T
+
+\ Literal lines built from max-n, so that no test assumes a cell size.
+create line-text 160 chars allot
+variable line-length
+: line ( -- c-addr u ) line-text line-length @ ;
+: line+ ( c-addr u -- ) tuck line chars + swap chars move line-length +! ;
+: zeros+ ( n -- ) 0 ?do s" 0" line+ loop ;
+: lit-start ( negative? zeros -- )
+  0 line-length ! s"   lit " line+ swap if s" -" line+ then zeros+ ;
+\ "  lit ", a minus sign when negative, zeros leading zeros, u's digits.
+: lit-text ( u negative? zeros -- c-addr u ) lit-start 0 <# #s #> line+ line ;
+\ A 1 and as many zeros as max-n 1+ has digits: too many digits for a cell.
+: lit-beyond ( negative? -- c-addr u )
+  0 lit-start s" 1" line+ irx-cell-digits zeros+ line ;
+: f ( fuel -- outcome ) s" f" run ;
+\ A literal beyond the cell loads, and runs as the model's unmodeled; one
+\ at the cell's edge is the edge.
+T{ max-n false 0 lit-text in-body -> outcome-ok }T
+T{ 0 given 1 f out-stack -> outcome-ok max-n }T
+T{ max-n 1+ false 0 lit-text in-body -> outcome-ok }T
+T{ 0 given 1 f irx-result -> outcome-unsupported irx-unmodeled }T
+T{ max-n true 0 lit-text in-body -> outcome-ok }T
+T{ 0 given 1 f out-stack -> outcome-ok max-n negate }T
+T{ max-n 1+ true 0 lit-text in-body -> outcome-ok }T
+T{ 0 given 1 f out-stack -> outcome-ok max-n invert }T
+T{ max-n 2 + true 0 lit-text in-body -> outcome-ok }T
+T{ 0 given 1 f irx-result -> outcome-unsupported irx-unmodeled }T
+T{ false lit-beyond in-body -> outcome-ok }T
+T{ 0 given 1 f -> outcome-unsupported }T
+T{ true lit-beyond in-body -> outcome-ok }T
+T{ 0 given 1 f -> outcome-unsupported }T
+\ Leading zeros change nothing, as the model's String.toInt? reads them,
+\ however many there are.
+T{ 5 false 30 lit-text in-body -> outcome-ok }T
+T{ 0 given 1 f out-stack -> outcome-ok 5 }T
+T{ 1 true 30 lit-text in-body -> outcome-ok }T
+T{ 0 given 1 f out-stack -> outcome-ok -1 }T
+T{ 0 true 3 lit-text in-body -> outcome-ok }T
+T{ 0 given 1 f out-stack -> outcome-ok 0 }T
+T{ 0 false 0 lit-text in-body -> outcome-ok }T
+T{ 0 given 1 f out-stack -> outcome-ok 0 }T
+T{ max-n false 30 lit-text in-body -> outcome-ok }T
+T{ 0 given 1 f out-stack -> outcome-ok max-n }T
+T{ max-n 1+ true 30 lit-text in-body -> outcome-ok }T
+T{ 0 given 1 f out-stack -> outcome-ok max-n invert }T
+T{ max-n 1+ false 30 lit-text in-body -> outcome-ok }T
+T{ 0 given 1 f irx-result -> outcome-unsupported irx-unmodeled }T
+T{ max-n 2 + true 30 lit-text in-body -> outcome-ok }T
+T{ 0 given 1 f -> outcome-unsupported }T
 T{ s"   lit 9x" in-body -> outcome-invalid }T
+
+\ A line of irx-line-chars characters or more is malformed, fed or read
+\ from a file, and counts as the line that stopped the load.
+: lit-chars ( n -- c-addr u ) 5 false rot 7 - lit-text ;
+T{ irx-line-chars 1- lit-chars nip -> irx-line-chars 1- }T
+T{ irx-line-chars 1- lit-chars in-body -> outcome-ok }T
+T{ 0 given 1 f out-stack -> outcome-ok 5 }T
+T{ irx-line-chars lit-chars in-body irx-load-lines -> outcome-invalid 4 }T
+\ Its line 4 has 127 characters and its line 7 has 128.
+T{ s" tests/program/ir-run-long-line.ir" irx-load-file irx-load-lines
+   -> outcome-invalid 7 }T
 T{ s"  prim dup" in-body -> outcome-invalid }T
 T{ s"    prim dup" in-body -> outcome-invalid }T
 T{ s"   prim  dup" in-body -> outcome-invalid }T
@@ -111,6 +165,17 @@ T{ s" tests/program/no-such-file.ir" irx-load-file -> outcome-invalid }T
 \ Only the first problem counts, and the line it was on.
 T{ program s" word f" >ir s"   frob" >ir s"   prim nope" >ir loaded irx-load-lines
    -> outcome-invalid 4 }T
+\ A finished load is closed: a line after it is malformed and the program
+\ no longer runs, so a word left half-loaded never runs; a second finish
+\ is malformed too.
+T{ program s" word f" >ir s"   lit 1" >ir s" end" >ir loaded -> outcome-ok }T
+T{ 0 given 1 f out-stack -> outcome-ok 1 }T
+T{ s" word g" >ir s"   if" >ir s"     prim drop" >ir 5 in1 3 s" g" run irx-result
+   -> outcome-invalid irx-broken }T
+T{ irx-load-lines 0 given 1 f -> 6 outcome-invalid }T
+T{ loaded -> outcome-invalid }T
+T{ program s" word f" >ir s" end" >ir loaded loaded -> outcome-ok outcome-invalid }T
+T{ 0 given 1 f -> outcome-invalid }T
 
 \ Capacities.
 : lines ( c-addr u n -- ) 0 ?do 2dup >ir loop 2drop ;
@@ -138,7 +203,6 @@ T{ program irx-def-capacity 1+ define-words loaded -> outcome-full }T
 \ One-word programs for the run tests: "word f" with the given lines.
 : f( ( -- ) program s" word f" >ir ;
 : )f ( -- ) s" end" >ir loaded outcome-ok <> abort" test program refused" ;
-: f ( fuel -- outcome ) s" f" run ;
 
 \ Stack primitives.
 T{ f( s"   prim rot" >ir )f 1 2 3 in3 1 f out-stack -> outcome-ok 2 3 1 }T
@@ -182,6 +246,23 @@ T{ f( s"   prim rshift" >ir )f -1 -1 in2 1 f -> outcome-unsupported }T
 T{ f( s"   prim max" >ir s"   prim true" >ir s"   prim false" >ir )f 3 9 in2 1 f out-stack
    -> outcome-ok 9 -1 0 }T
 T{ f( s"   lit -7" >ir s"   prim min" >ir )f 3 in1 1 f out-stack -> outcome-ok -7 }T
+T{ f( s"   prim =" >ir )f 3 3 in2 1 f out-stack -> outcome-ok -1 }T
+T{ f( s"   prim =" >ir )f max-n max-n invert in2 1 f out-stack -> outcome-ok 0 }T
+T{ f( s"   prim >" >ir )f 0 max-n invert in2 1 f out-stack -> outcome-ok -1 }T
+T{ f( s"   prim >" >ir )f 2 2 in2 1 f out-stack -> outcome-ok 0 }T
+T{ f( s"   prim 0=" >ir )f 0 in1 1 f out-stack -> outcome-ok -1 }T
+T{ f( s"   prim 0=" >ir )f max-n invert in1 1 f out-stack -> outcome-ok 0 }T
+T{ f( s"   prim 0<" >ir )f max-n invert in1 1 f out-stack -> outcome-ok -1 }T
+T{ f( s"   prim 0<" >ir )f 0 in1 1 f out-stack -> outcome-ok 0 }T
+T{ f( s"   prim and" >ir )f 12 10 in2 1 f out-stack -> outcome-ok 8 }T
+T{ f( s"   prim and" >ir )f -1 max-n invert in2 1 f out-stack
+   -> outcome-ok max-n invert }T
+T{ f( s"   prim or" >ir )f 12 10 in2 1 f out-stack -> outcome-ok 14 }T
+T{ f( s"   prim or" >ir )f max-n max-n invert in2 1 f out-stack -> outcome-ok -1 }T
+T{ f( s"   prim drop" >ir )f 1 2 in2 1 f out-stack -> outcome-ok 1 }T
+T{ f( s"   prim nip" >ir )f 1 2 in2 1 f out-stack -> outcome-ok 2 }T
+T{ f( s"   prim drop" >ir )f 0 given 1 f irx-result -> outcome-invalid irx-underflow }T
+T{ f( s"   prim nip" >ir )f 1 in1 1 f irx-result -> outcome-invalid irx-underflow }T
 
 \ Underflow: data and return stacks, at each primitive's arity.
 T{ f( s"   prim rot" >ir )f 1 2 in2 1 f irx-result -> outcome-invalid irx-underflow }T
@@ -211,6 +292,12 @@ T{ c( s"   lit 1" >ir s"   exit" >ir )f 0 given 1 c irx-result -> outcome-invali
   irx-bad-constant }T
 T{ c( s"   lit 1" >ir s"   lit 1" >ir s"   prim >r" >ir )f 0 given 1 c irx-result
    -> outcome-invalid irx-bad-constant }T
+\ Fuel running out inside a constant is out of fuel, not a bad constant.
+T{ c( s"   call c" >ir )f 0 given 3 c irx-result -> outcome-exhausted irx-out-of-fuel }T
+: down( ( -- ) s"   lit 2" >ir s"   begin" >ir s"     prim dup" >ir s"   while" >ir
+  s"     prim 1-" >ir s"   repeat" >ir ;
+T{ c( down( )f 0 given 4 c out-stack -> outcome-ok 0 }T
+T{ c( down( )f 0 given 3 c irx-result -> outcome-exhausted irx-out-of-fuel }T
 \ Unknown words: an undefined callee fails only when called, after the
 \ fuel check.
 T{ f( s"   call nowhere" >ir )f 0 given 2 f irx-result
@@ -258,6 +345,22 @@ T{ count( s"   call g" >ir g-h )f 3 in1 6 f out-stack -> outcome-ok 0 }T
 T{ branch( )f -1 in1 4 f out-stack -> outcome-ok }T
 T{ branch( )f -1 in1 3 f irx-result -> outcome-exhausted irx-out-of-fuel }T
 T{ count( )f 3 in1 -1 f -> outcome-invalid }T
+\ Loops inside loops: an inner loop spends the fuel of the block it is in,
+\ the outer loop's body or test, so an outer iteration costs one unit.
+\ Lean's evaluation of the model gives the same results.
+: inner( ( -- )
+  f( s"   begin" >ir s"     prim dup" >ir s"   while" >ir s"     prim 1-" >ir
+  s"     begin" >ir s"       prim dup" >ir s"     while" >ir s"       prim 1-" >ir
+  s"     repeat" >ir s"   repeat" >ir ;
+T{ inner( )f 3 in1 4 f out-stack -> outcome-ok 0 }T
+T{ inner( )f 3 in1 3 f irx-result -> outcome-exhausted irx-out-of-fuel }T
+: in-test( ( -- )
+  f( s"   begin" >ir s"     lit 2" >ir s"     begin" >ir s"       prim dup" >ir
+  s"     while" >ir s"       prim 1-" >ir s"     repeat" >ir s"     prim drop" >ir
+  s"     prim dup" >ir s"   while" >ir s"     prim 1-" >ir s"   repeat" >ir
+  s"   call g" >ir s" end" >ir s" word g" >ir s"   lit 7" >ir ;
+T{ in-test( )f 2 in1 6 f out-stack -> outcome-ok 0 7 }T
+T{ in-test( )f 2 in1 5 f irx-result -> outcome-exhausted irx-out-of-fuel }T
 
 \ Room: the machine's stacks and frames are finite; the model's are not.
 T{ f( s"   begin" >ir s"     lit 1" >ir s"   while" >ir s"     lit 0" >ir s"   repeat" >ir
@@ -269,6 +372,31 @@ T{ f( s"   begin" >ir s"     lit 1" >ir s"   while" >ir s"     lit 0" >ir s"    
 T{ f( s"   call f" >ir )f 0 given 1000 f -> outcome-full }T
 : fill-machine ( -- ) irx-clear irx-data-capacity 0 ?do i irx-push drop loop ;
 T{ fill-machine 7 irx-push irx-depth -> outcome-full irx-data-capacity }T
+\ Frames run out through nested blocks as well as recursion: in a chain
+\ of words w0, w1, ..., each with n nested IFs around a call of the next,
+\ the run takes one frame, and each word one plus one per IF. 7 words of
+\ 8 IFs fill the 64 frames; 8 words of 7 IFs need 65.
+: called ( n -- c-addr u ) 0 <# #s [char] w hold bl hold [char] l hold [char] l hold
+  [char] a hold [char] c hold #> ;
+: flagged-ifs ( n -- ) 0 ?do s" lit 1" i 1+ indented >ir s" if" i 1+ indented >ir loop ;
+variable ifs
+: around ( c-addr u -- ) ifs @ flagged-ifs ifs @ 1+ indented >ir ifs @ close-ifs ;
+: chain-word ( k -- ) dup named >ir 1+ called around s" end" >ir ;
+: chain-last ( k -- ) named >ir s" lit 7" around s" end" >ir ;
+: chain ( words n -- )
+  ifs ! program 1- dup 0 ?do i chain-word loop chain-last
+  loaded outcome-ok <> abort" chain refused" ;
+T{ 7 8 chain 0 given 10 s" w0" run out-stack -> outcome-ok 7 }T
+T{ 8 7 chain 0 given 10 s" w0" run irx-result -> outcome-full irx-no-room }T
+T{ 8 6 chain 0 given 10 s" w0" run out-stack -> outcome-ok 7 }T
+\ Every run starts from an empty return stack, even when a failed run left
+\ items on it and irx-clear did not run in between.
+: to-returns ( n -- ) 0 ?do s"   lit 1" >ir s"   prim >r" >ir loop ;
+T{ program s" word fill" >ir irx-return-capacity 1- to-returns s"   prim drop" >ir
+   s" end" >ir s" word two" >ir 2 to-returns s"   prim r>" >ir s"   prim r>" >ir
+   s"   prim 2drop" >ir )f 0 given 1 s" fill" run irx-result
+   -> outcome-invalid irx-underflow }T
+T{ 1 s" two" run irx-depth -> outcome-ok 0 }T
 
 \ Where the last run stopped.
 T{ program s" word f" >ir s"   lit 1 @3:5" >ir s"   prim / @3:7" >ir )f
@@ -284,5 +412,23 @@ T{ other @ context-free -> 0 }T
 
 \ Before any load, or without one, nothing runs.
 T{ program 0 given 1 f -> outcome-invalid }T
+
+\ The data stack's items, and only those, can be read.
+T{ 7 8 in2 0 irx-item 1 irx-item -> 7 true 8 true }T
+T{ 2 irx-item -1 irx-item irx-data-capacity irx-item -> false false false }T
+
+\ Each result has the model's name and an outcome; any other value reads
+\ as broken.
+T{ irx-unknown-word irx-result-text s" unknownWord" compare -> 0 }T
+T{ irx-out-of-fuel irx-result-text s" outOfFuel" compare -> 0 }T
+T{ irx-next irx-outcome irx-out-of-fuel irx-outcome irx-unmodeled irx-outcome
+   -> outcome-ok outcome-exhausted outcome-unsupported }T
+T{ irx-no-room irx-outcome irx-underflow irx-outcome -> outcome-full outcome-invalid }T
+T{ 99 irx-result-text s" broken" compare -1 irx-outcome -> 0 outcome-invalid }T
+\ Corrupted code fails closed: a marker or an unknown kind is never run.
+T{ f( s"   lit 1" >ir )f irx-k-then 0 irx-op irx-op-kind ! 0 given 1 f irx-result
+   -> outcome-invalid irx-broken }T
+T{ f( s"   lit 1" >ir )f 99 0 irx-op irx-op-kind ! 0 given 1 f irx-result
+   -> outcome-invalid irx-broken }T
 
 bye
