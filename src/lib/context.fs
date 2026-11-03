@@ -5,13 +5,15 @@
 \ other hosts, which then have one worker.
 \
 \ Modules declare their state as members of the context layout while they
-\ load: context-record: (a zeroed record), context-store:, context-walk: and
-\ context-walk2: each define name ( -- addr ), the member's address in the
-\ current context; context-setup registers a word that sets a module's
-\ state up, such as clearing a base-1 store. Each declaration grows the
-\ main context, which the main task uses from the start, and initialises
-\ the new member in it at once, so a program that never makes another
-\ context runs as before.
+\ load: context-record: (a zeroed record), context-store:, context-walk:,
+\ context-walk2: and context-frames: each define name ( -- addr ), the
+\ member's address in the current context; context-setup registers a word
+\ that sets a module's state up, such as clearing a base-1 store. Each
+\ declaration grows the main context, which the main task uses from the
+\ start, and initialises the new member in it at once, so a program that
+\ never makes another context runs as before. A declaration that is
+\ refused aborts before it defines or grows anything; a setup word that
+\ throws is not registered.
 \
 \ context-new seals the layout: no member can be declared afterwards, so
 \ every context has the same layout. A new context is ALLOCATEd, zeroed and
@@ -20,20 +22,38 @@
 \ right after loading. State a module changes by other means while it
 \ loads is not repeated in new contexts.
 \
+\ Ownership: a context is idle or owned by one job (task.fs claims it when
+\ the job is submitted and releases it when the job has been waited for).
+\ Each task has an owner token, lf-owner: 0, or while it runs a job, that
+\ job. A task may select only a context whose owner is its own token: the
+\ main task only idle contexts, a job only its own. An owned context cannot
+\ be freed, and contexts are made and freed only outside jobs.
+\
+\ Handles: a context's address is its handle, valid from context-new until
+\ context-free. A handle must never be used after context-free: context?
+\ cannot recognise every stale one, because FREE may reuse the block's
+\ first cells and context-new may give the same address again. Handles
+\ into a context's stores (indices and identities) mean something only in
+\ that context: every new context restarts its stores' serial numbers, so
+\ such handles must never cross contexts.
+\
 \ State: the layout record, context-layout (shared; read-only once sealed,
 \ and only the main task declares members), the main context it points to,
-\ and lf-context (per task). Never keep a member's address across a
-\ context switch or a declaration: while modules load, each declaration
-\ may move the main context. Never ALLOT or compile after tasks start.
-\ Untrusted. The layout is host-specific and must never be serialized.
+\ and lf-context and lf-owner (per task). Never keep a member's address
+\ across a context switch or a declaration: while modules load, each
+\ declaration may move the main context. Never ALLOT or compile after
+\ tasks start. Untrusted. The layout is host-specific and must never be
+\ serialized.
 
 require ./bounds.fs
 require ./portability.fs
 require ./store.fs
 require ./walk.fs
+require ./frame.fs
 
 begin-structure /context-header
-  field: context-size      \ bytes in the context; 0 once freed
+  field: context-size      \ bytes in the context; zeroed by context-free
+  field: context-owner     \ the owner's token, or 0 while idle
 end-structure
 
 begin-structure /context-layout
@@ -41,24 +61,33 @@ begin-structure /context-layout
   field: layout-first      \ first member declared, or 0
   field: layout-last       \ last member declared, or 0
   field: layout-main       \ the main context
-  field: layout-sealed     \ true once a context is made or a task started
+  field: layout-sealed     \ true once a context is made or a job submitted
 end-structure
 create context-layout /context-layout allot
 context-layout /context-layout erase
 /context-header context-layout layout-bytes !
 
 \ A member, laid down in the dictionary when it is declared; a named
-\ member is the body of its name.
+\ member is the body of its name. Which argument fields are used depends
+\ on the initialiser.
 begin-structure /member
   field: member-offset     \ address units from the start of a context
-  field: member-init       \ xt ( addr member -- ), throws on failure
+  field: member-init       \ xt ( addr member -- ) of the initialiser
   field: member-link       \ next member declared, or 0
-  3 cells +field member-args   \ the initialiser's arguments
+  field: member-capacity   \ store or walk capacity, or frames limit
+  field: member-width      \ store record width, or walk width (1 or 2)
+  field: member-base       \ store index base
+  field: member-xt         \ setup word, or frames visitor
 end-structure
 
-\ The current task's context.
+\ The current task's context and owner token.
 [defined] udp [defined] next-task and
-[if] user lf-context [else] variable lf-context [then]
+[if] user lf-context user lf-owner [else] variable lf-context variable lf-owner [then]
+0 lf-owner !
+
+\ ALLOCATE u zeroed address units: the address and 0, or an undefined
+\ address and the ior.
+: allocate0 ( u -- addr ior ) dup allocate ?dup if rot drop exit then tuck swap erase 0 ;
 
 : context-bytes ( -- u ) context-layout layout-bytes @ ;
 : context-main ( -- context ) context-layout layout-main @ ;
@@ -69,84 +98,123 @@ end-structure
 
 \ Selecting a context. context? is true for a live context of the current
 \ layout (a sanity check: it cannot recognise every bad address).
-\ context-use aborts on any other address.
+\ context-use aborts on any other address and on a context owned by
+\ another token than the current task's.
 : context? ( addr -- flag ) ?dup if context-size @ context-bytes = else false then ;
+: context-idle? ( context -- flag ) context-owner @ 0= ;
+: context-mine? ( context -- flag ) context-owner @ lf-owner @ = ;
 : context-use ( context -- )
-  dup context? 0= abort" context-use: not a context" lf-context ! ;
+  dup context? 0= abort" context-use: not a context"
+  dup context-mine? 0= abort" context-use: owned by another job" lf-context ! ;
 
-\ The main context, grown and zero-extended by each declaration.
-: context-blank ( addr -- ) dup context-bytes erase context-bytes swap context-size ! ;
+\ The main context. Each declaration first RESIZEs it to the new layout
+\ size and zeroes the new tail, so a failure changes nothing.
+: context-sized ( context -- ) context-bytes swap context-size ! ;
 : context-main! ( context -- ) dup context-layout layout-main ! lf-context ! ;
-context-bytes allocate throw dup context-blank context-main!
-: context-tail ( context -- addr u ) dup context-size @ tuck + swap context-bytes swap - ;
-: context-grow ( -- )
-  context-main context-bytes resize abort" context: out of memory"
-  dup context-tail erase context-bytes over context-size ! context-main! ;
+context-bytes allocate0 throw dup context-sized context-main!
+: context-tail ( u context -- addr n ) dup context-size @ rot over - >r + r> ;
+: context-layout! ( u context -- ) context-main! context-layout layout-bytes ! ;
+: context-grow ( u -- )
+  context-main over resize abort" context: out of memory"
+  2dup context-tail erase 2dup context-size ! context-layout! ;
 
-\ Declaring members. context-open aborts, before anything is defined, once
-\ the layout is sealed or for a size that would not fit; a member's size is
-\ rounded up to whole cells.
-: context-open ( size -- size )
+\ Opening a member of size address units: aborts, before anything is
+\ defined or grown, once the layout is sealed or for a size that would
+\ not fit; otherwise grows the main context, rounding up to whole cells,
+\ and gives the member's offset.
+: context-open ( size -- offset )
   context-sealed? abort" context: layout sealed after context-new"
-  dup 0 max-n 1 cells - context-bytes - between? 0= abort" context: bad size" ;
-: context-reserve ( size -- offset )
-  context-bytes tuck + aligned context-layout layout-bytes ! ;
-: member, ( xt size -- member ) context-reserve here >r , , 0 , r> ;
-: member-args, ( a b c -- ) rot , swap , , ;
-: member-args@ ( member -- a b c ) member-args dup @ over cell+ @ rot 2 cells + @ ;
+  dup 0 max-n 1 cells - context-bytes - between? 0= abort" context: bad size"
+  context-bytes tuck + aligned context-grow ;
+
+\ Laying down a member, aligned, with its other fields zero.
+: member, ( offset init -- member )
+  align here /member allot dup /member erase tuck member-init ! tuck member-offset ! ;
+: member-shape! ( capacity width member -- member )
+  tuck member-width ! tuck member-capacity ! ;
+: member-shape@ ( member -- capacity width ) dup member-capacity @ swap member-width @ ;
 : member-addr ( member -- addr ) member-offset @ lf-context @ + ;
 : member-run ( member -- ) dup member-addr swap dup member-init @ execute ;
+\ Make the latest word a member: name ( -- addr ), its address in the
+\ current context.
+: member-does ( -- ) does> member-addr ;
+\ Grow the layout by size, then define name as a member with initialiser init.
+: member: ( size init "name" -- member )
+  swap context-open swap create member-does member, ;
+\ Initialise a member in the main context, then link it last, so that a
+\ member whose initialiser throws is never run in a new context.
 : member-append ( member -- )
   dup context-last @ ?dup if member-link ! else context-first ! then context-last ! ;
-: member-add ( member -- ) dup member-append context-grow member-run ;
-\ The run-time action of every named member: its address in the current context.
-: member-does ( -- ) does> member-addr ;
+: member-add ( member -- ) dup member-run member-append ;
 
 \ Initialisers ( addr member -- ). The context is zeroed beforehand.
 : member-zeroed ( addr member -- ) 2drop ;
 : member-store ( addr member -- )
-  swap >r member-args@ r> store-init 0= abort" context: bad store" ;
+  swap >r dup member-shape@ rot member-base @ r> store-init
+  0= abort" context: bad store" ;
 : member-walk ( addr member -- )
-  swap >r member-args@ drop r> walk-sized-init 0= abort" context: bad walk" ;
-: member-setup ( addr member -- ) nip member-args @ execute ;
+  member-shape@ rot walk-sized-init 0= abort" context: bad walk" ;
+: member-frames ( addr member -- ) dup member-capacity @ swap member-xt @ rot frame-init ;
+: member-setup ( addr member -- ) nip member-xt @ execute ;
 
-\ Declaring words. A bad shape or capacity aborts, as for store: and walk:.
+\ Declaring words. A bad size, shape, capacity or limit aborts and defines
+\ nothing, as for store:, walk: and frames:.
 : context-record: ( size "name" -- )
-  context-open create member-does
-  ['] member-zeroed swap member, 0 0 0 member-args, member-add ;
+  dup 1 < abort" context-record: bad size" ['] member-zeroed member: member-add ;
 : context-store: ( capacity width base "name" -- )
   >r 2dup r@ store-plan? 0= abort" context-store: bad shape"
-  2dup store-size context-open create member-does
-  ['] member-store swap member, -rot r> member-args, member-add ;
+  2dup store-size ['] member-store member: member-shape!
+  r> over member-base ! member-add ;
 : context-walked ( capacity width "name" -- )
   2dup walk-plan? 0= abort" context-walk: bad capacity"
-  2dup walk-span context-open create member-does
-  ['] member-walk swap member, -rot 0 member-args, member-add ;
+  2dup walk-span ['] member-walk member: member-shape! member-add ;
 : context-walk: ( capacity "name" -- ) 1 context-walked ;
 : context-walk2: ( capacity "name" -- ) 2 context-walked ;
+\ A frames record (frame.fs) allowing limit nested visits of the visitor
+\ xt, which reaches the record through its frames argument.
+: context-frames: ( limit xt "name" -- )
+  over 1 < abort" context-frames: bad limit"
+  /frames ['] member-frames member: tuck member-xt ! tuck member-capacity ! member-add ;
 \ Run xt ( -- ) now in the main context, and in every new context after
 \ the members declared before it are initialised.
 : context-setup ( xt -- )
-  0 context-open ['] member-setup swap member, swap 0 0 member-args, member-add ;
+  0 context-open ['] member-setup member, tuck member-xt ! member-add ;
 
-\ Making and freeing contexts. context-new gives a new context and 0, or 0
-\ and the ior of a failed ALLOCATE or the THROW code of a failed
-\ initialiser or setup word, freeing what it allocated. The current
-\ context is unchanged either way.
+\ Making and freeing contexts, only outside jobs (these abort inside one).
+\ context-new gives a new, idle context and 0, or 0 and the ior of a
+\ failed ALLOCATE or the THROW code of a failed initialiser or setup word,
+\ freeing what it allocated. The current context is unchanged either way.
+: context-outside-job ( -- ) lf-owner @ abort" context: not allowed inside a job" ;
 : context-members ( -- )
   context-first @ begin ?dup while dup member-run member-link @ repeat ;
 : context-fill ( context -- ior )
   lf-context @ >r lf-context ! ['] context-members catch r> lf-context ! ;
-: context-release ( context -- ior ) 0 over context-size ! free ;
+: context-discard ( context -- ior ) 0 over context-size ! free ;
 : context-made ( context -- context ior )
-  dup context-blank dup context-fill dup if swap context-release drop 0 swap then ;
+  dup context-fill dup if swap context-discard drop 0 swap then ;
 : context-new ( -- context ior )
-  context-seal context-bytes allocate ?dup if nip 0 swap exit then context-made ;
-\ Free a context made by context-new and give FREE's ior. If it is the
-\ current task's context, the task returns to the main context (so another
-\ task must not free its own context and go on checking). Aborts on the
-\ main context or an address that is not a context.
-: context-free ( context -- ior )
+  context-outside-job context-seal
+  context-bytes allocate0 ?dup if nip 0 swap exit then dup context-sized context-made ;
+\ Free an idle context made by context-new and give FREE's ior. If it is
+\ the current task's context, the task returns to the main context. Aborts
+\ on the main context, an owned context or an address that is not a
+\ context.
+: context-freeable ( context -- context )
   dup context? 0= abort" context-free: not a context"
   dup context-main = abort" context-free: the main context"
-  dup lf-context @ = if context-main lf-context ! then context-release ;
+  dup context-idle? 0= abort" context-free: owned by a job" ;
+: context-free ( context -- ior )
+  context-outside-job context-freeable
+  dup lf-context @ = if context-main lf-context ! then context-discard ;
+
+\ Claiming for a job (task.fs). context-claim makes owner, a nonzero
+\ token, the owner of an idle context and gives true; it gives false and
+\ changes nothing for an address that is not a context, the main context,
+\ the current task's context or a context already owned. context-release
+\ makes a context idle again.
+: context-claimable? ( context -- flag )
+  dup context? 0= if drop false exit then
+  dup context-main <> over lf-context @ <> and swap context-idle? and ;
+: context-claim ( owner context -- flag )
+  dup context-claimable? if context-owner ! true else 2drop false then ;
+: context-release ( context -- ) 0 swap context-owner ! ;
