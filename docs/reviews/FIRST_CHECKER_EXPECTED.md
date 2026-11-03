@@ -288,4 +288,4 @@ unknown, 8 unsupported; 53 decided by kernel code, 7 by the stand-in audit
 it adds have SHA-256 `first-checker-terms.lean`
 `98df70061b4bca7f93a4c9c4bc55acae242e57691c9aff7e840a02e7bc1f1c96` and
 `first-checker-driver.fs`
-`5c5cbaa6e02d98e27853cd53d42a09863c22b5d996c179d4496fe7bd72a4146b`.
+`7b2746b10e171ba51e7180e9db64c92e10acb729f649598def1690131943a821`.

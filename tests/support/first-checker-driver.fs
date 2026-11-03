@@ -219,9 +219,15 @@ variable fc-token-cell
 
 \ Run every declaration of the case and print the last one's row.
 : fc-source ( -- ) fc-audited @ if ." audit" else ." kernel" then ;
+\ The last check's diagnostic first; then a view of every slot, through
+\ which its outcome is read.
+: fc-outcome ( -- outcome ) lf-env-view ok? must lf-input-count 1- lf-env-outcome ;
 : fc-row ( -- )
-  ." ROW " fc-id fc-id# @ type space lf-input-count 1- lf-env-outcome outcome-text type
-  space lf-diag@ nip . swap . . fc-source cr ;
+  lf-diag@ nip >r >r >r ." ROW " fc-id fc-id# @ type space fc-outcome outcome-text type
+  space r> r> r> . swap . . fc-source cr ;
+\ No new context after a THROW: a check that throws stops the run, and the
+\ case fails.
+: fc-no-maker ( -- context ior ) 0 -1 ;
 : fc-run ( -- )
   lf-input-end ok? must 64 lf-env-new ok? must dup lf-env-use ok? must
-  ['] fc-check lf-env-run ok? must fc-row lf-env-free ok? must ;
+  ['] fc-check ['] fc-no-maker lf-env-run ok? must fc-row lf-env-free ok? must ;
