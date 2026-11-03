@@ -20,12 +20,6 @@ require ./mixed-compare.fs
 
 lf-term-capacity walk2: lf-mconvert-walker
 
-\ Former status names, still used by tests.
-outcome-ok constant lf-mconvert-equal
-outcome-invalid constant lf-mconvert-invalid
-outcome-exhausted constant lf-mconvert-exhausted
-outcome-unknown constant lf-mconvert-unknown
-
 \ Fuel left after a conversion; mixed-infer continues with it. Negative
 \ fuel and a failed audit leave zero.
 : lf-mconvert-fuel ( -- addr ) lf-mconvert-walker walk-fuel ;

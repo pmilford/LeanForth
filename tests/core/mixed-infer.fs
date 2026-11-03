@@ -69,8 +69,8 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
   1 h 1 h lf-hterm-lam save                                       \ 12 open domain
   0 h 1 h lf-hterm-lam save                                       \ 13 fun A : Sort u => A
   lf-msp-begin 0= abort" index" lf-msp-token 0= abort" token" token !
-  token @ id-name @ 4 h formals 1 50000 lf-msp-put lf-msp-ok <> abort" id signature"
-  token @ later-name @ 0 h formals 1 50000 lf-msp-put lf-msp-ok <> abort" later signature" ;
+  token @ id-name @ 4 h formals 1 50000 lf-msp-put outcome-ok <> abort" id signature"
+  token @ later-name @ 0 h formals 1 50000 lf-msp-put outcome-ok <> abort" later signature" ;
 
 : expect-status ( actual expected -- )
   2dup <> if ." expected status " . ." actual " . cr -2 throw then 2drop ;
@@ -80,43 +80,43 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
 
 : fixture-case ( -- )
   setup
-  token @ 50000 lf-mixed-signature-audit lf-msp-ok expect-status
-  9 h 0 50000 lf-constant-term-scope lf-repr-ok expect-status
+  token @ 50000 lf-mixed-signature-audit outcome-ok expect-status
+  9 h 0 50000 lf-constant-term-scope outcome-ok expect-status
   token @ id-name @ actuals 1 50000 lf-msp-specialize
-  lf-msp-ok expect-status lf-hterm-valid? 0= abort" signature result" ;
+  outcome-ok expect-status lf-hterm-valid? 0= abort" signature result" ;
 
 \ Check the result semantically, rather than relying on generated node indices.
 \ The fuel left is pinned: preflight, inference and the specialization of
 \ id spend 109 units here (observed before the refactor, at 398b76b).
 : poly-case ( -- )
-  setup 9 50000 infer lf-minfer-ok expect-status
+  setup 9 50000 infer outcome-ok expect-status
   lf-minfer-fuel @ 49891 <> abort" poly fuel"
-  4 h 50000 lf-mixed-convert lf-mconvert-equal <> abort" poly type" ;
+  4 h 50000 lf-mixed-convert outcome-ok <> abort" poly type" ;
 : invalid-argument-case ( -- )
   setup snapshot 10 50000 infer
-  lf-minfer-unknown expect-status
+  outcome-unknown expect-status
   0<> abort" failure identity" -1 <> abort" failure root"
   counts-unchanged? 0= abort" invalid argument rollback" ;
 : missing-case ( -- )
   setup snapshot 11 50000 infer
-  lf-minfer-unknown expect-status
+  outcome-unknown expect-status
   0<> abort" failure identity" -1 <> abort" failure root"
   counts-unchanged? 0= abort" missing rollback" ;
 : stale-case ( -- )
   setup 1 cells lf-msp-ids + dup @ 1+ swap ! snapshot
-  9 50000 infer lf-minfer-invalid <> abort" stale later signature"
+  9 50000 infer outcome-invalid <> abort" stale later signature"
   0<> abort" failure identity" -1 <> abort" failure root"
   counts-unchanged? 0= abort" preflight counts"
   serials-unchanged? 0= abort" preflight allocated" ;
 : context-case ( -- )
-  setup 13 50000 infer lf-minfer-ok <> abort" binder inference"
+  setup 13 50000 infer outcome-ok <> abort" binder inference"
   lf-hterm-valid? 0= abort" binder result handle"
   lf-minfer-context-depth @ 0<> abort" binder context leak"
-  snapshot 12 50000 infer lf-minfer-invalid <> abort" open binder domain"
+  snapshot 12 50000 infer outcome-invalid <> abort" open binder domain"
   0<> abort" failure identity" -1 <> abort" failure root"
   counts-unchanged? 0= abort" scope rollback" ;
 : unknown-rolled-back ( root -- )
-  snapshot 50000 infer lf-minfer-unknown expect-status expect-no-result
+  snapshot 50000 infer outcome-unknown expect-status expect-no-result
   counts-unchanged? 0= abort" unknown rollback" ;
 : non-type-case ( -- )
   \ fun (x : fun A => A) => x has a binder domain whose type is not a Sort;
@@ -125,13 +125,13 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
   14 unknown-rolled-back 15 unknown-rolled-back ;
 : preflight-fuel-case ( -- )
   setup
-  9 -1 infer lf-minfer-invalid expect-status 2drop
+  9 -1 infer outcome-invalid expect-status 2drop
   lf-minfer-fuel @ 0<> abort" negative fuel remainder"
-  12 50000 infer lf-minfer-invalid expect-status 2drop
+  12 50000 infer outcome-invalid expect-status 2drop
   lf-minfer-fuel @ 0<> abort" scope failure remainder"
-  9 1 infer lf-minfer-exhausted expect-status 2drop
+  9 1 infer outcome-exhausted expect-status 2drop
   lf-minfer-fuel @ 0<> abort" exhausted preflight remainder"
-  token @ 1+ 9 h 50000 lf-mixed-infer lf-minfer-invalid expect-status 2drop
+  token @ 1+ 9 h 50000 lf-mixed-infer outcome-invalid expect-status 2drop
   lf-minfer-fuel @ 0<> abort" invalid token remainder" ;
 \ This deliberately assumes a candidate signature without claiming it is a
 \ type. Substitution changes a universe inside a nested constant reference.
@@ -142,12 +142,12 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
   id-name @ lf-name-generation @ nested-args 1 lf-cref-new 0= abort" nested cref"
   lf-cterm-new 0= abort" nested constant" nested-id ! nested-root !
   token @ outer-name @ nested-root @ nested-id @ formals 1 50000 lf-msp-put
-  lf-msp-ok expect-status
+  outcome-ok expect-status
   0 nested-args ! 0 lf-level-identity 0= abort" zero" nested-args cell+ !
   outer-name @ lf-name-generation @ nested-args 1 lf-cref-new 0= abort" outer cref"
   lf-cterm-new 0= abort" outer constant" outer-id ! outer-root !
-  token @ outer-root @ outer-id @ 50000 lf-mixed-infer lf-minfer-ok expect-status
-  2dup 50000 lf-cterm-check lf-repr-ok expect-status
+  token @ outer-root @ outer-id @ 50000 lf-mixed-infer outcome-ok expect-status
+  2dup 50000 lf-cterm-check outcome-ok expect-status
   drop lf-term-read 0= abort" generated term"
   rot lf-tag-constant <> abort" generated constant"
   generated-ref-id ! generated-ref !
@@ -161,7 +161,7 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
   \ Applying this assumed non-Pi candidate causes a later unknown after
   \ generating a level, reference and term. All three counts must roll back.
   outer-root @ outer-id @ 0 h lf-hterm-app save
-  lf-term-count @ 1- snapshot 50000 infer lf-minfer-unknown expect-status 2drop
+  lf-term-count @ 1- snapshot 50000 infer outcome-unknown expect-status 2drop
   counts-unchanged? 0= abort" generated rollback"
   lf-term-serial @ term-serial-before @ <= abort" no term allocation"
   lf-level-serial @ level-serial-before @ <= abort" no level allocation"
@@ -186,22 +186,22 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
   setup token @ 500 lf-minfer-start
   lf-minfer-fuel @ 500 <> abort" start fuel"
   lf-minfer-depth @ lf-minfer-context-depth @ or abort" start depths"
-  13 lf-minfer-walk lf-minfer-ok expect-status lf-term-count @ 1- <> abort" new type"
+  13 lf-minfer-walk outcome-ok expect-status lf-term-count @ 1- <> abort" new type"
   lf-minfer-fuel @ 500 < 0= abort" walk fuel"
-  lf-term-count @ 1- lf-minfer-walk lf-minfer-invalid expect-status
+  lf-term-count @ 1- lf-minfer-walk outcome-invalid expect-status
   -1 <> abort" no type" ;
 variable saw-exhaustion variable saw-success variable saw-partial
 : fuel-case ( -- )
   false saw-exhaustion ! false saw-success ! false saw-partial !
   500 0 do
     setup snapshot 13 i infer
-    dup lf-minfer-exhausted = if
+    dup outcome-exhausted = if
       drop 0<> abort" fuel identity" -1 <> abort" fuel root"
       counts-unchanged? 0= abort" fuel rollback"
       serials-unchanged? 0= if true saw-partial ! then
       true saw-exhaustion !
     else
-      lf-minfer-ok expect-status
+      outcome-ok expect-status
       lf-hterm-valid? 0= abort" fuel result handle" true saw-success !
     then
     lf-minfer-context-depth @ 0<> abort" fuel context leak"
@@ -228,11 +228,14 @@ cases-done
 lf-term-capacity lf-minfer-depth !  100 lf-minfer-fuel !
 T{ 0 lf-minfer-walk lf-minfer-fuel @ -> -1 outcome-full 100 }T
 0 lf-minfer-fuel !
-T{ 0 lf-minfer-walk lf-minfer-depth @ -> -1 lf-minfer-exhausted lf-term-capacity }T
+T{ 0 lf-minfer-walk lf-minfer-depth @ -> -1 outcome-exhausted lf-term-capacity }T
 0 lf-minfer-depth !
 \ The binder context, likewise unreachable: with every slot in use a body
-\ cannot be entered, which is full, and the context is unchanged.
-lf-term-capacity lf-minfer-context-depth !
+\ cannot be entered, which is full, and the context is unchanged. That is
+\ checked before the body's visit, so with no fuel left it is still full.
+lf-term-capacity lf-minfer-context-depth !  100 lf-minfer-fuel !
 T{ 0 1 lf-minfer-under lf-minfer-context-depth @ -> -1 outcome-full lf-term-capacity }T
+0 lf-minfer-fuel !
+T{ 0 1 lf-minfer-under lf-minfer-fuel @ -> -1 outcome-full 0 }T
 0 lf-minfer-context-depth !
 bye

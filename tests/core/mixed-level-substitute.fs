@@ -39,8 +39,8 @@ variable result variable result-id variable constant-id
 setup
 : run-substitution ( fuel -- index id 0 | status )
   >r fixture-root @ root-id @ formals actuals 2 r> lf-mixed-level-substitute ;
-T{ 500 run-substitution -> 7 lf-term-serial @ lf-mlsubst-ok }T
-T{ 7 lf-term-serial @ 500 lf-cterm-check -> lf-repr-ok }T
+T{ 500 run-substitution -> 7 lf-term-serial @ outcome-ok }T
+T{ 7 lf-term-serial @ 500 lf-cterm-check -> outcome-ok }T
 T{ 7 lf-term-read -> lf-tag-app 6 5 true }T
 T{ 6 lf-term-read -> lf-tag-app 4 4 true }T
 T{ 4 lf-term-read -> lf-tag-constant 1 lf-cref-serial @ true }T
@@ -54,38 +54,38 @@ T{ 1 lf-cref-serial @ 1 lf-cref-level -> 3 3 lf-level-identity drop true }T
 \ the second child of level 4, after eight units. Nothing is allocated.
 lf-term-count @ constant source-terms
 lf-level-count @ lf-cref-count @ 2constant source-counts
-T{ 3 formals 2 100 lf-mls-audit-formals -> 86 lf-mlsubst-ok }T
-T{ 3 formals 2 14 lf-mls-audit-formals -> 0 lf-mlsubst-ok }T
-T{ 3 formals 2 13 lf-mls-audit-formals -> 0 lf-mlsubst-exhausted }T
-T{ 3 formals 1 100 lf-mls-audit-formals -> 92 lf-mlsubst-invalid }T
+T{ 3 formals 2 100 lf-mls-audit-formals -> 86 outcome-ok }T
+T{ 3 formals 2 14 lf-mls-audit-formals -> 0 outcome-ok }T
+T{ 3 formals 2 13 lf-mls-audit-formals -> 0 outcome-exhausted }T
+T{ 3 formals 1 100 lf-mls-audit-formals -> 92 outcome-invalid }T
 T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> source-terms source-counts }T
 \ Negative fuel and a count outside 0..lf-level-capacity spend nothing.
-T{ 3 formals 2 -1 lf-mls-audit-formals -> -1 lf-mlsubst-invalid }T
-T{ 3 formals -1 100 lf-mls-audit-formals -> 100 lf-mlsubst-invalid }T
-T{ 3 formals lf-level-capacity 1+ 100 lf-mls-audit-formals -> 100 lf-mlsubst-invalid }T
+T{ 3 formals 2 -1 lf-mls-audit-formals -> -1 outcome-invalid }T
+T{ 3 formals -1 100 lf-mls-audit-formals -> 100 outcome-invalid }T
+T{ 3 formals lf-level-capacity 1+ 100 lf-mls-audit-formals -> 100 outcome-invalid }T
 \ Source must be audited in its real session context, not merely formals.
 33 formals cell+ !
-T{ 500 run-substitution -> lf-mlsubst-invalid }T
+T{ 500 run-substitution -> outcome-invalid }T
 22 formals cell+ !
 \ Even unused replacements are audited, including identities and scope.
 actuals cell+ @ 1+ actuals cell+ !
-T{ 500 run-substitution -> lf-mlsubst-invalid }T
+T{ 500 run-substitution -> outcome-invalid }T
 2 actuals pair!
 44 lf-level-param drop constant out-of-scope
 out-of-scope actuals pair!
-T{ 500 run-substitution -> lf-mlsubst-invalid }T
+T{ 500 run-substitution -> outcome-invalid }T
 2 actuals pair!
-T{ 0 run-substitution -> lf-mlsubst-exhausted }T
-T{ -1 run-substitution -> lf-mlsubst-invalid }T
+T{ 0 run-substitution -> outcome-exhausted }T
+T{ -1 run-substitution -> outcome-invalid }T
 11 formals cell+ !
-T{ 500 run-substitution -> lf-mlsubst-invalid }T
+T{ 500 run-substitution -> outcome-invalid }T
 22 formals cell+ !
 \ Unchanged replacements preserve the original graph and allocate nothing.
 1 actuals pair! 2 actuals 2 cells + pair!
 lf-term-count @ variable unchanged-terms unchanged-terms !
 lf-level-count @ variable unchanged-levels unchanged-levels !
 lf-cref-count @ variable unchanged-crefs unchanged-crefs !
-T{ 500 run-substitution -> fixture-root @ root-id @ lf-mlsubst-ok }T
+T{ 500 run-substitution -> fixture-root @ root-id @ outcome-ok }T
 T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> unchanged-terms @ unchanged-levels @ unchanged-crefs @ }T
 \ Every level pair of a reference is compared: a constant over levels 1, 2
 \ whose first level stays and whose second becomes 3 is rebuilt.
@@ -97,7 +97,7 @@ kept-first-fixture 2constant kept-first
 1 actuals pair! 3 actuals 2 cells + pair!
 lf-term-count @ constant kept-index
 T{ kept-first formals actuals 2 500 lf-mixed-level-substitute
-   -> kept-index lf-term-serial @ lf-mlsubst-ok }T
+   -> kept-index lf-term-serial @ outcome-ok }T
 T{ kept-index lf-term-read -> lf-tag-constant 3 lf-cref-serial @ true }T
 T{ 3 lf-cref-serial @ 1 lf-cref-level -> 3 3 lf-level-identity drop true }T
 2 actuals pair! 3 actuals 2 cells + pair!
@@ -105,7 +105,7 @@ T{ 3 lf-cref-serial @ 1 lf-cref-level -> 3 3 lf-level-identity drop true }T
 44 formals !
 out-of-scope dup lf-level-identity drop lf-hterm-sort drop
 variable bad-id variable bad-root bad-id ! bad-root !
-T{ bad-root @ bad-id @ formals actuals 2 500 lf-mixed-level-substitute -> lf-mlsubst-invalid }T
+T{ bad-root @ bad-id @ formals actuals 2 500 lf-mixed-level-substitute -> outcome-invalid }T
 11 formals !
 \ Invalid source references are rejected before any arena allocation.
 lf-term-count @ variable audit-terms audit-terms !
@@ -113,7 +113,7 @@ lf-level-count @ variable audit-levels audit-levels !
 lf-cref-count @ variable audit-crefs audit-crefs !
 0 lf-cterm-stamp-cell @ variable saved-stamp saved-stamp !
 0 0 lf-cterm-stamp-cell !
-T{ 500 run-substitution -> lf-mlsubst-invalid }T
+T{ 500 run-substitution -> outcome-invalid }T
 T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> audit-terms @ audit-levels @ audit-crefs @ }T
 saved-stamp @ 0 lf-cterm-stamp-cell !
 \ A later constant uses session parameter 33, absent from the formal list.
@@ -130,7 +130,7 @@ make-bad-constant-fixture
 lf-term-count @ audit-terms ! lf-level-count @ audit-levels ! lf-cref-count @ audit-crefs !
 lf-term-serial @ before-term-serial ! lf-level-serial @ before-level-serial !
 lf-cref-serial @ before-cref-serial !
-T{ bad-constant-root @ bad-constant-id @ formals actuals 2 500 lf-mixed-level-substitute -> lf-mlsubst-invalid }T
+T{ bad-constant-root @ bad-constant-id @ formals actuals 2 500 lf-mixed-level-substitute -> outcome-invalid }T
 T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> audit-terms @ audit-levels @ audit-crefs @ }T
 T{ lf-term-serial @ lf-level-serial @ lf-cref-serial @ -> before-term-serial @ before-level-serial @ before-cref-serial @ }T
 \ Sweep the shared fuel budget across audit and build. Every exhausted call
@@ -142,12 +142,12 @@ variable saw-partial variable sweep-fuel
     i sweep-fuel !
     lf-term-count @ >r lf-level-count @ >r lf-cref-count @ >r
     lf-level-serial @ >r
-    sweep-fuel @ run-substitution dup lf-mlsubst-exhausted = if
+    sweep-fuel @ run-substitution dup outcome-exhausted = if
       drop lf-level-serial @ r> > if true saw-partial ! then
       lf-cref-count @ r> <> lf-level-count @ r> <> or
       lf-term-count @ r> <> or if false unloop exit then
     else
-      lf-mlsubst-ok <> if r> drop r> drop r> drop r> drop false unloop exit then
+      outcome-ok <> if r> drop r> drop r> drop r> drop false unloop exit then
       2drop r> drop r> drop r> drop r> drop
       saw-partial @ unloop exit
     then
@@ -160,19 +160,19 @@ T{ fuel-sweep -> true }T
 : substitute-count ( count -- index id 0 | status )
   >r fixture-root @ root-id @ formals actuals r> 500 lf-mixed-level-substitute ;
 setup
-T{ -1 substitute-count -> lf-mlsubst-invalid }T
-T{ lf-level-capacity 1+ substitute-count -> lf-mlsubst-invalid }T
+T{ -1 substitute-count -> outcome-invalid }T
+T{ lf-level-capacity 1+ substitute-count -> outcome-invalid }T
 T{ counts@ -> 4 5 1 }T
 : bare-variable ( -- ) 0 lf-hterm-bvar 0= abort" bvar" root-id ! fixture-root ! ;
 bare-variable
 T{ fixture-root @ root-id @ -> 4 lf-term-serial @ }T
 actuals cell+ @ 1+ actuals cell+ !
-T{ 2 substitute-count -> lf-mlsubst-invalid }T
+T{ 2 substitute-count -> outcome-invalid }T
 2 actuals pair! lf-level-capacity actuals !
-T{ 2 substitute-count -> lf-mlsubst-invalid }T
+T{ 2 substitute-count -> outcome-invalid }T
 T{ counts@ -> 5 5 1 }T
 2 actuals pair!
-T{ 2 substitute-count -> 4 root-id @ lf-mlsubst-ok }T
+T{ 2 substitute-count -> 4 root-id @ outcome-ok }T
 \ A full reference store: the constant, whose levels change, needs a new
 \ reference, and there is no room for it. That is full, and every count
 \ is restored.
@@ -210,5 +210,5 @@ T{ before-cref discarded-cref-id lf-cref-valid? -> false }T
 lf-cref-reset
 : reuse-cref 0 lf-name-generation @ 0 0 lf-cref-new 0= abort" reuse cref" 2drop ;
 reuse-cref
-T{ 500 run-substitution -> lf-mlsubst-invalid }T
+T{ 500 run-substitution -> outcome-invalid }T
 bye

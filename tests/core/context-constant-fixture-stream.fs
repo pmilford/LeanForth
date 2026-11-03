@@ -113,15 +113,15 @@ variable infer-term-count variable infer-level-count variable infer-cref-count
   lids @ <> if drop -1 throw then levels @ <> if -1 throw then
   \ Check scope on the exported declaration roots before any diagnostic
   \ allocates. This does not establish that their types or dependencies hold.
-  4 handle 0 50000 lf-constant-term-scope lf-repr-ok <> if -1 throw then
-  6 handle 0 50000 lf-constant-term-scope lf-repr-ok <> if -1 throw then
-  11 handle 0 50000 lf-constant-term-scope lf-repr-ok <> if -1 throw then
-  13 handle 0 50000 lf-constant-term-scope lf-repr-ok <> if -1 throw then
-  18 handle 0 50000 lf-constant-term-scope lf-repr-ok <> if -1 throw then
+  4 handle 0 50000 lf-constant-term-scope outcome-ok <> if -1 throw then
+  6 handle 0 50000 lf-constant-term-scope outcome-ok <> if -1 throw then
+  11 handle 0 50000 lf-constant-term-scope outcome-ok <> if -1 throw then
+  13 handle 0 50000 lf-constant-term-scope outcome-ok <> if -1 throw then
+  18 handle 0 50000 lf-constant-term-scope outcome-ok <> if -1 throw then
   \ fixturePoly's application refers to both binders: it is scoped under
   \ two binders, but must be rejected when only one is available.
-  9 handle 2 50000 lf-constant-term-scope lf-repr-ok <> if -1 throw then
-  9 handle 1 50000 lf-constant-term-scope lf-repr-invalid <> if -1 throw then
+  9 handle 2 50000 lf-constant-term-scope outcome-ok <> if -1 throw then
+  9 handle 1 50000 lf-constant-term-scope outcome-invalid <> if -1 throw then
   \ Conditional inference of fixturePoly, using fixtureId's staged signature
   \ as an unchecked assumption. No declaration or theorem is accepted.
   lf-term-count @ infer-term-count ! lf-level-count @ infer-level-count !
@@ -130,36 +130,36 @@ variable infer-term-count variable infer-level-count variable infer-cref-count
   2 cells names + @ formals !
   lf-msp-token 0= if -1 throw then
   1 cells names + @ 4 handle formals 1 50000 lf-msp-put
-  lf-msp-ok <> if -1 throw then
+  outcome-ok <> if -1 throw then
   \ Check pairs first so negative fixtures must reach this diagnostic.
   lf-msp-token 0= if -1 throw then
   4 handle 11 handle 50000 lf-mixed-definition-probe
-  dup lf-mdefinition-ok <> if
-    dup lf-mdefinition-unknown = if s" definition pair inconclusive" stderr write-file throw then
+  dup outcome-ok <> if
+    dup outcome-unknown = if s" definition pair inconclusive" stderr write-file throw then
     drop -1 throw
   then drop
   lf-msp-token 0= if -1 throw then
   13 handle 18 handle 50000 lf-mixed-definition-probe
-  dup lf-mdefinition-ok <> if
-    dup lf-mdefinition-unknown = if s" theorem pair inconclusive" stderr write-file throw then
+  dup outcome-ok <> if
+    dup outcome-unknown = if s" theorem pair inconclusive" stderr write-file throw then
     drop -1 throw
   then drop
   lf-msp-token 0= if -1 throw then
-  11 handle 50000 lf-mixed-infer dup lf-minfer-ok <> if
-    dup lf-minfer-unknown = if s" definition inference inconclusive" stderr write-file throw then
+  11 handle 50000 lf-mixed-infer dup outcome-ok <> if
+    dup outcome-unknown = if s" definition inference inconclusive" stderr write-file throw then
     drop 2drop -1 throw
   then drop
-  4 handle 50000 lf-mixed-convert lf-mconvert-equal <> if -1 throw then
+  4 handle 50000 lf-mixed-convert outcome-ok <> if -1 throw then
   infer-term-count @ lf-term-count ! infer-level-count @ lf-level-count !
   infer-cref-count @ lf-cref-count !
   \ The theorem value also uses fixtureId, specialized at universe zero.
   \ This remains conditional inference, not proof or declaration acceptance.
   lf-msp-token 0= if -1 throw then
-  18 handle 50000 lf-mixed-infer dup lf-minfer-ok <> if
-    dup lf-minfer-unknown = if s" theorem inference inconclusive" stderr write-file throw then
+  18 handle 50000 lf-mixed-infer dup outcome-ok <> if
+    dup outcome-unknown = if s" theorem inference inconclusive" stderr write-file throw then
     drop 2drop -1 throw
   then drop
-  13 handle 50000 lf-mixed-convert lf-mconvert-equal <> if -1 throw then
+  13 handle 50000 lf-mixed-convert outcome-ok <> if -1 throw then
   infer-term-count @ lf-term-count ! infer-level-count @ lf-level-count !
   infer-cref-count @ lf-cref-count !
   \ Probe the fixtureId type/value pair with an empty signature index. Even a
@@ -167,8 +167,8 @@ variable infer-term-count variable infer-level-count variable infer-cref-count
   lf-msp-begin 0= if -1 throw then
   lf-msp-token 0= if -1 throw then
   4 handle 6 handle 50000 lf-mixed-definition-probe
-  dup lf-mdefinition-ok <> if
-    dup lf-mdefinition-unknown = if s" fixtureId pair inconclusive" stderr write-file throw then
+  dup outcome-ok <> if
+    dup outcome-unknown = if s" fixtureId pair inconclusive" stderr write-file throw then
     drop -1 throw
   then drop
   s" fixture ok" type cr ;

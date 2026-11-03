@@ -124,11 +124,11 @@ create saved-formals lf-msp-capacity lf-level-capacity * cells allot
   count-n @ 0 do node loop
   cb 1 stdin read-file throw 0<> if -1 throw then count-n @ n !
   \ Preaudit every root before any inference can allocate and revive a handle.
-  4 handle 0 50000 lf-constant-term-scope lf-repr-ok <> if -1 throw then
-  6 handle 0 50000 lf-constant-term-scope lf-repr-ok <> if -1 throw then
-  11 handle 0 50000 lf-constant-term-scope lf-repr-ok <> if -1 throw then
-  13 handle 0 50000 lf-constant-term-scope lf-repr-ok <> if -1 throw then
-  18 handle 0 50000 lf-constant-term-scope lf-repr-ok <> if -1 throw then
+  4 handle 0 50000 lf-constant-term-scope outcome-ok <> if -1 throw then
+  6 handle 0 50000 lf-constant-term-scope outcome-ok <> if -1 throw then
+  11 handle 0 50000 lf-constant-term-scope outcome-ok <> if -1 throw then
+  13 handle 0 50000 lf-constant-term-scope outcome-ok <> if -1 throw then
+  18 handle 0 50000 lf-constant-term-scope outcome-ok <> if -1 throw then
   lf-msp-begin 0= if -1 throw then
   2 cells names + @ formals !
   1 4 6 1 1 do-step 0= if -2 throw then

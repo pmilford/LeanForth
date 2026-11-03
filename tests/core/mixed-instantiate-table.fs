@@ -76,8 +76,8 @@ variable replacement-number
       replacement-number @ build-replacement replacement-root !
       case-number @ . replacement-number @ .
       source-root @ handle replacement-root @ handle 10000 lf-mixed-instantiate
-      lf-minst-ok <> if 2drop -1 throw then
-      2dup 10000 lf-cterm-check lf-repr-ok <> if 2drop -1 throw then
+      outcome-ok <> if 2drop -1 throw then
+      2dup 10000 lf-cterm-check outcome-ok <> if 2drop -1 throw then
       drop emit-term cr
     loop
   loop ;

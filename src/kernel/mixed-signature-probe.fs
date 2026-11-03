@@ -25,10 +25,6 @@ require ../core/terms.fs
 require ./mixed-level-substitute.fs
 
 32 constant lf-msp-capacity
-outcome-ok constant lf-msp-ok
-outcome-invalid constant lf-msp-invalid
-outcome-exhausted constant lf-msp-exhausted
-outcome-unknown constant lf-msp-unknown
 
 \ The index: parallel arrays of candidate records, because callers and tests
 \ address them as cell arrays (lf-msp-names, ...) and copy their prefixes.

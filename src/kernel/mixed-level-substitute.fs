@@ -21,10 +21,6 @@ require ../core/tagged-sort-boundary.fs
 require ../core/terms.fs
 require ./level-substitute.fs
 
-outcome-ok constant lf-mlsubst-ok
-outcome-invalid constant lf-mlsubst-invalid
-outcome-exhausted constant lf-mlsubst-exhausted
-
 begin-structure /lf-mlsrec
   field: lf-mlsrec-formals     \ address of the formal parameter IDs
   field: lf-mlsrec-count       \ number of formals

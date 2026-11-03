@@ -456,10 +456,38 @@ stores is next (plan 3.2–3.3).
 ADR 0008's split, approved by the owner, is implemented: *exhausted* (2)
 now means only that the fuel budget ran out, and *full* (6) that a store,
 work stack, frame or depth limit, binder context, or a value at the cell
-maximum left no room. When a visit has neither fuel nor room, fuel
-decides. The site-by-site classification is in ADR 0008's "Implemented"
-section. Evidence: on 616 randomized seeds (2.2 million lines) every
+maximum left no room. When a visit is admitted against both fuel and room
+(a frame, a depth limit or a context level) and has neither, fuel decides.
+Limits checked inside a visit that has already been paid for (work-stack
+pushes, a binder depth at `max-n` while rebuilding or scope-checking, and
+mixed-infer's binder context) are checked independently of fuel and
+report full even after the last unit was spent. The site-by-site
+classification is in ADR 0008's "Implemented" section. Evidence: on 616 randomized seeds (2.2 million lines) every
 difference from the previous code was exhausted becoming full, each traced
 to a room site; 36 planted misclassifications were caught by unit tests;
 no pinned-Lean table changed. The NDJSON reader, merged meanwhile, reports
 its limits (line length, nesting, token and string limits, heap) as full.
+
+Review follow-up, the same day. An independent review found no
+correctness or trust problem and three low findings, now acted on.
+`frame-under` checked its context before the fuel, so with no fuel left at
+`max-n` it reported full; it now admits the visit first (fuel, then
+frames) and only then examines the context. A frames record with a limit
+below 1 and a walk whose root cannot be pushed (possible only with a
+corrupted capacity) reported full; both are now invalid, before fuel or
+room is considered. The test of `lf-cterm-check`'s outcome set now
+includes full, which its contract allows but today's capacities never
+reach. `visit-outcome` in `outcome.fs` states the fuel-first
+rule once (`frame-room` replaces `frame-open?` and `frame-shut`, and the
+level-value, level-compare and mixed-infer room words use it), and the 49
+per-module status aliases were removed: tests use the `outcome-*` names.
+Evidence: through the public entry points, 800 randomized seeds (2.80
+million output lines) give exactly the output of the previous code; a
+library-level differential (250 seeds, 450,156 operations, and 20 more
+seeds on Gforth 0.7.3) differs only in the three intended
+reclassifications; eight planted faults were each caught by unit or model
+tests. Rejected: moving the work-stack and
+binder-depth checks behind a fuel check (they occur inside a visit that
+is already paid for, and a walk visitor has no fuel interface); keeping
+exhausted for a corrupted limit when no fuel is left (a corrupted record
+is invalid whatever its fuel).

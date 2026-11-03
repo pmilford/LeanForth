@@ -12,11 +12,17 @@
 \ ( x frames -- result outcome ) on x and releases the frame; frame-call2
 \ does the same for a visitor of two values ( x y frames -- outcome ), such
 \ as a comparison. They visit nothing when no fuel is left (exhausted) or
-\ when every frame is in use (full); frame-call then also gives -1, no
-\ result. The visitor visits a child by calling frame-call, frame-call2 or
-\ frame-under (one context level deeper) on the record it was given, so a
-\ node shared by several parents is visited, and charged, once per path. A
-\ visitor result outside the outcome vocabulary counts as invalid.
+\ when every frame is in use (full); with neither, the fuel decides:
+\ exhausted. A record whose limit is below 1 (frame-init never makes one)
+\ is corrupted, which is invalid. On any failure frame-call also gives -1,
+\ no result. The visitor visits a child by calling frame-call, frame-call2
+\ or frame-under (one context level deeper; a context at max-n cannot grow,
+\ which is full, and again the fuel decides first) on the record it was
+\ given, so a node shared by several parents is visited, and charged, once
+\ per path. A visitor result outside the outcome vocabulary counts as
+\ invalid. The fuel-first rule covers only the admission of a visit here: a
+\ limit that a visitor checks itself, inside a visit already paid for (such
+\ as mixed-rebuild.fs's binder check), is independent of fuel (ADR 0008).
 \
 \ A record is busy while a visit is in progress. A busy record refuses a
 \ new budget and a new pass, so a pass cannot be restarted from inside
@@ -60,18 +66,18 @@ end-structure
 : frame-budget ( fuel frames -- flag )
   over 0< over frame-busy? or if 2drop false else frame-fuel ! true then ;
 
-\ Visiting. A visit opens when fuel is left and a frame is free (signed
-\ comparisons, so a corrupted negative fuel or limit opens nothing).
-: frame-open? ( frames -- flag )
-  dup frame-fuel @ 0> over frame-depth @ rot frame-limit @ < and ;
-\ Why a visit did not open: no fuel left (checked first) is exhausted, and
-\ otherwise every frame is in use, which is full.
-: frame-shut ( frames -- outcome )
-  frame-fuel @ 0> if outcome-full else outcome-exhausted then ;
+\ Visiting. A visit opens (ok) when the limit is sound, fuel is left and a
+\ frame is free; otherwise the limit decides first (below 1 is invalid),
+\ then the fuel (none left, or a corrupted negative fuel, is exhausted),
+\ then the frames (all in use is full). Signed comparisons.
+: frame-free? ( frames -- flag ) dup frame-depth @ swap frame-limit @ < ;
+: frame-room ( frames -- outcome )
+  dup frame-limit @ 0> 0= if drop outcome-invalid exit then
+  dup frame-fuel @ swap frame-free? visit-outcome ;
 : frame-enter ( frames -- ) -1 over frame-fuel +! 1 swap frame-depth +! ;
 : frame-leave ( frames -- ) -1 swap frame-depth +! ;
-\ frame-visit takes a frame the caller found open (frame-open?) and runs
-\ the visitor on the values below the record, any number of them.
+\ frame-visit takes a frame the caller found open (frame-room gave ok) and
+\ runs the visitor on the values below the record, any number of them.
 \ frame-call does the same for one value with the record kept on the data
 \ stack instead: the passes recurse through frame-call, and every word and
 \ return-stack cell between a visitor and its child's visit is held once
@@ -79,16 +85,19 @@ end-structure
 : frame-visit ( i*x frames -- j*x outcome )
   dup frame-enter dup >r dup frame-visitor @ execute outcome-sane r> frame-leave ;
 : frame-call ( x frames -- result outcome )
-  dup frame-open? 0= if frame-shut nip no-result exit then
+  dup frame-room ok-then? 0= if nip no-result exit then
   dup frame-enter tuck dup frame-visitor @ execute outcome-sane rot frame-leave ;
 : frame-call2 ( x y frames -- outcome )
-  dup frame-open? if frame-visit else frame-shut nip nip then ;
+  dup frame-room ok-then? if frame-visit else nip nip then ;
 
-\ One context level deeper, restored afterwards. A context that cannot
-\ grow (max-n) is full, visiting nothing.
+\ One context level deeper, restored afterwards. The visit must open
+\ (frame-room, so the fuel decides before the context), and then a context
+\ that cannot grow (max-n) is full; a refused visit changes nothing.
 : frame-context+! ( n frames -- ) frame-context +! ;
+: frame-deeper ( frames -- outcome )
+  dup frame-room ok-then? if frame-context @ max-n <> room>outcome then ;
 : frame-under ( x frames -- result outcome )
-  dup frame-context @ max-n = if 2drop -1 outcome-full exit then
+  dup frame-deeper ok-then? 0= if nip no-result exit then
   1 over frame-context+! tuck frame-call rot -1 swap frame-context+! ;
 
 \ A pass: an idle record takes the root's context, then the root is

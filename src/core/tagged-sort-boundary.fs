@@ -13,9 +13,6 @@ require ./terms.fs
 6 constant lf-tag-symbolic-sort
 0 constant lf-repr-concrete
 1 constant lf-repr-symbolic
-outcome-ok constant lf-repr-ok
-outcome-invalid constant lf-repr-invalid
-outcome-exhausted constant lf-repr-exhausted
 lf-term-capacity walk: lf-repr-walker
 
 \ Fuel left after a check; callers that share one budget read it back.

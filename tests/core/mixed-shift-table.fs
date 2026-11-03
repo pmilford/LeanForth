@@ -65,8 +65,8 @@ variable cref-id
         case-number @ . cutoff @ . amount @ .
         mixed-root @ dup lf-term-identity 0= if -1 throw then
         cutoff @ amount @ 10000 lf-mixed-shift
-        lf-mshift-ok <> if 2drop -1 throw then
-        2dup 10000 lf-cterm-check lf-repr-ok <> if 2drop -1 throw then
+        outcome-ok <> if 2drop -1 throw then
+        2dup 10000 lf-cterm-check outcome-ok <> if 2drop -1 throw then
         drop emit-term cr
       loop
     loop

@@ -11,9 +11,6 @@ require ./mixed-instantiate.fs
 require ./mixed-rebuild.fs
 require ./mixed-shift.fs
 
-outcome-ok constant lf-mbeta-ok
-outcome-invalid constant lf-mbeta-invalid
-outcome-exhausted constant lf-mbeta-exhausted
 create lf-mbeta-frames /frames allot
 
 \ Fuel left after a reduction; mixed-convert continues with it.

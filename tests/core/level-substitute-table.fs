@@ -32,7 +32,7 @@ variable result-root
     -1 throw
   endcase
   source-root @ formal-ids actual-roots 2 50000 lf-lsubst
-  lf-lsubst-ok <> if -1 throw then result-root ! ;
+  outcome-ok <> if -1 throw then result-root ! ;
 
 : emit-substitution-table ( -- )
   3 0 do
@@ -42,7 +42,7 @@ variable result-root
       1 j lf-lassign-add 0= if -1 throw then
       2 i lf-lassign-add 0= if -1 throw then
       k . j . i . result-root @ 50000 lf-level-value-assigned
-      lf-lvalue-ok <> if drop -1 throw then . cr
+      outcome-ok <> if drop -1 throw then . cr
     loop loop
   loop ;
 emit-substitution-table

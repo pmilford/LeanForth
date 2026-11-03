@@ -19,10 +19,6 @@ require ../lib/lib.fs
 require ../core/level-scope.fs
 require ../core/levels.fs
 
-outcome-ok constant lf-lvalue-ok
-outcome-invalid constant lf-lvalue-invalid
-outcome-exhausted constant lf-lvalue-exhausted
-outcome-unknown constant lf-lvalue-unknown
 max-n constant lf-lvalue-cell-max
 64 constant lf-lvalue-depth-limit
 
@@ -101,8 +97,7 @@ lf-lvalue-state /lf-lvrec erase
 \ every node above, and it cannot be confused with a concrete level.
 defer lf-lvalue-walk ( node depth -- value status )
 : lf-lvalue-room ( depth -- outcome )
-  lf-lvalue-fuel @ 0> 0= if drop outcome-exhausted exit then
-  lf-lvalue-depth-limit < if outcome-ok else outcome-full then ;
+  lf-lvalue-fuel @ swap lf-lvalue-depth-limit < visit-outcome ;
 \ A failure or a symbolic value is final; otherwise continue with the value.
 : lf-lvalue-done? ( value status -- value status true | value false )
   dup ok? 0= if true exit then over -1 = if true else drop false then ;
