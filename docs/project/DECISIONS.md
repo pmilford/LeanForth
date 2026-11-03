@@ -557,3 +557,54 @@ independently reviewed with its findings fixed; CI run 41568918311
 passed. It was placed after the review fixes of the context conversion
 (agent Z) rather than at the conversion itself, so that the tagged
 version has no known open finding in that work.
+
+## Exceptions: `THROW` only inside one operation — 2026-11-02 (proposed)
+
+[ADR 0018](../adr/0018-exceptions.md), plan task 1.1.6, awaiting the
+owner. Outcomes stay the interface of every word other modules and tests
+call; *ok*, *rejected*, *unknown* and *unsupported* are never thrown.
+Inside one operation a module may throw *invalid*, *exhausted* and *full*
+with the project codes −4113, −4114 and −4118, in a range reserved for
+LeanForth (−4096 to −4351, below every code Gforth 0.7.3 and 1.0
+produce; the job pool's −4096 to −4101 keep their numbers). Only four
+kinds of word may `CATCH`: a transaction boundary (marks its stores
+before the `CATCH`, rolls back, maps the three codes to outcomes, throws
+anything else on), the check boundary (any code: invalid, context spent,
+as ADR 0012's G-P6), a resource owner (releases and re-throws) and a
+tool's top level. No code maps to *ok*. All eleven current `CATCH` sites
+fit. Pilot on `mixed-level-substitute.fs` in scratch: words giving an
+outcome 33 → 10, plumbing tokens 45 → 6 (plus 18 exception words), code
+lines 151 → 129, hand-written count saving replaced by store marks;
+identical output on 400 random seeds (330,308 substitutions), a planted
+missing rollback caught, failing calls about 6% slower. Found on the way:
+Gforth 1.0 workers share the main task's exception-backtrace string, so a
+`THROW` in the main task before the pool starts followed by throws in jobs
+corrupts the heap (5 of 5 runs); a per-worker reset in `src/lib/task.fs`
+fixes it and is recommended now, on its own. Rejected: outcomes only
+(plumbing, hand-written rollback), throwing every non-ok outcome (hides
+the owner's three outcomes), throwing outcome numbers, Gforth's
+`exception` numbers, catching host errors in inner boundaries.
+
+## Wordlists: a public and a private list per group — 2026-11-02 (proposed)
+
+[ADR 0010](../adr/0010-wordlists.md), plan task 1.1.7, awaiting the
+owner. `src/lib/module.fs` would make `lf-lib`, `lf-core`, `lf-kernel`,
+`lf-import`, `lf-program`, `lf-present` and a private list for each, plus
+`lf-env-private` for the checked environment's internals, with
+`module-open`, `module-close`, `order+` and `order-` on Forth-2012
+search-order words. A group's public list joins the search order when the
+group loads, so public words stay visible as today; helpers are found only
+inside their group and by tests that ask with one line. Measured: both
+Gforths ignore case in wordlists, warn "redefined" only within the current
+wordlist, and allow 1,024 (0.7.3) or unlimited (1.0) search-order
+entries; so `make smoke` gains a duplicate-name check. Pilot on `src/lib`
+in scratch: 432 of 638 names hidden, every test passing on both Gforths,
+20 of 125 test files given one line, 182 visibility-switch lines, no
+run-time cost, 2–5% more load time. Worked example: `lf-env-unpublish`
+and `lf-env-guarded` would be hidden from everything outside the
+environment. Wordlists hide names, not memory, so untrusted code still
+runs in a separate program (OQ-1). Rejected: export lists through
+`SYNONYM` (outside the chosen word set; 0.7.3 needs a non-standard
+adapter), one wordlist per module, a single public list (kept as a
+fallback for hosts with eight search-order entries), keeping everything in
+FORTH-WORDLIST.
