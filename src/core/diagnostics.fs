@@ -48,6 +48,15 @@ require ../lib/lib.fs
 34 constant lf-diag-symbolic-level     \ the level, 0
 \ A construct not implemented yet (outcome unknown until ADR 0008 step 3).
 40 constant lf-diag-unsupported        \ the node's tag, 0
+\ Rejected by a typing rule of ADR 0011 (outcome rejected); 50-54 are the
+\ checked environment's rules (kernel/environment.fs). A rejection
+\ replaces the record of the undecided step it decides.
+55 constant lf-diag-type-expected      \ S1: the declared type's type, reduced, 0
+56 constant lf-diag-domain-type        \ S2: a binder domain's type, reduced, 0
+57 constant lf-diag-not-proposition    \ S3: the statement's Sort level, 0
+58 constant lf-diag-function-expected  \ F1: the function's type, reduced, 0
+59 constant lf-diag-argument-apart     \ D1-D5, an argument: the rules used, 0
+60 constant lf-diag-value-apart        \ D1-D5, the value: the rules used, 0
 
 begin-structure /lf-diag
   field: lf-diag-code       \ reason code; lf-diag-none while clear
@@ -137,6 +146,14 @@ end-structure
     lf-diag-out-of-scope of s" invalid input: out of scope" endof
     lf-diag-corrupted of s" invalid input: corrupted store" endof
     lf-diag-limit-name 0 endcase ;
+: lf-diag-rule-name ( code -- c-addr u )
+  case lf-diag-type-expected of s" rejected: type expected (S1)" endof
+    lf-diag-domain-type of s" rejected: binder domain not a type (S2)" endof
+    lf-diag-not-proposition of s" rejected: theorem type not a proposition (S3)" endof
+    lf-diag-function-expected of s" rejected: function expected (F1)" endof
+    lf-diag-argument-apart of s" rejected: argument type mismatch (D1-D5)" endof
+    lf-diag-value-apart of s" rejected: declared type mismatch (D1-D5)" endof
+    lf-diag-input-name 0 endcase ;
 : lf-diag-name ( code -- c-addr u )
   case lf-diag-undecided of s" undecided: terms or levels differ" endof
     lf-diag-not-pi of s" undecided: function type not a Pi" endof
@@ -144,7 +161,7 @@ end-structure
     lf-diag-no-signature of s" undecided: no candidate signature" endof
     lf-diag-symbolic-level of s" undecided: symbolic level" endof
     lf-diag-unsupported of s" unsupported construct" endof
-    lf-diag-input-name 0 endcase ;
+    lf-diag-rule-name 0 endcase ;
 : lf-diag-site. ( site -- ) ?dup if count type else ." no site" then ;
 : lf-diag. ( -- )
   lf-diag-clear? if ." no diagnostic" exit then

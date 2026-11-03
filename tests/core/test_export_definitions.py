@@ -16,7 +16,7 @@ sys.path.insert(0, "tests/support")
 from export_definition import decode, encode, run, succ_chain  # noqa: E402
 from ndjson_preview import preview  # noqa: E402
 
-OK, INVALID, EXHAUSTED, UNKNOWN = 0, 1, 2, 3
+OK, INVALID, EXHAUSTED, UNKNOWN, REJECTED = 0, 1, 2, 3, 4
 EXPORTS = ("identity", "composition", "type-identity", "poly-identity")
 
 
@@ -34,8 +34,12 @@ class ExportDefinitions(unittest.TestCase):
             claim = decoded["declarations"][0]["type"]
             with self.subTest(name=name):
                 self.assertEqual(status(encode(decoded)), OK)
-                # The claim is a type, not a proof of itself.
-                self.assertEqual(status(encode(decoded, value=claim)), UNKNOWN)
+                # The claim is a type, not a proof of itself: the value's
+                # type is a Sort and the claim a Pi, so rule D2 of ADR 0011
+                # rejects, as Lean does (declTypeMismatch; for
+                # poly_identity the export-specialization differential runs
+                # this pair through Lean).
+                self.assertEqual(status(encode(decoded, value=claim)), REJECTED)
                 # Node 0 is a Sort, which is not the claim's value either way.
                 self.assertNotEqual(status(encode(decoded, claim=0)), OK)
 
@@ -72,7 +76,7 @@ class ExportDefinitions(unittest.TestCase):
                 self.assertEqual(int(lines[0]), OK)
                 claim = decoded["declarations"][0]["type"]
                 data = encode(decoded, value=claim, actuals=[record], extra_levels=rows)
-                self.assertEqual(int(run(data).stdout.split()[0]), UNKNOWN)
+                self.assertEqual(int(run(data).stdout.split()[0]), REJECTED)
 
     def test_poly_identity_at_one_is_the_type_identity_export(self):
         # A separately exported concrete theorem fixes the expected syntax.

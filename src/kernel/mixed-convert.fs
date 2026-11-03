@@ -5,10 +5,11 @@
 \ parameter scope, not term binder scope or typing; callers must establish
 \ those independently before using a conversion result.
 \ State: one paired walk record, lf-mconvert-walker, whose items are a left
-\ and a right term, a member of the checker context (lib/context.fs);
-\ reduction and level comparison run in mixed-beta and level-compare with
-\ this walk's fuel. Single-threaded within one context; no raw or
-\ concurrent mutation is safe.
+\ and a right term and whose argument cell says whether level comparisons
+\ keep their fuel when undecided, a member of the checker context
+\ (lib/context.fs); reduction and level comparison run in mixed-beta and
+\ level-compare with this walk's fuel. Single-threaded within one context;
+\ no raw or concurrent mutation is safe.
 
 require ../lib/lib.fs
 require ../core/constant-term-boundary.fs
@@ -33,8 +34,10 @@ lf-term-capacity context-walk2: lf-mconvert-walker
   lf-mconvert-fuel @ lf-mixed-beta lf-mbeta-fuel @ lf-mconvert-fuel ! nip outcome-sane ;
 : lf-mconvert-whnf ( node -- node' outcome )
   dup lf-term-identity if lf-mconvert-beta else drop -1 outcome-invalid then ;
+: lf-mconvert-keep ( -- addr ) lf-mconvert-walker walk-arg ;
 : lf-mconvert-levels ( left right -- outcome )
-  lf-mconvert-fuel @ lf-level-compare lf-lcmp-fuel @ lf-mconvert-fuel ! outcome-sane ;
+  lf-mconvert-fuel @ lf-mconvert-keep @ lf-level-compare-run
+  lf-lcmp-fuel @ lf-mconvert-fuel ! outcome-sane ;
 
 \ Reduce the pair being visited in place, left first.
 : lf-mconvert-reduce ( addr -- outcome ) dup @ lf-mconvert-whnf >r swap ! r> ;
@@ -83,6 +86,13 @@ lf-term-capacity context-walk2: lf-mconvert-walker
 \ ( left left-id right right-id fuel -- status )
 \ Validate both complete graphs, then compare; restore all temporary term
 \ allocations on every result. Failed preflight conservatively leaves zero fuel.
-: lf-mixed-convert ( left lid right rid fuel -- status )
+\ lf-mixed-convert-keeping differs only in the fuel left after an undecided
+\ level comparison (lf-level-compare-keeping): mixed-infer uses it, so that
+\ its rejection analysis (ADR 0011) can go on after an undecided step.
+: lf-mconvert-checked ( left lid right rid fuel -- status )
   lf-mconvert-walker tuck walk-budget 0= if lf-mcompare-refused exit then
   lf-mcompare-roots ok-then? if lf-mconvert-run else nip then ;
+: lf-mixed-convert ( left lid right rid fuel -- status )
+  false lf-mconvert-keep ! lf-mconvert-checked ;
+: lf-mixed-convert-keeping ( left lid right rid fuel -- status )
+  true lf-mconvert-keep ! lf-mconvert-checked ;

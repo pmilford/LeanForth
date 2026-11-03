@@ -611,22 +611,24 @@ dup .term cr  lf-term-read made drop nip constant l-of-id
 : l-at ( n -- ) lf-lassign-reset 1 swap lf-lassign-add made
   l-of-id 1000 lf-level-value-assigned ok! . ;
 0 l-at  1 l-at cr                               \ 0 2: not zero for every u
-\ Today's probe has no theorem mode: it reports ok (0) for this pair.
+\ As a definition the pair is fine; as a theorem it is rejected (rule S3).
 b0 b0 >fun  Sort-u >fun  2constant id-value
-index @ id-type id-value 1000 lf-mixed-definition-probe . cr
+index @ id-type id-value 1000 lf-mixed-definition-probe .
+index @ id-type id-value 1000 lf-mixed-theorem-probe . cr
 ```
 
 ```text
 Sort imax((u+1), imax(u, u))
 0 2
-0
+0 4
 ```
 
-The probe's *ok* only says the value has the claimed type; it would say the
-same if the pair were labelled a theorem. Theorem mode returns with the
-first checker: its approved rule S3 rejects a theorem whose type is not a
-proposition, using exactly such a witness assignment
-([ADR 0011](../adr/0011-definite-rejection.md)).
+The definition probe's *ok* only says the value has the claimed type. The
+theorem probe also asks Lean's question "is the statement a proposition?":
+the level of its Sort must be zero for every value of `u`, and with every
+parameter 1 this one is 2, so rule S3 of
+[ADR 0011](../adr/0011-definite-rejection.md) rejects it (Lean's
+`normalizes_to_zero` is false exactly when that value is not zero).
 
 **Lean.** As a definition the pair is accepted (`polyId` under
 [Term](#term)); as a theorem Lean rejects it:
@@ -667,21 +669,26 @@ b1 b0 >Pi  Sort-u >Pi  2constant id-type      \ (A : Sort u) -> (x : A) -> A
 b0 b0 >fun  Sort-u >fun  2constant good-value \ fun (A : Sort u) (x : A) => x
 b1 b0 >fun  Sort-u >fun  2constant bad-value  \ fun (A : Sort u) (x : A) => A
 index @ id-type good-value 1000 lf-mixed-definition-probe .   \ 0: ok
-index @ id-type bad-value 1000 lf-mixed-definition-probe .    \ 3: unknown
-cr
+index @ id-type bad-value 1000 lf-mixed-definition-probe .    \ 4: rejected
+cr lf-diag. cr
 ```
 
 ```text
-0 3
+0 4
+rejected: declared type mismatch (D1-D5) at mixed-definition-probe lf-mixed-definition-probe: 10 0 
 ```
 
-Today the wrong value gets *unknown*: the experimental passes never answer
-*rejected*. The owner approved the first checker's rules on 2026-11-02
-([ADR 0011](../adr/0011-definite-rejection.md)); under them this case must
-be *rejected* (rule D2 inside D4, like the `returns-the-proposition` row of
-the [expected results](../reviews/FIRST_CHECKER_EXPECTED.md)), and the good
-value *accepted — experimental, not independently audited; axioms: none*.
-That checker is not written yet.
+The wrong value is *rejected* by the first checker's rules, which the
+owner approved on 2026-11-02 ([ADR 0011](../adr/0011-definite-rejection.md))
+and which the probe now applies (plan task 2.2.1; [kernel] code, not yet
+through the review gate): its type ends in `Sort u` where the claim ends
+in `A`, a Sort against a variable that is not a proof, so rule D2 shows
+them different inside D4 — like the `returns-the-proposition` row of the
+[expected results](../reviews/FIRST_CHECKER_EXPECTED.md). The diagnostic
+names the rules used, as a set of bits (2 for D2, 8 for D4: 10). A full
+check of a declaration, which would print the good value as *accepted —
+experimental, not independently audited; axioms: none*, is plan task
+2.2.3 and is not written yet.
 
 **Lean.** Lean accepts `polyId` (under [Term](#term)) and rejects the wrong
 value:
@@ -726,7 +733,7 @@ numbers are stable; scripts may rely on them.
 | invalid | 1 | Malformed input or corrupted state. | Input Lean's export cannot even express, such as a variable no binder covers. |
 | exhausted | 2 | Out of fuel: the processing budget ran out. More time might decide it. | None comparable (Lean's own time limits differ). |
 | unknown | 3 | Supported, but the cautious rules cannot decide. | Lean may accept or reject. |
-| rejected | 4 | Definitely wrong, and Lean rejects it too. No code returns it yet. | Lean rejects, for the same reason. |
+| rejected | 4 | Definitely wrong, and Lean rejects it too, by a rule of [ADR 0011](../adr/0011-definite-rejection.md). | Lean rejects, for the same reason. |
 | unsupported | 5 | Uses a feature LeanForth has not built yet (for example `let`, literals, data types). | Lean accepts the feature. |
 | full | 6 | Out of room: a store, stack, depth or size limit was reached. More memory might decide it. | None comparable. |
 
@@ -751,10 +758,15 @@ b1 b0 >Pi  Sort-u >Pi  2constant id-type
 b0 b0 >fun  Sort-u >fun  2constant id-value
 b1 b0 >fun  Sort-u >fun  2constant bad-value
 b0 b0 >fun  2constant open-term                        \ fun (x : #0) => x: #0 is unbound
+\ fun (A : Sort (max u u)) (x : A) => x: Lean equates max u u with u
+1 lf-hlevel-param made drop dup lf-level-max made dup lf-level-identity made
+lf-hterm-sort made
+b0 b0 >fun  2swap >fun  2constant max-value
 index @ id-type id-value 1000 lf-mixed-definition-probe .  \ ok
 index @ open-term 1000 lf-mixed-infer . 2drop              \ invalid
 index @ id-type id-value 10 lf-mixed-definition-probe .    \ exhausted: fuel 10
-index @ id-type bad-value 1000 lf-mixed-definition-probe . \ unknown
+index @ id-type max-value 1000 lf-mixed-definition-probe . \ unknown
+index @ id-type bad-value 1000 lf-mixed-definition-probe . \ rejected
 : use-up-nodes ( -- ) begin 0 lf-hterm-bvar while 2drop repeat ;   \ all 64 nodes
 use-up-nodes  index @ Sort-u 1000 lf-mixed-infer . 2drop   \ full
 cr
@@ -765,13 +777,16 @@ cr
 
 ```text
 0 1 2 3 4 5 6
-0 1 2 3 6
+0 1 2 3 4 6
 5
 ```
 
-The last line is the NDJSON reader refusing a record kind for which no
-handler was set: it never skips a record silently. *Rejected* (4) is not
-reached: it arrives with the first checker.
+`max-value` is *unknown*: Lean's level normalisation equates `max u u`
+with `u`, which the cautious comparison does not do, and no witness
+assignment tells them apart (rule K4 of ADR 0011, the
+`equal-universe-other-spelling` row of the expected results). The last
+line is the NDJSON reader refusing a record kind for which no handler was
+set: it never skips a record silently.
 
 **Lean.** Lean has two answers, accepted or an error. The first checker's
 expected-results table pairs Lean's verdict with LeanForth's required

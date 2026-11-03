@@ -255,13 +255,25 @@ begin-check 0 make-var 1 make-var 2drop lf-diag-clear
 T{ 0 handle 1 handle 100 lf-mixed-compare diag -> outcome-unknown 0 1 lf-diag-undecided }T
 T{ s" mixed-compare lf-mixed-compare" at? -> true }T
 end-check
-\ Sort 0 applied to Sort 0: the function's type, Sort 1, is not a Pi; a
-\ lambda whose domain is a lambda: the domain's type is not a Sort.
+\ Sort 0 applied to Sort 0: the function's type, Sort 1, is not a Pi, and
+\ it is rigid, so rule F1 rejects (ADR 0011); a lambda whose domain is a
+\ lambda: the domain's type, a Pi, is not a Sort, so rule S2 rejects. Each
+\ rejection replaces the record of the undecided step with the rule's code
+\ and the reduced type.
 begin-check 0 make-sort dup make-app drop lf-diag-clear
-T{ token 1 handle 1000 lf-mixed-infer nip nip lf-diag-code@ -> outcome-unknown lf-diag-not-pi }T
+T{ token 1 handle 1000 lf-mixed-infer nip nip diag
+  -> outcome-rejected 2 0 lf-diag-function-expected }T
+T{ s" mixed-infer lf-mixed-infer" at? -> true }T
 end-check
 begin-check 0 make-sort 0 make-var make-lam 0 make-var make-lam drop lf-diag-clear
-T{ token 4 handle 1000 lf-mixed-infer nip nip lf-diag-code@ -> outcome-unknown lf-diag-not-sort }T
+T{ token 4 handle 1000 lf-mixed-infer nip nip lf-diag-code@ -> outcome-rejected lf-diag-domain-type }T
+end-check
+\ The same step when no rule applies keeps its own record: fun (f : (fun
+\ X : Type => X) (Prop -> Prop)) => f Prop, whose function type is a beta
+\ redex that reduces to a Pi (only a visible Pi is applied today).
+begin-check 0 make-sort 0 make-sort make-pi 1 make-sort 0 make-var make-lam swap make-app
+  0 make-var 0 make-sort make-app make-lam drop lf-diag-clear
+T{ token 10 handle 1000 lf-mixed-infer nip nip lf-diag-code@ -> outcome-unknown lf-diag-not-pi }T
 end-check
 
 \ Random checker work: each check's outcome is explained by its family.
@@ -270,9 +282,11 @@ end-check
 : undecided-code? ( code -- flag )
   dup lf-diag-undecided lf-diag-symbolic-level 1+ within swap lf-diag-unsupported = or ;
 : or-none ( code flag -- flag ) swap lf-diag-none = or ;
+: rejection-code? ( code -- flag ) lf-diag-type-expected lf-diag-value-apart 1+ within ;
 : explained? ( outcome -- flag )
   lf-diag-code@ swap case
     outcome-ok of lf-diag-none = endof
+    outcome-rejected of rejection-code? endof
     outcome-exhausted of lf-diag-fuel = endof
     outcome-full of room-code? endof
     outcome-invalid of dup input-code? or-none endof
@@ -280,7 +294,7 @@ end-check
     nip false swap endcase ;
 create counts 7 cells allot  counts 7 cells erase
 create recorded 7 cells allot  recorded 7 cells erase
-41 constant code-limit
+61 constant code-limit
 create code-counts code-limit cells allot  code-counts code-limit cells erase
 variable unexplained  0 unexplained !
 : count-code ( -- ) lf-diag-code@ 0 max code-limit 1- min cells code-counts + 1 swap +! ;

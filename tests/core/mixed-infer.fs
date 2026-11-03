@@ -93,10 +93,15 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
   lf-minfer-fuel @ 49891 <> abort" poly fuel"
   4 h 50000 lf-mixed-convert outcome-ok <> abort" poly type" ;
 : invalid-argument-case ( -- )
-  setup snapshot 10 50000 infer
-  outcome-unknown expect-status
+  \ id.{u} (Sort u): the argument has type Sort (u+1) where id.{u} wants a
+  \ Sort u; with u = 0 the levels are 1 and 0, so rule D1 (ADR 0011)
+  \ rejects, as Lean's kernel does (appTypeMismatch).
+  setup snapshot lf-diag-clear 10 50000 infer
+  outcome-rejected expect-status
   0<> abort" failure identity" -1 <> abort" failure root"
-  counts-unchanged? 0= abort" invalid argument rollback" ;
+  counts-unchanged? 0= abort" invalid argument rollback"
+  lf-diag@ lf-diag-argument-apart <> abort" argument rule code" drop
+  0<> abort" second number" 1 <> abort" rule D1" ;
 : missing-case ( -- )
   setup snapshot 11 50000 infer
   outcome-unknown expect-status
@@ -118,11 +123,16 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
 : unknown-rolled-back ( root -- )
   snapshot 50000 infer outcome-unknown expect-status expect-no-result
   counts-unchanged? 0= abort" unknown rollback" ;
+: rejected-rolled-back ( root -- )
+  snapshot 50000 infer outcome-rejected expect-status expect-no-result
+  counts-unchanged? 0= abort" rejected rollback" ;
 : non-type-case ( -- )
-  \ fun (x : fun A => A) => x has a binder domain whose type is not a Sort;
-  \ (A : Sort u) -> fun (x : A) => x has such a Pi body. Both are unknown.
+  \ fun (x : fun A => A) => x has a binder domain whose type, a Pi, is not a
+  \ Sort: rule S2 rejects it (Lean: typeExpected). (A : Sort u) -> fun (x :
+  \ A) => x has such a Pi body; no rule of ADR 0011 covers a Pi body, so it
+  \ stays unknown.
   setup 13 h 1 h lf-hterm-lam save 0 h 12 h lf-hterm-pi save \ 14, 15
-  14 unknown-rolled-back 15 unknown-rolled-back ;
+  14 rejected-rolled-back 15 unknown-rolled-back ;
 : preflight-fuel-case ( -- )
   setup
   9 -1 infer outcome-invalid expect-status 2drop

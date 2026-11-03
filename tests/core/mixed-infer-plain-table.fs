@@ -14,9 +14,10 @@ include ../support/plain-cases.fs
 
 : infer ( root -- type identity status ) >r empty-token r> handle 50000 lf-mixed-infer ;
 : infer-ok ( root -- type ) infer ok? must drop ;
-\ Rejected input must be invalid, or unknown where the caller allows it.
+\ Input Lean rejects must be invalid or rejected (by a rule of ADR 0011),
+\ or unknown where the caller allows it.
 : rejected? ( status unknown-allowed -- flag )
-  over outcome-unknown = and swap outcome-invalid = or ;
+  over outcome-unknown = and over outcome-rejected = or swap outcome-invalid = or ;
 
 \ fun _ : Sort 0 => fun x : #0 => x
 : prop-identity ( -- node ) 0 make-sort 0 make-var 0 make-var make-lam make-lam ;
@@ -42,7 +43,7 @@ include ../support/plain-cases.fs
     -1 throw
   endcase ;
 \ Unbound variables (cases 0, 2 and 5) must be invalid; the other ill-typed
-\ terms may also be unknown.
+\ terms are rejected by a rule of ADR 0011 (F1, S2, D1) or unknown.
 : negative-status ( n -- status ) build-negative infer nip nip ;
 : emit-positive ( n -- ) ." P " dup . build-positive infer-ok emit-term cr ;
 : emit-negative ( n -- ) ." N " dup . negative-status . cr ;
@@ -103,8 +104,8 @@ include ../support/plain-cases.fs
     lf-tag-pi of ." P " swap recurse recurse endof
     -1 throw
   endcase ;
-\ Cases 0..3 must infer; 4 and 5 must be rejected (invalid, or unknown for
-\ the application section's type mismatch).
+\ Cases 0..3 must infer; 4 and 5 must not (invalid or rejected, or unknown
+\ for the application section's type mismatch).
 : emit-u-case ( u n root unknown-allowed xt -- )
   >r >r rot dup . -rot over . swap 4 < if
     r> drop infer ok? must drop swap assign-u ." OK " r> execute

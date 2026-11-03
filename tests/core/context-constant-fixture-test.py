@@ -39,14 +39,18 @@ class ContextConstantFixture(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertEqual(result.stdout.strip(), b"")
         # The changed fixtureId value is well scoped; the definition probe
-        # finds that its type differs from the claim.
-        self.assertIn(b"fixtureId pair inconclusive", result.stderr)
+        # finds that its type differs from the claim: a Sort where the claim
+        # has a Pi, under equal binders (rules D2 in D4 of ADR 0011; Lean's
+        # declTypeMismatch).
+        self.assertIn(b"fixtureId pair rejected", result.stderr)
         result = subprocess.run(
             [os.environ.get("GFORTH", "gforth"), "tests/core/context-constant-fixture-stream.fs"],
             input=changed, capture_output=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(result.stdout.strip(), b"")
-        self.assertIn(b"definition pair inconclusive", result.stderr)
+        # fixturePoly now passes A, a type, where fixtureId wants a value of
+        # A (rule D2 of ADR 0011; Lean's appTypeMismatch).
+        self.assertIn(b"definition pair rejected", result.stderr)
 
     def test_unscoped_theorem_annotation_is_rejected(self):
         data, _ = fixture.encode(Path("tests/reference/constant-fixture.ndjson").read_bytes())
@@ -67,14 +71,17 @@ class ContextConstantFixture(unittest.TestCase):
         changed = bytearray(data)
         node_start = len(data) - 19 * 16
         # Use P instead of h as the second argument to fixtureId. Both are
-        # in scope and reference earlier nodes, but their types differ.
+        # in scope and reference earlier nodes, but their types differ: P is
+        # a proposition where a proof of P is needed (rule D2 of ADR 0011;
+        # Lean's appTypeMismatch, row constant.wrong-argument of
+        # docs/reviews/FIRST_CHECKER_EXPECTED.md).
         struct.pack_into("<I", changed, node_start + 16 * 16 + 12, 2)
         result = subprocess.run(
             [os.environ.get("GFORTH", "gforth"), "tests/core/context-constant-fixture-stream.fs"],
             input=changed, capture_output=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(result.stdout.strip(), b"")
-        self.assertIn(b"theorem pair inconclusive", result.stderr)
+        self.assertIn(b"theorem pair rejected", result.stderr)
 
     def test_theorem_body_must_match_exported_application(self):
         data, _ = fixture.encode(Path("tests/reference/constant-fixture.ndjson").read_bytes())
