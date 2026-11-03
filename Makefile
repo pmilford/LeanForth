@@ -15,6 +15,7 @@ RUN := timeout $(TEST_TIMEOUT)
 # Every pinned-Lean oracle and differential comparison. Excludes the
 # profiling targets.
 DIFFERENTIAL_TARGETS := \
+	test-doc-examples-lean \
 	reference reference-export reference-first-checker reference-binder-domains \
 	test-name-differential \
 	test-level-differential \
@@ -38,18 +39,29 @@ DIFFERENTIAL_TARGETS := \
 	test-memory-reference-differential test-memory-frame-differential \
 	test-printer-differential
 
-.PHONY: test test-differential check check-docs check-lean-sources check-portable-forth smoke \
+.PHONY: test test-differential check check-docs check-doc-examples check-lean-sources \
+	check-portable-forth smoke \
 	test-harness test-lib test-core \
 	test-composition-fixture test-program test-present profile-existing profile-history \
 	forth-metrics $(DIFFERENTIAL_TARGETS)
 
 # Gforth and Python 3 only; run on every CI host and before every commit.
 test: check-docs check-lean-sources check-portable-forth smoke test-harness test-lib test-core \
-	test-composition-fixture test-program test-present
+	test-composition-fixture test-program test-present check-doc-examples
 
 # Fails on broken documentation links or missing docs/ paths.
 check-docs:
 	$(RUN) python3 scripts/check-doc-links.py
+
+# The Forth examples of the user pages print exactly the output shown.
+DOC_EXAMPLE_PAGES := docs/user/CONCEPTS.md
+check-doc-examples:
+	$(RUN) python3 scripts/check-doc-examples.py --gforth $(GFORTH) $(DOC_EXAMPLE_PAGES)
+
+# The same pages' Lean examples, with pinned Lean: accepted or rejected as shown.
+test-doc-examples-lean:
+	$(RUN) python3 scripts/check-doc-examples.py --gforth $(GFORTH) --lean $(LEAN) \
+	$(DOC_EXAMPLE_PAGES)
 
 # Fails on sorry, admit, native_decide or unlisted axioms in Lean test files,
 # or a Lean invocation without -DwarningAsError=true. Needs no Lean.
