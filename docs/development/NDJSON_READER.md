@@ -89,10 +89,11 @@ exception or no result, never taken as *ok*:
   own export (`ABORT"`, -2);
 - a handler changes the line's JSON view so that one of a block's three
   lists is lost (invalid);
-- `list-count`, `list-item` or `recursor-rule` is given a record of an
-  earlier line, that is, a record kept past its handler once the export
-  has counted a later line, even one that failed, and also after
-  `export-restart` or `export-init` (no list and no rule: 0, -1 and 0);
+- `list-count`, `list-item` or `recursor-rule` is given a copy of a
+  record of an earlier line, that is, a record copied by its handler and
+  kept once the export has counted a later line, even one that failed,
+  and also after `export-restart` or `export-init` (no list and no rule:
+  0, -1 and 0);
 - `list-count`, `list-item` or `recursor-rule` is given a field that holds
   no list, an index outside the list, a list of objects (`list-item`) or a
   record that is not a recursor (`recursor-rule`) (0, -1 and 0);
@@ -120,8 +121,20 @@ the file first.
   make later records be checked against wrong counts, let the handler read
   its export again, or make a block's elements be skipped, repeated or
   decoded from changed tokens (each still checked);
-- a handler or caller that keeps a record's texts or digits past its
-  handler: they point into the line, which the next line overwrites;
+- a handler or caller that keeps a record's address instead of a copy.
+  The reader reuses its records: one for each record of a line, one for
+  each element of a block and one for the rule `recursor-rule` gives. A
+  kept address therefore reads as a later record, of the current line and
+  with that record's lists, and a kept rule as the rule of the next call;
+- a handler or caller that gives `list-count` or `list-item` a list field
+  of one record with another record. The list is read in the line of the
+  record it is given with, so a field of an earlier record given with a
+  record of the current line reads whatever the current line holds at
+  that token index;
+- a handler or caller that keeps a record's texts, digits or `mdata-data`
+  past its handler: they point into the line and its JSON view, which the
+  next line overwrites. `mdata-data` is the token index of a JSON object
+  in that view, and no reader word takes it or checks its line;
 - a caller that uses an export before `export-init` gave ok or after
   `export-free`, uses one export from two tasks at once, or stores
   anything but the execution token of a handler with `export-handler`;
@@ -168,11 +181,16 @@ A handler must keep this contract:
   numbers the elements. A handler that writes the JSON view so that a list
   is lost stops the reading as invalid ("handler changed the export");
   other writes to the export are not detected.
+- It keeps only a copy of a record, never its address: the reader decodes
+  the next record into the same memory, and `recursor-rule` the next rule.
+  A kept address is not detected; it reads as the later record.
 - It copies any text, digits or list it wants to keep: they point into the
   current line and its JSON tape, valid only until the handler returns.
-  The lists and rules of a record kept past its line read as none
-  (`list-count` gives 0, `list-item` -1, `recursor-rule` 0); texts and
-  digits are not checked.
+  The lists and rules of a copy kept past its line read as none
+  (`list-count` gives 0, `list-item` -1, `recursor-rule` 0); texts,
+  digits and `mdata-data` are not checked.
+- It gives `list-count` and `list-item` a list field together with its
+  own record, the record the field was read from. This is not checked.
 - A `THROW` from a handler, including the two above, passes on to the
   caller of `export-line` or `export-read` with the export idle again;
   `export-read` closes the file first.
@@ -345,17 +363,22 @@ portability host.
   or element number, a `THROW` that closes the file and leaves the export
   idle; `export-handler` refusing a non-kind; the three heap blocks of an
   export freed by `export-init` again and by `export-free`; the five
-  reference fixtures). `scripts/check-portable-forth.py` tests its load
+  reference fixtures; and, on `tests/core/ndjson-block.ndjson`, a
+  handler that zeroes every cell of its caller's under the canaries while
+  `export-read` reads an inductive block of two types, two constructors
+  and a recursor, with all 19 records handed over and the reading ok).
+  `scripts/check-portable-forth.py` tests its load
   check on a scratch tree it writes itself before it checks the
-  repository: twelve modules, of which the seven that use an adapted word
+  repository: fourteen modules, of which the nine that use an adapted word
   with no load, a load after the use, a load in a multi-line comment, in
-  a `0 [IF]` branch or in the `[ELSE]` of `TRUE [IF]`, or a use after
-  `[CHAR] \` or `CHAR (` on the same line must be reported, and the five
+  a `0 [IF]` branch or in the `[ELSE]` of `TRUE [IF]`, a use after
+  `[CHAR] \` or `CHAR (` on the same line, or a load in a comment after
+  `'` or `CHAR` inside a definition must be reported, and the five
   that load it first (directly, through another module, under a guard,
   or in the middle of a line) or only mention a word in strings, comments
-  or after `[UNDEFINED]` must not; and three lines that its line checks
+  or after `[UNDEFINED]` must not; and four lines that its line checks
   must read with the comments and strings, but not the `\` of `[CHAR] \`
-  or the `(` of `CHAR (`, taken out.
+  or the `(` of `CHAR (` outside a definition, taken out.
 - **File tests** (`tests/core/test_ndjson_reader.py`, in `make test`):
   counts equal to `count.py` and field-by-field dumps equal to
   `tests/support/ndjson_dump.py` (Python's `json` module) and to the strict
@@ -499,6 +522,31 @@ portability host.
   At the coordinator's request the threat model above is now written
   down, here and in the header of `ndjson.fs`, for later reviews to judge
   the reader against.
+- **Fifth independent AI review** (2026-11-02, of the fourth review's
+  fixes, against the threat model; also not a substitute for the human
+  review): no defect with input alone or with a handler that keeps its
+  contract, and nothing that blocks the declaration-import gate. Its two
+  low findings were resolved the same day. The fourth review's change to
+  the load check took the word after `CHAR` or `'` inside a definition
+  too, where both are compiled and the `\` or `(` after them starts a
+  comment: a `require` in that comment counted as a load, so a module
+  that used `cell` without loading `portability.fs` was no longer
+  reported, although both Gforths load such a file without reading the
+  `require`. `CHAR` and `'` now take a word only outside a definition,
+  and the line checks read the source through the same reader as the
+  load check, with the reviewer's two modules and one line added to the
+  script's self-tests. That reader also reads stack comments that hold a
+  quote, `s\"` strings and a `\` inside a string correctly, which the
+  line checks once read in part as code; 334 lines of 194 files now read
+  differently, none with a new finding. The threat model did not list
+  three breaches the reader does not detect: keeping a record's address
+  instead of a copy, giving the list readers a list field of another
+  record, and keeping `mdata-data` past its line; the contract and the
+  lists above now name them. Its suggested test, a handler that zeroes
+  every cell under the canaries while `export-read` reads an inductive
+  block, passes; with the export kept on the data stack under the
+  handler, as before the fourth review's fixes, it fails. Its point of
+  style on `record-stamp` was applied.
 - **Differentials on real exports**: the counting reports equal `count.py`
   byte for byte on `Init`, `Std` and all of Mathlib (and the recorded
   `count.out` of [the Mathlib measurements](measurements/mathlib-2026-11-02/README.md));

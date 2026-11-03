@@ -45,10 +45,16 @@
 \ it writes neither its record nor the export (a write to its record
 \ misleads only itself: the reader never reads a record back after its
 \ handler; a block's list lost from the JSON view is checked: invalid);
-\ it copies any text, digits or list it keeps, since they are valid only
-\ until it returns (checked for lists and rules: those of a record kept
-\ past its line read as none); and a THROW from it passes on to the
-\ caller of export-read after the file is closed, with the export idle.
+\ it keeps only a copy of a record, never its address (not checked: the
+\ reader reuses its records, and recursor-rule its rule, so a kept
+\ address reads as a later record, of the current line); it copies any
+\ text, digits or list it keeps, since they are valid only until it
+\ returns (checked for lists and rules: those of a copy kept past its
+\ line read as none; not checked for texts, digits and mdata-data, a
+\ JSON index no reader word takes); it gives list-count and list-item a
+\ list field with its own record (not checked); and a THROW from it
+\ passes on to the caller of export-read after the file is closed, with
+\ the export idle.
 \
 \ What is checked: exact field sets (no field missing, unknown or repeated);
 \ value kinds; enumerations; index fields dense and in order (names and
@@ -662,9 +668,11 @@ here families - cell / constant #families
 
 \ Handing a decoded record over, with no field or reason left from decoding.
 : export-line-number ( export -- n ) export-reader reader-lines @ ;
+\ Write the export, its line number and its generation into the record's
+\ header; the export waits on the return stack.
 : record-stamp ( record export -- )
-  2dup swap record-export ! 2dup export-at @ swap record-line !
-  export-generation @ swap record-generation ! ;
+  >r r@ over record-export !  r@ export-at @ over record-line !
+  r> export-generation @ swap record-generation ! ;
 \ The failed field and the reason, and setting them.
 : export-marks ( export -- key why ) dup export-key @ swap export-why @ ;
 : export-marks! ( key why export -- ) tuck export-why ! export-key ! ;

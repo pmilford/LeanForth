@@ -353,6 +353,20 @@ T{ ' throws-deep kind-name-str ex export-handler !
    66 s" tests/reference/composition.ndjson" ex ' export-read catch nip nip nip
    ex export-reader reader-fid @ ex export-busy @ -> other -77 0 0 }T
 T{ capture-all s" tests/reference/composition.ndjson" read-fixture -> outcome-ok 35 }T
+\ Nor in a block's walk under export-read (the fifth review's test): a
+\ handler that zeroes every cell of its caller's under the canaries, down
+\ to stack-floor, still gets all 19 records of a block of two types, two
+\ constructors and a recursor, and the reading is ok.
+variable stack-floor
+: zero-cells ( i*x i -- i*0 ) dup >r 0 ?do drop loop r> 0 ?do 0 loop ;
+: zeroes-under ( i*x c c record -- i*0 c c outcome )
+  capture >r 2>r depth stack-floor @ - zero-cells 2r> r> ;
+: zeroing-all ( -- ) kind-count 0 do ['] zeroes-under i ex export-handler ! loop ;
+T{ zeroing-all depth stack-floor ! 11 22 33 s" tests/core/ndjson-block.ndjson" read-fixture
+   -> 0 0 0 outcome-ok 19 }T
+T{ 12 kind-at 13 kind-at 14 kind-at 15 kind-at 16 kind-at 17 kind-at 18 kind-at
+   -> kind-inductive kind-type kind-type kind-ctor kind-ctor kind-recursor kind-thm }T
+T{ ex export-decls @ capture-all -> 2 }T
 \ The end of input needs metadata and a declaration.
 T{ fresh ex export-end why s" missing metadata or declaration" compare -> outcome-invalid 0 }T
 T{ started ex export-end -> outcome-ok outcome-invalid }T

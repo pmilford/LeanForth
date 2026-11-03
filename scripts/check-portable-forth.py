@@ -31,11 +31,19 @@
    repository, the check runs on a scratch tree of its own (LOAD_CASES)
    and fails if it misjudges a module there.
 
-Comments and strings are ignored. A word that CHAR, [CHAR], ', ['],
-POSTPONE, [COMPILE], [DEFINED] or [UNDEFINED] takes, such as the \\ of
-[CHAR] \\, never starts one; the line checks' reading of comments has a
-self-test too (STRIP_CASES). See docs/development/FORTH_STYLE.md,
-section 8.
+Checks 1, 2 and 4 read the source through one reader, scan(), which
+leaves out comments (\\ to the end of the line, ( ... ) and .( ... )
+across lines) and the text of s" c" ." abort" and s\\" strings; check 3
+reads the lines that start with INCLUDE. A word that a
+parsing word takes is kept as it is and never starts a comment or a
+string, such as the \\ of [CHAR] \\. [CHAR], ['], POSTPONE, [COMPILE],
+[DEFINED] and [UNDEFINED] always take the next word; CHAR and ' only
+outside a definition, since inside one they are compiled and parse only
+when the definition runs. A definition runs from : or :NONAME to ;, and
+from ] to [, as the compile-only check reads them; other ways of
+compiling (quotations, a defining word's name) are not followed. The
+line checks' reading has a self-test too (STRIP_CASES). See
+docs/development/FORTH_STYLE.md, section 8.
 """
 import pathlib
 import re
@@ -76,20 +84,66 @@ NAMING = {"[undefined]", "[defined]"}   # the next word is named, not used
 # Words that take the next word as a character or a name, so that it never
 # starts a comment or a string: [char] \ is the character \, not a comment.
 PARSING = NAMING | {"char", "[char]", "'", "[']", "postpone", "[compile]"}
-# A comment or string opener taken by one of them, as strip() masks it.
-PARSED_OPENER = re.compile(
-    r"((?:^|\s)(?:" + "|".join(re.escape(w) for w in sorted(PARSING)) + r")\s+)"
-    r"(\\|\.?\(|s\\?\"|\.\"|c\"|abort\")(?=\s|$)", re.I)
+# Those of them that take it only outside a definition: inside one, CHAR
+# and ' are compiled, so a \ or ( after them starts a comment.
+INTERPRETED_PARSING = {"char", "'"}
+# Words that start (True) or end (False) compiling.
+COMPILING = {":": True, ":noname": True, "]": True, ";": False, "[": False}
+STRINGS = {'s"', 'c"', '."', 'abort"'}
+# A comment or string opener, as a whole word.
+OPENER = re.compile(r'\\|\.?\(|s\\?"|c"|\."|abort"', re.I)
+
+
+def scan(text):
+    """(offset, word, taken) for each word of Forth source in order, as
+    written, without comments or the text of strings: \\ to the end of the
+    line, ( ... ) and .( ... ) across lines, and s" c" ." abort" and s\\"
+    strings. taken tells whether a parsing word took the word: then it is
+    kept as it is, even \\ or (. CHAR and ' take one only outside a
+    definition."""
+    i, n, parses, compiling = 0, len(text), False, False
+    while True:
+        while i < n and text[i].isspace():
+            i += 1
+        if i >= n:
+            return
+        j = i
+        while j < n and not text[j].isspace():
+            j += 1
+        low = text[i:j].lower()
+        if parses:
+            yield i, text[i:j], True
+            i, parses = j, False
+            continue
+        if low == "\\":
+            end = text.find("\n", j)
+        elif low in ("(", ".("):
+            end = text.find(")", j)
+        elif low in STRINGS:
+            end = text.find('"', j + 1)
+        elif low == 's\\"':
+            end = j + 1
+            while end < n and text[end] != '"':
+                end += 2 if text[end] == "\\" else 1
+        else:
+            yield i, text[i:j], False
+            compiling = COMPILING.get(low, compiling)
+            parses = low in PARSING and not (compiling and low in INTERPRETED_PARSING)
+            i = j
+            continue
+        i = n if end < 0 else end + 1
 
 
 def strip(text):
-    lines = []
-    for line in text.splitlines():
-        line = PARSED_OPENER.sub(r"\1_", line)              # [char] \ and the like
-        line = re.sub(r"(^|\s)\\(\s.*)?$", " ", line)        # \ comments
-        line = re.sub(r'(^|\s)(\.?\(|s"|\."|c"|abort")\s[^")]*[")]', " ", line, flags=re.I)
-        lines.append(line)
-    return "\n".join(lines)
+    """text with comments and the text of strings blanked, as scan() reads
+    them, keeping every line in its place; an opener that a parsing word
+    takes, such as the \\ of [char] \\, reads _."""
+    out = [c if c == "\n" else " " for c in text]
+    for start, word, taken in scan(text):
+        if taken and OPENER.fullmatch(word):
+            word = "_"
+        out[start:start + len(word)] = word
+    return "".join(out)
 
 
 def number(token):
@@ -109,15 +163,13 @@ def number(token):
 
 def interpreted(text):
     """(line, word) for compile-only words outside colon definitions."""
-    found, depth = [], 0
+    found, compiling = [], False
     for lineno, line in enumerate(text.splitlines(), 1):
         for tok in line.split():
             low = tok.lower()
-            if low in (":", ":noname", "]"):
-                depth = 1
-            elif low in (";", "["):
-                depth = 0
-            elif depth == 0 and low in COMPILE_ONLY:
+            if low in COMPILING:
+                compiling = COMPILING[low]
+            elif not compiling and low in COMPILE_ONLY:
                 found.append((lineno, tok))
     return found
 
@@ -130,43 +182,11 @@ def raw_strip(text):
 
 PORTABILITY = "src/lib/portability.fs"
 LOADING = {"require", "include"}
-STRINGS = {'s"', 'c"', '."', 'abort"'}
 
 
 def source_words(text):
-    """The words of Forth source in order, as written, without comments or
-    the text of strings: \\ to the end of the line, ( ... ) and .( ... )
-    across lines, and s" c" ." abort" and s\\" strings. A word after one
-    of PARSING is kept as it is, even \\ or ( ."""
-    words, i, n, parsed = [], 0, len(text), False
-    while True:
-        while i < n and text[i].isspace():
-            i += 1
-        if i >= n:
-            return words
-        j = i
-        while j < n and not text[j].isspace():
-            j += 1
-        low = text[i:j].lower()
-        if parsed:
-            words.append(text[i:j])
-            i, parsed = j, False
-            continue
-        if low == "\\":
-            end = text.find("\n", j)
-        elif low in ("(", ".("):
-            end = text.find(")", j)
-        elif low in STRINGS:
-            end = text.find('"', j + 1)
-        elif low == 's\\"':
-            end = j + 1
-            while end < n and text[end] != '"':
-                end += 2 if text[end] == "\\" else 1
-        else:
-            words.append(text[i:j])
-            i, parsed = j, low in PARSING
-            continue
-        i = n if end < 0 else end + 1
+    """The words of Forth source in order, as scan() reads them."""
+    return [word for _, word, _ in scan(text)]
 
 
 def literal_flag(word):
@@ -284,6 +304,12 @@ LOAD_CASES = {
                  False),
     "charback.fs": ("[char] \\ constant bs : a ( -- n ) cell ;\n", True),
     "charparen.fs": ("char ( constant lp cell constant c ( n )\n", True),
+    # Inside a definition ' and char are compiled: the \ and ( after them
+    # start comments, so the require in them is no load.
+    "tickback.fs": (": x ( \"name\" -- xt ) ' \\ require ../lib/portability.fs\n  ;\n"
+                    ": a ( -- n ) cell ;\n", True),
+    "charcomment.fs": (": y ( -- c ) char ( require ../lib/portability.fs ) ;\n"
+                       ": a ( -- n ) cell ;\n", True),
 }
 # The same for strip(), which the line checks read: each line and the
 # words that must remain of it.
@@ -292,6 +318,7 @@ STRIP_CASES = {
     "char ( c@ ( a comment ) postpone \\ cell":
         ["char", "_", "c@", "postpone", "_", "cell"],
     ': a ( -- ) ." c@" ; \\ c@': [":", "a", ";"],
+    ": a char ( c@ ) [ char \\ ] ' \\ c@": [":", "a", "char", "[", "char", "_", "]", "'"],
 }
 
 
