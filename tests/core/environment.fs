@@ -94,6 +94,35 @@ lf-name-used @ constant bytes-then
 T{ lf-term-count @ terms-then 1+ = lf-name-used @ bytes-then > -> true true }T
 T{ ' lf-input-rollback rs-checked lf-term-count @ lf-name-used @ -> outcome-ok terms-then bytes-then }T
 T{ lf-input-intact? -> true }T
+\ The name bytes are part of the input: with fewer in use than when
+\ loading ended, it is not intact.
+lf-name-used @ 1- lf-name-used !
+T{ lf-input-intact? lf-input-rollback -> false outcome-invalid }T
+lf-name-used @ 1+ lf-name-used !
+T{ lf-input-intact? -> true }T
+\ The fingerprint covers every input store (records, identities, count and
+\ generation below its mark) and the name bytes: changing any of them
+\ changes it. A guard against mistakes, not forgery (ADR 0012, amended).
+: flip ( addr -- ) dup @ invert swap ! ;
+: flip-byte ( addr -- ) dup c@ 1 xor swap c! ;
+\ Whether flipping and restoring addr with xt ( addr -- ) changes the print.
+: sees? ( addr xt -- flag )
+  lf-input-print >r 2dup execute lf-input-print r> <> >r execute r> ;
+: generation ( k -- addr ) lf-input-store store-generation ;
+: last-record ( k -- addr ) lf-input-marked swap 1- swap store-slot ;
+: last-identity ( k -- addr ) lf-input-marked swap 1- swap store-identity ;
+T{ 0 generation ' flip sees? 1 generation ' flip sees? 2 generation ' flip sees? -> true true true }T
+T{ 3 generation ' flip sees? 4 generation ' flip sees? -> true true }T
+T{ 0 last-record ' flip sees? 2 last-record ' flip sees? 4 last-record ' flip sees? -> true true true }T
+T{ 0 last-identity ' flip sees? 4 last-identity ' flip sees? -> true true }T
+T{ lf-name-bytes ' flip-byte sees? lf-input-print lf-input-fingerprint = -> true true }T
+\ Loading cannot end with the name bytes out of range.
+lf-input-reset n.A def add
+lf-name-used @ constant used-now
+lf-name-byte-capacity 1+ lf-name-used !
+T{ lf-input-end lf-input-sealed? -> outcome-invalid false }T
+used-now lf-name-used !
+T{ lf-input-end lf-input-intact? -> outcome-ok true }T
 \ A rollback below an input mark breaks the input: it is no longer intact
 \ and nothing can be rolled back; restoring the count mends it.
 lf-term-count @ 1- lf-term-count !
@@ -154,8 +183,13 @@ T{ n.X lf-env-lookup n.Nat lf-env-lookup n.A-twin lf-env-lookup -> 24 outcome-ok
 T{ 999 lf-env-lookup 0 lf-env-lookup -> -1 outcome-invalid -1 outcome-rejected }T
 T{ n.A 27 lf-env-ready? n.A -1 lf-env-ready? n.A 28 lf-env-ready? 999 5 lf-env-ready? -> true false false false }T
 \ A view is not a check: no N2, parameters or publication.
-T{ lf-env-own-name n.u lf-env-param? lf-env-own-params lf-env-publish -> outcome-invalid outcome-invalid outcome-invalid outcome-invalid }T
+T{ lf-env-own-name n.u lf-env-param? lf-env-own-params -> outcome-invalid outcome-invalid outcome-invalid }T
 T{ lf-env-hand-over -> outcome-invalid true }T
+\ Without any snapshot, nothing is published and the hand-over is a fault,
+\ whichever slots are final.
+lf-env-clear
+T{ 0 slot@ lf-slot-final? lf-env-hand-over -> true outcome-invalid true }T
+T{ 5 true ?keep 5 false ?keep -> 5 true false }T
 
 \ ---------------------------------------------------------------------------
 \ Row 4: universe parameters, as far as the environment records and checks
@@ -206,13 +240,15 @@ T{ lf-cand-count@ -> 3 }T
 outcome-ok lf-env-finish
 T{ lf-env-hand-over lf-input-rollback -> outcome-ok false outcome-ok }T
 T{ 23 deps nip 23 same-decl? -> 3 true }T
+\ The publisher's pool mark is in the environment's header.
+T{ lf-env lf-envh-pub-mark mark-store @ pool = -> true }T
 \ Publishing twice, beginning a final slot: refused, nothing changes.
 env-digest constant digest-b
-T{ lf-env-publish 23 lf-env-begin lf-env-publish env-digest digest-b = -> outcome-invalid outcome-invalid outcome-invalid true }T
+T{ lf-env-hand-over 23 lf-env-begin lf-env-hand-over env-digest digest-b = -> outcome-invalid true outcome-invalid outcome-invalid true true }T
 \ A freed environment: its handles fail in a new one made at once, and
 \ its snapshot is gone.
 T{ 24 lf-env-begin lf-env lf-env-free lf-env -> outcome-ok outcome-ok 0 }T
-T{ id-b 0 lf-env-handle? lf-env-own-name lf-env-publish -> outcome-invalid outcome-invalid outcome-invalid }T
+T{ id-b 0 lf-env-handle? lf-env-own-name lf-env-hand-over -> outcome-invalid outcome-invalid outcome-invalid true }T
 8 fresh-env
 lf-env-serial @ constant id-c
 ' syn-check 5 checked-run
@@ -237,6 +273,9 @@ all-but-8
 T{ 8 lf-env-begin id-d 11 lf-env-handle? id-d 21 lf-env-handle? id-d 1 lf-env-handle? -> outcome-ok outcome-invalid outcome-invalid outcome-ok }T
 T{ n.J lf-env-lookup 11 lf-env-depend 11 lf-env-params -> -1 outcome-rejected outcome-invalid 0 0 outcome-invalid }T
 T{ 2 11 lf-env-arity? n.X lf-env-lookup -> outcome-invalid -1 outcome-rejected }T
+\ ... nor by its results (G-P4), which it reads below it as any view.
+T{ 11 lf-env-outcome 21 lf-env-axioms 11 lf-env-handle nip nip -> outcome-invalid 0 outcome-invalid outcome-invalid }T
+T{ 1 lf-env-outcome 1 lf-env-axioms 1 lf-env-handle nip nip -> outcome-ok 0 outcome-ok outcome-ok }T
 T{ ' syn-check 8 checked-step main-count verdicts-match? -> outcome-ok true }T
 env-free
 
@@ -254,7 +293,7 @@ T{ 5 fuel-trial step-failures @ -> outcome-ok 0 }T
 \ others that use any are full; with none, 1 is full and its users are
 \ unknown (K5).
 1 fresh-env
-T{ ' syn-check main-count checked-run step-failures @ -> 0 }T
+T{ ' syn-check main-count checked-run step-failures @ lf-env-view -> 0 outcome-ok }T
 T{ 1 lf-env-outcome 8 lf-env-outcome 23 lf-env-outcome 26 lf-env-outcome -> outcome-ok outcome-full outcome-full outcome-full }T
 T{ pool-count -> 1 }T
 env-free
@@ -278,19 +317,85 @@ variable throw-at
   throw-step unchanged? and env-free ;
 ' throw-hook is lf-env-before-final
 T{ 8 throw-trial 23 throw-trial 2 throw-trial 0 throw-trial -> true true true true }T
-\ The serial run stops there.
+\ The serial run stops there, the context not spent: the check did not
+\ throw.
 8 throw-at ! 8 fresh-env
-T{ ' syn-check lf-env-run 7 lf-env-outcome 8 lf-env-outcome 9 lf-env-outcome -> outcome-invalid outcome-rejected outcome-invalid outcome-invalid }T
+T{ ' syn-check ' main-maker lf-env-run lf-env-view lf-env-spent? -> outcome-invalid outcome-ok false }T
+T{ 7 lf-env-outcome 8 lf-env-outcome 9 lf-env-outcome -> outcome-rejected outcome-invalid outcome-invalid }T
 ' lf-env-no-fault is lf-env-before-final
 \ The slot can be published once the fault is gone.
-T{ ' syn-check 8 lf-env-step 8 lf-env-outcome -> outcome-ok false outcome-ok }T
+T{ ' syn-check 8 lf-env-step lf-env-view 8 lf-env-outcome -> outcome-ok false outcome-ok outcome-ok }T
 env-free
-\ A THROW inside a check makes it invalid and the run goes on (G-P6).
-: throwing-check ( -- ) me 1 = if -78 throw then syn-check ;
+\ A pool that cannot be marked is a fault, with nothing written
+\ (white-box: lf-env-hand-over finds the pool sound before it marks it).
 8 fresh-env
-T{ ' throwing-check main-count checked-run step-failures @ -> 0 }T
-T{ 1 lf-env-outcome 8 lf-env-outcome 23 lf-env-outcome 26 lf-env-outcome -> outcome-invalid outcome-unknown outcome-unknown outcome-ok }T
+' syn-check 1 checked-run
+1 lf-env-begin drop syn-check
+pool-count constant pool-then
+pool store-capacity @ 1+ pool store-count !
+T{ 1 slot@ lf-env-guarded 1 slot@ lf-slot-final? -> outcome-invalid true false }T
+pool-then pool store-count !
+T{ lf-env-hand-over 1 slot@ lf-slot-final? lf-input-rollback -> outcome-ok false true outcome-ok }T
 env-free
+\ A pool shape store-init refuses: the memory is freed, nothing is made.
+T{ main-count 0 lf-env-bytes allocate throw -1 swap lf-env-made -> 0 outcome-invalid }T
+\ Inside a job (lf-owner set, as job-run sets it) nothing makes, chooses,
+\ frees or publishes an environment (G-P1); environment-tasks.fs does the
+\ same in real jobs.
+8 fresh-env
+0 lf-env-begin drop syn-check
+1 lf-owner !
+T{ 8 lf-env-new lf-env lf-env-use lf-env lf-env-free -> 0 outcome-invalid outcome-invalid outcome-invalid }T
+T{ lf-env-hand-over ' syn-check 1 lf-env-step -> outcome-invalid true outcome-invalid true }T
+T{ ' syn-check ' main-maker lf-env-run -> outcome-invalid }T
+0 lf-owner !
+T{ 0 slot@ lf-slot-final? lf-env-hand-over 0 slot@ lf-slot-final? -> false outcome-ok false true }T
+T{ lf-input-rollback -> outcome-ok }T
+env-free
+
+\ A THROW inside a check (G-P6): the declaration is invalid and the
+\ context spent, and lf-env-run goes on in a new context from its maker,
+\ which it frees at the end; the spent context refuses to begin another
+\ check. Each run starts in a spare context holding the main input, so
+\ that the main context stays usable for the tests below.
+: throwing-check ( -- ) me 1 = if -78 throw then syn-check ;
+create check-contexts decls cells allot
+variable makes
+: counting-maker ( -- context ior ) 1 makes +! main-maker ;
+: noting-check ( -- ) lf-context @ me cells check-contexts + ! throwing-check ;
+: checked-in ( i -- context ) cells check-contexts + @ ;
+: spare ( -- context ) main-maker throw dup context-use ;
+: unspare ( context -- ) context-main context-use context-free throw ;
+spare constant spare-1
+8 fresh-env 0 makes !
+T{ ' noting-check ' counting-maker lf-env-run makes @ lf-context @ spare-1 = -> outcome-ok 1 true }T
+T{ 0 checked-in spare-1 = 1 checked-in spare-1 = 2 checked-in spare-1 <> -> true true true }T
+T{ 26 checked-in 2 checked-in = 2 checked-in context-main <> -> true true }T
+lf-env-view drop
+T{ 1 lf-env-outcome 8 lf-env-outcome 23 lf-env-outcome 26 lf-env-outcome -> outcome-invalid outcome-unknown outcome-unknown outcome-ok }T
+env-free 8 fresh-env
+T{ lf-env-spent? 0 lf-env-begin lf-diag@ nip -> true outcome-invalid 0 0 lf-diag-publisher-fault }T
+spare-1 unspare env-free 8 fresh-env
+T{ lf-env-spent? 0 lf-env-begin -> false outcome-ok }T
+env-free
+\ The step records the THROW and spends the context.
+spare constant spare-2
+8 fresh-env
+' syn-check 1 checked-run
+T{ ' throwing-check 1 lf-env-step lf-diag@ nip lf-env-spent? -> outcome-invalid false 1 -78 lf-diag-publisher-fault true }T
+env-free spare-2 unspare
+\ A maker that fails, throws or gives the current context stops the run
+\ after the THROW, with slot 1 invalid and slot 2 not final; the run's
+\ caller is current again.
+: no-maker ( -- context ior ) 0 -1 ;
+: throwing-maker ( -- context ior ) -80 throw ;
+: same-maker ( -- context ior ) lf-context @ 0 ;
+: maker-trial ( maker -- outcome slot1 final2? back? )
+  spare >r 8 fresh-env ['] throwing-check swap lf-env-run lf-env-view drop
+  1 lf-env-outcome 2 slot@ lf-slot-final? lf-context @ r@ = env-free r> unspare ;
+T{ ' no-maker maker-trial -> outcome-invalid outcome-invalid false true }T
+T{ ' throwing-maker maker-trial -> outcome-invalid outcome-invalid false true }T
+T{ ' same-maker maker-trial -> outcome-invalid outcome-invalid false true }T
 \ A check that never finishes is invalid.
 : silent-check ( -- ) ;
 8 fresh-env
@@ -313,7 +418,7 @@ T{ 17 lf-env-begin lf-env-dep-capacity depend-all lf-cand-count@ -> outcome-ok o
 T{ 16 lf-env-depend lf-cand-count@ 3 lf-env-depend -> outcome-full lf-env-dep-capacity outcome-ok }T
 \ Sixteen dependencies need room for sixteen in the pool: four are left.
 outcome-ok lf-env-finish
-T{ lf-env-hand-over 17 lf-env-outcome pool-count -> outcome-full false outcome-full 4 }T
+T{ lf-env-hand-over lf-env-view 17 lf-env-outcome pool-count -> outcome-full false outcome-ok outcome-full 4 }T
 env-free
 
 \ ---------------------------------------------------------------------------
@@ -324,12 +429,13 @@ main-input
 ' syn-check main-count checked-run
 : axioms-none? ( -- flag )
   true main-count 0 ?do i expected@ ok? if i lf-env-axioms outcome-ok = swap 0= and and then loop ;
+lf-env-view drop
 T{ axioms-none? 2 lf-env-axioms 3 lf-env-axioms -> true 0 outcome-invalid 0 outcome-invalid }T
 env-free
 \ With a test-only allowlist bit on a synthetic record, the union reaches
 \ every user, directly or not; without it in the allowlist, a user is a
 \ fault (invalid) and its own users unknown.
-: rest ( -- ) main-count 1 ?do ['] syn-check i checked-step drop loop ;
+: rest ( -- ) main-count 1 ?do ['] syn-check i checked-step drop loop lf-env-view drop ;
 : axiom-trial ( allowed -- )
   8 fresh-env lf-env lf-envh-allowed ! ['] syn-check 1 checked-run 1 0 slot@ lf-slot-axioms ! rest ;
 1 axiom-trial
@@ -367,11 +473,11 @@ T{ step-failures @ -> 0 }T
 3 0 run-from
 \ An unknown outcome is never published as ok.
 3 lf-env-begin drop outcome-unknown lf-env-finish
-T{ lf-env-hand-over 3 lf-env-outcome 3 lf-env-handle -> outcome-unknown false outcome-unknown 0 -1 outcome-invalid }T
+T{ lf-env-hand-over lf-env-view 3 lf-env-outcome 3 lf-env-handle -> outcome-unknown false outcome-ok outcome-unknown 0 -1 outcome-invalid }T
 \ A duplicate of an accepted name claimed ok (N2 skipped).
 7 4 run-from
 7 lf-env-begin drop outcome-ok lf-env-finish
-T{ lf-env-hand-over 7 lf-env-outcome -> outcome-invalid false outcome-invalid }T
+T{ lf-recheck lf-env-hand-over lf-env-view 7 lf-env-outcome -> 4 true outcome-invalid false outcome-ok outcome-invalid }T
 \ A dependency that is not accepted, or out of order, or a corrupted count.
 8 lf-env-begin drop 1 lf-env-depend drop 3 lf-env-cand lf-cand-deps ! outcome-ok lf-env-finish
 T{ lf-env-hand-over -> outcome-invalid false }T
@@ -382,7 +488,29 @@ T{ lf-env-hand-over -> outcome-invalid false }T
 T{ 0 lf-env-depend lf-env-hand-over -> outcome-invalid outcome-invalid false }T
 \ An axiom set that differs from the union of the dependencies'.
 11 lf-env-begin drop 1 lf-env-cand lf-cand-axioms ! outcome-ok lf-env-finish
-T{ lf-env-hand-over -> outcome-invalid false }T
+T{ lf-recheck lf-env-hand-over -> 2 true outcome-invalid false }T
+\ An ok claim after an undecided or an unsupported earlier declaration of
+\ its name: lf-env-own-name says unknown or unsupported (K5), and the
+\ publisher refuses it; the name keeps resolving to nothing accepted.
+12 lf-env-begin drop outcome-ok lf-env-finish
+T{ lf-env-hand-over lf-diag@ nip -> outcome-invalid false 12 4 lf-diag-recheck }T
+20 13 run-from
+20 lf-env-begin drop outcome-ok lf-env-finish
+T{ lf-env-hand-over lf-diag@ nip -> outcome-invalid false 20 4 lf-diag-recheck }T
+lf-env-view drop
+T{ 12 lf-env-outcome 12 lf-env-handle nip nip n.D lf-env-lookup -> outcome-invalid outcome-invalid -1 outcome-unknown }T
+\ F: slot 5 unsupported, slot 20 invalid (undecided): unknown first.
+T{ 20 lf-env-outcome n.F lf-env-lookup -> outcome-invalid -1 outcome-unknown }T
+T{ lf-input-rollback -> outcome-ok }T
+env-free
+\ A check that begins another declaration is a fault: its candidate is
+\ not published, the run stops, and both slots can still be checked.
+8 fresh-env
+' syn-check 1 checked-run
+: hijack ( -- ) 1 lf-env-begin drop syn-check ;
+T{ ' hijack 2 lf-env-step lf-diag@ nip -> outcome-invalid true 2 6 lf-diag-recheck }T
+T{ 1 slot@ lf-slot-final? 2 slot@ lf-slot-final? scratch-gone? -> false false true }T
+T{ ' syn-check 1 lf-env-step ' syn-check 2 lf-env-step -> outcome-ok false outcome-rejected false }T
 env-free
 \ L3 and scope: a repeated parameter, an axiom and an unsafe definition
 \ claimed ok are faults; the check sees the first with lf-env-own-params.
@@ -404,7 +532,7 @@ T{ lf-env-hand-over -> outcome-invalid false }T
 \ The candidate's outcome is sanitised: a value outside the vocabulary is
 \ invalid.
 3 lf-env-begin drop 99 lf-env-cand lf-cand-outcome !
-T{ lf-env-hand-over 3 lf-env-outcome -> outcome-invalid false outcome-invalid }T
+T{ lf-env-hand-over lf-env-view 3 lf-env-outcome -> outcome-invalid false outcome-ok outcome-invalid }T
 env-free
 
 \ ---------------------------------------------------------------------------
@@ -487,16 +615,21 @@ env-free
 T{ 0 slot@ lf-slot-accepted? 0 slot@ lf-slot-outcome @ -> false outcome-ok }T
 T{ lf-env-hand-over drop diag -> outcome-invalid 7 4 lf-diag-recheck }T
 env-free
+\ ... even when that open slot already holds a rejected outcome, as a slot
+\ being published does before its final mark.
+8 fresh-env
+outcome-rejected 0 slot@ lf-slot-outcome !
+7 lf-env-begin drop outcome-ok lf-env-finish
+T{ lf-env-hand-over drop diag 0 slot@ lf-slot-final? -> outcome-invalid 7 4 lf-diag-recheck false }T
+env-free
 \ No room in the pool: dependencies needed and capacity.
 1 fresh-env
 ' syn-check 8 checked-run
 T{ ' syn-check 8 lf-env-step drop diag -> outcome-full 3 1 lf-diag-pool-full }T
 env-free
-\ A THROW in a check and in the publisher.
-: throw-in-1 ( -- ) me 1 = if -78 throw then syn-check ;
+\ A THROW in the publisher (in a check: above, with G-P6).
 8 fresh-env
 ' syn-check 1 checked-run
-T{ ' throw-in-1 1 lf-env-step drop diag -> outcome-invalid 1 -78 lf-diag-publisher-fault }T
 3 throw-at ! ' throw-hook is lf-env-before-final
 T{ ' syn-check 3 lf-env-step diag -> outcome-invalid true 3 -77 lf-diag-publisher-fault }T
 ' lf-env-no-fault is lf-env-before-final
@@ -512,13 +645,47 @@ wide-input
 17 lf-env-begin drop lf-env-dep-capacity depend-all drop
 T{ 16 lf-env-depend diag -> outcome-full lf-env-dep-capacity lf-env-dep-capacity lf-diag-deps-full }T
 env-free
+
+\ ---------------------------------------------------------------------------
+\ K5's tie-break (ADR 0012 E5, as amended): with an undecided and an
+\ unsupported earlier declaration of a name, and none accepted, a user is
+\ unknown, in either input order, by lookup and by N2; the first
+\ undecided one is recorded. Claiming ok instead is refused (part 4).
+: tie-input ( -- )
+  lf-input-reset
+  n.A lf-kind-axiom decl no-value outcome-unsupported audit add   \ 0 unsupported
+  n.A def outcome-unknown audit add                              \ 1 unknown
+  n.B def n.A uses add                                           \ 2 unknown (K5)
+  n.C def outcome-unknown audit add                              \ 3 unknown
+  n.C lf-kind-axiom decl no-value outcome-unsupported audit add  \ 4 unsupported
+  n.D def n.C uses add                                           \ 5 unknown (K5)
+  n.A def add n.C def add ends ;                                 \ 6, 7 unknown (N2)
+tie-input
+8 fresh-env
+' syn-check 2 checked-run
+T{ ' syn-check 2 checked-step lf-diag@ nip -> outcome-unknown 1 outcome-unknown lf-diag-dependency-undecided }T
+' syn-check 3 checked-step drop ' syn-check 4 checked-step drop
+T{ ' syn-check 5 checked-step lf-diag@ nip -> outcome-unknown 3 outcome-unknown lf-diag-dependency-undecided }T
+T{ ' syn-check 6 checked-step ' syn-check 7 checked-step step-failures @ -> outcome-unknown outcome-unknown 0 }T
+lf-env-view drop
+T{ 0 lf-env-outcome 1 lf-env-outcome 2 lf-env-outcome -> outcome-unsupported outcome-unknown outcome-unknown }T
+T{ 3 lf-env-outcome 4 lf-env-outcome -> outcome-unknown outcome-unsupported }T
+T{ n.A lf-env-lookup n.C lf-env-lookup -> -1 outcome-unknown -1 outcome-unknown }T
+env-free
+8 fresh-env
+' syn-check 6 checked-run
+6 lf-env-begin drop
+T{ lf-env-own-name -> outcome-unknown }T
+outcome-ok lf-env-finish
+T{ lf-recheck lf-env-hand-over -> 4 true outcome-invalid false }T
+env-free
 main-input
 
 \ ---------------------------------------------------------------------------
 \ Row 8: determinism. The same input checked twice, in two environments
 \ and two ways, gives the same verdicts and the same digests.
 8 fresh-env
-T{ ' syn-check lf-env-run -> outcome-ok }T
+T{ ' syn-check ' main-maker lf-env-run -> outcome-ok }T
 env-digest constant run-1
 T{ main-count verdicts-match? -> true }T
 env-free
@@ -526,9 +693,10 @@ env-free
 T{ ' syn-check main-count checked-run step-failures @ -> 0 }T
 T{ env-digest run-1 = main-count verdicts-match? -> true true }T
 \ A second run over a finished environment is refused.
-T{ ' syn-check lf-env-run env-digest run-1 = -> outcome-invalid true }T
+T{ ' syn-check ' main-maker lf-env-run env-digest run-1 = -> outcome-invalid true }T
 env-free
-T{ ' syn-check lf-env-run -> outcome-invalid }T
+T{ ' syn-check ' main-maker lf-env-run -> outcome-invalid }T
+T{ lf-env-spent? -> false }T
 
 \ The identity serial: once spent, no environment can be made.
 lf-env-serial @ constant serial-now
