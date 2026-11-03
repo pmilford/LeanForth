@@ -291,6 +291,24 @@ T{ two-sorts lf-minfer-apart -> lf-rule-d1 true }T
 T{ two-sorts lf-term-capacity lf-minfer-depth ! lf-minfer-apart -> 0 false }T
 T{ two-sorts true lf-minfer-aside ! lf-minfer-mismatch -> 0 false }T
 T{ fresh 0 make-sort 1 make-sort tok @ 0 lf-minfer-start lf-minfer-apart -> 0 false }T
+\ P3 directly, in the context A : Type, P : A -> Prop: P against fun (y :
+\ A) => P y is never apart (Lean equates them by eta), while P against
+\ Prop is (D2). The table's K3 cases fill the store before this pair.
+: eta-context ( -- )
+  fresh 1 make-sort 0 make-var 0 make-sort make-pi tok @ 1000 lf-minfer-start
+  swap lf-minfer-push must lf-minfer-push must ;
+: eta-of-p ( -- node ) 1 make-var 1 make-var 0 make-var make-app make-lam ;
+T{ eta-context 0 make-var eta-of-p lf-minfer-apart -> 0 false }T
+T{ eta-context eta-of-p 0 make-var lf-minfer-apart -> 0 false }T
+T{ eta-context 0 make-var 0 make-sort lf-minfer-apart -> lf-rule-d2 true }T
+\ Each level gives back what it allocated: (fun X : Type => X -> X) Prop
+\ reduces to a new Pi, apart from Type (D2); the counts are as before.
+: redex-pair ( -- left right )
+  fresh 1 make-sort 0 make-var 1 make-var make-pi make-lam 0 make-sort make-app
+  1 make-sort tok @ 1000 lf-minfer-start ;
+: apart-tidy ( left right -- mask flag same-counts? )
+  counts 2>r >r lf-minfer-apart r> 2r> same-counts? ;
+T{ redex-pair apart-tidy -> lf-rule-d2 true true }T
 
 \ ---------------------------------------------------------------------------
 \ The probes. identity: forall (P : Prop) (x : P), P; and over Type.
