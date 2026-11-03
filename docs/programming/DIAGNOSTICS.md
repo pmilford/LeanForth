@@ -80,22 +80,45 @@ what was used and the limit.
 | 12 | binder context full | full | binders | limit | `constant-term-scope` and `mixed-rebuild lf-rebuild-binary` (a binder depth at the largest cell, `max-n` twice); `mixed-infer` (binders, capacity) |
 | 13 | value at cell maximum | full | the value | the amount to add | `level-value` (a successor of `max-n`: value, 1); `mixed-shift` (variable index, shift amount) |
 | 14 | heap allocation failed | full | bytes | the `ALLOCATE` ior | reserved: no site in `core/` or `kernel/` allocates; see *Not yet covered* |
+| 15 | dependency list full | full | dependencies recorded | `lf-env-dep-capacity` | `environment lf-env-depend` (the check's candidate) |
+| 16 | dependency pool full | full | dependencies needed (in the pool plus the candidate's) | the pool's capacity | `env-publish lf-env-append` |
 | 20 | invalid input: bad argument | invalid | the value | 0 | negative fuel: `mixed-infer`, `level-compare`, `mixed-signature-audit` |
 | 21 | invalid input: stale handle | invalid | index | identity | `constant-term-boundary lf-cterm-check`, through which every kernel pass audits its roots |
 | 22 | invalid input: malformed graph | invalid | the node being visited | 0 | every walk, when nothing more specific was recorded |
 | 23 | invalid input: out of scope | invalid | variable index, or parameter ID | binders, or 0 for a parameter | `constant-term-scope` (an unbound variable), `level-scope` (a parameter outside the context) |
 | 24 | invalid input: corrupted store | invalid | count | capacity | the four stores, when a store fails its own checks |
+| 25 | invalid: environment handle | invalid | the handle's (or snapshot's) environment identity | the slot | `environment lf-env-handle?`; `environment lf-env-accepted` (a dependency or parameter query on a slot the snapshot may not read, or not accepted) |
+| 26 | invalid: check started too early | invalid | the same-named slot that is not final | the declaration checked | `environment lf-env-lookup` (also for N2 on the declaration's own name) |
+| 27 | invalid: no snapshot | invalid | the context's snapshot identity (0 for none) | the current environment's identity, or 0 | `environment lf-env-snapshot` (no valid current environment for this context's input, or a snapshot of another one) |
+| 28 | invalid: publisher re-check failed | invalid | the declaration | the part: 1 dependencies, 2 axiom set, 3 provenance, 4 name (N2, G-P5), 5 kind, safety, value or parameters | `env-publish lf-env-publish` (a fault in LeanForth) |
+| 29 | invalid: internal fault | invalid | the declaration | the `THROW` code | `env-publish lf-env-step` (a check threw), `env-publish lf-env-hand-over` (the publisher threw) |
 | 30 | undecided: terms or levels differ | unknown | left node or level | right node or level | `mixed-compare`, `mixed-convert` (the pair being compared), `level-compare` (its two roots) |
 | 31 | undecided: function type not a Pi | unknown | the function's type node | 0 | `mixed-infer` |
 | 32 | undecided: type not a Sort | unknown | the type node | 0 | `mixed-infer` |
 | 33 | undecided: no candidate signature | unknown | the constant's name ID | 0 | `mixed-signature-probe lf-msp-specialize` |
 | 34 | undecided: symbolic level | unknown | the level | 0 | `level-value` |
+| 35 | undecided: dependency undecided | unknown | the earlier slot (the first of that name) | its outcome | `environment lf-env-lookup` (K5; also for N2) |
 | 40 | unsupported construct | unknown today | the node's tag | 0 | `mixed-infer` (a constructor outside its subset; the outcome becomes *unsupported* with ADR 0008 step 3) |
+| 41 | unsupported: dependency unsupported | unsupported | the earlier slot | 0 | `environment lf-env-lookup` (K5; also for N2) |
+| 50 | rejected: unknown constant | rejected | the name ID | the declaration checked | `environment lf-env-lookup` (N1: unknown, forward and self references) |
+| 51 | rejected: name already declared | rejected | the name ID | the accepted slot | `environment lf-env-own-name` (N2) |
+| 52 | rejected: wrong number of universe levels | rejected | levels given | the constant's parameters | `environment lf-env-arity?` (L1) |
+| 53 | rejected: undeclared universe parameter | rejected | the name ID | 0 | `environment lf-env-param?` (L2) |
+| 54 | rejected: duplicate universe parameter | rejected | the declaration | 0 | `environment lf-env-own-params` (L3) |
 
-Codes 1–14 explain *exhausted* (more fuel would help) and *full* (more
-memory or a larger limit would help); 20–24 explain *invalid* input; 30–34
-explain *unknown* (a stronger rule would help); 40 names a construct still
-to be built.
+Codes 1–16 explain *exhausted* (more fuel would help) and *full* (more
+memory or a larger limit would help); 20–29 explain *invalid* input or
+state; 30–35 explain *unknown* (a stronger rule, or a decided dependency,
+would help); 40–41 name a construct still to be built; 50–54 explain
+*rejected* (ADR 0011's rules N1, N2, L1–L3).
+
+Codes 15, 16, 25–29, 35, 41 and 50–54 are the checked environment's
+([its page](CHECKED_ENVIRONMENT.md)), added 2026-11-02 and defined as
+constants in `src/kernel/environment.fs`; `lf-diag-name` in
+`src/core/diagnostics.fs` does not know their printed names yet, so
+`lf-diag.` shows them as "unknown code" with the right site and numbers.
+`lf-env-begin` clears the record before each check, and the serial driver
+reads it per declaration.
 
 ### Sites
 

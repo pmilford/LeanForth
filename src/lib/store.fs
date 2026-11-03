@@ -27,6 +27,7 @@
 \ never be serialized directly.
 
 require ./bounds.fs
+require ./outcome.fs
 require ./portability.fs
 
 begin-structure store-header
@@ -121,3 +122,60 @@ end-structure
 : store-epoch+ ( store -- ) store-generation dup @ epoch+ swap ! ;
 : store-clear ( store -- ) dup store-base @ over store-count ! store-epoch+ ;
 : store-poison ( store -- ) 0 over store-count ! -1 swap store-generation ! ;
+
+\ Marks (plan task 1.1.3). store-mark records where a store's allocation
+\ stands, in a /store-mark record the caller provides; store-rollback
+\ later gives back every record allocated since, by restoring the count.
+\ Identities and the serial are never rewound. A rollback is refused,
+\ with invalid and nothing changed, for a mark of another store, from
+\ another generation (a reset since), above the current count, or whose
+\ records have been rolled back and allocated again since (a rollback to
+\ an earlier mark went below it): records below a mark's count must be
+\ older than the mark, and the record at its count newer. Within one
+\ generation identities grow with the index, so two identities show it.
+\ A mark of an invalid store names no store and is always refused. Marks
+\ are not capabilities: a forged record that passes these checks is
+\ accepted. Like the store, a mark is host-specific memory.
+begin-structure /store-mark
+  field: mark-store         \ the store marked; 0 when marking failed
+  field: mark-generation    \ its generation then
+  field: mark-serial        \ its identity serial then
+  field: mark-count         \ its count then
+end-structure
+
+: mark-set ( store mark -- )
+  2dup mark-store ! over store-generation @ over mark-generation !
+  over store-serial @ over mark-serial ! swap store-count @ swap mark-count ! ;
+\ Record a valid store's allocation point: ok; or invalid, with a mark
+\ that every rollback refuses.
+: store-mark ( mark store -- outcome )
+  dup store-count-valid? if swap mark-set outcome-ok else drop /store-mark erase
+  outcome-invalid then ;
+
+\ Checks of a mark against a store; mark-older? and mark-newer? read one
+\ identity each, only once the others have passed.
+: mark-this? ( mark store -- flag )
+  2dup swap mark-store @ = >r dup store-count-valid? >r
+  store-generation @ swap mark-generation @ = r> r> and and ;
+: mark-count? ( mark store -- flag )
+  >r mark-count @ r@ store-base @ r> store-count @ between? ;
+: mark-serial? ( mark store -- flag ) store-serial @ swap mark-serial @ swap upto? ;
+: mark-shape? ( mark store -- flag )
+  2dup mark-this? if 2dup mark-count? -rot mark-serial? and else 2drop false then ;
+\ Unchecked: the identity of the record at the mark's count plus offset,
+\ and the mark's serial.
+: mark-identity ( mark store offset -- identity serial )
+  rot dup >r mark-count @ + swap store-identity @ r> mark-serial @ ;
+: mark-at-base? ( mark store -- flag ) store-base @ swap mark-count @ = ;
+: mark-at-top? ( mark store -- flag ) store-count @ swap mark-count @ = ;
+: mark-older? ( mark store -- flag )
+  2dup mark-at-base? if 2drop true exit then -1 mark-identity <= ;
+: mark-newer? ( mark store -- flag )
+  2dup mark-at-top? if 2drop true exit then 0 mark-identity > ;
+\ Whether store-rollback would accept the mark now.
+: store-mark-valid? ( mark store -- flag )
+  2dup mark-shape? if 2dup mark-older? -rot mark-newer? and else 2drop false then ;
+\ Roll the store back to the mark: ok, or invalid with nothing changed.
+: store-rollback ( mark store -- outcome )
+  2dup store-mark-valid? if swap mark-count @ swap store-count ! outcome-ok
+  else 2drop outcome-invalid then ;

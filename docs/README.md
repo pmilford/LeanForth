@@ -37,6 +37,7 @@ features they describe.
 - [PROGRAM_EXAMPLES_REFERENCE.md](programming/PROGRAM_EXAMPLES_REFERENCE.md) — independent Lean references for those examples.
 - [PROGRAM_IR.md](programming/PROGRAM_IR.md) — program IR 0.1: its text form, its Lean semantics, the reader from Forth source, and the proofs that the six example words' IR equals their reference models (implemented, untrusted, checked by Lean).
 - [DIAGNOSTICS.md](programming/DIAGNOSTICS.md) — why a check failed: the first failure's reason code, site and numbers, recorded per checker context; the code catalogue (implemented, first form, untrusted).
+- [CHECKED_ENVIRONMENT.md](programming/CHECKED_ENVIRONMENT.md) — the checked environment v0 (ADR 0012): the input, slots, snapshots and handles, finding constants, the publisher, axiom sets; interface, a three-form example, measured limits (implemented, experimental [kernel] code not through the review gate; the type check that fills it is task 2.2.3).
 - [PROGRAM_RECEIPTS.md](programming/PROGRAM_RECEIPTS.md) — program receipt schema 0.1: separate CHECK, VERIFY and RUN statuses, assumptions, and the standard-library validator (implemented; no receipts are generated yet).
 - Lean reference models for individual programs: [checked addition](programming/CHECKED_ADD_REFERENCE.md), [factorial](programming/FACTORIAL_REFERENCE.md), [gcd](programming/GCD_REFERENCE.md), [stack and memory](programming/MEMORY_PROGRAM_REFERENCE.md), [memory copy](programming/MEMORY_COPY_REFERENCE.md), [memory swap](programming/MEMORY_SWAP_REFERENCE.md).
 
