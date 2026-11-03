@@ -49,15 +49,22 @@ lf-term-capacity context-walk2: lf-pp-scan-walk
 : lf-pp-suggest ( node -- ) lf-pres-binder@ if drop lf-pp-base else s" x" lf-pp-put then ;
 
 \ Does any binder in scope from bottom index from upwards show this text?
+\ A from beyond the scope (only after a forbidden reset from a sink) is
+\ the top of the scope: no binder.
 : lf-pp-shows? ( c-addr u i -- c-addr u flag ) lf-pp-bind-at lf-pp-text 2over compare 0= ;
 : lf-pp-any? ( c-addr u from -- flag )
-  lf-pp-depth swap ?do i lf-pp-shows? if 2drop true unloop exit then loop 2drop false ;
+  lf-pp-depth tuck min
+  ?do i lf-pp-shows? if 2drop true unloop exit then loop 2drop false ;
 : lf-pp-taken? ( mark -- flag ) lf-pp-pending 0 lf-pp-any? ;
 
 \ Scans of a body with the print's fuel. In the body, bound variable i at
 \ binder depth d (inside the body) is the body's own binder when i = d and
 \ binder j = i - d - 1 of the scope (innermost first) when i > d. A scan
-\ stops at the first hit, which it reports internally as rejected.
+\ stops at the first hit. The walk (lib/walk.fs) stops only at an outcome
+\ that is not ok, so a hit is reported as rejected, used here as a stop
+\ signal that carries an answer, not as a verdict: lf-pp-hit? turns it
+\ into a true flag beside ok as soon as the walk returns, so no public
+\ word reports it. Invalid, exhausted and full pass through as failures.
 : lf-pp-hit ( flag -- outcome ) if outcome-rejected else outcome-ok then ;
 : lf-pp-hit? ( outcome -- flag outcome )
   dup outcome-rejected = if drop true outcome-ok else false swap then ;

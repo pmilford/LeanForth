@@ -4,9 +4,12 @@
 \ untrusted, like the reader. Usage:
 \   gforth src/import/ndjson-count.fs -e 's" FILE" count-export bye'
 \ On failure it prints one line starting "error:" with the outcome, the
-\ reason, the field and the NDJSON line, and no counts.
+\ reason, the field and the NDJSON line, and no counts, and Gforth exits
+\ at once with status 1; after the report, BYE exits with status 0.
+\ count-report prints the same without ever exiting, for a Forth session
+\ or a batch of files in one process.
 \ Requires: ndjson.fs. State: one export record and one tally record,
-\ reset by every count-export; not re-entrant.
+\ reset by every count; not re-entrant.
 
 require ../lib/lib.fs
 require ../lib/bytes.fs
@@ -33,8 +36,12 @@ s" expr.strVal" category-of constant last-expr-category
 s" level" category-of constant level-category
 s" name" category-of constant name-category
 \ The category of each record kind, or -1 for the types, constructors and
-\ recursors of a block, which count.py counts separately.
+\ recursors of a block, which count.py counts separately. The table must
+\ end at HERE with one cell per record kind (kind-count, ndjson.fs);
+\ otherwise the load stops, as layout-fits does in ndjson.fs.
 : category, ( c-addr u -- ) category-of , ;
+: categories-fit ( table -- )
+  here swap - kind-count cells <> abort" ndjson-count: one category per record kind" ;
 create kind-categories   \ indexed by kind-meta ... kind-recursor
   s" meta" category,  s" name" category,  s" name" category,
   s" level" category,  s" level" category,  s" level" category,  s" level" category,
@@ -44,6 +51,7 @@ create kind-categories   \ indexed by kind-meta ... kind-recursor
   s" expr.strVal" category,  s" expr.mdata" category,  s" decl.axiom" category,
   s" decl.def" category,  s" decl.thm" category,  s" decl.opaque" category,
   s" decl.quot" category,  s" decl.inductive" category,  -1 , -1 , -1 ,
+kind-categories categories-fit
 : kind-category ( kind -- n ) cells kind-categories + @ ;
 
 \ Level-parameter counts are tallied exactly up to 255; larger ones
@@ -138,21 +146,15 @@ export: counted-export
   ."  recursors " count-tally tally-recursors @ .int cr ;
 : .report ( -- ) .categories .tables .bytes .maxima .blocks ;
 
-\ Errors: the outcome's name, why, the field, the line and, for a JSON
-\ syntax error, the byte within the line. Every outcome has a name, and
-\ any other value, which no reader path gives, is an internal fault.
-: .outcome ( outcome -- )
-  case outcome-ok of ." ok" endof  outcome-invalid of ." invalid" endof
-    outcome-exhausted of ." exhausted (out of fuel)" endof
-    outcome-unknown of ." unknown" endof  outcome-rejected of ." rejected" endof
-    outcome-unsupported of ." unsupported" endof  outcome-full of ." full (a limit)" endof
-    ." internal fault" endcase ;
+\ Errors: the outcome's name (outcome-text, lib/outcome.fs, which names
+\ any value outside the vocabulary invalid), why, the field, the line and,
+\ for a JSON syntax error, the byte within the line.
 : .json-offset ( export -- )
   export-json dup json-why @ if ." , byte " json-offset .int else drop then ;
 : .field ( c-addr u -- ) dup if ." field " type ." , " else 2drop then ;
 : .why ( export -- )
   dup export-error ." : " type ."  (" .field ." line " .int .json-offset ." )" ;
-: .count-error ( outcome -- ) ." error: " .outcome counted-export .why cr ;
+: .count-error ( outcome -- ) ." error: " outcome-text type counted-export .why cr ;
 
 \ Read the export named c-addr u with fresh counts; the outcome of the
 \ read, or invalid (corrupted state) for any Forth exception, after which
@@ -165,5 +167,21 @@ export: counted-export
 : count-read ( c-addr u -- outcome )
   count-start ok-then? 0= if nip exit then
   counted-export ['] export-read catch if count-fault then ;
-\ Print the report, or one error line.
-: count-export ( c-addr u -- ) count-read dup ok? if drop .report else .count-error then ;
+\ Print the report, or one error line; true after the report.
+: count-shown? ( c-addr u -- flag )
+  count-read dup ok? if drop .report true else .count-error false then ;
+: count-report ( c-addr u -- ) count-shown? drop ;
+
+\ Leaving the host with a failure status. Forth-2012 has no BYE with a
+\ status; Gforth 0.7.3 and 1.0 (the CI hosts) both have (bye) ( n -- ),
+\ which flushes the output and ends the process with status n (checked on
+\ both, 2026-11-02). Elsewhere an uncaught THROW (ABORT) ends the run,
+\ which a host running a command line reports as a failure.
+[defined] (bye) [if]
+  : exit-failure ( -- ) 1 (bye) ;
+[else]
+  : exit-failure ( -- ) -1 throw ;
+[then]
+\ The command line's word: print, and after an error line exit at once
+\ with status 1.
+: count-export ( c-addr u -- ) count-shown? 0= if exit-failure then ;

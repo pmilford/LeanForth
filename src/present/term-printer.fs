@@ -17,14 +17,18 @@
 \   lf-print-statement ( term fuel -- outcome )  a theorem's statement: its
 \     Pi spine is printed as a proposition (∀) whatever the quick test says
 \   lf-print-level ( level fuel -- outcome )     a universe level
-\   lf-print-name ( id -- outcome )              a structured name
+\   lf-print-name ( id -- outcome )              a structured name; the
+\     anonymous name 0 prints as [anonymous]
 \   lf-print-inline, lf-print-display ( term fuel -- outcome )  the term in
 \     LaTeX as Markdown math, $...$ or $$...$$
+\   lf-print-reset ( -- )   recover after a THROW out of a print
 \ ok: printed. invalid: malformed input (bad index, stale reference,
 \ unknown tag, a variable outside the term's binders, a corrupted name
-\ store), a busy printer or negative fuel. exhausted: out of fuel (one unit
-\ per visited node), out of nested visits (lf-print-limit!) or out of room
-\ for binder names. After a failure the sink has received a partial text.
+\ store), a busy printer, negative fuel, or a print during which the sink
+\ called lf-print-reset. exhausted: out of fuel (one unit per visited
+\ node). full: out of nested visits (lf-print-limit!) or out of room for
+\ binder names. After a failure the sink has received a partial text. The
+\ sink rules are in print-job.fs.
 
 require ./print-analysis.fs
 
@@ -36,11 +40,16 @@ require ./print-analysis.fs
 
 \ A position: the least precedence allowed there, whether text follows at
 \ the same level (then an open-ended form such as fun or ∀ needs
-\ parentheses), and whether a Pi there is known to be a proposition.
-: lf-pos ( prec followed -- pos ) 1 and swap 4 * or ;
-: lf-pos-prec ( pos -- prec ) 4 / ;
-: lf-pos-followed? ( pos -- flag ) 1 and 0<> ;
-: lf-pos-prop? ( pos -- flag ) 2 and 0<> ;
+\ parentheses), and whether a Pi there is known to be a proposition. It
+\ is one cell: the precedence in units of lf-pos-unit, and two bits.
+1 constant lf-pos-followed
+2 constant lf-pos-prop
+4 constant lf-pos-unit
+: lf-pos ( prec followed -- pos ) lf-pos-followed and swap lf-pos-unit * or ;
+: lf-prop-pos ( prec -- pos ) false lf-pos lf-pos-prop or ;
+: lf-pos-prec ( pos -- prec ) lf-pos-unit / ;
+: lf-pos-followed? ( pos -- flag ) lf-pos-followed and 0<> ;
+: lf-pos-prop? ( pos -- flag ) lf-pos-prop and 0<> ;
 : lf-pp-parens? ( pos prec open -- flag )
   >r over lf-pos-prec < swap lf-pos-followed? r> and or ;
 : lf-pp-open-if ( flag -- flag ) dup if s" (" lf-pp-emit then ;
@@ -67,7 +76,7 @@ defer lf-pp-term-visit ( term pos -- outcome )
   lf-pp-entry lf-pp-text lf-pp-ident outcome-ok ;
 : lf-pp-levels-out ( addr count -- outcome )
   0 ?do i if lf-pp-list-comma then dup i lf-pp-level-at false lf-pp-level
-    dup ok? 0= if nip unloop exit then drop loop drop outcome-ok ;
+    ok-then? 0= if unloop exit then loop drop outcome-ok ;
 : lf-pp-universe-args ( term -- outcome )
   lf-pp-const-levels 0= if outcome-invalid exit then
   dup 0= if 2drop outcome-ok exit then
@@ -81,26 +90,31 @@ defer lf-pp-term-visit ( term pos -- outcome )
 
 \ Applications: the head, then the shown arguments, each in argument
 \ position; an argument is followed unless it is the last shown one and
-\ nothing follows the application. info is last * 2 + followed.
+\ nothing follows the application. info packs both: the index of the
+\ last shown argument times two, plus one when text follows.
+: lf-pp-info ( last followed -- info ) 1 and swap 2* or ;
+: lf-pp-info-last ( info -- i ) 2/ ;
+: lf-pp-info-followed? ( info -- flag ) 1 and 0<> ;
 : lf-pp-fn ( app -- outcome )
   lf-pp-head 2dup lf-pp-at? >r drop dup lf-pp-atom-head?
   if r> lf-pp-atom else r> drop lf-prec-max true lf-pos lf-pp-term-call then ;
-: lf-pp-args-info ( app pos -- info ) lf-pos-followed? 1 and swap lf-pp-last 2* or ;
-: lf-pp-arg-pos ( info i -- pos ) over 2/ < swap 1 and 0<> or lf-prec-arg swap lf-pos ;
+: lf-pp-args-info ( app pos -- info ) lf-pos-followed? swap lf-pp-last swap lf-pp-info ;
+: lf-pp-arg-pos ( info i -- pos )
+  over lf-pp-info-last < swap lf-pp-info-followed? or lf-prec-arg swap lf-pos ;
 : lf-pp-arg ( app info i -- outcome )
   >r over r@ lf-pp-visible? 0= if 2drop r> drop outcome-ok exit then
   r@ lf-pp-arg-pos swap r> lf-pp-arg-at swap lf-pp-space lf-pp-term-call ;
 : lf-pp-args ( app info -- outcome )
-  over lf-pp-head nip 0 ?do 2dup i lf-pp-arg dup ok? 0=
-  if nip nip unloop exit then drop loop 2drop outcome-ok ;
+  over lf-pp-head nip 0 ?do 2dup i lf-pp-arg ok-then2? 0= if unloop exit then loop
+  2drop outcome-ok ;
 : lf-pp-applied ( app pos -- outcome )
-  over swap lf-pp-args-info over lf-pp-fn dup ok? if drop lf-pp-args else nip nip then ;
+  over swap lf-pp-args-info over lf-pp-fn ok-then2? if lf-pp-args then ;
 \ No argument shown: the head alone, in the application's own position.
 : lf-pp-bare ( app pos -- outcome )
   swap lf-pp-head 2dup lf-pp-at? >r drop dup lf-pp-atom-head?
   if nip r> lf-pp-atom else r> drop swap lf-pp-term-call then ;
 : lf-pp-app ( term pos -- outcome )
-  over lf-pp-spine >r 2drop r> dup ok? 0= if nip nip exit then drop
+  over lf-pp-spine >r 2drop r> ok-then2? 0= if exit then
   over lf-pp-shown# 0= if lf-pp-bare exit then
   dup lf-prec-lead false lf-pp-parens? lf-pp-enclose >r lf-pp-applied r> lf-pp-wrap ;
 
@@ -110,25 +124,29 @@ defer lf-pp-term-visit ( term pos -- outcome )
 \ earlier binders, none for Pi.
 : lf-pp-name-binder ( node from -- mark outcome ) over lf-term-second@ swap lf-pp-choose ;
 : lf-pp-show-bind ( node from -- outcome )
-  over swap lf-pp-name-binder dup ok? 0= if nip nip exit then drop
+  over swap lf-pp-name-binder ok-then2? 0= if exit then
   dup lf-pp-pending lf-pp-ident swap lf-term-first@ swap lf-pp-bind ;
 : lf-pp-bind-plain ( node -- outcome )
-  dup lf-pp-depth lf-pp-name-binder dup ok?
-  if drop swap lf-term-first@ swap lf-pp-bind else nip nip then ;
+  dup lf-pp-depth lf-pp-name-binder ok-then2?
+  if swap lf-term-first@ swap lf-pp-bind then ;
 \ The last binder of a bracketed group: its name unless nameless, the
 \ domain, the closing bracket.
 : lf-pp-typed-binder ( node nameless from -- outcome )
   >r over r> lf-pp-name-binder dup ok? 0= if nip nip nip exit then drop
   swap 0= if dup lf-pp-pending lf-pp-ident lf-pp-colon then
-  over lf-term-first@ 0 lf-pp-term-call dup ok? 0= if nip nip exit then drop
+  over lf-term-first@ 0 lf-pp-term-call ok-then2? 0= if exit then
   over lf-pp-kind lf-pp-close swap lf-term-first@ swap lf-pp-bind ;
 
-\ Pi. flags = prop * 2 + dep: whether the Pi is a proposition, and whether
-\ its first binder prints as a binder (it is used in the body, or, by
-\ Lean's RFC 1834, an explicit binder of a proposition whose domain is not
-\ one) rather than as A → B.
-: lf-pp-flags ( prop dep -- flags ) 1 and swap 2 and or ;
-: lf-pp-flags@ ( flags -- prop dep ) dup 2 and 0<> swap 1 and 0<> ;
+\ Pi. Its flags say whether the Pi is a proposition (lf-flag-prop) and
+\ whether its first binder prints as a binder (lf-flag-dep: it is used in
+\ the body, or, by Lean's RFC 1834, an explicit binder of a proposition
+\ whose domain is not one) rather than as A → B.
+1 constant lf-flag-dep
+2 constant lf-flag-prop
+: lf-pp-flags ( prop dep -- flags ) lf-flag-dep and swap lf-flag-prop and or ;
+: lf-flags-dep? ( flags -- flag ) lf-flag-dep and 0<> ;
+: lf-flags-prop? ( flags -- flag ) lf-flag-prop and 0<> ;
+: lf-pp-flags@ ( flags -- prop dep ) dup lf-flags-prop? swap lf-flags-dep? ;
 : lf-pp-rfc? ( pi -- flag outcome )
   dup lf-pp-kind lf-binder-default <> if drop false outcome-ok exit then
   lf-term-first@ lf-pp-prop? >r 0= r> ;
@@ -165,10 +183,10 @@ defer lf-pp-term-visit ( term pos -- outcome )
 defer lf-pp-group-visit ( pi flags -- outcome )
 : lf-pp-group-call ( pi flags -- outcome ) ['] lf-pp-group-visit lf-pp-call ;
 : lf-pp-group-more ( pi flags -- outcome )
-  swap dup lf-pp-depth lf-pp-show-bind dup ok? 0= if nip nip exit then drop
+  swap dup lf-pp-depth lf-pp-show-bind ok-then2? 0= if exit then
   lf-pp-space lf-term-second@ swap lf-pp-group-call ;
 : lf-pp-group-end ( pi flags -- outcome )
-  1 and 0<> over swap lf-pp-nameless? lf-pp-depth lf-pp-typed-binder ;
+  lf-flags-dep? over swap lf-pp-nameless? lf-pp-depth lf-pp-typed-binder ;
 : lf-pp-group ( pi flags -- outcome )
   2dup lf-pp-flags@ lf-pp-joins? dup ok? 0= if nip nip nip exit then drop
   if lf-pp-group-more else lf-pp-group-end then ;
@@ -179,13 +197,13 @@ defer lf-pp-group-visit ( pi flags -- outcome )
 : lf-pp-group-then ( pi flags -- body outcome )
   lf-pp-depth >r over swap lf-pp-binders r> swap >r lf-pp-after r> ;
 \ The body of a Pi spine keeps the proposition flag.
-: lf-pp-body-pos ( flags prec -- pos ) false lf-pos swap 2 and or ;
+: lf-pp-body-pos ( flags prec -- pos )
+  swap lf-flags-prop? if lf-prop-pos else false lf-pos then ;
 
 \ A → B.
 : lf-pp-arrow-body ( pi flags -- outcome )
-  over lf-term-first@ lf-prec-domain true lf-pos lf-pp-term-call dup ok? 0= if nip nip
-  exit then drop
-  lf-pp-arrow over lf-pp-bind-plain dup ok? 0= if nip nip exit then drop
+  over lf-term-first@ lf-prec-domain true lf-pos lf-pp-term-call ok-then2? 0= if exit then
+  lf-pp-arrow over lf-pp-bind-plain ok-then2? 0= if exit then
   swap lf-term-second@ swap lf-prec-arrow lf-pp-body-pos lf-pp-term-call 1 lf-pp-unbind ;
 : lf-pp-arrow-form ( pi pos flags -- outcome )
   swap lf-prec-arrow true lf-pp-parens? lf-pp-open-if >r lf-pp-arrow-body r> lf-pp-wrap ;
@@ -203,7 +221,7 @@ defer lf-pp-forall-visit ( term x -- outcome )
   dup lf-tag-pi lf-pp-is? 0= if drop 0 false outcome-ok exit then
   dup true lf-pp-dep? dup ok? 0= if >r 2drop 0 false r> exit then drop
   tuck lf-pp-arrow? 0= swap true swap lf-pp-flags swap outcome-ok ;
-: lf-pp-forall-end ( term -- outcome ) lf-pp-comma 2 lf-pp-term-call ;
+: lf-pp-forall-end ( term -- outcome ) lf-pp-comma 0 lf-prop-pos lf-pp-term-call ;
 : lf-pp-forall-more ( term flags -- outcome )
   lf-pp-space lf-pp-group-then ok-then? if 0 lf-pp-forall-call then ;
 : lf-pp-forall-rest ( term x -- outcome )
@@ -218,7 +236,7 @@ defer lf-pp-forall-visit ( term x -- outcome )
 : lf-pp-pi ( pi pos -- outcome )
   2dup lf-pp-pi-flags ok-then? 0= if nip nip exit then
   >r over r@ lf-pp-flags@ nip lf-pp-arrow? if r> lf-pp-arrow-form exit then
-  r@ 2 and if r> lf-pp-forall-form else r> lf-pp-dep-form then ;
+  r@ lf-flags-prop? if r> lf-pp-forall-form else r> lf-pp-dep-form then ;
 
 \ fun b1 b2 ... ↦ body: one fun for a chain of lambdas. Explicit binders
 \ show their names only, implicit ones group as {A B}, an instance binder
@@ -227,7 +245,7 @@ defer lf-pp-forall-visit ( term x -- outcome )
 defer lf-pp-names-visit ( lam x -- outcome )
 : lf-pp-names-call ( lam x -- outcome ) ['] lf-pp-names-visit lf-pp-call ;
 : lf-pp-more-names ( lam -- outcome )
-  dup lf-pp-groupable? dup ok? 0= if nip nip exit then drop
+  dup lf-pp-groupable? ok-then2? 0= if exit then
   if lf-pp-space lf-term-second@ 0 lf-pp-names-call else drop outcome-ok then ;
 : lf-pp-lam-names ( lam x -- outcome )
   drop dup lf-pp-chain-from lf-pp-show-bind ok-then? if lf-pp-more-names then ;
@@ -257,7 +275,8 @@ defer lf-pp-names-visit ( lam x -- outcome )
   lf-prec-max true lf-pp-parens? lf-pp-open-if >r lf-pp-fun-scope r> lf-pp-wrap ;
 
 \ Dispatch on the node's tag. Variables and constants print through the
-\ application printer, which decides on @ for them too.
+\ application printer, which decides on @ for them too; the CASE has one
+\ arm for each other tag (eight lines in all, read as a table).
 : lf-pp-applied-tag? ( tag -- flag )
   dup lf-tag-app = over lf-tag-bvar = or swap lf-tag-constant = or ;
 : lf-pp-term ( term pos -- outcome )
@@ -270,29 +289,39 @@ defer lf-pp-names-visit ( lam x -- outcome )
     >r 2drop outcome-invalid r> endcase ;
 ' lf-pp-term is lf-pp-term-visit
 
-\ Public words; see the header. A name cut short for lack of pool room
-\ makes an otherwise good print full.
+\ Public words; see the header. Every print visits its root through
+\ lf-pp-call, so the printer is busy while it runs. A name cut short for
+\ lack of pool room makes an otherwise good print full. A print ends with
+\ its visit count back at zero; any other count means that the sink
+\ called lf-print-reset during the print, against the sink rules: the
+\ print is invalid and the printer is reset again.
 : lf-pp-finish ( outcome -- outcome )
+  lf-pp-busy? if drop lf-print-reset outcome-invalid exit then
   dup ok? lf-pp-full? and if drop outcome-full then ;
 : lf-print-ready? ( fuel -- flag )
   lf-name-storage-valid? if lf-pp-start else drop false then ;
 : lf-print-run ( term pos fuel -- outcome )
   lf-print-ready? if lf-pp-term-call lf-pp-finish else 2drop outcome-invalid then ;
 : lf-print-term ( term fuel -- outcome ) 0 swap lf-print-run ;
-: lf-print-statement ( term fuel -- outcome ) 2 swap lf-print-run ;
+: lf-print-statement ( term fuel -- outcome ) 0 lf-prop-pos swap lf-print-run ;
 : lf-print-level ( level fuel -- outcome )
   lf-print-ready? if false lf-pp-level lf-pp-finish else drop-invalid then ;
+\ A name is one visit, with one unit of fuel.
+: lf-pp-name-visit ( id x -- outcome ) drop lf-pp-constant outcome-ok ;
 : lf-print-name ( id -- outcome )
-  dup lf-name-valid? lf-name-storage-valid? and 0= if drop-invalid exit then
-  lf-pp-frames frame-busy? if drop-invalid exit then
-  lf-pp-clear lf-pp-constant outcome-ok lf-pp-finish ;
+  dup lf-name-valid? 0= if drop-invalid exit then
+  1 lf-print-ready? 0= if drop-invalid exit then
+  0 ['] lf-pp-name-visit lf-pp-call lf-pp-finish ;
 
 \ Markdown math, as GitHub renders it: a term in LaTeX between $ and $
-\ (inline) or $$ and $$ (display), whatever the mode set by lf-print-setup.
-: lf-pp-options ( -- addr ) lf-pjob lf-pjob-options ;
-: lf-pp-as-latex ( options -- options' ) lf-print-mode-mask invert and lf-print-latex or ;
+\ (inline) or $$ and $$ (display), whatever the mode set by lf-print-setup,
+\ which stays as it is. A busy printer refuses at once and writes nothing.
+\ The delimiters are written while no print is in progress, so a print
+\ that the sink starts then (against the sink rules) is not refused; it
+\ runs wholly before or after the term's print and does not disturb it.
+: lf-pp-math-run ( term fuel c-addr u -- outcome )
+  2dup lf-pp-emit 2>r true lf-pp-math! lf-print-term false lf-pp-math! 2r> lf-pp-emit ;
 : lf-pp-math ( term fuel c-addr u -- outcome )
-  2dup lf-pp-emit 2>r lf-pp-options @ dup >r lf-pp-as-latex lf-pp-options !
-  lf-print-term r> lf-pp-options ! 2r> lf-pp-emit ;
+  lf-pp-busy? if 2drop 2drop outcome-invalid else lf-pp-math-run then ;
 : lf-print-inline ( term fuel -- outcome ) s" $" lf-pp-math ;
 : lf-print-display ( term fuel -- outcome ) s" $$" lf-pp-math ;

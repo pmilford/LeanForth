@@ -102,18 +102,23 @@ end-structure
   lf-pres-current if lf-pterm-source @ lf-pres-known else false then ;
 
 \ Lean's export spelling of a binder kind ("default", "implicit",
-\ "strictImplicit" or "instImplicit"); anything else is refused.
-: lf-pres-is? ( c-addr u c-addr2 u2 -- c-addr u flag ) 2over compare 0= ;
+\ "strictImplicit" or "instImplicit"), and the kind of a spelling;
+\ anything else is refused.
+: lf-pres-kind-spelling ( kind -- c-addr u )
+  case lf-binder-implicit of s" implicit" endof
+    lf-binder-strict of s" strictImplicit" endof
+    lf-binder-instance of s" instImplicit" endof
+    s" default" rot endcase ;
+: lf-pres-spells? ( c-addr u kind -- c-addr u flag )
+  lf-pres-kind-spelling 2over compare 0= ;
 : lf-pres-kind-text ( c-addr u -- kind true | false )
-  s" default" lf-pres-is? if 2drop lf-binder-default true exit then
-  s" implicit" lf-pres-is? if 2drop lf-binder-implicit true exit then
-  s" strictImplicit" lf-pres-is? if 2drop lf-binder-strict true exit then
-  s" instImplicit" lf-pres-is? if 2drop lf-binder-instance true exit then 2drop false ;
+  lf-binder-instance 1+ lf-binder-default
+  ?do i lf-pres-spells? if 2drop i true unloop exit then loop 2drop false ;
 
 \ Declarations: a constant's name and the term of its declared type, so
 \ the printer knows which arguments Lean shows. Declaring a name again
 \ replaces its type, and a record that went stale is reused. A table full
-\ of live records is exhausted; bad input is invalid.
+\ of live records is full; bad input is invalid.
 : lf-pres-decl-name? ( decl -- flag )
   dup lf-pdecl-names @ lf-name-generation @ = swap lf-pdecl-name @ lf-name-valid? and ;
 : lf-pres-decl-type? ( decl -- flag )

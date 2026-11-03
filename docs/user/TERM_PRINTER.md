@@ -26,22 +26,24 @@ printer's own LaTeX output:
 ```
 
 In words: for all propositions A, B and C, if A implies B and B implies C,
-then A implies C. Lean writes the theorem as
+then A implies C. Lean writes the theorem, and prints it back with
+`#print`, as
 
 ```lean
 theorem composition {A B C : Prop} (f : A → B) (g : B → C) : A → C :=
   fun value => g (f value)
+set_option pp.unicode.fun true in
+#print composition
 ```
-
-and LeanForth prints the checked declaration's statement and proof exactly
-as Lean's `#print` does (with `set_option pp.unicode.fun true`):
 
 ```text
 theorem composition : ∀ {A B C : Prop}, (A → B) → (B → C) → A → C :=
 fun {A B C} f g value ↦ g (f value)
 ```
 
-In ASCII mode the same declaration is
+and LeanForth prints the checked declaration's statement and proof exactly
+so (`tests/present/fixtures.golden`, compared with pinned Lean by
+`make check`). In ASCII mode the same declaration is
 
 ```text
 theorem composition : forall {A B C : Prop}, (A -> B) -> (B -> C) -> A -> C :=
@@ -58,13 +60,51 @@ and in LaTeX the proof term is
 In LeanForth Forth, a program prints a term with the words below. LeanForth's
 own syntax for *writing* terms is not designed yet (plan task 8.1.1); today
 terms come from the importer or from Forth words such as the test helpers in
-`tests/present/build.fs`, used here:
+`tests/present/build.fs`, used here. The examples on this page run after
+`gforth src/main.fs` from the repository root, with these helpers loaded
+first; `make test` checks that each prints exactly the text shown after it.
 
 ```forth
-\ ∀ {P : Prop}, P → P   — the statement of the fixture identity
+\ Helpers for the examples (documentation only): the printer's test words
+\ of tests/present/build.fs, loaded from the repository root (~+ is
+\ Gforth's name for the working directory). t-prop, t-var, t-pi and t-lam
+\ build terms; ex. and im. name the newest binder, explicit or implicit;
+\ nm, nm. and lparam make names and universe parameters.
+require ~+/tests/present/build.fs
+\ .result ( outcome -- ): end a printed line with the outcome's name.
+: .result ( outcome -- )
+  case outcome-ok of ."   (ok)" endof  outcome-exhausted of ."   (exhausted)" endof
+    ."   (other)" endcase cr ;
+```
+
+The statement `∀ {P : Prop}, P → P` of the fixture identity, in the three
+modes and as Markdown math; a universe level; two names; and a print that
+runs out of fuel after part of the text:
+
+```forth
+fresh
 t-prop  0 t-var 1 t-var t-pi s" proof" ex.  t-pi s" P" im.  constant statement
-' type lf-print-unicode lf-print-setup     \ print to the terminal, Lean notation
-statement 1000 lf-print-statement drop      \ prints ∀ {P : Prop}, P → P
+' type lf-print-unicode lf-print-setup   \ print to the terminal, in Lean's notation
+statement 1000 lf-print-statement .result
+' type lf-print-ascii lf-print-setup    statement 1000 lf-print-term .result
+' type lf-print-latex lf-print-setup    statement 1000 lf-print-term .result
+statement 1000 lf-print-inline .result   \ Markdown math, whatever the mode
+' type lf-print-unicode lf-print-setup
+s" u" lparam s" v" lparam lmax 1000 lf-print-level .result   \ a universe level
+s" Nat" nm s" add" nm. lf-print-name .result                   \ a structured name
+0 lf-print-name .result                                        \ the anonymous name
+statement 10 lf-print-term .result       \ too little fuel: part of the text
+```
+
+```text
+∀ {P : Prop}, P → P  (ok)
+forall {P : Prop}, P -> P  (ok)
+\forall \{P : \mathrm{Prop}\},\ P \to P  (ok)
+$\forall \{P : \mathrm{Prop}\},\ P \to P$  (ok)
+max u v  (ok)
+Nat.add  (ok)
+[anonymous]  (ok)
+∀ {P : Prop}  (exhausted)
 ```
 
 ## Binder names without capture
@@ -135,22 +175,51 @@ Outcomes are the shared ones of `src/lib/outcome.fs`.
 | `lf-pres-declare` | `( name type -- outcome )` | record a constant's declared type, so its implicit arguments can be hidden |
 | `lf-pres-binder@`, `lf-pres-source@`, `lf-pres-type@` | read them back | false when absent or stale |
 | `lf-pres-kind-text` | `( c-addr u -- kind true \| false )` | Lean's export spelling of a binder kind |
+| `lf-pres-reset` | `( -- )` | forget every side-table entry and declaration |
 | `lf-print-setup` | `( sink options -- )` | sink xt `( c-addr u -- )`, mode and option bits |
 | `lf-print-term` | `( term fuel -- outcome )` | print a closed term |
 | `lf-print-statement` | `( term fuel -- outcome )` | print a theorem's statement: its Π spine is a proposition |
 | `lf-print-level` | `( level fuel -- outcome )` | print a universe level |
-| `lf-print-name` | `( id -- outcome )` | print a structured name |
+| `lf-print-name` | `( id -- outcome )` | print a structured name; the anonymous name 0 prints as `[anonymous]` (one unit of fuel) |
 | `lf-print-inline`, `lf-print-display` | `( term fuel -- outcome )` | LaTeX between `$` or `$$` |
-| `lf-print-limit!` | `( n -- flag )` | most nested visits per print (default 128) |
+| `lf-print-limit!` | `( n -- flag )` | most nested visits per print (default 128); false for n < 1 or during a print |
 | `lf-print-fuel` | `( -- addr )` | fuel left after the last print |
+| `lf-print-reset` | `( -- )` | recover after a THROW out of a print: the printer is idle again, in the mode `lf-print-setup` set |
 
 **Outcomes.** *ok*: printed. *invalid*: malformed input — a bad term
-index, a stale constant reference, an unknown tag, a variable outside the
-term's binders, a universe parameter that is not a name, a corrupted name
-store, negative fuel, or a sink that tries to print while a print is in
-progress. *exhausted*: out of fuel. *full*: out of nested visits, or out
-of room for binder names (4,096 bytes). After a failure the sink has received part
-of the text. A sink must not THROW; after one, call `lf-print-reset`.
+index, a bad level index, a stale constant reference, an unknown tag, a
+variable outside the term's binders, a universe parameter that is not a
+name, a corrupted name store, negative fuel — or a sink that tries to
+print while a print is in progress, or that called `lf-print-reset` during
+the print. *exhausted*: out of fuel. *full*: out of nested visits, or out
+of room for binder names (4,096 bytes, shared with the spelling of a
+LaTeX name). After a failure the sink has received part of the text.
+Numbers print in decimal whatever `BASE` is, and `BASE` is kept.
+
+**Sink rules.** The sink receives the text piece by piece:
+
+- It uses the text, or copies it, before it returns and before any
+  pictured numeric output (`<#` … `#>`) of its own: the text may lie in
+  the printer's name pool or in the pictured numeric output buffer.
+- It calls no `lf-print-*` or `lf-pres-*` word and changes no store
+  (terms, levels, names, constant references). The printer refuses
+  another print while one is in progress (invalid) and `lf-print-limit!`
+  answers false; a print during which the sink called `lf-print-reset` ends
+  invalid. `lf-print-inline` and `lf-print-display` write their `$`
+  delimiters while no print is in progress, so a print the sink starts
+  then is not refused; it runs before or after the term's own print and
+  does not disturb it. A changed store is not detected: the text is then
+  meaningless.
+- It does not THROW. After a THROW out of a print, call `lf-print-reset`;
+  it also ends the LaTeX mode that `lf-print-inline` and
+  `lf-print-display` use, which never changes the options `lf-print-setup`
+  set.
+
+As defence in depth, every count the printer reads from its own state is
+clamped into range, so a sink that breaks these rules cannot make a print
+loop without end or address memory outside the printer's record; the
+sweep below resets the printer from the sink at every sink call of every
+case to check this.
 
 **Side table.** Every entry is stamped with its term's identity and the
 name store's generation, so after a reset of either store it reads as
@@ -162,10 +231,34 @@ entry per term (64 today) and 32 declarations.
 
 - **Propositions.** Lean decides whether a Π is a proposition (∀ or →) by
   type inference. The printer uses Lean's own quick test (`isPropQuick`):
-  the body's head must be a variable whose type ends in `Prop`. For a body
-  headed by a constant it cannot tell, and prints `(x : A) → c x` where Lean
-  prints `∀ (x : A), c x`; `lf-print-statement` fixes this for a theorem's
-  statement.
+  the body's head must be a variable whose type is arrows ending in `Prop`.
+  Where that test cannot decide, Lean falls back to inferring the type,
+  which the printer cannot do; it then prints a dependent arrow where Lean
+  prints `∀`. Confirmed with pinned Lean 4.35.0; the printer's side is
+  pinned by unit tests in `tests/present/term-printer.fs`:
+
+  | Body | Lean prints | The printer prints |
+  | --- | --- | --- |
+  | headed by a `fun` applied to arguments | `∀ (x : Prop), (fun y ↦ y) x` | `(x : Prop) → (fun y ↦ y) x` |
+  | a variable whose type unfolds to `Prop` (`def MyProp : Type := Prop`) | `∀ (p : MyProp), p` | `(p : MyProp) → p` |
+  | headed by a constant (`def isP (_ : Prop) : Prop`) | `∀ (x : Prop), isP x` | `(x : Prop) → isP x` |
+
+  `lf-print-statement` prints a theorem's statement with `∀` in all three
+  cases. A `fun` applied to arguments is otherwise printed as Lean prints
+  it: its own binders give the kinds of its parameters, so
+  `fun p ↦ (fun {a} b ↦ b) p` hides the implicit argument (a case of the
+  differential below).
+- **Levels by index.** A `Sort` term refers to its level by index in the
+  level store, with no generation stamp. After the level store is reset
+  while terms are kept, such a `Sort` is invalid, or, once a new level has
+  that index, prints the new level. Reset the term store with the level
+  store (as `fresh` in the tests does).
+- **Universe parameters are name IDs.** The printer prints a universe
+  parameter by treating its parameter ID as a name ID of the name store,
+  because `src/core/level-scope.fs` uses name IDs as parameter IDs. Each
+  universe parameter must therefore be a valid name ID other than 0 (the
+  anonymous name), or the print is invalid. This is a current coupling
+  between the two modules, not a rule of Lean.
 - **Implicit arguments** are hidden only for constants declared in the side
   table and for variables whose type is a Π; otherwise all arguments show,
   with `@` as Lean does when it cannot compute parameter kinds.
@@ -181,12 +274,17 @@ entry per term (64 today) and 32 declarations.
 ## Evidence
 
 - `make test` runs `tests/present/term-printer.fs` (every public word's
-  outcomes), `print-sweep.fs` (each of 49 cases in 3 modes at every fuel
-  level below what it needs and at visit limits 1 to 24: 5,409 prints, each
-  exhausted (fuel) or full (visit limit) or ok, with the stack balanced) and `check_golden.py` (the text
-  of all cases and of the five pinned fixtures, `print-cases.golden` and
-  `fixtures.golden`). Also on Gforth 0.7.3.
-- `make check` adds `test-printer-differential`: the 49 cases are built as
+  outcomes, sinks that break the rules, a non-decimal `BASE`, bad level
+  indices, a corrupted name store, invalid UTF-8 in LaTeX names),
+  `print-sweep.fs` (each of 50 cases in 3 modes at every fuel level below
+  what it needs and at visit limits 1 to 24: 5,517 prints, each exhausted
+  (fuel) or full (visit limit) or ok; then 1,891 prints whose sink calls
+  `lf-print-reset` at each of its calls in turn, each invalid and leaving
+  the printer idle; every print with both stacks balanced),
+  `check_golden.py` (the text of all cases and of the five pinned
+  fixtures, `print-cases.golden` and `fixtures.golden`) and the examples
+  on this page. Also on Gforth 0.7.3.
+- `make check` adds `test-printer-differential`: the 50 cases are built as
   Lean expressions in `tests/reference/printer-cases.lean` and printed by
   Lean; the five fixtures (identity, composition, type identity,
   polymorphic identity, constant fixture) are `#print`ed by Lean. Every

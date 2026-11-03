@@ -98,6 +98,8 @@ set_option pp.unicode.fun true
   (lam `f ex (pi `h ex (pi `x ex prp prp) (pi `p ex prp prp)) (lam `p ex prp
     (mkApp (mkApp (bv 1) (lam `x ex prp (bv 0))) (bv 0))))
 #eval out "beta-head" (lam `p ex prp (mkApp (lam `x ex prp (bv 0)) (bv 0)))
+#eval out "fun-head-implicit"
+  (lam `p ex prp (mkApp (mkApp (lam `a im prp (lam `b ex (bv 0) (bv 0))) (bv 0)) (bv 0)))
 #eval out "forall-domain" (pi `h ex (pi `x ex prp (bv 0)) prp)
 #eval out "arrow-domain" (pi `h ex (pi `x ex prp prp) prp)
 #eval out "sort-arg" (lam `f ex (pi `x ex (mkSort (mkLevelSucc Level.one)) prp)

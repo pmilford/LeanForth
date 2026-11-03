@@ -36,6 +36,9 @@
 \ outcome and give false.
 : ok-then? ( x outcome -- x true | outcome false )
   dup ok? if drop true else nip false then ;
+\ The same with two values kept.
+: ok-then2? ( x1 x2 outcome -- x1 x2 true | outcome false )
+  dup ok? if drop true else nip nip false then ;
 \ The same for a step that gives a result, with one or two values kept
 \ below it for the next step: keep them and give true, or drop them, keep
 \ the result beside the failing outcome and give false.

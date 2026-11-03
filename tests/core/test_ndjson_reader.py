@@ -104,7 +104,7 @@ def disagreement(data, output):
 
 class FixtureDifferential(unittest.TestCase):
     def test_counts_equal_count_py(self):
-        outputs = forth_each(COUNT_FS, "count-export", FIXTURES)
+        outputs = forth_each(COUNT_FS, "count-report", FIXTURES)
         for path, output in zip(FIXTURES, outputs):
             code, expected = python_output(COUNT_PY, path)
             self.assertEqual(code, 0)
@@ -142,6 +142,7 @@ class FramingFailures(unittest.TestCase):
             ("metadata twice", meta + b"\n" + good, ("invalid", 2)),
             ("line swapped", b"\n".join([lines[0], lines[2], lines[1]] + lines[3:]) + b"\n", ("invalid", 2)),
             ("not an object", b"\n".join([lines[0], b"[1,2]"] + lines[1:]) + b"\n", ("invalid", 2)),
+            ("nested too deep", meta + b"\n" + b"[" * 70 + b"]" * 70 + b"\n", ("full", 2)),
         ]
 
     def test_failures(self):
@@ -152,10 +153,64 @@ class FramingFailures(unittest.TestCase):
                 path = Path(folder) / f"case{index}.ndjson"
                 path.write_bytes(data)
                 paths.append(path)
-            outputs = forth_each(COUNT_FS, "count-export", paths)
+            outputs = forth_each(COUNT_FS, "count-report", paths)
         for (name, _, expected), output in zip(cases, outputs):
             self.assertEqual(error_of(output), expected, f"{name}: {output}")
             self.assertEqual(output.count("\n"), 1, f"{name}: partial output {output}")
+            # The outcome is named by outcome-text (src/lib/outcome.fs).
+            self.assertTrue(output.startswith(f"error: {expected[0]}: "), f"{name}: {output}")
+
+
+class KindTable(unittest.TestCase):
+    """The counter's table of record kinds must have one category per kind:
+    a copy with one entry missing (its REQUIREs made absolute, so it loads
+    from a temporary folder) stops while loading; the same copy unchanged
+    loads silently."""
+
+    def load(self, folder, source):
+        path = Path(folder) / "ndjson-count-copy.fs"
+        text = source.replace("require ../lib/", f"require {ROOT}/src/lib/")
+        path.write_text(text.replace("require ./ndjson.fs", f"require {ROOT}/src/import/ndjson.fs"),
+                        encoding="utf-8")
+        result = subprocess.run([GFORTH, str(path), "-e", "bye"], cwd=ROOT, stdin=subprocess.DEVNULL,
+                                capture_output=True, timeout=600)
+        return result.returncode, (result.stdout + result.stderr).decode("utf-8", errors="replace")
+
+    def test_kind_table(self):
+        source = (ROOT / COUNT_FS).read_text(encoding="utf-8")
+        last = "-1 , -1 , -1 ,"
+        self.assertEqual(source.count(last), 1)
+        with tempfile.TemporaryDirectory() as folder:
+            self.assertEqual(self.load(folder, source), (0, ""))
+            code, output = self.load(folder, source.replace(last, "-1 , -1 ,"))
+        self.assertNotEqual(code, 0, output)
+        self.assertIn("one category per record kind", output)
+
+
+class ExitStatus(unittest.TestCase):
+    """The documented command line exits with status 0 after the report and
+    1 after the error line, for a broken file and for a missing one."""
+
+    def run_tool(self, path):
+        command = f's" {path}" count-export bye'
+        result = subprocess.run([GFORTH, COUNT_FS, "-e", command], cwd=ROOT,
+                                stdin=subprocess.DEVNULL, capture_output=True, timeout=600)
+        return result.returncode, result.stdout.decode("utf-8", errors="replace")
+
+    def test_exit_status(self):
+        good = ROOT / "tests" / "reference" / "composition.ndjson"
+        code, output = self.run_tool(good)
+        self.assertEqual((code, output), (0, python_output(COUNT_PY, good)[1]))
+        with tempfile.TemporaryDirectory() as folder:
+            broken = Path(folder) / "broken.ndjson"
+            broken.write_bytes(good.read_bytes()[:-1])
+            code, output = self.run_tool(broken)
+            self.assertEqual(code, 1, output)
+            self.assertEqual(error_of(output), ("invalid", 35), output)
+            self.assertEqual(output.count("\n"), 1, output)
+            code, output = self.run_tool(Path(folder) / "missing.ndjson")
+            self.assertEqual(code, 1, output)
+            self.assertTrue(output.startswith("error: "), output)
 
 
 class LineLimit(unittest.TestCase):
@@ -177,7 +232,7 @@ class LineLimit(unittest.TestCase):
                 long_line = start + b"a" * size + end
                 with open(path, "wb") as f:
                     f.write(b"\n".join(head + [long_line, last]) + b"\n")
-            outputs = forth_each(COUNT_FS, "count-export", paths)
+            outputs = forth_each(COUNT_FS, "count-report", paths)
         finally:
             for path in paths:
                 if os.path.exists(path):

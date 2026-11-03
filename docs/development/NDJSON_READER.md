@@ -31,7 +31,13 @@ measurement script `docs/development/measurements/scale-2026-11-02/count.py`:
 ```
 
 `gforth-fast` is about three times faster than `gforth` and gives the same
-results. On failure the tool prints one line instead of the report. For a
+results. On failure the tool prints one line instead of the report and
+Gforth exits at once with status 1; after the report, `bye` exits with
+status 0. Forth-2012 has no `bye` with a status, so the tool uses Gforth's
+`(bye)`, present in both CI hosts, Gforth 0.7.3 and 1.0 (another host
+would end with an uncaught `THROW`). Inside a Forth session, or for many
+files in one process as the tests do, `count-report` prints the same and
+never exits. For a
 copy of `tests/reference/composition.ndjson` with an application referring
 to itself, with a closing quote removed on line 2, and with the Lean
 version changed:

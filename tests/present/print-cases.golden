@@ -109,6 +109,9 @@ latex	fun-inner-arg	\lambda\ f\ p \mapsto f\ (\lambda\ x \mapsto x)\ p
 unicode	beta-head	fun p ↦ (fun x ↦ x) p
 ascii	beta-head	fun p => (fun x => x) p
 latex	beta-head	\lambda\ p \mapsto (\lambda\ x \mapsto x)\ p
+unicode	fun-head-implicit	fun p ↦ (fun {a} b ↦ b) p
+ascii	fun-head-implicit	fun p => (fun {a} b => b) p
+latex	fun-head-implicit	\lambda\ p \mapsto (\lambda\ \{a\}\ b \mapsto b)\ p
 unicode	forall-domain	(∀ (x : Prop), x) → Prop
 ascii	forall-domain	(forall (x : Prop), x) -> Prop
 latex	forall-domain	(\forall (x : \mathrm{Prop}),\ x) \to \mathrm{Prop}

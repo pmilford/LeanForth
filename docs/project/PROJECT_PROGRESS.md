@@ -109,7 +109,7 @@ designs and Lean proofs rather than on LeanForth code.
 | 7. Lean checker compatibility corpus | In progress: selected differential tables and the first checker's expected-results table; no official corpus run. |
 | 8. Lean declaration features | In progress: the checked environment is designed (ADR 0012, per-declaration universe scope); candidate signatures remain unchecked assumptions; inductive types, recursors and quotients are decoded by the reader but not checked. |
 | 9. Full Mathlib | In progress (T9.1, T9.4): denominator pinned, export and reading measured; nothing imported into stores or checked. |
-| 10. Native proof authoring | In progress (T10.1 only in part): terms can be built with internal Forth words and printed as Lean prints them — the term printer and its side table (plan 2.4.2–2.4.3) agree with Lean's own printing on 49 cases and the five fixtures ([printing terms](../user/TERM_PRINTER.md)); no user syntax, elaboration, tactics or proof outlines. |
+| 10. Native proof authoring | In progress (T10.1 only in part): terms can be built with internal Forth words and printed as Lean prints them — the term printer and its side table (plan 2.4.2–2.4.3) agree with Lean's own printing on 50 cases and the five fixtures ([printing terms](../user/TERM_PRINTER.md)); no user syntax, elaboration, tactics or proof outlines. |
 
 ## Provably correct executable Forth
 

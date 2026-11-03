@@ -81,6 +81,9 @@
 :noname P->P P P t-pi s" p" ex. t-pi s" h" ex.  P  1 t-var P 0 t-var t-lam s" x" ex. t-app
   0 t-var t-app t-lam s" p" ex. t-lam s" f" ex. ; s" fun-inner-arg" uni
 :noname P  P 0 t-var t-lam s" x" ex. 0 t-var t-app t-lam s" p" ex. ; s" beta-head" uni
+\ A fun head's own binders give its parameter kinds: the implicit one hides.
+:noname P  P 0 t-var 0 t-var t-lam s" b" ex. t-lam s" a" im.  0 t-var t-app 0 t-var t-app
+  t-lam s" p" ex. ; s" fun-head-implicit" uni
 :noname P 0 t-var t-pi s" x" ex. P t-pi s" h" ex. ; s" forall-domain" uni
 :noname P->P P t-pi s" h" ex. ; s" arrow-domain" uni
 :noname 2 t-sort P t-pi s" x" ex. 0 t-var 1 t-sort t-app t-lam s" f" ex. ; s" sort-arg"
