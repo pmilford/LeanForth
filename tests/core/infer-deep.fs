@@ -30,8 +30,10 @@ variable token
 \ The deepest successful inference: 26 applications under two binders; its
 \ type fills the store exactly.
 T{ 26 apps 100000 infer lf-minfer-fuel @ lf-term-count @ -> 63 outcome-ok 98439 64 }T
-\ Deeper inputs run out of room for their output types: exhausted, with
-\ every count rolled back and no fuel left, never a crash.
-T{ 29 apps 100000 infer lf-minfer-fuel @ lf-term-count @ -> -1 outcome-exhausted 0 35 }T
-T{ 31 lams 100000 infer lf-minfer-fuel @ lf-term-count @ -> -1 outcome-exhausted 0 33 }T
+\ Deeper inputs run out of room for their output types: full (not
+\ exhausted: fuel is plentiful), with every count rolled back and no fuel
+\ left, never a crash. With too little fuel the same input is exhausted.
+T{ 29 apps 100000 infer lf-minfer-fuel @ lf-term-count @ -> -1 outcome-full 0 35 }T
+T{ 31 lams 100000 infer lf-minfer-fuel @ lf-term-count @ -> -1 outcome-full 0 33 }T
+T{ 29 apps 100 infer lf-minfer-fuel @ lf-term-count @ -> -1 outcome-exhausted 0 35 }T
 bye

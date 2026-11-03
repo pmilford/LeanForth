@@ -236,7 +236,7 @@ cm-setup
 T{ 6000 ' cm-run rs-checked cm-failures @ -> 0 }T
 T{ cm-walks-ok @ 0> cm-walks-short @ 0> cm-renewals @ 0> -> true true true }T
 ." context model: seed 2718, " cm-steps @ . ." steps, " cm-renewals @ . ." new contexts, "
-cm-walks-ok @ . ." walks ok, " cm-walks-short @ . ." exhausted, "
+cm-walks-ok @ . ." walks ok, " cm-walks-short @ . ." exhausted or full, "
 cm-failures @ . ." differences" cr
 \ The comparison catches a planted fault: one reset applied to a context
 \ store but not to its reference.

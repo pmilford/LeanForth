@@ -18,14 +18,14 @@ lf-term-capacity walk2: lf-cts-walker
 
 \ Visiting a node at the depth in walk-context. Pi and lambda bind in their
 \ body (second child) only, so a node shared under different binders is
-\ revisited at each depth. A depth that cannot grow is exhaustion.
+\ revisited at each depth. A depth that cannot grow (max-n) is full.
 : lf-cts-bvar ( first second walk -- outcome ) nip walk-context @ < flag>outcome ;
 : lf-cts-leaf ( first second walk -- outcome ) drop 2drop outcome-ok ;
 : lf-cts-inner ( depth tag -- depth' true | false )
   lf-tag-app = if true exit then dup max-n = if drop false else 1+ true then ;
 : lf-cts-binary ( first second walk tag -- outcome )
   over walk-context @ swap lf-cts-inner
-  if swap walk-children-at else drop 2drop outcome-exhausted then ;
+  if swap walk-children-at else drop 2drop outcome-full then ;
 : lf-cts-dispatch ( first second walk tag -- outcome )
   dup lf-term-binary-tag? if lf-cts-binary exit then
   case lf-tag-bvar of lf-cts-bvar endof

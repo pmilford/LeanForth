@@ -90,14 +90,14 @@ T{ 999 1 5000 specialize-with -> lf-msp-invalid }T
 T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> 1 2 0 }T
 T{ candidate @ 1 5000 specialize-with nip nip -> lf-msp-ok }T
 
-\ The index holds lf-msp-capacity records. One more is exhausted and changes
+\ The index holds lf-msp-capacity records. One more is full and changes
 \ nothing, so a capacity check cannot write past the record arrays.
 : numbered ( n -- name ) 0 swap lf-name-num 0= abort" numbered name" ;
 : fill-index ( -- )
   lf-msp-capacity 1 do i numbered 1 5000 put-with lf-msp-ok <> abort" fill" loop ;
 fill-index
 T{ lf-msp-count @ -> lf-msp-capacity }T
-T{ lf-msp-capacity numbered 1 5000 put-with -> lf-msp-exhausted }T
+T{ lf-msp-capacity numbered 1 5000 put-with -> outcome-full }T
 T{ lf-msp-count @ -> lf-msp-capacity }T
 T{ candidate @ 1 5000 specialize-with nip nip -> lf-msp-ok }T
 T{ lf-msp-capacity 1- numbered 1 5000 specialize-with nip nip -> lf-msp-ok }T

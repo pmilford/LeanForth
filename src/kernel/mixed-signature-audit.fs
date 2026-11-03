@@ -53,7 +53,7 @@ lf-msa-state /lf-audit erase
 
 \ Each check takes the fuel left and returns the fuel it leaves, even on
 \ failure. lf-constant-term-scope and lf-mls-audit-formals report only ok,
-\ invalid or exhausted; outcome-sane passes any outcome on unchanged (so
+\ invalid, exhausted or full; outcome-sane passes any outcome on unchanged (so
 \ rejected or unsupported too, once ADR 0008 step 3 lets helpers return
 \ them; still not ok) and makes anything else invalid.
 : lf-msa-root ( position -- root identity ) dup lf-msp-root@ swap lf-msp-id@ ;
@@ -80,8 +80,9 @@ lf-msa-state /lf-audit erase
 \ syntax and term binder scope at outer depth zero. One shared budget
 \ charges each term and level occurrence on each traversal, including
 \ repeated DAG edges. Index/name/formal/context and reference identity scans
-\ are bounded additional work; work-stack capacity can independently exhaust.
-\ Negative fuel or malformed/stale data is invalid; zero fuel is exhausted,
-\ including for an empty index. No lookup, specialization or inference is done.
+\ are bounded additional work; a full work stack is full, independently of
+\ fuel. Negative fuel or malformed/stale data is invalid; zero fuel is
+\ exhausted, including for an empty index. No lookup, specialization or
+\ inference is done.
 : lf-mixed-signature-audit ( token fuel -- status )
   dup 0< if 2drop outcome-invalid exit then lf-msa-run swap lf-msa-fuel ! ;

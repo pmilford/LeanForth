@@ -173,13 +173,24 @@ T{ 2 substitute-count -> lf-mlsubst-invalid }T
 T{ counts@ -> 5 5 1 }T
 2 actuals pair!
 T{ 2 substitute-count -> 4 root-id @ lf-mlsubst-ok }T
+\ A full reference store: the constant, whose levels change, needs a new
+\ reference, and there is no room for it. That is full, and every count
+\ is restored.
 setup
-\ Failure after a newly allocated level and reference restores all counts.
+: fill-crefs ( -- )
+  begin lf-cref-count @ lf-cref-capacity < while
+    0 lf-name-generation @ 0 0 lf-cref-new 0= abort" fill" 2drop repeat ;
+fill-crefs
+counts@ 2constant full-counts constant full-terms
+T{ 500 run-substitution counts@ -> outcome-full full-terms full-counts }T
+setup
+\ Failure after a newly allocated level and reference restores all counts:
+\ the term serial runs out, which is full (out of room), not exhausted.
 lf-term-count @ constant before-term
 lf-level-count @ constant before-level
 lf-cref-count @ constant before-cref
 -1 1 rshift 2 - lf-term-serial !
-T{ 500 run-substitution -> lf-mlsubst-exhausted }T
+T{ 500 run-substitution -> outcome-full }T
 T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> before-term before-level before-cref }T
 T{ lf-term-serial @ -> -1 1 rshift }T
 T{ lf-level-serial @ before-level > -> true }T

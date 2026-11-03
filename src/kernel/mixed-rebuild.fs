@@ -16,7 +16,7 @@ require ../core/constant-term-boundary.fs
 require ../core/terms.fs
 
 : lf-rebuild-invalid ( -- -1 outcome ) outcome-invalid no-result ;
-: lf-rebuild-exhausted ( -- -1 outcome ) outcome-exhausted no-result ;
+: lf-rebuild-full ( -- -1 outcome ) outcome-full no-result ;
 : lf-rebuild-bad ( node frames -- -1 outcome ) 2drop lf-rebuild-invalid ;
 : lf-rebuild-keep ( node frames -- node outcome ) drop outcome-ok ;
 \ A visitor dispatches on the tag of its node; a node the store does not
@@ -24,15 +24,16 @@ require ../core/terms.fs
 0 constant lf-rebuild-no-tag
 : lf-rebuild-tag ( node frames flag -- node frames tag )
   if over lf-term-tag@ else lf-rebuild-no-tag then ;
-\ A fresh node is ok; a failed allocation (full store, spent serial or an
-\ invalid child) exhausts.
+\ A fresh node is ok; a failed allocation is full: the term store has no
+\ free record or its identity serial is spent (the children are results
+\ of earlier visits, so they are live).
 : lf-rebuild-allocated ( node true | false -- node outcome )
-  if outcome-ok else lf-rebuild-exhausted then ;
+  if outcome-ok else lf-rebuild-full then ;
 
 \ Binary nodes, whose fields were read in this visit and are fetched again
 \ unchecked. The second child of a lambda or Pi lies under one more binder,
-\ which cannot be entered at context max-n; that is checked before the
-\ first child is visited, so such a node spends no fuel on its children.
+\ which cannot be entered at context max-n (full); that is checked before
+\ the first child is visited, so such a node spends no fuel on its children.
 \ Every nested visit holds a few cells of the host's stacks, so the words
 \ between two visits are kept few and flat (see mixed-beta.fs).
 : lf-rebuild-binder? ( node -- flag ) lf-term-tag@ lf-tag-app <> ;
@@ -47,13 +48,13 @@ require ../core/terms.fs
   ok-keep2? if lf-rebuild-build then ;
 \ Visit both children with the pass's frames record, then append the node.
 : lf-rebuild-binary ( node frames -- result outcome )
-  2dup lf-rebuild-stuck? if 2drop lf-rebuild-exhausted exit then
+  2dup lf-rebuild-stuck? if 2drop lf-rebuild-full exit then
   over lf-term-first@ over frame-call ok-keep2? if -rot lf-rebuild-join then ;
 
 \ Audit a whole root with the pass's fuel before anything is allocated. The
 \ pass continues with the fuel the audit leaves, or zero after a failure.
-\ lf-cterm-check gives only ok, invalid or exhausted (its contract), so the
-\ outcome needs no narrowing.
+\ lf-cterm-check gives only ok, invalid, exhausted or full (its contract),
+\ so the outcome needs no narrowing.
 : lf-rebuild-audit ( index identity frames -- outcome )
   >r r@ frame-fuel @ lf-cterm-check
   dup ok? if lf-cterm-fuel @ else 0 then r> frame-fuel ! ;

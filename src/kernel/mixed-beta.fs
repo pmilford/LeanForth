@@ -68,9 +68,9 @@ lf-term-capacity ' lf-mbeta-visit lf-mbeta-frames frame-init
 \ failure restore the initial term count, never allocation serials; negative
 \ fuel and a failed preflight conservatively leave zero fuel. Success
 \ returns a live stamped root; unchanged constants and Sorts retain their
-\ identities. Exhaustion includes fuel, frame, arena and index limits. Does
-\ not check scope, types, declarations, equality, proofs, or
-\ executable-program correctness.
+\ identities. Running out of fuel is exhausted; the frame, arena, binder
+\ context and index limits are full. Does not check scope, types,
+\ declarations, equality, proofs, or executable-program correctness.
 : lf-mbeta-refuse ( index identity outcome -- -1 0 outcome ) nip nip lf-rebuild-none ;
 : lf-mbeta-unfueled ( index identity -- -1 0 status )
   0 lf-mbeta-fuel ! outcome-invalid lf-mbeta-refuse ;

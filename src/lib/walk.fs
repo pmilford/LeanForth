@@ -12,10 +12,10 @@
 \ walk-run pushes a root, then repeatedly spends one unit of fuel, pops a
 \ node into walk-node and calls the visitor ( walk -- outcome ), which reads
 \ that node and pushes its children. It stops at the first outcome that is
-\ not ok, with exhausted when fuel reaches zero or the stack is full, or
-\ with ok when the stack empties. A visitor result outside the outcome
-\ vocabulary counts as invalid. A node shared by several parents is
-\ visited, and charged, once per path.
+\ not ok, with exhausted when fuel reaches zero, full when the work stack
+\ has no room for a push, or ok when the stack empties. A visitor result
+\ outside the outcome vocabulary counts as invalid. A node shared by
+\ several parents is visited, and charged, once per path.
 \ In a paired walk (walk2:) each item is a node plus one context cell, such
 \ as the number of binders around that node; walk-take puts the context in
 \ walk-context, and walk-run-pair and walk-push-pair take both cells.
@@ -85,17 +85,19 @@ end-structure
 \ Pushing children from a visitor. walk-child and walk-children require an
 \ earlier node than the one being visited, which rules out cycles and
 \ forward edges; walk-push-outcome, walk-push2 and the paired words do not
-\ check, for inputs whose shape an earlier pass validated.
-: walk-push-outcome ( index walk -- outcome ) walk-push if outcome-ok else outcome-exhausted then ;
+\ check, for inputs whose shape an earlier pass validated. A push that
+\ finds no room is full.
+: walk-push-outcome ( index walk -- outcome )
+  walk-push if outcome-ok else outcome-full then ;
 : walk-push2 ( first second walk -- outcome )
-  rot over walk-push if walk-push-outcome else 2drop outcome-exhausted then ;
+  rot over walk-push if walk-push-outcome else 2drop outcome-full then ;
 : walk-pair-outcome ( node context walk -- outcome )
-  walk-push-pair if outcome-ok else outcome-exhausted then ;
+  walk-push-pair if outcome-ok else outcome-full then ;
 \ Paired: push first with the current node's context, then second with
 \ the given one (so second is visited first).
 : walk-children-at ( first second context walk -- outcome )
   >r rot r@ walk-context @ r@ walk-push-pair
-  if r> walk-pair-outcome else 2drop r> drop outcome-exhausted then ;
+  if r> walk-pair-outcome else 2drop r> drop outcome-full then ;
 : walk-child? ( index walk -- flag ) walk-node @ 0 swap within ;
 : walk-child ( index walk -- outcome )
   2dup walk-child? if walk-push-outcome else 2drop outcome-invalid then ;
@@ -110,7 +112,8 @@ end-structure
 : walk-visit ( walk store xt -- outcome ) >r walk-read if r> execute else r> drop outcome-invalid then ;
 : walk-bad-tag ( first second walk tag -- outcome tag ) >r drop 2drop outcome-invalid r> ;
 
-\ The loop.
+\ The loop. A step with no fuel left is exhausted; a root that cannot be
+\ pushed (a corrupted capacity) is full, spending nothing.
 : walk-spend? ( walk -- flag ) walk-fuel dup @ 0= if drop false else -1 swap +! true then ;
 : walk-take-pair ( walk -- ) dup walk-pop-pair rot tuck walk-context ! walk-node ! ;
 : walk-take ( walk -- )
@@ -123,7 +126,7 @@ end-structure
   repeat 2drop outcome-ok ;
 : walk-start ( root walk -- flag ) 0 over walk-pending ! walk-push ;
 : walk-run ( root xt walk -- outcome )
-  rot over walk-start if walk-loop else 2drop outcome-exhausted then ;
+  rot over walk-start if walk-loop else 2drop outcome-full then ;
 : walk-start-pair ( node context walk -- flag ) 0 over walk-pending ! walk-push-pair ;
 : walk-run-pair ( node context xt walk -- outcome )
-  >r -rot r@ walk-start-pair if r> walk-loop else drop r> drop outcome-exhausted then ;
+  >r -rot r@ walk-start-pair if r> walk-loop else drop r> drop outcome-full then ;

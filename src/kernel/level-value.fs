@@ -94,11 +94,15 @@ lf-lvalue-state /lf-lvrec erase
   if lf-lassign-append true else 2drop false then ;
 
 \ Evaluation of a node already validated by the scope check. Depth counts
-\ the nodes above it; a visit needs fuel and a depth below the limit.
+\ the nodes above it; a visit needs fuel (else exhausted) and a depth below
+\ the limit (else full); with neither, the fuel decides. A successor of
+\ the largest cell value is full too: the value has no room to grow.
 \ The value -1 is a symbolic result: with ok it ends the evaluation of
 \ every node above, and it cannot be confused with a concrete level.
 defer lf-lvalue-walk ( node depth -- value status )
-: lf-lvalue-room? ( depth -- flag ) lf-lvalue-depth-limit < lf-lvalue-fuel @ 0> and ;
+: lf-lvalue-room ( depth -- outcome )
+  lf-lvalue-fuel @ 0> 0= if drop outcome-exhausted exit then
+  lf-lvalue-depth-limit < if outcome-ok else outcome-full then ;
 \ A failure or a symbolic value is final; otherwise continue with the value.
 : lf-lvalue-done? ( value status -- value status true | value false )
   dup ok? 0= if true exit then over -1 = if true else drop false then ;
@@ -106,7 +110,7 @@ defer lf-lvalue-walk ( node depth -- value status )
 : lf-lvalue-param ( id -- value )
   lf-lvalue-state lf-lvrec-assigned @ if lf-lvalue-assigned else drop -1 then ;
 : lf-lvalue-succ+ ( value -- value status )
-  dup lf-lvalue-cell-max = if drop -1 outcome-exhausted else 1+ outcome-ok then ;
+  dup lf-lvalue-cell-max = if drop -1 outcome-full else 1+ outcome-ok then ;
 : lf-lvalue-succ ( first depth -- value status )
   lf-lvalue-walk lf-lvalue-done? 0= if lf-lvalue-succ+ then ;
 \ Both children of a max or imax, first child first.
@@ -130,14 +134,14 @@ defer lf-lvalue-walk ( node depth -- value status )
 : lf-lvalue-visit ( node depth -- value status )
   1+ swap lf-level-read if 2swap lf-lvalue-dispatch else drop -1 outcome-invalid then ;
 : lf-lvalue-enter ( node depth -- value status )
-  dup lf-lvalue-room? 0= if 2drop -1 outcome-exhausted exit then
+  dup lf-lvalue-room ok-then? 0= if nip no-result exit then
   -1 lf-lvalue-fuel +! lf-lvalue-visit ;
 ' lf-lvalue-enter is lf-lvalue-walk
 
 \ Scope-check the whole reachable graph first; validation and evaluation
 \ share fuel, and lf-lvalue-fuel is set only once validation succeeds.
 \ Negative fuel is invalid (lf-lscope-check refuses it). A symbolic result
-\ is unknown. Unknown, invalid or exhausted returns -1 and never
+\ is unknown. Unknown, invalid, exhausted or full returns -1 and never
 \ authorizes a theorem.
 : lf-lvalue-known ( value status -- value status )
   dup ok? if over -1 = if drop outcome-unknown then then ;

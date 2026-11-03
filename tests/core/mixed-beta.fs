@@ -76,12 +76,17 @@ T{ 0 lf-term-bvar -> count-before @ true }T
 T{ count-before @ serial-before @ 1+ lf-hterm-valid? -> false }T
 T{ count-before @ lf-term-serial @ lf-hterm-valid? -> true }T
 count-before @ lf-term-count !
-\ Omega exhausts shared fuel and rolls back all generated terms.
+\ Omega never ends: with 200 units it runs out of fuel (exhausted), and with
+\ 300 it fills the store first, 47 units to spare (full). Both roll back all
+\ generated terms.
 T{ 2 2 lf-term-app -> 12 true }T
 T{ 0 12 lf-term-lam -> 13 true }T
 T{ 13 13 lf-term-app -> 14 true }T
 lf-term-count @ count-before !
-T{ 14 lf-term-serial @ 300 lf-mixed-beta -> -1 0 lf-mbeta-exhausted }T
+T{ 14 lf-term-serial @ 200 lf-mixed-beta lf-mbeta-fuel @ -> -1 0 lf-mbeta-exhausted 0 }T
+T{ lf-term-count @ -> count-before @ }T
+T{ 14 dup lf-term-identity drop 300 lf-mixed-beta lf-mbeta-fuel @ ->
+  -1 0 outcome-full 47 }T
 T{ lf-term-count @ -> count-before @ }T
 \ Capture avoidance under a binder preserves the constant annotation.
 setup
@@ -98,7 +103,7 @@ T{ 7 7 lf-term-identity drop 500 lf-mixed-beta -> -1 0 lf-mbeta-invalid }T
 \ Deep nesting: R = app(F, L) with F = lam(c, L) and L = m lambdas over
 \ bvar m. Contracting R instantiates L (m+1 frames deep) and shifts L
 \ inside it (m+1 more). After this file's four-node setup, m = 57 fills the
-\ store and the shift exhausts at the bottom, 117 frames deep; with m = 18
+\ store and the shift is full at the bottom, 117 frames deep; with m = 18
 \ everything fits. The fuel cells of all three passes end equal.
 : lams ( body n -- node ) 0 ?do 0 swap lf-term-lam 0= abort" lam" loop ;
 : deep ( m -- root identity )
@@ -107,7 +112,7 @@ T{ 7 7 lf-term-identity drop 500 lf-mixed-beta -> -1 0 lf-mbeta-invalid }T
   dup lf-term-identity drop ;
 : fuels ( -- beta inst shift ) lf-mbeta-fuel @ lf-minst-fuel @ lf-mshift-fuel @ ;
 T{ 57 deep 100000 ' lf-mixed-beta rs-checked fuels lf-term-count @ ->
-  -1 0 lf-mbeta-exhausted 99076 99076 99076 64 }T
+  -1 0 outcome-full 99076 99076 99076 64 }T
 T{ 18 deep 100000 ' lf-mixed-beta rs-checked fuels ->
   61 lf-term-serial @ lf-mbeta-ok 99699 99700 99700 }T
 T{ 61 lf-term-read -> lf-tag-lam 0 60 true }T
@@ -130,9 +135,9 @@ T{ lf-term-count @ lf-term-serial @ -> 7 serial-before @ }T
 \ The deepest nesting found for a 64-node store: from a store holding only
 \ the constant c, R = app(T, T) with T = 61 lambdas over bvar 60. The
 \ contraction instantiates T's body (61 frames) and shifts T inside it (62
-\ frames), 124 frames in all; the store fills and the shift exhausts at
-\ the bottom without overflowing the host's stacks (about 700 return-stack
-\ and 500 data-stack cells, measured).
+\ frames), 124 frames in all; the store fills and the shift is full at the
+\ bottom without overflowing the host's stacks (about 700 return-stack and
+\ 500 data-stack cells, measured).
 : setup1 ( -- )
   lf-name-reset lf-level-reset lf-term-reset lf-lscope-context-reset lf-cref-reset
   lf-ssession-begin 0= abort" session" 0 s" x" lf-name-str 0= abort" name" drop
@@ -143,9 +148,9 @@ T{ lf-term-count @ lf-term-serial @ -> 7 serial-before @ }T
   setup1 dup 1- lf-term-bvar 0= abort" bvar" swap lams
   dup lf-term-app 0= abort" R" dup lf-term-identity drop ;
 T{ 61 twin 100000 ' lf-mixed-beta rs-checked fuels lf-term-count @ ->
-  -1 0 lf-mbeta-exhausted 99020 99020 99020 64 }T
+  -1 0 outcome-full 99020 99020 99020 64 }T
 T{ 60 twin 100000 lf-mixed-beta fuels lf-term-count @ ->
-  -1 0 lf-mbeta-exhausted 99036 99036 99036 63 }T
+  -1 0 outcome-full 99036 99036 99036 63 }T
 
 \ Records in use. A record left busy (by a THROW out of a pass, or a pass
 \ asked again from inside itself) refuses its pass as invalid, changing

@@ -73,7 +73,8 @@ T{ sweep-result @ 1 make-sort 1 make-sort make-pi convert-terms -> lf-mconvert-e
 
 \ T1.3 Capacity. A full term store, room for two nodes (the composition
 \ then fails after it has allocated), a full level store and a corrupted
-\ term count: each fails, keeps all counts and leaves an earlier result
+\ term count: each fails (full for the three capacity limits, invalid for
+\ the corrupted count), keeps all counts and leaves an earlier result
 \ readable. A rolled-back identity is not revived by reusing its slot.
 : fill-terms ( room -- )
   lf-term-capacity swap - begin dup lf-term-count @ > while 0 make-var drop repeat drop ;
@@ -84,25 +85,31 @@ variable earlier variable earlier-id variable token variable before-serial
 : earlier-ok? ( -- flag ) earlier @ earlier-id @ 1000 lf-cterm-check ok? ;
 : crowded ( room -- root ) >r build-composition keep-earlier r> fill-terms ;
 T{ 0 crowded save-counts status-of counts-kept? earlier-ok?
-  -> lf-minfer-exhausted true true }T
+  -> outcome-full true true }T
 2 crowded sweep-root ! save-counts lf-term-serial @ before-serial !
-T{ sweep-root @ status-of counts-kept? earlier-ok? -> lf-minfer-exhausted true true }T
+T{ sweep-root @ status-of counts-kept? earlier-ok? -> outcome-full true true }T
 T{ lf-term-serial @ before-serial @ > -> true }T
 0 make-var drop
 T{ saved-terms @ before-serial @ 1+ lf-hterm-valid? -> false }T
 T{ fresh-session keep-earlier 0 make-sort fill-levels save-counts status-of counts-kept?
-  earlier-ok? -> lf-minfer-exhausted true true }T
+  earlier-ok? -> outcome-full true true }T
+\ Room for one more level only: Pi (A : Sort u), A takes it for the
+\ domain's type (succ u), and its universe imax (succ u) u is then full.
+: fill-levels-but-one ( -- )
+  begin lf-level-count @ lf-level-capacity 1- < while 0 succ-of drop repeat ;
+T{ fresh-session keep-earlier level-u make-sort 0 make-var make-pi fill-levels-but-one
+  save-counts status-of counts-kept? earlier-ok? -> outcome-full true true }T
 fresh-session keep-earlier 0 make-sort handle sweep-result ! sweep-root !
 empty-token token !
 lf-term-count @ saved-terms ! -1 lf-term-count !
 T{ token @ sweep-root @ sweep-result @ 50000 lf-mixed-infer -> -1 0 lf-minfer-invalid }T
 saved-terms @ lf-term-count !
 T{ earlier-ok? -> true }T
-\ The definition probe in a full term store: exhausted, counts kept.
+\ The definition probe in a full term store: full, counts kept.
 : probe ( claim value -- status )
   >r handle empty-token -rot r> handle 50000 lf-mixed-definition-probe ;
 T{ fresh-session 1 make-sort 0 make-sort 0 fill-terms save-counts probe counts-kept?
-  -> lf-mdefinition-exhausted true }T
+  -> outcome-full true }T
 
 \ T1.4 Constants through candidate signatures (assumptions). c has formals
 \ u, v and type Pi (_ : Sort u), Sort v; k has none and type Sort 0.
@@ -222,9 +229,9 @@ T{ 0 make-sort 0 make-sort 0 make-var make-lam convert-terms -> lf-mconvert-unkn
 T{ 0 make-sort 0 make-var make-lam 0 make-sort convert-terms -> lf-mconvert-unknown }T
 
 \ T1.3 (last, because a spent serial poisons the level store): when the
-\ level serial is spent, inferring Sort 0 is exhausted and keeps the counts.
+\ level serial is spent, inferring Sort 0 is full and keeps the counts.
 fresh-session keep-earlier 0 make-sort sweep-root ! save-counts
 lf-level-serial @ max-n lf-level-serial !
-T{ sweep-root @ status-of counts-kept? earlier-ok? -> lf-minfer-exhausted true true }T
+T{ sweep-root @ status-of counts-kept? earlier-ok? -> outcome-full true true }T
 lf-level-serial !
 bye
