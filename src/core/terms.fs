@@ -4,12 +4,16 @@
 \ check scope, types, universe semantics, declarations or proofs.
 \ Each term is a tagged node (lib/node.fs) in a bounded store
 \ (lib/store.fs). Children must already exist, so terms are acyclic DAGs.
-\ Global, single-threaded and not re-entrant. A reset invalidates every
-\ index, and a reused index cannot be told from a stale one; identities
-\ never repeat and are what handles check. No host address or cell layout
-\ is a portable serialization format.
+\ State: the store lf-terms, a member of the checker context
+\ (lib/context.fs), so each context has its own terms; single-threaded
+\ within one context. A reset invalidates every index, and a reused index
+\ cannot be told from a stale one; identities never repeat and are what
+\ handles check. Indices and identities mean something only in their own
+\ context. No host address or cell layout is a portable serialization
+\ format.
 
 require ../lib/lib.fs
+require ./diagnostics.fs
 
 64 constant lf-term-capacity
 1 constant lf-tag-sort
@@ -18,7 +22,7 @@ require ../lib/lib.fs
 4 constant lf-tag-lam
 5 constant lf-tag-pi
 
-lf-term-capacity /node 0 store: lf-terms
+lf-term-capacity /node 0 context-store: lf-terms
 
 \ The store's fields under their established names. Other modules save and
 \ restore lf-term-count to roll back a failed transaction, and tests corrupt
@@ -38,8 +42,12 @@ lf-term-capacity /node 0 store: lf-terms
 : lf-term-identity ( index -- identity true | false ) lf-terms store-identity@ ;
 
 \ Append a node whose tag and fields the caller validated. An invalid count,
-\ a full store or a spent serial returns false and changes nothing.
-: lf-term-add ( tag first second -- index true | false ) lf-terms node-new ;
+\ a full store or a spent serial returns false, changes nothing and is
+\ recorded as a diagnostic.
+: lf-term-refused ( -- false )
+  lf-terms c" terms lf-term-add" lf-diag-terms-full lf-diag-store false ;
+: lf-term-add ( tag first second -- index true | false )
+  lf-terms node-new dup 0= if drop lf-term-refused then ;
 
 \ Leaves carry a nonnegative payload: a concrete universe level for Sort, a
 \ de Bruijn index for a bound variable. Scope and typing are not checked.

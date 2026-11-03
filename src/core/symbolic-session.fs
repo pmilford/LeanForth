@@ -2,13 +2,15 @@
 \ level store and parameter context by recording their generations, so any
 \ later reset of one of them makes the session stale. Untrusted; not a type
 \ checker and cannot authorize a theorem.
-\ State: the current session is one /lf-session record, and the check uses
-\ one walk record, lf-ssession-walker. Not re-entrant and single-threaded.
+\ State: the current session is one /lf-session record, lf-ssession, and
+\ the check uses one walk record, lf-ssession-walker; both are members of
+\ the checker context (lib/context.fs). Single-threaded within one context.
 \ Bare term or level indices reused after a new session are
 \ indistinguishable from stale ones; handles (generation-handles.fs) detect
 \ that.
 
 require ../lib/lib.fs
+require ./diagnostics.fs
 require ./level-scope.fs
 require ./levels.fs
 require ./tagged-sort-boundary.fs
@@ -20,9 +22,8 @@ begin-structure /lf-session
   field: lf-session-levels     \ captured level-store generation
   field: lf-session-context    \ captured parameter-context generation
 end-structure
-create lf-ssession /lf-session allot
-lf-ssession /lf-session erase
-lf-term-capacity walk: lf-ssession-walker
+/lf-session context-record: lf-ssession
+lf-term-capacity context-walk: lf-ssession-walker
 
 : lf-ssession-active ( -- addr ) lf-ssession lf-session-active ;
 \ Fuel left after a check; generation-handles continues with it.
@@ -67,7 +68,9 @@ lf-term-capacity walk: lf-ssession-walker
 \ Establishes no binder scope, typing, equality or proof validity.
 : lf-ssession-repr ( root -- root outcome )
   dup lf-repr-symbolic lf-ssession-fuel @ lf-repr-check lf-repr-fuel @ lf-ssession-fuel ! ;
-: lf-ssession-levels ( root -- outcome ) ['] lf-ssession-visit lf-ssession-walker walk-run ;
+: lf-ssession-levels ( root -- outcome )
+  ['] lf-ssession-visit lf-ssession-walker walk-run
+  lf-ssession-walker c" symbolic-session lf-ssession-check" lf-diag-walk ;
 : lf-ssession-ready? ( fuel -- flag ) lf-ssession-walker walk-budget lf-ssession-current? and ;
 : lf-ssession-check ( root fuel -- status )
   lf-ssession-ready? if lf-ssession-repr ok-then? if lf-ssession-levels then else drop-invalid then ;

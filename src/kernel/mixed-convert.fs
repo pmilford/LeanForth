@@ -5,12 +5,14 @@
 \ parameter scope, not term binder scope or typing; callers must establish
 \ those independently before using a conversion result.
 \ State: one paired walk record, lf-mconvert-walker, whose items are a left
-\ and a right term; reduction and level comparison run in mixed-beta and
-\ level-compare with this walk's fuel. Not re-entrant and single-threaded;
-\ no raw or concurrent mutation is safe.
+\ and a right term, a member of the checker context (lib/context.fs);
+\ reduction and level comparison run in mixed-beta and level-compare with
+\ this walk's fuel. Single-threaded within one context; no raw or
+\ concurrent mutation is safe.
 
 require ../lib/lib.fs
 require ../core/constant-term-boundary.fs
+require ../core/diagnostics.fs
 require ../core/levels.fs
 require ../core/tagged-sort-boundary.fs
 require ../core/terms.fs
@@ -18,7 +20,7 @@ require ./level-compare.fs
 require ./mixed-beta.fs
 require ./mixed-compare.fs
 
-lf-term-capacity walk2: lf-mconvert-walker
+lf-term-capacity context-walk2: lf-mconvert-walker
 
 \ Fuel left after a conversion; mixed-infer continues with it. Negative
 \ fuel and a failed audit leave zero.
@@ -72,9 +74,11 @@ lf-term-capacity walk2: lf-mconvert-walker
 \ result, discarding all temporary allocations (serials never rewind).
 : lf-mconvert-marks ( -- terms levels ) lf-term-count @ lf-level-count @ ;
 : lf-mconvert-restore ( terms levels -- ) lf-level-count ! lf-term-count ! ;
+: lf-mconvert-walk ( left right -- outcome )
+  ['] lf-mconvert-visit lf-mconvert-walker walk-run-pair
+  lf-mconvert-walker c" mixed-convert lf-mixed-convert" lf-diag-walk ;
 : lf-mconvert-run ( left right -- outcome )
-  lf-mconvert-marks 2>r ['] lf-mconvert-visit lf-mconvert-walker walk-run-pair
-  2r> lf-mconvert-restore ;
+  lf-mconvert-marks 2>r lf-mconvert-walk 2r> lf-mconvert-restore ;
 
 \ ( left left-id right right-id fuel -- status )
 \ Validate both complete graphs, then compare; restore all temporary term

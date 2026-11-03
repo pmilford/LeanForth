@@ -3,37 +3,47 @@
 \ check types, declarations, dependencies or proofs. Handles are forgeable
 \ diagnostics.
 \ State: one paired walk record, lf-cts-walker, whose items are a node and
-\ the number of binders available at it. Not re-entrant and single-threaded;
-\ raw mutation and lifecycle changes during a call are excluded.
+\ the number of binders available at it; a member of the checker context
+\ (lib/context.fs). Single-threaded within one context; raw mutation and
+\ lifecycle changes during a call are excluded.
 
 require ../lib/lib.fs
 require ./constant-term-boundary.fs
+require ./diagnostics.fs
 require ./tagged-sort-boundary.fs
 require ./terms.fs
 
-lf-term-capacity walk2: lf-cts-walker
+lf-term-capacity context-walk2: lf-cts-walker
 
 \ Fuel left after an audit; kernel passes continue with it.
 : lf-cts-fuel ( -- addr ) lf-cts-walker walk-fuel ;
+: lf-cts-site ( -- site ) c" constant-term-scope lf-constant-term-scope" ;
 
 \ Visiting a node at the depth in walk-context. Pi and lambda bind in their
 \ body (second child) only, so a node shared under different binders is
 \ revisited at each depth. A depth that cannot grow (max-n) is full, like a
-\ push without room, whatever fuel is left (ADR 0008).
-: lf-cts-bvar ( first second walk -- outcome ) nip walk-context @ < flag>outcome ;
+\ push without room, whatever fuel is left (ADR 0008). An unbound variable
+\ and a full binder depth are recorded as diagnostics.
+: lf-cts-unbound ( index depth -- outcome )
+  lf-cts-site lf-diag-out-of-scope lf-diag-note outcome-invalid ;
+: lf-cts-bvar ( first second walk -- outcome )
+  nip walk-context @ 2dup < if 2drop outcome-ok else lf-cts-unbound then ;
 : lf-cts-leaf ( first second walk -- outcome ) drop 2drop outcome-ok ;
 : lf-cts-inner ( depth tag -- depth' true | false )
   lf-tag-app = if true exit then dup max-n = if drop false else 1+ true then ;
+: lf-cts-deep ( -- outcome )
+  max-n dup lf-cts-site lf-diag-binders-full lf-diag-note outcome-full ;
 : lf-cts-binary ( first second walk tag -- outcome )
   over walk-context @ swap lf-cts-inner
-  if swap walk-children-at else drop 2drop outcome-full then ;
+  if swap walk-children-at else drop 2drop lf-cts-deep then ;
 : lf-cts-dispatch ( first second walk tag -- outcome )
   dup lf-term-binary-tag? if lf-cts-binary exit then
   case lf-tag-bvar of lf-cts-bvar endof
     lf-tag-symbolic-sort of lf-cts-leaf endof
     lf-tag-constant of lf-cts-leaf endof walk-bad-tag endcase ;
 : lf-cts-visit ( walk -- outcome ) lf-terms ['] lf-cts-dispatch walk-visit ;
-: lf-cts-run ( root depth -- outcome ) ['] lf-cts-visit lf-cts-walker walk-run-pair ;
+: lf-cts-run ( root depth -- outcome )
+  ['] lf-cts-visit lf-cts-walker walk-run-pair lf-cts-walker lf-cts-site lf-diag-walk ;
 
 \ The whole graph is first validated by lf-cterm-check; the scope walk then
 \ continues with the fuel it leaves. On a failed validation lf-cts-fuel

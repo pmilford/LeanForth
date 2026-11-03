@@ -3,17 +3,18 @@
 \ term graph must use only the mode its caller expects. Untrusted; not a
 \ kernel or a type checker. Level validity, lifetime, context, scope, typing
 \ and proof validity are not established here.
-\ State: one walk record, lf-repr-walker, holding the stack, fuel and mode.
-\ Not re-entrant and single-threaded; callers prevent concurrent mutation of
-\ the term store.
+\ State: one walk record, lf-repr-walker, holding the stack, fuel and mode;
+\ a member of the checker context (lib/context.fs). Single-threaded within
+\ one context; callers prevent concurrent mutation of the term store.
 
 require ../lib/lib.fs
+require ./diagnostics.fs
 require ./terms.fs
 
 6 constant lf-tag-symbolic-sort
 0 constant lf-repr-concrete
 1 constant lf-repr-symbolic
-lf-term-capacity walk: lf-repr-walker
+lf-term-capacity context-walk: lf-repr-walker
 
 \ Fuel left after a check; callers that share one budget read it back.
 : lf-repr-fuel ( -- addr ) lf-repr-walker walk-fuel ;
@@ -40,7 +41,9 @@ lf-term-capacity walk: lf-repr-walker
 : lf-repr-visit ( walk -- outcome ) lf-terms ['] lf-repr-dispatch walk-visit ;
 
 \ Walk one root with the current mode and the fuel left.
-: lf-repr-walk ( root -- status ) ['] lf-repr-visit lf-repr-walker walk-run ;
+: lf-repr-walk ( root -- status )
+  ['] lf-repr-visit lf-repr-walker walk-run
+  lf-repr-walker c" tagged-sort-boundary lf-repr-check" lf-diag-walk ;
 
 \ Set an explicit mode and budget; false means a bad mode or negative fuel.
 : lf-repr-mode? ( mode -- flag ) dup lf-repr-concrete = swap lf-repr-symbolic = or ;

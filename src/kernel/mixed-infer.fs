@@ -7,9 +7,10 @@
 \ Pi is applied; uncertain conversion is unknown.
 \ State: one inference record, lf-minfer-job (fields lf-ijob-*): fuel, frame
 \ depth, index token, the arena counts before the call, the binder context
-\ and a copy of a reference's levels. A node's intermediate results stay on
-\ the data stack. Not re-entrant and single-threaded. lf-minfer-walk is
-\ deferred only for the mutual recursion and set once, at load time.
+\ and a copy of a reference's levels; a member of the checker context
+\ (lib/context.fs). A node's intermediate results stay on the data stack.
+\ Single-threaded within one context. lf-minfer-walk is deferred only for
+\ the mutual recursion and set once, at load time, and shared.
 \ Stack use: the recursion runs on the host stacks, about 6 return-stack and
 \ up to 3 data-stack cells per level, at most lf-term-capacity levels (plus
 \ the nested rebuild passes); a host stack overflow throws and never yields
@@ -21,6 +22,7 @@ require ../lib/lib.fs
 require ../core/constant-references.fs
 require ../core/constant-term-boundary.fs
 require ../core/constant-term-scope.fs
+require ../core/diagnostics.fs
 require ../core/generation-handles.fs
 require ../core/levels.fs
 require ../core/tagged-sort-boundary.fs
@@ -42,7 +44,7 @@ begin-structure /lf-ijob
   lf-term-capacity cells +field lf-ijob-domains
   lf-cref-argument-capacity 2* cells +field lf-ijob-actuals
 end-structure
-create lf-minfer-job /lf-ijob store-zeroed, drop
+/lf-ijob context-record: lf-minfer-job
 
 \ Fields of the record. Tests read the fuel left and the binder count, and
 \ mixed-definition-probe reads the fuel left.
@@ -58,6 +60,9 @@ create lf-minfer-job /lf-ijob store-zeroed, drop
 \ ok) and makes anything else invalid. A failed step has no type (-1).
 : lf-minfer-refuel ( fuel-addr -- ) @ lf-minfer-fuel ! ;
 : lf-minfer-none ( status -- type status ) -1 swap ;
+\ Failures of inference itself are recorded as diagnostics at this site.
+: lf-minfer-site ( -- site ) c" mixed-infer lf-mixed-infer" ;
+: lf-minfer-note ( n1 n2 code -- ) lf-minfer-site swap lf-diag-note ;
 
 \ The binder context: the domains of the binders around the node being
 \ inferred, innermost last. A push fails when the context is full; each
@@ -102,10 +107,13 @@ create lf-minfer-job /lf-ijob store-zeroed, drop
 : lf-minfer-sort-type ( level -- type status )
   lf-level-succ if lf-minfer-sort else -1 outcome-full then ;
 
-\ The level of an inferred Sort. Any other type is unknown, not a judgment.
+\ The level of an inferred Sort. Any other type is unknown, not a judgment,
+\ and recorded as not a Sort.
+: lf-minfer-not-sort ( node -- -1 status )
+  0 lf-diag-not-sort lf-minfer-note -1 outcome-unknown ;
 : lf-minfer-sort-level ( node -- level status )
-  lf-term-read 0= if -1 outcome-invalid exit then
-  drop swap lf-tag-symbolic-sort = if outcome-ok else drop -1 outcome-unknown then ;
+  dup lf-term-read 0= if drop -1 outcome-invalid exit then
+  drop swap lf-tag-symbolic-sort = if nip outcome-ok else drop lf-minfer-not-sort then ;
 
 \ A constant: specialize its candidate signature to the reference's levels,
 \ first copied into this record (specialization needs its input disjoint
@@ -136,9 +144,10 @@ defer lf-minfer-walk ( node -- type status )
 \ Application: the function's type must be a visible Pi (otherwise unknown),
 \ the argument's type must convert to its domain, and the type is the Pi
 \ body instantiated with the argument.
+: lf-minfer-not-pi ( type -- outcome ) 0 lf-diag-not-pi lf-minfer-note outcome-unknown ;
 : lf-minfer-pi-parts ( type -- domain body true | outcome false )
-  lf-term-read 0= if outcome-invalid false exit then
-  rot lf-tag-pi = if true else 2drop outcome-unknown false then ;
+  dup lf-term-read 0= if drop outcome-invalid false exit then
+  rot lf-tag-pi = if rot drop true else 2drop lf-minfer-not-pi false then ;
 : lf-minfer-argument ( domain argument -- status )
   lf-minfer-walk ok-then? if swap lf-minfer-compare else nip then ;
 : lf-minfer-apply ( domain body argument -- type status )
@@ -153,9 +162,12 @@ defer lf-minfer-walk ( node -- type status )
 \ before the body's visit and so whatever fuel is left (ADR 0008).
 : lf-minfer-domain ( domain -- level status )
   lf-minfer-walk dup ok? if drop lf-minfer-sort-level then ;
+: lf-minfer-crowded ( -- -1 status )
+  lf-minfer-context-depth @ lf-term-capacity lf-diag-binders-full lf-minfer-note
+  -1 outcome-full ;
 : lf-minfer-under ( domain body -- type status )
   swap lf-minfer-push if lf-minfer-walk lf-minfer-pop
-  else drop -1 outcome-full then ;
+  else drop lf-minfer-crowded then ;
 \ A lambda's type is the Pi of its domain over its body's type; a failed
 \ allocation is full.
 : lf-minfer-lam-type ( domain body-type -- type status )
@@ -177,17 +189,20 @@ defer lf-minfer-walk ( node -- type status )
   over lf-minfer-domain dup ok? if drop -rot lf-minfer-pi-body else 2swap 2drop then ;
 
 \ Infer an original source node; nodes made by this inference are output
-\ data, never input. Constructors outside this subset are unknown.
+\ data, never input. Constructors outside this subset are unknown, and
+\ recorded as unsupported with their tag.
+: lf-minfer-unsupported ( tag -- tag -1 status )
+  dup 0 lf-diag-unsupported lf-minfer-note -1 outcome-unknown ;
 : lf-minfer-leaf ( first tag -- type status )
   case lf-tag-symbolic-sort of lf-minfer-sort-type endof
     lf-tag-constant of lf-minfer-constant endof
     lf-tag-bvar of lf-minfer-bvar endof
-    >r drop -1 outcome-unknown r> endcase ;
+    nip lf-minfer-unsupported rot endcase ;
 : lf-minfer-binary ( first second tag -- type status )
   case lf-tag-app of lf-minfer-app endof
     lf-tag-lam of lf-minfer-lam endof
     lf-tag-pi of lf-minfer-pi endof
-    >r 2drop -1 outcome-unknown r> endcase ;
+    nip nip lf-minfer-unsupported rot endcase ;
 : lf-minfer-dispatch ( first second tag -- type status )
   dup lf-term-binary-tag? if lf-minfer-binary else nip lf-minfer-leaf then ;
 : lf-minfer-source? ( node -- flag ) dup 0< 0= swap lf-minfer-job lf-ijob-terms @ < and ;
@@ -198,9 +213,16 @@ defer lf-minfer-walk ( node -- type status )
 
 \ Each visit costs one unit of fuel and holds one of at most
 \ lf-term-capacity frames. No fuel left is exhausted and no free frame is
-\ full (with neither, the fuel decides); both spend nothing.
+\ full (with neither, the fuel decides); both spend nothing and are
+\ recorded as diagnostics.
+: lf-minfer-frames-full ( -- )
+  lf-minfer-depth @ lf-term-capacity lf-diag-frame-limit lf-minfer-note ;
+: lf-minfer-refused ( outcome -- outcome )
+  dup outcome-full = if lf-minfer-frames-full
+  else lf-minfer-fuel @ lf-minfer-site lf-diag-exhausted then ;
 : lf-minfer-room ( -- outcome )
-  lf-minfer-fuel @ lf-minfer-depth @ lf-term-capacity < visit-outcome ;
+  lf-minfer-fuel @ lf-minfer-depth @ lf-term-capacity < visit-outcome
+  dup ok? 0= if lf-minfer-refused then ;
 : lf-minfer-enter ( -- ) -1 lf-minfer-fuel +! 1 lf-minfer-depth +! ;
 : lf-minfer-in-frame ( node -- type status )
   lf-minfer-room ok-then? 0= if no-result exit then
@@ -250,7 +272,9 @@ defer lf-minfer-walk ( node -- type status )
 \ index preflight precede allocation. All failures restore three arena counts;
 \ serials never rewind. Input traversal is limited to original source nodes.
 \ Every failure reports zero remaining fuel conservatively.
+: lf-minfer-negative ( token root identity fuel -- type identity status )
+  0 lf-diag-bad-argument lf-minfer-note drop 2drop outcome-invalid lf-minfer-failed ;
 : lf-mixed-infer ( token root identity fuel -- type identity status )
-  dup 0< if 2drop 2drop outcome-invalid lf-minfer-failed exit then
+  dup 0< if lf-minfer-negative exit then
   >r rot r> lf-minfer-start over swap lf-minfer-preflight
   dup ok? if drop lf-minfer-run else nip lf-minfer-failed then ;

@@ -4,9 +4,10 @@
 \ One stable session/index, suffix-only rollback and no raw mutation are
 \ assumed. Unsupported inference/conversion is unknown.
 \ State: one request record, lf-mdefinition-request: the claim, the value,
-\ the index token, the fuel and the arena marks of the current call. The
-\ inference itself runs on mixed-infer's state, as a job this module starts
-\ with lf-minfer-start. Not re-entrant and single-threaded.
+\ the index token, the fuel and the arena marks of the current call; a
+\ member of the checker context (lib/context.fs). The inference itself
+\ runs on mixed-infer's state, as a job this module starts with
+\ lf-minfer-start. Single-threaded within one context.
 
 require ../lib/lib.fs
 require ../core/constant-references.fs
@@ -27,8 +28,7 @@ begin-structure /lf-mdreq
   field: lf-mdreq-levels
   field: lf-mdreq-crefs
 end-structure
-create lf-mdefinition-request /lf-mdreq allot
-lf-mdefinition-request /lf-mdreq erase
+/lf-mdreq context-record: lf-mdefinition-request
 
 \ Fuel left by the last probe: what inference left on success, zero after
 \ any failure.

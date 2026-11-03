@@ -10,12 +10,14 @@
 \ caller's scope, not the formal scope.
 \ State: one walk record, lf-lsubst-walker (the source walk and the fuel
 \ left), and one job record, lf-lsubst-job (the substitution in use, the
-\ reachable nodes and the planned new nodes). Not re-entrant and
-\ single-threaded: the store, the context and the arrays must not change
-\ during a call. mixed-level-substitute sets the substitution with
-\ lf-lsubst-use and runs the checks below from its own passes.
+\ reachable nodes and the planned new nodes), both members of the checker
+\ context (lib/context.fs). Single-threaded within one context: the store,
+\ the parameter context and the arrays must not change during a call.
+\ mixed-level-substitute sets the substitution with lf-lsubst-use and runs
+\ the checks below from its own passes.
 
 require ../lib/lib.fs
+require ../core/diagnostics.fs
 require ../core/level-scope.fs
 require ../core/levels.fs
 
@@ -28,9 +30,8 @@ begin-structure /lf-lsrec
   lf-level-capacity cells +field lf-lsrec-results    \ each reached node's image
   lf-level-capacity /node * +field lf-lsrec-new-nodes
 end-structure
-lf-level-capacity walk: lf-lsubst-walker
-create lf-lsubst-job /lf-lsrec allot
-lf-lsubst-job /lf-lsrec erase
+lf-level-capacity context-walk: lf-lsubst-walker
+/lf-lsrec context-record: lf-lsubst-job
 
 \ Fuel left after a call or check; mixed-level-substitute continues with it.
 : lf-lsubst-fuel ( -- addr ) lf-lsubst-walker walk-fuel ;
@@ -87,7 +88,10 @@ lf-lsubst-job /lf-lsrec erase
 \ lf-lsubst-fuel. The zero node is checked even when root does not reach it.
 : lf-lsubst-ready? ( root -- flag ) lf-level-valid? lf-lscope-zero-ok? and ;
 : lf-lsubst-unseen ( -- ) 0 lf-lsubst-seen lf-level-capacity cells erase ;
-: lf-lsubst-walk ( root -- outcome ) ['] lf-lsubst-visit lf-lsubst-walker walk-run ;
+: lf-lsubst-site ( -- site ) c" level-substitute lf-lsubst" ;
+: lf-lsubst-walk ( root -- outcome )
+  ['] lf-lsubst-visit lf-lsubst-walker walk-run
+  lf-lsubst-walker lf-lsubst-site lf-diag-walk ;
 : lf-lsubst-source ( root -- outcome )
   dup lf-lsubst-ready? if lf-lsubst-unseen lf-lsubst-walk else drop-invalid then ;
 \ The same check from inside another walk: start with its fuel and give it
@@ -112,10 +116,14 @@ lf-lsubst-job /lf-lsrec erase
 : lf-lsubst-staged ( tag first second -- index outcome )
   lf-lsubst-new-count @ lf-lsubst-new-node node!
   lf-lsubst-next 1 lf-lsubst-new-count +! outcome-ok ;
-\ A node that would not fit in the level store is full.
+\ A node that would not fit in the level store is full, recorded with the
+\ index it would get.
+: lf-lsubst-no-room ( -- 0 outcome )
+  lf-lsubst-next lf-level-capacity lf-lsubst-site lf-diag-levels-full lf-diag-note
+  0 outcome-full ;
 : lf-lsubst-stage ( tag first second -- index outcome )
   lf-lsubst-next lf-level-capacity <
-  if lf-lsubst-staged else 2drop drop 0 outcome-full then ;
+  if lf-lsubst-staged else 2drop drop lf-lsubst-no-room then ;
 : lf-lsubst-inner ( index -- index' outcome )
   >r r@ lf-level-slot node@ lf-lsubst-images 2dup r@ lf-lsubst-kept?
   if 2drop drop r> outcome-ok else r> drop lf-lsubst-stage then ;
@@ -132,12 +140,16 @@ lf-lsubst-job /lf-lsrec erase
 : lf-lsubst-plan-at ( index -- outcome )
   dup lf-lsubst-seen @ if lf-lsubst-plan-node else drop outcome-ok then ;
 \ Every staged node needs an identity: a serial that would run out is
-\ full (the identity cell has no room to grow).
+\ full (the identity cell has no room to grow), recorded with the serial
+\ and the identities needed.
 : lf-lsubst-ids? ( -- flag ) max-n lf-level-serial @ - lf-lsubst-new-count @ < 0= ;
+: lf-lsubst-spent ( -- outcome )
+  lf-level-serial @ lf-lsubst-new-count @ lf-lsubst-site lf-diag-serial-spent lf-diag-note
+  outcome-full ;
 : lf-lsubst-plan ( root -- outcome )
   0 lf-lsubst-new-count ! 1+ 0 ?do
     i lf-lsubst-plan-at dup ok? 0= if unloop exit then drop loop
-  lf-lsubst-ids? if outcome-ok else outcome-full then ;
+  lf-lsubst-ids? if outcome-ok else lf-lsubst-spent then ;
 
 \ Appending the staged nodes. The plan checked every precondition of the
 \ allocation, so a failure means the store changed during the call: the

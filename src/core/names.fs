@@ -6,12 +6,15 @@
 \ serialization or theorem-checking boundary.
 \ State: entries live in a bounded store, lf-names (lib/store.fs), whose
 \ record 0 is the anonymous name; string bytes are appended to the byte
-\ pool of one record, lf-name-pool. Single-threaded, not re-entrant:
-\ callers keep input memory readable and prevent raw mutation during a
-\ call. A reset makes every ID stale, and a reused stale ID is not
-\ detectable here.
+\ pool of one record, lf-name-pool. Both are members of the checker
+\ context (lib/context.fs), reset by a set-up word in every context, so
+\ IDs mean something only in their own context. Single-threaded within one
+\ context: callers keep input memory readable and prevent raw mutation
+\ during a call. A reset makes every ID stale, and a reused stale ID is
+\ not detectable here.
 
 require ../lib/lib.fs
+require ./diagnostics.fs
 
 64 constant lf-name-capacity
 2048 constant lf-name-byte-capacity
@@ -29,7 +32,7 @@ begin-structure /lf-entry
 end-structure
 /lf-entry 1 cells / constant lf-name-slot-cells
 
-lf-name-capacity /lf-entry 1 store: lf-names
+lf-name-capacity /lf-entry 1 context-store: lf-names
 
 \ The byte pool: bytes in use, the pool itself, and a copy of each query,
 \ made first so that the query may alias any buffer of this module.
@@ -38,8 +41,7 @@ begin-structure /lf-npool
   lf-name-byte-capacity +field lf-npool-bytes
   lf-name-byte-capacity +field lf-npool-input
 end-structure
-create lf-name-pool /lf-npool allot
-lf-name-pool /lf-npool erase
+/lf-npool context-record: lf-name-pool
 : lf-name-used ( -- addr ) lf-name-pool lf-npool-used ;
 : lf-name-bytes ( -- addr ) lf-name-pool lf-npool-bytes ;
 : lf-name-input-copy ( -- addr ) lf-name-pool lf-npool-input ;
@@ -122,13 +124,24 @@ lf-name-pool /lf-npool erase
   over lf-name-store-bytes over lf-entry-payload ! lf-entry-length ! r> ;
 
 \ Interning valid input: an existing identical name keeps its ID even when
-\ the table is full; exhaustion changes nothing.
+\ the table is full; exhaustion changes nothing and is recorded as a
+\ diagnostic: no free entry or a spent serial, or for a string, no room
+\ for its bytes (the bytes needed and the capacity).
+: lf-name-site ( -- site ) c" names lf-name-intern" ;
+: lf-name-refused ( -- false )
+  lf-names lf-name-site lf-diag-names-full lf-diag-store false ;
+: lf-name-bytes-refused ( length -- false )
+  lf-name-used @ + lf-name-byte-capacity lf-name-site lf-diag-name-bytes-full lf-diag-note
+  false ;
+: lf-name-str-refused ( prefix length -- false )
+  nip lf-name-room? if lf-name-bytes-refused else drop lf-name-refused then ;
 : lf-name-intern-num ( prefix number -- id true | false )
   2dup lf-name-find-num if nip nip true exit then
-  lf-name-room? if lf-name-add-num true else 2drop false then ;
+  lf-name-room? if lf-name-add-num true else 2drop lf-name-refused then ;
 : lf-name-intern-str ( prefix length -- id true | false )
   2dup lf-name-find-str if nip nip true exit then
-  lf-name-room? over lf-name-byte-room? and if lf-name-add-str true else 2drop false then ;
+  lf-name-room? over lf-name-byte-room? and
+  if lf-name-add-str true else lf-name-str-refused then ;
 
 \ Intern a numeric component; invalid input changes nothing.
 : lf-name-num-args? ( prefix number -- flag )
@@ -146,4 +159,5 @@ lf-name-pool /lf-npool erase
   >r over r@ lf-name-str-args? r> swap
   if lf-name-copy-in lf-name-intern-str else 2drop drop false then ;
 
-lf-name-reset
+\ Every context starts with the anonymous name alone.
+' lf-name-reset context-setup

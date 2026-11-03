@@ -2,13 +2,16 @@
 \ well formed, children come earlier, and every parameter is in the current
 \ context. Untrusted. It does not compare levels, establish Lean name
 \ identity, check types or authorize a theorem.
-\ State: one context record, lf-lscope-state (a duplicate-free list of
-\ positive parameter IDs with a generation that advances on every change),
-\ and one walk record, lf-lscope-walk. Not re-entrant and single-threaded:
-\ the check must not run again while its walk record is in use. Callers
-\ prevent external mutation.
+\ State: one parameter-context record, lf-lscope-state (a duplicate-free
+\ list of positive parameter IDs with a generation that advances on every
+\ change), and one walk record, lf-lscope-walk, both members of the
+\ checker context (lib/context.fs); a set-up word starts every context's
+\ parameter context empty. Single-threaded within one context: the check
+\ must not run again while its walk record is in use. Callers prevent
+\ external mutation.
 
 require ../lib/lib.fs
+require ./diagnostics.fs
 require ./levels.fs
 
 begin-structure /lf-lsctx
@@ -16,9 +19,8 @@ begin-structure /lf-lsctx
   field: lf-lsctx-generation    \ advances on every change; negative when spent
   lf-level-capacity cells +field lf-lsctx-ids
 end-structure
-create lf-lscope-state /lf-lsctx allot
-lf-lscope-state /lf-lsctx erase
-lf-level-capacity walk: lf-lscope-walk
+/lf-lsctx context-record: lf-lscope-state
+lf-level-capacity context-walk: lf-lscope-walk
 
 \ The context's fields under their established names (other modules read
 \ the count and generation; tests corrupt them).
@@ -67,9 +69,15 @@ lf-level-capacity walk: lf-lscope-walk
 \ Visiting one level node. Zero is valid only as node 0 with zero fields; a
 \ parameter needs a positive ID in the context; succ, max and imax push
 \ their earlier children.
+: lf-lscope-site ( -- site ) c" level-scope lf-lscope-check" ;
 : lf-lscope-zero ( first second walk -- outcome ) walk-node @ or or 0= flag>outcome ;
+\ A parameter outside the context is recorded as out of scope.
+: lf-lscope-outside ( id -- outcome )
+  0 lf-lscope-site lf-diag-out-of-scope lf-diag-note outcome-invalid ;
+: lf-lscope-in ( id -- outcome )
+  dup lf-lscope-member? if drop outcome-ok else lf-lscope-outside then ;
 : lf-lscope-param ( first second walk -- outcome )
-  drop 0= over 0> and if lf-lscope-member? flag>outcome else drop outcome-invalid then ;
+  drop 0= over 0> and if lf-lscope-in else drop outcome-invalid then ;
 : lf-lscope-succ ( first second walk -- outcome ) swap 0<> if 2drop outcome-invalid else walk-child then ;
 : lf-lscope-dispatch ( first second walk tag -- outcome )
   dup lf-level-binary-tag? if drop walk-children exit then
@@ -85,7 +93,8 @@ lf-level-capacity walk: lf-lscope-walk
 : lf-lscope-zero-ok? ( -- flag ) 0 lf-level-read if or or 0= else false then ;
 : lf-lscope-ready? ( root -- flag )
   lf-lscope-context-valid? swap lf-level-valid? and lf-lscope-zero-ok? and ;
-: lf-lscope-run ( root -- status ) ['] lf-lscope-visit lf-lscope-walk walk-run ;
+: lf-lscope-run ( root -- status )
+  ['] lf-lscope-visit lf-lscope-walk walk-run lf-lscope-walk lf-lscope-site lf-diag-walk ;
 : lf-lscope-check ( root fuel -- status )
   lf-lscope-walk walk-budget 0= if drop-invalid exit then
   dup lf-lscope-ready? if lf-lscope-run else drop-invalid then ;
@@ -95,5 +104,6 @@ lf-level-capacity walk: lf-lscope-walk
 : lf-lscope-walk-check ( level walk -- outcome )
   tuck walk-fuel @ lf-lscope-check lf-lscope-fuel @ rot walk-fuel ! outcome-sane ;
 
-0 lf-lscope-generation !
-lf-lscope-context-reset
+\ Every context starts with an empty parameter context of generation 1
+\ (the record starts zeroed).
+' lf-lscope-context-reset context-setup

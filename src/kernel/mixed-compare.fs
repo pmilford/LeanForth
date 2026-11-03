@@ -5,20 +5,23 @@
 \ Equal opaque level parameter IDs are assumed to denote the same Lean name.
 \ State: two paired walk records, lf-mcompare-walker (left and right terms)
 \ and lf-mcompare-level-walker (left and right levels); level comparisons
-\ charge the term walk's fuel. Not re-entrant and single-threaded; exclude
-\ arena, context and name mutation during a call. mixed-convert.fs reuses
-\ the pair-visiting, name, reference and audit words with its own walk.
+\ charge the term walk's fuel. Both are members of the checker context
+\ (lib/context.fs). Single-threaded within one context; exclude arena,
+\ parameter-context and name mutation during a call. mixed-convert.fs
+\ reuses the pair-visiting, name, reference and audit words with its own
+\ walk.
 
 require ../lib/lib.fs
 require ../core/constant-references.fs
 require ../core/constant-term-boundary.fs
+require ../core/diagnostics.fs
 require ../core/levels.fs
 require ../core/names.fs
 require ../core/tagged-sort-boundary.fs
 require ../core/terms.fs
 
-lf-term-capacity walk2: lf-mcompare-walker
-lf-level-capacity walk2: lf-mcompare-level-walker
+lf-term-capacity context-walk2: lf-mcompare-walker
+lf-level-capacity context-walk2: lf-mcompare-level-walker
 
 \ Fuel left after a comparison; zero after negative fuel or a failed audit.
 : lf-mcompare-fuel ( -- addr ) lf-mcompare-walker walk-fuel ;
@@ -92,8 +95,10 @@ lf-level-capacity walk2: lf-mcompare-level-walker
     lf-level-tag-succ of lf-mcompare-first endof walk-bad-tag endcase ;
 : lf-mcompare-level-visit ( walk -- outcome )
   lf-levels ['] lf-mcompare-level-dispatch lf-mcompare-visit-pair ;
+: lf-mcompare-site ( -- site ) c" mixed-compare lf-mixed-compare" ;
 : lf-mcompare-level-run ( a b -- outcome )
-  ['] lf-mcompare-level-visit lf-mcompare-level-walker walk-run-pair ;
+  ['] lf-mcompare-level-visit lf-mcompare-level-walker walk-run-pair
+  lf-mcompare-level-walker lf-mcompare-site lf-diag-walk ;
 : lf-mcompare-level ( a b -- outcome )
   lf-mcompare-fuel @ lf-mcompare-level-fuel ! lf-mcompare-level-run
   lf-mcompare-level-fuel @ lf-mcompare-fuel ! ;
@@ -139,7 +144,8 @@ lf-level-capacity walk2: lf-mcompare-level-walker
 : lf-mcompare-visit ( walk -- outcome )
   lf-terms ['] lf-mcompare-dispatch lf-mcompare-visit-pair ;
 : lf-mcompare-run ( left right -- outcome )
-  ['] lf-mcompare-visit lf-mcompare-walker walk-run-pair ;
+  ['] lf-mcompare-visit lf-mcompare-walker walk-run-pair
+  lf-mcompare-walker lf-mcompare-site lf-diag-walk ;
 
 \ Audit both roots completely, left first, with the walk's fuel; a failed
 \ audit leaves no fuel. lf-cterm-check fails only as invalid, exhausted or

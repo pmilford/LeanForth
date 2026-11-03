@@ -7,15 +7,18 @@
 \ State: one record, lf-lvalue-state: the table of explicit parameter
 \ assignments with the level-store and context generations it was made for,
 \ the fuel left after an evaluation (level-compare reads it), and whether
-\ the evaluation reads the table. The evaluation recurses on the host stacks
-\ through the deferred word lf-lvalue-walk, which is set once at load time.
-\ Not re-entrant and single-threaded.
+\ the evaluation reads the table; a member of the checker context
+\ (lib/context.fs), whose table a set-up word binds to the context's own
+\ stores. The evaluation recurses on the host stacks through the deferred
+\ word lf-lvalue-walk, which is set once at load time and shared.
+\ Single-threaded within one context.
 \ Stack use: about 8 return-stack cells per nesting level (measured about
 \ 500 cells at depth 63), so lf-lvalue-depth-limit must stay well below the
 \ return stack of every task that evaluates (Gforth 0.7.3's default is 1,920
 \ cells). An overflow would throw, never return ok.
 
 require ../lib/lib.fs
+require ../core/diagnostics.fs
 require ../core/level-scope.fs
 require ../core/levels.fs
 
@@ -31,8 +34,7 @@ begin-structure /lf-lvrec
   lf-level-capacity cells +field lf-lvrec-ids
   lf-level-capacity cells +field lf-lvrec-values
 end-structure
-create lf-lvalue-state /lf-lvrec allot
-lf-lvalue-state /lf-lvrec erase
+/lf-lvrec context-record: lf-lvalue-state
 
 \ The record's fields under their established names; tests corrupt the
 \ table through them.
@@ -95,17 +97,27 @@ lf-lvalue-state /lf-lvrec erase
 \ the largest cell value is full too: the value has no room to grow.
 \ The value -1 is a symbolic result: with ok it ends the evaluation of
 \ every node above, and it cannot be confused with a concrete level.
+\ Each such failure is recorded as a diagnostic.
 defer lf-lvalue-walk ( node depth -- value status )
+: lf-lvalue-site ( -- site ) c" level-value lf-level-value" ;
+: lf-lvalue-deep ( depth -- )
+  lf-lvalue-depth-limit lf-lvalue-site lf-diag-depth-limit lf-diag-note ;
+: lf-lvalue-refused ( depth outcome -- outcome )
+  dup outcome-full = if swap lf-lvalue-deep
+  else nip lf-lvalue-fuel @ lf-lvalue-site lf-diag-exhausted then ;
 : lf-lvalue-room ( depth -- outcome )
-  lf-lvalue-fuel @ swap lf-lvalue-depth-limit < visit-outcome ;
+  dup lf-lvalue-fuel @ swap lf-lvalue-depth-limit < visit-outcome
+  dup ok? if nip else lf-lvalue-refused then ;
 \ A failure or a symbolic value is final; otherwise continue with the value.
 : lf-lvalue-done? ( value status -- value status true | value false )
   dup ok? 0= if true exit then over -1 = if true else drop false then ;
 : lf-lvalue-assigned ( id -- value ) lf-lassign-find 0= if -1 then ;
 : lf-lvalue-param ( id -- value )
   lf-lvalue-state lf-lvrec-assigned @ if lf-lvalue-assigned else drop -1 then ;
+: lf-lvalue-ceiling ( value -- -1 status )
+  1 lf-lvalue-site lf-diag-cell-maximum lf-diag-note -1 outcome-full ;
 : lf-lvalue-succ+ ( value -- value status )
-  dup lf-lvalue-cell-max = if drop -1 outcome-full else 1+ outcome-ok then ;
+  dup lf-lvalue-cell-max = if lf-lvalue-ceiling else 1+ outcome-ok then ;
 : lf-lvalue-succ ( first depth -- value status )
   lf-lvalue-walk lf-lvalue-done? 0= if lf-lvalue-succ+ then ;
 \ Both children of a max or imax, first child first.
@@ -136,12 +148,14 @@ defer lf-lvalue-walk ( node depth -- value status )
 \ Scope-check the whole reachable graph first; validation and evaluation
 \ share fuel, and lf-lvalue-fuel is set only once validation succeeds.
 \ Negative fuel is invalid (lf-lscope-check refuses it). A symbolic result
-\ is unknown. Unknown, invalid, exhausted or full returns -1 and never
-\ authorizes a theorem.
-: lf-lvalue-known ( value status -- value status )
-  dup ok? if over -1 = if drop outcome-unknown then then ;
+\ is unknown, recorded as a symbolic level. Unknown, invalid, exhausted or
+\ full returns -1 and never authorizes a theorem.
+: lf-lvalue-symbolic ( root -1 status -- -1 status )
+  drop swap 0 lf-lvalue-site lf-diag-symbolic-level lf-diag-note outcome-unknown ;
+: lf-lvalue-known ( root value status -- value status )
+  dup ok? if over -1 = if lf-lvalue-symbolic exit then then rot drop ;
 : lf-lvalue-eval ( root -- value status )
-  lf-lscope-fuel @ lf-lvalue-fuel ! 0 lf-lvalue-walk lf-lvalue-known ;
+  lf-lscope-fuel @ lf-lvalue-fuel ! dup 0 lf-lvalue-walk lf-lvalue-known ;
 : lf-lvalue-checked ( root fuel -- value status )
   over swap lf-lscope-check ok-then? if lf-lvalue-eval else -1 swap then ;
 \ With assignments the table must be valid first.
@@ -157,4 +171,5 @@ defer lf-lvalue-walk ( node depth -- value status )
 \ an invalid assignment table or context never produces a concrete value.
 : lf-level-value-assigned ( root fuel -- value status ) true lf-level-value-run ;
 
-lf-lassign-reset
+\ Every context starts with an empty table bound to its own stores.
+' lf-lassign-reset context-setup

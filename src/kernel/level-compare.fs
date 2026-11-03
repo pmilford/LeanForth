@@ -3,26 +3,28 @@
 \ judgment. It assumes a store and context unchanged during a call, and that
 \ equal opaque parameter IDs denote the same Lean name.
 \ State: one record, lf-lcmp-state, holding the fuel left after a
-\ comparison, which mixed-convert reads. The comparison recurses on the host
-\ stacks through the deferred word lf-lcmp-walk, set once at load time. Not
-\ re-entrant and single-threaded.
+\ comparison, which mixed-convert reads; a member of the checker context
+\ (lib/context.fs). The comparison recurses on the host stacks through the
+\ deferred word lf-lcmp-walk, set once at load time and shared.
+\ Single-threaded within one context.
 \ Stack use: about 8 return-stack cells per nesting level (measured about
 \ 510 cells at depth 63), so lf-lcmp-depth-limit must stay well below the
 \ return stack of every task that compares (Gforth 0.7.3's default is 1,920
 \ cells). An overflow would throw, never return equal.
 
 require ../lib/lib.fs
+require ../core/diagnostics.fs
 require ../core/level-scope.fs
 require ../core/levels.fs
 require ./level-value.fs
 
 64 constant lf-lcmp-depth-limit
+: lf-lcmp-site ( -- site ) c" level-compare lf-level-compare" ;
 
 begin-structure /lf-lcrec
   field: lf-lcrec-fuel          \ visits left after a comparison
 end-structure
-create lf-lcmp-state /lf-lcrec allot
-lf-lcmp-state /lf-lcrec erase
+/lf-lcrec context-record: lf-lcmp-state
 
 : lf-lcmp-fuel ( -- addr ) lf-lcmp-state lf-lcrec-fuel ;
 \ Any failure except an unequal concrete value leaves no fuel: mixed-convert
@@ -50,8 +52,11 @@ lf-lcmp-state /lf-lcrec erase
     >r 2drop false r> endcase ;
 : lf-lcmp-spend? ( -- flag )
   lf-lcmp-fuel @ 0= if false else -1 lf-lcmp-fuel +! true then ;
+\ Out of fuel, recorded as a diagnostic.
+: lf-lcmp-dry ( -- -1 status )
+  lf-lcmp-fuel @ lf-lcmp-site lf-diag-exhausted -1 outcome-exhausted ;
 : lf-lcmp-shrink ( node -- node status )
-  begin lf-lcmp-spend? 0= if drop -1 outcome-exhausted exit then
+  begin lf-lcmp-spend? 0= if drop lf-lcmp-dry exit then
     dup lf-level-read 0= if drop -1 outcome-invalid exit then
     lf-lcmp-rewrite while nip repeat outcome-ok ;
 \ The right root shrinks first.
@@ -84,8 +89,14 @@ defer lf-lcmp-walk ( left right depth -- status )
   >r 2dup lf-lcmp-readable? if r> lf-lcmp-node else 2drop r> drop outcome-invalid then ;
 : lf-lcmp-visit ( left right depth -- status )
   >r lf-lcmp-shrink2 if r> lf-lcmp-shrunk else r> drop then ;
+: lf-lcmp-deep ( depth -- )
+  lf-lcmp-depth-limit lf-lcmp-site lf-diag-depth-limit lf-diag-note ;
+: lf-lcmp-refused ( depth outcome -- outcome )
+  dup outcome-full = if swap lf-lcmp-deep
+  else nip lf-lcmp-fuel @ lf-lcmp-site lf-diag-exhausted then ;
 : lf-lcmp-room ( depth -- outcome )
-  lf-lcmp-fuel @ swap lf-lcmp-depth-limit < visit-outcome ;
+  dup lf-lcmp-fuel @ swap lf-lcmp-depth-limit < visit-outcome
+  dup ok? if nip else lf-lcmp-refused then ;
 : lf-lcmp-enter ( left right depth -- status )
   dup lf-lcmp-room ok-then? 0= if nip nip exit then
   -1 lf-lcmp-fuel +! 1+ lf-lcmp-visit ;
@@ -110,10 +121,18 @@ defer lf-lcmp-walk ( left right depth -- status )
 : lf-lcmp-roots ( left right -- status )
   2dup 0 lf-lcmp-walk dup outcome-unknown =
   if drop lf-lcmp-concrete else nip nip lf-lcmp-settle then ;
+\ An undecided comparison is recorded with both roots (unless something
+\ more specific, such as a symbolic level, was recorded first).
+: lf-lcmp-undecided ( left right status -- status )
+  >r lf-lcmp-site lf-diag-undecided lf-diag-note r> ;
+: lf-lcmp-decide ( left right -- status )
+  2dup lf-lcmp-roots dup outcome-unknown = if lf-lcmp-undecided else nip nip then ;
+: lf-lcmp-negative ( left right fuel -- status )
+  0 lf-lcmp-site lf-diag-bad-argument lf-diag-note 2drop outcome-invalid lf-lcmp-fail ;
 
 \ Compare two roots against one explicit parameter context. Scope checks run
 \ before any equality shortcut and share fuel with comparison and evaluation.
 \ Only one status is returned; this word cannot register a declaration.
 : lf-level-compare ( left right fuel -- status )
-  dup 0< if drop 2drop outcome-invalid lf-lcmp-fail exit then lf-lcmp-fuel !
-  2dup lf-lcmp-scopes dup ok? if drop lf-lcmp-roots else nip nip lf-lcmp-fail then ;
+  dup 0< if lf-lcmp-negative exit then lf-lcmp-fuel !
+  2dup lf-lcmp-scopes dup ok? if drop lf-lcmp-decide else nip nip lf-lcmp-fail then ;
