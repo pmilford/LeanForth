@@ -555,7 +555,11 @@ T{ s" 0 0 tj tjob-frames frame-init" bad-walk? tj tjob-frames frame-limit @ -> t
 \ u32@ and u32! (Gforth's l@ and l! here) and the Forth-2012 u32-bytes@
 \ and u32-bytes!. The tests compare values only, never bytes, so they hold
 \ for either byte order; a field is read only by the version that wrote it.
-require ../../src/lib/u32.fs
+\ The module is loaded under HEX: its numbers must not depend on BASE (the
+\ load-time check would then fail and silently choose the slower version),
+\ and it must leave BASE as it found it. Gforth's l@ and l! pass the check.
+hex require ../../src/lib/u32.fs base @ decimal constant u32-base
+T{ u32-base u32-native -> 16 true }T
 T{ 0 u32s 1 u32s 3 u32s -> 0 4 chars 12 chars }T
 T{ u32-mask 1+ $10000 dup * = u32-mask 0= -> true false }T
 create packed 3 u32s allot
@@ -569,6 +573,13 @@ T{ 0 via-bytes 1 via-bytes 255 via-bytes 256 via-bytes -> 0 1 255 256 }T
 T{ u32-top via-bytes u32-top 1- via-bytes u32-mask via-bytes -> u32-top u32-top 1- u32-mask }T
 \ Only the low 32 bits are kept (on a 32-bit host u32-mask 1+ is 0).
 T{ u32-mask 1+ 5 + via-host u32-mask 1+ 5 + via-bytes -> 5 5 }T
+T{ -1 via-host -1 via-bytes -> u32-mask u32-mask }T
+\ The load-time check: Gforth's l@ and l! and the Forth-2012 version are
+\ unsigned 32-bit access; a fetch that sign-extends bit 31, or a store of
+\ a whole 64-bit cell, is not (on a 32-bit host both are 32-bit access).
+: sign-extended@ ( addr -- n ) l@ dup u32-top and if u32-mask invert or then ;
+T{ ' l@ ' l! u32-sound? ' u32-bytes@ ' u32-bytes! u32-sound? -> true true }T
+T{ ' sign-extended@ ' l! u32-sound? ' @ ' ! u32-sound? -> 1 cells 4 = 1 cells 4 = }T
 \ A store changes only its own field: the fields around it keep their
 \ values, for each version and for random values.
 : sentinels ( xt -- ) >r $A5A5 packed r@ execute $5A5A packed 2 u32s + r> execute ;
@@ -583,4 +594,14 @@ variable u32-seed  20261102 u32-seed !
 T{ u32-mask fenced-host u32-mask fenced-bytes -> u32-mask $A5A5 $5A5A u32-mask $A5A5 $5A5A }T
 T{ ' fenced-host u32-random? ' fenced-bytes u32-random? -> true true }T
 T{ u32-mask ' via-host rs-checked u32-mask ' via-bytes rs-checked -> u32-mask u32-mask }T
+\ Defining lf-u32-portable before the file loads forces the Forth-2012
+\ version. The file is loaded again for this, last, under BASE 8, where 8
+\ and 9 are not digits: it still reads its numbers in decimal and gives
+\ BASE back. (Gforth's warnings about the words it redefines are off.)
+[defined] warnings [if] warnings @ false warnings ! [then]
+: lf-u32-portable ( -- ) ;
+8 base ! include ../../src/lib/u32.fs base @ decimal constant u32-base-forced
+[defined] warnings [if] warnings ! [then]
+T{ u32-base-forced u32-native -> 8 false }T
+T{ -1 field1 u32! field1 u32@ u32-top 1+ field1 u32! field1 u32@ -> u32-mask u32-top 1+ }T
 bye
