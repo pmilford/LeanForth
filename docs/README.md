@@ -24,6 +24,7 @@ see [project progress](project/PROJECT_PROGRESS.md). Documents marked
 - [TERMS_FOR_NEW_READERS.md](user/TERMS_FOR_NEW_READERS.md) — plain-language glossary: level, `Sort`, theorem, kernel.
 - [SETUP_WSL.md](user/SETUP_WSL.md) — Windows / WSL2 development setup.
 - [TERM_PRINTER.md](user/TERM_PRINTER.md) — printing terms readably in Lean notation, ASCII and LaTeX (Markdown math); binder names without capture; the presentation side table.
+- [READABLE_PROOFS_SKETCH.md](user/READABLE_PROOFS_SKETCH.md) — design sketch, not implemented: the proof of `composition` as the planned proof-outline printer would show it, in mathematics, LeanForth Forth and Lean, and which parts of it are checked and which are only explanation.
 
 The user guide is a start: manuals for each audience grow with the
 features they describe.
@@ -88,7 +89,8 @@ approval; the others are proposals.
 [0008](adr/0008-outcome-vocabulary.md) one outcome vocabulary (accepted) ·
 [0009](adr/0009-reentrant-state-and-parallel-checking.md) re-entrant state and parallel checking (accepted) ·
 [0011](adr/0011-definite-rejection.md) definite rejection and the first checker's scope (rules accepted) ·
-[0012](adr/0012-checked-environment.md) the checked environment's implementation (design accepted).
+[0012](adr/0012-checked-environment.md) the checked environment's implementation (design accepted) ·
+[0013](adr/0013-derivation-log.md) the derivation log and the proof outline (proposed).
 
 ## `reviews/` — review packets and records
 
