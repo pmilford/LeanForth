@@ -46,10 +46,10 @@ T{ 6 rootid @ -1 0 100 lf-mixed-shift -> -1 0 lf-mshift-invalid }T
 T{ 6 rootid @ 0 -1 100 lf-mixed-shift -> -1 0 lf-mshift-invalid }T
 T{ 6 rootid @ 0 0 -1 lf-mixed-shift -> -1 0 lf-mshift-invalid }T
 \ A lambda at the largest cutoff cannot put its body one binder deeper; it
-\ is exhausted before its first child is visited: the audit spends 9 and
-\ the root's visit 1.
+\ is full (out of room, not fuel) before its first child is visited: the
+\ audit spends 9 and the root's visit 1.
 T{ 6 rootid @ lf-mshift-max 1 100 lf-mixed-shift lf-mshift-fuel @ ->
-  -1 0 lf-mshift-exhausted 90 }T
+  -1 0 outcome-full 90 }T
 T{ lf-term-count @ -> 11 }T
 \ A failed audit leaves no fuel.
 T{ 6 0 0 1 100 lf-mixed-shift lf-mshift-fuel @ -> -1 0 lf-mshift-invalid 0 }T
@@ -65,9 +65,10 @@ lf-term-serial @ outid !
 T{ 0 lf-term-bvar -> 8 true }T
 T{ 8 outid @ lf-hterm-valid? -> false }T
 T{ 8 lf-term-serial @ lf-hterm-valid? -> true }T
-\ Overflow and stale references fail without retaining output.
+\ Overflow and stale references fail without retaining output: an index
+\ past lf-mshift-max has no room in a cell, which is full.
 T{ 3 lf-term-serial @ 0 lf-mshift-max 100 lf-mixed-shift -> -1 0 lf-mshift-invalid }T
-T{ 7 lf-term-identities 7 cells + @ 0 lf-mshift-max 100 lf-mixed-shift -> -1 0 lf-mshift-exhausted }T
+T{ 7 lf-term-identities 7 cells + @ 0 lf-mshift-max 100 lf-mixed-shift -> -1 0 outcome-full }T
 T{ lf-term-count @ -> 9 }T
 \ Shared constant occurrences each consume audit and traversal fuel.
 setup
@@ -79,13 +80,13 @@ T{ 8 lf-term-read -> lf-tag-pi 0 0 true }T
 1 3 lf-term-slot 2 cells + !
 T{ 6 rootid @ 0 1 100 lf-mixed-shift -> -1 0 lf-mshift-invalid }T
 0 3 lf-term-slot 2 cells + !
-\ Full arena: a variable requiring reconstruction exhausts without mutation.
+\ Full arena: a variable requiring reconstruction is full, without mutation.
 : fill-arena ( -- ) begin lf-term-count @ lf-term-capacity < while
   0 lf-term-bvar 0= abort" fill" drop repeat ;
 fill-arena
 T{ 3 lf-term-identities 3 cells + @ 0 0 100 lf-mixed-shift ->
   3 lf-term-identities 3 cells + @ lf-mshift-ok }T
-T{ 3 lf-term-identities 3 cells + @ 0 1 100 lf-mixed-shift -> -1 0 lf-mshift-exhausted }T
+T{ 3 lf-term-identities 3 cells + @ 0 1 100 lf-mixed-shift -> -1 0 outcome-full }T
 T{ lf-term-count @ -> lf-term-capacity }T
 setup
 lf-cref-reset
@@ -125,8 +126,8 @@ T{ 6 rootid @ 0 1 100 lf-mixed-shift -> 11 lf-term-serial @ lf-mshift-ok }T
   lf-term-reset lf-ssession-begin 0= abort" session" 0 lf-term-bvar 2drop
   63 0 do i 0 lf-term-lam 0= abort" chain" drop loop 63 dup lf-term-identity drop ;
 T{ chain 0 1 1000 lf-mixed-shift lf-mshift-fuel @ lf-term-count @ ->
-  -1 0 lf-mshift-exhausted 809 64 }T
-T{ chain 1 1 1000 lf-mixed-shift lf-mshift-fuel @ -> -1 0 lf-mshift-exhausted 808 }T
+  -1 0 outcome-full 809 64 }T
+T{ chain 1 1 1000 lf-mixed-shift lf-mshift-fuel @ -> -1 0 outcome-full 808 }T
 \ An audit failure (stale root) or negative fuel leaves zero fuel, and a raw
 \ concrete Sort, which the current passes do not accept (ADR 0007), is
 \ invalid for the audit and for the shift.

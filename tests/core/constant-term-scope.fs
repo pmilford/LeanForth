@@ -92,4 +92,12 @@ T{ 4 lambda-id @ 1+ 0 100 lf-constant-term-scope -> lf-repr-invalid }T
 lf-cref-reset
 T{ 0 lf-name-generation @ 0 0 lf-cref-new -> 0 lf-cref-serial @ true }T
 T{ 0 const-id @ 0 100 lf-constant-term-scope -> lf-repr-invalid }T
+\ A binder at depth max-n cannot put its body one level deeper, which is
+\ full and pushes nothing; an application does not deepen and is pushed.
+\ Unreachable through lf-constant-term-scope (the outer depth is at most
+\ lf-term-capacity), so the visit is driven white-box.
+0 lf-cts-walker walk-pending !  max-n lf-cts-walker walk-context !
+: pending ( -- n ) lf-cts-walker walk-pending @ ;
+T{ 0 0 lf-cts-walker lf-tag-lam lf-cts-binary pending -> outcome-full 0 }T
+T{ 0 0 lf-cts-walker lf-tag-app lf-cts-binary pending -> outcome-ok 4 }T
 bye

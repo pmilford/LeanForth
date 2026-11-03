@@ -50,13 +50,13 @@ outcome-unknown constant lf-mcompare-unknown
 
 \ The fields of both nodes, left first. Pushing the first fields as a pair,
 \ or both pairs with the second fields underneath, visits the children in
-\ order; a full work stack is exhaustion.
+\ order; a full work stack is full.
 : lf-mcompare-firsts ( a b -- x y ) node-first @ swap node-first @ swap ;
 : lf-mcompare-seconds ( a b -- x y ) node-second @ swap node-second @ swap ;
 : lf-mcompare-first ( a b walk -- outcome ) >r lf-mcompare-firsts r> walk-pair-outcome ;
 : lf-mcompare-children ( a b walk -- outcome )
   >r 2dup lf-mcompare-seconds r@ walk-push-pair
-  if r> lf-mcompare-first else 2drop r> drop outcome-exhausted then ;
+  if r> lf-mcompare-first else 2drop r> drop outcome-full then ;
 \ Equal syntax is ok; a difference is unknown.
 : lf-mcompare-verdict ( flag -- outcome ) if outcome-ok else outcome-unknown then ;
 : lf-mcompare-same-first ( a b walk -- outcome )
@@ -148,7 +148,8 @@ outcome-unknown constant lf-mcompare-unknown
   ['] lf-mcompare-visit lf-mcompare-walker walk-run-pair ;
 
 \ Audit both roots completely, left first, with the walk's fuel; a failed
-\ audit leaves no fuel. lf-cterm-check fails only as invalid or exhausted.
+\ audit leaves no fuel. lf-cterm-check fails only as invalid, exhausted or
+\ full.
 \ Five inputs: two handles and the walk. Shared with mixed-convert.fs, as
 \ is the refusal of negative fuel, which also leaves no fuel.
 : lf-mcompare-refuel ( outcome walk -- )
@@ -166,8 +167,8 @@ outcome-unknown constant lf-mcompare-unknown
 \ ( left identity right identity fuel -- status ) Both complete structural
 \ audits precede comparison and share its fuel. Scope of term binders, typing,
 \ declaration lookup and Lean string encoding are not checked. Negative fuel
-\ and failed audits leave zero fuel. Exhaustion can prevent discovery of a
-\ later invalidity.
+\ and failed audits leave zero fuel. Running out of fuel (exhausted) or room
+\ (full) can prevent discovery of a later invalidity.
 : lf-mixed-compare ( left lid right rid fuel -- status )
   lf-mcompare-walker tuck walk-budget 0= if lf-mcompare-refused exit then
   lf-mcompare-roots ok-then? if lf-mcompare-run else nip then ;

@@ -62,10 +62,11 @@ T{ lf-level-count @ -> 8 }T
 T{ shared formals actuals 2 9 lf-lsubst -> 9 lf-lsubst-ok }T
 T{ 9 lf-level-read -> lf-level-tag-max 8 8 true }T
 T{ 8 lf-level-read -> lf-level-tag-max q p true }T
-\ Exhausting allocation identities or storage cannot append partial results.
+\ Running out of allocation identities or storage (full, not exhausted)
+\ cannot append partial results.
 lf-level-serial @ constant saved-serial
 -1 1 rshift lf-level-serial !
-T{ tree formals actuals 2 20 lf-lsubst -> lf-lsubst-exhausted }T
+T{ tree formals actuals 2 20 lf-lsubst -> outcome-full }T
 T{ lf-level-count @ -> 10 }T
 saved-serial lf-level-serial !
 \ A commit that fails part way appends nothing. The plan stages two nodes;
@@ -82,7 +83,7 @@ saved-serial lf-level-serial !
     0 lf-level-succ 0= if -1 throw then drop
   repeat ;
 fill-arena
-T{ tree formals actuals 2 20 lf-lsubst -> lf-lsubst-exhausted }T
+T{ tree formals actuals 2 20 lf-lsubst -> outcome-full }T
 T{ lf-level-count @ -> lf-level-capacity }T
 T{ tree lf-level-identity -> tree-id true }T
 \ Identity transformations can succeed even when no more slots are free.

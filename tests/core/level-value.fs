@@ -86,7 +86,8 @@ lf-level-tag-succ 2 lf-level-slot !
 T{ 5 100 lf-level-value -> 2 lf-lvalue-ok }T
 T{ lf-level-count @ -> 11 }T
 
-\ A maximal assigned value cannot overflow when used as a successor.
+\ A maximal assigned value cannot overflow when used as a successor: the
+\ value has no room to grow, which is full (with fuel to spare).
 lf-level-reset lf-lscope-context-reset lf-lassign-reset
 T{ 42 lf-lscope-context-add -> true }T
 T{ 42 lf-level-param -> 1 true }T
@@ -94,7 +95,7 @@ T{ 1 lf-level-succ -> 2 true }T
 lf-lassign-reset
 T{ 42 lf-lvalue-cell-max lf-lassign-add -> true }T
 T{ 1 100 lf-level-value-assigned -> lf-lvalue-cell-max lf-lvalue-ok }T
-T{ 2 100 lf-level-value-assigned -> -1 lf-lvalue-exhausted }T
+T{ 2 100 lf-level-value-assigned lf-lvalue-fuel @ 0> -> -1 outcome-full true }T
 \ Corruption and stale assignments after context changes are rejected.
 -1 lf-lassign-count !
 T{ 1 100 lf-level-value-assigned -> -1 lf-lvalue-invalid }T

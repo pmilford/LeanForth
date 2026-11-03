@@ -115,7 +115,7 @@ passed.
 | ok | A complete, well-formed record, accepted by its handler |
 | invalid (malformed) | Bad framing (no final line feed, carriage return, byte-order mark, blank line); not JSON (syntax, bad escape, lone surrogate, invalid UTF-8, a control byte in a string); not a record of format 3.1.0: unknown kind, a field missing, unknown or repeated, a value of the wrong JSON type or outside its enumeration, an index that is not the next one, a reference that is not to an earlier record, an anonymous name where one is not allowed, a natural literal not in canonical decimal, a height beyond UInt32, metadata not first or repeated, an inductive block without types, no metadata or no declaration in the file |
 | unsupported | Metadata naming another exporter, format or Lean version than lean4export 3.1.0, format 3.1.0 and Lean 4.35.0 (`eb6cafb7…`); a record kind without a handler |
-| exhausted (a limit) | A line longer than the limit (64 MiB), JSON nested deeper than 64, a natural number field (such as `bvar` or `idx`) that does not fit in a cell, no heap memory |
+| full (a limit) | A line longer than the limit (64 MiB), JSON nested deeper than 64, a natural number field (such as `bvar` or `idx`) that does not fit in a cell, no heap memory |
 
 `export-error ( export -- line key-addr key-u why-addr why-u )` gives the
 line, the field being decoded and the reason; for a JSON error,

@@ -55,7 +55,7 @@ lf-mdefinition-request /lf-mdreq erase
 \ Both closed source graphs and the entire index must be audited before any
 \ allocation: otherwise a stale second root or index handle could revive.
 \ Each check spends the request's fuel. lf-constant-term-scope and
-\ lf-mixed-signature-audit report only ok, invalid or exhausted.
+\ lf-mixed-signature-audit report only ok, invalid, exhausted or full.
 : lf-mdefinition-scope ( root id req -- status )
   dup >r lf-mdreq-fuel @ 0 swap lf-constant-term-scope lf-cts-fuel @ r> lf-mdreq-fuel !
   outcome-sane ;
@@ -77,7 +77,8 @@ lf-mdefinition-request /lf-mdreq erase
 : lf-mdefinition-start ( req -- )
   dup lf-mdreq-token @ swap lf-mdreq-fuel @ lf-minfer-start ;
 \ The claim's own type must be a Sort; the value's inferred type must then
-\ convert to the claim. Inference reports ok, invalid, exhausted or unknown.
+\ convert to the claim. Inference reports ok, invalid, exhausted, full or
+\ unknown.
 : lf-mdefinition-claim-sort ( type -- status )
   lf-minfer-walk ok-then? if lf-minfer-sort-level nip then ;
 : lf-mdefinition-value-type ( value type -- status )

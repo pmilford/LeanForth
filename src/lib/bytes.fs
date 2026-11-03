@@ -8,11 +8,12 @@
 \
 \ A reader keeps whole lines in one heap buffer (ALLOCATE). A line longer
 \ than the buffer grows it (RESIZE), up to the reader's line limit; a longer
-\ line is exhausted, never cut. reader-line returns the next line without
-\ its line feed. Those bytes stay valid, and the caller may change them in
-\ place, until the next reader call. Every line must end with a line feed:
-\ a last line without one is invalid, as is reading past the end; an
-\ unreadable file or a failed read is invalid; a full heap is exhausted.
+\ line is reported as full (out of room), never cut. reader-line returns the
+\ next line without its line feed. Those bytes stay valid, and the caller
+\ may change them in place, until the next reader call. Every line must end
+\ with a line feed: a last line without one is invalid, as is reading past
+\ the end; an unreadable file or a failed read is invalid; running out of
+\ heap is full.
 \ reader-position gives the current line's number and file offset for
 \ error messages. Offsets are doubles, so files beyond 2 GB work on
 \ 32-bit hosts too.
@@ -49,7 +50,7 @@ end-structure
 \ nothing but the limit, when the heap has no room.
 : reader-init ( size limit reader -- outcome )
   tuck reader-limit ! swap 1 max dup heap
-  if swap rot reader-buffer! outcome-ok else 2drop outcome-exhausted then ;
+  if swap rot reader-buffer! outcome-ok else 2drop outcome-full then ;
 \ Free the buffer and zero the record; the caller closes the file first.
 : reader-free ( reader -- ) dup reader-buffer @ ?dup if free drop then /reader erase ;
 
@@ -96,7 +97,7 @@ s" gforth" environment? [if] 2drop
 \ Refilling. reader-shift moves the unread bytes to the front of the
 \ buffer, adding the bytes before them to reader-base. A full buffer grows
 \ to twice its size, but never past the limit plus one byte for the line
-\ feed; a buffer already beyond the limit cannot grow (exhausted).
+\ feed; a buffer already beyond the limit cannot grow (full).
 : reader-base+ ( n reader -- ) reader-base dup >r 2@ rot m+ r> 2! ;
 : reader-shift ( reader -- )
   >r r@ reader-unread tuck r@ reader-buffer @ swap move
@@ -105,9 +106,9 @@ s" gforth" environment? [if] 2drop
   dup reader-limit @ over reader-size @ - 1+ swap reader-size @ min ;
 : reader-resize ( size reader -- outcome )
   2dup reader-buffer @ swap resize
-  if 2drop drop outcome-exhausted else -rot reader-buffer! outcome-ok then ;
+  if 2drop drop outcome-full else -rot reader-buffer! outcome-ok then ;
 : reader-grow ( reader -- outcome )
-  dup reader-size @ over reader-limit @ > if drop outcome-exhausted exit then
+  dup reader-size @ over reader-limit @ > if drop outcome-full exit then
   dup reader-growth over reader-size @ + swap reader-resize ;
 : reader-make-room ( reader -- outcome )
   dup reader-full? if reader-grow else drop outcome-ok then ;
@@ -121,13 +122,13 @@ s" gforth" environment? [if] 2drop
   dup reader-shift dup reader-make-room ok-then? if reader-read then ;
 
 \ No line feed among the unread bytes: read more, unless the line is
-\ already too long (exhausted) or the file has ended (invalid: the last
+\ already too long (full) or the file has ended (invalid: the last
 \ line lacks its line feed, or there is no line left).
 : reader-wait ( reader -- outcome )
-  dup reader-unread nip over reader-limit @ > if drop outcome-exhausted exit then
+  dup reader-unread nip over reader-limit @ > if drop outcome-full exit then
   dup reader-eof @ if drop outcome-invalid exit then reader-fill ;
 : reader-found ( n reader -- addr u outcome )
-  2dup reader-limit @ > if 2drop 0 0 outcome-exhausted else reader-take outcome-ok then ;
+  2dup reader-limit @ > if 2drop 0 0 outcome-full else reader-take outcome-ok then ;
 
 \ The next line, without its line feed; on failure 0 0 and the outcome.
 : reader-line ( reader -- addr u outcome )

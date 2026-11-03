@@ -69,7 +69,7 @@ outcome-unknown constant lf-mconvert-unknown
 \ heads along one path are distinct term nodes (a reduct holds only nodes
 \ below the redex or new ones), so the work stack, with at most one pending
 \ pair per node on the path, cannot outgrow the term capacity; a full stack
-\ would be exhaustion, as the former frame bound was.
+\ would be full, as the former frame bound was.
 : lf-mconvert-visit ( walk -- outcome )
   dup lf-mconvert-reduce-pair ok-then?
   if lf-terms ['] lf-mconvert-dispatch lf-mcompare-visit-pair then ;

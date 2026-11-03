@@ -152,12 +152,12 @@ T{ finish -> }T
 \ A buffer larger than the file.
 T{ 65536 4096 open-with read-all lines-read @ -> outcome-ok outcome-ok 35 }T
 T{ finish -> }T
-\ The limit is inclusive: 172 bytes pass, 171 bytes are exhausted at line 1.
+\ The limit is inclusive: 172 bytes pass, 171 bytes are full at line 1.
 T{ 16 172 open-with read-all lines-read @ -> outcome-ok outcome-ok 35 }T
 T{ finish -> }T
-T{ 16 171 open-with read-all lines-read @ -> outcome-ok outcome-exhausted 0 }T
+T{ 16 171 open-with read-all lines-read @ -> outcome-ok outcome-full 0 }T
 T{ finish -> }T
-T{ 4096 171 open-with read-all lines-read @ -> outcome-ok outcome-exhausted 0 }T
+T{ 4096 171 open-with read-all lines-read @ -> outcome-ok outcome-full 0 }T
 T{ finish -> }T
 \ A missing file is invalid; closing a closed reader is harmless.
 T{ 16 16 rd reader-init s" tests/reference/no-such-file.ndjson" rd reader-open -> outcome-ok outcome-invalid }T

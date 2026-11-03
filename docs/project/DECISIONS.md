@@ -450,3 +450,16 @@ deeper than 64 as a limit and unknown fields as malformed, where the Python
 preview differs in places; plan item 3.2.1 settles one classification
 through the import review gate. Staging decoded records into growable
 stores is next (plan 3.2–3.3).
+
+## Out of fuel and out of room are separate outcomes — 2026-11-02
+
+ADR 0008's split, approved by the owner, is implemented: *exhausted* (2)
+now means only that the fuel budget ran out, and *full* (6) that a store,
+work stack, frame or depth limit, binder context, or a value at the cell
+maximum left no room. When a visit has neither fuel nor room, fuel
+decides. The site-by-site classification is in ADR 0008's "Implemented"
+section. Evidence: on 616 randomized seeds (2.2 million lines) every
+difference from the previous code was exhausted becoming full, each traced
+to a room site; 36 planted misclassifications were caught by unit tests;
+no pinned-Lean table changed. The NDJSON reader, merged meanwhile, reports
+its limits (line length, nesting, token and string limits, heap) as full.

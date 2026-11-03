@@ -131,7 +131,7 @@ lf-msp-request /lf-sigreq erase
 : lf-msp-source! ( root identity req -- ) tuck lf-sigreq-id ! lf-sigreq-root ! ;
 
 \ Substitute the request's actuals for its formals in its root.
-\ lf-mixed-level-substitute reports only ok, invalid or exhausted.
+\ lf-mixed-level-substitute reports only ok, invalid, exhausted or full.
 : lf-msp-substitute ( req -- root identity 0 | status )
   >r r@ lf-sigreq-root @ r@ lf-sigreq-id @ r@ lf-sigreq-formals @ r@ lf-sigreq-actuals @
   r@ lf-sigreq-arity @ r> lf-sigreq-fuel @ lf-mixed-level-substitute outcome-sane ;
@@ -139,7 +139,8 @@ lf-msp-request /lf-sigreq erase
 \ Coverage uses one complete mixed substitution with every actual the zero
 \ level, which fails unless every source parameter is a formal. Even on
 \ success all temporary allocations are discarded, never their serials.
-\ This can exhaust arena space or identity serials for an otherwise valid list.
+\ This can fill arena space or spend identity serials (full) for an
+\ otherwise valid list.
 : lf-msp-marks ( -- terms levels crefs )
   lf-term-count @ lf-level-count @ lf-cref-count @ ;
 : lf-msp-rewind ( terms levels crefs -- )
@@ -156,11 +157,12 @@ lf-msp-request /lf-sigreq erase
   lf-msp-marks 2>r >r lf-msp-zero-actuals r> 2r> lf-msp-rewind ;
 
 \ Insertion: a well-formed request for a new name, room in the index, then
-\ coverage; only then are the record and its formal IDs copied in.
+\ coverage; only then are the record and its formal IDs copied in. A full
+\ index is full.
 : lf-msp-new? ( token req -- flag )
   tuck lf-msp-well-formed? if lf-sigreq-name @ lf-msp-position 0< else drop false then ;
 : lf-msp-room ( -- outcome )
-  lf-msp-count @ lf-msp-capacity < if outcome-ok else outcome-exhausted then ;
+  lf-msp-count @ lf-msp-capacity < if outcome-ok else outcome-full then ;
 : lf-msp-addable ( token req -- status )
   lf-msp-new? if lf-msp-room else outcome-invalid then ;
 : lf-msp-next ( array -- addr ) lf-msp-count @ cells + ;
@@ -207,7 +209,7 @@ lf-msp-request /lf-sigreq erase
 \ the full audit and build; index scans and identity checks are unmetered.
 \ Failure rolls back all arena counts, not allocation serials or scratch.
 \ Returned syntax is conditional on unchecked metadata and is never a theorem.
-\ The status is ok, invalid, exhausted, or unknown for a name with no
+\ The status is ok, invalid, exhausted, full, or unknown for a name with no
 \ candidate. lf-msp-specialize-fuel also gives the fuel left on success, for
 \ mixed-infer to continue with.
 : lf-msp-specialize-fuel

@@ -17,7 +17,7 @@ begin-structure /dag-state
   field: dag-built       \ nodes built in this round
   field: dag-sum         \ checksum
   field: dag-visits      \ visits so far
-  field: dag-oks         \ walks that ended ok rather than exhausted
+  field: dag-oks         \ walks that ended ok rather than exhausted or full
   field: dag-every       \ yield after every this many visits; 0 never
   field: dag-rp          \ return-stack pointer when the recursive pass began
   field: dag-deep        \ return-stack cells the recursive pass used

@@ -64,8 +64,9 @@ lf-lcmp-state /lf-lcrec erase
   swap lf-lcmp-shrink dup ok? 0= if nip nip false exit then drop swap true ;
 
 \ Compare syntax after both roots have passed scope validation. Depth
-\ counts the comparisons above; a visit needs fuel and a depth below the
-\ capacity. Any unmatched constructor or ID is unknown.
+\ counts the comparisons above; a visit needs fuel (else exhausted) and a
+\ depth below the limit (else full); with neither, the fuel decides. Any
+\ unmatched constructor or ID is unknown.
 defer lf-lcmp-walk ( left right depth -- status )
 : lf-lcmp-same-value ( x x' -- status ) = if outcome-ok else outcome-unknown then ;
 : lf-lcmp-param ( left right -- status ) lf-lcmp-firsts lf-lcmp-same-value ;
@@ -87,9 +88,11 @@ defer lf-lcmp-walk ( left right depth -- status )
   >r 2dup lf-lcmp-readable? if r> lf-lcmp-node else 2drop r> drop outcome-invalid then ;
 : lf-lcmp-visit ( left right depth -- status )
   >r lf-lcmp-shrink2 if r> lf-lcmp-shrunk else r> drop then ;
-: lf-lcmp-room? ( depth -- flag ) lf-lcmp-depth-limit < lf-lcmp-fuel @ 0> and ;
+: lf-lcmp-room ( depth -- outcome )
+  lf-lcmp-fuel @ 0> 0= if drop outcome-exhausted exit then
+  lf-lcmp-depth-limit < if outcome-ok else outcome-full then ;
 : lf-lcmp-enter ( left right depth -- status )
-  dup lf-lcmp-room? 0= if drop 2drop outcome-exhausted exit then
+  dup lf-lcmp-room ok-then? 0= if nip nip exit then
   -1 lf-lcmp-fuel +! 1+ lf-lcmp-visit ;
 ' lf-lcmp-enter is lf-lcmp-walk
 

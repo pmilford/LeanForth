@@ -89,14 +89,14 @@ T{ s" [1] x" parsed jv json-reason s" text after the value" compare -> outcome-i
 
 \ Limits, each at its bound and one past it.
 T{ s" [[[[[[[[1]]]]]]]]" parsed -> outcome-ok }T
-T{ s" [[[[[[[[[1]]]]]]]]]" parsed jv json-reason s" nested too deeply" compare -> outcome-exhausted 0 }T
-T{ 3 jv json-string-limit ! s\" \"abc\"" parsed s\" \"abcd\"" parsed -> outcome-ok outcome-exhausted }T
-T{ s\" \"a\\nb\"" parsed s\" \"a\\nbc\"" parsed -> outcome-ok outcome-exhausted }T
+T{ s" [[[[[[[[[1]]]]]]]]]" parsed jv json-reason s" nested too deeply" compare -> outcome-full 0 }T
+T{ 3 jv json-string-limit ! s\" \"abc\"" parsed s\" \"abcd\"" parsed -> outcome-ok outcome-full }T
+T{ s\" \"a\\nb\"" parsed s\" \"a\\nbc\"" parsed -> outcome-ok outcome-full }T
 T{ max-n jv json-string-limit ! -> }T
 T{ 3 jv json-digit-limit ! s" 123" parsed s" 1234" parsed s" -1.5" parsed s" -12" parsed
-   -> outcome-ok outcome-exhausted outcome-exhausted outcome-ok }T
+   -> outcome-ok outcome-full outcome-full outcome-ok }T
 T{ max-n jv json-digit-limit ! -> }T
-T{ 4 jv json-token-limit ! s" [1,2,3]" parsed s" [1,2,3,4]" parsed -> outcome-ok outcome-exhausted }T
+T{ 4 jv json-token-limit ! s" [1,2,3]" parsed s" [1,2,3,4]" parsed -> outcome-ok outcome-full }T
 T{ max-n /token / jv json-token-limit ! -> }T
 \ The tape grows beyond its first room.
 create long-text 2400 allot

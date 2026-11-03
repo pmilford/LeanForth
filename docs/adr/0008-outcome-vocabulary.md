@@ -40,8 +40,8 @@ outcomes: accepted, rejected, and unsupported/unknown. There is no
    *Exhausted* and *full* are different, at the owner's suggestion: the fix
    for the first is more fuel (time), for the second more memory or a larger
    limit, and at Mathlib scale the report must say which limit was hit.
-   Until each module is converted, capacity failures may still report
-   *exhausted*; the split is completed as modules are refactored.
+   The split is implemented in every module (see *Implemented 2026-11-02*
+   below).
 
    *Unsupported* and *unknown* are different, at the owner's suggestion.
    Unsupported means the input uses a construct LeanForth has not built
@@ -71,6 +71,53 @@ outcomes: accepted, rejected, and unsupported/unknown. There is no
 Status codes and flags stay distinct: a status is tested with the success
 predicate or compared with a named outcome, never consumed by `IF` as a
 truth value, because 0 means success for a status but false for a flag.
+
+## Implemented 2026-11-02: exhausted and full
+
+`outcome-full` (6) is in `src/lib/outcome.fs`, and `outcome?` and
+`outcome-sane` accept 0 to 6. Every place that reported *exhausted* was
+classified: running out of the fuel budget stays *exhausted*; reaching a
+store, stack, frame, depth, binder or cell-size limit is now *full*. When
+a visit finds both no fuel and no free frame (or depth), the fuel decides
+and the outcome is *exhausted*. Module aliases such as
+`lf-mshift-exhausted` keep meaning *exhausted*; no `lf-*-full` alias was
+needed. No typing or conversion rule changed: only the number reported for
+a room failure, which was never accepted before and is not now.
+
+| Module | Word | Cause | Outcome |
+| --- | --- | --- | --- |
+| `lib/walk.fs` | `walk-step` | no fuel left | exhausted |
+| `lib/walk.fs` | `walk-push-outcome`, `walk-push2`, `walk-pair-outcome`, `walk-children-at` | work stack has no room | full |
+| `lib/walk.fs` | `walk-run`, `walk-run-pair` | root cannot be pushed (corrupted capacity) | full |
+| `lib/frame.fs` | `frame-call`, `frame-call2` (`frame-shut`) | no fuel left / every frame in use | exhausted / full |
+| `lib/frame.fs` | `frame-under` | context at `max-n` cannot grow | full |
+| `core/constant-term-scope.fs` | `lf-cts-binary` | binder depth at `max-n` | full |
+| `kernel/level-value.fs` | `lf-lvalue-room` (`lf-lvalue-enter`) | no fuel / `lf-lvalue-depth-limit` | exhausted / full |
+| `kernel/level-value.fs` | `lf-lvalue-succ+` | successor of `max-n` | full |
+| `kernel/level-compare.fs` | `lf-lcmp-room` (`lf-lcmp-enter`) | no fuel / `lf-lcmp-depth-limit` | exhausted / full |
+| `kernel/level-compare.fs` | `lf-lcmp-shrink` | no fuel | exhausted |
+| `kernel/level-substitute.fs` | `lf-lsubst-stage` | level store has no room for a staged node | full |
+| `kernel/level-substitute.fs` | `lf-lsubst-plan` | level identity serial would run out | full |
+| `kernel/mixed-rebuild.fs` | `lf-rebuild-allocated` | term store full or its serial spent | full |
+| `kernel/mixed-rebuild.fs` | `lf-rebuild-binary` | binder context at `max-n` | full |
+| `kernel/mixed-shift.fs` | `lf-mshift-up` | index plus amount past `max-n` | full |
+| `kernel/mixed-compare.fs` | `lf-mcompare-children` | work stack has no room | full |
+| `kernel/mixed-compare.fs` | `lf-mcompare-names` | no fuel | exhausted |
+| `kernel/mixed-infer.fs` | `lf-minfer-sort`, `lf-minfer-sort-type`, `lf-minfer-lam-type`, `lf-minfer-pi-sort` | term or level allocation fails (store full or serial spent) | full |
+| `kernel/mixed-infer.fs` | `lf-minfer-under` | binder context full | full |
+| `kernel/mixed-infer.fs` | `lf-minfer-room` (`lf-minfer-in-frame`) | no fuel / every frame in use | exhausted / full |
+| `kernel/mixed-level-substitute.fs` | `lf-mls-made`, `lf-mls-new-constant`, `lf-mls-binary` | term or reference allocation fails (store full or serial spent) | full |
+| `kernel/mixed-signature-audit.fs` | `lf-msa-run` | zero fuel | exhausted |
+| `kernel/mixed-signature-probe.fs` | `lf-msp-room` | signature index full | full |
+
+Every other module passes these outcomes on unchanged (`outcome-sane`
+keeps 6). The Forth tables that the pinned-Lean differentials compare
+produce the same output as before (no table case reaches a limit), so no
+Lean, Python or shell table changed. Unit tests reach both outcomes at
+every site, white-box where a limit is unreachable through the public
+words (the depth limits of `level-value` and `level-compare`, the frame
+and binder limits of `mixed-infer`, and `max-n` binder depth in
+`constant-term-scope`, all one step beyond what a 64-node store allows).
 
 ## Rejected alternatives
 

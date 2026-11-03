@@ -18,7 +18,7 @@
 \
 \ Failure is total: json-parse gives ok only for a complete, valid text,
 \ and otherwise invalid (bad syntax, bad escape, invalid UTF-8, a control
-\ byte in a string, text after the value, empty input) or exhausted (too
+\ byte in a string, text after the value, empty input) or full (too
 \ deep, too many tokens, a string or number past its limit, no heap). The
 \ tape is then meaningless. json-offset and json-reason say where and why.
 \ Whitespace is space, tab, line feed and carriage return; outside strings
@@ -85,10 +85,10 @@ end-structure
   max-n /token / swap json-token-limit ! ;
 : json-heap-stack ( view -- outcome )
   dup json-depth-limit @ 1 max cells heap
-  if swap json-stack ! outcome-ok else drop outcome-exhausted then ;
+  if swap json-stack ! outcome-ok else drop outcome-full then ;
 : json-heap-tape ( view -- outcome )
   json-first-room dup /token * heap
-  if rot json-tape! outcome-ok else 2drop outcome-exhausted then ;
+  if rot json-tape! outcome-ok else 2drop outcome-full then ;
 \ Prepare a view for texts nested at most depth containers deep. Exhausted
 \ when the heap has no room; json-free then releases what was allocated.
 : json-init ( depth view -- outcome )
@@ -96,9 +96,9 @@ end-structure
 : free-cell ( addr -- ) dup @ ?dup if free drop then 0 swap ! ;
 : json-free ( view -- ) dup json-tape free-cell dup json-stack free-cell /json erase ;
 
-\ Failure: remember why, and give invalid or exhausted.
+\ Failure: remember why, and give invalid or full.
 : json-bad ( view c-addr -- outcome ) swap json-why ! outcome-invalid ;
-: json-over ( view c-addr -- outcome ) swap json-why ! outcome-exhausted ;
+: json-over ( view c-addr -- outcome ) swap json-why ! outcome-full ;
 \ Where parsing stopped, as an offset into the text, and why it failed.
 : json-offset ( view -- n ) dup json-pos @ swap json-start @ - ;
 : json-reason ( view -- c-addr u ) json-why @ ?dup if count else s" none" then ;

@@ -116,9 +116,10 @@ lf-lsubst-job /lf-lsrec erase
 : lf-lsubst-staged ( tag first second -- index outcome )
   lf-lsubst-new-count @ lf-lsubst-new-node node!
   lf-lsubst-next 1 lf-lsubst-new-count +! outcome-ok ;
+\ A node that would not fit in the level store is full.
 : lf-lsubst-stage ( tag first second -- index outcome )
   lf-lsubst-next lf-level-capacity <
-  if lf-lsubst-staged else 2drop drop 0 outcome-exhausted then ;
+  if lf-lsubst-staged else 2drop drop 0 outcome-full then ;
 : lf-lsubst-inner ( index -- index' outcome )
   >r r@ lf-level-slot node@ lf-lsubst-images 2dup r@ lf-lsubst-kept?
   if 2drop drop r> outcome-ok else r> drop lf-lsubst-stage then ;
@@ -134,12 +135,13 @@ lf-lsubst-job /lf-lsrec erase
   dup lf-lsubst-target ok-then? if swap lf-lsubst-result ! outcome-ok else nip then ;
 : lf-lsubst-plan-at ( index -- outcome )
   dup lf-lsubst-seen @ if lf-lsubst-plan-node else drop outcome-ok then ;
-\ Every staged node needs an identity: the serial must not run out.
+\ Every staged node needs an identity: a serial that would run out is
+\ full (the identity cell has no room to grow).
 : lf-lsubst-ids? ( -- flag ) max-n lf-level-serial @ - lf-lsubst-new-count @ < 0= ;
 : lf-lsubst-plan ( root -- outcome )
   0 lf-lsubst-new-count ! 1+ 0 ?do
     i lf-lsubst-plan-at dup ok? 0= if unloop exit then drop loop
-  lf-lsubst-ids? if outcome-ok else outcome-exhausted then ;
+  lf-lsubst-ids? if outcome-ok else outcome-full then ;
 
 \ Appending the staged nodes. The plan checked every precondition of the
 \ allocation, so a failure means the store changed during the call: the
@@ -159,7 +161,8 @@ lf-lsubst-job /lf-lsrec erase
   lf-lsubst-prepare ok-then? if lf-lsubst-finish then ;
 
 \ Substitute count formals by count actuals in root. Invalid input or scope
-\ is invalid; fuel, work stack, store or identity exhaustion is exhausted.
+\ is invalid; running out of fuel is exhausted; a full work stack or level
+\ store, or a spent identity serial, is full.
 \ A failure appends no node. Fuel counts every occurrence in every actual,
 \ even an unused one, and in the source; checking the bounded formal list
 \ and staging nodes are additional bounded work. The job record and the

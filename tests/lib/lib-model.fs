@@ -44,7 +44,7 @@ T{ outcome-unsupported ok? outcome-rejected outcome? -> false true }T
 
 T{ 2 walk: dw -> }T
 T{ dw walk-room? 1 dw walk-push-outcome 2 dw walk-push-outcome -> true outcome-ok outcome-ok }T
-T{ dw walk-room? 3 dw walk-push-outcome dw walk-pending @ -> false outcome-exhausted 2 }T
+T{ dw walk-room? 3 dw walk-push-outcome dw walk-pending @ -> false outcome-full 2 }T
 \ walk-read fails on an index the store does not hold.
 T{ 1 /node 0 store: dn -> }T
 5 dw walk-node !
@@ -173,7 +173,7 @@ T{ failures @ -> 0 }T
 \ Stack need. A chain through first children keeps at most two items
 \ pending. A chain through second children leaves a pending first child at
 \ every level, so from node 9 it needs nine items: capacity 9 suffices and
-\ capacity 8 stops with exhausted, never ok.
+\ capacity 8 stops with full (out of room, with fuel left), never ok.
 : chain-first ( n -- ) 2 ?do i 1- i cells g-first + ! 0 i cells g-second + ! loop ;
 : chain-second ( n -- ) 2 ?do 0 i cells g-first + ! i 1- i cells g-second + ! loop ;
 T{ 2 walk: w2 -> }T  T{ 9 walk: w9 -> }T  T{ 8 walk: w8 -> }T
@@ -182,7 +182,8 @@ T{ 2 walk: w2 -> }T  T{ 9 walk: w9 -> }T  T{ 8 walk: w8 -> }T
 T{ 9 ' dag-visit w2 walk-run -> outcome-ok }T
 10 chain-second
 1000 w9 walk-budget drop 1000 w8 walk-budget drop
-T{ 9 ' dag-visit w9 walk-run 9 ' dag-visit w8 walk-run -> outcome-ok outcome-exhausted }T
+T{ 9 ' dag-visit w9 walk-run 9 ' dag-visit w8 walk-run w8 walk-fuel @ 0> ->
+  outcome-ok outcome-full true }T
 
 \ ---------------------------------------------------------------------------
 \ Frame model: random DAGs as above, visited recursively through a frames
@@ -195,19 +196,23 @@ T{ 9 ' dag-visit w9 walk-run 9 ' dag-visit w8 walk-run -> outcome-ok outcome-exh
 \ fuel and busy records. A second visitor of two values (frame-call2)
 \ compares the trees below two nodes.
 
-variable m-fuel  variable m-limit  variable m-deepest
+variable m-fuel  variable m-limit  variable m-deepest  variable m-why
 : model-open? ( depth -- flag ) m-limit @ < m-fuel @ 0> and ;
 : model-enter ( depth -- depth' ) -1 m-fuel +! 1+ dup m-deepest @ max m-deepest ! ;
-\ Node k at context c with d frames in use: its result and true, or false.
+\ Why a visit did not open: no fuel is exhausted, else no frame is full.
+: model-why ( -- outcome ) m-fuel @ 0> if outcome-full else outcome-exhausted then ;
+: model-fail ( outcome -- false ) m-why ! false ;
+\ Node k at context c with d frames in use: its result and true, or false
+\ with the failure in m-why. A context that cannot grow is full.
 : model-frame ( c d k -- r true | false )
-  over model-open? 0= if drop 2drop false exit then
+  over model-open? 0= if drop 2drop model-why model-fail exit then
   swap model-enter swap dup 2 < if 2drop 1+ true exit then
   >r 2dup r@ g-first@ recurse 0= if 2drop r> drop false exit then
-  -rot swap dup max-n = if 2drop drop r> drop false exit then
+  -rot swap dup max-n = if 2drop drop r> drop outcome-full model-fail exit then
   1+ swap r> g-second@ recurse if + true else drop false then ;
 \ Whether the trees below a and b are equal, d frames in use.
 : model-same ( a b d -- outcome )
-  dup model-open? 0= if drop 2drop outcome-exhausted exit then model-enter >r
+  dup model-open? 0= if drop 2drop model-why exit then model-enter >r
   2dup = if 2drop r> drop outcome-ok exit then
   2dup min 2 < if 2drop r> drop outcome-rejected exit then
   2dup g-first@ swap g-first@ r@ recurse dup ok? 0= if nip nip r> drop exit then drop
@@ -255,12 +260,15 @@ variable p-fuel  variable p-limit  variable p-context  variable m-result
 : refused? ( fuel frames -- flag )
   dup frame-fuel @ >r tuck frame-budget 0= swap frame-fuel @ r> = and ;
 
-\ One pass from root: the model's result and ok, or -1 and exhausted.
-variable frame-oks  variable frame-fails
+\ One pass from root: the model's result and ok, or -1 and the model's
+\ failure (exhausted or full). The failures are counted by outcome.
+variable frame-oks
+create frame-fails 7 cells allot  frame-fails 7 cells erase
+: fails-of ( outcome -- addr ) cells frame-fails + ;
 : model-run ( root -- flag ) >r p-context @ 0 r> model-frame dup if swap m-result ! then ;
 : agree? ( result outcome flag -- flag )
   if ok? swap m-result @ = and 1 frame-oks +!
-  else outcome-exhausted = swap -1 = and 1 frame-fails +! then ;
+  else m-why @ = swap -1 = and 1 m-why @ fails-of +! then ;
 : check-run ( root -- )
   gf start dup model-run >r p-context @ gf frame-run r> agree?
   0= if s" frame result" fail then
@@ -274,8 +282,8 @@ variable frame-oks  variable frame-fails
   1 over frame-depth !  5 over refused? 0= if s" busy budget" fail then
   0 f-deepest !  tuck 7 swap frame-run outcome-invalid <> swap -1 <> or
   f-deepest @ or if s" busy run" fail then  frame-reset ;
-\ Two nodes compared through frame-call2.
-create same-counts 6 cells allot  same-counts 6 cells erase
+\ Two nodes compared through frame-call2, counted by outcome (0 to 6).
+create same-counts 7 cells allot  same-counts 7 cells erase
 : count-same ( outcome -- ) cells same-counts + 1 swap +! ;
 : check-same ( a b -- )
   over random-params p-fuel @ 0< if 2drop exit then
@@ -287,12 +295,14 @@ create same-counts 6 cells allot  same-counts 6 cells erase
   dup random-dag 1- dup check-frame dup check-frame
   8 lm-rnd 0= if dup gf check-busy then
   dup some-node over some-node check-same dup dup some-node check-same drop ;
-0 failures !  0 frame-oks !  0 frame-fails !
+0 failures !  0 frame-oks !
 : run-frames ( -- ) 600 0 do 3 13 lm-rnd + frame-round loop ;
 run-frames
 T{ failures @ -> 0 }T
-\ Every kind of ending was reached.
-T{ frame-oks @ 0> frame-fails @ 0> -> true true }T
-T{ same-counts @ 0> outcome-rejected cells same-counts + @ 0>
-  outcome-exhausted cells same-counts + @ 0> -> true true true }T
+\ Every kind of ending was reached: out of fuel and out of room separately.
+T{ frame-oks @ 0> outcome-exhausted fails-of @ 0> outcome-full fails-of @ 0> ->
+  true true true }T
+: same-count ( outcome -- n ) cells same-counts + @ ;
+T{ outcome-ok same-count 0> outcome-rejected same-count 0>
+  outcome-exhausted same-count 0> outcome-full same-count 0> -> true true true true }T
 bye

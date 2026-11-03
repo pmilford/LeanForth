@@ -31,11 +31,11 @@ create lf-mshift-job /lf-shiftjob allot
 
 \ Visiting one node of the shift. The preaudit establishes tags, payloads
 \ and backward edges. A variable below the cutoff is kept; the others move
-\ up by the amount, which exhausts past lf-mshift-max. Leaves are kept and
-\ binary nodes rebuilt; any other tag is invalid.
+\ up by the amount, which is full past lf-mshift-max (no room in a cell).
+\ Leaves are kept and binary nodes rebuilt; any other tag is invalid.
 : lf-mshift-amount@ ( frames -- amount ) frame-job @ lf-shiftjob-amount @ ;
 : lf-mshift-up ( index amount -- result outcome )
-  2dup lf-mshift-max swap - > if 2drop lf-rebuild-exhausted
+  2dup lf-mshift-max swap - > if 2drop lf-rebuild-full
   else + lf-term-bvar lf-rebuild-allocated then ;
 : lf-mshift-bvar ( node frames -- result outcome )
   over lf-term-first@ over frame-context @ < if lf-rebuild-keep exit then
@@ -62,8 +62,9 @@ lf-mshift-job lf-mshift-frames frame-job !
   dup lf-mshift-borrow 0= if drop 2drop lf-rebuild-invalid exit then
   >r lf-mshift-amount ! 0 lf-mshift-frames frame-run lf-mshift-fuel @ r> frame-fuel ! ;
 
-\ Shift a live mixed root. Validation and traversal share fuel; invalid input
-\ and resource exhaustion are distinct. On failure discard appended nodes,
+\ Shift a live mixed root. Validation and traversal share fuel; invalid
+\ input, running out of fuel (exhausted) and running out of room (full) are
+\ distinct. On failure discard appended nodes,
 \ but never rewind allocation serials. Negative fuel is invalid and leaves
 \ lf-mshift-fuel unchanged; a negative cutoff or amount is invalid; a failed
 \ audit leaves fuel at zero. Leaf constants and symbolic sorts are reused

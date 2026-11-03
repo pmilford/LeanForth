@@ -100,18 +100,19 @@ T{ 11 lf-term-read -> lf-tag-app 2 10 true }T
 T{ 12 lf-term-read -> lf-tag-lam 1 11 true }T
 T{ 13 lf-term-read -> lf-tag-pi 0 12 true }T
 T{ 13 lf-term-serial @ 100 lf-cterm-check -> lf-repr-ok }T
-\ Shifting a maximum index fails after the audits, with rollback.
+\ Shifting a maximum index fails after the audits, with rollback: the
+\ index has no room to grow, which is full.
 setup
 T{ lf-mshift-max lf-term-bvar -> 7 true }T
 T{ 0 3 lf-term-lam -> 8 true }T
 lf-term-serial @ rootid !
-T{ 8 rootid @ 7 7 lf-term-identity drop 100 lf-mixed-instantiate -> -1 0 lf-minst-exhausted }T
+T{ 8 rootid @ 7 7 lf-term-identity drop 100 lf-mixed-instantiate -> -1 0 outcome-full }T
 T{ lf-term-count @ -> 9 }T
-\ Rebuilding in a full arena fails without changing count.
+\ Rebuilding in a full arena is full, without changing count.
 : fill-arena ( -- ) begin lf-term-count @ lf-term-capacity < while
   0 lf-term-bvar 0= abort" fill" drop repeat ;
 fill-arena
-T{ 3 3 lf-term-identity drop 0 cid @ 100 lf-mixed-instantiate -> -1 0 lf-minst-exhausted }T
+T{ 3 3 lf-term-identity drop 0 cid @ 100 lf-mixed-instantiate -> -1 0 outcome-full }T
 T{ lf-term-count @ -> lf-term-capacity }T
 \ Interface: the replacement shift runs on mixed-shift's record with the
 \ instantiation's remaining fuel and hands back what it leaves, so both
@@ -148,13 +149,13 @@ T{ 8 rootid @ 9 rid @ 18 lf-mixed-instantiate lf-minst-fuel @ ->
   13 lf-term-serial @ lf-minst-ok 0 }T
 \ A chain that fills the store (node 0 is bvar 0, node k is lam(k-1, 0)) is
 \ visited 64 frames deep down to node 0, the target, whose replacement
-\ cannot be copied into the full store: audits 127 and 1 visits, the walk
-\ 64, the shift 1.
+\ cannot be copied into the full store (full): audits 127 and 1 visits, the
+\ walk 64, the shift 1.
 : chain ( -- root identity )
   lf-term-reset lf-ssession-begin 0= abort" session" 0 lf-term-bvar 2drop
   63 0 do i 0 lf-term-lam 0= abort" chain" drop loop 63 dup lf-term-identity drop ;
 T{ chain 0 0 lf-term-identity drop 1000 lf-mixed-instantiate
-  lf-minst-fuel @ lf-mshift-fuel @ lf-term-count @ -> -1 0 lf-minst-exhausted 807 807 64 }T
+  lf-minst-fuel @ lf-mshift-fuel @ lf-term-count @ -> -1 0 outcome-full 807 807 64 }T
 \ A loose variable above the target under a binder is lowered there too:
 \ fun _ : c => #0 #2 with #0 replaced by #0 becomes fun _ : c => #0 #1.
 setup

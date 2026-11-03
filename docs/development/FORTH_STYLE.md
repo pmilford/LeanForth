@@ -92,9 +92,10 @@ as automatic verdicts.
 ## 6. One error convention
 
 - Use one project-wide outcome vocabulary — *ok, rejected, unknown, invalid
-  input, exhausted* — shared by all modules, instead of per-module status
-  constants plus translation words. The owner's three outcomes (accepted,
-  rejected, unsupported/unknown) must be distinguishable at every interface.
+  input, exhausted (out of fuel), full (out of room)* — shared by all modules,
+  instead of per-module status constants plus translation words. The owner's
+  three outcomes (accepted, rejected, unsupported/unknown) must be
+  distinguishable at every interface.
 - Keep status codes and flags distinct: a status is never consumed by `IF` as
   a truth value. Zero must not mean both "success" and "false".
 - Whether exceptional failures (malformed input, exhaustion) should use

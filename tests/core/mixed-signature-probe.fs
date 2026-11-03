@@ -120,7 +120,8 @@ T{ lf-msp-count @ -> 1 }T
 s" control" new-name constant control
 T{ token control result @ result-id @ formals 2 500 lf-msp-put -> lf-msp-ok }T
 T{ lf-msp-count @ -> 2 }T
-\ Force insertion coverage to fail after allocating a level and a cref.
+\ Force insertion coverage to fail after allocating a level and a cref: the
+\ term serial runs out, which is full, not exhausted.
 11 formals ! 22 formals cell+ !
 lf-term-count @ constant cover-terms
 lf-level-count @ constant cover-levels
@@ -128,7 +129,7 @@ lf-cref-count @ constant cover-crefs
 lf-level-serial @ constant cover-level-serial
 lf-cref-serial @ constant cover-cref-serial
 -1 1 rshift 1- lf-term-serial !
-T{ token second fixture-root @ root-id @ formals 2 500 lf-msp-put -> lf-msp-exhausted }T
+T{ token second fixture-root @ root-id @ formals 2 500 lf-msp-put -> outcome-full }T
 T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> cover-terms cover-levels cover-crefs }T
 T{ lf-level-serial @ cover-level-serial > lf-cref-serial @ cover-cref-serial > and -> true }T
 T{ lf-msp-count @ -> 2 }T

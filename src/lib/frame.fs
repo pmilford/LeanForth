@@ -11,12 +11,12 @@
 \ frame-call spends one unit of fuel and one frame, calls the visitor
 \ ( x frames -- result outcome ) on x and releases the frame; frame-call2
 \ does the same for a visitor of two values ( x y frames -- outcome ), such
-\ as a comparison. With no fuel left or every frame in use they visit
-\ nothing and give exhausted (frame-call also -1, no result). The visitor
-\ visits a child by calling frame-call, frame-call2 or frame-under (one
-\ context level deeper) on the record it was given, so a node shared by
-\ several parents is visited, and charged, once per path. A visitor result
-\ outside the outcome vocabulary counts as invalid.
+\ as a comparison. They visit nothing when no fuel is left (exhausted) or
+\ when every frame is in use (full); frame-call then also gives -1, no
+\ result. The visitor visits a child by calling frame-call, frame-call2 or
+\ frame-under (one context level deeper) on the record it was given, so a
+\ node shared by several parents is visited, and charged, once per path. A
+\ visitor result outside the outcome vocabulary counts as invalid.
 \
 \ A record is busy while a visit is in progress. A busy record refuses a
 \ new budget and a new pass, so a pass cannot be restarted from inside
@@ -64,6 +64,10 @@ end-structure
 \ comparisons, so a corrupted negative fuel or limit opens nothing).
 : frame-open? ( frames -- flag )
   dup frame-fuel @ 0> over frame-depth @ rot frame-limit @ < and ;
+\ Why a visit did not open: no fuel left (checked first) is exhausted, and
+\ otherwise every frame is in use, which is full.
+: frame-shut ( frames -- outcome )
+  frame-fuel @ 0> if outcome-full else outcome-exhausted then ;
 : frame-enter ( frames -- ) -1 over frame-fuel +! 1 swap frame-depth +! ;
 : frame-leave ( frames -- ) -1 swap frame-depth +! ;
 \ frame-visit takes a frame the caller found open (frame-open?) and runs
@@ -75,16 +79,16 @@ end-structure
 : frame-visit ( i*x frames -- j*x outcome )
   dup frame-enter dup >r dup frame-visitor @ execute outcome-sane r> frame-leave ;
 : frame-call ( x frames -- result outcome )
-  dup frame-open? 0= if 2drop -1 outcome-exhausted exit then
+  dup frame-open? 0= if frame-shut nip no-result exit then
   dup frame-enter tuck dup frame-visitor @ execute outcome-sane rot frame-leave ;
 : frame-call2 ( x y frames -- outcome )
-  dup frame-open? if frame-visit else drop 2drop outcome-exhausted then ;
+  dup frame-open? if frame-visit else frame-shut nip nip then ;
 
 \ One context level deeper, restored afterwards. A context that cannot
-\ grow is exhausted, visiting nothing.
+\ grow (max-n) is full, visiting nothing.
 : frame-context+! ( n frames -- ) frame-context +! ;
 : frame-under ( x frames -- result outcome )
-  dup frame-context @ max-n = if 2drop -1 outcome-exhausted exit then
+  dup frame-context @ max-n = if 2drop -1 outcome-full exit then
   1 over frame-context+! tuck frame-call rot -1 swap frame-context+! ;
 
 \ A pass: an idle record takes the root's context, then the root is

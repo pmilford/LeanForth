@@ -41,8 +41,8 @@ create lf-mls-job /lf-mlsrec allot
 lf-mls-job /lf-mlsrec erase
 
 \ Fuel left after a call; the signature probe continues with it, and tests
-\ read it. Every helper this module calls reports only ok, invalid or
-\ exhausted, and so does every word here.
+\ read it. Every helper this module calls reports only ok, invalid,
+\ exhausted or full, and so does every word here.
 : lf-mls-fuel ( -- addr ) lf-mls-walker walk-fuel ;
 : lf-mls-formals ( -- addr ) lf-mls-job lf-mlsrec-formals ;
 : lf-mls-count ( -- addr ) lf-mls-job lf-mlsrec-count ;
@@ -106,9 +106,11 @@ lf-mls-job /lf-mlsrec erase
   lf-mls-fuel ! 0 swap lf-lsubst-use lf-mls-audit-from lf-mls-fuel @ swap ;
 
 \ Building, in index order, so children come before parents: each reached
-\ term gets an image, the term itself when nothing under it changes.
+\ term gets an image, the term itself when nothing under it changes. Every
+\ input of a constructor here is live, so a failed allocation means a full
+\ store or a spent serial: full.
 : lf-mls-made ( index identity true | false -- index outcome )
-  if drop outcome-ok else 0 outcome-exhausted then ;
+  if drop outcome-ok else 0 outcome-full then ;
 : lf-mls-failed ( x y outcome -- 0 outcome ) nip nip 0 swap ;
 \ A symbolic Sort over its substituted level.
 : lf-mls-new-sort ( level -- index outcome )
@@ -141,7 +143,7 @@ lf-mls-job /lf-mlsrec erase
   if drop lf-mls-changed? outcome-ok else nip nip false swap then ;
 : lf-mls-new-constant ( slot -- index outcome )
   dup lf-cref-name@ rot lf-crec-arity @ >r lf-mls-args r> lf-cref-new
-  if lf-cterm-new lf-mls-made else 0 outcome-exhausted then ;
+  if lf-cterm-new lf-mls-made else 0 outcome-full then ;
 : lf-mls-rebuild ( node slot -- index outcome )
   dup lf-mls-substituted ok-then? 0= if lf-mls-failed exit then
   if nip lf-mls-new-constant else drop outcome-ok then ;
@@ -154,7 +156,7 @@ lf-mls-job /lf-mlsrec erase
 : lf-mls-binary ( node first second tag -- index outcome )
   >r 2dup lf-mls-kept? if 2drop r> drop outcome-ok exit then
   rot drop lf-mls-images r> lf-term-binary
-  if outcome-ok else 0 outcome-exhausted then ;
+  if outcome-ok else 0 outcome-full then ;
 : lf-mls-image-of ( node first second tag -- index outcome )
   case lf-tag-symbolic-sort of drop lf-mls-sort endof
     lf-tag-constant of lf-mls-constant endof
@@ -204,7 +206,8 @@ lf-mls-job /lf-mlsrec erase
 \ Audit and substitution share fuel; each term/level occurrence consumes fuel,
 \ including repeated replacement validation. Bounded list scans, identity
 \ checks and topological staging are additional bounded work. Status is invalid
-\ for malformed, stale or out-of-scope input, exhausted for resource limits.
+\ for malformed, stale or out-of-scope input, exhausted when the fuel runs
+\ out, and full for a full work stack or store or a spent identity serial.
 : lf-mixed-level-substitute
   ( index id formals actual-pairs count fuel -- index id 0 | status )
   lf-mls-walker walk-budget 0= if 2drop 2drop drop outcome-invalid exit then

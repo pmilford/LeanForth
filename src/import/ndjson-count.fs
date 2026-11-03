@@ -125,7 +125,7 @@ export: counted-export
 \ syntax error, the byte within the line.
 : .outcome ( outcome -- )
   case outcome-invalid of ." invalid" endof
-    outcome-exhausted of ." exhausted (a limit)" endof
+    outcome-full of ." full (a limit)" endof
     outcome-unsupported of ." unsupported" endof
     outcome-unknown of ." unknown" endof
     outcome-rejected of ." rejected" endof

@@ -139,8 +139,8 @@ T{ s\" {\"const\":{\"name\":1,\"us\":0},\"ie\":12}" bad-expr why s" expected a l
 T{ s\" {\"ie\":12,\"letE\":{\"body\":0,\"name\":1,\"nondep\":1,\"type\":0,\"value\":5}}" bad-expr -> outcome-invalid }T
 T{ s\" {\"ie\":12,\"proj\":{\"idx\":2,\"struct\":6,\"typeName\":0}}" bad-expr -> outcome-invalid }T
 T{ s\" {\"ie\":12,\"proj\":{\"idx\":123456789012345678901234567890,\"struct\":6,\"typeName\":1}}" bad-expr
-   why s" natural number too large" compare -> outcome-exhausted 0 }T
-T{ s\" {\"bvar\":123456789012345678901234567890,\"ie\":12}" bad-expr -> outcome-exhausted }T
+   why s" natural number too large" compare -> outcome-full 0 }T
+T{ s\" {\"bvar\":123456789012345678901234567890,\"ie\":12}" bad-expr -> outcome-full }T
 T{ s\" {\"bvar\":-1,\"ie\":12}" bad-expr -> outcome-invalid }T
 T{ s\" {\"bvar\":-0,\"ie\":12}" feed snap bvar-index @ ex export-exprs @ -> outcome-ok 0 13 }T
 : bad-expr13 ( c-addr u -- outcome ) feed ex export-exprs @ 13 <> if drop -9 then ;

@@ -58,8 +58,8 @@ outcome-unknown constant lf-minfer-unknown
 : lf-minfer-context-depth ( -- addr ) lf-minfer-job lf-ijob-binders ;
 
 \ Helpers run on the fuel left and inference continues with what they leave.
-\ They report only ok, invalid or exhausted, and the signature lookup also
-\ unknown; outcome-sane passes any outcome on unchanged (so rejected or
+\ They report only ok, invalid, exhausted or full, and the signature lookup
+\ also unknown; outcome-sane passes any outcome on unchanged (so rejected or
 \ unsupported too, once ADR 0008 step 3 lets helpers return them; still not
 \ ok) and makes anything else invalid. A failed step has no type (-1).
 : lf-minfer-refuel ( fuel-addr -- ) @ lf-minfer-fuel ! ;
@@ -100,13 +100,13 @@ outcome-unknown constant lf-minfer-unknown
 : lf-minfer-instantiate ( body argument -- type status )
   lf-minfer-handles if lf-minfer-substitute else -1 outcome-invalid then ;
 
-\ A stamped symbolic Sort for an allocated level; an allocator failure is
-\ exhaustion and cannot yield a type.
+\ A stamped symbolic Sort for an allocated level; an allocator failure (a
+\ full store or a spent serial) is full and cannot yield a type.
 : lf-minfer-sort ( level -- type status )
   dup lf-level-identity 0= if drop -1 outcome-invalid exit then
-  lf-hterm-sort if drop outcome-ok else -1 outcome-exhausted then ;
+  lf-hterm-sort if drop outcome-ok else -1 outcome-full then ;
 : lf-minfer-sort-type ( level -- type status )
-  lf-level-succ if lf-minfer-sort else -1 outcome-exhausted then ;
+  lf-level-succ if lf-minfer-sort else -1 outcome-full then ;
 
 \ The level of an inferred Sort. Any other type is unknown, not a judgment.
 : lf-minfer-sort-level ( node -- level status )
@@ -155,15 +155,16 @@ defer lf-minfer-walk ( node -- type status )
   lf-minfer-pi-parts if rot lf-minfer-apply else nip lf-minfer-none then ;
 
 \ Binders: the domain's type must be a Sort; the body is inferred with the
-\ domain pushed on the binder context (a full context is exhaustion).
+\ domain pushed on the binder context (a full context is full).
 : lf-minfer-domain ( domain -- level status )
   lf-minfer-walk dup ok? if drop lf-minfer-sort-level then ;
 : lf-minfer-under ( domain body -- type status )
   swap lf-minfer-push if lf-minfer-walk lf-minfer-pop
-  else drop -1 outcome-exhausted then ;
-\ A lambda's type is the Pi of its domain over its body's type.
+  else drop -1 outcome-full then ;
+\ A lambda's type is the Pi of its domain over its body's type; a failed
+\ allocation is full.
 : lf-minfer-lam-type ( domain body-type -- type status )
-  lf-term-pi if outcome-ok else -1 outcome-exhausted then ;
+  lf-term-pi if outcome-ok else -1 outcome-full then ;
 : lf-minfer-lam-body ( domain body -- type status )
   over swap lf-minfer-under lf-minfer-step? if lf-minfer-lam-type then ;
 : lf-minfer-lam ( domain body -- type status )
@@ -173,7 +174,7 @@ defer lf-minfer-walk ( node -- type status )
 : lf-minfer-imax ( u v -- level true | false )
   dup 0= if nip true else lf-level-imax then ;
 : lf-minfer-pi-sort ( u v -- type status )
-  lf-minfer-imax if lf-minfer-sort else -1 outcome-exhausted then ;
+  lf-minfer-imax if lf-minfer-sort else -1 outcome-full then ;
 : lf-minfer-pi-body ( level domain body -- type status )
   lf-minfer-under lf-minfer-step? 0= if exit then
   lf-minfer-sort-level lf-minfer-step? if lf-minfer-pi-sort then ;
@@ -201,14 +202,15 @@ defer lf-minfer-walk ( node -- type status )
   lf-minfer-read if lf-minfer-dispatch else -1 outcome-invalid then ;
 
 \ Each visit costs one unit of fuel and holds one of at most
-\ lf-term-capacity frames; running out of either is exhaustion and spends
-\ nothing.
-: lf-minfer-room? ( -- flag )
-  lf-minfer-fuel @ 0> lf-minfer-depth @ lf-term-capacity < and ;
+\ lf-term-capacity frames. No fuel left is exhausted and no free frame is
+\ full (with neither, the fuel decides); both spend nothing.
+: lf-minfer-room ( -- outcome )
+  lf-minfer-fuel @ 0> 0= if outcome-exhausted exit then
+  lf-minfer-depth @ lf-term-capacity < if outcome-ok else outcome-full then ;
 : lf-minfer-enter ( -- ) -1 lf-minfer-fuel +! 1 lf-minfer-depth +! ;
 : lf-minfer-in-frame ( node -- type status )
-  lf-minfer-room? if lf-minfer-enter lf-minfer-visit -1 lf-minfer-depth +!
-  else drop -1 outcome-exhausted then ;
+  lf-minfer-room ok-then? 0= if no-result exit then
+  lf-minfer-enter lf-minfer-visit -1 lf-minfer-depth +! ;
 ' lf-minfer-in-frame is lf-minfer-walk
 
 \ Preflight before any allocation: the closed root's binder scope, then the

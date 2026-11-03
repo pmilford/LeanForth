@@ -31,7 +31,7 @@
 \ duplicate declaration names, and everything about types.
 \
 \ Outcomes: ok; invalid for malformed input; unsupported for other format,
-\ exporter or Lean versions and for kinds without a handler; exhausted for
+\ exporter or Lean versions and for kinds without a handler; full for
 \ a limit (a line past the reader's limit, nesting past the JSON depth
 \ limit, a natural number field beyond a cell, no heap). export-error
 \ reports the line, the field and the reason. Strings, digits and list
@@ -152,7 +152,7 @@ end-structure
 
 \ Failure: remember why, and give the outcome.
 : export-bad ( export c-addr -- outcome ) swap export-why ! outcome-invalid ;
-: export-over ( export c-addr -- outcome ) swap export-why ! outcome-exhausted ;
+: export-over ( export c-addr -- outcome ) swap export-why ! outcome-full ;
 : export-refuse ( export c-addr -- outcome ) swap export-why ! outcome-unsupported ;
 
 \ Tables of named entries: the fields of an object, the kinds of a record
@@ -633,7 +633,7 @@ create families expr-family , name-family , level-family ,   \ most frequent fir
   over 1+ over export-bytes ! dup >r export-parse
   dup ok? if drop r@ export-dispatch then r> drop ;
 : export-reader-failed ( outcome export -- outcome )
-  over outcome-exhausted = if c" line too long, or no memory" else
+  over outcome-full = if c" line too long, or no memory" else
   c" missing final line feed, or a read error" then swap export-why ! ;
 \ Read, check and hand over the next line; export-at is its number.
 : export-next ( export -- outcome )
