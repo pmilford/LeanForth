@@ -2,11 +2,12 @@
 \ of the six example words, every diagnostic with its location, the
 \ capacities, ASCII case folding, refused characters, names and numbers,
 \ independence from the caller's BASE, STATE and search order, that no
-\ source token is ever executed, and a reader stopped until it starts in
-\ every context. Gforth itself also loads every source the reader accepts
-\ here, and must neither throw nor keep values; files with every kind of
-\ line end are tested by ir_reader_files.py. Run from the repository
-\ root, like every test file.
+\ source token is ever executed, an output word that throws or uses the
+\ reader, read errors, the end of a read, and a reader stopped until it
+\ starts in every context. Gforth itself also loads every source the
+\ reader accepts here, and must neither throw nor keep values; files with
+\ every kind of line end are tested by ir_reader_files.py. Run from the
+\ repository root, like every test file.
 include ../support/tester.fs
 
 \ Gforth loading a file the reader accepted, with the host's own words,
@@ -16,14 +17,21 @@ include ../support/tester.fs
 : host-file ( -- ) host-path 2@ r/o open-file throw include-file ;
 
 \ Files opened and closed, counted to show that the reader closes a file
-\ even when its output word throws. The reader, compiled after these two
-\ words, calls them instead of the host's (Gforth's redefinition warnings
-\ are turned off around them).
+\ even when its output word throws, and the reads of the file opened last.
+\ A read after the 64th of one file fails, as a read error would, so that
+\ a file that never ends cannot hang these tests. The reader, compiled
+\ after these three words, calls them instead of the host's (Gforth's
+\ redefinition warnings are turned off around them).
 variable opened
 variable closed
+variable reads
+64 constant reads-max
 [defined] warnings [if] warnings @ false warnings ! [then]
-: open-file ( c-addr u fam -- fileid ior ) open-file dup 0= if 1 opened +! then ;
+: open-file ( c-addr u fam -- fileid ior )
+  open-file dup 0= if 1 opened +! 0 reads ! then ;
 : close-file ( fileid -- ior ) 1 closed +! close-file ;
+: read-file ( c-addr u fileid -- u2 ior )
+  1 reads +! reads @ reads-max > if drop 2drop 0 -1 else read-file then ;
 [defined] warnings [if] warnings ! [then]
 : open-files ( -- n ) opened @ closed @ - ;
 require ../../src/program/ir-reader.fs
@@ -190,6 +198,8 @@ T{ start s" 1" feed s" : f ;" feed verdict
    -> outcome-unsupported ir-why-left-over 2 1 }T
 T{ start s" 1 2" feed verdict -> outcome-unsupported ir-why-left-over 1 0 }T
 T{ start s" if" feed verdict -> outcome-unsupported ir-why-outside 1 1 }T
+T{ start s" ;" feed verdict -> outcome-unsupported ir-why-outside 1 1 }T
+T{ start s" exit" feed verdict -> outcome-unsupported ir-why-outside 1 1 }T
 T{ start s" : f ; f" feed verdict -> outcome-unsupported ir-why-outside 1 7 }T
 T{ start s" : f decimal ;" feed verdict -> outcome-unsupported ir-why-inside 1 5 }T
 T{ start s" : f 1 constant x ;" feed verdict -> outcome-unsupported ir-why-inside 1 7 }T
@@ -451,13 +461,63 @@ wordlist constant no-words
   get-order no-words 1 set-order start s" : f dup ;" feed set-order ;
 T{ feed-without-words verdict -> outcome-ok ir-why-none 1 0 }T
 
-\ A file is closed even when the output word throws; the exception passes on.
+\ When the output word throws, the exception passes on, a file being read
+\ is closed, and the read stops as invalid, from the header on.
 variable lines-left
 : refuse-third ( c-addr u -- ) 2drop -1 lines-left +! lines-left @ 0= if 7 throw then ;
-: read-refusing ( -- code )
-  3 lines-left ! ['] refuse-third s" src/program/clamp.fs" ['] lf-ir-read-file catch
-  >r 2drop drop r> ;
-T{ open-files read-refusing open-files -> 0 7 0 }T
+: boom ( c-addr u -- ) 2drop 99 throw ;
+\ Drop the three cells CATCH restored below the code thrown.
+: thrown ( x1 x2 x3 code -- code ) >r 2drop drop r> ;
+\ The code the output word xt threw while clamp.fs was read, or while a
+\ read started; were nothing thrown, the outcome (none when starting) and 0.
+: read-catching ( xt -- code )
+  s" src/program/clamp.fs" ['] lf-ir-read-file catch dup if thrown then ;
+: start-catching ( xt -- code ) s" t.fs" ['] lf-ir-start catch dup if thrown then ;
+T{ 3 lines-left ! open-files ' refuse-third read-catching open-files -> 0 7 0 }T
+T{ lf-ir-finish lf-ir-reason -> outcome-invalid ir-why-output }T
+T{ ' boom read-catching lf-ir-finish lf-ir-reason open-files
+   -> 99 outcome-invalid ir-why-output 0 }T
+T{ ' boom start-catching s" : f ;" lf-ir-feed lf-ir-finish lf-ir-reason
+   -> 99 outcome-invalid ir-why-output }T
+
+\ While the output word runs, the reader is stopped as "output word
+\ running"; asking why does not change it.
+variable seen
+: note-reason ( c-addr u -- ) 2drop lf-ir-reason seen ! ;
+T{ ' note-reason s" t.fs" start-reader seen @ lf-ir-finish -> ir-why-running outcome-ok }T
+\ The output word must not use the reader. Given its first "end", each
+\ word below feeds a line, finishes, starts another read, or starts one
+\ whose output word throws and catches that. Each fails the read, and the
+\ line being read is neither overwritten nor read further.
+variable used
+: at-first-end ( c-addr u -- flag )
+  2dup transcribe s" end" search nip nip used @ 0= and dup if true used ! then ;
+: feed-at-end ( c-addr u -- ) at-first-end if s" 1 ;" lf-ir-feed then ;
+: finish-at-end ( c-addr u -- ) at-first-end if lf-ir-finish drop then ;
+: start-at-end ( c-addr u -- ) at-first-end if ['] 2drop s" u.fs" lf-ir-start then ;
+: catch-at-end ( c-addr u -- )
+  at-first-end if 1 lines-left ! ['] refuse-third start-catching drop then ;
+: read-using ( xt -- outcome reason line column )
+  0 transcript# ! false used ! s" t.fs" start-reader
+  s" : f 7 ;  : g f f + ;" feed verdict ;
+: transcript-tail ( n -- c-addr u ) transcript-text rot /string ;
+T{ ' feed-at-end read-using -> outcome-invalid ir-why-output 1 7 }T
+T{ transcript-text 47 min s" lf-ir 0.1|source t.fs|word f @1:1|  lit 7 @1:5|" compare
+   47 transcript-tail s" end @1:7|invalid @1:7: output word failed: ;|" compare -> 0 0 }T
+T{ ' finish-at-end read-using -> outcome-invalid ir-why-output 1 7 }T
+T{ ' start-at-end read-using -> outcome-invalid ir-why-output 0 0 }T
+T{ ' catch-at-end read-using -> outcome-invalid ir-why-output 0 0 }T
+
+\ lf-ir-finish ends a read: finishing again gives the same outcome, and a
+\ line fed afterwards stops the reader and is not written about.
+T{ start s" : f 1 ;" feed lf-ir-finish lf-ir-finish -> outcome-ok outcome-ok }T
+T{ s" : g f ;" lf-ir-feed lf-ir-finish lf-ir-reason lf-ir-where
+   -> outcome-invalid ir-why-finished 1 0 }T
+T{ written s" end @1:7" compare -> 0 }T
+T{ ' keep-last s" src/program/clamp.fs" lf-ir-read-file s" : g ;" lf-ir-feed
+   lf-ir-finish lf-ir-reason -> outcome-ok outcome-invalid ir-why-finished }T
+T{ start s" : f" feed lf-ir-finish s" ;" lf-ir-feed lf-ir-finish lf-ir-reason
+   -> outcome-invalid outcome-invalid ir-why-unclosed }T
 
 \ Capacities: nesting, definitions, kept tokens, line length, path length.
 : open-ifs ( n -- ) 0 ?do s" if" feed loop ;
@@ -482,9 +542,21 @@ create long-text 200 chars allot  long-text 200 bl fill
 T{ start long-text 127 feed verdict -> outcome-ok ir-why-none 1 0 }T
 T{ start long-text 128 feed verdict -> outcome-invalid ir-why-unreadable 1 0 }T
 T{ start long-text 200 feed verdict -> outcome-invalid ir-why-unreadable 1 0 }T
+\ A fed line's length is unsigned: -1 is too long, so the line is cut to
+\ the line buffer and refused, not read past its end.
+T{ start s" : f ;" drop -1 lf-ir-feed verdict -> outcome-invalid ir-why-unreadable 1 0 }T
 T{ ' keep-last s" tests/program/no-such-file.fs" lf-ir-read-file lf-ir-reason
    -> outcome-invalid ir-why-unreadable }T
 T{ written s" invalid @0:0: file not readable or line too long" compare -> 0 }T
+\ A directory opens but cannot be read: the read error stops the reader,
+\ and the directory is closed.
+T{ -1 reads ! ' keep-last s" src" lf-ir-read-file lf-ir-reason lf-ir-where
+   reads @ open-files -> outcome-invalid ir-why-unreadable 0 0 1 0 }T
+T{ written s" invalid @0:0: file not readable or line too long" compare -> 0 }T
+\ A line is refused as soon as it is too long even without a CR, so a file
+\ without LF is not read to its end: /dev/zero is refused after two blocks.
+T{ ' keep-last s" /dev/zero" lf-ir-read-file lf-ir-reason lf-ir-where reads @ open-files
+   -> outcome-invalid ir-why-unreadable 1 0 2 0 }T
 create long-path 100 chars allot  long-path 100 char a fill
 T{ ' keep-last long-path 89 start-reader verdict -> outcome-ok ir-why-none 0 0 }T
 T{ ' keep-last long-path 90 lf-ir-read-file lf-ir-reason lf-ir-where open-files
