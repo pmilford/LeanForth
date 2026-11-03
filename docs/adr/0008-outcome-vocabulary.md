@@ -77,21 +77,47 @@ truth value, because 0 means success for a status but false for a flag.
 `outcome-full` (6) is in `src/lib/outcome.fs`, and `outcome?` and
 `outcome-sane` accept 0 to 6. Every place that reported *exhausted* was
 classified: running out of the fuel budget stays *exhausted*; reaching a
-store, stack, frame, depth, binder or cell-size limit is now *full*. When
-a visit finds both no fuel and no free frame (or depth), the fuel decides
-and the outcome is *exhausted*. Module aliases such as
-`lf-mshift-exhausted` keep meaning *exhausted*; no `lf-*-full` alias was
-needed. No typing or conversion rule changed: only the number reported for
-a room failure, which was never accepted before and is not now.
+store, stack, frame, depth, binder or cell-size limit is now *full*. No
+typing or conversion rule changed: only the number reported for a room
+failure, which was never accepted before and is not now.
+
+**Which limit decides.** Where a visit is admitted against both fuel and
+room (a frame, a depth limit, or a context level), the fuel decides: with
+no fuel left the outcome is *exhausted* whatever the room, and only with
+fuel left does missing room give *full*. One word states this rule,
+`visit-outcome ( fuel room? -- outcome )` in `outcome.fs`, used by
+`frame-room` (and through it `frame-call`, `frame-call2` and
+`frame-under`), `lf-lvalue-room`, `lf-lcmp-room` and `lf-minfer-room`.
+
+The exception, by design: limits that are checked where the work happens
+inside a visit that has already been paid for are checked independently of
+fuel. A work-stack push (`walk-push-outcome`, `walk-push2`,
+`walk-pair-outcome`, `walk-children-at`), a binder depth at `max-n` in
+`lf-cts-binary` and `lf-rebuild-binary` (`lf-rebuild-stuck?`), and
+mixed-infer's binder context (`lf-minfer-under`) report *full* even when
+the visit in progress took the last unit of fuel. Moving those checks
+behind a fuel check would mean charging or testing fuel for work that is
+not a visit; tests pin the behaviour (`tests/lib/lib.fs`,
+`tests/core/mixed-shift.fs`, `constant-term-scope.fs`, `mixed-infer.fs`).
+
+**Corrupted records are invalid.** A frames record whose limit is below 1
+(`frame-init` never makes one) and a walk whose root cannot be pushed
+(`walk-start` empties the stack and every walk record holds at least one
+item, so only a corrupted capacity) report *invalid*, before fuel or room
+is considered.
+
+The per-module status aliases (`lf-mshift-exhausted`, `lf-repr-ok`,
+`lf-mcompare-equal` and the rest, 49 constants in 14 modules) are gone:
+the tests use the shared `outcome-*` names, so there is one vocabulary.
 
 | Module | Word | Cause | Outcome |
 | --- | --- | --- | --- |
 | `lib/walk.fs` | `walk-step` | no fuel left | exhausted |
-| `lib/walk.fs` | `walk-push-outcome`, `walk-push2`, `walk-pair-outcome`, `walk-children-at` | work stack has no room | full |
-| `lib/walk.fs` | `walk-run`, `walk-run-pair` | root cannot be pushed (corrupted capacity) | full |
-| `lib/frame.fs` | `frame-call`, `frame-call2` (`frame-shut`) | no fuel left / every frame in use | exhausted / full |
-| `lib/frame.fs` | `frame-under` | context at `max-n` cannot grow | full |
-| `core/constant-term-scope.fs` | `lf-cts-binary` | binder depth at `max-n` | full |
+| `lib/walk.fs` | `walk-push-outcome`, `walk-push2`, `walk-pair-outcome`, `walk-children-at` | work stack has no room (whatever fuel is left) | full |
+| `lib/walk.fs` | `walk-run`, `walk-run-pair` | root cannot be pushed (corrupted capacity) | invalid |
+| `lib/frame.fs` | `frame-call`, `frame-call2` (`frame-room`) | limit below 1 / no fuel left / every frame in use | invalid / exhausted / full |
+| `lib/frame.fs` | `frame-under` (`frame-deeper`) | as `frame-room`, then context at `max-n` cannot grow | as `frame-room` / full |
+| `core/constant-term-scope.fs` | `lf-cts-binary` | binder depth at `max-n` (whatever fuel is left) | full |
 | `kernel/level-value.fs` | `lf-lvalue-room` (`lf-lvalue-enter`) | no fuel / `lf-lvalue-depth-limit` | exhausted / full |
 | `kernel/level-value.fs` | `lf-lvalue-succ+` | successor of `max-n` | full |
 | `kernel/level-compare.fs` | `lf-lcmp-room` (`lf-lcmp-enter`) | no fuel / `lf-lcmp-depth-limit` | exhausted / full |
@@ -99,12 +125,12 @@ a room failure, which was never accepted before and is not now.
 | `kernel/level-substitute.fs` | `lf-lsubst-stage` | level store has no room for a staged node | full |
 | `kernel/level-substitute.fs` | `lf-lsubst-plan` | level identity serial would run out | full |
 | `kernel/mixed-rebuild.fs` | `lf-rebuild-allocated` | term store full or its serial spent | full |
-| `kernel/mixed-rebuild.fs` | `lf-rebuild-binary` | binder context at `max-n` | full |
+| `kernel/mixed-rebuild.fs` | `lf-rebuild-binary` | binder context at `max-n` (whatever fuel is left) | full |
 | `kernel/mixed-shift.fs` | `lf-mshift-up` | index plus amount past `max-n` | full |
 | `kernel/mixed-compare.fs` | `lf-mcompare-children` | work stack has no room | full |
 | `kernel/mixed-compare.fs` | `lf-mcompare-names` | no fuel | exhausted |
 | `kernel/mixed-infer.fs` | `lf-minfer-sort`, `lf-minfer-sort-type`, `lf-minfer-lam-type`, `lf-minfer-pi-sort` | term or level allocation fails (store full or serial spent) | full |
-| `kernel/mixed-infer.fs` | `lf-minfer-under` | binder context full | full |
+| `kernel/mixed-infer.fs` | `lf-minfer-under` | binder context full (whatever fuel is left) | full |
 | `kernel/mixed-infer.fs` | `lf-minfer-room` (`lf-minfer-in-frame`) | no fuel / every frame in use | exhausted / full |
 | `kernel/mixed-level-substitute.fs` | `lf-mls-made`, `lf-mls-new-constant`, `lf-mls-binary` | term or reference allocation fails (store full or serial spent) | full |
 | `kernel/mixed-signature-audit.fs` | `lf-msa-run` | zero fuel | exhausted |

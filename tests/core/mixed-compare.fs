@@ -43,36 +43,36 @@ name-x @ 0 ref-term
 0 h 8 h lf-hterm-pi save
 1 h 9 h lf-hterm-pi save ;
 setup
-T{ 0 h 1 h 1000 lf-mixed-compare -> lf-mcompare-equal }T
-T{ 0 h 2 h 1000 lf-mixed-compare -> lf-mcompare-unknown }T
-T{ 0 h 3 h 1000 lf-mixed-compare -> lf-mcompare-unknown }T
-T{ 4 h 5 h 1000 lf-mixed-compare -> lf-mcompare-equal }T
-T{ 0 h 4 h 1000 lf-mixed-compare -> lf-mcompare-unknown }T
-T{ 6 h 7 h 1000 lf-mixed-compare -> lf-mcompare-equal }T
-T{ 8 h 9 h 1000 lf-mixed-compare -> lf-mcompare-unknown }T
-T{ 10 h 11 h 1000 lf-mixed-compare -> lf-mcompare-equal }T
-T{ 12 h 13 h 1000 lf-mixed-compare -> lf-mcompare-equal }T
-T{ 14 h 15 h 1000 lf-mixed-compare -> lf-mcompare-unknown }T
-T{ 10 h 12 h 1000 lf-mixed-compare -> lf-mcompare-unknown }T
+T{ 0 h 1 h 1000 lf-mixed-compare -> outcome-ok }T
+T{ 0 h 2 h 1000 lf-mixed-compare -> outcome-unknown }T
+T{ 0 h 3 h 1000 lf-mixed-compare -> outcome-unknown }T
+T{ 4 h 5 h 1000 lf-mixed-compare -> outcome-ok }T
+T{ 0 h 4 h 1000 lf-mixed-compare -> outcome-unknown }T
+T{ 6 h 7 h 1000 lf-mixed-compare -> outcome-ok }T
+T{ 8 h 9 h 1000 lf-mixed-compare -> outcome-unknown }T
+T{ 10 h 11 h 1000 lf-mixed-compare -> outcome-ok }T
+T{ 12 h 13 h 1000 lf-mixed-compare -> outcome-ok }T
+T{ 14 h 15 h 1000 lf-mixed-compare -> outcome-unknown }T
+T{ 10 h 12 h 1000 lf-mixed-compare -> outcome-unknown }T
 \ Fuel left, pinned against the previous implementation: each audit visit
 \ and each term, level and name-component comparison costs one unit; the
 \ arity check costs nothing.
 : compare-fuel ( a aid b bid -- status fuel )
   1000 ['] lf-mixed-compare rs-checked lf-mcompare-fuel @ ;
-T{ 0 h 1 h compare-fuel -> lf-mcompare-equal 992 }T
-T{ 4 h 5 h compare-fuel -> lf-mcompare-equal 989 }T
-T{ 12 h 13 h compare-fuel -> lf-mcompare-equal 986 }T
-T{ 14 h 15 h compare-fuel -> lf-mcompare-unknown 986 }T
-T{ 0 h 2 h compare-fuel -> lf-mcompare-unknown 994 }T
-T{ 0 h 3 h compare-fuel -> lf-mcompare-unknown 996 }T
+T{ 0 h 1 h compare-fuel -> outcome-ok 992 }T
+T{ 4 h 5 h compare-fuel -> outcome-ok 989 }T
+T{ 12 h 13 h compare-fuel -> outcome-ok 986 }T
+T{ 14 h 15 h compare-fuel -> outcome-unknown 986 }T
+T{ 0 h 2 h compare-fuel -> outcome-unknown 994 }T
+T{ 0 h 3 h compare-fuel -> outcome-unknown 996 }T
 \ Same numeric component is equal only when the structured prefix agrees.
 : numeric-fixtures ( -- )
   0 10 lf-name-num 0= abort" numeric name" num-root !
   name-x @ 10 lf-name-num 0= abort" numeric child" num-child !
   num-root @ 0 ref-term num-root @ 0 ref-term num-child @ 0 ref-term ;
 numeric-fixtures
-T{ 16 h 17 h 1000 lf-mixed-compare -> lf-mcompare-equal }T
-T{ 16 h 18 h 1000 lf-mixed-compare -> lf-mcompare-unknown }T
+T{ 16 h 17 h 1000 lf-mixed-compare -> outcome-ok }T
+T{ 16 h 18 h 1000 lf-mixed-compare -> outcome-unknown }T
 \ Ordered universe arguments are part of a constant's syntax.
 : ordered-fixtures ( -- )
   0 args ! 0 lf-level-identity 0= abort" zero" args cell+ !
@@ -82,32 +82,32 @@ T{ 16 h 18 h 1000 lf-mixed-compare -> lf-mcompare-unknown }T
   0 args 2 cells + ! 0 lf-level-identity 0= abort" zero" args 3 cells + !
   name-x @ 2 ref-term ;
 ordered-fixtures
-T{ 19 h 20 h 1000 lf-mixed-compare -> lf-mcompare-equal }T
-T{ 19 h 21 h 1000 lf-mixed-compare -> lf-mcompare-unknown }T
+T{ 19 h 20 h 1000 lf-mixed-compare -> outcome-ok }T
+T{ 19 h 21 h 1000 lf-mixed-compare -> outcome-unknown }T
 \ Two variable audits and one comparison visit require exactly three units.
-T{ 8 h 8 h 2 lf-mixed-compare -> lf-mcompare-exhausted }T
-T{ 8 h 8 h 3 lf-mixed-compare -> lf-mcompare-equal }T
+T{ 8 h 8 h 2 lf-mixed-compare -> outcome-exhausted }T
+T{ 8 h 8 h 3 lf-mixed-compare -> outcome-ok }T
 T{ lf-mcompare-fuel @ -> 0 }T
-T{ 0 h 0 h -1 lf-mixed-compare -> lf-mcompare-invalid }T
-T{ 0 h 0 h 0 lf-mixed-compare -> lf-mcompare-exhausted }T
-T{ 0 h 1 0 1000 lf-mixed-compare -> lf-mcompare-invalid }T
+T{ 0 h 0 h -1 lf-mixed-compare -> outcome-invalid }T
+T{ 0 h 0 h 0 lf-mixed-compare -> outcome-exhausted }T
+T{ 0 h 1 0 1000 lf-mixed-compare -> outcome-invalid }T
 \ Corruption beneath a mismatched root must still be audited on either side.
 0 0 lf-cterm-stamp-cell !
-T{ 8 h 10 h 1000 lf-mixed-compare -> lf-mcompare-invalid }T
-T{ 10 h 8 h 1000 lf-mixed-compare -> lf-mcompare-invalid }T
+T{ 8 h 10 h 1000 lf-mixed-compare -> outcome-invalid }T
+T{ 10 h 8 h 1000 lf-mixed-compare -> outcome-invalid }T
 \ Names compare one component per unit of the given walk's fuel, down to the
 \ anonymous root; the walk's work stack is not used.
 4 walk2: name-walk
 : names ( a b fuel -- outcome fuel' )
   name-walk walk-fuel ! name-walk ['] lf-mcompare-names rs-checked name-walk walk-fuel @ ;
-T{ name-x @ name-x @ 5 names -> lf-mcompare-equal 3 }T
-T{ 0 0 5 names -> lf-mcompare-equal 4 }T
-T{ name-x @ name-y @ 5 names -> lf-mcompare-unknown 4 }T
-T{ name-x @ 0 5 names -> lf-mcompare-unknown 4 }T
-T{ num-root @ num-child @ 5 names -> lf-mcompare-unknown 3 }T
-T{ num-child @ num-child @ 3 names -> lf-mcompare-equal 0 }T
-T{ num-child @ num-child @ 2 names -> lf-mcompare-exhausted 0 }T
-T{ 0 0 0 names -> lf-mcompare-exhausted 0 }T
+T{ name-x @ name-x @ 5 names -> outcome-ok 3 }T
+T{ 0 0 5 names -> outcome-ok 4 }T
+T{ name-x @ name-y @ 5 names -> outcome-unknown 4 }T
+T{ name-x @ 0 5 names -> outcome-unknown 4 }T
+T{ num-root @ num-child @ 5 names -> outcome-unknown 3 }T
+T{ num-child @ num-child @ 3 names -> outcome-ok 0 }T
+T{ num-child @ num-child @ 2 names -> outcome-exhausted 0 }T
+T{ 0 0 0 names -> outcome-exhausted 0 }T
 T{ name-walk walk-pending @ -> 0 }T
 \ Guard paths that the audits make unreachable from lf-mixed-compare: a
 \ full work stack is full (with one pair of room left, the second push is

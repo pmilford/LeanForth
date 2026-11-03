@@ -13,9 +13,6 @@ require ../core/tagged-sort-boundary.fs
 require ../core/terms.fs
 require ./mixed-rebuild.fs
 
-outcome-ok constant lf-mshift-ok
-outcome-invalid constant lf-mshift-invalid
-outcome-exhausted constant lf-mshift-exhausted
 max-n constant lf-mshift-max
 
 begin-structure /lf-shiftjob
@@ -64,12 +61,12 @@ lf-mshift-job lf-mshift-frames frame-job !
 
 \ Shift a live mixed root. Validation and traversal share fuel; invalid
 \ input, running out of fuel (exhausted) and running out of room (full) are
-\ distinct. On failure discard appended nodes,
-\ but never rewind allocation serials. Negative fuel is invalid and leaves
-\ lf-mshift-fuel unchanged; a negative cutoff or amount is invalid; a failed
-\ audit leaves fuel at zero. Leaf constants and symbolic sorts are reused
-\ with their original stamps. A zero shift returns the audited root without
-\ allocating or traversing it.
+\ distinct. On failure discard appended nodes, but never rewind allocation
+\ serials. Negative fuel is invalid and leaves lf-mshift-fuel unchanged; a
+\ negative cutoff or amount is invalid; a failed audit leaves fuel at zero.
+\ Leaf constants and symbolic sorts are reused with their original stamps.
+\ A zero shift returns the audited root without allocating or traversing
+\ it.
 : lf-mshift-refuse ( index identity cutoff amount -- -1 0 status )
   2drop 2drop outcome-invalid lf-rebuild-none ;
 : lf-mshift-args? ( cutoff amount -- flag ) 0< swap 0< or 0= ;

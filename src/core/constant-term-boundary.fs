@@ -77,7 +77,8 @@ lf-term-capacity walk: lf-cterm-walker
 \ structural evidence only. The outcome is always ok, invalid, exhausted or
 \ full, never another one: the kernel's rebuilding passes (mixed-rebuild.fs)
 \ pass it on without narrowing, and tests/core/constant-term-boundary.fs
-\ pins it.
+\ pins that set. Full cannot occur with today's capacities: children come
+\ earlier, so a work stack never holds more items than its store has nodes.
 : lf-cterm-run ( root -- status ) ['] lf-cterm-visit lf-cterm-walker walk-run ;
 : lf-cterm-check ( index identity fuel -- status )
   lf-cterm-walker walk-budget 0= if 2drop outcome-invalid exit then

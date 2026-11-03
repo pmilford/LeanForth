@@ -61,7 +61,7 @@ variable level-stream-second
   loop
   level-stream-byte 1 stdin read-file throw 0<> if -1 throw then
   lf-level-count @ level-stream-count @ <> if -1 throw then
-  level-stream-count @ 1- 10000 lf-lscope-check lf-lscope-ok <> if -1 throw then
+  level-stream-count @ 1- 10000 lf-lscope-check outcome-ok <> if -1 throw then
   level-stream-count @ 0 do
     i . i lf-level-read 0= if -1 throw then
     >r >r . r> . r> . cr

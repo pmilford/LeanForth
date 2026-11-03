@@ -56,21 +56,21 @@ lf-cref-count @ constant initial-crefs
 lf-term-serial @ constant pre-term-serial
 lf-level-serial @ constant pre-level-serial
 lf-cref-serial @ constant pre-cref-serial
-T{ 1 500 put-candidate -> lf-msp-invalid }T
+T{ 1 500 put-candidate -> outcome-invalid }T
 T{ lf-term-serial @ lf-level-serial @ lf-cref-serial @ -> pre-term-serial pre-level-serial pre-cref-serial }T
 T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> initial-terms initial-levels initial-crefs }T
-T{ 2 0 put-candidate -> lf-msp-exhausted }T
-T{ 2 500 put-candidate -> lf-msp-ok }T
+T{ 2 0 put-candidate -> outcome-exhausted }T
+T{ 2 500 put-candidate -> outcome-ok }T
 T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> initial-terms initial-levels initial-crefs }T
-T{ 2 500 put-candidate -> lf-msp-invalid }T
-T{ 1 500 specialize -> lf-msp-invalid }T
-T{ 3 500 specialize -> lf-msp-invalid }T
-T{ 2 0 specialize -> lf-msp-exhausted }T
-T{ token second actuals 2 500 lf-msp-specialize -> lf-msp-unknown }T
-T{ token 1+ candidate actuals 2 500 lf-msp-specialize -> lf-msp-invalid }T
+T{ 2 500 put-candidate -> outcome-invalid }T
+T{ 1 500 specialize -> outcome-invalid }T
+T{ 3 500 specialize -> outcome-invalid }T
+T{ 2 0 specialize -> outcome-exhausted }T
+T{ token second actuals 2 500 lf-msp-specialize -> outcome-unknown }T
+T{ token 1+ candidate actuals 2 500 lf-msp-specialize -> outcome-invalid }T
 \ Formal IDs are copied. The nested repeated constants and sort all specialize.
 99 formals ! 99 formals cell+ !
-T{ 2 500 specialize -> 7 lf-term-serial @ lf-msp-ok }T
+T{ 2 500 specialize -> 7 lf-term-serial @ outcome-ok }T
 T{ 7 lf-term-read -> lf-tag-app 6 5 true }T
 T{ 6 lf-term-read -> lf-tag-app 4 4 true }T
 T{ 4 lf-term-read -> lf-tag-constant 1 lf-cref-serial @ true }T
@@ -78,18 +78,18 @@ T{ 1 lf-cref-serial @ 0 lf-cref-level -> 5 lf-level-serial @ true }T
 T{ 5 lf-level-read -> lf-level-tag-max 2 3 true }T
 actuals cell+ @ constant good-id
 good-id 1+ actuals cell+ !
-T{ 2 500 specialize -> lf-msp-invalid }T
+T{ 2 500 specialize -> outcome-invalid }T
 good-id actuals cell+ !
 \ lf-msp-specialize-fuel gives the same result and status, and on success
 \ also the fuel the substitution left, which mixed-infer continues with.
 lf-term-count @ constant spec-terms
 T{ token candidate actuals 2 500 lf-msp-specialize-fuel rot drop
-   -> spec-terms 3 + 459 lf-msp-ok }T
+   -> spec-terms 3 + 459 outcome-ok }T
 T{ token candidate actuals 2 500 lf-msp-specialize-fuel 2swap 2drop
-   -> lf-mls-fuel @ lf-msp-ok }T
-T{ token second actuals 2 500 lf-msp-specialize-fuel -> lf-msp-unknown }T
-T{ token candidate actuals 2 0 lf-msp-specialize-fuel -> lf-msp-exhausted }T
-T{ token candidate actuals 2 -1 lf-msp-specialize-fuel -> lf-msp-invalid }T
+   -> lf-mls-fuel @ outcome-ok }T
+T{ token second actuals 2 500 lf-msp-specialize-fuel -> outcome-unknown }T
+T{ token candidate actuals 2 0 lf-msp-specialize-fuel -> outcome-exhausted }T
+T{ token candidate actuals 2 -1 lf-msp-specialize-fuel -> outcome-invalid }T
 \ Repeated low budgets cover preaudit and partial allocation; every failed
 \ result must restore all three counts while serials may advance.
 variable saw-allocation variable sfuel
@@ -98,12 +98,12 @@ variable saw-allocation variable sfuel
   500 0 do
     i sfuel ! lf-term-count @ >r lf-level-count @ >r lf-cref-count @ >r
     lf-level-serial @ >r
-    2 sfuel @ specialize dup lf-msp-exhausted = if
+    2 sfuel @ specialize dup outcome-exhausted = if
       drop lf-level-serial @ r> > if true saw-allocation ! then
       lf-cref-count @ r> <> lf-level-count @ r> <> or
       lf-term-count @ r> <> or if false unloop exit then
     else
-      lf-msp-ok <> if r> drop r> drop r> drop r> drop false unloop exit then
+      outcome-ok <> if r> drop r> drop r> drop r> drop false unloop exit then
       2drop r> drop r> drop r> drop r> drop
       saw-allocation @ unloop exit
     then
@@ -112,13 +112,13 @@ T{ sweep -> true }T
 \ This source uses only parameter 11, so the second formal would be unused;
 \ rejection must come from the malformed formal, not missing coverage.
 11 formals ! 11 formals cell+ !
-T{ token second result @ result-id @ formals 2 500 lf-msp-put -> lf-msp-invalid }T
+T{ token second result @ result-id @ formals 2 500 lf-msp-put -> outcome-invalid }T
 0 formals cell+ !
-T{ token second result @ result-id @ formals 2 500 lf-msp-put -> lf-msp-invalid }T
+T{ token second result @ result-id @ formals 2 500 lf-msp-put -> outcome-invalid }T
 T{ lf-msp-count @ -> 1 }T
 22 formals cell+ !
 s" control" new-name constant control
-T{ token control result @ result-id @ formals 2 500 lf-msp-put -> lf-msp-ok }T
+T{ token control result @ result-id @ formals 2 500 lf-msp-put -> outcome-ok }T
 T{ lf-msp-count @ -> 2 }T
 \ Force insertion coverage to fail after allocating a level and a cref: the
 \ term serial runs out, which is full, not exhausted.
@@ -137,15 +137,15 @@ T{ lf-msp-count @ -> 2 }T
 lf-cref-reset
 : reuse-ref 0 lf-name-generation @ 0 0 lf-cref-new 0= abort" cref" 2drop ;
 reuse-ref
-T{ 2 500 specialize -> lf-msp-invalid }T
+T{ 2 500 specialize -> outcome-invalid }T
 T{ lf-msp-begin -> true }T
-T{ 2 500 specialize -> lf-msp-invalid }T
+T{ 2 500 specialize -> outcome-invalid }T
 lf-msp-token drop constant token2
 lf-name-reset
-T{ token2 second actuals 2 500 lf-msp-specialize -> lf-msp-invalid }T
+T{ token2 second actuals 2 500 lf-msp-specialize -> outcome-invalid }T
 \ The statuses are the shared outcomes, with their established values.
-T{ lf-msp-ok lf-msp-invalid lf-msp-exhausted lf-msp-unknown -> 0 1 2 3 }T
-T{ lf-msp-ok lf-msp-invalid lf-msp-exhausted lf-msp-unknown
+T{ outcome-ok outcome-invalid outcome-exhausted outcome-unknown -> 0 1 2 3 }T
+T{ outcome-ok outcome-invalid outcome-exhausted outcome-unknown
    -> outcome-ok outcome-invalid outcome-exhausted outcome-unknown }T
 \ The lifetime generation saturates: the last begin before the limit
 \ succeeds, the next poisons the generation to -1, and it stays there.

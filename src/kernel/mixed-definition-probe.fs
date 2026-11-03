@@ -16,11 +16,6 @@ require ../core/terms.fs
 require ./mixed-infer.fs
 require ./mixed-signature-audit.fs
 
-outcome-ok constant lf-mdefinition-ok
-outcome-invalid constant lf-mdefinition-invalid
-outcome-exhausted constant lf-mdefinition-exhausted
-outcome-unknown constant lf-mdefinition-unknown
-
 begin-structure /lf-mdreq
   field: lf-mdreq-token     \ signature index token
   field: lf-mdreq-claim-root  \ claimed type: root and identity

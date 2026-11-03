@@ -43,14 +43,14 @@ variable result-root
   endcase
   6 dup lf-term-identity 0= if -1 throw then
   formals actuals 2 50000 lf-mixed-level-substitute
-  lf-mlsubst-ok <> if -1 throw then drop result-root ! ;
+  outcome-ok <> if -1 throw then drop result-root ! ;
 
 \ Output prefix term tags, evaluating each symbolic sort in current assignment.
 : emit-term ( term -- )
   lf-term-read 0= if -1 throw then rot case
     lf-tag-symbolic-sort of
       drop 1 . 50000 lf-level-value-assigned
-      lf-lvalue-ok <> if drop -1 throw then .
+      outcome-ok <> if drop -1 throw then .
     endof
     lf-tag-bvar of drop 2 . . endof
     lf-tag-app of 3 . swap recurse recurse endof

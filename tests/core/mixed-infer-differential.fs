@@ -58,11 +58,11 @@ variable token variable id-name variable missing-name variable universe-level
   missing-name @ fixture-constant save                                   \ 21 missing
   1 h 1 h lf-hterm-lam save                                      \ 22 open domain
   lf-msp-begin 0= abort" index" lf-msp-token 0= abort" token" token !
-  token @ id-name @ 4 h formals 1 50000 lf-msp-put lf-msp-ok <> abort" signature" ;
+  token @ id-name @ 4 h formals 1 50000 lf-msp-put outcome-ok <> abort" signature" ;
 : infer ( root -- type identity status ) h token @ -rot 50000 lf-mixed-infer ;
 : positive ( root expected -- )
-  >r infer lf-minfer-ok <> abort" expected inference success"
-  r> h 50000 lf-mixed-convert lf-mconvert-equal <> abort" inferred type differs" ;
+  >r infer outcome-ok <> abort" expected inference success"
+  r> h 50000 lf-mixed-convert outcome-ok <> abort" inferred type differs" ;
 : negative ( root status -- )
   >r infer r> <> abort" unexpected status"
   0<> abort" failure identity" -1 <> abort" failure root" ;
@@ -73,8 +73,8 @@ variable token variable id-name variable missing-name variable universe-level
     i . 1 . 11 14 positive ." OK" cr
     i . 2 . 13 14 positive ." OK" cr
     i . 3 . 18 19 positive ." OK" cr
-    i . 4 . 20 lf-minfer-unknown negative ." UNKNOWN" cr
-    i . 5 . 21 lf-minfer-unknown negative ." UNKNOWN" cr
-    i . 6 . 22 lf-minfer-invalid negative ." INVALID" cr
+    i . 4 . 20 outcome-unknown negative ." UNKNOWN" cr
+    i . 5 . 21 outcome-unknown negative ." UNKNOWN" cr
+    i . 6 . 22 outcome-invalid negative ." INVALID" cr
   loop ;
 emit-cases bye

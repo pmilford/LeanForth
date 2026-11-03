@@ -23,6 +23,15 @@
 \ A validity flag as an outcome: only a true flag (all bits set) is ok;
 \ false, or a status passed by mistake, is invalid.
 : flag>outcome ( flag -- outcome ) true = if outcome-ok else outcome-invalid then ;
+\ A room flag as an outcome: only a true flag is ok; false, or a status
+\ passed by mistake, is full.
+: room>outcome ( flag -- outcome ) true = if outcome-ok else outcome-full then ;
+\ Whether a visit bounded by fuel and by room (a frame, a depth or a level)
+\ can go ahead: no fuel left (zero or a corrupted negative fuel) is
+\ exhausted whatever the room, so the fuel decides when both are short;
+\ otherwise no room is full.
+: visit-outcome ( fuel room? -- outcome )
+  swap 0> if room>outcome else drop outcome-exhausted then ;
 \ Continue only on ok: keep x and give true, or replace x by the failing
 \ outcome and give false.
 : ok-then? ( x outcome -- x true | outcome false )

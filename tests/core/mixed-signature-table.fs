@@ -55,12 +55,12 @@ variable result-root
   lf-msp-begin 0= if -1 throw then
   lf-msp-token 0= if -1 throw then
   3 8 dup lf-term-identity 0= if -1 throw then
-  formals 2 50000 lf-msp-put lf-msp-ok <> if -1 throw then
+  formals 2 50000 lf-msp-put outcome-ok <> if -1 throw then
   lf-msp-token 0= if -1 throw then
   3 actuals 2 50000 lf-msp-specialize
-  lf-msp-ok <> if -1 throw then drop result-root ! ;
+  outcome-ok <> if -1 throw then drop result-root ! ;
 : emit-level ( level -- )
-  50000 lf-level-value-assigned lf-lvalue-ok <> if drop -1 throw then . ;
+  50000 lf-level-value-assigned outcome-ok <> if drop -1 throw then . ;
 : emit-constant ( ref id -- )
   2dup lf-cref-read 0= if 2drop -1 throw then
   >r drop case 1 of s" C " type endof 2 of s" D " type endof -1 throw endcase r@ .

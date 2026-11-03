@@ -13,10 +13,6 @@ require ../core/terms.fs
 require ./mixed-rebuild.fs
 require ./mixed-shift.fs
 
-outcome-ok constant lf-minst-ok
-outcome-invalid constant lf-minst-invalid
-outcome-exhausted constant lf-minst-exhausted
-
 begin-structure /lf-instjob
   /frames +field lf-instjob-frames   \ fuel, nesting, the binder depth as context
   field: lf-instjob-replacement      \ the term put in for the target variable

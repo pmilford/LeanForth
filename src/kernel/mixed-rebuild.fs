@@ -34,6 +34,8 @@ require ../core/terms.fs
 \ unchecked. The second child of a lambda or Pi lies under one more binder,
 \ which cannot be entered at context max-n (full); that is checked before
 \ the first child is visited, so such a node spends no fuel on its children.
+\ The check is independent of fuel (ADR 0008): a node whose own visit took
+\ the last unit is still full there, not exhausted.
 \ Every nested visit holds a few cells of the host's stacks, so the words
 \ between two visits are kept few and flat (see mixed-beta.fs).
 : lf-rebuild-binder? ( node -- flag ) lf-term-tag@ lf-tag-app <> ;

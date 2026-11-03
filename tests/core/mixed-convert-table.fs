@@ -33,8 +33,8 @@ decimal
   2 7 make-app 2 0 make-app ;
 : emit-case ( left right index -- )
   . swap handle rot handle 10000 lf-mixed-convert
-  case lf-mconvert-equal of s" E" type endof
-       lf-mconvert-unknown of s" U" type endof
+  case outcome-ok of s" E" type endof
+       outcome-unknown of s" U" type endof
        -1 throw endcase cr ;
 setup
 7 0 0 emit-case

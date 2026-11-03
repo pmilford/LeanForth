@@ -66,8 +66,8 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
   1 h 1 h lf-hterm-lam save                                       \ 12 open domain
   0 h 1 h lf-hterm-lam save                                       \ 13 fun A : Sort u => A
   lf-msp-begin 0= abort" index" lf-msp-token 0= abort" token" token !
-  token @ id-name @ 4 h formals 1 50000 lf-msp-put lf-msp-ok <> abort" id signature"
-  token @ later-name @ 0 h formals 1 50000 lf-msp-put lf-msp-ok <> abort" later signature" ;
+  token @ id-name @ 4 h formals 1 50000 lf-msp-put outcome-ok <> abort" id signature"
+  token @ later-name @ 0 h formals 1 50000 lf-msp-put outcome-ok <> abort" later signature" ;
 
 : expect-status ( actual expected -- )
   2dup <> if ." expected status " . ." actual " . cr -2 throw then 2drop ;
@@ -78,27 +78,27 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
 
 \ The statuses are the shared outcomes, with the inference statuses' values.
 : statuses ( -- ok invalid exhausted unknown )
-  lf-mdefinition-ok lf-mdefinition-invalid lf-mdefinition-exhausted lf-mdefinition-unknown ;
-T{ statuses -> lf-minfer-ok lf-minfer-invalid lf-minfer-exhausted lf-minfer-unknown }T
+  outcome-ok outcome-invalid outcome-exhausted outcome-unknown ;
+T{ statuses -> outcome-ok outcome-invalid outcome-exhausted outcome-unknown }T
 T{ statuses -> outcome-ok outcome-invalid outcome-exhausted outcome-unknown }T
 \ The success fuel is pinned: preflight and the pair's inference spend 189
 \ units here (observed before the refactor, at 398b76b).
 : basic-case ( -- )
-  setup snapshot 4 9 50000 probe lf-mdefinition-ok expect-status assert-rollback
+  setup snapshot 4 9 50000 probe outcome-ok expect-status assert-rollback
   lf-mdefinition-fuel @ 49811 <> abort" success fuel"
   lf-term-serial @ term-serial-before @ <= abort" expected allocations"
-  snapshot 0 10 50000 probe lf-mdefinition-unknown expect-status assert-rollback
+  snapshot 0 10 50000 probe outcome-unknown expect-status assert-rollback
   lf-mdefinition-fuel @ 0<> abort" unknown fuel"
-  snapshot 0 9 50000 probe lf-mdefinition-unknown expect-status assert-rollback
-  snapshot 0 12 50000 probe lf-mdefinition-invalid expect-status assert-rollback
+  snapshot 0 9 50000 probe outcome-unknown expect-status assert-rollback
+  snapshot 0 12 50000 probe outcome-invalid expect-status assert-rollback
   lf-mdefinition-fuel @ 0<> abort" invalid fuel"
-  snapshot 9 9 50000 probe lf-mdefinition-unknown expect-status assert-rollback ;
+  snapshot 9 9 50000 probe outcome-unknown expect-status assert-rollback ;
 : stale-case ( -- )
   setup snapshot token @ 4 h 9 h 1+ 50000 lf-mixed-definition-probe
-  lf-mdefinition-invalid expect-status assert-rollback
+  outcome-invalid expect-status assert-rollback
   serials-unchanged? 0= abort" stale value allocated"
   1 cells lf-msp-ids + dup @ 1+ swap ! snapshot
-  4 9 50000 probe lf-mdefinition-invalid expect-status assert-rollback
+  4 9 50000 probe outcome-invalid expect-status assert-rollback
   serials-unchanged? 0= abort" stale index allocated" ;
 variable other-name variable value-name
 : generated-rollback-case ( -- )
@@ -110,11 +110,11 @@ variable other-name variable value-name
   id-name @ lf-name-generation @ nested-args 1 lf-cref-new 0= abort" nested ref"
   lf-cterm-new 0= abort" nested term" nested-id ! nested-root !
   token @ outer-name @ nested-root @ nested-id @ formals 1 50000 lf-msp-put
-  lf-msp-ok expect-status
+  outcome-ok expect-status
   0 nested-args ! 0 lf-level-identity 0= abort" zero" nested-args cell+ !
   outer-name @ lf-name-generation @ nested-args 1 lf-cref-new 0= abort" outer ref"
   lf-cterm-new save
-  lf-term-count @ 1- snapshot 0 swap 50000 probe lf-mdefinition-unknown expect-status
+  lf-term-count @ 1- snapshot 0 swap 50000 probe outcome-unknown expect-status
   assert-rollback lf-mdefinition-fuel @ 0<> abort" unknown fuel"
   lf-term-serial @ term-serial-before @ <= abort" no term allocation"
   lf-level-serial @ level-serial-before @ <= abort" no level allocation"
@@ -122,20 +122,20 @@ variable other-name variable value-name
 : distinct-case ( -- )
   setup s" other" new-name other-name ! s" value" new-name value-name !
   \ A and B are different constants, each assumed to have type Sort u.
-  token @ other-name @ 0 h formals 1 50000 lf-msp-put lf-msp-ok expect-status
+  token @ other-name @ 0 h formals 1 50000 lf-msp-put outcome-ok expect-status
   later-name @ lf-name-generation @ actuals 1 lf-cref-new 0= abort" A cref"
   lf-cterm-new save \ 14 A
   other-name @ lf-name-generation @ actuals 1 lf-cref-new 0= abort" B cref"
   lf-cterm-new save \ 15 B
   \ The value has assumed type B. Comparing B with A is inconclusive.
-  token @ value-name @ 15 h formals 1 50000 lf-msp-put lf-msp-ok expect-status
+  token @ value-name @ 15 h formals 1 50000 lf-msp-put outcome-ok expect-status
   value-name @ lf-name-generation @ actuals 1 lf-cref-new 0= abort" value cref"
   lf-cterm-new save \ 16 value
-  snapshot 14 16 50000 probe lf-mdefinition-unknown expect-status assert-rollback ;
+  snapshot 14 16 50000 probe outcome-unknown expect-status assert-rollback ;
 
 \ Assume, unchecked, that a constant has the type at a fixture index.
 : assume ( name index -- )
-  h 2>r token @ swap 2r> formals 1 50000 lf-msp-put lf-msp-ok expect-status ;
+  h 2>r token @ swap 2r> formals 1 50000 lf-msp-put outcome-ok expect-status ;
 \ Save a constant term with the given universe arguments as the next fixture.
 : reference ( name args count -- )
   2>r lf-name-generation @ 2r> lf-cref-new 0= abort" reference" lf-cterm-new save ;
@@ -149,54 +149,54 @@ create two-u-args 4 cells allot
   setup s" B" new-name dup 0 assume dup actuals 1 reference \ 14 B.{u}
   two-u reference                                              \ 15 B.{u,u}
   s" v" new-name dup 15 assume actuals 1 reference           \ 16 v
-  snapshot 14 16 50000 probe lf-mdefinition-unknown expect-status assert-rollback
+  snapshot 14 16 50000 probe outcome-unknown expect-status assert-rollback
   lf-mdefinition-fuel @ 0<> abort" unknown fuel" ;
 : non-type-case ( -- )
   \ fun (x : fun A => A) => x has a binder domain whose type is not a Sort;
   \ (A : Sort u) -> fun (x : A) => x has such a Pi body. Neither is accepted.
   setup 13 h 1 h lf-hterm-lam save 0 h 12 h lf-hterm-pi save \ 14, 15
-  snapshot 4 14 50000 probe lf-mdefinition-unknown expect-status assert-rollback
-  snapshot 15 9 50000 probe lf-mdefinition-unknown expect-status assert-rollback ;
+  snapshot 4 14 50000 probe outcome-unknown expect-status assert-rollback
+  snapshot 15 9 50000 probe outcome-unknown expect-status assert-rollback ;
 : future-handle-case ( -- )
   \ A forged future identity would become live after the first allocation if
   \ the second source or later index record were checked too late.
   setup snapshot token @ 4 h lf-term-count @ lf-term-serial @ 1+ 50000
-  lf-mixed-definition-probe lf-mdefinition-invalid expect-status
+  lf-mixed-definition-probe outcome-invalid expect-status
   assert-rollback serials-unchanged? 0= abort" future value allocated"
   setup lf-term-count @ 1 cells lf-msp-roots + !
   lf-term-serial @ 1+ 1 cells lf-msp-ids + ! snapshot
-  4 9 50000 probe lf-mdefinition-invalid expect-status
+  4 9 50000 probe outcome-invalid expect-status
   assert-rollback serials-unchanged? 0= abort" future index allocated" ;
 variable saw-exhaustion variable saw-success variable saw-partial
 : fuel-case ( -- )
   false saw-exhaustion ! false saw-success ! false saw-partial !
   1200 0 do
     setup snapshot 4 9 i probe
-    dup lf-mdefinition-exhausted = if
+    dup outcome-exhausted = if
       drop true saw-exhaustion !
       serials-unchanged? 0= if true saw-partial ! then
       lf-mdefinition-fuel @ 0<> abort" failure fuel"
-    else lf-mdefinition-ok expect-status true saw-success ! then
+    else outcome-ok expect-status true saw-success ! then
     assert-rollback lf-minfer-context-depth @ 0<> abort" context leak"
   loop
   saw-exhaustion @ 0= abort" no exhaustion"
   saw-partial @ 0= abort" no partial exhaustion"
   saw-success @ 0= abort" no success"
-  setup snapshot 4 9 -1 probe lf-mdefinition-invalid expect-status assert-rollback ;
+  setup snapshot 4 9 -1 probe outcome-invalid expect-status assert-rollback ;
 \ Cases that only the retired legacy probes covered (gap T2 of the legacy
 \ coverage map).
 : open-claim-case ( -- )
   \ (x : A) -> A has a loose A: the claim fails its preflight.
-  setup snapshot 3 9 50000 probe lf-mdefinition-invalid expect-status assert-rollback ;
+  setup snapshot 3 9 50000 probe outcome-invalid expect-status assert-rollback ;
 variable saw-invalid
 : open-value-fuel-case ( -- )
   \ A closed claim and an open value: with too little fuel the preflight is
   \ exhausted, with enough it reaches the value and finds it invalid.
   false saw-exhaustion ! false saw-invalid !
   200 0 do
-    setup snapshot 4 12 i probe dup lf-mdefinition-exhausted = if
+    setup snapshot 4 12 i probe dup outcome-exhausted = if
       drop true saw-exhaustion !
-    else lf-mdefinition-invalid expect-status true saw-invalid ! then
+    else outcome-invalid expect-status true saw-invalid ! then
     assert-rollback
   loop
   saw-exhaustion @ 0= abort" no exhaustion" saw-invalid @ 0= abort" no invalid" ;
@@ -204,24 +204,24 @@ variable saw-invalid
   \ A raw corrupted tag, or a node that is its own child, in the claim (node
   \ 3) or the value (node 7) is invalid; restored, the pair checks again.
   setup 3 lf-term-slot @ 99 3 lf-term-slot !
-  snapshot 4 9 50000 probe lf-mdefinition-invalid expect-status assert-rollback
+  snapshot 4 9 50000 probe outcome-invalid expect-status assert-rollback
   3 lf-term-slot ! 7 lf-term-slot cell+ @ 7 7 lf-term-slot cell+ !
-  snapshot 4 9 50000 probe lf-mdefinition-invalid expect-status assert-rollback
+  snapshot 4 9 50000 probe outcome-invalid expect-status assert-rollback
   7 lf-term-slot cell+ ! 3 lf-term-slot cell+ @ 3 3 lf-term-slot cell+ !
-  snapshot 4 9 50000 probe lf-mdefinition-invalid expect-status assert-rollback
+  snapshot 4 9 50000 probe outcome-invalid expect-status assert-rollback
   3 lf-term-slot cell+ !
-  snapshot 4 9 50000 probe lf-mdefinition-ok expect-status assert-rollback ;
+  snapshot 4 9 50000 probe outcome-ok expect-status assert-rollback ;
 : stale-value-non-type-case ( -- )
   \ A lambda claim with a stale value: invalid before any allocation.
   setup snapshot token @ 9 h 9 h 1+ 50000 lf-mixed-definition-probe
-  lf-mdefinition-invalid expect-status assert-rollback
+  outcome-invalid expect-status assert-rollback
   serials-unchanged? 0= abort" stale value allocated" ;
 : prop-claim-case ( -- )
   \ forall P : Prop, P -> P with fun P h => h: a claim in Sort 0.
   setup 0 dup lf-level-identity 0= abort" zero" lf-hterm-sort save \ 14 Prop
   14 h 3 h lf-hterm-pi save 14 h 12 h lf-hterm-lam save           \ 15, 16
-  snapshot 15 16 50000 probe lf-mdefinition-ok expect-status assert-rollback
-  snapshot 15 14 50000 probe lf-mdefinition-unknown expect-status assert-rollback ;
+  snapshot 15 16 50000 probe outcome-ok expect-status assert-rollback
+  snapshot 15 14 50000 probe outcome-unknown expect-status assert-rollback ;
 ' open-claim-case s" open claim" run-case
 ' open-value-fuel-case s" open value behind the claim's preflight" run-case
 ' corrupt-node-case s" corrupted claim and value nodes" run-case

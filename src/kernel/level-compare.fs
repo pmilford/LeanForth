@@ -16,10 +16,6 @@ require ../core/level-scope.fs
 require ../core/levels.fs
 require ./level-value.fs
 
-outcome-ok constant lf-lcmp-equal
-outcome-invalid constant lf-lcmp-invalid
-outcome-exhausted constant lf-lcmp-exhausted
-outcome-unknown constant lf-lcmp-unknown
 64 constant lf-lcmp-depth-limit
 
 begin-structure /lf-lcrec
@@ -89,8 +85,7 @@ defer lf-lcmp-walk ( left right depth -- status )
 : lf-lcmp-visit ( left right depth -- status )
   >r lf-lcmp-shrink2 if r> lf-lcmp-shrunk else r> drop then ;
 : lf-lcmp-room ( depth -- outcome )
-  lf-lcmp-fuel @ 0> 0= if drop outcome-exhausted exit then
-  lf-lcmp-depth-limit < if outcome-ok else outcome-full then ;
+  lf-lcmp-fuel @ swap lf-lcmp-depth-limit < visit-outcome ;
 : lf-lcmp-enter ( left right depth -- status )
   dup lf-lcmp-room ok-then? 0= if nip nip exit then
   -1 lf-lcmp-fuel +! 1+ lf-lcmp-visit ;
