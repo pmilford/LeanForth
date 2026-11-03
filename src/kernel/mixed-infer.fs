@@ -228,29 +228,31 @@ defer lf-minfer-walk ( node -- type status )
   lf-minfer-sort? if lf-minfer-nonzero? else false then ;
 : lf-minfer-free? ( node -- flag )
   lf-minfer-type2 ok-then? if lf-minfer-sorted-free? else drop false then ;
+\ The arena counts, kept on the data stack around work whose allocations
+\ are discarded (the return stack has less room for recursion).
 : lf-minfer-counts ( -- terms levels crefs )
   lf-term-count @ lf-level-count @ lf-cref-count @ ;
 : lf-minfer-counts! ( terms levels crefs -- )
   lf-cref-count ! lf-level-count ! lf-term-count ! ;
 : lf-minfer-proof-free? ( node -- flag )
-  lf-minfer-counts 2>r >r true lf-minfer-aside !
-  lf-minfer-free? false lf-minfer-aside ! r> 2r> lf-minfer-counts! ;
+  >r lf-minfer-counts r> true lf-minfer-aside ! lf-minfer-free?
+  false lf-minfer-aside ! >r lf-minfer-counts! r> ;
 : lf-minfer-free2? ( left right -- flag )
   swap lf-minfer-proof-free? if lf-minfer-proof-free? else drop false then ;
 
 \ D1-D5: whether an inferred type (left) and an expected type (right),
 \ both well typed in the current binder context, are apart, so that
-\ Lean's is_def_eq is certainly false. (mask true), mask being the rules
-\ used from the pair down to the pair that decided, or false. Each level
-\ reduces both sides; see lf-minfer-apart-frame for its cost.
+\ Lean's is_def_eq is certainly false: (mask true), mask being the rules
+\ used from the pair down to the pair that decided, or (0 false). Each
+\ level reduces both sides; see lf-minfer-apart-frame for its cost.
 1 constant lf-rule-d1
 2 constant lf-rule-d2
 4 constant lf-rule-d3
 8 constant lf-rule-d4
 16 constant lf-rule-d5
-defer lf-minfer-apart ( left right -- mask true | false )
-: lf-minfer-via ( mask true | false bit -- mask' true | false )
-  swap if or true else drop false then ;
+defer lf-minfer-apart ( left right -- mask flag )
+: lf-minfer-holds ( flag bit -- mask flag ) over and swap ;
+: lf-minfer-via ( mask flag bit -- mask' flag ) over if rot or swap else drop then ;
 : lf-minfer-whnf2 ( left right -- left' right' true | false )
   swap lf-minfer-whnf ok-then? 0= if 2drop false exit then
   swap lf-minfer-whnf ok-then? if true else 2drop false then ;
@@ -258,9 +260,9 @@ defer lf-minfer-apart ( left right -- mask true | false )
   2dup swap lf-mhead-kind swap lf-mhead-kind ;
 \ D1: two Sorts whose levels some witness assignment tells apart (facts 5
 \ and 7); no precondition, as quick_is_def_eq decides two Sorts at once.
-: lf-minfer-sorts-apart ( left right -- mask true | false )
+: lf-minfer-sorts-apart ( left right -- mask flag )
   lf-minfer-firsts lf-minfer-fuel @ lf-level-apart? lf-lvalue-fuel lf-minfer-take
-  ok? and if lf-rule-d1 true else false then ;
+  ok? and lf-rule-d1 lf-minfer-holds ;
 \ D3 and D5, two bound variables with arguments (is_def_eq_app, 878-895,
 \ needs the same head and number): a different number of arguments, or
 \ different variables known not to be proofs, are apart (D3); the same
@@ -269,15 +271,15 @@ defer lf-minfer-apart ( left right -- mask true | false )
 : lf-minfer-head ( node -- head ) lf-mhead-spine drop ;
 : lf-minfer-variable ( node -- index ) lf-minfer-head lf-term-first@ ;
 : lf-minfer-d5 ( left right mask -- mask' true ) nip nip lf-rule-d5 or true ;
-: lf-minfer-args-apart ( left right count -- mask true | false )
+: lf-minfer-args-apart ( left right count -- mask flag )
   0 ?do 2dup lf-minfer-seconds lf-minfer-apart if lf-minfer-d5 unloop exit then
-    lf-minfer-firsts loop 2drop false ;
+    drop lf-minfer-firsts loop 2drop 0 false ;
 : lf-minfer-heads ( left right -- head head' ) lf-minfer-head swap lf-minfer-head swap ;
-: lf-minfer-heads-apart ( left right -- mask true | false )
-  lf-minfer-heads lf-minfer-free2? if lf-rule-d3 true else false then ;
+: lf-minfer-heads-apart ( left right -- mask flag )
+  lf-minfer-heads lf-minfer-free2? lf-rule-d3 lf-minfer-holds ;
 : lf-minfer-arity? ( left right -- left right count true | false )
   2dup lf-minfer-count swap lf-minfer-count over = if true else drop 2drop false then ;
-: lf-minfer-vars-apart ( left right -- mask true | false )
+: lf-minfer-vars-apart ( left right -- mask flag )
   lf-minfer-arity? 0= if lf-rule-d3 true exit then
   >r 2dup lf-minfer-variable swap lf-minfer-variable =
   if r> lf-minfer-args-apart else r> drop lf-minfer-heads-apart then ;
@@ -286,14 +288,14 @@ defer lf-minfer-apart ( left right -- mask true | false )
 \ cautious comparison, the pair is apart when the bodies are, the variable
 \ having the right (expected) side's domain (B2); otherwise when the
 \ domains are apart.
-: lf-minfer-bodies-apart ( left right -- mask true | false )
-  dup lf-term-first@ lf-minfer-push 0= if 2drop false exit then
+: lf-minfer-bodies-apart ( left right -- mask flag )
+  dup lf-term-first@ lf-minfer-push 0= if 2drop 0 false exit then
   lf-minfer-seconds lf-minfer-apart lf-minfer-pop ;
-: lf-minfer-binders-apart ( left right -- mask true | false )
+: lf-minfer-binders-apart ( left right -- mask flag )
   2dup lf-minfer-firsts lf-minfer-compare case
     outcome-ok of lf-minfer-bodies-apart endof
     outcome-unknown of lf-minfer-firsts lf-minfer-apart endof
-    >r 2drop false r> endcase lf-rule-d4 lf-minfer-via ;
+    >r 2drop 0 false r> endcase lf-rule-d4 lf-minfer-via ;
 \ One level: two Sorts by D1; otherwise P1 (both rigid) and P3 (not
 \ exactly one a lambda) on the shapes, P2 on both sides (no proof
 \ irrelevance), then D2 for different shapes among Sort, Pi and bound
@@ -303,27 +305,26 @@ defer lf-minfer-apart ( left right -- mask true | false )
 : lf-minfer-one-lam? ( kl kr -- flag ) lf-head-lam = swap lf-head-lam = xor ;
 : lf-minfer-shapes? ( kl kr -- flag )
   2dup lf-minfer-one-lam? 0= -rot lf-mhead-shape? swap lf-mhead-shape? and and ;
-: lf-minfer-same-apart ( left right kind -- mask true | false )
-  lf-head-var = if lf-minfer-vars-apart else lf-minfer-binders-apart then ;
-: lf-minfer-shapes-apart ( left right kl kr -- mask true | false )
-  2dup <> if 2drop 2drop lf-rule-d2 true else drop lf-minfer-same-apart then ;
-: lf-minfer-rigid-apart ( left right kl kr -- mask true | false )
-  2dup lf-minfer-shapes? 0= if 2drop 2drop false exit then
-  2over lf-minfer-free2? if lf-minfer-shapes-apart else 2drop 2drop false then ;
+: lf-minfer-shapes-apart ( left right kl kr -- mask flag )
+  2dup <> if 2drop 2drop lf-rule-d2 true exit then
+  drop lf-head-var = if lf-minfer-vars-apart else lf-minfer-binders-apart then ;
+: lf-minfer-rigid-apart ( left right kl kr -- mask flag )
+  2dup lf-minfer-shapes? 0= if 2drop 2drop 0 false exit then
+  2over lf-minfer-free2? if lf-minfer-shapes-apart else 2drop 2drop 0 false then ;
 : lf-minfer-sorts? ( kl kr -- flag ) lf-head-sort = swap lf-head-sort = and ;
-: lf-minfer-apart-visit ( left right -- mask true | false )
-  lf-minfer-whnf2 0= if false exit then lf-minfer-kinds
+: lf-minfer-apart-visit ( left right -- mask flag )
+  lf-minfer-whnf2 0= if 0 false exit then lf-minfer-kinds
   2dup lf-minfer-sorts? if 2drop lf-minfer-sorts-apart else lf-minfer-rigid-apart then ;
 
 \ Compare an inferred type (left) with an expected type (right), in
 \ Lean's order: (0 ok) when equal; (mask rejected) when the comparison is
 \ undecided and D1-D5 show the pair apart; else (0 outcome), the
 \ comparison's own.
-: lf-minfer-mismatch ( left right -- mask true | false )
-  lf-minfer-deciding? if lf-minfer-apart else 2drop false then ;
+: lf-minfer-mismatch ( left right -- mask flag )
+  lf-minfer-deciding? if lf-minfer-apart else 2drop 0 false then ;
 : lf-minfer-agree ( left right -- mask status )
   2dup lf-minfer-compare dup outcome-unknown <> if nip nip 0 swap exit then
-  drop lf-minfer-mismatch if outcome-rejected else 0 outcome-unknown then ;
+  drop lf-minfer-mismatch if outcome-rejected else outcome-unknown then ;
 
 \ Application: the function's type must be a visible Pi (otherwise unknown,
 \ or rejected by F1), the argument's type must convert to its domain
@@ -423,10 +424,10 @@ defer lf-minfer-apart ( left right -- mask true | false )
 \ Each level of the rejection analysis takes a frame and a unit of fuel
 \ like an inference visit (with neither left, the pair is not shown
 \ apart), and discards the nodes, levels and references it made.
-: lf-minfer-apart-frame ( left right -- mask true | false )
-  lf-minfer-room ok? 0= if 2drop false exit then
-  lf-minfer-enter lf-minfer-counts 2>r >r lf-minfer-apart-visit
-  r> 2r> lf-minfer-counts! -1 lf-minfer-depth +! ;
+: lf-minfer-apart-frame ( left right -- mask flag )
+  lf-minfer-room ok? 0= if 2drop 0 false exit then
+  lf-minfer-enter >r >r lf-minfer-counts r> r> lf-minfer-apart-visit
+  2>r lf-minfer-counts! 2r> -1 lf-minfer-depth +! ;
 ' lf-minfer-apart-frame is lf-minfer-apart
 
 \ Preflight before any allocation: the closed root's binder scope, then the
@@ -480,18 +481,25 @@ defer lf-minfer-apart ( left right -- mask true | false )
   >r rot r> lf-minfer-start over swap lf-minfer-preflight
   dup ok? if drop lf-minfer-run else nip lf-minfer-failed then ;
 
-\ Host stacks. Each level of the recursion holds at most 7 return-stack
+\ Host stacks. Each level of the recursion holds at most 8 return-stack
 \ and 5 data-stack cells: stack painting on Gforth 0.7.3 and 1.0 (which
-\ agree) along its five paths, an application's argument and function, a
-\ binder's body and domain, and a Pi's body, at every depth that ends ok
-\ (2026-11-02). At any level a comparison runs conversion, whose beta
-\ reductions nest instantiate and shift passes (lf-mbeta-*-cells, whose
-\ slack also covers the entry words of conversion and of the definition
-\ probe, which nests no deeper than inference). So a check nests at most
-\ lf-term-capacity levels of inference plus beta's need: 1,664 return and
-\ 1,280 data cells. Loading stops when the host's stacks are smaller, and
-\ the need is stated for the job pool (context-need).
-7 constant lf-minfer-rs-level   \ return-stack cells per level
+\ agree) along inference's five paths, an application's argument and
+\ function, a binder's body and domain, and a Pi's body, at every depth
+\ that ends ok (7 and 5; 2026-11-02), and along the rejection analysis's
+\ two recursive paths, a D4 telescope (7 and 3) and D5 arguments (8 and 5:
+\ the ?DO loop adds two return cells), which share the frame limit with
+\ inference (the D5 depth 0-8 white-box, the D4 depth 1-7 through the
+\ definition probe; 2026-11-02). At any level a comparison runs
+\ conversion, whose beta reductions nest instantiate and shift passes
+\ (lf-mbeta-*-cells, whose slack also covers the entry words of
+\ conversion, of the definition probe and of the analysis's leaf steps:
+\ test P2, which nests inference within the same frame limit, a
+\ reduction, and the witness evaluation of level-value, whose own depth
+\ limit needs fewer cells than beta). So a check nests at most
+\ lf-term-capacity levels of inference or analysis plus beta's need:
+\ 1,728 return and 1,280 data cells. Loading stops when the host's stacks
+\ are smaller, and the need is stated for the job pool (context-need).
+8 constant lf-minfer-rs-level   \ return-stack cells per level
 5 constant lf-minfer-ds-level   \ data-stack cells per level
 : lf-minfer-need ( cells-per-level beta-cells -- cells ) swap lf-term-capacity * + ;
 lf-minfer-rs-level lf-mbeta-return-cells lf-minfer-need constant lf-minfer-return-cells

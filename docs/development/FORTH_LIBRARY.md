@@ -316,9 +316,10 @@ context. The adapter chooses one of three hosts when it loads:
   `task.fs` and the kernel loads first. The checker states two needs:
   beta with its nested instantiate and shift passes (`mixed-beta.fs`,
   1,216 return and 960 data cells) and inference, which can nest them at
-  its deepest level (`mixed-infer.fs`, 1,664 and 1,280: at most 7 return
+  its deepest level (`mixed-infer.fs`, 1,728 and 1,280: at most 8 return
   and 5 data cells per level, measured by stack painting along its five
-  recursion paths on Gforth 0.7.3 and 1.0, which agree, times
+  recursion paths and the two of its rejection analysis (plan task 2.2.1;
+  the D5 path needs 8) on Gforth 0.7.3 and 1.0, which agree, times
   `lf-term-capacity` levels, plus beta's need; the definition probe nests
   no deeper). The test job's 500-frame pass used 1,004 return-stack and
   1,001 data-stack cells inside each worker; the deepest checker inputs
