@@ -5,7 +5,8 @@
 \ as they are declared and in every new context; a refused declaration,
 \ even one whose memory cannot be allocated, changes nothing, and a setup
 \ word that throws is not registered; contexts are independent; ownership
-\ limits who may select, claim and free a context. A randomized model then
+\ limits who may select, claim and free a context; call-balanced catches a
+\ word with a wrong stack effect. A randomized model then
 \ runs the same operations on context stores and walks, switching context
 \ at every step, and on dictionary records, and compares results and every
 \ byte.
@@ -220,6 +221,20 @@ T{ ctx2 use-fails? ctx1 use-fails? context-main use-fails? -> true true true }T
 T{ new-fails? ctx1 free-fails? lf-context @ ctx2 = -> true true true }T
 0 lf-owner !  ctx1 context-use
 T{ ctx2 context-release ctx2 context-idle? ctx2 context-free -> true 0 }T
+
+\ call-balanced runs a word above a cell and throws context-unbalanced
+\ when the word changed the stack depth or that cell; another THROW
+\ passes through. The cells below stay as they were.
+: balanced-ior ( xt -- ior ) 7 swap ['] call-balanced catch dup if nip nip then ;
+: c-keeps ( -- ) ;
+: c-leaves ( -- x ) 1 ;
+: c-eats ( x -- ) drop ;
+: c-swaps ( x -- y ) drop 8 ;
+: c-throws ( -- ) 55 throw ;
+T{ context-unbalanced ' c-keeps balanced-ior ' c-leaves balanced-ior -> -4096 0 context-unbalanced }T
+T{ ' c-eats balanced-ior ' c-swaps balanced-ior -> context-unbalanced context-unbalanced }T
+T{ 1 2 ' c-throws balanced-ior 3 ' c-keeps balanced-ior -> 1 2 55 3 0 }T
+T{ true ?call-balanced false ' ?call-balanced catch nip -> context-unbalanced }T
 
 \ Freeing: the main context and non-contexts abort; freeing the current
 \ context returns the task to the main one.

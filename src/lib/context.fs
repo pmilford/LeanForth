@@ -100,6 +100,17 @@ end-structure
 \ Whether the current task runs a job, or such a check: its token is not 0.
 : context-in-job? ( -- flag ) lf-owner @ 0<> ;
 
+\ Running a word with its stack checked, as task.fs runs a job's word and
+\ kernel/env-publish.fs a check. call-balanced runs xt ( -- ) above x and
+\ throws context-unbalanced when xt changed the stack depth or x, so a word
+\ with a wrong stack effect never goes unnoticed, even one that consumes
+\ and replaces the cell below it. The code, outside Forth-2012's reserved
+\ range, is task.fs's task-unbalanced.
+-4096 constant context-unbalanced
+: ?call-balanced ( flag -- ) 0= if context-unbalanced throw then ;
+: call-balanced ( x xt -- )
+  over >r depth >r execute depth r> 1- = ?call-balanced r> = ?call-balanced ;
+
 \ ALLOCATE u zeroed address units: the address and 0, or an undefined
 \ address and the ior.
 : allocate0 ( u -- addr ior ) dup allocate ?dup if rot drop exit then tuck swap erase 0 ;
