@@ -7,18 +7,20 @@ everything in this file.
 
 The file has four parts:
 1. Verbatim copies of the existing reference models of the six example
-   words. `tests/program/test_program_ir.py` (part of `make test`) checks
+   words. `tests/program/check_program_ir.py` (part of `make test`) checks
    that every block between BEGIN VERBATIM and END VERBATIM equals the named
    lines of the named file, so the theorems below are about exactly those
    definitions.
 2. The IR and its semantics: signed cells of any width of at least two bits,
    two's-complement wrapping, separate data and return stacks, explicit
-   failure outcomes, and fuel that bounds calls and loop iterations.
+   failure outcomes, and fuel that bounds call nesting and loop repetitions.
+   Names are strings in the reader's canonical spelling, A-Z folded to
+   lower case, and are compared exactly.
 3. The six example words of src/program/clamp.fs and src/program/examples.fs
    written in the IR, and theorems that their IR semantics equals the
    reference models for every input that fits in a cell and every stack
    below them.
-4. A printer for the IR's text form; `main` prints both programs so that
+4. A printer for the IR's text form; `main` prints the programs so that
    `make reference-program-ir` can compare them with the reader's output.
 
 What this does not show: that the IR is a faithful translation of the Forth
@@ -239,6 +241,22 @@ theorem signed_unsigned_neg_one : c.signed (c.unsigned (-1)) = -1 := by
 theorem unsigned_zero : c.unsigned 0 = 0 := by
   simp [unsigned]
 
+-- The literals the example words use fit every cell.
+theorem fits_zero : c.Fits 0 := by
+  have := c.two_le_half
+  simp only [Fits, max, min]
+  omega
+
+theorem fits_one : c.Fits 1 := by
+  have := c.two_le_half
+  simp only [Fits, max, min]
+  omega
+
+theorem fits_neg_one : c.Fits (-1) := by
+  have := c.two_le_half
+  simp only [Fits, max, min]
+  omega
+
 theorem rshift_neg_one : c.signed (c.unsigned (-1) >>> 1) = c.max := by
   have := c.two_le_half
   simp only [signed, unsigned, max, modulus, Nat.shiftRight_eq_div_pow]
@@ -365,15 +383,21 @@ attribute [local simp] step.eq_1 step.eq_2 step.eq_3 step.eq_4 step.eq_5 step.eq
   step.eq_32 step.eq_33 step.eq_34 step.eq_35 step.eq_36 step.eq_37 step.eq_38
 
 /-- Run a block. A called word starts with an empty return stack of its own
-and must leave it empty. Calls and loop iterations each use one unit of
-fuel, so every run terminates; running out is the failure `outOfFuel`. -/
+and must leave it empty. A literal must fit in a cell; one that does not is
+`unmodeled` (the reader writes only literals that fit in 32 bits, so on
+cells of 32 bits or more every literal it writes fits). Fuel bounds the nesting depth
+of calls and the repetitions of each loop: a callee runs with one unit
+less than its caller, which continues with its own fuel afterwards, and
+each repetition of a loop leaves one unit less for the repetitions after
+it. So every run terminates; running out is the failure `outOfFuel`. -/
 def run (c : Cells) (p : Program) : Nat → List Instr → State → Result
   | _, [], s => .next s
   | fuel, .prim op :: rest, s =>
       match step c op s with
       | .next s' => run c p fuel rest s'
       | other => other
-  | fuel, .lit n :: rest, ⟨d, r⟩ => run c p fuel rest ⟨n :: d, r⟩
+  | fuel, .lit n :: rest, ⟨d, r⟩ =>
+      if c.min ≤ n ∧ n ≤ c.max then run c p fuel rest ⟨n :: d, r⟩ else .failed .unmodeled
   | _, .exit :: _, s => .exited s
   | _, .ifElse _ _ :: _, ⟨[], _⟩ => .failed .underflow
   | fuel, .ifElse yes no :: rest, ⟨f :: d, r⟩ =>
@@ -433,9 +457,17 @@ theorem run_prim (fuel : Nat) (op : Prim) (rest : List Instr) (s : State) :
       | other => other := by
   rw [run]
 
-theorem run_lit (fuel : Nat) (n : Int) (rest : List Instr) (d r : List Int) :
+theorem run_lit (fuel : Nat) (n : Int) (rest : List Instr) (d r : List Int)
+    (fits : c.Fits n) :
     run c p fuel (.lit n :: rest) ⟨d, r⟩ = run c p fuel rest ⟨n :: d, r⟩ := by
   rw [run]
+  exact ite_eq_left fits
+
+theorem run_lit_unfit (fuel : Nat) (n : Int) (rest : List Instr) (d r : List Int)
+    (unfit : ¬ c.Fits n) :
+    run c p fuel (.lit n :: rest) ⟨d, r⟩ = .failed .unmodeled := by
+  rw [run]
+  exact ite_eq_right unfit
 
 theorem run_exit (fuel : Nat) (rest : List Instr) (s : State) :
     run c p fuel (.exit :: rest) s = .exited s := by
@@ -534,6 +566,7 @@ theorem or_flags (c : Cells) (x y : Bool) :
 instruction, and `step` only where the stacks have a known shape (the
 equations `step.eq_1` to `step.eq_38` are its 38 primitive cases). -/
 macro "ir_simp" : tactic => `(tactic| simp only [run_prim, run_lit, run_exit, run_nil, run_if,
+  Cells.fits_zero, Cells.fits_one, Cells.fits_neg_one,
   flag_ne_zero, flag_beq_zero, flag_true, flag_false, and_flags, or_flags, beq_iff_eq,
   bne_iff_ne, decide_eq_true_eq, ↓reduceIte,
   step.eq_1, step.eq_2, step.eq_3, step.eq_4, step.eq_5, step.eq_6, step.eq_7, step.eq_8,
@@ -1065,6 +1098,7 @@ def cells64 : Cells := ⟨64, by decide⟩
 /-- Evaluate a run on known inputs with the equations of `run`, `step`
 unfolded on known stacks, and `simp`'s integer arithmetic. -/
 macro "ir_eval" : tactic => `(tactic| simp [callWord, run_call, run_prim, run_lit, run_exit,
+  Cells.fits_zero, Cells.fits_one, Cells.fits_neg_one,
   run_if, run_loop, run_nil, run_call_zero, run_loop_zero, step, flag, bitwise, cells64,
   Cells.wrap, Cells.min, Cells.max, Cells.half, Cells.modulus, Cells.unsigned, Cells.signed,
   lookup_clamp, clampBody, lookup_max, exampleMaxBody, lookup_min, exampleMinBody,
@@ -1099,19 +1133,24 @@ theorem euclid_out_of_fuel :
   ir_eval
 
 def leakProgram : Program := [("leak", .word [.lit 1, .prim .toR])]
-def twoValues : Program := [("two", .constant [.lit 1, .lit 2])]
+def twoValues : Program := [("two", .constant [.lit 0, .lit 1])]
 
 /-- A word may not return with items on its return stack. -/
 theorem leak_unbalanced (c : Cells) :
     callWord c leakProgram 1 "leak" ⟨[], []⟩ = .failed .unbalanced := by
   rw [callWord, run_call]
-  simp [leakProgram, lookup, run_lit, run_prim, step]
+  simp [leakProgram, lookup, run_lit, Cells.fits_one, run_prim, step]
 
 /-- A constant must leave exactly one value. -/
 theorem two_values_bad (c : Cells) :
     callWord c twoValues 1 "two" ⟨[], []⟩ = .failed .badConstant := by
   rw [callWord, run_call]
-  simp [twoValues, lookup, run_lit]
+  simp [twoValues, lookup, run_lit, Cells.fits_zero, Cells.fits_one]
+
+/-- A literal outside the cell is not given a meaning. -/
+theorem big_literal_unmodeled (c : Cells) :
+    run c [] 0 [.lit (c.max + 1)] ⟨[], []⟩ = .failed .unmodeled :=
+  run_lit_unfit c [] 0 _ [] [] [] (by simp only [Cells.Fits]; omega)
 
 -- Deliberately wrong programs are refuted, so the correctness theorems are
 -- not true of any program.
@@ -1214,9 +1253,18 @@ def render (source : String) (p : Program) : String :=
   String.intercalate "\n" (["lf-ir " ++ irVersion, "source " ++ source] ++
     p.flatMap renderDef) ++ "\n"
 
+/-- tests/program/ir/all-primitives.fs: every primitive once, in the order
+of `Prim`, so that the comparison with the reader covers every spelling. -/
+def allPrimitivesProgram : Program :=
+  [("all-primitives", .word ([Prim.dup, .drop, .swap, .over, .nip, .tuck, .rot, .twoDup,
+    .twoDrop, .toR, .fromR, .rFetch, .add, .sub, .mul, .div, .mod, .negate, .abs, .onePlus,
+    .oneMinus, .eq, .ne, .lt, .gt, .zeroEq, .zeroNe, .zeroLt, .zeroGt, .and, .or, .xor,
+    .invert, .rshift, .max, .min, .true, .false].map Instr.prim))]
+
 def main : IO Unit := do
   IO.print (render "src/program/clamp.fs" clampProgram)
   IO.print (render "src/program/examples.fs" examplesProgram)
+  IO.print (render "tests/program/ir/all-primitives.fs" allPrimitivesProgram)
 
 end ProgramIR
 
