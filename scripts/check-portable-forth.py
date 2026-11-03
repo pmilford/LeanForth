@@ -44,12 +44,16 @@ BYTE_WORDS = {
     "c@", "c!", "c,", "c+!", "w@", "w!", "w,", "l@", "l!", "l,", "x@", "x!",
     "x,", "sw@", "uw@", "sl@", "ul@", "sx@", "ux@", "be-w!", "le-w!",
 }
-# Files allowed to use byte access, with the reason. Text modules only.
+# Files allowed to use byte access, with the reason: text modules, and the one
+# module of packed 32-bit fields, whose layout is defined by arithmetic.
 BYTE_MODULES = {
     "src/lib/bytes.fs": "line reader and UTF-8 checks read and write text bytes",
     "src/lib/json.fs": "JSON tokenizer reads text bytes and decodes escapes in place",
     "src/lib/json-write.fs":
         "JSON writer reads string bytes to escape them and builds digits and escapes as text",
+    "src/lib/u32.fs":
+        "packed 32-bit fields of the compact store (ADR 0016): Gforth's l@ and l!, or a "
+        "Forth-2012 version with c@ and c! in a byte order the module fixes",
     "src/program/ir-reader.fs":
         "program reader splits source lines into tokens, checks that every character is "
         "printable ASCII and folds A-Z to a-z, as Gforth finds names",
@@ -292,7 +296,7 @@ def main():
         for lineno, line in enumerate(strip(path.read_text()).splitlines(), 1):
             for tok in line.split():
                 if tok.lower() in BYTE_WORDS and rel not in BYTE_MODULES:
-                    problems.append(f"{rel}:{lineno}: byte access '{tok}' outside a listed text module")
+                    problems.append(f"{rel}:{lineno}: byte access '{tok}' outside a listed module")
                 value = number(tok)
                 if value is not None and value >= LIMIT:
                     problems.append(f"{rel}:{lineno}: literal {tok} assumes cells wider than 32 bits")

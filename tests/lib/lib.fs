@@ -1,7 +1,7 @@
 \ Unit tests of the general Forth library (src/lib): portability words,
 \ range checks, bounded stores, tagged nodes, outcomes, walk and frame
-\ records. T{ }T checks results and data-stack depth; rs-checked also checks
-\ the return stack around a call.
+\ records, and packed 32-bit fields. T{ }T checks results and data-stack
+\ depth; rs-checked also checks the return stack around a call.
 include ../support/tester.fs
 include ../support/checks.fs
 require ../../src/lib/lib.fs
@@ -550,4 +550,37 @@ T{ tj tjob-frames frame-limit @ tj tjob-frames frame-visitor @ -> 2 ' scaled-vis
 T{ 9 tj tjob-frames frame-budget 7 0 tj tjob-frames frame-run
   tj tjob-frames frame-fuel @ -> true 42 outcome-ok 8 }T
 T{ s" 0 0 tj tjob-frames frame-init" bad-walk? tj tjob-frames frame-limit @ -> true 2 }T
+
+\ Packed 32-bit fields (src/lib/u32.fs). Both versions run on every host:
+\ u32@ and u32! (Gforth's l@ and l! here) and the Forth-2012 u32-bytes@
+\ and u32-bytes!. The tests compare values only, never bytes, so they hold
+\ for either byte order; a field is read only by the version that wrote it.
+require ../../src/lib/u32.fs
+T{ 0 u32s 1 u32s 3 u32s -> 0 4 chars 12 chars }T
+T{ u32-mask 1+ $10000 dup * = u32-mask 0= -> true false }T
+create packed 3 u32s allot
+: field1 ( -- addr ) packed 1 u32s + ;
+: via-host ( u -- u' ) field1 u32! field1 u32@ ;
+: via-bytes ( u -- u' ) field1 u32-bytes! field1 u32-bytes@ ;
+: u32-top ( -- u ) 1 31 lshift ;
+T{ 0 via-host 1 via-host 255 via-host 256 via-host -> 0 1 255 256 }T
+T{ u32-top via-host u32-top 1- via-host u32-mask via-host -> u32-top u32-top 1- u32-mask }T
+T{ 0 via-bytes 1 via-bytes 255 via-bytes 256 via-bytes -> 0 1 255 256 }T
+T{ u32-top via-bytes u32-top 1- via-bytes u32-mask via-bytes -> u32-top u32-top 1- u32-mask }T
+\ Only the low 32 bits are kept (on a 32-bit host u32-mask 1+ is 0).
+T{ u32-mask 1+ 5 + via-host u32-mask 1+ 5 + via-bytes -> 5 5 }T
+\ A store changes only its own field: the fields around it keep their
+\ values, for each version and for random values.
+: sentinels ( xt -- ) >r $A5A5 packed r@ execute $5A5A packed 2 u32s + r> execute ;
+: around ( xt -- u0 u2 ) >r packed r@ execute packed 2 u32s + r> execute ;
+: fenced-host ( u -- u' u0 u2 ) ['] u32! sentinels via-host ['] u32@ around ;
+: fenced-bytes ( u -- u' u0 u2 ) ['] u32-bytes! sentinels via-bytes ['] u32-bytes@ around ;
+variable u32-seed  20261102 u32-seed !
+: u32-rnd ( -- u ) u32-seed @ 1103515245 * 12345 + u32-mask and dup u32-seed ! ;
+: u32-random? ( xt -- flag )
+  true 1000 0 do over u32-rnd tuck swap execute $5A5A = swap $A5A5 = and
+    -rot = and and loop nip ;
+T{ u32-mask fenced-host u32-mask fenced-bytes -> u32-mask $A5A5 $5A5A u32-mask $A5A5 $5A5A }T
+T{ ' fenced-host u32-random? ' fenced-bytes u32-random? -> true true }T
+T{ u32-mask ' via-host rs-checked u32-mask ' via-bytes rs-checked -> u32-mask u32-mask }T
 bye

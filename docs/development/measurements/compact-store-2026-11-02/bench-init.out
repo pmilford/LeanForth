@@ -1,0 +1,45 @@
+== Init, gforth-fast, input table grown as loaded (2^23 slots, load 0.73)
+
+index-decls 0.00137 s
+build, children in the input: builds=5189376 input-probes=5189376 input-probes-skipped=0 found-in-input=612 found-in-scratch=0 new-nodes=5188764 scratch-slots-compared=855912 
+  time per build ns each=1740
+build, a scratch child: builds=5189376 input-probes=20 input-probes-skipped=5189356 found-in-input=0 found-in-scratch=0 new-nodes=5189376 scratch-slots-compared=856465 
+  time per build ns each=264
+build, an existing input node: builds=5189376 input-probes=5189376 input-probes-skipped=0 found-in-input=5189376 found-in-scratch=0 new-nodes=0 scratch-slots-compared=0 
+  time per build ns each=612
+instantiate: lambda bodies=535415 range-check-failures=0 steps=93104357 skipped=39043310 memo-hits=40416431
+  builds=91989157 input-probes=44823152 input-probes-skipped=47166005 found-in-input=38696987 found-in-scratch=948412 new-nodes=52343758 scratch-slots-compared=988585 
+  time per step ns each=508
+  time per new node ns each=904
+  seconds 47.3 s
+75.86 s wall 75.60 s user 203444 KB
+== Init, gforth-fast, input table pre-sized to 2^24 slots (load 0.36)
+
+index-decls 0.00254 s
+build, children in the input: builds=5189376 input-probes=5189376 input-probes-skipped=0 found-in-input=612 found-in-scratch=0 new-nodes=5188764 scratch-slots-compared=855912 
+  time per build ns each=646
+build, a scratch child: builds=5189376 input-probes=20 input-probes-skipped=5189356 found-in-input=0 found-in-scratch=0 new-nodes=5189376 scratch-slots-compared=856465 
+  time per build ns each=245
+build, an existing input node: builds=5189376 input-probes=5189376 input-probes-skipped=0 found-in-input=5189376 found-in-scratch=0 new-nodes=0 scratch-slots-compared=0 
+  time per build ns each=351
+instantiate: lambda bodies=535415 range-check-failures=0 steps=93104357 skipped=39043310 memo-hits=40416431
+  builds=91989157 input-probes=44823152 input-probes-skipped=47166005 found-in-input=38696987 found-in-scratch=948412 new-nodes=52343758 scratch-slots-compared=988585 
+  time per step ns each=404
+  time per new node ns each=718
+  seconds 37.6 s
+55.47 s wall 55.21 s user 235812 KB
+== Init, gforth, input table pre-sized to 2^24 slots (load 0.36)
+
+index-decls 0.00237 s
+build, children in the input: builds=5189376 input-probes=5189376 input-probes-skipped=0 found-in-input=612 found-in-scratch=0 new-nodes=5188764 scratch-slots-compared=855912 
+  time per build ns each=1277
+build, a scratch child: builds=5189376 input-probes=20 input-probes-skipped=5189356 found-in-input=0 found-in-scratch=0 new-nodes=5189376 scratch-slots-compared=856465 
+  time per build ns each=511
+build, an existing input node: builds=5189376 input-probes=5189376 input-probes-skipped=0 found-in-input=5189376 found-in-scratch=0 new-nodes=0 scratch-slots-compared=0 
+  time per build ns each=621
+instantiate: lambda bodies=535415 range-check-failures=0 steps=93104357 skipped=39043310 memo-hits=40416431
+  builds=91989157 input-probes=44823152 input-probes-skipped=47166005 found-in-input=38696987 found-in-scratch=948412 new-nodes=52343758 scratch-slots-compared=988585 
+  time per step ns each=869
+  time per new node ns each=1545
+  seconds 80.9 s
+120.69 s wall 120.42 s user 232524 KB

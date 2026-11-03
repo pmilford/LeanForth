@@ -1,0 +1,10 @@
+== Init: data_check.py (Python json), then the prototype's sums
+data: sum-range=59307843 sum-depth=82186728 has-level-param=3179536
+max loose range=144 max depth (clamped 1023)=324
+max loose range=144 max depth (clamped 1023)=324
+data: sum-range=59307843 sum-depth=82186728 has-level-param=3179536
+== Std: data_check.py (Python json), then the prototype's sums
+data: sum-range=109255068 sum-depth=129987039 has-level-param=5762775
+max loose range=144 max depth (clamped 1023)=324
+max loose range=144 max depth (clamped 1023)=324
+data: sum-range=109255068 sum-depth=129987039 has-level-param=5762775
