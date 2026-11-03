@@ -12,6 +12,7 @@ boundaries are. The detailed status is in
 | Page | For |
 | --- | --- |
 | This page | What LeanForth is and is not; trust boundaries; reading paths |
+| [Reading a Lean proof](READING_A_LEAN_PROOF.md) | For readers new to Lean and logic notation: every symbol, three small theorems read as textbook proofs, and each in all its forms (Lean source, `#print`, fully explicit, the kernel's nodes, the NDJSON export, LeanForth's Forth words, the term printer) |
 | [Concepts, in three forms](CONCEPTS.md) | Level, `Sort`, `Prop`/`Type`, term, binder, de Bruijn index, constant, declaration, theorem and definition, kernel, outcomes — each as mathematics, LeanForth Forth and Lean, with Forth you can run |
 | [Workflows](WORKFLOWS.md) | Diagrams of checking a theorem and verifying a program, marking what exists and what is planned |
 | [Running the checks](RUNNING_THE_CHECKS.md) | The `make` targets, what a pass shows and what it does not |
@@ -114,5 +115,5 @@ and *full* (out of room). Only *ok* is ever accepted. See
 | A Forth developer contributing code | [Architecture](../development/ARCHITECTURE.md), [source layout](../../src/README.md), [Forth style](../development/FORTH_STYLE.md), [Forth library](../development/FORTH_LIBRARY.md), [testing strategy](../development/TESTING_STRATEGY.md), [`AGENTS.md`](../../AGENTS.md) |
 | A Lean user | [Concepts](CONCEPTS.md) (the Lean forms first), [ADR 0011](../adr/0011-definite-rejection.md) for the first checker's exact scope and rules, [expected results](../reviews/FIRST_CHECKER_EXPECTED.md), [NDJSON reader](../development/NDJSON_READER.md) |
 | A mathematician who knows Lean | This page, [Concepts](CONCEPTS.md), [Workflows](WORKFLOWS.md) (theorem path) |
-| A mathematician new to Lean | [Terms for new readers](TERMS_FOR_NEW_READERS.md), then [Concepts](CONCEPTS.md), reading the mathematics and Lean forms and skipping the Forth |
+| A mathematician new to Lean | [Reading a Lean proof](READING_A_LEAN_PROOF.md), [terms for new readers](TERMS_FOR_NEW_READERS.md), then [Concepts](CONCEPTS.md), reading the mathematics and Lean forms and skipping the Forth |
 | An AI tool or its author | [For AI tools](AI_TOOLS.md), [interface contracts](../programming/INTERFACE_CONTRACTS.md) (design), [`AGENTS.md`](../../AGENTS.md) |

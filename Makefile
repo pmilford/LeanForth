@@ -54,7 +54,8 @@ check-docs:
 	$(RUN) python3 scripts/check-doc-links.py
 
 # The Forth examples of the user pages print exactly the output shown.
-DOC_EXAMPLE_PAGES := docs/user/CONCEPTS.md docs/user/TERM_PRINTER.md
+DOC_EXAMPLE_PAGES := docs/user/CONCEPTS.md docs/user/TERM_PRINTER.md \
+	docs/user/READING_A_LEAN_PROOF.md
 check-doc-examples:
 	$(RUN) python3 scripts/check-doc-examples.py --gforth $(GFORTH) $(DOC_EXAMPLE_PAGES)
 

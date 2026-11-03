@@ -8,7 +8,7 @@ see [project progress](project/PROJECT_PROGRESS.md). Documents marked
 
 | You are… | Read first |
 | --- | --- |
-| New to the project or to Lean terms | The [user guide](user/USER_GUIDE.md) (what LeanForth is and is not, and a reading path for each audience), [terms for new readers](user/TERMS_FOR_NEW_READERS.md), then [concepts in three forms](user/CONCEPTS.md) |
+| New to the project or to Lean terms | The [user guide](user/USER_GUIDE.md) (what LeanForth is and is not, and a reading path for each audience), [reading a Lean proof](user/READING_A_LEAN_PROOF.md), [terms for new readers](user/TERMS_FOR_NEW_READERS.md), then [concepts in three forms](user/CONCEPTS.md) |
 | Installing and running the tests | [Project README](../README.md#installing-the-pinned-tools-and-running-the-tests), [WSL setup](user/SETUP_WSL.md), [running the checks](user/RUNNING_THE_CHECKS.md) |
 | Following progress or plans | [Project progress](project/PROJECT_PROGRESS.md), [development roadmap](project/DEVELOPMENT_ROADMAP.md) |
 | Writing or reviewing code (human or agent) | [AGENTS.md](../AGENTS.md), [architecture](development/ARCHITECTURE.md), [source layout](../src/README.md), [testing strategy](development/TESTING_STRATEGY.md), [Forth reviewer guide](development/FORTH_REVIEWER.md) |
@@ -17,6 +17,7 @@ see [project progress](project/PROJECT_PROGRESS.md). Documents marked
 ## `user/` — end-user documentation
 
 - [USER_GUIDE.md](user/USER_GUIDE.md) — start here: what LeanForth is and is not, trust boundaries, the experimental label, what you can do today, reading paths for Forth users and developers, Lean users, mathematicians and AI tools.
+- [READING_A_LEAN_PROOF.md](user/READING_A_LEAN_PROOF.md) — for readers new to Lean and logic notation: every symbol; composition, "A and B implies B and A" and `2 + 2 = 4` read as textbook proofs; positional encoding and de Bruijn indices; each theorem as Lean source, `#print`, explicit form, kernel nodes, NDJSON, Forth words and printer output; where tactics fit (Lean and Forth examples checked by `make check` and `make test`).
 - [CONCEPTS.md](user/CONCEPTS.md) — level, `Sort`, `Prop`/`Type`, term, binder, de Bruijn index, constant, declaration, theorem and definition, kernel, outcomes: each as mathematics, LeanForth Forth (run on Gforth 1.0 and 0.7.3) and Lean (checked with pinned Lean).
 - [WORKFLOWS.md](user/WORKFLOWS.md) — diagrams of checking a theorem and verifying a Forth program, marking what exists and what is planned.
 - [RUNNING_THE_CHECKS.md](user/RUNNING_THE_CHECKS.md) — the `make` targets and tools, what a pass shows and what it does not.

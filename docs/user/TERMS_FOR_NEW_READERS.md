@@ -33,22 +33,8 @@ an explanation in English, a passing test, or an AI's claim is not itself a
 proof. The mathematical statements printed here use Lean notation for
 illustration, not LeanForth's canonical Forth grammar.
 
-**Reading arrows: `→` and `↦`.** The plain arrow `→` (ASCII `->`, LaTeX
-`\to`) builds a *type*: `Nat → Nat` is the type of functions from numbers to
-numbers, and between propositions `A → B` reads "A implies B". It groups to
-the right, so `P → Q → R` means `P → (Q → R)`: "if P, then (if Q, then R)",
-which says the same as "if P and Q, then R". That is why the statement
-`(A → B) → (B → C) → A → C` is read "if A implies B and B implies C, then A
-implies C": the middle arrow is still implication, taking the two
-hypotheses one after the other. The barred arrow `↦` (ASCII `=>`, LaTeX
-`\mapsto`, read "maps to") builds a *value*, a function, not a type:
-`fun n ↦ n + 1` is the function that adds one, and its type is
-`Nat → Nat`. A proof of an implication is such a function. For example,
-`fun f g value ↦ g (f value)` proves the statement above: given a proof
-`f` of A → B, a proof `g` of B → C and a proof `value` of A, it returns
-`g (f value)`, a proof of C. The same theorem in the three forms
-(mathematics, LeanForth Forth and Lean) is the composition example of
-[the concepts page](CONCEPTS.md#de-bruijn-index).
+**Reading Lean's symbols (`→`, `↦`, `∀`, `∧`, …).** Every symbol, read
+slowly through three worked proofs, is on [reading a Lean proof](READING_A_LEAN_PROOF.md).
 
 **Theorem.** A named proposition together with a proof. For LeanForth to accept
 it, the intended workflow requires the trusted kernel to check that proof and
