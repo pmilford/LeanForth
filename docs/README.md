@@ -57,6 +57,7 @@ features they describe.
 - [INSTALLATION_LOG.md](development/INSTALLATION_LOG.md) — every install and verification command actually run.
 - [VERSIONS.md](development/VERSIONS.md) — observed tool versions and pinned download hashes.
 - [PROFILING.md](development/PROFILING.md) — opt-in time and memory measurement; results in [measurements/](development/measurements/).
+- [Lean kernel profile](development/measurements/lean-kernel-profile-2026-11-02/README.md) — where Lean 4.35.0's kernel spends its time on `Init`, `Std` and a Mathlib slice (by function family, measured with perf), per-declaration times and the slowest declarations, and a nanoda comparison (2026-11-02).
 - [KERNEL_START.md](development/KERNEL_START.md) — prerequisites for starting the trusted kernel.
 - [ARENA_PROTOTYPE.md](development/ARENA_PROTOTYPE.md) — notes and limits of the experimental term storage.
 - [NDJSON_PREVIEW.md](development/NDJSON_PREVIEW.md) — the development-only Lean NDJSON preview.
@@ -67,7 +68,7 @@ features they describe.
 - [PROJECT_PROGRESS.md](project/PROJECT_PROGRESS.md) — current status of both product tracks.
 - [DEVELOPMENT_ROADMAP.md](project/DEVELOPMENT_ROADMAP.md) — milestones, acceptance criteria and the near-term queue.
 - [PLAN_DRAFT.md](project/PLAN_DRAFT.md) — draft next-level plan (nine phases, about 130 tasks, library gaps, readable-proof mock-ups, owner questions); not approved.
-- [SCALE_ASSESSMENT.md](project/SCALE_ASSESSMENT.md) — memory and CPU needed to check all of Mathlib, what in today's design would not scale, and the recommended data structures (2026-11-02 assessment).
+- [SCALE_ASSESSMENT.md](project/SCALE_ASSESSMENT.md) — memory and CPU needed to check all of Mathlib, what in today's design would not scale, and the recommended data structures (2026-11-02 assessment); its last section says where Lean's kernel spends its time and what LeanForth should do about it.
 - [Mathlib export measurements](development/measurements/mathlib-2026-11-02/README.md) — the pinned Mathlib for Lean 4.35.0 exported and counted on this machine: 729,263 constants, 105.9 M expression nodes, up to 30 universe arguments (2026-11-02).
 - [OWNER_DECISIONS.md](project/OWNER_DECISIONS.md) — the owner's plain-language policy decisions.
 - [DECISIONS.md](project/DECISIONS.md) — running decision log with rejected alternatives.

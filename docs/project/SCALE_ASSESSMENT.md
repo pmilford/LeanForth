@@ -21,6 +21,11 @@ LeanForth's limit of 8); expression depth reaches 1,221; the largest
 declaration has 95,123 distinct nodes and one has a tree size of 1.2×10¹⁴,
 so walking shared nodes once per path is impossible at Mathlib scale.
 
+**Profiled since (2026-11-02, evening):** where Lean's own kernel spends its
+time on `Init`, `Std` and a Mathlib slice, the slowest declarations, a
+nanoda comparison, and eight design recommendations: see
+[the last section](#where-leans-kernel-spends-its-time-and-what-leanforth-should-do-about-it).
+
 ## Summary for the owner
 
 Full Mathlib is big, but within reach of an ordinary workstation **if the
@@ -469,3 +474,205 @@ Afterwards:
 - I deleted the two export files (0.9 GB), because the disk is 99% full.
   Regenerate them with the commands above; each takes about 13–21 s.
 - Lean `Init` maximum expression depth was 325 in both exports.
+
+## Where Lean's kernel spends its time, and what LeanForth should do about it
+
+*Added 2026-11-02 (evening) by a Claude Code subagent. Measurements,
+commands and tools:
+[lean-kernel-profile-2026-11-02](../development/measurements/lean-kernel-profile-2026-11-02/README.md).
+Labels as above: **measured** (here, today), **published**, **estimate**.*
+
+### In plain words
+
+We now know where Lean's own checker spends its time, from timing and
+profiling it on Lean's basic library (`Init`), its standard library (`Std`)
+and a slice of Mathlib (algebra and ordered fields, 224,291 declarations
+including everything it builds on).
+
+- **Most of the time goes into bookkeeping, not into the rules of logic.**
+  The parts of the checker that apply the typing rules themselves take
+  under 6% of the time on their own. The rest is spent substituting values
+  into formulas (about 40%), managing memory (about a fifth), looking things
+  up in tables (about a quarter), comparing formulas piece by piece (7–8%)
+  and finding definitions by name (5–8%). These shares overlap a little,
+  because substitution also uses memory and tables.
+- **The single most important operation is substitution:** putting
+  arguments into a formula, as when *f(x) = x + 1* is applied to 3 and
+  becomes 3 + 1. It takes 39–42% of Lean's checking time; checking `Init`
+  alone needed 8.8 million unfolding steps, and most of them are followed
+  by a substitution.
+- **A few proofs cost most of the time.** The slowest 1% of declarations
+  take about a third of the time. Almost all of them are proofs made by
+  automatic arithmetic tactics (`omega`, `grind`), which hand the checker a
+  short proof that is only accepted after a long computation. In `Init`
+  such proofs are 6% of the declarations and 58% of the time.
+- **Proofs of theorems are 85–95% of the work, and they can be checked side
+  by side**, because no other declaration ever looks inside a proof.
+- **The fast independent checker nanoda shows the same pattern** and shows
+  that sharing one copy of the library between six workers costs only a
+  third more memory than one worker, while running 3.7 times faster.
+
+**What this means for LeanForth:** the design already planned for the term
+store (one copy of each formula, numbered entries instead of addresses,
+memory released in one step after each declaration, and per-worker scratch
+space) removes most of the bookkeeping Lean pays for. The two things that
+must be made very fast in Forth are *building a formula node* and
+*substitution*; everything else follows Lean's published rules unchanged.
+How fast Gforth is on these two operations is not yet measured and is the
+first thing to measure once the store exists.
+
+### What was measured
+
+Shares of `leanchecker --fresh` run time, from perf samples (Init / Std /
+Mathlib slice; *owner* view, which charges memory and table work to the
+operation that caused it; [full tables](../development/measurements/lean-kernel-profile-2026-11-02/README.md#2-time-shares-by-family)):
+
+| Where the time goes | Init | Std | Slice |
+| --- | ---: | ---: | ---: |
+| Instantiation and abstraction (substitution of bound variables and universe parameters) | 41.3% | 41.6% | 38.9% |
+| Weak-head normalisation (unfolding, recursor and projection steps), excluding the substitutions it calls | 13.0% | 10.5% | 9.9% |
+| Type inference, excluding what it calls | 8.6% | 9.1% | 10.0% |
+| Definitional equality, excluding what it calls | 6.3% | 6.1% | 5.9% |
+| Looking up constants by name | 7.4% | 7.4% | 7.7% |
+| Destroying each declaration's caches | 6.5% | 6.7% | 5.5% |
+| Re-sharing each theorem before checking (`sharecommon`) | 5.5% | 5.6% | 5.1% |
+| Universe-level operations | 1.9% | 2.5% | 2.6% |
+| Nat and String literal arithmetic | 0.6% | 0.6% | 0.6% |
+| `leanchecker`'s own bookkeeping, loading, other | 9.0% | 10.0% | 14.0% |
+
+Cutting across those rows (where the CPU actually was): allocation and
+freeing with reference counting 21.5% / 21.7% / 22.8%; C++ hash-table
+operations 24.7% / 23.9% / 21.3%, of which the per-call memo of
+`instantiate` alone is 16.2% / 15.7% / 14.1% and the type checker's caches
+5.1% / 4.8% / 4.5%; structural comparison and hashing of terms 7.0% / 7.7% /
+8.4%; GMP 0.2%.
+
+Per declaration (kernel time only, measured with a timed copy of Lean's
+replay): median 120–175 µs; the slowest 1% take 32% (Init), 35% (Std) and
+35% (slice) of the time; time follows the number of distinct sub-terms
+(log-log correlation 0.87–0.91) at 2–7 µs per node, plus a computation-heavy
+tail (`omega` 58% of Init's time, 45% of Std's, 34% of the slice's; `grind`
+22% of the Mathlib part; well-founded recursion 9% of Std's). Big literals
+(≥ 2⁶⁴) and GMP are negligible. The slowest declaration measured is
+`Std.Tactic.BVDecide.BVExpr.bitblast.goCache_Inv_of_Inv._mutual`: 1.5 s,
+79,209 distinct nodes, 123,490 unfolding steps.
+
+nanoda (Rust) on `Init`: 44.3 s and 364 MB on one thread, 11.9 s and 487 MB
+on six; 38% of its time is hash-consing each newly built term, 34%
+instantiation, 17% universe substitution, 9% parsing. Lean's kernel: 39.5 s
+and 529 MB. lean4lean could not be run locally (it rejects 4.35.0 oleans).
+
+**Estimate:** the rows that LeanForth's planned store replaces with
+something cheaper or does at load time — reference-counted allocation,
+per-call memo tables, structural comparison, look-up by name, re-sharing,
+dependency bookkeeping — add up to about 55–60% of Lean's run time
+(exclusive shares, Init). nanoda shows that the replacement can cost as
+much as it saves (its term construction is 38% of its time) unless building
+a node is cheap. The speed of Gforth on these operations is unmeasured.
+
+### Recommendations
+
+Ordered by measured share. "Plan" refers to
+[PLAN_DRAFT.md](PLAN_DRAFT.md) task numbers; ADR 0016 is the compact
+hash-consed store ADR being drafted in parallel.
+
+1. **Store per-node data that lets substitution skip work** (plan 6.2.1,
+   6.2.3; ADR 0016). Every node record carries, computed once when the node
+   is built: its hash (from the children's hashes, never by traversal); its
+   *loose bound-variable range* (one more than the largest loose de Bruijn
+   index, so instantiate, lift and lower return a closed sub-term
+   unchanged in O(1), as Lean's `instantiate` does first); a
+   *has-universe-parameter* flag (so universe substitution skips
+   level-closed sub-terms); and, if the binder ADR chooses free variables, a
+   *has-free-variable* flag. Lean packs the same data in 64 bits
+   (`Expr.Data`: hash 32 bits, loose range 20 bits, depth 8 bits, four
+   flags); nanoda stores hash, loose count and a free-variable flag. With
+   the loose range capped at 2²⁰, Mathlib's depth of 1,221 fits.
+2. **Make the instantiation memo a reusable table, not a per-call one**
+   (6.2.1; phase 4, ADR 0014's beta and delta steps). Lean builds a fresh
+   node-allocating hash map for every `instantiate` call, keyed by node
+   and binder offset; inserting into it, finding in it and destroying it
+   cost 14–16% of all time. LeanForth should keep one preallocated
+   open-addressing table per context, keyed by (node index, offset),
+   cleared by bumping an epoch number, and memoise only nodes with loose
+   bound variables. Beta reduction in `whnf_core` is the biggest client
+   (13–18% of all time), then function application in `infer_app` (7–8%).
+3. **Hash-cons with exactly one probe per new node** (6.2.1; ADR 0016).
+   Then equal terms have equal indices, so structural comparison (7–8% in
+   Lean) becomes one integer comparison and Lean's per-theorem re-sharing
+   (5–6%) happens once, at load. nanoda's 38% for building nodes is the
+   warning: it probes the export's table and then the scratch table for
+   every node. A node with any child in the scratch tier cannot exist in
+   the environment tier, so only nodes whose children are all environment
+   nodes need the environment probe (*estimate*: most intermediate nodes
+   skip it; not measured). Probe on (tag, child indices, payload), compare
+   cells, never compare sub-terms recursively.
+4. **Use region memory released per declaration; no reference counting**
+   (6.2.2; ADR 0016's two tiers; ADR 0009's context record). Lean spends
+   21–23% allocating, counting references and freeing, plus 5.5–6.7%
+   destroying each declaration's caches. A bump-allocated scratch tier
+   rolled back to a mark after each declaration, with epoch-stamped caches,
+   makes both nearly free. This is the existing mark-and-release
+   discipline, scaled up.
+5. **Resolve names at load and cache universe-instantiated constants**
+   (ADR 0016's level-list interning; ADR 0012's lookup; ADR 0014's delta;
+   5.1.2 for recursor rules). Lean looks constants up by name during
+   checking (5–8%) — from recursor reduction, lazy delta's unfold test and
+   inferring a constant's type. Each `const` node should hold its
+   declaration's slot index. Substituting universe levels into a constant's
+   type, a definition's body or a recursor rule costs Lean 12–14% and
+   nanoda 17%; with interned level lists, a memo keyed by (constant, level
+   list) answers repeats, and constants without universe parameters need no
+   substitution at all.
+6. **Copy Lean's definitional-equality strategy and caches exactly**
+   (phase 4: ADR 0014, tasks 4.2.2 and 4.2.7; §6.4 of the plan). Lazy delta
+   reduction with height hints is where `whnf_core` is called most (18–23%
+   of all time, against 13–18% from the start of `is_def_eq_core`). Keep
+   Lean's caches: inferred types (two modes), `whnf_core`, `whnf`,
+   definitional-equality successes and failures, all keyed by node index;
+   Lean spends 4.5–5% of its time in them. Hit rates are **not measurable**
+   from outside Lean, so LeanForth must count hits and misses per cache
+   from the start (6.5.1) and verify verdicts with caches off (4.2.7).
+7. **Make iota and delta steps cheap, and size budgets for computing
+   proofs** (5.1.2, 5.1.4, 5.2.3; the fuel rules of ADR 0008/0011). Proofs
+   by `omega`, `grind` and `decide` take 35–58% of Lean's time with up to
+   123,490 unfolding steps in one declaration (58,000 in the slowest omega
+   proof). Find a recursor rule by constructor index in O(1), keep
+   definition bodies ready for the common level-closed case, and set fuel
+   per declaration so that these proofs pass. Bignum speed hardly matters
+   (GMP 0.2%; literals ≥ 2⁶⁴ in 0.1–0.2% of the time), so a simple, audited
+   Forth bignum is enough; correctness matters more.
+8. **Parallelise across declarations, theorems first** (phase 7: 7.2.1,
+   7.3.1, 7.6.1; ADR 0009; OQ-2). Theorems are 85–95% of kernel time and
+   their proofs are never unfolded, so they can be checked in any order
+   once the definitions and statements they mention are in the
+   environment. The largest single declaration (0.29 s in `Init`, 1.5 s in
+   `Std`) is far below total ÷ 6 (6.4 s and 11.5 s), so six workers can in
+   principle approach six times faster. Start the biggest declarations
+   first: distinct-node count predicts time well. Share the environment
+   read-only: nanoda gets 3.7× on six threads for +34% memory, whereas
+   Lean's one-task-per-module mode gets 1.8× for 6.4× memory.
+
+**What a Forth implementation must avoid** (each is measured as a cost in
+Lean or nanoda):
+
+- allocating and freeing a table inside an operation that runs millions of
+  times (Lean's instantiate memo);
+- reference counting, or freeing nodes one at a time;
+- looking constants up by name, or comparing terms structurally, during
+  checking;
+- a generic tree walk that calls a callback per node for every kind of
+  substitution (Lean's `replace` with a `std::function`): write one tight
+  walker each for instantiate, abstract, lift/lower and universe
+  substitution, with explicit stacks rather than return-stack recursion
+  (depth 1,221; task 6.2.0);
+- two hash look-ups per new node (nanoda);
+- dependency sorting at check time (7.5–10.6% of `leanchecker`'s run):
+  rely on the export's order and check that every reference points
+  backwards;
+- resource checks heavier than a counter decrement (Lean's are 2%).
+
+**Measure next** (6.5.1, before choosing between alternatives in ADR 0016):
+Gforth's cost per hash-consed node build and per instantiate step on
+`Init`-sized data, and hit and miss counts for every cache. Those numbers
+replace the unmeasured "Forth is 3–10× slower" assumption in section 6.
