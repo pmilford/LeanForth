@@ -24,7 +24,10 @@ forth = [line.split() for line in Path(sys.argv[2]).read_text().splitlines()]
 for i, (lrow, frow) in enumerate(zip(lean, forth)):
     expected_key = [str(i // 7), str(i % 7)]
     expected_lean = "ACCEPT" if i % 7 < 4 else "REJECT"
-    expected_forth = "OK" if i % 7 < 4 else "INVALID" if i % 7 == 6 else "UNKNOWN"
+    # Case 4 applies id.{u} to Sort u, a type one universe too high: rule D1
+    # of ADR 0011 rejects it; case 5's constant has no candidate signature.
+    expected_forth = ("OK" if i % 7 < 4 else "INVALID" if i % 7 == 6
+                      else "REJECTED" if i % 7 == 4 else "UNKNOWN")
     if lrow != expected_key + [expected_lean] or frow != expected_key + [expected_forth]:
         raise SystemExit(f"Unexpected observation at case {i}: Lean={lrow}, Forth={frow}")
 print("21 finite cases: independent Lean verdicts and expected Forth statuses matched.")

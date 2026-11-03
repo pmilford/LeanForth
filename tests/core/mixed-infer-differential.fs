@@ -73,7 +73,7 @@ variable token variable id-name variable missing-name variable universe-level
     i . 1 . 11 14 positive ." OK" cr
     i . 2 . 13 14 positive ." OK" cr
     i . 3 . 18 19 positive ." OK" cr
-    i . 4 . 20 outcome-unknown negative ." UNKNOWN" cr
+    i . 4 . 20 outcome-rejected negative ." REJECTED" cr  \ D1: wrong universe
     i . 5 . 21 outcome-unknown negative ." UNKNOWN" cr
     i . 6 . 22 outcome-invalid negative ." INVALID" cr
   loop ;
