@@ -119,6 +119,7 @@ test-harness:
 # task-serial.fs the serial path (task-no-env.fs on a host that does not
 # report its stack sizes); task-overflow.fs and its serial twin test
 # stack overflows inside jobs. tests/lib/task-bench.fs is report-only.
+# test_json_write.py checks the JSON writer against Python's json.dumps.
 test-lib:
 	$(RUN) $(GFORTH) tests/lib/lib.fs
 	$(RUN) $(GFORTH) tests/lib/lib-model.fs
@@ -130,6 +131,8 @@ test-lib:
 	$(RUN) $(GFORTH) tests/lib/task-no-env.fs
 	$(RUN) $(GFORTH) tests/lib/bytes.fs
 	$(RUN) $(GFORTH) tests/lib/json.fs
+	$(RUN) $(GFORTH) tests/lib/json-write.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/lib/test_json_write.py
 	$(RUN) $(GFORTH) tests/lib/task-overflow.fs
 	$(RUN) $(GFORTH) tests/lib/task-overflow-serial.fs
 

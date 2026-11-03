@@ -113,8 +113,9 @@ A handler must keep this contract:
 
 Each layer keeps its state in records passed on the stack, so separate
 readers are independent ([ADR 0009](../adr/0009-reentrant-state-and-parallel-checking.md));
-one reader is single-threaded. `lib/bytes.fs` and `lib/json.fs` are the only
-modules allowed byte access (`scripts/check-portable-forth.py`).
+one reader is single-threaded. `lib/bytes.fs` and `lib/json.fs` are among
+the few text modules allowed byte access, which `scripts/check-portable-forth.py`
+lists with their reasons.
 
 ## Record kinds and their fields
 
