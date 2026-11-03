@@ -9,8 +9,11 @@
 \ diagnostic line and an outcome: unsupported for Forth outside IR 0.1,
 \ invalid for malformed Forth or an unreadable file, full when one of
 \ the fixed capacities below is reached. Lines written before a diagnostic
-\ are incomplete and must not be used. If the output word throws, the
-\ exception passes to the caller (a file being read is closed first).
+\ are incomplete and must not be used. The output word must not use the
+\ reader: if it starts, feeds or finishes a read, or throws, the read
+\ stops as invalid, and an exception passes to the caller (a file being
+\ read is closed first). lf-ir-finish ends a read; a line fed after it
+\ stops the reader.
 \
 \ It must accept less than Gforth (1.0 and 0.7.3) does, never more, and
 \ give what it accepts Gforth's meaning:
@@ -40,9 +43,9 @@
 \
 \ Requires ../lib/lib.fs. State: lf-ir-reader, one context record (in a
 \ new context the reader is stopped until lf-ir-start), reached only
-\ through the accessors below; and lf-ir-vocabulary and lf-ir-reasons, two
-\ tables filled while this file loads and never changed afterwards. One
-\ read at a time in each context.
+\ through the accessors below; and lf-ir-vocabulary, lf-ir-reasons and
+\ three dispatch tables, filled while this file loads and never changed
+\ afterwards. One read at a time in each context.
 
 decimal
 require ../lib/lib.fs
@@ -143,7 +146,7 @@ ir-other s" variable" ir-word ir-other s" create" ir-word ir-other s" value" ir-
 ir-other s" @" ir-word      ir-other s" !" ir-word      ir-other s" lshift" ir-word
 
 \ Diagnostic reasons; each message is stored at its reason's index.
-24 /ir-slot 0 store: lf-ir-reasons
+32 /ir-slot 0 store: lf-ir-reasons
 : ir-reason ( c-addr u -- ) lf-ir-reasons ir-slot ir-text! ;
 0 constant ir-why-none       s" no diagnostic" ir-reason
 1 constant ir-why-unknown    s" not a known word or 32-bit decimal" ir-reason
@@ -168,7 +171,10 @@ ir-other s" @" ir-word      ir-other s" !" ir-word      ir-other s" lshift" ir-w
 20 constant ir-why-borrowed  s" takes values from outside the file" ir-reason
 21 constant ir-why-dividing  s" a division outside a definition" ir-reason
 22 constant ir-why-stopped   s" reader not started" ir-reason
-23 constant ir-reasons
+23 constant ir-why-output    s" output word failed" ir-reason
+24 constant ir-why-finished  s" reader already finished" ir-reason
+25 constant ir-why-running   s" output word running" ir-reason
+26 constant ir-reasons
 lf-ir-reasons store-count @ ir-reasons <> [if] .( lf-ir: reason table ) abort [then]
 : ir-reason-text ( reason -- c-addr u ) lf-ir-reasons store-slot ir-entry-text ;
 
@@ -205,6 +211,7 @@ begin-structure /lf-ir-reader
   field: irr-emit          \ output word ( c-addr u -- ), one line per call
   field: irr-outcome       \ outcome-ok until the first diagnostic
   field: irr-reason        \ why it stopped, or ir-why-none
+  field: irr-finished      \ true once lf-ir-finish has ended the read
   field: irr-line          \ number of the current line, from 1
   field: irr-column        \ column of the current token, from 1; 0 at end of file
   field: irr-start         \ the current line's first character
@@ -232,6 +239,7 @@ end-structure
 \ Accessors: the only words that name lf-ir-reader.
 : ir-outcome ( -- addr ) lf-ir-reader irr-outcome ;
 : ir-why ( -- addr ) lf-ir-reader irr-reason ;
+: ir-finished ( -- addr ) lf-ir-reader irr-finished ;
 : ir-line# ( -- addr ) lf-ir-reader irr-line ;
 : ir-column ( -- addr ) lf-ir-reader irr-column ;
 : ir-start ( -- addr ) lf-ir-reader irr-start ;
@@ -256,7 +264,6 @@ end-structure
 : ir-text ( -- c-addr ) lf-ir-reader irr-text ;
 : ir-block ( -- c-addr ) lf-ir-reader irr-block ;
 : ir-emit! ( xt -- ) lf-ir-reader irr-emit ! ;
-: ir-emit ( c-addr u -- ) lf-ir-reader irr-emit @ execute ;
 : ir-here ( -- line column ) ir-line# @ ir-column @ ;
 
 \ Until lf-ir-start, the reader of every context is stopped: lf-ir-feed
@@ -267,10 +274,28 @@ end-structure
 
 \ Stopping. Only the first diagnostic counts; later tokens are skipped.
 : ir-ok? ( -- flag ) ir-outcome @ ok? ;
-: ir-stop ( outcome reason -- ) ir-ok? if ir-why ! ir-outcome ! else 2drop then ;
+: ir-state ( -- outcome reason ) ir-outcome @ ir-why @ ;
+: ir-state! ( outcome reason -- ) ir-why ! ir-outcome ! ;
+: ir-stop ( outcome reason -- ) ir-ok? if ir-state! else 2drop then ;
 : ir-unsupported ( reason -- ) outcome-unsupported swap ir-stop ;
 : ir-invalid ( reason -- ) outcome-invalid swap ir-stop ;
 : ir-full ( -- ) outcome-full ir-why-capacity ir-stop ;
+
+\ The output word. While it runs, the reader is stopped with the reason
+\ "output word running", which nothing else sets. It must not use the
+\ reader: lf-ir-feed and lf-ir-finish called from it fail the read, and
+\ lf-ir-start or lf-ir-read-file start another read, which replaces that
+\ reason. Afterwards the reader goes on as before only if the output word
+\ returned and the reason is still there; otherwise the read stops as
+\ invalid ("output word failed"), and any exception passes on.
+: ir-running? ( -- flag ) ir-why @ ir-why-running = ;
+: ir-failed ( -- ) outcome-invalid ir-why-output ir-state! ;
+: ir-reentry ( -- ) ir-running? if ir-failed then ;
+: ir-halt ( -- outcome reason ) ir-state outcome-invalid ir-why-running ir-state! ;
+: ir-resume ( outcome reason flag -- ) if ir-state! else 2drop ir-failed then ;
+: ir-output ( c-addr u -- code ) lf-ir-reader irr-emit @ catch dup if nip nip then ;
+: ir-clean? ( code -- flag ) 0= ir-running? and ;
+: ir-emit ( c-addr u -- ) ir-halt 2>r ir-output dup ir-clean? 2r> rot ir-resume throw ;
 
 \ The output line under construction. Text that would not fit stops the
 \ reader instead of overrunning the buffer.
@@ -378,11 +403,21 @@ end-structure
 \ REPEAT; IR 0.1 has one.
 : ir-second-while? ( -- flag ) ir-while ir-top? ;
 
+\ Dispatch tables: one execution token for each class or mode, stored
+\ under the name of its index, so that the order of the constants above
+\ does not matter; loading stops if a slot is left empty.
+: ir-table ( n "name" -- ) create 0 ?do 0 , loop ;
+: ir-act! ( xt index table -- ) swap cells + ! ;
+: ir-filled? ( table n -- flag )
+  0 ?do dup @ 0= if drop false unloop exit then cell+ loop drop true ;
+\ Refuse the word of vocabulary index as unsupported, for reason.
+: ir-refuse ( index reason -- ) nip ir-unsupported ;
+
 \ Actions for a vocabulary word inside a definition ( index -- ).
 : ir-to-top ( -- ) ir-mode-top ir-mode ! ;
 : ir-body-prim ( index -- ) s" prim " ir-start-line ir-word-text ir-append ir-done ;
 : ir-body-nested ( index -- ) drop ir-why-nested ir-invalid ;
-: ir-body-inside ( index -- ) drop ir-why-inside ir-unsupported ;
+: ir-body-inside ( index -- ) ir-why-inside ir-refuse ;
 : ir-body-end ( index -- )
   drop ir-depth @ if ir-unbalanced exit then ir-end -1 ir-current ! ir-to-top ;
 : ir-body-if ( index -- ) drop s" if" ir-if ir-open ;
@@ -399,18 +434,20 @@ end-structure
   drop ir-rest ['] ir-unclosed? ir-skip
   dup if 1 /string ir-rest! else 2drop ir-why-comment ir-unsupported then ;
 : ir-skip-line ( index -- ) drop ir-rest chars + 0 ir-rest! ;
-: ir-not-ir ( index -- ) drop ir-why-not-ir ir-unsupported ;
+: ir-not-ir ( index -- ) ir-why-not-ir ir-refuse ;
 
-\ A table of execution tokens must have one for each class or mode.
-: ir-sized? ( table entries -- flag ) cells + here = ;
-
-create ir-body-actions  \ indexed by class
-  ' ir-body-prim , ' ir-body-prim , ' ir-body-prim , ' ir-body-nested ,
-  ' ir-body-end , ' ir-body-if , ' ir-body-else , ' ir-body-then ,
-  ' ir-body-begin , ' ir-body-while , ' ir-body-repeat , ' ir-body-exit ,
-  ' ir-body-inside , ' ir-skip-paren , ' ir-skip-line , ' ir-body-inside ,
-  ' ir-not-ir ,
-ir-body-actions ir-classes ir-sized? 0= [if] .( lf-ir: body actions ) abort [then]
+ir-classes ir-table ir-body-actions
+: ir-body! ( xt class -- ) ir-body-actions ir-act! ;
+' ir-body-prim ir-prim ir-body!          ' ir-body-prim ir-divide ir-body!
+' ir-body-prim ir-rstack ir-body!        ' ir-body-nested ir-colon ir-body!
+' ir-body-end ir-semicolon ir-body!      ' ir-body-if ir-if ir-body!
+' ir-body-else ir-else ir-body!          ' ir-body-then ir-then ir-body!
+' ir-body-begin ir-begin ir-body!        ' ir-body-while ir-while ir-body!
+' ir-body-repeat ir-repeat ir-body!      ' ir-body-exit ir-exit ir-body!
+' ir-body-inside ir-constant ir-body!    ' ir-skip-paren ir-paren ir-body!
+' ir-skip-line ir-backslash ir-body!     ' ir-body-inside ir-decimal ir-body!
+' ir-not-ir ir-other ir-body!
+ir-body-actions ir-classes ir-filled? 0= [if] .( lf-ir: body actions ) abort [then]
 
 \ Actions for a vocabulary word outside a definition ( index -- ). Tokens
 \ before CONSTANT are kept, and the cells they would leave on Gforth's data
@@ -429,11 +466,11 @@ ir-body-actions ir-classes ir-sized? 0= [if] .( lf-ir: body actions ) abort [the
 \ Gforth divides while it loads the file, and a division by zero, or of
 \ the smallest cell by -1, stops the load there (THROW -10 or -11); the
 \ IR divides only when the constant is called. So no division is kept.
-: ir-top-divide ( index -- ) drop ir-why-dividing ir-unsupported ;
+: ir-top-divide ( index -- ) ir-why-dividing ir-refuse ;
 : ir-top-colon ( index -- )
   drop ir-kept# @ if ir-why-left-over ir-unsupported exit then
   ir-here ir-mark! ir-mode-word ir-mode ! ;
-: ir-top-control ( index -- ) drop ir-why-outside ir-unsupported ;
+: ir-top-control ( index -- ) ir-why-outside ir-refuse ;
 : ir-one-value ( -- )
   ir-values @ 1 <> if ir-why-one-value ir-unsupported exit then
   ir-mode-constant ir-mode ! ;
@@ -443,13 +480,19 @@ ir-body-actions ir-classes ir-sized? 0= [if] .( lf-ir: body actions ) abort [the
   drop ir-kept# @ if ir-one-value else ir-why-no-value ir-unsupported then ;
 : ir-top-decimal ( index -- ) drop ;  \ BASE is already ten, as assumed above
 
-create ir-top-actions  \ indexed by class; >r r> r@, / and mod are not kept
-  ' ir-top-prim , ' ir-top-divide , ' ir-top-control , ' ir-top-colon ,
-  ' ir-top-control , ' ir-top-control , ' ir-top-control , ' ir-top-control ,
-  ' ir-top-control , ' ir-top-control , ' ir-top-control , ' ir-top-control ,
-  ' ir-top-constant , ' ir-skip-paren , ' ir-skip-line , ' ir-top-decimal ,
-  ' ir-not-ir ,
-ir-top-actions ir-classes ir-sized? 0= [if] .( lf-ir: top actions ) abort [then]
+\ >r r> r@, / and mod are not kept.
+ir-classes ir-table ir-top-actions
+: ir-top! ( xt class -- ) ir-top-actions ir-act! ;
+' ir-top-prim ir-prim ir-top!            ' ir-top-divide ir-divide ir-top!
+' ir-top-control ir-rstack ir-top!       ' ir-top-colon ir-colon ir-top!
+' ir-top-control ir-semicolon ir-top!    ' ir-top-control ir-if ir-top!
+' ir-top-control ir-else ir-top!         ' ir-top-control ir-then ir-top!
+' ir-top-control ir-begin ir-top!        ' ir-top-control ir-while ir-top!
+' ir-top-control ir-repeat ir-top!       ' ir-top-control ir-exit ir-top!
+' ir-top-constant ir-constant ir-top!    ' ir-skip-paren ir-paren ir-top!
+' ir-skip-line ir-backslash ir-top!      ' ir-top-decimal ir-decimal ir-top!
+' ir-not-ir ir-other ir-top!
+ir-top-actions ir-classes ir-filled? 0= [if] .( lf-ir: top actions ) abort [then]
 
 : ir-act ( index table -- ) over ir-class cells + @ execute ;
 
@@ -495,9 +538,12 @@ ir-top-actions ir-classes ir-sized? 0= [if] .( lf-ir: top actions ) abort [then]
 
 \ One token, in the current mode, looked up in lower case; the first
 \ failure is reported with the token as the source spells it.
-create ir-mode-actions  \ indexed by mode, which only the reader sets
-  ' ir-top-token , ' ir-word-name , ' ir-body-token , ' ir-constant-name ,
-ir-mode-actions ir-modes ir-sized? 0= [if] .( lf-ir: mode actions ) abort [then]
+ir-modes ir-table ir-mode-actions  \ indexed by mode, which only the reader sets
+' ir-top-token ir-mode-top ir-mode-actions ir-act!
+' ir-word-name ir-mode-word ir-mode-actions ir-act!
+' ir-body-token ir-mode-body ir-mode-actions ir-act!
+' ir-constant-name ir-mode-constant ir-mode-actions ir-act!
+ir-mode-actions ir-modes ir-filled? 0= [if] .( lf-ir: mode actions ) abort [then]
 : ir-dispatch ( c-addr u -- ) ir-mode @ cells ir-mode-actions + @ execute ;
 : ir-column! ( c-addr -- ) ir-start @ - 1 chars / 1+ ir-column ! ;
 : ir-token ( c-addr u -- ) over ir-column! 2dup 2>r ir-fold ir-dispatch 2r> ir-blame ;
@@ -541,25 +587,34 @@ ir-mode-actions ir-modes ir-sized? 0= [if] .( lf-ir: mode actions ) abort [then]
   ir-header ;
 \ A fed line is copied first, so it may live in a transient buffer such as
 \ the pictured-numeric one, which the reader itself uses. A line too long
-\ to copy is cut to the buffer's size, which ir-scan then refuses. A fed
-\ line has no line end: any CR in it is refused.
-: lf-ir-feed ( c-addr u -- )
-  ir-line-chars min tuck ir-text swap chars move ir-text swap ir-scan ;
+\ to copy, its length u taken as unsigned, is cut to the buffer's size,
+\ which ir-scan then refuses. A fed line has no line end: any CR in it is
+\ refused. Nothing is copied into a stopped reader, whose line buffer may
+\ hold the line it was reading when its output word fed this one.
+: ir-cut ( u -- u' ) dup ir-line-chars u> if drop ir-line-chars then ;
+: ir-feed-line ( c-addr u -- ) ir-cut tuck ir-text swap chars move ir-text swap ir-scan ;
+\ A line fed after lf-ir-finish stops the reader, and is not written about.
+: ir-unfinished ( -- ) ir-finished @ if ir-why-finished ir-invalid then ;
+: ir-feeding? ( -- flag ) ir-reentry ir-unfinished ir-ok? ;
+: lf-ir-feed ( c-addr u -- ) ir-feeding? if ir-feed-line else 2drop then ;
 : ir-at-end ( -- )
   ir-mode @ ir-mode-top <> if ir-why-unclosed ir-invalid exit then
   ir-kept# @ if ir-why-left-over ir-unsupported then ;
 : ir-end-of-input ( -- ) 0 ir-column ! ir-at-end ir-ok? 0= if ir-diagnose then ;
-: lf-ir-finish ( -- outcome ) ir-ok? if ir-end-of-input then ir-outcome @ ;
+\ Finishing ends the read; finishing again gives the same outcome.
+: lf-ir-finish ( -- outcome )
+  ir-reentry ir-ok? if ir-end-of-input then true ir-finished ! ir-outcome @ ;
 
 \ A file, read a block at a time and split into lines at LF only, so that
 \ the reader, not the host's READ-LINE, decides where a line ends. The
 \ current line is held in the line buffer; characters beyond the buffer
-\ are counted, not kept, and ir-scan refuses the line as too long. One CR
-\ just before an LF is dropped, as both Gforths drop it; any other CR
-\ stays in its line and is refused as a character outside printable
-\ ASCII. A last line without LF is read too. A read error stops the
-\ reader. The file is closed even when the output word throws, and the
-\ exception is passed on.
+\ are counted, not kept, and ir-scan refuses the line as too long, at the
+\ end of the first block after which it is too long even without a CR, so
+\ a file without LF is not read to its end. One CR just before an LF is
+\ dropped, as both Gforths drop it; any other CR stays in its line and is
+\ refused as a character outside printable ASCII. A last line without LF
+\ is read too. A read error stops the reader. The file is closed even
+\ when the output word throws, and the exception is passed on.
 10 constant ir-lf
 13 constant ir-cr
 : ir-hold ( char -- )
@@ -576,15 +631,17 @@ ir-mode-actions ir-modes ir-sized? 0= [if] .( lf-ir: mode actions ) abort [then]
 \ false after a read error.
 : ir-fetch ( fileid -- u true | false )
   >r ir-block ir-block-chars r> read-file if drop ir-unreadable false else true then ;
+\ Refuse the line held if it is too long even without a CR at its end.
+: ir-too-long ( -- ) ir-held @ dup ir-line-chars > if ir-line else drop then ;
 \ The lines of a block of u characters, or at the end of the file the
 \ last line; false once the file has ended or the reader has stopped.
 : ir-block-lines ( u -- flag )
-  ?dup if ir-block swap ir-chars ir-ok? else ir-last-line false then ;
+  ?dup if ir-block swap ir-chars ir-too-long ir-ok? else ir-last-line false then ;
 : ir-more? ( fileid -- flag ) ir-fetch if ir-block-lines else false then ;
 : ir-read-lines ( fileid -- ) begin dup ir-more? 0= until drop ;
+: ir-close-file ( fileid -- ) close-file drop ;
 : ir-read-open ( fileid -- )
-  dup ['] ir-read-lines catch ?dup if nip swap close-file drop throw then
-  close-file drop ;
+  dup >r ['] ir-read-lines catch dup if nip then r> ir-close-file throw ;
 \ Opened as a binary file, so that no host translates its line ends.
 : ir-read-path ( c-addr u -- )
   r/o bin open-file if drop ir-unreadable else ir-read-open then ;

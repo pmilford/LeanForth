@@ -30,14 +30,14 @@ Assumptions
       its words mean on the host. The reader splits the file into lines at LF itself and
       finds names ignoring letter case as Gforth does; it refuses a redefinition, under
       any spelling, of a word it knows (the IR's words, some other standard words and the
-      file's own), any byte outside printable ASCII but a CR just before an LF, and a
-      division before CONSTANT; it never runs the source. Gforth is assumed to load the
-      file with its default settings (decimal BASE, standard words), and the file to
-      define no name that code compiled after it in the same session uses, other than the
-      words under test: the reader accepts definitions of other host words, such as . or
-      DEPTH, which would change what such code, a test harness for example, means. Nothing
-      proves the translation; make test compares the reader's output with the IR named
-      here.
+      file's own), any byte outside printable ASCII other than a space, a tab, an LF and a
+      CR just before an LF, and a division before CONSTANT; it never runs the source.
+      Gforth is assumed to load the file with its default settings (decimal BASE, standard
+      words), and the file to define no name that code compiled after it in the same
+      session uses, other than the words under test: the reader accepts definitions of
+      other host words, such as . or DEPTH, which would change what such code, a test
+      harness for example, means. Nothing proves the translation; make test compares the
+      reader's output with the IR named here.
   A4  trusted-runtime: Gforth and its compiler execute 2DUP, >, IF, 2DROP, DROP, FALSE,
       EXIT, THEN, >R, MAX, R>, MIN and TRUE as the IR semantics says. The runtime
       comparison tested this on 986 cases; it does not prove it.
