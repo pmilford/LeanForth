@@ -142,6 +142,7 @@ class FramingFailures(unittest.TestCase):
             ("metadata twice", meta + b"\n" + good, ("invalid", 2)),
             ("line swapped", b"\n".join([lines[0], lines[2], lines[1]] + lines[3:]) + b"\n", ("invalid", 2)),
             ("not an object", b"\n".join([lines[0], b"[1,2]"] + lines[1:]) + b"\n", ("invalid", 2)),
+            ("nested too deep", meta + b"\n" + b"[" * 70 + b"]" * 70 + b"\n", ("full", 2)),
         ]
 
     def test_failures(self):
@@ -156,6 +157,34 @@ class FramingFailures(unittest.TestCase):
         for (name, _, expected), output in zip(cases, outputs):
             self.assertEqual(error_of(output), expected, f"{name}: {output}")
             self.assertEqual(output.count("\n"), 1, f"{name}: partial output {output}")
+            # The outcome is named by outcome-text (src/lib/outcome.fs).
+            self.assertTrue(output.startswith(f"error: {expected[0]}: "), f"{name}: {output}")
+
+
+class KindTable(unittest.TestCase):
+    """The counter's table of record kinds must have one category per kind:
+    a copy with one entry missing (its REQUIREs made absolute, so it loads
+    from a temporary folder) stops while loading; the same copy unchanged
+    loads silently."""
+
+    def load(self, folder, source):
+        path = Path(folder) / "ndjson-count-copy.fs"
+        text = source.replace("require ../lib/", f"require {ROOT}/src/lib/")
+        path.write_text(text.replace("require ./ndjson.fs", f"require {ROOT}/src/import/ndjson.fs"),
+                        encoding="utf-8")
+        result = subprocess.run([GFORTH, str(path), "-e", "bye"], cwd=ROOT, stdin=subprocess.DEVNULL,
+                                capture_output=True, timeout=600)
+        return result.returncode, (result.stdout + result.stderr).decode("utf-8", errors="replace")
+
+    def test_kind_table(self):
+        source = (ROOT / COUNT_FS).read_text(encoding="utf-8")
+        last = "-1 , -1 , -1 ,"
+        self.assertEqual(source.count(last), 1)
+        with tempfile.TemporaryDirectory() as folder:
+            self.assertEqual(self.load(folder, source), (0, ""))
+            code, output = self.load(folder, source.replace(last, "-1 , -1 ,"))
+        self.assertNotEqual(code, 0, output)
+        self.assertIn("one category per record kind", output)
 
 
 class ExitStatus(unittest.TestCase):
