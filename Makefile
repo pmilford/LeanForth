@@ -55,6 +55,8 @@ check-docs:
 
 # The Forth examples of the user pages print exactly the output shown.
 DOC_EXAMPLE_PAGES := docs/user/CONCEPTS.md docs/user/TERM_PRINTER.md
+# Its LeanForth syntax is a sketch in text blocks; only its Lean blocks run.
+DOC_EXAMPLE_PAGES += docs/user/LEANFORTH_SYNTAX_SKETCH.md
 check-doc-examples:
 	$(RUN) python3 scripts/check-doc-examples.py --gforth $(GFORTH) $(DOC_EXAMPLE_PAGES)
 

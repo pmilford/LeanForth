@@ -520,3 +520,55 @@ schema cannot express (an empty axiom list, a theorem missing from the
 check, duplicate assumption IDs, more failures than cases, the Lean
 version, the receipt's generator) are left to the receipt generator and
 replay.
+
+## LeanForth Forth syntax — proposed, 2026-11-02
+
+[ADR 0017](../adr/0017-leanforth-syntax.md) proposes how theorems,
+definitions and proofs are written in LeanForth itself (plan task 8.1.1;
+gate [parser]; nothing implemented). Following the owner's requirement
+that theorems and proofs be LeanForth words, not strings that are parsed,
+every token is a Forth word run by Forth's own interpreter in the separate,
+untrusted authoring program (OQ-1); no string carries mathematics. The
+canonical *kernel form* maps one-to-one onto Lean's kernel terms: `$`
+applies a function (`g f value $ $` is Lean's `g (f value)`), `^` gives a
+constant a universe argument, `TYPE explicit: NAME … fun|forall` is a
+binder whose word for the variable pushes the right de Bruijn index (also
+`implicit:`, `strict-implicit:`, `instance:`), `A B ->` an arrow, and
+`theorem NAME … := … end NAME` a declaration whose binders still open at
+`:=` are its parameters and whose `end` defines its word. The search order
+holds only LeanForth's wordlists (syntax, variables, namespaces, constants),
+so Forth's own words are invisible in proof text. Rule R1: every syntax
+word is a reserved Lean keyword or contains a character no Lean identifier
+has. Names stay case-sensitive although Forth's lookup is not: one word per
+spelling-up-to-case re-reads its invoking token from `SOURCE`/`>IN` and
+acts on an exact match, else hands the token to the wordlists after its
+own (537 groups of Mathlib names differ only in case; `x : X` is common). A
+short name found through a namespace must not also exist elsewhere
+(ambiguity is an error). Every node records a source position. Steps take
+`label:`, `note"` (a person) and `ai-note"` (an AI), kept in the source,
+printed and round-tripped, never checked (OQ-11). No Forth standard word
+gets a mathematical meaning: `+` stays machine addition (the plan's "`+` in
+a math wordlist" question, answered no). Literals, `let`/`have`,
+projections, inductive types, structures (fields as constructor binders),
+holes and `by-` tactic words are sketched.
+
+Evidence: a throwaway prototype ran 18 example files as words through
+Gforth's interpreter; 24 declarations printed as words ran again to
+identical terms and text; output was byte-identical on Gforth 1.0, Gforth
+0.7.3 and case-sensitive wordlists; 17 print exactly as Lean 4.35.0's
+`#print` (the five fixtures as in `fixtures.golden`); five planted faults
+were caught, one (the spelling check disabled) only by comparison with
+Lean, so 8.1.2 keeps both tests; four mistakes stopped with line and
+column. A word per constant costs about 119 bytes and 6 µs in Gforth 1.0.
+The examples found a term-printer difference (Lean omits an instance
+binder's name in `fun` when the printed body does not show it). Rejected: a
+string-parsed surface syntax (owner's preference); this ADR's first draft, a
+reader with its own lookup (a parser of its own); Gforth-only
+case-sensitive wordlists or recognizers; forbidding case-only differences;
+one wordlist per binder (search-order depth); plain-word connectives
+(`app`, `proof`, `succ`, `max` are common Mathlib binder names); brackets
+or S-expressions; unchecked first-match lookup; application with an
+argument count; universe arguments popped by the constant itself; levels
+inside tokens; two-cell tagged values; per-kind closing words; and notes
+kept apart from the source. Open for the owner: the five decisions at the
+end of the ADR.
