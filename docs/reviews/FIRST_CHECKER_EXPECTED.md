@@ -51,9 +51,9 @@ recognised by their fixed message.
 | LeanForth **accepted** | 14 | 0 | 14 |
 | LeanForth **rejected** | 0 | 28 | 28 |
 | LeanForth **invalid** | 0 | 1 | 1 |
-| LeanForth **unknown** | 8 | 1 | 9 |
+| LeanForth **unknown** | 10 | 1 | 11 |
 | LeanForth **unsupported** | 8 | 0 | 8 |
-| Total | 30 | 30 | 60 |
+| Total | 32 | 30 | 62 |
 
 Every fixture group reaches *accepted*, a failure (*rejected* or *invalid*)
 and *unknown* or *unsupported*. 27 broken copies also exist as Lean source,
@@ -86,17 +86,17 @@ and every D rejection's rules include the row's.
 | LeanForth **accepted** | 14 | 0 | 14 |
 | LeanForth **rejected** | 0 | 28 | 28 |
 | LeanForth **invalid** | 0 | 1 | 1 |
-| LeanForth **unknown** | 7 | 1 | 8 |
+| LeanForth **unknown** | 9 | 1 | 10 |
 | LeanForth **unsupported** | 8 | 0 | 8 |
 | LeanForth **full** | 1 | 0 | 1 |
-| Total | 30 | 30 | 60 |
+| Total | 32 | 30 | 62 |
 
 Every row equals the table but one: `composition.proof-irrelevance` is
 *full*, not *unknown*: LeanForth's 64-node term store fills while the
 value's type is inferred, before the comparison that would be undecided
 (K2). It was *full* before task 2.2.1 too, and neither answer is accepted.
 Seven rows (U1, U2) are decided by the driver's stand-in for the
-declaration audit, 53 by kernel code. Before task 2.2.1 the same paths
+declaration audit, 55 by kernel code. Before task 2.2.1 the same paths
 answered *unknown* for the 15 rows of rules D1–D5, F1, S1 and S2, and had
 no theorem mode for the four S3 rows.
 
@@ -176,6 +176,17 @@ P x := proof`.
 | `theorem-over-sort-u` | P : A → Sort u: a proposition only when u = 0, so not for every u | thmTypeIsNotProp | **rejected** | S3 | yes | rejected (S3) |
 | `definition-over-sort-u` | the same term as a definition is fine | accepted | **accepted** | A1 |  | accepted |
 | `equal-universe-other-spelling` | the proof writes Sort (max u u); Lean's level normalisation equates it with Sort u | accepted | **unknown** | K4 |  | unknown |
+| `proof-irrelevance-imax` | P y from a proof of P x, A : Sort (imax u 0), which is Prop for every u: x and y are proofs | accepted | **unknown** | K2 |  | unknown |
+| `proof-irrelevance-max-zero` | the same with A : Sort (max 0 0), which is Prop | accepted | **unknown** | K2 |  | unknown |
+
+The last two rows are `type-identity.proof-irrelevance-twin` with `Prop`
+spelled so that only Lean's level normalisation (`normalizes_to_zero`)
+sees it. They were added after the independent review of task 2.2.1 (its
+finding M1, the probes `pi-imaxu0` and `pi-maxzero`): LeanForth may call
+x and y apart only when it knows they are not proofs, and a check that
+read the level's spelling instead of normalising it would reject these
+rows, which Lean accepts. With that fault planted, both rows give
+*rejected* (D3+D4+D5) and the differential fails.
 
 ## constant fixture
 
@@ -266,14 +277,17 @@ LEAN=.tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean \
 Run on 2026-11-02 with Lean 4.35.0 (`eb6cafb7290e8bd5f2937522d8d804f58f02bafc`);
 it took about two seconds and printed "Lean kernel verdicts match
 first-checker-expected.tsv (60 cases)" and "Lean rejected all 27 broken
-source copies, each for the expected reason". The script is not yet part of
-`make check`. SHA-256 at that run: `first-checker-expected.lean`
-`7a861ced6724395c3d1151d4df851c6ab33fdcb2558760e52d1b1df6ebe171e3`,
+source copies, each for the expected reason". The script is part of `make
+check`, as `make reference-first-checker`. Run again on 2026-11-02 after
+the two `proof-irrelevance-imax` and `-max-zero` rows were added: "(62
+cases)", and the same 27 source copies. SHA-256 at that run:
+`first-checker-expected.lean`
+`4d0d4f5e3ed70d786e93fc5334170e8d055e733f8268b5b58d8dd6bd93e84c5d`,
 `first-checker-expected.tsv`
-`ae154a1ac50a887eb2a13f810ec4b59f94ba11922b0b59d5057545c6a1a0263a`,
+`b2a299e13151f1ef2847845471e7038874afa55a090961b36cf3073793473031`,
 `first-checker-invalid.lean`
-`62f94c7cbd31548fbb6b90808d54da9b88b6c1197701cfa44f583bf472d6ec9e`.
-(It is part of `make check` now, as `make reference-first-checker`.)
+`62f94c7cbd31548fbb6b90808d54da9b88b6c1197701cfa44f583bf472d6ec9e`
+(unchanged).
 
 The measured column:
 
@@ -282,9 +296,10 @@ make test-first-checker-differential
 ```
 
 Run on 2026-11-02 with Lean 4.35.0 and Gforth 1.0.0, in about two
-seconds: "first checker: 14 accepted, 1 full, 1 invalid, 28 rejected, 8
-unknown, 8 unsupported; 53 decided by kernel code, 7 by the stand-in audit
-(U1, U2); known differences: composition.proof-irrelevance". The two files
+seconds, with the 62 rows: "first checker: 14 accepted, 1 full, 1
+invalid, 28 rejected, 10 unknown, 8 unsupported; 55 decided by kernel
+code, 7 by the stand-in audit (U1, U2); known differences:
+composition.proof-irrelevance". The two files
 it adds have SHA-256 `first-checker-terms.lean`
 `98df70061b4bca7f93a4c9c4bc55acae242e57691c9aff7e840a02e7bc1f1c96` and
 `first-checker-driver.fs`
