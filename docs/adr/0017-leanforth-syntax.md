@@ -1,6 +1,6 @@
 # ADR 0017: LeanForth Forth syntax for theorems, definitions and proofs
 
-Status: **proposed**, 2026-11-02 (plan task 8.1.1, gate [parser]). A design
+Status: **accepted as the design basis** by the owner on 2026-11-02 (decisions 1–4 as recommended, see [owner decisions](../project/OWNER_DECISIONS.md)); proposed 2026-11-02 (plan task 8.1.1); the implementation (plan 8.1.2) still passes the [parser] gate. A design
 only: nothing in `src/` implements it. A throwaway prototype (outside the
 repository, see [Evidence](#evidence)) ran every example below as Forth
 words through Forth's own interpreter, built the terms in LeanForth's

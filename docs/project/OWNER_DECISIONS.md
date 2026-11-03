@@ -313,3 +313,16 @@ produces can be verified.
   token-reading words (as `:` reads a name) are allowed; mathematical
   notation stays in the printer and rendering layer. Applies to ADR 0017
   (plan task 8.1.1).
+- **ADR 0017, LeanForth syntax: approved as the basis for building it**
+  (2026-11-02, night; plan 8.1.2 may start). The owner's answers to the
+  ADR's decisions, each as recommended: (1) the overall shape, Forth
+  words run by Forth's own interpreter, postfix, binder words that read
+  their name, `theorem NAME … := … end NAME`; (2) proof files use only
+  LeanForth's fixed vocabulary for now: no helper words defined inside
+  proof files, and Forth's `+` keeps its machine meaning (libraries of
+  user words may come later in the authoring program); (3) names in
+  theorem files are case-sensitive, as in Lean and Mathlib, unlike Forth
+  program files; (4) labels and `note"`/`ai-note"` notes beside each step,
+  kept through edits and never checked, are what the owner meant by notes
+  that stay with an evolving proof. The implementation still passes the
+  [parser] gate before it is relied on.
