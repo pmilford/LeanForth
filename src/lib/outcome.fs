@@ -49,12 +49,14 @@
 \ A failure that has no result: -1 in the result's place.
 : no-result ( outcome -- -1 outcome ) -1 swap ;
 \ The outcome's name, as diagnostics write it. A value outside the
-\ vocabulary is named "invalid", as outcome-sane reads it.
+\ vocabulary is named "invalid", as outcome-sane reads it, and so is any
+\ value the CASE does not list. One arm per outcome, two to a line: seven
+\ names need four lines, which is shorter and plainer than a table.
 : outcome-text ( outcome -- c-addr u )
   outcome-sane case
     outcome-ok of s" ok" endof  outcome-invalid of s" invalid" endof
     outcome-exhausted of s" exhausted" endof  outcome-unknown of s" unknown" endof
     outcome-rejected of s" rejected" endof  outcome-unsupported of s" unsupported" endof
-    s" full" rot endcase ;
+    outcome-full of s" full" endof  s" invalid" rot endcase ;
 \ Drop an argument and report invalid input.
 : drop-invalid ( x -- outcome ) drop outcome-invalid ;

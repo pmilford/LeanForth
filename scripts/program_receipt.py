@@ -96,12 +96,18 @@ def assumptions(word, prims, cases):
         {"id": "A3", "kind": "trusted-reader",
          "text": "The reader (src/program/ir-reader.fs) translated the colon definition into "
                  "the IR faithfully, and nothing else in the source file changes what its "
-                 "words mean on the host. The reader finds names ignoring letter case as "
-                 "Gforth does, refuses a definition that hides an existing word under any "
-                 "spelling and any byte outside printable ASCII, and never runs the source; "
-                 "Gforth is assumed to load the file with its default settings (decimal "
-                 "BASE, standard words). Nothing proves the translation; make test compares "
-                 "the reader's output with the IR named here."},
+                 "words mean on the host. The reader splits the file into lines at LF itself "
+                 "and finds names ignoring letter case as Gforth does; it refuses a "
+                 "redefinition, under any spelling, of a word it knows (the IR's words, some "
+                 "other standard words and the file's own), any byte outside printable ASCII "
+                 "but a CR just before an LF, and a division before CONSTANT; it never runs "
+                 "the source. Gforth is assumed to load the file with its default settings "
+                 "(decimal BASE, standard words), and the file to define no name that code "
+                 "compiled after it in the same session uses, other than the words under "
+                 "test: the reader accepts definitions of other host words, such as . or "
+                 "DEPTH, which would change what such code, a test harness for example, "
+                 "means. Nothing proves the translation; make test compares the reader's "
+                 "output with the IR named here."},
         {"id": "A4", "kind": "trusted-runtime",
          "text": f"Gforth and its compiler execute {prims} as the IR semantics says. The "
                  f"runtime comparison tested this on {cases} cases; it does not prove it."},

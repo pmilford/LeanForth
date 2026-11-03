@@ -1,12 +1,16 @@
 \ Unit tests of src/lib/json.fs: valid texts and their tokens, a corpus of
 \ malformed texts that must all be invalid, escapes decoded in place,
 \ numbers, every limit at and one past its bound, failure positions, and
-\ the tape readers.
+\ the tape readers. The module is loaded under HEX (and the heap watched):
+\ its numbers must not depend on BASE, and it must leave BASE as it found
+\ it.
 include ../support/tester.fs
 include ../support/checks.fs
-require ../../src/lib/json.fs
+include ../support/heap-watch.fs
+hex require ../../src/lib/json.fs base @ decimal constant base-after-load
 
-decimal
+T{ base-after-load s" 10" digits>u cell-digits max-n 0 <# #s #> nip = -> 16 10 true true }T
+live-blocks @ constant blocks-at-start
 json: jv
 T{ 8 jv json-init -> outcome-ok }T
 
@@ -158,8 +162,11 @@ T{ -1 jv json-kind-at 3 jv json-kind-at 1 jv json-kind-at -> -1 -1 json-integer 
 : copied ( c-addr u -- c-addr' u ) tuck text-buffer swap move text-buffer swap ;
 T{ s" [1,{}]" copied jv ' json-parse rs-checked -> outcome-ok }T
 
-\ json-init again frees the old memory first; json-free frees it all.
-T{ 8 jv json-init 4 jv json-init jv json-depth-limit @ -> outcome-ok outcome-ok 4 }T
-T{ jv json-free jv json-tape @ jv json-stack @ -> 0 0 }T
+\ json-init again frees the old memory first; json-free frees it all: a
+\ view holds two heap blocks, its tape and its stack, and then none.
+: view-blocks ( -- n ) live-blocks @ blocks-at-start - ;
+T{ view-blocks 8 jv json-init 4 jv json-init jv json-depth-limit @ view-blocks
+   -> 2 outcome-ok outcome-ok 4 2 }T
+T{ jv json-free jv json-tape @ jv json-stack @ view-blocks -> 0 0 0 }T
 cases-done
 bye
