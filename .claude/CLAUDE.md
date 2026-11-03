@@ -27,8 +27,8 @@ OpenAI Codex. Codex-era docs (`docs/project/CODEX_HANDOFF.md`, `prompts/FIRST_CO
 
 ## Checks
 
-- `make test` — Forth and Python tests, about 3 s; run before every commit.
-- `make check` — `make test` plus every pinned-Lean comparison, about 70 s.
+- `make test` — Forth and Python tests, about 7 s; run before every commit.
+- `make check` — `make test` plus every pinned-Lean comparison, about 100 s.
 - CI runs `make test` on Ubuntu's Gforth 0.7.3 and `make check` on pinned
   Gforth 1.0.0 and Lean 4.35.0. After pushing, check `gh run list --limit 3`
   and record the run URL and outcome, as `AGENTS.md` requires.
