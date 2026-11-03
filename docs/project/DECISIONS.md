@@ -506,8 +506,12 @@ redefinition and refused. A line holding any byte other than printable
 ASCII, space or tab is refused, comments included (both Gforths end a line
 at a lone carriage return, which could hide code), because how a system
 folds other characters is implementation-defined. The reader splits lines
-itself and never hands source text to the host's interpreter; numbers are
-written in decimal whatever `BASE` is; literals have at most 10 digits.
+into tokens itself and never hands source text to the host's interpreter
+(a second review found that the file's lines were still split by the
+host's `READ-LINE`; the reader now reads blocks with `READ-FILE` and
+splits them at LF itself, dropping one CR just before an LF and refusing
+any other CR); numbers are written in decimal whatever `BASE` is;
+literals have at most 10 digits.
 The owner prompted the choice ("Forth is case independent"). Rejected:
 refusing upper-case names (the review's first suggestion), because that
 refuses the standard spelling of the standard words; exact comparison,
@@ -520,3 +524,24 @@ schema cannot express (an empty axiom list, a theorem missing from the
 check, duplicate assumption IDs, more failures than cases, the Lean
 version, the receipt's generator) are left to the receipt generator and
 replay.
+
+## Program reader: no division before CONSTANT; the reader ends lines itself — 2026-11-02
+
+The second independent review of the program reader found a file it
+accepted that Gforth does not load: `1 0 / constant junk` throws while
+Gforth loads the file (the Lean model evaluates a constant only when it
+is used), so the words after it are never defined and an older word of
+the same name may run instead. `/` and `MOD` are now refused before
+`CONSTANT` (*unsupported*); they are the only IR 0.1 primitives that can
+throw while a file loads (division by zero, the smallest cell divided by
+−1); shifts, `*`, `NEGATE` and `ABS` were checked not to throw on either
+host. The reader now reads files with `READ-FILE` and splits lines at LF
+itself, dropping one CR before an LF and refusing any other CR, so its
+idea of a line no longer depends on the host's `READ-LINE`. A test loads
+every source the reader accepts into Gforth itself and checks it loads
+without a throw and leaves the stack as it was. Rejected: refusing a
+definition whose name the host already defines (`FORTH-WORDLIST
+SEARCH-WORDLIST`), because acceptance would then depend on what the
+reading session had loaded and differ between Gforth versions; instead
+receipts assume that nothing compiled after the file uses a host word it
+redefines.

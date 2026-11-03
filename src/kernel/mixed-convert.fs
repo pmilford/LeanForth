@@ -77,9 +77,10 @@ lf-term-capacity context-walk2: lf-mconvert-walker
 \ result, discarding all temporary allocations (serials never rewind).
 : lf-mconvert-marks ( -- terms levels ) lf-term-count @ lf-level-count @ ;
 : lf-mconvert-restore ( terms levels -- ) lf-level-count ! lf-term-count ! ;
+: lf-mconvert-site ( -- site ) c" mixed-convert lf-mixed-convert" ;
 : lf-mconvert-walk ( left right -- outcome )
   ['] lf-mconvert-visit lf-mconvert-walker walk-run-pair
-  lf-mconvert-walker c" mixed-convert lf-mixed-convert" lf-diag-walk ;
+  lf-mconvert-walker lf-mconvert-site lf-diag-walk ;
 : lf-mconvert-run ( left right -- outcome )
   lf-mconvert-marks 2>r lf-mconvert-walk 2r> lf-mconvert-restore ;
 

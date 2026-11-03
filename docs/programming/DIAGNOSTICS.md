@@ -25,7 +25,10 @@ Rules:
   are ignored until the caller clears the record. A failure deep inside a
   check therefore keeps its own, more specific reason: a type inference
   that runs out of room because the term store is full reports *term store
-  full at `terms lf-term-add`*, not the inference's own *full*.
+  full at `terms lf-term-add`*, not the inference's own *full*. One
+  exception: a rejection rule of ADR 0011 that decides an undecided step
+  replaces that step's record with the rule's (codes 55–60), so that a
+  *rejected* outcome is always explained by its rule.
 - **Clear before, read after.** Call `lf-diag-clear` before a check and read
   the record only after a failed outcome. A record holds whatever failed
   first since it was last cleared, even in an earlier check.
@@ -72,7 +75,7 @@ what was used and the limit.
 | 4 | name store full | full | count | capacity | `names lf-name-intern` |
 | 5 | name bytes full | full | bytes needed | byte capacity | `names lf-name-intern` (a string component) |
 | 6 | reference store full | full | count | capacity | `constant-references lf-cref-new` |
-| 7 | signature index full | full | count | capacity | `mixed-signature-probe lf-msp-put` |
+| 7 | signature index full | full | count | capacity | `mixed-signature-probe lf-msp` (in `lf-msp-put`) |
 | 8 | identity serial spent | full | the store's serial | identities needed | the term, level, name and reference stores (1 needed); `level-substitute lf-lsubst` (the nodes it would add) |
 | 9 | work stack full | full | cells pending | capacity | every walk |
 | 10 | frame limit | full | frames in use | limit | `mixed-shift`, `mixed-instantiate`, `mixed-beta` (both numbers the limit: every frame was in use); `mixed-infer` |
@@ -84,7 +87,7 @@ what was used and the limit.
 | 16 | dependency pool full | full | dependencies needed (in the pool plus the candidate's) | the pool's capacity | `env-publish lf-env-append` |
 | 20 | invalid input: bad argument | invalid | the value | 0 | negative fuel: `mixed-infer`, `level-compare`, `mixed-signature-audit` |
 | 21 | invalid input: stale handle | invalid | index | identity | `constant-term-boundary lf-cterm-check`, through which every kernel pass audits its roots |
-| 22 | invalid input: malformed graph | invalid | the node being visited | 0 | every walk, when nothing more specific was recorded |
+| 22 | invalid input: malformed graph | invalid | the node being visited (-1 when the walk ended before its first visit) | 0 | every walk, when nothing more specific was recorded |
 | 23 | invalid input: out of scope | invalid | variable index, or parameter ID | binders, or 0 for a parameter | `constant-term-scope` (an unbound variable), `level-scope` (a parameter outside the context) |
 | 24 | invalid input: corrupted store | invalid | count | capacity | the four stores, when a store fails its own checks |
 | 25 | invalid: environment handle | invalid | the handle's (or snapshot's) environment identity | the slot | `environment lf-env-handle?`; `environment lf-env-accepted` (a dependency or parameter query on a slot the snapshot may not read, or not accepted) |
@@ -92,10 +95,10 @@ what was used and the limit.
 | 27 | invalid: no snapshot | invalid | the context's snapshot identity (0 for none) | the current environment's identity, or 0 | `environment lf-env-snapshot` (no valid current environment for this context's input, or a snapshot of another one) |
 | 28 | invalid: publisher re-check failed | invalid | the declaration | the part: 1 dependencies, 2 axiom set, 3 provenance, 4 name (N2, G-P5), 5 kind, safety, value or parameters | `env-publish lf-env-publish` (a fault in LeanForth) |
 | 29 | invalid: internal fault | invalid | the declaration | the `THROW` code | `env-publish lf-env-step` (a check threw), `env-publish lf-env-hand-over` (the publisher threw) |
-| 30 | undecided: terms or levels differ | unknown | left node or level | right node or level | `mixed-compare`, `mixed-convert` (the pair being compared), `level-compare` (its two roots) |
+| 30 | undecided: terms or levels differ | unknown | left node or level | right node or level (0 after a walk that is not paired) | `mixed-compare`, `mixed-convert` (the pair being compared), `level-compare` (its two roots) |
 | 31 | undecided: function type not a Pi | unknown | the function's type node | 0 | `mixed-infer` |
 | 32 | undecided: type not a Sort | unknown | the type node | 0 | `mixed-infer` |
-| 33 | undecided: no candidate signature | unknown | the constant's name ID | 0 | `mixed-signature-probe lf-msp-specialize` |
+| 33 | undecided: no candidate signature | unknown | the constant's name ID | 0 | `mixed-signature-probe lf-msp` (in `lf-msp-specialize`) |
 | 34 | undecided: symbolic level | unknown | the level | 0 | `level-value` |
 | 35 | undecided: dependency undecided | unknown | the earlier slot (the first of that name) | its outcome | `environment lf-env-lookup` (K5; also for N2) |
 | 40 | unsupported construct | unknown today | the node's tag | 0 | `mixed-infer` (a constructor outside its subset; the outcome becomes *unsupported* with ADR 0008 step 3) |
@@ -105,24 +108,48 @@ what was used and the limit.
 | 52 | rejected: wrong number of universe levels | rejected | levels given | the constant's parameters | `environment lf-env-arity?` (L1) |
 | 53 | rejected: undeclared universe parameter | rejected | the name ID | 0 | `environment lf-env-param?` (L2) |
 | 54 | rejected: duplicate universe parameter | rejected | the declaration | 0 | `environment lf-env-own-params` (L3) |
+| 55 | rejected: type expected (S1) | rejected | the declared type's type, reduced (whnfβ) | 0 | `mixed-definition-probe lf-mixed-definition-probe` |
+| 56 | rejected: binder domain not a type (S2) | rejected | the domain's type, reduced | 0 | `mixed-infer lf-mixed-infer` (a λ's or Π's domain) |
+| 57 | rejected: theorem type not a proposition (S3) | rejected | the level of the statement's Sort | 0 | `mixed-definition-probe lf-mixed-definition-probe` (`lf-mixed-theorem-probe`) |
+| 58 | rejected: function expected (F1) | rejected | the function's type, reduced | 0 | `mixed-infer lf-mixed-infer` (an application) |
+| 59 | rejected: argument type mismatch (D1-D5) | rejected | the D rules used: 1 D1, 2 D2, 4 D3, 8 D4, 16 D5, added | 0 | `mixed-infer lf-mixed-infer` (an argument's type against the function's domain) |
+| 60 | rejected: declared type mismatch (D1-D5) | rejected | the D rules used, as for 59 | 0 | `mixed-definition-probe lf-mixed-definition-probe` (the value's type against the claim) |
 
 Codes 1–16 explain *exhausted* (more fuel would help) and *full* (more
 memory or a larger limit would help); 20–29 explain *invalid* input or
 state; 30–35 explain *unknown* (a stronger rule, or a decided dependency,
-would help); 40–41 name a construct still to be built; 50–54 explain
-*rejected* (ADR 0011's rules N1, N2, L1–L3).
+would help); 40–41 name a construct still to be built; 50–60 explain
+*rejected*: 50–54 by the checked environment (ADR 0011's rules N1, N2,
+L1–L3), 55–60 by comparison and inference (S1–S3, F1, D1–D5; plan task
+2.2.1). A rejection by 55, 56, 58, 59 or 60 decides a step that was
+undecided and had recorded why (codes 31, 32 or 30); the rejection
+*replaces* that record, the one exception to "the first failure wins",
+because the rule is the more specific reason for the same failure. When
+the rule cannot decide, the undecided record stays. The D rules record the
+rules used from the compared pair down to the pair that decided: in
+`type-identity.wrong-argument` of the
+[expected results](../reviews/FIRST_CHECKER_EXPECTED.md) the claim and
+the proof's type are Πs (D4) whose bodies `P y` and `P x` apply the same
+variable (D5) to different variables (D3), so the first number is
+8 + 16 + 4 = 28.
 
 Codes 15, 16, 25–29, 35, 41 and 50–54 are the checked environment's
-([its page](CHECKED_ENVIRONMENT.md)), added 2026-11-02 and defined as
-constants in `src/kernel/environment.fs`; `lf-diag-name` in
-`src/core/diagnostics.fs` does not know their printed names yet, so
-`lf-diag.` shows them as "unknown code" with the right site and numbers.
+([its page](CHECKED_ENVIRONMENT.md)), added 2026-11-02.
 `lf-env-begin` clears the record before each check, and the serial driver
 reads it per declaration.
 
+Every code is a constant in `src/core/diagnostics.fs`, and its printed name
+is an entry of one table there, `lf-diag-catalogue` (code order, ending
+with the entry that names every other code "unknown code"), which
+`lf-diag-name` searches. `tests/core/check_diagnostics_catalogue.py` (in
+`make test`) checks that this page's table lists exactly the table's codes
+and printed names, in the same order.
+
 ### Sites
 
-Walk sites (codes 1, 9 and 22, and 30 for paired comparisons) are
+Each module that records defines one site word, `lf-X-site ( -- site )`,
+naming the module and its word (`mixed-signature-probe lf-msp` for both of
+that module's failures, which differ by code). Walk sites (codes 1, 9 and 22, and 30 for paired comparisons) are
 recorded after each walk, by `lf-diag-walk`, at: `level-scope
 lf-lscope-check`, `constant-term-boundary lf-cterm-check`,
 `constant-term-scope lf-constant-term-scope`, `generation-handles
@@ -159,6 +186,10 @@ is kept.
   operations on Gforth 1.0 and seeds 1–60 on 0.7.3) show no difference,
   and the digests of 24 trials of 2,000 steps are identical with and
   without diagnostics.
+- The trial also folds each check's diagnostic (code and numbers, cleared
+  before the check) into its digest, so `tests/core/contexts.fs` checks
+  that every context records the same diagnostics interleaved, as jobs and
+  alone (2026-11-02, review M3).
 - Planted faults are caught: a record that overwrites the first failure
   (by the unit test, and without it by the shift case, whose frame limit
   would hide the cell maximum), a site that forgets to record, and a wrong

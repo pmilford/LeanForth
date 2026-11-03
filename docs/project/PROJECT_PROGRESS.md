@@ -94,7 +94,7 @@ designs and Lean proofs rather than on LeanForth code.
 | Q7 first independently checked declaration | Not started: rules approved, code not written |
 | Q8 parallel program path | In progress: receipt schema 0.1, IR 0.1 with its Lean model and reader (plan 2.5.1–2.5.3), the IR interpreter's three-way comparison (2.5.4), the verification-condition generator v0 (2.5.5) and the first clamp receipt (2.5.6) are done; the reader ([parser]) and receipt format ([format]) await the owner's approval |
 | Q9 consolidate experiments | Done 2026-11-02: 28 superseded modules and 91 test files retired with the owner's approval |
-| Q10 refactor onto `src/lib` | Done (2026-11-02): every core and kernel module keeps its state in the per-task checker context (34 context members: stores, walk records, frames and module records; no global state left) and returns the shared outcomes (the 49 per-module status aliases are gone); cross-module field writes became stack interfaces; every module `require`s its direct dependencies; *exhausted* (out of fuel) and *full* (out of room) are separate; `src/core/` plus `src/kernel/` have about 690 words, none over ten lines (`make forth-metrics`), against a baseline of 218 words, 23% over ten lines and 225 globals. Randomized differentials against the previous code show no difference. Follow-ups: choose one of the three recursion patterns; convert the loader, the program reader and the NDJSON counter's state |
+| Q10 refactor onto `src/lib` | Done (2026-11-02): every core and kernel module keeps its state in the per-task checker context (34 context members: stores, walk records, frames and module records; no global state left) and returns the shared outcomes (the 49 per-module status aliases are gone); cross-module field writes became stack interfaces; every module `require`s its direct dependencies; *exhausted* (out of fuel) and *full* (out of room) are separate; `src/core/` plus `src/kernel/` have about 690 words, none over ten lines (`make forth-metrics`), against a baseline of 218 words, 23% over ten lines and 225 globals. Randomized differentials against the previous code show no difference. Follow-ups: choose one of the three recursion patterns |
 
 ## Theorem proving and Mathlib
 
@@ -190,9 +190,13 @@ through the import review gate.
   kernel modules keep their state in the context; 2 and 8 contexts
   interleaved step by step, and checker trials run as jobs (14,400 on
   Gforth 1.0 threads, 2,400 each on 0.7.3's cooperative tasker and the
-  serial path), give the serial results. Reaching state through the
-  context costs about 13% (`gforth`) and 23% (`gforth-fast`) on a fixed
-  workload; a faster member accessor is proposed. Each context also holds
+  serial path), give the serial results; the loader, the program reader,
+  the IR interpreter and the NDJSON counter's tally are context members
+  too, and a test checks that no loaded module's dictionary data changes
+  while checks run. Reaching state through the context costs about 9%
+  (`gforth`) and 15% (`gforth-fast`) on a fixed workload, after member
+  words were compiled as a fixed offset from the context pointer (13% and
+  23% before). Each context also holds
   a diagnostic record of why a check failed (reason code, site, two
   numbers; first failure wins), documented in
   [DIAGNOSTICS.md](../programming/DIAGNOSTICS.md).

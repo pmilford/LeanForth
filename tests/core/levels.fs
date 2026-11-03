@@ -108,4 +108,11 @@ T{ 1 lf-level-param -> false }T
 0 lf-level-generation !
 lf-level-reset
 T{ lf-level-count-valid? -> true }T
+
+\ One field of a validated node, as lf-level-read gives them.
+T{ 0 lf-level-succ 7 lf-level-param -> 1 true 2 true }T
+T{ 1 0 lf-level-max -> 3 true }T
+T{ 3 lf-level-tag@ 3 lf-level-first@ 3 lf-level-second@ -> lf-level-tag-max 1 0 }T
+T{ 2 lf-level-tag@ 2 lf-level-first@ 2 lf-level-second@ 2 lf-level-read
+  -> lf-level-tag-param 7 0 lf-level-tag-param 7 0 true }T
 bye

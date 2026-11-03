@@ -18,11 +18,11 @@ variants were retired on 2026-11-02.
 | Outcome vocabulary | `src/lib/outcome.fs` | ok, invalid, exhausted (out of fuel), unknown, rejected, unsupported and full (out of room: a store, work stack, frame, depth or size limit) (ADR 0008), with `ok?`, `outcome-sane`, `flag>outcome` and `room>outcome` (a validity or room flag as ok, else invalid or full), `visit-outcome` (the one rule for a visit bounded by fuel and room: no fuel is exhausted whatever the room, then no room is full), the continue-on-ok steps `ok-then?`, `ok-keep?` and `ok-keep2?`, and `no-result`, and `outcome-text` (each outcome's name, for reports) | New 2026-11-02; every core and kernel module uses it; the per-module status aliases were removed |
 | DAG walks | `src/lib/walk.fs` | `walk:` defining word: fuel, current node, one visitor cell and a bounded work stack in one record; `walk-run` drives a visitor and `walk-visit` reads and dispatches a node. A push without room is full whatever fuel is left (checked where the push happens), and a root that cannot be pushed means a corrupted capacity, which is invalid. `walk-size`/`walk-init` and `walk2-size`/`walk2-init` make the same records at run time. The walk words keep no state of their own; each module's walk records are members of the checker context, one set per context | New 2026-11-02; level scope, Sort representation, session and handle audits use it |
 | Bounded recursion | `src/lib/frame.fs` | A frames record: fuel, visits in progress and their limit, the visitor (set once), a context cell (such as a binder depth) and a job cell pointing at the pass's own record. `frames:` defines a standalone record and `frame-init` sets one up inside a larger record. `frame-call` charges one unit of fuel and one frame per visit of a visitor `( x frames -- result outcome )`, `frame-call2` the same for `( x y frames -- outcome )`, `frame-under` visits one context level deeper, `frame-run` starts a pass. `frame-room` says why a visit cannot open: a limit below 1 (a corrupted record) is invalid, then no fuel left is exhausted and no free frame full (`visit-outcome`, so the fuel decides); `frame-under` applies the same before its context, which is full at `max-n`. A busy record refuses a new budget or pass, so a pass cannot be restarted from inside itself; `frame-reset` recovers after a THROW. Values a visitor keeps across a child's visit stay on the data stack, so each nested visit holds host stack cells: measured 2 to 6 return-stack and 3 to 4 data-stack cells per frame, and 701 and 494 cells at the deepest nesting found for a 64-node store (124 frames of beta, instantiate and shift), the same on Gforth 0.7.3 and 1.0. `mixed-beta.fs` checks at load time that the host's stacks hold three times `lf-term-capacity` frames | New 2026-11-02; the kernel's shift, instantiate and beta passes use it; unit tests and a randomized model test |
-| Checker contexts | `src/lib/context.fs` | One `ALLOCATE`d record per worker for all of a check's mutable state ([ADR 0009](../adr/0009-reentrant-state-and-parallel-checking.md)), reached through the `USER` variable `lf-context` (a plain variable on hosts without Gforth's `USER`). Modules declare members while they load: `context-record:`, `context-store:`, `context-walk:`, `context-walk2:`, `context-frames:` (a frames record, set up with `frame-init`), and `context-setup` for set-up words; a refused declaration changes nothing. `context-new`, `context-use` and `context-free` make, select and free contexts. Each context is idle or owned by one job; each task has an owner token `lf-owner` and may select only contexts it owns (the main task: idle ones); owned contexts cannot be freed | New 2026-11-02; ownership, frames members and atomic declarations 2026-11-02 after an independent review; every module of `src/core/` and `src/kernel/` keeps its state in it since 2026-11-02 (see the design below); tested in `tests/lib/context.fs`, including a randomized model with context switches at every step, and with real checker work in `tests/core/contexts.fs` |
-| Job pool | `src/lib/task.fs` | `job-submit ( context xt -- job ior )` and `job-wait ( job -- ior )`: a fixed pool of long-lived workers (at most one per logical core, setting `task-workers`) fed from a bounded queue; POSIX threads with a mutex and two condition variables on Gforth 1.0, the cooperative `tasker.fs` on Gforth 0.7.3, and a serial path elsewhere (or when forced, for tests). A job's context is owned by the job until it is waited for. Wrong stack effects give `task-unbalanced`; stack overflows never report success (guard pages on 1.0, canary zones on 0.7.3); a worker that cannot be created is reported (`task-no-worker`). `job-stacks-cover?` tells whether the workers' stacks hold a recursion requirement. Not loaded by `src/main.fs`; the scheduler will load it | New 2026-11-02; pool replaced one thread per task the same day; `tests/lib/task.fs` and `task-serial.fs` compare jobs and interleaved contexts with serial runs for 1, 2 and all workers and reach every refusal; `task-overflow.fs` and `task-overflow-serial.fs` overflow both stacks inside jobs; `tests/lib/task-bench.fs` measures speed-up |
-| Line reader and UTF-8 | `src/lib/bytes.fs` | `reader:` record over a Forth-2012 file: whole lines in one heap buffer that grows for long lines up to a limit, strict framing (final line feed; `text-framed` refuses carriage returns and a byte-order mark), line numbers and double-cell file offsets; `utf8-length`, `utf8-valid?` and `utf8-put` (RFC 3629, no overlongs or surrogates); `counted,`; `heap-claim` and `heap-release` for owned heap buffers. Uses Gforth's native `scan` behind an adapter, with a portable loop otherwise | New 2026-11-02; unit-tested against an independent UTF-8 model in `tests/lib/bytes.fs` |
-| JSON reader | `src/lib/json.fs` | `json:` view record: a fail-closed, non-recursive RFC 8259 parser of one text into a growable token tape (containers know their item count and extent), escapes decoded in place, numbers kept as digit text, limits on depth, tokens, string and number length; `json-find`, `json-next`, `json-natural`, `json-u`, `digits>u` and `decimal>u` (decimal, independent of `BASE`); kind-checked `json-items-of` and `json-kind-at` | New 2026-11-02; malformed corpus and every limit tested in `tests/lib/json.fs` |
-| Portability adapter | `src/lib/portability.fs` | Forth-2012 definitions of `>=`, `<=`, `0<=`, `0>=`, `max-n` and the structure words, compiled only where the host lacks them | New 2026-11-02; defines nothing under Gforth except `max-n` |
+| Checker contexts | `src/lib/context.fs` | One `ALLOCATE`d record per worker for all of a check's mutable state ([ADR 0009](../adr/0009-reentrant-state-and-parallel-checking.md)), reached through the `USER` variable `lf-context` (a plain variable on hosts without Gforth's `USER`). Modules declare members while they load: `context-record:`, `context-store:`, `context-walk:`, `context-walk2:`, `context-frames:` (a frames record, set up with `frame-init`), and `context-setup` for set-up words; a refused declaration changes nothing. Each member's name is a colon definition that adds its offset, a literal, to `lf-context @`. Modules also state how deep their checks nest on the host stacks (`context-need`), which the job pool checks. `context-new`, `context-use` and `context-free` make, select and free contexts. Each context is idle or owned by one job; each task has an owner token `lf-owner` and may select only contexts it owns (the main task: idle ones); owned contexts cannot be freed | New 2026-11-02; ownership, frames members and atomic declarations 2026-11-02 after an independent review; every module of `src/core/` and `src/kernel/` keeps its state in it since 2026-11-02 (see the design below); tested in `tests/lib/context.fs`, including a randomized model with context switches at every step, and with real checker work in `tests/core/contexts.fs` |
+| Job pool | `src/lib/task.fs` | `job-submit ( context xt -- job ior )` and `job-wait ( job -- ior )`: a fixed pool of long-lived workers (at most one per logical core, setting `task-workers`) fed from a bounded queue; POSIX threads with a mutex and two condition variables on Gforth 1.0, the cooperative `tasker.fs` on Gforth 0.7.3, and a serial path elsewhere (or when forced, for tests). A job's context is owned by the job until it is waited for. Wrong stack effects give `task-unbalanced`; stack overflows never report success (guard pages on 1.0, canary zones on 0.7.3); a worker that cannot be created is reported (`task-no-worker`). `job-stacks-cover?` tells whether the workers' stacks hold a recursion requirement, and the pool refuses to start with stack settings below the largest need modules stated (`task-stacks-small`). Not loaded by `src/main.fs`; the scheduler will load it | New 2026-11-02; pool replaced one thread per task the same day; `tests/lib/task.fs` and `task-serial.fs` compare jobs and interleaved contexts with serial runs for 1, 2 and all workers and reach every refusal; `task-overflow.fs` and `task-overflow-serial.fs` overflow both stacks inside jobs; `tests/lib/task-bench.fs` measures speed-up |
+| Line reader and UTF-8 | `src/lib/bytes.fs` | `reader:` record over a Forth-2012 file: whole lines in one heap buffer that grows for long lines up to a limit, strict framing (final line feed; `text-framed` refuses carriage returns and a byte-order mark), line numbers and double-cell file offsets; `utf8-length`, `utf8-valid?` and `utf8-put` (RFC 3629, no overlongs or surrogates); `counted,`; `heap-claim` and `heap-release` for owned heap buffers. Uses Gforth's native `scan` behind an adapter, with a portable loop otherwise. Loads in decimal whatever `BASE` is, and restores it | New 2026-11-02; unit-tested against an independent UTF-8 model in `tests/lib/bytes.fs`, which loads it under `HEX` and counts heap blocks to show that a second `reader-init` frees the first buffer |
+| JSON reader | `src/lib/json.fs` | `json:` view record: a fail-closed, non-recursive RFC 8259 parser of one text into a growable token tape (containers know their item count and extent), escapes decoded in place, numbers kept as digit text, limits on depth, tokens, string and number length; `json-find`, `json-next`, `json-natural`, `json-u`, `digits>u` and `decimal>u` (decimal, independent of `BASE`); kind-checked `json-items-of` and `json-kind-at`. Loads in decimal whatever `BASE` is, and restores it | New 2026-11-02; malformed corpus and every limit tested in `tests/lib/json.fs`, loaded under `HEX` |
+| Portability adapter | `src/lib/portability.fs` | Forth-2012 definitions of `>=`, `<=`, `0<=`, `0>=`, `-rot`, `max-n`, `cell` and the structure words, compiled only where the host lacks them. `scripts/check-portable-forth.py` refuses a module under `src/` that uses one of them without loading this file, directly or through the files it loads | New 2026-11-02; defines nothing under Gforth except `max-n`; `cell` and the load check added 2026-11-02 |
 | Diagnostics | `src/core/diagnostics.fs` | One record per checker context explaining the first failure of a check: a reason code, the site (module and word, a counted string) and two numbers; first failure wins until `lf-diag-clear`; `lf-diag@`, `lf-diag.`; helpers `lf-diag-walk`, `lf-diag-frames` and `lf-diag-store` explain a walk's, a pass's or a store's failure. Never changes an outcome; catalogue in [DIAGNOSTICS.md](../programming/DIAGNOSTICS.md) | New 2026-11-02 (plan 6.7, first form); every core and kernel module records its full and exhausted sites; `tests/core/diagnostics.fs` |
 | Expression store | `src/core/terms.fs` | Index-based nodes for sorts, bound variables, application, λ, Π and constants; nodes refer to earlier indices, so a term is a DAG with sharing | 64 nodes per checker context; built on `context-store:`; constructors check ranges only |
 | Universe-level store | `src/core/levels.fs` | Level DAGs: zero, succ, max, imax, parameters | 64 levels per checker context; built on `context-store:` |
@@ -38,7 +38,7 @@ variants were retired on 2026-11-02.
 | Term printer | `src/present/term-printer.fs` and `print-job.fs`, `print-names.fs`, `print-tokens.fs`, `latex-text.fs`, `print-levels.fs`, `print-analysis.fs` | Prints terms, levels and names to a caller's sink xt in Lean's notation, ASCII or LaTeX (and Markdown math): capture-free binder names, ∀/→ and binder grouping, hidden implicit arguments and minimal parentheses as Lean's delaborator; fuel, a nested-visit limit (one `frames` record for all recursion) and a name pool, all failing as exhausted | New 2026-11-02; agrees with Lean on 49 cases and the five pinned fixtures (`make test-printer-differential`); [user guide](../user/TERM_PRINTER.md) |
 | Program examples | `src/program/clamp.fs`, `examples.fs` | Six executable words (clamp, checked add, abs, factorial, gcd, in-range) | Runtime tested against Lean models, not verified |
 | Depth analyzer | `src/program/program-depth.fs` | Stack-depth diagnostic for a tiny opcode list | Not connected to real Forth words |
-| Test support | `tests/support/tester.fs`, `checks.fs`, `term-cases.fs`, `composition.fs` | Adapter for Gforth's bundled tester that fails the run on the first error; shared checks and fixtures | Test-only |
+| Test support | `tests/support/tester.fs`, `checks.fs`, `term-cases.fs`, `composition.fs`, `heap-watch.fs` | Adapter for Gforth's bundled tester that fails the run on the first error; shared checks and fixtures; `ALLOCATE` and `FREE` that count the heap blocks held, in a word list of their own, for tests that show a module frees what it allocates | Test-only |
 
 ## JSON and NDJSON
 
@@ -139,8 +139,9 @@ module's words already reach their state only through those names.
 
 Rules for converted modules:
 
-- Declare every member before the first `context-new`, `job-submit` or
-  `pool-start`; each seals the layout, and a later declaration aborts.
+- Declare every member, and state every stack need (`context-need`),
+  before the first `context-new`, `job-submit` or `pool-start`; each seals
+  the layout, and a later declaration aborts.
 - Initial state must come from a member's initialiser or a set-up word.
   Interpret-time code that changes state while a module loads changes only
   the main context. Set-up words must not change data outside the context.
@@ -163,57 +164,102 @@ Rules for converted modules:
   for the length of one call (for example a caller array in a request
   record), never across calls.
 
-**Converted modules (2026-11-02).** All 25 modules of `src/core/` and
-`src/kernel/` keep their state in the context: 4 stores, 11 walk records,
-1 frames record and 18 module records (one of them the diagnostic record,
-`core/diagnostics.fs`), with set-up words for the level
-and name stores, the parameter context, the assignment table and the shift
-and instantiate frames. `mixed-rebuild.fs` has no state. What stays
-global is read-only once loading ends: constants and the deferred words
-set once while loading (`lf-lvalue-walk`, `lf-lcmp-walk`,
-`lf-minfer-walk`), and the diagnostics' site names, counted strings
-compiled into the recording words. Each context holds 51,656 bytes on a
-64-bit host (`context-bytes` after `src/main.fs` loads, Gforth 0.7.3 and
-1.0 alike). Every context's stores are its
-own, so the term, level and name stores are *not* yet the shared, read-only
-input that ADR 0012 (E1) describes; splitting them is plan task 7.2.1.
+**Converted modules.** All modules of `src/core/` and `src/kernel/` keep
+the state a check writes in the context (2026-11-02): stores, walk
+records, the beta frames record and module records (among them the
+diagnostic record, `core/diagnostics.fs`, the checked environment's input,
+`core/input.fs`, and its candidate, `kernel/environment.fs`), with set-up
+words for the level and name stores, the parameter context, the
+assignment table and the shift and instantiate frames. So do, outside
+them, the loader's batch record (`import/load.fs`, since the term store it
+rolls back is per context), the NDJSON counter's tally
+(`import/ndjson-count.fs`; its export record owns heap buffers, which a
+member may not, so it stays shared and one count runs at a time), the
+term printer's records (`present/`) and the program reader and
+interpreter (`program/ir-reader.fs`, `ir-run.fs`). What stays shared is
+read-only once loading ends — constants, tables filled while loading (such
+as the diagnostic catalogue), the deferred words set once while loading
+(`lf-lvalue-walk`, `lf-lcmp-walk`, `lf-minfer-walk`) and the site names —
+except the checked environment's records (`lf-envs`, `lf-pub-mark`), which
+only the task driving the checks writes, outside jobs. Each context holds
+104,296 bytes on a 64-bit host (`context-bytes` after `src/main.fs` loads,
+Gforth 0.7.3 and 1.0 alike; measured 2026-11-02, once the program reader
+and interpreter had joined). Every context's stores are its own, so the
+term, level and name stores are *not* yet the shared, read-only input that
+ADR 0012 (E1) describes; splitting them is plan task 7.2.1.
 
 `tests/core/contexts.fs` (and `contexts-serial.fs` on the serial host)
-checks the conversion: every state word gives an address inside the
-current context at the same offset in each context; a new context starts
-with exactly the bytes the main context held right after loading; and a
-*trial* of real checker work — the definition table's nine pairs, the
-composition DAG, the five plain shift and instantiate cases, and random
-terms run through inference, conversion, comparison, beta, shift,
-instantiation, the level passes, universe substitution, the signature index
-and the definition probe — folded into a digest of every outcome, result,
-fuel and count, gives exactly its serial digest when two and then eight
-contexts are interleaved step by step in one task, and when the trials run
-as jobs, with the main context untouched. The deepest recursive inputs
-known (beta over 124 frames, inference over 26 applications, a 63-level
-chain) also run inside a job, with both stacks painted: they used 688
-return-stack and 480 data-stack cells, below what `mixed-beta.fs` now
-states as its need (`lf-mbeta-return-cells` 1,216 and `lf-mbeta-data-cells`
-960, checked against the job stacks with `job-stacks-cover?` when
-`task.fs` is loaded before the kernel). Measured 2026-11-02 (stress runs,
-24 jobs of 1,000 steps per batch): Gforth 1.0 threads 20 runs × 30
-batches, Gforth 0.7.3 cooperative 10 × 10, serial host on both 10 × 10,
-0 failures. Planted faults are caught: a walk record or the signature index
-left global, and a missing set-up word (level store, assignment table),
-by the structural checks; with those checks removed, the global signature
-index by the interleaving, and a global compare walk or beta frames record
-by the job batches on threads.
+checks the conversion of the core and kernel modules, and
+`tests/core/contexts-main.fs` that of everything `src/main.fs` loads:
 
-**Cost.** Each state word now adds its offset to the context pointer, a
-`USER` variable, through a `DOES>` word. A fixed checker workload
-(composition, deep beta, deep inference, a level chain and the plain cases;
-1,000 rounds, five runs, same results) took 1,357–1,403 ms before and
-1,563–1,577 ms after on `gforth` (about 13% more), and 475–528 ms before
-and 569–602 ms after on `gforth-fast` (about 23% more). A prototype that
-compiles each member as a colon definition adding a literal offset to
-`lf-context @` (not applied; it changes `context.fs`) measured 1,482–1,515
-ms and 524–563 ms, about half the cost; passing a store's address on the
-stack through hot loops would remove most of the rest.
+- *No state outside the context.* The dictionary that the library, the job
+  pool and the modules lay down while loading must be unchanged, byte for
+  byte, after real checker work in contexts (`tests/support/dictionary-check.fs`;
+  allowed by name is the publisher's mark `lf-pub-mark`, written only by
+  the driving task): a trial of 2,000 steps (below) in one context, and a
+  serial run of the checked environment's synthetic checks with every
+  publication in another; `contexts-main.fs` also stages a loader batch,
+  reads programs with the program reader, loads and runs one with the IR
+  interpreter, and prints every term, level and name of the trial in all
+  three printer modes. A forgotten `VARIABLE`
+  fails even when it is only a register within one call, on every host,
+  which the interleaving and job tests below cannot promise (the
+  cooperative and serial hosts switch only between whole steps). Today
+  this covers 488,752 bytes with `src/main.fs` loaded (64-bit Gforth 1.0;
+  498,632 on 0.7.3).
+- *Members* other modules and tests name lie inside the current context,
+  at the same offset in every context (a hand-kept list, a second line of
+  defence), and a new context starts with exactly the bytes the main
+  context held right after loading (past the header, whose size field
+  grows when tests declare members of their own).
+- *Independence.* A *trial* of real checker work — the definition table's
+  nine pairs, the composition DAG, the five plain shift and instantiate
+  cases, and random terms run through inference, conversion, comparison,
+  beta, shift, instantiation, the level passes, universe substitution, the
+  signature index and the definition probe — folded into a digest of every
+  outcome, result, fuel, count and diagnostic (cleared before each check;
+  code and numbers), gives exactly its serial digest when two and then
+  eight contexts are interleaved step by step in one task, and when the
+  trials run as jobs, with the main context untouched.
+- *Recursion in jobs.* The deepest recursive inputs known (beta over 124
+  frames, inference over 26 applications, a 63-level chain) run inside a
+  job, with both stacks painted: they used 688 return-stack and 480
+  data-stack cells, below every stated need (see *Stacks* below).
+
+Measured 2026-11-02 (stress runs, 24 jobs of 1,000 steps per batch, each
+run also followed by a run of the checked environment's job test,
+`tests/core/environment-tasks.fs` or its serial twin): Gforth 1.0 threads
+20 runs × 30 batches, Gforth 0.7.3 cooperative 10 × 10, serial host on
+both 10 × 10, 0 failures. Planted faults are caught: a register `VARIABLE`
+inside `lf-term-binary` by the dictionary check on all four hosts (the
+earlier tests missed it on Gforth 0.7.3 and on the serial host, and caught
+it on threads only through a race); the loader's batch record made global
+again, by `tests/core/load.fs` and by the dictionary check; a diagnostic
+that depends on shared state, by the interleaving, but only while the
+digest includes diagnostics; earlier, a walk record or the signature index
+left global and a missing set-up word, by the structural checks.
+
+**Cost.** Each member's name is a colon definition that adds its offset,
+compiled as a literal, to `lf-context @`, a `USER` variable (until
+2026-11-02 a `DOES>` word that fetched the offset from the member record).
+A fixed checker workload (composition, deep beta, deep inference, a level
+chain and the plain cases, each round: the composition DAG inferred,
+probed and converted; beta of the 18- and 61-lambda twins; inference over
+26 applications; value and comparison of a 63-level chain; the five plain
+cases through inference, beta, shift and instantiation; 1,000 rounds, same
+results) took, in five runs of each interleaved on a machine shared with
+other work (load about 3.5 on 12 cores):
+
+| Engine | Before contexts (`f8aa35d`) | `DOES>` members (`dbbef73`) | Colon members |
+| --- | --- | --- | --- |
+| `gforth` | 1,418–1,473 ms (median 1,459) | 1,649–1,731 ms (1,665), +14% | 1,539–1,618 ms (1,588), +9% |
+| `gforth-fast` | 482–519 ms (498) | 592–630 ms (615), +23% | 555–604 ms (574), +15% |
+
+So compiled offsets remove about a third of the cost of reaching state
+through the context (V's first prototype measured somewhat more, on an
+idler machine); passing a store's address on the stack through hot loops
+would remove most of the rest. The `DOES>` column includes the diagnostics
+(about 1%).
 
 **Jobs.** `job-submit ( context xt -- job ior )` claims the context for a
 new job and queues it; a worker runs `xt ( -- )` with that context
@@ -249,21 +295,35 @@ context. The adapter chooses one of three hosts when it loads:
 | not a context, the main context, the caller's current context, a context another job owns, or a submission inside a job (`job-wait` inside a job gives the same) | `task-refused` (-4098) |
 | the queue holds `task-queue-jobs` jobs | `task-queue-full` (-4099) |
 | a worker task or thread could not be created (the workers already started are stopped) | `task-no-worker` (-4100) |
+| the stack settings do not cover the largest need a module stated (`context-need`); nothing is started | `task-stacks-small` (-4101) |
 | Gforth 0.7.3, after an overflow that left a guard zone | `task-overflow` (-4097) |
 
 **Stacks, frames limits and overflows.**
 
 - A recursive pass nests about its frames limit times its cells per frame
   (2 to 6 return-stack and 3 to 4 data-stack cells measured, see
-  `frame.fs` above) plus its entry words. A module that runs in jobs must
-  check at load time that `job-stacks-cover? ( data-cells return-cells --
-  flag )` holds for its worst nesting: the workers' depths less
-  `task-slack-cells`, or on the serial host the main task's stack sizes
-  less the slack (the caller's own use also comes off those). If not, it
-  raises `task-data-cells` and `task-return-cells` or lowers its limits.
-  The test job's 500-frame pass used 1,004 return-stack and 1,001
-  data-stack cells inside each worker; checker passes were measured at up
-  to about 720 return cells, and nested passes may approach 1,500.
+  `frame.fs` above) plus its entry words. A module states its worst
+  nesting while it loads with `context-need ( data-cells return-cells --
+  )` (`lib/context.fs`; the largest of each is kept, `context-needs` gives
+  them, and a need stated after the layout is sealed aborts).
+  `pool-start`, and so the first `job-submit`, refuses with
+  `task-stacks-small` (-4101), starting nothing, unless `job-stacks-cover?
+  ( data-cells return-cells -- flag )` holds for that need: the workers'
+  depths less `task-slack-cells`, or on the serial host the host's stack
+  sizes less the slack (a host that does not report a size through
+  `ENVIRONMENT?` is not checked). So lowering `task-data-cells` or
+  `task-return-cells` with `TO` below the need is caught whichever of
+  `task.fs` and the kernel loads first. The checker states two needs:
+  beta with its nested instantiate and shift passes (`mixed-beta.fs`,
+  1,216 return and 960 data cells) and inference, which can nest them at
+  its deepest level (`mixed-infer.fs`, 1,664 and 1,280: at most 7 return
+  and 5 data cells per level, measured by stack painting along its five
+  recursion paths on Gforth 0.7.3 and 1.0, which agree, times
+  `lf-term-capacity` levels, plus beta's need; the definition probe nests
+  no deeper). The test job's 500-frame pass used 1,004 return-stack and
+  1,001 data-stack cells inside each worker; the deepest checker inputs
+  known used 688 and 480 inside a job, and 16 random trials of 2,000
+  steps at most 90 and 28 above the caller.
 - A stack overflow inside a job is never reported as success. Gforth 1.0:
   the guard pages give `THROW` -3 (data) or -5 (return), and the worker
   goes on serving jobs. Gforth 0.7.3 has no guard pages for task stacks:

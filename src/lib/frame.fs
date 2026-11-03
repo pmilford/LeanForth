@@ -2,11 +2,15 @@
 \ stacks. A frames record holds the fuel left, the number of visits in
 \ progress (frames) and their limit, the visitor, a context cell for the
 \ visit in progress (such as the number of binders around its node), and a
-\ job cell: the address of the pass's own record, where the visitor finds
-\ the pass's inputs (0 when it has none). A record stands alone (frames:) or
-\ is a field of a larger record (frame-init). Every word here takes the
-\ record's address, so separate records are independent and this module has
-\ no state.
+\ job cell for the pass's own use, 0 unless it sets one. A record stands
+\ alone (frames:) or is a field of a larger record (frame-init). A pass
+\ whose record is a member of a checker context (lib/context.fs) must not
+\ keep an address in the job cell, since the address of a context member
+\ goes stale when the main context moves while modules load: it embeds
+\ the frames first in its own record, so the visitor finds the pass's
+\ inputs at the frames address it is given (mixed-shift.fs). Every word
+\ here takes the record's address, so separate records are independent
+\ and this module has no state.
 \
 \ frame-call spends one unit of fuel and one frame, calls the visitor
 \ ( x frames -- result outcome ) on x and releases the frame; frame-call2
@@ -45,7 +49,7 @@ begin-structure /frames
   field: frame-limit     \ most visits in progress at once
   field: frame-visitor   \ xt ( x frames -- result outcome ) or ( x y frames -- outcome )
   field: frame-context   \ context of the visit in progress
-  field: frame-job       \ the pass's own record, or 0
+  field: frame-job       \ for the pass; never a context member's address
 end-structure
 
 \ Initialise a record in place: idle, no fuel, no job, allowing limit

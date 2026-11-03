@@ -161,7 +161,14 @@ definition = ( "word " name | "constant " name ) [loc] NL { line } "end" [loc] N
 line       = indent ( "prim " word | "lit " integer | "call " name | "exit"
                     | "if" | "else" | "then" | "begin" | "while" | "repeat" ) [loc] NL
 loc        = " @" line-number ":" column-number
+integer    = [ "-" ] digit { digit }      (decimal)
 ```
+
+An integer is read as the mathematical integer it denotes, so leading
+zeros are allowed and change nothing (`-007` is −7). An integer outside
+the cell is still well-formed text; running it is the failure
+*unmodeled*. The reader itself always writes integers without leading
+zeros.
 
 Names (after `word`, `constant` and `call`) are written in lower case
 whatever case the source uses, since Gforth finds names ignoring the case
@@ -187,7 +194,12 @@ source file into the text form:
 
 `type-line ( c-addr u -- )` receives each output line. `lf-ir-start`,
 `lf-ir-feed` and `lf-ir-finish` do the same for lines given one at a time,
-and `lf-ir-reason` and `lf-ir-where` tell why and where it stopped.
+and `lf-ir-reason` and `lf-ir-where` tell why and where it stopped. The
+reader keeps its state in a record of the checker context
+([per-task contexts](../development/FORTH_LIBRARY.md)), so each context
+has its own reader; in a new context it is stopped until `lf-ir-start`:
+`lf-ir-feed` then reads nothing and `lf-ir-finish` gives *invalid*
+("reader not started").
 
 It accepts colon definitions and constants made only of the IR's
 primitives, control words, decimal literals and earlier definitions, with
@@ -202,8 +214,8 @@ and an outcome from `src/lib/outcome.fs`:
 
 | Outcome | When |
 | --- | --- |
-| *unsupported* | an unknown word or a word outside IR 0.1 (`UNTIL`, `DO`, `@`, …); a literal of more than ten digits or beyond 2,147,483,647; a control word or `>R`/`R>`/`R@` outside a definition, or `CONSTANT`/`DECIMAL` inside one; a second `WHILE` in one loop; a recursive call; a redefinition (also in another case, such as `: Dup … ;`); a name over 31 characters; a `(` comment not closed on its line; a character outside printable ASCII, a space or a tab anywhere on a line, comments included; tokens before `CONSTANT` that do not leave exactly one value, or take values the file did not give; values left outside a definition |
-| *invalid* | unbalanced `IF`/`ELSE`/`THEN`/`BEGIN`/`WHILE`/`REPEAT`; `:` inside a definition; `:` or `CONSTANT` without its name on the same line; a definition not closed at the end; `CONSTANT` with nothing before it; an unreadable file or a line of 128 characters or more |
+| *unsupported* | an unknown word or a word outside IR 0.1 (`UNTIL`, `DO`, `@`, …); a literal of more than ten digits or beyond 2,147,483,647, or in any other number syntax (`$FF`, `#10`, `'a'`, `1.`, `1e`, `+5`, …); a control word or `>R`/`R>`/`R@` outside a definition, or `CONSTANT`/`DECIMAL` inside one; `/` or `MOD` before `CONSTANT`; a second `WHILE` in one loop; a recursive call; a redefinition of a word the reader knows (also in another case, such as `: Dup … ;`); a name over 31 characters; a `(` comment not closed on its line; a character outside printable ASCII, a space or a tab anywhere on a line, comments included (a CR just before an LF ends the line and is not part of it); tokens before `CONSTANT` that do not leave exactly one value, or take values the file did not give, `CONSTANT` with nothing before it included; values left outside a definition |
+| *invalid* | unbalanced `IF`/`ELSE`/`THEN`/`BEGIN`/`WHILE`/`REPEAT`; `:` inside a definition; `:` or `CONSTANT` without its name on the same line; a definition not closed at the end; an unreadable file or a line of 128 characters or more, not counting its line end; `lf-ir-feed` or `lf-ir-finish` before `lf-ir-start` |
 | *full* | more than 32 definitions, 8 open structures or 8 tokens before `CONSTANT`, or an output line over 96 characters (a `source` path of 90 characters or more does not fit its header line) |
 
 Lines written before a diagnostic are incomplete and must not be used.
@@ -214,34 +226,70 @@ it, so the line may be in a transient buffer.
 **It accepts less than Gforth, never more,** and gives what it accepts
 Gforth's meaning (checked on Gforth 1.0.0 and 0.7.3):
 
-- *Tokens.* The reader splits each line into tokens itself, at spaces
-  and tabs, as both hosts do. The hosts also split at some other control
-  characters (form feed, vertical tab) but not at others (DEL), end a
-  line at a lone carriage return, and may treat bytes of 128 or more as
-  parts of characters. To depend on none of that, a line holding any
-  character other than printable ASCII (`!` to `~`), a space or a tab is
-  refused, comments included, and the diagnostic never contains the
-  character. Nothing is handed to Gforth's
+- *Lines and tokens.* The reader splits a file into lines itself, at LF
+  only: it opens the file as binary and reads it in blocks with
+  `READ-FILE`, not with the host's `READ-LINE`, drops one CR just before
+  an LF (both hosts drop it) and reads a last line without LF too. It
+  splits each line into tokens at
+  spaces and tabs, as both hosts do. The hosts also split at some other
+  control characters (form feed, vertical tab) but not at others (DEL),
+  end a line at a lone carriage return, and may treat bytes of 128 or
+  more as parts of characters. To depend on none of that, a line holding
+  any character other than printable ASCII (`!` to `~`), a space or a tab
+  is refused, comments included, and the diagnostic never contains the
+  character; so is any CR not just before an LF (a lone CR, CR CR LF, a
+  CR at the end of the file). A line of 128 characters or more, not
+  counting its LF and that CR, is refused. Nothing is handed to Gforth's
   interpreter: no source token is ever executed, whatever the caller's
   `STATE`, `BASE` or search order (tests feed it `bye`, and `[ 1 throw ]`
   from inside a definition being compiled).
 - *Names* are found ignoring the case of A–Z, and only of A–Z, as Gforth
   finds them, so `DUP`, `Dup` and `dup` are the primitive `dup` and a word
   defined as `Clamp` is found as `clamp` or `CLAMP`. A definition or
-  constant whose name, so folded, is already known is refused as a
-  redefinition: `: True 0 ;` would otherwise change what a later `TRUE`
-  means to Gforth but not to the IR. A word is not visible inside its own
-  definition (Gforth hides it until `;`), so a recursive call is refused.
+  constant whose name, so folded, the reader already knows (an IR word,
+  one of the other standard words it lists, such as `DO` or `@`, or an
+  earlier definition of the file) is refused as a redefinition:
+  `: True 0 ;` would otherwise change what a later `TRUE` means to Gforth
+  but not to the IR. A word is not visible inside its own definition
+  (Gforth hides it until `;`), so a recursive call is refused. A name
+  that reads as a number, such as `5`, `-0`, `1e` or `$10`, is a name like
+  any other: a token the file defined is a call (Gforth, too, finds a
+  name before it reads a number), any other token a literal or refused.
+- *Host words.* Other names the host defines, such as `.` or `DEPTH`, may
+  be defined by the file. Its IR is unaffected, since the reader refuses
+  every use of a word it does not know, but Gforth then uses the file's
+  definition in anything compiled after the file in the same session. So
+  the file must be loaded last: code compiled after it, such as a test
+  harness, must use no name the file defines other than the words under
+  test. Receipts state this in their `trusted-reader` assumption. Refusing
+  every name the reading Gforth already defines (with `SEARCH-WORDLIST`)
+  was rejected: it would refuse names the reading session itself defines,
+  such as `lf-clamp` in `tests/program/ir-run-table.fs`, which loads the
+  examples before reading them, and names such as `g`, which Gforth 1.0
+  defines and 0.7.3 does not, so the same file would be accepted on one
+  host and refused on the other; and it still could not see the words of
+  the other Gforth version.
 - *Literals* are an optional minus sign and one to ten decimal digits, at
   most 2,147,483,647 in size, so the same source suits 32-bit cells and a
-  long literal cannot wrap to a small value. Neither host defines a word
-  whose name reads as such a literal, which Gforth would find before the
-  number (every word of the default search order checked: 6,959 on
-  Gforth 1.0.0, 3,699 on 0.7.3).
+  long literal cannot wrap to a small value. No other number syntax is
+  accepted. Neither host defines a word whose name reads as such a
+  literal, which Gforth would find before the number: `make test` checks
+  every name of the default search order on the Gforth it runs
+  (`tests/program/ir-reader.fs`; on a fresh Gforth that is 6,959 names on
+  1.0.0 and 3,699 on 0.7.3, a word list that appears twice in the order
+  counted twice).
 - *Constants.* The tokens before `CONSTANT` must leave exactly one value,
   counted with each primitive's stack effect, and take none that the file
   did not give; Gforth would silently leave or take the rest. `>R`, `R>`
-  and `R@` are refused outside definitions.
+  and `R@` are refused outside definitions, and so are `/` and `MOD`:
+  Gforth runs the tokens before `CONSTANT` while it loads the file, and a
+  division by zero, or of the smallest cell by −1, stops the load there
+  (`THROW` −10 or −11 on both hosts, so later definitions do not exist),
+  whereas the IR runs a constant's body only when the constant is called.
+  No other primitive can stop the load: shifts by any count and wrapping
+  arithmetic give a value on both hosts (where the IR leaves that value
+  unmodeled, calling the constant fails in the model, so nothing about it
+  can be proved), and the counting above rules out underflow.
 - *Structure.* `:` and `CONSTANT` must have their name on the same line,
   as Gforth requires, and a loop has at most one `WHILE` (Forth-2012 allows
   more, each closed by a `THEN` after `REPEAT`).
@@ -249,10 +297,24 @@ Gforth's meaning (checked on Gforth 1.0.0 and 0.7.3):
 Nothing in the reader can check how Gforth is started: the source must be
 loaded with `BASE` ten, Gforth's default search order and compilation word
 list, and Gforth's own definitions of the standard words, as Gforth has
-them when it starts. The IR's numbers are written in decimal
-whatever `BASE` is.
+them when it starts, and last (see *Host words*). The IR's numbers are
+written in decimal whatever `BASE` is.
 
-The reader is trusted for the translation: nothing checks that the IR means
+How this is tested: every source the reader tests accept is also loaded by
+Gforth itself, which must neither throw nor leave values (the fed lines
+evaluated one by one, the three golden fixtures with `INCLUDE-FILE`, each
+into a word list of its own), and the words that read as numbers return
+on the host what their IR says. `tests/program/ir_reader_files.py` writes
+files with every kind of line end (LF, CRLF, a lone CR, CR CR LF, a CR at
+the end, no final LF, lines of 127 and 128 characters, a CR at the end of
+the reader's first block), runs the reader on each, and has a fresh Gforth
+load every accepted file and the fixtures: the IR of a CRLF file equals
+that of its LF twin, and the host gives each word the value its IR gives.
+It also records why three files are refused: Gforth ends a line at a lone
+CR, and stops loading at `1 0 /` (−10) and at the smallest cell divided by
+−1 (−11) before `CONSTANT`.
+
+The reader is trusted for the translation: nothing proves that the IR means
 what the source means on the host. Receipts list it as the assumption
 `trusted-reader` ([program receipts](PROGRAM_RECEIPTS.md)).
 
@@ -294,8 +356,10 @@ Not established: that Gforth executes these words as the IR semantics says
 (task 2.5.4 tests it, without proving it: an IR interpreter, the host and
 Lean's evaluation of the model agree on 5,152 cases, see
 [the IR interpreter](PROGRAM_IR_RUN.md)); that the reader's translation is
-faithful (it is tested on the six words, every primitive and every
-diagnostic, not proved); anything about stack overflow, the compiler or other hosts; and anything checked by LeanForth.
+faithful (it is tested on the six words, every primitive, every
+diagnostic and line ends of every kind, and the host loads everything the
+tests accept, not proved); anything about stack overflow, the compiler or
+other hosts; and anything checked by LeanForth.
 The theorems are checked by Lean 4.35.0 and labelled *checked by the Lean
 reference, not by LeanForth*.
 
@@ -317,7 +381,7 @@ model, the reader, its golden files and the receipt schema change together.
 ## Running the checks
 
 ```sh
-make test-program-ir        # receipts, verbatim copies, reader tests (Gforth, Python)
+make test-program-ir        # receipts, verbatim copies, reader tests and files (Gforth, Python)
 make reference-program-ir   # the Lean model, its axioms, its IR against the reader's
 ```
 
@@ -328,7 +392,10 @@ Both are part of `make test` and `make check` respectively. Measured on
 Files: [`tests/reference/program-ir.lean`](../../tests/reference/program-ir.lean)
 (model and proofs), [`src/program/ir-reader.fs`](../../src/program/ir-reader.fs)
 (reader), [`tests/program/ir-reader.fs`](../../tests/program/ir-reader.fs)
-(reader tests), [`tests/program/ir/`](../../tests/program/ir/) (golden IR, and the
+(reader tests),
+[`tests/program/ir_reader_files.py`](../../tests/program/ir_reader_files.py)
+(files with every kind of line end, loaded by the host too),
+[`tests/program/ir/`](../../tests/program/ir/) (golden IR, and the
 all-primitives source),
 [`tests/program/check_program_ir.py`](../../tests/program/check_program_ir.py)
 (copies, axioms, the primitive table, Lean-versus-reader comparison).

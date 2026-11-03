@@ -71,17 +71,36 @@ A handler must keep this contract:
 - It takes its record and leaves exactly one outcome, nothing else. The
   reader checks the stack depth: a handler that leaves no outcome or extra
   items stops the reading as invalid ("handler left no outcome or extra
-  items"); one that takes more than its record throws -4 (stack
-  underflow), since its caller's data is gone.
+  items"). One that takes more than its record throws -4 (stack
+  underflow), since its caller's data is gone: while a handler runs, the
+  reader keeps the export under the record as a canary, so this is caught
+  also when the handler leaves one item or replaces the item under its
+  record.
 - It does not call `export-read` or `export-line` on the same export; the
   reader refuses that as invalid ("export read again by its own handler").
+  Nor does it call `export-init`, `export-free` or `export-restart` on it:
+  they throw (`ABORT"`, -2, "ndjson: export in use by its handler"), since
+  they would free or reset buffers and counts in use.
+- It writes neither its record nor the export. The reader reads a record
+  again after its handler only for an inductive block, whose three lists
+  it walks next: a list field that no longer holds a list stops the
+  reading as invalid ("handler changed its record"), and every element is
+  decoded and checked again from the line. Whether a declaration is a
+  block was read before its handler, and the export, not the record,
+  numbers the elements, so changing those fields misleads only the handler
+  itself. Other writes are not detected: that would mean copying and
+  comparing every record (all of Mathlib has about 111 million).
 - It copies any text, digits or list it wants to keep: they point into the
   current line and its JSON tape, valid only until the handler returns.
-- A `THROW` from a handler passes on to the caller of `export-read`, after
-  the reader has closed the file and marked the export idle. After a
-  `THROW` out of `export-line` itself, `export-restart` clears the mark.
-- Decoding never depends on `BASE`: numbers are read in decimal by hand, so
-  a handler may change `BASE` freely.
+- A `THROW` from a handler, including the two above, passes on to the
+  caller of `export-line` or `export-read` with the export idle again;
+  `export-read` closes the file first.
+- `export-handler ( kind export -- addr )` takes only a record kind
+  (`kind-meta` to `kind-recursor`); another number aborts ("ndjson: no
+  such record kind").
+- Nothing depends on `BASE`: numbers are read in decimal by hand, so a
+  handler may change `BASE` freely; and `lib/bytes.fs`, `lib/json.fs` and
+  `import/ndjson.fs` load in decimal whatever `BASE` is, then restore it.
 
 ## Layers
 
@@ -103,7 +122,10 @@ Each record is handed over in a decoded record. Every decoded record starts
 with `record-kind`, `record-index` (its own index; declarations and the
 elements of an inductive block count from 0), `record-line` and
 `record-export`. References are indices of earlier records. Lists are read
-with `list-count ( list record -- n )` and `list-item ( i list record -- u )`.
+with `list-count ( list record -- n )` and `list-item ( i list record -- u )`;
+a list field holds its JSON array's token index inverted (below -1), so a
+reference, which is at least 0, or an unset field, -1, never reads as a
+list, not even a reference that happens to equal an array's token index.
 Texts are an address and a length (`2@`), valid only inside the handler.
 
 Before each decode every field after the header is set to -1, so nothing
@@ -111,9 +133,15 @@ survives from an earlier record. A record's own fields are always all
 written. The layouts of different kinds overlap, so a field the kind does
 not have reads -1 (as a flag: true) or one of the record's own fields: a
 handler reads only the fields of its record's kind. The readers check
-their arguments: `list-count` gives 0 for a field that holds no list,
-`list-item` gives -1 for an index outside the list, and `recursor-rule`
-gives 0 for a record that is not a recursor or an index outside its rules.
+their arguments: `list-count` gives 0 for a field that holds no list;
+`list-item` is for lists of references and gives -1 for an index outside
+the list or for a list of objects (a block's lists, a recursor's rules);
+`recursor-rule` gives 0 for a record that is not a recursor, an index
+outside its rules, or a recursor record kept after its handler whose rules
+are no longer in the JSON view. A rule record has a header of its own:
+kind `kind-rule` (a kind no handler takes), the rule's index, and the line
+and export of its recursor; reading it leaves no field or reason in
+`export-error`.
 
 | Kind | JSON | Fields |
 | --- | --- | --- |
@@ -150,11 +178,12 @@ passed.
 | full (a limit) | A line longer than the limit (64 MiB), JSON nested deeper than 64, more than 65,536 JSON tokens on one line, a natural number field (such as `bvar` or `idx`) that does not fit in a cell, no heap memory |
 
 A handler's own outcome (rejected, for example) also stops the reading, as
-does a broken handler contract (invalid, see above).
+does a broken handler contract (invalid or a `THROW`, see above).
 
 `export-error ( export -- line key-addr key-u why-addr why-u )` gives the
-line, the field being decoded and the reason; for a JSON error,
-`json-offset` of the export's JSON view gives the byte within the line.
+line, the field being decoded and the reason, both cleared at the start of
+every line; for a JSON error, `json-offset` of the export's JSON view gives
+the byte within the line.
 When a handler stops the reading, the field is empty and the reason is "no
 handler for this record kind" or "handler refused the record"; a file that
 cannot be opened gives "cannot open the file" at line 0.
@@ -187,20 +216,33 @@ All run on 2026-11-02 with the pinned Gforth 1.0 (`gforth` and
 `gforth-fast`); the unit and file tests also with Gforth 0.7.3, CI's
 portability host.
 
-- **Unit tests** (in `make test`): `tests/lib/bytes.fs` (UTF-8 against an
+- **Unit tests** (in `make test`). Each file loads its module under `HEX`
+  and checks that `BASE` is restored; `tests/support/heap-watch.fs` counts
+  the heap blocks held. `tests/lib/bytes.fs` (UTF-8 against an
   independent model over every first and second byte, encoding round
   trips, scanning, framing, the reader with tiny buffers, limits at and one
-  past their bound, positions, buffers freed by a second `reader-init`),
+  past their bound, positions, the first buffer freed by a second
+  `reader-init` and none left after `reader-free`),
   `tests/lib/json.fs` (valid texts and their tokens, a malformed corpus of
   69 texts that must all be invalid, escapes, numbers in binary and
   hexadecimal `BASE`, every limit at and past its bound, failure
-  positions, kind-checked readers), `tests/core/ndjson.fs` (every record
+  positions, kind-checked readers, no heap block left by a second
+  `json-init` and `json-free`), `tests/core/ndjson.fs` (every record
   kind field by field, and for each kind the malformed, unsupported and
   limit cases; nothing handed over from a bad block; decoding under other
   `BASE`s; no field surviving from an earlier record; the token limit at
-  and one past its bound; checked list and rule readers; handler outcomes
-  and their reasons, a broken stack contract, re-entry, a `THROW` that
-  closes the file; the five reference fixtures).
+  and one past its bound, and the depth limit through the reader, 64
+  accepted and 65 full; checked list and rule readers, including a
+  reference equal to an array's token index, a list of objects, a rule's
+  header and a recursor kept past its line; no field or reason carried
+  over to the next line; handler outcomes and their reasons, a broken
+  stack contract (taking more than the record, also when one item is left
+  or the item under the record is replaced), re-entry, `export-init`,
+  `export-free` and `export-restart` from a handler, a changed block list,
+  kind or element number, a `THROW` that closes the file and leaves the
+  export idle; `export-handler` refusing a non-kind; the three heap blocks
+  of an export freed by `export-init` again and by `export-free`; the five
+  reference fixtures).
 - **File tests** (`tests/core/test_ndjson_reader.py`, in `make test`):
   counts equal to `count.py` and field-by-field dumps equal to
   `tests/support/ndjson_dump.py` (Python's `json` module) and to the strict
@@ -228,6 +270,17 @@ portability host.
   line limit one byte short (by the 64 MiB test), a reference check off by
   one, a lone low surrogate accepted, a line taken without its line feed
   and `json-items-of` ignoring the kind; the tree without a fault passed.
+  After the second review's fixes, 21 more, each undoing one fix, were
+  each caught by the unit tests on Gforth 1.0 and 0.7.3: no canary check;
+  the busy mark kept after a `THROW`; resetting or freeing allowed from a
+  handler; block lists not checked after the handler; a declaration's kind
+  or an element's number read back from the record; lists not inverted;
+  `list-item` taking a list of objects; a rule without its header, handed
+  out when it failed, or leaving its reason; a field kept from an earlier
+  line; each of the three modules loading in the caller's `BASE`, or
+  `ndjson.fs` not restoring it; `export-handler` taking any number; the
+  reader's depth limit one more or one less; `reader-init` or `json-init`
+  keeping the old memory.
 - **Independent AI review** (2026-11-02; not a substitute for the human
   review that `AGENTS.md` requires for declaration import): its fuzzer
   found no malformed input reaching a handler in 19,000 files, and it
@@ -244,6 +297,26 @@ portability host.
   (seed 20261104: 207 and 2,793) and 3,000 with Gforth 0.7.3 (seed
   20261105: 224 and 2,776). The repository's oracle agrees with the
   reviewer's on all of 10,000 generated files.
+- **Second independent AI review** (2026-11-02, of the fixes above; also
+  not a substitute for the human review): no input on its own got
+  malformed data accepted, decoded wrongly or handed over stale. It
+  reported findings that need a contract-breaking handler, misuse of a
+  reader word or a non-decimal `BASE` while loading, all fixed the same
+  day with a test that reproduces the reviewer's probe: a handler that
+  took more than its record but left one item, or replaced the item under
+  it, was not caught (it could make the reader count through the wrong
+  address); a handler could reset, re-initialise or free its own export;
+  the contract did not forbid writing the record; `list-count` read a
+  reference equal to an array's token index as a list, and `list-item` read
+  inside a list of objects; rule records had no header, and a recursor
+  kept past its line gave a rule of -1 fields and a stale reason; a
+  failure's field carried over to the next `export-line`; loading under
+  `HEX` decoded `10` as 16 and accepted wrong records; `export-handler`
+  wrote past its table for a kind out of range. `cell`, used by
+  `ndjson.fs` but not a Forth-2012 word, is now defined by
+  `src/lib/portability.fs` where missing, and
+  `scripts/check-portable-forth.py` refuses a module under `src/` that uses
+  an adapted word without loading that file.
 - **Differentials on real exports**: the counting reports equal `count.py`
   byte for byte on `Init`, `Std` and all of Mathlib (and the recorded
   `count.out` of [the Mathlib measurements](measurements/mathlib-2026-11-02/README.md));
@@ -253,7 +326,9 @@ portability host.
   the final line; SHA-256 `3cf988e8b53bc3c1…f831ddd674` for both). After
   the review's fixes the `Init` dump is unchanged, field by field (SHA-256
   `2ca3a7a21eed4785…f6c38e65` before and after, equal to Python's), and the
-  Mathlib count still equals `count.out` byte for byte.
+  Mathlib count still equals `count.out` byte for byte. After the second
+  review's fixes the `Init` dump is again the same (6,455,017 lines, the
+  same SHA-256), and the `Init` count report is byte-identical.
 
 ## Measured speed and memory
 
@@ -276,7 +351,13 @@ cost about 4%: measured again later the same day, one after the other,
 all of Mathlib took 1 min 44.0 s (102.9 s user, 16,640 KiB) before them
 and 1 min 49.2 s (107.7 s user, 16,708 KiB) after, both reports equal to
 `count.out`; `Init`, three runs each, 5.95 s and 6.18 s of user time on
-average.
+average. The second review's fixes add 1.2% of instructions: counting
+`Init` with `gforth-fast` took 107.58 billion user-mode instructions
+before them and 108.88 billion after (`perf stat -e instructions:u`), of
+which the checks made by a defining word account for 0.3% and the `CATCH`
+around each handler for 0.5%. Wall times, measured while other jobs ran
+on the machine, moved by less than their run-to-run spread (five
+alternating runs each: 6.18 s and 6.27 s of user time on average).
 
 So the Forth reader decodes about 60 MB/s with `gforth-fast`, twice
 Python's line-parsing rate, in constant memory (the resident size is

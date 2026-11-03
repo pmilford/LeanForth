@@ -10,8 +10,9 @@
 \ having cleared it before the call. Untrusted.
 \ State: one record, lf-diagnostic, a member of the checker context
 \ (lib/context.fs), so each context explains its own failures; a new
-\ context starts clear. Site names are counted strings compiled into the
-\ recording words, shared and read-only.
+\ context starts clear. Site names are counted strings, one word per
+\ module (lf-X-site), and the catalogue of printed names is a table; both
+\ are shared and read-only.
 
 require ../lib/lib.fs
 
@@ -34,23 +35,38 @@ require ../lib/lib.fs
 12 constant lf-diag-binders-full
 13 constant lf-diag-cell-maximum       \ the value, the amount to add
 14 constant lf-diag-heap-failed        \ bytes, ior (no site in core or kernel)
-\ Invalid input (outcome invalid).
+15 constant lf-diag-deps-full          \ dependencies recorded, capacity
+16 constant lf-diag-pool-full          \ dependencies needed, pool capacity
+\ Invalid input or state (outcome invalid).
 20 constant lf-diag-bad-argument       \ the value, 0
 21 constant lf-diag-stale-handle       \ index, identity
-22 constant lf-diag-malformed          \ the node being visited, 0
+22 constant lf-diag-malformed          \ the node being visited (-1 none), 0
 23 constant lf-diag-out-of-scope       \ variable index or parameter ID, binders
 24 constant lf-diag-corrupted          \ a store's count, capacity
+25 constant lf-diag-env-handle         \ handle identity, slot
+26 constant lf-diag-too-early          \ the slot not final, the declaration
+27 constant lf-diag-no-snapshot        \ snapshot identity, current identity or 0
+28 constant lf-diag-recheck            \ the declaration, the re-check that failed
+29 constant lf-diag-publisher-fault    \ the declaration, the THROW code
 \ Not decided by the cautious rules (outcome unknown).
 30 constant lf-diag-undecided          \ the left and right node that differ
 31 constant lf-diag-not-pi             \ the function's type, 0
 32 constant lf-diag-not-sort           \ the type, 0
 33 constant lf-diag-no-signature       \ the constant's name ID, 0
 34 constant lf-diag-symbolic-level     \ the level, 0
-\ A construct not implemented yet (outcome unknown until ADR 0008 step 3).
+35 constant lf-diag-dependency-undecided   \ the slot, its outcome
+\ A construct not implemented yet (outcome unknown until ADR 0008 step 3),
+\ or a dependency that is unsupported.
 40 constant lf-diag-unsupported        \ the node's tag, 0
-\ Rejected by a typing rule of ADR 0011 (outcome rejected); 50-54 are the
-\ checked environment's rules (kernel/environment.fs). A rejection
+41 constant lf-diag-dependency-unsupported \ the slot, 0
+\ Rejected by a rule of ADR 0011 (outcome rejected): 50-54 by the checked
+\ environment, 55-60 by comparison and inference, where a rejection
 \ replaces the record of the undecided step it decides.
+50 constant lf-diag-unknown-constant   \ name ID, the declaration (N1)
+51 constant lf-diag-already-declared   \ name ID, the accepted slot (N2)
+52 constant lf-diag-level-count        \ levels given, parameters (L1)
+53 constant lf-diag-undeclared-param   \ name ID, 0 (L2)
+54 constant lf-diag-duplicate-param    \ the declaration, 0 (L3)
 55 constant lf-diag-type-expected      \ S1: the declared type's type, reduced, 0
 56 constant lf-diag-domain-type        \ S2: a binder domain's type, reduced, 0
 57 constant lf-diag-not-proposition    \ S3: the statement's Sort level, 0
@@ -83,15 +99,18 @@ end-structure
 
 \ After a walk (lib/walk.fs) ended with outcome: exhausted records the
 \ fuel left, full the work stack's cells pending and capacity, invalid the
-\ node being visited (malformed), unknown the pair being compared
-\ (undecided, for paired walks); ok records nothing. A failure that a
-\ check inside the walk recorded first is kept.
+\ node being visited (malformed; -1 when the walk ended before its first
+\ visit), unknown the pair being compared (undecided: the node and, in a
+\ paired walk, its context cell, else 0); ok records nothing. A failure
+\ that a check inside the walk recorded first is kept.
 : lf-diag-walk-fuel ( walk site -- ) swap walk-fuel @ swap lf-diag-exhausted ;
 : lf-diag-walk-room ( walk site -- )
   >r dup walk-pending @ swap walk-capacity @ r> lf-diag-work-stack-full lf-diag-note ;
 : lf-diag-walk-node ( walk site -- ) >r walk-node @ 0 r> lf-diag-malformed lf-diag-note ;
+: lf-diag-walk-right ( walk -- node|0 )
+  dup walk-paired? if walk-context @ else drop 0 then ;
 : lf-diag-walk-pair ( walk site -- )
-  >r dup walk-node @ swap walk-context @ r> lf-diag-undecided lf-diag-note ;
+  >r dup walk-node @ swap lf-diag-walk-right r> lf-diag-undecided lf-diag-note ;
 : lf-diag-walk ( outcome walk site -- outcome )
   2>r dup case outcome-exhausted of 2r> lf-diag-walk-fuel endof
     outcome-full of 2r> lf-diag-walk-room endof
@@ -117,51 +136,72 @@ end-structure
 : lf-diag-filled ( store -- count capacity ) dup store-count @ swap store-capacity @ ;
 : lf-diag-numbers ( store code -- n1 n2 )
   lf-diag-serial-spent = if store-serial @ 1 else lf-diag-filled then ;
-: lf-diag-store ( store site code -- )
-  >r over r> swap lf-diag-why >r swap r@ lf-diag-numbers rot r> lf-diag-note ;
+\ The code and numbers of a refusal the store's state explains.
+: lf-diag-refusal ( code store -- n1 n2 code' )
+  tuck lf-diag-why tuck lf-diag-numbers rot ;
+: lf-diag-store ( store site code -- ) rot lf-diag-refusal >r rot r> lf-diag-note ;
+
+\ The catalogue of printed names, in code order: each entry is a code, the
+\ name's length and its characters, aligned. The last entry, lf-diag-none,
+\ names every code the catalogue does not list. Shared and read-only.
+: lf-diag-entry, ( code c-addr u -- ) rot , dup , here swap dup allot move align ;
+: lf-diag-entry-code ( entry -- code ) @ ;
+: lf-diag-entry-name ( entry -- c-addr u ) cell+ dup cell+ swap @ ;
+: lf-diag-entry-next ( entry -- entry' ) lf-diag-entry-name + aligned ;
+create lf-diag-catalogue
+  lf-diag-fuel s" fuel exhausted" lf-diag-entry,
+  lf-diag-terms-full s" term store full" lf-diag-entry,
+  lf-diag-levels-full s" level store full" lf-diag-entry,
+  lf-diag-names-full s" name store full" lf-diag-entry,
+  lf-diag-name-bytes-full s" name bytes full" lf-diag-entry,
+  lf-diag-references-full s" reference store full" lf-diag-entry,
+  lf-diag-signatures-full s" signature index full" lf-diag-entry,
+  lf-diag-serial-spent s" identity serial spent" lf-diag-entry,
+  lf-diag-work-stack-full s" work stack full" lf-diag-entry,
+  lf-diag-frame-limit s" frame limit" lf-diag-entry,
+  lf-diag-depth-limit s" depth limit" lf-diag-entry,
+  lf-diag-binders-full s" binder context full" lf-diag-entry,
+  lf-diag-cell-maximum s" value at cell maximum" lf-diag-entry,
+  lf-diag-heap-failed s" heap allocation failed" lf-diag-entry,
+  lf-diag-deps-full s" dependency list full" lf-diag-entry,
+  lf-diag-pool-full s" dependency pool full" lf-diag-entry,
+  lf-diag-bad-argument s" invalid input: bad argument" lf-diag-entry,
+  lf-diag-stale-handle s" invalid input: stale handle" lf-diag-entry,
+  lf-diag-malformed s" invalid input: malformed graph" lf-diag-entry,
+  lf-diag-out-of-scope s" invalid input: out of scope" lf-diag-entry,
+  lf-diag-corrupted s" invalid input: corrupted store" lf-diag-entry,
+  lf-diag-env-handle s" invalid: environment handle" lf-diag-entry,
+  lf-diag-too-early s" invalid: check started too early" lf-diag-entry,
+  lf-diag-no-snapshot s" invalid: no snapshot" lf-diag-entry,
+  lf-diag-recheck s" invalid: publisher re-check failed" lf-diag-entry,
+  lf-diag-publisher-fault s" invalid: internal fault" lf-diag-entry,
+  lf-diag-undecided s" undecided: terms or levels differ" lf-diag-entry,
+  lf-diag-not-pi s" undecided: function type not a Pi" lf-diag-entry,
+  lf-diag-not-sort s" undecided: type not a Sort" lf-diag-entry,
+  lf-diag-no-signature s" undecided: no candidate signature" lf-diag-entry,
+  lf-diag-symbolic-level s" undecided: symbolic level" lf-diag-entry,
+  lf-diag-dependency-undecided s" undecided: dependency undecided" lf-diag-entry,
+  lf-diag-unsupported s" unsupported construct" lf-diag-entry,
+  lf-diag-dependency-unsupported s" unsupported: dependency unsupported" lf-diag-entry,
+  lf-diag-unknown-constant s" rejected: unknown constant" lf-diag-entry,
+  lf-diag-already-declared s" rejected: name already declared" lf-diag-entry,
+  lf-diag-level-count s" rejected: wrong number of universe levels" lf-diag-entry,
+  lf-diag-undeclared-param s" rejected: undeclared universe parameter" lf-diag-entry,
+  lf-diag-duplicate-param s" rejected: duplicate universe parameter" lf-diag-entry,
+  lf-diag-type-expected s" rejected: type expected (S1)" lf-diag-entry,
+  lf-diag-domain-type s" rejected: binder domain not a type (S2)" lf-diag-entry,
+  lf-diag-not-proposition s" rejected: theorem type not a proposition (S3)" lf-diag-entry,
+  lf-diag-function-expected s" rejected: function expected (F1)" lf-diag-entry,
+  lf-diag-argument-apart s" rejected: argument type mismatch (D1-D5)" lf-diag-entry,
+  lf-diag-value-apart s" rejected: declared type mismatch (D1-D5)" lf-diag-entry,
+  lf-diag-none s" unknown code" lf-diag-entry,
+: lf-diag-end? ( code entry -- flag ) lf-diag-entry-code tuck = swap lf-diag-none = or ;
+\ The entry of code, or the last entry.
+: lf-diag-entry ( code -- entry )
+  lf-diag-catalogue begin 2dup lf-diag-end? 0= while lf-diag-entry-next repeat nip ;
 
 \ Printing: the code's name, the site and the numbers, or "no diagnostic".
-: lf-diag-room-name ( code -- c-addr u )
-  case lf-diag-fuel of s" fuel exhausted" endof
-    lf-diag-terms-full of s" term store full" endof
-    lf-diag-levels-full of s" level store full" endof
-    lf-diag-names-full of s" name store full" endof
-    lf-diag-name-bytes-full of s" name bytes full" endof
-    lf-diag-references-full of s" reference store full" endof
-    lf-diag-signatures-full of s" signature index full" endof
-    lf-diag-serial-spent of s" identity serial spent" endof
-    >r s" unknown code" r> endcase ;
-: lf-diag-limit-name ( code -- c-addr u )
-  case lf-diag-work-stack-full of s" work stack full" endof
-    lf-diag-frame-limit of s" frame limit" endof
-    lf-diag-depth-limit of s" depth limit" endof
-    lf-diag-binders-full of s" binder context full" endof
-    lf-diag-cell-maximum of s" value at cell maximum" endof
-    lf-diag-heap-failed of s" heap allocation failed" endof
-    lf-diag-room-name 0 endcase ;
-: lf-diag-input-name ( code -- c-addr u )
-  case lf-diag-bad-argument of s" invalid input: bad argument" endof
-    lf-diag-stale-handle of s" invalid input: stale handle" endof
-    lf-diag-malformed of s" invalid input: malformed graph" endof
-    lf-diag-out-of-scope of s" invalid input: out of scope" endof
-    lf-diag-corrupted of s" invalid input: corrupted store" endof
-    lf-diag-limit-name 0 endcase ;
-: lf-diag-rule-name ( code -- c-addr u )
-  case lf-diag-type-expected of s" rejected: type expected (S1)" endof
-    lf-diag-domain-type of s" rejected: binder domain not a type (S2)" endof
-    lf-diag-not-proposition of s" rejected: theorem type not a proposition (S3)" endof
-    lf-diag-function-expected of s" rejected: function expected (F1)" endof
-    lf-diag-argument-apart of s" rejected: argument type mismatch (D1-D5)" endof
-    lf-diag-value-apart of s" rejected: declared type mismatch (D1-D5)" endof
-    lf-diag-input-name 0 endcase ;
-: lf-diag-name ( code -- c-addr u )
-  case lf-diag-undecided of s" undecided: terms or levels differ" endof
-    lf-diag-not-pi of s" undecided: function type not a Pi" endof
-    lf-diag-not-sort of s" undecided: type not a Sort" endof
-    lf-diag-no-signature of s" undecided: no candidate signature" endof
-    lf-diag-symbolic-level of s" undecided: symbolic level" endof
-    lf-diag-unsupported of s" unsupported construct" endof
-    lf-diag-rule-name 0 endcase ;
+: lf-diag-name ( code -- c-addr u ) lf-diag-entry lf-diag-entry-name ;
 : lf-diag-site. ( site -- ) ?dup if count type else ." no site" then ;
 : lf-diag. ( -- )
   lf-diag-clear? if ." no diagnostic" exit then

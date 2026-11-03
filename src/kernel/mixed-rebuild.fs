@@ -43,9 +43,9 @@ require ../core/terms.fs
 : lf-rebuild-binder? ( node -- flag ) lf-term-tag@ lf-tag-app <> ;
 : lf-rebuild-stuck? ( node frames -- flag )
   frame-context @ max-n = swap lf-rebuild-binder? and ;
+: lf-rebuild-site ( -- site ) c" mixed-rebuild lf-rebuild-binary" ;
 : lf-rebuild-deep ( -- -1 outcome )
-  max-n dup c" mixed-rebuild lf-rebuild-binary" lf-diag-binders-full lf-diag-note
-  lf-rebuild-full ;
+  max-n dup lf-rebuild-site lf-diag-binders-full lf-diag-note lf-rebuild-full ;
 : lf-rebuild-build ( r1 node r2 -- result outcome )
   swap lf-term-tag@ lf-term-binary lf-rebuild-allocated ;
 : lf-rebuild-descend ( node -- xt )

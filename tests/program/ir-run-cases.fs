@@ -32,10 +32,11 @@ variable program-length
 : arrow ( c-addr u -- args-addr args-u ) 2dup s"  -> " search 0= abort" no arrow" nip - ;
 : push-inputs ( c-addr u -- )
   begin dup while next-token case-number irx-push drop repeat 2drop ;
+: .item ( i -- ) irx-item 0= abort" no such item" 0 .r ;
 : run-line ( c-addr u -- )
   arrow 2dup type ."  -> " next-token use-program next-token 2>r next-token case-number
   >r irx-clear push-inputs r> 2r> irx-run ok? if
-    ." ok" irx-depth 0 ?do space i irx-item 0 .r loop
+    ." ok" irx-depth 0 ?do space i .item loop
   else ." fail " irx-result irx-result-text type then cr ;
 
 create case-text 512 chars allot

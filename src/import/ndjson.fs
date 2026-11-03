@@ -7,7 +7,8 @@
 \ export:, which holds the line reader, the JSON view, the decoded records,
 \ the handler table and the counters, so separate exports are independent;
 \ one export is single-threaded. The tables below are constant after
-\ loading. Nothing depends on BASE.
+\ loading. Nothing depends on BASE: numbers are read in decimal by hand,
+\ and the file itself loads in decimal whatever BASE is, then restores it.
 \
 \ export-read reads a file line by line. Each line must be one JSON object
 \ with strict framing (lib/bytes.fs) that is a complete, well-formed record
@@ -21,11 +22,15 @@
 \
 \ The handler contract: a handler ( record -- outcome ) takes its record
 \ and leaves exactly one outcome, nothing else (checked: anything else is
-\ invalid, and taking more than the record throws); it does not call
-\ export-read or export-line on the same export (checked: invalid); it
-\ copies any text or list it keeps, since strings, digits and list indices
-\ are valid only until it returns; and a THROW from it passes on to the
-\ caller of export-read after the file is closed.
+\ invalid, and taking more than the record throws -4); it does not call
+\ export-read or export-line on the same export (checked: invalid), nor
+\ export-init, export-free or export-restart (checked: they throw); it
+\ writes neither its record nor the export (partly checked: the reader
+\ reads a block's lists again after the block's handler, and a field that
+\ no longer holds a list is invalid); it copies any text or list it
+\ keeps, since strings, digits and lists are valid only until it returns;
+\ and a THROW from it passes on to the caller of export-read after the
+\ file is closed, with the export idle.
 \
 \ What is checked: exact field sets (no field missing, unknown or repeated);
 \ value kinds; enumerations; index fields dense and in order (names and
@@ -45,6 +50,7 @@
 \ number field beyond a cell, no heap). export-error reports the line, the
 \ field and the reason.
 
+base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
 require ../lib/bytes.fs
 require ../lib/json.fs
@@ -65,11 +71,15 @@ require ../lib/json.fs
 23 constant kind-inductive         24 constant kind-type
 25 constant kind-ctor              26 constant kind-recursor
 27 constant kind-count
+\ A recursor rule, read with recursor-rule; never handed to a handler.
+kind-count constant kind-rule
 
 \ Decoded records. Every record starts with this header; the fields after
 \ it depend on the kind. References are indices of earlier records; lists
-\ are indices of JSON arrays (read them with list-count and list-item);
-\ texts are an address and a length (read them with 2@); flags are flags.
+\ are JSON arrays, kept as the array's token index inverted, below -1, so
+\ that no reference or unset field reads as a list (read them with
+\ list-count and list-item); texts are an address and a length (read them
+\ with 2@); flags are flags.
 \ Before each decode every field after the header is set to -1, so no
 \ value survives from an earlier record. A record's own fields are all
 \ written; a field of another kind reads -1 (as a flag: true) or, since
@@ -158,16 +168,17 @@ begin-structure /export
   /record +field export-element    \ a type, constructor or recursor of a block
   /record +field export-rule       \ a recursor rule
   kind-count cells +field export-handlers
+  field: export-busy               \ true while a handler runs
   field: export-bytes              \ bytes of the current line, with its line feed
   field: export-names              \ names so far, counting the anonymous name 0
   field: export-levels             \ levels so far, counting level 0 (zero)
   field: export-exprs              \ expressions so far
   field: export-decls              \ declaration records so far
   field: export-metas              \ metadata records so far
+  field: export-ordinal            \ elements of the current block list so far
   field: export-key                \ counted string: the field at a failure, or 0
   field: export-why                \ counted string: why reading failed, or 0
   field: export-at                 \ line of the failure
-  field: export-busy               \ true while a handler runs
 end-structure
 \ The fields from export-names on describe progress through one file.
 /export 0 export-names - constant /export-progress
@@ -236,6 +247,9 @@ end-structure
 \ into the field at slot when the outcome is ok.
 : for-slot ( value slot export -- slot value export ) rot swap ;
 : slot! ( slot x outcome -- outcome ) ok-then? if swap ! outcome-ok else nip then ;
+\ Defining word: name ( value slot export -- outcome ), the check made
+\ from the decoder xt.
+: slot-check: ( xt "name" -- ) create , does> @ >r for-slot r> execute slot! ;
 \ Natural numbers that fit in a cell.
 : not-natural ( export -- -1 outcome )
   c" expected a natural number" export-bad no-result ;
@@ -258,18 +272,15 @@ end-structure
 : bool-of ( value export -- flag outcome )
   tuck export-json json-bool if nip outcome-ok exit then
   c" expected a boolean" export-bad no-result ;
-: v-nat ( value slot export -- outcome ) for-slot nat-of slot! ;
-: v-name ( value slot export -- outcome ) for-slot name-of slot! ;
-: v-name+ ( value slot export -- outcome ) for-slot name+-of slot! ;
-: v-level ( value slot export -- outcome ) for-slot level-of slot! ;
-: v-expr ( value slot export -- outcome ) for-slot expr-of slot! ;
-: v-bool ( value slot export -- outcome ) for-slot bool-of slot! ;
+' nat-of slot-check: v-nat  ' name-of slot-check: v-name  ' name+-of slot-check: v-name+
+' level-of slot-check: v-level  ' expr-of slot-check: v-expr  ' bool-of slot-check: v-bool
 \ Texts: their decoders give addr u true, or the outcome and false;
-\ text-slot! stores the text with 2!.
+\ text-slot! stores the text with 2!, and text-check: makes their checks.
 : string-at ( value export -- addr u true | false )
   export-json 2dup json-kind@ json-string = if json-text@ true else 2drop false then ;
 : text-slot! ( slot addr u true | slot outcome false -- outcome )
   if rot 2! outcome-ok else nip then ;
+: text-check: ( xt "name" -- ) create , does> @ >r for-slot r> execute text-slot! ;
 : text-of ( value export -- addr u true | outcome false )
   tuck string-at if rot drop true else c" expected a string" export-bad false then ;
 \ The digits of a natural number of any size.
@@ -280,9 +291,8 @@ end-structure
   dup >r text-of 0= if r> drop false exit then
   2dup canonical-natural? if r> drop true exit then
   2drop r> c" literal is not canonical decimal" export-bad false ;
-: v-text ( value slot export -- outcome ) for-slot text-of text-slot! ;
-: v-digits ( value slot export -- outcome ) for-slot numeral-of text-slot! ;
-: v-natlit ( value slot export -- outcome ) for-slot literal-of text-slot! ;
+' text-of text-check: v-text  ' numeral-of text-check: v-digits
+' literal-of text-check: v-natlit
 \ Enumerations: a string from the table, decoded as its code.
 : choice-of ( value export table -- code outcome )
   >r tuck text-of 0= if nip r> drop no-result exit then
@@ -297,9 +307,12 @@ end-shape
   0 nd-choice type  1 nd-choice ctor  2 nd-choice lift  3 nd-choice ind
 end-shape
 0 0 shape: hint-words  0 nd-choice opaque  1 nd-choice abbrev  end-shape
-: v-binder ( value slot export -- outcome ) for-slot binder-infos choice-of slot! ;
-: v-safety ( value slot export -- outcome ) for-slot safeties choice-of slot! ;
-: v-quot-kind ( value slot export -- outcome ) for-slot quot-kinds choice-of slot! ;
+: binder-of ( value export -- code outcome ) binder-infos choice-of ;
+: safety-of ( value export -- code outcome ) safeties choice-of ;
+: quot-kind-of ( value export -- code outcome ) quot-kinds choice-of ;
+: hint-of ( value export -- code outcome ) hint-words choice-of ;
+' binder-of slot-check: v-binder  ' safety-of slot-check: v-safety
+' quot-kind-of slot-check: v-quot-kind  ' hint-of slot-check: v-hint-word
 \ Two level references into slot and the cell after it.
 : pair? ( value export -- flag )
   export-json json-array swap json-items-of if 2 = else false then ;
@@ -312,7 +325,7 @@ end-shape
 : object-of ( value export -- index outcome )
   2dup export-object? if drop outcome-ok exit then
   nip c" expected an object" export-bad no-result ;
-: v-object ( value slot export -- outcome ) for-slot object-of slot! ;
+' object-of slot-check: v-object
 \ A reducibility height: a natural number within UInt32.
 : uint32? ( addr u -- flag )
   dup 10 > if 2drop false exit then dup 10 < if 2drop true exit then
@@ -321,7 +334,7 @@ end-shape
   tuck export-json json-natural 0= if not-natural exit then
   2dup uint32? if decimal>u nip outcome-ok exit then
   2drop c" height beyond UInt32" export-bad no-result ;
-: v-height ( value slot export -- outcome ) for-slot height-of slot! ;
+' height-of slot-check: v-height
 
 \ Lists. A visit is an action ( item x export -- outcome ) with its x;
 \ each-item applies it to every item of a JSON array in order and stops at
@@ -341,18 +354,20 @@ end-structure
 : array-of ( value export -- list outcome )
   2dup export-array? if drop outcome-ok exit then
   nip c" expected a list" export-bad no-result ;
-\ A list: a JSON array whose items all pass the visit, as the array's index.
+\ A list: a JSON array whose items all pass the visit, kept inverted (see
+\ the decoded records).
 : list-of ( value visit export -- list outcome )
   rot over array-of dup ok? 0= if 2swap 2drop exit then
-  drop dup >r -rot each-item r> swap ;
+  drop dup >r -rot each-item r> invert swap ;
 \ Lists of references.
 : in-list ( export outcome -- outcome )
   ok? if drop outcome-ok else c" bad reference in list" export-bad then ;
 : ref-item ( item decoder export -- outcome ) dup >r swap execute nip r> swap in-list ;
 ' name+-of ' ref-item visit: name-refs
 ' level-of ' ref-item visit: level-refs
-: v-names ( value slot export -- outcome ) for-slot name-refs swap list-of slot! ;
-: v-levels ( value slot export -- outcome ) for-slot level-refs swap list-of slot! ;
+: names-of ( value export -- list outcome ) name-refs swap list-of ;
+: levels-of ( value export -- list outcome ) level-refs swap list-of ;
+' names-of slot-check: v-names  ' levels-of slot-check: v-levels
 \ Defining words for checks of objects, name ( value slot export -- outcome ):
 \ nd-nested decodes one object with the table, ignoring slot; nd-listed
 \ decodes a list of such objects, kept in slot.
@@ -367,8 +382,7 @@ end-structure
 end-shape
 regular-shape nd-nested v-regular-hints
 : v-hints ( value slot export -- outcome )
-  >r over r@ export-object? if 2 over ! r> v-regular-hints exit then
-  r> for-slot hint-words choice-of slot! ;
+  >r over r@ export-object? if 2 over ! r> v-regular-hints exit then r> v-hint-word ;
 
 0 export-record 0 shape: exporter-shape
   0 meta-exporter ' v-text nd-member name
@@ -574,28 +588,38 @@ expr-kinds 0 export-exprs nd-family expr-family ie
 name-kinds 0 export-names nd-family name-family in
 level-kinds 0 export-levels nd-family level-family il
 create families expr-family , name-family , level-family ,   \ most frequent first
+here families - cell / constant #families
 
 \ Handlers ( record -- outcome ), one per kind; by default a kind is refused.
-: export-handler ( kind export -- addr ) export-handlers swap cells + ;
+: handler-slot ( kind export -- addr ) export-handlers swap cells + ;
+\ The cell that holds the handler of kind, which must be a record kind.
+: export-handler ( kind export -- addr )
+  over kind-count u< 0= abort" ndjson: no such record kind" handler-slot ;
 : export-refused ( record -- outcome )
   record-export @ c" no handler for this record kind" export-refuse ;
 : export-handlers-clear ( export -- )
   export-handlers kind-count 0 do ['] export-refused over i cells + ! loop drop ;
 
 \ Calling a handler. It must leave exactly one outcome; anything it leaves
-\ instead is dropped and the call gives false. A handler that took more
-\ than its record has damaged its caller's stack: that throws -4 (stack
-\ underflow). While it runs the export is busy, so that it cannot read the
-\ same export again.
+\ instead is dropped and the call gives false. While it runs the export
+\ is busy, so that it cannot read the same export again, and the export
+\ lies under the record as a canary: a handler that took more than its
+\ record removed or replaced it, so it has damaged its caller's data, and
+\ that throws -4 (stack underflow). Every THROW from the handler, that one
+\ too, ends the busy mark and passes on.
+-4 constant stack-underflow   \ the standard THROW code
 : depth-to ( i*x n -- j*x ) begin depth 1- over > while nip repeat drop ;
 : handler-call ( record xt -- outcome true | false )
   depth 2 - >r execute depth r@ 1+ = if r> drop true exit then
-  depth r@ < if -4 throw then r> depth-to false ;
+  depth r@ < if stack-underflow throw then r> depth-to false ;
+: export-canary ( x export -- ) <> if stack-underflow throw then ;
+: busy-call ( record xt export -- canary outcome true | canary false )
+  true over export-busy ! dup >r -rot ['] handler-call catch 0 r> export-busy ! throw ;
 : export-run ( record xt export -- outcome true | false )
-  true over export-busy ! >r handler-call 0 r> export-busy ! ;
+  dup >r busy-call if swap r> export-canary true else r> export-canary false then ;
 \ The handler of the record's kind, or 0 for a kind out of range.
 : record-handler ( record export -- xt | 0 )
-  swap record-kind @ dup kind-count u< if swap export-handler @ else 2drop 0 then ;
+  swap record-kind @ dup kind-count u< if swap handler-slot @ else 2drop 0 then ;
 \ A failure without a reason of its own gets one.
 : refusal ( outcome export -- outcome )
   over ok? over export-why @ or if drop exit then
@@ -649,7 +673,7 @@ create families expr-family , name-family , level-family ,   \ most frequent fir
 \ its value is token 2 and the kind's key token 3, else the key is token 1.
 : key-value ( c-addr export -- value true | false ) 0 swap export-json json-find ;
 : export-family ( export -- value family true | false )
-  3 0 do families i cells + @ 2dup family-key swap key-value
+  #families 0 do families i cells + @ 2dup family-key swap key-value
     if rot drop swap true unloop exit then drop
   loop drop false ;
 : family-count@ ( family export -- n ) swap family-count @ + @ ;
@@ -666,28 +690,37 @@ create families expr-family , name-family , level-family ,   \ most frequent fir
 \ Declarations: one kind member. An inductive block is followed by its
 \ types, constructors and recursors, each as a record of its own kind
 \ numbered within its list. They are decoded again from the checked
-\ block, so this cannot fail on input.
-: element-start ( kind record -- )
-  dup record-unset tuck record-kind ! 1 swap record-index +! ;
+\ block, so this cannot fail on input. After the block's handler the
+\ reader takes nothing from the record but the block's three lists, each
+\ of which must still be a list: the kind was read before, and the export
+\ counts the elements.
+: element-start ( kind export -- )
+  dup export-ordinal @ over export-element record-index ! 1 over export-ordinal +!
+  export-element dup record-unset record-kind ! ;
 : export-item ( element table export -- outcome )
-  >r dup table-kind @ r@ export-element element-start
+  >r dup table-kind @ r@ element-start
   r@ export-shape dup ok? if drop r@ export-element r@ export-hand then r> drop ;
 type-shape ' export-item visit: type-elements
 ctor-shape ' export-item visit: ctor-elements
 recursor-shape ' export-item visit: recursor-elements
-: export-elements ( list visit export -- outcome )
-  -1 over export-element record-index ! each-item ;
-: export-types ( export -- outcome )
-  dup export-record block-types @ type-elements rot export-elements ;
-: export-ctors ( export -- outcome )
-  dup export-record block-ctors @ ctor-elements rot export-elements ;
+: export-elements ( list visit export -- outcome ) 0 over export-ordinal ! each-item ;
+\ The array of the block's list field at offset; invalid when the field no
+\ longer holds a list.
+: block-list ( offset export -- list true | outcome false )
+  tuck export-record + @ invert 2dup swap export-json json-kind-at json-array =
+  if nip true else drop c" handler changed its record" export-bad false then ;
+: export-list ( visit offset export -- outcome )
+  tuck block-list if -rot export-elements else nip nip then ;
+: export-types ( export -- outcome ) type-elements 0 block-types rot export-list ;
+: export-ctors ( export -- outcome ) ctor-elements 0 block-ctors rot export-list ;
 : export-recursors ( export -- outcome )
-  dup export-record block-recursors @ recursor-elements rot export-elements ;
-: export-block ( export -- outcome )
-  dup export-record record-kind @ kind-inductive <> if drop outcome-ok exit then
+  recursor-elements 0 block-recursors rot export-list ;
+: export-block ( kind export -- outcome )
+  swap kind-inductive <> if drop outcome-ok exit then
   dup export-types ok-then? if dup export-ctors ok-then? if export-recursors then then ;
 : export-declared ( export -- outcome )
-  dup export-decls over export-deliver ok-then? if export-block then ;
+  dup export-record record-kind @ swap dup export-decls over export-deliver
+  ok-keep? if export-block else nip then ;
 : export-declaration ( export -- outcome )
   0 over export-json json-items@ 1 <> if c" unknown record kind" export-bad exit then
   dup >r 1 decl-kinds r> export-kind ok-then? if export-declared then ;
@@ -708,14 +741,14 @@ recursor-shape ' export-item visit: recursor-elements
   if 2drop r> c" carriage return or byte-order mark" export-bad exit then
   r@ export-json json-parse dup ok? 0= if r@ export-json-failed then r> drop ;
 : export-decode ( addr u export -- outcome )
-  over 1+ over export-bytes ! dup >r export-parse
+  dup export-unmark over 1+ over export-bytes ! dup >r export-parse
   dup ok? if drop r@ export-dispatch then r> drop ;
 \ Ok unless a handler of the export is running.
 : export-idle ( export -- outcome )
   dup export-busy @ if c" export read again by its own handler" export-bad exit then
   drop outcome-ok ;
-\ Check one line in memory and hand its records over; the bytes may
-\ change in place.
+\ Check one line in memory and hand its records over, with no field or
+\ reason left from an earlier line; the bytes may change in place.
 : export-line ( addr u export -- outcome )
   dup export-idle ok-then? if export-decode else nip nip then ;
 : export-reader-failed ( outcome export -- outcome )
@@ -735,10 +768,14 @@ recursor-shape ' export-item visit: recursor-elements
   begin dup export-reader reader-more? while
     dup export-next ok-then? 0= if exit then
   repeat export-end ;
-\ Start counting from the beginning of a file; also ends a busy mark left
-\ by a THROW out of a handler.
+\ The words that reset or free an export refuse to run under one of its
+\ handlers, where the export is in use: that throws.
+: export-quiet ( export -- export )
+  dup export-busy @ abort" ndjson: export in use by its handler" ;
+\ Start counting from the beginning of a file.
 : export-restart ( export -- )
-  dup export-names /export-progress erase 1 over export-names ! 1 swap export-levels ! ;
+  export-quiet dup export-names /export-progress erase
+  1 over export-names ! 1 swap export-levels ! ;
 
 1048576 constant export-buffer-size   \ initial line buffer; it grows for longer lines
 67108864 constant export-line-limit   \ longest line accepted: 64 MiB
@@ -758,14 +795,15 @@ recursor-shape ' export-item visit: recursor-elements
   export-json export-depth-limit over json-init
   export-token-limit rot json-token-limit ! ;
 : export-init ( export -- outcome )
-  dup export-restart dup export-handlers-clear dup export-buffers
+  export-quiet dup export-restart dup export-handlers-clear dup export-buffers
   ok-then? if export-json-init then ;
-: export-free ( export -- ) dup export-reader reader-free export-json json-free ;
+: export-free ( export -- )
+  export-quiet dup export-reader reader-free export-json json-free ;
 \ Read every line, closing the file if a handler throws; the exception
-\ then passes on, with the export no longer busy.
+\ then passes on, and the export is idle again.
 : export-caught ( export -- outcome )
   dup ['] export-lines catch ?dup 0= if nip exit then
-  nip swap 0 over export-busy ! export-reader reader-close drop throw ;
+  nip swap export-reader reader-close drop throw ;
 : export-open ( c-addr u export -- outcome )
   dup >r export-reader reader-open ok?
   if r> drop outcome-ok else r> c" cannot open the file" export-bad then ;
@@ -785,25 +823,45 @@ recursor-shape ' export-item visit: recursor-elements
 
 \ Reading decoded records inside a handler.
 : record-view ( record -- view ) record-export @ export-json ;
+\ The JSON array of a list field, as a token index, and the record's view;
+\ false when the field holds no list. Lists are kept inverted: a reference
+\ (at least 0) inverts to an index outside the tape, and an unset field
+\ (-1) to the line's object, token 0, so neither reads as an array.
+: list-array ( list record -- index view true | false )
+  record-view >r invert dup r@ json-kind-at json-array =
+  if r> true else r> 2drop false then ;
 \ The number of items of a list field; 0 when the field holds no list.
-: list-count ( list record -- n )
-  record-view json-array swap json-items-of 0= if 0 then ;
+: list-count ( list record -- n ) list-array if json-items@ else 0 then ;
 \ Whether i is the number of an item of the list field.
 : list-has? ( i list record -- flag ) list-count u< ;
-: item-u ( index record -- u ) record-view json-u 0= if -1 then ;
-\ Item i of a list of references; -1 when the list has no item i.
+\ Whether every item of the array at index is a single token, as in a
+\ list of references; a list of objects is not flat.
+: flat? ( index view -- flag ) 2dup json-items@ >r json-contents - r> = ;
+: flat-array ( list record -- index view true | false )
+  list-array 0= if false exit then 2dup flat? if true else 2drop false then ;
+: item-u ( index view -- u ) json-u 0= if -1 then ;
+\ Item i of a list of references; -1 when the field holds no flat list or
+\ the list has no item i.
 : list-item ( i list record -- u )
-  >r 2dup r@ list-has? if + 1+ r> item-u else 2drop r> drop -1 then ;
+  flat-array 0= if drop -1 exit then >r 2dup r@ json-items@ u<
+  if + 1+ r> item-u else 2drop r> drop -1 then ;
 \ Rule i of a recursor record, decoded into the export's rule record and
-\ valid until the next call; 0 when the record is not a recursor or has
-\ no rule i.
-: rule-at ( i list view -- index )
+\ valid until the next call. Its header has kind-rule, index i, the line
+\ and the export. 0 when the record is not a recursor or has no rule i,
+\ or when no rule is there any more (a record kept after its handler).
+: rule-at ( i index view -- index' )
   tuck json-contents nip swap rot 0 ?do tuck json-next swap loop drop ;
 : rule-exists? ( i record -- flag )
   dup record-kind @ kind-recursor = >r dup recursor-rules @ swap list-has? r> and ;
-: rule-decode ( index export -- rule )
-  dup export-rule record-unset tuck rule-shape swap export-shape drop
-  0 over export-key ! export-rule ;
+: rule-object ( i record -- index ) dup recursor-rules @ invert swap record-view rule-at ;
+: rule-start ( i export -- rule )
+  dup export-rule dup record-unset tuck swap record-stamp
+  kind-rule over record-kind ! tuck record-index ! ;
+\ Decode the rule object at index, leaving no field or reason behind.
+: rule-decode ( index export -- outcome )
+  tuck rule-shape swap export-shape swap export-unmark ;
 : recursor-rule ( i record -- rule | 0 )
-  2dup rule-exists? 0= if 2drop 0 exit then
-  dup record-export @ >r recursor-rules @ r@ export-json rule-at r> rule-decode ;
+  2dup rule-exists? 0= if 2drop 0 exit then 2dup rule-object >r
+  record-export @ tuck rule-start r> rot rule-decode ok? 0= if drop 0 then ;
+
+base !   \ the BASE this file was loaded with

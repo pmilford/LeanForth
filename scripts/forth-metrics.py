@@ -8,6 +8,9 @@ Default paths: src/. Prints, per file and in total:
   - globals: VARIABLE, 2VARIABLE, VALUE, CREATE, BUFFER:, and every top-level
     use of a project defining word (a colon definition whose body uses
     CREATE, such as store: or walk:), since each use creates mutable state.
+    Context members (context-record:, context-store:, context-walk:,
+    context-walk2:, context-frames:; src/lib/context.fs) are state too, but
+    one copy per checker context, and are counted separately as members.
     CONSTANTs are counted separately; structure words define layouts, not
     state, and are not counted
   - locals: Gforth `{: ... :}` / `{ ... }` and standard `LOCALS|`
@@ -33,6 +36,9 @@ RSTACK = {">r", "r>", "r@", "2>r", "2r>", "2r@"}
 STRING_WORDS = {'."', 's"', 'c"', 'abort"', '.(', 's\\"'}
 # Defining words that create layouts or constants, not mutable state.
 NOT_STATE = {"begin-structure", "end-structure", "+field", "field:", "cfield:"}
+# Defining words that declare per-context state (src/lib/context.fs).
+MEMBERS = {"context-record:", "context-store:", "context-walk:", "context-walk2:",
+           "context-frames:"}
 
 
 def tokens(text):
@@ -86,7 +92,7 @@ def definers(paths):
                if name not in found and ("create" in body or body & found)}
         found |= new
         grown = bool(new)
-    return found
+    return found - MEMBERS
 
 
 def analyse(path, defining=frozenset()):
@@ -97,7 +103,10 @@ def analyse(path, defining=frozenset()):
     k = 0
     while k < len(toks):
         line, tok = toks[k]
-        if tok in GLOBALS or tok in defining:
+        if tok in MEMBERS:
+            stats["members"] += 1
+            stats["member:" + tok] += 1
+        elif tok in GLOBALS or tok in defining:
             stats["globals"] += 1
             stats["global:" + tok] += 1
         elif tok in CONSTANTS:
@@ -136,7 +145,8 @@ def summarise(label, defs, stats):
     return (f"{label}: {len(defs)} words; lines 1-2 {share('1-2')}, 3-5 {share('3-5')}, "
             f"6-10 {share('6-10')}, >10 {share('>10')}; "
             f"no stack comment {sum(not d['comment'] for d in defs)}; "
-            f"globals {stats['globals']}, constants {stats['constants']}; "
+            f"globals {stats['globals']}, context members {stats['members']}, "
+            f"constants {stats['constants']}; "
             f"locals {sum(d['locals'] for d in defs)}; "
             f"deep shuffles {sum(d['shuffles'] for d in defs)}; "
             f"return-stack ops {sum(d['rstack'] for d in defs)}; "
@@ -173,6 +183,8 @@ def main(argv):
     print(summarise(f"TOTAL ({len(files)} files)", all_defs, all_stats))
     kinds = sorted((k[7:], v) for k, v in all_stats.items() if k.startswith("global:"))
     print("Globals by kind: " + ", ".join(f"{k.upper()} {v}" for k, v in kinds))
+    members = sorted((k[7:], v) for k, v in all_stats.items() if k.startswith("member:"))
+    print("Context members by kind: " + ", ".join(f"{k.upper()} {v}" for k, v in members))
     if longest:
         print(f"\nLongest {longest} definitions (source lines, words):")
         for d in sorted(all_defs, key=lambda d: -d["lines"])[:longest]:

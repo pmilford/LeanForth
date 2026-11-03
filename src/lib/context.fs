@@ -37,8 +37,12 @@
 \ that context: every new context restarts its stores' serial numbers, so
 \ such handles must never cross contexts.
 \
-\ State: the layout record, context-layout (shared; read-only once sealed,
-\ and only the main task declares members), the main context it points to,
+\ Modules also state, while they load, how deep their checks nest on the
+\ host stacks (context-need); the job pool refuses smaller worker stacks.
+\
+\ State: the layout record, context-layout, with the stated stack needs
+\ (shared; read-only once sealed, and only the main task declares members
+\ and needs), the main context it points to,
 \ and lf-context and lf-owner (per task). Never keep a member's address
 \ across a context switch or a declaration: while modules load, each
 \ declaration may move the main context. Never ALLOT or compile after
@@ -62,14 +66,16 @@ begin-structure /context-layout
   field: layout-last       \ last member declared, or 0
   field: layout-main       \ the main context
   field: layout-sealed     \ true once a context is made or a job submitted
+  field: layout-data-need  \ deepest data-stack nesting a module states
+  field: layout-return-need \ deepest return-stack nesting a module states
 end-structure
 create context-layout /context-layout allot
 context-layout /context-layout erase
 /context-header context-layout layout-bytes !
 
-\ A member, laid down in the dictionary when it is declared; a named
-\ member is the body of its name. Which argument fields are used depends
-\ on the initialiser.
+\ A member, laid down in the dictionary when it is declared, right after
+\ its name's definition. Which argument fields are used depends on the
+\ initialiser.
 begin-structure /member
   field: member-offset     \ address units from the start of a context
   field: member-init       \ xt ( addr member -- ) of the initialiser
@@ -135,12 +141,19 @@ context-bytes allocate0 throw dup context-sized context-main!
 : member-shape@ ( member -- capacity width ) dup member-capacity @ swap member-width @ ;
 : member-addr ( member -- addr ) member-offset @ lf-context @ + ;
 : member-run ( member -- ) dup member-addr swap dup member-init @ execute ;
-\ Make the latest word a member: name ( -- addr ), its address in the
-\ current context.
-: member-does ( -- ) does> member-addr ;
+\ Define name ( -- addr ), the member's address in the current context: a
+\ colon definition that adds the offset, compiled as a literal, to
+\ lf-context @. An offset never changes once given (the layout only grows,
+\ and is sealed at the first context-new), and the context is read afresh
+\ at every call, so the main context may move while modules load.
+\ member-body compiles the body after : and ends the definition, taking
+\ the offset from above the colon-sys that : left.
+: member-body ( colon-sys offset -- )
+  postpone lf-context postpone @ postpone literal postpone + postpone ; ;
+: member-colon ( offset "name" -- offset ) dup >r : r> member-body ;
 \ Grow the layout by size, then define name as a member with initialiser init.
 : member: ( size init "name" -- member )
-  swap context-open swap create member-does member, ;
+  swap context-open member-colon swap member, ;
 \ Initialise a member in the main context, then link it last, so that a
 \ member whose initialiser throws is never run in a new context.
 : member-append ( member -- )
@@ -179,6 +192,19 @@ context-bytes allocate0 throw dup context-sized context-main!
 \ the members declared before it are initialised.
 : context-setup ( xt -- )
   0 context-open ['] member-setup member, tuck member-xt ! member-add ;
+
+\ Stack needs: the deepest nesting, in data and return-stack cells, that
+\ any module states for one of its checks (such as mixed-beta.fs's nested
+\ passes). Stated while modules load, like members (afterwards it aborts);
+\ the largest of each is kept, and task.fs's pool-start refuses worker
+\ stacks that do not cover it.
+: context-max! ( n addr -- ) dup @ rot max swap ! ;
+: context-need ( data-cells return-cells -- )
+  context-sealed? abort" context: need stated after context-new"
+  context-layout layout-return-need context-max!
+  context-layout layout-data-need context-max! ;
+: context-needs ( -- data-cells return-cells )
+  context-layout dup layout-data-need @ swap layout-return-need @ ;
 
 \ Making and freeing contexts, only outside jobs (these abort inside one).
 \ context-new gives a new, idle context and 0, or 0 and the ior of a

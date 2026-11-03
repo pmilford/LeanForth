@@ -26,7 +26,8 @@
 \ is not a context, the main context, the caller's current context or a
 \ context another job owns, and any submission inside a job
 \ (task-refused); a full queue (task-queue-full); workers that cannot be
-\ created (task-no-worker); and, on the cooperative host, every
+\ created (task-no-worker); stack settings below the largest need a
+\ module stated (task-stacks-small); and, on the cooperative host, every
 \ submission after an overflow that left a guard zone (task-overflow).
 \
 \ The pool starts at the first job-submit, or at pool-start, with
@@ -42,7 +43,9 @@
 \
 \ Stacks: each worker's data and return stacks hold task-data-cells and
 \ task-return-cells cells, less task-slack-cells for the worker's own
-\ words; job-stacks-cover? tells whether that covers a requirement. On
+\ words; job-stacks-cover? tells whether that covers a requirement, and
+\ pool-start refuses settings that do not cover the needs modules stated
+\ with context-need (lib/context.fs) while they loaded. On
 \ Gforth 1.0 an overflow is a THROW (-3 or -5) behind a guard page. Gforth
 \ 0.7.3's task stacks have no guard pages, so each worker keeps
 \ task-guard-cells canary cells beyond the far end of each stack, checked
@@ -63,6 +66,7 @@ require ./lib.fs
 -4098 constant task-refused     \ submission or wait not allowed
 -4099 constant task-queue-full  \ task-queue-jobs jobs are queued already
 -4100 constant task-no-worker   \ a worker task could not be created
+-4101 constant task-stacks-small \ the workers' stacks are below the stated need
 
 0 constant task-serial
 1 constant task-cooperative
@@ -71,8 +75,9 @@ require ./lib.fs
 \ Settings, read when the pool starts. Stack depths of each worker in
 \ cells: 8,192, or the main task's if larger (Gforth 0.7.3: 2,048 data and
 \ 1,920 return cells; 1.0: 4,096 and 3,968); raise them with TO while the
-\ pool is stopped. Checker passes were measured at up to about 720 return
-\ cells; nested passes may approach 1,500.
+\ pool is stopped. The largest need the checker states is inference with
+\ beta nested at its deepest level, 1,664 return and 1,280 data cells
+\ (mixed-infer.fs); pool-start refuses settings that do not cover it.
 : env-cells ( c-addr u -- n ) environment? 0= if 0 then ;
 8192 s" STACK-CELLS" env-cells max value task-data-cells
 8192 s" RETURN-STACK-CELLS" env-cells max value task-return-cells
@@ -298,9 +303,28 @@ task-host task-serial = [if]
 : worker-spawn ( -- ior )
   task-new if drop task-no-worker exit then worker-launch 0<> task-no-worker and ;
 
+\ Whether a job's word may nest data-cells and return-cells deep: within
+\ the workers' stacks less task-slack-cells, or on the serial host within
+\ the host's stack sizes less task-slack-cells (the caller's own use also
+\ comes off those; a host that does not report a size is not checked, as
+\ mixed-beta.fs does not check it). A recursive pass needs about its
+\ frames limit times its cells per frame (frame.fs) plus its entry words.
+: covers? ( need have -- flag ) task-slack-cells - > 0= ;
+: env-covers? ( need c-addr u -- flag ) environment? if covers? else drop true then ;
+task-host task-serial = [if]
+: job-stacks-cover? ( data-cells return-cells -- flag )
+  s" RETURN-STACK-CELLS" env-covers? swap s" STACK-CELLS" env-covers? and ;
+[else]
+: job-stacks-cover? ( data-cells return-cells -- flag )
+  task-return-cells covers? swap task-data-cells covers? and ;
+[then]
+
 \ Starting and stopping the pool. pool-start starts it, unless it runs,
-\ and gives 0, or task-no-worker after stopping the workers it started
-\ when one cannot be created. pool-stop lets the workers finish every
+\ and gives 0; or task-stacks-small, starting nothing, when the stack
+\ settings do not cover the largest need a module stated (context-need,
+\ context.fs); or task-no-worker after stopping the workers it started
+\ when one cannot be created. It seals the context layout first, so no
+\ need can be stated later. pool-stop lets the workers finish every
 \ queued job, then waits until all have left; it aborts inside a job.
 task-host task-serial = [if]
 : pool-size ( -- n ) 0 ;
@@ -316,10 +340,13 @@ task-host task-serial = [if]
   pool-lock true task-pool pool-stopping ! work-broadcast pool-drain
   false task-pool pool-stopping ! pool-unlock ;
 : pool-stop ( -- ) lf-owner @ abort" pool-stop: inside a job" pool-halt workers-join ;
+: pool-stacks? ( -- flag ) context-needs job-stacks-cover? ;
+: pool-fresh ( -- ior )
+  task-stack-bytes task-pool pool-stack-bytes !
+  pool-size pool-fill dup if pool-stop then ;
 : pool-start ( -- ior )
   pool-running? if 0 exit then
-  context-seal task-stack-bytes task-pool pool-stack-bytes ! pool-size pool-fill
-  dup if pool-stop then ;
+  context-seal pool-stacks? if pool-fresh else task-stacks-small then ;
 
 \ Submitting. job-refusal gives why a submission is refused before
 \ anything is made, or 0, starting the pool if needed.
@@ -352,20 +379,6 @@ task-host task-serial = [if]
 : job-wait ( job -- ior )
   lf-owner @ if drop task-refused exit then
   dup job-await job-unclaim dup job-ior @ swap free ior-first ;
-
-\ Whether a job's word may nest data-cells and return-cells deep: within
-\ the workers' stacks less task-slack-cells, or on the serial host within
-\ the host's stack sizes less task-slack-cells (the caller's own use also
-\ comes off those). A recursive pass needs about its frames limit times
-\ its cells per frame (frame.fs) plus its entry words.
-: covers? ( need have -- flag ) task-slack-cells - > 0= ;
-task-host task-serial = [if]
-: job-stacks-cover? ( data-cells return-cells -- flag )
-  s" RETURN-STACK-CELLS" env-cells covers? swap s" STACK-CELLS" env-cells covers? and ;
-[else]
-: job-stacks-cover? ( data-cells return-cells -- flag )
-  task-return-cells covers? swap task-data-cells covers? and ;
-[then]
 
 \ On Gforth 1.0 the program's end first stops the pool (outside a job),
 \ so that no worker thread is still running while the process exits.

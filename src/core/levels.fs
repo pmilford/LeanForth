@@ -50,8 +50,9 @@ lf-level-capacity /node 1 context-store: lf-levels
 \ Append a node whose tag and fields the caller validated; a failed
 \ allocation returns false, changes nothing and is recorded as a
 \ diagnostic.
+: lf-level-site ( -- site ) c" levels lf-level-add" ;
 : lf-level-refused ( -- false )
-  lf-levels c" levels lf-level-add" lf-diag-levels-full lf-diag-store false ;
+  lf-levels lf-level-site lf-diag-levels-full lf-diag-store false ;
 : lf-level-add ( tag first second -- index true | false )
   lf-levels node-new dup 0= if drop lf-level-refused then ;
 
@@ -76,6 +77,11 @@ lf-level-tag-imax lf-level-tag-max 1+ <>
 
 \ Read an allocated node. A valid index alone does not authenticate fields.
 : lf-level-read ( index -- tag first second true | false ) lf-levels node-read ;
+\ One field of a node. Unchecked: the index must already be validated,
+\ for instance by an earlier lf-level-read of the same node.
+: lf-level-tag@ ( index -- tag ) lf-level-slot node-tag @ ;
+: lf-level-first@ ( index -- first ) lf-level-slot node-first @ ;
+: lf-level-second@ ( index -- second ) lf-level-slot node-second @ ;
 
 \ Every context starts with the zero level alone.
 ' lf-level-reset context-setup

@@ -90,8 +90,9 @@ def axiom_problems(output):
     return problems
 
 
-# The reader's primitive table: `21 s" +" ir-data` (effect: taken, given).
-READER_PRIM = re.compile(r'(\d)(\d) s" (\S+)" ir-(?:data|return)\b')
+# The reader's primitive table: `21 s" +" ir-data` (effect: taken, given);
+# ir-division marks / and MOD, ir-return the return-stack words.
+READER_PRIM = re.compile(r'(\d)(\d) s" (\S+)" ir-(?:data|division|return)\b')
 LEAN_WORD = re.compile(r'\| \.(\w+) => "([^"]+)"')
 # A case of Lean's `step`: the data stack before, then after.
 LEAN_STEP = re.compile(r'\| \.(\w+), ⟨([^,⟩]*), [^⟩]*⟩ =>.*?\.next ⟨([^,⟩]*), [^⟩]*⟩', re.S)

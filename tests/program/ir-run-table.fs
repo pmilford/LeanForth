@@ -56,14 +56,15 @@ variable mismatches
 : .case ( -- )
   case-program 2@ type space case-word 2@ type space case-fuel @ .int
   case-count @ 0 ?do space i case-input .int loop ;
-: .stack ( -- ) ." ok" irx-depth 0 ?do space i irx-item .int loop ;
+: machine-item ( i -- x ) irx-item 0= abort" no such item" ;
+: .stack ( -- ) ." ok" irx-depth 0 ?do space i machine-item .int loop ;
 : .result ( outcome -- )
   ."  -> " ok? if .stack else ." fail " irx-result irx-result-text type then ;
 : report ( outcome -- ) quiet @ if drop else .case .result cr then ;
 
 \ The host's stack after the word, against the interpreter's.
 : host-item ( x0..xn-1 i -- x0..xn-1 xi ) depth 2 - swap - pick ;
-: item-differs? ( x0..xn-1 i -- x0..xn-1 flag ) dup >r host-item r> irx-item <> ;
+: item-differs? ( x0..xn-1 i -- x0..xn-1 flag ) dup >r host-item r> machine-item <> ;
 : agree? ( x0..xn-1 -- x0..xn-1 flag )
   depth irx-depth <> if false exit then
   depth 0 ?do i item-differs? if false unloop exit then loop true ;

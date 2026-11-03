@@ -100,19 +100,19 @@
     "evidence": [
       {
         "path": "tests/program/ir-run-table.fs",
-        "sha256": "a7db049ff02fef09b36c8e5eb1cb1349e7418b22fc56ff1d214446f5ca7b4bfc"
+        "sha256": "dad809a3718e09f7b2aa05036fad14de27527e1ceaa105a2b7bf39c52b40d0f9"
       },
       {
         "path": "src/program/ir-run.fs",
-        "sha256": "462487dd4f070017b021c0221988cdcedd1aa2eb54eb002485c05b26c4467312"
+        "sha256": "32f12815f6fbe902467d1c8858a993f8e3e5179f6fc51cc85f8053471f2c25b6"
       },
       {
         "path": "tests/program/ir_run_differential.py",
-        "sha256": "6439b5c9bc9e6e82caa4eb5b674001e7557bad8f0e086d9a757988508fbdf986"
+        "sha256": "be6ae1f4b269b74e4a4ddec292f42a9def395daa14fa5cc7e7737de10422b705"
       },
       {
         "path": "tests/reference/program-ir-run.lean",
-        "sha256": "062fc4ea1f3120485c8172bd325abd16b170bd2525d9893779a5230f0bbf501f"
+        "sha256": "e1dc7a719b655a13224777cc0cc292cbc301ee7583e4009f0db7e175381bc95b"
       }
     ],
     "note": "On 986 inputs (the existing clamp tables and seeded random cells) the host word and the IR interpreter left the same stack; Lean's evaluation of the model agreed on all 991 clamp cases, including failures the host cannot run (too few inputs, no fuel)."
@@ -131,7 +131,7 @@
     {
       "id": "A3",
       "kind": "trusted-reader",
-      "text": "The reader (src/program/ir-reader.fs) translated the colon definition into the IR faithfully, and nothing else in the source file changes what its words mean on the host. The reader finds names ignoring letter case as Gforth does, refuses a definition that hides an existing word under any spelling and any byte outside printable ASCII, and never runs the source; Gforth is assumed to load the file with its default settings (decimal BASE, standard words). Nothing proves the translation; make test compares the reader's output with the IR named here."
+      "text": "The reader (src/program/ir-reader.fs) translated the colon definition into the IR faithfully, and nothing else in the source file changes what its words mean on the host. The reader splits the file into lines at LF itself and finds names ignoring letter case as Gforth does; it refuses a redefinition, under any spelling, of a word it knows (the IR's words, some other standard words and the file's own), any byte outside printable ASCII but a CR just before an LF, and a division before CONSTANT; it never runs the source. Gforth is assumed to load the file with its default settings (decimal BASE, standard words), and the file to define no name that code compiled after it in the same session uses, other than the words under test: the reader accepts definitions of other host words, such as . or DEPTH, which would change what such code, a test harness for example, means. Nothing proves the translation; make test compares the reader's output with the IR named here."
     },
     {
       "id": "A4",

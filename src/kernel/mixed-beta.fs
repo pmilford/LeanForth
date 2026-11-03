@@ -72,8 +72,8 @@ lf-term-capacity ' lf-mbeta-visit context-frames: lf-mbeta-frames
 : lf-mbeta-refuse ( index identity outcome -- -1 0 outcome ) nip nip lf-rebuild-none ;
 : lf-mbeta-unfueled ( index identity -- -1 0 status )
   0 lf-mbeta-fuel ! outcome-invalid lf-mbeta-refuse ;
-: lf-mbeta-explain ( outcome -- outcome )
-  lf-mbeta-frames c" mixed-beta lf-mixed-beta" lf-diag-frames ;
+: lf-mbeta-site ( -- site ) c" mixed-beta lf-mixed-beta" ;
+: lf-mbeta-explain ( outcome -- outcome ) lf-mbeta-frames lf-mbeta-site lf-diag-frames ;
 : lf-mixed-beta ( index identity fuel -- index identity status )
   lf-mbeta-frames frame-budget 0= if lf-mbeta-unfueled exit then
   2dup lf-mbeta-frames lf-rebuild-audit dup ok? 0= if lf-mbeta-refuse exit then
@@ -96,12 +96,11 @@ lf-term-capacity ' lf-mbeta-visit context-frames: lf-mbeta-frames
 \ deepest frame and a shallow caller. Loading stops when the host's stacks
 \ are smaller, so that no input overflows them from a shallow caller (an
 \ overflow would throw, never give ok); a caller that itself recurses must
-\ add its own need. Hosts that do not report their stack sizes are not
-\ checked. Jobs (lib/task.fs) run on their workers' stacks instead: when
-\ task.fs is loaded before this file, loading also stops unless
-\ job-stacks-cover? holds for the same need. A job's word that recurses
-\ itself checks its own need the same way, and so does a program that
-\ lowers the workers' stack settings later.
+\ add its own need (mixed-infer.fs does). Hosts that do not report their
+\ stack sizes are not checked. Jobs (lib/task.fs) run on their workers'
+\ stacks instead: the need is stated with context-need, and the pool
+\ refuses to start with stack settings that do not cover it, whichever of
+\ this file and task.fs loads first.
 15 constant lf-mbeta-rs-level   \ return-stack cells: one frame of each pass
 11 constant lf-mbeta-ds-level   \ data-stack cells: one frame of each pass
 256 constant lf-mbeta-stack-slack
@@ -109,10 +108,9 @@ lf-term-capacity ' lf-mbeta-visit context-frames: lf-mbeta-frames
 lf-mbeta-rs-level lf-mbeta-need constant lf-mbeta-return-cells
 lf-mbeta-ds-level lf-mbeta-need constant lf-mbeta-data-cells
 : lf-mbeta-fits? ( need c-addr u -- flag ) environment? if > 0= else drop true then ;
-lf-mbeta-return-cells s" RETURN-STACK-CELLS" lf-mbeta-fits?
-lf-mbeta-data-cells s" STACK-CELLS" lf-mbeta-fits? and
+\ Whether the host's own stacks hold data-cells and return-cells.
+: lf-mbeta-host? ( data-cells return-cells -- flag )
+  s" RETURN-STACK-CELLS" lf-mbeta-fits? swap s" STACK-CELLS" lf-mbeta-fits? and ;
+lf-mbeta-data-cells lf-mbeta-return-cells lf-mbeta-host?
 0= [if] .( mixed-beta.fs: host stacks too small for lf-term-capacity) cr abort [then]
-[defined] job-stacks-cover? [if]
-lf-mbeta-data-cells lf-mbeta-return-cells job-stacks-cover?
-0= [if] .( mixed-beta.fs: job stacks too small for lf-term-capacity) cr abort [then]
-[then]
+lf-mbeta-data-cells lf-mbeta-return-cells context-need

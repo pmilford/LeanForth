@@ -67,21 +67,9 @@ require ../core/input.fs
 0 constant lf-provenance-checked    \ checked in this run
 1 constant lf-provenance-saved      \ from saved results, not re-checked here
 
-\ Diagnostic codes of the environment (DIAGNOSTICS.md has the catalogue).
-15 constant lf-diag-deps-full          \ dependencies recorded, capacity
-16 constant lf-diag-pool-full          \ dependencies needed, pool capacity
-25 constant lf-diag-env-handle         \ handle identity, slot
-26 constant lf-diag-too-early          \ the slot not final, the declaration
-27 constant lf-diag-no-snapshot        \ snapshot identity, current identity or 0
-28 constant lf-diag-recheck            \ the declaration, the re-check that failed
-29 constant lf-diag-publisher-fault    \ the declaration, the THROW code
-35 constant lf-diag-dependency-undecided   \ the slot, its outcome
-41 constant lf-diag-dependency-unsupported \ the slot, 0
-50 constant lf-diag-unknown-constant   \ name ID, the declaration (N1)
-51 constant lf-diag-already-declared   \ name ID, the accepted slot (N2)
-52 constant lf-diag-level-count        \ levels given, parameters (L1)
-53 constant lf-diag-undeclared-param   \ name ID, 0 (L2)
-54 constant lf-diag-duplicate-param    \ the declaration, 0 (L3)
+\ The environment's diagnostic codes (15, 16, 25-29, 35, 41, 50-54) are
+\ defined with the others in core/diagnostics.fs, whose catalogue names
+\ them; DIAGNOSTICS.md documents them.
 
 begin-structure /lf-envs
   field: lf-envs-serial     \ last identity issued; max-n once spent

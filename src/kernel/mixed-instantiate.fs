@@ -95,8 +95,8 @@ end-structure
 : lf-minst-begin ( source replacement -- source context frames )
   lf-minst-replacement ! lf-term-count @ lf-minst-start ! 0 lf-minst-frames ;
 \ Running out of fuel or frames is recorded as a diagnostic.
-: lf-minst-explain ( outcome -- outcome )
-  lf-minst-frames c" mixed-instantiate lf-mixed-instantiate" lf-diag-frames ;
+: lf-minst-site ( -- site ) c" mixed-instantiate lf-mixed-instantiate" ;
+: lf-minst-explain ( outcome -- outcome ) lf-minst-frames lf-minst-site lf-diag-frames ;
 : lf-mixed-instantiate ( source sid replacement rid fuel -- result id status )
   lf-minst-frames frame-budget 0= if lf-minst-unfueled exit then
   lf-minst-audit dup ok? 0= if lf-minst-refuse exit then
