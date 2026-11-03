@@ -272,7 +272,8 @@ w2 walk-capacity @  0 w2 walk-capacity !
 T{ 5 ' fib-visit w2 walk-run w2 walk-node @ -> outcome-invalid -1 }T
 w2 walk-capacity !
 T{ 5 ' stop-at-3 w2 walk-run w2 walk-node @ -> outcome-unknown 3 }T
-T{ 0 w2 walk-budget drop 5 ' fib-visit w2 walk-run w2 walk-node @ -> outcome-exhausted -1 }T
+0 w2 walk-budget drop
+T{ 5 ' fib-visit w2 walk-run w2 walk-node @ -> outcome-exhausted -1 }T
 T{ 2 walk2: pz -> }T
 3 pz walk-node !
 T{ 5 6 ' fib-visit pz walk-run-pair pz walk-node @ -> outcome-exhausted -1 }T

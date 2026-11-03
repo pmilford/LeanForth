@@ -37,8 +37,8 @@ defer checked ( outcome -- outcome )  ' noop is checked
   seed-cell @ 1103515245 * 12345 + 2147483647 and dup seed-cell ! 16 rshift swap mod ;
 : mix ( x -- ) trial trial-hash dup @ 31 * rot + 2147483647 and swap ! ;
 \ Around every checker call.
-: check-before ( -- ) lf-diag-clear before-check ;
-: check-after ( outcome -- outcome ) checked lf-diag@ nip mix mix mix ;
+: pre-check ( -- ) lf-diag-clear before-check ;
+: post-check ( outcome -- outcome ) checked lf-diag@ nip mix mix mix ;
 : mix-result ( index id 0 | status -- ) dup ok? if mix mix then mix ;
 : mix-counts ( -- )
   lf-term-count @ mix lf-term-serial @ mix lf-level-count @ mix lf-level-serial @ mix
@@ -88,44 +88,44 @@ defer checked ( outcome -- outcome )  ' noop is checked
 \ Checker operations on random handles; each folds its outcome, result
 \ and the fuel it left.
 : op-infer ( -- )
-  token pick-handle pick-fuel check-before lf-mixed-infer check-after mix mix mix
+  token pick-handle pick-fuel pre-check lf-mixed-infer post-check mix mix mix
   lf-minfer-fuel @ mix ;
 : op-convert ( -- )
-  pick-handle pick-handle pick-fuel check-before lf-mixed-convert check-after mix
+  pick-handle pick-handle pick-fuel pre-check lf-mixed-convert post-check mix
   lf-mconvert-fuel @ mix ;
 : op-compare ( -- )
-  pick-handle pick-handle pick-fuel check-before lf-mixed-compare check-after mix
+  pick-handle pick-handle pick-fuel pre-check lf-mixed-compare post-check mix
   lf-mcompare-fuel @ mix ;
 : op-beta ( -- )
-  pick-handle pick-fuel check-before lf-mixed-beta check-after mix mix mix
+  pick-handle pick-fuel pre-check lf-mixed-beta post-check mix mix mix
   lf-mbeta-fuel @ mix ;
 : op-shift ( -- )
-  pick-handle 3 choose 3 choose pick-fuel check-before lf-mixed-shift check-after mix mix mix
+  pick-handle 3 choose 3 choose pick-fuel pre-check lf-mixed-shift post-check mix mix mix
   lf-mshift-fuel @ mix ;
 : op-instantiate ( -- )
-  pick-handle pick-handle pick-fuel check-before lf-mixed-instantiate check-after mix mix mix
+  pick-handle pick-handle pick-fuel pre-check lf-mixed-instantiate post-check mix mix mix
   lf-minst-fuel @ mix ;
 : op-probe ( -- )
-  token pick-handle pick-handle pick-fuel check-before lf-mixed-definition-probe check-after
+  token pick-handle pick-handle pick-fuel pre-check lf-mixed-definition-probe post-check
   mix lf-mdefinition-fuel @ mix ;
 : op-levels ( -- )
-  pick-level pick-level pick-fuel check-before lf-level-compare check-after mix
+  pick-level pick-level pick-fuel pre-check lf-level-compare post-check mix
   lf-lcmp-fuel @ mix
-  pick-level pick-fuel check-before lf-level-value check-after mix mix
+  pick-level pick-fuel pre-check lf-level-value post-check mix mix
   u-name 3 choose lf-lassign-add mix
-  pick-level pick-fuel check-before lf-level-value-assigned check-after mix mix ;
+  pick-level pick-fuel pre-check lf-level-value-assigned post-check mix mix ;
 : substitution ( -- formals pairs count )
   u-name formals ! v-name formals cell+ !
   2 0 do pick-level dup lf-level-identity 0= if 0 then i pair! loop
   formals pairs 2 choose 1+ ;
 : op-substitute ( -- )
-  pick-handle substitution pick-fuel check-before lf-mixed-level-substitute check-after
+  pick-handle substitution pick-fuel pre-check lf-mixed-level-substitute post-check
   mix-result lf-mls-fuel @ mix ;
 : name-f ( -- name ) 0 s" f" lf-name-str 0= if 0 then ;
 : op-signature ( -- )
-  token name-f pick-handle substitution nip pick-fuel check-before lf-msp-put check-after mix
-  token name-f substitution rot drop pick-fuel check-before lf-msp-specialize check-after
-  mix-result token pick-fuel check-before lf-mixed-signature-audit check-after mix
+  token name-f pick-handle substitution nip pick-fuel pre-check lf-msp-put post-check mix
+  token name-f substitution rot drop pick-fuel pre-check lf-msp-specialize post-check
+  mix-result token pick-fuel pre-check lf-mixed-signature-audit post-check mix
   lf-msa-fuel @ mix ;
 
 \ The pinned fixtures: the definition table's nine pairs
@@ -159,19 +159,19 @@ defer checked ( outcome -- outcome )  ' noop is checked
       0 s" id" body-with endof
     level-u make-sort target-on 0 s" missing" body-with rot endcase ;
 : probe ( claim value -- )
-  >r >r token r> handle r> handle 50000 check-before lf-mixed-definition-probe check-after
+  >r >r token r> handle r> handle 50000 pre-check lf-mixed-definition-probe post-check
   mix lf-mdefinition-fuel @ mix ;
 : infer ( node -- )
-  >r token r> handle 50000 check-before lf-mixed-infer check-after mix mix mix
+  >r token r> handle 50000 pre-check lf-mixed-infer post-check mix mix mix
   lf-minfer-fuel @ mix ;
 : plain ( node -- )
-  dup infer dup handle 50000 check-before lf-mixed-beta check-after mix mix mix
-  dup handle 0 1 50000 check-before lf-mixed-shift check-after mix mix mix
-  handle 0 make-sort handle 50000 check-before lf-mixed-instantiate check-after mix mix mix ;
+  dup infer dup handle 50000 pre-check lf-mixed-beta post-check mix mix mix
+  dup handle 0 1 50000 pre-check lf-mixed-shift post-check mix mix mix
+  handle 0 make-sort handle 50000 pre-check lf-mixed-instantiate post-check mix mix mix ;
 : composition ( -- )
   build-composition drop open-index 20 infer 10 20 probe
-  10 handle token 20 handle 50000 check-before lf-mixed-infer check-after mix
-  50000 check-before lf-mixed-convert check-after mix ;
+  10 handle token 20 handle 50000 pre-check lf-mixed-infer post-check mix
+  50000 pre-check lf-mixed-convert post-check mix ;
 15 constant fixtures
 : fixture ( k -- )
   mix-terms dup 5 < if fresh-session open-index closed-pair probe exit then

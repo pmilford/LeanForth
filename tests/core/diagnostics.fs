@@ -293,7 +293,8 @@ end-check
 : room-code? ( code -- flag ) lf-diag-terms-full lf-diag-pool-full 1+ within ;
 : input-code? ( code -- flag ) lf-diag-bad-argument lf-diag-publisher-fault 1+ within ;
 : undecided-code? ( code -- flag )
-  dup lf-diag-undecided lf-diag-dependency-undecided 1+ within swap lf-diag-unsupported = or ;
+  dup lf-diag-undecided lf-diag-dependency-undecided 1+ within
+  swap lf-diag-unsupported = or ;
 : or-none ( code flag -- flag ) swap lf-diag-none = or ;
 : explained? ( outcome -- flag )
   lf-diag-code@ swap case

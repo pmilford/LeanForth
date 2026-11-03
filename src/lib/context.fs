@@ -146,7 +146,9 @@ context-bytes allocate0 throw dup context-sized context-main!
 \ lf-context @. An offset never changes once given (the layout only grows,
 \ and is sealed at the first context-new), and the context is read afresh
 \ at every call, so the main context may move while modules load.
-: member-body ( offset -- )
+\ member-body compiles the body after : and ends the definition, taking
+\ the offset from above the colon-sys that : left.
+: member-body ( colon-sys offset -- )
   postpone lf-context postpone @ postpone literal postpone + postpone ; ;
 : member-colon ( offset "name" -- offset ) dup >r : r> member-body ;
 \ Grow the layout by size, then define name as a member with initialiser init.

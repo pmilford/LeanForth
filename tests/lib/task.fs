@@ -183,7 +183,8 @@ T{ depths task-slack-cells - swap task-slack-cells - swap job-stacks-cover? -> t
 : at-limit ( -- data return ) depths task-slack-cells - swap task-slack-cells - swap ;
 T{ at-limit 1+ job-stacks-cover? at-limit swap 1+ swap job-stacks-cover? -> false false }T
 \ The layout is sealed: no need can be stated any more.
-: need-refused? ( -- flag ) s" 1 1 context-need" ['] evaluate catch dup if nip nip then 0<> ;
+: need-refused? ( -- flag )
+  s" 1 1 context-need" ['] evaluate catch dup if nip nip then 0<> ;
 T{ need-refused? context-needs -> true 600 700 }T
 
 T{ lf-context @ context-main = -> true }T

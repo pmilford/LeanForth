@@ -165,8 +165,8 @@ T{ depth -> 0 }T
 \ inputs known then run inside jobs, with both stacks painted below the
 \ job's word to measure what they used.
 T{ context-needs -> lf-minfer-data-cells lf-minfer-return-cells }T
-T{ lf-minfer-data-cells lf-mbeta-data-cells > lf-minfer-return-cells lf-mbeta-return-cells >
-  -> true true }T
+T{ lf-minfer-data-cells lf-mbeta-data-cells >
+  lf-minfer-return-cells lf-mbeta-return-cells > -> true true }T
 T{ context-needs job-stacks-cover? -> true }T
 1400 constant paint-cells
 48879 constant paint-mark

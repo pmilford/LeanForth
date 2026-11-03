@@ -33,17 +33,30 @@ audit, any accepted result is *experimental — not independently audited*.
   module requires. `make smoke` loads every module on its own and fails if
   any of them, or `main.fs`, prints anything (a missing dependency or a
   "redefined" warning).
-- Every mutable cell of a `core/` or `kernel/` module lives in the checker
-  context (`lib/context.fs`, ADR 0009), one copy per context: stores, walk,
+- Every mutable cell that a check writes lives in the checker context
+  (`lib/context.fs`, ADR 0009), one copy per context: stores, walk,
   frames and module records are declared with `context-store:`,
   `context-walk:`, `context-walk2:`, `context-frames:` and
   `context-record:`, and what used to run while loading with
-  `context-setup`; those modules define no `VARIABLE`, `CREATE`d table,
-  `store:`, `walk:` or `frames:`. Constants and deferred words set once
-  while loading are shared and read-only. `tests/core/contexts.fs` lists
-  every state word and checks that it lies inside the current context, so
-  a new one must be added there. `import/` and `program/` are not
-  converted yet.
+  `context-setup`; such modules define no `VARIABLE`, `store:`, `walk:` or
+  `frames:`. Constants, tables filled while loading and deferred words set
+  once while loading are shared and read-only. Shared and writable, besides
+  the job pool's own records (`lib/task.fs`), are only the checked
+  environment's records (`lf-envs` in `kernel/environment.fs`,
+  `lf-pub-mark` in `kernel/env-publish.fs`), which only the task driving
+  the checks writes, outside jobs, and the NDJSON counter's export record
+  (below).
+  `tests/core/contexts.fs` (the core and kernel modules) and
+  `contexts-main.fs` (everything `main.fs` loads) check this without a
+  list: the dictionary the modules lay down while loading must be
+  unchanged, byte for byte, after real checker work in contexts, so a
+  forgotten `VARIABLE` fails even when it is only a register within one
+  call. Converted: all of `core/` and `kernel/`, `import/load.fs`,
+  `import/ndjson-count.fs` (its tally; its export record owns heap
+  buffers and stays shared, so one count runs at a time), `present/` and
+  the program reader and interpreter (`program/ir-reader.fs`,
+  `ir-run.fs`); `import/ndjson.fs` keeps no state of its own (every word
+  takes an export record).
 - Tests `require` the modules whose words they use; they live in `tests/lib/`,
   `tests/core/` (for `core/`, `kernel/` and `import/` modules) and
   `tests/program/`.
