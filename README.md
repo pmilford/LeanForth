@@ -6,8 +6,12 @@ See the [project progress report](docs/project/PROJECT_PROGRESS.md) for both pro
 tracks, importer limits, and a reproducible code inventory.
 The [development roadmap](docs/project/DEVELOPMENT_ROADMAP.md) breaks each track into
 ordered submilestones with dependencies and acceptance evidence.
-New to Lean terminology? See [terms for new readers](docs/user/TERMS_FOR_NEW_READERS.md)
-for plain-language explanations of levels, `Sort`, proofs and the kernel.
+New here? The [user guide](docs/user/USER_GUIDE.md) says what LeanForth is
+and is not, where the trust boundaries are and what to read next;
+[concepts in three forms](docs/user/CONCEPTS.md) explains levels, `Sort`,
+terms, theorems and the kernel with examples in mathematics, Forth and Lean,
+and [terms for new readers](docs/user/TERMS_FOR_NEW_READERS.md) is a short
+glossary.
 All documentation is indexed in [docs/README.md](docs/README.md), grouped
 into user, programming, development, project, ADR and review folders.
 
@@ -19,21 +23,24 @@ Proposed baseline: Windows 11 desktop; WSL2 Ubuntu development; Gforth 1.0 (refe
 
 ## Where the code is
 
-There is **no checker or command-line tool yet**. `src/main.fs` loads every
-current module in dependency order (`gforth src/main.fs`); what it loads is
-unverified code in progress, exercised by the tests. Each test file loads the
-modules it needs with `include`. [`src/README.md`](src/README.md) gives the
-layout rules.
+There is **no checker or command-line tool yet**. `src/main.fs` loads all
+current code (`gforth src/main.fs`) by requiring the top modules; every
+module and every test `require`s exactly the modules whose words it uses.
+What it loads is unverified code in progress, exercised by the tests.
+[`src/README.md`](src/README.md) gives the layout rules and the
+[architecture page](docs/development/ARCHITECTURE.md) draws them.
 
 | Path | Contents |
 | --- | --- |
 | `src/main.fs` | The loader for all current code; later the command-line entry point. |
-| `src/lib/` | General Forth tools with no Lean knowledge: a bounded-store defining word, tagged node records, range checks and a portability adapter. |
+| `src/lib/` | General Forth tools with no Lean knowledge: bounded stores, tagged nodes, the shared outcome vocabulary, walk and frames records, per-task contexts, a worker pool, a line reader with UTF-8 checks and a JSON reader. |
 | `src/core/` | Lean's data model, 10 modules: the term store (`terms.fs`), names, universe levels, sessions and stale-handle checks, constant references. |
-| `src/kernel/` | The proof checker under development, 13 modules: universe substitution and comparison, signatures, and the `mixed-*` substitution, reduction, comparison, conversion and inference passes. Not verified until the owner declares it so after the review gate in `AGENTS.md`. |
-| `src/import/` | Staging of decoded Lean exports into the term store. |
-| `src/program/` | The program track: six executable example words (clamp, checked add, abs, factorial, gcd, in-range) and a stack-depth analyzer. |
-| `tests/` | Forth unit tests (`lib/`, `core/`, `program/`), Python tools that decode Lean exports for tests (`support/`), and Lean reference files (`reference/`). |
+| `src/kernel/` | The proof checker under development, 14 modules: universe substitution and comparison, signatures, and the `mixed-*` substitution, reduction, comparison, conversion and inference passes. Not verified until the owner declares it so after the review gate in `AGENTS.md`. |
+| `src/import/` | The Forth reader of Lean's NDJSON exports (it decodes all of the pinned Mathlib export), a record-counting tool, and test staging into the term store. |
+| `src/program/` | The program track: six executable example words (clamp, checked add, abs, factorial, gcd, in-range), a stack-depth analyzer and the reader from Forth source to the program IR. |
+| `src/present/` | The term printer: Lean notation, ASCII and LaTeX. Presentation only; the checker never loads it. |
+| `tests/` | Forth unit tests (`lib/`, `core/`, `program/`, `present/`), Python tools that decode Lean exports for tests (`support/`), and Lean reference files (`reference/`). |
+| `schemas/` | JSON Schema of the program receipt, version 0.1. |
 | `scripts/` | Install scripts, documentation and Lean-source checks, Forth style metrics and profiling. |
 
 [The Forth library inventory](docs/development/FORTH_LIBRARY.md) describes
@@ -67,6 +74,8 @@ directly, so no `ELAN_HOME` is needed. Individual targets such as
 `make reference` or `make test-constant-term-scope-differential` can also be
 run on their own; `make check` runs every one listed in `DIFFERENTIAL_TARGETS`.
 A missing or failing tool makes the command fail.
+[Running the checks](docs/user/RUNNING_THE_CHECKS.md) says what each target
+shows and what it does not.
 
 `make test-program` includes clamp and [five additional executable Forth
 examples](docs/programming/PROGRAM_EXAMPLES.md). They are runtime tested, not verified.

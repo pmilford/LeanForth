@@ -9,6 +9,8 @@ of all Lean typing rules.
 fully import Lean or Mathlib. The Forth code described as experimental is
 development work, and its successful diagnostics do not establish a theorem.
 See [project progress](../project/PROJECT_PROGRESS.md) for what has actually been tested.
+[Concepts, in three forms](CONCEPTS.md) shows each idea below with a worked
+example in mathematical notation, LeanForth Forth and Lean.
 
 ## Core ideas
 
