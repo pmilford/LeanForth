@@ -397,7 +397,16 @@ def tokens (line : String) : List String :=
 /-- The IR text form read back into terms. The structure comes from the
 keywords; indentation and locations are ignored. Untrusted, like any
 reader: a mistake here can only make Lean's results differ from the Forth
-interpreter's, which the comparison reports. -/
+interpreter's, which the comparison reports.
+
+This parser accepts more than the text form and the Forth loader do: any
+indentation, repeated spaces, blank lines, a last token that starts with
+`@` but is no location `@line:column`, an empty source path, and literals
+as `String.toInt?` reads them, which includes digits grouped by
+underscores (`1_000` is 1000). The loader refuses all of these. That direction is safe: text the loader
+refuses stops the Forth run (tests/program/ir-run-cases.fs), so it can
+never count as agreement, and the generator writes none of it. Leading
+zeros (`007`, `-0001`) are read alike by both, as the same number. -/
 partial def parseBlock : List (List String) → Except String (List Instr × List (List String))
   | [] => .ok ([], [])
   | line :: rest =>

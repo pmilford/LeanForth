@@ -17,9 +17,12 @@
 \ the model's failure unmodeled, never a host result.
 \
 \ Outcomes (src/lib/outcome.fs). Loading: ok; invalid for text that is not
-\ the IR 0.1 text form (including a name defined twice); full when a
-\ capacity below is reached. A literal beyond the host's cells loads and,
-\ as in the model, runs as the failure unmodeled.
+\ the IR 0.1 text form, including a name defined twice, a line of
+\ irx-line-chars characters or more, and any line or second finish after
+\ irx-load-finish; full when a capacity below is reached. A literal is read
+\ as the model's parser reads it, so leading zeros change nothing; one
+\ beyond the host's cells loads and, as in the model, runs as the failure
+\ unmodeled.
 \ Running: ok when the word returns normally; exhausted when it runs out of
 \ fuel; unsupported for the failure unmodeled; invalid for underflow, an
 \ unbalanced return stack, an unknown word or a bad constant, and for a run
@@ -28,28 +31,15 @@
 \ does. irx-result tells which of the model's results ended the run.
 \
 \ State: one context record, irx-state (the loaded program, the machine's
-\ stacks and the frames of a run); and the stores irx-keywords and
-\ irx-prims and the dispatch tables irx-actions, irx-body-actions,
-\ irx-top-actions and irx-modes, all filled while this file loads and never
-\ changed afterwards. One load or run at a time in each context. A program loaded
+\ stacks and the frames of a run), which irx-clear sets up in every
+\ context; and the stores irx-results, irx-keywords and irx-prims and the
+\ dispatch tables irx-modes, irx-top-actions, irx-body-actions and
+\ irx-actions, all filled while this file loads and never changed
+\ afterwards. One load or run at a time in each context. A program loaded
 \ in one context can be run only there.
 
 require ../lib/lib.fs
 decimal
-
-\ What running a block gives: the model's results and failures (Result and
-\ Failure in program-ir.lean), and two of this interpreter's own.
-0 constant irx-going         \ internal: go on with the next instruction
-1 constant irx-next          \ the block ran to its end
-2 constant irx-exited        \ the block ran EXIT
-3 constant irx-underflow     \ a data or return-stack item was missing
-4 constant irx-unmodeled     \ an operation the model gives no meaning
-5 constant irx-unbalanced    \ a word returned with return-stack items
-6 constant irx-unknown-word  \ a call to a name the program does not define
-7 constant irx-bad-constant  \ a constant did not leave exactly one value
-8 constant irx-out-of-fuel   \ a call or loop iteration with no fuel left
-9 constant irx-no-room       \ beyond the capacities below; never a model result
-10 constant irx-broken       \ a marker reached: the code is corrupted
 
 \ Capacities.
 512 constant irx-code-capacity    \ instructions in a program
@@ -57,12 +47,12 @@ decimal
 31 constant irx-name-limit        \ longest name
 16 constant irx-open-capacity     \ IF and BEGIN open while loading
 3 constant irx-token-capacity     \ tokens on a line, with its location
-128 constant irx-line-chars       \ lines of a file must be shorter
+128 constant irx-line-chars       \ lines must be shorter
 128 constant irx-data-capacity    \ data-stack cells
 32 constant irx-return-capacity   \ return-stack cells
 64 constant irx-frame-capacity    \ blocks and calls nested in a run
 
-\ Named text: the keywords, the primitives and the definitions start with it.
+\ Named text: the rows of the tables below and the definitions start with it.
 32 constant irx-text-room
 begin-structure /irx-text
   field: irx-text-length
@@ -75,30 +65,74 @@ end-structure
 : irx-text! ( c-addr u text -- ) 2dup irx-text-length ! irx-text-body swap chars move ;
 
 \ The index of the first record of a store whose text is c-addr u.
-: irx-at? ( c-addr u store i -- c-addr u store flag )
-  over store-slot 2over rot irx-text= ;
 : irx-find ( c-addr u store -- index true | false )
-  dup store-count @ 0 ?do i irx-at? if drop 2drop i true unloop exit then loop
-  drop 2drop false ;
+  dup store-count @ 0 ?do i over store-slot 2over rot irx-text=
+    if drop 2drop i true unloop exit then loop drop 2drop false ;
+\ A new row of a table made while this file loads, with its text.
+: irx-new-row ( c-addr u store -- row index )
+  store-new-slot 0= abort" irx: table full" >r dup >r irx-text! r> r> ;
 
-\ Keywords of the text form; an instruction's kind is its keyword's index.
+\ Dispatch tables of n execution tokens, all xt until set by index.
+: irx-table ( xt n "name" -- ) create 0 ?do dup , loop drop ;
+: irx-entry! ( xt index table -- ) swap cells + ! ;
+
+\ What running a block gives: the model's results and failures (Result and
+\ Failure in program-ir.lean) and two of this interpreter's own, each with
+\ its name as the Lean comparison prints it and the outcome of a run that
+\ ends with it. The model's names are part of the comparison's interface
+\ and outcomes cannot tell its failures apart, so the interpreter keeps
+\ these results beside the outcomes. A result is its row's index.
+begin-structure /irx-result-row
+  /irx-text +field irx-result-name
+  field: irx-result-outcome
+end-structure
+11 /irx-result-row 0 store: irx-results
+: irx-result: ( outcome c-addr u "name" -- )
+  irx-results irx-new-row >r irx-result-outcome ! r> constant ;
+\ Internal: go on with the next instruction.
+outcome-invalid s" going" irx-result: irx-going
+\ The block ran to its end; the block ran EXIT (the run's own call turns
+\ both into next, so a run never ends with exited).
+outcome-ok s" next" irx-result: irx-next
+outcome-invalid s" exited" irx-result: irx-exited
+\ A data or return-stack item was missing.
+outcome-invalid s" underflow" irx-result: irx-underflow
+\ An operation the model gives no meaning.
+outcome-unsupported s" unmodeled" irx-result: irx-unmodeled
+\ A word returned with return-stack items.
+outcome-invalid s" unbalanced" irx-result: irx-unbalanced
+\ A call to a name the program does not define.
+outcome-invalid s" unknownWord" irx-result: irx-unknown-word
+\ A constant did not leave exactly one value.
+outcome-invalid s" badConstant" irx-result: irx-bad-constant
+\ A call or loop iteration with no fuel left.
+outcome-exhausted s" outOfFuel" irx-result: irx-out-of-fuel
+\ Beyond the capacities above; never a model result.
+outcome-full s" full" irx-result: irx-no-room
+\ A marker reached, so the code is corrupted; or no program to run.
+outcome-invalid s" broken" irx-result: irx-broken
+\ A result's row; any other value reads as broken.
+: irx-result? ( x -- flag ) 0 irx-results store-count @ within ;
+: irx-result-row ( result -- row )
+  dup irx-result? 0= if drop irx-broken then irx-results store-slot ;
+: irx-outcome ( result -- outcome ) irx-result-row irx-result-outcome @ ;
+\ The model's name of a result, as the Lean comparisons print it.
+: irx-result-text ( result -- c-addr u ) irx-result-row irx-result-name irx-text@ ;
+
+\ Keywords of the text form. Each defines a constant, its index, which is
+\ an instruction's kind; the keywords before word are instructions.
 13 /irx-text 0 store: irx-keywords
-: irx-keyword ( c-addr u -- )
-  irx-keywords store-new-slot 0= abort" irx: keywords" drop irx-text! ;
-0 constant irx-k-prim    s" prim" irx-keyword
-1 constant irx-k-lit     s" lit" irx-keyword
-2 constant irx-k-call    s" call" irx-keyword
-3 constant irx-k-if      s" if" irx-keyword
-4 constant irx-k-else    s" else" irx-keyword
-5 constant irx-k-then    s" then" irx-keyword
-6 constant irx-k-begin   s" begin" irx-keyword
-7 constant irx-k-while   s" while" irx-keyword
-8 constant irx-k-repeat  s" repeat" irx-keyword
-9 constant irx-k-exit    s" exit" irx-keyword
-10 constant irx-k-word   s" word" irx-keyword
-11 constant irx-k-constant s" constant" irx-keyword
-12 constant irx-k-end    s" end" irx-keyword
-10 constant irx-op-kinds  \ the first ten are instructions
+: irx-keyword ( c-addr u "name" -- ) irx-keywords irx-new-row nip constant ;
+s" prim" irx-keyword irx-k-prim         s" lit" irx-keyword irx-k-lit
+s" call" irx-keyword irx-k-call         s" if" irx-keyword irx-k-if
+s" else" irx-keyword irx-k-else         s" then" irx-keyword irx-k-then
+s" begin" irx-keyword irx-k-begin       s" while" irx-keyword irx-k-while
+s" repeat" irx-keyword irx-k-repeat     s" exit" irx-keyword irx-k-exit
+s" word" irx-keyword irx-k-word         s" constant" irx-keyword irx-k-constant
+s" end" irx-keyword irx-k-end
+irx-k-word constant irx-op-kinds
+irx-keywords store-count @ constant irx-keyword-count
+irx-keyword-count 13 <> [if] .( irx: keyword table ) abort [then]
 
 \ Primitives: the host word that does the work, the data items it takes and
 \ leaves, and for >R, R> and R@ the return-stack items. Inputs leave the
@@ -115,15 +149,14 @@ begin-structure /irx-prim
   field: irx-prim-domain        \ 0 for a primitive defined everywhere
 end-structure
 38 /irx-prim 0 store: irx-prims
-: irx-row ( c-addr u -- prim )
-  irx-prims store-new-slot 0= abort" irx: primitives" drop
-  dup >r irx-prim-name irx-text! r> ;
-: irx-effect! ( xt in out prim -- )
-  tuck irx-prim-out ! tuck irx-prim-in ! irx-prim-action ! ;
-\ One row of the table: the host word, its data items in and out, the name.
-: irx-prim, ( xt in out c-addr u -- ) irx-row irx-effect! ;
+\ A row of the table: the primitive's name, then what the host does for it
+\ (irx-effect!: the host word and its data items in and out), and for some
+\ the return-stack items and a domain. Each word fills the last row.
+: irx-row ( c-addr u -- ) irx-prims irx-new-row 2drop ;
 : irx-last-row ( -- prim ) irx-prims store-count @ 1- irx-prims store-slot ;
-: irx-returns ( rin rout -- ) irx-last-row tuck irx-prim-rout ! irx-prim-rin ! ;
+: irx-effect! ( xt in out -- )
+  irx-last-row tuck irx-prim-out ! tuck irx-prim-in ! irx-prim-action ! ;
+: irx-row-returns ( rin rout -- ) irx-last-row tuck irx-prim-rout ! irx-prim-rin ! ;
 : irx-partial ( xt -- ) irx-last-row irx-prim-domain ! ;
 
 \ The cell width, counted, for RSHIFT's domain.
@@ -137,29 +170,29 @@ irx-bits constant irx-cell-bits
 : irx-shiftable? ( x u -- x u flag ) dup 0< 0= over irx-cell-bits < and ;
 
 \ The 38 primitives of IR 0.1, in the order of Prim in program-ir.lean.
-' dup 1 2 s" dup" irx-prim,      ' drop 1 0 s" drop" irx-prim,
-' swap 2 2 s" swap" irx-prim,    ' over 2 3 s" over" irx-prim,
-' nip 2 1 s" nip" irx-prim,      ' tuck 2 3 s" tuck" irx-prim,
-' rot 3 3 s" rot" irx-prim,      ' 2dup 2 4 s" 2dup" irx-prim,
-' 2drop 2 0 s" 2drop" irx-prim,
-' irx-noop 1 0 s" >r" irx-prim,  0 1 irx-returns
-' irx-noop 0 1 s" r>" irx-prim,  1 0 irx-returns
-' dup 0 1 s" r@" irx-prim,       1 1 irx-returns
-' + 2 1 s" +" irx-prim,          ' - 2 1 s" -" irx-prim,
-' irx-times 2 1 s" *" irx-prim,
-' / 2 1 s" /" irx-prim,          ' irx-divisible? irx-partial
-' mod 2 1 s" mod" irx-prim,      ' irx-divisible? irx-partial
-' negate 1 1 s" negate" irx-prim,  ' irx-abs 1 1 s" abs" irx-prim,
-' 1+ 1 1 s" 1+" irx-prim,        ' 1- 1 1 s" 1-" irx-prim,
-' = 2 1 s" =" irx-prim,          ' <> 2 1 s" <>" irx-prim,
-' < 2 1 s" <" irx-prim,          ' > 2 1 s" >" irx-prim,
-' 0= 1 1 s" 0=" irx-prim,        ' 0<> 1 1 s" 0<>" irx-prim,
-' 0< 1 1 s" 0<" irx-prim,        ' 0> 1 1 s" 0>" irx-prim,
-' and 2 1 s" and" irx-prim,      ' or 2 1 s" or" irx-prim,
-' xor 2 1 s" xor" irx-prim,      ' invert 1 1 s" invert" irx-prim,
-' rshift 2 1 s" rshift" irx-prim,  ' irx-shiftable? irx-partial
-' max 2 1 s" max" irx-prim,      ' min 2 1 s" min" irx-prim,
-' true 0 1 s" true" irx-prim,    ' false 0 1 s" false" irx-prim,
+s" dup" irx-row ' dup 1 2 irx-effect!          s" drop" irx-row ' drop 1 0 irx-effect!
+s" swap" irx-row ' swap 2 2 irx-effect!        s" over" irx-row ' over 2 3 irx-effect!
+s" nip" irx-row ' nip 2 1 irx-effect!          s" tuck" irx-row ' tuck 2 3 irx-effect!
+s" rot" irx-row ' rot 3 3 irx-effect!          s" 2dup" irx-row ' 2dup 2 4 irx-effect!
+s" 2drop" irx-row ' 2drop 2 0 irx-effect!
+s" >r" irx-row ' irx-noop 1 0 irx-effect!      0 1 irx-row-returns
+s" r>" irx-row ' irx-noop 0 1 irx-effect!      1 0 irx-row-returns
+s" r@" irx-row ' dup 0 1 irx-effect!           1 1 irx-row-returns
+s" +" irx-row ' + 2 1 irx-effect!              s" -" irx-row ' - 2 1 irx-effect!
+s" *" irx-row ' irx-times 2 1 irx-effect!
+s" /" irx-row ' / 2 1 irx-effect!              ' irx-divisible? irx-partial
+s" mod" irx-row ' mod 2 1 irx-effect!          ' irx-divisible? irx-partial
+s" negate" irx-row ' negate 1 1 irx-effect!    s" abs" irx-row ' irx-abs 1 1 irx-effect!
+s" 1+" irx-row ' 1+ 1 1 irx-effect!            s" 1-" irx-row ' 1- 1 1 irx-effect!
+s" =" irx-row ' = 2 1 irx-effect!              s" <>" irx-row ' <> 2 1 irx-effect!
+s" <" irx-row ' < 2 1 irx-effect!              s" >" irx-row ' > 2 1 irx-effect!
+s" 0=" irx-row ' 0= 1 1 irx-effect!            s" 0<>" irx-row ' 0<> 1 1 irx-effect!
+s" 0<" irx-row ' 0< 1 1 irx-effect!            s" 0>" irx-row ' 0> 1 1 irx-effect!
+s" and" irx-row ' and 2 1 irx-effect!          s" or" irx-row ' or 2 1 irx-effect!
+s" xor" irx-row ' xor 2 1 irx-effect!          s" invert" irx-row ' invert 1 1 irx-effect!
+s" rshift" irx-row ' rshift 2 1 irx-effect!    ' irx-shiftable? irx-partial
+s" max" irx-row ' max 2 1 irx-effect!          s" min" irx-row ' min 2 1 irx-effect!
+s" true" irx-row ' true 0 1 irx-effect!        s" false" irx-row ' false 0 1 irx-effect!
 irx-prims store-count @ 38 <> [if] .( irx: primitive table ) abort [then]
 
 \ Definitions. A name that is called before it is defined, or never,
@@ -191,6 +224,15 @@ begin-structure /irx-op
   field: irx-op-column
 end-structure
 
+\ A machine stack: how many items it holds, its capacity, and its cells,
+\ bottom first.
+begin-structure /irx-stack
+  field: irx-stack-depth
+  field: irx-stack-capacity
+  0 +field irx-stack-cells
+end-structure
+: irx-stack-size ( capacity -- u ) cells /irx-stack + ;
+
 \ A block being run: the next instruction, where the block ends, its fuel,
 \ and how much of each stack belongs to its callers.
 begin-structure /irx-frame
@@ -202,17 +244,19 @@ begin-structure /irx-frame
 end-structure
 
 \ What a line of the text form may be: the version line, the source line,
-\ a definition's header, or a line inside a definition.
+\ a definition's header, or a line inside a definition; none once the load
+\ is finished.
 0 constant irx-m-version
 1 constant irx-m-source
 2 constant irx-m-top
 3 constant irx-m-body
+4 constant irx-m-closed
+5 constant irx-mode-count
 
 begin-structure /irx-state
   field: irx-s-outcome     \ of the load: ok until the first problem
-  field: irx-s-loaded      \ true once a load finished with ok
   field: irx-s-lines       \ lines read
-  field: irx-s-mode
+  field: irx-s-mode        \ what the next line may be
   field: irx-s-current     \ the definition being read, or -1
   field: irx-s-open#
   irx-open-capacity cells +field irx-s-open
@@ -224,10 +268,8 @@ begin-structure /irx-state
   irx-line-chars 2 + chars aligned +field irx-s-text
   irx-code-capacity /irx-op store-size +field irx-s-code
   irx-def-capacity /irx-def store-size +field irx-s-defs
-  field: irx-s-sp
-  irx-data-capacity cells +field irx-s-data
-  field: irx-s-rp
-  irx-return-capacity cells +field irx-s-returns
+  irx-data-capacity irx-stack-size +field irx-s-data
+  irx-return-capacity irx-stack-size +field irx-s-returns
   field: irx-s-frames#
   irx-frame-capacity /irx-frame * +field irx-s-frames
   field: irx-s-result      \ how the last run ended
@@ -241,6 +283,7 @@ end-structure
 : irx-op ( index -- op ) irx-code store-slot ;
 : irx-def ( index -- def ) irx-defs store-slot ;
 : irx-here ( -- index ) irx-code store-count @ ;
+: irx-mode ( -- mode ) irx-state irx-s-mode @ ;
 : irx-mode! ( mode -- ) irx-state irx-s-mode ! ;
 : irx-current ( -- addr ) irx-state irx-s-current ;
 : irx-open# ( -- addr ) irx-state irx-s-open# ;
@@ -250,11 +293,42 @@ end-structure
 : irx-kind@ ( index -- kind )
   dup 0< if drop irx-kind-undefined else irx-def irx-def-kind @ then ;
 
+\ The machine's data and return stacks.
+: irx-data ( -- stack ) irx-state irx-s-data ;
+: irx-rstack ( -- stack ) irx-state irx-s-returns ;
+: irx-held ( stack -- n ) irx-stack-depth @ ;
+: irx-room ( stack -- n ) dup irx-stack-capacity @ swap irx-held - ;
+: irx-stack-cell ( i stack -- addr ) irx-stack-cells swap cells + ;
+\ The cell just above the top item.
+: irx-stack-top ( stack -- addr ) dup irx-held cells swap irx-stack-cells + ;
+: irx-empty ( capacity stack -- ) tuck irx-stack-capacity ! 0 swap irx-stack-depth ! ;
+: irx-rclear ( -- ) irx-return-capacity irx-rstack irx-empty ;
+\ Empty both stacks; also sets them up in a new context.
+: irx-clear ( -- ) irx-data-capacity irx-data irx-empty irx-rclear ;
+' irx-clear context-setup
+
+\ Moving n items between a machine stack and the host's data stack, in
+\ stack order. The caller has checked depth and room.
+: irx-shrink ( n stack -- addr ) swap negate over irx-stack-depth +! irx-stack-top ;
+: irx-grow ( n stack -- addr ) tuck irx-stack-depth +! irx-stack-top ;
+: irx-take ( n stack -- x1..xn )
+  over if over swap irx-shrink swap 0 ?do dup @ swap cell+ loop drop else 2drop then ;
+: irx-give ( x1..xn n stack -- )
+  over if over swap irx-grow swap 0 ?do 1 cells - tuck ! loop drop else 2drop then ;
+\ The same for one item, the common case: literals, flags, inputs.
+: irx-put ( x stack -- ) tuck irx-stack-top ! 1 swap irx-stack-depth +! ;
+: irx-pop ( stack -- x ) -1 over irx-stack-depth +! irx-stack-top @ ;
+\ Push x onto the data stack when there is room.
+: irx-pushed? ( x -- flag )
+  irx-data irx-room 0> dup if swap irx-data irx-put else nip then ;
+
 \ Loading stops at the first problem; later lines are skipped.
 : irx-loading? ( -- flag ) irx-state irx-s-outcome @ ok? ;
 : irx-stop ( outcome -- ) irx-loading? if irx-state irx-s-outcome ! else drop then ;
 : irx-malformed ( -- ) outcome-invalid irx-stop ;
 : irx-full ( -- ) outcome-full irx-stop ;
+: irx-checked ( flag -- flag ) dup 0= if irx-malformed then ;
+: irx-expect ( flag -- ) irx-checked drop ;
 
 \ Splitting a line: its indentation, then tokens separated by one space.
 : irx-space? ( c-addr u -- flag ) 1 min s"  " compare 0= ;
@@ -262,50 +336,63 @@ end-structure
   0 >r begin 2dup irx-space? while 1 /string r> 1+ >r repeat r> ;
 \ The first token and the rest, which starts at the space after it.
 : irx-split ( c-addr u -- rest-addr rest-u token-addr token-u )
-  2dup s"  " search if 2swap 2 pick - exit then 2drop 2dup chars + 0 2swap ;
+  2dup s"  " search 0= if chars + 0 then dup >r 2swap r> - ;
 : irx-keep ( c-addr u -- )
   dup 0= irx-tokens# @ irx-token-capacity = or if 2drop irx-malformed exit then
   irx-tokens# @ irx-token-cell 2! 1 irx-tokens# +! ;
+: irx-tokens ( c-addr u -- ) begin irx-split irx-keep dup while 1 /string repeat 2drop ;
 
-\ Numbers: decimal digits at the start of c-addr u, read exactly up to 19.
+\ Numbers: decimal digits at the start of c-addr u, read into a double cell.
 : irx-convert ( c-addr u -- ud c-addr' u' )
   0 0 2swap base @ >r decimal >number r> base ! ;
 : irx-count ( c-addr u -- n c-addr' u' flag ) dup >r irx-convert rot drop dup r> < ;
 : irx-colon? ( c-addr u -- c-addr' u' flag )
   2dup 1 min s" :" compare if false else 1 /string true then ;
-\ A location "@line:column".
-: irx-location ( c-addr u -- line column flag )
-  1 /string irx-count >r irx-colon? r> and >r irx-count r> and >r nip 0= r> and ;
+\ A location "@line:column"; anything else after the @ is malformed.
+: irx-part ( c-addr u -- n c-addr' u' ) irx-count irx-expect ;
+: irx-location ( c-addr u -- line column )
+  1 /string irx-part irx-colon? irx-expect irx-part nip 0= irx-expect ;
 : irx-where! ( line column -- ) irx-state tuck irx-s-at-column ! irx-s-at-line ! ;
 : irx-at-sign? ( c-addr u -- flag ) 1 min s" @" compare 0= ;
+: irx-last-token ( -- c-addr u ) irx-tokens# @ 1- irx-token ;
+\ Whether the line ends with a location, which is then not a token.
+: irx-located? ( -- flag ) irx-tokens# @ if irx-last-token irx-at-sign? else false then ;
 : irx-locate ( -- )
-  0 0 irx-where! irx-tokens# @ 0= if exit then
-  irx-tokens# @ 1- irx-token 2dup irx-at-sign? 0= if 2drop exit then
-  irx-location if irx-where! -1 irx-tokens# +! else 2drop irx-malformed then ;
+  irx-located? if irx-last-token irx-location -1 irx-tokens# +! else 0 0 then irx-where! ;
 : irx-tokenize ( c-addr u -- )
-  irx-indent irx-state irx-s-indent ! 0 irx-tokens# !
-  dup if irx-split irx-keep then begin dup while 1 /string irx-split irx-keep repeat
-  2drop irx-locate ;
+  irx-indent irx-state irx-s-indent ! 0 irx-tokens# ! irx-tokens irx-locate ;
 
-\ A literal: an optional minus sign and digits; other text is malformed.
-\ The model gives a literal outside the cell no meaning, so one that does
-\ not fit a host cell loads as unfit and runs as the failure unmodeled. Up
-\ to 19 digits are read exactly on every host; more never fit a cell of at
-\ most 64 bits.
+\ A literal: an optional minus sign and decimal digits; other text is
+\ malformed. It is read as the model's parser reads it (String.toInt?),
+\ so leading zeros change nothing. The model gives a literal outside the
+\ cell no meaning, so one that does not fit a host cell loads as unfit and
+\ runs as the failure unmodeled. Without its leading zeros, a magnitude
+\ of more digits than max-n 1+ has (irx-cell-digits) fits no cell; one of
+\ at most that many is below 10 * (max-n + 1), so a double cell holds it
+\ exactly for any cell width of 4 bits or more.
+: irx-width ( u -- n ) 0 <# #s #> nip ;
+max-n 1+ irx-width constant irx-cell-digits
 : irx-sign ( c-addr u -- c-addr' u' negative? )
   2dup 1 min s" -" compare 0= dup if >r 1 /string r> then ;
 : irx-digits? ( c-addr u -- flag )
   dup if irx-convert nip nip nip 0= else 2drop false then ;
+\ A zero before another digit.
+: irx-padded? ( c-addr u -- flag )
+  dup 1 > if 1 min s" 0" compare 0= else 2drop false then ;
+: irx-unpadded ( c-addr u -- c-addr' u' ) begin 2dup irx-padded? while 1 /string repeat ;
+\ The digits' value, or 0 1 (beyond every cell) when there are too many.
+: irx-unsigned ( c-addr u -- ud )
+  irx-unpadded dup irx-cell-digits > if 2drop 0 1 else irx-convert 2drop then ;
 \ The largest magnitude that fits, unsigned: max-n 1+ is the smallest cell's.
 : irx-limit ( negative? -- u ) if max-n 1+ else max-n then ;
-: irx-fits? ( ud negative? -- flag ) irx-limit rot u< 0= swap 0= and ;
+\ The low cell of ud, and whether ud is at most the limit.
+: irx-within ( ud negative? -- u flag ) irx-limit swap >r over u< 0= r> 0= and ;
 : irx-signed ( u negative? -- n ) if negate then ;
 : irx-magnitude ( c-addr u negative? -- n fits? )
-  over 19 > if drop 2drop 0 false exit then
-  >r irx-convert 2drop 2dup r@ irx-fits? nip swap r> irx-signed swap ;
+  >r irx-unsigned r@ irx-within swap r> irx-signed swap ;
 : irx-literal ( c-addr u -- n fits? true | false )
-  irx-sign >r 2dup irx-digits? 0= if 2drop r> drop irx-malformed false exit then
-  r> irx-magnitude true ;
+  irx-sign >r 2dup irx-digits? if r> irx-magnitude true exit then
+  2drop r> drop irx-malformed false ;
 
 \ Names. A definition's header names a fresh or only-called name.
 : irx-new-name ( c-addr u -- index true | false )
@@ -318,7 +405,6 @@ end-structure
 \ Shapes: the number of tokens (besides the location) and the indentation.
 : irx-shape? ( tokens indent -- flag )
   irx-state irx-s-indent @ = swap irx-tokens# @ = and ;
-: irx-checked ( flag -- flag ) dup 0= if irx-malformed then ;
 : irx-plain? ( tokens -- flag ) irx-open# @ 1+ 2* irx-shape? irx-checked ;
 : irx-outer? ( tokens -- flag ) irx-open# @ 2* irx-shape? ;
 
@@ -357,7 +443,7 @@ end-structure
 : irx-closing ( kind flag -- )
   if 0 irx-add if irx-shut then else drop irx-malformed then ;
 
-\ Lines inside a definition ( -- ), indexed by keyword.
+\ Lines inside a definition ( -- ), by keyword; any other is malformed.
 : irx-body-prim ( -- )
   2 irx-plain? if 1 irx-token irx-prims irx-find
     if irx-k-prim swap irx-append else irx-malformed then then ;
@@ -374,15 +460,21 @@ end-structure
 : irx-body-repeat ( -- )
   irx-k-repeat irx-k-begin irx-close? if irx-middle-seen? else false then irx-closing ;
 : irx-body-exit ( -- ) 1 irx-plain? if irx-k-exit 0 irx-append then ;
-: irx-body-end ( -- )
-  irx-open# @ 0= 1 0 irx-shape? and irx-checked 0= if exit then
+: irx-close-def ( -- )
   irx-here irx-current @ irx-def irx-def-end ! -1 irx-current ! irx-m-top irx-mode! ;
-create irx-body-actions
-  ' irx-body-prim , ' irx-body-lit , ' irx-body-call , ' irx-body-if , ' irx-body-else ,
-  ' irx-body-then , ' irx-body-begin , ' irx-body-while , ' irx-body-repeat ,
-  ' irx-body-exit , ' irx-malformed , ' irx-malformed , ' irx-body-end ,
+: irx-body-end ( -- )
+  irx-open# @ 0= 1 0 irx-shape? and irx-checked if irx-close-def then ;
+' irx-malformed irx-keyword-count irx-table irx-body-actions
+: irx-body! ( xt kind -- ) irx-body-actions irx-entry! ;
+' irx-body-prim irx-k-prim irx-body!       ' irx-body-lit irx-k-lit irx-body!
+' irx-body-call irx-k-call irx-body!       ' irx-body-if irx-k-if irx-body!
+' irx-body-else irx-k-else irx-body!       ' irx-body-then irx-k-then irx-body!
+' irx-body-begin irx-k-begin irx-body!     ' irx-body-while irx-k-while irx-body!
+' irx-body-repeat irx-k-repeat irx-body!   ' irx-body-exit irx-k-exit irx-body!
+' irx-body-end irx-k-end irx-body!
 
-\ A definition's header: "word name" or "constant name" at the left edge.
+\ A definition's header: "word name" or "constant name" at the left edge;
+\ any other line between definitions is malformed.
 : irx-fresh ( index -- index true | false )
   dup irx-kind@ irx-kind-undefined = if true else drop irx-malformed false then ;
 : irx-new-def ( -- index true | false )
@@ -394,13 +486,12 @@ create irx-body-actions
 : irx-define ( kind -- ) irx-new-def if irx-open-def else drop then ;
 : irx-top-word ( -- ) irx-kind-word irx-define ;
 : irx-top-constant ( -- ) irx-kind-constant irx-define ;
-create irx-top-actions
-  ' irx-malformed , ' irx-malformed , ' irx-malformed , ' irx-malformed ,
-  ' irx-malformed ,
-  ' irx-malformed , ' irx-malformed , ' irx-malformed , ' irx-malformed ,
-  ' irx-malformed , ' irx-top-word , ' irx-top-constant , ' irx-malformed ,
+' irx-malformed irx-keyword-count irx-table irx-top-actions
+' irx-top-word irx-k-word irx-top-actions irx-entry!
+' irx-top-constant irx-k-constant irx-top-actions irx-entry!
 
-\ One line, in the current mode.
+\ One line, in the current mode; once the load is finished, every line is
+\ refused.
 : irx-kind ( -- kind true | false )
   irx-tokens# @ if 0 irx-token irx-keywords irx-find else false then ;
 : irx-act ( table -- ) irx-kind if cells + @ execute else drop irx-malformed then ;
@@ -412,75 +503,73 @@ create irx-top-actions
   dup 7 > >r 7 min s" source " compare 0= r> and irx-checked if irx-m-top irx-mode! then ;
 : irx-top-line ( c-addr u -- ) irx-top-actions irx-statement ;
 : irx-body-line ( c-addr u -- ) irx-body-actions irx-statement ;
-create irx-modes
-  ' irx-version-line , ' irx-source-line , ' irx-top-line , ' irx-body-line ,
+: irx-refused-line ( c-addr u -- ) 2drop irx-malformed ;
+' irx-refused-line irx-mode-count irx-table irx-modes
+' irx-version-line irx-m-version irx-modes irx-entry!
+' irx-source-line irx-m-source irx-modes irx-entry!
+' irx-top-line irx-m-top irx-modes irx-entry!
+' irx-body-line irx-m-body irx-modes irx-entry!
 
 \ Loading. irx-load-start forgets any program; lines then come one at a
 \ time (irx-load-line, which suits the reader's output word) or from a
-\ file (irx-load-file), and irx-load-finish gives the outcome.
-: irx-load-start ( -- )
-  irx-state /irx-state erase -1 irx-current !
+\ file (irx-load-file), and irx-load-finish gives the outcome and closes
+\ the load. A program runs only after a finish that gave ok; a line or a
+\ second finish after it is malformed, and the program no longer runs.
+: irx-stores ( -- )
   irx-code-capacity /irx-op 0 irx-code store-init 0= abort" irx: code store"
   irx-def-capacity /irx-def 0 irx-defs store-init 0= abort" irx: definition store" ;
+: irx-load-start ( -- )
+  irx-state /irx-state erase -1 irx-current ! irx-clear irx-stores ;
+\ A line is counted first, so that a refused one is the line reported.
+: irx-in-mode ( c-addr u -- ) irx-mode cells irx-modes + @ execute ;
+: irx-read ( c-addr u -- )
+  dup irx-line-chars < if irx-in-mode else 2drop irx-malformed then ;
 : irx-load-line ( c-addr u -- )
-  irx-loading? 0= if 2drop exit then 1 irx-state irx-s-lines +!
-  irx-state irx-s-mode @ cells irx-modes + @ execute ;
+  irx-loading? if 1 irx-state irx-s-lines +! irx-read else 2drop then ;
 : irx-load-finish ( -- outcome )
-  irx-state irx-s-mode @ irx-m-top <> if irx-malformed then
-  irx-loading? irx-state irx-s-loaded ! irx-state irx-s-outcome @ ;
+  irx-mode irx-m-top <> if irx-malformed then
+  irx-m-closed irx-mode! irx-state irx-s-outcome @ ;
+: irx-loaded? ( -- flag ) irx-mode irx-m-closed = irx-loading? and ;
 \ Lines read so far: after a failed load, the line that stopped it.
 : irx-load-lines ( -- n ) irx-state irx-s-lines @ ;
 
-\ A file, line by line; a line of irx-line-chars or more is malformed.
+\ A file, line by line. A line of irx-line-chars or more fills the buffer,
+\ which irx-load-line then refuses.
 : irx-text ( -- c-addr ) irx-state irx-s-text ;
 : irx-fetch ( fileid -- u true | false )
   >r irx-text irx-line-chars r> read-line if 2drop irx-malformed false exit then
   0= if drop false else true then ;
-: irx-line ( u -- )
-  dup irx-line-chars < if irx-text swap irx-load-line else drop irx-malformed then ;
-: irx-more? ( fileid -- flag ) irx-fetch if irx-line irx-loading? else false then ;
+: irx-more? ( fileid -- flag )
+  irx-fetch if irx-text swap irx-load-line irx-loading? else false then ;
 : irx-load-file ( c-addr u -- outcome )
   irx-load-start r/o open-file if drop irx-malformed else
     begin dup irx-more? 0= until close-file drop then irx-load-finish ;
 
-\ The machine: data and return stacks of cells, and the frames of a run.
-: irx-sp ( -- addr ) irx-state irx-s-sp ;
-: irx-rp ( -- addr ) irx-state irx-s-rp ;
-: irx-cell ( i -- addr ) cells irx-state irx-s-data + ;
-: irx-rcell ( i -- addr ) cells irx-state irx-s-returns + ;
+\ Frames of a run.
 : irx-frames# ( -- addr ) irx-state irx-s-frames# ;
 : irx-frame ( -- frame ) irx-frames# @ 1- /irx-frame * irx-state irx-s-frames + ;
 : irx-ip ( -- addr ) irx-frame irx-frame-ip ;
 : irx-fuel ( -- addr ) irx-frame irx-frame-fuel ;
 \ Items the current block may use: those above its frame's bases.
-: irx-items ( -- n ) irx-sp @ irx-frame irx-frame-data @ - ;
-: irx-ritems ( -- n ) irx-rp @ irx-frame irx-frame-returns @ - ;
-
-\ Moving n items between a machine stack and the host's data stack, in
-\ stack order. The caller has checked depth and room.
-: irx-take ( n -- x1..xn )
-  dup negate irx-sp +! irx-sp @ swap 0 ?do dup i + irx-cell @ swap loop drop ;
-: irx-give ( x1..xn n -- )
-  dup irx-sp +! irx-sp @ swap 0 ?do 1- tuck irx-cell ! loop drop ;
-: irx-rtake ( n -- x1..xn )
-  dup negate irx-rp +! irx-rp @ swap 0 ?do dup i + irx-rcell @ swap loop drop ;
-: irx-rgive ( x1..xn n -- )
-  dup irx-rp +! irx-rp @ swap 0 ?do 1- tuck irx-rcell ! loop drop ;
+: irx-items ( -- n ) irx-data irx-held irx-frame irx-frame-data @ - ;
+: irx-ritems ( -- n ) irx-rstack irx-held irx-frame irx-frame-returns @ - ;
 
 \ A primitive: underflow when its inputs are missing, no room when its
 \ outputs would not fit, unmodeled outside its domain.
 : irx-short? ( prim -- flag )
   dup irx-prim-in @ irx-items > swap irx-prim-rin @ irx-ritems > or ;
-: irx-rises ( prim -- data returns )
-  dup irx-prim-out @ over irx-prim-in @ - swap dup irx-prim-rout @ swap irx-prim-rin @ - ;
+: irx-data-rise ( prim -- n ) dup irx-prim-out @ swap irx-prim-in @ - ;
+: irx-return-rise ( prim -- n ) dup irx-prim-rout @ swap irx-prim-rin @ - ;
+\ Whether a stack lacks room for n more items; most primitives add none.
+: irx-crowds? ( n stack -- flag ) over 0> if irx-room > else 2drop false then ;
 : irx-crowded? ( prim -- flag )
-  irx-rises irx-rp @ + irx-return-capacity > swap irx-sp @ + irx-data-capacity > or ;
+  dup irx-data-rise irx-data irx-crowds? swap irx-return-rise irx-rstack irx-crowds? or ;
 : irx-inputs ( prim -- x1..xn r1..rk )
-  dup irx-prim-in @ swap irx-prim-rin @ >r irx-take r> irx-rtake ;
+  dup irx-prim-rin @ >r irx-prim-in @ irx-data irx-take r> irx-rstack irx-take ;
 : irx-in-domain? ( x... prim -- x... flag )
   irx-prim-domain @ ?dup if execute else true then ;
-: irx-outputs ( y... prim -- )
-  dup irx-prim-rout @ swap irx-prim-out @ >r irx-rgive r> irx-give ;
+: irx-outputs ( y1..ym r1..rk prim -- )
+  dup irx-prim-out @ >r irx-prim-rout @ irx-rstack irx-give r> irx-data irx-give ;
 : irx-discard ( x... prim -- ) dup irx-prim-in @ swap irx-prim-rin @ + 0 ?do drop loop ;
 : irx-apply ( prim -- result )
   >r r@ irx-inputs r@ irx-in-domain? 0= if r> irx-discard irx-unmodeled exit then
@@ -488,23 +577,24 @@ create irx-modes
 : irx-prim ( index -- result )
   irx-prims store-slot dup irx-short? if drop irx-underflow exit then
   dup irx-crowded? if drop irx-no-room exit then irx-apply ;
-: irx-lit ( n -- result )
-  irx-sp @ irx-data-capacity < if 1 irx-give irx-going else drop irx-no-room then ;
+: irx-lit ( n -- result ) irx-pushed? if irx-going else irx-no-room then ;
 
 \ Frames. A new block starts with its parent's bases (none at the root).
 : irx-bases ( -- data returns )
   irx-frames# @ if irx-frame dup irx-frame-data @ swap irx-frame-returns @ else 0 0 then ;
-: irx-frame-bases! ( data returns frame -- ) tuck irx-frame-returns ! irx-frame-data ! ;
-: irx-frame-block! ( start end fuel frame -- )
-  tuck irx-frame-fuel ! tuck irx-frame-end ! irx-frame-ip ! ;
+: irx-bases! ( data returns -- ) irx-frame tuck irx-frame-returns ! irx-frame-data ! ;
+: irx-block! ( start end fuel -- ) irx-fuel ! irx-frame irx-frame-end ! irx-ip ! ;
 : irx-enter ( start end fuel -- flag )
   irx-frames# @ irx-frame-capacity = if 2drop drop false exit then
-  irx-bases 1 irx-frames# +! irx-frame irx-frame-bases! irx-frame irx-frame-block! true ;
+  irx-bases 1 irx-frames# +! irx-bases! irx-block! true ;
 : irx-leave ( -- ) -1 irx-frames# +! ;
 
-\ Running a block: one instruction after another, through irx-actions
-\ (filled below), until the end, EXIT or a failure.
-create irx-actions irx-op-kinds cells allot
+\ Running a block: one instruction after another, through irx-actions,
+\ indexed by kind, until the end, EXIT or a failure. The markers ELSE,
+\ THEN, WHILE and REPEAT keep the action below, which reports the code
+\ corrupted, as would any kind whose action were never set.
+: irx-do-marker ( op -- result ) drop irx-broken ;
+' irx-do-marker irx-op-kinds irx-table irx-actions
 : irx-done? ( -- flag ) irx-ip @ irx-frame irx-frame-end @ < 0= ;
 : irx-dispatch ( op -- result )
   dup irx-op-kind @ dup 0 irx-op-kinds within if cells irx-actions + @ execute
@@ -520,8 +610,9 @@ create irx-actions irx-op-kinds cells allot
 \ own, which it must leave empty; a constant runs on empty stacks and must
 \ leave one value. The callee gets one unit of fuel less than its caller.
 : irx-def-block ( def -- start end ) irx-def dup irx-def-start @ swap irx-def-end @ ;
-: irx-own-returns ( -- ) irx-rp @ irx-frame irx-frame-returns ! ;
-: irx-own-stacks ( -- ) irx-sp @ irx-frame irx-frame-data ! irx-own-returns ;
+: irx-enter-def ( def fuel -- flag ) >r irx-def-block r> irx-enter ;
+: irx-own-returns ( -- ) irx-rstack irx-held irx-frame irx-frame-returns ! ;
+: irx-own-stacks ( -- ) irx-data irx-held irx-frame irx-frame-data ! irx-own-returns ;
 : irx-ended? ( result -- flag ) dup irx-next = swap irx-exited = or ;
 : irx-returned ( result -- result )
   dup irx-ended? if drop irx-ritems if irx-unbalanced else irx-next then then ;
@@ -530,10 +621,10 @@ create irx-actions irx-op-kinds cells allot
   dup irx-next = if drop irx-one-value? if irx-next else irx-bad-constant then exit then
   dup irx-exited = if drop irx-bad-constant then ;
 : irx-run-word ( def fuel -- result )
-  >r irx-def-block r> irx-enter 0= if irx-no-room exit then
+  irx-enter-def 0= if irx-no-room exit then
   irx-own-returns irx-steps irx-returned irx-leave ;
 : irx-run-constant ( def fuel -- result )
-  >r irx-def-block r> irx-enter 0= if irx-no-room exit then
+  irx-enter-def 0= if irx-no-room exit then
   irx-own-stacks irx-steps irx-valued irx-leave ;
 : irx-callee ( def fuel -- result )
   over irx-kind@ case
@@ -545,7 +636,7 @@ create irx-actions irx-op-kinds cells allot
 
 \ IF: pop a flag; nonzero runs the IF part, zero the ELSE part, with the
 \ same fuel; after it, the block goes on past THEN.
-: irx-flag ( -- x true | false ) irx-items if 1 irx-take true else false then ;
+: irx-flag ( -- x true | false ) irx-items if irx-data irx-pop true else false then ;
 : irx-branch ( op x -- start end )
   if irx-ip @ swap irx-op-arg @ else dup irx-op-arg @ 1+ swap irx-op-end @ then ;
 : irx-past ( op result -- result )
@@ -582,37 +673,26 @@ create irx-actions irx-op-kinds cells allot
 : irx-do-call ( op -- result )
   irx-op-arg @ irx-call dup irx-next = if drop irx-going then ;
 : irx-do-exit ( op -- result ) drop irx-exited ;
-: irx-do-marker ( op -- result ) drop irx-broken ;
-: irx-action! ( xt kind -- ) cells irx-actions + ! ;
+: irx-action! ( xt kind -- ) irx-actions irx-entry! ;
 ' irx-do-prim irx-k-prim irx-action!      ' irx-do-lit irx-k-lit irx-action!
 ' irx-do-call irx-k-call irx-action!      ' irx-do-if irx-k-if irx-action!
-' irx-do-marker irx-k-else irx-action!    ' irx-do-marker irx-k-then irx-action!
-' irx-do-begin irx-k-begin irx-action!    ' irx-do-marker irx-k-while irx-action!
-' irx-do-marker irx-k-repeat irx-action!  ' irx-do-exit irx-k-exit irx-action!
+' irx-do-begin irx-k-begin irx-action!    ' irx-do-exit irx-k-exit irx-action!
 
-\ The outcome of a run's result.
-: irx-outcome ( result -- outcome )
-  case irx-next of outcome-ok endof
-    irx-out-of-fuel of outcome-exhausted endof
-    irx-no-room of outcome-full endof
-    irx-unmodeled of outcome-unsupported endof
-    outcome-invalid swap endcase ;
-
-\ The data stack a run starts from and ends with, bottom first.
-: irx-clear ( -- ) 0 irx-sp ! 0 irx-rp ! ;
-: irx-push ( x -- outcome )
-  irx-sp @ irx-data-capacity < if 1 irx-give outcome-ok else drop outcome-full then ;
-: irx-depth ( -- n ) irx-sp @ ;
-\ The caller checks 0 <= i < irx-depth.
-: irx-item ( i -- x ) irx-cell @ ;
+\ The data stack a run starts from and ends with, bottom first: irx-clear,
+\ then irx-push; afterwards irx-depth items, read by irx-item.
+: irx-push ( x -- outcome ) irx-pushed? room>outcome ;
+: irx-depth ( -- n ) irx-data irx-held ;
+: irx-item ( i -- x true | false )
+  dup 0 irx-depth within if irx-data irx-stack-cell @ true else drop false then ;
 
 \ Run a word on the data stack, as the model's callWord does: [CALL name]
-\ with fuel, from a return stack the word cannot see. The stack holds the
-\ result afterwards; after a failure its contents mean nothing.
+\ with fuel, from an empty return stack the word cannot see. The stack
+\ holds the result afterwards; after a failure its contents mean nothing.
 : irx-lookup ( c-addr u -- def ) irx-defs irx-find 0= if -1 then ;
-: irx-runnable? ( fuel -- flag ) 0< 0= irx-state irx-s-loaded @ and ;
+: irx-runnable? ( fuel -- flag ) 0< 0= irx-loaded? and ;
 : irx-finish ( result -- outcome ) dup irx-state irx-s-result ! irx-outcome ;
-: irx-root ( fuel -- ) 0 irx-frames# ! -1 irx-state irx-s-last ! 0 0 rot irx-enter drop ;
+: irx-fresh-run ( -- ) irx-rclear 0 irx-frames# ! -1 irx-state irx-s-last ! ;
+: irx-root ( fuel -- ) irx-fresh-run 0 0 rot irx-enter drop ;
 : irx-run ( fuel c-addr u -- outcome )
   rot dup irx-runnable? 0= if drop 2drop irx-broken irx-finish exit then
   irx-root irx-lookup irx-call irx-leave irx-finish ;
@@ -621,10 +701,3 @@ create irx-actions irx-op-kinds cells allot
 : irx-last ( -- line column )
   irx-state irx-s-last @ dup 0< if drop 0 0 exit then
   irx-op dup irx-op-line @ swap irx-op-column @ ;
-\ The model's name of a result, as the Lean comparisons print it.
-: irx-result-text ( result -- c-addr u )
-  case irx-next of s" next" endof irx-exited of s" exited" endof
-    irx-underflow of s" underflow" endof irx-unmodeled of s" unmodeled" endof
-    irx-unbalanced of s" unbalanced" endof irx-unknown-word of s" unknownWord" endof
-    irx-bad-constant of s" badConstant" endof irx-out-of-fuel of s" outOfFuel" endof
-    irx-no-room of s" full" endof s" broken" rot endcase ;
