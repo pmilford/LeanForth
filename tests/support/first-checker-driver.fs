@@ -204,8 +204,10 @@ variable fc-token-cell
   lf-cand-count@ 0 ?do i fc-dep-decl fc-put loop ;
 : fc-root ( term -- term identity ) dup lf-term-identity must ;
 : fc-theorem? ( -- flag ) fc-decl@ lf-idecl-kind @ lf-kind-theorem = ;
+: fc-roots ( decl -- type tid value vid )
+  dup lf-idecl-type @ fc-root rot lf-idecl-value @ fc-root ;
 : fc-probe ( -- outcome )
-  fc-index fc-token-cell @ fc-decl@ dup lf-idecl-type @ fc-root rot lf-idecl-value @ fc-root
+  fc-index fc-token-cell @ fc-decl@ fc-roots
   fc-fuel fc-theorem? if lf-mixed-theorem-probe else lf-mixed-definition-probe then ;
 : fc-steps ( -- outcome )
   fc-audit dup ok? 0= if exit then drop

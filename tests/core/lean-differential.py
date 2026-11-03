@@ -265,7 +265,7 @@ def first_checker_cases():
              "tests/reference/first-checker-expected.lean"],
             check=True, capture_output=True, text=True).stdout
         if compiled != Path("tests/reference/first-checker-expected.tsv").read_text():
-            raise Mismatch("first checker: Lean's rows differ from first-checker-expected.tsv")
+            raise Mismatch("first checker: Lean's rows differ from the expected table")
         text = subprocess.run([LEAN, "-DwarningAsError=true",
                                "tests/reference/first-checker-terms.lean"],
                               check=True, capture_output=True, text=True,
@@ -319,7 +319,7 @@ def first_checker_row(case, lean, expected, rule, measured):
         if named == "D":
             # first is the set of D rules used: bit k-1 for Dk.
             if not rule.startswith("D") or not (first >> (int(rule[1]) - 1)) & 1:
-                raise Mismatch(f"{case}: D rules {first} do not include the table's {rule}")
+                raise Mismatch(f"{case}: D rules {first} lack the table's {rule}")
         elif named != rule:
             raise Mismatch(f"{case}: rule {named} where the table says {rule}")
     elif outcome == "accepted" and (lean != "accepted" or expected != "accepted"):

@@ -156,6 +156,7 @@ test-core:
 	$(RUN) $(GFORTH) tests/core/mixed-infer.fs
 	$(RUN) $(GFORTH) tests/core/mixed-infer-coverage.fs
 	$(RUN) $(GFORTH) tests/core/mixed-definition-probe.fs
+	$(RUN) $(GFORTH) tests/core/definite-rejection.fs
 	$(RUN) $(GFORTH) tests/core/names.fs
 	$(RUN) $(GFORTH) tests/core/levels.fs
 	$(RUN) $(GFORTH) tests/core/level-scope.fs
