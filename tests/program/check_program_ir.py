@@ -8,7 +8,9 @@ Without --lean it checks that every block of tests/reference/program-ir.lean
 between `-- BEGIN VERBATIM <path> <first>-<last>` and `-- END VERBATIM`
 equals those lines of that reference file, so the theorems are about the
 existing reference models themselves, and that the six reference files are
-all copied.
+all copied. It also checks that the reader's table of the 38 primitives
+(src/program/ir-reader.fs) lists Lean's `Prim.word` spellings in the order
+of `Prim`, each with the data-stack effect that Lean's `step` gives it.
 
 With --lean it also runs the file with the pinned Lean (warnings are
 errors, so `sorry` fails), requires every listed theorem's `#print axioms`
@@ -16,7 +18,7 @@ line to name only Lean's propext, Classical.choice and Quot.sound, and
 compares the IR text the file prints with the reader's golden output
 (tests/program/ir/*.ir) with the source locations removed. That last check
 connects the IR terms the proofs are about to what the reader produces from
-the actual Forth source.
+the actual Forth source; all-primitives.ir covers every primitive.
 """
 import os
 from pathlib import Path
@@ -26,7 +28,9 @@ import sys
 import unittest
 
 MODEL = Path("tests/reference/program-ir.lean")
-GOLDEN = [Path("tests/program/ir/clamp.ir"), Path("tests/program/ir/examples.ir")]
+GOLDEN = [Path("tests/program/ir/clamp.ir"), Path("tests/program/ir/examples.ir"),
+          Path("tests/program/ir/all-primitives.ir")]
+READER = Path("src/program/ir-reader.fs")
 REFERENCES = {
     "tests/reference/clamp.lean", "tests/reference/stack-clamp.lean",
     "tests/reference/program-examples.lean", "tests/reference/checked-add.lean",
@@ -86,6 +90,40 @@ def axiom_problems(output):
     return problems
 
 
+# The reader's primitive table: `21 s" +" ir-data` (effect: taken, given).
+READER_PRIM = re.compile(r'(\d)(\d) s" (\S+)" ir-(?:data|return)\b')
+LEAN_WORD = re.compile(r'\| \.(\w+) => "([^"]+)"')
+# A case of Lean's `step`: the data stack before, then after.
+LEAN_STEP = re.compile(r'\| \.(\w+), ⟨([^,⟩]*), [^⟩]*⟩ =>.*?\.next ⟨([^,⟩]*), [^⟩]*⟩', re.S)
+
+
+def reader_primitives(text):
+    """(spelling, taken, given) of each primitive, in the reader's order."""
+    return [(m.group(3), int(m.group(1)), int(m.group(2))) for m in READER_PRIM.finditer(text)]
+
+
+def lean_primitives(text):
+    """(spelling, taken, given) of each Prim constructor, in declaration order."""
+    order = re.search(r"inductive Prim where(.*?)deriving", text, re.S).group(1)
+    names = re.findall(r"\w+", order.replace("|", " "))
+    words = dict(LEAN_WORD.findall(text[text.index("def Prim.word"):]))
+    step = text[text.index("def step"):text.index("| _, _ => .failed .underflow")]
+    effects = {m.group(1): (m.group(2).count("::"), m.group(3).count("::"))
+               for m in LEAN_STEP.finditer(step)}
+    return [(words.get(n), *effects.get(n, (None, None))) for n in names]
+
+
+def primitive_problems(reader_text, lean_text):
+    reader, lean = reader_primitives(reader_text), lean_primitives(lean_text)
+    problems = [] if len(lean) == 38 else [f"Lean has {len(lean)} primitives, not 38"]
+    if len(reader) != len(lean):
+        problems.append(f"the reader has {len(reader)} primitives, Lean {len(lean)}")
+    for index, (ours, theirs) in enumerate(zip(reader, lean)):
+        if ours != theirs:
+            problems.append(f"primitive {index}: reader {ours}, Lean {theirs}")
+    return problems
+
+
 def golden_text():
     lines = []
     for path in GOLDEN:
@@ -119,6 +157,26 @@ class Copies(unittest.TestCase):
         self.assertNotEqual(text, changed)
         problems, _ = copy_problems(changed)
         self.assertTrue(any("copy differs" in p for p in problems), problems)
+
+    def test_reader_primitives_match_lean(self):
+        reader = READER.read_text(encoding="utf-8")
+        lean = MODEL.read_text(encoding="utf-8")
+        self.assertEqual(len(reader_primitives(reader)), 38)
+        self.assertEqual(primitive_problems(reader, lean), [])
+
+    def test_a_changed_primitive_is_detected(self):
+        reader = READER.read_text(encoding="utf-8")
+        lean = MODEL.read_text(encoding="utf-8")
+        for old, new in (('21 s" <>" ir-data', '21 s" =/=" ir-data'),
+                         ('23 s" tuck" ir-data', '22 s" tuck" ir-data'),
+                         ('21 s" nip" ir-data', '20 s" nip" ir-data'),
+                         ('01 s" r@" ir-return', '')):
+            with self.subTest(change=old):
+                changed = reader.replace(old, new, 1)
+                self.assertNotEqual(reader, changed)
+                self.assertTrue(primitive_problems(changed, lean))
+        swapped = reader.replace('s" rot"', 's" @@@"').replace('s" 2dup"', 's" rot"')
+        self.assertTrue(primitive_problems(swapped.replace('s" @@@"', 's" 2dup"'), lean))
 
     def test_axiom_report_rejects_other_axioms(self):
         good = "\n".join(f"'ProgramIR.{n}' depends on axioms: [propext]" for n in THEOREMS)

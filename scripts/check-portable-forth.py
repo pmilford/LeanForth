@@ -33,6 +33,9 @@ BYTE_WORDS = {
 BYTE_MODULES = {
     "src/lib/bytes.fs": "line reader and UTF-8 checks read and write text bytes",
     "src/lib/json.fs": "JSON tokenizer reads text bytes and decodes escapes in place",
+    "src/program/ir-reader.fs":
+        "program reader splits source lines into tokens, checks that every character is "
+        "printable ASCII and folds A-Z to a-z, as Gforth finds names",
 }
 LIMIT = 2**31
 COMPILE_ONLY = {

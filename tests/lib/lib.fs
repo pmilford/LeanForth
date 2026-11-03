@@ -198,6 +198,14 @@ T{ 0 true visit-outcome 0 false visit-outcome -1 false visit-outcome ->
   outcome-exhausted outcome-exhausted outcome-exhausted }T
 T{ max-n 1+ true visit-outcome 1 2 visit-outcome 3 true ' visit-outcome rs-checked ->
   outcome-exhausted outcome-full outcome-ok }T
+\ outcome-text: every outcome's name; anything else reads as invalid.
+: named? ( outcome c-addr u -- flag ) rot outcome-text compare 0= ;
+T{ outcome-ok s" ok" named? outcome-invalid s" invalid" named? -> true true }T
+T{ outcome-exhausted s" exhausted" named? outcome-unknown s" unknown" named? -> true true }T
+T{ outcome-rejected s" rejected" named? outcome-unsupported s" unsupported" named?
+   -> true true }T
+T{ outcome-full s" full" named? 7 s" invalid" named? -1 s" invalid" named? -> true true true }T
+T{ outcome-full ' outcome-text rs-checked nip max-n outcome-text nip -> 4 7 }T
 
 \ Walk records: definition, budget and the bounded work stack.
 T{ 4 walk: w1 -> }T

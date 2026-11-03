@@ -127,6 +127,11 @@
       "id": "A5",
       "kind": "stack-capacity",
       "text": "The data and return stacks have room for the word's items; underflow and overflow are not proved absent on the host."
+    },
+    {
+      "id": "A6",
+      "kind": "trusted-leanforth",
+      "text": "LeanForth's checker accepted the proofs correctly; it is experimental and no outside Lean expert has audited it."
     }
   ],
   "tools": [

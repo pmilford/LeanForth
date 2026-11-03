@@ -491,3 +491,32 @@ binder-depth checks behind a fuel check (they occur inside a visit that
 is already paid for, and a walk visitor has no fuel interface); keeping
 exhausted for a corrupted limit when no fuel is left (a corrupted record
 is invalid whatever its fuel).
+
+## Program reader: names ignore ASCII case; receipt schema 0.1 tightened — 2026-11-02
+
+The independent review of the program reader found that it compared names
+exactly while Gforth finds them ignoring case: a file defining
+`: True 0 ;` got the IR of the proven clamp although Gforth then runs the
+file's own `True`. The reader now looks every token up with A–Z folded to
+a–z, as Gforth 0.7.3 and 1.0 do and as Forth-2012 3.4.2 allows (a system
+must find the standard words spelled in upper case), and writes names to
+the IR in lower case, so `CLAMP`, `clamp` and `Clamp` give byte-identical
+IR. A definition or constant whose folded name is already known is a
+redefinition and refused. A line holding any byte other than printable
+ASCII, space or tab is refused, comments included (both Gforths end a line
+at a lone carriage return, which could hide code), because how a system
+folds other characters is implementation-defined. The reader splits lines
+itself and never hands source text to the host's interpreter; numbers are
+written in decimal whatever `BASE` is; literals have at most 10 digits.
+The owner prompted the choice ("Forth is case independent"). Rejected:
+refusing upper-case names (the review's first suggestion), because that
+refuses the standard spelling of the standard words; exact comparison,
+because it is unsound against a case-insensitive host.
+
+Receipt schema 0.1 was tightened in place rather than renumbered: no
+receipt has been produced under it and it is an unapproved draft. Once
+the owner approves it, every change gets a new version number. Rules the
+schema cannot express (an empty axiom list, a theorem missing from the
+check, duplicate assumption IDs, more failures than cases, the Lean
+version, the receipt's generator) are left to the receipt generator and
+replay.

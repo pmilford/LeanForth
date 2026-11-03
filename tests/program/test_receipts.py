@@ -1,6 +1,6 @@
 """Program receipt schema 0.1: examples, mutations and the validator itself.
 
-``make test`` runs this file (target test-program-receipts). It needs only
+``make test`` runs this file (target test-program-ir). It needs only
 the Python standard library; tests/support/schema_subset.py is the
 validator. Every rejected receipt pins the reason it must be rejected for,
 so a receipt cannot pass this test by failing for an unrelated reason.
@@ -18,6 +18,7 @@ SCHEMA = Path("schemas/program-receipt-0.1.schema.json")
 EXAMPLES = Path("tests/program/receipts")
 DOC = Path("docs/programming/PROGRAM_RECEIPTS.md")
 BASE = EXAMPLES / "valid-clamp-lean-reference.json"
+FUTURE = EXAMPLES / "valid-clamp-future-leanforth.json"
 
 # Each invalid example file and the error it must produce.
 INVALID_EXAMPLES = {
@@ -46,8 +47,8 @@ def at(receipt, path):
     return node, (int(last) if isinstance(node, list) else last)
 
 
-def mutated(path, value=None, delete=False):
-    receipt = base_receipt()
+def mutated(path, value=None, delete=False, base=BASE):
+    receipt = load_strict(base.read_text(encoding="utf-8"))
     node, key = at(receipt, path)
     if delete:
         del node[key]
@@ -56,10 +57,45 @@ def mutated(path, value=None, delete=False):
     return receipt
 
 
-def remove_assumption(kind):
-    receipt = base_receipt()
+def remove_assumption(kind, base=BASE):
+    receipt = load_strict(base.read_text(encoding="utf-8"))
     receipt["assumptions"] = [a for a in receipt["assumptions"] if a["kind"] != kind]
     return receipt
+
+
+def remove_tool(name, base=BASE):
+    receipt = load_strict(base.read_text(encoding="utf-8"))
+    receipt["tools"] = [t for t in receipt["tools"] if t["name"] != name]
+    return receipt
+
+
+NOT_CHECKED = {"status": "not-checked", "label": "not checked", "axioms": [], "evidence": []}
+
+
+def with_check(check, verify=None):
+    """The clamp receipt with another check part, and another verify part."""
+    receipt = base_receipt()
+    receipt["check"] = dict(check)
+    if verify is not None:
+        receipt["verify"] = verify
+    return receipt
+
+
+def negative(status, label, **fields):
+    """A check part with a negative status, checked by LeanForth."""
+    return {"status": status, "checker": {"name": "leanforth", "version": "1"},
+            "label": label, "axioms": [], "evidence": [], **fields}
+
+
+def obligations(*statuses, theorem=True):
+    """A verify part with one obligation per status."""
+    items = [{"id": f"O{i}", "statement": "x", "status": s} for i, s in enumerate(statuses, 1)]
+    for item in items:
+        if theorem and item["status"] != "open":
+            item["theorem"] = f"T{item['id']}"
+    status = "open" if "open" in statuses else statuses[0]
+    return {"status": status, "generator": {"name": "leanforth", "version": "1"},
+            "obligations": items}
 
 
 # One rule each: the change to the valid clamp receipt and the error it must
@@ -126,6 +162,80 @@ MUTATIONS = [
      "$.provenance: missing required property 'generator'"),
     ("IR of another version", lambda: mutated("program.ir.version", "0.2"),
      "$.program.ir: matches none of the allowed forms"),
+    # Review O, M4 (a): obligations are settled only by named, checked theorems.
+    ("discharged obligation without theorem",
+     lambda: with_check(base_receipt()["check"], obligations("discharged", "open", theorem=False)),
+     "$.verify.obligations[0]: missing required property 'theorem'"),
+    ("refuted obligation without theorem",
+     lambda: with_check(base_receipt()["check"], obligations("refuted", theorem=False)),
+     "$.verify.obligations[0]: missing required property 'theorem'"),
+    ("open obligation naming a theorem",
+     lambda: with_check(base_receipt()["check"], {"status": "open", "obligations": [
+         {"id": "O1", "statement": "x", "status": "open", "theorem": "T"}]}),
+     "$.verify.obligations[0].theorem: no value is allowed here"),
+    ("discharged obligation while nothing is checked",
+     lambda: with_check(NOT_CHECKED, obligations("discharged", "open")),
+     '$.check.status: "not-checked" is not one of'),
+    ("unsupported verify with discharged obligations and nothing checked",
+     lambda: with_check(NOT_CHECKED, dict(obligations("discharged"), status="unsupported")),
+     '$.check.status: "not-checked" is not one of'),
+    ("refuted while nothing is checked", lambda: with_check(NOT_CHECKED, obligations("refuted")),
+     '$.check.status: "not-checked" is not one of'),
+    # (b): a checked theorem is tied to the source through the IR.
+    ("checked without IR", lambda: mutated("program.ir", None),
+     "$.program.ir: expected type object, got null"),
+    # (c): a failed check carries its own label, names its checker, and no axioms.
+    ("rejected with the accepted label",
+     lambda: with_check(negative("rejected", "experimental — not independently audited")),
+     '$.check.label: must equal "rejected by the checker"'),
+    ("failed with the Lean label",
+     lambda: with_check(negative("failed", "checked by the Lean reference, not by LeanForth")),
+     '$.check.label: must equal "check did not complete"'),
+    ("unsupported with another label", lambda: with_check(negative("unsupported", "ok")),
+     '$.check.label: must equal "not supported by the checker"'),
+    ("rejected with an allowed axiom",
+     lambda: with_check(negative("rejected", "rejected by the checker", axioms=["propext"])),
+     "$.check.axioms: more than 0 item(s)"),
+    ("failed with forbidden axioms",
+     lambda: with_check(negative("failed", "check did not complete",
+                                 axioms=["sorryAx", "Lean.ofReduceBool"])),
+     '$.check.axioms[0]: "sorryAx" is not one of'),
+    ("rejected without its checker",
+     lambda: with_check({k: v for k, v in negative("rejected", "rejected by the checker").items()
+                         if k != "checker"}),
+     "$.check: missing required property 'checker'"),
+    ("not checked naming theorems", lambda: with_check(dict(NOT_CHECKED, theorems=["T"])),
+     "$.check.theorems: no value is allowed here"),
+    ("not checked with evidence", lambda: with_check(dict(
+        NOT_CHECKED, evidence=base_receipt()["check"]["evidence"])),
+     "$.check.evidence: more than 0 item(s)"),
+    # (d): LeanForth's own checker is a named trusted component.
+    ("leanforth check without its assumption",
+     lambda: remove_assumption("trusted-leanforth", base=FUTURE),
+     "$.assumptions: no item matches #/$defs/kindTrustedLeanForth"),
+    ("leanforth check without the leanforth tool", lambda: remove_tool("leanforth", base=FUTURE),
+     "$.tools: no item matches #/$defs/toolLeanForth"),
+    ("lean check without the lean tool", lambda: remove_tool("lean"),
+     "$.tools: no item matches #/$defs/toolLean"),
+    # (e): paths stay inside the repository.
+    ("path up out of the repository",
+     lambda: mutated("check.evidence.0.path", "../../../etc/passwd"),
+     "$.check.evidence[0].path: does not match pattern"),
+    ("path through a parent segment", lambda: mutated("program.source.path", "src/../x.fs"),
+     "$.program.source.path: does not match pattern"),
+    ("path into .git", lambda: mutated("program.source.path", ".git/config"),
+     "$.program.source.path: does not match pattern"),
+    ("path with an empty segment", lambda: mutated("run.evidence.0.path", "tests//x.sh"),
+     "$.run.evidence[0].path: does not match pattern"),
+    # Further rules the schema can express.
+    ("word not in the IR's lower-case spelling", lambda: mutated("program.word", "LF-Clamp"),
+     "$.program.word: does not match pattern"),
+    ("blank assumption text", lambda: mutated("assumptions.2.text", " "),
+     "$.assumptions[2].text: does not match pattern"),
+    ("impossible date", lambda: mutated("provenance.createdAt", "2026-99-99"),
+     "$.provenance.createdAt: does not match pattern"),
+    ("passed without evidence", lambda: mutated("run.evidence", delete=True),
+     "$.run: missing required property 'evidence'"),
 ]
 
 
@@ -165,6 +275,7 @@ class Examples(unittest.TestCase):
     def test_every_mutation_fails_for_its_reason(self):
         validator = schema_validator()
         self.assertEqual(validator.errors(base_receipt()), [])
+        self.assertEqual(validate_file(validator, FUTURE), [])
         for name, make, expected in MUTATIONS:
             with self.subTest(name=name):
                 problems = validator.errors(make())

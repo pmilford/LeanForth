@@ -1,0 +1,42 @@
+lf-ir 0.1
+source tests/program/ir/all-primitives.fs
+word all-primitives @5:1
+  prim dup @6:3
+  prim drop @6:7
+  prim swap @6:12
+  prim over @6:17
+  prim nip @6:22
+  prim tuck @6:26
+  prim rot @6:31
+  prim 2dup @6:35
+  prim 2drop @6:40
+  prim >r @6:46
+  prim r> @6:49
+  prim r@ @6:52
+  prim + @7:3
+  prim - @7:5
+  prim * @7:7
+  prim / @7:9
+  prim mod @7:11
+  prim negate @7:15
+  prim abs @7:22
+  prim 1+ @7:26
+  prim 1- @7:29
+  prim = @7:32
+  prim <> @7:34
+  prim < @7:37
+  prim > @7:39
+  prim 0= @7:41
+  prim 0<> @7:44
+  prim 0< @7:48
+  prim 0> @7:51
+  prim and @8:3
+  prim or @8:7
+  prim xor @8:10
+  prim invert @8:14
+  prim rshift @8:21
+  prim max @8:28
+  prim min @8:32
+  prim true @8:36
+  prim false @8:41
+end @8:47

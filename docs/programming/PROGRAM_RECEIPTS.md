@@ -65,26 +65,50 @@ theorems correctly.
 
 When LeanForth's checker accepts the obligations (phase 5), `check` becomes
 `accepted-by-leanforth` with the label *experimental — not independently
-audited*, and `verify` becomes `discharged`, listing each obligation and the
-theorem that proves it. `run` stays separate: a source proof says nothing
-about the compiler or the runtime.
+audited* and the assumption that LeanForth's checker accepted the proofs
+correctly (`trusted-leanforth`), and `verify` becomes `discharged`, listing
+each obligation and the theorem that proves it. `run` stays separate: a
+source proof says nothing about the compiler or the runtime.
 
 ## Rules the schema enforces
 
-Besides types, required fields and closed objects:
+Besides types, required fields and closed objects. A *positive* check is
+`checked-by-lean-reference` or `accepted-by-leanforth`; every other check
+status has accepted nothing.
 
 | Rule | Why |
 | --- | --- |
-| `check.status` `checked-by-lean-reference` needs checker `lean`, at least one theorem and one evidence file, and the label *checked by the Lean reference, not by LeanForth* | A Lean check can never be passed off as LeanForth's |
-| `accepted-by-leanforth` needs checker `leanforth`, theorems, evidence and the label *experimental — not independently audited* | Owner decision 1: every accepted result is labelled until an outside audit |
-| For both, `check.axioms` may name only `propext`, `Classical.choice` and `Quot.sound` | The owner's axiom policy; `sorryAx` and `Lean.ofReduceBool` can never appear in a checked receipt |
-| `not-checked` has the label *not checked* and no axioms | |
-| `verify.status` `discharged` needs `check.status` `checked-by-lean-reference` or `accepted-by-leanforth`, a generator, and every obligation `discharged` with its theorem | Obligations are discharged only by checked proofs |
-| `not-generated` has no obligations; `open` has an open one; `refuted` a refuted one | |
-| `run.status` `passed` needs a host, at least one case, zero failures and the label *runtime-tested; testing is not proof*; `failed` needs a failure; `not-run` has zero cases | |
+| Each `check.status` has exactly one label: `not-checked` *not checked*; `checked-by-lean-reference` *checked by the Lean reference, not by LeanForth*; `accepted-by-leanforth` *experimental — not independently audited*; `rejected` *rejected by the checker*; `unsupported` *not supported by the checker*; `failed` *check did not complete* | A failure can never carry a success's label; owner decision 1 labels every accepted result until an outside audit |
+| `checked-by-lean-reference` needs checker `lean`, at least one theorem and one evidence file; `accepted-by-leanforth` the same with checker `leanforth` | A Lean check can never be passed off as LeanForth's |
+| `check.axioms` may name only `propext`, `Classical.choice` and `Quot.sound`, whatever the status, and only a positive check may name any | The owner's axiom policy; `sorryAx` and `Lean.ofReduceBool` can never appear in a receipt |
+| Every status but `not-checked` names its checker; `not-checked` names no checker, no theorems and no evidence | Who rejected or failed is part of the result; nothing checked has nothing to show |
+| A positive check needs `program.ir` (not `null`), and so a `trusted-reader` assumption | The theorems are about the IR; only the IR ties them to the source |
+| An obligation `discharged` or `refuted` names its theorem, an `open` one names none; any obligation `discharged` or `refuted`, whatever `verify.status` says, needs a positive check | Obligations are settled only by checked proofs |
+| `verify.status` `discharged` needs a generator and every obligation `discharged`; `not-generated` has no obligations; `open` has an open one and none refuted; `refuted` a refuted one | `discharged` and `refuted` therefore need a positive check too |
+| `run.status` `passed` needs a host, at least one case, zero failures, evidence and the label *runtime-tested; testing is not proof*; `failed` needs a host and a failure; `not-run` has zero cases | |
 | `assumptions` always include a `trusted-runtime` and a `host-cells` entry | The runtime and cell width are always trusted boundaries |
-| A Lean check needs a `trusted-lean` assumption; an IR needs `trusted-reader`; `floatingPoint: true` needs `floating-point` | Each trusted component is named |
-| Hashes are 64 lowercase hex digits (SHA-256); paths are relative to the repository root; `provenance.kind` `generated` needs its generator | Receipts must be reproducible |
+| `checked-by-lean-reference` needs a `trusted-lean` assumption and the tool `lean`; `accepted-by-leanforth` a `trusted-leanforth` assumption and the tool `leanforth`; an IR needs `trusted-reader`; `floatingPoint: true` needs `floating-point` | Each trusted component is named, LeanForth's own checker included |
+| `program.word` is printable ASCII with letters in lower case, the spelling the IR uses | The reader folds A–Z as Gforth does, so one word has one name |
+| Hashes are 64 lowercase hex digits (SHA-256); paths are relative and stay inside the repository (segments separated by single slashes, none starting with a dot, so no `..` and no `.git`); dates are real calendar dates; texts are not blank; `provenance.kind` `generated` needs its generator | Receipts must be reproducible and must not point outside the repository |
+
+**Left to the generator and to replay.** JSON Schema cannot compare one
+field with another or look inside the files a receipt names, so these are
+not checked here: that `check.axioms` lists every axiom the theorems use
+(an empty list under-reports); that each obligation's theorem is among
+`check.theorems`; that `failures` is at most `cases`; that assumption ids
+are distinct; that the checker's version is the pinned toolchain; that
+the generator named in `provenance` really wrote the receipt; and that the
+hashes match the files. The receipt generator must get these right, and
+replaying a receipt (phase 5, task 5.5.2) checks them.
+
+**What a receipt generator must now write** (changed on 2026-11-02 after
+an independent review; the hand-written clamp example already complies):
+a positive check needs `program.ir` and the `trusted-reader` assumption,
+the tool of its checker in `tools`, and `trusted-leanforth` for
+`accepted-by-leanforth`; a negative check needs its checker, its own
+label above and no axioms; every discharged or refuted obligation names
+its theorem; a passed run lists its evidence; `program.word` is the name
+as the IR writes it, in lower case.
 
 `provenance.kind` is `example` for hand-written receipts such as those in
 `tests/program/receipts/`: they illustrate the schema and are **not
@@ -118,8 +142,8 @@ python3 tests/program/test_receipts.py
 ```
 
 `test_receipts.py` validates every example, checks that each invalid
-example and each of 30 small mutations of the clamp receipt fails for its
-stated reason, checks the validator's own rules, and plants a fault in
+example and each of 56 small mutations of the clamp receipts fails for its
+stated reason (at least one for every rule above), checks the validator's own rules, and plants a fault in
 the validator (it stops checking `contains`) to show that the mutation
 suite catches it. It also validates the JSON example below.
 
@@ -256,8 +280,12 @@ The valid clamp example (`tests/program/receipts/valid-clamp-lean-reference.json
 
 ## Versioning
 
-`schemaVersion` is `0.1`, the first version of the v0 series. Any change to
-the fields or rules gives a new version and a new schema file next to this
-one; old receipts keep validating against the schema they name. The plan
+`schemaVersion` is `0.1`, the first version of the v0 series. Until the
+owner approves the format (the *[format]* gate), 0.1 is a draft: it was
+tightened in place on 2026-11-02 after an independent review, before any
+receipt had been generated, and every example receipt still validates.
+From approval on, any change to the fields or rules gives a new version
+and a new schema file next to this one; old receipts keep validating
+against the schema they name. The plan
 extends the schema to theorem receipts (task 3.4.3) and wraps it in the
 versioned JSON-RPC interface (task 3.5.1, [interface contracts](INTERFACE_CONTRACTS.md)).
