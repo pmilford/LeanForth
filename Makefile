@@ -239,7 +239,7 @@ test-export-signature-differential:
 test-export-specialization-differential:
 	$(LEAN_TABLE) poly-specialization
 
-# The first checker's 60 table cases (ADR 0011, plan task 2.2.1) through
+# The first checker's 62 table cases (ADR 0011, plan task 2.2.1) through
 # today's kernel paths: every rejection agrees with Lean's exception, and
 # every other row keeps the table's outcome.
 test-first-checker-differential:

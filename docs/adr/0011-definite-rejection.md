@@ -384,7 +384,7 @@ Decisions of the implementation, none of which adds or widens a rule:
 - The D diagnostic records the set of D rules used from the compared pair
   down to the pair that decided (1 D1, 2 D2, 4 D3, 8 D4, 16 D5).
 
-Evidence: `make test-first-checker-differential` runs all 60 table cases
+Evidence: `make test-first-checker-differential` runs all 62 table cases
 through these paths and the checked environment (with a test stand-in for
 the U1/U2 audit) and checks every row against Lean (see
 [the expected results](../reviews/FIRST_CHECKER_EXPECTED.md#measured-2026-11-02));

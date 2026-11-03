@@ -53,7 +53,7 @@ proofs that Lean accepts but LeanForth cannot yet confirm, so it answers
 | Evidence | Status |
 | --- | --- |
 | Rules follow Lean's own kernel: each rejection rule cites the Lean 4.35.0 source file and function that makes the rejection certain | done (ADR 0011) |
-| Lean's answer for every test case, run with the pinned Lean: 60 cases (the 7 declarations of the 5 example files, 46 broken or near-identical copies, 7 out-of-scope cases) — 30 accepted, 30 rejected by Lean, all as recorded | done, 2026-11-02 |
+| Lean's answer for every test case, run with the pinned Lean: 62 cases since 2026-11-02 (60 at the time of this summary: the 7 declarations of the 5 example files, 46 broken or near-identical copies, 7 out-of-scope cases) — 30 accepted, 30 rejected by Lean, all as recorded | done, 2026-11-02 |
 | 27 of the broken copies also written as ordinary Lean source, in one file; Lean rejects every one for the expected reason | done, 2026-11-02 |
 | The test script catches planted mistakes in its own tables (6 tried, 6 caught) | done, 2026-11-02 |
 | LeanForth's answers agree with the table: 14 accepted, 28 rejected, 1 invalid, 9 unknown, 8 unsupported | **not started** — needs the checker (tasks 2.2.1–2.2.3) |
