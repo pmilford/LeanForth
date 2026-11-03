@@ -132,7 +132,9 @@ as automatic verdicts.
   machines) is defined byte by byte — text, or fixed-width integers with an
   explicit byte order built with shifts — never a memory image.
   `scripts/check-portable-forth.py` (part of `make test`) enforces the
-  checkable part: byte-access words only in listed text modules, and no
+  checkable part: byte-access words only in listed modules (the text
+  modules, and `src/lib/u32.fs`, whose packed 32-bit fields are defined by
+  arithmetic on their values), and no
   numeric literal beyond 32 bits.
 
 ## Where the code stands

@@ -1,0 +1,27 @@
+u32-native=-1 
+load 383. s
+index-decls 0.0192 s
+app=90514763 lam=8207621 forallE=5437711 const=1426722 letE=242083 proj=38389 strVal=19235 natVal=5616 sort=1757 bvar=360 let-body=242083 
+exprs=106136340 export-exprs=105894257 duplicates=0
+node bytes/export expr: records 16. table 10.1 
+names=4241559 levels=47806 decls=729263 inductive blocks=7013 lists used quads=720377
+expr-table slots=268435456 entries=105894257 load=0.394  lookups=105894257 compared=275891284 grows=12
+name-table slots=8388608 entries=4241558 load=0.506  lookups=4241558 compared=9685412 grows=7
+level-table slots=65536 entries=47806 load=0.729  lookups=47806 compared=122575 grows=4
+list-table slots=262144 entries=152089 load=0.58  lookups=2155985 compared=2677464 grows=6
+literal-table slots=65536 entries=24845 load=0.379  lookups=24851 compared=64480 grows=6
+exprs used=1698181440 allocated=2147483648
+names used=67864944 allocated=134217728
+name-bytes used=19787897 allocated=33554432
+levels used=764896 allocated=1048576
+lists used=2881508 allocated=4194304
+decls used=23336416 allocated=33554432
+literal-bytes used=3232477 allocated=4194304
+store allocated bytes (without load maps)=3467378688 load maps=570687488
+max loose range=361 max depth (clamped 1023)=1023
+name lookups by text: decls=729263 found=729263  0.613 s
+name lookups by id: found=729263  0.00665 s
+dense-stamps visits=226650130 max-per-decl=95123 capped-decls=0  21.3 s
+hashed-set visits=226650130 max-per-decl=95123 capped-decls=0 compared=169138142  26.4 s
+reachable without theorem values=30406198 only from theorem values=75488059 of nodes=106136340  10.2 s
+443.91 s wall 410.61 s user 4163044 KB

@@ -70,6 +70,7 @@ features they describe.
 - [PLAN_DRAFT.md](project/PLAN_DRAFT.md) — draft next-level plan (nine phases, about 130 tasks, library gaps, readable-proof mock-ups, owner questions); not approved.
 - [SCALE_ASSESSMENT.md](project/SCALE_ASSESSMENT.md) — memory and CPU needed to check all of Mathlib, what in today's design would not scale, and the recommended data structures (2026-11-02 assessment); its last section says where Lean's kernel spends its time and what LeanForth should do about it.
 - [Mathlib export measurements](development/measurements/mathlib-2026-11-02/README.md) — the pinned Mathlib for Lean 4.35.0 exported and counted on this machine: 729,263 constants, 105.9 M expression nodes, up to 30 universe arguments (2026-11-02).
+- [Compact-store measurements](development/measurements/compact-store-2026-11-02/README.md) — a prototype of ADR 0016 loaded all of `Init`, `Std` and Mathlib into 16-byte hash-consed nodes, verified by re-emission: 2.94 GB for Mathlib's input, 4.2 GB peak (2026-11-02).
 - [OWNER_DECISIONS.md](project/OWNER_DECISIONS.md) — the owner's plain-language policy decisions.
 - [DECISIONS.md](project/DECISIONS.md) — running decision log with rejected alternatives.
 - [IMPLEMENTATION_PLAN.md](project/IMPLEMENTATION_PLAN.md) — staged implementation plan.
@@ -95,6 +96,7 @@ approval; the others are proposals.
 [0011](adr/0011-definite-rejection.md) definite rejection and the first checker's scope (rules accepted) ·
 [0012](adr/0012-checked-environment.md) the checked environment's implementation (design accepted) ·
 [0013](adr/0013-derivation-log.md) the derivation log and the proof outline (proposed) ·
+[0016](adr/0016-compact-store.md) the compact store for Mathlib-scale input: 16-byte nodes, a shared input tier, hash tables (proposed) ·
 [0017](adr/0017-leanforth-syntax.md) LeanForth Forth syntax for theorems and proofs (accepted as the design basis) ·
 [0018](adr/0018-exceptions.md) when to use `CATCH` and `THROW` (proposed; piloted on level substitution).
 
