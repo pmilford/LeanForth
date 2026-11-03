@@ -22,6 +22,7 @@ variants were retired on 2026-11-02.
 | Job pool | `src/lib/task.fs` | `job-submit ( context xt -- job ior )` and `job-wait ( job -- ior )`: a fixed pool of long-lived workers (at most one per logical core, setting `task-workers`) fed from a bounded queue; POSIX threads with a mutex and two condition variables on Gforth 1.0, the cooperative `tasker.fs` on Gforth 0.7.3, and a serial path elsewhere (or when forced, for tests). A job's context is owned by the job until it is waited for. Wrong stack effects give `task-unbalanced`; stack overflows never report success (guard pages on 1.0, canary zones on 0.7.3); a worker that cannot be created is reported (`task-no-worker`). `job-stacks-cover?` tells whether the workers' stacks hold a recursion requirement, and the pool refuses to start with stack settings below the largest need modules stated (`task-stacks-small`). Not loaded by `src/main.fs`; the scheduler will load it | New 2026-11-02; pool replaced one thread per task the same day; `tests/lib/task.fs` and `task-serial.fs` compare jobs and interleaved contexts with serial runs for 1, 2 and all workers and reach every refusal; `task-overflow.fs` and `task-overflow-serial.fs` overflow both stacks inside jobs; `tests/lib/task-bench.fs` measures speed-up |
 | Line reader and UTF-8 | `src/lib/bytes.fs` | `reader:` record over a Forth-2012 file: whole lines in one heap buffer that grows for long lines up to a limit, strict framing (final line feed; `text-framed` refuses carriage returns and a byte-order mark), line numbers and double-cell file offsets; `utf8-length`, `utf8-valid?` and `utf8-put` (RFC 3629, no overlongs or surrogates); `counted,`; `heap-claim` and `heap-release` for owned heap buffers. Uses Gforth's native `scan` behind an adapter, with a portable loop otherwise. Loads in decimal whatever `BASE` is, and restores it | New 2026-11-02; unit-tested against an independent UTF-8 model in `tests/lib/bytes.fs`, which loads it under `HEX` and counts heap blocks to show that a second `reader-init` frees the first buffer |
 | JSON reader | `src/lib/json.fs` | `json:` view record: a fail-closed, non-recursive RFC 8259 parser of one text into a growable token tape (containers know their item count and extent), escapes decoded in place, numbers kept as digit text, limits on depth, tokens, string and number length; `json-find`, `json-next`, `json-natural`, `json-u`, `digits>u` and `decimal>u` (decimal, independent of `BASE`); kind-checked `json-items-of` and `json-kind-at`. Loads in decimal whatever `BASE` is, and restores it | New 2026-11-02; malformed corpus and every limit tested in `tests/lib/json.fs`, loaded under `HEX` |
+| Big natural numbers | `src/lib/bignum.fs` | Arbitrary-precision naturals for Lean's `Nat` literals ([below](#big-natural-numbers)): numbers in an arena the caller provides (`/big-arena`, `big-arena-init`; `big-mark` and `big-release` give back what was made since a mark), one-cell limbs whose width is counted (`limb-bits`), decimal reading and printing (`decimal>big`, `big>decimal`), conversion to and from a cell (`u>big`, `big>u`), comparison (`big-compare`, `big=`, `big<=`), and the operations Lean 4.35.0's kernel computes on literals (`big+ big- big* big/ big-mod big-gcd big-and big-or big-xor big-lshift big-rshift big-pow`, each `( a b arena -- c outcome )`). Schoolbook multiplication with Karatsuba from 48 limbs, Knuth's algorithm D, Lehmer's gcd. Outcomes ok, invalid (a malformed number, text or arena) and full (no room, or more bits than the arena's limit, by default Lean's 2^30). No state; loads in decimal whatever `BASE` is | New 2026-11-02 (plan task 5.2.3, library part); not yet used by the kernel (task 5.1.4); `tests/lib/bignum.fs` reaches every outcome; `make test` compares 37,570 cases with Python's integers on the running Gforth and catches 20 planted faults; `make check` has 986 of them computed by pinned Lean's kernel |
 | Portability adapter | `src/lib/portability.fs` | Forth-2012 definitions of `>=`, `<=`, `0<=`, `0>=`, `-rot`, `max-n`, `cell` and the structure words, compiled only where the host lacks them. `scripts/check-portable-forth.py` refuses a module under `src/` that uses one of them without loading this file, directly or through the files it loads | New 2026-11-02; defines nothing under Gforth except `max-n`; `cell` and the load check added 2026-11-02 |
 | Diagnostics | `src/core/diagnostics.fs` | One record per checker context explaining the first failure of a check: a reason code, the site (module and word, a counted string) and two numbers; first failure wins until `lf-diag-clear`; `lf-diag@`, `lf-diag.`; helpers `lf-diag-walk`, `lf-diag-frames` and `lf-diag-store` explain a walk's, a pass's or a store's failure. Never changes an outcome; catalogue in [DIAGNOSTICS.md](../programming/DIAGNOSTICS.md) | New 2026-11-02 (plan 6.7, first form); every core and kernel module records its full and exhausted sites; `tests/core/diagnostics.fs` |
 | Expression store | `src/core/terms.fs` | Index-based nodes for sorts, bound variables, application, λ, Π and constants; nodes refer to earlier indices, so a term is a DAG with sharing | 64 nodes per checker context; built on `context-store:`; constructors check ranges only |
@@ -51,6 +52,156 @@ the term, level and name stores (they hold 64 entries each). The Python
 preview (`tests/support/ndjson_preview.py`) and the eleven hand-written
 Forth stream readers of its byte transport (`tests/core/*-stream.fs`) remain until their tests move to the Forth
 reader (plan item 3.2.5); the Python code stays as a test oracle only.
+
+## Big natural numbers
+
+`src/lib/bignum.fs` (plan section 6.8 and task 5.2.3, library part,
+2026-11-02). The owner chose our own Forth code over GMP (OQ-6), *"but it
+should be able to be very fast too"*. It is untrusted until the review
+gate in `AGENTS.md`; once the checker's verdicts depend on it, it is
+trusted code. The kernel does not use it yet: that is the literals ADR
+(task 5.1.4) and its integration.
+
+**What Lean computes.** Lean 4.35.0's kernel computes these operations on
+`Nat` literals (`src/kernel/type_checker.cpp` at tag `v4.35.0`,
+`reduce_nat`, lines 672–703, called from `whnf`, line 732, and from
+`lazy_delta_reduction`, lines 1060–1065, when neither side has free
+variables). Each argument is first put in weak head normal form and must
+then be a literal or `Nat.zero` (`is_nat_lit_ext`, 607–612). The results
+are those of Lean's runtime: `include/lean/lean.h` of the pinned toolchain
+(lines 1665–1676, 1694–1705, 1721–1732, 1813–1822) and
+`src/runtime/object.cpp` (1427–1441, 1457–1470, 1488–1505, 1573–1627,
+1643–1655).
+
+| Lean | Word | Result | Lean refuses (kernel exception) |
+| --- | --- | --- | --- |
+| `Nat.succ n` | `big+` with 1 | n + 1 | a result over the size limit (681) |
+| `Nat.add` | `big+` | a + b | a result over the limit (622–626) |
+| `Nat.sub` | `big-` | a − b, or 0 when b > a | a result over the limit (never happens) |
+| `Nat.mul` | `big*` | a · b | a result over the limit |
+| `Nat.div` | `big/` | ⌊a / b⌋; a / 0 = 0 | never |
+| `Nat.mod` | `big-mod` | a mod b; a mod 0 = a | never |
+| `Nat.gcd` | `big-gcd` | gcd(a, b); gcd(a, 0) = a | never |
+| `Nat.beq` | `big=` | `Bool.true` when a = b, else `Bool.false` | never |
+| `Nat.ble` | `big<=` | `Bool.true` when a ≤ b, else `Bool.false` | never |
+| `Nat.land`, `Nat.lor`, `Nat.xor` | `big-and`, `big-or`, `big-xor` | bitwise and, or, exclusive or | never |
+| `Nat.shiftLeft` | `big-lshift` | a · 2^b; 0 when a = 0, whatever b | a ≠ 0 and b > 2^32 − 1; or size(a) + b/8 + 1 bytes over the limit, an estimate (647–660) |
+| `Nat.shiftRight` | `big-rshift` | ⌊a / 2^b⌋, so 0 for every b too large | never |
+| `Nat.pow` | `big-pow` | a^b; a^0 = 1, so 0^0 = 1 | b > 2^32 − 1, even when a is 0 or 1 (`get_count_arg`, 305–313, checked first at 637); a > 1, b ≠ 0 and size(a) > limit / b, an estimate (640) |
+
+`Nat.log2` is *not* computed by the 4.35.0 kernel: the runtime's
+`lean_nat_log2` (`object.cpp` 1657–1669) is never called from
+`type_checker.cpp`. `big-bits` gives the bit length it would need. The
+size Lean measures is `lean_nat_size_in_bytes` (`object.cpp` 1671–1675,
+`mpz.cpp` 232–234): 8 bytes for a value below 2^63, otherwise 8 bytes per
+64-bit limb. The limit is 128 MiB (`type_checker.cpp` line 36), changed
+by the environment variable `LEAN_NAT_MAX_SIZE` (1266–1280); with the
+default a numeral passes exactly when it has at most 2^30 bits. Every
+literal is checked when its type is inferred (`infer_lit`, 315–321).
+
+**The library's own limit.** An arena has a limit in bits, by default
+`big-lean-bits` (2^30); `big-limit!` sets another, at most 2^(cell bits − 2).
+A result with more bits is *full*; so is any result when the arena has no
+room. Each of Lean's checks admits only results of at most 2^30 bits, so
+at the default the library never refuses what Lean computes, given room.
+The limit is not Lean's rule, though: the estimates and the 2^32 − 1 caps
+in the table refuse some results the library computes (such as
+3^(2^24 + 1), or 0^(2^40)); the kernel integration must apply Lean's
+rules itself before calling the library (below).
+
+**Design.** A number is the address of a cell holding its limb count and
+then the limbs, least significant first; a limb is one cell read as
+unsigned, and `limb-bits` is counted when the file loads, so no result
+depends on the cell size (only 64-bit hosts have been run). Numbers are
+normalized (no zero top limb; 0 has no limbs) and never change once made.
+Every operation makes its result at the arena's top, its scratch above
+the result, and gives the scratch back; a failure leaves the top where it
+was and gives -1 with the outcome. Inputs are checked in O(1) (count at
+least 0, top limb not 0) and the arena record too; comparisons and
+`big-bits` trust their arguments. Limb arithmetic uses Forth-2012's
+`UM*`, `UM/MOD`, `D+`, `D-` and `DU<`. Multiplication is by rows below 48
+limbs and by Karatsuba above, the longer factor cut into chunks of the
+shorter one's size; division is Knuth's algorithm D (TAOCP 4.3.1); gcd is
+Lehmer's algorithm with single-limb leading parts of `limb-bits − 3` bits
+(Knuth's algorithm L, 4.5.2), with a full division when no simulated step
+agrees; powers are left to right over the exponent's bits, recursively;
+decimal text goes in chunks of the largest power of ten that fits a limb
+(10^19 on 64-bit cells). The module defines no state; `limb-bits`,
+`chunk-base` and `chunk-digits` are constants computed while loading.
+
+**Tests.**
+
+- `tests/lib/bignum.fs` (loaded under `HEX`): limb geometry, arenas and
+  marks (refused marks change nothing), conversions, every operation's
+  edges (0, 1, limb boundaries, max-u ± 1, equal operands, subtraction
+  below 0, division by 0, huge shifts and exponents), and every failure:
+  malformed numbers, text and arenas (invalid), the bit limit and a
+  64-cell arena (full), each leaving the arena's top unchanged.
+- `tests/lib/bignum_differential.py` (`make test`): 13,570 edge cases
+  (special values, limb boundaries of 32- and 64-bit limbs, very unequal
+  sizes, Knuth D's rare add-back and qhat = B − 1 cases, Fibonacci
+  neighbours for gcd, Karatsuba sizes 47 to 1,027 limbs with all-ones
+  limbs, results on both sides of limits from 0 to 256 bits) and 24,000
+  random cases from a fixed seed, up to 10,000 digits, run by
+  `tests/lib/bignum-cases.fs`: every printed result equals Python's.
+  Extra runs with other seeds (60,000 random cases each, `gforth` and
+  `gforth-fast`) also agreed. Then 20 faults planted in a copy of the
+  module (a lost carry, a carry of 1 to start, ignored borrows, a dropped
+  high product limb, three Karatsuba faults, a skipped add-back, a wrong
+  qhat when u2 = v1, an unscaled remainder, two Lehmer faults, a short
+  decimal chunk, two shift faults, a lost factor in powers, incomplete
+  normalization, an off-by-one limit, a comparison of the top limb only):
+  each changes a result among the edge cases, on Gforth 1.0 and 0.7.3. A
+  run is stopped at its first wrong line, because a broken library may
+  then loop.
+- `make check` gives 986 of the cases (all 14 operations, 12 of more than
+  3,000 digits) to pinned Lean as `example : Nat.op A B = R := by decide
+  +kernel`, so that Lean's kernel itself computes the operation (no
+  axioms): all are accepted, and every one of them with R changed is
+  rejected.
+
+**Speed** (`python3 tests/lib/bignum_bench.py`, 2026-11-02, this machine
+shared with other work, Python 3.13.2; nanoseconds per operation, Forth
+over Python; division and remainder take a 2n-digit dividend, the power
+is 3^e with an n-digit result). Python's integers are C with 30-bit
+digits and Karatsuba; the two sides are timed differently, so the ratios
+are approximate.
+
+| Operation | Digits | Python (ns) | `gforth` (ns) | ratio | `gforth-fast` (ns) | ratio |
+| --- | --- | --- | --- | --- | --- | --- |
+| add | 10 / 100 / 1,000 / 10,000 | 30 / 31 / 75 / 553 | 212 / 260 / 614 / 3,943 | 7.0 / 8.3 / 8.2 / 7.1 | 68 / 91 / 203 / 1,166 | 2.3 / 2.9 / 2.7 / 2.1 |
+| multiply | same | 37 / 119 / 4,665 / 214,157 | 452 / 830 / 19,893 / 915,128 | 12 / 7.0 / 4.3 / 4.3 | 132 / 239 / 6,484 / 280,620 | 3.6 / 2.0 / 1.4 / 1.3 |
+| divide | same | 58 / 233 / 10,311 / 469,512 | 223 / 1,092 / 27,253 / 2,195,492 | 3.8 / 4.7 / 2.6 / 4.7 | 68 / 392 / 8,217 / 615,820 | 1.2 / 1.7 / 0.8 / 1.3 |
+| remainder | same | 53 / 231 / 10,354 / 962,732 | 223 / 1,138 / 25,776 / 2,231,960 | 4.2 / 4.9 / 2.5 / 2.3 | 67 / 451 / 8,578 / 607,634 | 1.3 / 1.9 / 0.8 / 0.6 |
+| gcd | same | 101 / 708 / 15,728 / 1,019,446 | 431 / 15,670 / 271,403 / 9,612,000 | 4.3 / 22 / 17 / 9.4 | 134 / 4,996 / 87,479 / 3,392,546 | 1.3 / 7.1 / 5.6 / 3.3 |
+| power | same | 66 / 157 / 1,269 / 65,722 | 1,801 / 3,114 / 11,170 / 441,833 | 27 / 20 / 8.8 / 6.7 | 583 / 1,000 / 3,744 / 130,286 | 8.9 / 6.4 / 2.9 / 2.0 |
+| read decimal | same | 43 / 163 / 3,570 / 195,132 | 356 / 1,616 / 20,075 / 867,988 | 8.3 / 9.9 / 5.6 / 4.4 | 92 / 378 / 4,477 / 226,079 | 2.1 / 2.3 / 1.3 / 1.2 |
+| print decimal | same | 48 / 179 / 8,209 / 439,806 | 512 / 1,440 / 14,675 / 744,154 | 11 / 8.1 / 1.8 / 1.7 | 149 / 468 / 7,594 / 526,560 | 3.1 / 2.6 / 0.9 / 1.2 |
+
+With `gforth-fast` most operations are within 1–3 times Python; gcd (3–7
+times above 100 digits) and small powers (6–9 times) are the slowest.
+Karatsuba was measured against rows alone for thresholds of 16 to 96
+limbs: it breaks even near 64 limbs and pays above; with the chosen 48
+limbs a 520-limb (10,000-digit) product takes 268 instead of 668 µs
+(`gforth-fast`) and 981 instead of 1,877 µs (`gforth`).
+
+**Follow-ups for the kernel integration (task 5.1.4).**
+
+- Apply Lean's refusals before calling the library: the 2^32 − 1 caps on
+  `Nat.pow` exponents (whatever the base) and on `Nat.shiftLeft` shifts of
+  a nonzero value, and the two size estimates, with Lean's host-specific
+  measure (8 bytes per 64-bit limb, at least 8), from `big-bits`. Decide
+  how a refusal is reported (it is a kernel exception in Lean, so the
+  declaration is not accepted) and how `LEAN_NAT_MAX_SIZE` is treated.
+- Literal terms: the term store holds cells; a literal needs a handle into
+  an arena that lives as long as the terms (the shared, read-only input of
+  ADR 0012 E1, plan task 7.2.1), and number handles are addresses, valid
+  only while that memory does not move.
+- `Nat.succ` and `Nat.zero` as literals, and `is_def_eq_offset`'s
+  predecessor of a literal (`type_checker.cpp` 1025–1052), compose from
+  `big+` and `big-` with 1.
+- Speed for Mathlib: profile real literal workloads before tuning further
+  (double-limb Lehmer steps for gcd; fewer claims for small powers).
 
 ## Missing for a usable checker at Mathlib scale
 
