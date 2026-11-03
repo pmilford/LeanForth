@@ -15,7 +15,8 @@
 \ room than the escape took, so the text bytes may change. Number tokens
 \ keep their digits as text, whatever their size; json-natural and json-u
 \ read natural numbers from them, always in decimal: nothing here depends
-\ on BASE.
+\ on BASE, and the file itself loads in decimal whatever BASE is, then
+\ restores it.
 \
 \ Failure is total: json-parse gives ok only for a complete, valid text,
 \ and otherwise invalid (bad syntax, bad escape, invalid UTF-8, a control
@@ -30,6 +31,7 @@
 \ object keys are kept: json-find returns the first, and a caller that
 \ needs unique keys checks them.
 
+base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ./bytes.fs
 
 \ Token kinds.
@@ -451,3 +453,5 @@ max-n decimal-width constant cell-digits
 : canonical-natural? ( addr u -- flag )
   dup 0= if 2drop false exit then over c@ [char] 0 = over 1 > and if 2drop false exit then
   over + swap digits-end = ;
+
+base !   \ the BASE this file was loaded with

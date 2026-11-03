@@ -17,8 +17,10 @@
 \ file or a failed read is invalid; running out of heap is full.
 \ reader-position gives the current line's number and file offset for
 \ error messages. Offsets are doubles, so files beyond 2 GB work on
-\ 32-bit hosts too.
+\ 32-bit hosts too. The file loads in decimal whatever BASE is, then
+\ restores it.
 
+base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ./lib.fs
 
 10 constant lf-byte                \ line feed
@@ -214,3 +216,5 @@ $f0 $f0 6 utf8-class!  $f1 $f3 7 utf8-class!  $f4 $f4 8 utf8-class!
 : utf8-put ( u addr -- n )
   over utf8-size >r over r@ 1- 6 * rshift r@ utf8-prefix or over c!
   r@ + r@ utf8-put-tail r> ;
+
+base !   \ the BASE this file was loaded with
