@@ -305,3 +305,11 @@ produces can be verified.
   names with bytes outside printable ASCII are refused, because how a
   system folds them is implementation-defined. This replaces the review's
   first suggestion of refusing upper-case names.
+- **LeanForth theorem syntax is words, not parsed strings** (2026-11-02,
+  night). The owner: "I was hoping we can encode the theorems and proofs
+  in leanforth words, not strings that are parsed." Theorems and proofs
+  written in LeanForth are ordinary Forth word sequences run by Forth's
+  own interpreter; there is no separate expression grammar. Defining and
+  token-reading words (as `:` reads a name) are allowed; mathematical
+  notation stays in the printer and rendering layer. Applies to ADR 0017
+  (plan task 8.1.1).
