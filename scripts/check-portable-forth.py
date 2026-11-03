@@ -17,6 +17,12 @@
    under src/ and tests/: INCLUDE reloads a file, which would make a second
    copy of its stores. Each module requires its direct dependencies.
 
+4. Every module under src/ that uses a word src/lib/portability.fs defines
+   for hosts that lack it (cell, max-n, field:, -rot, ...; read from that
+   file's [undefined] guards) has portability.fs among the files it loads,
+   directly or through other files: otherwise it works on Gforth only.
+   Test helpers are loaded after the modules under test and are not checked.
+
 Comments and strings are ignored. See docs/development/FORTH_STYLE.md,
 section 8.
 """
@@ -91,6 +97,55 @@ def raw_strip(text):
     return strip(text)
 
 
+PORTABILITY = ROOT / "src/lib/portability.fs"
+LOAD = re.compile(r"^\s*(?:require|include)\s+(\S+)", re.I)
+
+
+def adapted_words():
+    """The words portability.fs defines where the host lacks them."""
+    text = PORTABILITY.read_text()
+    return {w.lower() for w in re.findall(r"\[undefined\]\s+(\S+)\s+\[if\]", text, re.I)}
+
+
+def loaded(path):
+    """The repository files that path loads with REQUIRE or INCLUDE. Paths
+    starting with ./ or ../ are relative to the loading file, as Gforth
+    reads them; others to the repository root; host library files such as
+    test/ttester.fs are not in the repository and are skipped."""
+    for line in strip(path.read_text(errors="replace")).splitlines():
+        hit = LOAD.match(line)
+        if hit:
+            name = hit.group(1)
+            base = path.parent if name.startswith(("./", "../")) else ROOT
+            target = (base / name).resolve()
+            if target.is_file():
+                yield target
+
+
+def closure(path):
+    """Every file that loading path loads, directly or indirectly."""
+    seen, todo = set(), [path.resolve()]
+    while todo:
+        for target in loaded(todo.pop()):
+            if target not in seen:
+                seen.add(target)
+                todo.append(target)
+    return seen
+
+
+def unadapted(words):
+    """(module, words) for modules under src/ that use adapted words without
+    loading portability.fs."""
+    found = []
+    for path in sorted((ROOT / "src").rglob("*.fs")):
+        if path.resolve() == PORTABILITY.resolve():
+            continue
+        used = sorted({t.lower() for t in strip(path.read_text()).split()} & words)
+        if used and PORTABILITY.resolve() not in closure(path):
+            found.append((path.relative_to(ROOT).as_posix(), used))
+    return found
+
+
 def main():
     problems = []
     for path in sorted(list((ROOT / "src").rglob("*.fs")) + list((ROOT / "tests").rglob("*.fs"))):
@@ -111,11 +166,13 @@ def main():
                 value = number(tok)
                 if value is not None and value >= LIMIT:
                     problems.append(f"{rel}:{lineno}: literal {tok} assumes cells wider than 32 bits")
+    for rel, used in unadapted(adapted_words()):
+        problems.append(f"{rel}: uses {' '.join(used)} without loading src/lib/portability.fs")
     for p in problems:
         print(p)
     if problems:
         return 1
-    print("No byte-order, cell-size, compile-only or include problems found.")
+    print("No byte-order, cell-size, compile-only, include or adapter problems found.")
     return 0
 
 

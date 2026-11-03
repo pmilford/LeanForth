@@ -3,11 +3,14 @@
 \ the line reader on repository fixtures (growth, limits, positions, end).
 \ File-level framing failures (no final line feed, carriage returns) are
 \ tested on temporary files by tests/core/test_ndjson_reader.py.
+\ The module is loaded under HEX (and the heap watched): its numbers must
+\ not depend on BASE, and it must leave BASE as it found it.
 include ../support/tester.fs
 include ../support/checks.fs
-require ../../src/lib/bytes.fs
+include ../support/heap-watch.fs
+hex require ../../src/lib/bytes.fs base @ decimal constant base-after-load
 
-decimal
+T{ base-after-load lf-byte cr-byte -> 16 10 13 }T
 
 \ A scratch buffer for byte sequences.
 create bytes 64 allot
@@ -122,10 +125,13 @@ T{ s\" \xef\xbb" text-framed -> outcome-ok }T
 T{ s\" x\xef\xbb\xbf" text-framed -> outcome-ok }T
 T{ s\" \xef\xbb\xbf" bom? s\" \xef\xbb\xbe" bom? -> true false }T
 
-\ counted, compiles a counted string and aligns.
+\ counted, compiles a counted string and aligns; 255 bytes at most.
 create greeting s" hello" counted,
 T{ greeting count s" hello" compare -> 0 }T
 T{ here aligned here = -> true }T
+create long-name 256 allot
+T{ long-name 255 counted, here aligned here = -> true }T
+T{ long-name 256 ' counted, catch nip nip -> -2 }T
 
 \ The line reader on fixtures. composition.ndjson: 35 lines, 1,787 bytes,
 \ the longest (the metadata, line 1) 172 bytes.
@@ -171,9 +177,15 @@ T{ rd reader-position -> 173 0 2 }T
 T{ finish -> }T
 T{ 8 64 rd ' reader-init rs-checked -> outcome-ok }T
 T{ finish -> }T
-\ reader-init again frees the earlier buffer first.
-T{ 16 16 rd reader-init 32 16 rd reader-init rd reader-size @ -> outcome-ok outcome-ok 32 }T
-T{ finish rd reader-size @ -> 0 }T
+\ reader-init again frees the earlier buffer first, and reader-free the
+\ last: the heap holds exactly as many blocks as before.
+variable blocks-before  variable first-buffer
+T{ live-blocks @ blocks-before ! 16 16 rd reader-init rd reader-buffer @ first-buffer !
+   live-blocks @ blocks-before @ - -> outcome-ok 1 }T
+T{ 32 16 rd reader-init rd reader-size @ last-freed @ first-buffer @ =
+   live-blocks @ blocks-before @ - -> outcome-ok 32 true 1 }T
+T{ rd reader-buffer @ finish rd reader-size @ swap last-freed @ =
+   live-blocks @ blocks-before @ - -> 0 true 0 }T
 \ heap-claim and heap-release: freeing an empty cell is harmless.
 variable claimed
 T{ 16 heap-claim swap claimed ! -> true }T
