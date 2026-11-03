@@ -13,8 +13,10 @@
 [undefined] 0>= [if] : 0>= ( n -- flag ) 0< 0= ; [then]
 [undefined] -rot [if] : -rot ( x1 x2 x3 -- x3 x1 x2 ) rot rot ; [then]
 
-\ Largest positive cell value.
+\ Largest positive cell value, and the size of a cell in address units
+\ (Gforth 0.7.3 and 1.0 define cell; Forth-2012 does not).
 [undefined] max-n [if] -1 1 rshift constant max-n [then]
+[undefined] cell [if] 1 cells constant cell [then]
 
 \ Forth-2012 structures (FACILITY EXT), from the standard's reference code;
 \ each guarded separately, so a host with only some of them keeps its own.

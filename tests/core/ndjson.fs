@@ -4,11 +4,17 @@
 \ handler outcomes; list and rule readers; whole fixture files.
 \ Lines are fed one at a time to export-line from memory; file framing is
 \ tested by tests/core/test_ndjson_reader.py on temporary files.
+\ The reader is loaded under HEX (and the heap watched): loading must not
+\ depend on BASE, and must leave BASE as it found it; every decoding test
+\ below then shows the numbers came out right.
 include ../support/tester.fs
 include ../support/checks.fs
-require ../../src/import/ndjson.fs
+include ../support/heap-watch.fs
+hex require ../../src/import/ndjson.fs base @ decimal constant base-after-load
 
-decimal
+T{ base-after-load export-line-limit export-token-limit export-depth-limit kind-count
+   -> 16 67108864 65536 64 27 }T
+live-blocks @ constant blocks-at-start
 export: ex
 T{ ex export-init -> outcome-ok }T
 
@@ -240,8 +246,18 @@ T{ ' says-garbage app-handler app-13 feed why s" handler refused the record" com
 T{ ' says-twice app-handler app-13 feed why s" handler left no outcome or extra items" compare
    ex export-exprs @ -> outcome-invalid 0 13 }T
 T{ ' says-nothing app-handler app-13 feed -> outcome-invalid }T
-T{ ' takes-two app-handler app-13 ' feed catch nip nip ex export-busy @ -> -4 true }T
-\ export-restart ends the busy mark the THROW left; then 13 sorts again.
+\ Taking more than the record throws -4, and the THROW ends the busy mark.
+T{ ' takes-two app-handler app-13 ' feed catch nip nip ex export-busy @ -> -4 0 }T
+\ So does taking more but leaving one item, or replacing the item under
+\ the record: the export lies there as a canary. Nothing is counted, and
+\ the replacement is never written through.
+variable victim
+: swaps-under ( x record -- y outcome ) 2drop victim outcome-ok ;
+: takes-two-gives-one ( x record -- outcome ) 2drop outcome-ok ;
+T{ ' swaps-under app-handler app-13 ' feed catch nip nip ex export-busy @ ex export-exprs @
+   victim @ -> -4 0 13 0 }T
+T{ ' takes-two-gives-one app-handler app-13 ' feed catch nip nip ex export-exprs @ -> -4 13 }T
+\ export-restart starts again; then 13 sorts again.
 T{ ex export-restart ex export-busy @ ex export-exprs @ -> 0 0 }T
 : sort-line ( n -- c-addr u )
   0 block-length ! s\" {\"ie\":" +block-text 0 <# #s #> +block-text
@@ -255,6 +271,15 @@ T{ ' reads-line app-handler app-13 feed why s" export read again by its own hand
    ex export-busy @ -> outcome-invalid 0 0 }T
 T{ ' reads-file app-handler app-13 feed ex export-busy @ ex export-exprs @
    -> outcome-invalid 0 13 }T
+\ Nor resetting or freeing it from its handler: that throws, the export is
+\ idle again, and it keeps its buffers and counts.
+: inits ( record -- outcome ) drop ex export-init ;
+: frees ( record -- outcome ) drop ex export-free outcome-ok ;
+: restarts ( record -- outcome ) drop ex export-restart outcome-ok ;
+: thrown-by ( xt -- n ) app-handler app-13 ['] feed catch nip nip ;
+T{ ' inits thrown-by ' frees thrown-by ' restarts thrown-by ex export-busy @ -> -2 -2 -2 0 }T
+T{ ex export-reader reader-buffer @ 0<> ex export-json json-tape @ 0<> ex export-exprs @
+   -> true true 13 }T
 T{ allow-app app-13 feed ex export-exprs @ -> outcome-ok 14 }T
 
 \ Framing and syntax inside a line.
@@ -280,6 +305,8 @@ T{ allow-app s" tests/reference/composition.ndjson" ex ' export-read rs-checked 
 : throws ( record -- outcome ) drop 77 throw ;
 T{ ' throws app-handler s" tests/reference/composition.ndjson" ex ' export-read catch
    nip nip nip ex export-reader reader-fid @ ex export-busy @ -> 77 0 0 }T
+T{ ' inits app-handler s" tests/reference/composition.ndjson" ex ' export-read catch
+   nip nip nip ex export-reader reader-fid @ ex export-busy @ -> -2 0 0 }T
 T{ allow-app s" tests/reference/composition.ndjson" read-fixture -> outcome-ok 35 }T
 \ The end of input needs metadata and a declaration.
 T{ fresh ex export-end why s" missing metadata or declaration" compare -> outcome-invalid 0 }T
@@ -337,8 +364,88 @@ T{ 11 export-token-limit 8 - const-line ex export-line why s" too many tokens" c
    -> outcome-full 0 }T
 T{ ex export-json json-room @ export-token-limit <= -> true }T
 
-\ export-init again frees the old buffers and refuses every kind.
-T{ ex export-init kind-app ex export-handler @ ' export-refused = -> outcome-ok true }T
-T{ ex export-free ex export-json json-tape @ ex export-reader reader-buffer @ -> 0 0 }T
+\ The depth limit through the reader: expression 8, an mdata whose data
+\ holds n nested arrays, is nested n + 3 deep (the line's object, mdata's
+\ and data's); 64 containers deep pass, 65 are full.
+: nested-line ( n -- c-addr u )
+  0 big-length ! s\" {\"ie\":8,\"mdata\":{\"data\":{\"k\":" big+
+  dup 0 ?do s" [" big+ loop 0 ?do s" ]" big+ loop s\" },\"expr\":0}}" big+
+  big-line big-length @ ;
+T{ prefix 62 nested-line ex export-line why s" nested too deeply" compare ex export-exprs @
+   -> outcome-ok outcome-full 0 8 }T
+T{ 61 nested-line ex export-line ex export-exprs @ -> outcome-ok 9 }T
+
+\ A reference never reads as a list, not even one that equals the token
+\ index of an array (here const-name 4, the token of the us array).
+T{ s\" {\"const\":{\"us\":[0,0,0],\"name\":4},\"ie\":9}" feed
+   snap const-name @ snap list-count 0 snap const-name @ snap list-item
+   snap const-levels @ snap list-count -> outcome-ok 0 -1 3 }T
+\ A line's failed field and reason never carry over to the next line.
+T{ s\" {\"in\":5,\"str\":{\"pre\":7,\"str\":\"x\"}}" feed failed-field s" pre" compare
+   -> outcome-invalid 0 }T
+T{ s\" {\"in\":5,\"str\":{\"pre\":0" feed failed-field nip why s" unexpected end of text" compare
+   -> outcome-invalid 0 0 }T
+
+\ A block of four types. list-item refuses a list of objects; and a type
+\ handler that renumbers its record does not change the next type's number.
+create types-text 1024 allot  variable types-length
+: +types ( c-addr u -- ) tuck types-text types-length @ + swap move types-length +! ;
+: four-types ( -- c-addr u )
+  0 types-length ! type-json +types 3 0 do s" ," +types type-json +types loop
+  types-text types-length @ ;
+variable block-items  variable block-item  variable type-numbers
+: types-of ( record -- list record ) dup block-types @ swap ;
+: on-block ( record -- outcome )
+  dup types-of list-count block-items ! 3 swap types-of list-item block-item ! outcome-ok ;
+: renumbers ( record -- outcome )
+  dup record-index @ type-numbers +! 99 swap record-index ! outcome-ok ;
+: four-type-block ( -- outcome ) s" " s" " four-types block-of feed ;
+T{ 0 type-numbers ! ' on-block kind-inductive ex export-handler !
+   ' renumbers kind-type ex export-handler ! four-type-block
+   block-items @ block-item @ type-numbers @ -> outcome-ok 4 -1 6 }T
+\ A handler must not write its record. The reader reads a block's lists
+\ again after its handler: a field that no longer holds a list is
+\ invalid, and nothing more is handed over. A changed kind changes
+\ nothing: the reader read it before the handler.
+: scribbles ( record -- outcome ) 0 swap block-types ! outcome-ok ;
+: makes-block ( record -- outcome ) kind-inductive swap record-kind ! outcome-ok ;
+T{ capture-all ' scribbles kind-inductive ex export-handler ! 0 calls ! four-type-block
+   why s" handler changed its record" compare calls @ -> outcome-invalid 0 0 }T
+T{ capture-all ' makes-block kind-thm ex export-handler ! 0 calls ! plain-thm feed calls @
+   -> outcome-ok 0 }T
+
+\ A rule record's header: kind-rule, the rule's index, the line and the
+\ export. Kept after its handler, a recursor's rules are gone once the next
+\ line is read: recursor-rule then gives 0 and leaves no field or reason.
+: marks ( -- key-u why-u ) ex export-error nip >r nip nip r> ;
+: head@ ( record -- kind index export line )
+  >r r@ record-kind @ r@ record-index @ r@ record-export @ r> record-line @ ;
+T{ capture-all ctor-json rec-json type-json block-of feed kind@ -> outcome-ok kind-recursor }T
+T{ 1 snap recursor-rule head@ snap record-line @ = -> kind-rule 1 ex true }T
+\ Expression 10, whose data holds one-item arrays, one of them at the
+\ token index of the kept recursor's rules (tokens 0 to 8 lead to the
+\ data's array).
+create kept /record allot  snap kept /record move
+: stale-index ( -- index ) kept recursor-rules @ invert ;
+: arrays-line ( -- c-addr u )
+  0 block-length ! s\" {\"ie\":10,\"mdata\":{\"data\":{\"k\":[" +block-text
+  stale-index 1 and 0= if s" 0," +block-text then
+  40 0 do s" [0]," +block-text loop s\" [0]]},\"expr\":0}}" +block-text
+  block-text block-length @ ;
+T{ arrays-line feed stale-index ex export-json json-kind-at -> outcome-ok json-array }T
+T{ 0 kept recursor-rule marks -> 0 0 0 }T
+
+\ export-handler takes only a record kind.
+T{ kind-count ex ' export-handler catch nip nip -1 ex ' export-handler catch nip nip -> -2 -2 }T
+T{ kind-recursor ex export-handler ex export-handlers - -> kind-recursor cells }T
+
+\ export-init again frees the old buffers and refuses every kind; while it
+\ is ready, an export holds three heap blocks (the line buffer, the token
+\ tape and the container stack), and none after export-free.
+: export-blocks ( -- n ) live-blocks @ blocks-at-start - ;
+T{ export-blocks ex export-init kind-app ex export-handler @ ' export-refused = export-blocks
+   -> 3 outcome-ok true 3 }T
+T{ ex export-free ex export-json json-tape @ ex export-reader reader-buffer @ export-blocks
+   -> 0 0 0 }T
 cases-done
 bye
