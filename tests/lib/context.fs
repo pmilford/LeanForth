@@ -206,11 +206,18 @@ T{ 7 0 context-claim -> false }T
 T{ 7 ctx1 context-claim ctx1 context-idle? -> false true }T
 T{ 7 ctx2 context-claim ctx2 context-idle? 8 ctx2 context-claim -> true false false }T
 T{ ctx2 use-fails? ctx2 free-fails? lf-context @ ctx1 = -> true true true }T
+T{ context-in-job? -> false }T
 7 lf-owner !
-T{ ctx2 ' context-use rs-checked lf-context @ ctx2 = -> true }T
+T{ context-in-job? ctx2 ' context-use rs-checked lf-context @ ctx2 = -> true true }T
 T{ ctx1 use-fails? context-main use-fails? -> true true }T
 T{ new-fails? ctx1 free-fails? -> true true }T
 T{ lf-context @ ctx2 = -> true }T
+\ A check run outside the job pool holds context-check-owner: it counts as
+\ inside a job, and no context is its own, not even the current one.
+context-check-owner lf-owner !
+T{ context-in-job? context-check-owner 0= -> true false }T
+T{ ctx2 use-fails? ctx1 use-fails? context-main use-fails? -> true true true }T
+T{ new-fails? ctx1 free-fails? lf-context @ ctx2 = -> true true true }T
 0 lf-owner !  ctx1 context-use
 T{ ctx2 context-release ctx2 context-idle? ctx2 context-free -> true 0 }T
 

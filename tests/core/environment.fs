@@ -9,9 +9,12 @@
 \ provenance), 8 (determinism), the publisher's re-check, corrupted state,
 \ and the diagnostics each failure records. Interleaved checks (row 9) are
 \ in environment-tasks.fs. Everything runs in the main context, which
-\ holds the input (src/core/input.fs).
+\ holds the input (src/core/input.fs), except the serial runs that start in
+\ a spare context. The heap is watched, to show that a run frees the
+\ contexts it made.
 include ../support/tester.fs
 include ../support/checks.fs
+include ../support/heap-watch.fs
 require ../support/env-cases.fs
 
 \ ---------------------------------------------------------------------------
@@ -352,6 +355,98 @@ T{ ' syn-check ' main-maker lf-env-run -> outcome-invalid }T
 T{ 0 slot@ lf-slot-final? lf-env-hand-over 0 slot@ lf-slot-final? -> false outcome-ok false true }T
 T{ lf-input-rollback -> outcome-ok }T
 env-free
+\ Inside a job, every internal word that writes shared state throws
+\ lf-env-refused before writing, and lf-env-ready? says false (L4). Slot
+\ 1 is published, so its dependency is in the pool above the publisher's
+\ last mark, where an unguarded lf-env-unpublish would roll it back.
+: refused? ( ior -- flag ) lf-env-refused = ;
+\ The header too, which holds the publisher's pool mark.
+: header-digest ( -- h ) 0 lf-env /lf-env 1 cells / digest-cells ;
+8 fresh-env
+' syn-check 2 checked-run
+lf-env-serial @ constant serial-then
+env-digest constant digest-then
+header-digest constant header-then
+2 lf-env-begin drop syn-check
+1 lf-owner !
+T{ 2 slot@ -77 ' lf-env-unpublish catch nip nip refused? -> true }T
+T{ 2 slot@ ' lf-env-guarded catch nip refused? 2 slot@ ' lf-env-write catch nip refused? -> true true }T
+T{ 2 slot@ outcome-ok ' lf-env-final catch nip nip refused? -> true }T
+T{ 0 2 slot@ ' lf-slot-fill catch nip nip refused? 2 slot@ ' lf-slot-input! catch nip refused? -> true true }T
+T{ 2 slot@ ' lf-slot-sets! catch nip refused? 0 2 slot@ ' lf-slot-deps! catch nip nip refused? -> true true }T
+T{ 7 pool ' lf-pool-put catch nip nip refused? -> true }T
+T{ lf-env ' lf-env-forget catch nip refused? lf-env ' lf-env-fields catch nip refused? -> true true }T
+T{ lf-env ' lf-env-identity+ catch nip refused? 8 lf-env ' lf-env-made catch nip nip refused? -> true true }T
+T{ n.A 1 lf-env-ready? -> false }T
+0 lf-owner !
+T{ n.A 1 lf-env-ready? env-digest digest-then = pool-count lf-env-serial @ serial-then = -> true true 1 true }T
+T{ header-digest header-then = -> true }T
+T{ lf-env lf-envh-identity @ serial-then = lf-env-hand-over lf-input-rollback -> true outcome-rejected false outcome-ok }T
+env-free
+\ A check the serial driver runs holds the check owner token (G-P1, as
+\ amended): inside it nothing publishes, steps or runs, makes, chooses
+\ or frees an environment or a context, no internal word writes, and
+\ readiness says false. This check of 2 tries each, records the answers,
+\ then checks as usual; the step and the verdict are as before, and the
+\ task's own token and context come back.
+create answers 16 cells allot
+: answer! ( x k -- ) cells answers + ! ;
+: answer@ ( k -- x ) cells answers + @ ;
+: try-public ( -- )
+  lf-env-hand-over 1 answer! 0 answer!  ['] syn-check 3 lf-env-step 3 answer! 2 answer!
+  ['] syn-check ['] main-maker lf-env-run 4 answer!  8 lf-env-new 6 answer! 5 answer!
+  lf-env lf-env-use 7 answer!  lf-env lf-env-free 8 answer! ;
+: try-inside ( -- )
+  n.A 1 lf-env-ready? 9 answer!  ['] context-new catch 10 answer!
+  lf-context @ ['] context-use catch nip 11 answer!
+  2 slot@ -77 ['] lf-env-unpublish catch nip nip 12 answer!
+  2 slot@ ['] lf-env-guarded catch nip 13 answer!  lf-owner @ 14 answer! ;
+: trying-check ( -- ) me 2 = if try-public try-inside then syn-check ;
+8 fresh-env
+' syn-check 2 checked-run
+T{ ' trying-check 2 checked-step step-failures @ -> outcome-rejected 0 }T
+T{ 0 answer@ 1 answer@ 2 answer@ 3 answer@ 4 answer@ -> outcome-invalid true outcome-invalid true outcome-invalid }T
+T{ 5 answer@ 6 answer@ 7 answer@ 8 answer@ -> 0 outcome-invalid outcome-invalid outcome-invalid }T
+T{ 9 answer@ 10 answer@ 11 answer@ -> false -2 -2 }T
+T{ 12 answer@ refused? 13 answer@ refused? 14 answer@ -> true true context-check-owner }T
+T{ lf-owner @ lf-context @ context-main = pool-count 3 slot@ lf-slot-final? -> 0 true 1 false }T
+env-free
+\ The review's probe p4: the check of 3 begins 2, claims it ok and hands
+\ it over, then begins 3 again and claims ok. The inner hand-over is
+\ refused, so 2 (C, which uses the unknown Z) is not published, and is
+\ rejected when its own turn comes. (The claim for 3 is the check's own
+\ verdict, which the publisher re-checks and accepts.)
+: rogue ( -- )
+  2 lf-env-begin drop outcome-ok lf-env-finish lf-env-hand-over 1 answer! 0 answer!
+  3 lf-env-begin drop outcome-ok lf-env-finish ;
+8 fresh-env
+' syn-check 2 checked-run
+T{ ' rogue 3 lf-env-step 0 answer@ 1 answer@ 2 slot@ lf-slot-final? -> outcome-ok false outcome-invalid true false }T
+T{ ' syn-check 2 lf-env-step lf-input-rollback -> outcome-rejected false outcome-ok }T
+env-free
+\ A THROW that reaches the publisher's CATCH after the final mark (only an
+\ asynchronous one, such as an interrupt, can) leaves the published slot
+\ as it is, with its dependencies in the pool (L2).
+8 fresh-env
+' syn-check 1 checked-run
+1 lf-env-begin drop syn-check
+lf-env-pub-mark store-mark drop
+T{ 1 slot@ lf-env-write -> outcome-ok }T
+T{ 1 slot@ -28 lf-env-unpublish lf-input-rollback 1 slot@ lf-slot-final? 1 deps pool-count -> outcome-ok true 0 1 1 }T
+env-free
+\ A publication that returns without making its slot final (here a hook
+\ moves the final mark elsewhere) is a fault: invalid, whatever outcome
+\ it wrote, recorded with code 0, and undone like a THROW.
+create elsewhere /lf-slot allot
+: misdirect ( -- ) swap drop elsewhere swap ;
+8 fresh-env
+' syn-check 1 checked-run
+' misdirect is lf-env-before-final
+T{ ' syn-check 1 lf-env-step lf-diag@ nip -> outcome-invalid true 1 0 lf-diag-publisher-fault }T
+' lf-env-no-fault is lf-env-before-final
+T{ 1 slot@ lf-slot-final? 1 cleared? pool-count elsewhere lf-slot-final? -> false true 0 true }T
+T{ ' syn-check 1 lf-env-step lf-input-rollback 1 deps pool-count -> outcome-ok false outcome-ok 0 1 1 }T
+env-free
 
 \ A THROW inside a check (G-P6): the declaration is invalid and the
 \ context spent, and lf-env-run goes on in a new context from its maker,
@@ -396,6 +491,111 @@ env-free spare-2 unspare
 T{ ' no-maker maker-trial -> outcome-invalid outcome-invalid false true }T
 T{ ' throwing-maker maker-trial -> outcome-invalid outcome-invalid false true }T
 T{ ' same-maker maker-trial -> outcome-invalid outcome-invalid false true }T
+\ The run adopts only a context that is idle, neither the main nor the
+\ current one, and not spent, and checks that before it frees anything
+\ (ADR 0012, Amendment 1): a maker giving anything else stops it.
+\ Something that is not a context, the main context (here not spent,
+\ the run started in a spare one) and a context a job owns:
+: junk-maker ( -- context ior ) pad 0 ;
+: main-giver ( -- context ior ) context-main 0 ;
+context-new throw constant owned
+7 owned context-claim drop
+: owned-maker ( -- context ior ) owned 0 ;
+T{ ' junk-maker maker-trial -> outcome-invalid outcome-invalid false true }T
+T{ lf-env-spent? ' main-giver maker-trial lf-context @ context-main = -> false outcome-invalid outcome-invalid false true true }T
+T{ ' owned-maker maker-trial owned context? owned context-idle? -> outcome-invalid outcome-invalid false true true false }T
+\ The same rules clause by clause (white-box), from a spare context that
+\ is not spent: only a context that is idle, neither the main nor the
+\ current one, and not spent may be adopted.
+: spend-in ( context -- ) lf-context @ swap context-use lf-env-spend context-use ;
+main-maker throw constant fresh-one
+spare constant here-now
+T{ fresh-one lf-env-fresh? here-now lf-env-fresh? context-main lf-env-fresh? -> true false false }T
+T{ owned lf-env-fresh? pad lf-env-fresh? 0 lf-env-fresh? -> false false false }T
+fresh-one spend-in
+T{ fresh-one lf-env-fresh? lf-context @ here-now = -> false true }T
+here-now unspare fresh-one context-free throw
+owned context-release owned context-free throw
+\ ... and the caller's own context, at the second replacement (spent by
+\ then, as the run leaves it only after a THROW in it): the run stops,
+\ and the caller's context stays, current again.
+variable caller  variable calls
+: caller-maker ( -- context ior )
+  1 calls +! calls @ 1 = if main-maker else caller @ 0 then ;
+: twice-throwing ( -- ) me 1 = me 2 = or if -78 throw then syn-check ;
+spare caller ! 0 calls ! 8 fresh-env
+T{ ' twice-throwing ' caller-maker lf-env-run calls @ -> outcome-invalid 2 }T
+T{ caller @ context? lf-context @ caller @ = -> true true }T
+env-free caller @ unspare
+\ A maker must leave exactly its two cells: one that leaves one or three
+\ counts as one that threw, and the run stops with the stack as it was.
+: one-cell-maker ( -- x ) 0 ;
+: three-cell-maker ( -- x y z ) 1 2 3 ;
+T{ ' one-cell-maker maker-trial -> outcome-invalid outcome-invalid false true }T
+T{ ' three-cell-maker maker-trial -> outcome-invalid outcome-invalid false true }T
+\ The run frees every context it made (G-P6): a check throwing at 1, 2
+\ and 3 makes three, and none is left once the run ends.
+: thrice-throwing ( -- ) me 1 4 within if -78 throw then syn-check ;
+spare constant spare-3
+8 fresh-env 0 makes ! live-blocks @ constant blocks-then
+T{ ' thrice-throwing ' counting-maker lf-env-run makes @ live-blocks @ blocks-then - -> outcome-ok 3 0 }T
+lf-env-view drop
+T{ lf-context @ spare-3 = 1 lf-env-outcome 3 lf-env-outcome 4 lf-env-outcome -> true outcome-invalid outcome-invalid outcome-unknown }T
+env-free spare-3 unspare
+\ A check with a wrong stack effect (M2): the stack depth and the cell
+\ below the check, a copy of its declaration's number, are checked when
+\ it returns. A change makes the declaration invalid, recorded with
+\ lf-env-unbalanced, and spends the context; the run goes on in a new
+\ one and leaves the caller's stack as it was.
+: leaky ( -- ) syn-check me 3 = if me then ;
+: overwriting ( -- ) syn-check me 3 = if drop 99 then ;
+: eating ( -- ) syn-check me 3 = if drop then ;
+: unbalanced-trial ( check -- outcome makes slot3 slot4 same-depth? )
+  spare >r 8 fresh-env 0 makes ! depth >r ['] counting-maker lf-env-run
+  depth r> = >r makes @ lf-env-view drop 3 lf-env-outcome 4 lf-env-outcome
+  r> env-free r> unspare ;
+T{ ' leaky unbalanced-trial -> outcome-ok 1 outcome-invalid outcome-unknown true }T
+T{ ' overwriting unbalanced-trial -> outcome-ok 1 outcome-invalid outcome-unknown true }T
+T{ ' eating unbalanced-trial -> outcome-ok 1 outcome-invalid outcome-unknown true }T
+spare constant spare-4
+8 fresh-env
+' syn-check 3 checked-run
+T{ ' leaky 3 lf-env-step lf-diag@ nip lf-env-spent? -> outcome-invalid false 3 lf-env-unbalanced lf-diag-publisher-fault true }T
+env-free spare-4 unspare
+\ The run's check and maker wait on the return stack while a check runs
+\ (S4): at 1 this check replaces the cell two below its frame with another
+\ maker, at 2 it throws, and the run's own maker makes the new context.
+\ The cell it replaced is the run's caller's (here a 0): as below a job's
+\ word, nothing protects those.
+variable spoofed  0 spoofed !
+: spoof-maker ( -- context ior ) true spoofed ! main-maker ;
+: spoofing-check ( -- )
+  me 1 = if >r drop ['] spoof-maker r> then me 2 = if -78 throw then syn-check ;
+spare constant spare-5
+8 fresh-env 0 makes !
+T{ 0 ' spoofing-check ' counting-maker lf-env-run nip spoofed @ makes @ -> outcome-ok false 1 }T
+env-free spare-5 unspare
+\ The task's context and token come back after a check, whatever it did
+\ to them, as after a job's word: this check selects the main context by
+\ writing lf-context itself (context-use would refuse it).
+: wanderer ( -- ) syn-check me 1 = if context-main lf-context ! then ;
+spare constant spare-6
+8 fresh-env
+T{ ' wanderer ' main-maker lf-env-run lf-context @ spare-6 = lf-owner @ -> outcome-ok true 0 }T
+T{ main-count verdicts-match? -> true }T
+env-free spare-6 unspare
+\ The fingerprint covers the input stores' identities and generations, so
+\ it records how the input was loaded, not only what it holds (ADR 0012,
+\ Amendment 1, item 4): a context that loaded the input twice cannot be
+\ continued by a maker that loads it once. The run stops at the first
+\ check in the new context, which is freed.
+spare constant twice-loaded
+main-input
+8 fresh-env 0 makes ! live-blocks @ constant blocks-twice
+T{ ' throwing-check ' counting-maker lf-env-run makes @ live-blocks @ blocks-twice - -> outcome-invalid 1 0 }T
+lf-env-view drop
+T{ 1 lf-env-outcome 2 slot@ lf-slot-final? lf-context @ twice-loaded = -> outcome-invalid false true }T
+env-free twice-loaded unspare
 \ A check that never finishes is invalid.
 : silent-check ( -- ) ;
 8 fresh-env
@@ -467,7 +667,10 @@ env-free
 T{ step-failures @ -> 0 }T
 
 \ ---------------------------------------------------------------------------
-\ The publisher's re-check catches checks that claim ok wrongly.
+\ The publisher's re-check catches checks that claim ok wrongly. Its five
+\ parts are a table; the count follows the table, and the moved snapshot
+\ is the part after the last.
+T{ lf-rechecks# lf-recheck-moved -> 5 6 }T
 : run-from ( to from -- ) ?do ['] syn-check i checked-step drop loop ;
 8 fresh-env
 3 0 run-from
@@ -704,5 +907,15 @@ max-n lf-env-serial !
 T{ 8 lf-env-new -> 0 outcome-full }T
 serial-now lf-env-serial !
 T{ step-failures @ -> 0 }T
+
+\ Last, as it cannot be undone: a THROW in a check in the main context
+\ spends it for the rest of the program (ADR 0012, Amendment 1). It begins
+\ no further check, and it can never be freed and replaced.
+8 fresh-env
+' syn-check 1 checked-run
+T{ ' throwing-check 1 lf-env-step lf-env-spent? 2 lf-env-begin -> outcome-invalid false true outcome-invalid }T
+T{ context-main ' context-free catch nip lf-context @ context-main = -> -2 true }T
+T{ ' syn-check ' main-maker lf-env-run lf-env-spent? -> outcome-invalid true }T
+env-free
 T{ depth -> 0 }T
 bye

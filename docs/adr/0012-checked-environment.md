@@ -13,7 +13,8 @@ structure of [ADR 0009](0009-reentrant-state-and-parallel-checking.md)
 
 Amended 2026-11-02 ([Amendment 1](#amendment-1-2026-11-02-after-the-independent-review-of-v0)):
 stricter or clarifying changes after the independent review of the
-implementation; the status above is unchanged.
+implementation, and clarifications after its second round; the status
+above is unchanged.
 
 ## Summary in plain words
 
@@ -532,6 +533,56 @@ are made, chosen and freed only outside jobs (G-P1); a check that begins
 another declaration is a fault; results and handles are read within the
 check's snapshot (G-P4); a pool that cannot be marked is a fault; and the
 test-only fault-injection hook is compiled only into tests.
+
+**Clarifications after the second review round (2026-11-02).** The
+independent review of those fixes found no path by which a failed check
+is published or read as accepted, but guard gaps. The guards below close
+them. Each is a clarification of how the implementation keeps G-P1 to
+G-P6; none adds or changes a rule of this design.
+
+5. **The check owner (G-P1).** A check that the serial driver runs is
+   inside the one-writer rule just as a job is: it holds an owner token,
+   `context-check-owner` (`src/lib/context.fs`), that no job and no
+   context has, so every guard that refuses a job refuses it too. Inside
+   such a check nothing publishes, steps, runs, makes, chooses or frees an
+   environment or a context, and the task's context and token are
+   restored afterwards, as the job pool does for a job.
+6. **The balance check (G-P6).** A check's stack effect is `( -- )`. The
+   serial driver checks, as the job pool does for a job's word, that the
+   stack depth and the cell right below the check (a copy of its
+   declaration's number) are unchanged when it returns; otherwise the
+   check counts as one that threw: the declaration is *invalid* and the
+   context spent. The driver's own check word and maker wait on the return
+   stack meanwhile, out of reach of a word with a wrong stack effect.
+7. **Validating the maker's context (G-P6).** After a `THROW` the serial
+   driver adopts a replacement only if it is a context, idle, neither the
+   main nor the current one, and not spent, and only a maker that leaves
+   exactly its two results; it checks this before freeing anything.
+   Refusing spent contexts protects the caller's, which the run leaves
+   only after a check threw in it. Any other answer stops the run.
+8. **One entry for schedulers (G-P6).** A parallel scheduler hands a
+   job's candidate over through one word, `lf-env-hand-over-job`, which
+   records the job's `THROW`, checks that the snapshot is still of the
+   job's declaration, and then hands over, so that neither step can be
+   forgotten.
+9. **Internal words (G-P1; coordinator decision).** Until a word list
+   hides the internal words (plan task 1.1.7, the planned ADR 0010), each internal
+   word that writes shared state refuses inside a job or a check by a
+   `THROW`, which the job's or the driver's `CATCH` turns into an
+   *invalid* declaration and a spent context; the scheduler's readiness
+   test says *not ready* there.
+10. **A fault after the final mark (E4).** A `THROW` that arrives after
+    the final mark (only an asynchronous one can) leaves the published
+    slot and its dependencies as they are; a publication that ends
+    without a final slot is *invalid*, recorded, and undone like a
+    `THROW`.
+11. **What the fingerprint records, and a spent main context (item 4,
+    G-P6).** The fingerprint covers the input stores' identities and
+    generations, so it records how the input was loaded, not only what it
+    holds: a context that loaded the input twice can be continued only by
+    one that did the same. A context in which a check threw stays spent;
+    the main context, which can never be freed, then serves no further
+    check for the rest of the program.
 
 ## Reproduction
 

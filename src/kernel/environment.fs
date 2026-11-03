@@ -16,7 +16,13 @@
 \ input.fs on why the input is per context in v0, and on the
 \ fingerprint's limits). Environments are made, chosen and freed only
 \ outside jobs (G-P1): inside one, lf-env-new, lf-env-use and lf-env-free
-\ refuse with invalid.
+\ refuse with invalid. "Inside a job" includes a check that the serial
+\ driver runs (env-publish.fs), which holds lib/context.fs's
+\ context-check-owner token. Until a word list hides the internal words
+\ (plan task 1.1.7), every internal word that writes shared state, here
+\ and in env-publish.fs, first calls lf-env-may-write, which throws
+\ lf-env-refused inside a job; the job's CATCH, or the serial driver's,
+\ then makes the declaration invalid and spends the context (G-P6).
 \
 \ Checks (E4, E5, E7). The check of declaration i runs in its own context
 \ (ADR 0009) and records there its snapshot, (identity, i), with
@@ -134,8 +140,11 @@ end-structure
 
 \ Keep x with a true flag, drop it with a false one.
 : ?keep ( x flag -- x true | false ) dup 0= if nip then ;
-\ Whether the current task runs a job (lib/context.fs's owner token).
-: lf-env-in-job? ( -- flag ) lf-owner @ 0<> ;
+\ The THROW code of an internal word that would write shared state inside
+\ a job or a check (G-P1); outside Forth-2012's reserved range and
+\ task.fs's codes (-4096 to -4101).
+-4110 constant lf-env-refused
+: lf-env-may-write ( -- ) context-in-job? if lf-env-refused throw then ;
 
 \ Layout. Unchecked: d is below the length.
 : lf-env ( -- env ) lf-envs lf-envs-current @ ;
@@ -169,18 +178,18 @@ end-structure
 \ intact or deps outside 0..lf-env-pool-max; (0 full) when the identities
 \ are spent or memory cannot be allocated.
 : lf-env-fields ( env -- env )
-  lf-input-count over lf-envh-length ! lf-input-fingerprint over lf-envh-input !
-  lf-mode-final over lf-envh-mode ! ;
+  lf-env-may-write lf-input-count over lf-envh-length !
+  lf-input-fingerprint over lf-envh-input ! lf-mode-final over lf-envh-mode ! ;
 : lf-env-identity+ ( env -- env )
-  1 lf-env-serial +! lf-env-serial @ over lf-envh-identity ! ;
+  lf-env-may-write 1 lf-env-serial +! lf-env-serial @ over lf-envh-identity ! ;
 \ Format the pool and give the environment its identity: (env ok); or
 \ (0 invalid), the memory freed, for a pool shape store-init refuses.
 : lf-env-made ( deps env -- env outcome )
-  lf-env-fields tuck lf-env-pool >r 1 cells 0 r> store-init
+  lf-env-may-write lf-env-fields tuck lf-env-pool >r 1 cells 0 r> store-init
   if lf-env-identity+ outcome-ok else free drop 0 outcome-invalid then ;
 : lf-env-deps? ( deps -- flag ) 0 lf-env-pool-max between? ;
 : lf-env-new-ok? ( deps -- flag )
-  lf-env-deps? lf-input-intact? and lf-env-in-job? 0= and ;
+  lf-env-deps? lf-input-intact? and context-in-job? 0= and ;
 : lf-env-new ( deps -- env outcome )
   dup lf-env-new-ok? 0= if drop 0 outcome-invalid exit then
   lf-env-serial @ max-n = if drop 0 outcome-full exit then
@@ -189,9 +198,10 @@ end-structure
 \ Free a live environment: ok, or invalid when it is not live or inside
 \ a job (nothing is freed) or FREE fails. Its identity is cleared first
 \ and it stops being current.
-: lf-env-choosable? ( env -- flag ) lf-env-live? lf-env-in-job? 0= and ;
+: lf-env-choosable? ( env -- flag ) lf-env-live? context-in-job? 0= and ;
 : lf-env-forget ( env -- env )
-  dup lf-env = if 0 lf-envs lf-envs-current ! then 0 over lf-envh-identity ! ;
+  lf-env-may-write dup lf-env = if 0 lf-envs lf-envs-current ! then
+  0 over lf-envh-identity ! ;
 : lf-env-free ( env -- outcome )
   dup lf-env-choosable? 0= if drop outcome-invalid exit then
   lf-env-forget free 0= flag>outcome ;
@@ -367,11 +377,11 @@ end-structure
   dup lf-input-name swap lf-env-find lf-env-n2 ;
 \ G-P5, for a scheduler outside any check: whether every declaration
 \ before i named name has a final slot in the current environment. False
-\ without a valid current environment, for i out of range or an invalid
-\ name.
+\ inside a job or a check (the scheduler alone asks), without a valid
+\ current environment, for i out of range or an invalid name.
 : lf-env-ready-args? ( name i -- flag )
   lf-env-current 0= if 2drop false exit then
-  lf-env-length upto? swap lf-env-name-ok? and ;
+  lf-env-length upto? swap lf-env-name-ok? and context-in-job? 0= and ;
 : lf-env-ready? ( name i -- flag )
   2dup lf-env-ready-args? if ['] lf-slot-open? lf-env-any? 0= else 2drop false then ;
 

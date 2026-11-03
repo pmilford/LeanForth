@@ -25,9 +25,12 @@
 \ Ownership: a context is idle or owned by one job (task.fs claims it when
 \ the job is submitted and releases it when the job has been waited for).
 \ Each task has an owner token, lf-owner: 0, or while it runs a job, that
-\ job. A task may select only a context whose owner is its own token: the
-\ main task only idle contexts, a job only its own. An owned context cannot
-\ be freed, and contexts are made and freed only outside jobs.
+\ job, or context-check-owner while it runs a check outside the job pool
+\ (the checked environment's serial driver, kernel/env-publish.fs). A
+\ task may select only a context whose owner is its own token: the main
+\ task only idle contexts, a job only its own, a check outside the pool
+\ none. An owned context cannot be freed, and contexts are made and freed
+\ only outside jobs; context-in-job? counts such a check as inside one.
 \
 \ Handles: a context's address is its handle, valid from context-new until
 \ context-free. A handle must never be used after context-free: context?
@@ -90,6 +93,12 @@ end-structure
 [defined] udp [defined] next-task and
 [if] user lf-context user lf-owner [else] variable lf-context variable lf-owner [then]
 0 lf-owner !
+\ The token of a check that runs outside the job pool, as a job's word
+\ does but in the driving task: no job and no context has it, so every
+\ guard that refuses a job refuses that check too.
+-1 constant context-check-owner
+\ Whether the current task runs a job, or such a check: its token is not 0.
+: context-in-job? ( -- flag ) lf-owner @ 0<> ;
 
 \ ALLOCATE u zeroed address units: the address and 0, or an undefined
 \ address and the ior.
@@ -210,7 +219,7 @@ context-bytes allocate0 throw dup context-sized context-main!
 \ context-new gives a new, idle context and 0, or 0 and the ior of a
 \ failed ALLOCATE or the THROW code of a failed initialiser or setup word,
 \ freeing what it allocated. The current context is unchanged either way.
-: context-outside-job ( -- ) lf-owner @ abort" context: not allowed inside a job" ;
+: context-outside-job ( -- ) context-in-job? abort" context: not allowed inside a job" ;
 : context-members ( -- )
   context-first @ begin ?dup while dup member-run member-link @ repeat ;
 : context-fill ( context -- ior )

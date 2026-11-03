@@ -109,16 +109,16 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
 : lf-input-bytes ( -- addr ) lf-input-state lf-inrec-name-bytes ;
 : lf-input-sealed? ( -- flag ) lf-input-state lf-inrec-sealed @ true = ;
 
-\ The fingerprint: cells, then bytes, mixed in order (FNV-style, within
-\ one host only; never compared across machines or written out).
-: lf-fp-mix ( h x -- h' ) xor 16777619 um* drop ;
-: lf-fp-cells ( h addr n -- h' ) 0 ?do dup @ rot swap lf-fp-mix swap cell+ loop drop ;
+\ The fingerprint: cells, then bytes, mixed in order with lib/bytes.fs's
+\ fnv-step and bytes-mix (within one host only; never compared across
+\ machines or written out).
+: lf-fp-cells ( h addr n -- h' ) 0 ?do dup @ rot swap fnv-step swap cell+ loop drop ;
 : lf-fp-width ( store -- n ) store-width @ 1 cells / ;
 : lf-fp-records ( h count store -- h' )
   tuck lf-fp-width * swap store-records swap lf-fp-cells ;
 : lf-fp-identities ( h count store -- h' ) store-identities swap lf-fp-cells ;
 : lf-fp-state ( h store -- h' )
-  dup store-count @ rot swap lf-fp-mix swap store-generation @ lf-fp-mix ;
+  dup store-count @ rot swap fnv-step swap store-generation @ fnv-step ;
 \ One store below count, with its count and generation.
 : lf-fp-store ( h count store -- h' )
   rot over lf-fp-state -rot 2dup 2>r lf-fp-records 2r> lf-fp-identities ;
@@ -126,7 +126,7 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
   dup lf-input-mark mark-count @ swap lf-input-store ;
 \ The name bytes in use when loading ended, and their count. Unchecked:
 \ the count is within the pool (lf-input-end checks it).
-: lf-fp-names ( h -- h' ) lf-input-bytes @ tuck lf-fp-mix lf-name-bytes rot bytes-mix ;
+: lf-fp-names ( h -- h' ) lf-input-bytes @ tuck fnv-step lf-name-bytes rot bytes-mix ;
 : lf-input-print ( -- h )
   0 lf-input-stores# 0 ?do i lf-input-marked lf-fp-store loop lf-fp-names ;
 \ The fingerprint recorded when loading ended; 0 before.

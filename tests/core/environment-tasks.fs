@@ -14,10 +14,13 @@
 \ publication differs from the input's. A context without the input, or
 \ with another one, even one that differs only in the text of its names,
 \ sees no environment; a check started before a slot it needs is final
-\ ends invalid, never accepted. A check that throws in its job is
+\ ends invalid, never accepted. The scheduler publishes each job through
+\ lf-env-hand-over-job, which records a THROW and refuses a job whose
+\ snapshot moved to another declaration. A check that throws in its job is
 \ invalid and its lane's context is replaced (G-P6), giving the verdicts
 \ of the serial run with the same THROW. Inside a job nothing publishes,
-\ makes, chooses or frees an environment (G-P1).
+\ makes, chooses or frees an environment, no internal word writes one and
+\ readiness says false (G-P1).
 include ../support/tester.fs
 include ../support/checks.fs
 require ../../src/lib/task.fs
@@ -66,6 +69,7 @@ T{ spare context-free -> 0 }T
 create lane-contexts lanes cells allot
 create lane-jobs lanes cells allot
 create lane-iors lanes cells allot
+create lane-decls lanes cells allot
 create pending decls cells allot
 variable faults
 variable published
@@ -134,12 +138,14 @@ variable high?
 : choose ( -- i | -1 ) high? @ if choose-high else choose-low then ;
 
 \ Submitting declaration i in lane k: begin its check and clear its trace
-\ in the lane's context, then hand the context to a job.
+\ in the lane's context, then hand the context to a job running xt.
 : begin-in ( i k -- )
+  2dup lane-decls lane !
   in-lane trace /trace erase lf-env-begin ok? 0= if fault then home ;
-: submit ( i k -- )
-  over unpend tuck begin-in
-  dup lane-contexts lane @ ['] lane-check job-submit throw swap lane-jobs lane ! ;
+: submit-with ( i k xt -- )
+  >r over unpend tuck begin-in
+  dup lane-contexts lane @ r> job-submit throw swap lane-jobs lane ! ;
+: submit ( i k -- ) ['] lane-check submit-with ;
 \ Waiting for n lanes, then publishing them, the last lane first, each in
 \ its own context, whose scratch is then rolled back. A job that did not
 \ return cleanly makes its declaration invalid and spends its context,
@@ -148,10 +154,11 @@ variable renewals
 : await-all ( n -- ) 0 ?do i lane-jobs lane @ job-wait i lane-iors lane ! loop ;
 : rollback ( -- ) lf-input-rollback ok? 0= if fault then ;
 : renew-lane ( k -- ) dup lane-contexts lane @ context-free throw make-lane 1 renewals +! ;
-: hand-lane ( ior -- spent? )
-  ?dup if lf-env-thrown then lf-env-hand-over nip if fault then rollback lf-env-spent? ;
+: hand-lane ( ior i -- spent? )
+  lf-env-hand-over-job nip if fault then rollback lf-env-spent? ;
+: lane-result ( k -- ior i ) dup lane-iors lane @ swap lane-decls lane @ ;
 : publish-lane ( k -- )
-  dup lane-iors lane @ over in-lane hand-lane home 1 published +!
+  dup dup lane-result rot in-lane hand-lane home 1 published +!
   if renew-lane else drop then ;
 : publish-all ( n -- ) begin dup while 1- dup publish-lane repeat drop ;
 : trace@ ( k -- first last ) in-lane trace trace-first @ trace trace-last @ home ;
@@ -192,23 +199,43 @@ env-free
 -1 throw-in !
 
 \ Inside a job nothing publishes, makes, chooses or frees an environment
-\ (G-P1): a job that checks declaration 0 and then tries all four is
-\ refused each time, and slot 0 stays open until the scheduler publishes.
-create tries 6 cells allot
+\ (G-P1): a job that checks declaration 1 and then tries all four is
+\ refused each time, and slot 1 stays open until the scheduler publishes.
+\ Internal words that write the environment throw lf-env-refused before
+\ writing, and readiness says false.
+create tries 9 cells allot
 : try! ( x k -- ) cells tries + ! ;
+: job-internals ( -- )
+  1 slot@ -77 ['] lf-env-unpublish catch nip nip 6 try!
+  1 slot@ ['] lf-env-guarded catch nip 7 try!  n.A 1 lf-env-ready? 8 try! ;
 : job-tries ( -- )
   syn-check lf-env-hand-over 1 try! 0 try! 8 lf-env-new 3 try! 2 try!
-  lf-env lf-env-use 4 try! lf-env lf-env-free 5 try! ;
+  lf-env lf-env-use 4 try! lf-env lf-env-free 5 try! job-internals ;
 : try@ ( k -- x ) cells tries + @ ;
 8 fresh-env
-0 0 begin-in
+0 0 submit 1 await-all 1 publish-all
+1 0 begin-in
 T{ 0 lane-contexts lane @ ' job-tries job-submit throw job-wait -> 0 }T
 T{ 0 try@ 1 try@ 2 try@ 3 try@ -> outcome-invalid true 0 outcome-invalid }T
-T{ 4 try@ 5 try@ 0 slot@ lf-slot-final? -> outcome-invalid outcome-invalid false }T
+T{ 4 try@ 5 try@ 1 slot@ lf-slot-final? -> outcome-invalid outcome-invalid false }T
+T{ 6 try@ lf-env-refused = 7 try@ lf-env-refused = 8 try@ -> true true false }T
 0 in-lane
 T{ lf-env-hand-over rollback -> outcome-ok false }T
 home
-T{ 0 slot@ lf-slot-final? lf-env-view 0 lf-env-outcome -> true outcome-ok outcome-ok }T
+T{ 1 slot@ lf-slot-final? lf-env-view 1 lf-env-outcome n.A 1 lf-env-ready? -> true outcome-ok outcome-ok true }T
+env-free
+\ The scheduler's entry makes sure the job's snapshot is still of its
+\ declaration (L5): a job submitted for 2 that checks 1 instead publishes
+\ nothing, and the hand-over is a fault.
+: hijack ( -- ) 1 lf-env-begin drop syn-check ;
+8 fresh-env
+0 0 submit 1 await-all 1 publish-all
+0 faults !
+2 0 ' hijack submit-with 1 await-all 1 publish-all
+T{ faults @ 1 slot@ lf-slot-final? 2 slot@ lf-slot-final? -> 1 false false }T
+0 in-lane
+T{ lf-diag@ nip -> 2 lf-recheck-moved lf-diag-recheck }T
+home
 env-free
 
 \ A check started before a slot it needs is final ends invalid: 1 uses 0,
