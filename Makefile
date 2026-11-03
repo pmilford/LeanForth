@@ -100,10 +100,11 @@ reference-export:
 test-harness:
 	GFORTH=$(GFORTH) $(RUN) bash tests/harness/check.sh
 
-# The general Forth library in src/lib. The task adapter is not loaded by
+# The general Forth library in src/lib. The job pool is not loaded by
 # src/main.fs, so it gets its own silent-load check; task.fs tests the
-# host's tasks (threads on Gforth 1.0, cooperative on 0.7.3) and
-# task-serial.fs the serial path. tests/lib/task-bench.fs is report-only.
+# host's workers (threads on Gforth 1.0, cooperative on 0.7.3) and
+# task-serial.fs the serial path; task-overflow.fs and its serial twin test
+# stack overflows inside jobs. tests/lib/task-bench.fs is report-only.
 test-lib:
 	$(RUN) $(GFORTH) tests/lib/lib.fs
 	$(RUN) $(GFORTH) tests/lib/lib-model.fs
@@ -114,6 +115,8 @@ test-lib:
 	$(RUN) $(GFORTH) tests/lib/task-serial.fs
 	$(RUN) $(GFORTH) tests/lib/bytes.fs
 	$(RUN) $(GFORTH) tests/lib/json.fs
+	$(RUN) $(GFORTH) tests/lib/task-overflow.fs
+	$(RUN) $(GFORTH) tests/lib/task-overflow-serial.fs
 
 test-core:
 	$(RUN) $(GFORTH) tests/core/terms.fs

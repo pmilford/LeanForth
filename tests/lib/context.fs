@@ -1,10 +1,14 @@
 \ Tests of run-time records and checker contexts (src/lib/store.fs,
 \ walk.fs, context.fs): store-init and walk-init give byte for byte the
-\ records store:, walk: and walk2: give; context members are initialised in
-\ the main context as they are declared and in every new context; contexts
-\ are independent. A randomized model then runs the same operations on
-\ context stores and walks, switching context at every step, and on
-\ dictionary records, and compares results and every byte.
+\ records store:, walk: and walk2: give; context members (records, stores,
+\ walks, frames records, setup words) are initialised in the main context
+\ as they are declared and in every new context; a refused declaration,
+\ even one whose memory cannot be allocated, changes nothing, and a setup
+\ word that throws is not registered; contexts are independent; ownership
+\ limits who may select, claim and free a context. A randomized model then
+\ runs the same operations on context stores and walks, switching context
+\ at every step, and on dictionary records, and compares results and every
+\ byte.
 include ../support/tester.fs
 include ../support/checks.fs
 require ../../src/lib/lib.fs
@@ -118,7 +122,43 @@ T{ s" 2 /node 3 context-store: cbad2" aborts? -> true }T
 T{ s" 0 context-walk: cbad3" aborts? s" 0 context-walk2: cbad4" aborts? -> true true }T
 T{ s" -1 context-record: cbad5" aborts? -> true }T
 T{ s" max-n context-record: cbad6" aborts? -> true }T
+T{ s" 0 context-record: cbad7" aborts? -> true }T
+T{ s" 0 0 context-frames: cbad8" aborts? -> true }T
 T{ context-bytes [undefined] cbad1 [undefined] cbad5 -> bytes-before true true }T
+T{ [undefined] cbad7 [undefined] cbad8 -> true true }T
+\ A size that fits a cell but cannot be allocated: the main context
+\ cannot grow, and nothing is defined or changed.
+T{ s" max-n 4 / context-record: chuge" aborts? [undefined] chuge -> true true }T
+T{ context-bytes context-main context? -> bytes-before true }T
+T{ lf-context @ context-main = -> true }T
+T{ c-rec @ c-terms store-count @ -> 42 1 }T
+\ A setup word that throws while it is declared is not registered: new
+\ contexts never run it.
+variable bad-runs  0 bad-runs !
+: c-bad-setup ( -- ) 1 bad-runs +! 66 throw ;
+T{ ' c-bad-setup ' context-setup catch nip bad-runs @ -> 66 1 }T
+T{ context-bytes -> bytes-before }T
+\ Members are laid down aligned whatever HERE was.
+1 allot  ' noop context-setup
+T{ context-last @ dup aligned = -> true }T
+align
+
+\ A frames record as a member: initialised with frame-init in the main
+\ context and in every new one; its visitor reaches it through its
+\ frames argument. fr-visit x nests x deep and counts the visits.
+: fr-visit ( x frames -- result outcome )
+  over 0= if 2drop 0 outcome-ok exit then
+  >r 1- r> frame-call ok-then? if 1+ outcome-ok else no-result then ;
+3 ' fr-visit context-frames: c-frames
+T{ c-frames frame-limit @ c-frames frame-visitor @ -> 3 ' fr-visit }T
+T{ c-frames frame-busy? -> false }T
+T{ 10 c-frames frame-budget 2 0 c-frames frame-run -> true 2 outcome-ok }T
+T{ c-frames frame-fuel @ -> 7 }T
+T{ 10 c-frames frame-budget 3 0 c-frames frame-run nip -> true outcome-full }T
+
+\ allocate0 gives zeroed memory, here most likely the block just freed.
+5 cells allocate throw dup 5 cells 165 fill free throw
+T{ 5 cells allocate0 swap dup 5 cells-zero? swap free -> 0 true 0 }T
 
 \ Model-test members (see the end of this file).
 6 constant mcap
@@ -134,8 +174,10 @@ T{ lf-context @ context-main = setups @ -> true 2 }T
 T{ s" 1 cells context-record: clate" aborts? [undefined] clate -> true true }T
 T{ ctx1 ' context-use rs-checked lf-context @ -> ctx1 }T
 T{ c-rec @ c-terms store-count @ c-late @ -> 0 0 0 }T
-T{ c-runs @ c-levels store-count-valid? -> 1 true }T
+T{ c-runs @ c-levels store-count-valid? bad-runs @ -> 1 true 1 }T
 T{ terms-pristine? walks-pristine? -> true true }T
+T{ c-frames frame-limit @ c-frames frame-fuel @ -> 3 0 }T
+T{ c-frames frame-visitor @ -> ' fr-visit }T
 7 c-rec !  c-terms store-new 2drop c-terms store-new 2drop
 context-main context-use
 T{ c-rec @ c-terms store-count @ -> 42 1 }T
@@ -150,6 +192,27 @@ T{ lf-context @ ' context-new rs-checked rot lf-context @ = -> 0 55 true }T
 \ Selecting anything but a context aborts and keeps the current one.
 : use-fails? ( addr -- flag ) ['] context-use catch dup if nip then 0<> ;
 T{ junk use-fails? 0 use-fails? lf-context @ ctx1 = -> true true true }T
+
+\ Ownership (task.fs claims a job's context): only an idle context other
+\ than the main and the current one can be claimed, by a nonzero token.
+\ An owned context is selected only under its owner's token and cannot be
+\ freed; under a nonzero token (inside a job) no context can be made or
+\ freed and no other context selected.
+: free-fails? ( addr -- flag ) ['] context-free catch dup if nip then 0<> ;
+: new-fails? ( -- flag ) ['] context-new catch 0<> ;
+context-new throw constant ctx2
+T{ 7 context-main context-claim 7 junk context-claim -> false false }T
+T{ 7 0 context-claim -> false }T
+T{ 7 ctx1 context-claim ctx1 context-idle? -> false true }T
+T{ 7 ctx2 context-claim ctx2 context-idle? 8 ctx2 context-claim -> true false false }T
+T{ ctx2 use-fails? ctx2 free-fails? lf-context @ ctx1 = -> true true true }T
+7 lf-owner !
+T{ ctx2 ' context-use rs-checked lf-context @ ctx2 = -> true }T
+T{ ctx1 use-fails? context-main use-fails? -> true true }T
+T{ new-fails? ctx1 free-fails? -> true true }T
+T{ lf-context @ ctx2 = -> true }T
+0 lf-owner !  ctx1 context-use
+T{ ctx2 context-release ctx2 context-idle? ctx2 context-free -> true 0 }T
 
 \ Freeing: the main context and non-contexts abort; freeing the current
 \ context returns the task to the main one.
