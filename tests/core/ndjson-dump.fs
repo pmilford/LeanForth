@@ -14,7 +14,7 @@ export: dumped
 : .flag ( flag -- ) 0<> 1 and .int ;
 : .hex-byte ( c -- ) base @ >r hex 0 <# # # #> type r> base ! ;
 : .hex ( addr u -- )
-  space dup 0= if 2drop ." -" exit then bounds ?do i c@ .hex-byte loop ;
+  space dup 0= if 2drop ." -" exit then over + swap ?do i c@ .hex-byte loop ;
 : .text ( text-addr -- ) 2@ .hex ;
 : .digits ( text-addr -- ) space 2@ type ;
 : .item ( list record i -- ) dup if ." ," then -rot list-item 0 .r ;
@@ -97,8 +97,7 @@ create dump-handlers
   ' on-proj , ' on-natval , ' on-strval , ' on-mdata , ' on-axiom , ' on-def , ' on-thm ,
   ' on-opaque , ' on-quot , ' on-inductive , ' on-type , ' on-ctor , ' on-recursor ,
 : dump-start ( -- outcome )
-  dumped export-free dumped export-init
-  kind-count 0 do dump-handlers i cells + @ i dumped export-handler ! loop ;
+  dumped export-init kind-count 0 do dump-handlers i cells + @ i dumped export-handler ! loop ;
 \ Print every record of the export named c-addr u, then "ok", or an error line.
 : dump-export ( c-addr u -- )
   dump-start drop dumped export-read dup ok?

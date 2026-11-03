@@ -60,6 +60,23 @@ A kind without a handler stops the reading as **unsupported**, so a
 consumer never skips records silently; `ndjson-count.fs` and
 `tests/core/ndjson-dump.fs` set a handler for every kind.
 
+A handler must keep this contract:
+
+- It takes its record and leaves exactly one outcome, nothing else. The
+  reader checks the stack depth: a handler that leaves no outcome or extra
+  items stops the reading as invalid ("handler left no outcome or extra
+  items"); one that takes more than its record throws -4 (stack
+  underflow), since its caller's data is gone.
+- It does not call `export-read` or `export-line` on the same export; the
+  reader refuses that as invalid ("export read again by its own handler").
+- It copies any text, digits or list it wants to keep: they point into the
+  current line and its JSON tape, valid only until the handler returns.
+- A `THROW` from a handler passes on to the caller of `export-read`, after
+  the reader has closed the file and marked the export idle. After a
+  `THROW` out of `export-line` itself, `export-restart` clears the mark.
+- Decoding never depends on `BASE`: numbers are read in decimal by hand, so
+  a handler may change `BASE` freely.
+
 ## Layers
 
 | File | Knows | Does |
@@ -82,6 +99,15 @@ elements of an inductive block count from 0), `record-line` and
 `record-export`. References are indices of earlier records. Lists are read
 with `list-count ( list record -- n )` and `list-item ( i list record -- u )`.
 Texts are an address and a length (`2@`), valid only inside the handler.
+
+Before each decode every field after the header is set to -1, so nothing
+survives from an earlier record. A record's own fields are always all
+written. The layouts of different kinds overlap, so a field the kind does
+not have reads -1 (as a flag: true) or one of the record's own fields: a
+handler reads only the fields of its record's kind. The readers check
+their arguments: `list-count` gives 0 for a field that holds no list,
+`list-item` gives -1 for an index outside the list, and `recursor-rule`
+gives 0 for a record that is not a recursor or an index outside its rules.
 
 | Kind | JSON | Fields |
 | --- | --- | --- |
@@ -115,11 +141,17 @@ passed.
 | ok | A complete, well-formed record, accepted by its handler |
 | invalid (malformed) | Bad framing (no final line feed, carriage return, byte-order mark, blank line); not JSON (syntax, bad escape, lone surrogate, invalid UTF-8, a control byte in a string); not a record of format 3.1.0: unknown kind, a field missing, unknown or repeated, a value of the wrong JSON type or outside its enumeration, an index that is not the next one, a reference that is not to an earlier record, an anonymous name where one is not allowed, a natural literal not in canonical decimal, a height beyond UInt32, metadata not first or repeated, an inductive block without types, no metadata or no declaration in the file |
 | unsupported | Metadata naming another exporter, format or Lean version than lean4export 3.1.0, format 3.1.0 and Lean 4.35.0 (`eb6cafb7…`); a record kind without a handler |
-| full (a limit) | A line longer than the limit (64 MiB), JSON nested deeper than 64, a natural number field (such as `bvar` or `idx`) that does not fit in a cell, no heap memory |
+| full (a limit) | A line longer than the limit (64 MiB), JSON nested deeper than 64, more than 65,536 JSON tokens on one line, a natural number field (such as `bvar` or `idx`) that does not fit in a cell, no heap memory |
+
+A handler's own outcome (rejected, for example) also stops the reading, as
+does a broken handler contract (invalid, see above).
 
 `export-error ( export -- line key-addr key-u why-addr why-u )` gives the
 line, the field being decoded and the reason; for a JSON error,
 `json-offset` of the export's JSON view gives the byte within the line.
+When a handler stops the reading, the field is empty and the reason is "no
+handler for this record kind" or "handler refused the record"; a file that
+cannot be opened gives "cannot open the file" at line 0.
 
 **Left to the consumer** (the checker or the staging step): distinct names
 in `levelParams`, `all` and `ctors`; a declaration's presence in its own
@@ -152,34 +184,70 @@ portability host.
 - **Unit tests** (in `make test`): `tests/lib/bytes.fs` (UTF-8 against an
   independent model over every first and second byte, encoding round
   trips, scanning, framing, the reader with tiny buffers, limits at and one
-  past their bound, positions), `tests/lib/json.fs` (valid texts and their
-  tokens, a malformed corpus of 69 texts that must all be invalid, escapes,
-  numbers, every limit at and past its bound, failure positions),
-  `tests/core/ndjson.fs` (every record kind field by field, and for each
-  kind the malformed, unsupported and limit cases, handler outcomes, the
-  five reference fixtures).
+  past their bound, positions, buffers freed by a second `reader-init`),
+  `tests/lib/json.fs` (valid texts and their tokens, a malformed corpus of
+  69 texts that must all be invalid, escapes, numbers in binary and
+  hexadecimal `BASE`, every limit at and past its bound, failure
+  positions, kind-checked readers), `tests/core/ndjson.fs` (every record
+  kind field by field, and for each kind the malformed, unsupported and
+  limit cases; nothing handed over from a bad block; decoding under other
+  `BASE`s; no field surviving from an earlier record; the token limit at
+  and one past its bound; checked list and rule readers; handler outcomes
+  and their reasons, a broken stack contract, re-entry, a `THROW` that
+  closes the file; the five reference fixtures).
 - **File tests** (`tests/core/test_ndjson_reader.py`, in `make test`):
   counts equal to `count.py` and field-by-field dumps equal to
-  `tests/support/ndjson_dump.py` (Python's `json` module) on every
-  reference fixture; thirteen broken files (no final line feed, CRLF,
-  byte-order mark, blank line, invalid UTF-8, swapped lines, an unsupported
-  exporter, ...) each failing at the expected line with no partial output;
-  a seeded mutation sweep (seed 20261102, 300 files in `make test`; 5,000
-  run once: 1,194 accepted, 3,806 rejected) checking that every accepted
-  file is JSON, decodes exactly as Python decodes it, and passes an
-  independent Python check of indices and references
-  (`ndjson_dump.py --check`).
+  `tests/support/ndjson_dump.py` (Python's `json` module) and to the strict
+  oracle on every reference fixture; thirteen broken files (no final line
+  feed, CRLF, byte-order mark, blank line, invalid UTF-8, swapped lines, an
+  unsupported exporter, ...) each failing at the expected line with no
+  partial output; a line of exactly 64 MiB read through `export-read`,
+  and one byte more full at its line; a seeded mutation sweep (seed
+  20261102, 300 files in `make test`, with ASCII and non-ASCII bytes and
+  multibyte sequences) checked against the strict oracle
+  `tests/support/ndjson_oracle.py`: same outcome, same failing line, and
+  the same records handed over before it, or the same whole dump. The
+  oracle is written from this document, not from the Forth code; unlike
+  Python's `json` module it refuses `NaN`, lone surrogates and duplicate
+  keys and reads integers of any length.
 - **Planted faults** were caught: swapping `app`'s `fn` and `arg` (by the
   fixture dumps), a wrong `\n` escape and a wrong UTF-8 class (by the unit
   tests), a reference check off by one (by the unit tests and by the
   mutation sweep), and an accepted malformed text (by the corpus test).
+  After the review's fixes, fourteen more were each caught, one at a time
+  on a copy of the tree: numbers read with `>NUMBER` in `digits>u` or in
+  heights (by the `BASE` tests), records or block elements not unset, no
+  token limit, list indices unchecked, the handler's stack depth
+  unchecked, re-entry allowed, the file left open after a `THROW`, the
+  line limit one byte short (by the 64 MiB test), a reference check off by
+  one, a lone low surrogate accepted, a line taken without its line feed
+  and `json-items-of` ignoring the kind; the tree without a fault passed.
+- **Independent AI review** (2026-11-02; not a substitute for the human
+  review that `AGENTS.md` requires for declaration import): its fuzzer
+  found no malformed input reaching a handler in 19,000 files, and it
+  reported eight issues, all fixed the same day: decoding depended on
+  `BASE`; a decoded record kept fields of earlier records; one long line
+  could take about 0.8 GB (there was no token limit); the list and rule
+  readers did not check their index; a handler's refusal and a file that
+  cannot be opened gave misleading reasons; a second `init` did not free
+  the first's buffers and a `THROW` from a handler left the file open; the
+  handler contract was not written down; and the gaps in the tests listed
+  above. After the fixes the reviewer's own fuzzer and oracle, run with
+  `python3 -I`, found 0 discrepancies in 12,000 files: 6,000 with `gforth`
+  (seed 20261103: 433 accepted, 5,567 rejected), 3,000 with `gforth-fast`
+  (seed 20261104: 207 and 2,793) and 3,000 with Gforth 0.7.3 (seed
+  20261105: 224 and 2,776). The repository's oracle agrees with the
+  reviewer's on all of 10,000 generated files.
 - **Differentials on real exports**: the counting reports equal `count.py`
   byte for byte on `Init`, `Std` and all of Mathlib (and the recorded
   `count.out` of [the Mathlib measurements](measurements/mathlib-2026-11-02/README.md));
   the field-by-field dumps of the Forth reader and of Python's `json`
   module are identical on `Init` (6,455,017 lines) and on all of Mathlib
   (110,919,898 lines: 110,895,826 records, 24,071 inductive elements and
-  the final line; SHA-256 `3cf988e8b53bc3c1…f831ddd674` for both).
+  the final line; SHA-256 `3cf988e8b53bc3c1…f831ddd674` for both). After
+  the review's fixes the `Init` dump is unchanged, field by field (SHA-256
+  `2ca3a7a21eed4785…f6c38e65` before and after, equal to Python's), and the
+  Mathlib count still equals `count.out` byte for byte.
 
 ## Measured speed and memory
 
@@ -197,7 +265,14 @@ was byte-identical to `count.py`'s.
 | `Std` | 562,170,995 B, 10,193,568 lines | 18.6 s, 10,356 KiB | **9.6 s**, 13,472 KiB | 31.3 s, 10,452 KiB |
 | all of Mathlib | 6,258,342,501 B, 110,895,826 lines | 3 min 32.5 s, 36.6 MB (recorded) | **1 min 42.9 s**, 16,588 KiB | 5 min 35.2 s, 13,524 KiB |
 
-So the Forth reader decodes about 61 MB/s with `gforth-fast`, twice
+The review's fixes (unset records, the handler checks, checked readers)
+cost about 4%: measured again later the same day, one after the other,
+all of Mathlib took 1 min 44.0 s (102.9 s user, 16,640 KiB) before them
+and 1 min 49.2 s (107.7 s user, 16,708 KiB) after, both reports equal to
+`count.out`; `Init`, three runs each, 5.95 s and 6.18 s of user time on
+average.
+
+So the Forth reader decodes about 60 MB/s with `gforth-fast`, twice
 Python's line-parsing rate, in constant memory (the resident size is
 Gforth's own image plus the line buffer). On `Init`, about two thirds of
 the time is JSON tokenizing and one third decoding and checking records;
@@ -244,3 +319,31 @@ lines (Mathlib's longest line is 2,713,224 bytes, line 64,253,241, a
 grow with the file. Natural numbers in names (`num`) and literals
 (`natVal`) are kept as digit text of any size, for the planned big-number
 module; counts and references must fit in a cell.
+
+The token limit bounds the tape. Mathlib's line with the most JSON tokens
+has 3,051 (line 17,297,817, an inductive block of 20,471 bytes; `Std`'s
+most is 1,658 and `Init`'s 533, measured 2026-11-02 with a handler that
+reads the JSON view's token count). The limit, `export-token-limit`, is
+65,536, 21 times that; a token takes three cells (24 bytes with 64-bit
+cells), so the tape never exceeds 1.5 MiB. The worst case for one line is
+therefore the 64 MiB line buffer (64 MiB and one byte, plus a moment of
+twice that while `RESIZE` copies it) and 1.5 MiB of tape: about 66 MiB.
+Before the limit, a valid 63 MB line of small values needed one 24-byte
+token per two bytes of text, about 0.8 GB ([measured below](#measured-memory-for-one-long-line)).
+`lib/json.fs` itself still sets no token limit (`json-init` allows as many
+tokens as memory holds); a caller that reads untrusted text sets
+`json-token-limit`, as `export-init` does.
+
+### Measured memory for one long line
+
+A valid export whose line 4 is a 63,000,043-byte `mdata` record with
+31.5 million small values (`{"k":[0,0,…]}`) as its data, counted with
+`gforth-fast` and `/usr/bin/time -v` (2026-11-02):
+
+| Reader | Outcome | Peak resident memory |
+| --- | --- | --- |
+| before the token limit | ok, counted | 812,416 KiB |
+| with the token limit | full: too many tokens (line 4, byte 131,085) | 75,468 KiB |
+
+The 75 MB are Gforth's image, the line buffer grown to hold the 63 MB
+line, and the 1.5 MiB tape.

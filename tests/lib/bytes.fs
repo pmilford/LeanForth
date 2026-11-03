@@ -171,6 +171,13 @@ T{ rd reader-position -> 173 0 2 }T
 T{ finish -> }T
 T{ 8 64 rd ' reader-init rs-checked -> outcome-ok }T
 T{ finish -> }T
+\ reader-init again frees the earlier buffer first.
+T{ 16 16 rd reader-init 32 16 rd reader-init rd reader-size @ -> outcome-ok outcome-ok 32 }T
+T{ finish rd reader-size @ -> 0 }T
+\ heap-claim and heap-release: freeing an empty cell is harmless.
+variable claimed
+T{ 16 heap-claim swap claimed ! -> true }T
+T{ claimed heap-release claimed @ claimed heap-release claimed @ -> 0 0 }T
 
 cases-done
 bye
