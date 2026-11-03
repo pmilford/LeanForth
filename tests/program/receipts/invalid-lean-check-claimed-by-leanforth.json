@@ -1,0 +1,123 @@
+{
+  "schema": "leanforth-program-receipt",
+  "schemaVersion": "0.1",
+  "provenance": {
+    "kind": "example",
+    "createdAt": "2026-11-02",
+    "note": "Written by hand to illustrate schema 0.1; not evidence. What it states held at the commit that added it: tests/reference/program-ir.lean proves clamp_correct and make test-program-differential passed 686 cases."
+  },
+  "program": {
+    "word": "lf-clamp",
+    "stackEffect": "( value lower upper -- result true | false )",
+    "source": {
+      "path": "src/program/clamp.fs",
+      "line": 12,
+      "sha256": "e4444161f4a3436b1a4509338e15fe2aeb47cab1f4327069e31b401bf1dc6a30"
+    },
+    "ir": {
+      "version": "0.1",
+      "sha256": "651875025cec88f7ae5b6669b227df28ebd3bbcbc29f11af08370024bf5cfb50"
+    },
+    "floatingPoint": false
+  },
+  "contract": {
+    "id": "lf-clamp/0",
+    "statement": "For integers v, l, u: if l ≤ u the word returns min(max(v, l), u) and true; if l > u it consumes its three inputs and returns false. Cells below are kept.",
+    "lean": "ProgramIR.clamp_correct",
+    "file": {
+      "path": "tests/reference/program-ir.lean",
+      "sha256": "c2cd91dec1b7f9fb6c45abaec64225d64f9c62ef7bed8317565de9f6359fca97"
+    }
+  },
+  "check": {
+    "status": "checked-by-lean-reference",
+    "checker": {
+      "name": "leanforth",
+      "version": "0.0.0-dev"
+    },
+    "theorems": [
+      "ProgramIR.clamp_correct",
+      "ProgramIR.clamp_matches_stack_model"
+    ],
+    "label": "checked by the Lean reference, not by LeanForth",
+    "axioms": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ],
+    "evidence": [
+      {
+        "path": "tests/reference/program-ir.lean",
+        "sha256": "c2cd91dec1b7f9fb6c45abaec64225d64f9c62ef7bed8317565de9f6359fca97"
+      }
+    ],
+    "note": "The theorems are about the IR's semantics, not about Gforth running the source."
+  },
+  "verify": {
+    "status": "not-generated",
+    "obligations": [],
+    "note": "Verification conditions are generated from 2.5.5 on."
+  },
+  "run": {
+    "status": "passed",
+    "host": {
+      "forth": "gforth",
+      "version": "1.0.0",
+      "os": "linux",
+      "arch": "x86-64",
+      "cellBits": 64
+    },
+    "cases": 686,
+    "failures": 0,
+    "label": "runtime-tested; testing is not proof",
+    "evidence": [
+      {
+        "path": "tests/program/differential.sh",
+        "sha256": "1019ee9ea260254b5555696c3c7557cad97ceba65dee0e1acec12f69ec640a1c"
+      }
+    ]
+  },
+  "assumptions": [
+    {
+      "id": "A1",
+      "kind": "host-cells",
+      "text": "Every value is one signed host cell; the Lean theorems hold for every cell width of at least two bits, the runtime tests ran on 64-bit cells."
+    },
+    {
+      "id": "A2",
+      "kind": "twos-complement",
+      "text": "Cells use two's complement, so arithmetic wraps as the IR semantics says; the clamp itself does no arithmetic."
+    },
+    {
+      "id": "A3",
+      "kind": "trusted-reader",
+      "text": "The reader translated the colon definition into the IR faithfully; nothing checks the translation itself."
+    },
+    {
+      "id": "A4",
+      "kind": "trusted-runtime",
+      "text": "Gforth and its compiler execute 2DUP, >, IF, 2DROP, DROP, >R, MAX, R>, MIN, TRUE, FALSE and EXIT as the IR semantics says."
+    },
+    {
+      "id": "A5",
+      "kind": "stack-capacity",
+      "text": "The data and return stacks have room for the word's items; underflow and overflow are not proved absent on the host."
+    },
+    {
+      "id": "A6",
+      "kind": "trusted-lean",
+      "text": "Lean 4.35.0 (the pinned toolchain) checked the theorems correctly."
+    }
+  ],
+  "tools": [
+    {
+      "name": "lean",
+      "version": "4.35.0",
+      "commit": "eb6cafb7290e8bd5f2937522d8d804f58f02bafc"
+    },
+    {
+      "name": "gforth",
+      "version": "1.0.0"
+    }
+  ]
+}

@@ -270,3 +270,20 @@ test-program-differential:
 
 test-program-stack-differential:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/program/stack-differential.sh
+
+# Program track, phase 2 (docs/programming/PROGRAM_IR.md and PROGRAM_RECEIPTS.md):
+# the receipt schema and its examples, the IR reader, and the copies of the
+# reference models in the IR's Lean model. Gforth and Python 3 only.
+test-program-ir:
+	$(RUN) python3 tests/program/test_receipts.py
+	$(RUN) python3 tests/program/check_program_ir.py
+	$(RUN) $(GFORTH) tests/program/ir-reader.fs
+
+# The IR's Lean model: its proofs, their axioms, and its IR text against the
+# reader's golden output for src/program/clamp.fs and examples.fs.
+reference-program-ir:
+	LEAN=$(LEAN) $(RUN) python3 tests/program/check_program_ir.py --lean
+
+.PHONY: test-program-ir reference-program-ir
+test: test-program-ir
+test-differential: reference-program-ir
