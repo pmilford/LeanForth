@@ -14,21 +14,23 @@
 \ Preconditions: those of level-make (validated graphs, parameter IDs
 \ that are interned names).
 \ State: one record, lf-lnorm-state: the first failure of the call, the
-\ fuel left, the argument stack of the max case (its top and cells), a
-\ mark of the level store before the call, and per level of the input the
-\ normal form found. A member of the checker context (lib/context.fs).
+\ fuel left, the level frames nested now, the argument stack of the max
+\ case (its top and cells), a mark of the level store before the call,
+\ and per level of the input the normal form found. A member of the
+\ checker context (lib/context.fs).
 \ The normal forms are new nodes of the level store, given back when the
 \ call ends; the facts
 \ of level-make are truncated with them. Single-threaded within one
 \ context.
 \ Stack use: normalize, push_max_args and is_norm_lt recurse on the host
-\ stacks once per level of a graph, the name order once per component of
-\ a name: measured, at most 7 return and 3 data cells per level node and
-\ 1 and 2 per name component, so a call needs lf-lnorm-return-cells and
-\ lf-lnorm-data-cells (see the need stated at the end) for graphs and
-\ names lf-level-depth-limit and lf-name-default deep. A deeper one, which
-\ only a larger capacity setting allows, overflows the host stack: a
-\ THROW, never a result.
+\ stacks, one level frame per level they enter: measured, at most 7
+\ return and 3 data cells per frame. Every frame is counted while it
+\ runs, and a call that would nest more than lf-level-depth-limit of them
+\ (only a graph or a normal form deeper than the scope check's walks,
+\ which a larger level capacity allows) is full instead, so a call needs
+\ lf-lnorm-return-cells and lf-lnorm-data-cells (see the need stated at
+\ the end) whatever the level store holds. The name order walks names
+\ iteratively, in constant stack space, whatever their depth.
 
 require ../lib/lib.fs
 require ../core/diagnostics.fs
@@ -42,6 +44,7 @@ require ./level-make.fs
 begin-structure /lf-lnrec
   field: lf-lnrec-status                            \ the first failure; ok while none
   field: lf-lnrec-fuel                              \ fuel left
+  field: lf-lnrec-nest                              \ level frames nested now
   field: lf-lnrec-top                               \ argument cells in use
   /store-mark +field lf-lnrec-mark                  \ the level store before the call
   lf-lnorm-capacity cells +field lf-lnrec-args
@@ -73,6 +76,16 @@ end-structure
   outcome-exhausted lf-lnorm-fail ;
 : lf-lnorm-spend ( -- )
   lf-lnorm-fuel @ 0> if -1 lf-lnorm-fuel +! else lf-lnorm-dry then ;
+\ Entering a level frame (normalize, push_max_args or is_norm_lt): true
+\ and counted below lf-level-depth-limit frames; else full, recorded as
+\ the depth limit, and false. Every frame entered is left.
+: lf-lnorm-nest ( -- addr ) lf-lnorm-state lf-lnrec-nest ;
+: lf-lnorm-deep ( -- )
+  lf-lnorm-ok? if lf-lnorm-nest @ lf-level-depth-limit lf-lnorm-site lf-diag-depth-limit
+    lf-diag-note then outcome-full lf-lnorm-fail ;
+: lf-lnorm-enter ( -- flag )
+  lf-lnorm-nest @ lf-level-depth-limit < dup if 1 lf-lnorm-nest +! else lf-lnorm-deep then ;
+: lf-lnorm-leave ( -- ) -1 lf-lnorm-nest +! ;
 \ New nodes: a full store or spent serial (recorded by lf-level-add) is full.
 : lf-lnorm-made ( level true | false -- level )
   if exit then outcome-full lf-lnorm-fail 0 ;
@@ -85,7 +98,7 @@ end-structure
 
 \ ---------------------------------------------------------------------------
 \ Lean's name order: -1, 0 or 1. Unchecked: both names passed
-\ lf-lnorm-name-ok?, so every prefix is an earlier valid entry.
+\ lf-lnorm-name-ok?, so every prefix chain ends at the anonymous name.
 : lf-lnorm-sign ( n -- -1|0|1 ) dup 0> 1 and swap 0< or ;
 : lf-lnorm-depth ( id -- n )
   0 swap begin dup while lf-name-prefix@ swap 1+ swap repeat drop ;
@@ -97,10 +110,13 @@ end-structure
   2dup lf-name-tags= 0= if drop lf-lnorm-str? 1 and 2* 1- exit then
   over lf-lnorm-str? if lf-name-text rot lf-name-text 2swap compare exit then
   lf-name-payload swap lf-name-payload swap - lf-lnorm-sign ;
-\ Two names of the same depth: their prefixes first, then the last parts.
+\ Two names of the same depth: their prefixes first, then the last parts,
+\ that is the first differing component from the root. Walked from the
+\ last components up to the first equal prefix, keeping the order of the
+\ highest pair that differs.
+: lf-lnorm-kept ( n a b -- n' a b ) 2dup lf-lnorm-limb ?dup if >r rot drop r> -rot then ;
 : lf-lnorm-level-cmp ( a b -- n )
-  2dup = if 2drop 0 exit then
-  2dup lf-name-prefixes recurse ?dup if nip nip exit then lf-lnorm-limb ;
+  0 -rot begin 2dup <> while lf-lnorm-kept lf-name-prefixes repeat 2drop ;
 \ Any two names (216-219): the shorter name's depth decides first, then a
 \ prefix comes before its extensions.
 : lf-lnorm-depths ( a b -- da db ) lf-lnorm-depth swap lf-lnorm-depth swap ;
@@ -137,10 +153,12 @@ defer lf-lnorm-less ( a b -- flag )
 : lf-lnorm-bases< ( ba bb -- flag )
   2dup lf-lmk-tags 2dup <> if < nip nip exit then 2drop
   dup lf-level-tag@ lf-level-tag-param = if lf-lnorm-names< else lf-lnorm-sides< then ;
+: lf-lnorm-bases-in< ( ba bb -- flag )
+  lf-lnorm-enter if lf-lnorm-bases< lf-lnorm-leave else 2drop false then ;
 : lf-lnorm-lt ( a b -- flag )
   2dup = if 2drop false exit then
   lf-lmk-offset rot lf-lmk-offset rot 2>r swap
-  2dup lf-lmk-same? if 2drop 2r> < else 2r> 2drop lf-lnorm-bases< then ;
+  2dup lf-lmk-same? if 2drop 2r> < else 2r> 2drop lf-lnorm-bases-in< then ;
 ' lf-lnorm-lt is lf-lnorm-less
 
 \ ---------------------------------------------------------------------------
@@ -152,10 +170,14 @@ defer lf-lnorm-less ( a b -- flag )
   lf-lnorm-top @ dup lf-lnorm-capacity <
   if lf-lnorm-arg ! 1 lf-lnorm-top +! else drop lf-lnorm-crowded then ;
 \ push_max_args: the arguments of nested maxes, left to right.
-: lf-lnorm-push-args ( level -- )
+defer lf-lnorm-push-args ( level -- )
+: lf-lnorm-push-both ( max -- )
+  lf-lnorm-enter if dup lf-level-first@ lf-lnorm-push-args lf-level-second@
+    lf-lnorm-push-args lf-lnorm-leave else drop then ;
+: lf-lnorm-push-max ( level -- )
   lf-lnorm-ok? 0= if drop exit then lf-lnorm-spend
-  dup lf-lmk-max? if dup lf-level-first@ recurse lf-level-second@ recurse
-  else lf-lnorm-push then ;
+  dup lf-lmk-max? if lf-lnorm-push-both else lf-lnorm-push then ;
+' lf-lnorm-push-max is lf-lnorm-push-args
 
 \ Sorting arguments from..to-1 in place by is_norm_lt (insertion sort;
 \ only structurally equal arguments tie, so the order is std::sort's).
@@ -229,10 +251,14 @@ defer lf-lnorm-walk ( level -- level' )
     lf-level-tag-imax of rot drop lf-lnorm-imax-case endof
     lf-level-tag-max of rot drop lf-lnorm-max-case endof
     >r 2drop r> endcase ;
+\ The frame is counted here, not in a word around lf-lnorm-compute, so
+\ that it costs no return cell of its own.
+: lf-lnorm-remember ( level level' -- level' ) tuck 1+ swap lf-lnorm-memo ! ;
 : lf-lnorm-visit ( level -- level' )
   lf-lnorm-ok? 0= if drop 0 exit then
   dup lf-lnorm-memo @ ?dup if nip 1- exit then
-  lf-lnorm-spend dup lf-lnorm-compute tuck 1+ swap lf-lnorm-memo ! ;
+  lf-lnorm-spend lf-lnorm-enter 0= if drop 0 exit then
+  dup lf-lnorm-compute lf-lnorm-remember lf-lnorm-leave ;
 ' lf-lnorm-visit is lf-lnorm-walk
 
 \ ---------------------------------------------------------------------------
@@ -244,7 +270,8 @@ defer lf-lnorm-walk ( level -- level' )
 \ invalid), the facts of level-make cut back with it.
 : lf-lnorm-store-mark ( -- addr ) lf-lnorm-state lf-lnrec-mark ;
 : lf-lnorm-begin ( fuel -- outcome )
-  lf-lnorm-fuel ! outcome-ok lf-lnorm-status ! 0 lf-lnorm-top ! lf-lnorm-clear
+  lf-lnorm-fuel ! outcome-ok lf-lnorm-status ! 0 lf-lnorm-top ! 0 lf-lnorm-nest !
+  lf-lnorm-clear
   lf-lmk-forget lf-lnorm-store-mark lf-levels store-mark ;
 : lf-lnorm-end ( -- )
   lf-lnorm-store-mark lf-levels store-rollback lf-lnorm-fail
@@ -258,8 +285,9 @@ defer lf-lnorm-walk ( level -- level' )
 \ unknown) when two different parameters must be ordered and one's ID is
 \ not a valid name of the name store (never in a declaration's check,
 \ whose parameters are names); (false exhausted) when the fuel runs out;
-\ (false full) when the
-\ level store or the argument stack is full; (false invalid) for negative
+\ (false full) when the level store or the argument stack is full, or
+\ more than lf-level-depth-limit level frames would nest (recorded as the
+\ depth limit); (false invalid) for negative
 \ fuel, an invalid level or a refused rollback. lf-lnorm-fuel is the fuel
 \ left (0 after invalid input). Nothing stays allocated.
 : lf-lnorm-refused ( l1 l2 -- false outcome )
@@ -282,13 +310,12 @@ defer lf-lnorm-walk ( level -- level' )
 \ 275 and 89). push_max_args holds 1 return cell per level (a 60-level
 \ max chain: 64 and 52); is_norm_lt 3 return and no data cells per level
 \ of two normal forms, which differ, so are two nodes, at every level (30
-\ levels: 89 and 0); the name order 1 and 2 per component (two names of
-\ 31 components: 45 and 58). The level frames on one path are at
-\ different nodes of the level store -- children are earlier nodes, and
-\ the normal forms that push_max_args and is_norm_lt walk lie below the
-\ visited node or are new -- so a call nests at most lf-level-depth-limit
-\ of them (at the default capacity, every node), at 7 return and 3 data
-\ cells each, and at most lf-name-default name frames, at 1 and 2. The
+\ levels: 89 and 0). The name order is iterative: names of 15 and 31
+\ components take the same cells. A call nests at most
+\ lf-level-depth-limit level frames, each counted while it runs (at the
+\ default capacity no graph reaches the limit: the frames on one path are
+\ at different nodes of the store, with one more while push_max_args
+\ takes a max's arguments), at 7 return and 3 data cells each. The
 \ slack covers the entry words of
 \ level-compare, conversion and rule D1, the steps at the deepest frame
 \ and a shallow caller. mixed-infer.fs takes the larger of this need and
@@ -297,8 +324,8 @@ defer lf-lnorm-walk ( level -- level' )
 \ context-need.
 7 constant lf-lnorm-rs-level    \ return-stack cells per level node
 3 constant lf-lnorm-ds-level    \ data-stack cells per level node
-1 constant lf-lnorm-rs-name     \ return-stack cells per name component
-2 constant lf-lnorm-ds-name     \ data-stack cells per name component
+0 constant lf-lnorm-rs-name     \ return-stack cells per name component
+0 constant lf-lnorm-ds-name     \ data-stack cells per name component
 64 constant lf-lnorm-stack-slack
 : lf-lnorm-need ( level-cells name-cells -- cells )
   lf-name-default * swap lf-level-depth-limit * + lf-lnorm-stack-slack + ;

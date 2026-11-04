@@ -948,6 +948,14 @@ reason = "normalize's stated return-stack need per level node falls below the 6.
 
 # --- NDJSON reader (src/import/ndjson.fs) ----------------------------------
 
+
+[[fault]]
+id = "lnorm-frames-uncounted"
+file = "src/kernel/level-normalize.fs"
+old = '''  lf-lnorm-nest @ lf-level-depth-limit < dup if 1 lf-lnorm-nest +! else lf-lnorm-deep then ;'''
+new = '''  true 1 lf-lnorm-nest +! ;'''
+test = "$GFORTH tests/core/level-deep.fs"
+reason = "the review's M1: normalize's level frames are not limited, so a deep graph at a raised level capacity overflows the host stack"
 [[fault]]
 id = "ndjson-self-reference"
 file = "src/import/ndjson.fs"
