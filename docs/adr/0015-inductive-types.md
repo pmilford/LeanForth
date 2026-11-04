@@ -737,6 +737,106 @@ never silently skipped. *Reason:* owner decision 4; *unsupported* keeps
 - Phase 4's ADR 0014 must leave room for the routes of §5 in Lean's order
   of `is_def_eq_core` (1132–1207) and `whnf_core` (468–551).
 
+## Implementation (plan task 5.2.1a)
+
+Written 2026-11-03/04 by agent I21; experimental [kernel] and [import]
+code, **not through its gate** (Lean's rules, the differential evidence
+below, an independent AI review and the owner's approval are still
+needed). Developer notes, with the steps, their outcomes and the limits:
+[INDUCTIVE_BLOCKS.md](../programming/INDUCTIVE_BLOCKS.md).
+
+**What.** `src/kernel/check-block.fs` runs §3's steps 1–11 for a block
+of one non-recursive type in Lean's order (rules V1, T0–T5, C1–C4, U1,
+E0–E4, K1, G1, G2), compares with the file (B3), records B4's ignored
+fields as warnings and hands the block to the publisher (B5), which
+makes every member's slot final together (`env-publish.fs`: the
+candidate's span). `inductive-block.fs` holds B0, the audit and the
+checks that need no typing (T0, C1, T1); `inductive-recursor.fs` builds
+the recursor and its rules with bound variables, as `mk_rec_infos`,
+`declare_recursors` and `mk_rec_rules` build them with free ones;
+`level-geq.fs` ports `is_geq` (U1). The feed carries each block's header
+and its members' exported data into the input (`core/input.fs`,
+`lf-input-more`).
+
+**Decisions**, none of which adds or widens a rule beyond Lean's:
+
+1. *Scope.* A block is in scope when it has one type and each
+   constructor mentions the type only as the head of its result: Lean's
+   `is_rec` is false and no index holds the type. Indices are allowed,
+   so non-recursive indexed families such as `Eq` are decided (the row
+   `ind.eq`, of task 5.2.1c, gives Lean's verdict); `k` is computed (step
+   10), and K-like reduction (R2) is not part of the task. Anything else
+   is *unsupported* (diagnostic 63), found by the audit before any
+   typing, as ADR 0011's U1.
+2. *Constructors of one name* are not a B0 failure but reach C4: Lean's
+   replay looks both up by name and its kernel throws
+   `duplicateConstructor` (row `names.duplicate-constructor`). Every other
+   repeated name in a block is B0 (*invalid*).
+3. *Unfolding* (phase 4): where Lean's `whnf` or `is_def_eq` might unfold
+   a definition -- a telescope headed by a constant, a field type such as
+   `outParam (Type w)` (`HAdd`), a parameter domain `id Type` -- the block
+   is *unknown* (K1), never rejected.
+4. *Lean's local types.* Each parameter, index and field is given its
+   binder's type with outer `outParam`, `semiOutParam`, `optParam` and
+   `autoParam` removed, as Lean's `mk_local_decl_for` does
+   (`consume_type_annotations`), in the recursor and in the contexts that
+   type the constructors' fields.
+5. *The block's own type* is visible to inference while its constructors
+   are checked, through a hook in `env-signature.fs` (`lf-envsig-local`),
+   with L1 and L2 as for any constant and no dependency.
+6. *P4, a new precondition of rules D3 and D5* (ADR 0011). Once a
+   structure like `PUnit` can be accepted, Lean's `is_def_eq_unit_like`
+   equates any two terms of its type, also after `is_def_eq_app` failed;
+   D3 and D5 now call two variable-headed terms apart only when the left
+   one's type, inferred aside, is visibly headed by no constant. Without
+   it, a theorem Lean accepts would be rejected (row
+   `unit.punit-variables`, added). It only turns *rejected* into
+   *unknown*.
+7. *G4* (`check_recursors`) is not run: it checks Lean's own generation,
+   which B3 compares with directly; for a non-recursive block each rule's
+   reduct is the minor premise applied to the fields, whose type is the
+   recursor's result type by construction.
+8. *B4* differences set a warning bit per block (`lf-block-warnings`,
+   owner answer Q2); no output prints it yet, since the command line's
+   reader still refuses inductive types.
+9. *A recursor missing from the block* (B4) is accepted, but no slot
+   holds it, so a later declaration naming it is rejected as an unknown
+   constant where Lean's replay would use its kernel's recursor; only a
+   tampered file can do this. *An empty block* has no declaration to
+   check: the reader refuses it (*invalid*). *A file naming a constant it
+   never declares* is refused by the importer (*invalid*) before any check.
+
+**Evidence** (2026-11-04, Gforth 1.0.0, Lean 4.35.0):
+
+- The table grew from 100 to 120 rows, every verdict Lean's (checked by
+  `inductive-expected.lean`, which also prints every case as the export of
+  what Lean checked): twins of four task 5.2.1a rows that use `Nat` or
+  unfolding (T2, C3 and C2 without `Nat`, a block declared twice for N2, a
+  β-redex parameter for C2), Lean's replay of the non-recursive `Bool`
+  block unchanged and with twelve mutations (B3, B4), and the two
+  unit-like rows of P4.
+- `make test-inductive-table` runs LeanForth on all 120 files. Of task
+  5.2.1a's 44 rows, 36 give Lean's verdict (17 accepted, 19 rejected, each
+  with its rule's diagnostic); two (`ind.universe-max`, `ind.sort-max`)
+  are left *unknown* by a known defect outside this task (level
+  normalization under the feed's name view; fix on agent KC's branch);
+  six are pending, each with its reason: four use or redeclare `Nat`
+  (task 5.2.1b; K5), `params.constructor-binder-defeq` needs unfolding,
+  and `names.empty-block` is refused by the reader. Of the 76 later rows,
+  64 are *unsupported*, 7 *unknown*, 3 give Lean's verdict (`ind.eq`,
+  `params.index-one-universe-up`, `params.index-instead-of-parameter`),
+  and 2 whose files name an undeclared constant are *invalid*; none is
+  accepted or rejected against Lean.
+- `make test-check-block` (41 committed table files; blocks published
+  together; the reference export tampered field by field; fuel bisection;
+  a full store), eighteen planted faults (`ind-*`) all caught, and the
+  real exports: in `blocks.ndjson` `Both`, `Same` and `Either` are
+  accepted; in `nat-add-zero.ndjson` `Eq`, `Add` and `PUnit` (and so
+  `rfl` and `Unit`), with `HAdd` unknown (unfolding `outParam`) and `PProd`
+  unknown (the known defect); in `axioms.ndjson` `Iff`, `Eq` and
+  `Nonempty`.
+- Lean's `Init` checked whole: INIT-RESULTS.
+
 ## Reproduction
 
 ```sh
