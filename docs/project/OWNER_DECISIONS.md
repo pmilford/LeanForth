@@ -387,8 +387,12 @@ produces can be verified.
   and then the checked environment.
 - **Speed goal.** One-thread performance as close to Lean's kernel as
   possible, or better; parallel checking then exceeds it.
-- **Machine use.** At most about 10 busy processes at a time, so the rest
-  of the computer stays fast; full parallelism only for specific tests.
+- **Machine use.** At most about 10 processes or workers for
+  compute-heavy parallel LeanForth runs (for example checking a big
+  theorem in parallel), so the rest of the computer stays fast; full
+  parallelism only for specific tests. Corrected by the owner the same day:
+  this does not limit how many development agents run, as long as they do
+  not take too much CPU ("continue with more agents in parallel").
 - **Later: investigate offloading part of the work to a GPU.** Under the
   design rules in `AGENTS.md` a GPU never belongs to the trusted kernel and
   a CPU path is always kept; candidates are untrusted bulk work such as
