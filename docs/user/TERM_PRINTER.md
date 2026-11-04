@@ -185,7 +185,7 @@ Outcomes are the shared ones of `src/lib/outcome.fs`.
 | `lf-print-inline`, `lf-print-display` | `( term fuel -- outcome )` | LaTeX between `$` or `$$` |
 | `lf-print-scoped` | `( term addr count fuel -- outcome )` | print an open term in the scope of `count` λ or Π nodes at `addr`, outermost first, named as one `fun`'s binders (no repeats, no capture); for the proof outline |
 | `lf-print-scope-name` | `( addr count fuel -- outcome )` | print the display name of the innermost of those binders |
-| `lf-print-limit!` | `( n -- flag )` | most nested visits per print (default 128); false for n < 1 or during a print |
+| `lf-print-limit!` | `( n -- flag )` | at most n nested visits per print (default: no limit, the heap bounds a print); false for n < 1 or during a print |
 | `lf-print-fuel` | `( -- addr )` | fuel left after the last print |
 | `lf-print-reset` | `( -- )` | recover after a THROW out of a print: the printer is idle again, in the mode `lf-print-setup` set |
 
@@ -194,9 +194,11 @@ index, a bad level index, a stale constant reference, an unknown tag, a
 variable outside the term's binders, a universe parameter that is not a
 name, a corrupted name store, negative fuel — or a sink that tries to
 print while a print is in progress, or that called `lf-print-reset` during
-the print. *exhausted*: out of fuel. *full*: out of nested visits, or out
-of room for binder names (4,096 bytes, shared with the spelling of a
-LaTeX name). After a failure the sink has received part of the text.
+the print. *exhausted*: out of fuel. *full*: the heap has no room for the
+print's work stack, its binders in scope or their names (the name pool,
+which also holds the spelling of a LaTeX name; all three grow as a print
+needs them), or out of nested visits when the caller set a limit with
+`lf-print-limit!`. After a failure the sink has received part of the text.
 Numbers print in decimal whatever `BASE` is, and `BASE` is kept.
 
 **Sink rules.** The sink receives the text piece by piece:
@@ -207,8 +209,9 @@ Numbers print in decimal whatever `BASE` is, and `BASE` is kept.
 - It calls no `lf-print-*` or `lf-pres-*` word and changes no store
   (terms, levels, names, constant references). The printer refuses
   another print while one is in progress (invalid) and `lf-print-limit!`
-  answers false; a print during which the sink called `lf-print-reset` ends
-  invalid. `lf-print-inline` and `lf-print-display` write their `$`
+  answers false; a print during which the sink called `lf-print-reset` goes
+  on to its end and ends invalid, and the printer is then reset.
+  `lf-print-inline` and `lf-print-display` write their `$`
   delimiters while no print is in progress, so a print the sink starts
   then is not refused; it runs before or after the term's own print and
   does not disturb it. A changed store is not detected: the text is then
@@ -219,8 +222,9 @@ Numbers print in decimal whatever `BASE` is, and `BASE` is kept.
   set.
 
 As defence in depth, every count the printer reads from its own state is
-clamped into range, so a sink that breaks these rules cannot make a print
-loop without end or address memory outside the printer's record; the
+clamped into range, and a reset from the sink leaves the print's own work
+stack whole, so a sink that breaks these rules cannot make a print loop
+without end or address memory outside the printer's; the
 sweep below resets the printer from the sink at every sink call of every
 case to check this.
 
@@ -268,11 +272,25 @@ entry per term (64 today) and 32 declarations.
 - **Not yet:** notation such as `a + b` or `a = b` (plan 4.4.3), `let`,
   literals, projections, line breaking (Lean breaks lines at 120 columns),
   and Lean's `«»` quoting of unusual names.
-- **Cost.** Fuel counts visited nodes; printing a chain of n binders costs
-  on the order of n² fuel, because each Π re-examines the rest of the chain
-  as Lean does. At the deepest nesting tried (62 nested arrows, and the
-  128-visit limit on a level tower) a print used at most 635 return-stack
-  and 61 data-stack cells on Gforth 0.7.3 and 1.0.
+- **Cost and depth.** Fuel counts visited nodes; printing a chain of n
+  binders costs on the order of n² fuel, because each Π re-examines the
+  rest of the chain as Lean does. No depth is tied to the host's stacks
+  or to a constant (plan task 6.2.0): every node is a visit on the print's
+  own work stack, which grows on the heap, as do the binders in scope and
+  their names. `tests/present/print-deep.fs` paints the host stacks
+  (`tests/support/stack-paint.fs`) of the terms of
+  `tests/reference/depth-terms.lean`, the lambda chain
+  `fun P h.1 … h.n ↦ h.1` and the application chain
+  `fun P h ↦ (fun x ↦ x) ((fun x ↦ x) (… h))`, of the application chain in
+  the Forth mode, and of a level alternating `max` and `imax`: each uses
+  the same cells at depths 31, 2,000 and 10,000 (18, 14, 9 and 13
+  return-stack cells below the caller's), as does the statement
+  `∀ (P : Prop), P → … → P` at 31 and 2,000 (16). On the development
+  machine (Gforth 1.0) the 10,000-deep lambda chain prints in about 1.5 s
+  (a new name is compared with every name in scope, as Lean's
+  `getUnusedName` does: n² comparisons), the application chain in about
+  70 ms; the 2,000-deep statement takes about 1.4 s and 8 million units of
+  fuel.
 
 ## Evidence
 
@@ -284,7 +302,9 @@ entry per term (64 today) and 32 declarations.
   (fuel) or full (visit limit) or ok; then 1,891 prints whose sink calls
   `lf-print-reset` at each of its calls in turn, each invalid and leaving
   the printer idle; every print with both stacks balanced),
-  `check_golden.py` (the text of all cases and of the five pinned
+  `print-deep.fs` (the deep prints above, with their sizes and ends, and a
+  print that the heap refuses room is full), `check_golden.py` (the text
+  of all cases and of the five pinned
   fixtures, `print-cases.golden` and `fixtures.golden`) and the examples
   on this page. Also on Gforth 0.7.3.
 - `make check` adds `test-printer-differential`: the 50 cases are built as

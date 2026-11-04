@@ -55,8 +55,8 @@ begin-structure /lf-lv
   field: lf-lv-bad           \ formulas that failed to print
   field: lf-lv-lost          \ rollbacks that failed
   field: lf-lv-depth         \ binders in the scope
-  lf-log-term-capacity cells +field lf-lv-made       \ copy k's rebuilt term + 1, -1 marked, or 0
-  lf-log-level-capacity cells +field lf-lv-lmade     \ copy k's rebuilt level + 1, -1 marked, or 0
+  lf-log-term-capacity cells +field lf-lv-made      \ copy k's rebuilt term + 1, -1, or 0
+  lf-log-level-capacity cells +field lf-lv-lmade    \ copy k's rebuilt level + 1, -1, or 0
   lf-log-term-capacity cells +field lf-lv-namer      \ input binder naming copy k, + 1
   lf-lv-buffer-size +field lf-lv-buffer
 end-structure
@@ -189,7 +189,8 @@ lf-depth-limit context-walk2: lf-lv-pairs
 : lf-lv-push-part ( a out part walk -- outcome )
   >r lf-lv-both if r> walk-pair-outcome else r> drop outcome-ok then ;
 : lf-lv-pair-parts ( a out walk -- outcome )
-  >r 2dup 2 r@ lf-lv-push-part dup ok? if drop 1 r> lf-lv-push-part else nip nip r> drop then ;
+  >r 2dup 2 r@ lf-lv-push-part dup ok?
+  if drop 1 r> lf-lv-push-part else nip nip r> drop then ;
 : lf-lv-pair-visit ( walk -- outcome )
   dup walk-node @ over walk-context @ 2dup lf-lv-pair-name
   dup lf-log-copy? 0= if 2drop drop outcome-ok exit then
@@ -270,7 +271,8 @@ lf-depth-limit context-walk: lf-lv-level-work
   lf-level-add 0= if drop false exit then dup 1+ rot lf-lv-lmade@ ! true ;
 : lf-lv-lready ( k -- flag )
   dup lf-lv-lmade@ @ -1 = if lf-lv-lbuild dup if nip then else drop true then ;
-: lf-lv-lbuilt? ( k -- flag ) 1+ 0 ?do i lf-lv-lready 0= if false unloop exit then loop true ;
+: lf-lv-lbuilt? ( k -- flag )
+  1+ 0 ?do i lf-lv-lready 0= if false unloop exit then loop true ;
 : lf-lv-lunmark ( k -- ) 1+ 0 ?do i lf-lv-lmade@ lf-lv-unmarked loop ;
 : lf-lv-lnew ( k -- level true | false )
   dup lf-lv-lmarked ok? if dup lf-lv-lbuilt? if lf-lv-lmade@ lf-lv-made? exit then then
@@ -335,7 +337,8 @@ lf-depth-limit context-walk: lf-lv-term-work
   over lf-lv-named dup 1+ rot lf-lv-made@ ! true ;
 : lf-lv-tready ( k -- flag )
   dup lf-lv-made@ @ -1 = if lf-lv-tbuild dup if nip then else drop true then ;
-: lf-lv-tbuilt? ( k -- flag ) 1+ 0 ?do i lf-lv-tready 0= if false unloop exit then loop true ;
+: lf-lv-tbuilt? ( k -- flag )
+  1+ 0 ?do i lf-lv-tready 0= if false unloop exit then loop true ;
 : lf-lv-tunmark ( k -- ) 1+ 0 ?do i lf-lv-made@ lf-lv-unmarked loop ;
 : lf-lv-tnew ( k -- term true | false )
   dup lf-lv-tmarked ok? if dup lf-lv-tbuilt? if lf-lv-made@ lf-lv-made? exit then then

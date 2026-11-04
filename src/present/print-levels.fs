@@ -98,7 +98,8 @@ defer lf-pp-level-step ( view arg? frames -- ... frames next )
   r@ frame-save true r> ['] lf-pp-offset-back lf-pp-level-call ;
 : lf-pp-level-succ ( view arg? frames -- ... frames next )
   >r swap lf-pp-succs dup ok? 0= if nip nip nip r> 0 exit then drop
-  over lf-pp-zero-view? if nip nip lf-pp-number outcome-ok r> 0 else r> lf-pp-offset then ;
+  over lf-pp-zero-view?
+  if nip nip lf-pp-number outcome-ok r> 0 else r> lf-pp-offset then ;
 
 \ max a b c and imax a b c: operands in argument position, a right operand
 \ of the same tag going on with the list; the right operand and the tag
@@ -126,7 +127,8 @@ defer lf-pp-items ( view tag frames -- ... frames next )
 \ a table).
 : lf-pp-level-zero ( view arg? frames -- outcome frames 0 )
   >r 2drop s" 0" lf-pp-emit outcome-ok r> 0 ;
-: lf-pp-level-name ( view arg? frames -- outcome frames 0 ) >r drop lf-pp-level-param r> 0 ;
+: lf-pp-level-name ( view arg? frames -- outcome frames 0 )
+  >r drop lf-pp-level-param r> 0 ;
 : lf-pp-level-max ( view arg? frames -- ... frames next )
   lf-level-tag-max swap lf-pp-level-list ;
 : lf-pp-level-imax ( view arg? frames -- ... frames next )

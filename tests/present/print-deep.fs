@@ -4,8 +4,8 @@
 \ 10,000 deep print in the same host-stack cells as shallow ones (painted
 \ here, on Gforth 0.7.3 and 1.0 alike), and a print whose stack the heap
 \ will not grow is full, never a host-stack overflow. The terms are those
-\ of tests/reference/depth-terms.lean: a lambda chain fun P h1 ... hn => h1
-\ (binders n deep, each hk : P) and an application chain
+\ of tests/reference/depth-terms.lean: a lambda chain
+\ fun P h.1 ... h.n => h.1 (binders n deep, each h.k : P) and an application chain
 \ fun P h => (fun x => x) ((fun x => x) (... h)) (applications n deep);
 \ and a level alternating max and imax n deep. Test-only.
 include ../support/heap-watch.fs
@@ -32,10 +32,13 @@ create expected window allot
 : then-closing ( c-addr u k -- c-addr' u' )
   >r tuck expected swap move expected over + r@ [char] ) fill r> + expected swap ;
 
-\ The terms. hk is the name of binder k.
-: h-name ( k -- id ) 0 <# #s [char] h hold #> nm ;
+\ The terms. h.k is the name of binder k: a number under the prefix h,
+\ which the name store finds faster than a string among 10,000 names.
+variable h-prefix
+: h-name ( k -- id ) h-prefix @ swap nm# ;
 : id-named ( t id -- t ) over swap lf-binder-default lf-pres-binder! must-ok ;
 : lam-chain ( n -- t )
+  s" h" nm h-prefix !
   dup 1- t-var 1 rot do i 1- t-var swap t-lam i h-name id-named -1 +loop
   t-prop swap t-lam s" P" ex. ;
 : app-chain ( n -- t )
@@ -46,14 +49,14 @@ create expected window allot
 : level-chain ( n -- l )
   s" u" lparam dup rot 1 swap do over swap i 1 and level-op -1 +loop nip ;
 
-\ Sizes. fun P h1 ... hn ↦ h1 has 12 + 2n bytes and the digits of 1 .. n
+\ Sizes. fun P h.1 ... h.n ↦ h.1 has 13 + 3n bytes and the digits of 1 .. n
 \ (↦ is 3 bytes); the application chain 12 + 14n bytes of fun P h ↦ and
 \ (fun x ↦ x) heads, n - 1 pairs of parentheses and h: 16n + 11; the level
 \ its keywords, 3 bytes of " u " per operator but the last ("u u"),
 \ 2(n - 1) parentheses: 3 per max and 4 per imax, 5n - 1 more.
 : digits ( n -- k ) 0 swap begin swap 1+ swap 10 / ?dup 0= until ;
 : digits-to ( n -- k ) 0 swap 1+ 1 ?do i digits + loop ;
-: lam-size ( n -- u ) dup 2* swap digits-to + 12 + ;
+: lam-size ( n -- u ) dup 3 * swap digits-to + 13 + ;
 : app-size ( n -- u ) 16 * 11 + ;
 : level-size ( n -- u ) dup 2/ 7 * over 1 and 3 * + swap 5 * + 1- ;
 
@@ -75,7 +78,7 @@ fresh
 \ Shallow, 31 deep: the cells to compare with.
 : app-start ( -- c-addr u ) s" fun P h ↦ (fun x ↦ x) ((fun x ↦ x) (" ;
 T{ 31 lam-chain ' print-it painted 2constant lam-31 result @ -> outcome-ok }T
-T{ out-len @ s" fun P h1 h2 h3 h4" starts? s" h31 ↦ h1" ends? -> 31 lam-size true true }T
+T{ out-len @ s" fun P h.1 h.2 h.3" starts? s" h.31 ↦ h.1" ends? -> 31 lam-size true true }T
 T{ 31 app-chain ' print-it painted 2constant app-31 result @ -> outcome-ok }T
 T{ out-len @ app-start starts? s" x) h" 30 then-closing ends? -> 31 app-size true true }T
 T{ 31 level-chain ' level-it painted 2constant level-31 result @ -> outcome-ok }T
@@ -86,22 +89,26 @@ T{ out-len @ s" max u (imax u (max u (" starts? s" max u u" 30 then-closing ends
 \ before it is full, and leaves the printer idle; with the heap's room it
 \ prints.
 fresh
-T{ 2000 app-chain the-term ! 0 counting 1 heap-refusals ! the-term @ deep-fuel lf-print-term
-  heap-refusals @ lf-pp-busy? -> outcome-full 0 false }T
+T{ 2000 app-chain the-term ! 0 counting 1 heap-refusals !
+  the-term @ deep-fuel lf-print-term heap-refusals @ lf-pp-busy? -> outcome-full 0 false }T
 T{ 0 counting the-term @ deep-fuel lf-print-term out-len @ -> outcome-ok 2000 app-size }T
 
-\ 2,000 and 10,000 deep, in the cells of 31.
-: deep ( n -- )
+\ 2,000 and 10,000 deep, in the cells of 31: whether they are, the outcome,
+\ and whether the text has its size.
+: lam-deep ( n -- near? outcome sized? )
   fresh dup lam-chain ['] print-it painted lam-31 near? result @
-  rot dup lam-size out-len @ = >r
-  fresh dup app-chain ['] print-it painted app-31 near? result @ rot app-size out-len @ = r> and ;
-T{ 2000 deep -> true outcome-ok true outcome-ok true }T
-T{ 10000 deep -> true outcome-ok true outcome-ok true }T
+  rot lam-size out-len @ = ;
+: app-deep ( n -- near? outcome sized? )
+  fresh dup app-chain ['] print-it painted app-31 near? result @
+  rot app-size out-len @ = ;
+T{ 2000 lam-deep 2000 app-deep -> true outcome-ok true true outcome-ok true }T
+T{ 10000 lam-deep 10000 app-deep -> true outcome-ok true true outcome-ok true }T
 T{ app-start starts? s" " window then-closing ends? -> true true }T
 \ The Forth mode and a level, 10,000 deep.
 T{ fresh 31 app-chain ' forth-it painted 2constant forth-31 result @ -> outcome-ok }T
 T{ fresh 10000 app-chain ' forth-it painted forth-31 near? result @ -> true outcome-ok }T
-T{ fresh 10000 level-chain ' level-it painted level-31 near? result @ -> true outcome-ok }T
+T{ fresh 10000 level-chain ' level-it painted level-31 near? result @
+  -> true outcome-ok }T
 T{ out-len @ s" max u (imax u (max u (" starts? -> 10000 level-size true }T
 \ The lambda chain's type, ∀ (P : Prop), P → ... → P, nests n arrows; its
 \ print costs fuel quadratic in n (each Π asks Lean's quick test whether

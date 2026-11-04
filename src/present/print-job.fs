@@ -48,7 +48,7 @@ end-structure
 \ The frames come first, so a step finds the printer's record at the
 \ address of the frames it is given (as mixed-shift.fs does).
 begin-structure /lf-pjob
-  /frames +field lf-pjob-frames   \ fuel, nested visits, the steps' stack, a comparison's depth
+  /frames +field lf-pjob-frames   \ fuel, visits, the steps' stack, a comparison's depth
   field: lf-pjob-sink        \ xt ( c-addr u -- )
   field: lf-pjob-options     \ mode and option bits
   field: lf-pjob-limit       \ most nested visits in one print
@@ -147,7 +147,8 @@ end-structure
 \ Close a parenthesis opened when flag is true; the step that does so for
 \ the flag saved under it, at the end of a part.
 : lf-pp-wrap ( outcome flag -- outcome ) if s" )" lf-pp-emit then ;
-: lf-pp-wrapped ( outcome frames -- outcome frames 0 ) >r r@ frame-restore lf-pp-wrap r> 0 ;
+: lf-pp-wrapped ( outcome frames -- outcome frames 0 )
+  >r r@ frame-restore lf-pp-wrap r> 0 ;
 \ A walk (lib/walk.fs) borrows the print's fuel and gives back what is left.
 : lf-pp-lend ( walk -- ) lf-print-fuel @ swap walk-budget drop ;
 : lf-pp-repay ( walk -- ) walk-fuel @ lf-print-fuel ! ;

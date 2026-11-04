@@ -65,10 +65,12 @@ require ./print-analysis.fs
 \ Leave the binders bound since the scope had depth0 binders; the step
 \ that does so at the end of a part, for the depth saved under it.
 : lf-pp-leave ( outcome depth0 -- outcome ) lf-pp-depth swap - lf-pp-unbind ;
-: lf-pp-leaving ( outcome frames -- outcome frames 0 ) >r r@ frame-restore lf-pp-leave r> 0 ;
+: lf-pp-leaving ( outcome frames -- outcome frames 0 )
+  >r r@ frame-restore lf-pp-leave r> 0 ;
 
 defer lf-pp-term-step ( term pos frames -- ... frames next )
-: lf-pp-term-call ( term pos frames cont -- ... frames next ) ['] lf-pp-term-step lf-pp-call ;
+: lf-pp-term-call ( term pos frames cont -- ... frames next )
+  ['] lf-pp-term-step lf-pp-call ;
 
 \ Sorts: Prop and Type are atoms; Type u and Sort u are not (their
 \ parenthesis flag waits while the level prints).
@@ -333,7 +335,8 @@ defer lf-pp-names-step ( lam x frames -- ... frames next )
   2>r dup lf-term-second@ 0 lf-pp-loose? ok-keep? 0= if nip 2r> exit then
   lf-binder-instance lf-pp-open 0= lf-pp-chain-from 2r> lf-pp-typed-binder ;
 : lf-pp-lam-group ( lam frames cont -- ... frames next )
-  2 pick lf-pp-kind lf-binder-instance = if lf-pp-lam-instance else lf-pp-lam-bracket then ;
+  2 pick lf-pp-kind lf-binder-instance =
+  if lf-pp-lam-instance else lf-pp-lam-bracket then ;
 \ The fun's groups from node, the next binder to bring into scope:
 \ explicit binders at once, any other group as a part of the visit, node
 \ and the depth before it waiting meanwhile; then ↦ and the body.
@@ -356,7 +359,8 @@ defer lf-pp-lam-groups ( node frames -- ... frames next )
 \ The fun's visit: its parenthesis flag, the chain's start before it and
 \ the depth before it wait until it ends.
 : lf-pp-fun-end ( outcome frames -- outcome frames 0 )
-  >r r@ frame-restore lf-pp-leave r@ frame-restore lf-pjob lf-pjob-chain ! r> lf-pp-wrapped ;
+  >r r@ frame-restore lf-pp-leave r@ frame-restore lf-pjob lf-pjob-chain !
+  r> lf-pp-wrapped ;
 : lf-pp-lam ( lam pos frames -- ... frames next )
   >r lf-prec-max true lf-pp-parens? lf-pp-open-if r@ frame-save
   lf-pp-chain-from r@ frame-save lf-pp-depth dup r@ frame-save lf-pjob lf-pjob-chain !
@@ -398,7 +402,8 @@ defer lf-pp-lam-groups ( node frames -- ... frames next )
 : lf-print-level ( level fuel -- outcome )
   lf-print-ready? if false lf-pp-level lf-pp-finish else drop-invalid then ;
 \ A name is one visit, with one unit of fuel.
-: lf-pp-name-visit ( id x frames -- outcome frames 0 ) >r drop lf-pp-constant outcome-ok r> 0 ;
+: lf-pp-name-visit ( id x frames -- outcome frames 0 )
+  >r drop lf-pp-constant outcome-ok r> 0 ;
 : lf-print-name ( id -- outcome )
   dup lf-name-valid? 0= if drop-invalid exit then
   1 lf-print-ready? 0= if drop-invalid exit then

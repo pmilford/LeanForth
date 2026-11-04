@@ -39,7 +39,8 @@ defer lf-pp-lsame-step ( l1 l2 frames -- ... frames next )
 : lf-pp-lsame-both ( l1 l2 frames -- ... frames next )
   >r 2dup r@ lf-pp-save2 lf-pp-lfirsts r> ['] lf-pp-lsame-second lf-pp-lsame-call ;
 : lf-pp-lsame-zero ( l1 l2 frames -- outcome frames 0 ) >r 2drop outcome-ok r> 0 ;
-: lf-pp-lsame-param ( l1 l2 frames -- outcome frames 0 ) >r lf-pp-lfirsts = lf-pp-equal r> 0 ;
+: lf-pp-lsame-param ( l1 l2 frames -- outcome frames 0 )
+  >r lf-pp-lfirsts = lf-pp-equal r> 0 ;
 : lf-pp-lsame-succ ( l1 l2 frames -- ... frames next )
   >r lf-pp-lfirsts r> ['] frame-return lf-pp-lsame-call ;
 : lf-pp-lsame-bad ( l1 l2 frames -- outcome frames 0 ) >r 2drop outcome-invalid r> 0 ;
@@ -113,7 +114,8 @@ defer lf-pp-same-step ( a b frames -- ... frames next )
 : lf-pp-same-pair ( a b frames cont -- ... frames next )
   2>r 2dup 2r@ drop lf-pp-save2 lf-pp-firsts 2r> lf-pp-same-call ;
 : lf-pp-same-app ( a b frames -- ... frames next ) ['] lf-pp-same-second lf-pp-same-pair ;
-: lf-pp-same-binder ( a b frames -- ... frames next ) ['] lf-pp-same-body lf-pp-same-pair ;
+: lf-pp-same-binder ( a b frames -- ... frames next )
+  ['] lf-pp-same-body lf-pp-same-pair ;
 : lf-pp-same-sort ( a b frames -- outcome frames 0 ) >r lf-pp-firsts = lf-pp-equal r> 0 ;
 : lf-pp-same-bvar ( a b frames -- outcome frames 0 )
   >r lf-pp-firsts lf-pp-var-same? lf-pp-equal r> 0 ;

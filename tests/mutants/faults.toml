@@ -2940,8 +2940,8 @@ reason = "a test log keeps the last check's published slot, so a printer can tak
 [[fault]]
 id = "printer-rebuilds-only-the-top"
 file = "src/present/log-view.fs"
-old = ''': lf-lv-tbuilt? ( k -- flag ) 1+ 0 ?do i lf-lv-tready 0= if false unloop exit then loop true ;'''
-new = ''': lf-lv-tbuilt? ( k -- flag ) lf-lv-tready ;'''
+old = '''  1+ 0 ?do i lf-lv-tready 0= if false unloop exit then loop true ;'''
+new = '''  lf-lv-tready ;'''
 test = "$GFORTH tests/core/derivation-log.fs"
 reason = "the rebuild of a copy (plan task 6.2.0) builds only the copy asked for, not the copies below it that its walk marked, so a copy with copied children prints as ?"
 

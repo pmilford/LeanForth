@@ -409,7 +409,8 @@ lf-depth-limit context-walk: lf-ol-premises
 : lf-ol-known-premise ( walk s i -- outcome )
   rot >r lf-lv-inference if r> walk-child else r> drop outcome-rejected then ;
 : lf-ol-known-app ( s walk -- outcome )
-  2dup swap 0 lf-ol-known-premise dup ok? if drop swap 1 lf-ol-known-premise else nip nip then ;
+  2dup swap 0 lf-ol-known-premise dup ok?
+  if drop swap 1 lf-ol-known-premise else nip nip then ;
 : lf-ol-known-lam ( s walk -- outcome ) swap 1 lf-ol-known-premise ;
 : lf-ol-known-visit ( walk -- outcome )
   dup walk-node @ dup lf-lv-outcome ok? 0= if 2drop outcome-rejected exit then
@@ -419,7 +420,8 @@ lf-depth-limit context-walk: lf-ol-premises
     lf-rule-lambda of swap lf-ol-known-lam endof
     >r 2drop outcome-rejected r> endcase ;
 : lf-ol-known? ( s -- flag )
-  max-n lf-ol-premises walk-budget drop ['] lf-ol-known-visit lf-ol-premises walk-run ok? ;
+  max-n lf-ol-premises walk-budget drop
+  ['] lf-ol-known-visit lf-ol-premises walk-run ok? ;
 
 \ The declaration's steps: its own (the last declaration step), the
 \ value's inference, the final comparison and the type formation.
@@ -522,8 +524,8 @@ lf-depth-limit context-walk: lf-ol-premises
   lf-lv-cr lf-ol-theorem? if s" Proof (reconstructed from the proof term)."
   else s" Construction (reconstructed from the value)." then lf-ol-line ;
 : lf-ol-outline ( D -- )
-  lf-ol-proof-title lf-ol-tasks walk-clear dup lf-ol-first lf-ol-walk-later lf-ol-run-tasks
-  lf-ol-statement lf-ol-footer ;
+  lf-ol-proof-title lf-ol-tasks walk-clear
+  dup lf-ol-first lf-ol-walk-later lf-ol-run-tasks lf-ol-statement lf-ol-footer ;
 
 \ Why no outline is printed, and the steps where they explain.
 : lf-ol-list ( -- ) lf-lv-cr s" Steps." lf-ol-line lf-log-count lf-lv-list ;

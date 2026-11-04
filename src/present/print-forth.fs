@@ -208,7 +208,8 @@ defer lf-pf-level-step ( level x frames -- ... frames next )
 : lf-pf-offset ( base n frames -- ... frames next )
   tuck frame-save ['] lf-pf-offset-back lf-pf-level ;
 : lf-pf-succ-level ( level frames -- ... frames next )
-  >r lf-pf-succs over lf-pf-zero? if nip lf-pf-number outcome-ok r> 0 else r> lf-pf-offset then ;
+  >r lf-pf-succs over lf-pf-zero?
+  if nip lf-pf-number outcome-ok r> 0 else r> lf-pf-offset then ;
 \ a b level-max and a b level-imax: the tag and the level wait while a
 \ prints, the tag while b does.
 : lf-pf-binary-word ( tag -- c-addr u )
@@ -223,7 +224,8 @@ defer lf-pf-level-step ( level x frames -- ... frames next )
   r> ['] lf-pf-binary-second lf-pf-level ;
 \ The step for a level's tag: a CASE with one arm per tag, read as a table.
 : lf-pf-level-zero ( level frames -- outcome frames 0 ) >r drop s" 0" lf-pf-say r> 0 ;
-: lf-pf-level-param ( level frames -- outcome frames 0 ) >r lf-level-first@ lf-pf-param r> 0 ;
+: lf-pf-level-param ( level frames -- outcome frames 0 )
+  >r lf-level-first@ lf-pf-param r> 0 ;
 : lf-pf-level-bad ( level frames -- outcome frames 0 ) >r drop-invalid r> 0 ;
 : lf-pf-level-by ( tag -- xt )
   case lf-level-tag-zero of ['] lf-pf-level-zero endof
@@ -233,8 +235,8 @@ defer lf-pf-level-step ( level x frames -- ... frames next )
     lf-level-tag-param of ['] lf-pf-level-param endof
     ['] lf-pf-level-bad swap endcase ;
 : lf-pf-level-node ( level x frames -- ... frames next )
-  nip over lf-level-valid? if over lf-level-tag@ lf-pf-level-by else ['] lf-pf-level-bad then
-  execute ;
+  nip over lf-level-valid?
+  if over lf-level-tag@ lf-pf-level-by else ['] lf-pf-level-bad then execute ;
 ' lf-pf-level-node is lf-pf-level-step
 
 \ Sorts: Prop, l Type for Sort (l + 1), l Sort otherwise. A concrete Sort
@@ -357,8 +359,10 @@ defer lf-pf-term-step ( term x frames -- ... frames next )
 \ meanwhile. The step for the node's tag: a CASE with one arm per tag,
 \ read as a table.
 : lf-pf-var-step ( term frames -- outcome frames 0 ) >r lf-term-first@ lf-pf-var r> 0 ;
-: lf-pf-sort-step ( term frames -- outcome frames 0 ) >r lf-term-first@ lf-pf-concrete r> 0 ;
-: lf-pf-symbolic-step ( term frames -- ... frames next ) >r lf-term-first@ r> lf-pf-symbolic ;
+: lf-pf-sort-step ( term frames -- outcome frames 0 )
+  >r lf-term-first@ lf-pf-concrete r> 0 ;
+: lf-pf-symbolic-step ( term frames -- ... frames next )
+  >r lf-term-first@ r> lf-pf-symbolic ;
 : lf-pf-lam ( lam frames -- ... frames next ) true swap lf-pf-binder ;
 : lf-pf-node-bad ( term frames -- outcome frames 0 ) >r drop-invalid r> 0 ;
 : lf-pf-node-by ( tag -- xt )
@@ -425,7 +429,8 @@ defer lf-pf-def-params ( type value frames -- ... frames next )
 \ each (the type waits while one prints), then the type.
 defer lf-pf-type-params ( type frames -- ... frames next )
 : lf-pf-type-next ( outcome frames -- ... frames next )
-  >r r@ frame-restore swap ok-then? if lf-term-second@ r> lf-pf-type-params else r> 0 then ;
+  >r r@ frame-restore swap ok-then?
+  if lf-term-second@ r> lf-pf-type-params else r> 0 then ;
 : lf-pf-type-from ( type frames -- ... frames next )
   >r dup lf-tag-pi lf-pp-is? 0= if r> ['] frame-return lf-pf-body exit then
   dup lf-pf-arrow? dup ok? 0= if nip nip r> 0 exit then drop
