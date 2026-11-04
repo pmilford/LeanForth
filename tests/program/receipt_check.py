@@ -13,7 +13,9 @@ inside the repository, and be checked by the Lean reference with every
 obligation discharged by a named theorem. Each of a set of tampered
 receipts must be refused by the layer named with it (schema, rule or
 replay), and each of a set of tampered texts by the strict reader, also
-through the command line of `program_receipt.py verify`.
+through the command line of `program_receipt.py verify`. A receipt for an
+earlier version of a redefined word must say which later version the name
+means after loading, and none may be written for an IR 0.2 program.
 
 With --record it also runs Lean and Gforth again (scripts/program_receipt.py
 record) and requires the fresh evidence to equal the committed evidence in
@@ -215,6 +217,39 @@ def offline_problems():
     return problems
 
 
+# Versions (ADR 0019 Amendment 1, A1): the sentence a receipt for an
+# earlier version gets, from a file that defines a name twice, and a name
+# x'1 of its own that is no version; and the refusal of IR 0.2 programs.
+VERSIONS_SOURCE = ": f 1 ;\n: g f ;\n: F f 1+ ;\n: x'1 2 ;\n3 constant k\n"
+VERSIONS_IR = """lf-ir 0.1
+source t.fs
+word f @1:1
+word g @2:1
+word f'1 @3:1
+word x'1 @4:1
+constant k @5:12
+"""
+
+
+def version_problems():
+    problems = []
+    later = {w: program_receipt.later_version(VERSIONS_IR, VERSIONS_SOURCE, w)
+             for w in ("f", "g", "f'1", "x'1", "k")}
+    if later != {"f": ("f'1", 3), "g": None, "f'1": None, "x'1": None, "k": None}:
+        problems.append(f"later versions: {later}")
+    sentence = program_receipt.version_sentence("f", 1, later["f"])
+    if "f'1, line 3" not in sentence or program_receipt.version_sentence("g", 2, None):
+        problems.append(f"version sentence: {sentence!r}")
+    for text in (VERSIONS_IR.replace("0.1", "0.2", 1), "lf-ir 0.3\n"):
+        try:
+            program_receipt.refuse_ir_02(text, "t.ir")
+            problems.append(f"a receipt would be written for {text.splitlines()[0]}")
+        except SystemExit:
+            pass
+    program_receipt.refuse_ir_02(VERSIONS_IR, "t.ir")
+    return problems
+
+
 def record_problems():
     with tempfile.TemporaryDirectory() as directory:
         fresh_path = Path(directory) / "evidence.json"
@@ -229,7 +264,7 @@ def record_problems():
 
 
 def main():
-    problems = offline_problems()
+    problems = offline_problems() + version_problems()
     if "--record" in sys.argv and not problems:
         problems = record_problems()
     for problem in problems:

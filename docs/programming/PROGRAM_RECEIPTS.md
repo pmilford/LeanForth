@@ -255,8 +255,8 @@ The generated clamp receipt (`tests/program/receipts/generated/lf-clamp.json`):
       "name": "python",
       "version": "program_receipt.py 0.2"
     },
-    "createdAt": "2026-11-03",
-    "note": "Written by scripts/program_receipt.py from the repository files named below, at the hashes given, and the evidence recorded on 2026-11-03 by make check. A receipt is a statement of evidence, not an approval; it passes no review gate."
+    "createdAt": "2026-11-04",
+    "note": "Written by scripts/program_receipt.py from the repository files named below, at the hashes given, and the evidence recorded on 2026-11-04 by make check. A receipt is a statement of evidence, not an approval; it passes no review gate."
   },
   "program": {
     "word": "lf-clamp",
@@ -322,11 +322,11 @@ The generated clamp receipt (`tests/program/receipts/generated/lf-clamp.json`):
     "evidence": [
       {
         "path": "tests/program/vc/obligations.lean",
-        "sha256": "8eca805030d431fcca39d5503435433ddf6ccf5dc4143955ae6a81ed88b92df2"
+        "sha256": "d0ccb1a2c3c8ecb6397f83b68d052605922f63264c22186748def0fd5ef77ecf"
       },
       {
         "path": "scripts/program_vc.py",
-        "sha256": "2be3fb1a81593e2c34699681597246472417b1763e7de8893bfbace540efbd18"
+        "sha256": "0d53fdfa2b959b6dda8eeed78e9082a811d01fb3a912186f426ba5238faa690b"
       }
     ],
     "note": "Lean proved ProgramVC.LfClamp0.contract, the contract stated against the IR semantics for every cell width, input and stack below, from the path obligations listed under verify. Checked by Lean 4.35.0, not by LeanForth, whose checker cannot check programs yet."
@@ -373,15 +373,15 @@ The generated clamp receipt (`tests/program/receipts/generated/lf-clamp.json`):
       },
       {
         "path": "src/program/ir-run.fs",
-        "sha256": "32f12815f6fbe902467d1c8858a993f8e3e5179f6fc51cc85f8053471f2c25b6"
+        "sha256": "4c940e93295b86655b46b62c9428ed71beed83078dc12989b133c25591c2a4b7"
       },
       {
         "path": "tests/program/ir_run_differential.py",
-        "sha256": "be6ae1f4b269b74e4a4ddec292f42a9def395daa14fa5cc7e7737de10422b705"
+        "sha256": "be074390110925e9b32f83a223be300b6e4f9e1a881dc261ca1c7f29010b2a26"
       },
       {
         "path": "tests/reference/program-ir-run.lean",
-        "sha256": "e1dc7a719b655a13224777cc0cc292cbc301ee7583e4009f0db7e175381bc95b"
+        "sha256": "5d716b4ecc30cce00d36bc02257c43a47eb2317892c0f9c28aab849c313f2ff1"
       }
     ],
     "note": "On 986 inputs (the existing clamp tables and seeded random cells) the host word and the IR interpreter left the same stack; Lean's evaluation of the model agreed on all 991 clamp cases, including failures the host cannot run (too few inputs, no fuel)."
@@ -400,7 +400,7 @@ The generated clamp receipt (`tests/program/receipts/generated/lf-clamp.json`):
     {
       "id": "A3",
       "kind": "trusted-reader",
-      "text": "The program words (src/program/verify.fs, the mode shift of ADR 0019) wrote the IR faithfully: each Forth word the file uses means in the IR what the host's word of that name does, and nothing else in the source file changes what its words mean on the host. They run the file through Forth's own text interpreter, one line at a time, with only their entry word visible; each token must be a word of the file (a call, bound when Forth finds it), a word of FORTH-WORDLIST with verification semantics and the identity it had when they loaded, or a plain decimal, which they read themselves; no word of the file or of the host runs. A standard word redefined after they loaded and before the run is refused, except, on Gforth 0.7.3, a compile-only word, since all of those share one token there; one redefined before they loaded is not noticed, so the verifying Forth too is assumed to have its own standard words. They refuse a redefinition, under any spelling, of a Forth-2012 Core or Core Ext word or of the file's own words, a name that reads as a number, any byte outside printable ASCII other than a space, a tab, an LF and a CR just before an LF, and a division before CONSTANT. Gforth is assumed to load the file with its default settings (decimal BASE, standard words), and the file to define no name that code compiled after it in the same session uses, other than the words under test: definitions of host words outside those word sets, such as Gforth's own, are accepted and would change what such code, a test harness for example, means. Nothing proves the translation; recording the evidence wrote this IR again with the program words, and make test compares them with the IR named here and with the earlier reader (src/program/ir-reader.fs)."
+      "text": "The program words (src/program/verify.fs, the mode shift of ADR 0019) wrote the IR faithfully: each Forth word the file uses means in the IR what the host's word of that name does, and nothing else in the source file changes what its words mean on the host. They run the file through Forth's own text interpreter, one line at a time, with only their entry word visible; each token must be a word of the file (a call, bound when Forth finds it, to the version visible there), a word of FORTH-WORDLIST with verification semantics and the identity it had when they loaded, or a number in a Forth-2012 form (decimal, # $ % prefixes or 'c'), which they read themselves; no word of the file or of the host runs. A standard word redefined after they loaded and before the run is refused, except, on Gforth 0.7.3, a compile-only word, since all of those share one token there; one redefined before they loaded is not noticed, so the verifying Forth too is assumed to have its own standard words. A file may define its own words again, as Forth allows; each version has its own IR name (x, x'1, ...), and program.word names one. They refuse a redefinition, under any spelling, of a word with verification semantics or of a Forth-2012 Core or Core Ext word, a name the IR gives another version, a name that reads as a number, any byte outside printable ASCII other than a space, a tab, an LF and a CR just before an LF, and a division before CONSTANT. Gforth is assumed to load the file with its default settings (decimal BASE, standard words), and the file to define no name that code compiled after it in the same session uses, other than the words under test: definitions of host words outside those word sets, such as Gforth's own, are accepted and would change what such code, a test harness for example, means. Nothing proves the translation; recording the evidence wrote this IR again with the program words, and make test compares them with the IR named here and with the earlier reader (src/program/ir-reader.fs)."
     },
     {
       "id": "A4",
@@ -477,6 +477,39 @@ version comes is for the owner to decide at the gate.
   of Python's `\UXXXXXXXX`, which ECMA-262 engines cannot compile). On
   every Unicode code point it accepts exactly what it accepted before, so
   no receipt's validity changed; a test pins the file's hash from then on.
+  On 2026-11-04, with IR 0.2 implemented, the clamp receipt was
+  regenerated, still 0.2, its IR byte for byte the same: only the
+  `trusted-reader` assumption's text changed (redefinitions of the file's
+  own words are now accepted as versions, numbers may carry Forth-2012's
+  prefixes), and the evidence's date.
+
+### Schema 0.3: what IR 0.2 receipts need
+
+[IR 0.2](PROGRAM_IR.md#ir-02) is implemented, but no receipt can describe
+an IR 0.2 program yet: schema 0.2's `program.ir.version` is the constant
+`"0.1"`, and nothing in it says that a word prints. So
+`scripts/program_receipt.py` refuses to write a receipt for an IR whose
+first line is not `lf-ir 0.1` ("needs receipt schema 0.3 … awaits the
+owner's [format] gate; no receipt written"), and `tests/program/receipt_check.py`
+checks that refusal. Receipts of IR 0.1 programs, version names such as
+`lf-clamp'1` included, stay schema 0.2 (`program.word` admits `'`; the
+`trusted-reader` assumption then says which later version the name means
+after loading). Schema 0.3, proposed by ADR 0019 Amendment 1 (A4) and to
+be decided at the [format] gate with the first IR 0.2 receipt (a SHA-2
+helper word), would change exactly two things:
+
+1. `program.ir.version`: `"0.1"` or `"0.2"`.
+2. `program.output` (boolean, required): true when the word or any word it
+   calls has an `out` line; then an assumption of the new kind `output` is
+   required (as `floatingPoint` requires `floating-point`), saying whether
+   the contract describes the output or only the stacks, that output is
+   assumed to succeed (a closed pipe stops Gforth with THROW −2049, which
+   the model does not have), and the `BASE` assumed. The `run` part would
+   compare stacks as today and, for a contract that describes output, the
+   captured standard output with the events Lean's `Event.render` gives.
+
+The pending renaming of `trusted-reader` could ride along. Nothing of
+this is implemented; the schema file stays 0.2.
 
 The plan extends the schema to theorem receipts (task 3.4.3) and wraps it
 in the versioned JSON-RPC interface (task 3.5.1, [interface

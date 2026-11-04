@@ -1428,16 +1428,16 @@ quick = true
 [[fault]]
 id = "pv-minus-dropped"
 file = "src/program/verify-semantics.fs"
-old = '''  pv-negative >r pv-whole? if r> if negate then true else r> drop false then ;'''
-new = '''  pv-negative >r pv-whole? if r> drop true else r> drop false then ;'''
+old = '''  dup >r pv-limit 2over du< if 2drop r> drop false exit then r> if dnegate then true ;'''
+new = '''  dup >r pv-limit 2over du< if 2drop r> drop false exit then r> drop true ;'''
 test = "$GFORTH tests/program/verify.fs"
 reason = "a literal's minus sign is dropped: examples.fs's golden IR (-1 1 rshift) differs"
 
 [[fault]]
 id = "pv-names-not-folded"
 file = "src/program/verify-semantics.fs"
-old = '''  2dup pv-def-length ! pv-def-name swap 2dup 2>r chars move 2r> pv-fold ;'''
-new = '''  2dup pv-def-length ! pv-def-name swap 2dup 2>r chars move 2r> 2drop ;'''
+old = '''  0 over pv-def-length ! pv-token-text 2 pick pv-def+ dup pv-def-chars pv-fold'''
+new = '''  0 over pv-def-length ! pv-token-text 2 pick pv-def+ dup pv-def-chars 2drop'''
 test = "$GFORTH tests/program/verify.fs && python3 tests/program/verify_check.py"
 reason = "a definition's name is written as spelt, not in lower case, unlike today's reader (the clamp in upper case)"
 
@@ -1452,7 +1452,7 @@ reason = "a name of more than 31 characters is accepted, unlike today's reader"
 [[fault]]
 id = "pv-gap-values-unchecked"
 file = "src/program/verify-alias.fs"
-old = ''': pv-host-value ( x i -- ) pv-gap-value @ <> pv-host-literal? ;'''
+old = ''': pv-host-value ( x i -- ) >r s>d r> pv-gap-value 2@ d= 0= pv-host-literal? ;'''
 new = ''': pv-host-value ( x i -- ) 2drop ;'''
 test = "$GFORTH tests/program/verify.fs"
 reason = "the separate vocabulary takes the host's cells without comparing them with the text"
@@ -1460,8 +1460,8 @@ reason = "the separate vocabulary takes the host's cells without comparing them 
 [[fault]]
 id = "pv-gap-any-token"
 file = "src/program/verify-alias.fs"
-old = '''  2dup pv-token! pv-literal? 0= pv-why-unknown pv-?fail dup pv-gap-push pv-lit ;'''
-new = '''  2dup pv-token! pv-literal? 0= if 0 then dup pv-gap-push pv-lit ;'''
+old = '''  2dup pv-token! pv-literal? 0= pv-why-unknown pv-?fail 2dup pv-gap-push pv-lit ;'''
+new = '''  2dup pv-token! pv-literal? 0= if 0 0 then 2dup pv-gap-push pv-lit ;'''
 test = "$GFORTH tests/program/verify.fs && python3 tests/program/verify_check.py"
 reason = "the gap check reads any token as a literal: the separate vocabulary then disagrees with the mode shift"
 
@@ -1591,10 +1591,10 @@ equivalent = "defence in depth: the mode shift's host never pushes a value, and 
 [[fault]]
 id = "pv-recursion-accepted"
 file = "src/program/verify-semantics.fs"
-old = '''  dup pv-current @ = pv-why-recursive pv-?fail'''
-new = '''  dup pv-current @ = drop false pv-why-recursive pv-?fail'''
-test = "python3 tests/program/verify_check.py"
-reason = "a word that calls itself is written, though Gforth would call an earlier word of that name"
+old = '''  dup pv-current @ = if pv-def pv-def-prev @ dup 0< pv-why-recursive pv-?fail then ;'''
+new = '''  dup pv-current @ = if dup pv-def pv-def-prev @ dup 0< if drop else nip then then ;'''
+test = "$GFORTH tests/program/verify.fs && python3 tests/program/verify_check.py"
+reason = "a word that calls itself with no earlier version is written as a recursive call, though Gforth would throw -13 (undefined word)"
 
 [[fault]]
 id = "pv-reserved-ignored"
@@ -1608,10 +1608,160 @@ quick = true
 [[fault]]
 id = "pv-literal-too-large"
 file = "src/program/verify-semantics.fs"
-old = ''': pv-fits? ( u -- u true | false ) dup pv-literal-max u> if drop false else true then ;'''
-new = ''': pv-fits? ( u -- u true | false ) dup pv-literal-max 1+ u> if drop false else true then ;'''
-test = "python3 tests/program/verify_check.py"
-reason = "the literal 2147483648, too large for 32-bit cells, is accepted"
+old = ''': pv-limit ( negative? -- d ) if 32768 65536 um* else 65536 65536 um* 1 0 d- then ;'''
+new = ''': pv-limit ( negative? -- d ) if 32768 65536 um* else 65536 65536 um* then ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "the literal 4294967296, beyond 32 bits, is accepted (A3: at most 2^32 - 1)"
+
+[[fault]]
+id = "pv-negative-limit"
+file = "src/program/verify-semantics.fs"
+old = ''': pv-limit ( negative? -- d ) if 32768 65536 um* else 65536 65536 um* 1 0 d- then ;'''
+new = ''': pv-limit ( negative? -- d ) if 32768 65536 um* 1 0 d+ else 65536 65536 um* 1 0 d- then ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "the literal -2147483649, below -2^31, is accepted"
+
+[[fault]]
+id = "pv-hex-as-decimal"
+file = "src/program/verify-semantics.fs"
+old = '''[char] $ of 16 8 endof'''
+new = '''[char] $ of 10 8 endof'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "A3: $10 is read in decimal, or refused for its hexadecimal letters"
+
+[[fault]]
+id = "pv-char-literal-off"
+file = "src/program/verify-semantics.fs"
+old = '''  char+ c@ dup bl 1+ 127 within if 0 true else drop false then ;'''
+new = '''  char+ c@ dup bl 1+ 127 within if 1+ 0 true else drop false then ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "A3: 'a' is read as 98"
+
+# IR 0.2's redefinition (ADR 0019 Amendment 1, A1, test 4).
+
+[[fault]]
+id = "pv-versions-unnamed"
+file = "src/program/verify-semantics.fs"
+old = ''': pv-version-suffix ( def -- ) dup pv-def-version @ ?dup if pv-suffix+ else drop then ;'''
+new = ''': pv-version-suffix ( def -- ) drop ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "A1: a version gets no 'k, so its IR name is its first version's (refused by the collision check, or, without it, calls and Lean's lookup would reach the wrong version)"
+quick = true
+
+[[fault]]
+id = "pv-hiding-removed"
+file = "src/program/verify-semantics.fs"
+old = '''  dup pv-current @ = if pv-def pv-def-prev @ dup 0< pv-why-recursive pv-?fail then ;'''
+new = '''  ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "A1: a definition is visible inside itself, so : pk pk 1+ ; calls itself (pk'1) where Gforth calls the version before"
+
+[[fault]]
+id = "pv-versions-from-zero"
+file = "src/program/verify-semantics.fs"
+old = ''': pv-version-of ( prev -- k ) dup 0< if drop 0 else pv-def pv-def-version @ 1+ then ;'''
+new = ''': pv-version-of ( prev -- k ) dup 0< if drop 0 else drop 1 then ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "A1: every redefinition is numbered 1, so a third version collides with the second"
+
+[[fault]]
+id = "pv-collision-unchecked"
+file = "src/program/verify-semantics.fs"
+old = '''  >r tuck pv-def! pv-name-taken? pv-why-version-name pv-?fail r> ;'''
+new = '''  >r tuck pv-def! drop r> ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "A1 rule 4: a name the IR gives another version (x'1 after x twice) is accepted, so two definitions share an IR name"
+
+[[fault]]
+id = "pv-standard-redefined"
+file = "src/program/verify-semantics.fs"
+old = '''  pv-token-text pv-table-name?     pv-why-redefined pv-?fail'''
+new = '''  pv-token-text 2drop'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "A1 question 2: a standard word (. -rot .s lshift) may be defined by the file"
+
+# IR 0.2's output words and version line (A2, A4).
+
+[[fault]]
+id = "pv-out-line-dropped"
+file = "src/program/verify-semantics.fs"
+old = ''': pv-out-word ( entry -- ) pv-inside pv-out-line pv-entry-text pv-append pv-done ;'''
+new = ''': pv-out-word ( entry -- ) drop pv-inside ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "A2: . is accepted without its out line, so the IR loses the cell it takes"
+quick = true
+
+[[fault]]
+id = "pv-out-anywhere"
+file = "src/program/verify-semantics.fs"
+old = ''': pv-out-word ( entry -- ) pv-inside pv-out-line pv-entry-text pv-append pv-done ;'''
+new = ''': pv-out-word ( entry -- ) pv-out-line pv-entry-text pv-append pv-done ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "A2: an output word outside a definition, which would print while the file loads, is accepted"
+
+[[fault]]
+id = "pv-s-quote-without-type"
+file = "src/program/verify-semantics.fs"
+old = '''  pv-token @ pv-token# @ parse-name 2dup pv-type? 0= pv-why-not-ir pv-?fail'''
+new = '''  pv-token @ pv-token# @ parse-name'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "A2: S\" is accepted before any word, though its string's address is memory IR 0.2 lacks"
+
+[[fault]]
+id = "pv-text-unclosed"
+file = "src/program/verify-semantics.fs"
+old = '''  [char] " parse 2dup chars + pv-line-end < 0= pv-why-open-text pv-?fail'''
+new = '''  [char] " parse'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "A2: .\" without its closing quote on the line is accepted"
+
+[[fault]]
+id = "pv-version-always-old"
+file = "src/program/verify-report.fs"
+old = ''': pv-version ( -- c-addr u ) pv-new @ if s" lf-ir 0.2" else s" lf-ir 0.1" then ;'''
+new = ''': pv-version ( -- c-addr u ) s" lf-ir 0.1" ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "A4: IR using LSHIFT, -ROT or an out line is labelled 0.1, which no IR 0.1 reader understands"
+
+[[fault]]
+id = "pv-version-always-new"
+file = "src/program/verify-report.fs"
+old = ''': pv-version ( -- c-addr u ) pv-new @ if s" lf-ir 0.2" else s" lf-ir 0.1" then ;'''
+new = ''': pv-version ( -- c-addr u ) s" lf-ir 0.2" ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "A4: IR that uses nothing new is labelled 0.2, so the golden IR 0.1 files and the clamp receipt's hash change"
+
+[[fault]]
+id = "pv-lshift-not-new"
+file = "src/program/verify-semantics.fs"
+old = '''21 s" lshift" pv-data pv-ir-0.2'''
+new = '''21 s" lshift" pv-data'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "A4: a constant whose body uses LSHIFT is labelled IR 0.1"
+
+[[fault]]
+id = "irx-dot-takes-nothing"
+file = "src/program/ir-run.fs"
+old = '''  dup irx-o-dot = over irx-o-udot = or over irx-o-emit = or swap irx-o-spaces = or ;'''
+new = '''  dup irx-o-udot = over irx-o-udot = or over irx-o-emit = or swap irx-o-spaces = or ;'''
+test = "$GFORTH tests/program/ir-run.fs"
+reason = "A2: the IR interpreter's . takes no cell when there is none, where the model underflows"
+
+[[fault]]
+id = "irx-dot-unsigned"
+file = "src/program/ir-run.fs"
+old = ''': irx-print-dot ( op -- ) drop irx-data-pop irx-say-number ;'''
+new = ''': irx-print-dot ( op -- ) drop irx-data-pop irx-say-unsigned ;'''
+test = "$GFORTH tests/program/ir-run.fs"
+reason = "A2: the IR interpreter prints . of a negative cell unsigned, unlike both Gforths"
+
+[[fault]]
+id = "irx-new-under-old-version"
+file = "src/program/ir-run.fs"
+old = ''': irx-new? ( -- ) irx-state irx-s-new @ irx-expect ;'''
+new = ''': irx-new? ( -- ) ;'''
+test = "$GFORTH tests/program/ir-run.fs"
+reason = "A4: an IR 0.2 instruction under an IR 0.1 version line is loaded"
 
 [[fault]]
 id = "pv-frames-capacity"
@@ -3698,6 +3848,14 @@ old = '''  lf-ol-decl lf-idecl-type @ dup 0< if drop s" none" lf-ol-line exit th
 new = '''  lf-ol-decl lf-idecl-type @'''
 test = "python3 tests/present/test_outline_block.py"
 reason = "rvI21 R4-6: the outline prints the type -1 of an empty block's declaration"
+
+[[fault]]
+id = "genrec-no-substitution"
+file = "src/kernel/generated-recursor.fs"
+old = '''  lf-ind-lparams nip 0= if outcome-ok exit then'''
+new = '''  outcome-ok exit'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 R5-1: the generated recursor's domains keep the block's own universes; uses of Eq's, Exists' and Pr's recursor at other universes are not accepted as Lean accepts them"
 
 [[fault]]
 id = "pub-rec-name-not-held"

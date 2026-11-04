@@ -116,7 +116,49 @@ def obligation_text(o):
     return f"If {o['path']}: {o['statement']}."
 
 
-def assumptions(word, prims, cases):
+def refuse_ir_02(ir_text, path):
+    """Schema 0.2 has program.ir.version "0.1" only: a receipt for an IR 0.2
+    program (output words, LSHIFT or -ROT) needs schema 0.3, which the owner
+    decides at the [format] gate (docs/programming/PROGRAM_RECEIPTS.md,
+    "Schema 0.3"). Until then none is written."""
+    if ir_text.split("\n", 1)[0] != "lf-ir 0.1":
+        raise SystemExit(f"{path} is not IR 0.1: a receipt for an IR 0.2 program needs receipt "
+                         "schema 0.3 (program.ir.version \"0.2\" and program.output), which "
+                         "awaits the owner's [format] gate; no receipt written")
+
+
+def source_name(source_lines, kind, line, column):
+    """The name a definition's source gives it, folded to lower case: for a
+    word the token after the colon at line:column, for a constant the token
+    there."""
+    text = source_lines[line - 1][column - 1:].split()
+    return (text[1] if kind == "word" else text[0]).lower()
+
+
+def later_version(ir_text, source_text, word):
+    """When the file defines word's source name again after it (ADR 0019
+    Amendment 1, A1), the IR name and source line of the last version, which
+    the name means after loading; otherwise None."""
+    found = re.findall(r"^(word|constant) (\S+) @(\d+):(\d+)$", ir_text, re.M)
+    lines = source_text.splitlines()
+    names = [(n, int(l), source_name(lines, k, int(l), int(c))) for k, n, l, c in found]
+    mine = [d for d in names if d[0] == word]
+    if len(mine) != 1:
+        raise SystemExit(f"no single located definition {word} in the IR")
+    versions = [d for d in names if d[2] == mine[0][2]]
+    return None if versions[-1][0] == word else versions[-1][:2]
+
+
+def version_sentence(word, line, later):
+    """The trusted-reader assumption's words on which version this is."""
+    if later is None:
+        return ""
+    return (f" This receipt is about {word}, defined on line {line}; after loading, the name "
+            f"means its later version {later[0]}, line {later[1]}, which this receipt does not "
+            "cover, though words compiled before that line still call this one.")
+
+
+def assumptions(word, prims, cases, version=""):
     return [
         {"id": "A1", "kind": "host-cells",
          "text": "Every value is one signed host cell. The Lean theorems hold for every cell "
@@ -130,26 +172,30 @@ def assumptions(word, prims, cases):
                  "word of that name does, and nothing else in the source file changes what "
                  "its words mean on the host. They run the file through Forth's own text "
                  "interpreter, one line at a time, with only their entry word visible; each "
-                 "token must be a word of the file (a call, bound when Forth finds it), a "
-                 "word of FORTH-WORDLIST with verification semantics and the identity it had "
-                 "when they loaded, or a plain decimal, which they read themselves; no word "
-                 "of the file or of the host runs. A standard word redefined after they "
-                 "loaded and before the run is refused, except, on Gforth 0.7.3, a "
-                 "compile-only word, since all of those share one token there; one "
-                 "redefined before they loaded is not noticed, so the verifying Forth too "
-                 "is assumed to have its own standard words. They refuse a redefinition, "
-                 "under any spelling, of a Forth-2012 "
-                 "Core or Core Ext word or of the file's own words, a name that reads as a "
-                 "number, any byte outside printable ASCII other than a space, a tab, an LF "
-                 "and a CR just before an LF, and a division before CONSTANT. Gforth is "
-                 "assumed to load the file with its default settings (decimal BASE, standard "
-                 "words), and the file to define no name that code compiled after it in the "
-                 "same session uses, other than the words under test: definitions of host "
-                 "words outside those word sets, such as Gforth's own, are accepted and would "
-                 "change what such code, a test harness for example, means. Nothing proves "
-                 "the translation; recording the evidence wrote this IR again with the "
-                 "program words, and make test compares them with the IR named here and with "
-                 "the earlier reader (src/program/ir-reader.fs)."},
+                 "token must be a word of the file (a call, bound when Forth finds it, to "
+                 "the version visible there), a word of FORTH-WORDLIST with verification "
+                 "semantics and the identity it had when they loaded, or a number in a "
+                 "Forth-2012 form (decimal, # $ % prefixes or 'c'), which they read "
+                 "themselves; no word of the file or of the host runs. A standard word "
+                 "redefined after they loaded and before the run is refused, except, on "
+                 "Gforth 0.7.3, a compile-only word, since all of those share one token "
+                 "there; one redefined before they loaded is not noticed, so the verifying "
+                 "Forth too is assumed to have its own standard words. A file may define its "
+                 "own words again, as Forth allows; each version has its own IR name (x, "
+                 "x'1, ...), and program.word names one. They refuse a redefinition, under "
+                 "any spelling, of a word with verification semantics or of a Forth-2012 "
+                 "Core or Core Ext word, a name the IR gives another version, a name that "
+                 "reads as a number, any byte outside printable ASCII other than a space, a "
+                 "tab, an LF and a CR just before an LF, and a division before CONSTANT. "
+                 "Gforth is assumed to load the file with its default settings (decimal "
+                 "BASE, standard words), and the file to define no name that code compiled "
+                 "after it in the same session uses, other than the words under test: "
+                 "definitions of host words outside those word sets, such as Gforth's own, "
+                 "are accepted and would change what such code, a test harness for example, "
+                 "means. Nothing proves the translation; recording the evidence wrote this "
+                 "IR again with the program words, and make test compares them with the IR "
+                 "named here and with the earlier reader (src/program/ir-reader.fs)."
+                 + version},
         {"id": "A4", "kind": "trusted-runtime",
          "text": f"Gforth and its compiler execute {prims} as the IR semantics says. The "
                  f"runtime comparison tested this on {cases} cases; it does not prove it."},
@@ -189,6 +235,7 @@ def build(contract_path, evidence):
                                          contract_path)
     vc = vc_entry(contract["id"])
     ir_text = Path(contract["ir"]).read_text(encoding="utf-8")
+    refuse_ir_02(ir_text, contract["ir"])
     word = contract["word"]
     source = program_vc.ir_source(ir_text)
     written = evidence.get("ir", {})
@@ -264,7 +311,10 @@ def build(contract_path, evidence):
                     f"evaluation of the model agreed on all {run['leanAgreed']} clamp cases, "
                     "including failures the host cannot run (too few inputs, no fuel).",
         },
-        "assumptions": assumptions(word, prim_words(ir_text, word), run["cases"]),
+        "assumptions": assumptions(word, prim_words(ir_text, word), run["cases"],
+                                   version_sentence(word, word_line(ir_text, word),
+                                                    later_version(ir_text, Path(source).read_text(
+                                                        encoding="utf-8"), word))),
         "tools": [{"name": "lean", "version": lean["version"], "commit": lean["commit"]},
                   {"name": run["forth"], "version": run["version"]},
                   {"name": "python", "version": f"program_vc.py {program_vc.GENERATOR_VERSION}"}],

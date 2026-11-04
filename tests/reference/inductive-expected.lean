@@ -1193,6 +1193,23 @@ def useRecOf (r : RecursorVal) : Declaration :=
               value := mkConst r.name (r.levelParams.map .param), hints := .regular 1,
               safety := .safe }
 
+/-- `def T.useRec<suffix>.{names} : <type of T.rec at levels> := @T.rec.{levels}`, with
+the value eta-expanded over the type's first `eta` binders (`fun α p => @T.rec.{…} α p`):
+the generated recursor at universes other than its own names (review rvI21 R5-1). -/
+def etaOf (f : Expr) : Nat → Expr → Nat → Expr
+  | k+1, .forallE n t b bi, depth => .lam n t (etaOf f k b (depth + 1)) bi
+  | _, _, depth => mkAppN f ((List.range depth).reverse.map Expr.bvar).toArray
+
+def useRecAt (suffix : String) (names : List Name) (levels : List Level) (eta : Nat := 0)
+    (r : RecursorVal) : Declaration :=
+  let ty := r.type.instantiateLevelParams r.levelParams levels
+  .defnDecl { name := r.name.getPrefix ++ Name.mkSimple ("useRec" ++ suffix),
+              levelParams := names, type := ty, value := etaOf (mkConst r.name levels) eta ty 0,
+              hints := .regular 1, safety := .safe }
+
+def lp (n : Name) : Level := .param n
+def lv (k : Nat) : Level := Level.ofNat k
+
 /-- `Q := ∀ p : Prop, p` and `@IE.B.rec.{1} (fun _ : IE.B => Prop) Q Q IE.B.true`, a
 proposition: the motive's universe `u` named by no level of the file (R4-1). -/
 def qProp : Expr := .forallE `p (.sort 0) (.bvar 0) .default
@@ -1269,6 +1286,36 @@ def stripped : List Stripped := [
   { id := "after.many-universes-left-out-then-use-rec", block := pure manyBlock,
     uses := fun r => [useRecOf r], lean := "accepted", leanforth := "accepted",
     rule := "B4 G1" },
+  { id := "after.eq-at-renamed", block := blockDecl "ind.eq",
+    uses := fun r => [useRecAt "Renamed" [`a, `b] [lp `a, lp `b] 0 r],
+    lean := "accepted", leanforth := "accepted", rule := "B4 G1", task := "5.2.1c" },
+  { id := "after.eq-at-concrete", block := blockDecl "ind.eq",
+    uses := fun r => [useRecAt "Concrete" [] [lv 0, lv 1] 0 r],
+    lean := "accepted", leanforth := "accepted", rule := "B4 G1", task := "5.2.1c" },
+  { id := "after.eq-at-applied", block := blockDecl "ind.eq",
+    uses := fun r => [useRecAt "Applied" [`a, `b] [lp `a, lp `b] 2 r],
+    lean := "accepted", leanforth := "accepted", rule := "B4 G1", task := "5.2.1c" },
+  { id := "after.exists-at-renamed", block := blockDecl "ind.exists",
+    uses := fun r => [useRecAt "Renamed" [`b] [lp `b] 0 r],
+    lean := "accepted", leanforth := "accepted", rule := "B4 G1" },
+  { id := "after.exists-at-concrete", block := blockDecl "ind.exists",
+    uses := fun r => [useRecAt "Concrete" [] [lv 1] 0 r],
+    lean := "accepted", leanforth := "accepted", rule := "B4 G1" },
+  { id := "after.exists-at-applied", block := blockDecl "ind.exists",
+    uses := fun r => [useRecAt "Applied" [`b] [lp `b] 2 r],
+    lean := "accepted", leanforth := "accepted", rule := "B4 G1" },
+  { id := "after.universe-max-at-renamed", block := blockDecl "ind.universe-max",
+    uses := fun r => [useRecAt "Renamed" [`a, `b, `c] [lp `a, lp `b, lp `c] 0 r],
+    lean := "accepted", leanforth := "accepted", rule := "B4 G1" },
+  { id := "after.universe-max-at-concrete", block := blockDecl "ind.universe-max",
+    uses := fun r => [useRecAt "Concrete" [] [lv 0, lv 1, lv 2] 0 r],
+    lean := "accepted", leanforth := "accepted", rule := "B4 G1" },
+  { id := "after.universe-max-at-swapped", block := blockDecl "ind.universe-max",
+    uses := fun r => [useRecAt "Swapped" [`u_1, `u, `v] [lp `u_1, lp `v, lp `u] 0 r],
+    lean := "accepted", leanforth := "accepted", rule := "B4 G1" },
+  { id := "after.universe-max-at-applied", block := blockDecl "ind.universe-max",
+    uses := fun r => [useRecAt "Applied" [`a, `b, `c] [lp `a, lp `b, lp `c] 2 r],
+    lean := "accepted", leanforth := "accepted", rule := "B4 G1" },
   { id := "after.redex-type-left-out-then-use-rec", block := pure redexBlock,
     uses := fun _ => [redexUse], lean := "declTypeMismatch", leanforth := "rejected",
     rule := "B4 G1" }

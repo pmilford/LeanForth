@@ -1,10 +1,23 @@
 # The program IR interpreter and the three-way comparison
 
 **Status: implemented and untrusted (2026-11-02, task 2.5.4 of the
-[plan draft](../project/PLAN_DRAFT.md)).** The interpreter is ordinary
+[plan draft](../project/PLAN_DRAFT.md)); IR 0.2 added 2026-11-04.** The interpreter is ordinary
 Forth; it proves nothing. What it adds is evidence that three independent
 executions of the same word agree: the host running the Forth source, the
 Forth interpreter running the reader's IR, and Lean running the IR model.
+
+**IR 0.2** ([program IR](PROGRAM_IR.md#ir-02)): the interpreter reads
+`lf-ir 0.2` as well, with `prim lshift` (unmodeled for a count outside the
+cell, as `rshift`), `prim -rot` and `out` lines, and refuses those under
+an `lf-ir 0.1` version line; names may be 36 characters long (a version
+name, `x'31`). An out line takes its cells and sends what it prints to the
+context's output sink (`irx-output-to ( xt -- )`, xt `( c-addr u -- )`;
+a new context discards it): the bytes of Lean's `Event.render`, and `.S`
+as both Gforths print it. The random comparison with Lean
+(`ir_run_differential.py --lean`) adds 150 IR 0.2 programs (seed + 1) and
+two planted faults (`-rot` as `rot`, `lshift` as `rshift`);
+`tests/program/verify_ir02.py` compares the interpreter's stacks and
+printed bytes with plain Gforth running the source.
 
 Until now nothing tied `lf-clamp` as Gforth runs it to the IR terms the
 Lean theorems are about ([program IR](PROGRAM_IR.md), "What is proved").

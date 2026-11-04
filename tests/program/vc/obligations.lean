@@ -30,7 +30,7 @@ namespace ProgramIR
 
 -- Part 1. The IR semantics, copied.
 
--- BEGIN VERBATIM tests/reference/program-ir.lean 187-577
+-- BEGIN VERBATIM tests/reference/program-ir.lean 187-614
 /-- A host cell of `bits` bits holding a two's-complement signed integer.
 Forth-2012 cells have at least 16 bits; narrower cells are allowed here so
 that small cases can be checked exhaustively. -/
@@ -111,7 +111,8 @@ theorem rshift_neg_one : c.signed (c.unsigned (-1) >>> 1) = c.max := by
 
 end Cells
 
-/-- The primitive words of IR 0.1, named after the Forth words they model. -/
+/-- The primitive words of IR 0.2, named after the Forth words they model;
+the last two, `LSHIFT` and `-ROT`, are new in IR 0.2. -/
 inductive Prim where
   | dup | drop | swap | over | nip | tuck | rot | twoDup | twoDrop
   | toR | fromR | rFetch
@@ -119,10 +120,18 @@ inductive Prim where
   | eq | ne | lt | gt | zeroEq | zeroNe | zeroLt | zeroGt
   | and | or | xor | invert | rshift
   | max | min | true | false
+  | lshift | negRot
+  deriving Repr, DecidableEq
+
+/-- An output word of IR 0.2 (ADR 0019 Amendment 1, A2): `.`, `U.`, `CR`,
+`EMIT`, `SPACE`, `SPACES`, `.S`, and `."` or `S" … " TYPE` with its text. -/
+inductive Out where
+  | dot | uDot | cr | emit | space | spaces | dotS | text (s : String)
   deriving Repr, DecidableEq
 
 /-- An instruction. `ifElse` is `IF yes ELSE no THEN`; `loop` is
-`BEGIN test WHILE body REPEAT`; `exit` leaves the current word. -/
+`BEGIN test WHILE body REPEAT`; `exit` leaves the current word; `out` is an
+output word (IR 0.2). -/
 inductive Instr where
   | prim (p : Prim)
   | lit (n : Int)
@@ -130,6 +139,7 @@ inductive Instr where
   | ifElse (yes no : List Instr)
   | loop (test body : List Instr)
   | exit
+  | out (o : Out)
   deriving Repr
 
 /-- Data and return stacks, top of stack first. -/
@@ -219,20 +229,36 @@ def step (c : Cells) : Prim → State → Result
   | .min, ⟨b :: a :: d, r⟩ => .next ⟨(if a < b then a else b) :: d, r⟩
   | .true, ⟨d, r⟩ => .next ⟨-1 :: d, r⟩
   | .false, ⟨d, r⟩ => .next ⟨0 :: d, r⟩
+  | .lshift, ⟨n :: a :: d, r⟩ =>
+      if 0 ≤ n ∧ n < c.bits then .next ⟨c.signed ((c.unsigned a <<< n.toNat) % 2 ^ c.bits) :: d, r⟩
+      else .failed .unmodeled
+  | .negRot, ⟨x3 :: x2 :: x1 :: d, r⟩ => .next ⟨x2 :: x1 :: x3 :: d, r⟩
   | _, _ => .failed .underflow
 
--- Lean generates the equation of each of the 38 primitive cases when it is
+-- Lean generates the equation of each of the 40 primitive cases when it is
 -- first named; naming them here also lets `simp` use them.
 attribute [local simp] step.eq_1 step.eq_2 step.eq_3 step.eq_4 step.eq_5 step.eq_6 step.eq_7
   step.eq_8 step.eq_9 step.eq_10 step.eq_11 step.eq_12 step.eq_13 step.eq_14 step.eq_15
   step.eq_16 step.eq_17 step.eq_18 step.eq_19 step.eq_20 step.eq_21 step.eq_22 step.eq_23
   step.eq_24 step.eq_25 step.eq_26 step.eq_27 step.eq_28 step.eq_29 step.eq_30 step.eq_31
   step.eq_32 step.eq_33 step.eq_34 step.eq_35 step.eq_36 step.eq_37 step.eq_38
+  step.eq_39 step.eq_40
+
+/-- An output word's effect on the stacks (IR 0.2): `.`, `U.`, `EMIT` and
+`SPACES` take one cell (`underflow` without one), the others none. What it
+prints is an event (`runOut` below), which no instruction reads. -/
+def Out.effect : Out → State → Result
+  | .dot, ⟨_ :: d, r⟩ | .uDot, ⟨_ :: d, r⟩ | .emit, ⟨_ :: d, r⟩ | .spaces, ⟨_ :: d, r⟩ =>
+      .next ⟨d, r⟩
+  | .dot, _ | .uDot, _ | .emit, _ | .spaces, _ => .failed .underflow
+  | _, s => .next s
 
 /-- Run a block. A called word starts with an empty return stack of its own
 and must leave it empty. A literal must fit in a cell; one that does not is
-`unmodeled` (the reader writes only literals that fit in 32 bits, so on
-cells of 32 bits or more every literal it writes fits). Fuel bounds the nesting depth
+`unmodeled` (the IR 0.1 reader writes only literals that fit in 32 bits, so
+on cells of 32 bits or more every literal it writes fits; IR 0.2's go up to
+2^32 - 1, which fit cells of 33 bits or more). An output word has its
+stack effect only. Fuel bounds the nesting depth
 of calls and the repetitions of each loop: a callee runs with one unit
 less than its caller, which continues with its own fuel afterwards, and
 each repetition of a loop leaves one unit less for the repetitions after
@@ -276,6 +302,10 @@ def run (c : Cells) (p : Program) : Nat → List Instr → State → Result
             match run c p (fuel + 1) body ⟨d, r⟩ with
             | .next s' => run c p fuel (.loop test body :: rest) s'
             | other => other
+      | other => other
+  | fuel, .out o :: rest, s =>
+      match o.effect s with
+      | .next s' => run c p fuel rest s'
       | other => other
 termination_by fuel code => (fuel, sizeOf code)
 
@@ -365,6 +395,13 @@ theorem run_loop (fuel : Nat) (test body rest : List Instr) (s : State) :
       | other => other := by
   rw [run]
 
+theorem run_out (fuel : Nat) (o : Out) (rest : List Instr) (s : State) :
+    run c p fuel (.out o :: rest) s =
+      match o.effect s with
+      | .next s' => run c p fuel rest s'
+      | other => other := by
+  rw [run]
+
 /-- A call to a word that returns normally continues with its result. The
 callee runs with one unit of fuel less than its caller. -/
 theorem run_call_word {fuel : Nat} {name : String} {body rest : List Instr}
@@ -426,10 +463,7 @@ macro "ir_simp" : tactic => `(tactic| simp only [run_prim, run_lit, run_exit, ru
 
 -- The IR text printer, copied.
 
--- BEGIN VERBATIM tests/reference/program-ir.lean 1215-1254
-def irVersion : String := "0.1"
-
-/-- The Forth word a primitive models. -/
+-- BEGIN VERBATIM tests/reference/program-ir.lean 1253-1319
 def Prim.word : Prim → String
   | .dup => "dup" | .drop => "drop" | .swap => "swap" | .over => "over" | .nip => "nip"
   | .tuck => "tuck" | .rot => "rot" | .twoDup => "2dup" | .twoDrop => "2drop"
@@ -440,6 +474,35 @@ def Prim.word : Prim → String
   | .zeroEq => "0=" | .zeroNe => "0<>" | .zeroLt => "0<" | .zeroGt => "0>"
   | .and => "and" | .or => "or" | .xor => "xor" | .invert => "invert" | .rshift => "rshift"
   | .max => "max" | .min => "min" | .true => "true" | .false => "false"
+  | .lshift => "lshift" | .negRot => "-rot"
+
+/-- An output word as an `out` line writes it; a text between `." ` and `"`. -/
+def Out.word : Out → String
+  | .dot => "." | .uDot => "u." | .cr => "cr" | .emit => "emit" | .space => "space"
+  | .spaces => "spaces" | .dotS => ".s" | .text s => ".\" " ++ s ++ "\""
+
+/-- Whether an instruction is new in IR 0.2 (ADR 0019 Amendment 1, A4): an
+`out` line, `prim lshift` or `prim -rot`, also inside IF and loops. -/
+def Prim.new : Prim → Bool
+  | .lshift | .negRot => Bool.true
+  | _ => Bool.false
+
+mutual
+def Instr.new : Instr → Bool
+  | .prim p => p.new
+  | .out _ => true
+  | .ifElse yes no => blockNew yes || blockNew no
+  | .loop test body => blockNew test || blockNew body
+  | _ => false
+
+def blockNew : List Instr → Bool
+  | [] => false
+  | i :: rest => i.new || blockNew rest
+end
+
+/-- The lowest version that fits: IR 0.2 only when an instruction needs it. -/
+def irVersion (p : Program) : String :=
+  if p.any (fun d => match d.2 with | .word b | .constant b => blockNew b) then "0.2" else "0.1"
 
 mutual
 def renderInstr (pad : String) : Instr → List String
@@ -454,6 +517,7 @@ def renderInstr (pad : String) : Instr → List String
   | .loop test body =>
       [pad ++ "begin"] ++ renderBlock (pad ++ "  ") test ++ [pad ++ "while"] ++
         renderBlock (pad ++ "  ") body ++ [pad ++ "repeat"]
+  | .out o => [pad ++ "out " ++ o.word]
 
 def renderBlock (pad : String) : List Instr → List String
   | [] => []
@@ -465,7 +529,7 @@ def renderDef : String × Def → List String
   | (name, .constant body) => ["constant " ++ name] ++ renderBlock "  " body ++ ["end"]
 
 def render (source : String) (p : Program) : String :=
-  String.intercalate "\n" (["lf-ir " ++ irVersion, "source " ++ source] ++
+  String.intercalate "\n" (["lf-ir " ++ irVersion p, "source " ++ source] ++
     p.flatMap renderDef) ++ "\n"
 -- END VERBATIM
 

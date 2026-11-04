@@ -1,6 +1,6 @@
 # ADR 0015: inductive types, constructors and recursors as Lean's kernel checks them
 
-Status: task **5.2.1a implemented and approved** [kernel][import] by the owner on 2026-11-04, on condition that its three cautious differences from Lean are closed so the default is 100% Lean ([decisions](../project/OWNER_DECISIONS.md#data-types-first-step-approved-with-a-condition-2026-11-04)). **Accepted** as a design, 2026-11-03 (owner; questions Q1–Q5 answered
+Status: task **5.2.1a implemented and approved** [kernel][import] by the owner on 2026-11-04, on condition that its three cautious differences from Lean are closed so the default is 100% Lean ([decisions](../project/OWNER_DECISIONS.md#data-types-first-step-approved-with-a-condition-2026-11-04)). **Condition met** (owner, 2026-11-04, after review rvI21 rounds 4–6; [decisions](../project/OWNER_DECISIONS.md#data-types-first-step-condition-met-2026-11-04-late)): the remaining differences are temporary, each closed by a named later task. **Accepted** as a design, 2026-11-03 (owner; questions Q1–Q5 answered
 in §15 and in [OWNER_DECISIONS](../project/OWNER_DECISIONS.md#data-types-axioms-and-imports-2026-11-03-late-night));
 each implementation task of §12 still passes its own gate. Proposed 2026-11-03 (plan tasks 5.1.1–5.1.5, phase 5, "Data
 types and the first real Lean code"). A [kernel] and [import] design, with
@@ -860,8 +860,15 @@ and its members' exported data into the input (`core/input.fs`,
     builds the recursor in its own scratch at the use's universe
     arguments, from the block's input, with the same builder
     (`generated-recursor.fs`; `inductive-recursor.fs`
-    `lf-recursor-build-at`): its type instantiated, as Lean's
-    `instantiate_type_lparams` gives it. No universe name of the
+    `lf-recursor-build-at`): the motive's Sort at the first argument, the
+    block's constants at the others, and every binder domain read from
+    instances of the block's type and constructor types with the block's
+    universe parameters replaced by those arguments
+    (`lf-mixed-level-substitute`; review rvI21 R5-1, which found the
+    domains left at the block's own universes). That is the recursor's
+    type instantiated, as Lean's `instantiate_type_lparams` gives it
+    (rows `after.eq-at-*`, `after.exists-at-*`, `after.universe-max-at-*`:
+    renamed, concrete, swapped and applied universes). No universe name of the
     recursor's own is made, so its motive universe need not be a level of
     the file (R4-1: such a file was *invalid*), and its universe parameters
     have no limit of their own (R4-3: they were capped at 64). A block
@@ -915,9 +922,10 @@ and its members' exported data into the input (`core/input.fs`,
   pending, each naming the later task that closes it: 5.2.1b (four rows
   using or redeclaring `Nat`) and 4.2.2 (one needing unfolding). The
   review's fourth round added 15 rows that strip a block's recursors and
-  use the generated one (166 in all): of task 5.2.1a's 87 rows, 81 give
-  Lean's verdict (38 accepted, 43 rejected) and 6 are pending (5.2.1b
-  four, 4.2.2 two). 66 planted faults are caught.
+  use the generated one (166 in all), and its fifth 10 that use it at
+  universes other than its own names (176): of task 5.2.1a's 94 rows, 88
+  give Lean's verdict (45 accepted, 43 rejected) and 6 are pending
+  (5.2.1b four, 4.2.2 two). 67 planted faults are caught.
 - `make test-check-block` (41 committed table files, 60 since the review; blocks published
   together; the reference export tampered field by field; fuel bisection;
   a full store), eighteen planted faults (`ind-*`) all caught, and the

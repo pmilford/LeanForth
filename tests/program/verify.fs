@@ -90,6 +90,32 @@ T{ s" src/program/examples.fs" s" tests/program/ir/examples.ir" alias-golden
    -> outcome-ok 0 }T
 T{ s" tests/program/ir/all-primitives.fs" s" tests/program/ir/all-primitives.ir"
    alias-golden -> outcome-ok 0 }T
+T{ s" tests/program/ir/ir-0.2.fs" s" tests/program/ir/ir-0.2.ir" shift-golden
+   -> outcome-ok 0 }T
+T{ s" tests/program/ir/ir-0.2.fs" s" tests/program/ir/ir-0.2.ir" alias-golden
+   -> outcome-ok 0 }T
+T{ s" src/program/sha-words.fs" s" tests/program/ir/sha-words.ir" shift-golden
+   -> outcome-ok 0 }T
+T{ s" src/program/sha-words.fs" s" tests/program/ir/sha-words.ir" alias-golden
+   -> outcome-ok 0 }T
+
+\ Run mode of the SHA-2 helper words (src/program/sha-words.fs), loaded
+\ into a word list of their own: FIPS 180-4's values, and the example of
+\ tests/reference/sha256-spec.lean (Sigma0(6a09e667) = ce20b47e).
+wordlist constant sha-words
+get-current sha-words set-current get-order sha-words swap 1+ set-order
+s" ../../src/program/sha-words.fs" included
+previous set-current
+: sha-word ( c-addr u -- xt ) sha-words search-wordlist 0= abort" no such word" ;
+: sha ( i*x c-addr u -- j*x ) sha-word execute ;
+T{ $6a09e667 s" sha-big-sigma0" sha -> $ce20b47e }T
+T{ 1 1 s" sha-rotr" sha $80000000 1 s" sha-rotr" sha -> $80000000 $40000000 }T
+T{ $12345678 8 s" sha-rotr" sha $12345678 31 s" sha-rotr" sha -> $78123456 $2468acf0 }T
+T{ $ffffffff $12345678 $9abcdef0 s" sha-ch" sha -> $12345678 }T
+T{ 0 $12345678 $9abcdef0 s" sha-ch" sha -> $9abcdef0 }T
+T{ $ffffffff 0 $12345678 s" sha-maj" sha $f0f0f0f0 $ff00ff00 $ffff0000 s" sha-maj" sha
+   -> $12345678 $fff0f000 }T
+T{ $ffffffff 7 s" sha-shr" sha 0 s" sha-mask" sha -> $1ffffff 0 $ffffffff }T
 
 \ Accepted text, and every outcome with its reason, line and column, the
 \ same in both designs.
@@ -123,15 +149,150 @@ T{ s" : f 1 cells ;" both -> outcome-unsupported pv-why-not-ir 1 7 true }T
 T{ s" : . drop ;" both -> outcome-unsupported pv-why-redefined 1 3 true }T
 T{ s\" : f s\" x\" ;" both -> outcome-unsupported pv-why-not-ir 1 5 true }T
 T{ s\" : f s\\\" x\" ;" both -> outcome-unsupported pv-why-not-ir 1 5 true }T
-\ Every number syntax but plain decimals is refused at its token, also
-\ those that Gforth 1.0's recognizers read; so are its other forms.
-T{ s" : f $10 ;" both -> outcome-unsupported pv-why-unknown 1 5 true }T
+\ Every number syntax but Forth-2012's (decimals, # $ % and 'c', ADR 0019
+\ A3) is refused at its token, also those that Gforth 1.0's recognizers
+\ read; so are its other forms.
+T{ s" : f -$10 ;" both -> outcome-unsupported pv-why-unknown 1 5 true }T
 T{ s" : f 1e ;" both -> outcome-unsupported pv-why-unknown 1 5 true }T
 T{ s\" : f \"x dup y\" ;" both -> outcome-unsupported pv-why-unknown 1 5 true }T
 T{ s" : f ${HOME} ;" both -> outcome-unsupported pv-why-unknown 1 5 true }T
 T{ s" : f ->dup ;" both -> outcome-unsupported pv-why-unknown 1 5 true }T
 T{ s" : f 1 2 forth:dup ;" both -> outcome-unsupported pv-why-unknown 1 9 true }T
 T{ transcript-text s" |  lit 1 @1:5|  lit 2 @1:7|unsupported @1:9" contains? -> true }T
+
+\ IR 0.2 (ADR 0019 Amendment 1). Literals (A3): Forth-2012's # $ % and
+\ 'c' forms and 32-bit values, read here and written in decimal; they are
+\ not new instructions, so the IR stays 0.1.
+T{ s" : f #10 $-10 %101 'a' ''' ;" both -> outcome-ok 0 1 0 true }T
+T{ transcript-text s" lf-ir 0.1|source t.fs|word f @1:1|  lit 10 @1:5|  lit -16 @1:9|"
+   contains? -> true }T
+T{ transcript-text s" |  lit 5 @1:14|  lit 97 @1:19|  lit 39 @1:23|end @1:27|" contains?
+   -> true }T
+T{ s" : f $FFFFFFFF 4294967295 -2147483648 $-80000000 %-1 $ffffffff ;" both
+   -> outcome-ok 0 1 0 true }T
+T{ transcript-text s" |  lit 4294967295 @1:5|  lit 4294967295 @1:15|  lit -2147483648 @1:26|"
+   contains? -> true }T
+T{ transcript-text s" |  lit -2147483648 @1:38|  lit -1 @1:49|  lit 4294967295 @1:53|"
+   contains? -> true }T
+T{ s" 4294967295 constant m  : f m ;" both -> outcome-ok 0 1 0 true }T
+T{ transcript-text s" |constant m @1:21|  lit 4294967295 @1:1|end @1:21|" contains? -> true }T
+\ Outside the range, too many digits, and the forms Forth-2012 lacks or
+\ on which the hosts differ.
+T{ s" : f 4294967296 ;" both -> outcome-unsupported pv-why-unknown 1 5 true }T
+T{ s" : f -2147483649 ;" both -> outcome-unsupported pv-why-unknown 1 5 true }T
+T{ s" : f $100000000 ;" both -> outcome-unsupported pv-why-unknown 1 5 true }T
+T{ s" : f $-80000001 ;" both -> outcome-unsupported pv-why-unknown 1 5 true }T
+T{ s" : f %111111111111111111111111111111111 ;" both
+   -> outcome-unsupported pv-why-unknown 1 5 true }T
+T{ s" : f 00004294967295 ;" both -> outcome-unsupported pv-why-unknown 1 5 true }T
+T{ s" : f 1_000 ;" both -> outcome-unsupported pv-why-unknown 1 5 true }T
+T{ s" : f 0x10 ;" both -> outcome-unsupported pv-why-unknown 1 5 true }T
+T{ s" : f -'a' ;" both -> outcome-unsupported pv-why-unknown 1 5 true }T
+T{ s" : f 'ab' ;" both -> outcome-unsupported pv-why-unknown 1 5 true }T
+T{ s" : f #-$1 ;" both -> outcome-unsupported pv-why-unknown 1 5 true }T
+T{ s" : f $ ;" both -> outcome-unsupported pv-why-unknown 1 5 true }T
+T{ s" : f $1g ;" both -> outcome-unsupported pv-why-unknown 1 5 true }T
+T{ s" : f %2 ;" both -> outcome-unsupported pv-why-unknown 1 5 true }T
+\ LSHIFT and -ROT (A3), new primitives: the IR is 0.2, inside a word and
+\ before CONSTANT.
+T{ s" : f 1 4 lshift -rot ;" both -> outcome-ok 0 1 0 true }T
+T{ s" lf-ir 0.2|source t.fs|word f @1:1|  lit 1 @1:5|  lit 4 @1:7|  prim lshift @1:9|"
+   transcript-text drop over compare -> 0 }T
+T{ transcript-text s" |  prim -rot @1:16|end @1:21|" contains? -> true }T
+T{ s" 1 4 LSHIFT constant k" both -> outcome-ok 0 1 0 true }T
+T{ s" lf-ir 0.2|source t.fs|constant k @1:21|  lit 1 @1:1|  lit 4 @1:3|  prim lshift @1:5|"
+   transcript-text drop over compare -> 0 }T
+T{ s" 1 2 3 -rot 2drop constant k" both -> outcome-ok 0 1 0 true }T
+T{ s" 1 2 -rot constant k" both -> outcome-unsupported pv-why-borrowed 1 5 true }T
+\ Output words (A2), inside definitions only, each an out line; an IR
+\ without one, and a run refused before one is written, stays 0.1.
+T{ s\" : f dup . u. cr emit space spaces .s .\" hi\" ;" both -> outcome-ok 0 1 0 true }T
+T{ s" lf-ir 0.2|source t.fs|word f @1:1|  prim dup @1:5|  out . @1:9|  out u. @1:11|"
+   transcript-text drop over compare -> 0 }T
+T{ transcript-text s" |  out cr @1:14|  out emit @1:17|  out space @1:22|" contains? -> true }T
+T{ transcript-text s\" |  out spaces @1:28|  out .s @1:35|  out .\" hi\" @1:38|end @1:45|"
+   contains? -> true }T
+T{ s" : f DUP . U. CR EMIT .S ;" both -> outcome-ok 0 1 0 true }T
+T{ transcript-text s" |  out u. @1:11|  out cr @1:14|  out emit @1:17|  out .s @1:22|"
+   contains? -> true }T
+T{ s\" : f .\"   two\" s\" typed text\" TYPE .\" \" ;" both -> outcome-ok 0 1 0 true }T
+T{ transcript-text s\" |  out .\"   two\" @1:5|  out .\" typed text\" @1:15|" contains?
+   -> true }T
+T{ transcript-text s\" |  out .\" \" @1:35|end @1:40|" contains? -> true }T
+T{ s\" : f .\" a \"b\" ;" both -> outcome-unsupported pv-why-unknown 1 11 true }T
+T{ s" 5 ." both -> outcome-unsupported pv-why-outside 1 3 true }T
+T{ s" lf-ir 0.1|source t.fs|unsupported @1:3: not allowed outside a definition: .|"
+   transcript-text drop over compare -> 0 }T
+T{ s\" .\" x\"" both -> outcome-unsupported pv-why-outside 1 1 true }T
+T{ s" : f cr ; cr" both -> outcome-unsupported pv-why-outside 1 10 true }T
+T{ s\" : f s\" x\" ;" both -> outcome-unsupported pv-why-not-ir 1 5 true }T
+T{ transcript-text s\" |unsupported @1:5: a Forth word outside IR 0.2: s\"|" contains?
+   -> true }T
+T{ s\" : f s\" x\"" both -> outcome-unsupported pv-why-not-ir 1 5 true }T
+T{ s\" : f s\" x\" dup type ;" both -> outcome-unsupported pv-why-not-ir 1 5 true }T
+T{ s" : f type ;" both -> outcome-unsupported pv-why-not-ir 1 5 true }T
+T{ s\" : f .\" x\" type ;" both -> outcome-unsupported pv-why-not-ir 1 11 true }T
+T{ s\" : f .\" no close ;" both -> outcome-unsupported pv-why-open-text 1 5 true }T
+T{ s\" : f s\" no close ;" both -> outcome-unsupported pv-why-open-text 1 5 true }T
+T{ s\" : f .\"" both -> outcome-unsupported pv-why-open-text 1 5 true }T
+T{ s\" : f .\" a\tb\" ;" both -> outcome-unsupported pv-why-character 1 5 true }T
+T{ s" : f .( x) ;" both -> outcome-unsupported pv-why-not-ir 1 5 true }T
+T{ s\" : f ;\n: g .\" open" both -> outcome-unsupported pv-why-open-text 2 5 true }T
+T{ s\" lf-ir 0.1|source t.fs|word f @1:1|end @1:5|word g @2:1|unsupported @2:5"
+   transcript-text drop over compare -> 0 }T
+\ A text too long for its IR line (96 characters) stops the run as full.
+create long-text 128 chars allot
+variable long#
+: long+ ( c-addr u -- ) long-text long# @ chars + swap dup long# +! chars move ;
+: long-dot-quote ( n -- c-addr u )
+  0 long# ! s\" : f .\" " long+ 0 ?do s" x" long+ loop s\" \" ;" long+ long-text long# @ ;
+T{ 81 long-dot-quote both -> outcome-ok 0 1 0 true }T
+T{ 82 long-dot-quote both -> outcome-full pv-why-capacity 1 5 true }T
+
+\ Redefinition of the file's own words (A1), Forth's early binding: each
+\ use binds to the version visible where it stands; each version has its
+\ own IR name (probe 1 of the amendment, whose results both Gforths give).
+T{ s" : pf 1 ; : pg pf ; : pf 2 ; : ph pf ;" both -> outcome-ok 0 1 0 true }T
+T{ transcript-text s" lf-ir 0.1|source t.fs|word pf @1:1|  lit 1 @1:6|end @1:8|" contains?
+   -> true }T
+T{ transcript-text s" |word pg @1:10|  call pf @1:15|end @1:18|word pf'1 @1:20|" contains?
+   -> true }T
+T{ transcript-text s" |word ph @1:29|  call pf'1 @1:34|end @1:37|" contains? -> true }T
+\ Hidden until its ; inside its own body the name is the version before.
+T{ s" : pk 10 ; : pk pk 1+ ; : pk pk 1+ ;" both -> outcome-ok 0 1 0 true }T
+T{ transcript-text s" |word pk'1 @1:11|  call pk @1:16|" contains? -> true }T
+T{ transcript-text s" |word pk'2 @1:24|  call pk'1 @1:29|" contains? -> true }T
+T{ s" : pq pq ;" both -> outcome-unsupported pv-why-recursive 1 6 true }T
+T{ s" : r 1 ; : r dup if r then ;" both -> outcome-ok 0 1 0 true }T
+T{ transcript-text s" |    call r @1:20|" contains? -> true }T
+\ One name in any case of letters; constants; a word made a constant.
+T{ s" : Cw 1 ; : cw 2 ; : CW 3 ; : g cW ;" both -> outcome-ok 0 1 0 true }T
+T{ transcript-text s" |word cw'2 @1:19|  lit 3 @1:24|end @1:26|word g @1:28|  call cw'2 @1:32|"
+   contains? -> true }T
+T{ s" 1 constant kk  kk 1+ constant kk  : g kk ;" both -> outcome-ok 0 1 0 true }T
+T{ transcript-text s" |constant kk'1 @1:31|  call kk @1:16|  prim 1+ @1:19|end @1:31|"
+   contains? -> true }T
+T{ transcript-text s" |  call kk'1 @1:39|" contains? -> true }T
+T{ s" : wc 7 ; 8 constant wc" both -> outcome-ok 0 1 0 true }T
+T{ transcript-text s" |constant wc'1 @1:21|" contains? -> true }T
+\ A name the IR gives another version is refused where it comes second;
+\ standard words stay refused.
+T{ s" : x ; : x ; : x'1 ;" both -> outcome-unsupported pv-why-version-name 1 15 true }T
+T{ transcript-text s" |unsupported @1:15: a name the IR gives another version: x'1|" contains?
+   -> true }T
+T{ s" : x'1 ; : x ; : X ;" both -> outcome-unsupported pv-why-version-name 1 17 true }T
+T{ s" : -rot 3 ;" both -> outcome-unsupported pv-why-redefined 1 3 true }T
+T{ s" : .S ;" both -> outcome-unsupported pv-why-redefined 1 3 true }T
+T{ s" : lshift ;" both -> outcome-unsupported pv-why-redefined 1 3 true }T
+\ Each version counts as a definition: 32 per file.
+create many-text 512 chars allot
+variable many#
+: many+ ( c-addr u -- ) many-text many# @ chars + swap dup many# +! chars move ;
+: versions ( n -- c-addr u )
+  0 many# ! 0 ?do s\" : v ;\n" many+ loop many-text many# @ ;
+T{ 32 versions both -> outcome-ok 0 32 0 true }T
+T{ transcript-text s" |word v'31 @32:1|end @32:5|" contains? -> true }T
+T{ 33 versions both -> outcome-full pv-why-capacity 33 3 true }T
 
 \ The caller's search order, compilation word list, BASE and STATE, and
 \ the depth of the data stack, are as before after every kind of ending.
@@ -211,7 +372,7 @@ T{ s" : f ;" both -> outcome-ok 0 1 0 true }T
 \ A design like the separate vocabulary, with the line word xt.
 : alias-like ( xt design -- )
   pv-alias-design over /pv-design move pv-design-line ! ;
-: wrong-cell ( -- ) 0 pv-gap# ! 5 pv-gap-push 6 pv-taken ;
+: wrong-cell ( -- ) 0 pv-gap# ! 5 s>d pv-gap-push 6 pv-taken ;
 pv-design: wrong-design  ' wrong-cell wrong-design alias-like
 T{ s" x" s" t.fs" wrong-design pv-text-run verdict
    -> outcome-invalid pv-why-host-literal 1 0 }T

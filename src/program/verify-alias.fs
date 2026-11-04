@@ -12,18 +12,24 @@
 \ Forth's interpreter also reads numbers, and on Gforth 1.0 its
 \ recognizers read more forms ("x", ->x, `dup, 1e ...). So every word of
 \ this vocabulary and of the file, when it runs, first checks the text
-\ between the previous one and itself (the gap): it must hold only plain
-\ decimals, each written as lit n as it is checked, and the data stack
-\ must have grown by exactly one cell per decimal, with the value its text
+\ between the previous one and itself (the gap): it must hold only the
+\ numbers verify-semantics.fs reads (decimals, Forth-2012's # $ % prefixes
+\ and 'c'), each written as lit n as it is checked, and the data stack
+\ must have grown by exactly one cell per number, with the value its text
 \ gives, and the floating-point stack not at all; the cells are then
 \ taken off. The rest of each line is checked the same way. When Forth
 \ throws (-13 for an unknown token, others from recognizers), the first
-\ token after the checked text that is no plain decimal is refused as
+\ token after the checked text that is no such number is refused as
 \ unknown. A word finds its own token by reading back from >IN
-\ (lfa-invoked, src/author/source.fs), as the authoring words do.
+\ (lfa-invoked, src/author/source.fs), as the authoring words do. A word
+\ of the file is found by Forth's interpreter itself, so its newest
+\ version, as in the mode shift.
 \
 \ What it cannot see: a host whose standard word was redefined before the
-\ run (the mode shift refuses it), since its words are found by name.
+\ run (the mode shift refuses it), since its words are found by name. On
+\ a host with cells narrower than 33 bits, which reads 4294967295 as -1,
+\ it refuses such a literal where the mode shift writes it (unmodeled
+\ there).
 \
 \ Public words: lf-alias-file ( c-addr u -- outcome ) and lf-alias-text
 \ ( c-addr u c-addr2 u2 -- outcome ), as lf-verify-file and
@@ -34,31 +40,34 @@ require ../author/source.fs
 require ./verify-runner.fs
 
 \ The gap: where the line has been read up to, and the values of its
-\ decimals. A line of fewer than 128 characters has at most 64 tokens.
+\ numbers, each a double (verify-semantics.fs). A line of fewer than 128
+\ characters has at most 64 tokens.
 64 constant pv-gap-max
 begin-structure /pv-gap
   field: pv-gap-synced           \ characters of the line read so far
-  field: pv-gap-count            \ decimals in the gap being checked
-  pv-gap-max cells +field pv-gap-values
+  field: pv-gap-count            \ numbers in the gap being checked
+  pv-gap-max 2* cells +field pv-gap-values
 end-structure
 /pv-gap context-record: pv-alias-gap
 
 : pv-synced ( -- addr ) pv-alias-gap pv-gap-synced ;
 : pv-gap# ( -- addr ) pv-alias-gap pv-gap-count ;
-: pv-gap-value ( i -- addr ) cells pv-alias-gap pv-gap-values + ;
-: pv-gap-push ( n -- )
-  pv-gap# @ pv-gap-max < 0= abort" pv: gap full" pv-gap# @ pv-gap-value ! 1 pv-gap# +! ;
+: pv-gap-value ( i -- addr ) 2* cells pv-alias-gap pv-gap-values + ;
+: pv-gap-push ( d -- )
+  pv-gap# @ pv-gap-max < 0= abort" pv: gap full" pv-gap# @ pv-gap-value 2! 1 pv-gap# +! ;
 
 \ The text of the line from offset from to offset to.
 : pv-span ( from to -- c-addr u ) over - >r pv-text drop swap chars + r> ;
-\ Each token of a gap is a plain decimal, written as lit n, or refused.
+\ Each token of a gap is a number, written as lit n, or refused.
 : pv-host-literal? ( flag -- ) pv-why-host-literal pv-?fail ;
 : pv-gap-token ( c-addr u -- )
-  2dup pv-token! pv-literal? 0= pv-why-unknown pv-?fail dup pv-gap-push pv-lit ;
+  2dup pv-token! pv-literal? 0= pv-why-unknown pv-?fail 2dup pv-gap-push pv-lit ;
 : pv-gap-scan ( c-addr u -- )
   begin lfa-next-token dup while pv-gap-token repeat 2drop 2drop ;
-\ The cells Forth's interpreter pushed: one per decimal, the last on top.
-: pv-host-value ( x i -- ) pv-gap-value @ <> pv-host-literal? ;
+\ The cells Forth's interpreter pushed: one per number, the last on top,
+\ each holding the number's value (a 32-bit host, which reads $FFFFFFFF
+\ as -1, is refused here).
+: pv-host-value ( x i -- ) >r s>d r> pv-gap-value 2@ d= 0= pv-host-literal? ;
 : pv-taken ( i*x -- )
   depth pv-floor @ - pv-gap# @ <> pv-host-literal?
   pv-gap# @ 0 ?do pv-gap# @ 1- i - pv-host-value loop pv-floats? 0= pv-host-literal? ;
@@ -106,12 +115,16 @@ set-current
 \ plain decimal, refused as unknown; were there none, the exception.
 : pv-alias-caught ( code -- )
   pv-floats-clear 0 pv-gap# ! pv-rest-of-line pv-span pv-gap-scan pv-interrupted ;
+\ A host word an action reads (TYPE after S"): found by name, as every
+\ word of this vocabulary is.
+: pv-alias-host ( c-addr u entry -- ) drop 2drop ;
 pv-design: pv-alias-design
 ' pv-alias-prefix pv-alias-design pv-design-prefix !
 ' pv-alias-order pv-alias-design pv-design-order !
 ' pv-alias-line pv-alias-design pv-design-line !
 ' pv-alias-caught pv-alias-design pv-design-caught !
 ' pv-alias-call pv-alias-design pv-design-call !
+' pv-alias-host pv-alias-design pv-design-host !
 
 : lf-alias-file ( c-addr u -- outcome ) pv-alias-design pv-file-run ;
 : lf-alias-text ( c-addr u c-addr2 u2 -- outcome ) pv-alias-design pv-text-run ;

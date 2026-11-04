@@ -27,7 +27,9 @@
    a nonzero or TRUE one). Other conditions cannot be read statically, so
    a load under one, such as lib.fs's load-once guard, counts. A word
    named after [UNDEFINED] or [DEFINED] is not a use. Test helpers are
-   loaded after the modules under test and are not checked. Before the
+   loaded after the modules under test and are not checked, nor are the
+   program files in PROGRAM_FILES, which correctness mode reads and which
+   therefore cannot REQUIRE (each says what run mode loads first). Before the
    repository, the check runs on a scratch tree of its own (LOAD_CASES)
    and fails if it misjudges a module there.
 
@@ -98,6 +100,19 @@ BYTE_MODULES = {
     "src/program/verify-semantics.fs":
         "program words compare names with A-Z folded to a-z, as Gforth finds them, and "
         "read the characters of decimals and of names that read as numbers",
+    "src/program/verify-report.fs":
+        "program words keep the IR's lines, each ended by an LF character, until the run "
+        "ends",
+    "src/program/ir-run.fs":
+        "IR interpreter prints the byte EMIT writes, the low eight bits of a cell",
+}
+# Program files that the program words read in correctness mode (ADR 0019),
+# which refuses REQUIRE, so they cannot load portability.fs themselves; each
+# says in its header what run mode must load first on a host that lacks a word.
+PROGRAM_FILES = {
+    "src/program/sha-words.fs":
+        "SHA-256's helper words use -rot; run mode loads src/lib/portability.fs first on a "
+        "Forth without it",
 }
 LIMIT = 2**31
 COMPILE_ONLY = {
@@ -293,7 +308,7 @@ def unadapted(root):
     port = (root / PORTABILITY).resolve()
     adapted, found = adapted_words(port), []
     for path in sorted((root / "src").rglob("*.fs")):
-        if path.resolve() == port:
+        if path.resolve() == port or path.relative_to(root).as_posix() in PROGRAM_FILES:
             continue
         words = compiled_words(path.read_text(errors="replace"))
         loaded = (k for k, target in loads(path, words, root)

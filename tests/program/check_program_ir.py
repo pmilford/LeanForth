@@ -8,20 +8,22 @@ Without --lean it checks that every block of tests/reference/program-ir.lean
 between `-- BEGIN VERBATIM <path> <first>-<last>` and `-- END VERBATIM`
 equals those lines of that reference file, so the theorems are about the
 existing reference models themselves, and that the six reference files are
-all copied. It also checks that the reader's table of the 38 primitives
-(src/program/ir-reader.fs) lists Lean's `Prim.word` spellings in the order
-of `Prim`, each with the data-stack effect that Lean's `step` gives it,
-and that both statements of the reader's threat model (its header comment
-and PROGRAM_IR.md) list calls of its internal words, such as ir-feed, as
-misuse it does not detect.
+all copied. It also checks that the IR 0.1 reader's table of 38 primitives
+(src/program/ir-reader.fs) lists the first 38 of Lean's `Prim.word`
+spellings, and the program words' table (src/program/verify-semantics.fs)
+all 40 of IR 0.2, in the order of `Prim`, each with the data-stack effect
+that Lean's `step` gives it, and that both statements of the reader's
+threat model (its header comment and PROGRAM_IR.md) list calls of its
+internal words, such as ir-feed, as misuse it does not detect.
 
 With --lean it also runs the file with the pinned Lean (warnings are
 errors, so `sorry` fails), requires every listed theorem's `#print axioms`
 line to name only Lean's propext, Classical.choice and Quot.sound, and
-compares the IR text the file prints with the reader's golden output
+compares the IR text the file prints with the golden output
 (tests/program/ir/*.ir) with the source locations removed. That last check
-connects the IR terms the proofs are about to what the reader produces from
-the actual Forth source; all-primitives.ir covers every primitive.
+connects the IR terms the proofs are about to what the program words
+produce from the actual Forth source; all-primitives.ir covers every
+primitive of IR 0.1 and ir-0.2.ir every addition of IR 0.2.
 """
 import os
 from pathlib import Path
@@ -32,7 +34,11 @@ import unittest
 
 MODEL = Path("tests/reference/program-ir.lean")
 GOLDEN = [Path("tests/program/ir/clamp.ir"), Path("tests/program/ir/examples.ir"),
-          Path("tests/program/ir/all-primitives.ir")]
+          Path("tests/program/ir/all-primitives.ir"), Path("tests/program/ir/ir-0.2.ir"),
+          Path("tests/program/ir/sha-words.ir")]
+# Stage SHA-2: the program file's definitions must be the library's text.
+SHA_WORDS = Path("src/program/sha-words.fs")
+SHA_LIBRARY = Path("src/lib/sha256.fs")
 READER = Path("src/program/ir-reader.fs")
 DOC = Path("docs/programming/PROGRAM_IR.md")
 REFERENCES = {
@@ -53,7 +59,15 @@ THEOREMS = [f"ProgramIR.{name}" for name in (
     # Part 6: well-formedness of the programs (ADR 0019, test plan 4).
     "clamp_wellFormed", "examples_wellFormed", "allPrimitives_wellFormed",
     "forward_call_not_wellFormed", "recursion_not_wellFormed", "redefinition_not_wellFormed",
-    "constant_calling_word_not_wellFormed", "constant_with_if_not_wellFormed")] + [
+    "constant_calling_word_not_wellFormed", "constant_with_if_not_wellFormed",
+    # IR 0.2 (ADR 0019 Amendment 1): well-formedness, output words (Part 7).
+    "ir02_wellFormed", "constant_with_out_not_wellFormed", "later_version_not_wellFormed",
+    "runOut_result", "debug_pair", "debug_pair_prints", "clampDebug_correct",
+    "clampDebug_prints",
+    # Stage SHA-2: the helper words of src/program/sha-words.fs (Part 8).
+    "rotr_value", "shaRotr_correct", "unmasked_rotr_refuted", "shaCh_correct",
+    "shaMaj_correct", "shaBigSigma0_correct", "complementless_ch_refuted",
+    "shaProgram_wellFormed")] + [
     # The reference contracts' own proofs, copied verbatim into Part 5.
     "CheckedAddReference.checkedAdd_contract", "ProgramExamplesReference.checkedAbs_contract",
     "ProgramExamplesReference.inRange_contract", "GcdReference.checked_contract",
@@ -137,14 +151,17 @@ def lean_primitives(text):
     return [(words.get(n), *effects.get(n, (None, None))) for n in names]
 
 
-def primitive_problems(reader_text, lean_text, pattern=READER_PRIM):
+def primitive_problems(reader_text, lean_text, pattern=READER_PRIM, count=38):
+    """A table against the first count primitives of Lean's `Prim`: IR 0.1's
+    38 for the reader, IR 0.2's 40 for the program words."""
     reader, lean = reader_primitives(reader_text, pattern), lean_primitives(lean_text)
-    problems = [] if len(lean) == 38 else [f"Lean has {len(lean)} primitives, not 38"]
+    problems = [] if len(lean) == 40 else [f"Lean has {len(lean)} primitives, not 40"]
+    lean = lean[:count]
     if len(reader) != len(lean):
-        problems.append(f"the reader has {len(reader)} primitives, Lean {len(lean)}")
+        problems.append(f"the table has {len(reader)} primitives, Lean {len(lean)}")
     for index, (ours, theirs) in enumerate(zip(reader, lean)):
         if ours != theirs:
-            problems.append(f"primitive {index}: reader {ours}, Lean {theirs}")
+            problems.append(f"primitive {index}: table {ours}, Lean {theirs}")
     return problems
 
 
@@ -167,6 +184,28 @@ def threat_model_problems(reader_text, doc_text):
         if "internal word" not in paragraph or not INTERNAL_FEED.search(paragraph):
             problems.append(f"{where}: undetected misuse omits calls of internal words")
     return problems
+
+
+def definitions(text):
+    """The definitions of a Forth text, a colon definition with its next line
+    when it continues there, as lines without comments."""
+    lines, found = [line for line in text.splitlines() if not line.startswith("\\")], []
+    for i, line in enumerate(lines):
+        if line.startswith(": ") or " constant " in line:
+            code = line.split(" \\ ")[0].rstrip()
+            if code.startswith(": ") and not code.endswith(";"):
+                code += "\n" + lines[i + 1].rstrip()
+            found.append(code)
+    return found
+
+
+def sha_word_problems(words_text, library_text):
+    """Each definition of src/program/sha-words.fs must stand in
+    src/lib/sha256.fs as written (that file has comments after some)."""
+    library = [re.sub(r" *\\ .*$", "", line).rstrip() for line in library_text.splitlines()]
+    library_text = "\n".join(library)
+    return [f"not the library's text: {code}" for code in definitions(words_text)
+            if code not in library_text]
 
 
 def golden_text():
@@ -226,15 +265,26 @@ class Copies(unittest.TestCase):
     def test_program_words_primitives_match_lean(self):
         words = WORDS.read_text(encoding="utf-8")
         lean = MODEL.read_text(encoding="utf-8")
-        self.assertEqual(len(reader_primitives(words, WORDS_PRIM)), 38)
-        self.assertEqual(primitive_problems(words, lean, WORDS_PRIM), [])
+        self.assertEqual(len(reader_primitives(words, WORDS_PRIM)), 40)
+        self.assertEqual(primitive_problems(words, lean, WORDS_PRIM, 40), [])
         for old, new in (('21 s" <>" pv-data', '21 s" =/=" pv-data'),
                          ('23 s" tuck" pv-data', '22 s" tuck" pv-data'),
-                         ('01 s" r@" pv-return', '')):
+                         ('01 s" r@" pv-return', ''),
+                         ('33 s" -rot" pv-data', '32 s" -rot" pv-data'),
+                         ('21 s" lshift" pv-data', '21 s" <<" pv-data')):
             with self.subTest(change=old):
                 changed = words.replace(old, new, 1)
                 self.assertNotEqual(words, changed)
-                self.assertTrue(primitive_problems(changed, lean, WORDS_PRIM))
+                self.assertTrue(primitive_problems(changed, lean, WORDS_PRIM, 40))
+
+    def test_sha_words_are_the_library_text(self):
+        words = SHA_WORDS.read_text(encoding="utf-8")
+        library = SHA_LIBRARY.read_text(encoding="utf-8")
+        self.assertEqual(len(definitions(words)), 7)
+        self.assertEqual(sha_word_problems(words, library), [])
+        changed = words.replace("32 swap - lshift", "31 swap - lshift", 1)
+        self.assertNotEqual(words, changed)
+        self.assertTrue(sha_word_problems(changed, library))
 
     def test_threat_model_names_internal_words(self):
         reader = READER.read_text(encoding="utf-8")

@@ -45,6 +45,7 @@ begin-structure /lf-rcr
   field: lf-rcr-status       \ the first failure of the build; ok while none
   field: lf-rcr-motive       \ the motive's type
   field: lf-rcr-scratch-count  \ binder domains in the scratch
+  field: lf-rcr-ctor-roots   \ the constructors' types to read, an array; 0: the input's
 end-structure
 /lf-rcr context-record: lf-rcr-state
 \ The scratch: domains about to be bound, as many as a telescope has.
@@ -120,6 +121,10 @@ end-structure
 \ ---------------------------------------------------------------------------
 \ The pieces. p parameters, n indices, m constructors.
 : lf-rcr-p ( -- p ) lf-ind-nparams ;
+\ Constructor j's type: the input's, or the caller's instance of it
+\ (lf-recursor-build-at).
+: lf-rcr-ctor-type ( j -- root )
+  lf-rcr-state lf-rcr-ctor-roots @ ?dup if swap cells + @ else lf-ind-ctor-type then ;
 : lf-rcr-n ( -- n ) lf-ind-state lf-ind-indices @ ;
 : lf-rcr-m ( -- m ) lf-ind-ctors@ ;
 : lf-rcr-dom ( i -- node ) lf-ind-domain @ ;
@@ -151,7 +156,7 @@ end-structure
 : lf-rcr-k ( j -- k ) lf-ind-nfields @ ;
 : lf-rcr-skip ( node count -- node' ) 0 ?do lf-term-second@ loop ;
 : lf-rcr-field-dom ( j q -- node )
-  swap lf-ind-ctor-type lf-rcr-p rot + lf-rcr-skip lf-term-first@ ;
+  swap lf-rcr-ctor-type lf-rcr-p rot + lf-rcr-skip lf-term-first@ ;
 : lf-rcr-field ( j q amount -- node )
   >r tuck lf-rcr-field-dom swap r> lf-rcr-shift lf-rcr-consume ;
 : lf-rcr-fields! ( j amount -- )
@@ -178,7 +183,7 @@ end-structure
 \ at depth d = p+1+j+k, where the motive is #(j+k), the indices js are
 \ the constructor result's (shifted past the motive and the j earlier
 \ minors), the parameters #(d-1) .. #(d-p) and the fields #(k-1) .. #0.
-: lf-rcr-result ( j -- node ) dup lf-ind-ctor-type swap lf-rcr-k lf-rcr-p + lf-rcr-skip ;
+: lf-rcr-result ( j -- node ) dup lf-rcr-ctor-type swap lf-rcr-k lf-rcr-p + lf-rcr-skip ;
 : lf-rcr-js ( j i -- node )
   over lf-rcr-result lf-rcr-p lf-rcr-n + rot lf-rcr-p + lf-ind-arg
   swap dup lf-rcr-k swap 1+ lf-rcr-shift ;
@@ -222,10 +227,14 @@ end-structure
   lf-rcr-motive-type lf-rcr-state lf-rcr-motive ! lf-rcr-minors
   lf-rcr-type lf-ind-state lf-ind-rec-type ! lf-rcr-rules lf-rcr-state lf-rcr-status @ ;
 : lf-recursor-build ( -- outcome )
-  outcome-ok lf-rcr-state lf-rcr-status ! lf-rcr-levels lf-rcr-terms ;
-\ The same at given levels: the block's constants at the level pairs the
-\ caller put in the pair cells (lf-rcr-pair, as many as the block has
-\ universe parameters) and the motive's Sort at lf-ind-elim, instead of
-\ the block's own parameters and the motive's universe: the recursor's
-\ type instantiated (generated-recursor.fs).
-: lf-recursor-build-at ( -- outcome ) outcome-ok lf-rcr-state lf-rcr-status ! lf-rcr-terms ;
+  outcome-ok lf-rcr-state lf-rcr-status ! 0 lf-rcr-state lf-rcr-ctor-roots !
+  lf-rcr-levels lf-rcr-terms ;
+\ The same instantiated (generated-recursor.fs): the block's constants at
+\ the level pairs the caller put in the pair cells (lf-rcr-pair, as many
+\ as the block has universe parameters), the motive's Sort at lf-ind-elim,
+\ and the binder domains read from instances of the block's types the
+\ caller made -- the type's in lf-ind-domain, the constructors' at roots,
+\ one cell each -- with the block's universe parameters replaced by the
+\ same levels.
+: lf-recursor-build-at ( roots -- outcome )
+  outcome-ok lf-rcr-state lf-rcr-status ! lf-rcr-state lf-rcr-ctor-roots ! lf-rcr-terms ;

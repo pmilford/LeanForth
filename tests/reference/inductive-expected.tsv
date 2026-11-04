@@ -154,6 +154,16 @@ after.mutual-left-out-then-use-rec	accepted	accepted	B4 G1	5.2.5
 after.recursor-left-out-then-lookup-in-def	accepted	accepted	B4 G1	5.2.1a	
 after.recursor-left-out-then-lookup-during-block	accepted	accepted	B4 G1	5.2.1a	
 after.many-universes-left-out-then-use-rec	accepted	accepted	B4 G1	5.2.1a	
+after.eq-at-renamed	accepted	accepted	B4 G1	5.2.1c	
+after.eq-at-concrete	accepted	accepted	B4 G1	5.2.1c	
+after.eq-at-applied	accepted	accepted	B4 G1	5.2.1c	
+after.exists-at-renamed	accepted	accepted	B4 G1	5.2.1a	
+after.exists-at-concrete	accepted	accepted	B4 G1	5.2.1a	
+after.exists-at-applied	accepted	accepted	B4 G1	5.2.1a	
+after.universe-max-at-renamed	accepted	accepted	B4 G1	5.2.1a	
+after.universe-max-at-concrete	accepted	accepted	B4 G1	5.2.1a	
+after.universe-max-at-swapped	accepted	accepted	B4 G1	5.2.1a	
+after.universe-max-at-applied	accepted	accepted	B4 G1	5.2.1a	
 after.redex-type-left-out-then-use-rec	declTypeMismatch	rejected	B4 G1	5.2.1a	
 names.reserved-nested-prefix	reservedNestedPrefix	rejected	T0	5.2.5	
 names.reserved-nested-prefix-declared	reservedNestedPrefix	rejected	T0	5.2.1a	
