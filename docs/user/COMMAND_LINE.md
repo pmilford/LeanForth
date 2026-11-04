@@ -156,22 +156,37 @@ explain a limit that was reached.
 it (`src/cli/name-text.fs`): its components joined by dots, numeric ones
 in decimal, a component that is not an identifier between `«` and `»`
 (`ReexportKinds.«with space»`; an empty component is `«»`), and the
-anonymous name as `[anonymous]`; names of any depth. Two changes make the
-line show exactly what the name holds, so that no name, however crafted,
-can start a line of its own, move the cursor or reorder the text after
-it: inside a component that is not an identifier, a backslash is shown
-as `\\`, and every character the [text rule of run
-records](../programming/RUN_RECORDS.md) bans — control characters (C0
-and C1, line feed and carriage return among them), format characters
-such as the bidirectional controls, and the line and paragraph separators
-— as `\u{X}`, its code point in hexadecimal; a byte that does not start
-UTF-8 as `\x{X}`. A theorem named `composition: rejected` + line feed +
-`forged: accepted …` is one line,
-`«composition: rejected\u{A}forged: accepted …»: accepted …`. As in Lean,
-no `«»` is added to a component that holds `»`, or to a name with macro
-scopes (`x._@._hyg`), an inaccessible name or pseudo-syntax; the escapes
-are made all the same. The JSON report holds the same text, and its
-`export` member shows the export's file name with the same escapes.
+anonymous name as `[anonymous]`; names of any depth. Three differences
+from Lean's text make the line show exactly what the name holds, so that
+no name, however crafted, can start a line of its own, look like the
+start of another declaration's line, move the cursor or reorder the
+text after it:
+
+1. A component that is not an identifier is always between `«` and `»`.
+   Lean leaves them out for a component that holds `»`, and for a whole
+   name with macro scopes (`x._@._hyg`), an inaccessible name (one holding
+   `✝`) or pseudo-syntax (`_`, or a root that starts with `#` or `?`); its
+   spaces and colons would then pass through, and a line could begin
+   `fake: accepted (…)`. Here `x._@._hyg` is `x.«_@»._hyg`.
+2. Inside `«»`, every character the [text rule of run
+   records](../programming/RUN_RECORDS.md) bans — control characters (C0
+   and C1, line feed and carriage return among them), format characters
+   such as the bidirectional controls, and the line and paragraph
+   separators — and `»` itself are shown as `\u{X}`, the code point in
+   hexadecimal, so a component ends at its first `»`; a byte that does
+   not start UTF-8 is shown as `\x{X}`.
+3. A backslash is shown as `\\`, so that the text of an escape in a name
+   is never read as an escape.
+
+A theorem named `composition: rejected` + line feed + `forged: accepted …`
+is one line, `«composition: rejected\u{A}forged: accepted …»: accepted …`,
+and one named `fake: accepted …✝` is `«fake: accepted …✝»: …`. Identifiers
+are as Lean's `isIdFirst` and `isIdRest` have them, subscript digits and
+letters (`x₁`, `xₐ`) included and subscript signs not (`«x₊»`). The JSON
+report's `name` holds the same text, and its `export` member the export's
+file name with the escapes of 2 and 3; both are display text, not the
+name's bytes, and a declaration is identified by its `index`, its place
+in the export.
 
 **Axioms and NOT PROVED.** The axioms are read from each accepted
 declaration's slot: the axiom set the checker joined from everything the
@@ -439,13 +454,13 @@ exit status 2
 | Member | Contents |
 | --- | --- |
 | `schema`, `schemaVersion` | `leanforth-check-report`, `0.1` |
-| `export`, `manifest` | the file name given, with the escapes of [names](#what-check-prints); `checked`, or `not-checked` with `--no-manifest` |
+| `export`, `manifest` | the file name given, as escaped display text (the escapes of [names](#what-check-prints)); `checked`, or `not-checked` with `--no-manifest` |
 | `label` | `experimental, not independently audited` |
 | `settings` | the fuel per check and the dependencies the environment holds |
 | `read` | the read's outcome and, for a failure, its `phase` (`open`, `stage`, `feed`), `line`, `field`, `reason`, and for the feed the number `at` which it stopped |
 | `run` | the run's outcome: `ok` when every slot ended final and the run did not stop, `invalid` when it stopped, `not-run` when the export was not read |
 | `stopped` | true when the run stopped on an internal fault (a check threw, or publishing failed), as the text's `internal fault: the run stopped` line says; the run is then `invalid` and the status 5 |
-| `declarations` | each declaration in file order: `index`, `name` (as the text shows it), `verdict` (`accepted`, an outcome, or `not-checked`), `fuel` (null when not known); an accepted one's `label`, `axiomBits` (0: none) and `notProved`; any other's `diagnostic` (code, reason, site, two numbers, step) |
+| `declarations` | each declaration in file order: `index` (its place in the export, which identifies it), `name` (escaped display text, as the text shows it), `verdict` (`accepted`, an outcome, or `not-checked`), `fuel` (null when not known); an accepted one's `label`, `axiomBits` (0: none) and `notProved`; any other's `diagnostic` (code, reason, site, two numbers, step) |
 | `counts` | the declarations by verdict, `notChecked` and `notProved`; null when no verdict could be read |
 | `fuel` | `perDeclaration`, `total` (of the known), `unknown` (how many are not known) and `top` (the ten that used the most) |
 | `input` | declarations, term nodes, levels and constant references fed, and the stage's names; null when nothing was fed |

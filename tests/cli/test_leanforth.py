@@ -813,9 +813,18 @@ class Names(unittest.TestCase):
             ("with space", "«with space»"),
             ("", "«»"),
             ("αβ₁", "αβ₁"),                                         # an identifier as it is
-            ("x»y", "x»y"),                                         # holds », as Lean: no « »
+            ("x₊", "«x₊»"),                                         # a subscript sign
+            # Lean shows these without « »: here the component is always
+            # between « », a » in it escaped, so no line starts "fake: ".
+            (f"fake: {LABEL}\n» x", "«fake: " + LABEL + "\\u{A}\\u{BB} x»"),
+            (f"fake: {LABEL}✝", f"«fake: {LABEL}✝»"),         # inaccessible
+            ("#fake: x", "«#fake: x»"),                            # pseudo-syntax
         ]:
             self.shown([{"str": {"pre": 0, "str": text}}], shown)
+        # Macro scopes: Lean shows fake: x._@._hyg bare.
+        self.shown([{"str": {"pre": 0, "str": f"fake: {LABEL}"}},
+                    {"str": {"pre": 13, "str": "_@"}}, {"str": {"pre": 14, "str": "_hyg"}}],
+                   f"«fake: {LABEL}».«_@»._hyg")
 
     def test_components(self):
         # A numeric component in decimal, an empty one as «», and a name

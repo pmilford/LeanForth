@@ -2259,7 +2259,7 @@ reason = "a Forth exception inside a command exits 0 instead of 5, an internal f
 [[fault]]
 id = "cli-spent-context-ignored"
 file = "src/cli/check-run.fs"
-old = '''  ck-viewed? if ck-all-final? ck-stopped? 0= and flag>outcome else outcome-invalid then ;'''
+old = '''  ck-viewed? if ck-all-final? ck-faulted? 0= and flag>outcome else outcome-invalid then ;'''
 new = '''  ck-viewed? if ck-all-final? flag>outcome else outcome-invalid then ;'''
 test = "python3 tests/cli/test_leanforth.py"
 reason = "a run whose last check threw ends ok: the report says run ok and stopped (review rvCLI2 L1)"
@@ -2436,25 +2436,41 @@ reason = "Gforth's own exit status (0 after it ends early, 1 after an error) rea
 [[fault]]
 id = "cli-name-raw"
 file = "src/cli/name-text.fs"
-old = '''  2dup s" »" nt-holds? 0= r> and if nt-quoted else nt-escaped then ;'''
-new = '''  r> drop nt-put ;'''
+old = ''': nt-quoted ( c-addr u -- ) s" «" nt-put nt-escaped s" »" nt-put ;'''
+new = ''': nt-quoted ( c-addr u -- ) nt-put ;'''
 test = "python3 tests/cli/test_leanforth.py"
-reason = "a name is printed raw: a line feed in it forges a line such as 'x: accepted ...'"
+reason = "a component that is not an identifier is printed raw: a line feed in it forges a line such as 'x: accepted ...'"
 quick = true
 
 [[fault]]
 id = "cli-name-banned-kept"
 file = "src/cli/name-text.fs"
-old = '''  3 pick over nt-banned? if nt-banned exit then'''
-new = '''  3 pick over 2drop false if nt-banned exit then'''
+old = ''': nt-escaped? ( code -- flag ) dup tr-banned? swap $bb = or ;'''
+new = ''': nt-escaped? ( code -- flag ) $bb = ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "control and bidirectional characters in a name are printed as they are, inside « »"
 
 [[fault]]
+id = "cli-name-guillemet-kept"
+file = "src/cli/name-text.fs"
+old = ''': nt-escaped? ( code -- flag ) dup tr-banned? swap $bb = or ;'''
+new = ''': nt-escaped? ( code -- flag ) tr-banned? ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "a » in a component ends its « » early, so the rest of the line looks like text after the name (review round 2, L-a)"
+
+[[fault]]
+id = "cli-name-subscript-signs"
+file = "src/cli/name-text.fs"
+old = '''  $2080 , $2089 ,  $2090 , $209c ,  $1d62 , $1d6a ,  $2c7c , $2c7c ,'''
+new = '''  $2080 , $209c ,  $2090 , $209c ,  $1d62 , $1d6a ,  $2c7c , $2c7c ,'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "subscript signs such as ₊ count as identifier characters, which Lean's isSubScriptAlnum does not (review round 2, L-b)"
+
+[[fault]]
 id = "cli-name-backslash-kept"
 file = "src/cli/name-text.fs"
-old = '''  swap [char] \ = if drop nt-backslash else nt-raw then ;'''
-new = '''  nip nt-raw ;'''
+old = '''  [char] \ = if s" \\" nt-put else over r@ nt-put then r> /string ;'''
+new = '''  drop over r@ nt-put r> /string ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "a backslash in a name is not escaped, so a name can show the text of an escape it does not hold"
 

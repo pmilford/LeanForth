@@ -32,8 +32,10 @@
 \   did not stop, else the first failure: full when the facts
 \   (ck-facts-made? false) or the environment (ck-made? false) found no
 \   room, invalid when the environment could not be used or the run
-\   stopped on a fault (ck-stopped?: a check threw, which spends the
+\   stopped on a fault (ck-faulted?: a check threw, which spends the
 \   context, or publishing failed; ck-steps-begun tells how far it came);
+\   ck-stopped?, which the text and JSON reports both read, is true when
+\   the run's verdicts can be read and it stopped or did not end ok;
 \ - ck-finish ( -- ) takes the run's total time so far (phase ck-total);
 \ - then, before ck-release, the verdicts are read in a snapshot of the
 \   run's own environment (ck-verdicts?, then lf-env-outcome), and the
@@ -166,7 +168,7 @@ create ck-feeding-record /feed allot  ck-feeding-record /feed erase
 : ck-steps-begun ( -- n ) ck-state ck-stepped @ ;
 : ck-facts-made? ( -- flag ) ck-state ck-facts-made @ ;
 : ck-made? ( -- flag ) ck-state ck-checked @ ;
-: ck-stopped? ( -- flag ) ck-state ck-faulted @ ;
+: ck-faulted? ( -- flag ) ck-state ck-faulted @ ;
 : ck-restored ( -- outcome ) ck-state ck-restored-outcome @ ;
 : ck-fuel-total ( -- ud ) ck-state ck-fuel-sum 2@ ;
 : ck-fuel-unknowns ( -- n ) ck-state ck-unknowns @ ;
@@ -324,7 +326,7 @@ create ck-line ck-line-room 2 + allot
   ck-kept dup ck-diag! kept-outcome ! ;
 \ Check declaration d: whether the run must stop, after a fault of the
 \ publisher or a THROW in the check (the context is then spent); a stop
-\ is kept (ck-stopped?).
+\ is kept (ck-faulted?).
 : ck-stop! ( stop? -- stop? ) dup if true ck-state ck-faulted ! then ;
 : ck-step ( d -- stop? )
   dup >r ['] lf-check-declaration swap lf-env-step swap r> ck-keep lf-env-spent? or
@@ -349,10 +351,16 @@ create ck-line ck-line-room 2 + allot
 : ck-all-final? ( -- flag ) true lf-input-count 0 ?do i ck-final? and loop ;
 \ Ok when every slot is final and the run did not stop on a fault.
 : ck-confirm ( -- outcome )
-  ck-viewed? if ck-all-final? ck-stopped? 0= and flag>outcome else outcome-invalid then ;
+  ck-viewed? if ck-all-final? ck-faulted? 0= and flag>outcome else outcome-invalid then ;
 \ After the run: whether its verdicts can be read, in a new snapshot of
 \ the run's own environment.
 : ck-verdicts? ( -- flag ) ck-ours? if lf-env-view ok? else false then ;
+\ Whether a run whose verdicts can be read stopped short: a fault stopped
+\ it (a check threw, or publishing failed), or it did not end ok (a slot
+\ left open). The one word both reports read; false when no verdict can
+\ be read.
+: ck-stopped? ( -- flag )
+  ck-verdicts? if ck-faulted? ck-outcome ok? 0= or else false then ;
 \ A new environment for the run, current: ok, or why not; one that
 \ cannot be made current is freed at once.
 : ck-own ( env -- ) lf-envh-identity @ ck-state ck-env-id ! true ck-state ck-checked ! ;
