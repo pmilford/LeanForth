@@ -10,7 +10,10 @@ equals those lines of that reference file, so the theorems are about the
 existing reference models themselves, and that the six reference files are
 all copied. It also checks that the reader's table of the 38 primitives
 (src/program/ir-reader.fs) lists Lean's `Prim.word` spellings in the order
-of `Prim`, each with the data-stack effect that Lean's `step` gives it.
+of `Prim`, each with the data-stack effect that Lean's `step` gives it,
+and that both statements of the reader's threat model (its header comment
+and PROGRAM_IR.md) list calls of its internal words, such as ir-feed, as
+misuse it does not detect.
 
 With --lean it also runs the file with the pinned Lean (warnings are
 errors, so `sorry` fails), requires every listed theorem's `#print axioms`
@@ -31,6 +34,7 @@ MODEL = Path("tests/reference/program-ir.lean")
 GOLDEN = [Path("tests/program/ir/clamp.ir"), Path("tests/program/ir/examples.ir"),
           Path("tests/program/ir/all-primitives.ir")]
 READER = Path("src/program/ir-reader.fs")
+DOC = Path("docs/programming/PROGRAM_IR.md")
 REFERENCES = {
     "tests/reference/clamp.lean", "tests/reference/stack-clamp.lean",
     "tests/reference/program-examples.lean", "tests/reference/checked-add.lean",
@@ -44,6 +48,7 @@ THEOREMS = [
 ALLOWED_AXIOMS = {"propext", "Classical.choice", "Quot.sound"}
 BEGIN = re.compile(r"^-- BEGIN VERBATIM (\S+) (\d+)-(\d+)$")
 LOCATION = re.compile(r" @\d+:\d+$")
+INTERNAL_FEED = re.compile(r"(?<![-\w])ir-feed(?![-\w])")   # not lf-ir-feed
 
 
 def copy_problems(text, read=lambda p: Path(p).read_text(encoding="utf-8")):
@@ -125,6 +130,27 @@ def primitive_problems(reader_text, lean_text):
     return problems
 
 
+def undetected_misuse(text, comment=""):
+    """The paragraph, in the reader's header comment or in PROGRAM_IR.md, that
+    lists the misuse the reader does not detect, as one line of words."""
+    lines = text.splitlines()
+    start = next(i for i, line in enumerate(lines)
+                 if line.startswith(comment + "Other misuse is not detected"))
+    end = next(i for i in range(start, len(lines)) if lines[i].strip() in ("", comment.strip()))
+    return " ".join(line[len(comment):] for line in lines[start:end])
+
+
+def threat_model_problems(reader_text, doc_text):
+    """Both lists of undetected misuse must name calls of the reader's internal
+    words, which skip its entry check (an output word calling ir-feed)."""
+    problems = []
+    for where, paragraph in (("reader", undetected_misuse(reader_text, "\\ ")),
+                             ("PROGRAM_IR.md", undetected_misuse(doc_text))):
+        if "internal word" not in paragraph or not INTERNAL_FEED.search(paragraph):
+            problems.append(f"{where}: undetected misuse omits calls of internal words")
+    return problems
+
+
 def golden_text():
     lines = []
     for path in GOLDEN:
@@ -178,6 +204,13 @@ class Copies(unittest.TestCase):
                 self.assertTrue(primitive_problems(changed, lean))
         swapped = reader.replace('s" rot"', 's" @@@"').replace('s" 2dup"', 's" rot"')
         self.assertTrue(primitive_problems(swapped.replace('s" @@@"', 's" 2dup"'), lean))
+
+    def test_threat_model_names_internal_words(self):
+        reader = READER.read_text(encoding="utf-8")
+        doc = DOC.read_text(encoding="utf-8")
+        self.assertEqual(threat_model_problems(reader, doc), [])
+        self.assertEqual(len(threat_model_problems(reader.replace("ir-feed,", "it,"), doc)), 1)
+        self.assertEqual(len(threat_model_problems(reader, doc.replace("internal word", "w"))), 1)
 
     def test_axiom_report_rejects_other_axioms(self):
         good = "\n".join(f"'ProgramIR.{n}' depends on axioms: [propext]" for n in THEOREMS)
