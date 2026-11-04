@@ -9,7 +9,7 @@ for pair in src/program/clamp.fs:tests/program/ir/clamp.ir \
             src/program/examples.fs:tests/program/ir/examples.ir \
             tests/program/ir/all-primitives.fs:tests/program/ir/all-primitives.ir; do
   src=${pair%%:*}; gold=${pair##*:}
-  out=$(bash "$here/ir-of.sh" "$g" "$src" 2>/dev/null)
+  out=$(bash "$here/${OF:-ir-of.sh}" "$g" "$src" 2>/dev/null)
   last=$(printf '%s\n' "$out" | tail -n 1)
   if [ "$last" != "outcome 0 " ]; then
     echo "FAIL $src: $last"; status=1; continue

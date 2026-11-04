@@ -9,8 +9,10 @@ reference transcript (keep-reference, as-reference?), runs the same lines
 through the prototype's correctness vocabulary (cv.fs) on the given Gforth,
 and compares outcome, reason, line, column, diagnostic text and IR.
 
-Usage: reader_cases.py GFORTH (from the repository root).
+Usage: reader_cases.py GFORTH [ms] (from the repository root); with ms,
+the lines run in the mode-shift prototype's verification state (ms.fs).
 """
+import os
 import re
 import subprocess
 import sys
@@ -108,11 +110,15 @@ def main():
         else:
             skipped += 1
             current = None
-    lines = ["require " + str(HERE / "cv.fs"),
-             "create case-text 4096 allot",
+    mode = (sys.argv[2:] or ["cv"])[0]
+    shift = mode in ("ms", "g1")
+    lines = ["require " + str(HERE / "cv.fs")]
+    lines += ["require " + str(HERE / "ms.fs")] if shift else []
+    lines += ["require " + str(HERE / "ms-gforth1.fs")] if mode == "g1" else []
+    lines += ["create case-text 4096 allot",
              "variable case#",
              ": run-case ( c-addr u n -- ) case# ! case-text swap 2dup 2>r move",
-             '  ." BEGIN " case# @ . cr 2r> s" t.fs" cv-run drop',
+             '  ." BEGIN " case# @ . cr 2r> s" t.fs" %s drop' % {"ms": "ms-run", "g1": "g1-run"}.get(mode, "cv-run"),
              '  ." RESULT " case# @ . cv-outcome @ . cv-why @ .',
              "  cv-outcome @ if cv-err-line @ . cv-err-col @ . else cv-line# @ . 0 . then cr ;"]
     for n, feed_lines, _, _ in cases:

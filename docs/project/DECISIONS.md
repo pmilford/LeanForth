@@ -739,3 +739,36 @@ dictionary, and running in the checker's process. Prior art cited:
 MiniForth (<https://github.com/leodemoura/MiniForth>, commit `e8756e2`,
 no licence, ideas only). Open for the owner: the four questions at the end
 of the ADR.
+
+## Program words in two modes: answers, mode shift, loops — 2026-11-03
+
+The owner answered ADR 0019's four questions: option 2, "but also consider
+if there is a way to do it with a mode shift rather than an alias. Either
+case probably needs special handling of defining words and looping"; IR
+first and symbolic execution later; today's reader kept as a cross-check,
+then retired; names that read as numbers refused (any name Forth-2012 or
+Gforth could read as a number). The ADR is accepted in direction; whether
+the second meaning comes from a separate vocabulary (the alias) or from a
+mode shift stays open. ADR 0019 §9 weighs dual-mode words that test a flag
+(rejected: run mode would no longer be plain Gforth, would be slower, and
+would run trusted wrappers), a third state of Gforth 1.0's own interpreter
+through `translate-method:` (works, 1.0 only, experimental words), a
+portable third state — Forth's own words found with `SEARCH-WORDLIST`,
+each with *verification semantics* kept in a table keyed by its identity,
+performed by a short loop inside the line as Forth's input source — and
+"verify while loading" (rejected: the file's code would run inside the
+verifier). Prototypes of both mode shifts gave byte-identical golden IR,
+no difference on the reader's 108 replayed tests and identical
+diagnostics on 86 hostile inputs; the mode shift also refused a Forth with
+`MAX` redefined, which the alias accepts. Host quirks found: Gforth 0.7.3
+gives all compile-only words one execution token and Gforth 1.0 moves
+`RECURSE`'s token, so a word is known by token and name. Recommendation
+to the owner: the portable mode shift. §10 designs defining words
+(`CONSTANT`, `VARIABLE`, top-level `CREATE` tables, `VALUE`/`TO`,
+`CREATE … DOES>` and user-written defining words, run at the top level on
+LeanForth's model, never on the host, and refused inside definitions) and
+loops (`DO`/`?DO`/`LOOP`/`+LOOP`/`LEAVE`/`I`/`J`/`UNLOOP`,
+`BEGIN`/`UNTIL`/`AGAIN`, several `WHILE`s, `RECURSE` bound to the current
+definition) with what IR v1 must gain, including MiniForth's semantics
+without fuel and loop rules with invariants. Prototyped once and given to
+both designs, they wrote the same 95-line draft IR v1 on both Gforths.
