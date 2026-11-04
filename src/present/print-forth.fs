@@ -132,13 +132,15 @@ create lf-pf-eol 10 c,
 \ it is not empty and has no blank or control character; a note's text
 \ has no " and no line end, which would end it early. Any other text
 \ would print as live words: unsupported.
-: lf-pf-blank-in? ( c-addr u -- flag ) false -rot chars over + swap ?do i c@ bl 1+ < or loop ;
+: lf-pf-blank-in? ( c-addr u -- flag )
+  false -rot chars over + swap ?do i c@ bl 1+ < or loop ;
 : lf-pf-label? ( c-addr u -- flag ) dup 0= if 2drop false exit then lf-pf-blank-in? 0= ;
 : lf-pf-note-end? ( char -- flag ) dup [char] " = over 10 = or swap 13 = or ;
 : lf-pf-note? ( c-addr u -- flag )
   true -rot chars over + swap ?do i c@ lf-pf-note-end? 0= and loop ;
 : lf-pf-spellable-note? ( i -- flag )
-  dup lf-note-text@ rot lf-note-kind@ lf-note-label = if lf-pf-label? else lf-pf-note? then ;
+  dup lf-note-text@ rot lf-note-kind@ lf-note-label =
+  if lf-pf-label? else lf-pf-note? then ;
 : lf-pf-note-word ( kind -- c-addr u )
   case lf-note-person of s\" note\" " endof lf-note-ai of s\" ai-note\" " endof
   s" label: " rot endcase ;

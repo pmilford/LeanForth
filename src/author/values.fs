@@ -51,7 +51,8 @@ lfa-item-capacity /lfa-item 0 context-store: lfa-items
 : lfa-slot ( value -- item ) negate 1- lfa-items store-slot ;
 \ Take a value from the stack, once: a number, a stale value or a value
 \ already used stops the run.
-: lfa-live? ( value -- flag ) dup 0< if negate 1- lfa-items store-valid? else drop false then ;
+: lfa-live? ( value -- flag )
+  dup 0< if negate 1- lfa-items store-valid? else drop false then ;
 : lfa-take ( value -- item )
   dup lfa-live? lfa-e-not-value lfa-must lfa-slot
   dup lfa-item-taken @ 0= lfa-e-not-value lfa-must true over lfa-item-taken ! ;

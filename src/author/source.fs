@@ -83,6 +83,20 @@ end-structure
 : lfa-next-token ( c-addr u -- c-addr' u' token-addr token-u )
   lfa-skip-blanks 2dup lfa-word-end >r over r@ 2swap r> /string 2swap ;
 
+\ Names in token text: parts between dots.
+: lfa-dot-at? ( c-addr i -- flag ) chars + c@ [char] . = ;
+: lfa-last-char ( c-addr u -- char ) + 1- c@ ;
+\ The offset of the first dot, or u.
+: lfa-dot ( c-addr u -- n )
+  dup >r 0 ?do dup i lfa-dot-at? if drop i unloop r> drop exit then loop drop r> ;
+\ The name without its last part (and the dot before it); empty for one part.
+: lfa-cut ( c-addr u -- c-addr u' ) begin dup while 1- 2dup lfa-dot-at? until then ;
+\ An empty part: a dot first, last or twice in a row, or no text.
+: lfa-empty-part? ( c-addr u -- flag )
+  dup 0= if 2drop true exit then
+  over c@ [char] . = >r 2dup lfa-last-char [char] . = r> or if 2drop true exit then
+  s" .." search nip nip ;
+
 \ Numbers. The only LeanForth number is a plain decimal: one to nine
 \ digits, exact in a cell on every host. A spelling is number-like when a
 \ Forth host may read it as a number in some form: a digit first, or a

@@ -86,7 +86,8 @@ begin-structure /lfa-message
 end-structure
 : lfa-message, ( code outcome c-addr u -- )
   2swap swap , , dup , here swap dup chars allot move align ;
-: lfa-message-text ( message -- c-addr u ) dup lfa-message-chars swap lfa-message-length @ ;
+: lfa-message-text ( message -- c-addr u )
+  dup lfa-message-chars swap lfa-message-length @ ;
 : lfa-message-next ( message -- message' ) lfa-message-text chars + aligned ;
 : lfa-invalid, ( code c-addr u -- ) outcome-invalid -rot lfa-message, ;
 : lfa-unsupported, ( code c-addr u -- ) outcome-unsupported -rot lfa-message, ;

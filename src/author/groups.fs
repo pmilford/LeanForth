@@ -154,7 +154,8 @@ end-structure
 \ The token that invoked the word whose body is given, which must be found
 \ as that word in wid: the word was run by the text interpreter. The
 \ numbers before it are checked, and it becomes the current token.
-: lfa-numbers-before ( c-addr -- ) dup lfa-on-line? if lfa-offset lfa-read-to else drop then ;
+: lfa-numbers-before ( c-addr -- )
+  dup lfa-on-line? if lfa-offset lfa-read-to else drop then ;
 : lfa-invoked-by ( body wid -- )
   lfa-invoked over lfa-numbers-before 2dup lfa-token! rot search-wordlist
   if >body = else drop false then lfa-e-interpreter lfa-must ;
@@ -213,4 +214,5 @@ defer lfa-const-run ( body -- )
 \ The constant whose full name is c-addr u, if there is one.
 : lfa-const-named ( c-addr u -- decl true | false )
   2dup lf-consts search-wordlist 0= if 2drop false exit then
-  >body lfa-entry-constant lfa-key! lfa-entry-find if lfa-entry-value @ true else false then ;
+  >body lfa-entry-constant lfa-key! lfa-entry-find
+  if lfa-entry-value @ true else false then ;

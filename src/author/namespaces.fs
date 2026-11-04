@@ -30,28 +30,16 @@ require ./groups.fs
 : lfa-name-token ( -- c-addr u ) parse-name dup 0<> lfa-e-no-name lfa-must 2dup
   lfa-token! ;
 
-\ Name texts.
-: lfa-last-char ( c-addr u -- char ) + 1- c@ ;
-\ The offset of the first dot, or u.
-: lfa-dot ( c-addr u -- n )
-  dup >r 0 ?do dup i chars + c@ [char] . = if drop i unloop r> drop exit then loop
-  drop r> ;
-\ The name without its last part (and the dot before it); empty for one part.
-: lfa-cut ( c-addr u -- c-addr u' ) begin dup while 1- 2dup chars + c@ [char] . = until
-  then ;
+\ Name texts (the dots in them: source.fs).
 : lfa-last-part ( c-addr u -- c-addr' u' ) 2dup lfa-cut dup if 1+ then nip /string ;
-\ No empty part: no dot first, last or twice in a row.
-: lfa-empty-part? ( c-addr u -- flag )
-  dup 0= if 2drop true exit then
-  over c@ [char] . = >r 2dup lfa-last-char [char] . = r> or if 2drop true exit then
-  s" .." search nip nip ;
 \ Every part of a name a word is made for: not empty, not number-like.
 : lfa-part-ok? ( c-addr u -- flag ) dup 0<> >r lfa-number-like? 0= r> and ;
 : lfa-parts-ok? ( c-addr u -- flag )
   begin 2dup lfa-dot >r over r@ lfa-part-ok? 0= if r> drop 2drop false exit then
     r> 1+ over min /string dup 0= until 2drop true ;
 : lfa-word-name ( c-addr u -- c-addr u )
-  2dup lfa-empty-part? 0= lfa-e-bad-name lfa-must 2dup lfa-parts-ok? lfa-e-bad-name lfa-must ;
+  2dup lfa-empty-part? 0= lfa-e-bad-name lfa-must
+  2dup lfa-parts-ok? lfa-e-bad-name lfa-must ;
 
 \ Texts of up to 256 characters in a record.
 256 constant lfa-text-capacity
@@ -103,7 +91,7 @@ end-structure
 : lfa-known-of ( c-addr u -- i ) 2dup lfa-known-find if nip nip else lfa-known-add then ;
 \ Every prefix of a declared name is a namespace.
 : lfa-prefixes-known ( c-addr u -- )
-  dup 0 ?do over i chars + c@ [char] . = if over i lfa-known-of drop then loop 2drop ;
+  dup 0 ?do over i lfa-dot-at? if over i lfa-known-of drop then loop 2drop ;
 
 \ The namespace prefix p-addr p-u joined to the name x-addr x-u, in the
 \ scratch text.
@@ -186,7 +174,8 @@ lfa-space-capacity /lfa-space 0 context-store: lfa-spaces
 : lfa-const-around ( p-addr p-u -- decl true | false )
   begin dup while 2dup lfa-const-in-space if nip nip true exit then lfa-cut repeat
   2drop false ;
-: lfa-agree ( found decl -- found' ) over 0< if nip exit then over = lfa-e-ambiguous lfa-must ;
+: lfa-agree ( found decl -- found' )
+  over 0< if nip exit then over = lfa-e-ambiguous lfa-must ;
 : lfa-agree-open ( found space -- found' )
   dup lfa-entered? if drop exit then lfa-space-name lfa-const-in-space if lfa-agree then ;
 : lfa-const-open ( -- found | -1 )

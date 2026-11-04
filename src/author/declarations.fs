@@ -172,7 +172,7 @@ end-structure
 : lfa-short-word ( c-addr u i -- ) 1+ /string lf-consts lfa-group drop ;
 : lfa-register ( -- )
   lfa-full 2dup lf-consts lfa-constant! 2dup lfa-prefixes-known
-  dup 0 ?do over i chars + c@ [char] . = if 2dup i lfa-short-word then loop 2drop ;
+  dup 0 ?do over i lfa-dot-at? if 2dup i lfa-short-word then loop 2drop ;
 : lfa-record-decl ( type value -- )
   lfa-close-params lfa-this tuck lf-fdecl-value ! tuck lf-fdecl-type !
   lf-note-count swap lfa-decl-notes-end ! ;

@@ -1,11 +1,14 @@
 \ Unit tests of the LeanForth authoring words (plan task 8.1.2): every
 \ error code that a proof can reach, with its line and column (and the
 \ second position where there is one); names that differ only in case;
-\ Forth's own words invisible in proof text; namespaces, open and the
-\ ambiguity error; var# and root:; source positions on nodes; labels and
-\ notes; the runner restoring the caller's settings; the note table and
-\ the printer's Forth mode on their own. The 19 example files and their
-\ round trips are in check_author.py.
+\ Forth's own words invisible in proof text; numbers only as plain
+\ decimals, the same tokens refused on every host; values used once;
+\ names never number-like; namespaces, open and which constant a name
+\ means, as Lean resolves it; var# and root:; source positions on nodes;
+\ labels and notes; the runner restoring the caller's settings; the note
+\ table and the printer's Forth mode on their own, which refuses labels
+\ and notes it cannot spell. The 21 example files, their round trips and
+\ the comparison with Lean are in check_author.py.
 require ../support/tester.fs
 require ../../src/author/runner.fs
 
@@ -15,7 +18,8 @@ require ../../src/author/runner.fs
 : fails ( c-addr u -- code line col ) run drop err ;
 
 \ Text built by repeating a phrase, for the store limits.
-create text 32768 allot  variable text#
+131072 constant text-max
+create text text-max allot  variable text#
 : text0 ( -- ) 0 text# ! ;
 : text+ ( c-addr u -- ) tuck text text# @ + swap move text# +! ;
 : times ( c-addr u n -- ) 0 ?do 2dup text+ loop 2drop ;
@@ -162,6 +166,13 @@ T{ text$ fails drop drop -> 63 }T
 \ A file that cannot be opened.
 T{ lf-author-begin s" tests/author/no-such-file.lf" lf-author-file -> outcome-invalid }T
 T{ lf-author-code -> 40 }T
+\ A Forth exception: very many numbers overflow Forth's data stack (-3 on
+\ Gforth 1.0 and 0.7.3, at their default sizes), reported at the last token
+\ a word read. (A line of 1024 characters in a file, error 39, is the
+\ fixture 17-long-line.lf.)
+text0 s" theorem t" text+ s"  1" 40000 times
+T{ text$ fails -> 41 1 9 }T
+T{ lfa-error lfa-err-number @ -> -3 }T
 \ Numbers are plain decimals of at most 9 digits: every other form a Forth
 \ host may read as a number is refused at its token, the same on every
 \ host (Gforth 1.0 recognizes more forms than 0.7.3); a token that is no
@@ -215,17 +226,19 @@ T{ s" namespace A import-stub c end c namespace B theorem t c := c end t end B e
    -> outcome-ok }T
 T{ s" import-stub A.B.c end A.B.c namespace A open B theorem t c := c end t end A" run
    -> outcome-ok }T
-\ Which constant a name means, as pinned Lean 4.35.0 resolves it (each
-\ case checked with Lean: .claude/work/SY2/lean-ns-cases.lean): the
+\ Which constant a name means, as pinned Lean 4.35.0 resolves it: the
 \ namespace around wins, innermost first, over the root and the opened
 \ namespaces; a dotted declaration name puts its body in its namespace;
 \ namespace A.B is two scopes; open N opens A.N inside A, and O.N for
-\ every open O.
+\ every open O. Each case was run in Lean; make check compares the same
+\ cases with Lean's terms (16-namespaces.lf).
 : const-of ( term -- name )
   dup lf-term-first@ swap lf-term-second@ lf-cref-read 0= abort" ref" 2drop ;
 : value-const ( i -- name ) lf-author-decl lf-fdecl-value @ const-of ;
 : name1 ( c-addr u -- name ) 0 -rot lf-name-str drop ;
 : name+ ( name c-addr u -- name' ) lf-name-str drop ;
+: A.c ( -- name ) s" A" name1 s" c" name+ ;
+: A.B.c ( -- name ) s" A" name1 s" B" name+ s" c" name+ ;
 : stubs-c ( -- c-addr u )
   s" import-stub c end c import-stub A.c end A.c import-stub A.B.c end A.B.c " ;
 create ns-text 512 allot  variable ns-text#
@@ -233,24 +246,30 @@ create ns-text 512 allot  variable ns-text#
   stubs-c ns-text swap move stubs-c nip ns-text# !
   tuck ns-text ns-text# @ + swap move ns-text# +! ns-text ns-text# @ run ;
 T{ s" namespace A def t Prop := c end t end A" with-stubs -> outcome-ok }T
-T{ 3 value-const -> s" A" name1 s" c" name+ }T
+T{ 3 value-const -> A.c }T
 T{ s" def A.t Prop := c end A.t" with-stubs -> outcome-ok }T
-T{ 3 value-const -> s" A" name1 s" c" name+ }T
-T{ s" namespace A def B.t Prop := c end B.t def u Prop := c end u end A" with-stubs -> outcome-ok }T
-T{ 3 value-const 4 value-const -> s" A" name1 s" B" name+ s" c" name+ s" A" name1 s" c" name+ }T
+T{ 3 value-const -> A.c }T
+T{ s" namespace A def B.t Prop := c end B.t def u Prop := c end u end A" with-stubs
+   -> outcome-ok }T
+T{ 3 value-const 4 value-const -> A.B.c A.c }T
 T{ s" namespace A.B def t Prop := c end t end B def u Prop := c end u end A" with-stubs
    -> outcome-ok }T
-T{ 3 value-const 4 value-const -> s" A" name1 s" B" name+ s" c" name+ s" A" name1 s" c" name+ }T
+T{ 3 value-const 4 value-const -> A.B.c A.c }T
 T{ s" import-stub X.c end X.c namespace A open X def t Prop := c end t end A" with-stubs
    -> outcome-ok }T
-T{ 4 value-const -> s" A" name1 s" c" name+ }T
-T{ s" def t Prop := A.c end t namespace A def u Prop := A.c end u end A" with-stubs -> outcome-ok }T
-T{ 3 value-const 4 value-const -> s" A" name1 s" c" name+ s" A" name1 s" c" name+ }T
-T{ s" import-stub B.e end B.e import-stub A.B.g end A.B.g namespace A open B def t Prop := g end t end A"
-   run -> outcome-ok }T
-T{ s" import-stub B.e end B.e import-stub A.B.g end A.B.g namespace A open B def t Prop := e end t end A"
-   fails -> 1 1 86 }T
-T{ s" import-stub Y.Z.h end Y.Z.h open Y open Z def t Prop := h end t" run -> outcome-ok }T
+T{ 4 value-const -> A.c }T
+T{ s" def t Prop := A.c end t namespace A def u Prop := A.c end u end A" with-stubs
+   -> outcome-ok }T
+T{ 3 value-const 4 value-const -> A.c A.c }T
+: open-b ( -- )
+  text0 s" import-stub B.e end B.e import-stub A.B.g end A.B.g " text+
+  s" namespace A open B def t Prop := " text+ ;
+open-b s" g end t end A" text+
+T{ text$ run -> outcome-ok }T
+open-b s" e end t end A" text+
+T{ text$ fails -> 1 1 86 }T
+T{ s" import-stub Y.Z.h end Y.Z.h open Y open Z def t Prop := h end t" run
+   -> outcome-ok }T
 T{ 1 value-const -> s" Y" name1 s" Z" name+ s" h" name+ }T
 T{ s" namespace B end A.B" fails -> 23 1 13 }T
 T{ s" namespace A namespace B end A.B def t Prop := Prop end t" run -> outcome-ok }T
