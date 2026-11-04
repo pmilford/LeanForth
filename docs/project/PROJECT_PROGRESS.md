@@ -1,7 +1,7 @@
 # LeanForth project progress
 
-Snapshot: **2026-11-03**, at commit `d6233af` on `main` (previous snapshot
-2026-11-02 at `fc558cc`). These are milestones, not estimates of percentage
+Snapshot: **2026-11-03** (evening), at commit `7ffbfff` on `main` (previous
+snapshot the same day at `d6233af`; before that 2026-11-02 at `fc558cc`). These are milestones, not estimates of percentage
 complete. Prototype success is not theorem acceptance. Update this report
 after each meaningful milestone, with the inventory from
 `python3 scripts/code-inventory.py`. The two paths share the eventual
@@ -34,18 +34,32 @@ cases and 69 table cases give Lean's answers. Nothing it says is trusted yet: th
 checked environment it publishes into are still in their review gates, and
 every acceptance is labelled *experimental — not independently audited*.
 
+**New since this morning: the checker can be fed a real library.** Its
+working memory is no longer a fixed 64 entries: the stores now live on the
+computer's heap and grow, and each check sets how large they may get. With
+that, all of Lean's `Init` library (59,349 declarations) is staged, handed
+to the checker in file order and checked, end to end. The result is honest
+rather than impressive: at 100,000 steps of work per declaration, 37 are
+accepted, 0 rejected, 59,025 unsupported, 162 ran out of steps, 73 are
+unknown, 52 ran out of room and 0 invalid. Nearly all are *unsupported*
+because unfolding definitions (phase 4) and data types (phase 5) are not
+built. Staging took 16 s, feeding 80 s and checking 91 s, using at most
+1.27 GB. This move onto heap stores is merged, but its independent review
+is running and the owner's [kernel] gate is pending.
+
 **What it cannot do yet.** It cannot check anything that needs a definition
 unfolded, a data type (natural numbers, lists, equality), a number literal
 or a structure — which is nearly all of real Lean code and all of Mathlib.
-Its working memory holds only 64 terms per store, so only small examples
-fit. There is no command-line tool yet; everything runs through tests.
+The command `bin/leanforth check` exists but keeps the default small store
+sizes, so only exports the size of the test fixtures fit; the large sizes
+are used by the tests and by the `Init` run.
 
 **What you can do with Mathlib today** (the owner asked):
 
 | You can | You cannot yet |
 | --- | --- |
-| Read and validate the whole Mathlib export in Forth: all 110,895,826 records (6.3 GB) in about 1 min 49 s with `gforth-fast`, in 17 MB of memory; every record's shape and every reference to an earlier record is checked, and the result equals the independent Python reader's field for field | Keep what was read: the checker's stores hold 64 entries, so nothing read from Mathlib is stored for the checker |
-| Count every kind of record and declaration (184,355 definitions, 517,916 theorems, 7,046 inductive types, …) | Look up a Mathlib theorem by name, print it, or check it |
+| Read and validate the whole Mathlib export in Forth: all 110,895,826 records (6.3 GB) in about 1 min 49 s with `gforth-fast`, in 17 MB of memory; every record's shape and every reference to an earlier record is checked, and the result equals the independent Python reader's field for field | Keep what was read: the checker's stores can now grow (`Init` fits), but Mathlib has not been fed to them and `bin/leanforth check` still uses small default sizes |
+| Count every kind of record and declaration (184,355 definitions, 517,916 theorems, 7,046 inductive types, …) | *(Since the importer stage was approved on 2026-11-03:)* stage all of Mathlib into the compact store and find every one of its 729,263 declarations by name. You still cannot print a Mathlib theorem or check it; for `Init` the checker answers as in the paragraph above |
 | In a measurement prototype (not the product): load all of Mathlib into the compact store design (2.94 GB, 4.16 GB peak), look up all 729,263 names (0.69 s), walk every declaration, and re-emit every record from memory equal to the reader's dump, line for line | *(Since 2026-11-03, plan task 3.2.4:)* re-export `Init`, `Std` and all of Mathlib byte for byte in Lean's own NDJSON format — the copies' SHA-256 equal the originals', and reading them back gives the same records ([measurements](../development/measurements/reexport-2026-11-03/README.md); Mathlib in 5 min 29 s, 20 MB) |
 
 **What "the contents" of an imported library are** (the stored data, not
@@ -68,13 +82,18 @@ the 32-bit access words exist in `src/`; building it is plan tasks
 | --- | --- | --- |
 | Rejection rules in comparison and inference (plan 2.2.1) | [kernel] | **approved** 2026-11-03 |
 | NDJSON reader (Lean export files) | [import] | **approved** 2026-11-03, with a checksum manifest to add |
-| Design records ADR 0010, 0013, 0016, 0017, 0018 | design | **accepted** (0017 on 2026-11-02; the rest 2026-11-03) |
+| Importer stage (staging into the compact store; ADR 0016 C9 steps 1, 2, 5) | [import] | **approved** 2026-11-03 (late night); independent re-review clean, minor limits documented. **The importer stage gate is passed.** |
+| Heap stores and the stage feed (ADR 0016 C9 step 3 in part; plan 1.1.5, 3.2.2) | [kernel] | merged 2026-11-03; independent review running; **owner's [kernel] gate pending** |
+| Data types, ADR 0015 (inductive types) | design | **accepted as a design** 2026-11-03; each implementation task has its own gate; task 5.2.1a (non-recursive blocks) started |
+| Design records ADR 0010, 0013, 0015, 0016, 0017, 0018 | design | **accepted** (0017 on 2026-11-02; the rest 2026-11-03; 0015 as a design, with a gate per task) |
 | Checked environment v0 (2.2.2) | [kernel] | **approved** 2026-11-03 |
 | Declaration check (2.2.3) and the level fix | [kernel], [bypass] | **approved** 2026-11-03 |
-| Program reader (Forth to program IR, 2.5.3) | [parser] | replaced by the owner's two-mode design (ADR 0019, accepted in direction: a portable mode shift first, the separate vocabulary kept beside it); today's text reader stays as a cross-check, then retires |
+| Program reader (Forth to program IR, 2.5.3) | [parser] | replaced by the owner's two-mode design (ADR 0019, accepted in direction). The two-mode program words are merged (2026-11-03): in verify mode they emit the program IR, in run mode they execute as plain Forth. The portable mode shift is primary and the alias vocabulary is kept beside it; on 273 inputs the new words give the old reader's outcome, reason, line and column, apart from 4 intended differences. Independent review running; **owner's [parser] gate pending**. Today's text reader stays as a cross-check, then retires |
 | LeanForth syntax words (8.1.2) | [parser] | **approved** 2026-11-03, after two clean review rounds (term-for-term equal to Lean on 67 declarations) |
 | Program receipt schema 0.2 (2.5.1) | [format] | **approved** 2026-11-03 (schema pinned by hash; any change is a new version) |
-| Big-number library (`lib/bignum.fs`, for literals) | [forth-review] | review found one serious memory bug in printing; fix running |
+| Run-record fixes (environment identity, manifest-enforced field, blank-looking names) | [format] | merged 2026-11-03; the independent re-check found one medium issue: "enforced" is not yet tied to the hashed bytes. Fixes in progress; **owner's [format] gate pending until then** |
+| Axiom policy and defaults (owner, 2026-11-03) | policy | decided: `sorryAx` and any axiom outside the three standard ones get Lean's verdict, labelled **NOT PROVED** (the flag `--standard-axioms-only` refuses them); with no flags LeanForth is always Lean. Not implemented yet |
+| Big-number library (`lib/bignum.fs`, for literals) | [forth-review] | review found one serious memory bug in printing; fixed and merged 2026-11-03 (`ed4dab7`, merge `4c714f5`); its owner gate comes with literals (plan 5.2.3) |
 
 ### Test tooling (2026-11-03)
 
@@ -87,6 +106,16 @@ the 32-bit access words exist in `src/`; building it is plan tasks
   `make test` (lowest: printing 93.4%, authoring 94.4%). Running code is
   not the same as checking it; that is what the planted faults measure.
 - The failure-path suite (2.2.4, 1.4.6) — see milestone 1 below.
+- **Fast checks (agent TT, merged 2026-11-03; no owner gate, test tooling).**
+  `make` now runs 8 jobs at a time by default (`JOBS=1` runs one at a time),
+  and pinned Lean's deterministic verdicts are replayed from a shared cache
+  (`scripts/lean-cache.py`) when every input of a call is unchanged. CI runs
+  without the cache (`LEAN_CACHE=0`), so its pass is the record. `make
+  test-changed` and `make check-changed` run only the targets that use files
+  changed since `main`. Timings in the
+  [testing strategy](../development/TESTING_STRATEGY.md): `make test` 7.9-8.5 s
+  (36 s one at a time); `make check` 345 s before, now 43 s with a filled
+  cache, 69 s with an empty one and 75 s without the cache (what CI runs).
 
 ### Next major milestones
 
@@ -109,14 +138,17 @@ sizes are relative and dates are not estimated.
    `composition` prints as a short readable proof.
 2. **Lean files in, a command-line tool out — release 0.1 (phase 3).**
    Stage the reader's records into stores built on the compact design
-   (ADR 0016; plan 1.1.5, 3.2.1, 3.3.1, 6.2.0); feed declarations to the
-   checker in file order (3.2.2); re-export byte for byte and compare with
+   (ADR 0016; plan 1.1.5, 3.2.1, 3.3.1, 6.2.0; staging is approved, and
+   the checker's stores now grow, merged with its review pending); feed
+   declarations to the checker in file order (3.2.2; works for `Init`
+   today, gate pending); re-export byte for byte and compare with
    Lean's file (3.2.4, **done 2026-11-03**); the checksum manifest checked by default and an
    upgrade test for new Lean and Mathlib versions (owner, 2026-11-03);
    `leanforth check FILE.ndjson`, `leanforth print` and exit codes
    (3.4); the JSON API v0 for AI tools with schemas and golden examples
    (3.5); authoring in its own process (8.2.1). *You will see:* one
-   command checks a Lean export with only Forth installed.
+   command checks a Lean export with only Forth installed. Today
+   `bin/leanforth check` still has the small default sizes.
 3. **Definitions that compute (phase 4).** Unfolding with Lean's
    reducibility hints and lazy strategy, universe-level normalisation,
    eta, proof irrelevance, `let`, and the caches — the part where Lean's
@@ -129,17 +161,24 @@ sizes are relative and dates are not estimated.
 4. **Data types and the first real Lean code — release 0.2 (phase 5).**
    Inductive types, recursors, structures and projections, number and
    string literals (the big-number library is ready), quotients, the axiom
-   allowlist (`propext`, `Classical.choice`, `Quot.sound`). *You will
+   allowlist (`propext`, `Classical.choice`, `Quot.sound`; the owner's
+   rule: other axioms such as `sorryAx` get Lean's verdict labelled NOT
+   PROVED, and `--standard-axioms-only` refuses them). ADR 0015 is accepted
+   as a design and its first step, task 5.2.1a (non-recursive inductive
+   blocks), is in progress, ahead of phase 4. *You will
    see:* `n + 0 = n` and `0 + n = n` (by induction) checked from real Lean
    output with every declaration they depend on, printed readably; and on
    the program track, the first program fact (the clamp contract) checked
    by LeanForth itself rather than by Lean.
 5. **Scale to all of Mathlib (phase 6),** in stages with a denominator
    each: all of `Init`, then `Std`, a Mathlib slice chosen with the owner,
-   then all 729,263 Mathlib declarations; a corpus comparison with Lean's
+   then all 729,263 Mathlib declarations (plan 6.1.6, owner 2026-11-03:
+   soon also a few small Lean libraries and the largest one); a corpus comparison with Lean's
    verdict for every declaration, plus mutated copies that must be
    rejected; zero false acceptances; measured time and memory against
-   Lean's one-thread time.
+   Lean's one-thread time. A first measured point exists: `Init` is staged,
+   fed and checked (see the plain-words section), with 37 of 59,349
+   declarations accepted.
 6. **Parallel checking (phase 7).** The groundwork exists (contexts, worker
    pool, single publisher); `--jobs 12` must give exactly the `--jobs 1`
    verdicts, faster. Later, investigate GPU offloading of untrusted bulk
@@ -224,6 +263,18 @@ P3.2). Changes of state within the tasks:
 | T6.1 export pinned and tested | reader approved | owner's [import] approval; remaining: detection of a file cut off between lines (the checksum manifest) |
 | T10.1 Forth words that build terms | syntax words merged | 15 example files and 50 printer cases round-trip; 42 `#print` lines from 14 fixtures equal pinned Lean's; the authoring program does not yet hand terms to the checker (8.2.1) |
 | T9.4 Mathlib time and memory | storage design accepted | ADR 0016: 2.94 GB stored, 4.16 GB peak, measured |
+| T5.3 / T6 feeding the checker | `Init` fed end to end (plan 3.2.2, 1.1.5, in part) | 59,349 declarations: 37 accepted, 0 rejected, 59,025 unsupported at 100,000 fuel ([ADR 0016, step 3](../adr/0016-compact-store.md)); review and [kernel] gate pending |
+| P6 program reader | two-mode program words merged | 273 inputs agree with the old reader, 4 intended differences ([program IR](../programming/PROGRAM_IR.md)); review and [parser] gate pending |
+| Plan tasks 5.2.1a, 4.2.2a, 2.4.1, 2.4.4 | in progress or done on a branch, not merged | see the table above; none is done until merged and its gate passes |
+
+**In progress, not merged (2026-11-03 evening):**
+
+| Agent | Task | State |
+| --- | --- | --- |
+| RB | Derivation log (plan 2.4.1) and proof-outline printer (2.4.4) | done; being rebased onto the heap stores |
+| I21 | Task 5.2.1a: non-recursive inductive blocks (ADR 0015) | in progress |
+| D2A | Task 4.2.2a: free variables and local context, the first step of unfolding | in progress |
+| RP | Run-record fix: tie "enforced" to the hashed bytes | in progress |
 
 ## Near-term queue and plan phase 1
 
@@ -242,11 +293,11 @@ P3.2). Changes of state within the tasks:
 | Milestone | Status and evidence / remaining work |
 | --- | --- |
 | 1. Development foundation | 1 of 4 done (T1.3). Pinned Gforth 1.0.0 and Lean 4.35.0, CI on two Gforth versions, timeouts, `sorry`-proof Lean checks, documentation link and portability checks. Clean-machine reproduction (T1.1, T1.2) and a portability matrix (T1.4) remain. |
-| 2. Terms, names and universes | In progress: bounded 64-entry stores on the library's `store:` records, handles that detect stale references, symbolic Sorts kept apart from concrete ones, which no checker pass accepts (ADR 0007; the unsafe draft that mixed them was retired), structured names. Human review of the representation and serialization remain. |
+| 2. Terms, names and universes | In progress: stores on the library's `store:` records that now grow on the heap up to a per-context capacity (default 64; universe arguments variable-length, up to 64 per reference; merged, review pending), handles that detect stale references, symbolic Sorts kept apart from concrete ones, which no checker pass accepts (ADR 0007; the unsafe draft that mixed them was retired), structured names. Human review of the representation and serialization remain. |
 | 3. Scope and substitutions | In progress: shift, instantiation and universe substitution passes compared with Lean on finite tables (80, 25 and 48 cases and others). General specification and review remain. |
 | 4. Definitional equality | 1 of 3 done (T4.1, rules approved). Conversion compares after beta reduction, answers *rejected* where ADR 0011's approved rules say Lean certainly rejects, and *unknown* elsewhere; unfolding, eta and proof irrelevance are phase 4. |
 | 5. Small trusted checker | 1 of 4 done (T5.1, rules and design approved). Expected results: 62 cases (14 must be accepted, 28 rejected, 1 invalid, 11 unknown, 8 unsupported) checked against Lean. The rejection rules in comparison and inference (plan 2.2.1) were **approved by the owner on 2026-11-03** ([kernel] gate). The checked environment v0 (2.2.2) awaits its last review fixes and gate. The declaration check (2.2.3) is implemented and merged (2026-11-03): end to end, it gives Lean's answer on all 62 rows; its independent review and gate are next. Next: Lean's rule for a "for all" whose body is not a type (ADR 0011 amendment), the failure-path suite (2.2.4) and replay (2.2.5). |
-| 6. Lean NDJSON importer | In progress: the Forth reader (gate approved 2026-11-03) decodes every record kind of lean4export 3.1.0 and all of Mathlib (below); the declaration check reads four pinned fixture exports end to end. Staging Mathlib-size input into stores, the checksum manifest and byte-for-byte re-export remain. |
+| 6. Lean NDJSON importer | In progress: the Forth reader (gate approved 2026-11-03) decodes every record kind of lean4export 3.1.0 and all of Mathlib (below); the importer stage (approved 2026-11-03) stages all of Mathlib and the byte-for-byte re-export is done; the checker is fed `Init` end to end (heap stores, review pending). Feeding Mathlib, the checksum manifest check by default and other Lean libraries (plan 6.1.6) remain. |
 | 7. Lean checker compatibility corpus | In progress: selected differential tables and the first checker's expected-results table; no official corpus run. |
 | 8. Lean declaration features | In progress: the checked environment is designed (ADR 0012, per-declaration universe scope); candidate signatures remain unchecked assumptions; inductive types, recursors and quotients are decoded by the reader but not checked. |
 | 9. Full Mathlib | In progress (T9.1, T9.4): denominator pinned, export and reading measured, storage design accepted and measured (ADR 0016); nothing imported into the checker's stores or checked. |
@@ -286,8 +337,9 @@ P3.2). Changes of state within the tasks:
 | --- | --- | --- |
 | Record kinds of lean4export format 3.1.0 decoded by the Forth reader | 24 of 24 (100%), plus the 3 element kinds of inductive blocks | the format's record kinds ([reader guide](../development/NDJSON_READER.md)) |
 | Records of the pinned Mathlib export decoded and checked for shape and references | 110,895,826 of 110,895,826 (100%), field for field equal to Python's `json` module | lines of export SHA-256 `18448e5d…59c6` |
-| Expression nodes staged into LeanForth's stores | 0% of Mathlib's 105,894,257; only test fixtures, through a test-only Python bridge | stores hold 64 entries |
-| Declarations checked by LeanForth | **0 of 729,263 (0%)** | constants of the pinned Mathlib export with its dependencies |
+| Expression nodes staged into the compact store | all of Mathlib's 105,894,257 (importer stage, approved) | nodes of the pinned export |
+| Expression nodes fed into the checker's own stores | `Init` only: 6,099,054 nodes of its 59,349 declarations; none of Mathlib | the checker's stores grow, default 64 |
+| Declarations checked by LeanForth | **0 of 729,263 (0%)** of Mathlib; for `Init`, 37 of 59,349 accepted at 100,000 fuel (experimental, not independently audited), 59,025 unsupported | constants of the pinned Mathlib export with its dependencies; `Init`'s own count |
 | Share of Mathlib the first checker could accept | **unknown** | not measured; nearly every declaration depends on inductive types, which the first checker reports as *unsupported* |
 | T6 importer acceptance tasks done | 0 of 4 | roadmap T6 |
 
@@ -307,7 +359,10 @@ through the import review gate.
 - **Acceptance-task completion: 0 of 5 T9 tasks done** (2 in progress).
 - **Storage:** the compact store (ADR 0016, accepted 2026-11-03) holds all
   of Mathlib in 2.94 GB (4.16 GB peak while loading) in a measurement
-  prototype; it is not yet the checker's store.
+  prototype and, since the importer stage was approved, in `src/import/`.
+  The checker's own stores now grow on the heap and copy what they are fed
+  (about 80 bytes per node); reading the staged input in place is still to
+  come.
 - **Independently checked declarations: 0 of 729,263** in the full export
   of Mathlib `v4.35.0` (commit `56a0058`) with its dependencies, sha256
   `18448e5d…59c6` ([measurements](../development/measurements/mathlib-2026-11-02/README.md)):
@@ -392,28 +447,31 @@ and blank lines, and are not a coverage percentage. Forth source is counted
 per `src/` folder ([layout](../../src/README.md)); none of it is a trusted
 checker. See the [testing strategy](../development/TESTING_STRATEGY.md).
 
-Inventory at this snapshot (`python3 scripts/code-inventory.py`, 2026-11-03):
+Inventory at this snapshot (`python3 scripts/code-inventory.py` at `7ffbfff`,
+2026-11-03; the table above was this morning's):
 
 | Category | Files | Physical lines |
 | --- | ---: | ---: |
-| Forth source, `src/lib/` | 15 | 3,294 |
-| Forth source, `src/core/` | 14 | 1,455 |
-| Forth source, `src/kernel/` | 19 | 3,793 |
-| Forth source, `src/import/` | 3 | 1,228 |
-| Forth source, `src/program/` | 5 | 1,553 |
-| Forth source, `src/present/` | 10 | 1,748 |
-| Forth source, `src/author/` | 10 | 1,476 |
-| Forth source, `src/main.fs` | 1 | 36 |
-| Forth tests and support | 141 | 17,717 |
-| Other test code and support (Python, shell) | 64 | 8,737 |
-| Lean references and tests | 102 | 7,990 |
-| NDJSON fixtures | 11 | 309 |
-| Markdown documentation | 102 | 22,648 |
-| Other project files (Makefile, scripts, schemas, workflow, measurement data) | 119 | 9,542 |
+| Forth source, `src/lib/` | 23 | 5,054 |
+| Forth source, `src/core/` | 20 | 2,605 |
+| Forth source, `src/kernel/` | 21 | 4,323 |
+| Forth source, `src/import/` | 12 | 4,456 |
+| Forth source, `src/program/` | 10 | 2,501 |
+| Forth source, `src/present/` | 10 | 1,768 |
+| Forth source, `src/author/` | 11 | 1,673 |
+| Forth source, `src/cli/` | 1 | 535 |
+| Forth source, `src/main.fs` | 1 | 51 |
+| Forth tests and support | 163 | 22,422 |
+| Other test code and support (Python, shell) | 86 | 14,054 |
+| Lean references and tests | 112 | 11,391 |
+| NDJSON fixtures | 21 | 3,478 |
+| Markdown documentation | 112 | 30,606 |
+| Other project files (Makefile, scripts, schemas, workflow, measurement data) | 202 | 19,576 |
 
-All Forth source together: 77 files, 14,583 lines (2026-11-02: 52 files,
-7,386 lines), of which `src/core/` and `src/kernel/` — the data model and
-the checker under development — are 1,455 + 3,793 = 5,248 lines.
+All Forth source together: 109 files, 22,966 lines (this morning: 77 files,
+14,583 lines; 2026-11-02: 52 files, 7,386 lines), of which `src/core/` and
+`src/kernel/` — the data model and the checker under development — are
+2,605 + 4,323 = 6,928 lines.
 
 ## Verification and CI
 
@@ -444,14 +502,42 @@ was the first CI run of the pinned-Lean comparisons.
 - It covers only universes, variables, functions, "for all" and earlier
   checked declarations, without unfolding: data types, literals,
   structures, `let`, projections and quotients are *unsupported*.
-- Stores hold 64 entries and constants at most 8 universe arguments (the
-  compact store of [ADR 0016](../adr/0016-compact-store.md), accepted, held all
-  of Mathlib in a 2.94 GB prototype, not yet in the checker);
-  Mathlib needs millions of entries and 30 arguments. The rebuild passes
-  recurse on the host's return stack (about 1,200 cells at worst today).
+- The checker's stores grow on the heap up to a capacity set for each
+  check; the defaults are still 64 term nodes, 64 levels, 64 names and 32
+  declarations, and `bin/leanforth check` keeps them, so it handles only
+  fixture-size exports. Constants may now take up to 64 universe arguments
+  (Mathlib needs 30). The checker copies its input (about 80 bytes per
+  node) and, in the `Init` run, peaked at 1.27 GB; Mathlib has not been
+  fed to it. The rebuild passes recurse on the host's return stack (about
+  1,200 cells at worst today).
+- **Known slowdown, under investigation:** agent KC reports that the move to
+  heap stores makes the 2,000 random checker trials about 2.2 times slower
+  (65 s against 30 s); the figures come from that report and were not
+  re-measured here. The verdicts are identical. Speed against Lean is not
+  yet measured, and the owner's one-thread speed goal is open.
+- The `Init` result (37 of 59,349 accepted) is at 100,000 fuel per
+  declaration and is dominated by *unsupported*.
+- The owner's axiom policy (NOT PROVED labels, `--standard-axioms-only`) is
+  decided but not implemented.
 - The program track's proofs are about the IR's Lean semantics, checked by
   Lean; that Gforth runs the words as the IR says, and that the reader
   translates faithfully, are tested, not proved.
 - Only Lean 4.35.0 exports in format 3.1.0 are read; a file cut off cleanly
   between two lines is not yet detected (checksum manifest planned); only
   Linux/WSL with Gforth 1.0.0 and 0.7.3 is tested.
+
+## Update, 2026-11-03 evening (commit `7ffbfff`)
+
+Since `6cd4e00`: fast parallel checks and the Lean cache (agent TT); the
+two-mode program words (agent PW; [parser] gate pending); the run-record
+fixes (agent RP; [format] gate pending a further fix); the owner's answers
+on data types, axioms, the importer stage (now approved) and flags (the
+default is always Lean); and the checker on heap stores with the stage feed
+(agent KC; [kernel] gate pending), which lets `Init` be checked end to end
+(37 of 59,349 accepted, the rest mostly *unsupported* until unfolding and
+data types exist). Run for this documentation change: `make test` only, not
+`make check`; the figures come from the cited documents and commit
+messages. In progress: derivation log and proof outline (RB), non-recursive
+inductive blocks (I21), free variables and local context for unfolding
+(D2A). Next on the critical path: unfolding (phase 4) and inductive types
+(phase 5), and clearing the pending gates.

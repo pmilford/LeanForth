@@ -772,3 +772,94 @@ loops (`DO`/`?DO`/`LOOP`/`+LOOP`/`LEAVE`/`I`/`J`/`UNLOOP`,
 definition) with what IR v1 must gain, including MiniForth's semantics
 without fuel and loop rules with invariants. Prototyped once and given to
 both designs, they wrote the same 95-line draft IR v1 on both Gforths.
+
+## Test speed: parallel make and the pinned-Lean cache — 2026-11-03
+
+Agent TT, test tooling, no owner gate. `make test` had grown to 36 s and
+`make check` to 345 s run one target at a time, and agents ran them several
+times per task.
+
+- **Parallel make is the default** (8 jobs unless `-j` is given; `JOBS=1`
+  runs one at a time). Every target writes only into temporary folders of
+  its own, so targets cannot disturb each other, and each target's output is
+  printed in one piece. The slowest targets start first. A failing target
+  stops make from starting others. Rejected: parallelism only in CI (agents
+  and the owner wait locally too) and making the user ask for `-j`
+  (forgotten, and an agent would then run the slow way).
+- **The Lean cache replays Lean's own run, keyed on everything that run
+  reads.** Pinned Lean's verdicts are deterministic and most of `make
+  check` was Lean re-checking unchanged files. A stored result is replayed
+  only when the SHA-256 of the toolchain (the `lean` binary, its shared
+  libraries and its library folder), the options, the source text, the main
+  module's name and every file of each `LEAN_PATH` folder are all the
+  same; any other input runs the real Lean. Keying on the whole input
+  including the toolchain means an upgraded Lean can never replay an older
+  Lean's verdict, which matters because the project's rule is Lean 4.35.0's
+  exact answers. Calls that read the clock, files, stdin or other IO, and
+  calls that import an `.olean` the cache did not see compiled, are never
+  cached. Only Lean's run is skipped: the Forth side of each comparison
+  always runs.
+- **CI runs without the cache** (`LEAN_CACHE=0`, set explicitly in the
+  workflow), so a green CI run is a real Lean run and the record; a local
+  pass with the cache is trusted like the working tree. `LEAN_CACHE=verify`
+  re-runs every call and flags a differing stored result.
+- **Rejected: caching whole make targets** (keyed on the files a target
+  reads). A target's inputs include the Forth code under test, so the key
+  would be easy to get wrong and a stale pass would hide a real failure in
+  our own code, the thing the tests exist to catch. The cache skips only
+  the one deterministic external tool. **Rejected: no cache**, at 345 s
+  (now 43 s with a filled cache, 69 s with an empty one, 75 s without it;
+  [timings](../development/TESTING_STRATEGY.md)) the suite was run less
+  often. A related tool, `make test-changed` and `make check-changed`,
+  runs only the targets that use changed files, for working, not for the
+  record.
+
+## Stores that grow on the heap, not fixed capacities — 2026-11-03
+
+Agent KC, ADR 0016 C9 step 3 in part, plan 1.1.5 and 3.2.2; merged, the
+[kernel] gate is pending.
+
+- **Decision.** The term, level, name, reference and declaration stores are
+  heap stores: a block that doubles up to a limit and is freed when the
+  context is released. Each context sets its capacities
+  (`lf-term-capacity!` and the others), with the old values (64, 64, 64, 32
+  and 32) as defaults, so every existing verdict, fuel count and diagnostic
+  stays the same: 2,000 random checker trials give identical digests to the
+  code before the change. Per-index side data moved into columns that grow
+  with their store. Universe arguments are variable-length, at most 64 per
+  reference (was 8). Growth that the limit, the heap or a test hook refuses
+  gives *full* and changes nothing.
+- **Why.** `Init` has 59,349 declarations and 6.1 million term nodes, and
+  Mathlib needs millions of entries; a build-time or fixed capacity cannot
+  serve both a 64-entry test and a library. Capacities per context keep
+  the small tests small and let one check run many declarations, and the
+  growth refusal is a normal outcome (*full*) rather than a crash, which the
+  failure-path suite exercises.
+- **Rejected: bigger fixed capacities.** They cost memory for every check
+  and every test, still have a ceiling, and would change where tests reach
+  *full*, moving the points that the failure-path tables rely on.
+  **Rejected for now: reading the compact store's terms in place.** The
+  kernel reads terms through slot addresses and identities, and
+  hash-consing the context's own terms would move the points where a store
+  fills; the input's terms are copied (about 80 bytes per node) and
+  reading in place stays for steps 3 to 6 of ADR 0016.
+- **Cost.** `Init` end to end uses up to 1.27 GB. Agent KC reports a
+  slowdown of about 2.2 times on the random trials (65 s against 30 s),
+  under investigation; the verdicts are identical. `bin/leanforth check`
+  still uses the default small capacities.
+
+## Axioms and the default are Lean — cross-reference, 2026-11-03
+
+The owner's answers of 2026-11-03 (late night) are recorded in
+[OWNER_DECISIONS.md](OWNER_DECISIONS.md#data-types-axioms-and-imports-2026-11-03-late-night)
+and amend earlier entries here: by default LeanForth gives Lean's kernel
+verdict, so a declaration that uses `sorryAx` or another axiom outside
+`propext`, `Classical.choice` and `Quot.sound` is accepted as Lean accepts
+it but labelled NOT PROVED, never counted as proved in receipts or reports;
+`--standard-axioms-only` answers *unsupported* instead. With no flags,
+LeanForth is always 100% Lean compatible; every option that differs
+(`--strict-builtins`, `--standard-axioms-only`, a strict import) is opt-in.
+Only the three standard axioms count as proved, and `Lean.ofReduceBool` and
+`Lean.trustCompiler` are never allowed. The importer stage was approved
+([import]) and ADR 0015 accepted as a design in the same answers. These
+rules are decided, not yet implemented.
