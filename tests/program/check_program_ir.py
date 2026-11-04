@@ -36,10 +36,20 @@ REFERENCES = {
     "tests/reference/program-examples.lean", "tests/reference/checked-add.lean",
     "tests/reference/factorial-reference.lean", "tests/reference/gcd-reference.lean",
 }
-THEOREMS = [
+THEOREMS = [f"ProgramIR.{name}" for name in (
     "clamp_correct", "clamp_matches_stack_model", "checkedAdd_correct", "checkedAbs_correct",
     "inRange_correct", "gcd_correct", "factorial_correct", "swapped_clamp_refuted",
     "unchecked_add_refuted",
+    # Part 5: the contracts of the five words other than clamp (plan task 1.5.3).
+    "checkedAdd_meets_contract", "checkedAbs_meets_contract", "inRange_meets_contract",
+    "loop_rule", "euclid_by_invariant", "gcd_meets_contract", "factorialFrom_by_invariant",
+    "factorial_meets_contract", "unchecked_add_violates_contract",
+    "plain_abs_violates_contract", "unguarded_in_range_violates_contract",
+    "gcd_top_only_violates_contract", "wrapping_factorial_violates_contract")] + [
+    # The reference contracts' own proofs, copied verbatim into Part 5.
+    "CheckedAddReference.checkedAdd_contract", "ProgramExamplesReference.checkedAbs_contract",
+    "ProgramExamplesReference.inRange_contract", "GcdReference.checked_contract",
+    "FactorialReference.checked_contract",
 ]
 ALLOWED_AXIOMS = {"propext", "Classical.choice", "Quot.sound"}
 BEGIN = re.compile(r"^-- BEGIN VERBATIM (\S+) (\d+)-(\d+)$")
@@ -80,11 +90,12 @@ def check_copies():
 def axiom_problems(output):
     problems = []
     for name in THEOREMS:
-        match = re.search(rf"'ProgramIR\.{name}' depends on axioms: \[(.*)\]", output)
-        if not match:
+        quoted = re.escape(f"'{name}'")
+        match = re.search(rf"^{quoted} depends on axioms: \[(.*)\]$", output, re.M)
+        if not match and not re.search(rf"^{quoted} does not depend on any axioms$", output, re.M):
             problems.append(f"{name}: no axiom report")
             continue
-        used = {a.strip() for a in match.group(1).split(",") if a.strip()}
+        used = {a.strip() for a in match.group(1).split(",") if a.strip()} if match else set()
         if used - ALLOWED_AXIOMS:
             problems.append(f"{name}: uses {sorted(used - ALLOWED_AXIOMS)}")
     return problems
@@ -180,11 +191,17 @@ class Copies(unittest.TestCase):
         self.assertTrue(primitive_problems(swapped.replace('s" @@@"', 's" 2dup"'), lean))
 
     def test_axiom_report_rejects_other_axioms(self):
-        good = "\n".join(f"'ProgramIR.{n}' depends on axioms: [propext]" for n in THEOREMS)
+        good = "\n".join(f"'{n}' depends on axioms: [propext]" for n in THEOREMS)
         self.assertEqual(axiom_problems(good), [])
         bad = good.replace("[propext]", "[propext, sorryAx]", 1)
         self.assertTrue(axiom_problems(bad))
         self.assertTrue(axiom_problems(good.replace("clamp_correct", "other", 1)))
+        # A theorem may use no axioms at all; Lean says so in other words.
+        none = good.replace("depends on axioms: [propext]", "does not depend on any axioms", 1)
+        self.assertEqual(axiom_problems(none), [])
+        # A report about another name that merely starts the same does not count.
+        longer = good.replace("'ProgramIR.loop_rule'", "'ProgramIR.loop_rule_x'", 1)
+        self.assertTrue(axiom_problems(longer))
 
 
 def main():
