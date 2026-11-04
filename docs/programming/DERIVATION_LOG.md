@@ -212,7 +212,7 @@ failures stay explained by the [diagnostic](DIAGNOSTICS.md).
 
 | Rule | Site |
 | --- | --- |
-| `sort` … `form` | `lf-minfer-in-frame` in [`src/kernel/mixed-infer.fs`](../../src/kernel/mixed-infer.fs), after its fuel and frame check |
+| `sort` … `form` | `lf-minfer-visit-step` in [`src/kernel/mixed-infer.fs`](../../src/kernel/mixed-infer.fs), the first step of an inference visit, after its fuel and frame check (`lf-minfer-call`) |
 | `whnf` | `lf-mixed-beta` in [`mixed-beta.fs`](../../src/kernel/mixed-beta.fs) |
 | `beta` | `lf-mbeta-step`, around the instantiation of each contraction |
 | `defeq` | `lf-mconvert-checked` in [`mixed-convert.fs`](../../src/kernel/mixed-convert.fs) |

@@ -56,7 +56,7 @@ require ./mixed-shift.fs
 \ The step after the function's visit, with the node kept.
 : lf-mbeta-head ( r outcome frames -- ... frames next )
   over ok? 0= if 1 lf-rebuild-failed exit then nip
-  dup frame-restore rot rot lf-mbeta-reduced ;
+  dup frame-restore -rot lf-mbeta-reduced ;
 
 \ Visit the function spine only; anything but an application is its own
 \ head. Each visit costs fuel; instantiation's audits, traversal and shifts
@@ -80,8 +80,8 @@ require ./mixed-shift.fs
 \ failure restore the initial term count, never allocation serials; negative
 \ fuel and a failed preflight conservatively leave zero fuel. Success
 \ returns a live stamped root; unchanged constants and Sorts retain their
-\ identities. Running out of fuel is exhausted; the frame, arena, binder
-\ context and index limits are full. Does not check scope, types,
+\ identities. Running out of fuel is exhausted; the frames' stack the heap
+\ cannot grow, the arena, the binder context and the index limits are full. Does not check scope, types,
 \ declarations, equality, proofs, or executable-program correctness.
 : lf-mbeta-refuse ( index identity outcome -- -1 0 outcome ) nip nip lf-rebuild-none ;
 : lf-mbeta-unfueled ( index identity -- -1 0 status )
@@ -99,8 +99,9 @@ require ./mixed-shift.fs
 : lf-mixed-beta ( index identity fuel -- index identity status )
   lf-log? if lf-mbeta-logged else lf-mbeta-pass then ;
 
-\ Recovery. A THROW out of any of the three rebuilding passes (such as a
-\ host stack overflow) leaves their records busy, so that every later pass
+\ Recovery. A THROW out of any of the three rebuilding passes (only a
+\ fault: their depth no longer uses the host's stacks) leaves their
+\ records busy, so that every later pass
 \ refuses as invalid, and leaves in the term store whatever the pass
 \ appended. The code that catches it must discard those nodes (reset the
 \ store, or restore lf-term-count) and then make the records idle again.

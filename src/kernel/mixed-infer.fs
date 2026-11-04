@@ -203,17 +203,20 @@ end-structure
 \ it; one that cannot finish gives n, every free variable.
 lf-walk-room context-walk2: lf-minfer-scan
 : lf-minfer-scan-bvar ( first second walk -- outcome )
-  nip tuck walk-context @ - 1+ over walk-arg @ max swap walk-arg ! outcome-ok ;
+  nip tuck walk-context @ - over walk-arg @ max swap walk-arg ! outcome-ok ;
 : lf-minfer-scan-binary ( first second walk tag -- outcome )
   over walk-context @ swap lf-tag-app <> - swap walk-children-at ;
 : lf-minfer-scan-dispatch ( first second walk tag -- outcome )
   dup lf-term-binary-tag? if lf-minfer-scan-binary exit then
   lf-tag-bvar = if lf-minfer-scan-bvar else drop 2drop outcome-ok then ;
 : lf-minfer-scan-visit ( walk -- outcome ) lf-terms ['] lf-minfer-scan-dispatch walk-visit ;
+\ The scan keeps the largest k - d (-1 for none), so that no index
+\ overflows; m is one more, at most n.
 : lf-minfer-loose ( node n -- m )
-  >r 0 lf-minfer-scan walk-arg ! lf-minfer-fuel @ lf-minfer-scan walk-budget drop
+  >r -1 lf-minfer-scan walk-arg ! lf-minfer-fuel @ lf-minfer-scan walk-budget 0=
+  if drop r> exit then
   0 ['] lf-minfer-scan-visit lf-minfer-scan walk-run-pair ok?
-  if lf-minfer-scan walk-arg @ r> min else r> then ;
+  if lf-minfer-scan walk-arg @ r@ 1- min 1+ r> drop else r> then ;
 \ Of n free variables, the innermost that node needs, at least one: the
 \ pass then visits and pays for node as with all n, and gives the same
 \ term, while checking and copying only those (plan task 6.2.0: a
@@ -466,8 +469,7 @@ defer lf-minfer-apart ( left right -- mask flag )
 \ lf-minfer-apart-call asks for a level's visit of a pair, continuing with
 \ cont ( mask flag frames -- ... ). The diagnostics of the refusals are
 \ inference's (lf-minfer-room).
-: lf-minfer-frames-full ( -- )
-  lf-minfer-frames dup frame-used @ swap frame-capacity @ lf-diag-frame-limit lf-minfer-note ;
+: lf-minfer-frames-full ( -- ) lf-minfer-frames frame-room@ lf-diag-frame-limit lf-minfer-note ;
 : lf-minfer-refused ( outcome -- outcome )
   dup outcome-full = if lf-minfer-frames-full exit then
   dup outcome-exhausted = if lf-minfer-fuel @ lf-minfer-site lf-diag-exhausted then ;
@@ -476,7 +478,6 @@ defer lf-minfer-apart-step ( left right frames -- ... frames next )
 : lf-minfer-apart-call ( left right frames cont -- ... frames next )
   over lf-minfer-room ok? 0= if 2>r 2drop 0 false 2r> exit then
   ['] lf-minfer-apart-step frame-open ;
-: lf-minfer-return ( mask flag frames -- mask flag frames 0 ) 0 ;
 \ D3 and D5, two variables with arguments (is_def_eq_app, 878-895, needs
 \ the same head and number): a different number of arguments, or
 \ different variables known not to be proofs, are apart (D3); the same
@@ -585,8 +586,7 @@ defer lf-minfer-args-apart ( left right count frames -- ... frames next )
   dup lf-minfer-counts-save ['] lf-minfer-restored over frame-save lf-minfer-apart-visit ;
 ' lf-minfer-apart-begin is lf-minfer-apart-step
 : lf-minfer-apart-run ( left right -- mask flag )
-  lf-minfer-frames dup frame-used @ >r ['] lf-minfer-return lf-minfer-apart-call
-  r> frame-loop drop ;
+  lf-minfer-frames ['] lf-minfer-apart-call frame-through drop ;
 ' lf-minfer-apart-run is lf-minfer-apart
 
 \ Compare an inferred type (left) with an expected type (right), in
@@ -720,9 +720,9 @@ defer lf-minfer-args-apart ( left right count frames -- ... frames next )
   dup lf-minfer-lam? if 1 r@ frame-pick lf-minfer-chain ! r> ['] lf-minfer-lam-chained
   else r> ['] lf-minfer-lam-plain then lf-minfer-call ;
 : lf-minfer-lam ( domain body frames -- ... frames next )
-  >r lf-minfer-context-depth @ dup lf-minfer-top 2swap
-  3 pick r@ frame-save 2 pick r@ frame-save over r@ frame-save dup r@ frame-save
-  drop nip nip lf-term-count @ r@ frame-save r> ['] lf-minfer-lam-domain lf-minfer-call ;
+  >r lf-minfer-context-depth @ dup r@ frame-save lf-minfer-top r@ frame-save
+  over r@ frame-save r@ frame-save lf-term-count @ r@ frame-save
+  r> ['] lf-minfer-lam-domain lf-minfer-call ;
 \ A Pi's type is Sort (mk_imax u v) for a domain in Sort u and a body in
 \ Sort v: Lean's infer_pi builds the level innermost first
 \ (type_checker.cpp 158-165), as these steps do (ADR 0011, Amendment
@@ -731,8 +731,8 @@ defer lf-minfer-args-apart ( left right count frames -- ... frames next )
 \ visible Sort and its whnfB is rigid and not a Sort, Lean's kernel fails
 \ with typeExpected. A full level store is full. Only the level is
 \ needed, so the Pi's scratch is discarded before its Sort is made.
-\ Steps: the domain's inference, with the body, the scope's depth before
-\ the binder (base), the term count and the domain waiting on the stack;
+\ Steps: the domain's inference, with the scope's depth before the binder
+\ (base), the term count, the body and the domain waiting on the stack;
 \ then the body's, with base and the count.
 : lf-minfer-body-sort ( type -- level status )
   lf-minfer-site lf-diag-body-type lf-minfer-sort-rule ;
@@ -746,13 +746,12 @@ defer lf-minfer-args-apart ( left right count frames -- ... frames next )
   >r r@ frame-restore r@ frame-restore 2swap
   lf-minfer-good? if lf-minfer-pi-level then lf-minfer-pi-end r> 0 ;
 : lf-minfer-pi-domain ( D status frames -- ... frames next )
-  >r r@ frame-restore 0 r@ frame-pick 2swap lf-minfer-bound
-  dup ok? 0= if no-result 3 r@ frame-drop r> 0 exit then drop
-  r@ frame-restore r@ frame-restore r@ frame-restore -rot r@ frame-save r@ frame-save
-  r> ['] lf-minfer-pi-body lf-minfer-call ;
+  >r r@ frame-restore 1 r@ frame-pick 2swap lf-minfer-bound
+  dup ok? 0= if no-result 3 r@ frame-drop r> 0 exit then
+  drop r@ frame-restore r> ['] lf-minfer-pi-body lf-minfer-call ;
 : lf-minfer-pi ( domain body frames -- ... frames next )
-  >r r@ frame-save lf-minfer-context-depth @ r@ frame-save lf-term-count @ r@ frame-save
-  dup r@ frame-save r> ['] lf-minfer-pi-domain lf-minfer-call ;
+  >r lf-minfer-context-depth @ r@ frame-save lf-term-count @ r@ frame-save
+  r@ frame-save dup r@ frame-save r> ['] lf-minfer-pi-domain lf-minfer-call ;
 
 \ Infer an original source node; nodes made by this inference are output
 \ data, never input. Constructors outside this subset are unknown, and
@@ -764,11 +763,13 @@ defer lf-minfer-args-apart ( left right count frames -- ... frames next )
     lf-tag-constant of lf-minfer-constant endof
     lf-tag-bvar of lf-minfer-bvar endof
     nip lf-minfer-unsupported rot endcase ;
+: lf-minfer-other ( first second frames tag -- -1 status frames 0 tag )
+  >r >r 2drop r> r> lf-minfer-unsupported 2swap 0 swap ;
 : lf-minfer-binary ( first second tag frames -- ... frames next )
-  over lf-tag-app = if nip lf-minfer-app exit then
-  over lf-tag-lam = if nip lf-minfer-lam exit then
-  over lf-tag-pi = if nip lf-minfer-pi exit then
-  >r nip nip lf-minfer-unsupported rot drop r> 0 ;
+  swap case lf-tag-app of lf-minfer-app endof
+    lf-tag-lam of lf-minfer-lam endof
+    lf-tag-pi of lf-minfer-pi endof
+    lf-minfer-other endcase ;
 : lf-minfer-dispatch ( first second tag frames -- ... frames next )
   over lf-term-binary-tag? if lf-minfer-binary else >r nip lf-minfer-leaf r> 0 then ;
 : lf-minfer-visit ( node frames -- ... frames next )
@@ -786,7 +787,7 @@ defer lf-minfer-args-apart ( left right count frames -- ... frames next )
   lf-log? if ['] lf-minfer-closing over frame-save swap lf-minfer-logged swap then
   lf-minfer-visit ;
 : lf-minfer-walk-run ( node -- type status )
-  lf-minfer-frames dup frame-used @ >r ['] frame-return lf-minfer-call r> frame-loop drop ;
+  lf-minfer-frames ['] lf-minfer-call frame-through drop ;
 ' lf-minfer-walk-run is lf-minfer-walk
 \ The frames and their visitor, set up once in every context; their stack
 \ is freed with the context.

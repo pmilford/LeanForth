@@ -28,8 +28,9 @@
 \ push its work stack has no room for moves the stack to a heap block at
 \ least twice as large, so it is full only when the heap refuses (and
 \ for a corrupted count). walk-free gives the block back and returns the
-\ walk to its first room. Every checker context's walks are growable
-\ (lib/context.fs frees their blocks with the context).
+\ walk to its first room, empty; until then the block keeps its largest
+\ size. Every checker context's walks are growable (lib/context.fs frees
+\ their blocks with the context).
 
 require ./bounds.fs
 require ./node.fs
@@ -85,7 +86,12 @@ end-structure
 \ capacity is out of range; signed comparisons only.
 : walk-fits? ( n walk -- flag )
   dup walk-pending @ swap walk-capacity @ rot - 0 swap between? ;
-: walk-new-room ( n walk -- cells ) dup walk-pending @ rot + swap walk-capacity @ 2* max ;
+\ At least n more cells, double the capacity, at most the cells a cell
+\ counts in address units (doubling past that would wrap).
+max-n 1 cells / constant walk-most-cells
+: walk-new-room ( n walk -- cells )
+  dup walk-pending @ rot + swap walk-capacity @ walk-most-cells 2/ min 2* max
+  walk-most-cells min ;
 \ Move the items to a fresh heap block of cells cells; false, nothing
 \ changed, when the heap refuses.
 : walk-moved ( cells walk -- flag )
@@ -105,7 +111,8 @@ end-structure
 \ Make a walk growable; give a growable walk's heap block back.
 : walk-growable ( walk -- ) true swap walk-grows ! ;
 : walk-free ( walk -- )
-  dup walk-heap @ ?dup if free drop then 0 over walk-heap ! dup walk-room @ swap walk-capacity ! ;
+  dup walk-heap @ ?dup if free drop then 0 over walk-heap ! 0 over walk-pending !
+  dup walk-room @ swap walk-capacity ! ;
 : walk-room? ( walk -- flag ) 1 swap walk-room-for? ;
 : walk-top ( walk -- addr ) dup walk-pending @ cells swap walk-stack + ;
 : walk-push ( index walk -- flag )

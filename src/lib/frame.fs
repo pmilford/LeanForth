@@ -24,9 +24,13 @@
 \ - it returns its visit's result: ( result outcome frames 0 ).
 \ The visitor ( x frames -- ... frames next ) is a visit's first step. A
 \ value a visit keeps across a child's visit goes on the pass's stack
-\ (frame-save, frame-restore): after the visit's admission or a child's
-\ return, a step may save up to frame-spare cells without a check, and a
-\ visit takes back everything it saved before it returns.
+\ (frame-save, frame-restore, frame-pick, frame-drop). The visit's
+\ admission makes room for frame-spare cells above what it pushes itself,
+\ and a refused child makes none: so from its admission to its return the
+\ cells a visit holds at once -- every value it saved and not yet took
+\ back, and every continuation step it pushed itself -- never exceed
+\ frame-spare, counted over all its steps (unchecked). A visit takes back
+\ everything it saved before it returns.
 \
 \ frame-call spends one unit of fuel and one frame and runs the visitor on
 \ x; frame-under does the same one context level deeper, restored when
@@ -36,8 +40,10 @@
 \ exhausted. A record whose stack counts are out of range is corrupted,
 \ which is invalid. A refused visit returns -1 and the outcome to the
 \ continuing step at once. A node shared by several parents is visited,
-\ and charged, once per path. A visitor result outside the outcome
-\ vocabulary counts as invalid. The fuel-first rule covers only the
+\ and charged, once per path. A result of a frame-call or frame-under
+\ visit outside the outcome vocabulary counts as invalid; a visit opened
+\ by frame-open (another kind of visit, of its own results) keeps its
+\ results as they are. The fuel-first rule covers only the
 \ admission of a visit here: a limit that a visitor checks itself, inside
 \ a visit already paid for (such as mixed-rebuild.fs's binder check), is
 \ independent of fuel (ADR 0008).
@@ -52,6 +58,8 @@
 \ its depth -- the loop, one step at a time, and what that step calls. A
 \ step may run another pass on another record (beta runs instantiate,
 \ which runs shift), which nests that pass's loop, still a constant.
+\ Heap: a record's block keeps the largest size its passes needed until
+\ frame-free (a context's until the context is freed).
 \
 \ Example: count the leaves of a binary tree whose node n > 1 has the
 \ children n - 1 and n - 2, saving the first count across the second
@@ -121,9 +129,16 @@ end-structure
 \ Room for n more cells: true, or false when the heap refuses the larger
 \ block (the stack is then unchanged). 0 <= used <= capacity (sound).
 : frame-sound? ( frames -- flag ) dup frame-used @ 0 rot frame-capacity @ between? ;
+\ The cells in use and the capacity, as diagnostics record them.
+: frame-room@ ( frames -- used capacity ) dup frame-used @ swap frame-capacity @ ;
 : frame-fits? ( n frames -- flag ) dup frame-capacity @ swap frame-used @ - > 0= ;
+\ The size to grow to: at least what n more cells need, double the
+\ capacity and frame-first-cells, at most the cells a cell can count in
+\ address units (doubling past that would wrap; RESIZE refuses before).
+max-n 1 cells / constant frame-most-cells
 : frame-size ( n frames -- cells )
-  tuck frame-used @ + swap frame-capacity @ 2* max frame-first-cells max ;
+  tuck frame-used @ + swap frame-capacity @ frame-most-cells 2/ min 2* max
+  frame-first-cells max frame-most-cells min ;
 : frame-grow ( n frames -- flag )
   tuck frame-size dup cells 2 pick frame-block @ ?dup if swap resize else allocate then
   if 2drop drop false else rot tuck frame-block ! frame-capacity ! true then ;
@@ -149,10 +164,13 @@ end-structure
   -1 over frame-fuel +! 1 over frame-depth +! dup frame-visitor @ ;
 : frame-opened ( x frames cont -- x frames visitor )
   over frame-save ['] frame-exit over frame-save frame-enter ;
-\ For a pass whose visits are of several kinds (mixed-infer.fs): open a
-\ visit that frame-admit admitted, whose first step is xt, with values of
-\ any kind below the record, continuing with cont. It ends with
-\ frame-left: one frame less, the results as they are.
+\ For a pass whose visits are of several kinds (mixed-infer.fs), or that
+\ keeps its own fuel (level-normalize.fs, level-geq.fs): open a visit
+\ whose room the caller made (frame-admit, or frame-need frame-room?),
+\ whose first step is xt, with values of any kind below the record,
+\ continuing with cont. It spends the record's fuel, which a pass with
+\ its own leaves unused, and ends with frame-left: one frame less, the
+\ results as they are.
 : frame-left ( frames -- frames 0 ) -1 over frame-depth +! 0 ;
 : frame-open ( frames cont xt -- frames xt )
   >r over frame-save ['] frame-left over frame-save frame-enter drop r> ;
@@ -180,11 +198,15 @@ end-structure
     execute again ;
 \ Run the step xt, and the steps it leads to, to its return.
 : frame-steps ( i*x frames xt -- j*x frames ) over frame-used @ frame-loop ;
+\ Run one visit to its end, as a loop of its own from what the stack
+\ holds: call ( i*x frames cont -- ... frames next ) asks for it
+\ (frame-call, or a pass's own word), continuing with frame-return.
+: frame-through ( i*x frames call -- j*x frames )
+  over frame-used @ >r >r ['] frame-return r> execute r> frame-loop ;
 
 \ A pass: an idle record takes the root's context, then the root is
 \ visited. A busy record refuses, changing nothing: no result, invalid.
 : frame-start ( context frames -- flag )
   dup frame-busy? if 2drop false else frame-context ! true then ;
 : frame-run ( x context frames -- result outcome )
-  tuck frame-start 0= if 2drop -1 outcome-invalid exit then
-  dup frame-used @ >r ['] frame-return frame-call r> frame-loop drop ;
+  tuck frame-start if ['] frame-call frame-through drop else 2drop -1 outcome-invalid then ;

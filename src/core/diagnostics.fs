@@ -149,7 +149,7 @@ end-structure
 \ failures record themselves first).
 : lf-diag-frames-fuel ( frames site -- ) swap frame-fuel @ swap lf-diag-exhausted ;
 : lf-diag-frames-room ( frames site -- )
-  >r dup frame-used @ swap frame-capacity @ r> lf-diag-frame-limit lf-diag-note ;
+  >r frame-room@ r> lf-diag-frame-limit lf-diag-note ;
 : lf-diag-frames ( outcome frames site -- outcome )
   2>r dup case outcome-exhausted of 2r> lf-diag-frames-fuel endof
     outcome-full of 2r> lf-diag-frames-room endof 2r> 2drop endcase ;

@@ -43,8 +43,7 @@ require ./level-normalize.fs
 defer lf-geq-step ( l1 l2 frames -- ... frames next )
 : lf-geq-call ( l1 l2 frames cont -- ... frames next )
   frame-need 2 pick frame-room? if ['] lf-geq-step frame-open exit then
-  >r nip nip false swap dup frame-used @ over frame-capacity @ lf-diag-frame-limit
-  lf-lnorm-no-room r> ;
+  >r nip nip false swap dup frame-room@ lf-diag-frame-limit lf-lnorm-no-room r> ;
 \ A pair whose answer is the next pair's.
 : lf-geq-then ( l1 l2 frames -- ... frames next ) ['] frame-return lf-geq-call ;
 
@@ -88,8 +87,7 @@ defer lf-geq-step ( l1 l2 frames -- ... frames next )
   swap lf-lnorm-walk swap lf-lnorm-walk r> lf-geq-core ;
 ' lf-geq-normalized is lf-geq-step
 \ is_geq to the end, as a loop of its own on the frames.
-: lf-geq ( l1 l2 -- flag )
-  lf-lnorm-frames dup frame-used @ >r ['] frame-return lf-geq-call r> frame-loop drop ;
+: lf-geq ( l1 l2 -- flag ) lf-lnorm-frames ['] lf-geq-call frame-through drop ;
 
 \ Whether Lean's is_geq(l1, l2) holds, with fuel: (flag ok) when decided;
 \ (false failure) as lf-level-equivalent gives it (unknown for parameter

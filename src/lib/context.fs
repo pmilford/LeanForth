@@ -104,7 +104,7 @@ begin-structure /member
   field: member-offset     \ address units from the start of a context
   field: member-init       \ xt ( addr member -- ) of the initialiser
   field: member-link       \ next member declared, or 0
-  field: member-capacity   \ store or walk capacity, or frames limit
+  field: member-capacity   \ store capacity, or a walk's first room
   field: member-width      \ store record width, or walk width (1 or 2)
   field: member-base       \ store index base
   field: member-xt         \ setup word, or frames visitor
@@ -211,8 +211,8 @@ context-bytes allocate0 throw dup context-sized context-main!
 : member-frames ( addr member -- ) member-xt @ swap frame-init ;
 : member-setup ( addr member -- ) nip member-xt @ execute ;
 
-\ Declaring words. A bad size, shape, capacity or limit aborts and defines
-\ nothing, as for store:, walk: and frames:.
+\ Declaring words. A bad size, shape or capacity aborts and defines
+\ nothing, as for store: and walk:.
 : context-record: ( size "name" -- )
   dup 1 < abort" context-record: bad size" ['] member-zeroed member: member-add ;
 : context-store: ( capacity width base "name" -- )

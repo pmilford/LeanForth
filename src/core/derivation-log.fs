@@ -551,7 +551,7 @@ end-structure
 : lf-log-infer ( node depth -- node )
   >r dup lf-log-none over lf-log-node-rule r> lf-log-enter ;
 
-\ Small stacks of the copier: a count cell, then limit cells
+\ The copier's stacks: a count cell, then limit cells
 \ (lf-log-stack-capacity values, or as many tasks in lf-log-task-cells).
 \ Popping is unchecked: the copier pops only what it pushed.
 : lf-stack-clear ( stack -- ) 0 swap ! ;

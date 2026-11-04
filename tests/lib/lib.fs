@@ -437,6 +437,23 @@ T{ 5 0 ' depth-visit p3 walk-run-pair p3 walk-fuel @ -> outcome-invalid 20 }T
 T{ 5 0 ' depth-visit p3 ' walk-run-pair rs-checked p3 walk-fuel @ -> outcome-invalid 20 }T
 T{ s" 0 walk2: pbad0" bad-walk? s" -1 walk2: pbad1" bad-walk? s" 1 walk2: pone" bad-walk? -> true true false }T
 
+\ Growable walks (plan task 6.2.0): a push past the record's room moves the
+\ stack to the heap, keeping its items in order; a growth the heap refuses
+\ is full and changes nothing; walk-free gives the block back and returns
+\ to the first room, empty. A walk not made growable stays full at its
+\ capacity (above).
+2 walk: gw  gw walk-growable
+: gw-push5 ( -- ) 6 1 do i gw walk-push drop loop ;
+T{ gw-push5 gw walk-pending @ gw walk-capacity @ 4 > gw walk-heap @ 0<> -> 5 true true }T
+T{ gw walk-pop gw walk-pop gw walk-pop gw walk-pop gw walk-pop -> 5 4 3 2 1 }T
+: gw-fill ( -- ) begin gw walk-pending @ gw walk-capacity @ < while 7 gw walk-push drop repeat ;
+gw-fill  1 heap-refusals !
+T{ 9 gw walk-push gw walk-pending @ gw walk-capacity @ = heap-refusals @ -> false true 0 }T
+T{ gw walk-pop -> 7 }T
+T{ gw walk-free gw walk-pending @ gw walk-capacity @ gw walk-heap @ -> 0 2 0 }T
+T{ 3 gw walk-push 4 gw walk-push gw walk-heap @ gw walk-pending @ -> true true 0 2 }T
+gw walk-free
+
 \ Frame records: passes on an explicit, growable stack (plan task 6.2.0).
 \ The test visitor rebuilds the DAG above (node n >= 2 has children n-1
 \ and n-2) bottom-up: its result is the number of leaves below n, and the
@@ -565,6 +582,42 @@ f1 frame-reset
   dup ok? if swap 1+ swap then r> 0 ;
 ' loop-visit f1 frame-visitor !  100 f1 frame-budget drop
 T{ 6 0 f1 ' frame-run rs-checked f1 frame-fuel @ f1 frame-used @ -> 9 outcome-ok 84 0 }T
+' leaves-visit f1 frame-visitor !
+
+\ The stack words: frame-pick reads a cell by position (0 the last
+\ saved), frame-drop drops n, frame-room@ gives the cells in use and the
+\ capacity.
+T{ 1 f1 frame-save 2 f1 frame-save 3 f1 frame-save 0 f1 frame-pick 2 f1 frame-pick
+   f1 frame-room@ drop -> 3 1 3 }T
+T{ 2 f1 frame-drop f1 frame-restore f1 frame-used @ -> 1 0 }T
+\ frame-open opens a visit of another kind, whose results need not be an
+\ outcome (frame-left keeps them), on fuel and room the caller found;
+\ frame-steps runs a step to its return, frame-through a visit.
+: kind-visit ( a frames -- a+1 99 frames 0 ) >r 1+ 99 r> 0 ;
+: opened-step ( a frames -- a frames next ) ['] frame-return ['] kind-visit frame-open ;
+100 f1 frame-budget drop
+T{ 5 f1 ' opened-step frame-steps drop f1 frame-fuel @ f1 frame-depth @ f1 frame-used @
+   -> 6 99 99 0 0 }T
+: opened-call ( a frames cont -- a frames next ) ['] kind-visit frame-open ;
+T{ 5 f1 ' opened-call frame-through drop f1 frame-fuel @ -> 6 99 98 }T
+T{ 4 f1 ' frame-call frame-through drop f1 frame-fuel @ -> 5 outcome-ok 89 }T
+\ The room a visit may use: frame-spare cells above its admission's own,
+\ in all its steps together, also when a child is refused (the review's
+\ case: a visit that saved frame-spare cells may not save more after a
+\ refusal). A chain of visits, each holding frame-spare cells across its
+\ child, stays inside the block at every depth.
+variable spare-bad
+: spare-save ( frames -- )
+  frame-spare 0 do i over frame-save loop frame-sound? 0= if 1 spare-bad +! then ;
+: spare-back ( r outcome frames -- r outcome frames 0 )
+  frame-spare 0 do dup frame-restore drop loop 0 ;
+: spare-visit ( n frames -- ... frames next )
+  over 0= if nip 0 outcome-ok rot 0 exit then
+  dup spare-save swap 1- swap ['] spare-back frame-call ;
+' spare-visit f1 frame-visitor !  f1 frame-free  1000 f1 frame-budget drop  0 spare-bad !
+T{ 50 0 f1 frame-run f1 frame-used @ spare-bad @ -> 0 outcome-ok 0 0 }T
+10 f1 frame-budget drop
+T{ 50 0 f1 frame-run f1 frame-used @ spare-bad @ -> -1 outcome-exhausted 0 0 }T
 ' leaves-visit f1 frame-visitor !
 
 \ frame-init sets up a record inside a larger one, whose address the

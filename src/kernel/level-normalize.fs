@@ -295,8 +295,7 @@ end-structure
 : lf-lnorm-call ( level frames cont -- ... frames next )
   frame-need 2 pick frame-room?
   if over frame-visitor @ frame-open
-  else >r nip 0 swap dup frame-used @ over frame-capacity @ lf-diag-frame-limit
-    lf-lnorm-no-room r> then ;
+  else >r nip 0 swap dup frame-room@ lf-diag-frame-limit lf-lnorm-no-room r> then ;
 \ imax (463-467): mk_imax of the normalized sides, not normalized again;
 \ the level and its offset wait while the left side is normalized, then
 \ the left side's normal form too.
@@ -344,8 +343,7 @@ defer lf-lnorm-flatten ( i frames -- ... frames next )
   lf-lnorm-spend 2dup frame-save ['] lf-lnorm-remembered over frame-save lf-lnorm-compute ;
 \ Normalize one level to the end, as a loop of its own on the frames from
 \ what they hold (level-geq.fs calls it from its steps).
-: lf-lnorm-walk ( level -- level' )
-  lf-lnorm-frames dup frame-used @ >r ['] frame-return lf-lnorm-call r> frame-loop drop ;
+: lf-lnorm-walk ( level -- level' ) lf-lnorm-frames ['] lf-lnorm-call frame-through drop ;
 
 \ ---------------------------------------------------------------------------
 \ is_equivalent: structurally equal, or so after normalize (left first).

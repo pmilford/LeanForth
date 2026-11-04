@@ -72,7 +72,7 @@ require ./mixed-rebuild.fs
 0 constant lf-open-mode-instantiate
 1 constant lf-open-mode-rev
 2 constant lf-open-mode-abstract
-lf-walk-room 2* constant lf-open-leaves   \ bound-variable indices whose leaf is kept
+128 constant lf-open-leaves   \ bound-variable indices whose leaf is kept
 
 \ The frames come first, so the visitor finds the job record at the
 \ address of the frames it is given (checked here), as in mixed-shift.fs.

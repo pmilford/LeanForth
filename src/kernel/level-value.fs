@@ -117,7 +117,7 @@ end-structure
 : lf-lvalue-frames ( -- frames ) lf-lvalue-state lf-lvrec-frames ;
 : lf-lvalue-site ( -- site ) c" level-value lf-level-value" ;
 : lf-lvalue-refused ( outcome -- outcome )
-  dup outcome-full = if lf-lvalue-frames dup frame-used @ swap frame-capacity @
+  dup outcome-full = if lf-lvalue-frames frame-room@
     lf-lvalue-site lf-diag-frame-limit lf-diag-note exit then
   dup outcome-exhausted = if lf-lvalue-fuel @ lf-lvalue-site lf-diag-exhausted then ;
 : lf-lvalue-call ( node frames cont -- ... frames next )
@@ -156,10 +156,15 @@ end-structure
 : lf-lvalue-max-of ( left right -- value ) max ;
 \ imax u v is zero when v is zero, and max u v otherwise.
 : lf-lvalue-imax-of ( left right -- value ) dup 0= if nip else max then ;
-\ One arm per level tag.
+\ One arm per level tag: zero and a parameter return their value, the
+\ others visit their children; another tag is invalid.
+: lf-lvalue-return ( value frames -- value status frames 0 ) >r outcome-ok r> 0 ;
+: lf-lvalue-zero ( first second frames -- 0 status frames 0 ) nip nip 0 swap lf-lvalue-return ;
+: lf-lvalue-named ( first second frames -- value status frames 0 )
+  nip >r lf-lvalue-param r> lf-lvalue-return ;
 : lf-lvalue-dispatch ( first second tag frames -- ... frames next )
-  swap case lf-level-tag-zero of >r 2drop 0 outcome-ok r> 0 endof
-    lf-level-tag-param of >r drop lf-lvalue-param outcome-ok r> 0 endof
+  swap case lf-level-tag-zero of lf-lvalue-zero endof
+    lf-level-tag-param of lf-lvalue-named endof
     lf-level-tag-succ of nip ['] lf-lvalue-succ-back lf-lvalue-call endof
     lf-level-tag-max of ['] lf-lvalue-max-of lf-lvalue-pair endof
     lf-level-tag-imax of ['] lf-lvalue-imax-of lf-lvalue-pair endof
@@ -170,7 +175,7 @@ end-structure
 \ Evaluate a node to the end; the frames and their visitor are set up in
 \ every context and freed with it.
 : lf-lvalue-walk ( node -- value status )
-  lf-lvalue-frames dup frame-used @ >r ['] frame-return lf-lvalue-call r> frame-loop drop ;
+  lf-lvalue-frames ['] lf-lvalue-call frame-through drop ;
 : lf-lvalue-setup ( -- ) ['] lf-lvalue-visit lf-lvalue-frames frame-init ;
 ' lf-lvalue-setup context-setup
 : lf-lvalue-release ( -- ) lf-lvalue-frames frame-free ;
