@@ -154,6 +154,41 @@ T{ s0 shape-broken? -> true }T
 /node s0 store-width !
 T{ s0 store-count-valid? -> true }T
 T{ s0 store-count @ -> 0 }T
+\ The block and the limit are shape fields too.
+s0 store-limit @ 1+ s0 store-limit !
+T{ s0 shape-broken? -> true }T
+s0 store-limit @ 1- s0 store-limit !
+1 s0 store-block !
+T{ s0 shape-broken? -> true }T
+0 s0 store-block !
+T{ s0 store-count-valid? -> true }T
+\ A store made in place never grows: full when every record is used.
+T{ s0 store-heap? s0 store-grow -> false outcome-ok }T
+
+\ Heap stores (plan task 1.1.5): a header in the caller's memory, a block
+\ on the heap that grows by doubling up to the limit, records and
+\ identities kept, marks valid across growth; then full at the limit.
+create h0 store-header allot
+T{ 2 /node 0 h0 store-heap-init -> outcome-ok }T
+T{ h0 store-heap? h0 store-capacity @ h0 store-limit @ h0 store-count @ -> true 2 2 0 }T
+T{ 1 2 3 h0 node-new 4 5 6 h0 node-new -> 0 true 1 true }T
+T{ h0 store-grow 7 8 9 h0 node-new -> outcome-full false }T
+T{ 1 h0 store-limit! -> outcome-invalid }T
+T{ 40 h0 store-limit! h0 store-limit @ h0 store-capacity @ -> outcome-ok 40 2 }T
+create hm /store-mark allot
+T{ hm h0 store-mark -> outcome-ok }T
+: h0-fill ( n -- ) 0 ?do h0 store-grow drop i dup dup h0 node-new 2drop loop ;
+T{ 38 h0-fill h0 store-count @ h0 store-capacity @ -> 40 40 }T
+T{ h0 store-grow 1 1 1 h0 node-new -> outcome-full false }T
+T{ 0 h0 node-read 1 h0 node-read 39 h0 node-read -> 1 2 3 true 4 5 6 true 37 37 37 true }T
+T{ 0 h0 store-identity@ 39 h0 store-identity@ -> 1 true 40 true }T
+T{ hm h0 store-rollback h0 store-count @ h0 store-capacity @ -> outcome-ok 2 40 }T
+\ A smaller limit shrinks the block, keeping the records in use.
+T{ 2 h0 store-limit! h0 store-capacity @ 1 h0 node-read -> outcome-ok 2 4 5 6 true }T
+T{ h0 ' store-grow rs-checked -> outcome-full }T
+h0 store-heap-free
+T{ h0 store-heap? h0 store-count-valid? h0 store-grow -> false false outcome-invalid }T
+T{ 0 /node 3 h0 store-heap-init h0 store-heap? -> outcome-invalid false }T
 
 \ store-poison: empty and permanently invalid.
 s0 store-poison

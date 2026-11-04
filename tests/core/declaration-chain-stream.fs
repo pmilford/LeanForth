@@ -60,7 +60,7 @@ create saved-names lf-msp-capacity cells allot
 create saved-roots lf-msp-capacity cells allot
 create saved-ids lf-msp-capacity cells allot
 create saved-arities lf-msp-capacity cells allot
-create saved-formals lf-msp-capacity lf-level-capacity * cells allot
+create saved-formals lf-msp-capacity lf-level-params-limit * cells allot
 : bytes-equal? ( first second count -- flag ) >r r@ swap r> compare 0= ;
 : save-prefix ( source destination -- ) mark-s @ cells move ;
 : marks ( -- )
@@ -68,13 +68,13 @@ create saved-formals lf-msp-capacity lf-level-capacity * cells allot
   lf-cref-count @ mark-c ! lf-msp-count @ mark-s !
   lf-msp-names saved-names save-prefix lf-msp-roots saved-roots save-prefix
   lf-msp-ids saved-ids save-prefix lf-msp-arities saved-arities save-prefix
-  lf-msp-formals saved-formals mark-s @ lf-level-capacity * cells move ;
+  lf-msp-formals saved-formals mark-s @ lf-level-params-limit * cells move ;
 : prefix-unchanged ( -- flag )
   lf-msp-names saved-names mark-s @ cells bytes-equal?
   lf-msp-roots saved-roots mark-s @ cells bytes-equal? and
   lf-msp-ids saved-ids mark-s @ cells bytes-equal? and
   lf-msp-arities saved-arities mark-s @ cells bytes-equal? and
-  lf-msp-formals saved-formals mark-s @ lf-level-capacity * cells bytes-equal? and ;
+  lf-msp-formals saved-formals mark-s @ lf-level-params-limit * cells bytes-equal? and ;
 : unchanged ( -- flag )
   lf-term-count @ mark-t @ = lf-level-count @ mark-l @ = and
   lf-cref-count @ mark-c @ = and lf-msp-count @ mark-s @ = and

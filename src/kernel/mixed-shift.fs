@@ -59,7 +59,7 @@ end-structure
   dup lf-term-binary-tag? if drop lf-rebuild-binary else lf-mshift-leaf then ;
 \ The frames and their visitor, set up once in every context.
 : lf-mshift-setup ( -- )
-  lf-term-capacity ['] lf-mshift-visit lf-mshift-frames frame-init ;
+  lf-depth-limit ['] lf-mshift-visit lf-mshift-frames frame-init ;
 ' lf-mshift-setup context-setup
 
 \ Shift a node by amount from cutoff zero, from inside another pass whose

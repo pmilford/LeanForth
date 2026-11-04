@@ -93,5 +93,89 @@ T{ s" tests/cli/composition-huge-number.ndjson" cin-read
   sealed? line@ -> outcome-full false 12 }T
 T{ s" a numeric name part larger than the check holds" why? -> true }T
 
+\ ---------------------------------------------------------------------------
+\ The same exports staged in the compact store (src/import/stage.fs) and
+\ fed to the checker in file order (src/import/feed.fs, plan task 3.2.2):
+\ the names stay in the shared input tier, the stores grow to the feed's
+\ capacities, and every verdict is the same as above.
+require ../../src/import/feed.fs
+create stg /stage allot
+create fdd /feed allot
+: staged ( c-addr u -- ) 16 stg stage-init ok? must stg stage-load-unchecked ok? must ;
+: fed ( c-addr u -- outcome ) staged stg fdd lf-feed ;
+: unstage ( -- ) lf-name-detach stg stage-free ;
+: fed-checked ( c-addr u -- outcome )
+  fed ok? must fuel 64 lf-check-input swap the-env ! lf-env-view ok? must ;
+T{ s" tests/reference/composition.ndjson" fed-checked verdicts unstage
+   -> outcome-ok 1 true }T
+T{ s" tests/reference/type-identity.ndjson" fed-checked verdicts unstage
+   -> outcome-ok 1 true }T
+T{ s" tests/reference/poly-identity.ndjson" fed-checked verdicts unstage
+   -> outcome-ok 1 true }T
+T{ s" tests/reference/constant-fixture.ndjson" fed-checked verdicts unstage
+   -> outcome-ok 3 true }T
+T{ s" tests/reference/identity.ndjson" fed-checked verdicts unstage -> outcome-ok 1 true }T
+: fed-case ( c-addr u -- outcome code step ) fed-checked ok? must last-outcome env-done unstage ;
+T{ s" tests/core/check-declaration-cases/composition-wrong-argument.ndjson" fed-case
+  -> outcome-rejected lf-diag-argument-apart 7 }T
+T{ s" tests/core/check-declaration-cases/composition-postulate.ndjson" fed-case
+  -> outcome-unsupported lf-diag-unsupported-kind 1 }T
+T{ s" tests/core/check-declaration-cases/composition-literal.ndjson" fed-case
+  -> outcome-unsupported lf-diag-unsupported-form 1 }T
+T{ s" tests/core/check-declaration-cases/composition-loose.ndjson" fed-case
+  -> outcome-invalid lf-diag-out-of-scope 1 }T
+\ The stores grew past their defaults, and the names are the stage's: a
+\ name made under the view that the stage has gets the stage's ID (here
+\ from the stage's own text, which is copied first), a new one the next
+\ number.
+T{ s" tests/reference/composition.ndjson" fed lf-term-capacity lf-term-default >
+   lf-input-indexed? -> outcome-ok true true }T
+0 lf-input-name constant comp-name
+T{ comp-name lf-name-prefix@ comp-name lf-name-text lf-name-str -> comp-name true }T
+lf-name-numbers constant fresh-id
+T{ 0 s" not.in.the.stage" lf-name-str -> fresh-id true }T
+T{ fresh-id lf-name-text s" not.in.the.stage" compare fresh-id 7 lf-name-num nip
+   -> 0 true }T
+T{ comp-name fresh-id lf-name-equal? comp-name comp-name lf-name-equal? -> false true }T
+unstage
+T{ lf-input-indexed? -> false }T
+\ Only a sealed stage is fed.
+T{ 16 stg stage-init stg fdd lf-feed -> outcome-ok outcome-invalid }T
+stg stage-free
+
+\ ADR 0012 E5 against the name-to-declaration array (ADR 0016 C4): with
+\ names interned in the input tier, the environment reads a name's chain;
+\ for every name, every limit and each slot test the chain gives what the
+\ scan of every earlier declaration gives.
+variable e5-name  variable e5-test  variable e5-limit
+: e5-args ( -- name test limit ) e5-name @ e5-test @ e5-limit @ ;
+: e5-same? ( -- flag )
+  e5-args lf-env-chain-first e5-args lf-env-scan-first =
+  e5-args lf-env-chain-matches e5-args lf-env-scan-matches = and ;
+create e5-tests
+  ' lf-slot-accepted? , ' lf-slot-undecided? , ' lf-slot-unsupported? , ' lf-slot-open? ,
+  ' lf-slot-final? ,
+here e5-tests - 1 cells / constant e5-tests#
+variable e5-checks
+: e5-tested? ( -- flag )
+  true e5-tests# 0 ?do i cells e5-tests + @ e5-test ! e5-same? and 1 e5-checks +! loop ;
+: e5-named? ( -- flag )
+  true lf-name-numbers 0 ?do i e5-name ! e5-tested? and loop ;
+: e5-all? ( -- flag )
+  true lf-input-count 1+ 0 ?do i e5-limit ! e5-named? and loop ;
+: e5-file ( c-addr u -- flag ) fed-checked ok? must e5-all? env-done unstage ;
+T{ s" tests/reference/constant-fixture.ndjson" e5-file -> true }T
+T{ s" tests/reference/composition.ndjson" e5-file -> true }T
+T{ s" tests/core/check-declaration-cases/composition-postulate.ndjson" e5-file -> true }T
+\ The theorem declared twice (a copy of the export with its last line
+\ repeated): the second is rejected as already declared (N2), as Lean's
+\ kernel does, by both paths; its chain holds both.
+: twice ( -- c-addr u ) s" tests/core/check-declaration-cases/composition-twice.ndjson" ;
+T{ twice case-file -> outcome-rejected lf-diag-already-declared 2 }T
+T{ twice fed-case -> outcome-rejected lf-diag-already-declared 2 }T
+T{ twice e5-file -> true }T
+T{ e5-checks @ 500 > -> true }T
+." E5 chain against scan: " e5-checks @ . ." lookups agree" cr
+
 cases-done
 bye

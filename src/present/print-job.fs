@@ -27,9 +27,9 @@ require ./binder-table.fs
 2 constant lf-print-latex       \ mode: LaTeX math
 3 constant lf-print-mode-mask
 4 constant lf-print-universes   \ option bit: show universe arguments, c.{u}
-lf-term-capacity constant lf-print-binder-capacity
+lf-depth-limit constant lf-print-binder-capacity
 4096 constant lf-print-pool-capacity
-lf-term-capacity 2* constant lf-print-default-limit
+lf-depth-limit 2* constant lf-print-default-limit
 
 \ One binder in scope: its domain term and its display name in the pool.
 begin-structure /lf-pbind

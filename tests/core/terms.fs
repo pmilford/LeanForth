@@ -131,4 +131,27 @@ T{ 0 lf-term-identity -> false }T
 1 lf-term-count !
 T{ 0 lf-term-identity -> term-serial1 true }T
 lf-term-reset
+
+\ The capacity is a setting of the context (plan task 3.3.1; ADR 0016
+\ C9 step 3): raised, the store and its columns grow as terms are added,
+\ every node and identity kept; at the new limit it is full again, with
+\ the same diagnostic; lowered to the records in use, the block shrinks.
+/slab context-record: probe-column
+1 cells ' probe-column lf-term-columns column-add
+T{ lf-term-capacity lf-term-default -> 64 64 }T
+T{ 999 lf-term-capacity! lf-term-capacity -> outcome-ok 999 }T
+: fill-to ( n -- ) begin lf-term-count @ over < while 7 lf-term-bvar 2drop repeat drop ;
+lf-term-serial @ constant serial0
+T{ 300 fill-to lf-term-count @ lf-terms store-capacity @ 299 lf-term-read -> 300 512
+   lf-tag-bvar 7 0 true }T
+T{ 0 lf-term-identity 299 lf-term-identity -> serial0 1+ true serial0 300 + true }T
+\ The column covers every record, and its new units read zero.
+T{ probe-column slab-capacity 512 >= 299 probe-column column-at @ -> true 0 }T
+lf-diag-clear
+T{ 999 fill-to 7 lf-term-bvar lf-term-count @ -> false 999 }T
+T{ lf-diag@ nip -> 999 999 lf-diag-terms-full }T
+T{ 998 lf-term-capacity! -> outcome-invalid }T
+lf-term-reset
+T{ 100 lf-term-capacity! lf-terms store-capacity @ -> outcome-ok 100 }T
+T{ lf-term-default lf-term-capacity! lf-terms store-capacity @ -> outcome-ok 64 }T
 bye

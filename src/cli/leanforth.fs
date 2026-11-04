@@ -190,6 +190,9 @@ create cli-order
   true not-checked 1+ 0 do i cells cli-order + @ cli-item loop drop cr ;
 
 \ Notes after a run: the limits behind full, the fuel behind exhausted.
+\ check leaves the stores' capacity settings at their defaults: it reads
+\ with import/checker-input.fs and keeps the run record in run-record.fs's
+\ tables, both sized for those defaults (import/feed.fs takes any size).
 : cli-limits ( -- )
   ." note: today's check holds at most " lf-name-capacity .decimal ."  names, "
   lf-level-capacity .decimal ."  levels, " lf-term-capacity .decimal ."  term nodes and "

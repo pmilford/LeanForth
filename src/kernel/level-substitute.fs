@@ -32,11 +32,15 @@ begin-structure /lf-lsrec
   field: lf-lsrec-actuals      \ address of their replacement levels
   field: lf-lsrec-count        \ number of formals
   /store-mark +field lf-lsrec-mark                  \ the level store before a build
-  lf-level-capacity cells +field lf-lsrec-seen       \ reached by the source walk
-  lf-level-capacity cells +field lf-lsrec-results    \ each reached node's image
 end-structure
-lf-level-capacity context-walk: lf-lsubst-walker
+lf-level-depth-limit context-walk: lf-lsubst-walker
 /lf-lsrec context-record: lf-lsubst-job
+\ Per level, columns of the level store (core/store-columns.fs): whether
+\ the source walk reached it, and its image.
+/slab context-record: lf-lsubst-seen-column
+1 cells ' lf-lsubst-seen-column lf-level-columns column-add
+/slab context-record: lf-lsubst-results-column
+1 cells ' lf-lsubst-results-column lf-level-columns column-add
 
 \ Fuel left after a call or check; mixed-level-substitute continues with it.
 : lf-lsubst-fuel ( -- addr ) lf-lsubst-walker walk-fuel ;
@@ -75,7 +79,7 @@ lf-level-capacity context-walk: lf-lsubst-walker
 \ a formal, and children are visited first child first. Every node read is
 \ marked as reached. Each occurrence costs fuel; the work stack is bounded
 \ independently of fuel.
-: lf-lsubst-seen ( index -- addr ) cells lf-lsubst-job lf-lsrec-seen + ;
+: lf-lsubst-seen ( index -- addr ) lf-lsubst-seen-column column-at ;
 : lf-lsubst-mark ( walk -- ) true swap walk-node @ lf-lsubst-seen ! ;
 : lf-lsubst-formal? ( id -- flag ) lf-lsubst-count @ lf-lsubst-in? ;
 : lf-lsubst-param ( first second walk -- outcome )
@@ -91,7 +95,7 @@ lf-level-capacity context-walk: lf-lsubst-walker
 \ Check the DAG reachable from root against the formals, with the fuel in
 \ lf-lsubst-fuel. The zero node is checked even when root does not reach it.
 : lf-lsubst-ready? ( root -- flag ) lf-level-valid? lf-lscope-zero-ok? and ;
-: lf-lsubst-unseen ( -- ) 0 lf-lsubst-seen lf-level-capacity cells erase ;
+: lf-lsubst-unseen ( -- ) lf-lsubst-seen-column column-erase ;
 : lf-lsubst-site ( -- site ) c" level-substitute lf-lsubst" ;
 : lf-lsubst-walk ( root -- outcome )
   ['] lf-lsubst-visit lf-lsubst-walker walk-run
@@ -116,7 +120,7 @@ lf-level-capacity context-walk: lf-lsubst-walker
 \ unknown (ADR 0011, rule K6), recorded with the node. Otherwise the node
 \ is kept when its images are unchanged and rebuilt when they are not.
 \ Nodes are appended as needed; a failure rolls the store back.
-: lf-lsubst-result ( index -- addr ) cells lf-lsubst-job lf-lsrec-results + ;
+: lf-lsubst-result ( index -- addr ) lf-lsubst-results-column column-at ;
 : lf-lsubst-image ( index -- index' ) lf-lsubst-result @ ;
 : lf-lsubst-images ( index -- first' second' )
   dup lf-level-first@ lf-lsubst-image swap lf-level-second@ lf-lsubst-image ;
@@ -204,5 +208,5 @@ lf-level-capacity context-walk: lf-lsubst-walker
 : lf-lsubst-levels? ( -- flag ) lf-level-count-valid? lf-level-serial @ 0< 0= and ;
 : lf-lsubst ( root formal-addr actual-addr count fuel -- result ok | status )
   lf-lsubst-walker walk-budget 0= if 2drop 2drop outcome-invalid exit then
-  dup lf-level-capacity upto? 0= if 2drop 2drop outcome-invalid exit then
+  dup lf-level-params-limit upto? 0= if 2drop 2drop outcome-invalid exit then
   lf-lsubst-use lf-lsubst-levels? if lf-lsubst-run else drop-invalid then ;

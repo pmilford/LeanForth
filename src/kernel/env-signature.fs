@@ -33,7 +33,7 @@ require ../core/terms.fs
 require ./environment.fs
 require ./mixed-level-substitute.fs
 
-lf-level-capacity context-walk: lf-envsig-walker
+lf-level-depth-limit context-walk: lf-envsig-walker
 
 begin-structure /lf-esreq
   field: lf-esreq-name      \ the constant's name ID

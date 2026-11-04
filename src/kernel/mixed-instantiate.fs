@@ -73,7 +73,7 @@ end-structure
   dup lf-term-binary-tag? if drop lf-minst-binary else lf-minst-leaf then ;
 \ The frames and their visitor, set up once in every context.
 : lf-minst-setup ( -- )
-  lf-term-capacity ['] lf-minst-visit lf-minst-frames frame-init ;
+  lf-depth-limit ['] lf-minst-visit lf-minst-frames frame-init ;
 ' lf-minst-setup context-setup
 
 \ Validate both complete handles with one fuel budget before allocating, even

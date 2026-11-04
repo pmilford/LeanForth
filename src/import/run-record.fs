@@ -143,7 +143,7 @@ begin-structure /rr
   field: rr-enforced        \ true when rr-import read the input with its manifest checked
   field: rr-run             \ the run's outcome
   field: rr-fault           \ the first failure rr-write found itself, or ok
-  lf-input-capacity /rr-step * +field rr-kept
+  lf-input-default /rr-step * +field rr-kept   \ at most lf-input-default declarations
   field: rr-name-size
   rr-name-room +field rr-name-buf
   field: rr-text-size
@@ -284,14 +284,16 @@ rr-reset rr-no-source
 : rr-own! ( env -- )
   dup run-record rr-env ! lf-envh-identity @ run-record rr-env-id !
   true run-record rr-own ! ;
+\ A record keeps at most lf-input-default declarations: more is full.
 : rr-run-in ( env -- outcome )
   dup rr-own! lf-env-use
+  lf-input-count lf-input-default > if drop outcome-full exit then
   dup ok? if drop lf-input-count rr-steps rr-confirm then ;
 \ A new run: an earlier run's environment freed, no step taken, and every
 \ kept outcome invalid until its step publishes one, never ok (0).
 : rr-unkept ( -- )
-  run-record rr-kept lf-input-capacity /rr-step * erase
-  lf-input-capacity 0 do outcome-invalid i rr-step-of kept-outcome ! loop ;
+  run-record rr-kept lf-input-default /rr-step * erase
+  lf-input-default 0 do outcome-invalid i rr-step-of kept-outcome ! loop ;
 : rr-begun ( -- )
   rr-release rr-unkept true run-record rr-checked ! 0 run-record rr-stepped !
   false run-record rr-own ! ;

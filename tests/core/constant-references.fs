@@ -98,7 +98,7 @@ T{ lf-cref-count @ -> 1 }T
 
 \ lf-cref-levels: the validated level pairs of a live reference, in order;
 \ a stale identity or a reset name table gives only false.
-T{ 0 1 lf-cref-levels -> 0 lf-cref-slot lf-crec-levels 8 true }T
+T{ 0 1 lf-cref-levels -> 0 lf-cref-slot lf-cref-pairs drop 8 true }T
 T{ 0 1 lf-cref-levels 2drop 7 2* cells + 2@ swap -> 1 lf-level-serial @ }T
 T{ 0 2 lf-cref-levels -> false }T
 T{ 1 1 lf-cref-levels -> false }T
@@ -109,7 +109,7 @@ T{ 0 1 0 lf-cref-level -> false }T
 \ A failed construction changes neither the count nor the serial.
 lf-cref-reset
 lf-cref-serial @ constant cref-serial1
-T{ 0 lf-name-generation @ eight-args 9 lf-cref-new -> false }T
+T{ 0 lf-name-generation @ eight-args lf-cref-argument-capacity 1+ lf-cref-new -> false }T
 T{ 999 lf-name-generation @ 0 0 lf-cref-new -> false }T
 T{ lf-cref-count @ lf-cref-serial @ -> 0 cref-serial1 }T
 \ An invalid name or store is refused before the level array is read, so
@@ -129,15 +129,27 @@ T{ 0 live-id lf-cref-valid? name-id @ lf-name-generation @ 0 0 lf-cref-new -> fa
 T{ 0 live-id lf-cref-valid? 0 live-id lf-cref-levels -> false false }T
 1 lf-cref-count !
 
-\ A stored argument count outside 0..8 makes the record invalid everywhere.
+\ A stored argument count outside 0..lf-cref-argument-capacity, or pairs
+\ outside the pool, make the record invalid everywhere.
 : arity! ( n -- ) 0 lf-cref-slot lf-crec-arity ! ;
-9 arity!
+: offset! ( n -- ) 0 lf-cref-slot lf-crec-offset ! ;
+-1 offset!
+T{ 0 live-id lf-cref-valid? 0 live-id lf-cref-levels -> false false }T
+lf-cref-pool slab-capacity 1- offset!
+T{ 0 live-id lf-cref-valid? 0 live-id lf-cref-levels -> false false }T
+\ Far outside the pool: refused before any address is formed (without the
+\ check, reading there would fault).
+1 30 lshift offset!
+T{ 0 live-id lf-cref-valid? 0 live-id lf-cref-levels -> false false }T
+0 offset!
+T{ 0 live-id lf-cref-valid? -> true }T
+lf-cref-argument-capacity 1+ arity!
 T{ 0 live-id lf-cref-valid? 0 live-id lf-cref-read -> false false }T
 T{ 0 live-id lf-cref-levels 0 live-id 0 lf-cref-level -> false false }T
 -1 arity!
 T{ 0 live-id lf-cref-valid? 0 live-id lf-cref-levels -> false false }T
 0 arity!
-T{ 0 live-id lf-cref-levels -> 0 lf-cref-slot lf-crec-levels 0 true }T
+T{ 0 live-id lf-cref-levels -> 0 lf-cref-slot lf-cref-pairs drop 0 true }T
 T{ 0 live-id 0 lf-cref-level -> false }T
 2 arity!
 

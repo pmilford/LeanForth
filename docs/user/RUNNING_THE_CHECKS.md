@@ -62,6 +62,7 @@ file changed since `main`.
 | `reference-first-checker` | Lean's verdicts on the first checker's 60 expected-results cases and 27 broken source copies are as recorded ([expected results](../reviews/FIRST_CHECKER_EXPECTED.md)) | LeanForth's answers (that is `test-first-checker-differential`) |
 | `reference-binder-domains` | Lean's answers on comparing binders whose argument types differ ([ADR 0003, Amendment 1](../adr/0003-conversion.md)) | LeanForth's answers (that is `test-binder-domains-differential`) |
 | `test-first-checker-differential`, `test-binder-domains-differential`, `test-universe-scope-differential` | The first checker, run end to end through the checked environment, gives the expected outcome on the 62 table cases, the 22 binder-domain cases (three known capacity differences, each a failure) and 17 universe-scope cases; every rejection names Lean's reason; every accepted case prints its *experimental* label ([first check](FIRST_CHECK.md)) | That the checker is correct beyond these cases, or reviewed: it has not passed its gate |
+| `test-first-checker-large-differential`, `test-binder-domains-large-differential`, `test-universe-scope-large-differential` | The same three tables with every store's capacity raised (4,096 terms, 1,024 levels, names and references, 256 declarations): the same answers, and the three binder-domain rows that meet the 64-node store get the table's answer, so no known difference remains | Anything about inputs deeper than the passes' depth limit of 64 |
 | `test-environment` | The checked environment and check-declaration meet their unit tests: every outcome, Lean's order, fuel sweeps, and the pinned NDJSON exports checked and accepted | The same |
 | `test-cli` | `bin/leanforth` reaches every exit status 0–5 with its exact output (accepted, rejected, unsupported and unknown, out of fuel and out of room, malformed files and command lines, injected internal faults), from other folders, and agrees with the counter and the re-exporter | That a verdict is right beyond these cases: the checker has not passed its gate |
 | `reference-cli` | Pinned Lean accepts the command line's two Lean fixtures, and `scripts/export.sh` reproduces their exports and manifests byte for byte | Anything about LeanForth |
@@ -133,10 +134,17 @@ Report Forth style signals: `make forth-metrics`.
 
 ## Limits you will meet
 
-- The term, level and name stores hold 64 entries each, a constant
-  reference at most 8 universe arguments; the pinned Mathlib needs millions
-  of entries and up to 30 arguments (plan task 6.2.0). So `bin/leanforth
-  check` ends *full*, exit status 3, on anything larger than a test fixture.
+- The term, level, name, reference and declaration stores grow up to a
+  capacity that is a setting of each checker context (default 64, 64, 64,
+  32 and 32 entries; `lf-term-capacity!` and the like, plan task 3.3.1);
+  feeding a staged export (`src/import/feed.fs`) raises them to fit it, and
+  all of `Init` (6.1 million expressions) fits in about 1.3 GB. A constant
+  reference takes at most 64 universe arguments (Mathlib's largest has 30).
+  The checking passes nest at most 64 deep (`lf-depth-limit`): a deeper
+  term gives *full* (plan task 6.2.0 lifts it). `bin/leanforth check` still
+  reads an export straight into the default capacities
+  (`src/import/checker-input.fs`), so it ends *full*, exit status 3, on
+  anything larger than a test fixture until it uses the feed.
 - The checking passes run with explicit fuel; running out gives
   *exhausted*, running out of room *full*. Neither is ever accepted.
 - Only the pinned exporter, format and Lean version are read; anything else

@@ -25,7 +25,10 @@
 \ stacks once per level of a graph, the name order once per component of
 \ a name: measured, at most 7 return and 3 data cells per level node and
 \ 1 and 2 per name component, so a call needs lf-lnorm-return-cells and
-\ lf-lnorm-data-cells (see the need stated at the end).
+\ lf-lnorm-data-cells (see the need stated at the end) for graphs and
+\ names lf-level-depth-limit and lf-name-default deep. A deeper one, which
+\ only a larger capacity setting allows, overflows the host stack: a
+\ THROW, never a result.
 
 require ../lib/lib.fs
 require ../core/diagnostics.fs
@@ -42,17 +45,20 @@ begin-structure /lf-lnrec
   field: lf-lnrec-top                               \ argument cells in use
   /store-mark +field lf-lnrec-mark                  \ the level store before the call
   lf-lnorm-capacity cells +field lf-lnrec-args
-  lf-level-capacity cells +field lf-lnrec-memo      \ normal form + 1, or 0
 end-structure
 /lf-lnrec context-record: lf-lnorm-state
+\ Per level, a column of the level store (core/store-columns.fs): its
+\ normal form + 1, or 0.
+/slab context-record: lf-lnorm-memo-column
+1 cells ' lf-lnorm-memo-column lf-level-columns column-add
 
 : lf-lnorm-status ( -- addr ) lf-lnorm-state lf-lnrec-status ;
 \ Fuel left after lf-level-equivalent; level-compare continues with it.
 : lf-lnorm-fuel ( -- addr ) lf-lnorm-state lf-lnrec-fuel ;
 : lf-lnorm-top ( -- addr ) lf-lnorm-state lf-lnrec-top ;
 : lf-lnorm-arg ( i -- addr ) cells lf-lnorm-state lf-lnrec-args + ;
-: lf-lnorm-memo ( level -- addr ) cells lf-lnorm-state lf-lnrec-memo + ;
-: lf-lnorm-clear ( -- ) 0 lf-lnorm-memo lf-level-capacity cells erase ;
+: lf-lnorm-memo ( level -- addr ) lf-lnorm-memo-column column-at ;
+: lf-lnorm-clear ( -- ) lf-lnorm-memo-column column-erase ;
 : lf-lnorm-site ( -- site ) c" level-normalize lf-level-equivalent" ;
 
 \ ---------------------------------------------------------------------------
@@ -279,9 +285,10 @@ defer lf-lnorm-walk ( level -- level' )
 \ 31 components: 45 and 58). The level frames on one path are at
 \ different nodes of the level store -- children are earlier nodes, and
 \ the normal forms that push_max_args and is_norm_lt walk lie below the
-\ visited node or are new -- so a call nests at most lf-level-capacity of
-\ them, at 7 return and 3 data cells each, and at most lf-name-capacity
-\ name frames, at 1 and 2. The slack covers the entry words of
+\ visited node or are new -- so a call nests at most lf-level-depth-limit
+\ of them (at the default capacity, every node), at 7 return and 3 data
+\ cells each, and at most lf-name-default name frames, at 1 and 2. The
+\ slack covers the entry words of
 \ level-compare, conversion and rule D1, the steps at the deepest frame
 \ and a shallow caller. mixed-infer.fs takes the larger of this need and
 \ beta's (a level comparison never runs inside beta's passes) for its
@@ -293,7 +300,7 @@ defer lf-lnorm-walk ( level -- level' )
 2 constant lf-lnorm-ds-name     \ data-stack cells per name component
 64 constant lf-lnorm-stack-slack
 : lf-lnorm-need ( level-cells name-cells -- cells )
-  lf-name-capacity * swap lf-level-capacity * + lf-lnorm-stack-slack + ;
+  lf-name-default * swap lf-level-depth-limit * + lf-lnorm-stack-slack + ;
 lf-lnorm-rs-level lf-lnorm-rs-name lf-lnorm-need constant lf-lnorm-return-cells
 lf-lnorm-ds-level lf-lnorm-ds-name lf-lnorm-need constant lf-lnorm-data-cells
 lf-lnorm-data-cells lf-lnorm-return-cells context-need

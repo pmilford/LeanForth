@@ -17,10 +17,10 @@ require ./levels.fs
 begin-structure /lf-lsctx
   field: lf-lsctx-count         \ parameter IDs in the context
   field: lf-lsctx-generation    \ advances on every change; negative when spent
-  lf-level-capacity cells +field lf-lsctx-ids
+  lf-level-params-limit cells +field lf-lsctx-ids
 end-structure
 /lf-lsctx context-record: lf-lscope-state
-lf-level-capacity context-walk: lf-lscope-walk
+lf-level-depth-limit context-walk: lf-lscope-walk
 
 \ The context's fields under their established names (other modules read
 \ the count and generation; tests corrupt them).
@@ -37,7 +37,7 @@ lf-level-capacity context-walk: lf-lscope-walk
 : lf-lscope-advance ( -- ) lf-lscope-generation dup @ epoch+ swap ! ;
 : lf-lscope-context-reset ( -- ) 0 lf-lscope-context-count ! lf-lscope-advance ;
 : lf-lscope-count-valid? ( -- flag )
-  lf-lscope-context-count @ lf-level-capacity upto? lf-lscope-generation @ 0< 0= and ;
+  lf-lscope-context-count @ lf-level-params-limit upto? lf-lscope-generation @ 0< 0= and ;
 : lf-lscope-slot ( i -- addr ) cells lf-lscope-context + ;
 : lf-lscope-id@ ( i -- id ) lf-lscope-slot @ ;
 \ Search the first n entries; the caller has validated n.
@@ -58,7 +58,7 @@ lf-level-capacity context-walk: lf-lscope-walk
 \ corrupted entries, a full context or a spent generation, changes nothing.
 : lf-lscope-new-id? ( id -- flag ) dup 0> swap lf-lscope-member? 0= and ;
 : lf-lscope-room? ( -- flag )
-  lf-lscope-context-count @ lf-level-capacity < lf-lscope-generation @ max-n <> and ;
+  lf-lscope-context-count @ lf-level-params-limit < lf-lscope-generation @ max-n <> and ;
 : lf-lscope-addable? ( id -- flag ) lf-lscope-new-id? lf-lscope-room? and ;
 : lf-lscope-append ( id -- )
   lf-lscope-context-count @ lf-lscope-slot ! 1 lf-lscope-context-count +! ;

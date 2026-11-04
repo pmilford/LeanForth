@@ -14,7 +14,7 @@ require ../core/generation-handles.fs
 require ../core/constant-references.fs
 require ../core/constant-term-boundary.fs
 
-lf-term-capacity context-walk2: lf-pp-scan-walk
+lf-depth-limit context-walk2: lf-pp-scan-walk
 
 \ A structured name as text, components joined by dots, sent to xt
 \ ( c-addr u -- ). Unchecked: the ID is valid and the name store passed
