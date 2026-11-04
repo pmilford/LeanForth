@@ -1,6 +1,6 @@
 # ADR 0016: the compact store for Mathlib-scale input
 
-Status: **accepted** by the owner on 2026-11-03, with the three recommendations of
+Status: the checker on the large store, with no depth limit, **approved [kernel]** by the owner on 2026-11-04 ([decisions](../project/OWNER_DECISIONS.md#checker-on-the-large-store-approved-resource-settings-2026-11-04-late)). **Accepted** by the owner on 2026-11-03, with the three recommendations of
 [Decisions for the owner](#decisions-for-the-owner) ([OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md)).
 Previously: **proposed**, 2026-11-02 (plan tasks 6.0.1 and 6.2.0–6.2.3; also
 1.1.5, 3.2.1 and 3.3.1). The owner approved writing this design and asked
