@@ -27,9 +27,10 @@
 \ holds a node for every entry, lets a check reach; running out is full,
 \ never ok. Words: lf-lctx-local and lf-lctx-let ( Lean's mk_local_decl
 \ ), lf-fvar-live?, lf-fvar-number, lf-fvar-type, lf-fvar-value,
-\ lf-fvar-let?, lf-lctx-count, lf-lctx-reset. Outcomes: ok, invalid,
-\ full. Untrusted; part of the checker's [kernel] path, not yet through
-\ the review gate.
+\ lf-fvar-let?, lf-fvar-depth and lf-fvar-depth! (where its binder
+\ stands, for the derivation log), lf-lctx-count, lf-lctx-reset.
+\ Outcomes: ok, invalid, full. Untrusted; part of the checker's [kernel]
+\ path, not yet through the review gate.
 \ Example: in a check, x : A is ( A ) lf-lctx-local -> ( x ok ); then
 \ x lf-fvar-type gives A and x lf-fvar-live? is true until the check's
 \ scratch is rolled back below x.

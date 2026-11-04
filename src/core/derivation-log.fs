@@ -30,7 +30,12 @@
 \ does not depend on the stores' capacities, which are per-context
 \ settings of the heap stores. A constant whose reference lies below the
 \ input marks is kept with its reference; any other reference is copied
-\ with its name and its universe arguments' level references.
+\ with its name and its universe arguments' level references. A term is
+\ copied in a context, the binders around it (the record's depth, see
+\ lf-log-a-inner, and one more under each binder within it), and a free
+\ variable of the local context (plan task 4.2.2a) becomes the bound
+\ variable it stands for there (lf-log-fvar), so copies hold no free
+\ variables; the memo is keyed by node and context.
 \
 \ Bounds (L3, owner decision D2). The first bound reached wins: no room for
 \ a record, for an open rule (a mark), in a pool (terms, levels, constant
@@ -69,7 +74,7 @@
 \ lf-log-mark-capacity open rules, lf-log-term-capacity and
 \ lf-log-level-capacity copies, lf-log-cref-capacity copied references
 \ with lf-log-arg-capacity arguments in all, and per copy
-\ lf-log-copy-work tasks on stacks of lf-log-stack-capacity cells.
+\ lf-log-copy-work tasks on stacks of lf-log-stack-capacity entries.
 \ State: the shared options record lf-log-options (read-only during a
 \ run), the two copier descriptors (constant), and one context record,
 \ lf-log-state (ADR 0009): header, open rules, records, pools, memos and
@@ -726,7 +731,8 @@ create lf-log-term-copier
 \ step (a body) lies under one more binder and a shift's under amount
 \ fewer, as log-view reads them.
 : lf-log-a-inner ( mark -- n )
-  dup logmark-rule @ case lf-rule-instantiate of drop 1 endof lf-rule-beta of drop 1 endof
+  dup logmark-rule @ case
+    lf-rule-instantiate of drop 1 endof lf-rule-beta of drop 1 endof
     lf-rule-shift of logmark-b @ negate endof nip 0 swap endcase ;
 : lf-log-copy-depth! ( mark n -- ) swap logmark-depth @ + lf-log-state lf-logs-copy-depth ! ;
 : lf-log-refs ( result outcome mark -- a b out true | false )

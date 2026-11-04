@@ -821,8 +821,8 @@ reason = "4.2.2a: a free variable is copied into the log as the bound variable o
 [[fault]]
 id = "log-body-context-off"
 file = "src/core/derivation-log.fs"
-old = '''  dup logmark-rule @ case lf-rule-instantiate of drop 1 endof lf-rule-beta of drop 1 endof'''
-new = '''  dup logmark-rule @ case lf-rule-instantiate of drop 0 endof lf-rule-beta of drop 1 endof'''
+old = '''    lf-rule-instantiate of drop 1 endof lf-rule-beta of drop 1 endof'''
+new = '''    lf-rule-instantiate of drop 0 endof lf-rule-beta of drop 1 endof'''
 test = "$GFORTH tests/core/derivation-log.fs"
 reason = "4.2.2a: an instantiate step's body is copied in the record's context, not under its own binder, so its free variables become the wrong bound variables"
 

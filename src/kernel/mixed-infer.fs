@@ -13,9 +13,10 @@
 \ (core/local-context.fs) whose type is the domain closed with the free
 \ variables of the binders around it (instantiate_rev, mixed-open.fs); it
 \ waits on the job's scope, at most lf-depth-limit (more is full, as the
-\ binder context was). A lambda's type is mk_pi of its free variable over
-\ the body's type, a Pi's the Sort of the levels' imax, and a free
-\ variable's type its entry's (infer_fvar, 93-99). Inference reads its
+\ binder context was). A chain of lambdas has Lean's mk_pi over its free
+\ variables of the innermost body's type as its type, built once from the
+\ inside out (lf-minfer-lam), a Pi the Sort of the levels' imax, and a
+\ free variable its entry's type (infer_fvar, 93-99). Inference reads its
 \ source terms under the scope: a loose bound variable k is the scope's
 \ free variable k places from the top, so inferring a term under the
 \ scope is inferring Lean's instantiate_rev of it with the scope's free
@@ -289,8 +290,10 @@ end-structure
 : lf-minfer-fvar ( node -- type status )
   dup lf-fvar-live? if lf-fvar-type outcome-ok exit then
   0 lf-diag-malformed lf-minfer-note -1 outcome-invalid ;
+: lf-minfer-unbound ( index binders -- type status )
+  lf-diag-out-of-scope lf-minfer-note -1 outcome-invalid ;
 : lf-minfer-bvar ( index -- type status )
-  lf-minfer-context-depth @ 2dup < 0= if 2drop -1 outcome-invalid exit then
+  lf-minfer-context-depth @ 2dup < 0= if lf-minfer-unbound exit then
   swap - 1- lf-minfer-fvar-cell @ lf-minfer-fvar ;
 
 defer lf-minfer-walk ( node -- type status )

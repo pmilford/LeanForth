@@ -35,9 +35,15 @@ context* (`src/core/local-context.fs`), which holds the variable's type
 that move between the two forms: `instantiate` and `instantiate_rev` put
 terms (free variables) for a body's loose bound variables, `abstract` turns
 free variables back into bound ones, and `mk_pi` wraps a type in the Πs of
-free variables. `mixed-infer.fs` opens a telescope of λs or Πs as Lean's
-`infer_lambda` and `infer_pi` do and keeps the opened binders' free
-variables on its *scope* (at most `lf-depth-limit`).
+free variables. `mixed-infer.fs` enters the binders of a telescope of λs
+or Πs one at a time, each checked as Lean's `infer_lambda` and `infer_pi`
+check it, and keeps the opened binders' free variables on its *scope* (at
+most `lf-depth-limit`). It reads source terms under the scope (a loose
+bound variable `k` is the scope's free variable `k` places from the top),
+which infers Lean's opened body without copying it, so that each binder
+stays one step with its source node in the derivation log; a chain of λs
+gets the type `mk_pi` gives it, built once from the inside out
+(`lf-minfer-lam`).
 
 Rules a new kernel module must keep:
 
@@ -50,7 +56,13 @@ Rules a new kernel module must keep:
   hold them.
 - Terms given to inference, conversion's callers and the substitutions are
   closed; `lf-instantiate` and `lf-instantiate-rev` rely on it (Lean's
-  `lift_loose_bvars` is then the identity) and do not check it.
+  `lift_loose_bvars` is then the identity) and do not check it. Inside
+  inference, a λ chain's inner types are over the scope's bound variables
+  until the chain's top closes them; nothing but the enclosing λ sees them.
+- The derivation log copies a free variable as the bound variable it
+  stands for at the step's depth (`lf-fvar-depth`, set when inference
+  opens the binder): a module that opens binders for logged steps must
+  record that depth too.
 - A node's address can move when a store grows: keep node and entry
   numbers, never addresses, across an allocation.
 - ADR 0011's rejection analysis is the one place with open terms: it keeps
