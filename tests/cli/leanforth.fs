@@ -1,22 +1,29 @@
 \ The command line's Forth side (src/cli/leanforth.fs, plan tasks
-\ 3.4.1-3.4.2): the exit code of every outcome and their order of
-\ severity; every code reached through the Forth interface on the pinned
-\ fixtures and the changed copies of composition: 0 accepted, 1 rejected,
-\ 2 unsupported (a declaration, and a record refused while reading),
-\ 3 out of fuel, 4 malformed (a declaration, a missing manifest, a file
-\ that is not an export or does not open, a copy over its export), 5 an
-\ internal fault (a THROW while staging, and one inside a check, each
-\ injected at an allocation with tests/support/alloc-fail.fs); the
-\ declarations counted by verdict; the run record (--record: its text
-\ holds the verdicts, a record that cannot be saved is invalid, one that
-\ names its export is refused); and the reading of fuel amounts.
-\ tests/cli/test_leanforth.py runs the same through bin/leanforth, with
-\ the text printed, and replays records. print's codes, and a THROW at
-\ each of its store allocations. Test-only; nothing here accepts
-\ a theorem outside the code under test.
+\ 3.4.1-3.4.3; src/cli/tally.fs, check-run.fs): the exit code of every
+\ outcome and their order of severity, and NOT PROVED; every code reached
+\ through the Forth interface on the pinned fixtures and the changed
+\ copies of composition: 0 accepted (also an inductive type, a larger
+\ theorem and 30 declarations of an export with every record kind, all
+\ through the importer stage and the feed), 1 rejected, 2 unsupported (a
+\ declaration; with --record a record refused while reading), 3 out of
+\ fuel, 4 malformed (a declaration, a missing manifest, a file that is
+\ not an export or does not open, a copy over its export, --json with
+\ --record), 5 an internal fault (a THROW while staging, and one inside a
+\ check, each injected at an allocation with tests/support/alloc-fail.fs);
+\ the declarations counted by verdict; the fuel each check used (a budget
+\ of exactly that much accepts, one less is exhausted); the stage freed,
+\ the names detached and the stores' capacities given back after every
+\ check; the run record (--record: its text holds the verdicts, a record
+\ that cannot be saved is invalid, one that names its export is refused);
+\ and the reading of fuel amounts. tests/cli/test_leanforth.py runs the
+\ same through bin/leanforth, with the text and JSON printed, and replays
+\ records. print's codes, and a THROW at each of its store allocations.
+\ Test-only; nothing here accepts a theorem outside the code under test.
 include ../support/tester.fs
 include ../support/checks.fs
 require ../support/alloc-fail.fs
+\ The publisher's test-only fault hook, lf-env-before-final, to stop a run.
+: lf-env-fault-hooks ( -- ) ;
 require ../../src/cli/leanforth.fs
 decimal
 
@@ -30,6 +37,8 @@ decimal
   s" tests/core/check-declaration-cases/composition-literal.ndjson" ;
 : loose ( -- c-addr u ) s" tests/core/check-declaration-cases/composition-loose.ndjson" ;
 : kinds ( -- c-addr u ) s" tests/core/reexport/kinds.ndjson" ;
+: inductive ( -- c-addr u ) s" tests/cli/inductive.ndjson" ;
+: chain ( -- c-addr u ) s" tests/cli/chain.ndjson" ;
 : tally ( k -- n ) cli-count-of @ ;
 
 \ Each outcome's code; a value outside the vocabulary is a fault.
@@ -50,6 +59,28 @@ create stated  0 , 2 , 3 , 1 , 4 , 5 ,
 : all-pairs? ( -- flag ) true 6 0 do 6 0 do i j pair-ok? and loop loop ;
 T{ all-pairs? -> true }T
 
+\ NOT PROVED: an accepted declaration with an axiom, and only that; it is
+\ counted apart and changes no code.
+T{ outcome-ok 0 not-proved? outcome-ok 4 not-proved? -> false true }T
+T{ outcome-rejected 4 not-proved? outcome-unknown 0 not-proved? -> false false }T
+cli-start
+T{ outcome-ok 4 cli-tally-proved outcome-ok 0 cli-tally-proved cli-not-proved @ -> 1 }T
+T{ outcome-rejected 1 cli-tally-proved cli-not-proved @ cli-worst @ -> 1 0 }T
+\ The summary's line of the accepted, from planted counts (no check can
+\ make one NOT PROVED yet); where the host can capture output (Gforth 1.0).
+[defined] >string-execute [if]
+: accepted-line ( accepted not-proved -- c-addr u )
+  cli-start cli-not-proved ! outcome-ok cli-count-of ! ['] cli-accepted. >string-execute ;
+: label-text ( -- c-addr u )
+  s" accepted: 3 (experimental, not independently audited); axioms: " ;
+: after-label ( c-addr u -- c-addr' u' ) label-text search drop label-text nip /string ;
+: not-proved-text ( -- c-addr u ) s\" 2 NOT PROVED (they depend on an axiom)\n" ;
+T{ 3 0 accepted-line drop label-text tuck compare -> 0 }T
+T{ 3 0 accepted-line after-label s\" none\n" compare -> 0 }T
+T{ 3 2 accepted-line after-label not-proved-text compare -> 0 }T
+T{ 0 0 accepted-line nip -> 0 }T
+[then]
+
 \ Fuel amounts: decimal digits only, at most max-n.
 T{ s" 0" cli-decimal s" 100000" cli-decimal -> 0 true 100000 true }T
 T{ s" " cli-decimal s" -1" cli-decimal s" +1" cli-decimal s" 1x" cli-decimal
@@ -62,6 +93,10 @@ T{ s" 99999999999999999999999999999999999999999" cli-decimal -> false }T
 cli-options
 T{ composition cli-check outcome-ok tally -> 0 1 }T
 T{ fixture cli-check outcome-ok tally -> 0 3 }T
+\ An inductive type (a block of 4), a theorem and a definition by its
+\ recursor: Lean's verdicts, all accepted, none unsupported.
+T{ inductive cli-check outcome-ok tally outcome-unsupported tally -> 0 6 0 }T
+T{ chain cli-check outcome-ok tally -> 0 1 }T      \ larger than --record holds
 T{ wrong cli-check -> 4 }T                          \ no manifest beside it
 T{ s" tests/cli/no-such.ndjson" cli-check -> 4 }T
 T{ s" tests/cli/leanforth.fs" cli-check -> 4 }T
@@ -69,11 +104,44 @@ cli-no-manifest
 T{ wrong cli-check outcome-rejected tally outcome-ok tally -> 1 1 0 }T
 T{ postulate cli-check outcome-unsupported tally -> 2 1 }T
 T{ with-literal cli-check outcome-unsupported tally -> 2 1 }T
-T{ kinds cli-check -> 2 }T                          \ an inductive type, while reading
+\ Every record kind (tests/core/reexport/kinds.lean): 30 accepted, among
+\ them inductive blocks; the rest unknown or unsupported (plan phases 4, 5).
+T{ kinds cli-check outcome-ok tally outcome-unknown tally outcome-unsupported tally
+  -> 2 30 4 72 }T
 T{ loose cli-check outcome-invalid tally -> 4 1 }T
 T{ s" tests/cli/leanforth.fs" cli-check -> 4 }T
 0 cli-fuel!
 T{ fixture cli-check outcome-exhausted tally -> 3 3 }T
+cli-options
+
+\ Fuel used: composition's one check used u; with a budget of exactly u
+\ it is accepted, with u - 1 it runs out.
+composition cli-check drop ck-fuel-total drop constant used#
+T{ used# 0> used# cli-default-fuel < -> true true }T
+used# cli-fuel!
+T{ composition cli-check ck-fuel-total -> 0 used# 0 }T
+used# 1- cli-fuel!
+T{ composition cli-check -> 3 }T
+cli-options
+
+\ After every check: no stage, the names detached, the capacities back.
+: released? ( -- flag )
+  ck-stage stage-state @ 0= lf-name-viewed? 0= and lf-term-capacity lf-term-default = and
+  lf-input-capacity lf-input-default = and ;
+T{ chain cli-check released? -> 0 true }T
+T{ s" tests/cli/no-such.ndjson" cli-check released? -> 4 true }T
+cli-no-manifest
+T{ s" README.md" cli-check released? -> 4 true }T
+cli-options
+
+\ --record keeps the small path: an inductive type is refused while
+\ reading; --json and --resources do not go with it.
+s" /dev/null" cli-record!
+T{ inductive cli-check chain cli-check -> 2 3 }T
+cli-json
+T{ composition cli-check -> 4 }T
+cli-options s" /dev/null" cli-record! cli-resources
+T{ composition cli-check -> 4 }T
 cli-options
 
 \ The counter and the re-exporter: their codes, without writing a file.
@@ -105,7 +173,7 @@ cli-options
 
 \ Only a check with --record reads the export for the record (rr-start: its
 \ digest, metadata and manifest). Without it the export is read once, by
-\ the checker's input: the record's facts stay as cleared, and no file is
+\ the importer stage: the record's facts stay as cleared, and no file is
 \ kept, so no record can be written from that run.
 : hashed-bytes ( -- ud ) run-record rr-before facts-bytes 2@ ;
 : unhashed ( -- ) run-record rr-before /rr-facts erase ;
@@ -142,19 +210,44 @@ T{ fixture true rr-read-once s" fixturePoly" pr-find -> outcome-ok 1 true }T
 T{ s" fixture" pr-find 2 pr-name s" fixtureUse" compare -> false 0 }T
 
 \ Internal faults, each in a context of its own (a THROW in a check
-\ spends its context for good). Staging composition in a new context
-\ makes n allocations (the input's name index grows there too): a THROW at
-\ the first is one while staging; at n + 1, one in the check.
+\ spends its context for good). Staging and feeding composition in a new
+\ context and making the run's environment make n allocations of the
+\ stores (the stage's own blocks are not counted): a THROW at the first is
+\ one while feeding; at n + 1, one in the check. Either way the stage is
+\ freed and the names detached.
+: fed-env ( -- env ) cli-default-fuel lf-check-budget lf-env-pool-max lf-env-new drop ;
+: fed-allocations ( -- n )
+  context-new throw dup >r context-use cli-default-fuel ck-start 0 af-arm
+  composition true ck-load drop fed-env af-seen@ af-off swap lf-env-free drop ck-release
+  context-main context-use r> context-free throw ;
+fed-allocations constant fed#
+: in-context ( k -- code spent? released? )
+  context-new throw dup >r context-use af-arm-throw composition cli-check af-off
+  lf-env-spent? ck-stage stage-state @ 0= lf-name-viewed? 0= and
+  context-main context-use r> context-free throw ;
+T{ fed# 0> -> true }T
+T{ 1 in-context -> 5 false true }T
+T{ fed# 1+ in-context -> 5 true true }T
+
+\ A run that stops in the publisher: a THROW before declaration 1's slot
+\ is final. The run is invalid (that slot is open), the code a fault's;
+\ declaration 0 stays accepted, 1 is invalid and 2 was never checked.
+: throw-at-1 ( -- ) lf-env-limit 1 = if 4242 throw then ;
+: run-tallies ( -- code run ok# invalid# unchecked# )
+  fixture cli-check ck-outcome outcome-ok tally outcome-invalid tally not-checked tally ;
+: stopped ( -- code run ok# invalid# unchecked# )
+  context-new throw >r r@ context-use cli-options run-tallies
+  context-main context-use r> context-free throw ;
+' throw-at-1 is lf-env-before-final
+T{ stopped -> 5 outcome-invalid 1 1 1 }T
+' lf-env-no-fault is lf-env-before-final
+
+\ print reads with the checker's input: n allocations stage composition
+\ there, fewer than print makes in all.
 : staging-allocations ( -- n )
   context-new throw dup >r context-use 0 af-arm composition cin-read drop af-seen@ af-off
   context-main context-use r> context-free throw ;
 staging-allocations constant staged#
-: in-context ( k -- code spent? )
-  context-new throw dup >r context-use af-arm-throw composition cli-check af-off
-  lf-env-spent? context-main context-use r> context-free throw ;
-T{ staged# 0> -> true }T
-T{ 1 in-context -> 5 false }T
-T{ staged# 1+ in-context -> 5 true }T
 
 \ print with a THROW at each of its store allocations in turn (staging,
 \ the names' read, a check, the printer's scratch), each in a context of

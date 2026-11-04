@@ -164,10 +164,11 @@ Report Forth style signals: `make forth-metrics`.
   `test-depth-deep-differential`). The work grows with the square of the
   depth there, so such terms need much more fuel than the default (a
   10,000-deep application chain about 150 million steps; table fuel
-  10,000 million). `bin/leanforth check` still
-  reads an export straight into the default capacities
-  (`src/import/checker-input.fs`), so it ends *full*, exit status 3, on
-  anything larger than a test fixture until it uses the feed.
+  10,000 million; plan task 6.5.5). `bin/leanforth check` stages and feeds
+  the export, so it holds any size; `check --record`, `replay` and `print`
+  still read an export straight into the default capacities
+  (`src/import/checker-input.fs`), so they end *full*, exit status 3, on
+  anything larger than a test fixture.
 - The checking passes run with explicit fuel; running out gives
   *exhausted*, running out of room *full*. Neither is ever accepted.
 - Only the pinned exporter, format and Lean version are read; anything else

@@ -637,12 +637,15 @@ class Checks:
         names = (with_manifest(comp, a),
                  with_manifest(comp, a.replace(b'"str":"composition"', b'"str":"compositioX"')))
         use = (unknown_use("fixtureIdd"), unknown_use("fixtureId"))
-        # The premise: at rest, use's A is rejected and its B accepted.
+        # The premise: at rest, use's A is rejected and its B accepted, read
+        # as a recorded run reads them (check --record; a plain check stages
+        # the export, whose sealing refuses A's unknown constant as invalid).
         for (data, text), code in zip(use, (1, 0)):
             path = self.tmp / f"use-{code}.ndjson"
             path.write_bytes(data)
             Path(f"{path}.manifest.json").write_text(text)
-            status = subprocess.run([str(ROOT / "bin/leanforth"), "check", str(path)], cwd=ROOT,
+            command = [str(ROOT / "bin/leanforth"), "check", "--record", os.devnull, str(path)]
+            status = subprocess.run(command, cwd=ROOT,
                                     stdin=subprocess.DEVNULL, capture_output=True,
                                     env=dict(os.environ, GFORTH=self.gforth), timeout=120)
             self.expect(status.returncode == code, f"first pass: {path.name} exit {status}")

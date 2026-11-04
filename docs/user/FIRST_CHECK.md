@@ -50,8 +50,8 @@ $f\,a$. It uses no axiom. Applying $g$ to $a$ itself would be a mistake:
 $g$ needs a proof of $B$, and $a$ proves $A$.
 
 **LeanForth Forth.** The pinned export `tests/reference/composition.ndjson`
-is read by `src/import/checker-input.fs`, which checks it against its
-manifest and hands the declaration to the checker;
+is staged by the importer stage (`src/import/stage.fs`), which checks it
+against its manifest, and fed to the checker (`src/import/feed.fs`);
 `cli-check`, the word behind [the command line](COMMAND_LINE.md)'s
 `bin/leanforth check`, then checks every declaration of the file, with
 fuel 100,000 each, prints each verdict and a summary, and leaves the exit
@@ -70,6 +70,7 @@ s" tests/reference/composition.ndjson" cli-check .
 ```text
 composition: accepted (experimental, not independently audited); axioms: none
 1 declaration: 1 accepted
+accepted: 1 (experimental, not independently audited); axioms: none
 0
 ```
 
@@ -147,8 +148,11 @@ in the application
   earlier accepted declarations. It does not unfold definitions, so some
   correct proofs are *unknown*; theorems that use data types, numbers or
   axioms are *unsupported* until later phases.
-- Limits today: 64 term nodes, 64 levels and 64 names per input, 32
-  declarations, 16 dependencies per declaration.
+- Limits today: `bin/leanforth check` holds exports of any size (all of
+  Lean's `Init`; the stores grow), with 16 dependencies per declaration
+  and terms nested at most 64 deep; `check --record`, `replay` and
+  `print` hold 64 term nodes, 64 levels and 64 names per input and 32
+  declarations ([the command line](COMMAND_LINE.md)).
 
 ## When a check runs out of fuel or room
 
