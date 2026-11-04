@@ -57,7 +57,7 @@ require ./verify-report.fs
 16 constant pv-entry-chars       \ longest name in the table
 begin-structure /pv-entry
   field: pv-entry-kind
-  field: pv-entry-datum          \ a primitive's effect, an output word's cells, an action's xt
+  field: pv-entry-datum          \ a primitive's effect, output cells, an action's xt
   field: pv-entry-host           \ the xt FORTH-WORDLIST gave for the name, or 0
   field: pv-entry-new            \ true for a word new in IR 0.2
   field: pv-entry-length
@@ -150,14 +150,14 @@ end-structure
   dup >r pv-limit 2over du< if 2drop r> drop false exit then r> if dnegate then true ;
 : pv-signed ( c-addr u base max -- d true | false )
   2swap pv-negative >r 2swap pv-numeral if r> pv-in-range? else r> drop false then ;
+\ A prefix's base and most digits; 0 0 for a character that is none.
+: pv-radix ( char -- base max )
+  case [char] # of 10 10 endof [char] $ of 16 8 endof
+    [char] % of 2 32 endof >r 0 0 r> endcase ;
 \ After a prefix, or without one.
 : pv-prefixed ( c-addr u -- d true | false )
   dup 0= if 2drop false exit then
-  over c@ case
-    [char] # of 1 /string 10 10 pv-signed endof
-    [char] $ of 1 /string 16 8 pv-signed endof
-    [char] % of 1 /string 2 32 pv-signed endof
-    >r 10 10 pv-signed r> endcase ;
+  over c@ pv-radix dup if 2>r 1 /string 2r> else 2drop 10 10 then pv-signed ;
 : pv-quote-char? ( c-addr -- flag ) c@ [char] ' = ;
 : pv-char-literal? ( c-addr u -- d true | false )
   3 <> if drop false exit then
@@ -222,7 +222,7 @@ pv-defs-max 100 < 0= [if] .( pv: version numbers too long ) abort [then]
 begin-structure /pv-def
   field: pv-def-kind             \ pv-kind-word or pv-kind-constant
   field: pv-def-prev             \ the version of the name this one replaces, or -1
-  field: pv-def-version          \ 0 for the name's first definition, k for its k-th redefinition
+  field: pv-def-version          \ 0 for a name's first definition, k for its k-th
   field: pv-def-length
   pv-ir-name-max chars aligned +field pv-def-name   \ the IR name
 end-structure
@@ -300,8 +300,8 @@ end-structure
 \ the k-th redefinition of that name.
 : pv-def+ ( c-addr u def -- )
   >r r@ pv-def-chars chars + swap dup >r chars move r> r> pv-def-length +! ;
-: pv-version-suffix ( def -- )
-  dup pv-def-version @ ?dup if s" '" 3 pick pv-def+ pv-decimal rot pv-def+ else drop then ;
+: pv-suffix+ ( def k -- ) s" '" 3 pick pv-def+ pv-decimal rot pv-def+ ;
+: pv-version-suffix ( def -- ) dup pv-def-version @ ?dup if pv-suffix+ else drop then ;
 : pv-ir-name! ( def -- )
   0 over pv-def-length ! pv-token-text 2 pick pv-def+ dup pv-def-chars pv-fold
   pv-version-suffix ;
@@ -414,7 +414,8 @@ end-structure
 : pv-out-text ( c-addr u -- )
   pv-out-line s\" .\q " pv-append pv-append s\" \q" pv-append pv-done ;
 : pv-dot-quote ( -- ) pv-inside pv-quoted pv-out-text ;
-: pv-type? ( c-addr u -- flag ) pv-entry-of if pv-entry-text s" type" compare 0= else false then ;
+: pv-type? ( c-addr u -- flag )
+  pv-entry-of if pv-entry-text s" type" compare 0= else false then ;
 \ The token after S" must be TYPE; it is the current token while the
 \ design checks it, S" before and after.
 : pv-then-type ( -- )
@@ -429,8 +430,7 @@ end-structure
   dup pv-entry-kind @ case
     pv-kind-action of pv-entry-datum @ execute endof
     pv-kind-reserved of drop pv-why-not-ir pv-fail endof
-    pv-kind-output of pv-out-word endof
-    swap pv-prim endcase ;
+    pv-kind-output of pv-out-word endof swap pv-prim endcase ;
 
 \ Definitions. The location of `word` is the colon's; of `constant` and
 \ its `end`, the constant's name; of a word's `end`, the semicolon.
@@ -444,11 +444,10 @@ end-structure
 \ A kept token's instruction: there are only three kinds.
 : pv-kept-lit-text ( kept -- )
   s" lit " pv-append dup pv-kept-value @ swap pv-kept-high @ pv-number-d ;
+: pv-kept-call-text ( kept -- ) s" call " pv-append pv-kept-value @ pv-call-text ;
 : pv-kept-text ( kept -- )
-  dup pv-kept-kind @ case
-    pv-kept-prim of pv-kept-value @ pv-prim-text endof
-    pv-kept-lit of pv-kept-lit-text endof
-    pv-kept-call of s" call " pv-append pv-kept-value @ pv-call-text endof
+  dup pv-kept-kind @ case pv-kept-prim of pv-kept-value @ pv-prim-text endof
+    pv-kept-lit of pv-kept-lit-text endof pv-kept-call of pv-kept-call-text endof
     true abort" pv: kept kind" endcase ;
 : pv-replay ( kept -- ) 1 pv-indent dup pv-kept-text pv-kept-pos @ pv-done-at ;
 : pv-replay-all ( -- )

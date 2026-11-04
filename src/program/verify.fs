@@ -77,7 +77,8 @@ set-current
 : pv-not-ours ( index -- ) drop pv-why-interrupted pv-fail-here ;
 \ A host word an action reads after its own token (TYPE after S"): it
 \ too must be the word the table knows.
-: pv-shift-host ( c-addr u entry -- ) >r pv-host r> pv-entry-host @ <> pv-why-replaced pv-?fail ;
+: pv-shift-host ( c-addr u entry -- )
+  >r pv-host r> pv-entry-host @ <> pv-why-replaced pv-?fail ;
 pv-design: pv-shift
 ' pv-shift-prefix pv-shift pv-design-prefix !
 ' pv-shift-order pv-shift pv-design-order !

@@ -41,7 +41,7 @@
 \ stacks and the frames of a run), which irx-clear sets up in every
 \ context, and irx-output (the output sink); and the stores irx-results,
 \ irx-keywords, irx-prims and irx-outs and the dispatch tables irx-modes,
-\ irx-top-actions, irx-body-actions and irx-actions, all filled while this
+\ irx-top-actions, irx-body-actions, irx-actions and irx-printers, all filled while this
 \ file loads and never changed afterwards. One load or run at a time in
 \ each context. A program loaded in one context can be run only there.
 
@@ -539,7 +539,8 @@ max-n 1+ irx-width constant irx-cell-digits
   dup irx-text-size irx-texts# @ + irx-texts-capacity > if 2drop irx-full false exit then
   irx-texts# @ >r dup irx-text-size irx-texts# +!
   r@ irx-text-record 2dup ! cell+ swap chars move r> true ;
-: irx-text-op ( offset -- ) irx-k-out irx-o-text irx-add if irx-op irx-op-end ! else drop then ;
+: irx-text-op ( offset -- )
+  irx-k-out irx-o-text irx-add if irx-op irx-op-end ! else drop then ;
 : irx-body-text ( c-addr u -- )
   irx-new? irx-indent irx-state irx-s-indent ! irx-text-start nip /string
   irx-closing-quote 0= if irx-malformed exit then irx-text-location
@@ -767,26 +768,32 @@ max-n 1+ irx-width constant irx-cell-digits
 : irx-say-number ( n -- ) ['] irx-signed-text irx-in-decimal irx-say-blank ;
 : irx-say-unsigned ( u -- ) ['] irx-unsigned-text irx-in-decimal irx-say-blank ;
 : irx-say-blanks ( n -- ) 0 max 0 ?do irx-say-blank loop ;
-: irx-say-depth ( n -- ) s" <" irx-say ['] irx-unsigned-text irx-in-decimal s" > " irx-say ;
+: irx-say-depth ( n -- )
+  s" <" irx-say ['] irx-unsigned-text irx-in-decimal s" > " irx-say ;
 : irx-say-stack ( -- )
   irx-items dup irx-say-depth irx-data irx-held dup rot 9 min - ?do
     i irx-data irx-stack-cell @ irx-say-number loop ;
 : irx-takes? ( kind -- flag )
   dup irx-o-dot = over irx-o-udot = or over irx-o-emit = or swap irx-o-spaces = or ;
-: irx-print ( op kind -- )
-  case
-    irx-o-dot of drop irx-data irx-pop irx-say-number endof
-    irx-o-udot of drop irx-data irx-pop irx-say-unsigned endof
-    irx-o-cr of drop 10 irx-say-byte endof
-    irx-o-emit of drop irx-data irx-pop irx-say-byte endof
-    irx-o-space of drop irx-say-blank endof
-    irx-o-spaces of drop irx-data irx-pop irx-say-blanks endof
-    irx-o-dots of drop irx-say-stack endof
-    irx-o-text of irx-op-end @ irx-text-at irx-say endof
-    nip endcase ;
+\ What each kind of out line prints ( op -- ), by kind.
+: irx-data-pop ( -- x ) irx-data irx-pop ;
+: irx-print-dot ( op -- ) drop irx-data-pop irx-say-number ;
+: irx-print-udot ( op -- ) drop irx-data-pop irx-say-unsigned ;
+: irx-print-cr ( op -- ) drop 10 irx-say-byte ;
+: irx-print-emit ( op -- ) drop irx-data-pop irx-say-byte ;
+: irx-print-space ( op -- ) drop irx-say-blank ;
+: irx-print-spaces ( op -- ) drop irx-data-pop irx-say-blanks ;
+: irx-print-stack ( op -- ) drop irx-say-stack ;
+: irx-print-text ( op -- ) irx-op-end @ irx-text-at irx-say ;
+' irx-print-text irx-o-text 1+ irx-table irx-printers
+: irx-printer! ( xt kind -- ) irx-printers irx-entry! ;
+' irx-print-dot irx-o-dot irx-printer!      ' irx-print-udot irx-o-udot irx-printer!
+' irx-print-cr irx-o-cr irx-printer!        ' irx-print-emit irx-o-emit irx-printer!
+' irx-print-space irx-o-space irx-printer!  ' irx-print-spaces irx-o-spaces irx-printer!
+' irx-print-stack irx-o-dots irx-printer!
 : irx-do-out ( op -- result )
   dup irx-op-arg @ dup irx-takes? irx-items 0= and if 2drop irx-underflow exit then
-  irx-print irx-going ;
+  cells irx-printers + @ execute irx-going ;
 
 : irx-action! ( xt kind -- ) irx-actions irx-entry! ;
 ' irx-do-prim irx-k-prim irx-action!      ' irx-do-lit irx-k-lit irx-action!

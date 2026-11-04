@@ -1631,8 +1631,8 @@ reason = "the literal -2147483649, below -2^31, is accepted"
 [[fault]]
 id = "pv-hex-as-decimal"
 file = "src/program/verify-semantics.fs"
-old = '''    [char] $ of 1 /string 16 8 pv-signed endof'''
-new = '''    [char] $ of 1 /string 10 8 pv-signed endof'''
+old = '''[char] $ of 16 8 endof'''
+new = '''[char] $ of 10 8 endof'''
 test = "$GFORTH tests/program/verify.fs"
 reason = "A3: $10 is read in decimal, or refused for its hexadecimal letters"
 
@@ -1649,8 +1649,8 @@ reason = "A3: 'a' is read as 98"
 [[fault]]
 id = "pv-versions-unnamed"
 file = "src/program/verify-semantics.fs"
-old = '''  dup pv-def-version @ ?dup if s" '" 3 pick pv-def+ pv-decimal rot pv-def+ else drop then ;'''
-new = '''  drop ;'''
+old = ''': pv-version-suffix ( def -- ) dup pv-def-version @ ?dup if pv-suffix+ else drop then ;'''
+new = ''': pv-version-suffix ( def -- ) drop ;'''
 test = "$GFORTH tests/program/verify.fs"
 reason = "A1: a version gets no 'k, so its IR name is its first version's (refused by the collision check, or, without it, calls and Lean's lookup would reach the wrong version)"
 quick = true
@@ -1757,8 +1757,8 @@ reason = "A2: the IR interpreter's . takes no cell when there is none, where the
 [[fault]]
 id = "irx-dot-unsigned"
 file = "src/program/ir-run.fs"
-old = '''    irx-o-dot of drop irx-data irx-pop irx-say-number endof'''
-new = '''    irx-o-dot of drop irx-data irx-pop irx-say-unsigned endof'''
+old = ''': irx-print-dot ( op -- ) drop irx-data-pop irx-say-number ;'''
+new = ''': irx-print-dot ( op -- ) drop irx-data-pop irx-say-unsigned ;'''
 test = "$GFORTH tests/program/ir-run.fs"
 reason = "A2: the IR interpreter prints . of a negative cell unsigned, unlike both Gforths"
 
