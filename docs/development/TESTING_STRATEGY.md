@@ -242,7 +242,7 @@ average 1–8). *Before*: commit `8148f3f`, before these changes. *No cache*:
 | `test-binder-domains-differential` | check | 3.5 | 4.0 | 0.3 |
 | `test-universe-scope-differential` | check | 2.6 | 3.0 | 1.2 |
 | `test-depth-differential`, `test-depth-fed-differential` (plan task 6.2.0, 2026-11-04; listed first in `check`) | check | — | about 40 each | about 40 each |
-| `test-depth-deep-differential` (not in `check`) | — | — | about 1,000 | about 1,000 |
+| `test-depth-deep-differential` (not in `check`) | — | — | about 770 | about 770 |
 | `test-program-differential` | check | 0.8 | 0.9 | 0.1 |
 | `test-program-stack-differential` | check | 1.2 | 1.5 | 0.2 |
 | `test-program-values-differential` | check | 0.9 | 1.1 | 0.2 |
