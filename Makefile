@@ -743,14 +743,18 @@ print:
 # make test and every pinned-Lean comparison of make test-differential with the
 # log on in every context (tests/support/gforth-log.sh), then on and full after 5
 # records, then make test with 2 term copies, 1 level copy and 3 open rules.
-# About ten minutes; not part of make check.
-LOG_GFORTH = $(if $(findstring /,$(GFORTH)),$(abspath $(GFORTH)),$(shell command -v $(GFORTH)))
+# About ten minutes; not part of make check. The chain is: the strict wrapper
+# (GFORTH, always) runs LEANFORTH_GFORTH, which the inner make sets to the log
+# wrapper (named by its absolute path, as tests run from other folders too),
+# which runs LF_GFORTH, the real Gforth: never the strict wrapper, or the two
+# would call each other (gforth-log.sh refuses a second level).
+LOG_GFORTH = $(if $(findstring /,$(LEANFORTH_GFORTH)),$(abspath $(LEANFORTH_GFORTH)),$(shell command -v $(LEANFORTH_GFORTH)))
 LOG_RUN = LF_GFORTH=$(LOG_GFORTH) LF_LOG_LEVEL=2
+LOG_WRAPPER = GFORTH=$(CURDIR)/tests/support/gforth-log.sh
 check-log-identity:
-	$(LOG_RUN) $(MAKE) test test-differential GFORTH=tests/support/gforth-log.sh
-	$(LOG_RUN) LF_LOG_RECORDS=5 $(MAKE) test test-differential GFORTH=tests/support/gforth-log.sh
-	$(LOG_RUN) LF_LOG_TERMS=2 LF_LOG_LEVELS=1 LF_LOG_MARKS=3 $(MAKE) test \
-	GFORTH=tests/support/gforth-log.sh
+	$(LOG_RUN) $(MAKE) test test-differential $(LOG_WRAPPER)
+	$(LOG_RUN) LF_LOG_RECORDS=5 $(MAKE) test test-differential $(LOG_WRAPPER)
+	$(LOG_RUN) LF_LOG_TERMS=2 LF_LOG_LEVELS=1 LF_LOG_MARKS=3 $(MAKE) test $(LOG_WRAPPER)
 
 .PHONY: test-log print check-log-identity
 test: test-log
