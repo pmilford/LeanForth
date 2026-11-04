@@ -2252,4 +2252,280 @@ theorem dot_takes_a_cell :
 
 end ProgramIR
 
-def main : IO Unit := ProgramIR.main
+-- Part 8. Stage SHA-2 of the SHA-256 flagship (docs/project/PLAN_DRAFT.md;
+-- ADR 0019 Amendment 1, A3): the helper words of src/program/sha-words.fs
+-- in the IR, as the program words write them (tests/program/ir/sha-words.ir),
+-- proved equal to FIPS 180-4's functions, copied verbatim from
+-- tests/reference/sha256-spec.lean, for every cell width of at least 33
+-- bits, every 32-bit word (a cell holding its number x.toNat), every count
+-- below 32 and every stack below; and wrong variants refuted.
+
+namespace Sha256Spec
+-- BEGIN VERBATIM tests/reference/sha256-spec.lean 42-61
+abbrev Word := BitVec 32
+
+/-- Section 3.2: the right shift SHR^n(x) = x >> n, for 0 ≤ n < 32. -/
+def SHR (n : Nat) (x : Word) : Word := x >>> n
+
+/-- Section 3.2: the rotate right (circular right shift)
+ROTR^n(x) = (x >> n) ∨ (x << 32 - n), for 0 ≤ n < 32. -/
+def ROTR (n : Nat) (x : Word) : Word := (x >>> n) ||| (x <<< (32 - n))
+
+/-! ## Part 2. Functions and constants -/
+
+/-- Section 4.1.2, (4.2): Ch(x, y, z) = (x ∧ y) ⊕ (¬x ∧ z). -/
+def Ch (x y z : Word) : Word := (x &&& y) ^^^ (~~~x &&& z)
+
+/-- Section 4.1.2, (4.3): Maj(x, y, z) = (x ∧ y) ⊕ (x ∧ z) ⊕ (y ∧ z). -/
+def Maj (x y z : Word) : Word := (x &&& y) ^^^ (x &&& z) ^^^ (y &&& z)
+
+/-- Section 4.1.2, (4.4): Σ0(x) = ROTR^2(x) ⊕ ROTR^13(x) ⊕ ROTR^22(x).
+(Lean reserves the letter Σ, hence the spelled-out names.) -/
+def bigSigma0 (x : Word) : Word := ROTR 2 x ^^^ ROTR 13 x ^^^ ROTR 22 x
+-- END VERBATIM
+
+/-- ROTR's number: the two shifts or'ed, cut to 32 bits. -/
+theorem ROTR_toNat (n : Nat) (x : Word) :
+    (ROTR n x).toNat = (x.toNat >>> n ||| x.toNat <<< (32 - n)) % 2 ^ 32 := by
+  have small : x.toNat >>> n < 2 ^ 32 := by
+    have := (x >>> n).isLt
+    simpa using this
+  simp only [ROTR, BitVec.toNat_or, BitVec.toNat_ushiftRight, BitVec.toNat_shiftLeft]
+  rw [Nat.or_mod_two_pow, Nat.mod_eq_of_lt small]
+
+/-- The heart of 32-bit masking on a wide cell: on any width w ≥ 32, the
+right shift or'ed with the left shift cut to w bits, then and'ed with
+2^32 - 1, is ROTR. -/
+theorem rotr_masked (w n : Nat) (x : Word) (wide : 32 ≤ w) :
+    (x.toNat >>> n ||| (x.toNat <<< (32 - n)) % 2 ^ w) &&& (2 ^ 32 - 1) =
+      (ROTR n x).toNat := by
+  rw [ROTR_toNat, Nat.and_two_pow_sub_one_eq_mod, Nat.or_mod_two_pow, Nat.or_mod_two_pow,
+    Nat.mod_mod_of_dvd _ (Nat.pow_dvd_pow 2 wide)]
+end Sha256Spec
+
+namespace ProgramIR
+open Sha256Spec (Word ROTR Ch Maj bigSigma0 rotr_masked)
+
+namespace Cells
+variable (c : Cells)
+
+theorem pow_split : 2 ^ c.bits = 2 * 2 ^ (c.bits - 1) := by
+  have := c.two_le
+  have e : c.bits = (c.bits - 1) + 1 := by omega
+  conv => lhs; rw [e]
+  rw [Nat.pow_succ]
+  omega
+
+theorem modulus_eq : c.modulus = ((2 ^ c.bits : Nat) : Int) := by
+  have := c.pow_split
+  simp only [modulus, half]
+  omega
+
+/-- Cells of at least 33 bits hold every number below 2^32. -/
+theorem big_half (wide : 33 ≤ c.bits) : (4294967296 : Int) ≤ c.half := by
+  have h : 2 ^ 32 ≤ 2 ^ (c.bits - 1) := Nat.pow_le_pow_right (by decide) (by omega)
+  have e : (2 : Nat) ^ 32 = 4294967296 := by decide
+  simp only [half]
+  omega
+
+theorem fits_word (wide : 33 ≤ c.bits) {u : Int} (h0 : 0 ≤ u) (h1 : u < 4294967296) :
+    c.Fits u := by
+  have := c.big_half wide
+  simp only [Fits, min, max]
+  omega
+
+theorem signed_word (wide : 33 ≤ c.bits) {u : Nat} (h : u < 4294967296) :
+    c.signed u = u := by
+  have := c.big_half wide
+  have hmax : c.max = c.half - 1 := rfl
+  simp only [signed]
+  split <;> omega
+
+theorem unsigned_nat (u : Nat) : c.unsigned u = u := by
+  simp only [unsigned]
+  split <;> omega
+
+theorem unsigned_signed {u : Nat} (h : u < 2 ^ c.bits) : c.unsigned (c.signed u) = u := by
+  have hm := c.modulus_eq
+  have hmax : c.max = c.half - 1 := rfl
+  have := c.two_le_half
+  simp only [unsigned, signed]
+  split <;> split <;> omega
+
+theorem wrap_sub_one (a : Int) : c.wrap (c.wrap a - 1) = c.wrap (a - 1) := by
+  simp only [wrap]
+  have hq := Int.mul_ediv_add_emod (a - c.min) c.modulus
+  have e : (a - c.min) % c.modulus + c.min - 1 - c.min =
+      a - 1 - c.min + c.modulus * -((a - c.min) / c.modulus) := by
+    rw [Int.mul_neg]
+    omega
+  rw [e, Int.add_mul_emod_self_left]
+
+/-- `65536 DUP * 1-` is 2^32 - 1 on every cell of at least 33 bits: on 33
+bits 2^32 wraps to the smallest cell, and 1- wraps it back. -/
+theorem mask_value (wide : 33 ≤ c.bits) :
+    c.wrap (c.wrap (65536 * 65536) - 1) = 4294967295 := by
+  rw [c.wrap_sub_one, show (65536 * 65536 : Int) - 1 = 4294967295 by omega]
+  exact c.wrap_of_fits (c.fits_word wide (by omega) (by omega))
+
+end Cells
+
+section Sha
+open Instr
+
+/-- src/program/sha-words.fs, in source order. -/
+def shaMaskBody : List Instr := [lit 65536, prim .dup, prim .mul, prim .oneMinus]
+def shaW32Body : List Instr := [call "sha-mask", prim .and]
+def shaShrBody : List Instr := [prim .rshift]
+def shaRotrBody : List Instr :=
+  [prim .twoDup, prim .rshift, prim .negRot, lit 32, prim .swap, prim .sub, prim .lshift,
+   prim .or, call "sha-w32"]
+def shaChBody : List Instr := [prim .tuck, prim .xor, prim .rot, prim .and, prim .xor]
+def shaMajBody : List Instr :=
+  [prim .toR, prim .twoDup, prim .and, prim .negRot, prim .or, prim .fromR, prim .and,
+   prim .or]
+def shaBigSigma0Body : List Instr :=
+  [prim .dup, lit 2, call "sha-rotr", prim .over, lit 13, call "sha-rotr", prim .xor,
+   prim .swap, lit 22, call "sha-rotr", prim .xor]
+
+def shaProgram : Program := [
+  ("sha-mask", .constant shaMaskBody),
+  ("sha-w32", .word shaW32Body),
+  ("sha-shr", .word shaShrBody),
+  ("sha-rotr", .word shaRotrBody),
+  ("sha-ch", .word shaChBody),
+  ("sha-maj", .word shaMajBody),
+  ("sha-big-sigma0", .word shaBigSigma0Body)]
+
+end Sha
+
+theorem lookup_shaMask : lookup shaProgram "sha-mask" = some (.constant shaMaskBody) := rfl
+theorem lookup_shaW32 : lookup shaProgram "sha-w32" = some (.word shaW32Body) := rfl
+theorem lookup_shaRotr : lookup shaProgram "sha-rotr" = some (.word shaRotrBody) := rfl
+theorem lookup_shaCh : lookup shaProgram "sha-ch" = some (.word shaChBody) := rfl
+theorem lookup_shaMaj : lookup shaProgram "sha-maj" = some (.word shaMajBody) := rfl
+theorem lookup_shaBigSigma0 :
+    lookup shaProgram "sha-big-sigma0" = some (.word shaBigSigma0Body) := rfl
+
+theorem shaProgram_wellFormed : WellFormed shaProgram = true := by decide
+
+/-- Unfold known IR code, with the local facts (fits, counts) as rewrites. -/
+macro "sha_simp" : tactic => `(tactic| simp only [run_prim, run_lit, run_exit, run_nil,
+  ↓reduceIte, and_self, step.eq_1, step.eq_3, step.eq_4, step.eq_6, step.eq_7, step.eq_8,
+  step.eq_10, step.eq_11, step.eq_14, step.eq_21, step.eq_15, step.eq_30, step.eq_31,
+  step.eq_32, step.eq_34, step.eq_39, step.eq_40, *])
+
+theorem shaMask_value (c : Cells) (p : Program) (fuel : Nat) (wide : 33 ≤ c.bits) :
+    run c p fuel shaMaskBody ⟨[], []⟩ = .next ⟨[4294967295], []⟩ := by
+  have f : c.Fits 65536 := c.fits_word wide (by omega) (by omega)
+  simp only [shaMaskBody]
+  sha_simp
+  rw [c.mask_value wide]
+
+theorem shaW32_returns (c : Cells) (fuel : Nat) (wide : 33 ≤ c.bits) (pos : 0 < fuel)
+    (v : Int) (d : List Int) :
+    (run c shaProgram fuel shaW32Body ⟨v :: d, []⟩).returned =
+      some (bitwise c (· &&& ·) v 4294967295 :: d) := by
+  simp only [shaW32Body]
+  rw [run_call_constant c shaProgram lookup_shaMask (shaMask_value c _ _ wide) pos]
+  sha_simp
+  rfl
+
+/-- The arithmetic of `sha-rotr`: the right shift or'ed with the left shift
+cut to the cell, and'ed with 2^32 - 1, is ROTR on every cell of at least
+33 bits (the proof idea of the amendment's probe 7, for every width). -/
+theorem rotr_value (c : Cells) (wide : 33 ≤ c.bits) (x : Word) (n : Nat) (hn : n < 32) :
+    bitwise c (· &&& ·)
+      (bitwise c (· ||| ·) (c.signed (c.unsigned (x.toNat : Int) >>> (n : Int).toNat))
+        (c.signed ((c.unsigned (x.toNat : Int) <<< (32 - (n : Int)).toNat) % 2 ^ c.bits)))
+      4294967295 = ((ROTR n x).toNat : Int) := by
+  have hx := x.isLt
+  have e32 : (2 : Nat) ^ 32 = 4294967296 := by decide
+  have count : (32 - (n : Int)).toNat = 32 - n := by omega
+  have hw : 2 ^ 32 ≤ 2 ^ c.bits := Nat.pow_le_pow_right (by decide) (by omega)
+  have right : x.toNat >>> n < 4294967296 := by
+    rw [Nat.shiftRight_eq_div_pow]
+    exact Nat.lt_of_le_of_lt (Nat.div_le_self _ _) (by omega)
+  have left : (x.toNat <<< (32 - n)) % 2 ^ c.bits < 2 ^ c.bits :=
+    Nat.mod_lt _ (Nat.two_pow_pos _)
+  have both : x.toNat >>> n ||| (x.toNat <<< (32 - n)) % 2 ^ c.bits < 2 ^ c.bits :=
+    Nat.or_lt_two_pow (by omega) left
+  have result : (ROTR n x).toNat < 4294967296 := by
+    have := (ROTR n x).isLt
+    omega
+  have masked : (x.toNat >>> n ||| (x.toNat <<< (32 - n)) % 2 ^ c.bits) &&& 4294967295 =
+      (ROTR n x).toNat := by
+    have := rotr_masked c.bits n x (by omega)
+    rw [e32] at this
+    simpa using this
+  simp only [bitwise, c.unsigned_nat, count, Int.toNat_natCast, c.signed_word wide right,
+    c.unsigned_signed left, c.unsigned_signed both]
+  rw [show c.unsigned 4294967295 = 4294967295 from c.unsigned_nat 4294967295, masked,
+    c.signed_word wide result]
+
+theorem shaRotr_returns (c : Cells) (fuel : Nat) (wide : 33 ≤ c.bits) (enough : 2 ≤ fuel)
+    (x : Word) (k : Int) (n : Nat) (hk : k = n) (hn : n < 32) (d : List Int) :
+    (run c shaProgram fuel shaRotrBody ⟨k :: (x.toNat : Int) :: d, []⟩).returned =
+      some (((ROTR n x).toNat : Int) :: d) := by
+  subst hk
+  have f32 : c.Fits 32 := c.fits_word wide (by omega) (by omega)
+  have c0 : (0 : Int) ≤ n := by omega
+  have cb : (n : Int) < c.bits := by omega
+  have hw : c.wrap (32 - (n : Int)) = 32 - n :=
+    c.wrap_of_fits (c.fits_word wide (by omega) (by omega))
+  have g0 : (0 : Int) ≤ 32 - n := by omega
+  have g1 : 32 - (n : Int) < c.bits := by omega
+  simp only [shaRotrBody]
+  sha_simp
+  rw [run_call_word c shaProgram lookup_shaW32 (shaW32_returns c _ wide (by omega) _ _)
+    (by omega)]
+  simp only [run_nil, Result.returned, rotr_value c wide x n hn]
+
+/-- `sha-rotr` leaves FIPS 180-4's ROTR^n(x) for every 32-bit word x and
+count n below 32, on every cell of at least 33 bits, and keeps the cells
+below and the caller's return stack. -/
+theorem shaRotr_correct (c : Cells) (fuel : Nat) (wide : 33 ≤ c.bits) (enough : 3 ≤ fuel)
+    (x : Word) (n : Nat) (hn : n < 32) (d rs : List Int) :
+    callWord c shaProgram fuel "sha-rotr" ⟨(n : Int) :: (x.toNat : Int) :: d, rs⟩ =
+      .next ⟨((ROTR n x).toNat : Int) :: d, rs⟩ :=
+  callWord_of_returns lookup_shaRotr
+    (shaRotr_returns c _ wide (by omega) x n n rfl hn d) (by omega)
+
+/-- A wrong variant, refuted: `sha-rotr` without its mask leaves the left
+shift's bits above bit 31 in the cell (x = 2^31, n = 1, 64-bit cells). -/
+def unmaskedRotrProgram : Program :=
+  [("sha-rotr", .word [.prim .twoDup, .prim .rshift, .prim .negRot, .lit 32, .prim .swap,
+    .prim .sub, .prim .lshift, .prim .or])]
+
+/-- What it leaves for x = 2^31, n = 1: 2^62 + 2^30, not ROTR's 2^30. -/
+theorem unmasked_rotr_value :
+    callWord cells64 unmaskedRotrProgram 1 "sha-rotr" ⟨[1, 2147483648], []⟩ =
+      .next ⟨[4611686019501129728], []⟩ := by
+  have bits : cells64.bits = 64 := rfl
+  have low : cells64.min = -9223372036854775808 := by decide
+  have high : cells64.max = 9223372036854775807 := by decide
+  have size : cells64.modulus = 18446744073709551616 := by decide
+  have f : cells64.Fits 32 := by simp only [Cells.Fits, low, high]; decide
+  simp [callWord, run_call, unmaskedRotrProgram, lookup, run_prim, run_lit _ _ _ _ _ _ _ f,
+    step, bitwise, Cells.wrap, Cells.unsigned, Cells.signed, bits, low, high, size]
+
+theorem unmasked_rotr_refuted :
+    ¬ ∀ (x : Word) (n : Nat), n < 32 →
+      callWord cells64 unmaskedRotrProgram 1 "sha-rotr" ⟨[(n : Int), (x.toNat : Int)], []⟩ =
+        .next ⟨[((ROTR n x).toNat : Int)], []⟩ := by
+  intro claim
+  have bad := claim 2147483648 1 (by decide)
+  have word : ((2147483648 : Word).toNat : Int) = 2147483648 := by decide
+  have rotated : ((ROTR 1 (2147483648 : Word)).toNat : Int) = 1073741824 := by decide
+  rw [word, rotated, show ((1 : Nat) : Int) = 1 from rfl, unmasked_rotr_value] at bad
+  simp at bad
+
+#print axioms rotr_value
+#print axioms shaRotr_correct
+#print axioms unmasked_rotr_refuted
+
+end ProgramIR
+
+def main : IO Unit := do
+  ProgramIR.main
+  IO.print (ProgramIR.render "src/program/sha-words.fs" ProgramIR.shaProgram)
