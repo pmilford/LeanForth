@@ -39,6 +39,7 @@ anything, and it passes no review gate. Untrusted tooling.
 """
 import argparse
 import datetime
+import functools
 import hashlib
 import json
 import os
@@ -361,6 +362,7 @@ def lean_agreement(lean, lines):
 
 # --------------------------------------------------------------------- reading
 
+@functools.lru_cache(maxsize=None)
 def validator(version):
     return Validator(read_json(SCHEMAS[version]))
 
@@ -487,7 +489,8 @@ def main():
         Path(args.markdown).write_text(markdown(receipt), encoding="utf-8")
         return 0
     if args.action == "verify" and len(args.receipts) != 1 or not args.receipts:
-        parser.error(f"{args.action} needs {'one receipt' if args.action == 'verify' else 'receipts'}")
+        parser.error("verify needs one receipt" if args.action == "verify" else
+                     "validate needs receipts")
     status = 0
     for path in args.receipts:
         receipt, problems = read_file(path)

@@ -170,7 +170,7 @@ error). Each line is `FILE: CODE: PATH: MESSAGE`:
 
 | Code | Meaning |
 | --- | --- |
-| `not-strict-json` | The file is not strict JSON (see below); nothing else is checked |
+| `not-strict-json` | The file cannot be read as UTF-8 or is not strict JSON (see below); nothing else is checked |
 | `unknown-version` | `schemaVersion` is missing or names no known schema |
 | `schema` | The schema refuses the receipt; PATH is the JSON path, such as `$.run.label` |
 | `rule` | A rule beyond JSON Schema fails |
@@ -207,7 +207,8 @@ and so are `NaN` and `Infinity`; any number with a fraction or an exponent
 would be read lossily); integers outside I-JSON's exact range
 ±(2^53 − 1); lone surrogates; nesting deeper than 64 levels (a receipt
 needs 5); text after the document and a byte-order mark. `true` is not the
-number 1.
+number 1. No size limit is enforced yet: a receipt with a 5 MB note is
+read.
 
 `test_receipts.py` validates every example, checks that each invalid
 example, each small mutation of the receipts (at least one for every rule
