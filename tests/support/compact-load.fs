@@ -137,12 +137,13 @@ create compact-maps ' name-map , ' level-map , ' expr-map , ' decl-map , ' name-
 : handlers-set ( -- )
   kind-count 0 do compact-handlers i cells + @ i compact-export export-handler ! loop ;
 : load-start ( log2 -- outcome )
-  compact-tier tier-init dup ok? 0= if exit then drop
+  12 compact-tier tier-init dup ok? 0= if nip exit then drop
+  compact-tier tier-exprs cons-table htab-presize dup ok? 0= if exit then drop
   compact-export export-init dup ok? 0= if exit then drop handlers-set
   maps-init dup ok? 0= if exit then drop maps-start ;
 : .load-error ( -- )
   compact-export export-error 2>r 2>r ." line " . ." field " 2r> type ."  why " 2r> type cr ;
-\ Load and seal the export named c-addr u, its tables starting at 2^log2
+\ Load and seal the export named c-addr u, its expression table starting at 2^log2
 \ slots: ok, or the failing outcome after printing where.
 : compact-load ( c-addr u log2 -- outcome )
   load-start dup ok? 0= if nip nip exit then drop

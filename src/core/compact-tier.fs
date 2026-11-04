@@ -83,12 +83,13 @@ end-structure
 \ A builder's failure with its three fields: -1 in the result's place.
 : fail3 ( x y z outcome -- -1 outcome ) nip nip nip no-result ;
 
-\ Tables of one check per tag, ( cons -- under? valid? ): check-table
-\ makes one, check-fill sets every entry, check! one.
+\ Tables of one check per tag: check-table makes one, check-fill sets
+\ every entry, check! one; check-run runs the check of tag on the
+\ arguments below it.
 : check-table ( "name" -- ) create head-tag-mask 1+ cells allot ;
 : check-fill ( xt table -- ) head-tag-mask 1+ 0 do 2dup i cells + ! loop 2drop ;
 : check! ( xt tag table -- ) swap cells + ! ;
-: check-run ( cons tag table -- under? valid? ) swap cells + @ execute ;
+: check-run ( i*x tag table -- j*x ) swap cells + @ execute ;
 
 begin-structure /tier
   /cons +field tier-names

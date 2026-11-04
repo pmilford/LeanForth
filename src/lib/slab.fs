@@ -10,10 +10,11 @@
 \   ALLOCATE or RESIZE leaves the slab unchanged (Forth-2012 RESIZE keeps
 \   the old region), never a crash;
 \ - invalid for a corrupted or poisoned slab, a negative size or a stale
-\   mark: the checked words test the shape (unit and limit, fixed by
-\   slab-init and sealed by a check value), 0 <= count <= capacity <=
-\   limit, a block once there is capacity, and a generation >= 0 before
-\   they form an address.
+\   mark: the checked words test, before they form an address, a check
+\   value sealing the shape (unit and limit, fixed by slab-init) and the
+\   block and its capacity (resealed whenever the block grows), 0 <= count
+\   <= capacity, and a generation >= 0. So corrupting any one of those
+\   fields fails closed.
 \
 \ Units are numbered from 0. Addresses: slab-at gives a unit's address,
 \ valid only until the next word that may grow the slab (slab-room,
@@ -105,24 +106,23 @@ lf-lib set-current
 : slab-generation ( slab -- n ) slab-epoch @ ;
 lf-lib-private set-current
 
-\ The shape and its seal.
-: slab-shape@ ( slab -- unit limit ) dup slab-unit swap slab-limit ;
-: >slab-seal ( unit limit -- x ) xor invert ;
-: slab-sealed? ( slab -- flag ) dup slab-shape@ >slab-seal swap slab-seal @ = ;
+\ The seal: a check value of the shape, the block and its capacity. Every
+\ word that changes one of them reseals.
+: slab-check ( slab -- x )
+  dup slab-unit over slab-limit xor over slab-block @ xor swap slab-capacity xor invert ;
+: slab-reseal ( slab -- ) dup slab-check swap slab-seal ! ;
+: slab-sealed? ( slab -- flag ) dup slab-check swap slab-seal @ = ;
+: slab-block! ( addr units slab -- ) tuck slab-room-units ! tuck slab-block ! slab-reseal ;
 \ A sound shape: a positive unit and 0 <= limit, small enough that limit
 \ units fit in a cell of address units.
 : slab-plan? ( unit limit -- flag )
   over 0> if swap max-n swap / upto? else 2drop false then ;
-\ 0 <= count <= capacity <= limit.
-: slab-sizes? ( slab -- flag )
-  dup slab-count over slab-capacity upto? swap dup slab-capacity swap slab-limit upto? and ;
-: slab-block? ( slab -- flag ) dup slab-block @ 0<> swap slab-capacity 0= or ;
 
 lf-lib set-current
-\ Whether the slab may be used: sound and sealed shape, sizes in order, a
-\ block once there is capacity, not poisoned.
+\ Whether the slab may be used: not poisoned, sealed, 0 <= count <=
+\ capacity.
 : slab-live? ( slab -- flag )
-  dup slab-generation 0< 0= over slab-sealed? and over slab-sizes? and swap slab-block? and ;
+  dup slab-generation 0< 0= over slab-sealed? and swap dup slab-count swap slab-capacity upto? and ;
 \ Whether unit i is in use, 0 <= i < count, in a live slab.
 : slab-valid? ( i slab -- flag )
   dup slab-live? if slab-count 0 swap within else 2drop false then ;
@@ -140,7 +140,7 @@ lf-lib set-current
 \ zeroes the record.
 : slab-init ( unit limit slab -- outcome )
   dup /slab erase >r 2dup slab-plan? 0= if r> drop 2drop outcome-invalid exit then
-  2dup >slab-seal r@ slab-seal ! r@ slab-most ! r> slab-unit-size ! outcome-ok ;
+  r@ slab-most ! r@ slab-unit-size ! r> slab-reseal outcome-ok ;
 lf-lib-private set-current
 : slab-release ( addr -- ) ?dup if free drop then ;
 lf-lib set-current
@@ -150,7 +150,6 @@ lf-lib-private set-current
 \ Growth. ALLOCATE the first block, RESIZE the others; on failure the old
 \ block stays as it was and the result is full.
 : slab-heap ( u addr -- addr' ior ) ?dup if swap resize else allocate then ;
-: slab-block! ( addr units slab -- ) tuck slab-room-units ! slab-block ! ;
 : slab-resize ( units slab -- outcome )
   2dup slab-unit * over slab-block @ slab-heap
   if drop 2drop outcome-full else -rot slab-block! outcome-ok then ;

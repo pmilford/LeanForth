@@ -41,7 +41,8 @@
 \     if 2drop drop else >r tuck cells values + ! r> seen htab-put then ;
 \
 \ Interface: /htab /htab-hooks htab-hooks! htab-init htab-free htab-limit
-\ htab-find htab-ready htab-put htab-remove htab-clear htab-spread
+\ htab-find htab-ready htab-put htab-remove htab-holds? htab-clear htab-presize
+\ htab-spread
 \ htab-count htab-slots htab-stats. State: none of its own; every word
 \ takes a table record, which owns its slot block until htab-free. Its
 \ memory is host-specific and never written to a file. Loads in decimal
@@ -154,6 +155,10 @@ lf-lib set-current
 : htab-ready ( htab -- outcome )
   dup htab-count 1+ 4 * over htab-slots 3 * <= if drop outcome-ok exit then
   1 over htab-grows +! dup htab-log2 @ 1+ swap htab-resize ;
+\ Grow to 2^log2 slots now, when that is more than the table has, so that
+\ a known number of insertions does not rehash: ok, or full unchanged.
+: htab-presize ( log2 htab -- outcome )
+  2dup htab-log2 @ > if htab-resize else 2drop outcome-ok then ;
 \ Rebuild at the smallest power of two at most half full (at least 16
 \ slots); ok, or full with the table unchanged.
 : htab-spread ( htab -- outcome )

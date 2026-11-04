@@ -120,7 +120,8 @@ require ./compact-levels.fs
   2dup tier-exprs cons-in? if expr-tag@ tag-let-body <> else 2drop false then ;
 
 \ The class's hooks. The key is the head (a constant's without payload),
-\ a, b and a letE's body.
+\ a, b and a letE's body; a and b are compared first, since they tell
+\ most records apart.
 : key-head ( head -- head' ) dup head-tag tag-const = if head-tag then ;
 : record-let? ( addr -- flag ) quad-head u32@ head-tag let-tag? ;
 : record-body? ( addr -- flag ) quad-head u32@ head-tag tag-let-body = ;
@@ -128,89 +129,90 @@ require ./compact-levels.fs
 : expr-hash ( addr -- h )
   dup quad-head u32@ key-head hash-fmix over quad-a u32@ hash-step over quad-b u32@ hash-step
   swap dup record-let? if body-of hash-step else drop then ;
+: heads= ( addr1 addr2 -- flag )
+  quad-head u32@ swap quad-head u32@ 2dup = if 2drop true else key-head swap key-head = then ;
 : expr-key= ( addr1 addr2 -- flag )
-  over quad-head u32@ key-head over quad-head u32@ key-head = 0= if 2drop false exit then
-  2dup quad-ab= 0= if 2drop false exit then
+  2dup quad-ab= 0= if 2drop false exit then 2dup heads= 0= if 2drop false exit then
   dup record-let? if body-of swap body-of = else 2drop true then ;
 : expr-rehash ( n cons -- h ) cons-at expr-hash ;
 : expr-same ( n key cons -- flag ) rot swap cons-at swap cons-top expr-key= ;
 : expr-span ( local cons -- units ) cons-records slab-at record-let? if 2 else 1 then ;
 ' expr-rehash ' expr-same ' expr-span expr-class cons-hooks!
 
-\ Checks of the candidate ( exprs -- under? outcome ), one per tag, where
-\ exprs is the tier's expression set: each writes the data field and says
-\ whether the candidate may be an input record (every part it refers to
-\ is one). The other sets are found from the tier around exprs.
+\ Checks of the candidate ( top exprs -- under? outcome ), one per tag:
+\ top is the candidate's address and exprs the tier's expression set.
+\ Each validates the candidate, writes its data field and says whether it
+\ may be an input record (every part it refers to is one). The other
+\ sets are found from the tier around exprs.
 : exprs>tier ( exprs -- tier ) 0 tier-exprs - ;
 : exprs>names ( exprs -- names ) exprs>tier tier-names ;
 : exprs>levels ( exprs -- levels ) exprs>tier tier-levels ;
 : exprs>tuples ( exprs -- tuples ) exprs>tier tier-tuples ;
 : exprs>texts ( exprs -- texts ) exprs>tier tier-texts ;
-: cand-body ( exprs -- e ) cons-top body-of ;
-: payload-zero? ( exprs -- flag ) cand-head head-payload 0= ;
-: bare-b? ( exprs -- flag ) dup payload-zero? swap cand-b 0= and ;
-: payload-name ( exprs -- name names ) dup cand-head head-payload swap exprs>names ;
-: payload-name? ( exprs -- flag ) payload-name cons-in? ;
-: payload-under? ( exprs -- flag ) payload-name cons-under? ;
-: a-under? ( exprs -- flag ) dup cand-a swap cons-under? ;
-: b-under? ( exprs -- flag ) dup cand-b swap cons-under? ;
-: ab-under? ( exprs -- flag ) dup a-under? swap b-under? and ;
+\ Payload 0 and b 0: a kind that uses neither.
+: bare? ( top -- flag ) dup quad-head u32@ head-payload 0= swap quad-b u32@ 0= and ;
+: payload-zero? ( top -- flag ) quad-head u32@ head-payload 0= ;
+: data! ( top exprs d -- top exprs ) rot tuck quad-data u32! swap ;
 \ A child: an expression of the set, not a letE's body record; its data.
 : expr-child ( e exprs -- d valid? )
   2dup cons-in? 0= if 2drop 0 false exit then
   cons-at dup record-body? if drop 0 false else quad-data u32@ true then ;
-: data-into ( d exprs -- ) dup cand-data rot data-merge swap cand-data! ;
-: child-into ( e exprs -- valid? ) tuck expr-child >r swap data-into r> ;
-: lowered-into ( e exprs -- valid? ) tuck expr-child >r data-lower swap data-into r> ;
-: a-into ( exprs -- valid? ) dup cand-a swap child-into ;
-: b-into ( exprs -- valid? ) dup cand-b swap child-into ;
-: deeper! ( exprs -- ) dup cand-data data-deeper swap cand-data! ;
-: valid>outcome ( under? valid? -- under? outcome ) flag>outcome ;
+: child-a ( top exprs -- d valid? ) swap quad-a u32@ swap expr-child ;
+: child-b ( top exprs -- d valid? ) swap quad-b u32@ swap expr-child ;
+: child-body ( top exprs -- d valid? ) swap body-of swap expr-child ;
+: merged ( d1 valid1? d2 valid2? -- d valid? ) rot and >r data-merge r> ;
+\ An application's children; a binder's type and body seen from outside.
+: child-pair ( top exprs -- d valid? ) 2dup child-a 2swap child-b merged ;
+: binder-pair ( top exprs -- d valid? ) 2dup child-a 2swap child-b >r data-lower r> merged ;
+: pair-under? ( top exprs -- flag )
+  cons-first @ >r dup quad-a u32@ r@ u< swap quad-b u32@ r> u< and ;
+\ The payload as a name of the tier: whether it is one, and an input one.
+: payload-name ( top exprs -- name names ) swap quad-head u32@ head-payload swap exprs>names ;
+: name-checks ( top exprs -- valid? under? ) payload-name 2dup cons-in? -rot cons-under? ;
 
-: expr-bad ( exprs -- under? outcome ) drop false outcome-invalid ;
-: check-app ( exprs -- under? outcome )
-  dup payload-zero? >r dup a-into r> and >r dup b-into r> and >r
-  dup deeper! ab-under? r> valid>outcome ;
-: check-binder ( exprs -- under? outcome )
-  dup payload-name? >r dup a-into r> and >r dup dup cand-b swap lowered-into r> and >r
-  dup deeper! dup ab-under? swap payload-under? and r> valid>outcome ;
-: check-let ( exprs -- under? outcome )
-  dup cand-head head-tag let-tag? >r dup payload-name? r> and >r dup a-into r> and >r
-  dup b-into r> and >r dup dup cand-body swap lowered-into r> and >r dup deeper!
-  dup ab-under? over dup cand-body swap cons-under? and swap payload-under? and r> valid>outcome ;
-: check-proj ( exprs -- under? outcome )
-  dup payload-name? >r dup a-into r> and >r dup deeper!
-  dup a-under? swap payload-under? and r> valid>outcome ;
+: expr-bad ( top exprs -- under? outcome ) 2drop false outcome-invalid ;
+: check-app ( top exprs -- under? outcome )
+  2dup child-pair >r data-deeper data! over payload-zero? r> and >r pair-under? r> flag>outcome ;
+: check-binder ( top exprs -- under? outcome )
+  2dup binder-pair >r data-deeper data! 2dup name-checks r> rot and >r >r
+  pair-under? r> and r> flag>outcome ;
+: check-let ( top exprs -- under? outcome )
+  2dup child-pair 2over child-body >r data-lower r> merged >r data-deeper data!
+  over quad-head u32@ head-tag let-tag? r> and >r 2dup name-checks r> rot and >r >r
+  2dup swap body-of swap cons-under? >r pair-under? r> and r> and r> flag>outcome ;
+: check-proj ( top exprs -- under? outcome )
+  2dup child-a >r data-deeper data! 2dup name-checks r> rot and >r >r
+  swap quad-a u32@ swap cons-under? r> and r> flag>outcome ;
 \ A bound variable's range beyond 2^20 - 1 is full (Lean's limit, L2).
-: check-bvar ( exprs -- under? outcome )
-  dup bare-b? 0= if drop false outcome-invalid exit then
-  dup cand-a 1+ dup range-max u> if 2drop false outcome-full exit then
-  swap cand-data! true outcome-ok ;
-\ A level operand: its data (the parameter bit).
-: cand-level ( exprs -- d valid? )
-  dup cand-a swap exprs>levels 2dup cons-in? if cons-at quad-data u32@ true else 2drop 0 false then ;
-: check-sort ( exprs -- under? outcome )
-  dup cand-level >r over cand-data! dup bare-b? r> and
-  over cand-a rot exprs>levels cons-under? swap valid>outcome ;
-\ A constant's list: a list of the tier whose items are levels, their
-\ parameter bits or-ed into the data field.
-: item-into ( l exprs -- valid? )
-  tuck exprs>levels 2dup cons-in? if cons-at quad-data u32@ swap data-into true
-  else 2drop drop false then ;
-: items-into ( addr n exprs -- valid? )
-  swap 0 ?do over i u32s + u32@ over item-into 0= if 2drop false unloop exit then loop 2drop true ;
-: tuple-into ( exprs -- valid? )
-  dup cand-b over exprs>tuples 2dup cons-entry? 0= if 2drop drop false exit then
-  cons-at dup u32@ swap 1 u32s + swap rot items-into ;
-: check-const ( exprs -- under? outcome )
-  dup payload-zero? >r dup cand-a over exprs>names cons-in? r> and >r dup tuple-into r> and >r
-  dup cand-a over exprs>names cons-under? over cand-b rot exprs>tuples cons-under? and
-  r> valid>outcome ;
-: check-literal ( exprs -- under? outcome )
-  dup bare-b? >r dup cand-a over exprs>texts cons-in? r> and >r
-  dup cand-a swap exprs>texts cons-under? r> valid>outcome ;
-: check-fvar ( exprs -- under? outcome )
-  data-fvars-bit over cand-data! dup bare-b? swap cons-under @ 0<> and false swap valid>outcome ;
+: check-bvar ( top exprs -- under? outcome )
+  drop dup bare? 0= if drop false outcome-invalid exit then
+  dup quad-a u32@ 1+ dup range-max u> if 2drop false outcome-full exit then
+  swap quad-data u32! true outcome-ok ;
+\ A level operand's data: its parameter bit.
+: level-data ( l levels -- d valid? )
+  2dup cons-in? if cons-at quad-data u32@ true else 2drop 0 false then ;
+: check-sort ( top exprs -- under? outcome )
+  exprs>levels >r dup quad-a u32@ r@ level-data >r over quad-data u32! dup bare? r> and
+  swap quad-a u32@ r> cons-under? swap flag>outcome ;
+\ A constant's list: a list of the tier whose n items at addr are levels,
+\ their parameter bits or-ed.
+: items-data ( addr n levels -- d valid? )
+  swap 0 swap 0 ?do 2 pick i u32s + u32@ 2 pick level-data
+    0= if 2drop 2drop 0 false unloop exit then or
+  loop nip nip true ;
+: tuple-data ( t exprs -- d valid? )
+  exprs>tier >r dup r@ tier-tuples cons-entry? 0= if r> 2drop 0 false exit then
+  r@ tier-tuples cons-at dup u32@ swap 1 u32s + swap r> tier-levels items-data ;
+: check-const ( top exprs -- under? outcome )
+  over quad-b u32@ over tuple-data >r data! over payload-zero? r> and >r
+  over quad-a u32@ over exprs>names 2dup cons-in? r> and >r cons-under? >r
+  swap quad-b u32@ swap exprs>tuples cons-under? r> and r> flag>outcome ;
+: check-literal ( top exprs -- under? outcome )
+  exprs>texts >r dup bare? over quad-a u32@ r@ cons-in? and
+  swap quad-a u32@ r> cons-under? swap flag>outcome ;
+\ A free variable: only in a scratch tier, never an input record.
+: check-fvar ( top exprs -- under? outcome )
+  cons-under @ 0<> over bare? and data-fvars-bit rot quad-data u32! false swap flag>outcome ;
 
 check-table expr-checks
 ' expr-bad expr-checks check-fill
@@ -226,11 +228,11 @@ check-table expr-checks
 binder-checks
 
 \ Find or keep the checked candidate of units records.
+: expr-check ( top exprs -- under? outcome ) over quad-head u32@ head-tag expr-checks check-run ;
 : expr-keep ( units under? exprs -- e )
   dup >r cons-top expr-hash swap r@ cons-find if nip r> drop else r> cons-commit then ;
 : expr-finish ( units exprs -- e outcome )
-  dup dup cand-head head-tag expr-checks check-run
-  dup ok? if drop swap expr-keep outcome-ok else fail3 then ;
+  dup cons-top over expr-check dup ok? if drop swap expr-keep outcome-ok else fail3 then ;
 \ The expression with head and operands a and b, for every kind but
 \ letE: its number (an equal expression's, which may be the input
 \ tier's) and ok; -1 and invalid for a bad tag, part or unused field, a
@@ -248,7 +250,7 @@ binder-checks
   tier-exprs >r dup u32-mask u> if drop outcome-invalid fail3 r> drop exit then
   2 0 r@ cons-room dup ok? 0= if nip fail3 r> drop exit then drop
   r@ let-body! fields-fit? 0= if outcome-invalid fail3 r> drop exit then
-  r@ cand! r@ check-let dup ok? if drop 2 swap r> expr-keep outcome-ok
+  r@ cand! r@ cons-top r@ check-let dup ok? if drop 2 swap r> expr-keep outcome-ok
   else nip r> drop no-result then ;
 
 : expr-app ( f a tier -- e outcome ) >r tag-app -rot r> expr-make ;
