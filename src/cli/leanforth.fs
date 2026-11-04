@@ -240,10 +240,11 @@ create cli-order
 : cli-opens? ( -- flag )
   0 cli-file r/o bin open-file if drop false else close-file drop true then ;
 : cli-unopened ( -- code ) ." error: cannot open the export" cr exit-malformed ;
-\ The export, file 0, into the checker's input, its outcome given to the
-\ run record; when it reads, the run.
+\ The export, file 0, into the checker's input through the run record's
+\ rr-import, which records the outcome and whether the manifest was
+\ enforced (not with --no-manifest); when it reads, the run.
 : cli-input ( -- outcome )
-  0 cli-file cli-unchecked @ if cin-read else cin-read-checked then dup rr-read! ;
+  0 cli-file cli-unchecked @ 0= rr-import ;
 : cli-run ( -- ) cli-input dup ok? if drop rr-check cli-results else cli-unread then ;
 : cli-settings ( -- ) rr-release cli-fuel @ cli-pool rr-settings! ;
 
