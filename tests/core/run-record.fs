@@ -123,17 +123,22 @@ variable foreign
   s\" \"run\":\"invalid\",\"mode\":null,\"allowlistVersion\":null},\"declarations\":[]" ;
 T{ constant-fixture rr-start -> outcome-ok }T
 0 lf-env-pool-max 1+ rr-settings!
-T{ constant-fixture cin-read dup rr-read! -> outcome-ok }T
+T{ false rr-import -> outcome-ok }T
 foreign-current rr-check
-T{ constant-fixture rr-finish rr-write -> outcome-ok outcome-ok }T
+T{ rr-finish rr-write -> outcome-ok outcome-ok }T
 T{ no-env holds? s" accepted" holds? -> true false }T
 foreign-free
+\ C. rr-release then leaves both alone (rvRP3 L2): it frees only the
+\ current environment with the run's identity, never through an address.
+variable own-env
 T{ constant-fixture rr-start -> outcome-ok }T
 fuel 64 rr-settings!
-T{ constant-fixture cin-read dup rr-read! -> outcome-ok }T
-foreign-current rr-check foreign @ lf-env-use ok? must
-T{ constant-fixture rr-finish rr-write -> outcome-ok outcome-invalid }T
-foreign-free rr-release
+T{ false rr-import -> outcome-ok }T
+rr-check run-record rr-env @ own-env ! foreign-current
+T{ rr-finish rr-write -> outcome-ok outcome-invalid }T
+rr-release
+T{ run-record rr-env @ foreign @ lf-env-live? own-env @ lf-env-live? -> 0 true true }T
+foreign-free own-env @ lf-env-use ok? must rr-ours? 0= must own-env @ lf-env-free ok? must
 \ A new run's kept outcomes are invalid, never ok, until its steps publish.
 T{ rr-begun 0 rr-step-of kept-outcome @ lf-input-capacity 1- rr-step-of kept-outcome @
   -> outcome-invalid outcome-invalid }T
@@ -141,22 +146,48 @@ T{ rr-begun 0 rr-step-of kept-outcome @ lf-input-capacity 1- rr-step-of kept-out
 \ before rr-write (rvRP round 2, its probe aba.fs): environments compare
 \ by identity, so no record is written, and rr-release leaves the new one
 \ alone. The run checked with fuel 0, the new environment with 100000.
-T{ constant-fixture rr-start -> outcome-ok }T
-0 64 rr-settings!
-T{ constant-fixture false rr-import -> outcome-ok }T
-rr-check run-record rr-env @ lf-env-free ok? must foreign-current
-T{ constant-fixture rr-finish rr-write -> outcome-ok outcome-invalid }T
+\ Whether the address was reused is the allocator's choice: the test says
+\ when it was not (rvRP3 L4), and the record is refused either way.
+: aba ( fuel -- )
+  constant-fixture rr-start ok? must 64 rr-settings! false rr-import ok? must
+  rr-check run-record rr-env @ dup own-env ! lf-env-free ok? must foreign-current ;
+: reused? ( -- flag ) foreign @ own-env @ = ;
+0 aba
+T{ rr-finish rr-write -> outcome-ok outcome-invalid }T
+reused? [if] T{ reused? -> true }T [else] .( note: ABA not exercised, no reuse) cr [then]
 rr-release
 T{ foreign @ lf-env-live? -> true }T
 foreign-free
 \ The same with fuel 100000 for both, so that every verdict agrees and only
 \ the identity tells the two environments apart.
-T{ constant-fixture rr-start -> outcome-ok }T
-fuel 64 rr-settings!
-T{ constant-fixture false rr-import -> outcome-ok }T
-rr-check run-record rr-env @ lf-env-free ok? must foreign-current
-T{ constant-fixture rr-finish rr-write -> outcome-ok outcome-invalid }T
+fuel aba
+T{ rr-finish rr-write -> outcome-ok outcome-invalid }T
+reused? [if] T{ reused? -> true }T [else] .( note: ABA not exercised, no reuse) cr [then]
 rr-release foreign-free
+
+\ The file is rr-start's for every later read (rvRP3 M1): rr-import has no
+\ name of its own, and without a started file it reads nothing. A checked
+\ read whose bytes are not the ones rr-start hashed (here the recorded
+\ digest is changed instead of the file; test_run_records.py swaps the
+\ file itself) fails, and says so.
+: hex-byte ( -- addr ) run-record rr-before facts-hex ;
+T{ constant-fixture rr-start fuel 64 rr-settings! true rr-import -> outcome-ok outcome-ok }T
+rr-check
+T{ rr-finish rr-write -> outcome-ok outcome-ok }T
+T{ third-accepted holds? s\" \"enforced\":true}" holds? -> true true }T
+T{ composition rr-start -> outcome-ok }T
+char x hex-byte c!
+T{ true rr-import rr-moved? -> outcome-invalid true }T
+T{ s" " rr-file! false rr-import rr-moved? -> true outcome-invalid false }T
+rr-release
+\ Checks run although the read was not ok (rvRP3 L1, its probe p8): the
+\ input is still the earlier file's, so no record.
+T{ constant-fixture rr-start fuel 64 rr-settings! true rr-import -> outcome-ok outcome-ok }T
+rr-check
+T{ composition rr-start -> outcome-ok }T
+rr-check
+T{ rr-finish rr-write -> outcome-ok outcome-invalid }T
+rr-release
 
 \ Whether the input's manifest was enforced (rvRP round 2). rr-import with
 \ the manifest checked says enforced, and composition matches its
@@ -165,7 +196,7 @@ rr-release foreign-free
 \ refused and says enforced. An enforced manifest that the read passed
 \ although it did not match is a contradiction: no record.
 : run-import ( c-addr u flag -- outcome )
-  >r 2dup rr-start ok? must fuel 64 rr-settings! 2dup r> rr-import
+  >r rr-start ok? must fuel 64 rr-settings! r> rr-import
   ok? if rr-check then rr-finish ok? must rr-write ;
 : enforced ( -- c-addr u ) s\" \"reason\":\"\",\"enforced\":true}" ;
 : not-enforced ( -- c-addr u ) s\" \"enforced\":false}" ;
@@ -279,11 +310,16 @@ create long-name rr-name-room 1+ allot
 : long-name-sink ( -- ) long-name rr-name-room 1+ rr-name-sink ;
 T{ rr-begin-text long-name-sink run-record rr-fault @ -> outcome-full }T
 
-\ The input must not change during the run: rr-finish reads it again.
+\ The input must not change during the run: rr-finish reads the file
+\ again (here the recorded size is changed instead of the file), and
+\ fails when it cannot read it; a name too long to keep starts nothing.
 T{ composition rr-start -> outcome-ok }T
-T{ composition rr-finish -> outcome-ok }T
-T{ wrong-argument rr-finish -> outcome-invalid }T
-T{ no-export rr-finish -> outcome-invalid }T
+T{ rr-finish -> outcome-ok }T
+1 run-record rr-before facts-bytes rr-d+!
+T{ rr-finish -> outcome-invalid }T
+T{ no-export rr-start rr-finish -> outcome-invalid outcome-invalid }T
+create long-file rr-file-room 1+ allot
+T{ long-file rr-file-room 1+ rr-start rr-file nip -> outcome-full 0 }T
 
 \ Hashing: SHA-256 of the bytes, the bytes and the lines; a last line
 \ without a line feed counts. composition.ndjson's digest is its manifest's.

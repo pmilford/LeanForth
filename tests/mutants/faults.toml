@@ -1694,8 +1694,8 @@ reason = "a check that threw is reported as invalid input (4), not as an interna
 [[fault]]
 id = "cli-manifest-not-checked"
 file = "src/cli/leanforth.fs"
-old = '''  0 cli-file cli-unchecked @ 0= rr-import ;'''
-new = '''  0 cli-file false rr-import ;'''
+old = ''': cli-input ( -- outcome ) cli-unchecked @ 0= rr-import ;'''
+new = ''': cli-input ( -- outcome ) false rr-import ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "check reads exports without their manifests by default"
 
@@ -1952,8 +1952,8 @@ reason = "a declaration whose publication threw is written not-checked, without 
 [[fault]]
 id = "rr-finish-unchecked"
 file = "src/import/run-record.fs"
-old = '''  run-record rr-after rr-hash dup ok? if drop rr-same-input? flag>outcome then ;'''
-new = '''  run-record rr-after rr-hash ;'''
+old = '''  rr-file run-record rr-after rr-hash dup ok? if drop rr-same-input? flag>outcome then ;'''
+new = '''  rr-file run-record rr-after rr-hash ;'''
 test = "$GFORTH tests/core/run-record.fs"
 reason = "an input that changed during the run is not noticed; the record would describe another file"
 
@@ -2018,16 +2018,16 @@ reason = "rvRP 2: environments compared by address; a new one made where the run
 [[fault]]
 id = "rr-release-frees-foreign"
 file = "src/import/run-record.fs"
-old = '''  run-record rr-env @ ?dup if dup rr-mine? if lf-env-free then drop then rr-forget-env ;'''
-new = '''  run-record rr-env @ ?dup if lf-env-free drop then rr-forget-env ;'''
+old = ''': rr-release ( -- ) rr-ours? if lf-env lf-env-free drop then rr-forget-env ;'''
+new = ''': rr-release ( -- ) run-record rr-env @ ?dup if lf-env-free drop then rr-forget-env ;'''
 test = "$GFORTH tests/core/run-record.fs"
 reason = "rvRP 2: rr-release frees whatever environment now lies at the run's old address"
 
 [[fault]]
 id = "rr-always-enforced"
 file = "src/import/run-record.fs"
-old = '''  r> 0<> run-record rr-enforced ! ;'''
-new = '''  r> drop true run-record rr-enforced ! ;'''
+old = '''  dup rr-load dup rr-read! swap 0<> run-record rr-enforced ! ;'''
+new = '''  dup rr-load dup rr-read! nip true run-record rr-enforced ! ;'''
 test = "$GFORTH tests/core/run-record.fs"
 reason = "rvRP 2: a record says the manifest was enforced on an input read without it"
 
@@ -2042,14 +2042,31 @@ reason = "rvRP 2: another importer's outcome keeps an earlier run's claim that t
 [[fault]]
 id = "rr-enforced-contradiction"
 file = "src/import/run-record.fs"
-old = '''  if outcome-invalid rr-fail then s" enforced" rr-key rr-enforced? rr-w jw-bool ;'''
-new = '''  drop s" enforced" rr-key rr-enforced? rr-w jw-bool ;'''
+old = '''  rr-enforced-past? if outcome-invalid rr-fail then'''
+new = '''  rr-enforced-past? drop'''
 test = "$GFORTH tests/core/run-record.fs"
 reason = "rvRP 2: an enforced manifest that does not match an input read past it is written"
 
 [[fault]]
+id = "rr-bytes-unchecked"
+file = "src/import/run-record.fs"
+old = '''  cin-digest rr-recorded compare 0<> dup run-record rr-moved ! 0= flag>outcome ;'''
+new = '''  false run-record rr-moved ! outcome-ok ;'''
+test = "$GFORTH tests/core/run-record.fs && python3 tests/core/test_run_records.py"
+reason = "rvRP3 M1: a checked read of other bytes than rr-start hashed is recorded as enforced"
+quick = true
+
+[[fault]]
+id = "rr-stale-run-written"
+file = "src/import/run-record.fs"
+old = '''  rr-read-ok? 0= if outcome-invalid rr-fail then run-record rr-run @ rr-outcome ;'''
+new = '''  run-record rr-run @ rr-outcome ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "rvRP3 L1: checks of an earlier input, after a read that failed, are written"
+
+[[fault]]
 id = "tr-filler-seen"
-file = "src/import/text-rule.fs"
+file = "src/lib/text-rule.fs"
 old = '''$3164 , $3164 ,'''
 new = '''$3165 , $3164 ,'''
 test = "$GFORTH tests/core/run-record.fs"
@@ -2073,7 +2090,7 @@ reason = "review F1: kept outcomes are not reset, so an unstepped slot agrees wi
 
 [[fault]]
 id = "rr-separator-allowed"
-file = "src/import/text-rule.fs"
+file = "src/lib/text-rule.fs"
 old = '''$2028 , $202e ,'''
 new = '''$2029 , $202e ,'''
 test = "$GFORTH tests/core/run-record.fs && python3 tests/core/test_run_records.py"

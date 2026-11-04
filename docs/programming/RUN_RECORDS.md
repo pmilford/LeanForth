@@ -182,7 +182,7 @@ filler, or made only of combining marks or of ignorable characters is
 refused, by the same check as a blank one; `a` followed by a combining
 accent is shown. Unlike the receipts' rule this does not ask for an ASCII
 character, because a Lean name may be written in any script. The rule and
-its tables are in `src/import/text-rule.fs`; the tests rebuild the table
+its tables are in `src/lib/text-rule.fs`; the tests rebuild the table
 of characters that are not seen from Python's Unicode 15.1 data and
 compare it, and the schema's class, with it.
 Limits: names 1024 bytes, other texts 128 bytes, a site 255. The writer
@@ -322,7 +322,7 @@ break the text rule, a limit or the real values of `mode` and
 means the same in ECMA-262 (node, `u` flag) and in Python; that the
 writer's text rule equals the schema's on 1,623 code points (every range's
 ends and their neighbours); and that the characters that are not seen, in
-`src/import/text-rule.fs` and in the schema, are exactly those of Unicode
+`src/lib/text-rule.fs` and in the schema, are exactly those of Unicode
 15.1's data. Thirty-four faults planted in the modules
 (`tests/mutants/faults.toml`, section "run records and replay") are each
 caught by these tests; `tests/cli/test_leanforth.py` checks that the

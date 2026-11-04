@@ -189,6 +189,7 @@ test-lib:
 	$(RUN) $(GFORTH) tests/lib/task-serial.fs
 	$(RUN) $(GFORTH) tests/lib/task-no-env.fs
 	$(RUN) $(GFORTH) tests/lib/bytes.fs
+	$(RUN) $(GFORTH) tests/lib/text-rule.fs
 	$(RUN) $(GFORTH) tests/lib/json.fs
 	$(RUN) $(GFORTH) tests/lib/json-write.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/lib/test_json_write.py

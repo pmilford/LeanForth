@@ -43,6 +43,8 @@ import unicodedata
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tests" / "support"))
 from schema_subset import Validator, load_strict  # noqa: E402
+sys.path.insert(0, str(ROOT / "scripts"))
+import text_rule_tables  # noqa: E402
 
 GFORTH = os.environ.get("GFORTH", "gforth")
 DRIVER = "tests/support/run-records.fs"
@@ -380,6 +382,47 @@ class Checks:
         self.expect(got == [("unknown-field", cut)] and len(cut.encode()) == 127,
                     f"long multibyte key: {got}")
 
+    # rvRP3 M1: an export swapped for another one (with its manifest)
+    # between rr-start and the checked read, and swapped back before
+    # rr-finish (A, then B, then A). The checked read loads B, which matches
+    # B's manifest, but its digest is not the one rr-start recorded: the
+    # read fails, so the record says enforced with a read that is invalid,
+    # and lists no verdict of B.
+    def swapped(self):
+        folder = self.tmp / "swap"
+        folder.mkdir()
+        for name, source in (("x", "composition"), ("b", "constant-fixture")):
+            for suffix in (".ndjson", ".ndjson.manifest.json"):
+                shutil.copyfile(ROOT / f"tests/reference/{source}{suffix}",
+                                folder / f"{name}{suffix}")
+        words = {}
+        for name in ("x", "a", "b"):
+            for suffix, tag in ((".ndjson", ""), (".ndjson.manifest.json", "-m")):
+                words[name + tag] = f": {name}{tag} ( -- c-addr u ) s\" {folder}/{name}{suffix}\" ;"
+
+        def move(old, new):
+            return [f"{old} {new} rename-file 0= must", f"{old}-m {new}-m rename-file 0= must"]
+        lines = (["require ~+/tests/support/run-records.fs",
+                  ': must ( flag -- ) 0= abort" swap: refused" ;'] + list(words.values())
+                 + ["x rr-start . 100000 64 rr-settings!"] + move("x", "a") + move("b", "x")
+                 + ["true rr-import . rr-moved? ."] + move("x", "b") + move("a", "x")
+                 + ["rr-finish . rr-write . cr rr-text type cr", "bye"])
+        source = folder / "swap.fs"
+        source.write_text("\n".join(lines) + "\n")
+        done = subprocess.run([self.gforth, str(source)], cwd=ROOT, stdin=subprocess.DEVNULL,
+                              capture_output=True, text=True, timeout=120)
+        head, _, text = done.stdout.partition("\n")
+        self.expect(done.returncode == 0 and head.split() == ["0", "1", "-1", "0", "0"],
+                    f"swap: {done.stdout[:200]} {done.stderr[:200]}")
+        if done.returncode == 0 and text.strip():
+            data = load_strict(text)
+            self.expect(not RECORD_SCHEMA.errors(data), "swap: the record breaks the schema")
+            self.expect(data["input"]["sha256"] == hashlib.sha256(
+                (ROOT / "tests/reference/composition.ndjson").read_bytes()).hexdigest()
+                and data["input"]["manifest"]["enforced"] is True
+                and data["check"]["read"] == "invalid" and data["declarations"] == [],
+                f"swap: {data['input']} {data['check']} {data['declarations']}")
+
     # The schemas' patterns mean the same in ECMA-262 (node, u flag) and in
     # the Python reading of schema_subset.py, on samples of every kind.
     SAMPLES = ["", "a", " ", "x" * 128, "x" * 129, "\u00e9" * 128, "\u00e9" * 129, "a\u200bb",
@@ -389,44 +432,41 @@ class Checks:
                "$.declarations[0].verdict", "\u03b1", "\u115f", "\u2800", "\uffa0",
                "\u0301\u0302", "a\u0301", "\ufe0f", "\U000e0100", "\u1160x"]
 
-    # The characters that are not seen (text-rule.fs's tr-unseen and the
-    # schema's shown pattern) are exactly spaces, the fillers, combining
-    # marks (category M) and default-ignorable code points of Unicode 15.1,
-    # recomputed here from Python's Unicode data when it is that version.
-    SPACES = [(0x20, 0x20), (0xa0, 0xa0), (0x1680, 0x1680), (0x2000, 0x200a),
-              (0x202f, 0x202f), (0x205f, 0x205f), (0x3000, 0x3000)]
-    FILLERS = [(0x115f, 0x1160), (0x2800, 0x2800), (0x3164, 0x3164), (0xffa0, 0xffa0)]
-    # DerivedCoreProperties.txt, Unicode 15.1: Default_Ignorable_Code_Point.
-    IGNORABLE = [(0x00ad, 0x00ad), (0x034f, 0x034f), (0x061c, 0x061c), (0x115f, 0x1160),
-                 (0x17b4, 0x17b5), (0x180b, 0x180f), (0x200b, 0x200f), (0x202a, 0x202e),
-                 (0x2060, 0x206f), (0x3164, 0x3164), (0xfe00, 0xfe0f), (0xfeff, 0xfeff),
-                 (0xffa0, 0xffa0), (0xfff0, 0xfff8), (0x1bca0, 0x1bca3), (0x1d173, 0x1d17a),
-                 (0xe0000, 0xe0fff)]
-
-    def unseen(self):
-        if unicodedata.unidata_version != "15.1.0":
-            print(f"Python's Unicode is {unicodedata.unidata_version}: unseen table not rebuilt")
-            return
-        unseen = set()
-        for lo, hi in self.SPACES + self.FILLERS + self.IGNORABLE:
-            unseen |= set(range(lo, hi + 1))
-        unseen |= {cp for cp in range(0x110000)
-                   if unicodedata.category(chr(cp)).startswith("M")}
-        source = Path("src/import/text-rule.fs").read_text()
-        table = source.split("create tr-unseen", 1)[1].split("here tr-unseen", 1)[0]
+    # The two tables of src/lib/text-rule.fs are exactly the ranges that
+    # scripts/text_rule_tables.py computes from Python's Unicode data (15.0
+    # and 15.1 give the same; any other version skips the check, except on
+    # CI, where it fails), and the schema's text and shown patterns hold
+    # exactly the same code points.
+    @staticmethod
+    def forth_table(name):
+        source = Path("src/lib/text-rule.fs").read_text()
+        table = source.split(f"create {name}", 1)[1].split(f"here {name}", 1)[0]
         values = [int(v, 16) for v in re.findall(r"\$([0-9a-f]+) ,", table)]
-        forth = set()
-        for lo, hi in zip(values[::2], values[1::2]):
-            forth |= set(range(lo, hi + 1))
-        self.expect(forth == unseen, f"tr-unseen differs from Unicode 15.1 by "
-                    f"{len(forth ^ unseen)} code points")
-        shown = RECORD_SCHEMA._patterns[RECORD_SCHEMA.root["$defs"]["shown"]["allOf"][1]
-                                        ["pattern"]]
-        schema = {cp for cp in range(0x110000) if not 0xd800 <= cp <= 0xdfff
-                  and not shown.search(chr(cp))}
-        self.expect(schema == unseen - set(range(0xd800, 0xe000)),
-                    f"the schema's shown class differs from Unicode 15.1 by "
-                    f"{len(schema ^ unseen)} code points")
+        return list(zip(values[::2], values[1::2]))
+
+    def tables(self):
+        if not text_rule_tables.supported():
+            message = (f"Python's Unicode is {unicodedata.unidata_version}: the text rule's "
+                       "tables are not rebuilt")
+            self.expect(not os.environ.get("CI"), message)
+            print(message)
+            return
+        for name, ranges in (("tr-banned", text_rule_tables.banned()),
+                             ("tr-unseen", text_rule_tables.unseen())):
+            self.expect(self.forth_table(name) == ranges,
+                        f"{name} of src/lib/text-rule.fs is not scripts/text_rule_tables.py's")
+        surrogates = set(range(0xd800, 0xe000))
+        every = [cp for cp in range(0x110000) if cp not in surrogates]
+        defs = RECORD_SCHEMA.root["$defs"]
+        text = RECORD_SCHEMA._patterns[defs["text"]["pattern"]]
+        shown = RECORD_SCHEMA._patterns[defs["shown"]["allOf"][1]["pattern"]]
+        banned = {cp for cp in every if not text.search(chr(cp))}
+        unseen = {cp for cp in every if not shown.search(chr(cp))}
+        expected = text_rule_tables.points
+        self.expect(banned == expected(text_rule_tables.banned()) - surrogates,
+                    "the schema's text pattern is not the table's")
+        self.expect(unseen == expected(text_rule_tables.unseen()) - surrogates,
+                    "the schema's shown class is not the table's")
 
     def ecma(self):
         node = shutil.which("node")
@@ -508,7 +548,8 @@ def main():
             checks.long_key()
             checks.ecma()
             checks.text_rule()
-            checks.unseen()
+            checks.tables()
+            checks.swapped()
         if args.other_gforth:
             checks.other(args.other_gforth)
     for failure in checks.failures:

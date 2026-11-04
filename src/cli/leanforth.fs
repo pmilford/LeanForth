@@ -210,7 +210,8 @@ create cli-order
 : cli-no-env ( -- )
   run-record rr-run @ outcome-full = if cli-no-room exit then
   c" no checked environment could be made or used" cli-fault ;
-: cli-made? ( -- flag ) run-record rr-env @ 0<> lf-env-view ok? and ;
+\ Verdicts only from the run's own environment, by identity (rr-ours?).
+: cli-made? ( -- flag ) rr-ours? lf-env-view ok? and ;
 : cli-results ( -- )
   cli-made? if cli-verdicts cli-summary cli-notes else cli-no-env then ;
 
@@ -229,8 +230,11 @@ create cli-order
 : cli-manifest-hint ( -- )
   c" the export is checked against EXPORT.manifest.json, which scripts/export.sh writes;"
   cli-note c" --no-manifest skips that check" cli-note ;
+\ A checked read whose bytes are not the ones the run hashed first.
+: cli-moved ( -- )
+  ." error: invalid: the export changed between its digest and its reading" cr ;
 : cli-unread ( outcome -- )
-  dup cli-input-error dup outcome-full = if cli-limits then
+  rr-moved? if cli-moved else dup cli-input-error then dup outcome-full = if cli-limits then
   dup manifest-failed? if cli-manifest-hint then outcome>code cli-code! ;
 : cli-unchecked-note ( -- )
   cli-unchecked @ 0= if exit then
@@ -240,11 +244,10 @@ create cli-order
 : cli-opens? ( -- flag )
   0 cli-file r/o bin open-file if drop false else close-file drop true then ;
 : cli-unopened ( -- code ) ." error: cannot open the export" cr exit-malformed ;
-\ The export, file 0, into the checker's input through the run record's
-\ rr-import, which records the outcome and whether the manifest was
-\ enforced (not with --no-manifest); when it reads, the run.
-: cli-input ( -- outcome )
-  0 cli-file cli-unchecked @ 0= rr-import ;
+\ The export rr-start kept (file 0) into the checker's input through the
+\ run record's rr-import, which records the outcome and whether the
+\ manifest was enforced (not with --no-manifest); when it reads, the run.
+: cli-input ( -- outcome ) cli-unchecked @ 0= rr-import ;
 : cli-run ( -- ) cli-input dup ok? if drop rr-check cli-results else cli-unread then ;
 : cli-settings ( -- ) rr-release cli-fuel @ cli-pool rr-settings! ;
 
@@ -263,14 +266,19 @@ create cli-order
 : cli-source ( -- )
   s" LEANFORTH_COMMIT" cli-env cli-modified? rr-source! ok? 0= if rr-no-source then ;
 : cli-record-start ( -- outcome ) cli-source 0 cli-file rr-start ;
-: cli-record-text ( -- outcome )
-  0 cli-file rr-finish dup ok? if drop rr-write then ;
+: cli-record-text ( -- outcome ) rr-finish dup ok? if drop rr-write then ;
 : cli-record-failed ( outcome -- )
   ." error: the run record was not written: " dup outcome-text type cr outcome>code
   cli-code! ;
-: cli-recording? ( -- flag )
-  cli-record? 0= if true exit then
-  cli-record-start dup ok? if drop true else cli-record-failed false then ;
+: cli-unstarted ( outcome -- )
+  ." error: the export could not be read: " dup outcome-text type cr outcome>code
+  cli-code! ;
+\ Every check starts with rr-start, which keeps the export's name for the
+\ run's later reads (rr-import, rr-finish); a start that fails is the
+\ record's failure when recording, else the export's.
+: cli-begun? ( -- flag )
+  cli-record-start dup ok? if drop true exit then
+  cli-record? if cli-record-failed else cli-unstarted then false ;
 : cli-saved ( -- outcome )
   cli-record-text dup ok? if drop cli-record 2@ rr-save then ;
 : cli-recorded ( -- )
@@ -281,7 +289,7 @@ create cli-order
   cli-record? if cli-record 2@ 0 cli-file compare 0= else false then ;
 : cli-checks ( -- code )
   cli-unchecked-note cli-settings
-  cli-recording? if cli-run cli-recorded then rr-release cli-worst @ ;
+  cli-begun? if cli-run cli-recorded then rr-release cli-worst @ ;
 : check-command ( -- code )
   cli-start cli-opens? 0= if cli-unopened exit then
   cli-over-export? if ." error: RECORD must not be EXPORT" cr exit-malformed exit then

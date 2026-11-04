@@ -300,6 +300,11 @@ cin-second cin-table-check
   cin-fresh cin-both cin-done ;
 : cin-read ( c-addr u -- outcome ) ['] cin-plain cin-file ;
 : cin-read-checked ( c-addr u -- outcome ) ['] cin-checked cin-file ;
+\ After a cin-read-checked that was ok: the SHA-256, as 64 lowercase
+\ hexadecimal digits, of the bytes it loaded (its second pass, which the
+\ manifest check hashed and compared with the manifest). Meaningless after
+\ any other read. The run records compare it with the digest they record.
+: cin-digest ( -- c-addr u ) cin-manifest manifest-hex sha-digest-bytes 2* ;
 
 \ After a failure: the line, the field (empty if none) and the reason, a
 \ handler's own in place of the reader's "handler refused the record".
