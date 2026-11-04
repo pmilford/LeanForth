@@ -283,7 +283,13 @@ writes `OUT.ndjson.manifest.json` beside each export: its SHA-256, its
 line and byte counts, its record counts and the Lean version
 ([manifests](../development/NDJSON_READER.md#manifests)). `check`,
 `count` and `reexport` compare the export with it while reading, by
-default, and refuse a missing or different manifest as malformed input:
+default, and refuse a missing or different manifest as malformed input.
+`check` reads the export in two passes (names first, then terms and
+declarations) and compares each with the manifest; the two passes must
+also have read the same bytes, else the export is refused as invalid with
+"the export changed between the two passes", so a file replaced while
+`check` reads it cannot pair the names of one file with the terms of
+another:
 
 ```console
 $ bin/leanforth check tests/core/check-declaration-cases/composition-loose.ndjson; echo "exit status $?"
@@ -308,8 +314,8 @@ the status is then at least 4. A record costs reads: with `--record` (and
 in `replay`) the export is read before the check for its SHA-256, its
 metadata and its manifest, and once more after the check to see that it
 did not change, besides the checker's own read. Without `--record`,
-`check` reads the export only as the checker needs it (one read, with
-the manifest checked unless `--no-manifest`), so a plain check of a large
+`check` reads the export only as the checker needs it (the importer's two
+passes, with the manifest checked unless `--no-manifest`), so a plain check of a large
 export pays nothing for records (`tests/cli/leanforth.fs` checks that no
 record read happens then). `replay EXPORT RECORD` checks the export
 again in the same way and compares the new record with RECORD, field by

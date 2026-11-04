@@ -21,23 +21,33 @@ finding but those two fields. Each tampered record is refused with the
 code and path named with it, and every replay report is valid against
 schemas/replay-report-0.1.schema.json. The schema itself refuses records
 that claim more than a checker could: accepted without its label or with
-a diagnostic, a label on a rejection, declarations without a run.
+a diagnostic, a label on a rejection, declarations without a run. An
+export swapped for another, with its manifest, between two reads of a run
+(between rr-start and the import, or during the importer's first pass
+only, served through a FIFO) is refused, and an input of more declarations
+than a record keeps gives no record.
 
 --other-gforth runs the same records with a second Gforth (Gforth 0.7.3,
 CI's portability host): both write records equal in every field but those
 two, and each replays the other's with findings only there.
 """
 import argparse
+import array
 import copy
+import fcntl
 import hashlib
 import json
 import os
 from pathlib import Path
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
+import termios
+import threading
+import time
 import unicodedata
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -56,6 +66,7 @@ LABEL = "experimental, not independently audited"
 HOST_VERSION = ("host", "version")
 HOST_ENGINE = ("host", "engine")
 CASES = "tests/core/check-declaration-cases/composition-"
+FIFO_TIMEOUT = 60                          # seconds for one run served through a FIFO
 
 # Each input: its declarations' (name, verdict, diagnostic code, step), and
 # whether a manifest stands beside it.
@@ -126,6 +137,128 @@ def compact(data):
 
 def golden_path(export):
     return GOLDEN / (Path(export).stem + ".json")
+
+
+def definitions(count):
+    """An export of count definitions: constant-fixture's fixtureId, then
+    copies of it named d5, d6, ..."""
+    lines = (ROOT / "tests/reference/constant-fixture.ndjson").read_text().splitlines()[:14]
+    for index in range(5, 4 + count):
+        lines.append('{"in":%d,"str":{"pre":0,"str":"d%d"}}' % (index, index))
+        lines.append('{"def":{"all":[%d],"hints":{"regular":1},"levelParams":[2],"name":%d,'
+                     '"safety":"safe","type":4,"value":6}}' % (index, index))
+    return "\n".join(lines) + "\n"
+
+
+def with_manifest(base, data):
+    """data and the manifest text of export base's manifest made to fit it."""
+    manifest = json.loads((ROOT / f"{base}.manifest.json").read_text())
+    manifest.update(sha256=hashlib.sha256(data).hexdigest(), bytes=len(data),
+                    lines=data.count(b"\n"))
+    return data, json.dumps(manifest)
+
+
+def unknown_use(spelling):
+    """constant-fixture with fixtureUse's constant named by a name entry of
+    its own, spelled spelling, and its manifest: with "fixtureIdd", a name
+    no declaration has, fixtureUse is rejected; with "fixtureId", accepted."""
+    base = "tests/reference/constant-fixture.ndjson"
+    lines = []
+    for line in (ROOT / base).read_text().splitlines():
+        if line == '{"const":{"name":1,"us":[0]},"ie":14}':
+            lines.append('{"in":9,"str":{"pre":0,"str":"%s"}}' % spelling)
+            line = '{"const":{"name":9,"us":[0]},"ie":14}'
+        lines.append(line)
+    data, text = with_manifest(base, ("\n".join(lines) + "\n").encode())
+    manifest = json.loads(text)
+    manifest["records"]["name.str"] += 1
+    return data, json.dumps(manifest)
+
+
+def put(path, text):
+    """Replace the file path with text in one step."""
+    part = path.with_name(path.name + ".part")
+    part.write_text(text)
+    os.replace(part, path)
+
+
+def family(pid):
+    """Process pid and its descendants, as /proc lists them (a wrapper's
+    Gforth runs as its child)."""
+    found, waiting = [], [pid]
+    while waiting:
+        process = waiting.pop()
+        found.append(process)
+        try:
+            for task in os.listdir(f"/proc/{process}/task"):
+                with open(f"/proc/{process}/task/{task}/children") as children:
+                    waiting.extend(int(child) for child in children.read().split())
+        except OSError:                    # ended, or no children lists
+            pass
+    return found
+
+
+def holds(pid, fifo):
+    """Whether process pid has the file fifo open (false once it has ended)."""
+    try:
+        descriptors = os.listdir(f"/proc/{pid}/fd")
+    except OSError:
+        return False
+    for descriptor in descriptors:
+        try:
+            if os.readlink(f"/proc/{pid}/fd/{descriptor}") == str(fifo):
+                return True
+        except OSError:                    # closed while we looked
+            pass
+    return False
+
+
+def closed(pid, fifo):
+    """Wait until process pid and its descendants have closed the file
+    fifo: through /proc where there is one, else a pause long enough in
+    practice."""
+    if not os.path.isdir(f"/proc/{os.getpid()}/fd"):
+        time.sleep(0.3)
+        return
+    while any(holds(process, fifo) for process in family(pid)):
+        time.sleep(0.001)
+
+
+def unread(pipe):
+    """How many bytes written to the pipe no reader has read yet."""
+    count = array.array("i", [0])
+    fcntl.ioctl(pipe, termios.FIONREAD, count, True)
+    return count[0]
+
+
+def serve(fifo, manifest, plan, pid, opens, stop):
+    """Serve the FIFO fifo to process pid once per open, in plan's order: an
+    item's bytes; once the reader has read them all, its manifest text (if
+    any) put at manifest; then the end of the file; then wait until the
+    reader has closed its end. Opening again before that would hand the
+    next item to the reader that has not yet seen the end of the file.
+    opens lists the items read."""
+    fifo = fifo.resolve()
+    for data, text in plan:
+        while True:
+            if stop.is_set():
+                return
+            pipe = os.open(fifo, os.O_WRONLY)
+            try:
+                os.write(pipe, data)       # less than a pipe holds: whole
+                while unread(pipe):
+                    if stop.is_set():
+                        return
+                    time.sleep(0.001)
+                if text is not None:
+                    put(manifest, text)
+                break
+            except BrokenPipeError:        # a reader that left without reading
+                continue
+            finally:
+                os.close(pipe)
+        opens.append(data)
+        closed(pid, fifo)
 
 
 class Checks:
@@ -424,6 +557,121 @@ class Checks:
                 and data["check"]["read"] == "invalid" and data["declarations"] == [],
                 f"swap: {data['input']} {data['check']} {data['declarations']}")
 
+    # rvRP3 R2-1: an export changed, with its manifest, during the
+    # importer's first pass only. The first pass builds the names table,
+    # the second the terms; each matched the manifest as it stood for that
+    # pass, so before the fix the run paired one file's names with the
+    # other file's terms, and an enforced record named bytes whose check
+    # gives other verdicts. Now the two passes must read the same bytes,
+    # else the read is invalid. The export is a FIFO served once per open
+    # (serve), so the order is exact: A, A (rr-start's digest and metadata),
+    # A with B's manifest put beside it (rr-start's manifest check), B with
+    # A's manifest put back (the first pass), A (the second pass), A
+    # (rr-finish); a run read once (rr-read-once, a plain check) has only the
+    # two passes. The runs use the words the command line uses (rr-start,
+    # rr-import, rr-read-once) without its extra open of the export, which
+    # only tests that it opens and would make the order a race. Skipped where
+    # FIFOs are unavailable.
+    def run_served(self, name, first, plan, words):
+        """Run words (lines of Forth, with x the export) with the export the
+        FIFO name/x.ndjson served by plan, its manifest first's text to begin
+        with: (exit status, standard output, standard error, opens served);
+        the status is None when the run took too long and was stopped."""
+        folder = self.tmp / name
+        folder.mkdir()
+        fifo, manifest = folder / "x.ndjson", folder / "x.ndjson.manifest.json"
+        os.mkfifo(fifo)
+        put(manifest, first)
+        source = folder / "run.fs"
+        source.write_text("\n".join(["require ~+/tests/support/run-records.fs",
+                                     f': x ( -- c-addr u ) s" {fifo}" ;', *words, "bye"]) + "\n")
+        process = subprocess.Popen([self.gforth, str(source)], cwd=ROOT,
+                                   stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE, text=True, start_new_session=True)
+        opens, stop = [], threading.Event()
+        writer = threading.Thread(target=serve, daemon=True,
+                                  args=(fifo, manifest, plan, process.pid, opens, stop))
+        writer.start()
+        try:
+            out, err = process.communicate(timeout=FIFO_TIMEOUT)
+            status = process.returncode
+        except subprocess.TimeoutExpired:      # its whole group goes
+            os.killpg(process.pid, signal.SIGKILL)
+            (out, err), status = process.communicate(), None
+        finally:
+            stop.set()
+            while writer.is_alive():           # a writer still waiting for a reader
+                reader = os.open(fifo, os.O_RDONLY | os.O_NONBLOCK)
+                writer.join(1)
+                os.close(reader)
+        return status, out, err, len(opens)
+
+    def first_pass(self):
+        try:
+            os.mkfifo(self.tmp / "probe.fifo")
+        except (AttributeError, OSError) as error:
+            print(f"No FIFOs here ({error}): a change during the first pass is not tested")
+            return
+        changed = "the export changed between the two passes"
+        comp = "tests/reference/composition.ndjson"
+        a = (ROOT / comp).read_bytes()
+        names = (with_manifest(comp, a),
+                 with_manifest(comp, a.replace(b'"str":"composition"', b'"str":"compositioX"')))
+        use = (unknown_use("fixtureIdd"), unknown_use("fixtureId"))
+        # The premise: at rest, use's A is rejected and its B accepted.
+        for (data, text), code in zip(use, (1, 0)):
+            path = self.tmp / f"use-{code}.ndjson"
+            path.write_bytes(data)
+            Path(f"{path}.manifest.json").write_text(text)
+            status = subprocess.run([str(ROOT / "bin/leanforth"), "check", str(path)], cwd=ROOT,
+                                    stdin=subprocess.DEVNULL, capture_output=True,
+                                    env=dict(os.environ, GFORTH=self.gforth), timeout=120)
+            self.expect(status.returncode == code, f"first pass: {path.name} exit {status}")
+        # A recorded run: the import's outcome and rr-moved?, the importer's
+        # reason, rr-finish's and rr-write's outcomes, the record.
+        recorded = [": imported ( -- ) x rr-start . 100000 64 rr-settings!",
+                    "  true rr-import dup . rr-moved? . cr cin-error type 2drop drop cr",
+                    "  ok? if rr-check then ;",
+                    "imported rr-finish . rr-write . cr rr-text type cr"]
+        once = ["x true rr-read-once . cr cin-error type 2drop drop cr"]
+
+        def facts(text, export):
+            data = load_strict(text)
+            return (not RECORD_SCHEMA.errors(data),
+                    data["input"]["sha256"] == hashlib.sha256(export).hexdigest(),
+                    data["input"]["manifest"]["enforced"], data["check"]["read"],
+                    data["declarations"])
+        # names: B spells composition otherwise; use: B accepts what A rejects.
+        for name, ((a, ma), (b, mb)) in (("names", names), ("use", use)):
+            plan = [(a, None), (a, None), (a, mb), (b, ma), (a, None), (a, None)]
+            status, out, err, opens = self.run_served(name, ma, plan, recorded)
+            lines = out.split("\n", 3)
+            self.expect(status == 0 and opens == 6 and lines[0].split() == ["0", "1", "0"]
+                        and lines[1] == changed and lines[2].split() == ["0", "0"]
+                        and facts(lines[3], a) == (True, True, True, "invalid", []),
+                        f"first pass, {name}: {opens} opens, {out[:300]} {err[:300]}")
+        # Read once: the first pass reads B with B's manifest, the second A.
+        (a, ma), (b, mb) = use
+        status, out, err, opens = self.run_served("once", mb, [(b, ma), (a, None)], once)
+        self.expect(status == 0 and opens == 2 and out.split("\n")[:2] == ["1 ", changed],
+                    f"first pass, read once: {opens} opens, {out[:300]} {err[:300]}")
+
+    # rvRP3 R2-2: a record keeps at most 32 declarations (lf-input-default,
+    # the schema's limit). An input of 32 gives a valid record of 32
+    # verdicts; one of 33, with the input store made larger, no record (full).
+    def many(self):
+        for count, setup, expected in ((32, "", "0"), (33, "40 lf-input-capacity! drop ", "6")):
+            export, out = self.tmp / f"many-{count}.ndjson", self.tmp / f"many-{count}.json"
+            export.write_text(definitions(count))
+            done = forth(self.gforth, f'{setup}s" {export}" {FUEL} s" {out}" ni-record . bye')
+            self.expect(done.stdout.split() == [expected] and not done.stderr
+                        and out.exists() == (count == 32), f"{count} declarations: {done}")
+            if count == 32 and out.exists():
+                data = load_strict(out.read_text())
+                self.expect(not RECORD_SCHEMA.errors(data) and len(data["declarations"]) == 32
+                            and all(d["verdict"] == "accepted" for d in data["declarations"]),
+                            "32 declarations: the record is not 32 accepted ones")
+
     # The schemas' patterns mean the same in ECMA-262 (node, u flag) and in
     # the Python reading of schema_subset.py, on samples of every kind.
     SAMPLES = ["", "a", " ", "x" * 128, "x" * 129, "\u00e9" * 128, "\u00e9" * 129, "a\u200bb",
@@ -551,6 +799,8 @@ def main():
             checks.text_rule()
             checks.tables()
             checks.swapped()
+            checks.first_pass()
+            checks.many()
         if args.other_gforth:
             checks.other(args.other_gforth)
     for failure in checks.failures:

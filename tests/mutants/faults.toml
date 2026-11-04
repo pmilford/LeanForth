@@ -1718,8 +1718,8 @@ reason = "replay confirms any record without comparing it with the new run"
 [[fault]]
 id = "cin-checked-reads-plain"
 file = "src/import/checker-input.fs"
-old = ''': cin-checked ( c-addr u -- outcome ) cin-manifest manifest-read ;'''
-new = ''': cin-checked ( c-addr u -- outcome ) cin-export export-read ;'''
+old = '''  cin-manifest manifest-read dup ok? if drop cin-pass-digest then ;'''
+new = '''  cin-export export-read dup ok? if drop cin-pass-digest then ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "cin-read-checked never compares the export with its manifest"
 
@@ -2128,11 +2128,52 @@ reason = "rvRP 2: an enforced manifest that does not match an input read past it
 [[fault]]
 id = "rr-bytes-unchecked"
 file = "src/import/run-record.fs"
-old = '''  cin-digest rr-recorded compare 0<> dup run-record rr-moved ! 0= flag>outcome ;'''
-new = '''  false run-record rr-moved ! outcome-ok ;'''
+old = ''': rr-same-bytes? ( -- flag ) cin-digest rr-recorded compare 0= ;'''
+new = ''': rr-same-bytes? ( -- flag ) true ;'''
 test = "$GFORTH tests/core/run-record.fs && python3 tests/core/test_run_records.py"
 reason = "rvRP3 M1: a checked read of other bytes than rr-start hashed is recorded as enforced"
 quick = true
+
+[[fault]]
+id = "cin-passes-unpaired"
+file = "src/import/checker-input.fs"
+old = '''  cin-manifest manifest-read dup ok? if drop cin-pass-digest then ;'''
+new = '''  cin-manifest manifest-read ;'''
+test = "python3 tests/core/test_run_records.py"
+reason = "rvRP3 R2-1: an export changed during the first pass only pairs one file's names with another's terms"
+quick = true
+
+[[fault]]
+id = "cin-passes-same"
+file = "src/import/checker-input.fs"
+old = '''  cin-digest cin-kept compare if cin-passes-differ else outcome-ok then ;'''
+new = '''  outcome-ok ;'''
+test = "python3 tests/core/test_run_records.py"
+reason = "rvRP3 R2-1: the second pass's digest is not compared with the first's"
+
+[[fault]]
+id = "cin-digest-not-kept"
+file = "src/import/checker-input.fs"
+old = '''  cin-digest drop cin-kept move true cin-state map-digested ! outcome-ok ;'''
+new = '''  cin-digest 2drop true cin-state map-digested ! outcome-ok ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "rvRP3 R2-1: the first pass's digest is not kept, so every checked read is refused"
+
+[[fault]]
+id = "rr-decls-over-limit"
+file = "src/import/run-record.fs"
+old = ''': rr-fits? ( -- flag ) lf-input-count lf-input-default upto? ;'''
+new = ''': rr-fits? ( -- flag ) true ;'''
+test = "python3 tests/core/test_run_records.py"
+reason = "rvRP3 R2-2: a record lists more declarations than the schema allows"
+
+[[fault]]
+id = "rr-decls-at-limit"
+file = "src/import/run-record.fs"
+old = ''': rr-fits? ( -- flag ) lf-input-count lf-input-default upto? ;'''
+new = ''': rr-fits? ( -- flag ) lf-input-count lf-input-default < ;'''
+test = "python3 tests/core/test_run_records.py"
+reason = "rvRP3 R2-2: an input of exactly 32 declarations gives no record"
 
 [[fault]]
 id = "rr-unstarted-written"
@@ -2161,8 +2202,8 @@ reason = "rvRP 2: a name of U+3164 HANGUL FILLER alone counts as shown"
 [[fault]]
 id = "rr-no-own-environment"
 file = "src/import/run-record.fs"
-old = '''  rr-made-own? 0= if exit then rr-viewed? 0= if outcome-invalid rr-fail exit then'''
-new = '''  run-record rr-checked @ 0= if exit then rr-viewed? 0= if outcome-invalid rr-fail exit then'''
+old = '''  rr-made-own? 0= if exit then rr-fits? 0= if outcome-full rr-fail exit then'''
+new = '''  run-record rr-checked @ 0= if exit then rr-fits? 0= if outcome-full rr-fail exit then'''
 test = "$GFORTH tests/core/run-record.fs"
 reason = "review F1: a run that could not make its environment cannot be recorded at all"
 
