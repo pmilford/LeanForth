@@ -7,12 +7,16 @@
 \ word that throws is not registered; contexts are independent; ownership
 \ limits who may select, claim, release and free a context; call-balanced
 \ catches a word with a wrong stack effect, and context-catch restores the
-\ current context after a word. A randomized model then
-\ runs the same operations on context stores and walks, switching context
-\ at every step, and on dictionary records, and compares results and every
-\ byte.
+\ current context after a word; teardown words (the release hook) free a
+\ member's heap blocks when its context is freed, also after a THROW, a
+\ failed context-new or a teardown word that fails, newest first and in
+\ the context being freed (heap-watch.fs counts the blocks). A randomized
+\ model then runs the same operations on context stores and walks,
+\ switching context at every step, and on dictionary records, and
+\ compares results and every byte.
 include ../support/tester.fs
 include ../support/checks.fs
+include ../support/heap-watch.fs
 require ../../src/lib/lib.fs
 
 : same-bytes? ( addr1 addr2 u -- flag ) tuck compare 0= ;
@@ -162,6 +166,32 @@ T{ 10 c-frames frame-budget 3 0 c-frames frame-run nip -> true outcome-full }T
 5 cells allocate throw dup 5 cells 165 fill free throw
 T{ 5 cells allocate0 swap dup 5 cells-zero? swap free -> 0 true 0 }T
 
+\ A member that owns heap blocks (the release hook): its setup word
+\ allocates one, a check may hang a second on it, and its teardown word
+\ frees whichever it finds. Two teardown words record the order they ran
+\ in (tear-tick), and the later one the context it ran in; on request it
+\ throws or leaves an extra item. A setup word declared after the
+\ allocating one fails on request, so a failed context-new has a block to
+\ give back.
+2 cells context-record: c-heap
+: c-heap-extra ( -- addr ) c-heap cell+ ;
+: c-heap-make ( -- ) 64 allocate throw c-heap ! ;
+: block-free ( addr -- ) dup @ ?dup if free throw then 0 swap ! ;
+: c-heap-free ( -- ) c-heap block-free c-heap-extra block-free ;
+' c-heap-make context-setup
+variable late-setup-fails  0 late-setup-fails !
+: c-late-setup ( -- ) late-setup-fails @ if 56 throw then ;
+' c-late-setup context-setup
+variable tear-count  variable early-at  variable late-at  variable tear-context
+variable tear-throws  0 tear-throws !  variable tear-unbalance  0 tear-unbalance !
+: tear-tick ( addr -- ) 1 tear-count +! tear-count @ swap ! ;
+: c-tear-early ( -- ) early-at tear-tick c-heap-free ;
+: c-tear-late ( -- )
+  late-at tear-tick lf-context @ tear-context ! tear-unbalance @ if 1 then
+  tear-throws @ ?dup if throw then ;
+' c-tear-early context-teardown
+' c-tear-late context-teardown
+
 \ Model-test members (see the end of this file).
 6 constant mcap
 8 constant mwalk
@@ -268,6 +298,47 @@ T{ ctx1 ' context-free rs-checked lf-context @ context-main = -> 0 true }T
 T{ context-new drop context-free -> 0 }T
 
 \ ---------------------------------------------------------------------------
+\ The release hook. A teardown is refused once the layout is sealed. A new
+\ context holds two blocks, its own and c-heap's; freeing it gives both
+\ back, after running the teardown words newest first in that context.
+T{ s" ' noop context-teardown" aborts? -> true }T
+live-blocks @ constant blocks-before
+: blocks-held ( -- n ) live-blocks @ blocks-before - ;
+0 tear-count !
+context-new throw constant ctx3
+T{ blocks-held -> 2 }T
+ctx3 context-use
+T{ c-heap @ 0<> c-heap-extra @ -> true 0 }T
+context-main context-use
+T{ ctx3 ' context-free rs-checked blocks-held -> 0 0 }T
+T{ late-at @ early-at @ tear-context @ ctx3 = lf-context @ context-main = -> 1 2 true true }T
+\ Freeing the current context: the teardown words still see it, and the
+\ task returns to the main context.
+context-new throw constant ctx5
+ctx5 context-use
+T{ ctx5 context-free blocks-held lf-context @ context-main = tear-context @ ctx5 = -> 0 0 true true }T
+\ A check that throws after its member grew a second block: freeing the
+\ context afterwards gives every block back.
+: c-grow-throw ( context -- )
+  context-use c-heap @ 4096 resize throw c-heap ! 32 allocate throw c-heap-extra ! 77 throw ;
+context-new throw constant ctx4
+T{ ctx4 ' c-grow-throw context-catch nip lf-context @ context-main = -> 77 true }T
+T{ blocks-held -> 3 }T
+T{ ctx4 context-free blocks-held -> 0 0 }T
+\ A teardown word that throws, or leaves an extra item, does not stop the
+\ others or keep the context's block: context-free gives its code.
+91 tear-throws !
+T{ context-new throw context-free blocks-held -> 91 0 }T
+0 tear-throws !  true tear-unbalance !
+T{ context-new throw context-free blocks-held -> context-unbalanced 0 }T
+false tear-unbalance !
+\ A setup word that fails after another allocated: context-new gives
+\ that block back through the teardown words.
+1 late-setup-fails !
+T{ context-new blocks-held -> 0 56 0 }T
+0 late-setup-fails !
+
+\ ---------------------------------------------------------------------------
 \ Randomized model: three contexts, each with a store and a walk record,
 \ and three dictionary stores and walks as the reference. Every step picks
 \ a context, selects it, and applies one random operation to its members
@@ -352,6 +423,6 @@ cm-failures @ . ." differences" cr
 0 ctx-slot @ context-use m-store store-clear 0 cm-compare context-main context-use
 T{ cm-failures @ -> 1 }T
 cm-free
-T{ lf-context @ context-main = -> true }T
+T{ lf-context @ context-main = blocks-held -> true 0 }T
 T{ depth -> 0 }T
 bye
