@@ -1,0 +1,101 @@
+id	lean	leanforth	rule	task	facts
+ind.nat	accepted	accepted	A1	5.2.1b	N: idx=0 rec=1 refl=0 nested=0 elim=any k=0 motives=1 minors=2 fields=[0, 1]
+ind.and	accepted	accepted	A1 E3	5.2.1a	And: idx=0 rec=0 refl=0 nested=0 elim=any k=0 motives=1 minors=1 fields=[2]
+ind.eq	accepted	accepted	A1 E3 K1	5.2.1c	Eq: idx=1 rec=0 refl=0 nested=0 elim=any k=1 motives=1 minors=1 fields=[0]
+ind.bool	accepted	accepted	A1	5.2.1a	B: idx=0 rec=0 refl=0 nested=0 elim=any k=0 motives=1 minors=2 fields=[0, 0]
+ind.list	accepted	accepted	A1	5.2.1b	L: idx=0 rec=1 refl=0 nested=0 elim=any k=0 motives=1 minors=2 fields=[0, 2]
+ind.vector	accepted	accepted	A1	5.2.1c	V: idx=1 rec=1 refl=0 nested=0 elim=any k=0 motives=1 minors=2 fields=[0, 3]
+ind.unit	accepted	accepted	A1 R5	5.2.1a	U: idx=0 rec=0 refl=0 nested=0 elim=any k=0 motives=1 minors=1 fields=[0]
+ind.empty-type	accepted	accepted	A1	5.2.1a	E: idx=0 rec=0 refl=0 nested=0 elim=any k=0 motives=1 minors=0 fields=[]
+ind.empty-prop	accepted	accepted	A1 E2	5.2.1a	F: idx=0 rec=0 refl=0 nested=0 elim=any k=0 motives=1 minors=0 fields=[]
+ind.true	accepted	accepted	A1 E3 K1	5.2.1a	T: idx=0 rec=0 refl=0 nested=0 elim=any k=1 motives=1 minors=1 fields=[0]
+ind.or	accepted	accepted	A1 E1	5.2.1a	Or: idx=0 rec=0 refl=0 nested=0 elim=Prop k=0 motives=1 minors=2 fields=[1, 1]
+ind.prop-two-empty-ctors	accepted	accepted	A1 E1	5.2.1a	P: idx=0 rec=0 refl=0 nested=0 elim=Prop k=0 motives=1 minors=2 fields=[0, 0]
+ind.exists	accepted	accepted	A1 E4	5.2.1a	Ex: idx=0 rec=0 refl=0 nested=0 elim=Prop k=0 motives=1 minors=1 fields=[2]
+ind.exists-prop-witness	accepted	accepted	A1 E3	5.2.1a	ExP: idx=0 rec=0 refl=0 nested=0 elim=any k=0 motives=1 minors=1 fields=[2]
+ind.field-in-index	accepted	accepted	A1 E3	5.2.1c	IsZ: idx=1 rec=0 refl=0 nested=0 elim=any k=0 motives=1 minors=1 fields=[2]
+ind.reflexive	accepted	accepted	A1 P1	5.2.1b	O: idx=0 rec=1 refl=1 nested=0 elim=any k=0 motives=1 minors=2 fields=[0, 1]
+ind.universe-max	accepted	accepted	A1 U1	5.2.1a	Pr: idx=0 rec=0 refl=0 nested=0 elim=any k=0 motives=1 minors=1 fields=[2]
+ind.sort-max	accepted	accepted	A1 U1	5.2.1a	S: idx=0 rec=0 refl=0 nested=0 elim=any k=0 motives=1 minors=2 fields=[1, 1]
+pos.negative	nonPositive	rejected	P1	5.2.1b	
+pos.double-negative	nonPositive	rejected	P1	5.2.1b	
+pos.through-definition	nonPositive	rejected	P1	5.2.1b	
+pos.erased-by-definition	accepted	accepted	A1 P1	5.2.1b	Ok: idx=0 rec=1 refl=0 nested=0 elim=any k=0 motives=1 minors=1 fields=[1]
+pos.non-valid-occurrence	nonValidOccurrence	rejected	P2	5.2.1b	
+pos.universe-checked-first	universeTooBig	rejected	U1	5.2.1b	
+uniform.other-argument	nonUniformOccurrence	rejected	C1	5.2.1b	
+uniform.definitionally-equal-argument	nonUniformOccurrence	rejected	C1	5.2.1b	
+uniform.result-other-argument	nonUniformOccurrence	rejected	C1	5.2.1a	
+universe.field-too-big	universeTooBig	rejected	U1	5.2.1a	
+universe.field-too-big-param	universeTooBig	rejected	U1	5.2.1a	
+universe.field-fits	accepted	accepted	A1 U1	5.2.1a	Fits: idx=0 rec=0 refl=0 nested=0 elim=any k=0 motives=1 minors=1 fields=[1]
+universe.predicate-any-field	accepted	accepted	A1 U1 E4	5.2.1a	BigP: idx=0 rec=0 refl=0 nested=0 elim=Prop k=0 motives=1 minors=1 fields=[1]
+universe.type-not-a-sort	typeExpected	rejected	T2	5.2.1a	
+result.other-type	invalidReturnType	rejected	C3	5.2.1a	
+result.index-mentions-type	invalidReturnType	rejected	C3	5.2.1c	
+params.too-few-binders	tooFewParamBinders	rejected	T1	5.2.1a	
+params.constructor-mismatch	ctorParamMismatch	rejected	C2	5.2.1a	
+params.constructor-binder-defeq	accepted	accepted	A1 C2	5.2.1a	T: idx=0 rec=0 refl=0 nested=0 elim=any k=0 motives=1 minors=1 fields=[0]
+params.index-instead-of-parameter	universeTooBig	rejected	U1	5.2.1c	
+params.index-one-universe-up	accepted	accepted	A1 U1	5.2.1c	T: idx=1 rec=0 refl=0 nested=0 elim=any k=0 motives=1 minors=1 fields=[2]
+mutual.even-odd	accepted	accepted	A1 E1	5.2.5	Even: idx=1 rec=1 refl=0 nested=0 elim=Prop k=0 motives=2 minors=3 fields=[0, 2]; Odd: idx=1 rec=1 refl=0 nested=0 elim=Prop k=0 motives=2 minors=3 fields=[2]
+mutual.tree-forest	accepted	accepted	A1	5.2.5	Tree: idx=0 rec=1 refl=0 nested=0 elim=any k=0 motives=2 minors=3 fields=[2]; Forest: idx=0 rec=1 refl=0 nested=0 elim=any k=0 motives=2 minors=3 fields=[0, 2]
+mutual.single-ctor-props	accepted	accepted	A1 E1	5.2.5	A: idx=0 rec=0 refl=0 nested=0 elim=Prop k=0 motives=2 minors=2 fields=[0]; B: idx=0 rec=0 refl=0 nested=0 elim=Prop k=0 motives=2 minors=2 fields=[0]
+mutual.universe-mismatch	mutualUniverseMismatch	rejected	T4	5.2.5	
+mutual.parameter-mismatch	mutualParamMismatch	rejected	T3	5.2.5	
+mutual.parameter-count	paramCountMismatch	rejected	T3	5.2.5	
+nested.tree	accepted	accepted	A1 N1	5.2.5	Tree: idx=0 rec=1 refl=0 nested=1 elim=any k=0 motives=2 minors=3 fields=[1] aux=[rec_1]
+nested.non-positive	nonPositive	rejected	N1 P1	5.2.5	
+nested.local-variable	nestedLocalVariable	rejected	N2	5.2.5	
+names.already-declared	alreadyDeclared	rejected	T5	5.2.1a	
+names.duplicate-constructor	duplicateConstructor	rejected	C4	5.2.1a	
+names.duplicate-universe	duplicateLevelParam	rejected	T5	5.2.1a	
+names.empty-block	emptyBlock	rejected	T1	5.2.1a	
+iota.nat-literal-major	accepted	accepted	R1 L2	5.2.1b	
+iota.nat-literal-major-wrong	declTypeMismatch	rejected	R1 L2	5.2.1b	
+iota.stuck-on-variable	declTypeMismatch	rejected	R1	5.2.1b	
+iota.structure-eta	accepted	accepted	R1 R3	5.2.2	
+iota.prop-structure-stuck	declTypeMismatch	rejected	R1 R3	5.2.2	
+k.eq-variable-proof	accepted	accepted	R2	5.2.1c	
+k.eq-different-ends	declTypeMismatch	rejected	R2	5.2.1c	
+eta.structure	accepted	accepted	R4	5.2.2	
+unit.punit	accepted	accepted	R5	5.2.2	
+unit.bool-not-unit-like	declTypeMismatch	rejected	R5	5.2.2	
+unit.pair-of-units	declTypeMismatch	rejected	R4 R5	5.2.2	
+proj.data	accepted	accepted	J1	5.2.2	
+proj.proof-of-proof	accepted	accepted	J1	5.2.2	
+proj.data-from-proof	invalidProj	rejected	J2	5.2.2	
+proj.wrong-structure	invalidProj	rejected	J2	5.2.2	
+proj.index-out-of-range	invalidProj	rejected	J2	5.2.2	
+quot.lift-on-mk	accepted	accepted	Q2	5.2.4	
+quot.lift-on-mk-wrong	declTypeMismatch	rejected	Q2	5.2.4	
+quot.lift-stuck-on-variable	declTypeMismatch	rejected	Q2	5.2.4	
+lit.succ-of-literal	accepted	accepted	L1	5.2.3	
+lit.offset-with-variable	accepted	accepted	L3	5.2.3	
+lit.literal-against-constructors	accepted	accepted	L3	5.2.3	
+lit.pow	accepted	accepted	L1	5.2.3	
+lit.pow-wrong	declTypeMismatch	rejected	L1	5.2.3	
+lit.mul	accepted	accepted	L1	5.2.3	
+lit.sub-truncated	accepted	accepted	L1	5.2.3	
+lit.div-by-zero	accepted	accepted	L1	5.2.3	
+lit.gcd	accepted	accepted	L1	5.2.3	
+lit.ble	accepted	accepted	L1	5.2.3	
+lit.string-expansion	accepted	accepted	L4	5.2.3	
+lit.string-expansion-wrong	declTypeMismatch	rejected	L4	5.2.3	
+replay.original	accepted	accepted	A1 B3	5.2.1b	
+replay.rule-right-sides-swapped	invalidRecursor	rejected	B3	5.2.1b	
+replay.recursor-k-set	invalidRecursor	rejected	B3	5.2.1b	
+replay.recursor-motives-changed	invalidRecursor	rejected	B3	5.2.1b	
+replay.constructor-fields-changed	invalidConstructor	rejected	B3	5.2.1b	
+replay.constructor-type-changed	invalidRecursor	rejected	B1 B3	5.2.1b	
+replay.parameters-changed	kernel nonUniformOccurrence	rejected	B1 C1	5.2.1b	
+replay.isRec-changed	accepted	accepted	B4	5.2.1b	
+replay.indices-changed	accepted	accepted	B4	5.2.1b	
+replay.recursor-left-out	accepted	accepted	B4	5.2.1b	
+names.reserved-nested-prefix	reservedNestedPrefix	rejected	T0	5.2.5	
+primitive.forged-add-computes	accepted	unsupported	L5	5.2.3	
+primitive.forged-add-unfolds	accepted	unsupported	L5	5.2.3	
+primitive.five-is-two	accepted	unsupported	L5	5.2.3	
+quotinit.with-eq	accepted	accepted	Q1	5.2.4	
+quotinit.without-eq	unknownConstant	rejected	Q1	5.2.4	
+quotinit.eq-wrong-shape	quotEqShape	rejected	Q1	5.2.4	
