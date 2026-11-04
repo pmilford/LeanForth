@@ -250,10 +250,9 @@ create version-checks
 
 \ Hashing during the read: the export's tap gives each line to SHA-256,
 \ then its line feed, and counts both.
-: line-feed ( -- c-addr u ) s\" \n" ;
 : manifest-tap ( c-addr u m -- )
   >r dup 1+ 0 r@ manifest-count 2@ d+ r@ manifest-count 2!
-  r@ manifest-sha sha256-update line-feed r> manifest-sha sha256-update ;
+  r> manifest-sha sha256-line ;
 : manifest-start ( m -- )
   dup manifest-sha sha256-init dup manifest-count 0 0 rot 2!
   ['] manifest-tap over manifest-export @ export-tap! ;

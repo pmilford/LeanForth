@@ -66,7 +66,7 @@ LeanForth, unless coupling gains a lot. Audit of `src/lib/` on 2026-11-03:
 | `store.fs`, `node.fs`, `walk.fs`, `frame.fs` (bounded stores, records, explicit-stack walks) | yes | the shared outcome vocabulary |
 | `context.fs`, `task.fs` (per-task contexts, job pool) | partly: a general job pool and context mechanism, designed around the checker's per-check state | the checker's context model (ADR 0009) |
 | `outcome.fs` (ok, invalid, exhausted, unknown, rejected, unsupported, full) | LeanForth's shared result vocabulary | deliberately shared: one vocabulary for every module |
-| `sha256.fs` (SHA-256) | yes, written to this rule (2026-11-03) | requires only `portability.fs` and `module.fs`; helpers in `lf-lib-private`, 16 public words (the hashing interface and FIPS 180-4's functions), all named `sha-…` or `sha256…`; an example in its header and [below](#sha-256), run with the interface checked from a folder outside the project by `make test-sha256` |
+| `sha256.fs` (SHA-256) | yes, written to this rule (2026-11-03) | requires only `portability.fs` and `module.fs`; helpers in `lf-lib-private`, 17 public words (the hashing interface and FIPS 180-4's functions), all named `sha-…` or `sha256…`; an example in its header and [below](#sha-256), run with the interface checked from a folder outside the project by `make test-sha256` |
 | `text-rule.fs` (visible text) | yes, written to this rule (2026-11-03): a UTF-8 hygiene rule with nothing of Lean | requires `bounds.fs`, `bytes.fs` (and through it `lib.fs`) and `module.fs`; helpers in `lf-lib-private`, two public words; an example in its header; `tests/lib/text-rule.fs` runs without the checker |
 | coming: the compact store (ADR 0016) | written to this rule from the start | — |
 
@@ -160,6 +160,7 @@ fails: every byte string is a message. A message must be shorter than
 | `/sha256`, `sha256:` | `( -- u )`, `( "name" -- )` | the record's size; a named record |
 | `sha256-init` | `( sha -- )` | starts a hash |
 | `sha256-update` | `( c-addr u sha -- )` | adds bytes to the message |
+| `sha256-line` | `( c-addr u sha -- )` | adds a line of text, then a line feed (10) |
 | `sha256-final` | `( c-addr sha -- )` | writes the 32-byte digest |
 | `sha256-hex` | `( c-addr1 c-addr2 -- )` | the digest as 64 lowercase hexadecimal digits |
 | `sha-digest-bytes` | `( -- 32 )` | the digest's size |
