@@ -7,7 +7,7 @@ which paused the [parser] gate of today's program reader (plan task
 it changes no typing or conversion rule, no IR instruction and no Lean
 semantics. Nothing in `src/` is changed. A throwaway prototype ran every
 claim below on Gforth 1.0.0 and 0.7.3; it is kept, with its output, in
-[two-mode-prototype-2026-11-03](../development/measurements/two-mode-prototype-2026-11-03/).
+[two-mode-prototype-2026-11-03](../development/measurements/two-mode-prototype-2026-11-03/README.md).
 The design still passes the [parser] gate before any code relies on it.
 
 ## Summary in plain words
@@ -47,7 +47,7 @@ Three things make it safe, and they are the heart of the design:
    mode, Forth can find exactly two lists of words: LeanForth's vocabulary
    and the words the file itself defines. `BYE`, `IMMEDIATE`, `[`,
    `POSTPONE`, `HEX`, `EVALUATE` — none of them exists there, so a file
-   that uses one is refused, and nothing of the host Forth can run.
+   that uses one is refused, and no word of the host Forth can run.
 2. **A colon definition keeps the interpreter interpreting.** `:` does not
    switch Forth into compiling. Each word of the body runs as the
    interpreter reaches it and writes its instruction. `IF` cannot know its
@@ -233,9 +233,9 @@ design in disguise. (ii) Compiling hands tokens to the host's compiler:
 numbers become literals whose text and position are lost, and `IMMEDIATE`,
 `POSTPONE`, `[` and `]` would run host code at compile time. (iii) What
 runs later is the host's compiled code, which carries no source positions
-for the IR. **Rejected: our own loop over the dictionary** (read each token, look it up
-with `SEARCH-WORDLIST`, call it): that is a parser of our own, option 1
-again.
+for the IR. **Rejected: our own loop over the dictionary** (read each
+token, look it up with `SEARCH-WORDLIST`, call it): that is a parser of
+our own, option 1 again.
 
 ### 2. Literals: the gap check, portable without recognizers
 
@@ -280,9 +280,10 @@ There are no handles on the stack for a negative number to imitate.
 word the file defines is found before a number on both hosts, so
 `: 5 7 ;  : g 5 05 ;` gives `call 5` and `lit 5`, as today's reader does
 (and Gforth 1.0 itself warns "defined literal 5 as word"). The file's word
-list is new for every run, so a name never outlives its file — the cause of
-the theorem words' version of this hole. Whether to keep allowing such
-names is [question 4](#questions-for-the-owner).
+list is new for every run, so a name never outlives its file; a name that
+did outlive its run was the cause of the theorem words' version of this
+hole. Whether to keep allowing such names is
+[question 4](#questions-for-the-owner).
 
 **Extending the literal syntax** (needed for SHA-256's constants, §6):
 Forth-2012's own prefixes `$` (hex), `#` (decimal), `%` (binary) and the
