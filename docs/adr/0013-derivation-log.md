@@ -14,6 +14,45 @@ worker) and [ADR 0012](0012-checked-environment.md) (whose E1 and E7
 already place "the derivation log" in the check's context), and reuses the
 patterns of the [diagnostics](../programming/DIAGNOSTICS.md).
 
+## Implementation (2026-11-03)
+
+Implemented on a branch of agent RB (plan tasks 2.4.1 and 2.4.4): the log
+in `src/core/derivation-log.fs`, one guarded call per kernel site, the
+proof outline in `src/present/proof-outline.fs` and `log-view.fs`,
+`make print`, and since then `bin/leanforth print`
+([command line](../user/COMMAND_LINE.md#printing-a-readable-proof),
+`src/cli/print.fs`); reference in
+[DERIVATION_LOG.md](../programming/DERIVATION_LOG.md), user page in
+[PROOF_OUTLINE.md](../user/PROOF_OUTLINE.md). The gate's evidence (D5) is
+listed there; the owner's approval of the summary is still to come. Where
+the implementation differs from the decision text below:
+
+- **Copies when the record is written**, not when the rule opens: inputs
+  are still live then (no kernel pass rolls back its caller's nodes), and
+  the identity recorded at the open is checked first; a `whnf` that
+  changed nothing then costs no copy.
+- **The copier's walk** uses two bounded stacks of its own (tasks and
+  values) instead of a `context-walk:` record, and a work bound per copy;
+  it does not depend on the heap stores' capacities (ADR 0016 step 3).
+  Constant references above the input marks are copied with their
+  universe arguments (a reference pool and an argument pool).
+- **Printing without a view.** The term printer reads the stores directly
+  in dozens of places; instead of a view, `log-view.fs` rebuilds a copy as
+  scratch above the input marks, prints it, and rolls back with
+  `lf-input-rollback`, between checks. The input is never written; the
+  scratch advances identity serials as a check does. Copied binders take
+  their names from the λ whose type they are, or from the node a shift,
+  instantiation or universe instantiation rebuilt.
+- **Rules added:** `form` (7: inference of a node it does not handle) and
+  `type` (43: a definition's type is a type; `proposition` is a theorem's).
+  `fresh-name` and `distinct-parameters` record the declaration's number,
+  `resolve` is written by `lf-env-lookup` (the path the constant rule
+  takes), and `publish`'s `start` is that of the step it uses, so
+  sub-derivations stay nested.
+- **Not yet:** the NDJSON writer and the observer (L6), the publish step of
+  the parallel hand-over, the outline's Markdown and JSON forms and the
+  statement "in words".
+
 ## Summary in plain words
 
 When LeanForth checks a proof it applies small rules one after another:

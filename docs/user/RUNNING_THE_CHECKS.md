@@ -69,6 +69,8 @@ file changed since `main`.
 | `test-cli` | `bin/leanforth` reaches every exit status 0–5 with its exact output (accepted, rejected, unsupported and unknown, out of fuel and out of room, malformed files and command lines, injected internal faults), from other folders, and agrees with the counter and the re-exporter | That a verdict is right beyond these cases: the checker has not passed its gate |
 | `reference-cli` | Pinned Lean accepts the command line's two Lean fixtures, and `scripts/export.sh` reproduces their exports and manifests byte for byte | Anything about LeanForth |
 | `reference-program-ir` | Lean proves the six words' IR equal to their reference models, using only `propext`, `Classical.choice` and `Quot.sound`, and the IR it prints equals the reader's | Anything checked by LeanForth, or the host's behaviour |
+| `test-log` | The derivation log gives the same outcomes, diagnostics and fuel with the log off, on and full at every bound, on every pinned export and broken copy and on 8 random checker trials of 1,000 steps (also interleaved with a context that does not log); every log is a valid prefix; the proof outlines print the golden text; the rule catalogue matches its documentation; the kernel uses only the log's protocol ([derivation log](../programming/DERIVATION_LOG.md)) | That an outline's sentences are right: they are fixed templates, not checked reasoning |
+| `check-log-identity` (not in `make check`, about ten minutes) | All of `make test` and the pinned-Lean comparisons pass unchanged with the log on in every context, and with it full after 5 records or with tiny copy pools | More than those tests cover |
 | `test-printer-differential` | The printer's Unicode output equals Lean's own printing on 49 cases and the five fixtures' `#print` lines, and its ASCII output, read back by Lean, elaborates to the original declarations | That any printed statement was checked |
 | `test-*-differential` | On finite tables, the experimental Forth passes (shift, instantiation, beta reduction, comparison, conversion, inference, level operations, names, the definition probe) and the program words agree with pinned Lean | General correctness: agreement on samples is evidence, not proof |
 
@@ -129,6 +131,18 @@ Translate a Forth file into the program IR (from inside Gforth, after
 It prints the IR text shown in [program IR](../programming/PROGRAM_IR.md)
 and then the outcome, 0. Any word outside IR 0.1 stops it with one
 diagnostic line and *unsupported*, *invalid* or *full*.
+
+Print the proof outline of every declaration of a Lean export (or of the
+one named `NAME`), or with `DETAIL=1` every step of the checker's
+derivation log ([proof outline](PROOF_OUTLINE.md)); this runs
+`bin/leanforth print` ([command line](COMMAND_LINE.md#printing-a-readable-proof)),
+with its exit status:
+
+```sh
+make print EXPORT=tests/reference/composition.ndjson
+make print EXPORT=tests/reference/composition.ndjson DETAIL=1
+make print EXPORT=tests/reference/constant-fixture.ndjson NAME=fixtureUse
+```
 
 Measure time and memory of an existing workload, without affecting any
 result: `make profile-existing` ([profiling](../development/PROFILING.md)).

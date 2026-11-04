@@ -346,10 +346,10 @@ end-structure
   lf-irc-minors lf-more-field lf-ind-ctors@ <> 8 and ;
 : lf-blk-k= ( data -- flag ) lf-irc-k lf-more-field 0<> lf-ind-state lf-ind-k @ 0<> = ;
 : lf-blk-rule-diff ( rules j -- differs? outcome )
-  2dup lf-rule-at @ over lf-blk-ctor-name lf-name-same?
+  2dup lf-irc-rule @ over lf-blk-ctor-name lf-name-same?
   0= if 2drop true outcome-ok exit then
-  2dup lf-rule-at cell+ @ over lf-ind-nfields @ <> if 2drop true outcome-ok exit then
-  tuck lf-rule-at 2 cells + @ swap lf-ind-rule @ swap lf-blk-same >r 0= r> ;
+  2dup lf-irc-rule cell+ @ over lf-ind-nfields @ <> if 2drop true outcome-ok exit then
+  tuck lf-irc-rule 2 cells + @ swap lf-ind-rule @ swap lf-blk-same >r 0= r> ;
 : lf-blk-rules-diff ( data -- field outcome )
   lf-irc-rules@ dup lf-ind-ctors@ <> if 2drop 9 outcome-ok exit then
   0 ?do dup i lf-blk-rule-diff ok-then? 0= if nip 0 swap unloop exit then

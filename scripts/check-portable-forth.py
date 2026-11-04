@@ -72,7 +72,7 @@ BYTE_MODULES = {
         "big-endian by shifts as FIPS 180-4 defines them",
     "src/import/manifest.fs":
         "an export manifest's digests must be lowercase hexadecimal text",
-    "src/import/text-rule.fs":
+    "src/lib/text-rule.fs":
         "texts are decoded from UTF-8, character by character, to check them against "
         "the text rule of run records and receipts",
     "src/lib/hash32.fs": "FNV-1a hashes a text one byte at a time (ADR 0016 C4)",
@@ -92,6 +92,9 @@ BYTE_MODULES = {
     "src/lib/text-run.fs":
         "text runner splits text into lines at LF and checks that every character is "
         "printable ASCII",
+    "src/program/verify-runner.fs":
+        "program words' runner reads a source file a block at a time and holds the "
+        "characters of its current line",
     "src/program/verify-semantics.fs":
         "program words compare names with A-Z folded to a-z, as Gforth finds them, and "
         "read the characters of decimals and of names that read as numbers",

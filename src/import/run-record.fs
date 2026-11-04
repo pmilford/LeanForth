@@ -13,27 +13,38 @@
 \ is invalid when its check began (it or its publication failed, and the
 \ run stopped there, ADR 0012 E4) and not-checked when it never began.
 \
-\ One run, in this order (tests/support/run-records.fs is the driver):
-\ - rr-start ( c-addr u -- outcome ) reads the export file named c-addr u
-\   before it is checked: its SHA-256, bytes and lines (rr-hash); its
-\   metadata, the exporter, format and Lean versions, with the NDJSON
-\   reader; and its manifest (manifest.fs), whose outcome, field and
-\   reason are kept whatever they are. invalid when the file cannot be
-\   opened or read, full when the heap has no room for the reader.
+\ One run, in this order (bin/leanforth and tests/support/run-records.fs
+\ are the drivers):
+\ - rr-start ( c-addr u -- outcome ) keeps the name of the export file
+\   c-addr u, the run's input from then on, and reads the file before it
+\   is checked: its SHA-256, bytes and lines (rr-hash); its metadata, the
+\   exporter, format and Lean versions, with the NDJSON reader; and its
+\   manifest (manifest.fs), whose outcome, field and reason are kept
+\   whatever they are. invalid when the file cannot be opened or read,
+\   full when the heap has no room for the reader or the name is longer
+\   than rr-file-room.
 \ - rr-settings! ( fuel deps -- ) gives every check fuel and the
 \   environment room for deps dependencies, as lf-check-input takes them.
-\ - The caller loads the same file into this context's input with its
-\   importer (in phase 2 import/checker-input.fs), gives the importer's
-\   outcome to rr-read! and, when it is ok, calls rr-check.
+\ - rr-import ( flag -- outcome ) loads that same file into this context's
+\   input with import/checker-input.fs, its manifest enforced when flag is
+\   true (cin-read-checked: its two passes must read bytes of one
+\   SHA-256; the read then also fails unless that is the SHA-256 rr-start
+\   recorded), and keeps the outcome and whether the manifest was
+\   enforced. It is the only way a recorded run reads its input, and the
+\   only way a record can say enforced (rr-read! and rr-file! are
+\   internal). A run that is not to be recorded skips rr-start and loads
+\   the file with the importer alone, rr-read-once ( c-addr u flag --
+\   outcome ); rr-write then refuses (invalid).
 \ - rr-check ( -- ) checks every declaration of the input in input order
 \   in a new environment, which it keeps current, as lf-check-input does
 \   (check-declaration.fs: lf-check-declaration, the budget, no new
 \   context after a THROW), one declaration at a time with lf-env-step,
 \   so that it can keep each declaration's diagnostic and step after its
-\   check. The run's outcome is ok when every slot ended final.
-\ - rr-finish ( c-addr u -- outcome ) reads the file again: invalid when it
-\   cannot, or when its digest, bytes or lines changed during the run (the
-\   record would describe another input than the one checked).
+\   check. The run's outcome is ok when every slot ended final. The
+\   caller runs it only after a read that was ok.
+\ - rr-finish ( -- outcome ) reads the file again: invalid when it cannot,
+\   or when its digest, bytes or lines changed during the run (the record
+\   would describe another input than the one checked).
 \ - rr-write ( -- outcome ) writes the record into the module's buffer,
 \   rr-text ( -- c-addr u ); rr-save ( c-addr u -- outcome ) writes that
 \   to the file named c-addr u, then a line feed. rr-write is full when
@@ -42,12 +53,18 @@
 \   its step published, when an accepted slot's axiom set is unreadable
 \   or not empty (allowlist version 0 names no axiom), when the run made
 \   its environment but that is freed or not the current one (compared by
-\   identity, which never repeats, not by address), when a text breaks
-\   the text rule (text-rule.fs) or a name, host, metadata or reason text
-\   is not shown, or when a number is outside I-JSON's exact range. A run that
-\   could not make its environment lists no declaration. A failed text is
-\   never a record: the writer never writes what the schema refuses.
-\ - rr-release ( -- ) frees the run's environment; rr-start does it too.
+\   identity, which never repeats, not by address), when the checks ran
+\   although the read was not ok, when a text breaks the text rule
+\   (lib/text-rule.fs) or a name, host, metadata, reason or site text is
+\   not shown, or when a number is outside I-JSON's exact range. A run
+\   that could not make its environment lists no declaration. A failed
+\   text is never a record: the writer never writes what the schema
+\   refuses.
+\ - rr-release ( -- ) frees the run's environment while it is the current
+\   one, with the run's identity; rr-start and rr-check do it too. An
+\   environment the caller made another one current over, or freed, is
+\   never touched through its old address: it is left as it is (a leak if
+\   the caller does not free it), never read stale or freed twice.
 \ rr-source! ( c-addr u flag -- outcome ) names the LeanForth commit, 40
 \ lowercase hexadecimal digits (else invalid), and whether the working
 \ tree differed from it; rr-no-source forgets them, and the record then
@@ -55,10 +72,10 @@
 \ Gforth's words where the host has them (rr-forth-version, rr-program),
 \ else "unknown".
 \
-\ Requires: lib/json-write.fs, lib/sha256.fs, import/ndjson.fs,
-\ import/manifest.fs, import/checker-input.fs (rr-import), import/text-rule.fs,
-\ present/print-names.fs (names as text) and kernel/check-declaration.fs,
-\ read only through public words.
+\ Requires: lib/json-write.fs, lib/sha256.fs, lib/text-rule.fs,
+\ import/ndjson.fs, import/manifest.fs, import/checker-input.fs
+\ (rr-import), present/print-names.fs (names as text) and
+\ kernel/check-declaration.fs, read only through public words.
 \ State: one shared record, run-record, which holds the run's facts, the
 \ JSON writer, the text and, through its export and manifest records,
 \ heap buffers while rr-start runs: one run at a time, in any context, as
@@ -77,9 +94,19 @@ require ../kernel/check-declaration.fs
 require ./ndjson.fs
 require ./manifest.fs
 require ./checker-input.fs
-require ./text-rule.fs
+require ../lib/text-rule.fs
+require ../lib/module.fs
+
+\ Words only this module uses (rr-file!, rr-read!), in a word list that
+\ is searched only while this file loads (ADR 0010's idea): so a recorded
+\ run reads its input only through rr-import of rr-start's file. Tests
+\ reach them with `rr-internal order+`.
+wordlist constant rr-internal
+rr-internal order+
 
 65536 constant rr-text-room       \ longest record text, in bytes
+255 constant rr-site-room         \ longest diagnostic site: a counted string's
+4096 constant rr-file-room        \ longest name of the export file kept
 1024 constant rr-name-room        \ longest declaration name written
 128 constant rr-note-room         \ longest metadata, manifest or source text kept
 4096 constant rr-block-room       \ bytes read at a time while hashing
@@ -137,10 +164,15 @@ begin-structure /rr
   field: rr-read            \ the importer's outcome
   field: rr-checked         \ true once rr-check ran
   field: rr-stepped         \ declarations whose check began
+  \ rr-own stays true after rr-release clears rr-env and rr-env-id: a run
+  \ that made its environment and lost it can no longer be written.
   field: rr-env             \ the environment rr-check made, or 0
   field: rr-env-id          \ its identity (environment.fs), or 0
   field: rr-own             \ true once rr-check made its environment
   field: rr-enforced        \ true when rr-import read the input with its manifest checked
+  field: rr-moved           \ true when the checked read loaded other bytes
+  field: rr-file-size       \ the export file rr-start keeps: its name's length
+  rr-file-room +field rr-file-buf
   field: rr-run             \ the run's outcome
   field: rr-fault           \ the first failure rr-write found itself, or ok
   lf-input-default /rr-step * +field rr-kept   \ at most lf-input-default declarations
@@ -160,11 +192,12 @@ rr-depth 0 run-record rr-writer jw-init 0= [if] .( run-record.fs: writer) cr abo
 : rr-unknown ( -- )
   run-record dup rr-exporter rr-forget dup rr-exporter-version rr-forget
   dup rr-format rr-forget dup rr-lean rr-forget rr-githash rr-forget ;
+: rr-unread ( -- )
+  outcome-invalid run-record rr-read ! false run-record rr-enforced !
+  false run-record rr-moved ! false run-record rr-checked ! 0 run-record rr-file-size ! ;
 : rr-reset ( -- )
   rr-unknown outcome-invalid run-record rr-manifest-outcome !
-  0 run-record rr-manifest-key ! 0 run-record rr-manifest-reason !
-  outcome-invalid run-record rr-read ! false run-record rr-enforced !
-  false run-record rr-checked ! ;
+  0 run-record rr-manifest-key ! 0 run-record rr-manifest-reason ! rr-unread ;
 : rr-no-source ( -- ) run-record rr-commit rr-forget false run-record rr-modified ! ;
 rr-reset rr-no-source
 
@@ -233,27 +266,70 @@ rr-reset rr-no-source
   run-record rr-export export-init dup ok? if drop rr-passes else nip nip then
   run-record rr-export export-free ;
 
-\ Start a run on the export file named c-addr u, as described above.
-\ rr-release frees the run's environment only while it still has the
-\ run's identity: one that someone else freed is not freed twice, and a
-\ new environment made at the same address is left alone (rvRP 2).
-: rr-mine? ( env -- flag ) lf-envh-identity @ run-record rr-env-id @ = ;
+\ The run's own environment, the one rr-check made, is the current one:
+\ verdicts are never read from any other (review F1). Environments are
+\ compared by identity, which never repeats, not by address: a new
+\ environment made where a freed one was is another one (rvRP 2).
+: rr-ours? ( -- flag ) run-record rr-env-id @ dup if lf-env-id = else drop false then ;
+\ The run's environment is freed only while it is current with the run's
+\ identity, through the current environment, never through the address
+\ kept: one the caller made another environment current over, or freed,
+\ is never read or freed again (it stays allocated unless the caller
+\ frees it: a leak, never a stale read or a double free; rvRP3 L2).
 : rr-forget-env ( -- ) 0 run-record rr-env ! 0 run-record rr-env-id ! ;
-: rr-release ( -- )
-  run-record rr-env @ ?dup if dup rr-mine? if lf-env-free then drop then rr-forget-env ;
+: rr-release ( -- ) rr-ours? if lf-env lf-env-free drop then rr-forget-env ;
+
+\ The export file the run keeps: rr-start's, which every later read of
+\ the run uses (rvRP3 M1). rr-file! is internal (rr-internal): nothing
+\ else may name the file of a recorded run (rvRP3 R2-3).
+: rr-file ( -- c-addr u ) run-record dup rr-file-buf swap rr-file-size @ ;
+: rr-started? ( -- flag ) rr-file nip 0<> ;
+get-current rr-internal set-current
+: rr-file! ( c-addr u -- flag )
+  dup rr-file-room > if 2drop false exit then
+  dup run-record rr-file-size ! run-record rr-file-buf swap move true ;
+set-current
+\ Start a run on the export file named c-addr u, as described above.
+: rr-hash-file ( -- outcome ) rr-file run-record rr-before rr-hash ;
 : rr-start ( c-addr u -- outcome )
-  rr-release rr-reset 2dup run-record rr-before rr-hash
-  dup ok? if drop rr-reads else nip nip then ;
+  rr-release rr-reset rr-file! 0= if outcome-full exit then
+  rr-hash-file dup ok? if drop rr-file rr-reads then ;
 : rr-settings! ( fuel deps -- ) run-record rr-deps ! run-record rr-fuel ! ;
-\ The importer's outcome. rr-read! takes it from any importer, which this
-\ module cannot see enforce the manifest: the record says not enforced.
-\ rr-import loads the export itself with checker-input.fs, its manifest
-\ checked (cin-read-checked) when flag is true: the record says enforced
-\ exactly then.
+\ The importer's outcome, and no manifest enforced; internal: only
+\ rr-import and rr-read-once below load the input (rvRP3 R2-3).
+get-current rr-internal set-current
 : rr-read! ( outcome -- ) run-record rr-read ! false run-record rr-enforced ! ;
-: rr-import ( c-addr u flag -- outcome )
-  >r r@ if cin-read-checked else cin-read then dup rr-read!
-  r> 0<> run-record rr-enforced ! ;
+set-current
+\ rr-import loads the run's file itself with checker-input.fs, with the
+\ manifest checked (cin-read-checked) when flag is true; the record says
+\ enforced exactly then. What an enforced read guarantees: both of the
+\ importer's passes read bytes with one SHA-256 (checker-input.fs compares
+\ the second pass's digest with the first's, rvRP3 R2-1), each pass
+\ matched the manifest beside the file as it stood for that pass, and
+\ that SHA-256 is the one rr-start recorded (rr-same-bytes?, else the read
+\ is invalid and rr-moved? true). So the verdicts of an enforced record
+\ are those of bytes whose SHA-256 is input.sha256, whatever happened to
+\ the file between the reads, or back again before rr-finish. An
+\ unchecked read computes no digest of its own: its record says not
+\ enforced, and only rr-start's and rr-finish's reads bound its bytes.
+: rr-recorded ( -- c-addr u ) run-record rr-before facts-hex sha-digest-bytes 2* ;
+: rr-same-bytes? ( -- flag ) cin-digest rr-recorded compare 0= ;
+: rr-bytes-check ( -- outcome ) rr-same-bytes? dup 0= run-record rr-moved ! flag>outcome ;
+: rr-moved? ( -- flag ) run-record rr-moved @ ;
+: rr-checked-read ( c-addr u -- outcome )
+  cin-read-checked dup ok? if drop rr-bytes-check then ;
+: rr-load ( flag -- outcome ) rr-file rot if rr-checked-read else cin-read then ;
+\ A run that is not recorded (bin/leanforth check without --record): the
+\ export file c-addr u loaded by the importer alone (its two passes, the
+\ manifest checked when flag is true, both passes' digests equal), with
+\ none of rr-start's three reads (digest, metadata, manifest) and no name
+\ kept, so rr-write then refuses (invalid).
+: rr-read-once ( c-addr u flag -- outcome )
+  rr-release rr-reset if cin-read-checked else cin-read then dup rr-read! ;
+: rr-unstarted ( flag -- outcome ) drop outcome-invalid dup rr-read! ;
+: rr-import ( flag -- outcome )
+  false run-record rr-moved ! rr-started? 0= if rr-unstarted exit then
+  dup rr-load dup rr-read! swap 0<> run-record rr-enforced ! ;
 : rr-source! ( c-addr u flag -- outcome )
   >r 2dup 40 hex-text? 0= if 2drop r> drop outcome-invalid exit then
   run-record rr-commit rr-note! r> 0<> run-record rr-modified ! ;
@@ -269,11 +345,6 @@ rr-reset rr-no-source
   dup 1+ run-record rr-stepped ! dup >r ['] lf-check-declaration swap lf-env-step
   swap r> rr-keep lf-env-spent? or ;
 : rr-steps ( n -- ) 0 ?do i rr-step if unloop exit then loop ;
-\ The run's own environment, the one rr-check made, is the current one:
-\ verdicts are never read from any other (review F1). Environments are
-\ compared by identity, which never repeats, not by address: a new
-\ environment made where a freed one was is another one (rvRP 2).
-: rr-ours? ( -- flag ) run-record rr-env-id @ dup if lf-env-id = else drop false then ;
 \ A snapshot of every slot of the run's own environment.
 : rr-viewed? ( -- flag )
   rr-ours? if lf-env-view ok? lf-name-storage-valid? and else false then ;
@@ -304,8 +375,8 @@ rr-reset rr-no-source
 \ The end of a run: the file read again, unchanged.
 : rr-same-input? ( -- flag )
   run-record dup rr-before /rr-facts rot rr-after /rr-facts compare 0= ;
-: rr-finish ( c-addr u -- outcome )
-  run-record rr-after rr-hash dup ok? if drop rr-same-input? flag>outcome then ;
+: rr-finish ( -- outcome )
+  rr-file run-record rr-after rr-hash dup ok? if drop rr-same-input? flag>outcome then ;
 
 \ The host, through Gforth's words where it has them: the version, and
 \ the program that runs, its engine.
@@ -372,22 +443,28 @@ rr-power 2constant rr-exact
   s" sha256" rr-key dup facts-hex sha-digest-bytes 2* rr-string
   s" bytes" rr-key dup facts-bytes 2@ rr-ud s" lines" rr-key facts-lines 2@ rr-ud ;
 \ The manifest's outcome, field and reason; a failure's reason is shown.
+: rr-read-ok? ( -- flag ) run-record rr-read @ ok? ;
+: rr-manifest-ok? ( -- flag ) run-record rr-manifest-outcome @ ok? ;
 : rr-why-out ( -- )
-  run-record dup rr-manifest-reason swap rr-manifest-outcome @ ok?
+  run-record rr-manifest-reason rr-manifest-ok?
   if s" reason" rr-member else s" reason" rr-shown-out then ;
 \ Whether the importer enforced the manifest. An enforced manifest that
 \ the input read past although it does not match is a contradiction: the
 \ text fails as invalid.
 : rr-enforced? ( -- flag ) run-record rr-enforced @ ;
+: rr-enforced-past? ( -- flag ) rr-enforced? rr-read-ok? and rr-manifest-ok? 0= and ;
 : rr-enforced-out ( -- )
-  rr-enforced? run-record dup rr-read @ ok? swap rr-manifest-outcome @ ok? 0= and and
-  if outcome-invalid rr-fail then s" enforced" rr-key rr-enforced? rr-w jw-bool ;
+  rr-enforced-past? if outcome-invalid rr-fail then
+  s" enforced" rr-key rr-enforced? rr-w jw-bool ;
 : rr-manifest-out ( -- )
   s" manifest" rr-key rr-object
   s" outcome" rr-key run-record rr-manifest-outcome @ rr-outcome
   run-record rr-manifest-key s" field" rr-member rr-why-out rr-enforced-out
   rr-end-object ;
+\ A run that did not start with rr-start (rr-read-once) has no facts of
+\ its file to record: the text fails as invalid.
 : rr-input-out ( -- )
+  rr-started? 0= if outcome-invalid rr-fail then
   s" input" rr-key rr-object run-record rr-before rr-facts-out rr-manifest-out
   rr-end-object ;
 : rr-exporter-out ( -- )
@@ -422,9 +499,11 @@ rr-power 2constant rr-exact
 \ The run: the importer's outcome, the run's (not-run without rr-check),
 \ and the environment's run mode and allowlist version (null without one).
 : rr-made ( -- env|0 ) rr-ours? if run-record rr-env @ else 0 then ;
+\ Checks that ran although the read was not ok checked another input, the
+\ one an earlier read left: the text fails as invalid (rvRP3 L1).
 : rr-run-out ( -- )
-  run-record dup rr-checked @ if rr-run @ rr-outcome exit then
-  drop s" not-run" rr-string ;
+  run-record rr-checked @ 0= if s" not-run" rr-string exit then
+  rr-read-ok? 0= if outcome-invalid rr-fail then run-record rr-run @ rr-outcome ;
 : rr-mode-text ( mode -- c-addr u )
   lf-mode-final = if s" final" else s" development" then ;
 : rr-mode-out ( -- )
@@ -457,10 +536,17 @@ rr-power 2constant rr-exact
 : rr-site ( site -- c-addr u ) ?dup if count else s" " then ;
 : rr-numbers-out ( step -- )
   s" numbers" rr-key rr-array dup kept-first @ rr-int kept-second @ rr-int rr-end-array ;
+\ The reason (the catalogue's name of the code) and the site go through the
+\ same rule and limits as every other text: shown, at most 128 and 255
+\ bytes; an empty site (a diagnostic recorded without one) stays empty.
 : rr-code-out ( step -- step )
-  s" code" rr-key dup kept-code @ dup rr-int s" reason" rr-key lf-diag-name rr-string ;
+  s" code" rr-key dup kept-code @ dup rr-int
+  s" reason" rr-key lf-diag-name rr-note-room rr-shown ;
+: rr-site-out ( step -- step )
+  s" site" rr-key dup kept-site @ rr-site
+  dup if rr-site-room rr-shown else rr-string then ;
 : rr-reason-out ( step -- )
-  rr-object rr-code-out s" site" rr-key dup kept-site @ rr-site rr-string
+  rr-object rr-code-out rr-site-out
   dup rr-numbers-out s" step" rr-key kept-step @ rr-int rr-end-object ;
 : rr-diagnostic-out ( step -- )
   s" diagnostic" rr-key
@@ -484,10 +570,14 @@ rr-power 2constant rr-exact
 \ Every declaration, in input order, read in a snapshot of every slot of
 \ the run's own environment; none when no check ran or the run could not
 \ make its environment (the run's outcome says why). When that environment
-\ is freed or another one is current, the text fails as invalid.
+\ is freed or another one is current, the text fails as invalid; when the
+\ input holds more declarations than a record keeps (lf-input-default; the
+\ schema's limit), as full (rvRP3 R2-2).
 : rr-made-own? ( -- flag ) run-record dup rr-checked @ swap rr-own @ and ;
+: rr-fits? ( -- flag ) lf-input-count lf-input-default upto? ;
 : rr-decls ( -- )
-  rr-made-own? 0= if exit then rr-viewed? 0= if outcome-invalid rr-fail exit then
+  rr-made-own? 0= if exit then rr-fits? 0= if outcome-full rr-fail exit then
+  rr-viewed? 0= if outcome-invalid rr-fail exit then
   lf-input-count 0 ?do i rr-decl-out loop ;
 : rr-decls-out ( -- ) s" declarations" rr-key rr-array rr-decls rr-end-array ;
 
@@ -508,4 +598,5 @@ rr-power 2constant rr-exact
   >r rr-text r@ write-file rr-lf r@ write-file or r> close-file or
   if outcome-invalid else outcome-ok then ;
 
+order-   \ rr-internal off the search order
 base !   \ the BASE this file was loaded with

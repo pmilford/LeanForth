@@ -5,9 +5,8 @@ with de Bruijn indices instead of variable names. The **term printer** turns
 such a term back into text a person can read: in Lean's own notation, in
 plain ASCII, or in LaTeX for rendered mathematics. It is the first piece of
 the readable proofs the plan asks for (tasks 2.4.2 and 2.4.3 of
-[the draft plan](../project/PLAN_DRAFT.md), §7); the proof-outline printer
-that puts reasons between proof lines (2.4.4) builds on it and does not
-exist yet.
+[the draft plan](../project/PLAN_DRAFT.md), §7); the [proof-outline printer](PROOF_OUTLINE.md)
+that puts reasons between proof lines (2.4.4) builds on it.
 
 **Trust.** The printer is presentation code. The checker never loads it,
 and nothing it prints is evidence that anything was checked. A wrong or
@@ -184,6 +183,8 @@ Outcomes are the shared ones of `src/lib/outcome.fs`.
 | `lf-print-level` | `( level fuel -- outcome )` | print a universe level |
 | `lf-print-name` | `( id -- outcome )` | print a structured name; the anonymous name 0 prints as `[anonymous]` (one unit of fuel) |
 | `lf-print-inline`, `lf-print-display` | `( term fuel -- outcome )` | LaTeX between `$` or `$$` |
+| `lf-print-scoped` | `( term addr count fuel -- outcome )` | print an open term in the scope of `count` λ or Π nodes at `addr`, outermost first, named as one `fun`'s binders (no repeats, no capture); for the proof outline |
+| `lf-print-scope-name` | `( addr count fuel -- outcome )` | print the display name of the innermost of those binders |
 | `lf-print-limit!` | `( n -- flag )` | most nested visits per print (default 128); false for n < 1 or during a print |
 | `lf-print-fuel` | `( -- addr )` | fuel left after the last print |
 | `lf-print-reset` | `( -- )` | recover after a THROW out of a print: the printer is idle again, in the mode `lf-print-setup` set |

@@ -5,6 +5,10 @@
 LOCAL_GFORTH := .tools/gforth/bin/gforth
 LOCAL_LEAN := $(CURDIR)/.tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean
 GFORTH ?= $(if $(wildcard $(LOCAL_GFORTH)),$(LOCAL_GFORTH),gforth)
+# Every Forth run goes through scripts/gforth-strict.sh, which fails when
+# Gforth 1.0 exits 0 after an error whose report itself crashed (BASE 0).
+export LEANFORTH_GFORTH := $(if $(filter .tools/%,$(GFORTH)),$(CURDIR)/$(GFORTH),$(GFORTH))
+override GFORTH := $(CURDIR)/scripts/gforth-strict.sh
 LEAN ?= $(if $(wildcard $(LOCAL_LEAN)),$(LOCAL_LEAN),lean)
 LEAN_BINARY := $(LEAN)
 
@@ -202,6 +206,7 @@ test-lib:
 	$(RUN) $(GFORTH) tests/lib/task-serial.fs
 	$(RUN) $(GFORTH) tests/lib/task-no-env.fs
 	$(RUN) $(GFORTH) tests/lib/bytes.fs
+	$(RUN) $(GFORTH) tests/lib/text-rule.fs
 	$(RUN) $(GFORTH) tests/lib/json.fs
 	$(RUN) $(GFORTH) tests/lib/json-write.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/lib/test_json_write.py
@@ -734,6 +739,44 @@ reference-compact-init:
 test: test-compact test-stage
 check: test-compact-faults
 test-differential: reference-compact-init
+
+# The derivation log (ADR 0013, plan task 2.4.1; docs/programming/DERIVATION_LOG.md)
+# and the proof outline printed from it (plan task 2.4.4; docs/user/PROOF_OUTLINE.md):
+# the log of every pinned export and broken copy off, on and full at every bound,
+# with nothing changed; the checker trials with the log off, on, full and
+# interleaved; the golden outlines; the rule catalogue against its documentation;
+# the isolation rules. Gforth and Python 3 only.
+test-log:
+	$(RUN) $(GFORTH) tests/core/derivation-log.fs
+	$(RUN) $(GFORTH) tests/core/log-trials.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/present/check_outline.py
+	GFORTH=$(GFORTH) $(RUN) python3 tests/core/check_log_catalogue.py
+	$(RUN) python3 tests/core/check_log_isolation.py
+
+# The proof outline of every declaration of a Lean export (or of the one
+# named NAME), or with DETAIL=1 every step of its derivation log: bin/leanforth
+# print, with its exit codes (docs/user/COMMAND_LINE.md):
+#   make print EXPORT=tests/reference/composition.ndjson [DETAIL=1] [NAME=composition]
+print:
+	GFORTH=$(GFORTH) $(RUN) bin/leanforth print $(if $(DETAIL),--detail) \
+	$(if $(NAME),--name $(NAME)) $(EXPORT)
+
+# The evidence that the log changes nothing (ADR 0013, owner decision D5): all of
+# make test and every pinned-Lean comparison of make test-differential with the
+# log on in every context (tests/support/gforth-log.sh), then on and full after 5
+# records, then make test with 2 term copies, 1 level copy and 3 open rules.
+# About ten minutes; not part of make check.
+LOG_GFORTH = $(if $(findstring /,$(GFORTH)),$(abspath $(GFORTH)),$(shell command -v $(GFORTH)))
+LOG_RUN = LF_GFORTH=$(LOG_GFORTH) LF_LOG_LEVEL=2
+check-log-identity:
+	$(LOG_RUN) $(MAKE) test test-differential GFORTH=tests/support/gforth-log.sh
+	$(LOG_RUN) LF_LOG_RECORDS=5 $(MAKE) test test-differential GFORTH=tests/support/gforth-log.sh
+	$(LOG_RUN) LF_LOG_TERMS=2 LF_LOG_LEVELS=1 LF_LOG_MARKS=3 $(MAKE) test \
+	GFORTH=tests/support/gforth-log.sh
+
+.PHONY: test-log print check-log-identity
+test: test-log
+DOC_EXAMPLE_PAGES += docs/user/PROOF_OUTLINE.md
 
 # The command line (plan tasks 3.4.1-3.4.2; docs/user/COMMAND_LINE.md): the
 # Forth side's exit codes, their severity, the record hook and two injected

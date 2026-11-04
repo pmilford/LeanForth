@@ -2,7 +2,8 @@
   "recordedAt": "2026-11-03",
   "ir": {
     "words": "src/program/verify.fs",
-    "sha256": "651875025cec88f7ae5b6669b227df28ebd3bbcbc29f11af08370024bf5cfb50"
+    "sha256": "651875025cec88f7ae5b6669b227df28ebd3bbcbc29f11af08370024bf5cfb50",
+    "source": "e4444161f4a3436b1a4509338e15fe2aeb47cab1f4327069e31b401bf1dc6a30"
   },
   "lean": {
     "version": "4.35.0",

@@ -218,10 +218,10 @@ mode shift only) and 30 "a name that reads as a number".
 
 | Module | What it is |
 | --- | --- |
-| [`src/lib/text-run.fs`](../../src/lib/text-run.fs) | General library: the search order, compilation word list and `BASE` saved and restored, a whole file read as bytes, lines split at LF, the plain-text rule |
+| [`src/lib/text-run.fs`](../../src/lib/text-run.fs) | General library (helpers private, ADR 0010): the search order, compilation word list and `BASE` saved and restored, a whole file read as bytes into a buffer (full when it fills it), lines split at LF, the plain-text rule |
 | [`src/program/verify-report.fs`](../../src/program/verify-report.fs) | The run record, the reasons (in the authoring layer's message format, `src/author/errors.fs`), output lines and diagnostics |
 | [`src/program/verify-semantics.fs`](../../src/program/verify-semantics.fs) | The verification semantics: one table keyed by name, the actions of `:`, `;`, `CONSTANT`, `IF` … and the 38 primitives, definitions, frames, literals |
-| [`src/program/verify-runner.fs`](../../src/program/verify-runner.fs) | The runner both designs share: lines, files, isolation, exceptions |
+| [`src/program/verify-runner.fs`](../../src/program/verify-runner.fs) | The runner both designs share: lines, files read a block at a time, isolation, exceptions |
 | [`src/program/verify.fs`](../../src/program/verify.fs) | **The mode shift** (ADR 0019 §9 (b2), the owner's primary design) |
 | [`src/program/verify-alias.fs`](../../src/program/verify-alias.fs) | The separate vocabulary, kept working beside it with the same actions |
 
@@ -233,10 +233,14 @@ with `PARSE-NAME`; find it with `SEARCH-WORDLIST`, the file's own words
 first, then `FORTH-WORDLIST`; perform its verification semantics; a name
 not found must be a plain decimal, which the words read themselves. A host
 word is known by its *identity*, the execution token its name had when the
-words loaded, together with the name (Gforth 0.7.3 gives every
-compile-only word one token): so a Forth in which a standard word was
-redefined before the run is refused at that word. No host word ever runs,
-and the host converts no number.
+words loaded, together with the name: so a standard word redefined after
+the program words loaded and before the run is refused at that word. This
+covers only the verifying session, and has two known limits, both tested:
+a word redefined before the program words load is not noticed, and on
+Gforth 0.7.3, which gives every compile-only word (`IF`, `THEN`, `;` …)
+one shared token, neither is a compile-only word redefined after. Run mode
+is another Forth, so a tampered host stays an assumption in any case. No
+host word ever runs, and the host converts no number.
 
 **The separate vocabulary.** LeanForth's own words named `dup`, `if`, `:`
 … live in a word list of their own; with only that list and the file's
@@ -245,14 +249,16 @@ each performs the same action. Forth also reads the numbers, and Gforth
 1.0's recognizers read more forms (`"x"`, `->x`, `` `dup ``, `1e`), so each
 word first checks the text since the previous one (the *gap*): only plain
 decimals, each written as `lit n`, and the data stack grown by exactly
-their values. It cannot see a standard word redefined before the run.
+their values. It cannot see a standard word redefined before the run, nor
+a host word named like a decimal, which the mode shift refuses.
 
 **What they accept** is what the reader accepts (below): colon definitions
 and constants made of IR 0.1's primitives, control words, plain decimals
 and earlier definitions, with `\` and `( )` comments and `DECIMAL`, in any
-case of letters; the same lines and characters, the same capacities, plus
-at most 65,536 bytes per file. They differ from the reader on purpose in
-four ways, from the owner's answers and ADR 0019 §2-§3:
+case of letters; the same lines and characters and the same capacities,
+with a file read a block at a time and no limit on its size. They differ
+from the reader on purpose in four ways, from the owner's answers and ADR
+0019 §2-§3:
 
 - *Forth-2012's Core and Core Ext words are reserved:* one outside IR 0.1
   (`CELLS`, `S"`, `EVALUATE`, `HEX` …) is refused as "a Forth word outside
@@ -260,18 +266,28 @@ four ways, from the owner's answers and ADR 0019 §2-§3:
   defined by the file (`: . drop ;`, `: depth 0 ;`), which narrows the
   reader's caveat that the file must be loaded last to Gforth's own words.
 - *Names that read as numbers are refused* (answer 4) in `:` and
-  `CONSTANT`: a digit first; a quote and more (`'a'`); after one or more of
-  `+ - # $ % &`, a digit or a hexadecimal letter (`-0`, `$10`, `-a`); or a
-  point before a digit (`.5`, which Gforth 1.0 reads as a float). `->x`,
-  `"x"`, `x:dup` and `-rot` are names.
+  `CONSTANT`. After any leading signs and base prefixes (`+ - # $ % &`):
+  a digit; Gforth 1.0's digit separator `_`; a quote and one more
+  character (`'a'`, `-'a'`); after a prefix, a hexadecimal letter (`$10`,
+  `-a`) or any letter before a digit or a point (`-k1`, `+M5`, which Gforth
+  1.0 reads as floats with an SI prefix for the point); or a point before
+  a digit, `_` or a prefixed hexadecimal letter (`.5`, `._`, `$.a`).
+  `->x`, `"x"`, `x:dup` and `-rot` are names. A test checks the rule
+  against the running Gforth: no token of one to three printable
+  characters (all but `"`, `{` and `}`, which Gforth 1.0 reads as strings
+  and environment names) that the host reads by itself in an empty search
+  order may pass it; Gforth 1.0 reads 11,769 such tokens and 0.7.3 3,171.
 - *A run started while Forth compiles is refused* before any line runs,
   where the reader, which runs nothing, did not care.
-- *The mode shift refuses a standard word redefined before the run.*
+- *The mode shift refuses a standard word redefined before the run*, with
+  the limits above.
 
 **Isolation** (ADR 0019 §3). The caller's search order, compilation word
-list and `BASE` are saved and given back however a run ends; `BASE` is ten
-throughout; after each line `STATE` must be zero and the data stack as
-deep as before. Every `THROW` is caught: a run is the authoring program's
+list and `BASE` are saved and given back however a run ends (a search
+order of more than 16 word lists is refused as *full* before anything
+changes); `BASE` is ten throughout; after each line `STATE` must be zero
+and the data stack as deep as before (defence in depth: no input reaches
+either check). Every `THROW` is caught: a run is the authoring program's
 top level (ADR 0018) and gives only an outcome. A token that Forth's
 interpreter cannot read (the separate vocabulary) is refused as unknown at
 the first token after the checked text that is no plain decimal. An output
@@ -286,20 +302,33 @@ authoring layer it belongs in the authoring program (plan 8.2.1) and
 records and its reading of the invoking token back from `>IN`.
 
 **Evidence** (`make test-program-verify`, Gforth 1.0.0 and 0.7.3,
-2026-11-03): the three golden files byte for byte in both designs; 273
-inputs through the reader and both designs (108 cases of the reader's tests,
-139 hostile inputs, 26 files with every kind of line end and the golden
-sources), on which the two designs write the same lines and give the same
-outcome, reason, line and column on all 273, and differ from the reader only
-by the four rules above (54 inputs), the 57 accepted ones loaded by plain
-Gforth too; a round trip of the golden IR and of IR with awkward names
-(`->x`, `"x"`, `forth:dup`, `-rot`, `a(b)`, 31 characters) printed back as
-Forth in another layout; 400 random programs from a seed, a fifth with a
-planted mistake, identical in all three but for one number name; each word
-with verification semantics redefined in turn before a run, refused by the
-mode shift at that word; and 17 planted faults, all caught
-(`tests/mutants/faults.toml`). The clamp receipt's IR is now written by the
-mode shift ([receipts](PROGRAM_RECEIPTS.md)).
+2026-11-04, after review rvPW): the three golden files byte for byte in
+both designs; 287 inputs through the reader and both designs (108 cases of
+the reader's tests, 151 hostile inputs, 28 files: every kind of line end,
+a file of 65,536 bytes ending in an LF with a redefinition after it,
+which is refused, a file of about 400,000 bytes, and the golden sources),
+on which the two designs write the same lines and give the same outcome,
+reason, line and column on all 287, and differ from the reader only by the
+four rules above (66 inputs), the 58 accepted ones loaded by plain Gforth
+too; a round trip of the golden IR and of IR with awkward names (`->x`,
+`"x"`, `forth:dup`, `-rot`, `a(b)`, 31 characters) printed back as Forth in
+another layout; 400 random programs from a seed, a fifth with a planted
+mistake, identical in all three but for one number name; the number-name
+rule against the host's own reading of every short token; eight and nine
+open structures; a search order too deep; the source file closed after an
+accepted, a refused and an interrupted run; a context left free when a
+run's preparation throws; each word with verification semantics redefined
+in turn before a run, refused by the mode shift at that word; a
+compile-only `IF` redefined after loading (refused on 1.0, the known limit
+on 0.7.3); a host word named `7`; and 29 planted faults
+(`tests/mutants/faults.toml`): 27 caught, and 2 listed as equivalent (the
+`STATE` and depth checks after each line, which no input reaches). Review
+rvPW's second round also compared the block reader with today's reader on
+2,874 files whose features cross block edges, on both hosts: identical.
+The clamp receipt's IR is now written by the mode shift
+([receipts](PROGRAM_RECEIPTS.md)); recording its evidence hashes the source
+before and after the run and keeps that hash, which the receipt's
+`program.source.sha256` must equal.
 
 ## The reader
 

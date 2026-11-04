@@ -141,6 +141,7 @@
 \ fault-injection hook lf-env-before-final (a DEFER, shared).
 
 require ../lib/lib.fs
+require ../core/derivation-log.fs
 require ../core/diagnostics.fs
 require ../core/terms.fs
 require ../core/input.fs
@@ -416,10 +417,14 @@ context-unbalanced constant lf-env-unbalanced
 \ input marks. Gives the outcome published and whether the run must stop:
 \ a refused start (inside a job or a check, in a spent context, ...), a
 \ moved snapshot, a fault in the publisher or a failed rollback.
+\ The derivation log's publish step (ADR 0013): the slot, its number of
+\ dependencies and the outcome published; the log then stops recording.
+: lf-env-logged-publish ( outcome fault? -- outcome fault? )
+  over >r lf-env-limit lf-cand-count@ r> lf-log-publish ;
 : lf-env-step ( xt i -- outcome fault? )
   context-in-job? if 2drop outcome-invalid true exit then
   dup lf-env-begin ok? 0= if 2drop outcome-invalid true exit then
-  lf-env-checked lf-input-rollback ok? 0= or ;
+  lf-env-checked lf-env-logged-publish lf-input-rollback ok? 0= or ;
 
 \ The serial run's contexts (G-P6). After a check threw, the run goes on
 \ in a new context from maker ( -- context ior ), which must make an

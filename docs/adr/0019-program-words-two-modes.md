@@ -39,9 +39,16 @@ from it:
   redefined; the mode shift knows the 51 words with verification
   semantics by identity (token and name) and the reserved ones by name
   alone, so `RECURSE`'s moving token (§9) needs no special case in IR 0.1.
-- **Names that read as numbers** (answer 4): the rule of §2 also refuses a
-  point before a digit (`.5`, a float on Gforth 1.0) and chains of signs
-  and prefixes (`$-1`, `-$10`).
+- **Names that read as numbers** (answer 4): the rule of §2 also refuses
+  chains of signs and prefixes (`$-1`, `-$10`), Gforth 1.0's digit
+  separator (`_1`, `-_1`, `#_1`), a quote after a sign (`-'a'`, read by
+  both Gforths), after a prefix a letter before a digit or a point (`-k1`,
+  `+M5`: Gforth 1.0's floats with an SI prefix), and a point before a
+  digit, `_` or a prefixed hexadecimal letter (`.5`, `._`, `$.a`). The
+  first version missed `-'a'`, `-_1` and `#_1` (review rvPW, M1), the
+  second the SI floats (N1); a test now checks the rule against the
+  running Gforth, which must read no token of one to three printable
+  characters in an empty search order that the rule lets through.
 - **The gap check** (separate vocabulary) writes each `lit` as it checks
   it, and after a host `THROW` writes the literals before the token it
   refuses, so that the lines before a refusal are the reader's; the
@@ -52,7 +59,12 @@ from it:
   run mode would call it.
 - **A run started by the output word** in its own context aborts and
   changes nothing; the run under way goes on.
-- **Files** are read whole, at most 65,536 bytes (the reader streamed them).
+- **Files** are read a block at a time, with no limit on their size, as
+  the reader does. (The first version read them whole, at most 65,536
+  bytes, and a file whose 65,536th byte was an LF was cut there without a
+  word: review rvPW's blocking finding B1, fixed the same day.)
+- **Identity** (§9): known by the token a name had when the program words
+  loaded; see the corrected reason 2 of §9 for what it does not cover.
 - **Well-formedness** in Lean: the decidable predicate is in
   `tests/reference/program-ir.lean` (Part 6), checked by `decide`; the
   *unknownWord* theorem is still a follow-up.
@@ -489,13 +501,20 @@ loaded `clamp.fs` and `examples.fs` with plain Gforth and checked 19 calls
 on both hosts.
 
 **What ties the two runs.** The receipt already records
-`program.source.sha256` and `program.ir.sha256`. The correctness runner
-reads the file once into memory and runs exactly those bytes, so it can
-hash exactly what it ran (with the Forth SHA-256 of plan 3.2.6). A run-mode
-loader for receipts does the same — read once, check the hash against the
-receipt, evaluate those bytes with Forth's own words — so both modes
-provably ran the same bytes. Plain `include` stays fine for users, with
-`sha256sum` to compare.
+`program.source.sha256` and `program.ir.sha256`. *As built (2026-11-04):*
+the correctness runner reads the file a block at a time, every byte of it
+and with no limit, as today's reader does (the first version read it once
+into memory, which review rvPW found could cut a large file, B1). A hash
+of exactly what it ran would therefore be taken over the blocks as they are
+read (with the Forth SHA-256 of plan 3.2.6), not over a copy in memory;
+that is not built yet. Today the tie is made when the receipt's evidence
+is recorded: `scripts/program_receipt.py record` hashes the source file,
+runs the mode shift on it, hashes it again and requires both hashes equal
+and the IR written byte for byte the IR file's; the receipt's
+`program.source.sha256` must then be that hash. A run-mode loader for
+receipts would do the same — check the hash against the receipt, evaluate
+those bytes with Forth's own words — so both modes provably ran the same
+bytes. Plain `include` stays fine for users, with `sha256sum` to compare.
 
 **What remains trusted** (the receipt's assumptions):
 
@@ -687,7 +706,7 @@ prototype folder, section 8 of `run.sh`):
 | Speed of run mode | slower (a call and a test per word) | unchanged | unchanged | unchanged |
 | Who reads tokens and numbers | Forth | Forth (numbers checked by the gap check; Gforth 1.0's recognizers act first) | Forth (its recognizers act first) | Forth's `PARSE-NAME` and `SEARCH-WORDLIST`; numbers only plain decimals, read by LeanForth; no recognizer runs |
 | Tie between a word and its meaning | the wrapper itself (trusted at run time) | the name | the word's identity | the word's identity (token and name) |
-| A standard word redefined before the run | runs the redefinition | **not noticed** | refused | refused |
+| A standard word redefined after the program words loaded and before the run | runs the redefinition | **not noticed** | refused | refused, except a compile-only word on Gforth 0.7.3 (one shared token); tampering before they load is not noticed in any design |
 | What is trusted | wrappers, in run mode too | each alias's meaning; isolation by visibility | each verification semantics; Gforth's dispatch | each verification semantics; a short loop of its own |
 | How a user switches | a flag | `verify FILE` versus `include FILE` | `verify FILE` (inside: `verifying set-state`, then Gforth's own interpreter reads each line) | `verify FILE` versus `include FILE` |
 
@@ -697,10 +716,16 @@ prototype folder, section 8 of `run.sh`):
    duplicates and in correctness mode writes `prim dup`. Forth-2012
    already describes words by their semantics per interpreter state; a
    word's verification semantics sits next to them in its documentation.
-2. It is stronger where it matters: it checks that every word the file
-   uses *is* Forth's standard word (the `MAX` test), so a Forth that was
-   tampered with before loading is refused, which the alias design leaves
-   as an assumption.
+2. It is somewhat stronger: it checks that every word the file uses is the
+   word that had the standard name when the program words loaded (the
+   `MAX` test), so a standard word redefined after they loaded and before
+   the run is refused, which the alias design cannot see. *Corrected after
+   review rvPW (M2):* the check covers only the verifying session; on
+   Gforth 0.7.3, which gives every compile-only word one shared token, a
+   compile-only word redefined after loading is not noticed; tampering
+   before the program words load is not noticed either; and run mode is
+   another Forth. So a tampered host stays an assumption in every design
+   (see Risks); the check never bears on whether the IR matches run mode.
 3. It is simpler to argue: the host converts no number and runs no
    recognizer; each token is a word with verification semantics, a plain
    decimal, or refused. The alias design's gap check is not needed.

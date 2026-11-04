@@ -163,7 +163,7 @@ finish
 \ Either.rec; Point.x (36) holds a projection.
 : data ( d -- addr ) lf-input-decl lf-idecl-data ;
 : cell! ( x d k -- ) cells swap data + ! ;
-: rule ( d j -- addr ) swap data lf-irc-rules@ drop swap lf-rule-at ;
+: rule ( d j -- addr ) swap data lf-irc-rules@ drop swap lf-irc-rule ;
 : rhs ( d j -- addr ) rule 2 cells + ;
 \ Run xt, then give block d's outcome, code and second number.
 : block-verdict ( xt d -- outcome code n2 )

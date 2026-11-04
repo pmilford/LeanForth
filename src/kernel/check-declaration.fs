@@ -52,6 +52,7 @@
 
 require ../lib/lib.fs
 require ../core/constant-term-scope.fs
+require ../core/derivation-log.fs
 require ../core/diagnostics.fs
 require ../core/input.fs
 require ../core/terms.fs
@@ -140,7 +141,14 @@ lf-depth-limit context-walk: lf-check-walker
 
 \ Step 4: the declared type's type, in a new inference job in environment
 \ mode, with the fuel the audit left.
+\ The derivation log (ADR 0013): steps 4-6 are one proposition step (a
+\ theorem) or type step (a definition) of the claim, opened here and
+\ closed by step 6 with the Sort's level; a check that ends earlier
+\ closes it with its outcome (lf-check-logged).
+: lf-check-formation ( -- rule )
+  lf-check-theorem? if lf-rule-proposition else lf-rule-type then ;
 : lf-check-type ( -- outcome )
+  lf-log? if lf-check-claim lf-log-none lf-check-formation lf-log-open then
   lf-check-left @ lf-minfer-start-env lf-check-claim lf-minfer-walk lf-check-keep ;
 \ Step 5 (S1): that type is a Sort, whose level is kept.
 : lf-check-sort ( -- outcome )
@@ -151,8 +159,10 @@ lf-depth-limit context-walk: lf-check-walker
 : lf-check-zero ( level -- outcome )
   dup lf-minfer-zero? ok-then? 0= if nip exit then
   if drop outcome-ok else lf-check-not-prop then ;
-: lf-check-prop ( -- outcome )
+: lf-check-prop-pass ( -- outcome )
   lf-check-theorem? if lf-check-found @ lf-check-zero else outcome-ok then ;
+: lf-check-prop ( -- outcome )
+  lf-check-prop-pass lf-log? if lf-check-found @ swap lf-log-close nip then ;
 \ Step 7: the scratch of steps 4-6 discarded (back to the input marks), the
 \ value's type in a new job with the fuel left.
 : lf-check-restart ( -- outcome )
@@ -172,9 +182,17 @@ here lf-check-steps - 1 cells / constant lf-check-steps#
 lf-check-steps# 1+ constant lf-step-done
 : lf-check-step! ( step -- ) lf-check-state lf-chk-step ! ;
 : lf-check-do ( k -- outcome ) dup 1+ lf-check-step! cells lf-check-steps + @ execute ;
-: lf-check-run ( -- outcome )
+: lf-check-steps-run ( -- outcome )
   lf-check-steps# 0 ?do i lf-check-do dup ok? 0= if unloop exit then drop loop
   lf-step-done lf-check-step! outcome-ok ;
+\ The derivation log (ADR 0013): with it on, the steps are one declaration
+\ step of the claim and the value, closed with the check's outcome (and
+\ any rule left open by a step that failed with it).
+: lf-check-logged ( -- outcome )
+  lf-check-claim lf-check-value-root lf-rule-declaration lf-log-open
+  lf-check-steps-run lf-log-close-all ;
+: lf-check-run ( -- outcome )
+  lf-log? if lf-check-logged else lf-check-steps-run then ;
 
 \ The declaration of this context's snapshot, a check's (lf-env-begin),
 \ and the budget: ok, or invalid without a check's snapshot of the valid

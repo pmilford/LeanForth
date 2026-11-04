@@ -51,6 +51,7 @@ require ../lib/lib.fs
 require ../core/constant-references.fs
 require ../core/constant-term-boundary.fs
 require ../core/constant-term-scope.fs
+require ../core/derivation-log.fs
 require ../core/diagnostics.fs
 require ../core/generation-handles.fs
 require ../core/levels.fs
@@ -488,9 +489,14 @@ defer lf-minfer-apart ( left right -- mask flag )
   lf-minfer-fuel @ lf-minfer-depth @ lf-depth-limit < visit-outcome
   dup ok? 0= if lf-minfer-refused then ;
 : lf-minfer-enter ( -- ) -1 lf-minfer-fuel +! 1 lf-minfer-depth +! ;
+\ The derivation log (ADR 0013): with it on, the visit is one inference
+\ step (sort, variable, constant, application, lambda or Pi) at the binder
+\ context's depth; both paths run the same visit.
+: lf-minfer-logged ( node -- node ) lf-minfer-context-depth @ lf-log-infer ;
 : lf-minfer-in-frame ( node -- type status )
   lf-minfer-room ok-then? 0= if no-result exit then
-  lf-minfer-enter lf-minfer-visit -1 lf-minfer-depth +! ;
+  lf-minfer-enter lf-log? if lf-minfer-logged lf-minfer-visit lf-log-close
+  else lf-minfer-visit then -1 lf-minfer-depth +! ;
 ' lf-minfer-in-frame is lf-minfer-walk
 
 \ Each level of the rejection analysis takes a frame and a unit of fuel

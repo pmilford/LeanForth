@@ -191,7 +191,7 @@ lf-depth-limit context-walk2: lf-ind-pair-walker
 \ Every term of the block, in input order -- the types and constructor
 \ types, the recursor types and their rules' right sides -- given to xt
 \ ( root -- outcome ) until one is not ok.
-: lf-ind-rhs@ ( rules k -- root ) lf-rule-at 2 cells + @ ;
+: lf-ind-rhs@ ( rules k -- root ) lf-irc-rule 2 cells + @ ;
 : lf-ind-rules-each ( xt decl -- outcome )
   lf-idecl-data lf-irc-rules@ 0 ?do
     2dup i lf-ind-rhs@ swap execute dup ok? 0= if nip nip unloop exit then drop
