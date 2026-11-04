@@ -72,7 +72,7 @@ the 32-bit access words exist in `src/`; building it is plan tasks
 | Declaration check (2.2.3) | [kernel], [bypass] | merged 2026-11-03; its review **blocks**: four wrong acceptances from universe levels built unlike Lean's; fix (exact port of Lean's level rules) running |
 | Program reader (Forth to program IR, 2.5.3) | [parser] | **paused by the owner** (2026-11-03): reviews clean, but the owner prefers a Forth-like design — the program's own words emitting IR in a verification mode — over today's text reader; design record with a prototype in progress |
 | LeanForth syntax words (8.1.2) | [parser] | merged 2026-11-03; independent review running, then the owner |
-| Program receipt schema 0.1 (2.5.1) | [format] | independent review (2026-11-03) found four medium items (labels of failed runs, stale docs, who discharged an obligation, duplicate keys in replay); fix running |
+| Program receipt schema (2.5.1) | [format] | the review's four medium items and five lows fixed in schema 0.2 (merged 2026-11-03; 0.1 kept readable unchanged); the reviewer is checking the fixes, then the owner |
 | Big-number library (`lib/bignum.fs`, for literals) | [forth-review] | review found one serious memory bug in printing; fix running |
 
 ### Test tooling (2026-11-03)
@@ -255,7 +255,7 @@ P3.2). Changes of state within the tasks:
 
 | Milestone | Status and evidence / remaining work |
 | --- | --- |
-| 1. Contract and assumptions | In progress: [receipt schema 0.1](../programming/PROGRAM_RECEIPTS.md) keeps CHECK, VERIFY and RUN apart and requires runtime, cell, Lean, reader and floating-point assumptions; three valid and four invalid examples and 30 mutations are tested; the format awaits the owner's *[format]* approval. |
+| 1. Contract and assumptions | In progress: [receipt schema 0.2](../programming/PROGRAM_RECEIPTS.md) keeps CHECK, VERIFY and RUN apart, says whether Lean or LeanForth settled each obligation, lists axioms per theorem and requires runtime, cell, stack-capacity, two's-complement, Lean, reader, generator and floating-point assumptions; 29 tests with 114 mutations; the format awaits its re-check and the owner's *[format]* approval. |
 | 2. Tested Forth example | In progress: six example words with finite tests; all six now have formal contracts (plan 1.5.3, done 2026-11-03): Lean proves each word's reference model and IR meet its contract for every cell width (gcd and factorial through loop invariants) and refutes deliberately wrong models and programs, 27 theorems using at most `propext`, `Classical.choice` and `Quot.sound`. Choosing one word as the acceptance target (P2.3) remains. |
 | 3. Formal execution model | 2 of 3 done (P3.1, P3.2): IR 0.1 and its Lean semantics. Remaining: review the model against documented Forth behaviour (P3.3). |
 | 4. Model/runtime comparisons | In progress: finite comparisons of the words with Lean models (686 clamp triples, 1,296 memory cases and others); the IR interpreter (`src/program/ir-run.fs`) agrees with the host words and with Lean's evaluation of the model on 5,152 cases (5,092 also run on the host) and 300 random IR programs (2.5.4); testing is not proof. |
