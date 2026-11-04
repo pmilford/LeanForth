@@ -39,14 +39,14 @@
 require ../lib/lib.fs
 require ../lib/bytes.fs
 require ../core/levels.fs
-require ../core/store-columns.fs
+require ../lib/store-columns.fs
 
 begin-structure /lf-lmkrec
   field: lf-lmkrec-known       \ facts current below this index
   field: lf-lmkrec-built       \ the level capacity the index was built for; 0 none
 end-structure
 /lf-lmkrec context-record: lf-lmk-state
-\ Per node, columns of the level store (core/store-columns.fs): its class,
+\ Per node, columns of the level store (lib/store-columns.fs): its class,
 \ its flags and its identity when they were found; a class's hash, or -1
 \ for a node that is not in the index, and the next class in its bucket
 \ + 1, or 0. Per bucket, below the store's capacity, its newest class + 1,

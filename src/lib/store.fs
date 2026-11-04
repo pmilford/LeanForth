@@ -46,6 +46,15 @@
 require ./bounds.fs
 require ./outcome.fs
 require ./portability.fs
+require ./module.fs
+
+\ The words of this file are public, in the compilation word list current
+\ when it loads, except the helpers of making and moving a heap store's
+\ block, which are private (ADR 0010): between module-open and
+\ module-close the previous word list stays on the stack, and each part
+\ names where its words go.
+lf-lib-private module-open
+dup set-current
 
 begin-structure store-header
   field: store-capacity     \ maximum number of records
@@ -115,10 +124,12 @@ end-structure
 \ Unchecked: the shape fields are set. Zero the counters, put the block (0
 \ for the one right after the header) and the limit (the capacity), seal,
 \ and zero the block.
+lf-lib-private set-current
 : store-counters-zero ( store -- )
   0 over store-count ! 0 over store-generation ! 0 swap store-serial ! ;
 : store-place ( block store -- )
   tuck store-block ! dup store-capacity @ over store-limit ! store-seal! ;
+dup set-current
 : store-zero ( store -- ) dup store-identities swap store-bytes erase ;
 : store-format ( capacity width base store -- )
   dup >r store-shape! r@ store-counters-zero 0 r@ store-place r> store-zero ;
@@ -202,8 +213,10 @@ defer store-refuse? ( store -- flag )
 \ block of its own; a zeroed header names none.
 : store-heap? ( store -- flag ) store-block @ 0<> ;
 \ ALLOCATE u zeroed address units: the address and 0, or the ior.
+lf-lib-private set-current
 : store-zeroed-block ( u -- addr ior )
   dup allocate ?dup if rot drop exit then tuck swap erase 0 ;
+dup set-current
 \ Make a heap store of capacity records in a zeroed block, its limit the
 \ capacity: ok; invalid for an unsound shape or full when the heap has no
 \ room, the header then zero (no check accepts it). The header must not
@@ -221,6 +234,7 @@ defer store-refuse? ( store -- flag )
 \ Moving to a new zeroed block of n records: the first min(n, capacity)
 \ identities and records are copied, the old block freed. Unchecked: a
 \ live heap store and n >= count.
+lf-lib-private set-current
 : store-kept ( n store -- m ) store-capacity @ min ;
 : store-copy-ids ( new m store -- ) >r swap r> store-identities swap rot cells move ;
 : store-copy-records ( new n m store -- )
@@ -232,6 +246,7 @@ defer store-refuse? ( store -- flag )
 : store-resize ( n store -- outcome )
   2dup store-width @ cell+ * store-zeroed-block if drop 2drop outcome-full exit then
   -rot >r 2dup r@ store-rehome r> store-install outcome-ok ;
+dup set-current
 \ The capacity growth gives: double, at least 16 more, never past the
 \ limit (so it cannot overflow).
 : store-doubled ( store -- n )
@@ -328,3 +343,5 @@ end-structure
 : store-rollback ( mark store -- outcome )
   2dup store-mark-valid? if swap mark-count @ swap store-count ! outcome-ok
   else 2drop outcome-invalid then ;
+
+module-close

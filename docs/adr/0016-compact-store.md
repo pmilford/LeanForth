@@ -620,7 +620,7 @@ needed (Rejected alternatives).
     `lf-input-capacity!`), defaults 64, 64, 64, 32 and 32 as before. Per
     index side data (the stamps of constants and Sorts, the passes' seen
     marks, images and memos, the printer's binder table) moved into
-    columns that grow with their store (`src/core/store-columns.fs`).
+    columns that grow with their store (`src/lib/store-columns.fs`).
     Walk stacks, frames and binder contexts no longer follow the store's
     capacity: `lf-depth-limit`, `lf-level-depth-limit` and
     `lf-level-params-limit` keep them at 64.

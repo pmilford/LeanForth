@@ -52,6 +52,8 @@
 \ host-specific and never serialized.
 
 require ../lib/lib.fs
+require ../lib/slab.fs
+require ../lib/store-columns.fs
 require ../lib/bytes.fs
 require ./terms.fs
 require ./levels.fs

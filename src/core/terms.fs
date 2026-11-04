@@ -9,7 +9,7 @@
 \ lf-term-default records. Running out is full, never accepted. Children
 \ must already exist, so terms are acyclic DAGs. Per-term side data of
 \ other modules lives in columns of the group lf-term-columns
-\ (store-columns.fs), which grow with the store.
+\ (lib/store-columns.fs), which grow with the store.
 \ The deepest nesting the passes support (work stacks, frames, binder
 \ contexts) is lf-depth-limit, a constant that no longer follows the
 \ store's capacity: a term deeper than that ends a pass full or
@@ -24,7 +24,7 @@
 
 require ../lib/lib.fs
 require ./diagnostics.fs
-require ./store-columns.fs
+require ../lib/store-columns.fs
 
 64 constant lf-term-default
 64 constant lf-depth-limit

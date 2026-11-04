@@ -22,6 +22,8 @@
 \ the checks below from its own passes.
 
 require ../lib/lib.fs
+require ../lib/slab.fs
+require ../lib/store-columns.fs
 require ../core/diagnostics.fs
 require ../core/level-scope.fs
 require ../core/levels.fs
@@ -35,7 +37,7 @@ begin-structure /lf-lsrec
 end-structure
 lf-level-depth-limit context-walk: lf-lsubst-walker
 /lf-lsrec context-record: lf-lsubst-job
-\ Per level, columns of the level store (core/store-columns.fs): whether
+\ Per level, columns of the level store (lib/store-columns.fs): whether
 \ the source walk reached it, and its image.
 /slab context-record: lf-lsubst-seen-column
 1 cells ' lf-lsubst-seen-column lf-level-columns column-add

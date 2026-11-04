@@ -5,7 +5,7 @@
 \ resurrect it. Binary constructors capture child indices, not identities;
 \ their safety relies on backward edges and no raw mutation or count edits.
 \ State: the stamp column lf-cterm-stamps of the term store (indexed by
-\ term index; core/store-columns.fs) and one
+\ term index; lib/store-columns.fs) and one
 \ walk record, lf-cterm-walker, both members of the checker context
 \ (lib/context.fs). Each constant and symbolic Sort visit also runs a
 \ level-scope check on level-scope's walk record (lf-lscope-walk), so this
@@ -15,6 +15,8 @@
 \ format.
 
 require ../lib/lib.fs
+require ../lib/slab.fs
+require ../lib/store-columns.fs
 require ./constant-references.fs
 require ./diagnostics.fs
 require ./generation-handles.fs

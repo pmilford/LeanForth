@@ -14,6 +14,8 @@
 \ lf-mls-audit-formals.
 
 require ../lib/lib.fs
+require ../lib/slab.fs
+require ../lib/store-columns.fs
 require ../core/constant-references.fs
 require ../core/constant-term-boundary.fs
 require ../core/derivation-log.fs
@@ -35,7 +37,7 @@ begin-structure /lf-mlsrec
 end-structure
 lf-depth-limit context-walk: lf-mls-walker
 /lf-mlsrec context-record: lf-mls-job
-\ Per term, columns of the term store (core/store-columns.fs): whether the
+\ Per term, columns of the term store (lib/store-columns.fs): whether the
 \ audit reached it, and its image.
 /slab context-record: lf-mls-seen-column
 1 cells ' lf-mls-seen-column lf-term-columns column-add

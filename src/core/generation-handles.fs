@@ -4,7 +4,7 @@
 \ serialization or theorem checker. Handles are forgeable and do not record
 \ which store they belong to; callers prevent concurrent mutation, raw
 \ writes and cross-store confusion.
-\ State: two stamp columns of the term store (core/store-columns.fs),
+\ State: two stamp columns of the term store (lib/store-columns.fs),
 \ indexed by term index, record which term and level identities each
 \ symbolic Sort was built from (raw symbolic Sorts have no stamp and fail
 \ lf-hterm-check); the audit uses one walk record, lf-href-walker. All
@@ -12,6 +12,8 @@
 \ Single-threaded within one context.
 
 require ../lib/lib.fs
+require ../lib/slab.fs
+require ../lib/store-columns.fs
 require ./diagnostics.fs
 require ./levels.fs
 require ./symbolic-session.fs

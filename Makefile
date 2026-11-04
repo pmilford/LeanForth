@@ -690,6 +690,7 @@ test-differential: reference-reexport
 test-compact:
 	$(RUN) $(GFORTH) tests/lib/hash32.fs
 	$(RUN) $(GFORTH) tests/lib/slab.fs
+	$(RUN) $(GFORTH) tests/lib/store-columns.fs
 	$(RUN) $(GFORTH) tests/lib/htab.fs
 	$(RUN) $(GFORTH) tests/lib/cons.fs
 	$(RUN) $(GFORTH) tests/core/compact.fs

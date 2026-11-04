@@ -22,6 +22,7 @@
 \ this module's data.
 
 require ../lib/lib.fs
+require ../lib/store-columns.fs
 require ../lib/slab.fs
 require ./diagnostics.fs
 require ./generation-handles.fs

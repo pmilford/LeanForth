@@ -33,6 +33,8 @@
 \ iteratively, in constant stack space, whatever their depth.
 
 require ../lib/lib.fs
+require ../lib/slab.fs
+require ../lib/store-columns.fs
 require ../core/diagnostics.fs
 require ../core/levels.fs
 require ../core/names.fs
@@ -50,7 +52,7 @@ begin-structure /lf-lnrec
   lf-lnorm-capacity cells +field lf-lnrec-args
 end-structure
 /lf-lnrec context-record: lf-lnorm-state
-\ Per level, a column of the level store (core/store-columns.fs): its
+\ Per level, a column of the level store (lib/store-columns.fs): its
 \ normal form + 1, or 0.
 /slab context-record: lf-lnorm-memo-column
 1 cells ' lf-lnorm-memo-column lf-level-columns column-add

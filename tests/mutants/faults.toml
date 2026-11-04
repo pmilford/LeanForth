@@ -1995,7 +1995,7 @@ test = "$GFORTH tests/lib/context.fs"
 reason = "a teardown word that throws stops context-free, which then frees neither the others' blocks nor the context"
 
 # --- heap stores, columns and the feed (ADR 0016 C9 step 3: src/lib/store.fs,
-# src/core/store-columns.fs, constant-references.fs, input.fs, names.fs,
+# src/lib/store-columns.fs, src/core/constant-references.fs, input.fs, names.fs,
 # src/kernel/environment.fs, src/import/feed.fs)
 
 [[fault]]
@@ -2024,7 +2024,7 @@ reason = "a corrupted block address keeps the seal: a store reads records elsewh
 
 [[fault]]
 id = "column-new-units-unzeroed"
-file = "src/core/store-columns.fs"
+file = "src/lib/store-columns.fs"
 old = '''  dup slab-capacity >r tuck slab-reserve dup ok? if r@ rot column-clear-from else nip then'''
 new = '''  dup slab-capacity >r tuck slab-reserve dup ok? if nip else nip then'''
 test = "$GFORTH tests/core/terms.fs"
