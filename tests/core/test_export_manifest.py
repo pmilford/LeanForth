@@ -167,8 +167,9 @@ def manifest_cases(base):
     return cases
 
 
-# Refused by the Forth check only: JSON Schema counts 1.0, 1787e0 and -0 as
-# integers, but the check wants canonical decimal (the schema says so).
+# Numbers the Forth check refuses as not canonical decimal (the schema says
+# so in words); JSON Schema may count 1.0, 1787e0 and -0 as integers, so
+# the schema's verdict on these is not asserted.
 CANONICAL_ONLY = {"format version 1.0", "bytes real", "bytes -0", "bytes with an exponent"}
 
 
@@ -257,9 +258,8 @@ class ForthCheck(unittest.TestCase):
             case("the manifest is checked before the read", good[:-1],
                  text_of(changed(base, "lean_version", "4.36.0")), (VERSIONS, "lean_version"))
             for name, text, outcome in manifest_cases(base):
-                if outcome[0] not in (DIFFERS, UNREAD, VERSIONS):
-                    self.assertEqual(schema_refuses(validator, text), name not in CANONICAL_ONLY,
-                                     f"schema: {name}")
+                if outcome[0] not in (DIFFERS, UNREAD, VERSIONS) and name not in CANONICAL_ONLY:
+                    self.assertTrue(schema_refuses(validator, text), f"schema accepts: {name}")
                 case(name, good, text, outcome)
             named = folder / "named.json"
             named.write_text(text_of(base))
