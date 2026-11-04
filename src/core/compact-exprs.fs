@@ -24,18 +24,23 @@
 \   projection        15      structure name      structure   field index
 \   natVal, strVal    16, 17  0                   text        0
 \   free variable     19      0                   number      0
+\   mdata             20      0                   expression  0
 \ The binder tags are base + binder information (0 default, 1 implicit,
 \ 2 strict implicit, 3 instance implicit). * A constant's payload is
 \ reserved for the declaration it names, resolved when the input is
 \ sealed (C4); it is not part of the key, so hashing and comparing a
 \ constant ignore it. A free variable may only be built in a scratch tier.
+\ An mdata record is a kind not yet supported, staged but marked
+\ (src/import/stage.fs): it keeps the expression the metadata wraps, not
+\ the key-value data, so it is not the term read and no check may accept
+\ a term that holds one (Lean's exporter writes none unless asked to).
 \
 \ The data field is computed from the children when the record is built,
 \ as Lean's Expr.mkData does (ADR 0016 facts L2, L3): a bound variable i
 \ has range i + 1; a binder the larger of its type's range and its body's
 \ range minus one (never below zero); a letE the largest of its type's,
-\ value's and body's minus one; an application or projection the largest
-\ of its children's; the flags are or-ed, a Sort's and a constant's
+\ value's and body's minus one; an application, projection or mdata the
+\ largest of its children's; the flags are or-ed, a Sort's and a constant's
 \ parameter flag come from their levels; the depth is 0 for leaves and one
 \ more than the deepest child, capped at 1023. Every record is checked
 \ when it is built (C8): children are expressions of the tier (never the
@@ -43,9 +48,10 @@
 \ constant's list holds only levels, unused fields are 0, and a bound
 \ variable's range is at most 2^20 - 1 (Lean's own limit; full beyond).
 \
-\ Interface: the tags (tag-bvar ... tag-fvar), let-tag? binder-tag?
+\ Interface: the tags (tag-bvar ... tag-mdata), let-tag? binder-tag?
 \ lam-head pi-head let-head proj-head expr-class expr-make expr-let
 \ expr-bvar expr-sort expr-const expr-app expr-nat expr-str expr-fvar
+\ expr-mdata
 \ expr-valid? expr-head@ expr-tag@ expr-payload@ expr-a@ expr-b@ expr-data@
 \ expr-body@ data-range data-depth data-params? data-fvars? range-max
 \ depth-max. Outcomes: ok, full, invalid. State: expr-class and the check
@@ -75,6 +81,7 @@ require ./compact-levels.fs
 17 constant tag-str
 18 constant tag-let-body
 19 constant tag-fvar
+20 constant tag-mdata
 : binder-tag? ( tag -- flag ) tag-lam tag-let within ;
 : let-tag? ( tag -- flag ) tag-let tag-proj within ;
 \ Heads of binders (info 0 .. 3, unchecked), letE and projections; the
@@ -220,6 +227,10 @@ require ./compact-levels.fs
 : check-fvar ( top exprs -- under? outcome )
   cons-under @ 0<> over bare? and data-fvars-bit rot quad-data u32! false swap
   flag>outcome ;
+\ An mdata record: one child, whose data it takes one level deeper.
+: check-mdata ( top exprs -- under? outcome )
+  2dup child-a >r data-deeper data! over bare? r> and >r
+  swap quad-a u32@ swap cons-under? r> flag>outcome ;
 
 check-table expr-checks
 ' expr-bad expr-checks check-fill
@@ -231,6 +242,7 @@ check-table expr-checks
 ' check-literal tag-nat expr-checks check!
 ' check-literal tag-str expr-checks check!
 ' check-fvar tag-fvar expr-checks check!
+' check-mdata tag-mdata expr-checks check!
 : binder-checks ( -- ) 8 0 do ['] check-binder tag-lam i + expr-checks check! loop ;
 binder-checks
 
@@ -269,5 +281,6 @@ binder-checks
 : expr-nat ( text tier -- e outcome ) >r tag-nat swap 0 r> expr-make ;
 : expr-str ( text tier -- e outcome ) >r tag-str swap 0 r> expr-make ;
 : expr-fvar ( n tier -- e outcome ) >r tag-fvar swap 0 r> expr-make ;
+: expr-mdata ( e tier -- e' outcome ) >r tag-mdata swap 0 r> expr-make ;
 
 base !   \ the BASE this file was loaded with
