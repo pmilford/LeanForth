@@ -931,7 +931,9 @@ those of the code before, step numbers aside. Unit tests of the local
 context, the four ports and
 a λ argument under a binder (`tests/core/mixed-instantiate.fs`,
 `tests/core/mixed-infer.fs`); 20 planted faults in
-`tests/mutants/faults.toml` for this task, all caught.
+`tests/mutants/faults.toml` for this task: 19 caught, and
+`rej-p2-open-term` a known equivalent (P2 inferring an open term of the
+analysis under the scope infers its closed copy).
 
 ## Test plan
 
