@@ -188,12 +188,15 @@ end-structure
 : lf-slot-invalid! ( slot -- ) lf-env-may-write outcome-invalid swap lf-slot-outcome ! ;
 : lf-env-unpublished ( env -- env )
   dup lf-env-length 0 ?do i over lf-env-slot lf-slot-invalid! loop ;
+\ Format the pool as a store of deps one-cell entries: whether store-init
+\ accepts that shape.
+: lf-env-pool-init ( deps env -- flag ) lf-env-pool >r 1 cells 0 r> store-init ;
 \ Format the slots and the pool and give the environment its identity:
 \ (env ok); or (0 invalid), the memory freed, for a pool shape
 \ store-init refuses.
 : lf-env-made ( deps env -- env outcome )
-  lf-env-may-write lf-env-fields lf-env-unpublished tuck lf-env-pool >r 1 cells 0 r>
-  store-init if lf-env-identity+ outcome-ok else free drop 0 outcome-invalid then ;
+  lf-env-may-write lf-env-fields lf-env-unpublished tuck lf-env-pool-init
+  if lf-env-identity+ outcome-ok else free drop 0 outcome-invalid then ;
 : lf-env-deps? ( deps -- flag ) 0 lf-env-pool-max between? ;
 : lf-env-new-ok? ( deps -- flag )
   lf-env-deps? lf-input-intact? and context-in-job? 0= and ;

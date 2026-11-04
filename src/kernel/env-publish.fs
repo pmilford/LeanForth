@@ -61,13 +61,14 @@
 \ frees each context it made once that is spent or the run ends, never
 \ one a maker gave that it refused, and returns to the caller's context,
 \ which it never frees. A maker that leaves anything but its two cells
-\ counts as one that threw. The check and the maker wait on the return
-\ stack while the other runs, out of reach of a word with a wrong stack
-\ effect, which can change only cells of the run's caller. A context in
-\ which a check threw stays spent: the main context, which cannot be
-\ freed, then serves no further check for the rest of the program. The
-\ run answers ok only when, at its end, the environment it started in is
-\ still current and every slot is final.
+\ counts as one that threw; after the maker, as after a check, the run
+\ restores the current context and owner token. The check and the maker
+\ wait on the return stack while the other runs, out of reach of a word
+\ with a wrong stack effect, which can change only cells of the run's
+\ caller. A context in which a check threw stays spent: the main context,
+\ which cannot be freed, then serves no further check for the rest of the
+\ program. The run answers ok only when, at its end, the environment it
+\ started in is still current and every slot is final.
 \
 \ In a parallel run the scheduler waits for a job, selects its context
 \ and calls lf-env-hand-over-job with the job's ior and declaration: it
@@ -104,7 +105,8 @@
 \   environment current: invalid;
 \ - a maker that throws, fails, leaves anything but two cells, gives
 \   anything but a fresh context, or leaves another environment current:
-\   the run stops, invalid;
+\   the run stops, invalid; one that leaves another context or token
+\   selected: both restored;
 \ - a hand-over inside a job or a check, without a check's snapshot, for
 \   a final slot or a moved snapshot: a fault, nothing published.
 \ Not detected: a check, maker or scheduler that writes memory outside
@@ -114,10 +116,15 @@
 \ as store-rollback on its pool and lf-env-pub-mark, which can let a
 \ later publication overwrite an accepted slot's dependencies: no guard
 \ sees a library word), unbalances the return stack, or changes cells
-\ below its frame; a maker that gives a context it did not make (the run
-\ adopts and frees it) or keeps one the run refused (the run says only
-\ invalid); a scheduler that publishes while checks run without G-P2's
-\ ordering, frees an environment in use, or never rolls the scratch back.
+\ below its frame; a check that stores into its task's owner token,
+\ lf-owner, which every G-P1 guard reads (0 switches them all off until
+\ the check returns; the token is then restored); a maker that gives a
+\ context it did not make (the run adopts and frees it), keeps one the
+\ run refused (the run says only invalid), or frees a context the run
+\ uses, its caller's or the current one (the run then reads or selects
+\ freed memory, which is undefined); a scheduler that publishes while
+\ checks run without G-P2's ordering, frees an environment in use, or
+\ never rolls the scratch back.
 \
 \ Failures are explained in the context's diagnostic: a failed re-check
 \ (lf-diag-recheck, with the part that failed, or lf-recheck-moved for a
@@ -326,8 +333,11 @@ lf-rechecks# 1+ constant lf-recheck-moved
 \ i in this context ended with ior: a THROW is recorded (G-P6), then the
 \ candidate handed over while the snapshot is still of declaration i. The
 \ outcome published and whether the run must stop, as lf-env-step gives
-\ them, except that the scheduler rolls the scratch back itself.
+\ them, except that the scheduler rolls the scratch back itself. Inside a
+\ job or a check (G-P1) it is refused first, (invalid true), with nothing
+\ changed: no THROW recorded, the context not spent.
 : lf-env-hand-over-job ( ior i -- outcome fault? )
+  context-in-job? if 2drop outcome-invalid true exit then
   swap ?dup if lf-env-thrown then lf-env-hand-over-at ;
 
 \ Running a check (G-P1, G-P6), as task.fs's job-run and job-call run a
@@ -370,13 +380,13 @@ context-unbalanced constant lf-env-unbalanced
 \ spent and when the run ends.
 : lf-env-made? ( -- flag ) lf-env-worker lf-worker-made @ ;
 : lf-env-leave ( -- ior ) lf-env-made? if lf-context @ context-free else 0 then ;
-\ The maker runs under CATCH, the current context restored afterwards,
-\ its stack depth checked as a check's is: one that leaves anything but
-\ two cells counts as one that threw.
+\ The maker runs under CATCH, the current context and the owner token
+\ restored afterwards, its stack depth checked as a check's is: one that
+\ leaves anything but two cells counts as one that threw.
 : lf-env-two ( maker -- context ior )
   depth >r execute depth r> 1+ = ?call-balanced ;
 : lf-env-make ( maker -- context ior )
-  ['] lf-env-two context-catch ?dup if nip 0 swap then ;
+  lf-owner @ >r ['] lf-env-two context-catch r> lf-owner ! ?dup if nip 0 swap then ;
 : lf-env-spent-in? ( context -- flag )
   lf-context @ swap lf-context ! lf-env-spent? swap lf-context ! ;
 : lf-env-other? ( context -- flag )
