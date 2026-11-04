@@ -630,3 +630,13 @@ ADR 0019 Amendment 1 (agent IR2; probes in
   binder depths (Mathlib terms nest up to 1,221 deep) — become dynamic,
   bounded only by memory (*full*), before the [kernel] gate is asked again
   (plan 6.2.0 brought forward).
+
+## Readable proofs approved (2026-11-04)
+
+- **Derivation log and proof outlines approved (ADR 0013 gate D5; plan
+  2.4.1, 2.4.4; `bin/leanforth print`).** Independent review rvRB, three
+  rounds, every finding fixed: the whole suite passes with the log on in
+  three settings, the printer prints only what the checker accepted, and
+  an isolation check refuses other code touching the log. The owner
+  accepted the measured memory: about 218 KB per context while the log is
+  on (D3 had estimated about 150 KB), under 1 KB while off.

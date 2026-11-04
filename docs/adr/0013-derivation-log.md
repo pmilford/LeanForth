@@ -1,6 +1,11 @@
 # ADR 0013: the derivation log and the proof outline
 
-Status: **accepted** by the owner on 2026-11-03, with D1–D5 as recommended
+Status: **implementation approved** (gate D5, plan 2.4.1 and 2.4.4) by the
+owner on 2026-11-04 after three independent review rounds, with the log's
+measured cost of about 218 KB per context while on (D3 estimated about
+150 KB; under 1 KB while off)
+([decisions](../project/OWNER_DECISIONS.md#readable-proofs-approved-2026-11-04)).
+**Accepted** by the owner on 2026-11-03, with D1–D5 as recommended
 ([OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md#gate-answers-and-working-guidelines-2026-11-03)).
 Previously: **proposed**, 2026-11-02 (plan tasks 2.4.1 and 2.4.4; design only,
 nothing here is implemented). The log is called from the checker's own

@@ -145,8 +145,8 @@ sizes are relative and dates are not estimated.
    Lean's file (3.2.4, **done 2026-11-03**); the checksum manifest checked by default and an
    upgrade test for new Lean and Mathlib versions (owner, 2026-11-03);
    `leanforth check FILE.ndjson` and exit codes (3.4; `leanforth print`,
-   readable proof outlines from the command line, merged 2026-11-04 with
-   the derivation log's review pending); the JSON API v0 for AI tools with schemas and golden examples
+   readable proof outlines from the command line, merged 2026-11-04;
+   the derivation log and printer **approved** by the owner 2026-11-04); the JSON API v0 for AI tools with schemas and golden examples
    (3.5); authoring in its own process (8.2.1). *You will see:* one
    command checks a Lean export with only Forth installed. Today
    `bin/leanforth check` still has the small default sizes.
@@ -272,7 +272,7 @@ P3.2). Changes of state within the tasks:
 
 | Agent | Task | State |
 | --- | --- | --- |
-| RB | Derivation log (plan 2.4.1) and proof-outline printer (2.4.4) | done; being rebased onto the heap stores |
+| RB | Derivation log (plan 2.4.1) and proof-outline printer (2.4.4), `leanforth print` | **merged and approved** 2026-11-04 (gate D5) |
 | I21 | Task 5.2.1a: non-recursive inductive blocks (ADR 0015) | in progress |
 | D2A | Task 4.2.2a: free variables and local context, the first step of unfolding | in progress |
 | RP | Run-record fix: tie "enforced" to the hashed bytes | in progress |
