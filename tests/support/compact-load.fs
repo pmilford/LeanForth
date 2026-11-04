@@ -13,11 +13,15 @@
 \ number). So a merge of two different records by hash-consing, or any
 \ field read back wrong, shows as a changed line.
 \
-\ Entry words: compact-load ( c-addr u log2 -- outcome ) loads and seals;
-\ compact-emit ( -- ) prints the dump lines; compact-stats ( -- ) prints
-\ sizes and table statistics; compact-lookups ( -- ) looks every
-\ declaration's name up by its text through a scratch tier and checks
-\ the number; compact-free ( -- ). Uses Gforth's utime for timings.
+\ Entry words: compact-load ( c-addr u log2 -- outcome ) loads and seals,
+\ the expression table pre-sized to 2^log2 slots; compact-emit ( -- )
+\ prints the dump lines; compact-stats ( -- ) prints sizes and table
+\ statistics; compact-lookups ( -- ) looks every declaration's name up by
+\ its text through a scratch tier and checks the number; compact-free
+\ ( -- ); and the two drivers compact-dump ( c-addr u -- ), used by
+\ tests/core/compact-verify.sh, and compact-measure ( c-addr u log2 -- ).
+\ Uses Gforth's utime for timings. Usage, for example:
+\   gforth-fast tests/support/compact-load.fs -e 's" init.ndjson" 24 compact-measure bye'
 
 require ../../src/import/ndjson.fs
 require ../../src/core/compact.fs
