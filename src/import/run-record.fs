@@ -20,17 +20,18 @@
 \   is checked: its SHA-256, bytes and lines (rr-hash); its metadata, the
 \   exporter, format and Lean versions, with the NDJSON reader; and its
 \   manifest (manifest.fs), whose outcome, field and reason are kept
-\   whatever they are. invalid when the file cannot be opened or read,
-\   full when the heap has no room for the reader or the name is longer
-\   than rr-file-room.
+\   whatever they are. invalid when the file cannot be opened or read, or
+\   when the metadata read or a manifest check that passed read bytes of
+\   another SHA-256 (rr-moved? then true); full when the heap has no room
+\   for the reader or the name is longer than rr-file-room.
 \ - rr-settings! ( fuel deps -- ) gives every check fuel and the
 \   environment room for deps dependencies, as lf-check-input takes them.
 \ - rr-import ( flag -- outcome ) loads that same file into this context's
 \   input with import/checker-input.fs, its manifest enforced when flag is
-\   true (cin-read-checked: its two passes must read bytes of one
-\   SHA-256; the read then also fails unless that is the SHA-256 rr-start
-\   recorded), and keeps the outcome and whether the manifest was
-\   enforced. It is the only way a recorded run reads its input, and the
+\   true (cin-read-checked, else cin-read; either way its two passes must
+\   read bytes of one SHA-256, and the read then also fails unless that is
+\   the SHA-256 rr-start recorded), and keeps the outcome and whether the
+\   manifest was enforced. It is the only way a recorded run reads its input, and the
 \   only way a record can say enforced (rr-read! and rr-file! are
 \   internal). A run that is not to be recorded skips rr-start and loads
 \   the file with the importer alone, rr-read-once ( c-addr u flag --
@@ -151,6 +152,7 @@ end-structure
 begin-structure /rr
   /sha256 +field rr-sha
   sha-digest-bytes +field rr-digest
+  sha-digest-bytes 2* +field rr-seen        \ the metadata read's digest
   aligned /rr-facts +field rr-before        \ the file when the run starts
   /rr-facts +field rr-after                 \ the same, read again at its end
   rr-block-room +field rr-block
@@ -231,6 +233,13 @@ rr-reset rr-no-source
   dup rr-facts-start >r r/o bin open-file if drop r> drop outcome-invalid exit then
   r@ rr-hash-open r> over ok? if rr-facts-end else drop then ;
 
+\ Every later read of the run must read the bytes rr-start hashed: a digest
+\ c-addr u of a later read against that one, invalid with rr-moved? true
+\ when they differ.
+: rr-recorded ( -- c-addr u ) run-record rr-before facts-hex sha-digest-bytes 2* ;
+: rr-matches ( c-addr u -- outcome )
+  rr-recorded compare 0= dup 0= run-record rr-moved ! flag>outcome ;
+
 \ The metadata, read with the NDJSON reader: every record kind accepted,
 \ the metadata record's texts kept (a text longer than a note stays
 \ none, null in the record; the reader hands over only the pinned
@@ -248,20 +257,38 @@ rr-reset rr-no-source
   dup export-handlers-clear kind-count 0 do ['] rr-any i 2 pick export-handler ! loop
   ['] rr-on-meta kind-meta rot export-handler ! ;
 
+\ The metadata read hashes what it reads, as the manifest check does
+\ (manifest.fs), through the reader's tap: each line, then its line feed.
+\ When it was ok, its digest must be rr-start's (rvRP3 round 3); a read
+\ that failed has no whole digest, and the record keeps what it found.
+: rr-line ( c-addr u sha -- ) dup >r sha256-update s\" \n" r> sha256-update ;
+: rr-tap ( export -- ) >r run-record rr-sha dup sha256-init ['] rr-line r> export-tap! ;
+: rr-tapped ( -- c-addr u )
+  run-record dup rr-digest swap rr-sha sha256-final
+  run-record dup rr-digest swap rr-seen sha256-hex
+  run-record rr-seen sha-digest-bytes 2* ;
+: rr-meta-read ( c-addr u -- outcome )
+  run-record rr-export dup rr-handlers dup rr-tap export-read
+  run-record rr-export export-untap ok? if rr-tapped rr-matches else outcome-ok then ;
+
 \ The manifest's outcome and, for a failure, the field and the reason
-\ export-error gives; ok when the export matches the manifest beside it.
+\ export-error gives; ok when the export matches the manifest beside it,
+\ and then the digest the check computed must be rr-start's.
 : rr-manifest-keep ( outcome -- )
   dup run-record rr-manifest-outcome ! ok? if exit then
   run-record rr-export export-error run-record rr-manifest-reason rr-note! drop
   run-record rr-manifest-key rr-note! drop drop ;
+: rr-manifest-seen ( -- c-addr u )
+  run-record rr-manifest manifest-hex sha-digest-bytes 2* ;
 : rr-manifest-read ( c-addr u -- outcome )
-  run-record rr-manifest manifest-read rr-manifest-keep outcome-ok ;
+  run-record rr-manifest manifest-read dup rr-manifest-keep
+  ok? if rr-manifest-seen rr-matches else outcome-ok then ;
 : rr-manifest-check ( c-addr u -- outcome )
   run-record rr-export run-record rr-manifest manifest-init
   dup ok? if drop rr-manifest-read else nip nip then
   run-record rr-manifest manifest-free ;
 : rr-passes ( c-addr u -- outcome )
-  run-record rr-export dup rr-handlers >r 2dup r> export-read drop rr-manifest-check ;
+  2dup rr-meta-read dup ok? if drop rr-manifest-check else nip nip then ;
 : rr-reads ( c-addr u -- outcome )
   run-record rr-export export-init dup ok? if drop rr-passes else nip nip then
   run-record rr-export export-free ;
@@ -302,30 +329,29 @@ get-current rr-internal set-current
 set-current
 \ rr-import loads the run's file itself with checker-input.fs, with the
 \ manifest checked (cin-read-checked) when flag is true; the record says
-\ enforced exactly then. What an enforced read guarantees: both of the
+\ enforced exactly then. What every recorded read guarantees: both of the
 \ importer's passes read bytes with one SHA-256 (checker-input.fs compares
-\ the second pass's digest with the first's, rvRP3 R2-1), each pass
-\ matched the manifest beside the file as it stood for that pass, and
-\ that SHA-256 is the one rr-start recorded (rr-same-bytes?, else the read
-\ is invalid and rr-moved? true). So the verdicts of an enforced record
-\ are those of bytes whose SHA-256 is input.sha256, whatever happened to
-\ the file between the reads, or back again before rr-finish. An
-\ unchecked read computes no digest of its own: its record says not
-\ enforced, and only rr-start's and rr-finish's reads bound its bytes.
-: rr-recorded ( -- c-addr u ) run-record rr-before facts-hex sha-digest-bytes 2* ;
-: rr-same-bytes? ( -- flag ) cin-digest rr-recorded compare 0= ;
-: rr-bytes-check ( -- outcome ) rr-same-bytes? dup 0= run-record rr-moved ! flag>outcome ;
+\ the second pass's digest with the first's, rvRP3 R2-1), and that
+\ SHA-256 is the one rr-start recorded (rr-matches, else the read is
+\ invalid and rr-moved? true). So the verdicts of every record are those
+\ of bytes whose SHA-256 is input.sha256, whatever happened to the file
+\ between the reads, or back again before rr-finish. Enforced adds only
+\ that each pass also matched the manifest beside the file as it stood
+\ for that pass.
+: rr-bytes-check ( -- outcome ) cin-digest rr-matches ;
 : rr-moved? ( -- flag ) run-record rr-moved @ ;
-: rr-checked-read ( c-addr u -- outcome )
-  cin-read-checked dup ok? if drop rr-bytes-check then ;
-: rr-load ( flag -- outcome ) rr-file rot if rr-checked-read else cin-read then ;
+\ The export file c-addr u into the checker's input, its manifest checked
+\ when flag is true.
+: rr-read-file ( c-addr u flag -- outcome ) if cin-read-checked else cin-read then ;
+: rr-load ( flag -- outcome )
+  rr-file rot rr-read-file dup ok? if drop rr-bytes-check then ;
 \ A run that is not recorded (bin/leanforth check without --record): the
 \ export file c-addr u loaded by the importer alone (its two passes, the
 \ manifest checked when flag is true, both passes' digests equal), with
 \ none of rr-start's three reads (digest, metadata, manifest) and no name
 \ kept, so rr-write then refuses (invalid).
 : rr-read-once ( c-addr u flag -- outcome )
-  rr-release rr-reset if cin-read-checked else cin-read then dup rr-read! ;
+  rr-release rr-reset rr-read-file dup rr-read! ;
 : rr-unstarted ( flag -- outcome ) drop outcome-invalid dup rr-read! ;
 : rr-import ( flag -- outcome )
   false run-record rr-moved ! rr-started? 0= if rr-unstarted exit then

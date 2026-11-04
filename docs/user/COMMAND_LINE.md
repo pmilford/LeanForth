@@ -367,11 +367,11 @@ line and byte counts, its record counts and the Lean version
 `count` and `reexport` compare the export with it while reading, by
 default, and refuse a missing or different manifest as malformed input.
 `check` reads the export in two passes (names first, then terms and
-declarations) and compares each with the manifest; the two passes must
-also have read the same bytes, else the export is refused as invalid with
-"the export changed between the two passes", so a file replaced while
-`check` reads it cannot pair the names of one file with the terms of
-another:
+declarations) and compares each with the manifest. With the manifest or
+without it (`--no-manifest`), the two passes must also have read the same
+bytes, else the export is refused as invalid with "the export changed
+between the two passes" (line 0), so a file replaced while `check` reads
+it cannot pair the names of one file with the terms of another:
 
 ```console
 $ bin/leanforth check tests/core/check-declaration-cases/composition-loose.ndjson; echo "exit status $?"

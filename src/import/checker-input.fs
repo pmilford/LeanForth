@@ -27,8 +27,9 @@
 \ this context's input, replacing what was there, and ends loading;
 \ cin-read-checked does the same with the export's manifest checked on
 \ both passes (manifest.fs: "<file>.manifest.json"; any failure about it
-\ is invalid) and the two passes' digests equal (else invalid: the file
-\ changed between them), the default of the command line. Outcomes: ok; the
+\ is invalid), the default of the command line. Both hash each pass and
+\ require the two SHA-256s equal (else invalid: the file changed between
+\ them); cin-digest then gives it. Outcomes: ok; the
 \ reader's or the manifest check's (invalid malformed, unsupported for
 \ other versions); a handler's: full when a store or table of this phase
 \ has no room (its tables hold the stores' default capacities, 64 names,
@@ -48,12 +49,13 @@
 \ with full (import/feed.fs, through import/stage.fs, has no such limit).
 \ State: one record in the checker context, cin-state (the tables from
 \ export indices to LeanForth's names, levels and expressions, a
-\ constant's universe arguments, the declaration being built and the
-\ reason of a refusal), and one export record and one manifest record,
-\ cin-export and cin-manifest, which stay shared because they own
-\ heap buffers (a context member may not: context-free has no release
-\ hook), like ndjson-count.fs's; so one staging runs at a time, in any
-\ context, and its input lands in the context current while it runs.
+\ constant's universe arguments, the declaration being built, the reason
+\ of a refusal and the first pass's digest), and one export record and one
+\ manifest record, cin-export and cin-manifest, which stay shared because
+\ they own heap buffers (a context member may not: context-free has no
+\ release hook), like ndjson-count.fs's; so one staging runs at a time, in
+\ any context, and its input lands in the context current while it runs.
+\ The hashing of a pass (cin-sha, cin-raw, cin-hex) is shared like them.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
@@ -78,12 +80,15 @@ begin-structure /import-map
   lf-cref-argument-capacity 2* cells +field map-pairs   \ a constant's levels
   /lf-idecl +field map-decl                      \ the declaration being built
   field: map-why                                 \ counted string, or 0
-  field: map-digested                            \ true once a checked pass kept one
-  sha-digest-bytes 2* +field map-digest          \ that digest, in hexadecimal
+  field: map-digested                            \ true once a pass kept its digest
+  sha-digest-bytes 2* +field map-digest          \ the first pass's, in hexadecimal
 end-structure
 /import-map context-record: cin-state
 export: cin-export
 manifest: cin-manifest
+sha256: cin-sha                         \ hashing an unchecked pass
+create cin-raw sha-digest-bytes allot   \ a pass's digest, as bytes
+create cin-hex sha-digest-bytes 2* allot   \ and in hexadecimal
 
 : cin-names ( -- addr ) cin-state map-names ;
 : cin-levels ( -- addr ) cin-state map-levels ;
@@ -279,33 +284,43 @@ cin-second cin-table-check
   cin-export export-handlers-clear
   kind-count 0 do dup i cells + @ i cin-handler! loop drop ;
 
-\ After a checked pass that was ok: the SHA-256, as 64 lowercase
-\ hexadecimal digits, of the bytes it read, which the manifest check
-\ hashed and compared with the manifest as it stood for that pass.
-\ After a cin-read-checked that was ok, the digest of the bytes both
-\ passes read (below). Meaningless after any other read. The run records
-\ compare it with the digest they record.
-: cin-digest ( -- c-addr u ) cin-manifest manifest-hex sha-digest-bytes 2* ;
-\ The two checked passes must read the same bytes: the first pass's
-\ digest is kept, and the second's must equal it, else the read is
-\ invalid. Each pass is checked against the manifest as it stands when
-\ that pass reads it, so without this an export changed, with its
-\ manifest, during the first pass only could pair the first pass's names
-\ with the second pass's terms (review rvRP3, R2-1).
+\ After a read that was ok, cin-read or cin-read-checked: the SHA-256, as
+\ 64 lowercase hexadecimal digits, of the bytes it loaded, which both of
+\ its passes read (below). Meaningless after a read that failed. The run
+\ records compare it with the digest they record.
+: cin-digest ( -- c-addr u ) cin-hex sha-digest-bytes 2* ;
+\ The two passes must read the same bytes: each pass's SHA-256 is taken
+\ (the manifest check's, or the reader's tap's below), the first pass's
+\ is kept, and the second's must equal it, else the read is invalid, its
+\ line 0 as for the manifest. Without this a file changed during the
+\ first pass only (with its manifest, if checked: each pass is checked
+\ against the manifest as it stands when that pass reads it) could pair
+\ one file's names with another file's terms (review rvRP3, R2-1).
 : cin-kept ( -- c-addr u ) cin-state map-digest sha-digest-bytes 2* ;
 : cin-keep ( -- outcome )
   cin-digest drop cin-kept move true cin-state map-digested ! outcome-ok ;
 : cin-passes-differ ( -- outcome )
+  cin-export export-restart
   outcome-invalid c" the export changed between the two passes" cin-stop ;
 : cin-same ( -- outcome )
   cin-digest cin-kept compare if cin-passes-differ else outcome-ok then ;
 : cin-pass-digest ( -- outcome ) cin-state map-digested @ if cin-same else cin-keep then ;
+\ An unchecked pass is hashed as the manifest check hashes (manifest.fs):
+\ the reader's tap gives SHA-256 each line, then its line feed; every line
+\ export-read accepts ends with one, so that is the whole file.
+: cin-line ( c-addr u sha -- ) dup >r sha256-update s\" \n" r> sha256-update ;
+: cin-tap ( -- ) cin-sha dup sha256-init ['] cin-line cin-export export-tap! ;
+: cin-hashed ( -- ) cin-raw cin-sha sha256-final cin-raw cin-hex sha256-hex ;
+: cin-checked-digest ( -- )
+  cin-manifest manifest-hex cin-digest drop sha-digest-bytes 2* move ;
 
 \ Reading the file once, by xt ( c-addr u -- outcome ): the reader alone,
-\ or with the manifest checked and the passes' digests compared.
-: cin-plain ( c-addr u -- outcome ) cin-export export-read ;
+\ or with the manifest checked; either way the passes' digests compared.
+: cin-plain ( c-addr u -- outcome )
+  cin-tap cin-export export-read cin-export export-untap
+  dup ok? if drop cin-hashed cin-pass-digest then ;
 : cin-checked ( c-addr u -- outcome )
-  cin-manifest manifest-read dup ok? if drop cin-pass-digest then ;
+  cin-manifest manifest-read dup ok? if drop cin-checked-digest cin-pass-digest then ;
 : cin-pass ( c-addr u xt table -- outcome ) cin-handlers execute ;
 \ A fresh input in this context.
 : cin-fresh ( -- )
