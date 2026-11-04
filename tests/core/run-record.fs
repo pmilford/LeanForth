@@ -123,14 +123,14 @@ variable foreign
   s\" \"run\":\"invalid\",\"mode\":null,\"allowlistVersion\":null},\"declarations\":[]" ;
 T{ constant-fixture rr-start -> outcome-ok }T
 0 lf-env-pool-max 1+ rr-settings!
-T{ constant-fixture ni-read dup rr-read! -> outcome-ok }T
+T{ constant-fixture cin-read dup rr-read! -> outcome-ok }T
 foreign-current rr-check
 T{ constant-fixture rr-finish rr-write -> outcome-ok outcome-ok }T
 T{ no-env holds? s" accepted" holds? -> true false }T
 foreign-free
 T{ constant-fixture rr-start -> outcome-ok }T
 fuel 64 rr-settings!
-T{ constant-fixture ni-read dup rr-read! -> outcome-ok }T
+T{ constant-fixture cin-read dup rr-read! -> outcome-ok }T
 foreign-current rr-check foreign @ lf-env-use ok? must
 T{ constant-fixture rr-finish rr-write -> outcome-ok outcome-invalid }T
 foreign-free rr-release
