@@ -101,8 +101,8 @@ T{ cli-fuel-most 1+ 1 53 lshift = -> true }T
 [then]
 
 \ Names as cli/name-text.fs shows them: Lean's Name.toString, with « »
-\ around a component that is not an identifier and escapes for what the
-\ text rule bans; names of any depth.
+\ always around a component that is not an identifier and escapes for
+\ what the text rule bans, for » and for a backslash; names of any depth.
 : shows ( c-addr u -- c-addr' u' ) 0 -rot lf-name-str drop nt-name drop ;
 : num-shows ( n -- c-addr u ) 0 swap lf-name-num drop nt-name drop ;
 T{ s" fixtureUse" shows s" fixtureUse" compare -> 0 }T
@@ -112,9 +112,15 @@ T{ s\" a\nb" shows s" «a\u{A}b»" compare -> 0 }T
 T{ s\" a\rb\x1b[2K" shows s" «a\u{D}b\u{1B}[2K»" compare -> 0 }T
 T{ s\" a\xe2\x80\xaeb" shows s" «a\u{202E}b»" compare -> 0 }T
 T{ s\" a\\b" shows s" «a\\b»" compare -> 0 }T
-T{ s\" a\xc2\xbbb" shows s\" a\xc2\xbbb" compare -> 0 }T      \ holds », as Lean: no « »
+\ A component holding »: between « and », the » escaped (Lean shows it
+\ bare, so its spaces and colons would pass through).
+T{ s\" fake: accepted\xc2\xbb" shows s" «fake: accepted\u{BB}»" compare -> 0 }T
 T{ s\" \xce\xb1\xce\xb2\xce\xb3" shows s\" \xce\xb1\xce\xb2\xce\xb3" compare -> 0 }T
 T{ s" x'" shows s" x'" compare s" 1x" shows s" «1x»" compare -> 0 0 }T
+\ Subscripts as Lean's isSubScriptAlnum: digits and letters, not signs.
+T{ s\" x\xe2\x82\x81" shows s\" x\xe2\x82\x81" compare -> 0 }T      \ x₁
+T{ s\" x\xe2\x82\x90" shows s\" x\xe2\x82\x90" compare -> 0 }T      \ xₐ
+T{ s\" x\xe2\x82\x8a" shows s\" \xc2\xabx\xe2\x82\x8a\xc2\xbb" compare -> 0 }T  \ «x₊»
 T{ 7 num-shows s" 7" compare 0 nt-name drop s" [anonymous]" compare -> 0 0 }T
 \ Deeper than the term printer's 64 components: every component shown
 \ (the name store made larger for it, then given back its default).
@@ -123,9 +129,13 @@ T{ 7 num-shows s" 7" compare 0 nt-name drop s" [anonymous]" compare -> 0 0 }T
 lf-name-reset 200 lf-name-capacity! drop
 T{ 100 deep nt-name -rot nip 100 dots = -> true true }T
 lf-name-reset lf-name-default lf-name-capacity! drop
-\ A name with macro scopes is shown without « », as Lean shows it.
+\ Names Lean shows without « » (macro scopes, an inaccessible name,
+\ pseudo-syntax): each component that is not an identifier between « ».
 : hygienic ( -- id ) 0 s" x" lf-name-str drop s" _@" lf-name-str drop s" _hyg" lf-name-str drop ;
-T{ hygienic nt-name drop s" x._@._hyg" compare -> 0 }T
+T{ hygienic nt-name drop s" x.«_@»._hyg" compare -> 0 }T
+T{ s\" fake: accepted\xe2\x9c\x9d" shows s\" \xc2\xabfake: accepted\xe2\x9c\x9d\xc2\xbb" compare
+  -> 0 }T
+T{ s" _" shows s" _" compare s" #x y" shows s" «#x y»" compare -> 0 0 }T
 \ An export's file name: the same escapes, no « ».
 T{ s\" a b\x01\xff" nt-text drop s" a b\u{1}\x{FF}" compare -> 0 }T
 
