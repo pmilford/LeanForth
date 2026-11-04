@@ -614,3 +614,19 @@ ADR 0019 Amendment 1 (agent IR2; probes in
   word used gets a portable Forth-2012 definition for hosts that lack it.
 - Receipt schema 0.3 comes to the [format] gate with the first receipt
   that needs it.
+
+## Import read approved; fixed limits to become dynamic (2026-11-04)
+
+- **Run-record reading change approved [import]** (`src/import/checker-input.fs`:
+  both passes of a read, and the recorded SHA-256, must agree, with or
+  without the manifest; independent review rvRP3, four rounds, clean).
+- **Checker on the large store: held.** The owner asked: "I;m unclear if
+  there is a hardcoded limit of universe parameter lists, 64, does Lean have
+  this? I think it probably should be dynamic. we haven't tried out other
+  large imports." Answer: Lean has no such limit (universe parameters are a
+  list); Mathlib uses up to 30. LeanForth's fixed limits of 64 — universe
+  arguments per reference and parameters per declaration, the level
+  context's parameter names (Init already uses 62) and the walk, frame and
+  binder depths (Mathlib terms nest up to 1,221 deep) — become dynamic,
+  bounded only by memory (*full*), before the [kernel] gate is asked again
+  (plan 6.2.0 brought forward).
