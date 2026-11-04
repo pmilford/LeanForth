@@ -88,10 +88,23 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
 \ Check the result semantically, rather than relying on generated node indices.
 \ The fuel left is pinned: preflight, inference and the specialization of
 \ id spend 109 units here (observed before the refactor, at 398b76b), 106
-\ since ADR 0011 Amendment 1 (structural level equality costs nothing).
+\ since ADR 0011 Amendment 1 (structural level equality costs nothing), 94
+\ since free variables (plan task 4.2.2a: no shift for a variable's type,
+\ no audit when an application's type is instantiated, a chain of lambdas
+\ closed once).
+\ fun (A : Sort u) => id (A -> A) (fun (x : A) => x): the inner lambda,
+\ an argument, begins a chain of lambdas under A's binder, so its type is
+\ closed there (A's bound variable becomes A's free variable; plan task
+\ 4.2.2a) before it is compared with id's domain. The whole has type
+\ (A : Sort u) -> A -> A.
+: newest ( -- index identity ) lf-term-count @ 1- h ;
+: chain-argument-case ( -- )
+  setup 5 h 3 h lf-hterm-app save newest 12 h lf-hterm-app save
+  0 h newest lf-hterm-lam save lf-term-count @ 1- 50000 infer outcome-ok expect-status
+  4 h 50000 lf-mixed-convert outcome-ok <> abort" chain argument type" ;
 : poly-case ( -- )
   setup 9 50000 infer outcome-ok expect-status
-  lf-minfer-fuel @ 49894 <> abort" poly fuel"
+  lf-minfer-fuel @ 49906 <> abort" poly fuel"
   4 h 50000 lf-mixed-convert outcome-ok <> abort" poly type" ;
 : invalid-argument-case ( -- )
   \ id.{u} (Sort u): the argument has type Sort (u+1) where id.{u} wants a
@@ -192,14 +205,18 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
   2dup lf-hterm-valid? 0= abort" new term identity"
   over term-serial-before @ 1+ lf-hterm-valid? abort" stale term revived" 2drop ;
 \ A job started directly, as the definition probe does after its own
-\ preflight: the given fuel, no frames or binders, and only nodes below the
-\ term count at the start are source; nodes inference made are not.
+\ preflight: the given fuel, no frames or binders, an empty local context,
+\ and only nodes below the term count at the start are source; nodes
+\ inference made are not. Since plan task 4.2.2a the lambda's binder got
+\ a free variable of the local context.
 : start-case ( -- )
   setup token @ 500 lf-minfer-start
   lf-minfer-fuel @ 500 <> abort" start fuel"
   lf-minfer-depth @ lf-minfer-context-depth @ or abort" start depths"
+  lf-lctx-count @ abort" start locals"
   13 lf-minfer-walk outcome-ok expect-status lf-term-count @ 1- <> abort" new type"
   lf-minfer-fuel @ 500 < 0= abort" walk fuel"
+  lf-lctx-count @ 1 <> abort" one free variable"
   lf-term-count @ 1- lf-minfer-walk outcome-invalid expect-status
   -1 <> abort" no type" ;
 variable saw-exhaustion variable saw-success variable saw-partial
@@ -224,6 +241,7 @@ variable saw-exhaustion variable saw-success variable saw-partial
 
 ' fixture-case s" fixture preflight and specialization" run-case
 ' poly-case s" fixturePoly" run-case
+' chain-argument-case s" lambda argument under a binder" run-case
 ' invalid-argument-case s" invalid argument" run-case
 ' missing-case s" missing constant" run-case
 ' stale-case s" stale later candidate" run-case
@@ -242,12 +260,15 @@ T{ 0 lf-minfer-walk lf-minfer-fuel @ -> -1 outcome-full 100 }T
 0 lf-minfer-fuel !
 T{ 0 lf-minfer-walk lf-minfer-depth @ -> -1 outcome-exhausted lf-term-capacity }T
 0 lf-minfer-depth !
-\ The binder context, likewise unreachable: with every slot in use a body
-\ cannot be entered, which is full, and the context is unchanged. That is
-\ checked before the body's visit, so with no fuel left it is still full.
-lf-term-capacity lf-minfer-context-depth !  100 lf-minfer-fuel !
-T{ 0 1 lf-minfer-under lf-minfer-context-depth @ -> -1 outcome-full lf-term-capacity }T
+\ The scope: with every slot in use no binder can be opened, which is
+\ full, and neither the scope nor the local context changes. That is
+\ checked before anything else, so with no fuel left it is still full.
+\ (A telescope of more than lf-depth-limit binders reaches it, given a
+\ term store that holds one; the frames stopped such a term before.)
+lf-depth-limit lf-minfer-context-depth !  100 lf-minfer-fuel !
+lf-lctx-count @ constant locals-before
+T{ 0 0 lf-minfer-bind lf-minfer-context-depth @ -> outcome-full lf-depth-limit }T
 0 lf-minfer-fuel !
-T{ 0 1 lf-minfer-under lf-minfer-fuel @ -> -1 outcome-full 0 }T
+T{ 0 0 lf-minfer-bind lf-minfer-fuel @ lf-lctx-count @ -> outcome-full 0 locals-before }T
 0 lf-minfer-context-depth !
 bye

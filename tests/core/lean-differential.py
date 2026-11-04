@@ -267,27 +267,19 @@ RULE_STEPS = {"A1": {"done"}, "B1": {"done"}, "U1": {"audit"}, "U2": {"audit"},
 # term store filled while the value's type was inferred), is unknown since
 # check-declaration discards the declared type's scratch before the value.
 FIRST_CHECKER_KNOWN = {}
-# In the binder-domain table three rows meet the 64-node term store (ADR
-# 0016 is to lift it); with lf-term-capacity 160 each gives the table's
-# answer (measured 2026-11-02). The rejection analysis stays unknown when it
-# runs out of room, and inference is full.
-BINDER_KNOWN = {
-    # The theorem that encodes this comparison of two functions compares
-    # Q l with Q r; the analysis (D5, D4 twice, D3) runs out of room
-    # (with 160 nodes: rejected, D3+D4+D5).
-    "compare.lambda-beta-domain-different-body": "unknown",
-    # The same encoding of a larger pair: the value's type fills the store
-    # (with 160 nodes: unknown, K3).
-    "compare.eta-under-beta-domain": "full",
-    # P (fun x y => x) against P (fun x y => y): the analysis (D5, D4 twice,
-    # D3) runs out of room (with 160 nodes: rejected, D3+D4+D5).
-    "decl.lambda-in-argument-wrong-body": "unknown",
-}
+# In the binder-domain table three rows met the 64-node term store until
+# plan task 4.2.2a (with lf-term-capacity 160 each gave the table's answer,
+# measured 2026-11-02); since then inference discards scratch as it goes
+# and types a chain of lambdas once, and each gives the table's answer at
+# 64 nodes too: compare.lambda-beta-domain-different-body (unknown, now
+# rejected), compare.eta-under-beta-domain (full, now unknown) and
+# decl.lambda-in-argument-wrong-body (unknown, now rejected).
+BINDER_KNOWN = {}
 # Plan task 3.3.1 (ADR 0016 C9 step 3): the store capacities are settings.
 # The *-large tables run the same cases with every store's capacity
 # raised (src/core/terms.fs and the other stores), lines the driver runs
 # after loading; the depth limits stay. They must give the table's answer
-# with no known difference: the three rows above are then decided.
+# with no known difference.
 LARGE_CAPACITIES = ["4096 lf-term-capacity! must-ok", "1024 lf-level-capacity! must-ok",
                     "1024 lf-name-capacity! must-ok", "1024 lf-cref-capacity! must-ok",
                     "256 lf-input-capacity! must-ok"]

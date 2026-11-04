@@ -502,6 +502,12 @@ files of 2.4.1 and 2.4.4 pin what it does and this example is updated.
 
 ### The log (level `terms`): 65 steps
 
+*Note (plan task 4.2.2a, free variables, ADR 0014 Q2):* a variable's type
+is now its local-context entry's, as in Lean's `infer_fvar`, so a
+`variable` step has no `shift` premise. The log is this table without its
+14 `shift` steps: 51 steps, renumbered, with the same rules, depths,
+formulas and other premises; `tests/present/outlines.golden` holds it.
+
 Depth is the number of binders around the subject; formulas are shown as
 the term printer would print them in that context. "(copy)" marks a
 scratch result the log copied.

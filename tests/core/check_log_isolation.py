@@ -90,6 +90,11 @@ STORES = {
     "upto?", "lf-tag-sort", "lf-tag-symbolic-sort", "lf-tag-bvar", "lf-tag-constant",
     "lf-tag-app", "lf-tag-lam", "lf-tag-pi", "lf-log-preset-level", "lf-log-preset-records",
     "lf-log-preset-marks", "lf-log-preset-terms", "lf-log-preset-levels",
+    # The local context's (plan task 4.2.2a), read only, values: a free
+    # variable's tag, whether its entry names it, and the depth of its
+    # binder, so that the copier writes it as the bound variable it stands
+    # for (lf-log-fvar).
+    "lf-tag-fvar", "lf-fvar-live?", "lf-fvar-depth",
 }
 LOG_USES = FORTH | CONTEXT | STORES
 LOAD_TIME = {None, "lf-log-entry,"}

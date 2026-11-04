@@ -1,6 +1,7 @@
 \ Comparing whole contexts whose members own heap memory (ADR 0009,
 \ Amendment 1; ADR 0016 C9 step 3). The term, level, name, reference and
-\ input stores are heap stores (src/lib/store.fs) and the per-index
+\ input stores and the local context (core/local-context.fs) are heap
+\ stores (src/lib/store.fs) and the per-index
 \ columns and the reference pool are slabs (src/lib/slab.fs): their
 \ records in a context hold heap addresses, which differ from context to
 \ context. canon-zero blanks those fields in a byte copy of a context, so
@@ -17,7 +18,8 @@
 : canon-slab ( dst slab -- ) canon-at /slab erase ;
 : canon-column ( dst column -- dst ) column-slab over swap canon-slab ;
 create canon-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf-inputs ,
-5 constant canon-stores#
+  ' lf-lctx ,
+6 constant canon-stores#
 : canon-store# ( i -- store ) cells canon-stores + @ execute ;
 : canon-mix ( h x -- h' ) swap 31 * + ;
 \ The derivation log's pools (src/core/derivation-log.fs, when loaded): a

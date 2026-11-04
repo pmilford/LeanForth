@@ -16,6 +16,7 @@ require ../core/constant-term-boundary.fs
 require ../core/derivation-log.fs
 require ../core/diagnostics.fs
 require ../core/levels.fs
+require ../core/local-context.fs
 require ../core/tagged-sort-boundary.fs
 require ../core/terms.fs
 require ./level-compare.fs
@@ -46,9 +47,10 @@ lf-depth-limit context-walk2: lf-mconvert-walker
   dup walk-node lf-mconvert-reduce ok-then? if walk-context lf-mconvert-reduce then ;
 
 \ Compare reduced heads. Symbolic Sorts need equal second fields and levels
-\ that compare equal; bound variables must match exactly; constants need
-\ equal arity, names and levels; binary nodes compare both children pairs,
-\ each reduced when visited. Other constructors are invalid; distinct valid
+\ that compare equal; bound variables, and free variables (by number, one
+\ node per local-context entry), must match exactly; constants need equal
+\ arity, names and levels; binary nodes compare both children pairs, each
+\ reduced when visited. Other constructors are invalid; distinct valid
 \ syntax is unknown, not a proof of inequality.
 : lf-mconvert-sort ( a b walk -- outcome )
   drop 2dup lf-mcompare-seconds = if lf-mcompare-firsts lf-mconvert-levels
@@ -63,8 +65,8 @@ lf-depth-limit context-walk2: lf-mconvert-walker
 : lf-mconvert-dispatch ( a b walk tag -- outcome )
   dup lf-term-binary-tag? if drop lf-mcompare-children exit then
   case lf-tag-symbolic-sort of lf-mconvert-sort endof
-    lf-tag-constant of lf-mconvert-constant endof
-    lf-tag-bvar of lf-mconvert-bvar endof walk-bad-tag endcase ;
+    lf-tag-constant of lf-mconvert-constant endof  lf-tag-bvar of lf-mconvert-bvar endof
+    lf-tag-fvar of lf-mconvert-bvar endof walk-bad-tag endcase ;
 \ Each visit costs one unit of fuel before its reductions. The reduced
 \ heads along one path are distinct term nodes (a reduct holds only nodes
 \ below the redex or new ones), so the work stack, with at most one pending
