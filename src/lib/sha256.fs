@@ -172,7 +172,8 @@ end-structure
   >r r@ win-h + @ r@ win-e + @ sha-big-sigma1 +
   r@ win-e + @ r@ win-f + @ r@ win-g + @ sha-ch + r@ win-k + @ + r> win-w + @ + sha-w32 ;
 : sha-t2 ( row -- u )
-  >r r@ win-a + @ sha-big-sigma0 r@ win-a + @ r@ win-b + @ r> win-c + @ sha-maj + sha-w32 ;
+  >r r@ win-a + @ sha-big-sigma0
+  r@ win-a + @ r@ win-b + @ r> win-c + @ sha-maj + sha-w32 ;
 : sha-round-plain ( row -- row' )
   dup sha-t1 >r  r@ over win-d + @ + sha-w32 over win-e-next + !
   r> over sha-t2 + sha-w32 over win-a-next + !  /sha-row + ;
@@ -304,7 +305,7 @@ sha-doubling [if]
 
 \ The 32 bytes of a digest at c-addr1 as 64 lowercase hexadecimal digits
 \ at c-addr2, as sha256sum prints them.
-: sha-hex-digit ( n -- c ) dup 10 < if [char] 0 else [ char a 10 - ] literal then + ;
+: sha-hex-digit ( n -- c ) dup 10 < if [char] 0 else [char] a 10 - then + ;
 : sha-hex-byte ( c c-addr -- )
   over 4 rshift sha-hex-digit over c! swap 15 and sha-hex-digit swap char+ c! ;
 : digest>hex ( c-addr1 c-addr2 -- )   \ pass i writes byte i as two digits

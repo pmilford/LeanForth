@@ -62,7 +62,8 @@ end-structure
 \ manifest-free releases it. A file manifest-use named stays named.
 : manifest-release ( m -- ) manifest-text heap-release ;
 : manifest-init ( export m -- outcome )
-  dup manifest-release tuck manifest-export ! manifest-depth-limit swap manifest-json json-init ;
+  dup manifest-release tuck manifest-export !
+  manifest-depth-limit swap manifest-json json-init ;
 : manifest-free ( m -- ) dup manifest-release manifest-json json-free ;
 \ Name the manifest file for the next manifest-read only; the string must
 \ stay unchanged until that read.
@@ -118,7 +119,8 @@ end-structure
 \ Reading the parsed manifest. Tables of keys are counted strings that end
 \ with an empty one.
 : key-next ( c-addr -- c-addr' ) count + aligned ;
-: keys-size ( table -- n ) 0 swap begin dup count nip while key-next swap 1+ swap repeat drop ;
+: keys-size ( table -- n )
+  0 swap begin dup count nip while key-next swap 1+ swap repeat drop ;
 : has-key? ( key index view -- flag ) json-find dup if nip then ;
 : all-keys? ( table index view -- flag )
   2>r begin dup count nip while
@@ -138,7 +140,8 @@ end-structure
 : natural-at ( value view -- c-addr u true | false )
   2dup json-kind-at json-integer <> if 2drop false exit then
   json-text@ 2dup canonical-natural? if true else 2drop false then ;
-: hex-char? ( c -- flag ) dup [char] 0 [char] 9 between? swap [char] a [char] f between? or ;
+: hex-char? ( c -- flag )
+  dup [char] 0 [char] 9 between? swap [char] a [char] f between? or ;
 \ Exactly n lowercase hexadecimal digits.
 : hex-text? ( c-addr u n -- flag )
   over <> if 2drop false exit then true -rot over + swap ?do i c@ hex-char? and loop ;
@@ -161,7 +164,8 @@ create kind-keys
   s" decl.opaque" counted, s" decl.quot" counted, s" decl.inductive" counted,
   s" inductive.type" counted, s" inductive.ctor" counted, s" inductive.recursor" counted,
   0 0 counted,
-kind-keys keys-size kind-count <> [if] .( manifest.fs: one key per record kind) cr abort [then]
+kind-keys keys-size kind-count <>
+[if] .( manifest.fs: one key per record kind) cr abort [then]
 : kind-member ( kind -- c-addr ) kind-keys swap 0 ?do key-next loop ;
 \ The manifest's count of kind, in the records object at index.
 : recorded ( kind index view -- c-addr u true | false )
@@ -191,7 +195,8 @@ kind-keys keys-size kind-count <> [if] .( manifest.fs: one key per record kind) 
   string-value if 40 hex-text? else false then ;
 : digest? ( m -- flag )
   c" sha256" over member swap manifest-json string-value if 64 hex-text? else false then ;
-: natural-member? ( key m -- flag ) tuck member swap manifest-json natural-at dup if nip nip then ;
+: natural-member? ( key m -- flag )
+  tuck member swap manifest-json natural-at dup if nip nip then ;
 : kind-ok? ( index view kind -- flag ) -rot recorded dup if nip nip then ;
 : kinds? ( index m -- flag )   \ every member of the records object a natural
   manifest-json true kind-count 0 do 2 pick 2 pick i kind-ok? and loop nip nip ;
@@ -272,8 +277,9 @@ kind-keys keys-size kind-count <> [if] .( manifest.fs: one key per record kind) 
 : compare-after ( outcome m -- outcome ) over ok? if nip compare-all else drop then ;
 
 \ The whole check; the manifest's text is released on every path.
+: name-too-long ( m -- outcome ) 0 c" manifest file name too long" rot manifest-bad ;
 : manifest-steps ( c-addr u m -- outcome )
-  >r 2dup r@ manifest-file 0= if 2drop 0 c" manifest file name too long" r> manifest-bad exit then
+  >r 2dup r@ manifest-file 0= if 2drop r> name-too-long exit then
   r@ manifest-load dup ok? if drop r@ manifest-check then
   dup ok? if drop r@ manifest-export-read r> compare-after exit then
   nip nip r> drop ;

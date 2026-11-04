@@ -6,7 +6,10 @@
    (Python's json module) and the strict oracle
    tests/support/ndjson_oracle.py.
 2. Framing and stream failures on temporary files: each must fail closed
-   with the expected outcome and line.
+   with the expected outcome and line. These files have no manifest, so
+   they are read with count-report-unchecked, the explicit choice to skip
+   the manifest check (tests/core/test_export_manifest.py tests it); the
+   fixtures have their manifests and are read with the default check.
 3. The line limit through export-read: a line of exactly 64 MiB is read,
    one byte more is full at that line.
 4. A seeded mutation sweep over the fixtures, with ASCII and non-ASCII

@@ -1,7 +1,8 @@
 \ Unit tests of src/import/ndjson.fs: every record kind of lean4export
 \ format 3.1.0 decoded field by field, the metadata rules, and for each
 \ kind the malformed, unsupported and limit cases that must fail closed;
-\ handler outcomes; list and rule readers; whole fixture files.
+\ handler outcomes; list and rule readers; whole fixture files; the tap
+\ and the tally of records by kind, which the manifest check uses.
 \ Lines are fed one at a time to export-line from memory; file framing is
 \ tested by tests/core/test_ndjson_reader.py on temporary files.
 \ The reader is loaded under HEX (and the heap watched): loading must not

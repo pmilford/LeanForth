@@ -12,7 +12,7 @@ an NDJSON file, so nothing on the user's path is Python
 ([OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md), "Product dependencies"
 and OQ-4).
 
-**Status: [import] gate approved by the owner on 2026-11-03** ([OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md#gate-answers-and-working-guidelines-2026-11-03)); next: a checksum manifest checked by default, and an upgrade test for new Lean and Mathlib versions. **Implemented 2026-11-02, untrusted, fail-closed.** The reader
+**Status: [import] gate approved by the owner on 2026-11-03** ([OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md#gate-answers-and-working-guidelines-2026-11-03)); the checksum manifest it asked for is implemented and checked by default ([Manifests](#manifests), 2026-11-03, plan task 3.2.6, awaiting its [import] review); next: an upgrade test for new Lean and Mathlib versions. **Implemented 2026-11-02, untrusted, fail-closed.** The reader
 decides nothing about types or proofs; a decoded record is input for the
 checker, never a checked declaration. It does not yet stage records into
 the term, level and name stores, which hold only 64 entries each; that is
@@ -31,22 +31,43 @@ measurement script `docs/development/measurements/scale-2026-11-02/count.py`:
 ```
 
 `gforth-fast` is about three times faster than `gforth` and gives the same
-results. On failure the tool prints one line instead of the report and
+results. The file is checked against its manifest,
+`mathlib.ndjson.manifest.json` beside it, by default ([Manifests](#manifests));
+`s" OTHER.json" count-manifest` before `count-export` names another
+manifest file, and `count-export-unchecked` reads without one, a choice
+the caller makes explicitly. On failure the tool prints one line instead of the report and
 Gforth exits at once with status 1; after the report, `bye` exits with
 status 0. Forth-2012 has no `bye` with a status, so the tool uses Gforth's
 `(bye)`, present in both CI hosts, Gforth 0.7.3 and 1.0 (another host
 would end with an uncaught `THROW`). Inside a Forth session, or for many
-files in one process as the tests do, `count-report` prints the same and
-never exits. For a
-copy of `tests/reference/composition.ndjson` with an application referring
-to itself, with a closing quote removed on line 2, and with the Lean
-version changed:
+files in one process as the tests do, `count-report` (and
+`count-report-unchecked`) prints the same and never exits. For a copy of
+`tests/reference/composition.ndjson` with an application referring to
+itself, with a closing quote removed on line 2, and with the Lean version
+changed (with the fixture's manifest beside each, or unchecked: the
+reader's own failure comes first):
 
 ```text
 error: invalid: bad reference (field fn, line 27)
 error: invalid: unterminated string (line 2, byte 43)
 error: unsupported: unsupported exporter, format or Lean version (line 1)
 ```
+
+The manifest catches what the reader cannot: `constant-fixture.ndjson`
+cut cleanly after its 21st line, a shorter but valid library that
+`count-export-unchecked` counts without complaint; a copy of the
+composition with one letter of a name changed; and a file without
+`FILE.manifest.json`:
+
+```text
+error: invalid: export differs from its manifest (field lines, line 0)
+error: invalid: export differs from its manifest (field sha256, line 0)
+error: invalid: manifest missing, unreadable or too large (line 0)
+```
+
+From Forth, `manifest-read ( c-addr u m -- outcome )` of
+`src/import/manifest.fs` reads with the manifest and `export-read` alone
+without; the [Manifests](#manifests) section shows the words.
 
 From Forth, give each record kind a handler `( record -- outcome )` and read
 the file. A handler reads the decoded fields by name and returns an outcome;
@@ -144,7 +165,10 @@ the file first.
   without its line feed (JSON reads a line feed inside as white space;
   `export-read` never gives one);
 - a handler or caller that uses words of `ndjson.fs` this document does
-  not describe, such as `export-next` or `export-lines`.
+  not describe, such as `export-next` or `export-lines`;
+- a tap (`export-tap!`, [below](#manifests)) that changes the bytes it is
+  shown or uses the export: a tap is trusted caller code, like a handler,
+  and a `THROW` from it passes on as from a handler.
 
 A review judges the reader against this model: input that gets malformed
 data accepted, decoded wrongly or handed over stale is a soundness bug;
@@ -164,9 +188,10 @@ A handler must keep this contract:
   items than it was given or changes either canary. Deeper cells are not
   checked: Forth cannot isolate a handler's stack. They hold only the data
   of whoever called `export-line` or `export-read`, nothing of the
-  reader's: the export being read, the counter it adds the record to, a
-  declaration's kind and the table of a block's list wait on the return
-  stack, and the position in a block's list in the export.
+  reader's: the export being read, the counter it adds the record to, the
+  tally of the record's kind (`export-kind-count`), a declaration's kind
+  and the table of a block's list wait on the return stack, and the
+  position in a block's list in the export.
 - It does not call `export-read` or `export-line` on the same export; the
   reader refuses that as invalid ("export read again by its own handler").
   Nor does it call `export-init`, `export-free` or `export-restart` on it:
@@ -211,7 +236,10 @@ A handler must keep this contract:
 | `src/lib/bytes.fs` | bytes, lines, UTF-8 | `reader:` records: whole lines of a file in one heap buffer that grows for long lines up to a limit; every line must end with a line feed; line numbers and file offsets. `text-framed` refuses carriage returns and a byte-order mark. UTF-8 length, validity and encoding. |
 | `src/lib/json.fs` | JSON (RFC 8259) | `json:` views: one JSON text parsed, without recursion, into a tape of tokens; escapes decoded in place; numbers kept as digit text; limits on nesting, tokens, string and number length. |
 | `src/import/ndjson.fs` | lean4export 3.1.0 | `export:` records: the reader, the JSON view, the decoded records, the handler table and the counters. Tables describe every record shape; each record is checked whole before its handler sees it. |
-| `src/import/ndjson-count.fs` | count.py's report | The counting tool above. |
+| `src/import/ndjson.fs` (continued) | | The tap (`export-tap!`): a word shown every line `export-read` reads, before decoding. The tally (`export-kind-count`): records handed over and accepted, by kind. |
+| `src/lib/sha256.fs` | FIPS 180-4 | SHA-256, incremental; a standalone library ([FORTH_LIBRARY.md](FORTH_LIBRARY.md#sha-256)). |
+| `src/import/manifest.fs` | manifest format 1 | `manifest:` records: the export's manifest checked whole, the export hashed through the tap during its one read, then compared ([Manifests](#manifests)). |
+| `src/import/ndjson-count.fs` | count.py's report | The counting tool above, with the manifest checked by default. |
 
 Each layer keeps its state in records passed on the stack, so separate
 readers are independent ([ADR 0009](../adr/0009-reentrant-state-and-parallel-checking.md));
@@ -321,6 +349,156 @@ purpose:
   not); the preview's declaration-level checks (listed above) are not done.
 - JSON nested past the limit is a limit here and malformed in the preview.
   Both read `-0` as 0 and refuse lone surrogate escapes.
+
+## Manifests
+
+Lean's export carries no checksum or signature: its first line names only
+the exporter, format and Lean versions, which the reader requires to be
+the pinned ones. A file cut off cleanly between two lines would therefore
+read as a shorter, valid library. Under the owner's decision of
+2026-11-03 ([OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md#gate-answers-and-working-guidelines-2026-11-03),
+plan task 3.2.6), LeanForth's export step writes a manifest beside each
+export, and the reader checks it by default, in Forth, computing SHA-256
+during its single read. A missing or wrong manifest is *invalid* unless
+the caller explicitly skips the check. **Implemented 2026-11-03,
+untrusted, fail-closed; awaiting its [import] review.**
+
+**Writing a manifest** (on the developer's machine, at export time):
+
+```sh
+scripts/export.sh OUT.ndjson MODULE... [-- DECLARATION...]
+```
+
+runs the pinned toolchain's `leanexport` (`LEAN` names the pinned `lean`
+binary; never an elan proxy; `LEAN_PATH` finds the modules), writes the
+export through `OUT.ndjson.partial` so that a failed export never looks
+complete, then runs `python3 scripts/export_manifest.py OUT.ndjson`
+(with `--mathlib-commit SHA` when `MATHLIB_COMMIT` is set), which writes
+`OUT.ndjson.manifest.json`. The writer reads the export once with
+Python's `hashlib` and `json`, an implementation independent of the Forth
+reader, and refuses a file without a final line feed, a line that is not
+a JSON object, an unknown record kind, or metadata that is not the first
+line. Its output is deterministic: sorted keys, two-space indentation, a
+final line feed.
+
+**Format version 1** (`schemas/export-manifest-1.schema.json`), one JSON
+object with exactly these members:
+
+| Member | Holds |
+| --- | --- |
+| `format`, `format_version` | `"leanforth-export-manifest"` and `1` |
+| `sha256` | SHA-256 of the whole file, 64 lowercase hexadecimal digits, as `sha256sum` prints it |
+| `bytes`, `lines` | the file's size and its lines, each ended by a line feed |
+| `records` | an object with one member per record kind, all present: `meta`, `name.str`, `name.num`, `level.succ`, `level.max`, `level.imax`, `level.param`, `expr.bvar`, `expr.sort`, `expr.const`, `expr.app`, `expr.lam`, `expr.forallE`, `expr.letE`, `expr.proj`, `expr.natVal`, `expr.strVal`, `expr.mdata`, `decl.axiom`, `decl.def`, `decl.thm`, `decl.opaque`, `decl.quot`, `decl.inductive`, and the elements of inductive blocks, `inductive.type`, `inductive.ctor`, `inductive.recursor` |
+| `exporter`, `exporter_version`, `export_format`, `lean_version`, `lean_githash` | as the export's metadata line states them |
+| `mathlib_commit` | the Mathlib commit exported (40 lowercase hexadecimal digits), or `null` |
+
+Numbers are canonical decimal: no sign, no leading zero, no fraction or
+exponent. Each reference export has its manifest committed beside it
+(`tests/reference/*.ndjson.manifest.json`).
+
+**Checking.** `src/import/manifest.fs`, from Forth:
+
+```forth
+require src/import/manifest.fs
+export: library
+manifest: checks
+library export-init drop  library checks manifest-init drop
+' on-app kind-app library export-handler !      \ and a handler for every kind
+s" file.ndjson" checks manifest-read             \ ( -- outcome ): file.ndjson.manifest.json
+checks manifest-free  library export-free
+```
+
+`manifest-use ( c-addr u m -- )` names another manifest file for the next
+`manifest-read` only. `manifest-read` checks the manifest whole before it
+reads the export (so a malformed manifest fails at once, not after a
+two-minute read): one JSON object of at most 64 KiB, exactly the members
+above, each of its type, format version 1, and the five version members
+equal to the pinned ones. It then reads the export with `export-read`, so
+with the export's handlers, while the export's tap gives every line and
+its line feed to SHA-256 (`src/lib/sha256.fs`), once, as it is read and
+before decoding changes it. After an ok read it compares the lines, the
+bytes, the records handed over by kind (`export-kind-count`) and the
+SHA-256 with the manifest's, and reports the first difference. The tap is
+removed and the manifest's text freed on every path, including a `THROW`
+from a handler, which passes on with the file closed.
+
+| Case | Outcome | Reason (field), line 0 |
+| --- | --- | --- |
+| No manifest file, unreadable, or larger than 64 KiB | invalid | manifest missing, unreadable or too large |
+| Not JSON | invalid | manifest is not valid JSON |
+| Not an object; a member missing, unknown or repeated; a value of the wrong type; a number not canonical; a digest not lowercase hexadecimal of its length | invalid | manifest malformed (the member, or none) |
+| `format_version` other than `1` | invalid | unsupported manifest format version (`format_version`) |
+| A version member other than the pinned one | invalid | manifest names another exporter or Lean version (the member) |
+| A failure of the reader itself | the reader's | the reader's reason, field and line |
+| Lines, bytes, a kind's records or SHA-256 differ | invalid | export differs from its manifest (`lines`, `bytes`, the kind, or `sha256`) |
+| The export's name with `.manifest.json` longer than 4,096 characters | invalid | manifest file name too long |
+
+**Skipping the check** is the caller's explicit choice: `export-read`
+alone, or `count-export-unchecked` and `count-report-unchecked` in the
+counting tool.
+
+**What it protects against.** A truncated, corrupted or mixed-up export:
+a file cut at any line, a changed byte, a manifest of another file. It
+is not a signature: whoever can rewrite the export can rewrite its
+manifest, so it does not protect against forgery. Records reach the
+handlers before the totals can be compared, so a consumer keeps what it
+built only when the outcome is ok, as after any failure part-way through
+a file.
+
+**Measured** (2026-11-03, this machine, `gforth-fast` 1.0, one thread,
+the file in the page cache; `count-export` against `count-export-unchecked`,
+alternating; `.claude/work/CK/measure.sh` in the agent's notes):
+
+| Export | Size | Read, unchecked | Read with manifest (SHA-256 during the read) | Manifest written by `export_manifest.py` |
+| --- | --- | --- | --- | --- |
+| `Init` (`scripts/export.sh … Init`: 29 s; SHA-256 `c1b2071a…a59a179`, as before) | 345,690,182 B, 6,452,982 lines | 6.1–6.4 s | 11.6–12.1 s | 14 s |
+| all of Mathlib (`18448e5d…59c6`, equal to `sha256sum`'s) | 6,258,342,501 B, 110,895,826 lines | MATHLIB_UNCHECKED | MATHLIB_CHECKED | 4 min 14 s |
+
+The hash costs about 5.6 s on `Init`, 62 MB/s of the file, a little under
+the library's 69–73 MB/s in memory because each line is a separate update
+(one more for its line feed); the reports were byte-identical with and
+without it. Memory stays that of the reader: 13,960 KiB resident against
+13,956.
+
+**Tests** (`make test-manifest`; the export step with pinned Lean in
+`make check`):
+
+- `tests/core/manifest.fs`: a checked read of a fixture, the tap removed
+  and the text freed after every read and after a handler's `THROW` (file
+  closed), `manifest-use` for one read only, a missing manifest, a file
+  name too long, the error fields at line 0, and the heap blocks given
+  back by `manifest-free`.
+- `tests/core/test_export_manifest.py`: the writer gives exactly the five
+  committed manifests, each valid under the schema, and refuses six kinds
+  of bad input writing nothing; the five reference exports with their
+  manifests give count.py's report; 48 failure cases each give invalid
+  with the expected reason and field at line 0: `constant-fixture.ndjson`
+  truncated at a line boundary (which the unchecked reader accepts), one
+  changed byte, a missing manifest, format version 2, other Lean,
+  exporter and format versions, another file's manifest, each number and
+  digest changed, and a corpus of malformed manifests (not JSON, empty,
+  an array, a repeated member, an extra member, a missing kind, `-0`,
+  `1787.0`, `1787e0`, capitals in a digest, larger than 64 KiB; exactly
+  64 KiB is read), each also refused by the schema where JSON Schema can
+  say so; a manifest named with `count-manifest`; the reader's own
+  failure reported as before.
+- `tests/core/ndjson.fs`: the tap sees every line of two files once, with
+  its cell, and nothing given to `export-line`; a `THROW` from the tap
+  closes the file; `export-init` removes the tap; the tally counts every
+  kind, a block's elements included, starts again with each reading,
+  leaves out a refused record and takes only record kinds.
+- `tests/reference/manifest-check.sh` (`make reference-manifest`, in
+  `make check`): `scripts/export.sh` with pinned Lean reproduces the
+  composition fixture and its manifest byte for byte; the check accepts
+  it and refuses a copy with one letter changed, which the unchecked
+  reader accepts.
+- 12 planted faults, each undone afterwards, each caught: line feeds not
+  hashed, the SHA-256 or the bytes not compared, extra members allowed,
+  any format version, a digest's length unchecked, the 64 KiB limit one
+  byte short, non-canonical numbers, the tap left set after a read, the
+  failure's line not reset, the tap never called, refused records
+  counted.
 
 ## Evidence
 

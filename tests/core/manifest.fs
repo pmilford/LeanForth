@@ -37,8 +37,9 @@ T{ checks manifest-count 2@ -> 1787 0 }T
 \ A THROW from a handler passes on, with the file closed, the tap gone and
 \ the text freed; then the export reads again.
 : throws ( record -- outcome ) drop 55 throw ;
-T{ ' throws kind-app ex export-handler ! composition checks ' manifest-read catch nip nip nip
-   ex export-reader reader-fid @ idle? -> 55 0 true }T
+T{ ' throws kind-app ex export-handler !
+   composition checks ' manifest-read catch nip nip nip ex export-reader reader-fid @ idle?
+   -> 55 0 true }T
 ' accept-all handlers
 T{ composition checks manifest-read idle? -> outcome-ok true }T
 
@@ -53,12 +54,12 @@ T{ identity checks manifest-read -> outcome-ok }T
 \ A missing manifest, and an export name too long for the default name
 \ (4,096 characters with the suffix): invalid at line 0, nothing read.
 create long-name 4096 allot  long-name 4096 char x fill
-T{ s" tests/reference/no-such.ndjson" checks manifest-read
-   why s" manifest missing, unreadable or too large" compare line idle? -> outcome-invalid 0 0 true }T
-T{ long-name 4096 14 - 1+ checks manifest-read why s" manifest file name too long" compare line
-   -> outcome-invalid 0 0 }T
-T{ long-name 4096 14 - checks manifest-read
-   why s" manifest missing, unreadable or too large" compare -> outcome-invalid 0 }T
+: unread? ( -- flag ) why s" manifest missing, unreadable or too large" compare 0= ;
+T{ s" tests/reference/no-such.ndjson" checks manifest-read unread? line idle?
+   -> outcome-invalid true 0 true }T
+T{ long-name 4096 14 - 1+ checks manifest-read why s" manifest file name too long" compare
+   line -> outcome-invalid 0 0 }T
+T{ long-name 4096 14 - checks manifest-read unread? -> outcome-invalid true }T
 
 \ manifest-free and export-free give back every heap block; manifest-init
 \ again frees the old view first.

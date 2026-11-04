@@ -21,6 +21,9 @@
 \ each of its types, constructors and recursors. A handler returns an
 \ outcome; anything but ok stops reading with that outcome. A kind without
 \ a handler stops reading as unsupported, so nothing is skipped silently.
+\ For the manifest check (import/manifest.fs) the export also shows each
+\ line it reads from a file to a tap the caller sets (export-tap!), and
+\ counts the records handed over and accepted, by kind (export-kind-count).
 \
 \ Threat model. The input is hostile: whatever a file or a line holds, the
 \ reader refuses it or hands over exactly the records format 3.1.0 gives
@@ -644,10 +647,10 @@ here families - cell / constant #families
 \ handler's stack. They hold only the data of export-line's or
 \ export-read's caller: nothing of the reader's lies on the data stack
 \ while a handler runs. What it needs afterwards waits on the return
-\ stack (the export being read, the counter it adds to, a declaration's
-\ kind, the table of a block's list) or in the export (the position in a
-\ block's list). Every THROW from the handler, -4 too, ends the busy mark
-\ and passes on.
+\ stack (the export being read, the counter it adds to, the tally of the
+\ record's kind, a declaration's kind, the table of a block's list) or in
+\ the export (the position in a block's list). Every THROW from the
+\ handler, -4 too, ends the busy mark and passes on.
 -4 constant stack-underflow   \ the standard THROW code
 : depth-to ( i*x n -- j*x ) begin depth 1- over > while nip repeat drop ;
 : handler-call ( record xt -- outcome flag )
