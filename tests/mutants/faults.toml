@@ -1641,10 +1641,34 @@ reason = "an export index no map holds reads as record 0, so a bad reference is 
 [[fault]]
 id = "stage-mdata-unmarked"
 file = "src/import/stage.fs"
-old = '''  dup reach-fill dup decls-mark reach-free outcome-ok ;'''
-new = '''  dup reach-fill reach-free outcome-ok ;'''
+old = '''  dup ['] reach-note exprs-walk drop dup decls-mark reach-free outcome-ok ;'''
+new = '''  dup ['] reach-note exprs-walk drop reach-free outcome-ok ;'''
 test = "$GFORTH tests/core/stage.fs"
 reason = "a declaration holding an mdata expression is not marked, so the checker could read it as the term exported"
+
+[[fault]]
+id = "stage-mark-rules-skipped"
+file = "src/import/stage.fs"
+old = '''    if 2drop true unloop exit then'''
+new = '''    if 2drop false unloop exit then'''
+test = "$GFORTH tests/core/stage.fs"
+reason = "an mdata record reached only through a recursor rule's right-hand side leaves the recursor unmarked (review of the stage)"
+
+[[fault]]
+id = "stage-mark-let-body-skipped"
+file = "src/import/stage.fs"
+old = ''': let-reach? ( e stage -- flag ) 2dup pair-reach? >r body-reach? r> or ;'''
+new = ''': let-reach? ( e stage -- flag ) 2dup pair-reach? >r 2drop false r> or ;'''
+test = "$GFORTH tests/core/stage.fs"
+reason = "an mdata record in a letE's body only does not mark the declaration that holds it (review of the stage)"
+
+[[fault]]
+id = "stage-mark-projection-skipped"
+file = "src/import/stage.fs"
+old = '''' a-reach? tag-proj reach-checks check!'''
+new = '''' reach-none tag-proj reach-checks check!'''
+test = "$GFORTH tests/core/stage.fs"
+reason = "an mdata record under a projection does not mark the declaration that holds it (review of the stage)"
 
 [[fault]]
 id = "stage-value-unchecked"
@@ -1668,18 +1692,38 @@ quick = true
 [[fault]]
 id = "context-new-failure-leaks"
 file = "src/lib/context.fs"
-old = '''  dup context-fill dup if swap dup context-torn drop context-discard drop 0 swap then ;'''
-new = '''  dup context-fill dup if swap context-discard drop 0 swap then ;'''
+old = '''  swap dup context-torn rot swap ior-earlier swap context-discard ior-earlier 0 swap ;'''
+new = '''  swap context-discard ior-earlier 0 swap ;'''
 test = "$GFORTH tests/lib/context.fs"
 reason = "a context-new whose setup word fails gives back its block but not the heap blocks earlier setup words made"
 
 [[fault]]
 id = "context-teardown-stops"
 file = "src/lib/context.fs"
-old = '''    dup >r teardown-xt @ teardown-call ior-earlier r> teardown-link @'''
-new = '''    dup >r teardown-xt @ execute r> teardown-link @'''
+old = '''swap lf-context ! teardown-xt @ teardown-call ;'''
+new = '''swap lf-context ! teardown-xt @ execute 0 ;'''
 test = "$GFORTH tests/lib/context.fs"
 reason = "a teardown word that throws stops context-free, which then frees neither the others' blocks nor the context"
+
+[[fault]]
+id = "context-teardown-selected-once"
+file = "src/lib/context.fs"
+old = ''': teardown-in ( context teardown -- ior ) swap lf-context ! teardown-xt @ teardown-call ;
+: teardowns-run ( context -- ior )
+  0 context-layout layout-teardowns @ begin ?dup while
+    dup >r 2 pick swap teardown-in ior-earlier r> teardown-link @
+  repeat nip ;
+\ Every teardown word in context; the current context is restored
+\ afterwards.
+: context-torn ( context -- ior ) lf-context @ >r teardowns-run r> lf-context ! ;'''
+new = ''': teardown-in ( context teardown -- ior ) nip teardown-xt @ teardown-call ;
+: teardowns-run ( context -- ior )
+  0 context-layout layout-teardowns @ begin ?dup while
+    dup >r 2 pick swap teardown-in ior-earlier r> teardown-link @
+  repeat nip ;
+: context-torn ( context -- ior ) lf-context @ >r dup lf-context ! teardowns-run r> lf-context ! ;'''
+test = "$GFORTH tests/lib/context.fs"
+reason = "the context is selected once for all teardown words, so after one throws with the main context selected the next frees the main context's block (review of the release hook)"
 
 # --- run records and replay (src/import/run-record.fs, run-replay.fs) -------
 

@@ -82,6 +82,17 @@ end-structure
 1 13 lshift constant staged-rec-bit
 1 14 lshift constant staged-reflexive-bit
 1 15 lshift constant staged-marked-bit
+\ The positions of the items of staged-more's tuple, by kind (the table
+\ above), and of the three items of a recursor rule.
+0 constant more-block-types  1 constant more-block-ctors  2 constant more-block-recursors
+0 constant more-type-params  1 constant more-type-indices  2 constant more-type-all
+3 constant more-type-ctors  4 constant more-type-nested
+0 constant more-ctor-induct  1 constant more-ctor-cidx  2 constant more-ctor-params
+3 constant more-ctor-fields
+0 constant more-rec-all  1 constant more-rec-params  2 constant more-rec-indices
+3 constant more-rec-motives  4 constant more-rec-minors  5 constant more-rec-rules
+0 constant rule-ctor-item  1 constant rule-fields-item  2 constant rule-rhs-item
+3 constant /rule-items
 
 \ The stage: the reader first, so that a handler finds the stage from its
 \ record's export.
@@ -207,10 +218,15 @@ end-structure
   rot binder-body @ r@ export>expr r@ stage-tier expr-make r> exprs-kept ;
 : put-lam ( record -- outcome ) ['] lam-head binder-make ;
 : put-forall ( record -- outcome ) ['] pi-head binder-make ;
+\ A letE's head, and one of its expressions, the field xt of its record.
+: let-head-of ( record stage -- head )
+  over let-name @ swap export>name swap let-nondep @ let-head ;
+: let-expr ( record stage xt -- e ) rot swap execute @ swap export>expr ;
+: let-parts ( record stage -- head type value body )
+  2>r 2r@ let-head-of 2r@ ['] let-type let-expr 2r@ ['] let-value let-expr
+  2r> ['] let-body let-expr ;
 : put-let ( record -- outcome )
-  dup record>stage >r dup let-name @ r@ export>name over let-nondep @ let-head
-  over let-type @ r@ export>expr 2 pick let-value @ r@ export>expr
-  3 roll let-body @ r@ export>expr r@ stage-tier expr-let r> exprs-kept ;
+  dup record>stage >r r@ let-parts r@ stage-tier expr-let r> exprs-kept ;
 : proj-parts ( record stage -- head struct idx )
   >r dup proj-type-name @ r@ export>name proj-head over proj-struct @ r> export>expr
   rot proj-idx @ ;

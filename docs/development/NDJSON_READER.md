@@ -600,7 +600,9 @@ expression's key-value data, which Lean's exporter writes only when asked
 the expression it wraps under its own tag (`tag-mdata`), counts it
 (`stage-mdata`), and at sealing marks every declaration whose type, value
 or recursor rule holds one (`staged-marked?`, `stage-marks`), found in
-one pass over the expressions in number order. The stored term is then not
+one walk over the expressions in number order with a bitset of one bit
+per expression (13 MB for an export of Mathlib's size), made only when an
+`mdata` record was staged. The stored term is then not
 the term exported, so no check may accept a marked declaration; the
 checker can refuse it as unsupported without walking it.
 
@@ -609,7 +611,11 @@ bounds the heap blocks the stage holds (`stage-allocated`: the tier, the
 maps, the declarations and the array; not the reader's line buffer); the
 read stops as *full* at the first record after which they exceed it.
 Blocks grow by doubling, so the peak may pass the limit by the last
-block's growth. 0, the default, is no limit but the heap's.
+block's growth. Sealing counts the marks' bitset against the limit
+(*full*, the stage broken), but not the tier's rebuild of each table at
+most half full, which for a moment holds a table's old and new slots
+(Mathlib's expression table, pre-sized to 2^28, is not rebuilt). 0, the
+default, is no limit but the heap's.
 
 **Tests** (`make test-stage`, in `make test`; the round trips also in
 `make test-compact`):
@@ -623,7 +629,11 @@ block's growth. 0, the default, is no limit but the heap's.
   stage loads exactly as a fresh one; bad references refused by the
   stage's own checks, through forged records; the `mdata` of
   `reexport/kinds.ndjson` staged and `Nat.add`, the one declaration that
-  holds it, marked (a Python walk of the file finds the same one); a
+  holds it (through its type), marked (a Python walk of the file finds the
+  same one); the marks through a letE's body, a recursor rule and a
+  projection (`stage-cases/marks.ndjson`), none when no declaration holds
+  the `mdata` (`stage-cases/unref.ndjson`), and the bitset over the limit;
+  `stage-unmap` before sealing doing nothing; a
   scratch tier over the sealed input as a checker-context member, freed by
   its teardown word, also after a `THROW`; every heap block given back.
   Loaded under `HEX`.
@@ -637,16 +647,19 @@ block's growth. 0, the default, is no limit but the heap's.
 - The round trip, `tests/core/compact-verify.sh`: every fixture export of
   `tests/` (the five reference exports with their manifests, the four
   check-declaration cases, `ndjson-block.ndjson` and
-  `reexport/kinds.ndjson`, which has every record kind, unchecked) staged
-  and re-emitted from the store, metadata, names, levels, expressions and
-  declarations, equal family by family to this reader's dump; and `Init`
-  in `make check` (`reference-compact-init`).
+  `reexport/kinds.ndjson`, which has every record kind, and the two
+  `stage-cases`, unchecked) staged and re-emitted from the store,
+  metadata, names, levels, expressions and declarations, equal family by
+  family to this reader's dump, with every named declaration found through
+  the array and by its text and every constant's resolution checked; and
+  `Init` in `make check` (`reference-compact-init`).
 - Planted faults in `tests/mutants/faults.toml` (`stage-…`), each caught:
   a named declaration dropped, a constant no declaration has taken as
   resolved, a name with two declarations resolved to the newest, the
   chain to the earlier declaration lost, a failed read not rolled back, a
-  bad reference read as record 0, `mdata` left unmarked, a declaration's
-  value not checked.
+  bad reference read as record 0, `mdata` left unmarked, or unmarked when
+  reached only through a recursor rule, a letE's body or a projection, a
+  declaration's value not checked.
 
 **Measured** (2026-11-03, `gforth-fast` of Gforth 1.0, one thread, this
 machine shared with other agents; `tests/support/compact-load.fs`'s

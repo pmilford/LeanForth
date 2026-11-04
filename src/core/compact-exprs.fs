@@ -51,7 +51,7 @@
 \ Interface: the tags (tag-bvar ... tag-mdata), let-tag? binder-tag?
 \ lam-head pi-head let-head proj-head expr-class expr-make expr-let
 \ expr-bvar expr-sort expr-const expr-app expr-nat expr-str expr-fvar
-\ expr-mdata
+\ expr-mdata expr-next expr-resolve!
 \ expr-valid? expr-head@ expr-tag@ expr-payload@ expr-a@ expr-b@ expr-data@
 \ expr-body@ data-range data-depth data-params? data-fvars? range-max
 \ depth-max. Outcomes: ok, full, invalid. State: expr-class and the check
@@ -282,5 +282,15 @@ binder-checks
 : expr-str ( text tier -- e outcome ) >r tag-str swap 0 r> expr-make ;
 : expr-fvar ( n tier -- e outcome ) >r tag-fvar swap 0 r> expr-make ;
 : expr-mdata ( e tier -- e' outcome ) >r tag-mdata swap 0 r> expr-make ;
+
+\ Walking a tier's own expressions by number: the number after e (a letE
+\ spans two). Unchecked, like the accessors.
+: expr-next ( e tier -- e' ) over swap expr-record record-let? if 2 else 1 then + ;
+\ Resolving a constant (C4), while its tier is still open: u, below
+\ payload-limit, becomes constant e's payload, its declaration's number
+\ + 1 (0: none, or several). The payload is not part of the key, so the
+\ tables stay as they are. Unchecked: e is a constant of an open tier.
+: expr-resolve! ( u e tier -- )
+  expr-record >r tag-const swap pack-head r> quad-head u32! ;
 
 base !   \ the BASE this file was loaded with

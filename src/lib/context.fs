@@ -19,12 +19,13 @@
 \ may own heap blocks, such as a growable scratch store (ADR 0016 C3),
 \ only if its module registers with context-teardown a word ( -- ) that
 \ frees them. context-free runs every teardown word in the context being
-\ freed, selected as the current context, newest first, before it frees
-\ the context's own block; context-new runs them too when a setup word
-\ fails, before it gives the block back. A teardown word must free exactly
-\ what the member holds, whatever happened to it: after a THROW in the
-\ middle of a check, and also on a member its setup word never reached
-\ (zeroed), so it frees only blocks it finds and zeroes what it freed. It
+\ freed, selected as the current context afresh before each, newest
+\ first, before it frees the context's own block; context-new runs them
+\ too when a setup word fails, before it gives the block back. A teardown
+\ word must free exactly what the member holds, whatever happened to it:
+\ after a THROW in the middle of a check, and also on a member its setup
+\ word never reached (zeroed), so it frees only blocks it finds and zeroes
+\ what it freed. It
 \ must not make, free, claim or select contexts. Each runs balanced under
 \ CATCH, so one that throws or changes the stack does not stop the others
 \ or keep the context's block: context-free then gives the first THROW
@@ -247,17 +248,19 @@ end-structure
   context-sealed? abort" context: teardown declared after context-new"
   align here /teardown allot tuck teardown-xt ! teardown-link-in ;
 \ Running them. teardown-call runs xt balanced and gives 0 or its THROW
-\ code; ior-earlier keeps the first nonzero code.
+\ code; ior-earlier keeps the first nonzero code. Each teardown word runs
+\ with the context selected afresh, so that one which threw while another
+\ context was selected cannot make the next free that context's blocks.
 : teardown-call ( xt -- ior ) 0 swap ['] call-balanced catch dup if nip nip then ;
 : ior-earlier ( ior1 ior2 -- ior ) over if drop else nip then ;
-: teardowns-run ( -- ior )
+: teardown-in ( context teardown -- ior ) swap lf-context ! teardown-xt @ teardown-call ;
+: teardowns-run ( context -- ior )
   0 context-layout layout-teardowns @ begin ?dup while
-    dup >r teardown-xt @ teardown-call ior-earlier r> teardown-link @
-  repeat ;
-\ Every teardown word with context selected; the current context is
-\ restored afterwards.
-: context-torn ( context -- ior )
-  lf-context @ >r lf-context ! teardowns-run r> lf-context ! ;
+    dup >r 2 pick swap teardown-in ior-earlier r> teardown-link @
+  repeat nip ;
+\ Every teardown word in context; the current context is restored
+\ afterwards.
+: context-torn ( context -- ior ) lf-context @ >r teardowns-run r> lf-context ! ;
 
 \ Stack needs: the deepest nesting, in data and return-stack cells, that
 \ any module states for one of its checks (such as mixed-beta.fs's nested
@@ -276,7 +279,9 @@ end-structure
 \ context-new gives a new, idle context and 0, or 0 and the ior of a
 \ failed ALLOCATE or the THROW code of a failed initialiser or setup word,
 \ freeing what it allocated, the members' heap blocks through their
-\ teardown words. The current context is unchanged either way.
+\ teardown words. Of that code, a teardown word's and FREE's, it gives
+\ the earliest nonzero one: the setup word's, which came first. The
+\ current context is unchanged either way.
 : context-outside-job ( -- ) context-in-job? abort" context: not allowed inside a job" ;
 : context-members ( -- )
   context-first @ begin ?dup while dup member-run member-link @ repeat ;
@@ -284,7 +289,8 @@ end-structure
   lf-context @ >r lf-context ! ['] context-members catch r> lf-context ! ;
 : context-discard ( context -- ior ) 0 over context-size ! free ;
 : context-made ( context -- context ior )
-  dup context-fill dup if swap dup context-torn drop context-discard drop 0 swap then ;
+  dup context-fill dup 0= if exit then
+  swap dup context-torn rot swap ior-earlier swap context-discard ior-earlier 0 swap ;
 : context-new ( -- context ior )
   context-outside-job context-seal
   context-bytes allocate0 ?dup if nip 0 swap exit then dup context-sized context-made ;
