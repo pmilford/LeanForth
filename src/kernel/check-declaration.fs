@@ -143,7 +143,13 @@ lf-depth-limit context-walk: lf-check-walker
 \ The derivation log (ADR 0013): steps 4-6 are one proposition step (a
 \ theorem) or type step (a definition) of the claim, opened here and
 \ closed by step 6 with the Sort's level; a check that ends earlier
-\ closes it with its outcome (lf-check-logged).
+\ closes it with its outcome (lf-check-logged). lf-check-type and
+\ lf-check-prop each read lf-log? on their own; they agree because
+\ during a check lf-log? never turns from false to true: a check's log is
+\ held, and only a preset log that is not a check's restarts (after its
+\ outermost rule ends). A log truncated between steps 4 and 6 stays off
+\ until the next check: step 6 then does not close the formation step,
+\ which stays counted as open, and lf-log-close-all closes it.
 : lf-check-formation ( -- rule )
   lf-check-theorem? if lf-rule-proposition else lf-rule-type then ;
 : lf-check-type ( -- outcome )

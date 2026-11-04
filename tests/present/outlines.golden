@@ -221,7 +221,7 @@ Theorem composition
   Input:     tests/reference/composition.ndjson line 35
   Checker log: 30 steps, incomplete: truncated at step 31 (records).
 
-Proof outline not available: the checker's log was truncated at step 31 (records); the verdict is unaffected.
+No proof outline: the declaration is accepted, but the checker's log was truncated at step 31 (records); the verdict is unaffected.
 
 == composition, log without formulas
 Theorem composition
@@ -318,4 +318,10 @@ Steps.
   s65    lambda              depth 0   fun {A B C} f g value ↦ g value  ← s27, s64  [rejected]
   s66    declaration         depth 0   ∀ {A B C : Prop}, (A → B) → (B → C) → A → C := fun {A B C} f g value ↦ g value  ← s1, s2, s26, s65  [rejected]
   s67    publish             depth 0   d0, 0 dependencies  ← s66  [rejected]
+
+== a rejected declaration's log, given as accepted
+No outline: the checker's log does not belong to this declaration's published verdict, or the input changed since the check.
+
+== composition's log, after identity is loaded
+No outline: the checker's log does not belong to this declaration's published verdict, or the input changed since the check.
 
