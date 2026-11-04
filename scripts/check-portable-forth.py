@@ -92,6 +92,9 @@ BYTE_MODULES = {
     "src/lib/text-run.fs":
         "text runner splits text into lines at LF and checks that every character is "
         "printable ASCII",
+    "src/program/verify-runner.fs":
+        "program words' runner reads a source file a block at a time and holds the "
+        "characters of its current line",
     "src/program/verify-semantics.fs":
         "program words compare names with A-Z folded to a-z, as Gforth finds them, and "
         "read the characters of decimals and of names that read as numbers",

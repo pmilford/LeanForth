@@ -31,7 +31,8 @@ checker's usual gate, with "nothing changed" as the evidence.
 | `src/kernel/*.fs` | one guarded call per site (below): `lf-log? if` logged path `else` plain path `then`, both running the same kernel word |
 | [`src/present/log-view.fs`](../../src/present/log-view.fs) | reading a log for printing: formulas in each step's scope, the step list |
 | [`src/present/proof-outline.fs`](../../src/present/proof-outline.fs) | the proof outline (plan task 2.4.4) |
-| [`tests/support/print-outline.fs`](../../tests/support/print-outline.fs) | `make print`: read an export, check it with the log on, print outlines |
+| [`src/cli/print.fs`](../../src/cli/print.fs) | `bin/leanforth print` ([command line](../user/COMMAND_LINE.md#printing-a-readable-proof)) and `make print`: binder names from the export, each declaration checked with the log on and printed right after its check, and when no outline may be printed |
+| [`tests/support/print-outline.fs`](../../tests/support/print-outline.fs) | the same words for tests and the user page, without the command line's manifest check and exit codes |
 | [`tests/support/gforth-log.sh`](../../tests/support/gforth-log.sh) | run any test with the log on, or on and full (the test preset) |
 
 ## Records
@@ -192,7 +193,11 @@ The kernel's protocol (only `src/kernel/` calls these, always after
 start of a check and `lf-log-publish ( slot deps outcome -- )` after its
 hand-over. `tests/core/check_log_isolation.py` (in `make test`) fails if a
 kernel file names any other log word or loads presentation code, if a
-printer writes a log, if any other source file names a log word, or if
+printer writes a log, if the command line (`src/cli/`, which turns the
+log on for `leanforth print`) names more than the switches `lf-log-set`,
+`lf-log-limits`, `lf-log-capacities`, the levels and the read-only
+`lf-log-level` and `lf-log-complete?`, if any other source file names a
+log word, or if
 the log module names a word that could change a verdict (diagnostics,
 THROW, ABORT, heap memory, printing, store allocation or rollback, walks,
 fuel).

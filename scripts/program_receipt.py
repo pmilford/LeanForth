@@ -132,9 +132,13 @@ def assumptions(word, prims, cases):
                  "interpreter, one line at a time, with only their entry word visible; each "
                  "token must be a word of the file (a call, bound when Forth finds it), a "
                  "word of FORTH-WORDLIST with verification semantics and the identity it had "
-                 "when they loaded (a standard word redefined before the run is refused), or "
-                 "a plain decimal, which they read themselves; no word of the file or of the "
-                 "host runs. They refuse a redefinition, under any spelling, of a Forth-2012 "
+                 "when they loaded, or a plain decimal, which they read themselves; no word "
+                 "of the file or of the host runs. A standard word redefined after they "
+                 "loaded and before the run is refused, except, on Gforth 0.7.3, a "
+                 "compile-only word, since all of those share one token there; one "
+                 "redefined before they loaded is not noticed, so the verifying Forth too "
+                 "is assumed to have its own standard words. They refuse a redefinition, "
+                 "under any spelling, of a Forth-2012 "
                  "Core or Core Ext word or of the file's own words, a name that reads as a "
                  "number, any byte outside printable ASCII other than a space, a tab, an LF "
                  "and a CR just before an LF, and a division before CONSTANT. Gforth is "
@@ -188,9 +192,10 @@ def build(contract_path, evidence):
     word = contract["word"]
     source = program_vc.ir_source(ir_text)
     written = evidence.get("ir", {})
-    if written != {"words": IR_WORDS, "sha256": sha256(contract["ir"])}:
+    wanted = {"words": IR_WORDS, "sha256": sha256(contract["ir"]), "source": sha256(source)}
+    if written != wanted:
         raise SystemExit(f"the evidence does not show the program words ({IR_WORDS}) "
-                         f"writing {contract['ir']} as it is: {written}")
+                         f"writing {contract['ir']} from {source} as they are: {written}")
     lean, run = evidence["lean"], evidence["run"]
     contract_theorem = f"{vc['namespace']}.contract"
     names = [contract_theorem] + [o["theorem"] for o in vc["obligations"]]
@@ -336,17 +341,28 @@ def command(args, both=False):
 
 def ir_written(gforth, ir_path):
     """The IR the program words write for the IR file's source, which must be
-    that file byte for byte: its hash, for the evidence."""
+    that file byte for byte: its hash and the source's, for the evidence.
+    The source is hashed before and after the run and the two hashes must
+    agree, so a change still present after the run is refused. A change made
+    during the run and undone before the second hash is not detected; such
+    bytes could only have produced the same IR, which is compared byte for
+    byte. A hash taken inside the runner of exactly what it read is not
+    built yet (ADR 0019 section 5); the runner reads every byte of the file,
+    with no limit."""
     source = program_vc.ir_source(Path(ir_path).read_text(encoding="utf-8"))
     if not re.fullmatch(r"[\w./-]+", source):
         raise SystemExit(f"source path not usable in a Forth string: {source}")
+    before = sha256(source)
     out = command([gforth, IR_WORDS, "-e", f's" {source}" lf-verify-file .', "-e", "bye"])
     *lines, outcome = out.rstrip("\n").split("\n")
     text = "\n".join(lines) + "\n"
     if outcome.strip() != "0" or text != Path(ir_path).read_text(encoding="utf-8"):
         raise SystemExit(f"the program words ({IR_WORDS}) do not write {ir_path} for "
                          f"{source}:\n{out}")
-    return {"words": IR_WORDS, "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest()}
+    if sha256(source) != before:
+        raise SystemExit(f"{source} changed while the program words read it")
+    return {"words": IR_WORDS, "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+            "source": before}
 
 
 def record(contract_path):

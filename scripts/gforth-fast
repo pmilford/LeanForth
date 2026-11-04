@@ -1,0 +1,14 @@
+#!/bin/bash
+# gforth-fast, with the strict exit status of scripts/gforth-strict.sh.
+#
+# Test scripts that use "gforth-fast beside $GFORTH" (tests/core/compact-init.sh)
+# find this file when the Makefile sets GFORTH to scripts/gforth-strict.sh.
+# It runs the gforth-fast that sits beside the real Gforth ($LEANFORTH_GFORTH,
+# else .tools/gforth/bin/gforth of this checkout, else gforth on PATH) through
+# the strict wrapper; without one, the real Gforth itself.
+here=$(cd "$(dirname "$0")" && pwd)
+real=${LEANFORTH_GFORTH:-$here/../.tools/gforth/bin/gforth}
+[ -x "$real" ] || real=$(command -v "$real" || command -v gforth)
+fast="$(dirname "$real")/gforth-fast"
+if [ -x "$fast" ]; then real=$fast; fi
+LEANFORTH_GFORTH=$real exec "$here/gforth-strict.sh" "$@"

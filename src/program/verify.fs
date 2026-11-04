@@ -14,10 +14,15 @@
 \
 \ A host word is known by its identity: the execution token that
 \ SEARCH-WORDLIST gives now must be the one the table kept for that name
-\ when it was made, so a standard word redefined before the run is refused
-\ ("a standard word redefined before the run"), which the separate
-\ vocabulary cannot notice. The name is part of the identity because
-\ Gforth 0.7.3 gives every compile-only word (IF, THEN, ; ...) one shared
+\ when verify-semantics.fs loaded. So a standard word redefined after the
+\ program words loaded and before the run is refused ("a standard word
+\ redefined before the run"), which the separate vocabulary cannot
+\ notice; but not one redefined before they loaded, nor, on Gforth 0.7.3,
+\ which gives every compile-only word (IF, THEN, ; ...) one shared token,
+\ a compile-only word redefined after (tests/program/verify.fs shows
+\ both). The check concerns only the verifying session: no host word runs
+\ there, and run mode is another Forth, so a tampered host stays an
+\ assumption. The name is part of the identity because of that shared
 \ token. A reserved word (outside IR 0.1) is known by its name alone. A
 \ host word with no verification semantics, LeanForth's own included, is
 \ refused as unknown; no host word ever runs, and the host converts no
@@ -42,13 +47,13 @@ require ./verify-runner.fs
 \ A token found in FORTH-WORDLIST (xt), or not (0), that has a table
 \ entry: performed if it is the word the table knows.
 : pv-shift-entry ( entry xt|0 -- )
-  over pv-entry-kind @ pv-kind-reserved = if 2drop pv-why-not-ir pv-fail then
-  over pv-entry-host @ <> if drop pv-why-replaced pv-fail then pv-perform ;
-\ A token with no entry: a host word refuses; anything else must be a
-\ plain decimal.
-: pv-unknown ( -- ) pv-why-unknown pv-fail ;
+  over pv-entry-kind @ pv-kind-reserved = pv-why-not-ir pv-?fail
+  over pv-entry-host @ <> pv-why-replaced pv-?fail pv-perform ;
+\ A token with no entry: a host word refuses (even one named like a
+\ decimal, which run mode would call); anything else must be a plain
+\ decimal.
 : pv-shift-other ( c-addr u xt|0 -- )
-  if 2drop pv-unknown then pv-literal? 0= if pv-unknown then pv-lit ;
+  pv-why-unknown pv-?fail pv-literal? 0= pv-why-unknown pv-?fail pv-lit ;
 : pv-shift-named ( c-addr u -- )
   2dup pv-host >r 2dup pv-entry-of
   if nip nip r> pv-shift-entry else r> pv-shift-other then ;
@@ -62,10 +67,18 @@ get-current pv-shift-entry-words set-current
 : pv-verify-line ( -- ) begin parse-name dup while pv-shift-token repeat 2drop ;
 set-current
 
+\ The design. No word of the file ever runs in it: one that did would
+\ refuse.
 : pv-shift-prefix ( -- c-addr u ) s" pv-verify-line " ;
 : pv-shift-order ( -- ) pv-shift-entry-words 1 set-order ;
 : pv-shift-line ( -- ) pv-evaluated evaluate ;
-' pv-shift-prefix ' pv-shift-order ' pv-shift-line ' pv-interrupted pv-design: pv-shift
+: pv-not-ours ( index -- ) drop pv-why-interrupted pv-fail-here ;
+pv-design: pv-shift
+' pv-shift-prefix pv-shift pv-design-prefix !
+' pv-shift-order pv-shift pv-design-order !
+' pv-shift-line pv-shift pv-design-line !
+' pv-interrupted pv-shift pv-design-caught !
+' pv-not-ours pv-shift pv-design-call !
 
 : lf-verify-file ( c-addr u -- outcome ) pv-shift pv-file-run ;
 : lf-verify-text ( c-addr u c-addr2 u2 -- outcome ) pv-shift pv-text-run ;

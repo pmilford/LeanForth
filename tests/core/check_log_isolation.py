@@ -8,7 +8,11 @@ source text:
 2. In src/present/, a file names none of the protocol words that write a
    log (open, close, begin, publish, start, stop, set, limits): the
    printers only read it; and it loads nothing from src/kernel/.
-3. Every other file under src/ names no log word at all.
+3. In src/cli/, a file names only the log's switches (its level and
+   limits, set outside a check) and the read-only questions whether the
+   last log is complete and at which level it was kept: the command line
+   turns the log on for print, never writes a record. Every other file
+   under src/ names no log word at all.
 4. src/core/derivation-log.fs names none of the words that would let it
    change a verdict or the checker's state: no diagnostic, THROW, ABORT,
    heap memory, printing, store allocation or rollback, walk, or fuel word.
@@ -35,6 +39,10 @@ FORBIDDEN_IN_LOG = {
     "store-rollback", "store-clear", "lf-input-rollback", "lf-term-reset", "lf-level-reset",
     "walk-run", "walk-run-pair", "walk-budget", "frame-call", "frame-budget",
     "lf-cref-new", "lf-cterm-new", "lf-hterm-sort",
+}
+SWITCHES = {
+    "lf-log-set", "lf-log-limits", "lf-log-capacities", "lf-log-off", "lf-log-steps",
+    "lf-log-terms", "lf-log-level", "lf-log-complete?",
 }
 TOKEN = re.compile(r"\S+")
 
@@ -79,6 +87,10 @@ def main():
             text = path.read_text(encoding="utf-8")
             if re.search(r"^\s*require\s+\.\./kernel/", text, flags=re.M):
                 problems.append(f"{path}: presentation code loads the checker")
+        elif path.parts[1] == "cli":
+            extra = named - SWITCHES
+            if extra:
+                problems.append(f"{path}: names log words beyond its switches: {sorted(extra)}")
         elif named:
             problems.append(f"{path}: names log words: {sorted(named)}")
     forbidden = set(words(LOG_MODULE)) & FORBIDDEN_IN_LOG
@@ -89,7 +101,7 @@ def main():
     if problems:
         return 1
     print("derivation log isolation: the kernel uses only the protocol, the printers only "
-          "read, the log module uses no forbidden word")
+          "read, the command line only switches, the log module uses no forbidden word")
     return 0
 
 
