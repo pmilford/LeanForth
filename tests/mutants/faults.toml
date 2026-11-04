@@ -896,7 +896,7 @@ file = "src/import/ndjson.fs"
 old = '''  over meta-format-version s" 3.1.0" text= and swap pinned-lean? and ;'''
 new = '''  over meta-format-version s" 3.1.0" text= drop swap pinned-lean? and ;'''
 test = "$GFORTH tests/core/ndjson.fs"
-reason = "an export of another format version is read instead of refused as unsupported: the test's metadata differs from the pinned only in format.version"
+reason = "an export of another format version is read instead of refused as unsupported: the test's metadata differs from the pinned versions only in format.version"
 
 [[fault]]
 id = "ndjson-lean-version-unchecked"
@@ -904,7 +904,7 @@ file = "src/import/ndjson.fs"
 old = '''  dup meta-lean-version s" 4.35.0" text='''
 new = '''  dup meta-lean-version s" 4.35.0" text= drop true'''
 test = "$GFORTH tests/core/ndjson.fs"
-reason = "an export made by another Lean version is read instead of refused as unsupported: the test's metadata differs from the pinned only in lean.version"
+reason = "an export made by another Lean version is read instead of refused as unsupported: the test's metadata differs from the pinned versions only in lean.version"
 
 [[fault]]
 id = "ndjson-exporter-name-unchecked"
@@ -912,7 +912,7 @@ file = "src/import/ndjson.fs"
 old = '''  dup meta-exporter s" lean4export" text='''
 new = '''  dup meta-exporter s" lean4export" text= drop true'''
 test = "$GFORTH tests/core/ndjson.fs"
-reason = "an export written by another exporter is read instead of refused as unsupported: the test's metadata differs from the pinned only in the exporter's name"
+reason = "an export written by another exporter is read instead of refused as unsupported: the test's metadata differs from the pinned versions only in the exporter's name"
 
 [[fault]]
 id = "ndjson-index-unchecked"

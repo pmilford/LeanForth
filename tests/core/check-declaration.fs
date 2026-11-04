@@ -4,7 +4,8 @@
 \ full), each with the step at which the check ended and the diagnostic
 \ that explains it; Lean's order between steps and inside inference (the
 \ first failure decides, and its reason is Lean's); the dependencies an
-\ accepted declaration records; the input unchanged by checks; and fuel
+\ accepted declaration records, and none recorded by inference run aside;
+\ the input unchanged by checks; the room step 7 gives back; and fuel
 \ sweeps (below some fuel a check is exhausted, from there on it has its
 \ final outcome, never accepted before). The 62-row table, the binder-domain
 \ table and the universe-scope rows are compared with pinned Lean by
