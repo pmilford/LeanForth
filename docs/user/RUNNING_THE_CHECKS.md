@@ -115,9 +115,14 @@ Report Forth style signals: `make forth-metrics`.
 
 ## Limits you will meet
 
-- The term, level and name stores hold 64 entries each, a constant
-  reference at most 8 universe arguments; the pinned Mathlib needs millions
-  of entries and up to 30 arguments (plan task 6.2.0).
+- The term, level, name, reference and declaration stores grow up to a
+  capacity that is a setting of each checker context (default 64, 64, 64,
+  32 and 32 entries; `lf-term-capacity!` and the like, plan task 3.3.1);
+  feeding a staged export (`src/import/feed.fs`) raises them to fit it, and
+  all of `Init` (6.1 million expressions) fits in about 1.3 GB. A constant
+  reference takes at most 64 universe arguments (Mathlib's largest has 30).
+  The checking passes nest at most 64 deep (`lf-depth-limit`): a deeper
+  term gives *full* (plan task 6.2.0 lifts it).
 - The checking passes run with explicit fuel; running out gives
   *exhausted*, running out of room *full*. Neither is ever accepted.
 - Only the pinned exporter, format and Lean version are read; anything else

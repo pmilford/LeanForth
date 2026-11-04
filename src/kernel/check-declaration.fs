@@ -42,8 +42,9 @@
 \ The printing words run after a check, never inside one.
 \
 \ [kernel] code: experimental, not through the review gate, not
-\ independently audited. Phase-2 limits: those of the stores (64 terms, 64
-\ levels), the environment and inference.
+\ independently audited. Limits: the stores' capacity settings (default
+\ 64 terms and levels; lf-term-capacity! and the like), the passes' depth
+\ (lf-depth-limit, 64), the environment and inference.
 \ State: one record, lf-check-state (the budget, the fuel left in the
 \ audit, the step reached, the declaration checked and the last result),
 \ and one walk record, lf-check-walker (the U2 audit), both members of the

@@ -522,10 +522,10 @@ part; 2026-11-03) reads an export through this reader, checked against
 its manifest by default, into a compact input tier
 ([ADR 0016](../adr/0016-compact-store.md),
 [FORTH_LIBRARY.md](FORTH_LIBRARY.md#the-compact-store)), ready for every
-worker to read without locks. **Untrusted [import] code, fail-closed; not
-yet read by the checker** (moving the checker onto the compact store is
-C9 step 3). Loaded by `src/main.fs`; it declares no context member and
-allocates nothing while loading.
+worker to read without locks. **Untrusted [import] code, fail-closed.**
+The feed (`src/import/feed.fs`, plan task 3.2.2, ADR 0016 C9 step 3;
+below) gives a sealed stage to the checker. Loaded by `src/main.fs`; it
+declares no context member and allocates nothing while loading.
 
 ```forth
 require src/import/stage.fs
@@ -673,6 +673,42 @@ name, level and expression digests of ADR 0016 (`062a404d…`, `a37233ac…`,
 `83d1d3ca…`) and 59,953 declaration lines equal to the reader's
 (`ffb3ba16…`), in 33 s with both dumps; Mathlib's full round trip was not
 run.
+
+### Feeding the checker
+
+`lf-feed ( stage feed -- outcome )` (`src/import/feed.fs`; a `/feed`
+record the caller provides holds the loading aids, freed at the end)
+makes a sealed stage the current context's checker input, in file order:
+
+```forth
+create lib /stage allot   create feeding /feed allot
+24 lib stage-init drop
+s" init.ndjson" lib stage-load drop      \ checked against its manifest
+lib feeding lf-feed .                    \ 0, ok
+100000 65536 lf-check-input              \ ( env outcome ), as for any input
+```
+
+The stage's names stay in its input tier, shared and read-only: the
+context attaches the tier as its names (`lf-name-attach`), so a name's ID
+is its number in the stage, and the environment finds a name's
+declarations through the input's name index (ADR 0012 E5, ADR 0016 C4;
+`tests/core/check-declaration-ndjson.fs` checks every lookup of the
+fixtures against the scan). Levels, expressions and declarations are
+copied into the context's stores, whose capacity settings the feed raises
+to fit (never lowers): the checker reads terms through handles and
+identities, which the input tier does not keep. An inductive block gives
+no declaration; its types, constructors and recursors do (refused by the
+audit, U1). Universe parameters join the session's level context first
+(at most 64: `Init` uses 62). Outcomes: ok; invalid for a stage that is
+not sealed or a record the stores refuse as malformed; full for a
+capacity, a list longer than the checker takes, or no heap; `feed-at`
+names the expression or declaration where it stopped.
+
+The pinned exports and the broken copies give the same verdicts fed as
+through the test transport. All of `Init` (59,953 staged records, 59,349
+declarations, 6,099,054 terms, 56,957 references) fed and checked with
+`gforth-fast`: see [ADR 0016's progress](../adr/0016-compact-store.md#c9-migration-and-the-plan-tasks-it-covers)
+for the outcome counts, time and memory.
 
 ## Evidence
 
