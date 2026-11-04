@@ -35,7 +35,8 @@
 \ block. Every other word works alike on both kinds. Example:
 \   create big store-header allot
 \   4 /node 0 big store-heap-init drop   1000 big store-limit! drop
-\   big store-grow drop    \ ok: room for 16 more (doubled, at least 16), 20 records
+\   big store-grow drop    \ ok, still 4 records: a store grows only when every record
+\                          \ is in use; then it gains 16 (4 -> 20)
 \   big store-heap-free
 \
 \ Untrusted. One store is single-threaded: callers must not change it
