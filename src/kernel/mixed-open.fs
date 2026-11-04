@@ -173,6 +173,10 @@ end-structure
 \ The frames and their visitor, set up once in every context.
 : lf-open-setup ( -- ) lf-depth-limit ['] lf-open-visit lf-open-frames frame-init ;
 ' lf-open-setup context-setup
+\ Recovery after a THROW out of a pass (which leaves the record busy, so
+\ that every later pass refuses as invalid): the record made idle again;
+\ lf-mixed-rebuild-reset (mixed-beta.fs) resets all four rebuilding passes.
+: lf-open-reset ( -- ) lf-open-frames frame-reset ;
 
 \ Running a pass: the n terms checked (live nodes, or live free variables
 \ for abstract) and copied into the job, then the root visited at offset

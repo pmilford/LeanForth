@@ -79,7 +79,7 @@ Rules a new kernel module must keep:
 - ADR 0011's rejection analysis is the one place with open terms: it keeps
   the binders it enters (D4) as bound variables, each with a free
   variable on the scope, and closes a term with the scope's free
-  variables (`lf-minfer-closed`) before P2 infers it. It is retired by plan task 4.2.2d.
+  variables (`lf-minfer-close`) before P2 infers it. It is retired by plan task 4.2.2d.
 - A caller that walks a telescope itself (`check-block.fs`, as Lean's
   `check_constructors`) opens each binder with `lf-minfer-push` (the
   domain closed with the scope's free variables, then a new free

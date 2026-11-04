@@ -288,10 +288,14 @@ lf-term-count @ constant count-before
 T{ 2 lf-open-fuel ! 9 subst 2 lf-instantiate-rev lf-term-count @ lf-open-fuel @
   -> -1 outcome-exhausted count-before 0 }T
 T{ 3 lf-open-fuel ! 9 subst 2 lf-instantiate-rev nip lf-open-fuel @ -> outcome-ok 0 }T
-\ A pass in progress refuses another, changing nothing.
-1 lf-open-frames frame-depth !
+\ A pass in progress refuses another, changing nothing; after a THROW out
+\ of a pass (which leaves the record busy), lf-open-reset makes it idle
+\ again and the next pass runs.
+: thrower ( -- ) 1 lf-open-frames frame-depth ! -77 throw ;
+T{ ' thrower catch -> -77 }T
 T{ 9 2 rev -> -1 outcome-invalid }T
-lf-open-frames frame-reset
+lf-open-reset
+T{ lf-open-frames frame-busy? 9 2 rev nip -> false outcome-ok }T
 \ The frame limit: a chain lf-depth-limit + 1 deep is full.
 : deep ( -- node ) 2 lf-depth-limit 0 do 1 swap lf-term-lam 0= abort" deep" loop ;
 lf-depth-limit 2* lf-term-capacity! drop

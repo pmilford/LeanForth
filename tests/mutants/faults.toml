@@ -787,7 +787,7 @@ reason = "4.2.2a: a lambda does not give its binder back to the scope"
 [[fault]]
 id = "infer-chain-unclosed"
 file = "src/kernel/mixed-infer.fs"
-old = '''  if lf-minfer-good? if lf-minfer-closed then then ;'''
+old = '''  if lf-minfer-good? if lf-minfer-close then then ;'''
 new = '''  drop ;'''
 test = "$GFORTH tests/core/mixed-infer.fs"
 reason = "4.2.2a: the top of a chain of lambdas under binders keeps the outer binders' loose bound variables in its type instead of closing them with their free variables"
@@ -843,7 +843,7 @@ reason = "4.2.2a: a binder is opened on a full scope (past the job record's arra
 [[fault]]
 id = "rej-p2-open-term"
 file = "src/kernel/mixed-infer.fs"
-old = '''  lf-minfer-closed ok-then? 0= if drop false exit then'''
+old = '''  lf-minfer-close ok-then? 0= if drop false exit then'''
 new = ''''''
 test = "$GFORTH tests/core/definite-rejection.fs"
 reason = "4.2.2a: P2 infers a term of the analysis without closing it first"
@@ -852,7 +852,7 @@ equivalent = "inference reads a loose bound variable k under the scope as the sc
 [[fault]]
 id = "rej-d4-domain-open"
 file = "src/kernel/mixed-infer.fs"
-old = '''  lf-minfer-closed ok-then? if 0 lf-minfer-bind then ;'''
+old = '''  lf-minfer-close ok-then? if 0 lf-minfer-bind then ;'''
 new = '''  0 lf-minfer-bind ;'''
 test = "$GFORTH tests/core/definite-rejection.fs"
 reason = "4.2.2a: D4's free variable gets the right domain unclosed, with loose bound variables of the analysis's outer binders, so P2 cannot infer its type"
