@@ -1,0 +1,681 @@
+import Lean
+
+/-!
+# Inductive types, recursors, reductions: Lean 4.35.0's kernel verdicts
+
+Reference observations for ADR 0015 (`docs/adr/0015-inductive-types.md`, plan
+task 5.1.1). Nothing here is LeanForth code: this file asks the pinned Lean
+4.35.0 kernel for its verdict on small hand-written cases and fails unless
+the verdict is the one recorded below. `inductive-check.sh` compares the
+printed rows with `inductive-expected.tsv` byte for byte.
+
+Five groups of cases, each added to a scratch copy of a kernel environment
+with `Kernel.Environment.addDeclCore` (full checking), so no case can make
+another pass:
+
+* `ind.*`, `pos.*`, `uniform.*`, `universe.*`, `result.*`, `params.*`,
+  `mutual.*`, `nested.*`, `names.*`: inductive declarations
+  (`Declaration.inductDecl`) written in Lean syntax. Each type's short name is
+  a local variable while its constructors are elaborated, then replaced by the
+  constant `IE.<name>`; so the kernel, not the elaborator, decides. For an
+  accepted block the row also prints what the kernel generated: indices,
+  `isRec`, `isReflexive`, `numNested`, the recursor's elimination universe
+  (`any` when the recursor has its own universe parameter for the motive,
+  `Prop` when it eliminates only into `Prop`), `k`, motives, minor premises,
+  the fields of each rule, and the auxiliary recursors of a nested block.
+* `iota.*`, `k.*`, `eta.*`, `unit.*`, `proj.*`, `quot.*`, `lit.*`: theorems
+  and definitions whose checking needs one reduction rule. Type and value are
+  elaborated separately, without comparing them, and the kernel compares.
+* `replay.*`: Lean's own checker for exported libraries,
+  `Kernel.Environment.replay` (`src/Lean/Replay.lean`, used by
+  `leanchecker`), given the constants of a small inductive block, unchanged
+  and mutated. Replay rebuilds the block from the exported types and
+  constructor types, lets the kernel generate the rest, and compares only the
+  constructors and recursors with the exported ones.
+* `primitive.*`: an empty environment in which `Nat` and `Nat.add` are
+  declared by hand. The kernel computes on `Nat` literals by the names
+  `Nat.add` and so on, whatever their definitions say.
+* `quotinit.*`: initialising quotients (`Declaration.quotDecl`) needs `Eq`
+  with exactly Lean's shape.
+
+Columns: `id`, Lean's verdict (checked here), the outcome LeanForth must give
+once its plan task is done, the ADR 0015 rule, the plan task, and the facts
+of an accepted block (empty otherwise). Until its task is done LeanForth
+answers *unsupported* for the row, never *accepted*.
+-/
+
+open Lean Elab Command Term Meta
+
+universe u v
+
+namespace InductiveExpected
+
+/-! ## Lean's verdict -/
+
+def has (msg pat : String) : Bool := (msg.splitOn pat).length > 1
+
+/-- Short names for the kernel's `other` messages, matched by fixed text in
+Lean 4.35.0's `src/kernel/inductive.cpp`, `type_checker.cpp` and
+`environment.cpp`. Any other message is printed in full and so fails the
+comparison. -/
+def otherCodes : List (String × String) := [
+  ("has a non positive occurrence of the datatypes being declared", "nonPositive"),
+  ("contains a non valid occurrence of the datatypes being declared", "nonValidOccurrence"),
+  ("is too big for the corresponding inductive datatype", "universeTooBig"),
+  ("invalid return type for", "invalidReturnType"),
+  ("number of parameters mismatch in inductive datatype declaration", "paramCountMismatch"),
+  ("invalid inductive datatype declaration, incorrect number of parameters", "tooFewParamBinders"),
+  ("does not match inductive datatypes parameters", "ctorParamMismatch"),
+  ("parameters of all inductive datatypes must match", "mutualParamMismatch"),
+  ("mutually inductive types must live in the same universe", "mutualUniverseMismatch"),
+  ("must be applied to the parameters and universe levels of the mutual declaration",
+    "nonUniformOccurrence"),
+  ("nested inductive datatypes parameters cannot contain local variables", "nestedLocalVariable"),
+  ("duplicate constructor name", "duplicateConstructor"),
+  ("invalid empty (mutual) inductive datatype declaration", "emptyBlock"),
+  ("duplicate universe level parameter", "duplicateLevelParam"),
+  ("failed to initialize quot module", "quotEqShape")]
+
+def otherCode (msg : String) : String :=
+  match otherCodes.find? (fun (p, _) => has msg p) with
+  | some (_, c) => c
+  | none => "other: " ++ msg
+
+def exceptionCode : Kernel.Exception → String
+  | .unknownConstant .. => "unknownConstant"
+  | .alreadyDeclared .. => "alreadyDeclared"
+  | .declTypeMismatch .. => "declTypeMismatch"
+  | .declHasMVars .. => "declHasMVars"
+  | .declHasFVars .. => "declHasFVars"
+  | .funExpected .. => "funExpected"
+  | .typeExpected .. => "typeExpected"
+  | .letTypeMismatch .. => "letTypeMismatch"
+  | .exprTypeMismatch .. => "exprTypeMismatch"
+  | .appTypeMismatch .. => "appTypeMismatch"
+  | .invalidProj .. => "invalidProj"
+  | .thmTypeIsNotProp .. => "thmTypeIsNotProp"
+  | .other msg => otherCode msg
+  | .deterministicTimeout => "deterministicTimeout"
+  | .excessiveMemory => "excessiveMemory"
+  | .deepRecursion => "deepRecursion"
+  | .interrupted => "interrupted"
+
+def verdict : Except Kernel.Exception Kernel.Environment → String
+  | .ok _ => "accepted"
+  | .error e => exceptionCode e
+
+/-! ## Inductive declarations -/
+
+/-- One type of a block: its short name, its type and its constructors (short
+name and type), in Lean syntax. -/
+structure Ty where
+  name : String
+  type : String
+  ctors : List (String × String) := []
+
+structure Block where
+  id : String
+  lparams : List Name := []
+  nparams : Nat := 0
+  types : List Ty
+  /-- Namespace of the declared names; `anonymous` declares `name` itself. -/
+  ns : Name := `IE
+  lean : String
+  leanforth : String
+  rule : String
+  task : String
+
+def Block.full (b : Block) (short : String) : Name := b.ns ++ short.toName
+
+def parseTerm (s : String) : TermElabM Syntax := do
+  match Parser.runParserCategory (← getEnv) `term s with
+  | .ok stx => pure stx
+  | .error e => throwError "cannot parse {s}: {e}"
+
+/-- Elaborate `s` with each `(short, full, type)` of `locals` as a variable,
+then replace those variables by the constants `full.{lps}`. -/
+def elabWith (locals : List (String × Name × Expr)) (lps : List Name) (s : String) :
+    TermElabM Expr := do
+  let stx ← parseTerm s
+  let rec go (rest : List (String × Name × Expr)) (fvars : Array (Expr × Name)) :
+      TermElabM Expr := do
+    match rest with
+    | [] =>
+      let e ← elabTerm stx none
+      synthesizeSyntheticMVarsNoPostponing
+      let e ← instantiateMVars e
+      if e.hasMVar then throwError "unassigned metavariable in {s}"
+      pure <| fvars.foldl (fun e (fv, n) => e.replaceFVar fv (mkConst n (lps.map .param))) e
+    | (short, full, ty) :: more =>
+      withLocalDeclD short.toName ty fun fv => go more (fvars.push (fv, full))
+  go locals #[]
+
+def Block.decl (b : Block) : TermElabM Declaration := do
+  let tys ← b.types.mapM fun t => do
+    pure (t.name, b.full t.name, ← elabWith [] b.lparams t.type)
+  let types ← b.types.mapM fun t => do
+    let ty ← elabWith [] b.lparams t.type
+    let ctors ← t.ctors.mapM fun (c, cty) => do
+      pure ({ name := b.full t.name ++ c.toName, type := ← elabWith tys b.lparams cty } :
+        Constructor)
+    pure ({ name := b.full t.name, type := ty, ctors } : InductiveType)
+  pure (.inductDecl b.lparams b.nparams types false)
+
+def bit (b : Bool) : String := if b then "1" else "0"
+
+/-- What the kernel generated for an accepted block. -/
+def facts (env : Kernel.Environment) (b : Block) : String :=
+  let one (t : Ty) : String :=
+    match env.find? (b.full t.name), env.find? (b.full t.name ++ `rec) with
+    | some (.inductInfo i), some (.recInfo r) =>
+      let elim := if r.levelParams.length > i.levelParams.length then "any" else "Prop"
+      let aux := (List.range i.numNested).filterMap fun k =>
+        match env.find? (b.full t.name ++ Name.mkSimple s!"rec_{k + 1}") with
+        | some (.recInfo _) => some s!"rec_{k + 1}"
+        | _ => none
+      s!"{t.name}: idx={i.numIndices} rec={bit i.isRec} refl={bit i.isReflexive} " ++
+      s!"nested={i.numNested} elim={elim} k={bit r.k} motives={r.numMotives} " ++
+      s!"minors={r.numMinors} fields={r.rules.map (·.nfields)}" ++
+      (if aux.isEmpty then "" else s!" aux={aux}")
+    | _, _ => s!"{t.name}: not generated"
+  "; ".intercalate (b.types.map one)
+
+/-- Three-form examples of ADR 0015 and the elimination-level cases. -/
+def accepted : List Block := [
+  { id := "ind.nat", types := [⟨"N", "Type", [("zero", "N"), ("succ", "N → N")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1", task := "5.2.1b" },
+  { id := "ind.and", nparams := 2,
+    types := [⟨"And", "Prop → Prop → Prop",
+      [("intro", "(a b : Prop) → a → b → And a b")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 E3", task := "5.2.1a" },
+  { id := "ind.eq", lparams := [`u], nparams := 2,
+    types := [⟨"Eq", "(α : Sort u) → α → α → Prop",
+      [("refl", "(α : Sort u) → (a : α) → Eq α a a")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 E3 K1", task := "5.2.1c" },
+  { id := "ind.bool", types := [⟨"B", "Type", [("false", "B"), ("true", "B")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1", task := "5.2.1a" },
+  { id := "ind.list", lparams := [`u], nparams := 1,
+    types := [⟨"L", "Type u → Type u",
+      [("nil", "(α : Type u) → L α"), ("cons", "(α : Type u) → α → L α → L α")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1", task := "5.2.1b" },
+  { id := "ind.vector", nparams := 1,
+    types := [⟨"V", "Type → Nat → Type",
+      [("nil", "(α : Type) → V α 0"),
+       ("cons", "(α : Type) → (n : Nat) → α → V α n → V α (n + 1)")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1", task := "5.2.1c" },
+  { id := "ind.unit", types := [⟨"U", "Type", [("unit", "U")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 R5", task := "5.2.1a" },
+  { id := "ind.empty-type", types := [⟨"E", "Type", []⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1", task := "5.2.1a" },
+  { id := "ind.empty-prop", types := [⟨"F", "Prop", []⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 E2", task := "5.2.1a" },
+  { id := "ind.true", types := [⟨"T", "Prop", [("intro", "T")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 E3 K1", task := "5.2.1a" },
+  { id := "ind.or", nparams := 2,
+    types := [⟨"Or", "Prop → Prop → Prop",
+      [("inl", "(a b : Prop) → a → Or a b"), ("inr", "(a b : Prop) → b → Or a b")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 E1", task := "5.2.1a" },
+  { id := "ind.prop-two-empty-ctors", types := [⟨"P", "Prop", [("a", "P"), ("b", "P")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 E1", task := "5.2.1a" },
+  { id := "ind.exists", lparams := [`u], nparams := 2,
+    types := [⟨"Ex", "(α : Sort u) → (α → Prop) → Prop",
+      [("intro", "(α : Sort u) → (p : α → Prop) → (w : α) → p w → Ex α p")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 E4", task := "5.2.1a" },
+  { id := "ind.exists-prop-witness", nparams := 2,
+    types := [⟨"ExP", "(α : Prop) → (α → Prop) → Prop",
+      [("intro", "(α : Prop) → (p : α → Prop) → (w : α) → p w → ExP α p")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 E3", task := "5.2.1a" },
+  { id := "ind.field-in-index", types := [⟨"IsZ", "Nat → Prop",
+      [("mk", "(n : Nat) → n = 0 → IsZ n")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 E3", task := "5.2.1c" },
+  { id := "ind.reflexive", types := [⟨"O", "Type",
+      [("zero", "O"), ("lim", "(Nat → O) → O")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 P1", task := "5.2.1b" },
+  { id := "ind.universe-max", lparams := [`u, `v], nparams := 2,
+    types := [⟨"Pr", "Type u → Type v → Type (max u v)",
+      [("mk", "(α : Type u) → (β : Type v) → α → β → Pr α β")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 U1", task := "5.2.1a" },
+  { id := "ind.sort-max", lparams := [`u, `v], nparams := 2,
+    types := [⟨"S", "Sort u → Sort v → Sort (max 1 u v)",
+      [("inl", "(α : Sort u) → (β : Sort v) → α → S α β"),
+       ("inr", "(α : Sort u) → (β : Sort v) → β → S α β")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 U1", task := "5.2.1a" }
+]
+
+/-- Declarations Lean rejects, each next to an accepted neighbour. -/
+def checks : List Block := [
+  -- Strict positivity (check_positivity).
+  { id := "pos.negative", types := [⟨"Bad", "Type", [("mk", "(Bad → Nat) → Bad")]⟩],
+    lean := "nonPositive", leanforth := "rejected", rule := "P1", task := "5.2.1b" },
+  { id := "pos.double-negative", types := [⟨"Bad", "Type", [("mk", "((Bad → Nat) → Nat) → Bad")]⟩],
+    lean := "nonPositive", leanforth := "rejected", rule := "P1", task := "5.2.1b" },
+  { id := "pos.through-definition", types := [⟨"Bad", "Type", [("mk", "id (Bad → Nat) → Bad")]⟩],
+    lean := "nonPositive", leanforth := "rejected", rule := "P1", task := "5.2.1b" },
+  { id := "pos.erased-by-definition",
+    types := [⟨"Ok", "Type", [("mk", "Function.const Type Nat Ok → Ok")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 P1", task := "5.2.1b" },
+  { id := "pos.non-valid-occurrence", nparams := 1,
+    types := [⟨"Bad", "(Type → Type) → Type",
+      [("mk", "(f : Type → Type) → f (Bad f) → Bad f")]⟩],
+    lean := "nonValidOccurrence", leanforth := "rejected", rule := "P2", task := "5.2.1b" },
+  { id := "pos.universe-checked-first",
+    types := [⟨"Bad", "Type", [("mk", "(f : Type → Type) → f Bad → Bad")]⟩],
+    lean := "universeTooBig", leanforth := "rejected", rule := "U1", task := "5.2.1b" },
+  -- Occurrences applied to the parameters (check_uniform_ind_occs).
+  { id := "uniform.other-argument", nparams := 1,
+    types := [⟨"T", "Type → Type", [("mk", "(α : Type) → T Nat → T α")]⟩],
+    lean := "nonUniformOccurrence", leanforth := "rejected", rule := "C1", task := "5.2.1b" },
+  { id := "uniform.definitionally-equal-argument", nparams := 1,
+    types := [⟨"T", "Type → Type", [("mk", "(α : Type) → T (id α) → T α")]⟩],
+    lean := "nonUniformOccurrence", leanforth := "rejected", rule := "C1", task := "5.2.1b" },
+  { id := "uniform.result-other-argument", nparams := 1,
+    types := [⟨"T", "Type → Type", [("mk", "(α : Type) → T Nat")]⟩],
+    lean := "nonUniformOccurrence", leanforth := "rejected", rule := "C1", task := "5.2.1a" },
+  -- Universe constraints on constructor fields.
+  { id := "universe.field-too-big", types := [⟨"Big", "Type", [("mk", "Type → Big")]⟩],
+    lean := "universeTooBig", leanforth := "rejected", rule := "U1", task := "5.2.1a" },
+  { id := "universe.field-too-big-param", lparams := [`u],
+    types := [⟨"Big", "Type u", [("mk", "Type u → Big")]⟩],
+    lean := "universeTooBig", leanforth := "rejected", rule := "U1", task := "5.2.1a" },
+  { id := "universe.field-fits", lparams := [`u],
+    types := [⟨"Fits", "Type (u + 1)", [("mk", "Type u → Fits")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 U1", task := "5.2.1a" },
+  { id := "universe.predicate-any-field", types := [⟨"BigP", "Prop", [("mk", "Type → BigP")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 U1 E4", task := "5.2.1a" },
+  { id := "universe.type-not-a-sort", types := [⟨"T", "Nat", []⟩],
+    lean := "typeExpected", leanforth := "rejected", rule := "T2", task := "5.2.1a" },
+  -- Constructor result types (is_valid_ind_app).
+  { id := "result.other-type", types := [⟨"T", "Type", [("mk", "Nat")]⟩],
+    lean := "invalidReturnType", leanforth := "rejected", rule := "C3", task := "5.2.1a" },
+  { id := "result.index-mentions-type", types := [⟨"T", "Type → Type", [("mk", "T (T Nat)")]⟩],
+    lean := "invalidReturnType", leanforth := "rejected", rule := "C3", task := "5.2.1c" },
+  -- Parameters.
+  { id := "params.too-few-binders", nparams := 2, types := [⟨"T", "Type → Type", []⟩],
+    lean := "tooFewParamBinders", leanforth := "rejected", rule := "T1", task := "5.2.1a" },
+  { id := "params.constructor-mismatch", nparams := 1,
+    types := [⟨"T", "Type → Type", [("mk", "(β : Prop) → Nat")]⟩],
+    lean := "ctorParamMismatch", leanforth := "rejected", rule := "C2", task := "5.2.1a" },
+  { id := "params.constructor-binder-defeq", nparams := 1,
+    types := [⟨"T", "Type → Type", [("mk", "(β : id Type) → T β")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 C2", task := "5.2.1a" },
+  { id := "params.index-instead-of-parameter", types := [⟨"T", "Type → Type",
+      [("mk", "(α : Type) → α → T α")]⟩],
+    lean := "universeTooBig", leanforth := "rejected", rule := "U1", task := "5.2.1c" },
+  { id := "params.index-one-universe-up", types := [⟨"T", "Type → Type 1",
+      [("mk", "(α : Type) → α → T α")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 U1", task := "5.2.1c" },
+  -- Mutual blocks.
+  { id := "mutual.even-odd",
+    types := [⟨"Even", "Nat → Prop", [("zero", "Even 0"), ("succ", "(n : Nat) → Odd n → Even (n + 1)")]⟩,
+              ⟨"Odd", "Nat → Prop", [("succ", "(n : Nat) → Even n → Odd (n + 1)")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 E1", task := "5.2.5" },
+  { id := "mutual.tree-forest",
+    types := [⟨"Tree", "Type", [("node", "Nat → Forest → Tree")]⟩,
+              ⟨"Forest", "Type", [("nil", "Forest"), ("cons", "Tree → Forest → Forest")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1", task := "5.2.5" },
+  { id := "mutual.single-ctor-props",
+    types := [⟨"A", "Prop", [("a", "A")]⟩, ⟨"B", "Prop", [("b", "B")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 E1", task := "5.2.5" },
+  { id := "mutual.universe-mismatch",
+    types := [⟨"A", "Type", [("a", "B → A")]⟩, ⟨"B", "Prop", [("b", "B")]⟩],
+    lean := "mutualUniverseMismatch", leanforth := "rejected", rule := "T4", task := "5.2.5" },
+  { id := "mutual.parameter-mismatch", nparams := 1,
+    types := [⟨"A", "Type → Type", []⟩, ⟨"B", "Prop → Type", []⟩],
+    lean := "mutualParamMismatch", leanforth := "rejected", rule := "T3", task := "5.2.5" },
+  { id := "mutual.parameter-count", nparams := 1,
+    types := [⟨"A", "Type → Type", []⟩, ⟨"B", "Type", []⟩],
+    lean := "paramCountMismatch", leanforth := "rejected", rule := "T3", task := "5.2.5" },
+  -- Nested blocks.
+  { id := "nested.tree", types := [⟨"Tree", "Type", [("node", "List Tree → Tree")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 N1", task := "5.2.5" },
+  { id := "nested.non-positive",
+    types := [⟨"Bad", "Type", [("mk", "List (Bad → Nat) → Bad")]⟩],
+    lean := "nonPositive", leanforth := "rejected", rule := "N1 P1", task := "5.2.5" },
+  { id := "nested.local-variable",
+    types := [⟨"Bad", "Type", [("mk", "(α : Type) → List (Prod α Bad) → Bad")]⟩],
+    lean := "nestedLocalVariable", leanforth := "rejected", rule := "N2", task := "5.2.5" },
+  -- Names and the block itself.
+  { id := "names.already-declared", ns := .anonymous,
+    types := [⟨"Nat", "Type", [("zero", "Nat")]⟩],
+    lean := "alreadyDeclared", leanforth := "rejected", rule := "T5", task := "5.2.1a" },
+  { id := "names.duplicate-constructor",
+    types := [⟨"T", "Type", [("a", "T"), ("a", "T")]⟩],
+    lean := "duplicateConstructor", leanforth := "rejected", rule := "C4", task := "5.2.1a" },
+  { id := "names.duplicate-universe", lparams := [`u, `u],
+    types := [⟨"T", "Sort u", []⟩],
+    lean := "duplicateLevelParam", leanforth := "rejected", rule := "T5", task := "5.2.1a" },
+  { id := "names.empty-block", types := [],
+    lean := "emptyBlock", leanforth := "rejected", rule := "T1", task := "5.2.1a" }
+]
+
+/-! ## Reductions -/
+
+structure Red where
+  id : String
+  thm : Bool := true
+  type : String
+  value : String
+  /-- Replace the body of the value `fun … x => x` by `x.i` of structure `S`. -/
+  proj : Option (Name × Nat) := none
+  lean : String
+  leanforth : String
+  rule : String
+  task : String
+
+/-- `fun … x => x.i`, the projection written as Lean's `Expr.proj`. -/
+def projInnermost (s : Name) (i : Nat) : Expr → Expr
+  | .lam x t b bi => match b with
+    | .lam .. => .lam x t (projInnermost s i b) bi
+    | _ => .lam x t (.proj s i (.bvar 0)) bi
+  | e => e
+
+def Red.decl (r : Red) (n : Name) : TermElabM Declaration := do
+  let type ← elabWith [] [] r.type
+  let value ← elabWith [] [] r.value
+  let value := match r.proj with
+    | some (s, i) => projInnermost s i value
+    | none => value
+  if r.thm then
+    pure (.thmDecl { name := n, levelParams := [], type, value })
+  else
+    pure (.defnDecl { name := n, levelParams := [], type, value, hints := .regular 1,
+                      safety := .safe })
+
+def reductions : List Red := [
+  { id := "iota.nat-literal-major",
+    type := "@Nat.rec (fun _ => Nat) 7 (fun _ ih => Nat.succ ih) 3 = 10", value := "Eq.refl 10",
+    lean := "accepted", leanforth := "accepted", rule := "R1 L2", task := "5.2.1b" },
+  { id := "iota.nat-literal-major-wrong",
+    type := "@Nat.rec (fun _ => Nat) 7 (fun _ ih => Nat.succ ih) 3 = 11", value := "Eq.refl 11",
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "R1 L2", task := "5.2.1b" },
+  { id := "iota.stuck-on-variable",
+    type := "∀ n : Nat, @Nat.rec (fun _ => Nat) 7 (fun _ ih => ih) n = 7",
+    value := "fun (n : Nat) => Eq.refl 7",
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "R1", task := "5.2.1b" },
+  { id := "iota.structure-eta",
+    type := "∀ p : Nat × Nat, @Prod.rec Nat Nat (fun _ => Nat) (fun a _ => a) p = p.1",
+    value := "fun (p : Nat × Nat) => Eq.refl p.1",
+    lean := "accepted", leanforth := "accepted", rule := "R1 R3", task := "5.2.2" },
+  { id := "iota.prop-structure-stuck",
+    type := "∀ (a b : Prop) (h : a ∧ b), @And.rec a b (fun _ => Nat) (fun _ _ => 5) h = 5",
+    value := "fun (a b : Prop) (h : a ∧ b) => Eq.refl 5",
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "R1 R3", task := "5.2.2" },
+  { id := "k.eq-variable-proof",
+    type := "∀ (a : Nat) (h : a = a), @Eq.rec Nat a (fun _ _ => Nat) 5 a h = 5",
+    value := "fun (a : Nat) (h : a = a) => Eq.refl 5",
+    lean := "accepted", leanforth := "accepted", rule := "R2", task := "5.2.1c" },
+  { id := "k.eq-different-ends",
+    type := "∀ (a b : Nat) (h : a = b), @Eq.rec Nat a (fun _ _ => Nat) 5 b h = 5",
+    value := "fun (a b : Nat) (h : a = b) => Eq.refl 5",
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "R2", task := "5.2.1c" },
+  { id := "eta.structure",
+    type := "∀ p : Nat × Nat, p = (p.1, p.2)", value := "fun (p : Nat × Nat) => Eq.refl p",
+    lean := "accepted", leanforth := "accepted", rule := "R4", task := "5.2.2" },
+  { id := "unit.punit",
+    type := "∀ x y : PUnit.{1}, x = y", value := "fun (x y : PUnit.{1}) => Eq.refl x",
+    lean := "accepted", leanforth := "accepted", rule := "R5", task := "5.2.2" },
+  { id := "unit.bool-not-unit-like",
+    type := "∀ x y : Bool, x = y", value := "fun (x y : Bool) => Eq.refl x",
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "R5", task := "5.2.2" },
+  { id := "unit.pair-of-units",
+    type := "∀ x y : PUnit.{1} × PUnit.{1}, x = y",
+    value := "fun (x y : PUnit.{1} × PUnit.{1}) => Eq.refl x",
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "R4 R5", task := "5.2.2" },
+  { id := "proj.data", thm := false, type := "Nat × Nat → Nat",
+    value := "fun (p : Nat × Nat) => p", proj := some (``Prod, 0),
+    lean := "accepted", leanforth := "accepted", rule := "J1", task := "5.2.2" },
+  { id := "proj.proof-of-proof", type := "∀ (a b : Prop), a ∧ b → a",
+    value := "fun (a b : Prop) (h : a ∧ b) => h", proj := some (``And, 0),
+    lean := "accepted", leanforth := "accepted", rule := "J1", task := "5.2.2" },
+  { id := "proj.data-from-proof", thm := false, type := "(∃ n : Nat, n = n) → Nat",
+    value := "fun (h : ∃ n : Nat, n = n) => h", proj := some (``Exists, 0),
+    lean := "invalidProj", leanforth := "rejected", rule := "J2", task := "5.2.2" },
+  { id := "proj.wrong-structure", thm := false, type := "Nat × Nat → Nat",
+    value := "fun (p : Nat × Nat) => p", proj := some (``And, 0),
+    lean := "invalidProj", leanforth := "rejected", rule := "J2", task := "5.2.2" },
+  { id := "proj.index-out-of-range", thm := false, type := "Nat × Nat → Nat",
+    value := "fun (p : Nat × Nat) => p", proj := some (``Prod, 2),
+    lean := "invalidProj", leanforth := "rejected", rule := "J2", task := "5.2.2" },
+  { id := "quot.lift-on-mk",
+    type := "∀ (r : Nat → Nat → Prop) (f : Nat → Nat) (h : ∀ a b, r a b → f a = f b) (a : Nat), " ++
+      "Quot.lift f h (Quot.mk r a) = f a",
+    value := "fun (r : Nat → Nat → Prop) (f : Nat → Nat) (h : ∀ a b, r a b → f a = f b) " ++
+      "(a : Nat) => Eq.refl (f a)",
+    lean := "accepted", leanforth := "accepted", rule := "Q2", task := "5.2.4" },
+  { id := "quot.lift-on-mk-wrong",
+    type := "∀ (r : Nat → Nat → Prop) (f : Nat → Nat) (h : ∀ a b, r a b → f a = f b) " ++
+      "(a b : Nat), Quot.lift f h (Quot.mk r a) = f b",
+    value := "fun (r : Nat → Nat → Prop) (f : Nat → Nat) (h : ∀ a b, r a b → f a = f b) " ++
+      "(a b : Nat) => Eq.refl (f b)",
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "Q2", task := "5.2.4" },
+  { id := "quot.lift-stuck-on-variable",
+    type := "∀ (r : Nat → Nat → Prop) (h : ∀ a b, r a b → (0 : Nat) = 0) (q : Quot r), " ++
+      "Quot.lift (fun _ => (0 : Nat)) h q = 0",
+    value := "fun (r : Nat → Nat → Prop) (h : ∀ a b, r a b → (0 : Nat) = 0) (q : Quot r) => " ++
+      "Eq.refl (0 : Nat)",
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "Q2", task := "5.2.4" },
+  { id := "lit.succ-of-literal", type := "Nat.succ 41 = 42", value := "Eq.refl 42",
+    lean := "accepted", leanforth := "accepted", rule := "L1", task := "5.2.3" },
+  { id := "lit.offset-with-variable", type := "∀ n : Nat, n + 1 = Nat.succ n",
+    value := "fun (n : Nat) => Eq.refl (n + 1)",
+    lean := "accepted", leanforth := "accepted", rule := "L3", task := "5.2.3" },
+  { id := "lit.literal-against-constructors", type := "(5 : Nat) = Nat.succ (Nat.succ 3)",
+    value := "Eq.refl 5",
+    lean := "accepted", leanforth := "accepted", rule := "L3", task := "5.2.3" },
+  { id := "lit.pow", type := "2 ^ 64 = 18446744073709551616", value := "Eq.refl 18446744073709551616",
+    lean := "accepted", leanforth := "accepted", rule := "L1", task := "5.2.3" },
+  { id := "lit.pow-wrong", type := "2 ^ 64 = 18446744073709551615",
+    value := "Eq.refl 18446744073709551615",
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "L1", task := "5.2.3" },
+  { id := "lit.mul", type := "123456789 * 987654321 = 121932631112635269",
+    value := "Eq.refl 121932631112635269",
+    lean := "accepted", leanforth := "accepted", rule := "L1", task := "5.2.3" },
+  { id := "lit.sub-truncated", type := "(3 : Nat) - 5 = 0", value := "Eq.refl 0",
+    lean := "accepted", leanforth := "accepted", rule := "L1", task := "5.2.3" },
+  { id := "lit.div-by-zero", type := "(7 : Nat) / 0 = 0", value := "Eq.refl 0",
+    lean := "accepted", leanforth := "accepted", rule := "L1", task := "5.2.3" },
+  { id := "lit.gcd", type := "Nat.gcd 12 18 = 6", value := "Eq.refl 6",
+    lean := "accepted", leanforth := "accepted", rule := "L1", task := "5.2.3" },
+  { id := "lit.ble", type := "Nat.ble 3 5 = true", value := "Eq.refl true",
+    lean := "accepted", leanforth := "accepted", rule := "L1", task := "5.2.3" },
+  { id := "lit.string-expansion", type := "\"ab\" = String.ofList ['a', 'b']",
+    value := "Eq.refl \"ab\"",
+    lean := "accepted", leanforth := "accepted", rule := "L4", task := "5.2.3" },
+  { id := "lit.string-expansion-wrong", type := "\"ab\" = String.ofList ['a', 'c']",
+    value := "Eq.refl \"ab\"",
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "L4", task := "5.2.3" }
+]
+
+/-! ## Lean's replay of an exported block -/
+
+def replayCode (msg : String) : String :=
+  if has msg "Invalid recursor" then "invalidRecursor"
+  else if has msg "Invalid constructor" then "invalidConstructor"
+  else match otherCodes.find? (fun (p, _) => has msg p) with
+    | some (_, c) => "kernel " ++ c
+    | none => "other: " ++ msg
+
+def replayVerdict (base : Kernel.Environment) (cs : List ConstantInfo) : IO String := do
+  let map := cs.foldl (fun (m : Std.HashMap Name ConstantInfo) c => m.insert c.name c) {}
+  match ← (base.replay map).toBaseIO with
+  | .ok _ => pure "accepted"
+  | .error e => pure (replayCode (toString e))
+
+structure Mutation where
+  id : String
+  change : ConstantInfo → Option ConstantInfo
+  lean : String
+  leanforth : String
+  rule : String
+
+def onRec (f : RecursorVal → RecursorVal) : ConstantInfo → Option ConstantInfo
+  | .recInfo r => some (.recInfo (f r))
+  | c => some c
+
+def onCtor (n : Name) (f : ConstructorVal → ConstructorVal) : ConstantInfo → Option ConstantInfo
+  | .ctorInfo c => some (if c.name == n then .ctorInfo (f c) else .ctorInfo c)
+  | c => some c
+
+def onType (f : InductiveVal → InductiveVal) : ConstantInfo → Option ConstantInfo
+  | .inductInfo i => some (.inductInfo (f i))
+  | c => some c
+
+def swapRules (r : RecursorVal) : RecursorVal :=
+  match r.rules with
+  | [a, b] => { r with rules := [{ a with rhs := b.rhs }, { b with rhs := a.rhs }] }
+  | _ => r
+
+def nToN : Expr := .forallE `a (mkConst `IE.N) (mkConst `IE.N) .default
+def nToNToN : Expr := .forallE `a (mkConst `IE.N) nToN .default
+
+def mutations : List Mutation := [
+  { id := "replay.original", change := some,
+    lean := "accepted", leanforth := "accepted", rule := "B1" },
+  { id := "replay.rule-right-sides-swapped", change := onRec swapRules,
+    lean := "invalidRecursor", leanforth := "rejected", rule := "B2" },
+  { id := "replay.recursor-k-set", change := onRec fun r => { r with k := true },
+    lean := "invalidRecursor", leanforth := "rejected", rule := "B2" },
+  { id := "replay.recursor-motives-changed", change := onRec fun r => { r with numMotives := 2 },
+    lean := "invalidRecursor", leanforth := "rejected", rule := "B2" },
+  { id := "replay.constructor-fields-changed",
+    change := onCtor `IE.N.succ fun c => { c with numFields := 2 },
+    lean := "invalidConstructor", leanforth := "rejected", rule := "B2" },
+  { id := "replay.constructor-type-changed",
+    change := onCtor `IE.N.succ fun c => { c with type := nToNToN, numFields := 2 },
+    lean := "invalidRecursor", leanforth := "rejected", rule := "B1 B2" },
+  { id := "replay.parameters-changed", change := onType fun i => { i with numParams := 1 },
+    lean := "kernel nonUniformOccurrence", leanforth := "rejected", rule := "B1 C1" },
+  { id := "replay.isRec-changed", change := onType fun i => { i with isRec := false },
+    lean := "accepted", leanforth := "accepted", rule := "B3" },
+  { id := "replay.indices-changed", change := onType fun i => { i with numIndices := 1 },
+    lean := "accepted", leanforth := "accepted", rule := "B3" },
+  { id := "replay.recursor-left-out",
+    change := fun c => match c with | .recInfo _ => none | c => some c,
+    lean := "accepted", leanforth := "accepted", rule := "B3" }
+]
+
+/-! ## Primitive names and quotient initialisation, in an empty environment -/
+
+def v (n : Name) : Expr := .fvar ⟨n⟩
+def foralls (bs : List (Name × Expr)) (body : Expr) : Expr :=
+  bs.foldr (fun (n, t) b => .forallE n t (b.abstract #[v n]) .default) body
+def funs (bs : List (Name × Expr)) (body : Expr) : Expr :=
+  bs.foldr (fun (n, t) b => .lam n t (b.abstract #[v n]) .default) body
+def lit (n : Nat) : Expr := .lit (.natVal n)
+def nat : Expr := mkConst `Nat
+def lu : Level := .param `u
+def eqC (l : Level) (α a b : Expr) : Expr := mkAppN (mkConst `Eq [l]) #[α, a, b]
+def reflC (l : Level) (α a : Expr) : Expr := mkAppN (mkConst `Eq.refl [l]) #[α, a]
+
+def natDecl : Declaration :=
+  let zero : Constructor := ⟨`Nat.zero, nat⟩
+  let succ : Constructor := ⟨`Nat.succ, .forallE `n nat nat .default⟩
+  .inductDecl [] 0 [⟨`Nat, .sort 1, [zero, succ]⟩] false
+
+/-- `Eq` exactly as in Lean's prelude (up to binder names), or of type
+`α → α → Type` when `wrong`. -/
+def eqDecl (wrong : Bool := false) : Declaration :=
+  let result : Expr := if wrong then .sort 1 else .sort 0
+  let type := Expr.forallE `α (.sort lu)
+    (.forallE `a (.bvar 0) (.forallE `b (.bvar 1) result .default) .default) .implicit
+  let refl := Expr.forallE `α (.sort lu)
+    (.forallE `a (.bvar 0) (mkAppN (mkConst `Eq [lu]) #[.bvar 1, .bvar 0, .bvar 0]) .default)
+    .implicit
+  .inductDecl [`u] 2 [⟨`Eq, type, [⟨`Eq.refl, refl⟩]⟩] false
+
+/-- A `Nat.add` that ignores its second argument. -/
+def forgedAdd : Declaration :=
+  .defnDecl { name := `Nat.add, levelParams := [], type := .forallE `a nat (.forallE `b nat nat .default) .default,
+              value := funs [(`a, nat), (`b, nat)] (v `a), hints := .regular 1, safety := .safe }
+
+def add (a b : Expr) : Expr := mkAppN (mkConst `Nat.add) #[a, b]
+
+/-- `Nat.add 2 3 = 5`, by computation on literals. -/
+def five : Declaration :=
+  .thmDecl { name := `five, levelParams := [], type := eqC 1 nat (add (lit 2) (lit 3)) (lit 5),
+             value := reflC 1 nat (lit 5) }
+
+/-- `∀ b, Nat.add 2 b = 2`, by unfolding `Nat.add`. -/
+def twoAny : Declaration :=
+  .thmDecl { name := `twoAny, levelParams := [],
+             type := foralls [(`b, nat)] (eqC 1 nat (add (lit 2) (v `b)) (lit 2)),
+             value := funs [(`b, nat)] (reflC 1 nat (lit 2)) }
+
+/-- `5 = 2`, from the two by `Eq.rec`. -/
+def fiveIsTwo : Declaration :=
+  let motive := funs [(`x, nat), (`h, eqC 1 nat (add (lit 2) (lit 3)) (v `x))] (eqC 1 nat (v `x) (lit 2))
+  .thmDecl { name := `fiveIsTwo, levelParams := [], type := eqC 1 nat (lit 5) (lit 2),
+             value := mkAppN (mkConst `Eq.rec [0, 1])
+               #[nat, add (lit 2) (lit 3), motive, .app (mkConst `twoAny) (lit 3), lit 5, mkConst `five] }
+
+structure Chain where
+  id : String
+  decls : List Declaration
+  lean : String
+  leanforth : String
+  rule : String
+  task : String
+
+def chains : List Chain := [
+  { id := "primitive.forged-add-computes", decls := [natDecl, eqDecl, forgedAdd, five],
+    lean := "accepted", leanforth := "unsupported", rule := "L5", task := "5.2.3" },
+  { id := "primitive.forged-add-unfolds", decls := [natDecl, eqDecl, forgedAdd, five, twoAny],
+    lean := "accepted", leanforth := "unsupported", rule := "L5", task := "5.2.3" },
+  { id := "primitive.five-is-two", decls := [natDecl, eqDecl, forgedAdd, five, twoAny, fiveIsTwo],
+    lean := "accepted", leanforth := "unsupported", rule := "L5", task := "5.2.3" },
+  { id := "quotinit.with-eq", decls := [eqDecl, .quotDecl],
+    lean := "accepted", leanforth := "accepted", rule := "Q1", task := "5.2.4" },
+  { id := "quotinit.without-eq", decls := [.quotDecl],
+    lean := "unknownConstant", leanforth := "rejected", rule := "Q1", task := "5.2.4" },
+  { id := "quotinit.eq-wrong-shape", decls := [eqDecl (wrong := true), .quotDecl],
+    lean := "quotEqShape", leanforth := "rejected", rule := "Q1", task := "5.2.4" }
+]
+
+/-- Add `ds` in order; the verdict is that of the first failure, or of the last. -/
+def addAll (env : Kernel.Environment) : List Declaration → Except Kernel.Exception Kernel.Environment
+  | [] => .ok env
+  | d :: ds => match env.addDeclCore 0 0 d none with
+    | .ok env' => addAll env' ds
+    | .error e => .error e
+
+end InductiveExpected
+
+open InductiveExpected in
+run_cmd do
+  let env ← getEnv
+  let base := env.toKernelEnv
+  IO.println "id\tlean\tleanforth\trule\ttask\tfacts"
+  let row (id got lf rule task facts : String) : CommandElabM Unit :=
+    IO.println s!"{id}\t{got}\t{lf}\t{rule}\t{task}\t{facts}"
+  -- 1. Inductive declarations.
+  for b in accepted ++ checks do
+    let d ← liftTermElabM b.decl
+    let r := base.addDeclCore 0 0 d none
+    let got := verdict r
+    unless got == b.lean do throwError "{b.id}: Lean's verdict is {got}, expected {b.lean}"
+    let fs := match r with | .ok e => facts e b | .error _ => ""
+    row b.id got b.leanforth b.rule b.task fs
+  -- 2. Reductions.
+  for r in reductions do
+    let d ← liftTermElabM (r.decl (`IE ++ r.id.toName))
+    let got := verdict (base.addDeclCore 0 0 d none)
+    unless got == r.lean do throwError "{r.id}: Lean's verdict is {got}, expected {r.lean}"
+    row r.id got r.leanforth r.rule r.task ""
+  -- 3. Replay of the `ind.nat` block, unchanged and mutated.
+  let some natBlock := accepted.find? (·.id == "ind.nat") | throwError "no ind.nat"
+  let d ← liftTermElabM natBlock.decl
+  let .ok withN := base.addDeclCore 0 0 d none | throwError "ind.nat not accepted"
+  let names := [`IE.N, `IE.N.zero, `IE.N.succ, `IE.N.rec]
+  let cs ← names.mapM fun n => match withN.find? n with
+    | some c => pure c
+    | none => throwError "missing {n}"
+  for m in mutations do
+    let got ← replayVerdict base (cs.filterMap m.change)
+    unless got == m.lean do throwError "{m.id}: Lean's verdict is {got}, expected {m.lean}"
+    row m.id got m.leanforth m.rule "5.2.1b" ""
+  -- 4. Primitive names and quotient initialisation, from an empty environment.
+  let empty := (← mkEmptyEnvironment).toKernelEnv
+  for c in chains do
+    let got := verdict (addAll empty c.decls)
+    unless got == c.lean do throwError "{c.id}: Lean's verdict is {got}, expected {c.lean}"
+    row c.id got c.leanforth c.rule c.task ""

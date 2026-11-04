@@ -17,6 +17,7 @@ RUN := timeout $(TEST_TIMEOUT)
 DIFFERENTIAL_TARGETS := \
 	test-doc-examples-lean \
 	reference reference-export reference-first-checker reference-binder-domains \
+	reference-inductive \
 	test-name-differential \
 	test-level-differential \
 	test-level-assignment-differential test-level-compare-differential \
@@ -113,6 +114,13 @@ reference-binder-domains:
 
 reference-export:
 	LEAN=$(LEAN) $(RUN) bash tests/reference/export-check.sh
+
+# Lean's verdicts for inductive types, reductions, the replay of exported
+# blocks, primitive names and quotients (ADR 0015): 99 kernel cases; the
+# exports of tests/reference/inductive/ reproduced byte for byte and staged
+# by the Forth importer.
+reference-inductive:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/reference/inductive-check.sh
 
 test-harness:
 	GFORTH=$(GFORTH) $(RUN) bash tests/harness/check.sh
