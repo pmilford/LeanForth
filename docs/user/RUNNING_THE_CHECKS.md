@@ -1,10 +1,11 @@
 # Running the checks today
 
-LeanForth has no `leanforth` command yet (plan task 3.4.1). What you can
-run are the test suites and the comparisons with Lean, through `make`, and
-a few Forth tools. This page says what each one runs, what a pass shows,
-and — just as important — what it does not show. Status 2026-11-02, commit
-`fc558cc`.
+What you can run are the test suites and the comparisons with Lean,
+through `make`, a few Forth tools, and the command line `bin/leanforth`
+(version 0, [its manual](COMMAND_LINE.md)), which checks small Lean exports
+with the experimental first checker. This page says what each one runs,
+what a pass shows, and — just as important — what it does not show.
+Status 2026-11-02, commit `fc558cc`; the command line added 2026-11-03.
 
 **Nothing below proves a theorem or verifies a program with LeanForth.**
 A pass shows that untrusted, experimental code behaved as its tests and
@@ -51,6 +52,8 @@ records the latest runs). Run `make test` before every commit.
 | `reference-binder-domains` | Lean's answers on comparing binders whose argument types differ ([ADR 0003, Amendment 1](../adr/0003-conversion.md)) | LeanForth's answers (that is `test-binder-domains-differential`) |
 | `test-first-checker-differential`, `test-binder-domains-differential`, `test-universe-scope-differential` | The first checker, run end to end through the checked environment, gives the expected outcome on the 62 table cases, the 22 binder-domain cases (three known capacity differences, each a failure) and 17 universe-scope cases; every rejection names Lean's reason; every accepted case prints its *experimental* label ([first check](FIRST_CHECK.md)) | That the checker is correct beyond these cases, or reviewed: it has not passed its gate |
 | `test-environment` | The checked environment and check-declaration meet their unit tests: every outcome, Lean's order, fuel sweeps, and the pinned NDJSON exports checked and accepted | The same |
+| `test-cli` | `bin/leanforth` reaches every exit status 0–5 with its exact output (accepted, rejected, unsupported and unknown, out of fuel and out of room, malformed files and command lines, injected internal faults), from other folders, and agrees with the counter and the re-exporter | That a verdict is right beyond these cases: the checker has not passed its gate |
+| `reference-cli` | Pinned Lean accepts the command line's two Lean fixtures, and `scripts/export.sh` reproduces their exports and manifests byte for byte | Anything about LeanForth |
 | `reference-program-ir` | Lean proves the six words' IR equal to their reference models, using only `propext`, `Classical.choice` and `Quot.sound`, and the IR it prints equals the reader's | Anything checked by LeanForth, or the host's behaviour |
 | `test-printer-differential` | The printer's Unicode output equals Lean's own printing on 49 cases and the five fixtures' `#print` lines, and its ASCII output, read back by Lean, elaborates to the original declarations | That any printed statement was checked |
 | `test-*-differential` | On finite tables, the experimental Forth passes (shift, instantiation, beta reduction, comparison, conversion, inference, level operations, names, the definition probe) and the program words agree with pinned Lean | General correctness: agreement on samples is evidence, not proof |
@@ -62,6 +65,10 @@ one in the Makefile's `DIFFERENTIAL_TARGETS`. The
 and the planted-fault checks behind them.
 
 ## Tools you can run on your own files
+
+Check a small export with the experimental first checker, one verdict per
+declaration and an exit status ([the command line](COMMAND_LINE.md)):
+`bin/leanforth check FILE.ndjson`.
 
 Count the records of any lean4export 3.1.0 file written by Lean 4.35.0
 (`gforth-fast` is about three times faster than `gforth`). The file is
@@ -117,7 +124,8 @@ Report Forth style signals: `make forth-metrics`.
 
 - The term, level and name stores hold 64 entries each, a constant
   reference at most 8 universe arguments; the pinned Mathlib needs millions
-  of entries and up to 30 arguments (plan task 6.2.0).
+  of entries and up to 30 arguments (plan task 6.2.0). So `bin/leanforth
+  check` ends *full*, exit status 3, on anything larger than a test fixture.
 - The checking passes run with explicit fuel; running out gives
   *exhausted*, running out of room *full*. Neither is ever accepted.
 - Only the pinned exporter, format and Lean version are read; anything else

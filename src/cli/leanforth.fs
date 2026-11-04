@@ -74,11 +74,15 @@ require ../present/print-names.fs
 3 constant exit-limit        \ a resource limit: out of fuel or room
 4 constant exit-malformed    \ malformed input or command line
 5 constant exit-fault        \ an internal fault
-create cli-codes   \ indexed by outcome: ok invalid exhausted unknown rejected unsupported full
+\ Indexed by outcome: ok, invalid, exhausted, unknown, rejected,
+\ unsupported, full; the table must end at HERE, otherwise the load stops.
+create cli-codes
   exit-accepted , exit-malformed , exit-limit , exit-undecided , exit-rejected ,
   exit-undecided , exit-limit ,
-here cli-codes - outcome-full 1+ cells <> [if] .( leanforth.fs: one code per outcome) cr abort [then]
-: outcome>code ( outcome -- code ) dup outcome? if cells cli-codes + @ else drop exit-fault then ;
+here cli-codes - outcome-full 1+ cells <>
+[if] .( leanforth.fs: one code per outcome) cr abort [then]
+: outcome>code ( outcome -- code )
+  dup outcome? if cells cli-codes + @ else drop exit-fault then ;
 \ Severity, by code: 0 < 2 < 3 < 1 < 4 < 5. The more severe of two codes.
 create cli-severity  0 , 3 , 1 , 2 , 4 , 5 ,
 : code-severity ( code -- n ) cells cli-severity + @ ;
@@ -86,7 +90,7 @@ create cli-severity  0 , 3 , 1 , 2 , 4 , 5 ,
   2dup code-severity swap code-severity > if nip else drop then ;
 
 100000 constant cli-default-fuel   \ fuel of each declaration's check
-7 constant not-checked              \ the count after the outcomes': declarations not reached
+7 constant not-checked     \ the count after the outcomes': declarations not reached
 begin-structure /cli-run
   field: opt-unchecked          \ true: manifests are not checked (--no-manifest)
   field: opt-fuel               \ fuel each declaration's check starts with (--fuel)
@@ -154,8 +158,8 @@ manifest: cli-manifest
 
 \ The summary: "N declarations: a accepted, r rejected, ...", in this order.
 create cli-order
-  outcome-ok , outcome-rejected , outcome-unknown , outcome-unsupported , outcome-invalid ,
-  outcome-exhausted , outcome-full , not-checked ,
+  outcome-ok , outcome-rejected , outcome-unknown , outcome-unsupported ,
+  outcome-invalid , outcome-exhausted , outcome-full , not-checked ,
 : cli-kind. ( k -- )
   case outcome-ok of ." accepted" endof not-checked of ." not checked" endof
     dup outcome-text type endcase ;
@@ -181,8 +185,8 @@ defer cli-record-run ( c-addr u -- outcome )
   ." error: the replay record was not written: " dup outcome-text type cr outcome>code
   cli-code! ;
 : cli-recorded ( -- )
-  cli-record? if cli-record 2@ cli-record-run dup ok? if drop else cli-record-failed then
-  then ;
+  cli-record? 0= if exit then
+  cli-record 2@ cli-record-run dup ok? if drop else cli-record-failed then ;
 
 \ Notes after a run: the limits behind full, the fuel behind exhausted.
 : cli-limits ( -- )
@@ -205,11 +209,14 @@ defer cli-record-run ( c-addr u -- outcome )
   dup lf-env-use ok? if cli-declarations cli-summary cli-recorded cli-notes
   else c" the environment could not be used" cli-fault then
   lf-env-free ok? 0= if c" the environment could not be freed" cli-fault then ;
+: cli-no-room ( -- )
+  ." error: no room for the checked environment" cr exit-limit cli-code! ;
 : cli-no-env ( outcome -- )
-  outcome-full = if ." error: no room for the checked environment" cr exit-limit cli-code!
-  else c" no checked environment could be made" cli-fault then ;
+  outcome-full = if cli-no-room exit then
+  c" no checked environment could be made" cli-fault ;
 : cli-run ( -- )
-  cli-fuel @ lf-check-budget cli-room lf-env-new dup ok? if drop cli-in else nip cli-no-env then ;
+  cli-fuel @ lf-check-budget cli-room lf-env-new
+  dup ok? if drop cli-in else nip cli-no-env then ;
 
 \ A read that failed: the outcome, the reason, the field and the line
 \ (0 for the manifest), and for a JSON error the byte within the line.
@@ -230,7 +237,8 @@ defer cli-record-run ( c-addr u -- outcome )
   dup cli-stage-error dup outcome-full = if cli-limits then
   dup manifest-failed? if cli-manifest-hint then outcome>code ;
 : cli-unchecked-note ( -- )
-  cli-unchecked @ if c" the export's manifest is not checked (--no-manifest)" cli-note then ;
+  cli-unchecked @ 0= if exit then
+  c" the export's manifest is not checked (--no-manifest)" cli-note ;
 \ The export, file 0, must open, so that a wrong name is not reported as
 \ a missing manifest.
 : cli-opens? ( -- flag )
@@ -258,15 +266,17 @@ defer cli-record-run ( c-addr u -- outcome )
 \ cli-manifest, bound to the re-exporter's export. COPY must not name
 \ EXPORT (bin/leanforth also refuses one file under two names).
 : cli-copy-checked ( c-addr u -- outcome )
-  reexported cli-manifest manifest-init dup ok? if drop cli-manifest manifest-read
-  else nip nip then ;
-: cli-reader ( -- xt ) cli-unchecked @ if ['] reexport-plain else ['] cli-copy-checked then ;
+  reexported cli-manifest manifest-init dup ok? 0= if nip nip exit then
+  drop cli-manifest manifest-read ;
+: cli-reader ( -- xt )
+  cli-unchecked @ if ['] reexport-plain else ['] cli-copy-checked then ;
 : cli-copy ( c-addr u fid -- outcome ) cli-reader reexport-read ;
 \ The copy, then the file closed on every path; the first failure wins.
 : cli-into ( c-addr u fid -- outcome )
   dup >r ['] cli-copy catch r> closed swap throw over ok? if nip else drop then ;
 : cli-same? ( -- flag ) 0 cli-file 1 cli-file compare 0= ;
-: cli-create ( -- fid true | false ) 1 cli-file w/o bin create-file 0= dup 0= if nip then ;
+: cli-create ( -- fid true | false )
+  1 cli-file w/o bin create-file 0= dup 0= if nip then ;
 : cli-uncreated ( -- code ) ." error: cannot create the copy" cr exit-malformed ;
 : cli-copied ( fid -- code )
   0 cli-file rot cli-into dup reexport-report reexport-free cli-manifest manifest-free
@@ -408,14 +418,16 @@ create cli-option-table
   ' cli-record-option takes-record 0 cli-entry, --record
   0 ,
 : cli-takes? ( entry -- flag ) cli-entry-first @ cli-state arg-set @ and 0<> ;
+: cli-taken ( c-addr u entry -- )
+  dup cli-takes? if cli-entry-run @ execute exit then
+  drop c" an option this command does not take" cli-wrong ;
 : cli-option ( c-addr u -- )
-  2dup cli-option-table cli-entry-find ?dup 0= if c" an unknown option" cli-wrong exit then
-  dup cli-takes? 0= if drop c" an option this command does not take" cli-wrong exit then
-  cli-entry-run @ execute ;
+  2dup cli-option-table cli-entry-find ?dup
+  if cli-taken else c" an unknown option" cli-wrong then ;
 \ A file name, the first or the second.
 : cli-positional ( c-addr u -- )
-  cli-files @ dup 2 < if cli-file! 1 cli-files +! else drop c" one file name too many"
-  cli-wrong then ;
+  cli-files @ dup 2 < if cli-file! 1 cli-files +! exit then
+  drop c" one file name too many" cli-wrong ;
 : cli-option? ( c-addr u -- flag ) 1 min s" -" compare 0= ;
 : cli-argument ( c-addr u -- ) 2dup cli-option? if cli-option else cli-positional then ;
 : cli-arguments ( set -- )
@@ -441,8 +453,8 @@ create cli-commands
   ." error: " cli-state arg-mistake @ count type cli-state arg-culprit 2@ dup
   if ." : " type else 2drop then cr ." try: leanforth help" cr exit-malformed ;
 : cli-file-count ( entry -- entry )
-  dup cli-entry-first @ cli-files @ <> if s" " c" a wrong number of file names" cli-wrong
-  then ;
+  dup cli-entry-first @ cli-files @ = if exit then
+  s" " c" a wrong number of file names" cli-wrong ;
 : cli-unknown ( c-addr u -- code ) c" an unknown command" cli-wrong cli-misuse ;
 : cli-known ( entry -- code )
   dup cli-entry-second @ cli-arguments cli-file-count

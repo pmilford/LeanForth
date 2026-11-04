@@ -2,19 +2,21 @@
 
 How an AI agent or a script can use LeanForth today, what it may and may
 not conclude, and where the planned machine interface will come. Status
-2026-11-02, commit `fc558cc`. There is **no LeanForth API yet**: the
-interfaces below are command lines, Forth words and one JSON format, all
-untrusted. The planned JSON-RPC interface is a
-[design](../programming/INTERFACE_CONTRACTS.md), not code.
+2026-11-03. There is **no LeanForth API yet**: the interfaces below are
+command lines, among them `bin/leanforth` with fixed exit statuses, Forth
+words and one JSON format, all untrusted. The planned JSON-RPC interface
+is a [design](../programming/INTERFACE_CONTRACTS.md), not code.
 
 ## Rules for any tool
 
 These follow `AGENTS.md` and the [owner's decisions](../project/OWNER_DECISIONS.md);
 they hold whatever a tool is asked to do.
 
-1. **Only the checker decides *accepted*.** No LeanForth checker exists
-   yet, so nothing may be reported as accepted, verified or proved by
-   LeanForth. A passing test, a decoded record, Lean's acceptance of a
+1. **Only the checker decides *accepted*.** The first checker is
+   experimental and has not passed its review gate: report a declaration
+   as accepted by LeanForth only from its own verdict line, with the label
+   *experimental, not independently audited* and its axioms, and never as
+   proved. A passing test, a decoded record, Lean's acceptance of a
    reference model or a model's own reasoning is not a LeanForth proof.
 2. **Use the outcome words exactly.** *unknown* is not *rejected*, and
    neither is a disproof; *exhausted* (out of fuel) and *full* (out of room)
@@ -43,6 +45,7 @@ they hold whatever a tool is asked to do.
 | Interface | Call | Result | On failure |
 | --- | --- | --- | --- |
 | Test suites | `make test`, `make check`, or one target ([running the checks](RUNNING_THE_CHECKS.md)) | Exit status 0 | Nonzero exit status; the failing command's output on standard error |
+| Command line | `bin/leanforth check [--no-manifest] [--fuel N] EXPORT`, also `count`, `reexport`, `version`, `capabilities` ([the command line](COMMAND_LINE.md)); small exports only | One line `NAME: VERDICT` per declaration, an accepted one `NAME: accepted (experimental, not independently audited); axioms: …`, then `N declarations: …`; exit status 0 when every declaration is accepted | Exit status 1 rejected, 2 unsupported or unknown, 3 a resource limit, 4 malformed input or command line, 5 an internal fault (the most severe wins); a refused declaration's reason on the indented line after it; a file that cannot be read gives one line `error: OUTCOME: REASON (field F, line N)` |
 | Export counter | `.tools/gforth/bin/gforth-fast src/import/ndjson-count.fs -e 's" FILE" count-export bye'`; checks `FILE.manifest.json` ([manifests](../development/NDJSON_READER.md#manifests)) unless `count-export-unchecked` is used | A text report of record counts by kind; exit status 0 | One line `error: OUTCOME: REASON (field F, line N)` or `(line N, byte B)` (line 0 for a missing or wrong manifest) and exit status 1 |
 | Export manifest writer | `scripts/export.sh OUT.ndjson MODULE...` (export and manifest) or `python3 scripts/export_manifest.py EXPORT [--mathlib-commit SHA]` | `EXPORT.manifest.json`, valid under `schemas/export-manifest-1.schema.json`; exit status 0 | One line on standard error, no manifest written, exit status 1 |
 | Forth words | `.tools/gforth/bin/gforth src/main.fs`, then the words of `src/` (each module's header gives stack effects, state and error cases) | Values on the data stack; an outcome number 0–6 | An outcome other than 0; refused constructions give `false` |
@@ -80,7 +83,7 @@ success.
 | Program receipt, schema 0.2 (`schemas/program-receipt-0.2.schema.json`; the superseded draft 0.1 is kept as a record and refused by the reader) | Exists, with valid and invalid examples, a standard-library validator and a strict reader; the clamp receipt is generated (task 2.5.6, [`lf-clamp.json`](../../tests/program/receipts/generated/lf-clamp.json)): checked and discharged by the Lean reference, not by LeanForth, and runtime-tested; a proposal under the *[format]* gate until the owner approves it |
 | JSON reader in Forth (`src/lib/json.fs`) | Exists; reads Lean's exports, and will read API requests |
 | Run records with input hashes and verdicts, replay | Planned, task 2.2.5 |
-| `leanforth` command with `--json` output and fixed exit codes (0 all accepted, 1 something rejected, 2 unsupported or unknown, 3 resource limit, 4 malformed input, 5 internal fault) | Planned, tasks 3.4.1–3.4.3; the codes are a proposal |
+| `leanforth` command with fixed exit codes (0 all accepted, 1 something rejected, 2 unsupported or unknown, 3 resource limit, 4 malformed input, 5 internal fault) | Version 0 exists, text output only (tasks 3.4.1–3.4.2, [the command line](COMMAND_LINE.md)); `--json` output is planned (task 3.4.3) |
 | JSON-RPC 2.0 over standard input and output: `system.capabilities`, `proof.check`, `proof.pretty`, `program.receipt`, with schemas and golden examples | Planned, tasks 3.5.1–3.5.3 ([design](../programming/INTERFACE_CONTRACTS.md)) |
 | Error-code catalogue and an LLM guide | Planned, task 3.5.4 |
 | The same schemas as MCP tools | Planned, task 8.5.1; needs the owner's approval of the dependency |

@@ -7,7 +7,10 @@
 # Usage: leanforth help; docs/user/COMMAND_LINE.md is the manual.
 #
 # Gforth: $GFORTH when set, else the pinned one in .tools/gforth of this
-# checkout (scripts/install-gforth.sh), else gforth on PATH.
+# checkout (scripts/install-gforth.sh), else gforth on PATH. count and
+# reexport prefer gforth-fast there, about 3.3 times faster on large
+# exports (docs/development/NDJSON_READER.md); check keeps the gforth
+# engine, which reports a Forth error where it happens.
 # Exit status: 0 all accepted (or the command done), 1 something rejected,
 # 2 unsupported or unknown, 3 a resource limit, 4 malformed input or
 # command line, 5 an internal fault. The Forth entry point leaves with 100
@@ -22,13 +25,18 @@ root=$(cd "$(dirname "$self")/.." && pwd -P) || {
   printf 'leanforth: internal fault: cannot find the LeanForth checkout\n' >&2
   exit 5
 }
+engine=gforth
+case ${1:-} in count | reexport) engine=gforth-fast ;; esac
 if [ -z "${GFORTH:-}" ]; then
-  if [ -x "$root/.tools/gforth/bin/gforth" ]; then
-    GFORTH=$root/.tools/gforth/bin/gforth
+  if [ -x "$root/.tools/gforth/bin/$engine" ]; then
+    GFORTH=$root/.tools/gforth/bin/$engine
+  elif command -v "$engine" >/dev/null 2>&1; then
+    GFORTH=$engine
   elif command -v gforth >/dev/null 2>&1; then
     GFORTH=gforth
   else
-    printf 'leanforth: internal fault: no Gforth found; run scripts/install-gforth.sh or set GFORTH\n' >&2
+    printf 'leanforth: internal fault: no Gforth found; %s\n' \
+      'run scripts/install-gforth.sh or set GFORTH' >&2
     exit 5
   fi
 fi

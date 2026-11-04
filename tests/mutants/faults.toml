@@ -1458,6 +1458,109 @@ new = '''2dup kind-tally 1 swap +! export-handed ;'''
 test = "$GFORTH tests/core/ndjson.fs"
 reason = "records a handler refused are counted in the tally"
 
+# --- the command line (src/cli/leanforth.fs, bin/leanforth) and the staging
+# of exports (src/import/stage.fs), plan tasks 3.4.1-3.4.2 and 3.2.2 v0 ------
+
+[[fault]]
+id = "cli-rejected-exits-0"
+file = "src/cli/leanforth.fs"
+old = '''  exit-accepted , exit-malformed , exit-limit , exit-undecided , exit-rejected ,'''
+new = '''  exit-accepted , exit-malformed , exit-limit , exit-undecided , exit-accepted ,'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "a rejected declaration gives exit status 0, as if every declaration were accepted"
+quick = true
+
+[[fault]]
+id = "cli-severity-order"
+file = "src/cli/leanforth.fs"
+old = '''create cli-severity  0 , 3 , 1 , 2 , 4 , 5 ,'''
+new = '''create cli-severity  0 , 1 , 3 , 2 , 4 , 5 ,'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "an unknown declaration outranks a rejected one: the documented order is broken"
+
+[[fault]]
+id = "cli-verdicts-not-in-code"
+file = "src/cli/leanforth.fs"
+old = ''': cli-tally ( outcome -- ) dup outcome>code cli-code! cli-count-of 1 swap +! ;'''
+new = ''': cli-tally ( outcome -- ) cli-count-of 1 swap +! ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "the declarations' verdicts never reach the exit status, so every check exits 0"
+
+[[fault]]
+id = "cli-prints-accepted-itself"
+file = "src/cli/leanforth.fs"
+old = '''  dup cli-name. ." : " dup lf-check-verdict. cr'''
+new = '''  dup cli-name. ." : accepted (experimental, not independently audited); axioms: none" cr'''
+test = "python3 tests/cli/test_leanforth.py"
+reason = "trust boundary: the command line prints accepted itself, not the slot's verdict"
+quick = true
+
+[[fault]]
+id = "cli-throw-swallowed"
+file = "src/cli/leanforth.fs"
+old = ''': cli-guard ( xt -- code ) catch ?dup if cli-thrown then ;'''
+new = ''': cli-guard ( xt -- code ) catch ?dup if drop exit-accepted then ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "a Forth exception inside a command exits 0 instead of 5, an internal fault"
+
+[[fault]]
+id = "cli-spent-context-ignored"
+file = "src/cli/leanforth.fs"
+old = '''  ['] lf-check-declaration swap lf-env-step nip lf-env-spent? or ;'''
+new = '''  ['] lf-check-declaration swap lf-env-step nip ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "a check that threw is reported as invalid input (4), not as an internal fault (5)"
+
+[[fault]]
+id = "cli-manifest-not-checked"
+file = "src/cli/leanforth.fs"
+old = '''  cli-unchecked @ if stage-read else stage-read-checked then ;'''
+new = '''  stage-read ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "check reads exports without their manifests by default"
+
+[[fault]]
+id = "cli-record-not-refused"
+file = "src/cli/leanforth.fs"
+old = '''  cli-start cli-record? cli-record-built? 0= and if cli-record-refused exit then'''
+new = '''  cli-start'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "--record without a record module is noticed only after the whole check has run"
+
+[[fault]]
+id = "stage-checked-reads-plain"
+file = "src/import/stage.fs"
+old = ''': stage-checked ( c-addr u -- outcome ) stage-manifest manifest-read ;'''
+new = ''': stage-checked ( c-addr u -- outcome ) stage-export export-read ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "stage-read-checked never compares the export with its manifest"
+
+[[fault]]
+id = "stage-theorem-without-value"
+file = "src/import/stage.fs"
+old = '''  lf-kind-theorem stage-start stage-value lf-safety-safe stage-safety stage-add ;'''
+new = '''  lf-kind-theorem stage-start lf-safety-safe stage-safety stage-add ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "a theorem is staged without its proof; the fixtures are no longer accepted"
+
+[[fault]]
+id = "wrapper-fault-exits-0"
+file = "bin/leanforth"
+old = '''    printf 'leanforth: internal fault: Gforth ended with status %s\n' "$status" >&2
+    exit 5'''
+new = '''    printf 'leanforth: internal fault: Gforth ended with status %s\n' "$status" >&2
+    exit 0'''
+test = "python3 tests/cli/test_leanforth.py"
+reason = "a Gforth that fails on its own is reported with exit status 0"
+
+[[fault]]
+id = "wrapper-takes-host-status"
+file = "bin/leanforth"
+old = '''  10[0-5]) code=$((status - 100)) ;;'''
+new = '''  10[0-5] | [0-5]) code=$((status % 100)) ;;'''
+test = "python3 tests/cli/test_leanforth.py"
+reason = "Gforth's own exit status (0 after it ends early, 1 after an error) reads as a verdict"
+
 # --- the runner itself (scripts/mutants.py) --------------------------------
 
 [[fault]]

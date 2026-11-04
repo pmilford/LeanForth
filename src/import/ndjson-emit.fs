@@ -225,7 +225,8 @@ create hint-texts  2 ,  s" opaque" counted,  s" abbrev" counted,
 \ The key of the next member: after the value that follows key.
 : member-next ( key view -- key' ) swap 1+ swap json-next ;
 : members-collect ( object view -- )
-  2dup json-items@ >r tuck json-contents nip r> 0 ?do dup i data-key ! over member-next loop
+  2dup json-items@ >r tuck json-contents nip r>
+  0 ?do dup i data-key ! over member-next loop
   2drop ;
 : member-write ( key view -- ) 2dup json-text@ emit-key swap 1+ swap emit-w jw-copy ;
 : members-write ( n view -- ) swap 0 ?do i data-key @ over member-write loop drop ;

@@ -85,9 +85,11 @@ manifest: stage-manifest
 : stage-stop ( outcome why -- outcome ) stage-why ! ;
 : stage-no-room ( why -- outcome ) outcome-full swap stage-stop ;
 : names-full ( -- outcome ) c" too many names for the check's name store" stage-no-room ;
-: levels-full ( -- outcome ) c" too many levels for the check's level store" stage-no-room ;
+: levels-full ( -- outcome )
+  c" too many levels for the check's level store" stage-no-room ;
 : exprs-full ( -- outcome )
-  c" too many expression nodes or constant references for the check's stores" stage-no-room ;
+  c" too many expression nodes or constant references for the check's stores"
+  stage-no-room ;
 
 \ Table cells, refused (false) for an index past the table.
 : stage-cell ( i table capacity -- addr true | false )
@@ -174,11 +176,15 @@ manifest: stage-manifest
 : stage-mdata ( record -- outcome ) lf-form-mdata stage-form ;
 
 \ Declarations (second pass).
+\ A declaration of kind, with no value, opaque, until set otherwise.
+: stage-clear ( kind -- )
+  stage-decl /lf-idecl erase stage-decl lf-idecl-kind !
+  lf-hint-opaque stage-decl lf-idecl-hint ! -1 stage-decl lf-idecl-value ! ;
 : stage-start ( record kind -- record )
-  stage-decl /lf-idecl erase stage-decl lf-idecl-kind ! lf-hint-opaque stage-decl lf-idecl-hint !
-  -1 stage-decl lf-idecl-value ! dup decl-name @ stage-name stage-decl lf-idecl-name !
+  stage-clear dup decl-name @ stage-name stage-decl lf-idecl-name !
   dup decl-type @ stage-root stage-decl lf-idecl-type ! ;
-: stage-value ( record -- record ) dup decl-value @ stage-root stage-decl lf-idecl-value ! ;
+: stage-value ( record -- record )
+  dup decl-value @ stage-root stage-decl lf-idecl-value ! ;
 : stage-safety ( safety -- ) stage-decl lf-idecl-safety ! ;
 : stage-unsafe ( record -- record )
   dup decl-unsafe @ if lf-safety-unsafe else lf-safety-safe then stage-safety ;
@@ -197,7 +203,8 @@ manifest: stage-manifest
 \ The input's answer: full when it holds no more declarations, invalid
 \ when it refuses the record.
 : stage-added ( i outcome -- outcome )
-  nip dup outcome-full = if c" too many declarations for the check's input" stage-stop then
+  nip dup outcome-full =
+  if c" too many declarations for the check's input" stage-stop then
   dup outcome-invalid = if c" a declaration the input refuses" stage-stop then ;
 : stage-add ( record -- outcome )
   stage-params ok-then? 0= if exit then drop stage-decl lf-input-add stage-added ;
@@ -205,7 +212,8 @@ manifest: stage-manifest
 : stage-alone? ( record -- flag )
   dup decl-all @ over list-count 1 = over stage-first-of-all rot decl-name @ = and ;
 : stage-mutual ( record -- outcome )
-  drop outcome-unsupported c" a declaration of a mutual block (not supported yet)" stage-stop ;
+  drop outcome-unsupported c" a declaration of a mutual block (not supported yet)"
+  stage-stop ;
 : stage-thm ( record -- outcome )
   dup stage-alone? 0= if stage-mutual exit then
   lf-kind-theorem stage-start stage-value lf-safety-safe stage-safety stage-add ;
@@ -225,7 +233,10 @@ manifest: stage-manifest
 
 \ The two passes' handlers, in the reader's kind order (ndjson.fs); 0 is
 \ no handler, which the reader refuses as unsupported (the elements of an
-\ inductive block, never reached after its block).
+\ inductive block, never reached after its block). Each table must end at
+\ HERE with one cell per kind, otherwise the load stops.
+: stage-table-check ( table -- )
+  here swap - kind-count cells <> abort" stage.fs: one handler per record kind" ;
 create stage-first
   ' stage-pass-by , ' stage-str , ' stage-num , ' stage-pass-by , ' stage-pass-by ,
   ' stage-pass-by , ' stage-param-name , ' stage-pass-by , ' stage-pass-by ,
@@ -233,14 +244,14 @@ create stage-first
   ' stage-pass-by , ' stage-pass-by , ' stage-pass-by , ' stage-pass-by ,
   ' stage-pass-by , ' stage-pass-by , ' stage-pass-by , ' stage-pass-by ,
   ' stage-pass-by , ' stage-quot , ' stage-inductive , 0 , 0 , 0 ,
-here stage-first - kind-count cells <> [if] .( stage.fs: one handler per kind) cr abort [then]
+stage-first stage-table-check
 create stage-second
   ' stage-pass-by , ' stage-pass-by , ' stage-pass-by , ' stage-succ , ' stage-max ,
-  ' stage-imax , ' stage-param , ' stage-bvar , ' stage-sort , ' stage-const , ' stage-app ,
-  ' stage-lam , ' stage-forall , ' stage-let , ' stage-proj , ' stage-natval ,
-  ' stage-strval , ' stage-mdata , ' stage-axiom , ' stage-def , ' stage-thm ,
-  ' stage-opaque , ' stage-quot , ' stage-inductive , 0 , 0 , 0 ,
-here stage-second - kind-count cells <> [if] .( stage.fs: one handler per kind) cr abort [then]
+  ' stage-imax , ' stage-param , ' stage-bvar , ' stage-sort , ' stage-const ,
+  ' stage-app , ' stage-lam , ' stage-forall , ' stage-let , ' stage-proj ,
+  ' stage-natval , ' stage-strval , ' stage-mdata , ' stage-axiom , ' stage-def ,
+  ' stage-thm , ' stage-opaque , ' stage-quot , ' stage-inductive , 0 , 0 , 0 ,
+stage-second stage-table-check
 : stage-handler! ( xt|0 kind -- )
   over 0= if 2drop exit then stage-export export-handler ! ;
 : stage-handlers ( table -- )
@@ -266,7 +277,8 @@ here stage-second - kind-count cells <> [if] .( stage.fs: one handler per kind) 
 \ Both records ready (full when the heap has no room), the input fresh,
 \ both passes, then the records' memory released, on a failed start too.
 : stage-init ( -- outcome )
-  stage-export export-init dup ok? if drop stage-export stage-manifest manifest-init then ;
+  stage-export export-init
+  dup ok? if drop stage-export stage-manifest manifest-init then ;
 : stage-done ( -- ) stage-manifest manifest-free stage-export export-free ;
 : stage-file ( c-addr u xt -- outcome )
   0 stage-why ! stage-init dup ok? 0= if nip nip nip stage-done exit then drop
