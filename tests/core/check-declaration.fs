@@ -140,6 +140,19 @@ fc-case d
 fc-decl before def safe T 2 u v TYPE S s i p u p v VALUE S i p u p v
 fc-decl check def safe d 1 w TYPE S s i s z s p w VALUE C T 2 s z s p w
 T{ check-last -> outcome-rejected lf-diag-value-apart compare-step }T
+\ S4 (ADR 0011, Amendment 2): a Pi whose body is not a type, in the value
+\ and in the claim (Lean: typeExpected); behind a constant it stays
+\ unknown (K1), as Lean may unfold it.
+fc-case s4-value
+fc-decl check def safe piBodyVariable 0 TYPE S s s z VALUE P S s z P V 0 V 0
+T{ check-last -> outcome-rejected lf-diag-body-type value-step }T
+fc-case s4-claim
+fc-decl check thm safe piBodyClaim 0 TYPE P S z P V 0 V 0 VALUE L S z L V 0 V 0
+T{ check-last -> outcome-rejected lf-diag-body-type type-step }T
+fc-case s4-unfolding
+fc-decl before def safe S1 0 TYPE S s s z VALUE S s z
+fc-decl check def safe piBodyUnfold 0 TYPE S s s z VALUE P C S1 0 V 0
+T{ check-last -> outcome-unknown lf-diag-not-sort value-step }T
 \ The zero inside a max that LeanForth used to drop at any depth, and
 \ Lean's normalize does not drop here.
 fc-case zero-rewrite

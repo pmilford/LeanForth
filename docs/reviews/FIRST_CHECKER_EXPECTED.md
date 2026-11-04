@@ -51,12 +51,12 @@ recognised by their fixed message.
 
 | | Lean accepted | Lean rejected | Total |
 | --- | ---: | ---: | ---: |
-| LeanForth **accepted** | 15 | 0 | 15 |
-| LeanForth **rejected** | 0 | 28 | 28 |
+| LeanForth **accepted** | 17 | 0 | 17 |
+| LeanForth **rejected** | 0 | 31 | 31 |
 | LeanForth **invalid** | 0 | 1 | 1 |
-| LeanForth **unknown** | 9 | 1 | 10 |
+| LeanForth **unknown** | 10 | 2 | 12 |
 | LeanForth **unsupported** | 8 | 0 | 8 |
-| Total | 32 | 30 | 62 |
+| Total | 35 | 34 | 69 |
 
 Every fixture group reaches *accepted*, a failure (*rejected* or *invalid*)
 and *unknown* or *unsupported*. 27 broken copies also exist as Lean source,
@@ -93,12 +93,12 @@ handle, and no other slot gives a handle.
 
 | | Lean accepted | Lean rejected | Total |
 | --- | ---: | ---: | ---: |
-| LeanForth **accepted** | 15 | 0 | 15 |
-| LeanForth **rejected** | 0 | 28 | 28 |
+| LeanForth **accepted** | 17 | 0 | 17 |
+| LeanForth **rejected** | 0 | 31 | 31 |
 | LeanForth **invalid** | 0 | 1 | 1 |
-| LeanForth **unknown** | 9 | 1 | 10 |
+| LeanForth **unknown** | 10 | 2 | 12 |
 | LeanForth **unsupported** | 8 | 0 | 8 |
-| Total | 32 | 30 | 62 |
+| Total | 35 | 34 | 69 |
 
 Every row equals the table, including the two proof-guard rows
 `poly-identity.proof-irrelevance-imax` and `-max-zero` (*unknown*, K2).
@@ -312,6 +312,22 @@ assumed statement, for `uses-postulate`.
 | `unsafe-definition` | a definition marked unsafe | accepted | **unsupported** | U1 |  | unsupported (U1) |
 | `partial-definition` | a definition marked partial | accepted | **unsupported** | U1 |  | unsupported (U1) |
 
+## pi-body (rule S4, ADR 0011 Amendment 2)
+
+Added 2026-11-03 (plan task 2.1.5, agent LV). Lean's `infer_pi` requires
+the type of a Π's body to be a `Sort` (`ensure_sort_core`,
+`type_checker.cpp` 158), as for a binder domain (S2).
+
+| Case | What changed | Lean | LeanForth must answer | Rule | Source copy | Measured |
+| --- | --- | --- | --- | --- | --- | --- |
+| `variable` | `(A : Type) → (a : A) → a`: the body `a` is a value | typeExpected | **rejected** | S4 |  | rejected, S4 |
+| `lambda` | `(x : Prop) → fun (y : Prop) => y`: the body is a function | typeExpected | **rejected** | S4 |  | rejected, S4 |
+| `in-claim` | the claimed statement `(A : Prop) → (a : A) → a` | typeExpected | **rejected** | S4 |  | rejected, S4 (type step) |
+| `type` | the neighbour `(A : Type) → (a : A) → A` | accepted | **accepted** | A1 |  | accepted |
+| `proposition` | `(x : Prop) → x` | accepted | **accepted** | A1 |  | accepted |
+| `needs-unfolding` | `(y : S1) → y` with `S1 := Type` (y's type unfolds to a Sort) | accepted | **unknown** | K1 |  | unknown |
+| `needs-unfolding-wrong` | `(y : F1) → y` with `F1 := Prop → Prop` | typeExpected | **unknown** | K1 |  | unknown |
+
 ## Cases with no Lean counterpart
 
 These belong to the failure-path suite (plan task 2.2.4) and are tested in
@@ -405,3 +421,14 @@ tables: `first-checker-expected.lean`
 `68e8dc670ae5eeccffbc491fdc0e71046bd7a6d23096b99d70015fcc817d5665`,
 `first-checker-expected.tsv`
 `d747f71a8cf78306904d8d3093ad06c02e2c2eb7689f939880bbf3e6c2c5529a`.
+
+And after Amendment 2 (rule S4, the seven `pi-body` rows, plan task
+2.1.5), the same day: "Lean kernel verdicts match
+first-checker-expected.tsv (69 cases)" and the same 27 source copies;
+"first checker: 17 accepted, 1 invalid, 31 rejected, 12 unknown, 8
+unsupported; 8 decided by the declaration audit; known differences: none"
+and "69 first-checker table rows agree". SHA-256:
+`first-checker-expected.lean`
+`fb647403051c14dea12adf0cea222d34646f0d69a1a9f045d395a3985e62ec31`,
+`first-checker-expected.tsv`
+`baa9350a87d454f2bbe2a334760bbd77bfbfeda36b8d9c66658fd6b8487f5466`.

@@ -130,10 +130,11 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
 : non-type-case ( -- )
   \ fun (x : fun A => A) => x has a binder domain whose type, a Pi, is not a
   \ Sort: rule S2 rejects it (Lean: typeExpected). (A : Sort u) -> fun (x :
-  \ A) => x has such a Pi body; no rule of ADR 0011 covers a Pi body, so it
-  \ stays unknown.
+  \ A) => x has such a Pi body: rule S4 rejects it (ADR 0011 Amendment 2;
+  \ Lean's infer_pi: typeExpected), recorded with code 61.
   setup 13 h 1 h lf-hterm-lam save 0 h 12 h lf-hterm-pi save \ 14, 15
-  14 rejected-rolled-back 15 unknown-rolled-back ;
+  14 rejected-rolled-back 15 rejected-rolled-back
+  lf-diag-code@ lf-diag-body-type <> abort" S4 code" ;
 : preflight-fuel-case ( -- )
   setup
   9 -1 infer outcome-invalid expect-status 2drop

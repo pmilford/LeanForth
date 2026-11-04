@@ -163,11 +163,12 @@ create two-u-args 4 cells allot
 : non-type-case ( -- )
   \ fun (x : fun A => A) => x has a binder domain whose type is not a Sort
   \ (S2: typeExpected); (A : Sort u) -> fun (x : A) => x has such a Pi
-  \ body, which no rule covers (unknown). Neither is accepted.
+  \ body as the claim (S4, ADR 0011 Amendment 2: typeExpected).
   setup 13 h 1 h lf-hterm-lam save 0 h 12 h lf-hterm-pi save \ 14, 15
   snapshot 4 14 50000 probe outcome-rejected expect-status assert-rollback
   lf-diag-domain-type rejected-code? 0= abort" S2"
-  snapshot 15 9 50000 probe outcome-unknown expect-status assert-rollback ;
+  snapshot 15 9 50000 probe outcome-rejected expect-status assert-rollback
+  lf-diag-body-type rejected-code? 0= abort" S4" ;
 : future-handle-case ( -- )
   \ A forged future identity would become live after the first allocation if
   \ the second source or later index record were checked too late.

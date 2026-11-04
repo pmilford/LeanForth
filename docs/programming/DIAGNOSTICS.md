@@ -117,6 +117,7 @@ what was used and the limit.
 | 58 | rejected: function expected (F1) | rejected | the function's type, reduced | 0 | `mixed-infer lf-mixed-infer` (an application) |
 | 59 | rejected: argument type mismatch (D1-D5) | rejected | the D rules used: 1 D1, 2 D2, 4 D3, 8 D4, 16 D5, added | 0 | `mixed-infer lf-mixed-infer` (an argument's type against the function's domain) |
 | 60 | rejected: declared type mismatch (D1-D5) | rejected | the D rules used, as for 59 | 0 | `mixed-definition-probe lf-mixed-definition-probe`, `check-declaration lf-check-declaration` (the value's type against the claim) |
+| 61 | rejected: Pi body not a type (S4) | rejected | the body's type, reduced | 0 | `mixed-infer lf-mixed-infer` (a Π's body; ADR 0011, Amendment 2) |
 
 Codes 1–16 explain *exhausted* (more fuel would help) and *full* (more
 memory or a larger limit would help); 20–29 explain *invalid* input or

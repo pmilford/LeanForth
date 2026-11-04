@@ -1,6 +1,6 @@
 # ADR 0011: definite rejection and the first checker's scope
 
-Status: **rules accepted** by the owner on 2026-11-02 (gate questions G1–G4 in [the gate summary](../reviews/FIRST_CHECKER_GATE.md#owners-answer)); the implementation still needs its own gate approval with test results. **Implemented** for comparison and inference on 2026-11-02 (plan task 2.2.1; see [Implementation](#implementation-plan-task-221)); its [kernel] gate was **approved by the owner on 2026-11-03** ([OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md#gate-answers-and-working-guidelines-2026-11-03)), with Lean's rule for a "for all" whose body is not a type to follow as an amendment. **[Amendment 1](#amendment-1-proposed-2026-11-03-universe-levels-are-built-and-compared-as-lean-builds-and-compares-them)** (proposed, 2026-11-03, after the independent review of the declaration check found four wrong *accepted* answers): universe levels are built and compared exactly as Lean's kernel builds and compares them; it corrects fact 7, *Equal*, D1 and K4 below and adds rule K6. Previously: **proposed**, 2026-11-02 (plan task 2.1.1). A checker rule: it must
+Status: **rules accepted** by the owner on 2026-11-02 (gate questions G1–G4 in [the gate summary](../reviews/FIRST_CHECKER_GATE.md#owners-answer)); the implementation still needs its own gate approval with test results. **Implemented** for comparison and inference on 2026-11-02 (plan task 2.2.1; see [Implementation](#implementation-plan-task-221)); its [kernel] gate was **approved by the owner on 2026-11-03** ([OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md#gate-answers-and-working-guidelines-2026-11-03)), with Lean's rule for a "for all" whose body is not a type to follow as an amendment. **[Amendment 1](#amendment-1-proposed-2026-11-03-universe-levels-are-built-and-compared-as-lean-builds-and-compares-them)** (proposed, 2026-11-03, after the independent review of the declaration check found four wrong *accepted* answers): universe levels are built and compared exactly as Lean's kernel builds and compares them; it corrects fact 7, *Equal*, D1 and K4 below and adds rule K6. **[Amendment 2](#amendment-2-proposed-2026-11-03-a-for-all-whose-body-is-not-a-type-rule-s4)** (proposed, 2026-11-03, plan task 2.1.5): Lean's rejection of a "for all" whose body is not a type, rule S4. Previously: **proposed**, 2026-11-02 (plan task 2.1.1). A checker rule: it must
 pass the review gate in `AGENTS.md` — rules that follow Lean's published
 kernel, agreeing pinned-Lean differential tests that reach every outcome, an
 independent AI review with no unresolved findings, and the owner's approval
@@ -238,6 +238,7 @@ are failures, and neither claims Lean's reason.
 | S1 | The declared type's type, after `whnfβ`, is rigid and not a `Sort`. | `check_constant_val` 131–132 → `ensure_sort_core` 62–71; fact 3 | `typeExpected` |
 | S2 | A binder domain's type, after `whnfβ`, is rigid and not a `Sort`. | `infer_lambda` 131–133, `infer_pi` 151 → `ensure_sort_core` | `typeExpected` |
 | S3 | A theorem's type has sort `Sort l` (syntactically, after S1) where `l` fails `normalizes_to_zero`, i.e. is nonzero for some assignment. Exact both ways (fact 6). | `add_theorem` 201–202 → `is_prop` 383–389 → `normalizes_to_zero` | `thmTypeIsNotProp` |
+| S4 | *Amendment 2:* a `Π`'s body's type, after `whnfβ`, is rigid and not a `Sort`. | `infer_pi` 158 → `ensure_sort_core` 62–71; fact 3 | `typeExpected` |
 | F1 | A function's type, after `whnfβ`, is rigid and not a `Π`. | `infer_app` 175 → `ensure_pi_core` 74–83; fact 3 | `funExpected` |
 | D1–D5 | An argument's type and the expected domain (application), or the value's type and the declared type (declaration), are *apart* (below). | `infer_app` 181–186; `add_theorem` 205–206, `add_definition` 185–186 | `appTypeMismatch` or `declTypeMismatch` |
 
@@ -386,7 +387,7 @@ records a diagnostic naming it
 | Rule | Where | What it computes |
 | --- | --- | --- |
 | S1 | `mixed-definition-probe` `lf-mdefinition-claim-level` → `mixed-infer` `lf-minfer-sort-rule` | the claim's type is not a visible Sort, and its whnfβ is rigid and not a Sort (`mixed-head` `lf-mhead-not-sort?`) |
-| S2 | `mixed-infer` `lf-minfer-domain` → `lf-minfer-sort-rule` | the same for a λ's or Π's domain; a Π's *body* that is no type stays unknown (no rule) |
+| S2 | `mixed-infer` `lf-minfer-domain` → `lf-minfer-sort-rule` | the same for a λ's or Π's domain; a Π's *body* that is no type stays unknown (no rule). *Since Amendment 2:* rule S4, `lf-minfer-body-sort` |
 | S3 | `mixed-definition-probe` `lf-mdefinition-prop`, in the new `lf-mixed-theorem-probe` | `level-value` `lf-level-zero?`: Lean's `normalizes_to_zero`, computed as "zero when every parameter is 1" (equivalent, by induction on the level) |
 | F1 | `mixed-infer` `lf-minfer-not-pi` | a function's type is not a visible Pi, and its whnfβ is rigid and not a Pi |
 | D1 | `mixed-infer` `lf-minfer-sorts-apart` | `level-value` `lf-level-apart?`: the witness assignments of *Terms the rules talk about*. *Since Amendment 1:* `level-compare` `lf-level-inequivalent?`, Lean's `is_equivalent` false |
@@ -631,6 +632,45 @@ in [the expected results](../reviews/FIRST_CHECKER_EXPECTED.md#universe-levels-a
   sharing rule kept or dropped) and each of Lean's rules broken one by
   one: all 16 caught by `make test`'s files; the raw `imax`, the raw
   rebuild and a reversed name order also fail the pinned-Lean tables.
+
+## Amendment 2 (proposed, 2026-11-03): a for-all whose body is not a type (rule S4)
+
+Status: **proposed**; [kernel] change, for the gate in `AGENTS.md`. Plan
+task 2.1.5, which the owner asked for when approving the rejection rules
+("identical to Lean").
+
+**In plain words.** "For all x, B" is only a statement or a type when B
+itself is a type. Lean's kernel checks that and rejects the declaration
+otherwise; LeanForth answered *unknown* there. It now rejects in the same
+situations, by the same test it already uses for the type of a variable
+(rule S2), and stays *unknown* only where Lean might first have to unfold
+a definition to decide.
+
+**Lean's source.** `infer_pi` (`type_checker.cpp` 144–166) infers the
+body's type after the binders and calls `ensure_sort_core` on it (158):
+when the type is not a `Sort`, it reduces it with `whnf` and, if that is
+still not a `Sort`, throws `type_expected_exception` (62–71):
+`typeExpected`. For a term whose `whnfβ` is rigid (fact 3: a `Sort`, `Π`,
+`λ` or bound variable at its head), Lean's `whnf` is exactly `whnfβ`, so
+"rigid and not a `Sort`" is exactly Lean's failure; a constant at the head
+might unfold either way (fact 2, K1).
+
+**Rule S4.** A `Π`'s body's type, after `whnfβ`, is rigid and not a
+`Sort`: *rejected*, `typeExpected`, diagnostic 61, at the place and in the
+order Lean checks it (domains first, then the body, innermost `Π` first).
+Otherwise the step stays as before (*unknown* when the type is no visible
+`Sort`). Implemented as `lf-minfer-body-sort` in `src/kernel/mixed-infer.fs`
+(the same `lf-minfer-sort-rule` as S2).
+
+**Evidence** (Lean 4.35.0, Gforth 1.0.0, 2026-11-03). Seven Lean-checked
+rows in the expected table (`pi-body.*`): three Lean rejects
+(`typeExpected`: a variable, a λ, and the same in a theorem's claim),
+LeanForth *rejected* by S4; two neighbours Lean accepts, *accepted*; and
+two whose body's type is a constant, one Lean accepts and one it rejects
+after unfolding, both *unknown* (K1). All 69 rows agree end to end. Unit
+tests: `tests/core/check-declaration.fs` (value, claim, K1),
+`mixed-infer.fs` and `mixed-definition-probe.fs`; planted faults
+`lv-s4-off` and `lv-s4-reads-flexible` are caught.
 
 ## Consequences
 

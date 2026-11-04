@@ -238,7 +238,7 @@ REJECTION_CODES = {
     52: ("L1", "levelCount"), 53: ("L2", "undefinedLevelParam"),
     54: ("L3", "duplicateLevelParam"), 55: ("S1", "typeExpected"),
     56: ("S2", "typeExpected"), 57: ("S3", "thmTypeIsNotProp"),
-    58: ("F1", "funExpected"), 59: ("D", "appTypeMismatch"),
+    58: ("F1", "funExpected"), 59: ("D", "appTypeMismatch"), 61: ("S4", "typeExpected"),
     60: ("D", "declTypeMismatch"),
 }
 OUTCOMES = {"ok": "accepted", "rejected": "rejected", "unknown": "unknown",
@@ -258,7 +258,7 @@ INSIDE = {"type", "value"}
 TYPING = {"type", "sort", "proposition", "value", "comparison"}
 RULE_STEPS = {"A1": {"done"}, "B1": {"done"}, "U1": {"audit"}, "U2": {"audit"},
               "V1": {"audit"}, "N2": {"name"}, "L3": {"params"}, "S1": {"sort"},
-              "S3": {"proposition"}, "N1": INSIDE, "L1": INSIDE, "L2": INSIDE,
+              "S3": {"proposition"}, "S4": INSIDE, "N1": INSIDE, "L1": INSIDE, "L2": INSIDE,
               "S2": INSIDE, "F1": INSIDE, "K5": INSIDE | {"name"},
               "D": INSIDE | {"comparison"}}
 # Rows where today's code gives another failure than the table, with the
@@ -403,8 +403,8 @@ def checker_summary(name, rows, known):
 def first_checker():
     table, text = first_checker_cases()
     rows, verdicts = checker_rows(text)
-    if sorted(rows) != sorted(table) or len(rows) != 62:
-        raise Mismatch("first checker: the Forth rows are not the table's 62 cases")
+    if sorted(rows) != sorted(table) or len(rows) != 69:
+        raise Mismatch("first checker: the Forth rows are not the table's 69 cases")
     for case, (lean, expected, rule) in table.items():
         checker_row(case, lean, expected, rule, rows[case], verdicts[case],
                     FIRST_CHECKER_KNOWN)

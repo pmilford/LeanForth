@@ -11,7 +11,7 @@ This page shows one real check from start to end: the `composition`
 theorem, read from the file that Lean's exporter wrote, checked by
 LeanForth and accepted; then a broken copy, rejected. The rules behind
 each answer are in [ADR 0011](../adr/0011-definite-rejection.md); every
-answer for 62 such cases, with Lean's own verdict beside it, is in the
+answer for 69 such cases, with Lean's own verdict beside it, is in the
 [expected results](../reviews/FIRST_CHECKER_EXPECTED.md).
 
 ## What the first checker does
@@ -128,7 +128,7 @@ in the application
 - The transport from the file is untrusted and test-only. It cannot make a
   wrong proof right; it could only hand over a different claim. Nothing
   here prints the checked statement for a person to compare yet (plan task
-  2.4.4); the 62 table cases are built from the very terms Lean checks.
+  2.4.4); the 69 table cases are built from the very terms Lean checks.
 - The first checker covers `Sort`s, variables, application, `fun`, `∀` and
   earlier accepted declarations. It does not unfold definitions, so some
   correct proofs are *unknown*; theorems that use data types, numbers or

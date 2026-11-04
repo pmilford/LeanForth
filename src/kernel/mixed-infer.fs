@@ -7,8 +7,9 @@
 \ Pi is applied; uncertain conversion is unknown.
 \ Definite rejection (ADR 0011, ADR 0008 step 3; [kernel] code, not yet
 \ through the review gate): where a step is undecided, rules F1 (a
-\ function's type is no Pi), S2 (a binder domain is no type) and D1-D5 (an
-\ argument's type and the function's domain are apart) may show that
+\ function's type is no Pi), S2 (a binder domain is no type), S4 (a Pi's
+\ body is no type) and D1-D5 (an argument's type and the function's domain
+\ are apart) may show that
 \ Lean's kernel certainly fails the same step, and the outcome is then
 \ rejected, recorded with the rule; otherwise it stays unknown. Like every
 \ result here, a rejection holds only if the candidate signatures are the
@@ -414,9 +415,16 @@ defer lf-minfer-apart ( left right -- mask flag )
 \ Amendment 1; level-make.fs). A full level store is full.
 : lf-minfer-pi-sort ( u v -- type status )
   lf-level-mk-imax if lf-minfer-sort else -1 outcome-full then ;
+\ S4 (ADR 0011, Amendment 2): the body's type must be a Sort too
+\ (infer_pi's ensure_sort_core on the body, type_checker.cpp 158); when it
+\ is no visible Sort and its whnfB is rigid and not a Sort, Lean's kernel
+\ fails with typeExpected. The binder is already popped: whnfB and the head
+\ kind do not read the binder context.
+: lf-minfer-body-sort ( type -- level status )
+  lf-minfer-site lf-diag-body-type lf-minfer-sort-rule ;
 : lf-minfer-pi-body ( level domain body -- type status )
   lf-minfer-under lf-minfer-step? 0= if exit then
-  lf-minfer-sort-level lf-minfer-step? if lf-minfer-pi-sort then ;
+  lf-minfer-body-sort lf-minfer-step? if lf-minfer-pi-sort then ;
 : lf-minfer-pi ( domain body -- type status )
   over lf-minfer-domain dup ok? if drop -rot lf-minfer-pi-body else 2swap 2drop then ;
 

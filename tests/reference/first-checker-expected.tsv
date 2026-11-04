@@ -61,3 +61,10 @@ scope.uses-postulate	accepted	unsupported	K5
 scope.opaque	accepted	unsupported	U1
 scope.unsafe-definition	accepted	unsupported	U1
 scope.partial-definition	accepted	unsupported	U1
+pi-body.variable	typeExpected	rejected	S4
+pi-body.lambda	typeExpected	rejected	S4
+pi-body.in-claim	typeExpected	rejected	S4
+pi-body.type	accepted	accepted	A1
+pi-body.proposition	accepted	accepted	A1
+pi-body.needs-unfolding	accepted	unknown	K1
+pi-body.needs-unfolding-wrong	typeExpected	unknown	K1

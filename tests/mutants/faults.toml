@@ -920,6 +920,22 @@ reason = "Lean's operator== calls any two parameters equal (u = v): a wrong acce
 quick = true
 
 [[fault]]
+id = "lv-s4-off"
+file = "src/kernel/mixed-infer.fs"
+old = '''  lf-minfer-body-sort lf-minfer-step? if lf-minfer-pi-sort then ;'''
+new = '''  lf-minfer-sort-level lf-minfer-step? if lf-minfer-pi-sort then ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "S4 (ADR 0011 Amendment 2) off: a Pi whose body is not a type stays unknown where Lean rejects"
+
+[[fault]]
+id = "lv-s4-reads-flexible"
+file = "src/kernel/mixed-infer.fs"
+old = '''  lf-minfer-site lf-diag-body-type lf-minfer-sort-rule ;'''
+new = '''  lf-minfer-sort-level dup outcome-unknown = if 2drop -1 0 lf-minfer-site lf-diag-body-type lf-minfer-reject then ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "S4 rejects every body whose type is no visible Sort, also behind a constant Lean may unfold (K1)"
+
+[[fault]]
 id = "lv-explicit-tie-second"
 file = "src/kernel/level-make.fs"
 old = '''  lf-lmk-offset nip swap lf-lmk-offset nip > if 2 else 1 then ;'''
