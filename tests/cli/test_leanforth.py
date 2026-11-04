@@ -106,7 +106,7 @@ class ExitCodes(unittest.TestCase):
         self.expect(["check", "tests/cli/unfold.ndjson"], 2,
                     [f"Implies: {LABEL}", "impliesSelf: unknown",
                      "  undecided: terms or levels differ; diagnostic 30 at mixed-convert "
-                     "lf-mixed-convert: 18 10",
+                     "lf-mixed-convert: 17 10",
                      "2 declarations: 1 accepted, 1 unknown"])
 
     def test_3_limits(self):

@@ -80,20 +80,20 @@ Theorem composition
   accepted (experimental, not independently audited); axioms: none
   Statement: ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Input:     tests/reference/composition.ndjson line 35
-  Checker log: 65 steps, complete. The statement is a proposition: s26 (from s3).
+  Checker log: 51 steps, complete. The statement is a proposition: s20 (from s3).
 
 Proof (reconstructed from the proof term).
-  1  Let A, B, C be propositions.                  [∀-introduction]                   s27–s29
-  2  Assume f : A → B.                             [assumption]                       s34
-  3  Assume g : B → C.                             [assumption]                       s39
-  4  Assume value : A.                             [assumption]                       s41
-  5    Then f value : B,                           [→-elimination ← 2, 4]             s50
+  1  Let A, B, C be propositions.                  [∀-introduction]                   s21–s23
+  2  Assume f : A → B.                             [assumption]                       s26
+  3  Assume g : B → C.                             [assumption]                       s29
+  4  Assume value : A.                             [assumption]                       s30
+  5    Then f value : B,                           [→-elimination ← 2, 4]             s36
          because f turns any proof of A into a proof of B.
-  6    Then g (f value) : C,                       [→-elimination ← 3, 5]             s53
+  6    Then g (f value) : C,                       [→-elimination ← 3, 5]             s39
          because g turns any proof of B into a proof of C.
-  7  Discharging 4, 3, 2 and 1 gives               [→/∀-introduction ← 1, 2, 3, 4, 6] s54–s59
+  7  Discharging 4, 3, 2 and 1 gives               [→/∀-introduction ← 1, 2, 3, 4, 6] s40–s45
        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C.
-  8  This is the statement.                        [definitional equality ← 7]        s63
+  8  This is the statement.                        [definitional equality ← 7]        s49
 ∎
 Rules, formulas and step numbers come from the checker's log; the sentences are
 fixed templates (structured-template), not checked reasoning.
@@ -104,7 +104,7 @@ How to read it:
 
 - Each line has a number, a sentence, the rule in brackets with the
   earlier lines it uses after `←`, and the checker steps it covers
-  (`s27–s29` is steps 27 to 29 of the log; `s26 (from s3)` is a step and
+  (`s21–s23` is steps 21 to 23 of the log; `s20 (from s3)` is a step and
   the first step of its sub-derivation).
 - Lines 1–4 bring the binders of the proof into scope: `A`, `B` and `C`
   range over propositions; `f`, `g` and `value` are assumptions, because
@@ -120,14 +120,14 @@ the lines above; the printer's LaTeX mode is plan task 8.6.1):
 
 | # | Line | Rule | Uses | Checker steps |
 | ---: | --- | --- | --- | --- |
-| 1 | Let $A, B, C$ be propositions. | ∀-introduction | | s27–s29 |
-| 2 | Assume $f : A \to B$. | assumption | | s34 |
-| 3 | Assume $g : B \to C$. | assumption | | s39 |
-| 4 | Assume $\mathit{value} : A$. | assumption | | s41 |
-| 5 | Then $f\ \mathit{value} : B$, because $f$ turns any proof of $A$ into a proof of $B$. | →-elimination | 2, 4 | s50 |
-| 6 | Then $g\ (f\ \mathit{value}) : C$, because $g$ turns any proof of $B$ into a proof of $C$. | →-elimination | 3, 5 | s53 |
-| 7 | Discharging 4, 3, 2 and 1 gives $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$. | →/∀-introduction | 1, 2, 3, 4, 6 | s54–s59 |
-| 8 | This is the statement. | definitional equality | 7 | s63 |
+| 1 | Let $A, B, C$ be propositions. | ∀-introduction | | s21–s23 |
+| 2 | Assume $f : A \to B$. | assumption | | s26 |
+| 3 | Assume $g : B \to C$. | assumption | | s29 |
+| 4 | Assume $\mathit{value} : A$. | assumption | | s30 |
+| 5 | Then $f\ \mathit{value} : B$, because $f$ turns any proof of $A$ into a proof of $B$. | →-elimination | 2, 4 | s36 |
+| 6 | Then $g\ (f\ \mathit{value}) : C$, because $g$ turns any proof of $B$ into a proof of $C$. | →-elimination | 3, 5 | s39 |
+| 7 | Discharging 4, 3, 2 and 1 gives $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$. | →/∀-introduction | 1, 2, 3, 4, 6 | s40–s45 |
+| 8 | This is the statement. | definitional equality | 7 | s49 |
 
 ## Printing an outline
 
@@ -149,11 +149,11 @@ step). Each declaration of the file is checked in turn with the log at
 level `terms`, and printed after its check; the exit status is `check`'s
 for a declaration refused, 3 for a log that ran out of room
 ([details](COMMAND_LINE.md#printing-a-readable-proof)). `--detail` lists
-all 65 steps of `composition` instead, for example
+all 51 steps of `composition` instead, for example
 
 ```text
-  s49    instantiate         depth 6   (fun x ↦ B) value ⟶ B
-  s50    application         depth 6   f value : B  ← s45, s47, s48, s49
+  s35    instantiate         depth 6   (fun x ↦ B) value ⟶ B
+  s36    application         depth 6   f value : B  ← s32, s33, s34, s35
 ```
 
 (the full list is in [`tests/present/outlines.golden`](../../tests/present/outlines.golden)).
