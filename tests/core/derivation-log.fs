@@ -99,11 +99,13 @@ T{ 51 premises -> 50 }T
 \ s6's subject (A) and type (Prop) are input nodes. The instantiate s35's
 \ body, B as a free variable in the type of f, is copied as the bound
 \ variable it stands for under the record's 6 binders and the body's
-\ own: B's binder lies at depth 1, so 7 - 1 - 1 = 5.
+\ own: B's binder lies at depth 1, so 7 - 1 - 1 = 5; its result, the same
+\ node, under the record's 6 alone: 4.
 : copy-node ( ref -- tag first second ) lf-log-copy-index lf-log-term-slot node@ ;
 T{ 36 lf-log-record logrec-a @ 0< 36 lf-log-record logrec-out @ lf-log-copy? -> false true }T
 T{ 6 lf-log-record dup logrec-a @ 0< swap logrec-out @ 0< -> false false }T
 T{ 35 lf-log-record logrec-a @ copy-node -> lf-tag-bvar 5 0 }T
+T{ 35 lf-log-record logrec-out @ copy-node -> lf-tag-bvar 4 0 }T
 T{ 20 lf-log-record logrec-out @ 0< -> false }T
 
 \ Level steps: the same records, no copies, scratch results unkept.

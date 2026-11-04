@@ -92,6 +92,16 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
 \ since free variables (plan task 4.2.2a: no shift for a variable's type,
 \ no audit when an application's type is instantiated, a chain of lambdas
 \ closed once).
+\ fun (A : Sort u) => id (A -> A) (fun (x : A) => x): the inner lambda,
+\ an argument, begins a chain of lambdas under A's binder, so its type is
+\ closed there (A's bound variable becomes A's free variable; plan task
+\ 4.2.2a) before it is compared with id's domain. The whole has type
+\ (A : Sort u) -> A -> A.
+: newest ( -- index identity ) lf-term-count @ 1- h ;
+: chain-argument-case ( -- )
+  setup 5 h 3 h lf-hterm-app save newest 12 h lf-hterm-app save
+  0 h newest lf-hterm-lam save lf-term-count @ 1- 50000 infer outcome-ok expect-status
+  4 h 50000 lf-mixed-convert outcome-ok <> abort" chain argument type" ;
 : poly-case ( -- )
   setup 9 50000 infer outcome-ok expect-status
   lf-minfer-fuel @ 49906 <> abort" poly fuel"
@@ -231,6 +241,7 @@ variable saw-exhaustion variable saw-success variable saw-partial
 
 ' fixture-case s" fixture preflight and specialization" run-case
 ' poly-case s" fixturePoly" run-case
+' chain-argument-case s" lambda argument under a binder" run-case
 ' invalid-argument-case s" invalid argument" run-case
 ' missing-case s" missing constant" run-case
 ' stale-case s" stale later candidate" run-case

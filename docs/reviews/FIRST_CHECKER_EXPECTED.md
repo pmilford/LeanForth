@@ -124,8 +124,9 @@ and `decl.lambda-in-argument-wrong-body` stay *unknown* where the table says
 `compare.eta-under-beta-domain` is *full* where it says *unknown*. With
 `lf-term-capacity` 160 in a scratch copy all 22 equal the table (measured
 2026-11-02). Since plan task 4.2.2a (free variables, ADR 0014; inference
-discards scratch it no longer needs) only `decl.lambda-in-argument-wrong-body`
-differs at 64 nodes; the other two give the table's answer. The universe-scope rows of ADR 0012's test matrix, row 4
+discards scratch it no longer needs and types a chain of lambdas once) all
+three give the table's answer at 64 nodes too, and the table has no known
+difference. The universe-scope rows of ADR 0012's test matrix, row 4
 (`tests/reference/universe-scope-terms.lean`, `make
 test-universe-scope-differential`): 17 cases, every one as expected —
 6 accepted, 10 rejected (L1, L2, L3, D1), 1 unknown (K4); since ADR 0011
