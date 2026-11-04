@@ -181,7 +181,8 @@ cli-options
 \ A second run in the same process gives the same verdicts and fuel.
 : run-facts ( c-addr u -- code ok# fuel )
   cli-check outcome-ok tally ck-fuel-total drop ;
-T{ inductive run-facts inductive run-facts -> 0 6 1520 0 6 1520 }T
+\ (1187 since conversion is Lean's is_def_eq, plan task 4.2.2b; 1520 before.)
+T{ inductive run-facts inductive run-facts -> 0 6 1187 0 6 1187 }T
 cli-no-manifest
 kinds run-facts constant kinds-fuel drop drop
 T{ kinds run-facts -> 2 58 kinds-fuel }T

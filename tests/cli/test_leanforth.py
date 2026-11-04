@@ -154,8 +154,8 @@ class ExitCodes(unittest.TestCase):
                      "error: unsupported: an inductive type (not supported yet) (line 51)"])
         self.expect(["check", "tests/cli/unfold.ndjson"], 2,
                     [f"Implies: {LABEL}", "impliesSelf: unknown",
-                     "  undecided: terms or levels differ; diagnostic 30 at mixed-convert "
-                     "lf-mixed-convert: 17 10",
+                     "  undecided: terms or levels differ; diagnostic 30 at defeq "
+                     "lf-defeq: 20 22",
                      "2 declarations: 1 accepted, 1 unknown", accepted(1)])
 
     def test_3_limits(self):
@@ -818,7 +818,7 @@ class JsonReport(unittest.TestCase):
         self.assertEqual((got["fuel"]["total"], got["fuel"]["unknown"]),
                          (sum(d["fuel"] for d in got["declarations"]), 0))
         self.assertEqual([t["name"] for t in got["fuel"]["top"]],
-                         ["Two.cases", "Two.swap", "Two"])
+                         ["Two.cases", "Two", "Two.swap"])
         self.assertEqual((got["input"]["declarations"], got["stopped"]), (6, False))
         # Fuel not known: a check that failed in inference gave its counter
         # up; it is in no total and never among the most fuel used.
@@ -963,11 +963,11 @@ class Resources(unittest.TestCase):
                                   r"the stage's heap blocks \d+(\.\d)? [kM]B$")
         self.assertEqual(rest[6:], [
             "  input: 6 declarations, 46 term nodes, 3 levels, 5 constant references, 31 names",
-            "  fuel: 1520 steps in all, at most 100000 per declaration",
+            "  fuel: 1187 steps in all, at most 100000 per declaration",
             "  most fuel used:",
-            "       832 Two.cases (accepted)",
-            "       349 Two.swap (accepted)",
-            "       339 Two (accepted)"])
+            "       576 Two.cases (accepted)",
+            "       339 Two (accepted)",
+            "       272 Two.swap (accepted)"])
 
     def test_stable_but_for_time_and_memory(self):
         def steady(out):
