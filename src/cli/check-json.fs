@@ -61,9 +61,11 @@ create cj-name /slab allot  cj-name /slab erase
 : cj-name-sink ( c-addr u -- )
   dup cj-name slab-claim ok? if cj-name slab-at swap move exit then
   drop 2drop outcome-full cj-writer jw-fail ;
+\ An empty inductive block has no name: Lean's anonymous name, which Lean
+\ prints as [anonymous] (and cli/leanforth.fs too).
 : cj-name-text ( d -- c-addr u )
-  cj-name slab-clear lf-input-name ['] cj-name-sink lf-pp-name-to
-  0 cj-name slab-at cj-name slab-count ;
+  lf-input-name ?dup 0= if s" [anonymous]" exit then
+  cj-name slab-clear ['] cj-name-sink lf-pp-name-to 0 cj-name slab-at cj-name slab-count ;
 : cj-names-make ( -- )
   cj-name slab-free 1 chars dup slab-limit-max cj-name slab-init drop ;
 

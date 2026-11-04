@@ -161,7 +161,10 @@ manifest: cli-manifest
 \ its check left: first counted (cli/tally.fs), then printed.
 \ Dependencies the --record run's environment holds, as make run-record's.
 64 constant cli-pool
-: cli-name. ( d -- ) lf-input-name ['] type lf-pp-name-to ;
+\ A declaration's name; an empty inductive block has none: Lean's
+\ anonymous name, which Lean prints as [anonymous].
+: cli-name. ( d -- )
+  lf-input-name ?dup 0= if ." [anonymous]" exit then ['] type lf-pp-name-to ;
 \ Which run the check made: its declarations whose check began, its
 \ outcome, whether it is the current environment (by identity), and the
 \ diagnostic declaration d's check left.

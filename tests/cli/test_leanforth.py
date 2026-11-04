@@ -65,6 +65,7 @@ FIXTURE = "tests/reference/constant-fixture.ndjson"
 LABEL = "accepted (experimental, not independently audited); axioms: none"
 INDUCTIVE = "tests/cli/inductive.ndjson"
 CHAIN = "tests/cli/chain.ndjson"
+EMPTY_BLOCK = "tests/core/check-block-cases/names.empty-block.ndjson"
 
 
 def accepted(n):
@@ -116,6 +117,13 @@ class ExitCodes(unittest.TestCase):
                     [NO_MANIFEST, "composition: rejected",
                      "  rejected: argument type mismatch (D1-D5); diagnostic 59 at mixed-infer "
                      "lf-mixed-infer: 4 0",
+                     "1 declaration: 1 rejected"])
+        # An empty inductive block, which Lean's kernel rejects (emptyBlock):
+        # it has no name, Lean's anonymous one.
+        self.expect(["check", "--no-manifest", EMPTY_BLOCK], 1,
+                    [NO_MANIFEST, "[anonymous]: rejected",
+                     "  rejected: an inductive block without types; diagnostic 78 at check-block "
+                     "lf-block-check: 0 0",
                      "1 declaration: 1 rejected"])
 
     def test_2_unsupported_and_unknown(self):
@@ -538,6 +546,7 @@ CASES_ALL = [
     ["--no-manifest", "README.md"], ["tests/cli/no-such.ndjson"],
     ["--no-manifest", "tests/cli/composition-huge-number.ndjson"],
     ["--no-manifest", "tests/core/reexport/kinds.ndjson"], ["--fuel", "0", FIXTURE],
+    ["--no-manifest", EMPTY_BLOCK],
 ]
 
 
