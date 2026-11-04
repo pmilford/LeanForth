@@ -196,9 +196,9 @@ rr-internal order+
 T{ s" " rr-file! false rr-import rr-moved? -> true outcome-invalid false }T
 order-
 rr-release
-\ A run read once, without rr-start (bin/leanforth check without
-\ --record): checked as usual, never recorded, whatever facts an earlier
-\ run left.
+\ A run read once, without rr-start (bin/leanforth print, and check
+\ without --record before it staged exports): checked as usual, never
+\ recorded, whatever facts an earlier run left.
 T{ constant-fixture true rr-read-once -> outcome-ok }T
 fuel 64 rr-settings! rr-check
 T{ run-record rr-run @ rr-started? rr-write -> outcome-ok false outcome-invalid }T

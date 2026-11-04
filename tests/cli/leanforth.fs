@@ -22,6 +22,8 @@
 include ../support/tester.fs
 include ../support/checks.fs
 require ../support/alloc-fail.fs
+\ The publisher's test-only fault hook, lf-env-before-final, to stop a run.
+: lf-env-fault-hooks ( -- ) ;
 require ../../src/cli/leanforth.fs
 decimal
 
@@ -224,8 +226,19 @@ fed-allocations constant fed#
 T{ fed# 0> -> true }T
 T{ 1 in-context -> 5 false true }T
 T{ fed# 1+ in-context -> 5 true true }T
-\ The run that stopped is invalid: its slot did not end final.
-T{ ck-outcome -> outcome-invalid }T
+
+\ A run that stops in the publisher: a THROW before declaration 1's slot
+\ is final. The run is invalid (that slot is open), the code a fault's;
+\ declaration 0 stays accepted, 1 is invalid and 2 was never checked.
+: throw-at-1 ( -- ) lf-env-limit 1 = if 4242 throw then ;
+: run-tallies ( -- code run ok# invalid# unchecked# )
+  fixture cli-check ck-outcome outcome-ok tally outcome-invalid tally not-checked tally ;
+: stopped ( -- code run ok# invalid# unchecked# )
+  context-new throw >r r@ context-use cli-options run-tallies
+  context-main context-use r> context-free throw ;
+' throw-at-1 is lf-env-before-final
+T{ stopped -> 5 outcome-invalid 1 1 1 }T
+' lf-env-no-fault is lf-env-before-final
 
 \ print reads with the checker's input: n allocations stage composition
 \ there, fewer than print makes in all.

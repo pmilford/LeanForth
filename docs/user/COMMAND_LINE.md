@@ -10,10 +10,11 @@ approves the checker, Lean's own kernel is the referee. `check` takes
 exports of any size: it stages the export with the importer stage and
 feeds it to the checker, whose stores grow to fit, so a whole library is
 checked from the command line — all of Lean's `Init`, 59,349
-declarations, in [about three minutes](#a-whole-library-leans-init). Most
+declarations, in [INIT-MINUTES](#a-whole-library-leans-init). Most
 of a real library still ends *unsupported* or *unknown*, because
-unfolding definitions (plan phase 4), recursive data types and literals
-(phase 5) are not built yet. Three commands keep the first, small path —
+unfolding definitions (plan task 4.2.2), recursive data types and
+literals (phase 5) are not built yet. Three commands keep the first,
+small path —
 `check --record`, `replay` and `print` hold 64 names, 64 levels, 64 term
 nodes and 32 declarations per export ([small exports](#small-exports-check---record-replay-and-print)).
 
@@ -691,7 +692,10 @@ records without the manifest check, so replay those with `--no-manifest`.
 variable; otherwise the pinned one in `.tools/gforth` of its checkout
 (`scripts/install-gforth.sh`), otherwise `gforth` on the `PATH`. `count`
 and `reexport` prefer `gforth-fast`, about 3.3 times faster on large
-exports; `check` uses the `gforth` engine. Standard input is closed.
+exports; `check` uses the `gforth` engine, whose stack and memory checks
+turn a fault in the checker into an internal fault where it happens.
+`GFORTH=.tools/gforth/bin/gforth-fast` checks `Init` more than twice as
+fast, with the same verdicts byte for byte. Standard input is closed.
 `bin/leanforth version` adds the checkout's git commit to the versions:
 
 ```console
