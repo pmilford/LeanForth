@@ -1,20 +1,24 @@
-"""The command line end to end (plan tasks 3.4.1-3.4.2): bin/leanforth.
+"""The command line end to end (plan tasks 3.4.1-3.4.3, 6.5.2 in part): bin/leanforth.
 
 1. Every exit code, with the exact text printed:
-   0 every declaration accepted (composition; the constant fixture's three);
+   0 every declaration accepted (composition; the constant fixture's three;
+     tests/cli/chain.ndjson, larger than --record holds; tests/cli/
+     inductive.ndjson, an inductive type and a theorem by its recursor);
    1 rejected (composition with the wrong argument);
-   2 unsupported (an axiom; a literal; an inductive type, refused while
-     reading) and unknown (tests/cli/unfold.ndjson: a proof that needs a
-     definition unfolded, which the first checker does not do yet);
-   3 a resource limit (tests/cli/chain.ndjson, a correct theorem larger
-     than today's stores, ends full while reading, and so does a name
-     part of 2^64; fuel 0 and 30 end exhausted);
+   2 unsupported (an axiom; a literal; with --record an inductive type,
+     refused while reading) and unknown (tests/cli/unfold.ndjson: a proof
+     that needs a definition unfolded, which the first checker does not do
+     yet); every record kind (tests/core/reexport/kinds.ndjson) counted;
+   3 a resource limit (chain with --record ends full while reading; a
+     name part of 2^64 is beyond the stage's 32 bits; fuel 0 and 30 end
+     exhausted);
    4 malformed (a variable without its binder; a missing manifest; a file
-     that is not an export; a file that does not open; every kind of
-     mistake on the command line; a copy that would overwrite its export,
-     also under another name);
+     that is not an export; a file that does not open; a tampered or cut
+     export, with and without its manifest; a constant no declaration has;
+     every kind of mistake on the command line, --json with --record
+     too; a copy that would overwrite its export, also under another name);
    5 an internal fault (a Gforth that ends with a status of its own, and
-     the real Gforth with an allocation made to throw, while staging and
+     the real Gforth with an allocation made to throw, while feeding and
      inside a check).
 2. "accepted" is printed only on a declaration's line, each with the
    experimental label and its axioms, and only when the code is 0 or that
@@ -30,6 +34,12 @@
    with its outcome's code, and no outline appears except below the
    experimental label; a name no declaration has, and print's command-line
    mistakes, are 4.
+7. --json prints one report that the schema (schemas/check-report-0.1)
+   accepts, for every case of 1, with the exit status, every verdict and
+   the counts the text gives; it is the same on every run but for
+   "measured". --resources adds the resource report, the same on every run
+   but for its time and memory lines. The fuel each check used is exact: a
+   budget of that much gives the same verdict, one less runs out.
 
 Run with GFORTH set to the Forth binary (the Makefile does this).
 """
@@ -53,11 +63,22 @@ CASES = "tests/core/check-declaration-cases"
 COMPOSITION = "tests/reference/composition.ndjson"
 FIXTURE = "tests/reference/constant-fixture.ndjson"
 LABEL = "accepted (experimental, not independently audited); axioms: none"
+INDUCTIVE = "tests/cli/inductive.ndjson"
+CHAIN = "tests/cli/chain.ndjson"
+EMPTY_BLOCK = "tests/core/check-block-cases/names.empty-block.ndjson"
+
+
+def accepted(n):
+    """The summary line of n accepted declarations, none NOT PROVED."""
+    return f"accepted: {n} (experimental, not independently audited); axioms: none"
+
+
+
 NO_MANIFEST = "note: the export's manifest is not checked (--no-manifest)"
 LIMITS = [
-    "note: today's check holds at most 64 names, 64 levels, 64 term nodes and "
-    "32 declarations per export,",
-    "note: so only small exports, such as the test fixtures, fit; larger ones end full",
+    "note: check --record, replay and print hold at most 64 names, 64 levels,",
+    "note: 64 term nodes and 32 declarations per export; check without --record holds "
+    "any size",
 ]
 MANIFEST_HINT = [
     "note: the export is checked against EXPORT.manifest.json, which "
@@ -80,16 +101,31 @@ class ExitCodes(unittest.TestCase):
 
     def test_0_accepted(self):
         self.expect(["check", COMPOSITION], 0,
-                    [f"composition: {LABEL}", "1 declaration: 1 accepted"])
+                    [f"composition: {LABEL}", "1 declaration: 1 accepted", accepted(1)])
         self.expect(["check", FIXTURE], 0,
                     [f"fixtureId: {LABEL}", f"fixturePoly: {LABEL}", f"fixtureUse: {LABEL}",
-                     "3 declarations: 3 accepted"])
+                     "3 declarations: 3 accepted", accepted(3)])
+        self.expect(["check", CHAIN], 0,
+                    [f"chain: {LABEL}", "1 declaration: 1 accepted", accepted(1)])
+        # An inductive type, a theorem and a definition by its recursor:
+        # Lean's verdicts, accepted, not unsupported (as --record answers).
+        self.expect(["check", INDUCTIVE], 0,
+                    [f"Two: {LABEL}", f"Two.first: {LABEL}", f"Two.second: {LABEL}",
+                     f"Two.rec: {LABEL}", f"Two.cases: {LABEL}", f"Two.swap: {LABEL}",
+                     "6 declarations: 6 accepted", accepted(6)])
 
     def test_1_rejected(self):
         self.expect(["check", "--no-manifest", f"{CASES}/composition-wrong-argument.ndjson"], 1,
                     [NO_MANIFEST, "composition: rejected",
                      "  rejected: argument type mismatch (D1-D5); diagnostic 59 at mixed-infer "
                      "lf-mixed-infer: 4 0",
+                     "1 declaration: 1 rejected"])
+        # An empty inductive block, which Lean's kernel rejects (emptyBlock):
+        # it has no name, Lean's anonymous one.
+        self.expect(["check", "--no-manifest", EMPTY_BLOCK], 1,
+                    [NO_MANIFEST, "[anonymous]: rejected",
+                     "  rejected: an inductive block without types; diagnostic 78 at check-block "
+                     "lf-block-check: 0 0",
                      "1 declaration: 1 rejected"])
 
     def test_2_unsupported_and_unknown(self):
@@ -100,22 +136,26 @@ class ExitCodes(unittest.TestCase):
                      "1 declaration: 1 unsupported"])
         status, out, _ = run("check", "--no-manifest", f"{CASES}/composition-literal.ndjson")
         self.assertEqual((status, out.splitlines()[1]), (2, "composition: unsupported"))
-        self.expect(["check", "--no-manifest", "tests/core/reexport/kinds.ndjson"], 2,
+        status, out, _ = run("check", "--no-manifest", "tests/core/reexport/kinds.ndjson")
+        self.assertEqual((status, out.splitlines()[-2:]),
+                         (2, ["106 declarations: 30 accepted, 4 unknown, 72 unsupported",
+                              accepted(30)]))
+        self.expect(["check", "--no-manifest", "--record", "/dev/null",
+                     "tests/core/reexport/kinds.ndjson"], 2,
                     [NO_MANIFEST,
                      "error: unsupported: an inductive type (not supported yet) (line 51)"])
         self.expect(["check", "tests/cli/unfold.ndjson"], 2,
                     [f"Implies: {LABEL}", "impliesSelf: unknown",
                      "  undecided: terms or levels differ; diagnostic 30 at mixed-convert "
                      "lf-mixed-convert: 17 10",
-                     "2 declarations: 1 accepted, 1 unknown"])
+                     "2 declarations: 1 accepted, 1 unknown", accepted(1)])
 
     def test_3_limits(self):
-        self.expect(["check", "tests/cli/chain.ndjson"], 3,
+        self.expect(["check", "--record", "/dev/null", CHAIN], 3,
                     ["error: full: too many expression nodes or constant references for the "
                      "check's stores (line 97)", *LIMITS])
         self.expect(["check", "--no-manifest", "tests/cli/composition-huge-number.ndjson"], 3,
-                    [NO_MANIFEST, "error: full: a numeric name part larger than the check "
-                     "holds (line 12)", *LIMITS])
+                    [NO_MANIFEST, "error: full: number beyond 32 bits (line 12)"])
         exhausted = ["  fuel exhausted; diagnostic 1 at check-declaration "
                      "lf-check-declaration: 0 0"]
         self.expect(["check", "--fuel", "0", FIXTURE], 3,
@@ -135,7 +175,7 @@ class ExitCodes(unittest.TestCase):
                     ["error: invalid: manifest missing, unreadable or too large (line 0)",
                      *MANIFEST_HINT])
         self.expect(["check", "--no-manifest", "README.md"], 4,
-                    [NO_MANIFEST, "error: invalid: unexpected character (line 1)"])
+                    [NO_MANIFEST, "error: invalid: unexpected character (line 1, byte 0)"])
         self.expect(["check", "tests/cli/no-such.ndjson"], 4, ["error: cannot open the export"])
         self.expect(["count", "tests/cli/no-such.ndjson"], 4, ["error: cannot open the export"])
 
@@ -153,6 +193,12 @@ class ExitCodes(unittest.TestCase):
              "error: not a fuel amount: 99999999999999999999"),
             (["check", COMPOSITION, "--fuel"], "error: an option without its value: --fuel"),
             (["check", "--bogus", COMPOSITION], "error: an unknown option: --bogus"),
+            (["check", "--json", "--record", "r.json", COMPOSITION],
+             "error: --json and --resources do not go with --record"),
+            (["check", "--record", "r.json", "--resources", COMPOSITION],
+             "error: --json and --resources do not go with --record"),
+            (["print", "--json", COMPOSITION],
+             "error: an option this command does not take: --json"),
             (["count", "--fuel", "3", COMPOSITION],
              "error: an option this command does not take: --fuel"),
             (["frobnicate"], "error: an unknown command: frobnicate"),
@@ -178,7 +224,7 @@ class ExitCodes(unittest.TestCase):
                     ["error: RECORD must not be EXPORT"])
         with tempfile.TemporaryDirectory() as folder:
             self.expect(["check", "--record", f"{folder}/missing/run.json", COMPOSITION], 4,
-                        [f"composition: {LABEL}", "1 declaration: 1 accepted",
+                        [f"composition: {LABEL}", "1 declaration: 1 accepted", accepted(1),
                          "error: the run record was not written: invalid"])
 
     def test_5_broken_gforth(self):
@@ -193,15 +239,16 @@ class ExitCodes(unittest.TestCase):
             self.assertEqual(run("check", COMPOSITION, gforth=str(stub))[0], 5)
 
     def test_5_thrown(self):
-        """The real Gforth, an allocation made to throw (tests/support/
-        alloc-fail.fs, loaded before src/main.fs): at the first, while
-        staging; at the 63rd, the first in composition's check (staging it
-        makes 62, which tests/cli/leanforth.fs counts afresh)."""
+        """The real Gforth, an allocation of the stores made to throw
+        (tests/support/alloc-fail.fs, loaded before src/main.fs): at the
+        first, while feeding; at the 24th, the first in composition's check
+        (feeding it and making the environment make 23, which
+        tests/cli/leanforth.fs counts afresh)."""
         with tempfile.TemporaryDirectory() as folder:
             stub = Path(folder) / "gforth"
             for k, lines in [
                 (1, ["internal fault: a Forth exception (THROW -4150)"]),
-                (63, ["composition: invalid",
+                (24, ["composition: invalid",
                       "  invalid: internal fault; diagnostic 29 at env-publish lf-env-step: "
                       "0 -4150",
                       "internal fault: the run stopped: a check threw, or publishing failed",
@@ -213,6 +260,18 @@ class ExitCodes(unittest.TestCase):
                 stub.chmod(stub.stat().st_mode | stat.S_IXUSR)
                 status, out, err = run("check", COMPOSITION, gforth=str(stub))
                 self.assertEqual((status, out.splitlines(), err), (5, lines, ""), k)
+                # With --json: a THROW outside a check leaves no report; one
+                # inside a check, a whole report of a run that stopped.
+                status, out, err = run("check", "--json", COMPOSITION, gforth=str(stub))
+                if k == 1:
+                    self.assertEqual((status, out.splitlines(), err), (5, lines, ""))
+                    continue
+                got = json.loads(out)
+                schema = Validator(json.loads(
+                    (ROOT / "schemas/check-report-0.1.schema.json").read_text()))
+                self.assertEqual((status, schema.errors(got), got["stopped"], got["exitStatus"],
+                                  got["declarations"][0]["diagnostic"]["code"]),
+                                 (5, [], True, 5, 29))
 
 
 OUTLINES = ROOT / "tests" / "present" / "outlines.golden"
@@ -359,13 +418,17 @@ class RunRecords(unittest.TestCase):
 
 class Behaviour(unittest.TestCase):
     def test_accepted_only_from_slots(self):
-        """Every "accepted" is a declaration's line with the label."""
+        """Every "accepted" is a declaration's line with the label, or a
+        summary line that counts them with the label."""
         for args in [["check", COMPOSITION], ["check", "tests/cli/unfold.ndjson"],
-                     ["check", "--no-manifest", f"{CASES}/composition-wrong-argument.ndjson"]]:
+                     ["check", "--no-manifest", f"{CASES}/composition-wrong-argument.ndjson"],
+                     ["check", INDUCTIVE]]:
             _, out, _ = run(*args)
             for line in out.splitlines():
                 if "accepted" in line and not re.match(r"^\d+ declarations?: ", line):
-                    self.assertRegex(line, r"^\S+: " + re.escape(LABEL) + "$")
+                    self.assertRegex(line, r"^(\S+: " + re.escape(LABEL) + r"|accepted: \d+ "
+                                     r"\(experimental, not independently audited\); "
+                                     r"axioms: none)$")
 
     def test_any_folder_and_deterministic(self):
         first = run("check", COMPOSITION)
@@ -409,9 +472,243 @@ class Behaviour(unittest.TestCase):
         self.assertEqual(run("--version")[:2], (0, out))
         status, out, _ = run("capabilities")
         self.assertEqual(status, 0)
-        self.assertIn("  64 names, 64 levels, 64 term nodes, 32 declarations per export\n", out)
+        self.assertIn("  check --record, replay, print: 64 names, 64 levels, 64 term nodes,\n"
+                      "    32 declarations per export, 64 dependencies per export\n", out)
         status, out, _ = run("help")
         self.assertEqual((status, run("--help")[1], run("-h")[1]), (0, out, out))
+
+
+class Tampered(unittest.TestCase):
+    """An export changed after it was made is never accepted: with its
+    manifest it is refused before anything is checked (invalid, 4); without
+    it, a change that breaks the file is invalid too, and one that keeps it
+    well formed gets the verdict of what it now says."""
+
+    def copies(self, folder, source, change):
+        """source and its manifest copied into folder, the copy changed."""
+        text = (ROOT / source).read_text()
+        export = Path(folder) / Path(source).name
+        export.write_text(change(text))
+        manifest = ROOT / f"{source}.manifest.json"
+        Path(f"{export}.manifest.json").write_text(manifest.read_text())
+        return str(export)
+
+    def refused(self, export, code, error):
+        """With the manifest: invalid (the reader's own refusal, or the
+        manifest's SHA-256 at the end of the read). Without it: code, and
+        error as the line after the note."""
+        for options in [[], ["--no-manifest"]]:
+            status, out, err = run("check", *options, export)
+            self.assertNotIn(LABEL, out, (options, export))
+            if not options:
+                self.assertEqual((status, out.splitlines()[0][:16]), (4, "error: invalid: "),
+                                 export)
+            else:
+                self.assertEqual((status, out.splitlines()[1:2]), (code, error), export)
+
+    def test_tampered(self):
+        with tempfile.TemporaryDirectory() as folder:
+            # The proof replaced by the statement: rejected without the manifest.
+            proof = self.copies(folder, COMPOSITION,
+                                lambda t: t.replace('"value":20', '"value":10'))
+            self.refused(proof, 1, ["composition: rejected"])
+            self.assertEqual(run("check", proof)[1].splitlines()[0],
+                             "error: invalid: export differs from its manifest "
+                             "(field sha256, line 0)")
+            # A reference to an expression that does not exist.
+            dangling = self.copies(folder, COMPOSITION,
+                                   lambda t: t.replace('"arg":12,"fn":1}', '"arg":12,"fn":99}'))
+            self.refused(dangling, 4, ["error: invalid: bad reference (field fn, line 27)"])
+            # Cut inside its last line; and the fixture cut after its
+            # second-last line, a shorter library that reads well: only its
+            # manifest tells (without it, its two declarations are accepted).
+            cut = self.copies(folder, COMPOSITION, lambda t: t[:-5])
+            self.refused(cut, 4,
+                         ["error: invalid: missing final line feed, or a read error (line 35)"])
+            shorter = self.copies(folder, FIXTURE,
+                                  lambda t: t[:t.rstrip("\n").rindex("\n") + 1])
+            status, out, _ = run("check", shorter)
+            self.assertEqual((status, out.split(" (")[0]),
+                             (4, "error: invalid: export differs from its manifest"))
+            self.assertEqual(run("check", "--no-manifest", shorter)[0], 0)
+            # Another Lean version than the pinned one: unsupported, 2.
+            other = self.copies(folder, COMPOSITION,
+                                lambda t: t.replace('"version":"4.35.0"', '"version":"4.36.0"'))
+            status, out, _ = run("check", "--no-manifest", other)
+            self.assertEqual((status, out.splitlines()[1][:20]), (2, "error: unsupported: "))
+            # A constant no declaration has: the stage refuses it at sealing.
+            lines = (ROOT / FIXTURE).read_text().splitlines(keepends=True)
+            unknown = Path(folder) / "unknown.ndjson"
+            unknown.write_text("".join(line for line in lines if '"def":{"all":[1]' not in line))
+            self.assertEqual(run("check", "--no-manifest", str(unknown)),
+                             (4, f"{NO_MANIFEST}\nerror: invalid: unknown constant (line 0)\n",
+                                 ""))
+
+
+def report(*args):
+    """The exit status and the JSON report of check --json."""
+    status, out, err = run("check", "--json", *args)
+    return status, json.loads(out), err
+
+
+CASES_ALL = [
+    [COMPOSITION], [FIXTURE], [CHAIN], [INDUCTIVE], ["tests/cli/unfold.ndjson"],
+    [f"{CASES}/composition-wrong-argument.ndjson"],
+    ["--no-manifest", f"{CASES}/composition-wrong-argument.ndjson"],
+    ["--no-manifest", f"{CASES}/composition-postulate.ndjson"],
+    ["--no-manifest", f"{CASES}/composition-loose.ndjson"],
+    ["--no-manifest", "README.md"], ["tests/cli/no-such.ndjson"],
+    ["--no-manifest", "tests/cli/composition-huge-number.ndjson"],
+    ["--no-manifest", "tests/core/reexport/kinds.ndjson"], ["--fuel", "0", FIXTURE],
+    ["--no-manifest", EMPTY_BLOCK],
+]
+
+
+class JsonReport(unittest.TestCase):
+    """check --json (plan task 3.4.3): one report the schema accepts, which
+    says what the text says, the same on every run but for "measured"."""
+
+    schema = Validator(json.loads((ROOT / "schemas/check-report-0.1.schema.json").read_text()))
+
+    def test_valid_and_as_the_text(self):
+        for args in CASES_ALL:
+            status, got, err = report(*args)
+            self.assertEqual((self.schema.errors(got), err), ([], ""), args)
+            text_status, text, _ = run("check", *args)
+            self.assertEqual((status, got["exitStatus"]), (text_status, text_status), args)
+            self.assertEqual(got["stopped"], "internal fault: the run stopped" in text, args)
+            # Each declaration's line, in order, says the report's verdict.
+            words = {"accepted": LABEL, "not-checked": "not checked"}
+            lines = text.splitlines()
+            at = 0
+            for d in got["declarations"]:
+                line = f"{d['name']}: {words.get(d['verdict'], d['verdict'])}"
+                self.assertIn(line, lines[at:], args)
+                at = lines.index(line, at) + 1
+            shown = [line for line in lines if re.match(r"^\d+ declarations?: ", line)]
+            counts = got["counts"]
+            self.assertEqual(len(shown), int(counts is not None), args)
+            if counts is not None:
+                words = {"accepted": "accepted", "rejected": "rejected", "unknown": "unknown",
+                         "unsupported": "unsupported", "invalid": "invalid",
+                         "exhausted": "exhausted", "full": "full", "notChecked": "not checked"}
+                summary = ", ".join(f"{counts[k]} {w}" for k, w in words.items() if counts[k])
+                plural = "" if counts["declarations"] == 1 else "s"
+                self.assertEqual(shown[0], f"{counts['declarations']} declaration{plural}: "
+                                           f"{summary}", args)
+
+    def test_schema_refuses(self):
+        """The schema refuses a report whose parts disagree."""
+        _, good, _ = report(INDUCTIVE)
+        _, unread, _ = report("--no-manifest", "README.md")
+
+        def changed(base, edit):
+            copy = json.loads(json.dumps(base))
+            edit(copy)
+            return self.schema.errors(copy)
+        cases = [
+            (good, lambda r: r["declarations"][4].update(verdict="rejected")),   # status 0
+            (good, lambda r: r["declarations"][0].update(axiomBits=4)),          # notProved false
+            (good, lambda r: r["declarations"][0].pop("label")),
+            (good, lambda r: r["declarations"][1].update(diagnostic=None)),      # accepted
+            (good, lambda r: r.update(run="not-run")),                           # read ok
+            (good, lambda r: r["fuel"]["top"].append(r["fuel"]["top"][0]) or
+             r["fuel"]["top"].extend(r["fuel"]["top"] * 5)),                    # more than 10
+            (good, lambda r: r.update(extra=1)),
+            (good, lambda r: r.update(stopped=True)),                            # status 0
+            (good, lambda r: r["declarations"][4].update(verdict="not-checked")),  # run ok
+            (unread, lambda r: r.update(counts=good["counts"])),                 # not read
+            (unread, lambda r: r["read"].update(phase=None)),                    # failed read
+        ]
+        for base, edit in cases:
+            self.assertNotEqual(changed(base, edit), [])
+        self.assertEqual(changed(good, lambda r: None), [])
+
+    def test_deterministic(self):
+        for args in [[INDUCTIVE], ["--no-manifest", "tests/core/reexport/kinds.ndjson"]]:
+            first, second = report(*args)[1], report(*args)[1]
+            for got in (first, second):
+                self.assertIsInstance(got.pop("measured")["peakResidentBytes"], (int, type(None)))
+            self.assertEqual(first, second, args)
+
+    def test_contents(self):
+        status, got, _ = report(INDUCTIVE)
+        self.assertEqual((status, got["run"], got["read"]["outcome"], got["manifest"]),
+                         (0, "ok", "ok", "checked"))
+        self.assertEqual([d["fuel"] > 0 for d in got["declarations"]],
+                         [True, False, False, False, True, True])   # the block's is Two's
+        self.assertEqual((got["fuel"]["total"], got["fuel"]["unknown"]),
+                         (sum(d["fuel"] for d in got["declarations"]), 0))
+        self.assertEqual([t["name"] for t in got["fuel"]["top"]],
+                         ["Two.cases", "Two.swap", "Two"])
+        self.assertEqual((got["input"]["declarations"], got["stopped"]), (6, False))
+        # Fuel not known: a check that failed in inference gave its counter
+        # up; it is in no total and never among the most fuel used.
+        _, got, _ = report("--no-manifest", "tests/core/reexport/kinds.ndjson")
+        unknown = [d for d in got["declarations"] if d["fuel"] is None]
+        self.assertEqual(len(unknown), got["fuel"]["unknown"])
+        self.assertTrue(unknown and all(d["verdict"] not in ("accepted", "exhausted")
+                                        for d in unknown))
+        self.assertEqual(got["fuel"]["total"],
+                         sum(d["fuel"] for d in got["declarations"] if d["fuel"] is not None))
+        fuels = [t["fuel"] for t in got["fuel"]["top"]]
+        self.assertEqual(fuels, sorted(fuels, reverse=True))
+        self.assertEqual(fuels[0], max(d["fuel"] or 0 for d in got["declarations"]))
+        status, got, _ = report("--no-manifest", "README.md")
+        self.assertEqual((status, got["read"]["phase"], got["read"]["line"], got["run"]),
+                         (4, "stage", 1, "not-run"))
+        status, got, _ = report("tests/cli/no-such.ndjson")
+        self.assertEqual((status, got["read"]["phase"], got["input"]), (4, "open", None))
+
+
+class Resources(unittest.TestCase):
+    """check --resources (plan task 6.5.2, the command line's part)."""
+
+    def test_report(self):
+        status, out, err = run("check", "--resources", INDUCTIVE)
+        lines = out.splitlines()
+        self.assertEqual((status, err, lines[:9]),
+                         (0, "", run("check", INDUCTIVE)[1].splitlines() + ["resources:"]))
+        rest = lines[9:]
+        self.assertEqual(rest[0], "  time (s)     wall      cpu")
+        self.assertEqual([line.split()[0] for line in rest[1:5]],
+                         ["stage", "feed", "check", "total"])
+        self.assertRegex(rest[5], r"^  memory: peak resident \d+(\.\d)? [kM]B; "
+                                  r"the stage's heap blocks \d+(\.\d)? [kM]B$")
+        self.assertEqual(rest[6:], [
+            "  input: 6 declarations, 46 term nodes, 3 levels, 5 constant references, 31 names",
+            "  fuel: 1520 steps in all, at most 100000 per declaration",
+            "  most fuel used:",
+            "       832 Two.cases (accepted)",
+            "       349 Two.swap (accepted)",
+            "       339 Two (accepted)"])
+
+    def test_stable_but_for_time_and_memory(self):
+        def steady(out):
+            return [line for line in out.splitlines()
+                    if not re.match(r"^  (stage|feed|check|total) |^  memory: ", line)]
+        args = ["--resources", "--no-manifest", "tests/core/reexport/kinds.ndjson"]
+        self.assertEqual(steady(run("check", *args)[1]), steady(run("check", *args)[1]))
+
+
+class Fuel(unittest.TestCase):
+    """The fuel an accepted declaration's check used is exactly what it
+    needs: with a budget of that much it is accepted, with one less it runs
+    out. Taken for the accepted declaration that used the most, so every
+    accepted one before it, its dependencies among them, used less and
+    stays accepted."""
+
+    def test_exact(self):
+        for export in [COMPOSITION, FIXTURE, CHAIN, INDUCTIVE, "tests/cli/unfold.ndjson"]:
+            _, got, _ = report(export)
+            accepted = [d for d in got["declarations"] if d["verdict"] == "accepted"]
+            most = max(accepted, key=lambda d: d["fuel"])
+            self.assertEqual(sum(d["fuel"] == most["fuel"] for d in accepted), 1, export)
+            for budget, verdict in [(most["fuel"], "accepted"),
+                                    (most["fuel"] - 1, "exhausted")]:
+                _, again, _ = report("--fuel", str(budget), export)
+                self.assertEqual(again["declarations"][most["index"]]["verdict"], verdict,
+                                 (export, budget))
 
 
 if __name__ == "__main__":

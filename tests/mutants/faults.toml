@@ -2127,12 +2127,13 @@ new = '''2dup kind-tally 1 swap +! export-handed ;'''
 test = "$GFORTH tests/core/ndjson.fs"
 reason = "records a handler refused are counted in the tally"
 
-# --- the command line (src/cli/leanforth.fs, bin/leanforth) and the checker's
-# input (src/import/checker-input.fs), plan tasks 3.4.1-3.4.2 and 3.2.2 v0 ---
+# --- the command line (src/cli/leanforth.fs, tally.fs, check-run.fs,
+# check-json.fs, bin/leanforth) and the checker's input
+# (src/import/checker-input.fs), plan tasks 3.4.1-3.4.3 and 3.2.2 v0 ---
 
 [[fault]]
 id = "cli-rejected-exits-0"
-file = "src/cli/leanforth.fs"
+file = "src/cli/tally.fs"
 old = '''  exit-accepted , exit-malformed , exit-limit , exit-undecided , exit-rejected ,'''
 new = '''  exit-accepted , exit-malformed , exit-limit , exit-undecided , exit-accepted ,'''
 test = "$GFORTH tests/cli/leanforth.fs"
@@ -2141,7 +2142,7 @@ quick = true
 
 [[fault]]
 id = "cli-severity-order"
-file = "src/cli/leanforth.fs"
+file = "src/cli/tally.fs"
 old = '''create cli-severity  0 , 3 , 1 , 2 , 4 , 5 ,'''
 new = '''create cli-severity  0 , 1 , 3 , 2 , 4 , 5 ,'''
 test = "$GFORTH tests/cli/leanforth.fs"
@@ -2149,7 +2150,7 @@ reason = "an unknown declaration outranks a rejected one: the documented order i
 
 [[fault]]
 id = "cli-verdicts-not-in-code"
-file = "src/cli/leanforth.fs"
+file = "src/cli/tally.fs"
 old = ''': cli-tally ( outcome -- ) dup outcome>code cli-code! cli-count-of 1 swap +! ;'''
 new = ''': cli-tally ( outcome -- ) cli-count-of 1 swap +! ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
@@ -2158,7 +2159,7 @@ reason = "the declarations' verdicts never reach the exit status, so every check
 [[fault]]
 id = "cli-prints-accepted-itself"
 file = "src/cli/leanforth.fs"
-old = '''  dup cli-name. ." : " dup lf-check-verdict. cr'''
+old = '''  dup cli-name. ." : " dup lf-check-verdict. dup cli-not-proved. cr'''
 new = '''  dup cli-name. ." : accepted (experimental, not independently audited); axioms: none" cr'''
 test = "python3 tests/cli/test_leanforth.py"
 reason = "trust boundary: the command line prints accepted itself, not the slot's verdict"
@@ -2175,10 +2176,110 @@ reason = "a Forth exception inside a command exits 0 instead of 5, an internal f
 [[fault]]
 id = "cli-spent-context-ignored"
 file = "src/cli/leanforth.fs"
-old = ''': cli-faulted? ( -- flag ) lf-env-spent? run-record rr-run @ ok? 0= or ;'''
-new = ''': cli-faulted? ( -- flag ) run-record rr-run @ ok? 0= ;'''
+old = ''': cli-faulted? ( -- flag ) lf-env-spent? cli-run-outcome ok? 0= or ;'''
+new = ''': cli-faulted? ( -- flag ) cli-run-outcome ok? 0= ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "a check that threw is reported as invalid input (4), not as an internal fault (5)"
+
+[[fault]]
+id = "cli-not-proved-never"
+file = "src/cli/tally.fs"
+old = ''': not-proved? ( outcome bits -- flag ) 0<> swap ok? and ;'''
+new = ''': not-proved? ( outcome bits -- flag ) 2drop false ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "an accepted declaration with an axiom is never marked NOT PROVED (owner's axiom rule)"
+
+[[fault]]
+id = "cli-block-members-checked-again"
+file = "src/cli/check-run.fs"
+old = '''  dup lf-env-published? if ck-trailing false else ck-step then ;'''
+new = '''  ck-step ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "the members after a block's first, published with it, are checked again: the run stops"
+quick = true
+
+[[fault]]
+id = "cli-fed-read-no-code"
+file = "src/cli/leanforth.fs"
+old = '''  ck-loaded? if cli-tally-run else ck-read-outcome outcome>code cli-code! then ;'''
+new = '''  ck-loaded? if cli-tally-run then ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "an export the stage or the feed refuses exits 0, as if every declaration were accepted"
+quick = true
+
+[[fault]]
+id = "cli-fed-manifest-unchecked"
+file = "src/cli/check-run.fs"
+old = '''  if ck-stage stage-load else ck-stage stage-load-unchecked then ;'''
+new = '''  drop ck-stage stage-load-unchecked ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "check stages exports without their manifests by default"
+
+[[fault]]
+id = "cli-fed-not-final-ok"
+file = "src/cli/check-run.fs"
+old = ''': ck-final? ( d -- flag ) lf-env-readable dup if nip then ;'''
+new = ''': ck-final? ( d -- flag ) drop true ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "a run whose publisher failed, leaving a slot open, is not reported as stopped"
+
+[[fault]]
+id = "cli-fuel-off-by-one"
+file = "src/cli/check-run.fs"
+old = '''drop ck-fuel-unknown else ck-fuel-budget swap - 0 max then ;'''
+new = '''drop ck-fuel-unknown else ck-fuel-budget swap - 1+ 0 max then ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "the fuel reported is not what the check used: that budget no longer accepts exactly"
+
+[[fault]]
+id = "cli-fuel-given-up-counted"
+file = "src/cli/check-run.fs"
+old = ''': ck-gave-up? ( outcome left -- flag ) 0= swap ck-ran-out? 0= and ;'''
+new = ''': ck-gave-up? ( outcome left -- flag ) 2drop false ;'''
+test = "python3 tests/cli/test_leanforth.py"
+reason = "a failed inference's zeroed counter is reported as the whole budget used"
+
+[[fault]]
+id = "cli-capacities-kept-raised"
+file = "src/cli/check-run.fs"
+old = '''  lf-name-detach ck-empty ck-restore false ck-state ck-began-feed ! ;'''
+new = '''  lf-name-detach ck-empty false ck-state ck-began-feed ! ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "after a check the stores keep the sizes the feed raised, so later small checks differ"
+
+[[fault]]
+id = "cli-stage-kept"
+file = "src/cli/check-run.fs"
+old = '''  ck-env-free ck-unfeed ck-feeding-record dup feed-free /feed erase ck-stage stage-free'''
+new = '''  ck-env-free ck-unfeed ck-feeding-record dup feed-free /feed erase'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "the stage, hundreds of MB for a library, is not freed after a check"
+
+[[fault]]
+id = "cli-json-status-0"
+file = "src/cli/check-json.fs"
+old = ''': cj-status ( -- ) cli-worst @ s" exitStatus" cj-number ;'''
+new = ''': cj-status ( -- ) 0 s" exitStatus" cj-number ;'''
+test = "python3 tests/cli/test_leanforth.py"
+reason = "the JSON report says status 0 whatever the verdicts"
+quick = true
+
+[[fault]]
+id = "cli-json-all-accepted"
+file = "src/cli/check-json.fs"
+old = '''  lf-env-outcome dup ok? if drop s" accepted" else outcome-text then ;'''
+new = '''  drop s" accepted" ;'''
+test = "python3 tests/cli/test_leanforth.py"
+reason = "trust boundary: the JSON report calls every declaration accepted, not its slot's verdict"
+quick = true
+
+[[fault]]
+id = "cli-json-never-stopped"
+file = "src/cli/check-json.fs"
+old = '''  ck-verdicts? if lf-env-spent? ck-outcome ok? 0= or else false then ;'''
+new = '''  false ;'''
+test = "python3 tests/cli/test_leanforth.py"
+reason = "the JSON report of a run that stopped on a fault does not say so"
 
 [[fault]]
 id = "cli-manifest-not-checked"

@@ -224,9 +224,17 @@ its exported data in `lf-input-more` (`src/core/input.fs`): a type's
 constructor's `induct`, `cidx`, `numParams`, `numFields`; a recursor's
 numbers, `k`, `all` and rules (constructor, `nfields`, right side as a
 term). `lf-input-add` checks that every record lies within the data; the
-data is in the input's fingerprint. Only the feed path carries blocks;
-`import/checker-input.fs` (the command line's reader) still refuses
-inductive types.
+data is in the input's fingerprint. Only the feed path carries blocks.
+Since 2026-11-04 `bin/leanforth check` stages and feeds the export
+([the command line](../user/COMMAND_LINE.md#an-inductive-type)), so its
+blocks get the checker's verdicts there (`tests/cli/inductive.ndjson`: a
+block, a theorem and a definition by its recursor, all accepted, as Lean
+accepts them). `check --record`, `replay` and `print` still read with
+`import/checker-input.fs`, which refuses an inductive type while reading
+(*unsupported*): a temporary gap, closed for `check --record` and
+`replay` by a run record version for exports of any size (plan task
+6.5.2, [run records, version 0.2](RUN_RECORDS.md#version-02-records-of-any-size))
+and for `print` by moving it onto the feed (plan task 3.4.1).
 
 ## Limits
 
