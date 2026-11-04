@@ -844,6 +844,63 @@ Each is [kernel] code through the gate in `AGENTS.md`, in this order:
 Then 4.3.1 (this table as a LeanForth differential, plus the randomized
 one) and 4.3.2 (the unknown rate).
 
+### Progress
+
+**4.2.2a, implemented 2026-11-03 (agent D2A); its [kernel] gate is
+pending** (independent review, owner approval). What changed:
+
+- *Free variables and the local context*
+  (`src/core/local-context.fs`): a free variable is a term node of tag
+  `lf-tag-fvar` whose number is its entry in the check's local context, a
+  heap store in the checker context holding the node (with its
+  identity), its type and, for a `let` variable, its value. Entries are
+  only appended while a job runs (inference empties the local context
+  when a job starts), so a number is never reused within a check; a
+  node is a live free variable only when its own entry names it with its
+  current identity, which every audit (`lf-cterm-check`) requires. Its
+  capacity is a per-context setting; full is *full*, never ok.
+- *Lean's substitutions* (`src/kernel/mixed-open.fs`): `instantiate`,
+  `instantiate_rev`, `abstract` and `mk_pi`, ports of `instantiate.cpp`
+  15–39 and 99–118, `abstract.cpp` 14–32 and `local_ctx.cpp` 93–125, with
+  Lean's `update_*` rule (a node whose children are unchanged is kept).
+  Without Lean's cached loose-variable range and free-variable flag, the
+  passes visit unchanged subterms and pay fuel for them (Q12 plans the
+  data and a memo); `mk_pi` of a `let` variable is *unsupported* until
+  4.2.3.
+- *Inference* (`src/kernel/mixed-infer.fs`) infers closed terms only, as
+  Lean does: a telescope of λs or Πs is opened as `infer_lambda` and
+  `infer_pi` open it (each domain instantiated with the free variables
+  before it, checked to be a type, then given a free variable), the body
+  opened with all of them; a λ's type is `mk_pi` of the body's type, a
+  free variable's type its entry's, and an application's type Lean's
+  `instantiate` of the Π body. The binder-domain stack and the shift of a
+  bound variable's domain (`lf-ijob-domains`, `lf-minfer-shift`) are gone.
+  ADR 0011's rejection analysis keeps its own binders (D4) as bound
+  variables, as before, and closes a term with their free variables when
+  P2 infers it. Not yet ported: `cheap_beta_reduce` of a λ body's type
+  (tc 140), which changes inferred types and so comes with 4.2.2c.
+- Inference discards scratch it no longer needs (a domain's and an
+  argument's inference, a Π telescope's) so that the 64-term default
+  store still holds every table case; this must go when the caches of
+  Q10 keep scratch until the check ends.
+
+Evidence: every differential target of `make check` gives the same
+answers; at the 64-term default store the binder-domain table's rows
+`compare.eta-under-beta-domain` and
+`compare.lambda-beta-domain-different-body`, before known differences
+(full, unknown), now give the table's answer. A randomized differential
+against the code before (`.claude/work/D2A/difftrial.fs`: random closed
+terms, half of them well typed by construction, through inference and
+both probes; seed 20261103, 20,000 terms, 134,570 runs: 41,957 ok, 79,833
+rejected, 12,780 unknown) finds no difference in outcome, diagnostic
+code, D-rule mask or inferred type; with too little fuel (seed 777) or
+room (seed 4242) the only differences are *unknown* against *rejected*
+(the analysis stays unknown when it runs out, and the two spend fuel and
+room differently), never another verdict. A planted fault
+(`infer-imax-zero`) gives 1,348 differences. Unit tests of the local
+context and of the four ports in `tests/core/mixed-instantiate.fs`; 14
+new planted faults in `tests/mutants/faults.toml`, all caught.
+
 ## Test plan
 
 1. **This table as a LeanForth differential** (4.3.1): a terms file prints

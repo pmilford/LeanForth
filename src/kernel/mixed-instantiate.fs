@@ -65,10 +65,9 @@ end-structure
 : lf-minst-binary ( node frames -- result outcome )
   over lf-minst-children? if lf-rebuild-binary else lf-rebuild-bad then ;
 : lf-minst-leaf ( node frames tag -- result outcome )
-  case lf-tag-bvar of lf-minst-bvar endof
+  case lf-tag-bvar of lf-minst-bvar endof  lf-tag-fvar of lf-rebuild-keep endof
     lf-tag-constant of lf-rebuild-keep endof
     lf-tag-symbolic-sort of lf-rebuild-keep endof
-    lf-tag-fvar of lf-rebuild-keep endof
     >r lf-rebuild-bad r> endcase ;
 : lf-minst-visit ( node frames -- result outcome )
   2dup lf-minst-readable? lf-rebuild-tag

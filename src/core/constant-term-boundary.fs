@@ -74,9 +74,8 @@ lf-depth-limit context-walk: lf-cterm-walker
 : lf-cterm-dispatch ( first second walk tag -- outcome )
   dup lf-term-binary-tag? if drop walk-children exit then
   case lf-tag-constant of lf-cterm-reference endof
-    lf-tag-bvar of lf-repr-bvar endof
-    lf-tag-symbolic-sort of lf-cterm-sort endof
-    lf-tag-fvar of lf-cterm-fvar endof walk-bad-tag endcase ;
+    lf-tag-bvar of lf-repr-bvar endof  lf-tag-fvar of lf-cterm-fvar endof
+    lf-tag-symbolic-sort of lf-cterm-sort endof walk-bad-tag endcase ;
 : lf-cterm-visit ( walk -- outcome ) lf-terms ['] lf-cterm-dispatch walk-visit ;
 
 \ Validate a live root and its reachable mixed symbolic graph. Each term and

@@ -260,7 +260,8 @@ lf-term-count @ constant count-closed
 T{ closed 2 rev lf-term-count @ -> closed outcome-ok count-closed }T
 \ abstract makes x #1 and y #0 again; a leaf of an index made before is
 \ shared, not made again.
-T{ 9 2 rev drop 2 abstracted drop fields >r index-of r> index-of rot -> 1 0 lf-tag-app }T
+: round-trip ( -- tag i j ) 9 2 rev drop 2 abstracted drop fields >r index-of r> index-of ;
+T{ round-trip -> lf-tag-app 1 0 }T
 : second-leaf ( -- leaf ) 9 2 rev drop 2 abstracted drop fields >r 2drop r> ;
 T{ second-leaf second-leaf = -> true }T
 \ Only free variables of the n are abstracted; another stays.

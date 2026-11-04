@@ -2,7 +2,9 @@
 
 This folder holds the checker as it is developed: universe substitution,
 value and comparison; candidate signatures; shift, instantiate, beta
-reduction, definitional comparison, conversion and type inference; the
+reduction, definitional comparison, conversion and type inference over
+free variables (`mixed-open.fs`: Lean's `instantiate_rev`, `abstract` and
+`mk_pi`; see *Free variables* below); the
 definition and theorem probe that drives them; the checked environment and
 its publisher; and the first checker, `check-declaration.fs` (plan task
 2.2.3), which the publisher runs for each declaration: the audit (U1, U2,
@@ -22,6 +24,45 @@ which `level-compare.fs` (conversion, rule D1) uses; `mixed-infer.fs`
 types a Π with `mk_imax`, and `level-substitute.fs` specializes a
 constant's type as Lean's `instantiate` does. A new place that builds a
 level where Lean's kernel builds one must use the same ports.
+
+## Free variables (plan task 4.2.2a, ADR 0014 Q2)
+
+Inference meets only closed terms, as Lean's kernel does. When it enters
+a binder it names the bound variable with a *free variable*: a term node
+of tag `lf-tag-fvar` whose number is an entry of the check's *local
+context* (`src/core/local-context.fs`), which holds the variable's type
+(and, for a `let`, its value). `mixed-open.fs` ports the four functions
+that move between the two forms: `instantiate` and `instantiate_rev` put
+terms (free variables) for a body's loose bound variables, `abstract` turns
+free variables back into bound ones, and `mk_pi` wraps a type in the Πs of
+free variables. `mixed-infer.fs` opens a telescope of λs or Πs as Lean's
+`infer_lambda` and `infer_pi` do and keeps the opened binders' free
+variables on its *scope* (at most `lf-depth-limit`).
+
+Rules a new kernel module must keep:
+
+- A free variable is valid only while its own entry names it
+  (`lf-fvar-live?`): the local context is emptied when an inference job
+  starts and only appended to during it, and a rollback of the term store
+  leaves the entries of discarded variables dead. So never keep a free
+  variable across a job, and audit any term that may hold one with
+  `lf-cterm-check`, which accepts live free variables only. Inputs never
+  hold them.
+- Terms given to inference, conversion's callers and the substitutions are
+  closed; `lf-instantiate` and `lf-instantiate-rev` rely on it (Lean's
+  `lift_loose_bvars` is then the identity) and do not check it.
+- A node's address can move when a store grows: keep node and entry
+  numbers, never addresses, across an allocation.
+- ADR 0011's rejection analysis is the one place with open terms: it keeps
+  the binders it enters (D4) as bound variables, each with a free
+  variable on the scope, and closes a term with them (`lf-minfer-closed`)
+  before P2 infers it. It is retired by plan task 4.2.2d.
+- What 4.2.2b–e need is in place: `lf-lctx-local` and `lf-lctx-let`
+  (Lean's `mk_local_decl`, for `is_def_eq_binding`, eta and `infer_let`),
+  `lf-fvar-value` (for `whnf_fvar`'s zeta), `lf-instantiate` (for beta) and
+  the scope. Not yet: `cheap_beta_reduce` of a λ body's type (with
+  `whnf_core`, 4.2.2c), `mk_pi` of a `let` variable (4.2.3), and the
+  loose-variable range that lets Lean skip closed subterms (Q12).
 
 **Nothing here is verified yet.** The code is in progress, and it becomes
 trusted only when the owner declares it so, after the review gate in

@@ -266,18 +266,14 @@ RULE_STEPS = {"A1": {"done"}, "B1": {"done"}, "U1": {"audit"}, "U2": {"audit"},
 # term store filled while the value's type was inferred), is unknown since
 # check-declaration discards the declared type's scratch before the value.
 FIRST_CHECKER_KNOWN = {}
-# In the binder-domain table three rows meet the 64-node term store (ADR
-# 0016 is to lift it); with lf-term-capacity 160 each gives the table's
+# In the binder-domain table one row meets the 64-node term store (ADR
+# 0016 is to lift it); with lf-term-capacity 160 it gives the table's
 # answer (measured 2026-11-02). The rejection analysis stays unknown when it
-# runs out of room, and inference is full.
+# runs out of room. Two more rows met it until plan task 4.2.2a, whose
+# inference discards scratch as it goes: compare.lambda-beta-domain-
+# different-body (unknown, now rejected) and compare.eta-under-beta-domain
+# (full, now unknown), each the table's answer.
 BINDER_KNOWN = {
-    # The theorem that encodes this comparison of two functions compares
-    # Q l with Q r; the analysis (D5, D4 twice, D3) runs out of room
-    # (with 160 nodes: rejected, D3+D4+D5).
-    "compare.lambda-beta-domain-different-body": "unknown",
-    # The same encoding of a larger pair: the value's type fills the store
-    # (with 160 nodes: unknown, K3).
-    "compare.eta-under-beta-domain": "full",
     # P (fun x y => x) against P (fun x y => y): the analysis (D5, D4 twice,
     # D3) runs out of room (with 160 nodes: rejected, D3+D4+D5).
     "decl.lambda-in-argument-wrong-body": "unknown",

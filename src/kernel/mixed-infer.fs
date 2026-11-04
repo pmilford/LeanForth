@@ -14,11 +14,14 @@
 \ new free variable of the local context (core/local-context.fs); the
 \ body, opened with all of them, is inferred; a lambda's type is then
 \ mk_pi of them over the body's type, a Pi's the Sort of the levels'
-\ imax. A free variable's type is its entry's (infer_fvar, 91-99); a loose
+\ imax. A free variable's type is its entry's (infer_fvar, 93-99); a loose
 \ bound variable is malformed. The opened binders' free variables wait on
 \ the job's scope, at most lf-depth-limit (more is full, as the binder
-\ context was). Lean then also applies cheap_beta_reduce to a lambda
-\ body's type (instantiate.cpp 211-230); that would change inferred
+\ context was). The rejection analysis below keeps its own binders as
+\ bound variables (see lf-minfer-closed), and scratch a step no longer
+\ needs is discarded (lf-minfer-discard). Lean then also applies
+\ cheap_beta_reduce to a lambda body's type (instantiate.cpp 211-230,
+\ type_checker.cpp 140); that would change inferred
 \ types, so it comes with the ports that need it (plan task 4.2.2c), not
 \ with this change of representation, which changes no outcome.
 \ Definite rejection (ADR 0011, ADR 0008 step 3; [kernel] code, not yet
@@ -158,18 +161,18 @@ end-structure
 \ context, whatever fuel is left (ADR 0008); so is a full local context or
 \ term store. Every telescope gives its binders back when it ends
 \ (lf-minfer-unbind), whatever the outcome; their entries stay until the
-\ job's scratch is discarded, so that numbers are never reused meanwhile.
+\ next job starts, so that a number is never reused within a job.
 : lf-minfer-fvar-cell ( i -- addr ) cells lf-minfer-job lf-ijob-fvars + ;
 : lf-minfer-sort-cell ( i -- addr ) cells lf-minfer-job lf-ijob-sorts + ;
 : lf-minfer-crowded ( -- outcome )
   lf-minfer-context-depth @ lf-depth-limit lf-diag-binders-full lf-minfer-note
   outcome-full ;
-: lf-minfer-push ( fvar level -- )
+: lf-minfer-scope-push ( fvar level -- )
   lf-minfer-context-depth @ tuck lf-minfer-sort-cell ! lf-minfer-fvar-cell !
   1 lf-minfer-context-depth +! ;
 : lf-minfer-bind ( type level -- outcome )
   lf-minfer-context-depth @ lf-depth-limit < 0= if 2drop lf-minfer-crowded exit then
-  swap lf-lctx-local ok-then? if swap lf-minfer-push outcome-ok else nip then ;
+  swap lf-lctx-local ok-then? if swap lf-minfer-scope-push outcome-ok else nip then ;
 : lf-minfer-unbind ( base -- ) lf-minfer-context-depth ! ;
 \ The free variables opened since base: their cells and their number.
 : lf-minfer-opened ( base -- fvars n )
@@ -203,7 +206,7 @@ end-structure
 : lf-minfer-compare ( left right -- status )
   lf-minfer-handles if lf-minfer-convert else outcome-invalid then ;
 \ A Pi body with an argument put for its bound variable, as infer_app
-\ does (type_checker.cpp 186: Lean's instantiate, mixed-open.fs), on the
+\ does (type_checker.cpp 187: Lean's instantiate, mixed-open.fs), on the
 \ job's fuel. The argument is closed, as every term inference meets is.
 : lf-minfer-put ( -- addr ) lf-minfer-job lf-ijob-argument ;
 : lf-minfer-instantiate ( body argument -- type status )
@@ -527,7 +530,7 @@ defer lf-minfer-apart ( left right -- mask flag )
 \ ui and a body in Sort v: Lean's infer_pi builds the level innermost
 \ first (type_checker.cpp 158-165; ADR 0011, Amendment 1; level-make.fs).
 \ S4 (ADR 0011, Amendment 2): the body's type must be a Sort too (infer_pi's
-\ ensure_sort_core on the body, 159); when it is no visible Sort and its
+\ ensure_sort_core on the body, 158); when it is no visible Sort and its
 \ whnfB is rigid and not a Sort, Lean's kernel fails with typeExpected. A
 \ full level store is full. Only the level is needed, so the telescope's
 \ scratch is discarded before the Sort is made.

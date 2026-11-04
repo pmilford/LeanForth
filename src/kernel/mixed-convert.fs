@@ -64,8 +64,7 @@ lf-depth-limit context-walk2: lf-mconvert-walker
 : lf-mconvert-dispatch ( a b walk tag -- outcome )
   dup lf-term-binary-tag? if drop lf-mcompare-children exit then
   case lf-tag-symbolic-sort of lf-mconvert-sort endof
-    lf-tag-constant of lf-mconvert-constant endof
-    lf-tag-bvar of lf-mconvert-bvar endof
+    lf-tag-constant of lf-mconvert-constant endof  lf-tag-bvar of lf-mconvert-bvar endof
     lf-tag-fvar of lf-mconvert-bvar endof walk-bad-tag endcase ;
 \ Each visit costs one unit of fuel before its reductions. The reduced
 \ heads along one path are distinct term nodes (a reduct holds only nodes

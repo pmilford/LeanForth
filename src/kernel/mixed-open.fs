@@ -163,8 +163,7 @@ end-structure
   over lf-fvar-live? 0= if lf-rebuild-bad exit then
   dup lf-open-abstract? if lf-open-abstract-fvar else lf-rebuild-keep then ;
 : lf-open-leaf ( node frames tag -- result outcome )
-  case lf-tag-bvar of lf-open-bvar endof
-    lf-tag-fvar of lf-open-free endof
+  case lf-tag-bvar of lf-open-bvar endof  lf-tag-fvar of lf-open-free endof
     lf-tag-constant of lf-rebuild-keep endof
     lf-tag-symbolic-sort of lf-rebuild-keep endof
     >r lf-rebuild-bad r> endcase ;

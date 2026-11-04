@@ -52,10 +52,9 @@ end-structure
   over lf-term-first@ over frame-context @ < if lf-rebuild-keep exit then
   lf-mshift-amount@ swap lf-term-first@ swap lf-mshift-up ;
 : lf-mshift-leaf ( node frames tag -- result outcome )
-  case lf-tag-bvar of lf-mshift-bvar endof
+  case lf-tag-bvar of lf-mshift-bvar endof  lf-tag-fvar of lf-rebuild-keep endof
     lf-tag-constant of lf-rebuild-keep endof
     lf-tag-symbolic-sort of lf-rebuild-keep endof
-    lf-tag-fvar of lf-rebuild-keep endof
     >r lf-rebuild-bad r> endcase ;
 \ A binary node goes straight to lf-rebuild-binary: no word in between.
 : lf-mshift-visit ( node frames -- result outcome )
