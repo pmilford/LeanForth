@@ -32,11 +32,11 @@ variable token
 : infer ( root fuel -- type status ) >r h token @ -rot r> lf-mixed-infer nip ;
 
 \ The deepest successful inference: 27 applications under two binders; its
-\ type is the 64th node (one more application is full). Fuel left: 98702
+\ type is node 62 (one more application is full). Fuel left: 98705
 \ since free variables (98517 for 26 applications, whose type filled the
 \ store exactly, since ADR 0011 Amendment 1; 98439 before).
-T{ 27 apps 100000 infer lf-minfer-fuel @ lf-term-count @ -> 62 outcome-ok 98702 63 }T
-T{ 26 apps 100000 infer lf-minfer-fuel @ lf-term-count @ -> 60 outcome-ok 98775 61 }T
+T{ 27 apps 100000 infer lf-minfer-fuel @ lf-term-count @ -> 62 outcome-ok 98705 63 }T
+T{ 26 apps 100000 infer lf-minfer-fuel @ lf-term-count @ -> 60 outcome-ok 98778 61 }T
 \ Deeper inputs run out of room for their output types: full (not
 \ exhausted: fuel is plentiful), with every count rolled back and no fuel
 \ left, never a crash. With too little fuel the same input is exhausted.
@@ -73,9 +73,9 @@ variable deep-root  variable deep-status
 : difference ( r1 d1 r2 d2 -- r d ) rot swap - >r - r> ;
 25 59 painted-infer 2constant with-normalize
 T{ deep-status @ lf-minfer-fuel @ lf-term-count @ lf-level-count @
-   -> outcome-ok 98140 60 64 }T
+   -> outcome-ok 98143 60 64 }T
 25 0 painted-infer 2constant without-normalize
-T{ deep-status @ lf-minfer-fuel @ lf-term-count @ -> outcome-ok 98846 60 }T
+T{ deep-status @ lf-minfer-fuel @ lf-term-count @ -> outcome-ok 98849 60 }T
 : added ( -- return-cells data-cells ) with-normalize without-normalize difference ;
 T{ added lf-lnorm-data-cells at-most swap lf-lnorm-return-cells at-most -> true true }T
 T{ added drop 59 4 * > -> true }T

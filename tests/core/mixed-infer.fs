@@ -88,12 +88,13 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
 \ Check the result semantically, rather than relying on generated node indices.
 \ The fuel left is pinned: preflight, inference and the specialization of
 \ id spend 109 units here (observed before the refactor, at 398b76b), 106
-\ since ADR 0011 Amendment 1 (structural level equality costs nothing), 97
+\ since ADR 0011 Amendment 1 (structural level equality costs nothing), 94
 \ since free variables (plan task 4.2.2a: no shift for a variable's type,
-\ no audit when an application's type is instantiated).
+\ no audit when an application's type is instantiated, a chain of lambdas
+\ closed once).
 : poly-case ( -- )
   setup 9 50000 infer outcome-ok expect-status
-  lf-minfer-fuel @ 49903 <> abort" poly fuel"
+  lf-minfer-fuel @ 49906 <> abort" poly fuel"
   4 h 50000 lf-mixed-convert outcome-ok <> abort" poly type" ;
 : invalid-argument-case ( -- )
   \ id.{u} (Sort u): the argument has type Sort (u+1) where id.{u} wants a

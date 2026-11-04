@@ -83,9 +83,10 @@ T{ statuses -> outcome-ok outcome-invalid outcome-exhausted outcome-unknown }T
 T{ statuses -> outcome-ok outcome-invalid outcome-exhausted outcome-unknown }T
 \ The success fuel is pinned: preflight and the pair's inference spend 189
 \ units here (observed before the refactor, at 398b76b), 183 since ADR 0011
-\ Amendment 1 (structural level equality costs nothing), 169 since free
+\ Amendment 1 (structural level equality costs nothing), 166 since free
 \ variables (plan task 4.2.2a: a bound variable's type is its entry's, with
-\ no shift, and an application's type is instantiated without an audit).
+\ no shift, an application's type is instantiated without an audit, and a
+\ chain of lambdas has its type closed once, at its top).
 \ The rejections are ADR 0011's, each as Lean's kernel decides: the value
 \ id.{u} (Sort u) applies id to an argument of the wrong universe (D1 in
 \ the value: appTypeMismatch); a function claimed to be a Sort u (D2:
@@ -93,7 +94,7 @@ T{ statuses -> outcome-ok outcome-invalid outcome-exhausted outcome-unknown }T
 : rejected-code? ( code -- flag ) lf-diag-code@ = ;
 : basic-case ( -- )
   setup snapshot 4 9 50000 probe outcome-ok expect-status assert-rollback
-  lf-mdefinition-fuel @ 49831 <> abort" success fuel"
+  lf-mdefinition-fuel @ 49834 <> abort" success fuel"
   lf-term-serial @ term-serial-before @ <= abort" expected allocations"
   snapshot 0 10 50000 probe outcome-rejected expect-status assert-rollback
   lf-mdefinition-fuel @ 0<> abort" rejected fuel"

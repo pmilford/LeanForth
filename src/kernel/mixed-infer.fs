@@ -113,6 +113,7 @@ begin-structure /lf-ijob
   field: lf-ijob-env       \ true in environment mode (lf-minfer-start-env)
   field: lf-ijob-argument  \ the argument an application's type is instantiated with
   field: lf-ijob-apart     \ the scope's depth where the rejection analysis began
+  field: lf-ijob-chain     \ for a lambda's lambda body, where the chain began, else -1
   lf-depth-limit cells +field lf-ijob-fvars   \ the scope's free variables, outermost
                                                \ first
   lf-depth-limit cells +field lf-ijob-sorts   \ beside each, its domain's Sort level (Pis)
@@ -189,16 +190,13 @@ end-structure
 : lf-minfer-opened ( base -- fvars n )
   dup lf-minfer-fvar-cell swap lf-minfer-context-depth @ swap - ;
 
-\ Opening and closing on the job's fuel (mixed-open.fs), which continues
-\ with what they leave: node with the free variables opened since base
-\ put for its loose bound variables (instantiate_rev), and the Pi over
-\ them of a type (mk_pi). Both report ok, invalid, exhausted or full.
+\ Opening on the job's fuel (mixed-open.fs), which continues with what it
+\ leaves: node with the free variables opened since base put for its
+\ loose bound variables (instantiate_rev); ok, invalid, exhausted or full.
 : lf-minfer-lend ( -- ) lf-minfer-fuel @ lf-open-fuel ! ;
 : lf-minfer-repay ( -- ) lf-open-fuel @ lf-minfer-fuel ! ;
 : lf-minfer-open ( node base -- node' status )
   lf-minfer-lend lf-minfer-opened lf-instantiate-rev lf-minfer-repay outcome-sane ;
-: lf-minfer-close ( type base -- pi status )
-  lf-minfer-lend lf-minfer-opened lf-mk-pi lf-minfer-repay outcome-sane ;
 
 \ Live nodes as handles; the right one is checked first.
 : lf-minfer-handle ( node -- node identity true | false )
@@ -506,6 +504,14 @@ defer lf-minfer-apart ( left right -- mask flag )
   swap lf-minfer-walk lf-minfer-step? 0= if exit then
   lf-minfer-pi-parts if rot lf-minfer-apply else nip lf-minfer-none then ;
 
+\ Source nodes lie below the term count at the start; inference that runs
+\ aside (test P2) reads every live node, among them the closed copies P2
+\ infers, whose free variables are read through their entries.
+: lf-minfer-source? ( node -- flag )
+  dup 0< 0= swap lf-minfer-job lf-ijob-terms @ < and lf-minfer-aside @ or ;
+: lf-minfer-read ( node -- first second tag true | false )
+  dup lf-minfer-source? 0= if drop false exit then lf-term-read dup if >r rot r> then ;
+
 \ Binders, one at a time, as infer_lambda and infer_pi treat each binder
 \ of a telescope (type_checker.cpp 125-166). The domain, read under the
 \ scope, must be a type, its type a Sort (otherwise unknown, or rejected
@@ -533,12 +539,43 @@ defer lf-minfer-apart ( left right -- mask flag )
 \ and false.
 : lf-minfer-good? ( x status -- x true | -1 status false )
   dup ok? if drop true else nip no-result false then ;
-\ A lambda's type is the Pi over its free variable of its body's type
-\ (mk_pi; type_checker.cpp 139-141, without cheap_beta_reduce: see the
-\ header).
+\ A lambda's type: Lean's infer_lambda opens the whole chain of lambdas
+\ (fun x1 ... fun xn => b) and makes the Pi over all their free variables
+\ of b's type at once (mk_pi; type_checker.cpp 125-141, without
+\ cheap_beta_reduce: see the header). Here each lambda is entered on its
+\ own, and the chain's type is built from the inside out the same way:
+\ b's type with the chain's free variables made bound variables
+\ (abstract), then for each lambda the Pi of its source domain over it --
+\ a Pi of the chain, as mk_pi makes it, since a source domain holds no
+\ free variable and its chain binders are bound variables already; at the
+\ chain's top, the loose bound variables of binders outside the chain
+\ are closed with their free variables (instantiate_rev). So a lambda
+\ inside the chain has its type over the scope's bound variables, at its
+\ depth, as the derivation log records it, and the chain's type is
+\ Lean's, built in one pass. The job's chain field names the depth where
+\ the chain began while a lambda's body is a lambda; the inner lambda
+\ takes it as it starts (lf-minfer-top), so no other node sees it.
+: lf-minfer-chain ( -- addr ) lf-minfer-job lf-ijob-chain ;
+: lf-minfer-top ( base -- top )
+  lf-minfer-chain dup @ -1 rot ! dup 0< if drop else nip then ;
+: lf-minfer-lam? ( node -- flag ) lf-minfer-read if nip nip lf-tag-lam = else false then ;
+: lf-minfer-abstract ( type top -- type' status )
+  lf-minfer-lend lf-minfer-opened lf-abstract lf-minfer-repay outcome-sane ;
+: lf-minfer-lam-body ( top body -- type status )
+  dup lf-minfer-lam? if swap lf-minfer-chain ! lf-minfer-walk -1 lf-minfer-chain !
+  else lf-minfer-walk lf-minfer-good? if swap lf-minfer-abstract else rot drop then then ;
+: lf-minfer-lam-type ( domain type status -- type status )
+  lf-minfer-good? if lf-term-pi if outcome-ok else -1 outcome-full then
+  else rot drop then ;
+: lf-minfer-lam-close ( base top type status -- type status )
+  2swap over = >r lf-minfer-unbind r>
+  if lf-minfer-good? if lf-minfer-closing then then ;
+: lf-minfer-lam-bound ( base top domain body -- base top domain body status )
+  3 pick 2 pick lf-minfer-binding nip ;
 : lf-minfer-lam ( domain body -- type status )
-  lf-minfer-context-depth @ rot lf-minfer-binding ok-then? 0= if nip no-result exit then
-  swap lf-minfer-walk lf-minfer-good? if over lf-minfer-close then rot lf-minfer-unbind ;
+  lf-minfer-context-depth @ dup lf-minfer-top 2swap lf-minfer-lam-bound
+  ok-then? 0= if nip nip nip no-result exit then
+  2 pick swap lf-minfer-lam-body lf-minfer-lam-type lf-minfer-lam-close ;
 \ A Pi's type is Sort (mk_imax u v) for a domain in Sort u and a body in
 \ Sort v: Lean's infer_pi builds the level innermost first
 \ (type_checker.cpp 158-165), as this recursion does (ADR 0011, Amendment
@@ -577,13 +614,6 @@ defer lf-minfer-apart ( left right -- mask flag )
     nip nip lf-minfer-unsupported rot endcase ;
 : lf-minfer-dispatch ( first second tag -- type status )
   dup lf-term-binary-tag? if lf-minfer-binary else nip lf-minfer-leaf then ;
-\ Source nodes lie below the term count at the start; inference that runs
-\ aside (test P2) reads every live node, among them the closed copies P2
-\ infers, whose free variables are read through their entries.
-: lf-minfer-source? ( node -- flag )
-  dup 0< 0= swap lf-minfer-job lf-ijob-terms @ < and lf-minfer-aside @ or ;
-: lf-minfer-read ( node -- first second tag true | false )
-  dup lf-minfer-source? 0= if drop false exit then lf-term-read dup if >r rot r> then ;
 : lf-minfer-visit ( node -- type status )
   dup lf-minfer-fvar? lf-minfer-aside @ and if lf-minfer-fvar exit then
   lf-minfer-read if lf-minfer-dispatch else -1 outcome-invalid then ;
@@ -641,6 +671,7 @@ defer lf-minfer-apart ( left right -- mask flag )
   lf-ijob-crefs @ lf-cref-count ! ;
 : lf-minfer-idle ( job -- )
   0 over lf-ijob-depth ! 0 over lf-ijob-binders ! 0 over lf-ijob-apart !
+  -1 over lf-ijob-chain !
   false over lf-ijob-aside ! false swap lf-ijob-env ! ;
 
 \ Start a job on lf-minfer-job: the index token and nonnegative fuel, no
