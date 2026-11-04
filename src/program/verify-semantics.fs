@@ -81,7 +81,12 @@ end-structure
 : pv-name, ( c-addr u -- entry )
   pv-name-room pv-names store-new-slot 0= abort" pv: table full" drop >r
   2dup pv-host r@ pv-entry-host ! r@ pv-entry-text! r> ;
-: pv-typed ( datum entry kind -- ) over pv-entry-kind ! pv-entry-datum ! ;
+\ A word with verification semantics must be a word of this Forth, whose
+\ identity the mode shift compares; a reserved one need not.
+: pv-host-word ( entry kind -- entry kind )
+  dup pv-kind-reserved <> if over pv-entry-host @ 0= abort" pv: not a word of this Forth"
+  then ;
+: pv-typed ( datum entry kind -- ) pv-host-word over pv-entry-kind ! pv-entry-datum ! ;
 : pv-data ( effect c-addr u -- ) pv-name, pv-kind-data pv-typed ;
 : pv-division ( effect c-addr u -- ) pv-name, pv-kind-divide pv-typed ;
 : pv-return ( effect c-addr u -- ) pv-name, pv-kind-rstack pv-typed ;

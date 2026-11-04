@@ -131,6 +131,10 @@ end-structure
 : pv-out ( -- c-addr ) pv-run pv-run-out ;
 : pv-source ( -- c-addr ) pv-run pv-run-source ;
 : pv-path ( -- c-addr u ) pv-run dup pv-run-path swap pv-run-path# @ ;
+\ A copy of the path, so that it may be in a transient buffer; a longer
+\ one is cut, and cannot fit its header line either.
+: pv-path! ( c-addr u -- )
+  pv-path-chars min dup pv-run pv-run-path# ! pv-run pv-run-path swap chars move ;
 \ The run: the record after its output word and busy flag.
 : pv-the-run ( -- addr u ) pv-run pv-run-design /pv-run 0 pv-run-design - ;
 

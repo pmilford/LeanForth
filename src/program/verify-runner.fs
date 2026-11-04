@@ -92,11 +92,12 @@ end-structure
   dup pv-line-chars < pv-cut @ and if pv-why-capacity pv-fail-here then ;
 : pv-next-line ( -- c-addr u ) pv-split if text-cr-drop else pv-cut-short then ;
 : pv-long? ( u -- flag ) pv-line-chars < 0= ;
-: pv-plain ( -- ) pv-text text-plain-at dup pv-text nip < if pv-offset! pv-why-character
-  pv-fail-here then drop ;
+: pv-odd-at ( -- offset flag ) pv-text text-plain-at dup pv-text nip < ;
+: pv-plain ( -- ) pv-odd-at if pv-offset! pv-why-character pv-fail-here then drop ;
 : pv-line-after ( -- )
   pv-no-token state @ if pv-why-compiling pv-fail-here then
   depth pv-floor @ <> if pv-why-interrupted pv-fail-here then ;
+\ The floor is the data stack's depth while the design's line word runs.
 : pv-one-line ( c-addr u -- )
   dup pv-long? if 2drop pv-why-unreadable pv-fail-here then pv-load-line pv-plain
   pv-design@ pv-design-line @ depth 1- pv-floor ! execute pv-line-after ;
@@ -138,10 +139,8 @@ end-structure
 \ A run. pv-prepare claims the context, erases the last run and keeps the
 \ path; pv-go runs and gives the outcome. Where a run that ends ok
 \ stopped: its last line, column 0.
-: pv-claim ( -- ) pv-busy @ abort" lf-verify: a run is under way in this context"
-  true pv-busy ! ;
-: pv-path! ( c-addr u -- ) pv-path-chars min dup pv-run pv-run-path# ! pv-run pv-run-path
-  swap chars move ;
+: pv-claim ( -- )
+  pv-busy @ abort" lf-verify: a run is under way in this context" true pv-busy ! ;
 : pv-prepare ( c-addr u design -- )
   pv-claim pv-the-run erase pv-design ! pv-flow /pv-flow erase pv-floats! pv-state-reset
   pv-path! pv-prefix! pv-no-token outcome-ok pv-outcome ! ;
