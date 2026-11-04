@@ -176,6 +176,13 @@ T{ before facts-bytes 2@ before facts-lines 2@ -> 1787 0 35 0 }T
 T{ s\" a\nb\n" rr-feeds -> 2 }T
 T{ s\" a\nb" rr-ends-open? -> true }T
 T{ s\" a\n" rr-ends-open? -> false }T
+\ "a\nb", taken in two pieces: three bytes, two lines, sha256sum's digest.
+: a-lf-b-digest ( -- c-addr u )
+  s" 7e18f737311b2dc3b2f269dd78396b0351f14fb66efa879f768cb23181883c78" ;
+: take-a-lf-b ( -- )
+  before rr-facts-start s\" a\n" before rr-take s" b" before rr-take before rr-facts-end ;
+T{ take-a-lf-b before facts-bytes 2@ before facts-lines 2@ -> 3 0 2 0 }T
+T{ before facts-hex 64 a-lf-b-digest compare -> 0 }T
 
 \ Replay: confirmed against its own record, refused against another run
 \ with each difference found, refused outright for a text that is not a

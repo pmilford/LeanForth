@@ -1458,6 +1458,182 @@ new = '''2dup kind-tally 1 swap +! export-handed ;'''
 test = "$GFORTH tests/core/ndjson.fs"
 reason = "records a handler refused are counted in the tally"
 
+# --- run records and replay (src/import/run-record.fs, run-replay.fs) -------
+
+[[fault]]
+id = "rr-verdict-from-step"
+file = "src/import/run-record.fs"
+old = '''  lf-slot-outcome@ rr-agrees dup ok? if drop rr-accepted-out else rr-failed-out then ;'''
+new = '''  drop dup rr-step-of kept-outcome @ rr-agrees dup ok? if drop rr-accepted-out else rr-failed-out then ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "the verdict is the step's outcome, not the slot's: a slot that differs is not noticed"
+quick = true
+
+[[fault]]
+id = "rr-no-agreement"
+file = "src/import/run-record.fs"
+old = '''  2dup swap rr-step-of kept-outcome @ <> if outcome-invalid rr-fail then ;'''
+new = '''  ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "a final slot whose outcome is not the one its step published is written anyway"
+
+[[fault]]
+id = "rr-accepts-any-slot"
+file = "src/import/run-record.fs"
+old = '''  lf-slot-outcome@ rr-agrees dup ok? if'''
+new = '''  lf-slot-outcome@ rr-agrees true if'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "every final slot is written as accepted: the record claims more than the checker established"
+quick = true
+
+[[fault]]
+id = "rr-axioms-unread"
+file = "src/import/run-record.fs"
+old = '''  lf-env-axioms ok? 0= or if outcome-invalid rr-fail then'''
+new = '''  drop'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "an accepted slot's axiom set is not read, so a nonempty one is written as axioms: []"
+
+[[fault]]
+id = "rr-no-label"
+file = "src/import/run-record.fs"
+old = '''  s" label" rr-key rr-label rr-string rr-axioms-out ;'''
+new = '''  rr-axioms-out ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "an accepted declaration is written without its label experimental, not independently audited"
+
+[[fault]]
+id = "rr-unfinished-unchecked"
+file = "src/import/run-record.fs"
+old = '''  dup rr-began? if outcome-invalid rr-failed-out else rr-unchecked-out then ;'''
+new = '''  rr-unchecked-out ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "a declaration whose publication threw is written not-checked, without its fault"
+
+[[fault]]
+id = "rr-finish-unchecked"
+file = "src/import/run-record.fs"
+old = '''  run-record rr-after rr-hash dup ok? if drop rr-same-input? flag>outcome then ;'''
+new = '''  run-record rr-after rr-hash ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "an input that changed during the run is not noticed; the record would describe another file"
+
+[[fault]]
+id = "rr-hash-whole-blocks"
+file = "src/import/run-record.fs"
+old = '''  dup if run-record rr-block over r@ rr-take then r> drop ;'''
+new = '''  dup rr-block-room = if run-record rr-block over r@ rr-take then r> drop ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "the last, partial block of the file is neither hashed nor counted"
+
+[[fault]]
+id = "rr-open-line-uncounted"
+file = "src/import/run-record.fs"
+old = '''  dup facts-open @ if 1 over facts-lines rr-d+! then'''
+new = ''''''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "a last line without a line feed is not counted"
+
+[[fault]]
+id = "rr-manifest-always-ok"
+file = "src/import/run-record.fs"
+old = '''  dup run-record rr-manifest-outcome ! ok? if exit then'''
+new = '''  drop outcome-ok run-record rr-manifest-outcome ! exit'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "a missing or different manifest is recorded as ok"
+quick = true
+
+[[fault]]
+id = "rr-metadata-unread"
+file = "src/import/run-record.fs"
+old = '''  ['] rr-on-meta kind-meta rot export-handler ! ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "the export's metadata is never read: the Lean and exporter versions are null"
+
+[[fault]]
+id = "rr-commit-unchecked"
+file = "src/import/run-record.fs"
+old = '''  >r 2dup 40 hex-text? 0= if 2drop r> drop outcome-invalid exit then'''
+new = '''  >r'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "a commit that is not 40 lowercase hexadecimal digits is recorded"
+
+[[fault]]
+id = "rp-no-overclaim"
+file = "src/import/run-replay.fs"
+old = '''  rp-old rp-accepted? swap rp-new rp-accepted? 0= and ;'''
+new = '''  2drop false ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "an old record claiming accepted where the run did not accept is only verdict-differs"
+quick = true
+
+[[fault]]
+id = "rp-missing-ignored"
+file = "src/import/run-replay.fs"
+old = '''  rp-in-old 0= if drop rp-missing-field swap rp-new-found exit then'''
+new = '''  rp-in-old 0= if 2drop exit then'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "a field missing from the old record is not reported"
+
+[[fault]]
+id = "rp-duplicates-ignored"
+file = "src/import/run-replay.fs"
+old = '''  rp-twice? if 2drop rp-duplicate-key swap rp-new-found else nip rp-into then ;'''
+new = '''  nip rp-into ;'''
+test = "python3 tests/core/test_run_records.py"
+reason = "a key the old record repeats is compared by its first value, not refused"
+
+[[fault]]
+id = "rp-unknown-ignored"
+file = "src/import/run-replay.fs"
+old = '''  over swap rp-unknown? if rp-unknown-field swap rp-old-found else drop then ;'''
+new = '''  2drop ;'''
+test = "python3 tests/core/test_run_records.py"
+reason = "a field the new record lacks is not reported"
+
+[[fault]]
+id = "rp-scalars-equal"
+file = "src/import/run-replay.fs"
+old = ''': rp-scalar ( n o -- ) rp-texts compare if rp-differs then ;'''
+new = ''': rp-scalar ( n o -- ) 2drop ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "no string or number is ever found different: a changed hash or setting is confirmed"
+quick = true
+
+[[fault]]
+id = "rp-host-as-setting"
+file = "src/import/run-replay.fs"
+old = '''rp-tool-differs s" host" rp-entry,'''
+new = '''rp-settings-differ s" host" rp-entry,'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "a different host Forth is named a setting, not a tool"
+
+[[fault]]
+id = "rp-findings-ok"
+file = "src/import/run-replay.fs"
+old = '''  run-replay rp-total @ if outcome-rejected else outcome-ok then ;'''
+new = '''  outcome-ok ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "a replay with findings answers ok"
+
+[[fault]]
+id = "rp-report-confirms"
+file = "src/import/run-replay.fs"
+old = ''': rp-result ( -- c-addr u ) run-replay rp-total @ if s" refused" else s" confirmed" then ;'''
+new = ''': rp-result ( -- c-addr u ) s" confirmed" ;'''
+test = "python3 tests/core/test_run_records.py"
+reason = "the report says confirmed whatever was found"
+quick = true
+
+[[fault]]
+id = "rp-any-format"
+file = "src/import/run-replay.fs"
+old = '''  rr-schema s" schema" rp-member= rr-version s" schemaVersion" rp-member= and ;'''
+new = '''  true ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "a text that names another format or version is compared instead of refused"
+
 # --- the runner itself (scripts/mutants.py) --------------------------------
 
 [[fault]]
