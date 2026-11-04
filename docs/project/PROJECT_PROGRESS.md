@@ -93,7 +93,7 @@ the 32-bit access words exist in `src/`; building it is plan tasks
 | Program receipt schema 0.2 (2.5.1) | [format] | **approved** 2026-11-03 (schema pinned by hash; any change is a new version) |
 | Run-record fixes (environment identity, manifest-enforced field, blank-looking names) | [format] | merged 2026-11-03; the independent re-check found one medium issue: "enforced" is not yet tied to the hashed bytes. Fixes in progress; **owner's [format] gate pending until then** |
 | Axiom policy and defaults (owner, 2026-11-03) | policy | decided: `sorryAx` and any axiom outside the three standard ones get Lean's verdict, labelled **NOT PROVED** (the flag `--standard-axioms-only` refuses them); with no flags LeanForth is always Lean. Not implemented yet |
-| Big-number library (`lib/bignum.fs`, for literals) | [forth-review] | review found one serious memory bug in printing; fix running |
+| Big-number library (`lib/bignum.fs`, for literals) | [forth-review] | review found one serious memory bug in printing; fixed and merged 2026-11-03 (`ed4dab7`, merge `4c714f5`); its owner gate comes with literals (plan 5.2.3) |
 
 ### Test tooling (2026-11-03)
 
