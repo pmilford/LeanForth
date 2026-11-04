@@ -435,12 +435,15 @@ test-memory-frame-differential:
 # The presentation layer in src/present: the term printer and its side
 # table. Untrusted and not loaded by src/main.fs, so it gets its own
 # silent-load check; print-sweep.fs reaches every failure exit of the
-# printer, check_golden.py compares the printed text with the golden files.
+# printer, print-deep.fs prints terms and levels 2,000 and 10,000 deep in
+# constant host-stack cells, check_golden.py compares the printed text
+# with the golden files.
 test-present:
 	@out=$$($(RUN) $(GFORTH) src/present/term-printer.fs -e bye 2>&1) || { printf '%s\n' "$$out" >&2; exit 1; }; \
 	if [ -n "$$out" ]; then printf 'src/present/term-printer.fs printed while loading:\n%s\n' "$$out" >&2; exit 1; fi
 	$(RUN) $(GFORTH) tests/present/term-printer.fs
 	$(RUN) $(GFORTH) tests/present/print-sweep.fs
+	$(RUN) $(GFORTH) tests/present/print-deep.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/present/check_golden.py
 
 # The printer's Unicode output against pinned Lean's own printing, and its
