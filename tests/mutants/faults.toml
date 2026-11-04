@@ -3015,3 +3015,19 @@ new = ''''''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "P4 dropped: P x and P y for x y : PUnit are called apart, so a theorem Lean accepts by is_def_eq_unit_like is rejected"
 quick = true
+
+[[fault]]
+id = "columns-ready-unvalidated"
+file = "src/lib/store-columns.fs"
+old = '''  dup group-store@ store-count-valid? 0= if 2drop false exit then'''
+new = ''''''
+test = "$GFORTH tests/lib/store-columns.fs"
+reason = "R2-L1: a corrupted capacity sizes every column before the store is found invalid"
+
+[[fault]]
+id = "lscope-power-of-two-wrong"
+file = "src/core/level-scope.fs"
+old = ''': lf-lscope-power-of-two? ( n -- flag ) dup 0> swap dup 1- and 0= and ;'''
+new = ''': lf-lscope-power-of-two? ( n -- flag ) 0> ;'''
+test = "$GFORTH tests/core/level-scope.fs"
+reason = "R2-L2: the slot-count guard accepts a count that is not a power of two"
