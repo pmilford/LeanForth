@@ -4,6 +4,7 @@
 \ depth; rs-checked also checks the return stack around a call.
 include ../support/tester.fs
 include ../support/checks.fs
+include ../support/heap-watch.fs
 require ../../src/lib/lib.fs
 
 \ Portability: comparisons and the largest cell.
@@ -436,80 +437,96 @@ T{ 5 0 ' depth-visit p3 walk-run-pair p3 walk-fuel @ -> outcome-invalid 20 }T
 T{ 5 0 ' depth-visit p3 ' walk-run-pair rs-checked p3 walk-fuel @ -> outcome-invalid 20 }T
 T{ s" 0 walk2: pbad0" bad-walk? s" -1 walk2: pbad1" bad-walk? s" 1 walk2: pone" bad-walk? -> true true false }T
 
-\ Frame records: bounded recursion. The test visitor rebuilds the DAG above
-\ (node n >= 2 has children n-1 and n-2) bottom-up: its result is the number
-\ of leaves below n, and the second child is visited one context level
-\ deeper. A visit of node n is n frames deep, so node 5 needs 5 frames.
+\ Frame records: passes on an explicit, growable stack (plan task 6.2.0).
+\ The test visitor rebuilds the DAG above (node n >= 2 has children n-1
+\ and n-2) bottom-up: its result is the number of leaves below n, and the
+\ second child is visited one context level deeper. A visit of node n is
+\ n frames deep, so node 5 is 5 frames deep. Each step is a word ( ...
+\ frames -- ... frames next ); n is kept across the first child's visit,
+\ the first count across the second's.
 variable deepest-frame  variable deepest-context
 : note-depth ( frames -- )
   dup frame-depth @ deepest-frame @ max deepest-frame !
   frame-context @ deepest-context @ max deepest-context ! ;
-: leaves-pair ( n frames -- result outcome )
-  over 1- over frame-call ok-keep2? 0= if exit then
-  -rot swap 2 - swap frame-under ok-keep? if + outcome-ok then ;
-: leaves-visit ( n frames -- result outcome )
-  dup note-depth over 2 < if 2drop 1 outcome-ok else leaves-pair then ;
-T{ 4 ' leaves-visit frames: f1 -> }T
-T{ f1 frame-limit @ f1 frame-depth @ f1 frame-fuel @ f1 frame-context @ f1 frame-job @ ->
-  4 0 0 0 0 }T
-T{ f1 frame-visitor @ -> ' leaves-visit }T
+: leaves-sum ( b outcome frames -- n outcome frames 0 )
+  >r r@ frame-restore over ok? if rot + swap else drop then r> 0 ;
+: leaves-second ( a outcome frames -- n-2 frames next | -1 outcome frames 0 )
+  >r dup ok? 0= if r@ frame-restore drop r> 0 exit then drop
+  r@ frame-restore 2 - swap r@ frame-save r> ['] leaves-sum frame-under ;
+: leaves-visit ( n frames -- n-1 frames next | 1 outcome frames 0 )
+  dup note-depth over 2 < if nip 1 outcome-ok rot 0 exit then
+  2dup frame-save swap 1- swap ['] leaves-second frame-call ;
+T{ ' leaves-visit frames: f1 -> }T
+T{ f1 frame-depth @ f1 frame-fuel @ f1 frame-context @ f1 frame-job @ -> 0 0 0 0 }T
+T{ f1 frame-visitor @ f1 frame-block @ f1 frame-used @ f1 frame-capacity @ ->
+  ' leaves-visit 0 0 0 }T
 T{ -1 f1 frame-budget f1 frame-fuel @ -> false 0 }T
 T{ 7 f1 frame-budget f1 frame-fuel @ -> true 7 }T
-T{ s" 0 0 frames: fbad0" bad-walk? s" -3 0 frames: fbad1" bad-walk?
-  s" 1 0 frames: fone" bad-walk? -> true true false }T
-: leaves-run ( n context limit fuel -- result outcome )
-  f1 frame-budget drop f1 frame-limit ! 0 deepest-frame ! 0 deepest-context !
-  f1 frame-run ;
-\ Node 5: 15 visits, 8 leaves, 5 frames deep, context 2 above the root's.
-T{ 5 10 5 100 leaves-run f1 frame-fuel @ f1 frame-depth @ -> 8 outcome-ok 85 0 }T
+: leaves-run ( n context fuel -- result outcome )
+  f1 frame-budget drop 0 deepest-frame ! 0 deepest-context ! f1 frame-run ;
+\ Node 5: 15 visits, 8 leaves, 5 frames deep, context 2 above the root's;
+\ the stack empty again and the context the root's.
+T{ 5 10 100 leaves-run f1 frame-fuel @ f1 frame-depth @ f1 frame-used @ -> 8 outcome-ok 85 0 0 }T
 T{ deepest-frame @ deepest-context @ f1 frame-context @ -> 5 12 10 }T
-T{ 5 0 5 15 leaves-run f1 frame-fuel @ -> 8 outcome-ok 0 }T
-\ One unit of fuel short is exhausted, one frame short is full: no result,
-\ nothing left in progress.
-T{ 5 0 5 14 leaves-run f1 frame-fuel @ f1 frame-depth @ -> -1 outcome-exhausted 0 0 }T
-T{ 5 0 4 100 leaves-run f1 frame-depth @ f1 frame-context @ -> -1 outcome-full 0 0 }T
-T{ 4 0 4 100 leaves-run f1 frame-fuel @ -> 5 outcome-ok 91 }T
-\ No fuel or a corrupted negative fuel is exhausted, and a corrupted limit
-\ (below 1, which frame-init never sets) invalid, with fuel or without;
-\ none opens a visit or spends anything. With neither fuel nor a free
-\ frame, the fuel decides: exhausted.
-T{ 3 0 4 0 leaves-run f1 frame-fuel @ -> -1 outcome-exhausted 0 }T
-T{ 3 0 -1 9 leaves-run f1 frame-fuel @ -> -1 outcome-invalid 9 }T
-T{ 3 0 -1 0 leaves-run f1 frame-fuel @ -> -1 outcome-invalid 0 }T
-T{ 3 0 0 9 leaves-run f1 frame-fuel @ f1 frame-depth @ -> -1 outcome-invalid 9 0 }T
-4 f1 frame-limit !  -5 f1 frame-fuel !
+T{ 5 0 15 leaves-run f1 frame-fuel @ -> 8 outcome-ok 0 }T
+\ One unit of fuel short is exhausted: no result, nothing in progress.
+T{ 5 0 14 leaves-run f1 frame-fuel @ f1 frame-depth @ f1 frame-used @ f1 frame-context @ ->
+  -1 outcome-exhausted 0 0 0 0 }T
+T{ 4 0 100 leaves-run f1 frame-fuel @ -> 5 outcome-ok 91 }T
+\ No depth limit: node 25 is 25 frames deep, 242785 visits; neither host
+\ stack holds more for it than for node 2.
+242785 f1 frame-budget drop
+T{ 25 0 f1 ' frame-run rs-checked f1 frame-fuel @ -> 121393 outcome-ok 0 }T
+T{ deepest-frame @ -> 25 }T
+\ No fuel or a corrupted negative fuel is exhausted, spending nothing.
+T{ 3 0 0 leaves-run f1 frame-fuel @ -> -1 outcome-exhausted 0 }T
+-5 f1 frame-fuel !
 T{ 3 0 f1 frame-run f1 frame-fuel @ f1 frame-depth @ -> -1 outcome-exhausted -5 0 }T
-\ frame-room: why a visit would not open, the limit first, then the fuel,
-\ then the frames.
-: room-of ( limit fuel depth -- outcome )
-  f1 frame-depth ! f1 frame-fuel ! f1 frame-limit ! f1 frame-room 0 f1 frame-depth ! ;
-T{ 4 1 3 room-of 4 1 4 room-of 4 0 4 room-of 4 0 0 room-of -> 0 6 2 2 }T
-T{ 0 1 0 room-of -1 0 0 room-of max-n 1 max-n room-of 2 max-n 1 room-of -> 1 1 6 0 }T
-5 f1 frame-limit !  100 f1 frame-budget drop
+\ frame-admit: why a visit would not open: an unsound stack first, then
+\ the fuel, then the room. A stack the heap cannot grow is full.
+: admit-of ( fuel used -- outcome ) f1 frame-used ! f1 frame-fuel ! f1 frame-admit 0 f1 frame-used ! ;
+T{ 1 0 admit-of 0 0 admit-of -1 0 admit-of -> 0 2 2 }T
+T{ 1 -1 admit-of 1 f1 frame-capacity @ 1+ admit-of 0 -1 admit-of -> 1 1 1 }T
+f1 frame-free  1 heap-refusals !
+T{ 1 0 admit-of f1 frame-capacity @ -> 6 0 }T
+1 heap-refusals !
+T{ 0 0 admit-of heap-refusals @ -> 2 1 }T
+0 heap-refusals !
+T{ 1 0 admit-of f1 frame-capacity @ frame-need < -> 0 false }T
+\ A growth the heap refuses ends the pass full, at any depth: no result,
+\ nothing in progress, the stack and context as before.
+f1 frame-free  5 0 100 leaves-run 2drop
+T{ f1 frame-capacity @ -> 32 }T
+1 heap-refusals !
+T{ 25 0 1000 leaves-run f1 frame-depth @ f1 frame-used @ f1 frame-context @ ->
+  -1 outcome-full 0 0 0 }T
+T{ heap-refusals @ f1 frame-capacity @ -> 0 32 }T
+100 f1 frame-budget drop
 T{ 5 0 f1 ' frame-run rs-checked -> 8 outcome-ok }T
 \ The failure paths keep both stacks balanced. A context that cannot grow
-\ refuses the deeper visit and stays unchanged, spending nothing.
+\ refuses the deeper visit and stays unchanged, spending nothing; the
+\ continuation then runs with no result.
+: refused ( x frames cont -- -1 outcome cont ) frame-under nip ;
 0 f1 frame-budget drop
-T{ 3 f1 ' frame-call rs-checked f1 frame-depth @ -> -1 outcome-exhausted 0 }T
+T{ 3 f1 ' frame-return ' frame-call rs-checked nip -> -1 outcome-exhausted ' frame-return }T
 100 f1 frame-budget drop  max-n f1 frame-context !
-T{ 3 f1 ' frame-under rs-checked f1 frame-context @ f1 frame-fuel @ ->
-  -1 outcome-full max-n 100 }T
+T{ 3 f1 ' frame-return ' refused rs-checked f1 frame-context @ f1 frame-fuel @ ->
+  -1 outcome-full ' frame-return max-n 100 }T
 \ frame-under checks the fuel before the context (ADR 0008): with no fuel
 \ left, a context at max-n is exhausted, as any other context is.
 0 f1 frame-budget drop
-T{ 3 f1 ' frame-under rs-checked f1 frame-context @ f1 frame-fuel @ ->
-  -1 outcome-exhausted max-n 0 }T
+T{ 3 f1 ' frame-return refused f1 frame-context @ f1 frame-fuel @ ->
+  -1 outcome-exhausted ' frame-return max-n 0 }T
 max-n 1- f1 frame-context !
-T{ 3 f1 frame-under f1 frame-context @ -> -1 outcome-exhausted max-n 1- }T
-\ With fuel, every frame in use is full and a corrupted limit invalid, both
-\ before the context is examined.
-100 f1 frame-budget drop  5 f1 frame-depth !
-T{ 3 f1 frame-under f1 frame-context @ f1 frame-fuel @ -> -1 outcome-full max-n 1- 100 }T
-0 f1 frame-depth !  -1 f1 frame-limit !  max-n f1 frame-context !
-T{ 3 f1 frame-under f1 frame-context @ -> -1 outcome-invalid max-n }T
-5 f1 frame-limit !  0 f1 frame-context !
+T{ 3 f1 ' frame-return refused f1 frame-context @ ->
+  -1 outcome-exhausted ' frame-return max-n 1- }T
+\ With fuel, an unsound stack is invalid before the context is examined.
+100 f1 frame-budget drop  -1 f1 frame-used !  max-n f1 frame-context !
+T{ 3 f1 ' frame-return refused f1 frame-context @ ->
+  -1 outcome-invalid ' frame-return max-n }T
+0 f1 frame-used !  0 f1 frame-context !
 \ A visitor result outside the outcome vocabulary counts as invalid.
-: odd-visit ( n frames -- result outcome ) drop 7 ;
+: odd-visit ( n frames -- result outcome frames 0 ) 7 swap 0 ;
 ' odd-visit f1 frame-visitor !
 T{ 2 0 f1 frame-run f1 frame-depth @ -> 2 outcome-invalid 0 }T
 
@@ -519,72 +536,54 @@ T{ 2 0 f1 frame-run f1 frame-depth @ -> 2 outcome-invalid 0 }T
 create inner 2 cells allot  variable inner-budget
 : restart-pass ( frames -- )
   >r 0 99 r@ frame-run inner 2! 5 r> frame-budget inner-budget ! ;
-: restart-visit ( n frames -- result outcome ) dup restart-pass leaves-visit ;
-' restart-visit f1 frame-visitor !  4 f1 frame-limit !  100 f1 frame-budget drop
+: restart-visit ( n frames -- ... frames next ) dup restart-pass leaves-visit ;
+' restart-visit f1 frame-visitor !  100 f1 frame-budget drop
 T{ 3 7 f1 frame-run f1 frame-fuel @ f1 frame-context @ f1 frame-depth @ ->
   3 outcome-ok 95 7 0 }T
 T{ inner 2@ inner-budget @ f1 frame-visitor @ ->
   -1 outcome-invalid false ' restart-visit }T
 \ A depth left behind by a THROW, or a corrupted one, keeps the record busy
-\ until frame-reset.
-' leaves-visit f1 frame-visitor !  1 f1 frame-depth !
+\ until frame-reset, which also empties the stack.
+' leaves-visit f1 frame-visitor !  1 f1 frame-depth !  3 f1 frame-used !
 T{ f1 frame-busy? 5 f1 frame-budget 3 0 f1 frame-run f1 frame-fuel @ ->
   true false -1 outcome-invalid 95 }T
 T{ 9 f1 frame-start f1 frame-context @ 3 0 f1 ' frame-run rs-checked ->
   false 7 -1 outcome-invalid }T
 f1 frame-reset
-T{ f1 frame-busy? 3 9 f1 frame-run f1 frame-context @ -> false 3 outcome-ok 9 }T
+T{ f1 frame-busy? f1 frame-used @ 3 9 f1 frame-run f1 frame-context @ ->
+  false 0 3 outcome-ok 9 }T
 -1 f1 frame-depth !
 T{ f1 frame-busy? 3 0 f1 frame-run -> true -1 outcome-invalid }T
 f1 frame-reset
 
-\ frame-call2: a visitor of two values, here comparing two chains n, n-1,
-\ ..., 0 step by step; unequal values are rejected. Chains from 2 need
-\ three visits, three frames deep.
-: same-visit ( x y frames -- outcome )
-  >r 2dup <> if 2drop r> drop outcome-rejected exit then
-  drop dup 0= if drop r> drop outcome-ok exit then 1- dup r> frame-call2 ;
-T{ 3 ' same-visit frames: f2 -> }T
-: same-run ( x y fuel -- outcome )
-  f2 frame-budget drop 0 f2 frame-start drop f2 frame-call2 ;
-T{ 2 2 100 same-run f2 frame-fuel @ f2 frame-depth @ -> outcome-ok 97 0 }T
-T{ 3 3 100 same-run f2 frame-depth @ -> outcome-full 0 }T
-T{ 2 2 2 same-run f2 frame-fuel @ -> outcome-exhausted 0 }T
-\ No free frame with fuel left is full, spending nothing; a corrupted limit
-\ is invalid, with fuel or without.
-100 f2 frame-budget drop  3 f2 frame-depth !
-T{ 2 2 f2 ' frame-call2 rs-checked f2 frame-fuel @ f2 frame-depth @ ->
-  outcome-full 100 3 }T
-0 f2 frame-depth !  0 f2 frame-limit !
-T{ 2 2 f2 ' frame-call2 rs-checked f2 frame-fuel @ -> outcome-invalid 100 }T
-0 f2 frame-budget drop
-T{ 2 2 f2 frame-call2 -> outcome-invalid }T
-3 f2 frame-limit !  100 f2 frame-budget drop
-T{ 2 1 100 same-run f2 frame-fuel @ -> outcome-rejected 99 }T
-0 f2 frame-budget drop
-T{ 2 2 f2 ' frame-call2 rs-checked -> outcome-exhausted }T
-100 f2 frame-budget drop
-T{ 2 2 f2 ' frame-call2 rs-checked f2 frame-depth @ -> outcome-ok 0 }T
-\ Here too a result outside the outcome vocabulary counts as invalid.
-: odd-visit2 ( x y frames -- outcome ) drop 2drop 9 ;
-' odd-visit2 f2 frame-visitor !
-T{ 1 2 f2 frame-call2 f2 frame-depth @ f2 frame-fuel @ -> outcome-invalid 0 96 }T
-' same-visit f2 frame-visitor !
+\ A step may run a loop of its own on the same record (frame-loop from the
+\ cells then in use): here a visit of n first counts the leaves below n-1
+\ on an inner loop, then returns that count plus one.
+: loop-visit ( n frames -- count outcome frames 0 )
+  ['] leaves-visit over frame-visitor !
+  >r 1- 0 max r@ ['] frame-return r@ frame-used @ >r frame-call r> frame-loop drop
+  dup ok? if swap 1+ swap then r> 0 ;
+' loop-visit f1 frame-visitor !  100 f1 frame-budget drop
+T{ 6 0 f1 ' frame-run rs-checked f1 frame-fuel @ f1 frame-used @ -> 9 outcome-ok 84 0 }T
+' leaves-visit f1 frame-visitor !
 
 \ frame-init sets up a record inside a larger one, whose address the
-\ visitor finds in frame-job. A bad limit aborts before anything changes.
+\ visitor finds in frame-job; frame-free gives its stack back.
 begin-structure /tjob
   field: tjob-scale
   /frames +field tjob-frames
 end-structure
 create tj /tjob allot
-: scaled-visit ( n frames -- result outcome ) frame-job @ tjob-scale @ * outcome-ok ;
-T{ 2 ' scaled-visit tj tjob-frames frame-init -> }T
+: scaled-visit ( n frames -- result outcome frames 0 )
+  dup >r frame-job @ tjob-scale @ * outcome-ok r> 0 ;
+T{ ' scaled-visit tj tjob-frames frame-init -> }T
 tj tj tjob-frames frame-job !  6 tj tjob-scale !
-T{ tj tjob-frames frame-limit @ tj tjob-frames frame-visitor @ -> 2 ' scaled-visit }T
+T{ tj tjob-frames frame-visitor @ -> ' scaled-visit }T
 T{ 9 tj tjob-frames frame-budget 7 0 tj tjob-frames frame-run
   tj tjob-frames frame-fuel @ -> true 42 outcome-ok 8 }T
-T{ s" 0 0 tj tjob-frames frame-init" bad-walk? tj tjob-frames frame-limit @ -> true 2 }T
+live-blocks @ constant blocks-held
+T{ tj tjob-frames dup frame-free frame-block @ live-blocks @ -> 0 blocks-held 1- }T
+f1 frame-free
 
 \ Packed 32-bit fields (src/lib/u32.fs). Both versions run on every host:
 \ u32@ and u32! (Gforth's l@ and l! here) and the Forth-2012 u32-bytes@

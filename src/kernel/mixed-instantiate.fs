@@ -63,20 +63,23 @@ end-structure
 \ Visiting one source node. Application, lambda and Pi nodes are rebuilt;
 \ leaves are kept (free variables too, which the audit found live); any
 \ other tag is malformed. Each visit costs one unit of fuel.
-: lf-minst-binary ( node frames -- result outcome )
-  over lf-minst-children? if lf-rebuild-binary else lf-rebuild-bad then ;
+: lf-minst-binary ( node frames -- ... frames next )
+  over lf-minst-children? if lf-rebuild-binary else lf-rebuild-refuse then ;
 : lf-minst-leaf ( node frames tag -- result outcome )
   case lf-tag-bvar of lf-minst-bvar endof  lf-tag-fvar of lf-rebuild-keep endof
     lf-tag-constant of lf-rebuild-keep endof
     lf-tag-symbolic-sort of lf-rebuild-keep endof
     >r lf-rebuild-bad r> endcase ;
-: lf-minst-visit ( node frames -- result outcome )
+\ The visit's first step (lib/frame.fs).
+: lf-minst-visit ( node frames -- ... frames next )
   2dup lf-minst-readable? lf-rebuild-tag
-  dup lf-term-binary-tag? if drop lf-minst-binary else lf-minst-leaf then ;
-\ The frames and their visitor, set up once in every context.
-: lf-minst-setup ( -- )
-  lf-depth-limit ['] lf-minst-visit lf-minst-frames frame-init ;
+  dup lf-term-binary-tag? if drop lf-minst-binary else over >r lf-minst-leaf r> 0 then ;
+\ The frames and their visitor, set up once in every context; their stack
+\ is freed with the context.
+: lf-minst-setup ( -- ) ['] lf-minst-visit lf-minst-frames frame-init ;
 ' lf-minst-setup context-setup
+: lf-minst-free ( -- ) lf-minst-frames frame-free ;
+' lf-minst-free context-teardown
 
 \ Validate both complete handles with one fuel budget before allocating, even
 \ when the replacement is unused. Roll back term allocations on every failure;

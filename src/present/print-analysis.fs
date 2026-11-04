@@ -73,7 +73,7 @@ defer lf-pp-lsame-visit ( l1 l2 -- outcome )
 defer lf-pp-same-visit ( a b -- outcome )
 : lf-pp-tag-known? ( tag -- flag ) lf-tag-sort lf-tag-constant between? ;
 : lf-pp-same-call ( a b -- outcome ) ['] lf-pp-same-visit lf-pp-call ;
-: lf-pp-cmp-depth ( -- addr ) lf-pp-frames frame-context ;
+: lf-pp-cmp-depth ( -- addr ) lf-pjob lf-pjob-context ;
 : lf-pp-var-same? ( i j -- flag ) over lf-pp-cmp-depth @ < if = else swap 1+ = then ;
 : lf-pp-firsts ( a b -- a1 b1 ) lf-term-first@ swap lf-term-first@ swap ;
 : lf-pp-seconds ( a b -- a2 b2 ) lf-term-second@ swap lf-term-second@ swap ;

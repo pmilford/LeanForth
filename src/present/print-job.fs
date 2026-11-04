@@ -47,16 +47,18 @@ begin-structure /lf-pjob
   field: lf-pjob-used        \ pool bytes in use
   field: lf-pjob-full        \ true once a name did not fit in the pool
   field: lf-pjob-math        \ true while lf-print-inline or -display forces LaTeX
-  /frames +field lf-pjob-frames
+  field: lf-pjob-fuel        \ visits left
+  field: lf-pjob-depth       \ nested visits in progress
+  field: lf-pjob-context     \ for print-analysis.fs: its comparison's depth
   lf-print-binder-capacity /lf-pbind * +field lf-pjob-stack
   lf-print-pool-capacity +field lf-pjob-pool
 end-structure
 /lf-pjob context-record: lf-pjob
 
-: lf-pp-frames ( -- frames ) lf-pjob lf-pjob-frames ;
-: lf-print-fuel ( -- addr ) lf-pp-frames frame-fuel ;
+: lf-print-fuel ( -- addr ) lf-pjob lf-pjob-fuel ;
+: lf-pp-depth-cell ( -- addr ) lf-pjob lf-pjob-depth ;
 \ Busy while a print is in progress, or after a THROW out of one.
-: lf-pp-busy? ( -- flag ) lf-pp-frames frame-busy? ;
+: lf-pp-busy? ( -- flag ) lf-pp-depth-cell @ 0<> ;
 
 \ Settings. lf-print-setup takes the sink and the options (a mode plus
 \ option bits); lf-print-limit! the most nested visits per print, at least
@@ -87,12 +89,16 @@ end-structure
 
 \ Fuel and bounded recursion. lf-pp-call visits a b with xt ( a b -- outcome
 \ ) one level deeper, charging one unit of fuel; with no fuel or no frame
-\ left it visits nothing: exhausted without fuel, full without a frame.
-\ Every recursive printing word has that shape, so one frames record bounds
-\ them all.
-: lf-pp-visit ( a b xt frames -- outcome ) drop execute ;
+\ left (the limit of nested visits) it visits nothing: exhausted without
+\ fuel, full without a frame. Every recursive printing word has that
+\ shape, so one count bounds them all. A visit's result outside the
+\ outcome vocabulary is invalid.
+: lf-pp-room ( -- outcome )
+  lf-print-fuel @ lf-pp-depth-cell @ lf-pjob lf-pjob-limit @ < visit-outcome ;
+: lf-pp-enter ( -- ) -1 lf-print-fuel +! 1 lf-pp-depth-cell +! ;
 : lf-pp-call ( a b xt -- outcome )
-  lf-pp-frames dup frame-room ok-then? if frame-visit else nip nip nip then ;
+  lf-pp-room dup ok? 0= if nip nip nip exit then drop
+  lf-pp-enter execute outcome-sane -1 lf-pp-depth-cell +! ;
 \ One unit of fuel for a step along a spine or chain, false when none is left.
 : lf-pp-spend ( -- flag ) lf-print-fuel dup @ 0> if -1 swap +! true else drop false then ;
 \ Close a parenthesis opened when flag is true.
@@ -144,9 +150,8 @@ end-structure
   lf-pjob-full ! ;
 : lf-pp-start ( fuel -- flag )
   lf-pp-busy? over 0< or if drop false exit then
-  lf-pjob lf-pjob-limit @ ['] lf-pp-visit lf-pp-frames frame-init
-  lf-pp-frames frame-budget dup if lf-pp-clear then ;
+  lf-print-fuel ! 0 lf-pjob lf-pjob-context ! lf-pp-clear true ;
 \ Recover after a THROW out of a print: idle, with an empty scope and
 \ pool, in the mode lf-print-setup set (a Markdown math print forced
 \ LaTeX without changing the options).
-: lf-print-reset ( -- ) lf-pp-frames frame-reset lf-pp-clear false lf-pp-math! ;
+: lf-print-reset ( -- ) 0 lf-pp-depth-cell ! lf-pp-clear false lf-pp-math! ;

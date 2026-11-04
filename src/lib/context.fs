@@ -208,7 +208,7 @@ context-bytes allocate0 throw dup context-sized context-main!
   0= abort" context: bad store" ;
 : member-walk ( addr member -- )
   member-shape@ 2 pick walk-sized-init 0= abort" context: bad walk" walk-growable ;
-: member-frames ( addr member -- ) dup member-capacity @ swap member-xt @ rot frame-init ;
+: member-frames ( addr member -- ) member-xt @ swap frame-init ;
 : member-setup ( addr member -- ) nip member-xt @ execute ;
 
 \ Declaring words. A bad size, shape, capacity or limit aborts and defines
@@ -228,11 +228,15 @@ variable context-walks
   2dup walk-span ['] member-walk member: member-shape! walk-listed member-add ;
 : context-walk: ( capacity "name" -- ) 1 context-walked ;
 : context-walk2: ( capacity "name" -- ) 2 context-walked ;
-\ A frames record (frame.fs) allowing limit nested visits of the visitor
-\ xt, which reaches the record through its frames argument.
-: context-frames: ( limit xt "name" -- )
-  over 1 < abort" context-frames: bad limit"
-  /frames ['] member-frames member: tuck member-xt ! tuck member-capacity ! member-add ;
+\ A frames record (frame.fs) of the visitor xt, which reaches the record
+\ through its frames argument; its stack is freed with the context
+\ (frames-free, below). A module that embeds frames in a record of its own
+\ registers a teardown that frees them (mixed-shift.fs).
+variable context-frame-list
+: frames-listed ( member -- member )
+  here context-frame-list @ , over member-offset @ , context-frame-list ! ;
+: context-frames: ( xt "name" -- )
+  /frames ['] member-frames member: tuck member-xt ! frames-listed member-add ;
 \ Run xt ( -- ) now in the main context, and in every new context after
 \ the members declared before it are initialised.
 : context-setup ( xt -- )
@@ -282,6 +286,9 @@ variable context-slabs
 : walks-free ( -- )
   context-walks @ begin ?dup while dup cell+ @ lf-context @ + walk-free @ repeat ;
 ' walks-free context-teardown
+: frames-free ( -- )
+  context-frame-list @ begin ?dup while dup cell+ @ lf-context @ + frame-free @ repeat ;
+' frames-free context-teardown
 : slab-listed ( member -- member )
   here context-slabs @ , over member-offset @ , context-slabs ! ;
 : context-slab: ( width "name" -- )

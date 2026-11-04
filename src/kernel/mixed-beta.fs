@@ -36,9 +36,11 @@ require ./mixed-shift.fs
   >r 2dup lf-rule-beta lf-log-open r> lf-mbeta-instantiate lf-log-close ;
 : lf-mbeta-step ( body argument frames -- result outcome )
   lf-log? if lf-mbeta-step-logged else lf-mbeta-instantiate then ;
-: lf-mbeta-contract ( body argument frames -- result outcome )
-  >r 2dup lf-mbeta-live? 0= if 2drop r> drop lf-rebuild-invalid exit then
-  r@ lf-mbeta-step dup ok? if drop r> frame-call else r> drop then ;
+\ The contractum's visit gives the node's result: its continuation only
+\ returns (frame-return).
+: lf-mbeta-contract ( body argument frames -- ... frames next )
+  >r 2dup lf-mbeta-live? 0= if 2drop lf-rebuild-invalid r> 0 exit then
+  r@ lf-mbeta-step dup ok? if drop r> ['] frame-return frame-call else r> 0 then ;
 
 \ After the function reduced to the head r: a lambda head contracts with
 \ the argument, an unchanged head keeps the node, and any other head is
@@ -47,21 +49,25 @@ require ./mixed-shift.fs
   over lf-mbeta-function over = if drop outcome-ok
   else swap lf-mbeta-argument lf-term-app lf-rebuild-allocated then ;
 : lf-mbeta-lambda? ( node -- flag ) lf-term-tag@ lf-tag-lam = ;
-: lf-mbeta-head ( node frames r -- result outcome )
-  dup lf-term-valid? 0= if drop lf-rebuild-bad exit then
-  dup lf-mbeta-lambda? if lf-term-second@ rot lf-mbeta-argument rot lf-mbeta-contract
-  else nip lf-mbeta-apply then ;
+: lf-mbeta-reduced ( node r frames -- ... frames next )
+  >r dup lf-term-valid? 0= if 2drop lf-rebuild-invalid r> 0 exit then
+  dup lf-mbeta-lambda? if lf-term-second@ swap lf-mbeta-argument r> lf-mbeta-contract
+  else lf-mbeta-apply r> 0 then ;
+\ The step after the function's visit, with the node kept.
+: lf-mbeta-head ( r outcome frames -- ... frames next )
+  over ok? 0= if 1 lf-rebuild-failed exit then nip
+  dup frame-restore rot rot lf-mbeta-reduced ;
 
 \ Visit the function spine only; anything but an application is its own
 \ head. Each visit costs fuel; instantiation's audits, traversal and shifts
 \ share it.
 : lf-mbeta-app? ( node -- flag ) lf-term-tag@ lf-tag-app = ;
-: lf-mbeta-visit ( node frames -- result outcome )
-  over lf-term-valid? 0= if lf-rebuild-bad exit then
-  over lf-mbeta-app? 0= if drop outcome-ok exit then
-  over lf-mbeta-function over frame-call ok-keep2? if lf-mbeta-head then ;
+: lf-mbeta-visit ( node frames -- ... frames next )
+  over lf-term-valid? 0= if lf-rebuild-refuse exit then
+  over lf-mbeta-app? 0= if outcome-ok swap 0 exit then
+  over lf-mbeta-function -rot tuck frame-save ['] lf-mbeta-head frame-call ;
 \ The frames, whose visitor is set once, here.
-lf-depth-limit ' lf-mbeta-visit context-frames: lf-mbeta-frames
+' lf-mbeta-visit context-frames: lf-mbeta-frames
 
 \ Fuel left after a reduction; mixed-convert continues with it.
 : lf-mbeta-fuel ( -- addr ) lf-mbeta-frames frame-fuel ;
@@ -101,30 +107,25 @@ lf-depth-limit ' lf-mbeta-visit context-frames: lf-mbeta-frames
 : lf-mixed-rebuild-reset ( -- )
   lf-mbeta-frames frame-reset lf-minst-frames frame-reset lf-mshift-frames frame-reset ;
 
-\ Host stacks. A beta visit runs instantiate passes and an instantiate
-\ visit runs shift passes, each pass up to lf-depth-limit frames deep, so
-\ up to three times lf-depth-limit frames can be nested at once. By stack
-\ painting (Gforth 0.7.3 and 1.0 agree), one frame holds at most 4
-\ return-stack and 3 data-stack cells in beta, 6 and 4 in instantiate, and
-\ 5 and 4 in shift; the slack covers the entry words, the work at the
-\ deepest frame and a shallow caller. Loading stops when the host's stacks
-\ are smaller, so that no input overflows them from a shallow caller (an
-\ overflow would throw, never give ok); a caller that itself recurses must
-\ add its own need (mixed-infer.fs does). Hosts that do not report their
-\ stack sizes are not checked. Jobs (lib/task.fs) run on their workers'
-\ stacks instead: the need is stated with context-need, and the pool
-\ refuses to start with stack settings that do not cover it, whichever of
-\ this file and task.fs loads first.
-15 constant lf-mbeta-rs-level   \ return-stack cells: one frame of each pass
-11 constant lf-mbeta-ds-level   \ data-stack cells: one frame of each pass
-256 constant lf-mbeta-stack-slack
-: lf-mbeta-need ( cells-per-level -- cells ) lf-depth-limit * lf-mbeta-stack-slack + ;
-lf-mbeta-rs-level lf-mbeta-need constant lf-mbeta-return-cells
-lf-mbeta-ds-level lf-mbeta-need constant lf-mbeta-data-cells
+\ Host stacks. The three passes run on their frames' explicit stacks
+\ (lib/frame.fs), whatever the depth (plan task 6.2.0): a beta step runs
+\ an instantiate pass, whose step runs a shift pass, so at most three
+\ loops nest, each holding a few cells while one of its steps runs.
+\ lf-mbeta-return-cells and lf-mbeta-data-cells bound that, with slack for
+\ the entry words of conversion and of the definition probe, the
+\ analysis's leaf steps and a caller's own words; a caller that itself
+\ recurses adds its own need (mixed-infer.fs does). Loading stops when the
+\ host's stacks are smaller; hosts that do not report their stack sizes
+\ are not checked. Jobs (lib/task.fs) run on their workers' stacks
+\ instead: the need is stated with context-need, and the pool refuses to
+\ start with stack settings that do not cover it, whichever of this file
+\ and task.fs loads first.
+256 constant lf-mbeta-return-cells
+256 constant lf-mbeta-data-cells
 : lf-mbeta-fits? ( need c-addr u -- flag ) environment? if > 0= else drop true then ;
 \ Whether the host's own stacks hold data-cells and return-cells.
 : lf-mbeta-host? ( data-cells return-cells -- flag )
   s" RETURN-STACK-CELLS" lf-mbeta-fits? swap s" STACK-CELLS" lf-mbeta-fits? and ;
 lf-mbeta-data-cells lf-mbeta-return-cells lf-mbeta-host?
-0= [if] .( mixed-beta.fs: host stacks too small for lf-depth-limit) cr abort [then]
+0= [if] .( mixed-beta.fs: host stacks too small) cr abort [then]
 lf-mbeta-data-cells lf-mbeta-return-cells context-need

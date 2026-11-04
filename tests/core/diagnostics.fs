@@ -193,16 +193,19 @@ begin-check 5 lf-cterm-walker walk-node ! 7 lf-cterm-walker walk-context ! lf-di
 T{ outcome-unknown lf-cterm-walker test-site lf-diag-walk diag
   -> outcome-unknown 5 0 lf-diag-undecided }T
 end-check
-begin-check samples 1 lf-mbeta-frames frame-limit ! lf-diag-clear
-T{ 9 handle 1000 lf-mixed-beta nip nip diag -> outcome-full 1 1 lf-diag-frame-limit }T
+\ A pass's frames grow their stack (plan task 6.2.0); a growth the heap
+\ refuses is full, recorded with the cells in use and the capacity.
+: refused-frames ( frames -- ) frame-free 1 heap-refusals ! lf-diag-clear ;
+begin-check samples lf-mbeta-frames refused-frames
+T{ 9 handle 1000 lf-mixed-beta nip nip diag -> outcome-full 0 0 lf-diag-frame-limit }T
 T{ s" mixed-beta lf-mixed-beta" at? -> true }T
 end-check
-begin-check samples 1 lf-mshift-frames frame-limit ! lf-diag-clear
-T{ 2 handle 0 1 1000 lf-mixed-shift nip nip diag -> outcome-full 1 1 lf-diag-frame-limit }T
+begin-check samples lf-mshift-frames refused-frames
+T{ 2 handle 0 1 1000 lf-mixed-shift nip nip diag -> outcome-full 0 0 lf-diag-frame-limit }T
 end-check
-begin-check samples 1 lf-minst-frames frame-limit ! lf-diag-clear
+begin-check samples lf-minst-frames refused-frames
 T{ 2 handle 3 handle 1000 lf-mixed-instantiate nip nip diag
-  -> outcome-full 1 1 lf-diag-frame-limit }T
+  -> outcome-full 0 0 lf-diag-frame-limit }T
 T{ s" mixed-instantiate lf-mixed-instantiate" at? -> true }T
 end-check
 begin-check 10 lf-lvalue-fuel ! lf-diag-clear

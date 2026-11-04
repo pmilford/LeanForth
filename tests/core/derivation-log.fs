@@ -205,9 +205,10 @@ lf-log-stop lf-input-rollback drop
 \ context): a chain of applications, each over the one before and a
 \ variable, built above the input marks and given to a shift, whose
 \ outcome, result and fuel are the same with the log off and on. 200
-\ deep, the whole chain is copied (201 copies, the log complete and
-\ valid); 300 deep it needs more stack than one copy may use, so the log
-\ is truncated (work) and the shift's answer stands.
+\ deep, the shift succeeds (its stack grows: plan task 6.2.0) and the
+\ chain and its shifted copy are copied whole (201 and 401 copies, the
+\ log complete and valid); 300 deep it needs more stack than one copy may
+\ use, so the log is truncated (work) and the shift's answer stands.
 T{ 1000 lf-term-capacity! -> outcome-ok }T
 : chain ( n -- term id )
   0 lf-term-bvar must dup rot 0 ?do over lf-term-app must loop nip dup lf-term-identity must ;
@@ -217,7 +218,7 @@ T{ 1000 lf-term-capacity! -> outcome-ok }T
 : run-on ( n -- index outcome fuel )
   lf-log-terms lf-log-start shift-chain lf-input-rollback drop ;
 T{ 200 run-off -> 200 run-on }T
-T{ lf-log-complete? lf-log-term-copies lc-valid? -> true 201 true }T
+T{ lf-log-complete? lf-log-term-copies lc-valid? -> true 602 true }T
 T{ 300 run-off -> 300 run-on }T
 T{ lf-log-cut nip lf-log-count -> lf-bound-work 0 }T
 lf-log-stop
