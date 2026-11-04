@@ -32,13 +32,11 @@
 \   or invalid (a THROW); when that was in the publisher, it is open and
 \   cleared (outcome invalid, every other field zero) and the run stops.
 \   A refusal in the search for a rejection after an undecided comparison
-\   leaves the step unknown instead, as running out of fuel there does
-\   (ADR 0011), so a slot whose baseline is rejected or unknown may be
-\   unknown;
+\   is full too (ADR 0008; since plan task 4.2.2c, unknown before);
 \ - every other slot has its baseline outcome while every slot before it
 \   has; otherwise it may only be unknown (K5) instead, and in a fuel run
-\   also exhausted (or unknown where the baseline rejects: ADR 0011's
-\   analysis that runs out of fuel);
+\   also exhausted (an analysis that runs out of fuel too, since plan task
+\   4.2.2c);
 \ - every slot's handle, outcome read back and printed verdict agree, and
 \   an accepted slot prints the axiom set it holds (a bit planted after
 \   the run must show);
@@ -193,27 +191,20 @@ variable stopped
 : prior-same? ( d -- flag ) true swap 0 ?do i got@ i base@ = and loop ;
 \ The outcomes slot d may have where no injected failure was reached.
 : fuel-early? ( d outcome -- flag )
-  fp-mode @ 2 = if over base@ outcome-rejected = over outcome-unknown = and
-  swap outcome-exhausted = or nip else 2drop false then ;
+  fp-mode @ 2 = if outcome-exhausted = nip else 2drop false then ;
 : allowed? ( d outcome -- flag )
   2dup swap base@ = if 2drop true exit then 2dup fuel-early? if 2drop true exit then
   outcome-unknown = swap prior-same? 0= and ;
 \ The slot an injected failure reached: open and cleared after a fault
 \ in the publisher; else full after a refusal, invalid after a THROW. A
 \ refusal in the analysis that looks for a rejection after an undecided
-\ comparison leaves the step unknown instead, as running out of fuel there
-\ does (ADR 0011), so a slot whose baseline is rejected or unknown may
-\ also be unknown.
+\ comparison is full too since plan task 4.2.2c (ADR 0008: with more room
+\ it might reject); before, it left the step unknown.
 create cleared /lf-slot allot  cleared /lf-slot erase
 outcome-invalid cleared lf-slot-outcome !
 : cleared? ( d -- flag ) fp-slot@ /lf-slot cleared /lf-slot compare 0= ;
 : failed-outcome ( -- outcome ) fp-mode @ 3 = if outcome-invalid else outcome-full then ;
-: undecided-base? ( d -- flag )
-  base@ dup outcome-rejected = swap outcome-unknown = or ;
-: analysis-cut? ( d outcome -- flag )
-  outcome-unknown = swap undecided-base? and fp-mode @ 1 = and ;
-: failed-ok? ( d outcome -- flag )
-  dup failed-outcome = if 2drop true else analysis-cut? then ;
+: failed-ok? ( d outcome -- flag ) nip failed-outcome = ;
 : fired-ok? ( d -- flag )
   stopped @ if dup got@ -1 = swap cleared? and else dup got@ failed-ok? then ;
 : slot-rule ( d -- )

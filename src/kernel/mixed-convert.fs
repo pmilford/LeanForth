@@ -53,13 +53,15 @@ end-structure
 : lf-mconvert-apart ( -- addr ) lf-mconvert-state lf-mcvs-apart ;
 
 \ The port on the walk's fuel left after the audits: yes is ok, no is
-\ unknown with lf-mconvert-apart set.
-: lf-mconvert-answer ( flag outcome -- outcome )
-  dup ok? 0= if nip exit then drop
-  if outcome-ok else true lf-mconvert-apart ! outcome-unknown then ;
+\ unknown with lf-mconvert-apart set, recorded as undecided with both
+\ terms (unless something more specific was recorded first).
+: lf-mconvert-no ( left right -- outcome )
+  lf-dq-undecided true lf-mconvert-apart ! outcome-unknown ;
+: lf-mconvert-answer ( left right flag outcome -- outcome )
+  dup ok? if drop if 2drop outcome-ok else lf-mconvert-no then else nip nip nip then ;
 : lf-mconvert-defeq ( left right -- outcome )
   lf-mconvert-fuel @ lf-mconvert-frames frame-budget 0= if 2drop outcome-invalid exit then
-  lf-mconvert-frames lf-defeq-on lf-mconvert-answer
+  2dup lf-mconvert-frames lf-defeq-on lf-mconvert-answer
   lf-mconvert-frames frame-fuel @ lf-mconvert-fuel ! ;
 
 \ Compare after both audits; the term, level and reference counts are

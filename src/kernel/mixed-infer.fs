@@ -151,6 +151,12 @@ end-structure
 \ Rejection rules run only when inference does not run aside.
 : lf-minfer-deciding? ( -- flag ) lf-minfer-aside @ 0= ;
 : lf-minfer-env? ( -- flag ) lf-minfer-job lf-ijob-env @ ;
+\ The first time the rejection analysis runs out of fuel or room, which
+\ lf-minfer-agree reports (ADR 0008): the outcome, or 0.
+: lf-minfer-short ( -- addr ) lf-minfer-job lf-ijob-short ;
+: lf-minfer-shortage ( status -- )
+  dup outcome-exhausted = over outcome-full = or lf-minfer-short @ 0= and
+  if lf-minfer-short ! else drop then ;
 \ Mode flags are registers of the checker context, never shared between
 \ contexts: the aside flag here, set around one nested inference and
 \ restored (lf-minfer-proof-free?); the environment flag, set for a whole
@@ -268,7 +274,7 @@ lf-walk-room context-walk2: lf-minfer-scan
 \ the end anyway).
 : lf-minfer-convert ( left lid right rid -- status )
   lf-minfer-fuel @ lf-mixed-convert-keeping lf-mconvert-fuel lf-minfer-refuel
-  outcome-sane ;
+  outcome-sane dup lf-minfer-shortage ;
 : lf-minfer-compare ( left right -- status )
   lf-minfer-handles if lf-minfer-convert else outcome-invalid then ;
 \ A Pi body with an argument put for its bound variable, as infer_app
@@ -379,12 +385,6 @@ defer lf-minfer-walk ( node -- type status )
 \ with code and the mask of rules; any other outcome passes.
 : lf-minfer-verdict ( mask status site code -- status )
   2swap dup outcome-rejected = if drop -rot lf-minfer-reject else nip nip nip then ;
-\ The first time the analysis runs out of fuel or room (lf-minfer-agree
-\ reports it, ADR 0008).
-: lf-minfer-short ( -- addr ) lf-minfer-job lf-ijob-short ;
-: lf-minfer-shortage ( status -- )
-  dup outcome-exhausted = over outcome-full = or lf-minfer-short @ 0= and
-  if lf-minfer-short ! else drop then ;
 : lf-minfer-take ( status addr -- status )
   over ok? if lf-minfer-refuel else drop dup lf-minfer-shortage 0 lf-minfer-fuel ! then ;
 \ whnfB (ADR 0003 step 1) of a live node, with the job's fuel.
@@ -441,12 +441,15 @@ defer lf-minfer-walk ( node -- type status )
 : lf-minfer-type2 ( node -- type status )
   lf-minfer-walk dup ok? if drop lf-minfer-walk then ;
 : lf-minfer-nonzero? ( level -- flag ) lf-minfer-zero? ok? if 0= else drop false then ;
+\ A failure means "not known"; one for want of fuel or room is kept for
+\ lf-minfer-agree (lf-minfer-shortage).
+: lf-minfer-unknown ( status -- false ) lf-minfer-shortage false ;
 : lf-minfer-sorted-free? ( type -- flag )
-  lf-minfer-whnf ok-then? 0= if drop false exit then
+  lf-minfer-whnf ok-then? 0= if lf-minfer-unknown exit then
   lf-minfer-sort? if lf-minfer-nonzero? else false then ;
 : lf-minfer-free? ( node -- flag )
-  lf-minfer-close ok-then? 0= if drop false exit then
-  lf-minfer-type2 ok-then? if lf-minfer-sorted-free? else drop false then ;
+  lf-minfer-close ok-then? 0= if lf-minfer-unknown exit then
+  lf-minfer-type2 ok-then? if lf-minfer-sorted-free? else lf-minfer-unknown then ;
 \ The arena counts, kept on the data stack around work whose allocations
 \ are discarded (the return stack has less room for recursion).
 : lf-minfer-counts ( -- terms levels crefs )
@@ -543,8 +546,8 @@ defer lf-minfer-args-apart ( left right count frames -- ... frames next )
 \ structure. A type headed by a constant, or one that cannot be inferred,
 \ leaves the pair undecided.
 : lf-minfer-type-kind ( node -- kind )
-  lf-minfer-walk ok-then? 0= if drop lf-head-none exit then
-  lf-minfer-whnf ok-then? if lf-mhead-kind else drop lf-head-none then ;
+  lf-minfer-walk ok-then? 0= if lf-minfer-shortage lf-head-none exit then
+  lf-minfer-whnf ok-then? if lf-mhead-kind else lf-minfer-shortage lf-head-none then ;
 : lf-minfer-kind-aside ( node -- kind )
   >r lf-minfer-counts lf-minfer-aside @ r> true lf-minfer-aside !
   lf-minfer-type-kind swap lf-minfer-aside ! >r lf-minfer-counts! r> ;
@@ -564,7 +567,7 @@ defer lf-minfer-args-apart ( left right count frames -- ... frames next )
 \ the domains are apart. A binder that cannot be entered (no room or fuel)
 \ is not apart.
 : lf-minfer-enter-binder ( domain -- status )
-  lf-minfer-close ok-then? if 0 lf-minfer-bind then ;
+  lf-minfer-close ok-then? if 0 lf-minfer-bind then dup lf-minfer-shortage ;
 \ The result of D4's comparison, of the bodies with the scope's depth
 \ before their binder (base) waiting on the stack, or of the domains.
 : lf-minfer-d4 ( mask flag frames -- mask' flag frames 0 ) >r lf-rule-d4 lf-minfer-via r> 0 ;

@@ -158,7 +158,8 @@ T{ ' f-session 20 s" symbolic-session lf-ssession-check" sweep -> true 0 }T
 T{ ' f-repr 5 s" tagged-sort-boundary lf-repr-check" sweep -> true 0 }T
 T{ ' f-lscope 5 s" level-scope lf-lscope-check" sweep -> true 0 }T
 T{ ' f-compare 20 s" mixed-compare lf-mixed-compare" sweep -> true 0 }T
-T{ ' f-convert 60 s" mixed-convert lf-mixed-convert" sweep -> true 0 }T
+\ Conversion's pass is Lean's is_def_eq since plan task 4.2.2b (defeq.fs).
+T{ ' f-convert 60 s" defeq lf-defeq" sweep -> true 0 }T
 T{ ' f-beta 60 s" mixed-beta lf-mixed-beta" sweep -> true 0 }T
 T{ ' f-shift 20 s" mixed-shift lf-mixed-shift" sweep -> true 0 }T
 T{ ' f-inst 20 s" mixed-instantiate lf-mixed-instantiate" sweep -> true 0 }T
@@ -328,20 +329,28 @@ end-check
 begin-check 0 make-sort 0 make-var make-lam 0 make-var make-lam drop lf-diag-clear
 T{ token 4 handle 1000 lf-mixed-infer nip nip lf-diag-code@ -> outcome-rejected lf-diag-domain-type }T
 end-check
-\ The same step when no rule applies keeps its own record: fun (f : (fun
-\ X : Type => X) (Prop -> Prop)) => f Prop, whose function type is a beta
-\ redex that reduces to a Pi (only a visible Pi is applied today).
+\ fun (f : (fun X : Type => X) (Prop -> Prop)) => f Prop: the function's
+\ type is a beta redex that reduces to a Pi. Until plan task 4.2.2c only a
+\ visible Pi was applied, and the step stayed unknown with its own record
+\ (not a Pi); since then it is put in whnf, as Lean's ensure_pi_core does,
+\ and Prop, of type Type, is no argument for Prop -> Prop (D1: Lean's
+\ appTypeMismatch).
 begin-check 0 make-sort 0 make-sort make-pi 1 make-sort 0 make-var make-lam swap make-app
   0 make-var 0 make-sort make-app make-lam drop lf-diag-clear
-T{ token 10 handle 1000 lf-mixed-infer nip nip lf-diag-code@ -> outcome-unknown lf-diag-not-pi }T
+T{ token 10 handle 1000 lf-mixed-infer nip nip lf-diag-code@
+   -> outcome-rejected lf-diag-argument-apart }T
 end-check
 
 \ Random checker work: each check's outcome is explained by its family.
 : room-code? ( code -- flag ) lf-diag-terms-full lf-diag-pool-full 1+ within ;
 : input-code? ( code -- flag ) lf-diag-bad-argument lf-diag-publisher-fault 1+ within ;
+\ Since plan task 4.2.2c also Lean's whnf where LeanForth does not reduce
+\ yet: K1 (64), iota (79), K7 (80).
+: whnf-undecided? ( code -- flag )
+  dup lf-diag-needs-unfolding = over lf-diag-iota-pending = or swap lf-diag-name-matched = or ;
 : undecided-code? ( code -- flag )
   dup lf-diag-undecided lf-diag-dependency-undecided 1+ within
-  swap lf-diag-unsupported = or ;
+  over lf-diag-unsupported = or swap whnf-undecided? or ;
 : or-none ( code flag -- flag ) swap lf-diag-none = or ;
 : rejection-code? ( code -- flag ) lf-diag-unknown-constant lf-diag-value-apart 1+ within ;
 : explained? ( outcome -- flag )

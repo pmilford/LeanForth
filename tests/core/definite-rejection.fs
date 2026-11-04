@@ -270,9 +270,10 @@ T{ k1-term checked drop -> outcome-unknown lf-diag-undecided }T
 T{ 1 d5-term tidy-after -> outcome-rejected true }T
 T{ k3-term tidy-after -> outcome-unknown true }T
 
-\ Fuel: with too little the check is exhausted before the comparison,
-\ unknown when the analysis runs out (the undecided record is kept), and
-\ rejected with enough; never anything else.
+\ Fuel: with too little the check is exhausted, before the comparison or
+\ when the analysis runs out (ADR 0008: with more it might reject; since
+\ plan task 4.2.2c, unknown before), and rejected with enough; never
+\ anything else.
 variable sweep-root
 variable seen
 : saw ( outcome -- ) 1 swap lshift seen @ or seen ! ;
@@ -284,9 +285,10 @@ variable seen
   3000 0 do drop i sweep-step dup saw loop ;
 T{ fuel-sweep -> outcome-rejected }T
 : outcome-set ( outcome... n -- mask ) 0 swap 0 ?do 1 rot lshift or loop ;
-T{ seen @ outcome-exhausted outcome-unknown outcome-rejected 3 outcome-set = -> true }T
-\ Room: with a store filled up to a few free nodes, full before the
-\ comparison, unknown when the analysis lacks room, rejected with enough.
+T{ seen @ outcome-exhausted outcome-rejected 2 outcome-set = -> true }T
+\ Room: with a store filled up to a few free nodes, full, before the
+\ comparison or when the analysis lacks room (unknown there before plan
+\ task 4.2.2c), rejected with enough.
 : fill-to ( free -- )
   lf-term-capacity swap -
   begin dup lf-term-count @ > while 0 lf-term-bvar must drop repeat drop ;
@@ -296,7 +298,7 @@ T{ seen @ outcome-exhausted outcome-unknown outcome-rejected 3 outcome-set = -> 
 : seen-all? ( mask -- flag ) seen @ over and = ;
 room-sweep
 T{ outcome-full outcome-rejected 2 outcome-set seen-all? -> true }T
-T{ seen @ outcome-full outcome-unknown outcome-rejected 3 outcome-set invert and -> 0 }T
+T{ seen @ outcome-full outcome-rejected 2 outcome-set invert and -> 0 }T
 .( room sweep outcomes seen, as bits: ) seen @ . cr
 
 \ D1 itself (ADR 0011, Amendment 1), white-box: two Sorts are apart

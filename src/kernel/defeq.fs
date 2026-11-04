@@ -142,8 +142,11 @@ end-structure
   dup ok? if drop true outcome-ok exit then
   dup outcome-unknown = lf-lcmp-apart @ and if drop false outcome-ok exit then
   false swap ;
+\ An answer, yes or no, leaves the diagnostic as it was (level-compare.fs
+\ notes a difference): Lean's no is no failure.
 : lf-dq-level-eq ( l1 l2 -- flag outcome )
-  lf-lcmp-fuel @ true lf-level-compare-run lf-dq-level-answer ;
+  lf-diag@ 2>r 2>r lf-lcmp-fuel @ true lf-level-compare-run lf-dq-level-answer
+  dup ok? if 2r> 2r> lf-diag! else 2r> 2r> 2drop 2drop then ;
 : lf-dq-levels ( l1 l2 frames -- flag outcome )
   >r r@ lf-lcmp-fuel lf-dq-lend lf-dq-level-eq r> lf-lcmp-fuel lf-dq-repay ;
 \ is_def_eq(levels, levels) (789-799): the same number, each pair

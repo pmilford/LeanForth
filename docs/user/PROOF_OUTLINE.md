@@ -80,7 +80,7 @@ Theorem composition
   accepted (experimental, not independently audited); axioms: none
   Statement: ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Input:     tests/reference/composition.ndjson line 35
-  Checker log: 51 steps, complete. The statement is a proposition: s20 (from s3).
+  Checker log: 48 steps, complete. The statement is a proposition: s20 (from s3).
 
 Proof (reconstructed from the proof term).
   1  Let A, B, C be propositions.                  [∀-introduction]                   s21–s23
@@ -93,7 +93,7 @@ Proof (reconstructed from the proof term).
          because g turns any proof of B into a proof of C.
   7  Discharging 4, 3, 2 and 1 gives               [→/∀-introduction ← 1, 2, 3, 4, 6] s40–s45
        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C.
-  8  This is the statement.                        [definitional equality ← 7]        s49
+  8  This is the statement.                        [definitional equality ← 7]        s46
 ∎
 Rules, formulas and step numbers come from the checker's log; the sentences are
 fixed templates (structured-template), not checked reasoning.
@@ -127,7 +127,7 @@ the lines above; the printer's LaTeX mode is plan task 8.6.1):
 | 5 | Then $f\ \mathit{value} : B$, because $f$ turns any proof of $A$ into a proof of $B$. | →-elimination | 2, 4 | s36 |
 | 6 | Then $g\ (f\ \mathit{value}) : C$, because $g$ turns any proof of $B$ into a proof of $C$. | →-elimination | 3, 5 | s39 |
 | 7 | Discharging 4, 3, 2 and 1 gives $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$. | →/∀-introduction | 1, 2, 3, 4, 6 | s40–s45 |
-| 8 | This is the statement. | definitional equality | 7 | s49 |
+| 8 | This is the statement. | definitional equality | 7 | s46 |
 
 ## Printing an outline
 
@@ -149,7 +149,7 @@ step). Each declaration of the file is checked in turn with the log at
 level `terms`, and printed after its check; the exit status is `check`'s
 for a declaration refused, 3 for a log that ran out of room
 ([details](COMMAND_LINE.md#printing-a-readable-proof)). `--detail` lists
-all 51 steps of `composition` instead, for example
+all 48 steps of `composition` instead, for example
 
 ```text
   s35    instantiate         depth 6   (fun x ↦ B) value ⟶ B
