@@ -450,8 +450,9 @@ owner's [format] gate first:
 
 1. **No fixed size.** `declarations` without `maxItems` 32; the kept steps
    in a table that grows (heap) rather than `lf-input-default` cells; the
-   text streamed to its file instead of a 64 KiB buffer (a record of
-   `Init` is about 9 MB), and replay reading a record of that size
+   text streamed to its file instead of a 64 KiB buffer (`Init`'s check
+   report, with about as much per declaration, is 13.8 MB), and replay
+   reading a record of that size
    instead of at most 128 KiB.
 2. **The importer stage as the input.** `check.read` the outcome of
    staging and feeding, with the phase that failed; `rr-import`'s

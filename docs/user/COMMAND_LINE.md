@@ -365,7 +365,9 @@ exit status 2
 | `exitStatus` | the command's exit status |
 | `measured` | `microseconds` (wall and CPU of `stage`, `feed`, `check` and `total`; null on a host without clocks), `peakResidentBytes` and `stageBytes` (null when not known) |
 
-The exit status is the same as without `--json`. A report is untrusted
+The report is written out as it is made, one declaration after another
+(`Init`'s is 13.8 MB, and the schema accepts it). The exit status is the
+same as without `--json`. A report is untrusted
 output, not a [run record](#run-records-and-replay): it names no commit
 and no SHA-256, and nothing reads it back into a check. A command-line
 mistake is still reported as text (status 4), and an internal fault
