@@ -49,7 +49,11 @@ THEOREMS = [f"ProgramIR.{name}" for name in (
     "loop_rule", "euclid_by_invariant", "gcd_meets_contract", "factorialFrom_by_invariant",
     "factorial_meets_contract", "unchecked_add_violates_contract",
     "plain_abs_violates_contract", "unguarded_in_range_violates_contract",
-    "gcd_top_only_violates_contract", "wrapping_factorial_violates_contract")] + [
+    "gcd_top_only_violates_contract", "wrapping_factorial_violates_contract",
+    # Part 6: well-formedness of the programs (ADR 0019, test plan 4).
+    "clamp_wellFormed", "examples_wellFormed", "allPrimitives_wellFormed",
+    "forward_call_not_wellFormed", "recursion_not_wellFormed", "redefinition_not_wellFormed",
+    "constant_calling_word_not_wellFormed", "constant_with_if_not_wellFormed")] + [
     # The reference contracts' own proofs, copied verbatim into Part 5.
     "CheckedAddReference.checkedAdd_contract", "ProgramExamplesReference.checkedAbs_contract",
     "ProgramExamplesReference.inRange_contract", "GcdReference.checked_contract",
@@ -109,14 +113,17 @@ def axiom_problems(output):
 # The reader's primitive table: `21 s" +" ir-data` (effect: taken, given);
 # ir-division marks / and MOD, ir-return the return-stack words.
 READER_PRIM = re.compile(r'(\d)(\d) s" (\S+)" ir-(?:data|division|return)\b')
+# The program words' table (src/program/verify-semantics.fs), the same way.
+WORDS_PRIM = re.compile(r'(\d)(\d) s" (\S+)" pv-(?:data|division|return)\b')
+WORDS = Path("src/program/verify-semantics.fs")
 LEAN_WORD = re.compile(r'\| \.(\w+) => "([^"]+)"')
 # A case of Lean's `step`: the data stack before, then after.
 LEAN_STEP = re.compile(r'\| \.(\w+), ⟨([^,⟩]*), [^⟩]*⟩ =>.*?\.next ⟨([^,⟩]*), [^⟩]*⟩', re.S)
 
 
-def reader_primitives(text):
+def reader_primitives(text, pattern=READER_PRIM):
     """(spelling, taken, given) of each primitive, in the reader's order."""
-    return [(m.group(3), int(m.group(1)), int(m.group(2))) for m in READER_PRIM.finditer(text)]
+    return [(m.group(3), int(m.group(1)), int(m.group(2))) for m in pattern.finditer(text)]
 
 
 def lean_primitives(text):
@@ -130,8 +137,8 @@ def lean_primitives(text):
     return [(words.get(n), *effects.get(n, (None, None))) for n in names]
 
 
-def primitive_problems(reader_text, lean_text):
-    reader, lean = reader_primitives(reader_text), lean_primitives(lean_text)
+def primitive_problems(reader_text, lean_text, pattern=READER_PRIM):
+    reader, lean = reader_primitives(reader_text, pattern), lean_primitives(lean_text)
     problems = [] if len(lean) == 38 else [f"Lean has {len(lean)} primitives, not 38"]
     if len(reader) != len(lean):
         problems.append(f"the reader has {len(reader)} primitives, Lean {len(lean)}")
@@ -215,6 +222,19 @@ class Copies(unittest.TestCase):
                 self.assertTrue(primitive_problems(changed, lean))
         swapped = reader.replace('s" rot"', 's" @@@"').replace('s" 2dup"', 's" rot"')
         self.assertTrue(primitive_problems(swapped.replace('s" @@@"', 's" 2dup"'), lean))
+
+    def test_program_words_primitives_match_lean(self):
+        words = WORDS.read_text(encoding="utf-8")
+        lean = MODEL.read_text(encoding="utf-8")
+        self.assertEqual(len(reader_primitives(words, WORDS_PRIM)), 38)
+        self.assertEqual(primitive_problems(words, lean, WORDS_PRIM), [])
+        for old, new in (('21 s" <>" pv-data', '21 s" =/=" pv-data'),
+                         ('23 s" tuck" pv-data', '22 s" tuck" pv-data'),
+                         ('01 s" r@" pv-return', '')):
+            with self.subTest(change=old):
+                changed = words.replace(old, new, 1)
+                self.assertNotEqual(words, changed)
+                self.assertTrue(primitive_problems(changed, lean, WORDS_PRIM))
 
     def test_threat_model_names_internal_words(self):
         reader = READER.read_text(encoding="utf-8")

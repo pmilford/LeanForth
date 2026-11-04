@@ -9,7 +9,8 @@ the checker decides, so it is a [kernel] no-behaviour-change design: the
 code that implements it needs the review gate in `AGENTS.md`. The 32-bit
 access words of `src/lib/u32.fs`, which the owner approved separately, and
 since 2026-11-03 the library code of C9 step 1 implement it (see
-[C9's progress](#c9-migration-and-the-plan-tasks-it-covers)); the checker does not use it yet. The
+[C9's progress](#c9-migration-and-the-plan-tasks-it-covers)); since step 3, in part, the checker's
+stores grow on the heap and it reads a staged export's names from the input tier. The
 measurements come from a scratch prototype ([measurements](../development/measurements/compact-store-2026-11-02/README.md)).
 It builds on [ADR 0009](0009-reentrant-state-and-parallel-checking.md)
 (accepted: per-task contexts, a shared read-only environment) and
@@ -605,7 +606,69 @@ needed (Rejected alternatives).
 - The release hook step 3 needed is done (2026-11-03): `context-teardown`
   in `src/lib/context.fs` lets a scratch tier be a context member,
   freed by `context-free` ([ADR 0009, Amendment 1](0009-reentrant-state-and-parallel-checking.md#amendment-1-2026-11-03-context-members-that-own-heap-memory)).
-- Steps 3–6 not started.
+- Step 3, done in part (2026-11-03, a [kernel] no-behaviour-change change;
+  the review gate is open), with plan tasks 3.2.2 (v1) and 3.3.1:
+  - The term, level, name, reference and declaration stores are heap stores
+    (`store-heap-init` and `store-grow` in `src/lib/store.fs`: the header
+    is a context member, the block grows by doubling up to the store's
+    limit and is freed by a teardown word; growth that the limit, the heap
+    or the test hook refuses gives *full*, nothing changed). Their
+    capacities are settings of each context (`lf-term-capacity!`,
+    `lf-level-capacity!`, `lf-name-capacity!`, `lf-cref-capacity!`,
+    `lf-input-capacity!`), defaults 64, 64, 64, 32 and 32 as before. Per
+    index side data (the stamps of constants and Sorts, the passes' seen
+    marks, images and memos, the printer's binder table) moved into
+    columns that grow with their store (`src/core/store-columns.fs`).
+    Walk stacks, frames and binder contexts no longer follow the store's
+    capacity: `lf-depth-limit`, `lf-level-depth-limit` and
+    `lf-level-params-limit` keep them at 64.
+  - Universe arguments are variable-length, in a pool after each
+    reference's record (at most 64 per reference, was 8); a declaration
+    takes 64 universe parameters (was 8).
+  - A context can attach a sealed input tier as its names
+    (`lf-name-attach`): input names keep their stage numbers and need no
+    per-call audit, new ones go to one scratch tier over the input,
+    interned with them. The input keeps a name-to-declaration index, and
+    under such a view the environment reads a name's chain instead of
+    scanning every earlier declaration (E5 of ADR 0012, as C4 says);
+    tests compare the chain with the scan (635 lookups of the fixtures,
+    4,896 sampled in `Init`: no difference).
+  - `src/import/feed.fs` gives a sealed stage to the checker in file
+    order (plan 3.2.2): names through the view, levels, expressions and
+    declarations copied into the context's stores, whose capacities it
+    raises to fit.
+  - Differences from the text above, to keep every verdict, fuel count
+    and diagnostic: the context's own stores keep their three-cell nodes,
+    identity cells and stamps, are not hash-consed and are counted and
+    rolled back as before (handles check identities and stamps, tests
+    corrupt raw slots, and hash-consing would move the points where a
+    store fills), and the modules that save and restore counts by hand
+    still do. The input's terms are copied, not read in place (about 80
+    bytes per node with the columns), because the kernel reads terms and
+    references through slot addresses and identities. Reading the input
+    tier in place, hash-consed scratch terms and marks instead of saved
+    counts remain for steps 3 to 6.
+  - Evidence: every existing test passes and the pinned-Lean tables give
+    the same verdicts; 2,000 random checker trials of 300 steps
+    (`tests/support/checker-trial.fs`; 2,494,610 checker outcomes) give
+    the same digest of every outcome, result, fuel, count and diagnostic
+    as the code before the change, and a planted fault (term capacity 63)
+    changes 30 of 50 trials; the failure-path suite injects refusals and
+    THROWs into the stores' growth too (7,623 runs, every one fail-closed);
+    nine new planted faults are caught. At larger capacities the three
+    binder-domain rows that met the 64-node store get the table's answer
+    (two rejected, D3+D4+D5; one unknown, K3), and the first-checker,
+    binder-domain and universe-scope tables agree with no known difference
+    (`lean-differential.py` tables `*-large`).
+  - `Init` end to end with `gforth-fast`: staged with its manifest in
+    16 s, fed in 80 s (59,349 declarations, 6,099,054 term nodes, 578
+    levels, 56,957 references, 62 universe parameter names), checked in
+    file order in 91 s at 100,000 fuel per declaration: 37 accepted
+    (experimental, not independently audited; axioms: none), 0 rejected,
+    59,025 unsupported (inductive types, literals and everything that uses
+    them, K5), 162 exhausted, 73 unknown, 52 full, 0 invalid; peak
+    resident memory 1.27 GB. At 10,000 fuel: 37, 0, 57,576, 1,618, 73, 45.
+- Steps 4–6 not started.
 
 ## Consequences
 

@@ -49,10 +49,14 @@ begin-structure /depths
 end-structure
 /depths context-record: depths
 
-\ The main context right after loading, before any test changes it.
+\ The main context right after loading, before any test changes it: its
+\ bytes with the heap addresses of its heap-owning members blanked, and
+\ the digest of what those members hold (tests/support/context-canon.fs).
+include ../support/context-canon.fs
 context-bytes constant loaded-bytes
 create loaded loaded-bytes allot
-context-main loaded loaded-bytes move
+context-main loaded loaded-bytes move  loaded canon-zero
+canon-digest constant loaded-digest
 \ The checked environment's test world and input (part d); including it
 \ declares a member and builds the world in the main context.
 include ../support/env-cases.fs
@@ -85,7 +89,10 @@ T{ all-inside? offsets -> true context-main context-use offsets }T
 \ (after the header, whose size grew; the member env-cases.fs declared
 \ later starts zeroed).
 : past-header ( addr -- addr' u ) /context-header + loaded-bytes /context-header - ;
-T{ other past-header loaded past-header compare -> 0 }T
+create other-bytes loaded-bytes allot
+other other-bytes loaded-bytes move  other-bytes canon-zero
+: other-digest ( -- h ) other context-use canon-digest context-main context-use ;
+T{ other-bytes past-header loaded past-header compare other-digest -> 0 loaded-digest }T
 T{ other loaded-bytes + context-bytes loaded-bytes - 1 cells / cells-zero? -> true }T
 T{ other context-free -> 0 }T
 
@@ -168,18 +175,10 @@ T{ context-needs -> lf-minfer-data-cells lf-minfer-return-cells }T
 T{ lf-minfer-data-cells lf-mbeta-data-cells >
   lf-minfer-return-cells lf-mbeta-return-cells > -> true true }T
 T{ context-needs job-stacks-cover? -> true }T
-1400 constant paint-cells
-48879 constant paint-mark
-: paint-span ( top -- end start ) dup paint-cells cells - ;
-: paint ( top -- ) paint-span ?do paint-mark i ! 1 cells +loop ;
-: used ( top -- cells )
-  dup paint-span ?do i @ paint-mark <> if i - 1 cells / unloop exit then 1 cells +loop
-  drop 0 ;
-: tops ( -- rtop stop ) rp@ 16 cells - sp@ 16 cells - ;
+require ../support/stack-paint.fs
 : deeper ( rcells scells -- )
   depths depths-data dup @ rot max swap ! depths depths-return dup @ rot max swap ! ;
-: painted ( xt -- )
-  tops 2dup paint paint 2>r execute 2r> used swap used swap deeper ;
+: painted ( xt -- ) stack-painted deeper ;
 \ The deepest nesting found for a 64-node store (tests/core/mixed-beta.fs):
 \ app(T, T) with T = m lambdas over bvar m-1, over one constant.
 : lams ( body n -- node ) 0 ?do 0 swap make-lam loop ;

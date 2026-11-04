@@ -9,8 +9,10 @@
 \ name store's generation, a declaration with its type's identity and that
 \ generation, so after a reset of either store a stale entry reads as
 \ absent instead of describing another term.
-\ State: one context record, lf-pres (ADR 0009). Each context has its own
-\ table; one context is single-threaded.
+\ State: one context record, lf-pres, and a column of the term store,
+\ lf-pres-terms (core/store-columns.fs), both members of the checker
+\ context (ADR 0009). Each context has its own table; one context is
+\ single-threaded.
 
 require ../lib/lib.fs
 require ../core/terms.fs
@@ -39,19 +41,20 @@ end-structure
 
 begin-structure /lf-pres
   field: lf-pres-count       \ declaration records in use
-  lf-term-capacity /lf-pterm * +field lf-pres-terms
   lf-pres-declaration-capacity /lf-pdecl * +field lf-pres-decls
 end-structure
 /lf-pres context-record: lf-pres
+/slab context-record: lf-pres-terms
+/lf-pterm ' lf-pres-terms lf-term-columns column-add
 
-: lf-pres-entry ( term -- entry ) /lf-pterm * lf-pres lf-pres-terms + ;
+: lf-pres-entry ( term -- entry ) lf-pres-terms column-at ;
 : lf-pres-decl ( i -- decl ) /lf-pdecl * lf-pres lf-pres-decls + ;
 \ The number of declaration records, clamped into range so that a
 \ corrupted count can never address outside the table.
 : lf-pres-count@ ( -- n ) lf-pres lf-pres-count @ 0 max lf-pres-declaration-capacity min ;
 
 \ Forget every entry.
-: lf-pres-reset ( -- ) lf-pres /lf-pres erase ;
+: lf-pres-reset ( -- ) lf-pres /lf-pres erase lf-pres-terms column-erase ;
 
 \ Term entries. A live term's entry is claimed for it: an entry stamped for
 \ an earlier term at the same index is cleared first. Term identities start

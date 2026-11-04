@@ -33,9 +33,12 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
+import shutil
 import subprocess
 import sys
 import tempfile
+import unicodedata
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tests" / "support"))
@@ -149,6 +152,8 @@ class Checks:
         outcome = facts["manifest"]["outcome"]
         self.expect((outcome == "ok") == manifest, f"{export}: manifest {outcome}")
         self.expect(data["export"] == PINNED, f"{export}: export {data['export']}")
+        self.expect(facts["manifest"]["enforced"] is False,
+                    f"{export}: the driver reads without the manifest, never enforced")
         self.expect(data["check"] == {"read": "ok", "run": "ok", "mode": "final",
                                       "allowlistVersion": 0}, f"{export}: check")
         self.expect(data["settings"]["fuel"] == FUEL, f"{export}: fuel")
@@ -186,14 +191,16 @@ class Checks:
             self.expect(set(findings(report)) <= allowed,
                         f"{export}: golden replay {findings(report)}")
 
-    # Tampered records: each refused with its code and path.
+    # Tampered records: each refused with its code and path; with none
+    # expected, a change of spelling only, confirmed.
     def tampered(self, name, export, base, change, expected, fuel=FUEL, source=None):
         text = change(Path(base).read_text(encoding="utf-8"))
         path = self.tmp / f"tampered-{name}.json"
         path.write_text(text, encoding="utf-8")
         report = replay(self.gforth, export, path, fuel, source)
         got = findings(report)
-        self.expect(report["result"] == "refused" and got[:len(expected)] == expected,
+        result = "refused" if expected else "confirmed"
+        self.expect(report["result"] == result and got[:len(expected)] == expected,
                     f"tamper {name}: {got}")
 
     def tamper(self):
@@ -252,6 +259,14 @@ class Checks:
              edit(lambda d: d["input"].update(bytes=str(d["input"]["bytes"]))),
              [("input-differs", "$.input.bytes")]),
             ("not-json", comp, comp_record, lambda t: t[:-10], [("not-json", "$")]),
+            ("fraction", comp, comp_record,
+             lambda t: t.replace('"fuel":100000', '"fuel":100000.0', 1),
+             [("settings-differ", "$.settings.fuel")]),
+            ("exponent", comp, comp_record,
+             lambda t: t.replace('"fuel":100000', '"fuel":1e5', 1),
+             [("settings-differ", "$.settings.fuel")]),
+            ("escaped-verdict", comp, comp_record,
+             lambda t: t.replace('"verdict":"accepted"', '"verdict":"\\u0061ccepted"', 1), []),
             ("schema-version", comp, comp_record,
              edit(lambda d: d.update(schemaVersion="0.2")), [("unknown-schema", "$")]),
         ]
@@ -301,6 +316,167 @@ class Checks:
         refused("manifest failure without reason", wrong,
                 lambda d: d["input"]["manifest"].update(reason=""))
         refused("modified without commit", comp, lambda d: d["leanforth"].update(modified=True))
+        # Review F3: the receipts' text rule, the stated limits, the real
+        # mode and allowlist version, and runs that cannot list a verdict.
+        host = lambda **kw: lambda d: d["host"].update(**kw)  # noqa: E731
+        name = lambda value: lambda d: d["declarations"][0].update(name=value)  # noqa: E731
+        refused("engine with U+202E", comp, host(engine="gforth\u202e"))
+        refused("version with a zero-width space", comp, host(version="1.0.0\u200b"))
+        refused("forth with U+0085", comp, host(forth="gforth\u0085"))
+        refused("forth empty", comp, host(forth=""))
+        refused("forth blank", comp, host(forth="\u3000 "))
+        refused("version over 128 bytes", comp, host(version="x" * 129))
+        refused("name with U+2028", comp, name("composition\u2028"))
+        refused("name with a line feed", comp, name("composition\n"))
+        refused("name with a tag character", comp, name("composition\U000e0041"))
+        refused("name blank", comp, name(" "))
+        refused("name over 1024 bytes", comp, name("n" * 1025))
+        refused("site with a tab", wrong,
+                lambda d: d["declarations"][0]["diagnostic"].update(site="mixed-infer\t"))
+        refused("reason blank", wrong,
+                lambda d: d["declarations"][0]["diagnostic"].update(reason=" "))
+        refused("run ok with not-checked", comp,
+                lambda d: d["declarations"][0].update(verdict="not-checked"))
+        refused("read ok, run not-run", comp,
+                lambda d: d.update(check={"read": "ok", "run": "not-run", "mode": None,
+                                          "allowlistVersion": None}, declarations=[]))
+        refused("mode development", comp, lambda d: d["check"].update(mode="development"))
+        refused("allowlist version 7", comp, lambda d: d["check"].update(allowlistVersion=7))
+        refused("fuel 1e300", comp, lambda d: d["settings"].update(fuel=1e300))
+        refused("fuel 1.5", comp, lambda d: d["settings"].update(fuel=1.5))
+        refused("declarations without an environment", comp,
+                lambda d: d["check"].update(run="invalid", mode=None, allowlistVersion=None))
+        refused("run ok without its mode", comp,
+                lambda d: d["check"].update(mode=None, allowlistVersion=None))
+        # rvRP round 2: names that look blank, and an enforced manifest the
+        # input does not match.
+        for label, value in [("U+3164", "\u3164"), ("U+115F", "\u115f"), ("U+1160", "\u1160"),
+                             ("U+2800", "\u2800"), ("U+FFA0", "\uffa0"),
+                             ("combining marks", "\u0301\u0302"), ("U+034F", "\u034f"),
+                             ("variation selectors", "\ufe0f\U000e0100"),
+                             ("filler and space", "\u3164 \u2800")]:
+            refused(f"name of {label} only", comp, name(value))
+        refused("enforced manifest that does not match", wrong,
+                lambda d: d["input"]["manifest"].update(enforced=True))
+        refused("manifest without enforced", comp,
+                lambda d: d["input"]["manifest"].pop("enforced"))
+        # Names in any script stay valid.
+        data = copy.deepcopy(comp)
+        data["declarations"][0]["name"] = "\u03b1.\u03b2\u2081"
+        self.expect(not RECORD_SCHEMA.errors(data), "schema refuses a non-ASCII name")
+
+    # Review F2: a key of the old record cut in a path never splits a
+    # character, and the report stays one JSON text.
+    def long_key(self):
+        comp = "tests/reference/composition.ndjson"
+        key = "x" + "\u00e9" * 100
+        path = self.tmp / "long-key.json"
+        data = json.loads(Path(self.out(comp)).read_text())
+        data[key] = 1
+        path.write_text(compact(data), encoding="utf-8")
+        got = findings(replay(self.gforth, comp, path))
+        full = "$." + key
+        cut = full.encode()[:128].decode("utf-8", "ignore")
+        self.expect(got == [("unknown-field", cut)] and len(cut.encode()) == 127,
+                    f"long multibyte key: {got}")
+
+    # The schemas' patterns mean the same in ECMA-262 (node, u flag) and in
+    # the Python reading of schema_subset.py, on samples of every kind.
+    SAMPLES = ["", "a", " ", "x" * 128, "x" * 129, "\u00e9" * 128, "\u00e9" * 129, "a\u200bb",
+               "a\u2028b", "a\rb", "a\nb", "\x00", "\x85", "\u00ad", "\ufeff", "\u3164",
+               "\u3000", "\u00a0x", "a\U000110bd", "a\U0001d173", "a\U000e0041",
+               "a\U0001f600", "a\ud800", "\U000e0001", "0" * 64, "0" * 40, "mixed-infer",
+               "$.declarations[0].verdict", "\u03b1", "\u115f", "\u2800", "\uffa0",
+               "\u0301\u0302", "a\u0301", "\ufe0f", "\U000e0100", "\u1160x"]
+
+    # The characters that are not seen (text-rule.fs's tr-unseen and the
+    # schema's shown pattern) are exactly spaces, the fillers, combining
+    # marks (category M) and default-ignorable code points of Unicode 15.1,
+    # recomputed here from Python's Unicode data when it is that version.
+    SPACES = [(0x20, 0x20), (0xa0, 0xa0), (0x1680, 0x1680), (0x2000, 0x200a),
+              (0x202f, 0x202f), (0x205f, 0x205f), (0x3000, 0x3000)]
+    FILLERS = [(0x115f, 0x1160), (0x2800, 0x2800), (0x3164, 0x3164), (0xffa0, 0xffa0)]
+    # DerivedCoreProperties.txt, Unicode 15.1: Default_Ignorable_Code_Point.
+    IGNORABLE = [(0x00ad, 0x00ad), (0x034f, 0x034f), (0x061c, 0x061c), (0x115f, 0x1160),
+                 (0x17b4, 0x17b5), (0x180b, 0x180f), (0x200b, 0x200f), (0x202a, 0x202e),
+                 (0x2060, 0x206f), (0x3164, 0x3164), (0xfe00, 0xfe0f), (0xfeff, 0xfeff),
+                 (0xffa0, 0xffa0), (0xfff0, 0xfff8), (0x1bca0, 0x1bca3), (0x1d173, 0x1d17a),
+                 (0xe0000, 0xe0fff)]
+
+    def unseen(self):
+        if unicodedata.unidata_version != "15.1.0":
+            print(f"Python's Unicode is {unicodedata.unidata_version}: unseen table not rebuilt")
+            return
+        unseen = set()
+        for lo, hi in self.SPACES + self.FILLERS + self.IGNORABLE:
+            unseen |= set(range(lo, hi + 1))
+        unseen |= {cp for cp in range(0x110000)
+                   if unicodedata.category(chr(cp)).startswith("M")}
+        source = Path("src/import/text-rule.fs").read_text()
+        table = source.split("create tr-unseen", 1)[1].split("here tr-unseen", 1)[0]
+        values = [int(v, 16) for v in re.findall(r"\$([0-9a-f]+) ,", table)]
+        forth = set()
+        for lo, hi in zip(values[::2], values[1::2]):
+            forth |= set(range(lo, hi + 1))
+        self.expect(forth == unseen, f"tr-unseen differs from Unicode 15.1 by "
+                    f"{len(forth ^ unseen)} code points")
+        shown = RECORD_SCHEMA._patterns[RECORD_SCHEMA.root["$defs"]["shown"]["allOf"][1]
+                                        ["pattern"]]
+        schema = {cp for cp in range(0x110000) if not 0xd800 <= cp <= 0xdfff
+                  and not shown.search(chr(cp))}
+        self.expect(schema == unseen - set(range(0xd800, 0xe000)),
+                    f"the schema's shown class differs from Unicode 15.1 by "
+                    f"{len(schema ^ unseen)} code points")
+
+    def ecma(self):
+        node = shutil.which("node")
+        if not node:
+            print("node is not installed: ECMA-262 patterns not compared")
+            return
+        patterns = sorted({p for schema in (RECORD_SCHEMA, REPORT_SCHEMA)
+                           for p in schema._patterns})
+        script = ("const {patterns, samples} = JSON.parse(require('fs').readFileSync(0, 'utf8'));"
+                  "console.log(JSON.stringify(patterns.map(p => {"
+                  " const re = new RegExp(p, 'u'); return samples.map(s => re.test(s)); })));")
+        done = subprocess.run([node, "-e", script], capture_output=True, text=True, timeout=60,
+                              input=json.dumps({"patterns": patterns, "samples": self.SAMPLES}))
+        self.expect(done.returncode == 0, f"node: {done.stderr}")
+        if done.returncode:
+            return
+        for pattern, results in zip(patterns, json.loads(done.stdout)):
+            schema = RECORD_SCHEMA if pattern in RECORD_SCHEMA._patterns else REPORT_SCHEMA
+            python = [bool(schema._patterns[pattern].search(s)) for s in self.SAMPLES]
+            self.expect(python == results, f"ECMA and Python differ on {pattern[:40]}")
+
+    # The writer's text rule (tr-rule?, tr-shown?) against the schema's
+    # patterns, at both ends of every range they name and around them.
+    def text_rule(self):
+        defs = RECORD_SCHEMA.root["$defs"]
+        raw = defs["text"]["pattern"], defs["shown"]["allOf"][1]["pattern"]
+        text, shown = (RECORD_SCHEMA._patterns[p] for p in raw)
+        # Every code point the patterns name, as an escape or as itself
+        # (outside the Basic Multilingual Plane), and its neighbours.
+        points = {0x41, 0x7e, 0x80, 0xff, 0x3164, 0x1f600, 0x10ffff}
+        for pattern in raw:
+            points |= {int(m.group(1), 16) for m in re.finditer(r"\\u([0-9a-f]{4})", pattern)}
+            points |= {ord(char) for char in pattern}
+        points = sorted({p + d for p in points for d in (-1, 0, 1) if 0 <= p + d <= 0x10ffff})
+        lines = ["require ~+/tests/support/run-records.fs", "include ~+/tests/support/tester.fs",
+                 "create one-char 4 allot",
+                 ": rule? ( code -- f s ) one-char utf8-put one-char swap 2dup tr-rule? -rot"
+                 " tr-shown? ;"]
+        for point in points:
+            char = chr(point)
+            ok, seen = bool(text.search(char)), bool(text.search(char) and shown.search(char))
+            lines.append(f"T{{ ${point:x} rule? -> {-int(ok)} {-int(seen)} }}T")
+        lines.append("bye")
+        source = self.tmp / "text-rule.fs"
+        source.write_text("\n".join(lines) + "\n")
+        done = subprocess.run([self.gforth, str(source)], cwd=ROOT, stdin=subprocess.DEVNULL,
+                              capture_output=True, text=True, timeout=120)
+        self.expect(done.returncode == 0 and not done.stdout.strip(),
+                    f"text rule differs from the schema: {done.stdout[:300]} {done.stderr[:300]}")
+        print(f"Text rule: {len(points)} code points agree between the writer and the schema.")
 
     # A second Gforth: the same records but for the host's version and engine.
     def other(self, other):
@@ -329,6 +505,10 @@ def main():
         if not args.update:
             checks.tamper()
             checks.schema_refusals()
+            checks.long_key()
+            checks.ecma()
+            checks.text_rule()
+            checks.unseen()
         if args.other_gforth:
             checks.other(args.other_gforth)
     for failure in checks.failures:

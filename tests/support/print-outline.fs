@@ -1,19 +1,20 @@
-\ The proof outline from the command line (plan task 2.4.4; ADR 0013 L7):
-\ read a lean4export NDJSON file with the test-only transport
-\ (tests/support/ndjson-input.fs), check each declaration in turn with
+\ The proof outline from a Lean export (plan task 2.4.4; ADR 0013 L7):
+\ read a lean4export NDJSON file into the checker's input
+\ (src/import/checker-input.fs), check each declaration in turn with
 \ check-declaration and the derivation log at level terms, and print each
 \ one's proof outline (src/present/proof-outline.fs) or, with detail, every
-\ step of its log. Used by `make print EXPORT=file.ndjson [DETAIL=1]`:
-\   gforth tests/support/print-outline.fs -e 's" file" 0 po-file bye'
+\ step of its log. Used by make print EXPORT=file.ndjson [DETAIL=1]:
+\   gforth tests/support/print-outline.fs -e 's" file" false po-exit'
 \ Binder names and kinds, each declaration's line in the file and each
 \ constant's declared type go into the presentation side table
 \ (src/present/binder-table.fs), which the checker never reads, in a third
-\ pass over the file. Test-only transport, like make run-record: phase 3
-\ (plan task 3.2.2) replaces it with the Forth importer and `leanforth print`.
-\ State: the transport's (global, test-only), the declarations' lines
-\ (po-lines) and the declaration counter of the third pass.
+\ pass over the file with checker-input's export record and tables. Test
+\ support, like the run records' driver.
+\ State: checker-input's, the declarations' lines (po-lines) and the
+\ declaration counter of the third pass (global, test-only).
 
-require ./ndjson-input.fs
+require ../../src/import/checker-input.fs
+require ../../src/kernel/check-declaration.fs
 require ../../src/present/proof-outline.fs
 
 100000 constant po-fuel
@@ -23,23 +24,27 @@ variable po-decls
 \ The third pass: names and kinds of binders, sources of expressions,
 \ lines and declared types of declarations.
 : po-binder ( record -- outcome )
-  dup record-index @ ni-root over binder-name @ ni-name rot binder-info @ lf-pres-binder! ;
-: po-expr ( record -- outcome ) dup record-index @ ni-root swap record-index @ lf-pres-source! ;
+  dup record-index @ cin-root over binder-name @ cin-name rot binder-info @
+  lf-pres-binder! ;
+: po-expr ( record -- outcome )
+  dup record-index @ cin-root swap record-index @ lf-pres-source! ;
 : po-bound ( record -- outcome )
   dup po-expr ok? 0= if drop outcome-ok exit then po-binder drop outcome-ok ;
 : po-source ( record -- outcome ) po-expr drop outcome-ok ;
 : po-decl ( record -- outcome )
   po-decls @ dup lf-input-capacity < 0= if 2drop outcome-full exit then
   over record-line @ swap cells po-lines + ! 1 po-decls +!
-  dup decl-name @ ni-name swap decl-type @ ni-root lf-pres-declare drop outcome-ok ;
+  dup decl-name @ cin-name swap decl-type @ cin-root lf-pres-declare drop outcome-ok ;
 create po-third
-  ' ok-handler , ' ok-handler , ' ok-handler , ' ok-handler , ' ok-handler , ' ok-handler ,
-  ' ok-handler , ' po-source , ' po-source , ' po-source , ' po-source , ' po-bound ,
-  ' po-bound , ' po-source , ' po-source , ' po-source , ' po-source , ' po-source ,
-  ' po-decl , ' po-decl , ' po-decl , ' po-decl , 0 , 0 , 0 , 0 , 0 ,
+  ' cin-pass-by , ' cin-pass-by , ' cin-pass-by , ' cin-pass-by , ' cin-pass-by ,
+  ' cin-pass-by , ' cin-pass-by , ' po-source , ' po-source , ' po-source ,
+  ' po-source , ' po-bound , ' po-bound , ' po-source , ' po-source ,
+  ' po-source , ' po-source , ' po-source , ' po-decl , ' po-decl ,
+  ' po-decl , ' po-decl , ' cin-pass-by , ' cin-pass-by , 0 , 0 , 0 ,
+po-third cin-table-check
 : po-present ( c-addr u -- outcome )
-  0 po-decls ! lf-pres-reset ni-export export-init dup ok? 0= if nip nip exit then drop
-  po-third ni-pass ni-export export-free ;
+  0 po-decls ! lf-pres-reset cin-export export-init dup ok? 0= if nip nip exit then drop
+  po-third cin-handlers cin-plain cin-export export-free ;
 
 \ Check declaration i with the log on, then print its outline (detail:
 \ every step) from a view of the environment.
@@ -59,7 +64,7 @@ create po-third
 \ or with detail true every step of its log, with the log options as they
 \ are (a level other than off; tests set limits or level steps).
 : po-run-file ( c-addr u detail -- )
-  >r 2dup ni-read ok? 0= abort" print-outline: not read"
+  >r 2dup cin-read ok? 0= abort" print-outline: not read"
   2dup po-present ok? 0= abort" print-outline: names not read"
   po-fuel lf-check-budget
   64 lf-env-new ok? 0= abort" print-outline: no environment"

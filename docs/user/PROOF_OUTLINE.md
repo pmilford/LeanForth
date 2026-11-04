@@ -131,8 +131,9 @@ the lines above; the printer's LaTeX mode is plan task 8.6.1):
 
 ## Printing an outline
 
-From the repository root, for any Lean export the phase-2 transport reads
-(at most 64 terms, levels and names, 32 declarations):
+From the repository root, for any Lean export the checker's input reader
+(`src/import/checker-input.fs`) holds (64 names, levels and term nodes,
+32 declarations):
 
 ```text
 make print EXPORT=tests/reference/composition.ndjson            # the outlines
@@ -197,5 +198,5 @@ instead:
   of" lines for unfolding.
 - Unicode text only; Markdown, LaTeX and JSON outputs are later printer
   modes (plan tasks 2.4.4 and 8.6.1).
-- The input is the phase-2 test transport; formulas print from the
-  context that ran the check, between checks.
+- The input is the checker's input reader of today (small exports only);
+  formulas print from the context that ran the check, between checks.

@@ -4,11 +4,12 @@
 \ serialization or theorem checker. Handles are forgeable and do not record
 \ which store they belong to; callers prevent concurrent mutation, raw
 \ writes and cross-store confusion.
-\ State: two stamp tables, indexed by term index, record which term and
-\ level identities each symbolic Sort was built from (raw symbolic Sorts
-\ have no stamp and fail lf-hterm-check); the audit uses one walk record,
-\ lf-href-walker. All three are members of the checker context
-\ (lib/context.fs). Single-threaded within one context.
+\ State: two stamp columns of the term store (core/store-columns.fs),
+\ indexed by term index, record which term and level identities each
+\ symbolic Sort was built from (raw symbolic Sorts have no stamp and fail
+\ lf-hterm-check); the audit uses one walk record, lf-href-walker. All
+\ three are members of the checker context (lib/context.fs).
+\ Single-threaded within one context.
 
 require ../lib/lib.fs
 require ./diagnostics.fs
@@ -17,13 +18,15 @@ require ./symbolic-session.fs
 require ./tagged-sort-boundary.fs
 require ./terms.fs
 
-lf-term-capacity cells context-record: lf-hsort-term-identities
-lf-term-capacity cells context-record: lf-hsort-level-identities
-lf-term-capacity context-walk: lf-href-walker
+/slab context-record: lf-hsort-term-identities
+1 cells ' lf-hsort-term-identities lf-term-columns column-add
+/slab context-record: lf-hsort-level-identities
+1 cells ' lf-hsort-level-identities lf-term-columns column-add
+lf-depth-limit context-walk: lf-href-walker
 
 \ Stamp cells of a symbolic Sort at a valid term index.
-: lf-hsort-term-stamp ( index -- addr ) cells lf-hsort-term-identities + ;
-: lf-hsort-level-stamp ( index -- addr ) cells lf-hsort-level-identities + ;
+: lf-hsort-term-stamp ( index -- addr ) lf-hsort-term-identities column-at ;
+: lf-hsort-level-stamp ( index -- addr ) lf-hsort-level-identities column-at ;
 
 \ The fuel the last audit left, under its established name.
 : lf-href-fuel ( -- addr ) lf-href-walker walk-fuel ;

@@ -5,7 +5,7 @@
 \ given a handle or printed as accepted.
 \
 \ Cases: the five pinned fixtures (tests/reference/*.ndjson, read with the
-\ test-only transport tests/support/ndjson-input.fs), all accepted, and
+\ checker-input module src/import/checker-input.fs), all accepted, and
 \ cases in the first-checker driver's prefix text (tests/support/
 \ first-checker-driver.fs, the rows of tests/core/check-declaration.fs)
 \ that end rejected, unknown, unsupported, invalid or full where Lean's
@@ -55,7 +55,7 @@
 include ../support/tester.fs
 include ../support/checks.fs
 require ../support/alloc-fail.fs
-require ../support/ndjson-input.fs
+require ../../src/import/checker-input.fs
 require ../support/first-checker-driver.fs
 decimal
 
@@ -91,7 +91,7 @@ create reached steps# cells allot  reached steps# cells erase
 \ and ends loading.
 variable fp-loader
 : fp-load ( -- ) fp-loader @ execute ;
-: ndjson ( c-addr u -- ) ni-read ok? s" not read" fp-must ;
+: ndjson ( c-addr u -- ) cin-read ok? s" not read" fp-must ;
 
 \ ---------------------------------------------------------------------------
 \ The baseline: per slot its outcome, its dependencies (a bit set of
@@ -266,8 +266,12 @@ variable wanted#
 \ ---------------------------------------------------------------------------
 \ Runs in the current context, which must stay usable (not spent).
 variable runs#        \ injected runs (refusal, fuel and THROW)
+\ A case's word ( -- ) run before each run, so that a growable store
+\ starts every run with the same block (default: nothing).
+variable fp-prepare  ' noop fp-prepare !
+: prepared ( -- ) fp-prepare @ execute ;
 : fp-run-once ( -- )
-  fp-open fp-steps af-off rules reports fp-close
+  prepared fp-open fp-steps af-off rules reports fp-close
   lf-env-spent? 0= s" context spent" fp-must ;
 : all-base? ( -- flag ) true lf-input-count 0 ?do i got@ i base@ = and loop ;
 \ The baseline, with the allocations counted per declaration.
@@ -277,7 +281,7 @@ variable runs#        \ injected runs (refusal, fuel and THROW)
   lf-input-count 0 ?do i got@ i cells base-outcome + ! i slot-deps i cells base-deps + !
   loop ;
 : baseline ( -- )
-  0 fp-mode ! 0 fp-run ! fuel lf-check-budget 0 af-arm fp-open base-steps
+  0 fp-mode ! 0 fp-run ! fuel lf-check-budget prepared 0 af-arm fp-open base-steps
   af-seen@ allocs# ! baseline-record af-off reports fp-close ;
 \ A clean run afterwards, in the same context, gives the baseline.
 : clean-run ( -- )
@@ -326,7 +330,7 @@ variable runs#        \ injected runs (refusal, fuel and THROW)
   rules reports lf-env-spent? stopped @ 0= = s" spent wrongly" fp-must
   rolled-back? s" a store was not rolled back" fp-must ;
 : thrown-run ( k -- )
-  3 fp-mode ! dup fp-run ! home >r fp-open af-arm-throw
+  3 fp-mode ! dup fp-run ! home >r prepared fp-open af-arm-throw
   ['] lf-check-declaration ['] fp-maker lf-env-run af-off fp-run @ thrown-ok
   fp-close r> leave-home 1 runs# +! ;
 : throws ( -- ) allocs# @ 1+ 1 ?do i thrown-run loop ;
@@ -339,7 +343,7 @@ variable runs#        \ injected runs (refusal, fuel and THROW)
   later-open? s" a slot published after the stop" fp-must
   lf-env-spent? s" not spent" fp-must ;
 : no-maker-run ( -- )
-  3 fp-mode ! 1 fp-run ! home >r fp-open 1 af-arm-throw
+  3 fp-mode ! 1 fp-run ! home >r prepared fp-open 1 af-arm-throw
   ['] lf-check-declaration ['] no-maker lf-env-run af-off stops-ok
   fp-close r> leave-home 1 runs# +! ;
 
@@ -463,6 +467,25 @@ T{ outcome-unsupported outcome-unsupported 2 ' n2-unsupported s" n2-unsupported"
   fc-text ;
 T{ outcome-invalid 1 ' loose s" loose" fp-case -> }T
 T{ outcome-full 1 ' terms-full s" terms-full" fp-case -> }T
+\ The same declaration with the term store's capacity raised, a setting
+\ of the context (plan task 3.3.1; ADR 0016 C5): the store and its
+\ columns grow while the type is inferred, and every growth is an
+\ allocation the sweeps refuse or make throw: full, never accepted. The
+\ capacity goes back to the default afterwards.
+\ Before each run the block shrinks to the input and the columns are made
+\ as large as the capacity, so that every run grows the store at the same
+\ allocations (blocks never shrink by themselves).
+4096 constant grown
+: grown-capacity ( n -- ) lf-term-capacity! ok? s" no setting" fp-must ;
+: column-grown ( column -- ) grown swap column-slab column-reserve ok? s" no column" fp-must ;
+: grown-block ( -- )
+  lf-term-count @ grown-capacity grown grown-capacity
+  ['] column-grown lf-term-columns columns-each ;
+: terms-grown ( -- ) lf-term-reset grown grown-capacity terms-full ;
+' grown-block fp-prepare !
+T{ outcome-unknown 1 ' terms-grown s" terms-grown" fp-case -> }T
+' noop fp-prepare !
+lf-input-reset lf-term-reset lf-term-default grown-capacity
 
 \ Accepted with two dependencies, whose publication appends two pool
 \ entries: a refusal or THROW at the second must take the first back.
@@ -499,8 +522,9 @@ T{ lied -> outcome-invalid false lf-step-done lf-diag-recheck outcome-invalid ou
 \ allocation and steps 2 and 3 use no fuel (step 5's fuel runs out only
 \ in its search for a rejection, which then leaves it unknown); a THROW is
 \ injected only at an allocation, so invalid needs one (or V1 in the
-\ audit, or a failed publication after step 8); and step 8 allocates only
-\ in its search for a rejection, where a refusal leaves it unknown.
+\ audit, or a failed publication after step 8); and step 8 allocates in
+\ its search for a rejection, where a refusal leaves it unknown, and, in
+\ terms-grown, while it reduces (a refused growth of the term store: full).
 : outcome-named ( c-addr u -- outcome )
   7 0 do 2dup i outcome-text compare 0= if 2drop i unloop exit then loop
   true abort" failure-paths: not an outcome" ;
@@ -516,7 +540,7 @@ create expected-reach steps# cells allot  expected-reach steps# cells erase
 5 reaches: unknown rejected
 6 reaches: exhausted rejected
 7 reaches: invalid exhausted unknown rejected unsupported full
-8 reaches: invalid exhausted unknown rejected
+8 reaches: invalid exhausted unknown rejected full
 9 reaches: ok invalid
 
 : .outcomes ( set -- )

@@ -716,18 +716,18 @@ quick = true
 [[fault]]
 id = "cmp-name-bytes-ignored"
 file = "src/kernel/mixed-compare.fs"
-old = '''  lf-name-slot lf-name-bytes@ rot lf-name-slot lf-name-bytes@ compare 0= ;'''
-new = '''  lf-name-slot lf-name-bytes@ rot lf-name-slot lf-name-bytes@ 2drop 2drop true ;'''
+old = '''lf-name-text rot lf-name-text compare 0= ;'''
+new = '''lf-name-text rot lf-name-text 2drop 2drop true ;'''
 test = "$GFORTH tests/core/mixed-compare.fs"
-reason = "names that differ only in a string component compare equal"
+reason = "names that differ only in a string component compare equal (re-targeted at the compact store: names read through accessors)"
 
 [[fault]]
 id = "cmp-name-numbers-ignored"
 file = "src/kernel/mixed-compare.fs"
-old = '''  lf-name-slot lf-entry-payload @ swap lf-name-slot lf-entry-payload @ = ;'''
-new = '''  lf-name-slot lf-entry-payload @ swap lf-name-slot lf-entry-payload @ 2drop true ;'''
+old = '''lf-name-payload swap lf-name-payload = ;'''
+new = '''lf-name-payload swap lf-name-payload 2drop true ;'''
 test = "$GFORTH tests/core/mixed-compare.fs"
-reason = "names that differ only in a numeric component compare equal: the test compares x.10 with x.11, which Lean's Name.num tells apart"
+reason = "names that differ only in a numeric component compare equal: the test compares x.10 with x.11, which Lean's Name.num tells apart (re-targeted at the compact store: names read through accessors)"
 
 [[fault]]
 id = "cmp-level-params-equal"
@@ -937,6 +937,14 @@ old = '''  lf-lmk-offset nip swap lf-lmk-offset nip > if 2 else 1 then ;'''
 new = '''  lf-lmk-offset nip swap lf-lmk-offset nip < if 1 else 2 then ;'''
 test = "$GFORTH tests/core/level-compare.fs"
 reason = "mk_max of two explicit levels of equal depth gives the second, where Lean gives the first"
+
+[[fault]]
+id = "lv-normalize-need-under-measured"
+file = "src/kernel/level-normalize.fs"
+old = '''7 constant lf-lnorm-rs-level    \ return-stack cells per level node'''
+new = '''6 constant lf-lnorm-rs-level    \ return-stack cells per level node'''
+test = "$GFORTH tests/core/level-deep.fs"
+reason = "normalize's stated return-stack need per level node falls below the 6.5 cells painted, so a larger level store could outgrow the stated need"
 
 # --- NDJSON reader (src/import/ndjson.fs) ----------------------------------
 
@@ -1178,6 +1186,151 @@ new = '''  false if ir-why-unclosed ir-invalid exit then'''
 test = "$GFORTH tests/program/ir-reader.fs"
 reason = "a file that ends inside a definition is read as complete"
 
+# --- program words in two modes (src/program/verify*.fs, ADR 0019) ---------
+# The four faults of ADR 0019's prototype, then the gap check, a primitive's
+# effect, identities, number names, isolation, and more. verify.fs holds the
+# golden files and both designs' own checks; verify_check.py compares both
+# designs with each other and with today's reader.
+
+[[fault]]
+id = "pv-else-as-then"
+file = "src/program/verify-semantics.fs"
+old = ''': pv-else ( -- ) pv-inside s" else" pv-frame-if pv-frame-else pv-turn ;'''
+new = ''': pv-else ( -- ) pv-inside s" then" pv-frame-if pv-frame-else pv-turn ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "ELSE is written as then: examples.fs's golden IR (lf-gcd) differs, in both designs"
+quick = true
+
+[[fault]]
+id = "pv-minus-dropped"
+file = "src/program/verify-semantics.fs"
+old = '''  pv-negative >r pv-whole? if r> if negate then true else r> drop false then ;'''
+new = '''  pv-negative >r pv-whole? if r> drop true else r> drop false then ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "a literal's minus sign is dropped: examples.fs's golden IR (-1 1 rshift) differs"
+
+[[fault]]
+id = "pv-names-not-folded"
+file = "src/program/verify-semantics.fs"
+old = '''  chars move 2r> pv-fold ;'''
+new = '''  chars move 2r> 2drop ;'''
+test = "$GFORTH tests/program/verify.fs && python3 tests/program/verify_check.py"
+reason = "a definition's name is written as spelt, not in lower case, unlike today's reader (the clamp in upper case)"
+
+[[fault]]
+id = "pv-long-names"
+file = "src/program/verify-semantics.fs"
+old = '''31 constant pv-name-max          \ longest definition name'''
+new = '''99 constant pv-name-max          \ longest definition name'''
+test = "$GFORTH tests/program/verify.fs && python3 tests/program/verify_check.py"
+reason = "a name of more than 31 characters is accepted, unlike today's reader"
+
+[[fault]]
+id = "pv-gap-values-unchecked"
+file = "src/program/verify-alias.fs"
+old = ''': pv-host-value ( x i -- ) pv-gap-value @ <> if pv-why-host-literal pv-fail then ;'''
+new = ''': pv-host-value ( x i -- ) 2drop ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "the separate vocabulary takes the host's cells without comparing them with the text"
+
+[[fault]]
+id = "pv-gap-any-token"
+file = "src/program/verify-alias.fs"
+old = '''  2dup pv-token! pv-literal? 0= if pv-why-unknown pv-fail then dup pv-gap-push pv-lit ;'''
+new = '''  2dup pv-token! pv-literal? 0= if 0 then dup pv-gap-push pv-lit ;'''
+test = "$GFORTH tests/program/verify.fs && python3 tests/program/verify_check.py"
+reason = "the gap check reads any token as a literal: the separate vocabulary then disagrees with the mode shift"
+
+[[fault]]
+id = "pv-max-effect"
+file = "src/program/verify-semantics.fs"
+old = '''21 s" rshift" pv-data  21 s" max" pv-data     21 s" min" pv-data'''
+new = '''21 s" rshift" pv-data  11 s" max" pv-data     21 s" min" pv-data'''
+test = "$GFORTH tests/program/verify.fs && python3 tests/program/verify_check.py"
+reason = "MAX is counted as taking one cell: the reader test's constants then leave two values, and the table no longer matches Lean's step"
+
+[[fault]]
+id = "pv-identity-ignored"
+file = "src/program/verify.fs"
+old = '''  over pv-entry-host @ <> if drop pv-why-replaced pv-fail then pv-perform ;'''
+new = '''  pv-perform ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "the mode shift no longer knows the host's words by identity: a standard word redefined before the run is accepted"
+quick = true
+
+[[fault]]
+id = "pv-number-names-accepted"
+file = "src/program/verify-semantics.fs"
+old = '''  pv-token-text pv-number-like? if pv-why-number-name pv-fail then ;'''
+new = '''  ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "a name that reads as a number is accepted, against the owner's answer 4"
+
+[[fault]]
+id = "pv-order-not-restored"
+file = "src/program/verify-runner.fs"
+old = '''  pv-free pv-settings run-settings-restore pv-floats-clear false pv-busy !'''
+new = '''  pv-free pv-floats-clear false pv-busy !'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "the caller's search order, compilation word list and BASE are not given back after a run"
+
+[[fault]]
+id = "pv-base-not-restored"
+file = "src/lib/text-run.fs"
+old = '''  run-settings-base @ base ! ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/lib/text-run.fs"
+reason = "run-settings-restore leaves BASE as the run set it"
+
+[[fault]]
+id = "pv-run-while-compiling"
+file = "src/program/verify-runner.fs"
+old = ''': pv-not-compiling ( -- ) state @ if pv-why-compiling pv-fail-here then ;'''
+new = ''': pv-not-compiling ( -- ) ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "a run starts while Forth compiles, so the file's words would be compiled into the caller"
+
+[[fault]]
+id = "pv-recursion-accepted"
+file = "src/program/verify-semantics.fs"
+old = '''  dup pv-current @ = if pv-why-recursive pv-fail then'''
+new = '''  false if pv-why-recursive pv-fail then'''
+test = "python3 tests/program/verify_check.py"
+reason = "a word that calls itself is written, though Gforth would call an earlier word of that name"
+
+[[fault]]
+id = "pv-reserved-ignored"
+file = "src/program/verify-semantics.fs"
+old = '''    pv-kind-reserved of drop pv-why-not-ir pv-fail endof'''
+new = '''    pv-kind-reserved of drop endof'''
+test = "$GFORTH tests/program/verify.fs && python3 tests/program/verify_check.py"
+reason = "a Forth word outside IR 0.1 (CELLS, @, DO ...) is skipped instead of refused, so its IR means something else"
+quick = true
+
+[[fault]]
+id = "pv-literal-too-large"
+file = "src/program/verify-semantics.fs"
+old = ''': pv-fits? ( u -- u true | false ) dup pv-literal-max u> if drop false else true then ;'''
+new = ''': pv-fits? ( u -- u true | false ) dup pv-literal-max 1+ u> if drop false else true then ;'''
+test = "python3 tests/program/verify_check.py"
+reason = "the literal 2147483648, too large for 32-bit cells, is accepted"
+
+[[fault]]
+id = "pv-del-accepted"
+file = "src/lib/text-run.fs"
+old = ''': text-odd? ( char -- flag ) dup text-tab <> swap bl 127 within 0= and ;'''
+new = ''': text-odd? ( char -- flag ) dup text-tab <> swap bl 128 within 0= and ;'''
+test = "$GFORTH tests/lib/text-run.fs && python3 tests/program/verify_check.py"
+reason = "the DEL character (127) passes the plain-text rule"
+
+[[fault]]
+id = "pv-crlf-kept"
+file = "src/program/verify-runner.fs"
+old = ''': pv-next-line ( -- c-addr u ) pv-split if text-cr-drop else pv-cut-short then ;'''
+new = ''': pv-next-line ( -- c-addr u ) pv-split if else pv-cut-short then ;'''
+test = "python3 tests/program/verify_check.py"
+reason = "the CR of a CRLF line end is kept, so a file Gforth loads is refused, unlike today's reader"
+
 # --- JSON writer (src/lib/json-write.fs) -----------------------------------
 # Its review planted 27 faults by hand (docs/development/FORTH_LIBRARY.md);
 # these re-create some of them.
@@ -1269,16 +1422,16 @@ quick = true
 [[fault]]
 id = "sha-fast-unmasked-store"
 file = "src/lib/sha256.fs"
-old = '''+ sha-mask and r@ win-e-next + !'''
-new = '''+ r@ win-e-next + !'''
+old = '''+ sha-mask and r@ sha-win-e-next + !'''
+new = '''+ r@ sha-win-e-next + !'''
 test = "$GFORTH tests/lib/sha256.fs"
 reason = "the fast round stores e unmasked; the next doubled rotation reads high bits"
 
 [[fault]]
 id = "sha-fast-sigma0-shift"
 file = "src/lib/sha256.fs"
-old = '''over win-w-15 + @ dup 3 rshift'''
-new = '''over win-w-15 + @ dup 4 rshift'''
+old = '''over sha-win-w-15 + @ dup 3 rshift'''
+new = '''over sha-win-w-15 + @ dup 4 rshift'''
 test = "$GFORTH tests/lib/sha256.fs"
 reason = "the fast schedule's sigma0 shifts by 4 for 3"
 
@@ -1347,6 +1500,33 @@ old = '''[char] a 10 - then'''
 new = '''[char] a 9 - then'''
 test = "$GFORTH tests/lib/sha256.fs"
 reason = "hexadecimal digits a to f written one letter late"
+
+[[fault]]
+id = "sha-helpers-public"
+file = "src/lib/sha256.fs"
+old = '''32 constant sha-digest-bytes
+lf-lib-private set-current'''
+new = '''32 constant sha-digest-bytes
+lf-lib set-current'''
+test = "python3 tests/lib/test_sha256.py"
+reason = "the constant tables and the round table's layout become public words (ADR 0010)"
+
+[[fault]]
+id = "manifest-lines-type-unchecked"
+file = "src/import/manifest.fs"
+old = '''   ' natural-member? check, lines'''
+new = ''
+test = "python3 tests/core/test_export_manifest.py"
+reason = "the table of type checks lets lines hold any value; a null is reported as a difference"
+
+[[fault]]
+id = "manifest-lean-version-unchecked"
+file = "src/import/manifest.fs"
+old = '''  ' pinned-lean-version check, lean_version
+'''
+new = ''
+test = "python3 tests/core/test_export_manifest.py"
+reason = "the table of version checks lacks lean_version: a manifest naming Lean 4.36.0 passes"
 
 # --- export manifests (src/import/manifest.fs; the tap and tally of ndjson.fs)
 
@@ -1458,6 +1638,125 @@ new = '''2dup kind-tally 1 swap +! export-handed ;'''
 test = "$GFORTH tests/core/ndjson.fs"
 reason = "records a handler refused are counted in the tally"
 
+# --- the command line (src/cli/leanforth.fs, bin/leanforth) and the checker's
+# input (src/import/checker-input.fs), plan tasks 3.4.1-3.4.2 and 3.2.2 v0 ---
+
+[[fault]]
+id = "cli-rejected-exits-0"
+file = "src/cli/leanforth.fs"
+old = '''  exit-accepted , exit-malformed , exit-limit , exit-undecided , exit-rejected ,'''
+new = '''  exit-accepted , exit-malformed , exit-limit , exit-undecided , exit-accepted ,'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "a rejected declaration gives exit status 0, as if every declaration were accepted"
+quick = true
+
+[[fault]]
+id = "cli-severity-order"
+file = "src/cli/leanforth.fs"
+old = '''create cli-severity  0 , 3 , 1 , 2 , 4 , 5 ,'''
+new = '''create cli-severity  0 , 1 , 3 , 2 , 4 , 5 ,'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "an unknown declaration outranks a rejected one: the documented order is broken"
+
+[[fault]]
+id = "cli-verdicts-not-in-code"
+file = "src/cli/leanforth.fs"
+old = ''': cli-tally ( outcome -- ) dup outcome>code cli-code! cli-count-of 1 swap +! ;'''
+new = ''': cli-tally ( outcome -- ) cli-count-of 1 swap +! ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "the declarations' verdicts never reach the exit status, so every check exits 0"
+
+[[fault]]
+id = "cli-prints-accepted-itself"
+file = "src/cli/leanforth.fs"
+old = '''  dup cli-name. ." : " dup lf-check-verdict. cr'''
+new = '''  dup cli-name. ." : accepted (experimental, not independently audited); axioms: none" cr'''
+test = "python3 tests/cli/test_leanforth.py"
+reason = "trust boundary: the command line prints accepted itself, not the slot's verdict"
+quick = true
+
+[[fault]]
+id = "cli-throw-swallowed"
+file = "src/cli/leanforth.fs"
+old = ''': cli-guard ( xt -- code ) catch ?dup if cli-thrown then ;'''
+new = ''': cli-guard ( xt -- code ) catch ?dup if drop exit-accepted then ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "a Forth exception inside a command exits 0 instead of 5, an internal fault"
+
+[[fault]]
+id = "cli-spent-context-ignored"
+file = "src/cli/leanforth.fs"
+old = ''': cli-faulted? ( -- flag ) lf-env-spent? run-record rr-run @ ok? 0= or ;'''
+new = ''': cli-faulted? ( -- flag ) run-record rr-run @ ok? 0= ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "a check that threw is reported as invalid input (4), not as an internal fault (5)"
+
+[[fault]]
+id = "cli-manifest-not-checked"
+file = "src/cli/leanforth.fs"
+old = '''  0 cli-file cli-unchecked @ 0= rr-import ;'''
+new = '''  0 cli-file false rr-import ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "check reads exports without their manifests by default"
+
+[[fault]]
+id = "cli-record-failure-ignored"
+file = "src/cli/leanforth.fs"
+old = '''  cli-record? 0= if exit then cli-saved dup ok? if drop else cli-record-failed then ;'''
+new = '''  cli-record? 0= if exit then cli-saved drop ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "a run record that could not be written is not reported, and the check exits 0"
+
+[[fault]]
+id = "cli-replay-never-compares"
+file = "src/cli/leanforth.fs"
+old = '''  ok? if 1 cli-file rp-replay else rp-rerun-refused then ;'''
+new = '''  drop rp-start outcome-ok ;'''
+test = "python3 tests/cli/test_leanforth.py"
+reason = "replay confirms any record without comparing it with the new run"
+
+[[fault]]
+id = "cin-checked-reads-plain"
+file = "src/import/checker-input.fs"
+old = ''': cin-checked ( c-addr u -- outcome ) cin-manifest manifest-read ;'''
+new = ''': cin-checked ( c-addr u -- outcome ) cin-export export-read ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "cin-read-checked never compares the export with its manifest"
+
+[[fault]]
+id = "cin-name-number-wraps"
+file = "src/import/checker-input.fs"
+old = '''  0 0 2swap >number nip if 2drop false exit then cin-small? dup 0= if nip then ;'''
+new = '''  0 0 2swap >number 2drop drop true ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "a numeric name part beyond a cell wraps into another number, so another name is staged"
+
+[[fault]]
+id = "cin-theorem-without-value"
+file = "src/import/checker-input.fs"
+old = '''  lf-kind-theorem cin-start cin-value lf-safety-safe cin-safety cin-add ;'''
+new = '''  lf-kind-theorem cin-start lf-safety-safe cin-safety cin-add ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "a theorem is staged without its proof; the fixtures are no longer accepted"
+
+[[fault]]
+id = "wrapper-fault-exits-0"
+file = "bin/leanforth"
+old = '''    printf 'leanforth: internal fault: Gforth ended with status %s\n' "$status" >&2
+    exit 5'''
+new = '''    printf 'leanforth: internal fault: Gforth ended with status %s\n' "$status" >&2
+    exit 0'''
+test = "python3 tests/cli/test_leanforth.py"
+reason = "a Gforth that fails on its own is reported with exit status 0"
+
+[[fault]]
+id = "wrapper-takes-host-status"
+file = "bin/leanforth"
+old = '''  10[0-5]) code=$((status - 100)) ;;'''
+new = '''  10[0-5] | [0-5]) code=$((status % 100)) ;;'''
+test = "python3 tests/cli/test_leanforth.py"
+reason = "Gforth's own exit status (0 after it ends early, 1 after an error) reads as a verdict"
+
 # --- the importer stage (src/import/stage.fs, stage-records.fs) -----------
 
 [[fault]]
@@ -1514,10 +1813,34 @@ reason = "an export index no map holds reads as record 0, so a bad reference is 
 [[fault]]
 id = "stage-mdata-unmarked"
 file = "src/import/stage.fs"
-old = '''  dup reach-fill dup decls-mark reach-free outcome-ok ;'''
-new = '''  dup reach-fill reach-free outcome-ok ;'''
+old = '''  dup ['] reach-note exprs-walk drop dup decls-mark reach-free outcome-ok ;'''
+new = '''  dup ['] reach-note exprs-walk drop reach-free outcome-ok ;'''
 test = "$GFORTH tests/core/stage.fs"
 reason = "a declaration holding an mdata expression is not marked, so the checker could read it as the term exported"
+
+[[fault]]
+id = "stage-mark-rules-skipped"
+file = "src/import/stage.fs"
+old = '''    if 2drop true unloop exit then'''
+new = '''    if 2drop false unloop exit then'''
+test = "$GFORTH tests/core/stage.fs"
+reason = "an mdata record reached only through a recursor rule's right-hand side leaves the recursor unmarked (review of the stage)"
+
+[[fault]]
+id = "stage-mark-let-body-skipped"
+file = "src/import/stage.fs"
+old = ''': let-reach? ( e stage -- flag ) 2dup pair-reach? >r body-reach? r> or ;'''
+new = ''': let-reach? ( e stage -- flag ) 2dup pair-reach? >r 2drop false r> or ;'''
+test = "$GFORTH tests/core/stage.fs"
+reason = "an mdata record in a letE's body only does not mark the declaration that holds it (review of the stage)"
+
+[[fault]]
+id = "stage-mark-projection-skipped"
+file = "src/import/stage.fs"
+old = '''' a-reach? tag-proj reach-checks check!'''
+new = '''' reach-none tag-proj reach-checks check!'''
+test = "$GFORTH tests/core/stage.fs"
+reason = "an mdata record under a projection does not mark the declaration that holds it (review of the stage)"
 
 [[fault]]
 id = "stage-value-unchecked"
@@ -1541,18 +1864,116 @@ quick = true
 [[fault]]
 id = "context-new-failure-leaks"
 file = "src/lib/context.fs"
-old = '''  dup context-fill dup if swap dup context-torn drop context-discard drop 0 swap then ;'''
-new = '''  dup context-fill dup if swap context-discard drop 0 swap then ;'''
+old = '''  swap dup context-torn rot swap ior-earlier swap context-discard ior-earlier 0 swap ;'''
+new = '''  swap context-discard ior-earlier 0 swap ;'''
 test = "$GFORTH tests/lib/context.fs"
 reason = "a context-new whose setup word fails gives back its block but not the heap blocks earlier setup words made"
 
 [[fault]]
 id = "context-teardown-stops"
 file = "src/lib/context.fs"
-old = '''    dup >r teardown-xt @ teardown-call ior-earlier r> teardown-link @'''
-new = '''    dup >r teardown-xt @ execute r> teardown-link @'''
+old = '''swap lf-context ! teardown-xt @ teardown-call ;'''
+new = '''swap lf-context ! teardown-xt @ execute 0 ;'''
 test = "$GFORTH tests/lib/context.fs"
 reason = "a teardown word that throws stops context-free, which then frees neither the others' blocks nor the context"
+
+# --- heap stores, columns and the feed (ADR 0016 C9 step 3: src/lib/store.fs,
+# src/core/store-columns.fs, constant-references.fs, input.fs, names.fs,
+# src/kernel/environment.fs, src/import/feed.fs)
+
+[[fault]]
+id = "store-grow-past-limit"
+file = "src/lib/store.fs"
+old = ''': store-at-limit? ( store -- flag ) dup store-capacity @ swap store-limit @ = ;'''
+new = ''': store-at-limit? ( store -- flag ) drop false ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "a heap store grows past its capacity setting instead of giving full"
+
+[[fault]]
+id = "store-grow-drops-records"
+file = "src/lib/store.fs"
+old = '''  >r dup r@ store-kept 2 pick over r@ store-copy-ids r> store-copy-records ;'''
+new = '''  >r dup r@ store-kept 2 pick over r@ store-copy-ids r> 2drop 2drop ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "growing a heap store loses the records made before"
+
+[[fault]]
+id = "store-seal-ignores-block"
+file = "src/lib/store.fs"
+old = '''  dup store-shape@ >store-seal over store-block @ xor swap store-limit @ xor ;'''
+new = '''  dup store-shape@ >store-seal swap store-limit @ xor ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "a corrupted block address keeps the seal: a store reads records elsewhere"
+
+[[fault]]
+id = "column-new-units-unzeroed"
+file = "src/core/store-columns.fs"
+old = '''  dup slab-capacity >r tuck slab-reserve dup ok? if r@ rot column-clear-from else nip then'''
+new = '''  dup slab-capacity >r tuck slab-reserve dup ok? if nip else nip then'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "a column's new units hold whatever RESIZE left, so a stamp may match by chance"
+
+[[fault]]
+id = "cref-span-unchecked"
+file = "src/core/constant-references.fs"
+old = '''  dup lf-cref-span? if lf-cref-pairs lf-cref-input-ok? else drop false then ;'''
+new = '''  lf-cref-pairs lf-cref-input-ok? ;'''
+test = "$GFORTH tests/core/constant-references.fs"
+reason = "a reference whose pairs lie outside the pool is read anyway"
+
+[[fault]]
+id = "e5-chain-newest"
+file = "src/kernel/environment.fs"
+old = '''    lf-env-chain-step if r> drop dup >r then lf-input-before'''
+new = '''    lf-env-chain-step if r@ 0< if r> drop dup >r then then lf-input-before'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "ADR 0012 E5 through the name index: the newest same-named declaration, not the first, is used"
+
+[[fault]]
+id = "e5-index-unlinked"
+file = "src/core/input.fs"
+old = '''  >r /lf-idecl move r> dup lf-input-link outcome-ok ;'''
+new = '''  >r /lf-idecl move r> outcome-ok ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "the name index is never filled: under a name view every constant is unknown to the environment (N1)"
+
+[[fault]]
+id = "feed-value-is-type"
+file = "src/import/feed.fs"
+old = ''': feed-value ( d feed -- ) ['] staged-value@ ['] lf-idecl-value feed-term! 2drop ;'''
+new = ''': feed-value ( d feed -- ) ['] staged-type@ ['] lf-idecl-value feed-term! 2drop ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "the feed gives a declaration its type as its value"
+
+[[fault]]
+id = "names-view-unshared"
+file = "src/core/names.fs"
+old = '''  lf-name-query lf-name-tier name-str lf-name-made ;'''
+new = '''  2drop drop false ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "under a name view a string name can no longer be interned"
+
+# --- the release hook of checker contexts, continued (src/lib/context.fs)
+
+[[fault]]
+id = "context-teardown-selected-once"
+file = "src/lib/context.fs"
+old = ''': teardown-in ( context teardown -- ior ) swap lf-context ! teardown-xt @ teardown-call ;
+: teardowns-run ( context -- ior )
+  0 context-layout layout-teardowns @ begin ?dup while
+    dup >r 2 pick swap teardown-in ior-earlier r> teardown-link @
+  repeat nip ;
+\ Every teardown word in context; the current context is restored
+\ afterwards.
+: context-torn ( context -- ior ) lf-context @ >r teardowns-run r> lf-context ! ;'''
+new = ''': teardown-in ( context teardown -- ior ) nip teardown-xt @ teardown-call ;
+: teardowns-run ( context -- ior )
+  0 context-layout layout-teardowns @ begin ?dup while
+    dup >r 2 pick swap teardown-in ior-earlier r> teardown-link @
+  repeat nip ;
+: context-torn ( context -- ior ) lf-context @ >r dup lf-context ! teardowns-run r> lf-context ! ;'''
+test = "$GFORTH tests/lib/context.fs"
+reason = "the context is selected once for all teardown words, so after one throws with the main context selected the next frees the main context's block (review of the release hook)"
 
 # --- run records and replay (src/import/run-record.fs, run-replay.fs) -------
 
@@ -1656,6 +2077,111 @@ test = "$GFORTH tests/core/run-record.fs"
 reason = "a commit that is not 40 lowercase hexadecimal digits is recorded"
 
 [[fault]]
+id = "rr-foreign-environment"
+file = "src/import/run-record.fs"
+old = ''': rr-ours? ( -- flag ) run-record rr-env-id @ dup if lf-env-id = else drop false then ;'''
+new = ''': rr-ours? ( -- flag ) true ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "review F1: verdicts are read from whatever environment is current, not the run's own"
+quick = true
+
+[[fault]]
+id = "rr-address-not-identity"
+file = "src/import/run-record.fs"
+old = ''': rr-ours? ( -- flag ) run-record rr-env-id @ dup if lf-env-id = else drop false then ;'''
+new = ''': rr-ours? ( -- flag ) run-record rr-env @ dup if lf-env = else drop false then ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "rvRP 2: environments compared by address; a new one made where the run's was freed is claimed"
+
+[[fault]]
+id = "rr-release-frees-foreign"
+file = "src/import/run-record.fs"
+old = '''  run-record rr-env @ ?dup if dup rr-mine? if lf-env-free then drop then rr-forget-env ;'''
+new = '''  run-record rr-env @ ?dup if lf-env-free drop then rr-forget-env ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "rvRP 2: rr-release frees whatever environment now lies at the run's old address"
+
+[[fault]]
+id = "rr-always-enforced"
+file = "src/import/run-record.fs"
+old = '''  r> 0<> run-record rr-enforced ! ;'''
+new = '''  r> drop true run-record rr-enforced ! ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "rvRP 2: a record says the manifest was enforced on an input read without it"
+
+[[fault]]
+id = "rr-read-keeps-enforced"
+file = "src/import/run-record.fs"
+old = ''': rr-read! ( outcome -- ) run-record rr-read ! false run-record rr-enforced ! ;'''
+new = ''': rr-read! ( outcome -- ) run-record rr-read ! ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "rvRP 2: another importer's outcome keeps an earlier run's claim that the manifest was enforced"
+
+[[fault]]
+id = "rr-enforced-contradiction"
+file = "src/import/run-record.fs"
+old = '''  if outcome-invalid rr-fail then s" enforced" rr-key rr-enforced? rr-w jw-bool ;'''
+new = '''  drop s" enforced" rr-key rr-enforced? rr-w jw-bool ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "rvRP 2: an enforced manifest that does not match an input read past it is written"
+
+[[fault]]
+id = "tr-filler-seen"
+file = "src/import/text-rule.fs"
+old = '''$3164 , $3164 ,'''
+new = '''$3165 , $3164 ,'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "rvRP 2: a name of U+3164 HANGUL FILLER alone counts as shown"
+
+[[fault]]
+id = "rr-no-own-environment"
+file = "src/import/run-record.fs"
+old = '''  rr-made-own? 0= if exit then rr-viewed? 0= if outcome-invalid rr-fail exit then'''
+new = '''  run-record rr-checked @ 0= if exit then rr-viewed? 0= if outcome-invalid rr-fail exit then'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "review F1: a run that could not make its environment cannot be recorded at all"
+
+[[fault]]
+id = "rr-kept-ok"
+file = "src/import/run-record.fs"
+old = '''  rr-release rr-unkept true run-record rr-checked ! 0 run-record rr-stepped !'''
+new = '''  rr-release true run-record rr-checked ! 0 run-record rr-stepped !'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "review F1: kept outcomes are not reset, so an unstepped slot agrees with ok (0)"
+
+[[fault]]
+id = "rr-separator-allowed"
+file = "src/import/text-rule.fs"
+old = '''$2028 , $202e ,'''
+new = '''$2029 , $202e ,'''
+test = "$GFORTH tests/core/run-record.fs && python3 tests/core/test_run_records.py"
+reason = "review F3: the writer's text rule lets U+2028 through, which the schema refuses"
+
+[[fault]]
+id = "rr-blank-shown"
+file = "src/import/run-record.fs"
+old = '''  2dup tr-shown? 0= if outcome-invalid rr-fail then rr-string ;'''
+new = '''  rr-string ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "review F3: a blank name, host or metadata text is written"
+
+[[fault]]
+id = "rr-number-unbounded"
+file = "src/import/run-record.fs"
+old = ''': rr-int ( n -- ) dup s>d rr-exact? 0= if outcome-invalid rr-fail then rr-w jw-n ;'''
+new = ''': rr-int ( n -- ) rr-w jw-n ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "review F3: a number beyond I-JSON's exact range, which the schema refuses, is written"
+
+[[fault]]
+id = "rp-cut-mid-character"
+file = "src/import/run-replay.fs"
+old = '''  rp-path-room run-replay rp-path-size @ - rp-cut tuck rp-path + swap move'''
+new = '''  rp-path-room run-replay rp-path-size @ - min tuck rp-path + swap move'''
+test = "python3 tests/core/test_run_records.py"
+reason = "review F2: a long multibyte key is cut inside a character and the report fails"
+
+[[fault]]
 id = "rp-no-overclaim"
 file = "src/import/run-replay.fs"
 old = '''  rp-old rp-accepted? swap rp-new rp-accepted? 0= and ;'''
@@ -1729,6 +2255,75 @@ old = '''  rr-schema s" schema" rp-member= rr-version s" schemaVersion" rp-membe
 new = '''  true ;'''
 test = "$GFORTH tests/core/run-record.fs"
 reason = "a text that names another format or version is compared instead of refused"
+
+# --- the compact store (src/lib/cons.fs, htab.fs, pools.fs, src/core/compact-exprs.fs)
+# The four findings of its review (2026-11-03); tests/core/compact_faults.py
+# (make check) plants these and its other faults too.
+
+[[fault]]
+id = "cons-three-tiers"
+file = "src/lib/cons.fs"
+old = '''  dup cons-sealed? over cons-table htab-live? and swap cons-under @ 0= and ;'''
+new = '''  dup cons-sealed? swap cons-table htab-live? and ;'''
+test = "$GFORTH tests/lib/cons.fs"
+reason = "a set over a sealed extension is accepted; its numbers would name records two tiers down, which cons-at never reaches"
+quick = true
+
+[[fault]]
+id = "htab-frozen-counts"
+file = "src/lib/htab.fs"
+old = ''': htab-tally ( n addr htab -- ) htab-frozen? if 2drop else +! then ;'''
+new = ''': htab-tally ( n addr htab -- ) drop +! ;'''
+test = "$GFORTH tests/lib/htab.fs"
+reason = "a find writes its statistics into a frozen table, so workers sharing a sealed input race on it"
+
+[[fault]]
+id = "cons-seal-unfrozen"
+file = "src/lib/cons.fs"
+old = '''  true over cons-sealed ! cons-table htab-freeze outcome-ok ;'''
+new = '''  true swap cons-sealed ! outcome-ok ;'''
+test = "$GFORTH tests/lib/cons.fs"
+reason = "sealing leaves the table unfrozen: finds through an extension write the sealed input"
+
+[[fault]]
+id = "cons-own-text-stale"
+file = "src/lib/cons.fs"
+old = '''  dup cons-key-base @ dup 0< if 2drop exit then over cons-bytes slab-at'''
+new = '''  drop exit dup cons-key-base @ dup 0< if 2drop exit then over cons-bytes slab-at'''
+test = "$GFORTH tests/lib/cons.fs"
+reason = "a text from the set's own byte slab keeps its address after the slab moved, and is read from freed memory"
+
+[[fault]]
+id = "cons-limit-unclamped"
+file = "src/lib/cons.fs"
+old = '''  cons-class @ class-unit @ slab-limit-max swap spare+ min ;'''
+new = '''  drop cons-spare + ;'''
+test = "$GFORTH tests/lib/cons.fs"
+reason = "a class limit times the record size past a cell refuses every set (on a 32-bit host, every class)"
+
+[[fault]]
+id = "cons-past-wraps"
+file = "src/lib/cons.fs"
+old = '''  dup cons-limit swap cons-numbers 2dup u< if 2drop drop true else - u> then ;'''
+new = '''  dup cons-limit swap cons-numbers - u> ;'''
+test = "$GFORTH tests/lib/cons.fs"
+reason = "numbers past the limit read as room left, so a set commits beyond its class's limit"
+
+[[fault]]
+id = "bvar-index-wraps"
+file = "src/core/compact-exprs.fs"
+old = ''': bvar-fits? ( index -- flag ) range-max u< ;'''
+new = ''': bvar-fits? ( index -- flag ) 1+ range-max u> 0= ;'''
+test = "$GFORTH tests/core/compact.fs"
+reason = "the index is compared after 1+, which wraps 2^32 - 1 to a range of 0 on a 32-bit host"
+
+[[fault]]
+id = "tuple-span-wraps"
+file = "src/lib/pools.fs"
+old = '''u32@ dup u32-mask <> if 1+ then ;'''
+new = '''u32@ 1+ ;'''
+test = "$GFORTH tests/lib/cons.fs"
+reason = "a corrupted list length of 2^32 - 1 wraps its span on a 32-bit host, and the entry check then walks 2^32 items"
 
 # --- the runner itself (scripts/mutants.py) --------------------------------
 
@@ -1814,3 +2409,80 @@ old = '''  lf-log-complete? 0= if lf-ol-truncated true exit then false ;'''
 new = '''  false ;'''
 test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
 reason = "the printer goes on from an incomplete log (owner decision D2: never), so the truncated composition section no longer says why there is no outline"
+
+# --- the Lean cache (scripts/lean-cache.py, Makefile) ----------------------
+
+[[fault]]
+id = "lc-key-without-source"
+file = "scripts/lean-cache.py"
+old = '''"source": hashlib.sha256(text).hexdigest()})'''
+new = '''"source": None})'''
+test = "python3 tests/lean-cache/test_lean_cache.py"
+reason = "a changed source text replays the old text's run"
+quick = true
+
+[[fault]]
+id = "lc-key-without-module"
+file = "scripts/lean-cache.py"
+old = '''"module": module_path(source),'''
+new = '''"module": None,'''
+test = "python3 tests/lean-cache/test_lean_cache.py"
+reason = "a source at another path, so of another module name, replays the first one's run"
+
+[[fault]]
+id = "lc-toolchain-unchecked"
+file = "scripts/lean-cache.py"
+old = '''    memo_key = json.dumps([stat_key(lean), stat_key(library)] + [stat_key(p) for p in shared])'''
+new = '''    memo_key = "any toolchain"'''
+test = "python3 tests/lean-cache/test_lean_cache.py"
+reason = "a rebuilt Lean binary or library replays the runs of the old one"
+
+[[fault]]
+id = "lc-unrecorded-import"
+file = "scripts/lean-cache.py"
+old = '''                if name.endswith(".olean") and not os.path.exists(olean_mark(cache, digest)):'''
+new = '''                if False:'''
+test = "python3 tests/lean-cache/test_lean_cache.py"
+reason = "an imported module the cache did not see compiled (it may read files) is cached"
+
+[[fault]]
+id = "lc-io-input-cached"
+file = "scripts/lean-cache.py"
+old = '''    if inputs:
+        raise Uncacheable'''
+new = '''    if False:
+        raise Uncacheable'''
+test = "python3 tests/lean-cache/test_lean_cache.py"
+reason = "a source that reads files, the clock or the environment is cached"
+
+[[fault]]
+id = "lc-any-status-stored"
+file = "scripts/lean-cache.py"
+old = '''    return status in STORED_STATUS and not any(word in text for word in RESOURCE_FAILURES)'''
+new = '''    return True'''
+test = "python3 tests/lean-cache/test_lean_cache.py"
+reason = "a crash or a killed run is stored and replayed"
+
+[[fault]]
+id = "lc-verify-trusts-entry"
+file = "scripts/lean-cache.py"
+old = '''                if differ not in ([], ["olean"]):'''
+new = '''                if False:'''
+test = "python3 tests/lean-cache/test_lean_cache.py"
+reason = "LEAN_CACHE=verify no longer notices a run that differs from its entry"
+
+[[fault]]
+id = "lc-make-settings-keyed"
+file = "scripts/lean-cache.py"
+old = '''NOT_READ_BY_LEAN = {"LEAN_PATH", "LEAN_CACHE", "LEAN_CACHE_DIR", "LEAN_BINARY"}'''
+new = '''NOT_READ_BY_LEAN = {"LEAN_PATH"}'''
+test = "python3 tests/lean-cache/test_lean_cache.py"
+reason = "make check LEAN_CACHE=verify keys its runs apart from ordinary ones, so it compares nothing"
+
+[[fault]]
+id = "lc-cache-in-ci"
+file = "Makefile"
+old = '''LEAN_CACHE ?= $(if $(CI),0,1)'''
+new = '''LEAN_CACHE ?= 1'''
+test = "python3 tests/lean-cache/test_lean_cache.py"
+reason = "CI (the CI variable set) replays cached Lean runs"

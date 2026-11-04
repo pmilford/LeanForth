@@ -70,13 +70,24 @@ is copied into the log's pools when the record is written, after its
 identity is checked against the one recorded when the rule opened. A copy
 is a node (`tag first second`, as in the term and level stores) whose
 children are input objects or earlier copies, so input subterms are
-shared and each copy refers only backwards. A memo copies a live scratch
-node once. Symbolic Sorts refer to level references; constants are kept
-only when their reference lies below the input marks.
+shared and each copy refers only backwards. A memo (1,024 entries per
+store, direct-mapped by index and checked by identity) copies a live
+scratch node once; a collision only costs a second copy. Symbolic Sorts
+refer to level references. A constant keeps its reference when that lies
+below the input marks; any other reference is copied too
+(`lf-log-cref-slot`: its name, name generation, number of universe
+arguments, and where their level references start in the argument pool,
+`lf-log-arg-ref`), however many arguments it has.
+
+The copier walks a node post-order with two stacks of its own (tasks and
+values, 512 cells each), so it never recurses and does not depend on the
+term and level stores' capacities, which are per-context settings of the
+heap stores (ADR 0016). One copy may run 4,096 tasks.
 
 **Truncation.** The first bound reached wins: no room for a record, for an
-open rule, in the term or level pool, or a node the copier cannot read
-(not live, or not the node the rule opened with). The log then records
+open rule, in the term, level or reference pools, a formula that needs
+more stack or work than one copy may use (`lf-bound-work`), or a node the
+copier cannot read (not live, or not the node the rule opened with). The log then records
 the step it could not write and the bound (`lf-log-cut ( -- step bound )`),
 stops recording, and is a consistent prefix: steps 1 … N−1 complete,
 nothing after. The check goes on exactly as before.
@@ -163,7 +174,7 @@ Per context (the current one):
 | `lf-log?` | `( -- flag )` | nonzero while this context's log records (the kernel's only test) |
 | `lf-log-start`, `lf-log-stop` | `( level -- )`, `( -- )` | start a log for work outside the checked environment; stop and clear it |
 | `lf-log-count`, `lf-log-level`, `lf-log-decl` | `( -- n )` | records, level, the declaration a check's log is of |
-| `lf-log-cut`, `lf-log-complete?` | `( -- step bound )`, `( -- flag )` | the step that could not be written and its bound (`lf-bound-records`, `-marks`, `-terms`, `-levels`, `-unreadable`), 0 0 while complete |
+| `lf-log-cut`, `lf-log-complete?` | `( -- step bound )`, `( -- flag )` | the step that could not be written and its bound (`lf-bound-records`, `-marks`, `-terms`, `-levels`, `-unreadable`, `-work`, `-refs`), 0 0 while complete |
 | `lf-log-record` | `( step -- rec )` | record of a step (unchecked), fields `logrec-*` |
 | `lf-log-premise` | `( p -- p' )` | the next premise (see *Premises*) |
 | `lf-log-term-copies`, `lf-log-term-slot` | `( -- n )`, `( k -- addr )` | the term pool: copy `k`'s node (`node@` gives `tag first second`) |
@@ -273,9 +284,8 @@ times as long at level terms and 1.5 times at level steps.
   in-memory log, between checks, by the caller.
 - The parallel scheduler's hand-over (`lf-env-hand-over-job`) writes no
   publish step; phase 2 runs serially.
-- Constant references above the input marks are not copied: a log whose
-  formulas contain one is truncated (`a node it could not read`). No
-  phase-2 fixture has one.
-- The copier's reach flags are sized by the term and level stores (64 nodes
-  each); the compact store (ADR 0016) needs a walk instead.
-- Configurable capacities come with plan task 3.3.1.
+- The log's own capacities are constants; settings like the stores' (plan
+  task 3.3.1) come when a large proof needs them.
+- The checker reads the heap stores of ADR 0016 step 3; when it moves onto
+  the compact store's expression records, the copier's read words change
+  with it (its walk does not).

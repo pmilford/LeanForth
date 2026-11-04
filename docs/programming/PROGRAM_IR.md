@@ -2,16 +2,20 @@
 
 **Status: implemented and untrusted (2026-11-02, tasks 2.5.2 and 2.5.3 of
 the [plan draft](../project/PLAN_DRAFT.md)).** The IR's semantics is a Lean
-model, checked by Lean, not by LeanForth. The reader that turns Forth
-source into IR is ordinary, unverified Forth.
+model, checked by Lean, not by LeanForth. What turns Forth source into IR
+is ordinary, unverified Forth: since 2026-11-03 the
+[program words](#the-program-words-correctness-mode) of ADR 0019, which run
+the source file in correctness mode, with today's [reader](#the-reader)
+kept beside them as their test oracle until the [parser] gate.
 
 The verified-program track needs an exact, small description of what a
 Forth word does, between its source text and the proof obligations about
 it:
 
 ```text
-Forth source ──reader──▶ IR ──(2.5.5) obligations──▶ proofs ──▶ receipt
- src/program/*.fs        text form, Lean model           checked by Lean now, LeanForth later
+Forth source ──program words──▶ IR ──(2.5.5) obligations──▶ proofs ──▶ receipt
+ src/program/*.fs (correctness   text form, Lean model           checked by Lean now,
+ mode; run mode: include FILE)                                    LeanForth later
 ```
 
 IR 0.1 covers straight-line words with `IF`/`ELSE`/`THEN`, `EXIT`, signed
@@ -36,7 +40,7 @@ below the three inputs are untouched.
   >r max r> min true ;
 ```
 
-**IR text**, as the reader writes it ([`tests/program/ir/clamp.ir`](../../tests/program/ir/clamp.ir));
+**IR text**, as the program words and the reader write it ([`tests/program/ir/clamp.ir`](../../tests/program/ir/clamp.ir));
 `@line:column` is where each token stands in the source:
 
 ```text
@@ -185,9 +189,123 @@ without locations. It writes `else` only when that branch is not empty,
 while the reader writes it whenever the source has it, so `IF … ELSE THEN`
 with an empty `ELSE` part prints differently but means the same.
 
+## The program words: correctness mode
+
+**Status: implemented and untrusted (2026-11-03), before the [parser]
+gate**, following [ADR 0019](../adr/0019-program-words-two-modes.md) and the
+owner's answers to it: one source file, two ways to load it. *Run mode* is
+ordinary Forth, `include clamp.fs`. *Correctness mode* runs the same file,
+unchanged, through Forth's own text interpreter, and each Forth word, instead
+of running, performs its *verification semantics*: `DUP` writes `prim dup`,
+`:` reads its name as Forth's `:` does and writes `word NAME`, `IF` writes
+`if`, a word of the file writes `call NAME`, a plain decimal `lit n`.
+
+```forth
+s" src/program/clamp.fs" lf-verify-file   ( -- outcome )  \ the mode shift
+s" src/program/clamp.fs" lf-alias-file    ( -- outcome )  \ the separate vocabulary
+```
+
+Each writes the clamp's IR above, byte for byte, one line at a time through
+the output word `lf-verify-to ( xt -- )` chose (each line is typed by
+default), and gives an outcome; `lf-verify-text ( c-addr u c-addr2 u2 --
+outcome )` and `lf-alias-text` run lines of text named c-addr2 u2 in the
+header, and `lf-verify-reason`, `lf-verify-where` and `lf-verify-message`
+tell why and where the last run stopped. A diagnostic has the reader's form
+(below) and its reason numbers, plus four: 27 "the host read a literal
+differently from its text" (the separate vocabulary only), 28 "run while
+Forth is compiling", 29 "a standard word redefined before the run" (the
+mode shift only) and 30 "a name that reads as a number".
+
+| Module | What it is |
+| --- | --- |
+| [`src/lib/text-run.fs`](../../src/lib/text-run.fs) | General library: the search order, compilation word list and `BASE` saved and restored, a whole file read as bytes, lines split at LF, the plain-text rule |
+| [`src/program/verify-report.fs`](../../src/program/verify-report.fs) | The run record, the reasons (in the authoring layer's message format, `src/author/errors.fs`), output lines and diagnostics |
+| [`src/program/verify-semantics.fs`](../../src/program/verify-semantics.fs) | The verification semantics: one table keyed by name, the actions of `:`, `;`, `CONSTANT`, `IF` … and the 38 primitives, definitions, frames, literals |
+| [`src/program/verify-runner.fs`](../../src/program/verify-runner.fs) | The runner both designs share: lines, files, isolation, exceptions |
+| [`src/program/verify.fs`](../../src/program/verify.fs) | **The mode shift** (ADR 0019 §9 (b2), the owner's primary design) |
+| [`src/program/verify-alias.fs`](../../src/program/verify-alias.fs) | The separate vocabulary, kept working beside it with the same actions |
+
+**The mode shift.** The words are Forth's own: `DUP` is `FORTH-WORDLIST`'s
+`DUP`, and its verification semantics sit in a table beside it. The runner
+evaluates each line behind one entry word, the only word visible, which
+runs Forth-2012's text interpreter with a third state: take the next name
+with `PARSE-NAME`; find it with `SEARCH-WORDLIST`, the file's own words
+first, then `FORTH-WORDLIST`; perform its verification semantics; a name
+not found must be a plain decimal, which the words read themselves. A host
+word is known by its *identity*, the execution token its name had when the
+words loaded, together with the name (Gforth 0.7.3 gives every
+compile-only word one token): so a Forth in which a standard word was
+redefined before the run is refused at that word. No host word ever runs,
+and the host converts no number.
+
+**The separate vocabulary.** LeanForth's own words named `dup`, `if`, `:`
+… live in a word list of their own; with only that list and the file's
+words in the search order, Forth's interpreter finds and runs them, and
+each performs the same action. Forth also reads the numbers, and Gforth
+1.0's recognizers read more forms (`"x"`, `->x`, `` `dup ``, `1e`), so each
+word first checks the text since the previous one (the *gap*): only plain
+decimals, each written as `lit n`, and the data stack grown by exactly
+their values. It cannot see a standard word redefined before the run.
+
+**What they accept** is what the reader accepts (below): colon definitions
+and constants made of IR 0.1's primitives, control words, plain decimals
+and earlier definitions, with `\` and `( )` comments and `DECIMAL`, in any
+case of letters; the same lines and characters, the same capacities, plus
+at most 65,536 bytes per file. They differ from the reader on purpose in
+four ways, from the owner's answers and ADR 0019 §2-§3:
+
+- *Forth-2012's Core and Core Ext words are reserved:* one outside IR 0.1
+  (`CELLS`, `S"`, `EVALUATE`, `HEX` …) is refused as "a Forth word outside
+  IR 0.1" where the reader says "not a known word", and none may be
+  defined by the file (`: . drop ;`, `: depth 0 ;`), which narrows the
+  reader's caveat that the file must be loaded last to Gforth's own words.
+- *Names that read as numbers are refused* (answer 4) in `:` and
+  `CONSTANT`: a digit first; a quote and more (`'a'`); after one or more of
+  `+ - # $ % &`, a digit or a hexadecimal letter (`-0`, `$10`, `-a`); or a
+  point before a digit (`.5`, which Gforth 1.0 reads as a float). `->x`,
+  `"x"`, `x:dup` and `-rot` are names.
+- *A run started while Forth compiles is refused* before any line runs,
+  where the reader, which runs nothing, did not care.
+- *The mode shift refuses a standard word redefined before the run.*
+
+**Isolation** (ADR 0019 §3). The caller's search order, compilation word
+list and `BASE` are saved and given back however a run ends; `BASE` is ten
+throughout; after each line `STATE` must be zero and the data stack as
+deep as before. Every `THROW` is caught: a run is the authoring program's
+top level (ADR 0018) and gives only an outcome. A token that Forth's
+interpreter cannot read (the separate vocabulary) is refused as unknown at
+the first token after the checked text that is no plain decimal. An output
+word that throws or leaves a cell fails the run as *invalid* ("output word
+failed"); a run started by the output word in its own context aborts
+(`THROW` −2) and changes nothing. One run at a time in each context.
+
+**Not in the checker.** Correctness mode runs source text and grows the
+dictionary (a word list per run, a word per definition), so like the
+authoring layer it belongs in the authoring program (plan 8.2.1) and
+`src/main.fs` does not load it. It shares the authoring layer's message
+records and its reading of the invoking token back from `>IN`.
+
+**Evidence** (`make test-program-verify`, Gforth 1.0.0 and 0.7.3,
+2026-11-03): the three golden files byte for byte in both designs; 273
+inputs through the reader and both designs (108 cases of the reader's tests,
+139 hostile inputs, 26 files with every kind of line end and the golden
+sources), on which the two designs write the same lines and give the same
+outcome, reason, line and column on all 273, and differ from the reader only
+by the four rules above (54 inputs), the 57 accepted ones loaded by plain
+Gforth too; a round trip of the golden IR and of IR with awkward names
+(`->x`, `"x"`, `forth:dup`, `-rot`, `a(b)`, 31 characters) printed back as
+Forth in another layout; 400 random programs from a seed, a fifth with a
+planted mistake, identical in all three but for one number name; each word
+with verification semantics redefined in turn before a run, refused by the
+mode shift at that word; and 17 planted faults, all caught
+(`tests/mutants/faults.toml`). The clamp receipt's IR is now written by the
+mode shift ([receipts](PROGRAM_RECEIPTS.md)).
+
 ## The reader
 
-[`src/program/ir-reader.fs`](../../src/program/ir-reader.fs) translates a
+[`src/program/ir-reader.fs`](../../src/program/ir-reader.fs), today's
+reader, is kept unchanged as the program words' test oracle until they
+pass the [parser] gate (ADR 0019 §8), and then retires. It translates a
 source file into the text form:
 
 ```forth
@@ -422,9 +540,10 @@ reader word; a switch of context must leave the other context's read
 untouched and close the file. They also feed lines after `lf-ir-finish`,
 and lines of length −1 or 128 at address 0, which must be refused unread.
 
-The reader is trusted for the translation: nothing proves that the IR means
-what the source means on the host. Receipts list it as the assumption
-`trusted-reader` ([program receipts](PROGRAM_RECEIPTS.md)).
+The translation is trusted, whether the reader's or the program words':
+nothing proves that the IR means what the source means on the host.
+Receipts list it as the assumption `trusted-reader`, which since
+2026-11-03 names the program words ([program receipts](PROGRAM_RECEIPTS.md)).
 
 ## What is proved, and what is not
 
@@ -454,11 +573,23 @@ of fuel, unbalanced return stack, bad constant, unknown word), and refutes two d
 with `MAX` and `MIN` exchanged, and checked add without its overflow test,
 which on 64-bit cells wraps max + 1 to min. `make check-lean-sources`
 forbids `sorry`, `native_decide` and axioms in the file, and
-`make reference-program-ir` accepts each of the 27 theorems it lists (the
-nine above and the eighteen of the contracts below) only if it uses no
-axioms beyond Lean's `propext`, `Classical.choice` and `Quot.sound`: 26
-report exactly these three, and `FactorialReference.checked_contract`
-reports `propext` and `Quot.sound`.
+`make reference-program-ir` accepts each of the 35 theorems it lists (the
+nine above, the eighteen of the contracts below and the eight of
+well-formedness) only if it uses no axioms beyond Lean's `propext`,
+`Classical.choice` and `Quot.sound`: 26 report exactly these three,
+`FactorialReference.checked_contract` reports `propext` and `Quot.sound`,
+and the eight of well-formedness `propext` alone.
+
+**Well-formedness** (Part 6, ADR 0019 test plan 4, MiniForth's linker
+idea): `WellFormed p` is a decidable check of a program as the program
+words write it, each name new, every call of an earlier definition (so no
+recursion and no forward call), and a constant's body straight-line
+instructions that call only earlier constants. `decide` proves it of
+`clampProgram`, `examplesProgram` and `allPrimitivesProgram`, and refutes
+it for a forward call, recursion, a redefinition, a constant calling a
+word and a constant with an `IF`. The theorem that a well-formed program
+never fails with *unknownWord*, which would let contracts drop that failure
+formally, is not proved yet (a follow-up of ADR 0019).
 
 `make test` checks that the copies of the reference models are verbatim.
 
@@ -610,13 +741,15 @@ model, the reader, its golden files and the receipt schema change together.
 
 ```sh
 make test-program-ir        # receipts, verbatim copies, reader tests and files (Gforth, Python)
+make test-program-verify    # the program words: both designs, cross-check, round trip
 make reference-program-ir   # the Lean model, its axioms, its IR against the reader's
 ```
 
-Both are part of `make test` and `make check` respectively. Measured on
+The first two are part of `make test`, the last of `make check`. Measured on
 2026-11-02 (Ryzen 5 7600X, WSL2): `make reference-program-ir` takes about
 4.7 s with Lean 4.35.0 (about 6 s with the contracts, 2026-11-03); the
-reader tests pass on Gforth 1.0.0 and 0.7.3.
+reader tests pass on Gforth 1.0.0 and 0.7.3, and so, on 2026-11-03, do the
+program words' (`make test-program-verify`, about 4 s).
 
 Files: [`tests/reference/program-ir.lean`](../../tests/reference/program-ir.lean)
 (model and proofs), [`src/program/ir-reader.fs`](../../src/program/ir-reader.fs)
@@ -627,4 +760,13 @@ Files: [`tests/reference/program-ir.lean`](../../tests/reference/program-ir.lean
 [`tests/program/ir/`](../../tests/program/ir/) (golden IR, and the
 all-primitives source),
 [`tests/program/check_program_ir.py`](../../tests/program/check_program_ir.py)
-(copies, axioms, the primitive table, Lean-versus-reader comparison).
+(copies, axioms, the primitive tables of the reader and the program words,
+Lean-versus-reader comparison); the program words'
+[`tests/program/verify.fs`](../../tests/program/verify.fs) (golden files,
+diagnostics and isolation in both designs, redefined standard words),
+[`tests/program/verify_check.py`](../../tests/program/verify_check.py)
+(both designs against each other and the reader, with Gforth loading what
+they accept),
+[`tests/program/verify_roundtrip.py`](../../tests/program/verify_roundtrip.py)
+(round trip and random programs) and
+[`tests/lib/text-run.fs`](../../tests/lib/text-run.fs) (their library).

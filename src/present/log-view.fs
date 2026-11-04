@@ -42,7 +42,8 @@ begin-structure /lf-lv
   field: lf-lv-fuel          \ fuel of each formula
   field: lf-lv-bad           \ formulas that failed to print
   field: lf-lv-depth         \ binders in the scope
-  lf-term-capacity cells +field lf-lv-scope          \ binder nodes, outermost first
+  lf-print-binder-capacity cells +field lf-lv-scope  \ binder nodes, outermost first
+  lf-cref-argument-capacity 2* cells +field lf-lv-pairs   \ a rebuilt reference's levels
   lf-log-term-capacity cells +field lf-lv-made       \ copy k's rebuilt term + 1, or 0
   lf-log-level-capacity cells +field lf-lv-lmade     \ copy k's rebuilt level + 1, or 0
   lf-log-term-capacity cells +field lf-lv-namer      \ input binder naming copy k, + 1
@@ -104,14 +105,14 @@ create lf-lv-blanks 64 allot lf-lv-blanks 64 bl fill
 \ Fill the scope with step s's binders: their number, or -1 when one of
 \ them is not in the log (a step of the rejection analysis).
 : lf-lv-scope-of ( s -- d )
-  dup lf-lv-depth@ dup lf-term-capacity > if 2drop -1 exit then
+  dup lf-lv-depth@ dup lf-print-binder-capacity > if 2drop -1 exit then
   dup 0 ?do over i lf-lv-binder 0= if 2drop -1 unloop exit then lf-lv-a i
   lf-lv-scope! loop
   nip ;
 \ Bring node into the scope set, as its innermost binder.
+: lf-lv-depth+ ( node k -- ) lf-lv-scope! 1 lf-lv lf-lv-depth +! ;
 : lf-lv-push ( node -- )
-  lf-lv lf-lv-depth @ dup lf-term-capacity < if lf-lv-scope! 1 lf-lv lf-lv-depth +!
-  else 2drop then ;
+  lf-lv lf-lv-depth @ dup lf-print-binder-capacity < if lf-lv-depth+ else 2drop then ;
 
 \ Names of copies (see the header), computed once per log: the input
 \ binder (or the copy's name source) that a copy of a lambda or Pi was
@@ -183,13 +184,32 @@ defer lf-lv-level ( ref -- level true | false )
   dup lf-log-copy? if lf-log-copy-index lf-lv-level-copy else drop false then ;
 ' lf-lv-level-ref is lf-lv-level
 
+\ A copied constant reference rebuilt: its universe arguments' levels
+\ into the pairs buffer, then a reference with its name and those levels.
+: lf-lv-pair! ( level i -- )
+  >r dup lf-level-identity 0= if 0 then swap r> 2* cells lf-lv lf-lv-pairs + 2! ;
+: lf-lv-arg ( offset i -- flag )
+  tuck + lf-log-arg-ref lf-lv-level if swap lf-lv-pair! true else drop false then ;
+: lf-lv-args ( offset count -- flag )
+  0 ?do dup i lf-lv-arg 0= if drop false unloop exit then loop drop true ;
+: lf-lv-cref ( ref -- cref id true | false )
+  lf-log-copy-index dup lf-log-cref-copies < 0= if drop false exit then
+  lf-log-cref-slot dup logcref-args @ over logcref-count @ lf-lv-args 0=
+  if drop false exit then
+  >r r@ logcref-name @ r@ logcref-generation @ lf-lv lf-lv-pairs r>
+  logcref-count @ lf-cref-new ;
+
 defer lf-lv-term ( ref -- term true | false )
-: lf-lv-tfields ( tag first second -- tag first' second' true | false )
-  2 pick lf-term-binary-tag? if
-    swap lf-lv-term 0= if 2drop false exit then swap
-    lf-lv-term 0= if 2drop false exit then true exit then
+\ A leaf: a symbolic Sort's level rebuilt, a copied reference rebuilt.
+: lf-lv-tleaf ( tag first second -- tag first' second' true | false )
   2 pick lf-tag-symbolic-sort = if swap lf-lv-level 0= if 2drop false exit then
-  swap then true ;
+    swap true exit then
+  2 pick lf-tag-constant = 2 pick 0< and if drop lf-lv-cref 0= if drop false exit
+  then then true ;
+: lf-lv-tfields ( tag first second -- tag first' second' true | false )
+  2 pick lf-term-binary-tag? 0= if lf-lv-tleaf exit then
+  swap lf-lv-term 0= if 2drop false exit then swap
+  lf-lv-term 0= if 2drop false exit then true ;
 : lf-lv-named ( term k -- term )
   lf-lv-namer@ @ ?dup 0= if exit then 1- lf-pres-binder@ 0= if exit then
   2 pick -rot lf-pres-binder! drop ;

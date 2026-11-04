@@ -70,7 +70,7 @@ the 32-bit access words exist in `src/`; building it is plan tasks
 | NDJSON reader (Lean export files) | [import] | **approved** 2026-11-03, with a checksum manifest to add |
 | Design records ADR 0010, 0013, 0016, 0017, 0018 | design | **accepted** (0017 on 2026-11-02; the rest 2026-11-03) |
 | Checked environment v0 (2.2.2) | [kernel] | **approved** 2026-11-03 |
-| Declaration check (2.2.3) and the level fix | [kernel], [bypass] | merged 2026-11-03; its review's blocker (wrong acceptances from universe levels) fixed by an exact port of Lean's level code (ADR 0011 Amendment 1, rule S4 for a Pi whose body is not a type); the fix's independent review next, then the owner |
+| Declaration check (2.2.3) and the level fix | [kernel], [bypass] | **approved** 2026-11-03 |
 | Program reader (Forth to program IR, 2.5.3) | [parser] | replaced by the owner's two-mode design (ADR 0019, accepted in direction: a portable mode shift first, the separate vocabulary kept beside it); today's text reader stays as a cross-check, then retires |
 | LeanForth syntax words (8.1.2) | [parser] | **approved** 2026-11-03, after two clean review rounds (term-for-term equal to Lean on 67 declarations) |
 | Program receipt schema 0.2 (2.5.1) | [format] | **approved** 2026-11-03 (schema pinned by hash; any change is a new version) |

@@ -42,10 +42,21 @@ variable lc-failed   \ the first part that failed, 0 when none
 \ Copies: each child an input object or an earlier copy.
 : lc-child? ( ref k -- flag ) over 0< 0= if drop 0 lc-mark < exit then
   swap lf-log-copy-index > ;
+\ A constant: a reference below the input mark, or a copied reference
+\ whose arguments are all defined level references.
+: lc-args? ( k -- flag )
+  lf-log-cref-slot dup logcref-args @ swap logcref-count @ true swap 0 ?do
+    over i + lf-log-arg-ref lc-level-ok? and loop nip ;
+: lc-cref? ( cref -- flag )
+  dup 0< 0= if 3 lc-mark < exit then
+  lf-log-copy-index dup lf-log-cref-copies < if lc-args? else drop false then ;
+: lc-leaf? ( first tag -- flag )
+  dup lf-tag-symbolic-sort = if drop lc-level-ok? exit then
+  lf-tag-constant = if lc-cref? else drop true then ;
 : lc-term-copy? ( k -- flag )
   dup lf-log-term-slot node@ rot dup lf-term-binary-tag? if drop 2 pick lc-child? >r
     over lc-child? nip r> and exit then
-  lf-tag-symbolic-sort = if drop lc-level-ok? nip else 2drop drop true then ;
+  nip lc-leaf? nip ;
 : lc-copies? ( -- flag )
   true lf-log-term-copies 0 ?do i lc-term-copy? and loop ;
 

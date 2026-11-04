@@ -29,8 +29,11 @@ the implementation differs from the decision text below:
   are still live then (no kernel pass rolls back its caller's nodes), and
   the identity recorded at the open is checked first; a `whnf` that
   changed nothing then costs no copy.
-- **No walk record in the copier**: a scratch node's children lie below it,
-  so one pass down marks what is reachable and one pass up copies.
+- **The copier's walk** uses two bounded stacks of its own (tasks and
+  values) instead of a `context-walk:` record, and a work bound per copy;
+  it does not depend on the heap stores' capacities (ADR 0016 step 3).
+  Constant references above the input marks are copied with their
+  universe arguments (a reference pool and an argument pool).
 - **Printing without a view.** The term printer reads the stores directly
   in dozens of places; instead of a view, `log-view.fs` rebuilds a copy as
   scratch above the input marks, prints it, and rolls back with
@@ -45,9 +48,8 @@ the implementation differs from the decision text below:
   takes), and `publish`'s `start` is that of the step it uses, so
   sub-derivations stay nested.
 - **Not yet:** the NDJSON writer and the observer (L6), the publish step of
-  the parallel hand-over, copies of constant references above the input
-  marks (truncated as unreadable), the outline's Markdown and JSON forms
-  and the statement "in words".
+  the parallel hand-over, the outline's Markdown and JSON forms and the
+  statement "in words".
 
 ## Summary in plain words
 

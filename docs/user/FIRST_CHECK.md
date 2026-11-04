@@ -50,42 +50,55 @@ $f\,a$. It uses no axiom. Applying $g$ to $a$ itself would be a mistake:
 $g$ needs a proof of $B$, and $a$ proves $A$.
 
 **LeanForth Forth.** The pinned export `tests/reference/composition.ndjson`
-is read with the test-only transport `tests/support/ndjson-input.fs`
-(phase 3 replaces it with the real importer), which hands the declaration
-to the checker; `ni-check` then checks every declaration of the file, with
-fuel 100,000 each, and prints each verdict. Load the transport first:
+is read by `src/import/checker-input.fs`, which checks it against its
+manifest and hands the declaration to the checker;
+`cli-check`, the word behind [the command line](COMMAND_LINE.md)'s
+`bin/leanforth check`, then checks every declaration of the file, with
+fuel 100,000 each, prints each verdict and a summary, and leaves the exit
+code (0: every declaration accepted). `cli-options` sets those defaults:
 
 ```forth
-[undefined] ni-check [if] require ~+/tests/support/ndjson-input.fs [then]
+cli-options
 ```
 
 The export as Lean wrote it:
 
 ```forth
-s" tests/reference/composition.ndjson" 100000 ni-check
+s" tests/reference/composition.ndjson" cli-check .
 ```
 
 ```text
 composition: accepted (experimental, not independently audited); axioms: none
+1 declaration: 1 accepted
+0
 ```
 
 A copy of the export with one number changed, so that the proof applies
 `g` to `value` instead of to `f value`
-(`tests/core/check-declaration-cases/composition-wrong-argument.ndjson`),
-and the diagnostic that explains the verdict: rule D3 (diagnostic code 59,
-whose first number is the set of rules used: 4 for D3) found the
-argument's type `A` and the expected `B` to be different variables, which
-Lean's kernel can never equate:
+(`tests/core/check-declaration-cases/composition-wrong-argument.ndjson`;
+it has no manifest, so `cli-no-manifest` reads it without one). The
+indented line is the diagnostic that explains the verdict: rule D3
+(diagnostic code 59, whose first number is the set of rules used: 4 for
+D3) found the argument's type `A` and the expected `B` to be different
+variables, which Lean's kernel can never equate; the exit code is 1,
+rejected:
 
 ```forth
-s" tests/core/check-declaration-cases/composition-wrong-argument.ndjson" 100000 ni-check
-lf-diag. cr
+cli-no-manifest
+s" tests/core/check-declaration-cases/composition-wrong-argument.ndjson" cli-check .
 ```
 
 ```text
+note: the export's manifest is not checked (--no-manifest)
 composition: rejected
-rejected: argument type mismatch (D1-D5) at mixed-infer lf-mixed-infer: 4 0
+  rejected: argument type mismatch (D1-D5); diagnostic 59 at mixed-infer lf-mixed-infer: 4 0
+1 declaration: 1 rejected
+1
 ```
+
+From a shell, `bin/leanforth check tests/reference/composition.ndjson`
+prints the same lines and exits with that code
+([the command line](COMMAND_LINE.md)).
 
 **Lean.** Lean 4.35.0 accepts the theorem and lists its axioms (none):
 
@@ -125,10 +138,11 @@ in the application
 - "axioms: none" is read from the accepted record, which joins the axiom
   sets of everything the declaration uses; in the first checker no axiom
   can be accepted, so every set is empty.
-- The transport from the file is untrusted and test-only. It cannot make a
-  wrong proof right; it could only hand over a different claim. Nothing
-  here prints the checked statement for a person to compare yet (plan task
-  2.4.4); the 69 table cases are built from the very terms Lean checks.
+- Reading and staging the file (`src/import/ndjson.fs`, `checker-input.fs`) are
+  untrusted. They cannot make a wrong proof right; they could only hand
+  over a different claim. Nothing here prints the checked statement for a
+  person to compare yet (plan task 2.4.4); the 69 table cases are built
+  from the very terms Lean checks.
 - The first checker covers `Sort`s, variables, application, `fun`, `∀` and
   earlier accepted declarations. It does not unfold definitions, so some
   correct proofs are *unknown*; theorems that use data types, numbers or
@@ -166,9 +180,13 @@ declaration, read from the library of accepted declarations after the
 check. *Replay* checks the same file again and compares the new record
 with the old one, field by field; any difference, in a verdict, the file,
 a tool or a setting, is reported with a code and the field's name, never
-passed over. Both run in Forth alone:
+passed over. Both run in Forth alone, from the command line (which
+checks the manifest too, [the command line](COMMAND_LINE.md#run-records-and-replay))
+or through `make` (which does not):
 
 ```sh
+bin/leanforth check --record composition.json tests/reference/composition.ndjson
+bin/leanforth replay tests/reference/composition.ndjson composition.json
 make run-record EXPORT=tests/reference/composition.ndjson RECORD=composition.json
 make replay EXPORT=tests/reference/composition.ndjson RECORD=composition.json
 ```

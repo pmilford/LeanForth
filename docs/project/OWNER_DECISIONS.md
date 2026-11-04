@@ -478,6 +478,40 @@ produces can be verified.
   picks between constants by type the words ask for the full name; field
   notation and `export` are not supported yet; Lean's exporter does not
   record `protected`, so real imports need it from elsewhere (8.2.1).
+- **Declaration check, [kernel] and [bypass] gates: approved**
+  (2026-11-03, plan task 2.2.3), with the universe-level fix that ports
+  Lean's level code exactly (ADR 0011 Amendment 1, rules S4 and K6), as
+  recommended: 69 table rows and 49 universe rows give Lean's answers, and
+  1,800 random level pairs and 800 random declarations match Lean. Every
+  acceptance stays labelled *experimental — not independently audited*.
+- **ADR 0014, definitional equality (phase 4): accepted** (2026-11-03) with
+  G5 and Q-A to Q-D as recommended: unfold theorems exactly as Lean does
+  and keep proofs in memory; replace the cautious rules by a line-by-line
+  copy of Lean's procedure once it passes its gate (the old rules stay as
+  a cross-check during the switch); Lean's free-variable naming inside a
+  check; Lean's caches copied exactly, per declaration; *unknown* for
+  Lean's specially named constants until phase 5.
+- **Speed target (ADR 0014 Q-E):** measure time per distinct node and
+  cache hits from the start; within twice Lean's one-thread time before
+  phase 6, then close the gap. The owner: "I'm unclear how close we can
+  get, even if 2x is possible, so don't spend too much time optimizing
+  yet. I'm thinking it will mostly using smarter algorithms. there is a
+  chance we will end up using a machine code (assember) version of a few
+  words to speed up, but we lose so much portability doing that, i'd much
+  prefer avoid." Rule: algorithms first; no machine code without the
+  owner's decision.
+- **Lean's built-in arithmetic trusted by name (ADR 0015 Q1): copy Lean by
+  default, with a toggle.** The owner: "lets default to the same way as
+  Lean, but have an easy toggle to make more secure." By default LeanForth
+  computes `Nat.add` and the other built-in operations by name exactly as
+  Lean does; a documented option (for example `--strict-builtins`) answers
+  *unsupported* unless `Nat` and its operations are exactly Lean 4.35.0's
+  own. Answer to the owner's question: other arithmetic (clock arithmetic
+  `Fin n`, `ZMod n`, integers) uses its own types and operations in Lean
+  and never redefines `Nat.add`; an ordinary Lean file cannot redefine it
+  at all (the name exists, and a second declaration is refused); only files
+  that start with `prelude`, such as Lean's own core library and kernel
+  tests, can. Recorded in BEYOND_LEAN.
 - **Later: investigate offloading part of the work to a GPU.** Under the
   design rules in `AGENTS.md` a GPU never belongs to the trusted kernel and
   a CPU path is always kept; candidates are untrusted bulk work such as
@@ -488,3 +522,48 @@ produces can be verified.
   usage limit cut agents off on 2026-11-03. Progress reports should say
   plainly what each part can do today, for example what LeanForth can do
   with an imported Mathlib.
+
+## Data types, axioms and imports (2026-11-03, late night)
+
+Answers to ADR 0015's questions Q2–Q5 and to the importer gate, given in a
+Claude Code session after the questions were asked in plain words.
+
+- **ADR 0015 Q2, exported fields Lean's checker ignores: as Lean, with a
+  warning.** LeanForth accepts an export whose recorded numbers (for
+  example "is recursive") or missing recursor Lean's own checker ignores,
+  uses only its own computed values and prints a warning. The owner added:
+  "but also consider if there is a better design that we can make an option
+  in the future" — recorded as a later option, a *strict import* that
+  refuses any field disagreeing with the rebuilt type (plan W8).
+- **ADR 0015 Q3 and Q4: the design is approved as a whole, one gate per
+  implementation task, and task 5.2.1a starts now** (non-recursive blocks,
+  *unknown* wherever Lean would unfold), before phase 4 is finished.
+- **ADR 0015 Q5 and an amendment to decision 4: Lean's verdict, marked.**
+  The owner first answered "We should be lean compatible. if lean accepts
+  sorryAx with a warning, so should we. we can add a flag to disable this."
+  After it was explained that `sorryAx` is false (it proves `0 = 1`) and
+  stands for a missing proof, the owner chose: by default LeanForth gives
+  Lean's kernel verdict, so a declaration using `sorryAx` or any other
+  axiom outside `propext`, `Classical.choice` and `Quot.sound` (or one of
+  those with a different statement) is *accepted* as Lean accepts it, but
+  labelled **NOT PROVED: depends on** the axiom, as is everything that uses
+  it; it has its own exit code and never counts as proved in receipts or
+  reports. A flag (for example `--standard-axioms-only`) answers
+  *unsupported* instead. Decision 4 becomes: only the three standard
+  axioms, with their exact Lean 4.35.0 statements, count as *proved*; the
+  versioned allowlist and the owner's approval of changes to it stay.
+  `Lean.ofReduceBool` and `Lean.trustCompiler` are never on the list; a
+  declaration that needs Lean's compiled code to run in the kernel stays
+  *unsupported*.
+- **Importer stage approved [import]** (ADR 0016 C9 steps 1, 2 and 5;
+  `src/import/stage.fs`, `stage-records.fs`; independent re-review clean,
+  minor limits documented). Asked a third time, the owner chose *Approve*.
+  Earlier the owner added: "add to the future todo for soon to test several
+  other libraries, a few small ones and the biggest one perhaps. - but not
+  yet." Recorded as plan task 6.1.6 (import other Lean libraries built with
+  Lean 4.35.0: a few small ones and the largest available).
+- **Default is always Lean.** The owner: "for the flags we are adding...
+  the default with no flags should always be 100% lean compatible." Every
+  option that differs from Lean 4.35.0 (`--strict-builtins`,
+  `--standard-axioms-only`, a strict import, a later improved mode) is
+  opt-in; with no options LeanForth's verdicts are Lean's.

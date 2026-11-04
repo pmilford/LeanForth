@@ -1839,4 +1839,87 @@ theorem wrapping_factorial_violates_contract :
 
 end ProgramIR
 
+-- Part 6. Well-formedness (ADR 0019, test plan 4; MiniForth's linker
+-- idea): a decidable predicate on a program as the program words write it,
+-- checked by `decide` on the three programs above and refuted on programs
+-- no accepted source gives. A theorem that a well-formed program never
+-- fails with `unknownWord` is a follow-up (ADR 0019).
+
+namespace ProgramIR
+
+mutual
+/-- Every name an instruction calls, also inside IF and loops. -/
+def Instr.calls : Instr → List String
+  | .call name => [name]
+  | .ifElse yes no => blockCalls yes ++ blockCalls no
+  | .loop test body => blockCalls test ++ blockCalls body
+  | _ => []
+
+def blockCalls : List Instr → List String
+  | [] => []
+  | i :: rest => i.calls ++ blockCalls rest
+end
+
+def Def.body : Def → List Instr
+  | .word b => b
+  | .constant b => b
+
+def Def.isConstant : Def → Bool
+  | .constant _ => true
+  | .word _ => false
+
+/-- An instruction the program words keep before CONSTANT: a primitive
+other than the return-stack words and the divisions, a literal or a call. -/
+def Instr.straight : Instr → Bool
+  | .prim p => !(p == .toR || p == .fromR || p == .rFetch || p == .div || p == .mod)
+  | .lit _ | .call _ => true
+  | _ => false
+
+def definedIn (earlier : Program) (name : String) : Bool := earlier.any (·.1 == name)
+
+def constantIn (earlier : Program) (name : String) : Bool :=
+  earlier.any (fun e => e.1 == name && e.2.isConstant)
+
+/-- A definition after `earlier`: a new name, calls only of earlier
+definitions (so no recursion and no forward call), and for a constant a
+straight-line body calling only earlier constants. -/
+def defOk (earlier : Program) : String × Def → Bool
+  | (name, d) =>
+    !definedIn earlier name && (blockCalls d.body).all (definedIn earlier) &&
+      match d with
+      | .word _ => true
+      | .constant b => b.all Instr.straight && (blockCalls b).all (constantIn earlier)
+
+def wellFormedFrom (earlier : Program) : Program → Bool
+  | [] => true
+  | d :: rest => defOk earlier d && wellFormedFrom (earlier ++ [d]) rest
+
+def WellFormed (p : Program) : Bool := wellFormedFrom [] p
+
+theorem clamp_wellFormed : WellFormed clampProgram = true := by decide
+theorem examples_wellFormed : WellFormed examplesProgram = true := by decide
+theorem allPrimitives_wellFormed : WellFormed allPrimitivesProgram = true := by decide
+theorem forward_call_not_wellFormed :
+    WellFormed [("f", .word [.call "g"]), ("g", .word [])] = false := by decide
+theorem recursion_not_wellFormed :
+    WellFormed [("f", .word [.ifElse [.call "f"] []])] = false := by decide
+theorem redefinition_not_wellFormed :
+    WellFormed [("f", .word []), ("g", .word [.call "f"]), ("f", .word [])] = false := by
+  decide
+theorem constant_calling_word_not_wellFormed :
+    WellFormed [("f", .word []), ("k", .constant [.call "f"])] = false := by decide
+theorem constant_with_if_not_wellFormed :
+    WellFormed [("k", .constant [.lit 1, .ifElse [] []])] = false := by decide
+
+#print axioms clamp_wellFormed
+#print axioms examples_wellFormed
+#print axioms allPrimitives_wellFormed
+#print axioms forward_call_not_wellFormed
+#print axioms recursion_not_wellFormed
+#print axioms redefinition_not_wellFormed
+#print axioms constant_calling_word_not_wellFormed
+#print axioms constant_with_if_not_wellFormed
+
+end ProgramIR
+
 def main : IO Unit := ProgramIR.main

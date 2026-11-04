@@ -25,8 +25,10 @@
 \ Outcomes (ADR 0008): full when the slots would pass the table's limit
 \ (htab-limit, at most 2^32 slots, fewer where a cell cannot address them)
 \ or the heap has no room, the table then unchanged; invalid for an entry
-\ that is not present. A table is single-threaded while it changes; any
-\ number of tasks may find in a table that no task changes.
+\ that is not present, and for any change to a frozen table. A table is
+\ single-threaded while it changes. A find counts itself in the table's
+\ statistics, a write; once htab-freeze has frozen the table, finds write
+\ nothing, so any number of tasks may find in it at once.
 \
 \ Example (with hash32.fs): distinct numbers below 2^32 kept in an array,
 \ found by value.
@@ -43,7 +45,7 @@
 \
 \ Interface: /htab /htab-hooks htab-hooks! htab-init htab-free htab-limit
 \ htab-find htab-ready htab-put htab-remove htab-holds? htab-clear htab-presize
-\ htab-spread
+\ htab-spread htab-freeze htab-frozen? htab-live?
 \ htab-count htab-slots htab-stats. State: none of its own; every word
 \ takes a table record, which owns its slot block until htab-free. Its
 \ memory is host-specific and never written to a file. Loads in decimal
@@ -77,6 +79,7 @@ lf-lib-private set-current
   field: htab-finds         \ statistics: finds
   field: htab-compared      \ statistics: occupied slots compared by finds
   field: htab-grows         \ statistics: doublings by htab-ready
+  field: htab-frozen        \ true once frozen: read-only, not even counted
 end-structure
 
 \ The largest log2 of slots: 32, or fewer when a cell cannot address the
@@ -87,9 +90,23 @@ cell-bits 3 - 32 min constant htab-log2-max
 lf-lib set-current
 : htab-count ( htab -- n ) htab-entries @ ;
 : htab-slots ( htab -- n ) htab-mask @ 1+ ;
-\ Finds, occupied slots compared by them, and doublings so far.
+\ Finds, occupied slots compared by them, and doublings so far (a frozen
+\ table counts nothing).
 : htab-stats ( htab -- finds compared grows )
   dup htab-finds @ over htab-compared @ rot htab-grows @ ;
+: htab-frozen? ( htab -- flag ) htab-frozen @ ;
+lf-lib-private set-current
+\ Whether the size fields agree: 2^log2 slots, log2 within the host's.
+: htab-shape? ( htab -- flag )
+  dup htab-log2 @ dup 0 htab-log2-max between?
+  if 1 swap lshift swap htab-slots = else 2drop false then ;
+\ Add n to a statistic, unless the table is frozen.
+: htab-tally ( n addr htab -- ) htab-frozen? if 2drop else +! then ;
+lf-lib set-current
+\ Whether the table may be used: a block, sizes that agree, and at least
+\ one empty slot (so every probe ends).
+: htab-live? ( htab -- flag )
+  dup htab-block @ 0<> over htab-shape? and swap dup htab-count swap htab-slots u< and ;
 lf-lib-private set-current
 
 \ Slots. Unchecked: i is 0 .. slots-1.
@@ -106,11 +123,12 @@ lf-lib-private set-current
 lf-lib set-current
 \ Find the entry equal to key, starting at hash h: its number and true, or
 \ the empty slot where it belongs and false. Counts the find and the
-\ occupied slots compared.
+\ occupied slots compared, unless the table is frozen: a find in a frozen
+\ table writes nothing, so any number of tasks may find in it at once.
 : htab-find ( key h htab -- n true | i false )
-  1 over htab-finds +! rot >r >r r@ htab-start
+  dup >r 1 over htab-finds r> htab-tally rot >r >r r@ htab-start
   begin dup r@ htab@ ?dup while
-    1 r@ htab-compared +! 1- dup 2r@ htab-same if nip 2r> 2drop true exit then
+    1 r@ htab-compared r@ htab-tally 1- dup 2r@ htab-same if nip 2r> 2drop true exit then
     drop r@ htab-next
   repeat 2r> 2drop false ;
 \ Unchecked: put entry n into the empty slot i that htab-find gave, with
@@ -132,6 +150,7 @@ lf-lib-private set-current
 : htab-fits? ( log2 htab -- flag )
   2dup htab-most @ upto? if htab-count 4 * 1 rot lshift 3 * <= else 2drop false then ;
 : htab-resize ( log2 htab -- outcome )
+  dup htab-frozen? if 2drop outcome-invalid exit then
   2dup htab-fits? 0= if 2drop outcome-full exit then
   over 1 swap lshift htab-zeroed if drop 2drop outcome-full exit then
   -rot dup >r htab-install over swap r> htab-move ?dup if free drop then outcome-ok ;
@@ -149,12 +168,19 @@ lf-lib set-current
 \ Allow at most 2^log2 slots (log2 >= 0), for example in tests.
 : htab-limit ( log2 htab -- ) swap htab-log2-max min 0 max swap htab-most ! ;
 : htab-free ( htab -- ) dup htab-block @ ?dup if free drop then /htab erase ;
-\ Empty the table, keeping its size.
-: htab-clear ( htab -- ) 0 over htab-entries ! dup htab-block @ swap htab-slots u32s
-  erase ;
+\ Empty the table, keeping its size; a frozen table is left as it is.
+: htab-clear ( htab -- )
+  dup htab-frozen? if drop exit then
+  0 over htab-entries ! dup htab-block @ swap htab-slots u32s erase ;
+\ Freeze the table: from now on it only finds (htab-find, htab-holds?),
+\ writing nothing, and every word that would change it refuses (invalid)
+\ or, for htab-clear, does nothing. A sealed input's tables are frozen.
+: htab-freeze ( htab -- ) true swap htab-frozen ! ;
 \ Before an insertion: double the table if one more entry would make it
-\ more than 3/4 full. ok, or full with the table unchanged.
+\ more than 3/4 full. ok, full with the table unchanged, or invalid for a
+\ frozen table.
 : htab-ready ( htab -- outcome )
+  dup htab-frozen? if drop outcome-invalid exit then
   dup htab-count 1+ 4 * over htab-slots 3 * <= if drop outcome-ok exit then
   1 over htab-grows +! dup htab-log2 @ 1+ swap htab-resize ;
 \ Grow to 2^log2 slots now, when that is more than the table has, so that
@@ -188,8 +214,10 @@ lf-lib-private set-current
   tuck r> htab@ = dup 0= if nip then ;
 
 lf-lib set-current
-\ Remove entry n, whose hash is h: ok, or invalid when it is not present.
+\ Remove entry n, whose hash is h: ok, or invalid when it is not present
+\ or the table is frozen.
 : htab-remove ( n h htab -- outcome )
+  dup htab-frozen? if drop 2drop outcome-invalid exit then
   dup >r htab-seek 0= if r> drop outcome-invalid exit then
   r@ htab-close -1 r> htab-entries +! outcome-ok ;
 \ Whether entry n, whose hash is h, is present.

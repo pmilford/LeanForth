@@ -1,3 +1,5 @@
+import Lean
+
 /-
 SHA-256 as FIPS 180-4 specifies it (Secure Hash Standard, August 2015),
 stage SHA-1 of the program track's flagship target (docs/project/PLAN_DRAFT.md,
@@ -271,18 +273,21 @@ theorem bigSigma0_example : bigSigma0 0x6a09e667 = 0xce20b47e := by
 /-! ### Test vectors
 
 Each theorem has the kernel compute `sha256` of the message and compare
-it with the expected digest, written as plain bytes so that no function
-of this file computes it. -/
+it with the expected digest. No function of the specification computes
+an expected digest: the FIPS examples below write it as plain bytes, and
+the CAVP vectors keep NIST's hexadecimal text verbatim and read it with
+`hex`, a small helper that `sha256` does not use.
+
+The NIST vectors covered, and no others: the FIPS 180-2 examples B.1
+("abc") and B.2 (448 bits); and 17 of NIST's CAVP byte-oriented vectors,
+16 of the 65 in SHA256ShortMsg.rsp (Len = 0, 8, 16, 24, 32, 64, 128, 248,
+256, 384, 432, 440, 448, 456, 504 and 512 bits) and 1 of the 64 in
+SHA256LongMsg.rsp (Len = 1304). Not covered: the other CAVP vectors, the
+Monte Carlo test and FIPS 180-2 example B.3 (one million 'a'). -/
 
 /-- The UTF-8 bytes of a string; for the ASCII test messages, one byte per
 character. -/
 def utf8 (s : String) : List UInt8 := s.toUTF8.data.toList
-
-/-- NIST (CAVP short messages, Len = 0): the empty message. -/
-theorem nist_empty : sha256 [] =
-  [0xe3, 0xb0, 0xc4, 0x42, 0x98, 0xfc, 0x1c, 0x14, 0x9a, 0xfb, 0xf4, 0xc8, 0x99, 0x6f, 0xb9, 0x24,
-   0x27, 0xae, 0x41, 0xe4, 0x64, 0x9b, 0x93, 0x4c, 0xa4, 0x95, 0x99, 0x1b, 0x78, 0x52, 0xb8, 0x55] := by
-  decide +kernel
 
 /-- NIST (FIPS 180-2 appendix B.1; the one-block example of FIPS 180-4):
 "abc". -/
@@ -299,10 +304,105 @@ theorem nist_448 : sha256 (utf8 "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmn
    0xa3, 0x3c, 0xe4, 0x59, 0x64, 0xff, 0x21, 0x67, 0xf6, 0xec, 0xed, 0xd4, 0x19, 0xdb, 0x06, 0xc1] := by
   decide +kernel
 
-/-- The 896-bit (112-byte) message of NIST's SHA-384 and SHA-512 examples,
-with its widely published SHA-256 digest: two blocks that both hold
+/-! NIST's CAVP byte-oriented vectors for SHA-256 (Cryptographic Algorithm
+Validation Program, CAVS 11.0, csrc.nist.gov, shabytetestvectors.zip; the
+files SHA256ShortMsg.rsp, SHA-256 75e1cb83…283c, and SHA256LongMsg.rsp,
+6fac36f3…0974). Each theorem copies one entry's Len, Msg and MD verbatim. -/
+
+/-- The value of a hexadecimal digit 0-9 or a-f, given as its ASCII code,
+as NIST's files write them. (Any other character gives a wrong value, so
+a typo fails the check.) -/
+def hexDigit (c : UInt8) : Nat := if c.toNat ≤ 57 then c.toNat - 48 else c.toNat - 87
+
+/-- Hexadecimal digits, two per byte, as bytes. -/
+def hexBytes : List UInt8 → List UInt8
+  | hi :: lo :: rest => (hexDigit hi * 16 + hexDigit lo).toUInt8 :: hexBytes rest
+  | _ => []
+
+/-- The bytes a hexadecimal string writes. (Its UTF-8 bytes, not
+`String.toList`: the kernel reads those far faster.) -/
+def hex (s : String) : List UInt8 := hexBytes (utf8 s)
+
+/-- A CAVP message: the first Len bits of Msg. (The entry Len = 0 writes
+Msg = 00 for the empty message.) -/
+def cavp (len : Nat) (msg : String) : List UInt8 := (hex msg).take (len / 8)
+
+theorem hex_example : hex "00ff1a9c" = [0x00, 0xff, 0x1a, 0x9c] := by
+  decide +kernel
+
+theorem cavp_short_0 : sha256 (cavp 0 "00") =
+    hex "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" := by
+  decide +kernel
+
+theorem cavp_short_8 : sha256 (cavp 8 "d3") =
+    hex "28969cdfa74a12c82f3bad960b0b000aca2ac329deea5c2328ebc6f2ba9802c1" := by
+  decide +kernel
+
+theorem cavp_short_16 : sha256 (cavp 16 "11af") =
+    hex "5ca7133fa735326081558ac312c620eeca9970d1e70a4b95533d956f072d1f98" := by
+  decide +kernel
+
+theorem cavp_short_24 : sha256 (cavp 24 "b4190e") =
+    hex "dff2e73091f6c05e528896c4c831b9448653dc2ff043528f6769437bc7b975c2" := by
+  decide +kernel
+
+theorem cavp_short_32 : sha256 (cavp 32 "74ba2521") =
+    hex "b16aa56be3880d18cd41e68384cf1ec8c17680c45a02b1575dc1518923ae8b0e" := by
+  decide +kernel
+
+theorem cavp_short_64 : sha256 (cavp 64 "5738c929c4f4ccb6") =
+    hex "963bb88f27f512777aab6c8b1a02c70ec0ad651d428f870036e1917120fb48bf" := by
+  decide +kernel
+
+theorem cavp_short_128 : sha256 (cavp 128 "0a27847cdc98bd6f62220b046edd762b") =
+    hex "80c25ec1600587e7f28b18b1b18e3cdc89928e39cab3bc25e4d4a4c139bcedc4" := by
+  decide +kernel
+
+theorem cavp_short_248 : sha256 (cavp 248 "95a765809caf30ada90ad6d61c2b4b30250df0a7ce23b7753c9187f4319ce2") =
+    hex "a4139b74b102cf1e2fce229a6cd84c87501f50afa4c80feacf7d8cf5ed94f042" := by
+  decide +kernel
+
+theorem cavp_short_256 : sha256 (cavp 256 "09fc1accc230a205e4a208e64a8f204291f581a12756392da4b8c0cf5ef02b95") =
+    hex "4f44c1c7fbebb6f9601829f3897bfd650c56fa07844be76489076356ac1886a4" := by
+  decide +kernel
+
+theorem cavp_short_384 : sha256 (cavp 384 "4eef5107459bddf8f24fc7656fd4896da8711db50400c0164847f692b886ce8d7f4d67395090b3534efd7b0d298da34b") =
+    hex "7c5d14ed83dab875ac25ce7feed6ef837d58e79dc601fb3c1fca48d4464e8b83" := by
+  decide +kernel
+
+theorem cavp_short_432 : sha256 (cavp 432 "25362a4b9d74bde6128c4fdc672305900947bc3ada9d9d316ebcf1667ad4363189937251f149c72e064a48608d940b7574b17fefc0df") =
+    hex "f8e4ccab6c979229f6066cc0cb0cfa81bb21447c16c68773be7e558e9f9d798d" := by
+  decide +kernel
+
+theorem cavp_short_440 : sha256 (cavp 440 "3ebfb06db8c38d5ba037f1363e118550aad94606e26835a01af05078533cc25f2f39573c04b632f62f68c294ab31f2a3e2a1a0d8c2be51") =
+    hex "6595a2ef537a69ba8583dfbf7f5bec0ab1f93ce4c8ee1916eff44a93af5749c4" := by
+  decide +kernel
+
+theorem cavp_short_448 : sha256 (cavp 448 "2d52447d1244d2ebc28650e7b05654bad35b3a68eedc7f8515306b496d75f3e73385dd1b002625024b81a02f2fd6dffb6e6d561cb7d0bd7a") =
+    hex "cfb88d6faf2de3a69d36195acec2e255e2af2b7d933997f348e09f6ce5758360" := by
+  decide +kernel
+
+theorem cavp_short_456 : sha256 (cavp 456 "4cace422e4a015a75492b3b3bbfbdf3758eaff4fe504b46a26c90dacc119fa9050f603d2b58b398cad6d6d9fa922a154d9e0bc4389968274b0") =
+    hex "4d54b2d284a6794581224e08f675541c8feab6eefa3ac1cfe5da4e03e62f72e4" := by
+  decide +kernel
+
+theorem cavp_short_504 : sha256 (cavp 504 "e2f76e97606a872e317439f1a03fcd92e632e5bd4e7cbc4e97f1afc19a16fde92d77cbe546416b51640cddb92af996534dfd81edb17c4424cf1ac4d75aceeb") =
+    hex "18041bd4665083001fba8c5411d2d748e8abbfdcdfd9218cb02b68a78e7d4c23" := by
+  decide +kernel
+
+theorem cavp_short_512 : sha256 (cavp 512 "5a86b737eaea8ee976a0a24da63e7ed7eefad18a101c1211e2b3650c5187c2a8a650547208251f6d4237e661c7bf4c77f335390394c37fa1a9f9be836ac28509") =
+    hex "42e61e174fbb3897d6dd6cef3dd2802fe67b331953b06114a65c772859dfc1aa" := by
+  decide +kernel
+
+theorem cavp_long_1304 : sha256 (cavp 1304 "451101250ec6f26652249d59dc974b7361d571a8101cdfd36aba3b5854d3ae086b5fdd4597721b66e3c0dc5d8c606d9657d0e323283a5217d1f53f2f284f57b85c8a61ac8924711f895c5ed90ef17745ed2d728abd22a5f7a13479a462d71b56c19a74a40b655c58edfe0a188ad2cf46cbf30524f65d423c837dd1ff2bf462ac4198007345bb44dbb7b1c861298cdf61982a833afc728fae1eda2f87aa2c9480858bec") =
+    hex "3c593aa539fdcdae516cdf2f15000f6634185c88f505b39775fb9ab137a10aa2" := by
+  decide +kernel
+
+/-- Not a NIST vector: the 896-bit (112-byte) message of NIST's SHA-384
+and SHA-512 examples, with the SHA-256 digest that test-vector lists
+publish and Python's `hashlib` (OpenSSL) gives. Two blocks that both hold
 message bytes. -/
-theorem nist_896 : sha256 (utf8 ("abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmno" ++
+theorem published_896 : sha256 (utf8 ("abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmno" ++
     "ijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu")) =
   [0xcf, 0x5b, 0x16, 0xa7, 0x78, 0xaf, 0x83, 0x80, 0x03, 0x6c, 0xe5, 0x9e, 0x7b, 0x04, 0x92, 0x37,
    0x0b, 0x24, 0x9b, 0x11, 0xe8, 0xf0, 0x7a, 0x51, 0xaf, 0xac, 0x45, 0x03, 0x7a, 0xfe, 0xe9, 0xd1] := by
@@ -313,8 +413,8 @@ boundaries below. For n ≤ 128 every byte is 128 or more, unlike the ASCII
 messages above. -/
 def countdown (n : Nat) : List UInt8 := (List.range n).map fun i => (255 - i).toUInt8
 
-/-! Padding boundaries, with digests from Python's `hashlib` (OpenSSL), an
-implementation independent of this file; not NIST vectors. 55 bytes is the
+/-! Padding boundaries, not NIST vectors: digests from Python's `hashlib`
+(OpenSSL), an implementation independent of this file. 55 bytes is the
 longest message of one block, 56 the shortest of two; 64 is one whole
 block; 119 the longest of two blocks, 120 the shortest of three. -/
 
@@ -512,11 +612,12 @@ theorem length_of_mem_parse :
     · subst h; simp; omega
     · exact length_of_mem_parse n _ (by simp; omega) M h
 
-/-- A padded message has N = (n + 8) / 64 + 1 blocks, n its length in
-bytes, and each block has 16 words. -/
+/-- A padded message has N = (n + 8) / 64 + 1 blocks, n the message's
+length in bytes. -/
 theorem length_blocks_pad (m : List UInt8) : (blocks (pad m)).length = (m.length + 8) / 64 + 1 := by
   simp only [blocks, length_parse, length_pad]; omega
 
+/-- Each block of a padded message has 16 words. -/
 theorem length_of_mem_blocks_pad (m : List UInt8) :
     ∀ M ∈ blocks (pad m), M.length = 16 := by
   apply length_of_mem_parse
@@ -631,67 +732,28 @@ theorem sha256_append_blocks (a b : List UInt8) (ha : a.length % 64 = 0) :
   unfold sha256 pad
   rw [List.length_append, List.append_assoc, blocks_append a _ ha, hashBlocks_append]
 
-/-! ### Axioms
-
-Every theorem's axioms, checked by tests/reference/sha256-spec-check.sh:
-only `propext`, `Classical.choice` and `Quot.sound` may appear. -/
-
-#print axioms K_cube_roots
-#print axioms initialHash_square_roots
-#print axioms bigSigma0_example
-#print axioms nist_empty
-#print axioms nist_abc
-#print axioms nist_448
-#print axioms nist_896
-#print axioms boundary_55
-#print axioms boundary_56
-#print axioms boundary_64
-#print axioms boundary_119
-#print axioms boundary_120
-#print axioms nist_abc_wrong_refuted
-#print axioms SHR_toNat
-#print axioms ROTR_toNat
-#print axioms ROTR_eq_rotateRight
-#print axioms allOnes_getLsbD
-#print axioms Ch_eq_select
-#print axioms Maj_eq_or
-#print axioms Ch_toNat
-#print axioms Maj_toNat
-#print axioms bigSigma0_toNat
-#print axioms bigSigma1_toNat
-#print axioms smallSigma0_toNat
-#print axioms smallSigma1_toNat
-#print axioms padZeroBits_spec
-#print axioms padZeroBits_least
-#print axioms padZeroBits_byte
-#print axioms length_bytesBE
-#print axioms length_padding
-#print axioms length_pad
-#print axioms length_pad_mod
-#print axioms length_pad_bounds
-#print axioms pad_prefix
-#print axioms pad_after_message
-#print axioms pad_suffix
-#print axioms wordOf_toNat
-#print axioms length_words
-#print axioms length_parse
-#print axioms length_of_mem_parse
-#print axioms length_blocks_pad
-#print axioms length_of_mem_blocks_pad
-#print axioms getD_of_prefix
-#print axioms length_scheduleSteps
-#print axioms scheduleSteps_prefix
-#print axioms length_schedule
-#print axioms schedule_message
-#print axioms schedule_formula
-#print axioms rounds_zero
-#print axioms rounds_succ
-#print axioms hashBlocks_nil
-#print axioms hashBlocks_cons
-#print axioms hashBlocks_append
-#print axioms words_append
-#print axioms parse_append
-#print axioms blocks_append
-#print axioms sha256_append_blocks
-
 end Sha256Spec
+
+/-! ## Axiom audit
+
+The axioms of every declaration of this file, whatever its kind or
+modifiers (definitions, theorems, private and protected ones, and the
+auxiliary declarations Lean makes for them), printed in the words of
+`#print axioms`, which computes them the same way (`collectAxioms`).
+tests/reference/sha256-spec-check.sh requires each to be within the
+owner's allowlist: `propext`, `Classical.choice` and `Quot.sound`. -/
+
+open Lean in
+#eval show CoreM Unit from do
+  let env ← getEnv
+  -- `map₂` holds the declarations of this file, not the imported ones.
+  let names := (env.constants.map₂.toList.map (·.1)).toArray.qsort (·.toString < ·.toString)
+  IO.println "BEGIN AXIOM AUDIT"
+  for name in names do
+    let axioms ← collectAxioms name
+    if axioms.isEmpty then
+      IO.println s!"'{name}' does not depend on any axioms"
+    else
+      let sorted := axioms.qsort (·.toString < ·.toString)
+      IO.println s!"'{name}' depends on axioms: {sorted.toList}"
+  IO.println s!"END AXIOM AUDIT ({names.size} declarations)"

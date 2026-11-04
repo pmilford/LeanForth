@@ -12,7 +12,9 @@
 [defined] lf-log-preset-level [if] .( derivation-log: skipped under the log preset) cr bye [then]
 include ../support/tester.fs
 include ../support/checks.fs
-require ../support/ndjson-input.fs
+require ../../src/import/checker-input.fs
+require ../../src/kernel/check-declaration.fs
+require ../../src/present/log-view.fs
 require ../support/log-check.fs
 
 : must ( flag -- ) 0= abort" derivation-log: refused" ;
@@ -36,7 +38,7 @@ variable steps-seen
 : run-steps ( -- ) lf-input-count 0 ?do ['] lf-check-declaration i lf-env-step mix-step log-note
   loop ;
 : run ( c-addr u -- digest )
-  ni-read ok? must 0 digest ! true logs-valid ! 0 logs-cut ! 0 steps-seen !
+  cin-read ok? must 0 digest ! true logs-valid ! 0 logs-cut ! 0 steps-seen !
   fuel lf-check-budget 64 lf-env-new ok? must dup lf-env-use ok? must run-steps
   lf-env-free ok? must digest @ ;
 \ The options: a level and the four limits; ample restores the capacities.
@@ -166,6 +168,48 @@ T{ shift-stale lf-log-cut lf-log-count -> -1 0 outcome-invalid 1 lf-bound-unread
 lf-log-stop
 T{ lf-log? lf-log-level -> 0 0 }T
 
+\ A constant whose reference lies above the input marks, with one universe
+\ argument (the zero level): its copy keeps the name and the argument's
+\ level reference, and log-view rebuilds it as a reference with that name
+\ and one argument.
+create one-pair 2 cells allot
+: c-name ( -- id ) 0 s" c" lf-name-str must ;
+: scratch-constant ( -- term id )
+  c-name lf-name-generation @ 0 lf-level-identity must 0 one-pair 2!
+  one-pair 1 lf-cref-new must lf-cterm-new must ;
+: copied-ref ( -- slot ) 0 lf-log-cref-slot ;
+: rebuilt ( -- name count )
+  1 lf-log-record logrec-a @ lf-lv-term must dup lf-term-first@ swap lf-term-second@
+  lf-cref-read must nip lf-lv-release ;
+lf-log-terms lf-log-start
+T{ scratch-constant 0 1 100 lf-mixed-shift nip nip lf-log-count lf-log-cref-copies
+  -> outcome-ok 1 1 }T
+T{ copied-ref logcref-name @ c-name = copied-ref logcref-count @ -> true 1 }T
+T{ copied-ref logcref-args @ lf-log-arg-ref lc-valid? -> 0 true }T
+T{ rebuilt -> c-name 1 }T
+lf-log-stop lf-input-rollback drop
+
+\ Store capacities far above 64 records (heap stores, settings of each
+\ context): a chain of applications, each over the one before and a
+\ variable, built above the input marks and given to a shift, whose
+\ outcome, result and fuel are the same with the log off and on. 200
+\ deep, the whole chain is copied (201 copies, the log complete and
+\ valid); 300 deep it needs more stack than one copy may use, so the log
+\ is truncated (work) and the shift's answer stands.
+T{ 1000 lf-term-capacity! -> outcome-ok }T
+: chain ( n -- term id )
+  0 lf-term-bvar must dup rot 0 ?do over lf-term-app must loop nip dup lf-term-identity must ;
+: shift-chain ( n -- index outcome fuel )
+  chain 0 1 1000 lf-mixed-shift nip lf-mshift-fuel @ ;
+: run-off ( n -- index outcome fuel ) lf-log-stop shift-chain lf-input-rollback drop ;
+: run-on ( n -- index outcome fuel )
+  lf-log-terms lf-log-start shift-chain lf-input-rollback drop ;
+T{ 200 run-off -> 200 run-on }T
+T{ lf-log-complete? lf-log-term-copies lc-valid? -> true 201 true }T
+T{ 300 run-off -> 300 run-on }T
+T{ lf-log-cut nip lf-log-count -> lf-bound-work 0 }T
+lf-log-stop
+
 \ A check that throws with a rule open (in a new context, which it
 \ spends): its log keeps the publish step, and the next check's
 \ lf-log-begin starts afresh.
@@ -173,7 +217,7 @@ lf-log-terms level!
 variable env
 : thrower ( -- ) 1 2 lf-rule-declaration lf-log-open -77 throw ;
 : fresh-env ( -- )
-  0 file ni-read ok? must fuel lf-check-budget 64 lf-env-new ok? must
+  0 file cin-read ok? must fuel lf-check-budget 64 lf-env-new ok? must
   dup env ! lf-env-use ok? must ;
 : opens ( -- n ) lf-log-state lf-logs-opens @ ;
 : thrown-run ( -- outcome count opens count' opens' )

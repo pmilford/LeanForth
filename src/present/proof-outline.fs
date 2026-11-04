@@ -403,6 +403,8 @@ defer lf-ol-known? ( s -- flag )
 : lf-ol-bound ( bound -- c-addr u )
   case lf-bound-records of s" records" endof lf-bound-marks of s" open rules" endof
     lf-bound-terms of s" term copies" endof lf-bound-levels of s" level copies" endof
+    lf-bound-work of s" a formula too large to copy" endof
+    lf-bound-refs of s" constant references" endof
     >r s" a node it could not read" r> endcase ;
 : lf-ol-cut ( -- ) s" truncated at step " lf-lv-put lf-log-cut swap lf-lv-n s"  ("
   lf-lv-put

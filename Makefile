@@ -6,6 +6,41 @@ LOCAL_GFORTH := .tools/gforth/bin/gforth
 LOCAL_LEAN := $(CURDIR)/.tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean
 GFORTH ?= $(if $(wildcard $(LOCAL_GFORTH)),$(LOCAL_GFORTH),gforth)
 LEAN ?= $(if $(wildcard $(LOCAL_LEAN)),$(LOCAL_LEAN),lean)
+LEAN_BINARY := $(LEAN)
+
+# Parallel runs (docs/development/TESTING_STRATEGY.md, "Running the suites"):
+# every target of make test and make check can run beside any other (each
+# writes only its own temporary folders), so make runs JOBS jobs at once
+# (default 8) unless -j is given, and prints each target's output in one
+# piece. JOBS=1 (or -j1) runs one target at a time. A make started by a
+# recipe ($(MAKE)) shares its parent's jobs.
+JOBS ?= 8
+ifeq ($(filter -j%,$(MAKEFLAGS))$(filter-out 0,$(MAKELEVEL)),)
+MAKEFLAGS += -j$(JOBS)
+endif
+ifneq ($(filter output-sync,$(.FEATURES)),)
+MAKEFLAGS += --output-sync=target
+endif
+
+# Pinned Lean's runs and its exporter's are cached (scripts/lean-cache.py):
+# the recipes get LEAN and LEANEXPORT set to scripts that replay a stored
+# run when every input of it is unchanged, and run the tool otherwise.
+# LEAN_CACHE=0 runs them every time (CI does so; it is also the default when
+# CI is set), LEAN_CACHE=verify runs them every time and fails when a stored
+# run differs. The cache is shared by every worktree of the clone (in the
+# main checkout's .claude/work/lean-cache, which git ignores). LEAN_BINARY
+# is the real Lean.
+LEAN_CACHE ?= $(if $(CI),0,1)
+ifneq ($(LEAN_CACHE),0)
+GIT_COMMON := $(shell git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+CHECKOUT := $(if $(filter %/.git,$(GIT_COMMON)),$(patsubst %/.git,%,$(GIT_COMMON)),$(CURDIR))
+LEAN_CACHE_DIR ?= $(CHECKOUT)/.claude/work/lean-cache
+export LEANFORTH_LEAN := $(LEAN_BINARY)
+export LEANFORTH_LEAN_CACHE := $(LEAN_CACHE)
+export LEANFORTH_LEAN_CACHE_DIR := $(LEAN_CACHE_DIR)
+export LEANEXPORT := $(CURDIR)/scripts/leanexport-cache.py
+override LEAN := $(CURDIR)/scripts/lean-cache.py
+endif
 
 # Every test command is stopped after TEST_TIMEOUT seconds and then fails,
 # so a looping test cannot stall a local run or CI. Uses GNU timeout(1).
@@ -17,6 +52,8 @@ RUN := timeout $(TEST_TIMEOUT)
 DIFFERENTIAL_TARGETS := \
 	test-doc-examples-lean \
 	reference reference-export reference-first-checker reference-binder-domains \
+	reference-definitional-equality \
+	reference-inductive \
 	test-name-differential \
 	test-level-differential \
 	test-level-assignment-differential test-level-compare-differential \
@@ -32,6 +69,8 @@ DIFFERENTIAL_TARGETS := \
 	test-mixed-infer-constant-differential test-export-signature-differential \
 	test-export-specialization-differential test-first-checker-differential \
 	test-binder-domains-differential test-universe-scope-differential \
+	test-first-checker-large-differential test-binder-domains-large-differential \
+	test-universe-scope-large-differential \
 	test-program-differential test-program-stack-differential \
 	test-program-values-differential test-program-depth-differential \
 	test-example-reference-differential test-add-reference-differential \
@@ -47,6 +86,8 @@ DIFFERENTIAL_TARGETS := \
 	forth-metrics $(DIFFERENTIAL_TARGETS)
 
 # Gforth and Python 3 only; run on every CI host and before every commit.
+# The slowest targets first (see check below).
+test: test-core test-composition-fixture test-bignum test-run-records test-environment
 test: check-docs check-lean-sources check-portable-forth smoke test-harness test-lib test-core \
 	test-composition-fixture test-program test-present check-doc-examples
 
@@ -85,6 +126,10 @@ forth-metrics:
 # Requires pinned Lean 4.35.0 as well as Gforth and Python 3.
 test-differential: $(DIFFERENTIAL_TARGETS)
 
+# With parallel jobs make starts targets in the order listed: the slowest
+# first (each is also named again below), so that none of them starts last.
+check: reference-compact-init reference-author reference reference-program-ir-run \
+	reference-bignum test-doc-examples-lean test-compact-faults
 check: test test-differential mutants-check
 
 # src/main.fs must load silently: a "redefined" warning means two modules
@@ -111,8 +156,20 @@ reference-first-checker:
 reference-binder-domains:
 	LEAN=$(LEAN) $(RUN) bash tests/reference/binder-domains-check.sh
 
+# Lean's definitional-equality procedure (ADR 0014): 50 cases with Lean's
+# verdict and, when accepted, how often each constant was unfolded.
+reference-definitional-equality:
+	LEAN=$(LEAN) $(RUN) bash tests/reference/definitional-equality-check.sh
+
 reference-export:
 	LEAN=$(LEAN) $(RUN) bash tests/reference/export-check.sh
+
+# Lean's verdicts for inductive types, reductions, the replay of exported
+# blocks, primitive names and quotients (ADR 0015): 100 kernel cases; the
+# exports of tests/reference/inductive/ reproduced byte for byte and staged
+# by the Forth importer.
+reference-inductive:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/reference/inductive-check.sh
 
 test-harness:
 	GFORTH=$(GFORTH) $(RUN) bash tests/harness/check.sh
@@ -255,6 +312,19 @@ test-binder-domains-differential:
 test-universe-scope-differential:
 	$(LEAN_TABLE) universe-scope
 
+# The same three tables with every store's capacity raised (plan task
+# 3.3.1; ADR 0016 C9 step 3): the same answers, and the three binder-domain
+# rows that meet the 64-node store at the default capacity get the table's
+# answer, so these tables have no known difference.
+test-first-checker-large-differential:
+	$(LEAN_TABLE) first-checker-large
+
+test-binder-domains-large-differential:
+	$(LEAN_TABLE) binder-domains-large
+
+test-universe-scope-large-differential:
+	$(LEAN_TABLE) universe-scope-large
+
 test-composition-fixture:
 	$(RUN) python3 tests/core/test_preview_contract.py
 	GFORTH=$(GFORTH) $(RUN) python3 tests/core/test_ndjson_preview.py
@@ -332,10 +402,10 @@ test-printer-differential:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/present/printer-differential.py
 
 profile-existing:
-	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash scripts/profile-existing.sh
+	LEAN=$(LEAN_BINARY) GFORTH=$(GFORTH) $(RUN) bash scripts/profile-existing.sh
 
 profile-history:
-	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 scripts/profile-history.py
+	LEAN=$(LEAN_BINARY) GFORTH=$(GFORTH) $(RUN) python3 scripts/profile-history.py
 
 test-program-depth-differential:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/program/program-depth-differential.sh
@@ -363,6 +433,19 @@ reference-program-ir:
 .PHONY: test-program-ir reference-program-ir
 test: test-program-ir
 test-differential: reference-program-ir
+
+# The program words in two modes (ADR 0019; docs/programming/PROGRAM_IR.md):
+# their library, the mode shift and the separate vocabulary, their
+# cross-check against today's reader, round trip and random programs.
+# Gforth and Python 3 only.
+test-program-verify:
+	$(RUN) $(GFORTH) tests/lib/text-run.fs
+	$(RUN) $(GFORTH) tests/program/verify.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/program/verify_check.py
+	GFORTH=$(GFORTH) $(RUN) python3 tests/program/verify_roundtrip.py
+
+.PHONY: test-program-verify
+test: test-program-verify
 
 # Program track, phase 2, tasks 2.5.4 to 2.5.6 (docs/programming/PROGRAM_IR_RUN.md,
 # PROGRAM_VC.md and PROGRAM_RECEIPTS.md): the IR interpreter against the host's
@@ -600,10 +683,11 @@ test-compact:
 # scratch tier as a context member), the cases that need a changed export
 # (unknown constants, duplicate names, truncated files, 32-bit limits), and
 # every other fixture export of tests/, which have no manifest (loaded
-# unchecked, explicitly), re-emitted as the reader dumps it. Gforth and
-# Python 3 only.
+# unchecked, explicitly), re-emitted as the reader dumps it, with every
+# declaration found by name and every constant's resolution checked.
+# Gforth and Python 3 only.
 STAGE_FIXTURES := tests/core/check-declaration-cases/*.ndjson tests/core/ndjson-block.ndjson \
-	tests/core/reexport/kinds.ndjson
+	tests/core/reexport/kinds.ndjson tests/core/stage-cases/*.ndjson
 test-stage:
 	$(RUN) $(GFORTH) tests/core/stage.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/core/test_stage.py
@@ -612,7 +696,7 @@ test-stage:
 	  || { bash tests/core/compact-verify.sh --unchecked $$f $(GFORTH); exit 1; }; \
 	done; echo "The stage re-emits every other fixture export as the reader dumps it."
 
-# Nineteen faults planted in a copy of the compact store, each caught by the
+# Twenty-seven faults planted in a copy of the compact store, each caught by the
 # checks of test-compact (about 25 s; part of make check).
 test-compact-faults:
 	GFORTH=$(GFORTH) $(RUN) python3 tests/core/compact_faults.py
@@ -665,3 +749,44 @@ check-log-identity:
 .PHONY: test-log print check-log-identity
 test: test-log
 DOC_EXAMPLE_PAGES += docs/user/PROOF_OUTLINE.md
+
+# The command line (plan tasks 3.4.1-3.4.2; docs/user/COMMAND_LINE.md): the
+# Forth side's exit codes, their severity, the record hook and two injected
+# internal faults; then bin/leanforth itself, every exit code 0-5 with its
+# output, from other folders, against the counter and the re-exporter, and
+# with a broken Gforth. The page's console examples run in check-doc-examples.
+# Gforth and Python 3 only.
+test-cli:
+	$(RUN) $(GFORTH) tests/cli/leanforth.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/cli/test_leanforth.py
+
+# Pinned Lean accepts the two Lean fixtures of the command line's tests and
+# scripts/export.sh reproduces their exports and manifests byte for byte.
+reference-cli:
+	LEAN=$(LEAN) $(RUN) bash tests/cli/export-check.sh
+
+.PHONY: test-cli reference-cli
+test: test-cli
+test-differential: reference-cli
+DOC_EXAMPLE_PAGES += docs/user/COMMAND_LINE.md
+
+# The Lean cache (scripts/lean-cache.py; TESTING_STRATEGY.md, "Running the
+# suites"): with a fake toolchain, a repeated call replayed exactly, every
+# input's change missing the cache, what is never cached, verify mode, and
+# the Makefile's choice of the cache (never with LEAN_CACHE=0 or CI set).
+# Python 3 and make only.
+test-lean-cache:
+	$(RUN) python3 tests/lean-cache/test_lean_cache.py
+
+# The targets of make test (test-changed) or make check (check-changed) that
+# use a file changed since the merge base with BASE (default main),
+# uncommitted and new files included (scripts/changed-tests.py prints why
+# with --why). For an agent's inner loop only: make test before each commit.
+BASE ?= main
+test-changed check-changed:
+	@targets=$$(python3 scripts/changed-tests.py --why --base $(BASE) $(@:-changed=)) \
+	|| exit 1; if [ -z "$$targets" ]; then echo "No target uses a changed file."; \
+	else $(MAKE) --no-print-directory $$targets; fi
+
+.PHONY: test-lean-cache test-changed check-changed
+test: test-lean-cache

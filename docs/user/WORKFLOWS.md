@@ -80,15 +80,17 @@ What each step means for you:
    nothing about proofs. It decodes the whole pinned Mathlib export in
    under two minutes ([reader guide](../development/NDJSON_READER.md)).
 3. **Staging** copies decoded names, levels and expressions into
-   LeanForth's stores. Today the stores hold 64 entries each and only test
-   fixtures reach them, through a test-only Python bridge.
+   LeanForth's stores, and the declarations into the checker's input
+   (`src/import/checker-input.fs`, version 0; `bin/leanforth check` runs it, see
+   [the command line](COMMAND_LINE.md)). Today the stores hold 64 entries
+   each, so only exports the size of the test fixtures fit; a larger one
+   ends *full*.
 4. **The checker** gives each declaration exactly one outcome
-   ([outcomes](CONCEPTS.md#outcomes)). Its rules are approved; the rules
-   that answer *rejected* are written for comparison and inference (task
-   2.2.1, awaiting its review gate) and the declaration check comes next
-   (2.2.3). What runs today is the experimental definition and theorem
-   probe, which can show that a value has its claimed type, or reject it
-   where Lean certainly would, but never accepts a declaration.
+   ([outcomes](CONCEPTS.md#outcomes)). Its rules are approved; the first
+   checker, check-declaration (task 2.2.3), is written and runs from the
+   shell, but has not passed its review gate, so every declaration it
+   accepts is labelled *experimental, not independently audited*
+   ([first check](FIRST_CHECK.md)).
 5. **The publisher and the checked environment** keep the accepted
    declarations; a later declaration may use only earlier accepted ones,
    and a failed check changes nothing

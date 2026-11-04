@@ -40,8 +40,8 @@ begin-structure /lf-lvrec
   field: lf-lvrec-count         \ assignments in the table
   field: lf-lvrec-levels        \ level-store generation of the table
   field: lf-lvrec-context       \ parameter-context generation of the table
-  lf-level-capacity cells +field lf-lvrec-ids
-  lf-level-capacity cells +field lf-lvrec-values
+  lf-level-params-limit cells +field lf-lvrec-ids
+  lf-level-params-limit cells +field lf-lvrec-values
 end-structure
 /lf-lvrec context-record: lf-lvalue-state
 
@@ -83,7 +83,7 @@ end-structure
   lf-level-generation @ lf-lvalue-state lf-lvrec-levels @ =
   lf-lscope-generation @ lf-lvalue-state lf-lvrec-context @ = and ;
 : lf-lassign-valid? ( -- flag )
-  lf-lassign-count @ lf-level-capacity upto? lf-lscope-context-valid? and
+  lf-lassign-count @ lf-level-params-limit upto? lf-lscope-context-valid? and
   lf-level-count-valid? and lf-lassign-current? and
   if lf-lassign-entries? else false then ;
 
@@ -92,7 +92,7 @@ end-structure
 \ negative value returns false and changes nothing.
 : lf-lassign-new? ( id value -- flag )
   0< 0= over lf-lscope-member? and swap lf-lassign-count @ lf-lassign-in? 0= and
-  lf-lassign-count @ lf-level-capacity < and ;
+  lf-lassign-count @ lf-level-params-limit < and ;
 : lf-lassign-append ( id value -- )
   lf-lassign-count @ tuck cells lf-lassign-values + ! cells lf-lassign-ids + !
   1 lf-lassign-count +! ;

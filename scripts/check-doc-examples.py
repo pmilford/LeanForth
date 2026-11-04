@@ -14,11 +14,19 @@ With --lean, every ```lean block is checked with that Lean and
 output (file positions removed) must equal it, and otherwise Lean must
 print nothing. Without --lean the Lean blocks are counted and skipped.
 
+Every ```console block is a shell session: its lines that start with "$ "
+run, in order, as one bash script from the repository root, with GFORTH
+set to the Gforth given (made absolute when it names a path), and the
+block's other lines are their expected output, standard output and error
+together (trailing spaces ignored). Exit statuses are not compared; a
+command shows one with `; echo "exit status $?"`.
+
 Exits 1 if any example differs. A development tool: it needs Python 3,
 Gforth and, for --lean, the pinned Lean; none of them is a product
 dependency.
 """
 import argparse
+import os
 import pathlib
 import re
 import subprocess
@@ -26,6 +34,7 @@ import sys
 import tempfile
 
 BLOCK = re.compile(r"^```(\w*)\n(.*?)^```\n", re.S | re.M)
+ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 
 def blocks(text):
@@ -42,6 +51,19 @@ def run_forth(gforth, prelude, body, tmp, index):
     run = subprocess.run([gforth, "src/main.fs", str(prelude), str(source), "-e", "bye"],
                          stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=120)
     return run.returncode, norm(run.stdout + run.stderr)
+
+
+def run_console(gforth, body):
+    """The block's output and the output it shows (see the module's text)."""
+    lines = body.splitlines()
+    script = "\n".join(line[2:] for line in lines if line.startswith("$ "))
+    want = "\n".join(line for line in lines if not line.startswith("$ "))
+    if os.sep in gforth:
+        gforth = str(pathlib.Path(gforth).resolve())
+    run = subprocess.run(["bash", "-c", script], cwd=ROOT, env=dict(os.environ, GFORTH=gforth),
+                         stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                         stderr=subprocess.STDOUT, text=True, timeout=120)
+    return norm(run.stdout), norm(want)
 
 
 def lean_ok(lean, body, following, tmp, index):
@@ -62,10 +84,17 @@ def lean_ok(lean, body, following, tmp, index):
 def check_page(page, gforth, lean, tmp):
     items = blocks(page.read_text(encoding="utf-8"))
     prelude = None
-    failures = forth_runs = lean_runs = lean_skipped = 0
+    failures = forth_runs = lean_runs = lean_skipped = console_runs = 0
     for index, (lang, body) in enumerate(items):
         following = items[index + 1] if index + 1 < len(items) else (None, "")
-        if lang == "forth" and prelude is None:
+        if lang == "console":
+            console_runs += 1
+            got, want = run_console(gforth, body)
+            if got != want:
+                failures += 1
+                print(f"{page}: console block {index} differs:\n"
+                      f"--- got\n{got}\n--- want\n{want}\n")
+        elif lang == "forth" and prelude is None:
             prelude = tmp / f"{page.stem}-prelude.fs"
             prelude.write_text(body, encoding="utf-8")
         elif lang == "forth":
@@ -85,7 +114,8 @@ def check_page(page, gforth, lean, tmp):
                 failures += 1
                 print(f"{page}: Lean block {index} unexpected:\n{out}\n")
     skipped = f", {lean_skipped} Lean skipped" if lean_skipped else ""
-    print(f"{page}: {forth_runs} Forth and {lean_runs} Lean examples agree{skipped}"
+    shell = f", {console_runs} console" if console_runs else ""
+    print(f"{page}: {forth_runs} Forth and {lean_runs} Lean examples agree{shell}{skipped}"
           if not failures else f"{page}: {failures} example(s) differ")
     return failures
 

@@ -23,7 +23,12 @@ Proposed baseline: Windows 11 desktop; WSL2 Ubuntu development; Gforth 1.0 (refe
 
 ## Where the code is
 
-There is **no checker or command-line tool yet**. `src/main.fs` loads all
+There is **no checker you can rely on yet**. The first checker is
+experimental and not through its review gate; `bin/leanforth check
+FILE.ndjson` runs it on a Lean export small enough for its stores (the
+size of the test fixtures) and prints each declaration's verdict, labelled
+*experimental, not independently audited* when accepted
+([the command line](docs/user/COMMAND_LINE.md)). `src/main.fs` loads all
 current code (`gforth src/main.fs`) by requiring the top modules; every
 module and every test `require`s exactly the modules whose words it uses.
 What it loads is unverified code in progress, exercised by the tests.
@@ -32,11 +37,12 @@ What it loads is unverified code in progress, exercised by the tests.
 
 | Path | Contents |
 | --- | --- |
-| `src/main.fs` | The loader for all current code; later the command-line entry point. |
+| `bin/leanforth` | The command line, version 0: `check` (with `--record`), `replay`, `count`, `reexport`, `version`, `capabilities`; exit statuses 0–5 ([manual](docs/user/COMMAND_LINE.md)). |
+| `src/main.fs` | The loader for all current code, and the command line's Forth entry point (`src/cli/`). |
 | `src/lib/` | General Forth tools with no Lean knowledge: bounded stores, tagged nodes, the shared outcome vocabulary, walk and frames records, per-task contexts, a worker pool, a line reader with UTF-8 checks and a JSON reader. |
 | `src/core/` | Lean's data model, 10 modules: the term store (`terms.fs`), names, universe levels, sessions and stale-handle checks, constant references. |
 | `src/kernel/` | The proof checker under development, 14 modules: universe substitution and comparison, signatures, and the `mixed-*` substitution, reduction, comparison, conversion and inference passes. Not verified until the owner declares it so after the review gate in `AGENTS.md`. |
-| `src/import/` | The Forth reader of Lean's NDJSON exports (it decodes all of the pinned Mathlib export), a record-counting tool, and test staging into the term store. |
+| `src/import/` | The Forth reader of Lean's NDJSON exports (it decodes all of the pinned Mathlib export), its manifest check, a record-counting tool, the byte-exact re-exporter, and staging of a small export into the checker's input. |
 | `src/program/` | The program track: six executable example words (clamp, checked add, abs, factorial, gcd, in-range), a stack-depth analyzer and the reader from Forth source to the program IR. |
 | `src/present/` | The term printer: Lean notation, ASCII and LaTeX. Presentation only; the checker never loads it. |
 | `tests/` | Forth unit tests (`lib/`, `core/`, `program/`, `present/`), Python tools that decode Lean exports for tests (`support/`), and Lean reference files (`reference/`). |
@@ -73,7 +79,11 @@ override with `GFORTH=...` or `LEAN=...`. It calls the toolchain binary
 directly, so no `ELAN_HOME` is needed. Individual targets such as
 `make reference` or `make test-constant-term-scope-differential` can also be
 run on their own; `make check` runs every one listed in `DIFFERENTIAL_TARGETS`.
-A missing or failing tool makes the command fail.
+A missing or failing tool makes the command fail. Make runs 8 targets at a
+time (`JOBS=1` for one at a time) and replays pinned Lean's runs on unchanged
+inputs from a local cache (`LEAN_CACHE=0` runs Lean every time, as CI does);
+the [testing strategy](docs/development/TESTING_STRATEGY.md#running-the-suites-parallel-jobs-and-the-lean-cache)
+explains both.
 [Running the checks](docs/user/RUNNING_THE_CHECKS.md) says what each target
 shows and what it does not.
 

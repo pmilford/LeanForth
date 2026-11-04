@@ -120,6 +120,10 @@ T{ succ-b0 input expr-mdata md input expr-mdata ex md depth@ 1+ swap depth@ -> m
 T{ 1022 chain depth@ 1023 chain depth@ 1100 chain depth@ -> 1022 1023 1023 }T
 \ A bound variable's range: at Lean's bound, and one past it (full).
 T{ range-max 1- input expr-bvar ex range@ range-max input expr-bvar -> range-max -1 outcome-full }T
+\ The index is compared before 1+: 2^32 - 1, which a 32-bit host's u32@
+\ gives as the cell -1, never wraps to a range of 0.
+T{ -1 bvar-fits? u32-mask bvar-fits? range-max bvar-fits? range-max 1- bvar-fits? -> false false false true }T
+T{ u32-mask input expr-bvar -> -1 outcome-full }T
 
 \ Refusals: invalid, with nothing kept.
 input tier-exprs cons-numbers constant before
@@ -162,7 +166,7 @@ T{ succ-b0 check expr-mdata -> md 0 }T
 T{ nat s" zero" check name-str nat s" zero" check name-str -> in-names 0 in-names 0 }T
 T{ in-names 0 lam-head prop b0 check expr-make nip in-names input name-valid? -> 0 false }T
 \ A child of the scratch tier: the input's table is not probed.
-: input-finds ( -- n ) input tier-exprs cons-table htab-stats 2drop ;
+: input-finds ( -- n ) check tier-exprs cons-under-finds @ ;
 T{ input-finds in-exprs b0 check expr-app nip swap input-finds swap - -> 0 0 }T
 T{ input-finds b0 b0 check expr-app nip swap input-finds swap - -> 0 1 }T
 \ Free variables: scratch only, with their flag.
@@ -190,6 +194,45 @@ build-all
 T{ check tier-reset check tier-exprs cons-numbers check tier-names cons-numbers -> outcome-ok in-exprs in-names }T
 T{ mk check tier-rollback nat s" zero" check name-str -> outcome-invalid in-names 0 }T
 T{ input tier-reset -> outcome-invalid }T
+
+\ A name looked up without adding it: its number and ok, or -1 and ok when
+\ absent, or -1 and the outcome of a failed lookup.
+T{ nat s" succ" check name-seek-str nat s" none" check name-seek-str -> nat-succ 0 -1 0 }T
+T{ nat 7 check name-seek-num 99999 s" x" check name-seek-str nat here payload-limit check name-seek-str -> 4 0 -1 1 -1 6 }T
+T{ 99999 s" x" check name-find-str nat 7 check name-find-num -> false 4 true }T
+
+\ The sealed input is never written: lookups and builds through a scratch
+\ tier leave every byte of its record and of its tables' slots as it was,
+\ and are counted in the scratch tier.
+lf-lib-private order+
+: slots ( cons -- addr u ) cons-table dup htab-block @ swap htab-slots u32s ;
+create input-copy /tier allot
+create names-copy 65536 allot   create exprs-copy 65536 allot
+T{ input tier-names slots nip 65536 <= input tier-exprs slots nip 65536 <= -> true true }T
+input input-copy /tier move
+input tier-names slots names-copy swap move  input tier-exprs slots exprs-copy swap move
+: busy ( -- ) 100 0 do nat s" succ" check name-str 2drop c-succ b0 check expr-app 2drop
+  b0 c-succ check expr-app 2drop nat s" absent" check name-seek-str 2drop loop ;
+T{ busy input input-copy /tier tuck compare -> 0 }T
+T{ input tier-names slots names-copy over compare input tier-exprs slots exprs-copy over compare -> 0 0 }T
+T{ check tier-names cons-under-finds @ 0> check tier-exprs cons-under-finds @ 0> -> true true }T
+
+\ At most two tiers: a sealed scratch tier cannot be extended (a tier3
+\ tier's numbers would name records two tiers down).
+create tier3 /tier allot
+T{ check tier-seal check tier3 tier-extend -> outcome-ok outcome-invalid }T
+tier3 tier-free check tier-free
+
+\ A component taken from the tier's own byte slab, which grows while the
+\ name is made: the text is found again, not read from the old block.
+T{ input check tier-extend -> outcome-ok }T
+create long-text 300 allot  long-text 300 char q fill  char x long-text 299 + c!
+name-anonymous long-text 300 check name-str drop constant parent
+: child ( u -- n outcome ) >r parent parent check name-text@ drop r> check name-str ;
+T{ 300 child swap check name-text@ long-text 300 compare -> 0 0 }T
+: children ( -- flag ) true 40 0 do 299 i - child nip ok? and loop ;
+T{ children parent check name-text@ long-text 300 compare -> true 0 }T
+T{ 250 child nip 250 child drop check name-text@ long-text 250 compare -> 0 0 }T
 check tier-free
 
 \ A randomized model: applications over a pool of expressions, built in

@@ -320,10 +320,30 @@ end-structure
 : lf-env-match? ( name test d -- flag )
   >r over r@ lf-input-name lf-name-same?
   if r> lf-env lf-env-slot swap execute nip else r> drop 2drop false then ;
-: lf-env-first ( name test limit -- d|-1 )
+: lf-env-scan-first ( name test limit -- d|-1 )
   0 ?do 2dup i lf-env-match? if 2drop i unloop exit then loop 2drop -1 ;
-: lf-env-matches ( name test limit -- n )
+: lf-env-scan-matches ( name test limit -- n )
   >r 0 -rot r> 0 ?do 2dup i lf-env-match? >r rot r> - -rot loop 2drop ;
+\ With an indexed input (names interned in a shared input tier,
+\ core/input.fs), the declarations named name are its chain, newest
+\ first (ADR 0016 C4): the same answers in time proportional to the
+\ chain. Each declaration of the chain below limit passing test counts;
+\ the first is the last one met.
+: lf-env-passes? ( test d -- flag ) lf-env lf-env-slot swap execute ;
+: lf-env-chain-step ( test limit d -- test limit d flag )
+  2dup > if 2 pick over lf-env-passes? else false then ;
+: lf-env-chain-first ( name test limit -- d|-1 )
+  -1 >r rot lf-input-newest begin dup 0< 0= while
+    lf-env-chain-step if r> drop dup >r then lf-input-before
+  repeat drop 2drop r> ;
+: lf-env-chain-matches ( name test limit -- n )
+  0 >r rot lf-input-newest begin dup 0< 0= while
+    lf-env-chain-step if r> 1+ >r then lf-input-before
+  repeat drop 2drop r> ;
+: lf-env-first ( name test limit -- d|-1 )
+  lf-input-indexed? if lf-env-chain-first else lf-env-scan-first then ;
+: lf-env-matches ( name test limit -- n )
+  lf-input-indexed? if lf-env-chain-matches else lf-env-scan-matches then ;
 : lf-env-any? ( name limit test -- flag ) swap lf-env-first 0< 0= ;
 
 \ Finding a constant (E5) once every same-named slot below limit is final.

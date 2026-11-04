@@ -17,6 +17,6 @@ variable fill-seed  12345 fill-seed !
 : rate. ( d-microseconds -- ) d>f 1e6 f/ fdup f. ." s, " bench-bytes s>f 1e6 f/ fswap f/ f. ." MB/s" ;
 : run ( addr -- )
   utime 2>r hasher sha256-init bench-bytes hasher sha256-update digest hasher sha256-final
-  utime 2r> d- digest text digest>hex text 64 type space rate. cr ;
+  utime 2r> d- digest text sha256-hex text 64 type space rate. cr ;
 filled dup run dup run dup run free throw
 bye

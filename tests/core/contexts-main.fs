@@ -7,9 +7,9 @@
 \ whose IR the interpreter then loads and runs) and the term printer run
 \ over the trial's terms, levels and names in all three modes; a new
 \ context starts as the main context did right after src/main.fs loaded;
-\ and the state words of the loader, the printer, the program reader and
-\ the interpreter lie inside the context, at the same offset in every
-\ context. tests/core/contexts.fs does the rest with the core and kernel
+\ and the state words of the loader, the printer, the program reader, the
+\ interpreter, the staging of exports and the command line lie inside the
+\ context, at the same offset in every context. tests/core/contexts.fs does the rest with the core and kernel
 \ modules alone. Nothing here checks or accepts a theorem.
 include ../support/tester.fs
 include ../support/checks.fs
@@ -17,10 +17,14 @@ here constant dict-start
 require ../../src/lib/task.fs
 require ../../src/main.fs
 here constant dict-end
-\ The main context right after loading, before any test changes it.
+\ The main context right after loading, before any test changes it: its
+\ bytes with the heap addresses of its heap-owning members blanked, and
+\ the digest of what those members hold (tests/support/context-canon.fs).
+include ../support/context-canon.fs
 context-bytes constant loaded-bytes
 create loaded loaded-bytes allot
-context-main loaded loaded-bytes move
+context-main loaded loaded-bytes move  loaded canon-zero
+canon-digest constant loaded-digest
 include ../support/plain-terms.fs
 include ../support/plain-cases.fs
 include ../support/checker-trial.fs
@@ -30,7 +34,7 @@ include ../support/dictionary-check.fs
 \ Members outside the core and kernel modules.
 create state-words
   ' lf-load-batch , ' lf-pjob , ' lf-pres , ' lf-pp-scan-walk , ' lf-pp-level-walk ,
-  ' lf-ir-reader , ' irx-state ,
+  ' lf-ir-reader , ' irx-state , ' cin-state , ' cli-state ,
 here state-words - 1 cells / constant state-count
 : state-word ( i -- addr ) cells state-words + @ execute ;
 : state-offset ( addr -- n ) lf-context @ - ;
@@ -44,7 +48,10 @@ T{ all-inside? offsets -> true context-main context-use offsets }T
 \ A new context starts as the main context did after loading (after the
 \ header, whose size grew; the members the tests declared start zeroed).
 : past-header ( addr -- addr' u ) /context-header + loaded-bytes /context-header - ;
-T{ other past-header loaded past-header compare -> 0 }T
+create other-bytes loaded-bytes allot
+other other-bytes loaded-bytes move  other-bytes canon-zero
+: other-digest ( -- h ) other context-use canon-digest context-main context-use ;
+T{ other-bytes past-header loaded past-header compare other-digest -> 0 loaded-digest }T
 T{ other loaded-bytes + context-bytes loaded-bytes - 1 cells / cells-zero? -> true }T
 T{ other context-free -> 0 }T
 

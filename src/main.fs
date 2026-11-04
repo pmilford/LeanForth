@@ -1,11 +1,13 @@
-\ LeanForth loader. It requires only the top modules, the ones no other
-\ module requires; each module requires its own direct dependencies, so the
-\ whole data model, library and checker under development load with them.
-\ Usage: gforth src/main.fs   (paths resolve relative to this file).
+\ LeanForth loader and command-line entry point. It requires only the top
+\ modules, the ones no other module requires; each module requires its own
+\ direct dependencies, so the whole data model, library and checker under
+\ development load with them.
+\ Usage: gforth src/main.fs   (paths resolve relative to this file), or,
+\ as bin/leanforth runs it, gforth src/main.fs -e cli-main COMMAND ...
+\ (src/cli/leanforth.fs, docs/user/COMMAND_LINE.md).
 \ Nothing loaded here is verified: the checker in kernel/ is under
 \ development and counts as trusted only once the owner declares it so after
-\ the review gate in AGENTS.md. Later this file becomes the command-line
-\ entry point.
+\ the review gate in AGENTS.md.
 \ Loading leaves both stacks empty and prints nothing; tests/smoke checks it.
 
 \ The checker under development, through its outermost probe: definition
@@ -26,10 +28,11 @@ require ./import/ndjson.fs
 
 \ The importer stage (ADR 0016 C9 step 2): an export, checked against its
 \ manifest, staged into a compact input tier (core/compact*.fs) with its
-\ declarations. Not yet read by the checker, which still uses the term,
-\ level and name stores (C9 step 3); it declares no context member and
-\ allocates nothing while loading.
+\ declarations; it declares no context member and allocates nothing while
+\ loading. The feed (C9 step 3, plan task 3.2.2) makes a sealed stage the
+\ checker's input in file order, its names read from the input tier.
 require ./import/stage.fs
+require ./import/feed.fs
 
 \ Verified-program track: example words, the stack-depth analyzer, the
 \ reader from restricted Forth source to the program IR and its interpreter.
@@ -44,3 +47,8 @@ require ./program/ir-run.fs
 \ only the log itself, src/core/derivation-log.fs).
 require ./present/term-printer.fs
 require ./present/proof-outline.fs
+
+\ The command line: check, count, reexport, version, capabilities. It
+\ loads the staging of exports into the checker's input, the counter, the
+\ re-exporter and the manifest check.
+require ./cli/leanforth.fs
