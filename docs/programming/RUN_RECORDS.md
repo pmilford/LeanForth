@@ -133,7 +133,8 @@ matches the manifest beside it; `manifest.enforced` says whether that
 mattered to the check. The record says enforced only when the run record
 module loaded the input itself with the manifest checked
 (`rr-import ( flag -- outcome )`, flag true: `cin-read-checked` of
-`src/import/checker-input.fs`), as `bin/leanforth check` does by default.
+`src/import/checker-input.fs`), as `bin/leanforth check --record` does by
+default.
 `rr-import` takes no file name: it reads the file `rr-start` kept and
 hashed, as `rr-finish` does, so no run can hash one file and check another
 (review rvRP3, M1); it is the only way a recorded run reads its input
@@ -332,8 +333,9 @@ the golden records written by 1.0.0 the same way).
   a difference found before the digest) has no digest of the whole file:
   `input.manifest` then says it failed as that read saw it, which an
   enforced read checks again on each pass. A plain `bin/leanforth check`
-  (no record) has the same check of its two passes, with or without
-  `--no-manifest`. Phase 3's importer will read once.
+  (no record) reads the export once, with the importer stage, and writes
+  no record ([version 0.2](#version-02-records-of-any-size) would record
+  that path).
 - The commit is what the caller says, checked only for its form; the host
   fields are what Gforth reports.
 - Diagnostic numbers are those the check recorded. For the internal faults
@@ -434,6 +436,49 @@ refuses a record of any other version (`unknown-schema`).
   version stays 0.1. The third round changed no field or schema rule: it
   tied `enforced` to the recorded bytes and the run to rr-start's file
   (records only got stricter to write), so the version stays 0.1.
+
+### Version 0.2: records of any size (a proposal, not built)
+
+Since 2026-11-04 `bin/leanforth check` stages and feeds an export of any
+size ([the command line](../user/COMMAND_LINE.md#a-whole-library-leans-init)),
+but records stay 0.1, which the owner approved [format] with its fixed
+fields: `check --record` and `replay` keep the first path (the input read
+by `src/import/checker-input.fs` at the default sizes, at most 32
+declarations), and a record of `Init` cannot be written. A version 0.2
+for any size would need, each a change to the approved format and so the
+owner's [format] gate first:
+
+1. **No fixed size.** `declarations` without `maxItems` 32; the kept steps
+   in a table that grows (heap) rather than `lf-input-default` cells; the
+   text streamed to its file instead of a 64 KiB buffer (a record of
+   `Init` is about 9 MB), and replay reading a record of that size
+   instead of at most 128 KiB.
+2. **The importer stage as the input.** `check.read` the outcome of
+   staging and feeding, with the phase that failed; `rr-import`'s
+   guarantee restated for one read: the stage reads the file once, so its
+   SHA-256 (the manifest check's, or a hash tap on the reader without the
+   manifest, as `cin-read` taps today) must be the one `rr-start`
+   recorded; `input.manifest.enforced` true when the stage read with its
+   manifest.
+3. **Settings as they were.** The capacities after the feed raised them
+   (`terms`, `levels`, `declarations`; names live in the stage), the
+   dependency pool of the run (65,536), and `parameters` and
+   `referenceLevels` as "no fixed limit" (plan task 6.2.0) instead of the
+   old 64.
+4. **Inductive blocks.** Each member's verdict as now, plus which member
+   checked the block and the block check's step (check-block.fs) in its
+   diagnostic, since a block's members share one check.
+5. **Resources (plan task 6.5.2).** Each declaration's fuel used (null
+   when not known, as in the [check report](../user/COMMAND_LINE.md#json-output)),
+   and, apart, a `measured` member with times and memory that replay does
+   not compare, so that a record stays deterministic where it can be.
+6. **Axioms (plan task 5.3.2).** Each accepted declaration's axioms by
+   name once the allowlist names any, and the NOT PROVED mark.
+
+Until then the check report (`check --json`,
+`schemas/check-report-0.1.schema.json`) gives the verdicts of a whole
+library as data, without the record's evidence fields (SHA-256, commit,
+host) and without replay.
 
 ## Rejected alternatives
 

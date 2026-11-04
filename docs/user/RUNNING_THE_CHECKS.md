@@ -158,10 +158,11 @@ Report Forth style signals: `make forth-metrics`.
   all of `Init` (6.1 million expressions) fits in about 1.3 GB. A constant
   reference takes at most 64 universe arguments (Mathlib's largest has 30).
   The checking passes nest at most 64 deep (`lf-depth-limit`): a deeper
-  term gives *full* (plan task 6.2.0 lifts it). `bin/leanforth check` still
-  reads an export straight into the default capacities
-  (`src/import/checker-input.fs`), so it ends *full*, exit status 3, on
-  anything larger than a test fixture until it uses the feed.
+  term gives *full* (plan task 6.2.0 lifts it). `bin/leanforth check`
+  stages and feeds the export, so it holds any size; `check --record`,
+  `replay` and `print` still read an export straight into the default
+  capacities (`src/import/checker-input.fs`), so they end *full*, exit
+  status 3, on anything larger than a test fixture.
 - The checking passes run with explicit fuel; running out gives
   *exhausted*, running out of room *full*. Neither is ever accepted.
 - Only the pinned exporter, format and Lean version are read; anything else

@@ -79,12 +79,14 @@ What each step means for you:
    version, and any record kind its caller did not ask for. It decides
    nothing about proofs. It decodes the whole pinned Mathlib export in
    under two minutes ([reader guide](../development/NDJSON_READER.md)).
-3. **Staging** copies decoded names, levels and expressions into
-   LeanForth's stores, and the declarations into the checker's input
-   (`src/import/checker-input.fs`, version 0; `bin/leanforth check` runs it, see
-   [the command line](COMMAND_LINE.md)). Today the stores hold 64 entries
-   each, so only exports the size of the test fixtures fit; a larger one
-   ends *full*.
+3. **Staging** keeps the decoded names, levels, expressions and
+   declarations in the importer's compact store (`src/import/stage.fs`),
+   and the **feed** (`src/import/feed.fs`) gives them to the checker in
+   file order, its stores grown to fit; `bin/leanforth check` runs both, on
+   exports of any size ([the command line](COMMAND_LINE.md)). `check
+   --record`, `replay` and `print` still copy an export straight into the
+   checker's stores at their default sizes (`src/import/checker-input.fs`,
+   version 0), so only exports the size of the test fixtures fit there.
 4. **The checker** gives each declaration exactly one outcome
    ([outcomes](CONCEPTS.md#outcomes)). Its rules are approved; the first
    checker, check-declaration (task 2.2.3), is written and runs from the

@@ -159,7 +159,8 @@ manifest: cli-manifest
 \ rr-check (small exports, written to a run record 0.1). The verdicts are
 \ read after the run, each from its published slot, with the diagnostic
 \ its check left: first counted (cli/tally.fs), then printed.
-64 constant cli-pool   \ dependencies the --record run's environment holds, as make run-record's
+\ Dependencies the --record run's environment holds, as make run-record's.
+64 constant cli-pool
 : cli-name. ( d -- ) lf-input-name ['] type lf-pp-name-to ;
 \ Which run the check made: its declarations whose check began, its
 \ outcome, whether it is the current environment (by identity), and the
@@ -235,7 +236,8 @@ create cli-order
   .decimal ."  NOT PROVED (they depend on an axiom)" ;
 : cli-accepted. ( -- )
   outcome-ok cli-count-of @ ?dup 0= if exit then
-  ." accepted: " .decimal ."  (experimental, not independently audited); " cli-axioms. cr ;
+  ." accepted: " .decimal ."  (experimental, not independently audited); "
+  cli-axioms. cr ;
 
 \ Notes after a run: the limits behind full, the fuel behind exhausted.
 \ check --record leaves the stores' capacity settings at their defaults:
@@ -248,8 +250,9 @@ create cli-order
   lf-term-capacity .decimal ."  term nodes and " lf-input-capacity .decimal
   ."  declarations per export; check without --record holds any size" cr ;
 : cli-room-note ( -- )
-  ." note: a check ran out of room; its diagnostic names the limit (today a walk"
-  cr ." note: holds 64 levels of a term; plan task 6.2.0 lifts that)" cr ;
+  ." note: a check ran out of room; its diagnostic names the limit: a walk holds 64"
+  cr ." note: levels of a term (plan task 6.2.0 lifts it), a declaration "
+  lf-env-dep-capacity .decimal ."  dependencies" cr ;
 : cli-fuel-note ( -- )
   ." note: a check ran out of fuel (" cli-fuel @ .decimal
   ."  steps each); --fuel N gives each more" cr ;
@@ -273,10 +276,12 @@ create cli-order
 : cli-field. ( c-addr u -- ) dup if ." field " type ." , " else 2drop then ;
 : cli-byte. ( export -- )
   export-json dup json-why @ if ." , byte " json-offset .decimal else drop then ;
-: cli-error-head ( outcome why-addr why-u -- ) ." error: " rot outcome-text type ." : " type ;
+: cli-error-head ( outcome why-addr why-u -- )
+  ." error: " rot outcome-text type ." : " type ;
 : cli-where ( line key-addr key-u export -- )
   >r ."  (" cli-field. ." line " .decimal r> cli-byte. ." )" cr ;
-: cli-input-error ( outcome -- ) >r cin-error r> -rot cli-error-head cin-export cli-where ;
+: cli-input-error ( outcome -- )
+  >r cin-error r> -rot cli-error-head cin-export cli-where ;
 \ A failure about the manifest is at line 0 (the export opened, see
 \ cli-opens?): a hint at the export step and the explicit way out.
 : manifest-failed? ( outcome -- flag )
@@ -353,9 +358,8 @@ create cli-order
   dup 1000000 < if 1000 / .decimal ."  kB" else cli-mb. then ;
 : cli-stage-bytes. ( -- )
   ck-staged? if ." ; the stage's heap blocks " ck-staged-bytes cli-size. then ;
-: cli-memory. ( -- )
-  ."   memory: peak resident " ck-peak if cli-size. else ." not measured on this host" then
-  cli-stage-bytes. cr ;
+: cli-peak. ( -- ) ck-peak if cli-size. else ." not measured on this host" then ;
+: cli-memory. ( -- ) ."   memory: peak resident " cli-peak. cli-stage-bytes. cr ;
 : cli-input. ( -- )
   ck-loaded? 0= if exit then
   ."   input: " 0 ck-count .decimal ."  declarations, " 1 ck-count .decimal
@@ -598,7 +602,8 @@ create cli-order
   ."   let (4.2.3), literals (5.2.3), projections (5.2.2) and metadata in a term;" cr
   ."   recursive and indexed inductive types (5.2.1b, 5.2.1c), quotients (5.2.4)," cr
   ."   mutual and nested blocks (5.2.5); unfolding definitions (4.2.2), so some" cr
-  ."   correct proofs end unknown; with --record, inductive types (read refused)" cr ;
+  ."   correct proofs end unknown; check --record, replay and print refuse" cr
+  ."   inductive types while reading" cr ;
 : cli-limits. ( -- )
   ." limits (check answers full or exhausted, exit 3):" cr
   ."   check: stores that grow with the export (memory); a walk holds 64 levels" cr

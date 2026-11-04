@@ -22,8 +22,9 @@
 \ - ck-load ( c-addr u checked? -- outcome ) stages the export file
 \   c-addr u, its manifest checked when checked? is true, then feeds it
 \   to this context's input; the outcome is the stage's or the feed's,
-\   and ck-phase-failed tells which phase failed (ck-staging,
-\   ck-feeding), -1 for none;
+\   kept (ck-read-outcome, ck-loaded?), and ck-phase-failed tells which
+\   phase failed (ck-staging, ck-feeding), -1 for none; or, for an export
+\   that does not open, ck-unopened instead (ck-opening);
 \ - ck-check ( -- ) checks every declaration in a new environment, kept
 \   current, with room for lf-env-pool-max dependencies (the kernel's
 \   most); ck-outcome is then ok when every slot ended final, else the
@@ -31,6 +32,12 @@
 \   made or used (ck-made? false) or the facts found no heap, invalid
 \   after a fault (a check that threw, a failed publication), when the
 \   run stopped (ck-steps-begun tells how far it came);
+\ - then, before ck-release, the verdicts are read in a snapshot of the
+\   run's own environment (ck-verdicts?, then lf-env-outcome), and the
+\   facts with ck-kept (/ck-step: outcome, diagnostic, step), ck-fuel-of,
+\   ck-fuel-total, ck-fuel-unknowns, ck-top@ (ck-tops of them), the
+\   times (ck-phase-wall, ck-phase-cpu, ck-total-wall, ck-total-cpu),
+\   ck-peak, ck-staged-bytes, ck-staged-names and ck-count;
 \ - ck-release ( -- ) frees the environment (only while it is the
 \   current one with the run's identity, as run-record.fs's rr-release
 \   does), detaches the names from the stage and frees it, empties the
@@ -81,7 +88,8 @@ begin-structure /ck-step
   field: cks-first
   field: cks-second
   field: cks-site
-  field: cks-step       \ the step reached: check-block's for a block, else check-declaration's
+  field: cks-step       \ the step reached: check-block's for a block, else
+                        \ check-declaration's
   field: cks-fuel       \ fuel used
 end-structure
 
@@ -100,7 +108,8 @@ begin-structure /ck
   field: ck-env-id               \ the run's environment's identity, or 0
   field: ck-stepped              \ declarations whose check began
   field: ck-began-feed           \ true once the feed began: names attached
-  4 cells +field ck-saved        \ capacities before the feed: terms, levels, references, input
+  4 cells +field ck-saved        \ capacities before the feed: terms, levels,
+                                 \ references, input
   field: ck-stage-bytes          \ heap bytes of the stage, once staged
   4 cells +field ck-counts       \ after the feed: declarations, terms, levels, references
   field: ck-names                \ names of the stage's input tier
@@ -129,7 +138,8 @@ create ck-feeding-record /feed allot  ck-feeding-record /feed erase
 \ Whether the export was staged: it opened and staging did not fail.
 : ck-staged? ( -- flag ) ck-phase-failed dup ck-staging <> swap ck-opening <> and ;
 \ The export did not open: nothing was read (invalid, ck-opening).
-: ck-unopened ( -- ) outcome-invalid ck-state ck-loaded ! ck-opening ck-state ck-failed ! ;
+: ck-unopened ( -- )
+  outcome-invalid ck-state ck-loaded ! ck-opening ck-state ck-failed ! ;
 : ck-steps-begun ( -- n ) ck-state ck-stepped @ ;
 : ck-made? ( -- flag ) ck-state ck-checked @ ;
 : ck-fuel-total ( -- ud ) ck-state ck-fuel-sum 2@ ;
@@ -184,7 +194,8 @@ create ck-line ck-line-room 2 + allot
   dup ck-hwm-key nip < if 2drop false exit then
   over ck-hwm-key nip ck-hwm-key compare if 2drop false exit then
   ck-hwm-key nip /string ck-kb ;
-: ck-line-read ( fid -- u more? ) ck-line ck-line-room rot read-line if 2drop 0 false then ;
+: ck-line-read ( fid -- u more? )
+  ck-line ck-line-room rot read-line if 2drop 0 false then ;
 : ck-hwm-scan ( fid -- u true | false )
   begin dup ck-line-read while ck-line swap ck-hwm? if nip true exit then repeat
   2drop false ;
@@ -284,11 +295,13 @@ create ck-capacities
   dup >r ['] lf-check-declaration swap lf-env-step swap r> ck-keep lf-env-spent? or ;
 \ A member after its block's first, published with it: the first's facts,
 \ no fuel of its own.
-: ck-first-member ( d -- first ) lf-input-decl lf-idecl-header lf-hdr-first lf-more-field ;
+: ck-first-member ( d -- first )
+  lf-input-decl lf-idecl-header lf-hdr-first lf-more-field ;
 : ck-trailing ( d -- )
   dup ck-first-member ck-kept over ck-kept /ck-step move 0 swap ck-kept cks-fuel ! ;
 : ck-next ( d -- stop? )
-  dup 1+ ck-state ck-stepped ! dup lf-env-published? if ck-trailing false else ck-step then ;
+  dup 1+ ck-state ck-stepped !
+  dup lf-env-published? if ck-trailing false else ck-step then ;
 : ck-steps-run ( n -- ) 0 ?do i ck-next if unloop exit then loop ;
 
 \ The run's own environment, by identity (never another one that happens
@@ -298,7 +311,8 @@ create ck-capacities
   ck-ours? if lf-env-view ok? lf-name-storage-valid? and else false then ;
 : ck-final? ( d -- flag ) lf-env-readable dup if nip then ;
 : ck-all-final? ( -- flag ) true lf-input-count 0 ?do i ck-final? and loop ;
-: ck-confirm ( -- outcome ) ck-viewed? if ck-all-final? flag>outcome else outcome-invalid then ;
+: ck-confirm ( -- outcome )
+  ck-viewed? if ck-all-final? flag>outcome else outcome-invalid then ;
 \ After the run: whether its verdicts can be read, in a new snapshot of
 \ the run's own environment.
 : ck-verdicts? ( -- flag ) ck-ours? if lf-env-view ok? else false then ;

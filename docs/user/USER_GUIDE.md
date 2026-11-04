@@ -19,7 +19,7 @@ boundaries are. The detailed status is in
 | --- | --- |
 | This page | What LeanForth is and is not; trust boundaries; reading paths |
 | [Reading a Lean proof](READING_A_LEAN_PROOF.md) | For readers new to Lean and logic notation: every symbol, three small theorems read as textbook proofs, and each in all its forms (Lean source, `#print`, fully explicit, the kernel's nodes, the NDJSON export, LeanForth's Forth words, the term printer) |
-| [The command line](COMMAND_LINE.md) | `bin/leanforth check FILE.ndjson` and the other commands, what they print, exit statuses 0–5, and the limit to small exports |
+| [The command line](COMMAND_LINE.md) | `bin/leanforth check FILE.ndjson` on exports of any size and the other commands, what they print (text, the resource report, JSON), exit statuses 0–5, and the commands still limited to small exports |
 | [First check](FIRST_CHECK.md) | The first checker, experimental: a theorem read from Lean's export, checked and accepted; a broken copy rejected |
 | [Concepts, in three forms](CONCEPTS.md) | Level, `Sort`, `Prop`/`Type`, term, binder, de Bruijn index, constant, declaration, theorem and definition, kernel, outcomes — each as mathematics, LeanForth Forth and Lean, with Forth you can run |
 | [Workflows](WORKFLOWS.md) | Diagrams of checking a theorem and verifying a program, marking what exists and what is planned |
@@ -55,10 +55,11 @@ tools.
 
 - **Not yet a checker you can rely on, nor one for real libraries.** The
   first checker ([ADR 0011](../adr/0011-definite-rejection.md), rules
-  approved on 2026-11-02) accepts and rejects small definitions and
-  theorems, but its code has not passed its review gate, and its stores
-  hold only 64 names, levels and term nodes per export: anything larger
-  than a test fixture ends *full* ([the command line](COMMAND_LINE.md)).
+  approved on 2026-11-02) accepts and rejects definitions, theorems and
+  simple inductive types, but its code has not passed its review gate. It
+  reads a whole library — all of Lean's `Init` — yet most of it ends
+  *unsupported* or *unknown*, because unfolding definitions, recursive
+  data types and literals are not built yet ([the command line](COMMAND_LINE.md#a-whole-library-leans-init)).
 - **Not a replacement for Lean's front end.** LeanForth checks finished
   proof terms. Writing proofs — the elaborator, tactics, `simp` — stays in
   Lean; you check a Lean file by exporting it. Writing theorems and proofs

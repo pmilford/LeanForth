@@ -64,7 +64,8 @@ create cj-name /slab allot  cj-name /slab erase
 : cj-name-text ( d -- c-addr u )
   cj-name slab-clear lf-input-name ['] cj-name-sink lf-pp-name-to
   0 cj-name slab-at cj-name slab-count ;
-: cj-names-make ( -- ) cj-name slab-free 1 chars dup slab-limit-max cj-name slab-init drop ;
+: cj-names-make ( -- )
+  cj-name slab-free 1 chars dup slab-limit-max cj-name slab-init drop ;
 
 \ ---- The read: its outcome, and for a failure where it failed.
 : cj-nowhere ( -- )
@@ -104,7 +105,8 @@ create cj-name /slab allot  cj-name /slab erase
   dup cks-site @ cj-site s" site" cj-text dup cj-numbers cks-step @ s" step" cj-number
   cj-end-object ;
 : cj-diagnostic ( d -- )
-  s" diagnostic" cj-key ck-kept dup cks-code @ lf-diag-none = if drop cj-null else cj-reason then ;
+  s" diagnostic" cj-key ck-kept dup cks-code @ lf-diag-none =
+  if drop cj-null else cj-reason then ;
 : cj-axioms ( d -- )
   lf-env-axioms drop dup s" axiomBits" cj-number 0<> s" notProved" cj-flag ;
 : cj-accepted ( d -- ) cj-label s" label" cj-text cj-axioms ;
@@ -159,10 +161,11 @@ create cj-name /slab allot  cj-name /slab erase
 : cj-time ( wall cpu c-addr u -- )
   cj-key cj-object 2swap s" wall" cj-key cj-ud s" cpu" cj-key cj-ud cj-end-object ;
 : cj-phase ( k c-addr u -- ) 2>r dup ck-phase-wall rot ck-phase-cpu 2r> cj-time ;
+: cj-phases ( -- )
+  ck-staging s" stage" cj-phase ck-feeding s" feed" cj-phase
+  ck-checking s" check" cj-phase ck-total-wall ck-total-cpu s" total" cj-time ;
 : cj-times ( -- )
-  s" microseconds" cj-key ck-timed? 0= if cj-null exit then cj-object
-  ck-staging s" stage" cj-phase ck-feeding s" feed" cj-phase ck-checking s" check" cj-phase
-  ck-total-wall ck-total-cpu s" total" cj-time cj-end-object ;
+  s" microseconds" cj-key ck-timed? if cj-object cj-phases cj-end-object else cj-null then ;
 : cj-peak ( -- ) s" peakResidentBytes" cj-key ck-peak if cj-n else cj-null then ;
 : cj-stage-bytes ( -- )
   s" stageBytes" cj-key ck-staged? if ck-staged-bytes cj-n else cj-null then ;

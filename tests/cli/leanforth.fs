@@ -64,6 +64,18 @@ T{ outcome-rejected 4 not-proved? outcome-unknown 0 not-proved? -> false false }
 cli-start
 T{ outcome-ok 4 cli-tally-proved outcome-ok 0 cli-tally-proved cli-not-proved @ -> 1 }T
 T{ outcome-rejected 1 cli-tally-proved cli-not-proved @ cli-worst @ -> 1 0 }T
+\ The summary's line of the accepted, from planted counts (no check can
+\ make one NOT PROVED yet); where the host can capture output (Gforth 1.0).
+[defined] >string-execute [if]
+: accepted-line ( accepted not-proved -- c-addr u )
+  cli-start cli-not-proved ! outcome-ok cli-count-of ! ['] cli-accepted. >string-execute ;
+: label-text ( -- c-addr u ) s" accepted: 3 (experimental, not independently audited); axioms: " ;
+: after-label ( c-addr u -- c-addr' u' ) label-text search drop label-text nip /string ;
+T{ 3 0 accepted-line drop label-text tuck compare -> 0 }T
+T{ 3 0 accepted-line after-label s\" none\n" compare -> 0 }T
+T{ 3 2 accepted-line after-label s\" 2 NOT PROVED (they depend on an axiom)\n" compare -> 0 }T
+T{ 0 0 accepted-line nip -> 0 }T
+[then]
 
 \ Fuel amounts: decimal digits only, at most max-n.
 T{ s" 0" cli-decimal s" 100000" cli-decimal -> 0 true 100000 true }T
@@ -197,10 +209,10 @@ T{ s" fixture" pr-find 2 pr-name s" fixtureUse" compare -> false 0 }T
 \ stores (the stage's own blocks are not counted): a THROW at the first is
 \ one while feeding; at n + 1, one in the check. Either way the stage is
 \ freed and the names detached.
+: fed-env ( -- env ) cli-default-fuel lf-check-budget lf-env-pool-max lf-env-new drop ;
 : fed-allocations ( -- n )
   context-new throw dup >r context-use cli-default-fuel ck-start 0 af-arm
-  composition true ck-load drop cli-default-fuel lf-check-budget lf-env-pool-max lf-env-new
-  drop af-seen@ af-off swap lf-env-free drop ck-release
+  composition true ck-load drop fed-env af-seen@ af-off swap lf-env-free drop ck-release
   context-main context-use r> context-free throw ;
 fed-allocations constant fed#
 : in-context ( k -- code spent? released? )

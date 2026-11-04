@@ -566,6 +566,32 @@ class JsonReport(unittest.TestCase):
                 self.assertEqual(shown[0], f"{counts['declarations']} declaration{plural}: "
                                            f"{summary}", args)
 
+    def test_schema_refuses(self):
+        """The schema refuses a report whose parts disagree."""
+        _, good, _ = report(INDUCTIVE)
+        _, unread, _ = report("--no-manifest", "README.md")
+
+        def changed(base, edit):
+            copy = json.loads(json.dumps(base))
+            edit(copy)
+            return self.schema.errors(copy)
+        cases = [
+            (good, lambda r: r["declarations"][4].update(verdict="rejected")),   # status 0
+            (good, lambda r: r["declarations"][0].update(axiomBits=4)),          # notProved false
+            (good, lambda r: r["declarations"][0].pop("label")),
+            (good, lambda r: r["declarations"][1].update(diagnostic=None)),      # accepted
+            (good, lambda r: r.update(run="not-run")),                           # read ok
+            (good, lambda r: r["fuel"]["top"].append(r["fuel"]["top"][0]) or
+             r["fuel"]["top"].extend(r["fuel"]["top"] * 5)),                    # more than 10
+            (good, lambda r: r.update(extra=1)),
+            (good, lambda r: r["declarations"][4].update(verdict="not-checked")),  # run ok
+            (unread, lambda r: r.update(counts=good["counts"])),                 # not read
+            (unread, lambda r: r["read"].update(phase=None)),                    # failed read
+        ]
+        for base, edit in cases:
+            self.assertNotEqual(changed(base, edit), [])
+        self.assertEqual(changed(good, lambda r: None), [])
+
     def test_deterministic(self):
         for args in [[INDUCTIVE], ["--no-manifest", "tests/core/reexport/kinds.ndjson"]]:
             first, second = report(*args)[1], report(*args)[1]

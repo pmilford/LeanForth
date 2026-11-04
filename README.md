@@ -25,9 +25,10 @@ Proposed baseline: Windows 11 desktop; WSL2 Ubuntu development; Gforth 1.0 (refe
 
 There is **no checker you can rely on yet**. The first checker is
 experimental and not through its review gate; `bin/leanforth check
-FILE.ndjson` runs it on a Lean export small enough for its stores (the
-size of the test fixtures) and prints each declaration's verdict, labelled
-*experimental, not independently audited* when accepted
+FILE.ndjson` runs it on a Lean export of any size (all of Lean's `Init`)
+and prints each declaration's verdict, labelled *experimental, not
+independently audited* when accepted, then a summary, with `--resources`
+the time, memory and fuel used, and with `--json` all of it as JSON
 ([the command line](docs/user/COMMAND_LINE.md)). `src/main.fs` loads all
 current code (`gforth src/main.fs`) by requiring the top modules; every
 module and every test `require`s exactly the modules whose words it uses.

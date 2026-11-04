@@ -18,11 +18,13 @@ decides nothing about types or proofs; a decoded record is input for the
 checker, never a checked declaration. Since 2026-11-03 the importer stage
 stages every record of an export into the compact store, all of Mathlib
 included ([Staging into the compact store](#staging-into-the-compact-store),
-plan items 3.2.1 and 3.3.1 in part); the checker does not read it yet, and
-its term, level and name stores still hold 64 entries each:
-`src/import/checker-input.fs` fills those for today's checker (plan task
-3.2.2, version 0; `bin/leanforth check`), so only exports the size of the
-test fixtures can be checked. The Python preview
+plan items 3.2.1 and 3.3.1 in part), and the feed gives a sealed stage to
+the checker, whose stores grow ([Feeding the checker](#feeding-the-checker));
+`bin/leanforth check` uses both, on exports of any size (all of `Init`).
+`src/import/checker-input.fs` (plan task 3.2.2, version 0) still fills the
+checker's stores at their default sizes, 64 entries each, for `check
+--record`, `replay` and `print`, so only exports the size of the test
+fixtures can be checked there. The Python preview
 ([NDJSON_PREVIEW.md](NDJSON_PREVIEW.md)) stays as an independent second
 reader for tests.
 
