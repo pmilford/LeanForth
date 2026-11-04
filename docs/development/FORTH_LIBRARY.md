@@ -907,10 +907,11 @@ context. The adapter chooses one of three hosts when it loads:
   analysis (plan task 2.2.1; the D5 path needs 8) on Gforth 0.7.3 and
   1.0, which agree, times `lf-term-capacity` levels, plus the larger
   nested need, beta's; the definition probe nests no deeper;
-  `tests/core/level-deep.fs` and `infer-deep.fs` paint the deepest
-  normalize, alone and at the deepest inference). The test job's
-  500-frame pass used 1,004 return-stack and 1,001 data-stack cells
-  inside each worker; the deepest checker inputs
+  `tests/core/level-deep.fs` and `tests/core/infer-deep.fs` paint the
+  deepest normalize, alone and at the deepest inference: 408 and 149
+  cells for 62 levels alone, 368 and 136 added to an inference of 229
+  and 85). The test job's 500-frame pass used 1,004 return-stack and
+  1,001 data-stack cells inside each worker; the deepest checker inputs
   known used 688 and 480 inside a job, and 16 random trials of 2,000
   steps at most 90 and 28 above the caller.
 - A stack overflow inside a job is never reported as success. Gforth 1.0:

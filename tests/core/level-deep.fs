@@ -58,7 +58,9 @@ T{ 62 62 100000 lf-level-compare -> outcome-ok }T
 \ and max over u, which hold the most cells per level, filling the store
 \ (62 levels); Lean's normalize reduces them to u, allocating nothing.
 \ Their cells per level stay within the need stated per level node, and
-\ all within lf-lnorm-return-cells and lf-lnorm-data-cells.
+\ all within lf-lnorm-return-cells and lf-lnorm-data-cells (2026-11-03,
+\ both hosts: 408 return and 149 data cells for 62 levels, 204 and 71
+\ for 31; names of 31 components 45 and 58, of 15 components 29 and 26).
 require ../support/stack-paint.fs
 : at-most ( n limit -- flag ) > 0= ;
 : alternating ( n -- top )
