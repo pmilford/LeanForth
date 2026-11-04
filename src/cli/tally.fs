@@ -38,9 +38,11 @@ here cli-codes - outcome-full 1+ cells <>
 [if] .( tally.fs: one code per outcome) cr abort [then]
 : outcome>code ( outcome -- code )
   dup outcome? if cells cli-codes + @ else drop exit-fault then ;
-\ Severity, by code 0 to 6: 0 < 6 < 2 < 3 < 1 < 4 < 5. The more severe
-\ of two codes.
+\ Severity, by code 0 to 6: 0 < 6 < 2 < 3 < 1 < 4 < 5; the table must
+\ end at HERE, otherwise the load stops. The more severe of two codes.
 create cli-severity  0 , 4 , 2 , 3 , 5 , 6 , 1 ,
+here cli-severity - exit-not-proved 1+ cells <>
+[if] .( tally.fs: one rank per exit code) cr abort [then]
 : code-severity ( code -- n ) cells cli-severity + @ ;
 : worse-code ( code1 code2 -- code )
   2dup code-severity swap code-severity > if nip else drop then ;
@@ -51,7 +53,9 @@ create cli-severity  0 , 4 , 2 , 3 , 5 , 6 , 1 ,
 create verdict-order
   outcome-ok , outcome-rejected , outcome-unknown , outcome-unsupported ,
   outcome-invalid , outcome-exhausted , outcome-full , not-checked ,
-not-checked 1+ constant verdict-kinds
+here verdict-order - 1 cells / constant verdict-kinds
+verdict-kinds not-checked 1+ <>
+[if] .( tally.fs: one entry per verdict) cr abort [then]
 : verdict-kind ( k -- verdict ) cells verdict-order + @ ;
 \ A verdict as reports name it: accepted for ok, not-checked, or the
 \ outcome's name.
