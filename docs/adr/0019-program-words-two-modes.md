@@ -1313,7 +1313,12 @@ outside a definition"). What they print was probed on both Gforths
 before `TYPE`, `TYPE` alone, `S\"` and `.(` stay refused: a string's
 address is memory, which IR 0.2 does not have, and `.(` prints while a
 definition is compiled, not when it runs (probe 2). `TYPE` after `S"` must
-be Forth's own, by identity, and not a word of the file.
+be Forth's own, by identity, and not a word of the file. Like every word
+with verification semantics, the output words are known by identity
+(§9); on Gforth 0.7.3 `."` has a token of its own, not the one its
+compile-only words share (probe 4), so §9's limit there does not reach
+it. A `."` text too long for an IR line (96 characters) stops the run as
+*full*, as any long IR line does.
 
 **Text form.** One new line kind, `out`:
 

@@ -32,8 +32,9 @@ reads $10000000000000000  reads 1_000  reads 0x10  reads $1_0
 
 \ The words IR 0.2 would add or change: found in FORTH-WORDLIST?
 : host? ( c-addr u -- )
-  2dup cr type ."  in FORTH-WORDLIST: " forth-wordlist search-wordlist
-  if ." yes, " 1 = if ." immediate" else ." not immediate" then else ." no" then ;
+  2dup cr type ."  in FORTH-WORDLIST: " forth-wordlist search-wordlist ?dup
+  if nip ." yes, " 1 = if ." immediate" else ." not immediate" then
+  else ." no" then ;
 s" -rot" host?  s" lshift" host?  s" .s" host?  s" u." host?  s" emit" host?
 s" spaces" host?  s\" .\"" host?  s\" s\"" host?  s" type" host?  s" [char]" host?
 \ Gforth 0.7.3 gives every compile-only word one execution token: is the

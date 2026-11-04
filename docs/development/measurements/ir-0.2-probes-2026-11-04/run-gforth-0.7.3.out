@@ -74,10 +74,10 @@ lshift in FORTH-WORDLIST: yes, not immediate
 u. in FORTH-WORDLIST: yes, not immediate
 emit in FORTH-WORDLIST: yes, not immediate
 spaces in FORTH-WORDLIST: yes, not immediate
-." in FORTH-WORDLIST: yes, not immediate
-s" in FORTH-WORDLIST: yes, not immediate
+." in FORTH-WORDLIST: yes, immediate
+s" in FORTH-WORDLIST: yes, immediate
 type in FORTH-WORDLIST: yes, not immediate
-[char] in FORTH-WORDLIST: yes, not immediate
+[char] in FORTH-WORDLIST: yes, immediate
 token of ." equals token of IF: 0 
 == exit 0
 == p04-shifts-literals.fs, standard error without 'original location' lines:
