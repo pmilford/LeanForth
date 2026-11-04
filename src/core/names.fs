@@ -23,7 +23,21 @@
 \ made (ADR 0016 C8) so lf-name-storage-valid? has nothing to audit, and
 \ lf-name-reset empties the scratch tier (the generation still advances).
 \ lf-name-detach ends the view. The scratch tier, a member of the context
-\ record lf-name-view, is freed by its teardown word.
+\ record lf-name-view, is freed by its teardown word. The scratch tier
+\ points into the input tier, so the stage that holds the input tier must
+\ outlive the view: free it only after lf-name-detach, or after the
+\ context is freed.
+\
+\ The two modes. Every operation that reads or makes names -- a name's
+\ kind, prefix and component, whether an ID is valid, the audit of one
+\ component and of the whole storage, making a component, and the reset's
+\ own part -- has one word for each mode, in two rows of execution tokens
+\ (lf-name-stored-ops and lf-name-viewed-ops, filled once while loading,
+\ read-only after). The public words run the current mode's word, so none
+\ of them can read the entry store under a view. The entry store's own
+\ words (lf-name-count, lf-name-slot, lf-name-field, lf-names-ok?) are for
+\ the stored mode and for tests that corrupt entries; lf-name-entry-ok? is
+\ false under a view.
 
 require ../lib/lib.fs
 require ./diagnostics.fs
@@ -81,26 +95,13 @@ end-structure
 \ The store's fields under their established names (tests corrupt them).
 : lf-name-count ( -- addr ) lf-names store-count ;
 : lf-name-generation ( -- addr ) lf-names store-generation ;
-\ Entry address; the ID must already be validated (no view attached).
+\ Entry address, in the stored mode; the ID must already be validated.
 : lf-name-slot ( id -- addr ) lf-names store-slot ;
 \ Numbered field of a valid entry (0 tag, 1 prefix, 2 payload, 3 length);
 \ kept for existing callers, new code uses the named fields.
 : lf-name-field ( id field# -- value ) cells swap lf-name-slot + @ ;
-\ Kind and prefix of a valid ID.
-: lf-name-tag@ ( id -- tag )
-  lf-name-viewed? if lf-name-tier name-tag@ else lf-name-slot lf-entry-tag @ then ;
-: lf-name-prefix@ ( id -- prefix )
-  lf-name-viewed? if lf-name-tier name-prefix@ else lf-name-slot lf-entry-prefix @ then ;
 \ A valid ID's stored hash, under a view (lf-name-digest).
 : lf-name-hash ( id -- h ) lf-name-tier name-hash@ ;
-
-\ Reset to the anonymous name alone and advance the generation; saturation
-\ poisons the table rather than wrapping (see store-clear). Under a view,
-\ the scratch tier is emptied.
-: lf-name-scratch-reset ( -- ) lf-name-viewed? if lf-name-tier tier-reset drop then ;
-: lf-name-reset ( -- )
-  lf-name-scratch-reset 0 lf-name-slot /lf-entry erase 0 lf-name-used !
-  lf-names store-clear ;
 
 \ Count, byte use and generation are in range; checked before addressing.
 : lf-name-state-valid? ( -- flag )
@@ -110,24 +111,10 @@ end-structure
 \ only compared with the count.
 : lf-name-stored? ( id -- flag )
   lf-name-state-valid? if 0 lf-name-count @ within else drop false then ;
-: lf-name-valid? ( id -- flag )
-  lf-name-viewed? if lf-name-tier name-valid? else lf-name-stored? then ;
 
-\ Attach the sealed input tier as this context's names, emptying the
-\ scratch tier and advancing the generation: ok, or the outcome of making
-\ the scratch tier (no view then). Detach: back to the entry store.
-: lf-name-viewing ( input -- ) lf-name-view lf-nview-input ! lf-name-reset ;
-: lf-name-unview ( -- ) lf-name-tier tier-free 0 lf-name-view lf-nview-input ! ;
-: lf-name-attach ( input -- outcome )
-  lf-name-unview dup lf-name-tier tier-extend dup ok?
-  if drop lf-name-viewing outcome-ok else nip then ;
-: lf-name-detach ( -- ) lf-name-unview lf-name-reset ;
-\ The number of names under the view, for digests.
-: lf-name-numbers ( -- n ) lf-name-tier tier-names cons-numbers ;
-
-\ Full structural audit, guarding later byte reads against corrupted tags,
-\ prefixes, offsets and lengths. Checks bounds and that prefixes point
-\ backwards; not uniqueness or immutability.
+\ Full structural audit of the entry store, guarding later byte reads
+\ against corrupted tags, prefixes, offsets and lengths. Checks bounds
+\ and that prefixes point backwards; not uniqueness or immutability.
 : lf-name-span? ( offset length -- flag )
   over lf-name-used @ upto? if swap lf-name-used @ swap - upto? else 2drop false then ;
 : lf-name-num-ok? ( entry -- flag ) dup lf-entry-payload @ 0< 0= swap lf-entry-length @ 0= and ;
@@ -137,16 +124,17 @@ end-structure
     lf-name-tag-num of lf-name-num-ok? endof
     lf-name-tag-str of lf-name-str-ok? endof
     nip false swap endcase ;   \ any other kind is invalid; ENDCASE drops the tag
-: lf-name-entry-ok? ( id -- flag )
+: lf-name-entry-checked? ( id -- flag )
   dup lf-name-slot tuck lf-entry-prefix @ 0 rot within if lf-name-body-ok? else drop false then ;
+\ One entry of the entry store; false under a view, whose IDs are not
+\ entries (lf-name-part-ok? is the word for either mode).
+: lf-name-entry-ok? ( id -- flag )
+  lf-name-viewed? if drop false else lf-name-entry-checked? then ;
 : lf-names-ok? ( -- flag )
-  lf-name-count @ 1 ?do i lf-name-entry-ok? 0= if false unloop exit then loop true ;
+  lf-name-count @ 1 ?do i lf-name-entry-checked? 0= if false unloop exit then loop true ;
 : lf-name-entries-valid? ( -- flag )
   lf-name-state-valid? 0= if false exit then
   0 lf-name-slot lf-name-slot-cells cells-zero? lf-names-ok? and ;
-\ Under a view every name was checked when it was made.
-: lf-name-storage-valid? ( -- flag )
-  lf-name-viewed? if true else lf-name-entries-valid? then ;
 
 \ Entry matching: same kind and prefix, then same number or same bytes. A
 \ string query is the first length bytes of lf-name-input-copy.
@@ -155,15 +143,6 @@ end-structure
   tuck lf-entry-payload @ = >r lf-name-tag-num swap lf-name-head? r> and ;
 : lf-name-query ( length -- addr length ) lf-name-input-copy swap ;
 : lf-name-bytes@ ( entry -- addr length ) dup lf-entry-payload @ lf-name-bytes + swap lf-entry-length @ ;
-\ The component of a name: the bytes of a string component, the number of
-\ a numeric one. Unchecked: the ID is valid and of that kind (lf-name-tag@),
-\ and the bytes are read before the name store changes. Under a view, the
-\ bytes of an input name never move; a scratch name's do when the scratch
-\ tier grows.
-: lf-name-text ( id -- c-addr u )
-  lf-name-viewed? if lf-name-tier name-text@ else lf-name-slot lf-name-bytes@ then ;
-: lf-name-payload ( id -- n )
-  lf-name-viewed? if lf-name-tier name-number@ else lf-name-slot lf-entry-payload @ then ;
 : lf-name-str-match? ( prefix length entry -- flag )
   >r swap lf-name-tag-str r@ lf-name-head?
   if lf-name-query r> lf-name-bytes@ compare 0= else drop r> drop false then ;
@@ -211,17 +190,113 @@ end-structure
   lf-name-room? over lf-name-byte-room? and
   if lf-name-add-str true else lf-name-str-refused then ;
 
+\ ---------------------------------------------------------------------------
+\ The stored mode's words: the entry store.
+: lf-name-entry-tag ( id -- tag ) lf-name-slot lf-entry-tag @ ;
+: lf-name-entry-prefix ( id -- prefix ) lf-name-slot lf-entry-prefix @ ;
+: lf-name-entry-text ( id -- c-addr u ) lf-name-slot lf-name-bytes@ ;
+: lf-name-entry-payload ( id -- n ) lf-name-slot lf-entry-payload @ ;
+
+\ The viewed mode's words: the scratch tier over the input tier. Every
+\ name there was checked when it was made, so a component and the whole
+\ storage need no audit. A name the scratch tier cannot make is false:
+\ full is recorded as a diagnostic (the names under the view), invalid
+\ is not.
+: lf-name-tier-tag ( id -- tag ) lf-name-tier name-tag@ ;
+: lf-name-tier-prefix ( id -- prefix ) lf-name-tier name-prefix@ ;
+: lf-name-tier-text ( id -- c-addr u ) lf-name-tier name-text@ ;
+: lf-name-tier-payload ( id -- n ) lf-name-tier name-number@ ;
+: lf-name-tier-valid? ( id -- flag ) lf-name-tier name-valid? ;
+: lf-name-checked ( id -- true ) drop true ;
+: lf-name-all-checked ( -- true ) true ;
+: lf-name-no-scratch ( -- ) ;
+: lf-name-numbers ( -- n ) lf-name-tier tier-names cons-numbers ;
+: lf-name-tier-full ( -- )
+  lf-name-numbers 0 lf-name-site lf-diag-names-full lf-diag-note ;
+: lf-name-made ( n outcome -- id true | false )
+  dup ok? if drop true exit then
+  outcome-full = if lf-name-tier-full then drop false ;
+: lf-name-viewed-num ( prefix number -- id true | false )
+  lf-name-tier name-num lf-name-made ;
+\ The copy of the query, never the caller's text, goes to the scratch
+\ tier, whose byte slab may move while it makes room.
+: lf-name-viewed-str ( prefix length -- id true | false )
+  lf-name-query lf-name-tier name-str lf-name-made ;
+: lf-name-scratch-reset ( -- ) lf-name-tier tier-reset drop ;
+
+\ ---------------------------------------------------------------------------
+\ The two rows (see the header): one execution token per operation.
+begin-structure /lf-nops
+  field: lf-nops-tag        \ ( id -- tag ) of a valid ID
+  field: lf-nops-prefix     \ ( id -- prefix ) of a valid ID
+  field: lf-nops-text       \ ( id -- c-addr u ) of a valid string name
+  field: lf-nops-payload    \ ( id -- n ) of a valid numeric name
+  field: lf-nops-valid      \ ( id -- flag ) the ID is a name now
+  field: lf-nops-part-ok    \ ( id -- flag ) a valid ID's component is well formed
+  field: lf-nops-storage    \ ( -- flag ) every name is well formed
+  field: lf-nops-num        \ ( prefix number -- id true | false ), checked arguments
+  field: lf-nops-str        \ ( prefix length -- id true | false ), the query copied
+  field: lf-nops-clear      \ ( -- ) the reset's part of the mode
+end-structure
+create lf-name-stored-ops /lf-nops allot
+create lf-name-viewed-ops /lf-nops allot
+: lf-nops! ( stored-xt viewed-xt field-xt -- )
+  >r lf-name-viewed-ops r@ execute ! lf-name-stored-ops r> execute ! ;
+' lf-name-entry-tag ' lf-name-tier-tag ' lf-nops-tag lf-nops!
+' lf-name-entry-prefix ' lf-name-tier-prefix ' lf-nops-prefix lf-nops!
+' lf-name-entry-text ' lf-name-tier-text ' lf-nops-text lf-nops!
+' lf-name-entry-payload ' lf-name-tier-payload ' lf-nops-payload lf-nops!
+' lf-name-stored? ' lf-name-tier-valid? ' lf-nops-valid lf-nops!
+' lf-name-entry-checked? ' lf-name-checked ' lf-nops-part-ok lf-nops!
+' lf-name-entries-valid? ' lf-name-all-checked ' lf-nops-storage lf-nops!
+' lf-name-intern-num ' lf-name-viewed-num ' lf-nops-num lf-nops!
+' lf-name-intern-str ' lf-name-viewed-str ' lf-nops-str lf-nops!
+' lf-name-no-scratch ' lf-name-scratch-reset ' lf-nops-clear lf-nops!
+: lf-name-ops ( -- ops ) lf-name-viewed? if lf-name-viewed-ops else lf-name-stored-ops then ;
+
+\ Kind and prefix of a valid ID.
+: lf-name-tag@ ( id -- tag ) lf-name-ops lf-nops-tag @ execute ;
+: lf-name-prefix@ ( id -- prefix ) lf-name-ops lf-nops-prefix @ execute ;
+\ The component of a name: the bytes of a string component, the number of
+\ a numeric one. Unchecked: the ID is valid and of that kind (lf-name-tag@),
+\ and the bytes are read before the name store changes. Under a view, the
+\ bytes of an input name never move; a scratch name's do when the scratch
+\ tier grows.
+: lf-name-text ( id -- c-addr u ) lf-name-ops lf-nops-text @ execute ;
+: lf-name-payload ( id -- n ) lf-name-ops lf-nops-payload @ execute ;
+: lf-name-valid? ( id -- flag ) lf-name-ops lf-nops-valid @ execute ;
+\ A valid ID's own component is well formed: audited from its entry, or
+\ checked when it was made under a view. The prefix chain of a valid ID
+\ is then walked with lf-name-prefix@, one component at a time.
+: lf-name-part-ok? ( id -- flag ) lf-name-ops lf-nops-part-ok @ execute ;
+\ The whole storage is well formed: the entry store's audit, which reads
+\ every entry; under a view every name was checked when it was made.
+: lf-name-storage-valid? ( -- flag ) lf-name-ops lf-nops-storage @ execute ;
+
+\ Reset to the anonymous name alone and advance the generation; saturation
+\ poisons the table rather than wrapping (see store-clear). Under a view,
+\ the scratch tier is emptied.
+: lf-name-reset ( -- )
+  lf-name-ops lf-nops-clear @ execute 0 lf-name-slot /lf-entry erase 0 lf-name-used !
+  lf-names store-clear ;
+
+\ Attach the sealed input tier as this context's names, emptying the
+\ scratch tier and advancing the generation: ok, or the outcome of making
+\ the scratch tier, which is freed again (no view then, and the names are
+\ reset all the same, so every earlier ID is stale). Detach: back to the
+\ entry store, reset.
+: lf-name-viewing ( input -- ) lf-name-view lf-nview-input ! lf-name-reset ;
+: lf-name-unview ( -- ) lf-name-tier tier-free 0 lf-name-view lf-nview-input ! lf-name-reset ;
+: lf-name-attach ( input -- outcome )
+  lf-name-unview dup lf-name-tier tier-extend dup ok?
+  if drop lf-name-viewing outcome-ok else nip lf-name-tier tier-free then ;
+: lf-name-detach ( -- ) lf-name-unview ;
+
 \ Intern a numeric component; invalid input changes nothing.
 : lf-name-num-args? ( prefix number -- flag )
   0< 0= swap lf-name-valid? and lf-name-storage-valid? and ;
-\ Under a view, names are made in the scratch tier (full there is false,
-\ with no diagnostic).
-: lf-name-made ( n outcome -- id true | false ) ok? if true else drop false then ;
-: lf-name-viewed-num ( prefix number -- id true | false )
-  lf-name-tier name-num lf-name-made ;
 : lf-name-num ( prefix number -- id true | false )
-  2dup lf-name-num-args? 0= if 2drop false exit then
-  lf-name-viewed? if lf-name-viewed-num else lf-name-intern-num then ;
+  2dup lf-name-num-args? 0= if 2drop false exit then lf-name-ops lf-nops-num @ execute ;
 
 \ Intern a byte-string component. The input is copied before anything else
 \ changes, so it may overlap any buffer here; it must stay readable during
@@ -229,12 +304,7 @@ end-structure
 : lf-name-str-args? ( prefix length -- flag )
   lf-name-byte-capacity upto? swap lf-name-valid? and lf-name-storage-valid? and ;
 : lf-name-copy-in ( addr length -- length ) tuck lf-name-input-copy swap move ;
-\ Under a view the copy, never the caller's text, goes to the scratch
-\ tier, whose byte slab may move while it makes room.
-: lf-name-viewed-str ( prefix length -- id true | false )
-  lf-name-query lf-name-tier name-str lf-name-made ;
-: lf-name-copied-str ( prefix length -- id true | false )
-  lf-name-viewed? if lf-name-viewed-str else lf-name-intern-str then ;
+: lf-name-copied-str ( prefix length -- id true | false ) lf-name-ops lf-nops-str @ execute ;
 : lf-name-str ( prefix addr length -- id true | false )
   >r over r@ lf-name-str-args? r> swap
   if lf-name-copy-in lf-name-copied-str else 2drop drop false then ;

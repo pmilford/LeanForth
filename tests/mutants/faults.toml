@@ -1953,6 +1953,22 @@ new = '''  2drop drop false ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "under a name view a string name can no longer be interned"
 
+[[fault]]
+id = "lnorm-name-part-from-entries"
+file = "src/kernel/level-normalize.fs"
+old = '''  dup lf-name-valid? if lf-name-part-ok? else drop false then ;'''
+new = '''  dup lf-name-valid? if lf-name-entry-ok? else drop false then ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "the review's H1: under a name view the name order audits the entry store, so a fed max v u against max u v is unknown where Lean accepts"
+
+[[fault]]
+id = "names-unview-keeps-generation"
+file = "src/core/names.fs"
+old = ''': lf-name-unview ( -- ) lf-name-tier tier-free 0 lf-name-view lf-nview-input ! lf-name-reset ;'''
+new = ''': lf-name-unview ( -- ) lf-name-tier tier-free 0 lf-name-view lf-nview-input ! ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "the review's L1: a failed attach keeps the generation, so the input fed before still looks intact"
+
 # --- the release hook of checker contexts, continued (src/lib/context.fs)
 
 [[fault]]

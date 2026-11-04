@@ -20,6 +20,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, "tests/support")
+from case_export import case_exports  # noqa: E402
 from export_definition import decode, encode, succ_chain  # noqa: E402
 from ndjson_preview import LEAN_HASH  # noqa: E402
 
@@ -328,9 +329,9 @@ def first_checker_cases():
         return first_checker_modules(temporary)
 
 
-def checker_rows(text, prelude=()):
-    """Run every case through tests/support/first-checker-driver.fs, after
-    the Forth lines of prelude (such as LARGE_CAPACITIES)."""
+def input_script(text, prelude):
+    """The Forth lines of tests/support/first-checker-driver.fs that build
+    every case's declarations into the checker's input directly."""
     driver = Path("tests/support/first-checker-driver.fs").resolve()
     script = [f"require {driver}", ": must-ok ( outcome -- ) ok? 0= abort\" setting\" ;",
               *prelude]
@@ -346,8 +347,26 @@ def checker_rows(text, prelude=()):
             script.append(f"fc-decl {rest}")
         else:
             raise Mismatch(f"first checker: unexpected line {line!r}")
-    script += ["fc-run", "bye"]
+    return script + ["fc-run", "bye"]
+
+
+def fed_script(text, directory):
+    """The Forth lines of tests/support/fed-checker-driver.fs that stage
+    and feed every case, written as an export in directory first."""
+    script = [f"require {Path('tests/support/fed-checker-driver.fs').resolve()}"]
+    for k, (case, export) in enumerate(case_exports(text)):
+        path = Path(directory) / f"case-{k}.ndjson"
+        path.write_text(export)
+        script.append(f"fd-case {case} {path}")
+    return script + ["bye"]
+
+
+def checker_rows(text, prelude=(), fed=False):
+    """Run every case through tests/support/first-checker-driver.fs, after
+    the Forth lines of prelude (such as LARGE_CAPACITIES); or, fed, as an
+    export through the stage and the feed (fed-checker-driver.fs)."""
     with tempfile.TemporaryDirectory() as temporary:
+        script = fed_script(text, temporary) if fed else input_script(text, prelude)
         path = Path(temporary) / "first-checker-cases.fs"
         path.write_text("\n".join(script) + "\n")
         result = subprocess.run([GFORTH, str(path)], capture_output=True, text=True,
@@ -362,9 +381,29 @@ def checker_rows(text, prelude=()):
                               int(words[5]), STEPS[int(words[6])])
         elif words and words[0] == "VERDICT":
             verdicts[words[1]] = line.split(" ", 2)[2]
+        elif words and words[0] == "REFUSED":
+            refused_row(words[1], line.split(" ", 2)[2])
     if sorted(rows) != sorted(verdicts):
         raise Mismatch("first checker: a row without its verdict")
     return rows, verdicts
+
+
+# Cases whose export the stage refuses, with its reason: the fed tables
+# allow invalid for them (FED_KNOWN), never anything else. A real export
+# is closed: every constant it names has a declaration in it. So a
+# constant with none (rule N1, Lean's unknownConstant: the first two) is
+# reached only by checker input, and so is a case that names one of
+# Lean's own constants without its declaration (Nat, in the third, which
+# checker input finds unsupported, U2); the stage refuses the whole export.
+FED_REFUSED = {"identity.unknown-constant": "unknown constant",
+               "constant.forward-reference": "unknown constant",
+               "scope.number-literal": "unknown constant"}
+FED_KNOWN = {case: "invalid" for case in FED_REFUSED}
+
+
+def refused_row(case, reason):
+    if FED_REFUSED.get(case) != reason:
+        raise Mismatch(f"{case}: the stage refused the export ({reason})")
 
 
 def checker_row(case, lean, expected, rule, measured, verdict, known):
@@ -411,15 +450,15 @@ def checker_summary(name, rows, known):
           f"known differences: {', '.join(known) or 'none'}")
 
 
-def first_checker(prelude=(), name="first checker"):
+def first_checker(prelude=(), name="first checker", fed=False):
     table, text = first_checker_cases()
-    rows, verdicts = checker_rows(text, prelude)
+    rows, verdicts = checker_rows(text, prelude, fed)
     if sorted(rows) != sorted(table) or len(rows) != 69:
         raise Mismatch("first checker: the Forth rows are not the table's 69 cases")
+    known = {**FIRST_CHECKER_KNOWN, **FED_KNOWN} if fed else FIRST_CHECKER_KNOWN
     for case, (lean, expected, rule) in table.items():
-        checker_row(case, lean, expected, rule, rows[case], verdicts[case],
-                    FIRST_CHECKER_KNOWN)
-    checker_summary(name, rows, FIRST_CHECKER_KNOWN)
+        checker_row(case, lean, expected, rule, rows[case], verdicts[case], known)
+    checker_summary(name, rows, known)
     return len(rows)
 
 
@@ -448,10 +487,10 @@ def binder_domain_cases():
     return {row[0]: row[1:] for row in table}, text
 
 
-def binder_domains(prelude=(), known=None, name="binder domains"):
+def binder_domains(prelude=(), known=None, name="binder domains", fed=False):
     known = BINDER_KNOWN if known is None else known
     table, text = binder_domain_cases()
-    rows, verdicts = checker_rows(text, prelude)
+    rows, verdicts = checker_rows(text, prelude, fed)
     if sorted(rows) != sorted(table) or len(rows) != 22:
         raise Mismatch("binder domains: the Forth rows are not the table's 22 cases")
     for case, (lean, _, amended, rule) in table.items():
@@ -464,7 +503,7 @@ def binder_domains(prelude=(), known=None, name="binder domains"):
 # Universe scope (ADR 0012 test-matrix row 4): universe-scope-terms.lean
 # checks Lean's verdict on each case and prints its expectation (EXPECT
 # lines), then the cases.
-def universe_scope(prelude=(), name="universe scope"):
+def universe_scope(prelude=(), name="universe scope", fed=False):
     with tempfile.TemporaryDirectory() as temporary:
         first_checker_modules(temporary)
         output = subprocess.run([LEAN, "-DwarningAsError=true",
@@ -475,9 +514,9 @@ def universe_scope(prelude=(), name="universe scope"):
     table = {words[1]: words[2:] for words in map(str.split, lines)
              if words[0] == "EXPECT"}
     rows, verdicts = checker_rows("\n".join(line for line in lines
-                                            if not line.startswith("EXPECT ")), prelude)
-    if sorted(rows) != sorted(table) or len(rows) != 49:
-        raise Mismatch("universe scope: the Forth rows are not the table's 49 cases")
+                                            if not line.startswith("EXPECT ")), prelude, fed)
+    if sorted(rows) != sorted(table) or len(rows) != 50:
+        raise Mismatch("universe scope: the Forth rows are not the table's 50 cases")
     for case, (lean, expected, rule) in table.items():
         checker_row(case, lean, expected, rule, rows[case], verdicts[case], {})
     checker_summary(name, rows, {})
@@ -494,6 +533,25 @@ def binder_domains_large():
 
 def universe_scope_large():
     return universe_scope(LARGE_CAPACITIES, "universe scope, large capacities")
+
+
+# Plan task 3.2.2 (ADR 0016 C9 step 3): the same three tables through the
+# path a real export takes. Each case is written as a lean4export export
+# (tests/support/case_export.py), staged and fed to the checker
+# (src/import/stage.fs, feed.fs; tests/support/fed-checker-driver.fs): the
+# names stay in the stage's input tier, and the feed raises every store's
+# capacity above the large tables', so the binder-domain table has no known
+# difference here either.
+def first_checker_fed():
+    return first_checker((), "first checker, fed", fed=True)
+
+
+def binder_domains_fed():
+    return binder_domains((), {}, "binder domains, fed", fed=True)
+
+
+def universe_scope_fed():
+    return universe_scope((), "universe scope, fed", fed=True)
 
 
 TABLES = {
@@ -524,6 +582,13 @@ TABLES = {
                                                    "with no known difference"),
     "universe-scope-large": (universe_scope_large, "universe-scope rows agree with Lean's "
                                                    "kernel at large store capacities"),
+    "first-checker-fed": (first_checker_fed, "first-checker rows agree with Lean's kernel "
+                                             "when each case is staged and fed as an export"),
+    "binder-domains-fed": (binder_domains_fed, "binder-domain rows agree with Lean's kernel "
+                                               "when each case is staged and fed as an export, "
+                                               "with no known difference"),
+    "universe-scope-fed": (universe_scope_fed, "universe-scope rows agree with Lean's kernel "
+                                               "when each case is staged and fed as an export"),
 }
 
 

@@ -16,6 +16,7 @@
 \ Test-only; nothing here accepts a theorem outside the code under test.
 include ../support/tester.fs
 include ../support/checks.fs
+include ../support/heap-watch.fs
 require ../../src/import/checker-input.fs
 require ../../src/kernel/check-declaration.fs
 
@@ -124,6 +125,35 @@ T{ s" tests/core/check-declaration-cases/composition-literal.ndjson" fed-case
   -> outcome-unsupported lf-diag-unsupported-form 1 }T
 T{ s" tests/core/check-declaration-cases/composition-loose.ndjson" fed-case
   -> outcome-invalid lf-diag-out-of-scope 1 }T
+\ Ordering two universe parameters by name (Lean's is_norm_lt, under
+\ level normalisation) reads the names of the input tier under the view:
+\ def T.{u,v} : Sort (max v u + 2) := Sort (max u v + 1), which pinned
+\ Lean 4.35.0 accepts (row universe.sort-max-swapped of the universe-scope
+\ table), is accepted by both paths; with 100 names before u and v their
+\ IDs lie beyond the entry store's 64 entries, and the fed check is still
+\ accepted (the independent review's finding H1, 2026-11-03).
+: swap-max ( -- c-addr u ) s" tests/core/check-declaration-cases/swap-max.ndjson" ;
+: swap-max-far ( -- c-addr u ) s" tests/core/check-declaration-cases/swap-max-far.ndjson" ;
+T{ swap-max case-file -> outcome-ok 0 lf-step-done }T
+T{ swap-max fed-case -> outcome-ok 0 lf-step-done }T
+T{ swap-max-far fed-case -> outcome-ok 0 lf-step-done }T
+\ The same comparison made directly under the view: max u v and max v u
+\ are equivalent, as they are without a view.
+: param ( c-addr u -- level ) 0 -rot lf-name-str must lf-level-param must ;
+: both-maxes ( -- l1 l2 )
+  s" u" param s" v" param 2dup lf-level-max must -rot swap lf-level-max must ;
+T{ both-maxes 1000 lf-level-equivalent -> true outcome-ok }T
+T{ swap-max-far fed ok? both-maxes 1000 lf-level-equivalent -> true true outcome-ok }T
+\ An attach that fails (no heap for the scratch tier: the first
+\ allocation refused) leaves no view, frees what it made and resets the
+\ names, so the input fed before is no longer intact and nothing of it can
+\ be checked as if it were (the review's finding L1).
+T{ lf-input-intact? lf-name-viewed? -> true true }T
+live-blocks @ constant blocks-viewed
+1 heap-refusals !
+T{ stg stage-tier lf-name-attach ok? lf-name-viewed? lf-input-intact? -> false false false }T
+T{ heap-refusals @ live-blocks @ blocks-viewed < -> 0 true }T
+unstage
 \ The stores grew past their defaults, and the names are the stage's: a
 \ name made under the view that the stage has gets the stage's ID (here
 \ from the stage's own text, which is copied first), a new one the next
@@ -137,6 +167,11 @@ T{ 0 s" not.in.the.stage" lf-name-str -> fresh-id true }T
 T{ fresh-id lf-name-text s" not.in.the.stage" compare fresh-id 7 lf-name-num nip
    -> 0 true }T
 T{ comp-name fresh-id lf-name-equal? comp-name comp-name lf-name-equal? -> false true }T
+\ Every name under the view was checked when it was made: its component
+\ is well formed in either mode's sense, and the entry store's own audit
+\ refuses an ID that is not one of its entries.
+T{ comp-name lf-name-part-ok? fresh-id lf-name-part-ok? comp-name lf-name-entry-ok?
+   -> true true false }T
 unstage
 T{ lf-input-indexed? -> false }T
 \ Only a sealed stage is fed.

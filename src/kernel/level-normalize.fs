@@ -109,9 +109,10 @@ end-structure
 : lf-lnorm-name-cmp ( a b -- n )
   2dup lf-lnorm-depths 2dup - lf-lnorm-sign >r lf-lnorm-trimmed lf-lnorm-level-cmp
   ?dup if r> drop else r> then ;
-\ A name whose every component is a valid entry.
+\ A name whose every component is valid and well formed, in either mode
+\ of the name store (lf-name-part-ok?).
 : lf-lnorm-limb-ok? ( id -- flag )
-  dup lf-name-valid? if lf-name-entry-ok? else drop false then ;
+  dup lf-name-valid? if lf-name-part-ok? else drop false then ;
 : lf-lnorm-name-ok? ( id -- flag )
   begin dup while dup lf-lnorm-limb-ok? 0= if drop false exit then lf-name-prefix@ repeat
   drop true ;
