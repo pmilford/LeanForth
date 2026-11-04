@@ -238,9 +238,10 @@ end-structure
 : draft ( stage -- addr ) stage-decl-records slab-top ;
 : draft-kind ( stage -- kind ) draft staged-head u32@ head-tag ;
 : draft-flags! ( bits stage -- ) draft staged-head dup u32@ rot or swap u32! ;
-\ A flag of the reader's record as a head bit; a code at a shift.
+\ A flag of the reader's record as a head bit; a code of two bits (the
+\ reader's enumerations give 0 .. 3) at a shift.
 : head-flag ( flag bit stage -- ) >r swap 0<> and r> draft-flags! ;
-: head-code ( code shift stage -- ) >r lshift r> draft-flags! ;
+: head-code ( code shift stage -- ) >r swap 3 and swap lshift r> draft-flags! ;
 : draft-blank ( kind addr -- )
   tuck staged-head u32! 0 over staged-name u32! 0 over staged-hint u32!
   0 over staged-prev u32! staged-none over staged-params u32!

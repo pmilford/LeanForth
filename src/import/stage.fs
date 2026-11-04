@@ -107,6 +107,8 @@ require ./stage-records.fs
 : maps-start ( stage -- outcome )
   0 over stage-name-map fields-push dup ok? if drop 0 swap stage-level-map fields-push
   else nip then ;
+\ The stage's own slabs; slab-init refuses only an unsound shape, and
+\ these shapes are fixed, so its outcomes are not kept.
 : slabs-start ( stage -- outcome )
   cons-numbers-max over stage-name-map fields-init drop
   cons-numbers-max over stage-level-map fields-init drop
@@ -140,6 +142,8 @@ require ./stage-records.fs
 : stage-rollback ( stage -- outcome )
   dup stage-start over stage-tier tier-rollback ['] own-clear and-then
   staging-empty stage-state! ;
+\ After a read: filled, or rolled back (the read's outcome stays; a
+\ rollback that fails leaves the stage broken).
 : stage-after ( outcome stage -- outcome )
   over ok? if staging-filled swap stage-state ! else stage-rollback drop then ;
 : checked-read ( c-addr u stage -- outcome ) stage-manifest manifest-read ;
