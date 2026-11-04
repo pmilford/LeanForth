@@ -5,9 +5,10 @@
 \ is compiling. Each line prints the input, then the diagnostic, or "ok"
 \ for the few that are meant to pass. Usage: gforth cv.fs adversarial.fs
 true cv-quiet !
+[defined] adv-mode [if] [else] ' cv-run constant adv-mode [then]
 variable accepted  variable refused
 : adv ( c-addr u -- )
-  ." [" 2dup type ." ]  " s" t.fs" cv-run cv-ok = if ." ok" cr 1 accepted +! else
+  ." [" 2dup type ." ]  " s" t.fs" adv-mode execute cv-ok = if ." ok" cr 1 accepted +! else
   1 refused +! then ;
 \ A. Recognizer and number syntaxes inside a definition (Gforth 1.0 reads
 \ most of these as values; 0.7.3 some): all refused at the token.

@@ -49,6 +49,8 @@ s" a division outside a definition" 21 cv-reason!
 s" read stopped by an exception" 26 cv-reason!
 s" the host read a literal differently from its text" 27 cv-reason!
 s" run while Forth is compiling" 28 cv-reason!
+s" a standard word redefined before the run" 29 cv-reason!
+29 constant why-replaced
 1 constant why-unknown     2 constant why-not-ir      3 constant why-outside
 4 constant why-inside      5 constant why-unbalanced  6 constant why-nested
 7 constant why-unclosed    8 constant why-comment     9 constant why-recursive
@@ -221,8 +223,9 @@ variable cv-word-at  variable cv-word#
 \ Define the name at offset start of the line in the file's word list, as
 \ Forth's CREATE reads it; each such word, when it runs, emits a call of
 \ exactly this definition (early binding: Forth's own lookup found it).
+variable cv-in-offset      \ where the line starts in Forth's input source
 : cv-define ( kind start -- body )
-  >in ! get-current >r cv-prog @ set-current create r> set-current
+  cv-in-offset @ + >in ! get-current >r cv-prog @ set-current create r> set-current
   here >r , false , 1 cv-defs# +! cv-defs# @ , cv-token cv-name, r>
   does> >r cv-sync r> cv-call-xt @ execute ;
 ' cv-call cv-call-xt !
