@@ -342,9 +342,12 @@ def command(args, both=False):
 def ir_written(gforth, ir_path):
     """The IR the program words write for the IR file's source, which must be
     that file byte for byte: its hash and the source's, for the evidence.
-    The source is hashed before and after the run, and must not change in
-    between, so the hash covers exactly the bytes the words read (the
-    runner reads every byte of the file, with no limit)."""
+    The source is hashed before and after the run and the two hashes must
+    agree, so a change still present after the run is refused. A change made
+    during the run and undone before the second hash is not detected; such
+    bytes could only have produced the same IR, which is compared byte for
+    byte. A hash taken inside the runner of exactly what it read is plan task
+    3.2.6 (the runner reads every byte of the file, with no limit)."""
     source = program_vc.ir_source(Path(ir_path).read_text(encoding="utf-8"))
     if not re.fullmatch(r"[\w./-]+", source):
         raise SystemExit(f"source path not usable in a Forth string: {source}")
