@@ -210,20 +210,44 @@ require {ROOT}/src/program/verify-alias.fs
   repeat 2drop ;
 : old-text ( c-addr u -- ) ." OLD" cr ['] show s" t.fs" lf-ir-start old-lines
   lf-ir-finish lf-ir-reason lf-ir-where ." = " four. cr ;
-: new-text ( c-addr u -- ) ." NEW" cr s" t.fs" lf-verify-text lf-verify-reason
-  lf-verify-where ." = " four. cr ;
-: alias-text ( c-addr u -- ) ." ALIAS" cr s" t.fs" lf-alias-text lf-verify-reason
-  lf-verify-where ." = " four. cr ;
+: verdict. ( outcome -- outcome ) dup lf-verify-reason lf-verify-where ." = " four. cr ;
+: new-text ( c-addr u -- outcome ) ." NEW" cr s" t.fs" lf-verify-text verdict. ;
+: alias-text ( c-addr u -- ) ." ALIAS" cr s" t.fs" lf-alias-text verdict. drop ;
 : old-file ( c-addr u -- ) ." OLD" cr ['] show -rot lf-ir-read-file lf-ir-reason
   lf-ir-where ." = " four. cr ;
-: new-file ( c-addr u -- ) ." NEW" cr lf-verify-file lf-verify-reason lf-verify-where
-  ." = " four. cr ;
-: alias-file ( c-addr u -- ) ." ALIAS" cr lf-alias-file lf-verify-reason lf-verify-where
-  ." = " four. cr ;
+: new-file ( c-addr u -- outcome ) ." NEW" cr lf-verify-file verdict. ;
+: alias-file ( c-addr u -- ) ." ALIAS" cr lf-alias-file verdict. drop ;
+\\ Run mode: plain Gforth loads what the new code accepted, a text line by
+\\ line, a file with INCLUDED, into a word list of its own with BASE ten,
+\\ under CATCH; it must not throw and must leave no value.
+[defined] warnings [if] false warnings ! [then]
+create host-settings /run-settings allot
+2variable host-rest
+variable host-code
+variable host-depth
+: host-line ( -- c-addr u )
+  host-rest 2@ 2dup text-line-end drop >r over r@ 2swap r> 1+ over min /string host-rest 2! ;
+: host-lines ( -- ) begin host-rest 2@ nip while host-line evaluate repeat ;
+: stop-compiling ( -- ) postpone [ ;
+: host-load ( xt -- )
+  host-settings run-settings-save wordlist dup set-current forth-wordlist swap 2 set-order
+  decimal depth 1- host-depth ! catch host-code ! depth host-depth @ -
+  ." HOST " host-code @ . dup . cr 0 max 0 ?do drop loop
+  stop-compiling host-settings run-settings-restore ;
+\\ A relative path is from the repository's root, where the runs read it.
+create host-path 512 chars allot
+: host-absolute ( c-addr u -- c-addr' u' )
+  over c@ [char] / = if exit then s" {ROOT}/" tuck host-path swap chars move
+  >r tuck host-path r@ chars + swap chars move r> + host-path swap ;
+: host-include ( -- ) host-rest 2@ host-absolute included ;
+: host-text ( c-addr u -- ) host-rest 2! ['] host-lines host-load ;
+: host-file ( c-addr u -- ) host-rest 2! ['] host-include host-load ;
 : case. ( n -- ) ." CASE " . cr ;
 : end. ( -- ) ." DEPTH " depth . cr ;
-: texts ( c-addr u n -- ) case. 2dup old-text 2dup new-text alias-text end. ;
-: files ( c-addr u n -- ) case. 2dup old-file 2dup new-file alias-file end. ;
+: texts ( c-addr u n -- )
+  case. 2dup old-text 2dup alias-text 2dup new-text ok? if host-text else 2drop then end. ;
+: files ( c-addr u n -- )
+  case. 2dup old-file 2dup alias-file 2dup new-file ok? if host-file else 2drop then end. ;
 """
 
 
@@ -260,6 +284,8 @@ def run_driver(gforth, entries, directory):
             results[current][who][1] = tuple(int(x) for x in line.split()[1:])
         elif line.startswith("DEPTH "):
             results[current]["depth"] = int(line.split()[1])
+        elif line.startswith("HOST "):
+            results[current]["host"] = tuple(int(x) for x in line.split()[1:])
     if len(results) != len(entries):
         raise SystemExit(f"{len(results)} results for {len(entries)} inputs:\n"
                          f"{done.stdout[-2000:]}{done.stderr[-2000:]}")
@@ -330,7 +356,7 @@ def main():
         entries = [("texts", text) for _, text, _ in texts] + files
         names = [(name, expected) for name, _, expected in texts] + file_names
         results = run_driver(gforth, entries, directory)
-    problems, counts, listed = [], {}, []
+    problems, counts, listed, loads = [], {}, [], 0
     golden = {f"golden: {s}": (ROOT / g).read_text(encoding="utf-8").splitlines()
               for s, g in GOLDEN}
     for n, (name, expected) in enumerate(names):
@@ -345,6 +371,10 @@ def main():
             problems.append(f"{name}: the designs differ:\n  shift {new}\n  alias {alias}")
         if name in golden and (new[1][0] != 0 or new[0] != golden[name]):
             problems.append(f"{name}: IR differs from the golden file")
+        if new[1][0] == 0:
+            loads += 1
+            if r.get("host") != (0, 0):
+                problems.append(f"{name}: accepted, but Gforth's load gave {r.get('host')}")
         rule = "identical" if new == old else intended(old, new)
         if rule is None:
             problems.append(f"{name}: differs from today's reader:\n  old {old}\n  new {new}")
@@ -361,7 +391,8 @@ def main():
                         for group, c in counts.items())
     print(f"program words cross-check: {len(names)} inputs, both designs identical on "
           f"{sum(1 for n in range(len(names)) if results[n]['NEW'] == results[n]['ALIAS'])}; "
-          f"against today's reader: {summary}")
+          f"against today's reader: {summary}; the {loads} accepted inputs loaded by Gforth "
+          f"too")
     return 1 if problems else 0
 
 
