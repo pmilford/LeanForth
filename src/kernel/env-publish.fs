@@ -158,10 +158,22 @@ defer lf-env-before-final
 : lf-env-before-final ( -- ) ;
 [then]
 
-\ The slot this context's candidate is for: (slot true) when its snapshot
-\ is a check of the valid current environment and the slot is not final.
+\ Block publication (ADR 0015 B5; plan task 5.2.1a): a candidate's span
+\ (environment.fs) covers its declaration's slot and the next span-1, an
+\ inductive block's members, all written with the one outcome, record
+\ and dependencies, and marked final together, last. Slot k of the span.
+: lf-slot+ ( slot k -- slot' ) /lf-slot * + ;
+: lf-span-open? ( slot -- flag )
+  false lf-cand-span@ 0 ?do over i lf-slot+ lf-slot-open? or loop nip ;
+: lf-span-all-open? ( slot -- flag )
+  true lf-cand-span@ 0 ?do over i lf-slot+ lf-slot-open? and loop nip ;
+\ The first slot this context's candidate is for: (slot true) when its
+\ snapshot is a check of the valid current environment and every slot of
+\ its span is in range and not final.
+: lf-env-span-fits? ( env i -- flag ) lf-cand-span@ + swap lf-env-length upto? ;
 : lf-env-target ( -- slot true | false )
-  lf-env-checking 0= if false exit then swap lf-env-slot dup lf-slot-open? ?keep ;
+  lf-env-checking 0= if false exit then 2dup lf-env-span-fits? 0= if 2drop false exit then
+  swap lf-env-slot dup lf-span-all-open? ?keep ;
 
 \ E4 step 1. The dependencies: a count in range, each readable and
 \ accepted in the snapshot (so below the declaration and final), each
@@ -194,17 +206,40 @@ defer lf-env-before-final
 \ name store is audited first, as the scan and the parameters need it.
 : lf-slot-conflict? ( slot -- flag )
   dup lf-slot-open? swap lf-slot-outcome@ outcome-rejected <> or ;
-: lf-own-matches ( test -- n ) lf-env-limit dup lf-input-name -rot lf-env-matches ;
+\ For a span, every member's name, each below the first member.
+: lf-own-matches ( test k -- n ) lf-env-limit + lf-input-name swap lf-env-limit lf-env-matches ;
+: lf-span-conflicts ( -- n )
+  0 lf-cand-span@ 0 ?do ['] lf-slot-conflict? i lf-own-matches + loop ;
 : lf-recheck-name? ( -- flag )
-  lf-name-storage-valid? if ['] lf-slot-conflict? lf-own-matches 0= else false then ;
+  lf-name-storage-valid? if lf-span-conflicts 0= else false then ;
 \ Kind and safety in scope (ADR 0011), a value, distinct parameters (L3).
 : lf-scope-kind? ( kind -- flag ) dup lf-kind-definition = swap lf-kind-theorem = or ;
 : lf-recheck-kind? ( decl -- flag )
   dup lf-idecl-kind @ lf-scope-kind? over lf-idecl-safety @ lf-safety-safe = and
   swap lf-idecl-value @ lf-term-valid? and ;
+\ A block's member (ADR 0015): an inductive type, constructor or recursor,
+\ safe, without a value, in the same block as the first member, which the
+\ block's header names, and the span exactly the header's members.
+: lf-block-kind? ( kind -- flag ) lf-kind-inductive lf-kind-recursor between? ;
+: lf-recheck-member? ( decl -- flag )
+  dup lf-idecl-kind @ lf-block-kind? over lf-idecl-safety @ lf-safety-safe = and
+  over lf-idecl-value @ -1 = and
+  swap lf-idecl-block @ lf-env-limit lf-input-decl lf-idecl-block @ = and ;
+: lf-header-fits? ( decl -- flag )
+  lf-idecl-header ?dup 0= if false exit then
+  dup lf-hdr-first lf-more-field lf-env-limit = swap
+  dup lf-hdr-types lf-more-field over lf-hdr-ctors lf-more-field +
+  swap lf-hdr-recs lf-more-field + lf-cand-span@ = and ;
+: lf-recheck-members? ( -- flag )
+  lf-env-limit lf-input-decl lf-header-fits? 0= if false exit then
+  true lf-cand-span@ 0 ?do lf-env-limit i + lf-input-decl lf-recheck-member? and loop ;
+: lf-recheck-one? ( decl -- flag ) lf-recheck-kind? lf-cand-span@ 1 = and ;
+: lf-recheck-params? ( -- flag )
+  true lf-cand-span@ 0 ?do
+    lf-env-limit i + lf-input-decl lf-idecl-params@ lf-params-distinct? and loop ;
 : lf-recheck-decl? ( -- flag )
-  lf-env-limit lf-input-decl dup lf-recheck-kind?
-  swap lf-idecl-params@ lf-params-distinct? and ;
+  lf-env-limit lf-input-decl dup lf-idecl-block @
+  if drop lf-recheck-members? else lf-recheck-one? then lf-recheck-params? and ;
 \ The re-checks ( -- flag ), in order, each relying on the ones before:
 \ part 1 the dependencies, 2 the axiom set, 3 the provenance, 4 the name
 \ (N2, K5, G-P5; or a corrupted name store), 5 the kind, safety, value or
@@ -249,22 +284,31 @@ lf-rechecks# 1+ constant lf-recheck-moved
 : lf-env-append ( -- first outcome )
   lf-env lf-env-pool lf-cand-count@ over lf-pool-room?
   if lf-pool-take else lf-pool-full then ;
-: lf-slot-input! ( slot -- )
-  lf-env-may-write lf-env-limit lf-input-decl swap lf-slot-decl /lf-idecl move ;
+\ Slot k of the span gets declaration limit+k, copied whole.
+: lf-slot-input! ( k slot -- )
+  lf-env-may-write swap lf-env-limit + lf-input-decl swap lf-slot-decl /lf-idecl move ;
 : lf-slot-sets! ( slot -- )
   lf-env-may-write lf-env-cand lf-cand-axioms @ over lf-slot-axioms !
   lf-env-cand lf-cand-provenance @ swap lf-slot-provenance ! ;
 : lf-slot-deps! ( first slot -- )
   lf-env-may-write tuck lf-slot-deps ! lf-cand-count@ swap lf-slot-count ! ;
-: lf-slot-fill ( first slot -- ) tuck lf-slot-deps! dup lf-slot-input! lf-slot-sets! ;
-\ The record of an accepted declaration: (slot ok), or (slot full) with
-\ nothing appended or written.
+: lf-slot-fill ( first k slot -- ) rot over lf-slot-deps! tuck lf-slot-input! lf-slot-sets! ;
+: lf-span-fill ( first slot -- )
+  lf-env-may-write lf-cand-span@ 0 ?do 2dup i swap i lf-slot+ lf-slot-fill loop 2drop ;
+\ The record of an accepted declaration, or of every member of an
+\ accepted block, sharing one list of dependencies: (slot ok), or (slot
+\ full) with nothing appended or written.
 : lf-env-record ( slot -- slot outcome )
-  lf-env-append dup ok? 0= if nip exit then drop over lf-slot-fill outcome-ok ;
-\ E4 step 3: the outcome, the fault-injection point, then, last, the mark.
+  lf-env-append dup ok? 0= if nip exit then drop over lf-span-fill outcome-ok ;
+\ E4 step 3: the outcome of every slot of the span, the fault-injection
+\ point, then, last, the marks.
+: lf-span-outcome! ( slot outcome -- )
+  lf-env-may-write lf-cand-span@ 0 ?do 2dup swap i lf-slot+ lf-slot-outcome ! loop 2drop ;
+: lf-span-final! ( slot -- )
+  lf-env-may-write lf-cand-span@ 0 ?do lf-state-final over i lf-slot+ lf-slot-state ! loop
+  drop ;
 : lf-env-final ( slot outcome -- outcome )
-  lf-env-may-write 2dup swap lf-slot-outcome ! lf-env-before-final
-  lf-state-final rot lf-slot-state ! ;
+  lf-env-may-write 2dup lf-span-outcome! lf-env-before-final swap lf-span-final! ;
 \ Publish the candidate in this context into its slot: the outcome
 \ recorded. Internal: only lf-env-hand-over calls it, outside jobs, under
 \ CATCH, with the slot its target.
@@ -282,20 +326,26 @@ lf-rechecks# 1+ constant lf-recheck-moved
 : lf-env-pub-fault ( ior -- )
   lf-env-limit swap c" env-publish lf-env-hand-over"
   lf-diag-publisher-fault lf-diag-note ;
-\ Undo the publication into an open slot. A final slot never changes:
-\ undoing one aborts (its callers test first, so only a fault gets here).
+\ Undo the publication into the span's open slots. A final slot never
+\ changes: undoing a span with none open aborts (its callers test first,
+\ so only a fault gets here). The pool goes back to its mark only when no
+\ slot of the span became final, as a final one keeps its dependencies.
+: lf-slot-clear ( slot -- ) lf-env-may-write dup /lf-slot erase lf-slot-invalid! ;
+: lf-span-clear ( slot -- )
+  lf-env-may-write lf-cand-span@ 0 ?do dup i lf-slot+ dup lf-slot-open? if lf-slot-clear else drop then
+  loop drop ;
 : lf-env-undo ( slot -- )
-  lf-env-may-write dup lf-slot-open? 0= abort" lf-env: undo of a final slot"
-  lf-env-pub-mark store-rollback drop dup /lf-slot erase lf-slot-invalid! ;
+  lf-env-may-write dup lf-span-open? 0= abort" lf-env: undo of a final slot"
+  dup lf-span-all-open? if lf-env-pub-mark store-rollback drop then lf-span-clear ;
 : lf-env-unpublish ( slot ior -- )
-  lf-env-may-write lf-env-pub-fault dup lf-slot-open? if lf-env-undo else drop then ;
-\ The end of a publication that did not throw: (outcome false) when the
-\ slot is final; else a fault, recorded with code 0 and undone as after a
-\ THROW: (invalid true), whatever outcome was written.
+  lf-env-may-write lf-env-pub-fault dup lf-span-open? if lf-env-undo else drop then ;
+\ The end of a publication that did not throw: (outcome false) when every
+\ slot of the span is final; else a fault, recorded with code 0 and
+\ undone as after a THROW: (invalid true), whatever outcome was written.
 : lf-env-unfinished ( outcome slot -- invalid true )
   lf-env-may-write 0 lf-env-pub-fault lf-env-undo drop outcome-invalid true ;
 : lf-env-ended ( outcome slot -- outcome fault? )
-  lf-env-may-write dup lf-slot-open? if lf-env-unfinished else drop false then ;
+  lf-env-may-write dup lf-span-open? if lf-env-unfinished else drop false then ;
 \ Mark the pool, then write the slot under CATCH: (outcome false) once the
 \ slot is final; (invalid true) when the pool cannot be marked (nothing
 \ written), after a THROW (undone as above), or when the slot is still
@@ -421,7 +471,15 @@ context-unbalanced constant lf-env-unbalanced
   lf-env-spent? if lf-env-renew 0= else drop false then ;
 : lf-env-try ( i check maker -- fault? )
   >r swap lf-env-step nip r> swap if drop true else lf-env-replace then ;
+\ A block's member after its first, whose slot is final, was published
+\ with the first (ADR 0015 B5): it is not checked again. Any other final
+\ slot is still a fault when the run reaches it.
+: lf-env-trailing? ( i -- flag )
+  dup lf-input-decl lf-idecl-header ?dup if lf-hdr-first lf-more-field <> else drop false then ;
+: lf-env-published? ( i -- flag )
+  dup lf-env-trailing? swap lf-env lf-env-slot lf-slot-final? and ;
 : lf-env-next ( check maker i -- check maker fault? )
+  dup lf-env-published? if drop false exit then
   -rot 2dup 2>r lf-env-try 2r> rot ;
 : lf-env-steps ( check maker n -- outcome )
   0 ?do i lf-env-next if 2drop unloop outcome-invalid exit then loop 2drop outcome-ok ;

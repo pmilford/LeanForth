@@ -46,8 +46,9 @@
 \ fingerprint also covers the references' universe arguments (their
 \ pool) and, under a name view (names.fs), every input name's hash.
 \ State: the declaration store lf-inputs (a heap store), the name index
-\ lf-input-names (a heap slab) and one record, lf-input-state, all
-\ members of the checker context; written only while loading and by
+\ lf-input-names and the inductive data lf-input-more (heap slabs) and one
+\ record, lf-input-state, all members of the checker context; written only
+\ while loading and by
 \ lf-input-reset, then read by every check in that context. The layout is
 \ host-specific and never serialized.
 
@@ -90,6 +91,10 @@ begin-structure /lf-idecl
   lf-param-capacity cells +field lf-idecl-params   \ their name IDs, in order
   field: lf-idecl-prev      \ set by lf-input-add: the declaration before it
                             \ of the same name, plus one; 0 for none
+  field: lf-idecl-more      \ an inductive type, constructor or recursor: its
+                            \ data's first cell in lf-input-more, plus one; else 0
+  field: lf-idecl-block     \ a member of an inductive block: the block's
+                            \ header cell in lf-input-more, plus one; else 0
 end-structure
 
 \ The declarations: a heap store growing up to a capacity that is a
@@ -117,6 +122,59 @@ store-header context-record: lf-inputs
 :noname ( -- ) lf-input-names slab-free ; context-teardown
 : lf-input-newest-cell ( name -- addr ) lf-input-names column-at ;
 : lf-input-indexed? ( -- flag ) lf-name-viewed? ;
+
+\ Inductive data (ADR 0015 B1; plan task 5.2.1a): the exported fields of
+\ inductive types, constructors and recursors that the declaration record
+\ has no room for, and each inductive block's header, as cells of one
+\ heap slab, lf-input-more, written only while loading. A declaration's
+\ lf-idecl-more and lf-idecl-block give its first cell and its block's
+\ header (plus one; 0 for none). Lists are a count followed by the items.
+\   block header  first member's declaration index, types, constructors,
+\                 recursors (the members follow it in input order)
+\   type          numParams numIndices numNested flags (bit 0 isRec, bit 1
+\                 isReflexive) | all: count, names | ctors: count, names
+\   constructor   induct cidx numParams numFields
+\   recursor      numParams numIndices numMotives numMinors k (true or
+\                 false) | all: count, names | rules: count, then per rule
+\                 its constructor's name, nfields and right side (a term)
+\ The numbers are the file's, never trusted: the checker of a block
+\ computes its own and compares where Lean's replay compares (ADR 0015 B3,
+\ B4). A heap slab of cells, a member of the checker context.
+/slab context-record: lf-input-more
+: lf-input-more-make ( -- ) 1 cells max-n 1 cells / lf-input-more slab-init drop ;
+' lf-input-more-make context-setup
+:noname ( -- ) lf-input-more slab-free ; context-teardown
+0 constant lf-hdr-first   1 constant lf-hdr-types   2 constant lf-hdr-ctors
+3 constant lf-hdr-recs    4 constant /lf-hdr
+0 constant lf-ity-params  1 constant lf-ity-indices  2 constant lf-ity-nested
+3 constant lf-ity-flags   4 constant lf-ity-all
+0 constant lf-ict-induct  1 constant lf-ict-cidx  2 constant lf-ict-params
+3 constant lf-ict-fields  4 constant /lf-ict
+0 constant lf-irc-params  1 constant lf-irc-indices  2 constant lf-irc-motives
+3 constant lf-irc-minors  4 constant lf-irc-k  5 constant lf-irc-all
+3 constant /lf-rule
+1 constant lf-ity-rec-bit
+2 constant lf-ity-reflexive-bit
+\ Reading. Unchecked: the offsets are those lf-input-add accepted.
+: lf-more-count ( -- n ) lf-input-more slab-count ;
+: lf-more-cell ( k -- addr ) lf-input-more slab-at ;
+: lf-more@ ( k -- x ) lf-more-cell @ ;
+\ A declaration's data and its block's header: the address of the first
+\ cell, or 0 for none.
+: lf-idecl-data ( decl -- addr|0 ) lf-idecl-more @ ?dup if 1- lf-more-cell else 0 then ;
+: lf-idecl-header ( decl -- addr|0 ) lf-idecl-block @ ?dup if 1- lf-more-cell else 0 then ;
+\ Field k of a data record, and a list at addr: its items and count.
+: lf-more-field ( addr k -- x ) cells + @ ;
+: lf-more-list ( addr -- items n ) dup cell+ swap @ ;
+\ The list after the one at addr.
+: lf-more-next ( addr -- addr' ) dup @ 1+ cells + ;
+\ A type's lists: all, then ctors; a recursor's all, then its rules.
+: lf-ity-all@ ( data -- items n ) lf-ity-all cells + lf-more-list ;
+: lf-ity-ctors@ ( data -- items n ) lf-ity-all cells + lf-more-next lf-more-list ;
+: lf-irc-all@ ( data -- items n ) lf-irc-all cells + lf-more-list ;
+: lf-irc-rules@ ( data -- rules n ) lf-irc-all cells + lf-more-next lf-more-list ;
+\ Rule k of a rules list: its constructor's name, nfields and right side.
+: lf-rule-at ( rules k -- addr ) /lf-rule * cells + ;
 
 5 constant lf-input-stores#
 begin-structure /lf-inrec
@@ -162,9 +220,12 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
 : lf-fp-view-names ( h -- h' )
   lf-name-numbers tuck fnv-step swap 0 ?do i lf-name-hash fnv-step loop ;
 : lf-fp-view ( h -- h' ) lf-name-viewed? if lf-fp-view-names then ;
+\ The inductive data: its count, then its cells.
+: lf-fp-more ( h -- h' )
+  lf-more-count tuck fnv-step swap ?dup if 0 lf-more-cell swap lf-fp-cells then ;
 : lf-input-print ( -- h )
   0 lf-input-stores# 0 ?do i lf-input-marked lf-fp-store loop lf-fp-names lf-fp-pool
-  lf-fp-view ;
+  lf-fp-view lf-fp-more ;
 \ The fingerprint recorded when loading ended; 0 before.
 : lf-input-fingerprint ( -- h ) lf-input-state lf-inrec-fingerprint @ ;
 
@@ -210,9 +271,35 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
 : lf-input-value-ok? ( value -- flag ) dup -1 = if drop true else lf-term-valid? then ;
 : lf-input-roots-ok? ( decl -- flag )
   dup lf-idecl-type @ lf-term-valid? swap lf-idecl-value @ lf-input-value-ok? and ;
+\ The inductive data, when present: a record of the declaration's kind
+\ that lies wholly within lf-input-more, its lists' counts nonnegative;
+\ the block header likewise. Nothing else about the data is checked here.
+: lf-more-span? ( k n -- flag ) over 0< 0= -rot + lf-more-count upto? and ;
+\ A list at cell k that fits: the cell after it, or -1.
+: lf-more-list-end ( k -- k' )
+  dup 1 lf-more-span? 0= if drop -1 exit then
+  dup lf-more@ dup 0< if 2drop -1 exit then 1+ 2dup lf-more-span? if + else 2drop -1 then ;
+: lf-more-rules-end ( k -- k' )
+  dup 1 lf-more-span? 0= if drop -1 exit then
+  dup lf-more@ dup 0< if 2drop -1 exit then /lf-rule * 1+ 2dup lf-more-span?
+  if + else 2drop -1 then ;
+: lf-more-type? ( k -- flag )
+  lf-ity-all + lf-more-list-end dup 0< if drop false exit then lf-more-list-end 0< 0= ;
+: lf-more-ctor? ( k -- flag ) /lf-ict lf-more-span? ;
+: lf-more-rec? ( k -- flag )
+  lf-irc-all + lf-more-list-end dup 0< if drop false exit then lf-more-rules-end 0< 0= ;
+: lf-more-kind? ( k kind -- flag )
+  over 0< if 2drop false exit then
+  case lf-kind-inductive of lf-more-type? endof  lf-kind-constructor of lf-more-ctor? endof
+    lf-kind-recursor of lf-more-rec? endof nip false swap endcase ;
+: lf-input-more-ok? ( decl -- flag )
+  dup lf-idecl-more @ ?dup if 1- swap lf-idecl-kind @ lf-more-kind? else drop true then ;
+: lf-input-block-ok? ( decl -- flag )
+  lf-idecl-block @ ?dup if 1- /lf-hdr lf-more-span? else true then ;
 : lf-input-decl-ok? ( decl -- flag )
   dup lf-input-name-ok? over lf-input-kind-ok? and over lf-input-safety-ok? and
-  over lf-input-hint-ok? and over lf-input-params-ok? and swap lf-input-roots-ok? and ;
+  over lf-input-hint-ok? and over lf-input-params-ok? and over lf-input-roots-ok? and
+  over lf-input-more-ok? and swap lf-input-block-ok? and ;
 
 \ Loading. lf-input-add copies a /lf-idecl record the importer filled and
 \ gives its index: ok; invalid, adding nothing, after loading has ended or
@@ -234,6 +321,15 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
 : lf-input-add ( decl -- i outcome )
   lf-input-sealed? if drop -1 outcome-invalid exit then
   dup lf-input-decl-ok? if lf-input-copy else drop -1 outcome-invalid then ;
+\ Inductive data, while loading (see lf-input-more above): the offset the
+\ next cell gets, and appending a cell: ok; invalid once loading has
+\ ended; full when the slab has no room. A declaration that refers to
+\ the data is added after it.
+: lf-more-here ( -- k ) lf-more-count ;
+: lf-more-append ( x -- outcome )
+  1 lf-input-more slab-claim dup ok? if drop lf-more-cell ! outcome-ok else nip nip then ;
+: lf-more, ( x -- outcome )
+  lf-input-sealed? if drop outcome-invalid else lf-more-append then ;
 : lf-mark-ok? ( mark store -- flag ) store-mark ok? ;
 : lf-input-seal ( -- )
   lf-name-used @ lf-input-bytes ! lf-input-print lf-input-state lf-inrec-fingerprint !
@@ -255,4 +351,5 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
 \ fails closed: its fingerprint covers the declarations' identities, which
 \ never repeat.
 : lf-input-reset ( -- )
-  lf-inputs store-clear lf-input-state /lf-inrec erase lf-input-names column-erase ;
+  lf-inputs store-clear lf-input-state /lf-inrec erase lf-input-names column-erase
+  lf-input-more slab-clear ;

@@ -127,9 +127,16 @@ begin-structure /lf-cand
   field: lf-cand-axioms     \ union of the dependencies' axiom sets
   field: lf-cand-provenance \ union of their provenance
   field: lf-cand-count      \ dependencies recorded
+  field: lf-cand-span       \ slots the outcome is for, from the checked one on:
+                            \ an inductive block's members (ADR 0015 B5); 0 is 1
   lf-env-dep-capacity cells +field lf-cand-deps   \ their slots, ascending
 end-structure
 /lf-cand context-record: lf-env-cand
+\ The candidate's span: how many slots, from the declaration checked on,
+\ its outcome and record are for. A block's check sets it to the block's
+\ members (kernel/check-block.fs); every other check leaves it 1.
+: lf-cand-span@ ( -- n ) lf-env-cand lf-cand-span @ 1 max ;
+: lf-env-span! ( n -- ) lf-env-cand lf-cand-span ! ;
 
 \ A context as a worker (G-P6). Zero in a new context; never cleared.
 begin-structure /lf-worker
