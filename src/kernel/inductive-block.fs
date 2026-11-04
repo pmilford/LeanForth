@@ -352,9 +352,16 @@ lf-depth-limit context-walk2: lf-ind-pair-walker
 : lf-ind-c1 ( -- outcome )
   lf-ind-ctors@ 0 ?do i lf-c1-ctor dup ok? 0= if unloop exit then drop loop outcome-ok ;
 
-\ T1: at least numParams raw binders in the type (rejected: Lean's
-\ "incorrect number of parameters").
-: lf-ind-t1 ( -- outcome )
-  lf-ind-type lf-idecl-type @ lf-ind-body nip
-  dup lf-ind-nparams < 0= if drop outcome-ok exit then
+\ T1: at least numParams raw binders in the type, then in each
+\ constructor's type, in that order (get_params, 1138-1146, called from
+\ elim_nested_inductive_fn 1151-1166 before anything else of the block;
+\ review rvI21 L1). Rejected: Lean's "incorrect number of parameters",
+\ the binders found and numParams.
+: lf-ind-few ( k -- outcome )
   lf-ind-nparams lf-ind-site lf-diag-param-binders lf-diag-note outcome-rejected ;
+: lf-ind-enough ( node -- outcome )
+  lf-ind-body nip dup lf-ind-nparams < if lf-ind-few else drop outcome-ok then ;
+: lf-ind-t1 ( -- outcome )
+  lf-ind-type lf-idecl-type @ lf-ind-enough dup ok? 0= if exit then drop
+  lf-ind-ctors@ 0 ?do i lf-ind-ctor-type lf-ind-enough dup ok? 0= if unloop exit then drop
+  loop outcome-ok ;

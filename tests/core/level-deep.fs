@@ -114,6 +114,28 @@ T{ names-31 names-15 difference 16 lf-lnorm-ds-name * at-most
 T{ 300 deeper -> false outcome-full lf-diag-depth-limit }T
 T{ 1000 deeper -> false outcome-full lf-diag-depth-limit }T
 T{ 40 deeper drop -> true outcome-ok }T
+\ Lean's is_geq (level-geq.fs) recurses once per argument of a max chain,
+\ through normalize's normal forms: max p0 (... p(n-1)) >= q, false, is
+\ n frames deep, each counted as two level frames, so a chain of 60
+\ (the scope context holds 63 parameters) is full at the depth limit, not
+\ a deeper host stack (review of the heap stores); 10 is decided.
+require ../../src/kernel/level-geq.fs
+: p-name ( i -- c-addr u ) 0 <# #s [char] p hold #> ;
+: p-level ( i -- level ) 0 swap p-name lf-name-str must param ;
+: max-chain ( n -- top ) 1- dup p-level swap 0 ?do i p-level swap lf-level-max must loop ;
+: geq-deep ( n -- flag outcome code )
+  lf-name-reset lf-level-reset lf-lscope-context-reset max-chain
+  0 s" q" lf-name-str must param lf-diag-clear 100000 lf-level-geq? lf-diag-code@ ;
+T{ 60 geq-deep -> false outcome-full lf-diag-depth-limit }T
+T{ 10 geq-deep drop nip -> outcome-ok }T
+\ Its painted stacks, 20 frames: within the need normalize states.
+variable chain-top
+: geq-chain ( -- ) chain-top @ other @ 100000 lf-level-geq? verdict ! drop ;
+: painted-geq ( n -- return-cells data-cells )
+  lf-name-reset lf-level-reset lf-lscope-context-reset max-chain chain-top !
+  0 s" q" lf-name-str must param other ! ['] geq-chain stack-painted ;
+T{ 20 painted-geq lf-lnorm-data-cells at-most swap lf-lnorm-return-cells at-most
+   verdict @ -> true true outcome-ok }T
 300 painted-names 2constant names-300
 T{ verdict @ names-300 names-31 difference -> outcome-unknown 0 0 }T
 lf-level-default lf-level-capacity! drop  lf-name-default lf-name-capacity! drop

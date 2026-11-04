@@ -17,9 +17,15 @@
 \ State: none of its own; it runs inside one call of level-normalize's
 \ state record (lf-lnorm-state), whose memo of normal forms serves every
 \ recursive normalize of the call. Single-threaded within one context.
-\ Stack use: is_geq_core recurses once per level of the normal forms, a
-\ few cells each, below normalize's own per-node need
-\ (lf-lnorm-return-cells), which a caller already provides.
+\ Stack use: is_geq_core recurses once per level of the normal forms (a
+\ max chain of n arguments nests n frames), each frame at most 5 return
+\ and 4 data cells (lf-geq-normalized, lf-geq-core, lf-geq-either or
+\ lf-geq-both or lf-geq-rest, the deferred call). Each is counted as two
+\ of normalize's level frames (7 return and 3 data cells each), on the
+\ same counter, so the whole call stays within lf-level-depth-limit frames
+\ and the need a caller already provides (lf-lnorm-return-cells,
+\ lf-lnorm-data-cells); deeper is full, recorded as the depth limit
+\ (review of the heap stores, rvKC3).
 
 require ../lib/lib.fs
 require ../core/levels.fs
@@ -58,9 +64,14 @@ defer lf-geq ( l1 l2 -- flag )   \ is_geq: normalize both, then the core
   dup lf-geq-max? if lf-geq-both exit then
   over lf-geq-max? if 2dup lf-geq-either if 2drop true exit then then
   lf-geq-rest ;
+: lf-geq-enter ( -- flag )
+  lf-lnorm-enter 0= if false exit then
+  lf-lnorm-enter dup 0= if lf-lnorm-leave then ;
+: lf-geq-leave ( -- ) lf-lnorm-leave lf-lnorm-leave ;
 : lf-geq-normalized ( l1 l2 -- flag )
   lf-lnorm-ok? 0= if 2drop false exit then
-  swap lf-lnorm-walk swap lf-lnorm-walk lf-geq-core ;
+  lf-geq-enter 0= if 2drop false exit then
+  swap lf-lnorm-walk swap lf-lnorm-walk lf-geq-core lf-geq-leave ;
 ' lf-geq-normalized is lf-geq
 
 \ Whether Lean's is_geq(l1, l2) holds, with fuel: (flag ok) when decided;

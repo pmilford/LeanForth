@@ -109,10 +109,14 @@ end-structure
 : lf-blk-push ( domain -- outcome ) lf-minfer-push if outcome-ok else outcome-full then ;
 
 \ While the constructors are checked, the type is a constant inference
-\ finds (Lean's declare_inductive_types), through env-signature's hook.
+\ finds (Lean's declare_inductive_types), through env-signature's hook:
+\ only within the block's own check (the flag, cleared at its end, and,
+\ in depth, the declaration checked being the block's first member;
+\ review rvI21 M1).
 : lf-blk-visible? ( -- flag ) lf-ind-state lf-ind-visible @ ;
+: lf-blk-own? ( -- flag ) lf-blk-visible? lf-env-limit lf-ind-first@ = and ;
 : lf-blk-local ( name -- decl true | false )
-  lf-blk-visible? 0= if drop false exit then
+  lf-blk-own? 0= if drop false exit then
   lf-ind-name lf-name-same? if lf-ind-type true else false then ;
 ' lf-blk-local is lf-envsig-local
 
@@ -123,7 +127,7 @@ end-structure
   lf-ind-first@ 0 lf-diag-duplicate-param lf-blk-reject ;
 \ Step 6, N2 on the type's name and on T.rec (K5 on undecided ones), as
 \ the environment's lookup decides it below the block.
-: lf-blk-fresh ( name -- outcome ) lf-env-limit lf-env-find lf-env-n2 ;
+: lf-blk-fresh ( name -- outcome ) lf-env-limit lf-env-fresh ;
 : lf-blk-rec-name! ( -- outcome )
   lf-ind-name s" rec" lf-name-str if lf-blk-state lf-blkrec-rec ! outcome-ok
   else outcome-full then ;
@@ -146,7 +150,10 @@ end-structure
   dup lf-mhead-kind case
     lf-head-sort of lf-blk-sorted endof  lf-head-constant of lf-blk-unfold endof
     lf-head-none of drop outcome-invalid endof  >r lf-blk-not-sort r> endcase ;
-: lf-blk-count ( outcome i -- outcome ) lf-ind-nparams - lf-ind-state lf-ind-indices ! ;
+\ The indices: the binders after the parameters. T1 (step 4) leaves at
+\ least numParams; fewer, were T1 bypassed, is invalid (review rvI21 L2).
+: lf-blk-count ( outcome i -- outcome )
+  lf-ind-nparams - dup 0< if 2drop outcome-invalid exit then lf-ind-state lf-ind-indices ! ;
 : lf-blk-pi? ( node -- flag ) lf-mhead-kind lf-head-pi = ;
 : lf-blk-room? ( i -- flag ) lf-ind-binder-capacity < ;
 : lf-blk-tele ( node i -- outcome )
@@ -230,14 +237,16 @@ end-structure
 \ an argument of the result, else Prop only (E4).
 : lf-blk-checks# ( -- n ) lf-blk-state lf-blkrec-checks @ ;
 : lf-blk-check@ ( k -- pos ) cells lf-blk-state lf-blkrec-positions + @ ;
-: lf-blk-check! ( pos -- )
-  lf-blk-checks# dup lf-ind-binder-capacity < 0= if 2drop exit then
-  cells lf-blk-state lf-blkrec-positions + ! 1 lf-blk-state lf-blkrec-checks +! ;
+\ Recording a position: full past the capacity (unreachable: step 9
+\ refused a telescope longer than it; review rvI21 L2).
+: lf-blk-check! ( pos -- outcome )
+  lf-blk-checks# dup lf-ind-binder-capacity < 0= if 2drop outcome-full exit then
+  cells lf-blk-state lf-blkrec-positions + ! 1 lf-blk-state lf-blkrec-checks +! outcome-ok ;
 : lf-blk-proof? ( domain -- flag status )
   lf-minfer-domain ok-then? 0= if false swap exit then lf-minfer-zero? ;
 : lf-blk-e-field ( node i -- node i outcome )
   over lf-term-first@ lf-blk-proof? ok-then? 0= if exit then
-  0= if dup lf-blk-check! then outcome-ok ;
+  if outcome-ok else dup lf-blk-check! then ;
 : lf-blk-e-binder ( node i -- outcome )
   dup lf-ind-nparams < 0= if lf-blk-e-field ok-then2? 0= if exit then then
   drop lf-term-first@ lf-rcr-consume lf-blk-push ;
@@ -390,7 +399,7 @@ end-structure
   r@ lf-ity-reflexive-bit lf-blk-flag lf-warn-reflexive and or
   r> lf-ity-nested lf-more-field 0<> lf-warn-nested and or
   lf-ind-recs@ 0= lf-warn-no-recursor and or
-  lf-ind-state lf-ind-warned ! outcome-ok ;
+  dup lf-env-warnings! lf-ind-state lf-ind-warned ! outcome-ok ;
 
 \ ---------------------------------------------------------------------------
 \ The steps ( -- outcome ), in order.

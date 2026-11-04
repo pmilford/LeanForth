@@ -258,27 +258,32 @@ here feed-kinds - 1 cells / constant feed-kinds#
 \ own data cells. A block with no type, or with members missing, cannot
 \ come from lean4export and is invalid, as is a member outside a block.
 \ Item k of declaration d's data tuple; a cell appended to the data when
-\ the outcome so far is ok.
+\ the outcome so far is ok. The export's numbers are u32 (stage-records);
+\ one that is no positive cell (on a host with 32-bit cells) is invalid
+\ rather than a negative count (review rvI21 L3).
 : feed-item@ ( k d feed -- u ) feed-stage @ staged-item ;
 : feed-nth ( d feed k -- d feed u ) >r 2dup r> -rot feed-item@ ;
 : feed, ( outcome x -- outcome ) swap dup ok? if drop lf-more, else nip then ;
-: feed-num, ( d feed outcome k -- d feed outcome ) 3 pick 3 pick feed-item@ feed, ;
+: feed-u, ( outcome u -- outcome ) dup 0< if 2drop outcome-invalid else feed, then ;
+: feed-num, ( d feed outcome k -- d feed outcome ) swap >r feed-nth r> swap feed-u, ;
 \ A tuple as a list: its count, then its items.
 : feed-list-item ( outcome t cons i -- outcome t cons )
   >r 2dup r> -rot tuple-item >r rot r> feed, -rot ;
 : feed-list, ( outcome t cons -- outcome )
   2dup tuple-length >r rot r@ feed, -rot r> 0 ?do i feed-list-item loop 2drop ;
 : feed-names, ( d feed outcome k -- d feed outcome )
-  3 pick 3 pick feed-item@ 2 pick feed-tier tier-tuples feed-list, ;
+  swap >r feed-nth over feed-tier tier-tuples r> -rot feed-list, ;
 \ A recursor's rules: their count, then constructor, nfields and right
 \ side (the term the stage's expression became) of each.
 : feed-rule-item ( outcome t feed j -- outcome t feed )
   >r 2dup feed-tier tier-tuples r@ -rot tuple-item
-  r> 3 mod 2 = if over feed-root then >r rot r> feed, -rot ;
+  r> /rule-items mod rule-rhs-item = if over feed-root then >r rot r> feed, -rot ;
 : feed-rules, ( outcome t feed -- outcome )
   2dup feed-tier tier-tuples tuple-length >r
-  r@ 3 mod if r> drop 2drop drop outcome-invalid exit then
-  rot r@ 3 / feed, -rot r> 0 ?do i feed-rule-item loop 2drop ;
+  r@ /rule-items mod if r> drop 2drop drop outcome-invalid exit then
+  rot r@ /rule-items / feed, -rot r> 0 ?do i feed-rule-item loop 2drop ;
+: feed-rules-of, ( d feed outcome k -- d feed outcome )
+  swap >r feed-nth over r> -rot feed-rules, ;
 : feed-flags ( d feed -- flags )
   2dup feed-stage @ staged-rec? lf-ity-rec-bit and >r
   feed-stage @ staged-reflexive? lf-ity-reflexive-bit and r> or ;
@@ -293,7 +298,7 @@ here feed-kinds - 1 cells / constant feed-kinds#
   outcome-ok more-rec-params feed-num, more-rec-indices feed-num,
   more-rec-motives feed-num, more-rec-minors feed-num,
   >r 2dup feed-stage @ staged-k? r> swap feed, more-rec-all feed-names,
-  more-rec-rules 3 pick 3 pick feed-item@ 2 pick feed-rules, ;
+  more-rec-rules feed-rules-of, ;
 : feed-kind-data ( d feed kind -- d feed outcome )
   case kind-type of feed-type-data endof  kind-ctor of feed-ctor-data endof
     kind-recursor of feed-rec-data endof outcome-invalid swap endcase ;
@@ -302,7 +307,9 @@ here feed-kinds - 1 cells / constant feed-kinds#
   2dup feed-stage @ staged-kind@ feed-kind-data nip nip ;
 \ The block record: its header, and the number of members to come.
 : feed-header! ( feed -- ) lf-more-here 1+ swap feed-header ! ;
-: feed-total ( d feed -- n ) 0 3 0 do i 3 pick 3 pick feed-item@ + loop nip nip ;
+: feed-total ( d feed -- n )
+  more-block-types feed-nth >r more-block-ctors feed-nth >r
+  more-block-recursors feed-nth nip nip r> + r> + ;
 : feed-members! ( d feed outcome -- outcome )
   >r 2dup feed-total swap feed-members ! drop r> ;
 : feed-block-ok? ( d feed -- flag )

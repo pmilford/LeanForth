@@ -210,8 +210,12 @@ defer lf-env-before-final
 \ For a span, every member's name, each below the first member.
 : lf-own-matches ( test k -- n )
   lf-env-limit + lf-input-name swap lf-env-limit lf-env-matches ;
+\ A name Lean's generated recursor of an earlier type holds (environment.fs,
+\ lf-env-reserving) is a conflict too, unless nothing holds it.
+: lf-own-held ( k -- n )
+  lf-env-limit + lf-input-name lf-env-limit lf-env-reserving nip outcome-rejected <> 1 and ;
 : lf-span-conflicts ( -- n )
-  0 lf-cand-span@ 0 ?do ['] lf-slot-conflict? i lf-own-matches + loop ;
+  0 lf-cand-span@ 0 ?do ['] lf-slot-conflict? i lf-own-matches + i lf-own-held + loop ;
 : lf-recheck-name? ( -- flag )
   lf-name-storage-valid? if lf-span-conflicts 0= else false then ;
 \ Kind and safety in scope (ADR 0011), a value, distinct parameters (L3).
@@ -291,6 +295,7 @@ lf-rechecks# 1+ constant lf-recheck-moved
   lf-env-may-write swap lf-env-limit + lf-input-decl swap lf-slot-decl /lf-idecl move ;
 : lf-slot-sets! ( slot -- )
   lf-env-may-write lf-env-cand lf-cand-axioms @ over lf-slot-axioms !
+  lf-env-cand lf-cand-warnings @ over lf-slot-warnings !
   lf-env-cand lf-cand-provenance @ swap lf-slot-provenance ! ;
 : lf-slot-deps! ( first slot -- )
   lf-env-may-write tuck lf-slot-deps ! lf-cand-count@ swap lf-slot-count ! ;
