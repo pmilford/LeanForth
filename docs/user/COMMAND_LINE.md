@@ -292,8 +292,9 @@ exit status 4
 
 `check --record RECORD` also writes the *run record* of the check
 ([run records](../programming/RUN_RECORDS.md), format 0.1, plan task
-2.2.5): which file was checked (its SHA-256, size, lines and whether its
-manifest matched), which Lean and exporter wrote it, which LeanForth
+2.2.5): which file was checked (its SHA-256, size, lines, whether its
+manifest matched, and whether the check enforced it: true by default,
+false with `--no-manifest`), which Lean and exporter wrote it, which LeanForth
 commit and Forth system checked it (the commit `bin/leanforth` finds with
 git, or null), with which fuel and limits, and each declaration's verdict,
 read from its published slot. The printed verdicts and the exit status are

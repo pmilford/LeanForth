@@ -73,7 +73,7 @@ written on one line and shown here indented:
     "bytes": 1787,
     "lines": 35,
     "manifest": {"outcome": "invalid", "field": "",
-                 "reason": "manifest missing, unreadable or too large"}
+                 "reason": "manifest missing, unreadable or too large", "enforced": false}
   },
   "export": {"exporter": "lean4export", "exporterVersion": "3.1.0", "format": "3.1.0",
              "lean": "4.35.0", "leanGithash": "eb6cafb7290e8bd5f2937522d8d804f58f02bafc"},
@@ -94,7 +94,7 @@ written on one line and shown here indented:
 | Field | Contents | Where it comes from |
 | --- | --- | --- |
 | `input.sha256`, `bytes`, `lines` | SHA-256 of the file's bytes (as `sha256sum` prints it), its size, and its line feeds plus one for a last line without one | the file, read by `rr-hash` before the check and again after it; a change in between fails the run (`rr-finish`) |
-| `input.manifest` | the outcome of checking the file against `FILE.manifest.json` ([NDJSON reader, manifests](../development/NDJSON_READER.md#manifests)); `field` and `reason` are `export-error`'s, empty for ok | `src/import/manifest.fs` |
+| `input.manifest` | the outcome of checking the file against `FILE.manifest.json` ([NDJSON reader, manifests](../development/NDJSON_READER.md#manifests)), recorded whatever it is; `field` and `reason` are `export-error`'s, empty for ok; `enforced` true only when the importer refused to load the input unless it matched that manifest | `src/import/manifest.fs`; `enforced` from `rr-import` (below) |
 | `export` | the exporter, export format and Lean versions the metadata record names; null when no metadata record was read | the NDJSON reader, which accepts only the pinned versions |
 | `leanforth` | the commit and whether tracked files differed from it, or null for both | the caller (`ni-source`; `make run-record` asks git) |
 | `host` | the Forth system, its version, its engine (the program's file name, such as `gforth` or `gforth-fast`) and cell width | Gforth's `version-string` and argument 0, else `unknown` |
@@ -123,9 +123,29 @@ what a check said about itself:
   the check or its publication threw and the run stopped there (E4).
 - **not-checked** for a slot the run never reached.
 
+**Was the manifest enforced?** `manifest.outcome` says whether the file
+matches the manifest beside it; `manifest.enforced` says whether that
+mattered to the check. The record says enforced only when the run record
+module loaded the input itself with the manifest checked
+(`rr-import ( c-addr u flag -- outcome )`, flag true: `cin-read-checked`
+of `src/import/checker-input.fs`), as `bin/leanforth check` does by
+default; then an input that does not match is not read at all, and a
+record that says enforced with a read that succeeded and a manifest that
+did not match is refused (by the writer and by the schema). With
+`--no-manifest`, from `tests/support/run-records.fs` (and so the golden
+records and `make run-record`), and whenever another importer hands its
+outcome to `rr-read!`, the record says not enforced, also when the manifest
+is missing or does not match: the record never claims a check it did not
+see done.
+
 **Only the run's own environment.** Verdicts are read only from the
 checked environment that the run's own `rr-check` made, never from another
-one that happens to be current, even over the same input (review F1). If
+one that happens to be current, even over the same input (review F1).
+Environments are compared by identity, which never repeats, not by
+address: when the run's environment is freed and a new one is made at the
+same address, the new one is another environment (round 2 of the review;
+its probe is a test), so no record is written, and `rr-release` frees only
+an environment that still has the run's identity. If
 the run could not make its environment (no memory, a pool out of range),
 the record lists no declaration and its `check.run` says why, with `mode`
 and `allowlistVersion` null. If the run's environment was freed, or another
@@ -154,8 +174,17 @@ no control character (C0 or C1), no format character (bidirectional
 controls, zero-width characters, tags), no line or paragraph separator, no
 surrogate. Names, host texts, metadata texts, a failed manifest's reason
 and a diagnostic's reason and site must also be *shown*: at least one
-character that is not a space. Unlike the receipts' rule this does not ask
-for an ASCII character, because a Lean name may be written in any script.
+character that is seen, that is not a space, not a blank-looking filler
+(U+115F, U+1160, U+2800 BRAILLE BLANK, U+3164 HANGUL FILLER, U+FFA0), not
+a combining mark (Unicode general category M) and not a default-ignorable
+code point, all as of Unicode 15.1. So a name that is empty, blank, a
+filler, or made only of combining marks or of ignorable characters is
+refused, by the same check as a blank one; `a` followed by a combining
+accent is shown. Unlike the receipts' rule this does not ask for an ASCII
+character, because a Lean name may be written in any script. The rule and
+its tables are in `src/import/text-rule.fs`; the tests rebuild the table
+of characters that are not seen from Python's Unicode 15.1 data and
+compare it, and the schema's class, with it.
 Limits: names 1024 bytes, other texts 128 bytes, a site 255. The writer
 checks every text it writes against the same rule and limits, character by
 character, and refuses the record (invalid, or full for a length) rather
@@ -208,7 +237,7 @@ The first 32 findings are listed, all are counted. Codes:
 | `missing-field` | the old record lacks a field the new one has |
 | `unknown-field` | the old record has a field the new one lacks |
 | `duplicate-key` | the old record repeats a key; its values are not compared |
-| `input-differs` | the input's hash, size, lines or manifest outcome |
+| `input-differs` | the input's hash, size, lines, manifest outcome or whether the manifest was enforced |
 | `export-differs` | the Lean or exporter versions in the metadata |
 | `tool-differs` | the LeanForth commit, or the host Forth's name, version, engine or cell width |
 | `settings-differ` | fuel, the dependency pool or a capacity |
@@ -268,8 +297,14 @@ that the verdicts are the slots' (equal to `lf-check-input`'s), the record
 of a run that stops part way (a THROW in the publisher), determinism, the
 commit's form, each failure of `rr-write` and `rr-finish`, a foreign
 environment (the review's reproducer: none of its verdicts is written),
-the text rule and number range, hashing, cuts between characters, and
-replay findings; `tests/core/test_run_records.py` writes the nine records
+the run's environment freed and a new one made at the same address (the
+second review's `aba.fs`, with its fuel and with equal fuel: no record,
+and the new environment left alive), whether the manifest was enforced
+(checked read, unchecked read, the driver, `rr-read!`, a checked read of a
+copy without a manifest, and a contradiction refused), the text rule,
+blank-looking texts (the fillers, combining marks or ignorable characters
+alone) and the number range, hashing, cuts between characters, and replay
+findings; `tests/core/test_run_records.py` writes the nine records
 to files and checks them against the schema, Python's SHA-256, the golden
 records and each other, and replays them. It refuses 15 tampered records,
 each with its code and path (a changed verdict, hash, host version, reason
@@ -280,14 +315,19 @@ is not JSON; another schema version), and two replays with another fuel or
 another commit; it confirms a pretty-printed record and one whose verdict
 is spelled with an escape, and replays a record with a 201-byte multibyte
 key into a valid report whose path is cut between characters. It shows
-that the schema refuses 32 records, those that claim more than a checker
-could and those that break the text rule, a limit or the real values of
-`mode` and `allowlistVersion`; that each schema pattern means the same in
-ECMA-262 (node, `u` flag) and in Python; and that the writer's text rule
-equals the schema's on 177 code points (every range's ends and their
-neighbours). Twenty-eight faults planted in the two modules
+that the schema refuses 43 records, those that claim more than a checker
+could (among them an enforced manifest that does not match) and those that
+break the text rule, a limit or the real values of `mode` and
+`allowlistVersion`, or whose name looks blank; that each schema pattern
+means the same in ECMA-262 (node, `u` flag) and in Python; that the
+writer's text rule equals the schema's on 1,623 code points (every range's
+ends and their neighbours); and that the characters that are not seen, in
+`src/import/text-rule.fs` and in the schema, are exactly those of Unicode
+15.1's data. Thirty-four faults planted in the modules
 (`tests/mutants/faults.toml`, section "run records and replay") are each
-caught by these tests.
+caught by these tests; `tests/cli/test_leanforth.py` checks that the
+command line's records say enforced, and say not enforced with
+`--no-manifest`.
 
 ## Versioning
 
@@ -302,7 +342,11 @@ refuses a record of any other version (`unknown-schema`).
   of `mode` and `allowlistVersion`, no not-checked declaration in a run
   that ended ok, no declarations without an environment). No run record
   had been published outside the tests, and every record the tests had
-  written still validates, so the version stays 0.1.
+  written still validates, so the version stays 0.1. After the review's
+  second round, still the same day and still with no record published
+  outside the tests: the field `input.manifest.enforced` (required), and
+  blank-looking texts refused. The golden records were written again; the
+  version stays 0.1.
 
 ## Rejected alternatives
 
