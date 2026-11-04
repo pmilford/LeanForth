@@ -304,8 +304,11 @@ begin-structure /lf-logs
   field: lf-logs-cref-mark   \ input constant references lie below
   field: lf-logs-written     \ statistics: records written in this context, in all
   field: lf-logs-restarts    \ statistics: preset logs restarted after truncation
-  lf-log-memo-size 3 * cells +field lf-logs-term-memo
-  lf-log-memo-size 3 * cells +field lf-logs-level-memo
+  field: lf-logs-copy-depth  \ the depth of the record whose terms are being copied
+  field: lf-logs-at-node     \ the node the copier combines now
+  field: lf-logs-at-context  \ the binders around it (the record's and its own)
+  lf-log-memo-size 4 * cells +field lf-logs-term-memo
+  lf-log-memo-size 4 * cells +field lf-logs-level-memo
   lf-log-stack-capacity 1+ cells +field lf-logs-term-tasks
   lf-log-stack-capacity 1+ cells +field lf-logs-term-values
   lf-log-stack-capacity 1+ cells +field lf-logs-level-tasks
@@ -359,8 +362,8 @@ end-structure
 \ Starting and stopping. The input marks are read when a log starts: the
 \ objects below them never change during a check.
 : lf-log-memos-clear ( -- )
-  lf-log-state dup lf-logs-term-memo lf-log-memo-size 3 * cells erase
-  lf-logs-level-memo lf-log-memo-size 3 * cells erase ;
+  lf-log-state dup lf-logs-term-memo lf-log-memo-size 4 * cells erase
+  lf-logs-level-memo lf-log-memo-size 4 * cells erase ;
 : lf-log-mark-of ( k -- count ) lf-input-intact? if lf-input-mark mark-count @
   else drop 0 then ;
 : lf-log-bases ( -- )
@@ -459,11 +462,16 @@ end-structure
 \ node post-order with two stacks of its own, so it never recurses and
 \ never depends on the store's capacity: a task is a node to expand
 \ (n >= 0) or to combine (-1-n) once its children's references lie on the
-\ value stack. The memo holds, for a node, its index, its identity and its
-\ copy's reference, direct-mapped by index; a live node's identity is
-\ never 0, so a cleared entry never matches, and a collision costs only a
-\ second copy. One copy may spend lf-log-copy-work tasks; a formula that
-\ needs more, or more stack, truncates the log (lf-bound-work).
+\ value stack, with its context c: the binders around it, the record's
+\ depth plus the binders of the copied term above it (a lambda's or Pi's
+\ second child lies under one more; always 0 for levels). Only a free
+\ variable's copy depends on c (it becomes the bound variable it stands
+\ for, lf-log-fvar). The memo holds, for a node and a context, its index,
+\ its identity, the context and its copy's reference, direct-mapped by
+\ index; a live node's identity is never 0, so a cleared entry never
+\ matches, and a collision costs only a second copy. One copy may spend
+\ lf-log-copy-work tasks; a formula that needs more, or more stack,
+\ truncates the log (lf-bound-work).
 begin-structure /lf-copier
   field: copier-mark       \ offset in lf-log-state of the input mark
   field: copier-memo       \ ... of the memo
@@ -478,36 +486,46 @@ begin-structure /lf-copier
   field: copier-arity      \ xt ( tag -- n ): children in first (1) or both (2)
   field: copier-leaf       \ xt ( tag first second -- tag first' second' true | false )
   field: copier-bound      \ the bound when its pool is full
+  field: copier-inner      \ xt ( tag -- n ): binders the second child lies under
 end-structure
-/lf-copier 13 cells <> [if] .( derivation-log.fs: copier layout) cr abort [then]
+/lf-copier 14 cells <> [if] .( derivation-log.fs: copier layout) cr abort [then]
 : lf-copier@ ( copier field -- addr ) + @ lf-log-state + ;
 : lf-copier-mark ( copier -- n ) 0 copier-mark lf-copier@ @ ;
 : lf-copier-tasks ( copier -- stack ) 0 copier-tasks lf-copier@ ;
 : lf-copier-values ( copier -- stack ) 0 copier-values lf-copier@ ;
 : lf-copier-made@ ( copier -- addr ) 0 copier-made lf-copier@ ;
 : lf-copier-memo ( index copier -- entry )
-  0 copier-memo lf-copier@ swap lf-log-memo-size mod 3 * cells + ;
+  0 copier-memo lf-copier@ swap lf-log-memo-size mod 4 * cells + ;
 : lf-copier-input? ( index copier -- flag ) lf-copier-mark < ;
 : lf-copier-identity ( index copier -- identity )
   copier-identity @ execute 0= if 0 then ;
 : lf-copier-arity ( tag copier -- n ) copier-arity @ execute ;
-\ The memo: a node's copy, when the memo holds it; remembering one.
-: lf-memo-match? ( index identity entry -- flag ) tuck cell+ @ = -rot @ = and ;
-: lf-copier-hit ( index copier -- ref true | false )
-  2dup lf-copier-memo >r over swap lf-copier-identity r@ lf-memo-match?
-  if r> 2 cells + @ true else r> drop false then ;
-: lf-copier-remember ( ref index copier -- )
-  2dup lf-copier-memo >r over swap lf-copier-identity r@ cell+ ! r@ ! r> 2 cells + ! ;
-\ A node's reference when it needs no copy: itself below the mark, or the
-\ copy the memo holds.
-: lf-copier-known ( n copier -- ref true | false )
-  2dup lf-copier-input? if drop true exit then lf-copier-hit ;
+: lf-copier-inner ( tag copier -- n ) copier-inner @ execute ;
+\ The memo: a node's copy in a context, when the memo holds it;
+\ remembering one.
+: lf-memo-match? ( index identity c entry -- flag )
+  >r r@ 2 cells + @ = swap r@ cell+ @ = and swap r> @ = and ;
+: lf-copier-key ( index c copier -- index identity c entry )
+  >r over r@ lf-copier-identity swap rot dup r> lf-copier-memo >r -rot r> ;
+: lf-copier-hit ( index c copier -- ref true | false )
+  lf-copier-key dup >r lf-memo-match? if r> 3 cells + @ true else r> drop false then ;
+: lf-copier-remember ( ref index c copier -- )
+  lf-copier-key >r r@ 2 cells + ! r@ cell+ ! r@ ! r> 3 cells + ! ;
+\ A node's reference when it needs no copy: itself below the mark (input
+\ never holds a free variable), or the copy the memo holds.
+: lf-copier-known ( n c copier -- ref true | false )
+  2 pick over lf-copier-input? if 2drop true exit then lf-copier-hit ;
 
-\ Pushing a task or a value; no room truncates the log.
+\ Pushing a task (two cells: its context, then the node) or a value; no
+\ room truncates the log.
 : lf-copier-deep ( copier -- false ) drop lf-bound-work lf-log-truncate false ;
 : lf-copier-push ( x copier stack -- flag )
   rot swap lf-stack-push if drop true else lf-copier-deep then ;
-: lf-copier-task ( x copier -- flag ) dup lf-copier-tasks lf-copier-push ;
+: lf-copier-task ( x c copier -- flag )
+  tuck dup lf-copier-tasks lf-copier-push 0= if 2drop false exit then
+  dup lf-copier-tasks lf-copier-push ;
+: lf-copier-next ( copier -- x c )
+  dup lf-copier-tasks lf-stack-pop swap lf-copier-tasks lf-stack-pop ;
 : lf-copier-value ( ref copier -- flag ) dup lf-copier-values lf-copier-push ;
 : lf-copier-pop ( copier -- ref ) lf-copier-values lf-stack-pop ;
 : lf-combine ( n -- task ) 1+ negate ;
@@ -515,15 +533,21 @@ end-structure
 
 \ Expanding a node: its reference when it needs no copy; else a combine
 \ task, then its children's expand tasks (the second first, so that the
-\ first child's value lies below the second's).
-: lf-copier-kids ( n copier -- flag )
-  tuck copier-read @ execute 0= if lf-log-unreadable exit then
-  rot 3 pick lf-copier-arity case
-    2 of rot tuck lf-copier-task >r lf-copier-task r> and endof
-    1 of drop swap lf-copier-task endof >r 2drop drop true r> endcase ;
-: lf-copier-expand ( n copier -- flag )
-  2dup lf-copier-known if rot drop swap lf-copier-value exit then
-  over lf-combine over lf-copier-task 0= if 2drop false exit then lf-copier-kids ;
+\ first child's value lies below the second's), the second in the context
+\ of the binders it lies under.
+: lf-copier-single ( c copier tag first second -- flag ) drop nip -rot lf-copier-task ;
+: lf-copier-pair ( c copier tag first second -- flag )
+  >r >r over lf-copier-inner 2 pick + r> r> rot 3 pick lf-copier-task
+  >r -rot lf-copier-task r> and ;
+: lf-copier-kids ( n c copier -- flag )
+  rot over copier-read @ execute 0= if drop lf-log-unreadable exit then
+  2 pick 4 pick lf-copier-arity case
+    2 of lf-copier-pair endof 1 of lf-copier-single endof
+    >r 2drop 2drop drop true r> endcase ;
+: lf-copier-expand ( n c copier -- flag )
+  >r 2dup r@ lf-copier-known if nip nip r> lf-copier-value exit then
+  over lf-combine over r@ lf-copier-task 0= if 2drop r> drop false exit then
+  r> lf-copier-kids ;
 
 \ Combining a node: its fields with its children's references, popped
 \ from the value stack (the second's on top); a leaf by the store's leaf

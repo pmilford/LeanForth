@@ -6,20 +6,27 @@
 \ scans and topological staging are additional work. Only a directly visible
 \ Pi is applied; uncertain conversion is unknown.
 \ Free variables (ADR 0014 Q2, plan task 4.2.2a; [kernel] code, not yet
-\ through the review gate): inference only ever infers closed terms, as
-\ Lean's kernel does. A telescope of lambdas or Pis is opened as Lean's
-\ infer_lambda and infer_pi open it (type_checker.cpp 125-166): each
-\ domain, opened with the free variables of the binders before it
-\ (instantiate_rev, mixed-open.fs), must be a type (S2) and then gets a
-\ new free variable of the local context (core/local-context.fs); the
-\ body, opened with all of them, is inferred; a lambda's type is then
-\ mk_pi of them over the body's type, a Pi's the Sort of the levels'
-\ imax. A free variable's type is its entry's (infer_fvar, 93-99); a loose
-\ bound variable is malformed. The opened binders' free variables wait on
-\ the job's scope, at most lf-depth-limit (more is full, as the binder
-\ context was). The rejection analysis below keeps its own binders as
-\ bound variables (see lf-minfer-closed), and scratch a step no longer
-\ needs is discarded (lf-minfer-discard). Lean then also applies
+\ through the review gate): every type inference computes is closed, as
+\ in Lean's kernel. When inference enters a lambda or Pi (infer_lambda,
+\ infer_pi, type_checker.cpp 125-166), the domain must be a type (S2),
+\ and the binder gets a new free variable of the local context
+\ (core/local-context.fs) whose type is the domain closed with the free
+\ variables of the binders around it (instantiate_rev, mixed-open.fs); it
+\ waits on the job's scope, at most lf-depth-limit (more is full, as the
+\ binder context was). A lambda's type is mk_pi of its free variable over
+\ the body's type, a Pi's the Sort of the levels' imax, and a free
+\ variable's type its entry's (infer_fvar, 93-99). Inference reads its
+\ source terms under the scope: a loose bound variable k is the scope's
+\ free variable k places from the top, so inferring a term under the
+\ scope is inferring Lean's instantiate_rev of it with the scope's free
+\ variables -- the same types, from the same checks in the same order --
+\ without copying each body first (Lean opens a telescope of binders at
+\ once; the binders here are entered one by one, each one inference step
+\ with its source node as its subject, as the derivation log records it).
+\ An application's argument is closed before it is put into the Pi body.
+\ The rejection analysis below keeps its own binders as bound variables
+\ too (see lf-minfer-closed), and scratch a step no longer needs is
+\ discarded (lf-minfer-discard). Lean then also applies
 \ cheap_beta_reduce to a lambda body's type (instantiate.cpp 211-230,
 \ type_checker.cpp 140); that would change inferred
 \ types, so it comes with the ports that need it (plan task 4.2.2c), not
@@ -157,7 +164,8 @@ end-structure
 \ being inferred, outermost first, each with a level beside it (a Pi
 \ domain's Sort level, else 0). A binder is opened once its domain is
 \ checked, where Lean extends its local context (type_checker.cpp 131-136,
-\ 151-155): a new entry of the local context, of the domain as its type.
+\ 151-155): a new entry of the local context, of the domain as its type,
+\ with its place on the scope (which the derivation log reads).
 \ More than lf-depth-limit open binders is full, recorded as a full binder
 \ context, whatever fuel is left (ADR 0008); so is a full local context or
 \ term store. Every telescope gives its binders back when it ends
@@ -171,9 +179,11 @@ end-structure
 : lf-minfer-scope-push ( fvar level -- )
   lf-minfer-context-depth @ tuck lf-minfer-sort-cell ! lf-minfer-fvar-cell !
   1 lf-minfer-context-depth +! ;
+: lf-minfer-placed ( fvar -- fvar ) lf-minfer-context-depth @ over lf-fvar-depth! ;
 : lf-minfer-bind ( type level -- outcome )
   lf-minfer-context-depth @ lf-depth-limit < 0= if 2drop lf-minfer-crowded exit then
-  swap lf-lctx-local ok-then? if swap lf-minfer-scope-push outcome-ok else nip then ;
+  swap lf-lctx-local ok-then? if lf-minfer-placed swap lf-minfer-scope-push outcome-ok
+  else nip then ;
 : lf-minfer-unbind ( base -- ) lf-minfer-context-depth ! ;
 \ The free variables opened since base: their cells and their number.
 : lf-minfer-opened ( base -- fvars n )
@@ -208,11 +218,19 @@ end-structure
   lf-minfer-handles if lf-minfer-convert else outcome-invalid then ;
 \ A Pi body with an argument put for its bound variable, as infer_app
 \ does (type_checker.cpp 187: Lean's instantiate, mixed-open.fs), on the
-\ job's fuel. The argument is closed, as every term inference meets is.
+\ job's fuel: the argument, a source term read under the scope, is first
+\ closed with the scope's free variables. With the derivation log on
+\ (ADR 0013) this is one instantiate step of the Pi body and the argument,
+\ as before free variables; both paths run the same words.
 : lf-minfer-put ( -- addr ) lf-minfer-job lf-ijob-argument ;
-: lf-minfer-instantiate ( body argument -- type status )
+: lf-minfer-substitute ( body argument -- type status )
   lf-minfer-put ! lf-minfer-lend lf-minfer-put 1 lf-instantiate lf-minfer-repay
   outcome-sane ;
+: lf-minfer-put-closed ( body argument -- type status )
+  0 lf-minfer-open ok-then? if lf-minfer-substitute else nip no-result then ;
+: lf-minfer-instantiate ( body argument -- type status )
+  lf-log? if 2dup lf-rule-instantiate lf-log-open lf-minfer-put-closed lf-log-close
+  else lf-minfer-put-closed then ;
 
 \ A stamped symbolic Sort for an allocated level; an allocator failure (a
 \ full store or a spent serial) is full and cannot yield a type.
@@ -264,16 +282,18 @@ end-structure
 
 \ A free variable has its entry's type (infer_fvar, type_checker.cpp
 \ 93-99); one that the local context does not name is malformed. A bound
-\ variable never reaches inference, which only meets closed terms (Lean
-\ refuses any other, 326-327): it is malformed too, recorded with its
-\ index and the binders open.
+\ variable k read under the scope is the scope's free variable k places
+\ from the top (see the header), so it has that variable's type; one
+\ beyond the scope is out of scope, invalid (preflight finds every such
+\ input first).
 : lf-minfer-fvar? ( node -- flag )
   dup lf-term-valid? if lf-term-tag@ lf-tag-fvar = else drop false then ;
 : lf-minfer-fvar ( node -- type status )
   dup lf-fvar-live? if lf-fvar-type outcome-ok exit then
   0 lf-diag-malformed lf-minfer-note -1 outcome-invalid ;
 : lf-minfer-bvar ( index -- type status )
-  lf-minfer-context-depth @ lf-diag-out-of-scope lf-minfer-note -1 outcome-invalid ;
+  lf-minfer-context-depth @ 2dup < 0= if 2drop -1 outcome-invalid exit then
+  swap - 1- lf-minfer-fvar-cell @ lf-minfer-fvar ;
 
 defer lf-minfer-walk ( node -- type status )
 
@@ -486,76 +506,63 @@ defer lf-minfer-apart ( left right -- mask flag )
   swap lf-minfer-walk lf-minfer-step? 0= if exit then
   lf-minfer-pi-parts if rot lf-minfer-apply else nip lf-minfer-none then ;
 
-\ Binders, a telescope at a time, as infer_lambda and infer_pi walk one
-\ (type_checker.cpp 125-166): while the body is a binder of the same tag,
-\ the next domain, opened with the free variables of the binders before it
-\ in the telescope (base is the scope's depth where it starts), must be a
-\ type, its type a Sort (otherwise unknown, or rejected by S2); then it
-\ gets a free variable on the scope with that Sort's level, and its
-\ inference's scratch is discarded. The body, opened with all of them, is
-\ then inferred, and the binders go back to the scope whatever the
-\ outcome (lf-minfer-unbind). The words that call lf-minfer-walk keep
-\ their state on the data stack and call no other word between their
-\ visits, so that every nested level holds few cells of the return stack
-\ (see "Host stacks" at the end).
+\ Binders, one at a time, as infer_lambda and infer_pi treat each binder
+\ of a telescope (type_checker.cpp 125-166). The domain, read under the
+\ scope, must be a type, its type a Sort (otherwise unknown, or rejected
+\ by S2); its inference's scratch is then discarded, and the binder gets
+\ a free variable whose type is the domain closed with the scope's free
+\ variables (instantiate_rev), with that Sort's level beside it. The body
+\ is inferred one binder deeper, and the binder goes back to the scope
+\ whatever the outcome (lf-minfer-unbind). The words that call
+\ lf-minfer-walk keep their state on the data stack and call no other
+\ word between their visits, so that every nested level holds few cells
+\ of the return stack (see "Host stacks" at the end).
 : lf-minfer-domain-sort ( type -- level status )
   lf-minfer-site lf-diag-domain-type lf-minfer-sort-rule ;
 : lf-minfer-domain-level ( mark type status -- level status )
   dup ok? if drop lf-minfer-domain-sort then rot lf-minfer-discard ;
-: lf-minfer-open-domain ( base tag body domain -- base tag body domain' status )
-  2over drop lf-minfer-open ;
-: lf-minfer-bound ( domain level status -- status )
-  ok-then? if lf-minfer-bind else nip then ;
-: lf-minfer-more? ( body tag -- flag )
-  over lf-term-valid? if swap lf-term-tag@ = else 2drop false then ;
-: lf-minfer-fields ( node -- first second ) dup lf-term-first@ swap lf-term-second@ ;
-: lf-minfer-binders ( base tag domain body -- base tag body status )
-  begin swap lf-minfer-open-domain ok-then? 0= if exit then
-    lf-term-count @ over lf-minfer-walk lf-minfer-domain-level lf-minfer-bound
-    dup ok? 0= if exit then drop 2dup swap lf-minfer-more?
-  while lf-minfer-fields repeat outcome-ok ;
-\ A telescope that failed gives its binders back and no type. A step that
-\ keeps base below its result: x and true, or -1, the failure and false.
-: lf-minfer-escape ( base tag status -- -1 status ) nip swap lf-minfer-unbind no-result ;
+\ A source term closed with every free variable of the scope (the term is
+\ closed apart from the scope's binders, so the outermost are never met).
+: lf-minfer-closing ( node -- node' status ) 0 lf-minfer-open ;
+: lf-minfer-open-binder ( domain level -- status )
+  swap lf-minfer-closing ok-then? if swap lf-minfer-bind else nip then ;
+: lf-minfer-binding ( base domain -- base status )
+  lf-term-count @ over lf-minfer-walk lf-minfer-domain-level
+  ok-then? if lf-minfer-open-binder else nip then ;
+\ A step that keeps base below its result: x and true, or -1, the failure
+\ and false.
 : lf-minfer-good? ( x status -- x true | -1 status false )
   dup ok? if drop true else nip no-result false then ;
-\ A lambda's type is the Pi over the telescope's free variables (mk_pi) of
-\ its body's type (type_checker.cpp 139-141, without cheap_beta_reduce;
-\ see the header).
+\ A lambda's type is the Pi over its free variable of its body's type
+\ (mk_pi; type_checker.cpp 139-141, without cheap_beta_reduce: see the
+\ header).
 : lf-minfer-lam ( domain body -- type status )
-  lf-minfer-context-depth @ lf-tag-lam 2swap lf-minfer-binders ok-then?
-  0= if lf-minfer-escape exit then nip over lf-minfer-open lf-minfer-good?
-  if lf-minfer-walk lf-minfer-good? if over lf-minfer-close then then
-  rot lf-minfer-unbind ;
-\ A Pi's type is Sort (mk_imax u1 (mk_imax u2 ... v)) for domains in Sort
-\ ui and a body in Sort v: Lean's infer_pi builds the level innermost
-\ first (type_checker.cpp 158-165; ADR 0011, Amendment 1; level-make.fs).
-\ S4 (ADR 0011, Amendment 2): the body's type must be a Sort too (infer_pi's
-\ ensure_sort_core on the body, 158); when it is no visible Sort and its
-\ whnfB is rigid and not a Sort, Lean's kernel fails with typeExpected. A
-\ full level store is full. Only the level is needed, so the telescope's
-\ scratch is discarded before the Sort is made.
+  lf-minfer-context-depth @ rot lf-minfer-binding ok-then? 0= if nip no-result exit then
+  swap lf-minfer-walk lf-minfer-good? if over lf-minfer-close then rot lf-minfer-unbind ;
+\ A Pi's type is Sort (mk_imax u v) for a domain in Sort u and a body in
+\ Sort v: Lean's infer_pi builds the level innermost first
+\ (type_checker.cpp 158-165), as this recursion does (ADR 0011, Amendment
+\ 1; level-make.fs). S4 (ADR 0011, Amendment 2): the body's type must be a
+\ Sort too (infer_pi's ensure_sort_core on the body, 158); when it is no
+\ visible Sort and its whnfB is rigid and not a Sort, Lean's kernel fails
+\ with typeExpected. A full level store is full. Only the level is
+\ needed, so the Pi's scratch is discarded before its Sort is made.
 : lf-minfer-body-sort ( type -- level status )
   lf-minfer-site lf-diag-body-type lf-minfer-sort-rule ;
-: lf-minfer-imax-step ( v i -- v' i true | false )
-  tuck lf-minfer-sort-cell @ swap lf-level-mk-imax if swap true else drop false then ;
 : lf-minfer-imax ( v base -- level status )
-  >r lf-minfer-context-depth @ begin 1- dup r@ < 0= while
-    lf-minfer-imax-step 0= if r> drop -1 outcome-full exit then
-  repeat drop r> drop outcome-ok ;
+  lf-minfer-sort-cell @ swap lf-level-mk-imax if outcome-ok else -1 outcome-full then ;
 : lf-minfer-pi-level ( base type -- base level status )
   lf-minfer-body-sort lf-minfer-good? if over lf-minfer-imax then ;
 : lf-minfer-pi-end ( mark base level status -- type status )
   rot lf-minfer-unbind rot lf-minfer-discard lf-minfer-good? if lf-minfer-sort then ;
 : lf-minfer-pi ( domain body -- type status )
-  lf-term-count @ -rot lf-minfer-context-depth @ lf-tag-pi 2swap lf-minfer-binders
-  ok-then? 0= if lf-minfer-escape rot drop exit then nip over lf-minfer-open
-  lf-minfer-good? if lf-minfer-walk lf-minfer-good? if lf-minfer-pi-level then then
-  lf-minfer-pi-end ;
+  lf-term-count @ -rot lf-minfer-context-depth @ rot lf-minfer-binding ok-then?
+  0= if nip nip no-result exit then swap lf-minfer-walk lf-minfer-good?
+  if lf-minfer-pi-level then lf-minfer-pi-end ;
 
-\ Infer a node: a source node, or one this job made from source nodes by
-\ opening binders (or, aside, any live node). Constructors outside this
-\ subset are unknown, and recorded as unsupported with their tag.
+\ Infer an original source node; nodes made by this inference are output
+\ data, never input. Constructors outside this subset are unknown, and
+\ recorded as unsupported with their tag.
 : lf-minfer-unsupported ( tag -- tag -1 status )
   dup 0 lf-diag-unsupported lf-minfer-note -1 outcome-unknown ;
 : lf-minfer-leaf ( first tag -- type status )
@@ -570,14 +577,15 @@ defer lf-minfer-apart ( left right -- mask flag )
     nip nip lf-minfer-unsupported rot endcase ;
 : lf-minfer-dispatch ( first second tag -- type status )
   dup lf-term-binary-tag? if lf-minfer-binary else nip lf-minfer-leaf then ;
-\ Since plan task 4.2.2a inference reads the opened bodies and domains it
-\ makes itself (as Lean's infer_lambda does), so every live node can be
-\ read, as before only aside (test P2). A free variable is read through
-\ its entry.
+\ Source nodes lie below the term count at the start; inference that runs
+\ aside (test P2) reads every live node, among them the closed copies P2
+\ infers, whose free variables are read through their entries.
+: lf-minfer-source? ( node -- flag )
+  dup 0< 0= swap lf-minfer-job lf-ijob-terms @ < and lf-minfer-aside @ or ;
 : lf-minfer-read ( node -- first second tag true | false )
-  lf-term-read dup if >r rot r> then ;
+  dup lf-minfer-source? 0= if drop false exit then lf-term-read dup if >r rot r> then ;
 : lf-minfer-visit ( node -- type status )
-  dup lf-minfer-fvar? if lf-minfer-fvar exit then
+  dup lf-minfer-fvar? lf-minfer-aside @ and if lf-minfer-fvar exit then
   lf-minfer-read if lf-minfer-dispatch else -1 outcome-invalid then ;
 
 \ Each visit costs one unit of fuel and holds one of at most

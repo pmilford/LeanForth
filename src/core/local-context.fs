@@ -51,6 +51,7 @@ begin-structure /lf-ldecl
   field: lf-ldecl-identity   \ that node's identity
   field: lf-ldecl-type       \ its type, a term node
   field: lf-ldecl-value      \ a let variable's value, or -1
+  field: lf-ldecl-depth      \ binders around its binder, or -1 (see below)
 end-structure
 
 store-header context-record: lf-lctx
@@ -84,7 +85,7 @@ store-header context-record: lf-lctx
 : lf-lctx-node ( -- fvar true | false ) lf-tag-fvar lf-lctx-count @ 0 lf-term-add ;
 : lf-ldecl-fill ( type value fvar addr -- )
   >r dup r@ lf-ldecl-fvar ! lf-term-identity drop r@ lf-ldecl-identity !
-  r@ lf-ldecl-value ! r> lf-ldecl-type ! ;
+  r@ lf-ldecl-value ! r@ lf-ldecl-type ! -1 r> lf-ldecl-depth ! ;
 : lf-lctx-claim ( type value fvar -- fvar outcome )
   lf-lctx store-new 0= if drop 2drop lf-lctx-refused exit then
   over >r lf-ldecl lf-ldecl-fill r> outcome-ok ;
@@ -119,3 +120,10 @@ store-header context-record: lf-lctx
 : lf-fvar-type ( fvar -- type ) lf-fvar-decl lf-ldecl-type @ ;
 : lf-fvar-value ( fvar -- value ) lf-fvar-decl lf-ldecl-value @ ;
 : lf-fvar-let? ( fvar -- flag ) lf-fvar-value 0< 0= ;
+\ Where the free variable's binder stands: how many binders surround it,
+\ as the checker that made it records (inference: its scope's depth), or
+\ -1 when none was recorded. The derivation log (derivation-log.fs) reads
+\ it to write a free variable as the bound variable it stands for in a
+\ step's scope; nothing in the checker reads it.
+: lf-fvar-depth ( fvar -- depth ) lf-fvar-decl lf-ldecl-depth @ ;
+: lf-fvar-depth! ( depth fvar -- ) lf-fvar-decl lf-ldecl-depth ! ;
