@@ -6,6 +6,15 @@ words through Forth's own interpreter, built the terms in LeanForth's
 existing stores, printed them with the term printer, and ran its own
 printed words again.
 
+**[Amendment 1](#amendment-1-proposed-leanforth-text-checked-natively-and-inline-from-forth-programs)
+(proposed 2026-11-04, for the owner's [parser] and [bypass] design
+gate):** LeanForth text checked natively in the checker's process, with
+only LeanForth's sealed word lists visible, straight into the checker's
+stores; and inline checks from Forth programs, labelled *checked in this
+session*, re-checked in a fresh process for a claim. It revises the
+owner's OQ-1 answer (a separate authoring program), on which §2, §18 and
+the follow-up "8.2.1" below rest.
+
 This revision follows the owner's requirement of 2026-11-02: *"I was hoping
 we can encode the theorems and proofs in leanforth words, not strings that
 are parsed."* An earlier draft of this record used a reader with its own
@@ -1272,3 +1281,626 @@ Commands: `gforth -e "false constant cs-host" print.fs -e
 's" ex/02-composition.lf" run bye'` with the pinned Gforth 1.0.0 (`true`
 for case-sensitive wordlists), and
 `.tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean -DwarningAsError=true examples.lean`.
+
+## Amendment 1 (proposed): LeanForth text checked natively, and inline from Forth programs
+
+**Status: proposed 2026-11-04 for the owner's [parser] and [bypass]
+design gate. Nothing in `src/` or `tests/` is changed.** It answers the
+owner's request of 2026-11-04 and **revises the owner's OQ-1 answer of
+2026-11-02** ("Checker isolation: separate program. The checker runs as
+its own program and receives proofs only as data",
+[decisions](../project/OWNER_DECISIONS.md#planning-answers-2026-11-02-later-the-same-day)),
+which §2, §18, the follow-up "8.2.1" above, ADR 0010 §9 and ADR 0019 §3
+("Process") rely on. Under this amendment a LeanForth file is read *in the
+checker's own process*, by Forth's own interpreter with only LeanForth's
+sealed word lists visible, and goes straight to the checker; and a Forth
+program can call the checker inline, with an honest, weaker label. The
+claims below were probed on Gforth 1.0.0 and 0.7.3 (section A9); the Lean
+forms were checked with pinned Lean 4.35.0. It changes no typing or
+conversion rule, no axiom rule and no LeanForth word of §§3–11.
+
+The owner's words (2026-11-04): *"I think the sealed word list is the
+correct approach, are there any downsides? does it use the standard forth
+parser? I was before concerned about, for example, +, being mixed up
+between forth + and Lean +, I guess using a sealed word list and limited
+non-forth vocabulary, we don't have to worry. We should be able to run it
+inline, not just as a external file that starts gforth and then exits. An
+example might be to run with different numeric constants passed in in a
+loop from Forth. or different trig functions or a different sized matrix
+all passed in a loop from Forth. (In the example above, perhaps A might be
+a passed in parameter.."*; earlier the same day: *"I think we should end up
+with native LeanForth going straight to the solver... seems more forth
+like"*.
+
+### In plain words
+
+**What changes.** Until now the plan was: LeanForth words run in a separate
+"authoring" program, which writes the finished terms to a file, which the
+checker program reads (your OQ-1 answer). This amendment drops that
+separate program. `leanforth check proof.lf` would read the LeanForth file
+itself and check it, the same way it already reads Lean's NDJSON files;
+and a Forth program could check theorems inline, many times in a loop, in
+the same Gforth session. (A design: built after your answers, in the steps
+of section A10.)
+
+**Does it use the standard Forth parser? Yes.** The file is read by
+Gforth's own text interpreter — the one that reads every Forth file —
+handed the file one line at a time with `EVALUATE`, as today's authoring
+words already do. While it reads, Forth's search order holds only
+LeanForth's three word lists, so every word the file can run is a
+LeanForth word: `dup`, `+`, `:`, `[`, `bye`, `evaluate` and every other
+Forth word simply do not exist there (they stop with "unknown name" at
+their line and column). LeanForth adds two checks *around* Forth's reading,
+not a parser of its own: each number must be a plain decimal (Forth itself
+would also read `-3`, `$10`, `1e`, `'a'`, and Gforth 1.0 even `"x"` and
+`${HOME}`), and before Forth reads a line LeanForth makes sure each name
+in it has a word, so that the names of a library such as `Init` are found
+without first making a Forth word for each of its 59,349 declarations
+(question 3).
+
+**`+` cannot be mixed up.** In proof text Forth's `+` is not visible at
+all: `p p +` in a proof stops at the `+` with "unknown name" (an existing
+test, `tests/author/author.fs`). Lean's
+addition is written by its Lean name (`HAdd.hAdd`) and *printed* as
+`n + m`. Inline, Forth code and proof text sit in the same colon
+definition, but proof text is only ever between `lf[` and `]lf`, and only
+that text runs with the sealed list: outside it `+` is Forth's `+`, inside
+it does not exist. Nothing in §16 changes.
+
+**Inline, with `A` passed in.** This runs today, on both Gforths, with the
+real checker (probe p06; the words `lf[`, `]lf` and `param:` are
+prototypes kept outside `src/`):
+
+```forth
+: composition-at ( A -- outcome )
+  >lf-param
+  lf[ param: A
+      example
+        Prop implicit: B   Prop implicit: C
+        A B ->  explicit: f
+        B C ->  explicit: g
+        A C ->
+      :=
+        A explicit: value   g f value $ $   fun
+      end example ]lf ;
+
+: five ( -- )  5 0 do  i A-of composition-at drop lf-verdict. cr  loop ;
+```
+
+`A-of` builds, in ordinary Forth, the statement A(i): A(0) is
+∀ P : Prop, P → P ("every statement implies itself"), and A(i+1) is
+∀ P : Prop, P → A(i). For each i the checker checks "if A implies B and B
+implies C, then A implies C" at that A, for all statements B and C.
+All five were accepted; a copy with a wrong proof (`f value $` in place of
+`g f value $ $`) was *rejected*; a misspelt `valeu` stopped at line 8,
+column 33 of the text. (The probe wrote `theorem compAt` where the design
+writes `example`, which is not built yet.) Mathematics for i = 0:
+$((\forall P.\,P\to P)\to B)\to(B\to C)\to(\forall P.\,P\to P)\to C$. Lean,
+checked with pinned Lean: `theorem compAt_0 {B C : Prop} (f : (∀ P : Prop,
+P → P) → B) (g : B → C) : (∀ P : Prop, P → P) → C := fun value => g (f
+value)`, whose `#print` statement is character for character the one
+LeanForth's checker printed.
+
+**How much to trust an inline result.** A Forth program that calls the
+checker shares its memory, so in principle it could change a verdict
+after the fact. Inline results are therefore labelled **checked in this
+session** — like your "development mode" for saved results (OQ-3): good
+for exploring, never a claim. For a claim, the program writes each
+instance out as LeanForth text (the printer already does this) and
+`leanforth check` re-checks that file in a fresh Gforth with nothing of
+yours loaded, giving today's label *accepted (experimental, not
+independently audited)*. Probe p06b did exactly this with the five
+instances: same verdicts, statements identical byte for byte. A plain
+`leanforth check proof.lf` gets the normal label directly, because the
+file can only run LeanForth's fixed words — it is data, like an NDJSON
+file.
+
+**Your other examples, honestly.**
+
+- *Numeric constants in a loop* (`2 + 2 = 4` with the 2 passed in): needs
+  natural numbers as a data type (task 5.2.1b), number literals (5.2.3),
+  structures (5.2.2, because Lean's `+` is looked up in a table of
+  "instances", here "how to add natural numbers") and unfolding of
+  definitions (4.2.2); to avoid writing every hidden argument by hand, also
+  the elaborator (8.3.1, the helper that fills them in). The full form the
+  checker checks for `2 + 2 = 4` uses seven constants, 18 times, with eight
+  universe arguments and six raw literals (checked with pinned Lean).
+- *Different trig functions* (`Real.sin`, `Real.cos` passed in by name):
+  Mathlib's real numbers, so quotients (5.2.4, the way Mathlib builds the
+  reals), the three standard axioms (5.3.1) and a Mathlib slice (stage S4,
+  then all of Mathlib, S5).
+- *Different-sized matrices*: Mathlib's `Matrix (Fin n) (Fin n) R` (S4/S5),
+  number literals (5.2.3) and the elaborator for its instances (8.3.1); a
+  matrix built entry by entry in a Forth loop uses the small set of
+  term-building words of section A6.
+- One caution: a loop over n = 1 … 10 checks ten separate facts. It proves
+  nothing about n = 11. A statement for *every* n is one theorem with a
+  "for all n" and a proof by induction (5.2.1b).
+
+**Downsides** (details in A5). A proof file still cannot define its own
+Forth words, loop or compute — repetition is the job of the Forth program
+around it (inline) or, later, of tactics. Gforth's interpreter becomes
+part of what we rely on to build the term the text says; the defence is
+that the checker checks the term as built and the statement is always
+printed back (in LeanForth words, Lean notation and mathematics, plan
+8.6.2) and compared with Lean in the tests. The LeanForth words now run
+inside the checker's process, so they must be as carefully bounded as the
+NDJSON reader. Three small gaps were found and need fixing first (section
+A4): the reader must refuse to start while Forth is compiling, must refuse
+invisible control characters, and must stop before Gforth's dictionary is
+full (Gforth 1.0 lets it overrun by a few bytes). Today's authoring words
+were built for 64-node stores and need growable tables before they meet
+Init or Mathlib (task 8.2.1b). An inline check takes under 1 ms on Gforth
+1.0 (p08). Checking a file against `Init` re-checks all of `Init` each
+run (about 21 s) until saved results exist.
+
+**Four questions for you** are in section A11: (1) the trust change above;
+(2) the inline words' shape (`lf[ … ]lf` with named parameters, results
+on the stack, `example` first); (3) how library names reach a file; (4)
+whether to add any short word for Lean's `+` (recommendation: not now).
+
+### A1. What changes from OQ-1: code or data, not which process
+
+OQ-1 put user Forth and authoring in one process and the checker in
+another. This amendment draws the line between **code** and **data**
+instead:
+
+- **Sealed LeanForth text is data.** It is read by Forth's interpreter
+  with only LeanForth's word lists in the search order, so it can run only
+  LeanForth's fixed words, which only build terms, declarations, labels
+  and notes in the checker's stores (section A4 lists everything else
+  that had to be shut). That is the position of an NDJSON export, which
+  the checker's process already reads with Forth words (untrusted [import]
+  code, fail-closed). `leanforth check FILE.lf` therefore gives the usual
+  label.
+- **A user's Forth program is code.** Inline use (A6) puts the user's
+  program in the checker's process. Its verdicts are labelled *checked in
+  this session* and support no claim, like a development-mode run under
+  OQ-3; the claim comes from re-checking the instances as sealed text in a
+  fresh process (A7).
+- **Tactics and elaboration helpers (8.3) are code** too: they run in an
+  inline session, and what they produce reaches a claim only as sealed text
+  or terms re-checked the same way.
+
+Unchanged: only the checker and the publisher decide; "accepted" is
+printed only from a declaration's published slot (`lf-check-verdict.`);
+a wrong word can only build a different term, which is checked as it is
+and printed back; the review gates of `AGENTS.md`. ADR 0019 (program
+words) is not changed here: a program file defines Forth words and is not
+sealed text in this sense; its §3 "Process" paragraph can be revisited by
+the same rule in its own amendment.
+
+### A2. Sealed checking of a file
+
+```text
+leanforth check [--env EXPORT] FILE.lf
+```
+
+1. With `--env`, the export is staged and fed as `leanforth check EXPORT`
+   does (`src/cli/check-run.fs`: stage, feed, the stores grown to fit), but
+   the input is not ended yet.
+2. The file runs sealed (A4). Each `theorem`, `def` or `example` … `end`
+   adds one declaration to the checker's input (`lf-input-add`), its type
+   and value built by the words straight into the checker's term, level,
+   name and reference stores; its presentation record (binder names,
+   kinds, positions, labels and notes, §§10–11) is kept for printing. No
+   NDJSON is written.
+3. If the run ends with an authoring error, nothing is checked: the result
+   is that error, with its line and column (exit 4, malformed input, as a
+   malformed export is). Otherwise the input ends (`lf-input-end`) and
+   every declaration is checked in input order — the export's first —
+   with `check-declaration` through the publisher, exactly as `ck-check`
+   does.
+4. Each of the file's verdicts is printed with the position of its
+   declaration word and its statement in three forms (plan 8.6.2):
+   LeanForth words (the printer's Forth mode), Lean's notation and
+   mathematics.
+
+**`example`** (a Lean keyword, so allowed by R1; pinned Lean refuses `def
+example := 1`) is a theorem without a name: checked like one and never
+added to the library, as in Lean, which elaborates and kernel-checks an
+`example` and then restores the environment (`elabMutualDef`,
+`withoutModifyingEnv`, `src/lean/Lean/Elab/MutualDef.lean` lines
+1195–1205 of the toolchain). It closes with `end example`. In a file its
+slot is checked in input order but no later declaration can name it.
+
+**Names of the library** (question 3). Today every constant is a Forth
+word, made by `end NAME` or `import-stub`. With an environment of tens of
+thousands of constants, the design keeps Forth's own lookup for every
+token and adds one step: before each line is evaluated, the runner splits
+it at blanks (the splitter it already uses for errors) and makes a
+constant-group word in LF-CONST for every token that is not number-like
+and has none. That decides nothing: when the word runs, it resolves the
+name exactly as §9 says, now with the environment's constants (found
+through the input's name index, ADR 0012 E5) as candidates beside the
+file's own, and stops with "unknown name" (error 1, at the token) when
+nothing matches — the same error as today. A word is made per distinct
+spelling the file uses, comments and notes included (48 bytes each,
+p05), within the dictionary reserve of A4. The alternative, a word for
+every constant up front, costs about 119 bytes and 6 µs per name group
+(§18): about 14 MB for `Init`'s full and short names, more than Gforth's
+default dictionary of about 8 MB (p00), and about 170 MB and 9 s for
+Mathlib, every run.
+
+**`protected`.** Lean's exporter does not record it (a limit the owner
+noted when approving 8.1.2). Until the export pipeline records which
+constants are protected (task 8.2.1d), a one-part name that would reach
+an *environment* constant through a namespace stops with "write the full
+name" — a temporary refusal where Lean decides, closed by 8.2.1d.
+
+**`import-stub` retires.** A stub declares a constant without checking it;
+in a check run it would be an unchecked assumption. It is refused in check
+runs ("name the library with --env"), stays for authoring-only runs (the
+printer tests and documentation) until those move to small exports, and is
+then removed with its tests (task 8.2.1d). `import NAME` stays *not
+supported yet*: Lean's exports carry no module names, so the environment is
+named by the caller (`--env`, or the session's, A6), and the output records
+the export's SHA-256 from its manifest.
+
+### A3. What sealed text can do
+
+Build terms with the words of §§6–9 (and `param:`, `example`), declare
+theorems, definitions and examples, attach labels and notes, open
+namespaces, and comment. It cannot define Forth words, loop, branch,
+compute a number, read or write a file or the environment, print, change
+`BASE` or `STATE`, reach any memory, or run any Forth word: §2's "Forth's
+interpreter is the only parser" holds, and §16 and owner decision 2 (no
+`:` definitions in proof files) are unchanged.
+
+### A4. What must be shut, and the probes
+
+The argument: every token of a line either (a) is found as a word of the
+three sealed lists, all made by `CREATE … DOES>`, whose actions only build
+terms, declarations, labels and notes in the checker's stores and make
+name words (group words, §5); or (b) is converted by Forth as a number, which every
+LeanForth word refuses unless it is a plain decimal before it acts on
+anything (the check of §6 and of the corrections); or (c) is refused at its
+token. Nothing else may act. The table lists each way text could escape,
+what the probes showed on each host, and the rule. **No item failed on
+either Gforth; four need a new rule** (marked *new*).
+
+| # | What could escape | Gforth 1.0.0 | Gforth 0.7.3 | Rule |
+| --- | --- | --- | --- | --- |
+| 1 | Forth's own words | 31 Forth words and forms in a sealed order (`[ ] state base hex decimal here ! : ; immediate postpone evaluate included require execute catch throw abort quit \ ( s" ." char literal forth-wordlist only set-order dup bye`) all THROW −13, and so do the scoped forms `forth:dup`, `forth:bye`, `sealed:w` (p01) | the same, −13 (p01) | Search order exactly LF-WORDS, LF-LOCALS, LF-CONST (no FORTH, no Root); restored after the run, also after a THROW (p03) |
+| 2 | Gforth 1.0's `->`, `+>`, `'>` recognizers | **`5 ->v` stored into a VALUE and `5 ->d` re-pointed a DEFER that sat in the sealed list; `7 +>v` added to it; `'>v` pushed its address**; `->w` on a `CREATE … DOES>` word threw −21 (p01) | no such recognizers: −13 | *Hardened:* the sealed lists hold only `CREATE … DOES>` words, never a VALUE, DEFER or VARIABLE; a test runs `0 ->NAME` for every word of the three lists on 1.0 and requires −21 (today's lists already comply) |
+| 3 | Gforth 1.0's other recognizers | default: `"x"` and `"a b"` (reads past its token), `${HOME}` (reads the environment), `` `w `` and ``` ``w ``` (an execution token), `<w>`, `1_000`, `.5`, `0x10`, `10h`, `2p`, `3k`, `1M` (SI floats) are all converted; with the runner's restriction to names and digit strings (`lfa-recognize`) 83 of p01's 89 tokens throw −13, and only the sealed word (in two spellings) and four digit strings remain | none | Keep the restriction during every sealed run, restored after (p03); the number check of row 4 still decides alone, as on 0.7.3 |
+| 4 | Numbers in other forms, `BASE` | converted (default): `-3 $10 #10 %10 &10 0x10 1. 1.5 .5 1e 1e3 -1e 'a' 'a ''` … | converted: `-3 $10 #10 %10 &10 0x10 1. 1.5 1e 'a' 'a ''` | Every converted token must be a plain decimal of 1–9 digits, checked before the next word acts and at the line's end: each form refused at its token with error 35 on both hosts (p03). `BASE` is ten during the run; no sealed word changes it (`hex`, `base`, `decimal` are −13); the caller's `BASE` (16 in p03) is restored |
+| 5 | `STATE`: called while Forth compiles | the runner, called by an immediate word *during compilation*, compiled the LeanForth word `theorem` into the caller's definition (`see victim` shows it), reported only "unknown name", and running that definition later threw −4129 (p03) | the same (p03) | *New:* refuse to start unless `STATE` is 0, and check it after every line, as ADR 0019 §3 does; no sealed word can change `STATE` (`[` `]` are −13) |
+| 6 | Parsing words | only LeanForth's read text: a name after a word, `\` to the line's end, `( … )`, `note" … "`; each to the end of its line at most; `(` and `note"` must close on their line (errors 42, 37) | the same | Unchanged; `param:` (A6) reads one name like `explicit:` |
+| 7 | Bytes that split tokens | Forth splits at TAB, LF, VT, FF, CR and space only; NUL, the other control bytes, DEL and no-break space are part of a token (p07) | identical (p07) | *New:* refuse a line holding a control byte other than TAB (and a CR before its LF), or invalid UTF-8. The runner's own splitter (errors, the number check) treats every byte up to 32 as a blank, Forth does not; with such bytes refused, both split alike and what an editor shows as one token is one token |
+| 8 | Nested `EVALUATE` | the only one is the runner's own: a group word is made by `EVALUATE` of `lfa-group: NAME`. Of 18 names tried as a constant and as a variable, `bye ] [ : ; postpone immediate evaluate lfa-group: abort" s" x"y \ α` and names of 200 and 239 characters became harmless words (`.(` was refused as a name; `s"` and `\` as variables then met the syntax words of the same spelling, as §5 says); nothing ran; the run went on (p04) | the same (p04) | *Hardened:* during that `EVALUATE` the search order holds a private list with only `lfa-group:`, so no later definition of that name (for example by an inline program) is picked up |
+| 9 | What a THROW leaves | after 11 errors of different kinds the caller's search order, compilation word list, recognizer, `BASE`, `STATE` and stack depth were as before and no floats were left (p03) | the same (p03) | The runner catches every THROW (ADR 0018). A failed run checks nothing (A2); its terms are scratch, emptied by the next run or rolled back to the input's marks; group words stay (they only dispatch) |
+| 10 | The stacks | 60,000 plain decimals in one declaration overflowed the data stack: THROW −3, caught (error 41), and the next run in the session worked; the host turns data and return stack overflow into THROWs −3 and −5 in `gforth` and `gforth-fast` (p04, p04c) | the same, at an earlier line (smaller stack) (p04) | Unchanged. Floats are read only on 0.7.3 (1.0's restricted recognizer reads none) and are refused at the line's end; a line of at most 1,023 characters holds at most 512 tokens, below both hosts' float stack (2,048 and 4,096 per `FLOATING-STACK`, p00) |
+| 11 | The dictionary | each new spelling is a group word, about 48 bytes for a short name (p05). Filling a small dictionary (`-m 3M`): the run that hit the end failed with −8, caught; afterwards every new name failed. **The host lets `HERE` pass the end: `UNUSED` was −32 after `CREATE` filled it and `,` then wrote 8 more bytes without a THROW** (p05b) | 48 bytes; with `-m 1M`, −8 at the end, caught; `UNUSED` stops at 2 (p05, p05b) | *New:* make no group word when `UNUSED` is below a reserve (64 KB proposed): the run ends *full* (error 66) and sealed text never reaches the host's edge |
+| 12 | The LeanForth words' own buffers | — | — | *New for this process:* in a separate program an overrun could only spoil that program; here it could reach the checker. Every buffer the words write (the line of 1,024 bytes, texts of 256, spellings of 4,096, the definition text of 256, the error token of 64, the stores) is bounds-checked today; the [bypass] review checks each, and a randomized hostile-text test compares the dictionary laid down while loading (`tests/support/dictionary-check.fs`) and the checked environment before and after |
+| 13 | DEFERs and VALUEs of the implementation (`lfa-const-run`, `lfa-shift` …) | in the implementation's own word list, never in a sealed list: text cannot name them | the same | An inline program can (outside the session label's promise, A7) |
+
+Rows 5, 7, 11 and 12 are the new rules (task 8.2.1a); rows 2 and 8 are
+hardening of what already holds. The checker and LeanForth's words load
+together silently on both hosts (p02: about 1.6 MB and 120 KB of
+dictionary).
+
+### A5. Downsides
+
+1. **No definitions, no loops in proof text** (owner decision 2 of this
+   ADR). A file is a list of declarations; families of instances come from
+   a Forth program around it (A6), later from tactics (8.3.2).
+2. **Gforth's interpreter joins what we rely on** to build the term the
+   text says: splitting tokens, finding words regardless of case (the name
+   groups of §5 restore exact case), running them left to right, and
+   handing each line over. A host fault there could build another term.
+   Mitigations: the checker checks the term as built, never the text; every
+   verdict prints the statement back in three forms (8.6.2); the round
+   trip (print, read back, identical term) and the comparison with pinned
+   Lean's terms, node for node, as 8.1.2's tests do for 67 declarations,
+   run on both hosts; and the probes of A4 become tests that fail if a host
+   reads tokens differently.
+3. **The words' memory safety now matters to the checker** (row 12),
+   as the NDJSON reader's does.
+4. **Speed.** Reading is cheap: 63–74 µs for the composition text on
+   Gforth 1.0 and 255–271 µs on 0.7.3; a whole inline check, with a fresh
+   environment each time, 0.73–0.95 ms and 1.85–3.2 ms (p08, 1,000 runs
+   each, before and after merging plan 6.2.0 (b), on a machine shared with
+   other work). But today's words were built for stores of 64 nodes: they
+   find shared nodes by scanning the whole store (`lfa-find`, quadratic in
+   the file's size), shift terms by recursion on Forth's return stack
+   (`lfa-shift`, against plan 6.2.0 (b)'s rule that no pass's depth depends
+   on it), and keep fixed tables (512 values, 256 names, 4,096 spelling
+   bytes, 16 namespaces …, listed in plan 6.2.4; the binder store grows
+   since 6.2.0 (b)). Task 8.2.1b removes all three before files meet
+   `Init` or Mathlib. A file checked
+   against `Init` re-checks all of `Init` (about 21 s today) until saved
+   results (OQ-3, ADR 0012 E8) let a development run reuse them, labelled.
+5. **Error messages.** Positions are the file's line and column; inline,
+   the text's own, its first line counted 1 (the design adds the source
+   file and line where `lf[` stood). A Forth exception inside a run
+   (stack or dictionary full) is error 41 with the THROW code, and today
+   an empty token (p04); 8.2.1a names the line instead.
+6. **Printed instances lose sharing.** The printer writes a term as words
+   without `let` (§14 is a sketch), so a parameter built by reusing a
+   subterm prints much longer than it is: with A(i+1) = A(i) → A(i), the
+   words for A(4) hold 16 copies of A(0) (the first p06 run). The term the
+   checker checks is shared; only the printed text grows.
+7. **The names look-ahead** (A2) is a small pre-pass over each line's
+   tokens. It decides no meaning, but it is code beside Forth's reading,
+   which the owner may weigh (question 3).
+
+### A6. Inline use: the words
+
+A Forth program loads LeanForth (the checker and these words) and calls it
+in its own session. Proposed words (names open to the [parser] review;
+each reuses no Forth-2012 name, §16):
+
+| Word | Stack effect | Meaning |
+| --- | --- | --- |
+| `lf-session` | `( c-addr u -- outcome )` | make the session's environment: stage, feed and check the export named (or none for an empty string); afterwards it is sealed and only read |
+| `lf[` … `]lf` | compiling: `( "text" -- )`; running: `( -- outcome )` | immediate: at compile time it takes the LeanForth text up to `]lf`, across lines, keeps it (on the heap) and compiles its address, length and a call of `lf-run`. Outside a definition it runs the text at once |
+| `lf-run` | `( c-addr u -- outcome )` | run text built at run time: sealed (A4), with the parameters pushed since the last run; check its declarations against the session; the outcome of the last one (ADR 0008) |
+| `>lf-param` | `( term -- )` | push a term as the next parameter |
+| `>lf-nat` | `( u -- )` | push a natural-number literal (needs 5.2.3; a negative cell is refused: Lean has no negative literals) |
+| `>lf-level` | `( u -- )` | push a universe level |
+| `>lf-const` | `( c-addr u -- )` | push a constant of the session by its full name, e.g. `s" Real.sin"` |
+| `lf-term[` … `]lf` | running: `( -- term outcome )` | run sealed text that leaves exactly one closed term and no declaration, to build a parameter in LeanForth words |
+| `lf-app` `lf-arrow` `lf-pi` `lf-lam` `lf-bvar` `lf-sort` `lf-const` `lf-nat` | small stack effects on terms | build terms in Forth, for terms a loop computes (a matrix of size n); untrusted like everything else |
+| `lf-statement` | `( -- term )` | the last check's statement, to print or pass on |
+| `lf-verdict.` | `( -- )` | the verdict with the session label, the statement in three forms and the axioms |
+| `lf-error.` | `( -- )` | the authoring error (code, line, column, token) or the checker's diagnostic |
+| `lf-write` | `( fid -- outcome )` | write the last checked declaration as sealed text, an `example` with the parameters filled in (A7) |
+
+In the sealed text, one new word:
+
+| Word | Stack effect | Meaning |
+| --- | --- | --- |
+| `param:` NAME | `( -- )` | bind NAME to the next parameter, in the order the caller pushed them (like Forth's `{: a b :}`); each later use of NAME pushes it as a value; a parameter missing or left over is an error |
+
+**Why text in `lf[ … ]lf`, not LeanForth words compiled into colon
+definitions.** Three ways were weighed:
+
+- *(α) Compile-time LeanForth words* (`: f theorem t … end t ;` compiling
+  calls with the names read at compile time). Rejected: the binder words
+  make their variables' words when they *run*, so a compiled body would
+  need a second, compile-time implementation of every scope, name group
+  and namespace rule (a second [parser] surface); words that act
+  differently when compiling are the state-smart words ADR 0019 §9 (a)
+  rejected; and any Forth word could sit between two LeanForth words, so
+  the sealed property (A4) is lost and no instance can be printed back as
+  the text that made it.
+- *(β) The text, captured, with named parameters* (chosen). The text in
+  `lf[ … ]lf` is LeanForth exactly as in a file and runs through the same
+  sealed reader, so there is one vocabulary and one reader. It is not "a
+  string that is parsed" (the owner's objection of 2026-11-02): Forth's
+  interpreter runs it as words, as `EVALUATE` and `INCLUDED` run Forth
+  text. Parameters are named in the text (`param: A`), so a reader sees
+  where each enters, and the printed instance shows the value in its
+  place. The caller's own stack items stay below the run's floor, out of
+  reach of every word (frames, §7; p06 ended balanced).
+- *(γ) Forth term-building words* (kept, small): for terms computed
+  structurally, such as an n × n matrix, a Forth loop is the right tool;
+  `lf-app` and friends build such a term, which then goes in as a
+  parameter.
+
+**Results on the stack.** Each run leaves one outcome of ADR 0008 (*ok*
+for accepted, *rejected*, *unknown*, *unsupported*, *invalid* for an
+authoring error, *exhausted*, *full*); details come from the query words,
+so a loop can branch with `ok?` and print only what it needs.
+
+**Isolation between checks (ADR 0009).** A session holds one context:
+the session's input, sealed and marked, and its checked environment. Each
+inline check builds its terms above the input's marks, checks them
+against a snapshot of the environment, reads the verdict and rolls the
+stores back to the marks (`lf-input-rollback`), whatever the outcome, so
+check n + 1 sees exactly what check n saw. An `example` is never
+published. A named `theorem` inline is checked the same way and reported
+"not added" until the input can grow after the environment is made — an
+amendment of ADR 0012 for the [kernel] gate, a later task. Parameters
+built for one check live in its scratch and are rebuilt for the next (or
+kept in a session tier above the input, a design detail of 8.2.1e).
+Inline runs never run inside a job; parallel inline checks (one context
+per task) come later. A THROW inside a run is caught; the caller gets the
+outcome. The `STATE` rule of A4 refuses a run while Forth compiles.
+
+### A7. Trust: the session label and the way to a claim
+
+**Label.** An inline verdict reads *accepted (checked in this session;
+experimental, not independently audited)*. The surrounding Forth program
+shares memory with the checker: it can store into the environment's slots
+or the owner token, re-point an implementation DEFER, change a parameter's
+term after its check, or print a verdict of its own. Nothing inside the
+session can detect that (ADR 0012's threat model, items 15, 17 and 21,
+already names such undetected writes). So an inline verdict is a
+development-mode result in the sense of OQ-3: never counted as proved in a
+report or receipt.
+
+**The way to a claim.** `lf-write` writes each instance as sealed text —
+an `example` (or a named theorem), the parameters' terms written out in
+words, labels and notes kept — and
+
+```text
+leanforth check --env EXPORT instances.lf
+```
+
+re-checks the file in a fresh Gforth that loads only LeanForth, giving
+today's label *accepted (experimental, not independently audited)* and the
+axiom report. Probe p06b: the five instances of p06, written by the
+printer's Forth mode, read from a file by the sealed reader in a fresh
+process and checked: five *accepted*, statements identical to p06's byte
+for byte, on both hosts. This is also plan 8.6.2's round trip ("the
+LeanForth form, read back by the authoring words, builds the identical
+statement term"): one test serves both.
+
+**Realistic examples.**
+
+| The owner's example | What it needs | Plan tasks |
+| --- | --- | --- |
+| `A` passed in, propositions without a library | works today (p06: five accepted, a wrong proof rejected, a misspelling at 8:33) | 8.2.1a–f make it a product |
+| propositions of `Init` passed in (`True`, `And`) | `Init`'s non-recursive data types, accepted today, and library names (A2) | 8.2.1d |
+| numeric constants in a loop (`n + 0 = n`, `2 + 2 = 4` with the number passed in) | natural numbers, literals, structures, unfolding; a literal word (§14); the elaborator, or else `OfNat.ofNat 0 ^ Nat $ 2 $ instOfNatNat 2 $ $` for each 2 | 5.2.1b, 5.2.2, 5.2.3, 4.2.2b–e, 8.3.1 |
+| different trig functions passed in by name | Mathlib's reals: quotients, the standard axioms, a Mathlib slice | 5.2.4, 5.3.1, S4 (then S5) |
+| matrices of different sizes | `Matrix (Fin n) (Fin n) R` and its instances; literals; term-building words for the entries | 5.2.3, S4/S5, 8.3.1 |
+
+### A8. `+` and §16 when both vocabularies are near
+
+- **In sealed text** nothing changes: no Forth word is visible, so `+` is
+  an unknown name (`tests/author/author.fs`: `p p +` stops at the `+`,
+  error 1), and Lean's addition is `HAdd.hAdd` with its arguments, shown
+  as `n + m` by the printer (4.4.3, 8.6.2).
+- **Inline**, one colon definition holds both. The boundary is lexical and
+  visible: outside `lf[ … ]lf` every word is Forth's, inside every word is
+  LeanForth's; no word runs on the other side, because the sealed run
+  replaces the whole search order and restores it afterwards (A4, row 1).
+- **Numbers cross only explicitly.** A Forth number (a loop index `i`)
+  becomes a Lean number only through `>lf-nat`, which makes a literal of the
+  cell's value. Arithmetic stays on its side: `i 1+ >lf-nat` adds in Forth,
+  where it wraps at the cell size, and then hands the value over; a sum in
+  the theorem is Lean's, on unbounded natural numbers. This is §16's first
+  reason, kept by construction.
+- **The new words follow §16 and R1.** `lf[`, `]lf`, `lf-run`, `>lf-param`
+  and the others are Forth-side words with names no Forth-2012 word has
+  (Forth's `[` and `]` are distinct words); `param:` contains a colon, which
+  no Lean identifier has (`param` alone is an ordinary Lean identifier:
+  pinned Lean accepts `def param := 1`); `example` is a Lean keyword (pinned
+  Lean refuses `def example := 1`).
+- A short word for Lean's addition is not proposed; question 4 asks.
+
+### A9. Evidence: the probes
+
+Throwaway probes outside `src/` and `tests/`, kept in the work folder
+`.claude/work/AU2/` of agent AU2's worktree (not in the repository), each
+run under `ulimit -u 500; timeout -k 5 … setsid`, on the pinned Gforth
+1.0.0 and on Gforth 0.7.3, with `</dev/null`:
+
+| Probe | What it shows | Result |
+| --- | --- | --- |
+| p00 | the hosts: recognizer words, stack sizes, dictionary | 1.0 has `rec-forth` and the nine recognizers probed by name (`rec-name`, `rec-number`, `rec-float`, `rec-string`, `rec-to`, `rec-tick`, `rec-dtick`, `rec-env`, `rec-scope`), 0.7.3 none; dictionaries about 7.7 and 8.0 MB free at start |
+| p01 | 89 tokens evaluated with only a sealed list in the order: Gforth 1.0 default, 1.0 restricted as the runner does, 0.7.3 | 1.0 default: 41 tokens converted or run, **three wrote a VALUE or DEFER of the sealed list**; 1.0 restricted: only the sealed word (two spellings) and four digit strings, 83 −13; 0.7.3: 24 converted or run, 65 −13; `BASE` and `STATE` unchanged in all |
+| p02 | the checker and the authoring words in one image | load silently on both; about 1.6 MB and 120 KB of dictionary (1.62 and 0.12 MB on 1.0, 1.65 and 0.12 MB on 0.7.3) |
+| p03 | the real runner: 11 errors with `BASE` 16 before; the runner called while compiling | settings restored in every case on both; while compiling, `theorem` was compiled into the caller (needs the `STATE` rule) |
+| p04, p04c | stack overflows; 60,000 decimals in a text; names that are Forth words | THROWs −3 and −5 caught (also `gforth-fast`); the session went on; 18 odd names harmless; outputs equal on both hosts except the line where the stack fills |
+| p05, p05b | the dictionary filling | 48 bytes per name; −8 caught; Gforth 1.0 lets `HERE` pass the end (needs the reserve) |
+| p06 | inline, end to end: `lf[ … ]lf`, `param:`, five instances checked by the real checker, a wrong proof, a misspelling | five accepted, one rejected, error 1 at 8:33; output identical on both hosts (80 lines) |
+| p06b | the instances written as words and re-checked from a file in a fresh process | five accepted; statements identical to p06's; identical on both hosts |
+| p07 | which bytes split tokens | TAB, LF, VT, FF, CR and space on both hosts, identical |
+| p08 | speed of 1,000 inline checks | 0.73–0.95 ms each on 1.0 and 1.85–3.2 ms on 0.7.3 (the sealed run alone 63–74 and 255–271 µs), three runs, before and after merging plan 6.2.0 (b) |
+| Lean | `lean/forms.lean`, `reserved.lean`, `plain.lean` with pinned Lean 4.35.0, `-DwarningAsError=true` | the instances' statements equal Lean's `#print` (Lean wraps the longer one); the kernel forms of `2 + 2 = 4` and `n + 0 = n` as quoted; `example` refused as an identifier, `param` accepted |
+
+**Finding on soundness.** Nothing found makes the sealed approach unsound
+on either Gforth: with the rules of A4, text can run only LeanForth's
+words on both hosts, and every refusal is identical. Two host facts shape
+the rules: Gforth 1.0's `->`-style recognizers can write a VALUE or DEFER
+that is in the search order (so the sealed lists hold none, and the
+recognizer stays restricted), and Gforth 1.0 lets `HERE` overrun the
+dictionary's end by a few bytes when it fills (so LeanForth stops well
+before it). Gforth 0.7.3 has no recognizers; there the number check alone
+refuses every other number form, as it already does.
+
+### A10. Plan tasks
+
+**8.2.1, new wording** (replacing "Process separation: user Forth
+(authoring, tactics) runs in its own Gforth process; the checker process
+receives serialized terms only (OQ-1)"):
+
+> **8.2.1 LeanForth checked natively** (ADR 0017 Amendment 1).
+> `leanforth check [--env EXPORT] FILE.lf` reads sealed LeanForth text in
+> the checker's process — only LeanForth's word lists visible, the rules
+> of Amendment 1 A4 — builds each declaration straight into the checker's
+> input and checks it with the checker of `leanforth check`. Forth
+> programs check inline (`lf[ … ]lf`, `param:`, `example`), labelled
+> *checked in this session*, and write instances out as sealed text that
+> `leanforth check` re-checks in a fresh process for the standard label.
+> *Acceptance:* the A4 probes as tests on both Gforths; a randomized
+> hostile-text run leaves the dictionary laid down while loading and the
+> checked environment unchanged; every example file of `tests/author`
+> checked, with the three forms; inline verdicts equal fresh-process
+> verdicts; tests reaching accepted, rejected and unsupported/unknown.
+> *Needs:* 3.4.1, 8.1.2. *Gates:* [parser], [bypass]. *Size:* M, as six S
+> steps.
+
+| Step | What | Gates | Tests (three forms where a theorem is shown: mathematics, LeanForth, Lean) |
+| --- | --- | --- | --- |
+| 8.2.1a | Runner rules for the checker's process: the `STATE` rule, control bytes and UTF-8, the dictionary reserve, the private list for the defining `EVALUATE`, the sealed-list content test, a named line for Forth exceptions | [parser] | p01, p03, p04, p05, p07 as tests on both hosts, each refusal with a stable code; planted faults: no `STATE` rule, a VALUE in LF-WORDS (caught on 1.0), no reserve |
+| 8.2.1b | Authoring words at the checker's scale: shared nodes found through a hash table (`src/lib/htab.fs`) or not shared, `lfa-shift` on `src/lib/frame.fs` steps, every table growable in the heap (the authoring words' part of plan 6.2.4) | [parser] | today's tests unchanged; a text of 100,000 nodes; a term nested 1,221 deep (Mathlib's deepest); round trips |
+| 8.2.1c | The words to the checker: `end NAME` adds an input declaration; `leanforth check FILE.lf` for files without a library; `example`; verdict lines with the statement in three forms (8.6.2) | [bypass], [parser] | `tests/author`'s fixtures accepted with the three forms (Lean compiled with pinned Lean, statements equal to `#print`, terms equal node for node); mutated proofs *rejected*; an axiom *unsupported*; a failed run checks nothing (exit 4) |
+| 8.2.1d | Against a library: `--env EXPORT`, the names look-ahead, the environment's constants in §9's resolution, `protected` recorded by the export pipeline, `import-stub` refused in check runs and then removed | [bypass], [import] | a file using `True.intro` and `And.intro` checked against `Init`, verdicts equal to the same theorems' Lean export; names only in the file, only in `Init`, in both (N2, as Lean); a protected `Init` constant through a namespace |
+| 8.2.1e | Inline words (A6): `lf-session`, `lf[ … ]lf`, `lf-run`, `param:`, the parameter, term-building and result words; scratch rolled back after each check; examples never published; the session label | [parser], [bypass] | p06 as a test (five accepted, one rejected, the misspelling's position); one row each for accepted, rejected, unknown, unsupported; a parameter missing or left over; the `STATE` refusal; a planted forgery by a user program, shown and documented as outside the label |
+| 8.2.1f | Writing instances out and re-checking them: `lf-write`; `leanforth check` on the file | [format] once a receipt carries it | p06b as a test: same verdicts, statements identical; shared with 8.6.2's round trip |
+
+**Where 8.6.2 fits.** The statement in three forms is printed with every
+verdict of 8.2.1c and by `lf-verdict.`, from the same printer; its
+round-trip acceptance is 8.2.1f's test. 8.6.2 can land first (it only
+prints); 8.2.1c then uses it.
+
+**Later, not part of 8.2.1:** named theorems added to the library inline
+(the input grows after the environment exists: ADR 0012 amendment,
+[kernel]); `import NAME` once exports carry module names; inline checks in
+parallel jobs (ADR 0009); saved results for the library (OQ-3, ADR 0012
+E8), so a development run does not re-check `Init` each time.
+
+**Other plan text to change after approval** (the coordinator's, outside
+this ADR): the Follow-ups entry "8.2.1" and §2's and §18's "separate
+authoring program" sentences above, `docs/user/LEANFORTH_SYNTAX.md`'s
+status paragraph, ADR 0010 §9's last sentence, and the OQ-1 line of
+`docs/project/OWNER_DECISIONS.md` (with the owner's answer).
+
+### A11. Questions for the owner
+
+1. **Trust: may the checker read LeanForth files itself, and Forth
+   programs call it?** This changes your OQ-1 answer ("the checker runs as
+   its own program and receives proofs only as data"). `leanforth check
+   proof.lf` would read the file in the checker's program with only
+   LeanForth's sealed words visible to it; a Forth program could call the
+   checker directly, with those results labelled *checked in this
+   session*, which become full results only when the instances are written
+   out and re-checked by `leanforth check` in a fresh program.
+   *Recommendation: yes.* It is what you asked for (native, Forth-like,
+   inline); the probes show that sealed text can run only LeanForth's
+   words on both Gforths, which makes a file data, like the NDJSON files the
+   checker already reads; the only thing that can share the checker's
+   memory and misbehave is your own program, whose results are labelled and
+   re-checkable with one command — the same two modes as your answer on
+   saved results (OQ-3).
+2. **The shape of inline checks.** Proof text inside a Forth word goes
+   between `lf[` and `]lf`, exactly as in a file; values from Forth come in
+   by name (`param: A`), in the order pushed; the answer is an outcome on
+   the stack, with words to print it; the unit is Lean's `example`
+   (checked, not added to the library), with named theorems added inline
+   later. The alternative is LeanForth words compiled straight into colon
+   definitions. *Recommendation: the captured text.* One vocabulary and
+   one reader for files and programs; every instance can be printed as a
+   file and re-checked; a LeanForth word never changes meaning between
+   compiling and running; and a few Forth term-building words cover terms
+   that loops compute (matrices).
+3. **How a file finds a library's names.** `Init` has 59,349 declarations,
+   Mathlib 729,263. (a) Before Forth reads each line, LeanForth looks at its
+   words and makes a Forth word only for names the file uses; Forth's
+   interpreter still reads and runs every word, and an unknown name still
+   stops at its place. (b) Make a Forth word for every constant of the
+   library first. *Recommendation: (a).* It costs a few kilobytes per file
+   instead of about 14 MB for `Init` (more than Gforth's default
+   dictionary) and about 170 MB and 9 s for Mathlib on every run; the
+   look-ahead only splits at spaces and decides nothing.
+4. **A short word for Lean's `+`?** Inside proof text Forth's `+` cannot
+   run, so there is no mix-up to prevent. A short word for Lean's addition
+   (spelt so it cannot be mistaken for Forth's, as §16 requires) would only
+   make writing shorter. *Recommendation: not now; ask again when the
+   elaborator (8.3.1) exists.* Such a word must also supply the hidden type
+   and instance (`Nat`, `instHAdd`), which only the elaborator can fill in;
+   readable `n + m` is already the printer's job (8.6.2, 4.4.3); and adding
+   it later breaks nothing (§16, reason 3).
+
+### A12. Rejected alternatives
+
+- **The separate authoring process of OQ-1, kept**: a process boundary
+  for data that can only run fixed words adds serialization and a second
+  reader without adding protection; the protection that matters, against a
+  user's own code, is the fresh-process re-check (A7).
+- **Compile-time LeanForth words in colon definitions** (A6, α).
+- **A word for every library constant up front** (A2; question 3).
+- **Gforth 1.0's recognizers for unknown names** (a recognizer that looks
+  names up in the environment): Gforth-only; 0.7.3 has none (p00).
+- **Gforth's own wordlist methods** (a custom `find` on the environment's
+  name index): host internals, not Forth-2012.
+- **Parameters taken from the caller's data stack** inside the text: the
+  run's frames (§7) exist so that no word reaches below its floor; a named
+  parameter is visible in the text and in the printed instance.
+- **Treating inline verdicts like file verdicts**: the surrounding program
+  could forge them (A7).
