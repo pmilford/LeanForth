@@ -6,6 +6,41 @@ LOCAL_GFORTH := .tools/gforth/bin/gforth
 LOCAL_LEAN := $(CURDIR)/.tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean
 GFORTH ?= $(if $(wildcard $(LOCAL_GFORTH)),$(LOCAL_GFORTH),gforth)
 LEAN ?= $(if $(wildcard $(LOCAL_LEAN)),$(LOCAL_LEAN),lean)
+LEAN_BINARY := $(LEAN)
+
+# Parallel runs (docs/development/TESTING_STRATEGY.md, "Running the suites"):
+# every target of make test and make check can run beside any other (each
+# writes only its own temporary folders), so make runs JOBS jobs at once
+# (default 8) unless -j is given, and prints each target's output in one
+# piece. JOBS=1 (or -j1) runs one target at a time. A make started by a
+# recipe ($(MAKE)) shares its parent's jobs.
+JOBS ?= 8
+ifeq ($(filter -j%,$(MAKEFLAGS))$(filter-out 0,$(MAKELEVEL)),)
+MAKEFLAGS += -j$(JOBS)
+endif
+ifneq ($(filter output-sync,$(.FEATURES)),)
+MAKEFLAGS += --output-sync=target
+endif
+
+# Pinned Lean's runs and its exporter's are cached (scripts/lean-cache.py):
+# the recipes get LEAN and LEANEXPORT set to scripts that replay a stored
+# run when every input of it is unchanged, and run the tool otherwise.
+# LEAN_CACHE=0 runs them every time (CI does so; it is also the default when
+# CI is set), LEAN_CACHE=verify runs them every time and fails when a stored
+# run differs. The cache is shared by every worktree of the clone (in the
+# main checkout's .claude/work/lean-cache, which git ignores). LEAN_BINARY
+# is the real Lean.
+LEAN_CACHE ?= $(if $(CI),0,1)
+ifneq ($(LEAN_CACHE),0)
+GIT_COMMON := $(shell git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+CHECKOUT := $(if $(filter %/.git,$(GIT_COMMON)),$(patsubst %/.git,%,$(GIT_COMMON)),$(CURDIR))
+LEAN_CACHE_DIR ?= $(CHECKOUT)/.claude/work/lean-cache
+export LEANFORTH_LEAN := $(LEAN_BINARY)
+export LEANFORTH_LEAN_CACHE := $(LEAN_CACHE)
+export LEANFORTH_LEAN_CACHE_DIR := $(LEAN_CACHE_DIR)
+export LEANEXPORT := $(CURDIR)/scripts/leanexport-cache.py
+override LEAN := $(CURDIR)/scripts/lean-cache.py
+endif
 
 # Every test command is stopped after TEST_TIMEOUT seconds and then fails,
 # so a looping test cannot stall a local run or CI. Uses GNU timeout(1).
@@ -332,10 +367,10 @@ test-printer-differential:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/present/printer-differential.py
 
 profile-existing:
-	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash scripts/profile-existing.sh
+	LEAN=$(LEAN_BINARY) GFORTH=$(GFORTH) $(RUN) bash scripts/profile-existing.sh
 
 profile-history:
-	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 scripts/profile-history.py
+	LEAN=$(LEAN_BINARY) GFORTH=$(GFORTH) $(RUN) python3 scripts/profile-history.py
 
 test-program-depth-differential:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/program/program-depth-differential.sh
@@ -628,3 +663,24 @@ reference-compact-init:
 test: test-compact test-stage
 check: test-compact-faults
 test-differential: reference-compact-init
+
+# The Lean cache (scripts/lean-cache.py; TESTING_STRATEGY.md, "The Lean
+# cache"): with a fake toolchain, a repeated call replayed exactly, every
+# input's change missing the cache, what is never cached, verify mode, and
+# the Makefile's choice of the cache (never with LEAN_CACHE=0 or CI set).
+# Python 3 and make only.
+test-lean-cache:
+	$(RUN) python3 tests/lean-cache/test_lean_cache.py
+
+# The targets of make test (test-changed) or make check (check-changed) that
+# use a file changed since the merge base with BASE (default main),
+# uncommitted and new files included (scripts/changed-tests.py prints why
+# with --why). For an agent's inner loop only: make test before each commit.
+BASE ?= main
+test-changed check-changed:
+	@targets=$$(python3 scripts/changed-tests.py --why --base $(BASE) $(@:-changed=)) \
+	|| exit 1; if [ -z "$$targets" ]; then echo "No target uses a changed file."; \
+	else $(MAKE) --no-print-directory $$targets; fi
+
+.PHONY: test-lean-cache test-changed check-changed
+test: test-lean-cache

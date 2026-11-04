@@ -16,11 +16,12 @@ case "$version" in
   *) printf 'Expected Lean 4.35.0; got: %s\n' "$version" >&2; exit 1 ;;
 esac
 toolchain=$("$lean" --print-prefix)
+leanexport=${LEANEXPORT:-$toolchain/bin/leanexport}   # the Makefile's may replay a cached run
 fast="$(dirname "$gforth")/gforth-fast"
 if [ -x "$fast" ]; then gforth=$fast; fi
 temporary=$(mktemp -d)
 trap 'rm -f "$temporary/init.ndjson" "$temporary/init.ndjson.manifest.json"; rmdir "$temporary"' EXIT
-PATH="$toolchain/bin:$PATH" "$toolchain/bin/leanexport" Init >"$temporary/init.ndjson"
+PATH="$toolchain/bin:$PATH" "$leanexport" Init >"$temporary/init.ndjson"
 digest=$(sha256sum "$temporary/init.ndjson" | cut -c1-64)
 if [ "$digest" != c1b2071a6d2132ace8c4711499f078aab2117d925213d5a222a1fe843a59a179 ]; then
   printf 'Unexpected Init export: %s\n' "$digest" >&2

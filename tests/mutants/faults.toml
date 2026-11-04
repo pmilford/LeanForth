@@ -1758,3 +1758,72 @@ old = '''    return None if count == 1 else f"old text found {count} times"'''
 new = '''    return None'''
 test = "python3 tests/mutants/test_mutants.py"
 reason = "an entry whose old text is gone is planted as a no-op instead of reported stale"
+
+# --- the Lean cache (scripts/lean-cache.py, Makefile) ----------------------
+
+[[fault]]
+id = "lc-key-without-source"
+file = "scripts/lean-cache.py"
+old = '''"source": hashlib.sha256(text).hexdigest()})'''
+new = '''"source": None})'''
+test = "python3 tests/lean-cache/test_lean_cache.py"
+reason = "a changed source text replays the old text's run"
+quick = true
+
+[[fault]]
+id = "lc-key-without-module"
+file = "scripts/lean-cache.py"
+old = '''"module": module_path(source),'''
+new = '''"module": None,'''
+test = "python3 tests/lean-cache/test_lean_cache.py"
+reason = "a source at another path, so of another module name, replays the first one's run"
+
+[[fault]]
+id = "lc-toolchain-unchecked"
+file = "scripts/lean-cache.py"
+old = '''    memo_key = json.dumps([stat_key(lean), stat_key(library)] + [stat_key(p) for p in shared])'''
+new = '''    memo_key = "any toolchain"'''
+test = "python3 tests/lean-cache/test_lean_cache.py"
+reason = "a rebuilt Lean binary or library replays the runs of the old one"
+
+[[fault]]
+id = "lc-unrecorded-import"
+file = "scripts/lean-cache.py"
+old = '''                if name.endswith(".olean") and not os.path.exists(olean_mark(cache, digest)):'''
+new = '''                if False:'''
+test = "python3 tests/lean-cache/test_lean_cache.py"
+reason = "an imported module the cache did not see compiled (it may read files) is cached"
+
+[[fault]]
+id = "lc-io-input-cached"
+file = "scripts/lean-cache.py"
+old = '''    if inputs:
+        raise Uncacheable'''
+new = '''    if False:
+        raise Uncacheable'''
+test = "python3 tests/lean-cache/test_lean_cache.py"
+reason = "a source that reads files, the clock or the environment is cached"
+
+[[fault]]
+id = "lc-any-status-stored"
+file = "scripts/lean-cache.py"
+old = '''    return status in STORED_STATUS and not any(word in text for word in RESOURCE_FAILURES)'''
+new = '''    return True'''
+test = "python3 tests/lean-cache/test_lean_cache.py"
+reason = "a crash or a killed run is stored and replayed"
+
+[[fault]]
+id = "lc-verify-trusts-entry"
+file = "scripts/lean-cache.py"
+old = '''                if not same_entry(entry, work):'''
+new = '''                if False:'''
+test = "python3 tests/lean-cache/test_lean_cache.py"
+reason = "LEAN_CACHE=verify no longer notices a run that differs from its entry"
+
+[[fault]]
+id = "lc-cache-in-ci"
+file = "Makefile"
+old = '''LEAN_CACHE ?= $(if $(CI),0,1)'''
+new = '''LEAN_CACHE ?= 1'''
+test = "python3 tests/lean-cache/test_lean_cache.py"
+reason = "CI (the CI variable set) replays cached Lean runs"
