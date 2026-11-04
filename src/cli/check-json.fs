@@ -175,7 +175,7 @@ require ./check-run.fs
   cj-label s" label" cj-text ;
 : cj-settings ( -- )
   s" settings" cj-key cj-object ck-fuel-budget s" fuel" cj-number
-  lf-env-pool-max s" dependencyPool" cj-number cj-end-object ;
+  lf-env-pool-start s" dependencyPool" cj-number cj-end-object ;
 : cj-status ( -- ) cli-worst @ s" exitStatus" cj-number ;
 : cj-body ( c-addr u checked? -- )
   cj-object cj-head cj-settings cj-read cj-run cj-stopped cj-decls cj-counts cj-fuel

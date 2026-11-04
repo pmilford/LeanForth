@@ -105,10 +105,13 @@ T{ s" constant-references lf-cref-new" at? -> true }T
 end-check
 : sort0 ( -- node identity ) 0 make-sort handle ;
 : put ( name -- status ) >r token r> sort0 formals 0 1000 lf-msp-put ;
-: fill-index ( -- ) lf-msp-capacity 0 ?do 0 i 1+ lf-name-num must put ok? must loop ;
-begin-check fill-index lf-diag-clear
-T{ 0 99 lf-name-num must put diag -> outcome-full 32 32 lf-diag-signatures-full }T
+\ The index grows (plan task 6.2.0); one the heap cannot grow
+\ (heap-watch.fs) is full and keeps its count.
+: fill-index ( n -- ) 0 ?do 0 i 1+ lf-name-num must put ok? must loop ;
+begin-check 16 fill-index 0 99 lf-name-num must constant n99 lf-diag-clear 1 heap-refusals !
+T{ n99 put diag -> outcome-full 16 16 lf-diag-signatures-full }T
 T{ s" mixed-signature-probe lf-msp" at? -> true }T
+T{ heap-refusals @ lf-msp-count @ n99 put lf-msp-count @ -> 0 16 outcome-ok 17 }T
 end-check
 
 \ Walks and recursive passes running out of fuel: over every fuel up to a

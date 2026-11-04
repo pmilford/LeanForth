@@ -88,17 +88,16 @@ T{ 999 1 5000 specialize-with -> outcome-invalid }T
 T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> 1 2 0 }T
 T{ candidate @ 1 5000 specialize-with nip nip -> outcome-ok }T
 
-\ The index holds lf-msp-capacity records. One more is full and changes
-\ nothing, so a capacity check cannot write past the record arrays.
+\ The index has no fixed number of records (plan task 6.2.0; it held 32
+\ before): 40 are kept, and the first and the last specialize.
+\ (diagnostics.fs: one the heap cannot grow is full and changes nothing.)
 : numbered ( n -- name ) 0 swap lf-name-num 0= abort" numbered name" ;
 : fill-index ( -- )
-  lf-msp-capacity 1 do i numbered 1 5000 put-with outcome-ok <> abort" fill" loop ;
+  40 1 do i numbered 1 5000 put-with outcome-ok <> abort" fill" loop ;
 fill-index
-T{ lf-msp-count @ -> lf-msp-capacity }T
-T{ lf-msp-capacity numbered 1 5000 put-with -> outcome-full }T
-T{ lf-msp-count @ -> lf-msp-capacity }T
+T{ lf-msp-count @ -> 40 }T
 T{ candidate @ 1 5000 specialize-with nip nip -> outcome-ok }T
-T{ lf-msp-capacity 1- numbered 1 5000 specialize-with nip nip -> outcome-ok }T
+T{ 39 numbered 1 5000 specialize-with nip nip -> outcome-ok }T
 T{ token @ 5000 lf-mixed-signature-audit -> outcome-ok }T
 
 \ A token ends with any change to the stores or the level context it

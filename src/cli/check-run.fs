@@ -27,8 +27,8 @@
 \   failed (ck-staging, ck-feeding), -1 for none; or, for an export that
 \   does not open, ck-unopened instead (ck-opening);
 \ - ck-check ( -- ) checks every declaration in a new environment, kept
-\   current, with room for lf-env-pool-max dependencies (the kernel's
-\   most); ck-outcome is then ok when every slot ended final and the run
+\   current, its dependency pool starting with room for lf-env-pool-start
+\   (it grows); ck-outcome is then ok when every slot ended final and the run
 \   did not stop, else the first failure: full when the facts
 \   (ck-facts-made? false) or the environment (ck-made? false) found no
 \   room, invalid when the environment could not be used or the run
@@ -365,7 +365,7 @@ create ck-line ck-line-room 2 + allot
 : ck-own ( env -- ) lf-envh-identity @ ck-state ck-env-id ! true ck-state ck-checked ! ;
 : ck-unusable ( env outcome -- outcome ) swap lf-env-free drop 0 ck-state ck-env-id ! ;
 : ck-env ( -- outcome )
-  ck-fuel-budget lf-check-budget lf-env-pool-max lf-env-new ok-then? 0= if exit then
+  ck-fuel-budget lf-check-budget lf-env-pool-start lf-env-new ok-then? 0= if exit then
   dup ck-own dup lf-env-use dup ok? if nip else ck-unusable then ;
 
 \ ---- The fuel used in all, and the declarations that used the most,

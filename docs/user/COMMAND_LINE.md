@@ -442,7 +442,7 @@ exit status 2
 | `schema`, `schemaVersion` | `leanforth-check-report`, `0.1` |
 | `export`, `manifest` | the file name given, with the escapes of [names](#what-check-prints); `checked`, or `not-checked` with `--no-manifest` |
 | `label` | `experimental, not independently audited` |
-| `settings` | the fuel per check and the dependencies the environment holds |
+| `settings` | the fuel per check and `dependencyPool`, the room the environment's dependency pool starts with (it grows: not a limit since plan task 6.2.0) |
 | `read` | the read's outcome and, for a failure, its `phase` (`open`, `stage`, `feed`), `line`, `field`, `reason`, and for the feed the number `at` which it stopped |
 | `run` | the run's outcome: `ok` when every slot ended final and the run did not stop, `invalid` when it stopped, `not-run` when the export was not read |
 | `stopped` | true when the run stopped on an internal fault (a check threw, or publishing failed), as the text's `internal fault: the run stopped` line says; the run is then `invalid` and the status 5 |
@@ -735,11 +735,12 @@ not yet supported (check answers unsupported or unknown, exit 2):
   correct proofs end unknown; check --record and replay refuse
   inductive types while reading
 limits (check answers full or exhausted, exit 3):
-  check: stores and walks that grow with the export (memory, any depth);
-    16 dependencies per declaration, 65536 per export, 512 constructors per
-    inductive block (plan task 6.2.0)
+  check: stores, walks and lists that grow with the export (memory), any
+    depth and number of dependencies or constructors (plan task 6.2.0);
+    each check's scratch above the input: 1048576 term nodes, 65536 levels,
+    262144 constant references (plan task 6.2.2)
   check --record, replay: 64 names, 64 levels, 64 term nodes,
-    32 declarations per export, 64 dependencies per export
+    32 declarations per export
   universe parameters per declaration and universe arguments per constant:
     no fixed limit (memory)
   fuel 100000 steps per declaration (--fuel N, at most 9007199254740991)

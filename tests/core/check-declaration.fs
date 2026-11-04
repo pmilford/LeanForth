@@ -227,14 +227,14 @@ T{ check-last -> outcome-invalid lf-diag-bad-argument audit }T
 T{ outside -> outcome-invalid 0 }T
 
 \ ---------------------------------------------------------------------------
-\ Exhausted: too little fuel for the audit; and full: a 17th dependency
-\ (lf-env-dep-capacity 16), and a term store that fills while the declared
-\ type is inferred (the binder-domain table's eta case).
+\ Exhausted: too little fuel for the audit; a 17th dependency, which used
+\ to be full (16 per check until plan task 6.2.0) and is accepted; and
+\ full: a term store that fills while the declared type is inferred.
 fc-case exhausted
 fc-decl check thm safe idProp 0 TYPE P S z P V 0 V 1 VALUE L S z L V 0 V 0
 T{ 3 lf-check-budget check-last -> outcome-exhausted lf-diag-fuel audit }T
 fc-fuel lf-check-budget
-fc-case deps-full
+fc-case deps-17
 fc-decl before def safe c0 0 TYPE P S z S z VALUE L S z V 0
 fc-decl before def safe c1 0 TYPE P S z S z VALUE L S z V 0
 fc-decl before def safe c2 0 TYPE P S z S z VALUE L S z V 0
@@ -253,7 +253,7 @@ fc-decl before def safe c14 0 TYPE P S z S z VALUE L S z V 0
 fc-decl before def safe c15 0 TYPE P S z S z VALUE L S z V 0
 fc-decl before def safe c16 0 TYPE P S z S z VALUE L S z V 0
 fc-decl check def safe user 0 TYPE S z VALUE A C c0 0 A C c1 0 A C c2 0 A C c3 0 A C c4 0 A C c5 0 A C c6 0 A C c7 0 A C c8 0 A C c9 0 A C c10 0 A C c11 0 A C c12 0 A C c13 0 A C c14 0 A C c15 0 A C c16 0 P S z V 0
-T{ check-last -> outcome-full lf-diag-deps-full value-step }T
+T{ check-last -> outcome-ok 0 lf-step-done }T
 \ The declared type is a telescope of 40 binders (Prop -> ... -> Prop):
 \ its 41 nodes and a free variable per binder (plan task 4.2.2a) do not
 \ fit the 64 terms. (The binder-domain table's eta case, used here

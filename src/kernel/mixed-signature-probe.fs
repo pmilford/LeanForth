@@ -9,12 +9,14 @@
 \ context. A cref reset does not invalidate the index token; each use
 \ rechecks the reachable references and their allocation identities. No
 \ cache is provided.
-\ State: the index record lf-msp-index (lifetime, captured generations and
-\ the candidate arrays) and the request record lf-msp-request (one put or
-\ specialize call's arguments and the zero actuals used by coverage), both
-\ members of the checker context (lib/context.fs): the index refers to its
-\ own context's stores. Single-threaded within one context: exclude
-\ resets, raw writes, callbacks and concurrent calls.
+\ State: the index record lf-msp-index (lifetime, count and captured
+\ generations), its candidate arrays and formal pool (context slabs, which
+\ grow: no fixed number of candidates since plan task 6.2.0), and the
+\ request record lf-msp-request (one put or specialize call's arguments
+\ and the zero actuals used by coverage), all members of the checker
+\ context (lib/context.fs): the index refers to its own context's
+\ stores. Single-threaded within one context: exclude resets, raw writes,
+\ callbacks and concurrent calls.
 
 require ../lib/lib.fs
 require ../core/constant-references.fs
@@ -26,22 +28,22 @@ require ../core/symbolic-session.fs
 require ../core/terms.fs
 require ./mixed-level-substitute.fs
 
-32 constant lf-msp-capacity
-
 \ The index: parallel arrays of candidate records, because callers and tests
 \ address them as cell arrays (lf-msp-names, ...) and copy their prefixes.
+\ Each array is a growable slab (plan task 6.2.0), all held to the same
+\ room before a record is added; an address is valid until the next put.
 begin-structure /lf-sigs
-  field: lf-sigs-count                 \ records in use, 0..capacity
+  field: lf-sigs-count                 \ records in use, 0..the arrays' room
   field: lf-sigs-active                \ true while a lifetime is open
   field: lf-sigs-generation            \ lifetime counter; negative once spent
   2 cells +field lf-sigs-store-gens    \ name and term generations at begin
   2 cells +field lf-sigs-scope-gens    \ level and context generations at begin
-  lf-msp-capacity cells +field lf-sigs-names
-  lf-msp-capacity cells +field lf-sigs-roots
-  lf-msp-capacity cells +field lf-sigs-ids
-  lf-msp-capacity cells +field lf-sigs-arities
-  lf-msp-capacity cells +field lf-sigs-offsets   \ where each record's formals begin
 end-structure
+1 cells context-slab: lf-sigs-names
+1 cells context-slab: lf-sigs-roots
+1 cells context-slab: lf-sigs-ids
+1 cells context-slab: lf-sigs-arities
+1 cells context-slab: lf-sigs-offsets   \ where each record's formals begin
 \ Every record's formal IDs, one after another, and the zero actuals of
 \ coverage: growable arrays with no fixed limit on an arity (plan task
 \ 6.2.0); one the heap cannot grow is full.
@@ -74,12 +76,18 @@ end-structure
 : lf-msp-count ( -- addr ) lf-msp-index lf-sigs-count ;
 : lf-msp-active ( -- addr ) lf-msp-index lf-sigs-active ;
 : lf-msp-generation ( -- addr ) lf-msp-index lf-sigs-generation ;
-: lf-msp-names ( -- addr ) lf-msp-index lf-sigs-names ;
-: lf-msp-roots ( -- addr ) lf-msp-index lf-sigs-roots ;
-: lf-msp-ids ( -- addr ) lf-msp-index lf-sigs-ids ;
-: lf-msp-arities ( -- addr ) lf-msp-index lf-sigs-arities ;
+: lf-msp-names ( -- addr ) lf-sigs-names slab-base ;
+: lf-msp-roots ( -- addr ) lf-sigs-roots slab-base ;
+: lf-msp-ids ( -- addr ) lf-sigs-ids slab-base ;
+: lf-msp-arities ( -- addr ) lf-sigs-arities slab-base ;
 : lf-msp-formals ( -- addr ) 0 lf-msp-formal-pool slab-at ;
-: lf-msp-offsets ( -- addr ) lf-msp-index lf-sigs-offsets ;
+: lf-msp-offsets ( -- addr ) lf-sigs-offsets slab-base ;
+\ The five arrays, and the records every one has room for.
+create lf-msp-arrays
+  ' lf-sigs-names , ' lf-sigs-roots , ' lf-sigs-ids , ' lf-sigs-arities , ' lf-sigs-offsets ,
+here lf-msp-arrays - 1 cells / constant lf-msp-arrays#
+: lf-msp-array ( i -- slab ) cells lf-msp-arrays + @ execute ;
+: lf-msp-room@ ( -- n ) max-n lf-msp-arrays# 0 do i lf-msp-array slab-capacity min loop ;
 : lf-msp-offset@ ( position -- u ) cells lf-msp-offsets + @ ;
 : lf-msp-formals-at ( position -- addr ) lf-msp-offset@ lf-msp-formal-pool slab-at ;
 \ Unchecked: one field of the record at a position below the count.
@@ -115,7 +123,7 @@ end-structure
 \ A token is current while its lifetime is open, the count is in range and
 \ the stores, session and context it captured are unchanged.
 : lf-msp-live? ( -- flag )
-  lf-msp-count @ lf-msp-capacity upto? lf-msp-sources? and lf-msp-unchanged? and ;
+  lf-msp-count @ lf-msp-room@ upto? lf-msp-sources? and lf-msp-unchanged? and ;
 : lf-msp-current? ( token -- flag )
   lf-msp-active @ if lf-msp-generation @ = lf-msp-live? and else drop false then ;
 \ Token denotes lifetime, not content revision; insertions do not change it.
@@ -170,15 +178,17 @@ end-structure
   lf-msp-marks 2>r >r lf-msp-zero-actuals r> 2r> lf-msp-rewind ;
 
 \ Insertion: a well-formed request for a new name, room in the index, then
-\ coverage; only then are the record and its formal IDs copied in. A full
-\ index is full.
+\ coverage; only then are the record and its formal IDs copied in. An index
+\ the heap cannot grow is full.
 : lf-msp-new? ( token req -- flag )
   tuck lf-msp-well-formed? if lf-sigreq-name @ lf-msp-position 0< else drop false then ;
 : lf-msp-full ( -- outcome )
-  lf-msp-count @ lf-msp-capacity lf-msp-site lf-diag-signatures-full lf-diag-note
+  lf-msp-count @ lf-msp-room@ lf-msp-site lf-diag-signatures-full lf-diag-note
   outcome-full ;
+: lf-msp-hold? ( n -- flag )
+  true lf-msp-arrays# 0 do over i lf-msp-array slab-hold ok? and loop nip ;
 : lf-msp-room ( -- outcome )
-  lf-msp-count @ lf-msp-capacity < if outcome-ok else lf-msp-full then ;
+  lf-msp-count @ 1+ lf-msp-hold? if outcome-ok else lf-msp-full then ;
 : lf-msp-pool-room ( req -- outcome )
   lf-msp-count @ lf-msp-formal-cells swap lf-sigreq-arity @ + lf-msp-formal-pool slab-hold ;
 : lf-msp-addable ( token req -- status )
