@@ -1,13 +1,10 @@
 # ADR 0017: LeanForth Forth syntax for theorems, definitions and proofs
 
-Status: **accepted as the design basis** by the owner on 2026-11-02 (decisions 1–4 as recommended, see [owner decisions](../project/OWNER_DECISIONS.md)); proposed 2026-11-02 (plan task 8.1.1); the implementation (plan 8.1.2) still passes the [parser] gate. A design
-only: nothing in `src/` implements it. A throwaway prototype (outside the
+Status: **accepted as the design basis** by the owner on 2026-11-02 (decisions 1–4 as recommended, see [owner decisions](../project/OWNER_DECISIONS.md)); proposed 2026-11-02 (plan task 8.1.1). **Implemented** 2026-11-03 in `src/author/` and the term printer's Forth mode (plan task 8.1.2; [programming reference](../programming/LEANFORTH_WORDS.md), [user page](../user/LEANFORTH_SYNTAX.md)); the implementation still passes the [parser] gate before anything relies on it. Two points of the implementation refine this record: while the stores hold 64 nodes, equal subterms share one node, which keeps the position where it was first written (a step with a label or note always has its own node); and the stand-in for imports is the word `import-stub` (the prototype's `stub` and `declare`). Before that, a throwaway prototype (outside the
 repository, see [Evidence](#evidence)) ran every example below as Forth
 words through Forth's own interpreter, built the terms in LeanForth's
 existing stores, printed them with the term printer, and ran its own
-printed words again. The acceptance text of 8.1.1, "syntax reviewed with
-examples for the three forms", is met only when the owner has reviewed this
-record and answered the [decisions](#decisions-for-the-owner).
+printed words again.
 
 This revision follows the owner's requirement of 2026-11-02: *"I was hoping
 we can encode the theorems and proofs in leanforth words, not strings that
@@ -83,7 +80,7 @@ examples, in [concepts in three forms](../user/CONCEPTS.md): *term*,
 fills in by itself (written `{A}`); an **instance argument** (`[inst : C]`)
 is one Lean finds by searching a table of instances, such as "how to add
 natural numbers". A short user page shows the sketch:
-[LeanForth syntax, a design sketch](../user/LEANFORTH_SYNTAX_SKETCH.md).
+[LeanForth syntax](../user/LEANFORTH_SYNTAX.md).
 
 ## Context
 
@@ -1069,7 +1066,7 @@ MyNat`.
 - The term store needs `let`, literal and projection nodes (needed for
   Mathlib anyway) before §14 runs; inductive types wait for phase 5.
 - User documentation can show the Forth form of every example, labelled
-  *design sketch* until 8.1.2 lands; [the sketch page](../user/LEANFORTH_SYNTAX_SKETCH.md)
+  *design sketch* until 8.1.2 lands; [the user page](../user/LEANFORTH_SYNTAX.md)
   starts that.
 - The JSON interface (8.5.1) and the LLM guide reuse the same words and
   error codes, so an AI can write a proof as words, get errors with

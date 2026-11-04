@@ -1,0 +1,8 @@
+\ A used binder whose name is hygienic, as Lean's elaborator makes them:
+\ it must not print as ->, which would lose the name and the variable.
+\ Lean: theorem hyg_used : ∀ (P : Prop), P → P := fun Q q => q
+theorem hyg_used
+  Prop explicit: P._@.Main._hyg.3   P._@.Main._hyg.3 P._@.Main._hyg.3 ->   forall
+:=
+  Prop explicit: Q   Q explicit: q   q fun fun
+end hyg_used

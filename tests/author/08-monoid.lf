@@ -1,0 +1,51 @@
+\ Lean: universe u
+\       class MyMonoid (M : Type u) where
+\         mul : M → M → M
+\         one : M
+\         mul_one : ∀ a : M, mul a one = a
+\       namespace MyMonoid
+\       theorem mul_one' {M : Type u} [inst : MyMonoid M] (a : M) : mul a one = a :=
+\         mul_one a
+\       end MyMonoid
+\ The class itself is a sketch (no inductive types in the store yet): its
+\ constants are import stubs here, with the types Lean gives them.
+import-stub MyMonoid
+  universe u
+  u Type u Type ->
+end MyMonoid
+import-stub Eq
+  universe u_1
+  u_1 Sort implicit: α
+  α α Prop -> ->
+end Eq
+import-stub MyMonoid.mul
+  universe u
+  u Type implicit: M
+  MyMonoid u ^ M $  instance: self
+  M M M -> ->
+end MyMonoid.mul
+import-stub MyMonoid.one
+  universe u
+  u Type implicit: M
+  MyMonoid u ^ M $  instance: self
+  M
+end MyMonoid.one
+import-stub MyMonoid.mul_one
+  universe u
+  u Type implicit: M
+  MyMonoid u ^ M $  instance: self
+  M explicit: a
+  Eq u 1 level+ ^ M $  MyMonoid.mul u ^ M $ self $ a $  MyMonoid.one u ^ M $ self $  $  $  a $
+end MyMonoid.mul_one
+
+namespace MyMonoid
+theorem mul_one'
+  universe u
+  u Type implicit: M
+  MyMonoid u ^ M $  instance: inst
+  M explicit: a
+  Eq u 1 level+ ^ M $  mul u ^ M $ inst $ a $  one u ^ M $ inst $  $  $  a $
+:=
+  mul_one u ^ M $ inst $ a $
+end mul_one'
+end MyMonoid

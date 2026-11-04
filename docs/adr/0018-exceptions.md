@@ -98,7 +98,8 @@ a host `THROW` out of a pass: `frame-reset` (`lib/frame.fs`),
    | −4112, −4115 to −4117 | — | ok, unknown, rejected, unsupported: never thrown; reserved so the mapping stays one rule | never |
    | −4119 to −4127 | — | reserved for outcomes added later | — |
    | −4128 | `throw-fault` | a fault in LeanForth: a broken internal invariant | yes; only a check boundary or a top level turns it into an outcome |
-   | −4129 to −4351 | — | unassigned; assigned only by amending this table | — |
+   | −4129 | `lf-author-throw` | an authoring error, recorded in the authoring program's error record (`src/author/errors.fs`; added with plan task 8.1.2) | yes; caught only by the authoring runner, a top level |
+   | −4130 to −4351 | — | unassigned; assigned only by amending this table | — |
 
    Never `THROW` 0 (it does nothing), an outcome's own number, or a
    positive code (some hosts return positive iors). Run-time "cannot

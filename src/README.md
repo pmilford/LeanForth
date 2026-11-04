@@ -13,11 +13,13 @@ audit, any accepted result is *experimental — not independently audited*.
 | `kernel/` | The proof checker, under development: universe substitution, value and comparison; candidate signatures; the `mixed-*` shift, instantiate, beta, compare, convert and inference passes, which reject by ADR 0011's rules (`mixed-head.fs`: the head kinds they read); the definition and theorem probe; the checked environment v0 and its publisher (`environment.fs`, `env-publish.fs`; see [CHECKED_ENVIRONMENT.md](../docs/programming/CHECKED_ENVIRONMENT.md)). See [`kernel/README.md`](kernel/README.md). | yes (the environment not yet) |
 | `import/` | The reader of Lean's lean4export NDJSON files (`ndjson.fs`, see [NDJSON_READER.md](../docs/development/NDJSON_READER.md)) and its record-counting tool (`ndjson-count.fs`, not loaded by `main.fs`); staging of decoded expression records into the term store (`load.fs`). | yes |
 | `program/` | Verified-program track: the example words (clamp, checked add, abs, factorial, gcd, in-range) and the stack-depth analyzer. | yes |
-| `present/` | Presentation: untrusted output formatting that the checker never reads. The presentation side table (`binder-table.fs`: binder names and kinds, source record IDs, declared types) and the term printer (`term-printer.fs` and the `print-*.fs`, `latex-text.fs` modules it loads) in Lean's notation, ASCII and LaTeX. See [the user guide](../docs/user/TERM_PRINTER.md). Uses `lib/` and `core/`, never `kernel/`. | yes, `term-printer.fs`; the checker never uses it |
+| `present/` | Presentation: untrusted output formatting that the checker never reads. The presentation side table (`binder-table.fs`: binder names and kinds, source record IDs, declared types) and the term printer (`term-printer.fs` and the `print-*.fs`, `latex-text.fs` modules it loads) in Lean's notation, ASCII and LaTeX; the labels and notes of proof steps (`note-table.fs`) and the printer's Forth mode (`print-forth.fs`, a declaration as the LeanForth words that build it). See [the user guide](../docs/user/TERM_PRINTER.md). Uses `lib/` and `core/`, never `kernel/`. | yes, `term-printer.fs`; the checker never uses it; `note-table.fs` and `print-forth.fs` no |
+| `author/` | The untrusted authoring layer (plan task 8.1.2, ADR 0017): theorems and proofs written as LeanForth words and run by Forth's own interpreter, line by line (`runner.fs`, the top module), with case-sensitive names, namespaces, labels and notes and errors with line and column. Meant to run in an authoring program of its own (plan 8.2.1, not built). See [the reference](../docs/programming/LEANFORTH_WORDS.md). Uses `lib/`, `core/` and `present/`, never `kernel/`; the checker never loads it (`tests/author/check_author.py` checks that). | no |
 
 ## Rules
 
-- Dependencies point one way: `lib/` ← `core/` ← `kernel/`. `lib/` uses
+- Dependencies point one way: `lib/` ← `core/` ← `kernel/`, and
+  `lib/` ← `core/` ← `present/` ← `author/`. `lib/` uses
   nothing outside `lib/`; `core/` never uses `kernel/`; neither uses
   `import/` or `program/`.
 - One variant per operation. The superseded variants that used to live in
@@ -56,10 +58,13 @@ audit, any accepted result is *experimental — not independently audited*.
   buffers and stays shared, so one count runs at a time), `present/` and
   the program reader and interpreter (`program/ir-reader.fs`,
   `ir-run.fs`); `import/ndjson.fs` keeps no state of its own (every word
-  takes an export record).
+  takes an export record). `author/` keeps its state in context members
+  too, but grows the dictionary while a proof runs (a word per name
+  spelling, a wordlist per namespace): one more reason the checker never
+  loads it.
 - Tests `require` the modules whose words they use; they live in `tests/lib/`,
-  `tests/core/` (for `core/`, `kernel/` and `import/` modules) and
-  `tests/program/`.
+  `tests/core/` (for `core/`, `kernel/` and `import/` modules),
+  `tests/present/`, `tests/author/` and `tests/program/`.
 - Style: [the Forth style guide](../docs/development/FORTH_STYLE.md);
   `make forth-metrics` reports per-folder totals.
 

@@ -1,0 +1,27 @@
+\ Draft 2: a person replaced the first two steps by the earlier theorem
+\ composition. The step to-D and its note are unchanged; the steps to-B
+\ and to-C, with their notes, were edited together with the code.
+\ Lean: theorem chain {A B C D : Prop} (f : A → B) (g : B → C) (h : C → D) : A → D :=
+\         fun a => h (composition f g a)
+theorem composition
+  Prop implicit: A   Prop implicit: B   Prop implicit: C
+  A B ->  explicit: f
+  B C ->  explicit: g
+  A C ->
+:=
+  A explicit: value   g f value $ $   fun
+end composition
+
+theorem chain
+  Prop implicit: A   Prop implicit: B   Prop implicit: C   Prop implicit: D
+  A B ->  explicit: f
+  B C ->  explicit: g
+  C D ->  explicit: h
+  A D ->
+:=
+  A explicit: a
+    h  composition A $ B $ C $ f $ g $ a $
+              label: to-C  note" composition does the first two steps at once"
+       $      label: to-D  note" h finishes the chain: a proof of D"
+  fun
+end chain

@@ -1,0 +1,28 @@
+\ Lean: universe u v
+\       def Big : Type (u + 1) := Type u
+\       def PairSort (_A : Sort u) (_B : Sort v) : Type (max u v) := Sort (max u v)
+\       def ImaxSort (_A : Sort u) (_B : Sort v) : Type (imax u v) := Sort (imax u v)
+def Big
+  universe u
+  u 1 level+ Type
+:=
+  u Type
+end Big
+
+def PairSort
+  universe u  universe v
+  u Sort explicit: _A
+  v Sort explicit: _B
+  u v level-max Type
+:=
+  u v level-max Sort
+end PairSort
+
+def ImaxSort
+  universe u  universe v
+  u Sort explicit: _A
+  v Sort explicit: _B
+  u v level-imax Type
+:=
+  u v level-imax Sort
+end ImaxSort

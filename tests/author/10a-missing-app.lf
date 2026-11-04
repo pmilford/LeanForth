@@ -1,0 +1,9 @@
+\ A mistake: one $ is missing, so g and (f value) are never combined.
+theorem composition
+  Prop implicit: A   Prop implicit: B   Prop implicit: C
+  A B ->  explicit: f
+  B C ->  explicit: g
+  A C ->
+:=
+  A explicit: value   g f value $   fun
+end composition

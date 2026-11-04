@@ -1,0 +1,13 @@
+\ Two variables whose names differ only in case, and nothing else: here a
+\ spelling check that ignored case would not stop the run (as declaring
+\ both id and Id does in 14-case.lf); it would silently make X mean x.
+\ The round trip cannot see that, since the printer and the words would
+\ agree; the comparison with Lean's #print does (ADR 0017 section 13).
+\ Lean: def caseVar {X : Type} (x : X) : X := x
+def caseVar
+  0 Type implicit: X
+  X explicit: x
+  X
+:=
+  x
+end caseVar

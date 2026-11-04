@@ -1,0 +1,8 @@
+\ Lean: theorem identity {P : Prop} (proof : P) : P := proof
+theorem identity
+  Prop implicit: P
+  P explicit: proof
+  P
+:=
+  proof
+end identity

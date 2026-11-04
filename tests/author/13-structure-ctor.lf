@@ -1,0 +1,21 @@
+\ The structure sketch writes MyMonoid's fields as the binders of its
+\ constructor. Structures are not in the term store yet, but the
+\ constructor's type is an ordinary Pi term; here it is an import stub
+\ written with the same binder words (Lean: #print MyMonoid.mk).
+import-stub MyMonoid
+  universe u
+  u Type u Type ->
+end MyMonoid
+import-stub Eq
+  universe u_1
+  u_1 Sort implicit: α
+  α α Prop -> ->
+end Eq
+import-stub MyMonoid.mk
+  universe u
+  u Type implicit: M
+  M M M -> ->  explicit: mul
+  M            explicit: one
+  M explicit: a   Eq u 1 level+ ^ M $  mul a $ one $  $  a $   forall   explicit: mul_one
+  MyMonoid u ^ M $
+end MyMonoid.mk

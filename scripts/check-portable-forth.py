@@ -67,6 +67,16 @@ BYTE_MODULES = {
         "Forth-2012 version with c@ and c! in a byte order the module fixes",
     "src/lib/bignum.fs":
         "big numbers read and write decimal digit characters; limbs are only read as cells",
+    "src/author/source.fs":
+        "authoring runner re-reads the token that invoked a word from the source line's text",
+    "src/author/groups.fs": "a syntax word keeps its exact spelling as a counted string",
+    "src/author/declarations.fs":
+        "names are read from token text: dots between parts, digits of numeric parts",
+    "src/author/runner.fs":
+        "runner splits text into lines and finds the unknown token in a line's text",
+    "src/present/print-forth.fs":
+        "Forth-mode printer checks the characters of name parts and keeps its word list as "
+        "counted strings",
     "src/program/ir-reader.fs":
         "program reader splits source lines into tokens, checks that every character is "
         "printable ASCII and folds A-Z to a-z, as Gforth finds names",

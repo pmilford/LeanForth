@@ -1,0 +1,9 @@
+\ A mistake: the variable value is misspelt.
+theorem composition
+  Prop implicit: A   Prop implicit: B   Prop implicit: C
+  A B ->  explicit: f
+  B C ->  explicit: g
+  A C ->
+:=
+  A explicit: value   g f valeu $ $   fun
+end composition

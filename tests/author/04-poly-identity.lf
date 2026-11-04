@@ -1,0 +1,12 @@
+\ Lean: universe u
+\       theorem poly_identity {A : Sort u} {P : A → Prop} {x : A} (proof : P x) : P x := proof
+theorem poly_identity
+  universe u
+  u Sort implicit: A
+  A Prop ->  implicit: P
+  A implicit: x
+  P x $  explicit: proof
+  P x $
+:=
+  proof
+end poly_identity

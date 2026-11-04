@@ -1,0 +1,38 @@
+\ Names that differ only in case, which Forth's own lookup cannot tell
+\ apart on Gforth: a variable x of type X, the constants id and Id, and a
+\ variable named prop (Forth finds the word Prop for it first).
+\ Lean: def caseVar {X : Type} (x : X) : X := x
+\       def bothIds (f : Id Nat) : Id Nat := id f
+\       def propVar (prop : Prop) : Prop := prop
+import-stub Nat end Nat
+import-stub id
+  universe u
+  u Sort implicit: α
+  α α ->
+end id
+import-stub Id
+  universe u
+  u Type u Type ->
+end Id
+
+def caseVar
+  0 Type implicit: X
+  X explicit: x
+  X
+:=
+  x
+end caseVar
+
+def bothIds
+  Id 0 ^ Nat $  explicit: f
+  Id 0 ^ Nat $
+:=
+  id 1 ^  Id 0 ^ Nat $  $  f $
+end bothIds
+
+def propVar
+  Prop explicit: prop
+  Prop
+:=
+  prop
+end propVar

@@ -1,0 +1,17 @@
+\ A mistake: fixtureId has a universe parameter, and its argument is missing.
+def fixtureId
+  universe u
+  u Sort implicit: α
+  α explicit: x
+  α
+:=
+  x
+end fixtureId
+
+theorem fixtureUse
+  Prop implicit: P
+  P explicit: h
+  P
+:=
+  fixtureId P $ h $
+end fixtureUse
