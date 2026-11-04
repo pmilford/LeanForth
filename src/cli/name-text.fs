@@ -37,7 +37,8 @@ require ../core/names.fs
 create nt-out /slab allot  nt-out /slab erase
 create nt-parts /slab allot  nt-parts /slab erase
 variable nt-short   \ true once a byte found no room
-: nt-free ( -- ) nt-out slab-free nt-parts slab-free nt-out /slab erase nt-parts /slab erase ;
+: nt-unmade ( slab -- ) dup slab-free /slab erase ;
+: nt-free ( -- ) nt-out nt-unmade nt-parts nt-unmade ;
 \ The slabs, made when first used: bytes of the text, component IDs.
 : nt-make ( unit slab -- )
   dup slab-live? if 2drop exit then over slab-limit-max swap slab-init drop ;
@@ -46,7 +47,8 @@ variable nt-short   \ true once a byte found no room
 
 \ ---- The text being built: bytes added, a refused one marks it short.
 : nt-put ( c-addr u -- )
-  dup nt-out slab-claim ok? if nt-out slab-at swap move else drop 2drop true nt-short ! then ;
+  dup nt-out slab-claim ok? if nt-out slab-at swap move exit then
+  drop 2drop true nt-short ! ;
 : nt-text@ ( -- c-addr u flag ) 0 nt-out slab-at nt-out slab-count nt-short @ 0= ;
 : nt-digits ( u -- ) 0 <# #s #> nt-put ;
 : nt-decimal ( u -- ) base @ >r decimal nt-digits r> base ! ;
@@ -131,13 +133,16 @@ create nt-rest 7 ,
   rot dup nt-str? if lf-name-text compare 0= else drop 2drop false then ;
 : nt-has? ( id c-addr u -- flag )
   rot dup nt-str? if lf-name-text 2swap nt-holds? else drop 2drop false then ;
-: nt-last-str ( -- id ) nt-count 0 ?do i nt-part dup nt-str? if unloop exit then drop loop 0 ;
-: nt-inaccessible? ( -- flag ) nt-last-str dup s" ✝" nt-has? swap s" _inaccessible" nt-is? or ;
+: nt-last-str ( -- id )
+  nt-count 0 ?do i nt-part dup nt-str? if unloop exit then drop loop 0 ;
+: nt-inaccessible? ( -- flag )
+  nt-last-str dup s" ✝" nt-has? swap s" _inaccessible" nt-is? or ;
 : nt-macro? ( -- flag ) nt-last-str s" _hyg" nt-is? ;
+: nt-starts? ( c-addr u id -- flag ) lf-name-text 2over nip min compare 0= ;
 : nt-root-starts? ( c-addr u -- flag )
-  nt-root dup nt-str? if lf-name-text 2over nip min compare 0= else drop 2drop false then ;
-: nt-pseudo? ( -- flag )
-  nt-count 1 = nt-root s" _" nt-is? and s" #" nt-root-starts? or s" ?" nt-root-starts? or ;
+  nt-root dup nt-str? if nt-starts? else drop 2drop false then ;
+: nt-hole? ( -- flag ) nt-count 1 = nt-root s" _" nt-is? and ;
+: nt-pseudo? ( -- flag ) nt-hole? s" #" nt-root-starts? or s" ?" nt-root-starts? or ;
 : nt-escape? ( -- flag ) nt-inaccessible? nt-macro? or nt-pseudo? or 0= ;
 
 \ Root first, joined by dots.

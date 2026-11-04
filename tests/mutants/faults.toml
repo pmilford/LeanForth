@@ -2305,6 +2305,7 @@ old = ''': ck-final? ( d -- flag ) lf-env-readable dup if nip then ;'''
 new = ''': ck-final? ( d -- flag ) drop true ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "a run whose publisher failed, leaving a slot open, is not reported as stopped"
+equivalent = "defence in depth since review rvCLI2 L1: a run leaves a slot open only when lf-env-step reports a stop (a THROW, a publisher fault) or the run stops before it, and either sets ck-faulted, which ck-confirm also requires clear; caught before L1, when the stop flag was dropped"
 
 [[fault]]
 id = "cli-fuel-off-by-one"

@@ -171,7 +171,8 @@ require ./check-run.fs
 : cj-export ( c-addr u -- ) nt-text cj-shown s" export" cj-text ;
 : cj-head ( c-addr u checked? -- )
   cj-schema s" schema" cj-text cj-version s" schemaVersion" cj-text >r cj-export
-  r> if s" checked" else s" not-checked" then s" manifest" cj-text cj-label s" label" cj-text ;
+  r> if s" checked" else s" not-checked" then s" manifest" cj-text
+  cj-label s" label" cj-text ;
 : cj-settings ( -- )
   s" settings" cj-key cj-object ck-fuel-budget s" fuel" cj-number
   lf-env-pool-max s" dependencyPool" cj-number cj-end-object ;

@@ -251,8 +251,9 @@ create ck-line ck-line-room 2 + allot
 : ck-save ( -- )
   ck-capacities# 0 do i ck-capacity capacity-get @ execute i ck-saved-cell ! loop ;
 \ Give capacity k back; the first refusal stays.
+: ck-first ( outcome outcome2 -- outcome' ) over ok? if nip else drop then ;
 : ck-give-back ( outcome k -- outcome )
-  dup ck-saved-cell @ swap ck-capacity capacity-set @ execute over ok? if nip else drop then ;
+  dup ck-saved-cell @ swap ck-capacity capacity-set @ execute ck-first ;
 : ck-restore ( -- outcome ) outcome-ok ck-capacities# 0 do i ck-give-back loop ;
 \ The stores emptied, as the feed starts them.
 : ck-empty ( -- )
