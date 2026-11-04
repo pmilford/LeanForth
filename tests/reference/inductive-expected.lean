@@ -1,4 +1,5 @@
 import Lean
+import LeanExport.Basic
 
 /-!
 # Inductive types, recursors, reductions: Lean 4.35.0's kernel verdicts
@@ -285,8 +286,15 @@ def checks : List Block := [
     lean := "accepted", leanforth := "accepted", rule := "A1 U1 E4", task := "5.2.1a" },
   { id := "universe.type-not-a-sort", types := [⟨"T", "Nat", []⟩],
     lean := "typeExpected", leanforth := "rejected", rule := "T2", task := "5.2.1a" },
+  -- The same rule without `Nat` (a recursive type, task 5.2.1b), so that task 5.2.1a
+  -- reaches it: the telescope ends in a variable.
+  { id := "universe.type-not-a-sort-param", nparams := 1,
+    types := [⟨"T", "(P : Prop) → P", []⟩],
+    lean := "typeExpected", leanforth := "rejected", rule := "T2", task := "5.2.1a" },
   -- Constructor result types (is_valid_ind_app).
   { id := "result.other-type", types := [⟨"T", "Type", [("mk", "Nat")]⟩],
+    lean := "invalidReturnType", leanforth := "rejected", rule := "C3", task := "5.2.1a" },
+  { id := "result.other-type-sort", types := [⟨"T", "Type", [("mk", "Prop")]⟩],
     lean := "invalidReturnType", leanforth := "rejected", rule := "C3", task := "5.2.1a" },
   { id := "result.index-mentions-type", types := [⟨"T", "Type → Type", [("mk", "T (T Nat)")]⟩],
     lean := "invalidReturnType", leanforth := "rejected", rule := "C3", task := "5.2.1c" },
@@ -296,8 +304,14 @@ def checks : List Block := [
   { id := "params.constructor-mismatch", nparams := 1,
     types := [⟨"T", "Type → Type", [("mk", "(β : Prop) → Nat")]⟩],
     lean := "ctorParamMismatch", leanforth := "rejected", rule := "C2", task := "5.2.1a" },
+  { id := "params.constructor-mismatch-sort", nparams := 1,
+    types := [⟨"T", "Type → Type", [("mk", "(β : Prop) → Prop")]⟩],
+    lean := "ctorParamMismatch", leanforth := "rejected", rule := "C2", task := "5.2.1a" },
   { id := "params.constructor-binder-defeq", nparams := 1,
     types := [⟨"T", "Type → Type", [("mk", "(β : id Type) → T β")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 C2", task := "5.2.1a" },
+  { id := "params.constructor-binder-beta", nparams := 1,
+    types := [⟨"T", "Type → Type", [("mk", "(β : (fun (x : Type 1) => x) Type) → T β")]⟩],
     lean := "accepted", leanforth := "accepted", rule := "A1 C2", task := "5.2.1a" },
   { id := "params.index-instead-of-parameter", types := [⟨"T", "Type → Type",
       [("mk", "(α : Type) → α → T α")]⟩],
@@ -492,6 +506,7 @@ def reductions : List Red := [
 def replayCode (msg : String) : String :=
   if has msg "Invalid recursor" then "invalidRecursor"
   else if has msg "Invalid constructor" then "invalidConstructor"
+  else if has msg "No such recursor" then "noSuchRecursor"
   else match otherCodes.find? (fun (p, _) => has msg p) with
     | some (_, c) => "kernel " ++ c
     | none => "other: " ++ msg
@@ -551,6 +566,47 @@ def mutations : List Mutation := [
   { id := "replay.indices-changed", change := onType fun i => { i with numIndices := 1 },
     lean := "accepted", leanforth := "accepted", rule := "B4" },
   { id := "replay.recursor-left-out",
+    change := fun c => match c with | .recInfo _ => none | c => some c,
+    lean := "accepted", leanforth := "accepted", rule := "B4" }
+]
+
+/-- The same checks on the non-recursive block `ind.bool` (`B`: `false`, `true`), which
+plan task 5.2.1a covers, and five more mutations: the recursor's universe parameter
+dropped, the recursor renamed, a constructor's index changed. -/
+def bTrue : Name := `IE.B.true
+def boolMutations : List Mutation := [
+  { id := "replay-bool.original", change := some,
+    lean := "accepted", leanforth := "accepted", rule := "A1 B3" },
+  { id := "replay-bool.rule-right-sides-swapped", change := onRec swapRules,
+    lean := "invalidRecursor", leanforth := "rejected", rule := "B3" },
+  { id := "replay-bool.recursor-k-set", change := onRec fun r => { r with k := true },
+    lean := "invalidRecursor", leanforth := "rejected", rule := "B3" },
+  { id := "replay-bool.recursor-motives-changed",
+    change := onRec fun r => { r with numMotives := 2 },
+    lean := "invalidRecursor", leanforth := "rejected", rule := "B3" },
+  { id := "replay-bool.recursor-universe-dropped",
+    change := onRec fun r => { r with levelParams := [] },
+    lean := "invalidRecursor", leanforth := "rejected", rule := "B3" },
+  { id := "replay-bool.recursor-renamed",
+    change := onRec fun r => { r with name := `IE.B.recursor },
+    lean := "noSuchRecursor", leanforth := "rejected", rule := "B3" },
+  { id := "replay-bool.constructor-index-changed",
+    change := onCtor bTrue fun c => { c with cidx := 0 },
+    lean := "invalidConstructor", leanforth := "rejected", rule := "B3" },
+  { id := "replay-bool.constructor-fields-changed",
+    change := onCtor bTrue fun c => { c with numFields := 1 },
+    lean := "invalidConstructor", leanforth := "rejected", rule := "B3" },
+  { id := "replay-bool.constructor-type-changed",
+    change := onCtor bTrue fun c =>
+      { c with type := .forallE `p (.sort 0) (mkConst `IE.B) .default, numFields := 1 },
+    lean := "invalidRecursor", leanforth := "rejected", rule := "B1 B3" },
+  { id := "replay-bool.parameters-changed", change := onType fun i => { i with numParams := 1 },
+    lean := "kernel nonUniformOccurrence", leanforth := "rejected", rule := "B1 C1" },
+  { id := "replay-bool.isRec-changed", change := onType fun i => { i with isRec := true },
+    lean := "accepted", leanforth := "accepted", rule := "B4" },
+  { id := "replay-bool.indices-changed", change := onType fun i => { i with numIndices := 1 },
+    lean := "accepted", leanforth := "accepted", rule := "B4" },
+  { id := "replay-bool.recursor-left-out",
     change := fun c => match c with | .recInfo _ => none | c => some c,
     lean := "accepted", leanforth := "accepted", rule := "B4" }
 ]
@@ -644,12 +700,191 @@ def onBase : List Chain := [
     lean := "reservedNestedPrefix", leanforth := "rejected", rule := "T0", task := "5.2.5" }
 ]
 
+/-- A block declared twice in one input: `names.already-declared` without `Nat` (a
+recursive type, task 5.2.1b), so that task 5.2.1a reaches rule T5. -/
+def twice : Block :=
+  { id := "names.already-declared-earlier",
+    types := [⟨"Twice", "Prop", [("mk", "Twice")]⟩],
+    lean := "alreadyDeclared", leanforth := "rejected", rule := "T5", task := "5.2.1a" }
+
 /-- Add `ds` in order; the verdict is that of the first failure, or of the last. -/
 def addAll (env : Kernel.Environment) : List Declaration → Except Kernel.Exception Kernel.Environment
   | [] => .ok env
   | d :: ds => match env.addDeclCore 0 0 d none with
     | .ok env' => addAll env' ds
     | .error e => .error e
+
+/-! ## Every case as a lean4export file, for LeanForth's differential
+
+After the rows, each case is printed as the NDJSON file the toolchain's exporter
+(`LeanExport`) writes for it, between a line `ndjson-begin <id> <names>` (the case's own
+constants, comma-separated) and a line `ndjson-end`: the case's dependencies from the
+environment it was checked in, then the case's own constants. A declaration Lean's kernel
+accepted is written from the environment the kernel made (with the recursors it
+generated); one it refused, from its constants added without any check, as a file that
+holds it would (no recursor; the fields Lean's replay ignores set plainly). The verdicts
+above never come from these files; `inductive-check.sh` compares only the rows, and
+`tests/core/inductive-table.py` runs LeanForth on the files (plan task 5.2.1a). -/
+
+/-- Lean's own `Kernel.Environment.add` (private to `Lean.Environment`): a constant added
+without any check, used only to write a refused case as a file. -/
+def kernelAddName : Name := Name.mkNum `_private.Lean.Environment 0 ++ `Lean.Kernel.Environment.add
+
+unsafe def kernelAddImpl (env : Environment) :
+    Except String (Kernel.Environment → ConstantInfo → Kernel.Environment) :=
+  env.evalConst _ {} kernelAddName
+
+@[implemented_by kernelAddImpl]
+opaque kernelAddFn (env : Environment) :
+    Except String (Kernel.Environment → ConstantInfo → Kernel.Environment)
+
+def piCount : Expr → Nat
+  | .forallE _ _ b _ => piCount b + 1
+  | _ => 0
+
+def ctorConstants (lps : List Name) (np : Nat) (t : InductiveType) : List ConstantInfo :=
+  t.ctors.zipIdx.map fun (c, i) => .ctorInfo {
+    name := c.name
+    levelParams := lps
+    type := c.type
+    induct := t.name
+    cidx := i
+    numParams := np
+    numFields := piCount c.type - np
+    isUnsafe := false }
+
+/-- The constants a file holds for a declaration Lean's kernel refused. -/
+def asConstants : Declaration → List ConstantInfo
+  | .inductDecl lps np types _ =>
+    types.flatMap fun t =>
+      let ty : ConstantInfo := .inductInfo {
+        name := t.name
+        levelParams := lps
+        type := t.type
+        numParams := np
+        numIndices := piCount t.type - np
+        all := types.map (·.name)
+        ctors := t.ctors.map (·.name)
+        numNested := 0
+        isRec := false
+        isUnsafe := false
+        isReflexive := false }
+      ty :: ctorConstants lps np t
+  | .thmDecl v => [.thmInfo v]
+  | .defnDecl v => [.defnInfo v]
+  | _ => []
+
+def typeNames : Declaration → List Name
+  | .inductDecl _ _ types _ => types.map (·.name)
+  | .quotDecl => [`Quot]
+  | d => d.getNames
+
+/-- A block's own constants in an environment that holds it: its types, their
+constructors, and the recursors Lean generated (`T.rec`, `T.rec_1`, …). -/
+def blockNames (env : Kernel.Environment) (types : List Name) : List Name := Id.run do
+  let mut out := types
+  for t in types do
+    if let some (.inductInfo i) := env.find? t then out := out ++ i.ctors
+  for t in types do
+    let mut k := 0
+    let mut r := t ++ `rec
+    while (env.find? r).isSome do
+      out := out ++ [r]
+      k := k + 1
+      r := t ++ Name.mkSimple s!"rec_{k}"
+  return out
+
+def quotNames : List Name := [`Quot, `Quot.mk, `Quot.lift, `Quot.ind]
+
+/-- The own constants of a declaration in the environment that holds it. -/
+def ownNames (env : Kernel.Environment) : Declaration → List Name
+  | d@(.inductDecl ..) => blockNames env (typeNames d)
+  | .quotDecl => quotNames
+  | d => d.getNames
+
+/-- The recursor names `LeanExport` writes with each root (its `recursorMap`). -/
+def recsOf (env : Kernel.Environment) (own : List Name) : NameSet :=
+  NameSet.ofList <| own.filter fun n => match env.find? n with
+    | some (.recInfo _) => true
+    | _ => false
+
+def emptyBlockLine : String := "{\"inductive\":{\"ctors\":[],\"recs\":[],\"types\":[]}}"
+
+/-- Part of a case: its own constants in the environment that holds them, and the
+names `LeanExport` dumps them from. -/
+structure Segment where
+  env : Kernel.Environment
+  own : List Name
+  roots : List Name
+
+/-- Print one case as an export between marker lines: the meta record, what the
+segments use from `base`, then each segment from its own environment. -/
+def writeSegments (base : Kernel.Environment) (baseRecs : NameMap NameSet) (id : String)
+    (segs : List Segment) : IO Unit := do
+  let own := segs.flatMap (·.own)
+  IO.println s!"ndjson-begin\t{id}\t{",".intercalate (own.map (·.toString false))}"
+  LeanExport.M.run (Environment.ofKernelEnv base) do
+    modify fun st => { st with recursorMap := baseRecs, ignoreMissing := true }
+    LeanExport.dumpMetadata
+    if own.isEmpty then IO.println emptyBlockLine
+    for s in segs do
+      for n in s.own do
+        if let some c := s.env.find? n then
+          for d in c.getUsedConstantsAsSet do
+            if (base.find? d).isSome then LeanExport.dumpConstant d
+    for s in segs do
+      let recs := recsOf s.env s.own
+      modify fun st => { st with
+        visitedConstants := s.own.foldl (fun v n => v.erase n) st.visitedConstants
+        recursorMap := s.roots.foldl (fun m r => m.insert r recs) st.recursorMap }
+      withReader (fun _ => { env := Environment.ofKernelEnv s.env }) do
+        for r in s.roots do LeanExport.dumpConstant r
+  IO.println "ndjson-end"
+
+def writeCase (base : Kernel.Environment) (baseRecs : NameMap NameSet) (id : String)
+    (caseEnv : Kernel.Environment) (own roots : List Name) : IO Unit :=
+  writeSegments base baseRecs id [⟨caseEnv, own, roots⟩]
+
+/-- The recursor map of an environment, as `LeanExport.initState` makes it. -/
+def recursorsOf (env : Kernel.Environment) : IO (NameMap NameSet) :=
+  LeanExport.M.run (Environment.ofKernelEnv env) do
+    LeanExport.initState (Environment.ofKernelEnv env)
+    return (← get).recursorMap
+
+abbrev KernelAdd := Kernel.Environment → ConstantInfo → Kernel.Environment
+
+/-- A declaration added to `env`: by the kernel when it accepts it, else as a file
+holds it (for a quotient, the four constants of `lean`, the environment `quot`). -/
+def addOrHold (add : KernelAdd) (quot : Kernel.Environment) (env : Kernel.Environment)
+    (d : Declaration) : Kernel.Environment :=
+  match env.addDeclCore 0 0 d none, d with
+  | .ok e, _ => e
+  | .error _, .quotDecl => quotNames.foldl (fun e n => match quot.find? n with
+      | some c => add e c
+      | none => e) env
+  | .error _, _ => (asConstants d).foldl add env
+
+/-- The own constants of `d` added to `env`, giving `e`: what the kernel made, or the
+constants held for a declaration it refused. -/
+def ownOf (env e : Kernel.Environment) (d : Declaration) : List Name :=
+  match env.addDeclCore 0 0 d none, d with
+  | .ok _, _ => ownNames e d
+  | .error _, .quotDecl => quotNames
+  | .error _, _ => (asConstants d).map (·.name)
+
+/-- Declarations added in order, each written from the environment just after it. -/
+def chainSegments (add : KernelAdd) (quot env : Kernel.Environment) :
+    List Declaration → List Segment
+  | [] => []
+  | d :: ds =>
+    let e := addOrHold add quot env d
+    ⟨e, ownOf env e d, (typeNames d).take 1⟩ :: chainSegments add quot e ds
+
+/-- A replayed set of constants as a file holds it. -/
+def writeMutation (add : KernelAdd) (base : Kernel.Environment) (baseRecs : NameMap NameSet)
+    (root : Name) (cs : List ConstantInfo) (m : Mutation) : IO Unit :=
+  let cs' := cs.filterMap m.change
+  writeCase base baseRecs m.id (cs'.foldl add base) (cs'.map (·.name)) [root]
 
 end InductiveExpected
 
@@ -686,14 +921,47 @@ run_cmd do
     let got ← replayVerdict base (cs.filterMap m.change)
     unless got == m.lean do throwError "{m.id}: Lean's verdict is {got}, expected {m.lean}"
     row m.id got m.leanforth m.rule "5.2.1b" ""
+  -- 3b. Replay of the non-recursive `ind.bool` block, unchanged and mutated.
+  let some boolBlock := accepted.find? (·.id == "ind.bool") | throwError "no ind.bool"
+  let bd ← liftTermElabM boolBlock.decl
+  let .ok withB := base.addDeclCore 0 0 bd none | throwError "ind.bool not accepted"
+  let bcs ← [`IE.B, `IE.B.false, `IE.B.true, `IE.B.rec].mapM fun n => match withB.find? n with
+    | some c => pure c
+    | none => throwError "missing {n}"
+  for m in boolMutations do
+    let got ← replayVerdict base (bcs.filterMap m.change)
+    unless got == m.lean do throwError "{m.id}: Lean's verdict is {got}, expected {m.lean}"
+    row m.id got m.leanforth m.rule "5.2.1a" ""
   -- 4. Hand-built declarations, in the `import Lean` environment.
   for c in onBase do
     let got := verdict (addAll base c.decls)
     unless got == c.lean do throwError "{c.id}: Lean's verdict is {got}, expected {c.lean}"
     row c.id got c.leanforth c.rule c.task ""
+  let twiceDecl ← liftTermElabM twice.decl
+  let got := verdict (addAll base [twiceDecl, twiceDecl])
+  unless got == twice.lean do throwError "{twice.id}: Lean's verdict is {got}, expected {twice.lean}"
+  row twice.id got twice.leanforth twice.rule twice.task ""
   -- 5. Primitive names and quotient initialisation, from an empty environment.
   let empty := (← mkEmptyEnvironment).toKernelEnv
   for c in chains do
     let got := verdict (addAll empty c.decls)
     unless got == c.lean do throwError "{c.id}: Lean's verdict is {got}, expected {c.lean}"
     row c.id got c.leanforth c.rule c.task ""
+  -- 6. Every case as a file, after the rows (see `writeCase`).
+  let .ok add := kernelAddFn env | throwError "no Kernel.Environment.add"
+  let baseRecs ← recursorsOf base
+  for b in accepted ++ checks do
+    let d ← liftTermElabM b.decl
+    let e := addOrHold add base base d
+    writeCase base baseRecs b.id e (ownOf base e d) ((typeNames d).take 1)
+  for r in reductions do
+    let n := `IE ++ r.id.toName
+    let d ← liftTermElabM (r.decl n)
+    writeCase base baseRecs r.id (addOrHold add base base d) [n] [n]
+  for m in mutations do writeMutation add base baseRecs `IE.N cs m
+  for m in boolMutations do writeMutation add base baseRecs `IE.B bcs m
+  for c in onBase do
+    writeSegments base baseRecs c.id (chainSegments add base base c.decls)
+  writeSegments base baseRecs twice.id (chainSegments add base base [twiceDecl, twiceDecl])
+  for c in chains do
+    writeSegments empty {} c.id (chainSegments add base empty c.decls)

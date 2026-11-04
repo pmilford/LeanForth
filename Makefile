@@ -165,11 +165,22 @@ reference-export:
 	LEAN=$(LEAN) $(RUN) bash tests/reference/export-check.sh
 
 # Lean's verdicts for inductive types, reductions, the replay of exported
-# blocks, primitive names and quotients (ADR 0015): 100 kernel cases; the
+# blocks, primitive names and quotients (ADR 0015): 118 kernel cases; the
 # exports of tests/reference/inductive/ reproduced byte for byte and staged
 # by the Forth importer.
 reference-inductive:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/reference/inductive-check.sh
+
+# LeanForth against that table (plan task 5.2.1a; ADR 0015 §13, test plan
+# 1): every case as the export Lean printed for it, staged, fed and checked;
+# each row of task 5.2.1a gives the table's verdict (the pending ones, which
+# need Nat or unfolding, the outcome named in the script, with the reason),
+# every later task's row stays unsupported or unknown, or gives the table's
+# verdict, never another. Also part of test-differential.
+test-inductive-table:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/core/inductive-table.py
+test-differential: test-inductive-table
+.PHONY: test-inductive-table
 
 test-harness:
 	GFORTH=$(GFORTH) $(RUN) bash tests/harness/check.sh

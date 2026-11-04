@@ -31,11 +31,15 @@ universe.field-too-big-param	universeTooBig	rejected	U1	5.2.1a
 universe.field-fits	accepted	accepted	A1 U1	5.2.1a	Fits: idx=0 rec=0 refl=0 nested=0 elim=any k=0 motives=1 minors=1 fields=[1]
 universe.predicate-any-field	accepted	accepted	A1 U1 E4	5.2.1a	BigP: idx=0 rec=0 refl=0 nested=0 elim=Prop k=0 motives=1 minors=1 fields=[1]
 universe.type-not-a-sort	typeExpected	rejected	T2	5.2.1a	
+universe.type-not-a-sort-param	typeExpected	rejected	T2	5.2.1a	
 result.other-type	invalidReturnType	rejected	C3	5.2.1a	
+result.other-type-sort	invalidReturnType	rejected	C3	5.2.1a	
 result.index-mentions-type	invalidReturnType	rejected	C3	5.2.1c	
 params.too-few-binders	tooFewParamBinders	rejected	T1	5.2.1a	
 params.constructor-mismatch	ctorParamMismatch	rejected	C2	5.2.1a	
+params.constructor-mismatch-sort	ctorParamMismatch	rejected	C2	5.2.1a	
 params.constructor-binder-defeq	accepted	accepted	A1 C2	5.2.1a	T: idx=0 rec=0 refl=0 nested=0 elim=any k=0 motives=1 minors=1 fields=[0]
+params.constructor-binder-beta	accepted	accepted	A1 C2	5.2.1a	T: idx=0 rec=0 refl=0 nested=0 elim=any k=0 motives=1 minors=1 fields=[0]
 params.index-instead-of-parameter	universeTooBig	rejected	U1	5.2.1c	
 params.index-one-universe-up	accepted	accepted	A1 U1	5.2.1c	T: idx=1 rec=0 refl=0 nested=0 elim=any k=0 motives=1 minors=1 fields=[2]
 mutual.even-odd	accepted	accepted	A1 E1	5.2.5	Even: idx=1 rec=1 refl=0 nested=0 elim=Prop k=0 motives=2 minors=3 fields=[0, 2]; Odd: idx=1 rec=1 refl=0 nested=0 elim=Prop k=0 motives=2 minors=3 fields=[2]
@@ -92,7 +96,21 @@ replay.parameters-changed	kernel nonUniformOccurrence	rejected	B1 C1	5.2.1b
 replay.isRec-changed	accepted	accepted	B4	5.2.1b	
 replay.indices-changed	accepted	accepted	B4	5.2.1b	
 replay.recursor-left-out	accepted	accepted	B4	5.2.1b	
+replay-bool.original	accepted	accepted	A1 B3	5.2.1a	
+replay-bool.rule-right-sides-swapped	invalidRecursor	rejected	B3	5.2.1a	
+replay-bool.recursor-k-set	invalidRecursor	rejected	B3	5.2.1a	
+replay-bool.recursor-motives-changed	invalidRecursor	rejected	B3	5.2.1a	
+replay-bool.recursor-universe-dropped	invalidRecursor	rejected	B3	5.2.1a	
+replay-bool.recursor-renamed	noSuchRecursor	rejected	B3	5.2.1a	
+replay-bool.constructor-index-changed	invalidConstructor	rejected	B3	5.2.1a	
+replay-bool.constructor-fields-changed	invalidConstructor	rejected	B3	5.2.1a	
+replay-bool.constructor-type-changed	invalidRecursor	rejected	B1 B3	5.2.1a	
+replay-bool.parameters-changed	kernel nonUniformOccurrence	rejected	B1 C1	5.2.1a	
+replay-bool.isRec-changed	accepted	accepted	B4	5.2.1a	
+replay-bool.indices-changed	accepted	accepted	B4	5.2.1a	
+replay-bool.recursor-left-out	accepted	accepted	B4	5.2.1a	
 names.reserved-nested-prefix	reservedNestedPrefix	rejected	T0	5.2.5	
+names.already-declared-earlier	alreadyDeclared	rejected	T5	5.2.1a	
 primitive.forged-add-computes	accepted	unsupported	L5	5.2.3	
 primitive.forged-add-unfolds	accepted	unsupported	L5	5.2.3	
 primitive.five-is-two	accepted	unsupported	L5	5.2.3	
