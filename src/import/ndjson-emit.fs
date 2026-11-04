@@ -25,28 +25,34 @@
 \   lowercase hex (so tab is \u0009, not \t), every other character as
 \   its UTF-8 bytes: the JSON writer's jw-lean setting;
 \ - an inductive block as {"inductive":{"ctors":[...],"recs":[...],
-\   "types":[...]}}, each element an object with its keys in order.
+\   "types":[...]}}, each element an object with its keys in order;
+\ - mdata's data as an object of strings (KVMap.toJson), also in key
+\   order: its members are sorted here, whatever their order in the line.
 \ The JSON writer (lib/json-write.fs) writes every value and checks that
 \ each object's keys increase (jw-sorted), so a key written out of Lean's
 \ order fails the line instead of being written.
 \
 \ An inductive block's types come from the reader before its constructors
 \ and recursors but are written after them: they wait in their own buffer
-\ until the block's last element. Lines wait in the output buffer and are
-\ written to the file a mebibyte at a time.
+\ until the block's last element. Lines wait in the output buffer and go
+\ to the file a mebibyte at a time; a line that fails takes its bytes
+\ back, and after a failure every later record is refused at once.
 \
 \ Outcomes: ok; any outcome of the reader; invalid for a record that
-\ cannot be written in the format (an enumeration code out of range, a
-\ key out of order, a block element outside a block, a line while a
-\ block is unfinished); full when a buffer would pass
-\ reexport-buffer-limit, the heap has no room, a key does not fit the
-\ writer's key pool (4,096 bytes, for mdata's keys), or writing the file
-\ fails (a full disk, say). A Forth exception while reading is invalid.
+\ cannot be written in the format (an enumeration code out of range,
+\ mdata's data with two equal keys or an object inside it out of order, a
+\ block element outside a block, a line while a block is unfinished);
+\ full when a buffer would pass reexport-buffer-limit, the heap has no
+\ room, a key does not fit the writer's key pool (4,096 bytes, for mdata's
+\ keys), mdata's data has more than data-most members, or writing or
+\ closing the file fails (a full disk, say). A Forth exception while
+\ reading is invalid.
 \ Requires: ndjson.fs and lib/json-write.fs. State: the module record
-\ reexporter (the writer, the output and types buffers, the counts and
-\ the file written) and one export record, reexported. Both stay shared,
-\ like ndjson-count.fs's export record, because they own heap buffers,
-\ which a context member may not (context-free has no release hook);
+\ reexporter (the writer, the output and types buffers, the counts, the
+\ file written and mdata's sorted keys), reached through the accessors
+\ below it, and one export record, reexported. Both stay shared, like
+\ ndjson-count.fs's export record, because they own heap buffers, which a
+\ context member may not (context-free has no release hook);
 \ reexport-begin resets both, so one re-export runs at a time. The tables
 \ below are constant after loading. The file loads in decimal whatever
 \ BASE is, then restores it.
@@ -85,7 +91,8 @@ end-structure
   tuck buffer-wanted dup reexport-buffer-limit > if 2drop false exit then
   over buffer-addr @ over block-resize if drop 2drop false exit then
   rot tuck buffer-addr ! buffer-size ! true ;
-: buffer-room? ( n buffer -- flag ) 2dup buffer-left > if buffer-grow else 2drop true then ;
+: buffer-room? ( n buffer -- flag )
+  2dup buffer-left > if buffer-grow else 2drop true then ;
 : buffer-append ( c-addr u buffer -- flag )
   2dup buffer-room? 0= if drop 2drop false exit then
   >r tuck r@ buffer-end swap move r> buffer-used +! true ;
@@ -105,27 +112,36 @@ begin-structure /reexporter
   field: reexport-recursors        \ recursors of the current block
   field: reexport-lines            \ lines written
   field: reexport-mark             \ the output's size where the current line starts
-  data-most cells +field reexport-members   \ the key tokens of mdata's data, sorted
+  data-most cells +field reexport-members   \ mdata's key tokens, sorted
   reexport-depth reexport-key-room jw-size +field reexport-writer
 end-structure
 create reexporter /reexporter allot  reexporter /reexporter erase
 export: reexported
+\ The state's accessors; nothing else names reexporter.
 : emit-w ( -- writer ) reexporter reexport-writer ;
 : emit-out ( -- buffer ) reexporter reexport-out ;
 : emit-types ( -- buffer ) reexporter reexport-types ;
+: emit-target ( -- addr ) reexporter reexport-target ;
+: emit-outcome ( -- addr ) reexporter reexport-status ;
+: emit-fid ( -- addr ) reexporter reexport-fid ;
+: block-left ( -- addr ) reexporter reexport-left ;
+: left-recursors ( -- addr ) reexporter reexport-recursors ;
+: emit-lines ( -- addr ) reexporter reexport-lines ;
+: emit-mark ( -- addr ) reexporter reexport-mark ;
+: member ( i -- addr ) cells reexporter reexport-members + ;
 \ Stop loading when a check made while loading fails.
 : load-check ( flag -- ) 0= abort" ndjson-emit: inconsistent tables" ;
 reexport-depth reexport-key-room emit-w jw-init load-check
 
 \ Failure: the first one since reexport-begin stays.
-: emit-status ( -- outcome ) reexporter reexport-status @ ;
-: emit-fail ( outcome -- ) emit-status ok? if reexporter reexport-status ! else drop then ;
+: emit-status ( -- outcome ) emit-outcome @ ;
+: emit-fail ( outcome -- ) emit-status ok? if emit-outcome ! else drop then ;
 : emit-invalid ( -- ) outcome-invalid emit-fail ;
 \ Bytes into a buffer; a buffer that cannot take them fails as full.
 : emit-bytes ( c-addr u buffer -- ) buffer-append 0= if outcome-full emit-fail then ;
 \ The writer's sink, and starting one text of the writer into a buffer.
-: emit-sink ( c-addr u -- ) reexporter reexport-target @ emit-bytes ;
-: emit-text ( buffer -- ) reexporter reexport-target ! ['] emit-sink emit-w jw-start ;
+: emit-sink ( c-addr u -- ) emit-target @ emit-bytes ;
+: emit-text ( buffer -- ) emit-target ! ['] emit-sink emit-w jw-start ;
 
 \ Writing values and members. A member's value is read from a record's
 \ field at addr: a natural number, a flag, a text, a numeral's digits or
@@ -141,20 +157,23 @@ reexport-depth reexport-key-room emit-w jw-init load-check
 : flag-member ( addr c-addr u -- ) emit-key @ emit-w jw-bool ;
 : text-member ( addr c-addr u -- ) emit-key emit-string ;
 : digits-member ( addr c-addr u -- ) emit-key 2@ emit-w jw-digits ;
-: emit-items ( list record -- ) 2dup list-count 0 ?do 2dup i -rot list-item emit-u loop 2drop ;
+: emit-item ( list record i -- ) -rot list-item emit-u ;
+: emit-items ( list record -- ) 2dup list-count 0 ?do 2dup i emit-item loop 2drop ;
 : emit-list ( list record -- ) emit-open-list emit-items emit-close-list ;
 : list-member ( record addr c-addr u -- ) emit-key @ swap emit-list ;
 
 \ Enumerations, as the exporter spells them: a count, then the word of
 \ each code from 0 as a counted string. A code out of range is invalid.
 : enum-word ( code table -- c-addr u ) cell+ swap 0 ?do count + aligned loop count ;
-: emit-enum ( code table -- ) 2dup @ u< if enum-word emit-w jw-string else 2drop emit-invalid then ;
+: emit-enum ( code table -- )
+  2dup @ u< if enum-word emit-w jw-string else 2drop emit-invalid then ;
 : enum-member ( addr table c-addr u -- ) emit-key swap @ swap emit-enum ;
 create binder-texts  4 ,
   s" default" counted,  s" implicit" counted,  s" strictImplicit" counted,
   s" instImplicit" counted,
 create safety-texts  3 ,  s" safe" counted,  s" unsafe" counted,  s" partial" counted,
-create quot-texts  4 ,  s" type" counted,  s" ctor" counted,  s" lift" counted,  s" ind" counted,
+create quot-texts  4 ,
+  s" type" counted,  s" ctor" counted,  s" lift" counted,  s" ind" counted,
 create hint-texts  2 ,  s" opaque" counted,  s" abbrev" counted,
 2 constant regular-hints           \ decl-hints of {"regular":height}
 
@@ -170,7 +189,8 @@ create hint-texts  2 ,  s" opaque" counted,  s" abbrev" counted,
 : bvar-json ( record -- ) bvar-index @ emit-u ;
 : sort-json ( record -- ) sort-level @ emit-u ;
 : const-json ( record -- )
-  emit-open dup const-name s" name" u-member dup const-levels s" us" list-member emit-close ;
+  emit-open dup const-name s" name" u-member
+  dup const-levels s" us" list-member emit-close ;
 : app-json ( record -- )
   emit-open dup app-arg s" arg" u-member app-fn s" fn" u-member emit-close ;
 : binder-json ( record -- )
@@ -185,6 +205,7 @@ create hint-texts  2 ,  s" opaque" counted,  s" abbrev" counted,
   emit-open dup proj-idx s" idx" u-member dup proj-struct s" struct" u-member
   proj-type-name s" typeName" u-member emit-close ;
 : literal-json ( record -- ) literal-text emit-string ;
+
 \ mdata's data, a JSON object of the line's view. The exporter writes it
 \ as one object of strings in key order (KVMap.toJson), so its members
 \ are written in key order whatever their order in the line, each value
@@ -192,7 +213,6 @@ create hint-texts  2 ,  s" opaque" counted,  s" abbrev" counted,
 \ never writes: the writer refuses it as invalid). Two equal keys are
 \ invalid too; more than data-most members are full. The key tokens are
 \ sorted by insertion, in the module record.
-: member ( i -- addr ) cells reexporter reexport-members + ;
 : key< ( key1 key2 view -- flag ) tuck json-text@ 2>r json-text@ 2r> compare 0< ;
 : member-pair ( j -- addr-j addr-j-1 ) dup member swap 1- member ;
 : member-smaller? ( j view -- flag ) >r member-pair @ swap @ swap r> key< ;
@@ -200,14 +220,15 @@ create hint-texts  2 ,  s" opaque" counted,  s" abbrev" counted,
 : member-insert ( j view -- )
   begin over 0> while 2dup member-smaller? while over members-exchange swap 1- swap repeat
   then 2drop ;
-: members-sort ( n view -- ) over 1 > if swap 1 ?do i over member-insert loop else nip then drop ;
+: members-sort ( n view -- )
+  over 1 > if swap 1 ?do i over member-insert loop else nip then drop ;
 \ The key of the next member: after the value that follows key.
 : member-next ( key view -- key' ) swap 1+ swap json-next ;
 : members-collect ( object view -- )
   2dup json-items@ >r tuck json-contents nip r> 0 ?do dup i member ! over member-next loop
   2drop ;
-: members-write ( n view -- )
-  swap 0 ?do i member @ over 2dup json-text@ emit-key swap 1+ swap emit-w jw-copy loop drop ;
+: member-write ( key view -- ) 2dup json-text@ emit-key swap 1+ swap emit-w jw-copy ;
+: members-write ( n view -- ) swap 0 ?do i member @ over member-write loop drop ;
 : data-members ( object view -- )
   2dup members-collect tuck json-items@ swap 2dup members-sort members-write ;
 : data-object ( object view -- )
@@ -221,7 +242,8 @@ create hint-texts  2 ,  s" opaque" counted,  s" abbrev" counted,
 : exporter-json ( record -- )
   emit-open dup meta-exporter s" name" text-member
   meta-exporter-version s" version" text-member emit-close ;
-: format-json ( record -- ) emit-open meta-format-version s" version" text-member emit-close ;
+: format-json ( record -- )
+  emit-open meta-format-version s" version" text-member emit-close ;
 : lean-json ( record -- )
   emit-open dup meta-lean-githash s" githash" text-member
   meta-lean-version s" version" text-member emit-close ;
@@ -249,7 +271,8 @@ create hint-texts  2 ,  s" opaque" counted,  s" abbrev" counted,
 : thm-json ( record -- )
   emit-open all-member params-name type-member value-member drop emit-close ;
 : opaque-json ( record -- )
-  emit-open all-member unsafe-member params-name type-member value-member drop emit-close ;
+  emit-open all-member unsafe-member params-name type-member value-member
+  drop emit-close ;
 : quot-json ( record -- )
   emit-open dup decl-quot-kind quot-texts s" kind" enum-member params-name type-member
   drop emit-close ;
@@ -293,14 +316,13 @@ create hint-texts  2 ,  s" opaque" counted,  s" abbrev" counted,
 
 \ Ending a line: the writer's outcome, then a line feed and the count.
 \ Output waits until a mebibyte is ready (never with fid 0).
-create line-feed lf-byte c,
 : emit-write ( -- )
-  emit-out buffer-text reexporter reexport-fid @ write-file
-  if outcome-full emit-fail then emit-out buffer-empty ;
+  emit-out buffer-text emit-fid @ write-file if outcome-full emit-fail then
+  emit-out buffer-empty ;
 : flush-due? ( -- flag )
-  reexporter reexport-fid @ 0<> emit-out buffer-used @ reexport-buffer-start < 0= and ;
-: line-tallied ( -- ) 1 reexporter reexport-lines +! flush-due? if emit-write then ;
-: line-done ( -- ) line-feed 1 emit-out emit-bytes emit-status ok? if line-tallied then ;
+  emit-fid @ 0<> emit-out buffer-used @ reexport-buffer-start < 0= and ;
+: line-tallied ( -- ) 1 emit-lines +! flush-due? if emit-write then ;
+: line-done ( -- ) s\" \x0a" emit-out emit-bytes emit-status ok? if line-tallied then ;
 : line-end ( -- outcome ) emit-w jw-end emit-fail line-done emit-status ;
 
 \ How each kind's line is written: the word that writes the kind's value
@@ -316,9 +338,11 @@ end-structure
 : kind-member ( record form -- ) dup form-key count emit-key form-value @ execute ;
 : kind-first? ( form -- flag ) dup form-key count rot form-index @ count compare 0< ;
 : indexed-members ( record form -- )
-  dup kind-first? if 2dup kind-member index-member else 2dup index-member kind-member then ;
-: line-members ( record form -- ) dup form-index @ if indexed-members else kind-member then ;
-: line-start ( -- ) reexporter reexport-left @ if emit-invalid then emit-out emit-text ;
+  dup kind-first? if 2dup kind-member index-member exit then
+  2dup index-member kind-member ;
+: line-members ( record form -- )
+  dup form-index @ if indexed-members else kind-member then ;
+: line-start ( -- ) block-left @ if emit-invalid then emit-out emit-text ;
 : emit-line ( record form -- outcome )
   line-start emit-open line-members emit-close line-end ;
 \ Defining word: name ( record -- outcome ), the handler of a kind.
@@ -360,23 +384,25 @@ create index-ie s" ie" counted,
 : recursors-of ( record -- n ) dup block-recursors items-of ;
 : elements-of ( record -- n )
   dup dup block-types items-of over dup block-ctors items-of + swap recursors-of + ;
+: block-start ( record -- )
+  block-left @ if emit-invalid then
+  dup elements-of block-left ! recursors-of left-recursors ! emit-types buffer-empty ;
 : block-line ( record -- outcome )
-  reexporter reexport-left @ if emit-invalid then
-  dup elements-of reexporter reexport-left ! recursors-of reexporter reexport-recursors !
-  emit-types buffer-empty s\" {\"inductive\":{\"ctors\":[" emit-out emit-bytes emit-status ;
+  block-start s\" {\"inductive\":{\"ctors\":[" emit-out emit-bytes emit-status ;
 : block-end ( -- )
   s\" ],\"types\":[" emit-out emit-bytes emit-types buffer-text emit-out emit-bytes
   s" ]}}" emit-out emit-bytes line-done ;
 : element-done ( -- )
-  -1 reexporter reexport-left +! reexporter reexport-left @
-  dup reexporter reexport-recursors @ = if s\" ],\"recs\":[" emit-out emit-bytes then
+  -1 block-left +! block-left @
+  dup left-recursors @ = if s\" ],\"recs\":[" emit-out emit-bytes then
   0= if block-end then ;
 \ An element of a block: a comma before all but the first of its list.
 : element-begin ( record buffer -- )
-  reexporter reexport-left @ 0= if emit-invalid then
+  block-left @ 0= if emit-invalid then
   swap record-index @ if s" ," 2 pick emit-bytes then emit-text ;
 : element-end ( -- outcome ) emit-w jw-end emit-fail element-done emit-status ;
-: type-line ( record -- outcome ) dup emit-types element-begin inductive-json element-end ;
+: type-line ( record -- outcome )
+  dup emit-types element-begin inductive-json element-end ;
 : ctor-line ( record -- outcome ) dup emit-out element-begin ctor-json element-end ;
 : recursor-line ( record -- outcome )
   dup emit-out element-begin recursor-json element-end ;
@@ -392,12 +418,11 @@ create reexport-handlers
 here reexport-handlers - kind-count cells = load-check
 \ The handler the reader calls for every kind: after a failure it refuses
 \ every record at once, writing nothing; else the kind's handler. A line
-\ that fails takes its bytes back from the output: the output keeps its
-\ size at each line's first record (outside a block) as a mark.
-: line-mark ( -- )
-  reexporter reexport-left @ 0= if emit-out buffer-used @ reexporter reexport-mark ! then ;
+\ that fails takes its bytes back from the output: the output's size at
+\ each line's first record (outside a block) is the mark.
+: line-mark ( -- ) block-left @ 0= if emit-out buffer-used @ emit-mark ! then ;
 : line-undone ( outcome -- outcome )
-  dup ok? 0= if reexporter reexport-mark @ emit-out buffer-used ! then ;
+  dup ok? 0= if emit-mark @ emit-out buffer-used ! then ;
 : emit-kind ( record -- outcome ) dup record-kind @ cells reexport-handlers + @ execute ;
 : emit-record ( record -- outcome )
   emit-status ok? 0= if drop emit-status exit then line-mark emit-kind line-undone ;
@@ -406,24 +431,24 @@ here reexport-handlers - kind-count cells = load-check
 \ empty buffers, nothing failed, the writer idle (even after a THROW out
 \ of it) with Lean's escapes and key order.
 : reexport-reset ( fid -- )
-  reexporter reexport-fid ! outcome-ok reexporter reexport-status !
-  0 reexporter reexport-left ! 0 reexporter reexport-lines ! ;
+  emit-fid ! outcome-ok emit-outcome ! 0 block-left ! 0 emit-lines !
+  emit-out buffer-empty emit-types buffer-empty ;
 : emit-settings ( -- )
   emit-w jw-reset true emit-w jw-sorted ! true emit-w jw-lean ! max-n emit-w jw-limit ! ;
 : reexport-handlers! ( -- )
   kind-count 0 do ['] emit-record i reexported export-handler ! loop ;
 : reexport-begin ( fid -- outcome )
-  reexport-reset emit-out buffer-empty emit-types buffer-empty emit-settings
-  reexported export-init dup ok? if reexport-handlers! then ;
+  reexport-reset emit-settings reexported export-init dup ok? if reexport-handlers! then ;
 \ The lines written so far, and those still in memory.
-: reexport-lines@ ( -- n ) reexporter reexport-lines @ ;
+: reexport-lines@ ( -- n ) emit-lines @ ;
 : reexport-pending ( -- c-addr u ) emit-out buffer-text ;
 \ Finishing: invalid while a block is unfinished; the last output written
 \ unless something failed.
-: write-due? ( -- flag ) emit-status ok? reexporter reexport-fid @ 0<> and ;
+: write-due? ( -- flag ) emit-status ok? emit-fid @ 0<> and ;
 : reexport-end ( -- outcome )
-  reexporter reexport-left @ if emit-invalid then write-due? if emit-write then emit-status ;
-: reexport-free ( -- ) emit-out buffer-release emit-types buffer-release reexported export-free ;
+  block-left @ if emit-invalid then write-due? if emit-write then emit-status ;
+: reexport-free ( -- )
+  emit-out buffer-release emit-types buffer-release reexported export-free ;
 
 \ Re-export the export file named c-addr u into fid: the reading's
 \ outcome, then the writing's. A Forth exception is invalid, after which
@@ -461,11 +486,13 @@ here reexport-handlers - kind-count cells = load-check
 : reexport-report ( outcome -- )
   dup ok? if drop ." reexported " reexport-lines@ .count ."  lines" cr exit then
   .reexport-error ;
+: create-refused ( c-addr u fid ior -- false )
+  drop 2drop drop ." error: cannot create the output file" cr false ;
 \ Re-export the export named in into a new file named out, print one
 \ line (the lines written, or the error) and free the buffers; true when
 \ ok. reexport, the command line's word, then exits after an error.
 : reexported? ( in-addr in-u out-addr out-u -- flag )
-  w/o bin create-file if drop 2drop ." error: cannot create the output file" cr false exit then
+  w/o bin create-file ?dup if create-refused exit then
   reexport-into dup reexport-report reexport-free ok? ;
 : reexport ( in-addr in-u out-addr out-u -- ) reexported? 0= if reexport-failed then ;
 

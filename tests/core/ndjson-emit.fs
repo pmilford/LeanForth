@@ -246,7 +246,8 @@ app-form form-value @ constant app-writer
   loop 2drop ;
 : composition ( -- c-addr u ) s" tests/reference/composition.ndjson" ;
 T{ ' swapped-app plant composition same-file? -> outcome-ok false }T
-T{ composition file-bytes 2dup first-line >r drop free throw r> -> 27 }T
+: composition-differs-at ( -- n ) composition file-bytes 2dup first-line >r drop free throw r> ;
+T{ composition-differs-at -> 27 }T
 T{ ' misordered-app plant composition 0 reexport-file reexported export-at @ -> outcome-invalid 27 }T
 T{ app-writer plant composition same-file? -> outcome-ok true }T
 
