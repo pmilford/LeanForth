@@ -85,7 +85,7 @@ written on one line and shown here indented:
   "host": {"forth": "gforth", "version": "1.0.0", "engine": "gforth", "cellBits": 64},
   "settings": {"fuel": 100000, "dependencyPool": 64, "terms": 64, "levels": 64,
                "names": 64, "declarations": 32, "dependenciesPerCheck": 16,
-               "parameters": 8, "referenceLevels": 8},
+               "parameters": 64, "referenceLevels": 64},
   "check": {"read": "ok", "run": "ok", "mode": "final", "allowlistVersion": 0},
   "declarations": [
     {"index": 0, "name": "composition", "verdict": "rejected",

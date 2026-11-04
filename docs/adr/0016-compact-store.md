@@ -612,7 +612,9 @@ needed (Rejected alternatives).
     (`store-heap-init` and `store-grow` in `src/lib/store.fs`: the header
     is a context member, the block grows by doubling up to the store's
     limit and is freed by a teardown word; growth that the limit, the heap
-    or the test hook refuses gives *full*, nothing changed). Their
+    or the test hook refuses gives *full*, nothing changed; when the
+    block grew but a column of it then cannot, the record is refused as
+    *full* with the block already grown, which is harmless). Their
     capacities are settings of each context (`lf-term-capacity!`,
     `lf-level-capacity!`, `lf-name-capacity!`, `lf-cref-capacity!`,
     `lf-input-capacity!`), defaults 64, 64, 64, 32 and 32 as before. Per

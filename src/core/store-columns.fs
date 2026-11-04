@@ -14,7 +14,8 @@
 \   1 cells ' my-marks lf-term-columns column-add
 \ Then n my-marks column-at is unit n's address, valid until the store
 \ next grows. Outcomes: ok, full (no heap, or the test hook of
-\ lib/store.fs refuses the growth: nothing changed), invalid.
+\ lib/store.fs refuses the growth: no column changed, though the store's
+\ own block may already have grown, which is harmless), invalid.
 \
 \ State: each column is a checker-context member (a lib/slab.fs record,
 \ heap-owning); the group and column descriptors are laid down while

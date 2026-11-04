@@ -363,9 +363,9 @@ lf-level-reset
 : own-classes? ( n -- flag ) true swap 1+ 1 ?do i lf-lmk-class@ i = and loop ;
 : far-param ( k -- level ) 20 lshift 1+ lf-level-param must ;
 : far-params ( n -- ) 0 ?do i 1+ far-param drop loop ;
-: bucket ( index -- b ) lf-lmk-hash lf-lmk-buckets mod ;
+: bucket-of ( index -- b ) lf-lmk-hash lf-lmk-buckets mod ;
 10 far-params
-T{ 10 1 lf-level-same? 10 own-classes? 1 bucket 10 bucket = -> false true true }T
+T{ 10 1 lf-level-same? 10 own-classes? 1 bucket-of 10 bucket-of = -> false true true }T
 T{ 1 far-param 1 lf-level-same? -> true }T
 T{ 16384 lf-level-capacity! -> outcome-ok }T
 lf-level-reset

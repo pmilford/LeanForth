@@ -68,8 +68,8 @@ lf-depth-limit context-walk2: lf-mconvert-walker
 \ Each visit costs one unit of fuel before its reductions. The reduced
 \ heads along one path are distinct term nodes (a reduct holds only nodes
 \ below the redex or new ones), so the work stack, with at most one pending
-\ pair per node on the path, cannot outgrow the term capacity; a full stack
-\ would be full, as the former frame bound was.
+\ pair per node on the path, outgrows its room only when the term capacity
+\ is raised above it; a full stack is full, as the former frame bound was.
 : lf-mconvert-visit ( walk -- outcome )
   dup lf-mconvert-reduce-pair ok-then?
   if lf-terms ['] lf-mconvert-dispatch lf-mcompare-visit-pair then ;
