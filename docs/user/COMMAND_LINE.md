@@ -108,7 +108,10 @@ Options:
   an explicit choice, and `check`, `count` and `reexport` say so in their
   first line.
 - `--fuel N` gives each declaration's check N steps (default 100,000). A
-  check that runs out ends *exhausted*.
+  check that runs out ends *exhausted*. N is decimal digits, at most
+  2^53 − 1 = 9,007,199,254,740,991, the largest integer every JSON reader
+  holds exactly, so that reports and run records hold it; a larger N is a
+  command-line mistake (status 4).
 - `--record RECORD` writes the run record of the check to RECORD
   ([run records and replay](#run-records-and-replay)); RECORD must not be
   the export. Run records 0.1 hold at most 32 declarations, so `check
@@ -149,6 +152,27 @@ that counts the verdicts, and, when anything was accepted, one that
 repeats the label and the axioms of the accepted declarations; then notes
 explain a limit that was reached.
 
+**Names.** A declaration's name is shown as Lean's `Name.toString` shows
+it (`src/cli/name-text.fs`): its components joined by dots, numeric ones
+in decimal, a component that is not an identifier between `«` and `»`
+(`ReexportKinds.«with space»`; an empty component is `«»`), and the
+anonymous name as `[anonymous]`; names of any depth. Two changes make the
+line show exactly what the name holds, so that no name, however crafted,
+can start a line of its own, move the cursor or reorder the text after
+it: inside a component that is not an identifier, a backslash is shown
+as `\\`, and every character the [text rule of run
+records](../programming/RUN_RECORDS.md) bans — control characters (C0
+and C1, line feed and carriage return among them), format characters
+such as the bidirectional controls, and the line and paragraph separators
+— as `\u{X}`, its code point in hexadecimal; a byte that does not start
+UTF-8 as `\x{X}`. A theorem named `composition: rejected` + line feed +
+`forged: accepted …` is one line,
+`«composition: rejected\u{A}forged: accepted …»: accepted …`. As in Lean,
+no `«»` is added to a component that holds `»`, or to a name with macro
+scopes (`x._@._hyg`), an inaccessible name or pseudo-syntax; the escapes
+are made all the same. The JSON report holds the same text, and its
+`export` member shows the export's file name with the same escapes.
+
 **Axioms and NOT PROVED.** The axioms are read from each accepted
 declaration's slot: the axiom set the checker joined from everything the
 declaration uses. The first checker refuses every axiom (*unsupported*,
@@ -159,7 +183,9 @@ an accepted declaration that depends on an axiom other than `propext`,
 `NOT PROVED` on its line and counted apart in the summary (`axioms: N NOT
 PROVED`), never as proved; until axioms are supported (plan tasks 5.3.1
 and 5.3.2, which also bring the axioms' names) any axiom counts, and none
-can appear yet. The exit status is the verdicts' (0 when all are accepted).
+can appear yet. When every declaration is accepted but some are NOT
+PROVED, the exit status is 6, not 0 ([exit status](#exit-status); proposed,
+pending the owner's confirmation).
 
 A broken copy of `composition`, whose proof applies `g` to `value`
 instead of to `f value`, is rejected for the reason Lean's kernel gives
@@ -404,18 +430,33 @@ exit status 2
 | Member | Contents |
 | --- | --- |
 | `schema`, `schemaVersion` | `leanforth-check-report`, `0.1` |
-| `export`, `manifest` | the file name given; `checked`, or `not-checked` with `--no-manifest` |
+| `export`, `manifest` | the file name given, with the escapes of [names](#what-check-prints); `checked`, or `not-checked` with `--no-manifest` |
 | `label` | `experimental, not independently audited` |
 | `settings` | the fuel per check and the dependencies the environment holds |
 | `read` | the read's outcome and, for a failure, its `phase` (`open`, `stage`, `feed`), `line`, `field`, `reason`, and for the feed the number `at` which it stopped |
-| `run` | the run's outcome: `ok` when every slot ended final, `not-run` when the export was not read |
-| `stopped` | true when the run stopped on an internal fault (a check threw, or publishing failed), as the text's `internal fault: the run stopped` line says; the status is then 5 |
-| `declarations` | each declaration in file order: `index`, `name`, `verdict` (`accepted`, an outcome, or `not-checked`), `fuel` (null when not known); an accepted one's `label`, `axiomBits` (0: none) and `notProved`; any other's `diagnostic` (code, reason, site, two numbers, step) |
+| `run` | the run's outcome: `ok` when every slot ended final and the run did not stop, `invalid` when it stopped, `not-run` when the export was not read |
+| `stopped` | true when the run stopped on an internal fault (a check threw, or publishing failed), as the text's `internal fault: the run stopped` line says; the run is then `invalid` and the status 5 |
+| `declarations` | each declaration in file order: `index`, `name` (as the text shows it), `verdict` (`accepted`, an outcome, or `not-checked`), `fuel` (null when not known); an accepted one's `label`, `axiomBits` (0: none) and `notProved`; any other's `diagnostic` (code, reason, site, two numbers, step) |
 | `counts` | the declarations by verdict, `notChecked` and `notProved`; null when no verdict could be read |
 | `fuel` | `perDeclaration`, `total` (of the known), `unknown` (how many are not known) and `top` (the ten that used the most) |
 | `input` | declarations, term nodes, levels and constant references fed, and the stage's names; null when nothing was fed |
-| `exitStatus` | the command's exit status |
+| `exitStatus` | the command's [exit status](#exit-status), 0 to 6 |
 | `measured` | `microseconds` (wall and CPU of `stage`, `feed`, `check` and `total`; null on a host without clocks), `peakResidentBytes` and `stageBytes` (null when not known) |
+
+The parts of a report agree, and the schema states what its keywords
+can: status 0 only for a run that ended `ok`, did not stop and listed at
+least one declaration, every one accepted and proved, with every other
+count 0 and every fuel known; status 6 only when every declaration was
+accepted and at least one is NOT PROVED; a rejected or invalid
+declaration, or one not checked, never leaves the status 0. What it
+cannot state, `make test` checks on every report it makes (the schema's
+`$comment` lists it): `counts.declarations` is the number of
+`declarations` and the sum of the eight verdict counts, each count the
+number of declarations with that verdict, `notProved` the number marked
+so, and `input.declarations` the same number; `fuel.unknown` is the
+number of declarations whose fuel is null and `fuel.total` the sum of
+the others'; `fuel.top` is in order of fuel, most first, each entry the
+name, fuel and verdict of the declaration at its index.
 
 The report is written out as it is made, one declaration after another
 (`Init`'s is 13.8 MB, and the schema accepts it). The exit status is the
@@ -424,7 +465,7 @@ output, not a [run record](#run-records-and-replay): it names no commit
 and no SHA-256, and nothing reads it back into a check. A command-line
 mistake is still reported as text (status 4), and an internal fault
 (status 5) can leave a report cut short: read the report only when the
-status is 0 to 4. The format has not passed the owner's [format] gate.
+status is 0 to 4 or 6. The format has not passed the owner's [format] gate.
 
 ## Printing a readable proof
 
@@ -528,12 +569,21 @@ both reads check it.
 | 3 | A resource limit: out of fuel or out of room | *exhausted*, *full* |
 | 4 | Malformed input: a broken export, a missing or wrong manifest, a file that cannot be opened or created, or a malformed command line | *invalid* |
 | 5 | An internal fault: a Forth exception, a check that threw, a failed publication, or Gforth ending in an unexpected way | — |
+| 6 | Every declaration accepted, but some NOT PROVED: they depend on an axiom (proposed; see below) | *ok* with an axiom |
 
 When the declarations end differently, the most severe status wins, in
-the order 5, 4, 1, 3, 2, 0: an internal fault or a malformed export puts
+the order 5, 4, 1, 3, 2, 6, 0: an internal fault or a malformed export puts
 every verdict in doubt; a rejection is Lean's definite "no"; a limit or a
-missing feature leaves a declaration undecided. Only status 0 means every
-declaration was accepted. One example of each status other than 0:
+missing feature leaves a declaration undecided; a NOT PROVED declaration
+is Lean's "yes" resting on an axiom. Only status 0 means every
+declaration was accepted and proved. Status 6 follows the owner's rule
+that NOT PROVED "has its own exit code and never counts as proved"
+([owner decisions](../project/OWNER_DECISIONS.md)); its number and its
+place in the order are proposed, pending the owner's confirmation at the
+check report's [format] gate. No declaration can be NOT PROVED yet (the
+first checker accepts no axiom), so `make test` reaches status 6 by
+planting an axiom in an accepted slot. One example of each status other
+than 0 and 6:
 
 ```console
 $ bin/leanforth check --no-manifest tests/core/check-declaration-cases/composition-postulate.ndjson; echo "exit status $?"
@@ -570,6 +620,15 @@ fault, never a verdict. A Forth exception inside the tool is caught and
 reported the same way (`internal fault: a Forth exception (THROW n)`);
 `make test` injects one while an export is fed to the checker and one
 inside a check, and checks that the stage is freed either way.
+
+A check that throws *spends* its checker context for good
+([ADR 0012](../adr/0012-checked-environment.md), G-P6): the run stops,
+its declaration is *invalid* (diagnostic 29) and the ones after it are
+`not checked`, and every later check in that context also ends *invalid*
+with diagnostic 29. `bin/leanforth` runs one command per process, so this
+matters only in a Forth session, which runs its next command in a new
+context (`context-new`, `context-use`). It fails closed: nothing is ever
+accepted in a spent context.
 
 ## Small exports: `check --record`, `replay` and `print`
 
@@ -622,19 +681,20 @@ supported:
   count, reexport: exports of any size, up to all of Mathlib
 not yet supported (check answers unsupported or unknown, exit 2):
   axioms (5.3.1), opaque declarations (4.2.6), unsafe and partial definitions;
-  let (4.2.3), literals (5.2.3), projections (5.2.2) and metadata in a term;
+  let (4.2.3), literals (5.2.3), projections (5.2.2) and metadata (4.1.3) in a term;
   recursive and indexed inductive types (5.2.1b, 5.2.1c), quotients (5.2.4),
   mutual and nested blocks (5.2.5); unfolding definitions (4.2.2), so some
   correct proofs end unknown; check --record, replay and print refuse
   inductive types while reading
 limits (check answers full or exhausted, exit 3):
-  check: stores that grow with the export (memory); a walk holds 64 levels
-    of a term (plan task 6.2.0); 16 dependencies per declaration, 65536 per export
+  check: stores and walks that grow with the export (memory, any depth);
+    16 dependencies per declaration, 65536 per export, 512 constructors per
+    inductive block (plan task 6.2.0)
   check --record, replay, print: 64 names, 64 levels, 64 term nodes,
     32 declarations per export, 64 dependencies per export
   universe parameters per declaration and universe arguments per constant:
     no fixed limit (memory)
-  fuel 100000 steps per declaration (--fuel N)
+  fuel 100000 steps per declaration (--fuel N, at most 9007199254740991)
 planned, not built: program, serve, print and --record on any size,
   the axiom names of each accepted declaration (plan task 5.3.2)
 ```

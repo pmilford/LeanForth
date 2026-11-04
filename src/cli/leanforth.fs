@@ -93,6 +93,7 @@ require ../core/input.fs
 require ../kernel/environment.fs
 require ../kernel/env-publish.fs
 require ../kernel/check-declaration.fs
+require ../kernel/inductive-block.fs
 require ../import/ndjson.fs
 require ../import/manifest.fs
 require ../import/checker-input.fs
@@ -263,10 +264,13 @@ end-structure
   ."  names, " lf-level-capacity .decimal ."  levels," cr ." note: "
   lf-term-capacity .decimal ."  term nodes and " lf-input-capacity .decimal
   ."  declarations per export; check without --record holds any size" cr ;
+\ The checker's fixed capacities that end a check full (plan task 6.2.0).
+: cli-capacities. ( -- )
+  lf-env-dep-capacity .decimal ."  dependencies per declaration, " lf-env-pool-max .decimal
+  ."  per export, " lf-ind-ctor-capacity .decimal ."  constructors per" cr ;
 : cli-room-note ( -- )
-  ." note: a check ran out of room; its diagnostic names the limit: memory, or a"
-  cr ." note: walk's 64 levels of a term or a declaration's " lf-env-dep-capacity .decimal
-  ."  dependencies (plan task 6.2.0)" cr ;
+  ." note: a check ran out of room; its diagnostic names the limit: memory, or" cr
+  ." note: " cli-capacities. ." note: inductive block (plan task 6.2.0)" cr ;
 : cli-fuel-note ( -- )
   ." note: a check ran out of fuel (" cli-fuel @ .decimal
   ."  steps each); --fuel N gives each more" cr ;
@@ -644,9 +648,8 @@ create cli-fed-ops
   ."   correct proofs end unknown; check --record, replay and print refuse" cr
   ."   inductive types while reading" cr ;
 : cli-check-limits. ( -- )
-  ."   check: stores that grow with the export (memory); a walk holds 64 levels" cr
-  ."     of a term; " lf-env-dep-capacity .decimal ."  dependencies per declaration, "
-  lf-env-pool-max .decimal ."  per export (plan task 6.2.0)" cr ;
+  ."   check: stores and walks that grow with the export (memory, any depth);" cr
+  ."     " cli-capacities. ."     inductive block (plan task 6.2.0)" cr ;
 : cli-small-limits. ( -- )
   ."   check --record, replay, print: " lf-name-capacity .decimal ."  names, "
   lf-level-capacity .decimal ."  levels, " lf-term-capacity .decimal ."  term nodes," cr
