@@ -816,10 +816,12 @@ and its members' exported data into the input (`core/input.fs`,
    12), and a file that uses it but declares it nowhere is checked as Lean
    checks it (ADR 0016 amendment 1; until then the importer refused it as
    *invalid*). Only a tampered file can do any of this. *An empty block*
-   has no declaration to check: the reader refuses it (*invalid*; the one
-   row of the table no task closes yet, an [import] question for the
-   owner). *A file naming any other constant it never declares* is refused
-   by the importer (*invalid*) before any check.
+   (no type, constructor or recursor) is staged by the importer as one
+   declaration without a name (ADR 0016 amendment 1), which the block
+   check rejects at step 4 as Lean's kernel does (`emptyBlock`,
+   diagnostic 78); the file goes on. *A file naming any other constant it
+   never declares*, or holding a block with no type but with constructors
+   or recursors, is refused by the importer (*invalid*) before any check.
 10. *Capacity.* A block of more than 512 constructors is *full*, found
     when it is opened, before anything is written for its constructors
     (review rvI21 B1). T1 also counts each constructor's binders, as
@@ -891,11 +893,11 @@ and its members' exported data into the input (`core/input.fs`,
   and `T.rec` without its universe argument, with
   `after.recursor-left-out-then-use-rec` and `after.b3-ctor-then-use` now
   giving Lean's verdict (decisions 11, 12; ADR 0016 amendment 1). Of task
-  5.2.1a's 75 rows, 69 give Lean's verdict (27 accepted, 42 rejected) and
-  6 are pending, each naming the task that closes it: 5.2.1b (four rows
-  using or redeclaring `Nat`), 4.2.2 (one needing unfolding), and the empty
-  block (an [import] question for the owner, no task yet). 54 planted
-  faults are caught.
+  5.2.1a's 75 rows, 70 give Lean's verdict (27 accepted, 43 rejected, the
+  empty block among them since the importer stages it) and 5 are
+  pending, each naming the later task that closes it: 5.2.1b (four rows
+  using or redeclaring `Nat`) and 4.2.2 (one needing unfolding). 59
+  planted faults are caught.
 - `make test-check-block` (41 committed table files, 60 since the review; blocks published
   together; the reference export tampered field by field; fuel bisection;
   a full store), eighteen planted faults (`ind-*`) all caught, and the

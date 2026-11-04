@@ -76,6 +76,7 @@ require ./constant-references.fs
 6 constant lf-kind-inductive
 7 constant lf-kind-constructor
 8 constant lf-kind-recursor
+9 constant lf-kind-block         \ an empty inductive block (ADR 0016 amendment 1)
 \ Safety and reducibility hints, coded as the NDJSON reader codes them.
 0 constant lf-safety-safe
 1 constant lf-safety-unsafe
@@ -317,7 +318,19 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
   dup lf-idecl-more @ ?dup if 1- swap lf-idecl-kind @ lf-more-kind? else drop true then ;
 : lf-input-block-ok? ( decl -- flag )
   lf-idecl-block @ ?dup if 1- /lf-hdr lf-more-span? else true then ;
+\ An empty inductive block (lf-kind-block): the one declaration of an
+\ inductive record with no type, constructor or recursor, which Lean's
+\ kernel rejects (emptyBlock); the importer adds it so that the checker
+\ can say so (ADR 0016 amendment 1). No name, no universe parameter, no
+\ type, no value, no data; safe; a member of its block, whose header it
+\ points at.
+: lf-input-empty-ok? ( decl -- flag )
+  dup lf-idecl-name @ 0= over lf-idecl-arity @ 0= and over lf-idecl-type @ -1 = and
+  over lf-idecl-value @ -1 = and over lf-idecl-more @ 0= and
+  over lf-idecl-safety @ lf-safety-safe = and over lf-input-hint-ok? and
+  over lf-idecl-block @ 0<> and swap lf-input-block-ok? and ;
 : lf-input-decl-ok? ( decl -- flag )
+  dup lf-idecl-kind @ lf-kind-block = if lf-input-empty-ok? exit then
   dup lf-input-name-ok? over lf-input-kind-ok? and over lf-input-safety-ok? and
   over lf-input-hint-ok? and over lf-input-params-ok? and over lf-input-roots-ok? and
   over lf-input-more-ok? and swap lf-input-block-ok? and ;

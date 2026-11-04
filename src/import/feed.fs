@@ -326,12 +326,23 @@ here feed-kinds - 1 cells / constant feed-kinds#
   >r 2dup feed-total swap feed-members ! drop r> ;
 : feed-block-ok? ( d feed -- flag )
   2dup feed-stage @ staged-items 3 = over feed-members @ 0= and
-  if more-block-types feed-nth nip nip 0<> else 2drop false then ;
+  if 2dup more-block-types feed-nth nip nip 0<> >r feed-total 0= r> or
+  else 2drop false then ;
+\ An empty block (no type, constructor or recursor; ADR 0016 amendment 1)
+\ becomes one declaration of kind lf-kind-block, a member of its own
+\ block: the checker rejects it as Lean's kernel does (emptyBlock).
+: feed-empty-block ( feed -- outcome )
+  dup feed-blank lf-kind-block over ['] lf-idecl-kind feed-field !
+  -1 over ['] lf-idecl-type feed-field !
+  dup feed-header @ over ['] lf-idecl-block feed-field !
+  feed-decl lf-input-add nip ;
+: feed-emptied ( outcome feed -- outcome )
+  over ok? over feed-members @ 0= and if nip feed-empty-block else drop then ;
 : feed-header-record ( d feed -- outcome )
   2dup feed-block-ok? 0= if 2drop outcome-invalid exit then
-  dup feed-header! outcome-ok lf-input-count feed,
+  dup >r dup feed-header! outcome-ok lf-input-count feed,
   more-block-types feed-num, more-block-ctors feed-num, more-block-recursors feed-num,
-  feed-members! ;
+  feed-members! r> feed-emptied ;
 \ A member of the current block, or any other declaration.
 : feed-member? ( d feed -- flag )
   feed-stage @ staged-kind@ dup kind-type = over kind-ctor = or swap kind-recursor = or ;

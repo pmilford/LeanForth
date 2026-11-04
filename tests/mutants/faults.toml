@@ -3414,9 +3414,9 @@ reason = "rvI21 M1: the publisher never re-checks a block's members; a block cla
 [[fault]]
 id = "ind-visible-never-reset"
 file = "src/kernel/check-block.fs"
-old = '''  lf-blk-begin dup ok? if drop lf-blk-run lf-blk-added then
+old = '''  lf-blk-begin dup ok? if drop lf-blk-checked then
   false lf-ind-state lf-ind-visible ! ;'''
-new = '''  lf-blk-begin dup ok? if drop lf-blk-run lf-blk-added then ;'''
+new = '''  lf-blk-begin dup ok? if drop lf-blk-checked then ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvI21 M1: the type stays visible to inference after its block's check (the flag is still set afterwards)"
 
@@ -3606,6 +3606,46 @@ old = '''  tuck stage-tier name-prefix@ swap type-named? ;'''
 new = '''  2drop true ;'''
 test = "python3 tests/core/test_stage.py"
 reason = "ADR 0016 amendment 1: rec under any prefix loads; t.rec (t a theorem) is no longer an unknown constant"
+
+[[fault]]
+id = "ndjson-empty-block-refused"
+file = "src/import/ndjson.fs"
+old = '''  >r over r@ no-types? r@ empty-block? 0= and'''
+new = '''  >r over r@ no-types?'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "ADR 0016 amendment 1: an empty inductive record is refused as malformed again, so the file is invalid where Lean's kernel rejects only the block (emptyBlock)"
+
+[[fault]]
+id = "ndjson-empty-siblings-ignored"
+file = "src/import/ndjson.fs"
+old = '''  c" ctors" over empty-list? swap c" recs" swap empty-list? and ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "ADR 0016 amendment 1: a block with no type but with constructors is read, not refused as malformed"
+
+[[fault]]
+id = "feed-empty-not-staged"
+file = "src/import/feed.fs"
+old = '''  over ok? over feed-members @ 0= and if nip feed-empty-block else drop then ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "ADR 0016 amendment 1: an empty block gets no declaration, so no verdict, where Lean rejects it (emptyBlock)"
+
+[[fault]]
+id = "ind-empty-not-opened"
+file = "src/kernel/inductive-block.fs"
+old = '''  lf-ind-take dup lf-ind-first@ = lf-ind-empty? and if drop 1 outcome-ok exit then'''
+new = '''  lf-ind-take'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "an empty block's declaration is invalid instead of rejected as Lean's emptyBlock"
+
+[[fault]]
+id = "ind-empty-accepted"
+file = "src/kernel/check-block.fs"
+old = '''  lf-ind-empty? if lf-blk-empty else lf-blk-run lf-blk-added then ;'''
+new = '''  lf-ind-empty? if outcome-ok else lf-blk-run lf-blk-added then ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "an empty block is accepted where Lean's kernel rejects it (emptyBlock)"
 
 [[fault]]
 id = "pub-rec-name-not-held"

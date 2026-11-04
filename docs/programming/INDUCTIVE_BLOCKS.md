@@ -96,7 +96,7 @@ rejection names Lean's reason through a diagnostic
 | 1 | B0, U1 (audit), U2, V1, scope | the block as lean4export writes it, at most 512 constructors (checked when the block is opened, before anything is written for them); no unsafe member; no `let`, literal, projection or metadata; no loose variable; one type, mentioned by each constructor only as the head of its result | replay's reading; 1237–1247 | invalid (shape, V1); full (more than 512 constructors, the whole block); unsupported (unsafe, U2, mutual, recursive, the type in a result index) |
 | 2 | T0 | no constant named under `_nested` | 1222–1233 | rejected |
 | 3 | C1 | each occurrence of the type applied to the block's universe parameters and parameters | 134–164 | rejected |
-| 4 | T1 | at least `numParams` binders in the type, then in each constructor's type (`get_params`, called by `elim_nested_inductive_fn` 1151–1166 for both) | 1138–1166 | rejected |
+| 4 | T1 | a type at all (an empty block, staged as one declaration without a name: Lean's `emptyBlock`, 1153), then at least `numParams` binders in the type, then in each constructor's type (`get_params`, called by `elim_nested_inductive_fn` 1151–1166 for both) | 1138–1166 | rejected |
 | 5 | T5 | universe parameters distinct | 869 | rejected |
 | 6 | N2 | the type's name and `T.rec` unused, also as the recursor Lean generated for an earlier type (below) | 258–259 | rejected; unknown or unsupported when an earlier declaration of that name is undecided or unsupported (K5) |
 | 7 | — | the type's type inferred | 261 | inference's outcome |
@@ -274,12 +274,13 @@ inductive types.
 
 - `make test-inductive-table` (part of `make check`): every one of the 151
   cases of `tests/reference/inductive-expected.lean` as the export Lean
-  prints for it, checked by LeanForth. Task 5.2.1a's 75 rows: 69 give
-  Lean's verdict (27 accepted, 42 rejected, each with Lean's reason), and
-  six are pending, each naming the task that closes it: four use or
-  redeclare `Nat` (task 5.2.1b), one needs unfolding (`id Type`, task
-  4.2.2), and an empty block has no declaration to carry a verdict (the
-  reader refuses it; no task yet, an [import] question for the owner).
+  prints for it, checked by LeanForth. Task 5.2.1a's 75 rows: 70 give
+  Lean's verdict (27 accepted, 43 rejected, each with Lean's reason), and
+  five are pending, each naming the later task that closes it: four use
+  or redeclare `Nat` (task 5.2.1b), and one needs unfolding (`id Type`,
+  task 4.2.2). The empty block gives Lean's verdict too: the importer
+  stages it as one declaration without a name, which the check rejects
+  (ADR 0016 amendment 1).
   Each pending rule is reached by a twin row without the dependency. The 76 rows of
   later tasks give *unsupported* or *unknown*, or Lean's own verdict
   (`ind.eq`, an indexed family; two universe rows with indices; none
@@ -325,7 +326,11 @@ inductive types.
   for a type `B` of the file without their declarations, and still
   refuses `B.recOn`, `B.rec_`, `B.rec_x`, `t.rec` (a theorem) and
   `A.mk.rec` (a constructor) as unknown constants (ADR 0016 amendment 1).
-- 54 planted faults (`ind-*`, and `env-*`, `pub-*`, `geq-*`, `genrec-*`,
+- `tests/core/test_empty_block.py`: an empty block before and around the
+  Bool block is rejected (diagnostic 78, step 4) and the Bool block still
+  accepted; a block with no type but a constructor leaves the file
+  *invalid*.
+- 59 planted faults (`ind-*`, and `env-*`, `pub-*`, `geq-*`, `genrec-*`,
   `stage-any-*` of the review rvI21's fixes and the owner's condition, in
   `tests/mutants/faults.toml`), each caught.
 - Lean's `Init` checked whole (2026-11-04, a probe, 896 s with

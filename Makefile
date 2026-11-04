@@ -551,6 +551,7 @@ DOC_EXAMPLE_PAGES += docs/programming/CHECKED_ENVIRONMENT.md
 test-check-block:
 	$(RUN) $(GFORTH) tests/core/check-block.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/core/test_block_capacity.py
+	GFORTH=$(GFORTH) $(RUN) python3 tests/core/test_empty_block.py
 
 .PHONY: test-check-block
 test: test-check-block
