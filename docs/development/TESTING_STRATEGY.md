@@ -77,6 +77,11 @@ compiler and runtime correctness.
   `.claude/work/TS/p1.fs` to `p3.fs` (local, gitignored). Limit: it
   recognises Gforth's error report text; a run that ends early without
   an error report (for example a stray `bye`) is not caught.
+  `scripts/gforth-fast` beside it runs the real `gforth-fast` through the
+  same check, for scripts that look for `gforth-fast` beside `$GFORTH`
+  (`tests/core/compact-init.sh`). Without it that test fell back to plain
+  Gforth and timed out on CI once (run 41794140859, 600 s limit,
+  2026-11-04).
 
 The 2026-11-02 coverage review and its open items are recorded in
 [the test coverage review](TEST_COVERAGE_REVIEW.md).
