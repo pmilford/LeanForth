@@ -89,7 +89,8 @@ require ./local-context.fs
 2048 constant lf-log-term-capacity
 512 constant lf-log-level-capacity
 1024 constant lf-log-memo-size        \ memo entries per store
-512 constant lf-log-stack-capacity    \ cells of each copier stack
+512 constant lf-log-stack-capacity    \ entries of each copier stack
+lf-log-stack-capacity 2* constant lf-log-task-cells \ a task is two cells
 4096 constant lf-log-copy-work        \ tasks one copy may run
 256 constant lf-log-cref-capacity     \ copied constant references
 2048 constant lf-log-arg-capacity     \ their universe arguments, in all
@@ -311,9 +312,9 @@ begin-structure /lf-logs
   field: lf-logs-at-context  \ the binders around it (the record's and its own)
   lf-log-memo-size 4 * cells +field lf-logs-term-memo
   lf-log-memo-size 4 * cells +field lf-logs-level-memo
-  lf-log-stack-capacity 1+ cells +field lf-logs-term-tasks
+  lf-log-task-cells 1+ cells +field lf-logs-term-tasks
   lf-log-stack-capacity 1+ cells +field lf-logs-term-values
-  lf-log-stack-capacity 1+ cells +field lf-logs-level-tasks
+  lf-log-task-cells 1+ cells +field lf-logs-level-tasks
   lf-log-stack-capacity 1+ cells +field lf-logs-level-values
   field: lf-logs-term-work   \ work left in the current term copy
   field: lf-logs-level-work  \ work left in the current level copy
@@ -451,12 +452,13 @@ end-structure
 : lf-log-infer ( node depth -- node )
   >r dup lf-log-none over lf-log-node-rule r> lf-log-enter ;
 
-\ Small stacks of the copier: a count cell, then lf-log-stack-capacity
-\ cells. Popping is unchecked: the copier pops only what it pushed.
+\ Small stacks of the copier: a count cell, then limit cells
+\ (lf-log-stack-capacity values, or as many tasks in lf-log-task-cells).
+\ Popping is unchecked: the copier pops only what it pushed.
 : lf-stack-clear ( stack -- ) 0 swap ! ;
 : lf-stack-empty? ( stack -- flag ) @ 0= ;
-: lf-stack-push ( x stack -- flag )
-  dup @ lf-log-stack-capacity < if 1 over +! dup @ cells + ! true else 2drop false then ;
+: lf-stack-push ( x stack limit -- flag )
+  over @ > if 1 over +! dup @ cells + ! true else 2drop false then ;
 : lf-stack-pop ( stack -- x ) dup @ cells over + @ swap -1 swap +! ;
 
 \ The copier, one descriptor per store (a CREATE table, read-only): its
@@ -521,14 +523,16 @@ end-structure
 \ Pushing a task (two cells: its context, then the node) or a value; no
 \ room truncates the log.
 : lf-copier-deep ( copier -- false ) drop lf-bound-work lf-log-truncate false ;
-: lf-copier-push ( x copier stack -- flag )
-  rot swap lf-stack-push if drop true else lf-copier-deep then ;
+: lf-copier-push ( x copier stack limit -- flag )
+  >r rot swap r> lf-stack-push if drop true else lf-copier-deep then ;
+: lf-copier-task-push ( x copier -- flag )
+  dup lf-copier-tasks lf-log-task-cells lf-copier-push ;
 : lf-copier-task ( x c copier -- flag )
-  tuck dup lf-copier-tasks lf-copier-push 0= if 2drop false exit then
-  dup lf-copier-tasks lf-copier-push ;
+  tuck lf-copier-task-push 0= if 2drop false exit then lf-copier-task-push ;
 : lf-copier-next ( copier -- x c )
   dup lf-copier-tasks lf-stack-pop swap lf-copier-tasks lf-stack-pop ;
-: lf-copier-value ( ref copier -- flag ) dup lf-copier-values lf-copier-push ;
+: lf-copier-value ( ref copier -- flag )
+  dup lf-copier-values lf-log-stack-capacity lf-copier-push ;
 : lf-copier-pop ( copier -- ref ) lf-copier-values lf-stack-pop ;
 : lf-combine ( n -- task ) 1+ negate ;
 : lf-combined ( task -- n ) negate 1- ;
@@ -717,9 +721,18 @@ create lf-log-term-copier
 : lf-log-keep-out ( result outcome mark -- ref true | false )
   logmark-rule @ 4 lf-log-kind swap ok? 0= if 2drop lf-log-none true exit then
   2dup lf-log-id swap lf-log-keep ;
+\ The context terms are copied in (free variables become bound variables
+\ there): the record's depth, except that the a of an instantiate or beta
+\ step (a body) lies under one more binder and a shift's under amount
+\ fewer, as log-view reads them.
+: lf-log-a-inner ( mark -- n )
+  dup logmark-rule @ case lf-rule-instantiate of drop 1 endof lf-rule-beta of drop 1 endof
+    lf-rule-shift of logmark-b @ negate endof nip 0 swap endcase ;
+: lf-log-copy-depth! ( mark n -- ) swap logmark-depth @ + lf-log-state lf-logs-copy-depth ! ;
 : lf-log-refs ( result outcome mark -- a b out true | false )
-  dup logmark-depth @ lf-log-state lf-logs-copy-depth !
+  dup dup lf-log-a-inner lf-log-copy-depth!
   >r r@ lf-log-keep-a 0= if 2drop r> drop false exit then
+  r@ 0 lf-log-copy-depth!
   r@ lf-log-keep-b 0= if drop 2drop r> drop false exit then
   2swap r> lf-log-keep-out if true else 2drop false then ;
 : lf-log-fields! ( a b out outcome rule start depth rec -- )

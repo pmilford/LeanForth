@@ -74,35 +74,42 @@ T{ new-context-off -> true true }T
 : baselines ( -- ) files# 0 ?do i file run i cells baseline + ! loop ;
 baselines
 
-\ composition with the log at level terms: 65 steps (the ADR's golden
-\ table), complete, valid, nothing changed.
+\ composition with the log at level terms: 51 steps (the ADR's golden
+\ table without its 14 shift steps: since free variables, plan task
+\ 4.2.2a, a variable's type is its local-context entry's, as in Lean's
+\ infer_fvar), complete, valid, nothing changed.
 lf-log-terms level!
-T{ 0 file run 0 baseline@ = logs-valid @ lf-log-count lf-log-complete? -> true true 65 true }T
+T{ 0 file run 0 baseline@ = logs-valid @ lf-log-count lf-log-complete? -> true true 51 true }T
 : rule@ ( s -- rule ) lf-log-record logrec-rule @ ;
 : depth@ ( s -- depth ) lf-log-record logrec-depth @ ;
-T{ 1 rule@ 2 rule@ 3 rule@ 6 rule@ 7 rule@ 10 rule@ -> lf-rule-fresh-name
-  lf-rule-distinct-parameters lf-rule-sort lf-rule-shift lf-rule-variable lf-rule-pi }T
-T{ 26 rule@ 48 rule@ 49 rule@ 50 rule@ 59 rule@ 60 rule@ -> lf-rule-proposition
+T{ 1 rule@ 2 rule@ 3 rule@ 6 rule@ 8 rule@ -> lf-rule-fresh-name
+  lf-rule-distinct-parameters lf-rule-sort lf-rule-variable lf-rule-pi }T
+T{ 20 rule@ 34 rule@ 35 rule@ 36 rule@ 45 rule@ 46 rule@ -> lf-rule-proposition
   lf-rule-defeq lf-rule-instantiate lf-rule-application lf-rule-lambda lf-rule-level-eq }T
-T{ 63 rule@ 64 rule@ 65 rule@ 50 depth@ 54 depth@ 64 depth@ -> lf-rule-defeq
+T{ 49 rule@ 50 rule@ 51 rule@ 36 depth@ 40 depth@ 50 depth@ -> lf-rule-defeq
   lf-rule-declaration lf-rule-publish 6 5 0 }T
-\ Premises from start alone: application s50 used s45, s47, s48, s49;
-\ the declaration s64 used s1, s2, s26, s59, s63; publish s65 used s64.
+\ Premises from start alone: application s36 used s32, s33, s34, s35;
+\ the declaration s50 used s1, s2, s20, s45, s49; publish s51 used s50.
 : premises ( s -- p1 .. pn ) dup lf-log-record logrec-start @ swap 1-
   begin 2dup < while dup >r lf-log-premise r> -rot repeat 2drop ;
-T{ 50 premises -> 49 48 47 45 }T
-T{ 64 premises -> 63 59 26 2 1 }T
-T{ 65 premises -> 64 }T
-\ References: s50's subject is the input node f value, its type a copy;
-\ s6 shifts input node Prop by 3 and gives it back unchanged.
-T{ 50 lf-log-record logrec-a @ 0< 50 lf-log-record logrec-out @ lf-log-copy? -> false true }T
-T{ 6 lf-log-record logrec-b @ 6 lf-log-record dup logrec-a @ swap logrec-out @ = -> 3 true }T
-T{ 26 lf-log-record logrec-out @ 0< -> false }T
+T{ 36 premises -> 35 34 33 32 }T
+T{ 50 premises -> 49 45 20 2 1 }T
+T{ 51 premises -> 50 }T
+\ References: s36's subject is the input node f value, its type a copy;
+\ s6's subject (A) and type (Prop) are input nodes. The instantiate s35's
+\ body, B as a free variable in the type of f, is copied as the bound
+\ variable it stands for under the record's 6 binders and the body's
+\ own: B's binder lies at depth 1, so 7 - 1 - 1 = 5.
+: copy-node ( ref -- tag first second ) lf-log-copy-index lf-log-term-slot node@ ;
+T{ 36 lf-log-record logrec-a @ 0< 36 lf-log-record logrec-out @ lf-log-copy? -> false true }T
+T{ 6 lf-log-record dup logrec-a @ 0< swap logrec-out @ 0< -> false false }T
+T{ 35 lf-log-record logrec-a @ copy-node -> lf-tag-bvar 5 0 }T
+T{ 20 lf-log-record logrec-out @ 0< -> false }T
 
 \ Level steps: the same records, no copies, scratch results unkept.
 lf-log-steps level!
-T{ 0 file run 0 baseline@ = logs-valid @ lf-log-count lf-log-term-copies -> true true 65 0 }T
-T{ 50 lf-log-record logrec-out @ lf-log-unkept = 50 rule@ -> true lf-rule-application }T
+T{ 0 file run 0 baseline@ = logs-valid @ lf-log-count lf-log-term-copies -> true true 51 0 }T
+T{ 36 lf-log-record logrec-out @ lf-log-unkept = 36 rule@ -> true lf-rule-application }T
 
 \ Every file at both levels: nothing changed, every log valid.
 : same-at ( level -- flag )
@@ -171,7 +178,9 @@ T{ lf-log? lf-log-level -> 0 0 }T
 \ A constant whose reference lies above the input marks, with one universe
 \ argument (the zero level): its copy keeps the name and the argument's
 \ level reference, and log-view rebuilds it as a reference with that name
-\ and one argument.
+\ and one argument. The shift's input and result (the same node) are
+\ copied in their own contexts (the input under one binder fewer, as
+\ log-view reads it; lf-log-a-inner), so the reference is copied twice.
 create one-pair 2 cells allot
 : c-name ( -- id ) 0 s" c" lf-name-str must ;
 : scratch-constant ( -- term id )
@@ -183,7 +192,7 @@ create one-pair 2 cells allot
   lf-cref-read must nip lf-lv-release ;
 lf-log-terms lf-log-start
 T{ scratch-constant 0 1 100 lf-mixed-shift nip nip lf-log-count lf-log-cref-copies
-  -> outcome-ok 1 1 }T
+  -> outcome-ok 1 2 }T
 T{ copied-ref logcref-name @ c-name = copied-ref logcref-count @ -> true 1 }T
 T{ copied-ref logcref-args @ lf-log-arg-ref lc-valid? -> 0 true }T
 T{ rebuilt -> c-name 1 }T
