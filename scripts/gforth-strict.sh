@@ -12,8 +12,22 @@
 # Stderr is replayed after the run ends (not live). The Makefile and
 # scripts/mutants.py use this wrapper as $GFORTH for every Forth test run
 # (docs/development/TESTING_STRATEGY.md, "Gforth exit status").
-here=$(cd "$(dirname "$0")/.." && pwd)
+here=$(cd "$(dirname "$0")/.." && pwd -P)
+# Never take a wrapper of scripts/ (this file or scripts/gforth-fast) as the
+# real Gforth, and never nest more than a few wrappers: either would start
+# copies of the wrapper without end. On 2026-11-04 such a loop (GFORTH
+# naming this wrapper, passed on as LEANFORTH_GFORTH) started about a
+# thousand copies and exhausted the machine's memory.
+depth=${LEANFORTH_STRICT_DEPTH:-0}
+if [ "$depth" -ge 3 ]; then
+  echo "gforth-strict: wrappers nested $depth deep; refusing to start another" >&2
+  exit 2
+fi
+export LEANFORTH_STRICT_DEPTH=$((depth + 1))
 real=${LEANFORTH_GFORTH:-}
+case "$(readlink -f "$real" 2>/dev/null)" in
+  "$here"/scripts/*) real= ;;
+esac
 if [ -z "$real" ]; then
   real=$here/.tools/gforth/bin/gforth
   [ -x "$real" ] || real=gforth

@@ -82,6 +82,12 @@ compiler and runtime correctness.
   (`tests/core/compact-init.sh`). Without it that test fell back to plain
   Gforth and timed out on CI once (run 41794140859, 600 s limit,
   2026-11-04).
+  Both wrappers refuse to treat a wrapper of `scripts/` as the real Gforth
+  and refuse to nest more than three deep, and the Makefile replaces a
+  `GFORTH` that names a wrapper with the real Gforth: on 2026-11-04 a
+  `GFORTH` naming the wrapper was passed on as `LEANFORTH_GFORTH`, the
+  wrapper called itself, and about a thousand copies exhausted the
+  machine's memory (39 GB and 16 GB swap) and crashed it.
 
 The 2026-11-02 coverage review and its open items are recorded in
 [the test coverage review](TEST_COVERAGE_REVIEW.md).
