@@ -9,7 +9,7 @@
 \ lf-term-default records. Running out is full, never accepted. Children
 \ must already exist, so terms are acyclic DAGs. Per-term side data of
 \ other modules lives in columns of the group lf-term-columns
-\ (store-columns.fs), which grow with the store.
+\ (lib/store-columns.fs), which grow with the store.
 \ The deepest nesting the passes support (work stacks, frames, binder
 \ contexts) is lf-depth-limit, a constant that no longer follows the
 \ store's capacity: a term deeper than that ends a pass full or
@@ -24,7 +24,7 @@
 
 require ../lib/lib.fs
 require ./diagnostics.fs
-require ./store-columns.fs
+require ../lib/store-columns.fs
 
 64 constant lf-term-default
 64 constant lf-depth-limit
@@ -72,8 +72,13 @@ store-header context-record: lf-terms
 : lf-term-site ( -- site ) c" terms lf-term-add" ;
 : lf-term-refused ( -- false )
   lf-terms lf-term-site lf-diag-terms-full lf-diag-store false ;
+1 cells context-record: lf-term-covered   \ capacity the columns last covered
+\ The usual case first: a free record and columns that cover the store.
+: lf-term-steady? ( -- flag )
+  lf-terms dup store-filled? 0= swap store-capacity @ lf-term-covered @ = and ;
 : lf-term-room? ( -- flag )
-  lf-terms store-grow ok? if lf-term-columns columns-cover ok? else false then ;
+  lf-term-steady? if true exit then
+  lf-terms store-ready ok? if lf-term-covered lf-term-columns columns-ready else false then ;
 : lf-term-new ( tag first second -- index true | false )
   lf-terms node-new dup 0= if drop lf-term-refused then ;
 : lf-term-add ( tag first second -- index true | false )

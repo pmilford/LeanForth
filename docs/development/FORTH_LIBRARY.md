@@ -649,7 +649,7 @@ record, keeps it; the prototype did the same work without the checks.
   (`store-heap-init`, below) whose capacities are settings of each context
   (`lf-term-capacity!` and the like; defaults 64, 64, 64, 32 and 32), and
   per-index side data lives in columns that grow with them
-  (`src/core/store-columns.fs`). A staged export's names stay in its
+  (`src/lib/store-columns.fs`). A staged export's names stay in its
   shared input tier (`lf-name-attach`); its levels, terms and declarations
   are still copied into the context's stores (`src/import/feed.fs`), about
   80 bytes per term node with the columns, because the checker reads terms

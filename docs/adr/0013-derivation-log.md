@@ -49,6 +49,26 @@ the implementation differs from the decision text below:
   `resolve` is written by `lf-env-lookup` (the path the constant rule
   takes), and `publish`'s `start` is that of the step it uses, so
   sub-derivations stay nested.
+- **Memory differs from D3's estimate** (owner to confirm): the pools are
+  223,264 bytes (about 218 KiB) per context while the log is on, not
+  "about 150 KB"; they are one heap block that exists only while a log is
+  on (freed when a check begins with the log off, and by the context's
+  teardown, ADR 0009 amendment), so a context with the log off holds a
+  224-byte header. The printers' state (64,624 bytes) is heap-held only
+  while an outline prints. The pools allocate when a log starts, before
+  the check's first rule; no memory truncates the log (bound `memory`).
+- **Interrupted** (L6) is a truncation bound: a check that ends with rules
+  open writes no publish step, and the log says `truncated at step N (the
+  check stopped with rules open)`.
+- **The header copy at publish (L2)** keeps the published slot and outcome
+  (and the input's fingerprint from the log's start), which the outline
+  printer compares with the verdict it is given; it does not copy the
+  diagnostic, which the printer reads from the context.
+- **The isolation check** (L5 item 6) is an allow-list per layer and for
+  the log module itself (`tests/core/check_log_isolation.py`).
+- **The stack re-measurement** (L5 item 5) was done by the review of
+  2026-11-03 (two return cells more with the log off, four with it on,
+  against a need of 1,728); the numbers are in DERIVATION_LOG.md.
 - **Not yet:** the NDJSON writer and the observer (L6), the publish step of
   the parallel hand-over, the outline's Markdown and JSON forms and the
   statement "in words".

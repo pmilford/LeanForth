@@ -11,9 +11,8 @@
 \ holds the verdicts, a record that cannot be saved is invalid, one that
 \ names its export is refused); and the reading of fuel amounts.
 \ tests/cli/test_leanforth.py runs the same through bin/leanforth, with
-\ the text printed, and replays records. print's codes and refusals (a
-\ declaration not accepted, a log truncated or kept without formulas).
-\ Test-only; nothing here accepts
+\ the text printed, and replays records. print's codes, and a THROW at
+\ each of its store allocations. Test-only; nothing here accepts
 \ a theorem outside the code under test.
 include ../support/tester.fs
 include ../support/checks.fs
@@ -138,34 +137,17 @@ cli-options
 T{ s" tests/cli/no-such.ndjson" cli-print -> 4 }T
 T{ lf-log-options lf-logopt-level @ -> 0 }T
 
-\ print's refusals, word by word: right after a check, pr-refusal is ok
-\ for an accepted declaration with a complete log at level terms; the
-\ outcome of one not accepted; full for a log truncated (here after 10
-\ records) or kept at level steps.
-: printed ( c-addr u -- )
-  rr-release cli-checked? rr-read-once drop 100000 lf-check-budget 64 lf-env-new drop
-  dup lf-env-use drop 0 pr-step drop 0 pr-refusal swap lf-env-free drop ;
-: at-limit ( records -- )
-  lf-log-terms lf-log-set lf-log-mark-capacity lf-log-term-capacity lf-log-level-capacity
-  lf-log-limits ;
-pr-log-on
-T{ composition printed -> outcome-ok }T
-10 at-limit
-T{ composition printed lf-log-complete? -> outcome-full false }T
-pr-log-on lf-log-steps lf-log-set
-T{ composition printed -> outcome-full }T
-pr-log-on
-: printed-plain ( c-addr u -- outcome ) cli-no-manifest printed cli-options ;
-T{ wrong printed-plain -> outcome-rejected }T
-lf-log-off lf-log-set lf-log-capacities lf-log-limits
 \ A declaration's name as text, and finding it.
 T{ fixture true rr-read-once s" fixturePoly" pr-find -> outcome-ok 1 true }T
 T{ s" fixture" pr-find 2 pr-name s" fixtureUse" compare -> false 0 }T
 
 \ Internal faults, each in a context of its own (a THROW in a check
-\ spends its context for good). Staging composition makes n allocations:
-\ a THROW at the first is one while staging; at n + 1, one in the check.
-: staging-allocations ( -- n ) 0 af-arm composition cin-read drop af-seen@ af-off ;
+\ spends its context for good). Staging composition in a new context
+\ makes n allocations (the input's name index grows there too): a THROW at
+\ the first is one while staging; at n + 1, one in the check.
+: staging-allocations ( -- n )
+  context-new throw dup >r context-use 0 af-arm composition cin-read drop af-seen@ af-off
+  context-main context-use r> context-free throw ;
 staging-allocations constant staged#
 : in-context ( k -- code spent? )
   context-new throw dup >r context-use af-arm-throw composition cli-check af-off
@@ -173,6 +155,22 @@ staging-allocations constant staged#
 T{ staged# 0> -> true }T
 T{ 1 in-context -> 5 false }T
 T{ staged# 1+ in-context -> 5 true }T
+
+\ print with a THROW at each of its store allocations in turn (staging,
+\ the names' read, a check, the printer's scratch), each in a context of
+\ its own: always the code 5, the log switched off again, and no checked
+\ environment left current (C2 of the review of 2026-11-03).
+: fresh ( -- context ) context-new throw dup context-use cli-options ;
+: back ( context -- ) context-main context-use context-free throw ;
+: print-allocations ( -- n )
+  fresh 0 af-arm composition cli-print drop af-seen@ af-off swap back ;
+print-allocations constant printed#
+: print-fault ( k -- code level env )
+  fresh >r af-arm-throw composition cli-print af-off lf-log-options lf-logopt-level @
+  lf-env r> back ;
+: print-bad? ( k -- flag ) print-fault 0<> swap 0<> or swap 5 <> or ;
+: print-faults ( -- n ) 0 printed# 1+ 1 ?do i print-bad? if 1+ then loop ;
+T{ printed# staged# > print-faults -> true 0 }T
 
 cases-done
 bye

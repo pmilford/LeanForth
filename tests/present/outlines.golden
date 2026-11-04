@@ -207,7 +207,7 @@ Theorem composition
   Input:     tests/reference/composition.ndjson line 35
   Checker log: 30 steps, incomplete: truncated at step 31 (records).
 
-Proof outline not available: the checker's log was truncated at step 31 (records); the verdict is unaffected.
+No proof outline: the declaration is accepted, but the checker's log was truncated at step 31 (records); the verdict is unaffected.
 
 == composition, log without formulas
 Theorem composition
@@ -224,7 +224,7 @@ Theorem composition
   Diagnostic: rejected: argument type mismatch (D1-D5) (4, 0)
   Statement: ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Input:     tests/core/check-declaration-cases/composition-wrong-argument.ndjson line 35
-  Checker log: 50 steps, complete. The statement is a proposition: s20 (from s3).
+  Checker log: 51 steps, complete. The statement is a proposition: s20 (from s3).
 
 No proof outline: the declaration was not accepted.
 
@@ -234,7 +234,7 @@ Theorem composition
   Diagnostic: rejected: argument type mismatch (D1-D5) (4, 0)
   Statement: ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Input:     tests/core/check-declaration-cases/composition-wrong-argument.ndjson line 35
-  Checker log: 50 steps, complete. The statement is a proposition: s20 (from s3).
+  Checker log: 51 steps, complete. The statement is a proposition: s20 (from s3).
 
 Steps.
   s1     fresh-name          depth 0   declaration composition
@@ -275,16 +275,23 @@ Steps.
   s36    variable            depth 6   B : Prop
   s37    sort                depth 6   Prop : Type
   s38    variable            depth 6   A : Prop
-  s39    sort                depth 6   Prop : Type
-  s40    variable            depth 6   B : Prop
-  s41    sort                depth 6   Prop : Type
-  s42    application         depth 6   g value  ← s31, s32, s33, s34, s35, s36, s37, s38, s39, s40, s41  [rejected]
-  s43    lambda              depth 5   fun value ↦ g value  ← s30, s42  [rejected]
-  s44    lambda              depth 4   fun g value ↦ g value  ← s29, s43  [rejected]
-  s45    lambda              depth 3   fun f g value ↦ g value  ← s26, s44  [rejected]
-  s46    lambda              depth 2   fun {C} f g value ↦ g value  ← s23, s45  [rejected]
-  s47    lambda              depth 1   fun {B C} f g value ↦ g value  ← s22, s46  [rejected]
-  s48    lambda              depth 0   fun {A B C} f g value ↦ g value  ← s21, s47  [rejected]
-  s49    declaration         depth 0   ∀ {A B C : Prop}, (A → B) → (B → C) → A → C := fun {A B C} f g value ↦ g value  ← s1, s2, s20, s48  [rejected]
-  s50    publish             depth 0   d0, 0 dependencies  ← s49  [rejected]
+  s39    variable            depth 6   A : Prop
+  s40    sort                depth 6   Prop : Type
+  s41    variable            depth 6   B : Prop
+  s42    sort                depth 6   Prop : Type
+  s43    application         depth 6   g value  ← s31, s32, s33, s34, s35, s36, s37, s38, s39, s40, s41, s42  [rejected]
+  s44    lambda              depth 5   fun value ↦ g value  ← s30, s43  [rejected]
+  s45    lambda              depth 4   fun g value ↦ g value  ← s29, s44  [rejected]
+  s46    lambda              depth 3   fun f g value ↦ g value  ← s26, s45  [rejected]
+  s47    lambda              depth 2   fun {C} f g value ↦ g value  ← s23, s46  [rejected]
+  s48    lambda              depth 1   fun {B C} f g value ↦ g value  ← s22, s47  [rejected]
+  s49    lambda              depth 0   fun {A B C} f g value ↦ g value  ← s21, s48  [rejected]
+  s50    declaration         depth 0   ∀ {A B C : Prop}, (A → B) → (B → C) → A → C := fun {A B C} f g value ↦ g value  ← s1, s2, s20, s49  [rejected]
+  s51    publish             depth 0   d0, 0 dependencies  ← s50  [rejected]
+
+== a rejected declaration's log, given as accepted
+No outline: the checker's log does not belong to this declaration's published verdict, or the input changed since the check.
+
+== composition's log, after identity is loaded
+No outline: the checker's log does not belong to this declaration's published verdict, or the input changed since the check.
 

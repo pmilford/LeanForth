@@ -8,7 +8,7 @@
 \ capacity that is a setting of each context, as for terms (terms.fs):
 \ lf-level-capacity reads it, lf-level-capacity! sets it, a new context
 \ starts with lf-level-default. Per-level side data of other modules lives
-\ in columns of the group lf-level-columns (store-columns.fs). The deepest
+\ in columns of the group lf-level-columns (lib/store-columns.fs). The deepest
 \ level graph the level passes walk is lf-level-depth-limit.
 \ State: the store header lf-levels, a member of the checker context
 \ (lib/context.fs) whose block is on the heap, made and reset by set-up
@@ -18,7 +18,7 @@
 
 require ../lib/lib.fs
 require ./diagnostics.fs
-require ./store-columns.fs
+require ../lib/store-columns.fs
 
 64 constant lf-level-default
 64 constant lf-level-depth-limit
@@ -72,8 +72,13 @@ store-header context-record: lf-levels
 : lf-level-refused ( -- false )
   lf-levels lf-level-site lf-diag-levels-full lf-diag-store false ;
 ' lf-levels column-group: lf-level-columns
+1 cells context-record: lf-level-covered   \ capacity the columns last covered
+\ The usual case first: a free record and columns that cover the store.
+: lf-level-steady? ( -- flag )
+  lf-levels dup store-filled? 0= swap store-capacity @ lf-level-covered @ = and ;
 : lf-level-room? ( -- flag )
-  lf-levels store-grow ok? if lf-level-columns columns-cover ok? else false then ;
+  lf-level-steady? if true exit then
+  lf-levels store-ready ok? if lf-level-covered lf-level-columns columns-ready else false then ;
 : lf-level-new ( tag first second -- index true | false )
   lf-levels node-new dup 0= if drop lf-level-refused then ;
 : lf-level-add ( tag first second -- index true | false )

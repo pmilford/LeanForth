@@ -25,9 +25,16 @@
 \ Text. Each line is built in a buffer by the term printer's sink and the
 \ words below, then written to the output sink (default TYPE), padded by
 \ characters (UTF-8 aware) where a column is wanted.
-\ State: one context record, lf-lv (ADR 0009): the output sink, the line
-\ buffer, the formula fuel, the scope, the rebuilt copies and the names of
-\ copies. Requires a check's log in the current context.
+\ Bounds: the walks over a formula's structure (rebuilding copies, naming
+\ them, lf-ol-mentions in proof-outline.fs) nest at most lf-lv-nest-limit
+\ deep; deeper, a formula prints as "?" (lf-lv-deeper). A rollback that
+\ fails (lf-lv-release) is counted, and nothing is rebuilt after it.
+\ State: one cell of the checker context, lf-lv-held, pointing to a heap
+\ block (about 39 KB) that exists only while printing (lf-lv-setup to
+\ lf-lv-done; lf-lv-open for a test that rebuilds formulas directly): the
+\ output sink, the line buffer, the formula fuel, the scope, the rebuilt
+\ copies and the names of copies; the context's teardown frees a block
+\ left by a THROW. Requires a check's log in the current context.
 
 require ./term-printer.fs
 require ../lib/bytes.fs
@@ -35,12 +42,15 @@ require ../core/derivation-log.fs
 require ../core/input.fs
 
 1024 constant lf-lv-buffer-size
+512 constant lf-lv-nest-limit
 
 begin-structure /lf-lv
   field: lf-lv-sink          \ xt ( c-addr u -- ) of the finished text
   field: lf-lv-used          \ bytes in the line buffer
   field: lf-lv-fuel          \ fuel of each formula
   field: lf-lv-bad           \ formulas that failed to print
+  field: lf-lv-lost          \ rollbacks that failed
+  field: lf-lv-nest          \ walks nested now
   field: lf-lv-depth         \ binders in the scope
   lf-print-binder-capacity cells +field lf-lv-scope  \ binder nodes, outermost first
   lf-cref-argument-capacity 2* cells +field lf-lv-pairs   \ a rebuilt reference's levels
@@ -49,7 +59,21 @@ begin-structure /lf-lv
   lf-log-term-capacity cells +field lf-lv-namer      \ input binder naming copy k, + 1
   lf-lv-buffer-size +field lf-lv-buffer
 end-structure
-/lf-lv context-record: lf-lv
+1 cells context-record: lf-lv-held
+: lf-lv ( -- addr ) lf-lv-held @ ;
+\ The block: made zeroed when there is none (false without memory), and
+\ given back. A FREE that fails keeps the block recorded, so that the
+\ teardown tries again and reports it.
+: lf-lv-open ( -- flag )
+  lf-lv if true exit then /lf-lv allocate0 if drop false exit then lf-lv-held ! true ;
+: lf-lv-close ( -- ior )
+  lf-lv dup 0= if exit then free dup 0= if 0 lf-lv-held ! then ;
+:noname ( -- ) lf-lv-close throw ; context-teardown
+\ Nesting: whether a walk may go one level deeper (and then it has), and
+\ back.
+: lf-lv-deeper ( -- flag )
+  lf-lv lf-lv-nest @ lf-lv-nest-limit < dup if 1 lf-lv lf-lv-nest +! then ;
+: lf-lv-shallower ( -- ) -1 lf-lv lf-lv-nest +! ;
 
 \ Text: the buffer, the output, numbers, padding by characters.
 : lf-lv-text ( -- c-addr u ) lf-lv lf-lv-buffer lf-lv lf-lv-used @ ;
@@ -147,8 +171,9 @@ create lf-lv-blanks 64 allot lf-lv-blanks 64 bl fill
   tuck lf-lv-child-ref 0= if 2drop false exit then
   -rot lf-lv-child-ref 0= if drop false exit then swap true ;
 : lf-lv-parallel ( a out -- )
-  2dup lf-lv-pair-name 2dup lf-lv-alike? 0= if 2drop exit then
-  2dup 1 lf-lv-both if recurse then 2 lf-lv-both if recurse then ;
+  lf-lv-deeper 0= if 2drop exit then 2dup lf-lv-pair-name 2dup lf-lv-alike?
+  if 2dup 1 lf-lv-both if recurse then 2 lf-lv-both if recurse then else 2drop then
+  lf-lv-shallower ;
 : lf-lv-rebuilt? ( rule -- flag )
   dup lf-rule-shift = over lf-rule-instantiate = or swap lf-rule-instantiate-levels = or ;
 \ A lambda's type: each Pi down its spine named from the lambda at the
@@ -181,14 +206,18 @@ defer lf-lv-level ( ref -- level true | false )
   2 pick lf-level-binary-tag? 0= if true exit then
   swap lf-lv-lchild 0= if 2drop false exit then swap
   lf-lv-lchild 0= if 2drop false exit then true ;
-: lf-lv-lnew ( k -- level true | false )
+: lf-lv-lbuild ( k -- level true | false )
   dup lf-log-level-slot node@ lf-lv-lfields 0= if drop false exit then
   lf-level-add 0= if drop false exit then dup 1+ rot lf-lv-lmade@ ! true ;
+: lf-lv-lnew ( k -- level true | false )
+  lf-lv-deeper 0= if drop false exit then lf-lv-lbuild lf-lv-shallower ;
 : lf-lv-level-copy ( k -- level true | false )
   dup lf-log-level-copies < 0= if drop false exit then
   dup lf-lv-lmade@ @ ?dup if nip 1- true else lf-lv-lnew then ;
 : lf-lv-valid ( index flag -- index true | false ) dup 0= if nip then ;
+: lf-lv-lost? ( -- flag ) lf-lv lf-lv-lost @ 0<> ;
 : lf-lv-level-ref ( ref -- level true | false )
+  lf-lv-lost? if drop false exit then
   dup 0< 0= if dup lf-level-valid? lf-lv-valid exit then
   dup lf-log-copy? if lf-log-copy-index lf-lv-level-copy else drop false then ;
 ' lf-lv-level-ref is lf-lv-level
@@ -222,20 +251,24 @@ defer lf-lv-term ( ref -- term true | false )
 : lf-lv-named ( term k -- term )
   lf-lv-namer@ @ ?dup 0= if exit then 1- lf-pres-binder@ 0= if exit then
   2 pick -rot lf-pres-binder! drop ;
-: lf-lv-tnew ( k -- term true | false )
+: lf-lv-tbuild ( k -- term true | false )
   dup lf-log-term-slot node@ lf-lv-tfields 0= if drop false exit then
   lf-term-add 0= if drop false exit then
   over lf-lv-named dup 1+ rot lf-lv-made@ ! true ;
+: lf-lv-tnew ( k -- term true | false )
+  lf-lv-deeper 0= if drop false exit then lf-lv-tbuild lf-lv-shallower ;
 : lf-lv-term-copy ( k -- term true | false )
   dup lf-log-term-copies < 0= if drop false exit then
   dup lf-lv-made@ @ ?dup if nip 1- true else lf-lv-tnew then ;
 : lf-lv-term-ref ( ref -- term true | false )
+  lf-lv-lost? if drop false exit then
   dup 0< 0= if dup lf-term-valid? lf-lv-valid exit then
   dup lf-log-copy? if lf-log-copy-index lf-lv-term-copy else drop false then ;
 ' lf-lv-term-ref is lf-lv-term
-\ Forget the rebuilt nodes: the stores back to the input marks.
+\ Forget the rebuilt nodes: the stores back to the input marks. A rollback
+\ that fails is counted (then nothing more is rebuilt or printed).
 : lf-lv-release ( -- )
-  lf-input-rollback drop
+  lf-input-rollback ok? 0= if 1 lf-lv lf-lv-lost +! then
   lf-lv lf-lv-made lf-log-term-capacity cells erase
   lf-lv lf-lv-lmade lf-log-level-capacity cells erase ;
 
@@ -252,12 +285,13 @@ defer lf-lv-term ( ref -- term true | false )
 : lf-lv-at ( s -- flag ) lf-lv-scope-of dup 0 max lf-lv lf-lv-depth ! 0< 0= ;
 \ The reference ref in step s's scope.
 : lf-lv-formula ( ref s -- ) lf-lv-at if lf-lv-ref-here else drop lf-lv-fail then ;
-\ Child part (1 first, 2 second) of a term reference, in step s's scope.
-: lf-lv-child ( term part -- term' ) 1 = if lf-term-first@ else lf-term-second@ then ;
+\ Child part (1 first, 2 second) of a term reference, in step s's scope;
+\ "?" unless the term is an application, a lambda or a Pi.
+: lf-lv-part-here ( term part -- )
+  lf-lv-child-ref if lf-lv-term-here else lf-lv-fail then ;
 : lf-lv-part ( ref part s -- )
   lf-lv-at 0= if 2drop lf-lv-fail exit then
-  swap lf-lv-term if swap lf-lv-child lf-lv-term-here else drop lf-lv-fail
-  then lf-lv-release ;
+  swap lf-lv-term if swap lf-lv-part-here else drop lf-lv-fail then lf-lv-release ;
 \ A level reference.
 : lf-lv-level-here ( ref -- )
   lf-lv-level if lf-lv lf-lv-fuel @ lf-print-level lf-lv-printed else lf-lv-fail
@@ -284,12 +318,15 @@ defer lf-lv-term ( ref -- term true | false )
 : lf-lv-decl-name ( i -- )
   dup 0 lf-input-count within if lf-input-name lf-lv-name-id else lf-lv-n then ;
 
-\ Setting up: the term printer writes into the line buffer, in Unicode;
-\ lf-lv-done gives it back its sink and options.
-: lf-lv-setup ( sink fuel -- )
-  lf-lv lf-lv-fuel ! lf-lv lf-lv-sink ! 0 lf-lv lf-lv-bad ! lf-lv-clear
-  ['] lf-lv-put lf-print-unicode lf-print-setup lf-lv-names ;
-: lf-lv-done ( -- ) ['] type lf-print-unicode lf-print-setup ;
+\ Setting up: the state's block, and the term printer writing into the
+\ line buffer, in Unicode (false, nothing set up, without memory for the
+\ block); lf-lv-done gives the term printer back its sink and options and
+\ the block back (a FREE that fails stays recorded for the teardown).
+: lf-lv-setup ( sink fuel -- flag )
+  lf-lv-open 0= if 2drop false exit then
+  lf-lv lf-lv-fuel ! lf-lv lf-lv-sink ! 0 lf-lv lf-lv-bad ! 0 lf-lv lf-lv-nest !
+  lf-lv-clear ['] lf-lv-put lf-print-unicode lf-print-setup lf-lv-names true ;
+: lf-lv-done ( -- ) ['] type lf-print-unicode lf-print-setup lf-lv-close drop ;
 
 \ The list of every step (--detail, and a log no outline is printed from):
 \ step, rule, depth, the formulas the rule relates, its premises and,

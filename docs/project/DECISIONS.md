@@ -887,3 +887,14 @@ does not give (a test reproduces it through a FIFO).
 - **Not affected:** the importer stage (`src/import/stage.fs`) reads the
   export once, hashing the very lines it stages, and `src/import/feed.fs`
   reads no file.
+- **Extended (round 3, 2026-11-04).** Reads without the manifest check
+  (`cin-read`: `--no-manifest`, the test driver, the golden records) hash
+  both passes through the reader's tap and compare them the same way, and
+  every recorded run, enforced or not, compares the import's SHA-256 with
+  `input.sha256`; `rr-start`'s metadata read and a manifest check that
+  passes are tied to that SHA-256 too. So every record's verdicts are those
+  of the bytes `input.sha256` names, and `enforced` means only that the
+  manifest also matched. The refusal reports line 0, as manifest failures
+  do. The cost is one SHA-256 of each pass that `cin-read` makes; it reads
+  only exports that fit the checker's small fixed tables (64 names), and
+  large exports go through the stage, which this does not change.

@@ -84,9 +84,11 @@ lf-level-depth-limit context-walk2: lf-mcompare-level-walker
     lf-mcompare-component until r> drop ;
 
 \ Levels, in order and without normalization. Both graphs passed the
-\ level-scope audit, so children come earlier, every tag is known and the
-\ work stack (one pending pair per node on a path) cannot overflow. A level
-\ walk runs on the term walk's fuel and continues with what it leaves.
+\ level-scope audit, so children come earlier and every tag is known. The
+\ work stack holds one pending pair per node on a path: at the default
+\ capacities never more than its room; at a raised level capacity a
+\ deeper pair fills it, and the walk is full (never another outcome). A
+\ level walk runs on the term walk's fuel and continues with what it leaves.
 : lf-mcompare-level-dispatch ( a b walk tag -- outcome )
   dup lf-level-binary-tag? if drop lf-mcompare-children exit then
   case lf-level-tag-zero of drop 2drop outcome-ok endof
@@ -132,10 +134,11 @@ lf-level-depth-limit context-walk2: lf-mcompare-level-walker
   >r lf-mcompare-crefs r> lf-mcompare-heads if lf-mcompare-args then ;
 
 \ Terms. Both graphs passed the full audit, so only binary nodes, bound
-\ variables, live free variables, symbolic Sorts and constants occur,
-\ children come earlier and the work stack cannot overflow. Two free
-\ variables are equal when their numbers are (one node per entry of the
-\ local context). Each visit costs one unit of fuel.
+\ variables, live free variables, symbolic Sorts and constants occur, and
+\ children come earlier; the work stack overflows only at a raised term
+\ capacity, and is then full, as for levels. Two free variables are equal
+\ when their numbers are (one node per entry of the local context). Each
+\ visit costs one unit of fuel.
 : lf-mcompare-sort ( a b walk -- outcome ) drop lf-mcompare-firsts lf-mcompare-level ;
 : lf-mcompare-dispatch ( a b walk tag -- outcome )
   dup lf-term-binary-tag? if drop lf-mcompare-children exit then

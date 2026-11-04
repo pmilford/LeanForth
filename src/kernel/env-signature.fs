@@ -88,23 +88,41 @@ end-structure
 : lf-envsig-record ( d -- d outcome )
   lf-envsig-deciding? if dup lf-env-depend else outcome-ok then ;
 
-\ The stored type of the accepted slot, a live input term, with the
-\ slot's own parameters replaced by the request's arguments; on success
-\ also the fuel left, for inference to go on with.
-: lf-envsig-root ( slot -- root identity true | false )
-  lf-slot-decl lf-idecl-type @ dup lf-term-identity if true else drop false then ;
+\ The stored type of a declaration -- an accepted slot's, or one the
+\ check declares itself -- a live input term, with the declaration's own
+\ parameters replaced by the request's arguments; on success also the
+\ fuel left, for inference to go on with.
+: lf-envsig-root ( decl -- root identity true | false )
+  lf-idecl-type @ dup lf-term-identity if true else drop false then ;
 : lf-envsig-actuals ( -- pairs count fuel )
   lf-envsig-request dup lf-esreq-pairs @ over lf-esreq-count @ rot lf-esreq-fuel @ ;
 : lf-envsig-left ( root identity 0 | status -- root identity fuel' 0 | status )
   dup ok? if drop lf-mls-fuel @ outcome-ok then ;
-: lf-envsig-instantiate ( slot -- root identity fuel' 0 | status )
+: lf-envsig-instantiate ( decl -- root identity fuel' 0 | status )
   dup lf-envsig-root 0= if drop outcome-invalid exit then
-  rot lf-slot-decl lf-idecl-params lf-envsig-actuals lf-mixed-level-substitute
-  lf-envsig-left ;
+  rot lf-idecl-params lf-envsig-actuals lf-mixed-level-substitute lf-envsig-left ;
 : lf-envsig-type ( d -- root identity fuel' 0 | status )
-  lf-env-accepted ok-then? if lf-envsig-instantiate then ;
+  lf-env-accepted ok-then? if lf-slot-decl lf-envsig-instantiate then ;
+
+\ Constants a check declares itself before it uses them (plan task
+\ 5.2.1a): an inductive block's own type while its constructors are
+\ checked, as Lean's add_inductive declares the types first
+\ (inductive.cpp, declare_inductive_types). The hook gives the input
+\ declaration of such a name; it is set once, while loading, by
+\ check-block.fs, which answers only during a block's check. Such a
+\ constant is found before the environment is asked, gets L1 and (while
+\ deciding) L2 as any other, and is no dependency.
+defer lf-envsig-local ( name -- decl true | false )
+:noname ( name -- false ) drop false ; is lf-envsig-local
+: lf-envsig-arity-local ( decl -- decl outcome )
+  lf-envsig-count over lf-idecl-arity @ 2dup = if 2drop outcome-ok
+  else lf-env-arity-rejected then ;
+: lf-envsig-own ( decl -- root identity fuel' 0 | status )
+  lf-envsig-arity-local ok-then? 0= if exit then
+  lf-envsig-scoped ok-then? 0= if exit then lf-envsig-instantiate ;
 : lf-envsig-run ( -- root identity fuel' 0 | status )
-  lf-envsig-request lf-esreq-name @ lf-env-lookup ok-then? 0= if exit then
+  lf-envsig-request lf-esreq-name @ dup lf-envsig-local if nip lf-envsig-own exit then
+  lf-env-lookup ok-then? 0= if exit then
   lf-envsig-arity ok-then? 0= if exit then lf-envsig-scoped ok-then? 0= if exit then
   lf-envsig-record ok-then? 0= if exit then lf-envsig-type ;
 

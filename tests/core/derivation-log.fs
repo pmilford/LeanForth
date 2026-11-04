@@ -190,8 +190,9 @@ create one-pair 2 cells allot
   one-pair 1 lf-cref-new must lf-cterm-new must ;
 : copied-ref ( -- slot ) 0 lf-log-cref-slot ;
 : rebuilt ( -- name count )
+  lf-lv-open must
   1 lf-log-record logrec-a @ lf-lv-term must dup lf-term-first@ swap lf-term-second@
-  lf-cref-read must nip lf-lv-release ;
+  lf-cref-read must nip lf-lv-release lf-lv-close throw ;
 lf-log-terms lf-log-start
 T{ scratch-constant 0 1 100 lf-mixed-shift nip nip lf-log-count lf-log-cref-copies
   -> outcome-ok 1 2 }T
@@ -221,22 +222,46 @@ T{ 300 run-off -> 300 run-on }T
 T{ lf-log-cut nip lf-log-count -> lf-bound-work 0 }T
 lf-log-stop
 
-\ A check that throws with a rule open (in a new context, which it
-\ spends): its log keeps the publish step, and the next check's
-\ lf-log-begin starts afresh.
+\ A check that throws with rules open (in a new context, which it spends;
+\ M2 of the review of 2026-11-03): after writing two records with its
+\ declaration rule open, its log is truncated (interrupted) where the
+\ publish step would be, not reported complete, and passes the validator
+\ as a prefix; the header keeps the published slot and outcome; the next
+\ check's lf-log-begin starts afresh. The validator refuses a publish step
+\ whose premise is not a declaration step.
 lf-log-terms level!
 variable env
-: thrower ( -- ) 1 2 lf-rule-declaration lf-log-open -77 throw ;
+: thrower ( -- )
+  1 2 lf-rule-declaration lf-log-open
+  3 lf-log-none lf-rule-fresh-name lf-log-open outcome-ok lf-log-decided drop
+  4 lf-log-none lf-rule-distinct-parameters lf-log-open outcome-ok lf-log-decided drop
+  -77 throw ;
 : fresh-env ( -- )
   0 file cin-read ok? must fuel lf-check-budget 64 lf-env-new ok? must
   dup env ! lf-env-use ok? must ;
 : opens ( -- n ) lf-log-state lf-logs-opens @ ;
-: thrown-run ( -- outcome count opens count' opens' )
+: interrupted ( -- complete? count step bound valid? slot outcome )
+  lf-log-complete? lf-log-count lf-log-cut lc-valid? lf-log-published ;
+: thrown-run ( -- outcome complete? n step bound valid? slot outcome opens n' )
   context-new throw dup context-use >r fresh-env
-  ['] thrower 0 lf-env-step drop lf-log-count opens
-  ['] thrower 0 lf-env-step 2drop lf-log-count opens
+  ['] thrower 0 lf-env-step drop interrupted opens
+  ['] thrower 0 lf-env-step 2drop lf-log-count
   env @ lf-env-free ok? must context-main context-use r> context-free throw ;
-T{ thrown-run -> outcome-invalid 1 1 0 0 }T
+T{ thrown-run -> outcome-invalid false 2 3 lf-bound-interrupted true 0 outcome-invalid 1 0 }T
+\ A publish step right after a step that is not a declaration step (the
+\ inputs 1 and 2 are input terms of composition).
+0 file cin-read ok? must
+: published-after ( rule -- valid? )
+  lf-log-terms lf-log-start 1 2 rot lf-log-open outcome-invalid lf-log-decided drop
+  0 0 outcome-invalid lf-log-publish lc-valid? lf-log-stop ;
+T{ lf-rule-declaration published-after lf-rule-fresh-name published-after -> true false }T
+\ Premise kinds: a declaration step that is ok without its premises (no
+\ fresh-name, formation or defeq step) fails part 9; one that failed is
+\ not checked.
+: declared ( outcome -- valid? why )
+  lf-log-terms lf-log-start 1 2 lf-rule-declaration lf-log-open lf-log-decided drop
+  lc-valid? lc-why lf-log-stop ;
+T{ outcome-ok declared outcome-rejected declared -> false 9 true 0 }T
 
 ample 0 lf-log-set
 cases-done

@@ -2,11 +2,13 @@
 # Inductive types, recursors, reductions and quotients against pinned Lean
 # 4.35.0 (ADR 0015, docs/adr/0015-inductive-types.md; plan task 5.1.1).
 #
-# 1. inductive-expected.lean asks Lean's kernel for its verdict on 100 cases
-#    (inductive declarations, reductions, Lean's replay of an exported block,
+# 1. inductive-expected.lean asks Lean's kernel for its verdict on 118 cases
+#    (inductive declarations, reductions, Lean's replay of exported blocks,
 #    primitive names, quotient initialisation). It fails unless every
 #    verdict is the recorded one, and prints one row per case; the rows
-#    must equal inductive-expected.tsv byte for byte.
+#    must equal inductive-expected.tsv byte for byte. After the rows it
+#    prints every case as an export, which tests/core/inductive-table.py
+#    checks with LeanForth (plan task 5.2.1a); this script ignores them.
 # 2. The three small exports of tests/reference/inductive/ are reproduced
 #    with the toolchain's leanexport and must equal the committed files and
 #    their manifests byte for byte: blocks.ndjson (from blocks.lean),
@@ -35,17 +37,19 @@ if [ "$revision" != eb6cafb7290e8bd5f2937522d8d804f58f02bafc ]; then
 fi
 here=tests/reference/inductive
 work=$(mktemp -d)
-trap 'rm -f "$work/rows" "$work/LeanForthBlocks.olean" "$work/LeanForthBlocks.ilean" \
+trap 'rm -f "$work/out" "$work/rows" "$work/LeanForthBlocks.olean" "$work/LeanForthBlocks.ilean" \
   "$work/blocks.ndjson" "$work/blocks.ndjson.manifest.json" \
   "$work/nat-add-zero.ndjson" "$work/nat-add-zero.ndjson.manifest.json" \
   "$work/axioms.ndjson" "$work/axioms.ndjson.manifest.json" "$work/stage.out"; rmdir "$work"' EXIT
 
-# 1. Kernel verdicts.
-if ! "$lean" -DwarningAsError=true tests/reference/inductive-expected.lean >"$work/rows" 2>&1; then
-  cat "$work/rows" >&2
+# 1. Kernel verdicts: the rows, before the cases written as exports (which
+#    tests/core/inductive-table.py reads; plan task 5.2.1a).
+if ! "$lean" -DwarningAsError=true tests/reference/inductive-expected.lean >"$work/out" 2>&1; then
+  cat "$work/out" >&2
   printf '%s\n' 'A Lean kernel answer differs from inductive-expected.lean' >&2
   exit 1
 fi
+sed -n '/^ndjson-begin/q;p' "$work/out" >"$work/rows"
 if ! cmp -s tests/reference/inductive-expected.tsv "$work/rows"; then
   diff -u tests/reference/inductive-expected.tsv "$work/rows" >&2 || true
   printf '%s\n' 'Kernel rows differ from inductive-expected.tsv' >&2

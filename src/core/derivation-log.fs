@@ -40,26 +40,34 @@
 \ Bounds (L3, owner decision D2). The first bound reached wins: no room for
 \ a record, for an open rule (a mark), in a pool (terms, levels, constant
 \ references and their arguments), a copy that needs more work or stack
-\ than one copy may use, or a node the copier cannot read (not live, or
-\ not the node the rule opened with). The log then records the step it could not write and
-\ the
-\ bound, stops recording (lf-log? is false from then on) and stays a
-\ consistent prefix: steps 1 to N-1 complete, nothing after. Only the log
-\ is incomplete: it never changes an outcome, a result or fuel.
+\ than one copy may use, a node the copier cannot read (not live, or not
+\ the node the rule opened with), a check that ended with rules still
+\ open (a THROW; ADR 0013 L6's interrupted state), or no memory for the
+\ pools. The log then records the step it could not write and the bound,
+\ stops recording (lf-log? is false from then on) and stays a consistent
+\ prefix: steps 1 to N-1 complete, nothing after. Only the log is
+\ incomplete: it never changes an outcome, a result or fuel.
 \
 \ Why it cannot change a verdict (L5): it writes only its own context
-\ record and the shared options (only outside jobs, by lf-log-set and
-\ lf-log-limits); it reads the checker's stores only through the read-only
-\ words above; it never throws, aborts, allocates, prints or notes a
-\ diagnostic; every bound is checked before use; and its open and close
-\ words leave the stack as the kernel word left it. A kernel site reads
-\ lf-log? and runs the same kernel word on both paths.
+\ record, its own heap pools and the shared options (only outside jobs, by
+\ lf-log-set and lf-log-limits); it reads the checker's stores only
+\ through the read-only words above; it never throws, aborts, prints or
+\ notes a diagnostic; it allocates only when a log starts in a context
+\ that has no pools (lf-log-run, before the check's first rule) and frees
+\ them only when the log is switched off or the context is freed; every
+\ bound is checked before use; and its open and close words leave the
+\ stack as the kernel word left it. A kernel site reads lf-log? and runs
+\ the same kernel word on both paths.
 \
 \ Lifetime. lf-env-begin calls lf-log-begin, which starts a fresh log for
-\ the check at the options' level (or clears it when that is off); after
-\ the hand-over, lf-log-publish writes the publish record and the log
-\ stays readable, not recording, until the next lf-log-begin in that
-\ context. lf-log-start starts a log for work outside the checked
+\ the check at the options' level (or, when that is off, frees the pools
+\ and clears the log); after the hand-over, lf-log-publish keeps the
+\ published slot and outcome in the header (the printers compare them
+\ with the verdict they are given), writes the publish record, and the
+\ log stays readable, not recording, until the next lf-log-begin in that
+\ context. The header also keeps the input's fingerprint from when the log
+\ started, so a printer can tell that the input is still the one the log
+\ was taken over. lf-log-start starts a log for work outside the checked
 \ environment (a test calling lf-mixed-infer directly).
 \ Test preset: a word lf-log-preset-level defined before this file loads
 \ (gforth -e "2 constant lf-log-preset-level" test.fs, as
@@ -76,9 +84,12 @@
 \ with lf-log-arg-capacity arguments in all, and per copy
 \ lf-log-copy-work tasks on stacks of lf-log-stack-capacity entries.
 \ State: the shared options record lf-log-options (read-only during a
-\ run), the two copier descriptors (constant), and one context record,
-\ lf-log-state (ADR 0009): header, open rules, records, pools, memos and
-\ the copiers' stacks.
+\ run), the code-indexed catalogue and the two copier descriptors
+\ (constant), one small context record, lf-log-state (ADR 0009): the
+\ header, counts and limits; and, only while a log is on in a context, one
+\ heap block it points to (lf-log-pools: open rules, records, pools, memos
+\ and the copiers' stacks, about 223 KB), freed by lf-log-stop and by the
+\ context's teardown (ADR 0009, amended 2026-11-03).
 
 require ../lib/lib.fs
 require ./terms.fs
@@ -118,6 +129,8 @@ lf-log-none 1+ constant lf-log-unkept
 5 constant lf-bound-unreadable
 6 constant lf-bound-work
 7 constant lf-bound-refs
+8 constant lf-bound-interrupted   \ the check ended with rules open (a THROW)
+9 constant lf-bound-memory        \ no memory for the pools when the log started
 
 \ The kinds of a rule's a, b and out.
 0 constant lf-ref-none
@@ -198,14 +211,30 @@ create lf-log-catalogue
   lf-rule-publish lf-kinds-numbers s" publish" lf-log-entry,
   lf-rule-type lf-kinds-formation s" type" lf-log-entry,
   0 0 s" unknown rule" lf-log-entry,
-: lf-log-end? ( code entry -- flag ) lf-log-entry-code tuck = swap 0= or ;
+\ The catalogue indexed by code, filled once here: each code below
+\ lf-rule-limit gives its entry, or 0 when it has none; the last entry
+\ (code 0) answers for every other code.
+44 constant lf-rule-limit
+create lf-log-by-code lf-rule-limit cells allot
+lf-log-by-code lf-rule-limit cells erase
+: lf-log-index ( entry -- )
+  dup lf-log-entry-code dup 1 lf-rule-limit within 0= abort" derivation-log: rule code"
+  cells lf-log-by-code + ! ;
+: lf-log-indexed ( -- last )
+  lf-log-catalogue begin dup lf-log-entry-code while dup lf-log-index lf-log-entry-next
+  repeat ;
+lf-log-indexed constant lf-log-unknown
+: lf-log-listed ( code -- entry|0 )
+  dup 0 lf-rule-limit within if cells lf-log-by-code + @ else drop 0 then ;
 \ The entry of code, or the last entry.
-: lf-log-entry ( code -- entry )
-  lf-log-catalogue begin 2dup lf-log-end? 0= while lf-log-entry-next repeat nip ;
+: lf-log-entry ( code -- entry ) lf-log-listed ?dup 0= if lf-log-unknown then ;
 : lf-log-rule-name ( code -- c-addr u ) lf-log-entry lf-log-entry-name ;
 \ The kind of a, b or out (shift 0, 2 or 4) of a rule.
 : lf-log-kind ( rule shift -- kind )
   swap lf-log-entry lf-log-entry-kinds swap rshift 3 and ;
+: lf-kind-a ( rule -- kind ) 0 lf-log-kind ;
+: lf-kind-b ( rule -- kind ) 2 lf-log-kind ;
+: lf-kind-out ( rule -- kind ) 4 lf-log-kind ;
 
 \ The rule of an inference visit, from the node's tag; form for a node
 \ inference does not handle or cannot read. A CASE with one arm per tag.
@@ -234,28 +263,29 @@ create lf-log-options /lf-logopt allot
 lf-log-options /lf-logopt erase
 : lf-log-clamp ( n capacity -- n' ) swap 0 max min ;
 : lf-log-limit! ( n capacity field -- ) >r lf-log-clamp lf-log-options r> + ! ;
+\ The four limits, k = 0 records, 1 marks, 2 terms, 3 levels: contiguous
+\ option fields, each at most its capacity.
+create lf-log-caps
+  lf-log-record-capacity , lf-log-mark-capacity , lf-log-term-capacity ,
+  lf-log-level-capacity ,
+0 lf-logopt-levels 0 lf-logopt-records - 3 cells <>
+[if] .( derivation-log.fs: option layout) cr abort [then]
+: lf-log-limit-at! ( n k -- )
+  dup cells lf-log-caps + @ swap cells lf-logopt-records lf-log-limit! ;
 : lf-log-limits ( records marks terms levels -- )
-  context-in-job? if 2drop 2drop exit then
-  lf-log-level-capacity 0 lf-logopt-levels lf-log-limit!
-  lf-log-term-capacity 0 lf-logopt-terms lf-log-limit!
-  lf-log-mark-capacity 0 lf-logopt-marks lf-log-limit!
-  lf-log-record-capacity 0 lf-logopt-records lf-log-limit! ;
+  context-in-job? if 2drop 2drop exit then 4 0 do 3 i - lf-log-limit-at! loop ;
 : lf-log-capacities ( -- records marks terms levels )
-  lf-log-record-capacity lf-log-mark-capacity lf-log-term-capacity lf-log-level-capacity ;
+  4 0 do i cells lf-log-caps + @ loop ;
 : lf-log-set ( level -- )
   context-in-job? if drop exit then lf-log-terms 0 lf-logopt-level lf-log-limit! ;
 
 \ The limits start at the capacities; the test preset (see the header) is
 \ read once, here.
 lf-log-capacities lf-log-limits
-[defined] lf-log-preset-records [if]
-  lf-log-preset-records lf-log-record-capacity 0 lf-logopt-records lf-log-limit! [then]
-[defined] lf-log-preset-marks [if]
-  lf-log-preset-marks lf-log-mark-capacity 0 lf-logopt-marks lf-log-limit! [then]
-[defined] lf-log-preset-terms [if]
-  lf-log-preset-terms lf-log-term-capacity 0 lf-logopt-terms lf-log-limit! [then]
-[defined] lf-log-preset-levels [if]
-  lf-log-preset-levels lf-log-level-capacity 0 lf-logopt-levels lf-log-limit! [then]
+[defined] lf-log-preset-records [if] lf-log-preset-records 0 lf-log-limit-at! [then]
+[defined] lf-log-preset-marks [if] lf-log-preset-marks 1 lf-log-limit-at! [then]
+[defined] lf-log-preset-terms [if] lf-log-preset-terms 2 lf-log-limit-at! [then]
+[defined] lf-log-preset-levels [if] lf-log-preset-levels 3 lf-log-limit-at! [then]
 [defined] lf-log-preset-level [if]
   lf-log-preset-level lf-log-set true lf-log-options lf-logopt-auto !
 [then]
@@ -290,52 +320,67 @@ begin-structure /lf-logcref
   field: logcref-args
 end-structure
 
-\ The log of one context.
+\ The log of one context: a small header in the context record, and the
+\ pools in a heap block that exists only while a log is on (M3 of the
+\ review of 2026-11-03: a context with the log off pays only the header).
+\ The span from lf-logs-count to lf-logs-args is one log's counts, cleared
+\ together when a log starts.
 begin-structure /lf-logs
   field: lf-logs-active      \ the level while it records; 0 when off or truncated
   field: lf-logs-level       \ the level it started at; 0 for no log
   field: lf-logs-auto        \ restarts itself (the test preset)
   field: lf-logs-held        \ a check's log, kept until the next lf-log-begin
   field: lf-logs-decl        \ the declaration that check checked
+  field: lf-logs-input       \ the input's fingerprint when the log started
+  field: lf-logs-slot        \ the slot the check published; -1 before
+  field: lf-logs-outcome     \ the outcome it published
+  field: lf-logs-pools       \ the heap block of pools, or 0
   field: lf-logs-count       \ records written
   field: lf-logs-opens       \ rules open now
   field: lf-logs-cut         \ the step that could not be written; 0 while complete
   field: lf-logs-bound       \ the bound that stopped it
+  field: lf-logs-terms       \ term copies made
+  field: lf-logs-levels      \ level copies made
+  field: lf-logs-crefs       \ constant references copied
+  field: lf-logs-args        \ argument cells used
   field: lf-logs-records-max
   field: lf-logs-marks-max
   field: lf-logs-terms-max
   field: lf-logs-levels-max
-  field: lf-logs-terms       \ term copies made
-  field: lf-logs-levels      \ level copies made
   field: lf-logs-term-mark   \ input terms lie below
   field: lf-logs-level-mark  \ input levels lie below
   field: lf-logs-cref-mark   \ input constant references lie below
-  field: lf-logs-written     \ statistics: records written in this context, in all
-  field: lf-logs-restarts    \ statistics: preset logs restarted after truncation
-  field: lf-logs-copy-depth  \ the depth of the record whose terms are being copied
+  field: lf-logs-copy-depth  \ the context a record's terms are copied in
   field: lf-logs-at-node     \ the node the copier combines now
   field: lf-logs-at-context  \ the binders around it (the record's and its own)
-  lf-log-memo-size 4 * cells +field lf-logs-term-memo
-  lf-log-memo-size 4 * cells +field lf-logs-level-memo
-  lf-log-task-cells 1+ cells +field lf-logs-term-tasks
-  lf-log-stack-capacity 1+ cells +field lf-logs-term-values
-  lf-log-task-cells 1+ cells +field lf-logs-level-tasks
-  lf-log-stack-capacity 1+ cells +field lf-logs-level-values
   field: lf-logs-term-work   \ work left in the current term copy
   field: lf-logs-level-work  \ work left in the current level copy
-  field: lf-logs-crefs       \ constant references copied
-  field: lf-logs-args        \ argument cells used
-  lf-log-cref-capacity /lf-logcref * +field lf-logs-cref-pool
-  lf-log-arg-capacity cells +field lf-logs-arg-pool
-  lf-log-mark-capacity /lf-logmark * +field lf-logs-marks
-  lf-log-record-capacity /lf-logrec * +field lf-logs-records
-  lf-log-term-capacity /node * +field lf-logs-term-pool
-  lf-log-level-capacity /node * +field lf-logs-level-pool
+  field: lf-logs-written     \ statistics: records written in this context, in all
+  field: lf-logs-restarts    \ statistics: preset logs restarted after truncation
 end-structure
 /lf-logs context-record: lf-log-state
+0 lf-logs-args 0 lf-logs-count - 7 cells <>
+0 lf-logs-levels-max 0 lf-logs-records-max - 3 cells <> or
+[if] .( derivation-log.fs: header layout) cr abort [then]
+begin-structure /lf-logpools
+  lf-log-memo-size 4 * cells +field lf-logp-term-memo
+  lf-log-memo-size 4 * cells +field lf-logp-level-memo
+  lf-log-task-cells 1+ cells +field lf-logp-term-tasks
+  lf-log-stack-capacity 1+ cells +field lf-logp-term-values
+  lf-log-task-cells 1+ cells +field lf-logp-level-tasks
+  lf-log-stack-capacity 1+ cells +field lf-logp-level-values
+  lf-log-cref-capacity /lf-logcref * +field lf-logp-cref-pool
+  lf-log-arg-capacity cells +field lf-logp-arg-pool
+  lf-log-mark-capacity /lf-logmark * +field lf-logp-marks
+  lf-log-record-capacity /lf-logrec * +field lf-logp-records
+  lf-log-term-capacity /node * +field lf-logp-term-pool
+  lf-log-level-capacity /node * +field lf-logp-level-pool
+end-structure
 
 \ The hot test: nonzero only while this context's log records.
 : lf-log? ( -- flag ) lf-log-state lf-logs-active @ ;
+\ The pools; 0 while no log is on in this context.
+: lf-log-pools ( -- addr ) lf-log-state lf-logs-pools @ ;
 
 \ Reading the log (the printers and tests; never the checker).
 : lf-log-count ( -- n ) lf-log-state lf-logs-count @ ;
@@ -343,8 +388,13 @@ end-structure
 : lf-log-decl ( -- i ) lf-log-state lf-logs-decl @ ;
 : lf-log-cut ( -- step bound ) lf-log-state dup lf-logs-cut @ swap lf-logs-bound @ ;
 : lf-log-complete? ( -- flag ) lf-log-cut drop 0= ;
+\ The input's fingerprint when the log started; the slot and outcome the
+\ check published (slot -1 when none has been published since).
+: lf-log-input ( -- h ) lf-log-state lf-logs-input @ ;
+: lf-log-published ( -- slot outcome )
+  lf-log-state dup lf-logs-slot @ swap lf-logs-outcome @ ;
 \ Record of step s, 1 <= s <= lf-log-count. Unchecked.
-: lf-log-record ( step -- rec ) 1- /lf-logrec * lf-log-state lf-logs-records + ;
+: lf-log-record ( step -- rec ) 1- /lf-logrec * lf-log-pools lf-logp-records + ;
 \ Statistics for tests and measurements: records written in this context
 \ since it was made, and preset logs restarted after a truncation.
 : lf-log-written ( -- n ) lf-log-state lf-logs-written @ ;
@@ -352,13 +402,14 @@ end-structure
 : lf-log-term-copies ( -- n ) lf-log-state lf-logs-terms @ ;
 : lf-log-level-copies ( -- n ) lf-log-state lf-logs-levels @ ;
 \ Copy k's node (tag first second); unchecked.
-: lf-log-term-slot ( k -- addr ) /node * lf-log-state lf-logs-term-pool + ;
-: lf-log-level-slot ( k -- addr ) /node * lf-log-state lf-logs-level-pool + ;
+: lf-log-term-slot ( k -- addr ) /node * lf-log-pools lf-logp-term-pool + ;
+: lf-log-level-slot ( k -- addr ) /node * lf-log-pools lf-logp-level-pool + ;
 \ Copied constant references, and the level references of their
 \ arguments (logcref-args gives the first); unchecked.
 : lf-log-cref-copies ( -- n ) lf-log-state lf-logs-crefs @ ;
-: lf-log-cref-slot ( k -- addr ) /lf-logcref * lf-log-state lf-logs-cref-pool + ;
-: lf-log-arg-ref ( i -- ref ) cells lf-log-state lf-logs-arg-pool + @ ;
+: lf-log-cref-slot ( k -- addr ) /lf-logcref * lf-log-pools lf-logp-cref-pool + ;
+: lf-log-arg-cell ( i -- addr ) cells lf-log-pools lf-logp-arg-pool + ;
+: lf-log-arg-ref ( i -- ref ) lf-log-arg-cell @ ;
 \ Whether ref is a copy, and which.
 : lf-log-copy? ( ref -- flag ) dup 0< swap lf-log-unkept > and ;
 : lf-log-copy-index ( ref -- k ) negate 1- ;
@@ -367,11 +418,31 @@ end-structure
 \ last, while above s's start.
 : lf-log-premise ( p -- p' ) lf-log-record logrec-start @ ;
 
+\ Truncation (L3): the first bound reached wins.
+: lf-log-zero ( field -- ) lf-log-state + 0 swap ! ;
+: lf-log-live? ( -- flag ) lf-log-complete? lf-log-level 0<> and ;
+: lf-log-truncate ( bound -- )
+  lf-log-state lf-logs-cut @ if drop exit then lf-log-state lf-logs-bound !
+  lf-log-count 1+ lf-log-state lf-logs-cut ! 0 lf-logs-active lf-log-zero ;
+: lf-log-unreadable ( x -- false ) drop lf-bound-unreadable lf-log-truncate false ;
+
+\ The pools: allocated when a log starts in a context that has none, freed
+\ when the log is switched off and by the context's teardown. A FREE that
+\ fails keeps the block recorded, so that the teardown tries again and
+\ reports it (context-free).
+: lf-log-allocate ( -- flag )
+  lf-log-pools if true exit then
+  /lf-logpools allocate if drop false exit then lf-log-state lf-logs-pools ! true ;
+: lf-log-release ( -- ior )
+  lf-log-pools dup 0= if exit then free dup 0= if 0 lf-logs-pools lf-log-zero then ;
+:noname ( -- ) lf-log-release throw ; context-teardown
+
 \ Starting and stopping. The input marks are read when a log starts: the
 \ objects below them never change during a check.
 : lf-log-memos-clear ( -- )
-  lf-log-state dup lf-logs-term-memo lf-log-memo-size 4 * cells erase
-  lf-logs-level-memo lf-log-memo-size 4 * cells erase ;
+  lf-log-pools ?dup if lf-logp-term-memo lf-log-memo-size 8 * cells erase then ;
+0 lf-logp-level-memo 0 lf-logp-term-memo - lf-log-memo-size 4 * cells <>
+[if] .( derivation-log.fs: memo layout) cr abort [then]
 : lf-log-mark-of ( k -- count ) lf-input-intact? if lf-input-mark mark-count @
   else drop 0 then ;
 : lf-log-bases ( -- )
@@ -380,45 +451,38 @@ end-structure
   3 lf-log-mark-of lf-log-state lf-logs-cref-mark ! ;
 : lf-log-option ( field -- n ) lf-log-options + @ ;
 : lf-log-limits! ( -- )
-  0 lf-logopt-records lf-log-option lf-log-state lf-logs-records-max !
-  0 lf-logopt-marks lf-log-option lf-log-state lf-logs-marks-max !
-  0 lf-logopt-terms lf-log-option lf-log-state lf-logs-terms-max !
-  0 lf-logopt-levels lf-log-option lf-log-state lf-logs-levels-max ! ;
-: lf-log-zero ( field -- ) lf-log-state + 0 swap ! ;
-: lf-log-empty ( -- )
-  0 lf-logs-count lf-log-zero 0 lf-logs-opens lf-log-zero 0 lf-logs-cut lf-log-zero
-  0 lf-logs-bound lf-log-zero 0 lf-logs-terms lf-log-zero 0 lf-logs-levels lf-log-zero
-  0 lf-logs-crefs lf-log-zero 0 lf-logs-args lf-log-zero
-  lf-log-memos-clear ;
+  lf-log-options lf-logopt-records lf-log-state lf-logs-records-max 4 cells move ;
+: lf-log-empty ( -- ) lf-log-state lf-logs-count 8 cells erase lf-log-memos-clear ;
+: lf-log-on ( level -- ) dup lf-log-state lf-logs-level ! lf-log-state lf-logs-active ! ;
+: lf-log-input! ( -- ) lf-input-fingerprint lf-log-state lf-logs-input ! ;
+\ A fresh log at level; truncated at its first step when there is no
+\ memory for its pools.
 : lf-log-run ( level -- )
-  lf-log-empty lf-log-bases lf-log-limits!
-  dup lf-log-state lf-logs-level ! lf-log-state lf-logs-active ! ;
+  lf-log-allocate >r lf-log-empty lf-log-bases lf-log-limits! lf-log-input! lf-log-on
+  r> 0= if lf-bound-memory lf-log-truncate then ;
 \ Start a fresh log in this context at level (1 steps, 2 terms; anything
 \ else is clamped), outside the checked environment; it records until it
 \ is truncated, or until lf-log-stop or the next lf-log-begin.
 : lf-log-start ( level -- )
   1 max lf-log-terms min false lf-log-state lf-logs-held ! lf-log-run ;
-\ No log: nothing recorded, nothing to read.
+\ No log: nothing recorded, nothing to read, no pools.
 : lf-log-stop ( -- )
-  lf-log-empty 0 lf-logs-level lf-log-zero 0 lf-logs-active lf-log-zero ;
+  lf-log-empty 0 lf-logs-level lf-log-zero 0 lf-logs-active lf-log-zero
+  lf-log-release drop ;
 \ A check of declaration i begins (lf-env-begin): a fresh log at the
-\ options' level, held for the check, or none when that is off.
+\ options' level, held for the check, or none when that is off; nothing
+\ published yet.
 : lf-log-held ( -- ) true lf-log-state lf-logs-held ! ;
+: lf-log-unpublished ( i -- )
+  lf-log-state tuck lf-logs-decl ! -1 swap lf-logs-slot ! ;
 : lf-log-begin ( i -- )
-  lf-log-state lf-logs-decl ! 0 lf-logopt-level lf-log-option ?dup
+  lf-log-unpublished lf-log-input! 0 lf-logopt-level lf-log-option ?dup
   if lf-log-held lf-log-run else lf-log-stop then ;
 \ The test preset: every context starts logging.
 : lf-log-auto ( -- )
   true lf-log-state lf-logs-auto ! 0 lf-logopt-level lf-log-option lf-log-start ;
 : lf-log-setup ( -- ) 0 lf-logopt-auto lf-log-option if lf-log-auto then ;
 ' lf-log-setup context-setup
-
-\ Truncation (L3): the first bound reached wins.
-: lf-log-live? ( -- flag ) lf-log-complete? lf-log-level 0<> and ;
-: lf-log-truncate ( bound -- )
-  lf-log-state lf-logs-cut @ if drop exit then lf-log-state lf-logs-bound !
-  lf-log-count 1+ lf-log-state lf-logs-cut ! 0 lf-logs-active lf-log-zero ;
-: lf-log-unreadable ( x -- false ) drop lf-bound-unreadable lf-log-truncate false ;
 \ A preset log restarts when its outermost rule ends after a truncation,
 \ unless it is a check's.
 : lf-log-again? ( -- flag )
@@ -432,24 +496,29 @@ end-structure
 \ rule still counts as open, so that its close balances. While the log
 \ records, every open rule has its mark.
 : lf-log-opens ( -- addr ) lf-log-state lf-logs-opens ;
-: lf-log-mark ( k -- mark ) /lf-logmark * lf-log-state lf-logs-marks + ;
+: lf-log-mark ( k -- mark ) /lf-logmark * lf-log-pools lf-logp-marks + ;
 : lf-log-depth ( -- depth )
   lf-log-opens @ dup 0> lf-log-live? and if 1- lf-log-mark logmark-depth @
   else drop 0 then ;
 : lf-log-id ( x kind -- id )
   case lf-ref-term of lf-term-identity 0= if 0 then endof
     lf-ref-level of lf-level-identity 0= if 0 then endof nip 0 swap endcase ;
-: lf-log-arg ( x rule shift -- x id ) lf-log-kind over swap lf-log-id ;
-: lf-log-set-a ( a rule mark -- ) >r 0 lf-log-arg r@ logmark-a-id ! r> logmark-a ! ;
-: lf-log-set-b ( b rule mark -- ) >r 2 lf-log-arg r@ logmark-b-id ! r> logmark-b ! ;
-: lf-log-mark! ( a b rule depth mark -- )
-  tuck logmark-depth ! 2dup logmark-rule ! lf-log-count over logmark-start !
-  >r tuck r@ lf-log-set-b r> lf-log-set-a ;
+\ The next mark: its rule, depth and start first; then each input with
+\ its identity, the kind its rule gives it.
+: lf-log-next-mark ( -- mark ) lf-log-opens @ lf-log-mark ;
+: lf-log-mark-head! ( rule depth mark -- )
+  tuck logmark-depth ! tuck logmark-rule ! lf-log-count swap logmark-start ! ;
+: lf-log-input-id ( x kind -- x id ) over swap lf-log-id ;
+: lf-log-set-a ( a mark -- )
+  >r r@ logmark-rule @ lf-kind-a lf-log-input-id r@ logmark-a-id ! r> logmark-a ! ;
+: lf-log-set-b ( b mark -- )
+  >r r@ logmark-rule @ lf-kind-b lf-log-input-id r@ logmark-b-id ! r> logmark-b ! ;
+: lf-log-mark! ( a b rule depth -- )
+  lf-log-next-mark dup >r lf-log-mark-head! r@ lf-log-set-b r> lf-log-set-a ;
 : lf-log-room? ( -- flag ) lf-log-opens @ lf-log-state lf-logs-marks-max @ < ;
 : lf-log-push ( a b rule depth -- )
   lf-log-live? 0= if 2drop 2drop exit then
-  lf-log-room? if lf-log-opens @ lf-log-mark lf-log-mark! exit then
-  2drop 2drop lf-bound-marks lf-log-truncate ;
+  lf-log-room? if lf-log-mark! exit then 2drop 2drop lf-bound-marks lf-log-truncate ;
 : lf-log-enter ( a b rule depth -- ) lf-log-push 1 lf-log-opens +! ;
 \ Open a rule with inputs a and b (lf-log-none when unused).
 : lf-log-open ( a b rule -- ) lf-log-depth lf-log-enter ;
@@ -467,26 +536,27 @@ end-structure
 : lf-stack-pop ( stack -- x ) dup @ cells over + @ swap -1 swap +! ;
 
 \ The copier, one descriptor per store (a CREATE table, read-only): its
-\ cells name offsets in lf-log-state and the store's words. It copies a
-\ node post-order with two stacks of its own, so it never recurses and
-\ never depends on the store's capacity: a task is a node to expand
-\ (n >= 0) or to combine (-1-n) once its children's references lie on the
-\ value stack, with its context c: the binders around it, the record's
-\ depth plus the binders of the copied term above it (a lambda's or Pi's
-\ second child lies under one more; always 0 for levels). Only a free
-\ variable's copy depends on c (it becomes the bound variable it stands
-\ for, lf-log-fvar). The memo holds, for a node and a context, its index,
-\ its identity, the context and its copy's reference, direct-mapped by
-\ index; a live node's identity is never 0, so a cleared entry never
-\ matches, and a collision costs only a second copy. One copy may spend
-\ lf-log-copy-work tasks; a formula that needs more, or more stack,
-\ truncates the log (lf-bound-work).
+\ cells name offsets in lf-log-state or in the pools and the store's
+\ words. It copies a node post-order with two stacks of its own, so it
+\ never recurses and never depends on the store's capacity: a task is a
+\ node to expand (n >= 0) or to combine (-1-n) once its children's
+\ references lie on the value stack, with its context c, the binders
+\ around it (the record's, see lf-log-a-inner, and those of the copied
+\ term above it); a child below 0 (a corrupted node) is unreadable. Only
+\ a free variable's copy depends on c (it becomes the bound variable it
+\ stands for, lf-log-fvar). The memo holds, for a node and a context, its
+\ index, its identity, the context and its copy's reference,
+\ direct-mapped by index; a live node's identity is never 0, and an
+\ identity of 0 never matches, so a cleared entry never matches, and a
+\ collision costs only a second copy. One copy may spend lf-log-copy-work
+\ tasks; a formula that needs more, or more stack, truncates the log
+\ (lf-bound-work).
 begin-structure /lf-copier
   field: copier-mark       \ offset in lf-log-state of the input mark
-  field: copier-memo       \ ... of the memo
+  field: copier-memo       \ offset in the pools of the memo
   field: copier-tasks      \ ... of the task stack
   field: copier-values     \ ... of the value stack
-  field: copier-work       \ ... of the work left in this copy
+  field: copier-work       \ offset in lf-log-state of the work left in this copy
   field: copier-made       \ ... of the count of copies
   field: copier-max        \ ... of their limit
   field: copier-pool       \ xt ( k -- addr ): copy k's slot
@@ -499,12 +569,13 @@ begin-structure /lf-copier
 end-structure
 /lf-copier 14 cells <> [if] .( derivation-log.fs: copier layout) cr abort [then]
 : lf-copier@ ( copier field -- addr ) + @ lf-log-state + ;
+: lf-copier-pooled ( copier field -- addr ) + @ lf-log-pools + ;
 : lf-copier-mark ( copier -- n ) 0 copier-mark lf-copier@ @ ;
-: lf-copier-tasks ( copier -- stack ) 0 copier-tasks lf-copier@ ;
-: lf-copier-values ( copier -- stack ) 0 copier-values lf-copier@ ;
+: lf-copier-tasks ( copier -- stack ) 0 copier-tasks lf-copier-pooled ;
+: lf-copier-values ( copier -- stack ) 0 copier-values lf-copier-pooled ;
 : lf-copier-made@ ( copier -- addr ) 0 copier-made lf-copier@ ;
 : lf-copier-memo ( index copier -- entry )
-  0 copier-memo lf-copier@ swap lf-log-memo-size mod 4 * cells + ;
+  0 copier-memo lf-copier-pooled swap lf-log-memo-size mod 4 * cells + ;
 : lf-copier-input? ( index copier -- flag ) lf-copier-mark < ;
 : lf-copier-identity ( index copier -- identity )
   copier-identity @ execute 0= if 0 then ;
@@ -513,7 +584,7 @@ end-structure
 \ The memo: a node's copy in a context, when the memo holds it;
 \ remembering one.
 : lf-memo-match? ( index identity c entry -- flag )
-  >r r@ 2 cells + @ = swap r@ cell+ @ = and swap r> @ = and ;
+  >r r@ 2 cells + @ = swap dup 0<> swap r@ cell+ @ = and and swap r> @ = and ;
 : lf-copier-key ( index c copier -- index identity c entry )
   >r over r@ lf-copier-identity swap rot dup r> lf-copier-memo >r -rot r> ;
 : lf-copier-hit ( index c copier -- ref true | false )
@@ -545,11 +616,13 @@ end-structure
 \ Expanding a node: its reference when it needs no copy; else a combine
 \ task, then its children's expand tasks (the second first, so that the
 \ first child's value lies below the second's), the second in the context
-\ of the binders it lies under.
-: lf-copier-single ( c copier tag first second -- flag ) drop nip -rot lf-copier-task ;
+\ of the binders it lies under; a child below 0 is unreadable.
+: lf-copier-child ( n c copier -- flag )
+  2 pick 0< if 2drop lf-log-unreadable exit then lf-copier-task ;
+: lf-copier-single ( c copier tag first second -- flag ) drop nip -rot lf-copier-child ;
 : lf-copier-pair ( c copier tag first second -- flag )
-  >r >r over lf-copier-inner 2 pick + r> r> rot 3 pick lf-copier-task
-  >r -rot lf-copier-task r> and ;
+  >r >r over lf-copier-inner 2 pick + r> r> rot 3 pick lf-copier-child
+  >r -rot lf-copier-child r> and ;
 : lf-copier-kids ( n c copier -- flag )
   rot over copier-read @ execute 0= if drop lf-log-unreadable exit then
   2 pick 4 pick lf-copier-arity case
@@ -579,8 +652,8 @@ end-structure
 : lf-copier-made! ( ref n c copier -- flag )
   >r 2 pick -rot r@ lf-copier-remember r> lf-copier-value ;
 \ The node being combined and its context, for a leaf that needs them (a
-\ free variable's); a nested copy (a constant's levels) may change them,
-\ but only after the leaf that reads them.
+\ free variable's); a nested copy (a constant's levels) runs only after
+\ the leaf that reads them.
 : lf-log-at! ( n c -- ) lf-log-state tuck lf-logs-at-context ! lf-logs-at-node ! ;
 : lf-copier-combine ( n c copier -- flag )
   dup lf-copier-room? 0= if nip nip copier-bound @ lf-log-truncate false exit then
@@ -622,9 +695,9 @@ end-structure
   if true else 2drop lf-log-unreadable then ;
 : lf-log-level-inner ( tag -- 0 ) drop 0 ;
 create lf-log-level-copier
-  0 lf-logs-level-mark , 0 lf-logs-level-memo , 0 lf-logs-level-tasks ,
-  0 lf-logs-level-values , 0 lf-logs-level-work , 0 lf-logs-levels , 0
-  lf-logs-levels-max ,
+  0 lf-logs-level-mark , 0 lf-logp-level-memo , 0 lf-logp-level-tasks ,
+  0 lf-logp-level-values , 0 lf-logs-level-work , 0 lf-logs-levels ,
+  0 lf-logs-levels-max ,
   ' lf-log-level-slot , ' lf-level-read , ' lf-level-identity , ' lf-log-level-arity ,
   ' lf-log-level-leaf , lf-bound-levels , ' lf-log-level-inner ,
 \ A level reference: input below the mark, a copy at level terms, unkept
@@ -644,7 +717,6 @@ create lf-log-level-copier
 \ pool, each level copied as above. No room in either pool truncates the
 \ log (lf-bound-refs).
 : lf-log-cref-input? ( cref -- flag ) lf-log-state lf-logs-cref-mark @ < ;
-: lf-log-arg-cell ( i -- addr ) cells lf-log-state lf-logs-arg-pool + ;
 : lf-log-cref-room? ( -- flag ) lf-log-state lf-logs-crefs @ lf-log-cref-capacity < ;
 : lf-log-args-room? ( n -- flag ) lf-log-state lf-logs-args @ +
   lf-log-arg-capacity upto? ;
@@ -658,15 +730,17 @@ create lf-log-level-copier
   lf-cref-levels 0= if 0 lf-log-unreadable exit then
   dup lf-log-args-room? 0= if 2drop lf-log-refs-full exit then
   lf-log-state lf-logs-args @ -rot lf-log-args-copy dup 0= if nip then ;
-: lf-log-cref-new ( name generation count offset -- ref )
-  lf-log-state lf-logs-crefs dup @ >r 1 swap +! r@ lf-log-cref-slot
-  tuck logcref-args ! tuck logcref-count ! tuck logcref-generation ! logcref-name
-  ! r> 1+ negate ;
+\ The next copy is written in place and counted only when complete.
+: lf-log-cref-next ( -- addr ) lf-log-cref-copies lf-log-cref-slot ;
+: lf-log-cref-head! ( name generation count -- )
+  lf-log-cref-next tuck logcref-count ! tuck logcref-generation ! logcref-name ! ;
+: lf-log-cref-made ( offset -- ref )
+  lf-log-cref-next logcref-args ! lf-log-cref-copies 1 lf-log-state lf-logs-crefs +!
+  1+ negate ;
 : lf-log-cref-copy ( cref crid -- ref true | false )
   lf-log-cref-room? 0= if 2drop lf-log-refs-full exit then
   2dup lf-cref-read 0= if 2drop 0 lf-log-unreadable exit then
-  >r 2swap lf-log-cref-args 0= if 2drop r> drop false exit then
-  r> swap lf-log-cref-new true ;
+  lf-log-cref-head! lf-log-cref-args if lf-log-cref-made true else false then ;
 
 \ Terms: application, lambda and Pi have two children (a binder's second
 \ under one more binder); a symbolic Sort's first field is a level
@@ -698,12 +772,11 @@ create lf-log-level-copier
     lf-tag-symbolic-sort of lf-log-sort-level endof lf-tag-fvar of lf-log-fvar endof
     lf-tag-constant of lf-log-cref endof >r 2drop lf-log-unreadable r> endcase ;
 create lf-log-term-copier
-  0 lf-logs-term-mark , 0 lf-logs-term-memo , 0 lf-logs-term-tasks ,
-  0 lf-logs-term-values , 0 lf-logs-term-work , 0 lf-logs-terms , 0 lf-logs-terms-max ,
+  0 lf-logs-term-mark , 0 lf-logp-term-memo , 0 lf-logp-term-tasks ,
+  0 lf-logp-term-values , 0 lf-logs-term-work , 0 lf-logs-terms , 0 lf-logs-terms-max ,
   ' lf-log-term-slot , ' lf-term-read , ' lf-term-identity , ' lf-log-term-arity ,
   ' lf-log-term-leaf , lf-bound-terms , ' lf-log-term-inner ,
 : lf-log-live-term? ( node id -- flag ) swap lf-term-identity if = else drop false then ;
-\ A term's copy is made in the context of the record's depth.
 : lf-log-term-ref ( node id -- ref true | false )
   over swap lf-log-live-term? 0= if lf-log-unreadable exit then
   dup lf-log-term-copier lf-copier-input? if true exit then
@@ -717,14 +790,19 @@ create lf-log-term-copier
     lf-ref-level of lf-log-level-ref endof >r 2drop false r> endcase ;
 
 \ Closing a rule: the record from its mark, its outcome and, when the
-\ outcome is ok, its result. A full record buffer or a copy that fails
-\ truncates the log instead, and nothing is written.
+\ outcome is ok, its result. The next record is written in place, field
+\ by field, and becomes part of the log only when the count advances
+\ (lf-log-commit). A full record buffer or a copy that fails truncates the
+\ log instead, and nothing is counted.
+: lf-log-next ( -- rec ) lf-log-count 1+ lf-log-record ;
+: lf-log-top ( -- mark ) lf-log-opens @ lf-log-mark ;
+: lf-log-kept! ( ref true | false addr -- flag ) swap if ! true else drop false then ;
 : lf-log-keep-a ( mark -- ref true | false )
-  dup logmark-a @ over logmark-a-id @ rot logmark-rule @ 0 lf-log-kind lf-log-keep ;
+  dup logmark-a @ over logmark-a-id @ rot logmark-rule @ lf-kind-a lf-log-keep ;
 : lf-log-keep-b ( mark -- ref true | false )
-  dup logmark-b @ over logmark-b-id @ rot logmark-rule @ 2 lf-log-kind lf-log-keep ;
+  dup logmark-b @ over logmark-b-id @ rot logmark-rule @ lf-kind-b lf-log-keep ;
 : lf-log-keep-out ( result outcome mark -- ref true | false )
-  logmark-rule @ 4 lf-log-kind swap ok? 0= if 2drop lf-log-none true exit then
+  logmark-rule @ lf-kind-out swap ok? 0= if 2drop lf-log-none true exit then
   2dup lf-log-id swap lf-log-keep ;
 \ The context terms are copied in (free variables become bound variables
 \ there): the record's depth, except that the a of an instantiate or beta
@@ -736,26 +814,24 @@ create lf-log-term-copier
     lf-rule-shift of logmark-b @ negate endof nip 0 swap endcase ;
 : lf-log-copy-depth! ( mark n -- )
   swap logmark-depth @ + lf-log-state lf-logs-copy-depth ! ;
-: lf-log-refs ( result outcome mark -- a b out true | false )
-  dup dup lf-log-a-inner lf-log-copy-depth!
-  >r r@ lf-log-keep-a 0= if 2drop r> drop false exit then
-  r@ 0 lf-log-copy-depth!
-  r@ lf-log-keep-b 0= if drop 2drop r> drop false exit then
-  2swap r> lf-log-keep-out if true else 2drop false then ;
-: lf-log-fields! ( a b out outcome rule start depth rec -- )
-  tuck logrec-depth ! tuck logrec-start ! tuck logrec-rule ! tuck logrec-outcome !
-  tuck logrec-out ! tuck logrec-b ! logrec-a ! ;
-: lf-log-from ( mark -- rule start depth )
-  dup logmark-rule @ over logmark-start @ rot logmark-depth @ ;
+: lf-log-a-top ( -- mark ) lf-log-top dup dup lf-log-a-inner lf-log-copy-depth! ;
+: lf-log-at-top ( -- mark ) lf-log-top dup 0 lf-log-copy-depth! ;
+: lf-log-a! ( -- flag ) lf-log-a-top lf-log-keep-a lf-log-next logrec-a lf-log-kept! ;
+: lf-log-b! ( -- flag ) lf-log-at-top lf-log-keep-b lf-log-next logrec-b lf-log-kept! ;
+: lf-log-out! ( result outcome -- flag )
+  lf-log-at-top lf-log-keep-out lf-log-next logrec-out lf-log-kept! ;
+: lf-log-from! ( mark rec -- )
+  over logmark-rule @ over logrec-rule ! over logmark-start @ over logrec-start !
+  swap logmark-depth @ swap logrec-depth ! ;
+: lf-log-counted ( -- )
+  1 lf-log-state lf-logs-count +! 1 lf-log-state lf-logs-written +! ;
+: lf-log-commit ( outcome -- )
+  lf-log-next tuck logrec-outcome ! lf-log-top swap lf-log-from! lf-log-counted ;
 : lf-log-new? ( -- flag ) lf-log-count lf-log-state lf-logs-records-max @ < ;
-: lf-log-append ( a b out outcome rule start depth -- )
-  lf-log-count 1+ lf-log-record lf-log-fields! 1 lf-log-state lf-logs-count +!
-  1 lf-log-state lf-logs-written +! ;
-: lf-log-top ( -- mark ) lf-log-opens @ lf-log-mark ;
 : lf-log-write ( result outcome -- )
   lf-log-new? 0= if 2drop lf-bound-records lf-log-truncate exit then
-  dup >r lf-log-top lf-log-refs 0= if r> drop exit then
-  r> lf-log-top lf-log-from lf-log-append ;
+  lf-log-a! 0= if 2drop exit then lf-log-b! 0= if 2drop exit then
+  tuck lf-log-out! if lf-log-commit else drop then ;
 \ Leaving the innermost open rule; a close without an open (a fault in
 \ the caller) truncates the log.
 : lf-log-leave ( -- flag )
@@ -786,19 +862,31 @@ create lf-log-term-copier
   begin lf-log-opens @ 1 > while lf-log-decided repeat lf-log-decided ;
 
 \ The end of a check (lf-env-step, after the hand-over, whatever the log
-\ level): the publish record, whose one premise is the check's last record
-\ (its start is that record's, so sub-derivations stay nested), with the
-\ slot, its number of dependencies and the published outcome. The log
-\ then stops recording and stays readable until the next lf-log-begin; a
-\ preset log stays readable too, records on, and restarts only when it was
-\ truncated and its next outermost rule ends.
+\ level): the published slot and outcome kept in the header; then, unless
+\ a rule is still open (a check that threw: the log is truncated with
+\ lf-bound-interrupted instead), the publish record, whose one premise is
+\ the check's last record (its start is that record's, so sub-derivations
+\ stay nested), with the slot, its number of dependencies and the
+\ published outcome. The log then stops recording and stays readable until
+\ the next lf-log-begin; a preset log stays readable too, records on, and
+\ restarts only when it was truncated and its next outermost rule ends.
 : lf-log-last-start ( -- start ) lf-log-count ?dup if lf-log-premise else 0 then ;
+: lf-log-publish-head ( rec -- )
+  lf-rule-publish over logrec-rule ! lf-log-last-start over logrec-start !
+  0 over logrec-depth ! lf-log-none swap logrec-out ! ;
+: lf-log-publish-fields ( slot deps outcome rec -- )
+  tuck logrec-outcome ! tuck logrec-b ! logrec-a ! ;
 : lf-log-publish-record ( slot deps outcome -- )
-  lf-log-none swap lf-rule-publish lf-log-last-start 0 lf-log-append ;
+  lf-log-next dup lf-log-publish-head lf-log-publish-fields lf-log-counted ;
 : lf-log-rest ( -- )
   false lf-log-state lf-logs-held !
   lf-log-state lf-logs-auto @ 0= if 0 lf-logs-active lf-log-zero then ;
+: lf-log-published! ( slot outcome -- )
+  lf-log-state tuck lf-logs-outcome ! lf-logs-slot ! ;
+: lf-log-interrupted ( -- )
+  lf-log-opens @ 0<> lf-log-level 0<> and if lf-bound-interrupted lf-log-truncate then ;
 : lf-log-publish ( slot deps outcome -- )
+  2 pick over lf-log-published! lf-log-interrupted
   lf-log-live? 0= if 2drop drop lf-log-rest exit then
   lf-log-new? if lf-log-publish-record else 2drop drop lf-bound-records
   lf-log-truncate then

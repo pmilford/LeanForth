@@ -720,12 +720,25 @@ identities, which the input tier does not keep. An inductive block gives
 no declaration; its types, constructors and recursors do (refused by the
 audit, U1). Universe parameters join the session's level context first
 (at most 64: `Init` uses 62). Outcomes: ok; invalid for a stage that is
-not sealed or a record the stores refuse as malformed; full for a
-capacity, a list longer than the checker takes, or no heap; `feed-at`
+not sealed, a level or expression of a kind the checker's stores do not
+hold (a free or meta variable), or a declaration of a kind it does not
+know; full for a store that refuses a record (its capacity, no heap),
+the level context, or a list longer than the checker takes; `feed-at`
 names the expression or declaration where it stopped.
 
+The stage must outlive the view: the context's scratch tier points into
+the stage's input tier, so free the stage only after `lf-name-detach` (or
+after the context is freed).
+
 The pinned exports and the broken copies give the same verdicts fed as
-through the test transport. All of `Init` (59,953 staged records, 59,349
+through the test transport, and so do the first-checker, binder-domain
+and universe-scope tables against pinned Lean: `make
+test-first-checker-fed-differential` and the two like it write each case
+as an export (`tests/support/case_export.py`), stage and feed it
+(`tests/support/fed-checker-driver.fs`) and compare the verdict with
+Lean's. Three first-checker cases name a constant their export does not
+declare; a real export always does, so the stage refuses those exports as
+invalid, and the tables allow that for them alone. All of `Init` (59,953 staged records, 59,349
 declarations, 6,099,054 terms, 56,957 references) fed and checked with
 `gforth-fast`: see [ADR 0016's progress](../adr/0016-compact-store.md#c9-migration-and-the-plan-tasks-it-covers)
 for the outcome counts, time and memory.

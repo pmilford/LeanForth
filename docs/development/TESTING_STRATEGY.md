@@ -326,7 +326,7 @@ time, as `scripts/export.sh` builds `export_manifest.py`'s, is not seen).
 | --- | --- |
 | `src/lib/` | `test-lib`; `test-compact` (slab, htab, hash32, cons, pools), `test-bignum`, `test-sha256`, `test-environment` (store marks) |
 | `src/core/` | `test-core`; `test-compact`, `test-stage` (compact store) |
-| `src/kernel/` | `test-core`, `test-environment`; the matching `test-*-differential` and `test-first-checker-differential` |
+| `src/kernel/` | `test-core`, `test-environment`, `test-check-block` (inductive blocks); the matching `test-*-differential`, `test-first-checker-differential` and `test-inductive-table` |
 | `src/import/` | `test-core` (NDJSON reader, load), `test-manifest`, `test-stage`, `test-reexport`, `test-run-records`, `test-compact` |
 | `src/program/` | `test-program`, `test-program-ir`, `test-program-ir-run` |
 | `src/present/` | `test-present`; `test-printer-differential` |

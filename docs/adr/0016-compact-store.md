@@ -612,13 +612,15 @@ needed (Rejected alternatives).
     (`store-heap-init` and `store-grow` in `src/lib/store.fs`: the header
     is a context member, the block grows by doubling up to the store's
     limit and is freed by a teardown word; growth that the limit, the heap
-    or the test hook refuses gives *full*, nothing changed). Their
+    or the test hook refuses gives *full*, nothing changed; when the
+    block grew but a column of it then cannot, the record is refused as
+    *full* with the block already grown, which is harmless). Their
     capacities are settings of each context (`lf-term-capacity!`,
     `lf-level-capacity!`, `lf-name-capacity!`, `lf-cref-capacity!`,
     `lf-input-capacity!`), defaults 64, 64, 64, 32 and 32 as before. Per
     index side data (the stamps of constants and Sorts, the passes' seen
     marks, images and memos, the printer's binder table) moved into
-    columns that grow with their store (`src/core/store-columns.fs`).
+    columns that grow with their store (`src/lib/store-columns.fs`).
     Walk stacks, frames and binder contexts no longer follow the store's
     capacity: `lf-depth-limit`, `lf-level-depth-limit` and
     `lf-level-params-limit` keep them at 64.
@@ -668,6 +670,19 @@ needed (Rejected alternatives).
     59,025 unsupported (inductive types, literals and everything that uses
     them, K5), 162 exhausted, 73 unknown, 52 full, 0 invalid; peak
     resident memory 1.27 GB. At 10,000 fuel: 37, 0, 57,576, 1,618, 73, 45.
+  - After the independent review rvKC (2026-11-04): the name order reads
+    a fed stage's names (finding H1; before, ordering two universe
+    parameters under the view was unknown), normalize counts its level
+    frames and orders names iteratively (M1), level-make keeps its facts
+    across calls and finds classes through an index (M2), and the store
+    growth paths are tested shrunk and moved and ask the fault hook (M3).
+    The first-checker, binder-domain and universe-scope tables also run
+    fed, against pinned Lean (`test-*-fed-differential`). `Init` at
+    10,000 fuel: 41 accepted, 0 rejected, 57,591 unsupported, 1,618
+    exhausted, 54 unknown, 45 full (H1 had made 19 unknown: 4 are now
+    accepted, 15 unsupported); fed in 11-14 s, checked in 9 s (38 s
+    before M2), 1.27 GB peak. The 2,000 checker trials keep their digest
+    in 5% fewer instructions than the code before the heap stores.
 - Steps 4–6 not started.
 
 ## Consequences

@@ -60,6 +60,7 @@ require ../core/unsupported-forms.fs
 require ./environment.fs
 require ./env-publish.fs
 require ./mixed-infer.fs
+require ./check-block.fs
 
 begin-structure /lf-chk
   field: lf-chk-budget   \ fuel each check in this context starts with
@@ -143,7 +144,13 @@ lf-depth-limit context-walk: lf-check-walker
 \ The derivation log (ADR 0013): steps 4-6 are one proposition step (a
 \ theorem) or type step (a definition) of the claim, opened here and
 \ closed by step 6 with the Sort's level; a check that ends earlier
-\ closes it with its outcome (lf-check-logged).
+\ closes it with its outcome (lf-check-logged). lf-check-type and
+\ lf-check-prop each read lf-log? on their own; they agree because
+\ during a check lf-log? never turns from false to true: a check's log is
+\ held, and only a preset log that is not a check's restarts (after its
+\ outermost rule ends). A log truncated between steps 4 and 6 stays off
+\ until the next check: step 6 then does not close the formation step,
+\ which stays counted as open, and lf-log-close-all closes it.
 : lf-check-formation ( -- rule )
   lf-check-theorem? if lf-rule-proposition else lf-rule-type then ;
 : lf-check-type ( -- outcome )
@@ -200,10 +207,16 @@ lf-check-steps# 1+ constant lf-step-done
   0 lf-check-step! lf-check-state lf-chk-budget @ lf-check-left !
   lf-env-checking 0= if outcome-invalid exit then nip
   lf-input-read ok-then? if lf-check-state lf-chk-decl ! outcome-ok then ;
+\ A member of an inductive block is checked with its block, all members
+\ at once, by check-block.fs (plan task 5.2.1a; ADR 0015), on the same
+\ budget; its step is then lf-block-step@'s, and lf-check-step@ stays 0.
+: lf-check-block ( -- outcome ) lf-check-left @ lf-block-check ;
+: lf-check-kind-run ( -- outcome )
+  lf-check-decl lf-ind-member? if lf-check-block else lf-check-run then ;
 \ Check the declaration of this context's snapshot and end the check with
 \ its outcome (lf-env-finish), as described above.
 : lf-check-declaration ( -- )
-  lf-check-begin ['] lf-check-run lf-check-then lf-env-finish ;
+  lf-check-begin ['] lf-check-kind-run lf-check-then lf-env-finish ;
 
 \ Check every declaration of this context's intact input, in input order,
 \ each with fuel, in a new environment with room for deps dependencies,

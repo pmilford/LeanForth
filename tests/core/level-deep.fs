@@ -59,8 +59,9 @@ T{ 62 62 100000 lf-level-compare -> outcome-ok }T
 \ (62 levels); Lean's normalize reduces them to u, allocating nothing.
 \ Their cells per level stay within the need stated per level node, and
 \ all within lf-lnorm-return-cells and lf-lnorm-data-cells (2026-11-03,
-\ both hosts: 408 return and 149 data cells for 62 levels, 204 and 71
-\ for 31; names of 31 components 45 and 58, of 15 components 29 and 26).
+\ both hosts: 409 return and 150 data cells for 62 levels, 205 and 72
+\ for 31; names of 31 and of 15 components alike 19 and 2, as the name
+\ order is iterative).
 require ../support/stack-paint.fs
 : at-most ( n limit -- flag ) > 0= ;
 : alternating ( n -- top )
@@ -98,4 +99,22 @@ T{ verdict @ lf-level-count @ -> outcome-unknown 4 }T
 15 painted-names 2constant names-15
 T{ names-31 names-15 difference 16 lf-lnorm-ds-name * at-most
    swap 16 lf-lnorm-rs-name * at-most -> true true }T
+
+\ With a larger level capacity (as a feed sets it) a graph can be deeper
+\ than the scope check's walks allow. Normalize called on it directly
+\ counts its level frames: beyond lf-level-depth-limit it is full, with
+\ the depth limit recorded, never a host-stack overflow (the review's
+\ finding M1; at depth 2,000 that was a THROW). Names of 300 components
+\ are ordered in the same constant stack space.
+1024 lf-level-capacity! drop  1024 lf-name-capacity! drop
+: imax-chain ( n -- top ) lf-level-reset u-id lf-level-param must drop alternating ;
+: deeper ( n -- flag outcome code )
+  imax-chain dup u lf-level-max must swap u swap lf-level-max must
+  lf-diag-clear 100000 lf-level-equivalent lf-diag-code@ ;
+T{ 300 deeper -> false outcome-full lf-diag-depth-limit }T
+T{ 1000 deeper -> false outcome-full lf-diag-depth-limit }T
+T{ 40 deeper drop -> true outcome-ok }T
+300 painted-names 2constant names-300
+T{ verdict @ names-300 names-31 difference -> outcome-unknown 0 0 }T
+lf-level-default lf-level-capacity! drop  lf-name-default lf-name-capacity! drop
 bye

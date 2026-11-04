@@ -78,6 +78,25 @@ require ../lib/lib.fs
 59 constant lf-diag-argument-apart     \ D1-D5, an argument: the rules used, 0
 60 constant lf-diag-value-apart        \ D1-D5, the value: the rules used, 0
 61 constant lf-diag-body-type          \ S4: a Pi body's type, reduced, 0
+\ An inductive block (ADR 0015; plan task 5.2.1a, kernel/check-block.fs):
+\ its shape (invalid), its scope (unsupported), a step that needs
+\ unfolding (unknown), and Lean's rejections of inductive.cpp and of
+\ Lean's replay (rejected).
+62 constant lf-diag-block-shape        \ B0 (invalid): the block's first member, 0
+63 constant lf-diag-block-scope        \ unsupported: the first member, 1 mutual or
+                                       \ 2 an occurrence outside a result's head
+64 constant lf-diag-needs-unfolding    \ K1 (unknown): the node Lean may unfold, 0
+65 constant lf-diag-reserved-prefix    \ T0: the block's first member, 0
+66 constant lf-diag-nonuniform         \ C1: the occurrence's node, its binder depth
+67 constant lf-diag-param-binders      \ T1: the type's binders, numParams
+68 constant lf-diag-block-not-sort     \ T2: the type's result, reduced, 0
+69 constant lf-diag-ctor-param         \ C2: the D rules used, 0
+70 constant lf-diag-universe-too-big   \ U1: the constructor, the field's binder
+71 constant lf-diag-return-type        \ C3: the constructor, 0
+72 constant lf-diag-duplicate-ctor     \ C4: the constructor, 0
+73 constant lf-diag-invalid-constructor \ B3: the constructor's member, the field
+74 constant lf-diag-invalid-recursor   \ B3: the recursor's member, the field
+75 constant lf-diag-no-such-recursor   \ B3: the recursor's member, 0
 
 begin-structure /lf-diag
   field: lf-diag-code       \ reason code; lf-diag-none while clear
@@ -203,6 +222,25 @@ create lf-diag-catalogue
   lf-diag-argument-apart s" rejected: argument type mismatch (D1-D5)" lf-diag-entry,
   lf-diag-value-apart s" rejected: declared type mismatch (D1-D5)" lf-diag-entry,
   lf-diag-body-type s" rejected: Pi body not a type (S4)" lf-diag-entry,
+  lf-diag-block-shape s" invalid input: inductive block shape (B0)" lf-diag-entry,
+  lf-diag-block-scope s" unsupported: inductive block outside task 5.2.1a" lf-diag-entry,
+  lf-diag-needs-unfolding
+    s" undecided: Lean may unfold a definition here (K1)" lf-diag-entry,
+  lf-diag-reserved-prefix s" rejected: reserved prefix _nested (T0)" lf-diag-entry,
+  lf-diag-nonuniform s" rejected: non-uniform occurrence of the type (C1)" lf-diag-entry,
+  lf-diag-param-binders s" rejected: too few parameter binders (T1)" lf-diag-entry,
+  lf-diag-block-not-sort
+    s" rejected: inductive type not ending in a Sort (T2)" lf-diag-entry,
+  lf-diag-ctor-param s" rejected: constructor parameter mismatch (C2)" lf-diag-entry,
+  lf-diag-universe-too-big
+    s" rejected: constructor field universe too big (U1)" lf-diag-entry,
+  lf-diag-return-type s" rejected: invalid constructor return type (C3)" lf-diag-entry,
+  lf-diag-duplicate-ctor s" rejected: duplicate constructor name (C4)" lf-diag-entry,
+  lf-diag-invalid-constructor
+    s" rejected: constructor differs from Lean's (B3)" lf-diag-entry,
+  lf-diag-invalid-recursor s" rejected: recursor differs from Lean's (B3)" lf-diag-entry,
+  lf-diag-no-such-recursor
+    s" rejected: recursor Lean does not generate (B3)" lf-diag-entry,
   lf-diag-none s" unknown code" lf-diag-entry,
 : lf-diag-end? ( code entry -- flag ) lf-diag-entry-code tuck = swap lf-diag-none = or ;
 \ The entry of code, or the last entry.

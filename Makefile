@@ -79,7 +79,8 @@ DIFFERENTIAL_TARGETS := \
 	test-export-specialization-differential test-first-checker-differential \
 	test-binder-domains-differential test-universe-scope-differential \
 	test-first-checker-large-differential test-binder-domains-large-differential \
-	test-universe-scope-large-differential \
+	test-universe-scope-large-differential test-first-checker-fed-differential \
+	test-binder-domains-fed-differential test-universe-scope-fed-differential \
 	test-program-differential test-program-stack-differential \
 	test-program-values-differential test-program-depth-differential \
 	test-example-reference-differential test-add-reference-differential \
@@ -174,11 +175,22 @@ reference-export:
 	LEAN=$(LEAN) $(RUN) bash tests/reference/export-check.sh
 
 # Lean's verdicts for inductive types, reductions, the replay of exported
-# blocks, primitive names and quotients (ADR 0015): 100 kernel cases; the
+# blocks, primitive names and quotients (ADR 0015): 118 kernel cases; the
 # exports of tests/reference/inductive/ reproduced byte for byte and staged
 # by the Forth importer.
 reference-inductive:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/reference/inductive-check.sh
+
+# LeanForth against that table (plan task 5.2.1a; ADR 0015 §13, test plan
+# 1): every case as the export Lean printed for it, staged, fed and checked;
+# each row of task 5.2.1a gives the table's verdict (the pending ones, which
+# need Nat or unfolding, the outcome named in the script, with the reason),
+# every later task's row stays unsupported or unknown, or gives the table's
+# verdict, never another. Also part of test-differential.
+test-inductive-table:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/core/inductive-table.py
+test-differential: test-inductive-table
+.PHONY: test-inductive-table
 
 test-harness:
 	GFORTH=$(GFORTH) $(RUN) bash tests/harness/check.sh
@@ -242,6 +254,7 @@ test-core:
 	$(RUN) $(GFORTH) tests/core/contexts.fs
 	$(RUN) $(GFORTH) tests/core/contexts-serial.fs
 	$(RUN) $(GFORTH) tests/core/contexts-main.fs
+	$(RUN) $(GFORTH) tests/core/store-growth.fs
 	$(RUN) $(GFORTH) tests/core/diagnostics.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/core/check_diagnostics_catalogue.py
 	$(RUN) $(GFORTH) tests/core/load.fs
@@ -310,7 +323,7 @@ test-export-specialization-differential:
 # The first checker end to end (ADR 0011, plan tasks 2.2.1 and 2.2.3):
 # every case checked by check-declaration through the checked environment.
 # The 62 table cases; the 22 binder-domain cases (ADR 0003 Amendment 1);
-# the 49 universe-scope cases (ADR 0012 test-matrix row 4). Every rejection
+# the 50 universe-scope cases (ADR 0012 test-matrix row 4). Every rejection
 # agrees with Lean's exception, every other row keeps the table's outcome,
 # and every accepted row prints its label and gets a valid handle.
 test-first-checker-differential:
@@ -334,6 +347,20 @@ test-binder-domains-large-differential:
 
 test-universe-scope-large-differential:
 	$(LEAN_TABLE) universe-scope-large
+
+# The same three tables through the path a real export takes (plan task
+# 3.2.2): each case is written as a lean4export export, staged and fed to
+# the checker (src/import/feed.fs), so the names stay in the stage's input
+# tier and every store grows to the feed's capacities. The same answers,
+# with no known difference.
+test-first-checker-fed-differential:
+	$(LEAN_TABLE) first-checker-fed
+
+test-binder-domains-fed-differential:
+	$(LEAN_TABLE) binder-domains-fed
+
+test-universe-scope-fed-differential:
+	$(LEAN_TABLE) universe-scope-fed
 
 test-composition-fixture:
 	$(RUN) python3 tests/core/test_preview_contract.py
@@ -502,6 +529,17 @@ test-environment:
 .PHONY: test-environment
 test: test-environment
 DOC_EXAMPLE_PAGES += docs/programming/CHECKED_ENVIRONMENT.md
+
+# Inductive blocks (plan task 5.2.1a; ADR 0015): the block check end to
+# end on cases of the inductive table, every outcome and rule with its
+# diagnostic and step, Lean's replay of the Bool block mutated, blocks
+# published together, the reference export tampered one field at a time,
+# a fuel bisection and a full term store. Gforth only.
+test-check-block:
+	$(RUN) $(GFORTH) tests/core/check-block.fs
+
+.PHONY: test-check-block
+test: test-check-block
 DOC_EXAMPLE_PAGES += docs/user/FIRST_CHECK.md
 
 # Run records and their replay (plan task 2.2.5; docs/programming/RUN_RECORDS.md):
@@ -679,6 +717,7 @@ test-differential: reference-reexport
 test-compact:
 	$(RUN) $(GFORTH) tests/lib/hash32.fs
 	$(RUN) $(GFORTH) tests/lib/slab.fs
+	$(RUN) $(GFORTH) tests/lib/store-columns.fs
 	$(RUN) $(GFORTH) tests/lib/htab.fs
 	$(RUN) $(GFORTH) tests/lib/cons.fs
 	$(RUN) $(GFORTH) tests/core/compact.fs
@@ -748,14 +787,18 @@ print:
 # make test and every pinned-Lean comparison of make test-differential with the
 # log on in every context (tests/support/gforth-log.sh), then on and full after 5
 # records, then make test with 2 term copies, 1 level copy and 3 open rules.
-# About ten minutes; not part of make check.
-LOG_GFORTH = $(if $(findstring /,$(GFORTH)),$(abspath $(GFORTH)),$(shell command -v $(GFORTH)))
+# About ten minutes; not part of make check. The chain is: the strict wrapper
+# (GFORTH, always) runs LEANFORTH_GFORTH, which the inner make sets to the log
+# wrapper (named by its absolute path, as tests run from other folders too),
+# which runs LF_GFORTH, the real Gforth: never the strict wrapper, or the two
+# would call each other (gforth-log.sh refuses a second level).
+LOG_GFORTH = $(if $(findstring /,$(LEANFORTH_GFORTH)),$(abspath $(LEANFORTH_GFORTH)),$(shell command -v $(LEANFORTH_GFORTH)))
 LOG_RUN = LF_GFORTH=$(LOG_GFORTH) LF_LOG_LEVEL=2
+LOG_WRAPPER = GFORTH=$(CURDIR)/tests/support/gforth-log.sh
 check-log-identity:
-	$(LOG_RUN) $(MAKE) test test-differential GFORTH=tests/support/gforth-log.sh
-	$(LOG_RUN) LF_LOG_RECORDS=5 $(MAKE) test test-differential GFORTH=tests/support/gforth-log.sh
-	$(LOG_RUN) LF_LOG_TERMS=2 LF_LOG_LEVELS=1 LF_LOG_MARKS=3 $(MAKE) test \
-	GFORTH=tests/support/gforth-log.sh
+	$(LOG_RUN) $(MAKE) test test-differential $(LOG_WRAPPER)
+	$(LOG_RUN) LF_LOG_RECORDS=5 $(MAKE) test test-differential $(LOG_WRAPPER)
+	$(LOG_RUN) LF_LOG_TERMS=2 LF_LOG_LEVELS=1 LF_LOG_MARKS=3 $(MAKE) test $(LOG_WRAPPER)
 
 .PHONY: test-log print check-log-identity
 test: test-log

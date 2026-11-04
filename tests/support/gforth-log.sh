@@ -9,8 +9,17 @@
 # LF_LOG_RECORDS, LF_LOG_MARKS, LF_LOG_TERMS and LF_LOG_LEVELS set the
 # limits (records, open rules, term and level copies). The preset is
 # defined with -e before the first argument; --version passes through.
+# LF_GFORTH must be the real Gforth, never a wrapper that runs this script
+# again (scripts/gforth-strict.sh with LEANFORTH_GFORTH naming this file):
+# a second level is refused with exit status 2 instead of forking forever.
 # Test-only.
 set -euo pipefail
+if [ -n "${LF_LOG_WRAPPED:-}" ]; then
+  echo "gforth-log.sh: LF_GFORTH (${LF_GFORTH:-gforth}) runs this script again;" \
+    "name the real Gforth" >&2
+  exit 2
+fi
+export LF_LOG_WRAPPED=1
 real="${LF_GFORTH:-gforth}"
 defs=""
 add() { if [ -n "${2:-}" ]; then defs="$defs ${2} constant lf-log-preset-$1"; fi; }

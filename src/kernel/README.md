@@ -25,6 +25,17 @@ types a Π with `mk_imax`, and `level-substitute.fs` specializes a
 constant's type as Lean's `instantiate` does. A new place that builds a
 level where Lean's kernel builds one must use the same ports.
 
+Inductive blocks (plan task 5.2.1a, [ADR 0015](../../docs/adr/0015-inductive-types.md);
+[developer notes](../../docs/programming/INDUCTIVE_BLOCKS.md)):
+check-declaration sends a block's first member to `check-block.fs`, which
+runs Lean's `add_inductive` for a block of one non-recursive type in
+Lean's order -- the audit and the checks that need no typing in
+`inductive-block.fs`, the typed steps itself, Lean's `is_geq` in
+`level-geq.fs` -- builds the recursor (`inductive-recursor.fs`), compares
+the constructors and the file's recursors with what it built (B3), and
+the publisher (`env-publish.fs`) makes every member's slot final
+together. Any other block is *unsupported*.
+
 ## Free variables (plan task 4.2.2a, ADR 0014 Q2)
 
 Inference meets only closed terms, as Lean's kernel does. When it enters
@@ -69,6 +80,11 @@ Rules a new kernel module must keep:
   the binders it enters (D4) as bound variables, each with a free
   variable on the scope, and closes a term with them (`lf-minfer-closed`)
   before P2 infers it. It is retired by plan task 4.2.2d.
+- A caller that walks a telescope itself (`check-block.fs`, as Lean's
+  `check_constructors`) opens each binder with `lf-minfer-push` (the
+  domain closed with the scope's free variables, then a new free
+  variable) and compares two terms read under the scope with
+  `lf-minfer-agree-open`, which closes both first.
 - What 4.2.2b–e need is in place: `lf-lctx-local` and `lf-lctx-let`
   (Lean's `mk_local_decl`, for `is_def_eq_binding`, eta and `infer_let`),
   `lf-fvar-value` (for `whnf_fvar`'s zeta), `lf-instantiate` (for beta) and

@@ -436,7 +436,26 @@ defer lf-minfer-apart ( left right -- mask flag )
   lf-minfer-heads lf-minfer-free2? lf-rule-d3 lf-minfer-holds ;
 : lf-minfer-arity? ( left right -- left right count true | false )
   2dup lf-minfer-count swap lf-minfer-count over = if true else drop 2drop false then ;
+\ P4 (plan task 5.2.1a): once inductive types can be in the environment,
+\ Lean's last route, is_def_eq_unit_like (type_checker.cpp 1119-1130,
+\ called at 1203), makes two terms equal when the left one's type, after
+\ whnf, is a structure whose one constructor has no field (PUnit) and
+\ their types are equal -- also after is_def_eq_app has failed. So two
+\ variable-headed terms are shown apart (D3, D5) only when the left one's
+\ type, inferred aside, has after whnfB a head that is no constant: Lean's
+\ whnf leaves such a type as it is (ADR 0011 fact 3), so it is no
+\ structure. A type headed by a constant, or one that cannot be inferred,
+\ leaves the pair undecided.
+: lf-minfer-type-kind ( node -- kind )
+  lf-minfer-walk ok-then? 0= if drop lf-head-none exit then
+  lf-minfer-whnf ok-then? if lf-mhead-kind else drop lf-head-none then ;
+: lf-minfer-kind-aside ( node -- kind )
+  >r lf-minfer-counts lf-minfer-aside @ r> true lf-minfer-aside !
+  lf-minfer-type-kind swap lf-minfer-aside ! >r lf-minfer-counts! r> ;
+: lf-minfer-unit-free? ( node -- flag )
+  lf-minfer-kind-aside dup lf-head-constant <> swap lf-head-none <> and ;
 : lf-minfer-vars-apart ( left right -- mask flag )
+  over lf-minfer-unit-free? 0= if 2drop 0 false exit then
   lf-minfer-arity? 0= if lf-rule-d3 true exit then
   >r 2dup lf-minfer-same-head?
   if r> lf-minfer-args-apart else r> drop lf-minfer-heads-apart then ;
@@ -538,6 +557,21 @@ defer lf-minfer-apart ( left right -- mask flag )
 : lf-minfer-binding ( base domain -- base status )
   lf-term-count @ over lf-minfer-walk lf-minfer-domain-level
   ok-then? if lf-minfer-open-binder else nip then ;
+\ For a caller that walks a telescope itself, as Lean's check_constructors
+\ does (check-block.fs, plan task 5.2.1a), in a job it started: a binder
+\ domain's level (its inference and Sort, scratch kept); a domain, a term
+\ read under the scope (source or not), closed and opened as the next
+\ binder (level 0 beside it); and two such terms closed, then compared as
+\ lf-minfer-agree compares types. Lean instantiates the telescope's body
+\ with each binder's free variable as it goes, so it compares closed
+\ terms too (inductive.cpp 456-497).
+: lf-minfer-domain ( domain -- level status )
+  lf-minfer-walk dup ok? if drop lf-minfer-domain-sort then ;
+: lf-minfer-push ( domain -- outcome )
+  lf-minfer-closing ok-then? if 0 lf-minfer-bind then ;
+: lf-minfer-agree-open ( left right -- mask status )
+  lf-minfer-closing ok-then? 0= if nip 0 swap exit then
+  swap lf-minfer-closing ok-then? 0= if nip 0 swap exit then swap lf-minfer-agree ;
 \ A step that keeps base below its result: x and true, or -1, the failure
 \ and false.
 : lf-minfer-good? ( x status -- x true | -1 status false )
@@ -738,11 +772,12 @@ defer lf-minfer-apart ( left right -- mask flag )
 \ needs fewer cells than beta). A level comparison -- of two Sorts or of
 \ constants' levels in conversion, or by rule D1 -- runs Lean's
 \ normalize instead, never inside beta's passes: lf-lnorm-*-cells
-\ (level-normalize.fs: 7 return and 3 data cells per node of the level
-\ graph, 6.5 and 2.5 measured, plus the name order; 576 and 384 cells for
-\ level graphs and names 64 deep). So the deepest level nests the larger
-\ of beta's need and normalize's; tests/core/infer-deep.fs runs the
-\ deepest normalize the level store allows at the deepest inference.
+\ (level-normalize.fs: 7 return and 3 data cells per level frame, 6.5 and
+\ 2.5 measured, at most lf-level-depth-limit frames, counted, whatever the
+\ level capacity; the name order is iterative; 512 and 256 cells). So the
+\ deepest level nests the larger of beta's need and normalize's;
+\ tests/core/infer-deep.fs runs the deepest normalize the default level
+\ store allows at the deepest inference.
 \ The frame that hands over from inference to the analysis, from the
 \ inference frame whose argument is compared to the analysis's first
 \ frame (in-frame, visit, dispatch, binary, app, apply, argument, agree,
