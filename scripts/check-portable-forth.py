@@ -89,6 +89,12 @@ BYTE_MODULES = {
     "src/program/ir-reader.fs":
         "program reader splits source lines into tokens, checks that every character is "
         "printable ASCII and folds A-Z to a-z, as Gforth finds names",
+    "src/lib/text-run.fs":
+        "text runner splits text into lines at LF and checks that every character is "
+        "printable ASCII",
+    "src/program/verify-semantics.fs":
+        "program words compare names with A-Z folded to a-z, as Gforth finds them, and "
+        "read the characters of decimals and of names that read as numbers",
 }
 LIMIT = 2**31
 COMPILE_ONLY = {

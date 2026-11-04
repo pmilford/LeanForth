@@ -22,7 +22,9 @@ and every assumption they rest on.
 `write` builds the receipt only from the repository (source, IR, contract,
 the generated obligations and their summary, hashed as they are) and from
 an evidence record, which `record` makes by running Lean and Gforth:
-Lean's version and the axioms of each theorem, and the runtime counts.
+Lean's version and the axioms of each theorem, the runtime counts, and the
+hash of the IR that the program words (src/program/verify.fs, ADR 0019)
+write for the word's source, which must be the IR file's, byte for byte.
 `validate` reads any receipt the way every reader here does: strict JSON
 (tests/support/schema_subset.py: no duplicate keys, no fractions, no lone
 surrogates, bounded nesting), schema 0.2 and the rules JSON Schema cannot
@@ -72,6 +74,7 @@ TABLE = "tests/program/ir-run-table.fs"
 CHECK_EVIDENCE = [VC_LEAN, "scripts/program_vc.py"]
 RUN_EVIDENCE = [TABLE, "src/program/ir-run.fs", "tests/program/ir_run_differential.py",
                 "tests/reference/program-ir-run.lean"]
+IR_WORDS = "src/program/verify.fs"   # the program words that write the IR (ADR 0019)
 ALLOWED_AXIOMS = ["propext", "Classical.choice", "Quot.sound"]
 CHECK_LABEL = "checked by the Lean reference, not by LeanForth"
 RUN_LABEL = "runtime-tested; testing is not proof"
@@ -122,21 +125,27 @@ def assumptions(word, prims, cases):
          "text": "Cells are two's complement, so the host's arithmetic wraps as the IR "
                  "semantics says (src/lib/portability.fs)."},
         {"id": "A3", "kind": "trusted-reader",
-         "text": "The reader (src/program/ir-reader.fs) translated the colon definition into "
-                 "the IR faithfully, and nothing else in the source file changes what its "
-                 "words mean on the host. The reader splits the file into lines at LF itself "
-                 "and finds names ignoring letter case as Gforth does; it refuses a "
-                 "redefinition, under any spelling, of a word it knows (the IR's words, some "
-                 "other standard words and the file's own), any byte outside printable ASCII "
-                 "other than a space, a tab, an LF and a CR just before an LF, and a division "
-                 "before CONSTANT; it never runs "
-                 "the source. Gforth is assumed to load the file with its default settings "
-                 "(decimal BASE, standard words), and the file to define no name that code "
-                 "compiled after it in the same session uses, other than the words under "
-                 "test: the reader accepts definitions of other host words, such as . or "
-                 "DEPTH, which would change what such code, a test harness for example, "
-                 "means. Nothing proves the translation; make test compares the reader's "
-                 "output with the IR named here."},
+         "text": f"The program words ({IR_WORDS}, the mode shift of ADR 0019) wrote the IR "
+                 "faithfully: each Forth word the file uses means in the IR what the host's "
+                 "word of that name does, and nothing else in the source file changes what "
+                 "its words mean on the host. They run the file through Forth's own text "
+                 "interpreter, one line at a time, with only their entry word visible; each "
+                 "token must be a word of the file (a call, bound when Forth finds it), a "
+                 "word of FORTH-WORDLIST with verification semantics and the identity it had "
+                 "when they loaded (a standard word redefined before the run is refused), or "
+                 "a plain decimal, which they read themselves; no word of the file or of the "
+                 "host runs. They refuse a redefinition, under any spelling, of a Forth-2012 "
+                 "Core or Core Ext word or of the file's own words, a name that reads as a "
+                 "number, any byte outside printable ASCII other than a space, a tab, an LF "
+                 "and a CR just before an LF, and a division before CONSTANT. Gforth is "
+                 "assumed to load the file with its default settings (decimal BASE, standard "
+                 "words), and the file to define no name that code compiled after it in the "
+                 "same session uses, other than the words under test: definitions of host "
+                 "words outside those word sets, such as Gforth's own, are accepted and would "
+                 "change what such code, a test harness for example, means. Nothing proves "
+                 "the translation; recording the evidence wrote this IR again with the "
+                 "program words, and make test compares them with the IR named here and with "
+                 "the earlier reader (src/program/ir-reader.fs)."},
         {"id": "A4", "kind": "trusted-runtime",
          "text": f"Gforth and its compiler execute {prims} as the IR semantics says. The "
                  f"runtime comparison tested this on {cases} cases; it does not prove it."},
@@ -178,6 +187,10 @@ def build(contract_path, evidence):
     ir_text = Path(contract["ir"]).read_text(encoding="utf-8")
     word = contract["word"]
     source = program_vc.ir_source(ir_text)
+    written = evidence.get("ir", {})
+    if written != {"words": IR_WORDS, "sha256": sha256(contract["ir"])}:
+        raise SystemExit(f"the evidence does not show the program words ({IR_WORDS}) "
+                         f"writing {contract['ir']} as it is: {written}")
     lean, run = evidence["lean"], evidence["run"]
     contract_theorem = f"{vc['namespace']}.contract"
     names = [contract_theorem] + [o["theorem"] for o in vc["obligations"]]
@@ -321,12 +334,28 @@ def command(args, both=False):
     return done.stdout + done.stderr if both else done.stdout
 
 
+def ir_written(gforth, ir_path):
+    """The IR the program words write for the IR file's source, which must be
+    that file byte for byte: its hash, for the evidence."""
+    source = program_vc.ir_source(Path(ir_path).read_text(encoding="utf-8"))
+    if not re.fullmatch(r"[\w./-]+", source):
+        raise SystemExit(f"source path not usable in a Forth string: {source}")
+    out = command([gforth, IR_WORDS, "-e", f's" {source}" lf-verify-file .', "-e", "bye"])
+    *lines, outcome = out.rstrip("\n").split("\n")
+    text = "\n".join(lines) + "\n"
+    if outcome.strip() != "0" or text != Path(ir_path).read_text(encoding="utf-8"):
+        raise SystemExit(f"the program words ({IR_WORDS}) do not write {ir_path} for "
+                         f"{source}:\n{out}")
+    return {"words": IR_WORDS, "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest()}
+
+
 def record(contract_path):
     """Run Lean and Gforth now and return the evidence the receipt needs."""
     lean, gforth = os.environ.get("LEAN", "lean"), os.environ.get("GFORTH", "gforth")
     contract = program_vc.parse_contract(Path(contract_path).read_text(encoding="utf-8"),
                                          contract_path)
     vc = vc_entry(contract["id"])
+    written = ir_written(gforth, contract["ir"])
     version = re.match(r"Lean \(version ([0-9.]+),", command([lean, "--version"])).group(1)
     output = command([lean, "-DwarningAsError=true", VC_LEAN])
     axioms = {}
@@ -343,6 +372,7 @@ def record(contract_path):
     forth = (command([gforth, "--version"], both=True).split() + ["gforth", "unknown"])[:2]
     return {
         "recordedAt": datetime.date.today().isoformat(),
+        "ir": written,
         "lean": {"version": version, "commit": command([lean, "--githash"]).strip(),
                  "axioms": axioms},
         "run": {"forth": forth[0], "version": forth[1], "os": platform.system().lower(),
