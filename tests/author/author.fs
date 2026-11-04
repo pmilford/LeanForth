@@ -145,8 +145,15 @@ T{ lf-author-code -> 61 }T
 \ Out of room, one code per store or table.
 text0 s" theorem t Prop" text+ s"  Prop ->" 64 times
 T{ text$ fails drop drop -> 60 }T
+\ Binders grow (plan task 6.2.0): 65 open binders are not too many (the
+\ text then ends unfinished, 33). A binder store at its limit, a setting
+\ (here 16), is.
 text0 s" theorem t" text+ s"  Prop explicit: a" 65 times
+T{ text$ fails drop drop -> 33 }T
+lfa-scope-close  16 lfa-binders store-limit! drop
+text0 s" theorem t" text+ s"  Prop explicit: a" 17 times
 T{ text$ fails drop drop -> 65 }T
+lfa-scope-close  lfa-binder-limit lfa-binders store-limit! drop
 text0 s" theorem t" text+ s"  Prop" 513 times
 T{ text$ fails drop drop -> 64 }T
 text0 s" theorem t Prop" text+ s\"  note\" n\"" 65 times

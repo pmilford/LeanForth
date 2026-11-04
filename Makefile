@@ -377,7 +377,8 @@ test-universe-many-fed-differential:
 
 # No depth limit (plan task 6.2.0, part (b)): lambda, application and
 # successor chains 2,000 deep, by checker input and fed; 10,000 deep, fed,
-# in test-depth-deep-differential, which takes minutes and is not part of
+# in test-depth-deep-differential, which takes about 17 minutes (the work
+# grows with the square of the depth: plan task 6.5.5) and is not part of
 # make check.
 test-depth-differential:
 	$(LEAN_TABLE) depth

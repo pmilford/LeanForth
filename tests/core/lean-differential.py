@@ -565,12 +565,11 @@ def universe_many_fed():
 # below it, and the rejection analysis infers the rest of a type at each
 # binder), so the cases get ample fuel and term store, and the 10,000-deep
 # table, which takes minutes, is fed only and is not part of make check
-# (test-depth-deep-differential). One known difference, conservative: the
-# analysis that rejects the wrong lambda (D4 down every binder) infers the
-# rest of the type aside at each binder, and every free variable it opens
-# keeps its number until the check ends, so the n * n of them at 10,000
-# outgrow the local context's limit of 4,194,304 entries (about 2,900 deep
-# is the most it holds); the step then stays unknown, never accepted.
+# (test-depth-deep-differential). The analysis that rejects the wrong
+# lambda (D4 down every binder) infers the rest of the type aside at each
+# binder; the free variables it opens go with that scratch (lf-lctx-drop),
+# and the local context is limited only by the heap, so it holds what any
+# depth needs.
 DEPTH_SETTINGS = ["10000000000 lf-check-budget", "1048576 lf-term-capacity! must-ok",
                   "65536 lf-level-capacity! must-ok"]
 
@@ -584,12 +583,9 @@ def depth_fed():
     return depth(fed=True)
 
 
-DEPTH_DEEP_KNOWN = {"depth10000.lam-wrong": "unknown"}
-
-
 def depth_deep_fed():
     return expect_table("tests/reference/depth-terms.lean", 6, DEPTH_SETTINGS,
-                        "depth 10000, fed", True, "depth10000.", DEPTH_DEEP_KNOWN)
+                        "depth 10000, fed", True, "depth10000.")
 
 
 def first_checker_large():
