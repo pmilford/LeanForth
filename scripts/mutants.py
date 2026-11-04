@@ -26,12 +26,15 @@ Every entry's old text is checked first: one that does not occur exactly
 once is stale (the code changed under it). Then the root's files are copied
 into a new temporary directory outside the root, and every distinct test
 command runs once on the unchanged copy, which it must pass. Then each fault
-in turn is written into the copy, its test run, and the file restored. The
+in turn is written into the copy, the changed file checked to still load (a
+Forth file on its own and silently, as make smoke requires; a Python file
+must parse), its test run, and the file restored. The
 working tree itself is only ever read: its files are listed and hashed
 before and after, and any change stops the run with exit status 3.
 
 Each fault is reported as caught or survived. The run fails (exit 1) when
-an entry is stale, a fault expected to be caught survives, or a fault
+an entry is stale, a changed file does not load (the test would then prove
+nothing), a fault expected to be caught survives, or a fault
 listed as equivalent or as a gap is caught (the list must then be
 corrected). Exit 2 means the list is malformed, a test failed on the
 unchanged copy, or the temporary directory would lie inside the root.
@@ -43,6 +46,7 @@ import argparse
 import hashlib
 import os
 import re
+import shlex
 import shutil
 import signal
 import subprocess
@@ -237,33 +241,55 @@ def controls(faults, copy, env, timeout):
     return good
 
 
+def load_command(name):
+    """A command that fails when the changed file no longer loads on its own
+    (a Forth module, silently, as make smoke requires) or parses (Python);
+    None for other files."""
+    if name.endswith(".fs"):
+        return (f'out=$("$GFORTH" {shlex.quote(name)} -e bye 2>&1); status=$?; '
+                'printf "%s\\n" "$out"; [ $status = 0 ] && [ -z "$out" ]')
+    if name.endswith(".py"):
+        return f"python3 -c 'import ast, sys; ast.parse(open(sys.argv[1]).read())' {shlex.quote(name)}"
+    return None
+
+
 def plant(copy, fault, env, timeout):
-    """Run fault's test with the fault written into the copy: (caught, how)."""
+    """Write fault into the copy, check that the file still loads, run the
+    fault's test and restore the file: (verdict, how, output), the verdict
+    'caught', 'survived' or 'broken' (the changed file does not load, so
+    the test proves nothing)."""
     path = copy / fault["file"]
     original = path.read_bytes()
     text = original.decode("utf-8")
     path.write_bytes(text.replace(fault["old"], fault["new"], 1).encode("utf-8"))
     try:
+        loads = load_command(fault["file"])
+        if loads:
+            status, output = run_test(loads, copy, env, timeout)
+            if status != 0:
+                return "broken", "no load", output
         status, output = run_test(fault["test"], copy, env, timeout)
     finally:
         path.write_bytes(original)
     if status is None:
-        return True, "timeout", output
-    return status != 0, f"exit {status}", output
+        return "caught", "timeout", output
+    return ("caught" if status != 0 else "survived"), f"exit {status}", output
 
 
-def report(fault, caught, how, seconds, output):
+def report(fault, verdict, how, seconds, output):
     """Print one fault's result; True when it is as the list expects."""
     want = expected(fault)
-    if caught:
-        verdict = "caught" if want == "caught" else f"CAUGHT, listed as {want}"
+    if verdict == "broken":
+        line = "BROKEN: the change does not load"
+    elif verdict == "caught":
+        line = "caught" if want == "caught" else f"CAUGHT, listed as {want}"
     else:
-        verdict = f"survived ({want})" if want != "caught" else "SURVIVED"
-    print(f"{verdict:<34} {fault['id']:<44} {how:<8} {seconds:5.1f}s", flush=True)
-    good = caught == (want == "caught")
+        line = f"survived ({want})" if want != "caught" else "SURVIVED"
+    print(f"{line:<34} {fault['id']:<44} {how:<8} {seconds:5.1f}s", flush=True)
+    good = verdict != "broken" and (verdict == "caught") == (want == "caught")
     if not good:
         print(f"    {fault['file']}: {fault['reason']}\n    test: {fault['test']}")
-        if caught:
+        if verdict != "survived":
             print(tail(output))
     return good
 
@@ -307,10 +333,10 @@ def run_faults(root, chosen, args):
         counts = {"caught": 0, "known equivalent": 0, "known gap": 0, "unexpected": 0}
         for fault in chosen:
             started = time.monotonic()
-            caught, how, output = plant(copy, fault, env, args.timeout)
-            if not report(fault, caught, how, time.monotonic() - started, output):
+            verdict, how, output = plant(copy, fault, env, args.timeout)
+            if not report(fault, verdict, how, time.monotonic() - started, output):
                 counts["unexpected"] += 1
-            elif caught:
+            elif verdict == "caught":
                 counts["caught"] += 1
             else:
                 counts[expected(fault)] += 1

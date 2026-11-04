@@ -36,7 +36,7 @@ the same x86-64 Linux platform; test other hosts before claiming support.
   a reproducible test; distinguish unsupported behavior from rejection.
 - Differential and adversarial: compare supported terms with pinned Lean,
   test both false acceptance and false rejection, fuzz malformed inputs, and
-  consider mutation testing to evaluate whether tests catch faults.
+  plant faults (`make mutants`, below) to check that the tests catch them.
 - Portability: run portable tests on supported Forth hosts; record exact host
   versions and separate host assumptions from tested LeanForth behavior.
 
@@ -66,6 +66,111 @@ compiler and runtime correctness.
 
 The 2026-11-02 coverage review and its open items are recorded in
 [the test coverage review](TEST_COVERAGE_REVIEW.md).
+
+## Planted faults (`make mutants`)
+
+A planted fault (a *mutant*) is a small deliberate bug: if no test fails
+with it in place, the tests do not check what that code does. Reviews used
+to plant faults in throwaway scripts that were then lost; `make mutants`
+(plan task 1.4.2) keeps them as a checked-in list,
+`tests/mutants/faults.toml`, run by `scripts/mutants.py`. Each entry names:
+
+- `file`, the file it changes, and `old`, an exact text that must occur
+  there exactly once, with `new`, its replacement;
+- `test`, the shell command that must catch it (`$GFORTH` names the Gforth
+  of the run), and `reason`, one line on what it breaks;
+- optionally `equivalent`, why no test can tell it from the original, or
+  `gap`, the missing test that would catch it; both are expected to survive;
+- optionally `quick = true`, for the sample `make mutants-quick` runs.
+
+The runner first checks every entry's `old` text: one that no longer
+occurs exactly once is *stale* (the code changed under it), which fails
+the run; re-target such a fault at the new code rather than deleting it.
+Then it copies the tree's files (git's tracked and new files) into a new
+temporary directory outside the tree, runs every distinct test once on the
+unchanged copy (each must pass), and plants each fault in turn: it writes
+the change, checks that the changed file still loads (a Forth module on its
+own and silently, as `make smoke` requires; a Python file must parse; a
+change that does not load would prove nothing and fails the run), runs the
+test and restores the file. It reports each fault as caught or survived and
+exits nonzero when a fault expected to be caught survives, a fault listed
+as equivalent or as a gap is caught (correct the entry), or an entry is
+stale. It never writes the working tree: it hashes every file of the tree
+before and after the run and fails if anything changed, and
+`make test-mutants` (part of `make test`) checks every verdict and exit
+status on a small tree, and that the tree is untouched after each run.
+
+| Target | What it runs |
+| --- | --- |
+| `make mutants` | every fault (about 25 s on Gforth 1.0; not part of `make test` or `make check`) |
+| `make mutants-quick` | the faults marked `quick`, one or two per module |
+| `make mutants-check` | only the stale-entry check, without running anything |
+| `make test-mutants` | the runner's own tests (in `make test`) |
+
+Run it with `GFORTH=...` for another host. On 2026-11-03 (Gforth 1.0) the
+list held 134 faults over `check-declaration.fs`, the checked environment
+(`environment.fs`, `env-publish.fs`, `env-signature.fs`), the rejection
+rules (`mixed-infer.fs`, `mixed-head.fs`, `level-value.fs`), comparison and
+conversion, the NDJSON reader, the program reader, `lib/context.fs`,
+`lib/json-write.fs` and the runner itself. They re-create the faults that
+earlier reviews planted by hand in scratch scripts since lost (those of
+check-declaration and the rejection rules, all 9 of the checked
+environment's fourth review, some of the JSON writer's), and add new ones.
+123 were caught; 10 survive as known gaps and 1 as equivalent, each with
+its reason in the list. The gaps are tests that do not exist yet, for
+example a name compared with another that differs only in a numeric
+component, metadata that differs from the pinned versions only in the
+format or Lean version, or an upper-case `Z` in program source.
+
+Some test suites plant faults of their own and must keep doing so: the
+big-number differential (`tests/lib/bignum_differential.py`, 20 faults, in
+`make test`), the IR interpreter's differential
+(`tests/program/ir_run_differential.py`, 2 faults in its primitive table),
+the receipt validator's test (`tests/program/test_receipts.py`), the
+verification-condition check (`tests/program/vc_check.py`, faults Lean must
+reject, in `make check`) and the authoring words' round trips
+(`tests/author/check_author.py --faults`, 7 faults, in `make check`). The
+JSON writer's and the packed-field module's reviews planted their faults by
+hand (`FORTH_LIBRARY.md`); the list above re-creates some of them.
+
+## Block coverage (`make coverage`)
+
+`make coverage` (plan task 1.4.1) reports which Forth code `make test`
+runs. `scripts/coverage.py` runs `make test` with `GFORTH` set to
+`scripts/coverage-gforth.sh`, which starts Gforth 1.0 with
+`scripts/coverage-prelude.fs` before the test's own arguments; the Python
+tests' Gforth runs go through it too. The prelude loads Gforth 1.0's
+`coverage.fs`, which puts a counter on every basic block compiled after it
+(at each colon definition's start, each control-flow word and each source
+line inside a definition), and writes the counts when Gforth ends, also
+after an error (`BYE`, `(BYE)`, an uncaught `THROW` out of a command-line
+argument, `DOERROR`). The script then joins the counts of all runs and
+prints, for each folder of `src/`, the blocks compiled in any run and how
+many ran at least once; `make test`'s smoke check loads every module on its
+own, so modules that no test runs count too. Options: `--files` prints
+every file, `--uncovered FILE` writes each block that never ran as
+`file:line:column`, `--keep DIR` keeps the raw counts.
+
+It needs Gforth 1.0 (`.tools/`; Gforth 0.7.3 has no `coverage.fs`) and
+takes about 50 s. It is not part of `make test` or `make check`. Runs on
+copies of the tree outside it (the big-number planted faults) are not
+counted. On 2026-11-03 it reported:
+
+| Folder | Blocks | Ran | Coverage |
+| --- | --- | --- | --- |
+| `src/author` | 1,085 | 1,024 | 94.4% |
+| `src/core` | 1,008 | 995 | 98.7% |
+| `src/import` | 796 | 767 | 96.4% |
+| `src/kernel` | 3,180 | 3,096 | 97.4% |
+| `src/lib` | 2,595 | 2,531 | 97.5% |
+| `src/present` | 2,164 | 2,021 | 93.4% |
+| `src/program` | 1,265 | 1,246 | 98.5% |
+| total | 12,093 | 11,680 | 96.6% |
+
+A block that ran is not a tested block: coverage finds code no test
+reaches and says nothing about whether the tests check what the code does,
+which is what `make mutants` asks. The 2026-11-02 review's figure (90.7% of
+5,532 blocks) measured `make test-core` alone, over the code of that day.
 
 ## Self-verification
 

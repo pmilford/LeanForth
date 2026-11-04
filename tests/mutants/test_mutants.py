@@ -122,6 +122,15 @@ class RunnerTest(unittest.TestCase):
         self.assertEqual(status, 0, output)
         self.assertRegex(output, r"(?m)^caught +hangs +timeout")
 
+    def test_change_that_does_not_load_fails(self):
+        (self.root / "src/mod.py").write_text("x = 1\n")
+        self.before = snapshot(self.root)
+        broken = entry("syntax", "x = 1", "x = = 1", test="python3 src/mod.py")
+        broken = broken.replace('file = "src/word.txt"', 'file = "src/mod.py"')
+        status, output = self.run_list(broken)
+        self.assertEqual(status, 1, output)
+        self.assertRegex(output, r"(?m)^BROKEN: the change does not load +syntax")
+
     def test_failing_control_stops(self):
         status, output = self.run_list(entry("broken", "alpha", "gamma", test="false"))
         self.assertEqual(status, 2, output)

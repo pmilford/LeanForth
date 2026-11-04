@@ -469,9 +469,9 @@ test-mutants:
 	$(RUN) python3 tests/mutants/test_mutants.py
 
 # Block coverage of src/ over make test (plan task 1.4.1; TESTING_STRATEGY.md,
-# "Coverage"): every Gforth run of make test loads Gforth 1.0's coverage.fs
-# first, and the blocks that ran are counted per folder. Needs Gforth 1.0;
-# not part of make test or make check.
+# "Block coverage"): every Gforth run of make test loads Gforth 1.0's
+# coverage.fs first, and the blocks that ran are counted per folder. Needs
+# Gforth 1.0; not part of make test or make check.
 coverage:
 	$(RUN) python3 scripts/coverage.py --gforth $(GFORTH)
 
