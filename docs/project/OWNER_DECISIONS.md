@@ -462,6 +462,22 @@ produces can be verified.
   which only replaying the check can (plan 5.5.2). The two-mode program
   design (ADR 0019) will add an assumption kind for its vocabulary in a
   later version. Schema 0.1 was never approved and is refused.
+- **ADR 0019, mode shift or separate vocabulary: both, mode shift
+  first** (2026-11-03). The owner: "If we have both already prototyped,
+  Keep working in both. With precidence on mode shift." The portable mode
+  shift (Forth's own words, each with a verification meaning in a table
+  keyed by the word's identity, run by a short loop over `PARSE-NAME` and
+  `SEARCH-WORDLIST`) is built first and is the primary design; the
+  separate vocabulary is kept working beside it, sharing the words'
+  actions, and both are tested to give the same IR.
+- **LeanForth syntax words, [parser] gate: approved** (2026-11-03, plan
+  task 8.1.2, ADR 0017), as recommended, after two clean review rounds:
+  67 declarations (111 terms) equal Lean's own term for term, binder names
+  and kinds and the protected flag included. Limits recorded: untrusted
+  authoring code until the separate authoring program (8.2.1); where Lean
+  picks between constants by type the words ask for the full name; field
+  notation and `export` are not supported yet; Lean's exporter does not
+  record `protected`, so real imports need it from elsewhere (8.2.1).
 - **Later: investigate offloading part of the work to a GPU.** Under the
   design rules in `AGENTS.md` a GPU never belongs to the trusted kernel and
   a CPU path is always kept; candidates are untrusted bulk work such as
