@@ -827,8 +827,8 @@ reason = "4.2.2a: an instantiate step's body is copied in the record's context, 
 [[fault]]
 id = "log-memo-any-context"
 file = "src/core/derivation-log.fs"
-old = '''  >r r@ 2 cells + @ = swap r@ cell+ @ = and swap r> @ = and ;'''
-new = '''  >r drop r@ cell+ @ = swap r> @ = and ;'''
+old = '''  >r r@ 2 cells + @ = swap dup 0<> swap r@ cell+ @ = and and swap r> @ = and ;'''
+new = '''  >r drop dup 0<> swap r@ cell+ @ = and swap r> @ = and ;'''
 test = "$GFORTH tests/core/derivation-log.fs"
 reason = "4.2.2a: the copier's memo ignores the context, so a node copied under one binder count is reused under another"
 
@@ -846,7 +846,8 @@ file = "src/kernel/mixed-infer.fs"
 old = '''  lf-minfer-closed ok-then? 0= if drop false exit then'''
 new = ''''''
 test = "$GFORTH tests/core/definite-rejection.fs"
-reason = "4.2.2a: P2 infers a term of the analysis without closing it, so below a D4 level it meets a loose bound variable and never shows a term is not a proof"
+reason = "4.2.2a: P2 infers a term of the analysis without closing it first"
+equivalent = "inference reads a loose bound variable k under the scope as the scope's free variable k places from the top, and P2 runs with the analysis's D4 binders on the scope, so inferring the open term is inferring its closed copy: the same types, only less scratch (caught under the telescope design of 5053a98, where inference read only closed terms)"
 
 [[fault]]
 id = "rej-d4-domain-open"

@@ -913,7 +913,22 @@ from the code before only where the code before ran out of room:
 `compare.eta-under-beta-domain`, `compare.lambda-beta-domain-different-body`
 and `decl.lambda-in-argument-wrong-body` now give the table's answer at
 64 nodes, so the binder-domain table has no known difference left.
-RANDOMIZED_EVIDENCE Unit tests of the local context, the four ports and
+A randomized differential against main at `87f0f79`
+(`.claude/work/D2A/difftrial.fs`: random closed terms, half of them well
+typed by construction, some variables eta-expanded into λ arguments,
+through inference and both probes; seed 20261103, 20,000 terms, 134,991
+runs: 42,101 ok, 80,025 rejected, 12,865 unknown) finds no difference in
+outcome, diagnostic code, D-rule mask or inferred type. With too little
+fuel (seed 777: 122,221 runs compared) or room (seed 4242: 106,830) the
+only differences, 124 and 519, are *unknown* against *rejected* (the
+analysis stays unknown when it runs out, and the two spend fuel and room
+differently), never another verdict. Planted faults `infer-imax-zero`
+and `infer-chain-top-ignored` give 1,379 and 49,727 differences;
+`infer-chain-unclosed` gives none there (the generator's λ arguments
+never reach it) and is caught by `tests/core/mixed-infer.fs`. The
+derivation log's outlines of every pinned export and broken copy are
+those of the code before, step numbers aside. Unit tests of the local
+context, the four ports and
 a λ argument under a binder (`tests/core/mixed-instantiate.fs`,
 `tests/core/mixed-infer.fs`); 20 planted faults in
 `tests/mutants/faults.toml` for this task, all caught.

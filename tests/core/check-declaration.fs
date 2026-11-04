@@ -360,12 +360,14 @@ fc-decl check thm safe wrong 0 TYPE P S z P S z P V 1 V 2 VALUE L S z L S z L V 
 T{ unchanged -> true }T
 
 \ Step 7 gives back the room of steps 4-6: composition's declared type
-\ takes 11 scratch terms there and its value 20 in step 7. After an
-\ earlier axiom (unsupported, so never typed) of 16 terms, the 64-term
-\ store holds both only once the 11 are given back; kept, step 7 would be
-\ full. Lean's kernel accepts both declarations.
+\ took 11 scratch terms there before plan task 4.2.2a, and leaves 1 since
+\ (a Pi's inference discards its scratch). After an earlier axiom
+\ (unsupported, so never typed) of 27 terms, the 64-term store holds the
+\ value's inference only once that term is given back; kept, step 7 is
+\ full (measured 2026-11-04: 26 Pis in the axiom fit only with the
+\ rollback, 27 not at all). Lean's kernel accepts both declarations.
 fc-case value-room
-fc-decl before ax safe pad 0 TYPE P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z S s s z VALUE none
+fc-decl before ax safe pad 0 TYPE P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z S s s z VALUE none
 fc-decl check thm safe composition 0 TYPE P S z P S z P S z P P V 2 V 2 P P V 2 V 2 P V 4 V 3 VALUE L S z L S z L S z L P V 2 V 2 L P V 2 V 2 L V 4 A V 1 A V 2 V 0
 T{ check-last -> outcome-ok 0 lf-step-done }T
 
