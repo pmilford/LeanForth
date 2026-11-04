@@ -9,9 +9,9 @@
 \
 \ rp-replay ( c-addr u -- outcome ) reads the old record from the file
 \ named c-addr u (rp-replay-text takes it as a text in memory instead)
-\ and compares it with the new one, rr-text: ok when they
-\ agree in every field, so the record is confirmed; rejected when they
-\ differ, with one finding per difference; invalid when the old record
+\ and compares it with the new one, rr-text: ok when they agree in every
+\ field, so the record is confirmed; rejected when they differ, with one
+\ finding per difference (rp-total counts them); invalid when the old record
 \ cannot be compared at all (unreadable or larger than rp-room, not JSON,
 \ not a run record of version 0.1) or the new one is not there.
 \ rp-report ( -- outcome ) then writes the report with TYPE and gives the
@@ -175,12 +175,13 @@ rp-depth 0 run-replay rp-writer jw-init 0= [if] .( run-replay.fs: writer) cr abo
 \ for a key no section names), a member's in a declaration, else the
 \ enclosing one.
 : rp-or ( code default -- code' ) over 0< if nip else drop then ;
+: rp-section-code ( c-addr u -- code )
+  rp-sections rp-named rp-entry-code rp-run-differs rp-or ;
+: rp-member-code ( c-addr u -- code )
+  rp-members rp-named rp-entry-code rp-declarations-differ rp-or ;
 : rp-code-for ( c-addr u -- code )
-  run-replay rp-code @ case
-    rp-top of rp-sections rp-named rp-entry-code rp-run-differs rp-or endof
-    rp-declarations-differ of
-      rp-members rp-named rp-entry-code rp-declarations-differ rp-or endof
-    >r 2drop r@ r> endcase ;
+  run-replay rp-code @ dup rp-top = if drop rp-section-code exit then
+  dup rp-declarations-differ = if drop rp-member-code else nip nip then ;
 
 \ The first member whose key is c-addr u among the members of an object
 \ in view from key token k up to token end: its value.
@@ -330,12 +331,13 @@ defer rp-value ( n o -- )   \ compare value n of the new record with value o of 
   s" code" rp-key dup finding-code @ rp-code-name rp-string
   s" path" rp-key dup finding-path swap finding-size @ rp-string rp-w jw-close-object ;
 : rp-result ( -- c-addr u ) run-replay rp-total @ if s" refused" else s" confirmed" then ;
-: rp-body ( -- )
-  rp-w jw-open-object s" schema" rp-key rp-schema rp-string
-  s" schemaVersion" rp-key rp-version rp-string s" result" rp-key rp-result rp-string
+: rp-head-out ( -- )
+  s" schema" rp-key rp-schema rp-string s" schemaVersion" rp-key rp-version rp-string
+  s" result" rp-key rp-result rp-string ;
+: rp-findings-out ( -- )
   s" findings" rp-key rp-w jw-open-array rp-kept# 0 ?do i rp-finding-out loop
-  rp-w jw-close-array s" findingsTotal" rp-key run-replay rp-total @ rp-w jw-n
-  rp-w jw-close-object ;
+  rp-w jw-close-array s" findingsTotal" rp-key run-replay rp-total @ rp-w jw-n ;
+: rp-body ( -- ) rp-w jw-open-object rp-head-out rp-findings-out rp-w jw-close-object ;
 \ Write the report of the last replay with TYPE, then a line feed.
 : rp-report ( -- outcome ) ['] type rp-w jw-start rp-body rp-w jw-end cr ;
 

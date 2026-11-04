@@ -191,11 +191,12 @@ rr-reset rr-no-source
 \ none, null in the record; the reader hands over only the pinned
 \ versions, which are short).
 : rr-meta-one ( record xt note -- record ) >r over swap execute 2@ r> rr-note! drop ;
-: rr-on-meta ( record -- outcome )
+: rr-exporter-meta ( record -- record )
   ['] meta-exporter run-record rr-exporter rr-meta-one
   ['] meta-exporter-version run-record rr-exporter-version rr-meta-one
-  ['] meta-format-version run-record rr-format rr-meta-one
-  ['] meta-lean-version run-record rr-lean rr-meta-one
+  ['] meta-format-version run-record rr-format rr-meta-one ;
+: rr-on-meta ( record -- outcome )
+  rr-exporter-meta ['] meta-lean-version run-record rr-lean rr-meta-one
   ['] meta-lean-githash run-record rr-githash rr-meta-one drop outcome-ok ;
 : rr-any ( record -- outcome ) drop outcome-ok ;
 : rr-handlers ( export -- )
