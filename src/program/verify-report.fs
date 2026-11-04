@@ -13,8 +13,10 @@
 \ (ADR 0019 Amendment 1, A4): "lf-ir 0.2" when a line uses something new
 \ in IR 0.2 (an out line, prim lshift or prim -rot), "lf-ir 0.1"
 \ otherwise, so that a file using nothing new gives IR 0.1 byte for byte.
-\ The buffer comes from the heap and doubles as it fills; when the heap
-\ refuses more, the run stops as full there, without its diagnostic line.
+\ The buffer comes from the heap and doubles as it fills, with no limit of
+\ its own; when the heap refuses more, the run stops as full there. The
+\ diagnostic line has a slot of its own, so it is never lost, and a run
+\ that stops as full sends that line alone: no IR that could look whole.
 \
 \ Reasons are numbered as src/program/ir-reader.fs, the reader of IR 0.1
 \ and the program words' earlier test oracle, numbers its diagnostics,
@@ -147,6 +149,8 @@ begin-structure /pv-run
   field: pv-run-written#         \ characters in them
   field: pv-run-written-size     \ characters allocated
   field: pv-run-new              \ true once a line uses something new in IR 0.2
+  field: pv-run-said#            \ the diagnostic line, held apart: length
+  pv-out-chars chars aligned +field pv-run-said
 end-structure
 /pv-run context-record: pv-run
 
@@ -174,6 +178,9 @@ end-structure
 : pv-written# ( -- addr ) pv-run pv-run-written# ;
 : pv-written-size ( -- addr ) pv-run pv-run-written-size ;
 : pv-new ( -- addr ) pv-run pv-run-new ;
+: pv-said# ( -- addr ) pv-run pv-run-said# ;
+: pv-said-text ( -- c-addr ) pv-run pv-run-said ;
+: pv-said ( -- c-addr u ) pv-said-text pv-said# @ ;
 \ A copy of the path, so that it may be in a transient buffer; a longer
 \ one is cut, and cannot fit its header line either.
 : pv-path! ( c-addr u -- )
@@ -203,15 +210,38 @@ end-structure
 : pv-copy ( c-addr u -- ) pv-out pv-out# @ chars + swap dup pv-out# +! chars move ;
 : pv-clipped ( c-addr u -- ) pv-room min pv-copy ;
 
-\ The first refusal is recorded with where it happened; later ones are
-\ ignored.
+\ Numbers are written in decimal whatever BASE is.
+: pv-decimal ( n -- c-addr u ) base @ >r decimal dup abs 0 <# #s rot sign #> r> base ! ;
+: pv-decimal-d ( d -- c-addr u ) base @ >r decimal tuck dabs <# #s rot sign #> r> base ! ;
+
+\ The diagnostic: the first refusal is recorded with where it happened
+\ and written as one line, its pieces clipped to the line, into a slot of
+\ its own in the run record, which it always fits, even when the heap is
+\ full; later refusals are ignored. pv-fail stops the run there, quoting
+\ the current token; pv-fail-here the same without the token.
 : pv-record ( reason -- )
   dup pv-reason-outcome pv-outcome ! pv-reason ! pv-here lfa-pos pv-where ! ;
 : pv-stop ( -- ) pv-throw throw ;
+: pv-at ( line column -- )
+  s"  @" pv-clipped swap pv-decimal pv-clipped s" :" pv-clipped pv-decimal pv-clipped ;
+: pv-quote ( c-addr u -- ) dup if s" : " pv-clipped pv-clipped else 2drop then ;
+: pv-keep-said ( -- )
+  pv-out pv-out# @ dup pv-said# ! pv-said-text swap chars move 0 pv-out# ! ;
+: pv-diagnostic ( c-addr u -- )
+  0 pv-out# ! pv-outcome @ outcome-text pv-clipped pv-where @ lfa-pos> pv-at
+  s" : " pv-clipped pv-reason @ lf-verify-message pv-clipped pv-quote pv-keep-said ;
+: pv-report ( c-addr u reason -- )
+  pv-outcome @ ok? if pv-record pv-diagnostic else drop 2drop then ;
+: pv-fail ( reason -- ) >r pv-token-text r> pv-report pv-stop ;
+: pv-fail-here ( reason -- ) >r s" " r> pv-report pv-stop ;
+\ The same when the flag is true.
+: pv-?fail ( flag reason -- ) swap if pv-fail then drop ;
+: pv-?fail-here ( flag reason -- ) swap if pv-fail-here then drop ;
 
-\ The lines written, kept until the run ends. Room for u more characters:
-\ the buffer grows to twice its size, or more, or its first size; false
-\ when the heap refuses (the buffer then stays as it was).
+\ The lines written, kept until the run ends, with no limit but the heap.
+\ Room for u more characters: the buffer grows to twice its size, or more,
+\ or its first size; false when the heap refuses (the buffer then stays as
+\ it was), which stops the run as full at the current place.
 : pv-written ( -- c-addr u ) pv-written-at @ pv-written# @ ;
 : pv-new-size ( u -- u' ) pv-written-size @ 2* max pv-written-start max ;
 : pv-reallocated ( size -- a-addr ior )
@@ -223,21 +253,22 @@ end-structure
 : pv-written-end ( -- c-addr ) pv-written chars + ;
 : pv-written+ ( c-addr u -- ) pv-written-end swap dup pv-written# +! chars move ;
 : pv-written-lf ( -- ) 10 pv-written-end c! 1 pv-written# +! ;
-\ A line that does not fit stops the run as full, at the current token,
-\ unless it already stopped (it was then the diagnostic line).
-: pv-written-full ( -- ) pv-outcome @ ok? if pv-why-capacity pv-record then pv-stop ;
 : pv-write ( c-addr u -- )
-  dup 1+ pv-room-for? 0= if 2drop pv-written-full then pv-written+ pv-written-lf ;
+  dup 1+ pv-room-for? 0= if 2drop pv-why-capacity pv-fail-here then
+  pv-written+ pv-written-lf ;
 : pv-send ( -- ) pv-out pv-out# @ 0 pv-out# ! pv-write ;
 \ The buffer given back, at the end of every run.
 : pv-written-free ( -- )
   pv-written-at @ ?dup if free drop then
   0 pv-written-at ! 0 pv-written# ! 0 pv-written-size ! ;
 
-\ The lines sent through the output word, the version first. An output
-\ word that throws, or that leaves the stack at another depth, fails the
-\ run as invalid ("output word failed"), the exception caught; the lines
-\ after it are not sent.
+\ What the output word receives: the version line, the lines written and
+\ the diagnostic, if any; but from a run that stopped as full only its
+\ diagnostic, so that the IR of a run cut short by a capacity, the heap's
+\ above all, never reaches anyone looking complete. An output word that
+\ throws, or that leaves the stack at another depth, fails the run as
+\ invalid ("output word failed"), the exception caught; the lines after it
+\ are not sent.
 : pv-output-failed ( -- )
   outcome-invalid pv-outcome ! pv-why-output pv-reason ! pv-stop ;
 : pv-call-out ( c-addr u -- code ) pv-emit-xt @ catch dup if nip nip then ;
@@ -249,29 +280,11 @@ end-structure
 \ The first line written, without its LF, and the lines after it.
 : pv-first-line ( c-addr u -- c-addr2 u2 c-addr3 u3 )
   2dup text-line-end drop >r over r@ 2swap r> 1+ over min /string 2swap ;
-: pv-flush ( -- )
+: pv-send-lines ( -- )
   pv-version pv-emit pv-written begin dup while pv-first-line pv-emit repeat 2drop ;
-
-\ Numbers are written in decimal whatever BASE is.
-: pv-decimal ( n -- c-addr u ) base @ >r decimal dup abs 0 <# #s rot sign #> r> base ! ;
-: pv-decimal-d ( d -- c-addr u ) base @ >r decimal tuck dabs <# #s rot sign #> r> base ! ;
-
-\ The diagnostic: the first refusal is written as one line, its pieces
-\ clipped to the line. pv-fail stops the run there, quoting the current
-\ token; pv-fail-here the same without the token.
-: pv-at ( line column -- )
-  s"  @" pv-clipped swap pv-decimal pv-clipped s" :" pv-clipped pv-decimal pv-clipped ;
-: pv-quote ( c-addr u -- ) dup if s" : " pv-clipped pv-clipped else 2drop then ;
-: pv-diagnostic ( c-addr u -- )
-  0 pv-out# ! pv-outcome @ outcome-text pv-clipped pv-where @ lfa-pos> pv-at
-  s" : " pv-clipped pv-reason @ lf-verify-message pv-clipped pv-quote pv-send ;
-: pv-report ( c-addr u reason -- )
-  pv-outcome @ ok? if pv-record pv-diagnostic else drop 2drop then ;
-: pv-fail ( reason -- ) >r pv-token-text r> pv-report pv-stop ;
-: pv-fail-here ( reason -- ) >r s" " r> pv-report pv-stop ;
-\ The same when the flag is true.
-: pv-?fail ( flag reason -- ) swap if pv-fail then drop ;
-: pv-?fail-here ( flag reason -- ) swap if pv-fail-here then drop ;
+: pv-send-said ( -- ) pv-said dup if pv-emit else 2drop then ;
+: pv-full? ( -- flag ) pv-outcome @ outcome-full = ;
+: pv-flush ( -- ) pv-full? 0= if pv-send-lines then pv-send-said ;
 
 \ Pieces of an IR line. Text that would not fit stops the run as full.
 : pv-append ( c-addr u -- ) dup pv-room > pv-why-capacity pv-?fail pv-copy ;

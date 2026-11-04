@@ -23,6 +23,12 @@ variable interrupt-read
 : close-file ( fileid -- ior ) 1 closed +! close-file ;
 : read-file ( c-addr u fileid -- u2 ior )
   interrupt-read @ if false interrupt-read ! -28 throw then read-file ;
+\ A small heap, when heap-cap is set: ALLOCATE and RESIZE of more address
+\ units than heap-cap fail, as a full heap makes them.
+variable heap-cap
+: capped? ( u -- flag ) heap-cap @ dup if u> else nip then ;
+: allocate ( u -- a-addr ior ) dup capped? if drop 0 -59 exit then allocate ;
+: resize ( a-addr u -- a-addr2 ior ) dup capped? if drop -61 exit then resize ;
 [defined] warnings [if] warnings ! [then]
 : open-files ( -- n ) opened @ closed @ - ;
 require ../../src/program/verify.fs
@@ -189,6 +195,14 @@ T{ s" : f 1_000 ;" both -> outcome-unsupported pv-why-unknown 1 5 true }T
 T{ s" : f 0x10 ;" both -> outcome-unsupported pv-why-unknown 1 5 true }T
 T{ s" : f -'a' ;" both -> outcome-unsupported pv-why-unknown 1 5 true }T
 T{ s" : f 'ab' ;" both -> outcome-unsupported pv-why-unknown 1 5 true }T
+\ A 'c' form must close with its quote (review rvIR3, L3); Gforth reads
+\ 'a as 97 too, but Forth-2012 does not define it.
+T{ s" : f 'ab ;" both -> outcome-unsupported pv-why-unknown 1 5 true }T
+T{ s" : f 'a- ;" both -> outcome-unsupported pv-why-unknown 1 5 true }T
+T{ s" : f '>x ;" both -> outcome-unsupported pv-why-unknown 1 5 true }T
+T{ s" : f 'a ;" both -> outcome-unsupported pv-why-unknown 1 5 true }T
+T{ s" : f '' ;" both -> outcome-unsupported pv-why-unknown 1 5 true }T
+T{ s" : f 'a'' ;" both -> outcome-unsupported pv-why-unknown 1 5 true }T
 T{ s" : f #-$1 ;" both -> outcome-unsupported pv-why-unknown 1 5 true }T
 T{ s" : f $ ;" both -> outcome-unsupported pv-why-unknown 1 5 true }T
 T{ s" : f $1g ;" both -> outcome-unsupported pv-why-unknown 1 5 true }T
@@ -420,6 +434,37 @@ variable nest#
   s\" \n;" nest+ nest-text nest# @ ;
 T{ 8 nested both -> outcome-ok 0 18 0 true }T
 T{ 9 nested both -> outcome-full pv-why-capacity 10 1 true }T
+T{ 9 nested shift-run drop transcript-text
+   s" full @10:1: reader capacity exceeded: if|6 14 10 1 " compare -> 0 }T
+
+\ A heap too small for a run's IR (review rvIR3, L1): the IR has no limit
+\ of its own, so the run stops as full where the heap refuses more, and
+\ sends its diagnostic alone, no IR line that could look whole; with the
+\ heap free, the same text gives 324 lines. Its IR has about 5,500
+\ characters; the program words first allocate 4,096.
+create heavy-text 2048 chars allot
+variable heavy#
+: heavy+ ( c-addr u -- ) heavy-text heavy# @ chars + swap dup heavy# +! chars move ;
+: heavy ( -- c-addr u )
+  0 heavy# ! s\" : f\n" heavy+
+  40 0 do s\" dup drop dup drop dup drop dup drop\n" heavy+ loop
+  s" ;" heavy+ heavy-text heavy# @ ;
+variable lines-sent
+create last-line 128 chars allot
+variable last-line#
+: count-line ( c-addr u -- )
+  1 lines-sent +! 128 min dup last-line# ! last-line swap chars move ;
+: last-text ( -- c-addr u ) last-line last-line# @ ;
+: heavy-run ( cap xt -- outcome lines )
+  >r heap-cap ! 0 lines-sent ! ['] count-line lf-verify-to heavy s" t.fs" r> execute
+  0 heap-cap ! ['] transcribe lf-verify-to lines-sent @ ;
+: full-line? ( -- flag ) last-text s" full @" search nip nip ;
+T{ 4096 ' lf-verify-text heavy-run lf-verify-reason full-line?
+   -> outcome-full 1 pv-why-capacity true }T
+T{ 4096 ' lf-alias-text heavy-run lf-verify-reason full-line?
+   -> outcome-full 1 pv-why-capacity true }T
+T{ 0 ' lf-verify-text heavy-run -> outcome-ok 324 }T
+T{ 0 ' lf-alias-text heavy-run -> outcome-ok 324 }T
 
 \ A caller whose search order is deeper than the run can keep: the run is
 \ refused as full before anything changes, the order is the caller's
@@ -542,5 +587,12 @@ variable shadow-misses
 : shadow-all ( -- n )
   0 shadow-misses ! pv-names store-count @ 0 ?do i pv-entry dup pv-entry-kind @
   pv-kind-reserved <> if one-shadow else drop then loop shadow-misses @ ;
+\ TYPE after S" is the host's own too (review rvIR3, L2): with TYPE alone
+\ shadowed, the mode shift refuses it at TYPE; the separate vocabulary,
+\ which finds its words by name, cannot see the change.
+s" type" shadow
+T{ s\" : f s\" xy\" type ;" shift-text lf-verify-reason lf-verify-where
+   -> outcome-unsupported pv-why-replaced 1 12 }T
+T{ s\" : f s\" xy\" type ;" alias-text -> outcome-ok }T
 T{ shadow-all -> 0 }T
 bye
