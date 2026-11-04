@@ -7,7 +7,7 @@
 \ Forth-2012's text interpreter with a third branch: take the next name
 \ with PARSE-NAME; find it with SEARCH-WORDLIST, the file's own words
 \ first, then FORTH-WORDLIST; if found, perform its verification
-\ semantics; otherwise it must be a plain decimal, read here. The loop
+\ semantics; otherwise it must be a number, read here. The loop
 \ runs inside each line as Forth's input source (the runner evaluates
 \ "pv-verify-line LINE" with only pv-verify-line visible), so PARSE-NAME,
 \ PARSE and >IN are Forth's own and :, ( and CONSTANT parse as Forth's do.
@@ -23,10 +23,12 @@
 \ both). The check concerns only the verifying session: no host word runs
 \ there, and run mode is another Forth, so a tampered host stays an
 \ assumption. The name is part of the identity because of that shared
-\ token. A reserved word (outside IR 0.1) is known by its name alone. A
+\ token. A reserved word (outside IR 0.2) is known by its name alone. A
 \ host word with no verification semantics, LeanForth's own included, is
 \ refused as unknown; no host word ever runs, and the host converts no
-\ number, so no recognizer of Gforth 1.0 acts.
+\ number, so no recognizer of Gforth 1.0 acts. The file's own words, every
+\ version of them, live in the file's word list, never in FORTH-WORDLIST,
+\ so they can neither trigger the identity check nor hide a host word.
 \
 \ Run mode is the same file in plain Forth: `include FILE`.
 \
@@ -36,7 +38,8 @@
 \   lf-verify-text ( c-addr u c-addr2 u2 -- outcome )  lines of text,
 \                                            named c-addr2 u2 in the header
 \ Example: s" src/program/clamp.fs" lf-verify-file  writes clamp's IR 0.1
-\ (tests/program/ir/clamp.ir) and gives outcome-ok.
+\ (tests/program/ir/clamp.ir) and gives outcome-ok; a file using IR 0.2's
+\ additions gets IR 0.2 (tests/program/ir/ir-0.2.ir).
 \
 \ Untrusted, like the rest of correctness mode; it runs source text, so it
 \ belongs in the authoring program, never in the checker's process. State:
@@ -50,8 +53,7 @@ require ./verify-runner.fs
   over pv-entry-kind @ pv-kind-reserved = pv-why-not-ir pv-?fail
   over pv-entry-host @ <> pv-why-replaced pv-?fail pv-perform ;
 \ A token with no entry: a host word refuses (even one named like a
-\ decimal, which run mode would call); anything else must be a plain
-\ decimal.
+\ decimal, which run mode would call); anything else must be a number.
 : pv-shift-other ( c-addr u xt|0 -- )
   pv-why-unknown pv-?fail pv-literal? 0= pv-why-unknown pv-?fail pv-lit ;
 : pv-shift-named ( c-addr u -- )
@@ -73,12 +75,16 @@ set-current
 : pv-shift-order ( -- ) pv-shift-entry-words 1 set-order ;
 : pv-shift-line ( -- ) pv-evaluated evaluate ;
 : pv-not-ours ( index -- ) drop pv-why-interrupted pv-fail-here ;
+\ A host word an action reads after its own token (TYPE after S"): it
+\ too must be the word the table knows.
+: pv-shift-host ( c-addr u entry -- ) >r pv-host r> pv-entry-host @ <> pv-why-replaced pv-?fail ;
 pv-design: pv-shift
 ' pv-shift-prefix pv-shift pv-design-prefix !
 ' pv-shift-order pv-shift pv-design-order !
 ' pv-shift-line pv-shift pv-design-line !
 ' pv-interrupted pv-shift pv-design-caught !
 ' pv-not-ours pv-shift pv-design-call !
+' pv-shift-host pv-shift pv-design-host !
 
 : lf-verify-file ( c-addr u -- outcome ) pv-shift pv-file-run ;
 : lf-verify-text ( c-addr u c-addr2 u2 -- outcome ) pv-shift pv-text-run ;

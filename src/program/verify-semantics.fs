@@ -1,30 +1,40 @@
-\ Verification semantics of IR 0.1 (ADR 0019 §1-§3): what each Forth word
-\ does in correctness mode, shared by both designs. `DUP` writes
-\ `prim dup`; `:` reads its name, as Forth's `:` does, defines it in the
-\ file's own word list and writes `word NAME`, leaving Forth interpreting;
-\ `IF` writes `if` and opens a frame; a word of the file writes `call
-\ NAME`; a plain decimal writes `lit n`. Inside a definition each
-\ instruction is written at once, one level deeper per open frame; outside
-\ one, the tokens before CONSTANT are kept and written as its body. The
-\ structure frames live here, never on the data stack, so no number can
-\ stand for one. A word refuses what IR 0.1 does not model, with the
-\ reasons of verify-report.fs.
+\ Verification semantics of IR 0.2 (ADR 0019 §1-§3 and Amendment 1): what
+\ each Forth word does in correctness mode, shared by both designs. `DUP`
+\ writes `prim dup`; `:` reads its name, as Forth's `:` does, defines it in
+\ the file's own word list and writes `word NAME`, leaving Forth
+\ interpreting; `IF` writes `if` and opens a frame; `.` writes `out .`; a
+\ word of the file writes `call NAME`; a number writes `lit n`. Inside a
+\ definition each instruction is written at once, one level deeper per
+\ open frame; outside one, the tokens before CONSTANT are kept and written
+\ as its body. The structure frames live here, never on the data stack, so
+\ no number can stand for one. A word refuses what IR 0.2 does not model,
+\ with the reasons of verify-report.fs.
 \
 \ The words with verification semantics are a table, pv-names, keyed by
-\ name (A-Z read as a-z, as Gforth finds names): the 38 primitives of IR
-\ 0.1 (in the order of Prim in tests/reference/program-ir.lean, each with
-\ its data-stack effect: taken, then given, as two digits), the 13 words
-\ with an action of their own, and every other name of Forth-2012's Core
-\ and Core Ext word sets, reserved: such a word refuses ("a Forth word
-\ outside IR 0.1") and no file may redefine it. Each entry also keeps the
-\ execution token that FORTH-WORDLIST gave for its name when this file
-\ loaded: its identity, by which the mode shift (verify.fs) knows the
-\ host's own word.
+\ name (A-Z read as a-z, as Gforth finds names): the 40 primitives of IR
+\ 0.2 (in the order of Prim in tests/reference/program-ir.lean, each with
+\ its data-stack effect: taken, then given, as two digits), the 7 output
+\ words (each with the cells it takes), the 16 words with an action of
+\ their own, and every other name of Forth-2012's Core and Core Ext word
+\ sets, reserved: such a word refuses ("a Forth word outside IR 0.2") and
+\ no file may redefine it. Each entry also keeps the execution token that
+\ FORTH-WORDLIST gave for its name when this file loaded: its identity, by
+\ which the mode shift (verify.fs) knows the host's own word; and whether
+\ it is new in IR 0.2 (lshift, -rot and the output words), whose lines make
+\ the run's IR 0.2. `-rot` and `.S` are no Core words, but both Gforths
+\ have them; src/lib/portability.fs defines `-rot` as `rot rot` on a Forth
+\ without it, which run mode must load first there.
 \
-\ Calls are bound early: Forth's own lookup finds a word of the file, the
-\ one visible at that point, and a name is defined once (a redefinition,
-\ in any case of letters, is refused), so writing the call by name is
-\ exact. Names that read as numbers are refused (owner's answer 4).
+\ Calls are bound early, as Forth binds them (Amendment 1, A1): Forth's own
+\ lookup finds the version of a word of the file visible at that point. A
+\ file may define its own words again, in any case of letters; each
+\ version gets its own IR name, the name folded to lower case, then 'k for
+\ its k-th redefinition (x, x'1, x'2), and a call names the version it
+\ reaches. A definition is hidden until its ; as in Forth, so its own name
+\ inside it means the version before it (none: "recursive call"). A name
+\ the IR already gives another version (x'1 after x twice) is refused, so
+\ IR names are unique; standard words may not be redefined; names that
+\ read as numbers are refused (owner's answer 4).
 \
 \ Untrusted, like verify-report.fs. State: one context record, pv-state,
 \ reset for each run, and the table, read-only once this file has loaded.
@@ -41,13 +51,15 @@ require ./verify-report.fs
 1 constant pv-kind-rstack        \ an IR primitive on the return stack: >r r> r@
 2 constant pv-kind-divide        \ / and mod, which can throw on the host
 3 constant pv-kind-action        \ a word with an action of its own: : ; if ...
-4 constant pv-kind-reserved      \ a standard word outside IR 0.1
+4 constant pv-kind-reserved      \ a standard word outside IR 0.2
+5 constant pv-kind-output        \ an output word: . u. cr emit space spaces .s
 
 16 constant pv-entry-chars       \ longest name in the table
 begin-structure /pv-entry
   field: pv-entry-kind
-  field: pv-entry-datum          \ a primitive's effect, or an action's xt
+  field: pv-entry-datum          \ a primitive's effect, an output word's cells, an action's xt
   field: pv-entry-host           \ the xt FORTH-WORDLIST gave for the name, or 0
+  field: pv-entry-new            \ true for a word new in IR 0.2
   field: pv-entry-length
   pv-entry-chars chars aligned +field pv-entry-name
 end-structure
@@ -71,6 +83,7 @@ end-structure
 : pv-entry-of ( c-addr u -- entry true | false )
   pv-names store-count @ 0 ?do 2dup i pv-entry pv-names? if 2drop i pv-entry true unloop
     exit then loop 2drop false ;
+: pv-table-name? ( c-addr u -- flag ) pv-entry-of dup if nip then ;
 
 \ Making the table, while this file loads; a name twice, or too long, aborts.
 : pv-host ( c-addr u -- xt|0 ) forth-wordlist search-wordlist 0= if 0 then ;
@@ -94,21 +107,64 @@ end-structure
 : pv-reserve ( c-addr u -- ) 0 -rot pv-name, pv-kind-reserved pv-typed ;
 : pv-reserve-all ( c-addr u -- )
   begin lfa-next-token dup while pv-reserve repeat 2drop 2drop ;
+\ The entry made last is new in IR 0.2.
+: pv-ir-0.2 ( -- ) true pv-names store-count @ 1- pv-entry pv-entry-new ! ;
+: pv-output ( cells c-addr u -- ) pv-name, pv-kind-output pv-typed pv-ir-0.2 ;
 
-\ Literals: a minus sign or none, then one to ten decimal digits, at most
-\ 2147483647 in size, so that the same source suits 32-bit cells; the
-\ value is read here, never by the host.
-2147483647 constant pv-literal-max
-10 constant pv-digits-max
+\ Literals (Amendment 1, A3): Forth-2012's numbers, read here with BASE
+\ ten, never by the host: [-]decimal digits, #[-]decimal digits,
+\ $[-]hexadecimal digits (either case), %[-]binary digits, or 'c' for one
+\ printable character, from -2^31 to 2^32 - 1, so that every 32-bit word,
+\ signed or unsigned, can be written. At most 10 decimal, 8 hexadecimal or
+\ 32 binary digits, so that leading zeros stay limited as before. The value
+\ is a double, exact on 32-bit hosts too. Refused: a sign before a prefix
+\ (-$10, on which the hosts differ) or before 'c', Gforth's digit
+\ separator (1_000), 0x10, double numbers (1.) and every other form.
+: pv-digit? ( char -- flag ) [char] 0 [char] 9 1+ within ;
+: pv-letter? ( char -- flag ) pv-lower [char] a [char] z 1+ within ;
+\ The value of a digit or letter, 99 for any other character.
+: pv-digit-value ( char -- n )
+  dup pv-digit? if [char] 0 - exit then
+  dup pv-letter? if pv-lower [char] a - 10 + else drop 99 then ;
+: pv-in-base? ( char base -- n true | false )
+  swap pv-digit-value tuck > if true else drop false then ;
+\ d times base plus n.
+: pv-d*+ ( d base n -- d' ) >r tuck * >r um* r> + r> 0 d+ ;
+: pv-digit+ ( d char base -- d' true | false )
+  tuck pv-in-base? if pv-d*+ true else drop 2drop false then ;
+\ The value of the digits c-addr u in base, or false at a character that
+\ is no digit of it.
+: pv-digits ( c-addr u base -- d true | false )
+  >r 0 0 begin 2over nip while
+    2over drop c@ r@ pv-digit+ 0= if 2drop r> drop false exit then
+    2swap 1 /string 2swap
+  repeat 2swap 2drop r> drop true ;
+\ One to max digits.
+: pv-numeral ( c-addr u base max -- d true | false )
+  2 pick swap 1+ 1 swap within if pv-digits else 2drop drop false then ;
 : pv-negative ( c-addr u -- c-addr' u' flag )
   dup if over c@ [char] - = if 1 /string true exit then then false ;
-: pv-convert ( c-addr u -- ud c-addr' u' ) 0 0 2swap base @ >r decimal >number r> base ! ;
-: pv-fits? ( u -- u true | false ) dup pv-literal-max u> if drop false else true then ;
-: pv-whole? ( c-addr u -- u true | false )
-  dup 1 pv-digits-max 1+ within 0= if 2drop false exit then
-  pv-convert nip 0= swap 0= and if pv-fits? else drop false then ;
-: pv-literal? ( c-addr u -- n true | false )
-  pv-negative >r pv-whole? if r> if negate then true else r> drop false then ;
+\ The largest magnitude: 2^31 below zero, 2^32 - 1 above.
+: pv-limit ( negative? -- d ) if 32768 65536 um* else 65536 65536 um* 1 0 d- then ;
+: pv-in-range? ( d negative? -- d' true | false )
+  dup >r pv-limit 2over du< if 2drop r> drop false exit then r> if dnegate then true ;
+: pv-signed ( c-addr u base max -- d true | false )
+  2swap pv-negative >r 2swap pv-numeral if r> pv-in-range? else r> drop false then ;
+\ After a prefix, or without one.
+: pv-prefixed ( c-addr u -- d true | false )
+  dup 0= if 2drop false exit then
+  over c@ case
+    [char] # of 1 /string 10 10 pv-signed endof
+    [char] $ of 1 /string 16 8 pv-signed endof
+    [char] % of 1 /string 2 32 pv-signed endof
+    >r 10 10 pv-signed r> endcase ;
+: pv-quote-char? ( c-addr -- flag ) c@ [char] ' = ;
+: pv-char-literal? ( c-addr u -- d true | false )
+  3 <> if drop false exit then
+  dup pv-quote-char? over 2 chars + pv-quote-char? and 0= if drop false exit then
+  char+ c@ dup bl 1+ 127 within if 0 true else drop false then ;
+: pv-literal? ( c-addr u -- d true | false )
+  2dup pv-char-literal? if 2swap 2drop true exit then pv-prefixed ;
 
 \ Names that read as numbers, refused for every definition: anything that
 \ Forth-2012 or Gforth (1.0 or 0.7.3) could read as a number with BASE
@@ -119,12 +175,10 @@ end-structure
 \ an SI prefix standing for the point); or a point before a digit, _ or a
 \ prefixed hexadecimal letter (Gforth 1.0 reads .5 as a float, ._ and $.a
 \ as numbers). So 5, -0, 1e, $10, 'a', -'a', .5, _1, -_1, #_1 and -k1 are
-\ refused, and ->x, "x", x:dup and -rot are names. tests/program/verify.fs
+\ refused, and ->x, "x" and x:dup are names. tests/program/verify.fs
 \ checks the rule against the running Gforth: every token of one to three
 \ printable characters that it reads with an empty search order must be
 \ refused here.
-: pv-digit? ( char -- flag ) [char] 0 [char] 9 1+ within ;
-: pv-letter? ( char -- flag ) pv-lower [char] a [char] z 1+ within ;
 : pv-hex-letter? ( char -- flag ) pv-lower [char] a [char] f 1+ within ;
 : pv-sign? ( char -- flag ) dup [char] + = swap [char] - = or ;
 : pv-prefix? ( char -- flag ) dup [char] # [char] & 1+ within swap pv-sign? or ;
@@ -155,29 +209,34 @@ end-structure
 : pv-number-like? ( c-addr u -- flag ) pv-prefixes pv-numeric-rest? ;
 
 \ The run's state.
-31 constant pv-name-max          \ longest definition name
-32 constant pv-defs-max          \ definitions per file
+31 constant pv-name-max          \ longest definition name in the source
+32 constant pv-defs-max          \ definitions per file, each version counted
+36 constant pv-ir-name-max       \ longest IR name: a source name, ' and a version
 8 constant pv-frames-max         \ open IF and BEGIN structures
 8 constant pv-kept-max           \ tokens before CONSTANT
 \ The deepest line is written at level pv-frames-max + 1 (verify-report.fs).
 pv-frames-max 1+ 2* pv-indent-chars > [if] .( pv: indentation too short ) abort [then]
+pv-defs-max 100 < 0= [if] .( pv: version numbers too long ) abort [then]
 0 constant pv-kind-word
 1 constant pv-kind-constant
 begin-structure /pv-def
   field: pv-def-kind             \ pv-kind-word or pv-kind-constant
+  field: pv-def-prev             \ the version of the name this one replaces, or -1
+  field: pv-def-version          \ 0 for the name's first definition, k for its k-th redefinition
   field: pv-def-length
-  pv-name-max chars aligned +field pv-def-name   \ folded to lower case
+  pv-ir-name-max chars aligned +field pv-def-name   \ the IR name
 end-structure
 pv-defs-max /pv-def aligned store-size constant /pv-defs
 \ A token kept until CONSTANT: a primitive (value: its entry), a literal
-\ (value: the number) or a call (value: the definition's index), and
-\ where it stood.
+\ (value and high: the number, a double) or a call (value: the
+\ definition's index), and where it stood.
 0 constant pv-kept-prim
 1 constant pv-kept-lit
 2 constant pv-kept-call
 begin-structure /pv-kept
   field: pv-kept-kind
   field: pv-kept-value
+  field: pv-kept-high
   field: pv-kept-pos             \ as lfa-pos
 end-structure
 1 constant pv-frame-if
@@ -212,14 +271,14 @@ end-structure
 
 \ Definitions of the file.
 : pv-def ( index -- def ) pv-defs store-slot ;
-: pv-def-text ( index -- c-addr u ) pv-def dup pv-def-name swap pv-def-length @ ;
+: pv-def-chars ( def -- c-addr u ) dup pv-def-name swap pv-def-length @ ;
+: pv-def-text ( index -- c-addr u ) pv-def pv-def-chars ;
 : pv-in-def? ( -- flag ) pv-current @ 0< 0= ;
 : pv-constant? ( index -- flag ) pv-def pv-def-kind @ pv-kind-constant = ;
-\ The index of a word the file defined, found as Forth finds it.
+\ The index of the version of a word of the file visible now, found as
+\ Forth finds it: its newest header.
 : pv-file-word ( c-addr u -- index true | false )
   pv-words @ search-wordlist if >body @ true else false then ;
-: pv-known? ( c-addr u -- flag ) 2dup pv-entry-of if drop 2drop true exit then
-  pv-file-word dup if nip then ;
 
 \ Define the name at offset in the line in the file's word list, as
 \ Forth's CREATE reads it from the input source. When Forth's interpreter
@@ -230,24 +289,45 @@ end-structure
   does> @ pv-word-runs ;
 
 \ The name after a defining word, on the same line, becomes the current
-\ token; it must be short, new in any case of letters, and no number.
+\ token; it must be short, no standard word in any case of letters, and no
+\ number. A name of the file's own may be defined again.
 : pv-name ( -- ) parse-name dup 0= if 2drop pv-why-no-name pv-fail-here then pv-token! ;
 : pv-name-check ( -- )
   pv-token-text nip pv-name-max >  pv-why-long-name pv-?fail
-  pv-token-text pv-known?          pv-why-redefined pv-?fail
+  pv-token-text pv-table-name?     pv-why-redefined pv-?fail
   pv-token-text pv-number-like?    pv-why-number-name pv-?fail ;
-\ A definition's name, folded to lower case.
-: pv-def-name! ( c-addr u def -- )
-  2dup pv-def-length ! pv-def-name swap 2dup 2>r chars move 2r> pv-fold ;
-: pv-def! ( kind def -- ) tuck pv-def-kind ! pv-token-text rot pv-def-name! ;
+\ The definition's IR name: the token folded to lower case, then 'k for
+\ the k-th redefinition of that name.
+: pv-def+ ( c-addr u def -- )
+  >r r@ pv-def-chars chars + swap dup >r chars move r> r> pv-def-length +! ;
+: pv-version-suffix ( def -- )
+  dup pv-def-version @ ?dup if s" '" 3 pick pv-def+ pv-decimal rot pv-def+ else drop then ;
+: pv-ir-name! ( def -- )
+  0 over pv-def-length ! pv-token-text 2 pick pv-def+ dup pv-def-chars pv-fold
+  pv-version-suffix ;
+\ The version the token's new definition replaces, if any, and its number.
+: pv-replaced ( -- index|-1 ) pv-token-text pv-file-word 0= if -1 then ;
+: pv-version-of ( prev -- k ) dup 0< if drop 0 else pv-def pv-def-version @ 1+ then ;
+: pv-def! ( kind def -- )
+  tuck pv-def-kind ! pv-replaced 2dup swap pv-def-prev ! pv-version-of
+  over pv-def-version ! pv-ir-name! ;
+\ Whether an earlier definition has the IR name of def, the newest.
+: pv-same-name? ( def index -- flag ) pv-def-text rot pv-def-chars compare 0= ;
+: pv-name-taken? ( def -- flag )
+  pv-defs store-count @ 1- 0 ?do dup i pv-same-name? if drop true unloop exit then loop
+  drop false ;
 : pv-new-def ( kind -- index )
-  pv-defs store-new-slot 0= if drop pv-why-capacity pv-fail then >r pv-def! r> ;
+  pv-defs store-new-slot 0= if drop pv-why-capacity pv-fail then
+  >r tuck pv-def! pv-name-taken? pv-why-version-name pv-?fail r> ;
 : pv-define ( kind -- index ) pv-name pv-name-check pv-new-def dup pv-token @ pv-create ;
 
 \ Writing instructions: at the current level inside a definition.
 : pv-line-start ( c-addr u -- ) pv-depth @ 1+ pv-indent pv-append ;
 : pv-keyword ( c-addr u level -- ) pv-indent pv-append pv-done ;
 : pv-call-text ( index -- ) pv-def-text pv-append ;
+\ A primitive: its line marks the IR as 0.2 when the primitive is new.
+: pv-prim-text ( entry -- )
+  s" prim " pv-append dup pv-entry-new @ if pv-new-ir then pv-entry-text pv-append ;
 
 \ Outside a definition: the cells the kept tokens leave, counted with each
 \ primitive's effect; taking more than the file gave would take values
@@ -263,13 +343,14 @@ end-structure
 \ Literals, calls and primitives. Outside a definition each is kept, a
 \ literal and a constant's call giving one cell.
 : pv-keep-one ( value kind -- ) 0 1 pv-take pv-keep ;
-: pv-lit-inside ( n -- ) s" lit " pv-line-start pv-number pv-done ;
-: pv-lit ( n -- ) pv-in-def? if pv-lit-inside else pv-kept-lit pv-keep-one then ;
-\ A word is visible inside its own definition, but Gforth hides it until
-\ ; so a call there would be of an earlier word of that name.
-: pv-call-inside ( index -- )
-  dup pv-current @ = pv-why-recursive pv-?fail
-  s" call " pv-line-start pv-call-text pv-done ;
+: pv-lit-inside ( d -- ) s" lit " pv-line-start pv-number-d pv-done ;
+: pv-lit-top ( d -- ) >r pv-kept-lit pv-keep-one r> pv-kept# @ 1- pv-kept pv-kept-high ! ;
+: pv-lit ( d -- ) pv-in-def? if pv-lit-inside else pv-lit-top then ;
+\ A word is hidden inside its own definition until its ; (Forth's
+\ hiding): its name there means the version before it, if any.
+: pv-visible ( index -- index' )
+  dup pv-current @ = if pv-def pv-def-prev @ dup 0< pv-why-recursive pv-?fail then ;
+: pv-call-inside ( index -- ) pv-visible s" call " pv-line-start pv-call-text pv-done ;
 : pv-call-top ( index -- )
   dup pv-constant? 0= pv-why-outside pv-?fail pv-kept-call pv-keep-one ;
 : pv-call ( index -- ) pv-in-def? if pv-call-inside else pv-call-top then ;
@@ -282,14 +363,8 @@ end-structure
     pv-kind-divide of pv-why-dividing pv-fail endof endcase ;
 : pv-prim-top ( entry -- )
   dup pv-entry-kind @ pv-top-refused dup pv-effect pv-take pv-kept-prim pv-keep ;
-: pv-prim-inside ( entry -- ) s" prim " pv-line-start pv-entry-text pv-append pv-done ;
+: pv-prim-inside ( entry -- ) pv-depth @ 1+ pv-indent pv-prim-text pv-done ;
 : pv-prim ( entry -- ) pv-in-def? if pv-prim-inside else pv-prim-top then ;
-\ A table entry's verification semantics.
-: pv-perform ( entry -- )
-  dup pv-entry-kind @ case
-    pv-kind-action of pv-entry-datum @ execute endof
-    pv-kind-reserved of drop pv-why-not-ir pv-fail endof
-    swap pv-prim endcase ;
 
 \ Structure: each word writes its line and keeps the frames.
 : pv-inside ( -- ) pv-in-def? 0= pv-why-outside pv-?fail ;
@@ -311,13 +386,51 @@ end-structure
 : pv-then ( -- ) pv-inside pv-if-open? 0= pv-unbalanced? s" then" pv-close ;
 : pv-begin ( -- ) pv-inside s" begin" pv-frame-begin pv-open ;
 \ Forth-2012 allows more WHILEs in one BEGIN, each closed by a THEN after
-\ REPEAT; IR 0.1 has one.
+\ REPEAT; IR 0.2 has one.
 : pv-while ( -- )
   pv-inside pv-frame-while pv-top? pv-why-two-whiles pv-?fail
   pv-frame-begin pv-frame-while pv-retag s" while" pv-beside ;
 : pv-repeat ( -- )
   pv-inside pv-frame-while pv-top? 0= pv-unbalanced? s" repeat" pv-close ;
 : pv-exit ( -- ) pv-inside s" exit" pv-line-start pv-done ;
+
+\ Output words (Amendment 1, A2), only inside definitions: `.` writes
+\ `out .`, its stack effect only taking one cell; what it prints is an
+\ event, which no stack proof reads. Every out line makes the IR 0.2.
+: pv-out-line ( -- ) s" out " pv-line-start pv-new-ir ;
+: pv-out-word ( entry -- ) pv-inside pv-out-line pv-entry-text pv-append pv-done ;
+\ ." text" and S" text" TYPE write out ." text": the text after the one
+\ blank that ends the word, up to the next quote, which must close it on
+\ the same line; a tab in it is refused, since IR text holds none. S"
+\ must be followed at once by TYPE, the host's own as the design knows
+\ words; S" anywhere else, TYPE alone, S\" and .( stay refused: a string's
+\ address is memory, and .( prints while Forth compiles.
+: pv-line-end ( -- c-addr ) pv-text chars + ;
+: pv-tab? ( char -- flag ) 9 = ;
+: pv-has-tab? ( c-addr u -- flag ) tuck ['] pv-tab? text-scan > ;
+: pv-quoted ( -- c-addr u )
+  [char] " parse 2dup chars + pv-line-end < 0= pv-why-open-text pv-?fail
+  2dup pv-has-tab? pv-why-character pv-?fail ;
+: pv-out-text ( c-addr u -- )
+  pv-out-line s\" .\q " pv-append pv-append s\" \q" pv-append pv-done ;
+: pv-dot-quote ( -- ) pv-inside pv-quoted pv-out-text ;
+: pv-type? ( c-addr u -- flag ) pv-entry-of if pv-entry-text s" type" compare 0= else false then ;
+\ The token after S" must be TYPE; it is the current token while the
+\ design checks it, S" before and after.
+: pv-then-type ( -- )
+  pv-token @ pv-token# @ parse-name 2dup pv-type? 0= pv-why-not-ir pv-?fail
+  2dup pv-token! 2dup pv-entry-of drop pv-design@ pv-design-host @ execute
+  pv-token# ! pv-token ! ;
+: pv-s-quote ( -- ) pv-inside pv-quoted pv-then-type pv-out-text ;
+: pv-type-alone ( -- ) pv-why-not-ir pv-fail ;
+
+\ A table entry's verification semantics.
+: pv-perform ( entry -- )
+  dup pv-entry-kind @ case
+    pv-kind-action of pv-entry-datum @ execute endof
+    pv-kind-reserved of drop pv-why-not-ir pv-fail endof
+    pv-kind-output of pv-out-word endof
+    swap pv-prim endcase ;
 
 \ Definitions. The location of `word` is the colon's; of `constant` and
 \ its `end`, the constant's name; of a word's `end`, the semicolon.
@@ -329,14 +442,15 @@ end-structure
 : pv-end ( -- ) s" end" pv-append pv-done ;
 : pv-semicolon ( -- ) pv-inside pv-depth @ 0<> pv-unbalanced? pv-end -1 pv-current ! ;
 \ A kept token's instruction: there are only three kinds.
-: pv-kept-text ( value kind -- )
-  case pv-kept-prim of s" prim " pv-append pv-entry-text pv-append endof
-    pv-kept-lit of s" lit " pv-append pv-number endof
-    pv-kept-call of s" call " pv-append pv-call-text endof
+: pv-kept-lit-text ( kept -- )
+  s" lit " pv-append dup pv-kept-value @ swap pv-kept-high @ pv-number-d ;
+: pv-kept-text ( kept -- )
+  dup pv-kept-kind @ case
+    pv-kept-prim of pv-kept-value @ pv-prim-text endof
+    pv-kept-lit of pv-kept-lit-text endof
+    pv-kept-call of s" call " pv-append pv-kept-value @ pv-call-text endof
     true abort" pv: kept kind" endcase ;
-: pv-replay ( kept -- )
-  1 pv-indent dup pv-kept-value @ over pv-kept-kind @ pv-kept-text
-  pv-kept-pos @ pv-done-at ;
+: pv-replay ( kept -- ) 1 pv-indent dup pv-kept-text pv-kept-pos @ pv-done-at ;
 : pv-replay-all ( -- )
   pv-kept# @ 0 ?do i pv-kept pv-replay loop 0 pv-kept# ! 0 pv-values ! ;
 : pv-constant-lines ( index -- )
@@ -350,7 +464,6 @@ end-structure
 \ BASE is ten for the whole run, so DECIMAL changes nothing.
 : pv-base-ten ( -- ) pv-top-only ;
 \ Comments: ( must close on its line; \ ends the line.
-: pv-line-end ( -- c-addr ) pv-text chars + ;
 : pv-paren ( -- ) [char] ) parse chars + pv-line-end < 0= pv-why-comment pv-?fail ;
 : pv-backslash ( -- ) source nip >in ! ;
 
@@ -359,8 +472,9 @@ end-structure
   pv-no-token pv-in-def? pv-why-unclosed pv-?fail-here
   pv-kept# @ 0<> pv-why-left-over pv-?fail-here ;
 
-\ The table: the 13 words with an action of their own, the 38 primitives
-\ of IR 0.1 in the order of Prim in program-ir.lean, and the reserved
+\ The table: the 16 words with an action of their own, the 40 primitives
+\ of IR 0.2 in the order of Prim in program-ir.lean (the last two new in
+\ IR 0.2), the 7 output words with the cells each takes, and the reserved
 \ names of Forth-2012 Core and Core Ext (\q is a double quote).
 ' pv-colon s" :" pv-act           ' pv-semicolon s" ;" pv-act
 ' pv-constant s" constant" pv-act ' pv-base-ten s" decimal" pv-act
@@ -369,6 +483,8 @@ end-structure
 ' pv-then s" then" pv-act         ' pv-begin s" begin" pv-act
 ' pv-while s" while" pv-act       ' pv-repeat s" repeat" pv-act
 ' pv-exit s" exit" pv-act
+' pv-dot-quote s\" .\q" pv-act    ' pv-s-quote s\" s\q" pv-act
+' pv-type-alone s" type" pv-act
 12 s" dup" pv-data     10 s" drop" pv-data    22 s" swap" pv-data
 23 s" over" pv-data    21 s" nip" pv-data     23 s" tuck" pv-data
 33 s" rot" pv-data     24 s" 2dup" pv-data    20 s" 2drop" pv-data
@@ -382,15 +498,19 @@ end-structure
 21 s" or" pv-data      21 s" xor" pv-data     11 s" invert" pv-data
 21 s" rshift" pv-data  21 s" max" pv-data     21 s" min" pv-data
 01 s" true" pv-data    01 s" false" pv-data
-s\" ! # #> #s ' */ */mod +! +loop , . .\q /mod 2! 2* 2/ 2@ 2over 2swap <# >body >in"
+21 s" lshift" pv-data pv-ir-0.2               33 s" -rot" pv-data pv-ir-0.2
+1 s" ." pv-output      1 s" u." pv-output     0 s" cr" pv-output
+1 s" emit" pv-output   0 s" space" pv-output  1 s" spaces" pv-output
+0 s" .s" pv-output
+s\" ! # #> #s ' */ */mod +! +loop , /mod 2! 2* 2/ 2@ 2over 2swap <# >body >in"
 pv-reserve-all
 s\" >number ?dup @ abort abort\q accept align aligned allot base bl c! c, c@ cell+"
 pv-reserve-all
-s\" cells char char+ chars count cr create depth do does> emit environment? evaluate"
+s\" cells char char+ chars count create depth do does> environment? evaluate"
 pv-reserve-all
-s\" execute fill find fm/mod here hold i immediate j key leave literal loop lshift m*"
+s\" execute fill find fm/mod here hold i immediate j key leave literal loop m*"
 pv-reserve-all
-s\" move postpone quit recurse s\q s>d sign sm/rem source space spaces state type u."
+s\" move postpone quit recurse s>d sign sm/rem source state"
 pv-reserve-all
 s\" u< um* um/mod unloop until variable word [ ['] [char] ]" pv-reserve-all
 s\" .( .r 2>r 2r> 2r@ :noname ?do action-of again buffer: c\q case compile, defer"
