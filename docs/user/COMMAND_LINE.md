@@ -9,7 +9,12 @@ depends on. Until the owner approves the checker, Lean's own kernel is the
 referee. **Today's check holds small exports only** — 64 names, 64 levels,
 64 term nodes and 32 declarations per export — so it works on test
 fixtures such as the ones below, and any larger export ends *full*
-(exit status 3). Growing the stores is plan task 3.3.1.
+(exit status 3). The stores themselves now grow (plan task 3.3.1), and
+the Forth words that stage an export and feed it to the checker take any
+size (all of `Init`; see [NDJSON_READER.md](../development/NDJSON_READER.md#feeding-the-checker)),
+but `check` still reads the export with the first reader and keeps its run
+record in tables sized for these defaults; moving `check` onto the feed is
+the next step.
 
 Every example on this page is run by `make test` (the shell and Forth
 examples) and `make check` (the Lean ones), and must print exactly what is
@@ -292,8 +297,9 @@ exit status 4
 
 `check --record RECORD` also writes the *run record* of the check
 ([run records](../programming/RUN_RECORDS.md), format 0.1, plan task
-2.2.5): which file was checked (its SHA-256, size, lines and whether its
-manifest matched), which Lean and exporter wrote it, which LeanForth
+2.2.5): which file was checked (its SHA-256, size, lines, whether its
+manifest matched, and whether the check enforced it: true by default,
+false with `--no-manifest`), which Lean and exporter wrote it, which LeanForth
 commit and Forth system checked it (the commit `bin/leanforth` finds with
 git, or null), with which fuel and limits, and each declaration's verdict,
 read from its published slot. The printed verdicts and the exit status are

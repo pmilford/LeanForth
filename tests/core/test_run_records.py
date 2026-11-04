@@ -38,6 +38,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import unicodedata
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tests" / "support"))
@@ -151,6 +152,8 @@ class Checks:
         outcome = facts["manifest"]["outcome"]
         self.expect((outcome == "ok") == manifest, f"{export}: manifest {outcome}")
         self.expect(data["export"] == PINNED, f"{export}: export {data['export']}")
+        self.expect(facts["manifest"]["enforced"] is False,
+                    f"{export}: the driver reads without the manifest, never enforced")
         self.expect(data["check"] == {"read": "ok", "run": "ok", "mode": "final",
                                       "allowlistVersion": 0}, f"{export}: check")
         self.expect(data["settings"]["fuel"] == FUEL, f"{export}: fuel")
@@ -317,13 +320,13 @@ class Checks:
         # mode and allowlist version, and runs that cannot list a verdict.
         host = lambda **kw: lambda d: d["host"].update(**kw)  # noqa: E731
         name = lambda value: lambda d: d["declarations"][0].update(name=value)  # noqa: E731
-        refused("engine with U+202E", comp, host(engine="gforth‮"))
-        refused("version with a zero-width space", comp, host(version="1.0.0​"))
+        refused("engine with U+202E", comp, host(engine="gforth\u202e"))
+        refused("version with a zero-width space", comp, host(version="1.0.0\u200b"))
         refused("forth with U+0085", comp, host(forth="gforth\u0085"))
         refused("forth empty", comp, host(forth=""))
-        refused("forth blank", comp, host(forth="　 "))
+        refused("forth blank", comp, host(forth="\u3000 "))
         refused("version over 128 bytes", comp, host(version="x" * 129))
-        refused("name with U+2028", comp, name("composition "))
+        refused("name with U+2028", comp, name("composition\u2028"))
         refused("name with a line feed", comp, name("composition\n"))
         refused("name with a tag character", comp, name("composition\U000e0041"))
         refused("name blank", comp, name(" "))
@@ -345,16 +348,28 @@ class Checks:
                 lambda d: d["check"].update(run="invalid", mode=None, allowlistVersion=None))
         refused("run ok without its mode", comp,
                 lambda d: d["check"].update(mode=None, allowlistVersion=None))
+        # rvRP round 2: names that look blank, and an enforced manifest the
+        # input does not match.
+        for label, value in [("U+3164", "\u3164"), ("U+115F", "\u115f"), ("U+1160", "\u1160"),
+                             ("U+2800", "\u2800"), ("U+FFA0", "\uffa0"),
+                             ("combining marks", "\u0301\u0302"), ("U+034F", "\u034f"),
+                             ("variation selectors", "\ufe0f\U000e0100"),
+                             ("filler and space", "\u3164 \u2800")]:
+            refused(f"name of {label} only", comp, name(value))
+        refused("enforced manifest that does not match", wrong,
+                lambda d: d["input"]["manifest"].update(enforced=True))
+        refused("manifest without enforced", comp,
+                lambda d: d["input"]["manifest"].pop("enforced"))
         # Names in any script stay valid.
         data = copy.deepcopy(comp)
-        data["declarations"][0]["name"] = "α.β₁"
+        data["declarations"][0]["name"] = "\u03b1.\u03b2\u2081"
         self.expect(not RECORD_SCHEMA.errors(data), "schema refuses a non-ASCII name")
 
     # Review F2: a key of the old record cut in a path never splits a
     # character, and the report stays one JSON text.
     def long_key(self):
         comp = "tests/reference/composition.ndjson"
-        key = "x" + "é" * 100
+        key = "x" + "\u00e9" * 100
         path = self.tmp / "long-key.json"
         data = json.loads(Path(self.out(comp)).read_text())
         data[key] = 1
@@ -367,11 +382,51 @@ class Checks:
 
     # The schemas' patterns mean the same in ECMA-262 (node, u flag) and in
     # the Python reading of schema_subset.py, on samples of every kind.
-    SAMPLES = ["", "a", " ", "x" * 128, "x" * 129, "é" * 128, "é" * 129, "a​b",
-               "a b", "a\rb", "a\nb", "\x00", "\x85", "­", "﻿", "ㅤ",
-               "　", " x", "a\U000110bd", "a\U0001d173", "a\U000e0041",
+    SAMPLES = ["", "a", " ", "x" * 128, "x" * 129, "\u00e9" * 128, "\u00e9" * 129, "a\u200bb",
+               "a\u2028b", "a\rb", "a\nb", "\x00", "\x85", "\u00ad", "\ufeff", "\u3164",
+               "\u3000", "\u00a0x", "a\U000110bd", "a\U0001d173", "a\U000e0041",
                "a\U0001f600", "a\ud800", "\U000e0001", "0" * 64, "0" * 40, "mixed-infer",
-               "$.declarations[0].verdict", "α"]
+               "$.declarations[0].verdict", "\u03b1", "\u115f", "\u2800", "\uffa0",
+               "\u0301\u0302", "a\u0301", "\ufe0f", "\U000e0100", "\u1160x"]
+
+    # The characters that are not seen (text-rule.fs's tr-unseen and the
+    # schema's shown pattern) are exactly spaces, the fillers, combining
+    # marks (category M) and default-ignorable code points of Unicode 15.1,
+    # recomputed here from Python's Unicode data when it is that version.
+    SPACES = [(0x20, 0x20), (0xa0, 0xa0), (0x1680, 0x1680), (0x2000, 0x200a),
+              (0x202f, 0x202f), (0x205f, 0x205f), (0x3000, 0x3000)]
+    FILLERS = [(0x115f, 0x1160), (0x2800, 0x2800), (0x3164, 0x3164), (0xffa0, 0xffa0)]
+    # DerivedCoreProperties.txt, Unicode 15.1: Default_Ignorable_Code_Point.
+    IGNORABLE = [(0x00ad, 0x00ad), (0x034f, 0x034f), (0x061c, 0x061c), (0x115f, 0x1160),
+                 (0x17b4, 0x17b5), (0x180b, 0x180f), (0x200b, 0x200f), (0x202a, 0x202e),
+                 (0x2060, 0x206f), (0x3164, 0x3164), (0xfe00, 0xfe0f), (0xfeff, 0xfeff),
+                 (0xffa0, 0xffa0), (0xfff0, 0xfff8), (0x1bca0, 0x1bca3), (0x1d173, 0x1d17a),
+                 (0xe0000, 0xe0fff)]
+
+    def unseen(self):
+        if unicodedata.unidata_version != "15.1.0":
+            print(f"Python's Unicode is {unicodedata.unidata_version}: unseen table not rebuilt")
+            return
+        unseen = set()
+        for lo, hi in self.SPACES + self.FILLERS + self.IGNORABLE:
+            unseen |= set(range(lo, hi + 1))
+        unseen |= {cp for cp in range(0x110000)
+                   if unicodedata.category(chr(cp)).startswith("M")}
+        source = Path("src/import/text-rule.fs").read_text()
+        table = source.split("create tr-unseen", 1)[1].split("here tr-unseen", 1)[0]
+        values = [int(v, 16) for v in re.findall(r"\$([0-9a-f]+) ,", table)]
+        forth = set()
+        for lo, hi in zip(values[::2], values[1::2]):
+            forth |= set(range(lo, hi + 1))
+        self.expect(forth == unseen, f"tr-unseen differs from Unicode 15.1 by "
+                    f"{len(forth ^ unseen)} code points")
+        shown = RECORD_SCHEMA._patterns[RECORD_SCHEMA.root["$defs"]["shown"]["allOf"][1]
+                                        ["pattern"]]
+        schema = {cp for cp in range(0x110000) if not 0xd800 <= cp <= 0xdfff
+                  and not shown.search(chr(cp))}
+        self.expect(schema == unseen - set(range(0xd800, 0xe000)),
+                    f"the schema's shown class differs from Unicode 15.1 by "
+                    f"{len(schema ^ unseen)} code points")
 
     def ecma(self):
         node = shutil.which("node")
@@ -393,7 +448,7 @@ class Checks:
             python = [bool(schema._patterns[pattern].search(s)) for s in self.SAMPLES]
             self.expect(python == results, f"ECMA and Python differ on {pattern[:40]}")
 
-    # The writer's text rule (rr-rule?, rr-shown?) against the schema's
+    # The writer's text rule (tr-rule?, tr-shown?) against the schema's
     # patterns, at both ends of every range they name and around them.
     def text_rule(self):
         defs = RECORD_SCHEMA.root["$defs"]
@@ -408,8 +463,8 @@ class Checks:
         points = sorted({p + d for p in points for d in (-1, 0, 1) if 0 <= p + d <= 0x10ffff})
         lines = ["require ~+/tests/support/run-records.fs", "include ~+/tests/support/tester.fs",
                  "create one-char 4 allot",
-                 ": rule? ( code -- f s ) one-char utf8-put one-char swap 2dup rr-rule? -rot"
-                 " rr-shown? ;"]
+                 ": rule? ( code -- f s ) one-char utf8-put one-char swap 2dup tr-rule? -rot"
+                 " tr-shown? ;"]
         for point in points:
             char = chr(point)
             ok, seen = bool(text.search(char)), bool(text.search(char) and shown.search(char))
@@ -453,6 +508,7 @@ def main():
             checks.long_key()
             checks.ecma()
             checks.text_rule()
+            checks.unseen()
         if args.other_gforth:
             checks.other(args.other_gforth)
     for failure in checks.failures:

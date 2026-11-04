@@ -1,8 +1,9 @@
 \ Run records and their replay without the export's manifest (plan task
 \ 2.2.5; docs/programming/RUN_RECORDS.md): the driver of
 \ src/import/run-record.fs and run-replay.fs. It reads an export into the
-\ checker's input with src/import/checker-input.fs (cin-read, which does
-\ not check the manifest; the record notes the manifest's outcome) and
+\ checker's input with src/import/checker-input.fs through rr-import, the
+\ manifest not checked (cin-read; the record notes the manifest's outcome
+\ and says the manifest was not enforced) and
 \ checks it with rr-check (fuel for each check, a pool of ni-pool
 \ dependencies), then writes the run record to a file (ni-record) or
 \ compares it with one written earlier and prints the replay report
@@ -31,7 +32,7 @@ require ../../src/import/run-replay.fs
 \ run's environment stays current until rr-release.
 : ni-run ( c-addr u fuel -- outcome )
   ni-pool rr-settings! 2dup rr-start dup ok? 0= if nip nip exit then drop
-  2dup cin-read dup rr-read! ok? if rr-check then
+  2dup false rr-import ok? if rr-check then
   rr-finish dup ok? if drop rr-write then ;
 \ Write the record of the export file c-addr1 u1 to the file c-addr2 u2.
 : ni-record ( c-addr1 u1 fuel c-addr2 u2 -- outcome )

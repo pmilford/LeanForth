@@ -20,6 +20,43 @@ output, in
 [two-mode-prototype-2026-11-03](../development/measurements/two-mode-prototype-2026-11-03/README.md).
 The design still passes the [parser] gate before any code relies on it.
 
+**Implemented, 2026-11-03, before the [parser] gate** (first follow-up
+below): both designs for IR 0.1 in `src/program/`, the mode shift
+(`verify.fs`) primary and the separate vocabulary (`verify-alias.fs`)
+beside it, sharing the run record and reasons (`verify-report.fs`), every
+action (`verify-semantics.fs`) and the runner (`verify-runner.fs`), with
+the general pieces in the library `src/lib/text-run.fs`; they use the
+authoring layer's message records and its reading of the invoking token
+from `>IN`. The clamp receipt's IR is now written by the mode shift
+(`scripts/program_receipt.py record`); today's reader stays, unchanged, as
+the test oracle. Evidence and the four intended differences from the
+reader are in [program IR](../programming/PROGRAM_IR.md#the-program-words-correctness-mode).
+Where the implementation settles what this record left open or departs
+from it:
+
+- **Reserved words** are every Forth-2012 Core and Core Ext name (§3),
+  refused where used as "a Forth word outside IR 0.1" and not to be
+  redefined; the mode shift knows the 51 words with verification
+  semantics by identity (token and name) and the reserved ones by name
+  alone, so `RECURSE`'s moving token (§9) needs no special case in IR 0.1.
+- **Names that read as numbers** (answer 4): the rule of §2 also refuses a
+  point before a digit (`.5`, a float on Gforth 1.0) and chains of signs
+  and prefixes (`$-1`, `-$10`).
+- **The gap check** (separate vocabulary) writes each `lit` as it checks
+  it, and after a host `THROW` writes the literals before the token it
+  refuses, so that the lines before a refusal are the reader's; the
+  values' check is defence in depth, which no host reading with `BASE` ten
+  triggers (a test drives it directly).
+- **Mode shift lookup order:** the file's words, then `FORTH-WORDLIST`,
+  then a plain decimal, so a host word named like a decimal is refused, as
+  run mode would call it.
+- **A run started by the output word** in its own context aborts and
+  changes nothing; the run under way goes on.
+- **Files** are read whole, at most 65,536 bytes (the reader streamed them).
+- **Well-formedness** in Lean: the decidable predicate is in
+  `tests/reference/program-ir.lean` (Part 6), checked by `decide`; the
+  *unknownWord* theorem is still a follow-up.
+
 ## The owner's answers (2026-11-03)
 
 1. **Option 2:** "1 but also consider if there is a way to do it with a
@@ -950,11 +987,16 @@ questions as they were asked:
 - On the open question: the verification semantics (or the vocabulary)
   and the shared runner in `src/` (a new module set under `src/program/`,
   the runner as a library), replacing the reader in the receipt pipeline,
-  with the test plan above; the [parser] gate on that code.
+  with the test plan above; the [parser] gate on that code. *Done
+  2026-11-03 except the gate* (see the status above): test plan items 1-3,
+  5-7 and 9 (without Gforth 1.0's own third state as a cross-check) and
+  8 locally on both hosts; item 4's predicate. Then the reader retires
+  (§8), and `src/author/runner.fs` could move onto `src/lib/text-run.fs`.
 - IR v1 (plan 4.4.1, 4.4.2) as [§10](#10-defining-words-and-loops-in-both-designs)
   designs it: loops, recursion, memory and declared data, a semantics
   without fuel, loop rules with invariants.
-- The Lean well-formedness predicate and its *unknownWord* theorem (test 4).
+- The Lean well-formedness predicate (done, 2026-11-03) and its
+  *unknownWord* theorem (open) (test 4).
 - Receipt schema: the assumption kind for the vocabulary ([format] gate).
 - The theorem words: consider the gap check for their review findings.
 - Plan 4.4.2 (IR v1 conditions): proved rules, a semantics without fuel

@@ -1186,6 +1186,151 @@ new = '''  false if ir-why-unclosed ir-invalid exit then'''
 test = "$GFORTH tests/program/ir-reader.fs"
 reason = "a file that ends inside a definition is read as complete"
 
+# --- program words in two modes (src/program/verify*.fs, ADR 0019) ---------
+# The four faults of ADR 0019's prototype, then the gap check, a primitive's
+# effect, identities, number names, isolation, and more. verify.fs holds the
+# golden files and both designs' own checks; verify_check.py compares both
+# designs with each other and with today's reader.
+
+[[fault]]
+id = "pv-else-as-then"
+file = "src/program/verify-semantics.fs"
+old = ''': pv-else ( -- ) pv-inside s" else" pv-frame-if pv-frame-else pv-turn ;'''
+new = ''': pv-else ( -- ) pv-inside s" then" pv-frame-if pv-frame-else pv-turn ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "ELSE is written as then: examples.fs's golden IR (lf-gcd) differs, in both designs"
+quick = true
+
+[[fault]]
+id = "pv-minus-dropped"
+file = "src/program/verify-semantics.fs"
+old = '''  pv-negative >r pv-whole? if r> if negate then true else r> drop false then ;'''
+new = '''  pv-negative >r pv-whole? if r> drop true else r> drop false then ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "a literal's minus sign is dropped: examples.fs's golden IR (-1 1 rshift) differs"
+
+[[fault]]
+id = "pv-names-not-folded"
+file = "src/program/verify-semantics.fs"
+old = '''  chars move 2r> pv-fold ;'''
+new = '''  chars move 2r> 2drop ;'''
+test = "$GFORTH tests/program/verify.fs && python3 tests/program/verify_check.py"
+reason = "a definition's name is written as spelt, not in lower case, unlike today's reader (the clamp in upper case)"
+
+[[fault]]
+id = "pv-long-names"
+file = "src/program/verify-semantics.fs"
+old = '''31 constant pv-name-max          \ longest definition name'''
+new = '''99 constant pv-name-max          \ longest definition name'''
+test = "$GFORTH tests/program/verify.fs && python3 tests/program/verify_check.py"
+reason = "a name of more than 31 characters is accepted, unlike today's reader"
+
+[[fault]]
+id = "pv-gap-values-unchecked"
+file = "src/program/verify-alias.fs"
+old = ''': pv-host-value ( x i -- ) pv-gap-value @ <> if pv-why-host-literal pv-fail then ;'''
+new = ''': pv-host-value ( x i -- ) 2drop ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "the separate vocabulary takes the host's cells without comparing them with the text"
+
+[[fault]]
+id = "pv-gap-any-token"
+file = "src/program/verify-alias.fs"
+old = '''  2dup pv-token! pv-literal? 0= if pv-why-unknown pv-fail then dup pv-gap-push pv-lit ;'''
+new = '''  2dup pv-token! pv-literal? 0= if 0 then dup pv-gap-push pv-lit ;'''
+test = "$GFORTH tests/program/verify.fs && python3 tests/program/verify_check.py"
+reason = "the gap check reads any token as a literal: the separate vocabulary then disagrees with the mode shift"
+
+[[fault]]
+id = "pv-max-effect"
+file = "src/program/verify-semantics.fs"
+old = '''21 s" rshift" pv-data  21 s" max" pv-data     21 s" min" pv-data'''
+new = '''21 s" rshift" pv-data  11 s" max" pv-data     21 s" min" pv-data'''
+test = "$GFORTH tests/program/verify.fs && python3 tests/program/verify_check.py"
+reason = "MAX is counted as taking one cell: the reader test's constants then leave two values, and the table no longer matches Lean's step"
+
+[[fault]]
+id = "pv-identity-ignored"
+file = "src/program/verify.fs"
+old = '''  over pv-entry-host @ <> if drop pv-why-replaced pv-fail then pv-perform ;'''
+new = '''  pv-perform ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "the mode shift no longer knows the host's words by identity: a standard word redefined before the run is accepted"
+quick = true
+
+[[fault]]
+id = "pv-number-names-accepted"
+file = "src/program/verify-semantics.fs"
+old = '''  pv-token-text pv-number-like? if pv-why-number-name pv-fail then ;'''
+new = '''  ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "a name that reads as a number is accepted, against the owner's answer 4"
+
+[[fault]]
+id = "pv-order-not-restored"
+file = "src/program/verify-runner.fs"
+old = '''  pv-free pv-settings run-settings-restore pv-floats-clear false pv-busy !'''
+new = '''  pv-free pv-floats-clear false pv-busy !'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "the caller's search order, compilation word list and BASE are not given back after a run"
+
+[[fault]]
+id = "pv-base-not-restored"
+file = "src/lib/text-run.fs"
+old = '''  run-settings-base @ base ! ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/lib/text-run.fs"
+reason = "run-settings-restore leaves BASE as the run set it"
+
+[[fault]]
+id = "pv-run-while-compiling"
+file = "src/program/verify-runner.fs"
+old = ''': pv-not-compiling ( -- ) state @ if pv-why-compiling pv-fail-here then ;'''
+new = ''': pv-not-compiling ( -- ) ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "a run starts while Forth compiles, so the file's words would be compiled into the caller"
+
+[[fault]]
+id = "pv-recursion-accepted"
+file = "src/program/verify-semantics.fs"
+old = '''  dup pv-current @ = if pv-why-recursive pv-fail then'''
+new = '''  false if pv-why-recursive pv-fail then'''
+test = "python3 tests/program/verify_check.py"
+reason = "a word that calls itself is written, though Gforth would call an earlier word of that name"
+
+[[fault]]
+id = "pv-reserved-ignored"
+file = "src/program/verify-semantics.fs"
+old = '''    pv-kind-reserved of drop pv-why-not-ir pv-fail endof'''
+new = '''    pv-kind-reserved of drop endof'''
+test = "$GFORTH tests/program/verify.fs && python3 tests/program/verify_check.py"
+reason = "a Forth word outside IR 0.1 (CELLS, @, DO ...) is skipped instead of refused, so its IR means something else"
+quick = true
+
+[[fault]]
+id = "pv-literal-too-large"
+file = "src/program/verify-semantics.fs"
+old = ''': pv-fits? ( u -- u true | false ) dup pv-literal-max u> if drop false else true then ;'''
+new = ''': pv-fits? ( u -- u true | false ) dup pv-literal-max 1+ u> if drop false else true then ;'''
+test = "python3 tests/program/verify_check.py"
+reason = "the literal 2147483648, too large for 32-bit cells, is accepted"
+
+[[fault]]
+id = "pv-del-accepted"
+file = "src/lib/text-run.fs"
+old = ''': text-odd? ( char -- flag ) dup text-tab <> swap bl 127 within 0= and ;'''
+new = ''': text-odd? ( char -- flag ) dup text-tab <> swap bl 128 within 0= and ;'''
+test = "$GFORTH tests/lib/text-run.fs && python3 tests/program/verify_check.py"
+reason = "the DEL character (127) passes the plain-text rule"
+
+[[fault]]
+id = "pv-crlf-kept"
+file = "src/program/verify-runner.fs"
+old = ''': pv-next-line ( -- c-addr u ) pv-split if text-cr-drop else pv-cut-short then ;'''
+new = ''': pv-next-line ( -- c-addr u ) pv-split if else pv-cut-short then ;'''
+test = "python3 tests/program/verify_check.py"
+reason = "the CR of a CRLF line end is kept, so a file Gforth loads is refused, unlike today's reader"
+
 # --- JSON writer (src/lib/json-write.fs) -----------------------------------
 # Its review planted 27 faults by hand (docs/development/FORTH_LIBRARY.md);
 # these re-create some of them.
@@ -1549,8 +1694,8 @@ reason = "a check that threw is reported as invalid input (4), not as an interna
 [[fault]]
 id = "cli-manifest-not-checked"
 file = "src/cli/leanforth.fs"
-old = '''  0 cli-file cli-unchecked @ if cin-read else cin-read-checked then dup rr-read! ;'''
-new = '''  0 cli-file cin-read dup rr-read! ;'''
+old = '''  0 cli-file cli-unchecked @ 0= rr-import ;'''
+new = '''  0 cli-file false rr-import ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "check reads exports without their manifests by default"
 
@@ -1934,11 +2079,59 @@ reason = "a commit that is not 40 lowercase hexadecimal digits is recorded"
 [[fault]]
 id = "rr-foreign-environment"
 file = "src/import/run-record.fs"
-old = ''': rr-ours? ( -- flag ) run-record rr-env @ dup if lf-env = else drop false then ;'''
+old = ''': rr-ours? ( -- flag ) run-record rr-env-id @ dup if lf-env-id = else drop false then ;'''
 new = ''': rr-ours? ( -- flag ) true ;'''
 test = "$GFORTH tests/core/run-record.fs"
 reason = "review F1: verdicts are read from whatever environment is current, not the run's own"
 quick = true
+
+[[fault]]
+id = "rr-address-not-identity"
+file = "src/import/run-record.fs"
+old = ''': rr-ours? ( -- flag ) run-record rr-env-id @ dup if lf-env-id = else drop false then ;'''
+new = ''': rr-ours? ( -- flag ) run-record rr-env @ dup if lf-env = else drop false then ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "rvRP 2: environments compared by address; a new one made where the run's was freed is claimed"
+
+[[fault]]
+id = "rr-release-frees-foreign"
+file = "src/import/run-record.fs"
+old = '''  run-record rr-env @ ?dup if dup rr-mine? if lf-env-free then drop then rr-forget-env ;'''
+new = '''  run-record rr-env @ ?dup if lf-env-free drop then rr-forget-env ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "rvRP 2: rr-release frees whatever environment now lies at the run's old address"
+
+[[fault]]
+id = "rr-always-enforced"
+file = "src/import/run-record.fs"
+old = '''  r> 0<> run-record rr-enforced ! ;'''
+new = '''  r> drop true run-record rr-enforced ! ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "rvRP 2: a record says the manifest was enforced on an input read without it"
+
+[[fault]]
+id = "rr-read-keeps-enforced"
+file = "src/import/run-record.fs"
+old = ''': rr-read! ( outcome -- ) run-record rr-read ! false run-record rr-enforced ! ;'''
+new = ''': rr-read! ( outcome -- ) run-record rr-read ! ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "rvRP 2: another importer's outcome keeps an earlier run's claim that the manifest was enforced"
+
+[[fault]]
+id = "rr-enforced-contradiction"
+file = "src/import/run-record.fs"
+old = '''  if outcome-invalid rr-fail then s" enforced" rr-key rr-enforced? rr-w jw-bool ;'''
+new = '''  drop s" enforced" rr-key rr-enforced? rr-w jw-bool ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "rvRP 2: an enforced manifest that does not match an input read past it is written"
+
+[[fault]]
+id = "tr-filler-seen"
+file = "src/import/text-rule.fs"
+old = '''$3164 , $3164 ,'''
+new = '''$3165 , $3164 ,'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "rvRP 2: a name of U+3164 HANGUL FILLER alone counts as shown"
 
 [[fault]]
 id = "rr-no-own-environment"
@@ -1958,7 +2151,7 @@ reason = "review F1: kept outcomes are not reset, so an unstepped slot agrees wi
 
 [[fault]]
 id = "rr-separator-allowed"
-file = "src/import/run-record.fs"
+file = "src/import/text-rule.fs"
 old = '''$2028 , $202e ,'''
 new = '''$2029 , $202e ,'''
 test = "$GFORTH tests/core/run-record.fs && python3 tests/core/test_run_records.py"
@@ -1967,7 +2160,7 @@ reason = "review F3: the writer's text rule lets U+2028 through, which the schem
 [[fault]]
 id = "rr-blank-shown"
 file = "src/import/run-record.fs"
-old = '''  2dup rr-shown? 0= if outcome-invalid rr-fail then rr-string ;'''
+old = '''  2dup tr-shown? 0= if outcome-invalid rr-fail then rr-string ;'''
 new = '''  rr-string ;'''
 test = "$GFORTH tests/core/run-record.fs"
 reason = "review F3: a blank name, host or metadata text is written"

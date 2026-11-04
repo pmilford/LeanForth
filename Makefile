@@ -69,6 +69,8 @@ DIFFERENTIAL_TARGETS := \
 	test-mixed-infer-constant-differential test-export-signature-differential \
 	test-export-specialization-differential test-first-checker-differential \
 	test-binder-domains-differential test-universe-scope-differential \
+	test-first-checker-large-differential test-binder-domains-large-differential \
+	test-universe-scope-large-differential \
 	test-program-differential test-program-stack-differential \
 	test-program-values-differential test-program-depth-differential \
 	test-example-reference-differential test-add-reference-differential \
@@ -310,6 +312,19 @@ test-binder-domains-differential:
 test-universe-scope-differential:
 	$(LEAN_TABLE) universe-scope
 
+# The same three tables with every store's capacity raised (plan task
+# 3.3.1; ADR 0016 C9 step 3): the same answers, and the three binder-domain
+# rows that meet the 64-node store at the default capacity get the table's
+# answer, so these tables have no known difference.
+test-first-checker-large-differential:
+	$(LEAN_TABLE) first-checker-large
+
+test-binder-domains-large-differential:
+	$(LEAN_TABLE) binder-domains-large
+
+test-universe-scope-large-differential:
+	$(LEAN_TABLE) universe-scope-large
+
 test-composition-fixture:
 	$(RUN) python3 tests/core/test_preview_contract.py
 	GFORTH=$(GFORTH) $(RUN) python3 tests/core/test_ndjson_preview.py
@@ -418,6 +433,19 @@ reference-program-ir:
 .PHONY: test-program-ir reference-program-ir
 test: test-program-ir
 test-differential: reference-program-ir
+
+# The program words in two modes (ADR 0019; docs/programming/PROGRAM_IR.md):
+# their library, the mode shift and the separate vocabulary, their
+# cross-check against today's reader, round trip and random programs.
+# Gforth and Python 3 only.
+test-program-verify:
+	$(RUN) $(GFORTH) tests/lib/text-run.fs
+	$(RUN) $(GFORTH) tests/program/verify.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/program/verify_check.py
+	GFORTH=$(GFORTH) $(RUN) python3 tests/program/verify_roundtrip.py
+
+.PHONY: test-program-verify
+test: test-program-verify
 
 # Program track, phase 2, tasks 2.5.4 to 2.5.6 (docs/programming/PROGRAM_IR_RUN.md,
 # PROGRAM_VC.md and PROGRAM_RECEIPTS.md): the IR interpreter against the host's
