@@ -304,7 +304,14 @@ commit and Forth system checked it (the commit `bin/leanforth` finds with
 git, or null), with which fuel and limits, and each declaration's verdict,
 read from its published slot. The printed verdicts and the exit status are
 those of `check` alone; a record that cannot be written is reported and
-the status is then at least 4. `replay EXPORT RECORD` checks the export
+the status is then at least 4. A record costs reads: with `--record` (and
+in `replay`) the export is read before the check for its SHA-256, its
+metadata and its manifest, and once more after the check to see that it
+did not change, besides the checker's own read. Without `--record`,
+`check` reads the export only as the checker needs it (one read, with
+the manifest checked unless `--no-manifest`), so a plain check of a large
+export pays nothing for records (`tests/cli/leanforth.fs` checks that no
+record read happens then). `replay EXPORT RECORD` checks the export
 again in the same way and compares the new record with RECORD, field by
 field; its output is the replay report, one JSON line:
 
