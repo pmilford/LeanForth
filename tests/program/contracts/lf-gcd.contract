@@ -2,7 +2,9 @@ lf-contract 0.1
 # lf-gcd loops (BEGIN ... WHILE ... REPEAT in lf-euclid): generator v0 has no
 # loop invariants, so it reports the word unsupported. Its correctness is
 # proved by induction directly on the IR semantics instead (gcd_correct in
-# tests/reference/program-ir.lean).
+# tests/reference/program-ir.lean), and its formal contract (GcdSpec, which
+# this language cannot state) through a hand-written loop invariant
+# (gcd_meets_contract there).
 id lf-gcd/0
 word lf-gcd
 ir tests/program/ir/examples.ir
