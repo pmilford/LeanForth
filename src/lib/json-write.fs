@@ -17,7 +17,7 @@
 \ json.fs; then jw-end gives the outcome. Each call passes its bytes to the
 \ sink, an xt ( c-addr u -- ) like TYPE, in order; the writer keeps no
 \ copy of the text but each open object's last key in sorted mode. The
-\ settings jw-limit and jw-sorted are changed only between texts.
+\ settings jw-limit, jw-sorted and jw-lean are changed only between texts.
 \
 \ The bytes are deterministic, one canonical form for each value:
 \ - no whitespace; members in the order the caller writes them;
@@ -31,7 +31,11 @@
 \ - strings escaped one way: \" \\ \b \f \n \r \t for those bytes, \u00xx
 \   (lowercase hex) for every other byte below 32, every other byte as
 \   itself, valid UTF-8 included. These are the bytes of Python's
-\   json.dumps(value, separators=(",", ":"), ensure_ascii=False).
+\   json.dumps(value, separators=(",", ":"), ensure_ascii=False). With
+\   the setting jw-lean set, they are the bytes of Lean's Json.compress
+\   instead (Lean 4.35.0, Lean/Data/Json/Printer.lean, escapeAux): only
+\   \" \\ \n \r by letter, so backspace, tab and form feed are \u0008,
+\   \u0009 and \u000c.
 \
 \ Failure is sticky: the first call that fails writes nothing, records its
 \ outcome, and every later call does nothing until the next jw-start;
@@ -92,7 +96,8 @@ begin-structure /jw-header
   field: jw-written                \ bytes given to the sink since jw-start
   field: jw-limit                  \ setting: most bytes in one text
   field: jw-sorted                 \ setting: true when keys must increase
-  field: jw-depth                  \ containers open
+  field: jw-lean                   \ setting: true for Lean's string escapes
+  field: jw-depth                 \ containers open
   field: jw-capacity               \ most containers open at once
   field: jw-room                   \ bytes in the key pool
   jw-scratch-size +field jw-scratch   \ digits or an escape being written
@@ -118,12 +123,12 @@ end-structure
 
 \ Making a writer for depth nested containers and room bytes of key pool
 \ (both at least 0, with a size that fits in a cell). jw-init formats
-\ jw-size bytes at writer: idle, outcome ok, keys in any order, jw-limit
-\ max-n; for a bad plan it gives false and writes nothing. json-writer:
-\ defines name ( -- writer ) in the dictionary and aborts on a bad plan.
-\ jw-sorted and jw-limit are settings the caller may store; they are
-\ kept from text to text. The nests and key pool take at most jw-most
-\ bytes, so that a record's size fits in a cell.
+\ jw-size bytes at writer: idle, outcome ok, keys in any order, Python's
+\ escapes, jw-limit max-n; for a bad plan it gives false and writes
+\ nothing. json-writer: defines name ( -- writer ) in the dictionary and
+\ aborts on a bad plan. jw-sorted, jw-lean and jw-limit are settings the
+\ caller may store; they are kept from text to text. The nests and key
+\ pool take at most jw-most bytes, so that a record's size fits in a cell.
 max-n /jw-header - constant jw-most
 : jw-size ( depth room -- u ) swap /jw-nest * + /jw-header + ;
 : jw-plan? ( depth room -- flag )
@@ -235,24 +240,34 @@ max-n /jw-header - constant jw-most
 : jw-digits ( c-addr u writer -- )
   >r 2dup jw-integer? if jw-unminus-zero r> jw-scalar else 2drop r> jw-invalid then ;
 
-\ String escapes, by byte: the letter after the backslash (u for \u00xx),
-\ or 0 for a byte that stands for itself; and the bytes the escape adds.
-create jw-letters 256 allot  jw-letters 256 erase
-create jw-extras 256 allot  jw-extras 256 erase
-: jw-escape! ( letter extra byte -- ) tuck jw-extras + c! jw-letters + c! ;
-: jw-escape-controls ( -- ) 32 0 do [char] u 5 i jw-escape! loop ;
-jw-escape-controls
-char b 1 8 jw-escape!  char t 1 9 jw-escape!  char n 1 lf-byte jw-escape!
-char f 1 12 jw-escape!  char r 1 cr-byte jw-escape!
-quote-byte 1 quote-byte jw-escape!  backslash 1 backslash jw-escape!
-: jw-letter ( byte -- letter ) jw-letters + c@ ;
-: jw-extra ( byte -- n ) jw-extras + c@ ;
+\ String escapes, by byte, in a table for each style: 256 letters after
+\ the backslash (u for \u00xx), or 0 for a byte that stands for itself;
+\ then 256 counts of the bytes the escape adds. Both styles escape the
+\ same bytes: every byte below 32, the quote and the backslash.
+create jw-json-escapes 512 allot  jw-json-escapes 512 erase
+create jw-lean-escapes 512 allot  jw-lean-escapes 512 erase
+: jw-extra-of ( letter -- n ) [char] u = if 5 else 1 then ;
+: jw-escape! ( letter byte table -- ) + 2dup c! swap jw-extra-of swap 256 + c! ;
+: jw-controls! ( table -- ) 32 0 do [char] u i 2 pick jw-escape! loop drop ;
+: jw-letter! ( letter byte -- )
+  2dup jw-json-escapes jw-escape! jw-lean-escapes jw-escape! ;
+jw-json-escapes jw-controls!  jw-lean-escapes jw-controls!
+char n lf-byte jw-letter!  char r cr-byte jw-letter!
+quote-byte quote-byte jw-letter!  backslash backslash jw-letter!
+char b 8 jw-json-escapes jw-escape!  char t 9 jw-json-escapes jw-escape!
+char f 12 jw-json-escapes jw-escape!
+: jw-escapes ( writer -- table ) jw-lean @ if jw-lean-escapes else jw-json-escapes then ;
+: jw-letter ( byte table -- letter ) + c@ ;
+: jw-extra ( byte table -- n ) + 256 + c@ ;
+\ Whether a byte stands for itself, in either style.
+: jw-plain? ( byte -- flag ) jw-json-escapes jw-extra 0= ;
 
 \ Strings no longer than jw-longest bytes have an escaped size, with its
 \ quotes, a comma and a colon, that fits in a cell.
 max-n 4 - 6 / constant jw-longest
-\ The escaped size of a string, quotes included.
-: jw-escaped-size ( c-addr u -- n ) dup 2 + -rot over + swap ?do i c@ jw-extra + loop ;
+\ The escaped size of a string, quotes included, with the escapes table.
+: jw-escaped-size ( c-addr u table -- n )
+  >r dup 2 + -rot r> -rot over + swap ?do i c@ over jw-extra rot + swap loop drop ;
 \ Text a string or key may hold: not too long (else full) and valid UTF-8
 \ (else invalid).
 : jw-text? ( c-addr u writer -- flag )
@@ -268,15 +283,14 @@ max-n 4 - 6 / constant jw-longest
 : jw-unicode-escape ( byte scratch -- c-addr 6 )
   >r s" \u00" r@ swap move r@ 4 + jw-hex-pair r> 6 ;
 : jw-short-escape ( letter scratch -- c-addr 2 ) backslash over c! tuck char+ c! 2 ;
-: jw-escape-text ( byte scratch -- c-addr u )
-  over jw-letter dup [char] u = if drop jw-unicode-escape exit then
-  rot drop swap jw-short-escape ;
+: jw-escape-text ( byte letter scratch -- c-addr u )
+  over [char] u = if nip jw-unicode-escape exit then rot drop jw-short-escape ;
 : jw-run-end ( end addr -- end addr' )
-  begin 2dup u> while dup c@ jw-extra 0= while char+ repeat then ;
+  begin 2dup u> while dup c@ jw-plain? while char+ repeat then ;
 : jw-run ( end addr writer -- end addr' )
   >r 2dup jw-run-end nip tuck over - ?dup if r@ jw-type else drop then r> drop ;
 : jw-escape ( end addr writer -- end addr' )
-  >r dup c@ r@ jw-scratch jw-escape-text r> jw-type char+ ;
+  >r dup c@ dup r@ jw-escapes jw-letter r@ jw-scratch jw-escape-text r> jw-type char+ ;
 : jw-escaped ( c-addr u writer -- )
   >r over + swap begin 2dup u> while r@ jw-run 2dup u> if r@ jw-escape then repeat
   2drop r> drop ;
@@ -286,7 +300,8 @@ create jw-quote-mark quote-byte c,
 \ A string value.
 : jw-string? ( c-addr u writer -- flag )
   dup jw-value-next? 0= if jw-refuse exit then
-  >r 2dup r@ jw-text? if jw-escaped-size r> jw-value? else r> jw-refuse then ;
+  >r 2dup r@ jw-text? 0= if r> jw-refuse exit then
+  r@ jw-escapes jw-escaped-size r> jw-value? ;
 : jw-string ( c-addr u writer -- )
   >r 2dup r@ jw-string? if r@ jw-comma r@ jw-quoted r> jw-done else 2drop r> drop then ;
 
@@ -313,7 +328,8 @@ create jw-quote-mark quote-byte c,
 : jw-key-text? ( c-addr u writer -- flag )
   >r 2dup r@ jw-text? if r> jw-ordered? else r> jw-refuse then ;
 \ The key's bytes: a comma when due, the quoted key and a colon.
-: jw-key-size ( c-addr u writer -- n ) >r jw-escaped-size 1+ r> jw-with-comma ;
+: jw-key-size ( c-addr u writer -- n )
+  >r r@ jw-escapes jw-escaped-size 1+ r> jw-with-comma ;
 : jw-key? ( c-addr u writer -- flag )
   dup jw-key-next? 0= if jw-refuse exit then
   >r 2dup r@ jw-key-text? if r@ jw-key-size r> jw-room? else r> jw-refuse then ;

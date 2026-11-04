@@ -1,0 +1,20 @@
+== final-Std 2026-11-03T18:43:04-08:00 .tools/gforth/bin/gforth-fast
+reexported 10193568 lines
+forth exit 0
+	User time (seconds): 28.76
+	System time (seconds): 0.39
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:29.18
+	Maximum resident set size (kbytes): 14884
+bae74d695e165b8af16f34e66125de3177575e5c75d6b12e45982ea5a9afcbeb  /home/peter/code/LeanForth/.claude/work/RX/Std.ndjson
+bae74d695e165b8af16f34e66125de3177575e5c75d6b12e45982ea5a9afcbeb  /home/peter/code/LeanForth/.claude/work/RX/final-Std.copy.ndjson
+  10193568  562170995 /home/peter/code/LeanForth/.claude/work/RX/Std.ndjson
+  10193568  562170995 /home/peter/code/LeanForth/.claude/work/RX/final-Std.copy.ndjson
+  20387136 1124341990 total
+cmp: identical
+76750d5ced59ec47e6724f7cfa454d757037a82dd460efc098e3ac4463cce14a  -
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:16.30
+	Maximum resident set size (kbytes): 13608
+76750d5ced59ec47e6724f7cfa454d757037a82dd460efc098e3ac4463cce14a  -
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:16.69
+	Maximum resident set size (kbytes): 13640
+== end 2026-11-03T18:44:07-08:00

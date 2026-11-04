@@ -45,7 +45,7 @@ fit. There is no command-line tool yet; everything runs through tests.
 | --- | --- |
 | Read and validate the whole Mathlib export in Forth: all 110,895,826 records (6.3 GB) in about 1 min 49 s with `gforth-fast`, in 17 MB of memory; every record's shape and every reference to an earlier record is checked, and the result equals the independent Python reader's field for field | Keep what was read: the checker's stores hold 64 entries, so nothing read from Mathlib is stored for the checker |
 | Count every kind of record and declaration (184,355 definitions, 517,916 theorems, 7,046 inductive types, …) | Look up a Mathlib theorem by name, print it, or check it |
-| In a measurement prototype (not the product): load all of Mathlib into the compact store design (2.94 GB, 4.16 GB peak), look up all 729,263 names (0.69 s), walk every declaration, and re-emit every record from memory equal to the reader's dump, line for line | Re-export Mathlib byte for byte in Lean's own format and compare it with Lean's file — planned (task 3.2.4, now with the checksum manifest) |
+| In a measurement prototype (not the product): load all of Mathlib into the compact store design (2.94 GB, 4.16 GB peak), look up all 729,263 names (0.69 s), walk every declaration, and re-emit every record from memory equal to the reader's dump, line for line | *(Since 2026-11-03, plan task 3.2.4:)* re-export `Init`, `Std` and all of Mathlib byte for byte in Lean's own NDJSON format — the copies' SHA-256 equal the originals', and reading them back gives the same records ([measurements](../development/measurements/reexport-2026-11-03/README.md); Mathlib in 5 min 29 s, 20 MB) |
 
 **What "the contents" of an imported library are** (the stored data, not
 just the 16-byte node links of [ADR 0016](../adr/0016-compact-store.md)):
@@ -110,7 +110,7 @@ sizes are relative and dates are not estimated.
    Stage the reader's records into stores built on the compact design
    (ADR 0016; plan 1.1.5, 3.2.1, 3.3.1, 6.2.0); feed declarations to the
    checker in file order (3.2.2); re-export byte for byte and compare with
-   Lean's file (3.2.4); the checksum manifest checked by default and an
+   Lean's file (3.2.4, **done 2026-11-03**); the checksum manifest checked by default and an
    upgrade test for new Lean and Mathlib versions (owner, 2026-11-03);
    `leanforth check FILE.ndjson`, `leanforth print` and exit codes
    (3.4); the JSON API v0 for AI tools with schemas and golden examples

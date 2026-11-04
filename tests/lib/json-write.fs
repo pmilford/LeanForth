@@ -409,6 +409,37 @@ T{ s\" {\"a\":1}" parse-text start w jw-open-object 1 jv w jw-copy s" {" wrote=
 : together ( -- c-addr u ) s\" [{\"a\":[[{}]]},[[]]]" ;
 T{ together parse-text 0 copied output together compare -> outcome-ok outcome-ok 0 }T
 
+\ Lean's escapes (jw-lean, as Lean 4.35.0's Json.compress writes them):
+\ only " \ line feed and carriage return by letter, every other byte below
+\ 32 as \u00xx, so backspace, tab and form feed differ from Python's; the
+\ rest is the same. A new writer has Python's; the setting stays from
+\ text to text, and counts the longer escapes against jw-limit.
+T{ probe-x 2 4 probe jw-init probe jw-lean @ -> true false }T
+: lean ( -- ) true w jw-lean ! ;
+: python ( -- ) false w jw-lean ! ;
+: lean-controls-1 ( -- c-addr u )
+  s\" \"\\u0000\\u0001\\u0002\\u0003\\u0004\\u0005\\u0006\\u0007" ;
+: lean-controls-2 ( -- c-addr u ) s\" \\u0008\\u0009\\n\\u000b\\u000c\\r" ;
+: expected-lean ( -- c-addr u )
+  0 expected-length ! lean-controls-1 +expected lean-controls-2 +expected
+  controls-2 +expected controls-3 +expected expected expected-length @ ;
+T{ lean start controls 32 w jw-string expected-lean wrote= -> outcome-ok true }T
+T{ start controls 32 hex w jw-string decimal expected-lean wrote= python -> outcome-ok true }T
+T{ start controls 32 w jw-string expected-controls wrote= -> outcome-ok true }T
+T{ lean start s\" \"\\/\x7f caf\xc3\xa9 \xf0\x9f\x98\x80" w jw-string
+   s\" \"\\\"\\\\/\x7f caf\xc3\xa9 \xf0\x9f\x98\x80\"" wrote= python -> outcome-ok true }T
+T{ lean start w jw-open-object s\" k\t" w jw-key 0 w jw-n w jw-close-object
+   s\" {\"k\\u0009\":0}" wrote= python -> outcome-ok true }T
+T{ lean 8 limited s\" \t" w jw-string s\" \"\\u0009\"" wrote= python -> outcome-ok true }T
+T{ lean 7 limited s\" \t" w jw-string s" " wrote= python -> outcome-full true }T
+T{ lean 9 limited w jw-open-object s\" \b" w jw-key s" {" wrote= python
+   -> outcome-full true }T
+T{ 9 limited w jw-open-object s\" \b" w jw-key s\" {\"\\b\":" wrote=
+   -> outcome-invalid true }T
+T{ 4 limited s\" \t" w jw-string s\" \"\\t\"" wrote= unlimited -> outcome-ok true }T
+T{ s\" [\"a\\tb\\f\\b\\n\\r\\\"\\\\\\/\"]" parse-text lean 0 copied python output
+   s\" [\"a\\u0009b\\u000c\\u0008\\n\\r\\\"\\\\/\"]" compare -> outcome-ok outcome-ok 0 }T
+
 \ jw-copy is a loop, not a recursion: a value nested 10,000 deep is copied
 \ whole by a writer as deep, with both stacks balanced, and one level
 \ deeper is full after exactly 10,000 opens. (A recursive copy overflowed

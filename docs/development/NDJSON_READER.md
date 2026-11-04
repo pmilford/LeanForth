@@ -212,6 +212,7 @@ A handler must keep this contract:
 | `src/lib/json.fs` | JSON (RFC 8259) | `json:` views: one JSON text parsed, without recursion, into a tape of tokens; escapes decoded in place; numbers kept as digit text; limits on nesting, tokens, string and number length. |
 | `src/import/ndjson.fs` | lean4export 3.1.0 | `export:` records: the reader, the JSON view, the decoded records, the handler table and the counters. Tables describe every record shape; each record is checked whole before its handler sees it. |
 | `src/import/ndjson-count.fs` | count.py's report | The counting tool above. |
+| `src/import/ndjson-emit.fs` | lean4export 3.1.0's bytes | The re-exporter: every record handed over, written back as the exporter writes it ([Re-export](#re-export)). |
 
 Each layer keeps its state in records passed on the stack, so separate
 readers are independent ([ADR 0009](../adr/0009-reentrant-state-and-parallel-checking.md));
@@ -614,6 +615,180 @@ Commands (from the repository root):
   -e 's" .tools/mathlib/mathlib.ndjson" count-export bye'
 python3 -I docs/development/measurements/scale-2026-11-02/count.py .tools/mathlib/mathlib.ndjson
 ```
+
+## Re-export
+
+*Have we re-exported Mathlib from LeanForth, imported it again and
+compared it byte for byte with Lean's NDJSON?* Yes, since 2026-11-03 (plan
+task 3.2.4): the Forth re-exporter `src/import/ndjson-emit.fs` takes every
+record the reader hands over and writes it back in lean4export 3.1.0's
+exact bytes. The pinned `Init`, `Std` and all of Mathlib come back
+**byte-identical** (same SHA-256), and the reader reads each copy back into
+the same field-by-field dump as the original
+([measurements](measurements/reexport-2026-11-03/README.md)). So the
+reader loses nothing the exporter writes: the decoded fields of every
+record determine its line exactly. Like the reader, the re-exporter is
+untrusted and decides nothing about types or proofs.
+
+```sh
+scripts/ndjson-reexport.sh --reimport EXPORT COPY   # or: make reexport EXPORT=... COPY=...
+scripts/ndjson-reexport.sh EXPORT -                 # stream: no copy is kept
+```
+
+The script re-exports with the pinned `gforth-fast`, prints both SHA-256
+sums and `identical`, or the first differing line, the byte within it
+and both lines around it, and exits 0 only for identical files (and, with
+`--reimport`, equal dumps). For `tests/reference/composition.ndjson` with
+line 27 written `{"ie":13, "app":{"fn":1,"arg":12}}`, the same record in
+another spelling:
+
+```text
+export 662f5c769e5876d6958b767cb6589679e9aba82e2b430295a53114dfca4ee161
+reexported 35 lines
+copy   7778d2ef5da2f0935fb0180c953afa9371843f4ceec2660122f8c792b9ca2fec
+different: first at line 27, byte 3 of the line (byte 1235 of the file)
+export: {"ie":13, "app":{"fn":1,"arg":12}}
+copy:   {"app":{"arg":12,"fn":1},"ie":13}
+dump of export e821bfc2499000904579f49cf53106636c75fa67bbce1c811069594e2df90fad
+dump of copy   e821bfc2499000904579f49cf53106636c75fa67bbce1c811069594e2df90fad
+reimport: equal dumps
+```
+
+The Forth word alone is
+`gforth-fast src/import/ndjson-emit.fs -e 's" IN" s" OUT" reexport bye'`;
+it prints `reexported N lines`, or an error line as the counting tool
+does and exits with status 1. On a failure the copy holds at most the
+lines before the failing one.
+
+### The exporter's format
+
+Taken from the exporter's source in the pinned toolchain
+(`src/lean/LeanExport/Basic.lean`: each record is `Json.compress` of a
+`Json.mkObj`, printed with `IO.println`) and from Lean's JSON printer
+(`src/lean/Lean/Data/Json/Printer.lean` and `Basic.lean`), then checked
+against the exporter's output:
+
+- **One line per record**: compact JSON, no white space, then one line
+  feed, the last line too.
+- **Key order**: a Lean `Json` object is a tree map of its keys, so every
+  object's keys come in increasing order, whatever order the exporter's
+  source lists them in: `{"cidx":…,"induct":…,"isUnsafe":…,"levelParams":…,"name":…,"numFields":…,"numParams":…,"type":…}`.
+  The index key of a name, level or expression (`in`, `il`, `ie`) is one of
+  them, so it comes first or last by the keys alone:
+  `{"app":{"arg":12,"fn":1},"ie":13}` but `{"ie":15,"lam":{…}}`.
+- **Numbers**: natural numbers (a `JsonNumber` with exponent 0) in decimal
+  without sign or leading zeros, of any size (`"i"` of a numeric name);
+  `natVal` as a string of such digits.
+- **Strings**: Lean's `Json.escape` writes `"`, `\`, line feed and carriage
+  return as `\"`, `\\`, `\n` and `\r`, every other byte below 32 as `\u00xx`
+  in lowercase hexadecimal, and every other character as its UTF-8 bytes:
+  DEL, `/` and all of Unicode are not escaped. So tab, backspace and form
+  feed are `\u0009`, `\u0008` and `\u000c`, where Python's `json.dumps` and
+  the JSON writer's default write `\t`, `\b` and `\f`. The writer
+  (`src/lib/json-write.fs`) gained the setting `jw-lean` for Lean's
+  escapes; the re-exporter sets it.
+- **Enumerations** as the exporter spells them: `binderInfo` (`default`,
+  `implicit`, `strictImplicit`, `instImplicit`), `safety` (`safe`,
+  `unsafe`, `partial`), a quotient's `kind` (`type`, `ctor`, `lift`,
+  `ind`) and `hints` (`"opaque"`, `"abbrev"` or `{"regular":height}`).
+- **Inductive blocks**: `{"inductive":{"ctors":[…],"recs":[…],"types":[…]}}`.
+  The reader hands the types over first, so the re-exporter keeps them in
+  a buffer until the block's last element.
+- **mdata's data** is one object of strings (`KVMap.toJson`, written only
+  with the exporter's `--export-mdata`), so in key order too: the
+  re-exporter writes its members sorted. Lean never writes an object
+  inside one of its values, real numbers or two equal keys; the
+  re-exporter refuses those as invalid (an unsorted inner object) or
+  unsupported (a real number), and more than 256 members as full.
+
+The JSON writer checks every object's key order (`jw-sorted`), so a key
+written out of order fails the line instead of reaching the copy.
+
+Nothing of the format is impossible to reproduce: the exporter writes one
+form for each record, and every field of that form is in the decoded
+record. A file in another spelling of the same records (white space, key
+order, other escapes such as `\t` or `é`) is read the same and comes
+back in the exporter's form, so its copy differs from it while the two
+dumps are equal, as above.
+
+### Tests and evidence
+
+- `tests/core/ndjson-emit.fs` (in `make test`, loaded under `HEX` with
+  the heap watched): every record kind and every enumeration word, lines
+  in the exporter's bytes coming back unchanged; other spellings (white
+  space, key order, `\t`, `\/`, `\u` escapes and surrogate pairs, `-0`)
+  in the exporter's form; mdata's members sorted; every failure, which
+  never gives ok and leaves no byte of its line: an enumeration code out
+  of range (binder information, safety, quotient kind and hints, given by
+  a handler that changes its record), mdata's data with equal keys, an
+  unsorted inner object, a real number or 257 members, a key past the
+  writer's key pool,
+  a line inside an unfinished block, a block element outside a block, an
+  input that cannot be read and an output that cannot be written; buffer
+  growth and its limit; all 11 NDJSON exports under `tests/` re-exported
+  in memory byte for byte, also with `BASE` hexadecimal; and no heap block
+  left.
+- `tests/core/test_ndjson_emit.py` (in `make test`): every `*.ndjson` under
+  `tests/` that starts with the exporter's metadata (all but
+  `tests/lib/json-write-corpus.ndjson`, record lines for the JSON writer
+  without metadata) re-exported through files with the command-line word,
+  byte for byte, and read back into the same dump; a seeded sweep (seed
+  20261103, two spellings of each export) with random white space,
+  shuffled members and random escapes, each of which must come back as
+  the original bytes; a seeded fuzz sweep (seed 20261104, 200 exports
+  each changed by one of the reader's mutations, above): every mutant the
+  reader refuses is refused with an error line, and every one it accepts
+  comes back as a copy the reader reads into the same dump and that
+  re-exports to itself byte for byte (in `make test` 42 accepted, 21 of
+  them already in the exporter's form; a run of 3,000 accepted 614, all
+  passing, 292 unchanged); and the script in both modes, on a file in
+  another spelling, on a file the reader refuses and with bad usage.
+  Plan task 3.2.4 asked for identity on all fixtures and accepted fuzz
+  cases: byte identity where the input is in the exporter's form, and
+  otherwise the same records and a fixed point.
+- `tests/core/reexport/kinds.ndjson` is pinned Lean's own export (with
+  `--export-mdata --export-unsafe`) of `tests/core/reexport/kinds.lean`:
+  1,390 lines with every record kind, levels `max` and `imax`, a 129-bit
+  `natVal`, a `letE` with `nondep` true, `proj`, `mdata`, every quotient
+  kind, an opaque and an unsafe definition, an axiom (`propext`), mutual,
+  nested and reflexive inductive types and names with spaces, quotes,
+  backslashes and Greek letters. `make check` (`reference-reexport`,
+  `tests/core/reexport/lean-check.sh`) exports it again and compares, and
+  exports `tests/core/reexport/strings.lean`, a string literal with every
+  class of byte the printer escapes apart (11,158 lines with what string
+  literals depend on, not kept): it checks that pinned Lean writes
+  `"tab\u0009 nl\n cr\r bs\u0008 ff\u000c nul\u0000 us\u001f esc\u001b del…"`
+  and that the copy is identical, with equal dumps.
+- **Planted faults**, each caught: in the unit test, an application's
+  arguments swapped (the bytes differ, first at the composition's line
+  27) and its keys written in the wrong order (the writer refuses the
+  line as invalid); and in a copy of the source, one at a time: the
+  application's two fields swapped (both test files), Python's escapes
+  instead of Lean's (the unit test; `make check`'s string export), the
+  recursors' list opened one element late (both test files) and mdata's
+  members not sorted (the unit test).
+- **Measured** on `Init`, `Std` and all of Mathlib: below.
+
+### Measured
+
+Re-exported with `gforth-fast` 1.0 into a file, one run at a time, the
+input in the page cache; `/usr/bin/time -v` wall time and peak resident
+memory of the re-export alone; then SHA-256 and `cmp` of both files and
+the reader's field-by-field dump of each
+([commands and logs](measurements/reexport-2026-11-03/README.md)).
+
+| Export (pinned Lean 4.35.0) | Lines, bytes | Re-export | Identical | SHA-256 of both | Dump of both |
+| --- | --- | --- | --- | --- | --- |
+| `Init` | 6,452,982, 345,690,182 B | 17.8 s, 14,856 KiB | yes | `c1b2071a…a59a179` | `2ca3a7a2…f6c38e65` |
+| `Std` | 10,193,568, 562,170,995 B | 29.2 s, 14,884 KiB | yes | `bae74d69…a9afcbeb` | `76750d5c…cce14a` |
+| all of Mathlib | 110,895,826, 6,258,342,501 B | 5 min 29 s, 20,104 KiB | yes | `18448e5d…59c6` | `3cf988e8…f831ddd674` |
+
+The dumps of `Init` and Mathlib equal those recorded under
+[Evidence](#evidence). Re-exporting takes about three times as long as
+reading alone (1 min 43 s for Mathlib): the JSON writer checks every call
+and every key's order, and has not been tuned. Memory stays flat; the
+peak grows with the longest line (Mathlib's 2.7 MB string), held as read
+and as written.
 
 ## Is a binary quick-import worth building?
 
