@@ -60,6 +60,7 @@ require ../core/unsupported-forms.fs
 require ./environment.fs
 require ./env-publish.fs
 require ./mixed-infer.fs
+require ./check-block.fs
 
 begin-structure /lf-chk
   field: lf-chk-budget   \ fuel each check in this context starts with
@@ -200,10 +201,16 @@ lf-check-steps# 1+ constant lf-step-done
   0 lf-check-step! lf-check-state lf-chk-budget @ lf-check-left !
   lf-env-checking 0= if outcome-invalid exit then nip
   lf-input-read ok-then? if lf-check-state lf-chk-decl ! outcome-ok then ;
+\ A member of an inductive block is checked with its block, all members
+\ at once, by check-block.fs (plan task 5.2.1a; ADR 0015), on the same
+\ budget; its step is then lf-block-step@'s, and lf-check-step@ stays 0.
+: lf-check-block ( -- outcome ) lf-check-left @ lf-block-check ;
+: lf-check-kind-run ( -- outcome )
+  lf-check-decl lf-ind-member? if lf-check-block else lf-check-run then ;
 \ Check the declaration of this context's snapshot and end the check with
 \ its outcome (lf-env-finish), as described above.
 : lf-check-declaration ( -- )
-  lf-check-begin ['] lf-check-run lf-check-then lf-env-finish ;
+  lf-check-begin ['] lf-check-kind-run lf-check-then lf-env-finish ;
 
 \ Check every declaration of this context's intact input, in input order,
 \ each with fuel, in a new environment with room for deps dependencies,

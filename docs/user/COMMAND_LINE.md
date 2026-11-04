@@ -225,7 +225,7 @@ Theorem composition
   Diagnostic: rejected: argument type mismatch (D1-D5) (4, 0)
   Statement: ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Input:     tests/core/check-declaration-cases/composition-wrong-argument.ndjson line 35
-  Checker log: 67 steps, complete. The statement is a proposition: s26 (from s3).
+  Checker log: 69 steps, complete. The statement is a proposition: s26 (from s3).
 
 No proof outline: the declaration was not accepted.
 

@@ -378,8 +378,8 @@ reason = "X5: the run adopts whatever the maker gives: the main, current, owned 
 [[fault]]
 id = "pub-undo-outcome-zero"
 file = "src/kernel/env-publish.fs"
-old = '''  lf-env-pub-mark store-rollback drop dup /lf-slot erase lf-slot-invalid! ;'''
-new = '''  lf-env-pub-mark store-rollback drop /lf-slot erase ;'''
+old = ''': lf-slot-clear ( slot -- ) lf-env-may-write dup /lf-slot erase lf-slot-invalid! ;'''
+new = ''': lf-slot-clear ( slot -- ) lf-env-may-write /lf-slot erase ;'''
 test = "$GFORTH tests/core/environment.fs"
 reason = "X5: an undone publication leaves outcome 0 (ok) in the slot"
 
@@ -445,10 +445,8 @@ reason = "a pool without room aborts in the publisher (invalid) instead of answe
 [[fault]]
 id = "pub-final-before-outcome"
 file = "src/kernel/env-publish.fs"
-old = '''  lf-env-may-write 2dup swap lf-slot-outcome ! lf-env-before-final
-  lf-state-final rot lf-slot-state ! ;'''
-new = '''  lf-env-may-write over lf-state-final swap lf-slot-state ! 2dup swap lf-slot-outcome !
-  lf-env-before-final nip ;'''
+old = '''  lf-env-may-write 2dup lf-span-outcome! lf-env-before-final swap lf-span-final! ;'''
+new = '''  lf-env-may-write over lf-span-final! 2dup lf-span-outcome! lf-env-before-final nip ;'''
 test = "$GFORTH tests/core/environment.fs"
 reason = "E4 step 3: the slot is marked final before its outcome is written"
 
@@ -2663,4 +2661,158 @@ old = '''  16 hash-shift hash-m1 hash-mul 13 hash-shift hash-m2 hash-mul 16 hash
 new = '''  0 base ! 1 throw ;'''
 test = "$GFORTH tests/lib/hash32.fs"
 reason = "TS: Gforth 1.0 exits 0 after an error reported while BASE is 0; scripts/gforth-strict.sh must still fail the run"
+quick = true
+
+# --- inductive blocks (plan task 5.2.1a; ADR 0015 §13, test plan 7) -------
+# src/kernel/check-block.fs, inductive-block.fs, inductive-recursor.fs,
+# level-geq.fs, the publisher's spans and inference's unit-like guard;
+# each caught by tests/core/check-block.fs.
+
+[[fault]]
+id = "ind-skip-compare"
+file = "src/kernel/check-block.fs"
+old = ''': lf-blk-compare ( -- outcome ) lf-blk-ctors-b3 ['] lf-blk-recs-b3 lf-blk-then ;'''
+new = ''': lf-blk-compare ( -- outcome ) outcome-ok ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "B3 skipped: an exported recursor with swapped rules or k set is accepted"
+quick = true
+
+[[fault]]
+id = "ind-rules-not-compared"
+file = "src/kernel/check-block.fs"
+old = '''    if drop 9 outcome-ok unloop exit then'''
+new = '''    if drop 0 outcome-ok unloop exit then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "B3: a rule that differs counts as equal; swapped rule right sides accepted"
+
+[[fault]]
+id = "ind-k-not-compared"
+file = "src/kernel/check-block.fs"
+old = '''  lf-blk-k= if 0 else 10 then outcome-ok ;'''
+new = '''  drop 0 outcome-ok ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "B3: the exported k flag is never compared; a recursor with k set is accepted"
+
+[[fault]]
+id = "ind-cidx-not-compared"
+file = "src/kernel/check-block.fs"
+old = '''  dup lf-blk-ctor-data lf-ict-cidx lf-more-field over <> if drop 3 exit then'''
+new = ''''''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "B3: a constructor's index is never compared"
+
+[[fault]]
+id = "ind-k-always"
+file = "src/kernel/check-block.fs"
+old = '''  lf-ind-state lf-ind-k ! outcome-ok ;'''
+new = '''  drop true lf-ind-state lf-ind-k ! outcome-ok ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "K1: k set for every block with one constructor without fields, a predicate or not (PUnit-like U: B3 rejects Lean's recursor)"
+
+[[fault]]
+id = "ind-k-for-data"
+file = "src/kernel/check-block.fs"
+old = '''  false lf-ind-state lf-ind-k ! lf-blk-k-shape? 0= if outcome-ok exit then'''
+new = '''  true lf-ind-state lf-ind-k ! lf-blk-k-shape? 0= if outcome-ok exit then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "K1: k set for blocks that are not one-constructor predicates without fields (Bool); B3 then rejects Lean's recursor"
+quick = true
+
+[[fault]]
+id = "ind-elim-always-any"
+file = "src/kernel/check-block.fs"
+old = '''  lf-ind-ctors@ 1 > if true outcome-ok exit then'''
+new = '''  lf-ind-ctors@ 1 > if false outcome-ok exit then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "E1: a predicate with two constructors eliminates into every universe; Or's recursor (Prop only) is rejected"
+
+[[fault]]
+id = "ind-skip-shape"
+file = "src/kernel/inductive-block.fs"
+old = '''  lf-ind-shape? if outcome-ok exit then'''
+new = '''  true if outcome-ok exit then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "B0 skipped: a constructor naming another type is checked as if it named its own"
+
+[[fault]]
+id = "ind-skip-uniform"
+file = "src/kernel/inductive-block.fs"
+old = '''  lf-ind-ctors@ 0 ?do i lf-c1-ctor dup ok? 0= if unloop exit then drop loop outcome-ok ;'''
+new = '''  outcome-ok ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "C1 skipped: a constructor returning T Nat is not rejected as Lean's nonUniformOccurrence"
+
+[[fault]]
+id = "ind-skip-universe"
+file = "src/kernel/check-block.fs"
+old = '''  lf-blk-geq? ok-then? 0= if exit then if outcome-ok else lf-blk-predicate then ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "U1 skipped: a Type-valued block with a field Type is accepted (Lean: universeTooBig)"
+quick = true
+
+[[fault]]
+id = "ind-geq-equal-only"
+file = "src/kernel/level-geq.fs"
+old = '''  2dup lf-lmk-same? over lf-geq-zero? or if 2drop true exit then'''
+new = '''  2dup lf-lmk-same? over lf-geq-zero? or 0= if 2drop false exit then 2drop true exit'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "is_geq answers only equal or zero: a field one universe below the result (params.index-one-universe-up) is too big"
+
+[[fault]]
+id = "ind-skip-return-type"
+file = "src/kernel/check-block.fs"
+old = '''  2dup lf-blk-c3? 0= if 2drop lf-blk-bad-return exit then'''
+new = ''''''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "C3 skipped: a constructor returning Prop instead of its type is not rejected"
+
+[[fault]]
+id = "ind-skip-duplicate-constructor"
+file = "src/kernel/check-block.fs"
+old = '''    if drop lf-blk-dup unloop exit then'''
+new = '''    if drop outcome-ok unloop exit then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "C4 skipped: two constructors of one name pass"
+
+[[fault]]
+id = "ind-skip-duplicate-universe"
+file = "src/kernel/check-block.fs"
+old = '''  lf-ind-lparams lf-params-distinct? if outcome-ok exit then'''
+new = '''  true if outcome-ok exit then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "T5 skipped: a block with the universe parameters u, u passes"
+
+[[fault]]
+id = "ind-skip-names"
+file = "src/kernel/check-block.fs"
+old = '''  lf-ind-name lf-blk-fresh ['] lf-blk-rec-name! lf-blk-then
+  ['] lf-blk-rec-fresh lf-blk-then ;'''
+new = '''  lf-blk-rec-name! ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "N2 skipped for a block: a type declared twice in one input is accepted twice"
+
+[[fault]]
+id = "ind-sort-end-unknown"
+file = "src/kernel/check-block.fs"
+old = '''    lf-head-sort of lf-blk-sorted endof  lf-head-constant of lf-blk-unfold endof'''
+new = '''    lf-head-sort of lf-blk-sorted endof  lf-head-var of lf-blk-unfold endof'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "T2: a telescope ending in a variable is unknown, not Lean's typeExpected"
+
+[[fault]]
+id = "ind-span-one"
+file = "src/kernel/environment.fs"
+old = ''': lf-cand-span@ ( -- n ) lf-env-cand lf-cand-span @ 1 max ;'''
+new = ''': lf-cand-span@ ( -- n ) 1 ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "B5: a block's outcome published for its first member only; the other members are never decided"
+
+[[fault]]
+id = "ind-no-unit-like-guard"
+file = "src/kernel/mixed-infer.fs"
+old = '''  over lf-minfer-unit-free? 0= if 2drop 0 false exit then'''
+new = ''''''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "P4 dropped: P x and P y for x y : PUnit are called apart, so a theorem Lean accepts by is_def_eq_unit_like is rejected"
 quick = true

@@ -238,7 +238,7 @@ Theorem composition
   Diagnostic: rejected: argument type mismatch (D1-D5) (4, 0)
   Statement: ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Input:     tests/core/check-declaration-cases/composition-wrong-argument.ndjson line 35
-  Checker log: 67 steps, complete. The statement is a proposition: s26 (from s3).
+  Checker log: 69 steps, complete. The statement is a proposition: s26 (from s3).
 
 No proof outline: the declaration was not accepted.
 
@@ -248,7 +248,7 @@ Theorem composition
   Diagnostic: rejected: argument type mismatch (D1-D5) (4, 0)
   Statement: ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Input:     tests/core/check-declaration-cases/composition-wrong-argument.ndjson line 35
-  Checker log: 67 steps, complete. The statement is a proposition: s26 (from s3).
+  Checker log: 69 steps, complete. The statement is a proposition: s26 (from s3).
 
 Steps.
   s1     fresh-name          depth 0   declaration composition
@@ -305,17 +305,19 @@ Steps.
   s52    sort                depth 6   Prop : Type
   s53    shift               depth 6   Prop shifted by 6 ⟶ Prop
   s54    variable            depth 6   A : Prop  ← s53
-  s55    sort                depth 6   Prop : Type
-  s56    shift               depth 6   Prop shifted by 5 ⟶ Prop
-  s57    variable            depth 6   B : Prop  ← s56
-  s58    sort                depth 6   Prop : Type
-  s59    application         depth 6   g value  ← s43, s45, s46, s48, s49, s51, s52, s54, s55, s57, s58  [rejected]
-  s60    lambda              depth 5   fun value ↦ g value  ← s41, s59  [rejected]
-  s61    lambda              depth 4   fun g value ↦ g value  ← s39, s60  [rejected]
-  s62    lambda              depth 3   fun f g value ↦ g value  ← s34, s61  [rejected]
-  s63    lambda              depth 2   fun {C} f g value ↦ g value  ← s29, s62  [rejected]
-  s64    lambda              depth 1   fun {B C} f g value ↦ g value  ← s28, s63  [rejected]
-  s65    lambda              depth 0   fun {A B C} f g value ↦ g value  ← s27, s64  [rejected]
-  s66    declaration         depth 0   ∀ {A B C : Prop}, (A → B) → (B → C) → A → C := fun {A B C} f g value ↦ g value  ← s1, s2, s26, s65  [rejected]
-  s67    publish             depth 0   d0, 0 dependencies  ← s66  [rejected]
+  s55    shift               depth 6   Prop shifted by 6 ⟶ Prop
+  s56    variable            depth 6   A : Prop  ← s55
+  s57    sort                depth 6   Prop : Type
+  s58    shift               depth 6   Prop shifted by 5 ⟶ Prop
+  s59    variable            depth 6   B : Prop  ← s58
+  s60    sort                depth 6   Prop : Type
+  s61    application         depth 6   g value  ← s43, s45, s46, s48, s49, s51, s52, s54, s56, s57, s59, s60  [rejected]
+  s62    lambda              depth 5   fun value ↦ g value  ← s41, s61  [rejected]
+  s63    lambda              depth 4   fun g value ↦ g value  ← s39, s62  [rejected]
+  s64    lambda              depth 3   fun f g value ↦ g value  ← s34, s63  [rejected]
+  s65    lambda              depth 2   fun {C} f g value ↦ g value  ← s29, s64  [rejected]
+  s66    lambda              depth 1   fun {B C} f g value ↦ g value  ← s28, s65  [rejected]
+  s67    lambda              depth 0   fun {A B C} f g value ↦ g value  ← s27, s66  [rejected]
+  s68    declaration         depth 0   ∀ {A B C : Prop}, (A → B) → (B → C) → A → C := fun {A B C} f g value ↦ g value  ← s1, s2, s26, s67  [rejected]
+  s69    publish             depth 0   d0, 0 dependencies  ← s68  [rejected]
 
