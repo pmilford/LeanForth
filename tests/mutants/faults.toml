@@ -1188,15 +1188,17 @@ reason = "a file that ends inside a definition is read as complete"
 
 # --- program words in two modes (src/program/verify*.fs, ADR 0019) ---------
 # The four faults of ADR 0019's prototype, then the gap check, a primitive's
-# effect, identities, number names, isolation, and more. verify.fs holds the
-# golden files and both designs' own checks; verify_check.py compares both
+# effect, identities, number names, isolation, streaming and more; the
+# review rvPW's surviving faults are here too (re-targeted or listed as
+# equivalent). verify.fs holds the golden files, both designs' own checks
+# and the host oracle for number names; verify_check.py compares both
 # designs with each other and with today's reader.
 
 [[fault]]
 id = "pv-else-as-then"
 file = "src/program/verify-semantics.fs"
-old = ''': pv-else ( -- ) pv-inside s" else" pv-frame-if pv-frame-else pv-turn ;'''
-new = ''': pv-else ( -- ) pv-inside s" then" pv-frame-if pv-frame-else pv-turn ;'''
+old = ''': pv-else ( -- ) pv-inside pv-frame-if pv-frame-else pv-retag s" else" pv-beside ;'''
+new = ''': pv-else ( -- ) pv-inside pv-frame-if pv-frame-else pv-retag s" then" pv-beside ;'''
 test = "$GFORTH tests/program/verify.fs"
 reason = "ELSE is written as then: examples.fs's golden IR (lf-gcd) differs, in both designs"
 quick = true
@@ -1212,8 +1214,8 @@ reason = "a literal's minus sign is dropped: examples.fs's golden IR (-1 1 rshif
 [[fault]]
 id = "pv-names-not-folded"
 file = "src/program/verify-semantics.fs"
-old = '''  chars move 2r> pv-fold ;'''
-new = '''  chars move 2r> 2drop ;'''
+old = '''  2dup pv-def-length ! pv-def-name swap 2dup 2>r chars move 2r> pv-fold ;'''
+new = '''  2dup pv-def-length ! pv-def-name swap 2dup 2>r chars move 2r> 2drop ;'''
 test = "$GFORTH tests/program/verify.fs && python3 tests/program/verify_check.py"
 reason = "a definition's name is written as spelt, not in lower case, unlike today's reader (the clamp in upper case)"
 
@@ -1228,7 +1230,7 @@ reason = "a name of more than 31 characters is accepted, unlike today's reader"
 [[fault]]
 id = "pv-gap-values-unchecked"
 file = "src/program/verify-alias.fs"
-old = ''': pv-host-value ( x i -- ) pv-gap-value @ <> if pv-why-host-literal pv-fail then ;'''
+old = ''': pv-host-value ( x i -- ) pv-gap-value @ <> pv-host-literal? ;'''
 new = ''': pv-host-value ( x i -- ) 2drop ;'''
 test = "$GFORTH tests/program/verify.fs"
 reason = "the separate vocabulary takes the host's cells without comparing them with the text"
@@ -1236,7 +1238,7 @@ reason = "the separate vocabulary takes the host's cells without comparing them 
 [[fault]]
 id = "pv-gap-any-token"
 file = "src/program/verify-alias.fs"
-old = '''  2dup pv-token! pv-literal? 0= if pv-why-unknown pv-fail then dup pv-gap-push pv-lit ;'''
+old = '''  2dup pv-token! pv-literal? 0= pv-why-unknown pv-?fail dup pv-gap-push pv-lit ;'''
 new = '''  2dup pv-token! pv-literal? 0= if 0 then dup pv-gap-push pv-lit ;'''
 test = "$GFORTH tests/program/verify.fs && python3 tests/program/verify_check.py"
 reason = "the gap check reads any token as a literal: the separate vocabulary then disagrees with the mode shift"
@@ -1252,27 +1254,59 @@ reason = "MAX is counted as taking one cell: the reader test's constants then le
 [[fault]]
 id = "pv-identity-ignored"
 file = "src/program/verify.fs"
-old = '''  over pv-entry-host @ <> if drop pv-why-replaced pv-fail then pv-perform ;'''
+old = '''  over pv-entry-host @ <> pv-why-replaced pv-?fail pv-perform ;'''
 new = '''  pv-perform ;'''
 test = "$GFORTH tests/program/verify.fs"
 reason = "the mode shift no longer knows the host's words by identity: a standard word redefined before the run is accepted"
 quick = true
 
 [[fault]]
+id = "pv-host-word-as-literal"
+file = "src/program/verify.fs"
+old = '''  pv-why-unknown pv-?fail pv-literal? 0= pv-why-unknown pv-?fail pv-lit ;'''
+new = '''  drop pv-literal? 0= pv-why-unknown pv-?fail pv-lit ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "rvPW L2: a host word named like a decimal (7) is read as the literal, though run mode would call the word"
+
+[[fault]]
 id = "pv-number-names-accepted"
 file = "src/program/verify-semantics.fs"
-old = '''  pv-token-text pv-number-like? if pv-why-number-name pv-fail then ;'''
+old = '''  pv-token-text pv-number-like?    pv-why-number-name pv-?fail ;'''
 new = '''  ;'''
 test = "$GFORTH tests/program/verify.fs"
 reason = "a name that reads as a number is accepted, against the owner's answer 4"
 
 [[fault]]
+id = "pv-number-underscore"
+file = "src/program/verify-semantics.fs"
+old = '''  over pv-hex-letter? and over [char] _ = or swap pv-digit? or ;'''
+new = '''  over pv-hex-letter? and swap pv-digit? or ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "rvPW M1: names Gforth 1.0 reads as numbers with its digit separator (_1, -_1, #_1, ._) are accepted; the host oracle sees them"
+
+[[fault]]
+id = "pv-number-quote-after-sign"
+file = "src/program/verify-semantics.fs"
+old = ''': pv-quote? ( c-addr u -- flag ) [char] ' pv-first? ;'''
+new = ''': pv-quote? ( c-addr u -- flag ) 2drop false ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "rvPW M1: character names ('a', -'a', '') that both Gforths read as numbers are accepted; the host oracle sees them"
+
+[[fault]]
 id = "pv-order-not-restored"
 file = "src/program/verify-runner.fs"
-old = '''  pv-free pv-settings run-settings-restore pv-floats-clear false pv-busy !'''
-new = '''  pv-free pv-floats-clear false pv-busy !'''
+old = '''  pv-close-file pv-saved @ if pv-settings run-settings-restore then pv-floats-clear'''
+new = '''  pv-close-file pv-floats-clear'''
 test = "$GFORTH tests/program/verify.fs"
 reason = "the caller's search order, compilation word list and BASE are not given back after a run"
+
+[[fault]]
+id = "pv-deep-order-unchecked"
+file = "src/program/verify-runner.fs"
+old = '''  pv-settings run-settings-save dup pv-saved ! 0= pv-why-capacity pv-?fail-here ;'''
+new = '''  pv-settings run-settings-save pv-saved ! ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "rvPW L1: a caller's search order deeper than the run can keep is run anyway, and the caller's order is lost"
 
 [[fault]]
 id = "pv-base-not-restored"
@@ -1285,16 +1319,34 @@ reason = "run-settings-restore leaves BASE as the run set it"
 [[fault]]
 id = "pv-run-while-compiling"
 file = "src/program/verify-runner.fs"
-old = ''': pv-not-compiling ( -- ) state @ if pv-why-compiling pv-fail-here then ;'''
+old = ''': pv-not-compiling ( -- ) state @ pv-why-compiling pv-?fail-here ;'''
 new = ''': pv-not-compiling ( -- ) ;'''
 test = "$GFORTH tests/program/verify.fs"
 reason = "a run starts while Forth compiles, so the file's words would be compiled into the caller"
 
 [[fault]]
+id = "pv-state-after-line"
+file = "src/program/verify-runner.fs"
+old = '''  pv-no-token state @ pv-why-compiling pv-?fail-here'''
+new = '''  pv-no-token'''
+test = "$GFORTH tests/program/verify.fs && python3 tests/program/verify_check.py"
+reason = "rvPW L2: STATE is not checked after each line"
+equivalent = "defence in depth: no word either design lets a line run changes STATE (no ], and : does not compile), so no input reaches the check"
+
+[[fault]]
+id = "pv-depth-after-line"
+file = "src/program/verify-runner.fs"
+old = '''  depth pv-floor @ <> pv-why-interrupted pv-?fail-here ;'''
+new = '''  ;'''
+test = "$GFORTH tests/program/verify.fs && python3 tests/program/verify_check.py"
+reason = "rvPW L2: the data stack's depth is not checked after each line"
+equivalent = "defence in depth: the mode shift's host never pushes a value, and the separate vocabulary's gap check takes off every cell the host pushed before the line ends, so no input reaches the check"
+
+[[fault]]
 id = "pv-recursion-accepted"
 file = "src/program/verify-semantics.fs"
-old = '''  dup pv-current @ = if pv-why-recursive pv-fail then'''
-new = '''  false if pv-why-recursive pv-fail then'''
+old = '''  dup pv-current @ = pv-why-recursive pv-?fail'''
+new = '''  dup pv-current @ = drop false pv-why-recursive pv-?fail'''
 test = "python3 tests/program/verify_check.py"
 reason = "a word that calls itself is written, though Gforth would call an earlier word of that name"
 
@@ -1316,6 +1368,14 @@ test = "python3 tests/program/verify_check.py"
 reason = "the literal 2147483648, too large for 32-bit cells, is accepted"
 
 [[fault]]
+id = "pv-frames-capacity"
+file = "src/program/verify-semantics.fs"
+old = '''8 constant pv-frames-max         \ open IF and BEGIN structures'''
+new = '''9 constant pv-frames-max         \ open IF and BEGIN structures'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "rvPW L2: a ninth open structure is written, unlike today's reader (verify.fs nests nine IFs)"
+
+[[fault]]
 id = "pv-del-accepted"
 file = "src/lib/text-run.fs"
 old = ''': text-odd? ( char -- flag ) dup text-tab <> swap bl 127 within 0= and ;'''
@@ -1326,10 +1386,27 @@ reason = "the DEL character (127) passes the plain-text rule"
 [[fault]]
 id = "pv-crlf-kept"
 file = "src/program/verify-runner.fs"
-old = ''': pv-next-line ( -- c-addr u ) pv-split if text-cr-drop else pv-cut-short then ;'''
-new = ''': pv-next-line ( -- c-addr u ) pv-split if else pv-cut-short then ;'''
+old = '''  pv-rest nip 0= if false exit then pv-split if text-cr-drop then true ;'''
+new = '''  pv-rest nip 0= if false exit then pv-split drop true ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "the CR of a CRLF line end in text is kept, so a text Gforth loads is refused, unlike today's reader"
+
+[[fault]]
+id = "pv-file-crlf-kept"
+file = "src/program/verify-runner.fs"
+old = '''  0 pv-held ! begin pv-next-char while pv-line-char until pv-held-line text-cr-drop true'''
+new = '''  0 pv-held ! begin pv-next-char while pv-line-char until pv-held-line true'''
 test = "python3 tests/program/verify_check.py"
-reason = "the CR of a CRLF line end is kept, so a file Gforth loads is refused, unlike today's reader"
+reason = "the CR of a CRLF line end in a file is kept, so a CRLF file Gforth loads is refused"
+
+[[fault]]
+id = "pv-first-block-only"
+file = "src/program/verify-runner.fs"
+old = '''  pv-unread? 0= if pv-refill then pv-unread? if pv-take-char true else false then ;'''
+new = '''  pv-unread? 0= pv-got @ 0= and if pv-refill then pv-unread? if pv-take-char true else false then ;'''
+test = "$GFORTH tests/program/verify.fs && python3 tests/program/verify_check.py"
+reason = "rvPW B1: a file is read only up to its first block, and the rest is never seen; the golden files and the 65,536-byte file show it"
+quick = true
 
 # --- JSON writer (src/lib/json-write.fs) -----------------------------------
 # Its review planted 27 faults by hand (docs/development/FORTH_LIBRARY.md);

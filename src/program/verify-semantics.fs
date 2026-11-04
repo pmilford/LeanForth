@@ -27,9 +27,9 @@
 \ exact. Names that read as numbers are refused (owner's answer 4).
 \
 \ Untrusted, like verify-report.fs. State: one context record, pv-state,
-\ reset for each run; the table, read-only once this file has loaded; and
-\ the deferred word pv-word-runs, set once by verify-alias.fs. Every run
-\ grows the dictionary: a word list, and a word for each definition.
+\ reset for each run, and the table, read-only once this file has loaded.
+\ Every run grows the dictionary: a word list, and a word for each
+\ definition.
 
 require ../lib/lib.fs
 require ../lib/text-run.fs
@@ -111,40 +111,47 @@ end-structure
   pv-negative >r pv-whole? if r> if negate then true else r> drop false then ;
 
 \ Names that read as numbers, refused for every definition: anything that
-\ Forth-2012 or Gforth could read as a number with BASE ten, and more. A
-\ digit first; a quote and more ('c' and Gforth's 'c); after one or more
-\ signs and base prefixes (+ - # $ % &), a digit or a hexadecimal letter;
-\ or a point before a digit, with or without them (Gforth 1.0 reads .5 as
-\ a float). So 5, -0, 1e, $10, 'a', .5 and -.5 are refused, and ->x,
-\ "x", x:dup and -rot are names.
+\ Forth-2012 or Gforth (1.0 or 0.7.3) could read as a number with BASE
+\ ten, and more. After any leading signs and base prefixes (+ - # $ % &):
+\ a digit; Gforth 1.0's digit separator _; a quote and one more character
+\ ('c', Gforth's 'c and -'c); after a prefix, a hexadecimal letter; or a
+\ point before any of these (Gforth 1.0 reads .5 as a float, ._ and $.a
+\ as numbers). So 5, -0, 1e, $10, 'a', -'a', .5, _1, -_1 and #_1 are
+\ refused, and ->x, "x", x:dup and -rot are names. tests/program/verify.fs
+\ checks the rule against the running Gforth: every short token it reads
+\ with an empty search order must be refused here.
 : pv-digit? ( char -- flag ) [char] 0 [char] 9 1+ within ;
 : pv-hex-letter? ( char -- flag ) pv-lower [char] a [char] f 1+ within ;
 : pv-sign? ( char -- flag ) dup [char] + = swap [char] - = or ;
 : pv-prefix? ( char -- flag ) dup [char] # [char] & 1+ within swap pv-sign? or ;
 : pv-unprefixed? ( char -- flag ) pv-prefix? 0= ;
-: pv-quote? ( c-addr u -- flag ) 1 > if c@ [char] ' = else drop false then ;
-: pv-point-digit? ( c-addr u -- flag )
-  1 > if dup c@ [char] . = swap char+ c@ pv-digit? and else drop false then ;
-: pv-numeric? ( char prefixed? -- flag ) over pv-hex-letter? and swap pv-digit? or ;
+\ Whether c-addr u starts with char and has more after it.
+: pv-first? ( c-addr u char -- flag )
+  over 1 > if nip swap c@ = else 2drop drop false then ;
+: pv-quote? ( c-addr u -- flag ) [char] ' pv-first? ;
+: pv-point? ( c-addr u -- flag ) [char] . pv-first? ;
+\ The first character of a number after the signs and prefixes.
+: pv-numeral? ( char prefixed? -- flag )
+  over pv-hex-letter? and over [char] _ = or swap pv-digit? or ;
 \ The rest after the signs and prefixes, and whether there were any.
 : pv-prefixes ( c-addr u -- c-addr' u' prefixed? )
   2dup ['] pv-unprefixed? text-scan dup >r /string r> 0<> ;
 : pv-numeric-rest? ( c-addr u prefixed? -- flag )
-  over 0= if drop 2drop false exit then
-  >r 2dup pv-point-digit? if 2drop r> drop true exit then drop c@ r> pv-numeric? ;
-: pv-number-like? ( c-addr u -- flag )
-  2dup pv-quote? if 2drop true exit then pv-prefixes pv-numeric-rest? ;
+  over 0= if drop 2drop false exit then >r 2dup pv-quote? if 2drop r> drop true exit then
+  2dup pv-point? if 1 /string then drop c@ r> pv-numeral? ;
+: pv-number-like? ( c-addr u -- flag ) pv-prefixes pv-numeric-rest? ;
 
 \ The run's state.
 31 constant pv-name-max          \ longest definition name
 32 constant pv-defs-max          \ definitions per file
 8 constant pv-frames-max         \ open IF and BEGIN structures
 8 constant pv-kept-max           \ tokens before CONSTANT
+\ The deepest line is written at level pv-frames-max + 1 (verify-report.fs).
+pv-frames-max 1+ 2* pv-indent-chars > [if] .( pv: indentation too short ) abort [then]
 0 constant pv-kind-word
 1 constant pv-kind-constant
 begin-structure /pv-def
   field: pv-def-kind             \ pv-kind-word or pv-kind-constant
-  field: pv-def-done             \ true once defined: a word after its ;
   field: pv-def-length
   pv-name-max chars aligned +field pv-def-name   \ folded to lower case
 end-structure
@@ -201,13 +208,10 @@ end-structure
 : pv-known? ( c-addr u -- flag ) 2dup pv-entry-of if drop 2drop true exit then
   pv-file-word dup if nip then ;
 
-\ What a word of the file does when Forth's interpreter runs it: the
-\ alias design (verify-alias.fs) sets this; the mode shift never runs one.
-: pv-not-ours ( index -- ) drop pv-why-interrupted pv-fail-here ;
-defer pv-word-runs ( index -- )
-' pv-not-ours is pv-word-runs
 \ Define the name at offset in the line in the file's word list, as
-\ Forth's CREATE reads it from the input source.
+\ Forth's CREATE reads it from the input source. When Forth's interpreter
+\ runs such a word, the design says what it does (pv-word-runs): the
+\ separate vocabulary writes the call; the mode shift never lets one run.
 : pv-create ( index offset -- )
   pv-prefix# @ + >in ! get-current >r pv-words @ set-current create r> set-current ,
   does> @ pv-word-runs ;
@@ -216,12 +220,13 @@ defer pv-word-runs ( index -- )
 \ token; it must be short, new in any case of letters, and no number.
 : pv-name ( -- ) parse-name dup 0= if 2drop pv-why-no-name pv-fail-here then pv-token! ;
 : pv-name-check ( -- )
-  pv-token-text nip pv-name-max > if pv-why-long-name pv-fail then
-  pv-token-text pv-known? if pv-why-redefined pv-fail then
-  pv-token-text pv-number-like? if pv-why-number-name pv-fail then ;
-: pv-def! ( kind def -- )
-  tuck pv-def-kind ! pv-token-text rot 2dup pv-def-length ! pv-def-name swap 2dup 2>r
-  chars move 2r> pv-fold ;
+  pv-token-text nip pv-name-max >  pv-why-long-name pv-?fail
+  pv-token-text pv-known?          pv-why-redefined pv-?fail
+  pv-token-text pv-number-like?    pv-why-number-name pv-?fail ;
+\ A definition's name, folded to lower case.
+: pv-def-name! ( c-addr u def -- )
+  2dup pv-def-length ! pv-def-name swap 2dup 2>r chars move 2r> pv-fold ;
+: pv-def! ( kind def -- ) tuck pv-def-kind ! pv-token-text rot pv-def-name! ;
 : pv-new-def ( kind -- index )
   pv-defs store-new-slot 0= if drop pv-why-capacity pv-fail then >r pv-def! r> ;
 : pv-define ( kind -- index ) pv-name pv-name-check pv-new-def dup pv-token @ pv-create ;
@@ -235,11 +240,11 @@ defer pv-word-runs ( index -- )
 \ primitive's effect; taking more than the file gave would take values
 \ the caller left, which the IR does not model.
 : pv-take ( taken given -- )
-  over pv-values @ > if pv-why-borrowed pv-fail then swap - pv-values +! ;
+  over pv-values @ > pv-why-borrowed pv-?fail swap - pv-values +! ;
 : pv-kept! ( value kind kept -- )
   tuck pv-kept-kind ! tuck pv-kept-value ! pv-here lfa-pos swap pv-kept-pos ! ;
 : pv-keep ( value kind -- )
-  pv-kept# @ pv-kept-max < 0= if pv-why-capacity pv-fail then
+  pv-kept# @ pv-kept-max < 0= pv-why-capacity pv-?fail
   pv-kept# @ pv-kept pv-kept! 1 pv-kept# +! ;
 
 \ Literals, calls and primitives. Outside a definition each is kept, a
@@ -250,10 +255,10 @@ defer pv-word-runs ( index -- )
 \ A word is visible inside its own definition, but Gforth hides it until
 \ ; so a call there would be of an earlier word of that name.
 : pv-call-inside ( index -- )
-  dup pv-current @ = if pv-why-recursive pv-fail then
+  dup pv-current @ = pv-why-recursive pv-?fail
   s" call " pv-line-start pv-call-text pv-done ;
 : pv-call-top ( index -- )
-  dup pv-constant? 0= if pv-why-outside pv-fail then pv-kept-call pv-keep-one ;
+  dup pv-constant? 0= pv-why-outside pv-?fail pv-kept-call pv-keep-one ;
 : pv-call ( index -- ) pv-in-def? if pv-call-inside else pv-call-top then ;
 : pv-effect ( entry -- taken given ) pv-entry-datum @ 10 /mod swap ;
 \ Gforth runs the tokens before CONSTANT while it loads the file: a
@@ -274,46 +279,42 @@ defer pv-word-runs ( index -- )
     swap pv-prim endcase ;
 
 \ Structure: each word writes its line and keeps the frames.
-: pv-inside ( -- ) pv-in-def? 0= if pv-why-outside pv-fail then ;
-: pv-top-only ( -- ) pv-in-def? if pv-why-inside pv-fail then ;
-: pv-unbalanced ( -- ) pv-why-unbalanced pv-fail ;
+: pv-inside ( -- ) pv-in-def? 0= pv-why-outside pv-?fail ;
+: pv-top-only ( -- ) pv-in-def? pv-why-inside pv-?fail ;
+: pv-unbalanced? ( flag -- ) pv-why-unbalanced pv-?fail ;
 : pv-top ( -- addr ) pv-depth @ 1- pv-frame ;
 : pv-top? ( frame -- flag ) pv-depth @ if pv-top @ = else drop false then ;
 : pv-push ( frame -- )
-  pv-depth @ pv-frames-max < 0= if drop pv-why-capacity pv-fail then
-  1 pv-depth +! pv-top ! ;
+  pv-depth @ pv-frames-max < 0= pv-why-capacity pv-?fail 1 pv-depth +! pv-top ! ;
 : pv-open ( c-addr u frame -- ) >r pv-depth @ 1+ pv-keyword r> pv-push ;
 \ ELSE and WHILE turn their IF's or BEGIN's frame into their own, and are
 \ written one level out, beside it.
-: pv-turn ( c-addr u from to -- )
-  swap pv-top? 0= if pv-unbalanced then pv-top ! pv-depth @ pv-keyword ;
+: pv-retag ( from to -- ) swap pv-top? 0= pv-unbalanced? pv-top ! ;
+: pv-beside ( c-addr u -- ) pv-depth @ pv-keyword ;
 : pv-close ( c-addr u -- ) -1 pv-depth +! pv-depth @ 1+ pv-keyword ;
 : pv-if ( -- ) pv-inside s" if" pv-frame-if pv-open ;
-: pv-else ( -- ) pv-inside s" else" pv-frame-if pv-frame-else pv-turn ;
+: pv-else ( -- ) pv-inside pv-frame-if pv-frame-else pv-retag s" else" pv-beside ;
 : pv-if-open? ( -- flag ) pv-frame-if pv-top? pv-frame-else pv-top? or ;
-: pv-then ( -- ) pv-inside pv-if-open? 0= if pv-unbalanced then s" then" pv-close ;
+: pv-then ( -- ) pv-inside pv-if-open? 0= pv-unbalanced? s" then" pv-close ;
 : pv-begin ( -- ) pv-inside s" begin" pv-frame-begin pv-open ;
 \ Forth-2012 allows more WHILEs in one BEGIN, each closed by a THEN after
 \ REPEAT; IR 0.1 has one.
 : pv-while ( -- )
-  pv-inside pv-frame-while pv-top? if pv-why-two-whiles pv-fail then
-  s" while" pv-frame-begin pv-frame-while pv-turn ;
+  pv-inside pv-frame-while pv-top? pv-why-two-whiles pv-?fail
+  pv-frame-begin pv-frame-while pv-retag s" while" pv-beside ;
 : pv-repeat ( -- )
-  pv-inside pv-frame-while pv-top? 0= if pv-unbalanced then s" repeat" pv-close ;
+  pv-inside pv-frame-while pv-top? 0= pv-unbalanced? s" repeat" pv-close ;
 : pv-exit ( -- ) pv-inside s" exit" pv-line-start pv-done ;
 
 \ Definitions. The location of `word` is the colon's; of `constant` and
 \ its `end`, the constant's name; of a word's `end`, the semicolon.
-: pv-no-values-left ( -- ) pv-kept# @ if pv-why-left-over pv-fail then ;
+: pv-no-values-left ( -- ) pv-kept# @ 0<> pv-why-left-over pv-?fail ;
 : pv-word-line ( index -- ) s" word " pv-append pv-call-text pv-mark @ pv-done-at ;
 : pv-colon ( -- )
-  pv-in-def? if pv-why-nested pv-fail then pv-no-values-left
+  pv-in-def? pv-why-nested pv-?fail pv-no-values-left
   pv-here lfa-pos pv-mark ! pv-kind-word pv-define dup pv-current ! pv-word-line ;
 : pv-end ( -- ) s" end" pv-append pv-done ;
-: pv-defined ( index -- ) true swap pv-def pv-def-done ! ;
-: pv-semicolon ( -- )
-  pv-inside pv-depth @ if pv-unbalanced then
-  pv-end pv-current @ pv-defined -1 pv-current ! ;
+: pv-semicolon ( -- ) pv-inside pv-depth @ 0<> pv-unbalanced? pv-end -1 pv-current ! ;
 \ A kept token's instruction: there are only three kinds.
 : pv-kept-text ( value kind -- )
   case pv-kept-prim of s" prim " pv-append pv-entry-text pv-append endof
@@ -326,25 +327,24 @@ defer pv-word-runs ( index -- )
 : pv-replay-all ( -- )
   pv-kept# @ 0 ?do i pv-kept pv-replay loop 0 pv-kept# ! 0 pv-values ! ;
 : pv-constant-lines ( index -- )
-  s" constant " pv-append dup pv-call-text pv-done pv-replay-all pv-end pv-defined ;
+  s" constant " pv-append pv-call-text pv-done pv-replay-all pv-end ;
 \ CONSTANT with nothing before it would take a value from outside the
 \ file, as + would.
 : pv-constant ( -- )
-  pv-top-only pv-kept# @ 0= if pv-why-no-value pv-fail then
-  pv-values @ 1 <> if pv-why-one-value pv-fail then
+  pv-top-only pv-kept# @ 0= pv-why-no-value pv-?fail
+  pv-values @ 1 <> pv-why-one-value pv-?fail
   pv-kind-constant pv-define pv-constant-lines ;
 \ BASE is ten for the whole run, so DECIMAL changes nothing.
 : pv-base-ten ( -- ) pv-top-only ;
 \ Comments: ( must close on its line; \ ends the line.
 : pv-line-end ( -- c-addr ) pv-text chars + ;
-: pv-paren ( -- )
-  [char] ) parse chars + pv-line-end < 0= if pv-why-comment pv-fail then ;
+: pv-paren ( -- ) [char] ) parse chars + pv-line-end < 0= pv-why-comment pv-?fail ;
 : pv-backslash ( -- ) source nip >in ! ;
 
 \ At the end of the text: no definition open, no value left.
 : pv-end-of-text ( -- )
-  pv-no-token pv-in-def? if pv-why-unclosed pv-fail-here then
-  pv-kept# @ if pv-why-left-over pv-fail-here then ;
+  pv-no-token pv-in-def? pv-why-unclosed pv-?fail-here
+  pv-kept# @ 0<> pv-why-left-over pv-?fail-here ;
 
 \ The table: the 13 words with an action of their own, the 38 primitives
 \ of IR 0.1 in the order of Prim in program-ir.lean, and the reserved

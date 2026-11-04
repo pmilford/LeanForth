@@ -72,18 +72,20 @@ OLD_VOCABULARY = set(re.findall(r's" (\S+)" ir-(?:word|data|division|return)\b',
 
 
 def number_like(name):
-    """verify-semantics.fs's rule for names that read as numbers."""
-    if len(name) > 1 and name[0] == "'":
-        return True
+    """verify-semantics.fs's rule for names that read as numbers. It only
+    classifies differences here; tests/program/verify.fs checks the rule
+    itself against the running Gforth's own reading of tokens."""
     i = 0
     while i < len(name) and name[i] in "+-#$%&":
         i += 1
     rest = name[i:]
     if not rest:
         return False
-    if len(rest) > 1 and rest[0] == "." and rest[1] in "0123456789":
+    if len(rest) > 1 and rest[0] == "'":
         return True
-    return rest[0] in "0123456789" or (i > 0 and rest[0].lower() in "abcdef")
+    if len(rest) > 1 and rest[0] == ".":
+        rest = rest[1:]
+    return rest[0] in "0123456789_" or (i > 0 and rest[0].lower() in "abcdef")
 
 
 # ---------------------------------------------------------------- the inputs
@@ -175,6 +177,8 @@ HOSTILE = [
     # More: names that read as numbers, and names that do not.
     ": 5 ;", ": -0 ;", ": 1e 1 ;", ": $10 ;", ": 'a' ;", ": .5 ;", ": -.5 ;", ": #10 ;",
     ": %1 ;", ": &7 ;", ": +5 ;", ": -a ;", ": $-1 ;", "5 constant 7", "1 constant -1",
+    ": -'a' 5 ; : g -'a' ;", ": -_1 5 ;", ": #_1 6 ;", ": _1 7 ;", ": _ 1 ;", ": ._ 1 ;",
+    ": $.a 1 ;", ": -'+ 1 ;", ": '' 1 ;",
     ": ->x 1 ; : g ->x ;", ': "x" 2 ; : g "x" ;', ": -rot 3 ; : g -rot ;",
     ": #tib 4 ; : g #tib ;", ": x:dup 5 ; : y X:DUP ;", ": g 1 ; : h g ;",
     # Core and Core Ext names, used and defined; Gforth's own words.
@@ -230,7 +234,7 @@ variable host-depth
 : host-lines ( -- ) begin host-rest 2@ nip while host-line evaluate repeat ;
 : stop-compiling ( -- ) postpone [ ;
 : host-load ( xt -- )
-  host-settings run-settings-save wordlist dup set-current forth-wordlist swap 2 set-order
+  host-settings run-settings-save drop wordlist dup set-current forth-wordlist swap 2 set-order
   decimal depth 1- host-depth ! catch host-code ! depth host-depth @ -
   ." HOST " host-code @ . dup . cr 0 max 0 ?do drop loop
   stop-compiling host-settings run-settings-restore ;
@@ -327,9 +331,32 @@ def intended(old, new):
     return None
 
 
+def big_files():
+    """Files past 65,536 bytes, the program words' former limit (review
+    rvPW, B1): clamp.fs padded with comment lines to exactly 65,536 bytes,
+    the last one an LF, then a redefinition of lf-clamp that must be seen;
+    and about 400,000 bytes of comments around a word, accepted."""
+    clamp = (ROOT / "src/program/clamp.fs").read_bytes()
+    pad, size = b"", 65536 - len(clamp)
+    while size - len(pad) > 100:
+        pad += b"\\ " + b"x" * 97 + b"\n"
+    pad += b"\\" + b" " * (size - len(pad) - 2) + b"\n"
+    edge = clamp + pad
+    assert len(edge) == 65536 and edge.endswith(b"\n")
+    comments = (b"\\ " + b"y" * 97 + b"\n") * 2000
+    return {"edge-65536": edge + b": lf-clamp 2drop drop 42 true ;\n",
+            "large-400k": comments + b": f 1 ;\n" + comments}
+
+
+#  The big files' own verdicts, whatever today's reader says: the
+#  redefinition after byte 65,536 is refused, the long file accepted.
+BIG_VERDICTS = {"file: edge-65536": (5, REDEFINED), "file: large-400k": (0, 0)}
+
+
 def file_entries(directory):
     entries, names = [], []
-    for name, (data, *_rest) in ir_reader_files.CASES.items():
+    cases = {name: data for name, (data, *_rest) in ir_reader_files.CASES.items()}
+    for name, data in {**cases, **big_files()}.items():
         path = Path(directory) / f"{name}.fs"
         path.write_bytes(data)
         entries.append(("files", str(path).encode()))
@@ -371,6 +398,8 @@ def main():
             problems.append(f"{name}: the designs differ:\n  shift {new}\n  alias {alias}")
         if name in golden and (new[1][0] != 0 or new[0] != golden[name]):
             problems.append(f"{name}: IR differs from the golden file")
+        if name in BIG_VERDICTS and new[1][:2] != BIG_VERDICTS[name]:
+            problems.append(f"{name}: gave {new[1]}, not {BIG_VERDICTS[name]}")
         if new[1][0] == 0:
             loads += 1
             if r.get("host") != (0, 0):

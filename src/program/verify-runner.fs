@@ -1,68 +1,67 @@
-\ The runner of correctness mode (ADR 0019 §3), shared by both designs: it
-\ reads a source file once, whole, as bytes (at most 65,536 of them),
-\ splits it into lines at LF (one CR just before an LF dropped), refuses
-\ any character other than printable ASCII, a space or a tab, and lines of
-\ 128 characters or more, exactly as today's reader does, and hands each
-\ line to the design's line word, which runs it through Forth's text
+\ The runner of correctness mode (ADR 0019 §3), shared by both designs. It
+\ reads a source file as bytes, a block at a time and with no limit on its
+\ size, as today's reader does; splits it into lines at LF (one CR just
+\ before an LF dropped); refuses any character other than printable ASCII,
+\ a space or a tab, and lines of 128 characters or more, as soon as a line
+\ grows that long, so a file without LF is not read to its end; and hands
+\ each line to the design's line word, which runs it through Forth's text
 \ interpreter (EVALUATE) with the design's word lists alone in the search
 \ order. Lines are therefore Forth's input source, one at a time: no
-\ construct can reach the next line.
+\ construct can reach the next line. Text in memory is split the same way.
 \
 \ Around the run it saves the caller's search order, compilation word
 \ list and BASE (src/lib/text-run.fs) and gives them back however the run
 \ ends; BASE is ten throughout. It refuses to start while Forth compiles
 \ (an immediate word calling it would otherwise compile the file into its
-\ caller), and after every line requires STATE zero and the data stack as
+\ caller), and a search order deeper than src/lib/text-run.fs can keep
+\ (full); after every line it requires STATE zero and the data stack as
 \ deep as before. It CATCHes every THROW: a diagnostic's (pv-throw) ends
 \ the run with its outcome; any other THROW goes to the design, which
 \ names the token at fault, or ends the run as invalid ("read stopped by
 \ an exception"). A run is the authoring program's top level (ADR 0018):
-\ nothing passes on to the caller but the outcome.
-\
-\ A design is a record of four execution tokens: its entry text (put
-\ before each line, for the mode shift's entry word), its search order,
-\ its line word and its handler of other THROWs.
+\ nothing passes on to the caller but the outcome, and the file is closed.
 \
 \ Untrusted. State: one context record, pv-flow, and those of
 \ verify-report.fs and verify-semantics.fs. A run in progress makes its
-\ context busy: starting another run in it (from the output word) aborts.
+\ context busy: starting another run in it (from the output word) aborts
+\ (THROW -2) and changes nothing.
 
 require ../lib/lib.fs
 require ../lib/text-run.fs
 require ./verify-report.fs
 require ./verify-semantics.fs
 
-\ A design: pv-design: takes four execution tokens and lays them down in
-\ this order, the last given first.
-begin-structure /pv-design
-  field: pv-design-caught        \ ( code -- ) after a THROW that is no diagnostic
-  field: pv-design-line          \ ( -- ) run the line in pv-source
-  field: pv-design-order         \ ( -- ) set the run's search order
-  field: pv-design-prefix        \ ( -- c-addr u ) text before each line
-end-structure
-: pv-design: ( prefix order line caught "name" -- ) create , , , , ;
-
-65536 constant pv-file-chars     \ largest source file
+512 constant pv-block-chars      \ characters read from a file at a time
+10 constant pv-lf
 begin-structure /pv-flow
   field: pv-flow-rest            \ text not run yet: address
   field: pv-flow-rest#           \ and length
-  field: pv-flow-file            \ true: the run reads the file named by the path
-  field: pv-flow-cut             \ true: the file is larger than pv-file-chars
-  field: pv-flow-buffer          \ its heap buffer, or 0
+  field: pv-flow-reading         \ true: the run reads the file named by the path
+  field: pv-flow-file            \ that file once open, or 0
+  field: pv-flow-at              \ the next character of the block
+  field: pv-flow-got             \ characters in the block
+  field: pv-flow-held            \ characters of the current line, counted past the buffer
   field: pv-flow-floor           \ data-stack depth when a line began
   field: pv-flow-floats          \ floating-point stack depth when the run began
+  field: pv-flow-saved           \ true once the caller's settings are kept
   /run-settings +field pv-flow-settings   \ the caller's
+  pv-block-chars chars aligned +field pv-flow-block
+  pv-line-chars chars aligned +field pv-flow-line
 end-structure
 /pv-flow context-record: pv-flow
 
 : pv-rest ( -- c-addr u ) pv-flow dup pv-flow-rest @ swap pv-flow-rest# @ ;
 : pv-rest! ( c-addr u -- ) pv-flow tuck pv-flow-rest# ! pv-flow-rest ! ;
-: pv-file? ( -- addr ) pv-flow pv-flow-file ;
-: pv-cut ( -- addr ) pv-flow pv-flow-cut ;
-: pv-buffer ( -- addr ) pv-flow pv-flow-buffer ;
+: pv-reading ( -- addr ) pv-flow pv-flow-reading ;
+: pv-fid ( -- addr ) pv-flow pv-flow-file ;
+: pv-block-at ( -- addr ) pv-flow pv-flow-at ;
+: pv-got ( -- addr ) pv-flow pv-flow-got ;
+: pv-held ( -- addr ) pv-flow pv-flow-held ;
 : pv-floor ( -- addr ) pv-flow pv-flow-floor ;
+: pv-saved ( -- addr ) pv-flow pv-flow-saved ;
 : pv-settings ( -- settings ) pv-flow pv-flow-settings ;
-: pv-design@ ( -- design ) pv-design @ ;
+: pv-block ( -- c-addr ) pv-flow pv-flow-block ;
+: pv-held-text ( -- c-addr ) pv-flow pv-flow-line ;
 
 \ Floating-point numbers that a host's interpreter may push are dropped.
 [defined] fdepth [if]
@@ -84,47 +83,70 @@ end-structure
   pv-source pv-prefix# @ chars + swap 2dup pv-text! chars move ;
 : pv-evaluated ( -- c-addr u ) pv-source pv-prefix# @ pv-text nip + ;
 
-\ Lines. A line too long, or with a character outside plain text, is
-\ refused before it runs; one that a file too large cut short, too.
+\ Lines of text: the next line of the rest, without its LF and the CR
+\ before it; false when the text has ended.
 : pv-split ( -- c-addr n lf? )
   pv-rest 2dup text-line-end >r >r over r@ 2swap r> 1+ over min /string pv-rest! r> ;
-: pv-cut-short ( c-addr u -- c-addr u )
-  dup pv-line-chars < pv-cut @ and if pv-why-capacity pv-fail-here then ;
-: pv-next-line ( -- c-addr u ) pv-split if text-cr-drop else pv-cut-short then ;
+: pv-text-line? ( -- c-addr u true | false )
+  pv-rest nip 0= if false exit then pv-split if text-cr-drop then true ;
+
+\ Lines of a file, read a block at a time. A read error stops the run as
+\ unreadable, at the line before the one being read; a line that has
+\ grown past the line buffer is too long, whatever follows, and is
+\ refused at once, at its own line. A last line without LF is read too,
+\ and keeps a CR at its end, which is then refused as a character.
+: pv-unreadable ( -- ) pv-no-token pv-why-unreadable pv-fail-here ;
+: pv-refill ( -- )
+  pv-block pv-block-chars pv-fid @ read-file if drop pv-unreadable then
+  pv-got ! 0 pv-block-at ! ;
+: pv-unread? ( -- flag ) pv-block-at @ pv-got @ < ;
+: pv-take-char ( -- char ) pv-block-at @ chars pv-block + c@ 1 pv-block-at +! ;
+: pv-next-char ( -- char true | false )
+  pv-unread? 0= if pv-refill then pv-unread? if pv-take-char true else false then ;
+: pv-too-long ( -- ) 1 pv-line# +! pv-unreadable ;
+: pv-hold ( char -- )
+  pv-held @ dup pv-line-chars < if chars pv-held-text + c! else 2drop pv-too-long then
+  1 pv-held +! ;
+: pv-line-char ( char -- lf? ) dup pv-lf = if drop true else pv-hold false then ;
+: pv-held-line ( -- c-addr u ) pv-held-text pv-held @ ;
+: pv-last-line? ( -- c-addr u true | false )
+  pv-held-line dup if true else 2drop false then ;
+: pv-file-line? ( -- c-addr u true | false )
+  0 pv-held ! begin pv-next-char while pv-line-char until pv-held-line text-cr-drop true
+  else pv-last-line? then ;
+: pv-next-line? ( -- c-addr u true | false )
+  pv-reading @ if pv-file-line? else pv-text-line? then ;
+
+\ A line too long, or with a character outside plain text, is refused
+\ before it runs. The floor is the data stack's depth while the design's
+\ line word runs; after it, STATE must be zero and the stack as deep.
 : pv-long? ( u -- flag ) pv-line-chars < 0= ;
 : pv-odd-at ( -- offset flag ) pv-text text-plain-at dup pv-text nip < ;
 : pv-plain ( -- ) pv-odd-at if pv-offset! pv-why-character pv-fail-here then drop ;
 : pv-line-after ( -- )
-  pv-no-token state @ if pv-why-compiling pv-fail-here then
-  depth pv-floor @ <> if pv-why-interrupted pv-fail-here then ;
-\ The floor is the data stack's depth while the design's line word runs.
+  pv-no-token state @ pv-why-compiling pv-?fail-here
+  depth pv-floor @ <> pv-why-interrupted pv-?fail-here ;
 : pv-one-line ( c-addr u -- )
   dup pv-long? if 2drop pv-why-unreadable pv-fail-here then pv-load-line pv-plain
   pv-design@ pv-design-line @ depth 1- pv-floor ! execute pv-line-after ;
 : pv-lines ( -- )
-  begin pv-rest nip while 1 pv-line# +! pv-no-token pv-next-line pv-one-line repeat
-  pv-end-of-text ;
-
-\ The source: a file is read whole into a heap buffer, one character
-\ larger than the largest file, so that a file that fills it is known to
-\ be too large; text is run where it is.
-: pv-heap ( -- )
-  pv-file-chars 1+ allocate if drop pv-why-capacity pv-fail-here then pv-buffer ! ;
-: pv-read-file ( -- )
-  pv-path pv-buffer @ pv-file-chars 1+ file-slurp
-  if drop pv-why-unreadable pv-fail-here then
-  dup pv-file-chars > pv-cut ! pv-file-chars min pv-buffer @ swap pv-rest! ;
-: pv-source-text ( -- ) pv-file? @ if pv-heap pv-read-file then ;
-: pv-free ( -- ) pv-buffer @ ?dup if free drop then 0 pv-buffer ! ;
+  begin pv-next-line? while 1 pv-line# +! pv-no-token pv-one-line repeat pv-end-of-text ;
 
 \ The header, as today's reader writes it: a path too long for its line
 \ stops the run as full, quoting it.
 : pv-header ( -- )
   s" lf-ir 0.1" pv-append pv-send s" source " pv-append
   pv-path dup pv-room > if pv-why-capacity pv-report pv-stop then pv-copy pv-send ;
-: pv-not-compiling ( -- ) state @ if pv-why-compiling pv-fail-here then ;
+: pv-not-compiling ( -- ) state @ pv-why-compiling pv-?fail-here ;
+\ The caller's settings, kept unless its search order is too deep.
+: pv-save ( -- )
+  pv-settings run-settings-save dup pv-saved ! 0= pv-why-capacity pv-?fail-here ;
 : pv-isolate ( -- ) pv-design@ pv-design-order @ execute decimal ;
-: pv-work ( -- ) pv-header pv-not-compiling pv-source-text pv-isolate pv-lines ;
+\ A file is opened as a binary file, so that no host translates its line
+\ ends; one that cannot be opened is unreadable.
+: pv-open-file ( -- )
+  pv-reading @ if pv-path r/o bin open-file if drop pv-unreadable then pv-fid ! then ;
+: pv-work ( -- ) pv-header pv-not-compiling pv-save pv-open-file pv-isolate pv-lines ;
 
 \ After a THROW that is no diagnostic: the design's handler, which may
 \ record one; if it cannot, the run stopped by an exception.
@@ -141,20 +163,22 @@ end-structure
 \ stopped: its last line, column 0.
 : pv-claim ( -- )
   pv-busy @ abort" lf-verify: a run is under way in this context" true pv-busy ! ;
-: pv-prepare ( c-addr u design -- )
-  pv-claim pv-the-run erase pv-design ! pv-flow /pv-flow erase pv-floats! pv-state-reset
+: pv-new-run ( c-addr u design -- )
+  pv-the-run erase pv-design ! pv-flow /pv-flow erase pv-floats! pv-state-reset
   pv-path! pv-prefix! pv-no-token outcome-ok pv-outcome ! ;
+: pv-prepare ( c-addr u design -- )
+  pv-claim ['] pv-new-run catch ?dup if false pv-busy ! throw then ;
+: pv-close-file ( -- ) pv-fid @ ?dup if close-file drop then 0 pv-fid ! ;
 : pv-finish ( -- )
-  pv-free pv-settings run-settings-restore pv-floats-clear false pv-busy !
-  pv-outcome @ ok? if pv-line# @ 0 lfa-pos pv-where ! then ;
-: pv-go ( -- outcome )
-  pv-settings run-settings-save ['] pv-work catch pv-caught pv-finish pv-outcome @ ;
+  pv-close-file pv-saved @ if pv-settings run-settings-restore then pv-floats-clear
+  false pv-busy ! pv-outcome @ ok? if pv-line# @ 0 lfa-pos pv-where ! then ;
+: pv-go ( -- outcome ) ['] pv-work catch pv-caught pv-finish pv-outcome @ ;
 
 \ Running text or a file in a design; the public words of verify.fs and
 \ verify-alias.fs. Text is lines separated by LF, named c-addr2 u2 in the
 \ header; it must stay unchanged during the run.
 : pv-text-run ( c-addr u c-addr2 u2 design -- outcome ) pv-prepare pv-rest! pv-go ;
-: pv-file-run ( c-addr u design -- outcome ) pv-prepare true pv-file? ! pv-go ;
+: pv-file-run ( c-addr u design -- outcome ) pv-prepare true pv-reading ! pv-go ;
 
 \ For tests and callers: why the last run stopped, and where.
 : lf-verify-reason ( -- reason ) pv-reason @ ;

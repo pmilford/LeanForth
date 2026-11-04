@@ -87,6 +87,9 @@ T{ transcript-text s" lf-ir 0.1|source t.fs|word double @1:1|  prim dup @1:22|" 
    -> true true }T
 T{ s" 3 constant three  : f three ;" both -> outcome-ok 0 1 0 true }T
 T{ transcript-text s" |constant three @1:12|  lit 3 @1:1|end @1:12|" contains? -> true }T
+\ Text lines end at LF; a CR just before it is dropped, any other refused.
+T{ s\" : f 1 ;\r\n: g f ;\r\n" both -> outcome-ok 0 2 0 true }T
+T{ s\" : f 1 ;\r\r\n" both -> outcome-unsupported pv-why-character 1 8 true }T
 T{ s" : f   foo ;" both -> outcome-unsupported pv-why-unknown 1 7 true }T
 T{ transcript-text s" |unsupported @1:7: not a known word or 32-bit decimal: foo|"
    contains? -> true }T
@@ -129,7 +132,7 @@ variable current-before
   get-order dup order-before @ <> if 0 ?do drop loop false exit then
   true swap 0 ?do swap order-before i 1+ cells + @ = and loop ;
 : odd-settings ( -- )
-  0 transcript# ! outer run-settings-save forth-wordlist extra-words 2 set-order
+  0 transcript# ! outer run-settings-save drop forth-wordlist extra-words 2 set-order
   extra-words set-current hex ;
 : same-settings? ( -- flag )
   order-same? get-current current-before @ = and base @ 16 = and state @ 0= and ;
@@ -193,16 +196,87 @@ T{ s" : f ;" both -> outcome-ok 0 1 0 true }T
 \ value of the text before it (or a floating-point number), which no
 \ host reading with BASE ten gives; here a design whose line word makes
 \ one. The line counts, so the refusal is on line 1, column 0.
+\ A design like the separate vocabulary, with the line word xt.
+: alias-like ( xt design -- )
+  pv-alias-design over /pv-design move pv-design-line ! ;
 : wrong-cell ( -- ) 0 pv-gap# ! 5 pv-gap-push 6 pv-taken ;
-' pv-alias-prefix ' pv-alias-order ' wrong-cell ' pv-alias-caught pv-design: wrong-design
+pv-design: wrong-design  ' wrong-cell wrong-design alias-like
 T{ s" x" s" t.fs" wrong-design pv-text-run verdict
    -> outcome-invalid pv-why-host-literal 1 0 }T
 [defined] fdepth [if]
 : wrong-float ( -- ) 0 pv-gap# ! 1e0 pv-taken ;
-' pv-alias-prefix ' pv-alias-order ' wrong-float ' pv-alias-caught pv-design: float-design
+pv-design: float-design  ' wrong-float float-design alias-like
 T{ fdepth s" x" s" t.fs" float-design pv-text-run verdict fdepth
    -> 0 outcome-invalid pv-why-host-literal 1 0 0 }T
 [then]
+
+\ Capacities at the boundary: eight open structures are written, the
+\ ninth is full, at its own line, as with today's reader.
+create nest-text 256 chars allot
+variable nest#
+: nest+ ( c-addr u -- ) nest-text nest# @ chars + swap dup nest# +! chars move ;
+: nested ( n -- c-addr u )
+  0 nest# ! s" : f" nest+ dup 0 ?do s\" \nif" nest+ loop 0 ?do s\" \nthen" nest+ loop
+  s\" \n;" nest+ nest-text nest# @ ;
+T{ 8 nested both -> outcome-ok 0 18 0 true }T
+T{ 9 nested both -> outcome-full pv-why-capacity 10 1 true }T
+
+\ A caller whose search order is deeper than the run can keep: the run is
+\ refused as full before anything changes, the order is the caller's
+\ still, and the context is not left busy.
+create deep-before /run-settings allot
+: deep ( -- )
+  get-order run-settings-order-max 0 ?do forth-wordlist swap 1+ loop set-order ;
+: order-depth ( -- n ) get-order dup >r 0 ?do drop loop r> ;
+variable deep-order#
+: deep-run ( xt -- outcome reason same-depth? )
+  >r deep-before run-settings-save drop deep order-depth deep-order# !
+  s" : f ;" s" t.fs" r> execute verdict 2drop
+  order-depth deep-order# @ = deep-before run-settings-restore ;
+: deep-shift ( -- outcome reason same? ) ['] lf-verify-text deep-run ;
+: deep-alias ( -- outcome reason same? ) ['] lf-alias-text deep-run ;
+T{ deep-shift -> outcome-full pv-why-capacity true }T
+T{ deep-alias -> outcome-full pv-why-capacity true }T
+T{ s" : f ;" both -> outcome-ok 0 1 0 true }T
+
+\ The rule for names that read as numbers, against the host: every token
+\ of one to three characters over a small alphabet, and some others,
+\ that this Gforth reads with an empty search order and BASE ten (as a
+\ number, a float or a character) must be refused as a name.
+wordlist constant no-words
+create oracle-settings /run-settings allot
+variable oracle-depth
+variable oracle-reads
+variable oracle-misses
+[defined] fdepth [if]
+: oracle-fclear ( -- ) begin fdepth while fdrop repeat ;
+[else]
+: oracle-fclear ( -- ) ;
+[then]
+: oracle-clear ( i*x -- ) begin depth oracle-depth @ > while drop repeat oracle-fclear ;
+\ Whether the host reads c-addr u, by itself, without a THROW.
+: host-reads? ( c-addr u -- flag )
+  depth 2 - oracle-depth ! oracle-settings run-settings-save drop no-words 1 set-order
+  decimal ['] evaluate catch oracle-settings run-settings-restore 0= >r oracle-clear r> ;
+: oracle ( c-addr u -- )
+  2dup host-reads? if 1 oracle-reads +! 2dup pv-number-like? 0=
+  if ." read but not refused: " 2dup type cr 1 oracle-misses +! then then 2drop ;
+create token 4 chars allot
+: alphabet ( -- c-addr u ) s" +-#$%&'._019afegxA" ;
+: letter ( i -- char ) alphabet drop + c@ ;
+: tokens1 ( -- ) alphabet nip 0 ?do i letter token c! token 1 oracle loop ;
+: tokens2 ( -- ) alphabet nip 0 ?do i letter token c! alphabet nip 0 ?do
+  i letter token char+ c! token 2 oracle loop loop ;
+: tokens3 ( -- ) alphabet nip 0 ?do i letter token c! alphabet nip 0 ?do
+  i letter token char+ c! alphabet nip 0 ?do i letter token 2 chars + c! token 3 oracle
+  loop loop loop ;
+: oracle-others ( -- )
+  s" 1_000" oracle s" 1.5e3" oracle s" -'a'" oracle s" 0x10" oracle s" 2p" oracle
+  s" 1k" oracle s" $FF" oracle s" -$1F" oracle s" #-12" oracle s" 'a" oracle ;
+: oracle-all ( -- reads misses )
+  0 oracle-reads ! 0 oracle-misses ! tokens1 tokens2 tokens3 oracle-others
+  oracle-reads @ oracle-misses @ ;
+T{ oracle-all 0 = swap 100 > -> true true }T
 
 \ Each context has its own run record. Last but one, because making a
 \ context ends declarations.
@@ -215,13 +289,40 @@ context-main context-use
 T{ lf-verify-reason lf-verify-where -> 0 1 0 }T
 T{ other context-free -> 0 }T
 
+\ The rest of this file changes FORTH-WORDLIST, so that everything it runs
+\ is compiled first.
+\
+\ A host word named like a decimal, which run mode would call: the mode
+\ shift refuses it; the separate vocabulary cannot see it.
+: decimal-named ( -- outcome reason outcome' )
+  s" : f 7 ;" shift-text lf-verify-reason s" : f 7 ;" alias-text ;
+\ A compile-only word redefined after the program words loaded, here IF:
+\ refused where the host gives the new word a token of its own (Gforth
+\ 1.0), not where every compile-only word shares one (Gforth 0.7.3), a
+\ known limit (docs/programming/PROGRAM_IR.md). Both cases are checked,
+\ on whichever host runs this.
+s" if" forth-wordlist search-wordlist drop constant if-before
+: if-shares-token? ( -- flag ) s" if" forth-wordlist search-wordlist drop if-before = ;
+: if-expected ( shares? -- outcome reason )
+  if outcome-ok 0 else outcome-unsupported pv-why-replaced then ;
+: if-as-expected? ( -- flag )
+  s" : f 1 if then ;" shift-text lf-verify-reason if-shares-token? if-expected
+  rot = >r = r> and ;
+[defined] compile-only [if]
+: if ( -- ) postpone if ; immediate compile-only
+[then]
+T{ if-as-expected? -> true }T
+get-current forth-wordlist set-current
+: 7 ( -- n ) 7 ;
+set-current
+T{ decimal-named -> outcome-unsupported pv-why-unknown outcome-ok }T
+
 \ A standard word redefined before the run: here every word with
 \ verification semantics in turn, each with a word of the same name made
 \ in FORTH-WORDLIST. The mode shift knows the host's own word by its
 \ identity and refuses the new one, at its token; the separate vocabulary
 \ finds its own word by name and cannot see the change. This comes last,
-\ since the new words hide the standard ones from the rest of this file;
-\ everything it runs is compiled before.
+\ since the new words hide the standard ones from the rest of this file.
 create shadow-text 40 chars allot
 : shadow-name ( c-addr u -- c-addr' u' )
   s" create " shadow-text swap chars move tuck shadow-text 7 chars + swap chars move
