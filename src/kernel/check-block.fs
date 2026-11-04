@@ -64,6 +64,7 @@ require ../core/names.fs
 require ../core/terms.fs
 require ./environment.fs
 require ./env-signature.fs
+require ./generated-recursor.fs
 require ./inductive-block.fs
 require ./inductive-recursor.fs
 require ./level-geq.fs
@@ -310,8 +311,10 @@ end-structure
   lf-ind-ctors@ 0 ?do i lf-blk-ctor-name lf-blk-rec-id lf-name-same?
     if i lf-blk-rec-clash unloop exit then
   loop outcome-ok ;
-\ Step 12: the recursor (inductive-recursor.fs).
-: lf-blk-build ( -- outcome ) lf-recursor-build ;
+\ Step 12: the recursor (inductive-recursor.fs), and the recipe that lets
+\ a later declaration build it again (generated-recursor.fs).
+: lf-blk-build ( -- outcome )
+  lf-recursor-build dup ok? if lf-genrec-recipe lf-env-recipe! then ;
 
 \ ---------------------------------------------------------------------------
 \ Step 13, B3. Name lists equal name by name.

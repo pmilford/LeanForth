@@ -34,7 +34,11 @@ Lean's order -- the audit and the checks that need no typing in
 `level-geq.fs` -- builds the recursor (`inductive-recursor.fs`), compares
 the constructors and the file's recursors with what it built (B3), and
 the publisher (`env-publish.fs`) makes every member's slot final
-together. Any other block is *unsupported*.
+together. Any other block is *unsupported*. When no slot holds `T.rec`
+(the file left it out, or the block was rejected by B3), a later
+declaration's inference builds Lean's generated recursor again from the
+recipe the block check left (`generated-recursor.fs`, called by
+`env-signature.fs`; ADR 0015 decision 12).
 
 ## Free variables (plan task 4.2.2a, ADR 0014 Q2)
 

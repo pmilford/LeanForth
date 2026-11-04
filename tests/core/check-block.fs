@@ -288,16 +288,18 @@ T{ s" after.recursor-then-def-rec" verdict drop
    -> outcome-rejected lf-diag-already-declared }T
 T{ s" after.recursor-left-out-then-use-and-def-rec" verdict drop
    -> outcome-rejected lf-diag-already-declared }T
-\ A use of it before that definition (declaration 3) is unknown: Lean's
-\ kernel holds the recursor, no slot does. A file that uses it and
-\ declares it nowhere is refused by the importer.
+\ A use of it before that definition (declaration 3) is accepted, as
+\ Lean accepts it: Lean's kernel holds the recursor it generated, and
+\ LeanForth builds the same again from the recipe on IE.B's slot (ADR
+\ 0015 decision 12); so is a use in a file that declares IE.B.rec nowhere
+\ (ADR 0016 amendment 1), and one without its universe argument is
+\ rejected (L1), as Lean's universeArity.
 : decl-verdict ( c-addr u d -- outcome code )
   >r case-path staged ok? must fuel checked r> result drop finish ;
-T{ s" after.recursor-left-out-then-use-and-def-rec" 3 decl-verdict
-   -> outcome-unknown lf-diag-generated-recursor }T
-: use-unclosed ( -- c-addr u )
-  s" tests/core/check-block-cases/after.recursor-left-out-then-use-rec.invalid" ;
-T{ use-unclosed staged unstage -> outcome-invalid }T
+T{ s" after.recursor-left-out-then-use-and-def-rec" 3 decl-verdict -> outcome-ok 0 }T
+T{ s" after.recursor-left-out-then-use-rec" verdict drop -> outcome-ok 0 }T
+T{ s" after.recursor-left-out-then-use-rec-no-level" verdict drop
+   -> outcome-rejected lf-diag-level-count }T
 \ A rejected block's type is no constant for a later declaration (Lean's
 \ unknownConstant). The type is visible to inference only within the
 \ block's own check: the flag is clear after it, and a flag left set
@@ -347,11 +349,13 @@ T{ s" rec_1" s" ind.nat" held-as -> outcome-unsupported }T
 T{ s" rec_1" s" ind.bool" held-as -> outcome-rejected }T
 T{ s" recOn" s" ind.bool" held-as -> outcome-rejected }T
 T{ s" rec_x" s" ind.nat" held-as -> outcome-rejected }T
-\ A block rejected only by B3 (review rvI21 R2-1): Lean's replay compares
-\ after its kernel added the block, so the type's, the constructors' and
-\ T.rec's names are taken (a later definition of one is alreadyDeclared)
-\ and a later use of the type is unknown; the file's recursor, renamed,
-\ is not taken. A block the kernel rejects (U1) takes no name.
+\ A block rejected only by B3 (review rvI21 R2-1; ADR 0015 decision 11):
+\ Lean's replay compares after its kernel added the block, so the type's,
+\ the constructors' and T.rec's names are taken (a later definition of one
+\ is alreadyDeclared) and later uses of them are accepted, as Lean's later
+\ declarations meet the kernel's constants; the file's recursor, renamed,
+\ is neither taken nor usable. A block the kernel rejects (U1) takes no
+\ name.
 T{ s" after.b3-renamed-then-def-rec" verdict drop
    -> outcome-rejected lf-diag-already-declared }T
 T{ s" after.b3-ctor-then-def-rec" verdict drop
@@ -362,8 +366,18 @@ T{ s" after.b3-ctor-then-def-constructor" verdict drop
    -> outcome-rejected lf-diag-already-declared }T
 T{ s" after.b3-renamed-then-def-renamed" verdict drop -> outcome-ok 0 }T
 T{ s" after.rejected-block-then-def-rec" verdict drop -> outcome-ok 0 }T
-T{ s" after.b3-ctor-then-use" 3 decl-verdict
-   -> outcome-unknown lf-diag-generated-recursor }T
+T{ s" after.b3-ctor-then-use" verdict drop -> outcome-ok 0 }T
+T{ s" after.b3-ctor-then-use-constructor" verdict drop -> outcome-ok 0 }T
+T{ s" after.b3-ctor-then-use-rec" verdict drop -> outcome-ok 0 }T
+T{ s" after.b3-renamed-then-use-rec" verdict drop -> outcome-ok 0 }T
+T{ s" after.b3-renamed-then-use-renamed" verdict drop
+   -> outcome-rejected lf-diag-unknown-constant }T
+\ Its constructors take the type's universe parameters (Lean's kernel
+\ declares them so), not their file records' (B3 field 1).
+: ctor-arity ( -- n )
+  s" replay-bool.constructor-universe-added" case-path staged ok? must fuel checked
+  2 lf-env-params drop nip finish ;
+T{ ctor-arity -> 0 }T
 \ The marks on the slots: the type and constructors, not the recursor.
 : added? ( d -- flag ) lf-env lf-env-slot lf-slot-added? ;
 : marks ( -- f0 f1 f2 f3 )
