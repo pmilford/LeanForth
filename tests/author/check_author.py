@@ -134,8 +134,8 @@ def check_golden(write):
           f"identical (terms and text), {errors} mistakes stopped with line and column")
 
 
-DUMP = (": dump ( -- ) lfa-catalogue begin dup lfa-last? 0= while dup lfa-entry-code 0 .r"
-        " 9 emit dup lfa-entry-text type cr lfa-entry-next repeat drop ; dump bye")
+DUMP = (": dump ( -- ) lfa-catalogue begin dup lfa-last? 0= while dup lfa-message-code @ 0 .r"
+        " 9 emit dup lfa-message-text type cr lfa-message-next repeat drop ; dump bye")
 
 
 def check_catalogue():

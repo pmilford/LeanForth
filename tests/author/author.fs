@@ -83,8 +83,7 @@ T{ s" theorem t open A" fails -> 24 1 11 }T
 text0 s"  namespace A" lfa-space-capacity 1+ times
 T{ text$ fails -> 25 1 lfa-space-capacity 1+ 12 * }T
 T{ s" open Nope" fails -> 26 1 6 }T
-T{ s" import-stub c end c import-stub A.c end A.c namespace A theorem t c" fails
-   -> 27 1 67 }T
+T{ s" import-stub c end c import-stub X.c end X.c open X theorem t c" fails -> 27 1 62 }T
 T{ s" import-stub A.c end A.c import-stub B.c end B.c open A open B theorem t c" fails
    -> 27 1 73 }T
 T{ s" import-stub c end c import-stub c" fails -> 28 1 33 }T
@@ -98,7 +97,7 @@ T{ s" theorem t Prop explicit: p p var#" fails -> 32 1 30 }T
 T{ s" theorem t universe u u Prop level+" fails -> 32 1 29 }T
 T{ s" theorem t Prop" fails -> 33 1 11 }T
 T{ s" 7" fails -> 33 1 1 }T
-T{ s" theorem t -5 Prop $" fails -> 34 1 19 }T
+T{ s" theorem t -5 Prop $" fails -> 35 1 11 }T
 T{ s\" theorem t Prop note\" an open note" fails -> 37 1 16 }T
 T{ s" theorem t root: c" fails -> 38 1 17 }T
 T{ s" theorem t 5 Prop ->" fails -> 50 1 18 }T
@@ -108,6 +107,32 @@ T{ s\" theorem t s\" text\"" fails -> 51 1 11 }T
 T{ s" import Mathlib" fails -> 51 1 1 }T
 T{ s" theorem t _" fails -> 52 1 11 }T
 T{ s" theorem _root_.t" fails -> 53 1 9 }T
+\ A ( comment must close on its line, as a note must.
+T{ s" theorem t Prop ( no close" fails -> 42 1 16 }T
+T{ s\" theorem t\n  Prop ( the binder\n  explicit: p )\n  p := p end t" fails -> 42 2 8 }T
+\ Names that are numbers: no universe, declaration or namespace name, and
+\ no part of one, is number-like, so no word shadows a number; a binder
+\ may have such a name but gets no word.
+T{ s" def big universe 1 2 Type := 1 Type end big" fails -> 30 1 18 }T
+T{ s" def 0 Prop := Prop end 0" fails -> 30 1 5 }T
+T{ s" def N.1 Prop := Prop end N.1" fails -> 30 1 5 }T
+T{ s" def x.01 Prop := Prop end x.01" fails -> 30 1 5 }T
+T{ s" namespace 1" fails -> 30 1 11 }T
+T{ s" namespace A.-x" fails -> 30 1 11 }T
+T{ s" def a Prop explicit: 1 Prop := Prop end a def b 2 Type := 1 Type end b" run
+   -> outcome-ok }T
+T{ 1 lf-author-decl lf-fdecl-value @ lf-term-first@ -> 0 lfa-succ lfa-succ }T
+T{ s" def c 2 Type := 1 Type end c" run -> outcome-ok }T
+T{ s" def f Prop explicit: 1 1 := Prop end f" fails -> 50 1 26 }T
+\ Numeric name parts have no leading zero (x.01 and x.1 are one Lean name).
+T{ s" def f Prop explicit: x.01 Prop := Prop end f" fails -> 30 1 22 }T
+T{ s" def f Prop explicit: x.10 Prop := Prop end f" run -> outcome-ok }T
+\ A value left below a parameter's binder: the statement is not one term.
+T{ s\" theorem t\n  Prop implicit: A\n  A\n  A explicit: a\n  A\n:=\n  a\nend t" fails
+   -> 18 6 1 }T
+T{ see-pos -> 4 5 }T
+T{ s" axiom t Prop implicit: A A A explicit: a A end t" fails -> 18 1 44 }T
+T{ see-pos -> 1 30 }T
 \ Outcomes: invalid for mistakes, unsupported for forms not built yet,
 \ full for stores out of room.
 T{ s" theorem t Prop let" run -> outcome-unsupported }T
@@ -137,10 +162,40 @@ T{ text$ fails drop drop -> 63 }T
 \ A file that cannot be opened.
 T{ lf-author-begin s" tests/author/no-such-file.lf" lf-author-file -> outcome-invalid }T
 T{ lf-author-code -> 40 }T
-\ A floating-point number is not a LeanForth value.
-[defined] fdepth [if]
-T{ s" theorem t 1e Prop := Prop end t" fails -> 35 1 27 }T
-[then]
+\ Numbers are plain decimals of at most 9 digits: every other form a Forth
+\ host may read as a number is refused at its token, the same on every
+\ host (Gforth 1.0 recognizes more forms than 0.7.3); a token that is no
+\ number form is an unknown name.
+T{ s" theorem t 1e Prop := Prop end t" fails -> 35 1 11 }T
+T{ s" theorem t $10 Type" fails -> 35 1 11 }T
+T{ s" theorem t 0x3 Type" fails -> 35 1 11 }T
+T{ s" theorem t %11 Type" fails -> 35 1 11 }T
+T{ s" theorem t #1 Type" fails -> 35 1 11 }T
+T{ s" theorem t +2 Type" fails -> 35 1 11 }T
+T{ s" theorem t 1. Type" fails -> 35 1 11 }T
+T{ s" theorem t 'a' Type" fails -> 35 1 11 }T
+T{ s" theorem t 2p Type" fails -> 35 1 11 }T
+T{ s" theorem t 1234567890 Type" fails -> 35 1 11 }T
+T{ s" theorem t 0 Type 1foo" fails -> 35 1 18 }T
+T{ s" theorem t 0 Type := 0 Type 1foo" fails -> 35 1 28 }T
+T{ s\" theorem t Prop \"x\" foo" fails -> 1 1 16 }T
+T{ s" theorem t Prop ${HOME} foo" fails -> 35 1 16 }T
+T{ s" theorem t Prop explicit: x Prop := Prop ->x end t" fails -> 35 1 41 }T
+T{ s" theorem t Prop explicit: x Prop := Prop 'x end t" fails -> 35 1 41 }T
+T{ s" theorem t Prop explicit: x Prop := Prop forth:dup end t" fails -> 1 1 41 }T
+T{ s" def a 123456789 Type := Prop end a" fails -> 61 1 17 }T
+T{ s" def a 007 Type := 7 Type end a" run -> outcome-ok }T
+\ A forged value: each value is used once, and a variable only inside its
+\ binder (the text cannot write a negative number; these use the words).
+: forged ( value -- code )
+  lfa-error-reset ['] lfa>term catch if drop lf-author-code else drop 0 then ;
+lf-author-begin
+lfa-kind-term 0 true lfa-item-new constant v
+T{ v lfa>term -> 0 }T
+T{ v forged -> 34 }T
+T{ -7 forged -> 34 }T
+lfa-kind-name 0 -1 lfa-item-new constant w
+T{ w forged -> 34 }T
 \ A LeanForth word run other than by the text interpreter.
 lf-author-begin
 T{ s" Prop" lf-words search-wordlist drop ' execute catch nip -> lf-author-throw }T
@@ -160,6 +215,46 @@ T{ s" namespace A import-stub c end c namespace B theorem t c := c end t end B e
    -> outcome-ok }T
 T{ s" import-stub A.B.c end A.B.c namespace A open B theorem t c := c end t end A" run
    -> outcome-ok }T
+\ Which constant a name means, as pinned Lean 4.35.0 resolves it (each
+\ case checked with Lean: .claude/work/SY2/lean-ns-cases.lean): the
+\ namespace around wins, innermost first, over the root and the opened
+\ namespaces; a dotted declaration name puts its body in its namespace;
+\ namespace A.B is two scopes; open N opens A.N inside A, and O.N for
+\ every open O.
+: const-of ( term -- name )
+  dup lf-term-first@ swap lf-term-second@ lf-cref-read 0= abort" ref" 2drop ;
+: value-const ( i -- name ) lf-author-decl lf-fdecl-value @ const-of ;
+: name1 ( c-addr u -- name ) 0 -rot lf-name-str drop ;
+: name+ ( name c-addr u -- name' ) lf-name-str drop ;
+: stubs-c ( -- c-addr u )
+  s" import-stub c end c import-stub A.c end A.c import-stub A.B.c end A.B.c " ;
+create ns-text 512 allot  variable ns-text#
+: with-stubs ( c-addr u -- outcome )
+  stubs-c ns-text swap move stubs-c nip ns-text# !
+  tuck ns-text ns-text# @ + swap move ns-text# +! ns-text ns-text# @ run ;
+T{ s" namespace A def t Prop := c end t end A" with-stubs -> outcome-ok }T
+T{ 3 value-const -> s" A" name1 s" c" name+ }T
+T{ s" def A.t Prop := c end A.t" with-stubs -> outcome-ok }T
+T{ 3 value-const -> s" A" name1 s" c" name+ }T
+T{ s" namespace A def B.t Prop := c end B.t def u Prop := c end u end A" with-stubs -> outcome-ok }T
+T{ 3 value-const 4 value-const -> s" A" name1 s" B" name+ s" c" name+ s" A" name1 s" c" name+ }T
+T{ s" namespace A.B def t Prop := c end t end B def u Prop := c end u end A" with-stubs
+   -> outcome-ok }T
+T{ 3 value-const 4 value-const -> s" A" name1 s" B" name+ s" c" name+ s" A" name1 s" c" name+ }T
+T{ s" import-stub X.c end X.c namespace A open X def t Prop := c end t end A" with-stubs
+   -> outcome-ok }T
+T{ 4 value-const -> s" A" name1 s" c" name+ }T
+T{ s" def t Prop := A.c end t namespace A def u Prop := A.c end u end A" with-stubs -> outcome-ok }T
+T{ 3 value-const 4 value-const -> s" A" name1 s" c" name+ s" A" name1 s" c" name+ }T
+T{ s" import-stub B.e end B.e import-stub A.B.g end A.B.g namespace A open B def t Prop := g end t end A"
+   run -> outcome-ok }T
+T{ s" import-stub B.e end B.e import-stub A.B.g end A.B.g namespace A open B def t Prop := e end t end A"
+   fails -> 1 1 86 }T
+T{ s" import-stub Y.Z.h end Y.Z.h open Y open Z def t Prop := h end t" run -> outcome-ok }T
+T{ 1 value-const -> s" Y" name1 s" Z" name+ s" h" name+ }T
+T{ s" namespace B end A.B" fails -> 23 1 13 }T
+T{ s" namespace A namespace B end A.B def t Prop := Prop end t" run -> outcome-ok }T
+T{ 0 lf-author-decl lf-fdecl-name @ -> s" t" name1 }T
 
 \ var# and root:.
 T{ s" def f Prop explicit: x Prop explicit: x 1 var# fun fun := Prop end f" run
@@ -225,6 +320,17 @@ T{ 0 lf-author-decl lf-fdecl-type @ forth-text rot rot s" Prop explicit: x x fun
 T{ 0 lf-author-decl lf-fdecl-type @ -1 lf-print-forth-term -> outcome-invalid }T
 T{ 0 lf-author-decl lf-fdecl-type @ 1 lf-print-forth-term -> outcome-exhausted }T
 T{ 99 1000 lf-print-forth-term -> outcome-invalid }T
+\ A label or note the words cannot read back as itself (added through the
+\ note table, not by the words) is refused, never printed as live words.
+: noted ( c-addr u kind -- outcome )
+  s" def f Prop := Prop end f" run drop 0 lf-author-decl lf-fdecl-value @ lf-note-add nip
+  drop 0 lf-author-decl lf-fdecl-value @ forth-text nip nip ;
+T{ s\" hi\" Prop" lf-note-person noted -> outcome-unsupported }T
+T{ s\" two\nlines" lf-note-ai noted -> outcome-unsupported }T
+T{ s" a b" lf-note-label noted -> outcome-unsupported }T
+T{ s" " lf-note-label noted -> outcome-unsupported }T
+T{ s" fine, (really)" lf-note-person noted -> outcome-ok }T
+T{ s" a-b" lf-note-label noted -> outcome-ok }T
 ' type lf-print-unicode lf-print-setup
 
 cr .( author.fs: all tests passed) cr

@@ -12,9 +12,11 @@
 require ../lib/lib.fs
 require ./declarations.fs
 
-\ Comments, with Forth's meanings, on one line.
+\ Comments, with Forth's meanings, on one line: a ( comment must end on
+\ its line, or the text after it would silently become comment.
 : lfa-w-backslash ( -- ) source nip >in ! lfa-read! ;
-: lfa-w-paren ( -- ) [char] ) parse 2drop lfa-read! ;
+: lfa-closed? ( c-addr u -- flag ) chars + source chars + <> ;
+: lfa-w-paren ( -- ) [char] ) parse lfa-closed? lfa-e-comment-end lfa-must lfa-read! ;
 
 \ Declarations: theorem NAME, def NAME, axiom NAME, import-stub NAME;
 \ end NAME closes a declaration or a namespace.
@@ -51,7 +53,7 @@ require ./declarations.fs
   1 lfa-args lfa>count dup lfa-depth < lfa-e-var-index lfa-must lfa-here lfa-bvar
   lfa-term-value ;
 : lfa-w-root ( "name" -- c )
-  0 lfa-args lfa-name-token 2drop lf-consts lfa-const-in lfa-e-unknown-constant lfa-must
+  0 lfa-args lfa-name-token lfa-const-named 0= if lfa-e-unknown-constant lfa-fail then
   lfa-const-value ;
 
 \ Levels: l n level+, a b level-max, a b level-imax.
@@ -63,19 +65,19 @@ require ./declarations.fs
 : lfa-w-imax ( a b -- l ) 2 lfa-args lfa-two-levels lfa-imax lfa-level-value ;
 
 \ Labels and notes on the term on top: label: NAME, note" text",
-\ ai-note" text". The term gets a node of its own (build.fs); the note
-\ records the position of the word that made it.
-: lfa-note! ( term c-addr u kind -- term i ) 3 pick lf-note-add ok? lfa-e-notes-full
-  lfa-must ;
-: lfa-annotate ( t c-addr u kind -- t' i )
-  >r rot lfa>term+ lfa-own -rot r> lfa-note! swap true lfa-term-value swap ;
+\ ai-note" text". The term gets a node of its own (build.fs) and a new
+\ value; the note records the position of the word that made it.
+: lfa-step ( t -- t' term ) lfa>term+ lfa-own dup true lfa-term-value swap ;
+: lfa-note! ( term c-addr u kind -- i )
+  2>r swap 2r> rot lf-note-add ok? lfa-e-notes-full lfa-must ;
+: lfa-annotate ( t c-addr u kind -- t' i ) 2>r >r lfa-step r> 2r> lfa-note! ;
 : lfa-label-free ( c-addr u -- c-addr u )
   2dup lfa-this lfa-decl-notes @ lf-note-label? 0= lfa-e-label-twice lfa-must ;
 : lfa-w-label ( t -- t' )
   1 lfa-args lfa-here >r lfa-name-token lfa-label-free lf-note-label lfa-annotate
   r> lf-note-source! ;
 : lfa-note-text ( -- c-addr u )
-  [char] " parse 2dup chars + source chars + <> lfa-e-note-end lfa-must lfa-read! ;
+  [char] " parse 2dup lfa-closed? lfa-e-note-end lfa-must lfa-read! ;
 : lfa-w-note ( t -- t' )
   1 lfa-args lfa-here >r lfa-note-text lf-note-person lfa-annotate r> lf-note-source! ;
 : lfa-w-ai-note ( t -- t' )

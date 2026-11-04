@@ -160,18 +160,19 @@ opened).
 | 27 | invalid | ambiguous name: write the full name |
 | 28 | invalid | already declared |
 | 29 | invalid | label used twice in this declaration |
-| 30 | invalid | not a name: a number, or an empty part between dots |
+| 30 | invalid | not a name: an empty part, a part like a number, or a leading zero |
 | 31 | invalid | var# index outside the binders |
 | 32 | invalid | a count (a number) is needed here |
 | 33 | invalid | the text ends inside a declaration or with values left |
-| 34 | invalid | not a LeanForth value |
-| 35 | invalid | not a LeanForth word: Forth read a token of this line as a float |
+| 34 | invalid | not a live LeanForth value: each value is used once |
+| 35 | invalid | not a LeanForth word or number: numbers are plain decimals of at most 9 digits |
 | 36 | invalid | a LeanForth word must be run by the text interpreter |
 | 37 | invalid | a note must end with " on the same line |
 | 38 | invalid | unknown constant |
 | 39 | full | line too long |
 | 40 | invalid | the file cannot be opened or read |
 | 41 | invalid | a Forth exception, with its THROW code |
+| 42 | invalid | a ( comment must end with ) on the same line |
 | 50 | unsupported | not supported yet: natural-number literals need literal nodes (ADR 0017 section 14) |
 | 51 | unsupported | not supported yet: designed in ADR 0017 but not built yet |
 | 52 | unsupported | not supported yet: holes are filled by the elaborator (plan task 8.3.1) |

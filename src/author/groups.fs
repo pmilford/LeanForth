@@ -1,10 +1,13 @@
 \ LeanForth's wordlists and name words (ADR 0017 §3-§5, §9). While a proof
-\ runs, the search order holds only these wordlists, searched first to
+\ runs, the search order holds only three wordlists, searched first to
 \ last: LF-WORDS (the syntax words, lf-words), LF-LOCALS (variables and
-\ universe parameters, lf-locals), the namespaces entered and opened,
-\ newest first, and LF-CONST (every constant under its full name,
-\ lf-consts). Forth's own words are not in the order, so they are
-\ invisible in proof text.
+\ universe parameters, lf-locals) and LF-CONST (constants, lf-consts).
+\ Forth's own words are not in the order, so they are invisible in proof
+\ text. A constant has an entry under its full name in LF-CONST; each
+\ shorter name it can be written by (the part after a dot of its name)
+\ has a word in LF-CONST too, with no entry, so that the interpreter finds
+\ a word for it. Which constant a name means is decided when the word
+\ runs, as Lean decides it (namespaces.fs, declarations.fs).
 \
 \ Names are case-sensitive although Forth finds words regardless of case
 \ (Forth-2012 3.4.2, Gforth): one Forth word, a name group, stands for all
@@ -14,9 +17,15 @@
 \ match; otherwise it hands the token to the wordlists searched after its
 \ own (GET-ORDER, SEARCH-WORDLIST) and runs what it finds there, or stops
 \ with "unknown name". A syntax word holds its own spelling. A word must
-\ be run by the text interpreter: the token it re-reads must find it. A
-\ constant found through a namespace under a short name must not also be
-\ a different constant in another visible namespace or at the root.
+\ be run by the text interpreter: the token it re-reads must find it.
+\
+\ Numbers: the interpreter converts a token no word has as a number, in
+\ whatever forms its host reads. Every LeanForth word, before it acts,
+\ checks the tokens of its line between the last token a word read and
+\ its own: those are the numbers, and each must be a plain decimal
+\ (source.fs); the runner checks the rest of each line the same way. So
+\ the same tokens are refused on every host, at the token itself. No
+\ group word is ever made for a number-like spelling.
 \
 \ The group words live in the dictionary and are shared; their entries
 \ live in the checker context, so another context sees the same words but
@@ -37,6 +46,8 @@ wordlist constant lf-consts
 \ The wordlist these modules are compiled into; it finds the defining
 \ word of a group.
 get-current constant lfa-home
+\ The search order while a proof runs.
+: lfa-order! ( -- ) lf-consts lf-locals lf-words 3 set-order ;
 
 \ Entry kinds.
 1 constant lfa-entry-variable    \ value: the binder's slot
@@ -67,7 +78,6 @@ end-structure
 
 begin-structure /lfa-groups
   field: lfa-groups-used       \ spelling bytes in use
-  field: lfa-groups-wid        \ the wordlist of the group being defined
   field: lfa-groups-order#     \ wordlists in the copied search order
   lfa-order-capacity cells +field lfa-groups-order
   /lfa-key +field lfa-groups-key
@@ -128,11 +138,25 @@ end-structure
     if unloop execute exit then loop
   lfa-e-unknown lfa-fail ;
 
+\ The numbers the interpreter read: the tokens of c-addr u. The first that
+\ is no plain decimal, or an empty string; it is refused as a number form
+\ (number-like) or as an unknown name.
+: lfa-stray ( c-addr u -- token-addr token-u )
+  begin lfa-next-token dup while 2dup lfa-plain-decimal? 0= if 2swap 2drop exit then
+    2drop repeat 2swap 2drop ;
+: lfa-stray-code ( c-addr u -- code )
+  lfa-number-like? if lfa-e-not-word else lfa-e-unknown then ;
+\ Check the line up to offset n: a stray token stops the run at itself.
+: lfa-read-to ( n -- )
+  lfa-unread-to lfa-stray dup 0= if 2drop exit then
+  2dup lfa-token! lfa-stray-code lfa-fail ;
+
 \ The token that invoked the word whose body is given, which must be found
 \ as that word in wid: the word was run by the text interpreter. The
-\ token becomes the current token.
+\ numbers before it are checked, and it becomes the current token.
+: lfa-numbers-before ( c-addr -- ) dup lfa-on-line? if lfa-offset lfa-read-to else drop then ;
 : lfa-invoked-by ( body wid -- )
-  lfa-invoked 2dup lfa-token! rot search-wordlist
+  lfa-invoked over lfa-numbers-before 2dup lfa-token! rot search-wordlist
   if >body = else drop false then lfa-e-interpreter lfa-must ;
 
 \ Syntax words: the word's xt, then its spelling as a counted string.
@@ -147,23 +171,37 @@ end-structure
   parse-name lfa-syntax-spelling, r> set-current does> lfa-syntax-run ;
 
 \ Name groups. The body holds the group's wordlist.
-defer lfa-group-run ( body -- )
 : lfa-group-wid ( body -- wid ) @ ;
-: lfa-group: ( "name" -- ) create lfa-groups lfa-groups-wid @ , does> lfa-group-run ;
+\ Locals: the innermost variable and the universe parameter with this
+\ spelling make one name value; with neither, the token is passed on.
+: lfa-local-value ( entry true | false -- n ) if lfa-entry-value @ else -1 then ;
+: lfa-local-run ( body -- )
+  dup lfa-entry-variable lfa-token-find lfa-local-value
+  swap lfa-entry-universe lfa-token-find lfa-local-value
+  over 0< over 0< and if 2drop lf-locals lfa-pass exit then lfa-name-value ;
+\ Constants: which one a name means is Lean's resolution (declarations.fs).
+defer lfa-const-run ( body -- )
+: lfa-run-group ( body -- )
+  dup dup lfa-group-wid lfa-invoked-by
+  dup lfa-group-wid lf-locals = if lfa-local-run else lfa-const-run then ;
+\ Define a group word, in wid, by EVALUATE of: lfa-group: NAME.
+: lfa-group: ( wid "name" -- ) create , does> lfa-run-group ;
 : lfa-define-prefix ( -- c-addr u ) s" lfa-group: " ;
 : lfa-define-text ( c-addr u -- c-addr' u' )
   dup lfa-define-capacity 16 - > 0= lfa-e-names-full lfa-must
   lfa-define-prefix lfa-groups lfa-groups-define swap move
   tuck lfa-groups lfa-groups-define lfa-define-prefix nip + swap move
   lfa-groups lfa-groups-define swap lfa-define-prefix nip + ;
-\ Define the group word for c-addr u in wid.
+\ Define the group word for c-addr u in wid; a number-like spelling never
+\ gets one. The proof's search order is set again afterwards.
 : lfa-group-define ( c-addr u wid -- )
-  dup lfa-groups lfa-groups-wid ! get-current >r set-current lfa-define-text 2>r
-  get-order lfa-home 1 set-order 2r> evaluate set-order r> set-current ;
+  get-current >r dup set-current -rot lfa-define-text
+  lfa-home 1 set-order evaluate lfa-order! r> set-current ;
 \ The group of c-addr u in wid, made when there is none.
 : lfa-found ( xt n | 0 -- body ) dup 0<> lfa-e-entries-full lfa-must drop >body ;
 : lfa-group ( c-addr u wid -- body )
   >r 2dup r@ search-wordlist if nip nip r> drop >body exit then
+  2dup lfa-number-like? 0= lfa-e-bad-name lfa-must
   2dup r@ lfa-group-define r> search-wordlist lfa-found ;
 \ A new entry of the given kind and value for the exact spelling c-addr u
 \ in wid's group.
@@ -172,33 +210,7 @@ defer lfa-group-run ( body -- )
   >r 2dup r> lfa-group >r lfa-entries store-new-slot lfa-e-entries-full lfa-must drop
   dup /lfa-entry erase r> over lfa-entry-group ! dup >r lfa-spell! r> ;
 
-\ Locals: the innermost variable and the universe parameter with this
-\ spelling make one name value; with neither, the token is passed on.
-: lfa-local-value ( entry true | false -- n ) if lfa-entry-value @ else -1 then ;
-: lfa-local-run ( body -- )
-  dup lfa-entry-variable lfa-token-find lfa-local-value
-  swap lfa-entry-universe lfa-token-find lfa-local-value
-  over 0< over 0< and if 2drop lf-locals lfa-pass exit then lfa-name-value ;
-
-\ Constants. A short name found in a namespace must not name a different
-\ constant in another searched wordlist (another namespace, or LF-CONST).
-: lfa-const-in ( wid -- decl true | false )
-  >r lfa-token r> search-wordlist 0= if false exit then
-  >body lfa-entry-constant lfa-token-find if lfa-entry-value @ true else false then ;
-: lfa-differs? ( decl wid -- flag ) lfa-const-in if <> else drop false then ;
-: lfa-searched? ( wid -- flag ) dup lf-words <> swap lf-locals <> and ;
-: lfa-clash? ( decl wid i -- flag )
-  lfa-order-wid tuck <> over lfa-searched? and if lfa-differs? else 2drop false then ;
-: lfa-ambiguous? ( decl wid -- flag )
-  lfa-order@ lfa-order# 0 ?do 2dup i lfa-clash? if 2drop true unloop exit then loop
-  2drop false ;
-: lfa-unambiguous ( decl wid -- )
-  dup lf-consts = if 2drop exit then lfa-ambiguous? 0= lfa-e-ambiguous lfa-must ;
-: lfa-const-run ( body -- )
-  dup lfa-entry-constant lfa-token-find 0= if lfa-group-wid lfa-pass exit then
-  lfa-entry-value @ tuck swap lfa-group-wid lfa-unambiguous lfa-const-value ;
-
-: lfa-run-group ( body -- )
-  dup dup lfa-group-wid lfa-invoked-by
-  dup lfa-group-wid lf-locals = if lfa-local-run else lfa-const-run then ;
-' lfa-run-group is lfa-group-run
+\ The constant whose full name is c-addr u, if there is one.
+: lfa-const-named ( c-addr u -- decl true | false )
+  2dup lf-consts search-wordlist 0= if 2drop false exit then
+  >body lfa-entry-constant lfa-key! lfa-entry-find if lfa-entry-value @ true else false then ;

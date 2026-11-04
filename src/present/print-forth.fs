@@ -128,17 +128,29 @@ create lf-pf-eol 10 c,
 : lf-pf-put-name ( id -- ) ['] lf-pp-put lf-pp-name-to ;
 : lf-pf-put-number ( u -- ) ['] lf-pp-put lf-pp-number-to ;
 
-\ Labels and notes after their term.
+\ Labels and notes after their term. A label reads back as one token, so
+\ it is not empty and has no blank or control character; a note's text
+\ has no " and no line end, which would end it early. Any other text
+\ would print as live words: unsupported.
+: lf-pf-blank-in? ( c-addr u -- flag ) false -rot chars over + swap ?do i c@ bl 1+ < or loop ;
+: lf-pf-label? ( c-addr u -- flag ) dup 0= if 2drop false exit then lf-pf-blank-in? 0= ;
+: lf-pf-note-end? ( char -- flag ) dup [char] " = over 10 = or swap 13 = or ;
+: lf-pf-note? ( c-addr u -- flag )
+  true -rot chars over + swap ?do i c@ lf-pf-note-end? 0= and loop ;
+: lf-pf-spellable-note? ( i -- flag )
+  dup lf-note-text@ rot lf-note-kind@ lf-note-label = if lf-pf-label? else lf-pf-note? then ;
 : lf-pf-note-word ( kind -- c-addr u )
   case lf-note-person of s\" note\" " endof lf-note-ai of s\" ai-note\" " endof
   s" label: " rot endcase ;
-: lf-pf-note ( i -- )
+: lf-pf-note ( i -- outcome )
+  dup lf-pf-spellable-note? 0= if drop outcome-unsupported exit then
   lf-pf-mark over lf-note-kind@ dup >r lf-pf-note-word lf-pp-put over lf-note-text@
     lf-pp-put
   r@ lf-note-label <> if s\" \"" lf-pp-put then lf-pf-unit drop
-  r> lf-note-label <> if lf-pf-end-line then ;
-: lf-pf-notes ( term -- )
-  lf-note-count 0 ?do dup i lf-note-on? if i lf-pf-note then loop drop ;
+  r> lf-note-label <> if lf-pf-end-line then outcome-ok ;
+: lf-pf-notes ( term -- outcome )
+  lf-note-count 0 ?do dup i lf-note-on?
+    if i lf-pf-note ok-then? 0= if unloop exit then then loop drop outcome-ok ;
 
 \ Binders in scope: a variable's name, or n var#.
 : lf-pf-visible? ( j -- flag ) lf-pp-entry lf-pbind-domain @ 0< 0= ;
@@ -226,7 +238,7 @@ defer lf-pf-level-visit ( level x -- outcome )
   outcome-ok ;
 : lf-pf-universe-args ( term -- outcome )
   lf-pp-const-levels 0= if outcome-invalid exit then
-  0 ?do dup i lf-pp-level-at lf-pf-level dup ok? 0= if nip unloop exit then drop
+  0 ?do dup i lf-pp-level-at lf-pf-level ok-then? 0= if unloop exit then
     s" ^" lf-pf-text loop drop outcome-ok ;
 : lf-pf-const ( term -- outcome )
   dup lf-pp-const-name 0= if drop-invalid exit then
@@ -258,23 +270,22 @@ defer lf-pf-term-visit ( term x -- outcome )
   lf-pf-mark swap lf-pf-binder-name drop lf-pf-referable 0 swap lf-pp-bind ;
 : lf-pf-bind-arrow ( -- outcome ) -1 lf-pf-mark lf-pp-bind ;
 : lf-pf-head ( node -- outcome )
-  dup lf-term-first@ lf-pf-term dup ok? 0= if nip exit then drop
-  dup lf-pf-opener dup ok? 0= if nip exit then drop lf-pf-bind-visible ;
+  dup lf-term-first@ lf-pf-term ok-then? 0= if exit then
+  dup lf-pf-opener ok-then? 0= if exit then lf-pf-bind-visible ;
 : lf-pf-binder ( node c-addr u -- outcome )
-  2>r dup lf-pf-head dup ok?
-  if drop lf-term-second@ lf-pf-term 1 lf-pp-unbind 2r> lf-pf-then-word exit then
-  nip 2r> 2drop ;
+  2>r dup lf-pf-head ok-then? 0= if 2r> 2drop exit then
+  lf-term-second@ lf-pf-term 1 lf-pp-unbind 2r> lf-pf-then-word ;
 : lf-pf-loose-name? ( id -- flag ) dup 0= if drop true else lf-pp-hygienic? then ;
 : lf-pf-arrow? ( pi -- flag outcome )
   dup lf-pp-kind lf-binder-default <> if drop false outcome-ok exit then
   dup lf-pf-binder-name drop lf-pf-loose-name? 0= if drop false outcome-ok exit then
   lf-term-second@ 0 lf-pp-loose? >r 0= r> ;
 : lf-pf-arrow ( pi -- outcome )
-  dup lf-term-first@ lf-pf-term dup ok? 0= if nip exit then drop
-  lf-pf-bind-arrow dup ok? 0= if nip exit then drop
+  dup lf-term-first@ lf-pf-term ok-then? 0= if exit then
+  lf-pf-bind-arrow ok-then? 0= if exit then
   lf-term-second@ lf-pf-term 1 lf-pp-unbind s" ->" lf-pf-then-word ;
 : lf-pf-pi ( pi -- outcome )
-  dup lf-pf-arrow? dup ok? 0= if nip nip exit then drop
+  dup lf-pf-arrow? ok-then2? 0= if exit then
   if lf-pf-arrow else s" forall" lf-pf-binder then ;
 : lf-pf-app ( app -- outcome )
   dup lf-term-first@ lf-pf-term ok-then? if lf-term-second@ lf-pf-term s" $"
@@ -292,8 +303,7 @@ defer lf-pf-term-visit ( term x -- outcome )
     lf-tag-pi of lf-pf-pi endof
     lf-tag-constant of lf-pf-const endof
     >r drop-invalid r> endcase ;
-: lf-pf-noted ( term x -- outcome )
-  drop dup lf-pf-node dup ok? if over lf-pf-notes then nip ;
+: lf-pf-noted ( term x -- outcome ) drop dup lf-pf-node ok-then? if lf-pf-notes then ;
 ' lf-pf-noted is lf-pf-term-visit
 
 \ Declarations.
@@ -311,9 +321,8 @@ defer lf-pf-term-visit ( term x -- outcome )
   2 lf-pf-open lf-pf-mark s" universe " lf-pp-put swap lf-pf-put-name lf-pf-unit
     outcome-ok ;
 : lf-pf-universes ( -- outcome )
-  lf-pf-universe-ids 0 ?do dup i cells + @ lf-pf-universe dup ok? 0= if nip unloop exit
-    then
-    drop loop drop outcome-ok ;
+  lf-pf-universe-ids 0 ?do dup i cells + @ lf-pf-universe ok-then? 0= if unloop exit then
+    loop drop outcome-ok ;
 \ A parameter: its own line, then its binder stays in scope.
 : lf-pf-param-line ( binder -- outcome ) 2 lf-pf-open lf-pf-head ;
 : lf-pf-same-binder? ( pi lam -- flag )
@@ -333,13 +342,12 @@ defer lf-pf-term-visit ( term x -- outcome )
   repeat outcome-ok ;
 : lf-pf-body ( term -- outcome ) 2 lf-pf-open lf-pf-term ;
 : lf-pf-definition ( decl -- outcome )
-  dup lf-fdecl-type @ swap lf-fdecl-value @ lf-pf-def-params dup ok? 0= if nip nip exit
-    then
-  drop swap lf-pf-body dup ok? 0= if nip exit then drop
+  dup lf-fdecl-type @ swap lf-fdecl-value @ lf-pf-def-params ok-then2? 0= if exit then
+  swap lf-pf-body ok-then? 0= if exit then
   0 lf-pf-open s" :=" lf-pf-text lf-pf-body ;
 : lf-pf-statement ( decl -- outcome )
   lf-fdecl-type @ dup 0< if drop outcome-ok exit then
-  lf-pf-type-params dup ok? 0= if nip exit then drop lf-pf-body ;
+  lf-pf-type-params ok-then? if lf-pf-body then ;
 : lf-pf-parts ( decl -- outcome )
   dup lf-fdecl-kind @ lf-decl-def > if lf-pf-statement else lf-pf-definition then ;
 : lf-pf-end ( decl -- outcome )
@@ -347,9 +355,9 @@ defer lf-pf-term-visit ( term x -- outcome )
     lf-pf-unit
   lf-pf-eol 1 lf-pp-emit 0 lf-pf-column ! outcome-ok ;
 : lf-pf-declaration ( decl x -- outcome )
-  drop dup lf-pf-header dup ok? 0= if nip exit then drop
-  lf-pf-universes dup ok? 0= if nip exit then drop
-  dup lf-pf-parts dup ok? 0= if nip exit then drop lf-pf-end ;
+  drop dup lf-pf-header ok-then? 0= if exit then
+  lf-pf-universes ok-then? 0= if exit then
+  dup lf-pf-parts ok-then? if lf-pf-end then ;
 
 \ Public words; see the header.
 : lf-pf-start ( decl -- ) lf-pforth /lf-pforth erase lf-pforth lf-pforth-decl ! ;
