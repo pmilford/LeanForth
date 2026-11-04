@@ -223,7 +223,8 @@ T{ 0 ar big-limit! s" 0" ar decimal>big nip s" 1" ar decimal>big
 : high-water ( -- cells )
   watched begin dup 0> while 1- dup cells top + @ pattern <> if 1+ exit then repeat ;
 : pow-written ( c-addr u -- cells )
-  s" 3" num -rot num pattern-fill top >r ar big-pow 2drop r> ar big-release drop high-water ;
+  s" 3" num -rot num pattern-fill top >r ar big-pow 2drop r> ar big-release drop
+  high-water ;
 T{ 4096 ar big-limit! s" 3" num s" 4095" num ' big-pow refused-full -> true }T
 T{ s" 4095" pow-written s" 2047" pow-written > s" 2047" pow-written 0> -> false true }T
 T{ big-lean-bits ar big-limit! -> }T
@@ -272,10 +273,12 @@ most-room guard-cells 2* + constant guarded-cells
 create guarded guarded-cells cells allot
 create gar /big-arena allot
 : guard-fill ( -- ) guarded guarded-cells cells over + swap ?do pattern i ! cell +loop ;
-: gar-init ( room -- ) guard-fill guarded guard-cells cells + swap cells gar big-arena-init ;
+: gar-init ( room -- )
+  guard-fill guarded guard-cells cells + swap cells gar big-arena-init ;
 \ Whether the n cells from addr still hold the pattern: those below the
 \ arena, and all of those above it.
-: guarded? ( addr n -- flag ) true -rot cells over + swap ?do i @ pattern = and cell +loop ;
+: guarded? ( addr n -- flag )
+  true -rot cells over + swap ?do i @ pattern = and cell +loop ;
 : below-guards ( -- addr n ) guarded guard-cells ;
 : above-guards ( room -- addr n ) guard-cells + dup cells guarded + guarded-cells rot - ;
 : guards? ( room -- flag ) below-guards guarded? swap above-guards guarded? and ;

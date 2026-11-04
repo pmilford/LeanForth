@@ -24,7 +24,7 @@ variants were retired on 2026-11-02.
 | JSON reader | `src/lib/json.fs` | `json:` view record: a fail-closed, non-recursive RFC 8259 parser of one text into a growable token tape (containers know their item count and extent), escapes decoded in place, numbers kept as digit text, limits on depth, tokens, string and number length; `json-find`, `json-next`, `json-natural`, `json-u`, `digits>u` and `decimal>u` (decimal, independent of `BASE`); kind-checked `json-items-of` and `json-kind-at`. Loads in decimal whatever `BASE` is, and restores it | New 2026-11-02; malformed corpus and every limit tested in `tests/lib/json.fs`, loaded under `HEX` |
 | JSON writer | `src/lib/json-write.fs` | Plan task 3.1.3. A writer record (`json-writer: ( depth room "name" -- )`, or `jw-size` and `jw-init` in memory the caller owns, such as a context member) writes one JSON text to the caller's sink xt `( c-addr u -- )`: `jw-start ( sink writer -- )`, then `jw-string`, `jw-n` (signed cell), `jw-u` (unsigned cell), `jw-digits` (integer text of any size, as `json.fs` keeps it), `jw-bool`, `jw-null`, `jw-open-object`, `jw-key`, `jw-close-object`, `jw-open-array`, `jw-close-array`, or `jw-copy ( index view writer -- )` of a value `json.fs` parsed; `jw-end ( writer -- outcome )`. Every call takes the writer last and returns nothing. Deterministic bytes: no whitespace; members in call order, and with `jw-sorted` set each object's keys must strictly increase in byte order (code point order), checked against the last key kept in a key pool of `room` bytes; integers in decimal whatever `BASE` is, `-0` written `0`; strings escaped only as `\"`, `\\`, `\b \f \n \r \t` and `\u00xx` (lowercase) for other bytes below 32, everything else, valid UTF-8 included, as itself, which are the bytes of Python's `json.dumps(v, separators=(",", ":"), ensure_ascii=False)`; no real numbers (`jw-copy` of one is unsupported). The first failing call writes nothing and its outcome sticks until the next `jw-start` (`jw-outcome` reads it): invalid for calls out of order (a close that does not match its open or follows a key, a value where a key is due, a second value, `jw-end` before the value is complete, writes before `jw-start` or after `jw-end`), invalid UTF-8, bad integer text or flags, keys out of order in sorted mode, and any call from inside the writer's own sink (`jw-reset` or `jw-init` there fails the text when the sink returns); full past the byte limit `jw-limit` (so a buffer of n bytes never overflows), the depth or the key pool. So `jw-end` gives ok only for exactly one complete JSON value, and the sink only ever receives a prefix of one. After a THROW out of a writer word the caller discards the text and calls `jw-reset` (a THROW outside the sink leaves no mark); a sink that writes over the string or view being written is unchecked. No state of its own; `jw-copy` is a loop over the value's tokens, without recursion (a container it opens records the index of the token after it, and closes there), so a few stack cells serve any depth the writer allows. Loads in decimal whatever `BASE` is, and restores it | New 2026-11-02; `tests/lib/json-write.fs` (180 assertions: every word's positive and negative cases, every limit at and one past its bound, sorted keys, keys refused as strings are, the sink rules including `jw-reset` and `jw-init` from inside the sink, a copy 10,000 containers deep and copies stopped by a failed close, two interleaved writers and a context member, 2,000 random strings and 2,000 random cells written and read back by `json.fs`, and all 138 lines of `tests/reference/*.ndjson` plus 16 lines with every other record kind of lean4export 3.1.0, `tests/lib/json-write-corpus.ndjson`, copied back byte for byte in both key modes), loaded and partly run under `HEX`; `tests/lib/test_json_write.py` compares 300 random values written with the writer's words and 150 non-canonical texts copied with `jw-copy` against Python's `json.dumps`, 40 copies of values nested up to 64 deep, plus 50 refusals with their exact prefixes; 21 planted faults each caught, and after the independent review (2026-11-02) 6 more, one per fix reverted or broken, on Gforth 0.7.3 and 1.0 |
 | Packed 32-bit fields | `src/lib/u32.fs` | `u32@ ( addr -- u )` and `u32! ( u addr -- )` read and write an unsigned 32-bit field; `u32s ( n -- au )` sizes *n* fields; `u32-mask` is the 32-bit mask on any cell size. Gforth's `l@`/`l!` where the host has them and a load-time check (`u32-sound?`) shows they are unsigned 32-bit access: a value with bit 31 set comes back unchanged, and the four characters after the field keep their values; otherwise, or when `lf-u32-portable` is defined first, the Forth-2012 `u32-bytes@`/`u32-bytes!` (four characters, least significant first, an order the module fixes; public for the tests only). `u32!` keeps the low 32 bits; on a 32-bit host a value of 2³¹ or more reads back as a negative cell, so compare with `U<`. Loads in decimal whatever `BASE` is, and restores it. The layout of packed records is defined by arithmetic on the values, never by byte order, and is never written to a file. The only non-text module allowed byte access (`scripts/check-portable-forth.py`) | New 2026-11-02 for the compact store ([ADR 0016](../adr/0016-compact-store.md), proposed); not yet loaded by `lib.fs` or used by a module; both versions tested on every host in `tests/lib/lib.fs`, which loads it under `HEX` and asserts that Gforth's words are in use, shows the check refusing a sign-extending fetch and a cell-wide store, and loads it again under `BASE` 8 with `lf-u32-portable` defined to get the Forth-2012 version; after the independent review (2026-11-02) 6 planted faults each caught |
-| Big natural numbers | `src/lib/bignum.fs` | Arbitrary-precision naturals for Lean's `Nat` literals ([below](#big-natural-numbers)): numbers in an arena the caller provides (`/big-arena`, `big-arena-init`; `big-mark` and `big-release` give back what was made since a mark), one-cell limbs whose width is counted (`limb-bits`), decimal reading and printing (`decimal>big`, `big>decimal`), conversion to and from a cell (`u>big`, `big>u`), comparison (`big-compare`, `big=`, `big<=`), and the operations Lean 4.35.0's kernel computes on literals (`big+ big- big* big/ big-mod big-gcd big-and big-or big-xor big-lshift big-rshift big-pow`, each `( a b arena -- c outcome )`). Schoolbook multiplication with Karatsuba from 48 limbs, Knuth's algorithm D, Lehmer's gcd. Outcomes ok, invalid (a malformed number, text or arena) and full (no room, or more bits than the arena's limit, by default Lean's 2^30). No state; loads in decimal whatever `BASE` is | New 2026-11-02 (plan task 5.2.3, library part); not yet used by the kernel (task 5.1.4); `tests/lib/bignum.fs` reaches every outcome; `make test` compares 37,570 cases with Python's integers on the running Gforth and catches 20 planted faults; `make check` has 986 of them computed by pinned Lean's kernel |
+| Big natural numbers | `src/lib/bignum.fs` | Arbitrary-precision naturals for Lean's `Nat` literals ([below](#big-natural-numbers)): numbers in an arena the caller provides (`/big-arena`, `big-arena-init`; `big-mark` and `big-release` give back what was made since a mark), one-cell limbs whose width is counted (`limb-bits`), decimal reading and printing (`decimal>big`, `big>decimal`), conversion to and from a cell (`u>big`, `big>u`), comparison (`big-compare`, `big=`, `big<=`), and the operations Lean 4.35.0's kernel computes on literals (`big+ big- big* big/ big-mod big-gcd big-and big-or big-xor big-lshift big-rshift big-pow`, each `( a b arena -- c outcome )`). Schoolbook multiplication with Karatsuba from 48 limbs, Knuth's algorithm D, Lehmer's gcd. Outcomes ok, invalid (a malformed or released number, text or arena) and full (no room, or more bits than the arena's limit, by default Lean's 2^30). No state; loads in decimal whatever `BASE` is | New 2026-11-02 (plan task 5.2.3, library part); not yet used by the kernel (task 5.1.4); `tests/lib/bignum.fs` reaches every outcome; `make test` compares 37,585 cases with Python's integers on the running Gforth and catches 22 planted faults; review fixes of 2026-11-03 (printing overwrote the number below its text, stale operands, two speed fixes) with guarded-arena sweeps; `make check` has 984 of them computed by pinned Lean's kernel |
 | Portability adapter | `src/lib/portability.fs` | Forth-2012 definitions of `>=`, `<=`, `0<=`, `0>=`, `-rot`, `max-n`, `cell` and the structure words, compiled only where the host lacks them. `scripts/check-portable-forth.py` refuses a module under `src/` that uses one of them without loading this file, directly or through the files it loads | New 2026-11-02; defines nothing under Gforth except `max-n`; `cell` and the load check added 2026-11-02 |
 | Diagnostics | `src/core/diagnostics.fs` | One record per checker context explaining the first failure of a check: a reason code, the site (module and word, a counted string) and two numbers; first failure wins until `lf-diag-clear`; `lf-diag@`, `lf-diag.`; helpers `lf-diag-walk`, `lf-diag-frames` and `lf-diag-store` explain a walk's, a pass's or a store's failure. Never changes an outcome; catalogue in [DIAGNOSTICS.md](../programming/DIAGNOSTICS.md) | New 2026-11-02 (plan 6.7, first form); every core and kernel module records its full and exhausted sites; `tests/core/diagnostics.fs` |
 | Expression store | `src/core/terms.fs` | Index-based nodes for sorts, bound variables, application, λ, Π and constants; nodes refer to earlier indices, so a term is a DAG with sharing | 64 nodes per checker context; built on `context-store:`; constructors check ranges only |
@@ -149,18 +149,32 @@ depends on the cell size (only 64-bit hosts have been run). Numbers are
 normalized (no zero top limb; 0 has no limbs) and never change once made.
 Every operation makes its result at the arena's top, its scratch above
 the result, and gives the scratch back; a failure leaves the top where it
-was and gives -1 with the outcome. Inputs are checked in O(1) (count at
-least 0, top limb not 0) and the arena record too; comparisons and
-`big-bits` trust their arguments. Limb arithmetic uses Forth-2012's
+was and gives -1 with the outcome (`big>decimal` gives 0 0, an empty
+text). Inputs are checked in O(1): the count is at least 0, the top limb
+is not 0, and the number does not reach into the arena's free part
+(`big-live?`: a released number, which the result would overwrite, is
+*invalid*; one whose memory was claimed again cannot be told from a live
+one); the arena record is checked too. Comparisons and `big-bits` trust
+their arguments. Limb arithmetic uses Forth-2012's
 `UM*`, `UM/MOD`, `D+`, `D-` and `DU<`. Multiplication is by rows below 48
 limbs and by Karatsuba above, the longer factor cut into chunks of the
-shorter one's size; division is Knuth's algorithm D (TAOCP 4.3.1); gcd is
-Lehmer's algorithm with single-limb leading parts of `limb-bits − 3` bits
-(Knuth's algorithm L, 4.5.2), with a full division when no simulated step
-agrees; powers are left to right over the exponent's bits, recursively;
+shorter one's size; a shorter last chunk (the tail) is never padded: it
+goes by rows below 48 limbs, and otherwise the job turns round, the
+shorter factor cut into chunks of the tail's size, so the sizes shrink as
+in Euclid's algorithm with no more room. Division is Knuth's algorithm D
+(TAOCP 4.3.1); gcd is Lehmer's algorithm with single-limb leading parts
+of `limb-bits − 3` bits (Knuth's algorithm L, 4.5.2), with a full
+division when no simulated step agrees; powers are left to right over the
+exponent's bits, recursively, and a product that cannot fit the limit
+(at least bits(a) + bits(b) − 1 bits) is refused before it is made;
 decimal text goes in chunks of the largest power of ten that fits a limb
-(10^19 on 64-bit cells). The module defines no state; `limb-bits`,
-`chunk-base` and `chunk-digits` are constants computed while loading.
+(10^19 on 64-bit cells), each written whole, so the text's room is
+bits / 3 + `chunk-digits` characters. The module defines no state;
+`limb-bits`, `chunk-base` and `chunk-digits` are constants computed while
+loading. Karatsuba's step claims cannot fail after the room check; one
+that did would be a fault in the module, which stops the run with
+`ABORT"` rather than write past the arena (ADR 0018, proposed, would make
+it its `throw-fault`).
 
 **Tests.**
 
@@ -168,26 +182,39 @@ decimal text goes in chunks of the largest power of ten that fits a limb
   marks (refused marks change nothing), conversions, every operation's
   edges (0, 1, limb boundaries, max-u ± 1, equal operands, subtraction
   below 0, division by 0, huge shifts and exponents), and every failure:
-  malformed numbers, text and arenas (invalid), the bit limit and a
-  64-cell arena (full), each leaving the arena's top unchanged.
-- `tests/lib/bignum_differential.py` (`make test`): 13,570 edge cases
+  malformed numbers, text and arenas, and released (stale) operands,
+  wholly or in part (invalid), the bit limit and a 64-cell arena (full),
+  each leaving the arena's top unchanged. Every number printed is read
+  again afterwards. A power over the limit (3^4095 at 4,096 bits) writes
+  no higher above the top than the valid 3^2047, so its last product is
+  refused, not made. Guarded arenas: an arena of every size from 0 cells
+  up, between guard cells, runs all twelve operations on three pairs of
+  operands, products of 100 by 47, 160 by 100 and 233 by 144 limbs, and
+  printing, of a number outside the arena and of the arena's own newest
+  number: each result is right or *full* with nothing made, no guard
+  cell changes, the printed number is unchanged, and a product works
+  from exactly the room it needs (the result, a frame or the job with T,
+  and the Karatsuba scratch).
+- `tests/lib/bignum_differential.py` (`make test`): 13,585 edge cases
   (special values, limb boundaries of 32- and 64-bit limbs, very unequal
   sizes, Knuth D's rare add-back and qhat = B − 1 cases, Fibonacci
-  neighbours for gcd, Karatsuba sizes 47 to 1,027 limbs with all-ones
-  limbs, results on both sides of limits from 0 to 256 bits) and 24,000
-  random cases from a fixed seed, up to 10,000 digits, run by
-  `tests/lib/bignum-cases.fs`: every printed result equals Python's.
-  Extra runs with other seeds (60,000 random cases each, `gforth` and
-  `gforth-fast`) also agreed. Then 20 faults planted in a copy of the
-  module (a lost carry, a carry of 1 to start, ignored borrows, a dropped
-  high product limb, three Karatsuba faults, a skipped add-back, a wrong
-  qhat when u2 = v1, an unscaled remainder, two Lehmer faults, a short
-  decimal chunk, two shift faults, a lost factor in powers, incomplete
-  normalization, an off-by-one limit, a comparison of the top limb only):
-  each changes a result among the edge cases, on Gforth 1.0 and 0.7.3. A
-  run is stopped at its first wrong line, because a broken library may
-  then loop.
-- `make check` gives 986 of the cases (all 14 operations, 12 of more than
+  neighbours for gcd, Karatsuba sizes 47 to 1,049 limbs with all-ones
+  limbs, including short tails by rows and long tails that turn the job
+  round once or twice, results on both sides of limits from 0 to 256
+  bits) and 24,000 random cases from a fixed seed, up to 10,000 digits,
+  run by `tests/lib/bignum-cases.fs`: every printed result equals
+  Python's, and every number printed is compared afterwards with a copy
+  made before. Extra runs with other seeds (60,000 random cases each,
+  `gforth` and `gforth-fast`) also agreed. Then 22 faults planted in a
+  copy of the module (a lost carry, a carry of 1 to start, ignored
+  borrows, a dropped high product limb, four Karatsuba faults, a skipped
+  add-back, a wrong qhat when u2 = v1, an unscaled remainder, two Lehmer
+  faults, a short decimal chunk, too little room for the text, two shift
+  faults, a lost factor in powers, incomplete normalization, an
+  off-by-one limit, a comparison of the top limb only): each changes a
+  result among the edge cases, on Gforth 1.0 and 0.7.3. A run is stopped
+  at its first wrong line, because a broken library may then loop.
+- `make check` gives 984 of the cases (all 14 operations, 12 of more than
   3,000 digits) to pinned Lean as `example : Nat.op A B = R := by decide
   +kernel`, so that Lean's kernel itself computes the operation (no
   axioms): all are accepted, and every one of them with R changed is
@@ -217,6 +244,23 @@ Karatsuba was measured against rows alone for thresholds of 16 to 96
 limbs: it breaks even near 64 limbs and pays above; with the chosen 48
 limbs a 520-limb (10,000-digit) product takes 268 instead of 668 µs
 (`gforth-fast`) and 981 instead of 1,877 µs (`gforth`).
+
+Review fixes of 2026-11-03, timed before and after on this machine, one
+run at a time (best of three powers, of five batches of ten products):
+
+| Case | `gforth-fast` before → after | `gforth` before → after |
+| --- | --- | --- |
+| 3^(2^22 − 1) at a 2^22-bit limit: *full* | 625 → 200 ms | 2,007 → 661 ms |
+| 3^(2^21 − 1) at that limit, valid (for scale) | 201 → 197 ms | 637 → 663 ms |
+| product of 1,000 by 1,000 limbs (for scale) | 737 → 733 µs | 2,398 → 2,375 µs |
+| 1,049 by 1,000 limbs (a tail of 49) | 1,503 → 839 µs | 4,771 → 2,725 µs |
+| 1,500 by 1,000 limbs (a tail of 500) | 1,474 → 1,217 µs | 4,869 → 3,939 µs |
+| 1,999 by 1,000 limbs (a tail of 999) | 1,475 → 1,473 µs | 4,889 → 4,818 µs |
+| 233 by 144 limbs (tails of 89, 55, 34) | 63 → 57 µs | 213 → 189 µs |
+
+A refused power used to make its last, doomed product; a short tail was
+padded to a whole chunk. A Karatsuba product also needs fewer cells now:
+no padded copy of the tail.
 
 **Follow-ups for the kernel integration (task 5.1.4).**
 
