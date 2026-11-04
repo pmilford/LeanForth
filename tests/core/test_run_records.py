@@ -66,7 +66,7 @@ LABEL = "experimental, not independently audited"
 HOST_VERSION = ("host", "version")
 HOST_ENGINE = ("host", "engine")
 CASES = "tests/core/check-declaration-cases/composition-"
-FIFO_TIMEOUT = 60                          # seconds for one run served through a FIFO
+FIFO_TIMEOUT = 30                          # seconds for one run served through a FIFO
 
 # Each input: its declarations' (name, verdict, diagnostic code, step), and
 # whether a manifest stands beside it.
@@ -571,8 +571,9 @@ class Checks:
     # (rr-finish); a run read once (rr-read-once, a plain check) has only the
     # two passes. The runs use the words the command line uses (rr-start,
     # rr-import, rr-read-once) without its extra open of the export, which
-    # only tests that it opens and would make the order a race. Skipped where
-    # FIFOs are unavailable.
+    # only tests that it opens and would make the order a race. Each reader
+    # runs under timeout(1), so none can outlive its deadline. Skipped where
+    # FIFOs or timeout(1) are unavailable.
     def run_served(self, name, first, plan, words):
         """Run words (lines of Forth, with x the export) with the export the
         FIFO name/x.ndjson served by plan, its manifest first's text to begin
@@ -586,28 +587,42 @@ class Checks:
         source = folder / "run.fs"
         source.write_text("\n".join(["require ~+/tests/support/run-records.fs",
                                      f': x ( -- c-addr u ) s" {fifo}" ;', *words, "bye"]) + "\n")
-        process = subprocess.Popen([self.gforth, str(source)], cwd=ROOT,
-                                   stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE, text=True, start_new_session=True)
+        # The reader can never outlive its deadline, even if this test dies:
+        # timeout(1) runs it in a process group of its own and stops that
+        # whole group (the wrapper and Gforth) when the time is up.
+        command = ["timeout", "-k", "2", str(FIFO_TIMEOUT), self.gforth, str(source)]
+        process = subprocess.Popen(command, cwd=ROOT, stdin=subprocess.DEVNULL,
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         opens, stop = [], threading.Event()
         writer = threading.Thread(target=serve, daemon=True,
                                   args=(fifo, manifest, plan, process.pid, opens, stop))
         writer.start()
+        status, out, err = None, "", ""
         try:
-            out, err = process.communicate(timeout=FIFO_TIMEOUT)
-            status = process.returncode
-        except subprocess.TimeoutExpired:      # its whole group goes
-            os.killpg(process.pid, signal.SIGKILL)
-            (out, err), status = process.communicate(), None
+            out, err = process.communicate(timeout=FIFO_TIMEOUT + 10)
+            status = process.returncode if process.returncode < 124 else None
+        except subprocess.TimeoutExpired:
+            pass
         finally:
+            if process.poll() is None:         # this side gave up first: stop the group
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                process.wait()
             stop.set()
-            while writer.is_alive():           # a writer still waiting for a reader
+            for _ in range(10):                # a writer still waiting for a reader
+                if not writer.is_alive():
+                    break
                 reader = os.open(fifo, os.O_RDONLY | os.O_NONBLOCK)
                 writer.join(1)
                 os.close(reader)
         return status, out, err, len(opens)
 
     def first_pass(self):
+        if not shutil.which("timeout"):
+            print("No timeout(1) here: reads served through a FIFO are not tested")
+            return
         try:
             os.mkfifo(self.tmp / "probe.fifo")
         except (AttributeError, OSError) as error:
