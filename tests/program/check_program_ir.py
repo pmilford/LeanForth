@@ -49,7 +49,11 @@ THEOREMS = [f"ProgramIR.{name}" for name in (
     "loop_rule", "euclid_by_invariant", "gcd_meets_contract", "factorialFrom_by_invariant",
     "factorial_meets_contract", "unchecked_add_violates_contract",
     "plain_abs_violates_contract", "unguarded_in_range_violates_contract",
-    "gcd_top_only_violates_contract", "wrapping_factorial_violates_contract")] + [
+    "gcd_top_only_violates_contract", "wrapping_factorial_violates_contract",
+    # Part 6: well-formedness of the programs (ADR 0019, test plan 4).
+    "clamp_wellFormed", "examples_wellFormed", "allPrimitives_wellFormed",
+    "forward_call_not_wellFormed", "recursion_not_wellFormed", "redefinition_not_wellFormed",
+    "constant_calling_word_not_wellFormed", "constant_with_if_not_wellFormed")] + [
     # The reference contracts' own proofs, copied verbatim into Part 5.
     "CheckedAddReference.checkedAdd_contract", "ProgramExamplesReference.checkedAbs_contract",
     "ProgramExamplesReference.inRange_contract", "GcdReference.checked_contract",
