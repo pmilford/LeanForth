@@ -81,7 +81,7 @@ export LEANFORTH_COMMIT=$commit LEANFORTH_MODIFIED=$modified
 "$GFORTH" "$root/src/main.fs" -e cli-main "$@" </dev/null
 status=$?
 case $status in
-  10[0-5]) code=$((status - 100)) ;;
+  10[0-6]) code=$((status - 100)) ;;
   *)
     printf 'leanforth: internal fault: Gforth ended with status %s\n' "$status" >&2
     exit 5

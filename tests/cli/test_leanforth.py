@@ -16,10 +16,14 @@
      that is not an export; a file that does not open; a tampered or cut
      export, with and without its manifest; a constant no declaration has;
      every kind of mistake on the command line, --json with --record
-     too; a copy that would overwrite its export, also under another name);
+     too, and a fuel amount above 2^53 - 1; a copy that would overwrite
+     its export, also under another name);
    5 an internal fault (a Gforth that ends with a status of its own, and
      the real Gforth with an allocation made to throw, while feeding and
-     inside a check).
+     inside a check, or with the publisher made to throw mid-run);
+   6 (proposed) all accepted but some NOT PROVED: no check can make one
+     yet, so tests/cli/leanforth.fs plants an axiom in a slot, and the
+     schema is tested here with planted reports.
 2. "accepted" is printed only on a declaration's line, each with the
    experimental label and its axioms, and only when the code is 0 or that
    line's declaration is accepted while another is not.
@@ -37,9 +41,13 @@
 7. --json prints one report that the schema (schemas/check-report-0.1)
    accepts, for every case of 1, with the exit status, every verdict and
    the counts the text gives; it is the same on every run but for
-   "measured". --resources adds the resource report, the same on every run
-   but for its time and memory lines. The fuel each check used is exact: a
+   "measured", and its counts and fuel add up as the schema's $comment
+   says. --resources adds the resource report, the same on every run but
+   for its time and memory lines. The fuel each check used is exact: a
    budget of that much gives the same verdict, one less runs out.
+8. Names are shown as Lean's Name.toString shows them, with escapes for
+   control, format and separator characters, so that no name can forge a
+   line; of any depth; the export's file name with the same escapes.
 
 Run with GFORTH set to the Forth binary (the Makefile does this).
 """
@@ -191,6 +199,10 @@ class ExitCodes(unittest.TestCase):
             (["check", "--fuel", "-1", COMPOSITION], "error: not a fuel amount: -1"),
             (["check", "--fuel", "99999999999999999999", COMPOSITION],
              "error: not a fuel amount: 99999999999999999999"),
+            (["check", "--fuel", str(2**53), COMPOSITION],
+             f"error: a fuel amount above {2**53 - 1}: {2**53}"),
+            (["replay", "--fuel", str(2**63 - 1), COMPOSITION, "r.json"],
+             f"error: a fuel amount above {2**53 - 1}: {2**63 - 1}"),
             (["check", COMPOSITION, "--fuel"], "error: an option without its value: --fuel"),
             (["check", "--bogus", COMPOSITION], "error: an unknown option: --bogus"),
             (["check", "--json", "--record", "r.json", COMPOSITION],
@@ -272,6 +284,36 @@ class ExitCodes(unittest.TestCase):
                 self.assertEqual((status, schema.errors(got), got["stopped"], got["exitStatus"],
                                   got["declarations"][0]["diagnostic"]["code"]),
                                  (5, [], True, 5, 29))
+
+    def test_5_stopped_mid_run(self):
+        """The real Gforth with the publisher's test hook
+        (lf-env-before-final, a DEFER when lf-env-fault-hooks is defined
+        before src/main.fs) made to throw before the fixture's second
+        declaration's slot is final: the first stays accepted, the second
+        is invalid, the third not checked; the JSON report is whole."""
+        with tempfile.TemporaryDirectory() as folder:
+            stub = Path(folder) / "gforth"
+            stub.write_text(f'#!/bin/sh\nmain=$1\nshift\nexec "{GFORTH}" '
+                            f'-e ": lf-env-fault-hooks ;" "$main" '
+                            f'-e ": throw-at-1 lf-env-limit 1 = if 4242 throw then ;" '
+                            f'''-e "' throw-at-1 is lf-env-before-final" "$@"\n''')
+            stub.chmod(stub.stat().st_mode | stat.S_IXUSR)
+            status, out, err = run("check", FIXTURE, gforth=str(stub))
+            lines = out.splitlines()
+            self.assertEqual((status, lines[0], lines[1], lines[-4:], err),
+                             (5, f"fixtureId: {LABEL}", "fixturePoly: invalid",
+                              ["internal fault: the run stopped: a check threw, or publishing "
+                               "failed", "fixtureUse: not checked",
+                               "3 declarations: 1 accepted, 1 invalid, 1 not checked",
+                               accepted(1)], ""))
+            status, out, err = run("check", "--json", FIXTURE, gforth=str(stub))
+            got = json.loads(out)
+            self.assertEqual((status, err, JsonReport.schema.errors(got), got["run"],
+                              got["stopped"], got["exitStatus"],
+                              [d["verdict"] for d in got["declarations"]]),
+                             (5, "", [], "invalid", True, 5,
+                              ["accepted", "invalid", "not-checked"]))
+            JsonReport().sums(got, "stopped")
 
 
 OUTLINES = ROOT / "tests" / "present" / "outlines.golden"
@@ -569,11 +611,41 @@ class JsonReport(unittest.TestCase):
     says what the text says, the same on every run but for "measured"."""
 
     schema = Validator(json.loads((ROOT / "schemas/check-report-0.1.schema.json").read_text()))
+    VERDICTS = {"accepted": "accepted", "rejected": "rejected", "unknown": "unknown",
+                "unsupported": "unsupported", "invalid": "invalid", "exhausted": "exhausted",
+                "full": "full", "notChecked": "not-checked"}
+
+    def sums(self, got, args):
+        """The rules the schema cannot state (its $comment): the counts, the
+        fuel and the most fuel used agree with the declarations."""
+        decls, counts, fuel = got["declarations"], got["counts"], got["fuel"]
+        if counts is not None:
+            self.assertEqual(counts["declarations"], len(decls), args)
+            self.assertEqual(counts["declarations"],
+                             sum(counts[key] for key in self.VERDICTS), args)
+            for key, verdict in self.VERDICTS.items():
+                self.assertEqual(counts[key], sum(d["verdict"] == verdict for d in decls),
+                                 (args, key))
+            self.assertEqual(counts["notProved"], sum(d.get("notProved", False) for d in decls),
+                             args)
+            if got["input"] is not None:
+                self.assertEqual(got["input"]["declarations"], counts["declarations"], args)
+        self.assertEqual([d["index"] for d in decls], list(range(len(decls))), args)
+        known = [d["fuel"] for d in decls if d["fuel"] is not None]
+        self.assertEqual((fuel["unknown"], fuel["total"]),
+                         (len(decls) - len(known), sum(known)), args)
+        tops = [t["fuel"] for t in fuel["top"]]
+        self.assertEqual(tops, sorted(tops, reverse=True), args)
+        for top in fuel["top"]:
+            d = decls[top["index"]]
+            self.assertEqual((top["name"], top["fuel"], top["verdict"]),
+                             (d["name"], d["fuel"], d["verdict"]), args)
 
     def test_valid_and_as_the_text(self):
         for args in CASES_ALL:
             status, got, err = report(*args)
             self.assertEqual((self.schema.errors(got), err), ([], ""), args)
+            self.sums(got, args)
             text_status, text, _ = run("check", *args)
             self.assertEqual((status, got["exitStatus"]), (text_status, text_status), args)
             self.assertEqual(got["stopped"], "internal fault: the run stopped" in text, args)
@@ -606,6 +678,21 @@ class JsonReport(unittest.TestCase):
             copy = json.loads(json.dumps(base))
             edit(copy)
             return self.schema.errors(copy)
+
+        def not_proved(r):
+            """Declaration 0 NOT PROVED, counted, and the status 6."""
+            r["declarations"][0].update(axiomBits=4, notProved=True)
+            r["counts"].update(notProved=1)
+            r.update(exitStatus=6)
+
+        def rejected(r, status):
+            """Declaration 5 rejected, counted, and the status given."""
+            d = r["declarations"][5]
+            for key in ("label", "axiomBits", "notProved"):
+                d.pop(key)
+            d.update(verdict="rejected", diagnostic=None)
+            r["counts"].update(accepted=5, rejected=1)
+            r.update(exitStatus=status)
         cases = [
             (good, lambda r: r["declarations"][4].update(verdict="rejected")),   # status 0
             (good, lambda r: r["declarations"][0].update(axiomBits=4)),          # notProved false
@@ -619,10 +706,31 @@ class JsonReport(unittest.TestCase):
             (good, lambda r: r["declarations"][4].update(verdict="not-checked")),  # run ok
             (unread, lambda r: r.update(counts=good["counts"])),                 # not read
             (unread, lambda r: r["read"].update(phase=None)),                    # failed read
+            # Status 0 only with every count but the accepted 0, at least one
+            # declaration, every fuel known, and a run that did not stop.
+            (good, lambda r: r["counts"].update(rejected=1)),
+            (good, lambda r: r["counts"].update(notChecked=1)),
+            (good, lambda r: r["counts"].update(notProved=1)),
+            (good, lambda r: r["fuel"].update(unknown=1)),
+            (good, lambda r: r.update(declarations=[])),
+            (good, lambda r: r["counts"].update(declarations=0, accepted=0)),
+            (good, lambda r: r.update(counts=None)),
+            # A run that stopped did not end ok; status 6 needs a NOT PROVED
+            # declaration, all accepted; there is no status 7.
+            (good, lambda r: r.update(stopped=True, exitStatus=5)),
+            (good, lambda r: r.update(exitStatus=6)),
+            (good, lambda r: r.update(exitStatus=7)),
+            (good, lambda r: not_proved(r) or r.update(exitStatus=0)),
+            (good, lambda r: not_proved(r) or rejected(r, 6)),
         ]
         for base, edit in cases:
-            self.assertNotEqual(changed(base, edit), [])
+            self.assertNotEqual(changed(base, edit), [], cases.index((base, edit)))
         self.assertEqual(changed(good, lambda r: None), [])
+        # Reports of exit status 6 and of a rejected declaration beside a
+        # NOT PROVED one (1 outranks 6), planted, since no check can make a
+        # NOT PROVED declaration yet: accepted.
+        self.assertEqual(changed(good, not_proved), [])
+        self.assertEqual(changed(good, lambda r: not_proved(r) or rejected(r, 1)), [])
 
     def test_deterministic(self):
         for args in [[INDUCTIVE], ["--no-manifest", "tests/core/reexport/kinds.ndjson"]]:
@@ -659,6 +767,73 @@ class JsonReport(unittest.TestCase):
                          (4, "stage", 1, "not-run"))
         status, got, _ = report("tests/cli/no-such.ndjson")
         self.assertEqual((status, got["read"]["phase"], got["input"]), (4, "open", None))
+
+
+class Names(unittest.TestCase):
+    """Names as Lean's Name.toString shows them (src/cli/name-text.fs), in
+    the text and the JSON report alike: a component that is not an
+    identifier between « and », and every character the text rule bans
+    escaped, so that no name can start a line of its own or reorder the
+    text after it; names of any depth. composition's theorem renamed, its
+    proof unchanged, so every case is accepted."""
+
+    def renamed(self, folder, records):
+        """composition with its theorem's name made of records, name
+        records ("str" or "num" and "pre") given ids after its own 12, the
+        last the theorem's name."""
+        lines = (ROOT / COMPOSITION).read_text().splitlines()
+        names = [json.dumps({"in": 13 + i, **record}, ensure_ascii=False)
+                 for i, record in enumerate(records)]
+        last = 12 + len(records)
+        thm = lines[-1].replace('"all":[1]', f'"all":[{last}]').replace('"name":1,', f'"name":{last},')
+        path = Path(folder) / "renamed.ndjson"
+        path.write_text("\n".join(lines[:-1] + names + [thm]) + "\n")
+        return str(path)
+
+    def shown(self, records, shown):
+        with tempfile.TemporaryDirectory() as folder:
+            export = self.renamed(folder, records)
+            status, out, err = run("check", "--no-manifest", export)
+            self.assertEqual((status, out.splitlines(), err),
+                             (0, [NO_MANIFEST, f"{shown}: {LABEL}", "1 declaration: 1 accepted",
+                                  accepted(1)], ""), shown)
+            status, got, err = report("--no-manifest", export)
+            self.assertEqual((status, got["declarations"][0]["name"], err,
+                              JsonReport.schema.errors(got)), (0, shown, "", []), shown)
+
+    def test_escaped(self):
+        forged = f"composition: rejected\nforged: {LABEL}\nx"
+        for text, shown in [
+            ("composition", "composition"),
+            (forged, "«composition: rejected\\u{A}forged: " + LABEL + "\\u{A}x»"),
+            ("a\r\x1b[2Kb", "«a\\u{D}\\u{1B}[2Kb»"),
+            ("ab‮cd⁦", "«ab\\u{202E}cd\\u{2066}»"),     # bidirectional controls
+            ("a\x00b\x85c ", "«a\\u{0}b\\u{85}c\\u{2028}»"),  # NUL, C1, line separator
+            ("a\\u{A}", "«a\\\\u{A}»"),                            # a backslash, not an escape
+            ("with space", "«with space»"),
+            ("", "«»"),
+            ("αβ₁", "αβ₁"),                                         # an identifier as it is
+            ("x»y", "x»y"),                                         # holds », as Lean: no « »
+        ]:
+            self.shown([{"str": {"pre": 0, "str": text}}], shown)
+
+    def test_components(self):
+        # A numeric component in decimal, an empty one as «», and a name
+        # deeper than any fixed limit: 100 components.
+        self.shown([{"str": {"pre": 0, "str": "a"}}, {"num": {"pre": 13, "i": 7}},
+                    {"str": {"pre": 14, "str": ""}}], "a.7.«»")
+        deep = [{"str": {"pre": 12 + i if i else 0, "str": f"a{i}"}} for i in range(100)]
+        self.shown(deep, ".".join(f"a{i}" for i in range(100)))
+
+    def test_export_name(self):
+        """The export's file name in the report: the same escapes, without
+        « »; the check is unchanged."""
+        with tempfile.TemporaryDirectory() as folder:
+            export = Path(folder) / "caf\udcff\n.ndjson"
+            export.write_bytes((ROOT / COMPOSITION).read_bytes())
+            status, got, err = report("--no-manifest", str(export))
+            self.assertEqual((status, got["export"], err, JsonReport.schema.errors(got)),
+                             (0, f"{folder}/caf\\x{{FF}}\\u{{A}}.ndjson", "", []))
 
 
 class Resources(unittest.TestCase):
@@ -709,6 +884,14 @@ class Fuel(unittest.TestCase):
                 _, again, _ = report("--fuel", str(budget), export)
                 self.assertEqual(again["declarations"][most["index"]]["verdict"], verdict,
                                  (export, budget))
+
+    def test_most(self):
+        """--fuel takes at most 2^53 - 1, the largest integer every JSON
+        reader holds exactly; a report with it is valid and says it."""
+        status, got, _ = report("--fuel", str(2**53 - 1), INDUCTIVE)
+        self.assertEqual((status, got["settings"]["fuel"], got["fuel"]["perDeclaration"],
+                          JsonReport.schema.errors(got)), (0, 2**53 - 1, 2**53 - 1, []))
+        self.assertEqual(run("check", "--fuel", str(2**53), INDUCTIVE)[0], 4)
 
 
 if __name__ == "__main__":
