@@ -34,10 +34,14 @@
 \   exception passes on; one that stops the reading of a file's lines
 \   closes the file first.
 \ - A line fed before lf-ir-start or after lf-ir-finish fails the read; a
-\   fed line's length is unsigned, so a negative one is too long.
+\   fed line's length is unsigned, so a negative one is too long, and the
+\   line is refused unread.
 \ Other misuse is not detected (docs/programming/PROGRAM_IR.md lists it),
 \ such as an output word that writes into the reader's record or
-\ unbalances the return stack.
+\ unbalances the return stack, or a caller or output word that calls an
+\ internal word (any but the four reader words, lf-ir-reason and
+\ lf-ir-where), such as ir-feed, which does lf-ir-feed's work without the
+\ entry check.
 \
 \ It must accept less than Gforth (1.0 and 0.7.3) does, never more, and
 \ give what it accepts Gforth's meaning:
@@ -330,9 +334,10 @@ end-structure
 \ every reader word then refuses, so that read never ends.
 : ir-home? ( context -- flag ) lf-context @ = ;
 : ir-claim ( -- ) 1 ir-calls +! ir-busy @ abort" lf-ir: reader busy" true ir-busy ! ;
-: ir-work ( i*x xt -- j*x ) execute false ir-busy ! ;
+: ir-idle ( -- ) false ir-busy ! ;
+: ir-work ( i*x xt -- j*x ) execute ir-idle ;
 : ir-thrown ( code context -- code )
-  ir-home? over 0<> and if ir-why-interrupted ir-invalid false ir-busy ! then ;
+  ir-home? over 0<> and if ir-why-interrupted ir-invalid ir-idle then ;
 : ir-enter ( i*x xt -- j*x )
   ir-claim lf-context @ >r ['] ir-work catch r> ir-thrown throw ;
 
@@ -646,21 +651,32 @@ ir-mode-actions ir-modes ir-filled? 0= [if] .( lf-ir: mode actions ) abort [then
 : ir-reset ( xt -- )
   ir-the-read erase ir-emit!
   outcome-ok ir-outcome ! ir-why-none ir-why ! -1 ir-current ! ir-to-top ;
+\ Text copied into the line buffer, of at most ir-line-chars characters,
+\ so that the caller may give it in a transient buffer, such as the
+\ pictured-numeric one, which the reader and its output word may reuse.
+: ir-own ( c-addr u -- c-addr' u ) tuck ir-text swap chars move ir-text swap ;
+\ The path is copied before the output word first runs, so that the
+\ header and OPEN-FILE use the path given; the line buffer holds no line
+\ until the file is open. A path longer than the buffer, its length u
+\ taken as unsigned, is cut to the buffer's size: it does not fit its
+\ header line either, so the read stops as full, quoting the copy.
+: ir-cut ( u -- u' ) dup ir-line-chars u> if drop ir-line-chars then ;
+: ir-path ( c-addr u -- c-addr' u' ) ir-cut ir-own ;
 : ir-source-header ( c-addr u -- ) s" source " ir-append ir-append ir-flush ;
 \ A path too long for its header line stops the reader with a diagnostic.
 : ir-header ( c-addr u -- )
   s" lf-ir 0.1" ir-append ir-flush 2dup ir-source-header ir-blame ;
-: ir-new-read ( xt c-addr u -- )
+\ Start a read and write its header; give the copy of its path.
+: ir-new-read ( xt c-addr u -- c-addr' u' )
   rot ir-reset ir-def-capacity /ir-slot 0 ir-defs store-init 0= abort" lf-ir: store"
-  ir-header ;
-: lf-ir-start ( xt c-addr u -- ) ['] ir-new-read ir-enter ;
-\ A fed line is copied first, so it may live in a transient buffer such as
-\ the pictured-numeric one, which the reader itself uses. A line too long
-\ to copy, its length u taken as unsigned, is cut to the buffer's size,
-\ which ir-scan then refuses. A fed line has no line end: any CR in it is
-\ refused. Nothing is copied into a stopped reader.
-: ir-cut ( u -- u' ) dup ir-line-chars u> if drop ir-line-chars then ;
-: ir-feed-line ( c-addr u -- ) ir-cut tuck ir-text swap chars move ir-text swap ir-scan ;
+  ir-path 2dup ir-header ;
+: ir-start-read ( xt c-addr u -- ) ir-new-read 2drop ;
+: lf-ir-start ( xt c-addr u -- ) ['] ir-start-read ir-enter ;
+\ A fed line is copied first, so it may live in a transient buffer too. A
+\ line too long to copy, its length u taken as unsigned, is neither copied
+\ nor read: ir-scan refuses it unread. A fed line has no line end: any CR
+\ in it is refused. Nothing is copied into a stopped reader.
+: ir-feed-line ( c-addr u -- ) dup ir-line-chars u< if ir-own then ir-scan ;
 \ A line fed after lf-ir-finish stops the reader, and is not written about.
 : ir-unfinished ( -- ) ir-finished @ if ir-why-finished ir-invalid then ;
 : ir-feed ( c-addr u -- ) ir-unfinished ir-ok? if ir-feed-line else 2drop then ;
@@ -716,7 +732,7 @@ ir-mode-actions ir-modes ir-filled? 0= [if] .( lf-ir: mode actions ) abort [then
 : ir-read-path ( c-addr u -- )
   r/o bin open-file if drop ir-unreadable else ir-read-open then ;
 : ir-read-file ( xt c-addr u -- outcome )
-  2dup 2>r ir-new-read 2r> ir-ok? if ir-read-path else 2drop then ir-finish ;
+  ir-new-read ir-ok? if ir-read-path else 2drop then ir-finish ;
 : lf-ir-read-file ( xt c-addr u -- outcome ) ['] ir-read-file ir-enter ;
 
 \ For tests and callers: why the reader stopped, or that it is busy (as

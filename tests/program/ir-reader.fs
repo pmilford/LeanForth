@@ -4,12 +4,13 @@
 \ independence from the caller's BASE, STATE and search order, that no
 \ source token is ever executed, a busy reader refusing every reader
 \ word, an output word that throws, uses the reader, changes the stack
-\ depth or returns in another context, read errors, exceptions that stop
-\ a read, the end of a read, and a reader stopped until it starts in
-\ every context. Gforth itself also loads
-\ every source the reader accepts here, and must neither throw nor keep
-\ values; files with every kind of line end are tested by
-\ ir_reader_files.py. Run from the repository root, like every test file.
+\ depth, returns in another context or reuses a transient path, read
+\ errors, lines refused unread, exceptions that stop a read, the end of a
+\ read, and a reader stopped until it starts in every context. Gforth
+\ itself also loads every source the reader accepts here, and must
+\ neither throw nor keep values; files with every kind of line end are
+\ tested by ir_reader_files.py. Run from the repository root, like every
+\ test file.
 include ../support/tester.fs
 
 \ Gforth loading a file the reader accepted, with the host's own words,
@@ -25,9 +26,10 @@ include ../support/tester.fs
 \ set, the next read or number conversion throws -28, as Ctrl-C would;
 \ once interrupt-open is set, the next OPEN-FILE; once interrupt-catch is
 \ set, the next CATCH, before it sets up its handler, as Ctrl-C arriving
-\ just then would. The reader, compiled after these five words, calls
-\ them instead of the host's (Gforth's redefinition warnings are turned
-\ off around them).
+\ just then would; once interrupt-false is set, the next FALSE, which is
+\ how the reader makes itself idle. The reader, compiled after these six
+\ words, calls them instead of the host's (Gforth's redefinition warnings
+\ are turned off around them).
 variable opened
 variable closed
 variable reads
@@ -35,6 +37,7 @@ variable reads
 variable interrupt-next
 variable interrupt-open
 variable interrupt-catch
+variable interrupt-false
 : interrupting ( addr -- ) dup @ if false swap ! -28 throw then drop ;
 [defined] warnings [if] warnings @ false warnings ! [then]
 : open-file ( c-addr u fam -- fileid ior )
@@ -45,6 +48,7 @@ variable interrupt-catch
   1 reads +! reads @ reads-max > if drop 2drop 0 -1 else read-file then ;
 : >number ( ud c-addr u -- ud' c-addr' u' ) interrupt-next interrupting >number ;
 : catch ( i*x xt -- j*x code ) interrupt-catch interrupting catch ;
+: false ( -- 0 ) interrupt-false interrupting 0 ;
 [defined] warnings [if] warnings ! [then]
 : open-files ( -- n ) opened @ closed @ - ;
 require ../../src/program/ir-reader.fs
@@ -586,6 +590,12 @@ T{ true interrupt-next ! ' 2drop read-catching open-files lf-ir-finish lf-ir-rea
    -> -28 0 outcome-invalid ir-why-interrupted }T
 T{ start true interrupt-next ! s" 1 constant k" feed-catching lf-ir-finish lf-ir-reason
    -> -28 outcome-invalid ir-why-interrupted }T
+\ So does one that comes after the work of a reader word has returned but
+\ before the reader is made idle: the outcome the work gave is lost, and
+\ the reader is idle again, not busy. Here the read was ok, and the work
+\ of lf-ir-finish runs no FALSE, so the first one is the reader's going idle.
+T{ start s" : f 1 ;" feed true interrupt-false ! ' lf-ir-finish catch
+   lf-ir-finish lf-ir-reason -> -28 outcome-invalid ir-why-interrupted }T
 
 \ lf-ir-finish ends a read: finishing again gives the same outcome, and a
 \ line fed afterwards stops the reader and is not written about.
@@ -621,14 +631,17 @@ create long-text 200 chars allot  long-text 200 bl fill
 T{ start long-text 127 feed verdict -> outcome-ok ir-why-none 1 0 }T
 T{ start long-text 128 feed verdict -> outcome-invalid ir-why-unreadable 1 0 }T
 T{ start long-text 200 feed verdict -> outcome-invalid ir-why-unreadable 1 0 }T
-\ A fed line's length is unsigned: -1 is too long, so the line is cut to
-\ the line buffer and refused, not read past its end. The copy stays in
-\ the line buffer: the block buffer after it, zeroed by lf-ir-start, is
-\ untouched.
+\ A fed line's length is unsigned: -1 is too long, so the line is refused
+\ unread, neither copied nor read past its end. The line and block
+\ buffers keep what lf-ir-start left there: the path and zeros.
 T{ start s" : f ;" drop -1 lf-ir-feed verdict -> outcome-invalid ir-why-unreadable 1 0 }T
-T{ start long-text -1 lf-ir-feed ir-block c@ -> 0 }T
-\ So does ir-scan, which lf-ir-feed calls after the cut: a line of length
-\ -1 is refused, not read until a character that stops it (NUL here).
+T{ start long-text -1 lf-ir-feed ir-text 4 s" t.fs" compare ir-block c@ -> 0 0 }T
+\ So even a bad address only fails the read: here address 0, from which
+\ the copy of a line cut to the buffer's size once threw -9.
+T{ start 0 -1 ' lf-ir-feed catch verdict -> 0 outcome-invalid ir-why-unreadable 1 0 }T
+T{ start 0 128 ' lf-ir-feed catch verdict -> 0 outcome-invalid ir-why-unreadable 1 0 }T
+\ So does ir-scan, which lf-ir-feed calls: a line of length -1 is
+\ refused, not read until a character that stops it (NUL here).
 T{ start s" : f ;?" odd-line 0 5 poke drop -1 ir-scan verdict
    -> outcome-invalid ir-why-unreadable 1 0 }T
 T{ ' keep-last s" tests/program/no-such-file.fs" lf-ir-read-file lf-ir-reason
@@ -648,6 +661,23 @@ T{ ' keep-last long-path 89 start-reader verdict -> outcome-ok ir-why-none 0 0 }
 T{ ' keep-last long-path 90 lf-ir-read-file lf-ir-reason lf-ir-where open-files
    -> outcome-full ir-why-capacity 0 0 0 }T
 T{ written 36 min s" full @0:0: reader capacity exceeded:" compare -> 0 }T
+
+\ A path may be in a transient buffer too: the reader copies it before
+\ its output word first runs, so the header line and OPEN-FILE use the
+\ path given even when the output word reuses the pictured-numeric buffer
+\ that holds it. Uncopied, the header named t.f0 and the file read was
+\ src/program/clamp.f0.
+: hold-text ( c-addr u -- ) begin dup while 1- 2dup chars + c@ hold repeat 2drop ;
+: pictured ( c-addr u -- c-addr' u ) 0 0 2swap <# hold-text #> ;
+: renumber ( -- ) 0 0 <# #s #> 2drop ;   \ writes 0 at the buffer's end
+: transcribe-renumbering ( c-addr u -- ) transcribe renumber ;
+: golden-renumbering ( c-addr u -- ) golden-check renumber ;
+T{ 0 transcript# ! ' transcribe-renumbering s" t.fs" pictured start-reader
+   s" : f ;" feed verdict -> outcome-ok ir-why-none 1 0 }T
+T{ transcript-text 22 min s" lf-ir 0.1|source t.fs|" compare -> 0 }T
+T{ s" tests/program/ir/clamp.ir" golden
+   ' golden-renumbering s" src/program/clamp.fs" pictured lf-ir-read-file
+   golden-end open-files -> outcome-ok 0 0 }T
 
 \ The deepest indentation the reader writes fits its space string.
 : deepest ( -- c-addr u ) s"                   prim dup @10:1" ;
@@ -672,6 +702,24 @@ variable elsewhere   \ the outcome of the read made in the other context
   lf-ir-finish elsewhere ! context-main context-use ;
 : use-elsewhere ( c-addr u -- ) s" word" at-first if read-elsewhere then ;
 T{ ' use-elsewhere read-f elsewhere @ -> outcome-ok ir-why-none 2 0 outcome-ok }T
+\ But not a way back in: the other read's output word switches to the main
+\ context, feeds a line there (refused, since the main reader is busy),
+\ catches the refusal and switches back. That counts as a call of the
+\ main reader, so the main read fails; the other read is untouched.
+\ Without the feed, both end ok.
+variable hop-feed   \ whether the other read's output word feeds the main reader
+variable hopped     \ whether it has run
+: hop-back ( c-addr u -- )
+  2drop hopped @ if exit then true hopped ! context-main context-use
+  hop-feed @ if s" : z ;" feed-catching refusal ! then other context-use ;
+: hop-there ( -- outcome )
+  other context-use ['] hop-back s" o.fs" lf-ir-start s" : q 1 ;" lf-ir-feed
+  lf-ir-finish context-main context-use ;
+: hop-at-word ( c-addr u -- ) s" word" at-first if hop-there elsewhere ! then ;
+: hop ( flag -- outcome reason line column outcome' code )
+  hop-feed ! false hopped ! 0 elsewhere ! ['] hop-at-word read-f elsewhere @ refusal @ ;
+T{ true hop -> outcome-invalid ir-why-output 1 3 outcome-ok -2 }T
+T{ false hop -> outcome-ok ir-why-none 2 0 outcome-ok 0 }T
 
 \ Words that check that a reader left busy for good says so and refuses
 \ every reader word (THROW -2), and that make and free a context for it.
@@ -700,6 +748,15 @@ fresh constant cut-finish
 T{ start s" : f 1 ;" feed ' lf-ir-finish ' armed catch nip -> -28 }T
 T{ refusals -> ir-why-busy -2 -2 -2 -2 }T
 T{ cut-finish discard -> 0 }T
+\ So does one that arrives after the work threw, before the handler has
+\ made the reader idle: here the output word throws, and the next FALSE
+\ is the handler's going idle. Its exception passes on in place of the
+\ output word's.
+: throw-armed ( c-addr u -- ) 2drop true interrupt-false ! 99 throw ;
+fresh constant cut-handler
+T{ ' throw-armed start-catching -> -28 }T
+T{ refusals -> ir-why-busy -2 -2 -2 -2 }T
+T{ cut-handler discard -> 0 }T
 
 \ The output word must return in the context it was called in. One that
 \ returns in another makes the reader abort (THROW -2) there, touching no

@@ -221,9 +221,12 @@ and an outcome from `src/lib/outcome.fs`:
 Lines written before a diagnostic or an exception are incomplete and must
 not be used. `lf-ir-finish` ends a read: finishing again gives the same
 outcome, and a line fed after it stops the reader as *invalid* and writes
-nothing. `lf-ir-feed` copies each line before reading it, so the line may
-be in a transient buffer; its length is unsigned, and a line of 128
-characters or more is refused without being read.
+nothing. `lf-ir-feed` copies each line before reading it, and
+`lf-ir-start` and `lf-ir-read-file` copy the path before the output word
+first runs, so a line or a path may be in a transient buffer, such as the
+pictured-numeric one that an output word numbering its lines with `<# #>`
+reuses. A fed line's length is unsigned, and a line of 128 characters or
+more is refused without being copied or read, whatever its address.
 
 The four *reader words*, `lf-ir-start`, `lf-ir-feed`, `lf-ir-finish` and
 `lf-ir-read-file`, keep the reader of their context *busy* while they
@@ -281,7 +284,7 @@ reader enforces the following on them, and this is the whole list:
 - *Lines out of turn fail the read:* a line fed before `lf-ir-start` or
   after `lf-ir-finish`.
 - *A fed line's length is unsigned:* a negative one is too long, and the
-  line is refused unread.
+  line is refused unread: neither copied nor read, whatever its address.
 
 Other misuse is not detected and is outside what the reader defends
 against: an output word that writes into the reader's record or other
@@ -291,12 +294,18 @@ changes data-stack cells below its arguments without changing the depth,
 unbalances the return stack, or frees its context and makes a new one at
 the same address; a caller that sets `lf-context` to anything but a live
 context, ignores the outcome, or uses lines written before a diagnostic
-or an exception. An exception between `OPEN-FILE` and the reading of the
-file's lines, or during `CLOSE-FILE`, can leave the file open; the read
-still fails. A review judges the reader against this model: an accepted
-file whose IR does not mean what Gforth does with it is a soundness bug;
-caller misuse is a bug only where the list above says the reader detects
-it.
+or an exception; and a caller or output word that calls an internal word
+of the reader, any but the four reader words, `lf-ir-reason` and
+`lf-ir-where`. `ir-feed`, for one, does the work of `lf-ir-feed` without
+the entry check, so an output word that calls it changes the read, which
+can still end *ok* with IR that does not mean what Gforth does with the
+file ([ADR 0010](../adr/0010-wordlists.md), only proposed, would hide such
+words in a private word list). An exception between `OPEN-FILE` and the
+reading of the file's lines, or during `CLOSE-FILE`, can leave the file
+open; the read still fails. A review judges the reader against this
+model: an accepted file whose IR does not mean what Gforth does with it
+is a soundness bug; caller misuse is a bug only where the list above
+says the reader detects it.
 
 **It accepts less than Gforth, never more,** and gives what it accepts
 Gforth's meaning (checked on Gforth 1.0.0 and 0.7.3):
@@ -396,14 +405,19 @@ They also give the reader output words that throw; that call each reader
 word, catching the refusal or not; that start a read whose own output
 word would leave a cell (the case that once ended *ok* with wrong IR);
 that clear the busy flag and then start a read (the count of calls must
-still fail it); that use another context's reader; that return in another
-context, while lines are fed and while a file is read; and that leave or
-take a cell. They interrupt with `THROW` −28, as Ctrl-C would, the
-opening of a file, its first read, a fed line, and the `CATCH` with which
-`lf-ir-feed` or `lf-ir-finish` sets up its handler. Each must stop the
+still fail it); that use another context's reader, and through it come
+back to their own context and feed a line there (refused, and the read
+fails); that return in another context, while lines are fed and while a
+file is read; that leave or take a cell; and that reuse the
+pictured-numeric buffer holding the path, read from a file or not. They
+interrupt with `THROW` −28, as Ctrl-C would, the opening of a file, its
+first read, a fed line, the `CATCH` with which `lf-ir-feed` or
+`lf-ir-finish` sets up its handler, the reader's going idle after its
+work returned, and the handler's after the work threw. Each must stop the
 read as *invalid* or leave its reader busy for good, refusing every
 reader word; a switch of context must leave the other context's read
-untouched and close the file. They also feed lines after `lf-ir-finish`.
+untouched and close the file. They also feed lines after `lf-ir-finish`,
+and lines of length −1 or 128 at address 0, which must be refused unread.
 
 The reader is trusted for the translation: nothing proves that the IR means
 what the source means on the host. Receipts list it as the assumption
