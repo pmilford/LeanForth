@@ -768,6 +768,10 @@ test-compact-faults:
 # into the compact store and re-emitted: all 6.4 million name, level,
 # expression and declaration records equal the reader's dump (about 1.5
 # minutes with gforth-fast).
+# It exports and stages all of Init, about 1.5 minutes here but close to the
+# 600 s test limit on CI's smaller runners with 8 jobs at once (CI runs
+# 41900142434 and 41902902037 timed out), so it alone gets 1,500 s.
+reference-compact-init: RUN := timeout 1500
 reference-compact-init:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/core/compact-init.sh
 
