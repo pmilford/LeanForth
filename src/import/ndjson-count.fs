@@ -96,25 +96,26 @@ manifest: counted-manifest
   dup decl-params @ swap list-count
   dup count-tally tally-max-lp max! 1 swap lp-bucket +! ;
 
-\ Handlers.
-: on-name-str ( record -- outcome )
+\ Handlers, named for this module: src/main.fs loads it beside other
+\ readers' handlers (through the command line).
+: tally-name-str ( record -- outcome )
   dup name-part 2@ nip 0 count-tally tally-name-bytes d+! tally-line ;
-: on-const ( record -- outcome )
+: tally-const ( record -- outcome )
   dup const-levels @ over list-count count-tally tally-max-us max! tally-line ;
-: on-decl ( record -- outcome ) dup tally-params tally-line ;
-: on-type ( record -- outcome )
+: tally-decl ( record -- outcome ) dup tally-params tally-line ;
+: tally-type ( record -- outcome )
   1 count-tally tally-types +! dup record-index @ 0= if tally-params else drop then
   outcome-ok ;
-: on-ctor ( record -- outcome ) drop 1 count-tally tally-ctors +! outcome-ok ;
-: on-recursor ( record -- outcome ) drop 1 count-tally tally-recursors +! outcome-ok ;
+: tally-ctor ( record -- outcome ) drop 1 count-tally tally-ctors +! outcome-ok ;
+: tally-recursor ( record -- outcome ) drop 1 count-tally tally-recursors +! outcome-ok ;
 \ Set the handler of the kinds first to last.
 : on-kinds ( xt last first -- )
   swap 1+ swap ?do dup i counted-export export-handler ! loop drop ;
 : count-handlers ( -- )
   ['] tally-line kind-inductive kind-meta on-kinds
-  ['] on-name-str kind-name-str dup on-kinds  ['] on-const kind-const dup on-kinds
-  ['] on-decl kind-quot kind-axiom on-kinds  ['] on-type kind-type dup on-kinds
-  ['] on-ctor kind-ctor dup on-kinds  ['] on-recursor kind-recursor dup on-kinds ;
+  ['] tally-name-str kind-name-str dup on-kinds  ['] tally-const kind-const dup on-kinds
+  ['] tally-decl kind-quot kind-axiom on-kinds  ['] tally-type kind-type dup on-kinds
+  ['] tally-ctor kind-ctor dup on-kinds  ['] tally-recursor kind-recursor dup on-kinds ;
 
 \ Printing as Python formats numbers: digits grouped by commas, and an
 \ average with one decimal, rounded half to even.

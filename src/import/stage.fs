@@ -28,7 +28,8 @@
 \ other versions); a handler's: full when a store or table of this phase
 \ has no room (64 names, levels and term nodes, 32 declarations and
 \ constant references, 8 universe parameters per declaration and 8
-\ universe arguments per constant: only small exports fit), unsupported
+\ universe arguments per constant: only small exports fit) or a numeric
+\ name part is larger than max-n (never wrapped into another), unsupported
 \ for the kinds above, invalid for a declaration the input refuses; or
 \ lf-input-end's. After a failure the input is not sealed and nothing can
 \ be checked. stage-error gives the line, field and reason of a failure,
@@ -108,13 +109,22 @@ manifest: stage-manifest
   record-index @ stage-names lf-name-capacity stage-store
   if outcome-ok else names-full then ;
 : stage-prefix ( record -- prefix ) name-prefix @ stage-name ;
-: stage-digits ( c-addr u -- n ) 0 0 2swap >number 2drop drop ;
 : stage-interned ( id true | false record -- outcome )
   swap if stage-name! else drop names-full then ;
 : stage-str ( record -- outcome )
   dup >r stage-prefix r@ name-part 2@ lf-name-str r> stage-interned ;
+\ A numeric part's decimal digits (the reader allows any number of them)
+\ as a cell: (n true), or false beyond max-n, which a name entry cannot
+\ hold. Reading them into one cell regardless would wrap a large number
+\ into another, smaller one: a different name, so a different claim.
+: stage-small? ( ud -- n flag ) 0= over 0< 0= and ;
+: stage-digits ( c-addr u -- n true | false )
+  0 0 2swap >number nip if 2drop false exit then stage-small? dup 0= if nip then ;
+: too-large-part ( record -- outcome )
+  drop outcome-full c" a numeric name part larger than the check holds" stage-stop ;
 : stage-num ( record -- outcome )
-  dup >r stage-prefix r@ name-part 2@ stage-digits lf-name-num r> stage-interned ;
+  dup name-part 2@ stage-digits 0= if too-large-part exit then
+  over >r swap stage-prefix swap lf-name-num r> stage-interned ;
 \ The first pass also puts every universe parameter in the level context.
 : stage-context ( id -- outcome )
   dup lf-lscope-member? if drop outcome-ok exit then

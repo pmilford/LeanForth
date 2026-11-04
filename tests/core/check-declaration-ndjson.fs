@@ -10,7 +10,8 @@
 \ (rejected; Lean's appTypeMismatch, row composition.wrong-argument of the
 \ expected-results table), the statement assumed as an axiom
 \ (unsupported, U1), a natural-number literal as the value (unsupported,
-\ U2), and a variable without a binder (invalid, V1).
+\ U2), and a variable without a binder (invalid, V1). A fifth copy, with
+\ a numeric name part of 2^64, must stop staging as full.
 \ Test-only; nothing here accepts a theorem outside the code under test.
 include ../support/tester.fs
 include ../support/checks.fs
@@ -78,6 +79,18 @@ T{ case-wrong stage-read sealed? -> outcome-ok true }T
 T{ s" tests/core/reexport/kinds.ndjson" stage-read sealed? line@
   -> outcome-unsupported false 51 }T
 T{ s" an inductive type (not supported yet)" why? -> true }T
+
+\ A numeric name part is staged only when it fits a cell, never wrapped
+\ into another number (another name): composition with the part 0 of
+\ a._@._internal._hyg.0 changed to 2^64 is full, at its line, 12.
+T{ s" 0" stage-digits s" 007" stage-digits -> 0 true 7 true }T
+: max-text ( -- c-addr u ) max-n 0 <# #s #> ;
+T{ max-text stage-digits -> max-n true }T
+T{ s" 18446744073709551616" stage-digits s" 99999999999999999999999" stage-digits
+  -> false false }T
+T{ s" tests/core/check-declaration-cases/composition-huge-number.ndjson" stage-read
+  sealed? line@ -> outcome-full false 12 }T
+T{ s" a numeric name part larger than the check holds" why? -> true }T
 
 cases-done
 bye

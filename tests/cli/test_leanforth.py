@@ -7,8 +7,8 @@
      reading) and unknown (tests/cli/unfold.ndjson: a proof that needs a
      definition unfolded, which the first checker does not do yet);
    3 a resource limit (tests/cli/chain.ndjson, a correct theorem larger
-     than today's stores, ends full while reading; fuel 0 and 30 end
-     exhausted);
+     than today's stores, ends full while reading, and so does a name
+     part of 2^64; fuel 0 and 30 end exhausted);
    4 malformed (a variable without its binder; a missing manifest; a file
      that is not an export; a file that does not open; every kind of
      mistake on the command line; a copy that would overwrite its export,
@@ -103,6 +103,9 @@ class ExitCodes(unittest.TestCase):
         self.expect(["check", "tests/cli/chain.ndjson"], 3,
                     ["error: full: too many expression nodes or constant references for the "
                      "check's stores (line 97)", *LIMITS])
+        self.expect(["check", "--no-manifest", f"{CASES}/composition-huge-number.ndjson"], 3,
+                    [NO_MANIFEST, "error: full: a numeric name part larger than the check "
+                     "holds (line 12)", *LIMITS])
         exhausted = ["  fuel exhausted; diagnostic 1 at check-declaration "
                      "lf-check-declaration: 0 0"]
         self.expect(["check", "--fuel", "0", FIXTURE], 3,

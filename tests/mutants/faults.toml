@@ -1536,6 +1536,14 @@ test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "stage-read-checked never compares the export with its manifest"
 
 [[fault]]
+id = "stage-name-number-wraps"
+file = "src/import/stage.fs"
+old = '''  0 0 2swap >number nip if 2drop false exit then stage-small? dup 0= if nip then ;'''
+new = '''  0 0 2swap >number 2drop drop true ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "a numeric name part beyond a cell wraps into another number, so another name is staged"
+
+[[fault]]
 id = "stage-theorem-without-value"
 file = "src/import/stage.fs"
 old = '''  lf-kind-theorem stage-start stage-value lf-safety-safe stage-safety stage-add ;'''
