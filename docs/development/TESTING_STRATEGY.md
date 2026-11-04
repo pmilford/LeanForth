@@ -492,6 +492,23 @@ reject, in `make check`) and the authoring words' round trips
 JSON writer's and the packed-field module's reviews planted their faults by
 hand (`FORTH_LIBRARY.md`); the list above re-creates some of them.
 
+## The trial digest (behaviour kept across a refactor)
+
+A change meant to keep the checker's behaviour -- a new store, explicit
+stacks, a speed fix -- is checked against 2,000 random checker trials of
+300 steps (`tests/support/checker-trial.fs`: random terms, levels, names and
+references through inference, conversion, comparison, beta, shift,
+instantiation, the level passes, universe substitution, the signature index
+and the definition probe). Each step folds every outcome, result, fuel
+left, count and diagnostic into a digest; `tests/support/trial-digest.fs`
+prints one line per trial and the mix of outcomes, and
+`bash scripts/trial-digest.sh` prints the first 12 hex digits of that
+output's MD5 digest, the *trial digest* reports quote (`175cba45dbdc` for
+main `cae8075`, about 15 s with gforth-fast). The same output in two trees
+means the same behaviour on every trial; a changed digest needs an
+explanation (`diff` the two outputs to find the trial). It is not part of
+`make test`: run it before and after the change.
+
 ## Block coverage (`make coverage`)
 
 `make coverage` (plan task 1.4.1) reports which Forth code `make test`
