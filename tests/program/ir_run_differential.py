@@ -113,7 +113,10 @@ def block(rng, names, depth, pad, ir02=False):
     for _ in range(rng.below(6)):
         kind = rng.below(100)
         if ir02 and kind < 12:
-            lines.append(f"{pad}out {rng.choice(OUTS)}")
+            word = rng.choice(OUTS)
+            if word == "spaces":    # a small count: the interpreter prints every blank
+                lines.append(f"{pad}lit {rng.below(4) - 1}")
+            lines.append(f"{pad}out {word}")
         elif kind < 55:
             lines.append(f"{pad}prim {rng.choice(PRIMS_02 if ir02 else PRIMS)}")
         elif kind < 73:
