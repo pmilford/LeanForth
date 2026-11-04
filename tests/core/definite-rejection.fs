@@ -380,6 +380,17 @@ T{ d4-pair swap lf-minfer-binders-apart -> lf-rule-d3 lf-rule-d4 or true }T
 T{ 0 lam-context lam-pair lf-minfer-apart -> 0 false }T
 T{ 0 lam-context lam-pair swap lf-minfer-apart -> 0 false }T
 T{ 1 lam-context lam-pair lf-minfer-apart -> lf-rule-d3 lf-rule-d4 or true }T
+\ Below a D4 level a head may be a bound variable (the analysis's own
+\ binder) or a free variable (inference's), and the two are different
+\ variables even when their numbers agree: in the context x : Type (the
+\ local context's entry 0), (y : Type) -> y against (y : Type) -> x is
+\ apart by D3 under D4, the heads #0 and x being different variables
+\ known not to be proofs.
+: head-pair ( -- left right )
+  fresh tok @ 100000 lf-minfer-start 1 make-sort bind ctx-x !
+  1 make-sort 0 make-var make-pi 1 make-sort ctx-x @ make-pi ;
+T{ head-pair 2drop ctx-x @ lf-fvar-number -> 0 }T
+T{ head-pair lf-minfer-apart -> lf-rule-d3 lf-rule-d4 or true }T
 \ P2 decides "not a proof" by Lean's normalizes_to_zero, not the level's
 \ spelling. Context P : Sort l, Q : P -> Prop, p q : P; the pair Q p
 \ against Q q. Sort (imax u 0) and Sort (max 0 0) are Prop, so p and q
