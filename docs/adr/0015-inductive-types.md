@@ -2,7 +2,7 @@
 
 Status: **proposed**, 2026-11-03 (plan tasks 5.1.1–5.1.5, phase 5, "Data
 types and the first real Lean code"). A [kernel] and [import] design, with
-an [axiom] part (§8) and one [bypass]-class risk (§9, L5). **Nothing here is
+an [axiom] part (§8) and one [bypass]-class risk (§7, L5). **Nothing here is
 implemented**; no LeanForth code checks an inductive type yet, and every
 inductive block, quotient, literal and projection is still *unsupported*
 (ADR 0011 rules U1, U2). It extends ADR 0011 (rejection rules) and ADR 0012
@@ -181,8 +181,7 @@ eliminates only into `Prop` (§3, E1).
   equivalence that ignores binder names and binder annotations
   (`Lean/Expr.lean` 804–811); on `RecursorVal` it compares every field,
   universe parameter names included (`deriving BEq`, `Declaration.lean`
-338, 355, 382).
-  Replay skips unsafe and partial constants (180–183) and never compares
+  338, 355, 382). Replay skips unsafe and partial constants (180–183) and never compares
   the exported `InductiveVal` fields other than those it uses.
 - **What LeanForth reads.** lean4export 3.1.0 writes a whole block on one
   line, `{"inductive":{"types":[…],"ctors":[…],"recs":[…]}}`, types in the
@@ -235,14 +234,17 @@ result type (row `params.constructor-mismatch`). LeanForth checks in the
 same order so that a rejected block names Lean's reason.
 
 **Elimination level** (`elim_only_at_universe_zero`, 522–577). The
-recursor eliminates into every `Sort u` (E0) when the result level is never
-zero (`is_not_zero`). Otherwise the type may be a proposition, and it
-eliminates only into `Prop` (the recursor gets no new universe parameter)
-when: E1 the block is mutual, or the type has two or more constructors;
-E2 a type with no constructors eliminates anywhere (`False`); E3 with one
-constructor it eliminates anywhere when every field that is not a proof
-appears among the arguments of the constructor's result type (Lean's
-comment: then nothing secret is revealed); E4 otherwise only into `Prop`.
+recursor gets its own motive universe, and so eliminates into every
+`Sort u`, except where marked "only `Prop`":
+
+- E0: the result level is never zero (`is_not_zero`): every universe;
+- E1: otherwise, a mutual block, or two or more constructors: only `Prop`;
+- E2: no constructors (`False`): every universe;
+- E3: one constructor, and every field that is not a proof appears among
+  the arguments of the constructor's result type (Lean's comment: then
+  nothing secret is revealed): every universe;
+- E4: one constructor otherwise: only `Prop`.
+
 Rows: `ind.or` and `ind.prop-two-empty-ctors` (E1), `ind.empty-prop` (E2),
 `ind.and`, `ind.true`, `ind.eq`, `ind.exists-prop-witness`,
 `ind.field-in-index` (E3), `ind.exists`, `universe.predicate-any-field`
@@ -386,8 +388,8 @@ route is tried, so LeanForth keeps them.
   (`reduce_recursor` 394–398). Rows `quot.lift-on-mk`, `-wrong`,
   `quot.lift-stuck-on-variable`.
 - **Q3 `Quot.sound`** is not a kernel constant: it is an ordinary axiom,
-  declared right after the quotient constants (`Init/Prelude.lean` 450,
-  543),
+  declared in `Init/Prelude.lean` (543) after `init_quot` (450) has made
+  the four quotient constants:
   `Quot.sound.{u} : ∀ {α : Sort u} {r : α → α → Prop} {a b : α}, r a b → Quot.mk r a = Quot.mk r b`,
   and the one allowlisted axiom among the quotient constants (owner
   decision 4). Its exact exported record, with those of `propext` and
@@ -498,10 +500,13 @@ dump, `tests/core/compact-verify.sh`):
 | `nat-add-zero.ndjson` | 804 | the closure of `Nat.add_zero` and `Nat.zero_add` (§11) |
 | `axioms.ndjson` | 225 | `propext`, `Classical.choice`, `Quot.sound`, their closure and the four `quot` records |
 
-Planted faults, each made the check fail (one at a time on a scratch copy,
-2026-11-03): a changed verdict in the table, a changed expected verdict in
-the Lean file, a changed byte in each export, a mutation of the case list.
-See *Reproduction*.
+Five planted faults, each made `make reference-inductive` fail, one at a
+time, each restored afterwards (2026-11-03): a changed verdict in the
+table; a negative case made positive in the Lean file (`(Nat → Bad) → Bad`
+for `pos.negative`, so Lean accepts it); a wrong expected Lean verdict; a
+changed name in `blocks.ndjson`; a changed count in the manifest of
+`nat-add-zero.ndjson`. The staging step relies on `compact-verify.sh`,
+whose own planted faults are in `tests/mutants/faults.toml` (`stage-…`).
 
 This is evidence about Lean, not about LeanForth: no LeanForth code checks
 these cases yet. Each row's task (§12) turns its outcome from *unsupported*
@@ -602,8 +607,9 @@ table is read off the terms, not traced from Lean's kernel.
 ## 13. Test plan
 
 1. **The table as specification.** A LeanForth differential reads the 100
-   rows (the exports of the hand-built cases, made from the same Lean file)
-   and requires the `leanforth` column for every row whose task is done,
+   cases (written as NDJSON by a small writer added to the same Lean file,
+   since a block Lean rejects cannot be exported by `leanexport`) and
+   requires the `leanforth` column for every row whose task is done,
    and *unsupported* — never *accepted* — for the others. Each task's gate
    shows every outcome it can produce reached.
 2. **Regeneration on real exports.** Every inductive block of `Init`, then

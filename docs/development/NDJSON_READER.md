@@ -1090,8 +1090,10 @@ dumps are equal, as above.
   each changed by one of the reader's mutations, above): every mutant the
   reader refuses is refused with an error line, and every one it accepts
   comes back as a copy the reader reads into the same dump and that
-  re-exports to itself byte for byte (in `make test` 42 accepted, 21 of
-  them already in the exporter's form; a run of 3,000 accepted 614, all
+  re-exports to itself byte for byte (in `make test` 40 accepted, 18 of
+  them already in the exporter's form, since the three exports of
+  `tests/reference/inductive/` joined the files the sweep draws from
+  (ADR 0015; before, 42 and 22); a run of 3,000 accepted 614, all
   passing, 292 unchanged); and the script in both modes, on a file in
   another spelling, on a file the reader refuses and with bad usage.
   Plan task 3.2.4 asked for identity on all fixtures and accepted fuzz
