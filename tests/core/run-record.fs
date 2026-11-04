@@ -110,6 +110,50 @@ T{ s\" \"run\":\"invalid\"" holds? fault-29 holds? unchecked-2 holds? -> true tr
 T{ s\" \"numbers\":[1,4242]" holds? accepted holds? -> true true }T
 rr-release
 
+\ Verdicts only from the run's own environment (review F1). B: rr-check
+\ cannot make its environment (a pool out of range) while the caller's
+\ own environment over the same input is current: the record lists no
+\ declaration, and says why. C: rr-check makes its environment, then the
+\ caller makes another current: no record.
+variable foreign
+: foreign-current ( -- ) fuel 64 lf-check-input ok? must foreign ! ;
+: foreign-free ( -- ) foreign @ lf-env-free ok? must ;
+: no-env ( -- c-addr u )
+  s\" \"run\":\"invalid\",\"mode\":null,\"allowlistVersion\":null},\"declarations\":[]" ;
+T{ constant-fixture rr-start -> outcome-ok }T
+0 lf-env-pool-max 1+ rr-settings!
+T{ constant-fixture ni-read dup rr-read! -> outcome-ok }T
+foreign-current rr-check
+T{ constant-fixture rr-finish rr-write -> outcome-ok outcome-ok }T
+T{ no-env holds? s" accepted" holds? -> true false }T
+foreign-free
+T{ constant-fixture rr-start -> outcome-ok }T
+0 64 rr-settings!
+T{ constant-fixture ni-read dup rr-read! -> outcome-ok }T
+foreign-current rr-check foreign @ lf-env-use ok? must
+T{ constant-fixture rr-finish rr-write -> outcome-ok outcome-invalid }T
+foreign-free rr-release
+\ A new run's kept outcomes are invalid, never ok, until its steps publish.
+T{ rr-begun 0 rr-step-of kept-outcome @ lf-input-capacity 1- rr-step-of kept-outcome @
+  -> outcome-invalid outcome-invalid }T
+
+\ The text rule (review F3): no control, format or separator character,
+\ valid UTF-8; a shown text has a character other than a space.
+create one-char 4 allot
+: rule? ( code -- flag ) one-char utf8-put one-char swap rr-rule? ;
+T{ $41 rule? $1f rule? $7f rule? $a0 rule? $ad rule? -> true false false true false }T
+T{ $202e rule? $2028 rule? $feff rule? $1f600 rule? -> false false false true }T
+T{ $e0041 rule? $110bd rule? -> false false }T
+: bad-byte ( -- c-addr u ) s\" a\xff" ;
+: no-break-x ( -- c-addr u ) s\" \xc2\xa0x" ;
+: en-quad ( -- c-addr u ) s\" \xe2\x80\x80" ;
+T{ bad-byte rr-rule? 0 0 rr-rule? -> false true }T
+T{ 0 0 rr-shown? bl pad c! pad 1 rr-shown? -> false false }T
+T{ no-break-x rr-shown? en-quad rr-shown? -> true false }T
+\ Numbers within +-(2^53 - 1).
+T{ 0 0 rr-exact? -1 s>d rr-exact? -> true true }T
+T{ rr-exact rr-exact? rr-exact 1 m+ rr-exact? -> true false }T
+
 \ The verdicts are the slots' own: the same as lf-check-input's.
 : slot-verdicts ( c-addr u -- o0 o1 o2 )
   ni-read ok? must fuel 64 lf-check-input ok? must >r lf-env-view ok? must
@@ -231,6 +275,12 @@ T{ 0 finding@ -> rp-unreadable }T
 T{ rp-report -> outcome-ok }T
 rr-release
 T{ rp-rerun-refused 0 finding@ -> outcome-invalid rp-rerun-failed }T
+
+\ Paths are cut between characters (review F2): "a", then a two-byte é.
+: a-e-acute ( -- c-addr u ) s\" a\xc3\xa9b" ;
+T{ a-e-acute 2 rp-whole a-e-acute 3 rp-whole a-e-acute 4 rp-whole a-e-acute 9 rp-whole
+  -> 1 3 4 4 }T
+T{ s\" a\xff" 9 rp-whole -> 1 }T
 
 \ Codes and their names; paths.
 T{ rp-verdict-differs rp-code-name s" verdict-differs" compare -> 0 }T
