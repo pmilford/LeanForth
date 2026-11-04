@@ -128,7 +128,7 @@ the 32-bit access words exist in `src/`; building it is plan tasks
 | Rejection rules in comparison and inference (plan 2.2.1) | [kernel] | **approved** 2026-11-03 |
 | NDJSON reader (Lean export files) | [import] | **approved** 2026-11-03, with a checksum manifest to add |
 | Importer stage (staging into the compact store; ADR 0016 C9 steps 1, 2, 5) | [import] | **approved** 2026-11-03 (late night); independent re-review clean, minor limits documented. **The importer stage gate is passed.** |
-| Heap stores and the stage feed; the checker on the large store (ADR 0016 C9 step 3 in part; plan 1.1.5, 3.2.2) | [kernel] | merged; reviews done and their fixes merged; **held by the owner (2026-11-04)** until the fixed limits of 64 are dynamic (plan 6.2.0: universe lists done, depth limits in progress); the gate is then asked again |
+| Heap stores and the stage feed; the checker on the large store (ADR 0016 C9 step 3 in part; plan 1.1.5, 3.2.2) | [kernel] | **approved** 2026-11-04 (owner), after the fixed limits became dynamic: plan 6.2.0 part (a) universe lists and part (b) no depth limit (agent KC, `215a406`); re-review rvKC REVIEW-B nothing blocking ([decisions](OWNER_DECISIONS.md#checker-on-the-large-store-approved-resource-settings-2026-11-04-late)) |
 | Data types, ADR 0015 (inductive types) | design | **accepted as a design** 2026-11-03; each implementation task has its own gate |
 | Non-recursive data types (plan 5.2.1a) | [kernel], [import] | **approved** 2026-11-04 after three review rounds, the last clean. **Condition (owner):** its temporary differences from Lean close to 100% compatibility, any stricter behaviour only behind an opt-in flag: (1) a file using `T.rec` without declaring it gets LeanForth's own generated recursor, as in Lean; (2) a block rejected at the final comparison (B3) keeps its type and constructors usable afterwards, as in Lean's environment; (3) the guard on unit-like structures closes with task 5.2.2. **Condition met** 2026-11-04 after rounds 4–6: (1) and (2) done, an empty block now rejected as in Lean; every remaining gap temporary with its task ([decisions](OWNER_DECISIONS.md#data-types-first-step-condition-met-2026-11-04-late)) |
 | Free variables and the local context (plan 4.2.2a) | [kernel] | **approved** 2026-11-04 after two review rounds; accepted cost: checking is 10-25% slower until the loose-variable range of ADR 0014 Q12 is built |
@@ -678,9 +678,9 @@ Since `7ffbfff`: the owner approved the program words, run-record format 0.1,
 the import-read change, the derivation log and `leanforth print` (gate D5),
 free variables (plan 4.2.2a), the first data types (plan 5.2.1a, with the
 condition that its temporary differences close to 100% Lean) and the IR 0.2
-design. The owner held the checker on the large store [kernel] until the
-fixed limits of 64 are dynamic; universe lists are done (plan 6.2.0 part a)
-and depth limits are in progress. `Init` end to end: 184 data types and 1,014
+design. The checker on the large store [kernel] was approved the same
+evening, once universe lists (plan 6.2.0 part a) and depth (part b) had no
+fixed limit. `Init` end to end: 184 data types and 1,014
 definitions and theorems accepted, 0 rejected or invalid; its feed and check
 are 8 and 7 times faster (96 s to 12 s, 63 s to 9 s; agent KC's figures from
 the merge message). The 2026-11-04 crashes were the strict test wrapper

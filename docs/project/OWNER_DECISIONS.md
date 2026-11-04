@@ -717,3 +717,25 @@ ADR 0019 Amendment 1 (agent IR2; probes in
   version runs that version's execution token). Next on the track:
   `src/lib/sha256.fs` runs the proved words; receipt schema 0.3 at the
   [format] gate with the first receipt that needs it.
+
+## Checker on the large store approved; resource settings (2026-11-04, late)
+
+- **The checker on the large store, with no depth limit, [kernel] gate:
+  approved** (owner, "Approve"; held since the morning until the fixed
+  limits became dynamic). ADR 0016's heap stores and the importer's stage
+  feed; plan 6.2.0 part (a), universe lists of any length, and part (b),
+  every pass on explicit growable stacks (agent KC, merged `215a406`).
+  Evidence: Lean's whole `Init` checked from the command line (1,618
+  accepted, 0 rejected); random-test answers identical before and after;
+  the 2,000- and 10,000-deep Lean differentials agree on every row;
+  independent re-review rvKC (REVIEW-B): nothing blocking, five low
+  findings being fixed. Temporary gaps, each with its task: time quadratic
+  in a term's depth (6.5.5); the remaining fixed capacities (6.2.0, 6.2.2,
+  6.2.4).
+- **Resource settings are not verdicts** (owner, "Yes, a resource"): the
+  100%-Lean rule means Lean's verdict when Lean has enough of its resource
+  settings. Lean's `maxRecDepth` refusals (`deepRecursion`, BL-9) and
+  `maxHeartbeats` timeouts are resource refusals, as LeanForth's fuel
+  (*exhausted*) and memory (*full*) are; LeanForth does not copy Lean's
+  counters. An option that emulates `maxRecDepth` would be a later opt-in
+  flag, never the default.
