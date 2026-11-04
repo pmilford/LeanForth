@@ -103,6 +103,7 @@ begin-structure /reexporter
   field: reexport-left             \ elements of the current block still to come
   field: reexport-recursors        \ recursors of the current block
   field: reexport-lines            \ lines written
+  field: reexport-mark             \ the output's size where the current line starts
   reexport-depth reexport-key-room jw-size +field reexport-writer
 end-structure
 create reexporter /reexporter allot  reexporter /reexporter erase
@@ -360,31 +361,48 @@ create reexport-handlers
   ' mdata-line , ' axiom-line , ' def-line , ' thm-line , ' opaque-line , ' quot-line ,
   ' block-line , ' type-line , ' ctor-line , ' recursor-line ,
 here reexport-handlers - kind-count cells = load-check
+\ The handler the reader calls for every kind: after a failure it refuses
+\ every record at once, writing nothing; else the kind's handler. A line
+\ that fails takes its bytes back from the output: the output keeps its
+\ size at each line's first record (outside a block) as a mark.
+: line-mark ( -- )
+  reexporter reexport-left @ 0= if emit-out buffer-used @ reexporter reexport-mark ! then ;
+: line-undone ( outcome -- outcome )
+  dup ok? 0= if reexporter reexport-mark @ emit-out buffer-used ! then ;
+: emit-kind ( record -- outcome ) dup record-kind @ cells reexport-handlers + @ execute ;
+: emit-record ( record -- outcome )
+  emit-status ok? 0= if drop emit-status exit then line-mark emit-kind line-undone ;
 
 \ Starting a re-export into fid (0 keeps the lines in memory, for tests):
-\ empty buffers, nothing failed, Lean's escapes and key order.
+\ empty buffers, nothing failed, the writer idle (even after a THROW out
+\ of it) with Lean's escapes and key order.
 : reexport-reset ( fid -- )
   reexporter reexport-fid ! outcome-ok reexporter reexport-status !
   0 reexporter reexport-left ! 0 reexporter reexport-lines ! ;
-: emit-settings ( -- ) true emit-w jw-sorted ! true emit-w jw-lean ! max-n emit-w jw-limit ! ;
+: emit-settings ( -- )
+  emit-w jw-reset true emit-w jw-sorted ! true emit-w jw-lean ! max-n emit-w jw-limit ! ;
 : reexport-handlers! ( -- )
-  kind-count 0 do reexport-handlers i cells + @ i reexported export-handler ! loop ;
+  kind-count 0 do ['] emit-record i reexported export-handler ! loop ;
 : reexport-begin ( fid -- outcome )
   reexport-reset emit-out buffer-empty emit-types buffer-empty emit-settings
   reexported export-init dup ok? if reexport-handlers! then ;
 \ The lines written so far, and those still in memory.
 : reexport-lines@ ( -- n ) reexporter reexport-lines @ ;
 : reexport-pending ( -- c-addr u ) emit-out buffer-text ;
-\ Finishing: invalid while a block is unfinished; the last output written.
+\ Finishing: invalid while a block is unfinished; the last output written
+\ unless something failed.
+: write-due? ( -- flag ) emit-status ok? reexporter reexport-fid @ 0<> and ;
 : reexport-end ( -- outcome )
-  reexporter reexport-left @ if emit-invalid then
-  reexporter reexport-fid @ if emit-write then emit-status ;
+  reexporter reexport-left @ if emit-invalid then write-due? if emit-write then emit-status ;
 : reexport-free ( -- ) emit-out buffer-release emit-types buffer-release reexported export-free ;
 
 \ Re-export the export file named c-addr u into fid: the reading's
 \ outcome, then the writing's. A Forth exception is invalid, after which
-\ export-read has closed the input.
-: reexport-fault ( x x x -- outcome ) 2drop drop outcome-invalid ;
+\ export-read has closed the input. On a failure the file holds at most
+\ the lines before the failing one; the caller discards it.
+: reexport-fault ( x x x -- outcome )
+  2drop drop 0 reexported export-key !
+  c" a Forth exception" reexported export-why ! outcome-invalid ;
 : reexport-ended ( outcome -- outcome ) dup ok? if drop reexport-end then ;
 : reexport-file ( c-addr u fid -- outcome )
   reexport-begin dup ok? 0= if nip nip exit then drop
@@ -393,7 +411,7 @@ here reexport-handlers - kind-count cells = load-check
 \ The command line's word. Errors are reported as ndjson-count.fs does:
 \ the outcome's name, why, the field, the line and, for a JSON error, the
 \ byte within the line.
-: .count ( n -- ) 0 .r ;
+: .count ( n -- ) base @ >r decimal 0 .r r> base ! ;
 : .json-byte ( -- )
   reexported export-json dup json-why @ if ." , byte " json-offset .count else drop then ;
 : .key ( c-addr u -- ) dup if ." field " type ." , " else 2drop then ;
@@ -407,8 +425,10 @@ here reexport-handlers - kind-count cells = load-check
 [else]
   : reexport-failed ( -- ) -1 throw ;
 [then]
+\ Re-export into fid, then close it; the first failure wins.
+: closed ( fid -- outcome ) close-file if outcome-full else outcome-ok then ;
 : reexport-into ( in-addr in-u fid -- outcome )
-  dup >r reexport-file r> close-file 0<> outcome-full and over ok? if nip else drop then ;
+  dup >r reexport-file r> closed over ok? if nip else drop then ;
 : reexport-report ( outcome -- )
   dup ok? if drop ." reexported " reexport-lines@ .count ."  lines" cr exit then
   .reexport-error ;
