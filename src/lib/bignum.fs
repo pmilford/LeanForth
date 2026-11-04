@@ -68,16 +68,19 @@
 \ kept past that, nor across a move of the arena's memory.
 \
 \ Outcomes (src/lib/outcome.fs): ok; invalid for a malformed number (a
-\ negative count or a zero top limb), a corrupted arena record, or text
-\ that is not decimal digits; full when the arena has no room, or when the
-\ result would have more bits than the arena's limit. The limit is
-\ big-lean-bits, 2^30, unless big-limit! sets another (at most
-\ big-max-limit, 2^(cell bits - 2)). At the default this library never
-\ refuses a value Lean 4.35.0 accepts or computes, given room, because
-\ each of Lean's checks above admits only results of at most 2^30 bits.
-\ A failure gives -1 in the result's place and leaves the arena's top
-\ where it was. Comparisons and big-bits trust their arguments: check
-\ numbers from elsewhere with big-valid? first.
+\ negative count or a zero top limb), a number reaching into the arena's
+\ free part (released, so the result would overwrite it: big-live?), a
+\ corrupted arena record, or text that is not decimal digits; full when
+\ the arena has no room, or when the result would have more bits than the
+\ arena's limit. The limit is big-lean-bits, 2^30, unless big-limit! sets
+\ another (at most big-max-limit, 2^(cell bits - 2)). At the default this
+\ library never refuses a value Lean 4.35.0 accepts or computes, given
+\ room, because each of Lean's checks above admits only results of at
+\ most 2^30 bits. A failure gives -1 in the result's place (big>decimal:
+\ 0 0, an empty text) and leaves the arena's top where it was. The checks
+\ are O(1): a released number whose memory was claimed again looks live.
+\ Comparisons and big-bits trust their arguments: check numbers from
+\ elsewhere with big-valid? first.
 \
 \ Algorithms: schoolbook multiplication, Karatsuba above karatsuba-limbs
 \ limbs (measured, see docs/development/FORTH_LIBRARY.md); Knuth's algorithm
@@ -149,6 +152,8 @@ cell negate constant back-cell
 
 \ The inner loops of multiplication and division, each limb a double-cell
 \ product plus a limb plus the carry, which cannot overflow two limbs.
+\ They take four inputs, a multiplier, two vectors and a count, because
+\ the loop needs all four at once; callers pass them from records.
 \ dst[0..n) = m * src[0..n), and dst[0..n) += m * src[0..n): the carry
 \ limb out. dst may be src for the first.
 : limbs*! ( m src dst n -- carry )
@@ -269,6 +274,12 @@ max-n 2/ 1+ constant big-max-limit
   dup arena-top @ >r over 1+ cells swap arena-top +! r@ ! r> true ;
 \ The failure of an operation that has no room.
 : no-room ( -- -1 outcome ) outcome-full no-result ;
+\ Go on with a and b when flag is true; otherwise drop them and fail.
+: room-then? ( a b flag -- a b true | -1 outcome false )
+  if true else 2drop no-room false then ;
+\ Claim a result of n limbs above a and b, or drop them and fail.
+: result-claim ( a b n arena -- a b c true | -1 outcome false )
+  arena-claim if true else 2drop no-room false then ;
 \ Whether a number has at most the arena's limit of bits.
 : big-fits? ( big arena -- flag ) arena-limit @ swap big-bits < 0= ;
 \ Normalize the number just made, keep it as the arena's newest (giving
@@ -278,14 +289,21 @@ max-n 2/ 1+ constant big-max-limit
   r> arena-top ! no-room ;
 \ A number of one limb's value u; 0 has no limbs.
 : cell-big ( u arena -- big outcome )
-  1 over arena-claim 0= if 2drop no-room exit then rot over big-limbs ! swap big-finish ;
+  1 over result-claim 0= if exit then rot over big-limbs ! swap big-finish ;
 \ A copy of a number at the top.
 : big-copy ( a arena -- c outcome )
-  over @ over arena-claim 0= if 2drop no-room exit then
-  rot over big-move swap big-finish ;
-\ Whether two numbers and an arena are well formed.
+  over @ over result-claim 0= if exit then rot over big-move swap big-finish ;
+\ Whether a number stays clear of the arena's free part, from its top to
+\ its end. One reaching into it was released (in part), and the result
+\ would overwrite it. An O(1) test of addresses only: a released number
+\ whose memory was claimed again cannot be told from a live one.
+: big-live? ( big arena -- flag )
+  >r dup big-end r@ arena-top @ u> 0= swap r> arena-end @ u< 0= or ;
+\ Whether a number is well formed and live.
+: operand? ( big arena -- flag ) over big-valid? if big-live? else 2drop false then ;
+\ Whether two numbers and an arena are well formed, the numbers live.
 : big-operands? ( a b arena -- a b arena flag )
-  >r 2dup big-valid? swap big-valid? and r@ arena-valid? and r> swap ;
+  >r 2dup r@ operand? swap r@ operand? and r@ arena-valid? and r> swap ;
 \ Run the operation xt ( a b arena -- c outcome ) on well-formed operands;
 \ otherwise invalid.
 : big-binary ( a b arena xt -- c outcome )
@@ -296,26 +314,25 @@ max-n 2/ 1+ constant big-max-limit
 \ r = long + short, where r has one limb more than long.
 : add-into ( long short r -- r ) rot over limbs-into 0 over big-top ! tuck big+! drop ;
 : add-core ( a b arena -- c outcome )
-  >r longer-first over @ 1+ r@ arena-claim 0= if 2drop r> drop no-room exit then
+  >r longer-first over @ 1+ r@ result-claim 0= if r> drop exit then
   add-into r> big-finish ;
 \ r = a - b, where a > b and r has a's count.
 : sub-into ( a b r -- r ) rot over limbs-into tuck big-! drop ;
 : sub-core ( a b arena -- c outcome )
   >r 2dup big-compare 0> 0= if 2drop 0 r> cell-big exit then
-  over @ r@ arena-claim 0= if 2drop r> drop no-room exit then sub-into r> big-finish ;
+  over @ r@ result-claim 0= if r> drop exit then sub-into r> big-finish ;
 : and-core ( a b arena -- c outcome )
-  >r longer-first dup @ r@ arena-claim 0= if 2drop r> drop no-room exit then
+  >r longer-first dup @ r@ result-claim 0= if r> drop exit then
   swap over limbs-into swap big-limbs over big-vector limbs-and! r> big-finish ;
 \ A copy of the longer number, for or and xor to merge the shorter into.
-: longer-copy ( a b arena -- short c true | false )
-  >r longer-first over @ r@ arena-claim 0= if 2drop r> drop false exit then
-  rot over limbs-into r> drop true ;
+: longer-copy ( a b arena -- short c true | -1 outcome false )
+  >r longer-first over @ r> result-claim dup if >r rot over limbs-into r> then ;
 : or-into ( short r -- ) swap big-vector >r swap big-limbs r> limbs-or! ;
 : xor-into ( short r -- ) swap big-vector >r swap big-limbs r> limbs-xor! ;
 : or-core ( a b arena -- c outcome )
-  dup >r longer-copy if tuck or-into r> big-finish else r> drop no-room then ;
+  dup >r longer-copy if tuck or-into r> big-finish else r> drop then ;
 : xor-core ( a b arena -- c outcome )
-  dup >r longer-copy if tuck xor-into r> big-finish else r> drop no-room then ;
+  dup >r longer-copy if tuck xor-into r> big-finish else r> drop then ;
 
 \ ---- Multiplication ----
 
@@ -333,18 +350,19 @@ end-structure
 
 \ A product frame: r = a * b for a of n limbs, with scratch from the arena.
 begin-structure /kara
-  /product +field kara-rows  \ its product-a and product-n are a and n
+  /product +field kara-rows  \ the rows' job: its product-a and product-n
   field: kara-b              \ b's limbs
   field: kara-r              \ the product's limbs
   field: kara-arena          \ where scratch is claimed
 end-structure
 /kara cell / constant kara-cells
-: kara-a ( frame -- addr ) product-a ;
-: kara-n ( frame -- addr ) product-n ;
+\ a's limbs and their count n.
+: kara-a ( frame -- addr ) kara-rows product-a ;
+: kara-n ( frame -- addr ) kara-rows product-n ;
 \ r[0..n+nb) = a * b by rows, for b of nb limbs.
 : school ( nb frame -- )
   2dup kara-n @ + over kara-r @ swap limbs-erase dup kara-r @ over kara-b @ -
-  over product-shift ! dup kara-b @ -rot product-rows ;
+  over kara-rows product-shift ! dup kara-b @ -rot kara-rows product-rows ;
 
 \ Karatsuba, for a and b of n >= karatsuba-limbs limbs each (measured, see
 \ docs/development/FORTH_LIBRARY.md): with h = n / 2 and hi = n - h,
@@ -361,8 +379,14 @@ end-structure
 : kara-scratch ( n -- cells )
   0 swap begin dup karatsuba-limbs < 0= while
     dup 2/ - dup step-cells rot + swap 1+ repeat drop ;
-\ The child frame, a copy of the frame; the room was checked before the
-\ product began (mul-cells), so a refusal here is a bug, and aborts.
+\ The child frame, a copy of the frame. big-multiply checked the room for
+\ every step (mul-cells) before the product began, so a refusal here is a
+\ fault in this module, not an outcome: ABORT" stops the run rather than
+\ write past the arena's end. It stays an ABORT" because an outcome would
+\ need a test after each of kara's three recursive calls for a case the
+\ room check excludes, and ADR 0018 (proposed, not yet approved) would
+\ make it its throw-fault; the arena sweep in tests/lib/bignum.fs checks
+\ that no room from 0 up reaches it.
 : kara-child ( frame -- frame child )
   dup kara-hi step-cells 1- over kara-arena @ arena-claim
   0= abort" bignum: Karatsuba room" big-limbs 2dup /kara move ;
@@ -400,51 +424,73 @@ end-structure
   kara-child low-half dup recurse high-half dup recurse middle middle-sums dup recurse
   tuck kara-fold kara-release ;
 
-\ A longer factor is cut into chunks of the shorter one's count nb (the
-\ last zero-padded), and each chunk's Karatsuba product (into T, 2 nb
-\ limbs) added into r at the chunk's place.
+\ A longer factor of count limbs is cut into chunks of the shorter one's
+\ count n, and each chunk's Karatsuba product with b (into T, 2 n limbs)
+\ is added into r at the chunk's place. A tail of c limbs, 0 < c < n, is
+\ multiplied by rows when c is below karatsuba-limbs. Otherwise the job
+\ becomes b times the tail, at the tail's place in r, with b cut into
+\ chunks of c: T and the Karatsuba scratch for n limbs hold those for c,
+\ so it needs no more room, and the counts shrink as in Euclid's
+\ algorithm. (Padding the tail to n limbs could double the work.)
 begin-structure /chunks
   /kara +field chunks-frame  \ one chunk times b, into T
   field: chunks-long         \ the longer factor's limbs
   field: chunks-count        \ how many
   field: chunks-r            \ the product's limbs
-  field: chunks-pad          \ nb limbs for the last chunk, zero-padded
 end-structure
 /chunks cell / constant chunks-cells
-\ The chunk at limb i: its address and count.
-: chunk-limbs ( i job -- addr c job )
-  2dup chunks-long @ swap cells + -rot dup chunks-count @ rot - over kara-n @ min swap ;
-: chunk-source ( i job -- )
-  chunk-limbs 2dup kara-n @ = if nip kara-a ! exit then
-  >r r@ chunks-pad @ r@ kara-n @ limbs-erase r@ chunks-pad @ swap copy-limbs
-  r@ chunks-pad @ r> kara-a ! ;
+: chunks-n ( job -- n ) chunks-frame kara-n @ ;
+\ The tail: its count, its first limb and its address.
+: tail-size ( job -- c ) dup chunks-count @ swap chunks-n mod ;
+: tail-limb ( job -- i ) dup chunks-count @ swap tail-size - ;
+: tail-addr ( job -- addr ) dup tail-limb cells swap chunks-long @ + ;
+\ Add T into r from limb i on, carrying to r's end: 2 n limbs, or the
+\ c + n of a tail's rows.
 : chunk-add ( i job -- )
-  >r r@ chunks-count @ r@ kara-n @ + over - swap cells r@ chunks-r @ + swap
-  r@ kara-r @ over r> kara-n @ 2* min 2swap vector+! drop ;
+  >r r@ chunks-count @ r@ chunks-n + over - swap cells r@ chunks-r @ + swap
+  r@ chunks-frame kara-r @ over r> chunks-n 2* min 2swap vector+! drop ;
+\ The chunk at limb i times b, into T, added into r.
+: chunk-product ( i job -- )
+  2dup chunks-long @ swap cells + over chunks-frame tuck kara-a ! kara chunk-add ;
+: whole-chunks ( job -- )
+  dup tail-limb 0 ?do i over chunk-product dup chunks-n +loop drop ;
+\ The tail times b by rows (a := b, b := the tail), into T, added into r.
+: tail-rows ( job -- )
+  dup chunks-frame dup kara-b @ over kara-a ! over tail-addr swap kara-b !
+  dup tail-size over chunks-frame school dup tail-limb swap chunk-add ;
+\ The job becomes b times the tail: long := b (n limbs), b := the tail
+\ (c limbs), and r starts at the tail's limb.
+: tail-job! ( job -- )
+  >r r@ tail-addr r@ tail-size r@ tail-limb cells r@ chunks-r +!
+  r@ chunks-frame kara-b @ r@ chunks-long ! r@ chunks-n r@ chunks-count !
+  r@ chunks-frame kara-n ! r> chunks-frame kara-b ! ;
 : chunks-run ( job -- )
-  dup chunks-count @ 0 ?do
-    i over 2dup chunk-source dup kara chunk-add dup kara-n @ +loop drop ;
-\ The job's places: the pad after the record, then T.
-: chunks-places! ( job -- )
-  dup /chunks + over chunks-pad ! dup dup chunks-pad kara-next swap kara-r ! ;
-: chunks! ( long short r job -- job )
-  >r big-limbs r@ chunks-r ! big-vector r@ kara-n ! r@ kara-b !
-  big-vector r@ chunks-count ! r@ chunks-long ! r@ chunks-places! r> ;
+  begin dup whole-chunks dup tail-size karatsuba-limbs < 0= while dup tail-job! repeat
+  dup tail-size if tail-rows else drop then ;
 
-\ r = long * short (r erased, na + nb limbs), by rows or by Karatsuba.
-: frame! ( long short r frame -- nb frame )
-  >r big-limbs r@ kara-r ! big-vector swap r@ kara-b !
-  swap big-vector r@ kara-n ! r@ kara-a ! r> ;
-: school-product ( long short r arena -- r )
-  over >r kara-cells swap arena-claim drop big-limbs frame! school r> ;
+\ r = long * short (r erased, na + nb limbs), by rows or by Karatsuba, in
+\ a frame or a job claimed above r (big-multiply checked the room) that
+\ holds r: the frame's product, or the job's, with T after the job.
+: rows-frame ( r arena -- frame )
+  kara-cells swap arena-claim drop big-limbs swap big-limbs over kara-r ! ;
+: kara-job ( r n arena -- job )
+  >r 2* chunks-cells + r@ arena-claim drop big-limbs r> over chunks-frame kara-arena !
+  swap big-limbs over chunks-r ! dup /chunks + over chunks-frame kara-r ! ;
+\ The factors into the frame or job.
+: frame! ( long short frame -- nb frame )
+  >r big-vector swap r@ kara-b ! swap big-vector r@ kara-n ! r@ kara-a ! r> ;
+: chunks! ( long short job -- job )
+  >r big-vector r@ chunks-frame kara-n ! r@ chunks-frame kara-b !
+  big-vector r@ chunks-count ! r@ chunks-long ! r> ;
+\ Four inputs: the two factors, r and the arena that gives the frame.
+: school-product ( long short r arena -- r ) over >r rows-frame frame! school r> ;
 : kara-product ( long short r arena -- r )
-  over >r >r over @ 3 * chunks-cells + r@ arena-claim drop big-limbs r> over kara-arena !
-  chunks! chunks-run r> ;
-\ Cells a product needs: itself, then its frames and scratch.
+  over >r >r over @ r> kara-job chunks! chunks-run r> ;
+\ Cells a product needs: itself, then its frame or job, T and scratch.
 : product-size ( a b -- limbs ) @ swap @ + ;
 : mul-scratch ( short -- cells )
   @ dup karatsuba-limbs < if drop kara-cells 1+ exit then
-  dup 3 * chunks-cells + 1+ swap kara-scratch + ;
+  dup 2* chunks-cells + 1+ swap kara-scratch + ;
 : mul-cells ( long short -- cells ) dup mul-scratch -rot product-size 1+ + ;
 \ r = a * b at the top, with na + nb limbs, not yet normalized.
 : big-multiply ( a b arena -- r true | false )
@@ -458,7 +504,7 @@ end-structure
   arena-limit @ swap big-bits - swap big-bits 1- < 0= ;
 : mul-core ( a b arena -- c outcome )
   >r 2dup either-zero? if 2drop 0 r> cell-big exit then
-  2dup r@ product-fits? 0= if 2drop r> drop no-room exit then
+  2dup r@ product-fits? room-then? 0= if r> drop exit then
   r@ big-multiply if r> big-finish else r> drop no-room then ;
 
 \ ---- Division (Knuth's algorithm D) ----
@@ -556,18 +602,18 @@ end-structure
 : div-trivial? ( a b -- flag ) dup @ 0= if 2drop true exit then big-compare 0< ;
 \ Division by a one-limb b.
 : short-div ( a b arena -- c outcome )
-  >r big-limbs @ over @ r@ arena-claim 0= if 2drop r> drop no-room exit then
+  >r big-limbs @ over @ r@ result-claim 0= if r> drop exit then
   rot over limbs-into tuck big-vector limbs/1! drop r> big-finish ;
 : short-mod ( a b arena -- c outcome )
-  >r big-limbs @ over @ r@ arena-claim 0= if 2drop r> drop no-room exit then
+  >r big-limbs @ over @ r@ result-claim 0= if r> drop exit then
   rot over limbs-into tuck big-vector limbs/1! over big-limbs ! 1 over ! r> big-finish ;
 \ Division by b of two limbs or more.
 : long-div ( a b arena -- c outcome )
-  >r 2dup @ swap @ swap - 1+ r@ arena-claim 0= if 2drop r> drop no-room exit then
+  >r 2dup @ swap @ swap - 1+ r@ result-claim 0= if r> drop exit then
   -rot r@ div-setup 0= if r> arena-top ! no-room exit then
   dup div-run quotient-into r> big-finish ;
 : long-mod ( a b arena -- c outcome )
-  >r dup @ r@ arena-claim 0= if 2drop r> drop no-room exit then
+  >r dup @ r@ result-claim 0= if r> drop exit then
   -rot r@ div-setup 0= if r> arena-top ! no-room exit then
   dup div-run remainder-into r> big-finish ;
 : div-core ( a b arena -- c outcome )
@@ -590,9 +636,8 @@ end-structure
 : lshift-size ( a s -- limbs ) limb-bits limb/ swap @ + 1+ ;
 \ a * 2^s for a > 0 and s a cell.
 : lshift-cell ( a s arena -- c outcome )
-  >r 2dup r@ shift-fits? 0= if 2drop r> drop no-room exit then
-  2dup lshift-size r@ arena-claim 0= if 2drop r> drop no-room exit then
-  lshift-into r> big-finish ;
+  >r 2dup r@ shift-fits? room-then? 0= if r> drop exit then
+  2dup lshift-size r@ result-claim 0= if r> drop exit then lshift-into r> big-finish ;
 : lshift-core ( a s arena -- c outcome )
   >r over @ 0= if 2drop 0 r> cell-big exit then
   big>u if r> lshift-cell else drop r> drop no-room then ;
@@ -608,20 +653,21 @@ end-structure
   2dup big>u if limb-bits limb/ swap @ < 0= else drop true then ;
 : rshift-core ( a s arena -- c outcome )
   >r shifted-out? if 2drop 0 r> cell-big exit then big>u drop
-  over @ over limb-bits limb/ - r@ arena-claim 0= if 2drop r> drop no-room exit then
+  over @ over limb-bits limb/ - r@ result-claim 0= if r> drop exit then
   rshift-into r> big-finish ;
 
 \ ---- Powers ----
 
 \ x := x * y, where x is the arena's newest number: the product is made
-\ above it and moved down. When that fails, x is given back too.
+\ above it and moved down. When that fails, x is given back too (full).
+\ A product that cannot fit the limit is refused before it is made.
+: give-back ( x arena -- outcome ) arena-top ! outcome-full ;
 : big-settle ( p x arena -- outcome )
-  >r swap big-normalize dup r@ big-fits?
-  0= if drop r> arena-top ! outcome-full exit then
+  >r swap big-normalize dup r@ big-fits? 0= if drop r> give-back exit then
   over big-move big-end r> arena-top ! outcome-ok ;
 : big-times! ( x y arena -- outcome )
-  >r over swap r@ big-multiply if swap r> big-settle exit then
-  r> arena-top ! outcome-full ;
+  >r 2dup r@ product-fits? 0= if drop r> give-back exit then
+  over swap r@ big-multiply if swap r> big-settle else r> give-back then ;
 \ x := x * x, then x := x * y unless y is 0.
 : power-tail ( y x arena -- outcome )
   >r dup dup r@ big-times! dup ok? 0= if nip nip r> drop exit then drop
@@ -636,7 +682,7 @@ end-structure
 \ possible size, (bits(base) - 1) * e + 1, is at most the limit.
 : power-fits? ( base e arena -- flag ) arena-limit @ 1- 0 max rot big-bits 1- / u> 0= ;
 : power-core ( base e arena -- c outcome )
-  >r 2dup r@ power-fits? 0= if 2drop r> drop no-room exit then
+  >r 2dup r@ power-fits? room-then? 0= if r> drop exit then
   r> big-power dup ok? 0= if nip no-result then ;
 \ Whether a number is 0 or 1.
 : unit? ( big -- flag ) big>u if 2 u< else false then ;
@@ -653,15 +699,20 @@ end-structure
 \ u, v := a u + b v, c u + d v. When no step agreed (b = 0), one full
 \ division: u, v := v, u mod v. Then single-limb Euclid. The cofactors stay
 \ below 2^p in size, so every sum and product fits a signed cell.
+\ A row of the cofactors' matrix: a b, or c d.
+begin-structure /pair
+  field: pair-p
+  field: pair-q
+end-structure
+: pair! ( p q pair -- ) tuck pair-q ! pair-p ! ;
+: pair@ ( pair -- p q ) dup pair-p @ swap pair-q @ ;
 begin-structure /euclid
-  field: euclid-u          \ u >= v; u v and t w are pairs (2@ and 2!)
+  field: euclid-u          \ u >= v
   field: euclid-v
   field: euclid-t          \ spare numbers for the next u and v
   field: euclid-w
-  field: euclid-a          \ the next u is a u + b v
-  field: euclid-b
-  field: euclid-c          \ the next v is c u + d v
-  field: euclid-d
+  /pair +field euclid-ab   \ the next u is a u + b v
+  /pair +field euclid-cd   \ the next v is c u + d v
   field: euclid-x          \ the leading bits of u and v
   field: euclid-y
 end-structure
@@ -670,40 +721,46 @@ limb-bits 3 - constant lead-bits
 
 \ The job and four numbers of n + 1 limbs, for u of n limbs.
 : euclid-size ( u -- cells ) @ 2 + 4 * euclid-cells + ;
+\ Store addr in the field at field-addr, and step it by size.
+: place! ( size addr field-addr -- size addr' ) over swap ! over + ;
 : euclid-places! ( n job -- )
-  swap 2 + cells over /euclid + rot euclid-u
-  4 0 do 2dup ! cell+ >r over + r> loop drop 2drop ;
+  >r 2 + cells r@ /euclid + r@ euclid-u place! r@ euclid-v place! r@ euclid-t place!
+  r> euclid-w place! 2drop ;
 : euclid-setup ( u v arena -- job true | false )
   >r over euclid-size r> arena-claim 0= if 2drop false exit then big-limbs
   >r over @ r@ euclid-places! r@ euclid-v @ big-move r@ euclid-u @ big-move r> true ;
-\ Limb i of a number, 0 above its top.
+\ Limb i of a number, 0 above its top; limbs q and q + 1.
 : limb@ ( i big -- u ) 2dup @ u< if big-limbs swap cells + @ else 2drop 0 then ;
+: limb-pair@ ( q big -- lo hi ) 2dup limb@ -rot swap 1+ swap limb@ ;
+\ The limb at bit s (below limb-bits) of the double limb hi:lo.
+: funnel ( lo hi s -- u )
+  ?dup 0= if drop exit then tuck limb-bits swap - lshift -rot rshift or ;
 \ floor(big / 2^k) mod B.
-: bits-at ( k big -- u )
-  >r limb-bits /mod dup r@ limb@ swap 1+ r> limb@ rot ?dup 0= if drop exit then
-  limb-bits swap - 1 swap lshift tuck um* drop -rot um* nip or ;
+: bits-at ( k big -- u ) swap limb-bits /mod rot limb-pair@ rot funnel ;
+\ The leading bits, and the cofactors a b c d = 1 0 0 1.
 : lehmer-leading! ( job -- )
   >r r@ euclid-u @ big-bits lead-bits - dup r@ euclid-u @ bits-at r@ euclid-x !
-  r@ euclid-v @ bits-at r@ euclid-y ! 1 r@ euclid-a ! 0 r@ euclid-b ! 0 r@ euclid-c !
-  1 r> euclid-d ! ;
+  r@ euclid-v @ bits-at r@ euclid-y ! 1 0 r@ euclid-ab pair! 0 1 r> euclid-cd pair! ;
+\ A column of the cofactors, by the field xt: a and c (pair-p), or b and d.
+: column ( job xt -- top bottom ) >r dup euclid-ab r@ execute swap euclid-cd r> execute ;
 \ The two quotients of a step, when they agree and neither divisor is 0:
-\ x + a over y + c (offset 0), and x + b over y + d (offset one cell; b
-\ and d follow a and c).
-: lead-terms ( job offset -- num den )
-  over + dup euclid-a @ swap euclid-c @ rot dup euclid-x @ swap euclid-y @ rot + >r + r> ;
+\ x + a over y + c, and x + b over y + d.
+: lead-terms ( job xt -- num den )
+  over >r column @ r@ euclid-y @ + swap @ r> euclid-x @ + swap ;
 \ num / den for den > 0 and num >= 0. Knuth shows both always hold; a value
 \ outside them ends the simulation rather than misleading it.
 : lead-quotient ( num den -- q true | false )
   dup 0> if over 0< if 2drop false else limb/ true then else 2drop false then ;
 : quotients-agree? ( job -- q true | false )
-  dup 0 lead-terms lead-quotient 0= if drop false exit then
-  swap cell lead-terms lead-quotient 0= if drop false exit then
+  dup ['] pair-p lead-terms lead-quotient 0= if drop false exit then
+  swap ['] pair-q lead-terms lead-quotient 0= if drop false exit then
   over = if true else drop false then ;
 \ addr1, addr2 := addr2, addr1 - q * addr2.
 : cofactor-turn ( q addr1 addr2 -- ) >r dup @ rot r@ @ * - swap r@ @ swap ! r> ! ;
+\ One step of Euclid's algorithm on both columns and the leading bits.
 : euclid-step ( q job -- )
-  2dup dup euclid-a swap euclid-c cofactor-turn
-  2dup dup euclid-b swap euclid-d cofactor-turn dup euclid-x swap euclid-y cofactor-turn ;
+  2dup ['] pair-p column cofactor-turn 2dup ['] pair-q column cofactor-turn
+  dup euclid-x swap euclid-y cofactor-turn ;
 : lehmer-simulate ( job -- )
   begin dup quotients-agree? while over euclid-step repeat drop ;
 \ dst = c * big, over dst's whole count; dst -= c * big, borrowing through
@@ -712,25 +769,27 @@ limb-bits 3 - constant lead-bits
   dup big-vector limbs-erase >r big-vector r> big-limbs swap limbs*row! ;
 : term-! ( c big dst -- )
   2dup limbs-above 2>r >r big-vector r> big-limbs swap limbs*-! 2r> borrow-! drop ;
-\ The cofactor pair at pair (a b, or c d) as the positive term and the
-\ subtracted one: one of a and b is positive and the other not.
+\ The cofactor pair p q (a b, or c d) as the positive term and the
+\ subtracted one: p u - (-q) v, or q v - (-p) u; one of p and q is
+\ positive and the other not.
 : cofactor-terms ( pair job -- c1 big1 c2 big2 )
-  >r 2@ dup 0> if r@ euclid-u @ rot negate r> euclid-v @ exit then
-  swap r@ euclid-v @ rot negate r> euclid-u @ ;
+  >r pair@ over 0> if negate r@ euclid-u @ swap r> euclid-v @ exit then
+  swap negate r@ euclid-v @ swap r> euclid-u @ ;
 \ dst = a u + b v (or c u + d v), known to be at least 0, with u's count
 \ + 1 limbs.
 : cofactor-combine ( dst pair job -- )
   rot over euclid-u @ @ 1+ over ! -rot cofactor-terms
   2>r rot dup >r term! r> 2r> rot term-! ;
-\ u, v, t, w := t, w, u, v.
+\ Exchange the cells at two addresses; u, v, t, w := t, w, u, v.
+: exchange ( addr1 addr2 -- ) 2dup @ swap @ rot ! swap ! ;
 : swap-pairs ( job -- )
-  dup euclid-u 2@ rot dup euclid-t 2@ rot dup >r euclid-u 2! r> euclid-t 2! ;
+  dup euclid-u over euclid-t exchange dup euclid-v swap euclid-w exchange ;
 : combine-into ( dst pair job -- )
   rot dup >r -rot cofactor-combine r> big-normalize drop ;
 \ u, v := a u + b v, c u + d v (made in t and w).
 : lehmer-turn ( job -- )
-  >r r@ euclid-t @ r@ euclid-a r@ combine-into
-  r@ euclid-w @ r@ euclid-c r@ combine-into r> swap-pairs ;
+  >r r@ euclid-t @ r@ euclid-ab r@ combine-into
+  r@ euclid-w @ r@ euclid-cd r@ combine-into r> swap-pairs ;
 \ t = u mod v, made at the arena's top and moved into t; then u, v, t := v, t, u.
 : remainder>t ( job arena -- outcome )
   >r dup euclid-u @ over euclid-v @ r@ mod-core ok-then?
@@ -739,8 +798,10 @@ limb-bits 3 - constant lead-bits
   >r r@ euclid-u @ r@ euclid-v @ r@ euclid-t @ r@ euclid-v ! r@ euclid-u ! r> euclid-t ! ;
 : euclid-divide ( job arena -- outcome )
   over >r remainder>t r> over ok? if rotate-three else drop then ;
+\ Whether no simulated step agreed: b is still 0.
+: no-step? ( job -- flag ) euclid-ab pair-q @ 0= ;
 : lehmer-round ( job arena -- outcome )
-  over dup lehmer-leading! lehmer-simulate over euclid-b @ 0= if euclid-divide exit then
+  over dup lehmer-leading! lehmer-simulate over no-step? if euclid-divide exit then
   drop lehmer-turn outcome-ok ;
 : lehmer ( job arena -- outcome )
   begin over euclid-v @ @ 1 > while
@@ -757,7 +818,7 @@ limb-bits 3 - constant lead-bits
   drop dup gcd-tail euclid-u @ over big-move r> big-finish ;
 \ gcd(u, v) for u >= v > 0: the result (at most v's count) first, then the job.
 : lehmer-gcd ( u v arena -- c outcome )
-  >r dup @ r@ arena-claim 0= if 2drop r> drop no-room exit then
+  >r dup @ r@ result-claim 0= if r> drop exit then
   -rot r@ euclid-setup 0= if r> arena-top ! no-room exit then r> euclid-run ;
 : gcd-core ( a b arena -- c outcome )
   >r 2dup big-compare 0< if swap then
@@ -791,8 +852,8 @@ limb-bits 3 - constant lead-bits
 : digit-limbs ( u -- limbs ) 4 * limb-bits / 1+ ;
 : parse-decimal ( addr u arena -- big outcome )
   >r skip-zeros dup 0= if 2drop 0 r> cell-big exit then
-  dup r@ digits-fit? 0= if 2drop r> drop no-room exit then
-  dup digit-limbs r@ arena-claim 0= if 2drop r> drop no-room exit then
+  dup r@ digits-fit? room-then? 0= if r> drop exit then
+  dup digit-limbs r@ result-claim 0= if r> drop exit then
   0 over ! parse-into r> big-finish ;
 \ The number whose decimal digits are at addr u: invalid unless the text is
 \ one or more digits 0-9 (leading zeros are allowed).
@@ -807,14 +868,16 @@ limb-bits 3 - constant lead-bits
 : chunk-out ( copy end -- copy end' )
   over >r chunk-base r@ big-vector limbs/1! r> big-normalize drop swap digits! ;
 : digits-out ( copy end -- start ) begin over @ while chunk-out repeat nip ;
-\ Cells for the text of a number: at most bits / 3 + 1 digits.
-: text-cells ( big -- n ) big-bits 3 / 1+ chars cell+ 1- cell / ;
+\ Cells for the text of a number: at most bits / 3 + 1 digits, and the
+\ top chunk is written whole too, up to chunk-digits - 1 characters more.
+: text-cells ( big -- n ) big-bits 3 / chunk-digits + chars cell+ 1- cell / ;
 : text-room? ( big arena -- flag ) >r dup text-cells swap @ + 1+ r> arena-room? ;
 : zero-text ( arena -- addr u outcome )
   1 swap arena-claim 0= if 0 0 outcome-full exit then
   big-limbs [char] 0 over c! 1 outcome-ok ;
-\ The text block, then a copy of the number to divide down to 0 (room
-\ checked): the address after the text, and the copy.
+\ The text block (claimed like a number of text-cells limbs, the text
+\ written backwards from its end), then a copy of the number to divide
+\ down to 0 (room checked): the address after the text, and the copy.
 : text-and-copy ( big arena -- end copy )
   >r dup text-cells r@ arena-claim drop big-end
   over @ r> arena-claim drop rot over big-move ;
@@ -825,9 +888,10 @@ limb-bits 3 - constant lead-bits
   dup >r text-and-copy over digits-out over r> arena-top !
   tuck - 1 chars / skip-zeros outcome-ok ;
 \ The decimal digits of a number, without leading zeros ("0" for 0), at
-\ the arena's top; they stay until released like a number.
+\ the arena's top; they stay until released like a number. The number is
+\ left as it was. A failure gives 0 0, an empty text.
 : big>decimal ( big arena -- addr u outcome )
-  over big-valid? over arena-valid? and 0= if 2drop 0 0 outcome-invalid exit then
+  2dup operand? over arena-valid? and 0= if 2drop 0 0 outcome-invalid exit then
   over @ 0= if nip zero-text else decimal-of then ;
 
 \ ---- The operations ----
