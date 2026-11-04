@@ -53,11 +53,9 @@ require ../core/terms.fs
   dup lf-term-valid? 0= if drop lf-head-none exit then
   lf-mhead-spine >r lf-mhead-leaf r> if lf-mhead-applied then ;
 
-\ Rigid kinds, and the two tests of rules F1 and S1/S2: rigid and not a
-\ Pi (Lean's ensure_pi fails), rigid and not a Sort (ensure_sort fails).
-: lf-mhead-rigid? ( kind -- flag ) lf-head-sort lf-head-applied 1+ within ;
-: lf-mhead-not-pi? ( kind -- flag ) dup lf-mhead-rigid? swap lf-head-pi <> and ;
-: lf-mhead-not-sort? ( kind -- flag ) dup lf-mhead-rigid? swap lf-head-sort <> and ;
+\ (Rules F1 and S1/S2 read the rigid kinds here until plan task 4.2.2c,
+\ which replaced them by Lean's ensure_pi_core and ensure_sort_core:
+\ mixed-infer.fs, whnf.fs.)
 \ The shapes rules D1-D5 compare: a Sort, a Pi, a lambda or a bound
 \ variable with or without arguments.
 : lf-mhead-shape? ( kind -- flag ) lf-head-sort lf-head-var 1+ within ;

@@ -623,22 +623,6 @@ test = "$GFORTH tests/core/definite-rejection.fs"
 reason = "F1, since plan task 4.2.2c Lean's ensure_pi_core: a function type whose whnf is no Pi is never rejected"
 
 [[fault]]
-id = "rej-s1-flexible-head"
-file = "src/kernel/mixed-head.fs"
-old = ''': lf-mhead-not-sort? ( kind -- flag ) dup lf-mhead-rigid? swap lf-head-sort <> and ;'''
-new = ''': lf-mhead-not-sort? ( kind -- flag ) lf-head-sort <> ;'''
-test = "$GFORTH tests/core/definite-rejection.fs"
-reason = "K1: S1/S2 reject a type headed by a constant, which Lean may unfold to a Sort"
-
-[[fault]]
-id = "rej-f1-flexible-head"
-file = "src/kernel/mixed-head.fs"
-old = ''': lf-mhead-not-pi? ( kind -- flag ) dup lf-mhead-rigid? swap lf-head-pi <> and ;'''
-new = ''': lf-mhead-not-pi? ( kind -- flag ) lf-head-pi <> ;'''
-test = "$GFORTH tests/core/definite-rejection.fs"
-reason = "K1: F1 rejects a function type headed by a constant, which Lean may unfold to a Pi"
-
-[[fault]]
 id = "rej-lambda-against-pi"
 file = "src/kernel/mixed-infer.fs"
 old = '''  2dup lf-minfer-one-lam? 0= -rot lf-mhead-shape? swap lf-mhead-shape? and and ;'''

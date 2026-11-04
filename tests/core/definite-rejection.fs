@@ -164,9 +164,6 @@ create no-formals 1 cells allot
   lf-name-generation @ no-formals 0 lf-cref-new must lf-cterm-new must drop ;
 T{ s" k" intern constant-node kind -> lf-head-constant }T
 T{ s" k" intern constant-node 0 make-var make-app kind -> lf-head-constant }T
-T{ lf-head-applied lf-mhead-not-pi? lf-head-pi lf-mhead-not-pi? -> true false }T
-T{ lf-head-constant lf-mhead-not-pi? lf-head-none lf-mhead-not-pi? -> false false }T
-T{ lf-head-var lf-mhead-not-sort? lf-head-sort lf-mhead-not-sort? -> true false }T
 T{ lf-head-lam lf-mhead-shape? lf-head-applied lf-mhead-shape? -> true false }T
 
 \ ---------------------------------------------------------------------------
