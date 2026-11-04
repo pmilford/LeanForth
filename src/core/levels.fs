@@ -8,8 +8,9 @@
 \ capacity that is a setting of each context, as for terms (terms.fs):
 \ lf-level-capacity reads it, lf-level-capacity! sets it, a new context
 \ starts with lf-level-default. Per-level side data of other modules lives
-\ in columns of the group lf-level-columns (lib/store-columns.fs). The deepest
-\ level graph the level passes walk is lf-level-depth-limit.
+\ in columns of the group lf-level-columns (lib/store-columns.fs). Level
+\ graphs have no fixed depth (plan task 6.2.0): lf-level-walk-room is
+\ only the room a level walk starts with.
 \ State: the store header lf-levels, a member of the checker context
 \ (lib/context.fs) whose block is on the heap, made and reset by set-up
 \ words in every context and freed by its teardown word; single-threaded
@@ -21,7 +22,7 @@ require ./diagnostics.fs
 require ../lib/store-columns.fs
 
 64 constant lf-level-default
-64 constant lf-level-depth-limit
+64 constant lf-level-walk-room   \ a level walk's first room
 0 constant lf-level-tag-zero
 1 constant lf-level-tag-succ
 2 constant lf-level-tag-max

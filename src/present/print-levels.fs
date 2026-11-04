@@ -3,11 +3,12 @@
 \ flattened to the right, successors as u + k, numerals for closed
 \ successors of zero (Lean's Level.PP). Untrusted presentation code.
 \ Requires print-tokens.fs.
-\ State: one walk record in the context, lf-pp-level-walk, for the scans.
+\ State: one walk record in the context, lf-pp-level-walk, for the scans;
+\ a level's print is a visit of the print's frames (print-job.fs).
 
 require ./print-tokens.fs
 
-lf-level-depth-limit context-walk: lf-pp-level-walk
+lf-level-walk-room context-walk: lf-pp-level-walk
 
 \ Level scans with the print's fuel. Always zero (Lean's isAlwaysZero):
 \ no successor or parameter is reachable through max operands or imax's
@@ -66,17 +67,21 @@ lf-level-depth-limit context-walk: lf-pp-level-walk
   r> if lf-pp-dec else lf-pp-plain true then ;
 : lf-pp-view-tag ( view -- tag true | false ) lf-pp-view if 2drop true else false then ;
 
-\ Printing a view. In an argument (arg? true) a compound level is put in
-\ parentheses, as Lean's Result.quote does above precedence 0.
-defer lf-pp-level-print ( view arg? -- outcome )
-: lf-pp-level-call ( view arg? -- outcome ) ['] lf-pp-level-print lf-pp-call ;
+\ Printing a view: a visit of the print's frames (print-job.fs), whose
+\ steps keep on the frames' stack what they need while an operand prints,
+\ so no depth of a level is tied to the host's stacks. In an argument
+\ (arg? true) a compound level is put in parentheses, as Lean's
+\ Result.quote does above precedence 0.
+defer lf-pp-level-step ( view arg? frames -- ... frames next )
+: lf-pp-level-call ( view arg? frames cont -- ... frames next )
+  ['] lf-pp-level-step lf-pp-call ;
 : lf-pp-param-name ( id -- outcome )
   dup 0> over lf-name-valid? and if lf-pp-name outcome-ok else drop-invalid then ;
 : lf-pp-level-param ( view -- outcome )
   lf-pp-view if drop nip lf-pp-param-name else outcome-invalid then ;
 
 \ Successors: count them down to the base; a closed level is a numeral,
-\ any other is base + k.
+\ any other is base + k, arg? and k waiting while the base prints.
 : lf-pp-succ-step ( view k -- view' k' true | view k false )
   over lf-pp-view 0= if false exit then
   drop swap lf-level-tag-succ = if rot drop swap 1+ true else drop false then ;
@@ -85,40 +90,66 @@ defer lf-pp-level-print ( view arg? -- outcome )
   outcome-ok ;
 : lf-pp-zero-view? ( view -- flag )
   lf-pp-view-tag if lf-level-tag-zero = else false then ;
-: lf-pp-offset ( arg? base k -- outcome )
-  rot dup >r if s" (" lf-pp-emit then swap true lf-pp-level-call
-  ok-then? if lf-pp-plus lf-pp-number outcome-ok then r> lf-pp-wrap ;
-: lf-pp-level-succ ( view arg? -- outcome )
-  swap lf-pp-succs dup ok? 0= if nip nip nip exit then drop
-  over lf-pp-zero-view? if nip nip lf-pp-number outcome-ok else lf-pp-offset then ;
+: lf-pp-offset-back ( outcome frames -- outcome frames 0 )
+  >r r@ frame-restore swap ok-then? if lf-pp-plus lf-pp-number outcome-ok then
+  r@ frame-restore lf-pp-wrap r> 0 ;
+: lf-pp-offset ( arg? base k frames -- ... frames next )
+  >r rot dup r@ frame-save if s" (" lf-pp-emit then
+  r@ frame-save true r> ['] lf-pp-offset-back lf-pp-level-call ;
+: lf-pp-level-succ ( view arg? frames -- ... frames next )
+  >r swap lf-pp-succs dup ok? 0= if nip nip nip r> 0 exit then drop
+  over lf-pp-zero-view?
+  if nip nip lf-pp-number outcome-ok r> 0 else r> lf-pp-offset then ;
 
-\ max a b c and imax a b c: operands in argument position.
+\ max a b c and imax a b c: operands in argument position, a right operand
+\ of the same tag going on with the list; the right operand and the tag
+\ wait while the left one prints, the parenthesis flag below them.
 : lf-pp-keyword ( tag -- ) lf-level-tag-max = if lf-pp-max else lf-pp-imax then ;
-: lf-pp-item ( view -- outcome ) lf-pp-space true lf-pp-level-call ;
+: lf-pp-item ( view frames cont -- ... frames next )
+  2>r lf-pp-space true 2r> lf-pp-level-call ;
 \ Unchecked: the view was read successfully.
 : lf-pp-operands ( view -- a b ) lf-pp-view drop rot drop ;
 : lf-pp-same-tag? ( view tag -- flag ) swap lf-pp-view-tag if = else drop false then ;
-: lf-pp-items ( view tag -- outcome )
-  begin
-    >r lf-pp-operands swap lf-pp-item ok-then? 0= if r> drop exit then
-    dup r@ lf-pp-same-tag? 0= r> swap
-  until drop lf-pp-item ;
-: lf-pp-level-list ( view arg? tag -- outcome )
-  swap dup >r if s" (" lf-pp-emit then dup lf-pp-keyword lf-pp-items r> lf-pp-wrap ;
+defer lf-pp-items ( view tag frames -- ... frames next )
+: lf-pp-items-back ( outcome frames -- ... frames next )
+  2 lf-pp-failed? if 0 exit then
+  >r r@ frame-restore r@ frame-restore 2dup swap lf-pp-same-tag?
+  if swap r> lf-pp-items exit then nip r> ['] frame-return lf-pp-item ;
+: lf-pp-items-next ( view tag frames -- ... frames next )
+  >r swap lf-pp-operands r@ frame-save swap r@ frame-save
+  r> ['] lf-pp-items-back lf-pp-item ;
+' lf-pp-items-next is lf-pp-items
+: lf-pp-level-list ( view arg? tag frames -- ... frames next )
+  >r swap dup r@ frame-save ['] lf-pp-wrapped r@ frame-save if s" (" lf-pp-emit then
+  dup lf-pp-keyword r> lf-pp-items ;
 
-\ A CASE with one arm per level tag (eight lines, read as a table).
-: lf-pp-level-impl ( view arg? -- outcome )
-  over lf-pp-view-tag 0= if 2drop outcome-invalid exit then
-  case lf-level-tag-zero of 2drop s" 0" lf-pp-emit outcome-ok endof
-    lf-level-tag-param of drop lf-pp-level-param endof
-    lf-level-tag-succ of lf-pp-level-succ endof
-    lf-level-tag-max of lf-level-tag-max lf-pp-level-list endof
-    lf-level-tag-imax of lf-level-tag-imax lf-pp-level-list endof
-    >r 2drop outcome-invalid r> endcase ;
-' lf-pp-level-impl is lf-pp-level-print
+\ The step for a view's tag: a CASE with one arm per level tag (read as
+\ a table).
+: lf-pp-level-zero ( view arg? frames -- outcome frames 0 )
+  >r 2drop s" 0" lf-pp-emit outcome-ok r> 0 ;
+: lf-pp-level-name ( view arg? frames -- outcome frames 0 )
+  >r drop lf-pp-level-param r> 0 ;
+: lf-pp-level-max ( view arg? frames -- ... frames next )
+  lf-level-tag-max swap lf-pp-level-list ;
+: lf-pp-level-imax ( view arg? frames -- ... frames next )
+  lf-level-tag-imax swap lf-pp-level-list ;
+: lf-pp-level-by ( tag -- xt )
+  case lf-level-tag-zero of ['] lf-pp-level-zero endof
+    lf-level-tag-param of ['] lf-pp-level-name endof
+    lf-level-tag-succ of ['] lf-pp-level-succ endof
+    lf-level-tag-max of ['] lf-pp-level-max endof
+    lf-level-tag-imax of ['] lf-pp-level-imax endof
+    ['] lf-pp-invalid-step swap endcase ;
+: lf-pp-level-impl ( view arg? frames -- ... frames next )
+  2 pick lf-pp-view-tag if lf-pp-level-by else ['] lf-pp-invalid-step then execute ;
+' lf-pp-level-impl is lf-pp-level-step
 
-\ A level by index, in argument position or not.
-: lf-pp-level ( level arg? -- outcome ) swap lf-pp-view-of swap lf-pp-level-call ;
+\ A level by index, in argument position or not: as a print's root, and
+\ as a part of a visit, continuing with cont.
+: lf-pp-level ( level arg? -- outcome )
+  swap lf-pp-view-of swap ['] lf-pp-level-step lf-pp-run ;
+: lf-pp-level-part ( level arg? frames cont -- ... frames next )
+  2>r swap lf-pp-view-of swap 2r> lf-pp-level-call ;
 
 \ Sorts. Sort 0 is Prop, Sort 1 is Type, Sort (u + 1) is Type u, any
 \ other Sort u stays Sort u; Prop and Type are atoms, Type u and Sort u
@@ -131,14 +162,16 @@ defer lf-pp-level-print ( view arg? -- outcome )
   lf-level-read 0= if false exit then
   drop swap lf-level-tag-succ = if lf-pp-zero-level? else drop false then ;
 : lf-pp-level-atom? ( level -- flag ) dup lf-pp-zero-level? swap lf-pp-type-level? or ;
-\ Type and the level's decrement when it has one, else Sort and the level.
+\ An atom prints as Prop or Type. Any other Sort as Type and the level's
+\ decrement when it has one, else Sort and the level, in argument
+\ position: a part of the Sort's visit.
+: lf-pp-sort-atom ( level -- outcome )
+  lf-pp-zero-level? if lf-pp-prop else lf-pp-type then outcome-ok ;
 : lf-pp-sort-word ( level dec? -- view )
   if lf-pp-type lf-pp-dec-view-of else lf-pp-sort lf-pp-view-of then lf-pp-space ;
-: lf-pp-sort-body ( level -- outcome )
-  dup lf-pp-can-dec? ok-keep? 0= if nip exit then lf-pp-sort-word true lf-pp-level-call ;
-: lf-pp-sort-level ( level -- outcome )
-  dup lf-pp-zero-level? if drop lf-pp-prop outcome-ok exit then
-  dup lf-pp-type-level? if drop lf-pp-type outcome-ok exit then lf-pp-sort-body ;
+: lf-pp-sort-body ( level frames cont -- ... frames next )
+  2>r dup lf-pp-can-dec? ok-keep? 0= if nip 2r> exit then
+  lf-pp-sort-word true 2r> lf-pp-level-call ;
 \ A concrete Sort n of the term store, n >= 0.
 : lf-pp-sort-number ( n -- )
   dup 0= if drop lf-pp-prop exit then dup 1 = if drop lf-pp-type exit then

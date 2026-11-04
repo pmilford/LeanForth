@@ -100,6 +100,8 @@ T{ 0 context? junk context? -> false false }T
 : walks-pristine? ( -- flag )
   c-walk dw5 5 walk-size same-bytes? c-pairs dp3 3 walk2-size same-bytes? and ;
 T{ c-rec @ c-rec cell+ @ c-rec 2 cells + @ -> 0 0 0 }T
+\ A context's walks are growable (plan task 6.2.0), like these made so.
+dw5 walk-growable dp3 walk-growable
 T{ terms-pristine? walks-pristine? c-levels store-count-valid? -> true true false }T
 T{ c-rec c-terms < c-terms c-levels < -> true true }T
 T{ c-levels c-walk < c-walk c-pairs < -> true true }T
@@ -129,9 +131,8 @@ T{ s" 0 context-walk: cbad3" aborts? s" 0 context-walk2: cbad4" aborts? -> true 
 T{ s" -1 context-record: cbad5" aborts? -> true }T
 T{ s" max-n context-record: cbad6" aborts? -> true }T
 T{ s" 0 context-record: cbad7" aborts? -> true }T
-T{ s" 0 0 context-frames: cbad8" aborts? -> true }T
 T{ context-bytes [undefined] cbad1 [undefined] cbad5 -> bytes-before true true }T
-T{ [undefined] cbad7 [undefined] cbad8 -> true true }T
+T{ [undefined] cbad7 -> true }T
 \ A size that fits a cell but cannot be allocated: the main context
 \ cannot grow, and nothing is defined or changed.
 T{ s" max-n 4 / context-record: chuge" aborts? [undefined] chuge -> true true }T
@@ -151,16 +152,20 @@ align
 
 \ A frames record as a member: initialised with frame-init in the main
 \ context and in every new one; its visitor reaches it through its
-\ frames argument. fr-visit x nests x deep and counts the visits.
-: fr-visit ( x frames -- result outcome )
-  over 0= if 2drop 0 outcome-ok exit then
-  >r 1- r> frame-call ok-then? if 1+ outcome-ok else no-result then ;
-3 ' fr-visit context-frames: c-frames
-T{ c-frames frame-limit @ c-frames frame-visitor @ -> 3 ' fr-visit }T
+\ frames argument. fr-visit x nests x deep and counts the visits, on the
+\ record's stack, which grows (plan task 6.2.0).
+: fr-up ( r outcome frames -- r' outcome frames 0 )
+  >r ok-then? if 1+ outcome-ok else no-result then r> 0 ;
+: fr-visit ( x frames -- ... frames next )
+  over 0= if nip 0 outcome-ok rot 0 exit then
+  swap 1- swap ['] fr-up frame-call ;
+' fr-visit context-frames: c-frames
+T{ c-frames frame-visitor @ c-frames frame-block @ -> ' fr-visit 0 }T
 T{ c-frames frame-busy? -> false }T
 T{ 10 c-frames frame-budget 2 0 c-frames frame-run -> true 2 outcome-ok }T
 T{ c-frames frame-fuel @ -> 7 }T
-T{ 10 c-frames frame-budget 3 0 c-frames frame-run nip -> true outcome-full }T
+T{ 100 c-frames frame-budget 50 0 c-frames frame-run c-frames frame-fuel @ ->
+  true 50 outcome-ok 49 }T
 
 \ allocate0 gives zeroed memory, here most likely the block just freed.
 5 cells allocate throw dup 5 cells 165 fill free throw
@@ -211,7 +216,7 @@ T{ ctx1 ' context-use rs-checked lf-context @ -> ctx1 }T
 T{ c-rec @ c-terms store-count @ c-late @ -> 0 0 0 }T
 T{ c-runs @ c-levels store-count-valid? bad-runs @ -> 1 true 1 }T
 T{ terms-pristine? walks-pristine? -> true true }T
-T{ c-frames frame-limit @ c-frames frame-fuel @ -> 3 0 }T
+T{ c-frames frame-block @ c-frames frame-fuel @ -> 0 0 }T
 T{ c-frames frame-visitor @ -> ' fr-visit }T
 7 c-rec !  c-terms store-new 2drop c-terms store-new 2drop
 context-main context-use
@@ -302,8 +307,9 @@ T{ context-new drop context-free -> 0 }T
 
 \ ---------------------------------------------------------------------------
 \ The release hook. A teardown is refused once the layout is sealed. A new
-\ context holds two blocks, its own and c-heap's; freeing it gives both
-\ back, after running the teardown words newest first in that context.
+\ context holds two blocks, its own and c-heap's, and a third once a pass
+\ has run on its frames; freeing it gives them all back, after running the
+\ teardown words newest first in that context.
 T{ s" ' noop context-teardown" aborts? -> true }T
 live-blocks @ constant blocks-before
 : blocks-held ( -- n ) live-blocks @ blocks-before - ;
@@ -312,6 +318,8 @@ context-new throw constant ctx3
 T{ blocks-held -> 2 }T
 ctx3 context-use
 T{ c-heap @ 0<> c-heap-extra @ -> true 0 }T
+10 c-frames frame-budget drop  2 0 c-frames frame-run 2drop
+T{ blocks-held -> 3 }T
 context-main context-use
 T{ ctx3 ' context-free rs-checked blocks-held -> 0 0 }T
 T{ late-at @ early-at @ -> 1 2 }T
@@ -368,6 +376,8 @@ mcap /node 0 store: ref0   mcap /node 0 store: ref1   mcap /node 0 store: ref2
 mcap /node 0 store: pristine
 mwalk walk: wref0   mwalk walk: wref1   mwalk walk: wref2
 mwalk walk: wpristine
+\ A context's walks are growable (plan task 6.2.0); so are the references.
+wref0 walk-growable wref1 walk-growable wref2 walk-growable wpristine walk-growable
 create refs ref0 , ref1 , ref2 ,
 create wrefs wref0 , wref1 , wref2 ,
 : ref-of ( k table -- x ) swap cells + @ ;

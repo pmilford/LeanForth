@@ -8,6 +8,7 @@
 \ neutral.
 include ../support/tester.fs
 include ../support/checks.fs
+include ../support/heap-watch.fs
 require ../../src/lib/lib.fs
 
 variable lm-seed  12345 lm-seed !
@@ -186,30 +187,25 @@ T{ 9 ' dag-visit w9 walk-run 9 ' dag-visit w8 walk-run w8 walk-fuel @ 0> ->
   outcome-ok outcome-full true }T
 
 \ ---------------------------------------------------------------------------
-\ Frame model: random DAGs as above, visited recursively through a frames
-\ record. The visitor's result for node k at context c is c+1 for a leaf
-\ and the sum of its children's results otherwise, the second child one
-\ context level deeper. A direct recursive model with explicit fuel and
-\ depth counters must agree on the outcome, the result, the fuel left, the
-\ deepest frame and the record afterwards, for random fuel and limits
-\ (too little of either, a corrupted limit, which is invalid), contexts
-\ near max-n (where the fuel decides before the context), negative fuel
-\ and busy records. A second visitor of two values (frame-call2) compares
-\ the trees below two nodes.
+\ Frame model: random DAGs as above, visited through a frames record's
+\ explicit stack (plan task 6.2.0). The visitor's result for node k at
+\ context c is c+1 for a leaf and the sum of its children's results
+\ otherwise, the second child one context level deeper. A direct recursive
+\ model with explicit fuel and depth counters must agree on the outcome,
+\ the result, the fuel left, the deepest frame and the record afterwards,
+\ for random fuel (too little, or negative), contexts near max-n (where
+\ the fuel decides before the context), a corrupted stack count (invalid,
+\ spending nothing), a heap that refuses the stack's first block (full,
+\ spending nothing) and busy records.
 
-variable m-fuel  variable m-limit  variable m-deepest  variable m-why
-\ Whether a visit opens with d frames in use: ok, or why not. A limit
-\ below 1 is corrupted (invalid); then no fuel is exhausted, and no free
-\ frame full.
-: model-room ( d -- outcome )
-  m-limit @ 1 < if drop outcome-invalid exit then
-  m-fuel @ 1 < if drop outcome-exhausted exit then
-  m-limit @ < if outcome-ok else outcome-full then ;
+variable m-fuel  variable m-deepest  variable m-why
+\ Whether a visit opens: ok, or exhausted without fuel.
+: model-room ( -- outcome ) m-fuel @ 1 < if outcome-exhausted else outcome-ok then ;
 \ A visit one context level deeper from context c: as model-room, and
 \ then a context at max-n is full. m-dry counts the refusals for lack of
 \ fuel at max-n, where the fuel decides.
 variable m-dry
-: model-deeper ( c d -- outcome )
+: model-deeper ( c -- outcome )
   model-room dup outcome-exhausted = if over max-n = if 1 m-dry +! then then
   dup ok? if drop max-n = if outcome-full else outcome-ok then else nip then ;
 : model-enter ( depth -- depth' ) -1 m-fuel +! 1+ dup m-deepest @ max m-deepest ! ;
@@ -218,75 +214,77 @@ variable m-dry
 \ Node k at context c with d frames in use: its result and true, or false
 \ with the failure in m-why.
 : model-frame ( c d k -- r true | false )
-  over model-room dup ok? 0= if model-refuse exit then drop
+  model-room dup ok? 0= if model-refuse exit then drop
   swap model-enter swap dup 2 < if 2drop 1+ true exit then
   >r 2dup r@ g-first@ recurse 0= if 2drop r> drop false exit then
-  >r 2dup model-deeper dup ok? 0= if nip nip r> r> 2drop model-fail exit then
+  >r over model-deeper dup ok? 0= if nip nip r> r> 2drop model-fail exit then
   drop swap 1+ swap r> r> g-second@ swap >r recurse if r> + true else r> drop false then ;
-\ Whether the trees below a and b are equal, d frames in use.
-: model-same ( a b d -- outcome )
-  dup model-room dup ok? 0= if nip nip nip exit then drop model-enter >r
-  2dup = if 2drop r> drop outcome-ok exit then
-  2dup min 2 < if 2drop r> drop outcome-rejected exit then
-  2dup g-first@ swap g-first@ r@ recurse dup ok? 0= if nip nip r> drop exit then drop
-  g-second@ swap g-second@ r> recurse ;
 
-
-\ The words under test: the same results through frame-call, frame-under
-\ and frame-call2. f-deepest records the most frames in use at a visit.
+\ The words under test: the same results through frame-call and
+\ frame-under. f-deepest records the most frames in use at a visit.
 variable f-deepest
 : f-note ( frames -- ) frame-depth @ f-deepest @ max f-deepest ! ;
-: fdag-visit ( k frames -- result outcome )
-  dup f-note over 2 < if nip frame-context @ 1+ outcome-ok exit then
-  over g-first@ over frame-call ok-keep2? 0= if exit then
-  -rot swap g-second@ swap frame-under ok-keep? if + outcome-ok then ;
-: fsame-visit ( a b frames -- outcome )
-  dup f-note >r 2dup = if 2drop r> drop outcome-ok exit then
-  2dup min 2 < if 2drop r> drop outcome-rejected exit then
-  2dup g-first@ swap g-first@ r@ frame-call2 dup ok? 0= if nip nip r> drop exit then drop
-  g-second@ swap g-second@ r> frame-call2 ;
-gmax 1+ ' fdag-visit frames: gf
-gmax 1+ ' fsame-visit frames: gs
+: fdag-sum ( b outcome frames -- n outcome frames 0 )
+  >r r@ frame-restore over ok? if rot + swap else drop then r> 0 ;
+: fdag-second ( a outcome frames -- ... frames next )
+  >r dup ok? 0= if r@ frame-restore drop r> 0 exit then drop
+  r@ frame-restore g-second@ swap r@ frame-save r> ['] fdag-sum frame-under ;
+: fdag-visit ( k frames -- ... frames next )
+  dup f-note over 2 < if nip dup frame-context @ 1+ outcome-ok rot 0 exit then
+  2dup frame-save swap g-first@ swap ['] fdag-second frame-call ;
+' fdag-visit frames: gf
 
-\ Random parameters: usually enough fuel and frames for the visit, else
-\ any amount up to that, or a negative fuel or a limit corrupted to -1; a
-\ small context, or one near max-n.
-variable p-fuel  variable p-limit  variable p-context  variable m-result
-: height ( k -- h ) dup 2 < if drop 1 exit then
-  dup g-first@ recurse swap g-second@ recurse max 1+ ;
+\ Random parameters: usually enough fuel for the visit, else any amount up
+\ to that, or a negative fuel; a small context, or one near max-n; one run
+\ in eight on a corrupted stack count, one in eight with the stack's first
+\ block refused.
+variable p-fuel  variable p-context  variable p-corrupt  variable p-refuse
+variable m-result
 : some-amount ( need -- n )
   8 lm-rnd ?dup 0= if drop -1 exit then 1 = if 1+ lm-rnd else 3 lm-rnd + then ;
 : random-fuel ( k -- fuel ) paths some-amount ;
-: random-limit ( k -- limit ) height some-amount ;
 : random-context ( -- c ) 4 lm-rnd if 9 lm-rnd else max-n 3 lm-rnd - then ;
 : random-params ( k -- )
-  dup random-fuel p-fuel ! random-limit p-limit ! random-context p-context ! ;
+  random-fuel p-fuel ! random-context p-context !
+  8 lm-rnd 0= p-corrupt !  8 lm-rnd 0= p-refuse ! ;
 \ Set both the model and a record to the parameters.
 : start ( frames -- )
-  p-fuel @ over frame-budget drop p-limit @ swap frame-limit !
-  p-fuel @ m-fuel ! p-limit @ m-limit ! 0 m-deepest ! 0 f-deepest ! ;
-\ After a pass the record holds the model's fuel, is idle, and its visits
-\ went as deep as the model's.
+  p-fuel @ over frame-budget drop
+  p-refuse @ if dup frame-free 1 heap-refusals ! then
+  p-corrupt @ if -1 over frame-used ! then drop
+  p-fuel @ m-fuel ! 0 m-deepest ! 0 f-deepest ! ;
+\ After a pass the record holds the model's fuel, is idle, its stack is as
+\ before, and its visits went as deep as the model's.
 : same-record? ( frames -- flag )
-  dup frame-fuel @ m-fuel @ = swap frame-depth @ 0= and f-deepest @ m-deepest @ = and ;
+  dup frame-fuel @ m-fuel @ = over frame-depth @ 0= and f-deepest @ m-deepest @ = and
+  swap frame-used @ p-corrupt @ if -1 else 0 then = and ;
 \ A refused budget returns false and stores nothing.
 : refused? ( fuel frames -- flag )
   dup frame-fuel @ >r tuck frame-budget 0= swap frame-fuel @ r> = and ;
 
 \ One pass from root: the model's result and ok, or -1 and the model's
-\ failure (invalid, exhausted or full). The failures are counted by outcome.
+\ failure (invalid, exhausted or full). The failures are counted by
+\ outcome. A corrupted stack is invalid, and a refused first block full
+\ when fuel is left, before anything is visited.
 variable frame-oks
 create frame-fails 7 cells allot  frame-fails 7 cells erase
 : fails-of ( outcome -- addr ) cells frame-fails + ;
-: model-run ( root -- flag ) >r p-context @ 0 r> model-frame dup if swap m-result ! then ;
+: model-start ( -- flag )
+  p-corrupt @ if outcome-invalid model-fail exit then
+  m-fuel @ 0> p-refuse @ and if outcome-full model-fail exit then true ;
+: model-run ( root -- flag )
+  model-start 0= if drop false exit then
+  >r p-context @ 0 r> model-frame dup if swap m-result ! then ;
 : agree? ( result outcome flag -- flag )
   if ok? swap m-result @ = and 1 frame-oks +!
   else m-why @ = swap -1 = and 1 m-why @ fails-of +! then ;
 : check-run ( root -- )
   gf start dup model-run >r p-context @ gf frame-run r> agree?
+  0 heap-refusals !
   0= if s" frame result" fail then
   gf same-record? 0= if s" frame record" fail then
-  gf frame-context @ p-context @ <> if s" frame context" fail then ;
+  gf frame-context @ p-context @ <> if s" frame context" fail then
+  0 gf frame-used ! ;
 : check-frame ( root -- )
   dup random-params p-fuel @ 0<
   if drop p-fuel @ gf refused? 0= if s" negative budget" fail then else check-run then ;
@@ -295,29 +293,17 @@ create frame-fails 7 cells allot  frame-fails 7 cells erase
   1 over frame-depth !  5 over refused? 0= if s" busy budget" fail then
   0 f-deepest !  tuck 7 swap frame-run outcome-invalid <> swap -1 <> or
   f-deepest @ or if s" busy run" fail then  frame-reset ;
-\ Two nodes compared through frame-call2, counted by outcome (0 to 6).
-create same-counts 7 cells allot  same-counts 7 cells erase
-: count-same ( outcome -- ) cells same-counts + 1 swap +! ;
-: check-same ( a b -- )
-  over random-params p-fuel @ 0< if 2drop exit then
-  gs start 2dup 0 model-same >r 0 gs frame-start drop gs frame-call2
-  dup count-same r> <> if s" same outcome" fail then
-  gs same-record? 0= if s" same record" fail then ;
-: some-node ( root -- k ) 1+ lm-rnd ;
 : frame-round ( n -- )
   dup random-dag 1- dup check-frame dup check-frame
-  8 lm-rnd 0= if dup gf check-busy then
-  dup some-node over some-node check-same dup dup some-node check-same drop ;
+  8 lm-rnd 0= if dup gf check-busy then drop ;
 0 failures !  0 frame-oks !  0 m-dry !
 : run-frames ( -- ) 600 0 do 3 13 lm-rnd + frame-round loop ;
 run-frames
 T{ failures @ -> 0 }T
 \ Every kind of ending was reached: out of fuel and out of room separately,
-\ a corrupted limit, and a deeper visit at max-n with no fuel left.
+\ a corrupted stack, and a deeper visit at max-n with no fuel left.
 T{ frame-oks @ 0> outcome-exhausted fails-of @ 0> outcome-full fails-of @ 0> ->
   true true true }T
 T{ outcome-invalid fails-of @ 0> m-dry @ 0> -> true true }T
-: same-count ( outcome -- n ) cells same-counts + @ ;
-T{ outcome-ok same-count 0> outcome-rejected same-count 0>
-  outcome-exhausted same-count 0> outcome-full same-count 0> -> true true true true }T
+gf frame-free
 bye

@@ -1,11 +1,12 @@
-\ The deepest nesting a full level store allows: a chain of 63 successor
-\ steps above zero, evaluated and compared within the default host stacks
-\ of Gforth 0.7.3 and 1.0 (both passes recurse on the host stacks), and
-\ Lean's normalize on its deepest inputs, whose stack use, painted, stays
-\ within the need level-normalize.fs states. A host stack overflow would
-\ throw and fail this test.
+\ Deep levels (plan task 6.2.0): evaluation, Lean's normalize and is_geq
+\ keep their pending work on explicit stacks that grow with the depth, so
+\ a chain of any depth the level store holds is evaluated, normalized and
+\ compared in a constant number of host-stack cells (painted here on
+\ Gforth 0.7.3 and 1.0 alike), and a stack the heap cannot grow is full,
+\ never a host-stack overflow.
 include ../support/tester.fs
 include ../support/checks.fs
+include ../support/heap-watch.fs
 require ../../src/lib/lib.fs
 require ../../src/core/level-scope.fs
 require ../../src/core/levels.fs
@@ -22,17 +23,17 @@ T{ top top 1000 lf-level-compare lf-lcmp-fuel @ -> outcome-ok 872 }T
 \ The same nesting with too little fuel is exhaustion, never a crash.
 T{ top 100 lf-level-value nip -> outcome-exhausted }T
 T{ top top 100 lf-level-compare -> outcome-exhausted }T
-\ The depth limits lie one level below what a full store can reach, so they
-\ are reached here white-box: a visit at the limit is full and spends no
+\ An evaluation whose frames the heap cannot grow is full and spends no
 \ fuel; with no fuel either, the fuel decides (exhausted).
-10 lf-lvalue-fuel !
-T{ 0 lf-lvalue-depth-limit lf-lvalue-walk lf-lvalue-fuel @ -> -1 outcome-full 10 }T
-T{ 0 lf-lvalue-depth-limit 1- lf-lvalue-walk lf-lvalue-fuel @ -> 0 outcome-ok 9 }T
-0 lf-lvalue-fuel !
-T{ 0 lf-lvalue-depth-limit lf-lvalue-walk -> -1 outcome-exhausted }T
-\ Lean's normalize (level-normalize) recurses once per imax or max level:
-\ an imax chain of 62 levels over u (each step's normal form is u again,
-\ so nothing is allocated) and a max chain of 60 levels over v, whose 61
+10 lf-lvalue-fuel !  lf-lvalue-frames frame-free  1 heap-refusals !
+T{ 0 lf-lvalue-walk lf-lvalue-fuel @ -> -1 outcome-full 10 }T
+T{ 0 lf-lvalue-walk lf-lvalue-fuel @ -> 0 outcome-ok 9 }T
+0 lf-lvalue-fuel !  1 heap-refusals !
+T{ 0 lf-lvalue-walk heap-refusals @ -> -1 outcome-exhausted 1 }T
+0 heap-refusals !
+\ Lean's normalize (level-normalize) visits each imax or max level: an
+\ imax chain of 62 levels over u (each step's normal form is u again, so
+\ nothing is allocated) and a max chain of 60 levels over v, whose 61
 \ arguments are flattened, normalized, sorted and reduced to max u v (one
 \ new node, in the one free record), compared with u.
 require ../../src/core/names.fs
@@ -53,17 +54,15 @@ T{ v u lf-level-tag-max 60 chain lf-level-count @ -> 62 63 }T
 T{ 62 u 100000 lf-level-inequivalent? lf-level-count @ -> true outcome-ok 63 }T
 T{ 62 62 100000 lf-level-compare -> outcome-ok }T
 
-\ The host stacks normalize needs (level-normalize.fs), painted below a
-\ comparison from here. The deepest normalize: levels alternating imax
-\ and max over u, which hold the most cells per level, filling the store
-\ (62 levels); Lean's normalize reduces them to u, allocating nothing.
-\ Their cells per level stay within the need stated per level node, and
-\ all within lf-lnorm-return-cells and lf-lnorm-data-cells (2026-11-03,
-\ both hosts: 409 return and 150 data cells for 62 levels, 205 and 72
-\ for 31; names of 31 and of 15 components alike 19 and 2, as the name
-\ order is iterative).
+\ Host stacks, painted below a comparison from here: levels alternating
+\ imax and max over u (Lean's normalize reduces them to u, allocating
+\ nothing), 31 and 62 deep, and names of 15 and 31 components take the
+\ same cells, within lf-lnorm-return-cells and lf-lnorm-data-cells: at
+\ most a few cells apart, where a growable array or the frames grow at
+\ different points (near?).
 require ../support/stack-paint.fs
 : at-most ( n limit -- flag ) > 0= ;
+: near? ( r1 d1 r2 d2 -- flag ) rot - abs 8 at-most >r - abs 8 at-most r> and ;
 : alternating ( n -- top )
   u swap 0 ?do u i 1 and if lf-level-max else lf-level-imax then must loop ;
 variable deepest  variable other  variable verdict
@@ -75,16 +74,16 @@ variable deepest  variable other  variable verdict
 T{ verdict @ lf-level-count @ -> outcome-ok 64 }T
 31 painted-alternating 2constant alternating-31
 T{ verdict @ lf-level-count @ -> outcome-ok 33 }T
-\ Cells per level: the difference over 31 levels; return and data.
-: difference ( r1 d1 r2 d2 -- r d ) rot swap - >r - r> ;
-T{ alternating-62 alternating-31 difference 31 lf-lnorm-ds-level * at-most
-   swap 31 lf-lnorm-rs-level * at-most -> true true }T
+T{ alternating-62 alternating-31 near? -> true }T
 T{ alternating-62 lf-lnorm-data-cells at-most
    swap lf-lnorm-return-cells at-most -> true true }T
-\ The deepest name order: two parameters whose names have n components
-\ (31 at most: the name store holds 63), different in every one; max p q
-\ is sorted, so its normal form is new, and differs from q (Lean's false:
-\ unknown).
+\ And 10,000 deep, in a larger level store (as a feed sets it).
+32768 lf-level-capacity! drop
+10000 painted-alternating 2constant alternating-10000
+T{ verdict @ alternating-10000 alternating-31 near? -> outcome-ok true }T
+\ The deepest name order: two parameters whose names have n components,
+\ different in every one; max p q is sorted, so its normal form is new,
+\ and differs from q (Lean's false: unknown).
 : deep-name ( c-addr u n -- id )
   >r 0 -rot r> 0 ?do 2>r 2r@ lf-name-str must 2r> loop 2drop ;
 : param ( id -- level ) dup lf-lscope-context-add must lf-level-param must ;
@@ -97,46 +96,65 @@ T{ alternating-62 lf-lnorm-data-cells at-most
 31 painted-names 2constant names-31
 T{ verdict @ lf-level-count @ -> outcome-unknown 4 }T
 15 painted-names 2constant names-15
-T{ names-31 names-15 difference 16 lf-lnorm-ds-name * at-most
-   swap 16 lf-lnorm-rs-name * at-most -> true true }T
+T{ names-31 names-15 near? -> true }T
 
-\ With a larger level capacity (as a feed sets it) a graph can be deeper
-\ than the scope check's walks allow. Normalize called on it directly
-\ counts its level frames: beyond lf-level-depth-limit it is full, with
-\ the depth limit recorded, never a host-stack overflow (the review's
-\ finding M1; at depth 2,000 that was a THROW). Names of 300 components
-\ are ordered in the same constant stack space.
-1024 lf-level-capacity! drop  1024 lf-name-capacity! drop
+\ With a larger level capacity (as a feed sets it) a graph can be far
+\ deeper: alternating chains of 300, 1,000 and 10,000 levels normalize to
+\ u, in the same host-stack cells as 31 (above; at depth 2,000 this was a THROW
+\ before the frame count of the review's finding M1, and full at 64 after
+\ it); a succ chain of 10,000 evaluates. Normalize's frames that the heap
+\ cannot grow are full, recorded with their cells in use and capacity.
+1024 lf-name-capacity! drop
 : imax-chain ( n -- top ) lf-level-reset u-id lf-level-param must drop alternating ;
-: deeper ( n -- flag outcome code )
-  imax-chain dup u lf-level-max must swap u swap lf-level-max must
-  lf-diag-clear 100000 lf-level-equivalent lf-diag-code@ ;
-T{ 300 deeper -> false outcome-full lf-diag-depth-limit }T
-T{ 1000 deeper -> false outcome-full lf-diag-depth-limit }T
-T{ 40 deeper drop -> true outcome-ok }T
-\ Lean's is_geq (level-geq.fs) recurses once per argument of a max chain,
-\ through normalize's normal forms: max p0 (... p(n-1)) >= q, false, is
-\ n frames deep, each counted as two level frames, so a chain of 60
-\ (the scope context holds 63 parameters) is full at the depth limit, not
-\ a deeper host stack (review of the heap stores); 10 is decided.
+: deeper-pair ( n -- l1 l2 )
+  imax-chain dup u lf-level-max must swap u swap lf-level-max must ;
+: deeper ( n -- flag outcome ) deeper-pair 10000000 lf-level-equivalent ;
+T{ 300 deeper -> true outcome-ok }T
+T{ 1000 deeper -> true outcome-ok }T
+T{ 10000 deeper -> true outcome-ok }T
+lf-level-reset
+T{ 10000 succ-chain 100000 lf-level-value -> 10000 outcome-ok }T
+1000 deeper-pair 2constant pair-1000
+T{ pair-1000 10000000 lf-level-equivalent -> true outcome-ok }T
+lf-lnorm-frames frame-free  1 heap-refusals !  lf-diag-clear
+T{ pair-1000 10000000 lf-level-equivalent lf-diag-code@ -> false outcome-full lf-diag-frame-limit }T
+0 heap-refusals !
+\ Lean's is_geq (level-geq.fs) goes through normalize's normal forms one
+\ argument of a max chain at a time: max p0 (... p(n-1)) >= q, false,
+\ for 10, 60 and 200 arguments, in constant host-stack cells (each step
+\ normalizes a normal form again, as Lean's does, so the store holds about
+\ n*n/2 new nodes).
 require ../../src/kernel/level-geq.fs
 : p-name ( i -- c-addr u ) 0 <# #s [char] p hold #> ;
 : p-level ( i -- level ) 0 swap p-name lf-name-str must param ;
 : max-chain ( n -- top ) 1- dup p-level swap 0 ?do i p-level swap lf-level-max must loop ;
-: geq-deep ( n -- flag outcome code )
+: geq-deep ( n -- flag outcome )
   lf-name-reset lf-level-reset lf-lscope-context-reset max-chain
-  0 s" q" lf-name-str must param lf-diag-clear 100000 lf-level-geq? lf-diag-code@ ;
-T{ 60 geq-deep -> false outcome-full lf-diag-depth-limit }T
-T{ 10 geq-deep drop nip -> outcome-ok }T
-\ Its painted stacks, 20 frames: within the need normalize states.
+  0 s" q" lf-name-str must param 10000000 lf-level-geq? ;
+T{ 10 geq-deep -> false outcome-ok }T
+T{ 60 geq-deep -> false outcome-ok }T
+T{ 200 geq-deep -> false outcome-ok }T
+\ After a call has sized normalize's arrays, a call whose frames the heap
+\ cannot grow is full, recorded with their cells in use and capacity.
+: geq-refused ( n -- flag outcome code )
+  lf-name-reset lf-level-reset lf-lscope-context-reset max-chain
+  0 s" q" lf-name-str must param 2dup 10000000 lf-level-geq? 2drop
+  lf-lnorm-frames frame-free 1 heap-refusals ! lf-diag-clear
+  10000000 lf-level-geq? lf-diag-code@ ;
+T{ 60 geq-refused -> false outcome-full lf-diag-frame-limit }T
+0 heap-refusals !
 variable chain-top
-: geq-chain ( -- ) chain-top @ other @ 100000 lf-level-geq? verdict ! drop ;
+: geq-chain ( -- ) chain-top @ other @ 10000000 lf-level-geq? verdict ! drop ;
 : painted-geq ( n -- return-cells data-cells )
   lf-name-reset lf-level-reset lf-lscope-context-reset max-chain chain-top !
   0 s" q" lf-name-str must param other ! ['] geq-chain stack-painted ;
-T{ 20 painted-geq lf-lnorm-data-cells at-most swap lf-lnorm-return-cells at-most
+\ (Past 32 arguments a sort merges, which nests a few more words: 60 and
+\ 200 arguments take the same cells.)
+60 painted-geq 2constant geq-60
+T{ geq-60 lf-lnorm-data-cells at-most swap lf-lnorm-return-cells at-most
    verdict @ -> true true outcome-ok }T
+T{ 200 painted-geq geq-60 near? verdict @ -> true outcome-ok }T
 300 painted-names 2constant names-300
-T{ verdict @ names-300 names-31 difference -> outcome-unknown 0 0 }T
+T{ verdict @ names-300 names-31 near? -> outcome-unknown true }T
 lf-level-default lf-level-capacity! drop  lf-name-default lf-name-capacity! drop
 bye

@@ -202,7 +202,12 @@ sizes are relative and dates are not estimated.
    6.2.0 is in progress, brought forward by the owner: universe parameter and
    argument lists and the level context have no fixed limit since
    2026-11-04, checked against Lean with 100, 300 and 1,000 parameters,
-   and the depth limits, part (b), are in progress); feed
+   and, part (b), terms and levels no fixed depth: every pass keeps its
+   pending work on explicit stacks in the heap, checked against Lean with
+   lambda, application and successor chains 2,000 and 10,000 deep, all
+   agreeing (the local context, too, is limited only by the heap); the
+   work grows with the square of the depth, a temporary gap (6.5.5), and
+   the trial workload runs about 9% slower); feed
    declarations to the checker in file order (3.2.2; works for `Init`
    today, gate pending); re-export byte for byte and compare with
    Lean's file (3.2.4, **done 2026-11-03**); the checksum manifest checked by default and an

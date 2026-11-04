@@ -33,7 +33,7 @@ begin-structure /lf-mlsrec
   field: lf-mlsrec-levels
   field: lf-mlsrec-crefs
 end-structure
-lf-depth-limit context-walk: lf-mls-walker
+lf-walk-room context-walk: lf-mls-walker
 /lf-mlsrec context-record: lf-mls-job
 \ The replacement levels, and a rebuilt reference's new level pairs:
 \ growable arrays with no fixed limit (plan task 6.2.0); one the heap

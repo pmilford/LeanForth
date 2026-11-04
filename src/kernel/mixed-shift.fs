@@ -57,14 +57,16 @@ end-structure
     lf-tag-constant of lf-rebuild-keep endof
     lf-tag-symbolic-sort of lf-rebuild-keep endof
     >r lf-rebuild-bad r> endcase ;
-\ A binary node goes straight to lf-rebuild-binary: no word in between.
-: lf-mshift-visit ( node frames -- result outcome )
+\ The visit's first step (lib/frame.fs).
+: lf-mshift-visit ( node frames -- ... frames next )
   over lf-term-valid? lf-rebuild-tag
-  dup lf-term-binary-tag? if drop lf-rebuild-binary else lf-mshift-leaf then ;
-\ The frames and their visitor, set up once in every context.
-: lf-mshift-setup ( -- )
-  lf-depth-limit ['] lf-mshift-visit lf-mshift-frames frame-init ;
+  dup lf-term-binary-tag? if drop lf-rebuild-binary else over >r lf-mshift-leaf r> 0 then ;
+\ The frames and their visitor, set up once in every context; their stack
+\ is freed with the context.
+: lf-mshift-setup ( -- ) ['] lf-mshift-visit lf-mshift-frames frame-init ;
 ' lf-mshift-setup context-setup
+: lf-mshift-free ( -- ) lf-mshift-frames frame-free ;
+' lf-mshift-free context-teardown
 
 \ Shift a node by amount from cutoff zero, from inside another pass whose
 \ frames record lends its fuel and gets back what is left. A shift in

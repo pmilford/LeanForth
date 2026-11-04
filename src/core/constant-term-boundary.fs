@@ -29,7 +29,7 @@ require ./terms.fs
 7 constant lf-tag-constant
 /slab context-record: lf-cterm-stamps
 1 cells ' lf-cterm-stamps lf-term-columns column-add
-lf-depth-limit context-walk: lf-cterm-walker
+lf-walk-room context-walk: lf-cterm-walker
 
 \ Fuel left after a check; the kernel passes continue with it. Negative
 \ fuel leaves it unchanged; an invalid root leaves the fuel given.

@@ -23,7 +23,7 @@ require ./level-compare.fs
 require ./mixed-beta.fs
 require ./mixed-compare.fs
 
-lf-depth-limit context-walk2: lf-mconvert-walker
+lf-walk-room context-walk2: lf-mconvert-walker
 
 \ Fuel left after a conversion; mixed-infer continues with it. Negative
 \ fuel and a failed audit leave zero.

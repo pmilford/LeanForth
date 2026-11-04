@@ -148,82 +148,96 @@ boundaries.
 
 ```mermaid
 classDiagram
-  class StoreHeader {
-    store-capacity
-    store-width
-    store-base
-    store-seal
-    store-count
-    store-generation
-    store-serial
+  namespace Stores {
+    class StoreHeader {
+      store-capacity
+      store-width
+      store-base
+      store-seal
+      store-count
+      store-generation
+      store-serial
+      store-block
+      store-limit
+    }
+    class Identities {
+      one identity per record
+      never repeats, never rewinds
+    }
+    class Node {
+      node-tag
+      node-first
+      node-second
+    }
+    class NameEntry {
+      lf-entry-tag
+      lf-entry-prefix
+      lf-entry-payload
+      lf-entry-length
+    }
+    class ConstantReference {
+      lf-crec-identity
+      lf-crec-name
+      lf-crec-generation
+      lf-crec-arity
+      lf-crec-offset: its level pairs in a growable pool
+    }
   }
-  class Identities {
-    one identity per record
-    never repeats, never rewinds
+  namespace Contexts {
+    class ContextLayout {
+      layout-bytes
+      layout-first
+      layout-last
+      layout-main
+      layout-sealed
+      layout-data-need
+      layout-return-need
+      layout-teardowns
+    }
+    class Member {
+      member-offset
+      member-init
+      member-link
+      member-capacity
+      member-width
+      member-base
+      member-xt
+    }
+    class ContextHeader {
+      context-size
+      context-owner
+      then each member's data
+    }
+    class Job {
+      job-xt
+      job-context
+      job-done
+      job-ior
+    }
   }
-  class Node {
-    node-tag
-    node-first
-    node-second
-  }
-  class NameEntry {
-    lf-entry-tag
-    lf-entry-prefix
-    lf-entry-payload
-    lf-entry-length
-  }
-  class ConstantReference {
-    lf-crec-identity
-    lf-crec-name
-    lf-crec-generation
-    lf-crec-arity
-    lf-crec-levels: 8 level handles
-  }
-  class WalkHeader {
-    walk-fuel
-    walk-node
-    walk-context
-    walk-arg
-    walk-pending
-    walk-capacity
-    walk-width
-  }
-  class Frames {
-    frame-fuel
-    frame-depth
-    frame-limit
-    frame-visitor
-    frame-context
-    frame-job
-  }
-  class ContextHeader {
-    context-size
-    context-owner
-    then each member's data
-  }
-  class ContextLayout {
-    layout-bytes
-    layout-first
-    layout-last
-    layout-main
-    layout-sealed
-    layout-data-need
-    layout-return-need
-  }
-  class Member {
-    member-offset
-    member-init
-    member-link
-    member-capacity
-    member-width
-    member-base
-    member-xt
-  }
-  class Job {
-    job-xt
-    job-context
-    job-done
-    job-ior
+  namespace Passes {
+    class WalkHeader {
+      walk-fuel
+      walk-node
+      walk-context
+      walk-arg
+      walk-pending
+      walk-capacity
+      walk-width
+      walk-heap
+      walk-grows
+      walk-room
+    }
+    class Frames {
+      frame-fuel
+      frame-depth
+      frame-visitor
+      frame-context
+      frame-job
+      frame-block
+      frame-used
+      frame-capacity
+    }
   }
   class Export {
     export-reader
@@ -233,8 +247,8 @@ classDiagram
     export-names, export-levels
     export-exprs, export-decls
   }
-  StoreHeader *-- Identities : capacity cells
   StoreHeader *-- Node : lf-terms, lf-levels
+  StoreHeader *-- Identities : capacity cells
   StoreHeader *-- NameEntry : lf-names
   StoreHeader *-- ConstantReference : lf-crefs
   Node --> Node : children are earlier indices
@@ -264,9 +278,11 @@ classDiagram
 - **Names** (`src/core/names.fs`): a prefix name and a string or number
   component; equal names are stored once, string bytes in a 2,048-byte pool.
 - **Walk and frames records** (`src/lib/walk.fs`, `src/lib/frame.fs`): the
-  fuel, the current node and a bounded work stack of one walk; or the fuel,
-  depth limit and visitor of a bounded recursive pass. Running out of fuel
-  gives *exhausted*, out of room *full*.
+  fuel, the current node and the work stack of one walk; or the fuel,
+  visitor and explicit stack of a pass whose visits are chains of steps
+  run by a loop. Both stacks grow in the heap (plan task 6.2.0), so no
+  pass's depth is limited by the Forth stacks or a constant. Running out
+  of fuel gives *exhausted*, out of room (the heap refuses) *full*.
 - **Contexts** (`src/lib/context.fs`): a header (size, owner) followed by
   the data of every declared member at its offset. The member records
   themselves live in the dictionary, linked from `context-layout`, which

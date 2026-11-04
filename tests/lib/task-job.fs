@@ -2,7 +2,7 @@
 \ current context, for tests/lib/task.fs and task-bench.fs. Each round
 \ builds a random DAG in a context store, one node per step, and walks it
 \ with a plain and a paired walk record; after the last round a recursive
-\ frames pass nests dag-depth visits deep. A checksum folds in every visit,
+\ pass nests dag-depth visits deep on the host's stacks. A checksum folds in every visit,
 \ outcome and fuel left. Load after src/lib/task.fs.
 
 48 constant dag-nodes        \ nodes per DAG; node k > 1 has two earlier children
@@ -70,22 +70,19 @@ defer dag-seed-cell  ' dag-own-seed is dag-seed-cell
   dag-pairs dag-budget dag-root 0 ['] dag-visit2 dag-pairs walk-run-pair
   dag-pairs dag-result ;
 
-\ The recursive pass: visit x nests x frames deeper; the deepest visit
-\ records how many return-stack and data-stack cells the pass uses. The
-\ frames record is a context member, so the visitor reaches it through
-\ its frames argument.
+\ The recursive pass: visit x recurses x deeper on the host's stacks,
+\ holding two data-stack and two return-stack cells per level; the
+\ deepest visit records how many cells of each the pass uses.
 : dag-most ( n addr -- ) dup @ rot max swap ! ;
 : dag-measure ( -- )
   dag-state dag-rp @ rp@ - 1 cells / dag-state dag-deep dag-most
   depth dag-state dag-depth0 @ - dag-state dag-data dag-most ;
-: dag-sink ( x frames -- result outcome )
-  over 0= if 2drop dag-measure 1000 dag-rnd outcome-ok exit then
-  >r dup 1- r> frame-call ok-then? if 31 * + outcome-ok else nip -1 swap then ;
-dag-depth 1+ ' dag-sink context-frames: dag-frames
+: dag-sink ( x -- result )
+  dup 0= if drop dag-measure 1000 dag-rnd exit then
+  dup >r dup dup 1- recurse 31 * + nip r> drop ;
 : dag-recurse ( -- )
   rp@ dag-state dag-rp ! depth dag-state dag-depth0 !
-  dag-depth 1+ dag-frames frame-budget drop
-  dag-depth 0 dag-frames frame-run dag-mix dag-mix ;
+  dag-depth dag-sink dag-mix outcome-ok dag-mix ;
 
 \ Steps. dag-start ( seed rounds every -- ) begins a job in the current
 \ context; dag-step does one step and tells whether more remain.

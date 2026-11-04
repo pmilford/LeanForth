@@ -82,6 +82,7 @@ DIFFERENTIAL_TARGETS := \
 	test-universe-scope-large-differential test-first-checker-fed-differential \
 	test-binder-domains-fed-differential test-universe-scope-fed-differential \
 	test-universe-many-differential test-universe-many-fed-differential \
+	test-depth-differential test-depth-fed-differential reference-deep-recursion \
 	test-program-differential test-program-stack-differential \
 	test-program-values-differential test-program-depth-differential \
 	test-example-reference-differential test-add-reference-differential \
@@ -139,7 +140,8 @@ test-differential: $(DIFFERENTIAL_TARGETS)
 
 # With parallel jobs make starts targets in the order listed: the slowest
 # first (each is also named again below), so that none of them starts last.
-check: reference-compact-init reference-author reference reference-program-ir-run \
+check: test-depth-differential test-depth-fed-differential \
+	reference-compact-init reference-author reference reference-program-ir-run \
 	reference-bignum test-doc-examples-lean test-compact-faults
 check: test test-differential mutants-check
 
@@ -373,6 +375,27 @@ test-universe-many-differential:
 test-universe-many-fed-differential:
 	$(LEAN_TABLE) universe-many-fed
 
+# No depth limit (plan task 6.2.0, part (b)): lambda, application and
+# successor chains 2,000 deep, by checker input and fed; 10,000 deep, fed,
+# in test-depth-deep-differential, which takes about 13 minutes (the work
+# grows with the square of the depth: plan task 6.5.5) and is not part of
+# make check.
+test-depth-differential:
+	$(LEAN_TABLE) depth
+
+test-depth-fed-differential:
+	$(LEAN_TABLE) depth-fed
+
+# Lean's deepRecursion is a counted depth, its maxRecDepth (BL-9 in
+# docs/project/BEYOND_LEAN.md): pinned Lean's verdicts on application
+# chains at the limits for three settings.
+reference-deep-recursion:
+	$(RUN) $(LEAN) -DwarningAsError=true tests/reference/deep-recursion.lean
+
+.PHONY: test-depth-deep-differential
+test-depth-deep-differential:
+	$(LEAN_TABLE) depth-deep-fed
+
 test-composition-fixture:
 	$(RUN) python3 tests/core/test_preview_contract.py
 	GFORTH=$(GFORTH) $(RUN) python3 tests/core/test_ndjson_preview.py
@@ -436,12 +459,15 @@ test-memory-frame-differential:
 # The presentation layer in src/present: the term printer and its side
 # table. Untrusted and not loaded by src/main.fs, so it gets its own
 # silent-load check; print-sweep.fs reaches every failure exit of the
-# printer, check_golden.py compares the printed text with the golden files.
+# printer, print-deep.fs prints terms and levels 2,000 and 10,000 deep in
+# constant host-stack cells, check_golden.py compares the printed text
+# with the golden files.
 test-present:
 	@out=$$($(RUN) $(GFORTH) src/present/term-printer.fs -e bye 2>&1) || { printf '%s\n' "$$out" >&2; exit 1; }; \
 	if [ -n "$$out" ]; then printf 'src/present/term-printer.fs printed while loading:\n%s\n' "$$out" >&2; exit 1; fi
 	$(RUN) $(GFORTH) tests/present/term-printer.fs
 	$(RUN) $(GFORTH) tests/present/print-sweep.fs
+	$(RUN) $(GFORTH) tests/present/print-deep.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/present/test_outline_block.py
 	GFORTH=$(GFORTH) $(RUN) python3 tests/present/check_golden.py
 

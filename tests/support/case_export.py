@@ -83,33 +83,42 @@ class Reader:
     def number(self):
         return int(self.token())
 
+    # Levels and terms are read iteratively, with explicit stacks, so that
+    # cases thousands of levels deep (the depth table) need no recursion.
     def level(self):
-        tag = self.token()
-        if tag == "z":
-            return 0
+        pending = []          # [tag, children so far]
+        while True:
+            tag = self.token()
+            if tag == "z":
+                value = 0
+            elif tag in ("s", "m", "i"):
+                pending.append([tag, []])
+                continue
+            elif tag == "p":
+                text = self.token()
+                self.export.note_param(text)
+                name = self.export.name(text)
+                value = self.export.level(("param", name), {"param": name})
+            else:
+                raise CaseError(f"level {tag}")
+            while True:
+                if not pending:
+                    return value
+                frame = pending[-1]
+                frame[1].append(value)
+                if len(frame[1]) < (1 if frame[0] == "s" else 2):
+                    break
+                pending.pop()
+                value = self.made_level(frame[0], frame[1])
+
+    def made_level(self, tag, children):
         if tag == "s":
-            child = self.level()
-            return self.export.level(("succ", child), {"succ": child})
-        if tag in ("m", "i"):
-            kind = "max" if tag == "m" else "imax"
-            left = self.level()
-            right = self.level()
-            return self.export.level((kind, left, right), {kind: [left, right]})
-        if tag == "p":
-            text = self.token()
-            self.export.note_param(text)
-            name = self.export.name(text)
-            return self.export.level(("param", name), {"param": name})
-        raise CaseError(f"level {tag}")
+            return self.export.level(("succ", children[0]), {"succ": children[0]})
+        kind = "max" if tag == "m" else "imax"
+        return self.export.level((kind, *children), {kind: children})
 
     def sort(self, level):
         return self.export.expr(("sort", level), {"sort": level})
-
-    def binder(self, kind):
-        domain = self.term()
-        body = self.term()
-        return self.export.expr((kind, domain, body), {kind: {
-            "binderInfo": "default", "body": body, "name": 0, "type": domain}})
 
     def constant(self):
         name = self.export.name(self.token())
@@ -132,24 +141,41 @@ class Reader:
                 "idx": 0, "struct": zero, "typeName": name}})
         raise CaseError(f"form {form}")
 
-    def term(self):
-        word = self.token()
-        if word == "S":
-            return self.sort(self.level())
-        if word == "V":
-            index = self.number()
-            return self.export.expr(("bvar", index), {"bvar": index})
+    def made_term(self, word, children):
+        first, second = children
         if word == "A":
-            fn = self.term()
-            arg = self.term()
-            return self.export.expr(("app", fn, arg), {"app": {"arg": arg, "fn": fn}})
-        if word in ("L", "P"):
-            return self.binder("lam" if word == "L" else "forallE")
-        if word == "C":
-            return self.constant()
-        if word.startswith("X"):
-            return self.unsupported(word)
-        raise CaseError(f"term {word}")
+            return self.export.expr(("app", first, second), {"app": {"arg": second, "fn": first}})
+        kind = "lam" if word == "L" else "forallE"
+        return self.export.expr((kind, first, second), {kind: {
+            "binderInfo": "default", "body": second, "name": 0, "type": first}})
+
+    def term(self):
+        pending = []          # [word, children so far]
+        while True:
+            word = self.token()
+            if word == "S":
+                value = self.sort(self.level())
+            elif word == "V":
+                index = self.number()
+                value = self.export.expr(("bvar", index), {"bvar": index})
+            elif word in ("A", "L", "P"):
+                pending.append([word, []])
+                continue
+            elif word == "C":
+                value = self.constant()
+            elif word.startswith("X"):
+                value = self.unsupported(word)
+            else:
+                raise CaseError(f"term {word}")
+            while True:
+                if not pending:
+                    return value
+                frame = pending[-1]
+                frame[1].append(value)
+                if len(frame[1]) < 2:
+                    break
+                pending.pop()
+                value = self.made_term(frame[0], frame[1])
 
     def declaration(self):
         self.token()                       # before or check

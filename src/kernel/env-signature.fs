@@ -34,7 +34,7 @@ require ./environment.fs
 require ./generated-recursor.fs
 require ./mixed-level-substitute.fs
 
-lf-level-depth-limit context-walk: lf-envsig-walker
+lf-level-walk-room context-walk: lf-envsig-walker
 
 begin-structure /lf-esreq
   field: lf-esreq-name      \ the constant's name ID
