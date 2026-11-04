@@ -156,8 +156,46 @@ docs/user/FIRST_CHECK.md` runs these examples and compares the output
 (`make test` runs its Forth, `make check` its Lean; done on 2026-11-02
 with Gforth 1.0 and 0.7.3 and pinned Lean 4.35.0).
 
+## Keeping the evidence, and checking it again
+
+A check can leave a *run record*: a JSON file that says which file was
+checked (its SHA-256, size and whether its manifest matched), which Lean
+and exporter versions wrote it, which LeanForth commit and Forth system
+checked it, with which fuel and limits, and the verdict of every
+declaration, read from the library of accepted declarations after the
+check. *Replay* checks the same file again and compares the new record
+with the old one, field by field; any difference, in a verdict, the file,
+a tool or a setting, is reported with a code and the field's name, never
+passed over. Both run in Forth alone:
+
+```sh
+make run-record EXPORT=tests/reference/composition.ndjson RECORD=composition.json
+make replay EXPORT=tests/reference/composition.ndjson RECORD=composition.json
+```
+
+The second prints `"result":"confirmed"` and exits with status 0 when the
+record holds; otherwise `"result":"refused"` with the findings, such as
+`{"code":"verdict-differs","path":"$.declarations[0].verdict"}`. The part
+of the record that holds the verdicts, written by the same words:
+
+```forth
+require ~+/tests/support/run-records.fs
+s" tests/reference/composition.ndjson" 100000 ni-run drop
+rr-text s\" \"declarations\":[" search drop type cr
+```
+
+```text
+"declarations":[{"index":0,"name":"composition","verdict":"accepted","label":"experimental, not independently audited","axioms":[]}]}
+```
+
+A record is evidence, not an approval: it says what the checker
+established, accepted only where the library holds the declaration, with
+its label and its axioms. The fields, the replay codes and the limits are
+in [run records](../programming/RUN_RECORDS.md).
+
 ## See also
 
 - [Running the checks](RUNNING_THE_CHECKS.md): the `make` targets.
+- [Run records](../programming/RUN_RECORDS.md): the evidence of a check, and its replay.
 - [Concepts](CONCEPTS.md): theorem, definition, kernel and the outcomes.
 - [Diagnostics](../programming/DIAGNOSTICS.md): every code a failure records.

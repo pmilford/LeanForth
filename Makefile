@@ -411,6 +411,38 @@ test: test-environment
 DOC_EXAMPLE_PAGES += docs/programming/CHECKED_ENVIRONMENT.md
 DOC_EXAMPLE_PAGES += docs/user/FIRST_CHECK.md
 
+# Run records and their replay (plan task 2.2.5; docs/programming/RUN_RECORDS.md):
+# unit tests of src/import/run-record.fs and run-replay.fs (every fixture, each
+# failure, replay findings), then records written to files for the five pinned
+# exports and the four broken copies: both schemas, the golden records, two
+# processes writing the same bytes, every record replayed, and tampered records
+# refused with their codes. Gforth and Python 3 only; Python only drives Gforth
+# and reads what it wrote. With a second Gforth (0.7.3, CI's other host):
+#   GFORTH=... python3 tests/core/test_run_records.py --other-gforth GFORTH2
+test-run-records:
+	$(RUN) $(GFORTH) tests/core/run-record.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/core/test_run_records.py
+
+# A run record of any lean4export file, and its replay, with Forth alone
+# (tests/support/run-records.fs); the record names this tree's commit and
+# whether tracked files differ from it. Exit status 0 only for a record
+# written, or a record confirmed:
+#   make run-record EXPORT=file.ndjson RECORD=file.json [FUEL=100000]
+#   make replay EXPORT=file.ndjson RECORD=file.json [FUEL=100000]
+FUEL ?= 100000
+RR_COMMIT = $(shell git rev-parse HEAD 2>/dev/null)
+RR_MODIFIED = $(shell git diff --quiet HEAD -- 2>/dev/null && echo false || echo true)
+RR_SOURCE = $(if $(RR_COMMIT),-e 's" $(RR_COMMIT)" $(RR_MODIFIED) ni-source')
+run-record:
+	$(RUN) $(GFORTH) tests/support/run-records.fs $(RR_SOURCE) \
+	-e 's" $(EXPORT)" $(FUEL) s" $(RECORD)" ni-record ni-exit' </dev/null
+replay:
+	$(RUN) $(GFORTH) tests/support/run-records.fs $(RR_SOURCE) \
+	-e 's" $(EXPORT)" $(FUEL) s" $(RECORD)" ni-replay ni-exit' </dev/null
+
+.PHONY: test-run-records run-record replay
+test: test-run-records
+
 # Big natural numbers for Lean's Nat literals (plan task 5.2.3, library
 # part; docs/development/FORTH_LIBRARY.md): unit tests of every outcome,
 # then about 37,500 cases against Python's integers and 20 planted faults
