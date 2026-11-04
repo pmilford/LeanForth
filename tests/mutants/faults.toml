@@ -342,8 +342,7 @@ file = "src/kernel/environment.fs"
 old = '''  dup lf-envh-identity @ 1 lf-env-serial @ between?'''
 new = '''  dup lf-envh-identity @ 0 lf-env-serial @ between?'''
 test = "$GFORTH tests/core/environment.fs"
-reason = "E3: a freed environment (identity 0) still counts as live"
-gap = "no test gives lf-env-use or lf-env-free a record whose identity is 0, as lf-env-free leaves it (a test cannot read freed memory, but can build such a record)"
+reason = "E3: a freed environment (identity 0) still counts as live: the test gives lf-env-use and lf-env-free a copy of a live environment with identity 0"
 
 [[fault]]
 id = "env-pool-max-off-by-one"
