@@ -82,6 +82,7 @@ require ./constant-references.fs
 require ./tagged-sort-boundary.fs
 require ./constant-term-boundary.fs
 require ./input.fs
+require ./local-context.fs
 
 1024 constant lf-log-record-capacity
 256 constant lf-log-mark-capacity
@@ -204,7 +205,8 @@ create lf-log-catalogue
 \ inference does not handle or cannot read. A CASE with one arm per tag.
 : lf-log-tag-rule ( tag -- rule )
   case lf-tag-sort of lf-rule-sort endof lf-tag-symbolic-sort of lf-rule-sort endof
-    lf-tag-bvar of lf-rule-variable endof lf-tag-constant of lf-rule-constant endof
+    lf-tag-bvar of lf-rule-variable endof lf-tag-fvar of lf-rule-variable endof
+    lf-tag-constant of lf-rule-constant endof
     lf-tag-app of lf-rule-application endof lf-tag-lam of lf-rule-lambda endof
     lf-tag-pi of lf-rule-pi endof lf-rule-form swap endcase ;
 : lf-log-node-rule ( node -- rule )
@@ -565,37 +567,42 @@ end-structure
   node! r> 1+ negate ;
 : lf-copier-room? ( copier -- flag )
   dup 0 copier-max lf-copier@ @ swap lf-copier-made@ @ > ;
-: lf-copier-made! ( n copier ref -- flag )
-  >r 2dup r@ -rot lf-copier-remember r> swap lf-copier-value nip ;
-: lf-copier-combine ( n copier -- flag )
-  dup lf-copier-room? 0= if nip copier-bound @ lf-log-truncate false exit then
-  2dup copier-read @ execute 0= if drop lf-log-unreadable exit then
-  3 pick lf-copier-fields 0= if 2drop false exit then
-  3 pick lf-copier-append lf-copier-made! ;
+: lf-copier-made! ( ref n c copier -- flag )
+  >r 2 pick -rot r@ lf-copier-remember r> lf-copier-value ;
+\ The node being combined and its context, for a leaf that needs them (a
+\ free variable's); a nested copy (a constant's levels) may change them,
+\ but only after the leaf that reads them.
+: lf-log-at! ( n c -- ) lf-log-state tuck lf-logs-at-context ! lf-logs-at-node ! ;
+: lf-copier-combine ( n c copier -- flag )
+  dup lf-copier-room? 0= if nip nip copier-bound @ lf-log-truncate false exit then
+  >r 2dup lf-log-at! r> swap >r 2dup copier-read @ execute
+  0= if drop lf-log-unreadable r> drop exit then
+  3 pick lf-copier-fields 0= if 2drop r> drop false exit then
+  3 pick lf-copier-append -rot r> swap lf-copier-made! ;
 
 \ One copy: tasks until none is left, each one unit of the copy's work.
 : lf-copier-spend ( copier -- flag )
   0 copier-work lf-copier@ dup @ 0> if -1 swap +! true else drop false then ;
 : lf-copier-step ( copier -- flag )
-  dup lf-copier-tasks lf-stack-pop dup 0<
-  if lf-combined swap lf-copier-combine else swap lf-copier-expand then ;
+  dup lf-copier-next rot 2 pick 0<
+  if rot lf-combined -rot lf-copier-combine else lf-copier-expand then ;
 : lf-copier-run ( copier -- flag )
   begin dup lf-copier-tasks lf-stack-empty? 0= while
     dup lf-copier-spend 0= if lf-copier-deep exit then
     dup lf-copier-step 0= if drop false exit then
   repeat drop true ;
-: lf-copier-start ( node copier -- )
+: lf-copier-start ( node c copier -- )
   dup lf-copier-tasks lf-stack-clear dup lf-copier-values lf-stack-clear
-  lf-log-copy-work over 0 copier-work lf-copier@ ! lf-copier-tasks lf-stack-push drop ;
-\ The reference of a live scratch node's copy, made now if needed:
-\ (ref true), or false with the log truncated (no room, too much work,
-\ unreadable).
-: lf-copier-copy ( node copier -- ref true | false )
-  2dup lf-copier-hit if nip nip true exit then
-  tuck lf-copier-start dup lf-copier-run if lf-copier-pop true else drop false then ;
+  lf-log-copy-work over 0 copier-work lf-copier@ ! lf-copier-task drop ;
+\ The reference of a live scratch node's copy in context c, made now if
+\ needed: (ref true), or false with the log truncated (no room, too much
+\ work, unreadable).
+: lf-copier-copy ( node c copier -- ref true | false )
+  >r 2dup r@ lf-copier-hit if nip nip r> drop true exit then
+  r@ lf-copier-start r@ lf-copier-run if r> lf-copier-pop true else r> drop false then ;
 : lf-log-copying? ( -- flag ) lf-log-level lf-log-terms = ;
-: lf-log-scratch ( node copier -- ref true | false )
-  lf-log-copying? if lf-copier-copy else 2drop lf-log-unkept true then ;
+: lf-log-scratch ( node c copier -- ref true | false )
+  lf-log-copying? if lf-copier-copy else 2drop drop lf-log-unkept true then ;
 
 \ Levels: succ has one child (its first field), max and imax two; the zero
 \ level and a parameter (its name ID) are kept as they are.
@@ -604,12 +611,13 @@ end-structure
 : lf-log-level-leaf ( tag first second -- tag first second true | false )
   2 pick dup lf-level-tag-zero = swap lf-level-tag-param = or
   if true else 2drop lf-log-unreadable then ;
+: lf-log-level-inner ( tag -- 0 ) drop 0 ;
 create lf-log-level-copier
   0 lf-logs-level-mark , 0 lf-logs-level-memo , 0 lf-logs-level-tasks ,
   0 lf-logs-level-values , 0 lf-logs-level-work , 0 lf-logs-levels , 0
   lf-logs-levels-max ,
   ' lf-log-level-slot , ' lf-level-read , ' lf-level-identity , ' lf-log-level-arity ,
-  ' lf-log-level-leaf , lf-bound-levels ,
+  ' lf-log-level-leaf , lf-bound-levels , ' lf-log-level-inner ,
 \ A level reference: input below the mark, a copy at level terms, unkept
 \ at level steps; a level not live with the identity expected is
 \ unreadable.
@@ -618,7 +626,7 @@ create lf-log-level-copier
 : lf-log-level-ref ( level id -- ref true | false )
   over swap lf-log-live-level? 0= if lf-log-unreadable exit then
   dup lf-log-level-copier lf-copier-input? if true exit then
-  lf-log-level-copier lf-log-scratch ;
+  0 lf-log-level-copier lf-log-scratch ;
 
 \ Constant references (variable-length universe arguments, ADR 0016 C2).
 \ One below the input mark is kept as it is, with its identity. Another is
@@ -651,11 +659,25 @@ create lf-log-level-copier
   >r 2swap lf-log-cref-args 0= if 2drop r> drop false exit then
   r> swap lf-log-cref-new true ;
 
-\ Terms: application, lambda and Pi have two children; a symbolic Sort's
-\ first field is a level reference; a constant's is its reference (kept,
-\ or copied with second field 0); a concrete Sort and a variable are kept
-\ as they are; any other tag is unreadable.
+\ Terms: application, lambda and Pi have two children (a binder's second
+\ under one more binder); a symbolic Sort's first field is a level
+\ reference; a constant's is its reference (kept, or copied with second
+\ field 0); a concrete Sort and a bound variable are kept as they are; a
+\ free variable (core/local-context.fs, plan task 4.2.2a) becomes the
+\ bound variable it stands for under the c binders of its context: c - 1
+\ - d for its binder's depth d, which inference records in its entry
+\ (lf-fvar-depth); any other tag, or a free variable not live or whose
+\ binder lies outside its context, is unreadable.
 : lf-log-term-arity ( tag -- n ) lf-term-binary-tag? if 2 else 0 then ;
+: lf-log-term-inner ( tag -- n ) dup lf-tag-lam = swap lf-tag-pi = or 1 and ;
+: lf-log-at-index ( d -- index true | false )
+  dup 0< if lf-log-unreadable exit then
+  lf-log-state lf-logs-at-context @ swap - 1- dup 0< if lf-log-unreadable exit then true ;
+: lf-log-at-fvar ( -- fvar true | false )
+  lf-log-state lf-logs-at-node @ dup lf-fvar-live? if true else lf-log-unreadable then ;
+: lf-log-fvar ( tag first second -- tag first' second' true | false )
+  2drop drop lf-log-at-fvar 0= if false exit then
+  lf-fvar-depth lf-log-at-index if lf-tag-bvar swap 0 true else false then ;
 : lf-log-sort-level ( tag level second -- tag ref second true | false )
   swap dup lf-level-identity 0= if nip lf-log-unreadable nip exit then
   lf-log-level-ref if swap true else 2drop false then ;
@@ -664,18 +686,19 @@ create lf-log-level-copier
   lf-log-cref-copy if 0 true else drop false then ;
 : lf-log-term-leaf ( tag first second -- tag first' second' true | false )
   2 pick case lf-tag-sort of true endof lf-tag-bvar of true endof
-    lf-tag-symbolic-sort of lf-log-sort-level endof
+    lf-tag-symbolic-sort of lf-log-sort-level endof lf-tag-fvar of lf-log-fvar endof
     lf-tag-constant of lf-log-cref endof >r 2drop lf-log-unreadable r> endcase ;
 create lf-log-term-copier
   0 lf-logs-term-mark , 0 lf-logs-term-memo , 0 lf-logs-term-tasks ,
   0 lf-logs-term-values , 0 lf-logs-term-work , 0 lf-logs-terms , 0 lf-logs-terms-max ,
   ' lf-log-term-slot , ' lf-term-read , ' lf-term-identity , ' lf-log-term-arity ,
-  ' lf-log-term-leaf , lf-bound-terms ,
+  ' lf-log-term-leaf , lf-bound-terms , ' lf-log-term-inner ,
 : lf-log-live-term? ( node id -- flag ) swap lf-term-identity if = else drop false then ;
+\ A term's copy is made in the context of the record's depth.
 : lf-log-term-ref ( node id -- ref true | false )
   over swap lf-log-live-term? 0= if lf-log-unreadable exit then
   dup lf-log-term-copier lf-copier-input? if true exit then
-  lf-log-term-copier lf-log-scratch ;
+  lf-log-state lf-logs-copy-depth @ lf-log-term-copier lf-log-scratch ;
 
 \ A reference of a kind: (ref true), or false with the log truncated.
 : lf-log-keep ( x id kind -- ref true | false )
@@ -695,6 +718,7 @@ create lf-log-term-copier
   logmark-rule @ 4 lf-log-kind swap ok? 0= if 2drop lf-log-none true exit then
   2dup lf-log-id swap lf-log-keep ;
 : lf-log-refs ( result outcome mark -- a b out true | false )
+  dup logmark-depth @ lf-log-state lf-logs-copy-depth !
   >r r@ lf-log-keep-a 0= if 2drop r> drop false exit then
   r@ lf-log-keep-b 0= if drop 2drop r> drop false exit then
   2swap r> lf-log-keep-out if true else 2drop false then ;
