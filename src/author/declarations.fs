@@ -82,6 +82,12 @@ end-structure
 : lfa-declare ( kind -- )
   lfa-inside? 0= lfa-e-nested lfa-must depth 1- lfa-floor = lfa-e-not-empty lfa-must
   lfa-here >r lfa-name-token lfa-decl-name! r> lfa-new-decl depth lfa-open-scope ;
+\ protected KIND NAME: the declaration being made is protected, which
+\ needs a namespace (Lean: "protected declarations must be in a
+\ namespace"); the error points at the name.
+: lfa-protect ( -- )
+  lfa-full lfa-cut nip 0<> lfa-e-protected-root lfa-must
+  true lfa-this lf-fdecl-protected ! ;
 
 \ universe NAME, right after the declaration's name: a level parameter.
 : lfa-universes ( -- addr n ) lfa-this dup lf-fdecl-universe swap lf-fdecl-universes @ ;

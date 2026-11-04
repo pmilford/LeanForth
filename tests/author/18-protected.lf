@@ -1,0 +1,30 @@
+\ Which constant a name means when some are protected, as Lean resolves it:
+\ through a namespace, around or open, a name of one part never finds a
+\ protected constant; a dotted name and the root do (src/author/namespaces.fs).
+\ Lean: tests/reference/author-18-protected.lean (the same declarations).
+def bar  0 Type := Prop end bar
+protected def N.bar  0 Type := Prop end N.bar
+def N.baz  0 Type := Prop end N.baz
+def A.x  0 Type := Prop end A.x
+protected def A.B.x  0 Type := Prop end A.B.x
+protected axiom P.q  0 Type end P.q
+def q  0 Type := Prop end q
+
+namespace N
+def t1  0 Type := bar end t1            \ bar: N.bar is protected
+def t2  0 Type := N.bar end t2          \ N.bar: a dotted name finds it
+def t3  0 Type := baz end t3            \ N.baz
+end N
+def N.t4  0 Type := bar end N.t4        \ bar, in a dotted declaration too
+namespace M
+open N
+def t5  0 Type := baz end t5            \ N.baz, through open N
+def t6  0 Type := bar end t6            \ bar: open N does not give N.bar
+end M
+namespace A.B
+def t7  0 Type := x end t7              \ A.x: past the protected A.B.x
+end B
+end A
+namespace P
+def t8  0 Type := q end t8              \ q: P.q is protected
+end P

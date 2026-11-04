@@ -381,7 +381,9 @@ be the same constant. While a declaration is made its own name's prefix is
 the current namespace (Lean reads `def N.foo` as `namespace N def foo
 end N`). `namespace A.B` enters two scopes, which `end A.B` (or `end B`
 then `end A`) leaves; `open N` opens `P.N` for the nearest namespace `P`
-around that has it, or `N`, and `O.N` for each open `O`. Where Lean would
+around that has it, or `N`, and `O.N` for each open `O`. Through a
+namespace (`P.name`, `O.name`), a name of one part never finds a constant
+declared `protected` (`protected def N.bar`). Where Lean would
 choose between two candidates by their types, the authoring words, which
 have no types, stop with "ambiguous name: write the full name". The
 first version of this record put namespaces in the search order and added
@@ -624,7 +626,14 @@ with tests and a planted fault that the tests catch
   universe, declaration or namespace may now be number-like; a binder may
   be, but then gets no word (`n var#` refers to it).
 - **Namespaces (§3, §9).** Names resolve as Lean resolves them, including
-  inside a declaration with a dotted name.
+  inside a declaration with a dotted name. The re-review found one rule
+  missing: through a namespace, a name of one part never finds a
+  *protected* constant (Lean's `resolveQualifiedName`), so inside
+  `namespace N`, `bar` silently built `N.bar` where Lean builds the root
+  `bar` when `N.bar` is protected. `protected` now comes before
+  `theorem`, `def`, `axiom` and `import-stub`, as in Lean, and is
+  honoured; `export`, whose aliases Lean's resolution also searches, stops
+  as not supported yet.
 - **Text that silently changed meaning.** A `(` comment without its `)`
   on the line, numeric name parts with leading zeros (`x.01` and `x.1` are
   one Lean name), and labels or notes that would print as live words are

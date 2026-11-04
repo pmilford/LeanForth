@@ -271,6 +271,33 @@ T{ text$ fails -> 1 1 86 }T
 T{ s" import-stub Y.Z.h end Y.Z.h open Y open Z def t Prop := h end t" run
    -> outcome-ok }T
 T{ 1 value-const -> s" Y" name1 s" Z" name+ s" h" name+ }T
+\ protected, as in Lean (ResolveName.lean, resolveQualifiedName): through
+\ a namespace, around or open, a name of one part never finds a protected
+\ constant; a dotted name and the root do. Lean's own terms for these
+\ cases: 18-protected.lf.
+: prot-stubs ( -- )
+  text0 s" import-stub bar end bar protected import-stub N.bar end N.bar " text+ ;
+prot-stubs s" namespace N def t Prop := bar end t end N" text+
+T{ text$ run -> outcome-ok }T
+T{ 2 value-const 1 lf-author-decl lf-fdecl-protected @ -> s" bar" name1 true }T
+prot-stubs s" def N.t Prop := bar end N.t" text+
+T{ text$ run -> outcome-ok }T
+T{ 2 value-const -> s" bar" name1 }T
+prot-stubs s" namespace N def t Prop := N.bar end t end N" text+
+T{ text$ run -> outcome-ok }T
+T{ 2 value-const -> s" N" name1 s" bar" name+ }T
+prot-stubs s" namespace M open N def t Prop := bar end t end M" text+
+T{ text$ run -> outcome-ok }T
+T{ 2 value-const -> s" bar" name1 }T
+T{ s" protected import-stub N.bar end N.bar namespace N def t Prop := bar end t end N" fails
+   -> 1 1 65 }T
+T{ s" protected namespace N" fails -> 43 1 11 }T
+T{ s" protected" fails -> 2 1 1 }T
+T{ s" protected def t Prop := Prop end t" fails -> 44 1 15 }T
+T{ s" namespace N protected def t Prop := Prop end t end N" run -> outcome-ok }T
+T{ 0 lf-author-decl lf-fdecl-protected @ -> true }T
+\ export makes aliases, which Lean's resolution also searches: not built.
+T{ s" export N (x)" fails -> 54 1 1 }T
 T{ s" namespace B end A.B" fails -> 23 1 13 }T
 T{ s" namespace A namespace B end A.B def t Prop := Prop end t" run -> outcome-ok }T
 T{ 0 lf-author-decl lf-fdecl-name @ -> s" t" name1 }T

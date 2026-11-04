@@ -6,15 +6,17 @@ declarations then reach check_author.py by two independent paths, each
 written in the tree-dump format of tests/author/dump.fs:
 
 1. Lean's environment itself: a metaprogram (LEAN_DUMP, run by the same
-   Lean) writes each declaration's universe parameters, type and value
-   exactly as Lean holds them: every node, de Bruijn index, constant name
-   and universe argument, level, binder name and binder kind.
+   Lean) writes whether each declaration is protected, and its universe
+   parameters, type and value exactly as Lean holds them: every node, de
+   Bruijn index, constant name and universe argument, level, binder name
+   and binder kind.
 2. The pinned exporter (lean4export 3.1.0, the toolchain's bin/leanexport):
    its NDJSON stream, read here (Export). The exporter shares nodes that
    are equal apart from binder names and binder kinds (a later declaration
    can come out with an earlier one's binder names and kinds; checked with
    three alpha-equivalent theorems), so from this path binder names and
-   kinds are not compared (structural()); everything else is.
+   kinds are not compared (structural()), nor protection, which the export
+   does not carry; everything else is.
 
 Both apply dump.fs's stated identifications and nothing else: a Pi binder
 that prints as -> (explicit, unused, anonymous or hygienic) is written
@@ -147,13 +149,14 @@ class Export:
         return f"(lean-only {kind})"
 
     def declaration(self, name):
-        """(kind or None, universe names, type dump, value dump or 'none')."""
+        """(kind or None, None, universe names, type dump, value dump or 'none'):
+        the export does not say whether a declaration is protected."""
         if name not in self.decls:
             raise ExportError(f"Lean's export has no declaration {name}")
         kind, item = self.decls[name]
         universes = [self.name(u) for u in item.get("levelParams", [])]
         value = self.term(item["value"]) if kind in ("thm", "def") else "none"
-        return DECL_KINDS.get(kind), universes, self.term(item["type"]), value
+        return DECL_KINDS.get(kind), None, universes, self.term(item["type"]), value
 
 
 BINDER = re.compile(r"\((lam|pi) (\[arrow\] 0|\S+ \d)")
@@ -209,7 +212,8 @@ def lfDecl (name : String) : CoreM Unit := do
                             | _ => "-"
   let value := match ci with | .thmInfo t => lfTerm t.value | .defnInfo d => lfTerm d.value
                              | _ => "none"
-  IO.println s!"dump: {kind} {name}{String.join (ci.levelParams.map (" u:" ++ lfName ·))}"
+  let prot := if isProtected (← getEnv) name.toName then " protected" else ""
+  IO.println s!"dump: {kind} {name}{prot}{String.join (ci.levelParams.map (" u:" ++ lfName ·))}"
   IO.println s!"dump:   type {lfTerm ci.type}"
   IO.println s!"dump:   value {value}"
 """
@@ -230,10 +234,18 @@ def lean_dump(lean, prefix, module, names, workdir):
         raise ExportError(f"Lean's dump failed:\n{run.stdout}{run.stderr}")
     lines = [line[len("dump: "):] for line in run.stdout.splitlines()
              if line.startswith("dump: ")]
+    return parse_dumps(lines, lambda kind: None if kind == "-" else int(kind))
+
+
+def parse_dumps(lines, kind_of):
+    """Declarations from dump lines (dump.fs's format, three per declaration):
+    name -> (kind, protected, universe names, type, value)."""
     decls = {}
     for head, type_, value in zip(lines[0::3], lines[1::3], lines[2::3]):
-        kind, name, *universes = head.split(" ")
-        decls[name] = (None if kind == "-" else int(kind), [u[len("u:"):] for u in universes],
+        kind, name, *rest = head.split(" ")
+        protected = rest[:1] == ["protected"]
+        universes = [u[len("u:"):] for u in rest[protected:]]
+        decls[name] = (kind_of(kind), protected, universes,
                        type_[len("  type "):], value[len("  value "):])
     return decls
 
@@ -270,7 +282,7 @@ def main(args):
     with open(args[0], encoding="utf-8") as stream:
         export = Export(stream)
     for name in args[1:]:
-        kind, universes, type_, value = export.declaration(name)
+        kind, _, universes, type_, value = export.declaration(name)
         print(kind, name, *[f"u:{u}" for u in universes])
         print("  type", type_)
         print("  value", value)

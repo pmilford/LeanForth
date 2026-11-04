@@ -10,7 +10,8 @@
 \ its binder is explicit, unused and anonymous or hygienic (Lean's
 \ a._@._hyg.0); running -> gives the anonymous name, the one stated
 \ exception to the round trip. A declaration prints as its declaration
-\ word and full name, a line per universe parameter, a line per
+\ word (after protected, for a protected one) and full name, a line per
+\ universe parameter, a line per
 \ parameter (the leading binders its type and value share: the same
 \ domain node, name and kind; for an axiom or import stub, the leading
 \ binders of the type that do not print as ->), the type, := and the
@@ -49,6 +50,7 @@ begin-structure /lf-fdecl
   field: lf-fdecl-name          \ name ID of the full name
   field: lf-fdecl-type          \ term, or -1 for none (an import stub)
   field: lf-fdecl-value         \ term, or -1 for none (an axiom or import stub)
+  field: lf-fdecl-protected     \ true for a protected declaration (Lean's protected)
   field: lf-fdecl-universes     \ number of universe parameters
   lf-decl-universe-capacity cells +field lf-fdecl-universe   \ their name IDs
 end-structure
@@ -72,6 +74,7 @@ lf-pf-reserve \ ( theorem def axiom import-stub universe := end namespace open
 lf-pf-reserve explicit: implicit: strict-implicit: instance: fun forall -> $ ^
 lf-pf-reserve Prop Type Sort level+ level-max level-imax var# root:
 lf-pf-reserve label: note" ai-note" _ let: let have field-at by s" import
+lf-pf-reserve protected export
 0 c, align
 : lf-pf-next ( c-addr -- c-addr' ) count chars + ;
 : lf-pf-reserved? ( c-addr u -- flag )
@@ -316,11 +319,12 @@ defer lf-pf-term-visit ( term x -- outcome )
   case lf-decl-theorem of s" theorem" endof lf-decl-def of s" def" endof
     lf-decl-axiom of s" axiom" endof s" import-stub" rot endcase ;
 : lf-pf-kind? ( decl -- flag ) lf-fdecl-kind @ lf-decl-theorem lf-decl-stub between? ;
+: lf-pf-modifier ( decl -- ) lf-fdecl-protected @ if s" protected " lf-pp-put then ;
 : lf-pf-header ( decl -- outcome )
   dup lf-pf-kind? 0= if drop-invalid exit then
   dup lf-fdecl-name @ dup lf-pf-writable? 0= if 2drop outcome-unsupported exit then
-  0 lf-pf-open lf-pf-mark rot lf-fdecl-kind @ lf-pf-keyword lf-pp-put s"  " lf-pp-put
-  swap lf-pf-put-name lf-pf-unit outcome-ok ;
+  0 lf-pf-open lf-pf-mark rot dup lf-pf-modifier lf-fdecl-kind @ lf-pf-keyword lf-pp-put
+  s"  " lf-pp-put swap lf-pf-put-name lf-pf-unit outcome-ok ;
 : lf-pf-universe ( id -- outcome )
   dup lf-pf-writable? 0= if drop outcome-unsupported exit then
   2 lf-pf-open lf-pf-mark s" universe " lf-pp-put swap lf-pf-put-name lf-pf-unit

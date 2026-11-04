@@ -14,9 +14,13 @@
 \ - A constant's name T (resolveGlobalName): the first of P.T, for the
 \   current namespace P and each namespace around it, innermost first,
 \   that is a constant; otherwise T at the root and O.T for each open
-\   namespace O, which must all be the same constant. Lean then tries
-\   each candidate against the expected type; the authoring words have no
-\   types, so two candidates stop the run as ambiguous.
+\   namespace O, which must all be the same constant. Through a namespace
+\   (P.T or O.T) a T of one part never finds a protected constant. Lean
+\   then tries each candidate against the expected type; the authoring
+\   words have no types, so two candidates stop the run as ambiguous.
+\   Lean's aliases (export) and private names would add candidates; the
+\   words make neither (export stops as not supported yet), so here there
+\   are none.
 \ Names here are texts of parts joined by dots. Untrusted authoring code.
 \ State: two records and one store in the checker context: lfa-knowns
 \ (the namespaces known, by name, and a scratch text), lfa-spaces (the
@@ -168,9 +172,13 @@ lfa-space-capacity /lfa-space 0 context-store: lfa-spaces
 
 \ A constant's name, the current token, in the namespace p-addr p-u:
 \ first the namespaces around, innermost first; then the root and the
-\ namespaces open, which must agree.
-: lfa-const-in-space ( p-addr p-u -- decl true | false ) lfa-token 2swap lfa-joined
-  lfa-const-named ;
+\ namespaces open, which must agree. Through a namespace, a name of one
+\ part never finds a protected constant (Lean's resolveQualifiedName).
+: lfa-one-part? ( c-addr u -- flag ) tuck lfa-dot = ;
+: lfa-hidden? ( decl -- flag ) lfa-decl lf-fdecl-protected @ lfa-token lfa-one-part? and ;
+: lfa-const-in-space ( p-addr p-u -- decl true | false )
+  lfa-token 2swap lfa-joined lfa-const-named 0= if false exit then
+  dup lfa-hidden? if drop false else true then ;
 : lfa-const-around ( p-addr p-u -- decl true | false )
   begin dup while 2dup lfa-const-in-space if nip nip true exit then lfa-cut repeat
   2drop false ;
