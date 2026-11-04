@@ -11,7 +11,9 @@
 \ holds the verdicts, a record that cannot be saved is invalid, one that
 \ names its export is refused); and the reading of fuel amounts.
 \ tests/cli/test_leanforth.py runs the same through bin/leanforth, with
-\ the text printed, and replays records. Test-only; nothing here accepts
+\ the text printed, and replays records. print's codes and refusals (a
+\ declaration not accepted, a log truncated or kept without formulas).
+\ Test-only; nothing here accepts
 \ a theorem outside the code under test.
 include ../support/tester.fs
 include ../support/checks.fs
@@ -115,6 +117,50 @@ T{ rr-write -> outcome-invalid }T
 unhashed s" /dev/null" cli-record!
 T{ fixture cli-check hashed-bytes d0= rr-started? -> 0 false true }T
 cli-options
+
+\ print: the code of each kind of declaration printed (0 an outline; a
+\ declaration not accepted its outcome's code; a name no declaration has
+\ 4), one declaration by name, every step, and the log options left off.
+cli-options
+T{ composition cli-print fixture cli-print -> 0 0 }T
+T{ s" fixtureUse" cli-name! fixture cli-print -> 0 }T
+T{ s" noSuch" cli-name! fixture cli-print -> 4 }T
+cli-options cli-detail
+T{ composition cli-print -> 0 }T
+cli-options
+\ wrong has no manifest beside it; unfold's impliesSelf ends unknown.
+T{ wrong cli-print s" tests/cli/unfold.ndjson" cli-print -> 4 2 }T
+cli-no-manifest
+T{ wrong cli-print postulate cli-print loose cli-print -> 1 2 4 }T
+cli-options 0 cli-fuel!
+T{ fixture cli-print -> 3 }T
+cli-options
+T{ s" tests/cli/no-such.ndjson" cli-print -> 4 }T
+T{ lf-log-options lf-logopt-level @ -> 0 }T
+
+\ print's refusals, word by word: right after a check, pr-refusal is ok
+\ for an accepted declaration with a complete log at level terms; the
+\ outcome of one not accepted; full for a log truncated (here after 10
+\ records) or kept at level steps.
+: printed ( c-addr u -- )
+  rr-release cli-checked? rr-read-once drop 100000 lf-check-budget 64 lf-env-new drop
+  dup lf-env-use drop 0 pr-step drop 0 pr-refusal swap lf-env-free drop ;
+: at-limit ( records -- )
+  lf-log-terms lf-log-set lf-log-mark-capacity lf-log-term-capacity lf-log-level-capacity
+  lf-log-limits ;
+pr-log-on
+T{ composition printed -> outcome-ok }T
+10 at-limit
+T{ composition printed lf-log-complete? -> outcome-full false }T
+pr-log-on lf-log-steps lf-log-set
+T{ composition printed -> outcome-full }T
+pr-log-on
+: printed-plain ( c-addr u -- outcome ) cli-no-manifest printed cli-options ;
+T{ wrong printed-plain -> outcome-rejected }T
+lf-log-off lf-log-set lf-log-capacities lf-log-limits
+\ A declaration's name as text, and finding it.
+T{ fixture true rr-read-once s" fixturePoly" pr-find -> outcome-ok 1 true }T
+T{ s" fixture" pr-find 2 pr-name s" fixtureUse" compare -> false 0 }T
 
 \ Internal faults, each in a context of its own (a THROW in a check
 \ spends its context for good). Staging composition makes n allocations:

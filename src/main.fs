@@ -48,7 +48,9 @@ require ./program/ir-run.fs
 require ./present/term-printer.fs
 require ./present/proof-outline.fs
 
-\ The command line: check, count, reexport, version, capabilities. It
-\ loads the staging of exports into the checker's input, the counter, the
-\ re-exporter and the manifest check.
+\ The command line: check, replay, print, count, reexport, version,
+\ capabilities. It loads the staging of exports into the checker's input,
+\ the counter, the re-exporter, the manifest check and print's proof
+\ outlines (cli/print.fs).
+require ./cli/print.fs
 require ./cli/leanforth.fs
