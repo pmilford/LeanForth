@@ -99,6 +99,7 @@ require ../lib/lib.fs
 75 constant lf-diag-no-such-recursor   \ B3: the recursor's member, 0
 76 constant lf-diag-ctors-full         \ full: the block's constructors, capacity
 77 constant lf-diag-generated-recursor \ unknown: the name, the slot that holds it
+78 constant lf-diag-empty-block        \ rejected: the block's declaration, 0
 
 begin-structure /lf-diag
   field: lf-diag-code       \ reason code; lf-diag-none while clear
@@ -246,6 +247,7 @@ create lf-diag-catalogue
   lf-diag-ctors-full s" inductive block: too many constructors" lf-diag-entry,
   lf-diag-generated-recursor
     s" undecided: a constant Lean's kernel holds, no slot accepted" lf-diag-entry,
+  lf-diag-empty-block s" rejected: an inductive block without types" lf-diag-entry,
   lf-diag-none s" unknown code" lf-diag-entry,
 : lf-diag-end? ( code entry -- flag ) lf-diag-entry-code tuck = swap lf-diag-none = or ;
 \ The entry of code, or the last entry.

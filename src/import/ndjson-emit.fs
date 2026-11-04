@@ -389,11 +389,15 @@ create index-ie s" ie" counted,
 : block-start ( record -- )
   block-left @ if emit-invalid then
   dup elements-of block-left ! recursors-of left-recursors ! emit-types buffer-empty ;
-: block-line ( record -- outcome )
-  block-start s\" {\"inductive\":{\"ctors\":[" emit-out emit-bytes emit-status ;
 : block-end ( -- )
   s\" ],\"types\":[" emit-out emit-bytes emit-types buffer-text emit-out emit-bytes
   s" ]}}" emit-out emit-bytes line-done ;
+\ An empty block (ADR 0016 amendment 1) has no element to end its line:
+\ the line ends at once.
+: block-empty ( -- ) s\" ],\"recs\":[" emit-out emit-bytes block-end ;
+: block-line ( record -- outcome )
+  dup block-start s\" {\"inductive\":{\"ctors\":[" emit-out emit-bytes
+  elements-of 0= if block-empty then emit-status ;
 : element-done ( -- )
   -1 block-left +! block-left @
   dup left-recursors @ = if s\" ],\"recs\":[" emit-out emit-bytes then

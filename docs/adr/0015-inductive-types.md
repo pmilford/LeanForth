@@ -807,22 +807,21 @@ and its members' exported data into the input (`core/input.fs`,
    bits say which differ from LeanForth's); tasks 5.2.1b and 5.2.2, the
    first to read them, must use LeanForth's values.
 9. *A recursor missing from the block* (B4) is accepted, as Lean's replay
-   accepts it. Lean's kernel then holds the recursor it generated, which
-   LeanForth cannot publish (a slot is an input declaration, fixed when the
-   environment is made; the generated terms are the check's scratch), so
-   it reserves the name (review rvI21 B2, which found that a later
-   `def T.rec` was accepted where Lean answers `alreadyDeclared`): N2, the
-   publisher's re-check and the scheduler's readiness treat `T.rec` of an
-   earlier type `T` as declared when `T` is accepted (K5 when undecided or
-   unsupported), and `T.rec_<n>` likewise for a type not accepted; a later
-   use of it is *unknown* (diagnostic 77) where Lean would use its
-   kernel's recursor; and a file that uses it but declares it nowhere is
-   refused whole by the importer (*invalid*, before any check; this
-   corrects the earlier text, which said "rejected as an unknown
-   constant"). Only a tampered file can do any of this. *An empty block*
-   has no declaration to check: the reader refuses it (*invalid*). *A file
-   naming a constant it never declares* is refused by the importer
-   (*invalid*) before any check.
+   accepts it. Lean's kernel then holds the recursor it generated. Its
+   name is reserved (review rvI21 B2): N2, the publisher's re-check and the
+   scheduler's readiness treat `T.rec` of an earlier type `T` as declared
+   when `T` is accepted or added (decision 11; K5 when undecided or
+   unsupported), and `T.rec_<n>` likewise for a type not accepted. A later
+   use of it gets LeanForth's generated recursor, which is Lean's (decision
+   12), and a file that uses it but declares it nowhere is checked as Lean
+   checks it (ADR 0016 amendment 1; until then the importer refused it as
+   *invalid*). Only a tampered file can do any of this. *An empty block*
+   (no type, constructor or recursor) is staged by the importer as one
+   declaration without a name (ADR 0016 amendment 1), which the block
+   check rejects at step 4 as Lean's kernel does (`emptyBlock`,
+   diagnostic 78); the file goes on. *A file naming any other constant it
+   never declares*, or holding a block with no type but with constructors
+   or recursors, is refused by the importer (*invalid*) before any check.
 10. *Capacity.* A block of more than 512 constructors is *full*, found
     when it is opened, before anything is written for its constructors
     (review rvI21 B1). T1 also counts each constructor's binders, as
@@ -835,12 +834,34 @@ and its members' exported data into the input (`core/input.fs`,
     replay compares after its kernel added the block, so `T`, its
     constructors and `T.rec` are declared although the file's records are
     refused. The check marks such a block (`lf-env-added!`); the publisher
-    marks its type's and constructors' slots (not the file's recursors,
-    which the kernel may not have added); N2, the publisher's re-check and
-    the holders of `T.rec` count them as declared (*rejected*,
-    `alreadyDeclared`), and a later use is *unknown* (diagnostic 77), never
-    *rejected*, since Lean's later declarations meet the kernel's
-    constants. The block's own outcome stays *rejected*.
+    re-checks it as an accepted block and records its slots (declaration,
+    dependencies, axioms, the recipe of decision 12), and marks its type's
+    and constructors' slots added (not the file's recursors, which the
+    kernel may not have added), each constructor with the type's universe
+    parameters, as the kernel declares it. N2, the publisher's re-check and
+    the holders of `T.rec` count the names as declared (*rejected*,
+    `alreadyDeclared`); lookups find the added slots usable
+    (`lf-slot-usable?`), so a later use of the type, a constructor or
+    `T.rec` (decision 12) gets Lean's verdict (owner's condition of
+    2026-11-04: rows `after.b3-*`). The block's own outcome stays
+    *rejected*. Their types were checked by steps 1–12, so nothing from the
+    file is trusted that Lean does not trust.
+12. *The generated recursor for later declarations* (owner's condition of
+    2026-11-04). When no slot holds `T.rec` (the file left it out, or holds
+    a different or renamed one in a block rejected by B3), Lean's kernel
+    still holds the recursor it generated. The block check leaves a recipe
+    on the block's slots (`lf-env-recipe!`: the motive universe's name or
+    Prop, and whether the telescope it walked after whnf was the raw one);
+    a later lookup of `T.rec` resolves to the type's slot as the generated
+    recursor (`lf-env-genrec?`), and inference builds the recursor again in
+    its own scratch from the block's input and the recipe, with the same
+    builder (`generated-recursor.fs`, `inductive-recursor.fs`), then
+    applies L1 against its own universe parameters (the motive's first),
+    L2, the block as the dependency, and specializes its type. A block whose
+    telescope only whnf shows has no recipe, and a use of its `T.rec` stays
+    *unknown* (diagnostic 77); no such block is known. The P4 guard of
+    decision 6 is a temporary gap until task 5.2.2 (structure eta and
+    unit-like comparison): it can only turn *rejected* into *unknown*.
 
 **Evidence** (2026-11-04, Gforth 1.0.0, Lean 4.35.0):
 
@@ -866,9 +887,17 @@ and its members' exported data into the input (`core/input.fs`,
 - The review rvI21 (2026-11-04) added 19 rows (139 in all): its probes as
   Lean's replays, `optParam`/`outParam` fields, T0, T1 and N2 cases, and
   five rows of declarations after a block (decision 9). Its second round
-  added seven rows after a block (decision 11; 146 in all). Of task
-  5.2.1a's 70 rows, 62 give Lean's verdict and 8 are pending, each with
-  its reason; 47 planted faults are caught.
+  added seven rows after a block (decision 11; 146 in all). The owner's
+  condition (2026-11-04) added five more (151): uses after a block
+  rejected by B3 (the type, a constructor, `T.rec`, the renamed recursor)
+  and `T.rec` without its universe argument, with
+  `after.recursor-left-out-then-use-rec` and `after.b3-ctor-then-use` now
+  giving Lean's verdict (decisions 11, 12; ADR 0016 amendment 1). Of task
+  5.2.1a's 75 rows, 70 give Lean's verdict (27 accepted, 43 rejected, the
+  empty block among them since the importer stages it) and 5 are
+  pending, each naming the later task that closes it: 5.2.1b (four rows
+  using or redeclaring `Nat`) and 4.2.2 (one needing unfolding). 59
+  planted faults are caught.
 - `make test-check-block` (41 committed table files, 60 since the review; blocks published
   together; the reference export tampered field by field; fuel bisection;
   a full store), eighteen planted faults (`ind-*`) all caught, and the

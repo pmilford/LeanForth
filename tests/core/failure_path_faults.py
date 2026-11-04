@@ -31,9 +31,9 @@ COPIED = ["src", "tests/support", "tests/reference"]
 FAULTS = [
     ("publish before the final step: the slot marked final before its record",
      "src/kernel/env-publish.fs",
-     "lf-env-may-write lf-env-verdict dup ok? if drop lf-env-record then lf-env-final ;",
-     "lf-env-may-write lf-env-verdict 2dup lf-env-final drop dup ok?"
-     " if drop lf-env-record then lf-env-final ;"),
+     "lf-env-may-write lf-env-verdict dup lf-env-recorded? if lf-env-recorded then",
+     "lf-env-may-write lf-env-verdict 2dup lf-env-final drop dup lf-env-recorded?"
+     " if lf-env-recorded then"),
     ("publish before the final step: accepted before the comparison (step 8)",
      "src/kernel/check-declaration.fs",
      "  lf-check-steps# 0 ?do i lf-check-do",

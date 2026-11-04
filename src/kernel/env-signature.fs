@@ -31,6 +31,7 @@ require ../core/input.fs
 require ../core/levels.fs
 require ../core/terms.fs
 require ./environment.fs
+require ./generated-recursor.fs
 require ./mixed-level-substitute.fs
 
 lf-level-depth-limit context-walk: lf-envsig-walker
@@ -102,7 +103,7 @@ end-structure
   dup lf-envsig-root 0= if drop outcome-invalid exit then
   rot lf-idecl-params@ drop lf-envsig-actuals lf-mixed-level-substitute lf-envsig-left ;
 : lf-envsig-type ( d -- root identity fuel' 0 | status )
-  lf-env-accepted ok-then? if lf-slot-decl lf-envsig-instantiate then ;
+  lf-env-usable ok-then? if lf-slot-decl lf-envsig-instantiate then ;
 
 \ Constants a check declares itself before it uses them (plan task
 \ 5.2.1a): an inductive block's own type while its constructors are
@@ -120,9 +121,26 @@ defer lf-envsig-local ( name -- decl true | false )
 : lf-envsig-own ( decl -- root identity fuel' 0 | status )
   lf-envsig-arity-local ok-then? 0= if exit then
   lf-envsig-scoped ok-then? 0= if exit then lf-envsig-instantiate ;
+\ Lean's generated recursor of the block whose type is slot d, which no
+\ slot holds (ADR 0015 decision 12): built again in this check's scratch
+\ (generated-recursor.fs, on the request's fuel), then L1 against its own
+\ universe parameters, L2, the block as the dependency, and its type
+\ specialized as a stored one's.
+: lf-envsig-gen-arity ( -- outcome )
+  lf-envsig-count lf-genrec-params nip 2dup = if 2drop outcome-ok
+  else lf-env-arity-rejected then ;
+: lf-envsig-gen-type ( -- root identity fuel' 0 | status )
+  lf-genrec-root dup lf-term-identity 0= if drop outcome-invalid exit then
+  lf-genrec-params drop lf-envsig-actuals lf-mixed-level-substitute lf-envsig-left ;
+: lf-envsig-generated ( d -- root identity fuel' 0 | status )
+  dup lf-envsig-fuel @ lf-genrec swap lf-envsig-fuel ! ok-then? 0= if exit then
+  lf-envsig-gen-arity dup ok? 0= if nip exit then drop
+  lf-envsig-scoped ok-then? 0= if exit then lf-envsig-record ok-then? 0= if exit then
+  drop lf-envsig-gen-type ;
 : lf-envsig-run ( -- root identity fuel' 0 | status )
   lf-envsig-request lf-esreq-name @ dup lf-envsig-local if nip lf-envsig-own exit then
   lf-env-lookup ok-then? 0= if exit then
+  lf-env-genrec? if lf-envsig-generated exit then
   lf-envsig-arity ok-then? 0= if exit then lf-envsig-scoped ok-then? 0= if exit then
   lf-envsig-record ok-then? 0= if exit then lf-envsig-type ;
 

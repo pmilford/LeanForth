@@ -230,13 +230,21 @@ T{ ex export-decls @ -> 7 }T
 \ A bad block hands nothing over, not even the block's own record.
 : bad-block ( c-addr u c-addr u c-addr u -- outcome )
   0 calls ! block-of feed ex export-decls @ 7 <> calls @ 0<> or if drop -9 then ;
-T{ s" " s" " s" " bad-block why s" inductive block without types" compare -> outcome-invalid 0 }T
+\ No type, but a constructor or a recursor: malformed.
+T{ ctor-json s" " s" " bad-block why s" inductive block without types" compare
+   -> outcome-invalid 0 }T
+T{ s" " rec-json s" " bad-block why s" inductive block without types" compare
+   -> outcome-invalid 0 }T
 T{ ctor-json rec-json s" 1" bad-block -> outcome-invalid }T
 T{ ctor-json s\" {\"all\":[1]}" type-json bad-block -> outcome-invalid }T
 T{ s\" {\"cidx\":0,\"induct\":0,\"isUnsafe\":false,\"levelParams\":[],\"name\":2,\"numFields\":2,\"numParams\":1,\"type\":3}"
    rec-json type-json bad-block -> outcome-invalid }T
 T{ ctor-json s\" {\"all\":[1],\"isUnsafe\":false,\"k\":true,\"levelParams\":[3],\"name\":4,\"numIndices\":0,\"numMinors\":1,\"numMotives\":1,\"numParams\":1,\"rules\":[{\"ctor\":2,\"nfields\":2,\"rhs\":13}],\"type\":0}"
    type-json bad-block failed-field s" rhs" compare -> outcome-invalid 0 }T
+\ An empty block (no type, constructor or recursor) is read and handed
+\ over alone: Lean's kernel rejects such a declaration (emptyBlock), and
+\ the importer stages it for the checker to say so (ADR 0016 amendment 1).
+T{ 0 calls ! s" " s" " s" " block-of feed calls @ ex export-decls @ -> outcome-ok 1 8 }T
 
 \ Handlers: a missing one is unsupported; their outcomes stop reading, with
 \ a reason and no field left over from decoding.
@@ -283,7 +291,7 @@ T{ ' reaches-two app-handler app-13 ' feed catch nip nip ex export-exprs @ victi
 T{ 77 ' reaches-three app-handler app-13 feed ex export-exprs @ victim @
    -> victim outcome-ok 14 0 }T
 T{ 77 ' reaches-three kind-thm ex export-handler ! plain-thm feed ex export-decls @
-   -> victim outcome-ok 8 }T
+   -> victim outcome-ok 9 }T
 T{ victim @ ' capture kind-thm ex export-handler ! -> 0 }T
 \ export-restart starts again; then 13 sorts again.
 T{ ex export-restart ex export-busy @ ex export-exprs @ -> 0 0 }T
