@@ -57,12 +57,12 @@ end-structure
 \ The host's recognizer. Gforth 1.0's interpreter recognizes more than
 \ words and numbers ("x" strings, ->x and 'x forms, ${NAME} ...), and
 \ some of those act at once; while a proof runs it recognizes only a word
-\ of the search order or a plain decimal. Hosts without recognizers
-\ (Gforth 0.7.3, Forth-2012) convert numbers in more forms, which the
-\ words refuse (groups.fs).
+\ of the search order or a string of digits. Hosts without recognizers
+\ (Gforth 0.7.3, Forth-2012) convert numbers in more forms. On every host
+\ the words then refuse each number that is no plain decimal (groups.fs).
 [defined] rec-forth [if]
 : lfa-decimal ( c-addr u -- translation )
-  2dup lfa-plain-decimal? if rec-number else 2drop translate-none then ;
+  2dup dup 0<> -rot lfa-digits? and if rec-number else 2drop translate-none then ;
 : lfa-recognize ( c-addr u -- translation )
   2dup rec-name dup translate-none = if drop lfa-decimal else 2swap 2drop then ;
 : lfa-recognizer! ( -- )

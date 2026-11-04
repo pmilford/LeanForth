@@ -4,7 +4,7 @@
 Usage (from the repository root; GFORTH and LEAN name the toolchains):
   python3 tests/author/check_author.py            golden, round trips, catalogue, layering
   python3 tests/author/check_author.py --write    regenerate tests/author/fixtures.golden
-  python3 tests/author/check_author.py --lean     the lean: lines against pinned Lean's #print
+  python3 tests/author/check_author.py --lean     the terms and the lean: lines against Lean
   python3 tests/author/check_author.py --faults   planted faults (needs Lean too)
 
 1. Golden: tests/author/report.fs runs every fixture tests/author/*.lf; the
@@ -22,12 +22,23 @@ Usage (from the repository root; GFORTH and LEAN name the toolchains):
    (tests/reference/*.ndjson, corpus-lean.fs): print as words, run in a new
    context, compare the terms and the printed text.
 5. --lean: for each fixture with a Lean source tests/reference/author-STEM.lean,
-   pinned Lean (-DwarningAsError=true) prints every declaration; its output
-   must equal the fixture's lean: lines, apart from the differences listed in
-   KNOWN, each with its reason.
-6. --faults: each planted fault, in a copy of src/, must change a round trip
-   or a lean: line compared with Lean; the spelling check disabled must be
-   caught by the Lean comparison (the round trip cannot see it, ADR 0017 §13).
+   pinned Lean (-DwarningAsError=true) compiles it, and the pinned exporter
+   (lean4export 3.1.0, the toolchain's leanexport) exports every declaration
+   the fixture makes, with their dependencies. Term for term (lean_terms.py):
+   each theorem, definition and axiom must have exactly Lean's universe
+   parameters, statement and proof (every node, index, constant, universe
+   argument, level, binder name and binder kind; dump.fs's format), and
+   each import stub Lean's universe parameters and, when it states one,
+   Lean's type. As text: Lean's #print of every declaration must equal the
+   fixture's lean: lines, apart from the differences listed in KNOWN, each
+   with its reason.
+6. --faults: each planted fault, in a copy of src/, must be caught: a unit
+   test of tests/author/author.fs fails, or a fixture's output changes (a
+   round trip, a term or a lean: line compared with Lean, or a fixture that
+   no longer runs). Faults that only Lean can see must be caught by the
+   comparison with Lean: the spelling check disabled (the round trip cannot
+   see it, ADR 0017 §13) and every universe argument 0 (the printed text
+   hides universe arguments).
 Finite evidence about these files; it never accepts a theorem.
 """
 import os
@@ -37,6 +48,9 @@ import shutil
 import subprocess
 import sys
 import tempfile
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from lean_terms import ExportError, compile_and_export, structural  # noqa: E402
 
 GFORTH = os.environ.get("GFORTH", "gforth")
 if "/" in GFORTH:  # the planted faults run Gforth in a copy of the tree
@@ -57,25 +71,78 @@ KNOWN = {
     },
 }
 
-# (name, file, old text, new text): one deliberate bug each.
+# (name, who must catch it, [(file, old text, new text), ...]): one deliberate
+# bug each. "any": a unit test or a fixture's output; "lean": the comparison
+# with Lean. The faults after the first seven each undo one fix of the
+# review of 2026-11-03 (findings 1-7).
+VALUES = "src/author/values.fs"
+GROUPS = "src/author/groups.fs"
+SPACES = "src/author/namespaces.fs"
+DECLS = "src/author/declarations.fs"
+PRINT = "src/present/print-forth.fs"
 FAULTS = [
-    ("implicit kind lost", "src/present/print-forth.fs",
-     'lf-binder-implicit of s" implicit:"', 'lf-binder-implicit of s" explicit:"'),
-    ("-> for a used binder", "src/present/print-forth.fs",
-     "lf-term-second@ 0 lf-pp-loose? >r 0= r> ;", "drop true outcome-ok ;"),
-    ("universe arguments dropped", "src/present/print-forth.fs",
-     "lf-pp-const-levels 0= if outcome-invalid exit then",
-     "drop outcome-ok exit lf-pp-const-levels 0= if outcome-invalid exit then"),
-    ("labels and notes not printed", "src/present/print-forth.fs",
-     "dup ok? if over lf-pf-notes then nip ;", "nip ;"),
-    ("$ swaps function and argument", "src/author/words.fs",
-     ": lfa-two-terms ( a b -- ta tb ) swap lfa>term swap lfa>term ;",
-     ": lfa-two-terms ( a b -- ta tb ) lfa>term swap lfa>term ;"),
-    ("-> does not shift", "src/author/build.fs",
-     "over lf-term-first@ swap < if exit then", "drop exit"),
-    ("spelling check ignored", "src/author/groups.fs",
-     "if swap lfa-key-spelling rot lfa-spelling compare 0= else 2drop false then ;",
-     "if 2drop true else 2drop false then ;"),
+    ("implicit kind lost", "any",
+     [(PRINT, 'lf-binder-implicit of s" implicit:"', 'lf-binder-implicit of s" explicit:"')]),
+    ("-> for a used binder", "any",
+     [(PRINT, "lf-term-second@ 0 lf-pp-loose? >r 0= r> ;", "drop true outcome-ok ;")]),
+    ("universe arguments dropped", "any",
+     [(PRINT, "lf-pp-const-levels 0= if outcome-invalid exit then",
+       "drop outcome-ok exit lf-pp-const-levels 0= if outcome-invalid exit then")]),
+    ("labels and notes not printed", "any",
+     [(PRINT, "drop dup lf-pf-node ok-then? if lf-pf-notes then ;", "drop lf-pf-node ;")]),
+    ("$ swaps function and argument", "any",
+     [("src/author/words.fs", ": lfa-two-terms ( a b -- ta tb ) swap lfa>term swap lfa>term ;",
+       ": lfa-two-terms ( a b -- ta tb ) lfa>term swap lfa>term ;")]),
+    ("-> does not shift", "any",
+     [("src/author/build.fs", "over lf-term-first@ swap < if exit then", "drop exit")]),
+    ("spelling check ignored", "lean",
+     [(GROUPS, "if swap lfa-key-spelling rot lfa-spelling compare 0= else 2drop false then ;",
+       "if 2drop true else 2drop false then ;")]),
+    ("1: a value used twice", "any",
+     [(VALUES, "  dup lfa-item-taken @ 0= lfa-e-not-value lfa-must true over lfa-item-taken ! ;",
+       "  ;")]),
+    ("1: a variable used outside its binder", "any",
+     [(VALUES, ": lfa-in-scope ( slot -- slot ) dup lfa-depth < lfa-e-not-value lfa-must ;",
+       ": lfa-in-scope ( slot -- slot ) ;")]),
+    ("2: a dotted declaration's body outside its namespace", "lean",
+     [(DECLS, "lfa-inside? if lfa-full lfa-cut else lfa-current-space\n  then ;",
+       "lfa-current-space ;")]),
+    ("2: the root and open namespaces before the namespace around", "lean",
+     [(SPACES, "  lfa-const-around if true exit then lfa-const-open",
+       "  2drop lfa-const-open")]),
+    ("3: names that are numbers", "any",
+     [(SPACES, ": lfa-part-ok? ( c-addr u -- flag ) dup 0<> >r lfa-number-like? 0= r> and ;",
+       ": lfa-part-ok? ( c-addr u -- flag ) nip 0<> ;"),
+      (GROUPS, "  2dup lfa-number-like? 0= lfa-e-bad-name lfa-must\n", ""),
+      (DECLS, "0<> -rot lfa-number-like? 0= and ;", "0<> nip nip ;")]),
+    ("4: numbers not checked before a word or at the end of a line", "any",
+     [(GROUPS, "  lfa-unread-to lfa-stray dup 0= if 2drop exit then\n"
+               "  2dup lfa-token! lfa-stray-code lfa-fail ;", "  drop ;")]),
+    ("4: Gforth 1.0's recognizers left as they are", "any",
+     [("src/author/runner.fs", "['] lfa-recognize is rec-forth ;", ";")]),
+    ("5: an unclosed ( comment", "any",
+     [("src/author/words.fs", "[char] ) parse lfa-closed? lfa-e-comment-end lfa-must",
+       "[char] ) parse 2drop")]),
+    ("5: leading zeros in numeric name parts", "any",
+     [(DECLS, "  2dup lfa-leading-zero? 0= lfa-e-bad-name lfa-must\n", "")]),
+    ("5: declarations not told apart by name", "any",
+     [(DECLS, "  lfa-decl-count 0 ?do dup i lfa-decl-name = if drop true unloop exit then loop"
+              " drop\n  false ;", "  drop false ;")]),
+    ("5: labels and notes printed whatever their text", "any",
+     [(PRINT, "  dup lf-pf-spellable-note? 0= if drop outcome-unsupported exit then\n", "")]),
+    ("6: a long line reported at the line before", "any",
+     [("src/author/runner.fs",
+       "  lfa-line! lfa-the-line lfa-next-token lfa-token! 2drop lfa-e-line lfa-fail ;",
+       "  2drop lfa-e-line lfa-fail ;")]),
+    ("6: an unknown token reported after the number-like ones", "any",
+     [(GROUPS, "2dup lfa-plain-decimal? 0= if 2swap 2drop exit then",
+       "2dup lfa-number-like? 0= if 2swap 2drop exit then")]),
+    ("6: a value left below the parameters", "any",
+     [(DECLS, ": lfa-params-tight ( -- ) lfa-depth 0 ?do i lfa-no-gap loop ;",
+       ": lfa-params-tight ( -- ) ;")]),
+    ("7: every universe argument is 0", "lean",
+     [(VALUES, "  >r dup lf-level-identity drop swap lfa-sought-ref lfa-ref-pairs",
+       "  >r drop 0 dup lf-level-identity drop swap lfa-sought-ref lfa-ref-pairs")]),
 ]
 
 
@@ -205,17 +272,79 @@ def check_corpus():
           f"{len(fixtures)} Lean exports give the same terms and text")
 
 
-def lean_lines(stem, workdir):
-    source = pathlib.Path(f"tests/reference/author-{stem}.lean")
-    run = subprocess.run([LEAN, "-DwarningAsError=true", str(source)], capture_output=True,
-                         text=True, timeout=300)
-    if run.returncode != 0:
-        raise Failure(f"Lean failed on {source}:\n{run.stdout}{run.stderr}")
-    return run.stdout.splitlines()
-
-
 def forth_lean(text):
     return [line[len("lean: "):] for line in text.splitlines() if line.startswith("lean: ")]
+
+
+STUB = 3  # lf-decl-stub: an import stub stands for a constant of any kind
+
+
+def forth_terms(text):
+    """The fixture's declarations from its term: lines (dump.fs, without notes):
+    name -> (kind, universe names, type, value)."""
+    lines = [line[len("term: "):] for line in text.splitlines() if line.startswith("term: ")]
+    decls = {}
+    for head, type_, value in zip(lines[0::3], lines[1::3], lines[2::3]):
+        kind, name, *universes = head.split(" ")
+        decls[name] = (int(kind), [u[len("u:"):] for u in universes],
+                       type_[len("  type "):], value[len("  value "):])
+    return decls
+
+
+def term_parts(forth, lean, same):
+    """(what, Forth's, Lean's) for each part compared; same maps a term to
+    the form compared (exact, or structural for the exporter's)."""
+    kind, universes, type_, value = forth
+    lean_kind, lean_universes, lean_type, lean_value = lean
+    parts = [("universe parameters", universes, lean_universes)]
+    if kind != STUB:
+        parts += [("kind", kind, lean_kind), ("type", same(type_), same(lean_type)),
+                  ("value", same(value), same(lean_value))]
+    elif type_ != "none":
+        parts.append(("type", same(type_), same(lean_type)))
+    return parts
+
+
+# A binder name a fixture uses where Lean's source has another, with the reason.
+KNOWN_NAMES = {
+    "12-hygienic-used": {
+        "P._@.Main._hyg.#3":
+            ("P", "the fixture gives a used binder a hygienic name, as Lean's elaborator "
+                  "makes them, to test that the printer keeps it; Lean source cannot "
+                  "write such a name"),
+    },
+}
+
+
+def known_names(stem, decl):
+    """decl with each binder name of KNOWN_NAMES[stem] read as Lean's."""
+    kind, universes, type_, value = decl
+    for old, (new, _) in KNOWN_NAMES.get(stem, {}).items():
+        type_, value = (re.sub(r"\((lam|pi) " + re.escape(old) + " ", rf"(\1 {new} ", term)
+                        for term in (type_, value))
+    return kind, universes, type_, value
+
+
+def compare_terms(stem, forth, lean):
+    """Where the words' declarations differ from Lean's, term for term: from
+    Lean's environment exactly, and from the pinned export apart from binder
+    names and kinds (which the exporter merges)."""
+    _, dumps, exported = lean
+    differ = []
+    for name, decl in forth.items():
+        decl = known_names(stem, decl)
+        for source, ref, same in (("Lean", dumps, lambda t: t),
+                                  ("Lean's export", exported, structural)):
+            differ += [f"{stem}: {name}: {what}\n  {source}: {want}\n  Forth: {got}"
+                       for what, got, want in term_parts(decl, ref[name], same) if got != want]
+    return differ
+
+
+def compared_terms(forth):
+    """The number of declarations and of terms (types and values) compared."""
+    terms = sum((kind != STUB or type_ != "none") + (kind != STUB)
+                for kind, _, type_, _ in forth.values())
+    return len(forth), terms
 
 
 def compare(stem, lean, forth):
@@ -230,62 +359,109 @@ def compare(stem, lean, forth):
     return differ
 
 
-def lean_reference():
-    stems = [path.stem for path in fixtures()
-             if pathlib.Path(f"tests/reference/author-{path.stem}.lean").exists()]
+def lean_reference(texts):
+    """For each fixture with a Lean source: Lean's #print lines, and Lean's
+    exported declarations of the names the fixture declares (the fixture
+    must have run)."""
+    reference = {}
     with tempfile.TemporaryDirectory() as workdir:
-        return {stem: lean_lines(stem, workdir) for stem in stems}
+        for path in fixtures():
+            source = pathlib.Path(f"tests/reference/author-{path.stem}.lean")
+            if not source.exists():
+                continue
+            names = list(forth_terms(texts[path.stem]))
+            if not names:
+                raise Failure(f"{path.stem}: the fixture did not run; nothing to compare")
+            try:
+                printed, dumps, export = compile_and_export(LEAN, source, names, workdir)
+                exported = {name: export.declaration(name) for name in names}
+            except ExportError as error:
+                raise Failure(str(error)) from error
+            reference[path.stem] = (printed, dumps, exported)
+    return reference
+
+
+def lean_differences(stem, reference, text):
+    printed = reference[stem][0]
+    return (compare(stem, printed, forth_lean(text)),
+            compare_terms(stem, forth_terms(text), reference[stem]))
 
 
 def check_lean():
-    reference = lean_reference()
     texts = outputs()
-    lines = 0
-    for stem, lean in reference.items():
-        differ = compare(stem, lean, forth_lean(texts[stem]))
-        if differ:
-            raise Failure("lean: lines differ from pinned Lean:\n" + "\n".join(differ))
-        lines += len(lean)
+    reference = lean_reference(texts)
+    lines = decls = terms = 0
+    for stem, (printed, _, _) in reference.items():
+        differ_text, differ_terms = lean_differences(stem, reference, texts[stem])
+        if differ_terms:
+            raise Failure("terms differ from pinned Lean's export:\n" + "\n".join(differ_terms))
+        if differ_text:
+            raise Failure("lean: lines differ from pinned Lean:\n" + "\n".join(differ_text))
+        counted = compared_terms(forth_terms(texts[stem]))
+        decls, terms, lines = decls + counted[0], terms + counted[1], lines + len(printed)
     known = sum(len(v) for v in KNOWN.values())
-    print(f"authoring words agree with pinned Lean's #print: {lines} lines of "
-          f"{sum(1 for _ in reference)} fixtures ({known} known printer difference, "
-          "listed with its reason)")
+    print(f"authoring words build Lean's terms, term for term: {decls} declarations, "
+          f"{terms} statements and proofs, of {len(reference)} fixtures, equal to Lean's own "
+          "(binder names and kinds included) and to the pinned export (apart from binder "
+          "names and kinds, which the exporter merges)")
+    print(f"authoring words agree with pinned Lean's #print: {lines} lines "
+          f"({known} known printer difference, listed with its reason)")
 
 
 def planted(root, fault):
-    name, path, old, new = fault
-    target = root / path
-    text = target.read_text(encoding="utf-8")
-    if text.count(old) != 1:
-        raise Failure(f"fault {name}: the text to replace is not in {path} exactly once")
-    target.write_text(text.replace(old, new), encoding="utf-8")
-    return target, text
+    """Plant a fault's edits in the copy; the original texts, to restore."""
+    name, _, edits = fault
+    originals = {}
+    for path, old, new in edits:
+        target = root / path
+        text = target.read_text(encoding="utf-8")
+        if text.count(old) != 1:
+            raise Failure(f"fault {name}: the text to replace is not in {path} exactly once")
+        originals.setdefault(target, text)
+        target.write_text(text.replace(old, new), encoding="utf-8")
+    return originals
+
+
+def unit_tests_fail(root):
+    run = subprocess.run([GFORTH, "tests/author/author.fs"], cwd=root, stdin=subprocess.DEVNULL,
+                         capture_output=True, timeout=120)
+    return run.returncode != 0
+
+
+def fault_caught(fault, root, clean, reference):
+    """What catches a planted fault: a list of findings, empty if nothing."""
+    name, catcher, _ = fault
+    if catcher == "any" and unit_tests_fail(root):
+        return ["a unit test fails"]
+    texts = outputs(root)
+    lean = [stem for stem in reference if texts[stem].startswith("ran: ok")
+            and any(lean_differences(stem, reference, texts[stem]))]
+    lean_found = [f"terms or #print differ from Lean's: {lean}"] if lean else []
+    if catcher == "lean":
+        return lean_found
+    return lean_found + [f"{stem}'s output changed" for stem in texts if texts[stem] != clean[stem]]
 
 
 def check_faults():
-    reference = lean_reference()
+    clean = outputs()
+    reference = lean_reference(clean)
     with tempfile.TemporaryDirectory() as workdir:
         root = pathlib.Path(workdir)
         shutil.copytree("src", root / "src")
         shutil.copytree(HERE, root / "tests/author")
+        shutil.copytree("tests/support", root / "tests/support")
         caught = 0
         for fault in FAULTS:
-            target, original = planted(root, fault)
-            texts = outputs(root)
-            target.write_text(original, encoding="utf-8")
-            trips = sum(1 for text in texts.values() for line in text.splitlines()
-                        if line.startswith("round trip:") and line != SAME)
-            ran = [stem for stem in reference if texts[stem].startswith("ran: ok")]
-            changed = [stem for stem in ran
-                       if compare(stem, reference[stem], forth_lean(texts[stem]))]
-            stopped = len(reference) - len(ran)
-            print(f"fault {fault[0]}: round trips differing {trips}; fixtures that still run "
-                  f"but print differently from Lean {len(changed)} {changed}; "
-                  f"fixtures that no longer run {stopped}")
-            if fault[0] == "spelling check ignored" and not changed:
-                raise Failure("the spelling fault was not caught by the Lean comparison")
-            if trips + len(changed) + stopped == 0:
-                raise Failure(f"fault {fault[0]} was not caught")
+            originals = planted(root, fault)
+            try:
+                found = fault_caught(fault, root, clean, reference)
+            finally:
+                for target, text in originals.items():
+                    target.write_text(text, encoding="utf-8")
+            print(f"fault {fault[0]}: {'; '.join(found[:3]) or 'NOT CAUGHT'}")
+            if not found:
+                by = "by the comparison with Lean " if fault[1] == "lean" else ""
+                raise Failure(f"fault {fault[0]} was not caught {by}")
             caught += 1
     print(f"planted faults: {caught} of {len(FAULTS)} caught")
 

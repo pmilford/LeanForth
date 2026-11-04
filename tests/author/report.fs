@@ -5,6 +5,9 @@
 \     printer's Unicode mode), compared with pinned Lean by check_author.py;
 \   type: each import stub's type, in the same notation;
 \   note: each note with the label of its step and its line;
+\   term: every declaration as a tree dump without labels and notes
+\     (dump.fs), compared term for term with pinned Lean's export of the
+\     same declarations by check_author.py (lean_terms.py);
 \   words: every declaration printed as LeanForth words (print-forth.fs);
 \   round trip: the printed words run again, in a new checker context,
 \     and printed again: the terms (with binder names and kinds, levels,
@@ -103,9 +106,18 @@ variable trip
 : .printed ( -- )
   ." words:" cr ['] type lf-print-unicode lf-print-setup print-fuel lf-author-print dup ok?
   if drop else cr ok! cr then ;
+\ The dump without labels and notes, each line starting with term: .
+variable line-start
+: term-out ( c-addr u -- )
+  bounds ?do line-start @ if ." term: " then i 1 type i c@ 10 = line-start ! loop ;
+: .terms ( -- )
+  ['] term-out is dump-out false dump-notes? ! true line-start !
+  lf-author-count 0 ?do i lf-author-decl dump-decl loop
+  ['] capture is dump-out true dump-notes? ! ;
 : report-run ( -- )
   ['] type lf-print-unicode lf-print-setup
-  lf-author-count 0 ?do i lf-author-decl .declaration i .notes loop .printed round-trip ;
+  lf-author-count 0 ?do i lf-author-decl .declaration i .notes loop .terms .printed
+  round-trip ;
 : report ( c-addr u -- )
   lf-author-begin lf-author-file dup ok?
   if drop ." ran: ok" cr report-run exit then

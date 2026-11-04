@@ -8,11 +8,11 @@ import-stub Nat end Nat
 import-stub id
   universe u
   u Sort implicit: α
-  α α ->
+  α explicit: a  α forall
 end id
 import-stub Id
   universe u
-  u Type u Type ->
+  u Type explicit: type  u Type forall
 end Id
 
 def caseVar

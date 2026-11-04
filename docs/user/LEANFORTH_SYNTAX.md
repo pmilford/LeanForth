@@ -258,7 +258,7 @@ import stubs stand in for Lean's core library:
 leanforth
 import-stub Nat end Nat
 import-stub instAddNat end instAddNat
-import-stub instHAdd  universe u  end instHAdd
+import-stub instHAdd  universe u_1  end instHAdd
 import-stub HAdd  universe u  universe v  universe w  end HAdd
 import-stub outParam  universe u  end outParam
 import-stub Nat.add_comm end Nat.add_comm

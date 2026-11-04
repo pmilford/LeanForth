@@ -1,0 +1,35 @@
+\ Which constant a name means, as Lean resolves it (src/author/namespaces.fs):
+\ the namespace around wins, innermost first, over the root and the open
+\ namespaces; a dotted declaration name puts its body in its namespace;
+\ namespace A.B is two scopes; open Z opens Y.Z when Y is open.
+\ Lean: tests/reference/author-16-namespaces.lean (the same declarations).
+def c  0 Type := Prop end c
+def A.c  0 Type := Prop end A.c
+def A.B.c  0 Type := Prop end A.B.c
+def X.c  0 Type := Prop end X.c
+def X.d  0 Type := Prop end X.d
+def Y.Z.h  0 Type := Prop end Y.Z.h
+
+namespace A
+def t1  0 Type := c end t1              \ A.c: the namespace around wins
+end A
+def A.t2  0 Type := c end A.t2          \ A.c: a dotted name's body is in A
+namespace A
+def B.t3  0 Type := c end B.t3          \ A.B.c
+def B.t4  0 Type := B.c end B.t4        \ A.B.c
+end A
+namespace A.B
+def t5  0 Type := c end t5              \ A.B.c
+end B
+def t6  0 Type := c end t6              \ A.c: end B left namespace A open
+end A
+namespace A
+open X
+def t7  0 Type := c end t7              \ A.c, not X.c
+def t8  0 Type := d end t8              \ X.d, through open X
+end A
+namespace W
+open Y
+open Z
+def t9  0 Type := h end t9              \ Y.Z.h: open Z opened Y.Z
+end W
