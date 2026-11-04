@@ -1388,7 +1388,7 @@ id = "pv-crlf-kept"
 file = "src/program/verify-runner.fs"
 old = '''  pv-rest nip 0= if false exit then pv-split if text-cr-drop then true ;'''
 new = '''  pv-rest nip 0= if false exit then pv-split drop true ;'''
-test = "python3 tests/program/verify_check.py"
+test = "$GFORTH tests/program/verify.fs"
 reason = "the CR of a CRLF line end in text is kept, so a text Gforth loads is refused, unlike today's reader"
 
 [[fault]]

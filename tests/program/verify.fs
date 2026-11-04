@@ -87,6 +87,9 @@ T{ transcript-text s" lf-ir 0.1|source t.fs|word double @1:1|  prim dup @1:22|" 
    -> true true }T
 T{ s" 3 constant three  : f three ;" both -> outcome-ok 0 1 0 true }T
 T{ transcript-text s" |constant three @1:12|  lit 3 @1:1|end @1:12|" contains? -> true }T
+\ Text lines end at LF; a CR just before it is dropped, any other refused.
+T{ s\" : f 1 ;\r\n: g f ;\r\n" both -> outcome-ok 0 2 0 true }T
+T{ s\" : f 1 ;\r\r\n" both -> outcome-unsupported pv-why-character 1 8 true }T
 T{ s" : f   foo ;" both -> outcome-unsupported pv-why-unknown 1 7 true }T
 T{ transcript-text s" |unsupported @1:7: not a known word or 32-bit decimal: foo|"
    contains? -> true }T
