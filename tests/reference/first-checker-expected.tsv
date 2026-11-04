@@ -35,6 +35,8 @@ poly-identity.swapped-universe	declTypeMismatch	rejected	D1
 poly-identity.theorem-over-sort-u	thmTypeIsNotProp	rejected	S3
 poly-identity.definition-over-sort-u	accepted	accepted	A1
 poly-identity.equal-universe-other-spelling	accepted	unknown	K4
+poly-identity.proof-irrelevance-imax	accepted	unknown	K2
+poly-identity.proof-irrelevance-max-zero	accepted	unknown	K2
 constant.fixtureId	accepted	accepted	A1
 constant.fixturePoly	accepted	accepted	A1
 constant.fixtureUse	accepted	accepted	A1

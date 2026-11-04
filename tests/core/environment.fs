@@ -306,11 +306,13 @@ T{ 0 lf-env-outcome 1 lf-env-outcome 8 lf-env-outcome 21 lf-env-outcome -> outco
 T{ pool-count -> 0 }T
 env-free
 \ A THROW in the publisher before the final mark: the step is a fault, the
-\ slot is not final and cleared, the pool rolled back, nothing else
-\ changed, the input unchanged.
+\ slot is not final and cleared (outcome invalid, every other field zero),
+\ the pool rolled back, nothing else changed, the input unchanged.
 variable throw-at
 : throw-hook ( -- ) lf-env-limit throw-at @ = if -77 throw then ;
-: cleared? ( d -- flag ) slot@ /lf-slot 1 cells / cells-zero? ;
+: cleared? ( d -- flag )
+  dup slot@ dup lf-slot-state @ 0= swap lf-slot-outcome @ outcome-invalid = and
+  swap slot-tail cells-zero? and ;
 : throw-step ( d -- flag )
   ['] syn-check over lf-env-step true = swap outcome-invalid = and swap cleared? and ;
 : unchanged? ( -- flag )
@@ -370,6 +372,7 @@ header-digest constant header-then
 2 lf-env-begin drop syn-check
 1 lf-owner !
 T{ 2 slot@ -77 ' lf-env-unpublish catch nip nip refused? -> true }T
+T{ 1 slot@ -77 ' lf-env-unpublish catch nip nip refused? -> true }T
 T{ 2 slot@ ' lf-env-guarded catch nip refused? 2 slot@ ' lf-env-write catch nip refused? -> true true }T
 T{ 2 slot@ outcome-ok ' lf-env-final catch nip nip refused? -> true }T
 T{ 0 2 slot@ ' lf-slot-fill catch nip nip refused? 2 slot@ ' lf-slot-input! catch nip refused? -> true true }T
@@ -378,10 +381,23 @@ T{ 7 pool ' lf-pool-put catch nip nip refused? -> true }T
 T{ lf-env ' lf-env-forget catch nip refused? lf-env ' lf-env-fields catch nip refused? -> true true }T
 T{ lf-env ' lf-env-identity+ catch nip refused? 8 lf-env ' lf-env-made catch nip nip refused? -> true true }T
 T{ n.A 1 lf-env-ready? -> false }T
+\ The undo words (M1): undoing the open slot 2 or the final slot 1 is
+\ refused; ending a publication of 2 is refused before it records
+\ anything, and of the final slot 1 too; marking the pool is refused.
+: marked-ior ( -- ior ) ['] lf-env-marked? catch dup 0= if nip then ;
+T{ 2 slot@ ' lf-env-undo catch nip refused? 1 slot@ ' lf-env-undo catch nip refused? -> true true }T
+lf-diag-clear
+T{ outcome-ok 2 slot@ ' lf-env-unfinished catch nip nip refused? lf-diag-code@ -> true lf-diag-none }T
+T{ outcome-ok 1 slot@ ' lf-env-ended catch nip nip refused? marked-ior refused? -> true true }T
 0 lf-owner !
 T{ n.A 1 lf-env-ready? env-digest digest-then = pool-count lf-env-serial @ serial-then = -> true true 1 true }T
-T{ header-digest header-then = -> true }T
+T{ header-digest header-then = 1 slot@ lf-slot-accepted? -> true true }T
 T{ lf-env lf-envh-identity @ serial-then = lf-env-hand-over lf-input-rollback -> true outcome-rejected false outcome-ok }T
+\ Outside a job too, a final slot never changes: undoing it, or ending a
+\ publication into it as unfinished, aborts and changes nothing.
+env-digest constant digest-final
+T{ 1 slot@ ' lf-env-undo catch nip outcome-ok 2 slot@ ' lf-env-unfinished catch nip nip -> -2 -2 }T
+T{ env-digest digest-final = pool-count 1 slot@ lf-slot-accepted? 2 slot@ lf-slot-final? -> true 1 true true }T
 env-free
 \ A check the serial driver runs holds the check owner token (G-P1, as
 \ amended): inside it nothing publishes, steps or runs, makes, chooses
@@ -389,7 +405,7 @@ env-free
 \ readiness says false. This check of 2 tries each, records the answers,
 \ then checks as usual; the step and the verdict are as before, and the
 \ task's own token and context come back.
-create answers 16 cells allot
+create answers 24 cells allot
 : answer! ( x k -- ) cells answers + ! ;
 : answer@ ( k -- x ) cells answers + @ ;
 : try-public ( -- )
@@ -401,7 +417,15 @@ create answers 16 cells allot
   lf-context @ ['] context-use catch nip 11 answer!
   2 slot@ -77 ['] lf-env-unpublish catch nip nip 12 answer!
   2 slot@ ['] lf-env-guarded catch nip 13 answer!  lf-owner @ 14 answer! ;
-: trying-check ( -- ) me 2 = if try-public try-inside then syn-check ;
+\ The undo words (M1, the review's probe p1): on the open slot 2, the
+\ final slot 1 and the pool's mark.
+: try-undo ( -- )
+  2 slot@ ['] lf-env-undo catch nip 15 answer!
+  1 slot@ ['] lf-env-undo catch nip 16 answer!
+  lf-diag-clear outcome-ok 2 slot@ ['] lf-env-unfinished catch nip nip 17 answer!
+  lf-diag-code@ 18 answer!  outcome-ok 1 slot@ ['] lf-env-ended catch nip nip 19 answer!
+  marked-ior 20 answer! ;
+: trying-check ( -- ) me 2 = if try-public try-inside try-undo then syn-check ;
 8 fresh-env
 ' syn-check 2 checked-run
 T{ ' trying-check 2 checked-step step-failures @ -> outcome-rejected 0 }T
@@ -409,7 +433,10 @@ T{ 0 answer@ 1 answer@ 2 answer@ 3 answer@ 4 answer@ -> outcome-invalid true out
 T{ 5 answer@ 6 answer@ 7 answer@ 8 answer@ -> 0 outcome-invalid outcome-invalid outcome-invalid }T
 T{ 9 answer@ 10 answer@ 11 answer@ -> false -2 -2 }T
 T{ 12 answer@ refused? 13 answer@ refused? 14 answer@ -> true true context-check-owner }T
+T{ 15 answer@ refused? 16 answer@ refused? 17 answer@ refused? 18 answer@ -> true true true lf-diag-none }T
+T{ 19 answer@ refused? 20 answer@ refused? -> true true }T
 T{ lf-owner @ lf-context @ context-main = pool-count 3 slot@ lf-slot-final? -> 0 true 1 false }T
+T{ 1 slot@ lf-slot-accepted? 1 deps 0 slot@ lf-slot-accepted? -> true 0 1 true }T
 env-free
 \ The review's probe p4: the check of 3 begins 2, claims it ok and hands
 \ it over, then begins 3 again and claims ok. The inner hand-over is
@@ -533,6 +560,62 @@ env-free caller @ unspare
 : three-cell-maker ( -- x y z ) 1 2 3 ;
 T{ ' one-cell-maker maker-trial -> outcome-invalid outcome-invalid false true }T
 T{ ' three-cell-maker maker-trial -> outcome-invalid outcome-invalid false true }T
+\ A maker that gives an address that cannot be read (here true, a flag
+\ given by mistake) stops the run like any other refused answer (L1): no
+\ THROW reaches the caller, whose context is current again, and at the
+\ second replacement the context the run made before is freed.
+: flag-maker ( -- context ior ) true 0 ;
+variable flag-calls
+: late-flag-maker ( -- context ior )
+  1 flag-calls +! flag-calls @ 1 = if main-maker else flag-maker then ;
+: run-caught ( check maker -- outcome ior ) ['] lf-env-run catch dup if >r 2drop -1 r> then ;
+variable home-7
+: from-spare ( -- ) spare home-7 ! 8 fresh-env ;
+: back-home? ( -- flag ) lf-context @ home-7 @ = ;
+from-spare live-blocks @ constant blocks-7
+T{ ' throwing-check ' flag-maker run-caught back-home? -> outcome-invalid 0 true }T
+T{ live-blocks @ blocks-7 - 2 slot@ lf-slot-final? -> 0 false }T
+env-free home-7 @ unspare
+from-spare 0 flag-calls ! live-blocks @ constant blocks-8
+T{ ' twice-throwing ' late-flag-maker run-caught back-home? -> outcome-invalid 0 true }T
+T{ live-blocks @ blocks-8 - flag-calls @ 3 slot@ lf-slot-final? -> 0 2 false }T
+lf-env-view drop
+T{ 1 lf-env-outcome 2 lf-env-outcome -> outcome-invalid outcome-invalid }T
+env-free home-7 @ unspare
+\ The maker is trusted harness code, but it must leave the current
+\ environment as it found it (L2): one that makes another current stops
+\ the run at once, before any check runs there, and the context it gave
+\ is freed; the slots published before stay, the others are not final.
+: finals ( -- n ) 0 lf-env lf-env-length 0 ?do i slot@ lf-slot-final? 1 and + loop ;
+from-spare lf-env constant env-start
+8 lf-env-new drop constant env-other
+: switching-maker ( -- context ior ) env-other lf-env-use drop main-maker ;
+live-blocks @ constant blocks-9
+T{ ' throwing-check ' switching-maker lf-env-run lf-env env-other = finals -> outcome-invalid true 0 }T
+T{ live-blocks @ blocks-9 - back-home? -> 0 true }T
+env-start lf-env-use drop
+T{ finals lf-env-view drop 1 lf-env-outcome -> 2 outcome-invalid }T
+env-free home-7 @ unspare
+\ The run answers ok only when, at its end, the environment it started in
+\ is still current and every slot is final. A check that stores into a
+\ slot (as a stray write might: no guard sees a plain store) makes it
+\ invalid; so does one that makes another environment current by a plain
+\ store and begins its declaration there, even when that environment then
+\ has every slot final (here all but 26 were checked there beforehand).
+: unfinalising ( -- ) syn-check me 26 = if 0 0 slot@ lf-slot-state ! then ;
+: moving ( -- )
+  me 26 = if env-other lf-envs lf-envs-current ! 26 lf-env-begin drop then syn-check ;
+from-spare
+T{ ' unfinalising ' main-maker lf-env-run finals -> outcome-invalid 26 }T
+env-free home-7 @ unspare
+from-spare lf-env constant env-moved
+env-other lf-env-use drop ' syn-check 26 checked-run env-moved lf-env-use drop
+T{ ' moving ' main-maker lf-env-run lf-env env-other = finals -> outcome-invalid true 27 }T
+T{ main-count verdicts-match? -> true }T
+env-moved lf-env-use drop
+T{ finals -> 26 }T
+env-free home-7 @ unspare
+T{ env-other lf-env-free -> outcome-ok }T
 \ The run frees every context it made (G-P6): a check throwing at 1, 2
 \ and 3 makes three, and none is left once the run ends.
 : thrice-throwing ( -- ) me 1 4 within if -78 throw then syn-check ;

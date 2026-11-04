@@ -239,7 +239,7 @@ test-export-signature-differential:
 test-export-specialization-differential:
 	$(LEAN_TABLE) poly-specialization
 
-# The first checker's 60 table cases (ADR 0011, plan task 2.2.1) through
+# The first checker's 62 table cases (ADR 0011, plan task 2.2.1) through
 # today's kernel paths: every rejection agrees with Lean's exception, and
 # every other row keeps the table's outcome.
 test-first-checker-differential:
@@ -389,3 +389,23 @@ test-environment:
 .PHONY: test-environment
 test: test-environment
 DOC_EXAMPLE_PAGES += docs/programming/CHECKED_ENVIRONMENT.md
+
+# Big natural numbers for Lean's Nat literals (plan task 5.2.3, library
+# part; docs/development/FORTH_LIBRARY.md): unit tests of every outcome,
+# then about 37,500 cases against Python's integers and 20 planted faults
+# that must each change a result. Gforth and Python 3 only.
+# tests/lib/bignum_bench.py measures speed against Python (report only).
+test-bignum:
+	$(RUN) $(GFORTH) tests/lib/bignum.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/lib/bignum_differential.py
+
+# A sample of those cases (986, every operation, some of over 3,000 digits)
+# computed by pinned Lean's own kernel (decide +kernel), and each of them
+# with its result changed rejected.
+reference-bignum:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/lib/bignum_differential.py \
+	--no-faults --lean
+
+.PHONY: test-bignum reference-bignum
+test: test-bignum
+test-differential: reference-bignum

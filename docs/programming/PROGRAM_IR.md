@@ -215,7 +215,7 @@ and an outcome from `src/lib/outcome.fs`:
 | Outcome | When |
 | --- | --- |
 | *unsupported* | an unknown word or a word outside IR 0.1 (`UNTIL`, `DO`, `@`, …); a literal of more than ten digits or beyond 2,147,483,647, or in any other number syntax (`$FF`, `#10`, `'a'`, `1.`, `1e`, `+5`, …); a control word or `>R`/`R>`/`R@` outside a definition, or `CONSTANT`/`DECIMAL` inside one; `/` or `MOD` before `CONSTANT`; a second `WHILE` in one loop; a recursive call; a redefinition of a word the reader knows (also in another case, such as `: Dup … ;`); a name over 31 characters; a `(` comment not closed on its line; a character other than printable ASCII, a space or a tab anywhere on a line, comments included (a CR just before an LF ends the line and is not part of it); tokens before `CONSTANT` that do not leave exactly one value, or take values the file did not give, `CONSTANT` with nothing before it included; values left outside a definition |
-| *invalid* | unbalanced `IF`/`ELSE`/`THEN`/`BEGIN`/`WHILE`/`REPEAT`; `:` inside a definition; `:` or `CONSTANT` without its name on the same line; a definition not closed at the end; an unreadable file (a directory, for example) or a line of 128 characters or more, not counting its line end; `lf-ir-feed` or `lf-ir-finish` before `lf-ir-start`; a line fed after `lf-ir-finish` ("reader already finished"); an output word that throws, uses the reader, or returns in another context or with the data stack at another depth ("output word failed"); an exception that stops `lf-ir-feed` or the reading of a file ("read stopped by an exception") |
+| *invalid* | unbalanced `IF`/`ELSE`/`THEN`/`BEGIN`/`WHILE`/`REPEAT`; `:` inside a definition; `:` or `CONSTANT` without its name on the same line; a definition not closed at the end; an unreadable file (a directory, for example) or a line of 128 characters or more, not counting its line end; `lf-ir-feed` or `lf-ir-finish` before `lf-ir-start`; a line fed after `lf-ir-finish` ("reader already finished"); an output word that throws, calls a reader word in its own context, or returns with the data stack at another depth ("output word failed"); an exception that stops a reader word ("read stopped by an exception") |
 | *full* | more than 32 definitions, 8 open structures or 8 tokens before `CONSTANT`, or an output line over 96 characters (a `source` path of 90 characters or more does not fit its header line) |
 
 Lines written before a diagnostic or an exception are incomplete and must
@@ -225,49 +225,78 @@ nothing. `lf-ir-feed` copies each line before reading it, so the line may
 be in a transient buffer; its length is unsigned, and a line of 128
 characters or more is refused without being read.
 
-The output word must not use the reader, and must return in the context
-it was called in, having taken its two arguments and left nothing. While
-it runs, the reader is stopped (`lf-ir-reason` then gives "output word
-running"). If it throws, or calls `lf-ir-start`, `lf-ir-feed`,
-`lf-ir-finish` or `lf-ir-read-file`, the read stops as *invalid* ("output
-word failed"). If it returns in another context, or with the data stack
-at another depth, the reader aborts (`THROW` −2) without touching any
+The four *reader words*, `lf-ir-start`, `lf-ir-feed`, `lf-ir-finish` and
+`lf-ir-read-file`, keep the reader of their context *busy* while they
+run, and so while the output word runs; `lf-ir-reason` then gives "reader
+busy". A reader word called while the reader of its context is busy
+refuses: it aborts (`THROW` −2) and changes nothing but a count of calls.
+So the output word must not use the reader of its own context (it may
+use another context's), and must return normally, in the context it was
+called in, having taken its two arguments and left nothing. If it
+throws, calls a reader word in its own context (refused, whether or not
+it catches the refusal), or returns with the data stack at another depth,
+the read stops as *invalid* ("output word failed"); a change of depth
+also aborts (`THROW` −2), and any exception passes on. If it returns in
+another context, the reader aborts (`THROW` −2) at once, touching no
 context's record, not even to switch back, since the output word may have
-freed the context it left; that read stays stopped as "output word
-running" and fails ("output word failed") when it is fed or finished. An
-exception that stops `lf-ir-feed` or the reading of a file, such as
-`THROW` −28 from Ctrl-C during a blocked `READ-FILE`, stops the read as
-*invalid* ("read stopped by an exception"). Every exception passes to the
-caller, after a file being read is closed.
+freed the context it left; the reader of that context stays busy for
+good.
+
+An exception that stops a reader word, such as `THROW` −28 from Ctrl-C
+during a blocked `OPEN-FILE` or `READ-FILE`, stops the read as *invalid*
+("read stopped by an exception") and passes on to the caller; a file
+whose lines were being read is closed first. Should the exception come
+just after the reader word made the reader busy but before its handler
+is set up, or just after its work threw but before the handler has run,
+the reader stays busy for good instead. A reader that stays busy refuses
+every reader word in its context, so its read never ends; that context
+must be freed (`context-free`), or for the main context Gforth
+restarted, before it can read again.
 
 **Threat model.** The reader defends against hostile *source files*:
 whatever a file holds, the reader refuses it or gives IR that means what
 Gforth does with the file (the rule below). Its caller and the output
 word are *trusted* harness code, such as the receipt generator and the
 tests, relied on to use the reader as this section says. Even so, the
-reader fails closed on the misuse it can detect cheaply, and this is the
-whole list; after each, the read ends *invalid*, never *ok*:
+reader enforces the following on them, and this is the whole list:
 
-- the output word throws;
-- the output word starts, feeds or finishes a read;
-- the output word returns in another context;
-- the output word returns with the data stack at another depth;
-- a line is fed before `lf-ir-start` or after `lf-ir-finish`;
-- an exception stops `lf-ir-feed` or the reading of a file;
-- a fed line's length is negative as a signed number (being unsigned, it
-  is too long, and the line is refused unread).
+- *A busy reader refuses.* While a reader word runs, and so while its
+  output word runs, every reader word called in the same context refuses
+  (`THROW` −2), changing nothing but a count of calls. A single check at
+  the start of every reader word does this.
+- *A misbehaving output word fails the read.* The read ends *invalid*,
+  never *ok*, if the output word throws, calls a reader word in its own
+  context, or returns with the data stack at another depth. If it returns
+  in another context, the reader of the context it was called in stays
+  busy for good, so that read never ends.
+- *An exception fails the read.* An exception that comes while a reader
+  word runs ends the read *invalid*; or leaves the reader busy for good,
+  if it comes after the word made the reader busy but before its handler
+  is set up, or after its work threw but before the handler has run; or,
+  if it comes during the entry check or after the work has returned,
+  leaves the read as if it had come before or after the call (the call
+  counted). So a read whose work an exception cut short never ends *ok*.
+  Every exception passes on, closing first a file whose lines were being
+  read.
+- *Lines out of turn fail the read:* a line fed before `lf-ir-start` or
+  after `lf-ir-finish`.
+- *A fed line's length is unsigned:* a negative one is too long, and the
+  line is refused unread.
 
 Other misuse is not detected and is outside what the reader defends
 against: an output word that writes into the reader's record or other
-memory, changes data-stack cells below its arguments without changing the
-depth, unbalances the return stack, or frees its context and makes a new
-one at the same address; a caller that sets `lf-context` to anything but
-a live context, ignores the outcome, uses lines written before a
-diagnostic or an exception, or goes on with a read after an exception
-from `lf-ir-start` that the output word did not throw. A review judges
-the reader against this model: an accepted file whose IR does not mean
-what Gforth does with it is a soundness bug; caller misuse is a bug only
-where the list above says the reader detects it.
+memory (should it clear the busy flag, the count of calls still fails the
+read if it then calls a reader word in its context: a second guard),
+changes data-stack cells below its arguments without changing the depth,
+unbalances the return stack, or frees its context and makes a new one at
+the same address; a caller that sets `lf-context` to anything but a live
+context, ignores the outcome, or uses lines written before a diagnostic
+or an exception. An exception between `OPEN-FILE` and the reading of the
+file's lines, or during `CLOSE-FILE`, can leave the file open; the read
+still fails. A review judges the reader against this model: an accepted
+file whose IR does not mean what Gforth does with it is a soundness bug;
+caller misuse is a bug only where the list above says the reader detects
+it.
 
 **It accepts less than Gforth, never more,** and gives what it accepts
 Gforth's meaning (checked on Gforth 1.0.0 and 0.7.3):
@@ -363,12 +392,18 @@ Gforth ends a line at a lone CR, and stops loading at `1 0 /` (−10) and at
 the smallest cell divided by −1 (−11) before `CONSTANT`. The Forth tests
 count the files opened, closed and read: a directory opens but cannot be
 read, `/dev/zero` is refused after two blocks, and every file is closed.
-They also give the reader output words that throw, feed a line, finish,
-start another read, return in another context, or leave or take a cell,
-and interrupt a file's first read and a fed line with `THROW` −28, as
-Ctrl-C would; each must stop the read as *invalid*, and a switch of
-context must leave the other context's read untouched. They also feed
-lines after `lf-ir-finish`.
+They also give the reader output words that throw; that call each reader
+word, catching the refusal or not; that start a read whose own output
+word would leave a cell (the case that once ended *ok* with wrong IR);
+that clear the busy flag and then start a read (the count of calls must
+still fail it); that use another context's reader; that return in another
+context, while lines are fed and while a file is read; and that leave or
+take a cell. They interrupt with `THROW` −28, as Ctrl-C would, the
+opening of a file, its first read, a fed line, and the `CATCH` with which
+`lf-ir-feed` or `lf-ir-finish` sets up its handler. Each must stop the
+read as *invalid* or leave its reader busy for good, refusing every
+reader word; a switch of context must leave the other context's read
+untouched and close the file. They also feed lines after `lf-ir-finish`.
 
 The reader is trusted for the translation: nothing proves that the IR means
 what the source means on the host. Receipts list it as the assumption

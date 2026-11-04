@@ -2,10 +2,11 @@
 \ of the six example words, every diagnostic with its location, the
 \ capacities, ASCII case folding, refused characters, names and numbers,
 \ independence from the caller's BASE, STATE and search order, that no
-\ source token is ever executed, an output word that throws, uses the
-\ reader, changes the stack depth or returns in another context, read
-\ errors, exceptions that stop a read, the end of a read, and a reader
-\ stopped until it starts in every context. Gforth itself also loads
+\ source token is ever executed, a busy reader refusing every reader
+\ word, an output word that throws, uses the reader, changes the stack
+\ depth or returns in another context, read errors, exceptions that stop
+\ a read, the end of a read, and a reader stopped until it starts in
+\ every context. Gforth itself also loads
 \ every source the reader accepts here, and must neither throw nor keep
 \ values; files with every kind of line end are tested by
 \ ir_reader_files.py. Run from the repository root, like every test file.
@@ -21,22 +22,29 @@ include ../support/tester.fs
 \ even when its output word throws, and the reads of the file opened last.
 \ A read after the 64th of one file fails, as a read error would, so that
 \ a file that never ends cannot hang these tests. Once interrupt-next is
-\ set, the next read or number conversion throws -28, as Ctrl-C would.
-\ The reader, compiled after these four words, calls them instead of the
-\ host's (Gforth's redefinition warnings are turned off around them).
+\ set, the next read or number conversion throws -28, as Ctrl-C would;
+\ once interrupt-open is set, the next OPEN-FILE; once interrupt-catch is
+\ set, the next CATCH, before it sets up its handler, as Ctrl-C arriving
+\ just then would. The reader, compiled after these five words, calls
+\ them instead of the host's (Gforth's redefinition warnings are turned
+\ off around them).
 variable opened
 variable closed
 variable reads
 64 constant reads-max
 variable interrupt-next
-: interrupting ( -- ) interrupt-next @ if false interrupt-next ! -28 throw then ;
+variable interrupt-open
+variable interrupt-catch
+: interrupting ( addr -- ) dup @ if false swap ! -28 throw then drop ;
 [defined] warnings [if] warnings @ false warnings ! [then]
 : open-file ( c-addr u fam -- fileid ior )
-  open-file dup 0= if 1 opened +! 0 reads ! then ;
+  interrupt-open interrupting open-file dup 0= if 1 opened +! 0 reads ! then ;
 : close-file ( fileid -- ior ) 1 closed +! close-file ;
 : read-file ( c-addr u fileid -- u2 ior )
-  interrupting 1 reads +! reads @ reads-max > if drop 2drop 0 -1 else read-file then ;
-: >number ( ud c-addr u -- ud' c-addr' u' ) interrupting >number ;
+  interrupt-next interrupting
+  1 reads +! reads @ reads-max > if drop 2drop 0 -1 else read-file then ;
+: >number ( ud c-addr u -- ud' c-addr' u' ) interrupt-next interrupting >number ;
+: catch ( i*x xt -- j*x code ) interrupt-catch interrupting catch ;
 [defined] warnings [if] warnings ! [then]
 : open-files ( -- n ) opened @ closed @ - ;
 require ../../src/program/ir-reader.fs
@@ -485,50 +493,95 @@ T{ ' boom read-catching lf-ir-finish lf-ir-reason open-files
 T{ ' boom start-catching s" : f ;" lf-ir-feed lf-ir-finish lf-ir-reason
    -> 99 outcome-invalid ir-why-output }T
 
-\ While the output word runs, the reader is stopped as "output word
-\ running"; asking why does not change it.
+\ While a reader word runs, and so while its output word runs, the reader
+\ of its context is busy, and lf-ir-reason says so.
 variable seen
 : note-reason ( c-addr u -- ) 2drop lf-ir-reason seen ! ;
-T{ ' note-reason s" t.fs" start-reader seen @ lf-ir-finish -> ir-why-running outcome-ok }T
+T{ ' note-reason s" t.fs" start-reader seen @ lf-ir-finish lf-ir-reason
+   -> ir-why-busy outcome-ok ir-why-none }T
 \ The output word must not use the reader. Given its first "end", each
-\ word below feeds a line, finishes, starts another read, or starts one
-\ whose output word throws and catches that. Each fails the read, and the
-\ line being read is neither overwritten nor read further: the fed line
-\ is long enough to overwrite the ; that the diagnostic then quotes.
+\ word below feeds a line, finishes, starts a read or reads a file, keeps
+\ the code that throws, and returns. Each call is refused (THROW -2) and
+\ changes nothing: the read goes on with the line it was reading, and
+\ fails as invalid ("output word failed") at once. Unrefused, the fed
+\ line overwrote the ; that the diagnostic quotes, and a start erased the
+\ read; so every transcript must equal the first.
 variable used
-: at-first-end ( c-addr u -- flag )
-  2dup transcribe s" end" search nip nip used @ 0= and dup if true used ! then ;
-: feed-at-end ( c-addr u -- ) at-first-end if s" 1 1 1 1 1 ;" lf-ir-feed then ;
-: finish-at-end ( c-addr u -- ) at-first-end if lf-ir-finish drop then ;
-: start-at-end ( c-addr u -- ) at-first-end if ['] 2drop s" u.fs" lf-ir-start then ;
-: catch-at-end ( c-addr u -- )
-  at-first-end if 1 lines-left ! ['] refuse-third start-catching drop then ;
+variable refusal     \ the code thrown by the reader word called at the first "end"
+\ Transcribe the line c-addr u; true the first time it contains c-addr2 u2.
+: at-first ( c-addr u c-addr2 u2 -- flag )
+  2over transcribe search nip nip used @ 0= and dup if true used ! then ;
+: at-first-end ( c-addr u -- flag ) s" end" at-first ;
+: feed-catching ( c-addr u -- code ) ['] lf-ir-feed catch dup if nip nip then ;
+: feed-at-end ( c-addr u -- )
+  at-first-end if s" 1 1 1 1 1 ;" feed-catching refusal ! then ;
+: finish-at-end ( c-addr u -- )
+  at-first-end if ['] lf-ir-finish catch dup 0= if nip then refusal ! then ;
+: start-at-end ( c-addr u -- ) at-first-end if ['] 2drop start-catching refusal ! then ;
+: read-at-end ( c-addr u -- )
+  at-first-end if ['] 2drop read-catching dup 0= if nip then refusal ! then ;
 : read-using ( xt -- outcome reason line column )
-  0 transcript# ! false used ! s" t.fs" start-reader
+  0 transcript# ! false used ! 0 refusal ! s" t.fs" start-reader
   s" : f 7 ;  : g f f + ;" feed verdict ;
 : transcript-tail ( n -- c-addr u ) transcript-text rot /string ;
-T{ ' feed-at-end read-using -> outcome-invalid ir-why-output 1 7 }T
+T{ ' feed-at-end read-using refusal @ -> outcome-invalid ir-why-output 1 7 -2 }T
 T{ transcript-text 47 min s" lf-ir 0.1|source t.fs|word f @1:1|  lit 7 @1:5|" compare
    47 transcript-tail s" end @1:7|invalid @1:7: output word failed: ;|" compare -> 0 0 }T
-T{ ' finish-at-end read-using -> outcome-invalid ir-why-output 1 7 }T
-T{ ' start-at-end read-using -> outcome-invalid ir-why-output 0 0 }T
-T{ ' catch-at-end read-using -> outcome-invalid ir-why-output 0 0 }T
+keep-reference
+T{ ' finish-at-end read-using refusal @ as-reference?
+   -> outcome-invalid ir-why-output 1 7 -2 true }T
+T{ ' start-at-end read-using refusal @ as-reference?
+   -> outcome-invalid ir-why-output 1 7 -2 true }T
+T{ ' read-at-end read-using refusal @ as-reference? open-files
+   -> outcome-invalid ir-why-output 1 7 -2 true 0 }T
+\ The reviewer's case: at its first "word" line, the output word starts a
+\ read whose output word would leave a cell, catches the code thrown and
+\ returns. The start is refused, so the other output word never runs, and
+\ the read fails. Before the refusal, the read ended ok, its IR giving f
+\ the value of NEGATE alone where Gforth gives -5.
+: read-f ( xt -- outcome reason line column )
+  0 transcript# ! false used ! 0 refusal ! s" t.fs" start-reader
+  s" : f 5" feed s" negate ;" feed verdict ;
+variable nested-lines
+: leave-once ( c-addr u -- ) \ but leaves a cell the first time
+  2drop 1 nested-lines +! nested-lines @ 1 = if 0 then ;
+: nest-at-word ( c-addr u -- )
+  s" word" at-first if 0 nested-lines ! ['] leave-once start-catching refusal ! then ;
+T{ ' nest-at-word read-f refusal @ nested-lines @
+   -> outcome-invalid ir-why-output 1 3 -2 0 }T
+T{ s" lf-ir 0.1|source t.fs|word f @1:1|invalid @1:3: output word failed: f|" transcribed?
+   -> true }T
+\ Uncaught, the refusal passes on through the reader, the read fails, and
+\ the reader is no longer busy.
+: start-at-word ( c-addr u -- ) s" word" at-first if ['] 2drop s" u.fs" lf-ir-start then ;
+T{ 0 transcript# ! false used ! ' start-at-word s" t.fs" start-reader
+   s" : f 5" feed-catching lf-ir-finish lf-ir-reason
+   -> -2 outcome-invalid ir-why-output }T
+\ The count of calls is a second guard: were the busy check bypassed, here
+\ by an output word that clears the flag itself (writing into the
+\ reader's record, which is not otherwise detected), the start it makes
+\ would still fail the read, which that start erased (so its location
+\ is 0:0). Unchecked, the read ended ok with f as NEGATE alone.
+: bypass-at-word ( c-addr u -- )
+  s" word" at-first if false ir-busy ! ['] 2drop s" u.fs" lf-ir-start then ;
+T{ ' bypass-at-word read-f -> outcome-invalid ir-why-output 0 0 }T
 \ The output word must take its two cells and leave none. One that leaves
-\ a cell, or takes one more, makes the reader abort (THROW -2) when it
-\ returns; the read stays stopped as "output word running", and fails
-\ when finished.
+\ a cell, or takes one more, fails the read and makes the reader abort
+\ (THROW -2) when it returns.
 : leave-cell ( c-addr u -- x ) 2drop 0 ;
 : take-cell ( x c-addr u -- ) 2drop drop ;
 T{ ' leave-cell start-catching lf-ir-reason lf-ir-finish lf-ir-reason
-   -> -2 ir-why-running outcome-invalid ir-why-output }T
+   -> -2 ir-why-output outcome-invalid ir-why-output }T
 T{ ' take-cell start-catching lf-ir-reason lf-ir-finish lf-ir-reason
-   -> -2 ir-why-running outcome-invalid ir-why-output }T
+   -> -2 ir-why-output outcome-invalid ir-why-output }T
 
-\ An exception that stops a read, such as THROW -28 from Ctrl-C during a
-\ blocked READ-FILE, stops it as invalid too, and passes on: here at the
-\ first read of a file, which is closed, and at the first number of a fed
-\ line, with nothing left open, so that finishing would otherwise give ok.
-: feed-catching ( c-addr u -- code ) ['] lf-ir-feed catch dup if nip nip then ;
+\ An exception that stops a reader word, such as THROW -28 from Ctrl-C
+\ during a blocked OPEN-FILE or READ-FILE, stops the read as invalid too,
+\ and passes on: here at the opening of a file, at its first read, after
+\ which it is closed, and at the first number of a fed line; nothing is
+\ left open, and finishing would otherwise give ok.
+T{ true interrupt-open ! ' 2drop read-catching open-files lf-ir-finish lf-ir-reason
+   -> -28 0 outcome-invalid ir-why-interrupted }T
 T{ true interrupt-next ! ' 2drop read-catching open-files lf-ir-finish lf-ir-reason
    -> -28 0 outcome-invalid ir-why-interrupted }T
 T{ start true interrupt-next ! s" 1 constant k" feed-catching lf-ir-finish lf-ir-reason
@@ -611,20 +664,71 @@ T{ s" : g ;" lf-ir-feed lf-ir-finish lf-ir-reason -> outcome-invalid ir-why-stop
 T{ start s" : g 2 ;" feed verdict -> outcome-ok ir-why-none 1 0 }T
 context-main context-use
 T{ lf-ir-finish lf-ir-reason lf-ir-where -> outcome-ok ir-why-none 1 0 }T
-\ The output word must return in the context it was called in. One that
-\ returns in another makes the reader abort (THROW -2) there, touching
-\ neither context's record: the read it left stays stopped and fails when
-\ finished. Unchecked, the second feed below resumed the first read, whose
-\ IR then gave c the value 5, where Gforth gives -5.
-variable switch-to   \ the context to switch to at the next "lit" line, or 0
-: switching ( c-addr u -- )
-  s" lit" search nip nip switch-to @ and ?dup if 0 switch-to ! context-use then ;
+\ The refusal is for the busy context only: an output word may use the
+\ reader of another context, and return in its own.
+variable elsewhere   \ the outcome of the read made in the other context
+: read-elsewhere ( -- )
+  other context-use ['] 2drop s" h.fs" lf-ir-start s" : h 3 ;" lf-ir-feed
+  lf-ir-finish elsewhere ! context-main context-use ;
+: use-elsewhere ( c-addr u -- ) s" word" at-first if read-elsewhere then ;
+T{ ' use-elsewhere read-f elsewhere @ -> outcome-ok ir-why-none 2 0 outcome-ok }T
+
+\ Words that check that a reader left busy for good says so and refuses
+\ every reader word (THROW -2), and that make and free a context for it.
+: refused-start ( -- code ) ['] 2drop s" t.fs" ['] lf-ir-start catch dup if thrown then ;
+: refused-read ( -- code ) ['] 2drop read-catching dup 0= if nip then ;
+: refused-feed ( -- code ) s" : g ;" feed-catching ;
+: refused-finish ( -- code ) ['] lf-ir-finish catch dup 0= if nip then ;
+: refusals ( -- reason code code code code )
+  lf-ir-reason refused-start refused-read refused-feed refused-finish ;
 : in? ( context -- flag ) lf-context @ = ;
+: fresh ( -- context ) context-new throw dup context-use ;
+\ Leave the context, which must not be the main one, and free it.
+: discard ( context -- ior ) context-main context-use context-free ;
+
+\ An exception that arrives just after a reader word has made the reader
+\ busy, before its handler is set up (here from the CATCH that sets it
+\ up), leaves the reader busy for good. Before the busy flag, such an
+\ exception lost the fed line, and the read could still end ok; a finish
+\ cut short so let a later line be read.
+: armed ( i*x xt -- j*x ) true interrupt-catch ! execute ;
+fresh constant cut-feed
+T{ start s" : f 1 ;" feed s" : g 2 ;" ' lf-ir-feed ' armed catch nip nip nip -> -28 }T
+T{ refusals -> ir-why-busy -2 -2 -2 -2 }T
+T{ cut-feed discard -> 0 }T
+fresh constant cut-finish
+T{ start s" : f 1 ;" feed ' lf-ir-finish ' armed catch nip -> -28 }T
+T{ refusals -> ir-why-busy -2 -2 -2 -2 }T
+T{ cut-finish discard -> 0 }T
+
+\ The output word must return in the context it was called in. One that
+\ returns in another makes the reader abort (THROW -2) there, touching no
+\ record: the reader it left stays busy for good, and a file being read
+\ is closed. Here a read of clamp.fs in a new context is left at its
+\ first "word" line for the main context, whose read stays as it was.
+variable switch-to   \ the context to switch to at the next "lit" or "word" line, or 0
+: switch-line? ( c-addr u -- flag ) 2dup s" lit" contains? -rot s" word" contains? or ;
+: switching ( c-addr u -- )
+  switch-line? switch-to @ and ?dup if 0 switch-to ! context-use then ;
+T{ start s" : f 1 ;" feed -> }T
+fresh constant left
+T{ context-main switch-to ! ' switching read-catching context-main in? open-files
+   -> -2 true 0 }T
+T{ lf-ir-finish lf-ir-reason lf-ir-where -> outcome-ok ir-why-none 1 0 }T
+left context-use
+T{ refusals -> ir-why-busy -2 -2 -2 -2 }T
+T{ left discard -> 0 }T
+\ The same with fed lines, from the main context to the other and back.
+\ Unchecked, the second feed below resumed the first read, whose IR then
+\ gave c the value 5, where Gforth gives -5. Both readers stay busy, the
+\ main context's too, so this comes last.
 T{ ' switching s" a.fs" lf-ir-start  other context-use  ' switching s" b.fs" lf-ir-start
    context-main context-use  other switch-to !  s" 5 negate constant c" feed-catching
    other in? lf-ir-reason -> -2 true ir-why-none }T
 T{ context-main switch-to !  s" 7 constant d" feed-catching context-main in? -> -2 true }T
-T{ lf-ir-finish lf-ir-reason -> outcome-invalid ir-why-output }T
-T{ other context-free -> 0 }T
+T{ refusals -> ir-why-busy -2 -2 -2 -2 }T
+other context-use
+T{ refusals -> ir-why-busy -2 -2 -2 -2 }T
+T{ other discard -> 0 }T
 
 bye

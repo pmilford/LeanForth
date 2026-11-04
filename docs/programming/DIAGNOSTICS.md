@@ -125,7 +125,11 @@ L1–L3), 55–60 by comparison and inference (S1–S3, F1, D1–D5; plan task
 undecided and had recorded why (codes 31, 32 or 30); the rejection
 *replaces* that record, the one exception to "the first failure wins",
 because the rule is the more specific reason for the same failure. When
-the rule cannot decide, the undecided record stays. The D rules record the
+the rule cannot decide, the undecided record stays. The first number of
+codes 55–58 may be a node (55, 56, 58: a reduced type) or a level (57)
+that the check made, and the failed check's rollback frees those: the
+number is a plain index for reading, not a live handle, and the store may
+have reused that slot since. The D rules record the
 rules used from the compared pair down to the pair that decided: in
 `type-identity.wrong-argument` of the
 [expected results](../reviews/FIRST_CHECKER_EXPECTED.md) the claim and
