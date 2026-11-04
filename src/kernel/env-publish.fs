@@ -206,7 +206,7 @@ defer lf-env-before-final
 \ unsupported is a conflict: lf-env-own-name would not have said ok. The
 \ name store is audited first, as the scan and the parameters need it.
 : lf-slot-conflict? ( slot -- flag )
-  dup lf-slot-open? swap lf-slot-outcome@ outcome-rejected <> or ;
+  dup lf-slot-open? over lf-slot-added? or swap lf-slot-outcome@ outcome-rejected <> or ;
 \ For a span, every member's name, each below the first member.
 : lf-own-matches ( test k -- n )
   lf-env-limit + lf-input-name swap lf-env-limit lf-env-matches ;
@@ -313,11 +313,22 @@ lf-rechecks# 1+ constant lf-recheck-moved
 \ point, then, last, the marks.
 : lf-span-outcome! ( slot outcome -- )
   lf-env-may-write lf-cand-span@ 0 ?do 2dup swap i lf-slot+ lf-slot-outcome ! loop 2drop ;
+\ A block rejected only by B3 (lf-env-added!): member k's name is taken
+\ when it is the type or a constructor, which Lean's kernel added; the
+\ file's recursor is not (Lean's T.rec, which its type holds, may differ
+\ from it, or have another name).
+: lf-member-added? ( k -- flag )
+  lf-env-limit + lf-input-decl lf-idecl-kind @ lf-kind-recursor <>
+  lf-env-cand lf-cand-added @ 0<> and ;
+: lf-span-added! ( slot -- )
+  lf-env-may-write lf-cand-span@ 0
+  ?do i lf-member-added? over i lf-slot+ lf-slot-added ! loop drop ;
 : lf-span-final! ( slot -- )
   lf-env-may-write lf-cand-span@ 0 ?do lf-state-final over i lf-slot+ lf-slot-state ! loop
   drop ;
 : lf-env-final ( slot outcome -- outcome )
-  lf-env-may-write 2dup lf-span-outcome! lf-env-before-final swap lf-span-final! ;
+  lf-env-may-write 2dup lf-span-outcome! over lf-span-added! lf-env-before-final
+  swap lf-span-final! ;
 \ Publish the candidate in this context into its slot: the outcome
 \ recorded. Internal: only lf-env-hand-over calls it, outside jobs, under
 \ CATCH, with the slot its target.

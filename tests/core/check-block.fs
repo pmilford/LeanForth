@@ -346,6 +346,37 @@ T{ s" rec" s" ind.nat" held-as -> outcome-unsupported }T
 T{ s" rec_1" s" ind.nat" held-as -> outcome-unsupported }T
 T{ s" rec_1" s" ind.bool" held-as -> outcome-rejected }T
 T{ s" recOn" s" ind.bool" held-as -> outcome-rejected }T
+T{ s" rec_x" s" ind.nat" held-as -> outcome-rejected }T
+\ A block rejected only by B3 (review rvI21 R2-1): Lean's replay compares
+\ after its kernel added the block, so the type's, the constructors' and
+\ T.rec's names are taken (a later definition of one is alreadyDeclared)
+\ and a later use of the type is unknown; the file's recursor, renamed,
+\ is not taken. A block the kernel rejects (U1) takes no name.
+T{ s" after.b3-renamed-then-def-rec" verdict drop
+   -> outcome-rejected lf-diag-already-declared }T
+T{ s" after.b3-ctor-then-def-rec" verdict drop
+   -> outcome-rejected lf-diag-already-declared }T
+T{ s" after.b3-ctor-then-def-type" verdict drop
+   -> outcome-rejected lf-diag-already-declared }T
+T{ s" after.b3-ctor-then-def-constructor" verdict drop
+   -> outcome-rejected lf-diag-already-declared }T
+T{ s" after.b3-renamed-then-def-renamed" verdict drop -> outcome-ok 0 }T
+T{ s" after.rejected-block-then-def-rec" verdict drop -> outcome-ok 0 }T
+T{ s" after.b3-ctor-then-use" 3 decl-verdict
+   -> outcome-unknown lf-diag-generated-recursor }T
+\ The marks on the slots: the type and constructors, not the recursor.
+: added? ( d -- flag ) lf-env lf-env-slot lf-slot-added? ;
+: marks ( -- f0 f1 f2 f3 )
+  s" after.b3-renamed-then-def-rec" case-path staged ok? must fuel checked
+  0 added? 1 added? 2 added? 3 added? finish ;
+T{ marks -> true true true false }T
+\ The publisher's re-check: def IE.B claimed ok after the B3-rejected
+\ block (its name, part 4) is refused.
+: claimed-type ( -- outcome outcome )
+  s" after.b3-ctor-then-def-type" case-path staged ok? must
+  fuel fresh ['] record 0 lf-env-step 2drop
+  3 claim lf-env-view ok? must 3 lf-env-outcome finish ;
+T{ claimed-type -> outcome-invalid outcome-invalid }T
 \ An accepted block's warnings stay on its slots (review rvI21 M2).
 : slot-warned ( c-addr u -- bits outcome )
   case-path staged ok? must fuel checked final-decl lf-env-warnings finish ;

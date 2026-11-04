@@ -315,6 +315,15 @@ accepted, with K5 when it is undecided or unsupported (and
 `T.rec_<digits>` for a type not accepted); a lookup of such a name that no
 slot holds is *unknown* (diagnostic 77).
 
+A block rejected only by B3, replay's comparison, has been added by
+Lean's kernel before the comparison failed (ADR 0015 decision 11). Its
+check says so with `lf-env-added! ( flag -- )`; the publisher then marks
+the type's and constructors' slots (`lf-slot-added`, read by
+`lf-slot-added?`), and N2, the publisher's name re-check, the holders of
+`T.rec` and lookups treat those names as declared by Lean's kernel:
+*rejected* (`alreadyDeclared`) for a later declaration of the name,
+*unknown* (diagnostic 77) for a use.
+
 ### Diagnostics
 
 Failures record a reason in the context's diagnostic

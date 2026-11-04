@@ -456,5 +456,12 @@ here lf-blk-steps - 1 cells / constant lf-blk-steps#
 \ Check the block whose first member is this context's snapshot, with
 \ fuel: ok when every step succeeded, else the first failure, as above.
 \ Afterwards the type is no longer visible to inference.
+\ A block rejected at step 13 alone, B3, which Lean's replay runs after its
+\ kernel added the block: the publisher marks the members' names taken
+\ (lf-env-added!; ADR 0015 decision 11, review rvI21 R2-1).
+13 constant lf-blk-b3-step
+: lf-blk-added ( outcome -- outcome )
+  dup outcome-rejected = lf-block-step@ lf-blk-b3-step = and lf-env-added! ;
 : lf-block-check ( fuel -- outcome )
-  lf-blk-begin dup ok? if drop lf-blk-run then false lf-ind-state lf-ind-visible ! ;
+  lf-blk-begin dup ok? if drop lf-blk-run lf-blk-added then
+  false lf-ind-state lf-ind-visible ! ;
