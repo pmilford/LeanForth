@@ -75,6 +75,18 @@ the 32-bit access words exist in `src/`; building it is plan tasks
 | Program receipt schema 0.1 (2.5.1) | [format] | independent review (2026-11-03) found four medium items (labels of failed runs, stale docs, who discharged an obligation, duplicate keys in replay); fix running |
 | Big-number library (`lib/bignum.fs`, for literals) | [forth-review] | review found one serious memory bug in printing; fix running |
 
+### Test tooling (2026-11-03)
+
+- `make mutants`: 134 deliberate bugs kept in `tests/mutants/faults.toml`,
+  each planted in a temporary copy and run against the test meant to catch
+  it — 123 caught, 1 shown to make no difference, 10 known test gaps being
+  closed (one of them in universe-level comparison, which the level fix
+  covers). `make check` fails if an entry no longer matches the code.
+- `make coverage`: 96.6% of the 12,093 code blocks of `src/` run during
+  `make test` (lowest: printing 93.4%, authoring 94.4%). Running code is
+  not the same as checking it; that is what the planted faults measure.
+- The failure-path suite (2.2.4, 1.4.6) — see milestone 1 below.
+
 ### Next major milestones
 
 Each milestone ends with something you can see, and with its gates passed.
