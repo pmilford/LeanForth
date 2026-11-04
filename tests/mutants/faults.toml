@@ -2271,7 +2271,7 @@ reason = "rvRP3 round 3: the metadata read's digest is not the file's, so every 
 id = "cin-passes-unpaired"
 file = "src/import/checker-input.fs"
 old = '''  cin-manifest manifest-read dup ok? if drop cin-checked-digest cin-pass-digest then ;'''
-new = '''  cin-manifest manifest-read dup ok? if drop cin-checked-digest then ;'''
+new = '''  cin-manifest manifest-read dup ok? if drop cin-checked-digest outcome-ok then ;'''
 test = "python3 tests/core/test_run_records.py"
 reason = "rvRP3 R2-1: an export changed during the first pass only pairs one file's names with another's terms"
 quick = true
@@ -2280,7 +2280,7 @@ quick = true
 id = "cin-unchecked-passes-unpaired"
 file = "src/import/checker-input.fs"
 old = '''  dup ok? if drop cin-hashed cin-pass-digest then ;'''
-new = '''  dup ok? if drop cin-hashed then ;'''
+new = '''  dup ok? if drop cin-hashed outcome-ok then ;'''
 test = "python3 tests/core/test_run_records.py"
 reason = "rvRP3 round 3: without the manifest check, a change during the first pass only is not caught"
 

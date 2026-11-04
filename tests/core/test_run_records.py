@@ -574,11 +574,14 @@ class Checks:
     # only tests that it opens and would make the order a race. Each reader
     # runs under timeout(1), so none can outlive its deadline. Skipped where
     # FIFOs or timeout(1) are unavailable.
-    def run_served(self, name, first, plan, words):
+    def run_served(self, name, first, plan, words, rest):
         """Run words (lines of Forth, with x the export) with the export the
-        FIFO name/x.ndjson served by plan, its manifest first's text to begin
+        FIFO name/x.ndjson served by plan, then by the bytes rest a few
+        times more (so that a run that reads more often than planned ends at
+        once, and its extra reads count), its manifest first's text to begin
         with: (exit status, standard output, standard error, opens served);
         the status is None when the run took too long and was stopped."""
+        plan = plan + [(rest, None)] * 4
         folder = self.tmp / name
         folder.mkdir()
         fifo, manifest = folder / "x.ndjson", folder / "x.ndjson.manifest.json"
@@ -669,7 +672,7 @@ class Checks:
         for name, ((a, ma), (b, mb)), flag in (("names", names, "true"), ("use", use, "true"),
                                                ("unchecked", use, "false")):
             plan = [(a, None), (a, None), (a, mb), (b, ma), (a, None), (a, None)]
-            status, out, err, opens = self.run_served(name, ma, plan, recorded(flag))
+            status, out, err, opens = self.run_served(name, ma, plan, recorded(flag), a)
             lines = out.split("\n", 3)
             self.expect(status == 0 and opens == 6 and lines[0].split() == ["0", "1", "0"]
                         and lines[1] == refused and lines[2].split() == ["0", "0"]
@@ -681,12 +684,14 @@ class Checks:
         (a, ma), (b, mb) = use
         for name, plan in (("metadata", [(a, None), (b, None)]),
                            ("manifest", [(a, None), (a, mb), (b, ma)])):
-            status, out, err, opens = self.run_served(name, ma, plan, ["x rr-start . rr-moved? ."])
+            status, out, err, opens = self.run_served(name, ma, plan, ["x rr-start . rr-moved? ."],
+                                                      a)
             self.expect(status == 0 and opens == len(plan) and out.split() == ["1", "-1"],
                         f"start, {name}: {opens} opens, {out[:300]} {err[:300]}")
         # Read once: the first pass reads B (with B's manifest), the second A.
         for name, flag in (("once", "true"), ("once-unchecked", "false")):
-            status, out, err, opens = self.run_served(name, mb, [(b, ma), (a, None)], once(flag))
+            status, out, err, opens = self.run_served(name, mb, [(b, ma), (a, None)], once(flag),
+                                                      a)
             self.expect(status == 0 and opens == 2 and out.split("\n")[:2] == ["1 ", refused],
                         f"first pass, {name}: {opens} opens, {out[:300]} {err[:300]}")
 
