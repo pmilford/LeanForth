@@ -6,8 +6,12 @@
 # It runs the gforth-fast that sits beside the real Gforth ($LEANFORTH_GFORTH,
 # else .tools/gforth/bin/gforth of this checkout, else gforth on PATH) through
 # the strict wrapper; without one, the real Gforth itself.
-here=$(cd "$(dirname "$0")" && pwd)
+here=$(cd "$(dirname "$0")" && pwd -P)
 real=${LEANFORTH_GFORTH:-$here/../.tools/gforth/bin/gforth}
+# A wrapper of scripts/ is never the real Gforth (see gforth-strict.sh).
+case "$(readlink -f "$real" 2>/dev/null)" in
+  "$here"/*) real=$here/../.tools/gforth/bin/gforth ;;
+esac
 [ -x "$real" ] || real=$(command -v "$real" || command -v gforth)
 fast="$(dirname "$real")/gforth-fast"
 if [ -x "$fast" ]; then real=$fast; fi
