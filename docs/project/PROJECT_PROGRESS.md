@@ -69,11 +69,11 @@ the 32-bit access words exist in `src/`; building it is plan tasks
 | Rejection rules in comparison and inference (plan 2.2.1) | [kernel] | **approved** 2026-11-03 |
 | NDJSON reader (Lean export files) | [import] | **approved** 2026-11-03, with a checksum manifest to add |
 | Design records ADR 0010, 0013, 0016, 0017, 0018 | design | **accepted** (0017 on 2026-11-02; the rest 2026-11-03) |
-| Checked environment v0 (2.2.2) | [kernel] | review cycle complete (its last three small items merged 2026-11-03); ready for the owner, together with the declaration check built on it |
+| Checked environment v0 (2.2.2) | [kernel] | **approved** 2026-11-03 |
 | Declaration check (2.2.3) and the level fix | [kernel], [bypass] | merged 2026-11-03; its review's blocker (wrong acceptances from universe levels) fixed by an exact port of Lean's level code (ADR 0011 Amendment 1, rule S4 for a Pi whose body is not a type); the fix's independent review next, then the owner |
 | Program reader (Forth to program IR, 2.5.3) | [parser] | **paused by the owner** (2026-11-03): reviews clean, but the owner prefers a Forth-like design — the program's own words emitting IR in a verification mode — over today's text reader; design record with a prototype in progress |
 | LeanForth syntax words (8.1.2) | [parser] | merged 2026-11-03; independent review running, then the owner |
-| Program receipt schema (2.5.1) | [format] | the review's four medium items and five lows fixed in schema 0.2 (merged 2026-11-03; the draft 0.1 superseded and refused by the reader); the reviewer is checking the fixes, then the owner |
+| Program receipt schema 0.2 (2.5.1) | [format] | **approved** 2026-11-03 (schema pinned by hash; any change is a new version) |
 | Big-number library (`lib/bignum.fs`, for literals) | [forth-review] | review found one serious memory bug in printing; fix running |
 
 ### Test tooling (2026-11-03)
