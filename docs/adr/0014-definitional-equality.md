@@ -807,7 +807,9 @@ every row whose rule is not a deferral (K5, K7, U1, U2).
 | `later.*`: structure eta, unit-like, `Nat` literal, quotient (re-checked Lean elaborations) | 4 | accepted ×4 | unsupported | unsupported (phase 5) |
 
 In all, 50 rows: 32 accepted (each with its counts), 14 failures, 4
-`whnf` answers. Measured 2026-11-03 with the pinned Lean, all as recorded.
+`whnf` answers. Measured 2026-11-03 with the pinned Lean, all as recorded;
+`make test` and `make check` (Gforth 1.0.0, Lean 4.35.0) passed with the
+table wired in.
 Planted faults in scratch copies (`.claude/work/DQ/bin/faults.sh`, not in
 git), each caught: a wrong count, a wrong verdict, an ADR 0014 answer
 contradicting Lean, an ADR 0014 *unknown* on a row Lean decides, an
