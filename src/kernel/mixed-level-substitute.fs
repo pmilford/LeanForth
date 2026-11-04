@@ -32,11 +32,14 @@ begin-structure /lf-mlsrec
   field: lf-mlsrec-terms       \ store counts to roll back to
   field: lf-mlsrec-levels
   field: lf-mlsrec-crefs
-  lf-level-params-limit cells +field lf-mlsrec-actuals    \ replacement levels
-  lf-cref-argument-capacity 2* cells +field lf-mlsrec-args  \ new level pairs
 end-structure
 lf-depth-limit context-walk: lf-mls-walker
 /lf-mlsrec context-record: lf-mls-job
+\ The replacement levels, and a rebuilt reference's new level pairs:
+\ growable arrays with no fixed limit (plan task 6.2.0); one the heap
+\ cannot grow is full.
+1 cells context-slab: lf-mls-actual-cells
+2 cells context-slab: lf-mls-arg-pairs
 \ Per term, columns of the term store (lib/store-columns.fs): whether the
 \ audit reached it, and its image.
 /slab context-record: lf-mls-seen-column
@@ -50,8 +53,10 @@ lf-depth-limit context-walk: lf-mls-walker
 : lf-mls-fuel ( -- addr ) lf-mls-walker walk-fuel ;
 : lf-mls-formals ( -- addr ) lf-mls-job lf-mlsrec-formals ;
 : lf-mls-count ( -- addr ) lf-mls-job lf-mlsrec-count ;
-: lf-mls-actuals ( -- addr ) lf-mls-job lf-mlsrec-actuals ;
-: lf-mls-args ( -- addr ) lf-mls-job lf-mlsrec-args ;
+\ The arrays' first units, valid while they do not grow (never during a
+\ pass, which reserves first).
+: lf-mls-actuals ( -- addr ) 0 lf-mls-actual-cells slab-at ;
+: lf-mls-args ( -- addr ) 0 lf-mls-arg-pairs slab-at ;
 : lf-mls-seen ( index -- addr ) lf-mls-seen-column column-at ;
 : lf-mls-result ( index -- addr ) lf-mls-results-column column-at ;
 
@@ -105,8 +110,8 @@ lf-depth-limit context-walk: lf-mls-walker
 \ count formal IDs at formals, with the given fuel; gives the fuel left.
 \ The caller has validated root's graph (lf-cterm-check). An audit reads
 \ no actuals, so none are given. Nothing is allocated. Negative fuel or a
-\ count outside 0..lf-level-params-limit is invalid and spends nothing.
-: lf-mls-audit-input? ( count fuel -- flag ) 0< 0= swap lf-level-params-limit upto? and ;
+\ negative count is invalid and spends nothing.
+: lf-mls-audit-input? ( count fuel -- flag ) 0< 0= swap 0< 0= and ;
 : lf-mls-audit-formals ( root formals count fuel -- fuel' status )
   2dup lf-mls-audit-input? 0= if nip nip nip outcome-invalid exit then
   lf-mls-fuel ! 0 swap lf-lsubst-use lf-mls-audit-from lf-mls-fuel @ swap ;
@@ -144,8 +149,11 @@ lf-depth-limit context-walk: lf-mls-walker
 : lf-mls-cells= ( addr addr' n -- flag )
   0 max 0 ?do 2dup i lf-mls-cell= 0= if 2drop false unloop exit then loop 2drop true ;
 : lf-mls-changed? ( addr count -- flag ) 2* lf-mls-args swap lf-mls-cells= 0= ;
+: lf-mls-arg-room ( addr count -- addr count outcome )
+  dup lf-mls-arg-pairs slab-reserve ;
 : lf-mls-substituted ( slot -- changed outcome )
-  lf-cref-pairs 2dup lf-mls-args! dup ok?
+  lf-cref-pairs lf-mls-arg-room ok-then? 0= if nip nip false swap exit then
+  2dup lf-mls-args! dup ok?
   if drop lf-mls-changed? outcome-ok else nip nip false swap then ;
 : lf-mls-new-constant ( slot -- index outcome )
   dup lf-cref-name@ rot lf-crec-arity @ >r lf-mls-args r> lf-cref-new
@@ -204,6 +212,7 @@ lf-depth-limit context-walk: lf-mls-walker
   dup lf-mls-count ! rot lf-mls-formals ! ;
 : lf-mls-prepare ( index id pairs count -- index id outcome )
   2over lf-mls-ready? 0= if 2drop outcome-invalid exit then
+  dup lf-mls-actual-cells slab-reserve ok-then? 0= if nip nip exit then
   lf-mls-snapshot lf-mls-actuals! flag>outcome ;
 
 \ Substitute count actual (index identity) level pairs for count formal IDs
@@ -217,7 +226,7 @@ lf-depth-limit context-walk: lf-mls-walker
 : lf-mls-pass
   ( index id formals actual-pairs count fuel -- index id 0 | status )
   lf-mls-walker walk-budget 0= if 2drop 2drop drop outcome-invalid exit then
-  dup lf-level-params-limit upto? 0= if 2drop 2drop drop outcome-invalid exit then
+  dup 0< if 2drop 2drop drop outcome-invalid exit then
   lf-mls-use lf-mls-prepare dup ok? if drop lf-mls-run else nip nip then ;
 \ The derivation log (ADR 0013): with it on, the substitution is one
 \ instantiate-levels step of the type with count levels; both paths run

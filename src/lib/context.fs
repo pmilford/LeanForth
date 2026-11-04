@@ -76,6 +76,7 @@ require ./portability.fs
 require ./store.fs
 require ./walk.fs
 require ./frame.fs
+require ./slab.fs
 
 begin-structure /context-header
   field: context-size      \ bytes in the context; zeroed by context-free
@@ -261,6 +262,24 @@ end-structure
 \ Every teardown word in context; the current context is restored
 \ afterwards.
 : context-torn ( context -- ior ) lf-context @ >r teardowns-run r> lf-context ! ;
+
+\ Growable arrays (plan task 6.2.0): context-slab: ( width "name" -- )
+\ defines name ( -- slab ), a slab (slab.fs) of units of width address
+\ units, empty in every context; slab-reserve grows it to n units (ok, or
+\ full when the heap has no room), slab-at gives unit i's address, valid
+\ until it next grows. Every context's slab members are freed with it.
+\ The list of their offsets is laid down while loading, read-only after.
+variable context-slabs
+: member-slab ( addr member -- )
+  member-width @ max-n over / rot slab-init ok? 0= abort" context: bad slab" ;
+: slabs-free ( -- )
+  context-slabs @ begin ?dup while dup cell+ @ lf-context @ + slab-free @ repeat ;
+' slabs-free context-teardown
+: slab-listed ( member -- member )
+  here context-slabs @ , over member-offset @ , context-slabs ! ;
+: context-slab: ( width "name" -- )
+  dup 1 < abort" context-slab: bad width"
+  /slab ['] member-slab member: tuck member-width ! slab-listed member-add ;
 
 \ Stack needs: the deepest nesting, in data and return-stack cells, that
 \ any module states for one of its checks (such as mixed-beta.fs's nested

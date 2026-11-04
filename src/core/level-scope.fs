@@ -2,11 +2,13 @@
 \ well formed, children come earlier, and every parameter is in the current
 \ context. Untrusted. It does not compare levels, establish Lean name
 \ identity, check types or authorize a theorem.
-\ State: one parameter-context record, lf-lscope-state (a duplicate-free
-\ list of positive parameter IDs with a generation that advances on every
-\ change), and one walk record, lf-lscope-walk, both members of the
-\ checker context (lib/context.fs); a set-up word starts every context's
-\ parameter context empty. Single-threaded within one context: the check
+\ State: one parameter-context record, lf-lscope-state (the count of a
+\ duplicate-free list of positive parameter IDs and a generation that
+\ advances on every change), the list itself and the audit's scratch
+\ table, both growable arrays with no fixed limit (context-slab:, plan
+\ task 6.2.0: a context that cannot grow is full), and one walk record,
+\ lf-lscope-walk, all members of the checker context (lib/context.fs); a
+\ set-up word starts every context's parameter context empty. Single-threaded within one context: the check
 \ must not run again while its walk record is in use. Callers prevent
 \ external mutation.
 
@@ -15,25 +17,24 @@ require ./diagnostics.fs
 require ./levels.fs
 
 \ The audit of the entries (lf-lscope-entries-ok?) finds repeats through a
-\ scratch table of lf-lscope-slots# cells, twice the most entries.
-\ The probe masks with slots# - 1, so the count must be a power of two.
-lf-level-params-limit 2* constant lf-lscope-slots#
+\ scratch table of lf-lscope-slots cells for n entries: the smallest power
+\ of two at least 2n and 32. The probe masks with slots - 1, so the count
+\ must be a power of two; the audit checks it before use.
 : lf-lscope-power-of-two? ( n -- flag ) dup 0> swap dup 1- and 0= and ;
-lf-lscope-slots# lf-lscope-power-of-two? 0= [if]
-  .( level-scope: 2 * lf-level-params-limit must be a power of two) cr abort
-[then]
+: lf-lscope-slots ( n -- slots ) 2* 32 begin 2dup > while 2* repeat nip ;
 begin-structure /lf-lsctx
   field: lf-lsctx-count         \ parameter IDs in the context
   field: lf-lsctx-generation    \ advances on every change; negative when spent
-  lf-level-params-limit cells +field lf-lsctx-ids
-  lf-lscope-slots# cells +field lf-lsctx-seen   \ the audit's scratch table
 end-structure
 /lf-lsctx context-record: lf-lscope-state
+1 cells context-slab: lf-lscope-ids     \ the parameter IDs, in order
+1 cells context-slab: lf-lscope-table   \ the audit's scratch table
 lf-level-depth-limit context-walk: lf-lscope-walk
 
 \ The context's fields under their established names (other modules read
-\ the count and generation; tests corrupt them).
-: lf-lscope-context ( -- addr ) lf-lscope-state lf-lsctx-ids ;
+\ the count and generation; tests corrupt them). lf-lscope-context is the
+\ first ID's address, valid while the list does not grow.
+: lf-lscope-context ( -- addr ) 0 lf-lscope-ids slab-at ;
 : lf-lscope-context-count ( -- addr ) lf-lscope-state lf-lsctx-count ;
 : lf-lscope-generation ( -- addr ) lf-lscope-state lf-lsctx-generation ;
 
@@ -46,8 +47,9 @@ lf-level-depth-limit context-walk: lf-lscope-walk
 : lf-lscope-advance ( -- ) lf-lscope-generation dup @ epoch+ swap ! ;
 : lf-lscope-context-reset ( -- ) 0 lf-lscope-context-count ! lf-lscope-advance ;
 : lf-lscope-count-valid? ( -- flag )
-  lf-lscope-context-count @ lf-level-params-limit upto? lf-lscope-generation @ 0< 0= and ;
-: lf-lscope-slot ( i -- addr ) cells lf-lscope-context + ;
+  lf-lscope-context-count @ lf-lscope-ids slab-capacity upto?
+  lf-lscope-generation @ 0< 0= and ;
+: lf-lscope-slot ( i -- addr ) lf-lscope-ids slab-at ;
 : lf-lscope-id@ ( i -- id ) lf-lscope-slot @ ;
 \ Search the first n entries; the caller has validated n.
 : lf-lscope-in? ( id n -- flag )
@@ -57,26 +59,32 @@ lf-level-depth-limit context-walk: lf-lscope-walk
 \ checked first. Separate from visit fuel. A few entries are compared
 \ pairwise; more, such as every universe parameter of a whole export, go
 \ through the scratch table: each ID into the first free slot from its
-\ hash (open addressing; the table, twice the most entries, never fills),
-\ and an ID met there already is a repeat, so the audit stays linear.
+\ hash (open addressing; the table, at least twice the entries, never
+\ fills), and an ID met there already is a repeat, so the audit stays
+\ linear. A table the heap cannot give falls back to the pairwise audit.
 16 constant lf-lscope-few
 : lf-lscope-pair-ok? ( i -- flag )
   dup lf-lscope-id@ dup 0> if swap lf-lscope-in? 0= else 2drop false then ;
-: lf-lscope-seen ( slot -- addr ) cells lf-lscope-state lf-lsctx-seen + ;
-: lf-lscope-next ( slot -- slot' ) 1+ lf-lscope-slots# 1- and ;
-\ Unchecked: id > 0. True when id is in the table already, else put it in.
-: lf-lscope-seen? ( id -- flag )
-  dup lf-lscope-slots# 1- and begin dup lf-lscope-seen @ ?dup while
-    2 pick = if 2drop true exit then lf-lscope-next
-  repeat lf-lscope-seen ! false ;
-: lf-lscope-hash-ok? ( i -- flag )
-  lf-lscope-id@ dup 0> if lf-lscope-seen? 0= else drop false then ;
+: lf-lscope-seen ( slot -- addr ) lf-lscope-table slab-at ;
+\ Unchecked: id > 0 and mask + 1 a power of two of free or used slots.
+\ True when id is in the table already, else put it in.
+: lf-lscope-seen? ( id mask -- flag )
+  2dup and begin dup lf-lscope-seen @ ?dup while
+    3 pick = if 2drop drop true exit then 1+ over and   \ next slot, wrapped
+  repeat nip lf-lscope-seen ! false ;
+: lf-lscope-hash-ok? ( mask i -- mask flag )
+  lf-lscope-id@ dup 0> if over lf-lscope-seen? 0= else drop false then ;
 : lf-lscope-pairs-ok? ( -- flag )
   lf-lscope-context-count @ 0 ?do
     i lf-lscope-pair-ok? 0= if false unloop exit then loop true ;
+: lf-lscope-hashed ( slots -- flag )
+  dup cells 0 lf-lscope-seen swap erase 1- lf-lscope-context-count @ 0 ?do
+    i lf-lscope-hash-ok? 0= if drop false unloop exit then loop drop true ;
+: lf-lscope-table? ( slots -- flag )
+  dup lf-lscope-power-of-two? if lf-lscope-table slab-reserve ok? else drop false then ;
 : lf-lscope-hashed-ok? ( -- flag )
-  0 lf-lscope-seen lf-lscope-slots# cells erase lf-lscope-context-count @ 0 ?do
-    i lf-lscope-hash-ok? 0= if false unloop exit then loop true ;
+  lf-lscope-context-count @ lf-lscope-slots dup lf-lscope-table?
+  if lf-lscope-hashed else drop lf-lscope-pairs-ok? then ;
 : lf-lscope-entries-ok? ( -- flag )
   lf-lscope-context-count @ lf-lscope-few <
   if lf-lscope-pairs-ok? else lf-lscope-hashed-ok? then ;
@@ -84,10 +92,12 @@ lf-level-depth-limit context-walk: lf-lscope-walk
   lf-lscope-count-valid? if lf-lscope-entries-ok? else false then ;
 
 \ Add a positive, new identifier to a valid context. Failure, including
-\ corrupted entries, a full context or a spent generation, changes nothing.
+\ corrupted entries, a context the heap cannot grow or a spent
+\ generation, changes nothing.
 : lf-lscope-new-id? ( id -- flag ) dup 0> swap lf-lscope-member? 0= and ;
 : lf-lscope-room? ( -- flag )
-  lf-lscope-context-count @ lf-level-params-limit < lf-lscope-generation @ max-n <> and ;
+  lf-lscope-generation @ max-n <> dup 0= if exit then
+  drop lf-lscope-context-count @ 1+ lf-lscope-ids slab-reserve ok? ;
 : lf-lscope-addable? ( id -- flag ) lf-lscope-new-id? lf-lscope-room? and ;
 : lf-lscope-append ( id -- )
   lf-lscope-context-count @ lf-lscope-slot ! 1 lf-lscope-context-count +! ;

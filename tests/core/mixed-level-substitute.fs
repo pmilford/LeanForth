@@ -59,10 +59,17 @@ T{ 3 formals 2 14 lf-mls-audit-formals -> 0 outcome-ok }T
 T{ 3 formals 2 13 lf-mls-audit-formals -> 0 outcome-exhausted }T
 T{ 3 formals 1 100 lf-mls-audit-formals -> 92 outcome-invalid }T
 T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> source-terms source-counts }T
-\ Negative fuel and a count outside 0..lf-level-capacity spend nothing.
+\ Negative fuel and a negative count spend nothing. There is no other
+\ limit on the count (plan task 6.2.0): 1,000 formals, the two above and
+\ 998 more, give the same audit.
 T{ 3 formals 2 -1 lf-mls-audit-formals -> -1 outcome-invalid }T
 T{ 3 formals -1 100 lf-mls-audit-formals -> 100 outcome-invalid }T
-T{ 3 formals lf-level-capacity 1+ 100 lf-mls-audit-formals -> 100 outcome-invalid }T
+create many-formals 1000 cells allot
+: many-formals! ( -- )
+  formals many-formals 2 cells move
+  1000 2 do i 1000 + i cells many-formals + ! loop ;
+many-formals!
+T{ 3 many-formals 1000 100 lf-mls-audit-formals -> 86 outcome-ok }T
 \ Source must be audited in its real session context, not merely formals.
 33 formals cell+ !
 T{ 500 run-substitution -> outcome-invalid }T
@@ -153,15 +160,13 @@ variable saw-partial variable sweep-fuel
     then
   loop false ;
 T{ fuel-sweep -> true }T
-\ A count below zero or above the level capacity is invalid before any
-\ allocation, and so is a stale or out-of-range actual, even when the source
+\ A count below zero is invalid before any allocation, and so is a stale or out-of-range actual, even when the source
 \ is a bare variable that has no level to substitute.
 : counts@ ( -- terms levels crefs ) lf-term-count @ lf-level-count @ lf-cref-count @ ;
 : substitute-count ( count -- index id 0 | status )
   >r fixture-root @ root-id @ formals actuals r> 500 lf-mixed-level-substitute ;
 setup
 T{ -1 substitute-count -> outcome-invalid }T
-T{ lf-level-capacity 1+ substitute-count -> outcome-invalid }T
 T{ counts@ -> 4 5 1 }T
 : bare-variable ( -- ) 0 lf-hterm-bvar 0= abort" bvar" root-id ! fixture-root ! ;
 bare-variable
