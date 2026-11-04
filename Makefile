@@ -544,9 +544,12 @@ DOC_EXAMPLE_PAGES += docs/programming/CHECKED_ENVIRONMENT.md
 # end on cases of the inductive table, every outcome and rule with its
 # diagnostic and step, Lean's replay of the Bool block mutated, blocks
 # published together, the reference export tampered one field at a time,
-# a fuel bisection and a full term store. Gforth only.
+# a fuel bisection and a full term store; the constructor capacity (512
+# accepted, 513 and 1,600 full, a valid block after each still accepted).
+# Gforth and Python 3.
 test-check-block:
 	$(RUN) $(GFORTH) tests/core/check-block.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/core/test_block_capacity.py
 
 .PHONY: test-check-block
 test: test-check-block

@@ -797,14 +797,38 @@ and its members' exported data into the input (`core/input.fs`,
    reduct is the minor premise applied to the fields, whose type is the
    recursor's result type by construction.
 8. *B4* differences set a warning bit per block (`lf-block-warnings`,
-   owner answer Q2); no output prints it yet, since the command line's
-   reader still refuses inductive types.
-9. *A recursor missing from the block* (B4) is accepted, but no slot
-   holds it, so a later declaration naming it is rejected as an unknown
-   constant where Lean's replay would use its kernel's recursor; only a
-   tampered file can do this. *An empty block* has no declaration to
-   check: the reader refuses it (*invalid*). *A file naming a constant it
-   never declares* is refused by the importer (*invalid*) before any check.
+   owner answer Q2), kept on the accepted block's slots
+   (`lf-env-warnings`; review rvI21 M2); no command-line output prints
+   them yet, since the command line's reader still refuses inductive
+   types. B5's generated values are not yet published: the slots hold
+   the file's data, whose recursor and constructor numbers B3 proved equal
+   to LeanForth's, but whose type fields `numIndices`, `isRec`,
+   `isReflexive`, `numNested` are the file's and untrusted (the warning
+   bits say which differ from LeanForth's); tasks 5.2.1b and 5.2.2, the
+   first to read them, must use LeanForth's values.
+9. *A recursor missing from the block* (B4) is accepted, as Lean's replay
+   accepts it. Lean's kernel then holds the recursor it generated, which
+   LeanForth cannot publish (a slot is an input declaration, fixed when the
+   environment is made; the generated terms are the check's scratch), so
+   it reserves the name (review rvI21 B2, which found that a later
+   `def T.rec` was accepted where Lean answers `alreadyDeclared`): N2, the
+   publisher's re-check and the scheduler's readiness treat `T.rec` of an
+   earlier type `T` as declared when `T` is accepted (K5 when undecided or
+   unsupported), and `T.rec_<n>` likewise for a type not accepted; a later
+   use of it is *unknown* (diagnostic 77) where Lean would use its
+   kernel's recursor; and a file that uses it but declares it nowhere is
+   refused whole by the importer (*invalid*, before any check; this
+   corrects the earlier text, which said "rejected as an unknown
+   constant"). Only a tampered file can do any of this. *An empty block*
+   has no declaration to check: the reader refuses it (*invalid*). *A file
+   naming a constant it never declares* is refused by the importer
+   (*invalid*) before any check.
+10. *Capacity.* A block of more than 512 constructors is *full*, found
+    when it is opened, before anything is written for its constructors
+    (review rvI21 B1). T1 also counts each constructor's binders, as
+    Lean's `get_params` does (L1). is_geq's recursion is counted on
+    normalize's frame counter, so a deep one is *full* (review of the heap
+    stores).
 
 **Evidence** (2026-11-04, Gforth 1.0.0, Lean 4.35.0):
 
@@ -827,7 +851,12 @@ and its members' exported data into the input (`core/input.fs`,
   `params.index-one-universe-up`, `params.index-instead-of-parameter`),
   and 2 whose files name an undeclared constant are *invalid*; none is
   accepted or rejected against Lean.
-- `make test-check-block` (41 committed table files; blocks published
+- The review rvI21 (2026-11-04) added 19 rows (139 in all): its probes as
+  Lean's replays, `optParam`/`outParam` fields, T0, T1 and N2 cases, and
+  five rows of declarations after a block (decision 9). Of task 5.2.1a's
+  63 rows, 56 give Lean's verdict and 7 are pending, each with its
+  reason; 38 planted faults are caught.
+- `make test-check-block` (41 committed table files, 60 since the review; blocks published
   together; the reference export tampered field by field; fuel bisection;
   a full store), eighteen planted faults (`ind-*`) all caught, and the
   real exports: in `blocks.ndjson` `Both`, `Same` and `Either` are

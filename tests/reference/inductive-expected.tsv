@@ -17,6 +17,7 @@ ind.field-in-index	accepted	accepted	A1 E3	5.2.1c	IsZ: idx=1 rec=0 refl=0 nested
 ind.reflexive	accepted	accepted	A1 P1	5.2.1b	O: idx=0 rec=1 refl=1 nested=0 elim=any k=0 motives=1 minors=2 fields=[0, 1]
 ind.universe-max	accepted	accepted	A1 U1	5.2.1a	Pr: idx=0 rec=0 refl=0 nested=0 elim=any k=0 motives=1 minors=1 fields=[2]
 ind.sort-max	accepted	accepted	A1 U1	5.2.1a	S: idx=0 rec=0 refl=0 nested=0 elim=any k=0 motives=1 minors=2 fields=[1, 1]
+ind.annotated-fields	accepted	accepted	A1 G1	5.2.1a	An: idx=0 rec=0 refl=0 nested=0 elim=any k=0 motives=1 minors=1 fields=[2]
 pos.negative	nonPositive	rejected	P1	5.2.1b	
 pos.double-negative	nonPositive	rejected	P1	5.2.1b	
 pos.through-definition	nonPositive	rejected	P1	5.2.1b	
@@ -36,6 +37,7 @@ result.other-type	invalidReturnType	rejected	C3	5.2.1a
 result.other-type-sort	invalidReturnType	rejected	C3	5.2.1a	
 result.index-mentions-type	invalidReturnType	rejected	C3	5.2.1c	
 params.too-few-binders	tooFewParamBinders	rejected	T1	5.2.1a	
+params.constructor-too-few-binders	tooFewParamBinders	rejected	T1	5.2.1a	
 params.constructor-mismatch	ctorParamMismatch	rejected	C2	5.2.1a	
 params.constructor-mismatch-sort	ctorParamMismatch	rejected	C2	5.2.1a	
 params.constructor-binder-defeq	accepted	accepted	A1 C2	5.2.1a	T: idx=0 rec=0 refl=0 nested=0 elim=any k=0 motives=1 minors=1 fields=[0]
@@ -54,6 +56,7 @@ nested.local-variable	nestedLocalVariable	rejected	N2	5.2.5
 names.already-declared	alreadyDeclared	rejected	T5	5.2.1a	
 names.duplicate-constructor	duplicateConstructor	rejected	C4	5.2.1a	
 names.duplicate-universe	duplicateLevelParam	rejected	T5	5.2.1a	
+names.constructor-named-rec	alreadyDeclared	rejected	N2	5.2.1a	
 names.empty-block	emptyBlock	rejected	T1	5.2.1a	
 iota.nat-literal-major	accepted	accepted	R1 L2	5.2.1b	
 iota.nat-literal-major-wrong	declTypeMismatch	rejected	R1 L2	5.2.1b	
@@ -111,7 +114,23 @@ replay-bool.parameters-changed	kernel nonUniformOccurrence	rejected	B1 C1	5.2.1a
 replay-bool.isRec-changed	accepted	accepted	B4	5.2.1a	
 replay-bool.indices-changed	accepted	accepted	B4	5.2.1a	
 replay-bool.recursor-left-out	accepted	accepted	B4	5.2.1a	
+replay-bool.recursor-universe-renamed	invalidRecursor	rejected	B3	5.2.1a	
+replay-bool.recursor-universe-doubled	invalidRecursor	rejected	B3	5.2.1a	
+replay-bool.recursor-all-doubled	invalidRecursor	rejected	B3	5.2.1a	
+replay-bool.minor-premises-swapped	invalidRecursor	rejected	B3	5.2.1a	
+replay-bool.minor-premises-and-rules-swapped	invalidRecursor	rejected	B3	5.2.1a	
+replay-bool.constructor-universe-added	invalidConstructor	rejected	B3	5.2.1a	
+replay-and.recursor-k-set	invalidRecursor	rejected	B3 K1	5.2.1a	
+replay-unit.recursor-k-set	invalidRecursor	rejected	B3 K1	5.2.1a	
+replay-or.recursor-large-elimination	invalidRecursor	rejected	B3 E1	5.2.1a	
+after.recursor-left-out-then-def-rec	alreadyDeclared	rejected	B4 N2	5.2.1a	
+after.recursor-then-def-rec	alreadyDeclared	rejected	N2	5.2.1a	
+after.recursor-left-out-then-use-rec	accepted	accepted	B4	5.2.1a	
+after.recursor-left-out-then-use-and-def-rec	alreadyDeclared	rejected	B4 N2	5.2.1a	
+after.rejected-block-then-use	unknownConstant	rejected	U1 N1	5.2.1a	
 names.reserved-nested-prefix	reservedNestedPrefix	rejected	T0	5.2.5	
+names.reserved-nested-prefix-declared	reservedNestedPrefix	rejected	T0	5.2.1a	
+names.constructor-already-declared	alreadyDeclared	rejected	N2	5.2.1a	
 names.already-declared-earlier	alreadyDeclared	rejected	T5	5.2.1a	
 primitive.forged-add-computes	accepted	unsupported	L5	5.2.3	
 primitive.forged-add-unfolds	accepted	unsupported	L5	5.2.3	

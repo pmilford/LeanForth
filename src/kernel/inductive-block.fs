@@ -118,19 +118,34 @@ lf-depth-limit context-walk2: lf-ind-pair-walker
 \ ---------------------------------------------------------------------------
 \ Opening the block of declaration i, the check's: (span ok), its
 \ members recorded and span their number; (1 invalid) when i is not a
-\ block's first member or its members do not fit in the input.
+\ block's first member or its members do not fit in the input; (span
+\ full) when it has more constructors than the per-constructor arrays
+\ hold (lf-ind-ctor-capacity), checked before anything is written to
+\ them (review rvI21, B1). Each count is first checked to lie within the
+\ input, so their sum cannot wrap.
 : lf-ind-take ( header -- )
   lf-ind-state /lf-ind erase
   dup lf-hdr-first lf-more-field lf-ind-state lf-ind-first !
   dup lf-hdr-types lf-more-field lf-ind-state lf-ind-types !
   dup lf-hdr-ctors lf-more-field lf-ind-state lf-ind-ctors !
   lf-hdr-recs lf-more-field lf-ind-state lf-ind-recs ! ;
+: lf-ind-count? ( n -- flag ) lf-input-count upto? ;
+: lf-ind-counts? ( -- flag )
+  lf-ind-types@ lf-ind-count? lf-ind-ctors@ lf-ind-count? and
+  lf-ind-recs@ lf-ind-count? and ;
 : lf-ind-fits? ( i -- flag )
+  lf-ind-counts? 0= if drop false exit then
   dup lf-ind-first@ = lf-ind-members 0> and lf-ind-types@ 0> and
   swap lf-ind-members + lf-input-count upto? and ;
+: lf-ind-crowded ( -- span outcome )
+  lf-ind-ctors@ lf-ind-ctor-capacity lf-ind-site lf-diag-ctors-full lf-diag-note
+  lf-ind-members outcome-full ;
+: lf-ind-sized ( -- span outcome )
+  lf-ind-ctors@ lf-ind-ctor-capacity >
+  if lf-ind-crowded else lf-ind-members outcome-ok then ;
 : lf-ind-open ( i -- span outcome )
   dup lf-input-decl lf-idecl-header ?dup 0= if drop 1 outcome-invalid exit then
-  lf-ind-take lf-ind-fits? if lf-ind-members outcome-ok else 1 outcome-invalid then ;
+  lf-ind-take lf-ind-fits? if lf-ind-sized else 1 outcome-invalid then ;
 \ Whether a declaration is a member of an inductive block.
 : lf-ind-member? ( decl -- flag ) lf-idecl-block @ 0<> ;
 
@@ -191,7 +206,7 @@ lf-depth-limit context-walk2: lf-ind-pair-walker
 \ Every term of the block, in input order -- the types and constructor
 \ types, the recursor types and their rules' right sides -- given to xt
 \ ( root -- outcome ) until one is not ok.
-: lf-ind-rhs@ ( rules k -- root ) lf-irc-rule 2 cells + @ ;
+: lf-ind-rhs@ ( rules k -- root ) lf-irc-rule lf-irule-rhs ;
 : lf-ind-rules-each ( xt decl -- outcome )
   lf-idecl-data lf-irc-rules@ 0 ?do
     2dup i lf-ind-rhs@ swap execute dup ok? 0= if nip nip unloop exit then drop
@@ -339,9 +354,16 @@ lf-depth-limit context-walk2: lf-ind-pair-walker
 : lf-ind-c1 ( -- outcome )
   lf-ind-ctors@ 0 ?do i lf-c1-ctor dup ok? 0= if unloop exit then drop loop outcome-ok ;
 
-\ T1: at least numParams raw binders in the type (rejected: Lean's
-\ "incorrect number of parameters").
-: lf-ind-t1 ( -- outcome )
-  lf-ind-type lf-idecl-type @ lf-ind-body nip
-  dup lf-ind-nparams < 0= if drop outcome-ok exit then
+\ T1: at least numParams raw binders in the type, then in each
+\ constructor's type, in that order (get_params, 1138-1146, called from
+\ elim_nested_inductive_fn 1151-1166 before anything else of the block;
+\ review rvI21 L1). Rejected: Lean's "incorrect number of parameters",
+\ the binders found and numParams.
+: lf-ind-few ( k -- outcome )
   lf-ind-nparams lf-ind-site lf-diag-param-binders lf-diag-note outcome-rejected ;
+: lf-ind-enough ( node -- outcome )
+  lf-ind-body nip dup lf-ind-nparams < if lf-ind-few else drop outcome-ok then ;
+: lf-ind-t1 ( -- outcome )
+  lf-ind-type lf-idecl-type @ lf-ind-enough dup ok? 0= if exit then drop
+  lf-ind-ctors@ 0 ?do i lf-ind-ctor-type lf-ind-enough dup ok? 0= if unloop exit then drop
+  loop outcome-ok ;

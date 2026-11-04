@@ -118,6 +118,8 @@ begin-structure /lf-slot
   field: lf-slot-count      \ its number of dependencies
   field: lf-slot-axioms     \ its transitive axiom set (E6)
   field: lf-slot-provenance \ lf-provenance-...
+  field: lf-slot-warnings   \ an accepted inductive block's warnings (ADR 0015
+                            \ B4, check-block.fs), on each member; else 0
 end-structure
 
 \ A check's snapshot and candidate, in its context.
@@ -130,6 +132,7 @@ begin-structure /lf-cand
   field: lf-cand-count      \ dependencies recorded
   field: lf-cand-span       \ slots the outcome is for, from the checked one on:
                             \ an inductive block's members (ADR 0015 B5); 0 is 1
+  field: lf-cand-warnings   \ a block's B4 warning bits, published with it
   lf-env-dep-capacity cells +field lf-cand-deps   \ their slots, ascending
 end-structure
 /lf-cand context-record: lf-env-cand
@@ -138,6 +141,11 @@ end-structure
 \ members (kernel/check-block.fs); every other check leaves it 1.
 : lf-cand-span@ ( -- n ) lf-env-cand lf-cand-span @ 1 max ;
 : lf-env-span! ( n -- ) lf-env-cand lf-cand-span ! ;
+\ A block's check also sets its warnings (ADR 0015 B4, owner answer Q2:
+\ fields Lean's replay ignores that differ from what LeanForth computed,
+\ and a recursor the file leaves out); an accepted block's slots keep
+\ them (lf-env-warnings).
+: lf-env-warnings! ( bits -- ) lf-env-cand lf-cand-warnings ! ;
 
 \ A context as a worker (G-P6). Zero in a new context; never cleared.
 begin-structure /lf-worker
@@ -383,12 +391,91 @@ end-structure
 : lf-env-name-ok? ( name -- flag ) lf-name-valid? lf-name-storage-valid? and ;
 : lf-env-bad-name ( name -- d outcome )
   0 c" environment lf-env-lookup" lf-diag-bad-argument lf-diag-note -1 outcome-invalid ;
+
+\ Lean's generated recursors (ADR 0015, decision 9; review rvI21 B2).
+\ Lean's add_inductive adds the recursor T.rec it generates to its
+\ environment whatever the file holds, so a file that leaves T.rec out
+\ (B4) still has T.rec declared once T is accepted. LeanForth cannot
+\ publish a declaration the file does not hold: a slot is an input
+\ declaration (one per input record, fixed when the environment is
+\ made), and the generated terms are a check's scratch, rolled back
+\ after it. So it reserves the name: a name P.rec is held by the
+\ inductive types named P below limit -- declared when one is accepted,
+\ K5 when one is undecided or unsupported, too early when one is not
+\ final -- (d class), d that type's slot, class ok, unknown, unsupported
+\ or invalid; (-1 rejected) when nothing holds it. No diagnostic.
+\ P.rec_<digits>, the auxiliary recursors Lean generates for a nested
+\ block (named after its first type), is held the same way except by an
+\ accepted type: LeanForth accepts no nested block yet (plan task 5.2.2
+\ must hold these names for the nested blocks it accepts).
+: lf-env-number-rest ( c-addr u -- u' ) 0 0 2swap >number >r 2drop drop r> ;
+: lf-env-digits? ( c-addr u -- flag )
+  dup 0> >r base @ >r decimal lf-env-number-rest r> base ! 0= r> and ;
+: lf-env-aux-rec? ( c-addr u -- flag )
+  2dup 4 min s" rec_" compare if 2drop false else 4 /string lf-env-digits? then ;
+\ The kind of name's last part: 1 rec, 2 rec_<digits>, 0 any other.
+: lf-env-rec-kind ( name -- kind )
+  dup lf-name-tag@ lf-name-tag-str <> if drop 0 exit then
+  lf-name-text 2dup s" rec" compare 0= if 2drop 1 else lf-env-aux-rec? 2 and then ;
+: lf-slot-index ( slot -- d ) 0 lf-env lf-env-slot - /lf-slot / ;
+: lf-slot-type? ( slot -- flag )
+  lf-slot-index lf-input-decl lf-idecl-kind @ lf-kind-inductive = ;
+: lf-slot-type-open? ( slot -- flag ) dup lf-slot-open? swap lf-slot-type? and ;
+: lf-slot-type-accepted? ( slot -- flag ) dup lf-slot-accepted? swap lf-slot-type? and ;
+: lf-slot-type-undecided? ( slot -- flag )
+  dup lf-slot-final? over lf-slot-undecided? and swap lf-slot-type? and ;
+: lf-slot-type-unsupported? ( slot -- flag )
+  dup lf-slot-final? over lf-slot-unsupported? and swap lf-slot-type? and ;
+\ The tests, in order, and the class each gives.
+create lf-env-holders
+  ' lf-slot-type-open? , outcome-invalid ,  ' lf-slot-type-accepted? , outcome-ok ,
+  ' lf-slot-type-undecided? , outcome-unknown ,
+  ' lf-slot-type-unsupported? , outcome-unsupported ,
+here lf-env-holders - 2 cells / constant lf-env-holders#
+: lf-env-holder ( k -- test class ) 2* cells lf-env-holders + 2@ swap ;
+: lf-env-held-as ( prefix limit k -- prefix limit d class true | prefix limit false )
+  lf-env-holder >r >r 2dup r> swap lf-env-first dup 0< if drop r> drop false
+  else r> true then ;
+: lf-env-holding ( prefix limit -- d class )
+  lf-env-holders# 0 ?do i lf-env-held-as if 2swap 2drop unloop exit then loop
+  2drop -1 outcome-rejected ;
+: lf-env-aux-held ( d class -- d class ) dup ok? if 2drop -1 outcome-rejected then ;
+\ The name of the types that may hold name, 0 when no type can.
+: lf-env-type-name ( name -- prefix|0 )
+  dup lf-env-rec-kind if lf-name-prefix@ else drop 0 then ;
+: lf-env-reserving ( name limit -- d class )
+  over lf-env-rec-kind >r swap lf-env-type-name ?dup 0=
+  if r> 2drop -1 outcome-rejected exit then
+  swap lf-env-holding r> 2 = if lf-env-aux-held then ;
+\ Whether a type that may hold name below i is not final (the scheduler's
+\ readiness, lf-env-ready?).
+: lf-env-held-open? ( name i -- flag )
+  swap lf-env-type-name ?dup 0= if drop false exit then
+  swap ['] lf-slot-type-open? lf-env-any? ;
+
+\ N1 for a lookup that found no declaration of name below limit: rejected
+\ (an unknown constant); unknown when an accepted type reserves the name
+\ (Lean's kernel holds its recursor, no slot does); K5 or invalid as
+\ the type that reserves it says.
+: lf-env-unknown-constant ( name limit -- outcome )
+  c" environment lf-env-lookup" lf-diag-unknown-constant lf-diag-note outcome-rejected ;
+: lf-env-generated ( name d -- outcome )
+  c" environment lf-env-lookup" lf-diag-generated-recursor lf-diag-note outcome-unknown ;
+: lf-env-absent-as ( name limit d class -- outcome )
+  case outcome-rejected of drop lf-env-unknown-constant endof
+    outcome-ok of nip lf-env-generated endof
+    outcome-unknown of nip nip lf-env-k5-unknown endof
+    outcome-unsupported of nip nip lf-env-k5-unsupported endof
+    >r rot drop swap c" environment lf-env-lookup" lf-diag-too-early lf-diag-note
+    outcome-invalid r> endcase ;
 : lf-env-n1 ( name limit outcome -- outcome )
-  dup outcome-rejected = if >r c" environment lf-env-lookup" lf-diag-unknown-constant
-  lf-diag-note r> else nip nip then ;
+  dup outcome-rejected = 0= if nip nip exit then
+  drop 2dup lf-env-reserving lf-env-absent-as ;
 \ Find the constant named name for the check in this context: (d ok) for
 \ the accepted earlier declaration of that name; (-1 rejected) when none
-\ was accepted, undecided or unsupported (N1); (-1 unknown) when one was
+\ was accepted, undecided or unsupported (N1), and no earlier type holds
+\ the name as its generated recursor (lf-env-reserving: then unknown, or
+\ K5 by that type); (-1 unknown) when one was
 \ undecided, else (-1 unsupported) when one was unsupported (K5, unknown
 \ first); (-1 invalid)
 \ without a valid snapshot or name, when a same-named earlier slot is not
@@ -416,10 +503,28 @@ end-structure
 : lf-env-n2 ( d outcome -- outcome )
   dup outcome-rejected = if 2drop outcome-ok exit then
   dup ok? if drop lf-env-declared else nip then ;
+\ N2 against Lean's generated recursors, from lf-env-reserving's (d
+\ class): an accepted type holding the name declares it; K5 and too early
+\ as for the name's own slots.
+: lf-env-held-early ( d -- outcome )
+  lf-env-limit c" environment lf-env-own-name" lf-diag-too-early lf-diag-note
+  outcome-invalid ;
+: lf-env-n2-held ( d class -- outcome )
+  case outcome-ok of lf-env-declared endof  outcome-rejected of drop outcome-ok endof
+    outcome-unknown of lf-env-k5-unknown endof
+    outcome-unsupported of lf-env-k5-unsupported endof
+    >r lf-env-held-early r> endcase ;
+\ N2 for name below limit: no accepted declaration of it (the slots of
+\ that name), and no accepted type T with name T.rec (Lean's generated
+\ recursor, review rvI21 B2). ok, rejected, unknown, unsupported or
+\ invalid, as lf-env-n2 and lf-env-n2-held say.
+: lf-env-fresh ( name limit -- outcome )
+  2dup lf-env-find lf-env-n2 dup ok? 0= if nip nip exit then drop
+  lf-env-reserving lf-env-n2-held ;
 : lf-env-own-name-pass ( -- outcome )
   lf-env-checking 0= if outcome-invalid exit then nip
   lf-name-storage-valid? 0= if drop outcome-invalid exit then
-  dup lf-input-name swap lf-env-find lf-env-n2 ;
+  dup lf-input-name swap lf-env-fresh ;
 \ The derivation log (ADR 0013) records N2 as a fresh-name step, L1 as a
 \ universe-arity step, L2 as a universe-parameter step and L3 as a
 \ distinct-parameters step; a and b as the catalogue gives them (the
@@ -429,14 +534,17 @@ end-structure
   lf-log? 0= if lf-env-own-name-pass exit then
   lf-env-limit lf-log-none lf-rule-fresh-name ['] lf-env-own-name-pass lf-env-logged ;
 \ G-P5, for a scheduler outside any check: whether every declaration
-\ before i named name has a final slot in the current environment. False
-\ inside a job or a check (the scheduler alone asks), without a valid
-\ current environment, for i out of range or an invalid name.
+\ before i named name has a final slot in the current environment, and,
+\ for a name a generated recursor may hold (lf-env-reserving), every type
+\ before i that may hold it. False inside a job or a check (the scheduler
+\ alone asks), without a valid current environment, for i out of range or
+\ an invalid name.
 : lf-env-ready-args? ( name i -- flag )
   lf-env-current 0= if 2drop false exit then
   lf-env-length upto? swap lf-env-name-ok? and context-in-job? 0= and ;
 : lf-env-ready? ( name i -- flag )
-  2dup lf-env-ready-args? if ['] lf-slot-open? lf-env-any? 0= else 2drop false then ;
+  2dup lf-env-ready-args? 0= if 2drop false exit then
+  2dup ['] lf-slot-open? lf-env-any? >r lf-env-held-open? r> or 0= ;
 
 \ The candidate's dependencies, kept ascending and distinct. The count is
 \ checked before the list is read.
@@ -538,3 +646,10 @@ end-structure
 : lf-env-axioms ( d -- bits outcome )
   lf-env-readable 0= if 0 outcome-invalid exit then
   dup lf-slot-accepted? if lf-slot-axioms @ outcome-ok else drop 0 outcome-invalid then ;
+\ The warnings of an accepted declaration, (bits ok): an inductive block
+\ member's B4 bits (check-block.fs lf-warn-...), 0 for any other; else
+\ (0 invalid).
+: lf-env-warnings ( d -- bits outcome )
+  lf-env-readable 0= if 0 outcome-invalid exit then
+  dup lf-slot-accepted? if lf-slot-warnings @ outcome-ok
+  else drop 0 outcome-invalid then ;

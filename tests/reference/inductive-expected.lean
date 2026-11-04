@@ -241,7 +241,12 @@ def accepted : List Block := [
     types := [⟨"S", "Sort u → Sort v → Sort (max 1 u v)",
       [("inl", "(α : Sort u) → (β : Sort v) → α → S α β"),
        ("inr", "(α : Sort u) → (β : Sort v) → β → S α β")]⟩],
-    lean := "accepted", leanforth := "accepted", rule := "A1 U1", task := "5.2.1a" }
+    lean := "accepted", leanforth := "accepted", rule := "A1 U1", task := "5.2.1a" },
+  -- Fields typed `optParam` and `outParam`: the recursor's minor premise has them
+  -- removed (`consume_type_annotations`; review rvI21 M1).
+  { id := "ind.annotated-fields",
+    types := [⟨"An", "Type", [("mk", "(p : optParam Prop True) → (q : outParam Prop) → An")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 G1", task := "5.2.1a" }
 ]
 
 /-- Declarations Lean rejects, each next to an accepted neighbour. -/
@@ -301,6 +306,11 @@ def checks : List Block := [
   -- Parameters.
   { id := "params.too-few-binders", nparams := 2, types := [⟨"T", "Type → Type", []⟩],
     lean := "tooFewParamBinders", leanforth := "rejected", rule := "T1", task := "5.2.1a" },
+  -- A constructor with fewer binders than parameters and no occurrence of the type
+  -- (so check_uniform_ind_occs passes): get_params refuses it (review rvI21 L1).
+  { id := "params.constructor-too-few-binders", nparams := 1,
+    types := [⟨"T", "Prop → Prop", [("mk", "Prop")]⟩],
+    lean := "tooFewParamBinders", leanforth := "rejected", rule := "T1", task := "5.2.1a" },
   { id := "params.constructor-mismatch", nparams := 1,
     types := [⟨"T", "Type → Type", [("mk", "(β : Prop) → Nat")]⟩],
     lean := "ctorParamMismatch", leanforth := "rejected", rule := "C2", task := "5.2.1a" },
@@ -359,6 +369,9 @@ def checks : List Block := [
   { id := "names.duplicate-universe", lparams := [`u, `u],
     types := [⟨"T", "Sort u", []⟩],
     lean := "duplicateLevelParam", leanforth := "rejected", rule := "T5", task := "5.2.1a" },
+  -- A constructor named `rec`: the recursor's name is then taken (declare_recursors).
+  { id := "names.constructor-named-rec", types := [⟨"R", "Type", [("rec", "R")]⟩],
+    lean := "alreadyDeclared", leanforth := "rejected", rule := "N2", task := "5.2.1a" },
   { id := "names.empty-block", types := [],
     lean := "emptyBlock", leanforth := "rejected", rule := "T1", task := "5.2.1a" }
 ]
@@ -580,9 +593,19 @@ def mutations : List Mutation := [
     lean := "accepted", leanforth := "accepted", rule := "B4" }
 ]
 
+/-- `{motive} → motive false → motive true → …` with its two minor premises swapped:
+`{motive} → motive true → motive false → …` (the motive one binder further out in
+the second). -/
+def swapMinors : Expr → Expr
+  | .forallE m mt (.forallE a (.app f x) (.forallE b (.app g y) rest bi2) bi1) bi0 =>
+    .forallE m mt (.forallE b (.app f y) (.forallE a (.app g x) rest bi2) bi1) bi0
+  | e => e
+
 /-- The same checks on the non-recursive block `ind.bool` (`B`: `false`, `true`), which
-plan task 5.2.1a covers, and five more mutations: the recursor's universe parameter
-dropped, the recursor renamed, a constructor's index changed. -/
+plan task 5.2.1a covers, and more mutations: the recursor's universe parameter
+dropped, renamed or doubled, the recursor renamed, its `all` doubled, its minor
+premises swapped, a constructor's index or universe parameters changed (the last
+five are review rvI21's probes). -/
 def bTrue : Name := `IE.B.true
 def boolMutations : List Mutation := [
   { id := "replay-bool.original", change := some,
@@ -618,7 +641,55 @@ def boolMutations : List Mutation := [
     lean := "accepted", leanforth := "accepted", rule := "B4" },
   { id := "replay-bool.recursor-left-out",
     change := fun c => match c with | .recInfo _ => none | c => some c,
-    lean := "accepted", leanforth := "accepted", rule := "B4" }
+    lean := "accepted", leanforth := "accepted", rule := "B4" },
+  { id := "replay-bool.recursor-universe-renamed",
+    change := onRec fun r =>
+      { r with levelParams := [`v], type := r.type.instantiateLevelParams [`u] [.param `v] },
+    lean := "invalidRecursor", leanforth := "rejected", rule := "B3" },
+  { id := "replay-bool.recursor-universe-doubled",
+    change := onRec fun r => { r with levelParams := [`u, `u] },
+    lean := "invalidRecursor", leanforth := "rejected", rule := "B3" },
+  { id := "replay-bool.recursor-all-doubled",
+    change := onRec fun r => { r with all := [`IE.B, `IE.B] },
+    lean := "invalidRecursor", leanforth := "rejected", rule := "B3" },
+  { id := "replay-bool.minor-premises-swapped",
+    change := onRec fun r => { r with type := swapMinors r.type },
+    lean := "invalidRecursor", leanforth := "rejected", rule := "B3" },
+  { id := "replay-bool.minor-premises-and-rules-swapped",
+    change := onRec fun r => swapRules { r with type := swapMinors r.type },
+    lean := "invalidRecursor", leanforth := "rejected", rule := "B3" },
+  { id := "replay-bool.constructor-universe-added",
+    change := onCtor bTrue fun c => { c with levelParams := [`u] },
+    lean := "invalidConstructor", leanforth := "rejected", rule := "B3" }
+]
+
+/-- The motive's sort in a recursor's type made `Sort u`. -/
+def sortInto (u : Level) : Expr → Expr
+  | .forallE n t b bi => .forallE n t (sortInto u b) bi
+  | .sort _ => .sort u
+  | e => e
+
+def motiveInto (u : Level) : Expr → Expr
+  | .forallE n t b bi =>
+    if n == `motive then .forallE n (sortInto u t) b bi else .forallE n t (motiveInto u b) bi
+  | e => e
+
+/-- Replays of three more accepted blocks of task 5.2.1a, each mutated once (review
+rvI21's probes): `k` set where Lean's `init_K_target` clears it (`And` has a field,
+`U` lives in `Type`), and `Or`'s recursor made to eliminate into every universe
+(Lean's eliminates only into `Prop`, E1). -/
+def blockReplays : List (String × List Mutation) := [
+  ("ind.and", [
+    { id := "replay-and.recursor-k-set", change := onRec fun r => { r with k := true },
+      lean := "invalidRecursor", leanforth := "rejected", rule := "B3 K1" }]),
+  ("ind.unit", [
+    { id := "replay-unit.recursor-k-set", change := onRec fun r => { r with k := true },
+      lean := "invalidRecursor", leanforth := "rejected", rule := "B3 K1" }]),
+  ("ind.or", [
+    { id := "replay-or.recursor-large-elimination",
+      change := onRec fun r =>
+        { r with levelParams := [`u], type := motiveInto (.param `u) r.type },
+      lean := "invalidRecursor", leanforth := "rejected", rule := "B3 E1" }])
 ]
 
 /-! ## Primitive names and quotient initialisation, in an empty environment -/
@@ -705,10 +776,99 @@ def reservedPrefix : Declaration :=
   let t : Expr := mkConst `IE.T
   .inductDecl [] 0 [⟨`IE.T, .sort 1, [⟨`IE.T.mk, .forallE `x (mkConst `_nested.T) t .default⟩]⟩] false
 
+/-- A definition named under `_nested`, then a block whose constructor uses it: T0
+rejects the block, the constant being declared (a closed file; review rvI21 M1). -/
+def nestedAux : Declaration :=
+  .defnDecl { name := `_nested.X, levelParams := [], type := .sort 1, value := .sort 0,
+              hints := .regular 0, safety := .safe }
+def usesNestedAux : Declaration :=
+  let t : Expr := mkConst `IE.T0
+  .inductDecl [] 0 [⟨`IE.T0, .sort 1, [⟨`IE.T0.mk, .forallE `x (mkConst `_nested.X) t .default⟩]⟩] false
+
+/-- A definition `IE.C.mk`, then a block `IE.C` whose constructor has that name (N2 on
+the constructors, check_constructors; review rvI21 M1). -/
+def takenName : Declaration :=
+  .defnDecl { name := `IE.C.mk, levelParams := [], type := .sort 1, value := .sort 0,
+              hints := .regular 0, safety := .safe }
+def takenBlock : Declaration :=
+  .inductDecl [] 0 [⟨`IE.C, .sort 1, [⟨`IE.C.mk, mkConst `IE.C⟩]⟩] false
+
 def onBase : List Chain := [
   { id := "names.reserved-nested-prefix", decls := [reservedPrefix],
-    lean := "reservedNestedPrefix", leanforth := "rejected", rule := "T0", task := "5.2.5" }
+    lean := "reservedNestedPrefix", leanforth := "rejected", rule := "T0", task := "5.2.5" },
+  { id := "names.reserved-nested-prefix-declared", decls := [nestedAux, usesNestedAux],
+    lean := "reservedNestedPrefix", leanforth := "rejected", rule := "T0", task := "5.2.1a" },
+  { id := "names.constructor-already-declared", decls := [takenName, takenBlock],
+    lean := "alreadyDeclared", leanforth := "rejected", rule := "N2", task := "5.2.1a" }
 ]
+
+/-! ## A declaration after a block
+
+Each case adds declarations after a block, in order, each where the kernel
+accepts it (as a file's declarations are checked one after another); the row's
+verdict is the last one's. The block is `ind.bool` replayed from its constants with
+or without its recursor (Lean's replay generates `IE.B.rec` either way), or a
+declaration of `decls`. Review rvI21 B2 and M1. -/
+
+structure Sequel where
+  id : String
+  /-- `some keep`: start from `ind.bool` replayed, with its recursor when `keep`. -/
+  bool : Option Bool := none
+  decls : List Declaration
+  lean : String
+  leanforth : String
+  rule : String
+  task : String := "5.2.1a"
+
+/-- `def IE.B.rec : Type := IE.B`. -/
+def defBRec : Declaration :=
+  .defnDecl { name := `IE.B.rec, levelParams := [], type := .sort 1, value := mkConst `IE.B,
+              hints := .regular 1, safety := .safe }
+
+/-- `def IE.B.useRec.{u} : <the type of IE.B.rec.{u}> := @IE.B.rec.{u}`. -/
+def useBRec (recType : Expr) : Declaration :=
+  .defnDecl { name := `IE.B.useRec, levelParams := [`u], type := recType,
+              value := mkConst `IE.B.rec [.param `u], hints := .regular 1, safety := .safe }
+
+/-- `Big : Type` with a field `Type` (rejected, U1), then `def IE.useBig : Type := IE.Big`. -/
+def bigDecl : Declaration :=
+  .inductDecl [] 0 [⟨`IE.Big, .sort 1, [⟨`IE.Big.mk, .forallE `a (.sort 1) (mkConst `IE.Big) .default⟩]⟩] false
+def useBig : Declaration :=
+  .defnDecl { name := `IE.useBig, levelParams := [], type := .sort 1, value := mkConst `IE.Big,
+              hints := .regular 1, safety := .safe }
+
+def sequels (recType : Expr) : List Sequel := [
+  { id := "after.recursor-left-out-then-def-rec", bool := some false, decls := [defBRec],
+    lean := "alreadyDeclared", leanforth := "rejected", rule := "B4 N2" },
+  { id := "after.recursor-then-def-rec", bool := some true, decls := [defBRec],
+    lean := "alreadyDeclared", leanforth := "rejected", rule := "N2" },
+  { id := "after.recursor-left-out-then-use-rec", bool := some false, decls := [useBRec recType],
+    lean := "accepted", leanforth := "accepted", rule := "B4" },
+  { id := "after.recursor-left-out-then-use-and-def-rec", bool := some false,
+    decls := [useBRec recType, defBRec],
+    lean := "alreadyDeclared", leanforth := "rejected", rule := "B4 N2" },
+  { id := "after.rejected-block-then-use", decls := [bigDecl, useBig],
+    lean := "unknownConstant", leanforth := "rejected", rule := "U1 N1" }
+]
+
+/-- The last declaration's verdict, the others added where the kernel accepts them. -/
+def lastVerdict (env : Kernel.Environment) : List Declaration → String
+  | [] => "no declaration"
+  | [d] => verdict (env.addDeclCore 0 0 d none)
+  | d :: ds => lastVerdict (match env.addDeclCore 0 0 d none with
+      | .ok e => e
+      | .error _ => env) ds
+
+def sequelStart (base : Kernel.Environment) (bcs : List ConstantInfo) (s : Sequel) :
+    IO Kernel.Environment := do
+  match s.bool with
+  | none => pure base
+  | some keep =>
+    let cs := if keep then bcs else bcs.filter fun c => !(c matches .recInfo _)
+    let map := cs.foldl (fun (m : Std.HashMap Name ConstantInfo) c => m.insert c.name c) {}
+    match ← (base.replay map).toBaseIO with
+    | .ok env => pure env
+    | .error e => throw (IO.userError s!"{s.id}: the Bool block not replayed: {e}")
 
 /-- A block declared twice in one input: `names.already-declared` without `Nat` (a
 recursive type, task 5.2.1b), so that task 5.2.1a reaches rule T5. -/
@@ -828,11 +988,14 @@ structure Segment where
   roots : List Name
 
 /-- Print one case as an export between marker lines: the meta record, what the
-segments use from `base`, then each segment from its own environment. -/
+segments use from `base`, then each segment from its own environment. The marker
+names the case's own constants, or only `judged` when given (a sequel's last
+declaration). -/
 def writeSegments (base : Kernel.Environment) (baseRecs : NameMap NameSet) (id : String)
-    (segs : List Segment) : IO Unit := do
+    (segs : List Segment) (judged : Option (List Name) := none) : IO Unit := do
   let own := segs.flatMap (·.own)
-  IO.println s!"ndjson-begin\t{id}\t{",".intercalate (own.map (·.toString false))}"
+  let named := judged.getD own
+  IO.println s!"ndjson-begin\t{id}\t{",".intercalate (named.map (·.toString false))}"
   LeanExport.M.run (Environment.ofKernelEnv base) do
     modify fun st => { st with recursorMap := baseRecs, ignoreMissing := true }
     LeanExport.dumpMetadata
@@ -890,6 +1053,30 @@ def chainSegments (add : KernelAdd) (quot env : Kernel.Environment) :
     let e := addOrHold add quot env d
     ⟨e, ownOf env e d, (typeNames d).take 1⟩ :: chainSegments add quot e ds
 
+/-- A sequel as a file holds it: the Bool block's constants (without its recursor
+when left out), then each declaration as `chainSegments` writes it; the marker names
+the last declaration's constants. -/
+def writeSequel (add : KernelAdd) (base : Kernel.Environment) (baseRecs : NameMap NameSet)
+    (bcs : List ConstantInfo) (s : Sequel) : IO Unit :=
+  let (start, head) : Kernel.Environment × List Segment := match s.bool with
+    | none => (base, [])
+    | some keep =>
+      let cs := if keep then bcs else bcs.filter fun c => !(c matches .recInfo _)
+      let e := cs.foldl add base
+      (e, [⟨e, cs.map (·.name), [`IE.B]⟩])
+  let segs := head ++ chainSegments add base start s.decls
+  writeSegments base baseRecs s.id segs (some ((segs.getLast?.map (·.own)).getD []))
+
+/-- An accepted block of `accepted`, added to `base`, and its own constants. -/
+def blockConstants (base : Kernel.Environment) (id : String) :
+    CommandElabM (List ConstantInfo) := do
+  let some b := accepted.find? (·.id == id) | throwError "no {id}"
+  let d ← liftTermElabM b.decl
+  let .ok env := base.addDeclCore 0 0 d none | throwError "{id} not accepted"
+  (ownNames env d).mapM fun n => match env.find? n with
+    | some c => pure c
+    | none => throwError "missing {n}"
+
 /-- A replayed set of constants as a file holds it. -/
 def writeMutation (add : KernelAdd) (base : Kernel.Environment) (baseRecs : NameMap NameSet)
     (root : Name) (cs : List ConstantInfo) (m : Mutation) : IO Unit :=
@@ -942,6 +1129,19 @@ run_cmd do
     let got ← replayVerdict base (bcs.filterMap m.change)
     unless got == m.lean do throwError "{m.id}: Lean's verdict is {got}, expected {m.lean}"
     row m.id got m.leanforth m.rule "5.2.1a" ""
+  -- 3c. Replays of three more blocks, mutated.
+  for (blockId, ms) in blockReplays do
+    let cs ← blockConstants base blockId
+    for m in ms do
+      let got ← replayVerdict base (cs.filterMap m.change)
+      unless got == m.lean do throwError "{m.id}: Lean's verdict is {got}, expected {m.lean}"
+      row m.id got m.leanforth m.rule "5.2.1a" ""
+  -- 3d. Declarations after a block: the last one's verdict.
+  let some (.recInfo bRec) := withB.find? `IE.B.rec | throwError "no IE.B.rec"
+  for s in sequels bRec.type do
+    let got := lastVerdict (← sequelStart base bcs s) s.decls
+    unless got == s.lean do throwError "{s.id}: Lean's verdict is {got}, expected {s.lean}"
+    row s.id got s.leanforth s.rule s.task ""
   -- 4. Hand-built declarations, in the `import Lean` environment.
   for c in onBase do
     let got := verdict (addAll base c.decls)
@@ -970,6 +1170,11 @@ run_cmd do
     writeCase base baseRecs r.id (addOrHold add base base d) [n] [n]
   for m in mutations do writeMutation add base baseRecs `IE.N cs m
   for m in boolMutations do writeMutation add base baseRecs `IE.B bcs m
+  for (blockId, ms) in blockReplays do
+    let cs ← blockConstants base blockId
+    let root := (cs.head?.map (·.name)).getD .anonymous
+    for m in ms do writeMutation add base baseRecs root cs m
+  for s in sequels bRec.type do writeSequel add base baseRecs bcs s
   for c in onBase do
     writeSegments base baseRecs c.id (chainSegments add base base c.decls)
   writeSegments base baseRecs twice.id (chainSegments add base base [twiceDecl, twiceDecl])

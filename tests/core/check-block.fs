@@ -16,6 +16,9 @@
 \    unsupported; a loose variable invalid.
 \ 4. Fuel: every budget gives ok or exhausted, ok from the least on.
 \ 5. Room: a term store with no room left gives full, never ok.
+\ 6. After a block (review rvI21 B2, M1): Lean's generated recursor
+\    T.rec held when the file leaves it out; the type visible only within
+\    its own check; the publisher's re-check of members and of T.rec.
 \ Test-only; nothing here accepts a theorem outside the code under test.
 include ../support/tester.fs
 include ../support/checks.fs
@@ -34,6 +37,7 @@ create codes most cells allot
 create n2s most cells allot
 create steps most cells allot
 create block-warns most cells allot
+create visibles most cells allot
 : at ( d table -- addr ) swap cells + ;
 : must ( flag -- ) 0= abort" check-block: refused" ;
 : step-now ( d -- step )
@@ -41,13 +45,17 @@ create block-warns most cells allot
 : record-diag ( d -- ) >r lf-diag@ r@ codes at ! drop r> n2s at ! drop ;
 : record ( -- )
   lf-check-declaration lf-env-limit dup most < 0= if drop exit then
-  dup record-diag dup step-now over steps at ! lf-block-warnings swap block-warns at ! ;
+  dup record-diag dup step-now over steps at ! lf-block-warnings over block-warns at !
+  lf-blk-visible? swap visibles at ! ;
 : staged ( c-addr u -- outcome )
   16 stg stage-init ok? must stg stage-load-unchecked dup ok? if drop stg fdd lf-feed then ;
 : unstage ( -- ) lf-name-viewed? if lf-name-detach then stg stage-free ;
-: checked ( budget -- )
-  lf-check-budget 4096 lf-env-new ok? must dup the-env ! lf-env-use ok? must
-  ['] record ['] lf-check-no-maker lf-env-run drop lf-env-view ok? must ;
+: fresh ( budget -- )
+  lf-check-budget 4096 lf-env-new ok? must dup the-env ! lf-env-use ok? must ;
+\ Every declaration checked by xt (record, or a variant of it).
+: checked-by ( budget xt -- )
+  swap fresh ['] lf-check-no-maker lf-env-run drop lf-env-view ok? must ;
+: checked ( budget -- ) ['] record checked-by ;
 : finish ( -- ) the-env @ lf-env-free ok? must unstage ;
 \ A block's member stands for its first member, which its check ran for.
 : owner ( d -- d' ) dup lf-input-decl lf-idecl-header ?dup if nip lf-hdr-first lf-more-field then ;
@@ -103,6 +111,20 @@ T{ s" universe.field-too-big" verdict -> outcome-rejected lf-diag-universe-too-b
 T{ s" result.other-type-sort" verdict -> outcome-rejected lf-diag-return-type 9 }T
 T{ s" params.constructor-mismatch-sort" verdict -> outcome-rejected lf-diag-ctor-param 9 }T
 T{ s" names.duplicate-constructor" verdict -> outcome-rejected lf-diag-duplicate-ctor 9 }T
+\ T1 on the constructors (Lean's get_params; review rvI21 L1), T0 with the
+\ reserved constant declared, N2 on a constructor and on T.rec (step 11)
+\ against a constructor of that name.
+T{ s" params.constructor-too-few-binders" verdict
+   -> outcome-rejected lf-diag-param-binders 4 }T
+T{ s" names.reserved-nested-prefix-declared" verdict
+   -> outcome-rejected lf-diag-reserved-prefix 2 }T
+T{ s" names.constructor-already-declared" verdict
+   -> outcome-rejected lf-diag-already-declared 9 }T
+T{ s" names.constructor-named-rec" verdict
+   -> outcome-rejected lf-diag-already-declared 11 }T
+\ Fields typed optParam and outParam: the recursor has them removed
+\ (consume_type_annotations), as Lean's does.
+T{ s" ind.annotated-fields" verdict -> outcome-ok 0 all-steps }T
 
 \ Lean's replay of the Bool block (B3, B4).
 T{ s" replay-bool.original" verdict -> outcome-ok 0 all-steps }T
@@ -126,6 +148,28 @@ T{ s" replay-bool.isRec-changed" verdict-warned -> outcome-ok 0 all-steps lf-war
 T{ s" replay-bool.indices-changed" verdict-warned -> outcome-ok 0 all-steps lf-warn-indices }T
 T{ s" replay-bool.recursor-left-out" verdict-warned
    -> outcome-ok 0 all-steps lf-warn-no-recursor }T
+\ The review rvI21's probes: the recursor's universe renamed or doubled,
+\ its all doubled, its minor premises swapped (with its rules too), a
+\ constructor given a universe; k set for And and for U (in Type), Or's
+\ recursor made to eliminate into every universe.
+T{ s" replay-bool.recursor-universe-renamed" verdict-field
+   -> outcome-rejected lf-diag-invalid-recursor 13 2 }T
+T{ s" replay-bool.recursor-universe-doubled" verdict-field
+   -> outcome-rejected lf-diag-invalid-recursor 13 2 }T
+T{ s" replay-bool.recursor-all-doubled" verdict-field
+   -> outcome-rejected lf-diag-invalid-recursor 13 4 }T
+T{ s" replay-bool.minor-premises-swapped" verdict-field
+   -> outcome-rejected lf-diag-invalid-recursor 13 3 }T
+T{ s" replay-bool.minor-premises-and-rules-swapped" verdict-field
+   -> outcome-rejected lf-diag-invalid-recursor 13 3 }T
+T{ s" replay-bool.constructor-universe-added" verdict-field
+   -> outcome-rejected lf-diag-invalid-constructor 13 1 }T
+T{ s" replay-and.recursor-k-set" verdict-field
+   -> outcome-rejected lf-diag-invalid-recursor 13 10 }T
+T{ s" replay-unit.recursor-k-set" verdict-field
+   -> outcome-rejected lf-diag-invalid-recursor 13 10 }T
+T{ s" replay-or.recursor-large-elimination" verdict-field
+   -> outcome-rejected lf-diag-invalid-recursor 13 2 }T
 
 \ Unknown, unsupported and invalid.
 T{ s" params.constructor-binder-defeq" verdict nip -> outcome-unknown 9 }T
@@ -233,6 +277,80 @@ T{ least-ok dup 1- bool-at swap bool-at -> outcome-exhausted outcome-ok }T
 : crowded ( -- ) lf-term-count @ lf-term-capacity! drop ;
 T{ s" ind.bool" case-path staged ok? must crowded fuel checked 0 lf-env-outcome finish
    -> outcome-full }T
+
+\ ---------------------------------------------------------------------------
+\ 6. After a block. Lean's replay generates IE.B.rec whether or not the
+\ file holds it, so a later definition of that name is Lean's
+\ alreadyDeclared: rejected here, the name held by the accepted type.
+T{ s" after.recursor-left-out-then-def-rec" verdict drop
+   -> outcome-rejected lf-diag-already-declared }T
+T{ s" after.recursor-then-def-rec" verdict drop
+   -> outcome-rejected lf-diag-already-declared }T
+T{ s" after.recursor-left-out-then-use-and-def-rec" verdict drop
+   -> outcome-rejected lf-diag-already-declared }T
+\ A use of it before that definition (declaration 3) is unknown: Lean's
+\ kernel holds the recursor, no slot does. A file that uses it and
+\ declares it nowhere is refused by the importer.
+: decl-verdict ( c-addr u d -- outcome code )
+  >r case-path staged ok? must fuel checked r> result drop finish ;
+T{ s" after.recursor-left-out-then-use-and-def-rec" 3 decl-verdict
+   -> outcome-unknown lf-diag-generated-recursor }T
+: use-unclosed ( -- c-addr u )
+  s" tests/core/check-block-cases/after.recursor-left-out-then-use-rec.invalid" ;
+T{ use-unclosed staged unstage -> outcome-invalid }T
+\ A rejected block's type is no constant for a later declaration (Lean's
+\ unknownConstant). The type is visible to inference only within the
+\ block's own check: the flag is clear after it, and a flag left set
+\ (as a fault would leave it) still exposes nothing to a later check.
+: rejected-then-use ( -- c-addr u ) s" after.rejected-block-then-use" ;
+T{ rejected-then-use verdict drop -> outcome-rejected lf-diag-unknown-constant }T
+: visible-after ( -- flag )
+  rejected-then-use case-path staged ok? must fuel checked 0 visibles at @ finish ;
+T{ visible-after -> false }T
+: leaky ( -- ) record true lf-ind-state lf-ind-visible ! ;
+: leaked ( -- outcome )
+  rejected-then-use case-path staged ok? must fuel ['] leaky checked-by
+  final-decl lf-env-outcome finish ;
+T{ leaked -> outcome-rejected }T
+\ The publisher's re-check, for checks that claim ok wrongly: a block
+\ claimed ok with a member made unsafe (its members, part 5), and a
+\ definition of IE.B.rec claimed ok after IE.B was accepted without its
+\ recursor (its name, part 4): both refused, invalid.
+: claim ( d -- outcome )
+  lf-env-begin drop outcome-ok lf-env-finish lf-env-hand-over drop ;
+: claimed-unsafe ( -- outcome outcome )
+  s" ind.bool" case-path staged ok? must
+  lf-safety-unsafe 2 lf-input-decl lf-idecl-safety !
+  fuel fresh 0 lf-env-begin drop 4 lf-env-span! outcome-ok lf-env-finish
+  lf-env-hand-over drop lf-env-view ok? must 0 lf-env-outcome finish ;
+T{ claimed-unsafe -> outcome-invalid outcome-invalid }T
+: claimed-rec ( -- outcome outcome )
+  s" after.recursor-left-out-then-def-rec" case-path staged ok? must
+  fuel fresh ['] record 0 lf-env-step 2drop
+  3 claim lf-env-view ok? must 3 lf-env-outcome finish ;
+T{ claimed-rec -> outcome-invalid outcome-invalid }T
+\ A scheduler waits for the type that holds IE.B.rec (lf-env-ready?).
+: ready-around ( -- flag flag )
+  s" after.recursor-left-out-then-def-rec" case-path staged ok? must fuel fresh
+  3 lf-input-name 3 lf-env-ready? ['] record 0 lf-env-step 2drop
+  3 lf-input-name 3 lf-env-ready? lf-env-view ok? must finish ;
+T{ ready-around -> false true }T
+\ Which types hold a name (lf-env-reserving's class): T.rec by T accepted
+\ or not; T.rec_<digits>, the auxiliary recursors of a nested block, only
+\ by a T not accepted (no accepted block is nested yet); no other name.
+: held-as ( part-addr part-u c-addr u -- class )
+  case-path staged ok? must fuel checked
+  0 lf-input-name -rot lf-name-str must lf-env lf-env-length lf-env-reserving nip finish ;
+T{ s" rec" s" ind.bool" held-as -> outcome-ok }T
+T{ s" rec" s" ind.nat" held-as -> outcome-unsupported }T
+T{ s" rec_1" s" ind.nat" held-as -> outcome-unsupported }T
+T{ s" rec_1" s" ind.bool" held-as -> outcome-rejected }T
+T{ s" recOn" s" ind.bool" held-as -> outcome-rejected }T
+\ An accepted block's warnings stay on its slots (review rvI21 M2).
+: slot-warned ( c-addr u -- bits outcome )
+  case-path staged ok? must fuel checked final-decl lf-env-warnings finish ;
+T{ s" replay-bool.recursor-left-out" slot-warned -> lf-warn-no-recursor outcome-ok }T
+T{ s" ind.bool" slot-warned -> 0 outcome-ok }T
 
 cases-done
 bye

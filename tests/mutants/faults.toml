@@ -3172,8 +3172,8 @@ reason = "B3: the exported k flag is never compared; a recursor with k set is ac
 [[fault]]
 id = "ind-cidx-not-compared"
 file = "src/kernel/check-block.fs"
-old = '''  dup lf-blk-ctor-data lf-ict-cidx lf-more-field over <> if drop 3 exit then'''
-new = ''''''
+old = ''': lf-b3-cidx? ( j -- flag ) dup lf-blk-ctor-data lf-ict-cidx lf-more-field <> ;'''
+new = ''': lf-b3-cidx? ( j -- flag ) drop false ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "B3: a constructor's index is never compared"
 
@@ -3292,6 +3292,182 @@ new = ''''''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "P4 dropped: P x and P y for x y : PUnit are called apart, so a theorem Lean accepts by is_def_eq_unit_like is rejected"
 quick = true
+
+# The review rvI21's faults that survived its round (M1), now caught, and
+# the faults of its round-2 fixes (B1, B2, M1, M2, L1, the is_geq depth).
+
+[[fault]]
+id = "ind-consume-off"
+file = "src/kernel/inductive-recursor.fs"
+old = '''  begin dup lf-ind-spine 2dup lf-rcr-gadget? while nip lf-rcr-unwrapped repeat 2drop ;'''
+new = '''  ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 M1: consume_type_annotations skipped; An's recursor keeps optParam and outParam, unlike Lean's (ind.annotated-fields rejected)"
+
+[[fault]]
+id = "ind-t0-skip"
+file = "src/kernel/inductive-block.fs"
+old = '''  lf-ind-type lf-idecl-type @ lf-ind-t0-term dup ok? 0= if exit then drop
+'''
+new = '''  outcome-ok exit
+'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 M1: T0 skipped; a constructor using the declared constant _nested.X is accepted where Lean rejects the reserved prefix"
+
+[[fault]]
+id = "ind-rec-universe-name-unchecked"
+file = "src/kernel/check-block.fs"
+old = '''  over @ r> lf-name-same? 0= if 2drop false exit then
+'''
+new = '''  r> drop
+'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 M1: B3 ignores the name of the recursor's motive universe; a recursor with u renamed v is accepted"
+
+[[fault]]
+id = "ind-ctor-lparams-unchecked"
+file = "src/kernel/check-block.fs"
+old = ''': lf-b3-ctor-lparams? ( j -- flag ) lf-ind-ctor lf-blk-params= 0= ;'''
+new = ''': lf-b3-ctor-lparams? ( j -- flag ) drop false ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 M1: B3 field 1 of a constructor never compared; a constructor given a universe parameter is accepted"
+
+[[fault]]
+id = "ind-rec-all-unchecked"
+file = "src/kernel/check-block.fs"
+old = ''': lf-b3-all? ( data -- flag ) lf-irc-all@ lf-blk-self lf-blk-names= 0= ;'''
+new = ''': lf-b3-all? ( data -- flag ) drop false ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 M1: B3 field 4 (all) never compared; a recursor whose all names the type twice is accepted"
+
+[[fault]]
+id = "ind-step11-skip"
+file = "src/kernel/check-block.fs"
+old = ''': lf-blk-rec-name ( -- outcome )
+'''
+new = ''': lf-blk-rec-name ( -- outcome ) outcome-ok exit
+'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 M1: step 11 skipped; a block whose constructor is named rec is accepted where Lean finds the recursor's name taken"
+
+[[fault]]
+id = "ind-ctor-n2-skip"
+file = "src/kernel/check-block.fs"
+old = '''  dup lf-blk-ctor-name lf-blk-fresh ok-then? 0= if exit then
+'''
+new = ''''''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 M1: N2 on constructor names skipped; a constructor named like an earlier definition is not rejected as alreadyDeclared"
+
+[[fault]]
+id = "pub-recheck-members-off"
+file = "src/kernel/env-publish.fs"
+old = ''': lf-recheck-members? ( -- flag )
+'''
+new = ''': lf-recheck-members? ( -- flag ) true exit
+'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 M1: the publisher never re-checks a block's members; a block claimed ok with an unsafe member is published"
+
+[[fault]]
+id = "ind-visible-never-reset"
+file = "src/kernel/check-block.fs"
+old = '''  lf-blk-begin dup ok? if drop lf-blk-run then false lf-ind-state lf-ind-visible ! ;'''
+new = '''  lf-blk-begin dup ok? if drop lf-blk-run then ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 M1: the type stays visible to inference after its block's check (the flag is still set afterwards)"
+
+[[fault]]
+id = "ind-visible-to-any-declaration"
+file = "src/kernel/check-block.fs"
+old = ''': lf-blk-own? ( -- flag ) lf-blk-visible? lf-env-limit lf-ind-first@ = and ;'''
+new = ''': lf-blk-own? ( -- flag ) lf-blk-visible? ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 M1: with the flag left set, a later definition using a rejected block's type is accepted"
+
+[[fault]]
+id = "ind-capacity-unchecked"
+file = "src/kernel/inductive-block.fs"
+old = '''  lf-ind-ctors@ lf-ind-ctor-capacity >
+  if lf-ind-crowded else lf-ind-members outcome-ok then ;'''
+new = '''  lf-ind-members outcome-ok ;'''
+test = "python3 tests/core/test_block_capacity.py"
+reason = "rvI21 B1: a block of more than 512 constructors is checked, writing past its state record"
+
+[[fault]]
+id = "ind-t1-ctors-unchecked"
+file = "src/kernel/inductive-block.fs"
+old = '''  lf-ind-ctors@ 0 ?do i lf-ind-ctor-type lf-ind-enough dup ok? 0= if unloop exit then drop
+  loop outcome-ok ;'''
+new = '''  outcome-ok ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 L1: T1 counts the type's binders only; a constructor with fewer than numParams is rejected later, for another rule"
+
+[[fault]]
+id = "env-rec-name-free"
+file = "src/kernel/environment.fs"
+old = '''  lf-env-reserving lf-env-n2-held ;'''
+new = '''  2drop outcome-ok ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 B2: N2 ignores Lean's generated recursor; def IE.B.rec after IE.B without its recursor is accepted"
+
+[[fault]]
+id = "env-generated-rec-unknown-constant"
+file = "src/kernel/environment.fs"
+old = '''    outcome-ok of nip lf-env-generated endof'''
+new = '''    outcome-ok of drop lf-env-unknown-constant endof'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 B2: a use of the generated recursor, which Lean's kernel holds, is rejected as an unknown constant instead of unknown"
+
+[[fault]]
+id = "env-aux-rec-not-held"
+file = "src/kernel/environment.fs"
+old = '''  lf-name-text 2dup s" rec" compare 0= if 2drop 1 else lf-env-aux-rec? 2 and then ;'''
+new = '''  lf-name-text 2dup s" rec" compare 0= if 2drop 1 else 2drop 0 then ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 B2: T.rec_1, an auxiliary recursor of a nested (unsupported) block, is not held, so a definition of it could be accepted"
+
+[[fault]]
+id = "env-aux-rec-held-by-accepted"
+file = "src/kernel/environment.fs"
+old = ''': lf-env-aux-held ( d class -- d class ) dup ok? if 2drop -1 outcome-rejected then ;'''
+new = ''': lf-env-aux-held ( d class -- d class ) ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 B2: T.rec_1 held by an accepted non-nested T, for which Lean generates no such recursor; a definition of it would be rejected"
+
+[[fault]]
+id = "pub-rec-name-not-held"
+file = "src/kernel/env-publish.fs"
+old = '''  0 lf-cand-span@ 0 ?do ['] lf-slot-conflict? i lf-own-matches + i lf-own-held + loop ;'''
+new = '''  0 lf-cand-span@ 0 ?do ['] lf-slot-conflict? i lf-own-matches + loop ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 B2: the publisher's name re-check ignores generated recursors; def IE.B.rec claimed ok is published"
+
+[[fault]]
+id = "env-ready-ignores-held"
+file = "src/kernel/environment.fs"
+old = '''  2dup ['] lf-slot-open? lf-env-any? >r lf-env-held-open? r> or 0= ;'''
+new = '''  ['] lf-slot-open? lf-env-any? 0= ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 B2: a scheduler may start def IE.B.rec while IE.B is still open, and its N2 is then too early"
+
+[[fault]]
+id = "pub-warnings-dropped"
+file = "src/kernel/env-publish.fs"
+old = '''  lf-env-cand lf-cand-warnings @ over lf-slot-warnings !
+'''
+new = ''''''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 M2: an accepted block's B4 warnings are not kept on its slots"
+
+[[fault]]
+id = "geq-depth-uncounted"
+file = "src/kernel/level-geq.fs"
+old = '''  lf-geq-enter 0= if 2drop false exit then
+'''
+new = ''''''
+test = "$GFORTH tests/core/level-deep.fs"
+reason = "heap-store review: is_geq's recursion is not counted (and the leave makes the count negative); a max chain of 60 is decided on a deeper host stack instead of full"
 
 [[fault]]
 id = "columns-ready-unvalidated"

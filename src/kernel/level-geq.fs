@@ -17,9 +17,15 @@
 \ State: none of its own; it runs inside one call of level-normalize's
 \ state record (lf-lnorm-state), whose memo of normal forms serves every
 \ recursive normalize of the call. Single-threaded within one context.
-\ Stack use: is_geq_core recurses once per level of the normal forms, a
-\ few cells each, below normalize's own per-node need
-\ (lf-lnorm-return-cells), which a caller already provides.
+\ Stack use: is_geq_core recurses once per level of the normal forms (a
+\ max chain of n arguments nests n frames), each frame at most 5 return
+\ and 4 data cells (lf-geq-normalized, lf-geq-core, lf-geq-either or
+\ lf-geq-both or lf-geq-rest, the deferred call). Each is counted as two
+\ of normalize's level frames (7 return and 3 data cells each), on the
+\ same counter, so the whole call stays within lf-level-depth-limit frames
+\ and the need a caller already provides (lf-lnorm-return-cells,
+\ lf-lnorm-data-cells); deeper is full, recorded as the depth limit
+\ (review of the heap stores, rvKC3).
 
 require ../lib/lib.fs
 require ../core/levels.fs
@@ -42,11 +48,14 @@ defer lf-geq ( l1 l2 -- flag )   \ is_geq: normalize both, then the core
 \ Either side of l1 (a max) >= l2.
 : lf-geq-either ( l1 l2 -- flag )
   over lf-geq-lhs over lf-geq if 2drop true else swap lf-geq-rhs swap lf-geq then ;
-\ The offsets case (536-540).
+\ The offsets case (536-540): l1 = b1 + k1 and l2 = b2 + k2. The same
+\ base, or b2 zero: k1 >= k2; else equal positive offsets: b1 >= b2.
+: lf-geq-bases ( l1 l2 -- b1 b2 ) lf-lmk-offset drop swap lf-lmk-offset drop swap ;
+: lf-geq-ks ( l1 l2 -- k1 k2 ) lf-lmk-offset nip swap lf-lmk-offset nip swap ;
+: lf-geq-base-ok? ( l1 l2 -- flag ) lf-geq-bases dup lf-geq-zero? -rot lf-lmk-same? or ;
 : lf-geq-offsets ( l1 l2 -- flag )
-  lf-lmk-offset rot lf-lmk-offset rot   ( b2 b1 k1 k2 )
-  2over lf-lmk-same? 4 pick lf-geq-zero? or if >= nip nip exit then
-  over = swap 0> and if swap lf-geq else 2drop false then ;
+  2dup lf-geq-base-ok? if lf-geq-ks >= exit then
+  2dup lf-geq-ks over = swap 0> and if lf-geq-bases lf-geq else 2drop false then ;
 \ After the max and imax cases of l2 and l1.
 : lf-geq-rest ( l1 l2 -- flag )
   dup lf-geq-imax? if lf-geq-both exit then
@@ -58,9 +67,14 @@ defer lf-geq ( l1 l2 -- flag )   \ is_geq: normalize both, then the core
   dup lf-geq-max? if lf-geq-both exit then
   over lf-geq-max? if 2dup lf-geq-either if 2drop true exit then then
   lf-geq-rest ;
+: lf-geq-enter ( -- flag )
+  lf-lnorm-enter 0= if false exit then
+  lf-lnorm-enter dup 0= if lf-lnorm-leave then ;
+: lf-geq-leave ( -- ) lf-lnorm-leave lf-lnorm-leave ;
 : lf-geq-normalized ( l1 l2 -- flag )
   lf-lnorm-ok? 0= if 2drop false exit then
-  swap lf-lnorm-walk swap lf-lnorm-walk lf-geq-core ;
+  lf-geq-enter 0= if 2drop false exit then
+  swap lf-lnorm-walk swap lf-lnorm-walk lf-geq-core lf-geq-leave ;
 ' lf-geq-normalized is lf-geq
 
 \ Whether Lean's is_geq(l1, l2) holds, with fuel: (flag ok) when decided;

@@ -299,6 +299,22 @@ Inference finds the block's own type during its constructors' check
 through `lf-envsig-local` (`env-signature.fs`), a hook `check-block.fs`
 sets once while loading.
 
+An accepted block's B4 warning bits (fields Lean's replay ignores that
+differ from LeanForth's, a recursor the file leaves out) are on each of
+its slots: `lf-env-warnings ( d -- bits outcome )`, set by the check with
+`lf-env-warnings! ( bits -- )`. The slots hold the file's own data
+(`lf-idecl-more`); a type's `numIndices`, `isRec`, `isReflexive` and
+`numNested` there are untrusted (ADR 0015 decision 8).
+
+Lean generates the recursor `T.rec` even when the file leaves it out,
+which no slot can hold, so the name is reserved (`lf-env-reserving`, ADR
+0015 decision 9): N2 (`lf-env-fresh`, used by `lf-env-own-name` and the
+block check), the publisher's name re-check and `lf-env-ready?` treat
+`T.rec` of an earlier inductive type `T` as declared when `T` is
+accepted, with K5 when it is undecided or unsupported (and
+`T.rec_<digits>` for a type not accepted); a lookup of such a name that no
+slot holds is *unknown* (diagnostic 77).
+
 ### Diagnostics
 
 Failures record a reason in the context's diagnostic

@@ -184,6 +184,10 @@ store-header context-record: lf-inputs
 : lf-irc-rules@ ( data -- rules n ) lf-irc-all cells + lf-more-next lf-more-list ;
 \ Rule k of a rules list: its constructor's name, nfields and right side.
 : lf-irc-rule ( rules k -- addr ) /lf-rule * cells + ;
+\ A rule's three cells: its constructor's name, its fields, its right side.
+: lf-irule-ctor ( rule -- name ) @ ;
+: lf-irule-nfields ( rule -- n ) cell+ @ ;
+: lf-irule-rhs ( rule -- root ) 2 cells + @ ;
 
 5 constant lf-input-stores#
 begin-structure /lf-inrec
