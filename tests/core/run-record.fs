@@ -179,6 +179,14 @@ T{ 0 finding@ -> rp-unknown-schema }T
 T{ s\" {\"schema\":\"leanforth-run-record\",\"schemaVersion\":\"0.2\"}" rp-replay-text
   -> outcome-invalid }T
 T{ 0 finding@ -> rp-unknown-schema }T
+\ A record of the format with nothing in it: every member is missing,
+\ within the sections as at the top.
+: hollow ( -- c-addr u )
+  s\" {\"schema\":\"leanforth-run-record\",\"schemaVersion\":\"0.1\",\"input\":{}}" ;
+T{ hollow rp-replay-text -> outcome-rejected }T
+T{ run-replay rp-total @ 0 finding@ 9 finding@ -> 10 rp-missing-field rp-missing-field }T
+T{ 0 finding-path@ s" $.input.sha256" compare 9 finding-path@ s" $.declarations" compare
+  -> 0 0 }T
 T{ s" tests/core/no-such-record.json" rp-replay -> outcome-invalid }T
 T{ 0 finding@ -> rp-unreadable }T
 T{ first-text rp-room 1+ rp-replay-text -> outcome-invalid }T

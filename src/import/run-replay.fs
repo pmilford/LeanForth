@@ -177,14 +177,20 @@ rp-depth 0 run-replay rp-writer jw-init 0= [if] .( run-replay.fs: bad writer) cr
       rp-members rp-named rp-entry-code rp-declarations-differ rp-or endof
     >r 2drop r@ r> endcase ;
 
-\ The first member of the object at index in view whose key is c-addr u.
+\ The first member whose key is c-addr u among the members of an object
+\ in view from key token k up to token end: its value.
 : rp-at-key? ( c-addr u end k view -- c-addr u end k flag )
   >r 2over 2over nip r> json-text@ compare 0= ;
 : rp-step-key ( end k view -- end k' ) >r 1+ r> json-next ;
-: rp-find ( c-addr u object view -- value true | false )
-  dup >r json-contents
-  begin 2dup > while r@ rp-at-key? if nip nip nip 1+ r> drop true exit then r@ rp-step-key repeat
-  2drop 2drop r> drop false ;
+: rp-scan ( c-addr u end k view -- value true | false )
+  >r begin 2dup > while r@ rp-at-key? if nip nip nip 1+ r> drop true exit then
+    r@ rp-step-key repeat 2drop 2drop r> drop false ;
+\ ... in the whole object at index in view.
+: rp-find ( c-addr u object view -- value true | false ) dup >r json-contents r> rp-scan ;
+\ Whether the old object o has another member of key c-addr u after the
+\ member whose value is v.
+: rp-again? ( c-addr u v o -- flag )
+  rp-old json-contents drop swap rp-old json-next rp-old rp-scan dup if nip then ;
 
 defer rp-value ( n o -- )   \ compare value n of the new record with value o of the old
 
@@ -206,23 +212,26 @@ defer rp-value ( n o -- )   \ compare value n of the new record with value o of 
 : rp-into ( k v -- )
   rp-saved 2>r over rp-new json-text@ 2dup rp-code-for run-replay rp-code ! rp-key+
   swap 1+ swap rp-value 2r> rp-restore ;
-: rp-dup? ( k o -- flag ) over rp-old json-text@ rot rp-old rp-find drop swap 1+ <> ;
+: rp-key-text ( k -- c-addr u ) rp-new json-text@ ;
+: rp-new-found ( code k -- ) rp-key-text rp-found-at ;
+: rp-twice? ( k o v -- k o v flag ) 2 pick rp-key-text 2 pick 4 pick rp-again? ;
+\ Member k of the new record against the old object o: missing, there
+\ twice (its value is not compared: which one counts is unclear), or
+\ compared.
 : rp-member ( k o -- )
-  over rp-new json-text@ rot rp-old rp-find 0= if rp-missing-field swap rp-new json-text@
-    rp-found-at exit then rp-into ;
+  2dup swap rp-key-text rot rp-old rp-find 0= if drop rp-missing-field swap rp-new-found exit then
+  rp-twice? if 2drop rp-duplicate-key swap rp-new-found else nip rp-into then ;
 : rp-new-members ( n o -- )
   swap rp-new json-contents begin 2dup > while dup 3 pick rp-member rp-new rp-step-key repeat
   2drop drop ;
-\ A member of the old record: a second one of a key, or a key the new
-\ object lacks.
+\ A member k of the old record whose key the new object n lacks.
 : rp-unknown? ( k n -- flag ) >r rp-old json-text@ r> rp-new rp-find dup if nip then 0= ;
 : rp-old-found ( code k -- ) rp-old json-text@ rp-found-at ;
-: rp-old-member ( k n o -- )
-  2 pick swap rp-dup? if drop rp-duplicate-key swap rp-old-found exit then
+: rp-old-member ( k n -- )
   over swap rp-unknown? if rp-unknown-field swap rp-old-found else drop then ;
 : rp-old-members ( n o -- )
-  dup rp-old json-contents begin 2dup > while dup 4 pick 4 pick rp-old-member rp-old rp-step-key
-  repeat 2drop 2drop ;
+  rp-old json-contents begin 2dup > while dup 3 pick rp-old-member rp-old rp-step-key repeat
+  2drop drop ;
 \ A declaration's verdict, compared first.
 : rp-verdict-of ( object view -- value true | false ) >r >r s" verdict" r> r> rp-find ;
 : rp-verdicts ( n o -- nv ov true | false )

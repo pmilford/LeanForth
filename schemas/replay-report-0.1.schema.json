@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/pmilford/LeanForth/schemas/replay-report-0.1.schema.json",
+  "title": "LeanForth replay report, schema version 0.1",
+  "description": "The answer of replaying a run record (src/import/run-replay.fs): confirmed when a new run of the same input wrote a record equal to it in every field, refused otherwise, with one finding per difference: a code and the JSON path of the field. Documented in docs/programming/RUN_RECORDS.md.",
+  "$comment": "Uses only the keywords that tests/support/schema_subset.py implements; it refuses any other keyword. Patterns are ECMA-262 regular expressions for the u flag.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "schemaVersion", "result", "findings", "findingsTotal"],
+  "properties": {
+    "schema": {"const": "leanforth-replay-report"},
+    "schemaVersion": {"const": "0.1"},
+    "result": {"enum": ["confirmed", "refused"]},
+    "findings": {
+      "description": "The first 32 findings, in the order the comparison met them.",
+      "type": "array",
+      "maxItems": 32,
+      "items": {"$ref": "#/$defs/finding"}
+    },
+    "findingsTotal": {"type": "integer", "minimum": 0}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"result": {"const": "confirmed"}}},
+      "then": {"properties": {"findings": {"maxItems": 0}, "findingsTotal": {"const": 0}}},
+      "else": {"properties": {"findings": {"minItems": 1}, "findingsTotal": {"minimum": 1}}}
+    }
+  ],
+  "$defs": {
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "path"],
+      "properties": {
+        "code": {
+          "enum": ["unreadable", "not-json", "unknown-schema", "rerun-failed", "missing-field",
+            "unknown-field", "duplicate-key", "input-differs", "export-differs", "tool-differs",
+            "settings-differ", "run-differs", "declarations-differ", "verdict-differs",
+            "accepted-not-established", "reason-differs"]
+        },
+        "path": {
+          "description": "A JSON path from $: member names after dots, array indices in brackets; a name taken from the old record may be cut at 128 bytes.",
+          "type": "string",
+          "pattern": "^[$]"
+        }
+      }
+    }
+  }
+}

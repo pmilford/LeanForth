@@ -1,0 +1,205 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/pmilford/LeanForth/schemas/run-record-0.1.schema.json",
+  "title": "LeanForth run record, schema version 0.1",
+  "description": "The evidence of one check of a Lean export by LeanForth's first checker: the input's SHA-256, size and manifest outcome, the Lean and exporter versions its metadata names, the LeanForth commit, the host Forth, the settings, and every declaration's verdict in input order, read from the checked environment after the run. Written by src/import/run-record.fs and compared with a new run by src/import/run-replay.fs; documented in docs/programming/RUN_RECORDS.md. A record is evidence, not an approval, and never a source of saved results.",
+  "$comment": "Uses only the keywords that tests/support/schema_subset.py implements; it refuses any other keyword. Patterns are ECMA-262 regular expressions for the u flag.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "schemaVersion", "input", "export", "leanforth", "host", "settings",
+    "check", "declarations"],
+  "properties": {
+    "schema": {"const": "leanforth-run-record"},
+    "schemaVersion": {"const": "0.1"},
+    "input": {"$ref": "#/$defs/input"},
+    "export": {"$ref": "#/$defs/export"},
+    "leanforth": {"$ref": "#/$defs/leanforth"},
+    "host": {"$ref": "#/$defs/host"},
+    "settings": {"$ref": "#/$defs/settings"},
+    "check": {"$ref": "#/$defs/check"},
+    "declarations": {
+      "description": "Every declaration of the input, in input order, when the check ran; none otherwise.",
+      "type": "array",
+      "maxItems": 32,
+      "items": {"$ref": "#/$defs/declaration"}
+    }
+  },
+  "allOf": [
+    {
+      "description": "Declarations are listed only when the check ran.",
+      "if": {"properties": {"check": {"properties": {"run": {"const": "not-run"}}}}},
+      "then": {"properties": {"declarations": {"maxItems": 0}}}
+    }
+  ],
+  "$defs": {
+    "outcome": {
+      "description": "ADR 0008's outcome vocabulary.",
+      "enum": ["ok", "invalid", "exhausted", "unknown", "rejected", "unsupported", "full"]
+    },
+    "count": {"type": "integer", "minimum": 0},
+    "text": {
+      "description": "A text the checker kept: at most 128 bytes, no control character.",
+      "type": "string",
+      "pattern": "^[^\\u0000-\\u001f\\u007f]*$"
+    },
+    "maybeText": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/text"}]},
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "bytes", "lines", "manifest"],
+      "properties": {
+        "sha256": {
+          "description": "SHA-256 of the file's bytes, as sha256sum prints it.",
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "bytes": {"$ref": "#/$defs/count"},
+        "lines": {
+          "description": "Line feeds, and one more when the last line has none.",
+          "$ref": "#/$defs/count"
+        },
+        "manifest": {
+          "description": "The outcome of checking the file against the manifest beside it (src/import/manifest.fs); field and reason are empty for ok.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["outcome", "field", "reason"],
+          "properties": {
+            "outcome": {"$ref": "#/$defs/outcome"},
+            "field": {"$ref": "#/$defs/text"},
+            "reason": {"$ref": "#/$defs/text"}
+          },
+          "if": {"properties": {"outcome": {"const": "ok"}}},
+          "then": {"properties": {"field": {"const": ""}, "reason": {"const": ""}}},
+          "else": {"properties": {"reason": {"minLength": 1}}}
+        }
+      }
+    },
+    "export": {
+      "description": "The versions the export's metadata record names; null when no metadata record was read.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["exporter", "exporterVersion", "format", "lean", "leanGithash"],
+      "properties": {
+        "exporter": {"$ref": "#/$defs/maybeText"},
+        "exporterVersion": {"$ref": "#/$defs/maybeText"},
+        "format": {"$ref": "#/$defs/maybeText"},
+        "lean": {"$ref": "#/$defs/maybeText"},
+        "leanGithash": {"$ref": "#/$defs/maybeText"}
+      }
+    },
+    "leanforth": {
+      "description": "The LeanForth commit the run used and whether the working tree differed from it; both null when the caller named none.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit", "modified"],
+      "properties": {
+        "commit": {
+          "anyOf": [{"type": "null"}, {"type": "string", "pattern": "^[0-9a-f]{40}$"}]
+        },
+        "modified": {"type": ["null", "boolean"]}
+      },
+      "if": {"properties": {"commit": {"type": "null"}}},
+      "then": {"properties": {"modified": {"type": "null"}}},
+      "else": {"properties": {"modified": {"type": "boolean"}}}
+    },
+    "host": {
+      "description": "The Forth system that ran the check: its name, version and engine (the program's file name) where the host reports them, else unknown, and its cell width.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["forth", "version", "engine", "cellBits"],
+      "properties": {
+        "forth": {"$ref": "#/$defs/text"},
+        "version": {"$ref": "#/$defs/text"},
+        "engine": {"$ref": "#/$defs/text"},
+        "cellBits": {"type": "integer", "minimum": 32}
+      }
+    },
+    "settings": {
+      "description": "Fuel for each check, the environment's room for dependencies, and the checker's fixed capacities.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fuel", "dependencyPool", "terms", "levels", "names", "declarations",
+        "dependenciesPerCheck", "parameters", "referenceLevels"],
+      "properties": {
+        "fuel": {"$ref": "#/$defs/count"},
+        "dependencyPool": {"$ref": "#/$defs/count"},
+        "terms": {"$ref": "#/$defs/count"},
+        "levels": {"$ref": "#/$defs/count"},
+        "names": {"$ref": "#/$defs/count"},
+        "declarations": {"$ref": "#/$defs/count"},
+        "dependenciesPerCheck": {"$ref": "#/$defs/count"},
+        "parameters": {"$ref": "#/$defs/count"},
+        "referenceLevels": {"$ref": "#/$defs/count"}
+      }
+    },
+    "check": {
+      "description": "The importer's outcome, the run's (not-run when the input was not read), and the environment's run mode and axiom allowlist version (null without an environment).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["read", "run", "mode", "allowlistVersion"],
+      "properties": {
+        "read": {"$ref": "#/$defs/outcome"},
+        "run": {"anyOf": [{"$ref": "#/$defs/outcome"}, {"const": "not-run"}]},
+        "mode": {"enum": [null, "final", "development"]},
+        "allowlistVersion": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/count"}]}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"read": {"const": "ok"}}},
+          "then": {"properties": {"run": {"$ref": "#/$defs/outcome"}}},
+          "else": {"properties": {"run": {"const": "not-run"}}}
+        },
+        {
+          "if": {"properties": {"run": {"const": "not-run"}}},
+          "then": {"properties": {"mode": {"const": null}, "allowlistVersion": {"const": null}}}
+        }
+      ]
+    },
+    "diagnostic": {
+      "description": "What the failed check recorded: the reason code and its name (docs/programming/DIAGNOSTICS.md), the site, its two numbers and the step of check-declaration it reached.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "reason", "site", "numbers", "step"],
+      "properties": {
+        "code": {"type": "integer", "minimum": 1},
+        "reason": {"type": "string", "minLength": 1},
+        "site": {"type": "string"},
+        "numbers": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer"}},
+        "step": {"type": "integer", "minimum": 0}
+      }
+    },
+    "declaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["index", "name", "verdict"],
+      "properties": {
+        "index": {"$ref": "#/$defs/count"},
+        "name": {"type": "string"},
+        "verdict": {
+          "description": "accepted only for a slot made final with outcome ok; not-checked for a slot the run never made final.",
+          "enum": ["accepted", "rejected", "unknown", "unsupported", "invalid", "exhausted",
+            "full", "not-checked"]
+        },
+        "label": {"const": "experimental, not independently audited"},
+        "axioms": {
+          "description": "The axiom set read from the accepted slot; the first checker's allowlist (version 0) is empty.",
+          "type": "array",
+          "maxItems": 0
+        },
+        "diagnostic": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/diagnostic"}]}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"verdict": {"const": "accepted"}}},
+          "then": {"required": ["label", "axioms"], "not": {"required": ["diagnostic"]}},
+          "else": {"not": {"anyOf": [{"required": ["label"]}, {"required": ["axioms"]}]}}
+        },
+        {
+          "if": {"properties": {"verdict": {"enum": ["accepted", "not-checked"]}}},
+          "then": {"not": {"required": ["diagnostic"]}},
+          "else": {"required": ["diagnostic"]}
+        }
+      ]
+    }
+  }
+}
