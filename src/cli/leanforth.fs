@@ -334,11 +334,13 @@ create cli-order
 \ --name only that declaration is printed (the ones before it are checked
 \ too, unprinted; the ones after it are not checked). No outline is ever
 \ printed for a declaration that was not accepted, nor from a log that ran
-\ out of room: the printer says why. Codes: 0 when every declaration
-\ printed has its outline; otherwise the code of a declaration's outcome
-\ (1 rejected, 2 unsupported or unknown, 3 out of fuel or room, 4
-\ invalid), 3 for a log that ran out of room, 4 for a name no declaration
-\ has, 5 when the run stopped (a check threw, or publishing failed).
+\ out of room: the printer says why. Codes: those of check, from the
+\ verdicts of the declarations printed (0 when every one is accepted,
+\ whether or not its outline could be printed: an accepted declaration
+\ whose log ran out of room says so in its text), 4 for a name no
+\ declaration has, 5 when the run stopped (a check threw, publishing
+\ failed, or the printer threw: then the log is switched off and the
+\ environment freed all the same).
 : cli-detail? ( -- flag ) cli-state opt-detail @ ;
 : cli-named ( -- c-addr u ) cli-state opt-name 2@ ;
 \ The declaration to print: its index, or -1 for all; false when none
@@ -347,8 +349,7 @@ create cli-order
 : cli-no-such ( -- )
   ." error: no declaration named " cli-named type cr exit-malformed cli-code! ;
 : cli-shown? ( chosen i -- flag ) over 0< if 2drop true else = then ;
-: cli-print-one ( i -- )
-  >r 0 cli-file r@ cli-detail? pr-print r> pr-refusal outcome>code cli-code! ;
+: cli-print-one ( i -- ) >r 0 cli-file r> cli-detail? pr-print outcome>code cli-code! ;
 : cli-print-stopped ( -- )
   c" the run stopped: a check threw, or publishing failed" cli-fault ;
 : cli-print-run ( chosen -- )
@@ -356,18 +357,26 @@ create cli-order
     i pr-step if cli-print-stopped unloop drop exit then
     dup i cli-shown? if i cli-print-one then dup i = if leave then
   loop drop ;
-\ The environment of the run: made with the fuel and pool of check.
+\ The environment of the run: made with the fuel and pool of check, made
+\ current, and freed whatever happens in the run (a THROW is passed on
+\ after it is freed).
 : cli-env-made ( env outcome -- env true | false )
   dup ok? if drop true exit then nip outcome-full =
   if cli-no-room else c" no checked environment could be made" cli-fault then false ;
+: cli-print-free ( env -- )
+  lf-env-free ok? 0= if c" the checked environment could not be freed" cli-fault then ;
+: cli-print-guarded ( env chosen -- env ior )
+  over lf-env-use ok? 0= if drop c" the checked environment could not be used" cli-fault
+  0 exit then ['] cli-print-run catch dup if nip then ;
 : cli-print-env ( chosen -- )
   cli-fuel @ lf-check-budget cli-pool lf-env-new cli-env-made 0= if drop exit then
-  dup lf-env-use drop swap cli-print-run lf-env-free drop ;
+  swap cli-print-guarded swap cli-print-free throw ;
 : cli-print-names ( -- flag )
   0 cli-file cli-checked? pr-present dup ok? if drop true else cli-unread false then ;
+\ The log on for the run, and off again after it, also after a THROW.
 : cli-printing ( -- )
   cli-print-names 0= if exit then cli-chosen 0= if cli-no-such exit then
-  pr-log-on cli-print-env lf-log-off lf-log-set ;
+  pr-log-on ['] cli-print-env catch lf-log-off lf-log-set throw ;
 : print-command ( -- code )
   cli-start cli-opens? 0= if cli-unopened exit then cli-unchecked-note
   rr-release 0 cli-file cli-checked? rr-read-once dup ok?

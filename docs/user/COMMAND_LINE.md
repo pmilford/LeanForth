@@ -239,13 +239,27 @@ error: no declaration named noSuch
 exit status 4
 ```
 
-Exit status of `print`: 0 when every declaration printed has its outline
-(or, with no template for its proof, its steps); otherwise the status of
-the [outcomes](#exit-status) of the declarations that were refused, 3
-for a log that ran out of room, 4 for a name no declaration has, 5 when
-the run stopped. The outline is untrusted presentation: the verdict comes
-from the checked environment, as `check`'s does, and nothing `print`
-writes can make a declaration accepted.
+Exit status of `print`: the status `check` gives, from the
+[verdicts](#exit-status) of the declarations printed — 0 when every one is
+accepted, whether or not its outline could be printed (an accepted
+declaration whose log ran out of room says `No proof outline: the
+declaration is accepted, but the checker's log was truncated at step N
+(...)`; no status is free to tell that apart, so the text does) — 4 for a
+name no declaration has, and 5 when the run stopped (a check threw,
+publishing failed, or the printer itself threw; the log is switched off
+and the checked environment freed all the same). The outline is
+untrusted presentation: the verdict comes from the checked environment,
+as `check`'s does, and nothing `print` writes can make a declaration
+accepted.
+
+Two things can differ from `check`. A diagnostic's two numbers that are
+identities or serials (codes 8, 21, 25 and 27) can differ for a later
+declaration, because printing an outline builds and discards scratch
+terms between checks and so advances the serials; the verdicts do not
+change. And with `--no-manifest` the export is read twice (once to check,
+once for binder names), so if the file changes in between, binder names
+(only names) can come from the newer bytes; with the manifest checked,
+both reads check it.
 
 ## Exit status
 
@@ -467,8 +481,8 @@ stores (task 3.3.1).
 
 `make test-cli` runs `tests/cli/leanforth.fs` (the Forth side: every
 outcome's code, the order of severity, the record hook, two injected
-internal faults, and `print`'s codes and refusals, a truncated log
-included) and `tests/cli/test_leanforth.py` (the tool itself: every exit
+internal faults, `print`'s codes, and a THROW at each of `print`'s store
+allocations, after which the log is off and no environment is left) and `tests/cli/test_leanforth.py` (the tool itself: every exit
 status with its exact output, from other folders, against the counter and
 the re-exporter, with a broken Gforth, and `print`'s outlines against the
 outline printer's golden file). `make

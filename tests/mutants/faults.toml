@@ -2619,8 +2619,8 @@ quick = true
 [[fault]]
 id = "log-start-one-step-late"
 file = "src/core/derivation-log.fs"
-old = '''  tuck logmark-depth ! 2dup logmark-rule ! lf-log-count over logmark-start !'''
-new = '''  tuck logmark-depth ! 2dup logmark-rule ! lf-log-count 1+ over logmark-start !'''
+old = '''  tuck logmark-depth ! tuck logmark-rule ! lf-log-count swap logmark-start ! ;'''
+new = '''  tuck logmark-depth ! tuck logmark-rule ! lf-log-count 1+ swap logmark-start ! ;'''
 test = "$GFORTH tests/core/derivation-log.fs"
 reason = "a step referencing a missing step: start saved one step late, so a step's premises skip the record before it and a leaf names itself"
 
@@ -2639,6 +2639,65 @@ old = '''  lf-log-complete? 0= if lf-ol-truncated true exit then false ;'''
 new = '''  false ;'''
 test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
 reason = "the printer goes on from an incomplete log (owner decision D2: never), so the truncated composition section no longer says why there is no outline"
+
+[[fault]]
+id = "outline-trusts-callers-verdict"
+file = "src/present/proof-outline.fs"
+old = '''  lf-ol-same-input? lf-ol-header-agrees? and lf-ol-log-agrees? and ;'''
+new = '''  true ;'''
+test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
+reason = "the printer takes the caller's verdict on trust (M1 of the review of 2026-11-03): a rejected declaration's log, or a log over another input, is printed as accepted"
+quick = true
+
+[[fault]]
+id = "log-thrown-check-complete"
+file = "src/core/derivation-log.fs"
+old = '''  2 pick over lf-log-published! lf-log-interrupted'''
+new = '''  2 pick over lf-log-published!'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "a check that threw with rules open leaves a log reported complete, whose publish step follows an inner step (M2 of the review of 2026-11-03)"
+
+[[fault]]
+id = "log-validator-any-publish-premise"
+file = "tests/support/log-check.fs"
+old = '''  dup lc-after-declaration? over lf-log-count = and'''
+new = '''  dup lf-log-count ='''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "the validator accepts a publish step whose premise is not the check's declaration step"
+
+[[fault]]
+id = "log-module-rolls-back"
+file = "src/core/derivation-log.fs"
+old = ''': lf-log-counted ( -- )
+  1 lf-log-state lf-logs-count +! 1 lf-log-state lf-logs-written +! ;'''
+new = ''': lf-log-counted ( -- )
+  1 lf-log-state lf-logs-count +! 1 lf-log-state lf-logs-written +! lf-input-rollback drop ;'''
+test = "python3 tests/core/check_log_isolation.py"
+reason = "the log module names a word outside its allow-list (a store rollback), which the isolation check must refuse (L2 of the review of 2026-11-03)"
+
+[[fault]]
+id = "log-module-allocates-anywhere"
+file = "src/core/derivation-log.fs"
+old = ''': lf-log-on ( level -- ) dup lf-log-state lf-logs-level ! lf-log-state lf-logs-active ! ;'''
+new = ''': lf-log-on ( level -- ) 8 allocate 2drop dup lf-log-state lf-logs-level ! lf-log-state lf-logs-active ! ;'''
+test = "python3 tests/core/check_log_isolation.py"
+reason = "the log module allocates outside the word that makes its pools"
+
+[[fault]]
+id = "printer-writes-a-record"
+file = "src/present/proof-outline.fs"
+old = ''': lf-ol-foreign ( -- )'''
+new = ''': lf-ol-foreign ( -- ) 0 1 lf-log-record logrec-outcome !'''
+test = "python3 tests/core/check_log_isolation.py"
+reason = "a printer stores into a log record's field"
+
+[[fault]]
+id = "print-leaves-log-on-after-throw"
+file = "src/cli/leanforth.fs"
+old = '''  pr-log-on ['] cli-print-env catch lf-log-off lf-log-set throw ;'''
+new = '''  pr-log-on cli-print-env lf-log-off lf-log-set ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "a THROW while printing leaves the derivation log switched on for every later command (C2 of the review of 2026-11-03)"
 
 # --- the Lean cache (scripts/lean-cache.py, Makefile) ----------------------
 
