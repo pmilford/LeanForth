@@ -1,0 +1,49 @@
+lf-ir 0.2
+source tests/program/ir/ir-0.2.fs
+constant mask32 @7:26
+  lit 65536 @7:1
+  prim dup @7:8
+  prim * @7:12
+  prim 1- @7:14
+end @7:26
+word rotl1 @8:1
+  prim dup @8:21
+  lit 1 @8:25
+  prim lshift @8:27
+  prim swap @8:34
+  lit 31 @8:39
+  prim rshift @8:42
+  prim or @8:49
+  call mask32 @8:52
+  prim and @8:59
+end @8:63
+word shuffle @9:1
+  prim -rot @9:30
+end @9:35
+word literals @10:1
+  lit 10 @10:31
+  lit -16 @10:35
+  lit 5 @10:40
+  lit 97 @10:45
+  lit 4294967295 @10:49
+  lit -2147483648 @10:60
+end @10:72
+word show @11:1
+  prim dup @11:19
+  out . @11:23
+  prim dup @11:25
+  out u. @11:29
+  out cr @11:32
+  prim dup @11:35
+  out emit @11:39
+  out space @11:44
+  lit 2 @11:50
+  out spaces @11:52
+  out .s @11:59
+  out ." text" @11:62
+end @11:71
+word show'1 @12:1
+  out ." <" @12:19
+  call show @12:30
+  out ."   >" @12:35
+end @12:43

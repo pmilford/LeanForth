@@ -264,7 +264,8 @@ theorem rshift_neg_one : c.signed (c.unsigned (-1) >>> 1) = c.max := by
 
 end Cells
 
-/-- The primitive words of IR 0.1, named after the Forth words they model. -/
+/-- The primitive words of IR 0.2, named after the Forth words they model;
+the last two, `LSHIFT` and `-ROT`, are new in IR 0.2. -/
 inductive Prim where
   | dup | drop | swap | over | nip | tuck | rot | twoDup | twoDrop
   | toR | fromR | rFetch
@@ -272,10 +273,18 @@ inductive Prim where
   | eq | ne | lt | gt | zeroEq | zeroNe | zeroLt | zeroGt
   | and | or | xor | invert | rshift
   | max | min | true | false
+  | lshift | negRot
+  deriving Repr, DecidableEq
+
+/-- An output word of IR 0.2 (ADR 0019 Amendment 1, A2): `.`, `U.`, `CR`,
+`EMIT`, `SPACE`, `SPACES`, `.S`, and `."` or `S" … " TYPE` with its text. -/
+inductive Out where
+  | dot | uDot | cr | emit | space | spaces | dotS | text (s : String)
   deriving Repr, DecidableEq
 
 /-- An instruction. `ifElse` is `IF yes ELSE no THEN`; `loop` is
-`BEGIN test WHILE body REPEAT`; `exit` leaves the current word. -/
+`BEGIN test WHILE body REPEAT`; `exit` leaves the current word; `out` is an
+output word (IR 0.2). -/
 inductive Instr where
   | prim (p : Prim)
   | lit (n : Int)
@@ -283,6 +292,7 @@ inductive Instr where
   | ifElse (yes no : List Instr)
   | loop (test body : List Instr)
   | exit
+  | out (o : Out)
   deriving Repr
 
 /-- Data and return stacks, top of stack first. -/
@@ -372,20 +382,36 @@ def step (c : Cells) : Prim → State → Result
   | .min, ⟨b :: a :: d, r⟩ => .next ⟨(if a < b then a else b) :: d, r⟩
   | .true, ⟨d, r⟩ => .next ⟨-1 :: d, r⟩
   | .false, ⟨d, r⟩ => .next ⟨0 :: d, r⟩
+  | .lshift, ⟨n :: a :: d, r⟩ =>
+      if 0 ≤ n ∧ n < c.bits then .next ⟨c.signed ((c.unsigned a <<< n.toNat) % 2 ^ c.bits) :: d, r⟩
+      else .failed .unmodeled
+  | .negRot, ⟨x3 :: x2 :: x1 :: d, r⟩ => .next ⟨x2 :: x1 :: x3 :: d, r⟩
   | _, _ => .failed .underflow
 
--- Lean generates the equation of each of the 38 primitive cases when it is
+-- Lean generates the equation of each of the 40 primitive cases when it is
 -- first named; naming them here also lets `simp` use them.
 attribute [local simp] step.eq_1 step.eq_2 step.eq_3 step.eq_4 step.eq_5 step.eq_6 step.eq_7
   step.eq_8 step.eq_9 step.eq_10 step.eq_11 step.eq_12 step.eq_13 step.eq_14 step.eq_15
   step.eq_16 step.eq_17 step.eq_18 step.eq_19 step.eq_20 step.eq_21 step.eq_22 step.eq_23
   step.eq_24 step.eq_25 step.eq_26 step.eq_27 step.eq_28 step.eq_29 step.eq_30 step.eq_31
   step.eq_32 step.eq_33 step.eq_34 step.eq_35 step.eq_36 step.eq_37 step.eq_38
+  step.eq_39 step.eq_40
+
+/-- An output word's effect on the stacks (IR 0.2): `.`, `U.`, `EMIT` and
+`SPACES` take one cell (`underflow` without one), the others none. What it
+prints is an event (`runOut` below), which no instruction reads. -/
+def Out.effect : Out → State → Result
+  | .dot, ⟨_ :: d, r⟩ | .uDot, ⟨_ :: d, r⟩ | .emit, ⟨_ :: d, r⟩ | .spaces, ⟨_ :: d, r⟩ =>
+      .next ⟨d, r⟩
+  | .dot, _ | .uDot, _ | .emit, _ | .spaces, _ => .failed .underflow
+  | _, s => .next s
 
 /-- Run a block. A called word starts with an empty return stack of its own
 and must leave it empty. A literal must fit in a cell; one that does not is
-`unmodeled` (the reader writes only literals that fit in 32 bits, so on
-cells of 32 bits or more every literal it writes fits). Fuel bounds the nesting depth
+`unmodeled` (the IR 0.1 reader writes only literals that fit in 32 bits, so
+on cells of 32 bits or more every literal it writes fits; IR 0.2's go up to
+2^32 - 1, which fit cells of 33 bits or more). An output word has its
+stack effect only. Fuel bounds the nesting depth
 of calls and the repetitions of each loop: a callee runs with one unit
 less than its caller, which continues with its own fuel afterwards, and
 each repetition of a loop leaves one unit less for the repetitions after
@@ -429,6 +455,10 @@ def run (c : Cells) (p : Program) : Nat → List Instr → State → Result
             match run c p (fuel + 1) body ⟨d, r⟩ with
             | .next s' => run c p fuel (.loop test body :: rest) s'
             | other => other
+      | other => other
+  | fuel, .out o :: rest, s =>
+      match o.effect s with
+      | .next s' => run c p fuel rest s'
       | other => other
 termination_by fuel code => (fuel, sizeOf code)
 
@@ -515,6 +545,13 @@ theorem run_loop (fuel : Nat) (test body rest : List Instr) (s : State) :
             match run c p (fuel + 1) body ⟨d, r⟩ with
             | .next s' => run c p fuel (.loop test body :: rest) s'
             | other => other
+      | other => other := by
+  rw [run]
+
+theorem run_out (fuel : Nat) (o : Out) (rest : List Instr) (s : State) :
+    run c p fuel (.out o :: rest) s =
+      match o.effect s with
+      | .next s' => run c p fuel rest s'
       | other => other := by
   rw [run]
 
@@ -1212,8 +1249,6 @@ end ProgramIR
 
 namespace ProgramIR
 
-def irVersion : String := "0.1"
-
 /-- The Forth word a primitive models. -/
 def Prim.word : Prim → String
   | .dup => "dup" | .drop => "drop" | .swap => "swap" | .over => "over" | .nip => "nip"
@@ -1225,6 +1260,35 @@ def Prim.word : Prim → String
   | .zeroEq => "0=" | .zeroNe => "0<>" | .zeroLt => "0<" | .zeroGt => "0>"
   | .and => "and" | .or => "or" | .xor => "xor" | .invert => "invert" | .rshift => "rshift"
   | .max => "max" | .min => "min" | .true => "true" | .false => "false"
+  | .lshift => "lshift" | .negRot => "-rot"
+
+/-- An output word as an `out` line writes it; a text between `." ` and `"`. -/
+def Out.word : Out → String
+  | .dot => "." | .uDot => "u." | .cr => "cr" | .emit => "emit" | .space => "space"
+  | .spaces => "spaces" | .dotS => ".s" | .text s => ".\" " ++ s ++ "\""
+
+/-- Whether an instruction is new in IR 0.2 (ADR 0019 Amendment 1, A4): an
+`out` line, `prim lshift` or `prim -rot`, also inside IF and loops. -/
+def Prim.new : Prim → Bool
+  | .lshift | .negRot => Bool.true
+  | _ => Bool.false
+
+mutual
+def Instr.new : Instr → Bool
+  | .prim p => p.new
+  | .out _ => true
+  | .ifElse yes no => blockNew yes || blockNew no
+  | .loop test body => blockNew test || blockNew body
+  | _ => false
+
+def blockNew : List Instr → Bool
+  | [] => false
+  | i :: rest => i.new || blockNew rest
+end
+
+/-- The lowest version that fits: IR 0.2 only when an instruction needs it. -/
+def irVersion (p : Program) : String :=
+  if p.any (fun d => match d.2 with | .word b | .constant b => blockNew b) then "0.2" else "0.1"
 
 mutual
 def renderInstr (pad : String) : Instr → List String
@@ -1239,6 +1303,7 @@ def renderInstr (pad : String) : Instr → List String
   | .loop test body =>
       [pad ++ "begin"] ++ renderBlock (pad ++ "  ") test ++ [pad ++ "while"] ++
         renderBlock (pad ++ "  ") body ++ [pad ++ "repeat"]
+  | .out o => [pad ++ "out " ++ o.word]
 
 def renderBlock (pad : String) : List Instr → List String
   | [] => []
@@ -1250,7 +1315,7 @@ def renderDef : String × Def → List String
   | (name, .constant body) => ["constant " ++ name] ++ renderBlock "  " body ++ ["end"]
 
 def render (source : String) (p : Program) : String :=
-  String.intercalate "\n" (["lf-ir " ++ irVersion, "source " ++ source] ++
+  String.intercalate "\n" (["lf-ir " ++ irVersion p, "source " ++ source] ++
     p.flatMap renderDef) ++ "\n"
 
 /-- tests/program/ir/all-primitives.fs: every primitive once, in the order
@@ -1261,10 +1326,25 @@ def allPrimitivesProgram : Program :=
     .oneMinus, .eq, .ne, .lt, .gt, .zeroEq, .zeroNe, .zeroLt, .zeroGt, .and, .or, .xor,
     .invert, .rshift, .max, .min, .true, .false].map Instr.prim))]
 
+/-- tests/program/ir/ir-0.2.fs: every addition of IR 0.2 at least once (the
+two primitives, every output word, prefixed and 32-bit literals, and a
+second version of `show` calling the first). -/
+def ir02Program : Program := [
+  ("mask32", .constant [.lit 65536, .prim .dup, .prim .mul, .prim .oneMinus]),
+  ("rotl1", .word [.prim .dup, .lit 1, .prim .lshift, .prim .swap, .lit 31, .prim .rshift,
+    .prim .or, .call "mask32", .prim .and]),
+  ("shuffle", .word [.prim .negRot]),
+  ("literals", .word [.lit 10, .lit (-16), .lit 5, .lit 97, .lit 4294967295,
+    .lit (-2147483648)]),
+  ("show", .word [.prim .dup, .out .dot, .prim .dup, .out .uDot, .out .cr, .prim .dup,
+    .out .emit, .out .space, .lit 2, .out .spaces, .out .dotS, .out (.text "text")]),
+  ("show'1", .word [.out (.text "<"), .call "show", .out (.text "  >")])]
+
 def main : IO Unit := do
   IO.print (render "src/program/clamp.fs" clampProgram)
   IO.print (render "src/program/examples.fs" examplesProgram)
   IO.print (render "tests/program/ir/all-primitives.fs" allPrimitivesProgram)
+  IO.print (render "tests/program/ir/ir-0.2.fs" ir02Program)
 
 end ProgramIR
 
@@ -1919,6 +1999,256 @@ theorem constant_with_if_not_wellFormed :
 #print axioms redefinition_not_wellFormed
 #print axioms constant_calling_word_not_wellFormed
 #print axioms constant_with_if_not_wellFormed
+
+theorem ir02_wellFormed : WellFormed ir02Program = true := by decide
+theorem constant_with_out_not_wellFormed :
+    WellFormed [("k", .constant [.lit 1, .out .dot, .lit 2])] = false := by decide
+/-- A program whose call reaches a later version: refuted. -/
+theorem later_version_not_wellFormed :
+    WellFormed [("f", .word []), ("g", .word [.call "f'1"]), ("f'1", .word [])] = false := by
+  decide
+
+#print axioms ir02_wellFormed
+#print axioms constant_with_out_not_wellFormed
+#print axioms later_version_not_wellFormed
+
+end ProgramIR
+
+-- Part 7. IR 0.2's output words (ADR 0019 Amendment 1, A2). `runOut` runs a
+-- block as `run` does and also collects, in order, the events the output
+-- words print; `runOut_result` proves that its stacks and failures are
+-- `run`'s for every program, fuel, block and state, so a contract about the
+-- stacks, stated with `run`, holds whatever a word prints. Then the
+-- debugging pair `dup .`, the clamp with `dup .` added (the proof of
+-- `clamp_returns`, unchanged but for the simp set) and what it prints.
+
+namespace ProgramIR
+
+/-- What an output word prints. -/
+inductive Event where
+  | number (n : Int) | unsigned (u : Nat) | newline | char (x : Int)
+  | blanks (n : Nat) | text (s : String) | stack (d : List Int)
+  deriving Repr, DecidableEq
+
+/-- The events an output word gives in a state: `.` the top cell, `U.` its
+bit pattern, `SPACES` max(n, 0) blanks, `.S` the whole data stack; none
+when it underflows. -/
+def Out.events (c : Cells) : Out → State → List Event
+  | .dot, ⟨n :: _, _⟩ => [.number n]
+  | .uDot, ⟨u :: _, _⟩ => [.unsigned (c.unsigned u)]
+  | .cr, _ => [.newline]
+  | .emit, ⟨x :: _, _⟩ => [.char x]
+  | .space, _ => [.blanks 1]
+  | .spaces, ⟨n :: _, _⟩ => [.blanks n.toNat]
+  | .dotS, ⟨d, _⟩ => [.stack d]
+  | .text s, _ => [.text s]
+  | _, _ => []
+
+/-- `run`, also collecting what the output words print: a callee's events
+where it is called; a run that fails keeps the events before the failure,
+which the host printed. -/
+def runOut (c : Cells) (p : Program) : Nat → List Instr → State → Result × List Event
+  | _, [], s => (.next s, [])
+  | fuel, .prim op :: rest, s =>
+      match step c op s with
+      | .next s' => runOut c p fuel rest s'
+      | other => (other, [])
+  | fuel, .lit n :: rest, ⟨d, r⟩ =>
+      if c.min ≤ n ∧ n ≤ c.max then runOut c p fuel rest ⟨n :: d, r⟩
+      else (.failed .unmodeled, [])
+  | _, .exit :: _, s => (.exited s, [])
+  | _, .ifElse _ _ :: _, ⟨[], _⟩ => (.failed .underflow, [])
+  | fuel, .ifElse yes no :: rest, ⟨f :: d, r⟩ =>
+      let branch := if f ≠ 0 then runOut c p fuel yes ⟨d, r⟩ else runOut c p fuel no ⟨d, r⟩
+      match branch.1 with
+      | .next s' => let after := runOut c p fuel rest s'; (after.1, branch.2 ++ after.2)
+      | other => (other, branch.2)
+  | 0, .call _ :: _, _ => (.failed .outOfFuel, [])
+  | fuel + 1, .call name :: rest, ⟨d, r⟩ =>
+      match lookup p name with
+      | none => (.failed .unknownWord, [])
+      | some (.word body) =>
+          let inner := runOut c p fuel body ⟨d, []⟩
+          match inner.1 with
+          | .next ⟨d', []⟩ =>
+              let after := runOut c p (fuel + 1) rest ⟨d', r⟩; (after.1, inner.2 ++ after.2)
+          | .exited ⟨d', []⟩ =>
+              let after := runOut c p (fuel + 1) rest ⟨d', r⟩; (after.1, inner.2 ++ after.2)
+          | .failed e => (.failed e, inner.2)
+          | _ => (.failed .unbalanced, inner.2)
+      | some (.constant body) =>
+          let inner := runOut c p fuel body ⟨[], []⟩
+          match inner.1 with
+          | .next ⟨[v], []⟩ =>
+              let after := runOut c p (fuel + 1) rest ⟨v :: d, r⟩; (after.1, inner.2 ++ after.2)
+          | .failed e => (.failed e, inner.2)
+          | _ => (.failed .badConstant, inner.2)
+  | 0, .loop _ _ :: _, _ => (.failed .outOfFuel, [])
+  | fuel + 1, .loop test body :: rest, s =>
+      let tested := runOut c p (fuel + 1) test s
+      match tested.1 with
+      | .next ⟨[], _⟩ => (.failed .underflow, tested.2)
+      | .next ⟨f :: d, r⟩ =>
+          if f = 0 then
+            let after := runOut c p (fuel + 1) rest ⟨d, r⟩; (after.1, tested.2 ++ after.2)
+          else
+            let looped := runOut c p (fuel + 1) body ⟨d, r⟩
+            match looped.1 with
+            | .next s' =>
+                let after := runOut c p fuel (.loop test body :: rest) s'
+                (after.1, tested.2 ++ looped.2 ++ after.2)
+            | other => (other, tested.2 ++ looped.2)
+      | other => (other, tested.2)
+  | fuel, .out o :: rest, s =>
+      match o.effect s with
+      | .next s' => let after := runOut c p fuel rest s'; (after.1, o.events c s ++ after.2)
+      | other => (other, [])
+termination_by fuel code => (fuel, sizeOf code)
+
+/-- The stacks never depend on output: `runOut`'s result is `run`'s, for
+every program, fuel, block and state. -/
+theorem runOut_result (c : Cells) (p : Program) :
+    ∀ (fuel : Nat) (code : List Instr) (s : State),
+      (runOut c p fuel code s).1 = run c p fuel code s
+  | _, [], s => by rw [runOut, run]
+  | fuel, .prim op :: rest, s => by
+      rw [runOut, run]
+      split <;> simp_all [runOut_result c p fuel rest]
+  | fuel, .lit n :: rest, ⟨d, r⟩ => by
+      rw [runOut, run]
+      split <;> simp_all [runOut_result c p fuel rest]
+  | _, .exit :: _, s => by rw [runOut, run]
+  | _, .ifElse _ _ :: _, ⟨[], _⟩ => by rw [runOut, run]
+  | fuel, .ifElse yes no :: rest, ⟨f :: d, r⟩ => by
+      rw [runOut, run]
+      by_cases h : f = 0
+      · simp only [h, ne_eq, not_true_eq_false, ↓reduceIte, runOut_result c p fuel no]
+        split <;> simp_all [runOut_result c p fuel rest]
+      · simp only [h, ne_eq, not_false_eq_true, ↓reduceIte, runOut_result c p fuel yes]
+        split <;> simp_all [runOut_result c p fuel rest]
+  | 0, .call _ :: _, _ => by rw [runOut, run]
+  | fuel + 1, .call name :: rest, ⟨d, r⟩ => by
+      rw [runOut, run]
+      split
+      · rfl
+      · rename_i body _
+        simp only [runOut_result c p fuel body]
+        split <;> simp_all [runOut_result c p (fuel + 1) rest]
+      · rename_i body _
+        simp only [runOut_result c p fuel body]
+        split <;> simp_all [runOut_result c p (fuel + 1) rest]
+  | 0, .loop _ _ :: _, _ => by rw [runOut, run]
+  | fuel + 1, .loop test body :: rest, s => by
+      rw [runOut, run]
+      simp only [runOut_result c p (fuel + 1) test s]
+      split
+      · rfl
+      · rename_i f d r _
+        by_cases h : f = 0
+        · simp only [h, ↓reduceIte, runOut_result c p (fuel + 1) rest]
+        · simp only [h, ↓reduceIte, runOut_result c p (fuel + 1) body]
+          split <;> simp_all [runOut_result c p fuel (.loop test body :: rest)]
+      · rfl
+  | fuel, .out o :: rest, s => by
+      rw [runOut, run]
+      split <;> simp_all [runOut_result c p fuel rest]
+termination_by fuel code => (fuel, sizeOf code)
+
+theorem callWord_runOut (c : Cells) (p : Program) (fuel : Nat) (name : String) (s : State) :
+    (runOut c p fuel [.call name] s).1 = callWord c p fuel name s :=
+  runOut_result c p fuel _ s
+
+/-- The debugging pair `dup .` changes no stack. -/
+theorem debug_pair (c : Cells) (p : Program) (fuel : Nat) (x : Int) (d r : List Int)
+    (rest : List Instr) :
+    run c p fuel (.prim .dup :: .out .dot :: rest) ⟨x :: d, r⟩ = run c p fuel rest ⟨x :: d, r⟩ := by
+  rw [run_prim]
+  simp only [step.eq_1]
+  rw [run_out]
+  rfl
+
+/-- And it prints the top cell. -/
+theorem debug_pair_prints (c : Cells) (p : Program) (fuel : Nat) (x : Int) (d r : List Int)
+    (rest : List Instr) :
+    (runOut c p fuel (.prim .dup :: .out .dot :: rest) ⟨x :: d, r⟩).2 =
+      .number x :: (runOut c p fuel rest ⟨x :: d, r⟩).2 := by
+  rw [runOut]
+  simp only [step.eq_1]
+  rw [runOut]
+  rfl
+
+/-- `ir_simp` with IR 0.2's output words. -/
+macro "ir_simp_out" : tactic => `(tactic| simp only [run_prim, run_lit, run_exit, run_nil, run_if,
+  run_out, Out.effect,
+  Cells.fits_zero, Cells.fits_one, Cells.fits_neg_one,
+  flag_ne_zero, flag_beq_zero, flag_true, flag_false, and_flags, or_flags, beq_iff_eq,
+  bne_iff_ne, decide_eq_true_eq, ↓reduceIte,
+  step.eq_1, step.eq_2, step.eq_3, step.eq_4, step.eq_5, step.eq_6, step.eq_7, step.eq_8,
+  step.eq_9, step.eq_10, step.eq_11, step.eq_12, step.eq_13, step.eq_14, step.eq_15,
+  step.eq_16, step.eq_17, step.eq_18, step.eq_19, step.eq_20, step.eq_21, step.eq_22,
+  step.eq_23, step.eq_24, step.eq_25, step.eq_26, step.eq_27, step.eq_28, step.eq_29,
+  step.eq_30, step.eq_31, step.eq_32, step.eq_33, step.eq_34, step.eq_35, step.eq_36,
+  step.eq_37, step.eq_38, step.eq_39, step.eq_40])
+
+section Debug
+open Instr
+
+/-- `lf-clamp` with `dup .` after MAX (the amendment's probe 5): the clamp,
+printing max(value, lower) when lower ≤ upper. -/
+def clampDebugBody : List Instr :=
+  [prim .twoDup, prim .gt, ifElse [prim .twoDrop, prim .drop, prim .false, exit] [],
+   prim .toR, prim .max, prim .dup, out .dot, prim .fromR, prim .min, prim .true]
+
+def clampDebugProgram : Program := [("lf-clamp", .word clampDebugBody)]
+
+end Debug
+
+theorem lookup_clampDebug :
+    lookup clampDebugProgram "lf-clamp" = some (.word clampDebugBody) := rfl
+
+theorem clampDebug_returns (c : Cells) (fuel : Nat) (lower upper value : Int)
+    (tail : List Int) :
+    (run c clampDebugProgram fuel clampDebugBody ⟨upper :: lower :: value :: tail, []⟩).returned =
+      some ((if lower > upper then [0] else [-1, clamp lower upper value]) ++ tail) := by
+  simp only [clampDebugBody]
+  ir_simp_out
+  by_cases h : lower > upper
+  · simp only [h, ↓reduceIte]
+    simp [Result.returned]
+  · simp only [h, ↓reduceIte]
+    ir_simp_out
+    simp only [Result.returned, clamp, List.cons_append, List.nil_append, Option.some.injEq,
+      List.cons.injEq, true_and, and_true]
+    repeat' split
+    all_goals omega
+
+/-- The clamp with `dup .` meets `clamp_correct`'s statement unchanged. -/
+theorem clampDebug_correct (c : Cells) (fuel : Nat) (lower upper value : Int)
+    (tail rs : List Int) (enough : 1 ≤ fuel) :
+    callWord c clampDebugProgram fuel "lf-clamp" ⟨upper :: lower :: value :: tail, rs⟩ =
+      .next ⟨(if lower > upper then [0] else [-1, clamp lower upper value]) ++ tail, rs⟩ :=
+  callWord_of_returns lookup_clampDebug (clampDebug_returns c _ lower upper value tail) enough
+
+/-- What it prints: max(value, lower) when lower ≤ upper, nothing otherwise. -/
+theorem clampDebug_prints (c : Cells) (fuel : Nat) (lower upper value : Int)
+    (tail rs : List Int) :
+    (runOut c clampDebugProgram (fuel + 1) [.call "lf-clamp"]
+      ⟨upper :: lower :: value :: tail, rs⟩).2 =
+      if lower > upper then [] else [.number (if value < lower then lower else value)] := by
+  by_cases h : lower > upper <;>
+    simp [runOut, lookup_clampDebug, clampDebugBody, step, h, Out.effect, Out.events]
+
+/-- Planted fault, refuted: `.` modelled as taking no cell would leave the
+duplicate behind. -/
+theorem dot_takes_a_cell :
+    Out.effect .dot ⟨[1, 1], []⟩ ≠ Out.effect .cr ⟨[1, 1], []⟩ := by
+  simp [Out.effect]
+
+#print axioms runOut_result
+#print axioms debug_pair
+#print axioms debug_pair_prints
+#print axioms clampDebug_correct
+#print axioms clampDebug_prints
 
 end ProgramIR
 

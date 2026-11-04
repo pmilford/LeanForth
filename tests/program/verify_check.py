@@ -19,21 +19,35 @@ the separate vocabulary (src/program/verify-alias.fs). The inputs:
 The two designs must agree exactly: every line written, the outcome, the
 reason, the line and the column. Each must agree with today's reader in the
 same way, except for the improvements the owner's answers and ADR 0019 §2-§3
-make, each recognised by a rule and counted:
+make, and the additions of IR 0.2 (Amendment 1), each recognised by a rule
+and counted:
 
-  core-word    a Forth-2012 Core or Core Ext word outside IR 0.1 is refused as
-               "a Forth word outside IR 0.1" where today's reader says
-               "not a known word": same place, same lines before it;
-  core-name    a definition of such a word is refused as a redefinition, where
-               today's reader accepted it (`: . drop ;`, `: depth 0 ;`);
+  not-ir-text  the same refusal as today's reader's "a Forth word outside IR
+               0.1", which names IR 0.2 now;
+  core-word    a Forth-2012 Core or Core Ext word outside IR 0.2 (also S"
+               not followed by TYPE, and TYPE alone) is refused as "a Forth
+               word outside IR 0.2" where today's reader says "not a known
+               word": same place, same lines before it;
+  core-name    a definition of a word with verification semantics or a
+               reserved one is refused as a redefinition, where today's
+               reader accepted it (`: . drop ;`, `: depth 0 ;`, `: -rot 3 ;`);
   number-name  a definition whose name reads as a number is refused (owner's
-               answer 4), where today's reader accepted it.
+               answer 4), where today's reader accepted it;
+  ir-0.2       today's reader refused, as unknown, a token that IR 0.2 reads:
+               a Forth-2012 number with a prefix, a 32-bit value outside
+               today's range, LSHIFT, -ROT or an output word (A2, A3);
+  redefinition today's reader refused a definition of a name the file had
+               defined, which IR 0.2 accepts as a new version (A1).
 
-For the last two, the lines written before the refusal must be the lines
-today's reader wrote for the same text up to there. Any other difference is
-a failure, and so is a reader case on which today's reader no longer gives
-its test's verdict (the extraction would be wrong). --list prints every
-difference with its rule. Finite tests on the Gforth that GFORTH names.
+For the last four, the lines written before the refusal of today's reader
+must be the new lines too (the version line aside, which says 0.2 when an
+IR 0.2 instruction follows); after it the new run goes on, and what it
+writes there is tested by tests/program/verify.fs and verify_ir02.py. When
+nothing new is used, the IR is today's byte for byte, version line
+included. Any other difference is a failure, and so is a reader case on
+which today's reader no longer gives its test's verdict (the extraction
+would be wrong). --list prints every difference with its rule. Finite tests
+on the Gforth that GFORTH names.
 """
 import os
 from pathlib import Path
@@ -55,20 +69,57 @@ WHY = {m.group(2): int(m.group(1))
 OUTCOME = {"ok": 0, "invalid": 1, "unsupported": 5, "full": 6}
 UNKNOWN, NOT_IR, REDEFINED, NUMBER_NAME = 1, 2, 10, 30
 UNKNOWN_TEXT = "not a known word or 32-bit decimal"
-NOT_IR_TEXT = "a Forth word outside IR 0.1"
+NOT_IR_TEXT = "a Forth word outside IR 0.2"
+OLD_NOT_IR_TEXT = "a Forth word outside IR 0.1"   # today's reader's reason 2
+
+
+def unescape(text):
+    return text.replace("\\\\", "\0").replace("\\q", '"').replace("\0", "\\")
 
 
 def reserved_names():
     """The reserved names of verify-semantics.fs (its s\\" strings)."""
     names = []
     for m in re.finditer(r'^s\\" (.*)"\s*(?:\n)?pv-reserve-all', SEMANTICS, re.M):
-        text = m.group(1).replace("\\\\", "\0").replace("\\q", '"').replace("\0", "\\")
-        names += text.split()
+        names += unescape(m.group(1)).split()
     return set(names)
 
 
+def table_names():
+    """Every name of the program words' table: reserved, primitives, output
+    words and actions."""
+    names = set(unescape(n) for n in re.findall(
+        r's\\?" (\S+)" pv-(?:data|division|return|output|act)\b', SEMANTICS))
+    return names | RESERVED
+
+
 RESERVED = reserved_names()
+TABLE = table_names()
 OLD_VOCABULARY = set(re.findall(r's" (\S+)" ir-(?:word|data|division|return)\b', READER))
+# Refused in context: S" not followed by TYPE, TYPE alone.
+CONTEXT_REFUSED = {'s"', "type"}
+# The words IR 0.2 adds (Amendment 1, A2 and A3).
+IR02_WORDS = {"lshift", "-rot", ".", "u.", "cr", "emit", "space", "spaces", ".s", '."', 's"'}
+
+
+def literal_value(token):
+    """verify-semantics.fs's reading of a number (A3), or None: Forth-2012's
+    decimal, # $ % and 'c' forms, from -2^31 to 2^32 - 1."""
+    if len(token) == 3 and token[0] == token[2] == "'" and 33 <= ord(token[1]) < 127:
+        return ord(token[1])
+    base, most, rest = 10, 10, token
+    if rest[:1] in ("#", "$", "%"):
+        base, most = {"#": (10, 10), "$": (16, 8), "%": (2, 32)}[rest[0]]
+        rest = rest[1:]
+    negative = rest.startswith("-")
+    digits = rest[1:] if negative else rest
+    if not 1 <= len(digits) <= most or any(
+            c.lower() not in "0123456789abcdef"[:base] for c in digits):
+        return None
+    value = int(digits, base)
+    if value > (2 ** 31 if negative else 2 ** 32 - 1):
+        return None
+    return -value if negative else value
 
 
 def number_like(name):
@@ -310,6 +361,13 @@ def prefix_rule(old, new):
     return new[0][:-1] == old[0][:len(new[0]) - 1]
 
 
+def goes_on(old, new):
+    """The new run wrote every line today's reader wrote before its refusal,
+    the version line aside."""
+    before = old[0][1:-1]
+    return bool(old[0]) and new[0][1:1 + len(before)] == before
+
+
 def intended(old, new):
     """The rule that explains a difference between today's reader and the new
     code, or None."""
@@ -317,26 +375,38 @@ def intended(old, new):
     if not new_lines:
         return None
     last = new_lines[-1]
+    if (new_verdict == old_verdict and new_verdict[1] == NOT_IR
+            and new_lines[:-1] == old_lines[:-1]
+            and old_lines[-1] == last.replace(NOT_IR_TEXT, OLD_NOT_IR_TEXT, 1)):
+        return "not-ir-text"
     if (new_verdict[1] == NOT_IR and old_verdict == (5, UNKNOWN) + new_verdict[2:]
-            and token_of(last).lower() in RESERVED
+            and token_of(last).lower() in RESERVED | CONTEXT_REFUSED
             and new_lines[:-1] == old_lines[:-1]
             and old_lines[-1] == last.replace(NOT_IR_TEXT, UNKNOWN_TEXT, 1)):
         return "core-word"
     if new_verdict[:2] == (5, REDEFINED) and prefix_rule(old, new):
         name = token_of(last).lower()
-        if name in RESERVED and name not in OLD_VOCABULARY:
+        if name in TABLE and name not in OLD_VOCABULARY:
             return "core-name"
     if new_verdict[:2] == (5, NUMBER_NAME) and prefix_rule(old, new) \
             and number_like(token_of(last)):
         return "number-name"
+    if old_verdict[0] != 0 and goes_on(old, new) and old_lines:
+        token = token_of(old_lines[-1])
+        if old_verdict[1] == UNKNOWN and (token.lower() in IR02_WORDS
+                                          or literal_value(token) is not None):
+            return "ir-0.2"
+        if old_verdict[1] == REDEFINED and token.lower() not in TABLE:
+            return "redefinition"
     return None
 
 
 def big_files():
     """Files past 65,536 bytes, the program words' former limit (review
     rvPW, B1): clamp.fs padded with comment lines to exactly 65,536 bytes,
-    the last one an LF, then a redefinition of lf-clamp that must be seen;
-    and about 400,000 bytes of comments around a word, accepted."""
+    the last one an LF, then a redefinition of lf-clamp that must be seen
+    (IR 0.2: its second version, lf-clamp'1); and about 400,000 bytes of
+    comments around a word, accepted."""
     clamp = (ROOT / "src/program/clamp.fs").read_bytes()
     pad, size = b"", 65536 - len(clamp)
     while size - len(pad) > 100:
@@ -350,8 +420,10 @@ def big_files():
 
 
 #  The big files' own verdicts, whatever today's reader says: the
-#  redefinition after byte 65,536 is refused, the long file accepted.
-BIG_VERDICTS = {"file: edge-65536": (5, REDEFINED), "file: large-400k": (0, 0)}
+#  redefinition after byte 65,536 is seen, as the second version of
+#  lf-clamp, and the long file accepted; and the last line each writes.
+BIG_VERDICTS = {"file: edge-65536": ((0, 0), "word lf-clamp'1 @662:1"),
+                "file: large-400k": ((0, 0), "end @2001:7")}
 
 
 def file_entries(directory):
@@ -373,7 +445,8 @@ def file_entries(directory):
 
 GOLDEN = [("src/program/clamp.fs", "tests/program/ir/clamp.ir"),
           ("src/program/examples.fs", "tests/program/ir/examples.ir"),
-          ("tests/program/ir/all-primitives.fs", "tests/program/ir/all-primitives.ir")]
+          ("tests/program/ir/all-primitives.fs", "tests/program/ir/all-primitives.ir"),
+          ("tests/program/ir/ir-0.2.fs", "tests/program/ir/ir-0.2.ir")]
 
 
 def main():
@@ -399,8 +472,10 @@ def main():
             problems.append(f"{name}: the designs differ:\n  shift {new}\n  alias {alias}")
         if name in golden and (new[1][0] != 0 or new[0] != golden[name]):
             problems.append(f"{name}: IR differs from the golden file")
-        if name in BIG_VERDICTS and new[1][:2] != BIG_VERDICTS[name]:
-            problems.append(f"{name}: gave {new[1]}, not {BIG_VERDICTS[name]}")
+        if name in BIG_VERDICTS:
+            verdict, line = BIG_VERDICTS[name]
+            if new[1][:2] != verdict or line not in new[0]:
+                problems.append(f"{name}: gave {new[1]} {new[0][-3:]}, not {verdict} {line}")
         if new[1][0] == 0:
             loads += 1
             if r.get("host") != (0, 0):

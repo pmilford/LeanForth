@@ -4,16 +4,19 @@ review recommendation 2).
 Usage (from the repository root):
   GFORTH=... python3 tests/program/verify_roundtrip.py [--seed N] [--programs N]
 
-Round trip: each IR file (the three golden files and AWKWARD below) is
-printed back as Forth source, in another layout (calls and keywords in
-upper or mixed case, tabs, comments, several instructions to a line), run in
-correctness mode by both designs, and must give the same IR apart from the
-locations and the source line. AWKWARD uses names that Gforth 1.0 reads in
-other syntaxes (->x, "x", forth:dup), names with odd characters, a name of
-31 characters, and Gforth words that Forth-2012 does not define (-rot, g).
-Then Forth source that no accepted IR can come from must be refused: names
-of vocabulary or Core words, names that read as numbers, a forward call,
-recursion and a redefinition in another case.
+Round trip: each IR file (the four golden files, IR 0.2's included, and
+AWKWARD below) is printed back as Forth source, in another layout (calls
+and keywords in upper or mixed case, tabs, comments, several instructions
+to a line; a version's IR name, show'1, as a name of its own, which gives
+the same IR), run in correctness mode by both designs, and must give the
+same IR apart from the locations and the source line. AWKWARD uses names
+that Gforth 1.0 reads in other syntaxes (->x, "x", forth:dup), names with
+odd characters, a name of 31 characters, and Gforth words that Forth-2012
+does not define (rdrop, g). Then Forth source that no accepted IR can come
+from must be refused: names of vocabulary or Core words (-rot and .s
+included), names that read as numbers, a forward call, recursion, a name
+the IR gives another version, and output words outside a definition or S"
+without TYPE.
 
 Random programs: --programs (default 400) programs from --seed (default
 20261103), each with words and constants built from every primitive,
@@ -21,9 +24,11 @@ literals (also with leading zeros and of ten digits), calls, IF/ELSE/THEN,
 BEGIN/WHILE/REPEAT nested up to three deep, EXIT, comments and random case
 and spacing; a fifth of them carry one planted mistake (an unknown word, a
 bad literal, a structure out of place, a name too long, a redefinition, a
-character outside ASCII ...). Today's reader, the mode shift and the
-separate vocabulary must write the same lines and give the same verdict on
-every one. Finite tests on the Gforth that GFORTH names, not a proof.
+character outside ASCII ...; a redefinition and the literals $10, 'a' and
+2147483648, which IR 0.2 accepts). The mode shift and the separate
+vocabulary must write the same lines and give the same verdict on every
+one, and today's reader too but for the differences verify_check.py's rules
+explain. Finite tests on the Gforth that GFORTH names, not a proof.
 """
 import argparse
 import os
@@ -40,7 +45,7 @@ import verify_check  # noqa: E402
 PRIMS = ("dup drop swap over nip tuck rot 2dup 2drop >r r> r@ + - * / mod negate abs 1+ "
          "1- = <> < > 0= 0<> 0< 0> and or xor invert rshift max min true false").split()
 GOLDEN = ["tests/program/ir/clamp.ir", "tests/program/ir/examples.ir",
-          "tests/program/ir/all-primitives.ir"]
+          "tests/program/ir/all-primitives.ir", "tests/program/ir/ir-0.2.ir"]
 AWKWARD = """lf-ir 0.1
 source awkward.fs
 constant k7
@@ -72,12 +77,12 @@ word x:dup
     prim 1-
   repeat
 end
-word -rot
+word rdrop
   call x:dup
   exit
 end
 word g
-  call -rot
+  call rdrop
   call forth:dup
 end
 word a(b)
@@ -118,8 +123,9 @@ def to_forth(ir_text, rng):
             out.append("\t".join(kept + ["CONSTANT", mixed(pending, rng)]) + "  \\ constant")
             pending, kept = None, []
         else:
-            token = {"prim": arg, "lit": arg, "call": arg}.get(op, op)
-            token = ";" if op == "end" else mixed(token, rng)
+            token = {"prim": arg, "lit": arg, "call": arg, "out": arg}.get(op, op)
+            text = op == "out" and arg.startswith('."')
+            token = ";" if op == "end" else token if text else mixed(token, rng)
             if op == "lit" and rng.random() < 0.3 and len(token.lstrip("-")) <= 8:
                 token = token.replace("-", "-00", 1) if token.startswith("-") else "00" + token
             if pending is not None:
@@ -142,7 +148,8 @@ def stripped(lines):
 
 REFUSED = [": dup 1 ;", ": DUP 1 ;", ": emit ;", ": 5 7 ;", ": -0 1 ;", ": 1e 1 ;",
            ": $10 1 ;", ": 'a' 1 ;", ": .5 1 ;", "5 constant -1", ": f g ;\n: g 1 ;",
-           ": f f ;", ": foo 1 ;\n: bar foo ;\n: FOO 2 ;"]
+           ": f f ;", ": foo 1 ;\n: FOO'1 2 ;\n: Foo 3 ;", ": -rot 1 ;", ": .s ;",
+           ": f 1 . ;\n.", ': f s" x" ;']
 
 
 def round_trip(gforth):

@@ -90,6 +90,10 @@ T{ s" src/program/examples.fs" s" tests/program/ir/examples.ir" alias-golden
    -> outcome-ok 0 }T
 T{ s" tests/program/ir/all-primitives.fs" s" tests/program/ir/all-primitives.ir"
    alias-golden -> outcome-ok 0 }T
+T{ s" tests/program/ir/ir-0.2.fs" s" tests/program/ir/ir-0.2.ir" shift-golden
+   -> outcome-ok 0 }T
+T{ s" tests/program/ir/ir-0.2.fs" s" tests/program/ir/ir-0.2.ir" alias-golden
+   -> outcome-ok 0 }T
 
 \ Accepted text, and every outcome with its reason, line and column, the
 \ same in both designs.
