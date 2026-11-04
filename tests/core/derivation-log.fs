@@ -277,20 +277,25 @@ T{ 26 bad-start 30 bad-start -> 2 2 }T
 T{ 0 file run drop lf-log-published drop -1 > lf-log-terms lf-log-start lf-log-published
   drop lf-log-stop -> true -1 }T
 
-\ The printer's walks stop at lf-lv-nest-limit (128) levels, inside Gforth
-\ 0.7.3's return stack (N5): a right-nested chain, which the copier keeps
-\ whole, of 120 applications is rebuilt for printing; one of 450 (which
-\ overflowed 0.7.3's return stack at the old limit) is refused, printed as
-\ "?", never a THROW.
+\ The printer's walks over a formula keep no depth on the host's stacks
+\ (plan task 6.2.0; N5 bounded them at 128 levels before): right-nested
+\ chains of 120 and 450 applications, which the copier keeps whole (450
+\ overflowed Gforth 0.7.3's return stack at an earlier limit), are rebuilt
+\ for printing in the same return-stack cells, painted (the copier's own
+\ stacks truncate a log with a deeper copy).
+require ../support/stack-paint.fs
 T{ 2000 lf-term-capacity! -> outcome-ok }T
 : rchain ( n -- term id )
   0 lf-term-bvar must dup rot 0 ?do over swap lf-term-app must loop nip
   dup lf-term-identity must ;
-: rebuilt? ( n -- complete? flag )
+variable chain-rebuilt   variable rebuild-cells
+: rebuild ( -- ) 1 lf-log-a@ lf-lv-term dup if nip then chain-rebuilt ! ;
+: rebuilt? ( n -- complete? flag return-cells )
   lf-log-terms lf-log-start rchain 0 1 10000 lf-mixed-shift drop 2drop lf-log-complete?
-  lf-lv-open must 1 lf-log-a@ lf-lv-term dup if nip then lf-lv-release lf-lv-close throw
-  lf-log-stop lf-input-rollback drop ;
-T{ lf-lv-nest-limit 120 rebuilt? 450 rebuilt? -> 128 true true true false }T
+  lf-lv-open must ['] rebuild stack-painted drop chain-rebuilt @ swap
+  lf-lv-release lf-lv-close throw lf-log-stop lf-input-rollback drop ;
+T{ 120 rebuilt? rebuild-cells ! -> true true }T
+T{ 450 rebuilt? rebuild-cells @ - abs 4 < -> true true true }T
 
 \ Inductive blocks (ADR 0015; N1 of the second review): with the log at
 \ terms, the check of a block's first member is one inductive-block step,
