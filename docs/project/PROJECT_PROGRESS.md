@@ -144,8 +144,9 @@ sizes are relative and dates are not estimated.
    today, gate pending); re-export byte for byte and compare with
    Lean's file (3.2.4, **done 2026-11-03**); the checksum manifest checked by default and an
    upgrade test for new Lean and Mathlib versions (owner, 2026-11-03);
-   `leanforth check FILE.ndjson`, `leanforth print` and exit codes
-   (3.4); the JSON API v0 for AI tools with schemas and golden examples
+   `leanforth check FILE.ndjson` and exit codes (3.4; `leanforth print`,
+   readable proof outlines from the command line, merged 2026-11-04 with
+   the derivation log's review pending); the JSON API v0 for AI tools with schemas and golden examples
    (3.5); authoring in its own process (8.2.1). *You will see:* one
    command checks a Lean export with only Forth installed. Today
    `bin/leanforth check` still has the small default sizes.
