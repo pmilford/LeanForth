@@ -1,8 +1,8 @@
 import Lean
 
 /-
-Lean's evaluation of the program IR model, version 0.1, for the three-way
-comparison of task 2.5.4 (docs/programming/PROGRAM_IR_RUN.md). Untrusted:
+Lean's evaluation of the program IR model, versions 0.1 and 0.2, for the
+three-way comparison of task 2.5.4 (docs/programming/PROGRAM_IR_RUN.md). Untrusted:
 it proves nothing; it runs the model's own `callWord` on concrete inputs so
 that the Forth IR interpreter (src/program/ir-run.fs) and the host's own
 execution of the source can be compared with the model's result.
@@ -109,8 +109,9 @@ theorem rshift_neg_one : c.signed (c.unsigned (-1) >>> 1) = c.max := by
 end Cells
 -- END VERBATIM
 
--- BEGIN VERBATIM tests/reference/program-ir.lean 267-437
-/-- The primitive words of IR 0.1, named after the Forth words they model. -/
+-- BEGIN VERBATIM tests/reference/program-ir.lean 267-467
+/-- The primitive words of IR 0.2, named after the Forth words they model;
+the last two, `LSHIFT` and `-ROT`, are new in IR 0.2. -/
 inductive Prim where
   | dup | drop | swap | over | nip | tuck | rot | twoDup | twoDrop
   | toR | fromR | rFetch
@@ -118,10 +119,18 @@ inductive Prim where
   | eq | ne | lt | gt | zeroEq | zeroNe | zeroLt | zeroGt
   | and | or | xor | invert | rshift
   | max | min | true | false
+  | lshift | negRot
+  deriving Repr, DecidableEq
+
+/-- An output word of IR 0.2 (ADR 0019 Amendment 1, A2): `.`, `U.`, `CR`,
+`EMIT`, `SPACE`, `SPACES`, `.S`, and `."` or `S" … " TYPE` with its text. -/
+inductive Out where
+  | dot | uDot | cr | emit | space | spaces | dotS | text (s : String)
   deriving Repr, DecidableEq
 
 /-- An instruction. `ifElse` is `IF yes ELSE no THEN`; `loop` is
-`BEGIN test WHILE body REPEAT`; `exit` leaves the current word. -/
+`BEGIN test WHILE body REPEAT`; `exit` leaves the current word; `out` is an
+output word (IR 0.2). -/
 inductive Instr where
   | prim (p : Prim)
   | lit (n : Int)
@@ -129,6 +138,7 @@ inductive Instr where
   | ifElse (yes no : List Instr)
   | loop (test body : List Instr)
   | exit
+  | out (o : Out)
   deriving Repr
 
 /-- Data and return stacks, top of stack first. -/
@@ -218,20 +228,36 @@ def step (c : Cells) : Prim → State → Result
   | .min, ⟨b :: a :: d, r⟩ => .next ⟨(if a < b then a else b) :: d, r⟩
   | .true, ⟨d, r⟩ => .next ⟨-1 :: d, r⟩
   | .false, ⟨d, r⟩ => .next ⟨0 :: d, r⟩
+  | .lshift, ⟨n :: a :: d, r⟩ =>
+      if 0 ≤ n ∧ n < c.bits then .next ⟨c.signed ((c.unsigned a <<< n.toNat) % 2 ^ c.bits) :: d, r⟩
+      else .failed .unmodeled
+  | .negRot, ⟨x3 :: x2 :: x1 :: d, r⟩ => .next ⟨x2 :: x1 :: x3 :: d, r⟩
   | _, _ => .failed .underflow
 
--- Lean generates the equation of each of the 38 primitive cases when it is
+-- Lean generates the equation of each of the 40 primitive cases when it is
 -- first named; naming them here also lets `simp` use them.
 attribute [local simp] step.eq_1 step.eq_2 step.eq_3 step.eq_4 step.eq_5 step.eq_6 step.eq_7
   step.eq_8 step.eq_9 step.eq_10 step.eq_11 step.eq_12 step.eq_13 step.eq_14 step.eq_15
   step.eq_16 step.eq_17 step.eq_18 step.eq_19 step.eq_20 step.eq_21 step.eq_22 step.eq_23
   step.eq_24 step.eq_25 step.eq_26 step.eq_27 step.eq_28 step.eq_29 step.eq_30 step.eq_31
   step.eq_32 step.eq_33 step.eq_34 step.eq_35 step.eq_36 step.eq_37 step.eq_38
+  step.eq_39 step.eq_40
+
+/-- An output word's effect on the stacks (IR 0.2): `.`, `U.`, `EMIT` and
+`SPACES` take one cell (`underflow` without one), the others none. What it
+prints is an event (`runOut` below), which no instruction reads. -/
+def Out.effect : Out → State → Result
+  | .dot, ⟨_ :: d, r⟩ | .uDot, ⟨_ :: d, r⟩ | .emit, ⟨_ :: d, r⟩ | .spaces, ⟨_ :: d, r⟩ =>
+      .next ⟨d, r⟩
+  | .dot, _ | .uDot, _ | .emit, _ | .spaces, _ => .failed .underflow
+  | _, s => .next s
 
 /-- Run a block. A called word starts with an empty return stack of its own
 and must leave it empty. A literal must fit in a cell; one that does not is
-`unmodeled` (the reader writes only literals that fit in 32 bits, so on
-cells of 32 bits or more every literal it writes fits). Fuel bounds the nesting depth
+`unmodeled` (the IR 0.1 reader writes only literals that fit in 32 bits, so
+on cells of 32 bits or more every literal it writes fits; IR 0.2's go up to
+2^32 - 1, which fit cells of 33 bits or more). An output word has its
+stack effect only. Fuel bounds the nesting depth
 of calls and the repetitions of each loop: a callee runs with one unit
 less than its caller, which continues with its own fuel afterwards, and
 each repetition of a loop leaves one unit less for the repetitions after
@@ -276,6 +302,10 @@ def run (c : Cells) (p : Program) : Nat → List Instr → State → Result
             | .next s' => run c p fuel (.loop test body :: rest) s'
             | other => other
       | other => other
+  | fuel, .out o :: rest, s =>
+      match o.effect s with
+      | .next s' => run c p fuel rest s'
+      | other => other
 termination_by fuel code => (fuel, sizeOf code)
 
 /-- Run one word, as a caller would: `[CALL name]`. -/
@@ -283,7 +313,7 @@ def callWord (c : Cells) (p : Program) (fuel : Nat) (name : String) (s : State) 
   run c p fuel [.call name] s
 -- END VERBATIM
 
--- BEGIN VERBATIM tests/reference/program-ir.lean 581-646
+-- BEGIN VERBATIM tests/reference/program-ir.lean 618-683
 section Words
 open Instr
 
@@ -352,10 +382,7 @@ def examplesProgram : Program := [
 end Words
 -- END VERBATIM
 
--- BEGIN VERBATIM tests/reference/program-ir.lean 1215-1227
-def irVersion : String := "0.1"
-
-/-- The Forth word a primitive models. -/
+-- BEGIN VERBATIM tests/reference/program-ir.lean 1253-1268
 def Prim.word : Prim → String
   | .dup => "dup" | .drop => "drop" | .swap => "swap" | .over => "over" | .nip => "nip"
   | .tuck => "tuck" | .rot => "rot" | .twoDup => "2dup" | .twoDrop => "2drop"
@@ -366,6 +393,12 @@ def Prim.word : Prim → String
   | .zeroEq => "0=" | .zeroNe => "0<>" | .zeroLt => "0<" | .zeroGt => "0>"
   | .and => "and" | .or => "or" | .xor => "xor" | .invert => "invert" | .rshift => "rshift"
   | .max => "max" | .min => "min" | .true => "true" | .false => "false"
+  | .lshift => "lshift" | .negRot => "-rot"
+
+/-- An output word as an `out` line writes it; a text between `." ` and `"`. -/
+def Out.word : Out → String
+  | .dot => "." | .uDot => "u." | .cr => "cr" | .emit => "emit" | .space => "space"
+  | .spaces => "spaces" | .dotS => ".s" | .text s => ".\" " ++ s ++ "\""
 -- END VERBATIM
 
 end ProgramIR
@@ -383,9 +416,13 @@ def allPrims : List Prim :=
   [.dup, .drop, .swap, .over, .nip, .tuck, .rot, .twoDup, .twoDrop, .toR, .fromR, .rFetch,
    .add, .sub, .mul, .div, .mod, .negate, .abs, .onePlus, .oneMinus,
    .eq, .ne, .lt, .gt, .zeroEq, .zeroNe, .zeroLt, .zeroGt,
-   .and, .or, .xor, .invert, .rshift, .max, .min, .true, .false]
+   .and, .or, .xor, .invert, .rshift, .max, .min, .true, .false, .lshift, .negRot]
 
 def primNamed (word : String) : Option Prim := allPrims.find? (fun p => p.word == word)
+
+/-- The output words of IR 0.2 that an out line names. -/
+def outNamed (word : String) : Option Out :=
+  [Out.dot, .uDot, .cr, .emit, .space, .spaces, .dotS].find? (fun o => o.word == word)
 
 /-- The tokens of a line of the text form, without indentation or location. -/
 def tokens (line : String) : List String :=
@@ -393,6 +430,16 @@ def tokens (line : String) : List String :=
   match ws.getLast? with
   | some w => if w.startsWith "@" then ws.dropLast else ws
   | none => []
+
+/-- The same, but an out line with a text gives `out`, `."` and the text: what
+follows `." ` up to the next quote. -/
+def lineTokens (line : String) : List String :=
+  match tokens line with
+  | "out" :: ".\"" :: _ =>
+    match line.splitOn "\"" with
+    | _ :: text :: _ => ["out", ".\"", (text.drop 1).toString]
+    | _ => tokens line
+  | ts => ts
 
 /-- The IR text form read back into terms. The structure comes from the
 keywords; indentation and locations are ignored. Untrusted, like any
@@ -422,6 +469,10 @@ partial def parseBlock : List (List String) → Except String (List Instr × Lis
       | none => .error s!"bad literal: {n}"
     | ["call", name] => more (.call name) rest
     | ["exit"] => more .exit rest
+    | ["out", ".\"", text] => more (.out (.text text)) rest
+    | ["out", w] => match outNamed w with
+      | some o => more (.out o) rest
+      | none => .error s!"unknown output word: {w}"
     | ["if"] => do
       let (yes, r1) ← parseBlock rest
       match r1 with
@@ -461,10 +512,10 @@ partial def parseDefs : List (List String) → Except String Program
 def parseProgram (text : String) : Except String Program :=
   match (text.splitOn "\n").filter (· ≠ "") with
   | version :: source :: rest =>
-    if version == "lf-ir " ++ irVersion && source.startsWith "source " then
-      parseDefs (rest.map tokens)
-    else .error "not IR 0.1 text"
-  | _ => .error "not IR 0.1 text"
+    if (version == "lf-ir 0.1" || version == "lf-ir 0.2") && source.startsWith "source " then
+      parseDefs (rest.map lineTokens)
+    else .error "not IR 0.1 or 0.2 text"
+  | _ => .error "not IR 0.1 or 0.2 text"
 
 def failureName : Failure → String
   | .underflow => "underflow"

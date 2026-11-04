@@ -46,7 +46,8 @@ T{ s" src/program/clamp.fs" load-source -> outcome-ok outcome-ok }T
 : in-body ( c-addr u -- outcome ) program s" word f" >ir >ir s" end" >ir loaded ;
 T{ program loaded -> outcome-ok }T
 T{ s" word f" just -> outcome-invalid }T
-T{ irx-load-start s" lf-ir 0.2" >ir s" source t.fs" >ir loaded -> outcome-invalid }T
+T{ irx-load-start s" lf-ir 0.3" >ir s" source t.fs" >ir loaded -> outcome-invalid }T
+T{ irx-load-start s" lf-ir 0.2" >ir s" source t.fs" >ir loaded -> outcome-ok }T
 T{ irx-load-start s" lf-ir 0.1" >ir s" source " >ir loaded -> outcome-invalid }T
 T{ irx-load-start s" lf-ir 0.1" >ir loaded -> outcome-invalid }T
 T{ s"   prim dup" just -> outcome-invalid }T
@@ -157,9 +158,10 @@ T{ program s" word f" >ir s" end" >ir s" word f" >ir s" end" >ir loaded
    -> outcome-invalid }T
 T{ program s" word f g" >ir s" end" >ir loaded -> outcome-invalid }T
 T{ program s"  word f" >ir s" end" >ir loaded -> outcome-invalid }T
-T{ program s" word abcdefghijklmnopqrstuvwxyz012345" >ir s" end" >ir loaded ->
+\ Names: 31 characters, a quote and a version number of two digits.
+T{ program s" word abcdefghijklmnopqrstuvwxyz0123456789a" >ir s" end" >ir loaded ->
   outcome-full }T
-T{ program s" word abcdefghijklmnopqrstuvwxyz01234" >ir s" end" >ir loaded
+T{ program s" word abcdefghijklmnopqrstuvwxyz0123456789" >ir s" end" >ir loaded
    -> outcome-ok }T
 T{ s" tests/program/no-such-file.ir" irx-load-file -> outcome-invalid }T
 \ Only the first problem counts, and the line it was on.
@@ -430,5 +432,59 @@ T{ f( s"   lit 1" >ir )f irx-k-then 0 irx-op irx-op-kind ! 0 given 1 f irx-resul
    -> outcome-invalid irx-broken }T
 T{ f( s"   lit 1" >ir )f 99 0 irx-op irx-op-kind ! 0 given 1 f irx-result
    -> outcome-invalid irx-broken }T
+
+\ IR 0.2 (ADR 0019 Amendment 1): its golden file, LSHIFT and -ROT, out
+\ lines and what they print, version names; an IR 0.2 instruction needs
+\ IR 0.2's version line.
+: program-0.2 ( -- ) irx-load-start s" lf-ir 0.2" >ir s" source t.fs" >ir ;
+: g( ( -- ) program-0.2 s" word f" >ir ;
+: )g ( -- ) s" end" >ir loaded outcome-ok <> abort" test program refused" ;
+T{ s" tests/program/ir/ir-0.2.ir" irx-load-file -> outcome-ok }T
+T{ 7 8 9 in3 1 s" shuffle" run out-stack -> outcome-ok 9 7 8 }T
+T{ 1 in1 3 s" rotl1" run out-stack -> outcome-ok 2 }T
+T{ 2147483648 in1 3 s" rotl1" run out-stack -> outcome-ok 1 }T
+T{ 0 given 1 s" literals" run out-stack -> outcome-ok 10 -16 5 97 4294967295 -2147483648 }T
+T{ s"   prim lshift" in-body -> outcome-invalid }T
+T{ s"   prim -rot" in-body -> outcome-invalid }T
+T{ s"   out ." in-body -> outcome-invalid }T
+T{ s\"   out .\" x\"" in-body -> outcome-invalid }T
+T{ g( s"   prim lshift" >ir )g 1 4 in2 1 f out-stack -> outcome-ok 16 }T
+T{ 1 irx-cell-bits 1- in2 1 f out-stack -> outcome-ok max-n invert }T
+T{ 1 irx-cell-bits in2 1 f -> outcome-unsupported }T
+T{ 1 -1 in2 1 f -> outcome-unsupported }T
+T{ 1 in1 1 f -> outcome-invalid }T
+T{ g( s"   prim -rot" >ir )g 1 2 in2 1 f -> outcome-invalid }T
+\ What out lines print, into a buffer.
+create printed 256 chars allot
+variable printed#
+: print+ ( c-addr u -- ) tuck printed printed# @ chars + swap chars move printed# +! ;
+: printing ( -- ) 0 printed# ! ['] print+ irx-output-to ;
+: printed? ( c-addr u -- flag ) printed printed# @ compare 0= ;
+T{ g( s"   out ." >ir s"   out u." >ir s"   out space" >ir )g -> }T
+T{ printing -5 7 in2 1 f s" 7 18446744073709551611  " 2drop printed# @ 0> -> outcome-ok true }T
+T{ printing -5 7 in2 1 f drop s" 7 " printed printed# @ 2 min compare -> 0 }T
+T{ printing max-n 1+ in1 1 s" f" run -> outcome-invalid }T
+T{ g( s"   out cr" >ir s"   out emit" >ir s"   out spaces" >ir )g -> }T
+T{ printing 3 321 in2 1 f drop s\" \nA   " printed? -> true }T
+T{ printing -2 -1 in2 1 f drop printed# @ printed 1 chars + c@ -> 2 255 }T
+T{ g( s"   out .s" >ir s\"   out .\" \"" >ir s\"   out .\"  a @1:2 \" @3:4" >ir )g -> }T
+T{ printing 1 2 in2 1 f drop s"  <2> 1 2  a @1:2 " 1 /string printed? -> true }T
+T{ irx-last -> 3 4 }T
+T{ s\"   out .\" x" in-body -> outcome-invalid }T
+T{ s\"   out .\" x\"y" in-body -> outcome-invalid }T
+T{ s\"   out .\" x\" " in-body -> outcome-invalid }T
+T{ s"   out frob" in-body -> outcome-invalid }T
+T{ s"   out" in-body -> outcome-invalid }T
+\ .S shows at most the top nine cells; the cells a block can see.
+T{ g( s"   out .s" >ir )g -> }T
+T{ printing 1 2 3 4 5 6 7 8 9 10 10 given 1 f drop
+   s" <10> 9 8 7 6 5 4 3 2 1 " printed? -> true }T
+\ Version names are names; a call reaches the version it names.
+T{ program-0.2 s" word f" >ir s"   lit 1" >ir s" end" >ir s" word f'1" >ir
+   s"   call f" >ir s"   prim 1+" >ir s" end" >ir loaded -> outcome-ok }T
+T{ 0 given 2 s" f'1" run out-stack -> outcome-ok 2 }T
+T{ program-0.2 s" word abcdefghijklmnopqrstuvwxyz01234'31" >ir s" end" >ir loaded
+   -> outcome-ok }T
+' irx-discard-output irx-output-to
 
 bye
