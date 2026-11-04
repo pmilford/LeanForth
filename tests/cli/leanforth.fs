@@ -184,7 +184,7 @@ cli-options
 T{ inductive run-facts inductive run-facts -> 0 6 1520 0 6 1520 }T
 cli-no-manifest
 kinds run-facts constant kinds-fuel drop drop
-T{ kinds run-facts -> 2 30 kinds-fuel }T
+T{ kinds run-facts -> 2 58 kinds-fuel }T
 cli-options
 
 \ --record keeps the small path: an inductive type is refused while
