@@ -682,6 +682,10 @@ recommended; 5.2.1a starts now. Q5, amending decision 4: an axiom outside
 the three (or an altered statement) gets Lean's verdict, labelled
 **NOT PROVED: depends on** that axiom, as is everything that uses it, with
 its own exit code; `--standard-axioms-only` answers *unsupported* instead.
+(The exit code was changed by the owner on 2026-11-04, late: NOT PROVED
+keeps Lean's exit status, 0 when everything is accepted, and the opt-in
+`--strict-axioms` gives such a run status 6; `docs/project/OWNER_DECISIONS.md`,
+"Command line: NOT PROVED exit status and the default engine".)
 The questions as asked follow.
 
 **Q1. Built-in arithmetic and the names it trusts (L5; [bypass]).** Lean's
