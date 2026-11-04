@@ -31,6 +31,7 @@ DIFFERENTIAL_TARGETS := \
 	test-mixed-definition-differential test-mixed-level-substitute-plain-differential \
 	test-mixed-infer-constant-differential test-export-signature-differential \
 	test-export-specialization-differential test-first-checker-differential \
+	test-binder-domains-differential test-universe-scope-differential \
 	test-program-differential test-program-stack-differential \
 	test-program-values-differential test-program-depth-differential \
 	test-example-reference-differential test-add-reference-differential \
@@ -239,11 +240,20 @@ test-export-signature-differential:
 test-export-specialization-differential:
 	$(LEAN_TABLE) poly-specialization
 
-# The first checker's 62 table cases (ADR 0011, plan task 2.2.1) through
-# today's kernel paths: every rejection agrees with Lean's exception, and
-# every other row keeps the table's outcome.
+# The first checker end to end (ADR 0011, plan tasks 2.2.1 and 2.2.3):
+# every case checked by check-declaration through the checked environment.
+# The 62 table cases; the 22 binder-domain cases (ADR 0003 Amendment 1);
+# the 17 universe-scope cases (ADR 0012 test-matrix row 4). Every rejection
+# agrees with Lean's exception, every other row keeps the table's outcome,
+# and every accepted row prints its label and gets a valid handle.
 test-first-checker-differential:
 	$(LEAN_TABLE) first-checker
+
+test-binder-domains-differential:
+	$(LEAN_TABLE) binder-domains
+
+test-universe-scope-differential:
+	$(LEAN_TABLE) universe-scope
 
 test-composition-fixture:
 	$(RUN) python3 tests/core/test_preview_contract.py
@@ -379,16 +389,21 @@ test-differential: reference-program-ir-run
 # Store marks (plan task 1.1.3) and the checked environment v0 (ADR 0012,
 # plan task 2.2.2): unit and failure-path tests, and checks interleaved as
 # jobs in two contexts (threads on Gforth 1.0, cooperative on 0.7.3, and
-# the serial host). Gforth only.
+# the serial host). check-declaration (plan task 2.2.3): every outcome,
+# Lean's order, dependencies, fuel sweeps, and the pinned NDJSON exports
+# checked end to end. Gforth only.
 test-environment:
 	$(RUN) $(GFORTH) tests/lib/store-mark.fs
 	$(RUN) $(GFORTH) tests/core/environment.fs
 	$(RUN) $(GFORTH) tests/core/environment-tasks.fs
 	$(RUN) $(GFORTH) tests/core/environment-tasks-serial.fs
+	$(RUN) $(GFORTH) tests/core/check-declaration.fs
+	$(RUN) $(GFORTH) tests/core/check-declaration-ndjson.fs
 
 .PHONY: test-environment
 test: test-environment
 DOC_EXAMPLE_PAGES += docs/programming/CHECKED_ENVIRONMENT.md
+DOC_EXAMPLE_PAGES += docs/user/FIRST_CHECK.md
 
 # Big natural numbers for Lean's Nat literals (plan task 5.2.3, library
 # part; docs/development/FORTH_LIBRARY.md): unit tests of every outcome,

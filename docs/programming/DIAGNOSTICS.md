@@ -101,24 +101,27 @@ what was used and the limit.
 | 33 | undecided: no candidate signature | unknown | the constant's name ID | 0 | `mixed-signature-probe lf-msp` (in `lf-msp-specialize`) |
 | 34 | undecided: symbolic level | unknown | the level | 0 | `level-value` |
 | 35 | undecided: dependency undecided | unknown | the earlier slot (the first of that name) | its outcome | `environment lf-env-lookup` (K5; also for N2) |
-| 40 | unsupported construct | unknown today | the node's tag | 0 | `mixed-infer` (a constructor outside its subset; the outcome becomes *unsupported* with ADR 0008 step 3) |
+| 40 | unsupported construct | unknown | the node's tag | 0 | `mixed-infer` (a constructor outside its subset; in a declaration's check the audit finds every unsupported form first, code 43, so inference never meets one there) |
 | 41 | unsupported: dependency unsupported | unsupported | the earlier slot | 0 | `environment lf-env-lookup` (K5; also for N2) |
+| 42 | unsupported: declaration kind (U1) | unsupported | the declaration's kind (`lf-kind-…`) | its safety (`lf-safety-…`) | `check-declaration lf-check-declaration` (anything but a safe definition or theorem: an axiom, an opaque declaration, an unsafe or partial definition, …) |
+| 43 | unsupported: term form (U2) | unsupported | the form (`lf-form-…`: 1 let, 2 natural-number literal, 3 string literal, 4 metadata, 5 projection) | the node | `check-declaration lf-check-declaration` (the declaration audit, before any typing) |
 | 50 | rejected: unknown constant | rejected | the name ID | the declaration checked | `environment lf-env-lookup` (N1: unknown, forward and self references) |
 | 51 | rejected: name already declared | rejected | the name ID | the accepted slot | `environment lf-env-own-name` (N2) |
 | 52 | rejected: wrong number of universe levels | rejected | levels given | the constant's parameters | `environment lf-env-arity?` (L1) |
 | 53 | rejected: undeclared universe parameter | rejected | the name ID | 0 | `environment lf-env-param?` (L2) |
 | 54 | rejected: duplicate universe parameter | rejected | the declaration | 0 | `environment lf-env-own-params` (L3) |
-| 55 | rejected: type expected (S1) | rejected | the declared type's type, reduced (whnfβ) | 0 | `mixed-definition-probe lf-mixed-definition-probe` |
+| 55 | rejected: type expected (S1) | rejected | the declared type's type, reduced (whnfβ) | 0 | `mixed-definition-probe lf-mixed-definition-probe`; `check-declaration lf-check-declaration` |
 | 56 | rejected: binder domain not a type (S2) | rejected | the domain's type, reduced | 0 | `mixed-infer lf-mixed-infer` (a λ's or Π's domain) |
-| 57 | rejected: theorem type not a proposition (S3) | rejected | the level of the statement's Sort | 0 | `mixed-definition-probe lf-mixed-definition-probe` (`lf-mixed-theorem-probe`) |
+| 57 | rejected: theorem type not a proposition (S3) | rejected | the level of the statement's Sort | 0 | `mixed-definition-probe lf-mixed-definition-probe` (`lf-mixed-theorem-probe`); `check-declaration lf-check-declaration` |
 | 58 | rejected: function expected (F1) | rejected | the function's type, reduced | 0 | `mixed-infer lf-mixed-infer` (an application) |
 | 59 | rejected: argument type mismatch (D1-D5) | rejected | the D rules used: 1 D1, 2 D2, 4 D3, 8 D4, 16 D5, added | 0 | `mixed-infer lf-mixed-infer` (an argument's type against the function's domain) |
-| 60 | rejected: declared type mismatch (D1-D5) | rejected | the D rules used, as for 59 | 0 | `mixed-definition-probe lf-mixed-definition-probe` (the value's type against the claim) |
+| 60 | rejected: declared type mismatch (D1-D5) | rejected | the D rules used, as for 59 | 0 | `mixed-definition-probe lf-mixed-definition-probe`, `check-declaration lf-check-declaration` (the value's type against the claim) |
 
 Codes 1–16 explain *exhausted* (more fuel would help) and *full* (more
 memory or a larger limit would help); 20–29 explain *invalid* input or
 state; 30–35 explain *unknown* (a stronger rule, or a decided dependency,
-would help); 40–41 name a construct still to be built; 50–60 explain
+would help); 40–43 name a construct, a dependency, a declaration kind or
+a term form still to be built; 50–60 explain
 *rejected*: 50–54 by the checked environment (ADR 0011's rules N1, N2,
 L1–L3), 55–60 by comparison and inference (S1–S3, F1, D1–D5; plan task
 2.2.1). A rejection by 55, 56, 58, 59 or 60 decides a step that was
@@ -140,7 +143,15 @@ variable (D5) to different variables (D3), so the first number is
 Codes 15, 16, 25–29, 35, 41 and 50–54 are the checked environment's
 ([its page](CHECKED_ENVIRONMENT.md)), added 2026-11-02.
 `lf-env-begin` clears the record before each check, and the serial driver
-reads it per declaration.
+reads it per declaration. Codes 42 and 43 are check-declaration's
+declaration audit (plan task 2.2.3, the same day). In a declaration's
+check, inference meets constants and Sorts in Lean's order and asks the
+environment there (`src/kernel/env-signature.fs`), so codes 35, 41 and
+50–53 are recorded at the first constant or Sort, in that order, that
+fails. While inference runs aside (test P2) a failed lookup may note a
+code too, but only inside the rejection analysis, after the undecided
+comparison recorded its own (code 30), which the first-failure rule
+keeps.
 
 Every code is a constant in `src/core/diagnostics.fs`, and its printed name
 is an entry of one table there, `lf-diag-catalogue` (code order, ending

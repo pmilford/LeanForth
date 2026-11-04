@@ -5,17 +5,20 @@ Status: implemented 2026-11-02 as plan task 2.2.2, following
 accepted (gate answers G8–G11); the findings of its independent review,
 and of that review's second and third rounds, were fixed the same day (see
 *Trust*; the third round also asked for the *Threat model*). **Experimental [kernel] code, not
-through the review gate and not independently audited.** It decides nothing about
-a declaration's terms: the type check that fills it, `check-declaration`
-(plan task 2.2.3), is not written yet, so nothing in LeanForth accepts a
-theorem today. Until an outside Lean expert has audited the checker, every
-accepted result is *experimental — not independently audited*.
+through the review gate and not independently audited.** The environment
+decides nothing about a declaration's terms: the check that fills it is
+`check-declaration` (plan task 2.2.3, [below](#check-declaration-plan-task-223);
+also [experimental, not through its gate](../user/FIRST_CHECK.md)). Until
+an outside Lean expert has audited the checker, every accepted result is
+printed *accepted (experimental, not independently audited)*.
 
 Source: `src/core/input.fs` (the input), `src/core/name-equal.fs`
 (structural name equality), `src/kernel/environment.fs` (environments,
 snapshots, lookups, handles, candidates), `src/kernel/env-publish.fs` (the
-publisher and the serial driver), and the store marks of
-`src/lib/store.fs` ([library notes](../development/FORTH_LIBRARY.md)).
+publisher and the serial driver), `src/kernel/check-declaration.fs` (the
+check) with `src/kernel/env-signature.fs` (the environment's answers to
+inference), and the store marks of `src/lib/store.fs`
+([library notes](../development/FORTH_LIBRARY.md)).
 
 ## What it is
 
@@ -47,10 +50,9 @@ body.
 
 **LeanForth Forth.** The input lives in the term, level and name stores
 (`src/core/`), built here with the helpers below; the environment then
-gets one slot per declaration. The check is a *stand-in* that does only
-the environment's part of a check (its own name, then the constant its
-value names) and **no typing at all**: its "ok" says nothing about the
-terms, and stands in for `check-declaration` (task 2.2.3).
+gets one slot per declaration. Each is checked by `check-declaration`
+(plan task 2.2.3; experimental [kernel] code, not through its review
+gate), with fuel 100,000.
 
 ```forth
 \ Helpers for the example (documentation only, not part of LeanForth).
@@ -68,9 +70,11 @@ terms, and stands in for `check-declaration` (task 2.2.3).
 ' type lf-print-unicode lf-print-setup
 : .lean ( term -- ) drop 10000 lf-print-term ok! ;
 
-\ The names, the universe parameter u, Sort u and Prop.
-lf-ssession-begin made
+\ The names, the universe parameter u (in the session's level context),
+\ Sort u and Prop.
 s" u" id constant u
+u lf-lscope-context-add made
+lf-ssession-begin made
 s" myId" id constant myId
 s" myId_prop" id constant myId_prop
 u lf-hlevel-param made lf-hterm-sort made 2constant Sort-u
@@ -101,13 +105,8 @@ myId_prop lf-kind-theorem new-decl thm-type thm-value roots add
 myId lf-kind-definition new-decl myId-type myId-value roots u one-param add
 lf-input-end ok!
 
-\ The stand-in check: N2 on the declaration's own name, then the constant
-\ its value names (myId, in the theorem), then ok. NO TYPING.
-: go-on? ( outcome -- flag ) dup ok? if drop true else lf-env-finish false then ;
-: theorem? ( -- flag ) lf-env-cand lf-cand-decl @ 1 = ;
-: uses-myId ( -- flag ) theorem? if myId lf-env-resolve nip go-on? else true then ;
-: stand-in ( -- )
-  lf-env-own-name go-on? 0= if exit then uses-myId if outcome-ok lf-env-finish then ;
+\ The check: check-declaration, each with fuel 100,000.
+100000 lf-check-budget
 \ After a THROW in a check the run goes on in a new context holding the
 \ same input (G-P6). This example has no way to load it again, so a THROW
 \ would stop the run, failing closed.
@@ -143,14 +142,16 @@ fun p h ↦ myId p h
 A new environment with room for 8 dependencies, the serial run of phase
 2, then, in a view of the whole environment, each slot, the diagnostic of
 the last check (code 51, *name already declared*: the name's ID 2 and the
-accepted slot 0), and a handle to slot 0 checked:
+accepted slot 0), a handle to slot 0 checked, and the three verdicts as
+`check-declaration` prints them:
 
 ```forth
 8 lf-env-new ok! lf-env-use ok!
-' stand-in ' no-spare lf-env-run outcome-text type cr
+' lf-check-declaration ' no-spare lf-env-run outcome-text type cr
 lf-env-view ok!  0 .slot 1 .slot 2 .slot
 .diag cr
 0 lf-env-handle ok! lf-env-handle? outcome-text type cr
+0 lf-check-verdict. cr  1 lf-check-verdict. cr  2 lf-check-verdict. cr
 ```
 
 ```text
@@ -160,6 +161,9 @@ ok
 2 : rejected
 51 environment lf-env-own-name: 2 0
 ok
+accepted (experimental, not independently audited); axioms: none
+accepted (experimental, not independently audited); axioms: none
+rejected
 ```
 
 **Lean.** Lean 4.35.0 accepts the two declarations and reports the
@@ -240,6 +244,43 @@ ever turns a failure into ok.
 | `lf-env-run` | `( check maker -- outcome )` | the serial publisher of phase 2: every declaration in input order, in the current context until a check throws, then in a new one from `maker ( -- context ior )`, which must hold the same input, loaded the same way (G-P6). It adopts only a context that is idle, neither the main nor the current one, and not spent (an address that cannot be read is refused, not a `THROW`), from a maker that leaves exactly two cells and the current environment as it found it, checked before anything is freed; it frees the contexts it made and returns to the caller's, which it never frees. The check and the maker wait on the return stack while the other runs. ok only when, at its end, the environment it started in is still current and every slot is final; invalid when a fault stopped it, inside a job or a check, when no new context could be adopted, or when a maker left another environment current (or none) |
 | `lf-env-before-final` | deferred `( -- )` | test-only fault injection between writing a slot and marking it final; compiled as a `DEFER` only when a test defines `lf-env-fault-hooks` before loading, otherwise an empty word |
 
+### check-declaration (plan task 2.2.3)
+
+`src/kernel/check-declaration.fs` is the check the publisher runs for each
+declaration ([ADR 0011](../adr/0011-definite-rejection.md), "Order"; ADR
+0012, E4). Steps, each ended by the first failure: 1 the audit (U1: a
+safe definition or theorem, else *unsupported*, axioms included — owner
+gate answer G3; a definition or theorem without a value is *invalid*; U2:
+no `let`, literal, metadata or projection, each staged by an importer as a
+leaf of `src/core/unsupported-forms.fs`; V1: closed, well-formed terms);
+2 N2 on its name (`lf-env-own-name`); 3 L3 (`lf-env-own-params`); 4 the
+declared type's type, inferred in *environment mode*; 5 that type a `Sort`
+(S1); 6 for a theorem, a proposition (S3); 7 the value's type, after the
+scratch of steps 4–6 is rolled back to the input marks; 8 the value's type
+against the declared type (D1–D5). In environment mode
+(`lf-minfer-start-env`, `src/kernel/mixed-infer.fs`) inference asks the
+environment where Lean's kernel asks its own, in Lean's order
+(`src/kernel/env-signature.fs`): at a constant, the lookup in the check's
+snapshot (N1, K5), the number of universe arguments (L1), each argument
+within the declaration's parameters (L2), then the accepted slot's own
+stored type with its parameters replaced by the arguments, all at once; at
+a `Sort`, L2 on its level. Deciding, each constant that passes is recorded
+as a dependency (`lf-env-depend`, which joins its axiom set); while
+inference runs aside (its proof test P2), as in Lean's `infer_only` mode,
+nothing is recorded and L2 is skipped. A job started with `lf-minfer-start`
+(`lf-mixed-infer`, the probes) never uses environment mode.
+
+| Word | Stack effect | Does |
+| --- | --- | --- |
+| `lf-check-declaration` | `( -- )` | the check word for `lf-env-run` and `lf-env-step`: checks the declaration of this context's snapshot and ends with `lf-env-finish`; outside a check's snapshot, invalid |
+| `lf-check-budget` | `( fuel -- )` | the fuel each later check in this context starts with (the audit and inference share it); a new context has 0, so every check is *exhausted* until a budget is set |
+| `lf-check-step@` | `( -- step )` | the step at which the last check ended: 0 before its snapshot was found, 1–8 as above, `lf-step-done` (9) when every step succeeded |
+| `lf-check-input` | `( fuel deps -- env outcome )` | check every declaration of this context's intact input in input order in a new environment (room for `deps` dependencies), left current; `outcome` is `lf-env-run`'s; a check that throws stops the run |
+| `lf-check-verdict.` | `( d -- )` | print declaration `d`'s verdict within the current snapshot (after a run, `lf-env-view`'s): an accepted one as *accepted (experimental, not independently audited); axioms: none*, the axiom set read from its slot; any other as its outcome |
+| `lf-check-label` | `( -- c-addr u )` | the label of an accepted result |
+| `lf-env-signature`, `lf-env-level-scope` | `( name pairs count fuel deciding -- root identity fuel' 0 \| status )`, `( level fuel -- fuel' outcome )` | the environment's answers to inference, above |
+| `lf-hterm-unsupported` | `( form -- index identity true \| false )` | for importers: a leaf for an unsupported form (`lf-form-let`, `-nat`, `-string`, `-mdata`, `-proj`) |
+
 ### Diagnostics
 
 Failures record a reason in the context's diagnostic
@@ -252,14 +293,17 @@ final slot; or a begin in a spent context),
 35 dependency undecided, 41 dependency unsupported, 50 unknown constant
 (N1), 51 name already declared (N2), 52 wrong number of universe levels
 (L1), 53 undeclared universe parameter (L2), 54 duplicate universe
-parameter (L3); and 20 (bad argument) for a bad name or start. Recording
-never changes an outcome; `lf-env-begin` clears the record.
+parameter (L3); and 20 (bad argument) for a bad name or start.
+check-declaration adds 42 (U1: the kind and safety) and 43 (U2: the form
+and the node), and records 20 for a definition or theorem without a value
+and 55, 57 and 60 at its own site. Recording never changes an outcome;
+`lf-env-begin` clears the record.
 
 ## Threat model
 
 The environment defends against *faults in the check*. The check
-(`check-declaration`, plan task 2.2.3; until then the tests' synthetic
-check) is [kernel] code under review, not yet trusted to be correct, and
+(`check-declaration`, plan task 2.2.3, or a test's synthetic check) is
+[kernel] code under review, not yet trusted to be correct, and
 the guards below are defence in depth against its bugs. They are not a
 defence against a hostile check, which runs in the same Forth image and
 could write any memory. The *maker* given to `lf-env-run` and the
@@ -399,7 +443,8 @@ and a replacement context needs no reload.
 | E8 run modes | final mode only; a provenance bit is joined and re-checked, but nothing loads saved results (tasks 2.2.5, 3.4.3) |
 | E9 outcomes | as above |
 
-Not done here: `check-declaration` (task 2.2.3), the failure-path suite
+`check-declaration` (task 2.2.3) is done ([above](#check-declaration-plan-task-223)).
+Not done here: the failure-path suite
 with allocation-failure injection (tasks 2.2.4, 1.4.6: no injection
 exists, so "the k-th allocation fails" is untested), the replay record
 (task 2.2.5), retiring or repurposing `src/kernel/mixed-signature-probe.fs`
@@ -499,10 +544,36 @@ task 6.2.1, and the scale assessment's data structures).
   leaves, eats or replaces a cell gives `context-unbalanced`, another
   `THROW` passes through.
 
-The tests drive the environment with a *synthetic check* that does what
-`check-declaration` will do with it (own name, lookups, dependencies) and
-no typing. Row 1 (the 60-row table) and the universe-substitution rows of
-row 4 need task 2.2.3.
+The tests above drive the environment with a *synthetic check* that does
+with it what `check-declaration` does (own name, lookups, dependencies),
+and no typing. With check-declaration (plan task 2.2.3; also in `make
+test-environment`, and the differentials in `make check`):
+
+- Row 1: the 62 rows of the [expected results](../reviews/FIRST_CHECKER_EXPECTED.md)
+  and the 22 of the binder-domain table (ADR 0003, Amendment 1), end to
+  end through the environment against pinned Lean (`make
+  test-first-checker-differential`, `test-binder-domains-differential`):
+  every accepted row has a valid handle and an empty axiom set and prints
+  its label; no other slot gives a handle. All 62 equal the table; three
+  binder-domain rows meet the 64-node term store and give *unknown* or
+  *full* instead (both failures; see the expected results).
+- Row 4: 17 universe-scope cases against pinned Lean
+  (`tests/reference/universe-scope-terms.lean`, `make
+  test-universe-scope-differential`): zero, exact, too few and too many
+  levels, undeclared parameters (in a `Sort`, in an argument, in a nested
+  argument) and repeated ones, a callee's parameters swapped and
+  unswapped, a caller's listed in another order, and nested `max`/`imax`
+  arguments, one of them equal only after Lean's normalisation (*unknown*,
+  K4).
+- `tests/core/check-declaration.fs`: every outcome with its step and
+  diagnostic, Lean's order (between steps, a function before its
+  argument, a domain before its body, an undecided dependency before a
+  later rejection, the audit before typing), the dependencies an accepted
+  declaration records, the input unchanged, and fuel sweeps (exhausted
+  below some fuel, then the final outcome; never accepted earlier).
+- `tests/core/check-declaration-ndjson.fs`: the pinned NDJSON exports of
+  four fixtures checked end to end and accepted, and changed copies
+  rejected, unsupported (U1, U2) and invalid (V1).
 
 ## Trust
 

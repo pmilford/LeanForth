@@ -402,6 +402,12 @@ success.
 
 ## Test matrix (plan tasks 2.2.2–2.2.5)
 
+Task 2.2.2 filled rows 2, 3, 5, 7, 9 and 10 and parts of 4, 6 and 8;
+task 2.2.3 (check-declaration, 2026-11-02) rows 1 and 4; allocation
+failure injection (row 6) and replay (row 8) remain for tasks 2.2.4 and
+2.2.5. See
+[the checked-environment page](../programming/CHECKED_ENVIRONMENT.md#tests-and-evidence).
+
 1. **Every row of the first checker's table** (60 Lean kernel cases: 14
    accepted, 28 rejected, 1 invalid, 9 unknown, 8 unsupported) run through
    the environment, plus the binder-domain table (ADR 0003, Amendment 1):

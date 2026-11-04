@@ -1129,18 +1129,17 @@ finished terms exported from Lean, whatever produced them.
 
 ## What LeanForth checks today
 
-Nothing yet, in the sense of this page: LeanForth has never accepted or
-rejected a theorem. Today it can store terms like the ones above (without
-numbers), read Lean's NDJSON exports (all of Mathlib), print terms as Lean
-does, and run experimental, untrusted checking passes; for the
-`composition` term, the experimental definition probe answers *ok*, which
-is a diagnostic and not an accepted theorem ([concepts](CONCEPTS.md#de-bruijn-index)).
-The rules of the first checker were approved by the owner on 2026-11-02
-and its code is not written yet. Its scope covers terms like
-`composition`; theorems that use `And`, other inductive types or numbers
-are outside it and will be answered *unsupported* until phase 5. Until an
-outside Lean expert has audited it, every result it accepts will be labelled
-*experimental — not independently audited*. The current state is in
+Nothing yet that you can rely on. Today LeanForth can store terms like
+the ones above (without numbers), read Lean's NDJSON exports (all of
+Mathlib), print terms as Lean does, and run its first checker, whose rules
+the owner approved on 2026-11-02 and whose code (plan task 2.2.3) has not
+yet passed its review gate. It checks `composition` from its export and
+accepts it, labelled *accepted (experimental, not independently audited);
+axioms: none*, and rejects a broken copy ([first check](FIRST_CHECK.md)).
+Its scope covers terms like `composition`; theorems that use `And`, other
+inductive types or numbers are outside it and are answered *unsupported*
+until phase 5. Until an outside Lean expert has audited it, every result
+it accepts is labelled that way. The current state is in
 [project progress](../project/PROJECT_PROGRESS.md); what can be trusted is
 in the [user guide](USER_GUIDE.md).
 

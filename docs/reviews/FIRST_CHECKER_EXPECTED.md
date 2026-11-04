@@ -1,9 +1,10 @@
 # First checker: expected results
 
-**Status: reference table for the first checker (plan tasks 2.1.4 and
-2.2.1); Lean's column was checked on 2026-11-02; "LeanForth must answer" is
-the requirement, and "Measured" is what LeanForth's code answers today**
-(2026-11-02, plan task 2.2.1, [kernel] code not yet through its review
+**Status: reference table for the first checker (plan tasks 2.1.4, 2.2.1
+and 2.2.3); Lean's column was checked on 2026-11-02; "LeanForth must
+answer" is the requirement, and "Measured" is what the first checker
+answers end to end today** (2026-11-02, plan task 2.2.3: check-declaration
+through the checked environment; [kernel] code not yet through its review
 gate; see [Measured](#measured-2026-11-02)). The rules behind the columns
 are in [ADR 0011](../adr/0011-definite-rejection.md) (rules accepted by the
 owner); the owner's summary is [the gate draft](FIRST_CHECKER_GATE.md).
@@ -28,12 +29,14 @@ broken copy, or a declaration outside the first checker's scope.
   Lean source in `tests/reference/first-checker-invalid.lean`, where Lean
   must reject it with a fixed message (Lean's front end usually finds the
   mistake before the kernel, so the message differs from this table).
-- **Measured** — LeanForth's answer from today's code, with the rule its
-  diagnostic names: for D rules, every D rule used from the compared pair
-  down to the pair that decided (`D3+D4`: the claim and the proof's type
-  are Πs, D4, whose bodies are different variables, D3). "Stand-in audit"
-  marks the rows the declaration audit of plan task 2.2.3 will decide; a
-  test driver stands in for it today.
+- **Measured** — the first checker's answer (check-declaration, plan task
+  2.2.3, through the checked environment), with the rule its diagnostic
+  names: for D rules, every D rule used from the compared pair down to the
+  pair that decided (`D3+D4`: the claim and the proof's type are Πs, D4,
+  whose bodies are different variables, D3). An *unknown* row names its
+  rule only when the diagnostic does (K5); K1–K4 leave the record of the
+  undecided step. Every *accepted* row prints *accepted (experimental, not
+  independently audited); axioms: none*.
 
 Lean error kinds: `appTypeMismatch` (an argument of the wrong type),
 `declTypeMismatch` (the proof proves something other than the claim),
@@ -68,37 +71,62 @@ and an updated table.
 ## Measured 2026-11-02
 
 `make test-first-checker-differential` (part of `make check`) runs every
-row through the code that exists before the declaration check (plan task
-2.2.3): `tests/reference/first-checker-terms.lean` prints each case's
-declarations from the very terms the Lean file above checks, and
+row end to end through the first checker (plan task 2.2.3):
+`tests/reference/first-checker-terms.lean` prints each case's declarations
+from the very terms the Lean file above checks;
 `tests/support/first-checker-driver.fs` builds them in LeanForth's stores
-and checks them in input order, with the checked environment
-(`src/kernel/environment.fs`: N1, N2, L1–L3, K5), the definition or
-theorem probe (`src/kernel/mixed-definition-probe.fs`: S1, S3, D1–D5 for
-the declaration) and inference (`src/kernel/mixed-infer.fs`: S2, F1, D1–D5
-at applications). Accepted earlier declarations become the probe's
-candidate signatures. The run fails unless every row has the table's
-outcome, every *rejected* names a rule whose Lean exception is the row's,
-and every D rejection's rules include the row's.
+(an unsupported form as its own leaf, `src/core/unsupported-forms.fs`) and
+checks them in input order with check-declaration
+(`src/kernel/check-declaration.fs`) through the checked environment's
+serial publisher (`src/kernel/env-publish.fs`). check-declaration audits
+the declaration (U1, U2, V1), then checks its name (N2) and universe
+parameters (L3), infers the declared type in environment mode (constants
+looked up in the environment in Lean's order: N1, K5, L1, L2,
+`src/kernel/env-signature.fs`; S2, F1 and D1–D5 inside inference), its
+Sort (S1), the proposition test of a theorem (S3), the value's type, and
+the final comparison (D1–D5). The run fails unless every row has the
+table's outcome, every *rejected* names a rule whose Lean exception is the
+row's and ends at a step where that rule acts in Lean's order, every D
+rejection's rules include the row's, every *accepted* row prints *accepted
+(experimental, not independently audited); axioms: none* and gets a valid
+handle, and no other slot gives a handle.
 
 | | Lean accepted | Lean rejected | Total |
 | --- | ---: | ---: | ---: |
 | LeanForth **accepted** | 14 | 0 | 14 |
 | LeanForth **rejected** | 0 | 28 | 28 |
 | LeanForth **invalid** | 0 | 1 | 1 |
-| LeanForth **unknown** | 9 | 1 | 10 |
+| LeanForth **unknown** | 10 | 1 | 11 |
 | LeanForth **unsupported** | 8 | 0 | 8 |
-| LeanForth **full** | 1 | 0 | 1 |
 | Total | 32 | 30 | 62 |
 
-Every row equals the table but one: `composition.proof-irrelevance` is
-*full*, not *unknown*: LeanForth's 64-node term store fills while the
-value's type is inferred, before the comparison that would be undecided
-(K2). It was *full* before task 2.2.1 too, and neither answer is accepted.
-Seven rows (U1, U2) are decided by the driver's stand-in for the
-declaration audit, 55 by kernel code. Before task 2.2.1 the same paths
-answered *unknown* for the 15 rows of rules D1–D5, F1, S1 and S2, and had
-no theorem mode for the four S3 rows.
+Every row equals the table, including the two proof-guard rows
+`poly-identity.proof-irrelevance-imax` and `-max-zero` (*unknown*, K2).
+`composition.proof-irrelevance`, *full* before task 2.2.3 (LeanForth's
+64-node term store filled while the value's type was inferred), is now
+*unknown* (K2) as the table requires: check-declaration discards the
+declared type's scratch before it infers the value, so the value's
+inference has the room. Eight rows (U1, U2, V1) are decided by the
+declaration audit, 54 by typing in Lean's order. Before task 2.2.1 the
+same paths answered *unknown* for the 15 rows of rules D1–D5, F1, S1 and
+S2, and had no theorem mode for the four S3 rows.
+
+Two more tables run the same way. The binder-domain table of
+[ADR 0003, Amendment 1](../adr/0003-conversion.md) (`make
+test-binder-domains-differential`): its 12 declarations, and its 10
+comparisons, each as a theorem whose check makes exactly that comparison
+(`tests/reference/binder-domains-terms.lean`, which checks Lean's verdict
+on each): 8 accepted, 6 rejected, 7 unknown, 1 full. 19 rows equal the
+amended column; three meet the 64-node term store (ADR 0016 is to lift it)
+and answer a failure instead: `compare.lambda-beta-domain-different-body`
+and `decl.lambda-in-argument-wrong-body` stay *unknown* where the table says
+*rejected* (the rejection analysis runs out of room), and
+`compare.eta-under-beta-domain` is *full* where it says *unknown*. With
+`lf-term-capacity` 160 in a scratch copy all 22 equal the table (measured
+2026-11-02). The universe-scope rows of ADR 0012's test matrix, row 4
+(`tests/reference/universe-scope-terms.lean`, `make
+test-universe-scope-differential`): 17 cases, every one as expected —
+6 accepted, 10 rejected (L1, L2, L3, D1), 1 unknown (K4).
 
 ## composition
 
@@ -116,7 +144,7 @@ plan task 8.1.1.)
 | `theorem-over-types` | A B C : Type, so the statement is a type, not a proposition | thmTypeIsNotProp | **rejected** | S3 | yes | rejected (S3) |
 | `definition-over-types` | the same term as a definition is fine | accepted | **accepted** | A1 |  | accepted |
 | `applies-a-non-function` | value value: value : A is not a function | funExpected | **rejected** | F1 | yes | rejected (F1) |
-| `proof-irrelevance` | Q (f a) used as Q (f' a): f a and f' a are both proofs of B, so Lean equates them | accepted | **unknown** | K2 |  | full (term store) |
+| `proof-irrelevance` | Q (f a) used as Q (f' a): f a and f' a are both proofs of B, so Lean equates them | accepted | **unknown** | K2 |  | unknown |
 
 ## identity
 
@@ -131,9 +159,9 @@ Every proposition P implies itself. Lean: `theorem identity {P : Prop}
 | `type-is-not-a-type` | the declared type is a function, not a type | typeExpected | **rejected** | S1 | yes | rejected (S1) |
 | `theorem-over-types` | P : Type, so the statement is a type, not a proposition | thmTypeIsNotProp | **rejected** | S3 | yes | rejected (S3) |
 | `definition-over-types` | the same term as a definition is fine | accepted | **accepted** | A1 |  | accepted |
-| `loose-bound-variable` | the body refers to a binder that does not exist | looseBVar | **invalid** | V1 |  | invalid |
+| `loose-bound-variable` | the body refers to a binder that does not exist | looseBVar | **invalid** | V1 |  | invalid (V1) |
 | `unknown-constant` | uses a name that was never declared | unknownConstant | **rejected** | N1 | yes | rejected (N1) |
-| `let` | the proof is let copy := proof; copy (a let expression) | accepted | **unsupported** | U2 |  | unsupported (stand-in audit) |
+| `let` | the proof is let copy := proof; copy (a let expression) | accepted | **unsupported** | U2 |  | unsupported (U2) |
 | `binder-annotation-differs` | explicit binder in the proof, implicit in the statement | accepted | **accepted** | A1 |  | accepted |
 
 ## type-identity
@@ -214,7 +242,7 @@ for every other row; also `fixtureUnfold` (the `needs-unfolding` row) for
 | `wrong-argument` | passes P (a proposition) where a proof of P is needed | appTypeMismatch | **rejected** | D2 | yes | rejected (D2) |
 | `needs-unfolding` | claims fixtureId Prop P from a proof of P: true by unfolding fixtureId | accepted | **unknown** | K1 |  | unknown |
 | `needs-unfolding-wrong` | claims fixtureId Prop Q from a proof of P: false, but only unfolding shows it | declTypeMismatch | **unknown** | K1 | yes | unknown |
-| `uses-an-undecided-declaration` | cites fixtureUnfold, which LeanForth could not decide | accepted | **unknown** | K5 |  | unknown |
+| `uses-an-undecided-declaration` | cites fixtureUnfold, which LeanForth could not decide | accepted | **unknown** | K5 |  | unknown (K5) |
 | `theorem-cites-theorem` | a theorem whose proof cites the earlier theorem fixtureUse | accepted | **accepted** | A1 |  | accepted |
 | `over-application` | fixtureUse h is a proof of P, not a function, but is applied to h | funExpected | **rejected** | F1 | yes | rejected (F1) |
 | `function-type-behind-definition` | f's type is fixtureId Prop (P → P); it is a function type only after unfolding | accepted | **unknown** | K1 |  | unknown |
@@ -233,13 +261,13 @@ assumed statement, for `uses-postulate`.
 
 | Case | What changed | Lean 4.35.0 kernel | LeanForth must answer | Rule | Source copy | Measured |
 | --- | --- | --- | --- | --- | --- | --- |
-| `metadata` | a metadata node in the proof | accepted | **unsupported** | U2 |  | unsupported (stand-in audit) |
-| `number-literal` | the number 3, a literal of the data type Nat | accepted | **unsupported** | U2 |  | unsupported (stand-in audit) |
-| `postulate` | a statement assumed without proof; the allowlist is empty | accepted | **unsupported** | U1 |  | unsupported (stand-in audit) |
-| `uses-postulate` | a proof that cites the assumed statement | accepted | **unsupported** | K5 |  | unsupported |
-| `opaque` | an opaque declaration (never unfolds) | accepted | **unsupported** | U1 |  | unsupported (stand-in audit) |
-| `unsafe-definition` | a definition marked unsafe | accepted | **unsupported** | U1 |  | unsupported (stand-in audit) |
-| `partial-definition` | a definition marked partial | accepted | **unsupported** | U1 |  | unsupported (stand-in audit) |
+| `metadata` | a metadata node in the proof | accepted | **unsupported** | U2 |  | unsupported (U2) |
+| `number-literal` | the number 3, a literal of the data type Nat | accepted | **unsupported** | U2 |  | unsupported (U2) |
+| `postulate` | a statement assumed without proof; the allowlist is empty | accepted | **unsupported** | U1 |  | unsupported (U1) |
+| `uses-postulate` | a proof that cites the assumed statement | accepted | **unsupported** | K5 |  | unsupported (K5) |
+| `opaque` | an opaque declaration (never unfolds) | accepted | **unsupported** | U1 |  | unsupported (U1) |
+| `unsafe-definition` | a definition marked unsafe | accepted | **unsupported** | U1 |  | unsupported (U1) |
+| `partial-definition` | a definition marked partial | accepted | **unsupported** | U1 |  | unsupported (U1) |
 
 ## Cases with no Lean counterpart
 
@@ -293,14 +321,30 @@ The measured column:
 
 ```sh
 make test-first-checker-differential
+make test-binder-domains-differential
+make test-universe-scope-differential
 ```
 
-Run on 2026-11-02 with Lean 4.35.0 and Gforth 1.0.0, in about two
-seconds, with the 62 rows: "first checker: 14 accepted, 1 full, 1
-invalid, 28 rejected, 10 unknown, 8 unsupported; 55 decided by kernel
-code, 7 by the stand-in audit (U1, U2); known differences:
-composition.proof-irrelevance". The two files
-it adds have SHA-256 `first-checker-terms.lean`
-`98df70061b4bca7f93a4c9c4bc55acae242e57691c9aff7e840a02e7bc1f1c96` and
+Run on 2026-11-03 (plan task 2.2.3, merged with the 62-row table) with
+Lean 4.35.0 and Gforth 1.0.0 and again with Gforth 0.7.3, each in well
+under a minute: "first checker: 14 accepted, 1 invalid, 28 rejected, 11
+unknown, 8 unsupported; 8 decided by the declaration audit; known
+differences: none"; "binder domains: 8 accepted, 1 full, 6 rejected, 7
+unknown; …; known differences: compare.lambda-beta-domain-different-body,
+compare.eta-under-beta-domain, decl.lambda-in-argument-wrong-body";
+"universe scope: 6 accepted, 10 rejected, 1 unknown; …; known differences:
+none". SHA-256 at that run: `first-checker-terms.lean`
+`98df70061b4bca7f93a4c9c4bc55acae242e57691c9aff7e840a02e7bc1f1c96`,
 `first-checker-driver.fs`
-`7b2746b10e171ba51e7180e9db64c92e10acb729f649598def1690131943a821`.
+`6c27472085bed6876a78acb4464a24de9dfe14e4669027d830516608a9f823ce`,
+`binder-domains-terms.lean`
+`4d3e7650860f8cf51ee94da61161ae21b4e5c8574090fb550fc604c788fb6f0c`,
+`universe-scope-terms.lean`
+`07e68cd94788ec9df270ae88f0cdbe78b12505d7fd6cc0a10258d822aeb54c75`,
+`src/kernel/check-declaration.fs`
+`0673fd437379360509926b96ade88f0271c34e0cac0255af6f370beae2cead90`,
+`src/kernel/env-signature.fs`
+`d4b560d37dd93360a475bda8b666dde21fd1198aac6171411d0d65628f359427`.
+(Before task 2.2.3, with a test stand-in for the audit, on the 62 rows:
+"14 accepted, 1 full, 1 invalid, 28 rejected, 10 unknown, 8
+unsupported".)
