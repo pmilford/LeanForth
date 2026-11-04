@@ -448,9 +448,9 @@ and documents its interface with an example in its header:
 | File | What it gives |
 | --- | --- |
 | `slab.fs` | **Growable heap stores** (plan 1.1.5). A slab holds units of a fixed size (records, 32-bit fields or bytes) in one heap block that doubles by `RESIZE` up to a limit. `slab-room`, `slab-claim` and `slab-reserve` give *full* when the limit would be passed or the heap has no room, with the slab unchanged; *invalid* for a negative size or a slab that is not live. A check value seals the unit size, the limit, the block and its capacity (resealed when the block grows), so corrupting any one of them, the count or the generation fails closed. Units past the count are free space where a caller builds a candidate record (`slab-top`) and keeps it with `slab-commit`. Marks: `slab-mark`, `slab-rollback` and `slab-mark-valid?` refuse, as `store.fs` does, a mark of another slab, of another generation (a `slab-clear` since), of a poisoned slab, or stale because a rollback went below it; instead of per-record identities a slab keeps a stack of marked counts, strictly increasing, each with a serial that never repeats, so a mark is valid exactly while its entry is on the stack (ADR 0016 C3), and marks at one count share an entry |
-| `htab.fs` | **Hash tables**: open addressing with linear probing over 32-bit slots holding a record number plus one; the owner gives hooks to recompute an entry's hash and to compare an entry with a key. `htab-ready` doubles the table before it would pass 3/4 full; `htab-remove` deletes by Knuth's Algorithm R, so every other entry stays findable whatever the order of insertions and growth; `htab-spread` rebuilds at the smallest power of two at most half full (C4), `htab-presize` grows ahead of known insertions; finds, compared slots and doublings are counted |
+| `htab.fs` | **Hash tables**: open addressing with linear probing over 32-bit slots holding a record number plus one; the owner gives hooks to recompute an entry's hash and to compare an entry with a key. `htab-ready` doubles the table before it would pass 3/4 full; `htab-remove` deletes by Knuth's Algorithm R, so every other entry stays findable whatever the order of insertions and growth; `htab-spread` rebuilds at the smallest power of two at most half full (C4), `htab-presize` grows ahead of known insertions; finds, compared slots and doublings are counted. `htab-freeze` makes a table read-only: finds in it write nothing (not even the statistics), so any number of tasks may find in it at once, and every change is refused; `htab-live?` checks a table's block and sizes |
 | `hash32.fs` | Murmur3's 32-bit finaliser (`hash-fmix`), `hash-step`, and FNV-1a over bytes (`hash-bytes`), equal on 32- and 64-bit hosts (C4) |
-| `cons.fs` | **Hash-consed sets in two tiers.** A set keeps each distinct record once, named by a number; a class gives the record size, a limit of numbers and three hooks (rehash, compare, record span). Building follows one protocol: `cons-room` (room for the candidate and its text, the table ready), write the candidate at `cons-top`, `cons-find` (an equal record's number, or the empty slot), `cons-commit` (full at the class's limit; two spare units let an existing record be found at the limit) and `cons-text,`. A set can extend a *sealed* set (`cons-extend`): numbers continue after the under set's, and a find looks in the under set first, read-only, when the caller says every part of the candidate is an under record. `cons-mark`, `cons-rollback` (which also takes the given-back records out of the table), `cons-reset` (emptying the table, or forgetting the records one by one when they are few, so a large table costs nothing per check) and `cons-seal` (read-only; the table spread, the slabs trimmed). `cons-entry?` checks a number exactly: in range and found in its table |
+| `cons.fs` | **Hash-consed sets in two tiers.** A set keeps each distinct record once, named by a number; a class gives the record size, a limit of numbers and three hooks (rehash, compare, record span). Building follows one protocol: `cons-room` (room for the candidate and its text, the table ready), write the candidate at `cons-top`, `cons-find` (an equal record's number, or the empty slot), `cons-commit` (full at the class's limit; two spare units let an existing record be found at the limit) and `cons-text,`. A set can extend a *sealed* set that extends none (`cons-extend`, `cons-base?`; so at most two tiers): numbers continue after the under set's, and a find looks in the under set first, read-only (sealing froze its table; the find is counted in the extension, `cons-under-finds`), when the caller says every part of the candidate is an under record. A candidate's text goes into the set's key with `cons-key!`, which keeps it as an offset when it lies in the set's own byte slab, and `cons-room-key` finds it again after the slab moved. `cons-mark`, `cons-rollback` (which also takes the given-back records out of the table), `cons-reset` (emptying the table, or forgetting the records one by one when they are few, so a large table costs nothing per check) and `cons-seal` (read-only; the table spread, the slabs trimmed). `cons-entry?` checks a number exactly: in range and found in its table |
 | `pools.fs` | Two classes: **tuples**, interned lists of 32-bit numbers of any length, built in steps (`tuple-start`, `tuple-add`, `tuple-end`; plan 6.2.0's variable-length universe and parameter lists, no fixed limit), and **texts**, interned byte strings (`text-intern`, `text@`) |
 | `module.fs` | ADR 0010's `lf-lib` and `lf-lib-private` wordlists and `module-open`/`module-close` |
 
@@ -558,7 +558,7 @@ is C9 step 3.
   `tests/`, `make check` on `Init` exported by the pinned `leanexport`
   (`tests/core/compact-init.sh`, which writes its manifest). The stage's
   own tests are in [NDJSON_READER.md](NDJSON_READER.md#staging-into-the-compact-store).
-- `tests/core/compact_faults.py` (`make check`): 19 faults planted in a copy
+- `tests/core/compact_faults.py` (`make check`): 27 faults planted in a copy
   (operands ignored by hash-consing, texts or lists compared by length or
   hash only, a rollback that keeps the count or the table entries, a reset
   that keeps old marks valid, two off-by-one 32-bit fields, growth losing
@@ -566,7 +566,21 @@ is C9 step 3.
   uncapped depth, Lean's bound-variable limit off by one, a constant's
   payload in its key, a scratch build never looking in the input, a `letE`
   body record taken as a child, a sealed set accepting records, a class
-  limit off by one): each is caught.
+  limit off by one; and, after the review of 2026-11-03, a set over a
+  sealed extension (three tiers), a find counting in a frozen table,
+  sealing without freezing, an own-slab text keeping its old address, an
+  unclamped slab limit, a bound-variable index compared after `1+`, a list
+  span that wraps, a commit past the limit): each is caught. The review's
+  eight are also in `tests/mutants/faults.toml`.
+- Since the review, the tests also show that lookups and builds through a
+  scratch tier leave every byte of the sealed input's records and table
+  slots as they were; that a sealed scratch tier cannot be extended; that
+  a component or text taken from the tier's own byte slab is read again
+  after the slab moved (moved by hand, the old block overwritten); and the
+  arithmetic at the bounds a 32-bit host reaches at 2³² (a class whose
+  limit times its record size passes the cell, a commit at and past the
+  class's limit, a bound-variable index of 2³² − 1 read as the cell −1,
+  a list length of 2³² − 1). No 32-bit host was available to run them on.
 
 ### Measured
 
