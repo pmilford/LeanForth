@@ -1,14 +1,38 @@
 # ADR 0019: program words in two modes — correctness mode and run mode
 
-Status: **proposed**, 2026-11-03, answering the owner's decision
+Status: **accepted in direction** by the owner on 2026-11-03
+([answers below](#the-owners-answers-2026-11-03)): option 2, IR first,
+today's reader kept as a cross-check and then retired, names that read as
+numbers refused. **Open:** whether the words get their second meaning
+through a separate vocabulary (the alias) or through a *mode shift*
+([§9](#9-mode-shift-or-a-separate-vocabulary); recommendation: a mode
+shift). Proposed the same day, answering the owner's decision
 "[Program correctness the Forth way: words in two modes](../project/OWNER_DECISIONS.md#gate-answers-and-working-guidelines-2026-11-03)",
 which paused the [parser] gate of today's program reader (plan task
 2.5.3). It changes how Forth source becomes the [program IR](../programming/PROGRAM_IR.md);
-it changes no typing or conversion rule, no IR instruction and no Lean
-semantics. Nothing in `src/` is changed. A throwaway prototype ran every
-claim below on Gforth 1.0.0 and 0.7.3; it is kept, with its output, in
+it changes no typing or conversion rule, no IR 0.1 instruction and no Lean
+semantics; [§10](#10-defining-words-and-loops-in-both-designs) designs
+what IR v1 must gain. Nothing in `src/` is changed. Throwaway prototypes
+ran every claim below on Gforth 1.0.0 and 0.7.3; they are kept, with their
+output, in
 [two-mode-prototype-2026-11-03](../development/measurements/two-mode-prototype-2026-11-03/README.md).
 The design still passes the [parser] gate before any code relies on it.
+
+## The owner's answers (2026-11-03)
+
+1. **Option 2:** "1 but also consider if there is a way to do it with a
+   mode shift rather than an alias. Either case probably needs special
+   handling of defining words and looping." Considered in
+   [§9](#9-mode-shift-or-a-separate-vocabulary) (prototyped: it works on
+   both Gforths) and [§10](#10-defining-words-and-loops-in-both-designs)
+   (defining words and loops, prototyped in both designs).
+2. **IR first, symbolic execution later**, as recommended (§4).
+3. **Today's reader stays as a cross-check, then retires**, as
+   recommended (§8).
+4. **Names that read as numbers are refused** in correctness mode (§2), as
+   recommended. The prototypes predate this answer and still accept them;
+   the implementation refuses any name that Forth-2012 or Gforth could read
+   as a number.
 
 ## Summary in plain words
 
@@ -35,7 +59,7 @@ This record designs option 2. **One source file, two ways to load it:**
 The prototype loaded the six example words' real source files, unchanged,
 and wrote IR **byte for byte identical** to today's golden files, on both
 Gforth versions. The same files ran in plain Forth (19 calls checked).
-It replayed today's reader tests (106 cases: same verdict, line and
+It replayed today's reader tests (106 cases at the time, 108 on today's main: same verdict, line and
 column, and the same diagnostic text and IR where the tests check them),
 86 hostile inputs (every one refused except the five meant to pass), an
 IR → Forth → IR round trip with awkward names, and four deliberately
@@ -73,7 +97,20 @@ interpreter, Gforth and Lean's model on the same inputs.
 replace today's reader by these words; emit today's IR first and add
 symbolic execution later as an untrusted helper whose results are checked
 against the IR; keep today's reader only as a test oracle until the switch,
-then retire it.
+then retire it. (All accepted; see the answers above.)
+
+**Mode shift** (added after the owner's answer). Forth already gives one
+word two meanings: when it interprets, `IF` is refused; when it compiles,
+`IF` compiles a branch. Forth-2012 describes every word by its
+*interpretation semantics* and *compilation semantics*, and `STATE` says
+which the interpreter performs. A mode shift adds a third: *verification
+semantics* — `DUP` verifying writes `prim dup`. No second `DUP` exists:
+the word is Forth's own `DUP`. The prototype did this two ways, both giving
+byte-identical IR for `clamp.fs` and the other golden files: portably on
+both Gforths, and on Gforth 1.0 with Gforth's own interpreter switched
+into a third state. It also refused a file in a Forth where `MAX` had been
+redefined, which the alias design cannot notice. My recommendation is the
+portable mode shift ([§9](#9-mode-shift-or-a-separate-vocabulary)).
 
 ## One example in four forms
 
@@ -282,8 +319,11 @@ word the file defines is found before a number on both hosts, so
 (and Gforth 1.0 itself warns "defined literal 5 as word"). The file's word
 list is new for every run, so a name never outlives its file; a name that
 did outlive its run was the cause of the theorem words' version of this
-hole. Whether to keep allowing such names is
-[question 4](#questions-for-the-owner).
+hole. **Decided (owner, answer 4): such names are refused** — `:`,
+`CONSTANT`, `CREATE`, `VARIABLE`, `VALUE` and every user defining word
+refuse a name that Forth-2012 or Gforth could read as a number (a digit
+first; a sign, `#`, `$`, `%` or `&` and then a digit or hex letter;
+`'c'`). Refusing accepts less than Gforth, never more.
 
 **Extending the literal syntax** (needed for SHA-256's constants, §6):
 Forth-2012's own prefixes `$` (hex), `#` (decimal), `%` (binary) and the
@@ -513,7 +553,7 @@ vocabularies on one mechanism. They should share code, not copy it:
 **Keep it, unchanged, as a test oracle during the switch, then retire it.**
 While the vocabulary is built, every file either accepts must give
 byte-identical IR from both, and every file one refuses the other must
-refuse too, or the difference is listed and justified; its 106 verdict
+refuse too, or the difference is listed and justified; its 108 verdict
 tests are replayed against the vocabulary, as the prototype did. Once the
 vocabulary has passed the [parser] gate, the reader leaves `src/` and
 `src/main.fs`; its test inputs and golden files stay as the vocabulary's
@@ -521,6 +561,225 @@ tests. Keeping two front ends would double the work at every stage of §6,
 and the independent checks that remain are stronger than a second reader:
 Lean prints the IR from its own terms and must match, the three-way
 runtime comparison, the golden files, and the round trip below.
+
+### 9. Mode shift or a separate vocabulary
+
+The owner asked whether the words could get their second meaning by a
+*mode shift* rather than an *alias*. The two differ in where the second
+meaning lives:
+
+- **The alias** (§§1–8): LeanForth's own words with Forth's names (`dup`,
+  `if`, `:` …) in a separate word list; correctness mode puts that list,
+  and nothing else, in the search order. Two words are called `DUP`.
+- **A mode shift:** one word, Forth's own `DUP`, and an interpreter
+  *state* that selects which of its meanings runs, as `STATE` selects
+  between interpreting and compiling today.
+
+Four ways to shift modes were weighed; two were prototyped.
+
+**(a) Dual-mode words that test a flag** ("state-smart" words): LeanForth
+replaces `DUP` by `: dup verifying @ if … emit … else dup then ;`, loaded
+before the program in both modes. Run mode stops being plain Gforth: every
+call of every word becomes a call of LeanForth's wrapper plus a test (and
+Gforth can no longer inline `DUP` or combine it with its neighbours), and
+the wrappers become part of the runtime the receipt must trust. Forth
+programmers know state-smart words as a source of subtle bugs (`'` or
+`POSTPONE` of such a word does the wrong thing). **Rejected.**
+
+**(b1) A third state of Gforth 1.0's own interpreter.** Gforth 1.0's
+recognizers return a *translation* per token, and `translate-method:`
+adds a new action to every translation, selected with `set-state` — Gforth's
+own tokenizer uses this. The prototype (`ms-gforth1.fs`, 45 lines) adds
+`verifying`, gives it actions for a found word (its verification
+semantics) and for a one-cell number (checked against its text), switches
+the state, and lets Gforth's own `INTERPRET` read each line. Every other
+translation (strings, floats, `->x`, `${NAME}` …) has no `verifying`
+action, and Gforth throws −13 for it, so it is refused. One catch, found
+by the hostile inputs: Gforth 1.0 also finds words through other token
+forms (`forth:dup` is FORTH's `DUP`), which 0.7.3 does not read, so the
+action must check that the token is the word's own name. *Gforth 1.0
+only*, and the words are marked gforth-experimental.
+
+**(b2) A portable third state.** Hosts without recognizers (0.7.3, plain
+Forth-2012) have no hook into their interpreter, so the verification
+state is a loop of our own — Forth-2012's text interpreter (§3.4 of the
+standard) with a third state: take the next name with `PARSE-NAME`; find
+it with `SEARCH-WORDLIST`, the file's words first, then Forth's word list;
+if found, perform its verification semantics, else it must be a plain
+decimal. The loop runs *inside* the line as Forth's input source (the line
+is evaluated behind one entry word), so `PARSE-NAME`, `PARSE` and `>IN`
+are Forth's own and parsing words (`:`, `(`, `CREATE`) work unchanged.
+The verification semantics are a table keyed by the word's identity. The
+prototype (`ms.fs`, about 120 lines) reuses the alias design's actions
+unchanged. Two host quirks shaped the identity: Gforth 0.7.3 gives every
+compile-only word (`IF`, `THEN`, `;` …) one shared execution token, and
+Gforth 1.0 gives `RECURSE` a token that changes with every new
+definition; so a word is known by its token *and* its name, and
+`RECURSE` by its name (it must still be FORTH's).
+
+**(c) Found while prototyping: "verify while loading."** The third state
+could also do the word's normal compile or interpret action, so one load
+both builds the program and writes its IR, with every call bound to the
+definition the host really compiled. **Rejected for correctness mode:** the
+file's top-level code would then run inside the verifier, and once memory
+words arrive (G2) a hostile file could write into the verifier and change
+the IR it writes. Running untrusted code is what the separate authoring
+program contains; there the model runs it (§10), not the host. It may be
+useful later as a listing for developers, never for receipts.
+
+**What the prototype showed** (both Gforths unless marked; outputs in the
+prototype folder, section 8 of `run.sh`):
+
+| Check | Alias (cv) | Portable mode shift (ms) | Gforth 1.0's own third state (g1) |
+| --- | --- | --- | --- |
+| `clamp.fs`, `examples.fs`, `all-primitives.fs` against the golden IR | byte-identical | byte-identical | byte-identical (1.0 only) |
+| Today's reader tests replayed (108 verdict cases on today's `main`, 21 checks of text and IR) | 0 differences | 0 differences | 0 differences |
+| 86 hostile inputs | 81 refused, 5 meant to pass | the same, byte-identical diagnostics | the same, after the own-name check |
+| `MAX` redefined (as `MIN`) before the run | **accepted** — it cannot see the host's `MAX` | refused: "a standard word redefined before the run: max" | refused, the same |
+| Defining words and loops (§10) | 95-line IR v1 draft | identical | not tried |
+
+**Comparison:**
+
+| | (a) flag words | Alias | (b1) Gforth 1.0 state | (b2) portable state |
+| --- | --- | --- | --- | --- |
+| Gforth 0.7.3 | yes | yes | **no** | yes |
+| Gforth 1.0 | yes | yes | yes (experimental words) | yes |
+| Run mode | **not plain Gforth**: every word wrapped | exactly the file in plain Gforth | the same | the same |
+| Speed of run mode | slower (a call and a test per word) | unchanged | unchanged | unchanged |
+| Who reads tokens and numbers | Forth | Forth (numbers checked by the gap check; Gforth 1.0's recognizers act first) | Forth (its recognizers act first) | Forth's `PARSE-NAME` and `SEARCH-WORDLIST`; numbers only plain decimals, read by LeanForth; no recognizer runs |
+| Tie between a word and its meaning | the wrapper itself (trusted at run time) | the name | the word's identity | the word's identity (token and name) |
+| A standard word redefined before the run | runs the redefinition | **not noticed** | refused | refused |
+| What is trusted | wrappers, in run mode too | each alias's meaning; isolation by visibility | each verification semantics; Gforth's dispatch | each verification semantics; a short loop of its own |
+| How a user switches | a flag | `verify FILE` versus `include FILE` | `verify FILE` (inside: `verifying set-state`, then Gforth's own interpreter reads each line) | `verify FILE` versus `include FILE` |
+
+**Recommendation: the mode shift, done portably (b2).** Reasons:
+
+1. It is literally what you described: *one* word `DUP`, which in run mode
+   duplicates and in correctness mode writes `prim dup`. Forth-2012
+   already describes words by their semantics per interpreter state; a
+   word's verification semantics sits next to them in its documentation.
+2. It is stronger where it matters: it checks that every word the file
+   uses *is* Forth's standard word (the `MAX` test), so a Forth that was
+   tampered with before loading is refused, which the alias design leaves
+   as an assumption.
+3. It is simpler to argue: the host converts no number and runs no
+   recognizer; each token is a word with verification semantics, a plain
+   decimal, or refused. The alias design's gap check is not needed.
+4. It runs identically on Gforth 0.7.3 and 1.0 (the CI host and the
+   development host), with no experimental words.
+5. It costs nothing in run mode, and all the actions are the ones the
+   alias design already has; only the dispatch differs (the prototype
+   shares every action), so the choice stays cheap to revisit.
+
+Its price: the verification-state loop is LeanForth's own (a few lines
+using Forth's `PARSE-NAME` and `SEARCH-WORDLIST`), and identity needs care
+per host (token and name; `RECURSE` by name). Gforth 1.0's own third
+state (b1) gave the same IR and can serve later as a cross-check on 1.0;
+it is not the reference because 0.7.3 lacks it.
+
+How it reads for a user:
+
+```text
+gforth clamp.fs                   \ run mode: plain Forth, nothing of LeanForth loaded
+leanforth verify clamp.fs         \ correctness mode: the same file, verification state
+```
+
+and, for a Forth programmer, inside LeanForth: `verify clamp.fs` loads
+the file in verification state as `include clamp.fs` loads it
+interpreting.
+
+### 10. Defining words and loops, in both designs
+
+The owner expected that "either case probably needs special handling of
+defining words and looping". It does, and the handling is the same in
+both designs: the words below were prototyped once (`v1.fs`) and given to
+the alias vocabulary *and* to the portable mode shift, and both wrote the
+same draft IR v1, byte for byte, on both Gforths. The draft text below is
+a sketch of IR v1 (plan 4.4.1), not yet a format anything reads.
+
+**Defining words.**
+
+| Forth | Correctness mode writes | Notes |
+| --- | --- | --- |
+| `: NAME … ;` | `word NAME` … `end` | IR 0.1 |
+| `… CONSTANT NAME` | `constant NAME` with the tokens before it as its body | IR 0.1: the body runs when the constant is called, so a value that depends on the cell width (`-1 1 rshift`) stays exact for every width |
+| `VARIABLE NAME` | `created NAME` / `cell undefined` / `end` | Forth-2012 leaves a variable's first contents undefined; the model must not assume 0. Inside definitions `NAME` writes `addr NAME` |
+| `CREATE NAME` then `n ,` … at the top level | `created NAME` / `cell n` per `,` / `end` | declared data; SHA-256's table `create k $428A2F98 , …` is this form. `C,` and `ALLOT` add bytes and undefined cells |
+| `VALUE NAME`, `TO NAME` | `value NAME` with its first cell; `NAME` writes `value@ NAME`, `TO NAME` writes `to NAME` | `TO` reads the next name as Forth's does; not prototyped |
+| `: W … CREATE … DOES> … ;` (a user-written defining word) | `word W` / its *create part* / `does` / its *does part* / `end` | e.g. `: holder create , does> @ ;` |
+| `7 holder seven` (using W at the top level) | `created seven` / `cell 7` / `does holder` / `end` | correctness mode **runs** W's create part, concretely, on a model of data space, with the top-level literals as its stack; its `CREATE` reads the next name, as Forth's does while loading. Inside definitions `seven` writes `call seven` (push its address, run W's does part) |
+| W used inside a definition | refused | creating words while the program runs is a run-time dictionary change (plan: always unsupported) |
+| `[ … ] LITERAL` | `lit n`, with n computed by the model | `[` makes the interpreter *run* instructions on the model, `]` returns, `LITERAL` writes the value; not prototyped |
+
+**Running at the top level is the special handling.** Forth runs a
+defining word while it loads the file; so does correctness mode, but on
+LeanForth's model — the IR interpreter that already exists in Forth
+(`src/program/ir-run.fs`, extended to IR v1) — never on the host, so a
+hostile create part can only change the model. What the model can run is
+supported: any create part made of IR instructions with known inputs. A
+create part that reads input, depends on host words or reaches outside its
+own data is unsupported. The prototype ran literals, `CREATE` and `,`, and
+refused a create part with anything else (`create dup , ,`).
+
+**Loops.**
+
+| Forth | Correctness mode writes | Notes |
+| --- | --- | --- |
+| `DO` / `?DO` … `LOOP` / `+LOOP` | a `do` or `?do` block closed by `loop` or `+loop` | nested blocks from the frame stack, like `if` … `then` |
+| `I`, `J` | `i`, `j` | need one or two enclosing `do` blocks, else *invalid* |
+| `LEAVE` | `leave` | a structured exit of the innermost `do` block, also from inside an `if` |
+| `UNLOOP` | `unloop` | before `EXIT` inside a `do` block; IR v1 checks one per enclosing block |
+| `BEGIN … UNTIL`, `BEGIN … AGAIN` | `begin` … `until` / `again` | `again` leaves only through `EXIT` |
+| `BEGIN … WHILE … REPEAT` | as IR 0.1 | IR v1 should allow Forth-2012's further `WHILE`s, each closed by a `THEN` after `REPEAT` |
+| `RECURSE` | `call NAME` of the definition being made | bound early to the current definition, the only call allowed before `;` |
+
+The draft IR of the demo's loops (prototype output, `v1-demo.ir`):
+
+```text
+word sum-below @4:1
+  lit 0 @4:26
+  prim swap @4:28
+  lit 0 @4:33
+  ?do @4:35
+    i @4:39
+    prim + @4:41
+  loop @4:43
+end @4:48
+```
+
+**What IR v1 must gain** (plan 4.4.1 and 4.4.2), in the Lean model
+first:
+
+- **Counted loops** with Forth-2012's exact rules: the loop parameters as
+  a frame on the return stack (so `>R`/`R>` in a loop body, `I` and `J`
+  are checked against it), `+LOOP`'s crossing rule, `?DO` skipping an
+  empty range, `LEAVE` and `UNLOOP`.
+- **`until` and `again` loops, several `while`s, and recursion** (a call of
+  the definition itself).
+- **Memory and declared data:** named regions with sizes and first
+  contents (`created`, `cell n`, `cell undefined`), addresses as region and
+  offset, `@ ! C@ C! +! MOVE FILL`, `cells`, values, a created word's
+  `does` part; with bounds and no-overlap obligations (stage G2).
+- **A semantics without fuel** (MiniForth's point): a relation saying what
+  a program does, with the fuel-limited `run` proved sound and complete
+  for it, so that a loop that never ends and *partial* correctness can be
+  stated; today fuel is part of the meaning.
+- **Loop rules with invariants:** a proved rule per loop form — for a
+  `do` loop the index range gives the measure, for `begin` loops a
+  user-given measure for total correctness — and weakest-precondition
+  rules per instruction, proved once; receipts name the kind of
+  correctness proved (total, safe-partial, partial).
+
+**What the prototype showed** (section 9 of `run.sh`): `v1-demo.fs` (counted
+loops with `I`, `J` and `LEAVE`, `BEGIN … UNTIL`, `RECURSE`, a user
+defining word and its use, a `CREATE` table, a `VARIABLE`) runs in plain
+Gforth (8 calls checked) and gives a 95-line draft IR v1, identical in
+the alias and the mode-shift designs on both Gforths; with these words
+loaded, IR 0.1's golden files are still byte-identical; 20 edge inputs
+(a `DO` without `LOOP`, `J` in one loop, a defining word used inside a
+definition or without its value, a `,` at the top level without a
+`CREATE` …) gave 17 refusals and 3 intended passes, with identical
+diagnostics in both designs.
 
 ## The prototype and what it showed
 
@@ -537,11 +796,13 @@ lists the rest. Throwaway code: global variables, not reviewed, not in
 | --- | --- |
 | Correctness mode on the real `clamp.fs`, `examples.fs` and `all-primitives.fs`, unchanged | IR byte-identical to all three golden files |
 | Run mode: the same files in plain Gforth | 19 calls of the six words, 0 failures |
-| Today's reader tests (`tests/program/ir-reader.fs`) replayed | 106 verdict cases (outcome, reason, line, column) and 19 checks of diagnostic text and IR: 0 differences. The 93 other test blocks test the reader's own interface (output words, busy flags, contexts, files) and do not apply |
+| Today's reader tests (`tests/program/ir-reader.fs`) replayed | 108 verdict cases on today's main (outcome, reason, line, column) and 21 checks of diagnostic text and IR: 0 differences. The 93 other test blocks test the reader's own interface (output words, busy flags, contexts, files) and do not apply |
 | Hostile inputs (`adversarial.fs`): recognizer and number syntaxes, `IMMEDIATE`, `POSTPONE`, `[`, `]`, `'`, `[']`, `LITERAL`, `STATE`, `EVALUATE`, `HEX`, `BASE`, `BYE`, `INCLUDE`, forged structure, names of vocabulary words, comments, a run started while Forth compiles | 81 refused, each at the right token; 5 accepted as intended (`-1 if 1 then`, number names, `x:dup`, `: . drop ;`, a `\` comment). Output byte-identical on both hosts |
 | Round trip: IR → Forth text (calls in upper case, a literal that equals a defined name written `05`) → correctness mode → IR, for the three golden files and `awkward.ir` (names `5`, `-0`, `1e`, `$10`, `'a'`, `->x`, `forth:dup`, `"x"`, `x:dup`, 31 characters) | 4 of 4 identical apart from locations; a vocabulary name, a forward call, recursion and a redefinition refused |
 | Planted faults in a copy of the vocabulary: `ELSE` written as `then`; minus signs dropped; names not folded to lower case; the 31-character limit raised | 4 of 4 caught (golden files or replayed reader tests) |
 | Symbolic demo on the six words | clamp, checked add, checked abs, in-range: their paths; factorial and gcd: refused (loops) |
+| Mode shift (§9): the portable third state (`ms.fs`) and Gforth 1.0's own (`ms-gforth1.fs`) on the golden files, the reader tests, the hostile inputs and a redefined `MAX` | byte-identical IR, 0 differences, identical diagnostics; the redefined `MAX` refused (the alias accepts it) |
+| Defining words and loops (§10, `v1.fs`, `v1-demo.fs`) in both designs | run mode 8 calls; the same 95-line draft IR v1 in both designs; golden IR 0.1 unchanged; 20 edge inputs: 17 refused, 3 intended passes |
 
 Not shown by the prototype: the receipt hash tie (§5) and Gforth 1.0
 recognizer hardening; nothing about speed (each file took well under a
@@ -572,6 +833,14 @@ second).
    the gap check removed, a primitive writing another primitive's name,
    a frame taken from the data stack.
 8. Both hosts: Gforth 1.0.0 locally, `make test` on 0.7.3 in CI.
+9. With the mode shift: a Forth in which each standard word in turn was
+   redefined before the run must be refused at that word; and, on Gforth
+   1.0, the same IR from its own third state (b1) as a cross-check.
+10. IR v1 (§10): every loop form and defining word with its Lean semantics
+    and three-way comparison; `+LOOP`'s crossing rule at the cell edges;
+    a defining word whose create part the model cannot run, or that is used
+    inside a definition, refused; `VARIABLE`'s undefined first contents
+    never read as 0.
 
 ## Risks
 
@@ -591,7 +860,12 @@ second).
   a `MARKER` between files or one process per file.
 - **Run mode on a polluted host** (a standard word redefined before the
   file is loaded) is outside what a receipt covers; receipts say "loaded on
-  a fresh Forth, last".
+  a fresh Forth, last". The mode shift refuses such a Forth when it is the
+  one verifying (§9); the run-mode Forth stays an assumption.
+- **Host identity quirks** (mode shift): Gforth 0.7.3 shares one token
+  among compile-only words and Gforth 1.0 moves `RECURSE`'s token; a word
+  is therefore known by token and name, and each new host needs the same
+  probe.
 
 ## Rejected alternatives
 
@@ -615,8 +889,19 @@ second).
   text, so it belongs in the authoring program (8.2.1).
 - **Restricting Gforth 1.0's recognizers as the main defence:** host-only;
   kept as optional hardening.
+- **Dual-mode words that test a flag** (§9 (a)): run mode would no longer
+  be plain Gforth, would be slower, and would run trusted wrappers.
+- **Gforth 1.0's own third state as the reference** (§9 (b1)): not on
+  0.7.3 and built on experimental words; kept as a cross-check on 1.0.
+- **Verify while loading** (§9 (c)): the file's code would run inside
+  the verifier.
 
 ## Questions for the owner
+
+**Answered on 2026-11-03** (see [the answers](#the-owners-answers-2026-11-03)):
+1 option 2, with the mode shift to consider; 2 IR first; 3 the reader as
+a cross-check, then retired; 4 names that read as numbers refused. The
+questions as they were asked:
 
 1. **Adopt option 2 as designed here** — the same file loaded with a
    LeanForth vocabulary (correctness mode) or with ordinary Forth (run
@@ -643,12 +928,30 @@ second).
    after their review; refusing accepts less than Gforth, never more, so
    it is safe.
 
+**Open:**
+
+5. **Mode shift or a separate vocabulary** (§9). Should each Forth word
+   get its correctness meaning as a third *mode* of the same word
+   (verification semantics, chosen by the interpreter's state, as
+   interpreting and compiling are), or from a LeanForth word of the same
+   name in a separate vocabulary (the alias)? *Recommendation: the mode
+   shift, done portably (b2).* It is one word in two modes, as you
+   described; it refuses a Forth whose standard words were changed before
+   loading, which the alias cannot see; the host converts no numbers and
+   runs none of Gforth 1.0's extra token forms; it runs the same on both
+   Gforths; run mode stays exactly the file in plain Gforth; and the
+   words' actions are the same as the alias's, so the choice is cheap to
+   change later.
+
 ## Follow-ups
 
-- On approval: the vocabulary and the shared runner in `src/` (a new
-  module set under `src/program/`, the runner as a library), replacing
-  the reader in the receipt pipeline, with the test plan above; the
-  [parser] gate on that code.
+- On the open question: the verification semantics (or the vocabulary)
+  and the shared runner in `src/` (a new module set under `src/program/`,
+  the runner as a library), replacing the reader in the receipt pipeline,
+  with the test plan above; the [parser] gate on that code.
+- IR v1 (plan 4.4.1, 4.4.2) as [§10](#10-defining-words-and-loops-in-both-designs)
+  designs it: loops, recursion, memory and declared data, a semantics
+  without fuel, loop rules with invariants.
 - The Lean well-formedness predicate and its *unknownWord* theorem (test 4).
 - Receipt schema: the assumption kind for the vocabulary ([format] gate).
 - The theorem words: consider the gap check for their review findings.
@@ -663,7 +966,10 @@ bash docs/development/measurements/two-mode-prototype-2026-11-03/run.sh GFORTH_0
 ```
 
 Hosts: Gforth 1.0.0 (`.tools/gforth`, amd64) and Gforth 0.7.3 (Ubuntu's
-package, extracted locally, as CI uses), Linux under WSL2, 2026-11-03. The
-probes `p01-recognizers.fs` and `p02-scope.fs` (how each host reads odd
-tokens with only one word list visible; run with `gforth FILE`) are in the
-same folder.
+package, extracted locally, as CI uses), Linux under WSL2, 2026-11-03.
+`run.sh` includes the mode-shift comparison (`modes.sh`) and the IR v1
+checks (`v1.sh`). The probes `p01-recognizers.fs` and `p02-scope.fs` (how
+each host reads odd tokens with only one word list visible),
+`p03-translations.fs` (Gforth 1.0's translation tokens) and
+`p04-recurse.fs` (`RECURSE`'s token on each host) run with `gforth FILE`
+from the same folder.
