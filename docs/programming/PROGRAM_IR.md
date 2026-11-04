@@ -770,7 +770,8 @@ it first.** Everything on this page describes IR 0.1 as it is.
   file may define its own words again; each use means the version visible
   where it is written, and each version has its own IR name (`lf-clamp`,
   `lf-clamp'1`, …), so a proof and a receipt name exactly one version.
-  Redefining Forth-2012 standard words stays refused (recommended).
+  Redefining Forth-2012 Core and Core Ext words stays refused
+  (recommended).
 - **Output words as effects:** `.`, `U.`, `CR`, `EMIT`, `SPACE`, `SPACES`,
   `."`, `S" … " TYPE` and `.S` inside definitions, written `out .` and so
   on; for the stacks they only take their argument, and what they print
