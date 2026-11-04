@@ -435,6 +435,17 @@ produces can be verified.
   runs). A design record for option 2 — the same source loaded with a
   LeanForth vocabulary whose words emit IR, and with ordinary Forth to
   run — comes first, with a prototype, before any gate question.
+- **ADR 0019, program words in two modes: adopted in direction**
+  (2026-11-03). The owner's answers: (1) adopt option 2, "but also
+  consider if there is a way to do it with a mode shift rather than an
+  alias. Either case probably needs special handling of defining words and
+  looping" — a study of a mode shift (one set of words switching between
+  writing IR and running, like Forth's interpret and compile states)
+  against the separate vocabulary, and the design of defining words and
+  loops, come before building it; (2) IR first, symbolic execution later;
+  (3) today's text reader stays only as a cross-check until the new design
+  passes its [parser] gate, then retires, keeping its tests; (4) names that
+  read as numbers are refused in correctness mode.
 - **Later: investigate offloading part of the work to a GPU.** Under the
   design rules in `AGENTS.md` a GPU never belongs to the trusted kernel and
   a CPU path is always kept; candidates are untrusted bulk work such as
