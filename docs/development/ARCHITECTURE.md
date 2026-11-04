@@ -187,14 +187,19 @@ classDiagram
     walk-pending
     walk-capacity
     walk-width
+    walk-heap
+    walk-grows
+    walk-room
   }
   class Frames {
     frame-fuel
     frame-depth
-    frame-limit
     frame-visitor
     frame-context
     frame-job
+    frame-block
+    frame-used
+    frame-capacity
   }
   class ContextHeader {
     context-size
