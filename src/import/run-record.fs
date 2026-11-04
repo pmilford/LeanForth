@@ -27,10 +27,10 @@
 \   environment room for deps dependencies, as lf-check-input takes them.
 \ - rr-import ( flag -- outcome ) loads that same file into this context's
 \   input with import/checker-input.fs, its manifest enforced when flag is
-\   true (cin-read-checked: its two passes must read bytes of one
-\   SHA-256; the read then also fails unless that is the SHA-256 rr-start
-\   recorded), and keeps the outcome and whether the manifest was
-\   enforced. It is the only way a recorded run reads its input, and the
+\   true (cin-read-checked, else cin-read; either way its two passes must
+\   read bytes of one SHA-256, and the read then also fails unless that is
+\   the SHA-256 rr-start recorded), and keeps the outcome and whether the
+\   manifest was enforced. It is the only way a recorded run reads its input, and the
 \   only way a record can say enforced (rr-read! and rr-file! are
 \   internal). A run that is not to be recorded skips rr-start and loads
 \   the file with the importer alone, rr-read-once ( c-addr u flag --
@@ -302,30 +302,31 @@ get-current rr-internal set-current
 set-current
 \ rr-import loads the run's file itself with checker-input.fs, with the
 \ manifest checked (cin-read-checked) when flag is true; the record says
-\ enforced exactly then. What an enforced read guarantees: both of the
+\ enforced exactly then. What every recorded read guarantees: both of the
 \ importer's passes read bytes with one SHA-256 (checker-input.fs compares
-\ the second pass's digest with the first's, rvRP3 R2-1), each pass
-\ matched the manifest beside the file as it stood for that pass, and
-\ that SHA-256 is the one rr-start recorded (rr-same-bytes?, else the read
-\ is invalid and rr-moved? true). So the verdicts of an enforced record
-\ are those of bytes whose SHA-256 is input.sha256, whatever happened to
-\ the file between the reads, or back again before rr-finish. An
-\ unchecked read computes no digest of its own: its record says not
-\ enforced, and only rr-start's and rr-finish's reads bound its bytes.
+\ the second pass's digest with the first's, rvRP3 R2-1), and that
+\ SHA-256 is the one rr-start recorded (rr-same-bytes?, else the read is
+\ invalid and rr-moved? true). So the verdicts of every record are those
+\ of bytes whose SHA-256 is input.sha256, whatever happened to the file
+\ between the reads, or back again before rr-finish. Enforced adds only
+\ that each pass also matched the manifest beside the file as it stood
+\ for that pass.
 : rr-recorded ( -- c-addr u ) run-record rr-before facts-hex sha-digest-bytes 2* ;
 : rr-same-bytes? ( -- flag ) cin-digest rr-recorded compare 0= ;
 : rr-bytes-check ( -- outcome ) rr-same-bytes? dup 0= run-record rr-moved ! flag>outcome ;
 : rr-moved? ( -- flag ) run-record rr-moved @ ;
-: rr-checked-read ( c-addr u -- outcome )
-  cin-read-checked dup ok? if drop rr-bytes-check then ;
-: rr-load ( flag -- outcome ) rr-file rot if rr-checked-read else cin-read then ;
+\ The export file c-addr u into the checker's input, its manifest checked
+\ when flag is true.
+: rr-read-file ( c-addr u flag -- outcome ) if cin-read-checked else cin-read then ;
+: rr-load ( flag -- outcome )
+  rr-file rot rr-read-file dup ok? if drop rr-bytes-check then ;
 \ A run that is not recorded (bin/leanforth check without --record): the
 \ export file c-addr u loaded by the importer alone (its two passes, the
 \ manifest checked when flag is true, both passes' digests equal), with
 \ none of rr-start's three reads (digest, metadata, manifest) and no name
 \ kept, so rr-write then refuses (invalid).
 : rr-read-once ( c-addr u flag -- outcome )
-  rr-release rr-reset if cin-read-checked else cin-read then dup rr-read! ;
+  rr-release rr-reset rr-read-file dup rr-read! ;
 : rr-unstarted ( flag -- outcome ) drop outcome-invalid dup rr-read! ;
 : rr-import ( flag -- outcome )
   false run-record rr-moved ! rr-started? 0= if rr-unstarted exit then

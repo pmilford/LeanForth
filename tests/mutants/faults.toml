@@ -1819,8 +1819,8 @@ reason = "replay confirms any record without comparing it with the new run"
 [[fault]]
 id = "cin-checked-reads-plain"
 file = "src/import/checker-input.fs"
-old = '''  cin-manifest manifest-read dup ok? if drop cin-pass-digest then ;'''
-new = '''  cin-export export-read dup ok? if drop cin-pass-digest then ;'''
+old = '''  cin-manifest manifest-read dup ok? if drop cin-checked-digest cin-pass-digest then ;'''
+new = '''  cin-export export-read dup ok? if drop cin-checked-digest cin-pass-digest then ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "cin-read-checked never compares the export with its manifest"
 
@@ -2238,11 +2238,44 @@ quick = true
 [[fault]]
 id = "cin-passes-unpaired"
 file = "src/import/checker-input.fs"
-old = '''  cin-manifest manifest-read dup ok? if drop cin-pass-digest then ;'''
-new = '''  cin-manifest manifest-read ;'''
+old = '''  cin-manifest manifest-read dup ok? if drop cin-checked-digest cin-pass-digest then ;'''
+new = '''  cin-manifest manifest-read dup ok? if drop cin-checked-digest then ;'''
 test = "python3 tests/core/test_run_records.py"
 reason = "rvRP3 R2-1: an export changed during the first pass only pairs one file's names with another's terms"
 quick = true
+
+[[fault]]
+id = "cin-unchecked-passes-unpaired"
+file = "src/import/checker-input.fs"
+old = '''  dup ok? if drop cin-hashed cin-pass-digest then ;'''
+new = '''  dup ok? if drop cin-hashed then ;'''
+test = "python3 tests/core/test_run_records.py"
+reason = "rvRP3 round 3: without the manifest check, a change during the first pass only is not caught"
+
+[[fault]]
+id = "cin-line-feeds-unhashed"
+file = "src/import/checker-input.fs"
+old = ''': cin-line ( c-addr u sha -- ) dup >r sha256-update s\" \n" r> sha256-update ;'''
+new = ''': cin-line ( c-addr u sha -- ) sha256-update ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "rvRP3 round 3: an unchecked read's digest is not the file's SHA-256"
+
+[[fault]]
+id = "cin-passes-differ-line"
+file = "src/import/checker-input.fs"
+old = '''  cin-export export-restart
+  outcome-invalid c" the export changed between the two passes" cin-stop ;'''
+new = '''  outcome-invalid c" the export changed between the two passes" cin-stop ;'''
+test = "python3 tests/core/test_run_records.py"
+reason = "rvRP3 round 3: the passes' refusal reports the last line, not line 0"
+
+[[fault]]
+id = "rr-unchecked-bytes-unchecked"
+file = "src/import/run-record.fs"
+old = '''  rr-file rot rr-read-file dup ok? if drop rr-bytes-check then ;'''
+new = '''  rr-file rot dup >r rr-read-file dup ok? r> and if drop rr-bytes-check then ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "rvRP3 round 3: an unchecked recorded read of other bytes than rr-start hashed is recorded"
 
 [[fault]]
 id = "cin-passes-same"
