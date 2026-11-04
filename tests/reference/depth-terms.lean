@@ -4,12 +4,14 @@ import LeanForthFirstCheckerTerms
 /-!
 # Deep terms: plan task 6.2.0, against the pinned Lean kernel
 
-Mathlib's terms nest up to 1,221 deep, and Lean's kernel, which recurses
-on the C++ stack, checks far deeper ones: every case below at depths 2,000
-and 10,000 gets Lean's verdict here. Deeper, Lean depends on its stack: a
-probe on 2026-11-04 found lambda and successor chains still accepted at
-100,000, but the application chain refused with `deepRecursion` from
-20,000 on (docs/project/BEYOND_LEAN.md). For n = 2,000 and 10,000:
+Mathlib's terms nest up to 1,221 deep, and Lean's kernel checks far
+deeper ones: every case below at depths 2,000 and 10,000 gets Lean's
+verdict here, with `maxRecDepth` 1,000 as in every reference file. Deeper,
+Lean counts its recursion: the application chain is refused with
+`deepRecursion` from 16 * maxRecDepth - 1 (15,999 here, 8,191 at Lean's
+default 512), lambda and successor chains are not counted
+(`deep-recursion.lean`; docs/project/BEYOND_LEAN.md, BL-9). For n = 2,000
+and 10,000:
 
 * `lam`: `∀ (P : Prop), P → … → P` with n hypotheses, proved by
   `fun P h₁ … hₙ => h₁`: binders nest n deep (accepted); and the same proof

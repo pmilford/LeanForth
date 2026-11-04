@@ -82,7 +82,7 @@ DIFFERENTIAL_TARGETS := \
 	test-universe-scope-large-differential test-first-checker-fed-differential \
 	test-binder-domains-fed-differential test-universe-scope-fed-differential \
 	test-universe-many-differential test-universe-many-fed-differential \
-	test-depth-differential test-depth-fed-differential \
+	test-depth-differential test-depth-fed-differential reference-deep-recursion \
 	test-program-differential test-program-stack-differential \
 	test-program-values-differential test-program-depth-differential \
 	test-example-reference-differential test-add-reference-differential \
@@ -385,6 +385,12 @@ test-depth-differential:
 
 test-depth-fed-differential:
 	$(LEAN_TABLE) depth-fed
+
+# Lean's deepRecursion is a counted depth, its maxRecDepth (BL-9 in
+# docs/project/BEYOND_LEAN.md): pinned Lean's verdicts on application
+# chains at the limits for three settings.
+reference-deep-recursion:
+	$(RUN) $(LEAN) -DwarningAsError=true tests/reference/deep-recursion.lean
 
 .PHONY: test-depth-deep-differential
 test-depth-deep-differential:
