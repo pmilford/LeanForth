@@ -179,7 +179,15 @@ T{ third-accepted holds? s\" \"enforced\":true}" holds? -> true true }T
 T{ composition rr-start -> outcome-ok }T
 char x hex-byte c!
 T{ true rr-import rr-moved? -> outcome-invalid true }T
+\ rr-file! and rr-read! are internal (rvRP3 R2-3): a recorded run reads
+\ its input only through rr-import of rr-start's file. The tests below
+\ reach them through rr-internal.
+: found? ( c-addr -- flag ) find nip 0<> ;
+: internal-found? ( -- flag1 flag2 ) c" rr-file!" found? c" rr-read!" found? ;
+T{ internal-found? -> false false }T
+rr-internal order+
 T{ s" " rr-file! false rr-import rr-moved? -> true outcome-invalid false }T
+order-
 rr-release
 \ A run read once, without rr-start (bin/leanforth check without
 \ --record): checked as usual, never recorded, whatever facts an earlier
@@ -214,7 +222,7 @@ rr-release
 : not-enforced ( -- c-addr u ) s\" \"enforced\":false}" ;
 : read-invalid ( -- c-addr u ) s\" \"check\":{\"read\":\"invalid\"" ;
 T{ composition true run-import enforced holds? -> outcome-ok true }T
-outcome-ok rr-read!
+rr-internal order+ outcome-ok rr-read! order-
 T{ rr-write not-enforced holds? -> outcome-ok true }T
 rr-release
 T{ composition false run-import not-enforced holds? -> outcome-ok true }T

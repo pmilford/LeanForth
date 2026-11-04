@@ -135,22 +135,40 @@ module loaded the input itself with the manifest checked
 `src/import/checker-input.fs`), as `bin/leanforth check` does by default.
 `rr-import` takes no file name: it reads the file `rr-start` kept and
 hashed, as `rr-finish` does, so no run can hash one file and check another
-(review rvRP3, M1). And a checked read fails, invalid, unless the bytes it
-loaded have the SHA-256 `rr-start` recorded (`cin-digest`, the digest the
-manifest check itself computed over those bytes): the verdicts of an
-enforced record are those of the bytes `input.sha256` names, even when the
-file was swapped for another export with its own manifest and swapped back
-between `rr-start` and `rr-finish` (A, then B, then A; a test does exactly
-that). Then an input that does not match its manifest is not read at
-all, and a record that says enforced with a read that succeeded and a
-manifest that did not match is refused (by the writer and by the schema).
-With `--no-manifest`, from `tests/support/run-records.fs` (and so the
-golden records and `make run-record`), and whenever another importer hands
-its outcome to `rr-read!`, the record says not enforced, also when the
-manifest is missing or does not match: the record never claims a check it
-did not see done. Such an unchecked read computes no digest of its own, so
-there the bytes checked are tied to `input.sha256` only by the reads
-before and after (see the limits below).
+(review rvRP3, M1); it is the only way a recorded run reads its input
+(`rr-read!` and `rr-file!` are internal to the module, rvRP3 R2-3).
+
+What an enforced record guarantees, exactly. The importer reads the file
+twice: a first pass that builds the names table and the universe
+parameters, and a second that builds the terms and declarations. With the
+manifest checked, each pass computes the SHA-256 of the bytes it reads and
+compares it, with the line, byte and record counts, against the manifest
+as it stands when that pass reads it. Then:
+
+1. the second pass's SHA-256 must equal the first's, else the read is
+   invalid ("the export changed between the two passes"; rvRP3 R2-1), so
+   both halves of what is checked come from bytes with one SHA-256;
+2. that SHA-256 must equal the one `rr-start` recorded (`cin-digest`),
+   else the read is invalid and `rr-moved?` is true.
+
+So the verdicts of an enforced record are the checker's verdicts on bytes
+whose SHA-256 is `input.sha256` (and which matched the manifest), whatever
+happened to the file between the reads: swapped for another export with
+its own manifest and swapped back between `rr-start` and `rr-finish` (A,
+then B, then A; a test does exactly that), or swapped during the first
+pass only (a test serves the file through a FIFO to do exactly that).
+What it does not guarantee: that the file still holds those bytes after
+the run (`rr-finish` reads it once more, and a change caught there fails
+the run), or anything about a file other than the one named. Then an
+input that does not match its manifest is not read at all, and a record
+that says enforced with a read that succeeded and a manifest that did not
+match is refused (by the writer and by the schema).
+With `--no-manifest` and from `tests/support/run-records.fs` (and so the
+golden records and `make run-record`), the record says not enforced, also
+when the manifest is missing or does not match: the record never claims a
+check it did not see done. Such an unchecked read computes no digest of its
+own, so there the bytes checked are tied to `input.sha256` only by the
+reads before and after (see the limits below).
 
 **Only the run's own environment.** Verdicts are read only from the
 checked environment that the run's own `rr-check` made, never from another
@@ -298,13 +316,17 @@ the golden records written by 1.0.0 the same way).
   show.
 - The record is read from the file, the importer and the environment at
   different times: the file is read up to six times (hash, metadata,
-  manifest, the importer's two passes, hash again). A file whose digest,
-  size or lines differ at the last read from the first fails the run. A
-  file changed and changed back between them (A, then B, then A) is caught
-  only by an enforced read, which compares the digest of the bytes it
-  loaded with the first (above); an unchecked read (`--no-manifest`, the
-  test driver, `rr-read!`) does not detect it, and such a record says not
-  enforced. Phase 3's importer will read once.
+  manifest, the importer's two passes, hash again; `bin/leanforth` also
+  opens it once first, without reading, to report a missing file). A file
+  whose digest, size or lines differ at the last read from the first
+  fails the run. A file changed and changed back between any two of them
+  (A, then B, then A), the importer's two passes included, is caught only
+  by an enforced read: its two passes must read bytes of one SHA-256, and
+  that must be the first read's (above). An unchecked read
+  (`--no-manifest`, the test driver) does not detect it, and such a record
+  says not enforced. A plain `bin/leanforth check` (no record) has the same
+  check of its two passes when the manifest is checked. Phase 3's importer
+  will read once.
 - The commit is what the caller says, checked only for its form; the host
   fields are what Gforth reports.
 - Diagnostic numbers are those the check recorded. For the internal faults
@@ -313,7 +335,10 @@ the golden records written by 1.0.0 the same way).
 - Limits: a record text of 64 KiB, names of 1 KiB, host, metadata,
   manifest and commit texts of 128 bytes (a longer metadata text is
   written null), the checker's own limits (32 declarations). A record that
-  does not fit is not written (`rr-write` gives full). An export whose
+  does not fit is not written (`rr-write` gives full); that includes an
+  input of more declarations than a record keeps (`lf-input-default`, 32,
+  the schema's limit), which a larger input store (`lf-input-capacity!`)
+  would let the importer read (rvRP3 R2-2). An export whose
   declaration name breaks the text rule (a Lean name may hold almost any
   character) cannot be recorded: `rr-write` gives invalid, and the check
   itself is unaffected.
@@ -333,9 +358,10 @@ second review's `aba.fs`, with its fuel and with equal fuel: no record,
 the new environment left alive, and the address's reuse asserted, or a
 note printed when the allocator did not reuse it), a displaced environment
 left alone by `rr-release`, whether the manifest was enforced (checked
-read, unchecked read, the driver, `rr-read!`, a checked read of a copy
-without a manifest, and a contradiction refused), a checked read of other
-bytes than `rr-start` hashed, `rr-import` with no started file, checks run
+read, unchecked read, the driver, the internal `rr-read!`, a checked read
+of a copy without a manifest, and a contradiction refused), a checked read
+of other bytes than `rr-start` hashed, that `rr-read!` and `rr-file!` are
+not found outside the module, `rr-import` with no started file, checks run
 after a read that failed (the third review's `p8`), the text rule,
 blank-looking texts (the fillers, combining marks or ignorable characters
 alone) and the number range, hashing, cuts between characters, and replay
@@ -344,7 +370,14 @@ malformed UTF-8 and the private helpers on bytes that are not UTF-8
 included; `tests/core/test_run_records.py` swaps the export and its
 manifest for another export and back between `rr-start` and `rr-finish`
 (the third review's `p3`: the checked read fails, and the record lists no
-verdict), writes the nine records
+verdict); serves the export through a FIFO so that only the importer's
+first pass reads another file, with its own manifest (the third review's
+round 2, `p9` and `p11`: other names, and a declaration the file at rest
+rejects but the other file accepts), recorded and read once, and each
+read fails as invalid with the reason "the export changed between the two
+passes" (skipped, with a note, where there are no FIFOs); records an input
+of 32 declarations (all 32 listed) and refuses, full, one of 33 with a
+larger input store; writes the nine records
 to files and checks them against the schema, Python's SHA-256, the golden
 records and each other, and replays them. It refuses 15 tampered records,
 each with its code and path (a changed verdict, hash, host version, reason
@@ -363,7 +396,8 @@ means the same in ECMA-262 (node, `u` flag) and in Python; that the
 writer's text rule equals the schema's on 1,623 code points (every range's
 ends and their neighbours); and that both tables of `src/lib/text-rule.fs`
 and the schema's two patterns are exactly what `scripts/text_rule_tables.py`
-computes from Unicode 15.0 or 15.1. Thirty-six faults planted in the modules
+computes from Unicode 15.0 or 15.1. Forty-two faults planted in the modules
+and in the importer's comparison of its passes
 (`tests/mutants/faults.toml`, section "run records and replay") are each
 caught by these tests; `tests/cli/test_leanforth.py` checks that the
 command line's records say enforced, and say not enforced with
