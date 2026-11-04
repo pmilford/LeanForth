@@ -335,7 +335,7 @@ def big_files():
     """Files past 65,536 bytes, the program words' former limit (review
     rvPW, B1): clamp.fs padded with comment lines to exactly 65,536 bytes,
     the last one an LF, then a redefinition of lf-clamp that must be seen;
-    and about 200,000 bytes of comments before a word, accepted."""
+    and about 400,000 bytes of comments around a word, accepted."""
     clamp = (ROOT / "src/program/clamp.fs").read_bytes()
     pad, size = b"", 65536 - len(clamp)
     while size - len(pad) > 100:
@@ -345,12 +345,12 @@ def big_files():
     assert len(edge) == 65536 and edge.endswith(b"\n")
     comments = (b"\\ " + b"y" * 97 + b"\n") * 2000
     return {"edge-65536": edge + b": lf-clamp 2drop drop 42 true ;\n",
-            "large-200k": comments + b": f 1 ;\n" + comments}
+            "large-400k": comments + b": f 1 ;\n" + comments}
 
 
 #  The big files' own verdicts, whatever today's reader says: the
 #  redefinition after byte 65,536 is refused, the long file accepted.
-BIG_VERDICTS = {"file: edge-65536": (5, REDEFINED), "file: large-200k": (0, 0)}
+BIG_VERDICTS = {"file: edge-65536": (5, REDEFINED), "file: large-400k": (0, 0)}
 
 
 def file_entries(directory):
