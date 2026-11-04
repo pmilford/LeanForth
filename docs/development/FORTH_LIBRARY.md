@@ -43,6 +43,30 @@ variants were retired on 2026-11-02.
 | Depth analyzer | `src/program/program-depth.fs` | Stack-depth diagnostic for a tiny opcode list | Not connected to real Forth words |
 | Test support | `tests/support/tester.fs`, `checks.fs`, `term-cases.fs`, `composition.fs`, `heap-watch.fs` | Adapter for Gforth's bundled tester that fails the run on the first error; shared checks and fixtures; `ALLOCATE` and `FREE` that count the heap blocks held, in a word list of their own, for tests that show a module frees what it allocates | Test-only |
 
+## Reusability: the libraries as standalone Forth code
+
+**Rule** (owner, 2026-11-03; `AGENTS.md`): general-purpose libraries are
+written so that other Forth programs can use them, not coupled to
+LeanForth, unless coupling gains a lot. Audit of `src/lib/` on 2026-11-03:
+
+| Library | General purpose? | What ties it to LeanForth today |
+| --- | --- | --- |
+| `bignum.fs` (natural numbers) | yes; no Lean code (Lean only in comments) | needs `outcome.fs`, `bounds.fs`, `portability.fs` (104 lines); naturals only (subtraction stops at 0, as Lean's `Nat`); all helper names public. Shown working from an unrelated folder on both Gforths |
+| `json.fs` (RFC 8259 reader), `json-write.fs` | yes | `json.fs` requires `bytes.fs`, which requires the whole `lib.fs` (contexts, walk records, frames) although it uses little of it; helper names public |
+| `bytes.fs` (bounded line reader, UTF-8) | yes, with strict framing rules chosen for Lean's exports (no carriage return, no byte-order mark, final line feed) | requires all of `lib.fs`; the framing rules should become options |
+| `u32.fs` (32-bit access) | yes | none beyond `portability.fs` |
+| `store.fs`, `node.fs`, `walk.fs`, `frame.fs` (bounded stores, records, explicit-stack walks) | yes | the shared outcome vocabulary |
+| `context.fs`, `task.fs` (per-task contexts, job pool) | partly: a general job pool and context mechanism, designed around the checker's per-check state | the checker's context model (ADR 0009) |
+| `outcome.fs` (ok, invalid, exhausted, unknown, rejected, unsupported, full) | LeanForth's shared result vocabulary | deliberately shared: one vocabulary for every module |
+| coming: `sha256.fs`, the compact store (ADR 0016) | written to this rule from the start | — |
+
+**Why they are not yet packaged as standalone libraries.** They were built
+just in time for the checker, with correctness and fail-closed behaviour
+first; their headers already say "a general tool with no Lean knowledge",
+but nothing required minimal `require` lines, private helper names, a
+standalone example or tests runnable outside the project. Plan task 1.1.8
+does that, together with ADR 0010's word lists for the library.
+
 ## JSON and NDJSON
 
 Since 2026-11-02 Forth reads Lean's NDJSON exports itself (owner decision

@@ -407,6 +407,21 @@ produces can be verified.
   SHA-256 (`src/lib/sha256.fs`) equal to FIPS 180-4 in five stages
   ([plan](PLAN_DRAFT.md#program-track-goal-most-of-forth-2012-core-owner-2026-11-02)),
   in the program-track lane.
+- **Record every Lean limitation; an improved mode later.** The owner:
+  "there are a number of issues that come, like the universe one just now
+  … some are just what lean does, but, perhaps some lead to theorems that
+  could be solved without the limitations. make sure to take careful note
+  of anything that could lead to better theorem solving. we need 100%
+  compatibility with lean, but, also, if we can have an improved solver
+  mode, that would be great!" Kept in [BEYOND_LEAN.md](BEYOND_LEAN.md); the
+  improved mode is opt-in, labelled and designed after phase 6 (plan W8).
+- **General-purpose code is written as reusable libraries.** The owner:
+  "functionality like the bignum library should, in general, be well
+  factored so it can be used by other users and programs, not tightly
+  coupled to LeanForth … They can be LeanForth specific if we gain a lot
+  from that, but otherwise should be more general." Added to `AGENTS.md`;
+  audit and plan task 1.1.8 in
+  [FORTH_LIBRARY.md](../development/FORTH_LIBRARY.md#reusability-the-libraries-as-standalone-forth-code).
 - **Later: investigate offloading part of the work to a GPU.** Under the
   design rules in `AGENTS.md` a GPU never belongs to the trusted kernel and
   a CPU path is always kept; candidates are untrusted bulk work such as

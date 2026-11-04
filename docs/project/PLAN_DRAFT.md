@@ -243,6 +243,7 @@ after migration evidence. (5) `make coverage` and `make mutants` work.
 | 1.1.5 | Heap stores: `store:` variant using `ALLOCATE`/`FREE`, same checks | Same test suite as `store:` passes; allocation failure gives exhausted; prerequisite for 3.3 and 7.2 | 1.1.3 | [forth-review] | M |
 | 1.1.6 | ADR 0009 (proposed number): exceptions — when to use `CATCH`/`THROW` (§6.10) | Decision recorded with rejected alternatives; one module piloted | 1.1.1 | [forth-review] | S |
 | 1.1.7 | ADR 0010: wordlists and module boundaries (§6.9); apply to `lib/` first | `lib/` words in their own wordlist; `make smoke` still silent | — | [forth-review] | M |
+| 1.1.8 | Reusable libraries (owner, 2026-11-03): each general-purpose library in `src/lib/` (bignum, JSON reader and writer, bytes, u32, stores, SHA-256, the compact store) requires only what it uses, keeps helpers private (1.1.7), has a short README with an example, and a test that loads it from outside the project; optional signed-integer layer over bignum; LeanForth-specific choices (such as `bytes.fs`'s strict framing) become options | Each library runs its example from an unrelated folder on both Gforths; reusability table in FORTH_LIBRARY.md updated | 1.1.7 | [forth-review] | M |
 
 **WP 1.2 Refactor `core/` and `kernel/` bottom-up (Q10).** Every task keeps
 behaviour identical (old and new tests pass, Lean comparisons unchanged),
@@ -694,6 +695,17 @@ recommendation with reasons; the owner's answer with date and commit. Group
 related rules into one packet where they are reviewed together anyway, but
 never batch across gates (AGENTS.md). Your time is the scarcest resource on
 the critical path; each summary should take under ten minutes to read.
+
+### W8 Improved mode (beyond Lean)
+
+The owner (2026-11-03): "we need 100% compatibility with lean, but, also,
+if we can have an improved solver mode, that would be great!" Every place
+where Lean's kernel rejects or cannot decide something true is recorded in
+[BEYOND_LEAN.md](BEYOND_LEAN.md) as it is found (first entry: universe
+level equality). Design of an opt-in, clearly labelled improved mode starts
+only after the compatibility checker covers Mathlib (phase 6), so that
+compatibility is never delayed; each improved rule needs a soundness
+argument and the full checker gate.
 
 ### W7 Scale (placeholder for the separate scale workstream)
 
