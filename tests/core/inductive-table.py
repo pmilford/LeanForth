@@ -9,7 +9,10 @@ here too) and then every case as the lean4export file of what Lean checked
 own constants). Each file is checked by LeanForth (tests/core/inductive-table.fs:
 staged, fed, every declaration checked); a row's LeanForth outcome is the first
 outcome that is not accepted among the case's own declarations, in input order,
-else accepted; a file the feed refuses gives the feed's outcome.
+else accepted; a file the feed refuses gives the feed's outcome. A row `after.*`
+(declarations after a block, whose verdict is the last one's) is judged on the
+file's last declarations, those its marker names: an earlier declaration of the
+file may have the same name.
 
 Required of each row:
   - a row of a task done (DONE_TASKS): the table's `leanforth` column, except
@@ -50,6 +53,10 @@ PENDING = {
         "C2 needs id Type unfolded (delta, phase 4): K1; twin params.constructor-binder-beta"),
     "names.empty-block": ("invalid",
         "no declaration to check: an empty block record cannot come from lean4export (B0)"),
+    "after.b3-ctor-then-use": ("unknown",
+        "the block is rejected by B3 (replay's comparison), after Lean's kernel added it,"
+        " so Lean's later declarations meet IE.B; LeanForth publishes no usable IE.B and"
+        " answers unknown (diagnostic 77), never rejected (ADR 0015 decision 11)"),
     "after.recursor-left-out-then-use-rec": ("invalid",
         "the file names IE.B.rec but leaves it out, so the importer refuses the file before"
         " any check (ADR 0016 C4: a constant must be declared in the file); Lean's replay"
@@ -129,12 +136,16 @@ def parse_forth(text):
     return results
 
 
-def row_outcome(own, result):
+def row_outcome(case_id, own, result):
     feed, decls, checks = result
     if feed is not None:
         return feed, ""
-    own = set(own)
-    mine = [d for d in decls if d[1] in own]
+    if case_id.startswith("after."):
+        mine = decls[-len(own):] if own else []
+        if [d[1] for d in mine] != own:
+            return "missing", "the last declarations are not the marker's"
+    else:
+        mine = [d for d in decls if d[1] in set(own)]
     if not mine:
         return "missing", ""
     for index, _, outcome in mine:
@@ -186,7 +197,7 @@ def main():
             failures.append(f"{case_id}: a case without a row")
             continue
         _, lean_verdict, leanforth, rule, task, _ = rows[case_id]
-        got, why = row_outcome(own, result)
+        got, why = row_outcome(case_id, own, result)
         want = OUTCOME.get(leanforth, leanforth)
         tally[(task in DONE_TASKS, got)] = tally.get((task in DONE_TASKS, got), 0) + 1
         if task in DONE_TASKS:

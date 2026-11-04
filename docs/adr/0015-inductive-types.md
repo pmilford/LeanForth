@@ -829,6 +829,18 @@ and its members' exported data into the input (`core/input.fs`,
     Lean's `get_params` does (L1). is_geq's recursion is counted on
     normalize's frame counter, so a deep one is *full* (review of the heap
     stores).
+11. *A block rejected only by B3 keeps its names* (review rvI21 round 2,
+    R2-1, which found that a later definition of `T.rec`, `T` or a
+    constructor was accepted where Lean answers `alreadyDeclared`). Lean's
+    replay compares after its kernel added the block, so `T`, its
+    constructors and `T.rec` are declared although the file's records are
+    refused. The check marks such a block (`lf-env-added!`); the publisher
+    marks its type's and constructors' slots (not the file's recursors,
+    which the kernel may not have added); N2, the publisher's re-check and
+    the holders of `T.rec` count them as declared (*rejected*,
+    `alreadyDeclared`), and a later use is *unknown* (diagnostic 77), never
+    *rejected*, since Lean's later declarations meet the kernel's
+    constants. The block's own outcome stays *rejected*.
 
 **Evidence** (2026-11-04, Gforth 1.0.0, Lean 4.35.0):
 
@@ -853,9 +865,10 @@ and its members' exported data into the input (`core/input.fs`,
   accepted or rejected against Lean.
 - The review rvI21 (2026-11-04) added 19 rows (139 in all): its probes as
   Lean's replays, `optParam`/`outParam` fields, T0, T1 and N2 cases, and
-  five rows of declarations after a block (decision 9). Of task 5.2.1a's
-  63 rows, 56 give Lean's verdict and 7 are pending, each with its
-  reason; 38 planted faults are caught.
+  five rows of declarations after a block (decision 9). Its second round
+  added seven rows after a block (decision 11; 146 in all). Of task
+  5.2.1a's 70 rows, 62 give Lean's verdict and 8 are pending, each with
+  its reason; 47 planted faults are caught.
 - `make test-check-block` (41 committed table files, 60 since the review; blocks published
   together; the reference export tampered field by field; fuel bisection;
   a full store), eighteen planted faults (`ind-*`) all caught, and the

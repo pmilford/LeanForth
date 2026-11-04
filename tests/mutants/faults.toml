@@ -445,8 +445,10 @@ reason = "a pool without room aborts in the publisher (invalid) instead of answe
 [[fault]]
 id = "pub-final-before-outcome"
 file = "src/kernel/env-publish.fs"
-old = '''  lf-env-may-write 2dup lf-span-outcome! lf-env-before-final swap lf-span-final! ;'''
-new = '''  lf-env-may-write over lf-span-final! 2dup lf-span-outcome! lf-env-before-final nip ;'''
+old = '''  lf-env-may-write 2dup lf-span-outcome! over lf-span-added! lf-env-before-final
+  swap lf-span-final! ;'''
+new = '''  lf-env-may-write over lf-span-final! 2dup lf-span-outcome! over lf-span-added!
+  lf-env-before-final nip ;'''
 test = "$GFORTH tests/core/environment.fs"
 reason = "E4 step 3: the slot is marked final before its outcome is written"
 
@@ -3412,8 +3414,9 @@ reason = "rvI21 M1: the publisher never re-checks a block's members; a block cla
 [[fault]]
 id = "ind-visible-never-reset"
 file = "src/kernel/check-block.fs"
-old = '''  lf-blk-begin dup ok? if drop lf-blk-run then false lf-ind-state lf-ind-visible ! ;'''
-new = '''  lf-blk-begin dup ok? if drop lf-blk-run then ;'''
+old = '''  lf-blk-begin dup ok? if drop lf-blk-run lf-blk-added then
+  false lf-ind-state lf-ind-visible ! ;'''
+new = '''  lf-blk-begin dup ok? if drop lf-blk-run lf-blk-added then ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvI21 M1: the type stays visible to inference after its block's check (the flag is still set afterwards)"
 
@@ -3462,8 +3465,8 @@ reason = "rvI21 B2: a use of the generated recursor, which Lean's kernel holds, 
 [[fault]]
 id = "env-aux-rec-not-held"
 file = "src/kernel/environment.fs"
-old = '''  lf-name-text 2dup s" rec" compare 0= if 2drop 1 else lf-env-aux-rec? 2 and then ;'''
-new = '''  lf-name-text 2dup s" rec" compare 0= if 2drop 1 else 2drop 0 then ;'''
+old = '''  if 2drop lf-rec-main else lf-env-aux-rec? lf-rec-aux and then ;'''
+new = '''  if 2drop lf-rec-main else 2drop 0 then ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvI21 B2: T.rec_1, an auxiliary recursor of a nested (unsupported) block, is not held, so a definition of it could be accepted"
 
@@ -3474,6 +3477,80 @@ old = ''': lf-env-aux-held ( d class -- d class ) dup ok? if 2drop -1 outcome-re
 new = ''': lf-env-aux-held ( d class -- d class ) ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvI21 B2: T.rec_1 held by an accepted non-nested T, for which Lean generates no such recursor; a definition of it would be rejected"
+
+[[fault]]
+id = "env-aux-digits-any"
+file = "src/kernel/environment.fs"
+old = '''  dup 0> >r base @ >r decimal lf-env-number-rest r> base ! 0= r> and ;'''
+new = '''  2drop true ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 round 2: any rec_<text> counts as an auxiliary recursor; IE.N.rec_x is held by the unsupported IE.N"
+
+[[fault]]
+id = "ind-b3-not-added"
+file = "src/kernel/check-block.fs"
+old = '''  dup outcome-rejected = lf-block-step@ lf-blk-b3-step = and lf-env-added! ;'''
+new = '''  false lf-env-added! ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 R2-1: a block rejected by B3 takes no name; def IE.B.rec after it is accepted where Lean's kernel already added IE.B.rec"
+
+[[fault]]
+id = "ind-added-any-step"
+file = "src/kernel/check-block.fs"
+old = '''  dup outcome-rejected = lf-block-step@ lf-blk-b3-step = and lf-env-added! ;'''
+new = '''  dup outcome-rejected = lf-env-added! ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 R2-1: a block the kernel rejects (U1) takes its names; def IE.Big.rec after it is rejected where Lean accepts it"
+
+[[fault]]
+id = "pub-added-not-written"
+file = "src/kernel/env-publish.fs"
+old = '''  lf-env-may-write 2dup lf-span-outcome! over lf-span-added! lf-env-before-final'''
+new = '''  lf-env-may-write 2dup lf-span-outcome! lf-env-before-final'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 R2-1: a B3-rejected block's marks are never published; def IE.B after it is accepted"
+
+[[fault]]
+id = "pub-added-recursor-too"
+file = "src/kernel/env-publish.fs"
+old = '''  lf-env-limit + lf-input-decl lf-idecl-kind @ lf-kind-recursor <>
+  lf-env-cand lf-cand-added @ 0<> and ;'''
+new = '''  drop lf-env-cand lf-cand-added @ 0<> ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 R2-1: the file's renamed recursor IE.B.recursor marked taken, which Lean's kernel never added; a later def of it is rejected"
+
+[[fault]]
+id = "env-added-free"
+file = "src/kernel/environment.fs"
+old = '''  2dup lf-env-added if nip nip lf-env-declared exit then
+'''
+new = ''''''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 R2-1: N2 ignores the marks; def IE.B after the B3-rejected block IE.B is accepted"
+
+[[fault]]
+id = "env-added-use-rejected"
+file = "src/kernel/environment.fs"
+old = '''  2dup lf-env-added if nip lf-env-generated else lf-env-undecided-k5 then ;'''
+new = '''  lf-env-undecided-k5 ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 R2-1: a use of a B3-rejected type is rejected (N1), where Lean's kernel holds it: unknown required"
+
+[[fault]]
+id = "env-added-type-holds-nothing"
+file = "src/kernel/environment.fs"
+old = '''  ' lf-slot-type-added? , outcome-ok ,  ' lf-slot-type-undecided? , outcome-unknown ,'''
+new = '''  ' lf-slot-type-undecided? , outcome-unknown ,'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 R2-1: T.rec of a B3-rejected T is free; def IE.B.rec after it is accepted where Lean's kernel generated IE.B.rec"
+
+[[fault]]
+id = "pub-added-no-conflict"
+file = "src/kernel/env-publish.fs"
+old = '''  dup lf-slot-open? over lf-slot-added? or swap lf-slot-outcome@ outcome-rejected <> or ;'''
+new = '''  dup lf-slot-open? swap lf-slot-outcome@ outcome-rejected <> or ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 R2-1: the publisher's name re-check ignores the marks; def IE.B claimed ok after the B3-rejected block is published"
 
 [[fault]]
 id = "pub-rec-name-not-held"

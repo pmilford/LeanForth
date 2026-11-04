@@ -814,6 +814,8 @@ structure Sequel where
   id : String
   /-- `some keep`: start from `ind.bool` replayed, with its recursor when `keep`. -/
   bool : Option Bool := none
+  /-- A mutation of the Bool block's constants, before they are replayed. -/
+  change : ConstantInfo → Option ConstantInfo := some
   decls : List Declaration
   lean : String
   leanforth : String
@@ -837,6 +839,24 @@ def useBig : Declaration :=
   .defnDecl { name := `IE.useBig, levelParams := [], type := .sort 1, value := mkConst `IE.Big,
               hints := .regular 1, safety := .safe }
 
+/-- `def n : Type := Prop`. -/
+def defNamed (n : Name) : Declaration :=
+  .defnDecl { name := n, levelParams := [], type := .sort 1, value := .sort 0,
+              hints := .regular 1, safety := .safe }
+
+/-- `def IE.useB : Type := IE.B`. -/
+def useB : Declaration :=
+  .defnDecl { name := `IE.useB, levelParams := [], type := .sort 1, value := mkConst `IE.B,
+              hints := .regular 1, safety := .safe }
+
+/-- The Bool block with its recursor renamed, and without its recursor but with
+`true`'s index changed: replay's comparison (B3) refuses each, after its kernel added
+the block (review rvI21 R2-1). -/
+def renamedRec : ConstantInfo → Option ConstantInfo :=
+  onRec fun r => { r with name := `IE.B.recursor }
+def trueIndexZero : ConstantInfo → Option ConstantInfo :=
+  onCtor `IE.B.true fun c => { c with cidx := 0 }
+
 def sequels (recType : Expr) : List Sequel := [
   { id := "after.recursor-left-out-then-def-rec", bool := some false, decls := [defBRec],
     lean := "alreadyDeclared", leanforth := "rejected", rule := "B4 N2" },
@@ -848,8 +868,34 @@ def sequels (recType : Expr) : List Sequel := [
     decls := [useBRec recType, defBRec],
     lean := "alreadyDeclared", leanforth := "rejected", rule := "B4 N2" },
   { id := "after.rejected-block-then-use", decls := [bigDecl, useBig],
-    lean := "unknownConstant", leanforth := "rejected", rule := "U1 N1" }
+    lean := "unknownConstant", leanforth := "rejected", rule := "U1 N1" },
+  { id := "after.rejected-block-then-def-rec", decls := [bigDecl, defNamed `IE.Big.rec],
+    lean := "accepted", leanforth := "accepted", rule := "U1 N2" },
+  { id := "after.b3-renamed-then-def-rec", bool := some true, change := renamedRec,
+    decls := [defBRec], lean := "alreadyDeclared", leanforth := "rejected", rule := "B3 N2" },
+  { id := "after.b3-renamed-then-def-renamed", bool := some true, change := renamedRec,
+    decls := [defNamed `IE.B.recursor],
+    lean := "accepted", leanforth := "accepted", rule := "B3 N2" },
+  { id := "after.b3-ctor-then-def-rec", bool := some false, change := trueIndexZero,
+    decls := [defBRec], lean := "alreadyDeclared", leanforth := "rejected", rule := "B3 N2" },
+  { id := "after.b3-ctor-then-def-type", bool := some false, change := trueIndexZero,
+    decls := [defNamed `IE.B], lean := "alreadyDeclared", leanforth := "rejected",
+    rule := "B3 N2" },
+  { id := "after.b3-ctor-then-def-constructor", bool := some false, change := trueIndexZero,
+    decls := [defNamed `IE.B.false], lean := "alreadyDeclared", leanforth := "rejected",
+    rule := "B3 N2" },
+  { id := "after.b3-ctor-then-use", bool := some false, change := trueIndexZero,
+    decls := [useB], lean := "accepted", leanforth := "accepted", rule := "B3 N1" }
 ]
+
+/-- What replay's `addDecl` adds for a block: the declaration rebuilt from the
+exported type and constructor types (`Lean/Replay.lean`, the inductive case). -/
+def rebuilt (cs : List ConstantInfo) : Option Declaration := do
+  let some (.inductInfo i) := cs.find? (fun c => c matches .inductInfo _) | none
+  let ctors := i.ctors.filterMap fun n => match cs.find? (·.name == n) with
+    | some (.ctorInfo c) => some ({ name := c.name, type := c.type } : Constructor)
+    | _ => none
+  some (.inductDecl i.levelParams i.numParams [⟨i.name, i.type, ctors⟩] false)
 
 /-- The last declaration's verdict, the others added where the kernel accepts them. -/
 def lastVerdict (env : Kernel.Environment) : List Declaration → String
@@ -859,16 +905,27 @@ def lastVerdict (env : Kernel.Environment) : List Declaration → String
       | .ok e => e
       | .error _ => env) ds
 
+/-- The environment a sequel's declarations are added to: `base`, or `base` after
+replay of the (mutated) Bool block. When replay's comparison refuses the block, its
+kernel has already added the block rebuilt from the file (`addDecl` comes first, the
+comparison last), so that is the environment Lean's later declarations meet. -/
 def sequelStart (base : Kernel.Environment) (bcs : List ConstantInfo) (s : Sequel) :
     IO Kernel.Environment := do
   match s.bool with
   | none => pure base
   | some keep =>
-    let cs := if keep then bcs else bcs.filter fun c => !(c matches .recInfo _)
+    let cs := (if keep then bcs else bcs.filter fun c => !(c matches .recInfo _)).filterMap s.change
     let map := cs.foldl (fun (m : Std.HashMap Name ConstantInfo) c => m.insert c.name c) {}
     match ← (base.replay map).toBaseIO with
     | .ok env => pure env
-    | .error e => throw (IO.userError s!"{s.id}: the Bool block not replayed: {e}")
+    | .error e =>
+      let code := replayCode (toString e)
+      unless ["invalidConstructor", "invalidRecursor", "noSuchRecursor"].contains code do
+        throw (IO.userError s!"{s.id}: the Bool block not replayed: {e}")
+      let some d := rebuilt cs | throw (IO.userError s!"{s.id}: no block to rebuild")
+      match base.addDeclCore 0 0 d none with
+      | .ok env => pure env
+      | .error _ => throw (IO.userError s!"{s.id}: the rebuilt block refused")
 
 /-- A block declared twice in one input: `names.already-declared` without `Nat` (a
 recursive type, task 5.2.1b), so that task 5.2.1a reaches rule T5. -/
@@ -1061,7 +1118,8 @@ def writeSequel (add : KernelAdd) (base : Kernel.Environment) (baseRecs : NameMa
   let (start, head) : Kernel.Environment × List Segment := match s.bool with
     | none => (base, [])
     | some keep =>
-      let cs := if keep then bcs else bcs.filter fun c => !(c matches .recInfo _)
+      let cs := (if keep then bcs else bcs.filter fun c => !(c matches .recInfo _)).filterMap
+        s.change
       let e := cs.foldl add base
       (e, [⟨e, cs.map (·.name), [`IE.B]⟩])
   let segs := head ++ chainSegments add base start s.decls
