@@ -68,11 +68,11 @@ the 32-bit access words exist in `src/`; building it is plan tasks
 | Rejection rules in comparison and inference (plan 2.2.1) | [kernel] | **approved** 2026-11-03 |
 | NDJSON reader (Lean export files) | [import] | **approved** 2026-11-03, with a checksum manifest to add |
 | Design records ADR 0010, 0013, 0016, 0017, 0018 | design | **accepted** (0017 on 2026-11-02; the rest 2026-11-03) |
-| Checked environment v0 (2.2.2) | [kernel] | final re-review: nothing blocking; three small items being fixed, then the owner |
+| Checked environment v0 (2.2.2) | [kernel] | review cycle complete (its last three small items merged 2026-11-03); ready for the owner, together with the declaration check built on it |
 | Declaration check (2.2.3) | [kernel], [bypass] | merged 2026-11-03; its review **blocks**: four wrong acceptances from universe levels built unlike Lean's; fix (exact port of Lean's level rules) running |
-| Program reader (Forth to program IR, 2.5.3) | [parser] | final review: nothing blocking; its three small items fixed (merged 2026-11-03); the reviewer is checking the fixes, then the owner |
+| Program reader (Forth to program IR, 2.5.3) | [parser] | **paused by the owner** (2026-11-03): reviews clean, but the owner prefers a Forth-like design — the program's own words emitting IR in a verification mode — over today's text reader; design record with a prototype in progress |
 | LeanForth syntax words (8.1.2) | [parser] | merged 2026-11-03; independent review running, then the owner |
-| Program receipt schema 0.1 (2.5.1) | [format] | waiting for the owner, together with the program reader |
+| Program receipt schema 0.1 (2.5.1) | [format] | independent review (2026-11-03) found four medium items (labels of failed runs, stale docs, who discharged an obligation, duplicate keys in replay); fix running |
 | Big-number library (`lib/bignum.fs`, for literals) | [forth-review] | review found one serious memory bug in printing; fix running |
 
 ### Next major milestones
