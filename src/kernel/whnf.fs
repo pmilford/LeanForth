@@ -102,6 +102,7 @@ require ../core/terms.fs
 require ./environment.fs
 require ./env-signature.fs
 require ./mixed-head.fs
+require ./mixed-instantiate.fs
 require ./mixed-level-substitute.fs
 require ./mixed-open.fs
 require ./mixed-rebuild.fs
@@ -124,6 +125,8 @@ require ./mixed-rebuild.fs
 \ the next collection. mk_rev_app applies arguments k-1 .. 0 of the
 \ array to f, the first collected outermost; a full store is full.
 : lf-whnf-head ( node -- head ) lf-mhead-spine drop ;
+\ A node with its identity, 0 when it is not live (a pass refuses it).
+: lf-whnf-handle ( node -- node identity ) dup lf-term-identity 0= if 0 then ;
 : lf-whnf-arg ( i -- addr ) lf-whnf-args slab-at ;
 : lf-whnf-collect ( node n -- )
   0 ?do dup lf-term-second@ i lf-whnf-arg ! lf-term-first@ loop drop ;
@@ -147,6 +150,29 @@ require ./mixed-rebuild.fs
   dup lf-whnf-fvar? if dup lf-fvar-live? swap lf-whnf-let? 0= and else drop true then ;
 
 \ ---------------------------------------------------------------------------
+\ has_loose_bvars: whether node, read with no binder around it, has a
+\ bound variable beyond its own binders. Lean reads a cached flag; here a
+\ walk of its own visits node (ADR 0014 Q12), paid from the frames' fuel,
+\ and stops at the first such variable (as unknown, the walk's only
+\ unknown).
+lf-walk-room context-walk2: lf-whnf-scan
+: lf-whnf-scan-bvar ( first second walk -- outcome )
+  nip walk-context @ < if outcome-ok else outcome-unknown then ;
+: lf-whnf-scan-binary ( first second walk tag -- outcome )
+  over walk-context @ swap lf-tag-app <> - swap walk-children-at ;
+: lf-whnf-scan-dispatch ( first second walk tag -- outcome )
+  dup lf-term-binary-tag? if lf-whnf-scan-binary exit then
+  lf-tag-bvar = if lf-whnf-scan-bvar else drop 2drop outcome-ok then ;
+: lf-whnf-scan-visit ( walk -- outcome ) lf-terms ['] lf-whnf-scan-dispatch walk-visit ;
+: lf-whnf-scanned ( outcome -- flag outcome )
+  dup outcome-unknown = if drop true outcome-ok exit then
+  dup ok? 0= if lf-whnf-scan lf-whnf-site lf-diag-walk then false swap ;
+: lf-whnf-loose? ( node frames -- flag outcome )
+  >r r@ frame-fuel @ lf-whnf-scan walk-budget drop
+  0 ['] lf-whnf-scan-visit lf-whnf-scan walk-run-pair lf-whnf-scanned
+  lf-whnf-scan walk-fuel @ r> frame-fuel ! ;
+
+\ ---------------------------------------------------------------------------
 \ Beta (515-524): of f's leading lambdas, as many as there are arguments
 \ (m, at least one), and the body under them; that body with arguments
 \ 1 .. m put for its bound variables at once -- Lean's instantiate with
@@ -160,9 +186,35 @@ require ./mixed-rebuild.fs
 : lf-whnf-repay ( frames -- ) lf-open-fuel @ swap frame-fuel ! ;
 : lf-whnf-put ( body m k frames -- node outcome )
   >r lf-whnf-arg swap r@ lf-whnf-lend lf-instantiate r> lf-whnf-repay ;
-: lf-whnf-beta ( f n frames -- node outcome )
+: lf-whnf-beta-all ( f n frames -- node outcome )
   >r tuck lf-whnf-strip rot over - -rot 2 pick r> lf-whnf-put
   ok-then? if swap lf-whnf-apply else nip no-result then ;
+\ Arguments with loose bound variables. Lean's kernel reduces closed terms
+\ only, but conversion here also compares terms read under binders it
+\ did not open (ADR 0011's rejection analysis, check-block.fs). Lean's
+\ instantiate lifts each argument it puts under a binder
+\ (instantiate.cpp 26, lift_loose_bvars); mixed-open.fs does not, as its
+\ terms are closed. So when an argument taken has a loose bound
+\ variable, the head lambda takes one argument, by mixed-instantiate.fs,
+\ which lifts, and the result is reduced again: the same weak head
+\ normal form, one contraction at a time.
+: lf-whnf-arg-open? ( frames i -- frames flag outcome ) lf-whnf-arg @ over lf-whnf-loose? ;
+: lf-whnf-open-args? ( k m frames -- flag outcome )
+  -rot over + swap ?do i lf-whnf-arg-open? ok-then? 0= if nip false swap unloop exit then
+    if drop true outcome-ok unloop exit then
+  loop drop false outcome-ok ;
+: lf-whnf-instantiated ( result id status -- result outcome )
+  dup ok? if nip else nip nip no-result then ;
+: lf-whnf-put1 ( body arg frames -- node outcome )
+  >r >r lf-whnf-handle r> lf-whnf-handle r@ frame-fuel @ lf-mixed-instantiate
+  lf-minst-fuel @ r> frame-fuel ! lf-whnf-instantiated ;
+: lf-whnf-beta-one ( f n frames -- node outcome )
+  >r tuck 1- lf-whnf-arg @ swap lf-term-second@ swap r> lf-whnf-put1
+  ok-then? if swap 1- lf-whnf-apply else nip no-result then ;
+: lf-whnf-beta ( f n frames -- node outcome )
+  >r 2dup lf-whnf-strip nip over swap - over over - r@ lf-whnf-open-args?
+  ok-then? 0= if nip nip r> drop no-result exit then
+  if r> lf-whnf-beta-one else r> lf-whnf-beta-all then ;
 
 \ ---------------------------------------------------------------------------
 \ Finding a constant in the check's snapshot, as is_delta and the iota
@@ -214,7 +266,6 @@ require ./mixed-rebuild.fs
   tuck 2* cells 0 lf-whnf-pairs slab-at swap move 0 lf-whnf-pairs slab-at swap ;
 : lf-whnf-pairs! ( addr count -- pairs count outcome )
   dup lf-whnf-pairs slab-hold dup ok? if drop lf-whnf-copy outcome-ok else >r 2drop 0 0 r> then ;
-: lf-whnf-handle ( node -- node identity ) dup lf-term-identity 0= if 0 then ;
 : lf-whnf-substituted ( index id 0 | status -- index outcome )
   dup ok? if 2drop outcome-ok else no-result then ;
 : lf-whnf-substitute ( value decl pairs count frames -- value' outcome )
@@ -243,13 +294,16 @@ require ./mixed-rebuild.fs
 \ or one of the fourteen binary operations with two -- unknown,
 \ diagnostic 80 with the head; else ok. Names are compared by their
 \ components (Lean's name equality), from the last.
-: lf-whnf-text, ( c-addr u -- ) dup c, here swap dup allot move ;
+\ A table of texts: each entry its length in a cell and its characters,
+\ aligned; a length of 0 ends it. Shared and read-only.
+: lf-whnf-text, ( c-addr u -- ) dup , here swap dup allot move align ;
+: lf-whnf-text ( entry -- c-addr u ) dup cell+ swap @ ;
 create lf-whnf-nat-binary
   s" add" lf-whnf-text,  s" sub" lf-whnf-text,  s" mul" lf-whnf-text,
   s" pow" lf-whnf-text,  s" gcd" lf-whnf-text,  s" mod" lf-whnf-text,
   s" div" lf-whnf-text,  s" beq" lf-whnf-text,  s" ble" lf-whnf-text,
   s" land" lf-whnf-text,  s" lor" lf-whnf-text,  s" xor" lf-whnf-text,
-  s" shiftLeft" lf-whnf-text,  s" shiftRight" lf-whnf-text,  0 c, align
+  s" shiftLeft" lf-whnf-text,  s" shiftRight" lf-whnf-text,  0 ,
 \ Whether name is a string component of these bytes after the prefix.
 : lf-whnf-part? ( name c-addr u -- flag )
   rot dup lf-name-tag@ lf-name-tag-str = if lf-name-text compare 0= else drop 2drop false then ;
@@ -257,8 +311,8 @@ create lf-whnf-nat-binary
   lf-name-prefix@ dup s" Nat" lf-whnf-part? if lf-name-prefix@ lf-name-tag@ lf-name-tag-anon =
   else drop false then ;
 : lf-whnf-binary? ( name -- flag )
-  lf-whnf-nat-binary begin dup c@ while
-    2dup count lf-whnf-part? if 2drop true exit then count +
+  lf-whnf-nat-binary begin dup @ while
+    2dup lf-whnf-text lf-whnf-part? if 2drop true exit then lf-whnf-text + aligned
   repeat 2drop false ;
 : lf-whnf-matched? ( name n -- flag )
   over lf-whnf-nat? 0= if 2drop false exit then
@@ -376,6 +430,32 @@ defer lf-whnf-cored ( t1 outcome frames -- ... frames next )
   over lf-term-valid? 0= if nip outcome-invalid swap lf-whnf-failed exit then
   over lf-whnf-easy? if lf-whnf-keep exit then
   ['] lf-whnf-cored lf-wc-call ;
+
+\ ---------------------------------------------------------------------------
+\ cheap_beta_reduce (instantiate.cpp 211-230), which infer_lambda applies
+\ to the type of a lambda chain's body (type_checker.cpp 140): for e = f
+\ a1 .. an with f a lambda, f's leading lambdas, at most n, are stripped
+\ (i of them) to body; body applied to a(i+1) .. an when body has no
+\ loose bound variable; when body is bound variable k, a(i-k) applied to
+\ them; else e unchanged. A plain function of e, no reduction step: it
+\ visits nothing but body's loose bound variables (lf-whnf-loose?);
+\ e must be closed.
+: lf-whnf-stripped ( fn n -- body i )
+  0 begin 2 pick lf-whnf-lam? over 2 pick < and while 1+ rot lf-term-second@ -rot repeat nip ;
+\ For body bound variable k: argument i-k, cell n-i+k of the array.
+: lf-whnf-named ( body n i -- arg n i )
+  >r tuck r@ - swap lf-term-first@ + lf-whnf-arg @ swap r> ;
+: lf-whnf-cheap-pick ( body n i e frames -- e' outcome )
+  >r 3 pick r> lf-whnf-loose? ok-then? 0= if >r 2drop 2drop r> no-result exit then
+  0= if drop - lf-whnf-apply exit then
+  3 pick lf-term-tag@ lf-tag-bvar <> if >r 2drop drop r> outcome-ok exit then
+  drop lf-whnf-named - lf-whnf-apply ;
+: lf-whnf-beta-head? ( e -- flag )
+  dup lf-term-tag@ lf-tag-app = if lf-whnf-head lf-whnf-lam? else drop false then ;
+: lf-cheap-beta ( e frames -- e' outcome )
+  over lf-whnf-beta-head? 0= if drop outcome-ok exit then
+  >r dup lf-whnf-spine-args ok-then? 0= if nip r> drop no-result exit then
+  over lf-whnf-head over lf-whnf-stripped 2swap -rot r> lf-whnf-cheap-pick ;
 
 \ ---------------------------------------------------------------------------
 \ The public words (see the header).

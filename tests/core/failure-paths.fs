@@ -531,8 +531,9 @@ T{ lied -> outcome-invalid false lf-step-done lf-diag-recheck outcome-invalid ou
 \ ---------------------------------------------------------------------------
 \ Coverage. Each step must reach exactly these outcomes; a cell that is
 \ empty is reached by no run of these cases: steps 2, 3, 5 and 6 make no
-\ allocation and steps 2 and 3 use no fuel (step 5's fuel runs out only
-\ in its search for a rejection, which then leaves it unknown); a THROW is
+\ allocation and steps 2 and 3 use no fuel (step 5 runs out of fuel only
+\ while Lean's whnf reduces the type's type: exhausted, since plan task
+\ 4.2.2c; before, in ADR 0011's search for a rejection, unknown); a THROW is
 \ injected only at an allocation, so invalid needs one (or V1 in the
 \ audit, or a failed publication after step 8); and step 8 allocates in
 \ its search for a rejection, where a refusal leaves it unknown, and, in
@@ -549,7 +550,7 @@ create expected-reach steps# cells allot  expected-reach steps# cells erase
 2 reaches: unknown rejected unsupported
 3 reaches: rejected
 4 reaches: invalid exhausted unknown rejected unsupported full
-5 reaches: unknown rejected
+5 reaches: exhausted rejected
 6 reaches: exhausted rejected
 7 reaches: invalid exhausted unknown rejected unsupported full
 8 reaches: invalid exhausted unknown rejected full

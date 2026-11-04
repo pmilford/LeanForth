@@ -185,9 +185,11 @@ variable tok
 : f1-term ( -- node )
   fresh 0 make-sort 0 make-var 0 make-var 0 make-var make-app make-lam make-lam ;
 T{ f1-term checked drop -> outcome-rejected lf-diag-function-expected }T
-\ The function's type is the constant k: it may unfold (K1), unknown.
+\ The function's type is the constant k: it may unfold (K1), unknown;
+\ since plan task 4.2.2c Lean's whnf (whnf.fs) says so, as a signature
+\ candidate does not say whether k has a value.
 : f1-k1 ( -- node ) with-k k-node 0 make-var 0 make-sort make-app make-lam ;
-T{ f1-k1 checked drop -> outcome-unknown lf-diag-not-pi }T
+T{ f1-k1 checked drop -> outcome-unknown lf-diag-needs-unfolding }T
 \ S2: fun (x : fun (y : Prop) => y) => x, and fun (A : Prop) (h : A)
 \ (x : h) => x (Lean: typeExpected for both).
 : s2-term ( -- node ) fresh 0 make-sort 0 make-var make-lam 0 make-var make-lam ;
@@ -195,13 +197,14 @@ T{ s2-term checked drop -> outcome-rejected lf-diag-domain-type }T
 : s2-var ( -- node )
   fresh 0 make-sort 0 make-var 0 make-var 0 make-var make-lam make-lam make-lam ;
 T{ s2-var checked drop -> outcome-rejected lf-diag-domain-type }T
-\ The domain's type is the constant k (K1), or a beta redex that reduces
-\ to a Sort (only a visible Sort is used today): unknown, as before.
+\ The domain's type is the constant k (K1): unknown, as before. A beta
+\ redex that reduces to a Sort is a type since plan task 4.2.2c, whose
+\ whnf reduces it, as Lean's ensure_sort_core does: accepted.
 : s2-k1 ( -- node ) with-k k-node 0 make-var 0 make-var make-lam make-lam ;
-T{ s2-k1 checked drop -> outcome-unknown lf-diag-not-sort }T
+T{ s2-k1 checked drop -> outcome-unknown lf-diag-needs-unfolding }T
 : beta-prop ( -- node ) 1 make-sort 0 make-var make-lam 0 make-sort make-app ;
 : s2-beta ( -- node ) fresh beta-prop 0 make-var 0 make-var make-lam make-lam ;
-T{ s2-beta checked drop -> outcome-unknown lf-diag-not-sort }T
+T{ s2-beta checked drop -> outcome-ok lf-diag-none }T
 \ D1: fun (f : Prop -> Prop) => f Prop (appTypeMismatch).
 : d1-term ( -- node )
   fresh 0 make-sort 0 make-sort make-pi 0 make-var 0 make-sort make-app make-lam ;
@@ -355,13 +358,13 @@ T{ 1 proof-context x-a y-var lf-minfer-apart -> lf-rule-d3 true }T
 \ Amendment 1, B2), and P2 then infers with it. Left:
 \ (x : Sort 1) -> (h j : x -> Prop) -> (z : x) -> j z; right: the same
 \ with x : (fun (X : Sort 2) => X) (Sort 1), a redex equal to Sort 1, and
-\ h z. Under the right domain x is no visible Sort, so h's type cannot be
-\ inferred, P2 cannot show h and j are not proofs, and the bodies are not
-\ apart; under the left one D3 would apply. Through lf-minfer-apart the
-\ two cannot differ: P2 on the two Pis comes first and fails for the right
-\ one for the same reason (so the pair is not apart; Lean would reject,
-\ LeanForth stays unknown). This white-box test of lf-minfer-binders-apart
-\ pins the rule itself.
+\ h z. Until plan task 4.2.2c, under the right domain x was no visible
+\ Sort, so h's type could not be inferred, P2 could not show h and j are
+\ not proofs, and the pair was not apart (Lean rejects, LeanForth stayed
+\ unknown). Since then inference puts x's type in whnf, as Lean's
+\ ensure_sort_core does: P2 infers h's type under either domain and the
+\ pair is apart, by D3 under D4, as Lean's kernel decides. This white-box
+\ test of lf-minfer-binders-apart pins the rule itself.
 : x-to-prop ( k -- node ) make-var 0 make-sort make-pi ;
 : d4-pair ( -- left right )
   fresh tok @ 100000 lf-minfer-start
@@ -370,13 +373,13 @@ T{ 1 proof-context x-a y-var lf-minfer-apart -> lf-rule-d3 true }T
   2 make-sort 0 make-var make-lam 1 make-sort make-app
   0 x-to-prop 1 x-to-prop 2 make-var 2 make-var 0 make-var make-app
   make-pi make-pi make-pi make-pi ;
-T{ d4-pair lf-minfer-apart -> 0 false }T
+T{ d4-pair lf-minfer-apart -> lf-rule-d3 lf-rule-d4 or true }T
 \ lf-minfer-binders-apart is a step of the analysis (lib/frame.fs), run
 \ here on the job's frames from an empty stack.
 : binders-apart ( left right -- mask flag )
   frame-need lf-minfer-frames frame-room? drop
   lf-minfer-frames ['] lf-minfer-binders-apart frame-steps drop ;
-T{ d4-pair binders-apart -> 0 false }T
+T{ d4-pair binders-apart -> lf-rule-d3 lf-rule-d4 or true }T
 T{ d4-pair swap binders-apart -> lf-rule-d3 lf-rule-d4 or true }T
 \ Two lambdas, fun (h : X) => h and fun (h : X) => g h, in the context
 \ X : Sort s, g : X -> X: proofs when s = 0 (Lean accepts one for the
@@ -454,11 +457,12 @@ T{ s1-pair 50000 false probe drop -> outcome-rejected lf-diag-type-expected }T
 \ of P is claimed (declTypeMismatch; D2 under D4).
 T{ fresh 0 id-claim 0 bad-value 50000 true probe
   -> outcome-rejected lf-diag-value-apart 10 }T
-\ Unknown: a claim whose binder domain's type is a redex (no rule).
+\ A claim whose binder domain's type is a redex: unknown until plan task
+\ 4.2.2c (no rule), accepted since, as by Lean (its whnf is a Sort).
 : beta-claim ( -- claim value )
   fresh beta-prop 0 make-var 1 make-var make-pi make-pi beta-prop 0 make-var 0 make-var
   make-lam make-lam ;
-T{ beta-claim 50000 true probe drop -> outcome-unknown lf-diag-not-sort }T
+T{ beta-claim 50000 true probe drop -> outcome-ok lf-diag-none }T
 \ Invalid, exhausted and full, for the theorem probe too.
 T{ 0 pair -1 true probe 2drop -> outcome-invalid }T
 T{ 0 pair 10 true probe 2drop -> outcome-exhausted }T

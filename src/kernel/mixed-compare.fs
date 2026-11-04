@@ -159,8 +159,9 @@ lf-level-walk-room context-walk2: lf-mcompare-level-walker
 \ they never differ (Lean's == ignores them, 98-103). The same node is
 \ equal at once (is_eqp). (flag ok), with flag Lean's answer, or (false
 \ outcome) for a failure: exhausted, full or invalid, recorded as a
-\ diagnostic; two terms that differ record nothing, as == is no failure.
-\ Each visit costs one unit of fuel; the fuel left is in lf-mcompare-fuel.
+\ diagnostic; an answer leaves the diagnostic as it was (two levels that
+\ differ note themselves inside the walk), as == is no failure. Each
+\ visit costs one unit of fuel; the fuel left is in lf-mcompare-fuel.
 \ Unchecked: both roots are audited live terms (lf-cterm-check), as every
 \ term conversion compares; open terms compare their loose bound
 \ variables by index.
@@ -168,10 +169,12 @@ lf-level-walk-room context-walk2: lf-mcompare-level-walker
   dup outcome-unknown = if drop false outcome-ok exit then
   dup ok? if true swap exit then
   lf-mcompare-walker lf-mcompare-site lf-diag-walk false swap ;
+: lf-mcompare-same? ( left right -- flag outcome )
+  lf-diag@ 2>r 2>r ['] lf-mcompare-visit lf-mcompare-walker walk-run-pair
+  lf-mcompare-equal dup ok? if 2r> 2r> lf-diag! else 2r> 2r> 2drop 2drop then ;
 : lf-expr-equal ( left right fuel -- flag outcome )
   lf-mcompare-walker walk-budget 0= if 2drop false outcome-invalid exit then
-  2dup = if 2drop true outcome-ok exit then
-  ['] lf-mcompare-visit lf-mcompare-walker walk-run-pair lf-mcompare-equal ;
+  2dup = if 2drop true outcome-ok else lf-mcompare-same? then ;
 
 \ Audit both roots completely, left first, with the walk's fuel; a failed
 \ audit leaves no fuel. lf-cterm-check fails only as invalid, exhausted or

@@ -142,8 +142,10 @@ fc-decl before def safe T 2 u v TYPE S s i p u p v VALUE S i p u p v
 fc-decl check def safe d 1 w TYPE S s i s z s p w VALUE C T 2 s z s p w
 T{ check-last -> outcome-rejected lf-diag-value-apart compare-step }T
 \ S4 (ADR 0011, Amendment 2): a Pi whose body is not a type, in the value
-\ and in the claim (Lean: typeExpected); behind a constant it stays
-\ unknown (K1), as Lean may unfold it.
+\ and in the claim (Lean: typeExpected). Behind a constant it was unknown
+\ (K1) until plan task 4.2.2c: since then the body's type is put in whnf,
+\ unfolding the definition, as Lean's ensure_sort_core does (rows
+\ pi-body.needs-unfolding and -wrong of the first checker's table).
 fc-case s4-value
 fc-decl check def safe piBodyVariable 0 TYPE S s s z VALUE P S s z P V 0 V 0
 T{ check-last -> outcome-rejected lf-diag-body-type value-step }T
@@ -153,7 +155,11 @@ T{ check-last -> outcome-rejected lf-diag-body-type type-step }T
 fc-case s4-unfolding
 fc-decl before def safe S1 0 TYPE S s s z VALUE S s z
 fc-decl check def safe piBodyUnfold 0 TYPE S s s z VALUE P C S1 0 V 0
-T{ check-last -> outcome-unknown lf-diag-not-sort value-step }T
+T{ check-last -> outcome-ok 0 lf-step-done }T
+fc-case s4-unfolding-wrong
+fc-decl before def safe F1 0 TYPE S s z VALUE P S z S z
+fc-decl check def safe piBodyUnfoldWrong 0 TYPE S s s z VALUE P C F1 0 V 0
+T{ check-last -> outcome-rejected lf-diag-body-type value-step }T
 \ The zero inside a max that LeanForth used to drop at any depth, and
 \ Lean's normalize does not drop here.
 fc-case zero-rewrite

@@ -113,6 +113,7 @@ require ./mixed-head.fs
 require ./mixed-open.fs
 require ./mixed-signature-audit.fs
 require ./mixed-signature-probe.fs
+require ./whnf.fs
 
 begin-structure /lf-ijob
   /frames +field lf-ijob-frames  \ fuel, visits in progress, the explicit stack
@@ -302,13 +303,12 @@ lf-walk-room context-walk2: lf-minfer-scan
   lf-minfer-sort-scope ok-then? 0= if no-result exit then
   lf-level-succ if lf-minfer-sort else -1 outcome-full then ;
 
-\ The level of an inferred Sort. Any other type is unknown, not a judgment,
-\ and recorded as not a Sort.
-: lf-minfer-not-sort ( node -- -1 status )
-  0 lf-diag-not-sort lf-minfer-note -1 outcome-unknown ;
-: lf-minfer-sort-level ( node -- level status )
-  dup lf-term-read 0= if drop -1 outcome-invalid exit then
-  drop swap lf-tag-symbolic-sort = if nip outcome-ok else drop lf-minfer-not-sort then ;
+\ A node that is a Sort, with its level; a node that is a Pi, with its
+\ domain and body.
+: lf-minfer-sort? ( node -- level true | false )
+  lf-term-read if drop swap lf-tag-symbolic-sort = dup 0= if nip then else false then ;
+: lf-minfer-pi? ( node -- domain body true | false )
+  lf-term-read if rot lf-tag-pi = if true exit then 2drop then false ;
 
 \ A constant: specialize its candidate signature to the reference's levels,
 \ first copied into this record (specialization needs its input disjoint
@@ -392,27 +392,29 @@ defer lf-minfer-walk ( node -- type status )
 : lf-minfer-firsts ( left right -- l1 r1 ) lf-term-first@ swap lf-term-first@ swap ;
 : lf-minfer-seconds ( left right -- l2 r2 ) lf-term-second@ swap lf-term-second@ swap ;
 
-\ Rules S1, S2 and F1 on a type that is no visible Sort or Pi: when rules
-\ run, the type's whnfB whose head kind passes test ( kind -- flag ).
-: lf-minfer-reduced ( type -- node true | false )
-  lf-minfer-deciding? if lf-minfer-whnf ok-then? if true exit then then drop false ;
-: lf-minfer-head-rule ( type test -- node true | false )
-  swap lf-minfer-reduced if tuck lf-mhead-kind swap execute dup 0= if nip then
-  else drop false then ;
-\ S1, S2: the level of a type's Sort (lf-minfer-sort-level); when that is
-\ undecided and the whnfB is rigid and not a Sort (Lean's ensure_sort_core
-\ fails: typeExpected), rejected at site with code and the reduced type.
-: lf-minfer-not-type ( site code type -- -1 status )
-  ['] lf-mhead-not-sort? lf-minfer-head-rule
-  if -rot lf-minfer-reject else 2drop outcome-unknown then no-result ;
+\ Lean's ensure_sort_core and ensure_pi_core (type_checker.cpp 62-83;
+\ ADR 0014 Q1, plan task 4.2.2c), which replace ADR 0011's rules S1, S2,
+\ S4 and F1: a type that is a Sort (a Pi) as it is; otherwise its whnf
+\ (whnf.fs: beta, and delta in a check of the checked environment), on
+\ the job's frames and fuel, must be one. A whnf that is neither is
+\ Lean's typeExpected (funExpected): rejected at site with code and the
+\ reduced type while deciding, as ADR 0011's rules recorded it; aside
+\ (test P2), where a failure only means "not known", unknown, recorded as
+\ not a Sort (not a Pi) with the type. A whnf that fails passes its
+\ outcome on (unknown where Lean may reduce further than LeanForth yet,
+\ whnf.fs; exhausted, full, invalid).
+: lf-minfer-whnf-job ( node -- node' status ) lf-minfer-frames lf-whnf-on ;
+: lf-minfer-not-sort ( type -- -1 status )
+  0 lf-diag-not-sort lf-minfer-note -1 outcome-unknown ;
+: lf-minfer-not-type ( reduced site code -- -1 status )
+  lf-minfer-deciding? if lf-minfer-reject no-result else 2drop lf-minfer-not-sort then ;
 : lf-minfer-sort-rule ( type site code -- level status )
-  2>r dup lf-minfer-sort-level dup outcome-unknown =
-  if 2drop 2r> rot lf-minfer-not-type else 2r> 2drop rot drop then ;
-\ F1: a function's type that is no visible Pi is rejected when its whnfB
-\ is rigid and not a Pi (Lean's ensure_pi_core fails: funExpected).
-: lf-minfer-not-pi ( type -- outcome )
-  dup 0 lf-diag-not-pi lf-minfer-note ['] lf-mhead-not-pi? lf-minfer-head-rule
-  if lf-minfer-site lf-diag-function-expected lf-minfer-reject else outcome-unknown then ;
+  2>r dup lf-minfer-sort? if nip 2r> 2drop outcome-ok exit then
+  lf-minfer-whnf-job ok-then? 0= if 2r> 2drop no-result exit then
+  dup lf-minfer-sort? if nip 2r> 2drop outcome-ok else 2r> lf-minfer-not-type then ;
+: lf-minfer-not-pi ( reduced -- outcome )
+  lf-minfer-deciding? if lf-minfer-site lf-diag-function-expected lf-minfer-reject
+  else 0 lf-diag-not-pi lf-minfer-note outcome-unknown then ;
 
 \ The rejection analysis below compares terms under the binders it enters
 \ itself (D4), as before plan task 4.2.2a: a binder it enters gets a free
@@ -431,8 +433,6 @@ defer lf-minfer-walk ( node -- type status )
 \ restored afterwards.
 : lf-minfer-type2 ( node -- type status )
   lf-minfer-walk dup ok? if drop lf-minfer-walk then ;
-: lf-minfer-sort? ( node -- level true | false )
-  lf-term-read if drop swap lf-tag-symbolic-sort = dup 0= if nip then else false then ;
 : lf-minfer-nonzero? ( level -- flag ) lf-minfer-zero? ok? if 0= else drop false then ;
 : lf-minfer-sorted-free? ( type -- flag )
   lf-minfer-whnf ok-then? 0= if drop false exit then
@@ -622,17 +622,20 @@ defer lf-minfer-args-apart ( left right count frames -- ... frames next )
 : lf-minfer-call ( node frames cont -- ... frames next )
   over lf-minfer-room dup ok? if drop frame-opened else frame-refuse then ;
 
-\ Application, in three steps: the function's type must be a visible Pi
-\ (otherwise unknown, or rejected by F1), the argument's type must
-\ convert to its domain (otherwise unknown, or rejected by D1-D5:
-\ appTypeMismatch), and the type is the Pi body instantiated with the
-\ argument. The argument waits on the stack while the function's type is
-\ inferred; the body, the argument, the domain and the term count before
-\ the argument's inference (its scratch is discarded) while the
-\ argument's is.
+\ Application, in three steps (infer_app, type_checker.cpp 173-187): the
+\ function's type must be a Pi, after whnf when it is no visible one
+\ (ensure_pi_core: otherwise rejected, funExpected, or the whnf's
+\ failure), the argument's type must convert to its domain (otherwise
+\ unknown, or rejected by D1-D5: appTypeMismatch), and the type is the Pi
+\ body instantiated with the argument. The argument waits on the stack
+\ while the function's type is inferred; the body, the argument, the
+\ domain and the term count before the argument's inference (its scratch
+\ is discarded) while the argument's is.
+: lf-minfer-pi-whnf ( type -- domain body true | outcome false )
+  lf-minfer-whnf-job ok-then? 0= if false exit then
+  dup lf-minfer-pi? if rot drop true else lf-minfer-not-pi false then ;
 : lf-minfer-pi-parts ( type -- domain body true | outcome false )
-  dup lf-term-read 0= if drop outcome-invalid false exit then
-  rot lf-tag-pi = if rot drop true else 2drop lf-minfer-not-pi false then ;
+  dup lf-minfer-pi? if rot drop true else lf-minfer-pi-whnf then ;
 : lf-minfer-argued ( mark domain A status -- status )
   ok-then? 0= if nip swap lf-minfer-discard exit then
   swap lf-minfer-agree lf-minfer-site lf-diag-argument-apart lf-minfer-verdict
@@ -726,8 +729,12 @@ defer lf-minfer-args-apart ( left right count frames -- ... frames next )
   2r> swap 2swap lf-minfer-lam-close r> 0 ;
 : lf-minfer-lam-chained ( T status frames -- type status frames 0 )
   -1 lf-minfer-chain ! lf-minfer-lam-end ;
+\ The innermost body's type T, put through cheap_beta_reduce first, as
+\ infer_lambda does (type_checker.cpp 140, whnf.fs; plan task 4.2.2c).
+: lf-minfer-body-type ( top T -- type status )
+  lf-minfer-frames lf-cheap-beta ok-then? if swap lf-minfer-abstract else nip no-result then ;
 : lf-minfer-lam-plain ( T status frames -- type status frames 0 )
-  >r 1 r@ frame-pick -rot lf-minfer-good? if swap lf-minfer-abstract else rot drop then
+  >r 1 r@ frame-pick -rot lf-minfer-good? if lf-minfer-body-type else rot drop then
   r> lf-minfer-lam-end ;
 : lf-minfer-lam-domain ( D status frames -- ... frames next )
   >r 2 r@ frame-pick 0 r@ frame-pick 2swap lf-minfer-bound

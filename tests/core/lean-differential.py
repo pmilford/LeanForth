@@ -32,11 +32,9 @@ EQUAL, INVALID, UNKNOWN = "0", "1", "3"
 KNOWN_UNKNOWN = {
     # (Until ADR 0011 Amendment 1, max u v against max v u, convert case
     # 2/6, was here: lf-level-compare now decides it as Lean's normalize.)
-    # The claim's binder domain is the redex (fun X : Sort 1 => X) Sort 0;
-    # lf-mixed-infer needs the inferred type of a domain to be a Sort
-    # without weak-head reduction (src/kernel/mixed-infer.fs, the word
-    # lf-minfer-sort-level), so it answers unknown.
-    ("definition", ("0", "4")),
+    # (Until plan task 4.2.2c, definition case 0/4 was here: the claim's
+    # binder domain is the redex (fun X : Sort 1 => X) Sort 0, whose type
+    # lf-mixed-infer now puts in whnf, as Lean's ensure_sort_core does.)
 }
 
 
