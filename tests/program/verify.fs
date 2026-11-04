@@ -13,6 +13,18 @@
 \ both designs with today's reader on every reader test and hostile input.
 \ Run from the repository root, like every test file.
 include ../support/tester.fs
+\ Counted OPEN-FILE and CLOSE-FILE, and a READ-FILE that throws once asked
+\ to, as Ctrl-C would: the program words, compiled after them, call them.
+variable opened
+variable closed
+variable interrupt-read
+[defined] warnings [if] warnings @ false warnings ! [then]
+: open-file ( c-addr u fam -- fileid ior ) open-file dup 0= if 1 opened +! then ;
+: close-file ( fileid -- ior ) 1 closed +! close-file ;
+: read-file ( c-addr u fileid -- u2 ior )
+  interrupt-read @ if false interrupt-read ! -28 throw then read-file ;
+[defined] warnings [if] warnings ! [then]
+: open-files ( -- n ) opened @ closed @ - ;
 require ../../src/program/verify.fs
 require ../../src/program/verify-alias.fs
 \ Gforth 1.0's interpreter warns about some hostile tokens the separate
@@ -210,6 +222,33 @@ T{ fdepth s" x" s" t.fs" float-design pv-text-run verdict fdepth
    -> 0 outcome-invalid pv-why-host-literal 1 0 0 }T
 [then]
 
+\ The source file is closed however the run ends: accepted, refused, or
+\ stopped by an exception while it was read; in both designs.
+: closes? ( c-addr u xt -- outcome closed? )
+  0 transcript# ! opened @ >r execute opened @ r> - 1 = open-files 0= and ;
+T{ s" src/program/clamp.fs" ' lf-verify-file closes? -> outcome-ok true }T
+T{ s" src/program/clamp.fs" ' lf-alias-file closes? -> outcome-ok true }T
+T{ s" /dev/zero" ' lf-verify-file closes? -> outcome-invalid true }T
+T{ s" /dev/zero" ' lf-alias-file closes? -> outcome-invalid true }T
+: interrupted ( xt -- outcome closed? reason )
+  true interrupt-read ! s" src/program/clamp.fs" rot closes? lf-verify-reason ;
+T{ ' lf-verify-file interrupted -> outcome-invalid true pv-why-interrupted }T
+T{ ' lf-alias-file interrupted -> outcome-invalid true pv-why-interrupted }T
+
+\ A run whose preparation throws (here the design's entry text, once; in
+\ use, the dictionary running out while a word list is made) passes the
+\ exception on and leaves the context free for the next run.
+variable prefix-throws
+: throwing-prefix ( -- c-addr u )
+  prefix-throws @ if false prefix-throws ! 77 throw then s" " ;
+: prefix-like ( xt design -- ) pv-alias-design over /pv-design move pv-design-prefix ! ;
+pv-design: throwing-design  ' throwing-prefix throwing-design prefix-like
+: prepare-throws ( -- code busy? )
+  true prefix-throws ! s" : f ;" s" t.fs" throwing-design ['] pv-text-run catch
+  dup if >r 2drop 2drop drop r> then pv-busy @ ;
+T{ prepare-throws -> 77 false }T
+T{ s" : f ;" both -> outcome-ok 0 1 0 true }T
+
 \ Capacities at the boundary: eight open structures are written, the
 \ ninth is full, at its own line, as with today's reader.
 create nest-text 256 chars allot
@@ -240,9 +279,10 @@ T{ deep-alias -> outcome-full pv-why-capacity true }T
 T{ s" : f ;" both -> outcome-ok 0 1 0 true }T
 
 \ The rule for names that read as numbers, against the host: every token
-\ of one to three characters over a small alphabet, and some others,
-\ that this Gforth reads with an empty search order and BASE ten (as a
-\ number, a float or a character) must be refused as a name.
+\ of one to three printable characters (but " { and }, which Gforth 1.0
+\ reads as strings and environment names, not numbers), and some longer
+\ ones, that this Gforth reads with an empty search order and BASE ten
+\ (as a number, a float or a character) must be refused as a name.
 wordlist constant no-words
 create oracle-settings /run-settings allot
 variable oracle-depth
@@ -262,19 +302,22 @@ variable oracle-misses
   2dup host-reads? if 1 oracle-reads +! 2dup pv-number-like? 0=
   if ." read but not refused: " 2dup type cr 1 oracle-misses +! then then 2drop ;
 create token 4 chars allot
-: alphabet ( -- c-addr u ) s" +-#$%&'._019afegxA" ;
-: letter ( i -- char ) alphabet drop + c@ ;
-: tokens1 ( -- ) alphabet nip 0 ?do i letter token c! token 1 oracle loop ;
-: tokens2 ( -- ) alphabet nip 0 ?do i letter token c! alphabet nip 0 ?do
-  i letter token char+ c! token 2 oracle loop loop ;
-: tokens3 ( -- ) alphabet nip 0 ?do i letter token c! alphabet nip 0 ?do
-  i letter token char+ c! alphabet nip 0 ?do i letter token 2 chars + c! token 3 oracle
-  loop loop loop ;
+\ Characters of a token: printable ASCII but the three above.
+: token-char? ( char -- flag )
+  dup [char] " <> over [char] { <> and swap [char] } <> and ;
+: token! ( char i -- ) chars token + c! ;
+\ Run xt ( char -- ) for each character a token may hold.
+: each-char ( xt -- )
+  127 33 do i token-char? if i over execute then loop drop ;
+: token-3rd ( char -- ) 2 token! token 3 oracle ;
+: token-2nd ( char -- ) 1 token! token 2 oracle ['] token-3rd each-char ;
+: token-1st ( char -- ) 0 token! token 1 oracle ['] token-2nd each-char ;
 : oracle-others ( -- )
   s" 1_000" oracle s" 1.5e3" oracle s" -'a'" oracle s" 0x10" oracle s" 2p" oracle
-  s" 1k" oracle s" $FF" oracle s" -$1F" oracle s" #-12" oracle s" 'a" oracle ;
+  s" 1k" oracle s" $FF" oracle s" -$1F" oracle s" #-12" oracle s" 'a" oracle
+  s" +k0+" oracle s" -u1." oracle s" +M10" oracle s" -k1.5" oracle s" #-k1" oracle ;
 : oracle-all ( -- reads misses )
-  0 oracle-reads ! 0 oracle-misses ! tokens1 tokens2 tokens3 oracle-others
+  0 oracle-reads ! 0 oracle-misses ! ['] token-1st each-char oracle-others
   oracle-reads @ oracle-misses @ ;
 T{ oracle-all 0 = swap 100 > -> true true }T
 
