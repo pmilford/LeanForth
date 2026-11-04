@@ -457,7 +457,9 @@ T{ g( s"   prim -rot" >ir )g 1 2 in2 1 f -> outcome-invalid }T
 \ What out lines print, into a buffer.
 create printed 256 chars allot
 variable printed#
-: print+ ( c-addr u -- ) tuck printed printed# @ chars + swap chars move printed# +! ;
+: print+ ( c-addr u -- )
+  dup printed# @ + 256 > abort" printed full"
+  tuck printed printed# @ chars + swap chars move printed# +! ;
 : printing ( -- ) 0 printed# ! ['] print+ irx-output-to ;
 : printed? ( c-addr u -- flag ) printed printed# @ compare 0= ;
 \ The text expected, built here from the host's own number conversion.
@@ -483,6 +485,7 @@ T{ printing -2 -1 in2 1 f drop printed# @ printed 1 chars + c@ -> 2 255 }T
 \ SPACES prints at most as many blanks as the block has fuel: a word run
 \ with fuel 3 has 2; the stacks and the result are the model's.
 T{ g( s"   out spaces" >ir )g -> }T
+T{ printing 1000 in1 3 f printed# @ irx-depth -> outcome-ok 2 0 }T
 T{ printing max-n in1 3 f printed# @ irx-depth -> outcome-ok 2 0 }T
 T{ printing 5 in1 9 f printed# @ -> outcome-ok 5 }T
 T{ printing max-n 1+ in1 9 f printed# @ -> outcome-ok 0 }T

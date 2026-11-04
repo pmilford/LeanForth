@@ -146,8 +146,10 @@ The normative definition is `ProgramIR.run` in
   data or return-stack item), *unmodeled*, *unbalanced* (a word returned
   with return-stack items), *unknownWord*, *badConstant*, *outOfFuel*.
 - **Literals** must fit in a cell; the semantics gives a literal that does
-  not the failure *unmodeled*. The reader writes only literals that fit in
-  32 bits, so on cells of 32 bits or more every literal it writes fits.
+  not the failure *unmodeled*. The IR 0.1 reader writes only literals that
+  fit in 32 bits, so on cells of 32 bits or more every literal it writes
+  fits; the program words write values from −2^31 to 2^32 − 1
+  ([IR 0.2](#ir-02)), which fit every cell of 33 bits or more.
 - **Fuel** bounds the nesting depth of calls and the repetitions of each
   loop: a called word runs with one unit less than its caller, which
   continues with its own fuel afterwards, and each repetition of a loop
@@ -855,9 +857,17 @@ assumption says which later version the name means after loading.
 `."` and `S"` must close on their line (reason 32, "text not closed on its
 line"); a tab in the text is refused (reason 16); `S"` must be followed at
 once by `TYPE`, the host's own as the design knows words; `S"` anywhere
-else, `TYPE` alone, `S\"` and `.(` stay refused (reason 2). Outside a
-definition every output word is refused (reason 3): it would print while
-the file loads.
+else, `TYPE` alone, `S\"` and `.(` stay refused (reason 2); a `TYPE`
+redefined before the run is refused by the mode shift (reason 29), which
+`tests/program/verify.fs` checks. Outside a definition every output word
+is refused (reason 3): it would print while the file loads. The verifying
+Forth needs `.S`, of the optional Programming-Tools word set:
+[`src/lib/portability.fs`](../../src/lib/portability.fs), which the
+program words load, defines it, as both Gforths print it, on a Forth
+without one (`verify_ir02.py` compares the two). The IR interpreter prints
+at most as many blanks for `SPACES` as its block has fuel, so that a huge
+count cannot keep a test run going; beyond that its printed bytes are cut
+short, never its stacks or result.
 
 **LSHIFT, -ROT and numbers (A3).** `LSHIFT ( x u -- x' )` for a count
 below the cell width: the bit pattern shifted left, the bits above the
@@ -870,8 +880,15 @@ non-standard words have portable definitions). Numbers: plain decimals,
 `#[-]digits`, `$[-]hexadecimal digits` (either case), `%[-]binary digits`
 and `'c'` for a printable character, from −2^31 to 2^32 − 1, at most 10,
 8 or 32 digits; the IR writes them in decimal (`$FFFFFFFF` is
-`lit 4294967295`). Refused: `-$10` (Gforth 1.0 refuses it, 0.7.3 reads
-−16), `1_000`, `0x10`, `1.`, `-'a'` and every other form. A literal above
+`lit 4294967295`). Refused: `-$10`, which Forth-2012 does not define (a
+sign must follow the prefix) and which Gforth 1.0 reads as −16 or refuses
+depending on the number it read before, a state it keeps from one number
+to the next (review rvIR3; 0.7.3 reads −16); `1_000`, `0x10`, `1.`,
+`-'a'`, a `'c'` form without its closing quote (`'a`, `'ab`) and every
+other form. `tests/program/verify_ir02.py` compares this reading with both
+Gforths' own on about 5,500 tokens, and right after each of eleven other
+tokens (accepted, refused and Gforth-only), so that such state cannot
+change an accepted form unnoticed. A literal above
 2^31 − 1 fits only cells of at least 33 bits; elsewhere it is *unmodeled*,
 so a theorem that uses one assumes such cells.
 
@@ -880,8 +897,13 @@ uses one of the three new instructions, `lf-ir 0.1` otherwise: the golden
 files `clamp.ir`, `examples.ir` and `all-primitives.ir` and the clamp
 receipt's IR are unchanged, byte for byte. Since the version line depends
 on every line, the program words keep the IR in a heap buffer during the
-run and send it to the output word at the end (a run whose IR the heap
-cannot hold stops as *full*). The IR 0.1 reader stays IR 0.1 and refuses
+run, with no limit of their own, and send it to the output word at the
+end. A run whose IR the heap cannot hold stops as *full* there. The
+diagnostic line has a slot of its own in the run record, so it always
+fits, and a run that stops as *full*, for any capacity, sends that line
+alone and no IR line, so that a run cut short never delivers IR that looks
+whole (review rvIR3, L1; `tests/program/verify.fs` runs it with a small
+heap). The IR 0.1 reader stays IR 0.1 and refuses
 every IR 0.2 input; the IR interpreter reads both versions and refuses an
 IR 0.2 instruction under an IR 0.1 version line. Reason 2 now reads "a
 Forth word outside IR 0.2". Receipts are not changed: schema 0.2 has
@@ -930,7 +952,13 @@ that `src/lib/sha256.fs` runs this code (it defines the same words with
 the same text but does not load this file yet, the stage's next step), and
 on 64-bit hosts its round and schedule do not call these words at all
 (`sha-doubling`, amendment finding 3), which stage SHA-3 must address; 32-
-bit cells; Σ1, σ0 and σ1, which follow ROTR's theorem the same way.
+bit cells; `sha-shr`, which is in the file and its IR but has no theorem
+yet; Σ1, σ0 and σ1, which follow ROTR's theorem the same way. The
+theorems state each word's whole run from a stack (`callWord … = .next
+…`), not, as [SHA256_SPEC.md](SHA256_SPEC.md)'s stage plan has it, a
+contract stated as a rewrite over an arbitrary continuation; `Σ0`'s proof
+reuses `sha-rotr`'s through `run_call_word`, which serves the same purpose
+for now, and the continuation form is still to come.
 
 **Evidence** (2026-11-04, Gforth 1.0.0 and 0.7.3, Lean 4.35.0):
 `tests/program/verify.fs` (both designs: every IR 0.2 refusal at its token,
@@ -949,7 +977,11 @@ program words' IR, by version name: identical stacks and printed bytes on
 both Gforths on all 1,174 cases that end normally (also 297 output-word
 cases at the edges: `.` and `U.` at the cell's and 32-bit edges, `EMIT` of
 0 to 255 and beyond, `SPACES` of negative counts, `.S` of 12 cells), the
-version names as predicted, and 34 literals read as Gforth reads them;
+version names as predicted; 5,558 tokens (the review's literal fuzz to
+three characters, every `'c'` form, the edges) read as the rule says, the
+307 accepted read alike by both Gforths, also in 209 pairs right after
+another token, and the portable `.S` printing what Gforth's prints (with
+`--fuzz-length 4`, the review's 89,045 tokens: 0 mismatches);
 `tests/program/ir_run_differential.py --lean` (150 random IR 0.2 programs
 with `lshift`, `-rot`, out lines and version names: the interpreter and
 Lean's model agree on every case); planted faults (`tests/mutants/faults.toml`,
@@ -970,14 +1002,15 @@ words write the lowest version that fits.
 make test-program-ir        # receipts, verbatim copies, reader tests and files (Gforth, Python)
 make test-program-verify    # the program words: both designs, cross-check, round trip
 make reference-program-ir   # the Lean model, its axioms, its IR against the golden files
-GFORTH=... python3 tests/program/verify_ir02.py   # IR 0.2 against plain Gforth (host oracle)
+make reference-program-ir-run   # the IR interpreter against Lean, verify_ir02.py --lean, VCs
 ```
 
-`verify_ir02.py` (about 4 s; `--lean` also runs Lean's model on the cases
-of eight files) is not yet in a make target: it is to join
-`make test-program-verify`.
-
-The first two are part of `make test`, the last of `make check`. Measured on
+The first two are part of `make test`, the last two of `make check`.
+`make test-program-verify` also runs `tests/program/verify_ir02.py`, IR
+0.2 against plain Gforth (about 5 s), and `make reference-program-ir-run`
+runs it with `--lean`, which adds Lean's model on the cases of eight files;
+`--fuzz-length 4` gives the review's whole literal fuzz (89,045 tokens).
+Measured on
 2026-11-02 (Ryzen 5 7600X, WSL2): `make reference-program-ir` takes about
 4.7 s with Lean 4.35.0 (about 6 s with the contracts, 2026-11-03); the
 reader tests pass on Gforth 1.0.0 and 0.7.3, and so, on 2026-11-03, do the

@@ -233,6 +233,7 @@ T{ s\" : f .\"   two\" s\" typed text\" TYPE .\" \" ;" both -> outcome-ok 0 1 0 
 T{ transcript-text s\" |  out .\"   two\" @1:5|  out .\" typed text\" @1:15|" contains?
    -> true }T
 T{ transcript-text s\" |  out .\" \" @1:35|end @1:40|" contains? -> true }T
+T{ s" lf-ir 0.2|" transcript-text drop over compare -> 0 }T
 T{ s\" : f .\" a \"b\" ;" both -> outcome-unsupported pv-why-unknown 1 11 true }T
 T{ s" 5 ." both -> outcome-unsupported pv-why-outside 1 3 true }T
 T{ s" lf-ir 0.1|source t.fs|unsupported @1:3: not allowed outside a definition: .|"
