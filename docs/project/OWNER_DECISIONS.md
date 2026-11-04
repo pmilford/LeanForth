@@ -666,3 +666,11 @@ ADR 0019 Amendment 1 (agent IR2; probes in
   as in Lean's environment; (3) the P4 guard on unit-like structures:
   closed by task 5.2.2's port of Lean's rules. Any stricter behaviour only
   behind an opt-in flag.
+
+## How progress is described (2026-11-04)
+
+- The owner: "be a bit more clear that we are working on an in progress
+  design that will be completed and compatible at a later step!" Every
+  report and gate question presents a step as part of an unfinished design
+  and names, for each temporary gap from Lean (an *unknown* or a refusal
+  where Lean decides), the plan task that makes it identical to Lean.

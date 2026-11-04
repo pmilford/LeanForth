@@ -621,10 +621,11 @@ cautious (refuses or says *unknown*), never more permissive than Lean.
   stacks first.
 - **Speed.** Free variables make checking 10-25% slower until the
   loose-variable range (ADR 0014 Q12) is built (accepted by the owner).
-  Agent KC reported the move to heap stores made 2,000 random checker
-  trials about 2.2 times slower (65 s against 30 s; from that report, not
-  re-measured here); `Init`'s feed and check have since become much faster
-  (96 s to 12 s and 63 s to 9 s). Speed against Lean is not yet measured,
+  The move to heap stores first cost about 1.2 times on the 2,000 random
+  checker trials (an early report of 2.2 times misread cumulative times,
+  corrected by agent KC); after KC's speed work the trials take 5% fewer
+  instructions than before the move, and `Init`'s feed and check are much
+  faster (96 s to 12 s and 63 s to 9 s, KC's merge 87f0f79). Speed against Lean is not yet measured,
   and the owner's one-thread speed goal is open.
 - The `Init` result (184 data types and 1,014 definitions and theorems
   accepted, none rejected) is dominated by *unknown* and *unsupported* for
