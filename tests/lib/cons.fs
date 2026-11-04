@@ -46,6 +46,13 @@ T{ s" B" sc text-intern s" A" sc text-intern s" Real" sc text-intern -> 4 0 5 0 
 T{ m0 unsealed cons-rollback m0 sc cons-mark sc cons-reset m0 sc cons-rollback -> outcome-invalid outcome-ok outcome-ok outcome-invalid }T
 T{ sc cons-numbers sc cons-table htab-count s" Nat" sc text-intern -> 3 0 0 0 }T
 sc cons-free unsealed cons-free inp cons-free
+\ Two texts with the same FNV-1a hash (1582148253): the comparison, not
+\ the hash, tells them apart, in a table of one slot and growing.
+create clash /cons allot
+T{ 0 text-class clash cons-init s" costarring" hash-bytes s" liquid" hash-bytes = -> outcome-ok true }T
+T{ s" costarring" clash text-intern s" liquid" clash text-intern s" costarring" clash text-intern -> 0 0 1 0 0 0 }T
+T{ s" liquid" clash text-intern s" declinate" clash text-intern s" macallums" clash text-intern -> 1 0 2 0 3 0 }T
+clash cons-free
 
 \ Tuples: built in steps; equal lists, one number.
 create tu /cons allot
@@ -55,12 +62,16 @@ T{ tu tuple-start tu tuple-end tu tuple-start tu tuple-end -> outcome-ok 0 0 out
 : pair ( a b -- t outcome ) tu tuple-start drop swap tu tuple-add drop tu tuple-add drop tu tuple-end ;
 T{ 7 9 pair 7 9 pair 9 7 pair -> 1 0 1 0 4 0 }T
 T{ 1 tu tuple-length 0 1 tu tuple-item 1 1 tu tuple-item 0 tu tuple-length -> 2 7 9 0 }T
+\ Two lists with the same hash (computed independently): told apart.
+T{ 1 tu cons-at tuple-hash 4 tu cons-at tuple-hash = -> false }T
+T{ 908 63501 pair 754 79452 pair 908 63501 pair -> 7 0 10 0 7 0 }T
+T{ 7 tu cons-at tuple-hash 10 tu cons-at tuple-hash = -> true }T
 \ A number inside a tuple is not a tuple.
 T{ 1 tu cons-entry? 2 tu cons-entry? 3 tu cons-entry? 4 tu cons-entry? -> true false false true }T
 \ Items beyond 32 bits are refused (on a 32-bit host every cell fits).
 u32-mask 0> [if]
 T{ tu tuple-start u32-mask 1+ tu tuple-add -1 tu tuple-add u32-mask tu tuple-add -> outcome-ok outcome-invalid outcome-invalid outcome-ok }T
-T{ tu tuple-end nip 0 7 tu tuple-item -> outcome-ok u32-mask }T
+T{ tu tuple-end swap 0 swap tu tuple-item -> outcome-ok u32-mask }T
 [then]
 \ No fixed length: 100,000 items, built twice, one number.
 : long ( -- t outcome )

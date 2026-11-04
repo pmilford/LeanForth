@@ -39,6 +39,12 @@ u32-mask 0> [if]
 T{ nat u32-mask input name-find-num nat u32-mask 1+ input name-num -> false -1 outcome-full }T
 [then]
 T{ 0 input name-valid? 6 input name-valid? 99 input name-valid? -1 input name-valid? -> true true false false }T
+\ Two components of one length with the same FNV-1a hash give names with
+\ the same head and stored hash: the text tells them apart.
+nat s" glbvs" str constant n-co
+nat s" yacxa" str constant n-li
+T{ n-co n-li = n-co input name-hash@ n-li input name-hash@ = -> false true }T
+T{ nat s" yacxa" input name-str nat s" glbvs" input name-find-str -> n-li 0 n-co true }T
 
 \ Levels.
 : lvl ( l outcome -- l ) ok? 0= abort" lvl" ;
