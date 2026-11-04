@@ -19,8 +19,8 @@
 \ snapshot moved to another declaration. A check that throws in its job is
 \ invalid and its lane's context is replaced (G-P6), giving the verdicts
 \ of the serial run with the same THROW. Inside a job nothing publishes,
-\ makes, chooses or frees an environment, no internal word writes one and
-\ readiness says false (G-P1).
+\ makes, chooses or frees an environment, no internal word writes one, no
+\ context is claimed or released and readiness says false (G-P1).
 include ../support/tester.fs
 include ../support/checks.fs
 require ../../src/lib/task.fs
@@ -203,7 +203,7 @@ env-free
 \ refused each time, and slot 1 stays open until the scheduler publishes.
 \ Internal words that write the environment, the undo words among them,
 \ throw lf-env-refused before writing, and readiness says false.
-create tries 15 cells allot
+create tries 17 cells allot
 : try! ( x k -- ) cells tries + ! ;
 : job-internals ( -- )
   1 slot@ -77 ['] lf-env-unpublish catch nip nip 6 try!
@@ -215,9 +215,15 @@ create tries 15 cells allot
   lf-diag-clear outcome-ok 1 slot@ ['] lf-env-unfinished catch nip nip 11 try!
   lf-diag-code@ 12 try!  outcome-ok 0 slot@ ['] lf-env-ended catch nip nip 13 try!
   marked-ior 14 try! ;
+\ Contexts (the round-4 review's M1): claiming lane 1's idle context
+\ gives false, and releasing the job's own context aborts.
+: job-contexts ( -- )
+  lf-owner @ 1 lane-contexts lane @ context-claim 15 try!
+  lf-context @ ['] context-release catch dup if nip then 16 try! ;
 : job-tries ( -- )
   syn-check lf-env-hand-over 1 try! 0 try! 8 lf-env-new 3 try! 2 try!
-  lf-env lf-env-use 4 try! lf-env lf-env-free 5 try! job-internals job-undoes ;
+  lf-env lf-env-use 4 try! lf-env lf-env-free 5 try! job-internals job-undoes
+  job-contexts ;
 : try@ ( k -- x ) cells tries + @ ;
 : refused-try? ( k -- flag ) try@ lf-env-refused = ;
 8 fresh-env
@@ -229,6 +235,7 @@ T{ 4 try@ 5 try@ 1 slot@ lf-slot-final? -> outcome-invalid outcome-invalid false
 T{ 6 try@ lf-env-refused = 7 try@ lf-env-refused = 8 try@ -> true true false }T
 T{ 9 refused-try? 10 refused-try? 11 refused-try? 12 try@ -> true true true lf-diag-none }T
 T{ 13 refused-try? 14 refused-try? 0 slot@ lf-slot-accepted? -> true true true }T
+T{ 15 try@ 16 try@ 1 lane-contexts lane @ context-idle? -> false -2 true }T
 0 in-lane
 T{ lf-env-hand-over rollback -> outcome-ok false }T
 home

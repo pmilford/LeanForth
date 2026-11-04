@@ -185,8 +185,9 @@ T{ lf-context @ context-main = -> true }T
 T{ j1 job-wait c1 context-idle? -> 0 true }T
 T{ c1 context-use 0 serial@ dag-results d= context-main context-use -> true }T
 
-\ Inside a job: submitting, waiting, making or freeing a context and
-\ stopping the pool are all refused, and the main context is not the job's.
+\ Inside a job: submitting, waiting, making, freeing, claiming or releasing
+\ a context and stopping the pool are all refused, and the main context is
+\ not the job's.
 : note ( x k -- ) cells notes + ! ;
 : nester ( -- )
   c1 ['] noop job-submit 0 note 1 note  j1 job-wait 2 note
@@ -201,6 +202,10 @@ context-new throw constant c2
   c2 context-use 0 note@ 1 note@ 2 note@ 3 note@ context-main context-use ;
 T{ ' nester in-job notes@ -> 0 task-refused 0 task-refused true }T
 T{ ' nest-aborts in-job notes@ drop -> 0 true true true }T
+\ Claiming the idle c1 gives false, and releasing its own c2 aborts.
+: claimer ( -- )
+  lf-owner @ c1 context-claim 0 note  c2 ['] context-release aborts? 1 note ;
+T{ ' claimer in-job notes@ 2drop c1 context-idle? -> 0 false true true }T
 T{ c1 context-free c2 context-free -> 0 0 }T
 
 \ The comparison detects interference: with the random seed planted in one
