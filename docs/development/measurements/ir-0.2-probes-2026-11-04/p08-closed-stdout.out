@@ -1,0 +1,18 @@
+== host: gforth 1.0.0 amd64
+== standard output closed:
+THROW code 0 
+THROW code 0 
+== exit 3
+== standard output a pipe already closed by its reader:
+THROW code 0 
+THROW code -2049 
+== exit 3
+== host: gforth 0.7.3
+== standard output closed:
+THROW code 0 
+THROW code 0 
+== exit 3
+== standard output a pipe already closed by its reader:
+THROW code 0 
+THROW code -2049 
+== exit 3
