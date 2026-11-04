@@ -1285,6 +1285,14 @@ test = "$GFORTH tests/program/verify.fs"
 reason = "rvPW M1: names Gforth 1.0 reads as numbers with its digit separator (_1, -_1, #_1, ._) are accepted; the host oracle sees them"
 
 [[fault]]
+id = "pv-number-si-float"
+file = "src/program/verify-semantics.fs"
+old = '''  >r 2dup pv-quote? r> if >r pv-si-float? r> or else nip nip then ;'''
+new = '''  >r 2dup pv-quote? r> drop nip nip ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "rvPW N1: names Gforth 1.0 reads as floats with an SI prefix (-k1, +M5, -u1) are accepted; the wide host oracle sees them"
+
+[[fault]]
 id = "pv-number-quote-after-sign"
 file = "src/program/verify-semantics.fs"
 old = ''': pv-quote? ( c-addr u -- flag ) [char] ' pv-first? ;'''
@@ -1299,6 +1307,22 @@ old = '''  pv-close-file pv-saved @ if pv-settings run-settings-restore then pv-
 new = '''  pv-close-file pv-floats-clear'''
 test = "$GFORTH tests/program/verify.fs"
 reason = "the caller's search order, compilation word list and BASE are not given back after a run"
+
+[[fault]]
+id = "pv-file-left-open"
+file = "src/program/verify-runner.fs"
+old = '''  pv-close-file pv-saved @ if pv-settings run-settings-restore then pv-floats-clear'''
+new = '''  pv-saved @ if pv-settings run-settings-restore then pv-floats-clear'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "rvPW N2: the source file is never closed, one descriptor lost per run"
+
+[[fault]]
+id = "pv-busy-kept"
+file = "src/program/verify-runner.fs"
+old = '''  pv-claim ['] pv-new-run catch ?dup if false pv-busy ! throw then ;'''
+new = '''  pv-claim ['] pv-new-run catch ?dup if throw then ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "rvPW N2: a run whose preparation throws leaves its context busy, so every later run there aborts"
 
 [[fault]]
 id = "pv-deep-order-unchecked"
@@ -1394,8 +1418,8 @@ reason = "the CR of a CRLF line end in text is kept, so a text Gforth loads is r
 [[fault]]
 id = "pv-file-crlf-kept"
 file = "src/program/verify-runner.fs"
-old = '''  0 pv-held ! begin pv-next-char while pv-line-char until pv-held-line text-cr-drop true'''
-new = '''  0 pv-held ! begin pv-next-char while pv-line-char until pv-held-line true'''
+old = '''  0 pv-held ! pv-read-to-lf if pv-held-line text-cr-drop true else pv-last-line? then ;'''
+new = '''  0 pv-held ! pv-read-to-lf if pv-held-line true else pv-last-line? then ;'''
 test = "python3 tests/program/verify_check.py"
 reason = "the CR of a CRLF line end in a file is kept, so a CRLF file Gforth loads is refused"
 

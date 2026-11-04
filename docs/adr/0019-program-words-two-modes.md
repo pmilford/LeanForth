@@ -42,10 +42,13 @@ from it:
 - **Names that read as numbers** (answer 4): the rule of §2 also refuses
   chains of signs and prefixes (`$-1`, `-$10`), Gforth 1.0's digit
   separator (`_1`, `-_1`, `#_1`), a quote after a sign (`-'a'`, read by
-  both Gforths), and a point before any of these (`.5`, `._`, `$.a`). The
-  first version missed `-'a'`, `-_1` and `#_1` (review rvPW, M1); a test
-  now checks the rule against the running Gforth, which must read no
-  short token in an empty search order that the rule lets through.
+  both Gforths), after a prefix a letter before a digit or a point (`-k1`,
+  `+M5`: Gforth 1.0's floats with an SI prefix), and a point before a
+  digit, `_` or a prefixed hexadecimal letter (`.5`, `._`, `$.a`). The
+  first version missed `-'a'`, `-_1` and `#_1` (review rvPW, M1), the
+  second the SI floats (N1); a test now checks the rule against the
+  running Gforth, which must read no token of one to three printable
+  characters in an empty search order that the rule lets through.
 - **The gap check** (separate vocabulary) writes each `lit` as it checks
   it, and after a host `THROW` writes the literals before the token it
   refuses, so that the lines before a refusal are the reader's; the
@@ -498,13 +501,20 @@ loaded `clamp.fs` and `examples.fs` with plain Gforth and checked 19 calls
 on both hosts.
 
 **What ties the two runs.** The receipt already records
-`program.source.sha256` and `program.ir.sha256`. The correctness runner
-reads the file once into memory and runs exactly those bytes, so it can
-hash exactly what it ran (with the Forth SHA-256 of plan 3.2.6). A run-mode
-loader for receipts does the same — read once, check the hash against the
-receipt, evaluate those bytes with Forth's own words — so both modes
-provably ran the same bytes. Plain `include` stays fine for users, with
-`sha256sum` to compare.
+`program.source.sha256` and `program.ir.sha256`. *As built (2026-11-04):*
+the correctness runner reads the file a block at a time, every byte of it
+and with no limit, as today's reader does (the first version read it once
+into memory, which review rvPW found could cut a large file, B1). A hash
+of exactly what it ran would therefore be taken over the blocks as they are
+read (with the Forth SHA-256 of plan 3.2.6), not over a copy in memory;
+that is not built yet. Today the tie is made when the receipt's evidence
+is recorded: `scripts/program_receipt.py record` hashes the source file,
+runs the mode shift on it, hashes it again and requires both hashes equal
+and the IR written byte for byte the IR file's; the receipt's
+`program.source.sha256` must then be that hash. A run-mode loader for
+receipts would do the same — check the hash against the receipt, evaluate
+those bytes with Forth's own words — so both modes provably ran the same
+bytes. Plain `include` stays fine for users, with `sha256sum` to compare.
 
 **What remains trusted** (the receipt's assumptions):
 

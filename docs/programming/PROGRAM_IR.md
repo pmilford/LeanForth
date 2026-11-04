@@ -269,11 +269,14 @@ from the reader on purpose in four ways, from the owner's answers and ADR
   `CONSTANT`. After any leading signs and base prefixes (`+ - # $ % &`):
   a digit; Gforth 1.0's digit separator `_`; a quote and one more
   character (`'a'`, `-'a'`); after a prefix, a hexadecimal letter (`$10`,
-  `-a`); or a point before any of these (`.5`, `._`, `$.a`). `->x`, `"x"`,
-  `x:dup` and `-rot` are names. A test checks the rule against the running
-  Gforth: no token of one to three characters (over the signs, prefixes,
-  `' . _`, digits and some letters) that the host reads by itself in an
-  empty search order may pass it.
+  `-a`) or any letter before a digit or a point (`-k1`, `+M5`, which Gforth
+  1.0 reads as floats with an SI prefix for the point); or a point before
+  a digit, `_` or a prefixed hexadecimal letter (`.5`, `._`, `$.a`).
+  `->x`, `"x"`, `x:dup` and `-rot` are names. A test checks the rule
+  against the running Gforth: no token of one to three printable
+  characters (all but `"`, `{` and `}`, which Gforth 1.0 reads as strings
+  and environment names) that the host reads by itself in an empty search
+  order may pass it; Gforth 1.0 reads 11,769 such tokens and 0.7.3 3,171.
 - *A run started while Forth compiles is refused* before any line runs,
   where the reader, which runs nothing, did not care.
 - *The mode shift refuses a standard word redefined before the run*, with
@@ -300,26 +303,32 @@ records and its reading of the invoking token back from `>IN`.
 
 **Evidence** (`make test-program-verify`, Gforth 1.0.0 and 0.7.3,
 2026-11-04, after review rvPW): the three golden files byte for byte in
-both designs; 284 inputs through the reader and both designs (108 cases of
-the reader's tests, 148 hostile inputs, 28 files: every kind of line end,
+both designs; 287 inputs through the reader and both designs (108 cases of
+the reader's tests, 151 hostile inputs, 28 files: every kind of line end,
 a file of 65,536 bytes ending in an LF with a redefinition after it,
 which is refused, a file of about 400,000 bytes, and the golden sources),
 on which the two designs write the same lines and give the same outcome,
-reason, line and column on all 284, and differ from the reader only by the
-four rules above (63 inputs), the 58 accepted ones loaded by plain Gforth
+reason, line and column on all 287, and differ from the reader only by the
+four rules above (66 inputs), the 58 accepted ones loaded by plain Gforth
 too; a round trip of the golden IR and of IR with awkward names (`->x`,
 `"x"`, `forth:dup`, `-rot`, `a(b)`, 31 characters) printed back as Forth in
 another layout; 400 random programs from a seed, a fifth with a planted
 mistake, identical in all three but for one number name; the number-name
 rule against the host's own reading of every short token; eight and nine
-open structures; a search order too deep; each word with verification
-semantics redefined in turn before a run, refused by the mode shift at that
-word; a compile-only `IF` redefined after loading (refused on 1.0, the
-known limit on 0.7.3); a host word named `7`; and 26 planted faults
-(`tests/mutants/faults.toml`): 24 caught, and 2 listed as equivalent (the
-`STATE` and depth checks after each line, which no input reaches). The
-clamp receipt's IR is now written by the mode shift
-([receipts](PROGRAM_RECEIPTS.md)).
+open structures; a search order too deep; the source file closed after an
+accepted, a refused and an interrupted run; a context left free when a
+run's preparation throws; each word with verification semantics redefined
+in turn before a run, refused by the mode shift at that word; a
+compile-only `IF` redefined after loading (refused on 1.0, the known limit
+on 0.7.3); a host word named `7`; and 29 planted faults
+(`tests/mutants/faults.toml`): 27 caught, and 2 listed as equivalent (the
+`STATE` and depth checks after each line, which no input reaches). Review
+rvPW's second round also compared the block reader with today's reader on
+2,874 files whose features cross block edges, on both hosts: identical.
+The clamp receipt's IR is now written by the mode shift
+([receipts](PROGRAM_RECEIPTS.md)); recording its evidence hashes the source
+before and after the run and keeps that hash, which the receipt's
+`program.source.sha256` must equal.
 
 ## The reader
 

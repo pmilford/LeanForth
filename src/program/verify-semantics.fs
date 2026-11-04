@@ -114,13 +114,17 @@ end-structure
 \ Forth-2012 or Gforth (1.0 or 0.7.3) could read as a number with BASE
 \ ten, and more. After any leading signs and base prefixes (+ - # $ % &):
 \ a digit; Gforth 1.0's digit separator _; a quote and one more character
-\ ('c', Gforth's 'c and -'c); after a prefix, a hexadecimal letter; or a
-\ point before any of these (Gforth 1.0 reads .5 as a float, ._ and $.a
-\ as numbers). So 5, -0, 1e, $10, 'a', -'a', .5, _1, -_1 and #_1 are
+\ ('c', Gforth's 'c and -'c); after a prefix, a hexadecimal letter, or any
+\ letter before a digit or a point (Gforth 1.0 reads -k1 and +M5 as floats,
+\ an SI prefix standing for the point); or a point before a digit, _ or a
+\ prefixed hexadecimal letter (Gforth 1.0 reads .5 as a float, ._ and $.a
+\ as numbers). So 5, -0, 1e, $10, 'a', -'a', .5, _1, -_1, #_1 and -k1 are
 \ refused, and ->x, "x", x:dup and -rot are names. tests/program/verify.fs
-\ checks the rule against the running Gforth: every short token it reads
-\ with an empty search order must be refused here.
+\ checks the rule against the running Gforth: every token of one to three
+\ printable characters that it reads with an empty search order must be
+\ refused here.
 : pv-digit? ( char -- flag ) [char] 0 [char] 9 1+ within ;
+: pv-letter? ( char -- flag ) pv-lower [char] a [char] z 1+ within ;
 : pv-hex-letter? ( char -- flag ) pv-lower [char] a [char] f 1+ within ;
 : pv-sign? ( char -- flag ) dup [char] + = swap [char] - = or ;
 : pv-prefix? ( char -- flag ) dup [char] # [char] & 1+ within swap pv-sign? or ;
@@ -133,11 +137,20 @@ end-structure
 \ The first character of a number after the signs and prefixes.
 : pv-numeral? ( char prefixed? -- flag )
   over pv-hex-letter? and over [char] _ = or swap pv-digit? or ;
+\ A letter before a digit or a point: Gforth 1.0's float with an SI prefix.
+: pv-si-float? ( c-addr u -- flag )
+  1 > if dup c@ pv-letter? swap char+ c@ dup pv-digit? swap [char] . = or and
+  else drop false then ;
+\ A rest that is a number by its first two characters: a quote and one
+\ more, or, after a prefix, an SI float.
+: pv-two-char-number? ( c-addr u prefixed? -- flag )
+  >r 2dup pv-quote? r> if >r pv-si-float? r> or else nip nip then ;
 \ The rest after the signs and prefixes, and whether there were any.
 : pv-prefixes ( c-addr u -- c-addr' u' prefixed? )
   2dup ['] pv-unprefixed? text-scan dup >r /string r> 0<> ;
 : pv-numeric-rest? ( c-addr u prefixed? -- flag )
-  over 0= if drop 2drop false exit then >r 2dup pv-quote? if 2drop r> drop true exit then
+  over 0= if drop 2drop false exit then
+  >r 2dup r@ pv-two-char-number? if 2drop r> drop true exit then
   2dup pv-point? if 1 /string then drop c@ r> pv-numeral? ;
 : pv-number-like? ( c-addr u -- flag ) pv-prefixes pv-numeric-rest? ;
 

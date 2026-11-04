@@ -111,9 +111,12 @@ end-structure
 : pv-held-line ( -- c-addr u ) pv-held-text pv-held @ ;
 : pv-last-line? ( -- c-addr u true | false )
   pv-held-line dup if true else 2drop false then ;
+\ Characters up to an LF, held: true when an LF ended them, false when the
+\ file did.
+: pv-read-to-lf ( -- lf? )
+  begin pv-next-char 0= if false exit then pv-line-char until true ;
 : pv-file-line? ( -- c-addr u true | false )
-  0 pv-held ! begin pv-next-char while pv-line-char until pv-held-line text-cr-drop true
-  else pv-last-line? then ;
+  0 pv-held ! pv-read-to-lf if pv-held-line text-cr-drop true else pv-last-line? then ;
 : pv-next-line? ( -- c-addr u true | false )
   pv-reading @ if pv-file-line? else pv-text-line? then ;
 

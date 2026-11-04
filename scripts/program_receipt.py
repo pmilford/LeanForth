@@ -192,9 +192,10 @@ def build(contract_path, evidence):
     word = contract["word"]
     source = program_vc.ir_source(ir_text)
     written = evidence.get("ir", {})
-    if written != {"words": IR_WORDS, "sha256": sha256(contract["ir"])}:
+    wanted = {"words": IR_WORDS, "sha256": sha256(contract["ir"]), "source": sha256(source)}
+    if written != wanted:
         raise SystemExit(f"the evidence does not show the program words ({IR_WORDS}) "
-                         f"writing {contract['ir']} as it is: {written}")
+                         f"writing {contract['ir']} from {source} as they are: {written}")
     lean, run = evidence["lean"], evidence["run"]
     contract_theorem = f"{vc['namespace']}.contract"
     names = [contract_theorem] + [o["theorem"] for o in vc["obligations"]]
@@ -340,17 +341,24 @@ def command(args, both=False):
 
 def ir_written(gforth, ir_path):
     """The IR the program words write for the IR file's source, which must be
-    that file byte for byte: its hash, for the evidence."""
+    that file byte for byte: its hash and the source's, for the evidence.
+    The source is hashed before and after the run, and must not change in
+    between, so the hash covers exactly the bytes the words read (the
+    runner reads every byte of the file, with no limit)."""
     source = program_vc.ir_source(Path(ir_path).read_text(encoding="utf-8"))
     if not re.fullmatch(r"[\w./-]+", source):
         raise SystemExit(f"source path not usable in a Forth string: {source}")
+    before = sha256(source)
     out = command([gforth, IR_WORDS, "-e", f's" {source}" lf-verify-file .', "-e", "bye"])
     *lines, outcome = out.rstrip("\n").split("\n")
     text = "\n".join(lines) + "\n"
     if outcome.strip() != "0" or text != Path(ir_path).read_text(encoding="utf-8"):
         raise SystemExit(f"the program words ({IR_WORDS}) do not write {ir_path} for "
                          f"{source}:\n{out}")
-    return {"words": IR_WORDS, "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest()}
+    if sha256(source) != before:
+        raise SystemExit(f"{source} changed while the program words read it")
+    return {"words": IR_WORDS, "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+            "source": before}
 
 
 def record(contract_path):
