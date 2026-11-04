@@ -211,5 +211,18 @@ inductive types.
   full term store.
 - Eighteen planted faults (`ind-*` in `tests/mutants/faults.toml`), each
   caught by `tests/core/check-block.fs`.
-- Lean's `Init` checked whole (2026-11-04, a probe): see ADR 0015,
-  *Implementation (plan task 5.2.1a)*.
+- Lean's `Init` checked whole (2026-11-04, a probe, 896 s with
+  `gforth-fast`; details in ADR 0015, *Implementation (plan task
+  5.2.1a)*): of its 604 blocks, 551 are in this task's scope; 142 are
+  accepted, their recursors generated equal to Lean's; 144 are unknown
+  (unfolding, undecided dependencies, and 30 by the name-view defect);
+  265 are unsupported (a dependency such as `Nat`, or a U2 form); none is
+  rejected or invalid.
+
+## Measured (2026-11-04, this machine, other agents running)
+
+| What | Size | Time |
+| --- | --- | --- |
+| `make test-check-block` (41 files, 20 tampered runs, about 40 fuel runs) | — | 0.3 s (`gforth`) |
+| `make test-inductive-table` (120 files; one Lean run) | 50,000 lines of Lean output | 38 s |
+| Lean's `Init`, every declaration checked | 345 MB export, 59,349 declarations, 604 blocks | 896 s (`gforth-fast`): stage 26 s, feed 126 s, checks 744 s |
