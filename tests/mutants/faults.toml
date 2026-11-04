@@ -909,8 +909,8 @@ reason = "an export made by another Lean version is read instead of refused as u
 [[fault]]
 id = "ndjson-exporter-name-unchecked"
 file = "src/import/ndjson.fs"
-old = '''  dup meta-exporter s" lean4export" text='''
-new = '''  dup meta-exporter s" lean4export" text= drop true'''
+old = '''  dup meta-exporter pinned-exporter text='''
+new = '''  dup meta-exporter pinned-exporter text= drop true'''
 test = "$GFORTH tests/core/ndjson.fs"
 reason = "an export written by another exporter is read instead of refused as unsupported: the test's metadata differs from the pinned versions only in the exporter's name"
 
