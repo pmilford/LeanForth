@@ -3210,7 +3210,7 @@ reason = "an inductive block's check writes no covering step, so its publish ste
 [[fault]]
 id = "outline-ignores-validator"
 file = "src/present/proof-outline.fs"
-old = '''  lf-ol-flaw ?dup if lf-ol-malformed drop lf-lv-cr exit then'''
+old = '''  lf-ol-flaw ?dup if lf-ol-malformed drop lf-ol-tex-close lf-lv-cr exit then'''
 new = ''''''
 test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
 reason = "the printer prints from a log the structural check rejects (N1 of the second review)"
@@ -3945,8 +3945,8 @@ reason = "rvI21 R4-5: a lookup of a generated T.rec answers T's slot, so the log
 [[fault]]
 id = "outline-reads-no-type"
 file = "src/present/proof-outline.fs"
-old = '''  lf-ol-decl lf-idecl-type @ dup 0< if drop s" none" lf-ol-line exit then'''
-new = '''  lf-ol-decl lf-idecl-type @'''
+old = '''  lf-ol-decl lf-idecl-type @ 0< if'''
+new = '''  false if'''
 test = "python3 tests/present/test_outline_block.py"
 reason = "rvI21 R4-6: the outline prints the type -1 of an empty block's declaration"
 
@@ -4006,3 +4006,78 @@ old = ''': lf-lscope-power-of-two? ( n -- flag ) dup 0> swap dup 1- and 0= and ;
 new = ''': lf-lscope-power-of-two? ( n -- flag ) 0> ;'''
 test = "$GFORTH tests/core/level-scope.fs"
 reason = "R2-L2: the slot-count guard accepts a count that is not a power of two"
+
+# --- the LaTeX outline style and the statement in three forms (plan tasks 8.6.1, 8.6.2) ---
+# tests/present/check_outline.py compares the golden outlines (plain and LaTeX), checks
+# the fragments' structure, compiles them where pdflatex exists, and runs each printed
+# LeanForth block through the authoring words to the identical statement.
+
+[[fault]]
+id = "forms-latex-underscore-unescaped"
+file = "src/present/statement-forms.fs"
+old = '''[char] _ of s" \_" true endof'''
+new = '''[char] _ of s" _" true endof'''
+test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
+reason = "the typewriter block leaves an underscore unescaped, so poly_identity breaks the LaTeX it is printed in"
+quick = true
+
+[[fault]]
+id = "forms-forth-block-no-universes"
+file = "src/present/statement-forms.fs"
+old = '''  -1 lf-sf lf-sf-decl lf-fdecl-value ! lf-sf-universes lf-sf lf-sf-decl ;'''
+new = '''  -1 lf-sf lf-sf-decl lf-fdecl-value ! drop lf-sf lf-sf-decl ;'''
+test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
+reason = "the LeanForth block of a statement with a universe parameter forgets its universe line, so the words no longer build the statement"
+quick = true
+
+[[fault]]
+id = "forms-default-shows-none"
+file = "src/present/statement-forms.fs"
+old = ''': lf-forms ( -- mask ) lf-sf lf-sf-hidden @ lf-forms-all xor ;'''
+new = ''': lf-forms ( -- mask ) lf-sf lf-sf-hidden @ ;'''
+test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
+reason = "the default hides every form of the statement instead of showing all three"
+
+[[fault]]
+id = "forms-math-line-dropped"
+file = "src/present/statement-forms.fs"
+old = '''  lf-form-mathematics lf-forms-has? if lf-sf-copy lf-sf-math-line then'''
+new = ''''''
+test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
+reason = "the header never prints the statement in mathematics"
+quick = true
+
+[[fault]]
+id = "outline-latex-math-left-open"
+file = "src/present/log-view.fs"
+old = '''  lf-lv lf-lv-mathing @ 0= if lf-lv-last-dollar then ;'''
+new = ''' ;'''
+test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
+reason = "a LaTeX formula is opened with $ and never closed, so the fragment's math is unbalanced"
+quick = true
+
+[[fault]]
+id = "outline-latex-table-not-closed"
+file = "src/present/proof-outline.fs"
+old = '''  lf-lv-tex? if s\" \\end{tabular}}\n" lf-lv-out s\" \\begin{flushleft}\\small\n" lf-lv-out'''
+new = '''  lf-lv-tex? if s\" \\begin{flushleft}\\small\n" lf-lv-out'''
+test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
+reason = "the proof table is not ended before the footer, so the fragment leaves its environment open and does not compile"
+quick = true
+
+[[fault]]
+id = "cli-statement-forms-wrong-bit"
+file = "src/cli/print.fs"
+old = '''  2dup s" lean" compare 0= if 2drop lf-form-lean exit then'''
+new = '''  2dup s" lean" compare 0= if 2drop lf-form-mathematics exit then'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Print"
+reason = "--statement lean selects the mathematics line"
+quick = true
+
+[[fault]]
+id = "cli-statement-forms-trailing-comma"
+file = "src/cli/print.fs"
+old = '''  2dup pr-ends-comma? if 2drop false exit then'''
+new = ''''''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Print"
+reason = "a list of forms ending in a comma is accepted instead of refused"

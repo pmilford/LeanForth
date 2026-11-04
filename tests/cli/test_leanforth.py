@@ -275,6 +275,7 @@ class ExitCodes(unittest.TestCase):
 
 
 OUTLINES = ROOT / "tests" / "present" / "outlines.golden"
+LATEX_OUTLINES = ROOT / "tests" / "present" / "outlines-latex.golden"
 REFUSED = "No proof outline: the declaration was not accepted."
 
 
@@ -301,6 +302,40 @@ class Print(unittest.TestCase):
                      "constant-fixture"):
             self.assertEqual(self.lines(f"tests/reference/{name}.ndjson"), (0, golden(name)))
         self.assertEqual(self.lines("--detail", COMPOSITION), (0, golden("composition --detail")))
+
+    def test_0_statement_forms(self):
+        """--statement picks the forms of the statement the header shows (plan task
+        8.6.2): each alone, in any order and all (the default); a form that is no
+        form, or an empty list, is a command-line mistake (status 4)."""
+        full = golden("composition")
+        math = next(i for i, l in enumerate(full) if l.startswith("  Statement in mathematics:"))
+        forth = next(i for i, l in enumerate(full) if l.startswith("  Statement in LeanForth"))
+        end = full.index("    end composition")
+        parts = {"lean": full[math - 1:math], "mathematics": full[math:math + 1],
+                 "leanforth": full[forth:end + 1]}
+        before, after = full[:math - 1], full[end + 1:]
+        for forms in ("lean", "mathematics", "leanforth", "lean,leanforth", "leanforth,lean",
+                      "mathematics,lean", "all"):
+            wanted = [name for name in parts if name in forms.split(",") or forms == "all"]
+            expected = before + [l for name in wanted for l in parts[name]] + after
+            self.assertEqual(self.lines("--statement", forms, COMPOSITION), (0, expected), forms)
+        for bad in ("", "lean,", "latin", "lean,,mathematics", "Lean"):
+            status, out, err = run("print", "--statement", bad, COMPOSITION)
+            self.assertEqual((status, out.startswith("error:")), (4, True), bad)
+        status, out, err = run("check", "--statement", "lean", COMPOSITION)
+        self.assertEqual((status, out.startswith("error: an option this command does not take")),
+                         (4, True))
+
+    def test_0_latex(self):
+        """--latex prints the outlines as the LaTeX fragments of tests/present/
+        outlines-latex.golden (plan task 8.6.1); with --detail the steps stay plain."""
+        parts = re.split(r"^== (.*)$", LATEX_OUTLINES.read_text(encoding="utf-8"), flags=re.M)
+        fragments = dict(zip(parts[1::2], parts[2::2]))
+        for name in ("identity", "composition", "constant-fixture"):
+            self.assertEqual(self.lines("--latex", f"tests/reference/{name}.ndjson"),
+                             (0, fragments[name].strip("\n").splitlines()), name)
+        self.assertEqual(self.lines("--latex", "--detail", COMPOSITION),
+                         (0, golden("composition --detail")))
 
     def test_0_named(self):
         fixture = golden("constant-fixture")

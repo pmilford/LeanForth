@@ -128,6 +128,9 @@ pr-handlers cin-table-check
 : pr-item ( c-addr u -- rest-addr rest-u item-addr item-u )
   2dup s" ," search 0= if 2drop 2dup + 0 2swap exit then
   2swap drop 2 pick over - >r >r 1 /string r> r> ;
+: pr-ends-comma? ( c-addr u -- flag ) dup 0= if 2drop false exit then
+  2dup dup 1- /string s" ," compare 0= nip nip ;
 : pr-forms ( c-addr u -- mask true | false )
+  2dup pr-ends-comma? if 2drop false exit then
   0 >r begin dup while pr-item pr-form-bit dup 0= if drop 2drop r> drop false exit then
     r> or >r repeat 2drop r> ?dup if true else false then ;

@@ -741,8 +741,8 @@ end-structure
 : cli-latex-option ( c-addr u -- ) 2drop true cli-state opt-latex ! ;
 \ --statement FORMS: lean, mathematics, leanforth (or all), separated by commas.
 : cli-statement-option ( c-addr u -- )
-  cli-value 0= if exit then pr-forms if cli-state opt-forms ! else
-  c" not a list of statement forms" cli-wrong then ;
+  cli-value 0= if exit then 2dup pr-forms
+  if cli-state opt-forms ! 2drop else c" not a list of statement forms" cli-wrong then ;
 create cli-option-table
   ' cli-manifest-option takes-no-manifest 0 cli-entry, --no-manifest
   ' cli-fuel-option takes-fuel 0 cli-entry, --fuel
