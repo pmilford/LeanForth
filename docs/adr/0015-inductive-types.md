@@ -1,6 +1,6 @@
 # ADR 0015: inductive types, constructors and recursors as Lean's kernel checks them
 
-Status: **accepted** as a design, 2026-11-03 (owner; questions Q1–Q5 answered
+Status: task **5.2.1a implemented and approved** [kernel][import] by the owner on 2026-11-04, on condition that its three cautious differences from Lean are closed so the default is 100% Lean ([decisions](../project/OWNER_DECISIONS.md#data-types-first-step-approved-with-a-condition-2026-11-04)). **Accepted** as a design, 2026-11-03 (owner; questions Q1–Q5 answered
 in §15 and in [OWNER_DECISIONS](../project/OWNER_DECISIONS.md#data-types-axioms-and-imports-2026-11-03-late-night));
 each implementation task of §12 still passes its own gate. Proposed 2026-11-03 (plan tasks 5.1.1–5.1.5, phase 5, "Data
 types and the first real Lean code"). A [kernel] and [import] design, with

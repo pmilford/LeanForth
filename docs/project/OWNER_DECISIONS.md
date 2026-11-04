@@ -650,3 +650,19 @@ ADR 0019 Amendment 1 (agent IR2; probes in
   trial (now in `make test`) agrees with the old code and an independent
   typing model. Accepted cost: checking is 10–25% slower until the
   loose-variable range of ADR 0014 Q12 is built.
+
+## Data types, first step, approved with a condition (2026-11-04)
+
+- **Plan task 5.2.1a approved [kernel][import]** (non-recursive inductive
+  blocks; independent review rvI21, three rounds, the last clean). The
+  owner: "I think approve, but I am concerned about the difference with
+  Lean - do we have to be different? if this is better, it should be with
+  a flag, I'd like 100% compatible." None of the differences is better
+  than Lean; each is a cautious gap (refused or unknown where Lean
+  accepts). Condition recorded: close them so the default is 100% Lean —
+  (1) a file that uses `T.rec` without declaring it: use LeanForth's own
+  generated recursor, as Lean's kernel does; (2) a block rejected at the
+  final comparison (B3): its type and constructors stay usable afterwards,
+  as in Lean's environment; (3) the P4 guard on unit-like structures:
+  closed by task 5.2.2's port of Lean's rules. Any stricter behaviour only
+  behind an opt-in flag.
