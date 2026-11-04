@@ -981,7 +981,8 @@ version names as predicted; 5,558 tokens (the review's literal fuzz to
 three characters, every `'c'` form, the edges) read as the rule says, the
 307 accepted read alike by both Gforths, also in 209 pairs right after
 another token, and the portable `.S` printing what Gforth's prints (with
-`--fuzz-length 4`, the review's 89,045 tokens: 0 mismatches);
+`--fuzz-length 4`, 89,053 tokens, the review's and the explicit list,
+839 accepted: no mismatch on either Gforth);
 `tests/program/ir_run_differential.py --lean` (150 random IR 0.2 programs
 with `lshift`, `-rot`, out lines and version names: the interpreter and
 Lean's model agree on every case); planted faults (`tests/mutants/faults.toml`,
