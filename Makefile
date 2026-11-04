@@ -85,7 +85,7 @@ forth-metrics:
 # Requires pinned Lean 4.35.0 as well as Gforth and Python 3.
 test-differential: $(DIFFERENTIAL_TARGETS)
 
-check: test test-differential
+check: test test-differential mutants-check
 
 # src/main.fs must load silently: a "redefined" warning means two modules
 # define the same word. Then one word from each loaded layer must run.
@@ -454,3 +454,32 @@ reference-author:
 .PHONY: test-author reference-author
 test: test-author
 test-differential: reference-author
+
+# Planted faults (plan task 1.4.2; docs/development/TESTING_STRATEGY.md,
+# "Planted faults"): each fault of tests/mutants/faults.toml is written into
+# a temporary copy of the tree, never this one, and the test it names must
+# then fail. Not part of make test or make check. mutants-quick runs the
+# faults marked quick, mutants-check only reports stale entries (old text
+# no longer found once); test-mutants, part of make test, tests the runner.
+MUTANTS_TIMEOUT ?= 3600
+mutants:
+	timeout $(MUTANTS_TIMEOUT) python3 scripts/mutants.py --gforth $(GFORTH)
+
+mutants-quick:
+	$(RUN) python3 scripts/mutants.py --gforth $(GFORTH) --quick
+
+mutants-check:
+	$(RUN) python3 scripts/mutants.py --check
+
+test-mutants:
+	$(RUN) python3 tests/mutants/test_mutants.py
+
+# Block coverage of src/ over make test (plan task 1.4.1; TESTING_STRATEGY.md,
+# "Block coverage"): every Gforth run of make test loads Gforth 1.0's
+# coverage.fs first, and the blocks that ran are counted per folder. Needs
+# Gforth 1.0; not part of make test or make check.
+coverage:
+	$(RUN) python3 scripts/coverage.py --gforth $(GFORTH)
+
+.PHONY: mutants mutants-quick mutants-check test-mutants coverage
+test: test-mutants
