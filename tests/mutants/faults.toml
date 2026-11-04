@@ -1783,6 +1783,63 @@ test = "$GFORTH tests/core/run-record.fs"
 reason = "a commit that is not 40 lowercase hexadecimal digits is recorded"
 
 [[fault]]
+id = "rr-foreign-environment"
+file = "src/import/run-record.fs"
+old = ''': rr-ours? ( -- flag ) run-record rr-env @ dup if lf-env = else drop false then ;'''
+new = ''': rr-ours? ( -- flag ) true ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "review F1: verdicts are read from whatever environment is current, not the run's own"
+quick = true
+
+[[fault]]
+id = "rr-no-own-environment"
+file = "src/import/run-record.fs"
+old = '''  rr-made-own? 0= if exit then rr-viewed? 0= if outcome-invalid rr-fail exit then'''
+new = '''  run-record rr-checked @ 0= if exit then rr-viewed? 0= if outcome-invalid rr-fail exit then'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "review F1: a run that could not make its environment cannot be recorded at all"
+
+[[fault]]
+id = "rr-kept-ok"
+file = "src/import/run-record.fs"
+old = '''  rr-release rr-unkept true run-record rr-checked ! 0 run-record rr-stepped !'''
+new = '''  rr-release true run-record rr-checked ! 0 run-record rr-stepped !'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "review F1: kept outcomes are not reset, so an unstepped slot agrees with ok (0)"
+
+[[fault]]
+id = "rr-separator-allowed"
+file = "src/import/run-record.fs"
+old = '''$2028 , $202e ,'''
+new = '''$2029 , $202e ,'''
+test = "$GFORTH tests/core/run-record.fs && python3 tests/core/test_run_records.py"
+reason = "review F3: the writer's text rule lets U+2028 through, which the schema refuses"
+
+[[fault]]
+id = "rr-blank-shown"
+file = "src/import/run-record.fs"
+old = '''  2dup rr-shown? 0= if outcome-invalid rr-fail then rr-string ;'''
+new = '''  rr-string ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "review F3: a blank name, host or metadata text is written"
+
+[[fault]]
+id = "rr-number-unbounded"
+file = "src/import/run-record.fs"
+old = ''': rr-int ( n -- ) dup s>d rr-exact? 0= if outcome-invalid rr-fail then rr-w jw-n ;'''
+new = ''': rr-int ( n -- ) rr-w jw-n ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "review F3: a number beyond I-JSON's exact range, which the schema refuses, is written"
+
+[[fault]]
+id = "rp-cut-mid-character"
+file = "src/import/run-replay.fs"
+old = '''  rp-path-room run-replay rp-path-size @ - rp-cut tuck rp-path + swap move'''
+new = '''  rp-path-room run-replay rp-path-size @ - min tuck rp-path + swap move'''
+test = "python3 tests/core/test_run_records.py"
+reason = "review F2: a long multibyte key is cut inside a character and the report fails"
+
+[[fault]]
 id = "rp-no-overclaim"
 file = "src/import/run-replay.fs"
 old = '''  rp-old rp-accepted? swap rp-new rp-accepted? 0= and ;'''

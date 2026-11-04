@@ -123,24 +123,71 @@ what a check said about itself:
   the check or its publication threw and the run stopped there (E4).
 - **not-checked** for a slot the run never reached.
 
+**Only the run's own environment.** Verdicts are read only from the
+checked environment that the run's own `rr-check` made, never from another
+one that happens to be current, even over the same input (review F1). If
+the run could not make its environment (no memory, a pool out of range),
+the record lists no declaration and its `check.run` says why, with `mode`
+and `allowlistVersion` null. If the run's environment was freed, or another
+is current when the record is written, no record is written (`rr-write`
+gives invalid). Each kept outcome starts invalid, never ok, so a slot is
+never matched with a step that did not run.
+
+**A run that stops.** When a check or its publication throws, the run stops
+there (ADR 0012, E4): `check.run` is invalid, that declaration is invalid
+with the publisher's fault as its diagnostic, and those after it are
+not-checked. The declarations accepted before the stop still count and
+are listed as accepted: their slots were made final, with their records,
+before the fault, and nothing changes a final slot.
+
 `rr-write` also refuses (invalid) a record in which a final slot's outcome
 is not the one its step published, so a diagnostic always belongs to its
 verdict. The schema refuses an accepted verdict without its label or with
 a diagnostic or an axiom, a label on any other verdict, a missing
-diagnostic, and declarations when the check did not run.
+diagnostic, declarations when no environment was made (`mode` null), a
+not-checked declaration in a run that ended ok, a mode other than final
+and an allowlist version other than 0.
+
+**Texts and numbers.** Every text follows the text rule the owner approved
+for [program receipts 0.2](PROGRAM_RECEIPTS.md#rules-the-schema-enforces):
+no control character (C0 or C1), no format character (bidirectional
+controls, zero-width characters, tags), no line or paragraph separator, no
+surrogate. Names, host texts, metadata texts, a failed manifest's reason
+and a diagnostic's reason and site must also be *shown*: at least one
+character that is not a space. Unlike the receipts' rule this does not ask
+for an ASCII character, because a Lean name may be written in any script.
+Limits: names 1024 bytes, other texts 128 bytes, a site 255. The writer
+checks every text it writes against the same rule and limits, character by
+character, and refuses the record (invalid, or full for a length) rather
+than write what the schema refuses; the tests compare its rule with the
+schema's pattern at both ends of every range. JSON Schema counts length
+in characters, so the schema allows the same number of characters, which
+every text within the byte limit meets. Numbers are integers within
+I-JSON's exact range, ±(2^53 − 1). JSON Schema sees a number only after it
+is parsed, so no schema can tell `100000.0` or `1e5` from `100000`: the
+strict loader (`load_strict` in `tests/support/schema_subset.py`) refuses
+those spellings, and replay compares a number's text, so a record with
+them is refused (`settings-differ` for `"fuel":100000.0`).
 
 ## Replay
 
 Replay reads the old record (at most 128 KiB, whitespace allowed), checks
 the input again with the same transport and the replayer's settings, and
 compares. The new record leads: each of its members must be in the old
-record exactly once, with an equal value (same JSON kind; same text for a
-string or number; arrays element by element); a member the old record has
-and the new one lacks is a finding too. A declaration's verdict is compared
-first, and nothing else of it when the verdicts differ. Nothing differs
-silently: a different input, manifest, export, commit, host or setting is
-a finding as much as a different verdict, and only a report without
-findings confirms the record.
+record exactly once, with an equal value; a member the old record has and
+the new one lacks is a finding too. Values compare as follows:
+
+- strings by their decoded text, so `"a"` equals `"a"`;
+- numbers by their text, so `100000.0`, `1e5` and `100000` all differ;
+- objects by key, whatever the order of their members;
+- arrays element by element, in order, after their lengths;
+- whitespace between tokens is no difference.
+
+A declaration's verdict is compared first, and nothing else of it when the
+verdicts differ. Nothing differs silently: a different input, manifest,
+export, commit, host or setting is a finding as much as a different
+verdict, and only a report without findings confirms the record. The
+report is written whole or not at all.
 
 ```json
 {"schema":"leanforth-replay-report","schemaVersion":"0.1","result":"refused",
@@ -172,7 +219,8 @@ The first 32 findings are listed, all are counted. Codes:
 | `reason-differs` | a diagnostic |
 
 A path names the field: `$.input.sha256`, `$.declarations[0].verdict`. A
-key taken from the old record is cut at 128 bytes in a path.
+key taken from the old record is cut at 128 bytes in a path, between two
+characters, never inside one (review F2).
 
 ## Determinism and hosts
 
@@ -202,10 +250,13 @@ the golden records written by 1.0.0 the same way).
 - Diagnostic numbers are those the check recorded. For the internal faults
   that record environment identities (codes 25 and 27) they differ between
   two runs in one process; they never arise from a well-formed input.
-- Limits: a record text of 64 KiB, names of 1 KiB, metadata, manifest and
-  commit texts of 128 bytes (a longer metadata text is written null), the
-  checker's own limits (32 declarations). A record that does not fit is
-  not written (`rr-write` gives full).
+- Limits: a record text of 64 KiB, names of 1 KiB, host, metadata,
+  manifest and commit texts of 128 bytes (a longer metadata text is
+  written null), the checker's own limits (32 declarations). A record that
+  does not fit is not written (`rr-write` gives full). An export whose
+  declaration name breaks the text rule (a Lean name may hold almost any
+  character) cannot be recorded: `rr-write` gives invalid, and the check
+  itself is unaffected.
 - State: one shared record per module (`run-record`, `run-replay`); one
   run or replay at a time.
 
@@ -215,17 +266,26 @@ the golden records written by 1.0.0 the same way).
 `tests/core/run-record.fs` checks each fixture's verdicts and diagnostics,
 that the verdicts are the slots' (equal to `lf-check-input`'s), the record
 of a run that stops part way (a THROW in the publisher), determinism, the
-commit's form, each failure of `rr-write` and `rr-finish`, hashing, and
+commit's form, each failure of `rr-write` and `rr-finish`, a foreign
+environment (the review's reproducer: none of its verdicts is written),
+the text rule and number range, hashing, cuts between characters, and
 replay findings; `tests/core/test_run_records.py` writes the nine records
 to files and checks them against the schema, Python's SHA-256, the golden
-records and each other, and replays them. It refuses 13 tampered records,
+records and each other, and replays them. It refuses 15 tampered records,
 each with its code and path (a changed verdict, hash, host version, reason
 or manifest outcome; a missing field; a duplicate key; an unknown field; a
 claim of acceptance for a rejected declaration; a dropped declaration; a
-number written as a string; text that is not JSON; another schema
-version), and two replays with another fuel or another commit; it confirms
-a pretty-printed record, and shows that the schema refuses 11 records that
-claim more than a checker could. Twenty-one faults planted in the two modules
+number written as a string, with a fraction or with an exponent; text that
+is not JSON; another schema version), and two replays with another fuel or
+another commit; it confirms a pretty-printed record and one whose verdict
+is spelled with an escape, and replays a record with a 201-byte multibyte
+key into a valid report whose path is cut between characters. It shows
+that the schema refuses 32 records, those that claim more than a checker
+could and those that break the text rule, a limit or the real values of
+`mode` and `allowlistVersion`; that each schema pattern means the same in
+ECMA-262 (node, `u` flag) and in Python; and that the writer's text rule
+equals the schema's on 177 code points (every range's ends and their
+neighbours). Twenty-eight faults planted in the two modules
 (`tests/mutants/faults.toml`, section "run records and replay") are each
 caught by these tests.
 
@@ -236,7 +296,13 @@ fields or rules gives a new version and a new schema file next to the old
 one, as for [program receipts](PROGRAM_RECEIPTS.md#versioning). Replay
 refuses a record of any other version (`unknown-schema`).
 
-- **0.1** (2026-11-03): the first draft, under the [format] gate.
+- **0.1** (2026-11-03): the first draft, under the [format] gate. Tightened
+  in place the same day after the independent review (the text rule and
+  limits of receipts 0.2, numbers within I-JSON's range, the real values
+  of `mode` and `allowlistVersion`, no not-checked declaration in a run
+  that ended ok, no declarations without an environment). No run record
+  had been published outside the tests, and every record the tests had
+  written still validates, so the version stays 0.1.
 
 ## Rejected alternatives
 
