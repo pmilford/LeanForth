@@ -215,6 +215,10 @@ def tail(output, lines=6):
 
 def test_environment(gforth):
     env = {key: value for key, value in os.environ.items() if key not in MAKE_VARIABLES}
+    strict = str(Path(__file__).resolve().parent / "gforth-strict.sh")
+    if gforth != strict:  # tests run Gforth through the exit-status wrapper
+        env["LEANFORTH_GFORTH"] = gforth
+        gforth = strict
     env["GFORTH"] = gforth
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     return env
