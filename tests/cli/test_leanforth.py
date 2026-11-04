@@ -409,8 +409,7 @@ class Behaviour(unittest.TestCase):
         self.assertEqual(run("--version")[:2], (0, out))
         status, out, _ = run("capabilities")
         self.assertEqual(status, 0)
-        self.assertIn("  64 names (2048 bytes), 64 levels, 64 term nodes, 32 declarations per "
-                      "export\n", out)
+        self.assertIn("  64 names, 64 levels, 64 term nodes, 32 declarations per export\n", out)
         status, out, _ = run("help")
         self.assertEqual((status, run("--help")[1], run("-h")[1]), (0, out, out))
 

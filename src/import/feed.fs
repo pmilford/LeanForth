@@ -64,14 +64,25 @@ begin-structure /feed
   field: feed-d            \ the declaration being fed
   field: feed-header       \ the current block's header cell, plus one; 0 for none
   field: feed-members      \ members of the current block still to come
-  lf-cref-argument-capacity 2* cells +field feed-pairs
+  2 cells +field feed-pair-buf   \ heap: a constant's level pairs, and their room
+  2 cells +field feed-param-buf  \ heap: a declaration's parameters, and their room
   /lf-idecl +field feed-decl
 end-structure
 
 : feed-tier ( feed -- tier ) feed-stage @ stage-tier ;
 : feed-at ( feed -- n ) feed-where @ ;
 : feed-free ( feed -- )
-  dup feed-levels heap-release dup feed-exprs heap-release drop ;
+  dup feed-levels heap-release dup feed-exprs heap-release
+  dup feed-pair-buf heap-release feed-param-buf heap-release ;
+\ A heap buffer of the feed's (its address, then its room in units):
+\ room for n units of u address units, grown, never shrunk, freed by
+\ feed-free. There is no other limit (plan task 6.2.0); no heap is full.
+: feed-grow ( n u buffer -- outcome )
+  >r over r@ cell+ @ > 0= if 2drop r> drop outcome-ok exit then
+  over * 1 max r@ @ ?dup if swap resize else allocate then
+  if 2drop r> drop outcome-full exit then
+  r@ ! r> cell+ ! outcome-ok ;
+: feed-pairs ( feed -- addr ) feed-pair-buf @ ;
 
 \ ---- Capacities: the stage's records plus room for the checks; a
 \ setting is only ever raised. One row per setting: the stage's records
@@ -168,7 +179,8 @@ here feed-settings - /feed-setting / constant feed-settings#
   >r swap r@ feed-handle swap rot r> feed-pairs swap lf-cref-pair 2! ;
 : feed-args ( t feed -- n outcome )
   dup feed-tier tier-tuples rot swap 2dup tuple-length
-  dup lf-cref-argument-capacity > if >r 2drop drop r> outcome-full exit then
+  dup 2 cells 5 pick feed-pair-buf feed-grow ok? 0=
+  if >r 2drop drop r> outcome-full exit then
   dup >r 0 ?do i 2 pick 2 pick tuple-item i 4 pick feed-pair! loop
   2drop drop r> outcome-ok ;
 : feed-const ( e feed -- index identity true | false )
@@ -323,13 +335,16 @@ here feed-kinds - 1 cells / constant feed-kinds#
   nip feed-members @ if outcome-invalid else outcome-ok then ;
 : feed-joined ( d feed -- outcome )
   2dup feed-member? if feed-member else feed-outside then ;
-\ The universe parameters: their tuple, and parameter i of it; a list
-\ longer than the checker takes is full.
+\ The universe parameters: their tuple, and parameter i of it, into the
+\ feed's buffer, which the record points at; a list the heap cannot hold
+\ is full.
 : feed-tuple ( feed -- t tuples ) dup ['] staged-params@ feed-staged@ swap feed-tier tier-tuples ;
 : feed-param! ( i feed -- )
-  2dup feed-tuple tuple-item -rot feed-decl lf-idecl-params swap cells + ! ;
+  2dup feed-tuple tuple-item -rot feed-param-buf @ swap cells + ! ;
+: feed-params-room ( feed n -- feed n outcome ) dup 1 cells 3 pick feed-param-buf feed-grow ;
 : feed-params ( feed -- outcome )
-  dup feed-tuple tuple-length dup lf-param-capacity > if 2drop outcome-full exit then
+  dup feed-tuple tuple-length feed-params-room ok? 0= if 2drop outcome-full exit then
+  over feed-param-buf @ 2 pick feed-decl lf-idecl-params !
   2dup swap feed-decl lf-idecl-arity ! 0 ?do i over feed-param! loop drop outcome-ok ;
 \ The block words above take ( d feed ): the declaration being fed, then
 \ the record.

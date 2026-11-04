@@ -46,9 +46,10 @@ begin-structure /lf-rcr
   field: lf-rcr-motive       \ the motive's type
   field: lf-rcr-scratch-count  \ binder domains in the scratch
   lf-ind-binder-capacity cells +field lf-rcr-scratch-cells   \ domains about to be bound
-  lf-cref-argument-capacity 2* cells +field lf-rcr-pairs   \ the type's levels
 end-structure
 /lf-rcr context-record: lf-rcr-state
+\ The type's levels, as many as it has universe parameters (no fixed limit).
+2 cells context-slab: lf-rcr-pair-cells
 
 : lf-rcr-ok? ( -- flag ) lf-rcr-state lf-rcr-status @ ok? ;
 : lf-rcr-failing ( outcome -- -1 )
@@ -97,16 +98,19 @@ end-structure
 \ Constants of the block at its universe parameters, as Lean's
 \ mk_constant(name, m_levels): the parameters' levels, made once per
 \ build.
-: lf-rcr-pair ( k -- addr ) lf-rcr-state lf-rcr-pairs swap lf-cref-pair ;
+: lf-rcr-pair ( k -- addr ) lf-rcr-pair-cells slab-at ;
 : lf-rcr-level! ( k -- )
   dup lf-ind-lparam lf-level-param if dup lf-level-identity drop swap rot lf-rcr-pair 2!
   else drop outcome-full lf-rcr-failing drop then ;
-: lf-rcr-levels ( -- ) lf-ind-lparams nip 0 ?do i lf-rcr-level! loop ;
+: lf-rcr-levels ( -- )
+  lf-ind-lparams nip dup lf-rcr-pair-cells slab-hold ok? 0=
+  if drop outcome-full lf-rcr-failing drop exit then
+  0 ?do i lf-rcr-level! loop ;
 : lf-rcr-referenced ( index identity true | false -- node )
   if lf-cterm-new lf-rcr-made else outcome-full lf-rcr-failing then ;
 : lf-rcr-const ( name -- node )
   lf-rcr-ok? 0= if drop -1 exit then
-  lf-name-generation @ lf-rcr-state lf-rcr-pairs lf-ind-lparams nip lf-cref-new
+  lf-name-generation @ 0 lf-rcr-pair lf-ind-lparams nip lf-cref-new
   lf-rcr-referenced ;
 \ f applied to the variables #(top), #(top-1), ... count of them.
 : lf-rcr-apply-vars ( f top count -- node )

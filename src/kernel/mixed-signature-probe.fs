@@ -40,8 +40,13 @@ begin-structure /lf-sigs
   lf-msp-capacity cells +field lf-sigs-roots
   lf-msp-capacity cells +field lf-sigs-ids
   lf-msp-capacity cells +field lf-sigs-arities
-  lf-msp-capacity lf-level-params-limit * cells +field lf-sigs-formals
+  lf-msp-capacity cells +field lf-sigs-offsets   \ where each record's formals begin
 end-structure
+\ Every record's formal IDs, one after another, and the zero actuals of
+\ coverage: growable arrays with no fixed limit on an arity (plan task
+\ 6.2.0); one the heap cannot grow is full.
+1 cells context-slab: lf-msp-formal-pool
+2 cells context-slab: lf-msp-zero-pairs
 
 \ One request. Put fills name, root, id, formals, arity and fuel; specialize
 \ fills name, actuals, arity and fuel, then root, id and formals from the
@@ -54,7 +59,6 @@ begin-structure /lf-sigreq
   field: lf-sigreq-actuals            \ address of arity (index identity) pairs
   field: lf-sigreq-arity
   field: lf-sigreq-fuel
-  lf-level-params-limit 2* cells +field lf-sigreq-zeros
 end-structure
 
 /lf-sigs context-record: lf-msp-index
@@ -74,13 +78,18 @@ end-structure
 : lf-msp-roots ( -- addr ) lf-msp-index lf-sigs-roots ;
 : lf-msp-ids ( -- addr ) lf-msp-index lf-sigs-ids ;
 : lf-msp-arities ( -- addr ) lf-msp-index lf-sigs-arities ;
-: lf-msp-formals ( -- addr ) lf-msp-index lf-sigs-formals ;
-: lf-msp-formals-at ( position -- addr ) lf-level-params-limit * cells lf-msp-formals + ;
+: lf-msp-formals ( -- addr ) 0 lf-msp-formal-pool slab-at ;
+: lf-msp-offsets ( -- addr ) lf-msp-index lf-sigs-offsets ;
+: lf-msp-offset@ ( position -- u ) cells lf-msp-offsets + @ ;
+: lf-msp-formals-at ( position -- addr ) lf-msp-offset@ lf-msp-formal-pool slab-at ;
 \ Unchecked: one field of the record at a position below the count.
 : lf-msp-name@ ( position -- name ) cells lf-msp-names + @ ;
 : lf-msp-root@ ( position -- root ) cells lf-msp-roots + @ ;
 : lf-msp-id@ ( position -- identity ) cells lf-msp-ids + @ ;
 : lf-msp-arity@ ( position -- arity ) cells lf-msp-arities + @ ;
+\ The pool cells the first n records use: where record n's formals go.
+: lf-msp-formal-cells ( n -- u )
+  ?dup if 1- dup lf-msp-offset@ swap lf-msp-arity@ + else 0 then ;
 
 \ The generations of the name, term and level stores and of the level
 \ context, captured when a lifetime begins; a change to any of them ends it.
@@ -121,11 +130,11 @@ end-structure
 : lf-msp-position ( name -- position | -1 ) lf-msp-count @ lf-msp-find ;
 
 \ A request is well formed when its token is current, its fuel is
-\ nonnegative, its arity is 0..lf-level-params-limit and its name is a positive,
-\ live name ID. Only then may the index be searched.
+\ nonnegative, its arity is nonnegative and its name is a positive, live
+\ name ID. Only then may the index be searched.
 : lf-msp-name? ( name -- flag ) dup 0> swap lf-name-valid? and ;
 : lf-msp-sizes? ( req -- flag )
-  dup lf-sigreq-fuel @ 0< 0= swap lf-sigreq-arity @ lf-level-params-limit upto? and ;
+  dup lf-sigreq-fuel @ 0< 0= swap lf-sigreq-arity @ 0< 0= and ;
 : lf-msp-well-formed? ( token req -- flag )
   dup lf-msp-sizes? swap lf-sigreq-name @ lf-msp-name? and swap lf-msp-current? and ;
 : lf-msp-budget! ( count fuel req -- ) tuck lf-sigreq-fuel ! lf-sigreq-arity ! ;
@@ -146,13 +155,16 @@ end-structure
   lf-term-count @ lf-level-count @ lf-cref-count @ ;
 : lf-msp-rewind ( terms levels crefs -- )
   lf-cref-count ! lf-level-count ! lf-term-count ! ;
+: lf-msp-zeros-at ( -- addr ) 0 lf-msp-zero-pairs slab-at ;
 : lf-msp-zeros ( identity req -- )
-  dup lf-sigreq-zeros swap lf-sigreq-arity @
+  lf-msp-zeros-at swap lf-sigreq-arity @
   0 ?do 2dup i 2* cells + 0 swap 2! loop 2drop ;
 : lf-msp-discard ( root identity 0 | status -- status ) dup ok? if nip nip then ;
 : lf-msp-cover ( req -- status )
-  dup lf-sigreq-zeros over lf-sigreq-actuals ! lf-msp-substitute lf-msp-discard ;
+  lf-msp-zeros-at over lf-sigreq-actuals ! lf-msp-substitute lf-msp-discard ;
+: lf-msp-zero-room ( req -- outcome ) lf-sigreq-arity @ lf-msp-zero-pairs slab-hold ;
 : lf-msp-zero-actuals ( req -- status )
+  dup lf-msp-zero-room ok-then? 0= if nip exit then
   0 lf-level-identity if over lf-msp-zeros lf-msp-cover else drop-invalid then ;
 : lf-msp-coverage ( req -- status )
   lf-msp-marks 2>r >r lf-msp-zero-actuals r> 2r> lf-msp-rewind ;
@@ -167,12 +179,16 @@ end-structure
   outcome-full ;
 : lf-msp-room ( -- outcome )
   lf-msp-count @ lf-msp-capacity < if outcome-ok else lf-msp-full then ;
+: lf-msp-pool-room ( req -- outcome )
+  lf-msp-count @ lf-msp-formal-cells swap lf-sigreq-arity @ + lf-msp-formal-pool slab-hold ;
 : lf-msp-addable ( token req -- status )
-  lf-msp-new? if lf-msp-room else outcome-invalid then ;
+  tuck lf-msp-new? 0= if drop outcome-invalid exit then
+  lf-msp-room dup ok? if drop lf-msp-pool-room else nip then ;
 : lf-msp-next ( array -- addr ) lf-msp-count @ cells + ;
 : lf-msp-copy ( req -- )
-  dup lf-sigreq-formals @ lf-msp-count @ lf-msp-formals-at
-  rot lf-sigreq-arity @ cells move ;
+  lf-msp-count @ dup lf-msp-formal-cells tuck swap cells lf-msp-offsets + !
+  lf-msp-formal-pool slab-at swap dup lf-sigreq-formals @ swap lf-sigreq-arity @
+  >r swap r> cells move ;
 : lf-msp-record! ( req -- )
   dup lf-sigreq-name @ lf-msp-names lf-msp-next !
   dup lf-sigreq-root @ lf-msp-roots lf-msp-next !

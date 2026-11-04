@@ -98,21 +98,25 @@ T{ 0 1 lf-name-num -> 1 true }T
 T{ 0 999 lf-name-num -> false }T
 T{ 0 s" new" lf-name-str -> false }T
 
-\ Exhaust byte storage while retaining free node slots and retry duplicates.
-create name-test-bytes lf-name-byte-capacity allot
-name-test-bytes lf-name-byte-capacity 65 fill
+\ Byte storage has no fixed limit (plan task 6.2.0): a name longer than
+\ the pool's first room, and more after it, grow it; a duplicate is still
+\ found without storing its bytes again.
+create name-test-bytes 3000 allot
+name-test-bytes 3000 65 fill
 lf-name-reset
-T{ 0 name-test-bytes lf-name-byte-capacity lf-name-str -> 1 true }T
-T{ lf-name-used @ -> lf-name-byte-capacity }T
-T{ 0 name-test-bytes lf-name-byte-capacity lf-name-str -> 1 true }T
-T{ 0 s" x" lf-name-str -> false }T
-T{ lf-name-count @ -> 2 }T
+T{ 0 name-test-bytes 3000 lf-name-str -> 1 true }T
+T{ lf-name-used @ lf-name-byte-room 3000 < -> 3000 false }T
+T{ 0 name-test-bytes 3000 lf-name-str -> 1 true }T
+T{ 0 s" x" lf-name-str lf-name-used @ -> 2 true 3001 }T
+T{ lf-name-count @ -> 3 }T
+T{ 0 name-test-bytes 3000 lf-name-str 1 lf-name-text name-test-bytes 3000 compare
+   -> 1 true 0 }T
 
 \ Invalid counters and saturated generation fail closed until a fresh process.
 -1 lf-name-used !
 T{ 0 1 lf-name-num -> false }T
 lf-name-reset
-lf-name-byte-capacity 1+ lf-name-used !
+lf-name-byte-room 1+ lf-name-used !
 T{ 0 1 lf-name-num -> false }T
 lf-name-reset
 0 lf-name-count !

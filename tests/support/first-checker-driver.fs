@@ -83,7 +83,7 @@ create fc-key /fc-key allot
 : fc-bvar ( index -- node )
   lf-tag-bvar over 0 fc-key! fc-term-find if nip else lf-term-bvar must then ;
 \ Reference arguments as (index identity) pairs, index first.
-create fc-pairs lf-cref-argument-capacity 2* cells allot
+create fc-pairs 4096 2* cells allot   \ a constant's levels (no checker limit)
 : fc-pair! ( level k -- )
   2* cells fc-pairs + >r dup lf-level-identity must swap r> 2! ;
 : fc-levels ( n -- ) 0 ?do fc-read-level i fc-pair! loop ;
@@ -127,9 +127,10 @@ create fc-buf /lf-idecl allot
   fc-buf lf-idecl-kind @ lf-kind-definition =
   if lf-hint-regular 1 else lf-hint-opaque 0 then
   fc-buf lf-idecl-height ! fc-buf lf-idecl-hint ! ;
+create fc-param-ids 4096 cells allot   \ a declaration's universe parameters
 : fc-params ( -- )
-  fc-number dup fc-buf lf-idecl-arity !
-  0 ?do fc-name fc-buf lf-idecl-params i cells + ! loop ;
+  fc-param-ids fc-buf lf-idecl-params ! fc-number dup fc-buf lf-idecl-arity !
+  0 ?do fc-name fc-param-ids i cells + ! loop ;
 : fc-value ( -- value )
   >in @ fc-token s" none" compare 0= if drop -1 else >in ! fc-read-term then ;
 : fc-head ( -- )
@@ -152,6 +153,12 @@ variable fc-id#
 : fc-world ( -- )
   lf-name-reset lf-level-reset lf-term-reset lf-lscope-context-reset lf-cref-reset
   lf-input-reset s" u" fc-param s" v" fc-param s" w" fc-param lf-ssession-begin must ;
+\ A universe parameter a case names beyond u, v and w joins the session's
+\ level context before any term is built (the harness lists them after
+\ fc-case), and the session starts again over it.
+: fc-context ( "name" -- )
+  fc-name dup lf-lscope-member? if drop exit then
+  lf-lscope-context-add must lf-ssession-begin must ;
 : fc-case ( "id" -- )
   fc-token dup fc-id# ! fc-id swap move fc-world ;
 

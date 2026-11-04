@@ -100,7 +100,7 @@ end-structure
   dup ok? if drop lf-mls-fuel @ outcome-ok then ;
 : lf-envsig-instantiate ( decl -- root identity fuel' 0 | status )
   dup lf-envsig-root 0= if drop outcome-invalid exit then
-  rot lf-idecl-params lf-envsig-actuals lf-mixed-level-substitute lf-envsig-left ;
+  rot lf-idecl-params@ drop lf-envsig-actuals lf-mixed-level-substitute lf-envsig-left ;
 : lf-envsig-type ( d -- root identity fuel' 0 | status )
   lf-env-accepted ok-then? if lf-slot-decl lf-envsig-instantiate then ;
 
@@ -132,7 +132,7 @@ defer lf-envsig-local ( name -- decl true | false )
 \ N1, L1 or L2 (each recorded by the environment); unknown or unsupported
 \ by K5; full for a full dependency list or store; exhausted; invalid
 \ without a check's snapshot or for a stored type that is not live. The
-\ arguments must be valid level pairs, at most lf-cref-argument-capacity.
+\ arguments must be valid level pairs, any number of them.
 : lf-env-signature ( name pairs count fuel deciding -- root identity fuel' 0 | status )
   lf-envsig-request >r r@ lf-esreq-deciding ! r@ lf-esreq-fuel ! r@ lf-esreq-count !
   r@ lf-esreq-pairs ! r> lf-esreq-name ! lf-envsig-run ;

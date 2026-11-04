@@ -22,9 +22,6 @@ require ../lib/store-columns.fs
 
 64 constant lf-level-default
 64 constant lf-level-depth-limit
-\ Most universe parameters a session's level context, an assignment, a
-\ substitution or a signature holds.
-64 constant lf-level-params-limit
 0 constant lf-level-tag-zero
 1 constant lf-level-tag-succ
 2 constant lf-level-tag-max

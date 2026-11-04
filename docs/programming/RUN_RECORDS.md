@@ -103,7 +103,7 @@ written on one line and shown here indented:
 | `export` | the exporter, export format and Lean versions the metadata record names; null when no metadata record was read | the NDJSON reader, which accepts only the pinned versions |
 | `leanforth` | the commit and whether tracked files differed from it, or null for both | the caller (`ni-source`; `make run-record` asks git) |
 | `host` | the Forth system, its version, its engine (the program's file name, such as `gforth` or `gforth-fast`) and cell width | Gforth's `version-string` and argument 0, else `unknown` |
-| `settings` | fuel per check, the dependency pool, and the checker's fixed capacities | the run, and the constants of `src/core/` and `src/kernel/` |
+| `settings` | fuel per check, the dependency pool, and the checker's capacities (since plan task 6.2.0, `parameters` and `referenceLevels` record 64, the old limits, though universe lists have none; the next version of the record will say so) | the run, and the constants of `src/core/` and `src/kernel/` |
 | `check` | the importer's outcome, the run's (`not-run` when the input was not read), and the environment's run mode and allowlist version | the transport, `rr-check`, the environment's header |
 | `declarations` | every declaration in input order: `index`, `name` and `verdict`, and for an accepted one `label` and `axioms`, for any other but `not-checked` its `diagnostic` | the slots of the checked environment, after the run |
 

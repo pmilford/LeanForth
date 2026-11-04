@@ -60,7 +60,7 @@ T{ 0 10 lf-lscope-check -> outcome-invalid }T
 -1 lf-lscope-context-count !
 T{ 0 10 lf-lscope-check -> outcome-invalid }T
 T{ 4 lf-lscope-context-add -> false }T
-lf-level-capacity 1+ lf-lscope-context-count !
+lf-lscope-ids slab-capacity 1+ lf-lscope-context-count !
 T{ 0 10 lf-lscope-check -> outcome-invalid }T
 lf-lscope-context-reset
 T{ 0 1 lf-lscope-check -> outcome-ok }T
@@ -77,17 +77,22 @@ T{ 1 10 lf-lscope-check -> outcome-invalid }T
 0 1 lf-level-slot 2 cells + !
 T{ 1 10 lf-lscope-check -> outcome-ok }T
 
-\ A full parameter context remains bounded and rejects an additional entry.
+\ The parameter context has no fixed limit (plan task 6.2.0): it grows to
+\ 1,000 parameters and more, refuses a repeat, and its audit (the hashed
+\ table, which grows too) still finds a corrupted repeat among them.
 lf-lscope-context-reset
-: fill-level-context ( -- )
-  lf-level-capacity 0 do
-    i 1+ lf-lscope-context-add 0= if -1 throw then
-  loop ;
-fill-level-context
-T{ lf-level-capacity 1+ lf-lscope-context-add -> false }T
-T{ lf-lscope-context-count @ -> lf-level-capacity }T
+: fill-level-context ( n -- )
+  0 do i 1+ lf-lscope-context-add 0= if -1 throw then loop ;
+1000 fill-level-context
+T{ 1001 lf-lscope-context-add 500 lf-lscope-context-add -> true false }T
+T{ lf-lscope-context-count @ -> 1001 }T
 T{ 1 10 lf-lscope-check -> outcome-ok }T
 T{ lf-level-count @ -> 2 }T
+T{ 1000 lf-lscope-member? 1002 lf-lscope-member? -> true false }T
+7 999 lf-lscope-slot !
+T{ 1 10 lf-lscope-check lf-lscope-context-valid? -> outcome-invalid false }T
+1000 999 lf-lscope-slot !
+T{ lf-lscope-context-valid? -> true }T
 
 \ A parameter's visit: ok for an ID in the context, invalid outside it
 \ (lf-lscope-param-in, beside the flag lf-lscope-in? that searches a
@@ -98,9 +103,10 @@ T{ 5 lf-lscope-param-in 6 lf-lscope-param-in -> outcome-ok outcome-invalid }T
 T{ 5 1 lf-lscope-in? 6 1 lf-lscope-in? -> true false }T
 
 \ The audit's hash table masks with slots - 1, so the slot count must be a
-\ power of two; loading refuses otherwise (the guard at the top of
-\ level-scope.fs, which uses this predicate).
-T{ lf-lscope-slots# lf-lscope-power-of-two? -> true }T
+\ power of two, at least twice the entries; the audit checks it before
+\ using the table.
+T{ 0 lf-lscope-slots 16 lf-lscope-slots 17 lf-lscope-slots -> 32 32 64 }T
+T{ 1000 lf-lscope-slots dup lf-lscope-power-of-two? swap 2000 < 0= -> true true }T
 T{ 1 lf-lscope-power-of-two? 2 lf-lscope-power-of-two? 128 lf-lscope-power-of-two? -> true true true }T
 T{ 0 lf-lscope-power-of-two? 3 lf-lscope-power-of-two? 200 lf-lscope-power-of-two? -> false false false }T
 bye

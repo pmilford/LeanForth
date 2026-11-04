@@ -68,7 +68,7 @@ n.A def lf-hint-regular buf lf-idecl-hint ! -1 buf lf-idecl-height !
 T{ bad-add? -> true }T
 n.A thm lf-hint-regular buf lf-idecl-hint !
 T{ bad-add? -> true }T
-n.A def lf-param-capacity 1+ buf lf-idecl-arity !
+n.A def -1 buf lf-idecl-arity !
 T{ bad-add? -> true }T
 n.A def 0 param
 T{ bad-add? -> true }T
@@ -122,7 +122,7 @@ T{ lf-name-bytes ' flip-byte sees? lf-input-print lf-input-fingerprint = -> true
 \ Loading cannot end with the name bytes out of range.
 lf-input-reset n.A def add
 lf-name-used @ constant used-now
-lf-name-byte-capacity 1+ lf-name-used !
+lf-name-byte-room 1+ lf-name-used !
 T{ lf-input-end lf-input-sealed? -> outcome-invalid false }T
 used-now lf-name-used !
 T{ lf-input-end lf-input-intact? -> outcome-ok true }T
@@ -224,7 +224,7 @@ lf-env-view drop
 T{ 0 lf-env-params rot @ -rot -> n.u 1 outcome-ok }T
 T{ 11 two-params -> 2 n.u n.v outcome-ok }T
 T{ 23 two-params -> 2 n.v n.u outcome-ok }T
-T{ 1 lf-env-params -> 1 slot@ lf-slot-decl lf-idecl-params 0 outcome-ok }T
+T{ 1 lf-env-params -> 1 slot@ lf-slot-decl lf-idecl-params@ drop 0 outcome-ok }T
 \ L1: zero, exact, too few and too many levels.
 T{ 0 0 lf-env-arity? 1 0 lf-env-arity? 2 0 lf-env-arity? -> outcome-rejected outcome-ok outcome-rejected }T
 T{ 1 11 lf-env-arity? 2 11 lf-env-arity? 3 11 lf-env-arity? -> outcome-rejected outcome-ok outcome-rejected }T

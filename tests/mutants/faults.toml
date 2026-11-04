@@ -1127,6 +1127,14 @@ old = '''  lf-lnorm-nest @ lf-level-depth-limit < dup if 1 lf-lnorm-nest +! else
 new = '''  true 1 lf-lnorm-nest +! ;'''
 test = "$GFORTH tests/core/level-deep.fs"
 reason = "the review's M1: normalize's level frames are not limited, so a deep graph at a raised level capacity overflows the host stack"
+
+[[fault]]
+id = "lnorm-merge-unsorted"
+file = "src/kernel/level-normalize.fs"
+old = '''    lf-lnorm-right-first? if lf-lnorm-j else lf-lnorm-i then lf-lnorm-take repeat'''
+new = '''    lf-lnorm-right-first? drop lf-lnorm-i lf-lnorm-take repeat'''
+test = "$GFORTH tests/core/level-compare.fs"
+reason = "plan task 6.2.0: the merge of a long argument list never takes the right run first, so a max of 40 parameters is not sorted"
 [[fault]]
 id = "ndjson-self-reference"
 file = "src/import/ndjson.fs"
@@ -2221,8 +2229,8 @@ reason = "ADR 0012 E5 through the name index: the newest same-named declaration,
 [[fault]]
 id = "e5-index-unlinked"
 file = "src/core/input.fs"
-old = '''  >r /lf-idecl move r> dup lf-input-link outcome-ok ;'''
-new = '''  >r /lf-idecl move r> outcome-ok ;'''
+old = '''  >r over swap /lf-idecl move r> lf-input-placed dup lf-input-link outcome-ok ;'''
+new = '''  >r over swap /lf-idecl move r> lf-input-placed outcome-ok ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "the name index is never filled: under a name view every constant is unknown to the environment (N1)"
 

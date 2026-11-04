@@ -622,11 +622,12 @@ needed (Rejected alternatives).
     marks, images and memos, the printer's binder table) moved into
     columns that grow with their store (`src/lib/store-columns.fs`).
     Walk stacks, frames and binder contexts no longer follow the store's
-    capacity: `lf-depth-limit`, `lf-level-depth-limit` and
-    `lf-level-params-limit` keep them at 64.
+    capacity: `lf-depth-limit` and `lf-level-depth-limit` keep them at 64.
   - Universe arguments are variable-length, in a pool after each
     reference's record (at most 64 per reference, was 8); a declaration
-    takes 64 universe parameters (was 8).
+    takes 64 universe parameters (was 8). Plan task 6.2.0 (2026-11-04)
+    removed these limits and the level context's: universe lists of any
+    length, bounded by memory (see the plan's progress).
   - A context can attach a sealed input tier as its names
     (`lf-name-attach`): input names keep their stage numbers and need no
     per-call audit, new ones go to one scratch tier over the input,

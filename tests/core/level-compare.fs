@@ -387,6 +387,16 @@ lf-level-reset
 2000 params
 T{ 2000 2000 lf-level-same? 2000 own-classes? -> true true }T
 T{ 1234 lf-level-param must 1234 lf-level-same? -> true }T
+\ Long argument lists are merge sorted (plan task 6.2.0): a max of 40
+\ parameters nested one way equals the same max nested the other way, and
+\ differs from one with a parameter changed.
+lf-level-reset
+: nparam ( i -- level ) 0 swap lf-name-num must lf-level-param must ;
+: up-chain ( n -- level ) 1 nparam swap 1+ 2 ?do i nparam lf-level-max must loop ;
+: down-chain ( n -- level ) 1 nparam swap 1+ 2 ?do i nparam swap lf-level-max must loop ;
+T{ 40 up-chain 40 down-chain 100000 lf-level-equivalent -> true outcome-ok }T
+T{ 40 up-chain 39 down-chain 41 nparam lf-level-max must 100000 lf-level-equivalent
+   -> false outcome-ok }T
 lf-level-reset
 T{ lf-level-default lf-level-capacity! -> outcome-ok }T
 bye

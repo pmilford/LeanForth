@@ -41,7 +41,7 @@ require ../core/names.fs
 require ../core/name-equal.fs
 require ./level-make.fs
 
-128 constant lf-lnorm-capacity   \ cells of the max case's argument stack
+128 constant lf-lnorm-capacity   \ the argument stack's first room, in cells
 
 begin-structure /lf-lnrec
   field: lf-lnrec-status                            \ the first failure; ok while none
@@ -49,9 +49,19 @@ begin-structure /lf-lnrec
   field: lf-lnrec-nest                              \ level frames nested now
   field: lf-lnrec-top                               \ argument cells in use
   /store-mark +field lf-lnrec-mark                  \ the level store before the call
-  lf-lnorm-capacity cells +field lf-lnrec-args
+  field: lf-lnrec-i                                 \ a merge: the next of the left run,
+  field: lf-lnrec-j                                 \ the next of the right run,
+  field: lf-lnrec-k                                 \ the next scratch cell,
+  field: lf-lnrec-mid                               \ the right run's start,
+  field: lf-lnrec-hi                                \ and its end;
+  field: lf-lnrec-width                             \ a pass's run width,
+  field: lf-lnrec-to                                \ and the arguments' end
 end-structure
 /lf-lnrec context-record: lf-lnorm-state
+\ The max case's argument stack: a growable array with no fixed limit
+\ (plan task 6.2.0; a max of a thousand parameters flattens to a thousand
+\ arguments); one the heap cannot grow is full.
+1 cells context-slab: lf-lnorm-arg-cells
 \ Per level, a column of the level store (lib/store-columns.fs): its
 \ normal form + 1, or 0.
 /slab context-record: lf-lnorm-memo-column
@@ -61,7 +71,7 @@ end-structure
 \ Fuel left after lf-level-equivalent; level-compare continues with it.
 : lf-lnorm-fuel ( -- addr ) lf-lnorm-state lf-lnrec-fuel ;
 : lf-lnorm-top ( -- addr ) lf-lnorm-state lf-lnrec-top ;
-: lf-lnorm-arg ( i -- addr ) cells lf-lnorm-state lf-lnrec-args + ;
+: lf-lnorm-arg ( i -- addr ) cells lf-lnorm-arg-cells slab-base + ;
 : lf-lnorm-memo ( level -- addr ) lf-lnorm-memo-column column-at ;
 : lf-lnorm-clear ( -- ) lf-lnorm-memo-column column-erase ;
 : lf-lnorm-site ( -- site ) c" level-normalize lf-level-equivalent" ;
@@ -164,12 +174,13 @@ defer lf-lnorm-less ( a b -- flag )
 ' lf-lnorm-lt is lf-lnorm-less
 
 \ ---------------------------------------------------------------------------
-\ The argument stack. A push beyond its capacity is full.
+\ The argument stack. A push the heap cannot make room for is full.
 : lf-lnorm-crowded ( level -- )
-  drop lf-lnorm-ok? if lf-lnorm-top @ lf-lnorm-capacity lf-lnorm-site
+  drop lf-lnorm-ok? if lf-lnorm-top @ lf-lnorm-arg-cells slab-capacity lf-lnorm-site
     lf-diag-work-stack-full lf-diag-note then outcome-full lf-lnorm-fail ;
+: lf-lnorm-room? ( n -- flag ) 1+ lf-lnorm-arg-cells slab-hold ok? ;
 : lf-lnorm-push ( level -- )
-  lf-lnorm-top @ dup lf-lnorm-capacity <
+  lf-lnorm-top @ dup lf-lnorm-room?
   if lf-lnorm-arg ! 1 lf-lnorm-top +! else drop lf-lnorm-crowded then ;
 \ push_max_args: the arguments of nested maxes, left to right.
 defer lf-lnorm-push-args ( level -- )
@@ -191,8 +202,54 @@ defer lf-lnorm-push-args ( level -- )
   begin 2dup < while dup lf-lnorm-before? while
     dup lf-lnorm-arg over 1- lf-lnorm-arg lf-lnorm-swap 1-
   repeat then 2drop ;
-: lf-lnorm-sort ( from to -- )
+: lf-lnorm-insertion ( from to -- )
   2dup < if over 1+ ?do dup i lf-lnorm-sink loop drop else 2drop then ;
+\ Long lists (plan task 6.2.0; a max of a thousand parameters) are merge
+\ sorted, bottom up, through scratch cells above the stack's top, so that
+\ sorting costs n log n comparisons, not n*n/2; each comparison costs one
+\ unit of fuel, as in the insertion sort, which lists of at most
+\ lf-lnorm-short arguments keep (so their fuel is as before). A merge
+\ takes the right run's argument first only when it is strictly less, so
+\ equal arguments keep their order; only structurally equal arguments
+\ tie, so the result is the insertion sort's.
+32 constant lf-lnorm-short
+: lf-lnorm-i ( -- addr ) lf-lnorm-state lf-lnrec-i ;
+: lf-lnorm-j ( -- addr ) lf-lnorm-state lf-lnrec-j ;
+: lf-lnorm-k ( -- addr ) lf-lnorm-state lf-lnrec-k ;
+: lf-lnorm-mid ( -- addr ) lf-lnorm-state lf-lnrec-mid ;
+: lf-lnorm-hi ( -- addr ) lf-lnorm-state lf-lnrec-hi ;
+: lf-lnorm-width ( -- addr ) lf-lnorm-state lf-lnrec-width ;
+: lf-lnorm-to ( -- addr ) lf-lnorm-state lf-lnrec-to ;
+: lf-lnorm-take ( cursor -- )
+  dup @ lf-lnorm-arg @ lf-lnorm-k @ lf-lnorm-arg ! 1 swap +! 1 lf-lnorm-k +! ;
+: lf-lnorm-right-first? ( -- flag )
+  lf-lnorm-spend lf-lnorm-ok? 0= if false exit then
+  lf-lnorm-j @ lf-lnorm-arg @ lf-lnorm-i @ lf-lnorm-arg @ lf-lnorm-lt ;
+: lf-lnorm-both? ( -- flag ) lf-lnorm-i @ lf-lnorm-mid @ < lf-lnorm-j @ lf-lnorm-hi @ < and ;
+: lf-lnorm-merged ( -- )
+  begin lf-lnorm-both? while
+    lf-lnorm-right-first? if lf-lnorm-j else lf-lnorm-i then lf-lnorm-take repeat
+  begin lf-lnorm-i @ lf-lnorm-mid @ < while lf-lnorm-i lf-lnorm-take repeat
+  begin lf-lnorm-j @ lf-lnorm-hi @ < while lf-lnorm-j lf-lnorm-take repeat ;
+\ Merge lo..mid-1 and mid..hi-1 through the scratch at scratch, then copy
+\ the result back to lo.
+: lf-lnorm-merge ( lo mid hi scratch -- )
+  dup lf-lnorm-k ! >r lf-lnorm-hi ! dup lf-lnorm-j ! lf-lnorm-mid ! dup lf-lnorm-i !
+  lf-lnorm-merged r> lf-lnorm-arg swap dup lf-lnorm-arg swap lf-lnorm-hi @ swap - cells move ;
+: lf-lnorm-run ( lo -- )
+  dup lf-lnorm-width @ + lf-lnorm-to @ min over lf-lnorm-width @ 2* + lf-lnorm-to @ min
+  lf-lnorm-to @ lf-lnorm-merge ;
+: lf-lnorm-pass ( from -- )
+  begin dup lf-lnorm-to @ < while dup lf-lnorm-run lf-lnorm-width @ 2* + repeat drop ;
+: lf-lnorm-widen ( -- ) lf-lnorm-width @ 2* lf-lnorm-width ! ;
+: lf-lnorm-scratch? ( from to -- flag ) dup rot - + lf-lnorm-arg-cells slab-hold ok? ;
+: lf-lnorm-merge-sort ( from to -- )
+  2dup lf-lnorm-scratch? 0= if drop lf-lnorm-arg @ lf-lnorm-crowded exit then
+  lf-lnorm-to ! 1 lf-lnorm-width !
+  begin lf-lnorm-to @ over - lf-lnorm-width @ > while dup lf-lnorm-pass lf-lnorm-widen repeat
+  drop ;
+: lf-lnorm-sort ( from to -- )
+  2dup swap - lf-lnorm-short > if lf-lnorm-merge-sort else lf-lnorm-insertion then ;
 
 \ Dropping explicit arguments (476-494): all but the largest, and that
 \ one too when a later argument's offset is at least its own.

@@ -40,17 +40,20 @@ begin-structure /lf-lvrec
   field: lf-lvrec-count         \ assignments in the table
   field: lf-lvrec-levels        \ level-store generation of the table
   field: lf-lvrec-context       \ parameter-context generation of the table
-  lf-level-params-limit cells +field lf-lvrec-ids
-  lf-level-params-limit cells +field lf-lvrec-values
 end-structure
 /lf-lvrec context-record: lf-lvalue-state
+\ The table's IDs and values: growable arrays with no fixed limit (plan
+\ task 6.2.0); a table the heap cannot grow refuses the assignment.
+1 cells context-slab: lf-lassign-id-cells
+1 cells context-slab: lf-lassign-value-cells
 
 \ The record's fields under their established names; tests corrupt the
 \ table through them.
 : lf-lvalue-fuel ( -- addr ) lf-lvalue-state lf-lvrec-fuel ;
 : lf-lassign-count ( -- addr ) lf-lvalue-state lf-lvrec-count ;
-: lf-lassign-ids ( -- addr ) lf-lvalue-state lf-lvrec-ids ;
-: lf-lassign-values ( -- addr ) lf-lvalue-state lf-lvrec-values ;
+\ The first ID's and value's addresses, valid while the table does not grow.
+: lf-lassign-ids ( -- addr ) lf-lassign-id-cells slab-base ;
+: lf-lassign-values ( -- addr ) lf-lassign-value-cells slab-base ;
 
 \ The assignment table: a finite map from parameter IDs to nonnegative
 \ cells. A reset empties it and binds it to the current level store and
@@ -60,6 +63,7 @@ end-structure
   lf-lscope-generation @ lf-lvalue-state lf-lvrec-context ! ;
 : lf-lassign-id@ ( i -- id ) cells lf-lassign-ids + @ ;
 : lf-lassign-value@ ( i -- value ) cells lf-lassign-values + @ ;
+: lf-lassign-room ( -- n ) lf-lassign-id-cells slab-capacity lf-lassign-value-cells slab-capacity min ;
 \ Position of an ID among the first n entries.
 : lf-lassign-position ( id n -- i true | false )
   0 ?do dup i lf-lassign-id@ = if drop i true unloop exit then loop drop false ;
@@ -83,18 +87,21 @@ end-structure
   lf-level-generation @ lf-lvalue-state lf-lvrec-levels @ =
   lf-lscope-generation @ lf-lvalue-state lf-lvrec-context @ = and ;
 : lf-lassign-valid? ( -- flag )
-  lf-lassign-count @ lf-level-params-limit upto? lf-lscope-context-valid? and
+  lf-lassign-count @ lf-lassign-room upto? lf-lscope-context-valid? and
   lf-level-count-valid? and lf-lassign-current? and
   if lf-lassign-entries? else false then ;
 
 \ Add one assignment to a valid table: a nonnegative value for an ID in the
-\ context that has none yet. A full table, a duplicate, a stale table or a
-\ negative value returns false and changes nothing.
+\ context that has none yet. A table the heap cannot grow, a duplicate, a
+\ stale table or a negative value returns false and changes nothing.
+: lf-lassign-grown? ( -- flag )
+  lf-lassign-count @ 1+ dup lf-lassign-id-cells slab-hold ok?
+  swap lf-lassign-value-cells slab-hold ok? and ;
 : lf-lassign-new? ( id value -- flag )
   0< 0= over lf-lscope-member? and swap lf-lassign-count @ lf-lassign-in? 0= and
-  lf-lassign-count @ lf-level-params-limit < and ;
+  dup if drop lf-lassign-grown? then ;
 : lf-lassign-append ( id value -- )
-  lf-lassign-count @ tuck cells lf-lassign-values + ! cells lf-lassign-ids + !
+  lf-lassign-count @ tuck lf-lassign-value-cells slab-at ! lf-lassign-id-cells slab-at !
   1 lf-lassign-count +! ;
 : lf-lassign-add ( id value -- flag )
   lf-lassign-valid? if 2dup lf-lassign-new? else false then

@@ -40,8 +40,11 @@
 \ context moves no longer matches its mark.
 \
 \ Untrusted [import] data; part of the first checker's [kernel] path, not
-\ yet through the review gate. Up to lf-param-capacity (64) universe
-\ parameters per declaration (Mathlib's most is 30); the number of
+\ yet through the review gate. A declaration may have any number of
+\ universe parameters (plan task 6.2.0; Mathlib's most is 30): an
+\ importer's record points at its own array of them, and lf-input-add
+\ copies them into the input's cells (lf-input-more); lf-param-capacity,
+\ 64, is no limit: only the number run records 0.1 report. The number of
 \ declarations is a capacity setting (lf-input-capacity!). The
 \ fingerprint also covers the references' universe arguments (their
 \ pool) and, under a name view (names.fs), every input name's hash.
@@ -90,7 +93,10 @@ begin-structure /lf-idecl
   field: lf-idecl-hint      \ lf-hint-...; opaque for every kind but a definition
   field: lf-idecl-height    \ a regular hint's height, else 0
   field: lf-idecl-arity     \ number of universe parameters
-  lf-param-capacity cells +field lf-idecl-params   \ their name IDs, in order
+  field: lf-idecl-params    \ an importer's record: the address of their name
+                            \ IDs, in order (unused in the input's copy)
+  field: lf-idecl-param-at  \ set by lf-input-add: where it put them, the
+                            \ first of arity cells of lf-input-more
   field: lf-idecl-prev      \ set by lf-input-add: the declaration before it
                             \ of the same name, plus one; 0 for none
   field: lf-idecl-more      \ an inductive type, constructor or recursor: its
@@ -240,7 +246,10 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
 : lf-input-decl ( i -- decl ) lf-inputs store-slot ;
 : lf-input-name ( i -- name ) lf-input-decl lf-idecl-name @ ;
 : lf-param@ ( params k -- name ) cells + @ ;
-: lf-idecl-params@ ( decl -- params n ) dup lf-idecl-params swap lf-idecl-arity @ ;
+\ An added declaration's parameters (in lf-input-more, which grows only
+\ while loading).
+: lf-idecl-params@ ( decl -- params n )
+  dup lf-idecl-param-at @ lf-more-cell swap lf-idecl-arity @ ;
 : lf-input-params ( i -- params n ) lf-input-decl lf-idecl-params@ ;
 \ The newest declaration named name, and the one named alike before d;
 \ -1 for none. Unchecked: a valid name, d a valid index.
@@ -272,8 +281,8 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
 : lf-params-ok? ( params n -- flag )
   0 ?do dup i lf-param@ lf-param-ok? 0= if drop false unloop exit then loop drop true ;
 : lf-input-params-ok? ( decl -- flag )
-  dup lf-idecl-arity @ dup lf-param-capacity upto?
-  if swap lf-idecl-params swap lf-params-ok? else 2drop false then ;
+  dup lf-idecl-arity @ dup 0< 0=
+  if swap lf-idecl-params @ swap lf-params-ok? else 2drop false then ;
 : lf-input-value-ok? ( value -- flag ) dup -1 = if drop true else lf-term-valid? then ;
 : lf-input-roots-ok? ( decl -- flag )
   dup lf-idecl-type @ lf-term-valid? swap lf-idecl-value @ lf-input-value-ok? and ;
@@ -315,6 +324,11 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
 \ room. lf-input-end marks every input store and ends loading: ok; or
 \ invalid, still loading, when loading had already ended, the name store
 \ or its byte count is out of range, or a store is invalid.
+\ The offset the next cell of lf-input-more gets, and appending a cell
+\ there: ok, or full when the slab has no room.
+: lf-more-here ( -- k ) lf-more-count ;
+: lf-more-append ( x -- outcome )
+  1 lf-input-more slab-claim dup ok? if drop lf-more-cell ! outcome-ok else nip nip then ;
 \ Room in the name index for decl's name (the test hook of lib/store.fs is
 \ asked before it grows, as for the store's own block), and the links of
 \ declaration i.
@@ -325,21 +339,31 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
 : lf-input-link ( i -- )
   dup lf-input-name lf-input-newest-cell 2dup @ swap lf-input-decl lf-idecl-prev !
   swap 1+ swap ! ;
+\ The record's parameters appended to lf-input-more: where they begin, and
+\ ok or full.
+: lf-input-param, ( params i -- params outcome ) over swap lf-param@ lf-more-append ;
+: lf-input-params, ( decl -- k outcome )
+  lf-more-here swap dup lf-idecl-params @ swap lf-idecl-arity @ 0 ?do
+    i lf-input-param, dup ok? 0= if nip unloop exit then drop
+  loop drop outcome-ok ;
+\ The copy keeps where its parameters are, never the importer's address
+\ (which differs from context to context and would change the input's
+\ fingerprint).
+: lf-input-placed ( k decl i -- i )
+  nip tuck lf-input-decl tuck lf-idecl-param-at ! 0 swap lf-idecl-params ! ;
 : lf-input-copy ( decl -- i outcome )
   dup lf-input-index-room dup ok? 0= if nip -1 swap exit then drop
+  dup lf-input-params, dup ok? 0= if nip nip -1 swap exit then drop swap
   lf-inputs store-ready drop
-  lf-inputs store-new-slot 0= if drop -1 outcome-full exit then
-  >r /lf-idecl move r> dup lf-input-link outcome-ok ;
+  lf-inputs store-new-slot 0= if 2drop -1 outcome-full exit then
+  >r over swap /lf-idecl move r> lf-input-placed dup lf-input-link outcome-ok ;
 : lf-input-add ( decl -- i outcome )
   lf-input-sealed? if drop -1 outcome-invalid exit then
   dup lf-input-decl-ok? if lf-input-copy else drop -1 outcome-invalid then ;
-\ Inductive data, while loading (see lf-input-more above): the offset the
-\ next cell gets, and appending a cell: ok; invalid once loading has
+\ Inductive data, while loading (see lf-input-more above): appending a
+\ cell (lf-more-here gives its offset): ok; invalid once loading has
 \ ended; full when the slab has no room. A declaration that refers to
 \ the data is added after it.
-: lf-more-here ( -- k ) lf-more-count ;
-: lf-more-append ( x -- outcome )
-  1 lf-input-more slab-claim dup ok? if drop lf-more-cell ! outcome-ok else nip nip then ;
 : lf-more, ( x -- outcome )
   lf-input-sealed? if drop outcome-invalid else lf-more-append then ;
 : lf-mark-ok? ( mark store -- flag ) store-mark ok? ;

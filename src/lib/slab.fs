@@ -131,6 +131,8 @@ lf-lib set-current
   dup slab-live? if slab-count 0 swap within else 2drop false then ;
 \ Unchecked: the address of unit i, and of the first free unit.
 : slab-at ( i slab -- addr ) tuck slab-unit * swap slab-block @ + ;
+\ Unit 0's address, for callers that step through units themselves.
+: slab-base ( slab -- addr ) slab-block @ ;
 : slab-top ( slab -- addr ) dup slab-count swap slab-at ;
 \ Address units held, and in use.
 : slab-bytes ( slab -- u ) dup slab-capacity swap slab-unit * ;
@@ -187,6 +189,10 @@ lf-lib set-current
   2dup slab-has? if 2drop outcome-ok else slab-grow then ;
 \ Grow the capacity to at least n units, for example to pre-size a slab.
 : slab-reserve ( n slab -- outcome ) tuck slab-count - 0 max swap slab-room ;
+\ Room for n units in all, from unit 0, for a slab used as an array whose
+\ count stays 0: ok at once when it holds them, else as slab-reserve.
+: slab-hold ( n slab -- outcome )
+  2dup slab-capacity > if slab-reserve else 2drop outcome-ok then ;
 \ Unchecked: count n more units in use; slab-room n gave ok since.
 : slab-commit ( n slab -- ) slab-used +! ;
 \ Claim n units: the number of the first and ok, or -1 and the outcome of

@@ -37,10 +37,14 @@ end-structure
 
 \ Validate a record's bounded metadata before using it as a pointer or loop
 \ bound: a live positive name not used by an earlier record, an arity of
-\ 0..lf-level-params-limit, and positive, pairwise distinct formal IDs.
+\ at least 0 whose formals lie in the pool, and positive, pairwise distinct
+\ formal IDs.
 : lf-msa-name? ( position -- flag )
   dup lf-msp-name@ dup lf-msp-name? if swap lf-msp-find 0< else 2drop false then ;
-: lf-msa-arity? ( position -- flag ) lf-msp-arity@ lf-level-params-limit upto? ;
+: lf-msa-arity? ( position -- flag )
+  dup lf-msp-arity@ dup 0< if 2drop false exit then
+  swap lf-msp-offset@ dup 0< if 2drop false exit then
+  + lf-msp-formal-pool slab-capacity > 0= ;
 : lf-msa-formal? ( addr i -- flag )
   2dup cells + @ dup 0> if -rot lf-msp-cell-index 0< else drop 2drop false then ;
 : lf-msa-formals? ( addr count -- flag )

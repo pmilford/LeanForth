@@ -44,7 +44,7 @@ require ./diagnostics.fs
 require ./compact.fs
 
 64 constant lf-name-default
-2048 constant lf-name-byte-capacity
+2048 constant lf-name-byte-capacity   \ the byte pool's first room (it grows)
 0 constant lf-name-tag-anon
 1 constant lf-name-tag-str
 2 constant lf-name-tag-num
@@ -72,15 +72,25 @@ store-header context-record: lf-names
 
 \ The byte pool: bytes in use, the pool itself, and a copy of each query,
 \ made first so that the query may alias any buffer of this module.
+\ The bytes and the copy are growable arrays with no fixed limit (plan
+\ task 6.2.0), each starting with lf-name-byte-capacity bytes; a string
+\ the heap cannot hold is refused as full. Their addresses are valid
+\ until they grow: the copy grows only for a query longer than it is
+\ (which cannot lie wholly in it), and the bytes only after the copy.
 begin-structure /lf-npool
   field: lf-npool-used
-  lf-name-byte-capacity +field lf-npool-bytes
-  lf-name-byte-capacity +field lf-npool-input
 end-structure
 /lf-npool context-record: lf-name-pool
+1 context-slab: lf-name-byte-cells
+1 context-slab: lf-name-query-cells
+: lf-name-pool-make ( -- )
+  lf-name-byte-capacity dup lf-name-byte-cells slab-hold ok?
+  swap lf-name-query-cells slab-hold ok? and 0= abort" names: no heap" ;
+' lf-name-pool-make context-setup
 : lf-name-used ( -- addr ) lf-name-pool lf-npool-used ;
-: lf-name-bytes ( -- addr ) lf-name-pool lf-npool-bytes ;
-: lf-name-input-copy ( -- addr ) lf-name-pool lf-npool-input ;
+: lf-name-bytes ( -- addr ) 0 lf-name-byte-cells slab-at ;
+: lf-name-input-copy ( -- addr ) 0 lf-name-query-cells slab-at ;
+: lf-name-byte-room ( -- n ) lf-name-byte-cells slab-capacity ;
 
 \ The input view (see the header).
 begin-structure /lf-nview
@@ -105,7 +115,7 @@ end-structure
 
 \ Count, byte use and generation are in range; checked before addressing.
 : lf-name-state-valid? ( -- flag )
-  lf-names store-count-valid? lf-name-used @ lf-name-byte-capacity upto? and ;
+  lf-names store-count-valid? lf-name-used @ lf-name-byte-room upto? and ;
 \ An ID is allocated now; a reused stale ID is undetectable.
 \ The state check covers the store's (store-count-valid?), so the ID is
 \ only compared with the count.
@@ -158,7 +168,7 @@ end-structure
 \ Appending; callers have checked validity, absence and room. The store's
 \ identities are issued but unused: names are compared by content.
 : lf-name-room? ( -- flag ) lf-names store-ready drop lf-names store-open? ;
-: lf-name-byte-room? ( length -- flag ) lf-name-byte-capacity lf-name-used @ - upto? ;
+: lf-name-byte-room? ( length -- flag ) lf-name-used @ + lf-name-byte-cells slab-hold ok? ;
 : lf-name-new ( prefix tag -- entry id )
   lf-names store-claim dup >r lf-name-slot tuck lf-entry-tag ! tuck lf-entry-prefix ! r> ;
 : lf-name-add-num ( prefix number -- id )
@@ -178,7 +188,7 @@ end-structure
 : lf-name-refused ( -- false )
   lf-names lf-name-site lf-diag-names-full lf-diag-store false ;
 : lf-name-bytes-refused ( length -- false )
-  lf-name-used @ + lf-name-byte-capacity lf-name-site lf-diag-name-bytes-full lf-diag-note
+  lf-name-used @ + lf-name-byte-room lf-name-site lf-diag-name-bytes-full lf-diag-note
   false ;
 : lf-name-str-refused ( prefix length -- false )
   nip lf-name-room? if lf-name-bytes-refused else drop lf-name-refused then ;
@@ -301,8 +311,10 @@ create lf-name-viewed-ops /lf-nops allot
 \ Intern a byte-string component. The input is copied before anything else
 \ changes, so it may overlap any buffer here; it must stay readable during
 \ the copy. Invalid input changes nothing.
+: lf-name-query-room? ( length -- flag )
+  dup 0< if drop false else lf-name-query-cells slab-hold ok? then ;
 : lf-name-str-args? ( prefix length -- flag )
-  lf-name-byte-capacity upto? swap lf-name-valid? and lf-name-storage-valid? and ;
+  lf-name-query-room? swap lf-name-valid? and lf-name-storage-valid? and ;
 : lf-name-copy-in ( addr length -- length ) tuck lf-name-input-copy swap move ;
 : lf-name-copied-str ( prefix length -- id true | false ) lf-name-ops lf-nops-str @ execute ;
 : lf-name-str ( prefix addr length -- id true | false )

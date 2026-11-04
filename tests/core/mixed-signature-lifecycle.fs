@@ -77,14 +77,12 @@ T{ 1 level-id @ lf-hterm-sort -> 0 lf-term-serial @ true }T
 lf-term-serial @ root-id !
 T{ candidate @ 1 -1 put-with -> outcome-invalid }T
 T{ candidate @ -1 5000 put-with -> outcome-invalid }T
-T{ candidate @ lf-level-capacity 1+ 5000 put-with -> outcome-invalid }T
 T{ 0 1 5000 put-with -> outcome-invalid }T
 T{ 999 1 5000 put-with -> outcome-invalid }T
 T{ lf-msp-count @ lf-term-count @ lf-level-count @ -> 0 1 2 }T
 T{ candidate @ 1 5000 put-with -> outcome-ok }T
 T{ candidate @ 1 -1 specialize-with -> outcome-invalid }T
 T{ candidate @ -1 5000 specialize-with -> outcome-invalid }T
-T{ candidate @ lf-level-capacity 1+ 5000 specialize-with -> outcome-invalid }T
 T{ 0 1 5000 specialize-with -> outcome-invalid }T
 T{ 999 1 5000 specialize-with -> outcome-invalid }T
 T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> 1 2 0 }T

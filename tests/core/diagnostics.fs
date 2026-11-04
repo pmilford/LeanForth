@@ -11,6 +11,7 @@
 \ Each case runs in a new context, so no state needs restoring.
 include ../support/tester.fs
 include ../support/checks.fs
+include ../support/heap-watch.fs
 require ../../src/lib/task.fs
 require ../../src/kernel/mixed-definition-probe.fs
 include ../support/plain-terms.fs
@@ -86,9 +87,12 @@ begin-check fill-names lf-diag-clear
 T{ 0 999 lf-name-num diag -> false 64 64 lf-diag-names-full }T
 T{ s" names lf-name-intern" at? -> true }T
 end-check
+\ The name bytes have no fixed limit (plan task 6.2.0): growing them past
+\ their first 2,048 bytes is refused only by the heap (heap-watch.fs).
 create big 2048 allot  big 2048 char a fill
-begin-check 0 big 2000 lf-name-str must drop lf-diag-clear
+begin-check 0 big 2000 lf-name-str must drop lf-diag-clear 1 heap-refusals !
 T{ 0 big 100 lf-name-str diag -> false 2102 2048 lf-diag-name-bytes-full }T
+T{ heap-refusals @ 0 big 100 lf-name-str nip -> 0 true }T
 end-check
 : x-name ( -- name generation ) 0 s" x" lf-name-str must lf-name-generation @ ;
 : zero-pair ( -- ) 0 dup lf-level-identity must 0 pair! ;
@@ -206,11 +210,16 @@ lf-diag-clear
 T{ max-n lf-lvalue-succ+ diag -> -1 outcome-full max-n 1 lf-diag-cell-maximum }T
 end-check
 \ Lean's normalize flattens a max of maxes onto its argument stack: eight
-\ doublings of u stand for 256 arguments, more than its 128 cells.
+\ doublings of u stand for 256 arguments. The stack has no fixed limit
+\ (plan task 6.2.0): it holds them, and it is full only when the heap
+\ refuses it room (heap-watch.fs).
 : doubled ( level n -- level' ) 0 ?do dup lf-level-max must loop ;
 begin-check lf-diag-clear
+T{ level-u level-u 8 doubled 100000 lf-level-compare -> outcome-ok }T
+end-check
+begin-check lf-diag-clear 1 heap-refusals !
 T{ level-u level-u 8 doubled 100000 lf-level-compare diag
-  -> outcome-full 128 128 lf-diag-work-stack-full }T
+  -> outcome-full 0 0 lf-diag-work-stack-full }T
 T{ s" level-normalize lf-level-equivalent" at? -> true }T
 end-check
 \ K6: specializing imax 1 (u+1) with u for u depends on object sharing in

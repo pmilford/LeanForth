@@ -33,12 +33,17 @@ create canon-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf-in
 : canon-log ( dst -- ) drop ;
 : canon-log-digest ( h -- h' ) ;
 [then]
+\ The growable arrays of context-slab: (lib/context.fs, plan task 6.2.0),
+\ found through its list of their offsets.
+: canon-listed-at ( node -- slab ) cell+ @ lf-context @ + ;
+: canon-listed ( dst -- dst )
+  context-slabs @ begin ?dup while >r dup r@ canon-listed-at canon-slab r> @ repeat ;
 \ Blank every heap field in the copy at dst.
 : canon-zero ( dst -- )
   canon-stores# 0 do dup i canon-store# canon-store loop
   dup lf-cref-pool canon-slab
   ['] canon-column lf-term-columns columns-each ['] canon-column lf-level-columns columns-each
-  canon-log ;
+  canon-listed canon-log ;
 
 \ The digest: shape, counters and contents.
 : canon-bytes ( h addr u -- h' ) 0 ?do dup i + c@ rot swap canon-mix swap loop drop ;
@@ -49,8 +54,15 @@ create canon-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf-in
   >r r@ slab-capacity canon-mix r@ slab-count canon-mix r@ slab-unit canon-mix
   r@ slab-limit canon-mix r@ slab-generation canon-mix 0 r@ slab-at r> slab-bytes canon-bytes ;
 : canon-column-digest ( h column -- h' ) column-slab canon-slab-digest ;
+\ Their units hold nothing until written (a count or index elsewhere says
+\ how many are in use), so only their shape goes into the digest.
+: canon-shape-digest ( h slab -- h' )
+  >r r@ slab-capacity canon-mix r@ slab-unit canon-mix r> slab-limit canon-mix ;
+: canon-listed-digest ( h -- h' )
+  context-slabs @ begin ?dup while >r r@ canon-listed-at canon-shape-digest r> @ repeat ;
 : canon-digest ( -- h )
   0 canon-stores# 0 do i canon-store# canon-store-digest loop
   lf-cref-pool canon-slab-digest
   ['] canon-column-digest lf-term-columns columns-each
-  ['] canon-column-digest lf-level-columns columns-each canon-log-digest ;
+  ['] canon-column-digest lf-level-columns columns-each canon-listed-digest
+  canon-log-digest ;

@@ -81,6 +81,7 @@ DIFFERENTIAL_TARGETS := \
 	test-first-checker-large-differential test-binder-domains-large-differential \
 	test-universe-scope-large-differential test-first-checker-fed-differential \
 	test-binder-domains-fed-differential test-universe-scope-fed-differential \
+	test-universe-many-differential test-universe-many-fed-differential \
 	test-program-differential test-program-stack-differential \
 	test-program-values-differential test-program-depth-differential \
 	test-example-reference-differential test-add-reference-differential \
@@ -361,6 +362,15 @@ test-binder-domains-fed-differential:
 
 test-universe-scope-fed-differential:
 	$(LEAN_TABLE) universe-scope-fed
+
+# No fixed limit on universe lists (plan task 6.2.0): declarations of 100,
+# 300 and 1000 universe parameters and constants with as many arguments,
+# accepted or refused for Lean's reason, by checker input and fed.
+test-universe-many-differential:
+	$(LEAN_TABLE) universe-many
+
+test-universe-many-fed-differential:
+	$(LEAN_TABLE) universe-many-fed
 
 test-composition-fixture:
 	$(RUN) python3 tests/core/test_preview_contract.py

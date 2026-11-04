@@ -210,5 +210,5 @@ lf-level-depth-limit context-walk: lf-lsubst-walker
 : lf-lsubst-levels? ( -- flag ) lf-level-count-valid? lf-level-serial @ 0< 0= and ;
 : lf-lsubst ( root formal-addr actual-addr count fuel -- result ok | status )
   lf-lsubst-walker walk-budget 0= if 2drop 2drop outcome-invalid exit then
-  dup lf-level-params-limit upto? 0= if 2drop 2drop outcome-invalid exit then
+  dup 0< if 2drop 2drop outcome-invalid exit then
   lf-lsubst-use lf-lsubst-levels? if lf-lsubst-run else drop-invalid then ;

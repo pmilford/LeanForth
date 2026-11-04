@@ -20,7 +20,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, "tests/support")
-from case_export import case_exports  # noqa: E402
+from case_export import case_exports, case_params  # noqa: E402
 from export_definition import decode, encode, succ_chain  # noqa: E402
 from ndjson_preview import LEAN_HASH  # noqa: E402
 
@@ -327,6 +327,7 @@ def input_script(text, prelude):
     driver = Path("tests/support/first-checker-driver.fs").resolve()
     script = [f"require {driver}", ": must-ok ( outcome -- ) ok? 0= abort\" setting\" ;",
               *prelude]
+    params = dict(case_params(text))
     started = False
     for line in text.splitlines():
         word, rest = line.split(" ", 1)
@@ -335,6 +336,7 @@ def input_script(text, prelude):
                 script.append("fc-run")
             started = True
             script.append(f"fc-case {rest}")
+            script += [f"fc-context {name}" for name in params[rest]]
         elif word == "DECL":
             script.append(f"fc-decl {rest}")
         else:
@@ -495,11 +497,12 @@ def binder_domains(prelude=(), known=None, name="binder domains", fed=False):
 # Universe scope (ADR 0012 test-matrix row 4): universe-scope-terms.lean
 # checks Lean's verdict on each case and prints its expectation (EXPECT
 # lines), then the cases.
-def universe_scope(prelude=(), name="universe scope", fed=False):
+def expect_table(source, count, prelude=(), name="universe scope", fed=False):
+    """A table whose Lean file checks Lean's verdicts and prints EXPECT lines,
+    then the cases (universe-scope-terms.lean, universe-many-terms.lean)."""
     with tempfile.TemporaryDirectory() as temporary:
         first_checker_modules(temporary)
-        output = subprocess.run([LEAN, "-DwarningAsError=true",
-                                 "tests/reference/universe-scope-terms.lean"],
+        output = subprocess.run([LEAN, "-DwarningAsError=true", source],
                                 check=True, capture_output=True, text=True,
                                 env=dict(os.environ, LEAN_PATH=temporary)).stdout
     lines = output.splitlines()
@@ -507,12 +510,35 @@ def universe_scope(prelude=(), name="universe scope", fed=False):
              if words[0] == "EXPECT"}
     rows, verdicts = checker_rows("\n".join(line for line in lines
                                             if not line.startswith("EXPECT ")), prelude, fed)
-    if sorted(rows) != sorted(table) or len(rows) != 50:
-        raise Mismatch("universe scope: the Forth rows are not the table's 50 cases")
+    if sorted(rows) != sorted(table) or len(rows) != count:
+        raise Mismatch(f"{name}: the Forth rows are not the table's {count} cases")
     for case, (lean, expected, rule) in table.items():
         checker_row(case, lean, expected, rule, rows[case], verdicts[case], {})
     checker_summary(name, rows, {})
     return len(rows)
+
+
+def universe_scope(prelude=(), name="universe scope", fed=False):
+    return expect_table("tests/reference/universe-scope-terms.lean", 50, prelude, name, fed)
+
+
+# Plan task 6.2.0: no fixed limit on universe lists. 100, 300 and 1000
+# universe parameters per declaration and arguments per constant, each
+# accepted or refused for Lean's reason (universe-many-terms.lean), by
+# checker input and fed.
+MANY_CAPACITIES = ["65536 lf-term-capacity! must-ok", "65536 lf-level-capacity! must-ok",
+                   "4096 lf-name-capacity! must-ok", "4096 lf-cref-capacity! must-ok",
+                   "256 lf-input-capacity! must-ok"]
+
+
+def universe_many(fed=False):
+    return expect_table("tests/reference/universe-many-terms.lean", 24,
+                        () if fed else MANY_CAPACITIES,
+                        "universe many" + (", fed" if fed else ""), fed)
+
+
+def universe_many_fed():
+    return universe_many(fed=True)
 
 
 def first_checker_large():
@@ -581,6 +607,10 @@ TABLES = {
                                                "with no known difference"),
     "universe-scope-fed": (universe_scope_fed, "universe-scope rows agree with Lean's kernel "
                                                "when each case is staged and fed as an export"),
+    "universe-many": (universe_many, "rows of 100, 300 and 1000 universe parameters agree "
+                                     "with Lean's kernel"),
+    "universe-many-fed": (universe_many_fed, "rows of 100, 300 and 1000 universe parameters "
+                                             "agree with Lean's kernel, fed as exports"),
 }
 
 

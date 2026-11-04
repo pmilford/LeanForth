@@ -111,9 +111,11 @@ require ./errors.fs
 begin-structure /lfa-ref
   field: lfa-ref-name
   field: lfa-ref-count
-  lf-cref-argument-capacity 2* cells +field lfa-ref-pairs
 end-structure
 /lfa-ref context-record: lfa-sought-ref
+\ Its level pairs, as many as the reference has (no fixed limit).
+2 cells context-slab: lfa-ref-pair-cells
+: lfa-ref-pairs ( ref -- addr ) drop 0 lfa-ref-pair-cells slab-at ;
 
 : lfa-cref-at ( i -- index identity ) dup lf-cref-slot lf-crec-identity @ ;
 : lfa-pairs= ( addr1 addr2 count -- flag )

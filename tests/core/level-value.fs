@@ -126,7 +126,7 @@ T{ lf-lassign-count @ -> 2 }T
 T{ 3 100 lf-level-value-assigned -> -1 outcome-invalid }T
 43 lf-lassign-ids cell+ !
 T{ 3 100 lf-level-value-assigned -> 5 outcome-ok }T
-lf-level-capacity 1+ lf-lassign-count !
+lf-lassign-room 1+ lf-lassign-count !
 T{ 3 100 lf-level-value-assigned -> -1 outcome-invalid }T
 lf-lassign-reset
 
