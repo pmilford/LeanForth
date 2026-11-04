@@ -239,6 +239,11 @@ class RunRecords(unittest.TestCase):
             self.assertEqual(schema.errors(got), [], name)
             self.assertEqual(got["leanforth"], {"commit": commit, "modified": modified})
             golden = json.loads((ROOT / f"tests/core/run-records/{name}.json").read_text())
+            # The command line enforces the manifest; the driver that wrote
+            # the golden records does not, and each record says so.
+            self.assertEqual((got["input"]["manifest"]["enforced"],
+                              golden["input"]["manifest"]["enforced"]), (True, False))
+            golden["input"]["manifest"]["enforced"] = True
             for section in ["input", "export", "settings", "check", "declarations"]:
                 self.assertEqual(got[section], golden[section], f"{name} {section}")
 
@@ -247,6 +252,7 @@ class RunRecords(unittest.TestCase):
             wrong = f"{CASES}/composition-wrong-argument.ndjson"
             status, _, record = self.record(folder, wrong, "--no-manifest")
             self.assertEqual((status, record["declarations"][0]["verdict"]), (1, "rejected"))
+            self.assertIs(record["input"]["manifest"]["enforced"], False)   # --no-manifest
             path = str(Path(folder) / "run.json")
             confirmed = '{"schema":"leanforth-replay-report","schemaVersion":"0.1",' \
                         '"result":"confirmed","findings":[],"findingsTotal":0}\n'

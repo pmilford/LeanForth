@@ -1694,8 +1694,8 @@ reason = "a check that threw is reported as invalid input (4), not as an interna
 [[fault]]
 id = "cli-manifest-not-checked"
 file = "src/cli/leanforth.fs"
-old = '''  0 cli-file cli-unchecked @ if cin-read else cin-read-checked then dup rr-read! ;'''
-new = '''  0 cli-file cin-read dup rr-read! ;'''
+old = '''  0 cli-file cli-unchecked @ 0= rr-import ;'''
+new = '''  0 cli-file false rr-import ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "check reads exports without their manifests by default"
 
@@ -2001,11 +2001,59 @@ reason = "a commit that is not 40 lowercase hexadecimal digits is recorded"
 [[fault]]
 id = "rr-foreign-environment"
 file = "src/import/run-record.fs"
-old = ''': rr-ours? ( -- flag ) run-record rr-env @ dup if lf-env = else drop false then ;'''
+old = ''': rr-ours? ( -- flag ) run-record rr-env-id @ dup if lf-env-id = else drop false then ;'''
 new = ''': rr-ours? ( -- flag ) true ;'''
 test = "$GFORTH tests/core/run-record.fs"
 reason = "review F1: verdicts are read from whatever environment is current, not the run's own"
 quick = true
+
+[[fault]]
+id = "rr-address-not-identity"
+file = "src/import/run-record.fs"
+old = ''': rr-ours? ( -- flag ) run-record rr-env-id @ dup if lf-env-id = else drop false then ;'''
+new = ''': rr-ours? ( -- flag ) run-record rr-env @ dup if lf-env = else drop false then ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "rvRP 2: environments compared by address; a new one made where the run's was freed is claimed"
+
+[[fault]]
+id = "rr-release-frees-foreign"
+file = "src/import/run-record.fs"
+old = '''  run-record rr-env @ ?dup if dup rr-mine? if lf-env-free then drop then rr-forget-env ;'''
+new = '''  run-record rr-env @ ?dup if lf-env-free drop then rr-forget-env ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "rvRP 2: rr-release frees whatever environment now lies at the run's old address"
+
+[[fault]]
+id = "rr-always-enforced"
+file = "src/import/run-record.fs"
+old = '''  r> 0<> run-record rr-enforced ! ;'''
+new = '''  r> drop true run-record rr-enforced ! ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "rvRP 2: a record says the manifest was enforced on an input read without it"
+
+[[fault]]
+id = "rr-read-keeps-enforced"
+file = "src/import/run-record.fs"
+old = ''': rr-read! ( outcome -- ) run-record rr-read ! false run-record rr-enforced ! ;'''
+new = ''': rr-read! ( outcome -- ) run-record rr-read ! ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "rvRP 2: another importer's outcome keeps an earlier run's claim that the manifest was enforced"
+
+[[fault]]
+id = "rr-enforced-contradiction"
+file = "src/import/run-record.fs"
+old = '''  if outcome-invalid rr-fail then s" enforced" rr-key rr-enforced? rr-w jw-bool ;'''
+new = '''  drop s" enforced" rr-key rr-enforced? rr-w jw-bool ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "rvRP 2: an enforced manifest that does not match an input read past it is written"
+
+[[fault]]
+id = "tr-filler-seen"
+file = "src/import/text-rule.fs"
+old = '''$3164 , $3164 ,'''
+new = '''$3165 , $3164 ,'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "rvRP 2: a name of U+3164 HANGUL FILLER alone counts as shown"
 
 [[fault]]
 id = "rr-no-own-environment"
@@ -2025,7 +2073,7 @@ reason = "review F1: kept outcomes are not reset, so an unstepped slot agrees wi
 
 [[fault]]
 id = "rr-separator-allowed"
-file = "src/import/run-record.fs"
+file = "src/import/text-rule.fs"
 old = '''$2028 , $202e ,'''
 new = '''$2029 , $202e ,'''
 test = "$GFORTH tests/core/run-record.fs && python3 tests/core/test_run_records.py"
@@ -2034,7 +2082,7 @@ reason = "review F3: the writer's text rule lets U+2028 through, which the schem
 [[fault]]
 id = "rr-blank-shown"
 file = "src/import/run-record.fs"
-old = '''  2dup rr-shown? 0= if outcome-invalid rr-fail then rr-string ;'''
+old = '''  2dup tr-shown? 0= if outcome-invalid rr-fail then rr-string ;'''
 new = '''  rr-string ;'''
 test = "$GFORTH tests/core/run-record.fs"
 reason = "review F3: a blank name, host or metadata text is written"
