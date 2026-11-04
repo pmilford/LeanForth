@@ -326,6 +326,41 @@ class Print(unittest.TestCase):
         self.assertEqual((status, out.startswith("error: an option this command does not take")),
                          (4, True))
 
+    def test_0_beyond_the_small_reader(self):
+        """print holds what check holds (the stage and the feed, plan task 3.4.1), not the
+        64 names and 32 declarations of the first reader: chain.ndjson has 81 expressions,
+        inductive.ndjson has inductive types. Each declaration check reports has its
+        header, and the status is check's; chain's line is read from the stage."""
+        for path in ("tests/cli/chain.ndjson", "tests/cli/inductive.ndjson",
+                     "tests/cli/unfold.ndjson"):
+            check_status, check_out, _ = run("check", path)
+            status, out = self.lines(path)
+            self.assertEqual(status, check_status, path)
+            names = [l.split(": ")[0] for l in check_out.splitlines()
+                     if re.match(r"^\S+: (accepted|rejected|unknown|unsupported)", l)]
+            self.assertTrue(names, path)
+            heads = {l.split(" ", 1)[1] for l in out if re.match(
+                r"^(Theorem|Definition|Axiom|Opaque|Declaration) ", l)}
+            # An inductive block's later members are published with its first and
+            # printed once, under it.
+            members = {"Two.first", "Two.second", "Two.rec"} if "inductive" in path else set()
+            self.assertEqual(sorted(set(names) - members), sorted(heads), path)
+        status, out = self.lines("tests/cli/chain.ndjson")
+        self.assertIn("  Input:     tests/cli/chain.ndjson line 114", out)
+        self.assertIn("      L M -> explicit: f12", out)
+        self.assertEqual(out[-1], "Templates: let-props/v0, assume/v0, implies-elim/v0, "
+                                  "discharge/v0, statement/v0.")
+
+    def test_0_binder_kinds(self):
+        """The binder kinds the feed's hook keeps reach the printer: implicit and instance
+        binders print in their brackets (declarations that print as types, from an export
+        of kinds of declarations; its manifest is not checked)."""
+        status, out = self.lines("--no-manifest", "--statement", "lean",
+                                 "tests/core/reexport/kinds.ndjson")
+        self.assertIn("  Type in Lean:             {α : Type u} → (x : Nat) → [self : OfNat α x] → α",
+                      out)
+        self.assertIn("  Type in Lean:             {α : Type u_1} → [Add α] → HAdd α α α", out)
+
     def test_0_latex(self):
         """--latex prints the outlines as the LaTeX fragments of tests/present/
         outlines-latex.golden (plan task 8.6.1); with --detail the steps stay plain."""

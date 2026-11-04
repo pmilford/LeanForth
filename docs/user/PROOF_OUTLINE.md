@@ -151,14 +151,41 @@ style, [below](#latex), writes such a table):
 ## Printing an outline
 
 With the [command line](COMMAND_LINE.md#printing-a-readable-proof), from
-the repository root, for any Lean export the checker's input reader
-(`src/import/checker-input.fs`) holds (64 names, levels and term nodes,
-32 declarations):
+the repository root, for any Lean export `check` takes (the export is
+staged and fed to the checker as `check` does it, so there is no size limit
+of the printer; `--name` prints one declaration of a library, for example
+`Eq.symm` of Lean's `Init`):
 
 ```text
 bin/leanforth print tests/reference/composition.ndjson                 # the outlines
 bin/leanforth print --detail tests/reference/composition.ndjson        # every step
 bin/leanforth print --name fixtureUse tests/reference/constant-fixture.ndjson
+bin/leanforth print --name Eq.symm init.ndjson     # Lean's Init, 345.7 MB (a few minutes)
+bin/leanforth print --latex tests/reference/composition.ndjson        # LaTeX fragments
+bin/leanforth print --statement lean,leanforth tests/reference/composition.ndjson
+```
+
+The outline of `Eq.symm` from Lean's own `Init` library, as the command
+above printed it on 2026-11-04 (accepted by LeanForth: the statement in
+Lean's notation, the LeanForth words with its universe parameter, and the
+steps of its proof term; a long formula runs past its column):
+
+```text
+Theorem Eq.symm
+  accepted (experimental, not independently audited); axioms: none
+  Statement in Lean:        ∀ {α : Sort u} {a b : α} (h : Eq a b), Eq b a
+  Statement in mathematics: $\forall \{\alpha : \mathrm{Sort}\ u\}\ \{a\ b : \alpha\}\ (h : \mathsf{Eq}\ a\ b),\ \mathsf{Eq}\ b\ a$
+  Statement in LeanForth (as an axiom states a type; this assumes nothing):
+    axiom Eq.symm
+      universe u
+      u Sort implicit: α
+      α implicit: a
+      α implicit: b
+      Eq u ^ α $ a $ b $ explicit: h
+      Eq u ^ α $ b $ a $
+    end Eq.symm
+  Input:     init.ndjson line 4005
+  Checker log: 174 steps, complete. The statement is a proposition: s47 (from s3).
 ```
 
 `make print EXPORT=FILE [DETAIL=1] [NAME=NAME]` runs the same, and in
@@ -279,5 +306,10 @@ the structure only and says so).
   (see [the command line](COMMAND_LINE.md#printing-a-readable-proof)); a
   declaration with more than 8 universe parameters, or a name the words
   cannot spell, prints the words' reason instead of the block.
-- The input is the checker's input reader of today (small exports only);
+- The input is the importer stage and the feed of `check` (any size);
   formulas print from the context that ran the check, between checks.
+  Lean writes `a = b` and `n ≤ m` where the printer writes `Eq a b` and
+  `LE.le n m`: notation for such operators is plan task 4.4.3. `--name`
+  checks every declaration before the named one (it may use them) and so
+  takes the time `check` takes up to there, plus the 2 minutes it takes to
+  stage and feed `Init`.

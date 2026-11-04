@@ -10,7 +10,8 @@
 \
 \ What a stage holds after stage-load: every name, level, expression and
 \ literal of the export, hash-consed in the input tier (ADR 0016 C1-C4);
-\ every declaration as a 32-byte record (C2), numbered in file order (an
+\ every declaration as a 32-byte record (C2), and the line of the export it
+\ came from (staged-line@, which a presentation reads), numbered in file order (an
 \ inductive block, then its types, constructors and recursors); the
 \ name-to-declaration array, the newest declaration of each name, each
 \ record holding the one before it of the same name (C4, the chain ADR

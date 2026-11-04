@@ -39,6 +39,9 @@
 \ declaration number where it stopped. The input is left partly filled
 \ after a failure: lf-input-reset (or another feed) starts over.
 \ feed-free frees the loading aids (lf-feed frees them itself).
+\ lf-feed-hooked ( stage feed binder-hook decl-hook -- outcome ) is lf-feed
+\ with two optional hooks for a presentation that reads what the feed
+\ drops (see "Hooks" below); lf-feed is it with none.
 \
 \ State: none of its own; every word takes a feed record (/feed), which
 \ owns its heap blocks (the export-to-store maps, zeroed, so that an
