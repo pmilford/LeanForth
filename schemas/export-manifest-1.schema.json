@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/pmilford/LeanForth/schemas/export-manifest-1.schema.json",
+  "title": "LeanForth export manifest, format version 1",
+  "description": "Written beside a Lean export (EXPORT.ndjson.manifest.json) by LeanForth's export step (scripts/export.sh, scripts/export_manifest.py) and checked by default when LeanForth reads the export (src/import/manifest.fs): the file's SHA-256, size, lines and records of each kind, the versions its metadata names, and the Mathlib commit when known. Lean's export carries no checksum; without the manifest a file cut off between two lines would read as a shorter library. Documented in docs/development/NDJSON_READER.md, section Manifests. The Forth check refuses as invalid any manifest this schema refuses, and also one whose numbers are not canonical decimal (no sign, no leading zero, no fraction or exponent) or whose keys repeat.",
+  "$comment": "Uses only the keywords that tests/support/schema_subset.py implements.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "format_version", "sha256", "bytes", "lines", "records", "exporter",
+    "exporter_version", "export_format", "lean_version", "lean_githash", "mathlib_commit"],
+  "properties": {
+    "format": {"const": "leanforth-export-manifest"},
+    "format_version": {"const": 1},
+    "sha256": {
+      "description": "SHA-256 (FIPS 180-4) of the whole export file, as sha256sum prints it.",
+      "type": "string", "pattern": "^[0-9a-f]{64}$"
+    },
+    "bytes": {"description": "Size of the export file in bytes.", "$ref": "#/$defs/count"},
+    "lines": {"description": "Lines of the export file, each ended by a line feed.", "$ref": "#/$defs/count"},
+    "records": {
+      "description": "Records of each kind: every line is one record (meta, name.*, level.*, expr.*, decl.*), and each type, constructor and recursor of an inductive block counts as one inductive.type, inductive.ctor or inductive.recursor record. The keys are the record kinds of lean4export format 3.1.0, all present.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["meta", "name.str", "name.num", "level.succ", "level.max", "level.imax",
+        "level.param", "expr.bvar", "expr.sort", "expr.const", "expr.app", "expr.lam",
+        "expr.forallE", "expr.letE", "expr.proj", "expr.natVal", "expr.strVal", "expr.mdata",
+        "decl.axiom", "decl.def", "decl.thm", "decl.opaque", "decl.quot", "decl.inductive",
+        "inductive.type", "inductive.ctor", "inductive.recursor"],
+      "properties": {
+        "meta": {"$ref": "#/$defs/count"},
+        "name.str": {"$ref": "#/$defs/count"},
+        "name.num": {"$ref": "#/$defs/count"},
+        "level.succ": {"$ref": "#/$defs/count"},
+        "level.max": {"$ref": "#/$defs/count"},
+        "level.imax": {"$ref": "#/$defs/count"},
+        "level.param": {"$ref": "#/$defs/count"},
+        "expr.bvar": {"$ref": "#/$defs/count"},
+        "expr.sort": {"$ref": "#/$defs/count"},
+        "expr.const": {"$ref": "#/$defs/count"},
+        "expr.app": {"$ref": "#/$defs/count"},
+        "expr.lam": {"$ref": "#/$defs/count"},
+        "expr.forallE": {"$ref": "#/$defs/count"},
+        "expr.letE": {"$ref": "#/$defs/count"},
+        "expr.proj": {"$ref": "#/$defs/count"},
+        "expr.natVal": {"$ref": "#/$defs/count"},
+        "expr.strVal": {"$ref": "#/$defs/count"},
+        "expr.mdata": {"$ref": "#/$defs/count"},
+        "decl.axiom": {"$ref": "#/$defs/count"},
+        "decl.def": {"$ref": "#/$defs/count"},
+        "decl.thm": {"$ref": "#/$defs/count"},
+        "decl.opaque": {"$ref": "#/$defs/count"},
+        "decl.quot": {"$ref": "#/$defs/count"},
+        "decl.inductive": {"$ref": "#/$defs/count"},
+        "inductive.type": {"$ref": "#/$defs/count"},
+        "inductive.ctor": {"$ref": "#/$defs/count"},
+        "inductive.recursor": {"$ref": "#/$defs/count"}
+      }
+    },
+    "exporter": {"description": "The exporter's name, from the metadata line; the reader requires lean4export.", "type": "string"},
+    "exporter_version": {"description": "The exporter's version; the reader requires 3.1.0.", "type": "string"},
+    "export_format": {"description": "The export format's version; the reader requires 3.1.0.", "type": "string"},
+    "lean_version": {"description": "Lean's version; the reader requires 4.35.0.", "type": "string"},
+    "lean_githash": {"description": "Lean's commit; the reader requires eb6cafb7290e8bd5f2937522d8d804f58f02bafc.", "type": "string"},
+    "mathlib_commit": {
+      "description": "The Mathlib commit exported, or null when not given; checked for form only.",
+      "anyOf": [{"type": "null"}, {"type": "string", "pattern": "^[0-9a-f]{40}$"}]
+    }
+  },
+  "$defs": {
+    "count": {"type": "integer", "minimum": 0}
+  }
+}

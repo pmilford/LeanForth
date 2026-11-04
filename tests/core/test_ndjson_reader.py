@@ -167,7 +167,7 @@ class FramingFailures(unittest.TestCase):
                 path = Path(folder) / f"case{index}.ndjson"
                 path.write_bytes(data)
                 paths.append(path)
-            outputs = forth_each(COUNT_FS, "count-report", paths)
+            outputs = forth_each(COUNT_FS, "count-report-unchecked", paths)
         for (name, _, expected), output in zip(cases, outputs):
             self.assertEqual(error_of(output), expected, f"{name}: {output}")
             self.assertEqual(output.count("\n"), 1, f"{name}: partial output {output}")
@@ -184,8 +184,9 @@ class KindTable(unittest.TestCase):
     def load(self, folder, source):
         path = Path(folder) / "ndjson-count-copy.fs"
         text = source.replace("require ../lib/", f"require {ROOT}/src/lib/")
-        path.write_text(text.replace("require ./ndjson.fs", f"require {ROOT}/src/import/ndjson.fs"),
-                        encoding="utf-8")
+        for module in ("ndjson.fs", "manifest.fs"):
+            text = text.replace(f"require ./{module}", f"require {ROOT}/src/import/{module}")
+        path.write_text(text, encoding="utf-8")
         result = subprocess.run([GFORTH, str(path), "-e", "bye"], cwd=ROOT, stdin=subprocess.DEVNULL,
                                 capture_output=True, timeout=600)
         return result.returncode, (result.stdout + result.stderr).decode("utf-8", errors="replace")
@@ -203,28 +204,34 @@ class KindTable(unittest.TestCase):
 
 class ExitStatus(unittest.TestCase):
     """The documented command line exits with status 0 after the report and
-    1 after the error line, for a broken file and for a missing one."""
+    1 after the error line, for a broken file and for a missing one, with
+    and without the manifest check (count-export checks it by default)."""
 
-    def run_tool(self, path):
-        command = f's" {path}" count-export bye'
+    def run_tool(self, path, word="count-export"):
+        command = f's" {path}" {word} bye'
         result = subprocess.run([GFORTH, COUNT_FS, "-e", command], cwd=ROOT,
                                 stdin=subprocess.DEVNULL, capture_output=True, timeout=600)
         return result.returncode, result.stdout.decode("utf-8", errors="replace")
 
     def test_exit_status(self):
         good = ROOT / "tests" / "reference" / "composition.ndjson"
-        code, output = self.run_tool(good)
-        self.assertEqual((code, output), (0, python_output(COUNT_PY, good)[1]))
+        for word in ("count-export", "count-export-unchecked"):
+            code, output = self.run_tool(good, word)
+            self.assertEqual((code, output), (0, python_output(COUNT_PY, good)[1]), word)
         with tempfile.TemporaryDirectory() as folder:
             broken = Path(folder) / "broken.ndjson"
             broken.write_bytes(good.read_bytes()[:-1])
-            code, output = self.run_tool(broken)
+            code, output = self.run_tool(broken, "count-export-unchecked")
             self.assertEqual(code, 1, output)
             self.assertEqual(error_of(output), ("invalid", 35), output)
             self.assertEqual(output.count("\n"), 1, output)
-            code, output = self.run_tool(Path(folder) / "missing.ndjson")
-            self.assertEqual(code, 1, output)
-            self.assertTrue(output.startswith("error: "), output)
+            code, output = self.run_tool(broken)
+            self.assertEqual((code, error_of(output)), (1, ("invalid", 0)), output)
+            self.assertIn("manifest missing", output)
+            for word in ("count-export", "count-export-unchecked"):
+                code, output = self.run_tool(Path(folder) / "missing.ndjson", word)
+                self.assertEqual(code, 1, output)
+                self.assertTrue(output.startswith("error: "), output)
 
 
 class LineLimit(unittest.TestCase):
@@ -246,7 +253,7 @@ class LineLimit(unittest.TestCase):
                 long_line = start + b"a" * size + end
                 with open(path, "wb") as f:
                     f.write(b"\n".join(head + [long_line, last]) + b"\n")
-            outputs = forth_each(COUNT_FS, "count-report", paths)
+            outputs = forth_each(COUNT_FS, "count-report-unchecked", paths)
         finally:
             for path in paths:
                 if os.path.exists(path):

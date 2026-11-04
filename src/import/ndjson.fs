@@ -193,6 +193,8 @@ begin-structure /export
   /record +field export-element    \ a type, constructor or recursor of a block
   /record +field export-rule       \ a recursor rule
   kind-count cells +field export-handlers
+  field: export-tap                \ xt ( c-addr u x -- ) shown each line read, or 0
+  field: export-tap-x              \ the cell given to it
   field: export-busy               \ true while a handler runs; before export-names,
                                    \ so that export-restart never clears it
   field: export-generation         \ lines counted since export:, never reset
@@ -208,6 +210,8 @@ begin-structure /export
   field: export-key                \ counted string: the field at a failure, or 0
   field: export-why                \ counted string: why reading failed, or 0
   field: export-at                 \ lines so far: the current line's number
+  kind-count 1+ cells +field export-kinds   \ records handed over and accepted,
+                                   \ by kind; the last cell takes a kind out of range
 end-structure
 \ The fields from export-names on describe progress through one file;
 \ export-restart erases them and keeps every field before them.
@@ -677,14 +681,21 @@ here families - cell / constant #families
 : export-marks ( export -- key why ) dup export-key @ swap export-why @ ;
 : export-marks! ( key why export -- ) tuck export-why ! export-key ! ;
 : export-unmark ( export -- ) 0 0 rot export-marks! ;
-: export-hand ( record export -- outcome )
+: export-handed ( record export -- outcome )
   2dup record-stamp dup export-unmark 2dup record-handler ?dup 0=
   if nip c" corrupted record kind" export-bad exit then
   swap dup >r export-run if outcome-sane r> refusal else drop r> handler-broke then ;
+: counted ( outcome count-addr -- outcome ) over ok? if 1 swap +! else drop then ;
+\ The tally of the record's kind (export-kinds); a kind out of range, which
+\ only a corrupted record has, takes the last cell.
+: kind-tally ( record export -- addr )
+  export-kinds swap record-kind @ dup kind-count u< 0= if drop kind-count then cells + ;
+\ Hand the record over and, when its handler accepts it, count it under
+\ its kind, read before the handler; the tally waits on the return stack.
+: export-hand ( record export -- outcome ) 2dup kind-tally >r export-handed r> counted ;
 \ Hand over the decoded record as number n of its family, n the count at
 \ count-addr, then count it; the address waits on the return stack.
 : record-numbered ( n export -- record ) export-record tuck record-index ! ;
-: counted ( outcome count-addr -- outcome ) over ok? if 1 swap +! else drop then ;
 : export-deliver ( count-addr export -- outcome )
   over >r swap @ over record-numbered swap export-hand r> counted ;
 
@@ -699,13 +710,19 @@ here families - cell / constant #families
 
 \ The metadata record must come first, exactly once, naming the pinned
 \ versions.
+: pinned-exporter ( -- c-addr u ) s" lean4export" ;
+: pinned-exporter-version ( -- c-addr u ) s" 3.1.0" ;
+: pinned-format-version ( -- c-addr u ) s" 3.1.0" ;
+: pinned-lean-version ( -- c-addr u ) s" 4.35.0" ;
+: pinned-lean-githash ( -- c-addr u ) s" eb6cafb7290e8bd5f2937522d8d804f58f02bafc" ;
 : text= ( text-addr c-addr u -- flag ) rot 2@ compare 0= ;
 : pinned-lean? ( record -- flag )
-  dup meta-lean-version s" 4.35.0" text=
-  swap meta-lean-githash s" eb6cafb7290e8bd5f2937522d8d804f58f02bafc" text= and ;
+  dup meta-lean-version pinned-lean-version text=
+  swap meta-lean-githash pinned-lean-githash text= and ;
 : pinned? ( record -- flag )
-  dup meta-exporter s" lean4export" text= over meta-exporter-version s" 3.1.0" text= and
-  over meta-format-version s" 3.1.0" text= and swap pinned-lean? and ;
+  dup meta-exporter pinned-exporter text=
+  over meta-exporter-version pinned-exporter-version text= and
+  over meta-format-version pinned-format-version text= and swap pinned-lean? and ;
 : export-pinned ( export -- outcome )
   dup export-record pinned? if dup export-metas swap export-deliver exit then
   0 over export-key ! c" unsupported exporter, format or Lean version" export-refuse ;
@@ -835,12 +852,26 @@ here families - cell / constant #families
 \ A line the reader cannot give: count it, and say why.
 : export-reader-failed ( outcome export -- outcome )
   line-counted over reader-reason swap export-why ! ;
+\ The tap. A word the caller sets with export-tap! is shown each line that
+\ export-read reads from the file, once and in file order, before the line
+\ is decoded (decoding changes its bytes in place): xt ( c-addr u x -- ),
+\ given the line without its line feed and the cell x. Every line of a
+\ file export-read accepts ends with one line feed, so the lines shown,
+\ each with a line feed after it, are the whole file; a line the reader
+\ cannot give is not shown. Lines given to export-line are not shown. The
+\ tap is trusted code, like a handler: it must leave the bytes unchanged
+\ and not use the export; a THROW from it passes on as from a handler.
+\ An xt of 0 sets no tap; export-init removes the tap.
+: export-tap! ( x xt export -- ) tuck export-tap ! export-tap-x ! ;
+: export-untap ( export -- ) 0 0 rot export-tap! ;
+: export-tapped ( c-addr u export -- c-addr u )
+  dup export-tap @ ?dup 0= if drop exit then >r export-tap-x @ >r 2dup r> r> execute ;
 \ Read, check and hand over the next line of the file, counted from the
 \ lines read so far.
 : export-next ( export -- outcome )
   dup export-unmark dup export-line-number over export-at !
   >r r@ export-reader reader-line ok-then?
-  if r> export-line else nip r> export-reader-failed then ;
+  if r@ export-tapped r> export-line else nip r> export-reader-failed then ;
 
 \ Reading a whole file; the export waits on the return stack.
 : export-end ( export -- outcome )
@@ -877,8 +908,8 @@ here families - cell / constant #families
   export-json export-depth-limit over json-init
   export-token-limit rot json-token-limit ! ;
 : export-init ( export -- outcome )
-  ?export-idle dup export-restart dup export-handlers-clear dup export-buffers
-  ok-then? if export-json-init then ;
+  ?export-idle dup export-restart dup export-handlers-clear dup export-untap
+  dup export-buffers ok-then? if export-json-init then ;
 : export-free ( export -- )
   ?export-idle dup export-reader reader-free export-json json-free ;
 \ Read every line, closing the file if a handler throws; the exception
@@ -903,6 +934,12 @@ here families - cell / constant #families
 : counted-or-empty ( c-addr|0 -- c-addr u ) ?dup if count else s" " then ;
 : export-error ( export -- line key-addr key-u why-addr why-u )
   >r r@ export-at @ r@ export-key @ counted-or-empty r> export-why @ counted-or-empty ;
+\ The records of a kind handed over and accepted by their handlers since
+\ the reading began (export-restart, export-init or export-read): a line's
+\ record, or an element of an inductive block. Aborts for a number that
+\ is not a record kind, as export-handler does.
+: export-kind-count ( kind export -- n )
+  over kind-count u< 0= abort" ndjson: no such record kind" export-kinds swap cells + @ ;
 
 \ Reading decoded records inside a handler.
 : record-view ( record -- view ) record-export @ export-json ;
