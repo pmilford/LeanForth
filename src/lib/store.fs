@@ -102,8 +102,30 @@ end-structure
 \ store or a spent serial.
 : store-room? ( store -- flag ) dup store-count @ swap store-capacity @ < ;
 : store-spent? ( store -- flag ) store-serial @ max-n = ;
+
+\ Allocation-failure injection (plan task 1.4.6), for tests only. A
+\ program that defines store-fault-hooks before this file loads gets
+\ store-refuse? ( store -- flag ), a DEFER that store-open? asks about
+\ every allocation that would otherwise go ahead, in every store
+\ (store-new, and the name table's store-open? then store-claim): true
+\ refuses it as if the store were full, changing nothing; the word may
+\ also THROW. Its default never refuses; tests/support/alloc-fail.fs
+\ makes the k-th allocation fail. Without store-fault-hooks, store-open?
+\ is compiled exactly as without this paragraph: no DEFER, no extra
+\ call, no cost. LeanForth never interprets its input as Forth and
+\ src/main.fs never defines store-fault-hooks, so no input can turn the
+\ hook on or reach it.
+[defined] store-fault-hooks [if]
+defer store-refuse? ( store -- flag )
+: store-never ( store -- false ) drop false ;
+' store-never is store-refuse?
+: store-open? ( store -- flag )
+  dup store-count-valid? over store-room? and over store-spent? 0= and
+  if store-refuse? 0= else drop false then ;
+[else]
 : store-open? ( store -- flag )
   dup store-count-valid? over store-room? and swap store-spent? 0= and ;
+[then]
 \ Unchecked: the caller has established store-open?. The count advances
 \ before the caller writes the record, so a failure between the two must
 \ roll the count back.
