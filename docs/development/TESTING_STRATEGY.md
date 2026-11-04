@@ -187,7 +187,7 @@ status on a small tree, and that the tree is untouched after each run.
 | `make test-mutants` | the runner's own tests (in `make test`) |
 
 Run it with `GFORTH=...` for another host. On 2026-11-03 (Gforth 1.0) the
-list held 134 faults over `check-declaration.fs`, the checked environment
+list held 135 faults over `check-declaration.fs`, the checked environment
 (`environment.fs`, `env-publish.fs`, `env-signature.fs`), the rejection
 rules (`mixed-infer.fs`, `mixed-head.fs`, `level-value.fs`), comparison and
 conversion, the NDJSON reader, the program reader, `lib/context.fs`,
@@ -195,13 +195,21 @@ conversion, the NDJSON reader, the program reader, `lib/context.fs`,
 earlier reviews planted by hand in scratch scripts since lost (those of
 check-declaration and the rejection rules, all 9 of the checked
 environment's fourth review, some of the JSON writer's), and add new ones.
-123 were caught; 10 survive as known gaps and 1 as equivalent, each with
-its reason in the list. Later the same day 26 more joined for SHA-256
-(`lib/sha256.fs`) and the export manifests (`import/manifest.fs`, the
-reader's tap and tally), all caught. The gaps are tests that do not exist yet, for
-example a name compared with another that differs only in a numeric
-component, metadata that differs from the pinned versions only in the
-format or Lean version, or an upper-case `Z` in program source.
+132 were caught; 2 survive as known gaps and 1 as equivalent, each with
+its reason in the list. The gaps are tests that do not exist yet: a
+binder whose two domains infer differently (`rej-d4-left-domain`) and two
+Sorts whose levels differ only in a parameter (`cmp-level-params-equal`).
+Eight earlier gaps now have tests: names that differ only in a numeric
+component; metadata that differs from the pinned versions only in the
+format or the Lean version; an upper-case `Z` in program source; an
+environment record whose identity is 0; and, in check-declaration, a case
+that needs the room step 7 gives back (`value-room`), one whose rejection
+holds only while inference run aside records no dependency
+(`aside-deps`), and the axiom label, which no phase-2 input can show
+(axioms are unsupported) and the failure-path suite tests by planting a
+bit in each accepted slot. Later the same day 26 more faults joined for
+SHA-256 (`lib/sha256.fs`) and the export manifests (`import/manifest.fs`,
+the reader's tap and tally), all caught.
 
 Some test suites plant faults of their own and must keep doing so: the
 big-number differential (`tests/lib/bignum_differential.py`, 20 faults, in

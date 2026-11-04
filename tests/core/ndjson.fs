@@ -53,6 +53,16 @@ T{ fresh s\" {\"meta\":{\"exporter\":{\"name\":\"lean4export\",\"version\":\"3.2
    -> outcome-unsupported }T
 T{ fresh s\" {\"meta\":{\"exporter\":{\"name\":\"lean4export\",\"version\":\"3.1.0\"},\"format\":{\"version\":\"3.1.0\"},\"lean\":{\"githash\":\"0\",\"version\":\"4.35.0\"}}}" feed
    -> outcome-unsupported }T
+\ Each version alone, with every other field pinned, is refused: the
+\ format, the Lean version and the exporter's name.
+: unpinned ( c-addr u -- outcome flag )
+  feed why s" unsupported exporter, format or Lean version" compare 0= ;
+T{ fresh s\" {\"meta\":{\"exporter\":{\"name\":\"lean4export\",\"version\":\"3.1.0\"},\"format\":{\"version\":\"3.2.0\"},\"lean\":{\"githash\":\"eb6cafb7290e8bd5f2937522d8d804f58f02bafc\",\"version\":\"4.35.0\"}}}" unpinned
+   -> outcome-unsupported true }T
+T{ fresh s\" {\"meta\":{\"exporter\":{\"name\":\"lean4export\",\"version\":\"3.1.0\"},\"format\":{\"version\":\"3.1.0\"},\"lean\":{\"githash\":\"eb6cafb7290e8bd5f2937522d8d804f58f02bafc\",\"version\":\"4.36.0\"}}}" unpinned
+   -> outcome-unsupported true }T
+T{ fresh s\" {\"meta\":{\"exporter\":{\"name\":\"lean4import\",\"version\":\"3.1.0\"},\"format\":{\"version\":\"3.1.0\"},\"lean\":{\"githash\":\"eb6cafb7290e8bd5f2937522d8d804f58f02bafc\",\"version\":\"4.35.0\"}}}" unpinned
+   -> outcome-unsupported true }T
 T{ fresh s\" {\"meta\":{\"exporter\":{\"name\":\"lean4export\",\"version\":3},\"format\":{\"version\":\"3.1.0\"},\"lean\":{\"githash\":\"0\",\"version\":\"4.35.0\"}}}" feed
    failed-field s" version" compare -> outcome-invalid 0 }T
 T{ fresh s\" {\"meta\":{\"exporter\":{\"name\":\"lean4export\",\"version\":\"3.1.0\"},\"format\":{\"version\":\"3.1.0\"}}}" feed

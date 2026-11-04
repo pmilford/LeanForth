@@ -105,6 +105,13 @@ T{ 0 0 5 names -> outcome-ok 4 }T
 T{ name-x @ name-y @ 5 names -> outcome-unknown 4 }T
 T{ name-x @ 0 5 names -> outcome-unknown 4 }T
 T{ num-root @ num-child @ 5 names -> outcome-unknown 3 }T
+\ Names that differ only in a numeric component differ, as Lean's x.10
+\ and x.11 (Name.num with 10 and 11) do; the last component decides.
+variable num-sibling
+: sibling-fixture ( -- ) name-x @ 11 lf-name-num 0= abort" numeric sibling" num-sibling ! ;
+sibling-fixture
+T{ num-child @ num-sibling @ 5 names -> outcome-unknown 4 }T
+T{ num-sibling @ num-child @ 5 names -> outcome-unknown 4 }T
 T{ num-child @ num-child @ 3 names -> outcome-ok 0 }T
 T{ num-child @ num-child @ 2 names -> outcome-exhausted 0 }T
 T{ 0 0 0 names -> outcome-exhausted 0 }T

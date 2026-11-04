@@ -128,17 +128,15 @@ file = "src/kernel/check-declaration.fs"
 old = ''': lf-check-value ( -- outcome ) lf-check-restart ['] lf-check-infer-value lf-check-then ;'''
 new = ''': lf-check-value ( -- outcome ) outcome-ok ['] lf-check-infer-value lf-check-then ;'''
 test = "$GFORTH tests/core/check-declaration.fs"
-reason = "CD: step 7 keeps the scratch of steps 4-6 instead of rolling it back"
-gap = "no test fills the stores in steps 4-6 so that the value's inference needs their room back; the verdicts and fuel are otherwise the same"
+reason = "CD: step 7 keeps the scratch of steps 4-6 instead of rolling it back: case value-room's composition then fills the term store in step 7 (full, not accepted)"
 
 [[fault]]
 id = "cd-axioms-not-read"
 file = "src/kernel/check-declaration.fs"
 old = '''  lf-env-axioms ok? if lf-check-axioms. else drop ." axioms: ?" then ;'''
 new = '''  lf-env-axioms ok? if drop ." axioms: none" else drop ." axioms: ?" then ;'''
-test = "$GFORTH tests/core/check-declaration.fs"
-reason = "CD: the label prints axioms: none without reading the slot's axiom set"
-gap = "no accepted slot can hold an axiom bit in phase 2; a synthetic environment with an allowed bit (environment.fs) could test it"
+test = "$GFORTH tests/core/failure-paths.fs"
+reason = "CD: the label prints axioms: none without reading the slot's axiom set; no input can show it in phase 2 (axioms are unsupported, and so is every user, K5), so the failure-path suite plants a bit in each accepted slot and reads its verdict"
 
 [[fault]]
 id = "cd-dependency-recorded-aside"
@@ -146,8 +144,7 @@ file = "src/kernel/env-signature.fs"
 old = '''  lf-envsig-deciding? if dup lf-env-depend else outcome-ok then ;'''
 new = '''  dup lf-env-depend ;'''
 test = "$GFORTH tests/core/check-declaration.fs"
-reason = "CD: inference run aside (rejection test P2) records the constants it meets as dependencies"
-gap = "aside inference runs only after a step failed, so nothing it records is ever published; a test could read the candidate's dependency count after a rejected check"
+reason = "CD: inference run aside (rejection test P2) records the constants it meets as dependencies: in case aside-deps, P2 meets a 17th, the dependencies are full and the rejection Lean's kernel makes stays unknown"
 
 [[fault]]
 id = "cd-uses-unaccepted"
@@ -342,8 +339,7 @@ file = "src/kernel/environment.fs"
 old = '''  dup lf-envh-identity @ 1 lf-env-serial @ between?'''
 new = '''  dup lf-envh-identity @ 0 lf-env-serial @ between?'''
 test = "$GFORTH tests/core/environment.fs"
-reason = "E3: a freed environment (identity 0) still counts as live"
-gap = "no test gives lf-env-use or lf-env-free a record whose identity is 0, as lf-env-free leaves it (a test cannot read freed memory, but can build such a record)"
+reason = "E3: a freed environment (identity 0) still counts as live: the test gives lf-env-use and lf-env-free a copy of a live environment with identity 0"
 
 [[fault]]
 id = "env-pool-max-off-by-one"
@@ -732,8 +728,7 @@ file = "src/kernel/mixed-compare.fs"
 old = '''  lf-name-slot lf-entry-payload @ swap lf-name-slot lf-entry-payload @ = ;'''
 new = '''  lf-name-slot lf-entry-payload @ swap lf-name-slot lf-entry-payload @ 2drop true ;'''
 test = "$GFORTH tests/core/mixed-compare.fs"
-reason = "names that differ only in a numeric component compare equal"
-gap = "tests/core/mixed-compare.fs compares no two names that differ only in a numeric component (x.1, x.2)"
+reason = "names that differ only in a numeric component compare equal: the test compares x.10 with x.11, which Lean's Name.num tells apart"
 
 [[fault]]
 id = "cmp-level-params-equal"
@@ -901,8 +896,7 @@ file = "src/import/ndjson.fs"
 old = '''  over meta-format-version pinned-format-version text= and swap pinned-lean? and ;'''
 new = '''  over meta-format-version pinned-format-version text= drop swap pinned-lean? and ;'''
 test = "$GFORTH tests/core/ndjson.fs"
-reason = "an export of another format version is read instead of refused as unsupported"
-gap = "no test reads metadata that differs from the pinned versions only in format.version"
+reason = "an export of another format version is read instead of refused as unsupported: the test's metadata differs from the pinned versions only in format.version"
 
 [[fault]]
 id = "ndjson-lean-version-unchecked"
@@ -910,8 +904,15 @@ file = "src/import/ndjson.fs"
 old = '''  dup meta-lean-version pinned-lean-version text='''
 new = '''  dup meta-lean-version pinned-lean-version text= drop true'''
 test = "$GFORTH tests/core/ndjson.fs"
-reason = "an export made by another Lean version is read instead of refused as unsupported"
-gap = "no test reads metadata that differs from the pinned versions only in lean.version"
+reason = "an export made by another Lean version is read instead of refused as unsupported: the test's metadata differs from the pinned versions only in lean.version"
+
+[[fault]]
+id = "ndjson-exporter-name-unchecked"
+file = "src/import/ndjson.fs"
+old = '''  dup meta-exporter s" lean4export" text='''
+new = '''  dup meta-exporter s" lean4export" text= drop true'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "an export written by another exporter is read instead of refused as unsupported: the test's metadata differs from the pinned versions only in the exporter's name"
 
 [[fault]]
 id = "ndjson-index-unchecked"
@@ -1042,8 +1043,7 @@ file = "src/program/ir-reader.fs"
 old = ''': ir-upper? ( char -- flag ) [char] A [char] Z 1+ within ;'''
 new = ''': ir-upper? ( char -- flag ) [char] A [char] Z within ;'''
 test = "$GFORTH tests/program/ir-reader.fs"
-reason = "Z is not folded to z, unlike Gforth's name lookup"
-gap = "no test source spells a known word or definition with an upper-case Z"
+reason = "Z is not folded to z, unlike Gforth's name lookup: the reader's tests define Zap and call it as ZAP, and refuse Z after z"
 
 [[fault]]
 id = "ir-unclosed-definition"

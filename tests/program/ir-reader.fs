@@ -341,6 +341,13 @@ T{ transcript-text s" |word foo @1:1|" contains? -> true }T
 T{ transcript-text s" |constant two @1:22|  lit 2 @1:11|end @1:22|" contains? -> true }T
 T{ transcript-text s" |  call foo @1:30|  call two @1:34|  call two @1:38|" contains?
    -> true }T
+\ Both ends of the range fold: A and Z, as Gforth folds them.
+T{ start-transcript s" : Zap 1 ; : Az ZAP zap ;" feed verdict
+   -> outcome-ok ir-why-none 1 0 }T
+T{ transcript-text s" |word zap @1:1|" contains? -> true }T
+T{ transcript-text s" |word az @1:11|  call zap @1:16|  call zap @1:20|" contains?
+   -> true }T
+T{ start s" : z ; : Z ;" feed verdict -> outcome-unsupported ir-why-redefined 1 9 }T
 
 \ A definition whose folded name is already known is refused, wherever
 \ the clash is: with a primitive, a control word, an earlier word or

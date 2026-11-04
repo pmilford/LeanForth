@@ -161,6 +161,19 @@ T{ env-a env-unpublished? -> true }T
 create not-env 64 cells allot  not-env 64 cells erase
 T{ 0 lf-env-use not-env lf-env-use not-env lf-env-free 0 lf-env-free -> outcome-invalid outcome-invalid outcome-invalid outcome-invalid }T
 T{ env-a ' lf-env-use rs-checked lf-env env-a = -> outcome-ok true }T
+\ A record with identity 0, as lf-env-free leaves one, is not live (E3):
+\ use and free refuse it and change nothing. A test cannot read freed
+\ memory, so it copies env-a and clears the copy's identity; with env-a's
+\ identity the same copy is live, so only the identity decides.
+main-count 8 lf-env-bytes constant env-a-size
+: env-copy ( identity -- env )
+  env-a-size allocate throw env-a over env-a-size move tuck lf-envh-identity ! ;
+\ Free env: by lf-env-free when it accepts, else here.
+: copy-free ( env -- outcome ) dup lf-env-free dup ok? if nip else swap free throw then ;
+T{ 0 env-copy dup lf-env-use swap free throw lf-env env-a = -> outcome-invalid true }T
+T{ 0 env-copy copy-free lf-env env-a = -> outcome-invalid true }T
+T{ id-a env-copy dup lf-env-use swap copy-free lf-env env-a = -> outcome-ok outcome-ok false }T
+T{ lf-env env-a lf-env-use lf-env env-a = -> 0 outcome-ok true }T
 T{ 0 lf-env-outcome 0 lf-env-handle -> outcome-invalid 0 -1 outcome-invalid }T
 
 \ ---------------------------------------------------------------------------
