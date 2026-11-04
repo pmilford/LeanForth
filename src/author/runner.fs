@@ -159,5 +159,5 @@ create lfa-blank-line 10 c,
 : lfa-print-one ( fuel i -- outcome )
   dup if lfa-blank-line 1 lf-pp-emit then lfa-decl swap lf-print-forth-decl ;
 : lf-author-print ( fuel -- outcome )
-  lf-author-count 0 ?do dup i lfa-print-one dup ok? 0= if nip unloop exit then drop loop
+  lf-author-count 0 ?do dup i lfa-print-one ok-then? 0= if unloop exit then loop
   drop outcome-ok ;

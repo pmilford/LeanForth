@@ -40,7 +40,8 @@ Usage (from the repository root; GFORTH and LEAN name the toolchains):
    no longer runs). Some must be caught by the comparison with Lean: the
    spelling check disabled (the round trip cannot see it, ADR 0017 §13),
    every universe argument 0 (the printed text hides universe arguments)
-   and the two name-resolution faults (16-namespaces.lf).
+   and the two name-resolution faults (16-namespaces.lf); a fixture that
+   Lean accepts and the faulty words refuse counts as a difference.
 Finite evidence about these files; it never accepts a theorem.
 """
 import os
@@ -440,7 +441,9 @@ def fault_caught(fault, root, clean, reference):
     texts = outputs(root)
     lean = [stem for stem in reference if texts[stem].startswith("ran: ok")
             and any(lean_differences(stem, reference, texts[stem]))]
+    refused = [stem for stem in reference if not texts[stem].startswith("ran: ok")]
     lean_found = [f"terms or #print differ from Lean's: {lean}"] if lean else []
+    lean_found += [f"refused where Lean accepts: {refused}"] if refused else []
     if catcher == "lean":
         return lean_found
     return lean_found + [f"{stem}'s output changed" for stem in texts if texts[stem] != clean[stem]]
