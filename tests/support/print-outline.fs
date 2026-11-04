@@ -14,9 +14,12 @@
 require ../../src/cli/print.fs
 
 100000 constant po-fuel
+: po-one ( c-addr u detail i -- fault? )
+  dup pr-step if 2drop 2drop true exit then swap pr-print drop false ;
 : po-each ( c-addr u detail -- )
-  lf-input-count 0 ?do i pr-step if ." the run stopped" cr leave then
-    2 pick 2 pick i 3 pick pr-print drop loop drop 2drop ;
+  lf-input-count 0 ?do i pr-due? if
+    2 pick 2 pick 2 pick i po-one if ." the run stopped" cr leave then then
+  loop drop 2drop ;
 \ The export read (and read again for names) and an environment to check
 \ it in, made current.
 : po-load ( c-addr u -- env )
@@ -29,4 +32,5 @@ require ../../src/cli/print.fs
   >r 2dup po-load r> swap >r po-each r> po-free ;
 : po-file ( c-addr u detail -- ) pr-log-on po-run-file ;
 : po-check-file ( c-addr u -- )
-  pr-log-on po-load lf-input-count 0 ?do i pr-step if leave then loop po-free ;
+  pr-log-on po-load lf-input-count 0 ?do i pr-due? if i pr-step if leave then then loop
+  po-free ;

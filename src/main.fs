@@ -46,6 +46,7 @@ require ./program/ir-run.fs
 \ printed from the derivation log (untrusted output; the checker loads
 \ only the log itself, src/core/derivation-log.fs).
 require ./present/term-printer.fs
+require ./present/log-check.fs
 require ./present/proof-outline.fs
 
 \ The command line: check, replay, print, count, reexport, version,

@@ -352,10 +352,13 @@ create cli-order
 : cli-print-one ( i -- ) >r 0 cli-file r> cli-detail? pr-print outcome>code cli-code! ;
 : cli-print-stopped ( -- )
   c" the run stopped: a check threw, or publishing failed" cli-fault ;
+: cli-print-due ( chosen i -- chosen fault? )
+  dup pr-step if drop true exit then over over cli-shown? if cli-print-one else drop then
+  false ;
 : cli-print-run ( chosen -- )
   lf-input-count 0 ?do
-    i pr-step if cli-print-stopped unloop drop exit then
-    dup i cli-shown? if i cli-print-one then dup i = if leave then
+    i pr-due? if i cli-print-due if cli-print-stopped unloop drop exit then then
+    dup i = if leave then
   loop drop ;
 \ The environment of the run: made with the fuel and pool of check, made
 \ current, and freed whatever happens in the run (a THROW is passed on

@@ -210,7 +210,17 @@ lf-check-steps# 1+ constant lf-step-done
 \ A member of an inductive block is checked with its block, all members
 \ at once, by check-block.fs (plan task 5.2.1a; ADR 0015), on the same
 \ budget; its step is then lf-block-step@'s, and lf-check-step@ stays 0.
-: lf-check-block ( -- outcome ) lf-check-left @ lf-block-check ;
+\ The derivation log (ADR 0013): with it on, the block check is one
+\ inductive-block step of the first member's slot, closed with the
+\ block's outcome (and any rule left open by a step that failed with it),
+\ as lf-check-logged does for a declaration; its inner steps are not yet
+\ logged in detail.
+: lf-check-block-pass ( -- outcome ) lf-check-left @ lf-block-check ;
+: lf-check-block-logged ( -- outcome )
+  lf-env-limit lf-log-none lf-rule-inductive-block lf-log-open lf-check-block-pass
+  lf-log-close-all ;
+: lf-check-block ( -- outcome )
+  lf-log? if lf-check-block-logged else lf-check-block-pass then ;
 : lf-check-kind-run ( -- outcome )
   lf-check-decl lf-ind-member? if lf-check-block else lf-check-run then ;
 \ Check the declaration of this context's snapshot and end the check with
