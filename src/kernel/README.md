@@ -78,13 +78,16 @@ Rules a new kernel module must keep:
   numbers, never addresses, across an allocation.
 - ADR 0011's rejection analysis is the one place with open terms: it keeps
   the binders it enters (D4) as bound variables, each with a free
-  variable on the scope, and closes a term with them (`lf-minfer-closed`)
-  before P2 infers it. It is retired by plan task 4.2.2d.
+  variable on the scope, and closes a term with the scope's free
+  variables (`lf-minfer-closed`) before P2 infers it. It is retired by plan task 4.2.2d.
 - A caller that walks a telescope itself (`check-block.fs`, as Lean's
   `check_constructors`) opens each binder with `lf-minfer-push` (the
   domain closed with the scope's free variables, then a new free
   variable) and compares two terms read under the scope with
-  `lf-minfer-agree-open`, which closes both first.
+  `lf-minfer-agree`: structurally on equal depths, and the analysis
+  closes what it infers with the whole scope. So the derivation log's
+  comparison steps there, written at the block step's depth, hold bound
+  variables only.
 - What 4.2.2b–e need is in place: `lf-lctx-local` and `lf-lctx-let`
   (Lean's `mk_local_decl`, for `is_def_eq_binding`, eta and `infer_let`),
   `lf-fvar-value` (for `whnf_fvar`'s zeta), `lf-instantiate` (for beta) and

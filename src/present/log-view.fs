@@ -42,7 +42,10 @@ require ../core/derivation-log.fs
 require ../core/input.fs
 
 1024 constant lf-lv-buffer-size
-512 constant lf-lv-nest-limit
+\ Gforth 0.7.3 has 1,920 return-stack cells (1.0: 3,968); a level of these
+\ walks takes about four (451 levels overflowed 0.7.3, 301 did not), so 128
+\ levels stay far inside it, and above the 64 levels any check reaches.
+128 constant lf-lv-nest-limit
 
 begin-structure /lf-lv
   field: lf-lv-sink          \ xt ( c-addr u -- ) of the finished text
@@ -61,11 +64,14 @@ begin-structure /lf-lv
 end-structure
 1 cells context-record: lf-lv-held
 : lf-lv ( -- addr ) lf-lv-held @ ;
-\ The block: made zeroed when there is none (false without memory), and
-\ given back. A FREE that fails keeps the block recorded, so that the
-\ teardown tries again and reports it.
+\ The block: made zeroed when there is none (false without memory), or
+\ zeroed again when a THROW left one held (no count of failed rollbacks or
+\ rebuilt copy survives into the next print); and given back. A FREE that
+\ fails keeps the block recorded, so that the teardown tries again and
+\ reports it.
 : lf-lv-open ( -- flag )
-  lf-lv if true exit then /lf-lv allocate0 if drop false exit then lf-lv-held ! true ;
+  lf-lv ?dup if /lf-lv erase true exit then
+  /lf-lv allocate0 if drop false exit then lf-lv-held ! true ;
 : lf-lv-close ( -- ior )
   lf-lv dup 0= if exit then free dup 0= if 0 lf-lv-held ! then ;
 :noname ( -- ) lf-lv-close throw ; context-teardown
@@ -95,20 +101,23 @@ create lf-lv-blanks 64 allot lf-lv-blanks 64 bl fill
 : lf-lv-step ( s -- ) s" s" lf-lv-put lf-lv-n ;
 
 \ The records' fields.
-: lf-lv-rule ( s -- rule ) lf-log-record logrec-rule @ ;
-: lf-lv-a ( s -- ref ) lf-log-record logrec-a @ ;
-: lf-lv-b ( s -- ref ) lf-log-record logrec-b @ ;
-: lf-lv-out-ref ( s -- ref ) lf-log-record logrec-out @ ;
-: lf-lv-depth@ ( s -- d ) lf-log-record logrec-depth @ ;
-: lf-lv-start ( s -- start ) lf-log-record logrec-start @ ;
-: lf-lv-outcome ( s -- outcome ) lf-log-record logrec-outcome @ ;
+: lf-lv-rule ( s -- rule ) lf-log-rule@ ;
+: lf-lv-a ( s -- ref ) lf-log-a@ ;
+: lf-lv-b ( s -- ref ) lf-log-b@ ;
+: lf-lv-out-ref ( s -- ref ) lf-log-out@ ;
+: lf-lv-depth@ ( s -- d ) lf-log-depth@ ;
+: lf-lv-start ( s -- start ) lf-log-premise ;
+: lf-lv-outcome ( s -- outcome ) lf-log-outcome@ ;
 : lf-lv-binder-rule? ( rule -- flag ) dup lf-rule-lambda = swap lf-rule-pi = or ;
 : lf-lv-infer-rule? ( rule -- flag ) lf-rule-sort lf-rule-form between? ;
 
-\ Premises: s-1, then each start of the last, while above s's start.
+\ Premises: s-1, then each start of the last, while above s's start and
+\ strictly earlier than the one before (a log that passed the validator
+\ always is; the guard keeps a damaged one from looping).
 \ lf-lv-premises counts them; lf-lv-premise gives the i-th, ascending.
+: lf-lv-earlier ( p -- p' ) dup lf-log-premise tuck > 0= if drop 0 then ;
 : lf-lv-premises ( s -- n )
-  dup lf-lv-start >r 0 swap 1- begin dup r@ > while swap 1+ swap lf-log-premise
+  dup lf-lv-start >r 0 swap 1- begin dup r@ > over 0> and while swap 1+ swap lf-lv-earlier
   repeat drop r> drop ;
 : lf-lv-premise ( s i -- p )
   over lf-lv-premises swap - 1- swap 1- swap 0 ?do lf-log-premise loop ;
@@ -151,7 +160,7 @@ create lf-lv-blanks 64 allot lf-lv-blanks 64 bl fill
 : lf-lv-node ( ref -- tag first second true | false )
   dup 0< 0= if lf-term-read exit then
   dup lf-log-copy? 0= if drop false exit then
-  lf-log-copy-index dup lf-log-term-copies < if lf-log-term-slot node@ true else
+  lf-log-copy-index dup lf-log-term-copies < if lf-log-term-node@ true else
   drop false then ;
 \ Walk an input-or-copy reference a and a copy reference out of the same
 \ shape together, naming each copied node from its partner (only lambda
@@ -207,7 +216,7 @@ defer lf-lv-level ( ref -- level true | false )
   swap lf-lv-lchild 0= if 2drop false exit then swap
   lf-lv-lchild 0= if 2drop false exit then true ;
 : lf-lv-lbuild ( k -- level true | false )
-  dup lf-log-level-slot node@ lf-lv-lfields 0= if drop false exit then
+  dup lf-log-level-node@ lf-lv-lfields 0= if drop false exit then
   lf-level-add 0= if drop false exit then dup 1+ rot lf-lv-lmade@ ! true ;
 : lf-lv-lnew ( k -- level true | false )
   lf-lv-deeper 0= if drop false exit then lf-lv-lbuild lf-lv-shallower ;
@@ -232,10 +241,8 @@ defer lf-lv-level ( ref -- level true | false )
   0 ?do dup i lf-lv-arg 0= if drop false unloop exit then loop drop true ;
 : lf-lv-cref ( ref -- cref id true | false )
   lf-log-copy-index dup lf-log-cref-copies < 0= if drop false exit then
-  lf-log-cref-slot dup logcref-args @ over logcref-count @ lf-lv-args 0=
-  if drop false exit then
-  >r r@ logcref-name @ r@ logcref-generation @ lf-lv lf-lv-pairs r>
-  logcref-count @ lf-cref-new ;
+  lf-log-cref@ over >r swap lf-lv-args 0= if 2drop r> drop false exit then
+  lf-lv lf-lv-pairs r> lf-cref-new ;
 
 defer lf-lv-term ( ref -- term true | false )
 \ A leaf: a symbolic Sort's level rebuilt, a copied reference rebuilt.
@@ -252,7 +259,7 @@ defer lf-lv-term ( ref -- term true | false )
   lf-lv-namer@ @ ?dup 0= if exit then 1- lf-pres-binder@ 0= if exit then
   2 pick -rot lf-pres-binder! drop ;
 : lf-lv-tbuild ( k -- term true | false )
-  dup lf-log-term-slot node@ lf-lv-tfields 0= if drop false exit then
+  dup lf-log-term-node@ lf-lv-tfields 0= if drop false exit then
   lf-term-add 0= if drop false exit then
   over lf-lv-named dup 1+ rot lf-lv-made@ ! true ;
 : lf-lv-tnew ( k -- term true | false )

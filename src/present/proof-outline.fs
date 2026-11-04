@@ -16,7 +16,8 @@
 \ (lf-ol-matches?): taken over this input, which is still intact; the
 \ check of the log's declaration published the caller's outcome (the
 \ log's header); and, when the log is complete, its last step is that
-\ publish step.
+\ publish step. Nor does it print anything from a log that fails the
+\ structural check of log-check.fs (N1 of the second review).
 \
 \ What is printed. The header: kind and name, the verdict with its label
 \ and axioms, the statement (or type), the input line (lf-outline-source),
@@ -53,6 +54,7 @@
 \ line and whether it is a proof. Printing state is log-view.fs's.
 
 require ./log-view.fs
+require ./log-check.fs
 require ../core/diagnostics.fs
 
 32 constant lf-ol-set-capacity
@@ -106,7 +108,8 @@ end-structure
 : lf-ol ( -- addr ) lf-ol-held @ ;
 \ The block, as log-view.fs's (lf-lv-open, lf-lv-close).
 : lf-ol-open ( -- flag )
-  lf-ol if true exit then /lf-ol allocate0 if drop false exit then lf-ol-held ! true ;
+  lf-ol ?dup if /lf-ol erase true exit then
+  /lf-ol allocate0 if drop false exit then lf-ol-held ! true ;
 : lf-ol-close ( -- ior )
   lf-ol dup 0= if exit then free dup 0= if 0 lf-ol-held ! then ;
 :noname ( -- ) lf-ol-close throw ; context-teardown
@@ -173,7 +176,7 @@ end-structure
 : lf-ol-level-zero? ( lref -- flag )
   dup 0< 0= if lf-level-read if 2drop lf-level-tag-zero = else false then exit then
   dup lf-log-copy? 0= if drop false exit then lf-log-copy-index
-  dup lf-log-level-copies < if lf-log-level-slot node-tag @ lf-level-tag-zero = else
+  dup lf-log-level-copies < if lf-log-level-node@ 2drop lf-level-tag-zero = else
   drop false then ;
 : lf-ol-prop? ( ref -- flag )
   lf-lv-node 0= if false exit then rot case
@@ -527,17 +530,23 @@ defer lf-ol-known? ( s -- flag )
   lf-input-intact? lf-input-fingerprint lf-log-input = and ;
 : lf-ol-header-agrees? ( -- flag )
   lf-log-published lf-ol-outcome = swap lf-log-decl = and ;
-: lf-ol-publish-step? ( rec -- flag )
-  dup logrec-rule @ lf-rule-publish = over logrec-a @ lf-log-decl = and
-  swap logrec-outcome @ lf-ol-outcome = and ;
+: lf-ol-publish-step? ( s -- flag )
+  dup lf-log-rule@ lf-rule-publish = over lf-log-a@ lf-log-decl = and
+  swap lf-log-outcome@ lf-ol-outcome = and ;
 : lf-ol-log-agrees? ( -- flag )
   lf-log-level 0= lf-log-complete? 0= or if true exit then
-  lf-log-count ?dup 0= if false exit then lf-log-record lf-ol-publish-step? ;
+  lf-log-count ?dup 0= if false exit then lf-ol-publish-step? ;
 : lf-ol-matches? ( -- flag )
   lf-ol-same-input? lf-ol-header-agrees? and lf-ol-log-agrees? and ;
 : lf-ol-foreign ( -- )
   s" No outline: the checker's log does not belong to this declaration's published"
   lf-lv-put s"  verdict, or the input changed since the check." lf-ol-line ;
+\ A log the structural check (log-check.fs) rejects: nothing is printed
+\ from it (a log kept off has nothing to check).
+: lf-ol-flaw ( -- part ) lf-log-level if lf-log-flaw else 0 then ;
+: lf-ol-malformed ( part -- )
+  s" No outline: the checker's log fails its structural check (part " lf-lv-put lf-lv-n
+  s" ); nothing is printed from it." lf-ol-line ;
 
 \ Print the outline of the declaration whose check wrote this context's
 \ log, or with detail true every step of the log, to TYPE: after the
@@ -555,7 +564,9 @@ defer lf-ol-known? ( s -- flag )
   lf-ol-open 0= if false exit then 0 100000 lf-lv-setup dup 0= if lf-ol-close drop then ;
 : lf-ol-no-memory ( -- ) ." No proof outline: no memory for the printer." cr ;
 : lf-ol-print ( detail -- )
-  lf-ol-matches? if lf-ol-header lf-ol-body else drop lf-ol-foreign then lf-lv-cr ;
+  lf-ol-matches? 0= if drop lf-ol-foreign lf-lv-cr exit then
+  lf-ol-flaw ?dup if lf-ol-malformed drop lf-lv-cr exit then
+  lf-ol-header lf-ol-body lf-lv-cr ;
 : lf-outline ( outcome axioms detail -- )
   >r lf-ol-blocks 0= if 2drop r> drop lf-ol-no-memory exit then
   lf-ol-verdict! lf-ol-clear r> lf-ol-print lf-lv-done lf-ol-close drop ;

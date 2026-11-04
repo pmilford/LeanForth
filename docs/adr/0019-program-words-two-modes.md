@@ -1049,7 +1049,20 @@ from the same folder.
 
 ## Amendment 1 (proposed): IR 0.2, redefinition, output words and SHA-2
 
-**Status: proposed, 2026-11-04. Nothing is implemented.** It answers the
+**Status: approved in design by the owner on 2026-11-04 [parser]; not yet
+implemented.** Answers: own words may be redefined, Forth's way (A1);
+standard words stay refused for now; output words allowed as effects (A2);
+`LSHIFT`, `-rot`, number prefixes and 32-bit literals approved (A3), with
+the owner's condition "the non-standard words should have portability
+implementations" (so `-rot` gets a portable definition, `: -rot rot rot ;`,
+for a Forth that lacks it); versioning as A4. The owner also asked whether
+this is "a forth friendly native approach - not like the previous program to
+read ascii and process it": it is. Everything here extends the approved
+program words (the portable mode shift of §9): Forth's own interpreter
+reads the file, and each word's verification semantics, including `:` and
+`;` for a redefinition, writes the IR; no separate text translator is
+involved ([decisions](../project/OWNER_DECISIONS.md#ir-02-design-approved-2026-11-04)).
+Proposed 2026-11-04. It answers the
 owner's request when approving the program words
 ([decisions](../project/OWNER_DECISIONS.md#program-words-and-run-records-approved-2026-11-04)):
 "reconsider the refusal of redefinintions - for example sometimes adding

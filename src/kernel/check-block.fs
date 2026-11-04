@@ -171,7 +171,7 @@ end-structure
   loop drop outcome-ok ;
 \ C2, parameter i: the constructor's domain against the type's.
 : lf-blk-c2 ( domain i -- outcome )
-  lf-blk-param-dom lf-minfer-agree-open lf-blk-site lf-diag-ctor-param lf-minfer-verdict ;
+  lf-blk-param-dom lf-minfer-agree lf-blk-site lf-diag-ctor-param lf-minfer-verdict ;
 : lf-blk-param ( node i -- outcome )
   2dup swap lf-term-first@ swap lf-blk-c2 dup ok? 0= if nip nip exit then
   drop nip lf-blk-param-dom lf-blk-push ;

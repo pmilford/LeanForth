@@ -96,4 +96,11 @@ lf-lscope-context-reset
 T{ 5 lf-lscope-context-add -> true }T
 T{ 5 lf-lscope-param-in 6 lf-lscope-param-in -> outcome-ok outcome-invalid }T
 T{ 5 1 lf-lscope-in? 6 1 lf-lscope-in? -> true false }T
+
+\ The audit's hash table masks with slots - 1, so the slot count must be a
+\ power of two; loading refuses otherwise (the guard at the top of
+\ level-scope.fs, which uses this predicate).
+T{ lf-lscope-slots# lf-lscope-power-of-two? -> true }T
+T{ 1 lf-lscope-power-of-two? 2 lf-lscope-power-of-two? 128 lf-lscope-power-of-two? -> true true true }T
+T{ 0 lf-lscope-power-of-two? 3 lf-lscope-power-of-two? 200 lf-lscope-power-of-two? -> false false false }T
 bye

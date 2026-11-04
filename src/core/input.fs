@@ -192,6 +192,9 @@ end-structure
 create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf-inputs ,
 : lf-input-store ( k -- store ) cells lf-input-stores + @ execute ;
 : lf-input-mark ( k -- mark ) /store-mark * lf-input-state lf-inrec-marks + ;
+\ Its count, as a value: objects of input store k lie below it (for
+\ readers such as the derivation log, which may not hold an address).
+: lf-input-mark-count ( k -- n ) lf-input-mark mark-count @ ;
 \ Whether test ( mark store -- flag ) holds for every input store.
 : lf-input-all? ( test -- flag )
   true lf-input-stores# 0 ?do over i lf-input-mark i lf-input-store rot execute and loop

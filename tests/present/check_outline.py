@@ -30,6 +30,8 @@ NO_OUTLINE = {
     "composition-wrong-argument": "No proof outline: the declaration was not accepted.",
     "a rejected declaration's log, given as accepted": FOREIGN,
     "composition's log, after identity is loaded": FOREIGN,
+    "composition's log, damaged": "No outline: the checker's log fails its structural check"
+                                  " (part 2)",
 }
 
 

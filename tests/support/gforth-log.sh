@@ -15,8 +15,9 @@
 # Test-only.
 set -euo pipefail
 if [ -n "${LF_LOG_WRAPPED:-}" ]; then
-  echo "gforth-log.sh: LF_GFORTH (${LF_GFORTH:-gforth}) runs this script again;" \
-    "name the real Gforth" >&2
+  echo "gforth-log.sh: already running inside gforth-log.sh (LF_LOG_WRAPPED is set:" \
+    "LF_GFORTH, now ${LF_GFORTH:-gforth}, leads back here, or the variable was" \
+    "inherited); LF_GFORTH must name the real Gforth" >&2
   exit 2
 fi
 export LF_LOG_WRAPPED=1

@@ -64,5 +64,17 @@ live-blocks @ constant blocks-before
   context-main context-use r> context-free ;
 T{ in-new live-blocks @ blocks-before - -> 4 0 0 0 }T
 
+\ A store whose capacity was corrupted by a raw write is found invalid before
+\ any column grows (review rvKC, R2-L1): columns-ready is false, no column
+\ changes size, and the repaired store covers again.
+things store-capacity @ constant cap0
+: column-units ( -- n ) marks slab-capacity pairs slab-capacity + ;
+column-units constant units0
+1000000 things store-capacity !
+T{ things store-count-valid? -> false }T
+T{ 0 covered ! covered thing-columns columns-ready column-units -> false units0 }T
+cap0 things store-capacity !
+T{ 0 covered ! covered thing-columns columns-ready column-units -> true units0 }T
+
 cases-done
 bye

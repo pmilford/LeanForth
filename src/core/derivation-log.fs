@@ -25,7 +25,9 @@
 \ its children as references, so input subterms are shared, and a memo
 \ copies a scratch node once while it lives. The copier reads the stores
 \ only through lf-term-read, lf-term-identity, lf-level-read,
-\ lf-level-identity, lf-cref-read and lf-cref-levels, and walks a node
+\ lf-level-identity, lf-cref-read and lf-cref-level (values only, never
+\ an address of the stores; the input marks through lf-input-mark-count),
+\ and walks a node
 \ post-order with two bounded stacks of its own: it never recurses and
 \ does not depend on the stores' capacities, which are per-context
 \ settings of the heap stores. A constant whose reference lies below the
@@ -168,6 +170,7 @@ lf-log-none 1+ constant lf-log-unkept
 41 constant lf-rule-declaration
 42 constant lf-rule-publish
 43 constant lf-rule-type
+44 constant lf-rule-inductive-block   \ an inductive block's check, as one step
 
 \ Each entry: the code, the kinds, the name's length and its characters,
 \ aligned; the last entry, code 0, names every code not listed.
@@ -210,11 +213,12 @@ create lf-log-catalogue
   lf-log-entry,
   lf-rule-publish lf-kinds-numbers s" publish" lf-log-entry,
   lf-rule-type lf-kinds-formation s" type" lf-log-entry,
+  lf-rule-inductive-block lf-kinds-number s" inductive-block" lf-log-entry,
   0 0 s" unknown rule" lf-log-entry,
 \ The catalogue indexed by code, filled once here: each code below
 \ lf-rule-limit gives its entry, or 0 when it has none; the last entry
 \ (code 0) answers for every other code.
-44 constant lf-rule-limit
+64 constant lf-rule-limit
 create lf-log-by-code lf-rule-limit cells allot
 lf-log-by-code lf-rule-limit cells erase
 : lf-log-index ( entry -- )
@@ -417,6 +421,20 @@ end-structure
 \ own sub-derivation. The premises of s are s-1, then each start of the
 \ last, while above s's start.
 : lf-log-premise ( p -- p' ) lf-log-record logrec-start @ ;
+\ The fields of step s's record, and the nodes and references the pools
+\ hold, as values: the printers' and the validator's only way in (they
+\ never get an address of the log's), unchecked like lf-log-record.
+: lf-log-rule@ ( s -- rule ) lf-log-record logrec-rule @ ;
+: lf-log-outcome@ ( s -- outcome ) lf-log-record logrec-outcome @ ;
+: lf-log-depth@ ( s -- depth ) lf-log-record logrec-depth @ ;
+: lf-log-a@ ( s -- ref ) lf-log-record logrec-a @ ;
+: lf-log-b@ ( s -- ref ) lf-log-record logrec-b @ ;
+: lf-log-out@ ( s -- ref ) lf-log-record logrec-out @ ;
+: lf-log-term-node@ ( k -- tag first second ) lf-log-term-slot node@ ;
+: lf-log-level-node@ ( k -- tag first second ) lf-log-level-slot node@ ;
+: lf-log-cref@ ( k -- name generation count args )
+  lf-log-cref-slot >r r@ logcref-name @ r@ logcref-generation @ r@ logcref-count @
+  r> logcref-args @ ;
 
 \ Truncation (L3): the first bound reached wins.
 : lf-log-zero ( field -- ) lf-log-state + 0 swap ! ;
@@ -443,8 +461,8 @@ end-structure
   lf-log-pools ?dup if lf-logp-term-memo lf-log-memo-size 8 * cells erase then ;
 0 lf-logp-level-memo 0 lf-logp-term-memo - lf-log-memo-size 4 * cells <>
 [if] .( derivation-log.fs: memo layout) cr abort [then]
-: lf-log-mark-of ( k -- count ) lf-input-intact? if lf-input-mark mark-count @
-  else drop 0 then ;
+: lf-log-mark-of ( k -- count )
+  lf-input-intact? if lf-input-mark-count else drop 0 then ;
 : lf-log-bases ( -- )
   0 lf-log-mark-of lf-log-state lf-logs-term-mark !
   1 lf-log-mark-of lf-log-state lf-logs-level-mark !
@@ -461,10 +479,12 @@ end-structure
   lf-log-allocate >r lf-log-empty lf-log-bases lf-log-limits! lf-log-input! lf-log-on
   r> 0= if lf-bound-memory lf-log-truncate then ;
 \ Start a fresh log in this context at level (1 steps, 2 terms; anything
-\ else is clamped), outside the checked environment; it records until it
-\ is truncated, or until lf-log-stop or the next lf-log-begin.
+\ else is clamped), outside the checked environment, of no check (nothing
+\ published: slot -1); it records until it is truncated, or until
+\ lf-log-stop or the next lf-log-begin.
 : lf-log-start ( level -- )
-  1 max lf-log-terms min false lf-log-state lf-logs-held ! lf-log-run ;
+  1 max lf-log-terms min false lf-log-state lf-logs-held ! -1 lf-log-state lf-logs-slot !
+  lf-log-run ;
 \ No log: nothing recorded, nothing to read, no pools.
 : lf-log-stop ( -- )
   lf-log-empty 0 lf-logs-level lf-log-zero 0 lf-logs-active lf-log-zero
@@ -723,13 +743,15 @@ create lf-log-level-copier
 : lf-log-refs-full ( -- false ) lf-bound-refs lf-log-truncate false ;
 : lf-log-arg+ ( ref -- )
   lf-log-state lf-logs-args dup @ lf-log-arg-cell rot swap ! 1 swap +! ;
-: lf-log-args-copy ( addr count -- flag )
-  0 ?do dup i lf-cref-pair@ lf-log-level-ref 0= if drop false unloop exit then lf-log-arg+
-  loop drop true ;
-: lf-log-cref-args ( cref crid -- offset true | false )
-  lf-cref-levels 0= if 0 lf-log-unreadable exit then
-  dup lf-log-args-room? 0= if 2drop lf-log-refs-full exit then
-  lf-log-state lf-logs-args @ -rot lf-log-args-copy dup 0= if nip then ;
+\ Argument i of the reference, read as a value (lf-cref-level), copied.
+: lf-log-arg-copy ( cref crid i -- flag )
+  lf-cref-level 0= if 0 lf-log-unreadable exit then
+  lf-log-level-ref if lf-log-arg+ true else false then ;
+: lf-log-args-copy ( cref crid count -- flag )
+  0 ?do 2dup i lf-log-arg-copy 0= if 2drop false unloop exit then loop 2drop true ;
+: lf-log-cref-args ( cref crid count -- offset true | false )
+  dup lf-log-args-room? 0= if drop 2drop lf-log-refs-full exit then
+  lf-log-state lf-logs-args @ >r lf-log-args-copy if r> true else r> drop false then ;
 \ The next copy is written in place and counted only when complete.
 : lf-log-cref-next ( -- addr ) lf-log-cref-copies lf-log-cref-slot ;
 : lf-log-cref-head! ( name generation count -- )
@@ -740,7 +762,7 @@ create lf-log-level-copier
 : lf-log-cref-copy ( cref crid -- ref true | false )
   lf-log-cref-room? 0= if 2drop lf-log-refs-full exit then
   2dup lf-cref-read 0= if 2drop 0 lf-log-unreadable exit then
-  lf-log-cref-head! lf-log-cref-args if lf-log-cref-made true else false then ;
+  dup >r lf-log-cref-head! r> lf-log-cref-args if lf-log-cref-made true else false then ;
 
 \ Terms: application, lambda and Pi have two children (a binder's second
 \ under one more binder); a symbolic Sort's first field is a level

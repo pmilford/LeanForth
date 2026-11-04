@@ -592,3 +592,25 @@ Claude Code session after the questions were asked in plain words.
   itself (about a thousand copies exhausted 39 GB of memory and 16 GB of
   swap); fixed in e6a0a74 with self-reference and depth guards. No work
   was lost: agents' uncommitted changes were saved as WIP commits.
+
+## IR 0.2 design approved (2026-11-04)
+
+ADR 0019 Amendment 1 (agent IR2; probes in
+`docs/development/measurements/ir-0.2-probes-2026-11-04/`):
+
+- **Own words may be redefined, Forth's way:** each use binds to the
+  version visible where it is compiled; each version has its own IR name
+  (`clamp`, `clamp'1`, …). The owner asked: "is this able to be done in a
+  forth friendly native approach - not like the previous program to read
+  ascii and process it?" Answer recorded in the ADR: yes, it extends the
+  approved mode-shift program words, in which Forth's own interpreter reads
+  the file and the words' verification semantics write the IR.
+- **Standard words stay refused** for now (recommended option).
+- **Output words allowed as effects** (`.`, `U.`, `CR`, `EMIT`, `SPACE`,
+  `SPACES`, `."`, `S" … " TYPE`, `.S`); stack proofs unchanged.
+- **SHA-2 additions approved:** `LSHIFT`, `-rot`, Forth-2012 number
+  prefixes and 32-bit literals. The owner: "the non-standard words should
+  have portability implementations" — `-rot` and any other non-standard
+  word used gets a portable Forth-2012 definition for hosts that lack it.
+- Receipt schema 0.3 comes to the [format] gate with the first receipt
+  that needs it.

@@ -99,10 +99,12 @@ lf-lib set-current
   dup group-store@ store-grow-refused? if drop outcome-full exit then columns-grow ;
 \ The cheap form before each new record: mark is a cell of the owner's
 \ holding the store capacity the columns last covered; only a different
-\ capacity runs columns-cover. Columns never shrink, so an equal capacity
-\ is still covered.
+\ capacity runs columns-cover, and only for a valid store: a corrupted
+\ capacity never sizes the columns. Columns never shrink, so an equal
+\ capacity is still covered.
 : columns-ready ( mark group -- flag )
   over @ over group-capacity = if 2drop true exit then
+  dup group-store@ store-count-valid? 0= if 2drop false exit then
   dup columns-cover ok? if group-capacity swap ! true else 2drop false then ;
 lf-lib-private set-current
 

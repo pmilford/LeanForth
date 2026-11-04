@@ -787,7 +787,7 @@ reason = "4.2.2a: a lambda does not give its binder back to the scope"
 [[fault]]
 id = "infer-chain-unclosed"
 file = "src/kernel/mixed-infer.fs"
-old = '''  if lf-minfer-good? if lf-minfer-closing then then ;'''
+old = '''  if lf-minfer-good? if lf-minfer-closed then then ;'''
 new = '''  drop ;'''
 test = "$GFORTH tests/core/mixed-infer.fs"
 reason = "4.2.2a: the top of a chain of lambdas under binders keeps the outer binders' loose bound variables in its type instead of closing them with their free variables"
@@ -2899,11 +2899,97 @@ reason = "a check that threw with rules open leaves a log reported complete, who
 
 [[fault]]
 id = "log-validator-any-publish-premise"
-file = "tests/support/log-check.fs"
-old = '''  dup lc-after-declaration? over lf-log-count = and'''
+file = "src/present/log-check.fs"
+old = '''  dup lf-lc-check-step? over lf-log-count = and'''
 new = '''  dup lf-log-count ='''
 test = "$GFORTH tests/core/derivation-log.fs"
 reason = "the validator accepts a publish step whose premise is not the check's declaration step"
+
+[[fault]]
+id = "log-block-check-unlogged"
+file = "src/kernel/check-declaration.fs"
+old = '''  lf-log? if lf-check-block-logged else lf-check-block-pass then ;'''
+new = '''  lf-check-block-pass ;'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "an inductive block's check writes no covering step, so its publish step follows an inner step and the validator rejects the log (N1 of the second review)"
+
+[[fault]]
+id = "outline-ignores-validator"
+file = "src/present/proof-outline.fs"
+old = '''  lf-ol-flaw ?dup if lf-ol-malformed drop lf-lv-cr exit then'''
+new = ''''''
+test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
+reason = "the printer prints from a log the structural check rejects (N1 of the second review)"
+
+[[fault]]
+id = "log-start-keeps-published-slot"
+file = "src/core/derivation-log.fs"
+old = '''  1 max lf-log-terms min false lf-log-state lf-logs-held ! -1 lf-log-state lf-logs-slot !'''
+new = '''  1 max lf-log-terms min false lf-log-state lf-logs-held !'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "a test log keeps the last check's published slot, so a printer can take it for that check's log (N4 of the second review)"
+
+[[fault]]
+id = "printer-nests-too-deep"
+file = "src/present/log-view.fs"
+old = '''128 constant lf-lv-nest-limit'''
+new = '''100000 constant lf-lv-nest-limit'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "the printer's walks are not bounded below the host's return stack (N5 of the second review): a 450-deep copy is rebuilt instead of refused"
+
+[[fault]]
+id = "iso-log-module-if-line"
+file = "src/core/derivation-log.fs"
+old = ''': lf-kind-out ( rule -- kind ) 4 lf-log-kind ;'''
+new = ''': lf-kind-out ( rule -- kind ) 4 lf-log-kind ;
+true [if] : lf-log-x ( -- ) 0 0 lf-term-app 2drop ; [then]'''
+test = "python3 tests/core/check_log_isolation.py"
+reason = "a kernel word hidden on a one-line [if] ... [then] in the log module (N2 of the second review)"
+
+[[fault]]
+id = "iso-log-module-input-mark"
+file = "src/core/derivation-log.fs"
+old = ''': lf-kind-out ( rule -- kind ) 4 lf-log-kind ;'''
+new = ''': lf-kind-out ( rule -- kind ) 4 lf-log-kind ;
+: lf-log-x ( -- ) 0 0 lf-input-mark mark-count ! ;'''
+test = "python3 tests/core/check_log_isolation.py"
+reason = "the log module writes the checker's input mark through an address-returning word (N2 of the second review)"
+
+[[fault]]
+id = "iso-log-module-runtime-allot"
+file = "src/core/derivation-log.fs"
+old = ''': lf-kind-out ( rule -- kind ) 4 lf-log-kind ;'''
+new = ''': lf-kind-out ( rule -- kind ) 4 lf-log-kind ;
+: lf-log-x ( -- ) 100 allot ;'''
+test = "python3 tests/core/check_log_isolation.py"
+reason = "the log module allots at run time (N2 of the second review)"
+
+[[fault]]
+id = "iso-kernel-if-line"
+file = "src/kernel/mixed-shift.fs"
+old = ''': lf-mixed-shift ( index identity cutoff amount fuel -- index identity status )'''
+new = '''true [if] : lf-mshift-x ( -- ) 0 lf-log-state ! ; [then]
+: lf-mixed-shift ( index identity cutoff amount fuel -- index identity status )'''
+test = "python3 tests/core/check_log_isolation.py"
+reason = "a kernel file writes the log's state on a one-line [if] ... [then] (N2 of the second review)"
+
+[[fault]]
+id = "iso-printer-writes-record"
+file = "src/present/log-view.fs"
+old = ''': lf-lv-rule ( s -- rule ) lf-log-rule@ ;'''
+new = ''': lf-lv-rule ( s -- rule ) lf-log-rule@ ;
+: lf-lv-x ( s -- ) 0 swap lf-log-record ! ;'''
+test = "python3 tests/core/check_log_isolation.py"
+reason = "a printer overwrites a record's first field through its address (N2 of the second review)"
+
+[[fault]]
+id = "iso-printer-writes-copy"
+file = "src/present/log-view.fs"
+old = ''': lf-lv-rule ( s -- rule ) lf-log-rule@ ;'''
+new = ''': lf-lv-rule ( s -- rule ) lf-log-rule@ ;
+: lf-lv-x ( k -- ) >r 0 0 0 r> lf-log-term-slot node! ;'''
+test = "python3 tests/core/check_log_isolation.py"
+reason = "a printer overwrites a copy in the log's pool with node! (N2 of the second review)"
 
 [[fault]]
 id = "log-module-rolls-back"
@@ -3180,3 +3266,19 @@ new = ''''''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "P4 dropped: P x and P y for x y : PUnit are called apart, so a theorem Lean accepts by is_def_eq_unit_like is rejected"
 quick = true
+
+[[fault]]
+id = "columns-ready-unvalidated"
+file = "src/lib/store-columns.fs"
+old = '''  dup group-store@ store-count-valid? 0= if 2drop false exit then'''
+new = ''''''
+test = "$GFORTH tests/lib/store-columns.fs"
+reason = "R2-L1: a corrupted capacity sizes every column before the store is found invalid"
+
+[[fault]]
+id = "lscope-power-of-two-wrong"
+file = "src/core/level-scope.fs"
+old = ''': lf-lscope-power-of-two? ( n -- flag ) dup 0> swap dup 1- and 0= and ;'''
+new = ''': lf-lscope-power-of-two? ( n -- flag ) 0> ;'''
+test = "$GFORTH tests/core/level-scope.fs"
+reason = "R2-L2: the slot-count guard accepts a count that is not a power of two"

@@ -57,6 +57,15 @@ the implementation differs from the decision text below:
   224-byte header. The printers' state (64,624 bytes) is heap-held only
   while an outline prints. The pools allocate when a log starts, before
   the check's first rule; no memory truncates the log (bound `memory`).
+- **Heap with the log on and off** (L5): the pools' 218 KiB are taken
+  only while the log is on, so on a host where that much memory decides
+  whether a heap store can grow, a check could end *full* with the log on
+  and *ok* with it off; nowhere else can the two differ.
+- **Inductive blocks** (rule 44, `inductive-block`, added for ADR 0015's
+  block check): one step for the whole block check, which its publish
+  step follows; the block's own rules are not yet steps of their own.
+  The outline printer prints nothing from a log that fails the
+  structural check (`src/present/log-check.fs`).
 - **Interrupted** (L6) is a truncation bound: a check that ends with rules
   open writes no publish step, and the log says `truncated at step N (the
   check stopped with rules open)`.

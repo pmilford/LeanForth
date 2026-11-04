@@ -295,3 +295,6 @@ No outline: the checker's log does not belong to this declaration's published ve
 == composition's log, after identity is loaded
 No outline: the checker's log does not belong to this declaration's published verdict, or the input changed since the check.
 
+== composition's log, damaged
+No outline: the checker's log fails its structural check (part 2); nothing is printed from it.
+

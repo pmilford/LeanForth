@@ -16,7 +16,12 @@ require ./levels.fs
 
 \ The audit of the entries (lf-lscope-entries-ok?) finds repeats through a
 \ scratch table of lf-lscope-slots# cells, twice the most entries.
+\ The probe masks with slots# - 1, so the count must be a power of two.
 lf-level-params-limit 2* constant lf-lscope-slots#
+: lf-lscope-power-of-two? ( n -- flag ) dup 0> swap dup 1- and 0= and ;
+lf-lscope-slots# lf-lscope-power-of-two? 0= [if]
+  .( level-scope: 2 * lf-level-params-limit must be a power of two) cr abort
+[then]
 begin-structure /lf-lsctx
   field: lf-lsctx-count         \ parameter IDs in the context
   field: lf-lsctx-generation    \ advances on every change; negative when spent

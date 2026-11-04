@@ -97,6 +97,10 @@ pr-handlers cin-table-check
 \ check's does: a fault, or a THROW in the check (the context spent).
 : pr-step ( i -- fault? )
   ['] lf-check-declaration swap lf-env-step nip lf-env-spent? or ;
+\ Whether declaration i is still to check: not already published by the
+\ check of its inductive block's first member (as the environment's own
+\ run skips it, lf-env-next), whose log and outline cover the block.
+: pr-due? ( i -- flag ) lf-env-published? 0= ;
 \ Its verdict, read in a view of the environment: the outcome and, when
 \ accepted, the axiom set (-1 otherwise); invalid when no view can be had.
 : pr-verdict ( i -- outcome axioms )

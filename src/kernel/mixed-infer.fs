@@ -113,7 +113,6 @@ begin-structure /lf-ijob
   field: lf-ijob-aside     \ true while inference runs aside, for test P2
   field: lf-ijob-env       \ true in environment mode (lf-minfer-start-env)
   field: lf-ijob-argument  \ the argument an application's type is instantiated with
-  field: lf-ijob-apart     \ the scope's depth where the rejection analysis began
   field: lf-ijob-chain     \ for a lambda's lambda body, where the chain began, else -1
   lf-depth-limit cells +field lf-ijob-fvars   \ the scope's free variables, outermost
                                                \ first
@@ -198,6 +197,9 @@ end-structure
 : lf-minfer-repay ( -- ) lf-open-fuel @ lf-minfer-fuel ! ;
 : lf-minfer-open ( node base -- node' status )
   lf-minfer-lend lf-minfer-opened lf-instantiate-rev lf-minfer-repay outcome-sane ;
+\ A term read under the scope, closed with every free variable of the
+\ scope (its loose bound variables are the scope's binders).
+: lf-minfer-closed ( node -- node' status ) 0 lf-minfer-open ;
 
 \ Live nodes as handles; the right one is checked first.
 : lf-minfer-handle ( node -- node identity true | false )
@@ -226,7 +228,7 @@ end-structure
   lf-minfer-put ! lf-minfer-lend lf-minfer-put 1 lf-instantiate lf-minfer-repay
   outcome-sane ;
 : lf-minfer-put-closed ( body argument -- type status )
-  0 lf-minfer-open ok-then? if lf-minfer-substitute else nip no-result then ;
+  lf-minfer-closed ok-then? if lf-minfer-substitute else nip no-result then ;
 : lf-minfer-instantiate ( body argument -- type status )
   lf-log? if 2dup lf-rule-instantiate lf-log-open lf-minfer-put-closed lf-log-close
   else lf-minfer-put-closed then ;
@@ -352,13 +354,12 @@ defer lf-minfer-walk ( node -- type status )
 
 \ The rejection analysis below compares terms under the binders it enters
 \ itself (D4), as before plan task 4.2.2a: a binder it enters gets a free
-\ variable on the scope, above the scope's depth where the analysis
-\ began, and the bodies keep their loose bound variables for those
-\ binders, innermost the scope's top. A term of the analysis is closed by
-\ putting those free variables for them (instantiate_rev), as P2 and D4's
-\ domains need. Comparing and reducing such terms needs no closing.
-: lf-minfer-apart-base ( -- addr ) lf-minfer-job lf-ijob-apart ;
-: lf-minfer-closed ( node -- node' status ) lf-minfer-apart-base @ lf-minfer-open ;
+\ variable on the scope, and the bodies keep their loose bound variables
+\ for those binders, innermost the scope's top, as inference reads a term
+\ under the scope. A term of the analysis is closed with the scope's free
+\ variables (lf-minfer-closed), as D4's domains need and P2 does; terms
+\ read under binders that a caller opened itself (check-block.fs) close
+\ the same way. Comparing and reducing such terms needs no closing.
 
 \ P2, "known not to be a proof": node's type T and T's type infer, and the
 \ latter's whnfB is Sort l with l not zero under every assignment, so
@@ -503,7 +504,7 @@ defer lf-minfer-apart ( left right -- mask flag )
 \ comparison's own. The analysis begins at the scope's current depth.
 : lf-minfer-mismatch ( left right -- mask flag )
   lf-minfer-deciding? 0= if 2drop 0 false exit then
-  lf-minfer-context-depth @ lf-minfer-apart-base ! lf-minfer-apart ;
+  lf-minfer-apart ;
 : lf-minfer-agree ( left right -- mask status )
   2dup lf-minfer-compare dup outcome-unknown <> if nip nip 0 swap exit then
   drop lf-minfer-mismatch if outcome-rejected else outcome-unknown then ;
@@ -549,11 +550,8 @@ defer lf-minfer-apart ( left right -- mask flag )
   lf-minfer-site lf-diag-domain-type lf-minfer-sort-rule ;
 : lf-minfer-domain-level ( mark type status -- level status )
   dup ok? if drop lf-minfer-domain-sort then rot lf-minfer-discard ;
-\ A source term closed with every free variable of the scope (the term is
-\ closed apart from the scope's binders, so the outermost are never met).
-: lf-minfer-closing ( node -- node' status ) 0 lf-minfer-open ;
 : lf-minfer-open-binder ( domain level -- status )
-  swap lf-minfer-closing ok-then? if swap lf-minfer-bind else nip then ;
+  swap lf-minfer-closed ok-then? if swap lf-minfer-bind else nip then ;
 : lf-minfer-binding ( base domain -- base status )
   lf-term-count @ over lf-minfer-walk lf-minfer-domain-level
   ok-then? if lf-minfer-open-binder else nip then ;
@@ -561,17 +559,13 @@ defer lf-minfer-apart ( left right -- mask flag )
 \ does (check-block.fs, plan task 5.2.1a), in a job it started: a binder
 \ domain's level (its inference and Sort, scratch kept); a domain, a term
 \ read under the scope (source or not), closed and opened as the next
-\ binder (level 0 beside it); and two such terms closed, then compared as
-\ lf-minfer-agree compares types. Lean instantiates the telescope's body
-\ with each binder's free variable as it goes, so it compares closed
-\ terms too (inductive.cpp 456-497).
+\ binder (level 0 beside it). Two such terms compare with lf-minfer-agree
+\ as their closed copies would (Lean compares closed terms,
+\ inductive.cpp 456-497): the comparison is structural on equal depths,
+\ and the analysis closes what it infers with the whole scope.
 : lf-minfer-domain ( domain -- level status )
   lf-minfer-walk dup ok? if drop lf-minfer-domain-sort then ;
-: lf-minfer-push ( domain -- outcome )
-  lf-minfer-closing ok-then? if 0 lf-minfer-bind then ;
-: lf-minfer-agree-open ( left right -- mask status )
-  lf-minfer-closing ok-then? 0= if nip 0 swap exit then
-  swap lf-minfer-closing ok-then? 0= if nip 0 swap exit then swap lf-minfer-agree ;
+: lf-minfer-push ( domain -- outcome ) lf-minfer-enter-binder ;
 \ A step that keeps base below its result: x and true, or -1, the failure
 \ and false.
 : lf-minfer-good? ( x status -- x true | -1 status false )
@@ -606,7 +600,7 @@ defer lf-minfer-apart ( left right -- mask flag )
   else rot drop then ;
 : lf-minfer-lam-close ( base top type status -- type status )
   2swap over = >r lf-minfer-unbind r>
-  if lf-minfer-good? if lf-minfer-closing then then ;
+  if lf-minfer-good? if lf-minfer-closed then then ;
 : lf-minfer-lam-bound ( base top domain body -- base top domain body status )
   3 pick 2 pick lf-minfer-binding nip ;
 : lf-minfer-lam ( domain body -- type status )
@@ -707,7 +701,7 @@ defer lf-minfer-apart ( left right -- mask flag )
   lf-minfer-job dup lf-ijob-terms @ lf-term-count ! dup lf-ijob-levels @ lf-level-count !
   lf-ijob-crefs @ lf-cref-count ! ;
 : lf-minfer-idle ( job -- )
-  0 over lf-ijob-depth ! 0 over lf-ijob-binders ! 0 over lf-ijob-apart !
+  0 over lf-ijob-depth ! 0 over lf-ijob-binders !
   -1 over lf-ijob-chain !
   false over lf-ijob-aside ! false swap lf-ijob-env ! ;
 
