@@ -846,8 +846,8 @@ one) and 4.3.2 (the unknown rate).
 
 ### Progress
 
-**4.2.2a, implemented 2026-11-03 (agent D2A); its [kernel] gate is
-pending** (independent review, owner approval). What changed:
+**4.2.2a, implemented 2026-11-03 and 2026-11-04 (agent D2A); its
+[kernel] gate is pending** (independent review, owner approval). What changed:
 
 - *Free variables and the local context*
   (`src/core/local-context.fs`): a free variable is a term node of tag
@@ -867,39 +867,56 @@ pending** (independent review, owner approval). What changed:
   passes visit unchanged subterms and pay fuel for them (Q12 plans the
   data and a memo); `mk_pi` of a `let` variable is *unsupported* until
   4.2.3.
-- *Inference* (`src/kernel/mixed-infer.fs`) infers closed terms only, as
-  Lean does: a telescope of λs or Πs is opened as `infer_lambda` and
-  `infer_pi` open it (each domain instantiated with the free variables
-  before it, checked to be a type, then given a free variable), the body
-  opened with all of them; a λ's type is `mk_pi` of the body's type, a
-  free variable's type its entry's, and an application's type Lean's
-  `instantiate` of the Π body. The binder-domain stack and the shift of a
-  bound variable's domain (`lf-ijob-domains`, `lf-minfer-shift`) are gone.
-  ADR 0011's rejection analysis keeps its own binders (D4) as bound
-  variables, as before, and closes a term with their free variables when
-  P2 infers it. Not yet ported: `cheap_beta_reduce` of a λ body's type
-  (tc 140), which changes inferred types and so comes with 4.2.2c.
+- *Inference* (`src/kernel/mixed-infer.fs`) computes closed types only,
+  as Lean does. It enters the binders of a telescope of λs or Πs one at a
+  time, each as `infer_lambda` and `infer_pi` treat it: the domain must
+  be a type (S2); the binder then gets a free variable whose type is the
+  domain closed with the free variables around it (`instantiate_rev`),
+  kept on the job's *scope*. Source terms are read under the scope (a
+  loose bound variable `k` is the scope's free variable `k` places from
+  the top), which infers exactly Lean's opened body without copying it
+  first, and keeps each binder one inference step with its source node as
+  subject, as the derivation log (ADR 0013) records it. A free variable's
+  type is its entry's (`infer_fvar`); an application's argument is closed
+  and put into the Π body with Lean's `instantiate`; a Π's type is
+  `Sort (mk_imax u v)`. A chain of λs gets `mk_pi` of its free variables
+  over the innermost body's type, built once from the inside out: the
+  body's type abstracted over the chain's free variables, the Π of each
+  source domain around it, and at the chain's top the loose bound
+  variables of outer binders closed. This equals Lean's result, since a
+  source domain abstracted after `instantiate_rev` is the domain itself;
+  making `mk_pi` per λ instead would cost nodes quadratic in a chain's
+  depth (composition's value would no longer fit the 64-term store of
+  `check-declaration`'s `value-room` case). The binder-domain stack and
+  the shift of a bound variable's domain are gone. ADR 0011's rejection
+  analysis keeps its own binders (D4) as bound variables, and closes a
+  term with their free variables when P2 infers it. Not yet ported:
+  `cheap_beta_reduce` of a λ body's type (tc 140), which changes inferred
+  types and so comes with 4.2.2c.
 - Inference discards scratch it no longer needs (a domain's and an
-  argument's inference, a Π telescope's) so that the 64-term default
-  store still holds every table case; this must go when the caches of
-  Q10 keep scratch until the check ends.
+  argument's inference, a Π's) so that the 64-term default store still
+  holds every table case; this must go when the caches of Q10 keep
+  scratch until the check ends.
+- *The derivation log* copies a free variable as the bound variable it
+  stands for at the record's depth (each entry records its binder's
+  depth), so logs hold bound variables only and print as before. A
+  `variable` step has no `shift` premise any more: composition's log is
+  51 steps, the 65 of ADR 0013's table without its 14 shifts, every
+  formula and outline line the same (`tests/present/outlines.golden`,
+  compared modulo step numbers with the code before).
 
-Evidence: every differential target of `make check` gives the same
-answers; at the 64-term default store the binder-domain table's rows
-`compare.eta-under-beta-domain` and
-`compare.lambda-beta-domain-different-body`, before known differences
-(full, unknown), now give the table's answer. A randomized differential
-against the code before (`.claude/work/D2A/difftrial.fs`: random closed
-terms, half of them well typed by construction, through inference and
-both probes; seed 20261103, 20,000 terms, 134,570 runs: 41,957 ok, 79,833
-rejected, 12,780 unknown) finds no difference in outcome, diagnostic
-code, D-rule mask or inferred type; with too little fuel (seed 777) or
-room (seed 4242) the only differences are *unknown* against *rejected*
-(the analysis stays unknown when it runs out, and the two spend fuel and
-room differently), never another verdict. A planted fault
-(`infer-imax-zero`) gives 1,348 differences. Unit tests of the local
-context and of the four ports in `tests/core/mixed-instantiate.fs`; 14
-new planted faults in `tests/mutants/faults.toml`, all caught.
+Evidence: see the agent report of 2026-11-04 (D2A) and the figures here.
+Every differential target of `make check` gives the same answers. A
+capacity sweep of the first-checker and binder-domain tables (term stores
+of 64 to 80 nodes in steps of 2, 96, 128, 4,096; 1,092 rows each) differs
+from the code before only where the code before ran out of room:
+`compare.eta-under-beta-domain`, `compare.lambda-beta-domain-different-body`
+and `decl.lambda-in-argument-wrong-body` now give the table's answer at
+64 nodes, so the binder-domain table has no known difference left.
+RANDOMIZED_EVIDENCE Unit tests of the local context, the four ports and
+a λ argument under a binder (`tests/core/mixed-instantiate.fs`,
+`tests/core/mixed-infer.fs`); 20 planted faults in
+`tests/mutants/faults.toml` for this task, all caught.
 
 ## Test plan
 

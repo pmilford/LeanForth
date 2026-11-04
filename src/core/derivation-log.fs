@@ -734,7 +734,8 @@ create lf-log-term-copier
   dup logmark-rule @ case
     lf-rule-instantiate of drop 1 endof lf-rule-beta of drop 1 endof
     lf-rule-shift of logmark-b @ negate endof nip 0 swap endcase ;
-: lf-log-copy-depth! ( mark n -- ) swap logmark-depth @ + lf-log-state lf-logs-copy-depth ! ;
+: lf-log-copy-depth! ( mark n -- )
+  swap logmark-depth @ + lf-log-state lf-logs-copy-depth ! ;
 : lf-log-refs ( result outcome mark -- a b out true | false )
   dup dup lf-log-a-inner lf-log-copy-depth!
   >r r@ lf-log-keep-a 0= if 2drop r> drop false exit then

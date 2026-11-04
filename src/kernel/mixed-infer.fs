@@ -719,11 +719,11 @@ defer lf-minfer-apart ( left right -- mask flag )
 \ the ?DO loop adds two return cells), which share the frame limit with
 \ inference (the D5 depth 0-8 white-box, the D4 depth 1-7 through the
 \ definition probe; 2026-11-02). Since free variables (plan task 4.2.2a,
-\ painted on Gforth 1.0, 2026-11-03, as the cells per level between
-\ depths 10 and 50): an argument chain 7 and 4, a Pi's domain chain 6 and
-\ 6 (a telescope keeps its state on the data stack, so that its domains
-\ are inferred with few return cells), lambdas in arguments 6 and 3.5 per
-\ frame, D4 6 and 4, D5 8 and 5; a function chain 10 and 5, of which the
+\ painted on Gforth 0.7.3 and 1.0, which agree, 2026-11-04, as the cells
+\ per level between depths 10 and 50): an argument chain 7 and 4, a Pi's
+\ domain chain 6 and 5, a Pi's body chain 5 and 2.5, a chain of lambdas
+\ 6 and 3, lambdas in arguments 6.5 and 4 per frame, D4 6 and 4, D5 8
+\ and 5; a function chain 10 and 5, of which the
 \ instantiate pass that the deepest application nests accounts for the
 \ part above 8 (its depth grows with the chain's; it is no more than
 \ beta's nesting, below). Opening and closing a binder (mixed-open.fs)
