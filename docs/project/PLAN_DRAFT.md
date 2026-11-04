@@ -324,6 +324,7 @@ approval recorded in `docs/reviews/`; PROJECT_PROGRESS.md updated.
 | 2.1.2 | Settle the question left open on 2026-10-30: comparing under binders whose domains differ (ADR 0003) | Plain-language answer, Lean evidence, tests | — | [kernel] | M |
 | 2.1.3 | ADR 0012: checked-environment implementation of ADR 0006 — append-only store, snapshot identity, staging then publish, handles bound to a snapshot, transitive axiom set | Answers questions 2, 5, 6 of CHECKED_ENVIRONMENT_REVIEW.md | 1.1.3 | [kernel], [import] | M |
 | 2.1.4 | Lean differential matrix (completes Q5): every fixture plus mutants (wrong argument, wrong universe, swapped binder, non-proposition theorem, missing, forward or self constant, wrong universe arity, malformed, oversized); Lean's verdict **and its error reason** (N10); expected LeanForth outcome | Table and Lean oracle file; every LeanForth outcome appears at least once per check | — | — | M |
+| 2.1.5 | ADR 0011 amendment (owner, 2026-11-03: "identical to Lean"): Lean's `infer_pi` rejects a Π whose body is not a type (`ensure_sort` on the body); LeanForth answers *unknown* there today | Rule cites Lean 4.35.0 source; Lean-checked rows added to the table; gate passed | 2.2.1 | [kernel] | S |
 
 **WP 2.2 Checker implementation**
 
@@ -391,6 +392,8 @@ N13, X6, P8.1 (start), M1, D3 (start).
 | 3.2.3 | Shape-check the nine kinds not yet handled (let, projection, literals, metadata, axiom, opaque, quotient, inductive) and report unsupported | Same classification as the preview on the 142 real records it was validated on | 3.2.1 | [import] | M |
 | 3.2.4 | Round trip: re-emit each decoded record and compare bytes with the input (catches a decoder that silently reads a different term) | Identity on all fixtures and accepted fuzz cases | 3.1.3, 3.2.1 | — | S |
 | 3.2.5 | Move fixture tests from the byte transport to the Forth reader; the Python preview stays as a test oracle only | No Python on the `leanforth check` path | 3.2.2 | — | M |
+| 3.2.6 | Checksum manifest (owner, 2026-11-03): the export script writes the file's SHA-256, line and record counts, Lean version and Mathlib commit beside each export; import computes SHA-256 in Forth during its single read and checks the manifest by default (*invalid* if missing or wrong, unless skipped on request) | A file cut off between two lines, a changed byte and a missing manifest are each refused; SHA-256 agrees with `sha256sum` | 3.2.1 | [import] | M |
+| 3.2.7 | Upgrade test (owner, 2026-11-03): for each new Lean or Mathlib release, export it and compare the Forth reader with the independent Python reader record by record; report every new record kind or field | Rehearsed on one newer export; differences listed, none hidden | 3.2.4 | — | M |
 
 **WP 3.3 Capacity stage S1**
 
@@ -538,6 +541,7 @@ workstream (W7):
 | 7.4.1 | (Dropped: operating-system process sharding; the owner prefers Forth tasks. Reconsider only if one image's memory limits parallelism.) | — | — | — | — |
 | 7.5.1 | Validate (C3): interleaving stress, cancellation, exhaustion in one worker, stale handles | No cross-job effect | 7.3.1 | — | M |
 | 7.6.1 | Measure (C4): throughput and memory for 1 to 12 workers | Documented scaling curve | 7.5.1 | — | S |
+| 7.7.1 | Investigate GPU offloading (owner, 2026-11-03): candidates are untrusted bulk work (hashing, decoding, pre-filtering); never inside the trusted kernel, CPU path always kept (AGENTS.md) | Written assessment with measurements; owner decides | 7.6.1 | [owner], [runtime] | M |
 
 ### Program-track goal: most of Forth-2012 Core (owner, 2026-11-02)
 
@@ -576,6 +580,7 @@ Lean. **Roadmap:** T10.1–T10.4, P6–P9, D1.
 | 8.4.2 | (P) RUN with optional runtime assertions; receipts say runtime-tested, never verified, for the backend (P9.1–P9.2) | Model, IR interpreter and host compared on valid and invalid inputs | 8.4.1 | [runtime] | M |
 | 8.4.3 | (P) Translation validation for a bounded subset (P9.3) | Adversarial compiler outputs rejected | 8.4.2 | [runtime], [kernel] | L |
 | 8.5.1 | Same schemas exposed as MCP tools and editor integration (INTERFACE_CONTRACTS.md, handoff §6) | Golden tests shared with 3.5.3 | 3.5.3 | [owner] (new dependency) | M |
+| 8.6.1 | LaTeX output mode of the term and proof printers (owner, 2026-11-03), beside Unicode and ASCII; untrusted presentation | Golden LaTeX for the pinned examples; renders with a standard LaTeX install | 2.4.4 | — | S |
 
 ### Phase 9 — Research validation, outside audit and release 1.0
 
