@@ -81,7 +81,8 @@ def number_like(name):
     rest = name[i:]
     if not rest:
         return False
-    if len(rest) > 1 and rest[0] == "'":
+    if len(rest) > 1 and (rest[0] == "'" or i > 0 and rest[0].isalpha() and rest[1] in
+                          "0123456789."):
         return True
     if len(rest) > 1 and rest[0] == ".":
         rest = rest[1:]
@@ -178,7 +179,7 @@ HOSTILE = [
     ": 5 ;", ": -0 ;", ": 1e 1 ;", ": $10 ;", ": 'a' ;", ": .5 ;", ": -.5 ;", ": #10 ;",
     ": %1 ;", ": &7 ;", ": +5 ;", ": -a ;", ": $-1 ;", "5 constant 7", "1 constant -1",
     ": -'a' 5 ; : g -'a' ;", ": -_1 5 ;", ": #_1 6 ;", ": _1 7 ;", ": _ 1 ;", ": ._ 1 ;",
-    ": $.a 1 ;", ": -'+ 1 ;", ": '' 1 ;",
+    ": $.a 1 ;", ": -'+ 1 ;", ": '' 1 ;", ": -k1 5 ; : g -k1 ;", ": +M5 1 ;", ": -u1. 1 ;",
     ": ->x 1 ; : g ->x ;", ': "x" 2 ; : g "x" ;', ": -rot 3 ; : g -rot ;",
     ": #tib 4 ; : g #tib ;", ": x:dup 5 ; : y X:DUP ;", ": g 1 ; : h g ;",
     # Core and Core Ext names, used and defined; Gforth's own words.

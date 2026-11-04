@@ -99,7 +99,9 @@ lf-lib set-current
   over >r dup >r ['] text-file-read catch r> close-file drop throw r> text-file-outcome ;
 
 \ The offset, in characters, of the first character of c-addr u for which
-\ xt ( char -- flag ) is true, or u when there is none.
+\ xt ( char -- flag ) is true, or u when there is none. It is u less the
+\ length that /STRING leaves, both counted in characters, so it never
+\ depends on how many address units a character takes.
 : text-scan ( c-addr u xt -- n )
   over >r >r begin dup while over c@ r@ execute 0= while 1 /string repeat then
   nip r> drop r> swap - ;

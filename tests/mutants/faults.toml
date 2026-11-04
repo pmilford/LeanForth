@@ -1285,6 +1285,14 @@ test = "$GFORTH tests/program/verify.fs"
 reason = "rvPW M1: names Gforth 1.0 reads as numbers with its digit separator (_1, -_1, #_1, ._) are accepted; the host oracle sees them"
 
 [[fault]]
+id = "pv-number-si-float"
+file = "src/program/verify-semantics.fs"
+old = '''  >r 2dup pv-quote? r> if >r pv-si-float? r> or else nip nip then ;'''
+new = '''  >r 2dup pv-quote? r> drop nip nip ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "rvPW N1: names Gforth 1.0 reads as floats with an SI prefix (-k1, +M5, -u1) are accepted; the wide host oracle sees them"
+
+[[fault]]
 id = "pv-number-quote-after-sign"
 file = "src/program/verify-semantics.fs"
 old = ''': pv-quote? ( c-addr u -- flag ) [char] ' pv-first? ;'''
@@ -1299,6 +1307,22 @@ old = '''  pv-close-file pv-saved @ if pv-settings run-settings-restore then pv-
 new = '''  pv-close-file pv-floats-clear'''
 test = "$GFORTH tests/program/verify.fs"
 reason = "the caller's search order, compilation word list and BASE are not given back after a run"
+
+[[fault]]
+id = "pv-file-left-open"
+file = "src/program/verify-runner.fs"
+old = '''  pv-close-file pv-saved @ if pv-settings run-settings-restore then pv-floats-clear'''
+new = '''  pv-saved @ if pv-settings run-settings-restore then pv-floats-clear'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "rvPW N2: the source file is never closed, one descriptor lost per run"
+
+[[fault]]
+id = "pv-busy-kept"
+file = "src/program/verify-runner.fs"
+old = '''  pv-claim ['] pv-new-run catch ?dup if false pv-busy ! throw then ;'''
+new = '''  pv-claim ['] pv-new-run catch ?dup if throw then ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "rvPW N2: a run whose preparation throws leaves its context busy, so every later run there aborts"
 
 [[fault]]
 id = "pv-deep-order-unchecked"
@@ -1394,8 +1418,8 @@ reason = "the CR of a CRLF line end in text is kept, so a text Gforth loads is r
 [[fault]]
 id = "pv-file-crlf-kept"
 file = "src/program/verify-runner.fs"
-old = '''  0 pv-held ! begin pv-next-char while pv-line-char until pv-held-line text-cr-drop true'''
-new = '''  0 pv-held ! begin pv-next-char while pv-line-char until pv-held-line true'''
+old = '''  0 pv-held ! pv-read-to-lf if pv-held-line text-cr-drop true else pv-last-line? then ;'''
+new = '''  0 pv-held ! pv-read-to-lf if pv-held-line true else pv-last-line? then ;'''
 test = "python3 tests/program/verify_check.py"
 reason = "the CR of a CRLF line end in a file is kept, so a CRLF file Gforth loads is refused"
 
@@ -1795,8 +1819,8 @@ reason = "replay confirms any record without comparing it with the new run"
 [[fault]]
 id = "cin-checked-reads-plain"
 file = "src/import/checker-input.fs"
-old = ''': cin-checked ( c-addr u -- outcome ) cin-manifest manifest-read ;'''
-new = ''': cin-checked ( c-addr u -- outcome ) cin-export export-read ;'''
+old = '''  cin-manifest manifest-read dup ok? if drop cin-pass-digest then ;'''
+new = '''  cin-export export-read dup ok? if drop cin-pass-digest then ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "cin-read-checked never compares the export with its manifest"
 
@@ -2205,11 +2229,52 @@ reason = "rvRP 2: an enforced manifest that does not match an input read past it
 [[fault]]
 id = "rr-bytes-unchecked"
 file = "src/import/run-record.fs"
-old = '''  cin-digest rr-recorded compare 0<> dup run-record rr-moved ! 0= flag>outcome ;'''
-new = '''  false run-record rr-moved ! outcome-ok ;'''
+old = ''': rr-same-bytes? ( -- flag ) cin-digest rr-recorded compare 0= ;'''
+new = ''': rr-same-bytes? ( -- flag ) true ;'''
 test = "$GFORTH tests/core/run-record.fs && python3 tests/core/test_run_records.py"
 reason = "rvRP3 M1: a checked read of other bytes than rr-start hashed is recorded as enforced"
 quick = true
+
+[[fault]]
+id = "cin-passes-unpaired"
+file = "src/import/checker-input.fs"
+old = '''  cin-manifest manifest-read dup ok? if drop cin-pass-digest then ;'''
+new = '''  cin-manifest manifest-read ;'''
+test = "python3 tests/core/test_run_records.py"
+reason = "rvRP3 R2-1: an export changed during the first pass only pairs one file's names with another's terms"
+quick = true
+
+[[fault]]
+id = "cin-passes-same"
+file = "src/import/checker-input.fs"
+old = '''  cin-digest cin-kept compare if cin-passes-differ else outcome-ok then ;'''
+new = '''  outcome-ok ;'''
+test = "python3 tests/core/test_run_records.py"
+reason = "rvRP3 R2-1: the second pass's digest is not compared with the first's"
+
+[[fault]]
+id = "cin-digest-not-kept"
+file = "src/import/checker-input.fs"
+old = '''  cin-digest drop cin-kept move true cin-state map-digested ! outcome-ok ;'''
+new = '''  cin-digest 2drop true cin-state map-digested ! outcome-ok ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "rvRP3 R2-1: the first pass's digest is not kept, so every checked read is refused"
+
+[[fault]]
+id = "rr-decls-over-limit"
+file = "src/import/run-record.fs"
+old = ''': rr-fits? ( -- flag ) lf-input-count lf-input-default upto? ;'''
+new = ''': rr-fits? ( -- flag ) true ;'''
+test = "python3 tests/core/test_run_records.py"
+reason = "rvRP3 R2-2: a record lists more declarations than the schema allows"
+
+[[fault]]
+id = "rr-decls-at-limit"
+file = "src/import/run-record.fs"
+old = ''': rr-fits? ( -- flag ) lf-input-count lf-input-default upto? ;'''
+new = ''': rr-fits? ( -- flag ) lf-input-count lf-input-default < ;'''
+test = "python3 tests/core/test_run_records.py"
+reason = "rvRP3 R2-2: an input of exactly 32 declarations gives no record"
 
 [[fault]]
 id = "rr-unstarted-written"
@@ -2238,8 +2303,8 @@ reason = "rvRP 2: a name of U+3164 HANGUL FILLER alone counts as shown"
 [[fault]]
 id = "rr-no-own-environment"
 file = "src/import/run-record.fs"
-old = '''  rr-made-own? 0= if exit then rr-viewed? 0= if outcome-invalid rr-fail exit then'''
-new = '''  run-record rr-checked @ 0= if exit then rr-viewed? 0= if outcome-invalid rr-fail exit then'''
+old = '''  rr-made-own? 0= if exit then rr-fits? 0= if outcome-full rr-fail exit then'''
+new = '''  run-record rr-checked @ 0= if exit then rr-fits? 0= if outcome-full rr-fail exit then'''
 test = "$GFORTH tests/core/run-record.fs"
 reason = "review F1: a run that could not make its environment cannot be recorded at all"
 
@@ -2647,3 +2712,14 @@ old = '''LEAN_CACHE ?= $(if $(CI),0,1)'''
 new = '''LEAN_CACHE ?= 1'''
 test = "python3 tests/lean-cache/test_lean_cache.py"
 reason = "CI (the CI variable set) replays cached Lean runs"
+
+# --- the test runner itself ---------------------------------------------
+
+[[fault]]
+id = "base-zero-crash"
+file = "src/lib/hash32.fs"
+old = '''  16 hash-shift hash-m1 hash-mul 13 hash-shift hash-m2 hash-mul 16 hash-shift ;'''
+new = '''  0 base ! 1 throw ;'''
+test = "$GFORTH tests/lib/hash32.fs"
+reason = "TS: Gforth 1.0 exits 0 after an error reported while BASE is 0; scripts/gforth-strict.sh must still fail the run"
+quick = true

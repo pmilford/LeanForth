@@ -5,6 +5,10 @@
 LOCAL_GFORTH := .tools/gforth/bin/gforth
 LOCAL_LEAN := $(CURDIR)/.tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean
 GFORTH ?= $(if $(wildcard $(LOCAL_GFORTH)),$(LOCAL_GFORTH),gforth)
+# Every Forth run goes through scripts/gforth-strict.sh, which fails when
+# Gforth 1.0 exits 0 after an error whose report itself crashed (BASE 0).
+export LEANFORTH_GFORTH := $(if $(filter .tools/%,$(GFORTH)),$(CURDIR)/$(GFORTH),$(GFORTH))
+override GFORTH := $(CURDIR)/scripts/gforth-strict.sh
 LEAN ?= $(if $(wildcard $(LOCAL_LEAN)),$(LOCAL_LEAN),lean)
 LEAN_BINARY := $(LEAN)
 
