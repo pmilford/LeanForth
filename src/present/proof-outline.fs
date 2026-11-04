@@ -369,9 +369,13 @@ defer lf-ol-known? ( s -- flag )
 : lf-ol-decl ( -- decl ) lf-log-decl lf-input-decl ;
 : lf-ol-theorem? ( -- flag ) lf-ol-decl lf-idecl-kind @ lf-kind-theorem = ;
 : lf-ol-line ( c-addr u -- ) lf-lv-put 0 lf-lv-flush lf-lv-cr ;
+\ A declaration's kind, as its title says it.
+: lf-ol-kind ( kind -- c-addr u )
+  case lf-kind-theorem of s" Theorem " endof lf-kind-definition of s" Definition " endof
+    lf-kind-axiom of s" Axiom " endof lf-kind-opaque of s" Opaque " endof
+    >r s" Declaration " r> endcase ;
 : lf-ol-title ( -- )
-  lf-ol-decl lf-idecl-kind @ case lf-kind-theorem of s" Theorem " endof
-    lf-kind-definition of s" Definition " endof >r s" Declaration " r> endcase lf-lv-put
+  lf-ol-decl lf-idecl-kind @ lf-ol-kind lf-lv-put
   lf-ol-decl lf-idecl-name @ lf-lv-name-id 0 lf-lv-flush lf-lv-cr ;
 \ The verdict, as the caller read it from the checked environment
 \ (lf-outline): the published outcome and, when accepted, the axiom set.
