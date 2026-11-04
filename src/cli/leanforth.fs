@@ -112,6 +112,8 @@ begin-structure /cli-run
   2 cells +field opt-name       \ the declaration to print (--name), or 0 0
   field: opt-resources          \ true: print the resource report (--resources)
   field: opt-json               \ true: the report as JSON (--json)
+  field: opt-latex              \ true: print's outlines as LaTeX (--latex)
+  field: opt-forms              \ print's statement forms (--statement), 0: all
   4 cells +field arg-files      \ the file names given, in order (two c-addr u)
   field: arg-count              \ how many were given
   field: arg-set                \ the options the command takes, as bits
@@ -528,8 +530,11 @@ create cli-order
 : cli-print-names ( -- flag )
   0 cli-file cli-checked? pr-present dup ok? if drop true else cli-unread false then ;
 \ The log on for the run, and off again after it, also after a THROW.
+: cli-style ( -- )
+  cli-state opt-latex @ lf-outline-latex!
+  cli-state opt-forms @ ?dup 0= if lf-forms-all then lf-forms! ;
 : cli-printing ( -- )
-  cli-print-names 0= if exit then cli-chosen 0= if cli-no-such exit then
+  cli-print-names 0= if exit then cli-chosen 0= if cli-no-such exit then cli-style
   pr-log-on ['] cli-print-env catch lf-log-off lf-log-set throw ;
 : print-command ( -- code )
   cli-start cli-opens? 0= if cli-unopened exit then cli-unchecked-note
@@ -638,8 +643,10 @@ create cli-order
   ."       the same for a small export, and write its run record to RECORD" cr
   ."   replay [--no-manifest] [--fuel N] EXPORT RECORD" cr
   ."       check the export again and compare the run record with RECORD" cr
-  ."   print [--no-manifest] [--fuel N] [--detail] [--name NAME] EXPORT" cr
-  ."       check the export and print each accepted declaration's proof outline" cr
+  ."   print [--no-manifest] [--fuel N] [--detail] [--name NAME] [--latex]" cr
+  ."         [--statement FORMS] EXPORT" cr
+  ."       check the export and print each accepted declaration's proof outline;" cr
+  ."       FORMS: lean, mathematics, leanforth, all (default), joined by commas" cr
   ."   count [--no-manifest] EXPORT     count the export's records by kind" cr
   ."   reexport [--no-manifest] EXPORT COPY" cr
   ."       write the export again, byte for byte as Lean's exporter writes it" cr
@@ -713,6 +720,8 @@ end-structure
 16 constant takes-name
 32 constant takes-resources
 64 constant takes-json
+128 constant takes-latex
+256 constant takes-statement
 : cli-value ( c-addr u -- c-addr' u' true | false )
   cli-arg if 2swap 2drop true else c" an option without its value" cli-wrong false then ;
 \ A decimal number from 0 to max-n with nothing else: (n true) or false.
@@ -729,6 +738,11 @@ end-structure
 : cli-name-option ( c-addr u -- ) cli-value if cli-state opt-name 2! then ;
 : cli-resources-option ( c-addr u -- ) 2drop cli-resources ;
 : cli-json-option ( c-addr u -- ) 2drop cli-json ;
+: cli-latex-option ( c-addr u -- ) 2drop true cli-state opt-latex ! ;
+\ --statement FORMS: lean, mathematics, leanforth (or all), separated by commas.
+: cli-statement-option ( c-addr u -- )
+  cli-value 0= if exit then pr-forms if cli-state opt-forms ! else
+  c" not a list of statement forms" cli-wrong then ;
 create cli-option-table
   ' cli-manifest-option takes-no-manifest 0 cli-entry, --no-manifest
   ' cli-fuel-option takes-fuel 0 cli-entry, --fuel
@@ -737,6 +751,8 @@ create cli-option-table
   ' cli-name-option takes-name 0 cli-entry, --name
   ' cli-resources-option takes-resources 0 cli-entry, --resources
   ' cli-json-option takes-json 0 cli-entry, --json
+  ' cli-latex-option takes-latex 0 cli-entry, --latex
+  ' cli-statement-option takes-statement 0 cli-entry, --statement
   0 ,
 : cli-takes? ( entry -- flag ) cli-entry-first @ cli-state arg-set @ and 0<> ;
 : cli-taken ( c-addr u entry -- )
@@ -759,7 +775,8 @@ create cli-option-table
 takes-no-manifest takes-fuel or takes-record or takes-resources or takes-json or
 constant check-set
 takes-no-manifest takes-fuel or constant replay-set
-takes-no-manifest takes-fuel or takes-detail or takes-name or constant print-set
+takes-no-manifest takes-fuel or takes-detail or takes-name or takes-latex or
+takes-statement or constant print-set
 create cli-commands
   ' check-command 1 check-set cli-entry, check
   ' replay-command 2 replay-set cli-entry, replay

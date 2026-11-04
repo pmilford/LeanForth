@@ -115,3 +115,19 @@ pr-handlers cin-table-check
 \ The log every later check writes: level terms, every limit at its
 \ capacity, which a complete outline needs (set outside jobs).
 : pr-log-on ( -- ) lf-log-terms lf-log-set lf-log-capacities lf-log-limits ;
+
+\ The statement forms of --statement: names joined by commas, as the mask
+\ lf-forms! takes (present/statement-forms.fs); false for a name that is
+\ none of them or for an empty list.
+: pr-form-bit ( c-addr u -- bit )
+  2dup s" lean" compare 0= if 2drop lf-form-lean exit then
+  2dup s" mathematics" compare 0= if 2drop lf-form-mathematics exit then
+  2dup s" leanforth" compare 0= if 2drop lf-form-leanforth exit then
+  s" all" compare 0= if lf-forms-all else 0 then ;
+\ The first name of a comma-separated list: the rest, then the name.
+: pr-item ( c-addr u -- rest-addr rest-u item-addr item-u )
+  2dup s" ," search 0= if 2drop 2dup + 0 2swap exit then
+  2swap drop 2 pick over - >r >r 1 /string r> r> ;
+: pr-forms ( c-addr u -- mask true | false )
+  0 >r begin dup while pr-item pr-form-bit dup 0= if drop 2drop r> drop false exit then
+    r> or >r repeat 2drop r> ?dup if true else false then ;

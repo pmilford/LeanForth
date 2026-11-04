@@ -60,6 +60,7 @@
 
 require ./log-view.fs
 require ./log-check.fs
+require ./statement-forms.fs
 require ../core/diagnostics.fs
 
 32 constant lf-ol-set-capacity
@@ -119,6 +120,13 @@ end-structure
   lf-ol dup 0= if exit then free dup 0= if 0 lf-ol-held ! then ;
 :noname ( -- ) lf-ol-close throw ; context-teardown
 
+\ The style of the next outlines: LaTeX (true) or plain text (false, a new
+\ context's). A list of every step (detail) is always plain.
+2 cells context-record: lf-ol-style
+: lf-outline-latex! ( flag -- ) lf-ol-style ! ;
+\ Where the next outlines go: an xt ( c-addr u -- ), or 0 for TYPE.
+: lf-outline-sink! ( xt|0 -- ) lf-ol-style cell+ ! ;
+
 : lf-ol-field ( offset -- addr ) lf-ol + ;
 : lf-ol-of ( s offset -- addr ) lf-ol-field swap 1- cells + ;
 \ Per step s: the line that concludes it, the line that introduces its
@@ -151,23 +159,38 @@ end-structure
 \ rule column), the rule with the lines it uses, the steps it covers as
 \ runs (s27–s29), then any continuation line.
 : lf-ol-number ( -- )
-  1 0 lf-olr-lines lf-ol-field +! s"   " lf-lv-put lf-ol-line# lf-lv-n 5 lf-lv-flush
+  1 0 lf-olr-lines lf-ol-field +! s"   " lf-lv-put lf-ol-line# lf-lv-n 5 lf-lv-col
   lf-ol-indent @ lf-lv-spaces ;
-: lf-ol-sentence ( -- ) 46 lf-ol-indent @ - lf-lv-flush ;
+: lf-ol-sentence ( -- ) 46 lf-ol-indent @ - lf-lv-col ;
+: lf-ol-from ( -- c-addr u ) lf-lv-tex? if s"  $\leftarrow$ " else s"  ← " then ;
+: lf-ol-dash ( -- c-addr u ) lf-lv-tex? if s" --" else s" –" then ;
+\ The rule names with a symbol, in LaTeX (a symbol of the plain text is math there).
+: lf-ol-tex-rule ( c-addr u -- c-addr' u' )
+  lf-lv-tex? 0= if exit then
+  2dup s" ∀-introduction" compare 0= if 2drop s" $\forall$-introduction" exit then
+  2dup s" →-introduction" compare 0= if 2drop s" $\to$-introduction" exit then
+  2dup s" →/∀-introduction" compare 0= if 2drop s" $\to$/$\forall$-introduction" exit then
+  2dup s" →-elimination" compare 0= if 2drop s" $\to$-elimination" exit then
+  2dup s" ∀-elimination" compare 0= if 2drop s" $\forall$-elimination" exit then ;
 : lf-ol-uses ( -- )
-  0 lf-olr-refs# lf-ol-field @ 0= if exit then s"  ← " lf-lv-put
+  0 lf-olr-refs# lf-ol-field @ 0= if exit then lf-ol-from lf-lv-put
   true lf-ol-line# 1+ 1 ?do i lf-ol-ref? if dup 0= if s" , " lf-lv-put then drop false
     i lf-lv-n then loop drop ;
-: lf-ol-rule ( c-addr u -- ) s" [" lf-lv-put lf-lv-put lf-ol-uses s" ]" lf-lv-put
-  35 lf-lv-flush ;
+: lf-ol-rule ( c-addr u -- ) s" [" lf-lv-put lf-ol-tex-rule lf-lv-put lf-ol-uses s" ]" lf-lv-put
+  35 lf-lv-col ;
 : lf-ol-run ( s -- s' ) begin 1+ dup lf-ol-step? 0= until 1- ;
 : lf-ol-runs ( -- )
   true lf-log-count 1+ 1 ?do i lf-ol-step? i 1- lf-ol-step? 0= and
     if dup 0= if s" , " lf-lv-put then drop false i lf-lv-step i lf-ol-run
-      dup i <> if s" –" lf-lv-put lf-lv-step else drop then then loop drop ;
-: lf-ol-end ( -- ) lf-ol-runs 0 lf-lv-flush lf-lv-cr lf-ol-sets-clear ;
-: lf-ol-more ( -- ) lf-ol-indent @ 7 + lf-lv-spaces ;
-: lf-ol-more-end ( -- ) 0 lf-lv-flush lf-lv-cr ;
+      dup i <> if lf-ol-dash lf-lv-put lf-lv-step else drop then then loop drop ;
+: lf-ol-end ( -- ) lf-ol-runs 0 lf-lv-flush lf-lv-eol lf-ol-sets-clear ;
+\ A continuation line: under the sentence and the rule, in LaTeX style one cell
+\ over the last three columns.
+: lf-ol-more ( -- )
+  lf-lv-tex? if s" & \multicolumn{3}{@{}p{0.72\linewidth}@{}}{" lf-lv-out then
+  lf-ol-indent @ 7 + lf-lv-spaces ;
+: lf-ol-more-end ( -- )
+  0 lf-lv-flush lf-lv-tex? if s" }" lf-lv-out then lf-lv-eol ;
 
 \ Reading the steps.
 : lf-ol-rule? ( s rule -- flag ) over 0> if swap lf-lv-rule = else 2drop false then ;
@@ -227,8 +250,8 @@ end-structure
 \ One binder: "Let x : A." or "Assume h : A."
 : lf-ol-single ( r class -- r' )
   lf-ol-number dup lf-class-assume = if s" Assume " else s" Let " then lf-lv-put
-  over lf-ol-name s"  : " lf-lv-put over dup lf-ol-domain swap lf-lv-formula s" ."
-  lf-lv-put
+  lf-lv-math-open over lf-ol-name s"  : " lf-lv-put over dup lf-ol-domain swap lf-lv-formula
+  lf-lv-math-close s" ." lf-lv-put
   lf-ol-sentence 2dup lf-ol-introduce lf-class-assume =
   if lf-tpl-assume lf-ol-used s" assumption" else lf-tpl-let lf-ol-used s" ∀-introduction"
   then lf-ol-rule lf-ol-end lf-ol-second ;
@@ -308,7 +331,8 @@ defer lf-ol-walk ( s -- )
   dup 0 lf-input-count within if lf-input-decl lf-idecl-kind @ lf-kind-theorem = else
   drop false then ;
 : lf-ol-typed ( s -- )
-  dup lf-lv-a over lf-lv-formula s"  : " lf-lv-put dup lf-lv-out-ref swap lf-lv-formula ;
+  lf-lv-math-open dup lf-lv-a over lf-lv-formula s"  : " lf-lv-put dup lf-lv-out-ref swap
+  lf-lv-formula lf-lv-math-close ;
 \ Where a recalled constant comes from: its slot, or -- for a recursor
 \ Lean's kernel generated, which no slot holds (ADR 0015 decision 12) --
 \ the kernel.
@@ -452,15 +476,16 @@ lf-walk-room context-walk: lf-ol-premises
 \ The header.
 : lf-ol-decl ( -- decl ) lf-log-decl lf-input-decl ;
 : lf-ol-theorem? ( -- flag ) lf-ol-decl lf-idecl-kind @ lf-kind-theorem = ;
-: lf-ol-line ( c-addr u -- ) lf-lv-put 0 lf-lv-flush lf-lv-cr ;
+: lf-ol-line ( c-addr u -- ) lf-lv-put 0 lf-lv-flush lf-lv-eol ;
 \ A declaration's kind, as its title says it.
 : lf-ol-kind ( kind -- c-addr u )
   case lf-kind-theorem of s" Theorem " endof lf-kind-definition of s" Definition " endof
     lf-kind-axiom of s" Axiom " endof lf-kind-opaque of s" Opaque " endof
     >r s" Declaration " r> endcase ;
 : lf-ol-title ( -- )
-  lf-ol-decl lf-idecl-kind @ lf-ol-kind lf-lv-put
-  lf-ol-decl lf-idecl-name @ lf-lv-name-id 0 lf-lv-flush lf-lv-cr ;
+  lf-lv-tex? if s" \textbf{" lf-lv-put then
+  lf-ol-decl lf-idecl-kind @ lf-ol-kind lf-lv-put lf-lv-tex? if s" }" lf-lv-put then
+  lf-ol-decl lf-idecl-name @ lf-lv-name-id 0 lf-lv-flush lf-lv-eol ;
 \ The verdict, as the caller read it from the checked environment
 \ (lf-outline): the published outcome and, when accepted, the axiom set.
 \ An accepted result carries the label every accepted result carries (as
@@ -477,18 +502,25 @@ lf-walk-room context-walk: lf-ol-premises
   s"  (" lf-lv-put swap lf-lv-n s" , " lf-lv-put lf-lv-n s" )" lf-ol-line ;
 : lf-ol-verdict ( -- )
   s"   " lf-lv-put lf-ol-accepted?
-  if lf-ol-label lf-lv-put s" ; " lf-lv-put lf-ol-axioms 0 lf-lv-flush lf-lv-cr exit then
+  if lf-ol-label lf-lv-put s" ; " lf-lv-put lf-ol-axioms 0 lf-lv-flush lf-lv-eol exit then
   lf-ol-outcome outcome-sane outcome-text lf-ol-line lf-ol-diagnostic ;
+\ The statement (or the type), in the forms selected (statement-forms.fs); a
+\ declaration with no type says so.
+: lf-ol-kind-word ( -- c-addr u ) lf-ol-theorem? if s" Statement" else s" Type" then ;
 : lf-ol-statement-text ( -- )
-  lf-ol-theorem? if s"   Statement: " else s"   Type:      " then lf-lv-put
-  lf-ol-decl lf-idecl-type @ dup 0< if drop s" none" lf-ol-line exit then
-  lf-lv lf-lv-fuel @
-  lf-ol-theorem? if lf-print-statement else lf-print-term then lf-lv-printed
-  0 lf-lv-flush lf-lv-cr ;
+  lf-ol-decl lf-idecl-type @ 0< if
+    lf-ol-theorem? if s"   Statement: " else s"   Type:      " then lf-lv-put
+    s" none" lf-ol-line exit then
+  lf-ol-decl lf-ol-kind-word lf-print-forms ;
 : lf-ol-source-name ( -- c-addr u ) lf-ol-input dup lf-olin-source @ swap lf-olin-len @ ;
+\ The input's name: as it is, or escaped in the typewriter font (LaTeX).
+: lf-ol-source-name. ( c-addr u -- )
+  lf-lv-tex? if s" \texttt{" lf-lv-put 0 lf-lv-flush lf-sf-tex s" }" lf-lv-put
+  else lf-lv-put then ;
 : lf-ol-source ( -- )
-  lf-ol-source-name dup 0= if 2drop exit then s"   Input:     " lf-lv-put lf-lv-put
-  s"  line " lf-lv-put lf-ol-input lf-olin-line @ lf-lv-n 0 lf-lv-flush lf-lv-cr ;
+  lf-ol-source-name dup 0= if 2drop exit then s"   Input:     " lf-lv-put
+  lf-ol-source-name.
+  s"  line " lf-lv-put lf-ol-input lf-olin-line @ lf-lv-n 0 lf-lv-flush lf-lv-eol ;
 : lf-ol-bound ( bound -- c-addr u )
   case lf-bound-records of s" records" endof lf-bound-marks of s" open rules" endof
     lf-bound-terms of s" term copies" endof lf-bound-levels of s" level copies" endof
@@ -510,7 +542,7 @@ lf-walk-room context-walk: lf-ol-premises
   s"   Checker log: " lf-lv-put lf-log-level 0= if s" off." lf-ol-line exit then
   lf-log-count lf-lv-n s"  steps, " lf-lv-put
   lf-log-complete? if s" complete." lf-lv-put lf-ol-formed else s" incomplete: " lf-lv-put
-  lf-ol-cut s" ." lf-lv-put then 0 lf-lv-flush lf-lv-cr ;
+  lf-ol-cut s" ." lf-lv-put then 0 lf-lv-flush lf-lv-eol ;
 : lf-ol-header ( -- )
   lf-ol-title lf-ol-verdict lf-ol-statement-text lf-ol-source lf-ol-log-text ;
 
@@ -518,8 +550,14 @@ lf-walk-room context-walk: lf-ol-premises
 : lf-ol-templates ( -- )
   true lf-tpl-count 0 ?do 1 i lshift 0 lf-olr-templates lf-ol-field @ and
     if dup 0= if s" , " lf-lv-put then drop false i lf-tpl-name lf-lv-put then loop drop ;
+\ In LaTeX style the table ends and the footer is a small paragraph.
+: lf-ol-tex-open ( -- ) lf-lv-tex? if s\" \\begin{flushleft}\n" lf-lv-out then ;
+: lf-ol-tex-close ( -- ) lf-lv-tex? if s\" \\end{flushleft}\n" lf-lv-out then ;
+: lf-ol-end-mark ( -- c-addr u ) lf-lv-tex? if s" $\blacksquare$" else s" ∎" then ;
 : lf-ol-footer ( -- )
-  s" ∎" lf-ol-line
+  lf-lv-tex? if s\" \\end{tabular}}\n" lf-lv-out s\" \\begin{flushleft}\\small\n" lf-lv-out
+  then
+  lf-ol-end-mark lf-ol-line
   s" Rules, formulas and step numbers come from the checker's log; the sentences are"
   lf-ol-line s" fixed templates (structured-template), not checked reasoning." lf-ol-line
   s" Templates: " lf-lv-put lf-ol-templates s" ." lf-ol-line ;
@@ -534,20 +572,31 @@ lf-walk-room context-walk: lf-ol-premises
   s" This is the declared type."
   then lf-lv-put lf-ol-sentence s" definitional equality" lf-ol-rule lf-ol-end drop
   lf-tpl-statement lf-ol-used ;
+\ In LaTeX style the title ends the header's paragraph and the lines are the
+\ rows of a table: number, sentence, rule and uses, steps.
+: lf-ol-table ( -- )
+  s\" \\par\\noindent{\\small\n\\begin{tabular}{@{}r@{\\hspace{1em}}p{0.46\\linewidth}" lf-lv-out
+  s\" @{\\hspace{1em}}p{0.27\\linewidth}l@{}}\n" lf-lv-out ;
+: lf-ol-proof-words ( -- c-addr u )
+  lf-ol-theorem? if s" Proof (reconstructed from the proof term)."
+  else s" Construction (reconstructed from the value)." then ;
 : lf-ol-proof-title ( -- )
-  lf-lv-cr lf-ol-theorem? if s" Proof (reconstructed from the proof term)."
-  else s" Construction (reconstructed from the value)." then lf-ol-line ;
+  lf-lv-tex? if lf-ol-tex-close s" \noindent\textit{" lf-lv-put lf-ol-proof-words lf-lv-put
+    s" }" lf-lv-put 0 lf-lv-flush lf-lv-cr lf-ol-table exit then
+  lf-lv-cr lf-ol-proof-words lf-ol-line ;
 : lf-ol-outline ( D -- )
   lf-ol-proof-title lf-ol-tasks walk-clear
   dup lf-ol-first lf-ol-walk-later lf-ol-run-tasks lf-ol-statement lf-ol-footer ;
 
 \ Why no outline is printed, and the steps where they explain.
 : lf-ol-list ( -- ) lf-lv-cr s" Steps." lf-ol-line lf-log-count lf-lv-list ;
-: lf-ol-none ( c-addr u -- ) lf-lv-cr lf-ol-line ;
+: lf-ol-none ( c-addr u -- ) lf-lv-gap lf-ol-line ;
 : lf-ol-truncated ( -- )
-  lf-lv-cr s" No proof outline: the declaration is accepted, but the checker's log was "
+  lf-lv-gap s" No proof outline: the declaration is accepted, but the checker's log was "
   lf-lv-put lf-ol-cut s" ; the verdict is unaffected." lf-ol-line ;
 : lf-ol-uncovered ( -- )
+  lf-lv-tex? if s" No outline template covers this proof; --detail lists its steps."
+    lf-ol-none exit then
   s" No outline template covers this proof; its steps follow." lf-ol-none lf-ol-list ;
 : lf-ol-recognised ( -- D true | false )
   lf-ol-declaration 0= if false exit then
@@ -614,12 +663,15 @@ lf-walk-room context-walk: lf-ol-premises
   0 lf-olr-axioms lf-ol-field ! 0 lf-olr-outcome lf-ol-field ! ;
 : lf-ol-blocks ( -- flag )
   lf-ol-tasks-room? 0= if false exit then
-  lf-ol-open 0= if false exit then 0 100000 lf-lv-setup dup 0= if lf-ol-close drop then ;
+  lf-ol-open 0= if false exit then lf-ol-style cell+ @ 100000 lf-lv-setup
+  dup 0= if lf-ol-close drop then ;
 : lf-ol-no-memory ( -- ) ." No proof outline: no memory for the printer." cr ;
 : lf-ol-print ( detail -- )
-  lf-ol-matches? 0= if drop lf-ol-foreign lf-lv-cr exit then
-  lf-ol-flaw ?dup if lf-ol-malformed drop lf-lv-cr exit then
-  lf-ol-header lf-ol-body lf-lv-cr ;
+  lf-ol-tex-open
+  lf-ol-matches? 0= if drop lf-ol-foreign lf-ol-tex-close lf-lv-cr exit then
+  lf-ol-flaw ?dup if lf-ol-malformed drop lf-ol-tex-close lf-lv-cr exit then
+  lf-ol-header lf-ol-body lf-ol-tex-close lf-lv-cr ;
 : lf-outline ( outcome axioms detail -- )
   >r lf-ol-blocks 0= if 2drop r> drop lf-ol-no-memory exit then
-  lf-ol-verdict! lf-ol-clear r> lf-ol-print lf-lv-done lf-ol-close drop ;
+  lf-ol-verdict! lf-ol-clear r@ 0= lf-ol-style @ and lf-lv-latex! r> lf-ol-print
+  lf-lv-done lf-ol-close drop ;

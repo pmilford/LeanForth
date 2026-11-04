@@ -95,7 +95,7 @@ theorem composition {A B C : Prop} (f : A → B) (g : B → C) : A → C :=
 | `check [--no-manifest] [--fuel N] [--resources] [--json] EXPORT` | Check every declaration of a Lean export of any size, in file order; with `--resources`, also print the [resource report](#the-resource-report); with `--json`, print [one JSON report](#json-output) instead of text |
 | `check [--no-manifest] [--fuel N] --record RECORD EXPORT` | Check a small export (as `print` reads it) and also write its [run record](#run-records-and-replay) |
 | `replay [--no-manifest] [--fuel N] EXPORT RECORD` | Check the export again and compare the new run record with RECORD; print the replay report |
-| `print [--no-manifest] [--fuel N] [--detail] [--name NAME] EXPORT` | Check the export and print each accepted declaration's [readable proof](#printing-a-readable-proof), or with `--detail` every step of the checker's log; `--name` prints one declaration |
+| `print [--no-manifest] [--fuel N] [--detail] [--name NAME] [--latex] [--statement FORMS] EXPORT` | Check the export and print each accepted declaration's [readable proof](#printing-a-readable-proof), or with `--detail` every step of the checker's log; `--name` prints one declaration |
 | `count [--no-manifest] EXPORT` | Count the export's records by kind ([the reader's counter](../development/NDJSON_READER.md#using-it)), for exports of any size |
 | `reexport [--no-manifest] EXPORT COPY` | Write the export again into COPY, byte for byte as Lean's exporter writes it ([re-export](../development/NDJSON_READER.md#re-export)); after an error COPY is incomplete and must be discarded |
 | `version` (or `--version`) | Versions of LeanForth, its Forth host, the export format it reads, and the git commit |
@@ -443,7 +443,17 @@ log; the English sentences are fixed templates, labelled
 $ bin/leanforth print tests/reference/composition.ndjson; echo "exit status $?"
 Theorem composition
   accepted (experimental, not independently audited); axioms: none
-  Statement: ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
+  Statement in Lean:        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
+  Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$
+  Statement in LeanForth (as an axiom states a type; this assumes nothing):
+    axiom composition
+      Prop implicit: A
+      Prop implicit: B
+      Prop implicit: C
+      A B -> explicit: f
+      B C -> explicit: g
+      A C ->
+    end composition
   Input:     tests/reference/composition.ndjson line 35
   Checker log: 51 steps, complete. The statement is a proposition: s20 (from s3).
 
@@ -467,6 +477,25 @@ Templates: let-props/v0, assume/v0, implies-elim/v0, discharge/v0, statement/v0.
 exit status 0
 ```
 
+The header shows the statement in three forms (plan task 8.6.2): in
+Lean's notation, in mathematics (LaTeX between `$` and `$`) and in
+LeanForth words. The LeanForth block states the type as the `axiom` of
+the same name does, because that is the one form of the words that states
+a type with no proof; it assumes nothing: nobody checked such an axiom,
+and the verdict printed above it is the checker's. The words run through
+the [authoring words](../programming/LEANFORTH_WORDS.md) to the identical
+statement (checked by `tests/present/check_outline.py` for every pinned
+example). The statement is printed whether or not the declaration was
+accepted. A block can be run only after the declarations it mentions: the
+constants of an earlier declaration are defined by running that
+declaration first (an `import-stub` line stands for one of Lean's).
+
+`--statement FORMS` chooses the forms: `lean`, `mathematics` and
+`leanforth`, joined by commas (`--statement lean,leanforth`), or `all`
+(the default). `--latex` prints the outlines as LaTeX fragments instead
+(see [the proof outline](PROOF_OUTLINE.md#latex)); with `--detail` the
+step list is always plain text.
+
 `--name NAME` prints only the declaration named NAME (the declarations
 before it are checked too, since it may use them; the ones after it are
 not); `--detail` prints every step of the log instead of the outline.
@@ -480,7 +509,17 @@ note: the export's manifest is not checked (--no-manifest)
 Theorem composition
   rejected
   Diagnostic: rejected: argument type mismatch (D1-D5) (4, 0)
-  Statement: ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
+  Statement in Lean:        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
+  Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$
+  Statement in LeanForth (as an axiom states a type; this assumes nothing):
+    axiom composition
+      Prop implicit: A
+      Prop implicit: B
+      Prop implicit: C
+      A B -> explicit: f
+      B C -> explicit: g
+      A C ->
+    end composition
   Input:     tests/core/check-declaration-cases/composition-wrong-argument.ndjson line 35
   Checker log: 51 steps, complete. The statement is a proposition: s20 (from s3).
 
@@ -490,7 +529,7 @@ exit status 1
 $ bin/leanforth print --name fixtureUse tests/reference/constant-fixture.ndjson | head -3
 Theorem fixtureUse
   accepted (experimental, not independently audited); axioms: none
-  Statement: ∀ {P : Prop}, P → P
+  Statement in Lean:        ∀ {P : Prop}, P → P
 $ bin/leanforth print --name noSuch tests/reference/constant-fixture.ndjson; echo "exit status $?"
 error: no declaration named noSuch
 exit status 4
