@@ -258,20 +258,24 @@ context-bytes allocate0 throw dup context-sized context-main!
 \ token, the owner of an idle context and gives true; it gives false and
 \ changes nothing for an address that is not a context, the main context,
 \ the current task's context or a context already owned, and inside a job
-\ or a check. context-release makes a context idle again; it aborts inside
-\ a job or a check. Both are refused there like context-new and
-\ context-free: otherwise a check could claim a context with its own token
-\ and select it, or release another job's context. task.fs, which alone
-\ calls them, claims in job-submit and releases in job-submit and
-\ job-wait, each after refusing a call inside a job, so it needs no
-\ unguarded copy.
-: context-claimable? ( context -- flag )
-  dup context? 0= context-in-job? or if drop false exit then
+\ or a check, where it reads nothing at the address. context-release
+\ makes a context idle again; it aborts inside a job or a check. Both are
+\ refused there like context-new and context-free: otherwise a check
+\ could claim a context with its own token and select it, or release
+\ another job's context. task.fs, which alone calls them, claims in
+\ job-submit and releases in job-submit and job-wait, each after refusing
+\ a call inside a job, so it needs no unguarded copy.
+\ An idle context other than the main and the current one.
+: context-other? ( context -- flag )
   dup context-main <> over lf-context @ <> and swap context-idle? and ;
+: context-claimable? ( context -- flag )
+  context-in-job? if drop false exit then
+  dup context? if context-other? else drop false then ;
 : context-claim ( owner context -- flag )
   dup context-claimable? if context-owner ! true else 2drop false then ;
 : context-release ( context -- ) context-outside-job 0 swap context-owner ! ;
 
 \ CATCH that restores the current task's context afterwards, whatever xt
-\ selected or threw: ior is 0 or xt's THROW code, as for CATCH.
+\ selected or threw: ior is 0 or xt's THROW code, as for CATCH. The owner
+\ token, lf-owner, is not restored.
 : context-catch ( i*x xt -- j*x ior ) lf-context @ >r catch r> lf-context ! ;
