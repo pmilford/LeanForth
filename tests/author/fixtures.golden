@@ -725,7 +725,8 @@ lean: def A.x : Type :=
 lean: Prop
 lean: protected def A.B.x : Type :=
 lean: Prop
-lean: protected axiom P.q : Type
+lean: protected def P.q : Type :=
+lean: Prop
 lean: def q : Type :=
 lean: Prop
 lean: def N.t1 : Type :=
@@ -759,9 +760,9 @@ term:   value (Sort 0)
 term: 1 A.B.x protected
 term:   type (Sort (succ 0))
 term:   value (Sort 0)
-term: 2 P.q protected
+term: 1 P.q protected
 term:   type (Sort (succ 0))
-term:   value none
+term:   value (Sort 0)
 term: 1 q
 term:   type (Sort (succ 0))
 term:   value (Sort 0)
@@ -820,8 +821,10 @@ protected def A.B.x
   Prop
 end A.B.x
 
-protected axiom P.q
+protected def P.q
   0 Type
+:=
+  Prop
 end P.q
 
 def q

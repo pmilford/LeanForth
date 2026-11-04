@@ -296,6 +296,9 @@ T{ s" protected" fails -> 2 1 1 }T
 T{ s" protected def t Prop := Prop end t" fails -> 44 1 15 }T
 T{ s" namespace N protected def t Prop := Prop end t end N" run -> outcome-ok }T
 T{ 0 lf-author-decl lf-fdecl-protected @ -> true }T
+T{ s" protected axiom N.a Prop end N.a protected theorem N.t Prop := Prop end N.t" run
+   -> outcome-ok }T
+T{ 0 lf-author-decl lf-fdecl-protected @ 1 lf-author-decl lf-fdecl-protected @ -> true true }T
 \ export makes aliases, which Lean's resolution also searches: not built.
 T{ s" export N (x)" fails -> 54 1 1 }T
 T{ s" namespace B end A.B" fails -> 23 1 13 }T

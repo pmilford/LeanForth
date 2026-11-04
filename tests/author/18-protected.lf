@@ -7,7 +7,7 @@ protected def N.bar  0 Type := Prop end N.bar
 def N.baz  0 Type := Prop end N.baz
 def A.x  0 Type := Prop end A.x
 protected def A.B.x  0 Type := Prop end A.B.x
-protected axiom P.q  0 Type end P.q
+protected def P.q  0 Type := Prop end P.q
 def q  0 Type := Prop end q
 
 namespace N

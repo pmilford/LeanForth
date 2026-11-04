@@ -5,7 +5,7 @@ protected def N.bar : Type := Prop
 def N.baz : Type := Prop
 def A.x : Type := Prop
 protected def A.B.x : Type := Prop
-protected axiom P.q : Type
+protected def P.q : Type := Prop
 def q : Type := Prop
 
 namespace N
