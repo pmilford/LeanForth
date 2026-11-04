@@ -85,6 +85,7 @@ theorem composition {A B C : Prop} (f : A → B) (g : B → C) : A → C :=
 | --- | --- |
 | `check [--no-manifest] [--fuel N] [--record RECORD] EXPORT` | Check every declaration of a Lean export, in file order; with `--record`, also write the [run record](#run-records-and-replay) |
 | `replay [--no-manifest] [--fuel N] EXPORT RECORD` | Check the export again and compare the new run record with RECORD; print the replay report |
+| `print [--no-manifest] [--fuel N] [--detail] [--name NAME] EXPORT` | Check the export and print each accepted declaration's [readable proof](#printing-a-readable-proof), or with `--detail` every step of the checker's log; `--name` prints one declaration |
 | `count [--no-manifest] EXPORT` | Count the export's records by kind ([the reader's counter](../development/NDJSON_READER.md#using-it)), for exports of any size |
 | `reexport [--no-manifest] EXPORT COPY` | Write the export again into COPY, byte for byte as Lean's exporter writes it ([re-export](../development/NDJSON_READER.md#re-export)); after an error COPY is incomplete and must be discarded |
 | `version` (or `--version`) | Versions of LeanForth, its Forth host, the export format it reads, and the git commit |
@@ -101,6 +102,9 @@ Options:
 - `--record RECORD` writes the run record of the check to RECORD
   ([run records and replay](#run-records-and-replay)); RECORD must not be
   the export.
+- `--detail` (`print` only) prints every step of the checker's log
+  instead of the outline; `--name NAME` (`print` only) prints only the
+  declaration named NAME.
 
 `EXPORT` and `COPY` are file names relative to the current folder; the
 tool works from any folder, and gives the same bytes on every run:
@@ -166,6 +170,82 @@ theorem impliesSelf {A : Prop} : Implies A A := fun a => a
 ```text
 'impliesSelf' does not depend on any axioms
 ```
+
+## Printing a readable proof
+
+`print` checks the export exactly as `check` does, one declaration at a
+time with the checker's [derivation log](../programming/DERIVATION_LOG.md)
+on, and prints each declaration right after its check: the verdict with
+its label and axioms, the statement, and a short readable proof (the
+[proof outline](PROOF_OUTLINE.md)) whose every line names the checker
+steps it covers. The formulas and step numbers come from the checker's
+log; the English sentences are fixed templates, labelled
+`structured-template` at the end:
+
+```console
+$ bin/leanforth print tests/reference/composition.ndjson; echo "exit status $?"
+Theorem composition
+  accepted (experimental, not independently audited); axioms: none
+  Statement: ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
+  Input:     tests/reference/composition.ndjson line 35
+  Checker log: 65 steps, complete. The statement is a proposition: s26 (from s3).
+
+Proof (reconstructed from the proof term).
+  1  Let A, B, C be propositions.                  [∀-introduction]                   s27–s29
+  2  Assume f : A → B.                             [assumption]                       s34
+  3  Assume g : B → C.                             [assumption]                       s39
+  4  Assume value : A.                             [assumption]                       s41
+  5    Then f value : B,                           [→-elimination ← 2, 4]             s50
+         because f turns any proof of A into a proof of B.
+  6    Then g (f value) : C,                       [→-elimination ← 3, 5]             s53
+         because g turns any proof of B into a proof of C.
+  7  Discharging 4, 3, 2 and 1 gives               [→/∀-introduction ← 1, 2, 3, 4, 6] s54–s59
+       ∀ {A B C : Prop}, (A → B) → (B → C) → A → C.
+  8  This is the statement.                        [definitional equality ← 7]        s63
+∎
+Rules, formulas and step numbers come from the checker's log; the sentences are
+fixed templates (structured-template), not checked reasoning.
+Templates: let-props/v0, assume/v0, implies-elim/v0, discharge/v0, statement/v0.
+
+exit status 0
+```
+
+`--name NAME` prints only the declaration named NAME (the declarations
+before it are checked too, since it may use them; the ones after it are
+not); `--detail` prints every step of the log instead of the outline.
+No outline is ever printed for a declaration that was not accepted, nor
+from a log that ran out of room; the printer says why, and the exit status
+says what happened:
+
+```console
+$ bin/leanforth print --no-manifest tests/core/check-declaration-cases/composition-wrong-argument.ndjson; echo "exit status $?"
+note: the export's manifest is not checked (--no-manifest)
+Theorem composition
+  rejected
+  Diagnostic: rejected: argument type mismatch (D1-D5) (4, 0)
+  Statement: ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
+  Input:     tests/core/check-declaration-cases/composition-wrong-argument.ndjson line 35
+  Checker log: 67 steps, complete. The statement is a proposition: s26 (from s3).
+
+No proof outline: the declaration was not accepted.
+
+exit status 1
+$ bin/leanforth print --name fixtureUse tests/reference/constant-fixture.ndjson | head -3
+Theorem fixtureUse
+  accepted (experimental, not independently audited); axioms: none
+  Statement: ∀ {P : Prop}, P → P
+$ bin/leanforth print --name noSuch tests/reference/constant-fixture.ndjson; echo "exit status $?"
+error: no declaration named noSuch
+exit status 4
+```
+
+Exit status of `print`: 0 when every declaration printed has its outline
+(or, with no template for its proof, its steps); otherwise the status of
+the [outcomes](#exit-status) of the declarations that were refused, 3
+for a log that ran out of room, 4 for a name no declaration has, 5 when
+the run stopped. The outline is untrusted presentation: the verdict comes
+from the checked environment, as `check`'s does, and nothing `print`
+writes can make a declaration accepted.
 
 ## Exit status
 
@@ -249,6 +329,8 @@ supported:
     forall and earlier accepted declarations (the first checker, ADR 0011);
     an accepted one is labelled experimental, not independently audited
   check --record, replay: run records 0.1 and their replay (plan task 2.2.5)
+  print: a readable proof outline of each accepted declaration, from the
+    checker's derivation log (plan tasks 2.4.1, 2.4.4; untrusted presentation)
   count, reexport: exports of any size, up to all of Mathlib
 unsupported (check answers unsupported, exit 2):
   axioms, opaque declarations, unsafe and partial definitions;
@@ -260,7 +342,7 @@ limits (check answers full, exit 3; small exports only):
   64 universe parameters per declaration, 64 universe arguments per constant
   16 dependencies per declaration, 64 per export
   fuel 100000 steps per declaration (--fuel N)
-planned, not built: print, program, serve, --json receipts,
+planned, not built: program, serve, --json receipts,
   larger stores (plan task 3.3.1)
 ```
 
@@ -370,18 +452,20 @@ reads: lean4export 3.1.0, format 3.1.0, Lean 4.35.0 (eb6cafb7290e8bd5f2937522d8d
 
 ## Not built yet
 
-`print` (the checked statement and its proof, readable), `program` (a
-program receipt), `serve` (the JSON-RPC interface for AI tools, plan
-section 3.5), `--json` receipts (task 3.4.3) and
-larger stores (task 3.3.1).
+`program` (a program receipt), `serve` (the JSON-RPC interface for AI
+tools, plan section 3.5), `--json` receipts (task 3.4.3), Markdown, LaTeX
+and JSON forms of `print`'s outline (tasks 2.4.4 and 8.6.1) and larger
+stores (task 3.3.1).
 
 ## Tests
 
 `make test-cli` runs `tests/cli/leanforth.fs` (the Forth side: every
-outcome's code, the order of severity, the record hook, and two injected
-internal faults) and `tests/cli/test_leanforth.py` (the tool itself:
-every exit status with its exact output, from other folders, against the
-counter and the re-exporter, and with a broken Gforth). `make
+outcome's code, the order of severity, the record hook, two injected
+internal faults, and `print`'s codes and refusals, a truncated log
+included) and `tests/cli/test_leanforth.py` (the tool itself: every exit
+status with its exact output, from other folders, against the counter and
+the re-exporter, with a broken Gforth, and `print`'s outlines against the
+outline printer's golden file). `make
 reference-cli`, part of `make check`, has pinned Lean accept
 `tests/cli/chain.lean` and `unfold.lean` and has `scripts/export.sh`
 reproduce their committed exports and manifests byte for byte. The

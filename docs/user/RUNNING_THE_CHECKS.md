@@ -130,13 +130,16 @@ It prints the IR text shown in [program IR](../programming/PROGRAM_IR.md)
 and then the outcome, 0. Any word outside IR 0.1 stops it with one
 diagnostic line and *unsupported*, *invalid* or *full*.
 
-Print the proof outline of every declaration of a Lean export, or with
-`DETAIL=1` every step of the checker's derivation log
-([proof outline](PROOF_OUTLINE.md)):
+Print the proof outline of every declaration of a Lean export (or of the
+one named `NAME`), or with `DETAIL=1` every step of the checker's
+derivation log ([proof outline](PROOF_OUTLINE.md)); this runs
+`bin/leanforth print` ([command line](COMMAND_LINE.md#printing-a-readable-proof)),
+with its exit status:
 
 ```sh
 make print EXPORT=tests/reference/composition.ndjson
 make print EXPORT=tests/reference/composition.ndjson DETAIL=1
+make print EXPORT=tests/reference/constant-fixture.ndjson NAME=fixtureUse
 ```
 
 Measure time and memory of an existing workload, without affecting any

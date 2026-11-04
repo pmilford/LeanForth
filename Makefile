@@ -727,12 +727,13 @@ test-log:
 	GFORTH=$(GFORTH) $(RUN) python3 tests/core/check_log_catalogue.py
 	$(RUN) python3 tests/core/check_log_isolation.py
 
-# The proof outline of every declaration of a Lean export, or with DETAIL=1
-# every step of its derivation log (exit status 1 when the file cannot be read):
-#   make print EXPORT=tests/reference/composition.ndjson [DETAIL=1]
+# The proof outline of every declaration of a Lean export (or of the one
+# named NAME), or with DETAIL=1 every step of its derivation log: bin/leanforth
+# print, with its exit codes (docs/user/COMMAND_LINE.md):
+#   make print EXPORT=tests/reference/composition.ndjson [DETAIL=1] [NAME=composition]
 print:
-	$(RUN) $(GFORTH) tests/support/print-outline.fs \
-	-e 's" $(EXPORT)" $(if $(DETAIL),true,false) po-exit' </dev/null
+	GFORTH=$(GFORTH) $(RUN) bin/leanforth print $(if $(DETAIL),--detail) \
+	$(if $(NAME),--name $(NAME)) $(EXPORT)
 
 # The evidence that the log changes nothing (ADR 0013, owner decision D5): all of
 # make test and every pinned-Lean comparison of make test-differential with the
