@@ -1317,14 +1317,16 @@ like"*.
 **What changes.** Until now the plan was: LeanForth words run in a separate
 "authoring" program, which writes the finished terms to a file, which the
 checker program reads (your OQ-1 answer). This amendment drops that
-separate program. `leanforth check proof.lf` reads the LeanForth file
-itself and checks it, the same way it already reads Lean's NDJSON files;
-and a Forth program can check theorems inline, many times in a loop, in
-the same Gforth session.
+separate program. `leanforth check proof.lf` would read the LeanForth file
+itself and check it, the same way it already reads Lean's NDJSON files;
+and a Forth program could check theorems inline, many times in a loop, in
+the same Gforth session. (A design: built after your answers, in the steps
+of section A10.)
 
 **Does it use the standard Forth parser? Yes.** The file is read by
-Gforth's own text interpreter — the same `EVALUATE` that reads every Forth
-file — one line at a time. While it reads, Forth's search order holds only
+Gforth's own text interpreter — the one that reads every Forth file —
+handed the file one line at a time with `EVALUATE`, as today's authoring
+words already do. While it reads, Forth's search order holds only
 LeanForth's three word lists, so every word the file can run is a
 LeanForth word: `dup`, `+`, `:`, `[`, `bye`, `evaluate` and every other
 Forth word simply do not exist there (they stop with "unknown name" at
@@ -1337,7 +1339,8 @@ without first making a Forth word for each of its 59,349 declarations
 (question 3).
 
 **`+` cannot be mixed up.** In proof text Forth's `+` is not visible at
-all: `n m +` stops at the `+` with "unknown name" (an existing test). Lean's
+all: `p p +` in a proof stops at the `+` with "unknown name" (an existing
+test, `tests/author/author.fs`). Lean's
 addition is written by its Lean name (`HAdd.hAdd`) and *printed* as
 `n + m`. Inline, Forth code and proof text sit in the same colon
 definition, but proof text is only ever between `lf[` and `]lf`, and only
@@ -1364,9 +1367,10 @@ prototypes kept outside `src/`):
 : five ( -- )  5 0 do  i A-of composition-at drop lf-verdict. cr  loop ;
 ```
 
-`A-of` builds, in ordinary Forth, the proposition A(i): A(0) is
-∀ P : Prop, P → P, and A(i+1) is ∀ P : Prop, P → A(i). For each i the
-checker checks "if A implies B and B implies C, then A implies C" at that A.
+`A-of` builds, in ordinary Forth, the statement A(i): A(0) is
+∀ P : Prop, P → P ("every statement implies itself"), and A(i+1) is
+∀ P : Prop, P → A(i). For each i the checker checks "if A implies B and B
+implies C, then A implies C" at that A, for all statements B and C.
 All five were accepted; a copy with a wrong proof (`f value $` in place of
 `g f value $ $`) was *rejected*; a misspelt `valeu` stopped at line 8,
 column 33 of the text. (The probe wrote `theorem compAt` where the design
@@ -1395,14 +1399,16 @@ file.
 
 - *Numeric constants in a loop* (`2 + 2 = 4` with the 2 passed in): needs
   natural numbers as a data type (task 5.2.1b), number literals (5.2.3),
-  structures (5.2.2, because `+` goes through an instance) and unfolding
-  (4.2.2); to avoid writing every hidden argument, also the elaborator
-  (8.3.1). Lean's kernel form of `2 + 2 = 4` uses seven constants, 18
-  times, with eight universe arguments and six raw literals (checked with
-  pinned Lean).
+  structures (5.2.2, because Lean's `+` is looked up in a table of
+  "instances", here "how to add natural numbers") and unfolding of
+  definitions (4.2.2); to avoid writing every hidden argument by hand, also
+  the elaborator (8.3.1, the helper that fills them in). The full form the
+  checker checks for `2 + 2 = 4` uses seven constants, 18 times, with eight
+  universe arguments and six raw literals (checked with pinned Lean).
 - *Different trig functions* (`Real.sin`, `Real.cos` passed in by name):
-  Mathlib's real numbers, so quotients (5.2.4), the standard axioms
-  (5.3.1) and a Mathlib slice (stage S4, then S5).
+  Mathlib's real numbers, so quotients (5.2.4, the way Mathlib builds the
+  reals), the three standard axioms (5.3.1) and a Mathlib slice (stage S4,
+  then all of Mathlib, S5).
 - *Different-sized matrices*: Mathlib's `Matrix (Fin n) (Fin n) R` (S4/S5),
   number literals (5.2.3) and the elaborator for its instances (8.3.1); a
   matrix built entry by entry in a Forth loop uses the small set of
@@ -1545,7 +1551,8 @@ interpreter is the only parser" holds, and §16 and owner decision 2 (no
 
 The argument: every token of a line either (a) is found as a word of the
 three sealed lists, all made by `CREATE … DOES>`, whose actions only build
-terms in the stores; or (b) is converted by Forth as a number, which every
+terms, declarations, labels and notes in the checker's stores and make
+name words (group words, §5); or (b) is converted by Forth as a number, which every
 LeanForth word refuses unless it is a plain decimal before it acts on
 anything (the check of §6 and of the corrections); or (c) is refused at its
 token. Nothing else may act. The table lists each way text could escape,
@@ -1563,7 +1570,7 @@ either Gforth; four need a new rule** (marked *new*).
 | 7 | Bytes that split tokens | Forth splits at TAB, LF, VT, FF, CR and space only; NUL, the other control bytes, DEL and no-break space are part of a token (p07) | identical (p07) | *New:* refuse a line holding a control byte other than TAB (and a CR before its LF), or invalid UTF-8. The runner's own splitter (errors, the number check) treats every byte up to 32 as a blank, Forth does not; with such bytes refused, both split alike and what an editor shows as one token is one token |
 | 8 | Nested `EVALUATE` | the only one is the runner's own: a group word is made by `EVALUATE` of `lfa-group: NAME`. Of 18 names tried as a constant and as a variable, `bye ] [ : ; postpone immediate evaluate lfa-group: abort" s" x"y \ α` and names of 200 and 239 characters became harmless words (`.(` was refused as a name; `s"` and `\` as variables then met the syntax words of the same spelling, as §5 says); nothing ran; the run went on (p04) | the same (p04) | *Hardened:* during that `EVALUATE` the search order holds a private list with only `lfa-group:`, so no later definition of that name (for example by an inline program) is picked up |
 | 9 | What a THROW leaves | after 11 errors of different kinds the caller's search order, compilation word list, recognizer, `BASE`, `STATE` and stack depth were as before and no floats were left (p03) | the same (p03) | The runner catches every THROW (ADR 0018). A failed run checks nothing (A2); its terms are scratch, emptied by the next run or rolled back to the input's marks; group words stay (they only dispatch) |
-| 10 | The stacks | 60,000 plain decimals in one declaration overflowed the data stack: THROW −3, caught (error 41), and the next run in the session worked; the host turns data and return stack overflow into THROWs −3 and −5 in `gforth` and `gforth-fast` (p04, p04c) | the same, at an earlier line (smaller stack) (p04) | Unchanged. Floats can only appear on 0.7.3 and are refused at the line's end; a line of at most 1,023 characters holds at most 512 tokens, below both hosts' float stack (2,048 and 4,096 per `FLOATING-STACK`, p00) |
+| 10 | The stacks | 60,000 plain decimals in one declaration overflowed the data stack: THROW −3, caught (error 41), and the next run in the session worked; the host turns data and return stack overflow into THROWs −3 and −5 in `gforth` and `gforth-fast` (p04, p04c) | the same, at an earlier line (smaller stack) (p04) | Unchanged. Floats are read only on 0.7.3 (1.0's restricted recognizer reads none) and are refused at the line's end; a line of at most 1,023 characters holds at most 512 tokens, below both hosts' float stack (2,048 and 4,096 per `FLOATING-STACK`, p00) |
 | 11 | The dictionary | each new spelling is a group word, about 48 bytes for a short name (p05). Filling a small dictionary (`-m 3M`): the run that hit the end failed with −8, caught; afterwards every new name failed. **The host lets `HERE` pass the end: `UNUSED` was −32 after `CREATE` filled it and `,` then wrote 8 more bytes without a THROW** (p05b) | 48 bytes; with `-m 1M`, −8 at the end, caught; `UNUSED` stops at 2 (p05, p05b) | *New:* make no group word when `UNUSED` is below a reserve (64 KB proposed): the run ends *full* (error 66) and sealed text never reaches the host's edge |
 | 12 | The LeanForth words' own buffers | — | — | *New for this process:* in a separate program an overrun could only spoil that program; here it could reach the checker. Every buffer the words write (the line of 1,024 bytes, texts of 256, spellings of 4,096, the definition text of 256, the error token of 64, the stores) is bounds-checked today; the [bypass] review checks each, and a randomized hostile-text test compares the dictionary laid down while loading (`tests/support/dictionary-check.fs`) and the checked environment before and after |
 | 13 | DEFERs and VALUEs of the implementation (`lfa-const-run`, `lfa-shift` …) | in the implementation's own word list, never in a sealed list: text cannot name them | the same | An inline program can (outside the session label's promise, A7) |
@@ -1760,8 +1767,8 @@ run under `ulimit -u 500; timeout -k 5 … setsid`, on the pinned Gforth
 
 | Probe | What it shows | Result |
 | --- | --- | --- |
-| p00 | the hosts: recognizer words, stack sizes, dictionary | 1.0 has `rec-forth` and ten recognizers, 0.7.3 none; dictionaries about 7.7 and 8.0 MB free at start |
-| p01 | 89 tokens evaluated with only a sealed list in the order: Gforth 1.0 default, 1.0 restricted as the runner does, 0.7.3 | 1.0 default: 41 tokens converted or run, **three wrote a VALUE or DEFER of the sealed list**; 1.0 restricted: only the two words and four digit strings, 83 −13; 0.7.3: 24 converted or run, 65 −13; `BASE` and `STATE` unchanged in all |
+| p00 | the hosts: recognizer words, stack sizes, dictionary | 1.0 has `rec-forth` and the nine recognizers probed by name (`rec-name`, `rec-number`, `rec-float`, `rec-string`, `rec-to`, `rec-tick`, `rec-dtick`, `rec-env`, `rec-scope`), 0.7.3 none; dictionaries about 7.7 and 8.0 MB free at start |
+| p01 | 89 tokens evaluated with only a sealed list in the order: Gforth 1.0 default, 1.0 restricted as the runner does, 0.7.3 | 1.0 default: 41 tokens converted or run, **three wrote a VALUE or DEFER of the sealed list**; 1.0 restricted: only the sealed word (two spellings) and four digit strings, 83 −13; 0.7.3: 24 converted or run, 65 −13; `BASE` and `STATE` unchanged in all |
 | p02 | the checker and the authoring words in one image | load silently on both; 1.58 MB and 115 KB of dictionary |
 | p03 | the real runner: 11 errors with `BASE` 16 before; the runner called while compiling | settings restored in every case on both; while compiling, `theorem` was compiled into the caller (needs the `STATE` rule) |
 | p04, p04c | stack overflows; 60,000 decimals in a text; names that are Forth words | THROWs −3 and −5 caught (also `gforth-fast`); the session went on; 18 odd names harmless; outputs equal on both hosts except the line where the stack fills |
