@@ -559,6 +559,25 @@ the verification-condition generator together, with refuted wrong programs:
 | G4 | Data defined with `CREATE`/`DOES>`, `VALUE`/`TO`, `CONSTANT`, `VARIABLE`, as declared data | phase 8 | A table-driven word verified against its declared table |
 | G5 | Characters, strings and I/O (`TYPE`, `EMIT`, `ACCEPT`, files) as effects with stated assumptions | phase 9 | A text-processing word verified with its I/O assumptions in the receipt |
 
+**Flagship program target: SHA-256** (owner, 2026-11-03: "the forth program
+correctness is equally important, but, lets not slow down the lean for it
+… perhaps SHA-256 should be a good one?"). Prove that LeanForth's own
+`src/lib/sha256.fs` (written for the import checksum, plan 3.2.6) computes
+exactly FIPS 180-4 SHA-256 for every message. Why it fits: the standard
+specifies every step and publishes test vectors; it needs the features the
+program track must support anyway (32-bit wrapping arithmetic, bit
+operations, counted loops, buffers); it is real code the product relies on;
+and published verified implementations exist to compare with. It runs in
+the program-track lane and never delays the theorem track. Stages:
+
+| ID | Stage | Fits after | Acceptance |
+| --- | --- | --- | --- |
+| SHA-1 | Lean specification of FIPS 180-4 SHA-256, written from the standard, checked against the NIST test vectors by Lean's kernel (no `Lean.ofReduceBool`) | now (Lean only) | Spec agrees with every NIST vector; reviewed against the standard's text |
+| SHA-2 | The helper words (ROTR, SHR, Ch, Maj, Σ0, Σ1, σ0, σ1) as straight-line IR words with 32-bit masking; IR additions they need (`lshift`, 32-bit constants beyond today's literal limit) | IR 0.2 (small extension of IR 0.1) | Each word's IR proved equal to its spec function for all 32-bit inputs; wrong variants refuted |
+| SHA-3 | Message schedule and one compression round, then the 64-round block compression: counted loops with invariants | G1 (IR v1 loops, plan 4.4.1) | Block compression proved equal to the spec for every block and state |
+| SHA-4 | Padding, buffers and the incremental interface (init, update, final) over memory | G2 (memory model) | The whole word set proved to compute the spec for every message and every split into updates; receipt ties the exact source file to the proof |
+| SHA-5 | The proof checked by LeanForth itself, not by Lean | phase 5 (first program fact checked by LeanForth) | Receipt says *kernel-accepted (experimental)* |
+
 Always *unsupported* inside verified words: `IMMEDIATE`, `POSTPONE`,
 `[COMPILE]`, `EVALUATE`, `STATE` games and run-time dictionary changes.
 

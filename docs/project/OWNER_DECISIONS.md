@@ -399,6 +399,14 @@ produces can be verified.
   only for host-sensitive changes (the job pool, contexts, portability and
   32-bit access words, byte reading, exceptions, `BASE`, cell width) and
   before gate decisions.
+- **Program correctness is equally important, without slowing the Lean
+  track.** The owner: "the forth program correctness is equally important,
+  but, lets not slow down the lean for it. I don't have a good test in mind
+  for the program correctness, but perhaps SHA-256 should be a good one?"
+  Recorded as the program track's flagship target: prove LeanForth's own
+  SHA-256 (`src/lib/sha256.fs`) equal to FIPS 180-4 in five stages
+  ([plan](PLAN_DRAFT.md#program-track-goal-most-of-forth-2012-core-owner-2026-11-02)),
+  in the program-track lane.
 - **Later: investigate offloading part of the work to a GPU.** Under the
   design rules in `AGENTS.md` a GPU never belongs to the trusted kernel and
   a CPU path is always kept; candidates are untrusted bulk work such as

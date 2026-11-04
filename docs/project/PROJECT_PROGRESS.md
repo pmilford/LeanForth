@@ -138,6 +138,17 @@ sizes are relative and dates are not estimated.
    published Lean results, an outside Lean-expert audit, the upgrade
    procedure, and a second Forth host.
 
+**The program track runs beside these, without delaying them** (owner,
+2026-11-03). Its flagship target is LeanForth's own SHA-256: a Lean
+specification of FIPS 180-4 checked against the NIST vectors first, then
+proofs that the Forth words compute it — the helper functions, the loops
+of the block compression, then padding and buffers — as the program IR
+gains loops and memory, and finally checked by LeanForth itself
+([plan](PLAN_DRAFT.md#program-track-goal-most-of-forth-2012-core-owner-2026-11-02)).
+Before that: contracts for the five other example words (in progress) and
+the owner's [parser] and [format] decisions on the program reader and
+receipts.
+
 **When will all of Mathlib be checked?** Not soon, and no date is
 estimated: milestones 2–5 must all be built, and milestone 4 alone covers
 the features (data types, recursors, literals, structures, quotients) that
