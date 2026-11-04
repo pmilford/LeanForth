@@ -289,8 +289,10 @@ create feed-kinds
 : feed-member ( d feed -- outcome )
   dup feed-members @ 0= if 2drop outcome-invalid exit then
   -1 over feed-members +! dup feed-header @ over feed-decl lf-idecl-block ! feed-data ;
-: feed-outside ( d feed -- outcome ) nip feed-members @ if outcome-invalid else outcome-ok then ;
-: feed-joined ( d feed -- outcome ) 2dup feed-member? if feed-member else feed-outside then ;
+: feed-outside ( d feed -- outcome )
+  nip feed-members @ if outcome-invalid else outcome-ok then ;
+: feed-joined ( d feed -- outcome )
+  2dup feed-member? if feed-member else feed-outside then ;
 : feed-block? ( d feed -- flag ) feed-stage @ staged-kind@ kind-inductive = ;
 : feed-one ( d feed -- outcome )
   2dup feed-block? if feed-header-record exit then

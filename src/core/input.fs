@@ -162,7 +162,8 @@ store-header context-record: lf-inputs
 \ A declaration's data and its block's header: the address of the first
 \ cell, or 0 for none.
 : lf-idecl-data ( decl -- addr|0 ) lf-idecl-more @ ?dup if 1- lf-more-cell else 0 then ;
-: lf-idecl-header ( decl -- addr|0 ) lf-idecl-block @ ?dup if 1- lf-more-cell else 0 then ;
+: lf-idecl-header ( decl -- addr|0 )
+  lf-idecl-block @ ?dup if 1- lf-more-cell else 0 then ;
 \ Field k of a data record, and a list at addr: its items and count.
 : lf-more-field ( addr k -- x ) cells + @ ;
 : lf-more-list ( addr -- items n ) dup cell+ swap @ ;
@@ -278,7 +279,8 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
 \ A list at cell k that fits: the cell after it, or -1.
 : lf-more-list-end ( k -- k' )
   dup 1 lf-more-span? 0= if drop -1 exit then
-  dup lf-more@ dup 0< if 2drop -1 exit then 1+ 2dup lf-more-span? if + else 2drop -1 then ;
+  dup lf-more@ dup 0< if 2drop -1 exit then
+  1+ 2dup lf-more-span? if + else 2drop -1 then ;
 : lf-more-rules-end ( k -- k' )
   dup 1 lf-more-span? 0= if drop -1 exit then
   dup lf-more@ dup 0< if 2drop -1 exit then /lf-rule * 1+ 2dup lf-more-span?
@@ -290,7 +292,8 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
   lf-irc-all + lf-more-list-end dup 0< if drop false exit then lf-more-rules-end 0< 0= ;
 : lf-more-kind? ( k kind -- flag )
   over 0< if 2drop false exit then
-  case lf-kind-inductive of lf-more-type? endof  lf-kind-constructor of lf-more-ctor? endof
+  case lf-kind-inductive of lf-more-type? endof
+    lf-kind-constructor of lf-more-ctor? endof
     lf-kind-recursor of lf-more-rec? endof nip false swap endcase ;
 : lf-input-more-ok? ( decl -- flag )
   dup lf-idecl-more @ ?dup if 1- swap lf-idecl-kind @ lf-more-kind? else drop true then ;

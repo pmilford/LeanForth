@@ -224,18 +224,23 @@ create lf-diag-catalogue
   lf-diag-body-type s" rejected: Pi body not a type (S4)" lf-diag-entry,
   lf-diag-block-shape s" invalid input: inductive block shape (B0)" lf-diag-entry,
   lf-diag-block-scope s" unsupported: inductive block outside task 5.2.1a" lf-diag-entry,
-  lf-diag-needs-unfolding s" undecided: Lean may unfold a definition here (K1)" lf-diag-entry,
+  lf-diag-needs-unfolding
+    s" undecided: Lean may unfold a definition here (K1)" lf-diag-entry,
   lf-diag-reserved-prefix s" rejected: reserved prefix _nested (T0)" lf-diag-entry,
   lf-diag-nonuniform s" rejected: non-uniform occurrence of the type (C1)" lf-diag-entry,
   lf-diag-param-binders s" rejected: too few parameter binders (T1)" lf-diag-entry,
-  lf-diag-block-not-sort s" rejected: inductive type not ending in a Sort (T2)" lf-diag-entry,
+  lf-diag-block-not-sort
+    s" rejected: inductive type not ending in a Sort (T2)" lf-diag-entry,
   lf-diag-ctor-param s" rejected: constructor parameter mismatch (C2)" lf-diag-entry,
-  lf-diag-universe-too-big s" rejected: constructor field universe too big (U1)" lf-diag-entry,
+  lf-diag-universe-too-big
+    s" rejected: constructor field universe too big (U1)" lf-diag-entry,
   lf-diag-return-type s" rejected: invalid constructor return type (C3)" lf-diag-entry,
   lf-diag-duplicate-ctor s" rejected: duplicate constructor name (C4)" lf-diag-entry,
-  lf-diag-invalid-constructor s" rejected: constructor differs from Lean's (B3)" lf-diag-entry,
+  lf-diag-invalid-constructor
+    s" rejected: constructor differs from Lean's (B3)" lf-diag-entry,
   lf-diag-invalid-recursor s" rejected: recursor differs from Lean's (B3)" lf-diag-entry,
-  lf-diag-no-such-recursor s" rejected: recursor Lean does not generate (B3)" lf-diag-entry,
+  lf-diag-no-such-recursor
+    s" rejected: recursor Lean does not generate (B3)" lf-diag-entry,
   lf-diag-none s" unknown code" lf-diag-entry,
 : lf-diag-end? ( code entry -- flag ) lf-diag-entry-code tuck = swap lf-diag-none = or ;
 \ The entry of code, or the last entry.

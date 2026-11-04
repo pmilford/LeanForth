@@ -4,10 +4,13 @@ Status: **accepted** as a design, 2026-11-03 (owner; questions Q1–Q5 answered
 in §15 and in [OWNER_DECISIONS](../project/OWNER_DECISIONS.md#data-types-axioms-and-imports-2026-11-03-late-night));
 each implementation task of §12 still passes its own gate. Proposed 2026-11-03 (plan tasks 5.1.1–5.1.5, phase 5, "Data
 types and the first real Lean code"). A [kernel] and [import] design, with
-an [axiom] part (§8) and one [bypass]-class risk (§7, L5). **Nothing here is
-implemented**; no LeanForth code checks an inductive type yet, and every
-inductive block, quotient, literal and projection is still *unsupported*
-(ADR 0011 rules U1, U2). It extends ADR 0011 (rejection rules) and ADR 0012
+an [axiom] part (§8) and one [bypass]-class risk (§7, L5). **Task 5.2.1a
+is implemented** (2026-11-04, experimental, its [kernel][import] gate
+open: [Implementation](#implementation-plan-task-521a)): a block of one
+non-recursive inductive type is checked, its recursor generated and
+compared, and the block published. Every other inductive block, and every
+quotient, literal and projection, is still *unsupported* (ADR 0011 rules
+U1, U2). It extends ADR 0011 (rejection rules) and ADR 0012
 (the checked environment) and supersedes neither. Each implementation task
 of §12 passes its own review gate (`AGENTS.md`): Lean's published rules,
 agreeing pinned-Lean differential tests reaching every outcome, an

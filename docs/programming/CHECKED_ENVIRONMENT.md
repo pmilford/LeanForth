@@ -281,6 +281,22 @@ nothing is recorded and L2 is skipped. A job started with `lf-minfer-start`
 | `lf-env-signature`, `lf-env-level-scope` | `( name pairs count fuel deciding -- root identity fuel' 0 \| status )`, `( level fuel -- fuel' outcome )` | the environment's answers to inference, above |
 | `lf-hterm-unsupported` | `( form -- index identity true \| false )` | for importers: a leaf for an unsupported form (`lf-form-let`, `-nat`, `-string`, `-mdata`, `-proj`) |
 
+### Inductive blocks (plan task 5.2.1a)
+
+A member of an inductive block is checked with its whole block by
+`check-block.fs` ([developer notes](INDUCTIVE_BLOCKS.md), ADR 0015), when
+the run reaches the block's first member. The check's candidate then
+covers every member (`lf-env-span! ( n -- )`, `lf-cand-span@`): the
+publisher re-checks each member (an inductive type, constructor or
+recursor of that block, safe, without a value, with distinct universe
+parameters, its name unused below the block), writes every slot with the
+one outcome, its own input declaration and the shared dependencies, and
+marks them final last; an undone publication clears every open slot of the
+span. The serial run skips the block's later members, already final.
+Inference finds the block's own type during its constructors' check
+through `lf-envsig-local` (`env-signature.fs`), a hook `check-block.fs`
+sets once while loading.
+
 ### Diagnostics
 
 Failures record a reason in the context's diagnostic

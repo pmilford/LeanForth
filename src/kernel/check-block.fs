@@ -129,7 +129,8 @@ end-structure
   else outcome-full then ;
 : lf-blk-rec-fresh ( -- outcome ) lf-blk-rec-id lf-blk-fresh ;
 : lf-blk-names ( -- outcome )
-  lf-ind-name lf-blk-fresh ['] lf-blk-rec-name! lf-blk-then ['] lf-blk-rec-fresh lf-blk-then ;
+  lf-ind-name lf-blk-fresh ['] lf-blk-rec-name! lf-blk-then
+  ['] lf-blk-rec-fresh lf-blk-then ;
 \ Step 7: the type's type.
 : lf-blk-type ( -- outcome ) lf-ind-type lf-idecl-type @ lf-blk-infer ;
 
@@ -139,7 +140,8 @@ end-structure
 : lf-blk-unfold ( node -- outcome )
   0 lf-blk-site lf-diag-needs-unfolding lf-diag-note outcome-unknown ;
 : lf-blk-not-sort ( node -- outcome ) 0 lf-diag-block-not-sort lf-blk-reject ;
-: lf-blk-sorted ( node -- outcome ) lf-term-first@ lf-ind-state lf-ind-level ! outcome-ok ;
+: lf-blk-sorted ( node -- outcome )
+  lf-term-first@ lf-ind-state lf-ind-level ! outcome-ok ;
 : lf-blk-end ( node -- outcome )
   dup lf-mhead-kind case
     lf-head-sort of lf-blk-sorted endof  lf-head-constant of lf-blk-unfold endof
@@ -229,8 +231,8 @@ end-structure
 : lf-blk-checks# ( -- n ) lf-blk-state lf-blkrec-checks @ ;
 : lf-blk-check@ ( k -- pos ) cells lf-blk-state lf-blkrec-positions + @ ;
 : lf-blk-check! ( pos -- )
-  lf-blk-checks# dup lf-ind-binder-capacity < if cells lf-blk-state lf-blkrec-positions + !
-  1 lf-blk-state lf-blkrec-checks +! else 2drop then ;
+  lf-blk-checks# dup lf-ind-binder-capacity < 0= if 2drop exit then
+  cells lf-blk-state lf-blkrec-positions + ! 1 lf-blk-state lf-blkrec-checks +! ;
 : lf-blk-proof? ( domain -- flag status )
   lf-minfer-domain ok-then? 0= if false swap exit then lf-minfer-zero? ;
 : lf-blk-e-field ( node i -- node i outcome )
@@ -253,7 +255,8 @@ end-structure
     if 2drop false unloop exit then
   loop 2drop true ;
 : lf-blk-e3 ( -- prop? outcome )
-  0 lf-blk-state lf-blkrec-checks ! lf-blk-job 0 lf-ind-ctor-type lf-blk-e-walk lf-blk-refuel
+  0 lf-blk-state lf-blkrec-checks !
+  lf-blk-job 0 lf-ind-ctor-type lf-blk-e-walk lf-blk-refuel
   ok-then2? 0= if false swap exit then lf-blk-revealed? 0= outcome-ok ;
 \ elim_only_at_universe_zero: E0 a result never zero, E1 two or more
 \ constructors, E2 none, else E3/E4.
@@ -316,7 +319,8 @@ end-structure
 : lf-blk-ctor-differs ( j field -- outcome )
   swap lf-ind-types@ + swap lf-diag-invalid-constructor lf-blk-replace ;
 : lf-blk-ctors-b3 ( -- outcome )
-  lf-ind-ctors@ 0 ?do i lf-blk-ctor-diff ?dup if i swap lf-blk-ctor-differs unloop exit then
+  lf-ind-ctors@ 0 ?do
+    i lf-blk-ctor-diff ?dup if i swap lf-blk-ctor-differs unloop exit then
   loop outcome-ok ;
 \ Two terms by Lean's ==: (equal ok); a structural difference is (false
 \ ok); any other failure passes on.
@@ -342,7 +346,8 @@ end-structure
   lf-irc-minors lf-more-field lf-ind-ctors@ <> 8 and ;
 : lf-blk-k= ( data -- flag ) lf-irc-k lf-more-field 0<> lf-ind-state lf-ind-k @ 0<> = ;
 : lf-blk-rule-diff ( rules j -- differs? outcome )
-  2dup lf-rule-at @ over lf-blk-ctor-name lf-name-same? 0= if 2drop true outcome-ok exit then
+  2dup lf-rule-at @ over lf-blk-ctor-name lf-name-same?
+  0= if 2drop true outcome-ok exit then
   2dup lf-rule-at cell+ @ over lf-ind-nfields @ <> if 2drop true outcome-ok exit then
   tuck lf-rule-at 2 cells + @ swap lf-ind-rule @ swap lf-blk-same >r 0= r> ;
 : lf-blk-rules-diff ( data -- field outcome )
@@ -353,7 +358,8 @@ end-structure
 : lf-blk-data-diff ( data -- field outcome )
   dup lf-irc-all@ lf-blk-self lf-blk-names= 0= if drop 4 outcome-ok exit then
   dup lf-blk-numbers ?dup if nip outcome-ok exit then
-  dup lf-blk-rules-diff ok-then? 0= if nip 0 swap exit then ?dup if nip outcome-ok exit then
+  dup lf-blk-rules-diff ok-then? 0= if nip 0 swap exit then
+  ?dup if nip outcome-ok exit then
   lf-blk-k= if 0 else 10 then outcome-ok ;
 : lf-blk-rec-diff ( r -- field outcome )
   lf-ind-rec dup lf-blk-rec-lparams= 0= if drop 2 outcome-ok exit then
@@ -361,11 +367,13 @@ end-structure
   ok-then? 0= if nip 0 swap exit then 0= if drop 3 outcome-ok exit then
   lf-idecl-data lf-blk-data-diff ;
 : lf-blk-rec-member ( r -- k ) lf-ind-types@ + lf-ind-ctors@ + ;
-: lf-blk-no-such ( r -- outcome ) lf-blk-rec-member 0 lf-diag-no-such-recursor lf-blk-reject ;
+: lf-blk-no-such ( r -- outcome )
+  lf-blk-rec-member 0 lf-diag-no-such-recursor lf-blk-reject ;
 : lf-blk-rec-differs ( r field -- outcome )
   swap lf-blk-rec-member swap lf-diag-invalid-recursor lf-blk-replace ;
 : lf-blk-rec-b3 ( r -- outcome )
-  dup lf-ind-rec lf-idecl-name @ lf-blk-rec-id lf-name-same? 0= if lf-blk-no-such exit then
+  dup lf-ind-rec lf-idecl-name @ lf-blk-rec-id lf-name-same?
+  0= if lf-blk-no-such exit then
   dup lf-blk-rec-diff ok-then? 0= if nip exit then
   ?dup if lf-blk-rec-differs else drop outcome-ok then ;
 : lf-blk-recs-b3 ( -- outcome )

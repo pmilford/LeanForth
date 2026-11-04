@@ -283,7 +283,8 @@ lf-depth-limit context-walk2: lf-ind-pair-walker
 : lf-ind-t0-term ( root -- outcome ) ['] lf-ind-prefix lf-ind-walk ;
 : lf-ind-t0 ( -- outcome )
   lf-ind-type lf-idecl-type @ lf-ind-t0-term dup ok? 0= if exit then drop
-  lf-ind-ctors@ 0 ?do i lf-ind-ctor-type lf-ind-t0-term dup ok? 0= if unloop exit then drop
+  lf-ind-ctors@ 0 ?do
+    i lf-ind-ctor-type lf-ind-t0-term dup ok? 0= if unloop exit then drop
   loop outcome-ok ;
 
 \ C1, a paired walk of each constructor type: (node, binders around it).
@@ -320,7 +321,8 @@ lf-depth-limit context-walk2: lf-ind-pair-walker
   dup walk-node @ lf-ind-spine swap lf-ind-type-node? if lf-c1-occurrence
   else drop lf-c1-same then ;
 : lf-c1-const ( first second walk -- outcome )
-  dup walk-node @ lf-ind-type-node? if 0 lf-c1-occurrence else 2drop drop outcome-ok then ;
+  dup walk-node @ lf-ind-type-node? if 0 lf-c1-occurrence exit then
+  2drop drop outcome-ok ;
 : lf-c1-binder ( first second walk -- outcome )
   dup walk-context @ 1+ swap walk-children-at ;
 : lf-c1-dispatch ( first second walk tag -- outcome )
@@ -329,7 +331,8 @@ lf-depth-limit context-walk2: lf-ind-pair-walker
     >r 2drop drop outcome-ok r> endcase ;
 : lf-c1-visit ( walk -- outcome ) lf-terms ['] lf-c1-dispatch walk-visit ;
 : lf-c1-walked ( outcome -- outcome )
-  lf-ind-pair-walker walk-fuel @ lf-ind-fuel ! lf-ind-pair-walker lf-ind-site lf-diag-walk ;
+  lf-ind-pair-walker walk-fuel @ lf-ind-fuel !
+  lf-ind-pair-walker lf-ind-site lf-diag-walk ;
 : lf-c1-ctor ( j -- outcome )
   lf-ind-fuel @ lf-ind-pair-walker walk-budget 0= if drop outcome-invalid exit then
   lf-ind-ctor-type 0 ['] lf-c1-visit lf-ind-pair-walker walk-run-pair lf-c1-walked ;
@@ -339,5 +342,6 @@ lf-depth-limit context-walk2: lf-ind-pair-walker
 \ T1: at least numParams raw binders in the type (rejected: Lean's
 \ "incorrect number of parameters").
 : lf-ind-t1 ( -- outcome )
-  lf-ind-type lf-idecl-type @ lf-ind-body nip dup lf-ind-nparams < 0= if drop outcome-ok exit then
+  lf-ind-type lf-idecl-type @ lf-ind-body nip
+  dup lf-ind-nparams < 0= if drop outcome-ok exit then
   lf-ind-nparams lf-ind-site lf-diag-param-binders lf-diag-note outcome-rejected ;

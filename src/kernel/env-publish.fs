@@ -207,7 +207,8 @@ defer lf-env-before-final
 : lf-slot-conflict? ( slot -- flag )
   dup lf-slot-open? swap lf-slot-outcome@ outcome-rejected <> or ;
 \ For a span, every member's name, each below the first member.
-: lf-own-matches ( test k -- n ) lf-env-limit + lf-input-name swap lf-env-limit lf-env-matches ;
+: lf-own-matches ( test k -- n )
+  lf-env-limit + lf-input-name swap lf-env-limit lf-env-matches ;
 : lf-span-conflicts ( -- n )
   0 lf-cand-span@ 0 ?do ['] lf-slot-conflict? i lf-own-matches + loop ;
 : lf-recheck-name? ( -- flag )
@@ -292,7 +293,8 @@ lf-rechecks# 1+ constant lf-recheck-moved
   lf-env-cand lf-cand-provenance @ swap lf-slot-provenance ! ;
 : lf-slot-deps! ( first slot -- )
   lf-env-may-write tuck lf-slot-deps ! lf-cand-count@ swap lf-slot-count ! ;
-: lf-slot-fill ( first k slot -- ) rot over lf-slot-deps! tuck lf-slot-input! lf-slot-sets! ;
+: lf-slot-fill ( first k slot -- )
+  rot over lf-slot-deps! tuck lf-slot-input! lf-slot-sets! ;
 : lf-span-fill ( first slot -- )
   lf-env-may-write lf-cand-span@ 0 ?do 2dup i swap i lf-slot+ lf-slot-fill loop 2drop ;
 \ The record of an accepted declaration, or of every member of an
@@ -332,7 +334,8 @@ lf-rechecks# 1+ constant lf-recheck-moved
 \ slot of the span became final, as a final one keeps its dependencies.
 : lf-slot-clear ( slot -- ) lf-env-may-write dup /lf-slot erase lf-slot-invalid! ;
 : lf-span-clear ( slot -- )
-  lf-env-may-write lf-cand-span@ 0 ?do dup i lf-slot+ dup lf-slot-open? if lf-slot-clear else drop then
+  lf-env-may-write lf-cand-span@ 0 ?do
+    dup i lf-slot+ dup lf-slot-open? if lf-slot-clear else drop then
   loop drop ;
 : lf-env-undo ( slot -- )
   lf-env-may-write dup lf-span-open? 0= abort" lf-env: undo of a final slot"
@@ -475,7 +478,8 @@ context-unbalanced constant lf-env-unbalanced
 \ with the first (ADR 0015 B5): it is not checked again. Any other final
 \ slot is still a fault when the run reaches it.
 : lf-env-trailing? ( i -- flag )
-  dup lf-input-decl lf-idecl-header ?dup if lf-hdr-first lf-more-field <> else drop false then ;
+  dup lf-input-decl lf-idecl-header ?dup 0= if drop false exit then
+  lf-hdr-first lf-more-field <> ;
 : lf-env-published? ( i -- flag )
   dup lf-env-trailing? swap lf-env lf-env-slot lf-slot-final? and ;
 : lf-env-next ( check maker i -- check maker fault? )

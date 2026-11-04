@@ -65,7 +65,8 @@ end-structure
 : lf-rcr-app ( function argument -- node ) lf-tag-app lf-rcr-bind ;
 : lf-rcr-bvar ( k -- node ) lf-hterm-bvar lf-rcr-made ;
 : lf-rcr-sort ( level -- node )
-  dup lf-level-identity if lf-hterm-sort lf-rcr-made else drop outcome-full lf-rcr-failing then ;
+  dup lf-level-identity if lf-hterm-sort lf-rcr-made exit then
+  drop outcome-full lf-rcr-failing ;
 \ Shift the variables at or above cutoff by amount (none: the node
 \ itself), on the block's fuel.
 : lf-rcr-shifted ( index identity status -- node )
@@ -79,9 +80,12 @@ end-structure
 : lf-rcr-named? ( node c-addr u -- flag )
   rot dup lf-tag-constant lf-ind-tag? 0= if drop 2drop false exit then
   lf-ind-const-name dup lf-name-prefix@ if drop 2drop false exit then
-  dup lf-name-tag@ lf-name-tag-str = if lf-name-text compare 0= else drop 2drop false then ;
+  dup lf-name-tag@ lf-name-tag-str = 0= if drop 2drop false exit then
+  lf-name-text compare 0= ;
 : lf-rcr-gadget? ( head n -- flag )
-  dup 1 = if drop dup s" outParam" lf-rcr-named? swap s" semiOutParam" lf-rcr-named? or exit then
+  dup 1 = if
+    drop dup s" outParam" lf-rcr-named? swap s" semiOutParam" lf-rcr-named? or exit
+  then
   2 = if dup s" optParam" lf-rcr-named? swap s" autoParam" lf-rcr-named? or
   else drop false then ;
 \ The type an annotated node stands for: argument 0 of its spine.
@@ -141,8 +145,10 @@ end-structure
 \ between the parameters and the fields, and consumed.
 : lf-rcr-k ( j -- k ) lf-ind-nfields @ ;
 : lf-rcr-skip ( node count -- node' ) 0 ?do lf-term-second@ loop ;
-: lf-rcr-field-dom ( j q -- node ) swap lf-ind-ctor-type lf-rcr-p rot + lf-rcr-skip lf-term-first@ ;
-: lf-rcr-field ( j q amount -- node ) >r tuck lf-rcr-field-dom swap r> lf-rcr-shift lf-rcr-consume ;
+: lf-rcr-field-dom ( j q -- node )
+  swap lf-ind-ctor-type lf-rcr-p rot + lf-rcr-skip lf-term-first@ ;
+: lf-rcr-field ( j q amount -- node )
+  >r tuck lf-rcr-field-dom swap r> lf-rcr-shift lf-rcr-consume ;
 : lf-rcr-fields! ( j amount -- )
   over lf-rcr-k lf-rcr-room 0= if 2drop exit then
   over lf-rcr-k 0 ?do 2dup i swap lf-rcr-field i lf-rcr-scratch ! loop 2drop ;

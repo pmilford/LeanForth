@@ -56,19 +56,19 @@ create block-warns most cells allot
   dup lf-env-outcome swap owner dup codes at @ swap steps at @ ;
 : n2-of ( d -- n2 ) owner n2s at @ ;
 : warned ( d -- bits ) owner block-warns at @ ;
-: last ( -- d ) lf-input-count 1- ;
+: final-decl ( -- d ) lf-input-count 1- ;
 \ A case file's last declaration: its outcome, code and step.
 : case+ ( c-addr u -- ) pad count + swap dup pad c@ + pad c! move ;
 : case-path ( c-addr u -- c-addr' u' )
   0 pad c! s" tests/core/check-block-cases/" case+ case+ s" .ndjson" case+ pad count ;
 : verdict ( c-addr u -- outcome code step )
   case-path staged dup ok? 0= if unstage 0 0 exit then drop
-  fuel checked last result finish ;
+  fuel checked final-decl result finish ;
 \ The same with the second number of the diagnostic, or the warnings.
 : verdict-field ( c-addr u -- outcome code step n2 )
-  case-path staged ok? must fuel checked last result last n2-of finish ;
+  case-path staged ok? must fuel checked final-decl result final-decl n2-of finish ;
 : verdict-warned ( c-addr u -- outcome code step bits )
-  case-path staged ok? must fuel checked last result last warned finish ;
+  case-path staged ok? must fuel checked final-decl result final-decl warned finish ;
 15 constant all-steps
 
 \ ---------------------------------------------------------------------------
