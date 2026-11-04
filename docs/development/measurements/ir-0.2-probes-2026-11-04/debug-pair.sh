@@ -29,6 +29,6 @@ if fault == "fault":
 open(target, "w", encoding="utf-8").write(text[:at] + "\n" + insert + text[at:])
 EOF
 status=0
-out=$("$lean" "$work/program-ir-debug.lean") || status=$?
+out=$("$lean" -DwarningAsError=true "$work/program-ir-debug.lean") || status=$?
 echo "lean exit: $status; errors: $(grep -c 'error' <<<"$out" || true)"
 grep 'clampDebug_correct' <<<"$out" || true

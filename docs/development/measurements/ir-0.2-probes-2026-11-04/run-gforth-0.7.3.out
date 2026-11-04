@@ -1,0 +1,92 @@
+== host: gforth 0.7.3
+== p01-redefine.fs
+
+early binding: pg ph pf (expect 1 2 2): 1 2 2 
+old version inside the new one (expect 12): 12 
+self call with no earlier version: THROW code (expect -13): -13 
+case: versions of one name (expect 3): 3 
+constant versions (expect 1 2): 1 2 
+a word, then a constant of that name (expect 7 8): 7 8 
+RECURSE in the second pr: 3 pr (expect 0): 0 
+plain pt inside the second pt: 3 pt (expect 100): 100 
+SEARCH-WORDLIST finds the newer (expect 2, then -1: not immediate): 2 -1 
+kept xts of both versions (expect 6 5): 6 5 
+redefined dot: 5 early-dot 6 late-dot (expect 5 printed, then depth 0): 5 0 
+redefined dup as over: 1 2 late-dup (expect 1 2 1, top first): 1 2 1 
+== exit 0
+== p01-redefine.fs, standard error without 'original location' lines:
+redefined pf  redefined pk  redefined pk  redefined Cw with cw  redefined cw with CW  redefined kk  redefined wc  redefined pr  redefined pt  redefined dupname with DUPNAME  redefined two-a  redefined .  redefined dup  
+== p02-output.fs
+
+5 . -5 . 0 .: <5 ><-5 ><0 >
+largest and smallest cell .: <9223372036854775807 ><-9223372036854775808 >
+-1 U. and 5 U.: <18446744073709551615 ><5 >
+255 . and -1 U. with BASE 16: <255 FFFFFFFFFFFFFFFF >
+CR: <
+>
+SPACE, 3 SPACES, 0 SPACES, -2 SPACES: < ><   ><><>
+.\q, a leading space kept, S\q TYPE: <hi there><  two><typed text>
+.S with 0 and 3 cells: <<0> ><<3> 1 2 3 >
+.S with 12 cells: <<12> 4 5 6 7 8 9 10 11 12 >
+depth after the .S lines (expect 0): 0 
+7 8 tidy leaves 7 (depth 1): <8 >1 7 
+a #> string, then 7 ., then the string again: <12345><7 ><12345>
+.( inside a definition: printed when compiled, not when run: [compiled] <>
+== exit 0
+== p02-output.fs, standard error without 'original location' lines:
+== p03-emit.fs
+  91  65  93  91   0  93  91   9  93  91 200  93  91 255  93  91
+  65  93  91 187  93  91 255  93
+== exit 0
+== p03-emit.fs, standard error without 'original location' lines:
+== p04-shifts-literals.fs
+
+cell bits: 64 
+1 by 0, 63, 64, 65, 127 and -1 LSHIFT (as U.): 1 9223372036854775808 1 2 9223372036854775808 9223372036854775808 
+-1 by 0, 63, 64, 65 and -1 RSHIFT (as U.): 18446744073709551615 1 18446744073709551615 9223372036854775807 1 
+-1 1 LSHIFT and 2^31 1 LSHIFT (as .): -2 4294967296 
+$10 -> 16 
+$-10 -> -16 
+-$10 -> -16 
+#-10 -> -10 
+#10 -> 10 
+%101 -> 5 
+%-101 -> -5 
+'a' -> 97 
+-'a' -> -97 
+$FFFFFFFF -> 4294967295 
+$ffffffff -> 4294967295 
+4294967295 -> 4294967295 
+$100000000 -> 4294967296 
+-2147483648 -> -2147483648 
+$-80000000 -> -2147483648 
+2147483648 -> 2147483648 
+$FFFFFFFFFFFFFFFF -> -1 
+18446744073709551615 -> -1 
+18446744073709551616 -> 0 
+$10000000000000000 -> 0 
+1_000 -> refused -13 
+0x10 -> 16 
+$1_0 -> refused -13 
+-rot in FORTH-WORDLIST: yes, not immediate
+lshift in FORTH-WORDLIST: yes, not immediate
+.s in FORTH-WORDLIST: yes, not immediate
+u. in FORTH-WORDLIST: yes, not immediate
+emit in FORTH-WORDLIST: yes, not immediate
+spaces in FORTH-WORDLIST: yes, not immediate
+." in FORTH-WORDLIST: yes, not immediate
+s" in FORTH-WORDLIST: yes, not immediate
+type in FORTH-WORDLIST: yes, not immediate
+[char] in FORTH-WORDLIST: yes, not immediate
+token of ." equals token of IF: 0 
+== exit 0
+== p04-shifts-literals.fs, standard error without 'original location' lines:
+== p05-debug.fs
+
+5 0 10 debug-clamp (expect <5 > 5 -1): <5 >5 -1 
+15 0 10 debug-clamp (expect <15 > 10 -1): <15 >10 -1 
+5 10 0 debug-clamp (expect <> 0, depth 0 after): <>0 0 
+5 0 10 lf-clamp, second version (expect <<3> 5 0 10 <2> 5 -1 > 5 -1): <<3> 5 0 10 <2> 5 -1 >5 -1 
+== exit 0
+== p05-debug.fs, standard error without 'original location' lines:
+redefined lf-clamp  

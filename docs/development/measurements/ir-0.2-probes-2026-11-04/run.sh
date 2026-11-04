@@ -14,8 +14,13 @@ trap 'rm -f "$err"' EXIT
 echo "== host: $("$gforth" --version 2>&1 </dev/null | head -n 1)"
 for probe in p0*.fs; do
   echo "== $probe"
-  timeout -k 5 30 "$gforth" "$probe" </dev/null 2>"$err"
-  echo "== exit $?"
+  if [ "$probe" = p03-emit.fs ]; then   # raw bytes: shown as numbers
+    timeout -k 5 30 "$gforth" "$probe" </dev/null 2>"$err" | od -An -tu1
+    echo "== exit ${PIPESTATUS[0]}"
+  else
+    timeout -k 5 30 "$gforth" "$probe" </dev/null 2>"$err"
+    echo "== exit $?"
+  fi
   echo "== $probe, standard error without 'original location' lines:"
   grep -v 'original location' "$err" | sed -e 's|/[^ ]*/share/gforth/[^ ]*/||'
 done
