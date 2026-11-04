@@ -94,6 +94,7 @@ end-structure
 \ keeps each open object's last key for the order check.
 64 constant reexport-depth
 4096 constant reexport-key-room
+256 constant data-most             \ most members of mdata's data
 begin-structure /reexporter
   /buffer +field reexport-out      \ lines not yet written to the file
   /buffer +field reexport-types    \ an inductive block's types, until its end
@@ -104,6 +105,7 @@ begin-structure /reexporter
   field: reexport-recursors        \ recursors of the current block
   field: reexport-lines            \ lines written
   field: reexport-mark             \ the output's size where the current line starts
+  data-most cells +field reexport-members   \ the key tokens of mdata's data, sorted
   reexport-depth reexport-key-room jw-size +field reexport-writer
 end-structure
 create reexporter /reexporter allot  reexporter /reexporter erase
@@ -183,8 +185,35 @@ create hint-texts  2 ,  s" opaque" counted,  s" abbrev" counted,
   emit-open dup proj-idx s" idx" u-member dup proj-struct s" struct" u-member
   proj-type-name s" typeName" u-member emit-close ;
 : literal-json ( record -- ) literal-text emit-string ;
-\ mdata's data, any JSON object, copied from the line's JSON view.
-: data-json ( record -- ) dup mdata-data @ swap record-export @ export-json emit-w jw-copy ;
+\ mdata's data, a JSON object of the line's view. The exporter writes it
+\ as one object of strings in key order (KVMap.toJson), so its members
+\ are written in key order whatever their order in the line, each value
+\ copied (an object inside a value must already be in order, which Lean
+\ never writes: the writer refuses it as invalid). Two equal keys are
+\ invalid too; more than data-most members are full. The key tokens are
+\ sorted by insertion, in the module record.
+: member ( i -- addr ) cells reexporter reexport-members + ;
+: key< ( key1 key2 view -- flag ) tuck json-text@ 2>r json-text@ 2r> compare 0< ;
+: member-pair ( j -- addr-j addr-j-1 ) dup member swap 1- member ;
+: member-smaller? ( j view -- flag ) >r member-pair @ swap @ swap r> key< ;
+: members-exchange ( j -- ) member-pair 2dup @ swap @ rot ! swap ! ;
+: member-insert ( j view -- )
+  begin over 0> while 2dup member-smaller? while over members-exchange swap 1- swap repeat
+  then 2drop ;
+: members-sort ( n view -- ) over 1 > if swap 1 ?do i over member-insert loop else nip then drop ;
+\ The key of the next member: after the value that follows key.
+: member-next ( key view -- key' ) swap 1+ swap json-next ;
+: members-collect ( object view -- )
+  2dup json-items@ >r tuck json-contents nip r> 0 ?do dup i member ! over member-next loop
+  2drop ;
+: members-write ( n view -- )
+  swap 0 ?do i member @ over 2dup json-text@ emit-key swap 1+ swap emit-w jw-copy loop drop ;
+: data-members ( object view -- )
+  2dup members-collect tuck json-items@ swap 2dup members-sort members-write ;
+: data-object ( object view -- )
+  2dup json-items@ data-most > if 2drop outcome-full emit-fail exit then
+  emit-open data-members emit-close ;
+: data-json ( record -- ) dup mdata-data @ swap record-export @ export-json data-object ;
 : mdata-json ( record -- )
   emit-open s" data" emit-key dup data-json mdata-expr s" expr" u-member emit-close ;
 
@@ -432,9 +461,12 @@ here reexport-handlers - kind-count cells = load-check
 : reexport-report ( outcome -- )
   dup ok? if drop ." reexported " reexport-lines@ .count ."  lines" cr exit then
   .reexport-error ;
-: reexport ( in-addr in-u out-addr out-u -- )
-  w/o bin create-file if drop 2drop ." error: cannot create the output file" cr
-    reexport-failed then
-  reexport-into dup reexport-report reexport-free ok? 0= if reexport-failed then ;
+\ Re-export the export named in into a new file named out, print one
+\ line (the lines written, or the error) and free the buffers; true when
+\ ok. reexport, the command line's word, then exits after an error.
+: reexported? ( in-addr in-u out-addr out-u -- flag )
+  w/o bin create-file if drop 2drop ." error: cannot create the output file" cr false exit then
+  reexport-into dup reexport-report reexport-free ok? ;
+: reexport ( in-addr in-u out-addr out-u -- ) reexported? 0= if reexport-failed then ;
 
 base !   \ the BASE this file was loaded with

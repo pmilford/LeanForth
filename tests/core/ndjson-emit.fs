@@ -121,15 +121,34 @@ T{ s\" {\"ie\":17,\"mdata\":{\"expr\":4,\"data\":{\"k\":[ 1, -0, {} ]}}}"
    s\" {\"ie\":17,\"mdata\":{\"data\":{\"k\":[1,0,{}]},\"expr\":4}}" becomes -> outcome-ok true }T
 T{ reexport-end reexport-lines@ -> outcome-ok 43 }T
 
-\ Failures never give ok and leave nothing behind; the first one stays,
-\ and every later record is refused. mdata's data with keys out of order
-\ cannot be written in the exporter's form (it cannot have written it).
+\ mdata's data, an object of strings as the exporter writes it, comes
+\ back with its members in key order.
 : sorted-in ( -- outcome ) s\" {\"ie\":0,\"sort\":0}" feed ;
 T{ begun sorted-in -> outcome-ok outcome-ok }T
-T{ s\" {\"ie\":1,\"mdata\":{\"data\":{\"b\":1,\"a\":2},\"expr\":0}}" refused
+T{ s\" {\"ie\":1,\"mdata\":{\"data\":{\"b\":\"1\",\"\":\"e\",\"a\":\"2\",\"B\":\"3\",\"\xc3\xa9\":\"4\",\"ab\":\"5\"},\"expr\":0}}"
+   s\" {\"ie\":1,\"mdata\":{\"data\":{\"\":\"e\",\"B\":\"3\",\"a\":\"2\",\"ab\":\"5\",\"b\":\"1\",\"\xc3\xa9\":\"4\"},\"expr\":0}}"
+   becomes -> outcome-ok true }T
+T{ s\" {\"ie\":2,\"mdata\":{\"data\":{},\"expr\":0}}" same -> outcome-ok true }T
+
+\ Failures never give ok and leave nothing behind; the first one stays,
+\ and every later record is refused. mdata's data with two equal keys, or
+\ an object inside a value out of order, cannot be written in the
+\ exporter's form (it cannot have written either).
+T{ s\" {\"ie\":3,\"mdata\":{\"data\":{\"b\":\"1\",\"a\":\"2\",\"b\":\"3\"},\"expr\":0}}" refused
    -> outcome-invalid true }T
-T{ s\" {\"ie\":1,\"sort\":0}" refused emit-status -> outcome-invalid true outcome-invalid }T
-T{ reexport-end reexport-lines@ -> outcome-invalid 2 }T
+T{ s\" {\"ie\":3,\"sort\":0}" refused emit-status -> outcome-invalid true outcome-invalid }T
+T{ reexport-end reexport-lines@ -> outcome-invalid 4 }T
+T{ begun sorted-in s\" {\"ie\":1,\"mdata\":{\"data\":{\"a\":{\"y\":1,\"x\":2}},\"expr\":0}}" refused
+   -> outcome-ok outcome-ok outcome-invalid true }T
+\ More than data-most members are full; data-most are not.
+create wide-line 4096 allot  variable wide-length
+: wide+ ( c-addr u -- ) tuck wide-line wide-length @ + swap move wide-length +! ;
+: wide-member ( i -- ) s\" \"" wide+ 0 <# # # # #> wide+ s\" \":\"\"," wide+ ;
+: wide ( n -- c-addr u )
+  0 wide-length ! s\" {\"ie\":1,\"mdata\":{\"data\":{" wide+ 0 ?do i wide-member loop
+  -1 wide-length +! s\" },\"expr\":0}}" wide+ wide-line wide-length @ ;
+T{ begun sorted-in data-most wide same -> outcome-ok outcome-ok outcome-ok true }T
+T{ begun sorted-in data-most 1+ wide refused -> outcome-ok outcome-ok outcome-full true }T
 \ A key longer than the writer's key pool is full.
 create long-line 5100 allot
 : long-start ( -- c-addr u ) s\" {\"ie\":1,\"mdata\":{\"data\":{\"" ;
