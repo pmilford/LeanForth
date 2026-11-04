@@ -3666,8 +3666,8 @@ reason = "is_geq answers only equal or zero: a field one universe below the resu
 [[fault]]
 id = "ind-skip-return-type"
 file = "src/kernel/check-block.fs"
-old = '''  2dup lf-blk-c3? 0= if 2drop lf-blk-bad-return exit then'''
-new = ''''''
+old = '''  0= if 2drop lf-blk-bad-return exit then'''
+new = '''  drop'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "C3 skipped: a constructor returning Prop instead of its type is not rejected"
 
@@ -3699,7 +3699,7 @@ reason = "N2 skipped for a block: a type declared twice in one input is accepted
 [[fault]]
 id = "ind-sort-end-unknown"
 file = "src/kernel/check-block.fs"
-old = '''    lf-head-sort of lf-blk-sorted endof  lf-head-constant of lf-blk-unfold endof'''
+old = '''    lf-head-sort of lf-blk-sorted endof  lf-head-constant of lf-blk-constant-end endof'''
 new = '''    lf-head-sort of lf-blk-sorted endof  lf-head-var of lf-blk-unfold endof'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "T2: a telescope ending in a variable is unknown, not Lean's typeExpected"
@@ -4063,8 +4063,8 @@ reason = "rvI21 R4-2: a type that is a Sort only after whnf gets a recipe; its r
 [[fault]]
 id = "genrec-no-restore"
 file = "src/kernel/generated-recursor.fs"
-old = '''  lf-genrec-save lf-genrec-run lf-genrec-restore ;'''
-new = '''  lf-genrec-save lf-genrec-run ;'''
+old = '''  lf-genrec-run lf-genrec-restore ;'''
+new = '''  lf-genrec-run ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvI21 R4-2: the block record is not given back after a rebuild during another block's check, which then checks the wrong block"
 
@@ -4148,3 +4148,130 @@ old = ''': lf-lscope-power-of-two? ( n -- flag ) dup 0> swap dup 1- and 0= and ;
 new = ''': lf-lscope-power-of-two? ( n -- flag ) 0> ;'''
 test = "$GFORTH tests/core/level-scope.fs"
 reason = "R2-L2: the slot-count guard accepts a count that is not a power of two"
+
+# --- recursive inductive blocks (plan task 5.2.1b; ADR 0015 §13, test plan 7) ---
+# src/kernel/check-block.fs (positivity, C3), inductive-block.fs (nested
+# blocks, is_rec), inductive-recursor.fs (induction hypotheses, recursive
+# calls), generated-recursor.fs; each caught by tests/core/check-block.fs.
+
+[[fault]]
+id = "rec-skip-positivity"
+file = "src/kernel/check-block.fs"
+old = '''  lf-ind-recursive? 0= if 2drop outcome-ok exit then'''
+new = '''  2drop outcome-ok exit'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1b: positivity skipped; (Bad -> Nat) -> Bad is accepted"
+quick = true
+
+[[fault]]
+id = "rec-domain-occurrence-ignored"
+file = "src/kernel/check-block.fs"
+old = '''  if 2drop lf-diag-non-positive lf-pos-fail false exit then'''
+new = '''  drop'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1b: P1 skipped, the type in a Pi's domain allowed; (Bad -> Nat) -> Bad is accepted"
+
+[[fault]]
+id = "rec-non-valid-accepted"
+file = "src/kernel/check-block.fs"
+old = '''  if outcome-ok else lf-diag-non-valid lf-pos-fail then ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1b: P2 skipped; f (Bad f) -> Bad f is accepted"
+
+[[fault]]
+id = "rec-positivity-without-whnf"
+file = "src/kernel/check-block.fs"
+old = '''  swap lf-minfer-whnf ok-then? 0= if nip false exit then swap'''
+new = ''''''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1b: a field's type is not put in whnf; a negative occurrence behind a beta-redex is unknown, not Lean's nonPositive"
+
+[[fault]]
+id = "rec-definition-stuck"
+file = "src/kernel/check-block.fs"
+old = '''  over lf-kind-axiom = or swap lf-kind-opaque = or ;'''
+new = '''  over lf-kind-axiom = or over lf-kind-opaque = or swap lf-kind-definition = or ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1b: a definition counted as a head Lean's whnf leaves; id (Bad -> Nat) is decided without unfolding"
+
+[[fault]]
+id = "rec-c3-indices-unchecked"
+file = "src/kernel/check-block.fs"
+old = '''  r> lf-blk-indices-free? ;'''
+new = '''  r> 2drop true outcome-ok ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1b: is_valid_ind_app does not test the indices; mk : T (T Nat) is accepted"
+
+[[fault]]
+id = "rec-flags-never-differ"
+file = "src/kernel/check-block.fs"
+old = ''': lf-blk-differs? ( flag x -- flag' ) 0<> <> ;'''
+new = ''': lf-blk-differs? ( flag x -- flag' ) 2drop false ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1b: B4 never compares isRec and isReflexive; N's cleared isRec gives no warning"
+
+[[fault]]
+id = "rec-nested-not-detected"
+file = "src/kernel/inductive-block.fs"
+old = '''  if 2drop drop outcome-unsupported else walk-children then ;'''
+new = '''  drop walk-children ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1b: a nested block (List Tree) is checked as a recursive one and rejected where Lean accepts it"
+
+[[fault]]
+id = "rec-no-induction-hypothesis"
+file = "src/kernel/inductive-recursor.fs"
+old = '''  dup lf-rcr-headed? if >r lf-rcr-since r> lf-rcr-ih! exit then'''
+new = '''  dup lf-rcr-headed? 0 and if >r lf-rcr-since r> lf-rcr-ih! exit then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1b: no field is recursive; N's minor premise lacks its induction hypothesis and Lean's N.rec is rejected"
+quick = true
+
+[[fault]]
+id = "rec-motive-off-by-one"
+file = "src/kernel/inductive-recursor.fs"
+old = '''  lf-rcr-state lf-rcr-past @ lf-rcr-q@ + lf-rcr-state lf-rcr-gap @ + lf-rcr-s@ + 1- ;'''
+new = '''  lf-rcr-state lf-rcr-past @ lf-rcr-q@ + lf-rcr-state lf-rcr-gap @ + lf-rcr-s@ + ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1b: the induction hypothesis names the wrong binder as the motive"
+
+[[fault]]
+id = "rec-rule-without-call"
+file = "src/kernel/inductive-recursor.fs"
+old = '''  over lf-rcr-r 0 ?do over i lf-rcr-v lf-rcr-app loop nip ;'''
+new = '''  nip ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1b: a recursive rule applies the minor premise without the recursive calls"
+
+[[fault]]
+id = "rec-relocation-one-shift"
+file = "src/kernel/inductive-recursor.fs"
+old = '''  swap lf-rcr-state lf-rcr-gap @ lf-rcr-shift ;'''
+new = '''  nip ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1b: an x domain or index of a hypothesis keeps the fields' variables unshifted"
+
+[[fault]]
+id = "rec-rule-levels-without-motive"
+file = "src/kernel/inductive-recursor.fs"
+old = ''': lf-rcr-large ( -- 0|1 ) lf-ind-state lf-ind-large @ 0<> 1 and ;'''
+new = ''': lf-rcr-large ( -- 0|1 ) 0 ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1b: the recursive call in a rule lacks the motive's universe (get_rec_levels)"
+
+[[fault]]
+id = "rec-generated-without-hypotheses"
+file = "src/kernel/inductive-recursor.fs"
+old = '''  lf-rcr-begin true lf-rcr-ihs false lf-rcr-terms ;'''
+new = '''  lf-rcr-begin false lf-rcr-ihs false lf-rcr-terms ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1b: the generated recursor of a recursive block is built without its induction hypotheses"
+
+[[fault]]
+id = "genrec-domains-not-restored"
+file = "src/kernel/generated-recursor.fs"
+old = '''  lf-genrec-kept-cells slab-base lf-ind-domains slab-base lf-genrec-kept@ cells move ;'''
+new = '''  ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1b: a rebuild during a block's check leaves that block's parameter domains overwritten"

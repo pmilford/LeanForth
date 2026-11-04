@@ -1,35 +1,49 @@
-\ The recursor of a block of one non-recursive inductive type, built as
-\ Lean 4.35.0's kernel builds it (inductive.cpp, commit eb6cafb7:
-\ mk_rec_infos 632-717, declare_recursors 795-819, mk_rec_rules 748-793;
-\ plan task 5.2.1a, ADR 0015 rules G1 and G2). Lean builds with free
+\ The recursor of a block of one inductive type, built as Lean 4.35.0's
+\ kernel builds it (inductive.cpp, commit eb6cafb7: mk_rec_infos
+\ 632-717, declare_recursors 795-819, mk_rec_rules 748-793; plan tasks
+\ 5.2.1a and 5.2.1b, ADR 0015 rules G1 and G2). Lean builds with free
 \ variables and abstracts them (mk_pi, mk_lambda); LeanForth builds the
 \ same terms directly with bound variables. With p parameters, n indices
 \ and m constructors, motive universe u (or Prop):
 \   T.rec : (As : D_0 .. D_p-1) -> (motive : MT) -> (minor_0 .. minor_m-1)
 \           -> (is : D_p .. D_p+n-1) -> (t : T As is) -> motive is t
 \   MT    = (is : D_p ..) -> (t : T As is) -> Sort u
-\   minor_j : (b : F_0 .. F_k-1) -> motive js (c_j As b)
+\   minor_j : (b : F_0 .. F_k-1) -> (v : IH_0 .. IH_r-1) -> motive js (c_j As b)
 \           for c_j : (As) -> (b : F_0 .. F_k-1) -> T As js
-\   rule_j  = fun As motive minors (b : F_0 ..) => minor_j b
+\   IH_i  = (xs : X_0 .. X_s-1) -> motive ks (u xs)
+\           for the i-th recursive field u : (xs : X_0 ..) -> T As ks
+\   rule_j  = fun As motive minors (b : F_0 ..) => minor_j b v'_0 .. v'_r-1
+\   v'_i  = fun (xs : X_0 ..) => T.rec As motive minors ks (u xs)
 \ with the D_i the binder domains of the type's telescope (after
-\ check-block.fs's whnf) and the F_q of the constructor's raw telescope.
-\ Every binder type of a local -- each D_i and F_q -- is first stripped of
-\ outer type annotations, as Lean's mk_local_decl_for does with
-\ consume_type_annotations (inductive.cpp 221-228; Lean/Expr.lean
+\ check-block.fs's whnf), the F_q of the constructor's raw telescope, and
+\ the X_t and ks those of a recursive field's type in whnf, binder by
+\ binder (is_rec_argument 426-433, mk_rec_infos 690-709, mk_rec_rules
+\ 770-785). A field is recursive when that whnf ends in an application of
+\ T; a field type that does not mention T is not, without reduction
+\ (reduction never makes an occurrence). The block check found that whnf
+\ there is whnfB (P1, P2), so this builder reduces with whnfB.
+\ Every binder type of a local -- each D_i, F_q and X_t -- is first
+\ stripped of outer type annotations, as Lean's mk_local_decl_for does
+\ with consume_type_annotations (inductive.cpp 221-228; Lean/Expr.lean
 \ 1717-1746): outParam _ and semiOutParam _ give their argument, optParam
 \ _ _ and autoParam _ _ their first, repeatedly, matched by name at the
-\ head. Non-recursive blocks have no recursive field, so no induction
-\ hypothesis and no call of the recursor in a rule; binder names and
-\ annotations are not represented (Lean's == ignores them).
+\ head. The recursor in a rule is T.rec at Lean's get_rec_levels: the
+\ motive's universe parameter (when it has one), then the block's.
+\ Binder names and annotations are not represented (Lean's == ignores
+\ them).
 \ The terms go into the term store as scratch above the input, live until
 \ the check's rollback; nothing here is trusted: check-block.fs compares
 \ them with the exported recursor (B3), as Lean's replay does.
 \ [kernel] code: experimental, not through the review gate.
 \ State: the block's record lf-ind-state (inductive-block.fs): the facts
-\ check-block.fs computed, and here the build's first failure and the
-\ universe arguments of its constants. A failure is sticky: once a node
-\ cannot be made, every later step gives -1 and the build reports the
-\ first failure (full, exhausted or invalid).
+\ check-block.fs computed; and here, in lf-rcr-state and its slabs, the
+\ build's first failure, the universe arguments of its constants (the
+\ block's, and the recursor's for the rules), the recursive fields of
+\ every constructor (lf-rcr-ih-cells, with their x domains in
+\ lf-rcr-x-cells and each constructor's first in lf-rcr-ih-starts), and
+\ the one being built. A failure is sticky: once a node cannot be made,
+\ every later step gives -1 and the build reports the first failure
+\ (full, exhausted or invalid).
 
 require ../lib/lib.fs
 require ../core/constant-references.fs
@@ -39,6 +53,7 @@ require ../core/levels.fs
 require ../core/names.fs
 require ../core/terms.fs
 require ./inductive-block.fs
+require ./mixed-beta.fs
 require ./mixed-shift.fs
 
 begin-structure /lf-rcr
@@ -46,12 +61,36 @@ begin-structure /lf-rcr
   field: lf-rcr-motive       \ the motive's type
   field: lf-rcr-scratch-count  \ binder domains in the scratch
   field: lf-rcr-ctor-roots   \ the constructors' types to read, an array; 0: the input's
+  field: lf-rcr-ih-count     \ recursive fields recorded
+  field: lf-rcr-x-count      \ their x domains recorded
+  field: lf-rcr-rec-name     \ the name T.rec, for the rules
+  field: lf-rcr-rec-count    \ its universe arguments
+  field: lf-rcr-q            \ the recursive field built on: its position
+  field: lf-rcr-xs           \ its first x domain
+  field: lf-rcr-s            \ its x domains
+  field: lf-rcr-end          \ its type's end, T As ks
+  field: lf-rcr-past         \ binders between the parameters and the fields there
+  field: lf-rcr-gap          \ binders between the field and the place built at
 end-structure
 /lf-rcr context-record: lf-rcr-state
 \ The scratch: domains about to be bound, as many as a telescope has.
 1 cells context-slab: lf-rcr-scratch-cells
 \ The type's levels, as many as it has universe parameters (no fixed limit).
 2 cells context-slab: lf-rcr-pair-cells
+\ The recursor's levels for its rules: the motive's (when it has one) first.
+2 cells context-slab: lf-rcr-rec-pairs
+\ A recursive field: its position among the constructor's fields, its
+\ type's x domains (the first, in lf-rcr-x-cells, and how many), its end.
+begin-structure /lf-ih
+  field: lf-ih-field
+  field: lf-ih-first
+  field: lf-ih-xs
+  field: lf-ih-end
+end-structure
+/lf-ih context-slab: lf-rcr-ih-cells
+1 cells context-slab: lf-rcr-x-cells
+\ Each constructor's first recursive field in lf-rcr-ih-cells, and the count.
+1 cells context-slab: lf-rcr-ih-starts
 
 : lf-rcr-ok? ( -- flag ) lf-rcr-state lf-rcr-status @ ok? ;
 : lf-rcr-failing ( outcome -- -1 )
@@ -117,6 +156,25 @@ end-structure
 \ f applied to the variables #(top), #(top-1), ... count of them.
 : lf-rcr-apply-vars ( f top count -- node )
   0 ?do over over i - lf-rcr-bvar lf-rcr-app -rot nip loop drop ;
+\ T.rec at the recursor's levels (get_rec_levels 720-725), for the rules:
+\ the name, and the motive's level (when it has one) then the block's
+\ parameters' levels, made once per build after lf-rcr-levels.
+: lf-rcr-rec-pair ( k -- addr ) lf-rcr-rec-pairs slab-at ;
+: lf-rcr-large ( -- 0|1 ) lf-ind-state lf-ind-large @ 0<> 1 and ;
+: lf-rcr-elim-pair ( -- )
+  lf-ind-state lf-ind-elim @ dup lf-level-identity drop swap 0 lf-rcr-rec-pair 2! ;
+: lf-rcr-rec-pairs! ( -- )
+  lf-ind-lparams nip lf-rcr-large + dup lf-rcr-state lf-rcr-rec-count !
+  lf-rcr-rec-pairs slab-hold ok? 0= if outcome-full lf-rcr-failing drop exit then
+  lf-rcr-large if lf-rcr-elim-pair then
+  lf-ind-lparams nip 0 ?do i lf-rcr-pair 2@ i lf-rcr-large + lf-rcr-rec-pair 2! loop ;
+: lf-rcr-rec-name! ( -- )
+  lf-ind-name s" rec" lf-name-str 0= if 0 outcome-full lf-rcr-failing drop then
+  lf-rcr-state lf-rcr-rec-name ! ;
+: lf-rcr-rec-const ( -- node )
+  lf-rcr-ok? 0= if -1 exit then
+  lf-rcr-state lf-rcr-rec-name @ lf-name-generation @ 0 lf-rcr-rec-pair
+  lf-rcr-state lf-rcr-rec-count @ lf-cref-new lf-rcr-referenced ;
 
 \ ---------------------------------------------------------------------------
 \ The pieces. p parameters, n indices, m constructors.
@@ -162,6 +220,97 @@ end-structure
 : lf-rcr-fields! ( j amount -- )
   over lf-rcr-k lf-rcr-room 0= if 2drop exit then
   over lf-rcr-k 0 ?do 2dup i swap lf-rcr-field i lf-rcr-scratch ! loop 2drop ;
+
+\ ---------------------------------------------------------------------------
+\ Recursive fields (see the header): whnfB on the block's fuel; whether a
+\ node mentions T; a Pi; an application of T.
+: lf-rcr-reduced ( index identity status -- node )
+  lf-mbeta-fuel @ lf-ind-fuel ! dup ok? if 2drop else nip nip lf-rcr-failing then ;
+: lf-rcr-whnf ( node -- node' )
+  lf-rcr-ok? 0= if drop -1 exit then
+  lf-rcr-handle lf-ind-fuel @ lf-mixed-beta lf-rcr-reduced ;
+: lf-rcr-mentions? ( node -- flag )
+  lf-rcr-ok? 0= if drop false exit then
+  lf-ind-occurrences dup ok? if drop 0<> else lf-rcr-failing 2drop false then ;
+: lf-rcr-pi? ( node -- flag ) lf-rcr-ok? if lf-tag-pi lf-ind-tag? else drop false then ;
+: lf-rcr-headed? ( node -- flag ) lf-rcr-ok? if lf-ind-headed? else drop false then ;
+\ Recording an x domain, then a recursive field (full when the heap
+\ refuses more room).
+: lf-rcr-x ( i -- addr ) lf-rcr-x-cells slab-at ;
+: lf-rcr-xs@ ( -- i ) lf-rcr-state lf-rcr-x-count @ ;
+: lf-rcr-x! ( node -- )
+  lf-rcr-xs@ dup 1+ lf-rcr-x-cells slab-hold ok? 0=
+  if 2drop outcome-full lf-rcr-failing drop exit then
+  lf-rcr-x ! 1 lf-rcr-state lf-rcr-x-count +! ;
+: lf-rcr-ih ( k -- entry ) lf-rcr-ih-cells slab-at ;
+: lf-rcr-ih! ( q first s end -- )
+  lf-rcr-state lf-rcr-ih-count @ dup 1+ lf-rcr-ih-cells slab-hold ok? 0=
+  if drop 2drop 2drop outcome-full lf-rcr-failing drop exit then
+  lf-rcr-ih >r r@ lf-ih-end ! r@ lf-ih-xs ! r@ lf-ih-first ! r> lf-ih-field !
+  1 lf-rcr-state lf-rcr-ih-count +! ;
+\ A type in whnfB, binder by binder: its Pis' domains recorded as x
+\ domains, its end given.
+: lf-rcr-telescope ( node -- end )
+  lf-rcr-whnf begin dup lf-rcr-pi? while
+    dup lf-term-first@ lf-rcr-x! lf-term-second@ lf-rcr-whnf
+  repeat ;
+: lf-rcr-since ( first -- first s ) lf-rcr-xs@ over - ;
+\ Field q of constructor j, its type read under the constructor's p+q
+\ binders: recorded when recursive, its x domains given back otherwise.
+: lf-rcr-field-ih ( j q -- )
+  2dup lf-rcr-field-dom lf-rcr-mentions? 0= if 2drop exit then
+  tuck lf-rcr-field-dom lf-rcr-consume lf-rcr-xs@ swap lf-rcr-telescope
+  dup lf-rcr-headed? if >r lf-rcr-since r> lf-rcr-ih! exit then
+  drop lf-rcr-state lf-rcr-x-count ! drop ;
+\ Every constructor's recursive fields, when scan? (a block without a
+\ field mentioning T has none: its constructors are not scanned).
+: lf-rcr-start ( j -- addr ) lf-rcr-ih-starts slab-at ;
+: lf-rcr-ctor-ihs ( j scan? -- )
+  over lf-rcr-state lf-rcr-ih-count @ swap lf-rcr-start !
+  if dup lf-rcr-k 0 ?do dup i lf-rcr-field-ih loop then drop ;
+: lf-rcr-ihs ( scan? -- )
+  0 lf-rcr-state lf-rcr-ih-count ! 0 lf-rcr-state lf-rcr-x-count !
+  lf-rcr-m 1+ lf-rcr-ih-starts slab-hold ok? 0=
+  if drop outcome-full lf-rcr-failing drop exit then
+  lf-rcr-m 0 ?do i over lf-rcr-ctor-ihs loop drop
+  lf-rcr-state lf-rcr-ih-count @ lf-rcr-m lf-rcr-start ! ;
+\ Constructor j's recursive fields: r of them, the i-th.
+: lf-rcr-r ( j -- r ) dup 1+ lf-rcr-start @ swap lf-rcr-start @ - ;
+: lf-rcr-ih-of ( j i -- entry ) swap lf-rcr-start @ + lf-rcr-ih ;
+: lf-rcr-kr ( j -- k+r ) dup lf-rcr-k swap lf-rcr-r + ;
+
+\ Building on a recursive field (lf-rcr-take): its pieces, read under the
+\ constructor's p+q binders and the x binders before them, are relocated
+\ to a place past more binders: past between the parameters and the
+\ fields (the motive and minor premises), gap between field q and the
+\ place. A node under s' x binders: variables of the fields before q
+\ move by gap, of the parameters by past + gap (two shifts).
+: lf-rcr-take ( entry -- )
+  dup lf-ih-field @ lf-rcr-state lf-rcr-q ! dup lf-ih-first @ lf-rcr-state lf-rcr-xs !
+  dup lf-ih-xs @ lf-rcr-state lf-rcr-s ! lf-ih-end @ lf-rcr-state lf-rcr-end ! ;
+: lf-rcr-q@ ( -- q ) lf-rcr-state lf-rcr-q @ ;
+: lf-rcr-s@ ( -- s ) lf-rcr-state lf-rcr-s @ ;
+: lf-rcr-place! ( past gap -- ) lf-rcr-state lf-rcr-gap ! lf-rcr-state lf-rcr-past ! ;
+: lf-rcr-relocate ( node s' -- node' )
+  tuck lf-rcr-q@ + lf-rcr-state lf-rcr-past @ lf-rcr-shift
+  swap lf-rcr-state lf-rcr-gap @ lf-rcr-shift ;
+\ X_t consumed, and argument p+t of the end (index t), each relocated.
+: lf-rcr-x-dom ( t -- node )
+  dup lf-rcr-state lf-rcr-xs @ + lf-rcr-x @ swap lf-rcr-relocate lf-rcr-consume ;
+: lf-rcr-k-arg ( t -- node )
+  lf-rcr-state lf-rcr-end @ lf-rcr-p lf-rcr-n + rot lf-rcr-p + lf-ind-arg
+  lf-rcr-s@ lf-rcr-relocate ;
+\ Under the x binders: the motive is #b (lf-rcr-base), the field u is
+\ #(gap+s-1), the xs #(s-1) .. #0.
+: lf-rcr-base ( -- b )
+  lf-rcr-state lf-rcr-past @ lf-rcr-q@ + lf-rcr-state lf-rcr-gap @ + lf-rcr-s@ + 1- ;
+: lf-rcr-ks ( f -- node ) lf-rcr-n 0 ?do i lf-rcr-k-arg lf-rcr-app loop ;
+: lf-rcr-u-xs ( -- node )
+  lf-rcr-state lf-rcr-gap @ lf-rcr-s@ + 1- lf-rcr-bvar
+  lf-rcr-s@ dup 1- swap lf-rcr-apply-vars ;
+\ The x binders around body, innermost first, with tag.
+: lf-rcr-over-xs ( body tag -- node )
+  lf-rcr-s@ 0 ?do lf-rcr-s@ 1- i - lf-rcr-x-dom lf-rcr-wrap loop drop ;
 \ The outer binders of the recursor's type and of every rule: the
 \ parameters (consumed), the motive, the minor premises.
 : lf-rcr-param-dom ( i -- node ) lf-rcr-dom lf-rcr-consume ;
@@ -179,24 +328,37 @@ end-structure
   lf-rcr-p lf-rcr-n + lf-rcr-major lf-rcr-elim-sort lf-rcr-pi
   0 lf-rcr-indices! lf-tag-pi lf-rcr-over-scratch drop ;
 
-\ Minor premise j, at depth p+1+j: (b) -> motive js (c_j As b), its body
-\ at depth d = p+1+j+k, where the motive is #(j+k), the indices js are
-\ the constructor result's (shifted past the motive and the j earlier
-\ minors), the parameters #(d-1) .. #(d-p) and the fields #(k-1) .. #0.
+\ Minor premise j, at depth p+1+j: (b) -> (v) -> motive js (c_j As b),
+\ with k fields and r induction hypotheses, its body at depth d =
+\ p+1+j+k+r, where the motive is #(j+k+r), the indices js are the
+\ constructor result's (shifted past the motive and the j earlier minors,
+\ then past the r hypotheses), the parameters #(d-1) .. #(d-p) and the
+\ fields #(k-1+r) .. #r.
 : lf-rcr-result ( j -- node ) dup lf-rcr-ctor-type swap lf-rcr-k lf-rcr-p + lf-rcr-skip ;
 : lf-rcr-js ( j i -- node )
   over lf-rcr-result lf-rcr-p lf-rcr-n + rot lf-rcr-p + lf-ind-arg
-  swap dup lf-rcr-k swap 1+ lf-rcr-shift ;
+  over lf-rcr-k 2 pick 1+ lf-rcr-shift 0 rot lf-rcr-r lf-rcr-shift ;
 : lf-rcr-motive-app ( j -- node )
-  dup dup lf-rcr-k + lf-rcr-bvar lf-rcr-n 0 ?do over i lf-rcr-js lf-rcr-app loop nip ;
+  dup dup lf-rcr-kr + lf-rcr-bvar lf-rcr-n 0 ?do over i lf-rcr-js lf-rcr-app loop nip ;
 : lf-rcr-intro ( j d -- node )
   over lf-ind-ctor lf-idecl-name @ lf-rcr-const swap 1- lf-rcr-p lf-rcr-apply-vars
-  swap lf-rcr-k dup 1- swap lf-rcr-apply-vars ;
-: lf-rcr-minor-depth ( j -- d ) dup lf-rcr-k + lf-rcr-p + 1+ ;
+  swap dup lf-rcr-kr 1- swap lf-rcr-k lf-rcr-apply-vars ;
+: lf-rcr-minor-depth ( j -- d ) dup lf-rcr-kr + lf-rcr-p + 1+ ;
 : lf-rcr-minor-body ( j -- node )
   dup lf-rcr-motive-app over dup lf-rcr-minor-depth lf-rcr-intro lf-rcr-app nip ;
+\ Hypothesis i of minor j, at depth p+1+j+k+i (past 1+j, gap k+i-q):
+\ (xs) -> motive ks (u xs).
+: lf-rcr-ih-type ( j i -- node )
+  2dup lf-rcr-ih-of lf-rcr-take over 1+ >r swap lf-rcr-k + lf-rcr-q@ - r> swap
+  lf-rcr-place!
+  lf-rcr-base lf-rcr-bvar lf-rcr-ks lf-rcr-u-xs lf-rcr-app lf-tag-pi lf-rcr-over-xs ;
+: lf-rcr-over-ihs ( body tag j -- node tag )
+  dup lf-rcr-r 0 ?do
+    dup dup lf-rcr-r 1- i - lf-rcr-ih-type swap >r lf-rcr-wrap r>
+  loop drop ;
 : lf-rcr-minor ( j -- node )
-  dup lf-rcr-minor-body swap dup 1+ lf-rcr-fields! lf-tag-pi lf-rcr-over-scratch drop ;
+  dup lf-rcr-minor-body lf-tag-pi rot dup >r lf-rcr-over-ihs
+  r> dup 1+ lf-rcr-fields! lf-rcr-over-scratch drop ;
 
 \ The recursor's type: the goal motive is t at depth p+1+m+n+1, under the
 \ major premise, the indices (shifted past the motive and the minors) and
@@ -208,33 +370,50 @@ end-structure
   lf-rcr-p 1+ lf-rcr-m + lf-rcr-n + lf-rcr-major lf-rcr-goal lf-rcr-pi
   lf-rcr-m 1+ lf-rcr-indices! lf-tag-pi lf-rcr-over-scratch lf-rcr-outer ;
 
-\ Rule j: fun As motive minors (b) => minor_j b, the body at depth
-\ p+1+m+k, where minor_j is #(m-1-j+k) and the fields (shifted past the
-\ motive and the m minors) #(k-1) .. #0.
+\ Rule j: fun As motive minors (b) => minor_j b v'_0 .. v'_r-1, the body
+\ at depth p+1+m+k, where minor_j is #(m-1-j+k) and the fields (shifted
+\ past the motive and the m minors) #(k-1) .. #0. The recursor call of
+\ hypothesis i, under its x binders (past 1+m, gap k-q): T.rec at the
+\ parameters #(b+p) .., the motive #b, the minors #(b-1) .., then ks and
+\ u xs.
+: lf-rcr-rec-call ( -- node )
+  lf-rcr-rec-const lf-rcr-base lf-rcr-p + lf-rcr-p lf-rcr-apply-vars
+  lf-rcr-base lf-rcr-bvar lf-rcr-app lf-rcr-base 1- lf-rcr-m lf-rcr-apply-vars
+  lf-rcr-ks lf-rcr-u-xs lf-rcr-app ;
+: lf-rcr-v ( j i -- node )
+  over swap lf-rcr-ih-of lf-rcr-take lf-rcr-m 1+ swap lf-rcr-k lf-rcr-q@ - lf-rcr-place!
+  lf-rcr-rec-call lf-tag-lam lf-rcr-over-xs ;
 : lf-rcr-rule-body ( j -- node )
-  dup lf-rcr-k lf-rcr-m 1- rot - over + lf-rcr-bvar swap dup 1- swap lf-rcr-apply-vars ;
+  dup lf-rcr-k lf-rcr-m 1- 2 pick - over + lf-rcr-bvar swap dup 1- swap lf-rcr-apply-vars
+  over lf-rcr-r 0 ?do over i lf-rcr-v lf-rcr-app loop nip ;
 : lf-rcr-rule ( j -- node )
   dup lf-rcr-rule-body swap lf-rcr-m 1+ lf-rcr-fields! lf-tag-lam lf-rcr-over-scratch
   lf-rcr-outer ;
 
-\ Build the motive's type, the minor premises, the recursor's type and the
-\ rules into the block's record, from the facts check-block.fs computed
-\ (indices, domains, field counts, elimination level): ok, or the first
-\ failure (full, exhausted, invalid), the terms then unusable.
+\ Build the motive's type, the minor premises, the recursor's type and,
+\ with rules?, the rules into the block's record, from the facts
+\ check-block.fs computed (indices, domains, field counts, elimination
+\ level): ok, or the first failure (full, exhausted, invalid), the terms
+\ then unusable.
 : lf-rcr-minors ( -- ) lf-rcr-m 0 ?do i lf-rcr-minor i lf-ind-minor-type ! loop ;
 : lf-rcr-rules ( -- ) lf-rcr-m 0 ?do i lf-rcr-rule i lf-ind-rule ! loop ;
-: lf-rcr-terms ( -- outcome )
+: lf-rcr-terms ( rules? -- outcome )
   lf-rcr-motive-type lf-rcr-state lf-rcr-motive ! lf-rcr-minors
-  lf-rcr-type lf-ind-state lf-ind-rec-type ! lf-rcr-rules lf-rcr-state lf-rcr-status @ ;
+  lf-rcr-type lf-ind-state lf-ind-rec-type ! if lf-rcr-rules then
+  lf-rcr-state lf-rcr-status @ ;
+: lf-rcr-begin ( roots -- )
+  outcome-ok lf-rcr-state lf-rcr-status ! lf-rcr-state lf-rcr-ctor-roots ! ;
 : lf-recursor-build ( -- outcome )
-  outcome-ok lf-rcr-state lf-rcr-status ! 0 lf-rcr-state lf-rcr-ctor-roots !
-  lf-rcr-levels lf-rcr-terms ;
-\ The same instantiated (generated-recursor.fs): the block's constants at
-\ the level pairs the caller put in the pair cells (lf-rcr-pair, as many
-\ as the block has universe parameters), the motive's Sort at lf-ind-elim,
-\ and the binder domains read from instances of the block's types the
-\ caller made -- the type's in lf-ind-domain, the constructors' at roots,
-\ one cell each -- with the block's universe parameters replaced by the
-\ same levels.
+  0 lf-rcr-begin lf-rcr-levels lf-rcr-rec-pairs! lf-rcr-rec-name!
+  lf-ind-recursive? lf-rcr-ihs true lf-rcr-terms ;
+\ The same instantiated, for a declaration after the block that uses the
+\ recursor (generated-recursor.fs), which needs only its type: the
+\ block's constants at the level pairs the caller put in the pair cells
+\ (lf-rcr-pair, as many as the block has universe parameters), the
+\ motive's Sort at lf-ind-elim, and the binder domains read from
+\ instances of the block's types the caller made -- the type's in
+\ lf-ind-domain, the constructors' at roots, one cell each -- with the
+\ block's universe parameters replaced by the same levels. Its recursive
+\ fields are found again on those instances, every constructor scanned.
 : lf-recursor-build-at ( roots -- outcome )
-  outcome-ok lf-rcr-state lf-rcr-status ! lf-rcr-state lf-rcr-ctor-roots ! lf-rcr-terms ;
+  lf-rcr-begin true lf-rcr-ihs false lf-rcr-terms ;

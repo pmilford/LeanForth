@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""LeanForth against the inductive table (plan task 5.2.1a; ADR 0015 §13,
-test plan 1).
+"""LeanForth against the inductive table (plan tasks 5.2.1a and 5.2.1b; ADR
+0015 §13, test plan 1).
 
 Runs pinned Lean on tests/reference/inductive-expected.lean, which prints
 the table's rows (equal to tests/reference/inductive-expected.tsv, checked
@@ -36,24 +36,28 @@ import tempfile
 LEAN_FILE = "tests/reference/inductive-expected.lean"
 TSV = "tests/reference/inductive-expected.tsv"
 FIXTURES = "tests/core/check-block-cases"
-DONE_TASKS = {"5.2.1a"}
-# Rows of task 5.2.1a that LeanForth cannot decide yet: id -> (outcome now,
-# reason, ending with the task that closes it). Each needs something outside
-# task 5.2.1a; the table's own row with "Nat" replaced, or the same rule
-# reached without the dependency, is a row of its own (the twin given), which
-# must give the table's column. Never accepted, never a verdict Lean does not
-# give.
+DONE_TASKS = {"5.2.1a", "5.2.1b"}
+# Rows of tasks 5.2.1a and 5.2.1b that LeanForth cannot decide yet: id ->
+# (outcome now, reason, ending with the task that closes it). Each needs
+# something outside those tasks; the same rule reached without the dependency
+# is a row of its own (the twin given), which must give the table's column.
+# Never accepted, never a verdict Lean does not give.
 PENDING = {
-    "universe.type-not-a-sort": ("unsupported",
-        "uses Nat, a recursive type: K5; twin universe.type-not-a-sort-param."
-        " Closed by task 5.2.1b (recursive blocks)"),
-    "result.other-type": ("unsupported",
-        "uses Nat: K5; twin result.other-type-sort. Closed by task 5.2.1b"),
-    "params.constructor-mismatch": ("unsupported",
-        "uses Nat: K5; twin params.constructor-mismatch-sort. Closed by task 5.2.1b"),
-    "names.already-declared": ("unsupported",
-        "redeclares Nat, which is unsupported: K5 on N2; twin"
-        " names.already-declared-earlier. Closed by task 5.2.1b"),
+    "pos.through-definition": ("unknown",
+        "positivity needs id (Bad -> Nat) unfolded by whnf: K1; twin"
+        " pos.negative-through-beta. Closed by task 4.2.2 (whnf with delta)"),
+    "pos.erased-by-definition": ("unknown",
+        "positivity needs Function.const Type Nat Ok unfolded by whnf: K1; twin"
+        " ind.erased-by-beta. Closed by task 4.2.2 (whnf with delta)"),
+    "iota.nat-literal-major": ("unsupported",
+        "a theorem with Nat literals (U2, task 5.2.3) whose check needs iota on Nat.rec"
+        " (R1 with L2, in whnf_core: task 4.2.2c's hook, then 5.2.1b's iota)."
+        " Closed by tasks 4.2.2c and 5.2.3"),
+    "iota.nat-literal-major-wrong": ("unsupported",
+        "as iota.nat-literal-major. Closed by tasks 4.2.2c and 5.2.3"),
+    "iota.stuck-on-variable": ("unsupported",
+        "a Nat literal (U2, task 5.2.3); Lean's iota on a variable major is stuck (R1)."
+        " Closed by tasks 4.2.2c and 5.2.3"),
     "params.constructor-binder-defeq": ("unknown",
         "C2 needs id Type unfolded: K1; twin params.constructor-binder-beta."
         " Closed by task 4.2.2 (unfolding, delta)"),
@@ -226,7 +230,7 @@ def main():
     failures += stale_fixtures(cases)
     done = sum(n for (d, _), n in tally.items() if d)
     later = sum(n for (d, _), n in tally.items() if not d)
-    print(f"inductive-table: {len(cases)} cases; task 5.2.1a rows {done}:",
+    print(f"inductive-table: {len(cases)} cases; tasks 5.2.1a-b rows {done}:",
           ", ".join(f"{o} {n}" for (d, o), n in sorted(tally.items()) if d),
           f"(pending {len(PENDING)}); later tasks' rows {later}:",
           ", ".join(f"{o} {n}" for (d, o), n in sorted(tally.items()) if not d))

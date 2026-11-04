@@ -1,4 +1,4 @@
-\ The check of inductive blocks (plan task 5.2.1a; ADR 0015;
+\ The check of inductive blocks (plan tasks 5.2.1a and 5.2.1b; ADR 0015;
 \ src/kernel/check-block.fs, inductive-block.fs, inductive-recursor.fs,
 \ level-geq.fs) end to end: staged and fed exports, checked by
 \ check-declaration, published by the checked environment.
@@ -6,7 +6,8 @@
 \    export tests/reference/inductive-expected.lean prints for its row;
 \    tests/core/inductive-table.py checks they are still Lean's): every
 \    outcome, each rejection with its rule's diagnostic and step, Lean's
-\    replay of the Bool block mutated (B3) and its ignored fields (B4).
+\    replay of the Bool and N blocks mutated (B3) and their ignored fields
+\    (B4); recursive blocks with their induction hypotheses, positivity.
 \ 2. tests/reference/inductive/blocks.ndjson: a block's members published
 \    together (every slot final, one outcome, handles, no axioms).
 \ 3. That export tampered after the feed, one field at a time (ADR 0015
@@ -99,6 +100,24 @@ T{ s" params.index-one-universe-up" verdict -> outcome-ok 0 all-steps }T
 \ Two universe parameters: U1's is_geq orders u and v by their names in
 \ the feed's name view (the review rvKC's finding H1, fixed).
 T{ s" ind.universe-max" verdict -> outcome-ok 0 all-steps }T
+\ Recursive blocks (task 5.2.1b): the recursor with its induction
+\ hypotheses and recursive calls equal to Lean's (B3): N and List, a
+\ binary tree (two hypotheses), functions into the type (reflexive: one
+\ and two arguments, under a parameter), recursive propositions (Prop
+\ only; any universe with one constructor), a list in Sort (max 1 u), a
+\ field whose type whnf beta-reduces to a function into the type, and one
+\ it reduces to Nat (no hypothesis).
+T{ s" ind.nat" verdict -> outcome-ok 0 all-steps }T
+T{ s" ind.list" verdict -> outcome-ok 0 all-steps }T
+T{ s" ind.binary-tree" verdict -> outcome-ok 0 all-steps }T
+T{ s" ind.reflexive" verdict -> outcome-ok 0 all-steps }T
+T{ s" ind.reflexive-two-arguments" verdict -> outcome-ok 0 all-steps }T
+T{ s" ind.reflexive-parameter" verdict -> outcome-ok 0 all-steps }T
+T{ s" ind.recursive-predicate" verdict -> outcome-ok 0 all-steps }T
+T{ s" ind.recursive-predicate-one-constructor" verdict -> outcome-ok 0 all-steps }T
+T{ s" ind.list-sort-max" verdict -> outcome-ok 0 all-steps }T
+T{ s" ind.recursive-through-beta" verdict -> outcome-ok 0 all-steps }T
+T{ s" ind.erased-by-beta" verdict -> outcome-ok 0 all-steps }T
 
 \ Rejected, each with its rule's diagnostic, at its step.
 T{ s" uniform.result-other-argument" verdict -> outcome-rejected lf-diag-nonuniform 3 }T
@@ -125,6 +144,30 @@ T{ s" names.constructor-named-rec" verdict
 \ Fields typed optParam and outParam: the recursor has them removed
 \ (consume_type_annotations), as Lean's does.
 T{ s" ind.annotated-fields" verdict -> outcome-ok 0 all-steps }T
+\ Rows that use Nat, decided since Nat is (task 5.2.1b): T : Nat is no
+\ Sort (Nat is an inductive type, which Lean's whnf leaves), a
+\ constructor returning Nat, a parameter of the wrong type, Nat declared
+\ again; and an index mentioning the type (C3, is_valid_ind_app).
+T{ s" universe.type-not-a-sort" verdict -> outcome-rejected lf-diag-block-not-sort 8 }T
+T{ s" result.other-type" verdict -> outcome-rejected lf-diag-return-type 9 }T
+T{ s" params.constructor-mismatch" verdict -> outcome-rejected lf-diag-ctor-param 9 }T
+T{ s" names.already-declared" verdict -> outcome-rejected lf-diag-already-declared 6 }T
+T{ s" result.index-mentions-type" verdict -> outcome-rejected lf-diag-return-type 9 }T
+\ Positivity (P1, P2) at step 9, after U1, with the field's binder: a
+\ negative occurrence, doubly negative, after beta, in a later binder of
+\ the field's type, in a later field; an occurrence that is no valid
+\ application, directly and after a Pi; the universe checked first; C1
+\ before them all.
+T{ s" pos.negative" verdict-field -> outcome-rejected lf-diag-non-positive 9 0 }T
+T{ s" pos.double-negative" verdict-field -> outcome-rejected lf-diag-non-positive 9 0 }T
+T{ s" pos.negative-through-beta" verdict-field -> outcome-rejected lf-diag-non-positive 9 0 }T
+T{ s" pos.negative-second-binder" verdict-field -> outcome-rejected lf-diag-non-positive 9 0 }T
+T{ s" pos.negative-later-field" verdict-field -> outcome-rejected lf-diag-non-positive 9 1 }T
+T{ s" pos.non-valid-occurrence" verdict-field -> outcome-rejected lf-diag-non-valid 9 1 }T
+T{ s" pos.non-valid-after-pi" verdict-field -> outcome-rejected lf-diag-non-valid 9 1 }T
+T{ s" pos.universe-checked-first" verdict -> outcome-rejected lf-diag-universe-too-big 9 }T
+T{ s" uniform.other-argument" verdict -> outcome-rejected lf-diag-nonuniform 3 }T
+T{ s" uniform.definitionally-equal-argument" verdict -> outcome-rejected lf-diag-nonuniform 3 }T
 
 \ Lean's replay of the Bool block (B3, B4).
 T{ s" replay-bool.original" verdict -> outcome-ok 0 all-steps }T
@@ -170,11 +213,36 @@ T{ s" replay-unit.recursor-k-set" verdict-field
    -> outcome-rejected lf-diag-invalid-recursor 13 10 }T
 T{ s" replay-or.recursor-large-elimination" verdict-field
    -> outcome-rejected lf-diag-invalid-recursor 13 2 }T
+\ Lean's replay of the recursive N block (task 5.2.1b): the recursive
+\ rule's right side swapped with the other, k set, the motives changed, a
+\ constructor's field count, a constructor's type (the recursor then
+\ differs), the parameters (C1); the ignored fields (B4).
+T{ s" replay.original" verdict -> outcome-ok 0 all-steps }T
+T{ s" replay.rule-right-sides-swapped" verdict-field
+   -> outcome-rejected lf-diag-invalid-recursor 13 9 }T
+T{ s" replay.recursor-k-set" verdict-field
+   -> outcome-rejected lf-diag-invalid-recursor 13 10 }T
+T{ s" replay.recursor-motives-changed" verdict-field
+   -> outcome-rejected lf-diag-invalid-recursor 13 7 }T
+T{ s" replay.constructor-fields-changed" verdict-field
+   -> outcome-rejected lf-diag-invalid-constructor 13 5 }T
+T{ s" replay.constructor-type-changed" verdict-field
+   -> outcome-rejected lf-diag-invalid-recursor 13 3 }T
+T{ s" replay.parameters-changed" verdict -> outcome-rejected lf-diag-nonuniform 3 }T
+T{ s" replay.isRec-changed" verdict-warned -> outcome-ok 0 all-steps lf-warn-rec }T
+T{ s" replay.indices-changed" verdict-warned -> outcome-ok 0 all-steps lf-warn-indices }T
+T{ s" replay.recursor-left-out" verdict-warned
+   -> outcome-ok 0 all-steps lf-warn-no-recursor }T
 
-\ Unknown, unsupported and invalid.
+\ Unknown, unsupported and invalid. Where Lean's whnf would unfold a
+\ definition in positivity (id (Bad -> Nat)), unknown until task 4.2.2.
 T{ s" params.constructor-binder-defeq" verdict nip -> outcome-unknown 9 }T
-T{ s" ind.nat" verdict -> outcome-unsupported lf-diag-block-scope 1 }T
+T{ s" pos.through-definition" verdict -> outcome-unknown lf-diag-needs-unfolding 9 }T
 T{ s" mutual.single-ctor-props" verdict -> outcome-unsupported lf-diag-block-scope 1 }T
+\ Nested blocks (task 5.2.5): List Tree, and List (Bad -> Nat), which Lean
+\ rejects only after making the block mutual.
+T{ s" nested.tree" verdict-field -> outcome-unsupported lf-diag-block-scope 1 3 }T
+T{ s" nested.non-positive" verdict-field -> outcome-unsupported lf-diag-block-scope 1 3 }T
 \ An empty block: the importer stages it as one declaration (ADR 0016
 \ amendment 1), which the check rejects at step 4 as Lean's kernel does
 \ (emptyBlock).
@@ -184,10 +252,10 @@ T{ s" names.empty-block" verdict -> outcome-rejected lf-diag-empty-block 4 }T
 T{ s" unit.punit-variables" verdict nip -> outcome-unknown 8 }T
 
 \ ---------------------------------------------------------------------------
-\ 2. blocks.ndjson: N, Nat, the mutual Even/Odd, List and Tree, Point
-\ unsupported (recursive, mutual, nested, or using Nat); Both, Same and
-\ Either accepted, every member's slot final and accepted, with a handle
-\ and no axioms.
+\ 2. blocks.ndjson: N, Both, Same, Either, Nat, List and Point accepted,
+\ every member's slot final and accepted, with a handle and no axioms;
+\ the mutual Even/Odd and the nested Tree unsupported (task 5.2.5), and
+\ Point.x (a projection, task 5.2.2).
 : blocks ( -- c-addr u ) s" tests/reference/inductive/blocks.ndjson" ;
 : member-ok? ( d -- flag )
   dup lf-env-outcome ok? over lf-env-handle ok? nip nip and
@@ -196,7 +264,8 @@ T{ s" unit.punit-variables" verdict nip -> outcome-unknown 8 }T
 : all-unsupported? ( from to -- flag )
   true -rot swap ?do i lf-env-outcome outcome-unsupported = and loop ;
 T{ blocks staged fuel checked -> outcome-ok }T
-T{ 0 4 all-unsupported? 4 14 all-ok? 14 37 all-unsupported? -> true true true }T
+T{ 0 18 all-ok? 18 25 all-unsupported? 25 29 all-ok? -> true true true }T
+T{ 29 33 all-unsupported? 33 36 all-ok? 36 37 all-unsupported? -> true true true }T
 finish
 
 \ ---------------------------------------------------------------------------
@@ -232,6 +301,12 @@ T{ ' ctor-renamed 10 block-verdict -> outcome-rejected lf-diag-invalid-recursor 
 T{ ' rules-swapped 10 block-verdict -> outcome-rejected lf-diag-invalid-recursor 9 }T
 : rec-type ( -- ) 9 lf-input-decl lf-idecl-type @ 6 lf-input-decl lf-idecl-type ! ;
 T{ ' rec-type 4 block-verdict -> outcome-rejected lf-diag-invalid-recursor 3 }T
+\ The recursive N (0 N, 1 zero, 2 succ, 3 N.rec): its rules swapped (the
+\ recursive call given to zero), its type replaced by Both.rec's.
+: n-rules-swapped ( -- ) 3 0 rhs 3 1 rhs over @ over @ >r swap ! r> swap ! ;
+T{ ' n-rules-swapped 0 block-verdict -> outcome-rejected lf-diag-invalid-recursor 9 }T
+: n-rec-type ( -- ) 6 lf-input-decl lf-idecl-type @ 3 lf-input-decl lf-idecl-type ! ;
+T{ ' n-rec-type 0 block-verdict -> outcome-rejected lf-diag-invalid-recursor 3 }T
 \ The constructors.
 : cidx+ ( -- ) 1 5 lf-ict-cidx cell! ;
 T{ ' cidx+ 4 block-verdict -> outcome-rejected lf-diag-invalid-constructor 3 }T
@@ -244,6 +319,9 @@ T{ ' ctor-fields 10 block-verdict -> outcome-rejected lf-diag-invalid-constructo
 T{ ' nested 4 block-warned -> outcome-ok lf-warn-nested }T
 : reflexive ( -- ) lf-ity-reflexive-bit 10 lf-ity-flags cell! ;
 T{ ' reflexive 10 block-warned -> outcome-ok lf-warn-reflexive }T
+\ N is recursive (Lean's is_rec): its isRec bit cleared is a warning.
+: n-not-rec ( -- ) 0 0 lf-ity-flags cell! ;
+T{ ' n-not-rec 0 block-warned -> outcome-ok lf-warn-rec }T
 \ The shape (B0): a constructor naming another type is invalid.
 : induct ( -- ) 7 lf-input-name 5 lf-ict-induct cell! ;
 T{ ' induct 4 block-verdict drop -> outcome-invalid lf-diag-block-shape }T
@@ -259,9 +337,11 @@ T{ ' loose 4 block-verdict drop -> outcome-invalid lf-diag-out-of-scope }T
 
 \ ---------------------------------------------------------------------------
 \ 4. Fuel: every budget 2^k - 1 gives ok or exhausted; the least budget
-\ that gives ok is found by bisection, and one unit less is exhausted.
+\ that gives ok is found by bisection, and one unit less is exhausted: for
+\ Bool, and for List (positivity, induction hypotheses).
+2variable fuel-case
 : bool-at ( budget -- outcome )
-  s" ind.bool" case-path staged ok? must checked 0 lf-env-outcome finish ;
+  fuel-case 2@ case-path staged ok? must checked 0 lf-env-outcome finish ;
 : ok-or-exhausted? ( outcome -- flag ) dup ok? swap outcome-exhausted = or ;
 : doubling? ( -- flag ) true 21 0 do 1 i lshift 1- bool-at ok-or-exhausted? and loop ;
 : middle ( lo hi -- lo hi mid ) 2dup + 2/ ;
@@ -269,6 +349,10 @@ T{ ' loose 4 block-verdict drop -> outcome-invalid lf-diag-out-of-scope }T
   0 1 20 lshift begin 2dup - -1 < while
     middle dup bool-at ok? if nip else rot drop swap then
   repeat nip ;
+s" ind.bool" fuel-case 2!
+T{ doubling? -> true }T
+T{ least-ok dup 1- bool-at swap bool-at -> outcome-exhausted outcome-ok }T
+s" ind.list" fuel-case 2!
 T{ doubling? -> true }T
 T{ least-ok dup 1- bool-at swap bool-at -> outcome-exhausted outcome-ok }T
 
@@ -276,6 +360,8 @@ T{ least-ok dup 1- bool-at swap bool-at -> outcome-exhausted outcome-ok }T
 \ check runs out of room: full, never ok.
 : crowded ( -- ) lf-term-count @ lf-term-capacity! drop ;
 T{ s" ind.bool" case-path staged ok? must crowded fuel checked 0 lf-env-outcome finish
+   -> outcome-full }T
+T{ s" ind.list" case-path staged ok? must crowded fuel checked 0 lf-env-outcome finish
    -> outcome-full }T
 
 \ ---------------------------------------------------------------------------
@@ -344,8 +430,10 @@ T{ ready-around -> false true }T
   case-path staged ok? must fuel checked
   0 lf-input-name -rot lf-name-str must lf-env lf-env-length lf-env-reserving nip finish ;
 T{ s" rec" s" ind.bool" held-as -> outcome-ok }T
-T{ s" rec" s" ind.nat" held-as -> outcome-unsupported }T
-T{ s" rec_1" s" ind.nat" held-as -> outcome-unsupported }T
+T{ s" rec" s" ind.nat" held-as -> outcome-ok }T
+T{ s" rec" s" mutual.single-ctor-props" held-as -> outcome-unsupported }T
+T{ s" rec_1" s" mutual.single-ctor-props" held-as -> outcome-unsupported }T
+T{ s" rec_1" s" ind.nat" held-as -> outcome-rejected }T
 T{ s" rec_1" s" ind.bool" held-as -> outcome-rejected }T
 T{ s" recOn" s" ind.bool" held-as -> outcome-rejected }T
 T{ s" rec_x" s" ind.nat" held-as -> outcome-rejected }T
@@ -416,6 +504,21 @@ T{ s" after.universe-max-at-swapped" used -> outcome-ok 0 }T
 T{ s" after.universe-max-at-applied" used -> outcome-ok 0 }T
 T{ s" after.redex-type-left-out-then-use-rec" used
    -> outcome-unknown lf-diag-generated-recursor }T
+\ Recursive blocks (task 5.2.1b): the generated recursor with its
+\ induction hypotheses, found again on the constructors' instances, at
+\ its own universes and at renamed, concrete and applied ones.
+T{ s" after.nat-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.list-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.reflexive-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.binary-tree-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.list-at-renamed" used -> outcome-ok 0 }T
+T{ s" after.list-at-concrete" used -> outcome-ok 0 }T
+T{ s" after.list-at-applied" used -> outcome-ok 0 }T
+T{ s" after.list-sort-max-at-concrete" used -> outcome-ok 0 }T
+T{ s" after.reflexive-parameter-at-renamed" used -> outcome-ok 0 }T
+\ The list's recursor built again while a block with a parameter checks
+\ its constructor: that block's parameter domains survive the rebuild.
+T{ s" after.list-left-out-then-lookup-during-param-block" used -> outcome-ok 0 }T
 \ The marks on the slots: the type and constructors, not the recursor.
 : added? ( d -- flag ) lf-env lf-env-slot lf-slot-added? ;
 : marks ( -- f0 f1 f2 f3 )
