@@ -22,14 +22,18 @@
 \ mdata expression as the leaf of its form (core/unsupported-forms.fs,
 \ refused by the audit, U2); binder names and binder information are not
 \ copied, as Lean's kernel ignores them. An inductive block, a record
-\ with no name, gives no declaration; its types, constructors and
-\ recursors do, of kinds the first checker refuses (U1). Every universe
+\ with no name, gives no declaration but a header in the input's
+\ inductive data (core/input.fs); its types, constructors and recursors
+\ are declarations that point at the header and carry their exported
+\ numbers, lists, flags and rules there (plan task 5.2.1a; the checker of
+\ blocks, kernel/check-block.fs, decides them together). Every universe
 \ parameter a level names joins the session's level context first.
 \
 \ lf-feed ( stage feed -- outcome ): ok; invalid for a stage that is not
 \ sealed, a level or expression of a kind the checker's stores do not
 \ hold (a free or meta variable), a declaration of a kind it does not
-\ know, or a failed loading end; full for a store that refuses a record
+\ know, a block with no type or with members missing, a member outside a
+\ block, or a failed loading end; full for a store that refuses a record
 \ (its capacity, no heap), the level context, or a universe list longer
 \ than the checker takes; feed-at then gives the expression or
 \ declaration number where it stopped. The input is left partly filled
@@ -58,6 +62,8 @@ begin-structure /feed
   field: feed-exprs        \ heap: per stage expression, its term handle (2 cells)
   field: feed-where        \ the expression or declaration where it stopped
   field: feed-d            \ the declaration being fed
+  field: feed-header       \ the current block's header cell, plus one; 0 for none
+  field: feed-members      \ members of the current block still to come
   lf-cref-argument-capacity 2* cells +field feed-pairs
   /lf-idecl +field feed-decl
 end-structure
@@ -245,6 +251,78 @@ here feed-kinds - 1 cells / constant feed-kinds#
 : feed-details ( feed -- )
   dup feed-kind@ feed-valued? if dup feed-value then
   dup feed-kind@ lf-kind-definition = if feed-def else feed-safety then ;
+\ ---- Inductive blocks (plan task 5.2.1a; ADR 0015 B1): the block
+\ record gives a header in the input's inductive data, [first types ctors
+\ recursors] (core/input.fs), and the next types + ctors + recursors
+\ declarations are its members, each pointing at the header and at its
+\ own data cells. A block with no type, or with members missing, cannot
+\ come from lean4export and is invalid, as is a member outside a block.
+\ Item k of declaration d's data tuple; a cell appended to the data when
+\ the outcome so far is ok.
+: feed-item@ ( k d feed -- u ) feed-stage @ staged-item ;
+: feed-nth ( d feed k -- d feed u ) >r 2dup r> -rot feed-item@ ;
+: feed, ( outcome x -- outcome ) swap dup ok? if drop lf-more, else nip then ;
+: feed-num, ( d feed outcome k -- d feed outcome ) 3 pick 3 pick feed-item@ feed, ;
+\ A tuple as a list: its count, then its items.
+: feed-list-item ( outcome t cons i -- outcome t cons )
+  >r 2dup r> -rot tuple-item >r rot r> feed, -rot ;
+: feed-list, ( outcome t cons -- outcome )
+  2dup tuple-length >r rot r@ feed, -rot r> 0 ?do i feed-list-item loop 2drop ;
+: feed-names, ( d feed outcome k -- d feed outcome )
+  3 pick 3 pick feed-item@ 2 pick feed-tier tier-tuples feed-list, ;
+\ A recursor's rules: their count, then constructor, nfields and right
+\ side (the term the stage's expression became) of each.
+: feed-rule-item ( outcome t feed j -- outcome t feed )
+  >r 2dup feed-tier tier-tuples r@ -rot tuple-item
+  r> 3 mod 2 = if over feed-root then >r rot r> feed, -rot ;
+: feed-rules, ( outcome t feed -- outcome )
+  2dup feed-tier tier-tuples tuple-length >r
+  r@ 3 mod if r> drop 2drop drop outcome-invalid exit then
+  rot r@ 3 / feed, -rot r> 0 ?do i feed-rule-item loop 2drop ;
+: feed-flags ( d feed -- flags )
+  2dup feed-stage @ staged-rec? lf-ity-rec-bit and >r
+  feed-stage @ staged-reflexive? lf-ity-reflexive-bit and r> or ;
+: feed-type-data ( d feed -- d feed outcome )
+  outcome-ok more-type-params feed-num, more-type-indices feed-num,
+  more-type-nested feed-num, >r 2dup feed-flags r> swap feed,
+  more-type-all feed-names, more-type-ctors feed-names, ;
+: feed-ctor-data ( d feed -- d feed outcome )
+  outcome-ok more-ctor-induct feed-num, more-ctor-cidx feed-num,
+  more-ctor-params feed-num, more-ctor-fields feed-num, ;
+: feed-rec-data ( d feed -- d feed outcome )
+  outcome-ok more-rec-params feed-num, more-rec-indices feed-num,
+  more-rec-motives feed-num, more-rec-minors feed-num,
+  >r 2dup feed-stage @ staged-k? r> swap feed, more-rec-all feed-names,
+  more-rec-rules 3 pick 3 pick feed-item@ 2 pick feed-rules, ;
+: feed-kind-data ( d feed kind -- d feed outcome )
+  case kind-type of feed-type-data endof  kind-ctor of feed-ctor-data endof
+    kind-recursor of feed-rec-data endof outcome-invalid swap endcase ;
+: feed-data ( d feed -- outcome )
+  lf-more-here 1+ over feed-decl lf-idecl-more !
+  2dup feed-stage @ staged-kind@ feed-kind-data nip nip ;
+\ The block record: its header, and the number of members to come.
+: feed-header! ( feed -- ) lf-more-here 1+ swap feed-header ! ;
+: feed-total ( d feed -- n ) 0 3 0 do i 3 pick 3 pick feed-item@ + loop nip nip ;
+: feed-members! ( d feed outcome -- outcome )
+  >r 2dup feed-total swap feed-members ! drop r> ;
+: feed-block-ok? ( d feed -- flag )
+  2dup feed-stage @ staged-items 3 = over feed-members @ 0= and
+  if more-block-types feed-nth nip nip 0<> else 2drop false then ;
+: feed-header-record ( d feed -- outcome )
+  2dup feed-block-ok? 0= if 2drop outcome-invalid exit then
+  dup feed-header! outcome-ok lf-input-count feed,
+  more-block-types feed-num, more-block-ctors feed-num, more-block-recursors feed-num,
+  feed-members! ;
+\ A member of the current block, or any other declaration.
+: feed-member? ( d feed -- flag )
+  feed-stage @ staged-kind@ dup kind-type = over kind-ctor = or swap kind-recursor = or ;
+: feed-member ( d feed -- outcome )
+  dup feed-members @ 0= if 2drop outcome-invalid exit then
+  -1 over feed-members +! dup feed-header @ over feed-decl lf-idecl-block ! feed-data ;
+: feed-outside ( d feed -- outcome )
+  nip feed-members @ if outcome-invalid else outcome-ok then ;
+: feed-joined ( d feed -- outcome )
+  2dup feed-member? if feed-member else feed-outside then ;
 \ The universe parameters: their tuple, and parameter i of it; a list
 \ longer than the checker takes is full.
 : feed-tuple ( feed -- t tuples ) dup ['] staged-params@ feed-staged@ swap feed-tier tier-tuples ;
@@ -253,13 +331,17 @@ here feed-kinds - 1 cells / constant feed-kinds#
 : feed-params ( feed -- outcome )
   dup feed-tuple tuple-length dup lf-param-capacity > if 2drop outcome-full exit then
   2dup swap feed-decl lf-idecl-arity ! 0 ?do i over feed-param! loop drop outcome-ok ;
+\ The block words above take ( d feed ): the declaration being fed, then
+\ the record.
+: feed-dfeed ( feed -- d feed ) dup feed-d @ swap ;
 : feed-block? ( feed -- flag ) ['] staged-kind@ feed-staged@ kind-inductive = ;
 : feed-added ( feed -- outcome )
-  dup feed-start dup feed-details dup feed-params dup ok? 0= if nip exit then
+  dup feed-start dup feed-details dup feed-dfeed feed-joined dup ok? 0= if nip exit then
+  drop dup feed-params dup ok? 0= if nip exit then
   drop feed-decl lf-input-add nip ;
 : feed-one ( d feed -- outcome )
   tuck feed-d ! dup feed-known-kind? 0= if drop outcome-invalid exit then
-  dup feed-block? if drop outcome-ok else feed-added then ;
+  dup feed-block? if feed-dfeed feed-header-record else feed-added then ;
 : feed-decls-all ( feed -- outcome )
   dup feed-decls# 0 ?do
     i over feed-where ! i over feed-one dup ok? 0= if nip unloop exit then drop
@@ -270,7 +352,7 @@ here feed-kinds - 1 cells / constant feed-kinds#
   lf-input-reset lf-term-reset lf-level-reset lf-cref-reset lf-lscope-context-reset
   feed-tier lf-name-attach ;
 : feed-session ( feed -- outcome ) drop lf-ssession-begin flag>outcome ;
-: feed-end ( feed -- outcome ) drop lf-input-end ;
+: feed-end ( feed -- outcome ) feed-members @ if outcome-invalid else lf-input-end then ;
 create feed-steps
   ' feed-fresh , ' feed-capacities , ' feed-maps , ' feed-context , ' feed-session ,
   ' feed-levels-all , ' feed-exprs-all , ' feed-decls-all , ' feed-end ,

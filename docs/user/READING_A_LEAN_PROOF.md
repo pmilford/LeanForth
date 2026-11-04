@@ -1060,7 +1060,13 @@ inductive types (rule U1) and number literals (rule U2) are
 "not built yet", never "wrong" (see [outcomes](CONCEPTS.md#outcomes)).
 They come in phase 5, "Data types", of the
 [plan draft](../project/PLAN_DRAFT.md), whose first targets are exactly
-`n + 0 = n` and `0 + n = n`.
+`n + 0 = n` and `0 + n = n`. Its first step is done (plan task 5.2.1a,
+experimental, its review gate open): a data type that is not recursive,
+such as `And`, `Or` or `Eq`, is checked when an export is fed to the
+checker, its recursor built and compared with Lean's
+([inductive blocks](../programming/INDUCTIVE_BLOCKS.md)); the command
+line does not read them yet. `Nat` is recursive (task 5.2.1b) and the
+number `2` is a literal, so this example is still *unsupported*.
 
 ## 8. Where tactics fit
 
@@ -1138,7 +1144,9 @@ accepts it, labelled *accepted (experimental, not independently audited);
 axioms: none*, and rejects a broken copy ([first check](FIRST_CHECK.md)).
 Its scope covers terms like `composition`; theorems that use `And`, other
 inductive types or numbers are outside it and are answered *unsupported*
-until phase 5. Until an outside Lean expert has audited it, every result
+until phase 5 (non-recursive types such as `And` are checked since task
+5.2.1a when an export is fed to the checker, not yet by the command line:
+[inductive blocks](../programming/INDUCTIVE_BLOCKS.md)). Until an outside Lean expert has audited it, every result
 it accepts is labelled that way. The current state is in
 [project progress](../project/PROJECT_PROGRESS.md); what can be trusted is
 in the [user guide](USER_GUIDE.md).

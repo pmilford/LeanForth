@@ -326,7 +326,26 @@ defer lf-minfer-apart ( left right -- mask flag )
   lf-minfer-heads lf-minfer-free2? lf-rule-d3 lf-minfer-holds ;
 : lf-minfer-arity? ( left right -- left right count true | false )
   2dup lf-minfer-count swap lf-minfer-count over = if true else drop 2drop false then ;
+\ P4 (plan task 5.2.1a): once inductive types can be in the environment,
+\ Lean's last route, is_def_eq_unit_like (type_checker.cpp 1119-1130,
+\ called at 1203), makes two terms equal when the left one's type, after
+\ whnf, is a structure whose one constructor has no field (PUnit) and
+\ their types are equal -- also after is_def_eq_app has failed. So two
+\ variable-headed terms are shown apart (D3, D5) only when the left one's
+\ type, inferred aside, has after whnfB a head that is no constant: Lean's
+\ whnf leaves such a type as it is (ADR 0011 fact 3), so it is no
+\ structure. A type headed by a constant, or one that cannot be inferred,
+\ leaves the pair undecided.
+: lf-minfer-type-kind ( node -- kind )
+  lf-minfer-walk ok-then? 0= if drop lf-head-none exit then
+  lf-minfer-whnf ok-then? if lf-mhead-kind else drop lf-head-none then ;
+: lf-minfer-kind-aside ( node -- kind )
+  >r lf-minfer-counts lf-minfer-aside @ r> true lf-minfer-aside !
+  lf-minfer-type-kind swap lf-minfer-aside ! >r lf-minfer-counts! r> ;
+: lf-minfer-unit-free? ( node -- flag )
+  lf-minfer-kind-aside dup lf-head-constant <> swap lf-head-none <> and ;
 : lf-minfer-vars-apart ( left right -- mask flag )
+  over lf-minfer-unit-free? 0= if 2drop 0 false exit then
   lf-minfer-arity? 0= if lf-rule-d3 true exit then
   >r 2dup lf-minfer-variable swap lf-minfer-variable =
   if r> lf-minfer-args-apart else r> drop lf-minfer-heads-apart then ;

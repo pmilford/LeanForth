@@ -57,7 +57,10 @@ while the step is above the rule's `start` (`lf-log-premise`). For
 `composition`, application step s50 opened when 43 records existed; its
 premises are s49 (start 48), s48 (start 47), s47 (start 45) and s45 (start
 43, which ends the chain): the function's type, the argument's type, their
-comparison and the instantiation.
+comparison and the instantiation. A step that failed may have more: the
+steps of its failure's analysis (for a rejected application, the
+inference steps the rejection's diagnosis ran) appear among its premises
+too, since they were written while the rule was open.
 
 **References.** A term or level reference `n ≥ 0` is input object `n`, an
 index below the input marks of [`src/core/input.fs`](../../src/core/input.fs),
@@ -87,11 +90,36 @@ heap stores (ADR 0016). One copy may run 4,096 tasks.
 
 **Truncation.** The first bound reached wins: no room for a record, for an
 open rule, in the term, level or reference pools, a formula that needs
-more stack or work than one copy may use (`lf-bound-work`), or a node the
-copier cannot read (not live, or not the node the rule opened with). The log then records
-the step it could not write and the bound (`lf-log-cut ( -- step bound )`),
-stops recording, and is a consistent prefix: steps 1 … N−1 complete,
-nothing after. The check goes on exactly as before.
+more stack or work than one copy may use (`lf-bound-work`), a node the
+copier cannot read (not live, or not the node the rule opened with; a
+child index below 0 counts as one), a check that ended with rules still
+open (`lf-bound-interrupted`: a THROW in the check, ADR 0013 L6's
+*interrupted* state), or no memory for the pools when the log started
+(`lf-bound-memory`). The log then records the step it could not write and
+the bound (`lf-log-cut ( -- step bound )`), stops recording, and is a
+consistent prefix: steps 1 … N−1 complete, nothing after. The check goes
+on exactly as before. An interrupted log has no publish step.
+
+**Memory** (measured on Gforth 1.0 and 0.7.3, 64-bit, 2026-11-03). The
+log's state in each context is a 224-byte header. Its pools — records,
+open rules, the term, level and reference copies, the copier's memos and
+stacks — are one heap block of 223,264 bytes, allocated when a log starts
+in a context that has none and freed when a check begins with the log off
+(`lf-log-stop`) and by the context's teardown. So a context with the log
+off pays 224 bytes, and one with the log on about 218 KiB more, once. The
+printers' state is heap-held only while an outline prints (39,480 bytes
+for `log-view.fs`, 25,144 for `proof-outline.fs`); a context holds 24
+bytes for the input's name and line, two pointer cells, and `print.fs`'s
+528 bytes. In all, a context grew from 93,784 bytes before the log to
+94,600 (with other modules' growth since); at the first review it was
+381,872. The ADR's estimate approved in D3 ("about 150 KB per worker
+while it is on") is low: the measured cost while on is 218 KiB.
+
+**Header.** Besides the counts and limits, the header keeps the input's
+fingerprint when the log started (`lf-log-input`), and the slot and
+outcome the check published (`lf-log-published ( -- slot outcome )`, slot
+−1 until a check publishes), also when the log is off or truncated. The
+outline printer compares them with the verdict it is given.
 
 ## Rule catalogue
 
@@ -175,7 +203,8 @@ Per context (the current one):
 | `lf-log?` | `( -- flag )` | nonzero while this context's log records (the kernel's only test) |
 | `lf-log-start`, `lf-log-stop` | `( level -- )`, `( -- )` | start a log for work outside the checked environment; stop and clear it |
 | `lf-log-count`, `lf-log-level`, `lf-log-decl` | `( -- n )` | records, level, the declaration a check's log is of |
-| `lf-log-cut`, `lf-log-complete?` | `( -- step bound )`, `( -- flag )` | the step that could not be written and its bound (`lf-bound-records`, `-marks`, `-terms`, `-levels`, `-unreadable`, `-work`, `-refs`), 0 0 while complete |
+| `lf-log-cut`, `lf-log-complete?` | `( -- step bound )`, `( -- flag )` | the step that could not be written and its bound (`lf-bound-records`, `-marks`, `-terms`, `-levels`, `-unreadable`, `-work`, `-refs`, `-interrupted`, `-memory`), 0 0 while complete |
+| `lf-log-input`, `lf-log-published` | `( -- h )`, `( -- slot outcome )` | the input's fingerprint when the log started; the slot and outcome the check published (−1 before) |
 | `lf-log-record` | `( step -- rec )` | record of a step (unchecked), fields `logrec-*` |
 | `lf-log-premise` | `( p -- p' )` | the next premise (see *Premises*) |
 | `lf-log-term-copies`, `lf-log-term-slot` | `( -- n )`, `( k -- addr )` | the term pool: copy `k`'s node (`node@` gives `tag first second`) |
@@ -191,22 +220,43 @@ The kernel's protocol (only `src/kernel/` calls these, always after
 `lf-log-close-handle`, `lf-log-close-maybe`, `lf-log-close-whnf`,
 `lf-log-close-all`, and, unconditionally, `lf-log-begin ( i -- )` at the
 start of a check and `lf-log-publish ( slot deps outcome -- )` after its
-hand-over. `tests/core/check_log_isolation.py` (in `make test`) fails if a
-kernel file names any other log word or loads presentation code, if a
-printer writes a log, if the command line (`src/cli/`, which turns the
-log on for `leanforth print`) names more than the switches `lf-log-set`,
-`lf-log-limits`, `lf-log-capacities`, the levels and the read-only
-`lf-log-level` and `lf-log-complete?`, if any other source file names a
-log word, or if
-the log module names a word that could change a verdict (diagnostics,
-THROW, ABORT, heap memory, printing, store allocation or rollback, walks,
-fuel).
+hand-over. `tests/core/check_log_isolation.py` (in `make test`) checks
+allow-lists, not deny-lists: a kernel file may name only that protocol
+and the rule codes, and loads no presentation code; a printer
+(`src/present/`) only the reading words (the record and copy fields, the
+counts, the catalogue, the header's questions); the command line
+(`src/cli/`, which turns the log on for `leanforth print`) only the
+switches `lf-log-set`, `lf-log-limits`, `lf-log-capacities`, the levels
+and the read-only `lf-log-level` and `lf-log-complete?`; any other source
+file no log word; no file outside the log module may store into a field
+of a record, mark, copied reference, the header, the pools or the
+options; and the log module may name only its own words, standard Forth
+words, the context words and the stores' read-only accessors (so no
+diagnostic, printing, store allocation or rollback, walk or fuel word),
+with `ALLOCATE` only in the word that makes its pools, `FREE` only in the
+one that gives them back, `THROW` only in its context teardown and `ABORT"`
+only in the catalogue's load-time index.
 
 **Lifetime.** `lf-env-begin` starts a fresh log for the check at the
-options' level, or clears it when that is off. After the hand-over the
-publish step is written and the log stops recording; it stays readable
-until the next check begins in that context, which is when the proof
-outline is printed.
+options' level, or, when that is off, frees the pools and clears it.
+After the hand-over the published slot and outcome go into the header,
+the publish step is written (unless the check ended with rules open) and
+the log stops recording; it stays readable until the next check begins
+in that context, which is when the proof outline is printed. The
+kernel's two reads of `lf-log?` around the formation step (steps 4–6 of
+a check) agree because a check's log never restarts while it runs; a
+log truncated between them leaves the formation step counted as open,
+and `lf-log-close-all` closes it.
+
+**Stack use.** ADR 0013 L5 item 5 asked for the stack needs to be
+measured again with the log on. Stack painting of `infer-deep`'s deepest
+case (25 applications, a 59-level normalisation; the review of
+2026-11-03): 597 return and 222 data cells before the log; 599 and 222
+with it off; 601 and 222 at level `terms` or `steps` (158 records); 599
+and 222 truncated by three term copies; the fuel the same in every run.
+The stated need is 1,728 return and 1,280 data cells. The printers' own
+walks over a formula (rebuilding copies, naming them, looking for a bound
+variable) nest at most 512 deep; deeper, the formula prints as `?`.
 
 **Test preset.** A word `lf-log-preset-level` defined before
 `src/core/derivation-log.fs` loads (`gforth -e "2 constant lf-log-preset-level" …`)
@@ -253,8 +303,18 @@ also on Gforth 0.7.3.
   full at every record limit from 0 to 139, every open-rule limit from 0
   to 23, every term-copy limit from 0 to 39 and every level-copy limit
   from 0 to 11 (2,272 truncated logs), every log passing the structural
-  check of `tests/support/log-check.fs`; an unreadable input; a check that
-  throws with a rule open.
+  check of `tests/support/log-check.fs` (numbering, nesting, references,
+  copies, the prefix, a publish step whose premise is the declaration
+  step, and each ok step's premise kinds: an application at least two
+  inference premises, one defeq and one instantiate; a lambda and a Pi
+  two inference premises; a variable only shifts; a Sort only
+  universe-parameter steps; a proposition or type step one inference
+  premise; a declaration one fresh-name, one formation and one defeq step.
+  A failed step is not checked this way: its premises include the steps
+  of its failure's analysis); an unreadable input; a check that throws
+  with rules open (its log truncated as interrupted, not complete); a
+  validator that refuses a publish step after another step and an ok
+  declaration step without its premises.
 - `tests/core/log-trials.fs` (`make test`): the checker trials of
   `tests/support/checker-trial.fs`, 8 seeds of 1,000 random steps
   (inference, conversion, comparison, beta, shift, instantiation, the level
@@ -276,7 +336,15 @@ also on Gforth 0.7.3.
   `log-*`): a logged path that changes a comparison's verdict, a truncated
   log that changes an outcome, a step saved one step late (a premise
   pointing at a missing step), a log that keeps recording after a bound,
-  and an outline printed from a truncated log; each is caught.
+  an outline printed from a truncated log, a printer that trusts the
+  caller's verdict, a thrown check's log reported complete, a validator
+  that accepts any publish premise, the log module rolling the stores
+  back or allocating outside its pools word, a printer storing into a
+  record, and `print` leaving the log on after a THROW; each is caught.
+- The outline printer refuses a log the verdict does not belong to (M1
+  of the review of 2026-11-03): two golden sections in
+  `tests/present/outlines.golden` (a rejected declaration's log given as
+  accepted; composition's log after identity's input is loaded).
 
 **Cost.** Off, the checker pays one fetch and branch per logged site. On
 the workload of checking the five pinned exports 2,000 times each
@@ -287,6 +355,9 @@ times as long at level terms and 1.5 times at level steps.
 
 ## Not yet
 
+- ADR 0013 L2's header copy is partial: `lf-log-publish` keeps the
+  published slot and outcome, not the diagnostic (the printers read it from
+  the context, as the checker left it).
 - The NDJSON writer of ADR 0013 L6 and the observer called after each
   declaration (a parallel run needs it); the outline is printed from the
   in-memory log, between checks, by the caller.

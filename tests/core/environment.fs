@@ -395,7 +395,10 @@ T{ 2 slot@ -77 ' lf-env-unpublish catch nip nip refused? -> true }T
 T{ 1 slot@ -77 ' lf-env-unpublish catch nip nip refused? -> true }T
 T{ 2 slot@ ' lf-env-guarded catch nip refused? 2 slot@ ' lf-env-write catch nip refused? -> true true }T
 T{ 2 slot@ outcome-ok ' lf-env-final catch nip nip refused? -> true }T
-T{ 0 2 slot@ ' lf-slot-fill catch nip nip refused? 2 slot@ ' lf-slot-input! catch nip refused? -> true true }T
+T{ 0 0 2 slot@ ' lf-slot-fill catch nip nip nip refused? 0 2 slot@ ' lf-slot-input! catch nip nip refused? -> true true }T
+T{ 0 2 slot@ ' lf-span-fill catch nip nip refused? 2 slot@ outcome-ok ' lf-span-outcome! catch nip nip refused? -> true true }T
+T{ 2 slot@ ' lf-span-final! catch nip refused? 2 slot@ ' lf-slot-clear catch nip refused? -> true true }T
+T{ 2 slot@ ' lf-span-clear catch nip refused? -> true }T
 T{ 2 slot@ ' lf-slot-sets! catch nip refused? 0 2 slot@ ' lf-slot-deps! catch nip nip refused? -> true true }T
 T{ 7 pool ' lf-pool-put catch nip nip refused? -> true }T
 T{ lf-env ' lf-env-forget catch nip refused? lf-env ' lf-env-fields catch nip refused? -> true true }T

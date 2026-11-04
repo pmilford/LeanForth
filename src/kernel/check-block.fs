@@ -1,0 +1,416 @@
+\ check-block (plan task 5.2.1a; ADR 0015 §3, §4): the check of an
+\ inductive block that check-declaration runs when the snapshot's
+\ declaration is a block's first member. It runs Lean 4.35.0's
+\ add_inductive (inductive.cpp 1235-1350, commit eb6cafb7) for a block of
+\ one non-recursive type, step by step in Lean's order, then compares
+\ what it generated with what the file holds as Lean's replay does
+\ (Lean/Replay.lean 102-164), and ends with one outcome for every member:
+\    1 the audit (inductive-block.fs): B0 shape (invalid), unsafe members
+\      and U2 forms (unsupported), V1 (invalid), the scope (unsupported:
+\      mutual, recursive, or the type in a result index);
+\    2 T0 the reserved prefix _nested (1241, 1244);
+\    3 C1 uniform occurrences (check_uniform_ind_occs, 134-164);
+\    4 T1 at least numParams binders (get_params, 1138-1146);
+\    5 T5 universe parameters distinct (check_duplicated_univ_params, 869);
+\    6 N2 the type's name and T.rec unused (check_inductive_types 258-259);
+\    7 the type's type inferred (tc().check, 261);
+\    8 its telescope, after whnf at each step (263-283): parameters and
+\      indices, and a Sort at the end (ensure_sort, 287: T2), whose level
+\      is the result level; where Lean's whnf might unfold a constant,
+\      unknown (K1, lf-diag-needs-unfolding);
+\    9 each constructor (check_constructors 456-497): C4 duplicate name,
+\      N2, its type inferred (the block's type visible to inference, as
+\      Lean declares it first, 308-375), then its raw telescope: C2 each
+\      parameter's domain against the type's (is_def_eq, D1-D5 reject,
+\      else unknown), U1 each field's universe (Lean's is_geq,
+\      level-geq.fs, or a result level that normalizes to zero), C3 the
+\      result a valid application of the type (is_valid_ind_app 381-409);
+\      numFields its binders after the parameters (499-519). Positivity
+\      (436-452) holds trivially: the audit's scope leaves no field type
+\      mentioning the type, and whnf never makes an occurrence;
+\   10 the elimination level (elim_only_at_universe_zero 522-577, E0-E4;
+\      its universe u, or u_1, u_2, ... when taken, 579-592) and K
+\      (init_K_target 594-616);
+\   11 N2 for T.rec against the constructors now declared (813);
+\   12 the recursor and its rules (inductive-recursor.fs, G1, G2);
+\   13 B3: each constructor and each exported recursor equal to the one
+\      generated, by Lean's ==: every field, universe parameter names
+\      included, terms structurally (mixed-compare.fs: binder names and
+\      annotations are not stored, as Lean's == ignores them); a recursor
+\      Lean does not generate is rejected;
+\   14 B4: fields Lean's replay ignores -- the type's numIndices, isRec,
+\      isReflexive, numNested, and a recursor missing from the block --
+\      never used, never failing; a difference sets a warning bit
+\      (lf-block-warnings, owner answer Q2).
+\ The first step that does not succeed decides the outcome; every member
+\ gets it, through the publisher's block publication (env-publish.fs:
+\ the candidate's span). G4 (check_recursors 829-866, a defensive check
+\ of Lean's own generation) is not run: for a non-recursive block each
+\ rule's reduct is minor_j b, whose type is minor_j's result type,
+\ motive js (c_j As b), by construction the type the recursor gives the
+\ left side; the generated recursor is compared with Lean's own (B3).
+\ [kernel] code: experimental, not through the review gate; not
+\ independently audited.
+\ State: one record, lf-blk-state (the T.rec name, the constructor and
+\ binder being checked, the fields of the elimination test), a member of
+\ the checker context, beside the block's record lf-ind-state.
+
+require ../lib/lib.fs
+require ../core/diagnostics.fs
+require ../core/input.fs
+require ../core/levels.fs
+require ../core/name-equal.fs
+require ../core/names.fs
+require ../core/terms.fs
+require ./environment.fs
+require ./env-signature.fs
+require ./inductive-block.fs
+require ./inductive-recursor.fs
+require ./level-geq.fs
+require ./level-make.fs
+require ./mixed-compare.fs
+require ./mixed-head.fs
+require ./mixed-infer.fs
+
+begin-structure /lf-blkrec
+  field: lf-blkrec-rec       \ the name T.rec
+  field: lf-blkrec-ctor      \ the constructor being checked
+  field: lf-blkrec-checks    \ fields whose type is no proposition (E3)
+  lf-ind-binder-capacity cells +field lf-blkrec-positions   \ their binders
+end-structure
+/lf-blkrec context-record: lf-blk-state
+
+1 constant lf-warn-indices       \ B4 warning bits
+2 constant lf-warn-rec
+4 constant lf-warn-reflexive
+8 constant lf-warn-nested
+16 constant lf-warn-no-recursor
+
+: lf-blk-site ( -- site ) c" check-block lf-block-check" ;
+: lf-blk-rec-id ( -- name ) lf-blk-state lf-blkrec-rec @ ;
+: lf-blk-ctor@ ( -- j ) lf-blk-state lf-blkrec-ctor @ ;
+: lf-blk-n ( -- n ) lf-ind-state lf-ind-indices @ ;
+: lf-blk-level ( -- level ) lf-ind-state lf-ind-level @ ;
+\ The block's warnings after its check, and the step it reached (1-14 as
+\ above; 15 when every step succeeded).
+: lf-block-warnings ( -- bits ) lf-ind-state lf-ind-warned @ ;
+: lf-block-step@ ( -- step ) lf-ind-state lf-ind-step-reached @ ;
+: lf-blk-reject ( n1 n2 code -- outcome ) lf-blk-site swap lf-diag-note outcome-rejected ;
+\ B3's rejections replace what the structural comparison recorded on the
+\ way (a difference is undecided there, and decisive here).
+: lf-blk-replace ( n1 n2 code -- outcome ) lf-blk-site swap lf-diag! outcome-rejected ;
+\ Run xt ( -- outcome ) only when the outcome so far is ok.
+: lf-blk-then ( outcome xt -- outcome ) over ok? if nip execute else drop then ;
+
+\ Inference jobs in environment mode on the block's fuel (mixed-infer.fs).
+: lf-blk-job ( -- ) lf-ind-fuel @ lf-minfer-start-env ;
+: lf-blk-refuel ( outcome -- outcome ) lf-minfer-fuel @ lf-ind-fuel ! ;
+: lf-blk-infer ( root -- outcome ) lf-blk-job lf-minfer-walk nip lf-blk-refuel ;
+: lf-blk-push ( domain -- outcome ) lf-minfer-push if outcome-ok else outcome-full then ;
+
+\ While the constructors are checked, the type is a constant inference
+\ finds (Lean's declare_inductive_types), through env-signature's hook.
+: lf-blk-visible? ( -- flag ) lf-ind-state lf-ind-visible @ ;
+: lf-blk-local ( name -- decl true | false )
+  lf-blk-visible? 0= if drop false exit then
+  lf-ind-name lf-name-same? if lf-ind-type true else false then ;
+' lf-blk-local is lf-envsig-local
+
+\ ---------------------------------------------------------------------------
+\ Step 5, T5: the universe parameters distinct.
+: lf-blk-t5 ( -- outcome )
+  lf-ind-lparams lf-params-distinct? if outcome-ok exit then
+  lf-ind-first@ 0 lf-diag-duplicate-param lf-blk-reject ;
+\ Step 6, N2 on the type's name and on T.rec (K5 on undecided ones), as
+\ the environment's lookup decides it below the block.
+: lf-blk-fresh ( name -- outcome ) lf-env-limit lf-env-find lf-env-n2 ;
+: lf-blk-rec-name! ( -- outcome )
+  lf-ind-name s" rec" lf-name-str if lf-blk-state lf-blkrec-rec ! outcome-ok
+  else outcome-full then ;
+: lf-blk-rec-fresh ( -- outcome ) lf-blk-rec-id lf-blk-fresh ;
+: lf-blk-names ( -- outcome )
+  lf-ind-name lf-blk-fresh ['] lf-blk-rec-name! lf-blk-then
+  ['] lf-blk-rec-fresh lf-blk-then ;
+\ Step 7: the type's type.
+: lf-blk-type ( -- outcome ) lf-ind-type lf-idecl-type @ lf-blk-infer ;
+
+\ Step 8: the telescope. Each node is put in whnf (whnfB here; a constant
+\ head is K1); a Pi's domain is binder i's; anything else ends it, and
+\ must be a Sort (else Lean's typeExpected, rule T2).
+: lf-blk-unfold ( node -- outcome )
+  0 lf-blk-site lf-diag-needs-unfolding lf-diag-note outcome-unknown ;
+: lf-blk-not-sort ( node -- outcome ) 0 lf-diag-block-not-sort lf-blk-reject ;
+: lf-blk-sorted ( node -- outcome )
+  lf-term-first@ lf-ind-state lf-ind-level ! outcome-ok ;
+: lf-blk-end ( node -- outcome )
+  dup lf-mhead-kind case
+    lf-head-sort of lf-blk-sorted endof  lf-head-constant of lf-blk-unfold endof
+    lf-head-none of drop outcome-invalid endof  >r lf-blk-not-sort r> endcase ;
+: lf-blk-count ( outcome i -- outcome ) lf-ind-nparams - lf-ind-state lf-ind-indices ! ;
+: lf-blk-pi? ( node -- flag ) lf-mhead-kind lf-head-pi = ;
+: lf-blk-room? ( i -- flag ) lf-ind-binder-capacity < ;
+: lf-blk-tele ( node i -- outcome )
+  begin swap lf-minfer-whnf ok-then? 0= if nip exit then dup lf-blk-pi? while
+    over lf-blk-room? 0= if 2drop outcome-full exit then
+    dup lf-term-first@ 2 pick lf-ind-domain ! lf-term-second@ swap 1+
+  repeat lf-blk-end swap lf-blk-count ;
+: lf-blk-telescope ( -- outcome )
+  lf-blk-job lf-ind-type lf-idecl-type @ 0 lf-blk-tele lf-blk-refuel ;
+
+\ ---------------------------------------------------------------------------
+\ Step 9: the constructors. The type's parameter domains, as its locals
+\ have them (consume_type_annotations, inductive-recursor.fs).
+: lf-blk-param-dom ( i -- node ) lf-ind-domain @ lf-rcr-consume ;
+: lf-blk-ctor-name ( j -- name ) lf-ind-ctor lf-idecl-name @ ;
+: lf-blk-member ( -- k ) lf-blk-ctor@ lf-ind-types@ + ;
+\ C4: an earlier constructor of the type with the same name.
+: lf-blk-dup ( -- outcome ) lf-blk-member 0 lf-diag-duplicate-ctor lf-blk-reject ;
+: lf-blk-c4 ( j -- outcome )
+  dup lf-blk-ctor-name swap 0 ?do dup i lf-blk-ctor-name lf-name-same?
+    if drop lf-blk-dup unloop exit then
+  loop drop outcome-ok ;
+\ C2, parameter i: the constructor's domain against the type's.
+: lf-blk-c2 ( domain i -- outcome )
+  lf-blk-param-dom lf-minfer-agree lf-blk-site lf-diag-ctor-param lf-minfer-verdict ;
+: lf-blk-param ( node i -- outcome )
+  2dup swap lf-term-first@ swap lf-blk-c2 dup ok? 0= if nip nip exit then
+  drop nip lf-blk-param-dom lf-blk-push ;
+\ U1, a field in a universe the result level covers: Lean's is_geq, or a
+\ result that normalizes to zero (an inductive predicate).
+: lf-blk-too-big ( -- outcome ) lf-blk-member 0 lf-diag-universe-too-big lf-blk-reject ;
+: lf-blk-geq? ( level -- flag outcome )
+  lf-blk-level swap lf-minfer-fuel @ lf-level-geq? lf-lnorm-fuel @ lf-minfer-fuel ! ;
+: lf-blk-predicate ( -- outcome )
+  lf-blk-level lf-minfer-zero? ok-then? 0= if exit then
+  if outcome-ok else lf-blk-too-big then ;
+: lf-blk-fits ( level -- outcome )
+  lf-blk-geq? ok-then? 0= if exit then if outcome-ok else lf-blk-predicate then ;
+: lf-blk-field ( node i -- outcome )
+  drop lf-term-first@ dup lf-minfer-domain ok-then? 0= if nip exit then
+  lf-blk-fits ok-then? 0= if exit then lf-rcr-consume lf-blk-push ;
+: lf-blk-binder ( node i -- outcome )
+  dup lf-ind-nparams < if lf-blk-param else lf-blk-field then ;
+\ The raw telescope: (body k outcome), k its binders.
+: lf-blk-binders ( node -- node' k outcome )
+  0 begin over lf-tag-pi lf-ind-tag? while
+    2dup lf-blk-binder dup ok? 0= if exit then drop swap lf-term-second@ swap 1+
+  repeat outcome-ok ;
+\ C3: the result is T As is: T at the universe parameters, numParams +
+\ numIndices arguments, argument i the variable of parameter i. Its
+\ indices hold no occurrence of T: the audit's scope allows none there.
+: lf-blk-arity ( -- n ) lf-ind-nparams lf-blk-n + ;
+: lf-blk-c3-arg? ( node depth i -- flag )
+  tuck - 1- >r lf-blk-arity swap lf-ind-arg r> lf-ind-bvar? ;
+: lf-blk-c3-params? ( node depth -- flag )
+  lf-ind-nparams 0 ?do 2dup i lf-blk-c3-arg? 0= if 2drop false unloop exit then loop
+  2drop true ;
+: lf-blk-c3? ( node depth -- flag )
+  over lf-ind-spine lf-blk-arity <> if drop 2drop false exit then
+  dup lf-ind-type-node? 0= if drop 2drop false exit then
+  lf-term-first@ lf-ind-levels? 0= if 2drop false exit then
+  dup lf-ind-nparams < if 2drop false exit then lf-blk-c3-params? ;
+: lf-blk-bad-return ( -- outcome ) lf-blk-member 0 lf-diag-return-type lf-blk-reject ;
+: lf-blk-ctor-walk ( j -- outcome )
+  lf-blk-job lf-ind-ctor-type lf-blk-binders lf-blk-refuel ok-then2? 0= if exit then
+  2dup lf-blk-c3? 0= if 2drop lf-blk-bad-return exit then
+  nip lf-ind-nparams - lf-blk-ctor@ lf-ind-nfields ! outcome-ok ;
+: lf-blk-ctor ( j -- outcome )
+  dup lf-blk-state lf-blkrec-ctor !
+  dup lf-blk-c4 ok-then? 0= if exit then
+  dup lf-blk-ctor-name lf-blk-fresh ok-then? 0= if exit then
+  dup lf-ind-ctor-type lf-blk-infer ok-then? 0= if exit then lf-blk-ctor-walk ;
+: lf-blk-ctors ( -- outcome )
+  true lf-ind-state lf-ind-visible !
+  lf-ind-ctors@ 0 ?do i lf-blk-ctor dup ok? 0= if unloop exit then drop loop outcome-ok ;
+
+\ ---------------------------------------------------------------------------
+\ Step 10: the elimination level (E0-E4) and K.
+\ E3: the one constructor's telescope with its own domains (each a local
+\ of its own type, 553-566); a field whose type is no proposition must be
+\ an argument of the result, else Prop only (E4).
+: lf-blk-checks# ( -- n ) lf-blk-state lf-blkrec-checks @ ;
+: lf-blk-check@ ( k -- pos ) cells lf-blk-state lf-blkrec-positions + @ ;
+: lf-blk-check! ( pos -- )
+  lf-blk-checks# dup lf-ind-binder-capacity < 0= if 2drop exit then
+  cells lf-blk-state lf-blkrec-positions + ! 1 lf-blk-state lf-blkrec-checks +! ;
+: lf-blk-proof? ( domain -- flag status )
+  lf-minfer-domain ok-then? 0= if false swap exit then lf-minfer-zero? ;
+: lf-blk-e-field ( node i -- node i outcome )
+  over lf-term-first@ lf-blk-proof? ok-then? 0= if exit then
+  0= if dup lf-blk-check! then outcome-ok ;
+: lf-blk-e-binder ( node i -- outcome )
+  dup lf-ind-nparams < 0= if lf-blk-e-field ok-then2? 0= if exit then then
+  drop lf-term-first@ lf-rcr-consume lf-blk-push ;
+: lf-blk-e-walk ( node -- node' k outcome )
+  0 begin over lf-tag-pi lf-ind-tag? while
+    2dup lf-blk-e-binder dup ok? 0= if exit then drop swap lf-term-second@ swap 1+
+  repeat outcome-ok ;
+\ Whether some argument of node's spine is the variable #index.
+: lf-blk-among? ( node index -- flag )
+  swap begin dup lf-tag-app lf-ind-tag? while
+    2dup lf-term-second@ swap lf-ind-bvar? if 2drop true exit then lf-term-first@
+  repeat 2drop false ;
+: lf-blk-revealed? ( node k -- flag )
+  lf-blk-checks# 0 ?do 2dup 1- i lf-blk-check@ - lf-blk-among? 0=
+    if 2drop false unloop exit then
+  loop 2drop true ;
+: lf-blk-e3 ( -- prop? outcome )
+  0 lf-blk-state lf-blkrec-checks !
+  lf-blk-job 0 lf-ind-ctor-type lf-blk-e-walk lf-blk-refuel
+  ok-then2? 0= if false swap exit then lf-blk-revealed? 0= outcome-ok ;
+\ elim_only_at_universe_zero: E0 a result never zero, E1 two or more
+\ constructors, E2 none, else E3/E4.
+: lf-blk-prop-only? ( -- prop? outcome )
+  lf-lmk-forget lf-blk-level lf-lmk-nonzero? if false outcome-ok exit then
+  lf-ind-ctors@ 1 > if true outcome-ok exit then
+  lf-ind-ctors@ 0= if false outcome-ok exit then lf-blk-e3 ;
+\ The motive's universe: u, or u_1, u_2, ... the first not among the
+\ block's universe parameters (name("u").append_after(i)).
+: lf-blk-u ( i -- c-addr u )
+  ?dup 0= if s" u" exit then
+  base @ >r decimal 0 <# #s [char] _ hold [char] u hold #> r> base ! ;
+: lf-blk-taken? ( name -- flag ) lf-ind-lparams lf-ind-in? ;
+: lf-blk-elim-name ( -- name true | false )
+  0 begin dup lf-blk-u 0 -rot lf-name-str 0= if drop false exit then
+    dup lf-blk-taken? while drop 1+ repeat nip true ;
+: lf-blk-motive-level ( -- name level true | false )
+  lf-blk-elim-name 0= if false exit then
+  dup lf-level-param if true else drop false then ;
+: lf-blk-elim! ( name level -- )
+  lf-ind-state lf-ind-elim ! lf-ind-state lf-ind-elim-name ! ;
+\ K: a predicate with one constructor that has no fields.
+: lf-blk-k-shape? ( -- flag )
+  lf-ind-ctors@ 1 = if 0 lf-ind-nfields @ 0= else false then ;
+: lf-blk-k ( -- outcome )
+  false lf-ind-state lf-ind-k ! lf-blk-k-shape? 0= if outcome-ok exit then
+  lf-blk-job lf-blk-level lf-minfer-zero? lf-blk-refuel ok-then? 0= if exit then
+  lf-ind-state lf-ind-k ! outcome-ok ;
+: lf-blk-elim ( -- outcome )
+  lf-blk-prop-only? ok-then? 0= if exit then
+  if 0 0 else lf-blk-motive-level 0= if outcome-full exit then then
+  lf-blk-elim! lf-blk-k ;
+
+\ Step 11: T.rec is not a constructor's name.
+: lf-blk-rec-clash ( j -- outcome )
+  lf-ind-types@ + lf-blk-rec-id swap lf-diag-already-declared lf-blk-reject ;
+: lf-blk-rec-name ( -- outcome )
+  lf-ind-ctors@ 0 ?do i lf-blk-ctor-name lf-blk-rec-id lf-name-same?
+    if i lf-blk-rec-clash unloop exit then
+  loop outcome-ok ;
+\ Step 12: the recursor (inductive-recursor.fs).
+: lf-blk-build ( -- outcome ) lf-recursor-build ;
+
+\ ---------------------------------------------------------------------------
+\ Step 13, B3. Name lists equal name by name.
+: lf-blk-names= ( items n items' n' -- flag )
+  rot over <> if drop 2drop false exit then
+  0 ?do over i cells + @ over i cells + @ lf-name-same? 0= if 2drop false unloop exit then
+  loop 2drop true ;
+: lf-blk-params= ( decl -- flag ) lf-idecl-params@ lf-ind-lparams lf-blk-names= ;
+\ Constructor j: the field that differs (1 levelParams, 3 cidx, 4
+\ numParams, 5 numFields), or 0; its name, type and induct are the ones
+\ the kernel uses (B0).
+: lf-blk-ctor-data ( j -- data ) lf-ind-ctor lf-idecl-data ;
+: lf-blk-ctor-diff ( j -- field )
+  dup lf-ind-ctor lf-blk-params= 0= if drop 1 exit then
+  dup lf-blk-ctor-data lf-ict-cidx lf-more-field over <> if drop 3 exit then
+  dup lf-blk-ctor-data lf-ict-params lf-more-field lf-ind-nparams <> if drop 4 exit then
+  dup lf-blk-ctor-data lf-ict-fields lf-more-field swap lf-ind-nfields @ <> 5 and ;
+: lf-blk-ctor-differs ( j field -- outcome )
+  swap lf-ind-types@ + swap lf-diag-invalid-constructor lf-blk-replace ;
+: lf-blk-ctors-b3 ( -- outcome )
+  lf-ind-ctors@ 0 ?do
+    i lf-blk-ctor-diff ?dup if i swap lf-blk-ctor-differs unloop exit then
+  loop outcome-ok ;
+\ Two terms by Lean's ==: (equal ok); a structural difference is (false
+\ ok); any other failure passes on.
+: lf-blk-same ( generated exported -- flag outcome )
+  >r lf-rcr-handle r> lf-rcr-handle lf-ind-fuel @ lf-mixed-compare
+  lf-mcompare-fuel @ lf-ind-fuel !
+  case outcome-ok of true outcome-ok endof  outcome-unknown of false outcome-ok endof
+    >r false r@ r> endcase ;
+\ Recursor r: named T.rec, else Lean's "No such recursor"; then the
+\ field that differs (2 levelParams, 3 type, 4 all, 5 numParams, 6
+\ numIndices, 7 numMotives, 8 numMinors, 9 rules, 10 k), or 0.
+: lf-blk-rec-lparams= ( decl -- flag )
+  lf-idecl-params@ lf-ind-state lf-ind-elim-name @ ?dup 0=
+  if lf-ind-lparams lf-blk-names= exit then
+  >r dup 0= if 2drop r> drop false exit then
+  over @ r> lf-name-same? 0= if 2drop false exit then
+  1- swap cell+ swap lf-ind-lparams lf-blk-names= ;
+: lf-blk-self ( -- items n ) lf-ind-type lf-idecl-name 1 ;
+: lf-blk-numbers ( data -- field )
+  dup lf-irc-params lf-more-field lf-ind-nparams <> if drop 5 exit then
+  dup lf-irc-indices lf-more-field lf-blk-n <> if drop 6 exit then
+  dup lf-irc-motives lf-more-field 1 <> if drop 7 exit then
+  lf-irc-minors lf-more-field lf-ind-ctors@ <> 8 and ;
+: lf-blk-k= ( data -- flag ) lf-irc-k lf-more-field 0<> lf-ind-state lf-ind-k @ 0<> = ;
+: lf-blk-rule-diff ( rules j -- differs? outcome )
+  2dup lf-irc-rule @ over lf-blk-ctor-name lf-name-same?
+  0= if 2drop true outcome-ok exit then
+  2dup lf-irc-rule cell+ @ over lf-ind-nfields @ <> if 2drop true outcome-ok exit then
+  tuck lf-irc-rule 2 cells + @ swap lf-ind-rule @ swap lf-blk-same >r 0= r> ;
+: lf-blk-rules-diff ( data -- field outcome )
+  lf-irc-rules@ dup lf-ind-ctors@ <> if 2drop 9 outcome-ok exit then
+  0 ?do dup i lf-blk-rule-diff ok-then? 0= if nip 0 swap unloop exit then
+    if drop 9 outcome-ok unloop exit then
+  loop drop 0 outcome-ok ;
+: lf-blk-data-diff ( data -- field outcome )
+  dup lf-irc-all@ lf-blk-self lf-blk-names= 0= if drop 4 outcome-ok exit then
+  dup lf-blk-numbers ?dup if nip outcome-ok exit then
+  dup lf-blk-rules-diff ok-then? 0= if nip 0 swap exit then
+  ?dup if nip outcome-ok exit then
+  lf-blk-k= if 0 else 10 then outcome-ok ;
+: lf-blk-rec-diff ( r -- field outcome )
+  lf-ind-rec dup lf-blk-rec-lparams= 0= if drop 2 outcome-ok exit then
+  dup lf-idecl-type @ lf-ind-state lf-ind-rec-type @ swap lf-blk-same
+  ok-then? 0= if nip 0 swap exit then 0= if drop 3 outcome-ok exit then
+  lf-idecl-data lf-blk-data-diff ;
+: lf-blk-rec-member ( r -- k ) lf-ind-types@ + lf-ind-ctors@ + ;
+: lf-blk-no-such ( r -- outcome )
+  lf-blk-rec-member 0 lf-diag-no-such-recursor lf-blk-reject ;
+: lf-blk-rec-differs ( r field -- outcome )
+  swap lf-blk-rec-member swap lf-diag-invalid-recursor lf-blk-replace ;
+: lf-blk-rec-b3 ( r -- outcome )
+  dup lf-ind-rec lf-idecl-name @ lf-blk-rec-id lf-name-same?
+  0= if lf-blk-no-such exit then
+  dup lf-blk-rec-diff ok-then? 0= if nip exit then
+  ?dup if lf-blk-rec-differs else drop outcome-ok then ;
+: lf-blk-recs-b3 ( -- outcome )
+  lf-ind-recs@ 0 ?do i lf-blk-rec-b3 dup ok? 0= if unloop exit then drop loop outcome-ok ;
+: lf-blk-compare ( -- outcome ) lf-blk-ctors-b3 ['] lf-blk-recs-b3 lf-blk-then ;
+
+\ Step 14, B4: the type's fields Lean's replay ignores, and a missing
+\ recursor, as warning bits; never a failure.
+: lf-blk-flag ( data bit -- flag ) swap lf-ity-flags lf-more-field and 0<> ;
+: lf-blk-b4 ( -- outcome )
+  lf-ind-type-data >r 0
+  r@ lf-ity-indices lf-more-field lf-blk-n <> lf-warn-indices and or
+  r@ lf-ity-rec-bit lf-blk-flag lf-warn-rec and or
+  r@ lf-ity-reflexive-bit lf-blk-flag lf-warn-reflexive and or
+  r> lf-ity-nested lf-more-field 0<> lf-warn-nested and or
+  lf-ind-recs@ 0= lf-warn-no-recursor and or
+  lf-ind-state lf-ind-warned ! outcome-ok ;
+
+\ ---------------------------------------------------------------------------
+\ The steps ( -- outcome ), in order.
+create lf-blk-steps
+  ' lf-ind-audit , ' lf-ind-t0 , ' lf-ind-c1 , ' lf-ind-t1 , ' lf-blk-t5 ,
+  ' lf-blk-names , ' lf-blk-type , ' lf-blk-telescope , ' lf-blk-ctors ,
+  ' lf-blk-elim , ' lf-blk-rec-name , ' lf-blk-build , ' lf-blk-compare , ' lf-blk-b4 ,
+here lf-blk-steps - 1 cells / constant lf-blk-steps#
+: lf-blk-step! ( step -- ) lf-ind-state lf-ind-step-reached ! ;
+: lf-blk-do ( k -- outcome ) dup 1+ lf-blk-step! cells lf-blk-steps + @ execute ;
+: lf-blk-run ( -- outcome )
+  lf-blk-steps# 0 ?do i lf-blk-do dup ok? 0= if unloop exit then drop loop
+  lf-blk-steps# 1+ lf-blk-step! outcome-ok ;
+\ The block of this context's snapshot: its members as the candidate's
+\ span (every member gets the outcome), and the fuel.
+: lf-blk-begin ( fuel -- outcome )
+  lf-env-checking 0= if drop outcome-invalid exit then nip
+  lf-ind-open swap lf-env-span! dup ok? if drop lf-ind-fuel ! outcome-ok else nip then ;
+\ Check the block whose first member is this context's snapshot, with
+\ fuel: ok when every step succeeded, else the first failure, as above.
+\ Afterwards the type is no longer visible to inference.
+: lf-block-check ( fuel -- outcome )
+  lf-blk-begin dup ok? if drop lf-blk-run then false lf-ind-state lf-ind-visible ! ;

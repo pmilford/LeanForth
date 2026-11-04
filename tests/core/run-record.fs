@@ -166,10 +166,10 @@ reused? [if] T{ reused? -> true }T [else] .( note: ABA not exercised, no reuse) 
 rr-release foreign-free
 
 \ The file is rr-start's for every later read (rvRP3 M1): rr-import has no
-\ name of its own, and without a started file it reads nothing. A checked
-\ read whose bytes are not the ones rr-start hashed (here the recorded
-\ digest is changed instead of the file; test_run_records.py swaps the
-\ file itself) fails, and says so.
+\ name of its own, and without a started file it reads nothing. A read,
+\ checked or not, whose bytes are not the ones rr-start hashed (here the
+\ recorded digest is changed instead of the file; test_run_records.py
+\ swaps the file itself) fails, and says so.
 : hex-byte ( -- addr ) run-record rr-before facts-hex ;
 constant-fixture rr-start ok? must fuel 64 rr-settings!
 T{ true rr-import -> outcome-ok }T
@@ -179,6 +179,13 @@ T{ third-accepted holds? s\" \"enforced\":true}" holds? -> true true }T
 T{ composition rr-start -> outcome-ok }T
 char x hex-byte c!
 T{ true rr-import rr-moved? -> outcome-invalid true }T
+T{ false rr-import rr-moved? -> outcome-invalid true }T
+\ The digest of a read that was ok is the file's (rr-hash's), checked or
+\ not.
+: digest-of ( c-addr u flag -- c-addr u )
+  >r rr-start ok? must r> rr-import ok? must cin-digest ;
+T{ composition true digest-of rr-recorded compare -> 0 }T
+T{ composition false digest-of rr-recorded compare -> 0 }T
 \ rr-file! and rr-read! are internal (rvRP3 R2-3): a recorded run reads
 \ its input only through rr-import of rr-start's file. The tests below
 \ reach them through rr-internal.

@@ -118,6 +118,20 @@ what was used and the limit.
 | 59 | rejected: argument type mismatch (D1-D5) | rejected | the D rules used: 1 D1, 2 D2, 4 D3, 8 D4, 16 D5, added | 0 | `mixed-infer lf-mixed-infer` (an argument's type against the function's domain) |
 | 60 | rejected: declared type mismatch (D1-D5) | rejected | the D rules used, as for 59 | 0 | `mixed-definition-probe lf-mixed-definition-probe`, `check-declaration lf-check-declaration` (the value's type against the claim) |
 | 61 | rejected: Pi body not a type (S4) | rejected | the body's type, reduced | 0 | `mixed-infer lf-mixed-infer` (a Π's body; ADR 0011, Amendment 2) |
+| 62 | invalid input: inductive block shape (B0) | invalid | the block's first member | 0 | `inductive-block lf-ind-audit` (ADR 0015 B0: members, kinds, all and ctors lists, induct, recursors naming the block, distinct names, as lean4export writes them) |
+| 63 | unsupported: inductive block outside task 5.2.1a | unsupported | the block's first member | 1 a mutual block (task 5.2.5), 2 a constructor type mentioning the type outside its result's head (recursive, 5.2.1b; in an index, 5.2.1c) | `inductive-block lf-ind-audit` |
+| 64 | undecided: Lean may unfold a definition here (K1) | unknown | the node whose head is a constant | 0 | `check-block lf-block-check` (the type's telescope, where Lean's whnf may unfold) |
+| 65 | rejected: reserved prefix _nested (T0) | rejected | the block's first member | 0 | `inductive-block lf-ind-audit` (`check_no_nested_aux`) |
+| 66 | rejected: non-uniform occurrence of the type (C1) | rejected | the occurrence's node | its binder depth | `inductive-block lf-ind-audit` (`check_uniform_ind_occs`) |
+| 67 | rejected: too few parameter binders (T1) | rejected | the type's binders | numParams | `inductive-block lf-ind-audit` (`get_params`) |
+| 68 | rejected: inductive type not ending in a Sort (T2) | rejected | the type's result, reduced (whnfβ) | 0 | `check-block lf-block-check` (`check_inductive_types`: Lean's `typeExpected`) |
+| 69 | rejected: constructor parameter mismatch (C2) | rejected | the D rules used, as for 59 | 0 | `check-block lf-block-check` (`check_constructors`) |
+| 70 | rejected: constructor field universe too big (U1) | rejected | the constructor's member | the field's binder (from 0) | `check-block lf-block-check` (`check_constructors`, Lean's `is_geq`) |
+| 71 | rejected: invalid constructor return type (C3) | rejected | the constructor's member | 0 | `check-block lf-block-check` (`is_valid_ind_app`) |
+| 72 | rejected: duplicate constructor name (C4) | rejected | the constructor's member | 0 | `check-block lf-block-check` (`check_constructors`) |
+| 73 | rejected: constructor differs from Lean's (B3) | rejected | the constructor's member | the field that differs (1 levelParams, 2 induct, 3 cidx, 4 numParams, 5 numFields) | `check-block lf-block-check` (Lean's replay: "Invalid constructor") |
+| 74 | rejected: recursor differs from Lean's (B3) | rejected | the recursor's member | the field that differs (1 name, 2 levelParams, 3 type, 4 all, 5 numParams, 6 numIndices, 7 numMotives, 8 numMinors, 9 rules, 10 k) | `check-block lf-block-check` (Lean's replay: "Invalid recursor") |
+| 75 | rejected: recursor Lean does not generate (B3) | rejected | the recursor's member | 0 | `check-block lf-block-check` (Lean's replay: "No such recursor") |
 
 Codes 1–16 explain *exhausted* (more fuel would help) and *full* (more
 memory or a larger limit would help); 20–29 explain *invalid* input or

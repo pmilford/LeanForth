@@ -24,8 +24,8 @@ that claim more than a checker could: accepted without its label or with
 a diagnostic, a label on a rejection, declarations without a run. An
 export swapped for another, with its manifest, between two reads of a run
 (between rr-start and the import, or during the importer's first pass
-only, served through a FIFO) is refused, and an input of more declarations
-than a record keeps gives no record.
+only, served through a FIFO, with the manifest checked or not) is refused,
+and an input of more declarations than a record keeps gives no record.
 
 --other-gforth runs the same records with a second Gforth (Gforth 0.7.3,
 CI's portability host): both write records equal in every field but those
@@ -66,7 +66,7 @@ LABEL = "experimental, not independently audited"
 HOST_VERSION = ("host", "version")
 HOST_ENGINE = ("host", "engine")
 CASES = "tests/core/check-declaration-cases/composition-"
-FIFO_TIMEOUT = 60                          # seconds for one run served through a FIFO
+FIFO_TIMEOUT = 30                          # seconds for one run served through a FIFO
 
 # Each input: its declarations' (name, verdict, diagnostic code, step), and
 # whether a manifest stands beside it.
@@ -562,21 +562,26 @@ class Checks:
     # the second the terms; each matched the manifest as it stood for that
     # pass, so before the fix the run paired one file's names with the
     # other file's terms, and an enforced record named bytes whose check
-    # gives other verdicts. Now the two passes must read the same bytes,
-    # else the read is invalid. The export is a FIFO served once per open
+    # gives other verdicts; an unchecked read had no tie at all. Now the two
+    # passes must read the same bytes, checked or not, else the read is
+    # invalid (line 0). The export is a FIFO served once per open
     # (serve), so the order is exact: A, A (rr-start's digest and metadata),
     # A with B's manifest put beside it (rr-start's manifest check), B with
     # A's manifest put back (the first pass), A (the second pass), A
     # (rr-finish); a run read once (rr-read-once, a plain check) has only the
     # two passes. The runs use the words the command line uses (rr-start,
     # rr-import, rr-read-once) without its extra open of the export, which
-    # only tests that it opens and would make the order a race. Skipped where
-    # FIFOs are unavailable.
-    def run_served(self, name, first, plan, words):
+    # only tests that it opens and would make the order a race. Each reader
+    # runs under timeout(1), so none can outlive its deadline. Skipped where
+    # FIFOs or timeout(1) are unavailable.
+    def run_served(self, name, first, plan, words, rest):
         """Run words (lines of Forth, with x the export) with the export the
-        FIFO name/x.ndjson served by plan, its manifest first's text to begin
+        FIFO name/x.ndjson served by plan, then by the bytes rest a few
+        times more (so that a run that reads more often than planned ends at
+        once, and its extra reads count), its manifest first's text to begin
         with: (exit status, standard output, standard error, opens served);
         the status is None when the run took too long and was stopped."""
+        plan = plan + [(rest, None)] * 4
         folder = self.tmp / name
         folder.mkdir()
         fifo, manifest = folder / "x.ndjson", folder / "x.ndjson.manifest.json"
@@ -585,28 +590,42 @@ class Checks:
         source = folder / "run.fs"
         source.write_text("\n".join(["require ~+/tests/support/run-records.fs",
                                      f': x ( -- c-addr u ) s" {fifo}" ;', *words, "bye"]) + "\n")
-        process = subprocess.Popen([self.gforth, str(source)], cwd=ROOT,
-                                   stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE, text=True, start_new_session=True)
+        # The reader can never outlive its deadline, even if this test dies:
+        # timeout(1) runs it in a process group of its own and stops that
+        # whole group (the wrapper and Gforth) when the time is up.
+        command = ["timeout", "-k", "2", str(FIFO_TIMEOUT), self.gforth, str(source)]
+        process = subprocess.Popen(command, cwd=ROOT, stdin=subprocess.DEVNULL,
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         opens, stop = [], threading.Event()
         writer = threading.Thread(target=serve, daemon=True,
                                   args=(fifo, manifest, plan, process.pid, opens, stop))
         writer.start()
+        status, out, err = None, "", ""
         try:
-            out, err = process.communicate(timeout=FIFO_TIMEOUT)
-            status = process.returncode
-        except subprocess.TimeoutExpired:      # its whole group goes
-            os.killpg(process.pid, signal.SIGKILL)
-            (out, err), status = process.communicate(), None
+            out, err = process.communicate(timeout=FIFO_TIMEOUT + 10)
+            status = process.returncode if process.returncode < 124 else None
+        except subprocess.TimeoutExpired:
+            pass
         finally:
+            if process.poll() is None:         # this side gave up first: stop the group
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                process.wait()
             stop.set()
-            while writer.is_alive():           # a writer still waiting for a reader
+            for _ in range(10):                # a writer still waiting for a reader
+                if not writer.is_alive():
+                    break
                 reader = os.open(fifo, os.O_RDONLY | os.O_NONBLOCK)
                 writer.join(1)
                 os.close(reader)
         return status, out, err, len(opens)
 
     def first_pass(self):
+        if not shutil.which("timeout"):
+            print("No timeout(1) here: reads served through a FIFO are not tested")
+            return
         try:
             os.mkfifo(self.tmp / "probe.fifo")
         except (AttributeError, OSError) as error:
@@ -627,13 +646,18 @@ class Checks:
                                     stdin=subprocess.DEVNULL, capture_output=True,
                                     env=dict(os.environ, GFORTH=self.gforth), timeout=120)
             self.expect(status.returncode == code, f"first pass: {path.name} exit {status}")
-        # A recorded run: the import's outcome and rr-moved?, the importer's
-        # reason, rr-finish's and rr-write's outcomes, the record.
-        recorded = [": imported ( -- ) x rr-start . 100000 64 rr-settings!",
-                    "  true rr-import dup . rr-moved? . cr cin-error type 2drop drop cr",
+        # A recorded run, its manifest checked or not: the import's outcome
+        # and rr-moved?, the importer's reason and line, rr-finish's and
+        # rr-write's outcomes, the record. A run read once: its outcome, the
+        # importer's reason and line.
+        def recorded(flag):
+            return [": imported ( -- ) x rr-start . 100000 64 rr-settings!",
+                    f"  {flag} rr-import dup . rr-moved? . cr cin-error type space 2drop . cr",
                     "  ok? if rr-check then ;",
                     "imported rr-finish . rr-write . cr rr-text type cr"]
-        once = ["x true rr-read-once . cr cin-error type 2drop drop cr"]
+
+        def once(flag):
+            return [f"x {flag} rr-read-once . cr cin-error type space 2drop . cr"]
 
         def facts(text, export):
             data = load_strict(text)
@@ -642,19 +666,34 @@ class Checks:
                     data["input"]["manifest"]["enforced"], data["check"]["read"],
                     data["declarations"])
         # names: B spells composition otherwise; use: B accepts what A rejects.
-        for name, ((a, ma), (b, mb)) in (("names", names), ("use", use)):
+        # Without the manifest check (--no-manifest, the test driver) the
+        # passes are compared all the same; the record then says not enforced.
+        refused = changed + " 0 "
+        for name, ((a, ma), (b, mb)), flag in (("names", names, "true"), ("use", use, "true"),
+                                               ("unchecked", use, "false")):
             plan = [(a, None), (a, None), (a, mb), (b, ma), (a, None), (a, None)]
-            status, out, err, opens = self.run_served(name, ma, plan, recorded)
+            status, out, err, opens = self.run_served(name, ma, plan, recorded(flag), a)
             lines = out.split("\n", 3)
             self.expect(status == 0 and opens == 6 and lines[0].split() == ["0", "1", "0"]
-                        and lines[1] == changed and lines[2].split() == ["0", "0"]
-                        and facts(lines[3], a) == (True, True, True, "invalid", []),
+                        and lines[1] == refused and lines[2].split() == ["0", "0"]
+                        and facts(lines[3], a) == (True, True, flag == "true", "invalid", []),
                         f"first pass, {name}: {opens} opens, {out[:300]} {err[:300]}")
-        # Read once: the first pass reads B with B's manifest, the second A.
+        # rr-start's own later reads (round 3): its metadata read, then its
+        # manifest check (with B's manifest put beside B while the metadata
+        # read is served), read B after rr-hash read A; rr-start fails.
         (a, ma), (b, mb) = use
-        status, out, err, opens = self.run_served("once", mb, [(b, ma), (a, None)], once)
-        self.expect(status == 0 and opens == 2 and out.split("\n")[:2] == ["1 ", changed],
-                    f"first pass, read once: {opens} opens, {out[:300]} {err[:300]}")
+        for name, plan in (("metadata", [(a, None), (b, None)]),
+                           ("manifest", [(a, None), (a, mb), (b, ma)])):
+            status, out, err, opens = self.run_served(name, ma, plan, ["x rr-start . rr-moved? ."],
+                                                      a)
+            self.expect(status == 0 and opens == len(plan) and out.split() == ["1", "-1"],
+                        f"start, {name}: {opens} opens, {out[:300]} {err[:300]}")
+        # Read once: the first pass reads B (with B's manifest), the second A.
+        for name, flag in (("once", "true"), ("once-unchecked", "false")):
+            status, out, err, opens = self.run_served(name, mb, [(b, ma), (a, None)], once(flag),
+                                                      a)
+            self.expect(status == 0 and opens == 2 and out.split("\n")[:2] == ["1 ", refused],
+                        f"first pass, {name}: {opens} opens, {out[:300]} {err[:300]}")
 
     # rvRP3 R2-2: a record keeps at most 32 declarations (lf-input-default,
     # the schema's limit). An input of 32 gives a valid record of 32
