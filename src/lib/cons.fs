@@ -23,8 +23,9 @@
 \      refers to stays where it is, in cons-key, until it is kept);
 \   3. cons-find with the candidate's hash: an equal record's number, or
 \      the empty slot where the candidate belongs;
-\   4. if new: cons-text, keeps the text, then cons-commit keeps the
-\      candidate and enters it into the table.
+\   4. if new: cons-commit keeps the candidate and enters it into the
+\      table (full at the class's limit), then cons-text, keeps the text
+\      and the record is given its offset.
 \ Equal numbers always mean equal records, because an entry is returned
 \ only when the class's comparison says so (a hash match is only a
 \ hint); soundness never depends on the table, which only makes finding
@@ -128,13 +129,16 @@ lf-lib-private set-current
 : cons-rehash ( n cons -- h ) dup cons-class @ hook-rehash @ execute ;
 : cons-span ( local cons -- units ) dup cons-class @ class-span @ execute 1 max ;
 
-\ Making a set.
+\ Making a set. The records' slab holds two units more than the numbers
+\ the class allows, so that a candidate of up to two units can be built,
+\ and found, when the set is at its limit; cons-commit checks the limit.
+2 constant cons-spare
+: cons-limit ( cons -- n ) cons-class @ class-limit @ ;
 : cons-records-init ( limit cons -- outcome )
-  dup cons-class @ class-unit @ -rot cons-records slab-init ;
+  swap cons-spare + over cons-class @ class-unit @ swap rot cons-records slab-init ;
 : cons-bytes-init ( cons -- outcome ) 1 chars cons-numbers-max rot cons-bytes slab-init ;
 : cons-slabs-init ( cons -- outcome )
-  dup cons-class @ class-limit @ over cons-records-init dup ok?
-  if drop cons-bytes-init else nip then ;
+  dup cons-limit over cons-records-init dup ok? if drop cons-bytes-init else nip then ;
 lf-lib set-current
 \ An empty set of the class with a table of 2^log2 slots: ok, invalid for
 \ a bad class, or full. It allocates only the table; the slabs grow when
@@ -147,7 +151,7 @@ lf-lib set-current
 lf-lib-private set-current
 : cons-attach ( under cons -- outcome )
   2dup cons-under ! swap cons-numbers over cons-first !
-  dup cons-class @ class-limit @ over cons-first @ - swap cons-records-init ;
+  dup cons-limit over cons-first @ - swap cons-records-init ;
 : cons-sealed-live? ( cons -- flag )
   dup cons-sealed? swap cons-table htab-block @ 0<> and ;
 lf-lib set-current
@@ -186,10 +190,17 @@ lf-lib set-current
 \ text at addr as the own set's, giving their offset.
 : cons-text, ( addr u cons -- offset )
   cons-bytes >r r@ slab-count -rot tuck r@ slab-top swap move r> slab-commit ;
-\ Unchecked, after cons-room and a find that gave slot i: keep the
-\ candidate of units record units as a new record and enter it at slot i.
-: cons-commit ( units i cons -- n )
-  >r r@ cons-numbers tuck swap r@ cons-table htab-put swap r> cons-records slab-commit ;
+\ After cons-room and a find that gave slot i: keep the candidate of units
+\ record units as a new record and enter it at slot i: its number and ok,
+\ or -1 and full, with nothing kept, when the class's limit of numbers
+\ would be passed. A text the record refers to is kept after it, with
+\ cons-text, (whose room cons-room made).
+lf-lib-private set-current
+: cons-past? ( units cons -- flag ) dup cons-numbers rot + swap cons-limit > ;
+lf-lib set-current
+: cons-commit ( units i cons -- n outcome )
+  >r over r@ cons-past? if 2drop r> drop outcome-full no-result exit then
+  r@ cons-numbers tuck swap r@ cons-table htab-put swap r> cons-records slab-commit outcome-ok ;
 
 \ Whether n names a record of the set or its under set: in range, the
 \ record within the numbers, and found in its table (exact: a number in

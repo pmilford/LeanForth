@@ -32,6 +32,7 @@
 \ heap memory until tier-free. A tier must not be a checker-context member
 \ yet: members may not own heap memory (lib/context.fs).
 
+base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/portability.fs
 require ../lib/outcome.fs
 require ../lib/u32.fs
@@ -166,3 +167,5 @@ end-structure
   0 swap tier-families 0 do i over tier-family cons-allocated rot + swap loop drop ;
 : tier-used ( tier -- u )
   0 swap tier-families 0 do i over tier-family cons-used rot + swap loop drop ;
+
+base !   \ the BASE this file was loaded with

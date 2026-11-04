@@ -27,6 +27,7 @@
 \ name-tag@ name-prefix@ name-number@ name-text@ name-hash@ name-anon-make.
 \ State: name-class, made while loading and read-only afterwards.
 
+base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/portability.fs
 require ../lib/outcome.fs
 require ../lib/u32.fs
@@ -83,11 +84,15 @@ require ./compact-tier.fs
 : name-under? ( tier -- flag ) dup name-cand quad-a u32@ swap tier-names cons-under? ;
 : name-lookup ( tier -- n true | i false )
   dup name-cand quad-data u32@ over name-under? rot tier-names cons-find ;
-: name-keep ( i tier -- n ) 1 -rot tier-names cons-commit ;
-: name-intern ( tier -- n outcome ) dup name-lookup if nip else swap name-keep then outcome-ok ;
-: str-keep ( i tier -- n )
-  dup tier-names dup cons-key 2@ rot cons-text, over name-x! name-keep ;
-: str-intern ( tier -- n outcome ) dup name-lookup if nip else swap str-keep then outcome-ok ;
+: name-keep ( i tier -- n outcome ) 1 -rot tier-names cons-commit ;
+: name-intern ( tier -- n outcome ) dup name-lookup if nip outcome-ok else swap name-keep then ;
+\ A string component: the record is kept first (at the limit it is full),
+\ then its text, whose offset goes into the record.
+: str-text! ( n tier -- n )
+  tier-names >r r@ cons-key 2@ r@ cons-text, over r> cons-at quad-b u32! ;
+: str-keep ( i tier -- n outcome )
+  tuck name-keep dup ok? if drop swap str-text! outcome-ok else rot drop then ;
+: str-intern ( tier -- n outcome ) dup name-lookup if nip outcome-ok else swap str-keep then ;
 : name-find ( tier -- n true | false ) name-lookup dup 0= if nip then ;
 
 \ A string component: the text in the key, room for it, head and hash.
@@ -120,3 +125,5 @@ require ./compact-tier.fs
 : name-anon-make ( tier -- n outcome )
   >r 1 0 r@ tier-names cons-room dup ok? 0= if r> drop no-result exit then drop
   0 0 r@ name-head! 0 r@ name-x! 0 r@ name-hash! r> name-intern ;
+
+base !   \ the BASE this file was loaded with

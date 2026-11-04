@@ -51,6 +51,7 @@
 \ depth-max. Outcomes: ok, full, invalid. State: expr-class and the check
 \ table, made while loading, read-only afterwards.
 
+base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/portability.fs
 require ../lib/outcome.fs
 require ../lib/u32.fs
@@ -229,10 +230,11 @@ binder-checks
 
 \ Find or keep the checked candidate of units records.
 : expr-check ( top exprs -- under? outcome ) over quad-head u32@ head-tag expr-checks check-run ;
-: expr-keep ( units under? exprs -- e )
-  dup >r cons-top expr-hash swap r@ cons-find if nip r> drop else r> cons-commit then ;
+: expr-keep ( units under? exprs -- e outcome )
+  dup >r cons-top expr-hash swap r@ cons-find
+  if nip r> drop outcome-ok else r> cons-commit then ;
 : expr-finish ( units exprs -- e outcome )
-  dup cons-top over expr-check dup ok? if drop swap expr-keep outcome-ok else fail3 then ;
+  dup cons-top over expr-check dup ok? if drop swap expr-keep else fail3 then ;
 \ The expression with head and operands a and b, for every kind but
 \ letE: its number (an equal expression's, which may be the input
 \ tier's) and ok; -1 and invalid for a bad tag, part or unused field, a
@@ -250,7 +252,7 @@ binder-checks
   tier-exprs >r dup u32-mask u> if drop outcome-invalid fail3 r> drop exit then
   2 0 r@ cons-room dup ok? 0= if nip fail3 r> drop exit then drop
   r@ let-body! fields-fit? 0= if outcome-invalid fail3 r> drop exit then
-  r@ cand! r@ cons-top r@ check-let dup ok? if drop 2 swap r> expr-keep outcome-ok
+  r@ cand! r@ cons-top r@ check-let dup ok? if drop 2 swap r> expr-keep
   else nip r> drop no-result then ;
 
 : expr-app ( f a tier -- e outcome ) >r tag-app -rot r> expr-make ;
@@ -260,3 +262,5 @@ binder-checks
 : expr-nat ( text tier -- e outcome ) >r tag-nat swap 0 r> expr-make ;
 : expr-str ( text tier -- e outcome ) >r tag-str swap 0 r> expr-make ;
 : expr-fvar ( n tier -- e outcome ) >r tag-fvar swap 0 r> expr-make ;
+
+base !   \ the BASE this file was loaded with

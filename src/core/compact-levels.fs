@@ -18,6 +18,7 @@
 \ level-name@ level-params?. Outcomes: ok, full, invalid. State:
 \ level-class and the check table, made while loading, read-only after.
 
+base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/portability.fs
 require ../lib/outcome.fs
 require ../lib/u32.fs
@@ -95,8 +96,9 @@ check-table level-checks
 ' check-param tag-level-param level-checks check!
 
 \ Find or keep the checked candidate.
-: level-keep ( under? levels -- l )
-  dup >r cons-top quad-hash swap r@ cons-find if r> drop else 1 swap r> cons-commit then ;
+: level-keep ( under? levels -- l outcome )
+  dup >r cons-top quad-hash swap r@ cons-find
+  if r> drop outcome-ok else 1 swap r> cons-commit then ;
 : check-level ( levels -- under? valid? ) dup cand-head head-tag level-checks check-run ;
 \ The level with head and children a and b: its number (an equal level's,
 \ which may be the input tier's) and ok; -1 and invalid when a part is not
@@ -106,8 +108,10 @@ check-table level-checks
 : level-build ( head a b tier -- l outcome )
   tier-levels >r fields-fit? 0= if outcome-invalid fail3 r> drop exit then
   1 0 r@ cons-room dup ok? 0= if fail3 r> drop exit then drop
-  r@ cand! r@ check-level if r> level-keep outcome-ok else drop r> drop outcome-invalid no-result then ;
+  r@ cand! r@ check-level if r> level-keep else drop r> drop outcome-invalid no-result then ;
 : level-succ ( l tier -- l' outcome ) >r tag-level-succ swap 0 r> level-build ;
 : level-max ( l1 l2 tier -- l outcome ) >r tag-level-max -rot r> level-build ;
 : level-imax ( l1 l2 tier -- l outcome ) >r tag-level-imax -rot r> level-build ;
 : level-param ( name tier -- l outcome ) >r tag-level-param swap pack-head 0 0 r> level-build ;
+
+base !   \ the BASE this file was loaded with

@@ -24,6 +24,7 @@
 \
 \ Interface: tier-init, and everything the modules below give. State: none.
 
+base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/outcome.fs
 require ../lib/cons.fs
 require ../lib/pools.fs
@@ -47,3 +48,5 @@ create tier-classes name-class , level-class , tuple-class , text-class , expr-c
   dup /tier erase tuck tier-families-init dup ok? 0= if nip exit then drop
   dup name-anon-make nip dup ok? 0= if nip exit then drop
   >r tag-level-zero 0 0 r> level-build nip ;
+
+base !   \ the BASE this file was loaded with

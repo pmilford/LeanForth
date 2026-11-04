@@ -79,15 +79,16 @@ lf-lib set-current
   >r r@ tuple-count 2 + 0 r@ cons-room dup ok? if drop r@ tuple-item! outcome-ok else nip then
   r> drop ;
 lf-lib-private set-current
-: tuple-keep ( i cons -- t ) >r r@ tuple-count 1+ swap r> cons-commit ;
+: tuple-keep ( i cons -- t outcome ) >r r@ tuple-count 1+ swap r> cons-commit ;
 lf-lib set-current
 \ End the tuple: its number (an equal tuple's, which may be the under
-\ set's) and ok; or -1 and full, or invalid out of order.
+\ set's) and ok; or -1 and full, or invalid out of order. The tuple is
+\ ended either way, except when cons-room fails, which leaves it open.
 : tuple-end ( cons -- t outcome )
   dup tuple-step? 0= if drop outcome-invalid no-result exit then
   >r 1 0 r@ cons-room dup ok? 0= if r> drop no-result exit then drop
   false r@ cons-building ! r@ cons-top tuple-hash true r@ cons-find
-  0= if r@ tuple-keep then r> drop outcome-ok ;
+  if r> drop outcome-ok else r> tuple-keep then ;
 lf-lib-private set-current
 
 \ Texts: one unit is two 32-bit fields, offset and length.
@@ -102,16 +103,18 @@ lf-lib-private set-current
 : text-span ( local cons -- units ) 2drop 1 ;
 ' text-rehash ' text-same ' text-span text-class cons-hooks!
 : text-record! ( offset length addr -- ) tuck 1 u32s + u32! u32! ;
-: text-keep ( i cons -- t )
-  >r r@ cons-key 2@ r@ cons-text, r@ cons-key @ r@ cons-top text-record!
-  1 swap r> cons-commit ;
+\ Keep the key's text as a new text: the record first (at the class's
+\ limit it is full), then the bytes, whose offset goes into the record.
+: text-keep ( i cons -- t outcome )
+  >r 1 swap r@ cons-commit dup ok? 0= if r> drop exit then drop
+  r@ cons-key 2@ r@ cons-text, r@ cons-key @ 2 pick r> cons-at text-record! outcome-ok ;
 lf-lib set-current
 \ The number of the text addr u (an equal text's, which may be the under
-\ set's) and ok; or -1 and full or invalid.
+\ set's) and ok; or -1 and full or invalid. The text must not lie in the
+\ set's own byte slab, which may move while room is made.
 : text-intern ( addr u cons -- t outcome )
   >r 1 over r@ cons-room dup ok? 0= if nip nip r> drop no-result exit then drop
-  2dup r@ cons-key 2! hash-bytes true r@ cons-find 0= if r@ text-keep then
-  r> drop outcome-ok ;
+  2dup r@ cons-key 2! hash-bytes true r@ cons-find if r> drop outcome-ok else r> text-keep then ;
 
 module-close
 base !   \ the BASE this file was loaded with
