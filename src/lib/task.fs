@@ -40,6 +40,14 @@
 \ context; it may read data that no task changes while jobs run; it never
 \ ALLOTs or compiles (all tasks share one dictionary), never selects
 \ another context, and never makes, frees or waits for contexts or jobs.
+\ Nor does it parse (EVALUATE, WORD, PARSE) or use PAD: on Gforth 1.0,
+\ HERE, PAD and WORD's buffer are one for all tasks. Each task has its own
+\ BASE, a worker's copied from the main task's when the pool starts, so a
+\ word that changes BASE restores it. The pictured numeric output buffer
+\ is each task's own on Gforth 1.0 but one for all on 0.7.3, so a word
+\ uses the text of <# ... #> before it yields, types or emits. Each
+\ Gforth 1.0 worker has its own THROW backtrace and error strings
+\ (worker-start).
 \
 \ Stacks: each worker's data and return stacks hold task-data-cells and
 \ task-return-cells cells, less task-slack-cells for the worker's own
@@ -261,7 +269,21 @@ task-host task-threads = [if]
 \ created is not freed (Gforth has no word for that).
 : (spawn) ( task -- errno )
   r> over save-task swap 's ! >r pthread-id r@ 's 0 thread_start r> pthread_create ;
-: worker-start ( task -- errno ) (spawn) up! thread-init worker-run ;
+\ Each worker owns its heap strings. Gforth 1.0's newtask4 copies the
+\ creator's user area into the new task (unix/pthread.fs:257), and
+\ thread-init resets only part of it (pthread.fs:246), so a worker would
+\ start with the main task's two heap strings: stored-backtrace
+\ (except.fs:33), which every THROW inside a CATCH stores the return
+\ stack into (except.fs:139, backtrac.fs:45), and error-stack
+\ (kernel/int.fs:735), which an EVALUATE or INCLUDED that a THROW unwinds
+\ grows (kernel/input.fs:127). Once the main task had thrown, throws in
+\ jobs resized and freed its string from other threads and corrupted the
+\ heap. So a worker starts with neither (0 is the empty string) and frees
+\ its own when it ends.
+: strings-own ( -- ) 0 stored-backtrace ! 0 error-stack ! ;
+: strings-free ( -- ) stored-backtrace $free error-stack $free ;
+: worker-life ( -- ) strings-own worker-run strings-free ;
+: worker-start ( task -- errno ) (spawn) up! thread-init worker-life ;
 : worker-stacks ( -- u-data u-return u-fp u-locals )
   stacksize4 2>r task-return-cells cells max swap task-data-cells cells max swap 2r> ;
 : task-make ( -- task ) worker-stacks newtask4 ;

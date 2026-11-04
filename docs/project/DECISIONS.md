@@ -660,3 +660,21 @@ runs in a separate program (OQ-1). Rejected: export lists through
 adapter), one wordlist per module, a single public list (kept as a
 fallback for hosts with eight search-order entries), keeping everything in
 FORTH-WORDLIST.
+
+## Compact store for Mathlib-scale input — proposed, 2026-11-02
+
+[ADR 0016](../adr/0016-compact-store.md) proposes the store that holds an
+entire export: 16-byte nodes of four 32-bit fields (tag and payload, two
+children, a data word with Lean's loose-bound-variable range, flags and
+capped depth), no stored hash, a sealed read-only input tier shared by
+every worker, a per-check scratch tier emptied by epoch with exact undo,
+open-addressing hash tables (one probe per new node), names resolved to
+declarations at sealing, and per-context substitution memos, following
+the measured profile of Lean's kernel. A prototype loaded all of Mathlib
+into a 2.94 GB input tier (4.16 GB peak) and re-emitted every record
+identically. Rejected: B-trees and balanced trees (no ordered search is
+needed; access is by index and by hash), unshared trees (10^14 nodes),
+64-bit fields everywhere (about twice the memory), a stored hash,
+chaining, file-backed storage (not needed below about 20 GB), and one
+copy of the input per worker. Open for the owner: the three decisions at
+the end of the ADR.

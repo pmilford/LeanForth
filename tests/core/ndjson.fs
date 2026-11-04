@@ -261,9 +261,10 @@ T{ ' swaps-under app-handler app-13 ' feed catch nip nip ex export-busy @ ex exp
 T{ ' takes-two-gives-one app-handler app-13 ' feed catch nip nip ex export-exprs @ -> -4 13 }T
 \ Two cells under the record are canaries: reaching two cells down (the
 \ third review's probe, which once made the reader count through victim)
-\ throws as well. Below them lies the caller's data, never the reader's
-\ count or a declaration's kind: a handler that reaches three cells down
-\ changes the caller's 77, and the record is counted as usual.
+\ throws as well. Below them lies only the caller's data, never anything
+\ of the reader's, such as its count or a declaration's kind: a handler
+\ that reaches three cells down changes the caller's 77, and the record
+\ is counted as usual (more cases under export-read and in a block below).
 : reaches-two ( y canary record -- y' canary outcome ) drop nip victim swap outcome-ok ;
 : reaches-three ( z c c record -- z' c c outcome ) drop 2>r drop victim 2r> outcome-ok ;
 T{ ' reaches-two app-handler app-13 ' feed catch nip nip ex export-exprs @ victim @
@@ -324,6 +325,48 @@ T{ ' throws app-handler s" tests/reference/composition.ndjson" ex ' export-read 
 T{ ' inits app-handler s" tests/reference/composition.ndjson" ex ' export-read catch
    nip nip nip ex export-reader reader-fid @ ex export-busy @ -> -2 0 0 }T
 T{ allow-app s" tests/reference/composition.ndjson" read-fixture -> outcome-ok 35 }T
+\ Under a handler's canaries lies only its caller's data, nothing of the
+\ reader's (the fourth review found there the export being read, and a
+\ block list's visit and export). A handler that reaches three cells down
+\ during export-read and puts another, finished export there (the
+\ review's probe, which once ended the reading ok after two records)
+\ changes only its caller's 77, and every record is handed over. Thrown
+\ from such a handler, -77 still closes the file the export reads.
+export: other
+: ignores ( record -- outcome ) drop outcome-ok ;
+: other-read ( -- outcome )
+  other export-init drop kind-count 0 do ['] ignores i other export-handler ! loop
+  s" tests/reference/identity.ndjson" other export-read ;
+T{ other-read -> outcome-ok }T
+variable fired  variable deep-cell
+\ Once, the value of deep-cell three or four cells under the record;
+\ otherwise as capture.
+: reaches-three-once ( z c c record -- z' c c outcome )
+  fired @ if capture exit then true fired ! capture >r 2>r drop deep-cell @ 2r> r> ;
+: reaches-four-once ( y z c c record -- y' z c c outcome )
+  fired @ if capture exit then true fired ! capture >r 2>r nip deep-cell @ swap 2r> r> ;
+: reaches ( x xt kind -- ) ex export-handler ! deep-cell ! 0 fired ! ;
+T{ other ' reaches-three-once kind-name-str reaches
+   77 s" tests/reference/composition.ndjson" read-fixture -> other outcome-ok 35 }T
+: throws-deep ( z c c record -- ) drop 2>r drop other 2r> -77 throw ;
+T{ ' throws-deep kind-name-str ex export-handler !
+   66 s" tests/reference/composition.ndjson" ex ' export-read catch nip nip nip
+   ex export-reader reader-fid @ ex export-busy @ -> other -77 0 0 }T
+T{ capture-all s" tests/reference/composition.ndjson" read-fixture -> outcome-ok 35 }T
+\ Nor in a block's walk under export-read (the fifth review's test): a
+\ handler that zeroes every cell of its caller's under the canaries, down
+\ to stack-floor, still gets all 19 records of a block of two types, two
+\ constructors and a recursor, and the reading is ok.
+variable stack-floor
+: zero-cells ( i*x i -- i*0 ) dup >r 0 ?do drop loop r> 0 ?do 0 loop ;
+: zeroes-under ( i*x c c record -- i*0 c c outcome )
+  capture >r 2>r depth stack-floor @ - zero-cells 2r> r> ;
+: zeroing-all ( -- ) kind-count 0 do ['] zeroes-under i ex export-handler ! loop ;
+T{ zeroing-all depth stack-floor ! 11 22 33 s" tests/core/ndjson-block.ndjson" read-fixture
+   -> 0 0 0 outcome-ok 19 }T
+T{ 12 kind-at 13 kind-at 14 kind-at 15 kind-at 16 kind-at 17 kind-at 18 kind-at
+   -> kind-inductive kind-type kind-type kind-ctor kind-ctor kind-recursor kind-thm }T
+T{ ex export-decls @ capture-all -> 2 }T
 \ The end of input needs metadata and a declaration.
 T{ fresh ex export-end why s" missing metadata or declaration" compare -> outcome-invalid 0 }T
 T{ started ex export-end -> outcome-ok outcome-invalid }T
@@ -449,6 +492,23 @@ T{ capture-all ' hides-ctors kind-inductive ex export-handler ! 0 calls !
    ctor-json rec-json type-json block-of feed why s" handler changed the export" compare
    calls @ 0 kind-at -> outcome-invalid 0 1 kind-type }T
 T{ capture-all ctor-json rec-json type-json block-of feed -> outcome-ok }T
+\ In a block's walk too, only the caller's data lies under the canaries.
+\ A constructor handler that reaches four cells down and puts a visit
+\ that skips its items there (the fourth review's probe, which once
+\ replaced the list's visit, so that a constructor was skipped and the
+\ line ok), and a type handler that reaches three cells down and puts
+\ another export there, change only their caller's cells, and every
+\ element is handed over.
+: skips ( item x export -- outcome ) 2drop drop outcome-ok ;
+0 ' skips visit: skipper
+: two-of ( c-addr u -- c-addr u )
+  0 types-length ! 2dup +types s" ," +types +types types-text types-length @ ;
+: two-ctor-block ( -- c-addr u ) ctor-json two-of rec-json type-json block-of ;
+T{ skipper ' reaches-four-once kind-ctor reaches 0 calls !
+   55 66 two-ctor-block feed calls @ -> skipper 66 outcome-ok 5 }T
+T{ capture-all other ' reaches-three-once kind-type reaches 0 calls !
+   66 two-ctor-block feed calls @ -> other outcome-ok 5 }T
+T{ capture-all other export-free -> }T
 
 \ A rule record's header: kind-rule, the rule's index, the line and the
 \ export. Kept after its handler, a recursor's rules are gone once the next
@@ -471,8 +531,34 @@ create kept /record allot  snap kept /record move
   0 <# #s #> +block-text s" }}" +block-text block-text block-length @ ;
 T{ 10 0 arrays-line feed stale-index ex export-json json-kind-at -> outcome-ok json-array }T
 T{ 0 kept recursor-rule marks -> 0 0 0 }T
+\ Its lists are gone too: one of those arrays lies at the index of its
+\ all list, and is not read as that list.
+: all-index ( -- index ) kept recursor-all @ invert ;
+T{ all-index ex export-json json-kind-at kept recursor-all @ kept list-count
+   0 kept recursor-all @ kept list-item -> json-array 0 -1 }T
 T{ 11 99 arrays-line feed stale-index ex export-json json-kind-at -> outcome-invalid json-array }T
 T{ 0 kept recursor-rule failed-field s" expr" compare why s" bad reference" compare -> 0 0 0 }T
+\ Nor are objects shaped like rules at the index of its rules (the fourth
+\ review's probe once read one as rule 0, of 77 fields): not a line later,
+\ and not at the same line number given again after export-restart.
+\ Expression n is an mdata whose data holds one-rule arrays, eight tokens
+\ each from token 9 on, one of them at the index.
+: rule-array ( -- c-addr u ) s\" [{\"ctor\":1,\"nfields\":77,\"rhs\":0}]," ;
+: rule-items ( -- )
+  stale-index 9 - 8 mod 0 ?do s" 0," +block-text loop
+  stale-index 8 / 2 + 0 do rule-array +block-text loop ;
+: rules-line ( n -- c-addr u )
+  0 block-length ! s\" {\"ie\":" +block-text 0 <# #s #> +block-text
+  s\" ,\"mdata\":{\"data\":{\"k\":[" +block-text rule-items
+  s\" 0]},\"expr\":0}}" +block-text block-text block-length @ ;
+: rule-there ( -- kind ) stale-index 1+ ex export-json json-kind-at ;
+T{ 11 rules-line feed rule-there 0 kept recursor-rule -> outcome-ok json-object 0 }T
+\ From export-restart, sorts up to the line before the kept recursor's.
+: fed-to ( line -- outcome )
+  prefix swap 1- ex export-at @ ?do ex export-exprs @ sort-line feed or loop ;
+T{ kept record-line @ fed-to ex export-exprs @ rules-line feed -> outcome-ok outcome-ok }T
+T{ ex export-at @ kept record-line @ = rule-there 0 kept recursor-rule
+   -> true json-object 0 }T
 
 \ export-handler takes only a record kind.
 T{ kind-count ex ' export-handler catch nip nip -1 ex ' export-handler catch nip nip -> -2 -2 }T

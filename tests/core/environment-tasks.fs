@@ -201,17 +201,25 @@ env-free
 \ Inside a job nothing publishes, makes, chooses or frees an environment
 \ (G-P1): a job that checks declaration 1 and then tries all four is
 \ refused each time, and slot 1 stays open until the scheduler publishes.
-\ Internal words that write the environment throw lf-env-refused before
-\ writing, and readiness says false.
-create tries 9 cells allot
+\ Internal words that write the environment, the undo words among them,
+\ throw lf-env-refused before writing, and readiness says false.
+create tries 15 cells allot
 : try! ( x k -- ) cells tries + ! ;
 : job-internals ( -- )
   1 slot@ -77 ['] lf-env-unpublish catch nip nip 6 try!
   1 slot@ ['] lf-env-guarded catch nip 7 try!  n.A 1 lf-env-ready? 8 try! ;
+\ The undo words: on the open slot 1, the final slot 0 and the pool's mark.
+: marked-ior ( -- ior ) ['] lf-env-marked? catch dup 0= if nip then ;
+: job-undoes ( -- )
+  1 slot@ ['] lf-env-undo catch nip 9 try!  0 slot@ ['] lf-env-undo catch nip 10 try!
+  lf-diag-clear outcome-ok 1 slot@ ['] lf-env-unfinished catch nip nip 11 try!
+  lf-diag-code@ 12 try!  outcome-ok 0 slot@ ['] lf-env-ended catch nip nip 13 try!
+  marked-ior 14 try! ;
 : job-tries ( -- )
   syn-check lf-env-hand-over 1 try! 0 try! 8 lf-env-new 3 try! 2 try!
-  lf-env lf-env-use 4 try! lf-env lf-env-free 5 try! job-internals ;
+  lf-env lf-env-use 4 try! lf-env lf-env-free 5 try! job-internals job-undoes ;
 : try@ ( k -- x ) cells tries + @ ;
+: refused-try? ( k -- flag ) try@ lf-env-refused = ;
 8 fresh-env
 0 0 submit 1 await-all 1 publish-all
 1 0 begin-in
@@ -219,6 +227,8 @@ T{ 0 lane-contexts lane @ ' job-tries job-submit throw job-wait -> 0 }T
 T{ 0 try@ 1 try@ 2 try@ 3 try@ -> outcome-invalid true 0 outcome-invalid }T
 T{ 4 try@ 5 try@ 1 slot@ lf-slot-final? -> outcome-invalid outcome-invalid false }T
 T{ 6 try@ lf-env-refused = 7 try@ lf-env-refused = 8 try@ -> true true false }T
+T{ 9 refused-try? 10 refused-try? 11 refused-try? 12 try@ -> true true true lf-diag-none }T
+T{ 13 refused-try? 14 refused-try? 0 slot@ lf-slot-accepted? -> true true true }T
 0 in-lane
 T{ lf-env-hand-over rollback -> outcome-ok false }T
 home

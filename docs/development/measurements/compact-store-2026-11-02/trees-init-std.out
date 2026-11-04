@@ -1,0 +1,10 @@
+== Init: walks without a cache, uncapped
+load 13.4 s
+index-decls 0.00118 s
+no-cache visits=764504359 max-per-decl=63995212 capped-decls=0 cap=9223372036854775807  25. s
+38.46 s wall 38.23 s user 178608 KB
+== Std: walks without a cache, capped at 10^8 visits per declaration
+load 22. s
+index-decls 0.00195 s
+no-cache visits=1294593181 max-per-decl=100000001 capped-decls=2 cap=100000000  40.8 s
+62.84 s wall 62.50 s user 290352 KB

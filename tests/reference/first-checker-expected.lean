@@ -354,6 +354,14 @@ def typeIdentityCases : List Case := [
 
 def sortU : Expr := .sort lu
 
+/-- Two spellings of `Prop` that only Lean's level normalisation sees. -/
+def sortImaxU0 : Expr := .sort (.imax lu .zero)
+def sortMaxZero : Expr := .sort (.max .zero .zero)
+
+/-- `P y` from a proof of `P x`, with `A : sA` (the `proof-irrelevance-twin` pair). -/
+def twinType (sA : Expr) : Expr := foralls (twoPointBinders sA) (app (v `P) [v `y])
+def twinValue (sA : Expr) : Expr := funs (twoPointBinders sA) (v `proof)
+
 def polyIdentityCases : List Case := [
   { id := "poly-identity.original",
     decl := thm `poly_identity (typeIdentityType sortU prop) (typeIdentityValue sortU prop)
@@ -394,7 +402,15 @@ def polyIdentityCases : List Case := [
     decl := thm `poly_identity_max (typeIdentityType sortU prop)
       (typeIdentityValue (.sort (.max lu lu)) prop) [`u],
     lean := "accepted", leanforth := "unknown", rule := "K4",
-    what := "the proof writes Sort (max u u); Lean's level normalisation equates it with Sort u" }
+    what := "the proof writes Sort (max u u); Lean's level normalisation equates it with Sort u" },
+  { id := "poly-identity.proof-irrelevance-imax",
+    decl := thm `poly_identity_imax (twinType sortImaxU0) (twinValue sortImaxU0) [`u],
+    lean := "accepted", leanforth := "unknown", rule := "K2",
+    what := "P y from a proof of P x, A : Sort (imax u 0), which is Prop for every u: x and y are proofs" },
+  { id := "poly-identity.proof-irrelevance-max-zero",
+    decl := thm `poly_identity_max_zero (twinType sortMaxZero) (twinValue sortMaxZero),
+    lean := "accepted", leanforth := "unknown", rule := "K2",
+    what := "the same with A : Sort (max 0 0), which is Prop" }
 ]
 
 /-! ## The constant fixture: `fixtureId`, `fixturePoly`, `fixtureUse` -/

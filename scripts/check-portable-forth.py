@@ -31,8 +31,19 @@
    repository, the check runs on a scratch tree of its own (LOAD_CASES)
    and fails if it misjudges a module there.
 
-Comments and strings are ignored. See docs/development/FORTH_STYLE.md,
-section 8.
+Checks 1, 2 and 4 read the source through one reader, scan(), which
+leaves out comments (\\ to the end of the line, ( ... ) and .( ... )
+across lines) and the text of s" c" ." abort" and s\\" strings; check 3
+reads the lines that start with INCLUDE. A word that a
+parsing word takes is kept as it is and never starts a comment or a
+string, such as the \\ of [CHAR] \\. [CHAR], ['], POSTPONE, [COMPILE],
+[DEFINED] and [UNDEFINED] always take the next word; CHAR and ' only
+outside a definition, since inside one they are compiled and parse only
+when the definition runs. A definition runs from : or :NONAME to ;, and
+from ] to [, as the compile-only check reads them; other ways of
+compiling (quotations, a defining word's name) are not followed. The
+line checks' reading has a self-test too (STRIP_CASES). See
+docs/development/FORTH_STYLE.md, section 8.
 """
 import pathlib
 import re
@@ -44,12 +55,18 @@ BYTE_WORDS = {
     "c@", "c!", "c,", "c+!", "w@", "w!", "w,", "l@", "l!", "l,", "x@", "x!",
     "x,", "sw@", "uw@", "sl@", "ul@", "sx@", "ux@", "be-w!", "le-w!",
 }
-# Files allowed to use byte access, with the reason. Text modules only.
+# Files allowed to use byte access, with the reason: text modules, and the one
+# module of packed 32-bit fields, whose layout is defined by arithmetic.
 BYTE_MODULES = {
     "src/lib/bytes.fs": "line reader and UTF-8 checks read and write text bytes",
     "src/lib/json.fs": "JSON tokenizer reads text bytes and decodes escapes in place",
     "src/lib/json-write.fs":
         "JSON writer reads string bytes to escape them and builds digits and escapes as text",
+    "src/lib/u32.fs":
+        "packed 32-bit fields of the compact store (ADR 0016): Gforth's l@ and l!, or a "
+        "Forth-2012 version with c@ and c! in a byte order the module fixes",
+    "src/lib/bignum.fs":
+        "big numbers read and write decimal digit characters; limbs are only read as cells",
     "src/program/ir-reader.fs":
         "program reader splits source lines into tokens, checks that every character is "
         "printable ASCII and folds A-Z to a-z, as Gforth finds names",
@@ -63,13 +80,70 @@ COMPILE_ONLY = {
 }
 
 
+NAMING = {"[undefined]", "[defined]"}   # the next word is named, not used
+# Words that take the next word as a character or a name, so that it never
+# starts a comment or a string: [char] \ is the character \, not a comment.
+PARSING = NAMING | {"char", "[char]", "'", "[']", "postpone", "[compile]"}
+# Those of them that take it only outside a definition: inside one, CHAR
+# and ' are compiled, so a \ or ( after them starts a comment.
+INTERPRETED_PARSING = {"char", "'"}
+# Words that start (True) or end (False) compiling.
+COMPILING = {":": True, ":noname": True, "]": True, ";": False, "[": False}
+STRINGS = {'s"', 'c"', '."', 'abort"'}
+# A comment or string opener, as a whole word.
+OPENER = re.compile(r'\\|\.?\(|s\\?"|c"|\."|abort"', re.I)
+
+
+def scan(text):
+    """(offset, word, taken) for each word of Forth source in order, as
+    written, without comments or the text of strings: \\ to the end of the
+    line, ( ... ) and .( ... ) across lines, and s" c" ." abort" and s\\"
+    strings. taken tells whether a parsing word took the word: then it is
+    kept as it is, even \\ or (. CHAR and ' take one only outside a
+    definition."""
+    i, n, parses, compiling = 0, len(text), False, False
+    while True:
+        while i < n and text[i].isspace():
+            i += 1
+        if i >= n:
+            return
+        j = i
+        while j < n and not text[j].isspace():
+            j += 1
+        low = text[i:j].lower()
+        if parses:
+            yield i, text[i:j], True
+            i, parses = j, False
+            continue
+        if low == "\\":
+            end = text.find("\n", j)
+        elif low in ("(", ".("):
+            end = text.find(")", j)
+        elif low in STRINGS:
+            end = text.find('"', j + 1)
+        elif low == 's\\"':
+            end = j + 1
+            while end < n and text[end] != '"':
+                end += 2 if text[end] == "\\" else 1
+        else:
+            yield i, text[i:j], False
+            compiling = COMPILING.get(low, compiling)
+            parses = low in PARSING and not (compiling and low in INTERPRETED_PARSING)
+            i = j
+            continue
+        i = n if end < 0 else end + 1
+
+
 def strip(text):
-    lines = []
-    for line in text.splitlines():
-        line = re.sub(r"(^|\s)\\(\s.*)?$", " ", line)        # \ comments
-        line = re.sub(r'(^|\s)(\.?\(|s"|\."|c"|abort")\s[^")]*[")]', " ", line, flags=re.I)
-        lines.append(line)
-    return "\n".join(lines)
+    """text with comments and the text of strings blanked, as scan() reads
+    them, keeping every line in its place; an opener that a parsing word
+    takes, such as the \\ of [char] \\, reads _."""
+    out = [c if c == "\n" else " " for c in text]
+    for start, word, taken in scan(text):
+        if taken and OPENER.fullmatch(word):
+            word = "_"
+        out[start:start + len(word)] = word
+    return "".join(out)
 
 
 def number(token):
@@ -89,15 +163,13 @@ def number(token):
 
 def interpreted(text):
     """(line, word) for compile-only words outside colon definitions."""
-    found, depth = [], 0
+    found, compiling = [], False
     for lineno, line in enumerate(text.splitlines(), 1):
         for tok in line.split():
             low = tok.lower()
-            if low in (":", ":noname", "]"):
-                depth = 1
-            elif low in (";", "["):
-                depth = 0
-            elif depth == 0 and low in COMPILE_ONLY:
+            if low in COMPILING:
+                compiling = COMPILING[low]
+            elif not compiling and low in COMPILE_ONLY:
                 found.append((lineno, tok))
     return found
 
@@ -110,39 +182,11 @@ def raw_strip(text):
 
 PORTABILITY = "src/lib/portability.fs"
 LOADING = {"require", "include"}
-NAMING = {"[undefined]", "[defined]"}   # the next word is named, not used
-STRINGS = {'s"', 'c"', '."', 'abort"'}
 
 
 def source_words(text):
-    """The words of Forth source in order, as written, without comments or
-    the text of strings: \\ to the end of the line, ( ... ) and .( ... )
-    across lines, and s" c" ." abort" and s\\" strings."""
-    words, i, n = [], 0, len(text)
-    while True:
-        while i < n and text[i].isspace():
-            i += 1
-        if i >= n:
-            return words
-        j = i
-        while j < n and not text[j].isspace():
-            j += 1
-        low = text[i:j].lower()
-        if low == "\\":
-            end = text.find("\n", j)
-        elif low in ("(", ".("):
-            end = text.find(")", j)
-        elif low in STRINGS:
-            end = text.find('"', j + 1)
-        elif low == 's\\"':
-            end = j + 1
-            while end < n and text[end] != '"':
-                end += 2 if text[end] == "\\" else 1
-        else:
-            words.append(text[i:j])
-            i = j
-            continue
-        i = n if end < 0 else end + 1
+    """The words of Forth source in order, as scan() reads them."""
+    return [word for _, word, _ in scan(text)]
 
 
 def literal_flag(word):
@@ -258,7 +302,29 @@ LOAD_CASES = {
                  ': b ( -- ) ." a cell here" ;\n: c ( -- c-addr u ) s" cell size" ;\n'
                  ".( no cell here ) cr \\ nor cell here\n[undefined] cell [if] [then]\n",
                  False),
+    "charback.fs": ("[char] \\ constant bs : a ( -- n ) cell ;\n", True),
+    "charparen.fs": ("char ( constant lp cell constant c ( n )\n", True),
+    # Inside a definition ' and char are compiled: the \ and ( after them
+    # start comments, so the require in them is no load.
+    "tickback.fs": (": x ( \"name\" -- xt ) ' \\ require ../lib/portability.fs\n  ;\n"
+                    ": a ( -- n ) cell ;\n", True),
+    "charcomment.fs": (": y ( -- c ) char ( require ../lib/portability.fs ) ;\n"
+                       ": a ( -- n ) cell ;\n", True),
 }
+# The same for strip(), which the line checks read: each line and the
+# words that must remain of it.
+STRIP_CASES = {
+    "[char] \\ c@ \\ a comment": ["[char]", "_", "c@"],
+    "char ( c@ ( a comment ) postpone \\ cell":
+        ["char", "_", "c@", "postpone", "_", "cell"],
+    ': a ( -- ) ." c@" ; \\ c@': [":", "a", ";"],
+    ": a char ( c@ ) [ char \\ ] ' \\ c@": [":", "a", "char", "[", "char", "_", "]", "'"],
+}
+
+
+def strip_misjudged():
+    """The lines of STRIP_CASES that strip() reads wrongly."""
+    return [line for line, words in STRIP_CASES.items() if strip(line).split() != words]
 
 
 def load_check_misjudged():
@@ -278,6 +344,7 @@ def load_check_misjudged():
 def main():
     problems = [f"load check misjudges its test module src/m/{name}"
                 for name in load_check_misjudged()]
+    problems += [f"strip() misreads its test line {line!r}" for line in strip_misjudged()]
     for path in sorted(list((ROOT / "src").rglob("*.fs")) + list((ROOT / "tests").rglob("*.fs"))):
         rel = path.relative_to(ROOT).as_posix()
         for lineno, line in enumerate(path.read_text(errors="replace").splitlines(), 1):
@@ -292,7 +359,7 @@ def main():
         for lineno, line in enumerate(strip(path.read_text()).splitlines(), 1):
             for tok in line.split():
                 if tok.lower() in BYTE_WORDS and rel not in BYTE_MODULES:
-                    problems.append(f"{rel}:{lineno}: byte access '{tok}' outside a listed text module")
+                    problems.append(f"{rel}:{lineno}: byte access '{tok}' outside a listed module")
                 value = number(tok)
                 if value is not None and value >= LIMIT:
                     problems.append(f"{rel}:{lineno}: literal {tok} assumes cells wider than 32 bits")

@@ -3,7 +3,8 @@
 Status: implemented 2026-11-02 as plan task 2.2.2, following
 [ADR 0012](../adr/0012-checked-environment.md), whose design the owner
 accepted (gate answers G8–G11); the findings of its independent review,
-and of that review's second round, were fixed the same day (see *Trust*). **Experimental [kernel] code, not
+and of that review's second and third rounds, were fixed the same day (see
+*Trust*; the third round also asked for the *Threat model*). **Experimental [kernel] code, not
 through the review gate and not independently audited.** The environment
 decides nothing about a declaration's terms: the check that fills it is
 `check-declaration` (plan task 2.2.3, [below](#check-declaration-plan-task-223);
@@ -236,11 +237,11 @@ ever turns a failure into ok.
 
 | Word | Stack effect | Does |
 | --- | --- | --- |
-| `lf-env-hand-over` | `( -- outcome fault? )` | the publisher's only entry (E4), refused inside a job or a check (G-P1): for an ok candidate, re-check (every same-named earlier slot final and rejected; dependencies ascending, below, final, accepted; axiom set and provenance the unions of theirs, within the allowlist and "checked" in a final run; a safe definition or theorem with a value and distinct parameters), then append the dependencies (full if no room) and copy the input declaration; any other outcome alone; last, mark the slot final. It marks the pool first and publishes under `CATCH`: after a `THROW` before the final mark the slot stays not final and cleared, the pool rolled back (a slot already final keeps its record and dependencies). `fault?` true (the run must stop) after a `THROW`, inside a job or a check, with no slot to publish, when the pool cannot be marked, or when the publication ended without a final slot (then invalid, undone like a `THROW`) |
-| `lf-env-step` | `( xt i -- outcome fault? )` | begin, run the check `xt ( -- )`, make sure the snapshot is still of `i` (else a fault, nothing published), hand over, roll the scratch back. The check runs as the job pool runs a job's word: with the owner token `context-check-owner` (so every guard that refuses a job refuses it: it can neither publish, step, run, nor make, choose or free environments or contexts), with the task's context and token restored afterwards, and with its stack checked: a `THROW`, a changed stack depth or a changed cell below it (a copy of `i`; `THROW` code `lf-env-unbalanced`, -4096, as `task.fs`'s `task-unbalanced`) makes the declaration invalid and spends the context |
+| `lf-env-hand-over` | `( -- outcome fault? )` | the publisher's only entry (E4), refused inside a job or a check (G-P1): for an ok candidate, re-check (every same-named earlier slot final and rejected; dependencies ascending, below, final, accepted; axiom set and provenance the unions of theirs, within the allowlist and "checked" in a final run; a safe definition or theorem with a value and distinct parameters), then append the dependencies (full if no room) and copy the input declaration; any other outcome alone; last, mark the slot final. It marks the pool first and publishes under `CATCH`: after a `THROW` before the final mark the slot stays not final and cleared (outcome invalid, every other field zero), the pool rolled back (a slot already final keeps its record and dependencies; undoing one aborts). `fault?` true (the run must stop) after a `THROW`, inside a job or a check, with no slot to publish, when the pool cannot be marked, or when the publication ended without a final slot (then invalid, undone like a `THROW`) |
+| `lf-env-step` | `( xt i -- outcome fault? )` | begin, run the check `xt ( -- )`, make sure the snapshot is still of `i` (else a fault, nothing published), hand over, roll the scratch back. The check runs as the job pool runs a job's word: with the owner token `context-check-owner` (so every guard that refuses a job refuses it: it can neither publish, step, run, nor make, choose or free environments or contexts), with the task's context and token restored afterwards, and with its stack checked by `lib/context.fs`'s `call-balanced`: a `THROW`, a changed stack depth or a changed cell below it (a copy of `i`; `THROW` code `context-unbalanced`, also named `lf-env-unbalanced`, -4096, as `task.fs`'s `task-unbalanced`) makes the declaration invalid and spends the context |
 | `lf-env-hand-over-job` | `( ior i -- outcome fault? )` | the parallel scheduler's entry, after the job that checked declaration `i` in this context ended with `ior`: records a `THROW` (G-P6, as `lf-env-thrown`), makes sure the snapshot is still of `i`, and hands over, as `lf-env-step` does; the scheduler then rolls the scratch back and replaces the context when `lf-env-spent?` holds |
 | `lf-env-thrown` | `( ior -- )` | the check in this context ended with a `THROW`: invalid, recorded, the context spent (used by `lf-env-step` and `lf-env-hand-over-job`) |
-| `lf-env-run` | `( check maker -- outcome )` | the serial publisher of phase 2: every declaration in input order, in the current context until a check throws, then in a new one from `maker ( -- context ior )`, which must hold the same input, loaded the same way (G-P6). It adopts only a context that is idle, neither the main nor the current one, and not spent, from a maker that leaves exactly two cells, checked before anything is freed; it frees the contexts it made and returns to the caller's, which it never frees. The check and the maker wait on the return stack while the other runs. ok when all slots are final; invalid when a fault stopped it, inside a job or a check, or when no new context could be adopted |
+| `lf-env-run` | `( check maker -- outcome )` | the serial publisher of phase 2: every declaration in input order, in the current context until a check throws, then in a new one from `maker ( -- context ior )`, which must hold the same input, loaded the same way (G-P6). It adopts only a context that is idle, neither the main nor the current one, and not spent (an address that cannot be read is refused, not a `THROW`), from a maker that leaves exactly two cells and the current environment as it found it, checked before anything is freed; it frees the contexts it made and returns to the caller's, which it never frees. The check and the maker wait on the return stack while the other runs. ok only when, at its end, the environment it started in is still current and every slot is final; invalid when a fault stopped it, inside a job or a check, when no new context could be adopted, or when a maker left another environment current (or none) |
 | `lf-env-before-final` | deferred `( -- )` | test-only fault injection between writing a slot and marking it final; compiled as a `DEFER` only when a test defines `lf-env-fault-hooks` before loading, otherwise an empty word |
 
 ### check-declaration (plan task 2.2.3)
@@ -297,6 +298,94 @@ check-declaration adds 42 (U1: the kind and safety) and 43 (U2: the form
 and the node), and records 20 for a definition or theorem without a value
 and 55, 57 and 60 at its own site. Recording never changes an outcome;
 `lf-env-begin` clears the record.
+
+## Threat model
+
+The environment defends against *faults in the check*. The check
+(`check-declaration`, plan task 2.2.3, or a test's synthetic check) is
+[kernel] code under review, not yet trusted to be correct, and
+the guards below are defence in depth against its bugs. They are not a
+defence against a hostile check, which runs in the same Forth image and
+could write any memory. The *maker* given to `lf-env-run` and the
+*scheduler* (whatever calls `lf-env-run`, `lf-env-step` or
+`lf-env-hand-over-job`, chooses and replaces contexts and submits jobs)
+are *trusted* harness code, relied on to use these words as this page
+says. The maker keeps its caller's owner token: under
+`context-check-owner`, as a check runs, `context-new` and `context-use`
+refuse, and a maker needs both (`tests/lib/context.fs` and
+`tests/core/environment.fs` show the refusals). Even so, the environment
+fails closed on the misuse it can detect cheaply, and this is the whole
+list.
+
+A check (run by `lf-env-step`, or as a job):
+
+- throws, or changes the data-stack depth or the cell right below it: its
+  declaration is *invalid* and its context spent (G-P6);
+- calls a word that publishes, steps, runs, makes, chooses or frees an
+  environment or a context, or submits or waits for a job: refused, with
+  *invalid*, the job pool's `task-refused`, or an abort that makes the
+  declaration *invalid* and spends the context;
+- calls an internal word (until a word list hides them, plan task
+  1.1.7): nothing of the environment is written, because every word that
+  writes it, and every word that ends or undoes a publication, first
+  throws `lf-env-refused` there, making the declaration *invalid* and
+  spending the context;
+- leaves another snapshot in its context (it began another declaration
+  or took a view): a fault, nothing published, the run stops;
+- claims *ok* where the publisher's re-check fails: *invalid*;
+- leaves another context or owner token selected: both restored;
+- in a serial run, leaves a slot of the environment not final, or another
+  environment current, at the run's end: the run answers *invalid*.
+
+A maker (`lf-env-run`, after a check threw):
+
+- throws, gives a nonzero ior, or leaves anything but two cells: the run
+  stops, *invalid*;
+- gives anything but a context that is idle, neither the main nor the
+  current one, and not spent, an address that cannot be read included:
+  the run stops, *invalid*, and frees nothing;
+- leaves another environment current, or none (compared by identity,
+  which never repeats): the run stops, *invalid*, before any check runs
+  there; the context it gave, if it passed, is freed;
+- leaves another context selected: restored.
+
+A scheduler:
+
+- hands over inside a job or a check, without a check's snapshot of the
+  valid current environment, or for a slot already final: a fault,
+  nothing published;
+- hands over a job whose snapshot moved to another declaration
+  (`lf-env-hand-over-job`): a fault, nothing published;
+- hands over a job that threw: its declaration *invalid*, its context
+  spent; a spent context begins no further check;
+- starts a check before every same-named slot it needs is final (G-P5):
+  the check reads none of them and ends *invalid* (too early), and the
+  re-check refuses an *ok* claim;
+- checks in a context without the input the environment was made over,
+  or with another one: every word fails closed (within the fingerprint's
+  limits, below);
+- asks `lf-env-ready?` inside a job: *false*.
+
+Other misuse is not detected and is outside what the environment defends
+against: a check, maker or scheduler that writes memory these words do
+not let it write (an environment's slots, pool or header, `lf-envs`,
+another context's records) beyond what the end of a serial run sees; one
+that unbalances the return stack or changes data-stack cells below its
+own frame (the run's caller's); a check that never returns (only its fuel
+bounds it); a maker that gives a context it did not make (the run adopts
+it and frees it), loads another input the fingerprint does not tell
+apart, keeps a context the run refused (the run cannot tell whether the
+maker made it, so it leaves it to the caller and says only *invalid*),
+switches the environment and back, or itself publishes, steps or runs
+(it holds its caller's token; what it publishes still passes the
+publisher and its re-check); and a scheduler that publishes while other
+checks run without G-P2's ordering (phase 7), frees an environment or a
+context still in use, never rolls the scratch back, or calls internal
+words outside a job. A review judges the environment against this model:
+a failed check that is published or read as accepted, when the check
+wrote nothing outside its own context, is a soundness bug; misuse by the
+maker or the scheduler is a bug only where the lists above say the
+environment detects it.
 
 ## The input is per context in v0
 
@@ -372,8 +461,8 @@ count saving in the existing modules with store marks.
 | Dependencies per check | 16 (`lf-env-dep-capacity`) |
 | Dependencies per environment | at most 65,536 (`lf-env-pool-max`), chosen when made |
 | Memory | slot 176 bytes, candidate 176, worker record 16, input declaration 128, header 80 with the publisher's pool mark (64-bit cells); an environment of 27 slots and 8 dependencies 5,016 bytes, of 32 slots and 65,536 dependencies 1,054,344 |
-| Time, Gforth 1.0 | 0.73 ms per run of the 27-declaration test input (1,000 runs, including making and freeing the environment; 0.65 ms before the second review round's guards, measured earlier the same day); 18 µs per lookup among 27 declarations (16.9 µs earlier, with the same lookup code: the machine's own variation) |
-| Time, Gforth 0.7.3 | 1.54 ms per run (1.41 ms before); 31 µs per lookup (27 µs earlier) |
+| Time, Gforth 1.0 | 0.73 ms per run of the 27-declaration test input (1,000 runs, including making and freeing the environment; 0.65 ms before the second review round's guards, measured earlier the same day); 18 µs per lookup among 27 declarations (16.9 µs earlier, with the same lookup code: the machine's own variation). The third round's guards and end-of-run check cost nothing measurable: 0.54–0.60 ms per run, against 0.58–0.72 ms for the code before them in the same session (three runs each) |
+| Time, Gforth 0.7.3 | 1.54 ms per run (1.41 ms before); 31 µs per lookup (27 µs earlier); after the third round 1.30–1.34 ms per run, against 1.33–1.37 ms before it in the same session |
 
 A lookup costs time linear in the input, and audits the name store each
 time: fine for phase 2, far too slow at Mathlib scale (the name index,
@@ -398,16 +487,22 @@ task 6.2.1, and the scale assessment's data structures).
   first, in either order); a check that begins another declaration;
   results read within the snapshot; the fingerprint's coverage of every
   input store and the name bytes; refusals inside a job (simulated),
-  including every internal word that writes shared state; a serial check
+  including every internal word that writes shared state, the words that
+  undo, end or mark a publication among them; undoing a final slot
+  outside a job (it aborts, nothing changes); a serial check
   that tries to publish, step, run, make, choose or free environments or
-  contexts (all refused) or that changes the stack (invalid, the context
-  replaced); makers that give something other than a fresh context
-  (junk, the main, the current, an owned or a spent one, the caller's) or
-  the wrong number of cells, each stopping the run; that a run frees
-  every context it made (heap blocks counted); a THROW after the final
-  mark and a publication that ends without a final slot; a run over an
-  input loaded twice, and the main context spent for good; corrupted
-  state; determinism; diagnostics.
+  contexts, or to undo a publication or mark the pool (all refused), or
+  that changes the stack (invalid, the context replaced); makers that
+  give something other than a fresh context (junk, an address that
+  cannot be read, the main, the current, an owned or a spent one, the
+  caller's) or the wrong number of cells, or that make another
+  environment current, each stopping the run without a `THROW` reaching
+  its caller; a check that, by plain stores, makes a final slot open or
+  moves the run to another environment (the run answers invalid); that a
+  run frees every context it made (heap blocks counted); a THROW after
+  the final mark and a publication that ends without a final slot; a run
+  over an input loaded twice, and the main context spent for good;
+  corrupted state; determinism; diagnostics.
 - `tests/core/environment-tasks.fs` and `environment-tasks-serial.fs`
   (row 9): checks as jobs in two contexts, threads on Gforth 1.0,
   cooperative on 0.7.3 (interleaving confirmed by overlapping steps), and
@@ -416,8 +511,9 @@ task 6.2.1, and the scale assessment's data structures).
   in its job (its lane's context is then replaced); a check started too
   early ends invalid; a context without the input, or with names of other
   text, sees nothing; a real job can neither publish nor make, choose or
-  free an environment, no internal word writes one inside it, and
-  readiness says false there; the scheduler publishes through
+  free an environment, no internal word (the undo words included) writes
+  one inside it, and readiness says false there; the scheduler publishes
+  through
   `lf-env-hand-over-job`, which refuses a job whose snapshot moved to
   another declaration.
 - Row 10: planted faults in a scratch copy, one at a time, all caught:
@@ -431,19 +527,34 @@ task 6.2.1, and the scale assessment's data structures).
   caught again, and 39 more revert each of its fixes one at a time: 37
   are caught; the two that survive remove the guard at the entry of
   `lf-env-write` and `lf-env-made`, whose first callee refuses before
-  anything is written, so no behaviour can tell them apart.
+  anything is written, so no behaviour can tell them apart. After the
+  third round the 58 (and 18 that break the job pool's interplay, on
+  threads and cooperative tasks) are all caught again; of the second
+  round's 39, 36 are caught, the third survivor now being the guard at
+  the entry of `lf-env-guarded`, whose first callee, `lf-env-marked?`,
+  refuses itself since this round; and 17 more revert each of the third
+  round's fixes, on Gforth 1.0 and 0.7.3: 15 are caught. The two that
+  survive are kept as defence in depth: restoring the current context
+  after the `CATCH` around the test of a maker's context (only a context
+  whose first cells can be read and whose worker record cannot would
+  tell), and the liveness clause of the run's end check (only a stray
+  write to the environment's header after the last hand-over would).
+- `tests/lib/context.fs` (part of `make test-lib`) checks
+  `call-balanced`, which runs the serial driver's checks: a word that
+  leaves, eats or replaces a cell gives `context-unbalanced`, another
+  `THROW` passes through.
 
 The tests above drive the environment with a *synthetic check* that does
 with it what `check-declaration` does (own name, lookups, dependencies),
 and no typing. With check-declaration (plan task 2.2.3; also in `make
 test-environment`, and the differentials in `make check`):
 
-- Row 1: the 60 rows of the [expected results](../reviews/FIRST_CHECKER_EXPECTED.md)
+- Row 1: the 62 rows of the [expected results](../reviews/FIRST_CHECKER_EXPECTED.md)
   and the 22 of the binder-domain table (ADR 0003, Amendment 1), end to
   end through the environment against pinned Lean (`make
   test-first-checker-differential`, `test-binder-domains-differential`):
   every accepted row has a valid handle and an empty axiom set and prints
-  its label; no other slot gives a handle. All 60 equal the table; three
+  its label; no other slot gives a handle. All 62 equal the table; three
   binder-domain rows meet the 64-node term store and give *unknown* or
   *full* instead (both failures; see the expected results).
 - Row 4: 17 universe-scope cases against pinned Lean
@@ -477,8 +588,13 @@ published or read as accepted, but guard gaps: checks the serial driver
 runs were outside the one-writer rule, its checks' stack effects were not
 checked, it trusted the maker's context, and internal words wrote shared
 state unguarded. They are fixed here and recorded as clarifications in
-ADR 0012, Amendment 1, items 5–11. The fixes still need an independent
-review of the exact change and the owner's approval of a plain-language
-summary. It is untrusted until then,
+ADR 0012, Amendment 1, items 5–11. Its third round (2026-11-02) again
+found no such path, but the words that undo, end or mark a publication
+could still change a final slot from inside a check, a maker's answer was
+checked outside the driver's `CATCH`, and a run could answer ok after
+its maker switched environments. They are fixed here, with the threat
+model above, and recorded in Amendment 1, items 12–15. The fixes still
+need an independent review of the exact change and the owner's approval
+of a plain-language summary. It is untrusted until then,
 and every accepted result is *experimental — not independently audited*
 after that.

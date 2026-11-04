@@ -403,8 +403,8 @@ def checker_summary(name, rows, known):
 def first_checker():
     table, text = first_checker_cases()
     rows, verdicts = checker_rows(text)
-    if sorted(rows) != sorted(table) or len(rows) != 60:
-        raise Mismatch("first checker: the Forth rows are not the table's 60 cases")
+    if sorted(rows) != sorted(table) or len(rows) != 62:
+        raise Mismatch("first checker: the Forth rows are not the table's 62 cases")
     for case, (lean, expected, rule) in table.items():
         checker_row(case, lean, expected, rule, rows[case], verdicts[case],
                     FIRST_CHECKER_KNOWN)

@@ -14,7 +14,7 @@ include ../support/checks.fs
 require ../../src/lib/task.fs
 include ./task-job.fs
 
-\ Nested-job results, recorded inside a job.
+\ Results recorded inside a job (nested jobs, a worker's strings).
 4 cells context-record: notes
 
 \ Stack needs (context.fs): the largest stated data and return need is
@@ -94,6 +94,58 @@ T{ pool-stop live pool-start live -> 0 0 pooled? task-cores and }T
   context-new throw dup ['] thrower job-submit throw job-wait swap context-free throw ;
 T{ ' run-thrower rs-checked -> 37 }T
 T{ submit-all run-thrower wait-all wrong-count free-all -> 0 37 0 0 0 }T
+
+\ Throws in jobs once the main task has thrown. On Gforth 1.0 a THROW
+\ inside a CATCH stores a backtrace, and a failed EVALUATE its error
+\ frames, in heap strings of the throwing task's own. Workers started after
+\ the main task threw must not start with its strings (task.fs,
+\ worker-start), or throws in jobs resize and free them from other threads
+\ and corrupt the heap. So, with the pool started after the main task
+\ threw: no job starts with a main-task string (checked before any job
+\ throws, so that it fails cleanly); then jobs throw at many depths, the
+\ main task's strings stay unchanged, and it throws on. Other hosts keep
+\ no such strings per task; there the jobs' throws are checked alone.
+: threads? ( -- flag ) task-host task-threads = ;
+threads? [if]
+: strings@ ( -- backtrace errors ) stored-backtrace @ error-stack @ ;
+: string-sum ( $addr -- x ) $@ 0 -rot bounds ?do 31 * i @ + 1 cells +loop ;
+: strings-sum ( -- x ) stored-backtrace string-sum error-stack string-sum + ;
+[else]
+: strings@ ( -- 0 0 ) 0 0 ;
+: strings-sum ( -- 0 ) 0 ;
+[then]
+: main-throws ( -- ior ior )
+  ['] thrower catch  s" no-such-word-here" ['] evaluate catch nip nip ;
+: strings-job ( -- ) strings@ notes 2! ;
+: deep-throw ( n -- ) ?dup if 1- recurse then 38 throw ;
+: throw-job ( -- ) 200 0 do i 32 mod ['] deep-throw catch 2drop loop 38 throw ;
+create throw-contexts jobs cells allot
+create throw-handles jobs cells allot
+: throw-context ( k -- context ) throw-contexts slot @ ;
+: throw-new ( -- ) jobs 0 ?do context-new throw i throw-contexts slot ! loop ;
+: throw-submit ( xt k -- xt )
+  tuck throw-context over job-submit throw rot throw-handles slot ! ;
+: throw-all ( xt -- ) jobs 0 ?do i throw-submit loop drop ;
+\ How many jobs gave ior.
+: ior-count ( ior -- n ) 0 jobs 0 ?do over i throw-handles slot @ job-wait = - loop nip ;
+create main-strings 2 cells allot
+\ Whether a job's string x is the main task's, main; none (0) never is.
+: shared? ( main x -- flag ) over = and 0<> ;
+: either-shared? ( backtrace errors -- flag )
+  main-strings 2@ rot shared? >r swap shared? r> or ;
+: noted ( k -- backtrace errors )
+  throw-context context-use notes 2@ context-main context-use ;
+: throw-shared ( -- n ) 0 jobs 0 ?do i noted either-shared? - loop ;
+: throw-free ( -- failures ) 0 jobs 0 ?do i throw-context context-free 0<> - loop ;
+variable main-sum
+T{ pool-stop main-throws pool-start -> 37 -13 0 }T
+strings@ main-strings 2!  strings-sum main-sum !  throw-new
+T{ main-strings 2@ 0<> swap 0<> and -> threads? }T
+T{ ' strings-job throw-all 0 ior-count throw-shared -> jobs 0 }T
+T{ ' throw-job throw-all 38 ior-count strings-sum main-sum @ = -> jobs true }T
+T{ main-throws throw-free -> 37 -13 0 }T
+T{ lf-context @ context-main = -> true }T
+T{ depth -> 0 }T
 
 \ A word with a wrong stack effect fails with task-unbalanced, even one
 \ that consumes and replaces a cell, and the job record, the worker and

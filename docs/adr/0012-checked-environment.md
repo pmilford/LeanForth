@@ -13,8 +13,8 @@ structure of [ADR 0009](0009-reentrant-state-and-parallel-checking.md)
 
 Amended 2026-11-02 ([Amendment 1](#amendment-1-2026-11-02-after-the-independent-review-of-v0)):
 stricter or clarifying changes after the independent review of the
-implementation, and clarifications after its second round; the status
-above is unchanged.
+implementation, and clarifications after its second and third rounds,
+including the threat model (item 15); the status above is unchanged.
 
 ## Summary in plain words
 
@@ -589,6 +589,40 @@ G-P6; none adds or changes a rule of this design.
     one that did the same. A context in which a check threw stays spent;
     the main context, which can never be freed, then serves no further
     check for the rest of the program.
+
+**Clarifications after the third review round (2026-11-02).** The
+independent review of those guards again found no path by which a failed
+check is published or read as accepted. It found internal words that
+could still change a final slot from inside a check, a maker's answer
+validated outside the driver's `CATCH`, and a run that could answer *ok*
+in an environment the maker had switched away from. None of the changes
+below adds or changes a rule of this design.
+
+12. **A final slot never changes (E4, G-P1).** The words that undo a
+    publication, end one, and mark the pool refuse inside a job or a check
+    like every other internal word that writes shared state (item 9).
+    Undoing a final slot aborts, outside a job too. A slot that is undone
+    is left not final with outcome *invalid*, so that no interleaving of
+    an undo with a final mark can leave a final slot that reads *ok*.
+13. **The maker's answer (G-P6).** The serial driver checks the context
+    a maker gives under its `CATCH`: an address that cannot be read is
+    refused like any other wrong answer, and the run stops with
+    *invalid*, freeing the contexts it made and returning to its caller's.
+14. **The run's answer (G-P6; coordinator decision).** The serial driver
+    answers *ok* only when, at its end, the environment it started in is
+    still current and every slot is final; a maker that leaves another
+    environment current, or none, stops the run before any check runs
+    there. The coordinator also asked to run the maker under the check
+    owner token; that token refuses `context-new` and `context-use`,
+    which a maker needs, so the maker instead keeps its caller's token and
+    is documented as trusted harness code (item 15).
+15. **Threat model.** The check is [kernel] code under review: the
+    environment's guards are defence in depth against its bugs, not a
+    defence against a hostile check in the same image. The maker and the
+    scheduler are trusted harness code. `docs/programming/CHECKED_ENVIRONMENT.md`
+    (*Threat model*) lists exactly which misuse by each is detected and
+    fails closed, and which is not; reviews judge the implementation
+    against that list.
 
 ## Reproduction
 
