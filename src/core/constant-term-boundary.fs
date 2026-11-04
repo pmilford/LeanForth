@@ -50,8 +50,8 @@ lf-depth-limit context-walk: lf-cterm-walker
 
 \ Check each level of a reference's (index identity) pairs in the current
 \ context from inside this walk, with its fuel. The pairs come from
-\ lf-cref-levels, already validated, so count is 0..lf-cref-argument-capacity
-\ (64) and identities are not checked again.
+\ lf-cref-levels, already validated, so count is not negative and
+\ identities are not checked again.
 : lf-cterm-levels ( addr count walk -- outcome )
   swap 0 ?do over i lf-cref-pair@ drop over lf-lscope-walk-check dup ok? 0=
     if nip nip unloop exit then drop loop 2drop outcome-ok ;

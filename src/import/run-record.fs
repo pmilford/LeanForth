@@ -514,6 +514,9 @@ rr-power 2constant rr-exact
 : rr-stores ( -- )
   lf-term-capacity s" terms" rr-setting lf-level-capacity s" levels" rr-setting
   lf-name-capacity s" names" rr-setting lf-input-capacity s" declarations" rr-setting ;
+\ Since plan task 6.2.0 universe parameters and arguments have no fixed
+\ limit; parameters and referenceLevels record the room the importers'
+\ arrays start with (64), until the record's next version says so.
 : rr-limits ( -- )
   lf-env-dep-capacity s" dependenciesPerCheck" rr-setting
   lf-param-capacity s" parameters" rr-setting

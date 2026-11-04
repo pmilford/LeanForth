@@ -457,8 +457,8 @@ create cli-order
   ."   " lf-name-capacity .decimal ."  names (" lf-name-byte-capacity .decimal
   ."  bytes), " lf-level-capacity .decimal ."  levels, " lf-term-capacity .decimal
   ."  term nodes, " lf-input-capacity .decimal ."  declarations per export" cr
-  ."   " lf-param-capacity .decimal ."  universe parameters per declaration, "
-  lf-cref-argument-capacity .decimal ."  universe arguments per constant" cr
+  ."   universe parameters per declaration and universe arguments per constant:" cr
+  ."     no fixed limit (memory)" cr
   ."   " lf-env-dep-capacity .decimal ."  dependencies per declaration, "
   cli-pool .decimal ."  per export" cr
   ."   fuel " cli-default-fuel .decimal ."  steps per declaration (--fuel N)" cr ;

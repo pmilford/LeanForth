@@ -98,7 +98,9 @@ create decl-buffer /lf-idecl allot
   decl-buffer /lf-idecl erase decl-buffer lf-idecl-kind ! decl-buffer lf-idecl-name ! ;
 : roots ( type value -- )
   drop decl-buffer lf-idecl-value ! drop decl-buffer lf-idecl-type ! ;
-: one-param ( name -- ) decl-buffer lf-idecl-params ! 1 decl-buffer lf-idecl-arity ! ;
+create param-ids 1 cells allot   \ the universe parameters' name IDs
+: one-param ( name -- )
+  param-ids ! param-ids decl-buffer lf-idecl-params ! 1 decl-buffer lf-idecl-arity ! ;
 : add ( -- ) decl-buffer lf-input-add ok! drop ;
 myId lf-kind-definition new-decl myId-type myId-value roots u one-param add
 myId_prop lf-kind-theorem new-decl thm-type thm-value roots add
@@ -206,7 +208,7 @@ ever turns a failure into ok.
 
 | Word | Stack effect | Does |
 | --- | --- | --- |
-| `/lf-idecl`, `lf-idecl-name`, `-kind`, `-safety`, `-type`, `-value`, `-hint`, `-height`, `-arity`, `-params` | record and fields | one input declaration: name ID, kind (`lf-kind-definition` … `lf-kind-recursor`), safety and hint coded as the NDJSON reader codes them, type and value term indices (value −1 for none), up to `lf-param-capacity` (8) universe parameter name IDs |
+| `/lf-idecl`, `lf-idecl-name`, `-kind`, `-safety`, `-type`, `-value`, `-hint`, `-height`, `-arity`, `-params` | record and fields | one input declaration: name ID, kind (`lf-kind-definition` … `lf-kind-recursor`), safety and hint coded as the NDJSON reader codes them, type and value term indices (value −1 for none), the number of universe parameters and the address of the importer's array of their name IDs, any number of them (`lf-input-add` copies them; `lf-idecl-params@` reads an added declaration's) |
 | `lf-input-add` | `( decl -- i outcome )` | copy a filled record while loading: ok; invalid after loading ended or for a record out of range or with a reference that is not live; full when the input is full |
 | `lf-input-end` | `( -- outcome )` | end loading: mark every input store (terms, levels, names, references, declarations) and record the input's fingerprint; invalid when already ended or the name store or its byte count is out of range |
 | `lf-input-intact?` | `( -- flag )` | loading ended, every mark still valid (no reset, nothing rolled back below it) and the name bytes still in use |
@@ -495,7 +497,7 @@ count saving in the existing modules with store marks.
 | Limit | Value |
 | --- | --- |
 | Declarations per input | 32 (`lf-input-capacity`); Mathlib has 729,263 constants |
-| Universe parameters per declaration | 8 (`lf-param-capacity`); Mathlib uses up to 30 |
+| Universe parameters per declaration | no fixed limit since plan task 6.2.0 (2026-11-04; memory only); Mathlib uses up to 30 |
 | Dependencies per check | 16 (`lf-env-dep-capacity`) |
 | Dependencies per environment | at most 65,536 (`lf-env-pool-max`), chosen when made |
 | Memory | slot 176 bytes, candidate 176, worker record 16, input declaration 128, header 80 with the publisher's pool mark (64-bit cells); an environment of 27 slots and 8 dependencies 5,016 bytes, of 32 slots and 65,536 dependencies 1,054,344 |

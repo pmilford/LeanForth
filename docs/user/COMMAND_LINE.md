@@ -353,7 +353,8 @@ unsupported (check answers unsupported, exit 2):
   unfolding definitions: some correct proofs end unknown (exit 2)
 limits (check answers full, exit 3; small exports only):
   64 names (2048 bytes), 64 levels, 64 term nodes, 32 declarations per export
-  64 universe parameters per declaration, 64 universe arguments per constant
+  universe parameters per declaration and universe arguments per constant:
+    no fixed limit (memory)
   16 dependencies per declaration, 64 per export
   fuel 100000 steps per declaration (--fuel N)
 planned, not built: program, serve, --json receipts,

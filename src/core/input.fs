@@ -346,7 +346,11 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
   lf-more-here swap dup lf-idecl-params @ swap lf-idecl-arity @ 0 ?do
     i lf-input-param, dup ok? 0= if nip unloop exit then drop
   loop drop outcome-ok ;
-: lf-input-placed ( k decl i -- i ) nip tuck lf-input-decl lf-idecl-param-at ! ;
+\ The copy keeps where its parameters are, never the importer's address
+\ (which differs from context to context and would change the input's
+\ fingerprint).
+: lf-input-placed ( k decl i -- i )
+  nip tuck lf-input-decl tuck lf-idecl-param-at ! 0 swap lf-idecl-params ! ;
 : lf-input-copy ( decl -- i outcome )
   dup lf-input-index-room dup ok? 0= if nip -1 swap exit then drop
   dup lf-input-params, dup ok? 0= if nip nip -1 swap exit then drop swap
