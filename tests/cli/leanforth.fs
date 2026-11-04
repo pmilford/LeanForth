@@ -69,11 +69,13 @@ T{ outcome-rejected 1 cli-tally-proved cli-not-proved @ cli-worst @ -> 1 0 }T
 [defined] >string-execute [if]
 : accepted-line ( accepted not-proved -- c-addr u )
   cli-start cli-not-proved ! outcome-ok cli-count-of ! ['] cli-accepted. >string-execute ;
-: label-text ( -- c-addr u ) s" accepted: 3 (experimental, not independently audited); axioms: " ;
+: label-text ( -- c-addr u )
+  s" accepted: 3 (experimental, not independently audited); axioms: " ;
 : after-label ( c-addr u -- c-addr' u' ) label-text search drop label-text nip /string ;
+: not-proved-text ( -- c-addr u ) s\" 2 NOT PROVED (they depend on an axiom)\n" ;
 T{ 3 0 accepted-line drop label-text tuck compare -> 0 }T
 T{ 3 0 accepted-line after-label s\" none\n" compare -> 0 }T
-T{ 3 2 accepted-line after-label s\" 2 NOT PROVED (they depend on an axiom)\n" compare -> 0 }T
+T{ 3 2 accepted-line after-label not-proved-text compare -> 0 }T
 T{ 0 0 accepted-line nip -> 0 }T
 [then]
 

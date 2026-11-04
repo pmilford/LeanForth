@@ -165,7 +165,8 @@ create cj-name /slab allot  cj-name /slab erase
   ck-staging s" stage" cj-phase ck-feeding s" feed" cj-phase
   ck-checking s" check" cj-phase ck-total-wall ck-total-cpu s" total" cj-time ;
 : cj-times ( -- )
-  s" microseconds" cj-key ck-timed? if cj-object cj-phases cj-end-object else cj-null then ;
+  s" microseconds" cj-key ck-timed? 0= if cj-null exit then
+  cj-object cj-phases cj-end-object ;
 : cj-peak ( -- ) s" peakResidentBytes" cj-key ck-peak if cj-n else cj-null then ;
 : cj-stage-bytes ( -- )
   s" stageBytes" cj-key ck-staged? if ck-staged-bytes cj-n else cj-null then ;

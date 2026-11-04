@@ -487,7 +487,8 @@ class Tampered(unittest.TestCase):
     def test_tampered(self):
         with tempfile.TemporaryDirectory() as folder:
             # The proof replaced by the statement: rejected without the manifest.
-            proof = self.copies(folder, COMPOSITION, lambda t: t.replace('"value":20', '"value":10'))
+            proof = self.copies(folder, COMPOSITION,
+                                lambda t: t.replace('"value":20', '"value":10'))
             self.refused(proof, 1, ["composition: rejected"])
             self.assertEqual(run("check", proof)[1].splitlines()[0],
                              "error: invalid: export differs from its manifest "
@@ -508,12 +509,18 @@ class Tampered(unittest.TestCase):
             self.assertEqual((status, out.split(" (")[0]),
                              (4, "error: invalid: export differs from its manifest"))
             self.assertEqual(run("check", "--no-manifest", shorter)[0], 0)
+            # Another Lean version than the pinned one: unsupported, 2.
+            other = self.copies(folder, COMPOSITION,
+                                lambda t: t.replace('"version":"4.35.0"', '"version":"4.36.0"'))
+            status, out, _ = run("check", "--no-manifest", other)
+            self.assertEqual((status, out.splitlines()[1][:20]), (2, "error: unsupported: "))
             # A constant no declaration has: the stage refuses it at sealing.
             lines = (ROOT / FIXTURE).read_text().splitlines(keepends=True)
             unknown = Path(folder) / "unknown.ndjson"
             unknown.write_text("".join(line for line in lines if '"def":{"all":[1]' not in line))
             self.assertEqual(run("check", "--no-manifest", str(unknown)),
-                             (4, f"{NO_MANIFEST}\nerror: invalid: unknown constant (line 0)\n", ""))
+                             (4, f"{NO_MANIFEST}\nerror: invalid: unknown constant (line 0)\n",
+                                 ""))
 
 
 def report(*args):

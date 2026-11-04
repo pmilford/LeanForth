@@ -269,15 +269,24 @@ take the staged declarations. Lean's own `Init` library, exported with
 INIT-EXAMPLE
 
 Nothing was rejected and nothing was invalid. The 1,617 accepted
-declarations include whole inductive blocks such as `Option`, `Prod`,
-`Eq` and `And`. Almost everything else is *unsupported* or *unknown*
-because it needs features not built yet — each a gap to close, not an
-answer that differs from Lean's, which accepts all of `Init`: unfolding
-definitions (plan task 4.2.2), recursive and indexed inductive types
-(5.2.1b, 5.2.1c), literals (5.2.3), projections and structures (5.2.2),
-quotients (5.2.4), axioms (5.3.1) and mutual blocks (5.2.5); *full* means
-a term nested deeper than the 64 levels a walk holds today (6.2.0), and
-*exhausted* a check that needed more than 100,000 steps (`--fuel N`).
+declarations include `id`, `Function.comp` and whole inductive blocks
+such as `Bool`, `Option`, `Prod`, `Sum`, `And`, `Or`, `Exists`, `Eq`,
+`HEq` and `Decidable`. Almost everything else is *unsupported* or
+*unknown* because it needs features not built yet — each a gap to close,
+not an answer that differs from Lean's, which accepts all of `Init`:
+recursive and indexed inductive types such as `Nat` and `List` (plan
+tasks 5.2.1b, 5.2.1c; 266 declarations), literals, projections and other
+term forms (5.2.3, 5.2.2, 4.2.3; 25,691 declarations), axioms, opaque,
+unsafe and partial declarations and quotients (5.3.1, 4.2.6, 5.2.4; 252),
+comparisons that need definitions unfolded (4.2.2; 748 *unknown*, codes
+30–32), and everything that uses
+one of those (27,556 *unsupported* and 2,998 *unknown* only for that).
+*full* means a term nested deeper than the 64 levels a walk holds today
+(55, plan task 6.2.0) or a declaration with more than 16 dependencies (4;
+no plan task names that limit yet), and *exhausted* a check that needed
+more than 100,000 steps (`--fuel N` gives more). The `gforth-fast`
+engine gives the same output, byte for byte but for the times, in less
+than half the time: set `GFORTH=.tools/gforth/bin/gforth-fast`.
 
 ### The resource report
 
