@@ -14,14 +14,14 @@ require ../core/generation-handles.fs
 require ../core/constant-references.fs
 require ../core/constant-term-boundary.fs
 
-lf-depth-limit context-walk2: lf-pp-scan-walk
+lf-walk-room context-walk2: lf-pp-scan-walk
 
 \ A structured name as text, components joined by dots, sent to xt
 \ ( c-addr u -- ), from the first component on without recursion: the
 \ component k from the root is found by walking up from the name, so a
 \ name of n components takes n*n/2 steps. A name of more than
 \ lf-name-default components prints nothing and marks the pool full (the
-\ print then ends full), as a name too long for the pool does. Unchecked:
+\ print then ends full), as a name the pool has no room for does. Unchecked:
 \ the ID is valid and the name storage passed lf-name-storage-valid?, so
 \ every prefix chain ends at the anonymous name, which gives nothing.
 : lf-pp-part ( id xt -- )

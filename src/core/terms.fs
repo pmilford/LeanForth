@@ -10,10 +10,11 @@
 \ must already exist, so terms are acyclic DAGs. Per-term side data of
 \ other modules lives in columns of the group lf-term-columns
 \ (lib/store-columns.fs), which grow with the store.
-\ The deepest nesting the passes support (work stacks, frames, binder
-\ contexts) is lf-depth-limit, a constant that no longer follows the
-\ store's capacity: a term deeper than that ends a pass full or
-\ exhausted, never accepted.
+\ Terms have no fixed depth (plan task 6.2.0): every pass keeps its
+\ pending work on a stack in the heap that grows with the depth (walks,
+\ frames, binder scopes); lf-walk-room is only the room a context's walk
+\ starts with. A stack the heap cannot grow ends a pass full, never
+\ accepted.
 \ State: the store header lf-terms, a member of the checker context
 \ (lib/context.fs) whose block is on the heap, freed by its teardown
 \ word, so each context has its own terms; single-threaded within one
@@ -27,7 +28,7 @@ require ./diagnostics.fs
 require ../lib/store-columns.fs
 
 64 constant lf-term-default
-64 constant lf-depth-limit
+64 constant lf-walk-room     \ a walk's first room, in items
 1 constant lf-tag-sort
 2 constant lf-tag-bvar
 3 constant lf-tag-app

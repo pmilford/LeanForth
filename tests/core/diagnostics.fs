@@ -175,7 +175,9 @@ end-check
 \ Room limits that a 64-node store cannot reach, white-box: a work stack
 \ of capacity 1, frames limited to 1, the depth limits, the cell maximum,
 \ and full binder contexts.
-begin-check samples 1 lf-cterm-walker walk-capacity ! lf-diag-clear
+\ A checker's walk grows past its room (plan task 6.2.0); it is full only
+\ when the heap refuses the growth (heap-watch.fs).
+begin-check samples 1 lf-cterm-walker walk-capacity ! lf-diag-clear 1 heap-refusals !
 T{ 2 handle 10 lf-cterm-check diag -> outcome-full 1 1 lf-diag-work-stack-full }T
 T{ s" constant-term-boundary lf-cterm-check" at? -> true }T
 end-check
@@ -191,20 +193,23 @@ begin-check 5 lf-cterm-walker walk-node ! 7 lf-cterm-walker walk-context ! lf-di
 T{ outcome-unknown lf-cterm-walker test-site lf-diag-walk diag
   -> outcome-unknown 5 0 lf-diag-undecided }T
 end-check
-begin-check samples 1 lf-mbeta-frames frame-limit ! lf-diag-clear
-T{ 9 handle 1000 lf-mixed-beta nip nip diag -> outcome-full 1 1 lf-diag-frame-limit }T
+\ A pass's frames grow their stack (plan task 6.2.0); a growth the heap
+\ refuses is full, recorded with the cells in use and the capacity.
+: refused-frames ( frames -- ) frame-free 1 heap-refusals ! lf-diag-clear ;
+begin-check samples lf-mbeta-frames refused-frames
+T{ 9 handle 1000 lf-mixed-beta nip nip diag -> outcome-full 0 0 lf-diag-frame-limit }T
 T{ s" mixed-beta lf-mixed-beta" at? -> true }T
 end-check
-begin-check samples 1 lf-mshift-frames frame-limit ! lf-diag-clear
-T{ 2 handle 0 1 1000 lf-mixed-shift nip nip diag -> outcome-full 1 1 lf-diag-frame-limit }T
+begin-check samples lf-mshift-frames refused-frames
+T{ 2 handle 0 1 1000 lf-mixed-shift nip nip diag -> outcome-full 0 0 lf-diag-frame-limit }T
 end-check
-begin-check samples 1 lf-minst-frames frame-limit ! lf-diag-clear
+begin-check samples lf-minst-frames refused-frames
 T{ 2 handle 3 handle 1000 lf-mixed-instantiate nip nip diag
-  -> outcome-full 1 1 lf-diag-frame-limit }T
+  -> outcome-full 0 0 lf-diag-frame-limit }T
 T{ s" mixed-instantiate lf-mixed-instantiate" at? -> true }T
 end-check
-begin-check 10 lf-lvalue-fuel ! lf-diag-clear
-T{ 0 lf-lvalue-depth-limit lf-lvalue-walk diag -> -1 outcome-full 64 64 lf-diag-depth-limit }T
+begin-check 10 lf-lvalue-fuel ! lf-lvalue-frames refused-frames
+T{ 0 lf-lvalue-walk diag -> -1 outcome-full 0 0 lf-diag-frame-limit }T
 T{ s" level-value lf-level-value" at? -> true }T
 lf-diag-clear
 T{ max-n lf-lvalue-succ+ diag -> -1 outcome-full max-n 1 lf-diag-cell-maximum }T
@@ -212,14 +217,15 @@ end-check
 \ Lean's normalize flattens a max of maxes onto its argument stack: eight
 \ doublings of u stand for 256 arguments. The stack has no fixed limit
 \ (plan task 6.2.0): it holds them, and it is full only when the heap
-\ refuses it room (heap-watch.fs).
+\ refuses it room (heap-watch.fs): here nine doublings, after eight have
+\ sized normalize's stacks (the arguments' to 1,024 cells: the max's 256,
+\ their 256 normal forms and a sort's scratch), when a push needs more.
 : doubled ( level n -- level' ) 0 ?do dup lf-level-max must loop ;
 begin-check lf-diag-clear
 T{ level-u level-u 8 doubled 100000 lf-level-compare -> outcome-ok }T
-end-check
-begin-check lf-diag-clear 1 heap-refusals !
-T{ level-u level-u 8 doubled 100000 lf-level-compare diag
-  -> outcome-full 0 0 lf-diag-work-stack-full }T
+lf-diag-clear 1 heap-refusals !
+T{ level-u level-u 9 doubled 100000 lf-level-compare diag
+  -> outcome-full 1024 1024 lf-diag-work-stack-full }T
 T{ s" level-normalize lf-level-equivalent" at? -> true }T
 end-check
 \ K6: specializing imax 1 (u+1) with u for u depends on object sharing in
@@ -230,11 +236,16 @@ T{ shared-imax @ u-formal level-u cells4 ! cells4 1 100 lf-lsubst diag
   -> outcome-unknown shared-imax @ 0 lf-diag-shared-level }T
 T{ s" level-substitute lf-lsubst" at? -> true }T
 end-check
-begin-check 10 lf-minfer-fuel ! lf-term-capacity lf-minfer-depth ! lf-diag-clear
-T{ 0 lf-minfer-walk diag -> -1 outcome-full 64 64 lf-diag-frame-limit }T
+\ Inference's frames and scope grow (plan task 6.2.0); a growth the heap
+\ refuses is full, recorded with the frames' cells in use and capacity,
+\ or the scope's depth and room.
+begin-check 10 lf-minfer-fuel ! lf-minfer-frames refused-frames
+T{ 0 lf-minfer-walk diag -> -1 outcome-full 0 0 lf-diag-frame-limit }T
 T{ s" mixed-infer lf-mixed-infer" at? -> true }T
-lf-diag-clear 0 lf-minfer-depth ! lf-depth-limit lf-minfer-context-depth !
-T{ 0 0 lf-minfer-bind diag -> outcome-full 64 64 lf-diag-binders-full }T
+lf-minfer-fvars slab-capacity constant scope-room
+lf-diag-clear scope-room lf-minfer-context-depth !  1 heap-refusals !
+T{ 0 0 lf-minfer-bind diag -> outcome-full scope-room scope-room lf-diag-binders-full }T
+0 lf-minfer-context-depth !
 end-check
 begin-check 0 lf-cts-walker walk-pending ! max-n lf-cts-walker walk-context ! lf-diag-clear
 T{ 0 0 lf-cts-walker lf-tag-lam lf-cts-binary diag -> outcome-full max-n max-n lf-diag-binders-full }T

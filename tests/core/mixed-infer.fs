@@ -2,6 +2,7 @@
 \ a successful inference is not a checked theorem or declaration.
 include ../support/tester.fs
 include ../support/checks.fs
+include ../support/heap-watch.fs
 require ../../src/lib/lib.fs
 require ../../src/core/constant-references.fs
 require ../../src/core/constant-term-boundary.fs
@@ -252,23 +253,24 @@ variable saw-exhaustion variable saw-success variable saw-partial
 ' start-case s" job started directly" run-case
 ' fuel-case s" fuel and rollback" run-case
 cases-done
-\ The frame limit: with every frame in use a visit is full and spends no
-\ fuel (unreachable from lf-mixed-infer at today's capacity). With no fuel
-\ as well, the fuel decides: exhausted.
-lf-term-capacity lf-minfer-depth !  100 lf-minfer-fuel !
-T{ 0 lf-minfer-walk lf-minfer-fuel @ -> -1 outcome-full 100 }T
-0 lf-minfer-fuel !
-T{ 0 lf-minfer-walk lf-minfer-depth @ -> -1 outcome-exhausted lf-term-capacity }T
-0 lf-minfer-depth !
-\ The scope: with every slot in use no binder can be opened, which is
-\ full, and neither the scope nor the local context changes. That is
-\ checked before anything else, so with no fuel left it is still full.
-\ (A telescope of more than lf-depth-limit binders reaches it, given a
-\ term store that holds one; the frames stopped such a term before.)
-lf-depth-limit lf-minfer-context-depth !  100 lf-minfer-fuel !
+\ The frames grow with the depth (plan task 6.2.0): a stack the heap
+\ cannot grow makes a visit full, spending no fuel. With no fuel as well,
+\ the fuel decides: exhausted.
+lf-minfer-frames frame-free  1 heap-refusals !  100 lf-minfer-fuel !
+T{ 0 lf-minfer-walk lf-minfer-fuel @ lf-minfer-depth @ -> -1 outcome-full 100 0 }T
+0 lf-minfer-fuel !  1 heap-refusals !
+T{ 0 lf-minfer-walk lf-minfer-depth @ heap-refusals @ -> -1 outcome-exhausted 0 1 }T
+0 heap-refusals !
+\ The scope grows too: a scope the heap cannot grow opens no binder,
+\ which is full, and neither the scope nor the local context changes.
+\ That is checked before anything else, so with no fuel left it is still
+\ full.
+lf-minfer-fvars slab-capacity dup lf-minfer-context-depth !  100 lf-minfer-fuel !
+constant scope-room
 lf-lctx-count @ constant locals-before
-T{ 0 0 lf-minfer-bind lf-minfer-context-depth @ -> outcome-full lf-depth-limit }T
-0 lf-minfer-fuel !
+1 heap-refusals !
+T{ 0 0 lf-minfer-bind lf-minfer-context-depth @ -> outcome-full scope-room }T
+0 lf-minfer-fuel !  1 heap-refusals !
 T{ 0 0 lf-minfer-bind lf-minfer-fuel @ lf-lctx-count @ -> outcome-full 0 locals-before }T
-0 lf-minfer-context-depth !
+0 heap-refusals !  0 lf-minfer-context-depth !
 bye

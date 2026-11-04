@@ -71,7 +71,8 @@ stricter or different is an opt-in flag.
    1,000 universe parameters agree with pinned Lean (24 rows). Depth limits
    (part b) are in progress.
 7. **Program words, run records and the IR 0.2 design approved** (see the
-   gates table).
+   gates table); IR 0.2 implemented, its [parser] implementation gate
+   pending.
 8. **A test-suite crash found and fixed.** Both the WSL crash and the Claude
    Code crash of 2026-11-04 were one bug: the new test wrapper
    `scripts/gforth-strict.sh` called itself, a fork bomb of about a thousand
@@ -134,7 +135,7 @@ the 32-bit access words exist in `src/`; building it is plan tasks
 | Free variables and the local context (plan 4.2.2a) | [kernel] | **approved** 2026-11-04 after two review rounds; accepted cost: checking is 10-25% slower until the loose-variable range of ADR 0014 Q12 is built |
 | Derivation log and proof outlines, `leanforth print` (plan 2.4.1, 2.4.4; ADR 0013) | gate D5 | **approved** 2026-11-04 after three review rounds; accepted memory: about 218 KB per context while the log is on, under 1 KB off |
 | Run-record reading change: both passes and the recorded SHA-256 must agree, with or without the manifest (`src/import/checker-input.fs`) | [import] | **approved** 2026-11-04 after four review rounds, the last clean |
-| IR 0.2 design (ADR 0019 Amendment 1: redefinition with Forth's early binding, output words as effects, SHA-2 additions `LSHIFT`, `-rot`, number prefixes, 32-bit literals) | [parser] design | **approved** 2026-11-04 as a design; not yet implemented; receipt schema 0.3 comes to the [format] gate with the first receipt that needs it |
+| IR 0.2 design (ADR 0019 Amendment 1: redefinition with Forth's early binding, output words as effects, SHA-2 additions `LSHIFT`, `-rot`, number prefixes, 32-bit literals) | [parser] design | **approved** 2026-11-04 as a design; **implemented** 2026-11-04 (agent IR3, merged `cc3afaf`; independent review rvIR3: nothing blocking, its low findings fixed); the [parser] implementation gate is **pending** (owner); receipt schema 0.3 comes to the [format] gate with the first receipt that needs it |
 | Design records ADR 0010, 0013, 0015, 0016, 0017, 0018 | design | **accepted** (0017 on 2026-11-02; the rest 2026-11-03; 0015 as a design, with a gate per task) |
 | Checked environment v0 (2.2.2) | [kernel] | **approved** 2026-11-03 |
 | Declaration check (2.2.3) and the level fix | [kernel], [bypass] | **approved** 2026-11-03 |
@@ -201,7 +202,12 @@ sizes are relative and dates are not estimated.
    6.2.0 is in progress, brought forward by the owner: universe parameter and
    argument lists and the level context have no fixed limit since
    2026-11-04, checked against Lean with 100, 300 and 1,000 parameters,
-   and the depth limits, part (b), are in progress); feed
+   and, part (b), terms and levels no fixed depth: every pass keeps its
+   pending work on explicit stacks in the heap, checked against Lean with
+   lambda, application and successor chains 2,000 and 10,000 deep, all
+   agreeing (the local context, too, is limited only by the heap); the
+   work grows with the square of the depth, a temporary gap (6.5.5), and
+   the trial workload runs about 9% slower); feed
    declarations to the checker in file order (3.2.2; works for `Init`
    today, gate pending); re-export byte for byte and compare with
    Lean's file (3.2.4, **done 2026-11-03**); the checksum manifest checked by default and an
@@ -272,9 +278,14 @@ gains loops and memory, and finally checked by LeanForth itself
 ([plan](PLAN_DRAFT.md#program-track-goal-most-of-forth-2012-core-owner-2026-11-02)).
 Before that: contracts for the five other example words (done 2026-11-03) and
 the owner's [parser] and [format] decisions on the program reader and
-receipts (both **approved** 2026-11-04). Next on this track is the
-implementation of IR 0.2 (approved as a design 2026-11-04): redefinition,
-output words and the SHA-2 additions.
+receipts (both **approved** 2026-11-04). IR 0.2 (redefinition, output
+words and the SHA-2 additions) is **implemented** (2026-11-04; its [parser]
+implementation gate pending), and stage SHA-2 has **started**: the helper
+words `sha-rotr`, `sha-ch`, `sha-maj` and `sha-big-sigma0`, as plain Forth
+program words (`src/program/sha-words.fs`), are proved in Lean equal to
+FIPS 180-4's ROTR, Ch, Maj and Σ0 for every 32-bit input on cells of at
+least 33 bits; `sha-shr`, Σ1, σ0 and σ1 remain, and `src/lib/sha256.fs`
+does not run these words yet.
 
 **When will all of Mathlib be checked?** Not soon, and no date is
 estimated: milestones 2–5 must all be built, and milestone 4 alone covers
@@ -338,7 +349,7 @@ P3.2). Changes of state within the tasks:
 | T10.1 Forth words that build terms | syntax words merged | 15 example files and 50 printer cases round-trip; 42 `#print` lines from 14 fixtures equal pinned Lean's; the authoring program does not yet hand terms to the checker (8.2.1) |
 | T9.4 Mathlib time and memory | storage design accepted | ADR 0016: 2.94 GB stored, 4.16 GB peak, measured |
 | T5.3 / T6 feeding the checker | `Init` fed end to end (plan 3.2.2, 1.1.5, in part) | 59,349 declarations fed; at the 2026-11-03 snapshot 37 accepted, 0 rejected, 59,025 unsupported at 100,000 fuel ([ADR 0016, step 3](../adr/0016-compact-store.md)); since task 5.2.1a, 184 data types and 1,014 definitions and theorems accepted, 0 rejected or invalid ([ADR 0015](../adr/0015-inductive-types.md)); reviews done, [kernel] gate held until the limits are dynamic |
-| P6 program reader | two-mode program words approved [parser] 2026-11-04 | 273 inputs agree with the old reader, 4 intended differences, 287 after the review fixes ([program IR](../programming/PROGRAM_IR.md)); IR 0.2 design approved, not implemented |
+| P6 program reader | two-mode program words approved [parser] 2026-11-04 | 273 inputs agree with the old reader, 4 intended differences, 287 after the review fixes ([program IR](../programming/PROGRAM_IR.md)); IR 0.2 implemented 2026-11-04, [parser] implementation gate pending |
 | Plan tasks 5.2.1a, 4.2.2a, 2.4.1, 2.4.4 | merged and approved 2026-11-04 | see the gates table; the roadmap tasks they belong to (T5.3, T6, T10) stay in progress |
 | Plan 6.2.0 part (a) | universe lists without a fixed limit | 100, 300 and 1,000 universe parameters agree with pinned Lean (24 rows); depth limits (part b) in progress |
 
@@ -640,8 +651,8 @@ cautious (refuses or says *unknown*), never more permissive than Lean.
 - The program track's proofs are about the IR's Lean semantics, checked by
   Lean; that Gforth runs the words as the IR says, and that the reader
   translates faithfully, are tested, not proved. IR 0.2 (redefinition,
-  output words) is approved as a design, not built; today's reader refuses
-  redefinitions.
+  output words) is implemented, its [parser] implementation gate pending;
+  no receipt can describe an IR 0.2 program until receipt schema 0.3.
 - Only Lean 4.35.0 exports in format 3.1.0 are read; a file cut off cleanly
   between two lines is not yet detected by default (checksum manifest
   planned); only Linux/WSL with Gforth 1.0.0 and 0.7.3 is tested.

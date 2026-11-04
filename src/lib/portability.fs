@@ -1,7 +1,7 @@
 \ Portability adapter: Forth-2012 definitions of the few words the project
-\ uses that are not in the Forth-2012 core word set, plus the standard
-\ structure words. Each is compiled only when the host lacks it; under Gforth
-\ 1.0 this file defines only max-n. No state, no dependencies.
+\ uses that are not in the Forth-2012 core word set (-ROT, .S ...), plus the
+\ standard structure words. Each is compiled only when the host lacks it;
+\ under Gforth 1.0 this file defines only max-n. No state, no dependencies.
 \ Host assumption: cells are two's complement and arithmetic wraps, as on
 \ every current host (Forth-2012 itself does not require it). upto? and
 \ max-n rely on this.
@@ -12,6 +12,15 @@
 [undefined] 0<= [if] : 0<= ( n -- flag ) 0> 0= ; [then]
 [undefined] 0>= [if] : 0>= ( n -- flag ) 0< 0= ; [then]
 [undefined] -rot [if] : -rot ( x1 x2 x3 -- x3 x1 x2 ) rot rot ; [then]
+
+\ .S, of the optional Programming-Tools word set, which the program words
+\ (src/program/verify-semantics.fs) give verification semantics: the depth
+\ in angle brackets, then the top nine cells at most, deepest first, each
+\ as . prints it, as both Gforths print them (tests/program/verify_ir02.py
+\ compares this text with the host's own .S).
+[undefined] .s [if]
+: .s ( -- ) ." <" depth 0 .r ." > " depth 9 min dup 0 ?do dup i - pick . loop drop ;
+[then]
 
 \ Largest positive cell value, and the size of a cell in address units
 \ (Gforth 0.7.3 and 1.0 define cell; Forth-2012 does not).

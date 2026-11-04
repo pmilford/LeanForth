@@ -2,8 +2,7 @@
 \ numeric result is not level equality, a checked type, or a theorem. A
 \ parameter yields unknown unless explicitly assigned in the separate
 \ instance evaluator; checking one instance does not prove a polymorphic
-\ claim. Host cells and bounded host recursion are assumptions, not a
-\ trusted boundary. Two exact tests of ADR 0011 evaluate under witness
+\ claim. Host cells are assumptions, not a trusted boundary. Two exact tests of ADR 0011 evaluate under witness
 \ assignments: lf-level-zero? (Lean's normalizes_to_zero, rule S3 and
 \ the proof test P2) and lf-level-apart? (rule D1).
 \ State: one record, lf-lvalue-state: the table of explicit parameter
@@ -12,13 +11,11 @@
 \ evaluation gives parameters values (free, from the table, or a witness
 \ assignment) and the witness; a member of the checker context
 \ (lib/context.fs), whose table a set-up word binds to the context's own
-\ stores. The evaluation recurses on the host stacks through the deferred
-\ word lf-lvalue-walk, which is set once at load time and shared.
+\ stores, and the evaluation's frames (lib/frame.fs): its pending work
+\ waits on an explicit stack that grows with the depth of the level graph
+\ (plan task 6.2.0), so the host's stacks hold a constant number of cells
+\ whatever the depth, and a stack the heap cannot grow is full.
 \ Single-threaded within one context.
-\ Stack use: about 8 return-stack cells per nesting level (measured about
-\ 500 cells at depth 63), so lf-lvalue-depth-limit must stay well below the
-\ return stack of every task that evaluates (Gforth 0.7.3's default is 1,920
-\ cells). An overflow would throw, never return ok.
 
 require ../lib/lib.fs
 require ../core/diagnostics.fs
@@ -26,7 +23,6 @@ require ../core/level-scope.fs
 require ../core/levels.fs
 
 max-n constant lf-lvalue-cell-max
-64 constant lf-lvalue-depth-limit
 
 \ How an evaluation gives a parameter its value.
 0 constant lf-lvalue-free       \ none: a parameter is symbolic
@@ -34,7 +30,7 @@ max-n constant lf-lvalue-cell-max
 2 constant lf-lvalue-witness    \ the witness assignment's value
 
 begin-structure /lf-lvrec
-  field: lf-lvrec-fuel          \ visits left after an evaluation
+  /frames +field lf-lvrec-frames \ the evaluation's; its fuel, visits left after it
   field: lf-lvrec-mode          \ lf-lvalue-free, -table or -witness
   field: lf-lvrec-witness       \ the witness assignment in witness mode
   field: lf-lvrec-count         \ assignments in the table
@@ -42,6 +38,7 @@ begin-structure /lf-lvrec
   field: lf-lvrec-context       \ parameter-context generation of the table
 end-structure
 /lf-lvrec context-record: lf-lvalue-state
+: lf-lvrec-fuel ( rec -- addr ) lf-lvrec-frames frame-fuel ;
 \ The table's IDs and values: growable arrays with no fixed limit (plan
 \ task 6.2.0); a table the heap cannot grow refuses the assignment.
 1 cells context-slab: lf-lassign-id-cells
@@ -107,23 +104,24 @@ end-structure
   lf-lassign-valid? if 2dup lf-lassign-new? else false then
   if lf-lassign-append true else 2drop false then ;
 
-\ Evaluation of a node already validated by the scope check. Depth counts
-\ the nodes above it; a visit needs fuel (else exhausted) and a depth below
-\ the limit (else full); with neither, the fuel decides. A successor of
+\ Evaluation of a node already validated by the scope check, a visit per
+\ node on the frames: a visit needs fuel (else exhausted) and room on the
+\ frames (else full); with neither, the fuel decides. A successor of
 \ the largest cell value is full too: the value has no room to grow.
 \ The value -1 is a symbolic result: with ok it ends the evaluation of
 \ every node above, and it cannot be confused with a concrete level.
-\ Each such failure is recorded as a diagnostic.
-defer lf-lvalue-walk ( node depth -- value status )
+\ Each such failure is recorded as a diagnostic. A visit's steps ( ...
+\ frames -- ... frames next ) end with ( value status frames 0 );
+\ lf-lvalue-call asks for a node's visit, continuing with cont ( value
+\ status frames -- ... ).
+: lf-lvalue-frames ( -- frames ) lf-lvalue-state lf-lvrec-frames ;
 : lf-lvalue-site ( -- site ) c" level-value lf-level-value" ;
-: lf-lvalue-deep ( depth -- )
-  lf-lvalue-depth-limit lf-lvalue-site lf-diag-depth-limit lf-diag-note ;
-: lf-lvalue-refused ( depth outcome -- outcome )
-  dup outcome-full = if swap lf-lvalue-deep
-  else nip lf-lvalue-fuel @ lf-lvalue-site lf-diag-exhausted then ;
-: lf-lvalue-room ( depth -- outcome )
-  dup lf-lvalue-fuel @ swap lf-lvalue-depth-limit < visit-outcome
-  dup ok? if nip else lf-lvalue-refused then ;
+: lf-lvalue-refused ( outcome -- outcome )
+  dup outcome-full = if lf-lvalue-frames frame-room@
+    lf-lvalue-site lf-diag-frame-limit lf-diag-note exit then
+  dup outcome-exhausted = if lf-lvalue-fuel @ lf-lvalue-site lf-diag-exhausted then ;
+: lf-lvalue-call ( node frames cont -- ... frames next )
+  over frame-admit dup ok? if drop frame-opened else lf-lvalue-refused frame-refuse then ;
 \ A failure or a symbolic value is final; otherwise continue with the value.
 : lf-lvalue-done? ( value status -- value status true | value false )
   dup ok? 0= if true exit then over -1 = if true else drop false then ;
@@ -142,32 +140,46 @@ defer lf-lvalue-walk ( node depth -- value status )
   1 lf-lvalue-site lf-diag-cell-maximum lf-diag-note -1 outcome-full ;
 : lf-lvalue-succ+ ( value -- value status )
   dup lf-lvalue-cell-max = if lf-lvalue-ceiling else 1+ outcome-ok then ;
-: lf-lvalue-succ ( first depth -- value status )
-  lf-lvalue-walk lf-lvalue-done? 0= if lf-lvalue-succ+ then ;
-\ Both children of a max or imax, first child first.
-: lf-lvalue-pair ( first second depth -- left right true | value status false )
-  tuck 2>r lf-lvalue-walk lf-lvalue-done? if 2r> 2drop false exit then
-  2r> lf-lvalue-walk lf-lvalue-done? if rot drop false else true then ;
-: lf-lvalue-max ( first second depth -- value status )
-  lf-lvalue-pair if max outcome-ok then ;
+: lf-lvalue-succ-back ( value status frames -- value' status frames 0 )
+  >r lf-lvalue-done? 0= if lf-lvalue-succ+ then r> 0 ;
+\ Both children of a max or imax, first child first, combined by xt ( left
+\ right -- value ): xt and the second child wait while the first is
+\ evaluated, then xt and the left value.
+: lf-lvalue-pair-2 ( right status frames -- value status frames 0 )
+  >r lf-lvalue-done? if 2 r@ frame-drop r> 0 exit then
+  r@ frame-restore r@ frame-restore >r swap r> execute outcome-ok r> 0 ;
+: lf-lvalue-pair-1 ( left status frames -- ... frames next )
+  >r lf-lvalue-done? if 2 r@ frame-drop r> 0 exit then
+  r@ frame-restore swap r@ frame-save r> ['] lf-lvalue-pair-2 lf-lvalue-call ;
+: lf-lvalue-pair ( first second frames xt -- ... frames next )
+  over frame-save tuck frame-save ['] lf-lvalue-pair-1 lf-lvalue-call ;
+: lf-lvalue-max-of ( left right -- value ) max ;
 \ imax u v is zero when v is zero, and max u v otherwise.
 : lf-lvalue-imax-of ( left right -- value ) dup 0= if nip else max then ;
-: lf-lvalue-imax ( first second depth -- value status )
-  lf-lvalue-pair if lf-lvalue-imax-of outcome-ok then ;
-\ One arm per level tag; depth here is the children's depth.
-: lf-lvalue-dispatch ( first second depth tag -- value status )
-  case lf-level-tag-zero of drop 2drop 0 outcome-ok endof
-    lf-level-tag-param of 2drop lf-lvalue-param outcome-ok endof
-    lf-level-tag-succ of nip lf-lvalue-succ endof
-    lf-level-tag-max of lf-lvalue-max endof
-    lf-level-tag-imax of lf-lvalue-imax endof
-    >r drop 2drop -1 outcome-invalid r> endcase ;
-: lf-lvalue-visit ( node depth -- value status )
-  1+ swap lf-level-read if 2swap lf-lvalue-dispatch else drop -1 outcome-invalid then ;
-: lf-lvalue-enter ( node depth -- value status )
-  dup lf-lvalue-room ok-then? 0= if nip no-result exit then
-  -1 lf-lvalue-fuel +! lf-lvalue-visit ;
-' lf-lvalue-enter is lf-lvalue-walk
+\ One arm per level tag: zero and a parameter return their value, the
+\ others visit their children; another tag is invalid.
+: lf-lvalue-return ( value frames -- value status frames 0 ) >r outcome-ok r> 0 ;
+: lf-lvalue-zero ( first second frames -- 0 status frames 0 ) nip nip 0 swap lf-lvalue-return ;
+: lf-lvalue-named ( first second frames -- value status frames 0 )
+  nip >r lf-lvalue-param r> lf-lvalue-return ;
+: lf-lvalue-dispatch ( first second tag frames -- ... frames next )
+  swap case lf-level-tag-zero of lf-lvalue-zero endof
+    lf-level-tag-param of lf-lvalue-named endof
+    lf-level-tag-succ of nip ['] lf-lvalue-succ-back lf-lvalue-call endof
+    lf-level-tag-max of ['] lf-lvalue-max-of lf-lvalue-pair endof
+    lf-level-tag-imax of ['] lf-lvalue-imax-of lf-lvalue-pair endof
+    >r >r 2drop -1 outcome-invalid r> 0 r> endcase ;
+\ lf-level-read gives the tag below the children.
+: lf-lvalue-visit ( node frames -- ... frames next )
+  >r lf-level-read if rot r> lf-lvalue-dispatch else -1 outcome-invalid r> 0 then ;
+\ Evaluate a node to the end; the frames and their visitor are set up in
+\ every context and freed with it.
+: lf-lvalue-walk ( node -- value status )
+  lf-lvalue-frames ['] lf-lvalue-call frame-through drop ;
+: lf-lvalue-setup ( -- ) ['] lf-lvalue-visit lf-lvalue-frames frame-init ;
+' lf-lvalue-setup context-setup
+: lf-lvalue-release ( -- ) lf-lvalue-frames frame-free ;
+' lf-lvalue-release context-teardown
 
 \ Scope-check the whole reachable graph first; validation and evaluation
 \ share fuel, and lf-lvalue-fuel is set only once validation succeeds.
@@ -179,7 +191,7 @@ defer lf-lvalue-walk ( node depth -- value status )
 : lf-lvalue-known ( root value status -- value status )
   dup ok? if over -1 = if lf-lvalue-symbolic exit then then rot drop ;
 : lf-lvalue-eval ( root -- value status )
-  lf-lscope-fuel @ lf-lvalue-fuel ! dup 0 lf-lvalue-walk lf-lvalue-known ;
+  lf-lscope-fuel @ lf-lvalue-fuel ! dup lf-lvalue-walk lf-lvalue-known ;
 : lf-lvalue-checked ( root fuel -- value status )
   over swap lf-lscope-check ok-then? if lf-lvalue-eval else -1 swap then ;
 \ With assignments the table must be valid first.

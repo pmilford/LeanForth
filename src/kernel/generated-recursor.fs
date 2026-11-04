@@ -92,7 +92,7 @@ end-structure
   over lf-term-first@ swap lf-ind-domain ! lf-term-second@ ;
 : lf-genrec-tele ( root -- outcome )
   0 begin over lf-tag-pi lf-ind-tag? while
-    dup lf-ind-binder-capacity < 0= if 2drop outcome-full exit then
+    dup 1+ lf-ind-domains slab-hold ok? 0= if 2drop outcome-full exit then
     tuck lf-genrec-bind swap 1+
   repeat lf-ind-nparams - dup 0< if 2drop outcome-invalid exit then
   lf-ind-state lf-ind-indices ! dup lf-genrec-sorted? 0= if drop outcome-invalid exit then

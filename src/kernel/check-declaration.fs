@@ -43,8 +43,9 @@
 \
 \ [kernel] code: experimental, not through the review gate, not
 \ independently audited. Limits: the stores' capacity settings (default
-\ 64 terms and levels; lf-term-capacity! and the like), the passes' depth
-\ (lf-depth-limit, 64), the environment and inference.
+\ 64 terms and levels; lf-term-capacity! and the like), the heap (the
+\ passes' explicit stacks grow with the depth: plan task 6.2.0), the
+\ fuel, the environment and inference.
 \ State: one record, lf-check-state (the budget, the fuel left in the
 \ audit, the step reached, the declaration checked and the last result),
 \ and one walk record, lf-check-walker (the U2 audit), both members of the
@@ -70,7 +71,7 @@ begin-structure /lf-chk
   field: lf-chk-found    \ the last result: a type node, or the type's Sort level
 end-structure
 /lf-chk context-record: lf-check-state
-lf-depth-limit context-walk: lf-check-walker
+lf-walk-room context-walk: lf-check-walker
 
 \ The budget of every later check in this context, and the step at which
 \ the last one ended: 0 before its snapshot was found, 1-8 as above,

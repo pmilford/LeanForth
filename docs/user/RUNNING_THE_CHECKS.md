@@ -57,13 +57,14 @@ file changed since `main`.
 | `test-program` | The six example words give the expected results on sample and small exhaustive inputs | That the words are correct for all inputs: testing is not proof |
 | `test-program-ir` | The receipt schema accepts its valid examples and refuses each invalid one for its pinned reason; the reference models copied into the IR's Lean file are verbatim; the IR reader's output for the example words equals the golden IR | That the reader's translation is faithful |
 | `test-lean-cache` | The Lean cache, on a fake toolchain, replays a repeated call exactly and misses on every changed input; it never caches IO inputs, and the Makefile uses it only without `LEAN_CACHE=0` and `CI` | That pinned Lean itself is deterministic (`make check LEAN_CACHE=verify` reruns every call and compares) |
-| `test-present` | The term printer meets its unit tests, ends every print of 49 cases in three modes at every fuel level with a defined outcome, and prints the golden text for those cases and the five fixtures | That the printed text is what Lean prints (that is `test-printer-differential`) |
+| `test-present` | The term printer meets its unit tests, ends every print of 49 cases in three modes at every fuel level with a defined outcome, prints terms and levels 2,000 and 10,000 deep in the host-stack cells of shallow ones (and is full when the heap refuses room), and prints the golden text for those cases and the five fixtures | That the printed text is what Lean prints (that is `test-printer-differential`) |
 | `reference`, `reference-export` | The Lean reference files check with pinned Lean and fail on `sorry`; re-exporting the fixtures gives byte-identical NDJSON | Anything about LeanForth |
 | `reference-first-checker` | Lean's verdicts on the first checker's 60 expected-results cases and 27 broken source copies are as recorded ([expected results](../reviews/FIRST_CHECKER_EXPECTED.md)) | LeanForth's answers (that is `test-first-checker-differential`) |
 | `reference-binder-domains` | Lean's answers on comparing binders whose argument types differ ([ADR 0003, Amendment 1](../adr/0003-conversion.md)) | LeanForth's answers (that is `test-binder-domains-differential`) |
 | `test-first-checker-differential`, `test-binder-domains-differential`, `test-universe-scope-differential` | The first checker, run end to end through the checked environment, gives the expected outcome on the 69 table cases, the 22 binder-domain cases (three known capacity differences, each a failure) and 50 universe-scope cases; every rejection names Lean's reason; every accepted case prints its *experimental* label ([first check](FIRST_CHECK.md)) | That the checker is correct beyond these cases, or reviewed: it has not passed its gate |
-| `test-first-checker-large-differential`, `test-binder-domains-large-differential`, `test-universe-scope-large-differential` | The same three tables with every store's capacity raised (4,096 terms, 1,024 levels, names and references, 256 declarations): the same answers, and the three binder-domain rows that meet the 64-node store get the table's answer, so no known difference remains | Anything about inputs deeper than the passes' depth limit of 64 |
+| `test-first-checker-large-differential`, `test-binder-domains-large-differential`, `test-universe-scope-large-differential` | The same three tables with every store's capacity raised (4,096 terms, 1,024 levels, names and references, 256 declarations): the same answers, and the three binder-domain rows that meet the 64-node store get the table's answer, so no known difference remains | Inputs deeper than these small cases (the depth tables check 2,000 and 10,000) |
 | `test-first-checker-fed-differential`, `test-binder-domains-fed-differential`, `test-universe-scope-fed-differential` | The same three tables through the path a real export takes: each case written as a lean4export export, staged and fed to the checker ([feeding the checker](../development/NDJSON_READER.md#feeding-the-checker)), so the names stay in the stage's input tier and every store grows to the feed's capacities. The same answers, with no known difference except three first-checker cases whose export the stage refuses as invalid, because they name a constant the export does not declare (a real export always does) | That every export is fed correctly: these are small cases, with few names and parameters |
+| `test-depth-differential`, `test-depth-fed-differential` | Lambda, application and successor chains 2,000 deep (`tests/reference/depth-terms.lean`), each accepted or rejected for Lean's reason, by checker input and fed; `test-depth-deep-differential` (not part of `make check`; about 13 minutes) the same 10,000 deep, fed | That LeanForth's passes have no depth limit of their own (plan task 6.2.0) | Speed at depth: the work grows with the square of the depth |
 | `test-environment` | The checked environment and check-declaration meet their unit tests: every outcome, Lean's order, fuel sweeps, and the pinned NDJSON exports checked and accepted | The same |
 | `test-check-block` | The check of inductive blocks ([developer notes](../programming/INDUCTIVE_BLOCKS.md)) gives every outcome on 72 exports Lean printed for the inductive table, each rejection with its rule; Lean's replay of a mutated `Bool` block, and blocks tampered one field at a time, are rejected with the field named | That it is right beyond these cases: it has not passed its gate |
 | `test-inductive-table` | LeanForth, run on every case of `tests/reference/inductive-expected.lean` as the export Lean printed for it, gives Lean's verdict on the rows of task 5.2.1a (the pending ones named, with their reasons) and never another decided verdict on later rows | Anything about recursive, mutual or nested types, reductions, literals or quotients, all still unsupported |
@@ -155,14 +156,19 @@ Report Forth style signals: `make forth-metrics`.
   capacity that is a setting of each checker context (default 64, 64, 64,
   32 and 32 entries; `lf-term-capacity!` and the like, plan task 3.3.1);
   feeding a staged export (`src/import/feed.fs`) raises them to fit it, and
-  all of `Init` (6.1 million expressions) fits in about 1.3 GB. A constant
-  reference takes at most 64 universe arguments (Mathlib's largest has 30).
-  The checking passes nest at most 64 deep (`lf-depth-limit`): a deeper
-  term gives *full* (plan task 6.2.0 lifts it). `bin/leanforth check`
-  stages and feeds the export, so it holds any size; `check --record`,
-  `replay` and `print` still read an export straight into the default
-  capacities (`src/import/checker-input.fs`), so they end *full*, exit
-  status 3, on anything larger than a test fixture.
+  all of `Init` (6.1 million expressions) fits in about 1.3 GB. Universe
+  lists have no fixed length (Mathlib's longest has 30), and terms and
+  levels no fixed depth: every checking pass keeps its pending work on
+  explicit stacks in the heap (plan task 6.2.0; terms 2,000 and 10,000 deep
+  are compared with Lean, `test-depth-differential` and
+  `test-depth-deep-differential`). The work grows with the square of the
+  depth there, so such terms need much more fuel than the default (a
+  10,000-deep application chain about 150 million steps; table fuel
+  10,000 million; plan task 6.5.5). `bin/leanforth check` stages and feeds
+  the export, so it holds any size; `check --record`, `replay` and `print`
+  still read an export straight into the default capacities
+  (`src/import/checker-input.fs`), so they end *full*, exit status 3, on
+  anything larger than a test fixture.
 - The checking passes run with explicit fuel; running out gives
   *exhausted*, running out of room *full*. Neither is ever accepted.
 - Only the pinned exporter, format and Lean version are read; anything else
