@@ -7,8 +7,9 @@ Usage (from the repository root):
 Round trip: each IR file (the four golden files, IR 0.2's included, and
 AWKWARD below) is printed back as Forth source, in another layout (calls
 and keywords in upper or mixed case, tabs, comments, several instructions
-to a line; a version's IR name, show'1, as a name of its own, which gives
-the same IR), run in correctness mode by both designs, and must give the
+to a line, literals with leading zeros or in Forth-2012's # $ % 'c' forms;
+a version's IR name, show'1, as a name of its own, which gives the same
+IR), run in correctness mode by both designs, and must give the
 same IR apart from the locations and the source line. AWKWARD uses names
 that Gforth 1.0 reads in other syntaxes (->x, "x", forth:dup), names with
 odd characters, a name of 31 characters, and Gforth words that Forth-2012
@@ -108,6 +109,18 @@ def mixed(word, rng):
     return "".join(c.upper() if rng.random() < 0.5 else c for c in word)
 
 
+def prefixed(value, rng):
+    """A literal's value in one of Forth-2012's prefixed forms (A3): #, $
+    (either case), % for small values, 'c' for a printable character."""
+    forms = ["#", "$"] + (["%"] if abs(value) < 2 ** 16 else [])
+    forms += ["'"] if 33 <= value < 127 else []
+    form = rng.choice(forms)
+    if form == "'":
+        return f"'{chr(value)}'"
+    digits = format(abs(value), {"#": "d", "$": rng.choice("xX"), "%": "b"}[form])
+    return form + ("-" if value < 0 else "") + digits
+
+
 def to_forth(ir_text, rng):
     """IR text printed back as Forth source in another layout."""
     out, line, kept, pending = [], [], [], None
@@ -129,6 +142,8 @@ def to_forth(ir_text, rng):
             token = ";" if op == "end" else token if text else mixed(token, rng)
             if op == "lit" and rng.random() < 0.3 and len(token.lstrip("-")) <= 8:
                 token = token.replace("-", "-00", 1) if token.startswith("-") else "00" + token
+            if op == "lit" and rng.random() < 0.4:
+                token = prefixed(int(arg), rng)
             if pending is not None:
                 kept.append(token)
                 continue

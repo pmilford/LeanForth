@@ -186,6 +186,39 @@ def threat_model_problems(reader_text, doc_text):
     return problems
 
 
+# The output words (IR 0.2): the cells each takes, in the program words'
+# table (`1 s" ." pv-output`), in the IR interpreter's irx-takes? and in
+# Lean's Out.effect (the constructors whose first case takes `_ :: d`).
+WORDS_OUT = re.compile(r'(\d) s" (\S+)" pv-output\b')
+IRX = Path("src/program/ir-run.fs")
+IRX_OUT = re.compile(r's" (\S+)" irx-out-word irx-o-(\w+)')
+
+
+def output_cells(words_text, lean_text, irx_text):
+    """{word: cells taken} by the program words, Lean and the interpreter."""
+    words = {w: int(n) for n, w in WORDS_OUT.findall(words_text)}
+    names = dict(re.findall(r'\| \.(\w+) => "([^"]+)"',
+                            lean_text[lean_text.index("def Out.word"):]))
+    effect = lean_text[lean_text.index("def Out.effect"):]
+    first = effect.splitlines()[1]
+    takers = set(re.findall(r"\.(\w+), ⟨_ :: d, r⟩", first))
+    lean = {names[c]: int(c in takers) for c in names if c != "text"}
+    kinds = {kind: w for w, kind in IRX_OUT.findall(irx_text)}
+    body = irx_text[irx_text.index(": irx-takes?"):].split(";", 1)[0]
+    irx = {w: int(f"irx-o-{kind} =" in body) for kind, w in kinds.items()}
+    return words, lean, irx
+
+
+def output_problems(words_text, lean_text, irx_text):
+    words, lean, irx = output_cells(words_text, lean_text, irx_text)
+    problems = [] if len(lean) == 7 else [f"Lean has {len(lean)} output words, not 7"]
+    if words != lean:
+        problems.append(f"program words' output cells {words}, Lean's {lean}")
+    if irx != lean:
+        problems.append(f"the IR interpreter's output cells {irx}, Lean's {lean}")
+    return problems
+
+
 def definitions(text):
     """The definitions of a Forth text, a colon definition with its next line
     when it continues there, as lines without comments."""
@@ -276,6 +309,20 @@ class Copies(unittest.TestCase):
                 changed = words.replace(old, new, 1)
                 self.assertNotEqual(words, changed)
                 self.assertTrue(primitive_problems(changed, lean, WORDS_PRIM, 40))
+
+    def test_output_cells_match_lean(self):
+        words = WORDS.read_text(encoding="utf-8")
+        lean = MODEL.read_text(encoding="utf-8")
+        irx = IRX.read_text(encoding="utf-8")
+        self.assertEqual(output_problems(words, lean, irx), [])
+        self.assertEqual(sum(output_cells(words, lean, irx)[1].values()), 4)
+        for text, old, new in ((words, '1 s" emit" pv-output', '0 s" emit" pv-output'),
+                               (irx, "over irx-o-emit = or", "over irx-o-cr = or")):
+            with self.subTest(change=old):
+                changed = text.replace(old, new, 1)
+                self.assertNotEqual(text, changed)
+                args = (changed, lean, irx) if text is words else (words, lean, changed)
+                self.assertTrue(output_problems(*args))
 
     def test_sha_words_are_the_library_text(self):
         words = SHA_WORDS.read_text(encoding="utf-8")

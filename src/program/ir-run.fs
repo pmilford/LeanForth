@@ -46,6 +46,7 @@
 \ each context. A program loaded in one context can be run only there.
 
 require ../lib/lib.fs
+require ../lib/text-run.fs
 decimal
 
 \ Capacities.
@@ -525,9 +526,13 @@ max-n 1+ irx-width constant irx-cell-digits
 : irx-text-start ( -- c-addr u ) s\" out .\" " ;
 : irx-text-line? ( c-addr u -- flag )
   irx-indent drop irx-text-start nip min irx-text-start compare 0= ;
+: irx-quote? ( char -- flag ) [char] " = ;
+\ c-addr u split at offset n: the n characters before it, and the rest
+\ after the character there.
+: irx-split-at ( c-addr u n -- c-addr n rest-addr rest-u )
+  >r over r@ 2swap r> 1+ /string ;
 : irx-closing-quote ( c-addr u -- text-addr text-u rest-addr rest-u true | false )
-  2dup s\" \"" search 0= if 2drop 2drop false exit then
-  2swap drop 2 pick over - 1 chars / 2swap 1 /string true ;
+  2dup ['] irx-quote? text-scan 2dup = if drop 2drop false exit then irx-split-at true ;
 : irx-text-location ( rest-addr rest-u -- )
   0 irx-tokens# ! dup if 2dup irx-space? irx-expect 1 /string irx-tokens else 2drop then
   irx-locate irx-tokens# @ 0= irx-expect ;
@@ -758,7 +763,10 @@ max-n 1+ irx-width constant irx-cell-digits
 \ format to the system): <depth>, a blank, then the top nine cells at
 \ most, deepest first, each with a blank. A block sees the cells above its
 \ frame's base, as the model's word sees the whole stack and its constant
-\ none of its caller's.
+\ none of its caller's. SPACES prints at most as many blanks as the block
+\ has fuel, so that a huge count cannot keep a run going (Gforth would
+\ print them all, the model takes the count as its event): beyond that the
+\ printed bytes are cut short, the stacks and the result never.
 : irx-say ( c-addr u -- ) irx-sink @ execute ;
 : irx-say-blank ( -- ) s"  " irx-say ;
 : irx-say-byte ( x -- ) irx-output irx-output-char tuck c! 1 irx-say ;
@@ -782,7 +790,7 @@ max-n 1+ irx-width constant irx-cell-digits
 : irx-print-cr ( op -- ) drop 10 irx-say-byte ;
 : irx-print-emit ( op -- ) drop irx-data-pop irx-say-byte ;
 : irx-print-space ( op -- ) drop irx-say-blank ;
-: irx-print-spaces ( op -- ) drop irx-data-pop irx-say-blanks ;
+: irx-print-spaces ( op -- ) drop irx-data-pop irx-fuel @ min irx-say-blanks ;
 : irx-print-stack ( op -- ) drop irx-say-stack ;
 : irx-print-text ( op -- ) irx-op-end @ irx-text-at irx-say ;
 ' irx-print-text irx-o-text 1+ irx-table irx-printers
