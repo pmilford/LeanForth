@@ -431,6 +431,34 @@ reference-bignum:
 test: test-bignum
 test-differential: reference-bignum
 
+# SHA-256 (src/lib/sha256.fs, a standalone library; docs/development/FORTH_LIBRARY.md):
+# FIPS 180-4's vectors, every split of messages up to 200 bytes, the named
+# functions against independent models and the fast round against the plain
+# one, on both code paths; random messages against Python's hashlib; and the
+# header's example run from a folder outside the project. Export manifests
+# (plan task 3.2.6; src/import/manifest.fs, scripts/export_manifest.py): the
+# writer against the committed manifests and the schema, and the Forth check's
+# every failure. Gforth and Python 3 only. tests/lib/sha256-bench.fs measures
+# speed (report only).
+test-sha256:
+	$(RUN) $(GFORTH) tests/lib/sha256.fs
+	$(RUN) $(GFORTH) tests/lib/sha256-plain.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/lib/test_sha256.py
+
+test-manifest:
+	$(RUN) $(GFORTH) tests/core/manifest.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/core/test_export_manifest.py
+
+# The export step (scripts/export.sh) with pinned Lean reproduces the
+# composition fixture and its manifest byte for byte, and the check refuses
+# a changed copy.
+reference-manifest:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/reference/manifest-check.sh
+
+.PHONY: test-sha256 test-manifest reference-manifest
+test: test-sha256 test-manifest
+test-differential: reference-manifest
+
 # The LeanForth authoring words (plan task 8.1.2, ADR 0017; untrusted, not
 # loaded by src/main.fs, so they get their own silent-load check): unit
 # tests of every error code with its line and column, then the 19 example

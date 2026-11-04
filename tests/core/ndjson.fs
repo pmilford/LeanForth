@@ -1,7 +1,8 @@
 \ Unit tests of src/import/ndjson.fs: every record kind of lean4export
 \ format 3.1.0 decoded field by field, the metadata rules, and for each
 \ kind the malformed, unsupported and limit cases that must fail closed;
-\ handler outcomes; list and rule readers; whole fixture files.
+\ handler outcomes; list and rule readers; whole fixture files; the tap
+\ and the tally of records by kind, which the manifest check uses.
 \ Lines are fed one at a time to export-line from memory; file framing is
 \ tested by tests/core/test_ndjson_reader.py on temporary files.
 \ The reader is loaded under HEX (and the heap watched): loading must not
@@ -559,6 +560,49 @@ T{ 11 rules-line feed rule-there 0 kept recursor-rule -> outcome-ok json-object 
 T{ kept record-line @ fed-to ex export-exprs @ rules-line feed -> outcome-ok outcome-ok }T
 T{ ex export-at @ kept record-line @ = rule-there 0 kept recursor-rule
    -> true json-object 0 }T
+
+\ The tap (export-tap!, for the manifest check): shown every line that
+\ export-read reads, once and before decoding, with the cell given; each
+\ followed by a line feed, they are the whole file. Nothing given to
+\ export-line is shown; a THROW from the tap passes on with the file
+\ closed; export-init removes the tap.
+create tapped 4096 allot
+variable tapped-size
+variable tap-cells   \ cells given to the tap that were not 4242
+: tap-copy ( c-addr u -- ) tuck tapped tapped-size @ + swap move tapped-size +! ;
+: tap-line ( c-addr u x -- ) 4242 <> 1 and tap-cells +! tap-copy s\" \n" tap-copy ;
+create file-copy 4096 allot
+: file-read ( c-addr u -- c-addr' u' )
+  r/o bin open-file throw >r file-copy 4096 r@ read-file throw r> close-file throw
+  file-copy swap ;
+: tap-fresh ( -- ) 0 tapped-size ! 0 tap-cells ! 4242 ['] tap-line ex export-tap! ;
+T{ capture-all tap-fresh s" tests/reference/composition.ndjson" read-fixture -> outcome-ok 35 }T
+T{ tapped tapped-size @ s" tests/reference/composition.ndjson" file-read compare tap-cells @
+   -> 0 0 }T
+T{ tap-fresh s" tests/core/ndjson-block.ndjson" read-fixture -> outcome-ok 19 }T
+T{ tapped-size @ tapped tapped-size @ s" tests/core/ndjson-block.ndjson" file-read compare -> 1362 0 }T
+T{ tap-fresh fresh s\" {\"meta\":{}}" feed drop tapped-size @ -> 0 }T
+: tap-throws ( c-addr u x -- ) drop 2drop 99 throw ;
+T{ 0 ' tap-throws ex export-tap! s" tests/reference/composition.ndjson" ex ' export-read catch
+   nip nip nip ex export-reader reader-fid @ ex export-busy @ -> 99 0 0 }T
+T{ tap-fresh ex export-init ex export-tap @ ex export-tap-x @ -> outcome-ok 0 0 }T
+capture-all
+
+\ The tally (export-kind-count): records handed over and accepted, by
+\ kind, with a block's types, constructors and recursors; reset when a
+\ reading starts; a refused record is not counted; only a record kind.
+: tallies ( k1 .. kn n -- c1 .. cn ) dup 0 ?do >r r@ 1- roll ex export-kind-count r> loop drop ;
+T{ s" tests/reference/composition.ndjson" read-fixture drop kind-meta kind-name-str kind-name-num
+   kind-sort kind-app kind-lam kind-forall kind-bvar kind-thm kind-def 10 tallies
+   -> outcome-ok 1 11 1 1 2 6 7 5 1 0 }T
+T{ s" tests/core/ndjson-block.ndjson" read-fixture drop
+   kind-inductive kind-type kind-ctor kind-recursor kind-thm 5 tallies -> outcome-ok 1 2 2 1 1 }T
+T{ ex export-restart kind-inductive ex export-kind-count -> 0 }T
+T{ refuse-app s" tests/reference/composition.ndjson" read-fixture drop
+   kind-app ex export-kind-count kind-forall ex export-kind-count 0<> -> outcome-unsupported 0 true }T
+allow-app
+T{ kind-count ex ' export-kind-count catch nip nip -1 ex ' export-kind-count catch nip nip
+   -> -2 -2 }T
 
 \ export-handler takes only a record kind.
 T{ kind-count ex ' export-handler catch nip nip -1 ex ' export-handler catch nip nip -> -2 -2 }T

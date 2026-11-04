@@ -67,6 +67,11 @@ BYTE_MODULES = {
         "Forth-2012 version with c@ and c! in a byte order the module fixes",
     "src/lib/bignum.fs":
         "big numbers read and write decimal digit characters; limbs are only read as cells",
+    "src/lib/sha256.fs":
+        "SHA-256 reads message bytes and writes the digest and its hexadecimal text, words "
+        "big-endian by shifts as FIPS 180-4 defines them",
+    "src/import/manifest.fs":
+        "an export manifest's digests must be lowercase hexadecimal text",
     "src/author/source.fs":
         "authoring runner re-reads the token that invoked a word from the source line's text",
     "src/author/groups.fs": "a syntax word keeps its exact spelling as a counted string",

@@ -3,21 +3,28 @@
 \ the Forth reader instead of Python. A development and measurement tool;
 \ untrusted, like the reader. Usage:
 \   gforth src/import/ndjson-count.fs -e 's" FILE" count-export bye'
-\ On failure it prints one line starting "error:" with the outcome, the
-\ reason, the field and the NDJSON line, and no counts, and Gforth exits
-\ at once with status 1; after the report, BYE exits with status 0.
-\ count-report prints the same without ever exiting, for a Forth session
-\ or a batch of files in one process.
-\ Requires: ndjson.fs. State: the tally record, count-tally, a member of
-\ the checker context (lib/context.fs), and one export record,
-\ counted-export, which stays shared because it owns heap buffers (a
-\ context member may not: context-free has no release hook); both are
-\ reset by every count, so one count runs at a time, in any context.
+\ The file is checked against its manifest, FILE.manifest.json, by
+\ default (manifest.fs): a missing or wrong manifest is an error.
+\ count-manifest ( c-addr u -- ) names another manifest file for the next
+\ count; count-export-unchecked counts without the manifest, a choice the
+\ caller makes explicitly. On failure it prints one line starting
+\ "error:" with the outcome, the reason, the field and the NDJSON line
+\ (0 for a manifest failure), and no counts, and Gforth exits at once with
+\ status 1; after the report, BYE exits with status 0. count-report and
+\ count-report-unchecked print the same without ever exiting, for a Forth
+\ session or a batch of files in one process.
+\ Requires: ndjson.fs, manifest.fs. State: the tally record, count-tally,
+\ a member of the checker context (lib/context.fs), and one export record
+\ and one manifest record, counted-export and counted-manifest, which stay
+\ shared because they own heap buffers (a context member may not:
+\ context-free has no release hook); all are reset by every count, so one
+\ count runs at a time, in any context.
 
 require ../lib/lib.fs
 require ../lib/bytes.fs
 require ../lib/json.fs
 require ./ndjson.fs
+require ./manifest.fs
 
 \ Report categories in count.py's sorted order.
 20 constant categories
@@ -73,6 +80,7 @@ begin-structure /tally
 end-structure
 /tally context-record: count-tally
 export: counted-export
+manifest: counted-manifest
 
 : bytes-of ( n -- addr ) 2* cells count-tally tally-bytes + ;
 : count-of ( n -- addr ) cells count-tally tally-counts + ;
@@ -159,21 +167,29 @@ export: counted-export
   dup export-error ." : " type ."  (" .field ." line " .int .json-offset ." )" ;
 : .count-error ( outcome -- ) ." error: " outcome-text type counted-export .why cr ;
 
-\ Read the export named c-addr u with fresh counts; the outcome of the
+\ Read the export named c-addr u with fresh counts, by xt ( c-addr u --
+\ outcome ): checked against its manifest, or not. The outcome of the
 \ read, or invalid (corrupted state) for any Forth exception, after which
 \ export-read has closed the file.
 : count-start ( -- outcome )
-  count-tally /tally erase counted-export export-init dup ok? if count-handlers then ;
-: count-fault ( x x x -- outcome )
-  2drop drop 0 counted-export export-key !
+  count-tally /tally erase counted-export export-init dup ok?
+  if drop count-handlers counted-export counted-manifest manifest-init then ;
+: count-fault ( x x -- outcome )
+  2drop 0 counted-export export-key !
   c" a Forth exception" counted-export export-why ! outcome-invalid ;
-: count-read ( c-addr u -- outcome )
-  count-start ok-then? 0= if nip exit then
-  counted-export ['] export-read catch if count-fault then ;
+: checked-read ( c-addr u -- outcome ) counted-manifest manifest-read ;
+: unchecked-read ( c-addr u -- outcome ) counted-export export-read ;
+: count-read ( c-addr u xt -- outcome )
+  >r count-start ok-then? 0= if nip r> drop exit then
+  r> catch if count-fault then ;
 \ Print the report, or one error line; true after the report.
-: count-shown? ( c-addr u -- flag )
+: count-shown? ( c-addr u xt -- flag )
   count-read dup ok? if drop .report true else .count-error false then ;
-: count-report ( c-addr u -- ) count-shown? drop ;
+: count-report ( c-addr u -- ) ['] checked-read count-shown? drop ;
+: count-report-unchecked ( c-addr u -- ) ['] unchecked-read count-shown? drop ;
+\ Name the manifest file of the next count; the string must stay
+\ unchanged until then.
+: count-manifest ( c-addr u -- ) counted-manifest manifest-use ;
 
 \ Leaving the host with a failure status. Forth-2012 has no BYE with a
 \ status; Gforth 0.7.3 and 1.0 (the CI hosts) both have (bye) ( n -- ),
@@ -185,6 +201,9 @@ export: counted-export
 [else]
   : exit-failure ( -- ) -1 throw ;
 [then]
-\ The command line's word: print, and after an error line exit at once
-\ with status 1.
-: count-export ( c-addr u -- ) count-shown? 0= if exit-failure then ;
+\ The command line's words: print, and after an error line exit at once
+\ with status 1. count-export checks the manifest; count-export-unchecked
+\ is the explicit choice not to.
+: count-export ( c-addr u -- ) ['] checked-read count-shown? 0= if exit-failure then ;
+: count-export-unchecked ( c-addr u -- )
+  ['] unchecked-read count-shown? 0= if exit-failure then ;

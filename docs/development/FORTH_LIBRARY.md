@@ -25,6 +25,7 @@ variants were retired on 2026-11-02.
 | JSON writer | `src/lib/json-write.fs` | Plan task 3.1.3. A writer record (`json-writer: ( depth room "name" -- )`, or `jw-size` and `jw-init` in memory the caller owns, such as a context member) writes one JSON text to the caller's sink xt `( c-addr u -- )`: `jw-start ( sink writer -- )`, then `jw-string`, `jw-n` (signed cell), `jw-u` (unsigned cell), `jw-digits` (integer text of any size, as `json.fs` keeps it), `jw-bool`, `jw-null`, `jw-open-object`, `jw-key`, `jw-close-object`, `jw-open-array`, `jw-close-array`, or `jw-copy ( index view writer -- )` of a value `json.fs` parsed; `jw-end ( writer -- outcome )`. Every call takes the writer last and returns nothing. Deterministic bytes: no whitespace; members in call order, and with `jw-sorted` set each object's keys must strictly increase in byte order (code point order), checked against the last key kept in a key pool of `room` bytes; integers in decimal whatever `BASE` is, `-0` written `0`; strings escaped only as `\"`, `\\`, `\b \f \n \r \t` and `\u00xx` (lowercase) for other bytes below 32, everything else, valid UTF-8 included, as itself, which are the bytes of Python's `json.dumps(v, separators=(",", ":"), ensure_ascii=False)`; with the setting `jw-lean` (2026-11-03, for the NDJSON re-exporter) the bytes of Lean 4.35.0's `Json.compress` instead, which writes backspace, tab and form feed as `\u0008`, `\u0009` and `\u000c`; no real numbers (`jw-copy` of one is unsupported). The first failing call writes nothing and its outcome sticks until the next `jw-start` (`jw-outcome` reads it): invalid for calls out of order (a close that does not match its open or follows a key, a value where a key is due, a second value, `jw-end` before the value is complete, writes before `jw-start` or after `jw-end`), invalid UTF-8, bad integer text or flags, keys out of order in sorted mode, and any call from inside the writer's own sink (`jw-reset` or `jw-init` there fails the text when the sink returns); full past the byte limit `jw-limit` (so a buffer of n bytes never overflows), the depth or the key pool. So `jw-end` gives ok only for exactly one complete JSON value, and the sink only ever receives a prefix of one. After a THROW out of a writer word the caller discards the text and calls `jw-reset` (a THROW outside the sink leaves no mark); a sink that writes over the string or view being written is unchecked. No state of its own; `jw-copy` is a loop over the value's tokens, without recursion (a container it opens records the index of the token after it, and closes there), so a few stack cells serve any depth the writer allows. Loads in decimal whatever `BASE` is, and restores it | New 2026-11-02; `tests/lib/json-write.fs` (180 assertions: every word's positive and negative cases, every limit at and one past its bound, sorted keys, keys refused as strings are, the sink rules including `jw-reset` and `jw-init` from inside the sink, a copy 10,000 containers deep and copies stopped by a failed close, two interleaved writers and a context member, 2,000 random strings and 2,000 random cells written and read back by `json.fs`, and all 138 lines of `tests/reference/*.ndjson` plus 16 lines with every other record kind of lean4export 3.1.0, `tests/lib/json-write-corpus.ndjson`, copied back byte for byte in both key modes; Lean's escapes for every byte below 32, keys, copies and `jw-limit`, 2026-11-03), loaded and partly run under `HEX`; `tests/lib/test_json_write.py` compares 300 random values written with the writer's words and 150 non-canonical texts copied with `jw-copy` against Python's `json.dumps`, 40 copies of values nested up to 64 deep, plus 50 refusals with their exact prefixes; 21 planted faults each caught, and after the independent review (2026-11-02) 6 more, one per fix reverted or broken, on Gforth 0.7.3 and 1.0 |
 | Packed 32-bit fields | `src/lib/u32.fs` | `u32@ ( addr -- u )` and `u32! ( u addr -- )` read and write an unsigned 32-bit field; `u32s ( n -- au )` sizes *n* fields; `u32-mask` is the 32-bit mask on any cell size. Gforth's `l@`/`l!` where the host has them and a load-time check (`u32-sound?`) shows they are unsigned 32-bit access: a value with bit 31 set comes back unchanged, and the four characters after the field keep their values; otherwise, or when `lf-u32-portable` is defined first, the Forth-2012 `u32-bytes@`/`u32-bytes!` (four characters, least significant first, an order the module fixes; public for the tests only). `u32!` keeps the low 32 bits; on a 32-bit host a value of 2³¹ or more reads back as a negative cell, so compare with `U<`. Loads in decimal whatever `BASE` is, and restores it. The layout of packed records is defined by arithmetic on the values, never by byte order, and is never written to a file. The only non-text module allowed byte access (`scripts/check-portable-forth.py`) | New 2026-11-02 for the compact store ([ADR 0016](../adr/0016-compact-store.md), proposed); not yet loaded by `lib.fs` or used by a module; both versions tested on every host in `tests/lib/lib.fs`, which loads it under `HEX` and asserts that Gforth's words are in use, shows the check refusing a sign-extending fetch and a cell-wide store, and loads it again under `BASE` 8 with `lf-u32-portable` defined to get the Forth-2012 version; after the independent review (2026-11-02) 6 planted faults each caught |
 | Big natural numbers | `src/lib/bignum.fs` | Arbitrary-precision naturals for Lean's `Nat` literals ([below](#big-natural-numbers)): numbers in an arena the caller provides (`/big-arena`, `big-arena-init`; `big-mark` and `big-release` give back what was made since a mark), one-cell limbs whose width is counted (`limb-bits`), decimal reading and printing (`decimal>big`, `big>decimal`), conversion to and from a cell (`u>big`, `big>u`), comparison (`big-compare`, `big=`, `big<=`), and the operations Lean 4.35.0's kernel computes on literals (`big+ big- big* big/ big-mod big-gcd big-and big-or big-xor big-lshift big-rshift big-pow`, each `( a b arena -- c outcome )`). Schoolbook multiplication with Karatsuba from 48 limbs, Knuth's algorithm D, Lehmer's gcd. Outcomes ok, invalid (a malformed or released number, text or arena) and full (no room, or more bits than the arena's limit, by default Lean's 2^30). No state; loads in decimal whatever `BASE` is | New 2026-11-02 (plan task 5.2.3, library part); not yet used by the kernel (task 5.1.4); `tests/lib/bignum.fs` reaches every outcome; `make test` compares 37,585 cases with Python's integers on the running Gforth and catches 22 planted faults; review fixes of 2026-11-03 (printing overwrote the number below its text, stale operands, two speed fixes) with guarded-arena sweeps; `make check` has 984 of them computed by pinned Lean's kernel |
+| SHA-256 | `src/lib/sha256.fs` | FIPS 180-4 SHA-256, incremental ([below](#sha-256)): `sha256:` (or `/sha256` address units of the caller's memory), `sha256-init ( sha -- )`, `sha256-update ( c-addr u sha -- )` with pieces of any size, `sha256-final ( c-addr sha -- )` for the 32-byte digest, `digest>hex ( c-addr1 c-addr2 -- )` for its 64 lowercase hexadecimal digits. One word per FIPS function (`sha-rotr`, `sha-shr`, `sha-ch`, `sha-maj`, `sha-big-sigma0`, `sha-big-sigma1`, `sha-small-sigma0`, `sha-small-sigma1`), the plain round and schedule built from them, and on cells of 64 bits or more a fast round and schedule with the functions written out in place. Standalone: requires only `portability.fs`; no state of its own; nothing fails. Loads in decimal whatever `BASE` is | New 2026-11-03 (plan task 3.2.6, for the export manifests); the program track's flagship verification target; `make test-sha256`: NIST vectors, every split of messages up to 200 bytes, the functions against independent models, the fast round against the plain one, 306 random messages against Python's `hashlib` on both paths, the header's example run from a folder outside the project; 13 planted faults each caught |
 | Portability adapter | `src/lib/portability.fs` | Forth-2012 definitions of `>=`, `<=`, `0<=`, `0>=`, `-rot`, `max-n`, `cell` and the structure words, compiled only where the host lacks them. `scripts/check-portable-forth.py` refuses a module under `src/` that uses one of them without loading this file, directly or through the files it loads | New 2026-11-02; defines nothing under Gforth except `max-n`; `cell` and the load check added 2026-11-02 |
 | Diagnostics | `src/core/diagnostics.fs` | One record per checker context explaining the first failure of a check: a reason code, the site (module and word, a counted string) and two numbers; first failure wins until `lf-diag-clear`; `lf-diag@`, `lf-diag.`; helpers `lf-diag-walk`, `lf-diag-frames` and `lf-diag-store` explain a walk's, a pass's or a store's failure. Never changes an outcome; catalogue in [DIAGNOSTICS.md](../programming/DIAGNOSTICS.md) | New 2026-11-02 (plan 6.7, first form); every core and kernel module records its full and exhausted sites; `tests/core/diagnostics.fs` |
 | Expression store | `src/core/terms.fs` | Index-based nodes for sorts, bound variables, application, λ, Π and constants; nodes refer to earlier indices, so a term is a DAG with sharing | 64 nodes per checker context; built on `context-store:`; constructors check ranges only |
@@ -58,7 +59,8 @@ LeanForth, unless coupling gains a lot. Audit of `src/lib/` on 2026-11-03:
 | `store.fs`, `node.fs`, `walk.fs`, `frame.fs` (bounded stores, records, explicit-stack walks) | yes | the shared outcome vocabulary |
 | `context.fs`, `task.fs` (per-task contexts, job pool) | partly: a general job pool and context mechanism, designed around the checker's per-check state | the checker's context model (ADR 0009) |
 | `outcome.fs` (ok, invalid, exhausted, unknown, rejected, unsupported, full) | LeanForth's shared result vocabulary | deliberately shared: one vocabulary for every module |
-| coming: `sha256.fs`, the compact store (ADR 0016) | written to this rule from the start | — |
+| `sha256.fs` (SHA-256) | yes, written to this rule (2026-11-03) | requires only `portability.fs`; an example in its header and [below](#sha-256), run from a folder outside the project by `make test-sha256`; helper names (`sha-…`) still public until ADR 0010's word lists exist |
+| coming: the compact store (ADR 0016) | written to this rule from the start | — |
 
 **Why they are not yet packaged as standalone libraries.** They were built
 just in time for the checker, with correctness and fail-closed behaviour
@@ -109,6 +111,101 @@ the text unless it is ok. `jw-copy ( index view writer -- )` writes a
 value parsed by `json.fs` the same way; every line of the reference
 exports, whose keys are already in increasing order, comes back byte for
 byte.
+
+## SHA-256
+
+`src/lib/sha256.fs` (2026-11-03, plan task 3.2.6): SHA-256 exactly as
+FIPS 180-4 defines it, in portable Forth-2012, for the export manifests
+([NDJSON_READER.md](NDJSON_READER.md#manifests)), which hash a whole export
+during its single read. A standalone library under the owner's rule
+([above](#reusability-the-libraries-as-standalone-forth-code)): it requires
+only `portability.fs` and knows nothing of LeanForth; any Forth-2012 system
+with cells of at least 32 bits and 8-bit characters can load it. Untrusted
+until reviewed; the program track's flagship target is to prove it equal
+to FIPS 180-4 ([plan](../project/PLAN_DRAFT.md), "Flagship program
+target").
+
+```forth
+require src/lib/sha256.fs
+sha256: hasher                \ a record holding one hash in progress
+create digest 32 allot  create text 64 allot
+hasher sha256-init
+s" ab" hasher sha256-update  s" c" hasher sha256-update
+digest hasher sha256-final  digest text digest>hex  text 64 type
+```
+
+prints `ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad`,
+the SHA-256 of `abc`, however the message is split into updates (pieces of
+any size, 0 bytes included). `/sha256` address units of the caller's
+memory serve as well as `sha256:`; separate records are independent. After
+`sha256-final` a record must be given to `sha256-init` again. Nothing
+fails: every byte string is a message. A message must be shorter than
+2^64 bits (FIPS 180-4, 5.1.1).
+
+**Design.** One word per FIPS function, each with the section it
+implements: `sha-shr` and `sha-rotr` (3.2), `sha-ch` and `sha-maj` (4.2,
+4.3), `sha-big-sigma0`, `sha-big-sigma1`, `sha-small-sigma0`,
+`sha-small-sigma1` (4.4–4.7). A 32-bit word is a cell holding 0 to 2^32−1
+on any cell size; every step that can set a bit above bit 31 is masked
+(`sha-w32`), which is the addition modulo 2^32 of 3.2. The eight working
+variables are not moved each round: a table of 68 rows holds W(t), K(t)
+and two variables A(t) and E(t), round t reads rows t to t+3 and fills row
+t+4, so FIPS's renaming `h=g, g=f, …` is the step to the next row.
+`sha-round-plain` and `sha-schedule-plain` compose the named functions as
+FIPS writes them. On cells of 64 bits or more, `sha-round` and
+`sha-schedule-word` are the same computations with the functions written
+out in place, a rotation done as one right shift of the word written twice
+(`u + u·2^32`), and one mask per stored word (bits 0–31 of `+`, `xor`,
+`and`, `or` depend only on bits 0–31 of their operands); elsewhere, or
+when `sha256-portable` is defined before the file loads, they are the
+plain words. The tests compare the two on 500 random tables.
+
+**Speed** (this machine, 2026-11-03, `tests/lib/sha256-bench.fs`: 64 MiB in
+memory, one update, three runs; the machine was shared with other work):
+
+| Engine | Fast round (64-bit cells) | Plain definitions |
+| --- | --- | --- |
+| `gforth-fast` 1.0 | 0.92–0.97 s, **69–73 MB/s** | 3.45–3.72 s, 18–19 MB/s |
+| `gforth` 1.0 | 4.8–5.4 s, 12–14 MB/s | — |
+| `gforth` 0.7.3 | 11.7–12.0 s, 5.6–5.8 MB/s | — |
+| `sha256sum` (GNU coreutils, SHA extensions) | 0.07 s with the file read, about 1 GB/s | |
+
+Calls dominate in `gforth-fast`: the same algorithm took 2.37 s per 64 MiB
+with the window's cells reached through colon words, 1.81 s with them as
+constants, 1.49 s with the masks written in place, 1.11 s with the round's
+functions written in place and 0.86–0.92 s with the schedule's too;
+splitting the round into two words again cost about 10%. So the hot path
+keeps the functions in place, with a comment, and the named words remain
+for the plain path, the tests and the proofs. At 70 MB/s all of Mathlib's
+6.26 GB take about 90 s to hash (measured during its read in
+[NDJSON_READER.md](NDJSON_READER.md#manifests)).
+
+**Tests** (`make test-sha256`; Gforth 1.0 and 0.7.3):
+
+- `tests/lib/sha256.fs`, loaded under `HEX`, and `tests/lib/sha256-plain.fs`
+  (the same with the plain definitions): FIPS 180-4's examples (empty,
+  `abc`, the 448- and 896-bit messages) and one million `a` in 1,000
+  updates; 55, 56, 63, 64, 65, 119, 120, 127, 128 and 129 bytes of `a`
+  against `hashlib`'s digests; every length from 0 to 200 bytes hashed
+  whole, split in two at every point, one byte per update, with an empty
+  update around every byte, and split in three at each pair of 55, 56,
+  63, 64 and 65; the named functions on 2,000 random words against
+  independent models (rotation as one-bit rotations, the textbook Ch and
+  Maj); the fast round and schedule against the plain ones on 500 random
+  tables; the length's carry into its high word and its big-endian place
+  in the padding; two interleaved records.
+- `tests/lib/test_sha256.py`: 306 random messages (every length to 300
+  bytes, and 1 KiB to 1 MiB) hashed in updates of random sizes, 0 to 139
+  bytes, against Python's `hashlib`, on both paths, one also against
+  `sha256sum`; and the header's example, with the library and
+  `portability.fs` copied into a fresh folder outside the project, run
+  there as a program of its own.
+- 13 planted faults, kept in `tests/mutants/faults.toml` (`make mutants`;
+  ids `sha-…`) (a rotation's shift, Maj, a Σ1 shift and an unmasked
+  store in the fast round, a σ0 shift in the fast schedule, a K constant,
+  an initial hash word, the byte order, the final addition's row, the
+  length's carry, the padding boundary, the buffer's room, the hexadecimal
+  letters), each caught by the unit tests; the tree without a fault passes.
 
 ## Big natural numbers
 

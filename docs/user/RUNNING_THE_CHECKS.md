@@ -64,7 +64,12 @@ and the planted-fault checks behind them.
 ## Tools you can run on your own files
 
 Count the records of any lean4export 3.1.0 file written by Lean 4.35.0
-(`gforth-fast` is about three times faster than `gforth`):
+(`gforth-fast` is about three times faster than `gforth`). The file is
+checked by default against the manifest that LeanForth's export step
+(`scripts/export.sh`) wrote beside it, `FILE.manifest.json`: its SHA-256,
+size, lines and records of each kind
+([manifests](../development/NDJSON_READER.md#manifests)). A missing or
+wrong manifest is an error; `count-export-unchecked` skips the check.
 
 ```sh
 .tools/gforth/bin/gforth-fast src/import/ndjson-count.fs \
