@@ -2210,10 +2210,26 @@ quick = true
 [[fault]]
 id = "cli-severity-order"
 file = "src/cli/tally.fs"
-old = '''create cli-severity  0 , 3 , 1 , 2 , 4 , 5 ,'''
-new = '''create cli-severity  0 , 1 , 3 , 2 , 4 , 5 ,'''
+old = '''create cli-severity  0 , 4 , 2 , 3 , 5 , 6 , 1 ,'''
+new = '''create cli-severity  0 , 2 , 4 , 3 , 5 , 6 , 1 ,'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "an unknown declaration outranks a rejected one: the documented order is broken"
+
+[[fault]]
+id = "cli-not-proved-status-0"
+file = "src/cli/tally.fs"
+old = '''create cli-severity  0 , 4 , 2 , 3 , 5 , 6 , 1 ,'''
+new = '''create cli-severity  0 , 4 , 2 , 3 , 5 , 6 , 0 ,'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "NOT PROVED ranks with all accepted: a declaration resting on an axiom can leave status 0"
+
+[[fault]]
+id = "cli-not-proved-uncoded"
+file = "src/cli/tally.fs"
+old = '''  not-proved? if 1 cli-not-proved +! exit-not-proved cli-code! then ;'''
+new = '''  not-proved? if 1 cli-not-proved +! then ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "NOT PROVED is counted but has no exit code of its own (owner's rule; review rvCLI2 M5)"
 
 [[fault]]
 id = "cli-verdicts-not-in-code"
@@ -2242,11 +2258,11 @@ reason = "a Forth exception inside a command exits 0 instead of 5, an internal f
 
 [[fault]]
 id = "cli-spent-context-ignored"
-file = "src/cli/leanforth.fs"
-old = ''': cli-faulted? ( -- flag ) lf-env-spent? cli-run-outcome ok? 0= or ;'''
-new = ''': cli-faulted? ( -- flag ) cli-run-outcome ok? 0= ;'''
-test = "$GFORTH tests/cli/leanforth.fs"
-reason = "a check that threw is reported as invalid input (4), not as an internal fault (5)"
+file = "src/cli/check-run.fs"
+old = '''  ck-viewed? if ck-all-final? ck-stopped? 0= and flag>outcome else outcome-invalid then ;'''
+new = '''  ck-viewed? if ck-all-final? flag>outcome else outcome-invalid then ;'''
+test = "python3 tests/cli/test_leanforth.py"
+reason = "a run whose last check threw ends ok: the report says run ok and stopped (review rvCLI2 L1)"
 
 [[fault]]
 id = "cli-not-proved-never"
@@ -2289,6 +2305,7 @@ old = ''': ck-final? ( d -- flag ) lf-env-readable dup if nip then ;'''
 new = ''': ck-final? ( d -- flag ) drop true ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "a run whose publisher failed, leaving a slot open, is not reported as stopped"
+equivalent = "defence in depth since review rvCLI2 L1: a run leaves a slot open only when lf-env-step reports a stop (a THROW, a publisher fault) or the run stops before it, and either sets ck-faulted, which ck-confirm also requires clear; caught before L1, when the stop flag was dropped"
 
 [[fault]]
 id = "cli-fuel-off-by-one"
@@ -2309,8 +2326,8 @@ reason = "a failed inference's zeroed counter is reported as the whole budget us
 [[fault]]
 id = "cli-capacities-kept-raised"
 file = "src/cli/check-run.fs"
-old = '''  lf-name-detach ck-empty ck-restore false ck-state ck-began-feed ! ;'''
-new = '''  lf-name-detach ck-empty false ck-state ck-began-feed ! ;'''
+old = '''  lf-name-detach ck-empty ck-restore ck-state ck-restored-outcome !'''
+new = '''  lf-name-detach ck-empty outcome-ok ck-state ck-restored-outcome !'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "after a check the stores keep the sizes the feed raised, so later small checks differ"
 
@@ -2334,8 +2351,8 @@ quick = true
 [[fault]]
 id = "cli-json-all-accepted"
 file = "src/cli/check-json.fs"
-old = '''  lf-env-outcome dup ok? if drop s" accepted" else outcome-text then ;'''
-new = '''  drop s" accepted" ;'''
+old = '''  dup cj-began? if lf-env-outcome else drop not-checked then verdict-name ;'''
+new = '''  drop outcome-ok verdict-name ;'''
 test = "python3 tests/cli/test_leanforth.py"
 reason = "trust boundary: the JSON report calls every declaration accepted, not its slot's verdict"
 quick = true
@@ -2343,8 +2360,8 @@ quick = true
 [[fault]]
 id = "cli-json-never-stopped"
 file = "src/cli/check-json.fs"
-old = '''  ck-verdicts? if lf-env-spent? ck-outcome ok? 0= or else false then ;'''
-new = '''  false ;'''
+old = ''': cj-stopped ( -- ) ck-stopped? s" stopped" cj-flag ;'''
+new = ''': cj-stopped ( -- ) false s" stopped" cj-flag ;'''
 test = "python3 tests/cli/test_leanforth.py"
 reason = "the JSON report of a run that stopped on a fault does not say so"
 
@@ -2409,10 +2426,61 @@ reason = "a Gforth that fails on its own is reported with exit status 0"
 [[fault]]
 id = "wrapper-takes-host-status"
 file = "bin/leanforth"
-old = '''  10[0-5]) code=$((status - 100)) ;;'''
-new = '''  10[0-5] | [0-5]) code=$((status % 100)) ;;'''
+old = '''  10[0-6]) code=$((status - 100)) ;;'''
+new = '''  10[0-6] | [0-6]) code=$((status % 100)) ;;'''
 test = "python3 tests/cli/test_leanforth.py"
 reason = "Gforth's own exit status (0 after it ends early, 1 after an error) reads as a verdict"
+
+# --- names as Lean shows them (src/cli/name-text.fs; review rvCLI2 M1, M2) --
+
+[[fault]]
+id = "cli-name-raw"
+file = "src/cli/name-text.fs"
+old = '''  2dup s" »" nt-holds? 0= r> and if nt-quoted else nt-escaped then ;'''
+new = '''  r> drop nt-put ;'''
+test = "python3 tests/cli/test_leanforth.py"
+reason = "a name is printed raw: a line feed in it forges a line such as 'x: accepted ...'"
+quick = true
+
+[[fault]]
+id = "cli-name-banned-kept"
+file = "src/cli/name-text.fs"
+old = '''  3 pick over nt-banned? if nt-banned exit then'''
+new = '''  3 pick over 2drop false if nt-banned exit then'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "control and bidirectional characters in a name are printed as they are, inside « »"
+
+[[fault]]
+id = "cli-name-backslash-kept"
+file = "src/cli/name-text.fs"
+old = '''  swap [char] \ = if drop nt-backslash else nt-raw then ;'''
+new = '''  nip nt-raw ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "a backslash in a name is not escaped, so a name can show the text of an escape it does not hold"
+
+[[fault]]
+id = "cli-name-no-root"
+file = "src/cli/name-text.fs"
+old = '''    over swap nt-parts slab-at ! lf-name-prefix@'''
+new = '''    over swap nt-parts slab-at ! drop 0'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "only a name's last component is shown, not the walk to its root"
+
+[[fault]]
+id = "cli-fuel-unbounded"
+file = "src/cli/leanforth.fs"
+old = '''  dup cli-fuel-most > if drop c" a fuel amount above 9007199254740991" cli-wrong exit then'''
+new = '''  dup drop false if drop c" a fuel amount above 9007199254740991" cli-wrong exit then'''
+test = "python3 tests/cli/test_leanforth.py"
+reason = "--fuel above 2^53 - 1 is taken, and the report's fuel is beyond what JSON holds exactly"
+
+[[fault]]
+id = "cli-schema-status-0-loose"
+file = "schemas/check-report-0.1.schema.json"
+old = '''          "counts": {"allOf": [{"$ref": "#/$defs/allAccepted"}, {"properties": {"notProved": {"const": 0}}}]},'''
+new = '''          "counts": {"type": "object"},'''
+test = "python3 tests/cli/test_leanforth.py"
+reason = "the schema takes a status-0 report whose counts hold a rejected or NOT PROVED declaration"
 
 # --- the importer stage (src/import/stage.fs, stage-records.fs) -----------
 
@@ -4194,3 +4262,12 @@ old = '''  dup lf-pres-find if nip lf-pdecl-type @ true else lf-pres-input-type@
 new = '''  dup lf-pres-find if nip lf-pdecl-type @ true else drop false then ;'''
 test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
 reason = "the printer no longer finds a constant's declared type in the input, so the implicit arguments it hides show again"
+
+[[fault]]
+id = "print-title-name-unescaped"
+file = "src/present/log-view.fs"
+old = '''  lf-lv lf-lv-declname @ lf-lv-tex? 0= and if lf-lv-decl-shown else lf-lv-printed-name then ;'''
+new = '''  lf-lv-printed-name ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Names"
+reason = "print shows a declaration's name as the printer spells it, so a name with a newline starts a line of its own in the outline"
+quick = true

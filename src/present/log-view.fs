@@ -57,6 +57,8 @@ begin-structure /lf-lv
   field: lf-lv-depth         \ binders in the scope
   field: lf-lv-tex           \ true: LaTeX style (lf-lv-latex!)
   field: lf-lv-mathing       \ open math groups in the line (LaTeX style)
+  field: lf-lv-declname         \ xt ( id -- c-addr u flag ) of a declaration's name, or 0
+  field: lf-lv-escape        \ xt ( c-addr u -- c-addr' u' flag ) escaping any text, or 0
   lf-log-term-capacity cells +field lf-lv-made      \ copy k's rebuilt term + 1, -1, or 0
   lf-log-level-capacity cells +field lf-lv-lmade    \ copy k's rebuilt level + 1, -1, or 0
   lf-log-term-capacity cells +field lf-lv-namer      \ input binder naming copy k, + 1
@@ -84,8 +86,16 @@ end-structure
 : lf-lv-text ( -- c-addr u ) lf-lv lf-lv-buffer lf-lv lf-lv-used @ ;
 : lf-lv-clear ( -- ) 0 lf-lv lf-lv-used ! ;
 : lf-lv-room ( -- n ) lf-lv-buffer-size lf-lv lf-lv-used @ - ;
-: lf-lv-put ( c-addr u -- )
+\ The outline's text goes into the buffer as it is (lf-lv-put-raw) or, in plain
+\ style when the caller gave an escaping word (lf-outline-names!), escaped, so
+\ that a name in a formula cannot start a line of its own; text that cannot
+\ be escaped (no heap) shows as ?.
+: lf-lv-put-raw ( c-addr u -- )
   lf-lv-room min tuck lf-lv-text + swap move lf-lv lf-lv-used +! ;
+: lf-lv-safe ( c-addr u -- c-addr' u' )
+  lf-lv lf-lv-escape @ ?dup 0= if exit then lf-lv lf-lv-tex @ if drop exit then
+  execute 0= if 2drop s" ?" then ;
+: lf-lv-put ( c-addr u -- ) lf-lv-safe lf-lv-put-raw ;
 : lf-lv-out ( c-addr u -- ) lf-lv lf-lv-sink @ ?dup if execute else type then ;
 : lf-lv-n ( n -- ) dup 0< if s" -" lf-lv-put negate then lf-pp-digits lf-lv-put ;
 : lf-lv-chars ( c-addr u -- n )
@@ -433,7 +443,15 @@ lf-walk-room context-walk: lf-lv-term-work
   swap lf-lv-term 0= if lf-lv-unbuilt exit then
   lf-term-app if lf-lv-term-here else lf-lv-fail then lf-lv-release ;
 \ A name ID, and a declaration's name.
-: lf-lv-name-id ( id -- ) lf-lv-math-open lf-print-name lf-lv-printed lf-lv-math-close ;
+\ A name given a namer (plain style) is shown as it shows it, which escapes it
+\ whole and is not escaped again.
+: lf-lv-decl-shown ( id -- )
+  lf-lv lf-lv-declname @ execute
+  if lf-lv-put-raw else 2drop s" ?" lf-lv-put-raw 1 lf-lv lf-lv-bad +! then ;
+: lf-lv-printed-name ( id -- )
+  lf-lv-math-open lf-print-name lf-lv-printed lf-lv-math-close ;
+: lf-lv-name-id ( id -- )
+  lf-lv lf-lv-declname @ lf-lv-tex? 0= and if lf-lv-decl-shown else lf-lv-printed-name then ;
 : lf-lv-decl-name ( i -- )
   dup 0 lf-input-count within if lf-input-name lf-lv-name-id else lf-lv-n then ;
 

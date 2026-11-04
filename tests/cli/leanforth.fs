@@ -6,17 +6,21 @@
 \ theorem and 30 declarations of an export with every record kind, all
 \ through the importer stage and the feed), 1 rejected, 2 unsupported (a
 \ declaration; with --record a record refused while reading), 3 out of
-\ fuel, 4 malformed (a declaration, a missing manifest, a file that is
-\ not an export or does not open, a copy over its export, --json with
-\ --record), 5 an internal fault (a THROW while staging, and one inside a
-\ check, each injected at an allocation with tests/support/alloc-fail.fs);
-\ the declarations counted by verdict; the fuel each check used (a budget
-\ of exactly that much accepts, one less is exhausted); the stage freed,
-\ the names detached and the stores' capacities given back after every
-\ check; the run record (--record: its text holds the verdicts, a record
-\ that cannot be saved is invalid, one that names its export is refused);
-\ and the reading of fuel amounts. tests/cli/test_leanforth.py runs the
-\ same through bin/leanforth, with the text and JSON printed, and replays
+\ fuel or room (an allocation refused while feeding, and inside a check),
+\ 4 malformed (a declaration, a missing manifest, a file that is not an
+\ export or does not open, a copy over its export, --json with --record),
+\ 5 an internal fault (a THROW while staging, and one inside a check,
+\ each injected at an allocation with tests/support/alloc-fail.fs; the
+\ publisher made to throw mid-run), 6 NOT PROVED (an axiom planted in an
+\ accepted slot); the declarations counted by verdict; the fuel each
+\ check used (a budget of exactly that much accepts, one less is
+\ exhausted); a second run the same as the first; the stage freed, the
+\ names detached and every store's capacity given back after every check;
+\ the run record (--record: its text holds the verdicts, a record that
+\ cannot be saved is invalid, one that names its export is refused); the
+\ reading of fuel amounts, at most 2^53 - 1; names shown as Lean shows
+\ them, escaped, of any depth. tests/cli/test_leanforth.py runs the same
+\ through bin/leanforth, with the text and JSON printed, and replays
 \ records. print's codes, and a THROW at each of its store allocations.
 \ Test-only; nothing here accepts a theorem outside the code under test.
 include ../support/tester.fs
@@ -47,25 +51,27 @@ T{ outcome-unknown outcome>code outcome-unsupported outcome>code -> 2 2 }T
 T{ outcome-exhausted outcome>code outcome-full outcome>code -> 3 3 }T
 T{ outcome-invalid outcome>code 7 outcome>code -1 outcome>code -> 4 5 5 }T
 
-\ Severity, as the documentation states it: 0 < 2 < 3 < 1 < 4 < 5. The
+\ Severity, as the documentation states it: 0 < 6 < 2 < 3 < 1 < 4 < 5. The
 \ more severe of two codes is the same both ways round and is the later
 \ of the two in that order.
-create stated  0 , 2 , 3 , 1 , 4 , 5 ,
+create stated  0 , 6 , 2 , 3 , 1 , 4 , 5 ,
 : stated-rank ( code -- n )
-  6 0 do dup i cells stated + @ = if drop i unloop exit then loop drop 99 ;
+  7 0 do dup i cells stated + @ = if drop i unloop exit then loop drop 99 ;
 : later? ( a b w -- flag ) stated-rank >r stated-rank swap stated-rank max r> = ;
 : pair-ok? ( a b -- flag )
   2dup 2dup worse-code >r swap worse-code r@ = -rot r> later? and ;
-: all-pairs? ( -- flag ) true 6 0 do 6 0 do i j pair-ok? and loop loop ;
+: all-pairs? ( -- flag ) true 7 0 do 7 0 do i j pair-ok? and loop loop ;
 T{ all-pairs? -> true }T
 
 \ NOT PROVED: an accepted declaration with an axiom, and only that; it is
-\ counted apart and changes no code.
+\ counted apart and has its own code, 6 (proposed), which every other
+\ failure outranks.
 T{ outcome-ok 0 not-proved? outcome-ok 4 not-proved? -> false true }T
 T{ outcome-rejected 4 not-proved? outcome-unknown 0 not-proved? -> false false }T
 cli-start
 T{ outcome-ok 4 cli-tally-proved outcome-ok 0 cli-tally-proved cli-not-proved @ -> 1 }T
-T{ outcome-rejected 1 cli-tally-proved cli-not-proved @ cli-worst @ -> 1 0 }T
+T{ outcome-rejected 1 cli-tally-proved cli-not-proved @ cli-worst @ -> 1 6 }T
+T{ outcome-unknown cli-tally cli-worst @ -> 2 }T
 \ The summary's line of the accepted, from planted counts (no check can
 \ make one NOT PROVED yet); where the host can capture output (Gforth 1.0).
 [defined] >string-execute [if]
@@ -88,6 +94,40 @@ T{ s" " cli-decimal s" -1" cli-decimal s" +1" cli-decimal s" 1x" cli-decimal
 : max-text ( -- c-addr u ) max-n 0 <# #s #> ;
 T{ max-text cli-decimal -> max-n true }T
 T{ s" 99999999999999999999999999999999999999999" cli-decimal -> false }T
+\ --fuel takes at most 2^53 - 1 (on a 64-bit host): exact in JSON.
+: bits64? ( -- flag ) max-n 53 rshift 0<> ;
+bits64? [if]
+T{ cli-fuel-most 1+ 1 53 lshift = -> true }T
+[then]
+
+\ Names as cli/name-text.fs shows them: Lean's Name.toString, with « »
+\ around a component that is not an identifier and escapes for what the
+\ text rule bans; names of any depth.
+: shows ( c-addr u -- c-addr' u' ) 0 -rot lf-name-str drop nt-name drop ;
+: num-shows ( n -- c-addr u ) 0 swap lf-name-num drop nt-name drop ;
+T{ s" fixtureUse" shows s" fixtureUse" compare -> 0 }T
+T{ s" with space" shows s" «with space»" compare -> 0 }T
+T{ s" " shows s" «»" compare -> 0 }T
+T{ s\" a\nb" shows s" «a\u{A}b»" compare -> 0 }T
+T{ s\" a\rb\x1b[2K" shows s" «a\u{D}b\u{1B}[2K»" compare -> 0 }T
+T{ s\" a\xe2\x80\xaeb" shows s" «a\u{202E}b»" compare -> 0 }T
+T{ s\" a\\b" shows s" «a\\b»" compare -> 0 }T
+T{ s\" a\xc2\xbbb" shows s\" a\xc2\xbbb" compare -> 0 }T      \ holds », as Lean: no « »
+T{ s\" \xce\xb1\xce\xb2\xce\xb3" shows s\" \xce\xb1\xce\xb2\xce\xb3" compare -> 0 }T
+T{ s" x'" shows s" x'" compare s" 1x" shows s" «1x»" compare -> 0 0 }T
+T{ 7 num-shows s" 7" compare 0 nt-name drop s" [anonymous]" compare -> 0 0 }T
+\ Deeper than the term printer's 64 components: every component shown
+\ (the name store made larger for it, then given back its default).
+: deep ( n -- id ) 0 swap 0 ?do s" a" lf-name-str drop loop ;
+: dots ( n -- u ) 2* 1- ;
+lf-name-reset 200 lf-name-capacity! drop
+T{ 100 deep nt-name -rot nip 100 dots = -> true true }T
+lf-name-reset lf-name-default lf-name-capacity! drop
+\ A name with macro scopes is shown without « », as Lean shows it.
+: hygienic ( -- id ) 0 s" x" lf-name-str drop s" _@" lf-name-str drop s" _hyg" lf-name-str drop ;
+T{ hygienic nt-name drop s" x._@._hyg" compare -> 0 }T
+\ An export's file name: the same escapes, no « ».
+T{ s\" a b\x01\xff" nt-text drop s" a b\u{1}\x{FF}" compare -> 0 }T
 
 \ The codes of the check, with the declarations counted by verdict.
 cli-options
@@ -124,14 +164,26 @@ used# 1- cli-fuel!
 T{ composition cli-check -> 3 }T
 cli-options
 
-\ After every check: no stage, the names detached, the capacities back.
+\ After every check: no stage, the names detached, every capacity back.
+: capacities? ( -- flag )
+  lf-term-capacity lf-term-default = lf-input-capacity lf-input-default = and
+  lf-level-capacity lf-level-default = and lf-cref-capacity lf-cref-default = and ;
 : released? ( -- flag )
-  ck-stage stage-state @ 0= lf-name-viewed? 0= and lf-term-capacity lf-term-default = and
-  lf-input-capacity lf-input-default = and ;
+  ck-stage stage-state @ 0= lf-name-viewed? 0= and capacities? and ck-restored ok? and ;
 T{ chain cli-check released? -> 0 true }T
+T{ kinds cli-check released? -> 4 true }T            \ no manifest beside it
 T{ s" tests/cli/no-such.ndjson" cli-check released? -> 4 true }T
 cli-no-manifest
-T{ s" README.md" cli-check released? -> 4 true }T
+T{ s" README.md" cli-check released? kinds cli-check released? -> 4 true 2 true }T
+cli-options
+
+\ A second run in the same process gives the same verdicts and fuel.
+: run-facts ( c-addr u -- code ok# fuel )
+  cli-check outcome-ok tally ck-fuel-total drop ;
+T{ inductive run-facts inductive run-facts -> 0 6 1520 0 6 1520 }T
+cli-no-manifest
+kinds run-facts constant kinds-fuel drop drop
+T{ kinds run-facts -> 2 30 kinds-fuel }T
 cli-options
 
 \ --record keeps the small path: an inductive type is refused while
@@ -207,7 +259,7 @@ T{ lf-log-options lf-logopt-level @ -> 0 }T
 
 \ A declaration's name as text, and finding it.
 T{ fixture true rr-read-once s" fixturePoly" pr-find -> outcome-ok 1 true }T
-T{ s" fixture" pr-find 2 pr-name s" fixtureUse" compare -> false 0 }T
+T{ s" fixture" pr-find s" fixtureUse" pr-find -> false 2 true }T
 
 \ Internal faults, each in a context of its own (a THROW in a check
 \ spends its context for good). Staging and feeding composition in a new
@@ -229,6 +281,17 @@ T{ fed# 0> -> true }T
 T{ 1 in-context -> 5 false true }T
 T{ fed# 1+ in-context -> 5 true true }T
 
+\ Allocations refused (full) rather than thrown: at the first, the feed
+\ fails, full, before any fact or environment is made; at n + 1, the
+\ check has no room: its declaration ends full, a resource limit (3),
+\ and the run is whole. Either way everything is given back.
+: refused ( k -- code phase made? facts? full# released? )
+  context-new throw dup >r context-use af-arm composition cli-check af-off
+  ck-phase-failed ck-made? ck-facts-made? outcome-full tally released?
+  context-main context-use r> context-free throw ;
+T{ 1 refused -> 3 ck-feeding false false 0 true }T
+T{ fed# 1+ refused -> 3 -1 true true 1 true }T
+
 \ A run that stops in the publisher: a THROW before declaration 1's slot
 \ is final. The run is invalid (that slot is open), the code a fault's;
 \ declaration 0 stays accepted, 1 is invalid and 2 was never checked.
@@ -241,6 +304,27 @@ T{ fed# 1+ in-context -> 5 true true }T
 ' throw-at-1 is lf-env-before-final
 T{ stopped -> 5 outcome-invalid 1 1 1 }T
 ' lf-env-no-fault is lf-env-before-final
+
+\ NOT PROVED from a slot: composition checked as check --record checks
+\ it, then its accepted slot given an axiom bit before the verdicts are
+\ read (no check can make one yet): code 6, counted, and said in its line
+\ and the summary.
+: planted-run ( -- )
+  cli-options composition 0 cli-file! cli-start cli-recorded-ops cli-state run-ops !
+  cli-settings cli-record-start drop cli-import drop rr-check
+  4 0 lf-env lf-env-slot lf-slot-axioms ! ;
+: planted ( -- code not-proved# ) planted-run cli-results rr-release cli-worst @ cli-not-proved @ ;
+T{ planted -> 6 1 }T
+[defined] >string-execute [if]
+: planted-text ( -- c-addr u ) planted-run ['] cli-results >string-execute rr-release ;
+: says? ( c-addr u c-addr2 u2 -- c-addr u flag ) 2over 2swap search nip nip ;
+: planted-line ( -- c-addr u )
+  s" composition: accepted (experimental, not independently audited); axioms: bits 4; NOT PROVED (it depends on an axiom)" ;
+: planted-says ( -- line? summary? )
+  planted-text planted-line says? >r s" axioms: 1 NOT PROVED" says? nip nip r> swap ;
+T{ planted-says -> true true }T
+[then]
+cli-options
 
 \ print reads with the checker's input: n allocations stage composition
 \ there, fewer than print makes in all.

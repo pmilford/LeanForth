@@ -25,10 +25,11 @@
 \ serials, so a diagnostic whose numbers are identities or serials (codes
 \ 8, 21, 25, 27) can differ from check's for a later declaration; no
 \ verdict depends on them.
-\ State: one record in the checker context, print-state (the declarations
-\ whose line is kept and the text of a declaration's name being compared),
-\ and a growable array of the context, pr-lines: the line of each input
-\ declaration in the file.
+\ State: one record in the checker context, print-state (the number of
+\ declarations whose line is kept), and a growable array of the context,
+\ pr-lines: the line of each input declaration in the file. No fixed
+\ buffer: a name is compared with the text given component by component,
+\ whatever its length and depth.
 
 require ../lib/lib.fs
 require ../core/input.fs
@@ -41,11 +42,8 @@ require ../present/print-names.fs
 require ../present/proof-outline.fs
 require ./check-run.fs
 
-256 constant pr-text-capacity
 begin-structure /pr
   field: pr-decls                       \ input declarations whose line is kept
-  field: pr-text-used                   \ bytes of the name text
-  pr-text-capacity +field pr-text
 end-structure
 /pr context-record: print-state
 1 cells context-slab: pr-lines          \ each input declaration's line, by index
@@ -67,16 +65,25 @@ end-structure
 : pr-load ( c-addr u checked? -- outcome )
   pr-reset ['] pr-binder-hook ['] pr-decl-hook ck-hooks! ck-load ;
 
-\ A declaration's name as text, and the declaration named by a text.
-: pr-used ( -- addr ) print-state pr-text-used ;
-: pr-put ( c-addr u -- )
-  pr-used @ over + pr-text-capacity > if 2drop exit then
-  tuck print-state pr-text pr-used @ + swap move pr-used +! ;
-: pr-name ( i -- c-addr u )
-  0 pr-used ! lf-input-name ['] pr-put lf-pp-name-to print-state pr-text pr-used @ ;
+\ Whether the text c-addr u spells the name id: components joined by dots,
+\ numeric ones in decimal (as the printer spells a name), compared from the
+\ last component back, so nothing is copied and no length is limited.
+: pr-part-text ( id -- c-addr u )
+  dup lf-name-tag@ lf-name-tag-str = if lf-name-text else lf-name-payload lf-pp-digits then ;
+\ The text ends with the part pa pu: the text without it, or false.
+: pr-ends? ( c u pa pu -- c u' flag )
+  2 pick over u< if 2drop false exit then
+  2swap 2 pick - 2dup + 3 pick 5 pick 5 pick compare 0=
+  >r 2>r 2drop 2r> r> ;
+: pr-dot? ( c u -- c u' flag ) dup 0= if false exit then 1- 2dup + 1 s" ." compare 0= ;
+: pr-named? ( c-addr u id -- flag )
+  begin dup while
+    dup >r pr-part-text pr-ends? 0= if r> drop 2drop false exit then
+    r> lf-name-prefix@ dup if >r pr-dot? 0= if r> drop 2drop false exit then r> then
+  repeat drop nip 0= ;
 \ The first declaration named c-addr u: (i true), or false.
 : pr-find ( c-addr u -- i true | false )
-  lf-input-count 0 ?do 2dup i pr-name compare 0= if 2drop i true unloop exit then loop
+  lf-input-count 0 ?do 2dup i lf-input-name pr-named? if 2drop i true unloop exit then loop
   2drop false ;
 
 \ Checking declaration i (lf-env-step): whether the run must stop, as

@@ -3,7 +3,7 @@
   "$id": "https://github.com/pmilford/LeanForth/schemas/check-report-0.1.schema.json",
   "title": "LeanForth check report, schema version 0.1",
   "description": "What `leanforth check --json EXPORT` prints: one JSON text, then a line feed. The export staged and fed to the checker, every declaration's verdict in input order, read after the run from the slots of the checked environment the run made, the counts, the exit status, the fuel used, the input's size and, apart in `measured`, the times and memory. Written by src/cli/check-json.fs; documented in docs/user/COMMAND_LINE.md, section JSON output. A report, not a record: it names no commit and no SHA-256 (run records do, docs/programming/RUN_RECORDS.md), and nothing ever reads it back into a check.",
-  "$comment": "Uses only the keywords that tests/support/schema_subset.py implements; it refuses any other keyword. Every member but `measured` is deterministic: the same on every run of the same export with the same options and the same build. Numbers are integers within I-JSON's exact range. Version 0.1 is untrusted and has not passed the [format] gate.",
+  "$comment": "Uses only the keywords that tests/support/schema_subset.py implements; it refuses any other keyword. Every member but `measured` is deterministic: the same on every run of the same export with the same options and the same build. Numbers are integers within I-JSON's exact range. Version 0.1 is untrusted and has not passed the [format] gate. Rules no keyword of the subset can state, which tests/cli/test_leanforth.py checks on every report it makes: when `counts` is an object, `counts.declarations` equals the number of items of `declarations` and the sum of the eight verdict counts (accepted to notChecked), each verdict count equals the number of declarations with that verdict, and `counts.notProved` the number with `notProved` true; `fuel.unknown` equals the number of declarations whose fuel is null and `fuel.total` the sum of the others' fuel; `fuel.top` is in order of fuel, most first, each entry's fuel and verdict those of the declaration at its index; `input.declarations` equals `counts.declarations`.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -14,7 +14,7 @@
     "schema": {"const": "leanforth-check-report"},
     "schemaVersion": {"const": "0.1"},
     "export": {
-      "description": "The export's file name as the command line gave it.",
+      "description": "The export's file name as the command line gave it, with the escapes of names (src/cli/name-text.fs): a backslash as \\\\, a character the text rule bans as \\u{X}, a byte that is not UTF-8 as \\x{X}.",
       "type": "string",
       "minLength": 1
     },
@@ -56,10 +56,10 @@
       "anyOf": [{"type": "null"}, {"$ref": "#/$defs/input"}]
     },
     "exitStatus": {
-      "description": "The command's exit status: 0 all accepted, 1 something rejected, 2 unsupported or unknown, 3 a resource limit, 4 malformed input, 5 an internal fault.",
+      "description": "The command's exit status: 0 all accepted, 1 something rejected, 2 unsupported or unknown, 3 a resource limit, 4 malformed input, 5 an internal fault, 6 all accepted but some NOT PROVED (proposed, pending the owner's confirmation at this format's gate); the most severe of 5, 4, 1, 3, 2, 6, 0 wins.",
       "type": "integer",
       "minimum": 0,
-      "maximum": 5
+      "maximum": 6
     },
     "measured": {"$ref": "#/$defs/measured"}
   },
@@ -88,15 +88,41 @@
       "then": {"properties": {"declarations": {"items": {"properties": {"verdict": {"not": {"const": "not-checked"}}}}}}}
     },
     {
-      "description": "Exit status 0 only when the run ended ok and every declaration was accepted.",
+      "description": "Exit status 0 only when the run ended ok, did not stop, listed at least one declaration and every declaration was accepted and proved: every other count is 0, and every fuel is known.",
       "if": {"properties": {"exitStatus": {"const": 0}}},
       "then": {
         "properties": {
           "run": {"const": "ok"},
-          "counts": {"type": "object"},
-          "declarations": {"items": {"properties": {"verdict": {"const": "accepted"}}}}
+          "stopped": {"const": false},
+          "counts": {"allOf": [{"$ref": "#/$defs/allAccepted"}, {"properties": {"notProved": {"const": 0}}}]},
+          "declarations": {
+            "minItems": 1,
+            "items": {"properties": {"verdict": {"const": "accepted"}, "notProved": {"const": false}}}
+          },
+          "fuel": {"properties": {"unknown": {"const": 0}}}
         }
       }
+    },
+    {
+      "description": "Exit status 6 only when every declaration was accepted and at least one is NOT PROVED.",
+      "if": {"properties": {"exitStatus": {"const": 6}}},
+      "then": {
+        "properties": {
+          "run": {"const": "ok"},
+          "stopped": {"const": false},
+          "counts": {"allOf": [{"$ref": "#/$defs/allAccepted"}, {"properties": {"notProved": {"minimum": 1}}}]},
+          "declarations": {
+            "minItems": 1,
+            "contains": {"properties": {"notProved": {"const": true}}},
+            "items": {"properties": {"verdict": {"const": "accepted"}}}
+          }
+        }
+      }
+    },
+    {
+      "description": "A NOT PROVED declaration never leaves the status 0.",
+      "if": {"properties": {"declarations": {"contains": {"properties": {"notProved": {"const": true}}}}}},
+      "then": {"properties": {"exitStatus": {"not": {"const": 0}}}}
     },
     {
       "description": "A rejected declaration makes the status 1 unless a worse one (4, 5) wins.",
@@ -114,13 +140,22 @@
       "then": {"properties": {"stopped": {"const": true}}}
     },
     {
-      "description": "A run that stopped on an internal fault has status 5; one that never ran did not stop.",
+      "description": "A run that stopped on an internal fault has status 5 and did not end ok; one that never ran did not stop.",
       "if": {"properties": {"stopped": {"const": true}}},
-      "then": {"properties": {"exitStatus": {"const": 5}, "counts": {"type": "object"}}}
+      "then": {"properties": {"exitStatus": {"const": 5}, "counts": {"type": "object"}, "run": {"not": {"const": "ok"}}}}
     }
   ],
   "$defs": {
     "count": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+    "allAccepted": {
+      "description": "Counts in which every declaration was accepted: at least one, and none with another verdict.",
+      "type": "object",
+      "properties": {
+        "declarations": {"minimum": 1}, "accepted": {"minimum": 1}, "rejected": {"const": 0},
+        "unknown": {"const": 0}, "unsupported": {"const": 0}, "invalid": {"const": 0},
+        "exhausted": {"const": 0}, "full": {"const": 0}, "notChecked": {"const": 0}
+      }
+    },
     "signed": {"type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991},
     "outcome": {
       "description": "ADR 0008's outcome vocabulary.",

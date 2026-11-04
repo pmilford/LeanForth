@@ -72,7 +72,7 @@ end-structure
 : lf-sf-tex-byte ( c-addr -- )
   dup c@ lf-sf-tex-form if rot drop lf-lv-out else 1 lf-lv-out then ;
 : lf-sf-tex ( c-addr u -- ) 0 ?do dup i + lf-sf-tex-byte loop drop ;
-: lf-sf-line-sink ( c-addr u -- ) lf-lv-tex? if lf-sf-tex else lf-lv-out then ;
+: lf-sf-line-sink ( c-addr u -- ) lf-lv-tex? if lf-sf-tex else lf-lv-safe lf-lv-out then ;
 \ The block: indentation is written before the first byte of a line.
 : lf-sf-bol! ( flag -- ) lf-sf lf-sf-bol ! ;
 : lf-sf-indent ( -- ) lf-sf lf-sf-bol @ 0= if exit then false lf-sf-bol!
@@ -137,7 +137,7 @@ end-structure
 : lf-sf-math-line ( decl kind u -- )
   s"  in mathematics:" lf-sf-label lf-sf-mathematics 0 lf-lv-flush lf-sf-end ;
 : lf-sf-forth-line ( decl kind u -- )
-  s"  in LeanForth (as an axiom states a type; this assumes nothing):" lf-sf-label
+  s"  in LeanForth (the statement only, written as an axiom; nothing is assumed):" lf-sf-label
   lf-lv-tex? if s" \\" lf-lv-out lf-lv-cr else lf-lv-cr then lf-sf-forth lf-lv-printer ;
 : lf-sf-copy ( d k u -- d k u d k u ) 2 pick 2 pick 2 pick ;
 : lf-print-forms ( decl kind-c-addr u -- )

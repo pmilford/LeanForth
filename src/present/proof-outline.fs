@@ -122,10 +122,17 @@ end-structure
 
 \ The style of the next outlines: LaTeX (true) or plain text (false, a new
 \ context's). A list of every step (detail) is always plain.
-2 cells context-record: lf-ol-style
+4 cells context-record: lf-ol-style
 : lf-outline-latex! ( flag -- ) lf-ol-style ! ;
 \ Where the next outlines go: an xt ( c-addr u -- ), or 0 for TYPE.
 : lf-outline-sink! ( xt|0 -- ) lf-ol-style cell+ ! ;
+\ How plain-style outlines show names: namer ( id -- c-addr u flag ) for a
+\ declaration's name and escape ( c-addr u -- c-addr' u' flag ) for any other
+\ text, each an xt or 0 (as they are, the default); the text of either is
+\ valid until the next call, and a false flag means it must not be shown.
+: lf-outline-names! ( namer escape -- ) lf-ol-style 3 cells + ! lf-ol-style 2 cells + ! ;
+: lf-ol-set-names ( -- ) lf-ol-style 2 cells + @ lf-lv lf-lv-declname !
+  lf-ol-style 3 cells + @ lf-lv lf-lv-escape ! ;
 
 : lf-ol-field ( offset -- addr ) lf-ol + ;
 : lf-ol-of ( s offset -- addr ) lf-ol-field swap 1- cells + ;
@@ -674,5 +681,6 @@ lf-walk-room context-walk: lf-ol-premises
   lf-ol-header lf-ol-body lf-ol-tex-close lf-lv-cr ;
 : lf-outline ( outcome axioms detail -- )
   >r lf-ol-blocks 0= if 2drop r> drop lf-ol-no-memory exit then
-  lf-ol-verdict! lf-ol-clear r@ 0= lf-ol-style @ and lf-lv-latex! r> lf-ol-print
+  lf-ol-verdict! lf-ol-clear lf-ol-set-names
+  r@ 0= lf-ol-style @ and lf-lv-latex! r> lf-ol-print
   lf-lv-done lf-ol-close drop ;

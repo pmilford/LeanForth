@@ -80,7 +80,7 @@ Theorem composition
   accepted (experimental, not independently audited); axioms: none
   Statement in Lean:        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$
-  Statement in LeanForth (as an axiom states a type; this assumes nothing):
+  Statement in LeanForth (the statement only, written as an axiom; nothing is assumed):
     axiom composition
       Prop implicit: A
       Prop implicit: B
@@ -175,7 +175,7 @@ Theorem Eq.symm
   accepted (experimental, not independently audited); axioms: none
   Statement in Lean:        ∀ {α : Sort u} {a b : α} (h : Eq a b), Eq b a
   Statement in mathematics: $\forall \{\alpha : \mathrm{Sort}\ u\}\ \{a\ b : \alpha\}\ (h : \mathsf{Eq}\ a\ b),\ \mathsf{Eq}\ b\ a$
-  Statement in LeanForth (as an axiom states a type; this assumes nothing):
+  Statement in LeanForth (the statement only, written as an axiom; nothing is assumed):
     axiom Eq.symm
       universe u
       u Sort implicit: α

@@ -4,7 +4,7 @@
   accepted (experimental, not independently audited); axioms: none \\
 Statement in Lean (ASCII): {\ttfamily forall~\{P~:~Prop\},~P~->~P} \\
 Statement in mathematics: $\forall \{P : \mathrm{Prop}\},\ P \to P$ \\
-Statement in LeanForth (as an axiom states a type; this assumes nothing): \\
+Statement in LeanForth (the statement only, written as an axiom; nothing is assumed): \\
 {\ttfamily \hspace*{2em}axiom~identity \\
 \hspace*{2em}~~Prop~implicit:~P \\
 \hspace*{2em}~~P~explicit:~proof \\
@@ -36,7 +36,7 @@ Templates: let-props/v0, assume/v0, discharge/v0, statement/v0. \\
   accepted (experimental, not independently audited); axioms: none \\
 Statement in Lean (ASCII): {\ttfamily forall~\{A~B~C~:~Prop\},~(A~->~B)~->~(B~->~C)~->~A~->~C} \\
 Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$ \\
-Statement in LeanForth (as an axiom states a type; this assumes nothing): \\
+Statement in LeanForth (the statement only, written as an axiom; nothing is assumed): \\
 {\ttfamily \hspace*{2em}axiom~composition \\
 \hspace*{2em}~~Prop~implicit:~A \\
 \hspace*{2em}~~Prop~implicit:~B \\
@@ -77,7 +77,7 @@ Templates: let-props/v0, assume/v0, implies-elim/v0, discharge/v0, statement/v0.
   accepted (experimental, not independently audited); axioms: none \\
 Statement in Lean (ASCII): {\ttfamily forall~\{A~:~Type\}~\{P~:~A~->~Prop\}~\{x~:~A\},~P~x~->~P~x} \\
 Statement in mathematics: $\forall \{A : \mathrm{Type}\}\ \{P : A \to \mathrm{Prop}\}\ \{x : A\},\ P\ x \to P\ x$ \\
-Statement in LeanForth (as an axiom states a type; this assumes nothing): \\
+Statement in LeanForth (the statement only, written as an axiom; nothing is assumed): \\
 {\ttfamily \hspace*{2em}axiom~type\_identity \\
 \hspace*{2em}~~0~Type~implicit:~A \\
 \hspace*{2em}~~A~Prop~->~implicit:~P \\
@@ -113,7 +113,7 @@ Templates: let-types/v0, let/v0, assume/v0, discharge/v0, statement/v0. \\
   accepted (experimental, not independently audited); axioms: none \\
 Statement in Lean (ASCII): {\ttfamily forall~\{A~:~Sort~u\}~\{P~:~A~->~Prop\}~\{x~:~A\},~P~x~->~P~x} \\
 Statement in mathematics: $\forall \{A : \mathrm{Sort}\ u\}\ \{P : A \to \mathrm{Prop}\}\ \{x : A\},\ P\ x \to P\ x$ \\
-Statement in LeanForth (as an axiom states a type; this assumes nothing): \\
+Statement in LeanForth (the statement only, written as an axiom; nothing is assumed): \\
 {\ttfamily \hspace*{2em}axiom~poly\_identity \\
 \hspace*{2em}~~universe~u \\
 \hspace*{2em}~~u~Sort~implicit:~A \\
@@ -150,7 +150,7 @@ Templates: let-types/v0, let/v0, assume/v0, discharge/v0, statement/v0. \\
   accepted (experimental, not independently audited); axioms: none \\
 Type in Lean (ASCII): {\ttfamily \{α~:~Sort~u\}~->~α~->~α} \\
 Type in mathematics: $\{\alpha : \mathrm{Sort}\ u\} \to \alpha \to \alpha$ \\
-Type in LeanForth (as an axiom states a type; this assumes nothing): \\
+Type in LeanForth (the statement only, written as an axiom; nothing is assumed): \\
 {\ttfamily \hspace*{2em}axiom~fixtureId \\
 \hspace*{2em}~~universe~u \\
 \hspace*{2em}~~u~Sort~implicit:~α \\
@@ -182,7 +182,7 @@ Templates: let-types/v0, let/v0, discharge/v0, statement/v0. \\
   accepted (experimental, not independently audited); axioms: none \\
 Type in Lean (ASCII): {\ttfamily \{α~:~Sort~u\}~->~α~->~α} \\
 Type in mathematics: $\{\alpha : \mathrm{Sort}\ u\} \to \alpha \to \alpha$ \\
-Type in LeanForth (as an axiom states a type; this assumes nothing): \\
+Type in LeanForth (the statement only, written as an axiom; nothing is assumed): \\
 {\ttfamily \hspace*{2em}axiom~fixturePoly \\
 \hspace*{2em}~~universe~u \\
 \hspace*{2em}~~u~Sort~implicit:~α \\
@@ -218,7 +218,7 @@ Templates: let-types/v0, let/v0, apply/v0, recall/v0, discharge/v0, statement/v0
   accepted (experimental, not independently audited); axioms: none \\
 Statement in Lean (ASCII): {\ttfamily forall~\{P~:~Prop\},~P~->~P} \\
 Statement in mathematics: $\forall \{P : \mathrm{Prop}\},\ P \to P$ \\
-Statement in LeanForth (as an axiom states a type; this assumes nothing): \\
+Statement in LeanForth (the statement only, written as an axiom; nothing is assumed): \\
 {\ttfamily \hspace*{2em}axiom~fixtureUse \\
 \hspace*{2em}~~Prop~implicit:~P \\
 \hspace*{2em}~~P~explicit:~x \\
@@ -255,7 +255,7 @@ Templates: let-props/v0, assume/v0, apply/v0, recall/v0, discharge/v0, statement
   Diagnostic: rejected: argument type mismatch (D1-D5) (4, 0) \\
 Statement in Lean (ASCII): {\ttfamily forall~\{A~B~C~:~Prop\},~(A~->~B)~->~(B~->~C)~->~A~->~C} \\
 Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$ \\
-Statement in LeanForth (as an axiom states a type; this assumes nothing): \\
+Statement in LeanForth (the statement only, written as an axiom; nothing is assumed): \\
 {\ttfamily \hspace*{2em}axiom~composition \\
 \hspace*{2em}~~Prop~implicit:~A \\
 \hspace*{2em}~~Prop~implicit:~B \\
@@ -277,7 +277,7 @@ No proof outline: the declaration was not accepted. \\
   accepted (experimental, not independently audited); axioms: none \\
 Statement in Lean (ASCII): {\ttfamily forall~\{A~B~C~:~Prop\},~(A~->~B)~->~(B~->~C)~->~A~->~C} \\
 Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$ \\
-Statement in LeanForth (as an axiom states a type; this assumes nothing): \\
+Statement in LeanForth (the statement only, written as an axiom; nothing is assumed): \\
 {\ttfamily \hspace*{2em}axiom~composition \\
 \hspace*{2em}~~Prop~implicit:~A \\
 \hspace*{2em}~~Prop~implicit:~B \\
