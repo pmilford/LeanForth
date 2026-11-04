@@ -324,13 +324,15 @@ the golden records written by 1.0.0 the same way).
   fails the run. A file changed and changed back between any two of them
   (A, then B, then A), the importer's two passes included, is caught by
   every recorded read, enforced or not: its two passes must read bytes of
-  one SHA-256, and that must be the first read's (above). What is not
-  caught is a change between the metadata or manifest reads of `rr-start`
-  and the import that leaves the bytes the import reads equal to the first
-  read's: then `export` and `input.manifest` describe what those reads saw,
-  and the verdicts are still those of the hashed bytes. A plain
-  `bin/leanforth check` (no record) has the same check of its two passes,
-  with or without `--no-manifest`. Phase 3's importer will read once.
+  one SHA-256, and that must be the first read's (above). `rr-start`'s own
+  metadata read is hashed the same way, and so is its manifest check when
+  it passes: either one that read other bytes fails the start (invalid,
+  `rr-moved?` true). A manifest check that failed (a missing manifest, or
+  a difference found before the digest) has no digest of the whole file:
+  `input.manifest` then says it failed as that read saw it, which an
+  enforced read checks again on each pass. A plain `bin/leanforth check`
+  (no record) has the same check of its two passes, with or without
+  `--no-manifest`. Phase 3's importer will read once.
 - The commit is what the caller says, checked only for its form; the host
   fields are what Gforth reports.
 - Diagnostic numbers are those the check recorded. For the internal faults
@@ -377,9 +379,13 @@ manifest for another export and back between `rr-start` and `rr-finish`
 verdict); serves the export through a FIFO so that only the importer's
 first pass reads another file, with its own manifest (the third review's
 round 2, `p9` and `p11`: other names, and a declaration the file at rest
-rejects but the other file accepts), recorded and read once, and each
-read fails as invalid with the reason "the export changed between the two
-passes" (skipped, with a note, where there are no FIFOs); records an input
+rejects but the other file accepts), recorded and read once, with the
+manifest checked and without, and each read fails as invalid with the
+reason "the export changed between the two passes" at line 0; serves
+another file to `rr-start`'s metadata read, and to its manifest check
+with that file's manifest, and `rr-start` fails (each reader runs under
+`timeout`, so none can hang; skipped, with a note, where there are no
+FIFOs or no `timeout`); records an input
 of 32 declarations (all 32 listed) and refuses, full, one of 33 with a
 larger input store; writes the nine records
 to files and checks them against the schema, Python's SHA-256, the golden
@@ -400,7 +406,7 @@ means the same in ECMA-262 (node, `u` flag) and in Python; that the
 writer's text rule equals the schema's on 1,623 code points (every range's
 ends and their neighbours); and that both tables of `src/lib/text-rule.fs`
 and the schema's two patterns are exactly what `scripts/text_rule_tables.py`
-computes from Unicode 15.0 or 15.1. Forty-two faults planted in the modules
+computes from Unicode 15.0 or 15.1. Fifty faults planted in the modules
 and in the importer's comparison of its passes
 (`tests/mutants/faults.toml`, section "run records and replay") are each
 caught by these tests; `tests/cli/test_leanforth.py` checks that the
