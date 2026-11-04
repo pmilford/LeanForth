@@ -443,8 +443,10 @@ route is tried, so LeanForth keeps them.
   theorem `5 = 2` (rows `primitive.forged-add-computes`, `-unfolds`,
   `primitive.five-is-two`, all accepted by Lean 4.35.0). Lean's own
   `Init` defines them correctly, so no export of a normal Lean file is
-  affected; a file that starts with `prelude` can define them freely, and an
-  NDJSON file is untrusted input. Proposed: LeanForth uses L1–L4 only when
+  affected; a file that starts with `prelude` declares them itself (as
+  `Init/Prelude.lean` does), and an NDJSON file is untrusted input. (The
+  rows build the declarations directly for the kernel; a `prelude` source
+  file producing them was not tried.) Proposed: LeanForth uses L1–L4 only when
   each of these names is declared exactly as in Lean 4.35.0's `Init` (their
   exported records and closures equal pinned ones), and otherwise answers
   *unsupported* for every declaration whose check meets one of them.
@@ -583,8 +585,8 @@ Counts by task: 5.2.1a five structure blocks (rows 4, 6, 9, 10, 19);
 5.2.1b `Nat`; 5.2.1c `Eq`; 5.2.2 five projection records, used by six
 declarations (rows 5, 7, 13, 16, 20, 28; the exporter writes the shared
 `PProd.0` projection of rows 16 and 28 once); 5.2.3 the literal `0`
-(rows 23, 26, 28) and
-likely `Nat.add` on literals; phase 4 delta with hints for rows 23 and 28.
+(rows 23, 26, 28) and likely `Nat.add` on literals; phase 4 delta with
+hints for rows 23 and 28.
 Not needed: quotients, axioms, strings, nested or mutual blocks, `let`. The
 exact list of reductions the kernel performs will be confirmed by
 LeanForth's derivation log (ADR 0013) when the closure is checked; this
@@ -650,8 +652,8 @@ table is read off the terms, not traced from Lean's kernel.
   recursor would be accepted where Lean's replay rejects it.
 - **Compare with binder names.** Stricter than Lean's `==`; a file Lean
   accepts could be rejected.
-- **Accept more than Lean** (a complete positivity or level test,
-  definitional parameters, eta for products of units, iota for `Prop`
+- **Accept more than Lean** (definitional parameters, large elimination
+  for mutual propositions, eta for products of units, iota for `Prop`
   structures): recorded in `BEYOND_LEAN.md` for a later improved mode.
 - **Translate nested blocks our own way.** The auxiliary recursors' names,
   order and rules must equal Lean's (`T.rec_1`, …) for B3.
@@ -664,9 +666,10 @@ table is read off the terms, not traced from Lean's kernel.
 **Q1. Built-in arithmetic and the names it trusts (L5; [bypass]).** Lean's
 kernel computes `2 + 3` itself for anything named `Nat.add`, without
 checking its definition. With a deliberately wrong `Nat.add` in the input,
-Lean accepts the theorem `5 = 2` (evidence rows `primitive.*`). Real Lean
-libraries cannot contain this (Lean's `Init` defines `Nat.add` correctly),
-but LeanForth reads files that anyone can write. *Recommendation:* use the
+Lean accepts the theorem `5 = 2` (evidence rows `primitive.*`). Lean's
+standard library cannot contain this (its `Init` defines `Nat.add`
+correctly), but a Lean file that starts with `prelude` declares these
+names itself, and LeanForth reads files that anyone can write. *Recommendation:* use the
 built-in arithmetic only when `Nat`, its operations, `Bool`, `String`,
 `Char` and `List` are exactly Lean 4.35.0's own (checked against pinned
 records); otherwise answer *unsupported*. *Reasons:* it closes a way to get
