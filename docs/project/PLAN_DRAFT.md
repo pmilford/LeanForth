@@ -485,7 +485,7 @@ Declaration kinds, for orientation:
 | 5.2.3 | `lib/bignum.fs` and literal support (§6.12) | Bignum differential against Lean and Python integers; gate passed | 5.1.4 | [kernel] | M |
 | 5.2.4 | Quotients | Gate passed | 5.1.5, 5.3.1 | [kernel] | M |
 | 5.2.5 | Mutual and nested inductive types | Gate passed | 5.2.1 | [kernel] | L |
-| 5.3.1 | Axiom allowlist v1: a versioned file with the exact Lean 4.35.0 statements of `propext`, `Classical.choice`, `Quot.sound`; others and altered statements rejected; `Lean.ofReduceBool` and `Lean.trustCompiler` never | Tests for altered and unlisted axioms | 5.1.5 | [axiom], [owner] | S |
+| 5.3.1 | Axiom allowlist v1: a versioned file with the exact Lean 4.35.0 statements of `propext`, `Classical.choice`, `Quot.sound`, the only axioms that count as *proved*; `Lean.ofReduceBool` and `Lean.trustCompiler` never on it. Owner, 2026-11-03 (amending decision 4): any other axiom (`sorryAx`, a user's axiom, an altered statement) gets Lean's verdict, labelled **NOT PROVED: depends on** it, with its own exit code, and so does everything that uses it; `--standard-axioms-only` answers *unsupported* instead | Tests for altered and unlisted axioms in both settings; a NOT PROVED result is never stored or reported as proved | 5.1.5 | [axiom], [owner] | S |
 | 5.3.2 | Transitive axiom report on every accepted theorem (CLI, API, printed output) | Matches Lean's `#print axioms` on the corpus | 5.3.1 | [format] | S |
 | 5.4.1 | Corpus C-Nat: export the dependency closures of `Nat.add_zero` and `Nat.zero_add`; manifest with hashes | Every declaration accepted; mutants rejected; printed proofs golden | 5.2.1–5.2.3 | — | M |
 | 5.5.1 | (P) Clamp obligations proved in Lean, exported with their closure, checked by LeanForth (P5.2) | Receipt: source proof *kernel-accepted (experimental)*; mutated program, contract or proof rejected | 5.4.1, 2.5.5, 5.2.5 (the IR's Lean model uses a nested inductive type; W9 review) | [bypass], [format], [runtime] | M |
@@ -526,6 +526,7 @@ workstream (W7):
 | 6.4.1 | Corpus differential (T7): Lean's verdict for each declaration, plus mutated subsets that must be rejected; optional second referee (lean4lean, nanoda; N12) | Mismatches triaged, none hidden | 6.1.1 | — | M |
 | 6.5.1 | Profiling M1–M4 (W3) applied to each stage | Per-stage report | 3.3.2 | — | M |
 | 6.6.1–6.6.4 | Run stages S2, S3, S4, S5: run, report, triage, fix | Stage table complete with denominators | previous stage | [kernel] for fixes | L each |
+| 6.1.6 | Other Lean libraries (owner, 2026-11-03: "soon … a few small ones and the biggest one perhaps", not yet): build a few small libraries and the largest available with Lean 4.35.0 (candidates: Batteries, Aesop, Lean's own compiler and elaborator, the FLT project, PFR, Carleson, PhysLean, the Equational Theories project, Cedar, SampCert), export them with manifests and import them | Each loads, every name and reference resolved, or the failure is recorded as a finding | importer gate | [owner] (network, disk) | M |
 | 6.7.1 | Usable library (T9.3): name and type search, dependency and axiom inspection in CLI and API (`library.search`) | Representative workflows scripted | S3 | — | M–L |
 
 ### Phase 7 — Parallel checking on the 12-core machine
@@ -730,6 +731,14 @@ level equality). Design of an opt-in, clearly labelled improved mode starts
 only after the compatibility checker covers Mathlib (phase 6), so that
 compatibility is never delayed; each improved rule needs a soundness
 argument and the full checker gate.
+
+Stricter-than-Lean options belong here too. The owner (2026-11-03, ADR
+0015 Q2): "consider if there is a better design that we can make an option
+in the future" — a *strict import* that refuses an export whose recorded
+fields (for example "is recursive", a missing recursor or quotient record)
+disagree with what LeanForth rebuilds, where Lean's checker only ignores
+them; and `--strict-builtins` (ADR 0015 Q1, due in phase 5) and
+`--standard-axioms-only` (5.3.1).
 
 ### W7 Scale (placeholder for the separate scale workstream)
 

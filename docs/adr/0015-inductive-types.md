@@ -1,6 +1,8 @@
 # ADR 0015: inductive types, constructors and recursors as Lean's kernel checks them
 
-Status: **proposed**, 2026-11-03 (plan tasks 5.1.1–5.1.5, phase 5, "Data
+Status: **accepted** as a design, 2026-11-03 (owner; questions Q1–Q5 answered
+in §15 and in [OWNER_DECISIONS](../project/OWNER_DECISIONS.md#data-types-axioms-and-imports-2026-11-03-late-night));
+each implementation task of §12 still passes its own gate. Proposed 2026-11-03 (plan tasks 5.1.1–5.1.5, phase 5, "Data
 types and the first real Lean code"). A [kernel] and [import] design, with
 an [axiom] part (§8) and one [bypass]-class risk (§7, L5). **Nothing here is
 implemented**; no LeanForth code checks an inductive type yet, and every
@@ -662,6 +664,19 @@ table is read off the terms, not traced from Lean's kernel.
   rule IDs per section; the gates stay per implementation task (Q3).
 
 ## 15. Questions for the owner
+
+**Answers (owner, 2026-11-03).** With no options, LeanForth's verdicts are
+always Lean's; every stricter behaviour below is an opt-in flag.
+Q1: copy Lean's by-name arithmetic by default; `--strict-builtins` answers
+*unsupported* unless `Nat`, its operations, `Bool`, `String`, `Char` and
+`List` are exactly Lean 4.35.0's (the recommendation below became the flag).
+Q2: as recommended, accept as Lean does with a warning; a strict import that
+refuses inconsistent fields is a later option (plan W8). Q3 and Q4: as
+recommended; 5.2.1a starts now. Q5, amending decision 4: an axiom outside
+the three (or an altered statement) gets Lean's verdict, labelled
+**NOT PROVED: depends on** that axiom, as is everything that uses it, with
+its own exit code; `--standard-axioms-only` answers *unsupported* instead.
+The questions as asked follow.
 
 **Q1. Built-in arithmetic and the names it trusts (L5; [bypass]).** Lean's
 kernel computes `2 + 3` itself for anything named `Nat.add`, without

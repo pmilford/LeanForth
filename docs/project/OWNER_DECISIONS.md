@@ -522,3 +522,48 @@ produces can be verified.
   usage limit cut agents off on 2026-11-03. Progress reports should say
   plainly what each part can do today, for example what LeanForth can do
   with an imported Mathlib.
+
+## Data types, axioms and imports (2026-11-03, late night)
+
+Answers to ADR 0015's questions Q2–Q5 and to the importer gate, given in a
+Claude Code session after the questions were asked in plain words.
+
+- **ADR 0015 Q2, exported fields Lean's checker ignores: as Lean, with a
+  warning.** LeanForth accepts an export whose recorded numbers (for
+  example "is recursive") or missing recursor Lean's own checker ignores,
+  uses only its own computed values and prints a warning. The owner added:
+  "but also consider if there is a better design that we can make an option
+  in the future" — recorded as a later option, a *strict import* that
+  refuses any field disagreeing with the rebuilt type (plan W8).
+- **ADR 0015 Q3 and Q4: the design is approved as a whole, one gate per
+  implementation task, and task 5.2.1a starts now** (non-recursive blocks,
+  *unknown* wherever Lean would unfold), before phase 4 is finished.
+- **ADR 0015 Q5 and an amendment to decision 4: Lean's verdict, marked.**
+  The owner first answered "We should be lean compatible. if lean accepts
+  sorryAx with a warning, so should we. we can add a flag to disable this."
+  After it was explained that `sorryAx` is false (it proves `0 = 1`) and
+  stands for a missing proof, the owner chose: by default LeanForth gives
+  Lean's kernel verdict, so a declaration using `sorryAx` or any other
+  axiom outside `propext`, `Classical.choice` and `Quot.sound` (or one of
+  those with a different statement) is *accepted* as Lean accepts it, but
+  labelled **NOT PROVED: depends on** the axiom, as is everything that uses
+  it; it has its own exit code and never counts as proved in receipts or
+  reports. A flag (for example `--standard-axioms-only`) answers
+  *unsupported* instead. Decision 4 becomes: only the three standard
+  axioms, with their exact Lean 4.35.0 statements, count as *proved*; the
+  versioned allowlist and the owner's approval of changes to it stay.
+  `Lean.ofReduceBool` and `Lean.trustCompiler` are never on the list; a
+  declaration that needs Lean's compiled code to run in the kernel stays
+  *unsupported*.
+- **Importer stage approved [import]** (ADR 0016 C9 steps 1, 2 and 5;
+  `src/import/stage.fs`, `stage-records.fs`; independent re-review clean,
+  minor limits documented). Asked a third time, the owner chose *Approve*.
+  Earlier the owner added: "add to the future todo for soon to test several
+  other libraries, a few small ones and the biggest one perhaps. - but not
+  yet." Recorded as plan task 6.1.6 (import other Lean libraries built with
+  Lean 4.35.0: a few small ones and the largest available).
+- **Default is always Lean.** The owner: "for the flags we are adding...
+  the default with no flags should always be 100% lean compatible." Every
+  option that differs from Lean 4.35.0 (`--strict-builtins`,
+  `--standard-axioms-only`, a strict import, a later improved mode) is
+  opt-in; with no options LeanForth's verdicts are Lean's.
