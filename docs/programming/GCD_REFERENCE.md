@@ -31,9 +31,24 @@ relies on Lean's kernel and imported library, including its gcd theorems;
 theorem, and `propext` for negative rejection. There are no new axiom
 declarations or admitted proofs in this file.
 
-`checkedBothNegative_violates` proves that a deliberately wrong guard, which
-rejects only when both inputs are negative, fails the negative-rejection
-contract at `(-1, 2)`. Lean reports `propext` for it. The Forth unit tests in
+`GcdContract` is the word's contract, in the style of `ClampContract`
+(plan task 1.5.3). `GcdSpec a b r` requires no result if `a` or `b` is
+negative, and otherwise a natural `g` that divides both and that every
+common divisor (an integer) divides; it does not mention Euclid's
+algorithm or `Nat.gcd`. `natGcd_spec` proves that Lean's `Nat.gcd` of the
+inputs, rejecting negative ones, meets it, and `checked_contract` that the
+model does. Two deliberately wrong variants are refuted:
+`checkedBothNegative`, a guard that rejects only when both inputs are
+negative, at `(-1, 2)`; and `checkedOne`, which answers 1, a common divisor
+of any two numbers, so that only the clause "every common divisor divides
+g" rejects it, at `(2, 2)`. [`program-ir.lean`](../../tests/reference/program-ir.lean)
+copies the contract and proves that the IR of `lf-gcd` meets the same
+clauses, through a stated invariant of Euclid's loop
+(`gcd_meets_contract`; see
+[program IR](PROGRAM_IR.md#contracts-of-the-five-other-words)). `#print
+axioms` reports `propext`, `Classical.choice` and `Quot.sound` for
+`checked_contract`, `propext` for `checkedBothNegative_violates`, and
+`propext` and `Quot.sound` for `checkedOne_violates`. The Forth unit tests in
 `tests/program/examples.fs` separately exercise Euclid's long remainder chains
 with consecutive Fibonacci inputs and the signed-cell extremes beside zero;
 those are runtime tests, not consequences of this model.

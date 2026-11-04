@@ -16,23 +16,43 @@ translate or execute the Forth source.
   false exactly when the value is outside. These statements use arbitrary
   integers; applying them to cells requires representable inputs.
 
-`OrderedContract` restates `inRange_ordered` as a predicate on candidate
-functions; `inRange_contract` shows the model meets it. Two deliberately
-wrong variants are proved to violate it: `inRangeExclusiveUpper` reports
-`10` outside `[0, 10]`, and `inRangeRejectsEqual` rejects the one-point
-interval `[3, 3]` as if it were reversed. On 2026-11-02 the file passed with
-`lean -DwarningAsError=true`; `#print axioms` reported `propext` for
-`inRange_contract` and `propext`, `Classical.choice` and `Quot.sound` for the
-two refutations. The SHA-256 under "Reproduction and trust" predates them.
+The two words' contracts, in the style of `ClampContract` (plan task
+1.5.3), are predicates on candidate functions:
+
+- `CheckedAbsContract`: for signed-cell bounds and an input in the cell,
+  `CheckedAbsSpec` requires no result for the smallest cell and otherwise
+  the magnitude `n.natAbs`, which lies between 0 and `max`.
+  `checkedAbs_contract` proves that the model meets it; `absAcceptsMin`,
+  Forth's `ABS` without the test, is refuted: it returns 8 for the
+  smallest four-bit cell.
+- `InRangeContract`: `InRangeSpec` requires no result for reversed bounds
+  and, for ordered bounds, true exactly inside the closed interval and
+  false exactly outside it. `inRange_contract` proves that the model meets
+  it; `inRangeExclusiveUpper` (reports `10` outside `[0, 10]`) and
+  `inRangeRejectsEqual` (rejects the one-point interval `[3, 3]` as if it
+  were reversed) are refuted.
+
+`InRangeContract` replaces the earlier `OrderedContract`, a restatement of
+`inRange_ordered`, which said nothing about reversed bounds or values
+outside the interval. [`program-ir.lean`](../../tests/reference/program-ir.lean)
+copies both contracts and proves that the IR of `lf-checked-abs` and
+`lf-in-range` meets the same clauses (`checkedAbs_meets_contract`,
+`inRange_meets_contract`; see
+[program IR](PROGRAM_IR.md#contracts-of-the-five-other-words)). On
+2026-11-03 the file passed with `lean -DwarningAsError=true`; `#print
+axioms` reports `propext`, `Classical.choice` and `Quot.sound` for the two
+contracts and the two in-range refutations, and `propext` for
+`absAcceptsMin_violates`. The SHA-256 under "Reproduction and trust"
+predates them.
 
 The `Option` values abstract the different stack results on failure and
-success. No theorem connects these definitions to Forth words, stack effects,
-flag encodings, signed comparisons, `ABS`, cell representation, stack
-capacity, execution, a compiler, or a runtime. No machine arithmetic or
-source-to-model correspondence is verified. In particular, these proofs do
-not establish correctness or safety of the executable examples, nor do they
-show that LeanForth checks these proofs. The other example words are not
-covered. The file is included in `make reference`; CI status has not been
+success. Nothing in this file connects these definitions to Forth words,
+stack effects, flag encodings, signed comparisons, `ABS`, cell
+representation, stack capacity, execution, a compiler, or a runtime; the
+IR theorems of `program-ir.lean` connect them to the words' IR, not to
+Gforth. These proofs do not establish correctness or safety of the
+executable examples on a host, nor do they show that LeanForth checks
+them. The file is included in `make reference`; CI status has not been
 established by the local check.
 
 ## Reproduction and trust

@@ -387,8 +387,54 @@ produces can be verified.
   and then the checked environment.
 - **Speed goal.** One-thread performance as close to Lean's kernel as
   possible, or better; parallel checking then exceeds it.
-- **Machine use.** At most about 10 busy processes at a time, so the rest
-  of the computer stays fast; full parallelism only for specific tests.
+- **Machine use.** At most about 10 processes or workers for
+  compute-heavy parallel LeanForth runs (for example checking a big
+  theorem in parallel), so the rest of the computer stays fast; full
+  parallelism only for specific tests. Corrected by the owner the same day:
+  this does not limit how many development agents run, as long as they do
+  not take too much CPU ("continue with more agents in parallel").
+- **Local Gforth 0.7.3 runs only for major changes** (owner, the same
+  day, to speed work up: "I believe it has been very very compatible").
+  CI still runs `make test` on Gforth 0.7.3 for every push; locally it runs
+  only for host-sensitive changes (the job pool, contexts, portability and
+  32-bit access words, byte reading, exceptions, `BASE`, cell width) and
+  before gate decisions.
+- **Program correctness is equally important, without slowing the Lean
+  track.** The owner: "the forth program correctness is equally important,
+  but, lets not slow down the lean for it. I don't have a good test in mind
+  for the program correctness, but perhaps SHA-256 should be a good one?"
+  Recorded as the program track's flagship target: prove LeanForth's own
+  SHA-256 (`src/lib/sha256.fs`) equal to FIPS 180-4 in five stages
+  ([plan](PLAN_DRAFT.md#program-track-goal-most-of-forth-2012-core-owner-2026-11-02)),
+  in the program-track lane.
+- **Record every Lean limitation; an improved mode later.** The owner:
+  "there are a number of issues that come, like the universe one just now
+  … some are just what lean does, but, perhaps some lead to theorems that
+  could be solved without the limitations. make sure to take careful note
+  of anything that could lead to better theorem solving. we need 100%
+  compatibility with lean, but, also, if we can have an improved solver
+  mode, that would be great!" Kept in [BEYOND_LEAN.md](BEYOND_LEAN.md); the
+  improved mode is opt-in, labelled and designed after phase 6 (plan W8).
+- **General-purpose code is written as reusable libraries.** The owner:
+  "functionality like the bignum library should, in general, be well
+  factored so it can be used by other users and programs, not tightly
+  coupled to LeanForth … They can be LeanForth specific if we gain a lot
+  from that, but otherwise should be more general." Added to `AGENTS.md`;
+  audit and plan task 1.1.8 in
+  [FORTH_LIBRARY.md](../development/FORTH_LIBRARY.md#reusability-the-libraries-as-standalone-forth-code).
+- **Program correctness the Forth way: words in two modes** (owner, the
+  same day, on the program reader's [parser] gate, which is therefore
+  **not approved** and paused). The owner asked whether the reader is
+  "1) an ascii file read and translation … or 2) a set of LeanForth words
+  with the same names, that, instead of running, output the IR (in
+  correctness mode) and execute in run mode", and: "I much prefer 2 and
+  your description is vague", "this is important and may need more
+  design", and "option 1 for program correctness isn't a very Forth like
+  way to operate." Today's reader is option 1 (it splits the file into
+  tokens itself and looks them up in its own table; nothing in the file
+  runs). A design record for option 2 — the same source loaded with a
+  LeanForth vocabulary whose words emit IR, and with ordinary Forth to
+  run — comes first, with a prototype, before any gate question.
 - **Later: investigate offloading part of the work to a GPU.** Under the
   design rules in `AGENTS.md` a GPU never belongs to the trusted kernel and
   a CPU path is always kept; candidates are untrusted bulk work such as

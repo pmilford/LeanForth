@@ -14,6 +14,11 @@ The [gcd reference](GCD_REFERENCE.md) proves termination and mathematical
 properties of Euclid's algorithm, without establishing Forth correspondence.
 The [checked-add reference](CHECKED_ADD_REFERENCE.md) also proves the modeled
 overflow checks and their arithmetic bounds, subject to the same limitation.
+Each of the five words has a formal contract in the style of clamp's,
+which Lean proves its reference model and its IR meet, and which refutes a
+deliberately wrong model and a deliberately wrong IR program
+([contracts of the five other words](PROGRAM_IR.md#contracts-of-the-five-other-words));
+that is about the words' IR, not about the host running them.
 
 | Word | Behavior and failure |
 | --- | --- |

@@ -18,13 +18,13 @@ variants were retired on 2026-11-02.
 | Outcome vocabulary | `src/lib/outcome.fs` | ok, invalid, exhausted (out of fuel), unknown, rejected, unsupported and full (out of room: a store, work stack, frame, depth or size limit) (ADR 0008), with `ok?`, `outcome-sane`, `flag>outcome` and `room>outcome` (a validity or room flag as ok, else invalid or full), `visit-outcome` (the one rule for a visit bounded by fuel and room: no fuel is exhausted whatever the room, then no room is full), the continue-on-ok steps `ok-then?`, `ok-keep?` and `ok-keep2?`, and `no-result`, and `outcome-text` (each outcome's name, for reports) | New 2026-11-02; every core and kernel module uses it; the per-module status aliases were removed |
 | DAG walks | `src/lib/walk.fs` | `walk:` defining word: fuel, current node, one visitor cell and a bounded work stack in one record; `walk-run` drives a visitor and `walk-visit` reads and dispatches a node. A push without room is full whatever fuel is left (checked where the push happens), and a root that cannot be pushed means a corrupted capacity, which is invalid. `walk-size`/`walk-init` and `walk2-size`/`walk2-init` make the same records at run time. The walk words keep no state of their own; each module's walk records are members of the checker context, one set per context | New 2026-11-02; level scope, Sort representation, session and handle audits use it |
 | Bounded recursion | `src/lib/frame.fs` | A frames record: fuel, visits in progress and their limit, the visitor (set once), a context cell (such as a binder depth) and a job cell pointing at the pass's own record. `frames:` defines a standalone record and `frame-init` sets one up inside a larger record. `frame-call` charges one unit of fuel and one frame per visit of a visitor `( x frames -- result outcome )`, `frame-call2` the same for `( x y frames -- outcome )`, `frame-under` visits one context level deeper, `frame-run` starts a pass. `frame-room` says why a visit cannot open: a limit below 1 (a corrupted record) is invalid, then no fuel left is exhausted and no free frame full (`visit-outcome`, so the fuel decides); `frame-under` applies the same before its context, which is full at `max-n`. A busy record refuses a new budget or pass, so a pass cannot be restarted from inside itself; `frame-reset` recovers after a THROW. Values a visitor keeps across a child's visit stay on the data stack, so each nested visit holds host stack cells: measured 2 to 6 return-stack and 3 to 4 data-stack cells per frame, and 701 and 494 cells at the deepest nesting found for a 64-node store (124 frames of beta, instantiate and shift), the same on Gforth 0.7.3 and 1.0. `mixed-beta.fs` checks at load time that the host's stacks hold three times `lf-term-capacity` frames | New 2026-11-02; the kernel's shift, instantiate and beta passes use it; unit tests and a randomized model test |
-| Checker contexts | `src/lib/context.fs` | One `ALLOCATE`d record per worker for all of a check's mutable state ([ADR 0009](../adr/0009-reentrant-state-and-parallel-checking.md)), reached through the `USER` variable `lf-context` (a plain variable on hosts without Gforth's `USER`). Modules declare members while they load: `context-record:`, `context-store:`, `context-walk:`, `context-walk2:`, `context-frames:` (a frames record, set up with `frame-init`), and `context-setup` for set-up words; a refused declaration changes nothing. Each member's name is a colon definition that adds its offset, a literal, to `lf-context @`. Modules also state how deep their checks nest on the host stacks (`context-need`), which the job pool checks. `context-new`, `context-use` and `context-free` make, select and free contexts. Each context is idle or owned by one job; each task has an owner token `lf-owner` and may select only contexts it owns (the main task: idle ones); owned contexts cannot be freed. `context-in-job?` says whether the current task runs a job or a check; the checked environment's serial driver gives a check the token `context-check-owner`, so every in-job guard refuses it too. `call-balanced ( x xt -- )` runs a word above a cell and throws `context-unbalanced` (-4096) when the word changed the stack depth or that cell (the checked environment's serial driver uses it; `task.fs`'s `job-call` still has its own copy) | New 2026-11-02; ownership, frames members and atomic declarations 2026-11-02 after an independent review; every module of `src/core/` and `src/kernel/` keeps its state in it since 2026-11-02 (see the design below); tested in `tests/lib/context.fs`, including a randomized model with context switches at every step, and with real checker work in `tests/core/contexts.fs` |
+| Checker contexts | `src/lib/context.fs` | One `ALLOCATE`d record per worker for all of a check's mutable state ([ADR 0009](../adr/0009-reentrant-state-and-parallel-checking.md)), reached through the `USER` variable `lf-context` (a plain variable on hosts without Gforth's `USER`). Modules declare members while they load: `context-record:`, `context-store:`, `context-walk:`, `context-walk2:`, `context-frames:` (a frames record, set up with `frame-init`), and `context-setup` for set-up words; a refused declaration changes nothing. Each member's name is a colon definition that adds its offset, a literal, to `lf-context @`. Modules also state how deep their checks nest on the host stacks (`context-need`), which the job pool checks. `context-new`, `context-use` and `context-free` make, select and free contexts. Each context is idle or owned by one job; each task has an owner token `lf-owner` and may select only contexts it owns (the main task: idle ones); owned contexts cannot be freed. `context-in-job?` says whether the current task runs a job or a check; the checked environment's serial driver gives a check the token `context-check-owner`, so every in-job guard refuses it too. `context-claim` and `context-release` (the job pool's) are refused there as well. `call-balanced ( x xt -- )` runs a word above a cell and throws `context-unbalanced` (-4096) when the word changed the stack depth or that cell (the checked environment's serial driver uses it; `task.fs`'s `job-call` still has its own copy); `context-catch ( i*x xt -- j*x ior )` is `CATCH` that restores the current context afterwards | New 2026-11-02; ownership, frames members and atomic declarations 2026-11-02 after an independent review; every module of `src/core/` and `src/kernel/` keeps its state in it since 2026-11-02 (see the design below); tested in `tests/lib/context.fs`, including a randomized model with context switches at every step, and with real checker work in `tests/core/contexts.fs` |
 | Job pool | `src/lib/task.fs` | `job-submit ( context xt -- job ior )` and `job-wait ( job -- ior )`: a fixed pool of long-lived workers (at most one per logical core, setting `task-workers`) fed from a bounded queue; POSIX threads with a mutex and two condition variables on Gforth 1.0, the cooperative `tasker.fs` on Gforth 0.7.3, and a serial path elsewhere (or when forced, for tests). A job's context is owned by the job until it is waited for. Wrong stack effects give `task-unbalanced`; stack overflows never report success (guard pages on 1.0, canary zones on 0.7.3); a worker that cannot be created is reported (`task-no-worker`). `job-stacks-cover?` tells whether the workers' stacks hold a recursion requirement, and the pool refuses to start with stack settings below the largest need modules stated (`task-stacks-small`). On Gforth 1.0 each worker owns its exception-backtrace and error-stack strings (a new task copies the creator's user area, and shared strings were corrupted by concurrent THROWs). Job rules: never parse or use `PAD` (one buffer for all tasks on Gforth 1.0), use `<# #>` text before the job yields (one buffer on 0.7.3), and restore `BASE` if a job changes it (a worker starts with the main task's). Not loaded by `src/main.fs`; the scheduler will load it | New 2026-11-02; pool replaced one thread per task the same day; `tests/lib/task.fs` and `task-serial.fs` compare jobs and interleaved contexts with serial runs for 1, 2 and all workers and reach every refusal; `task-overflow.fs` and `task-overflow-serial.fs` overflow both stacks inside jobs; `tests/lib/task-bench.fs` measures speed-up |
 | Line reader and UTF-8 | `src/lib/bytes.fs` | `reader:` record over a Forth-2012 file: whole lines in one heap buffer that grows for long lines up to a limit, strict framing (final line feed; `text-framed` refuses carriage returns and a byte-order mark), line numbers and double-cell file offsets; `utf8-length`, `utf8-valid?` and `utf8-put` (RFC 3629, no overlongs or surrogates); `counted,`; `heap-claim` and `heap-release` for owned heap buffers; `fnv-step` and `bytes-mix` (an FNV-style mix of bytes into a hash, used by the checked environment's input fingerprint). Uses Gforth's native `scan` behind an adapter, with a portable loop otherwise. Loads in decimal whatever `BASE` is, and restores it | New 2026-11-02; unit-tested against an independent UTF-8 model in `tests/lib/bytes.fs`, which loads it under `HEX` and counts heap blocks to show that a second `reader-init` frees the first buffer |
 | JSON reader | `src/lib/json.fs` | `json:` view record: a fail-closed, non-recursive RFC 8259 parser of one text into a growable token tape (containers know their item count and extent), escapes decoded in place, numbers kept as digit text, limits on depth, tokens, string and number length; `json-find`, `json-next`, `json-natural`, `json-u`, `digits>u` and `decimal>u` (decimal, independent of `BASE`); kind-checked `json-items-of` and `json-kind-at`. Loads in decimal whatever `BASE` is, and restores it | New 2026-11-02; malformed corpus and every limit tested in `tests/lib/json.fs`, loaded under `HEX` |
 | JSON writer | `src/lib/json-write.fs` | Plan task 3.1.3. A writer record (`json-writer: ( depth room "name" -- )`, or `jw-size` and `jw-init` in memory the caller owns, such as a context member) writes one JSON text to the caller's sink xt `( c-addr u -- )`: `jw-start ( sink writer -- )`, then `jw-string`, `jw-n` (signed cell), `jw-u` (unsigned cell), `jw-digits` (integer text of any size, as `json.fs` keeps it), `jw-bool`, `jw-null`, `jw-open-object`, `jw-key`, `jw-close-object`, `jw-open-array`, `jw-close-array`, or `jw-copy ( index view writer -- )` of a value `json.fs` parsed; `jw-end ( writer -- outcome )`. Every call takes the writer last and returns nothing. Deterministic bytes: no whitespace; members in call order, and with `jw-sorted` set each object's keys must strictly increase in byte order (code point order), checked against the last key kept in a key pool of `room` bytes; integers in decimal whatever `BASE` is, `-0` written `0`; strings escaped only as `\"`, `\\`, `\b \f \n \r \t` and `\u00xx` (lowercase) for other bytes below 32, everything else, valid UTF-8 included, as itself, which are the bytes of Python's `json.dumps(v, separators=(",", ":"), ensure_ascii=False)`; no real numbers (`jw-copy` of one is unsupported). The first failing call writes nothing and its outcome sticks until the next `jw-start` (`jw-outcome` reads it): invalid for calls out of order (a close that does not match its open or follows a key, a value where a key is due, a second value, `jw-end` before the value is complete, writes before `jw-start` or after `jw-end`), invalid UTF-8, bad integer text or flags, keys out of order in sorted mode, and any call from inside the writer's own sink (`jw-reset` or `jw-init` there fails the text when the sink returns); full past the byte limit `jw-limit` (so a buffer of n bytes never overflows), the depth or the key pool. So `jw-end` gives ok only for exactly one complete JSON value, and the sink only ever receives a prefix of one. After a THROW out of a writer word the caller discards the text and calls `jw-reset` (a THROW outside the sink leaves no mark); a sink that writes over the string or view being written is unchecked. No state of its own; `jw-copy` is a loop over the value's tokens, without recursion (a container it opens records the index of the token after it, and closes there), so a few stack cells serve any depth the writer allows. Loads in decimal whatever `BASE` is, and restores it | New 2026-11-02; `tests/lib/json-write.fs` (180 assertions: every word's positive and negative cases, every limit at and one past its bound, sorted keys, keys refused as strings are, the sink rules including `jw-reset` and `jw-init` from inside the sink, a copy 10,000 containers deep and copies stopped by a failed close, two interleaved writers and a context member, 2,000 random strings and 2,000 random cells written and read back by `json.fs`, and all 138 lines of `tests/reference/*.ndjson` plus 16 lines with every other record kind of lean4export 3.1.0, `tests/lib/json-write-corpus.ndjson`, copied back byte for byte in both key modes), loaded and partly run under `HEX`; `tests/lib/test_json_write.py` compares 300 random values written with the writer's words and 150 non-canonical texts copied with `jw-copy` against Python's `json.dumps`, 40 copies of values nested up to 64 deep, plus 50 refusals with their exact prefixes; 21 planted faults each caught, and after the independent review (2026-11-02) 6 more, one per fix reverted or broken, on Gforth 0.7.3 and 1.0 |
 | Packed 32-bit fields | `src/lib/u32.fs` | `u32@ ( addr -- u )` and `u32! ( u addr -- )` read and write an unsigned 32-bit field; `u32s ( n -- au )` sizes *n* fields; `u32-mask` is the 32-bit mask on any cell size. Gforth's `l@`/`l!` where the host has them and a load-time check (`u32-sound?`) shows they are unsigned 32-bit access: a value with bit 31 set comes back unchanged, and the four characters after the field keep their values; otherwise, or when `lf-u32-portable` is defined first, the Forth-2012 `u32-bytes@`/`u32-bytes!` (four characters, least significant first, an order the module fixes; public for the tests only). `u32!` keeps the low 32 bits; on a 32-bit host a value of 2³¹ or more reads back as a negative cell, so compare with `U<`. Loads in decimal whatever `BASE` is, and restores it. The layout of packed records is defined by arithmetic on the values, never by byte order, and is never written to a file. The only non-text module allowed byte access (`scripts/check-portable-forth.py`) | New 2026-11-02 for the compact store ([ADR 0016](../adr/0016-compact-store.md), proposed); not yet loaded by `lib.fs` or used by a module; both versions tested on every host in `tests/lib/lib.fs`, which loads it under `HEX` and asserts that Gforth's words are in use, shows the check refusing a sign-extending fetch and a cell-wide store, and loads it again under `BASE` 8 with `lf-u32-portable` defined to get the Forth-2012 version; after the independent review (2026-11-02) 6 planted faults each caught |
-| Big natural numbers | `src/lib/bignum.fs` | Arbitrary-precision naturals for Lean's `Nat` literals ([below](#big-natural-numbers)): numbers in an arena the caller provides (`/big-arena`, `big-arena-init`; `big-mark` and `big-release` give back what was made since a mark), one-cell limbs whose width is counted (`limb-bits`), decimal reading and printing (`decimal>big`, `big>decimal`), conversion to and from a cell (`u>big`, `big>u`), comparison (`big-compare`, `big=`, `big<=`), and the operations Lean 4.35.0's kernel computes on literals (`big+ big- big* big/ big-mod big-gcd big-and big-or big-xor big-lshift big-rshift big-pow`, each `( a b arena -- c outcome )`). Schoolbook multiplication with Karatsuba from 48 limbs, Knuth's algorithm D, Lehmer's gcd. Outcomes ok, invalid (a malformed number, text or arena) and full (no room, or more bits than the arena's limit, by default Lean's 2^30). No state; loads in decimal whatever `BASE` is | New 2026-11-02 (plan task 5.2.3, library part); not yet used by the kernel (task 5.1.4); `tests/lib/bignum.fs` reaches every outcome; `make test` compares 37,570 cases with Python's integers on the running Gforth and catches 20 planted faults; `make check` has 986 of them computed by pinned Lean's kernel |
+| Big natural numbers | `src/lib/bignum.fs` | Arbitrary-precision naturals for Lean's `Nat` literals ([below](#big-natural-numbers)): numbers in an arena the caller provides (`/big-arena`, `big-arena-init`; `big-mark` and `big-release` give back what was made since a mark), one-cell limbs whose width is counted (`limb-bits`), decimal reading and printing (`decimal>big`, `big>decimal`), conversion to and from a cell (`u>big`, `big>u`), comparison (`big-compare`, `big=`, `big<=`), and the operations Lean 4.35.0's kernel computes on literals (`big+ big- big* big/ big-mod big-gcd big-and big-or big-xor big-lshift big-rshift big-pow`, each `( a b arena -- c outcome )`). Schoolbook multiplication with Karatsuba from 48 limbs, Knuth's algorithm D, Lehmer's gcd. Outcomes ok, invalid (a malformed or released number, text or arena) and full (no room, or more bits than the arena's limit, by default Lean's 2^30). No state; loads in decimal whatever `BASE` is | New 2026-11-02 (plan task 5.2.3, library part); not yet used by the kernel (task 5.1.4); `tests/lib/bignum.fs` reaches every outcome; `make test` compares 37,585 cases with Python's integers on the running Gforth and catches 22 planted faults; review fixes of 2026-11-03 (printing overwrote the number below its text, stale operands, two speed fixes) with guarded-arena sweeps; `make check` has 984 of them computed by pinned Lean's kernel |
 | Portability adapter | `src/lib/portability.fs` | Forth-2012 definitions of `>=`, `<=`, `0<=`, `0>=`, `-rot`, `max-n`, `cell` and the structure words, compiled only where the host lacks them. `scripts/check-portable-forth.py` refuses a module under `src/` that uses one of them without loading this file, directly or through the files it loads | New 2026-11-02; defines nothing under Gforth except `max-n`; `cell` and the load check added 2026-11-02 |
 | Diagnostics | `src/core/diagnostics.fs` | One record per checker context explaining the first failure of a check: a reason code, the site (module and word, a counted string) and two numbers; first failure wins until `lf-diag-clear`; `lf-diag@`, `lf-diag.`; helpers `lf-diag-walk`, `lf-diag-frames` and `lf-diag-store` explain a walk's, a pass's or a store's failure. Never changes an outcome; catalogue in [DIAGNOSTICS.md](../programming/DIAGNOSTICS.md) | New 2026-11-02 (plan 6.7, first form); every core and kernel module records its full and exhausted sites; `tests/core/diagnostics.fs` |
 | Expression store | `src/core/terms.fs` | Index-based nodes for sorts, bound variables, application, λ, Π and constants; nodes refer to earlier indices, so a term is a DAG with sharing | 64 nodes per checker context; built on `context-store:`; constructors check ranges only |
@@ -42,6 +42,30 @@ variants were retired on 2026-11-02.
 | Program examples | `src/program/clamp.fs`, `examples.fs` | Six executable words (clamp, checked add, abs, factorial, gcd, in-range) | Runtime tested against Lean models, not verified |
 | Depth analyzer | `src/program/program-depth.fs` | Stack-depth diagnostic for a tiny opcode list | Not connected to real Forth words |
 | Test support | `tests/support/tester.fs`, `checks.fs`, `term-cases.fs`, `composition.fs`, `heap-watch.fs` | Adapter for Gforth's bundled tester that fails the run on the first error; shared checks and fixtures; `ALLOCATE` and `FREE` that count the heap blocks held, in a word list of their own, for tests that show a module frees what it allocates | Test-only |
+
+## Reusability: the libraries as standalone Forth code
+
+**Rule** (owner, 2026-11-03; `AGENTS.md`): general-purpose libraries are
+written so that other Forth programs can use them, not coupled to
+LeanForth, unless coupling gains a lot. Audit of `src/lib/` on 2026-11-03:
+
+| Library | General purpose? | What ties it to LeanForth today |
+| --- | --- | --- |
+| `bignum.fs` (natural numbers) | yes; no Lean code (Lean only in comments) | needs `outcome.fs`, `bounds.fs`, `portability.fs` (104 lines); naturals only (subtraction stops at 0, as Lean's `Nat`); all helper names public. Shown working from an unrelated folder on both Gforths |
+| `json.fs` (RFC 8259 reader), `json-write.fs` | yes | `json.fs` requires `bytes.fs`, which requires the whole `lib.fs` (contexts, walk records, frames) although it uses little of it; helper names public |
+| `bytes.fs` (bounded line reader, UTF-8) | yes, with strict framing rules chosen for Lean's exports (no carriage return, no byte-order mark, final line feed) | requires all of `lib.fs`; the framing rules should become options |
+| `u32.fs` (32-bit access) | yes | none beyond `portability.fs` |
+| `store.fs`, `node.fs`, `walk.fs`, `frame.fs` (bounded stores, records, explicit-stack walks) | yes | the shared outcome vocabulary |
+| `context.fs`, `task.fs` (per-task contexts, job pool) | partly: a general job pool and context mechanism, designed around the checker's per-check state | the checker's context model (ADR 0009) |
+| `outcome.fs` (ok, invalid, exhausted, unknown, rejected, unsupported, full) | LeanForth's shared result vocabulary | deliberately shared: one vocabulary for every module |
+| coming: `sha256.fs`, the compact store (ADR 0016) | written to this rule from the start | — |
+
+**Why they are not yet packaged as standalone libraries.** They were built
+just in time for the checker, with correctness and fail-closed behaviour
+first; their headers already say "a general tool with no Lean knowledge",
+but nothing required minimal `require` lines, private helper names, a
+standalone example or tests runnable outside the project. Plan task 1.1.8
+does that, together with ADR 0010's word lists for the library.
 
 ## JSON and NDJSON
 
@@ -149,18 +173,32 @@ depends on the cell size (only 64-bit hosts have been run). Numbers are
 normalized (no zero top limb; 0 has no limbs) and never change once made.
 Every operation makes its result at the arena's top, its scratch above
 the result, and gives the scratch back; a failure leaves the top where it
-was and gives -1 with the outcome. Inputs are checked in O(1) (count at
-least 0, top limb not 0) and the arena record too; comparisons and
-`big-bits` trust their arguments. Limb arithmetic uses Forth-2012's
+was and gives -1 with the outcome (`big>decimal` gives 0 0, an empty
+text). Inputs are checked in O(1): the count is at least 0, the top limb
+is not 0, and the number does not reach into the arena's free part
+(`big-live?`: a released number, which the result would overwrite, is
+*invalid*; one whose memory was claimed again cannot be told from a live
+one); the arena record is checked too. Comparisons and `big-bits` trust
+their arguments. Limb arithmetic uses Forth-2012's
 `UM*`, `UM/MOD`, `D+`, `D-` and `DU<`. Multiplication is by rows below 48
 limbs and by Karatsuba above, the longer factor cut into chunks of the
-shorter one's size; division is Knuth's algorithm D (TAOCP 4.3.1); gcd is
-Lehmer's algorithm with single-limb leading parts of `limb-bits − 3` bits
-(Knuth's algorithm L, 4.5.2), with a full division when no simulated step
-agrees; powers are left to right over the exponent's bits, recursively;
+shorter one's size; a shorter last chunk (the tail) is never padded: it
+goes by rows below 48 limbs, and otherwise the job turns round, the
+shorter factor cut into chunks of the tail's size, so the sizes shrink as
+in Euclid's algorithm with no more room. Division is Knuth's algorithm D
+(TAOCP 4.3.1); gcd is Lehmer's algorithm with single-limb leading parts
+of `limb-bits − 3` bits (Knuth's algorithm L, 4.5.2), with a full
+division when no simulated step agrees; powers are left to right over the
+exponent's bits, recursively, and a product that cannot fit the limit
+(at least bits(a) + bits(b) − 1 bits) is refused before it is made;
 decimal text goes in chunks of the largest power of ten that fits a limb
-(10^19 on 64-bit cells). The module defines no state; `limb-bits`,
-`chunk-base` and `chunk-digits` are constants computed while loading.
+(10^19 on 64-bit cells), each written whole, so the text's room is
+bits / 3 + `chunk-digits` characters. The module defines no state;
+`limb-bits`, `chunk-base` and `chunk-digits` are constants computed while
+loading. Karatsuba's step claims cannot fail after the room check; one
+that did would be a fault in the module, which stops the run with
+`ABORT"` rather than write past the arena (ADR 0018, proposed, would make
+it its `throw-fault`).
 
 **Tests.**
 
@@ -168,26 +206,39 @@ decimal text goes in chunks of the largest power of ten that fits a limb
   marks (refused marks change nothing), conversions, every operation's
   edges (0, 1, limb boundaries, max-u ± 1, equal operands, subtraction
   below 0, division by 0, huge shifts and exponents), and every failure:
-  malformed numbers, text and arenas (invalid), the bit limit and a
-  64-cell arena (full), each leaving the arena's top unchanged.
-- `tests/lib/bignum_differential.py` (`make test`): 13,570 edge cases
+  malformed numbers, text and arenas, and released (stale) operands,
+  wholly or in part (invalid), the bit limit and a 64-cell arena (full),
+  each leaving the arena's top unchanged. Every number printed is read
+  again afterwards. A power over the limit (3^4095 at 4,096 bits) writes
+  no higher above the top than the valid 3^2047, so its last product is
+  refused, not made. Guarded arenas: an arena of every size from 0 cells
+  up, between guard cells, runs all twelve operations on three pairs of
+  operands, products of 100 by 47, 160 by 100 and 233 by 144 limbs, and
+  printing, of a number outside the arena and of the arena's own newest
+  number: each result is right or *full* with nothing made, no guard
+  cell changes, the printed number is unchanged, and a product works
+  from exactly the room it needs (the result, a frame or the job with T,
+  and the Karatsuba scratch).
+- `tests/lib/bignum_differential.py` (`make test`): 13,585 edge cases
   (special values, limb boundaries of 32- and 64-bit limbs, very unequal
   sizes, Knuth D's rare add-back and qhat = B − 1 cases, Fibonacci
-  neighbours for gcd, Karatsuba sizes 47 to 1,027 limbs with all-ones
-  limbs, results on both sides of limits from 0 to 256 bits) and 24,000
-  random cases from a fixed seed, up to 10,000 digits, run by
-  `tests/lib/bignum-cases.fs`: every printed result equals Python's.
-  Extra runs with other seeds (60,000 random cases each, `gforth` and
-  `gforth-fast`) also agreed. Then 20 faults planted in a copy of the
-  module (a lost carry, a carry of 1 to start, ignored borrows, a dropped
-  high product limb, three Karatsuba faults, a skipped add-back, a wrong
-  qhat when u2 = v1, an unscaled remainder, two Lehmer faults, a short
-  decimal chunk, two shift faults, a lost factor in powers, incomplete
-  normalization, an off-by-one limit, a comparison of the top limb only):
-  each changes a result among the edge cases, on Gforth 1.0 and 0.7.3. A
-  run is stopped at its first wrong line, because a broken library may
-  then loop.
-- `make check` gives 986 of the cases (all 14 operations, 12 of more than
+  neighbours for gcd, Karatsuba sizes 47 to 1,049 limbs with all-ones
+  limbs, including short tails by rows and long tails that turn the job
+  round once or twice, results on both sides of limits from 0 to 256
+  bits) and 24,000 random cases from a fixed seed, up to 10,000 digits,
+  run by `tests/lib/bignum-cases.fs`: every printed result equals
+  Python's, and every number printed is compared afterwards with a copy
+  made before. Extra runs with other seeds (60,000 random cases each,
+  `gforth` and `gforth-fast`) also agreed. Then 22 faults planted in a
+  copy of the module (a lost carry, a carry of 1 to start, ignored
+  borrows, a dropped high product limb, four Karatsuba faults, a skipped
+  add-back, a wrong qhat when u2 = v1, an unscaled remainder, two Lehmer
+  faults, a short decimal chunk, too little room for the text, two shift
+  faults, a lost factor in powers, incomplete normalization, an
+  off-by-one limit, a comparison of the top limb only): each changes a
+  result among the edge cases, on Gforth 1.0 and 0.7.3. A run is stopped
+  at its first wrong line, because a broken library may then loop.
+- `make check` gives 984 of the cases (all 14 operations, 12 of more than
   3,000 digits) to pinned Lean as `example : Nat.op A B = R := by decide
   +kernel`, so that Lean's kernel itself computes the operation (no
   axioms): all are accepted, and every one of them with R changed is
@@ -217,6 +268,23 @@ Karatsuba was measured against rows alone for thresholds of 16 to 96
 limbs: it breaks even near 64 limbs and pays above; with the chosen 48
 limbs a 520-limb (10,000-digit) product takes 268 instead of 668 µs
 (`gforth-fast`) and 981 instead of 1,877 µs (`gforth`).
+
+Review fixes of 2026-11-03, timed before and after on this machine, one
+run at a time (best of three powers, of five batches of ten products):
+
+| Case | `gforth-fast` before → after | `gforth` before → after |
+| --- | --- | --- |
+| 3^(2^22 − 1) at a 2^22-bit limit: *full* | 625 → 200 ms | 2,007 → 661 ms |
+| 3^(2^21 − 1) at that limit, valid (for scale) | 201 → 197 ms | 637 → 663 ms |
+| product of 1,000 by 1,000 limbs (for scale) | 737 → 733 µs | 2,398 → 2,375 µs |
+| 1,049 by 1,000 limbs (a tail of 49) | 1,503 → 839 µs | 4,771 → 2,725 µs |
+| 1,500 by 1,000 limbs (a tail of 500) | 1,474 → 1,217 µs | 4,869 → 3,939 µs |
+| 1,999 by 1,000 limbs (a tail of 999) | 1,475 → 1,473 µs | 4,889 → 4,818 µs |
+| 233 by 144 limbs (tails of 89, 55, 34) | 63 → 57 µs | 213 → 189 µs |
+
+A refused power used to make its last, doomed product; a short tail was
+padded to a whole chunk. A Karatsuba product also needs fewer cells now:
+no padded copy of the tail.
 
 **Follow-ups for the kernel integration (task 5.1.4).**
 
@@ -297,11 +365,19 @@ nothing defined and the layout unchanged. A set-up word that throws while
 it is declared is not registered.
 
 **Ownership and handles.** A context is *idle* or *owned* by one job. Each
-task has an owner token, `lf-owner`: 0, or the job it is running. A task
-may select only a context whose owner is its own token, so the main task
-uses only idle contexts and a job only its own; an owned context cannot be
-freed, and contexts are made and freed only outside jobs (`context-new`
-and `context-free` abort inside one). A context's address is its handle,
+task has an owner token, `lf-owner`: 0, or the job it is running, or
+`context-check-owner` while it runs a check outside the job pool (the
+checked environment's serial driver; `context-in-job?` counts such a
+check as a job). A task may select only a context whose owner is its own
+token, so the main task uses only idle contexts, a job only its own and
+such a check none; an owned context cannot be freed. Contexts are made,
+freed, claimed and released only outside jobs: inside a job or such a
+check, `context-new`, `context-free` and `context-release` abort, and
+`context-claim ( owner context -- flag )`, which the job pool uses to
+give a job its context, gives false without reading the address. Running
+a word with `context-catch ( i*x xt -- j*x ior )` is `CATCH` that
+restores the current context afterwards, whatever the word selected or
+threw; it does not restore the owner token. A context's address is its handle,
 valid until `context-free`; `context?` cannot recognise every stale handle,
 because `FREE` may reuse the block's first cells and `context-new` may hand
 out the same address again, so a handle must never be used after it is

@@ -41,7 +41,7 @@ Surveyed in `src/` at `16bdc2f`. Every one fits the rules below.
 | `import/ndjson-count.fs:172` `count-read` | the counting tool: any code is invalid ("a Forth exception") | tool top level |
 | `kernel/env-publish.fs:204` `lf-env-guarded` | publishes under a pool mark; on a code rolls the pool back, clears the slot, invalid, the run stops | transaction boundary with a store mark |
 | `kernel/env-publish.fs:222` `lf-env-run-check` | a check in the serial driver: invalid (diagnostic 29), the context is spent (ADR 0012, Amendment 1) | check boundary (serial) |
-| `kernel/env-publish.fs:252` `lf-env-make` | the caller's context maker; restores `lf-context`; a code stops the run | caller-supplied word: code to ior |
+| `kernel/env-publish.fs` `lf-env-make` | the caller's context maker, through `context-catch`; restores `lf-context` and the owner token `lf-owner`; a code stops the run | caller-supplied word: code to ior |
 | `program/ir-reader.fs:296` `ir-output` | the caller's output word; `ir-emit` (298) restores the reader and re-throws | caller-supplied word: restore, re-throw |
 | `program/ir-reader.fs:644` `ir-read-open` | reads a file, closes it, re-throws | resource owner: release, re-throw |
 

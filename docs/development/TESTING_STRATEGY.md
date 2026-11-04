@@ -67,6 +67,85 @@ compiler and runtime correctness.
 The 2026-11-02 coverage review and its open items are recorded in
 [the test coverage review](TEST_COVERAGE_REVIEW.md).
 
+## Failure paths and allocation-failure injection (plan tasks 2.2.4, 1.4.6)
+
+Added 2026-11-03. The first checker must fail closed wherever it runs out
+of fuel or room, or a word throws: nothing that fails may be stored,
+published, given a handle or printed as accepted.
+
+**The hook.** `src/lib/store.fs` has one test-only hook. A program that
+defines the word `store-fault-hooks` before the store library loads gets
+`store-refuse? ( store -- flag )`, a `DEFER` that `store-open?` asks about
+every allocation that would otherwise go ahead, in every store: the term,
+level, name, reference and input stores of each context and the checked
+environment's dependency pool (`store-new`, and the name table's
+`store-open?` then `store-claim`). True refuses the allocation as if the
+store were full, changing nothing; the word may also `THROW`. Without
+`store-fault-hooks`, `store-open?` is compiled exactly as before: no
+`DEFER`, no extra call, no cost. LeanForth never interprets its input as
+Forth and `src/main.fs` never defines that word, so no input can turn the
+hook on or reach it. `tests/support/alloc-fail.fs`, loaded before anything
+else, defines it and makes the k-th allocation after `af-arm` (or
+`af-arm-throw`) fail, counted across every store; only that one fails.
+
+**The suite.** `tests/core/failure-paths.fs` (in `make test`, under a
+second on either Gforth) runs check-declaration through the publisher on
+the five pinned fixtures and on 18 cases in the first-checker driver's
+text, most of them rows of `tests/core/check-declaration.fs`, that end
+rejected, unknown, unsupported, invalid or full at each step. For
+each case it records a baseline, then refuses allocation k for every k,
+sweeps the fuel from 0 until the baseline returns, and throws at
+allocation k for every k (each run in a new context, with a maker that
+loads the same input into another one, so that the run goes on; and twice
+with no maker, so that it stops). After every step it checks that only
+that declaration's slot changed, that the dependency pool grew only by an
+accepted declaration's dependencies (a failed publication takes its
+entries back) and that every input store is back at its mark with the
+input's fingerprint unchanged; after every run, that a slot is accepted
+only where its baseline is and every slot it depended on is accepted now,
+that the slot an injected failure reached is full (refused), invalid
+(thrown) or, when the publisher failed, open and cleared with the run
+stopped, that later slots keep their baseline outcome or become unknown
+(K5) when an earlier one changed, that handles and printed verdicts agree
+with each slot's outcome (an axiom bit planted in an accepted slot must
+print), and that a refusal or fuel never spends a context while a `THROW`
+in a check does. It also checks that the publisher's re-check publishes a
+passed check with a false claim as invalid. About 4,500 injected runs.
+
+It prints the outcomes reached per check step and fails unless they are
+exactly these (2026-11-03):
+
+| Step | Outcomes reached |
+| --- | --- |
+| 0 before a snapshot | invalid |
+| 1 audit | invalid, exhausted, unsupported |
+| 2 name (N2) | unknown, rejected, unsupported |
+| 3 parameters (L3) | rejected |
+| 4 declared type's type | invalid, exhausted, unknown, rejected, unsupported, full |
+| 5 a Sort (S1) | unknown, rejected |
+| 6 a proposition (S3) | exhausted, rejected |
+| 7 value's type | invalid, exhausted, unknown, rejected, unsupported, full |
+| 8 comparison (D1–D5) | invalid, exhausted, unknown, rejected |
+| 9 every step done | ok, invalid (a failed publication) |
+
+No run of these cases reaches the empty cells: steps 2, 3, 5 and 6
+allocate nothing and steps 2 and 3 use no fuel; step 5 runs out of fuel
+only in its search for a rejection, which then leaves it *unknown* (ADR
+0011); a `THROW` can be injected only at an allocation; and step 8
+allocates only in its search for a rejection, where a refused allocation
+leaves the step *unknown* as well, not *full*: weaker than Lean's
+rejection and than ADR 0008's *full*, never accepted.
+
+**Planted faults.** `tests/core/failure_path_faults.py` (also in `make
+test`, about 2 s) runs the suite in a temporary copy of the tree with one
+fault planted at a time, and requires it to fail on each of nine: the
+publisher marking a slot final before writing its record, a check accepted
+before its comparison, a step's *full* turned into ok, the level store's
+rollback and the pool's rollback after a failed publication forgotten, a
+check that ends full finished ok, "axioms: none" printed without reading
+the slot, the hook switched off, and a `THROW` in a check that no longer
+spends its context. All nine are caught.
+
 ## Self-verification
 
 LeanForth's program correctness system should eventually verify selected

@@ -150,8 +150,10 @@ The plan put loops into IR version 1 (task 4.4.1, "loops with invariants").
 IR 0.1 already *executes* `BEGIN … WHILE … REPEAT`, with fuel, because
 `lf-factorial` and `lf-gcd` need it and the reader task asks for all six
 words. What waits for version 1 is reasoning about loops through
-*invariants* in generated obligations; the two loop words below are proved
-by induction directly on the semantics instead.
+*invariants* in generated obligations. In Lean, the two loop words are
+proved both by induction directly on the semantics and through stated
+loop invariants and a general loop rule
+([contracts](#contracts-of-the-five-other-words) below).
 
 ## Text form
 
@@ -221,9 +223,12 @@ and an outcome from `src/lib/outcome.fs`:
 Lines written before a diagnostic or an exception are incomplete and must
 not be used. `lf-ir-finish` ends a read: finishing again gives the same
 outcome, and a line fed after it stops the reader as *invalid* and writes
-nothing. `lf-ir-feed` copies each line before reading it, so the line may
-be in a transient buffer; its length is unsigned, and a line of 128
-characters or more is refused without being read.
+nothing. `lf-ir-feed` copies each line before reading it, and
+`lf-ir-start` and `lf-ir-read-file` copy the path before the output word
+first runs, so a line or a path may be in a transient buffer, such as the
+pictured-numeric one that an output word numbering its lines with `<# #>`
+reuses. A fed line's length is unsigned, and a line of 128 characters or
+more is refused without being copied or read, whatever its address.
 
 The four *reader words*, `lf-ir-start`, `lf-ir-feed`, `lf-ir-finish` and
 `lf-ir-read-file`, keep the reader of their context *busy* while they
@@ -273,15 +278,16 @@ reader enforces the following on them, and this is the whole list:
   word runs ends the read *invalid*; or leaves the reader busy for good,
   if it comes after the word made the reader busy but before its handler
   is set up, or after its work threw but before the handler has run; or,
-  if it comes during the entry check or after the work has returned,
-  leaves the read as if it had come before or after the call (the call
-  counted). So a read whose work an exception cut short never ends *ok*.
+  if it comes during the entry check or once the work has made the
+  reader idle again, leaves the read as if it had come before or after
+  the call (the call counted). So a read never ends *ok* if an exception
+  cut its work short or came before its reader went idle again.
   Every exception passes on, closing first a file whose lines were being
   read.
 - *Lines out of turn fail the read:* a line fed before `lf-ir-start` or
   after `lf-ir-finish`.
 - *A fed line's length is unsigned:* a negative one is too long, and the
-  line is refused unread.
+  line is refused unread: neither copied nor read, whatever its address.
 
 Other misuse is not detected and is outside what the reader defends
 against: an output word that writes into the reader's record or other
@@ -291,12 +297,18 @@ changes data-stack cells below its arguments without changing the depth,
 unbalances the return stack, or frees its context and makes a new one at
 the same address; a caller that sets `lf-context` to anything but a live
 context, ignores the outcome, or uses lines written before a diagnostic
-or an exception. An exception between `OPEN-FILE` and the reading of the
-file's lines, or during `CLOSE-FILE`, can leave the file open; the read
-still fails. A review judges the reader against this model: an accepted
-file whose IR does not mean what Gforth does with it is a soundness bug;
-caller misuse is a bug only where the list above says the reader detects
-it.
+or an exception; and a caller or output word that calls an internal word
+of the reader, any but the four reader words, `lf-ir-reason` and
+`lf-ir-where`. `ir-feed`, for one, does the work of `lf-ir-feed` without
+the entry check, so an output word that calls it changes the read, which
+can still end *ok* with IR that does not mean what Gforth does with the
+file ([ADR 0010](../adr/0010-wordlists.md), only proposed, would hide such
+words in a private word list). An exception between `OPEN-FILE` and the
+reading of the file's lines, or during `CLOSE-FILE`, can leave the file
+open; the read still fails. A review judges the reader against this
+model: an accepted file whose IR does not mean what Gforth does with it
+is a soundness bug; caller misuse is a bug only where the list above
+says the reader detects it.
 
 **It accepts less than Gforth, never more,** and gives what it accepts
 Gforth's meaning (checked on Gforth 1.0.0 and 0.7.3):
@@ -396,14 +408,19 @@ They also give the reader output words that throw; that call each reader
 word, catching the refusal or not; that start a read whose own output
 word would leave a cell (the case that once ended *ok* with wrong IR);
 that clear the busy flag and then start a read (the count of calls must
-still fail it); that use another context's reader; that return in another
-context, while lines are fed and while a file is read; and that leave or
-take a cell. They interrupt with `THROW` −28, as Ctrl-C would, the
-opening of a file, its first read, a fed line, and the `CATCH` with which
-`lf-ir-feed` or `lf-ir-finish` sets up its handler. Each must stop the
+still fail it); that use another context's reader, and through it come
+back to their own context and feed a line there (refused, and the read
+fails); that return in another context, while lines are fed and while a
+file is read; that leave or take a cell; and that reuse the
+pictured-numeric buffer holding the path, read from a file or not. They
+interrupt with `THROW` −28, as Ctrl-C would, the opening of a file, its
+first read, a fed line, the `CATCH` with which `lf-ir-feed` or
+`lf-ir-finish` sets up its handler, the reader's going idle after its
+work returned, and the handler's after the work threw. Each must stop the
 read as *invalid* or leave its reader busy for good, refusing every
 reader word; a switch of context must leave the other context's read
-untouched and close the file. They also feed lines after `lf-ir-finish`.
+untouched and close the file. They also feed lines after `lf-ir-finish`,
+and lines of length −1 or 128 at address 0, which must be refused unread.
 
 The reader is trusted for the translation: nothing proves that the IR means
 what the source means on the host. Receipts list it as the assumption
@@ -437,9 +454,11 @@ of fuel, unbalanced return stack, bad constant, unknown word), and refutes two d
 with `MAX` and `MIN` exchanged, and checked add without its overflow test,
 which on 64-bit cells wraps max + 1 to min. `make check-lean-sources`
 forbids `sorry`, `native_decide` and axioms in the file, and
-`make reference-program-ir` accepts each theorem only if it uses no axioms
-beyond Lean's `propext`, `Classical.choice` and `Quot.sound` (all nine
-report exactly these three).
+`make reference-program-ir` accepts each of the 27 theorems it lists (the
+nine above and the eighteen of the contracts below) only if it uses no
+axioms beyond Lean's `propext`, `Classical.choice` and `Quot.sound`: 26
+report exactly these three, and `FactorialReference.checked_contract`
+reports `propext` and `Quot.sound`.
 
 `make test` checks that the copies of the reference models are verbatim.
 
@@ -462,6 +481,124 @@ which uses every primitive once, with the reader's golden output; and
 them as Lean's `Prim.word` does, in the order of `Prim`, each with the
 data-stack effect Lean's `step` gives it.
 
+## Contracts of the five other words
+
+Plan task 1.5.3 (roadmap P2.3) gives the five example words other than
+clamp formal contracts in the style of `ClampContract`
+([`clamp.lean`](../../tests/reference/clamp.lean)): a Lean predicate that
+says, clause by clause, what a right answer is, without restating the
+algorithm. Each contract lives in its word's reference file, which proves
+that the reference model meets it and refutes deliberately wrong models.
+Part 5 of `program-ir.lean` copies the contracts verbatim (`make test`
+checks the copies), proves that each word's **IR** meets the same clauses
+for every cell width of at least two bits, every stack below the inputs
+and every caller's return stack, and refutes a deliberately wrong **IR
+program** for each word. Everything is checked by Lean 4.35.0: *checked by
+the Lean reference, not by LeanForth*.
+
+### One contract in three forms: `lf-gcd`
+
+**Mathematics.** For integers a and b: if a < 0 or b < 0 the word returns
+*false*; otherwise it returns g and *true*, where g ≥ 0 divides a and b and
+every common divisor of a and b divides g. So g = gcd(a, b), and
+gcd(0, 0) = 0. Euclid's loop works on a pair x, y (y on top) with the
+**invariant** x ≥ 0, y ≥ 0 and gcd(x, y) = gcd(a, b); each repetition
+replaces (x, y) by (y, x mod y), so y, the **measure**, decreases, and when
+y = 0 the answer is x = gcd(x, 0).
+
+**Forth** ([`src/program/examples.fs`](../../src/program/examples.fs)):
+
+```forth
+: lf-euclid ( a b -- gcd ) begin dup 0<> while tuck mod repeat drop ;
+: lf-gcd ( a b -- gcd true | false )
+  2dup 0< swap 0< or if 2drop false else lf-euclid true then ;
+```
+
+**Lean.** The contract, in
+[`gcd-reference.lean`](../../tests/reference/gcd-reference.lean), with the
+proof that the reference model `checked` meets it:
+
+```lean
+def GcdSpec (a b : Int) (r : Option Nat) : Prop :=
+  (a < 0 ∨ b < 0 → r = none) ∧
+  (0 ≤ a → 0 ≤ b → ∃ g : Nat, r = some g ∧ (g : Int) ∣ a ∧ (g : Int) ∣ b ∧
+    ∀ d : Int, d ∣ a → d ∣ b → d ∣ (g : Int))
+
+def GcdContract (f : Int → Int → Option Nat) : Prop :=
+  ∀ a b : Int, GcdSpec a b (f a b)
+
+theorem checked_contract : GcdContract checked
+```
+
+The same clauses for the IR, in `program-ir.lean`. `Meets` says that the
+word returns normally, keeps the cells below its inputs and the caller's
+return stack, and leaves the encoding of a result `r` (here `g true` or
+`false`) that satisfies the clauses; a failure never meets a contract.
+
+```lean
+def GcdWordContract (p : Program) : Prop :=
+  ∀ (c : Cells) (fuel : Nat) (a b : Int), b.toNat + 3 ≤ fuel →
+    Meets c p fuel "lf-gcd" [b, a] encodeNat (GcdReference.GcdSpec a b)
+
+theorem gcd_meets_contract : GcdWordContract examplesProgram
+theorem gcd_top_only_violates_contract : ¬ GcdWordContract gcdTopOnlyProgram
+
+def euclidInv (a0 b0 : Nat) (d r : List Int) (s : State) : Prop :=
+  ∃ a b : Nat, s = ⟨(b : Int) :: (a : Int) :: d, r⟩ ∧ Nat.gcd a b = Nat.gcd a0 b0
+```
+
+### The five contracts
+
+Fuel is the least the IR theorem asks for; "fits" means the inputs fit in a
+cell.
+
+| Word | Contract | Model meets it | IR meets it | Wrong models refuted | Wrong IR program refuted |
+| --- | --- | --- | --- | --- | --- |
+| `lf-checked-add` | for a, b that fit: a + b and true if a + b fits, else false (`CheckedAddSpec`) | `CheckedAddReference.checkedAdd_contract` | `checkedAdd_meets_contract`, fuel 5 | off by one at the upper or lower threshold (rejects 6 + 1 and 0 + (−8) on 4 bits); wrapping without a check (7 + 1 gives −8) | `unchecked_add_violates_contract`: `+ TRUE` alone wraps max + 1 to min |
+| `lf-checked-abs` | for n that fits: false for the smallest cell, else \|n\| and true, with 0 ≤ \|n\| ≤ max (`CheckedAbsSpec`) | `ProgramExamplesReference.checkedAbs_contract` | `checkedAbs_meets_contract`, fuel 3 | no test for the smallest cell (\|−8\| = 8 on 4 bits) | `plain_abs_violates_contract`: `ABS TRUE` alone gives min and true |
+| `lf-in-range` | false for lower > upper; else true exactly when lower ≤ value ≤ upper and false exactly outside, then true (`InRangeSpec`) | `ProgramExamplesReference.inRange_contract` | `inRange_meets_contract`, fuel 2, any integers | exclusive upper bound; one-point interval rejected | `unguarded_in_range_violates_contract`: no test for reversed bounds |
+| `lf-gcd` | false if a or b is negative, else a greatest common divisor g and true (`GcdSpec`, above) | `GcdReference.checked_contract` | `gcd_meets_contract`, fuel b + 3, through Euclid's invariant | rejecting only two negative inputs; the answer 1, a common divisor but not the greatest | `gcd_top_only_violates_contract`: testing only b, −4 6 reaches `-4 6 MOD`, which IR 0.1 does not model |
+| `lf-factorial` | for n that fits, with max the largest cell: false for n < 0 or n! > max, else n! and true (`FactorialSpec`) | `FactorialReference.checked_contract` | `factorial_meets_contract`, fuel n + 3, through the loop's invariant | treating 0 as negative (0! = 1 must be returned) | `wrapping_factorial_violates_contract`: no overflow test; on 16-bit cells 8! wraps to −25216 |
+
+Every contract determines the answer completely, and each refutation
+exhibits one input on which one clause fails. Two variants show why a
+clause is needed: the wrapping adder returns every sum that fits exactly
+(`wrappingAdd_exact_when_fits`), so only the failure clause rejects it; and
+1 divides any two numbers, so only the clause "every common divisor
+divides g" rejects the answer 1. The earlier
+contracts on the models (`SuccessContract` and `OrderedContract`) were
+weaker: they would have accepted a checked add that reports overflow as
+success with any other value, and an in-range test that gives no answer
+for values outside the interval. They are replaced by the contracts above.
+
+### Loop invariants
+
+Generator v0 has no loop invariants ([verification
+conditions](PROGRAM_VC.md)), so Part 5 states the two loops' invariants
+in Lean and proves them against the IR semantics, as a later generator
+would. `LoopInvariant c p test body rest inv measure need goal` says, for
+`BEGIN test WHILE body REPEAT rest`: from every state satisfying `inv`, the
+test leaves a flag; on zero, `rest` gives a result satisfying `goal`;
+otherwise the body returns to a state satisfying `inv` with a smaller
+`measure`, or stops (EXIT or a failure) with a result satisfying `goal`.
+`loop_rule` proves that the whole block then gives a result satisfying
+`goal`, with one unit of fuel per repetition.
+
+| Loop | Invariant | Measure | Goal | Theorem |
+| --- | --- | --- | --- | --- |
+| `lf-euclid` | two naturals x, y (y on top) with gcd(x, y) = gcd(a, b) (`euclidInv`) | y | gcd(a, b) on the caller's cells | `euclid_by_invariant`, fuel b + 1 |
+| `lf-factorial-from` | counter k on top of product q, 1 ≤ q ≤ max, k ≤ max, q · k! = the total (`factorialInv`) | k | the total and true if it fits, else false through `EXIT` (`factorialGoal`) | `factorialFrom_by_invariant`, fuel k + 1 |
+
+`gcd_meets_contract` and `factorial_meets_contract` rest on these
+theorems, not on the reference models or the inductive proofs of Part 3.
+The invariant proof of `lf-factorial-from` also shows that none of its
+multiplications or decrements wraps.
+
+Not established here: anything about Gforth or the reader beyond what is
+said above; and that the five words' contracts are those a user wants,
+which is for the owner to judge. The generator still reports the two loop
+words *unsupported* (see [what is missing](PROGRAM_VC.md#results-2026-11-02)).
+
 ## Versioning
 
 The version string `0.1` appears in the text form's first line, in the
@@ -478,7 +615,8 @@ make reference-program-ir   # the Lean model, its axioms, its IR against the rea
 
 Both are part of `make test` and `make check` respectively. Measured on
 2026-11-02 (Ryzen 5 7600X, WSL2): `make reference-program-ir` takes about
-4.7 s with Lean 4.35.0; the reader tests pass on Gforth 1.0.0 and 0.7.3.
+4.7 s with Lean 4.35.0 (about 6 s with the contracts, 2026-11-03); the
+reader tests pass on Gforth 1.0.0 and 0.7.3.
 
 Files: [`tests/reference/program-ir.lean`](../../tests/reference/program-ir.lean)
 (model and proofs), [`src/program/ir-reader.fs`](../../src/program/ir-reader.fs)

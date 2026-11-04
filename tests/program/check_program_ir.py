@@ -10,7 +10,10 @@ equals those lines of that reference file, so the theorems are about the
 existing reference models themselves, and that the six reference files are
 all copied. It also checks that the reader's table of the 38 primitives
 (src/program/ir-reader.fs) lists Lean's `Prim.word` spellings in the order
-of `Prim`, each with the data-stack effect that Lean's `step` gives it.
+of `Prim`, each with the data-stack effect that Lean's `step` gives it,
+and that both statements of the reader's threat model (its header comment
+and PROGRAM_IR.md) list calls of its internal words, such as ir-feed, as
+misuse it does not detect.
 
 With --lean it also runs the file with the pinned Lean (warnings are
 errors, so `sorry` fails), requires every listed theorem's `#print axioms`
@@ -31,19 +34,31 @@ MODEL = Path("tests/reference/program-ir.lean")
 GOLDEN = [Path("tests/program/ir/clamp.ir"), Path("tests/program/ir/examples.ir"),
           Path("tests/program/ir/all-primitives.ir")]
 READER = Path("src/program/ir-reader.fs")
+DOC = Path("docs/programming/PROGRAM_IR.md")
 REFERENCES = {
     "tests/reference/clamp.lean", "tests/reference/stack-clamp.lean",
     "tests/reference/program-examples.lean", "tests/reference/checked-add.lean",
     "tests/reference/factorial-reference.lean", "tests/reference/gcd-reference.lean",
 }
-THEOREMS = [
+THEOREMS = [f"ProgramIR.{name}" for name in (
     "clamp_correct", "clamp_matches_stack_model", "checkedAdd_correct", "checkedAbs_correct",
     "inRange_correct", "gcd_correct", "factorial_correct", "swapped_clamp_refuted",
     "unchecked_add_refuted",
+    # Part 5: the contracts of the five words other than clamp (plan task 1.5.3).
+    "checkedAdd_meets_contract", "checkedAbs_meets_contract", "inRange_meets_contract",
+    "loop_rule", "euclid_by_invariant", "gcd_meets_contract", "factorialFrom_by_invariant",
+    "factorial_meets_contract", "unchecked_add_violates_contract",
+    "plain_abs_violates_contract", "unguarded_in_range_violates_contract",
+    "gcd_top_only_violates_contract", "wrapping_factorial_violates_contract")] + [
+    # The reference contracts' own proofs, copied verbatim into Part 5.
+    "CheckedAddReference.checkedAdd_contract", "ProgramExamplesReference.checkedAbs_contract",
+    "ProgramExamplesReference.inRange_contract", "GcdReference.checked_contract",
+    "FactorialReference.checked_contract",
 ]
 ALLOWED_AXIOMS = {"propext", "Classical.choice", "Quot.sound"}
 BEGIN = re.compile(r"^-- BEGIN VERBATIM (\S+) (\d+)-(\d+)$")
 LOCATION = re.compile(r" @\d+:\d+$")
+INTERNAL_FEED = re.compile(r"(?<![-\w])ir-feed(?![-\w])")   # not lf-ir-feed
 
 
 def copy_problems(text, read=lambda p: Path(p).read_text(encoding="utf-8")):
@@ -80,11 +95,12 @@ def check_copies():
 def axiom_problems(output):
     problems = []
     for name in THEOREMS:
-        match = re.search(rf"'ProgramIR\.{name}' depends on axioms: \[(.*)\]", output)
-        if not match:
+        quoted = re.escape(f"'{name}'")
+        match = re.search(rf"^{quoted} depends on axioms: \[(.*)\]$", output, re.M)
+        if not match and not re.search(rf"^{quoted} does not depend on any axioms$", output, re.M):
             problems.append(f"{name}: no axiom report")
             continue
-        used = {a.strip() for a in match.group(1).split(",") if a.strip()}
+        used = {a.strip() for a in match.group(1).split(",") if a.strip()} if match else set()
         if used - ALLOWED_AXIOMS:
             problems.append(f"{name}: uses {sorted(used - ALLOWED_AXIOMS)}")
     return problems
@@ -122,6 +138,27 @@ def primitive_problems(reader_text, lean_text):
     for index, (ours, theirs) in enumerate(zip(reader, lean)):
         if ours != theirs:
             problems.append(f"primitive {index}: reader {ours}, Lean {theirs}")
+    return problems
+
+
+def undetected_misuse(text, comment=""):
+    """The paragraph, in the reader's header comment or in PROGRAM_IR.md, that
+    lists the misuse the reader does not detect, as one line of words."""
+    lines = text.splitlines()
+    start = next(i for i, line in enumerate(lines)
+                 if line.startswith(comment + "Other misuse is not detected"))
+    end = next(i for i in range(start, len(lines)) if lines[i].strip() in ("", comment.strip()))
+    return " ".join(line[len(comment):] for line in lines[start:end])
+
+
+def threat_model_problems(reader_text, doc_text):
+    """Both lists of undetected misuse must name calls of the reader's internal
+    words, which skip its entry check (an output word calling ir-feed)."""
+    problems = []
+    for where, paragraph in (("reader", undetected_misuse(reader_text, "\\ ")),
+                             ("PROGRAM_IR.md", undetected_misuse(doc_text))):
+        if "internal word" not in paragraph or not INTERNAL_FEED.search(paragraph):
+            problems.append(f"{where}: undetected misuse omits calls of internal words")
     return problems
 
 
@@ -179,12 +216,25 @@ class Copies(unittest.TestCase):
         swapped = reader.replace('s" rot"', 's" @@@"').replace('s" 2dup"', 's" rot"')
         self.assertTrue(primitive_problems(swapped.replace('s" @@@"', 's" 2dup"'), lean))
 
+    def test_threat_model_names_internal_words(self):
+        reader = READER.read_text(encoding="utf-8")
+        doc = DOC.read_text(encoding="utf-8")
+        self.assertEqual(threat_model_problems(reader, doc), [])
+        self.assertEqual(len(threat_model_problems(reader.replace("ir-feed,", "it,"), doc)), 1)
+        self.assertEqual(len(threat_model_problems(reader, doc.replace("internal word", "w"))), 1)
+
     def test_axiom_report_rejects_other_axioms(self):
-        good = "\n".join(f"'ProgramIR.{n}' depends on axioms: [propext]" for n in THEOREMS)
+        good = "\n".join(f"'{n}' depends on axioms: [propext]" for n in THEOREMS)
         self.assertEqual(axiom_problems(good), [])
         bad = good.replace("[propext]", "[propext, sorryAx]", 1)
         self.assertTrue(axiom_problems(bad))
         self.assertTrue(axiom_problems(good.replace("clamp_correct", "other", 1)))
+        # A theorem may use no axioms at all; Lean says so in other words.
+        none = good.replace("depends on axioms: [propext]", "does not depend on any axioms", 1)
+        self.assertEqual(axiom_problems(none), [])
+        # A report about another name that merely starts the same does not count.
+        longer = good.replace("'ProgramIR.loop_rule'", "'ProgramIR.loop_rule_x'", 1)
+        self.assertTrue(axiom_problems(longer))
 
 
 def main():

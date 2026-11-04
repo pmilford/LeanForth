@@ -76,9 +76,12 @@ FAULTS = [
     ("Karatsuba: the carry out of a0 + a1 lost",
      "r@ kara-h swap r> kara-hi 1+ vector+! drop",
      "r@ kara-h swap r> kara-hi vector+! drop"),
-    ("Karatsuba: the last, shorter chunk loses its top limb",
-     "r@ chunks-pad @ swap copy-limbs",
-     "r@ chunks-pad @ swap 1- copy-limbs"),
+    ("Karatsuba: a short tail's rows lose the tail's top limb",
+     "dup tail-size over chunks-frame school",
+     "dup tail-size 1- over chunks-frame school"),
+    ("Karatsuba: a long tail's product added at limb 0, not at the tail's place",
+     "r@ tail-limb cells r@ chunks-r +!",
+     ""),
     ("Knuth D: the add-back step skipped",
      "if window+! r> 1- else 2drop r> then",
      "if 2drop r> else 2drop r> then"),
@@ -92,11 +95,14 @@ FAULTS = [
      "over = if true else drop false then ;",
      "drop true ;"),
     ("Lehmer: one cofactor's sign wrong",
-     "swap r@ euclid-v @ rot negate r> euclid-u @ ;",
-     "swap r@ euclid-v @ rot r> euclid-u @ ;"),
+     "swap negate r@ euclid-v @ swap r> euclid-u @ ;",
+     "swap r@ euclid-v @ swap r> euclid-u @ ;"),
     ("decimal output: one digit too few per chunk",
      "chunk-digits 0 do 1 chars - swap",
      "chunk-digits 1 do 1 chars - swap"),
+    ("decimal output: no room for the top chunk's leading zeros, which overwrite the number",
+     ": text-cells ( big -- n ) big-bits 3 / chunk-digits + chars",
+     ": text-cells ( big -- n ) big-bits 3 / 1+ chars"),
     ("left shift by a limb count ignores the bit remainder",
      "1 swap lshift swap big-vector r> swap limbs*row! r> ;",
      "drop 1 swap big-vector r> swap limbs*row! r> ;"),
@@ -257,11 +263,17 @@ def top_equal_cases(cases):
 
 def karatsuba_cases(cases):
     """Products around the Karatsuba threshold (48 limbs) and its levels,
-    equal and unequal sizes (chunks, a padded last chunk), random limbs
-    and all-ones limbs (every carry), as 64-bit limb counts."""
+    equal and unequal sizes, random limbs and all-ones limbs (every
+    carry), as 64-bit limb counts. A longer factor is cut into chunks of
+    the shorter one's size; the tail left over goes by rows below 48
+    limbs (49 by 1000: a tail of 20; 95 by 142: 47) and otherwise turns
+    the job round (100 by 160: a tail of 60, then 40 by rows; 96 by 144:
+    48, then none; 1000 by 1049: 49, then 20; 144 by 233: 89, then 55,
+    then 34, Fibonacci sizes, so two turns)."""
     sizes = [(47, 47), (47, 48), (48, 48), (49, 49), (63, 64), (95, 96), (96, 96), (97, 97),
              (100, 100), (127, 129), (48, 100), (49, 1000), (200, 64), (64, 200), (145, 49),
-             (191, 193), (520, 520), (513, 1027)]
+             (191, 193), (520, 520), (513, 1027), (95, 142), (100, 160), (96, 144),
+             (1000, 1049), (144, 233)]
     for n1, n2 in sizes:
         a = (1 << (64 * n1 - 1)) | cases.bits(64 * n1 - 1)
         b = (1 << (64 * n2 - 1)) | cases.bits(64 * n2 - 1)

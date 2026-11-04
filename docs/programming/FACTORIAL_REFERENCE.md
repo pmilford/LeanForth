@@ -35,6 +35,24 @@ Lean proves, for every natural `limit` and integer input:
 - `bounded_exact` establishes the result for all natural inputs and bounds;
   `previous_le` supports completeness when an earlier product overflows.
 
+`FactorialContract` is the word's contract, in the style of
+`ClampContract` (plan task 1.5.3). `FactorialSpec limit n r` requires no
+result for a negative `n` or when `n!` exceeds `limit`, and `n!` otherwise,
+with `factorial` the independent recursive definition above.
+`guarded_spec` proves that rejecting negative inputs and factorials above
+the limit meets it, and `checked_contract` that the model does.
+`checkedRejectsZero`, a deliberately wrong variant that treats 0 as a
+negative input, is refuted: `0! = 1` fits the limit 7 and must be
+returned. [`program-ir.lean`](../../tests/reference/program-ir.lean) copies
+the contract and proves that the IR of `lf-factorial`, with the largest
+cell as the limit, meets the same clauses through a stated invariant of
+its descending loop (`factorial_meets_contract`; see
+[program IR](PROGRAM_IR.md#contracts-of-the-five-other-words)); that
+also relates the Forth word's algorithm to `factorial`, which this file
+alone does not. `#print axioms` reports `propext` and `Quot.sound` for
+`checked_contract`, and `propext`, `Classical.choice` and `Quot.sound` for
+`checkedRejectsZero_violates`.
+
 Concrete checked examples include negative input, zero, a fitting product,
 overflow, and a product exactly at its bound. These are model checks, not
 tests of the Forth word. No `sorry`, new axiom, LeanForth certificate, source

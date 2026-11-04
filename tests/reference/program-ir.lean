@@ -5,23 +5,23 @@ Reference semantics of the LeanForth program IR, version 0.1
 (docs/programming/PROGRAM_IR.md). Untrusted: Lean, not LeanForth, checks
 everything in this file.
 
-The file has four parts:
-1. Verbatim copies of the existing reference models of the six example
-   words. `tests/program/check_program_ir.py` (part of `make test`) checks
-   that every block between BEGIN VERBATIM and END VERBATIM equals the named
-   lines of the named file, so the theorems below are about exactly those
-   definitions.
+The file has five parts:
+1. Verbatim copies of the reference models of the six example words.
+   `tests/program/check_program_ir.py` (part of `make test`) checks that
+   every block between BEGIN VERBATIM and END VERBATIM equals the named
+   lines of the named file, so the theorems are about exactly those.
 2. The IR and its semantics: signed cells of any width of at least two bits,
    two's-complement wrapping, separate data and return stacks, explicit
-   failure outcomes, and fuel that bounds call nesting and loop repetitions.
-   Names are strings in the reader's canonical spelling, A-Z folded to
-   lower case, and are compared exactly.
+   failures, fuel that bounds call nesting and loop repetitions, and names
+   in the reader's spelling (A-Z folded to lower case), compared exactly.
 3. The six example words of src/program/clamp.fs and src/program/examples.fs
-   written in the IR, and theorems that their IR semantics equals the
-   reference models for every input that fits in a cell and every stack
-   below them.
+   in the IR, and theorems that their IR semantics equals the reference
+   models for every input that fits in a cell and every stack below them.
 4. A printer for the IR's text form; `main` prints the programs so that
    `make reference-program-ir` can compare them with the reader's output.
+5. The contracts of the five words other than clamp, copied from their
+   reference files: the IR meets each one (the two loops through stated
+   invariants), and a deliberately wrong IR program for each is refuted.
 
 What this does not show: that the IR is a faithful translation of the Forth
 source (the reader is trusted for that, see PROGRAM_IR.md), that Gforth
@@ -1265,6 +1265,577 @@ def main : IO Unit := do
   IO.print (render "src/program/clamp.fs" clampProgram)
   IO.print (render "src/program/examples.fs" examplesProgram)
   IO.print (render "tests/program/ir/all-primitives.fs" allPrimitivesProgram)
+
+end ProgramIR
+
+-- Part 5. The contracts of the five example words other than clamp (plan task
+-- 1.5.3). Each reference file states its word's contract in the style of
+-- `ClampContract` (tests/reference/clamp.lean), proves that its reference
+-- model meets it, and refutes deliberately wrong models; the blocks below are
+-- verbatim copies of those contracts. Here Lean proves that each word's IR
+-- meets the same clauses, for every cell width, every stack below the inputs
+-- and every caller's return stack, and refutes a deliberately wrong IR program
+-- for each word. The loops of lf-gcd and lf-factorial are proved through
+-- stated loop invariants and a loop rule, without their reference models.
+
+namespace CheckedAddReference
+-- BEGIN VERBATIM tests/reference/checked-add.lean 6-6
+def inCell (min max n : Int) : Prop := min ≤ n ∧ n ≤ max
+-- END VERBATIM
+-- BEGIN VERBATIM tests/reference/checked-add.lean 16-33
+-- The contract of lf-checked-add, in the style of `ClampContract` (clamp.lean).
+-- `CheckedAddSpec min max a b r`: `r` is a right answer for the inputs `a b`
+-- of a cell with bounds `min` and `max`, namely the exact sum when it fits
+-- the cell and no result when it does not. tests/reference/program-ir.lean
+-- copies this block and proves that the word's IR meets the same clauses.
+def CheckedAddSpec (min max a b : Int) (r : Option Int) : Prop :=
+  (inCell min max (a + b) → r = some (a + b)) ∧
+  (¬ inCell min max (a + b) → r = none)
+
+def CheckedAddContract (f : Int → Int → Int → Int → Option Int) : Prop :=
+  ∀ min max a b : Int, 0 ≤ max → min = -max - 1 → inCell min max a → inCell min max b →
+    CheckedAddSpec min max a b (f min max a b)
+
+theorem checkedAdd_contract : CheckedAddContract checkedAdd := by
+  intro min max a b _ hmin ha hb
+  simp only [CheckedAddSpec, inCell] at *
+  unfold checkedAdd
+  constructor <;> intro h <;> (repeat' split) <;> simp_all <;> omega
+-- END VERBATIM
+end CheckedAddReference
+
+namespace ProgramExamplesReference
+-- BEGIN VERBATIM tests/reference/program-examples.lean 14-56
+-- The contracts of lf-checked-abs and lf-in-range, in the style of
+-- `ClampContract` (clamp.lean). `CheckedAbsSpec min max n r` and
+-- `InRangeSpec value lower upper r` say that `r` is a right answer for those
+-- inputs. tests/reference/program-ir.lean copies this block and proves that
+-- the words' IR meets the same clauses.
+
+-- The smallest cell has no magnitude in the cell and gives no result; every
+-- other input gives its magnitude, which lies in the cell.
+def CheckedAbsSpec (min max n : Int) (r : Option Int) : Prop :=
+  (n = min → r = none) ∧
+  (n ≠ min → r = some (n.natAbs : Int)) ∧
+  (∀ m, r = some m → 0 ≤ m ∧ m ≤ max)
+
+def CheckedAbsContract (f : Int → Int → Option Int) : Prop :=
+  ∀ min max n : Int, 0 ≤ max → min = -max - 1 → min ≤ n → n ≤ max →
+    CheckedAbsSpec min max n (f min n)
+
+theorem checkedAbs_contract : CheckedAbsContract checkedAbs := by
+  intro min max n _ hmin low high
+  simp only [CheckedAbsSpec, checkedAbs]
+  by_cases h : n = min
+  · simp [h]
+  · simp only [h, ↓reduceIte, false_implies, Option.some.injEq, forall_eq', true_and]
+    constructor <;> split <;> omega
+
+-- Reversed bounds give no result; for ordered bounds the answer is true
+-- exactly inside the closed interval and false exactly outside it.
+def InRangeSpec (value lower upper : Int) (r : Option Bool) : Prop :=
+  (lower > upper → r = none) ∧
+  (lower ≤ upper → (r = some true ↔ lower ≤ value ∧ value ≤ upper)) ∧
+  (lower ≤ upper → (r = some false ↔ value < lower ∨ upper < value))
+
+def InRangeContract (f : Int → Int → Int → Option Bool) : Prop :=
+  ∀ value lower upper : Int, InRangeSpec value lower upper (f value lower upper)
+
+theorem inRange_contract : InRangeContract inRange := by
+  intro value lower upper
+  simp only [InRangeSpec, inRange]
+  by_cases h : lower > upper
+  · simp only [h, ↓reduceIte, forall_const, true_and]
+    constructor <;> intro _ <;> omega
+  · simp only [h, ↓reduceIte, false_implies, Option.some.injEq, true_and]
+    constructor <;> intro _ <;> simp <;> omega
+-- END VERBATIM
+end ProgramExamplesReference
+
+namespace GcdReference
+-- BEGIN VERBATIM tests/reference/gcd-reference.lean 21-56
+-- The contract of lf-gcd, in the style of `ClampContract` (clamp.lean).
+-- `GcdSpec a b r`: `r` is a right answer for the inputs `a b`, namely no
+-- result if either is negative, and otherwise a common divisor of both that
+-- every common divisor divides (so the answer for 0 and 0 is 0). It does not
+-- mention Euclid's algorithm. tests/reference/program-ir.lean copies this
+-- block and proves that the word's IR meets the same clauses.
+def GcdSpec (a b : Int) (r : Option Nat) : Prop :=
+  (a < 0 ∨ b < 0 → r = none) ∧
+  (0 ≤ a → 0 ≤ b → ∃ g : Nat, r = some g ∧ (g : Int) ∣ a ∧ (g : Int) ∣ b ∧
+    ∀ d : Int, d ∣ a → d ∣ b → d ∣ (g : Int))
+
+def GcdContract (f : Int → Int → Option Nat) : Prop :=
+  ∀ a b : Int, GcdSpec a b (f a b)
+
+-- Lean's `Nat.gcd` of the inputs, rejecting negative ones, meets the clauses.
+theorem natGcd_spec (a b : Int) :
+    GcdSpec a b (if a < 0 ∨ b < 0 then none else some (Nat.gcd a.toNat b.toNat)) := by
+  by_cases negative : a < 0 ∨ b < 0
+  · exact ⟨fun _ => by simp [negative], fun ha hb => by omega⟩
+  · refine ⟨fun h => absurd h negative,
+      fun ha hb => ⟨Nat.gcd a.toNat b.toNat, by simp [negative], ?_⟩⟩
+    obtain ⟨x, rfl⟩ : ∃ x : Nat, a = x := ⟨a.toNat, (Int.toNat_of_nonneg ha).symm⟩
+    obtain ⟨y, rfl⟩ : ∃ y : Nat, b = y := ⟨b.toNat, (Int.toNat_of_nonneg hb).symm⟩
+    simp only [Int.toNat_natCast]
+    refine ⟨Int.natCast_dvd_natCast.mpr (Nat.gcd_dvd_left x y),
+      Int.natCast_dvd_natCast.mpr (Nat.gcd_dvd_right x y), fun d hx hy => ?_⟩
+    have both := Nat.dvd_gcd (Int.natAbs_dvd_natAbs.mpr hx) (Int.natAbs_dvd_natAbs.mpr hy)
+    exact Int.natAbs_dvd_natAbs.mp (by simpa using both)
+
+theorem checked_contract : GcdContract checked := by
+  intro a b
+  have same : checked a b =
+      if a < 0 ∨ b < 0 then none else some (Nat.gcd a.toNat b.toNat) := by
+    simp only [checked, euclid_correct]
+  rw [same]
+  exact natGcd_spec a b
+-- END VERBATIM
+end GcdReference
+
+namespace FactorialReference
+-- BEGIN VERBATIM tests/reference/factorial-reference.lean 47-76
+-- The contract of lf-factorial, in the style of `ClampContract` (clamp.lean).
+-- `FactorialSpec limit n r`: `r` is a right answer for the input `n` when
+-- `limit` is the largest cell, namely no result for a negative n or when n!
+-- exceeds the limit, and n! otherwise. tests/reference/program-ir.lean copies
+-- this block and proves that the word's IR meets the same clauses.
+def FactorialSpec (limit : Nat) (n : Int) (r : Option Nat) : Prop :=
+  (n < 0 → r = none) ∧
+  (0 ≤ n → factorial n.toNat ≤ limit → r = some (factorial n.toNat)) ∧
+  (0 ≤ n → limit < factorial n.toNat → r = none)
+
+def FactorialContract (f : Nat → Int → Option Nat) : Prop :=
+  ∀ (limit : Nat) (n : Int), FactorialSpec limit n (f limit n)
+
+-- Rejecting negative inputs and factorials above the limit meets the clauses.
+theorem guarded_spec (limit : Nat) (n : Int) :
+    FactorialSpec limit n
+      (if n < 0 then none else if factorial n.toNat ≤ limit then some (factorial n.toNat)
+        else none) := by
+  refine ⟨fun h => by simp [h], fun h fits => ?_, fun h over => ?_⟩
+  · simp [Int.not_lt.mpr h, fits]
+  · simp [Int.not_lt.mpr h, Nat.not_le.mpr over]
+
+theorem checked_contract : FactorialContract checked := by
+  intro limit n
+  have same : checked limit n =
+      if n < 0 then none else if factorial n.toNat ≤ limit then some (factorial n.toNat)
+        else none := by
+    simp only [checked, bounded_exact]
+  rw [same]
+  exact guarded_spec limit n
+-- END VERBATIM
+end FactorialReference
+
+namespace ProgramIR
+
+theorem Cells.fits_min (c : Cells) : c.Fits c.min := by
+  have := c.two_le_half
+  simp only [Cells.Fits, Cells.max, Cells.min]
+  omega
+
+theorem Cells.fits_max (c : Cells) : c.Fits c.max := by
+  have := c.two_le_half
+  simp only [Cells.Fits, Cells.max, Cells.min]
+  omega
+
+/-- A word meets a contract on given inputs (top first) when, for every stack
+below them and every caller's return stack, it returns normally, keeps both,
+and leaves the encoding of a result that satisfies `spec`. A failure of any
+kind never meets a contract. -/
+def Meets {α : Type} (c : Cells) (p : Program) (fuel : Nat) (name : String)
+    (inputs : List Int) (enc : α → List Int) (spec : α → Prop) : Prop :=
+  ∀ tail rs : List Int, ∃ r, callWord c p fuel name ⟨inputs ++ tail, rs⟩ =
+    .next ⟨enc r ++ tail, rs⟩ ∧ spec r
+
+-- The three words without loops follow from their correctness theorems in
+-- Part 3 and the reference contracts.
+
+/-- The contract of `lf-checked-add ( a b -- sum true | false )` for a program
+`p`: the clauses of `CheckedAddSpec` for the cell's own bounds, given five
+units of fuel and inputs that fit in a cell. -/
+def CheckedAddWordContract (p : Program) : Prop :=
+  ∀ (c : Cells) (fuel : Nat) (a b : Int), 5 ≤ fuel → c.Fits a → c.Fits b →
+    Meets c p fuel "lf-checked-add" [b, a] encode
+      (CheckedAddReference.CheckedAddSpec c.min c.max a b)
+
+theorem checkedAdd_meets_contract : CheckedAddWordContract examplesProgram :=
+  fun c fuel a b enough fa fb tail rs =>
+    ⟨_, checkedAdd_correct c fuel a b tail rs enough fa fb,
+      CheckedAddReference.checkedAdd_contract c.min c.max a b (Int.le_of_lt c.max_pos)
+        c.min_eq fa fb⟩
+
+/-- The contract of `lf-checked-abs ( n -- magnitude true | false )`. -/
+def CheckedAbsWordContract (p : Program) : Prop :=
+  ∀ (c : Cells) (fuel : Nat) (n : Int), 3 ≤ fuel → c.Fits n →
+    Meets c p fuel "lf-checked-abs" [n] encode
+      (ProgramExamplesReference.CheckedAbsSpec c.min c.max n)
+
+theorem checkedAbs_meets_contract : CheckedAbsWordContract examplesProgram :=
+  fun c fuel n enough fits tail rs =>
+    ⟨_, checkedAbs_correct c fuel n tail rs enough fits,
+      ProgramExamplesReference.checkedAbs_contract c.min c.max n (Int.le_of_lt c.max_pos)
+        c.min_eq fits.1 fits.2⟩
+
+/-- The contract of `lf-in-range ( value lower upper -- flag true | false )`,
+for all integer inputs: the word does no arithmetic. -/
+def InRangeWordContract (p : Program) : Prop :=
+  ∀ (c : Cells) (fuel : Nat) (value lower upper : Int), 2 ≤ fuel →
+    Meets c p fuel "lf-in-range" [upper, lower, value] encodeFlag
+      (ProgramExamplesReference.InRangeSpec value lower upper)
+
+theorem inRange_meets_contract : InRangeWordContract examplesProgram :=
+  fun c fuel value lower upper enough tail rs =>
+    ⟨_, inRange_correct c fuel value lower upper tail rs enough,
+      ProgramExamplesReference.inRange_contract value lower upper⟩
+
+/-- A loop invariant for `BEGIN test WHILE body REPEAT` followed by `rest`,
+stated as a verification-condition generator would state it (total
+correctness). From every state `s` satisfying `inv`, given at least
+`need + measure s` units of fuel: the test returns normally with a flag on
+top; if the flag is zero, `rest` gives a result satisfying `goal`; otherwise
+the body either returns normally to a state satisfying `inv` with a smaller
+`measure`, or stops, by EXIT or a failure, with a result satisfying `goal`.
+`need` is the fuel that calls in the test, body and rest need beyond one unit
+for each repetition still to come. -/
+def LoopInvariant (c : Cells) (p : Program) (test body rest : List Instr)
+    (inv : State → Prop) (measure : State → Nat) (need : Nat) (goal : Result → Prop) :
+    Prop :=
+  ∀ fuel s, inv s → need + measure s ≤ fuel →
+    ∃ f d r, run c p fuel test s = .next ⟨f :: d, r⟩ ∧
+      (f = 0 → goal (run c p fuel rest ⟨d, r⟩)) ∧
+      (f ≠ 0 → match run c p fuel body ⟨d, r⟩ with
+        | .next s' => inv s' ∧ measure s' < measure s
+        | other => goal other)
+
+/-- The loop rule: from a state satisfying a loop invariant, the loop and the
+rest of its block give a result satisfying the invariant's goal, with one unit
+of fuel for each repetition. -/
+theorem loop_rule {c : Cells} {p : Program} {test body rest : List Instr}
+    {inv : State → Prop} {measure : State → Nat} {need : Nat} {goal : Result → Prop}
+    (h : LoopInvariant c p test body rest inv measure need goal) :
+    ∀ fuel s, inv s → need + measure s + 1 ≤ fuel →
+      goal (run c p fuel (.loop test body :: rest) s) := by
+  intro fuel
+  induction fuel with
+  | zero => intro s _ enough; omega
+  | succ f ih =>
+    intro s holds enough
+    obtain ⟨flag, d, r, tested, stop, again⟩ := h (f + 1) s holds (by omega)
+    rw [run_loop, tested]
+    by_cases zero : flag = 0
+    · simp only [zero, ↓reduceIte]
+      exact stop zero
+    · simp only [zero, ↓reduceIte]
+      have next := again zero
+      cases ran : run c p (f + 1) body ⟨d, r⟩ with
+      | next s' =>
+        rw [ran] at next
+        exact ih s' next.1 (by omega)
+      | exited s' => rw [ran] at next; exact next
+      | failed e => rw [ran] at next; exact next
+
+/-- The top cell as a natural number, 0 if it is negative or missing: the
+measure of both loops. -/
+def topNat : State → Nat
+  | ⟨x :: _, _⟩ => x.toNat
+  | ⟨[], _⟩ => 0
+
+-- lf-euclid: `BEGIN DUP 0<> WHILE TUCK MOD REPEAT DROP`.
+
+/-- Euclid's loop keeps two naturals, `b` on top of `a`, whose greatest common
+divisor is that of the inputs `a0 b0`; below them the caller's cells `d`. -/
+def euclidInv (a0 b0 : Nat) (d r : List Int) (s : State) : Prop :=
+  ∃ a b : Nat, s = ⟨(b : Int) :: (a : Int) :: d, r⟩ ∧ Nat.gcd a b = Nat.gcd a0 b0
+
+theorem euclid_invariant (c : Cells) (a0 b0 : Nat) (d r : List Int) :
+    LoopInvariant c examplesProgram [.prim .dup, .prim .zeroNe] [.prim .tuck, .prim .mod]
+      [.prim .drop] (euclidInv a0 b0 d r) topNat 0
+      (· = .next ⟨(Nat.gcd a0 b0 : Int) :: d, r⟩) := by
+  intro fuel s ⟨a, b, same, keeps⟩ _
+  subst same
+  refine ⟨flag ((b : Int) != 0), (b : Int) :: (a : Int) :: d, r, by ir_simp, ?_, ?_⟩
+  · intro zero
+    have : b = 0 := by simp [flag] at zero; omega
+    subst this
+    ir_simp
+    simp [← keeps]
+  · intro nonzero
+    have positive : 0 < b := by
+      cases b with
+      | zero => simp [flag] at nonzero
+      | succ b => omega
+    have operands : (0 : Int) ≤ a ∧ (0 : Int) < b := by omega
+    ir_simp
+    simp only [operands, and_self, ↓reduceIte]
+    refine ⟨⟨b, a % b, by simp [Int.natCast_emod], ?_⟩, ?_⟩
+    · rw [← keeps, Nat.gcd_comm a b, Nat.gcd_rec b a, Nat.gcd_comm]
+    · simp only [topNat]
+      have := Nat.mod_lt a positive
+      omega
+
+/-- Euclid's loop, by its invariant: it leaves Lean's `Nat.gcd` of its
+inputs, given one unit of fuel more than the smaller input. -/
+theorem euclid_by_invariant (c : Cells) (fuel a b : Nat) (d r : List Int)
+    (enough : b + 1 ≤ fuel) :
+    run c examplesProgram fuel euclidBody ⟨(b : Int) :: (a : Int) :: d, r⟩ =
+      .next ⟨(Nat.gcd a b : Int) :: d, r⟩ :=
+  loop_rule (euclid_invariant c a b d r) fuel _ ⟨a, b, rfl, rfl⟩
+    (by simp only [topNat, Int.toNat_natCast]; omega)
+
+theorem gcd_returns_by_invariant (c : Cells) (fuel : Nat) (a b : Int) (d : List Int)
+    (enough : b.toNat + 2 ≤ fuel) :
+    (run c examplesProgram fuel gcdBody ⟨b :: a :: d, []⟩).returned =
+      some (encodeNat (if a < 0 ∨ b < 0 then none else some (Nat.gcd a.toNat b.toNat)) ++ d) := by
+  simp only [gcdBody]
+  ir_simp
+  by_cases negative : a < 0 ∨ b < 0
+  · have test : (decide (b < 0) || decide (a < 0)) = true := by simp; omega
+    simp only [test, negative, ↓reduceIte]
+    simp [Result.returned, encodeNat]
+  · have test : (decide (b < 0) || decide (a < 0)) = false := by simp; omega
+    simp only [test, negative, Bool.false_eq_true, ↓reduceIte]
+    obtain ⟨a, rfl⟩ : ∃ n : Nat, a = n := ⟨a.toNat, (Int.toNat_of_nonneg (by omega)).symm⟩
+    obtain ⟨b, rfl⟩ : ∃ n : Nat, b = n := ⟨b.toNat, (Int.toNat_of_nonneg (by omega)).symm⟩
+    simp only [Int.toNat_natCast] at enough ⊢
+    rw [run_call_word c examplesProgram lookup_euclid
+      (by rw [euclid_by_invariant c (fuel - 1) a b d [] (by omega)]; rfl) (by omega)]
+    ir_simp
+    simp [Result.returned, encodeNat]
+
+/-- The contract of `lf-gcd ( a b -- gcd true | false )`, for all integer
+inputs, given three units of fuel more than `b`. -/
+def GcdWordContract (p : Program) : Prop :=
+  ∀ (c : Cells) (fuel : Nat) (a b : Int), b.toNat + 3 ≤ fuel →
+    Meets c p fuel "lf-gcd" [b, a] encodeNat (GcdReference.GcdSpec a b)
+
+theorem gcd_meets_contract : GcdWordContract examplesProgram :=
+  fun c fuel a b enough tail rs =>
+    ⟨_, callWord_of_returns lookup_gcd (gcd_returns_by_invariant c _ a b tail (by omega))
+      (by omega), GcdReference.natGcd_spec a b⟩
+
+-- lf-factorial-from: `BEGIN DUP 1 > WHILE 2DUP lf-product-over? IF 2DROP FALSE
+-- EXIT THEN TUCK * SWAP 1- REPEAT DROP TRUE`.
+
+/-- The loop of lf-factorial-from keeps a counter `k` on top of a product `q`,
+with 1 ≤ q, q and k in the cell, and q * k! equal to `total`, which is
+q * k! of its inputs; below them the caller's cells `d`. -/
+def factorialInv (c : Cells) (total : Int) (d r : List Int) (s : State) : Prop :=
+  ∃ (k : Nat) (q : Int), s = ⟨(k : Int) :: q :: d, r⟩ ∧ 1 ≤ q ∧ q ≤ c.max ∧
+    (k : Int) ≤ c.max ∧ q * (FactorialReference.factorial k : Int) = total
+
+/-- What the loop and the rest of lf-factorial-from give: `total` and true if
+it fits in a cell, otherwise false through EXIT. -/
+def factorialGoal (c : Cells) (total : Int) (d r : List Int) (res : Result) : Prop :=
+  res = if total ≤ c.max then .next ⟨-1 :: total :: d, r⟩ else .exited ⟨0 :: d, r⟩
+
+theorem factorial_le_one {k : Nat} (small : k ≤ 1) : FactorialReference.factorial k = 1 := by
+  cases k with
+  | zero => rfl
+  | succ k =>
+    cases k with
+    | zero => rfl
+    | succ k => omega
+
+theorem factorialFrom_invariant (c : Cells) (total : Int) (d r : List Int) :
+    LoopInvariant c examplesProgram [.prim .dup, .lit 1, .prim .gt]
+      [.prim .twoDup, .call "lf-product-over?", .ifElse [.prim .twoDrop, .prim .false, .exit] [],
+       .prim .tuck, .prim .mul, .prim .swap, .prim .oneMinus]
+      [.prim .drop, .prim .true] (factorialInv c total d r) topNat 0
+      (factorialGoal c total d r) := by
+  intro fuel s ⟨k, q, same, low, high, small, product⟩ enough
+  subst same
+  simp only [topNat, Int.toNat_natCast, Nat.zero_add] at enough
+  refine ⟨flag (decide ((k : Int) > 1)), (k : Int) :: q :: d, r, by ir_simp, ?_, ?_⟩
+  · intro zero
+    have one : FactorialReference.factorial k = 1 :=
+      factorial_le_one (by simp [flag] at zero; omega)
+    ir_simp
+    rw [one, Int.natCast_one, Int.mul_one] at product
+    subst product
+    simp [factorialGoal, high]
+  · intro nonzero
+    have two : 2 ≤ k := by simp [flag] at nonzero; omega
+    ir_simp
+    rw [run_call_word c examplesProgram lookup_productOver
+      (productOver_returns c (fuel - 1) q (k : Int) _ (by omega) (by omega)) (by omega)]
+    ir_simp
+    have positive : (0 : Int) < (k : Int) := by omega
+    obtain ⟨j, rfl⟩ : ∃ j, k = j + 1 := ⟨k - 1, by omega⟩
+    have grows := le_mul_of_one_le (x := q * ((j + 1 : Nat) : Int))
+      (y := (FactorialReference.factorial j : Int)) (Int.mul_nonneg (by omega) (by omega))
+      (by have := FactorialReference.factorial_pos j; omega)
+    rw [product_factorial_succ] at product
+    by_cases over : q > c.max / ((j + 1 : Nat) : Int)
+    · have exceeds : ¬(q * ((j + 1 : Nat) : Int) ≤ c.max) := fun fits =>
+        absurd ((Int.le_ediv_iff_mul_le positive).mpr fits) (by omega)
+      simp only [over, ↓reduceIte, factorialGoal, show ¬(total ≤ c.max) by omega]
+    · have below : q * ((j + 1 : Nat) : Int) ≤ c.max :=
+        (Int.le_ediv_iff_mul_le positive).mp (by omega)
+      have atLeast := le_mul_of_one_le (x := q) (y := ((j + 1 : Nat) : Int)) (by omega) (by omega)
+      have := c.max_pos
+      simp only [over, ↓reduceIte]
+      ir_simp
+      rw [c.wrap_of_fits (x := q * ((j + 1 : Nat) : Int))
+          (by simp only [Cells.Fits, c.min_eq]; omega),
+        c.wrap_of_fits (x := ((j + 1 : Nat) : Int) - 1)
+          (by simp only [Cells.Fits, c.min_eq]; omega),
+        show ((j + 1 : Nat) : Int) - 1 = (j : Int) by omega]
+      refine ⟨⟨j, q * ((j + 1 : Nat) : Int), rfl, by omega, below, by omega, product⟩, ?_⟩
+      simp only [topNat, Int.toNat_natCast]
+      omega
+
+/-- The loop of lf-factorial-from, by its invariant: the same result as
+`factorialFrom_run` in Part 3, given one unit of fuel more than `k`. -/
+theorem factorialFrom_by_invariant (c : Cells) (fuel k : Nat) (q : Int) (d r : List Int)
+    (enough : k + 1 ≤ fuel) (low : 1 ≤ q) (high : q ≤ c.max) (small : (k : Int) ≤ c.max) :
+    run c examplesProgram fuel factorialFromBody ⟨(k : Int) :: q :: d, r⟩ =
+      if q * (FactorialReference.factorial k : Int) ≤ c.max
+      then .next ⟨-1 :: q * (FactorialReference.factorial k : Int) :: d, r⟩
+      else .exited ⟨0 :: d, r⟩ :=
+  loop_rule (factorialFrom_invariant c _ d r) fuel _ ⟨k, q, rfl, low, high, small, rfl⟩
+    (by simp only [topNat, Int.toNat_natCast]; omega)
+
+theorem factorial_returns_by_invariant (c : Cells) (fuel : Nat) (n : Int) (d : List Int)
+    (enough : n.toNat + 2 ≤ fuel) (fits : c.Fits n) :
+    (run c examplesProgram fuel factorialBody ⟨n :: d, []⟩).returned =
+      some (encodeNat (if n < 0 then none
+        else if FactorialReference.factorial n.toNat ≤ c.max.toNat
+        then some (FactorialReference.factorial n.toNat) else none) ++ d) := by
+  simp only [factorialBody]
+  ir_simp
+  by_cases negative : n < 0
+  · simp only [negative, ↓reduceIte]
+    simp [Result.returned, encodeNat]
+  · simp only [negative, ↓reduceIte]
+    obtain ⟨n, rfl⟩ : ∃ m : Nat, n = m := ⟨n.toNat, (Int.toNat_of_nonneg (by omega)).symm⟩
+    simp only [Int.toNat_natCast] at enough ⊢
+    have := c.max_pos
+    simp only [Cells.Fits] at fits
+    have returns : (run c examplesProgram (fuel - 1) factorialFromBody
+        ⟨(n : Int) :: 1 :: d, []⟩).returned =
+        some ((if (FactorialReference.factorial n : Int) ≤ c.max
+          then [-1, (FactorialReference.factorial n : Int)] else [0]) ++ d) := by
+      rw [factorialFrom_by_invariant c (fuel - 1) n 1 d [] (by omega) (by omega) (by omega)
+        (by omega)]
+      simp only [Int.one_mul]
+      by_cases small : (FactorialReference.factorial n : Int) ≤ c.max <;>
+        simp only [small, ↓reduceIte, Result.returned, List.cons_append, List.nil_append]
+    rw [run_call_word c examplesProgram lookup_factorialFrom returns (by omega)]
+    by_cases small : (FactorialReference.factorial n : Int) ≤ c.max
+    · have : FactorialReference.factorial n ≤ c.max.toNat := by omega
+      simp [small, this, Result.returned, encodeNat]
+    · have : ¬FactorialReference.factorial n ≤ c.max.toNat := by omega
+      simp [small, this, Result.returned, encodeNat]
+
+/-- The contract of `lf-factorial ( n -- factorial true | false )`, with the
+largest cell as the limit, given three units of fuel more than `n` and an
+input that fits in a cell. -/
+def FactorialWordContract (p : Program) : Prop :=
+  ∀ (c : Cells) (fuel : Nat) (n : Int), n.toNat + 3 ≤ fuel → c.Fits n →
+    Meets c p fuel "lf-factorial" [n] encodeNat
+      (FactorialReference.FactorialSpec c.max.toNat n)
+
+theorem factorial_meets_contract : FactorialWordContract examplesProgram :=
+  fun c fuel n enough fits tail rs =>
+    ⟨_, callWord_of_returns lookup_factorial
+      (factorial_returns_by_invariant c _ n tail (by omega) fits) (by omega),
+      FactorialReference.guarded_spec c.max.toNat n⟩
+
+-- Deliberately wrong programs, one for each word, are refuted: no program
+-- meets a contract merely because the contracts are weak. Each is a
+-- realistic mistake in the Forth source.
+
+/-- `lf-checked-add` without its overflow test (`uncheckedAddProgram`
+above): the largest cell plus 1 wraps to the smallest instead of failing. -/
+theorem unchecked_add_violates_contract : ¬ CheckedAddWordContract uncheckedAddProgram := by
+  intro claim
+  have := cells64.max_pos
+  obtain ⟨r, runs, spec⟩ := claim cells64 5 cells64.max 1 (by decide) cells64.fits_max
+    cells64.fits_one [] []
+  rw [spec.2 (by simp only [CheckedAddReference.inCell]; omega)] at runs
+  simp [callWord, run_call, uncheckedAddProgram, lookup, run_prim, step, encode] at runs
+
+/-- `lf-checked-abs` as Forth's ABS alone: the smallest cell gives true and a
+negative "magnitude" instead of false. -/
+def plainAbsProgram : Program := [("lf-checked-abs", .word [.prim .abs, .prim .true])]
+
+theorem plain_abs_violates_contract : ¬ CheckedAbsWordContract plainAbsProgram := by
+  intro claim
+  obtain ⟨r, runs, spec⟩ := claim cells64 3 cells64.min (by decide) cells64.fits_min [] []
+  rw [spec.1 rfl] at runs
+  simp [callWord, run_call, plainAbsProgram, lookup, run_prim, step, encode] at runs
+
+/-- `lf-in-range` without its test for reversed bounds: lower 1 above upper 0
+gives true and a flag instead of false. -/
+def unguardedInRangeProgram : Program :=
+  [("lf-within-closed?", .word withinClosedBody),
+   ("lf-in-range", .word [.call "lf-within-closed?", .prim .true])]
+
+theorem unguarded_in_range_violates_contract :
+    ¬ InRangeWordContract unguardedInRangeProgram := by
+  intro claim
+  obtain ⟨r, runs, spec⟩ := claim cells64 2 0 1 0 (by decide) [] []
+  rw [spec.1 (by decide)] at runs
+  simp [callWord, run_call, unguardedInRangeProgram, lookup, withinClosedBody, run_prim, step,
+    encodeFlag] at runs
+
+/-- `lf-gcd` that tests only its top input for a negative value: for -4 and 6
+Euclid's loop reaches `-4 6 MOD`, which IR 0.1 does not model, instead of
+answering false. -/
+def gcdTopOnlyProgram : Program :=
+  [("lf-euclid", .word euclidBody),
+   ("lf-gcd", .word [.prim .dup, .prim .zeroLt,
+     .ifElse [.prim .twoDrop, .prim .false] [.call "lf-euclid", .prim .true]])]
+
+theorem gcd_top_only_violates_contract : ¬ GcdWordContract gcdTopOnlyProgram := by
+  intro claim
+  obtain ⟨r, runs, spec⟩ := claim cells64 9 (-4) 6 (by decide) [] []
+  rw [spec.1 (by decide)] at runs
+  simp [callWord, run_call, run_loop, gcdTopOnlyProgram, lookup, euclidBody, run_prim, run_if,
+    step, flag, encodeNat] at runs
+
+/-- A 16-bit cell, the smallest Forth-2012 allows. -/
+def cells16 : Cells := ⟨16, by decide⟩
+
+/-- `lf-factorial-from` without its overflow test: on 16-bit cells 8! = 40320
+wraps to -25216, returned with true instead of false. -/
+def wrappingFactorialProgram : Program :=
+  [("lf-factorial-from", .word [.loop [.prim .dup, .lit 1, .prim .gt]
+       [.prim .tuck, .prim .mul, .prim .swap, .prim .oneMinus], .prim .drop, .prim .true]),
+   ("lf-factorial", .word factorialBody)]
+
+theorem wrapping_factorial_violates_contract :
+    ¬ FactorialWordContract wrappingFactorialProgram := by
+  intro claim
+  obtain ⟨r, runs, spec⟩ := claim cells16 11 8 (by decide)
+    (by simp [Cells.Fits, cells16, Cells.min, Cells.max, Cells.half]) [] []
+  rw [spec.2.2 (by decide) (by decide)] at runs
+  simp [callWord, run_call, run_loop, wrappingFactorialProgram, lookup, factorialBody, run_prim,
+    run_lit, Cells.fits_one, run_if, step, flag, encodeNat, cells16, Cells.wrap, Cells.min,
+    Cells.half, Cells.modulus] at runs
+
+-- The axioms each contract theorem uses; `make reference-program-ir` accepts
+-- only Lean's propext, Classical.choice and Quot.sound here.
+#print axioms CheckedAddReference.checkedAdd_contract
+#print axioms ProgramExamplesReference.checkedAbs_contract
+#print axioms ProgramExamplesReference.inRange_contract
+#print axioms GcdReference.checked_contract
+#print axioms FactorialReference.checked_contract
+#print axioms checkedAdd_meets_contract
+#print axioms checkedAbs_meets_contract
+#print axioms inRange_meets_contract
+#print axioms loop_rule
+#print axioms euclid_by_invariant
+#print axioms gcd_meets_contract
+#print axioms factorialFrom_by_invariant
+#print axioms factorial_meets_contract
+#print axioms unchecked_add_violates_contract
+#print axioms plain_abs_violates_contract
+#print axioms unguarded_in_range_violates_contract
+#print axioms gcd_top_only_violates_contract
+#print axioms wrapping_factorial_violates_contract
 
 end ProgramIR
 

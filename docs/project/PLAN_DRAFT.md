@@ -243,6 +243,7 @@ after migration evidence. (5) `make coverage` and `make mutants` work.
 | 1.1.5 | Heap stores: `store:` variant using `ALLOCATE`/`FREE`, same checks | Same test suite as `store:` passes; allocation failure gives exhausted; prerequisite for 3.3 and 7.2 | 1.1.3 | [forth-review] | M |
 | 1.1.6 | ADR 0009 (proposed number): exceptions — when to use `CATCH`/`THROW` (§6.10) | Decision recorded with rejected alternatives; one module piloted | 1.1.1 | [forth-review] | S |
 | 1.1.7 | ADR 0010: wordlists and module boundaries (§6.9); apply to `lib/` first | `lib/` words in their own wordlist; `make smoke` still silent | — | [forth-review] | M |
+| 1.1.8 | Reusable libraries (owner, 2026-11-03): each general-purpose library in `src/lib/` (bignum, JSON reader and writer, bytes, u32, stores, SHA-256, the compact store) requires only what it uses, keeps helpers private (1.1.7), has a short README with an example, and a test that loads it from outside the project; optional signed-integer layer over bignum; LeanForth-specific choices (such as `bytes.fs`'s strict framing) become options | Each library runs its example from an unrelated folder on both Gforths; reusability table in FORTH_LIBRARY.md updated | 1.1.7 | [forth-review] | M |
 
 **WP 1.2 Refactor `core/` and `kernel/` bottom-up (Q10).** Every task keeps
 behaviour identical (old and new tests pass, Lean comparisons unchanged),
@@ -559,6 +560,25 @@ the verification-condition generator together, with refuted wrong programs:
 | G4 | Data defined with `CREATE`/`DOES>`, `VALUE`/`TO`, `CONSTANT`, `VARIABLE`, as declared data | phase 8 | A table-driven word verified against its declared table |
 | G5 | Characters, strings and I/O (`TYPE`, `EMIT`, `ACCEPT`, files) as effects with stated assumptions | phase 9 | A text-processing word verified with its I/O assumptions in the receipt |
 
+**Flagship program target: SHA-256** (owner, 2026-11-03: "the forth program
+correctness is equally important, but, lets not slow down the lean for it
+… perhaps SHA-256 should be a good one?"). Prove that LeanForth's own
+`src/lib/sha256.fs` (written for the import checksum, plan 3.2.6) computes
+exactly FIPS 180-4 SHA-256 for every message. Why it fits: the standard
+specifies every step and publishes test vectors; it needs the features the
+program track must support anyway (32-bit wrapping arithmetic, bit
+operations, counted loops, buffers); it is real code the product relies on;
+and published verified implementations exist to compare with. It runs in
+the program-track lane and never delays the theorem track. Stages:
+
+| ID | Stage | Fits after | Acceptance |
+| --- | --- | --- | --- |
+| SHA-1 | Lean specification of FIPS 180-4 SHA-256, written from the standard, checked against the NIST test vectors by Lean's kernel (no `Lean.ofReduceBool`) | now (Lean only) | Spec agrees with every NIST vector; reviewed against the standard's text |
+| SHA-2 | The helper words (ROTR, SHR, Ch, Maj, Σ0, Σ1, σ0, σ1) as straight-line IR words with 32-bit masking; IR additions they need (`lshift`, 32-bit constants beyond today's literal limit) | IR 0.2 (small extension of IR 0.1) | Each word's IR proved equal to its spec function for all 32-bit inputs; wrong variants refuted |
+| SHA-3 | Message schedule and one compression round, then the 64-round block compression: counted loops with invariants | G1 (IR v1 loops, plan 4.4.1) | Block compression proved equal to the spec for every block and state |
+| SHA-4 | Padding, buffers and the incremental interface (init, update, final) over memory | G2 (memory model) | The whole word set proved to compute the spec for every message and every split into updates; receipt ties the exact source file to the proof |
+| SHA-5 | The proof checked by LeanForth itself, not by Lean | phase 5 (first program fact checked by LeanForth) | Receipt says *kernel-accepted (experimental)* |
+
 Always *unsupported* inside verified words: `IMMEDIATE`, `POSTPONE`,
 `[COMPILE]`, `EVALUATE`, `STATE` games and run-time dictionary changes.
 
@@ -675,6 +695,32 @@ recommendation with reasons; the owner's answer with date and commit. Group
 related rules into one packet where they are reviewed together anyway, but
 never batch across gates (AGENTS.md). Your time is the scarcest resource on
 the critical path; each summary should take under ten minutes to read.
+
+### W9 Related work
+
+Review projects close to LeanForth and record what to adopt, with the plan
+tasks each finding affects:
+
+- **MiniForth** (<https://github.com/leodemoura/MiniForth>), a Forth written
+  in Lean by Leonardo de Moura — the mirror image of LeanForth's Lean in
+  Forth (owner, 2026-11-03: "review this and see if we can learn anything
+  useful to apply"). Questions: its model of Forth state, words, memory and
+  control flow against IR 0.1's Lean semantics; whether it can serve as an
+  independent reference for the program track (three-way comparisons, the
+  two-mode design of ADR 0019); its licence. Review started 2026-11-03.
+- Other independent Lean kernel checkers (lean4lean, nanoda) as second
+  referees (already plan 6.4.1).
+
+### W8 Improved mode (beyond Lean)
+
+The owner (2026-11-03): "we need 100% compatibility with lean, but, also,
+if we can have an improved solver mode, that would be great!" Every place
+where Lean's kernel rejects or cannot decide something true is recorded in
+[BEYOND_LEAN.md](BEYOND_LEAN.md) as it is found (first entry: universe
+level equality). Design of an opt-in, clearly labelled improved mode starts
+only after the compatibility checker covers Mathlib (phase 6), so that
+compatibility is never delayed; each improved rule needs a soundness
+argument and the full checker gate.
 
 ### W7 Scale (placeholder for the separate scale workstream)
 
