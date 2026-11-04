@@ -23,7 +23,8 @@
 \ the array; compact-free ( -- ); the drivers compact-dump and
 \ compact-dump-unchecked ( c-addr u -- ), used by
 \ tests/core/compact-verify.sh, and compact-measure ( c-addr u log2 -- ).
-\ Name a manifest file first with `s" FILE" compact-manifest-use`. Uses Gforth's utime for timings. Usage, for example:
+\ Name a manifest file first with `s" FILE" compact-manifest-use`. Uses Gforth's utime for
+\ timings. Usage, for example:
 \   gforth-fast tests/support/compact-load.fs -e 's" init.ndjson" 24 compact-measure bye'
 
 require ../../src/import/stage.fs
@@ -50,7 +51,8 @@ compact-stage /stage erase  compact-loaded /compact-load erase
   4 0 do cons-numbers-max compact-loaded i /slab * + fields-init drop loop
   compact-stage stage-init ;
 : .load-error ( -- )
-  compact-stage stage-error 2>r 2>r ." line " . ." field " 2r> type ."  why " 2r> type cr ;
+  compact-stage stage-error 2>r 2>r ." line " . ." field " 2r> type ."  why " 2r> type
+  cr ;
 : loaded ( outcome -- outcome ) dup ok? 0= if ." load failed: " dup . .load-error then ;
 \ Load and seal the export named c-addr u, its expression table starting
 \ at 2^log2 slots: ok, or the failing outcome after printing why.
@@ -64,7 +66,8 @@ create compact-manifest 0 , 0 ,
   compact-start dup ok? 0= if nip nip exit then drop compact-manifest-named
   compact-stage stage-load loaded ;
 : compact-load-unchecked ( c-addr u log2 -- outcome )
-  compact-start dup ok? 0= if nip nip exit then drop compact-stage stage-load-unchecked loaded ;
+  compact-start dup ok? 0= if nip nip exit then drop compact-stage stage-load-unchecked
+  loaded ;
 : compact-free ( -- )
   compact-stage stage-free 4 0 do compact-loaded i /slab * + slab-free loop ;
 
@@ -92,7 +95,8 @@ create compact-manifest 0 , 0 ,
 : .int ( n -- ) space 0 .r ;
 : .flag ( flag -- ) 0<> 1 and .int ;
 : .hex-byte ( c -- ) base @ >r hex 0 <# # # #> type r> base ! ;
-: .hex ( addr u -- ) space dup 0= if 2drop ." -" exit then over + swap ?do i c@ .hex-byte loop ;
+: .hex ( addr u -- ) space dup 0= if 2drop ." -" exit then over + swap ?do i c@
+  .hex-byte loop ;
 : .head ( i c-addr u -- ) type .int ;
 
 : emit-meta ( -- )
@@ -176,7 +180,8 @@ variable decl-top  variable types-seen  variable ctors-seen  variable recs-seen
   3 over .names-item 4 over .item dup compact-stage staged-rec? .flag
   dup compact-stage staged-unsafe? .flag compact-stage staged-reflexive? .flag ;
 : emit-ctor ( d -- )
-  s" ind.ctor" ctors-seen element dup .decl 0 over compact-stage staged-item name-index .int
+  s" ind.ctor" ctors-seen element dup .decl 0 over compact-stage staged-item name-index
+  .int
   1 over .item 2 over .item 3 over .item compact-stage staged-unsafe? .flag ;
 : rule-item ( k t -- u ) compact-tier tier-tuples tuple-item ;
 : .rule ( k t -- )
@@ -238,7 +243,8 @@ variable decl-top  variable types-seen  variable ctors-seen  variable recs-seen
   ." declarations=" compact-stage stage-decls 0 .r
   ."  bytes=" compact-stage stage-decl-records slab-bytes 0 .r
   ."  name-array bytes=" compact-stage stage-by-name slab-bytes 0 .r
-  ."  marked=" compact-stage stage-marks @ 0 .r ."  mdata=" compact-stage stage-mdata @ 0 .r
+  ."  marked=" compact-stage stage-marks @ 0 .r ."  mdata=" compact-stage stage-mdata @
+  0 .r
   cr ." kinds:" kind-recursor 1+ kind-axiom do space i decls-of-kind 0 .r loop cr
   ." export maps: names=" compact-stage stage-name-map slab-count 0 .r
   ."  levels=" compact-stage stage-level-map slab-count 0 .r
@@ -273,11 +279,13 @@ variable decl-top  variable types-seen  variable ctors-seen  variable recs-seen
   loop true ;
 : text-finds ( -- found )
   0 compact-stage stage-decls 0 ?do
-    i named? if i compact-stage staged-name@ dup resolve if = if 1+ then else drop then then
+    i named? if i compact-stage staged-name@ dup resolve if = if 1+ then else drop then
+    then
   loop ;
 : compact-lookups ( -- )
   now >r array-finds now r> - >r
-  ." name lookups through the array: declarations=" swap 0 .r ."  found=" 0 .r space r> .ms cr
+  ." name lookups through the array: declarations=" swap 0 .r ."  found=" 0 .r space r>
+  .ms cr
   compact-tier compact-scratch tier-extend ok? 0= abort" compact-lookups: no scratch tier"
   now text-finds now rot - swap
   ." name lookups by text: found=" 0 .r space .ms cr compact-scratch tier-free ;
@@ -301,7 +309,8 @@ variable decl-top  variable types-seen  variable ctors-seen  variable recs-seen
 \ ---- Entry words.
 \ Load the export named c-addr u and print its dump lines.
 : compact-dump ( c-addr u -- )
-  16 compact-load dup ok? 0= if ." error: " . cr exit then drop compact-emit compact-free ;
+  16 compact-load dup ok? 0= if ." error: " . cr exit then drop compact-emit
+  compact-free ;
 : compact-dump-unchecked ( c-addr u -- )
   16 compact-load-unchecked dup ok? 0= if ." error: " . cr exit then drop
   compact-emit compact-free ;

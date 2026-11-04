@@ -549,8 +549,8 @@ test-differential: reference-reexport
 # two tiers (src/lib/slab.fs, htab.fs, hash32.fs, cons.fs, pools.fs) and
 # Lean's names, levels and expressions on them (src/core/compact*.fs). Unit
 # tests with randomized models, then every pinned reference export loaded
-# into the store and re-emitted as the NDJSON reader dumps it. Not loaded by
-# src/main.fs yet; make smoke loads each module on its own. Gforth only.
+# into the store by the importer stage, with its manifest, and re-emitted
+# as the NDJSON reader dumps it. Gforth only.
 test-compact:
 	$(RUN) $(GFORTH) tests/lib/hash32.fs
 	$(RUN) $(GFORTH) tests/lib/slab.fs
@@ -562,18 +562,37 @@ test-compact:
 	  || { bash tests/core/compact-verify.sh $$f $(GFORTH); exit 1; }; \
 	done; echo "The compact store re-emits every reference export as the reader dumps it."
 
+# The importer stage (ADR 0016 C9 step 2, plan 3.2.1; src/import/stage.fs):
+# unit tests (life cycle, declarations read back, lookups, resolutions,
+# rollbacks, the memory limit, forged bad references, mdata marked, a
+# scratch tier as a context member), the cases that need a changed export
+# (unknown constants, duplicate names, truncated files, 32-bit limits), and
+# every other fixture export of tests/, which have no manifest (loaded
+# unchecked, explicitly), re-emitted as the reader dumps it. Gforth and
+# Python 3 only.
+STAGE_FIXTURES := tests/core/check-declaration-cases/*.ndjson tests/core/ndjson-block.ndjson \
+	tests/core/reexport/kinds.ndjson
+test-stage:
+	$(RUN) $(GFORTH) tests/core/stage.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/core/test_stage.py
+	@for f in $(STAGE_FIXTURES); do \
+	  $(RUN) bash tests/core/compact-verify.sh --unchecked $$f $(GFORTH) >/dev/null \
+	  || { bash tests/core/compact-verify.sh --unchecked $$f $(GFORTH); exit 1; }; \
+	done; echo "The stage re-emits every other fixture export as the reader dumps it."
+
 # Nineteen faults planted in a copy of the compact store, each caught by the
 # checks of test-compact (about 25 s; part of make check).
 test-compact-faults:
 	GFORTH=$(GFORTH) $(RUN) python3 tests/core/compact_faults.py
 
-# Lean's Init, exported by the pinned leanexport, loaded into the compact
-# store and re-emitted: all 6.4 million name, level and expression records
-# equal the reader's dump (about 1.5 minutes with gforth-fast).
+# Lean's Init, exported by the pinned leanexport with its manifest, staged
+# into the compact store and re-emitted: all 6.4 million name, level,
+# expression and declaration records equal the reader's dump (about 1.5
+# minutes with gforth-fast).
 reference-compact-init:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/core/compact-init.sh
 
-.PHONY: test-compact test-compact-faults reference-compact-init
-test: test-compact
+.PHONY: test-compact test-stage test-compact-faults reference-compact-init
+test: test-compact test-stage
 check: test-compact-faults
 test-differential: reference-compact-init

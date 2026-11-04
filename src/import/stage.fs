@@ -182,11 +182,12 @@ require ./stage-records.fs
     ok? 0= if r> drop 2drop drop outcome-invalid exit then r> record-span +
   repeat 2drop drop outcome-ok ;
 
-\ Marks, only when an mdata record was staged. The reach bytes (heap,
-\ freed after sealing) hold one byte per expression number: 1 when the
-\ expression is or holds an mdata record. Children have smaller numbers
-\ than their parents, so one pass in number order fills them.
-: reach@ ( e stage -- flag ) stage-reach @ + c@ 0<> ;
+\ Marks, only when an mdata record was staged. The reach fields (heap,
+\ freed after sealing) hold one 32-bit field per expression number: 1
+\ when the expression is or holds an mdata record. Children have smaller
+\ numbers than their parents, so one pass in number order fills them.
+: reach-at ( e stage -- addr ) stage-reach @ swap u32s + ;
+: reach@ ( e stage -- flag ) reach-at u32@ 0<> ;
 : a-reach? ( addr stage -- flag ) swap quad-a u32@ swap reach@ ;
 : b-reach? ( addr stage -- flag ) swap quad-b u32@ swap reach@ ;
 : body-reach? ( addr stage -- flag ) swap body-of swap reach@ ;
@@ -199,11 +200,11 @@ require ./stage-records.fs
   r> let-tag? if >r body-reach? r> or else nip nip then ;
 : reach-fill ( stage -- )
   dup input-exprs 0 begin 2dup swap slab-count < while
-    2dup swap slab-at dup 4 pick reaches? 1 and 2 pick 5 pick stage-reach @ + c!
+    2dup swap slab-at dup 4 pick reaches? 1 and 2 pick 5 pick reach-at u32!
     record-span +
   repeat 2drop drop ;
 : reach-make ( stage -- outcome )
-  dup input-exprs slab-count 1 max dup allocate if 2drop drop outcome-full exit then
+  dup input-exprs slab-count 1 max u32s dup allocate if 2drop drop outcome-full exit then
   dup rot erase swap stage-reach ! outcome-ok ;
 : reach-free ( stage -- ) stage-reach heap-release ;
 \ Whether a declaration's type, value or recursor rules reach one.

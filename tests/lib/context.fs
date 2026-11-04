@@ -311,16 +311,19 @@ ctx3 context-use
 T{ c-heap @ 0<> c-heap-extra @ -> true 0 }T
 context-main context-use
 T{ ctx3 ' context-free rs-checked blocks-held -> 0 0 }T
-T{ late-at @ early-at @ tear-context @ ctx3 = lf-context @ context-main = -> 1 2 true true }T
+T{ late-at @ early-at @ -> 1 2 }T
+T{ tear-context @ ctx3 = lf-context @ context-main = -> true true }T
 \ Freeing the current context: the teardown words still see it, and the
 \ task returns to the main context.
 context-new throw constant ctx5
 ctx5 context-use
-T{ ctx5 context-free blocks-held lf-context @ context-main = tear-context @ ctx5 = -> 0 0 true true }T
+T{ ctx5 context-free blocks-held -> 0 0 }T
+T{ lf-context @ context-main = tear-context @ ctx5 = -> true true }T
 \ A check that throws after its member grew a second block: freeing the
 \ context afterwards gives every block back.
 : c-grow-throw ( context -- )
-  context-use c-heap @ 4096 resize throw c-heap ! 32 allocate throw c-heap-extra ! 77 throw ;
+  context-use c-heap @ 4096 resize throw c-heap !
+  32 allocate throw c-heap-extra ! 77 throw ;
 context-new throw constant ctx4
 T{ ctx4 ' c-grow-throw context-catch nip lf-context @ context-main = -> 77 true }T
 T{ blocks-held -> 3 }T

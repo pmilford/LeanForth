@@ -101,7 +101,7 @@ begin-structure /stage
   field: stage-marks                 \ declarations marked
   field: stage-why                   \ counted string: why sealing failed, or 0
   field: stage-culprit               \ the name sealing failed on
-  field: stage-reach                 \ while sealing: the mdata reach bytes, or 0
+  field: stage-reach                 \ while sealing: the mdata reach fields, or 0
   field: stage-item-count            \ items of the tuple being gathered
   8 cells +field stage-items
 end-structure

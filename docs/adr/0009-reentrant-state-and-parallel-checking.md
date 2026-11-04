@@ -103,6 +103,61 @@ Nothing can run twice at once in one Forth image.
    environment is needed later for the separate checker program and saved
    results, not for parallelism.
 
+## Amendment 1 (2026-11-03): context members that own heap memory
+
+**The rule until now.** A context member held no `ALLOCATE`d memory
+([the library notes](../development/FORTH_LIBRARY.md#design-per-task-contexts-and-how-modules-convert),
+"Rules for converted modules"): `context-free` gave back the context's own
+block and nothing else, so a heap block a member pointed at would have
+leaked with every freed context. Modules that own heap buffers (the NDJSON
+counter's and the re-exporter's export records) therefore stayed shared.
+
+**Why it changes.** [ADR 0016](0016-compact-store.md) C3 gives every check
+a *scratch tier*: growable heap stores and hash tables, owned by the
+check's context and emptied after each check. A per-context scratch tier
+is the only way checks running in parallel can each build terms without
+locks, and its blocks must be given back when the context is freed, also
+when the job that used it ended with a `THROW`.
+
+**The new rule** (`src/lib/context.fs`, `context-teardown`). A member may
+own heap blocks only if its module registers, while loading, a *teardown
+word* `( -- )` that frees them. `context-free` runs every teardown word,
+newest first, in the context being freed (selected as the current context
+while they run), and then frees the context's block; `context-new` runs
+them too when a setup word fails, before it gives its block back. A
+teardown word must free exactly what its member holds, whatever happened
+to it: after a `THROW` in the middle of a check, and on a member that its
+setup word never reached (still zeroed), so it frees only the blocks it
+finds and zeroes what it freed. It must not make, free, claim or select
+contexts. Each runs balanced under `CATCH`: one that throws or changes the
+stack does not stop the others or keep the context's block, and
+`context-free` then gives the first such code instead of `FREE`'s ior.
+Registering a teardown word after the layout is sealed aborts, like every
+declaration. The main context is never freed, so its members keep their
+blocks until the program ends. Members without heap memory need nothing
+new; shared heap-owning records may stay shared.
+
+*Not chosen:* a release word stored with each member (one module may own
+several members, or one block for several, and a word pairs naturally
+with `context-setup`); and a per-context registry of every block
+allocated (every allocation would have to go through it, and `RESIZE`
+moves blocks behind its back, as `slab.fs` and `htab.fs` do when they
+grow).
+
+**Evidence.** `tests/lib/context.fs` counts heap blocks
+(`tests/support/heap-watch.fs`): a new context holds its block and its
+member's, and freeing it gives both back; a check that grows the member's
+block and adds a second one, then throws, leaves nothing behind once the
+context is freed; teardown words run newest first and in the freed
+context, also when it is the current one; one that throws (code 91) or
+leaves an extra item (`context-unbalanced`) does not keep any block; a
+setup word that fails after another allocated gives that block back; the
+randomized model of 6,000 steps with 50 new contexts ends with no block
+held. `tests/core/stage.fs` makes a scratch tier over a sealed input tier
+a context member and frees it the same way, also after a `THROW`. Three
+planted faults in `tests/mutants/faults.toml` (`context-teardown-…`,
+`context-new-failure-leaks`) are each caught. Run on Gforth 1.0 and 0.7.3.
+
 ## Rejected alternatives
 
 - **Pass a context on the stack to every word.** Most transparent and

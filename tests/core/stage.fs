@@ -48,10 +48,13 @@ T{ st stage-decls 0 st staged-kind@ 1 st staged-kind@ 2 st staged-kind@
 T{ 0 st staged-name@ 1 st staged-name@ 2 st staged-name@ -> 1 name' 5 name' 6 name' }T
 T{ 0 st staged-type@ 0 st staged-value@ 2 st staged-type@ 2 st staged-value@
    -> 4 expr' 6 expr' 13 expr' 18 expr' }T
-T{ 0 st staged-hints@ 0 st staged-hint@ 1 st staged-hint@ 0 st staged-safety@ -> 2 1 2 0 }T
-T{ 2 st staged-hints@ 2 st staged-hint@ 2 st staged-unsafe? 2 st staged-marked? -> 0 0 false false }T
+T{ 0 st staged-hints@ 0 st staged-hint@ 1 st staged-hint@ 0 st staged-safety@
+   -> 2 1 2 0 }T
+T{ 2 st staged-hints@ 2 st staged-hint@ 2 st staged-unsafe? 2 st staged-marked?
+   -> 0 0 false false }T
 \ Universe parameters and `all`, as tuples of names.
-T{ 0 st staged-params@ tier tier-tuples tuple-length 0 0 st staged-params@ tier tier-tuples tuple-item
+T{ 0 st staged-params@ tier tier-tuples tuple-length 0 0 st staged-params@ tier
+   tier-tuples tuple-item
    -> 1 2 name' }T
 T{ 2 st staged-params@ tier tier-tuples tuple-length 2 st staged-items 0 2 st staged-item
    -> 0 1 6 name' }T
@@ -79,9 +82,11 @@ T{ st stage-decls kinds-of -> 7 kind-inductive kind-type kind-type kind-ctor kin
 \ The block: no name, parameters, type or value; [types ctors recursors].
 T{ 0 st staged-name@ 0 st staged-params@ 0 st staged-type@ 0 st staged-value@
    -> 0 staged-none staged-none staged-none }T
-T{ 0 st staged-items 0 0 st staged-item 1 0 st staged-item 2 0 st staged-item -> 3 2 2 1 }T
+T{ 0 st staged-items 0 0 st staged-item 1 0 st staged-item 2 0 st staged-item
+   -> 3 2 2 1 }T
 \ A type: [numParams numIndices all ctors numNested] and its flags.
-T{ 1 st staged-items 0 1 st staged-item 4 1 st staged-item 1 st staged-rec? -> 5 0 0 false }T
+T{ 1 st staged-items 0 1 st staged-item 4 1 st staged-item 1 st staged-rec?
+   -> 5 0 0 false }T
 T{ 2 1 st staged-item tier tier-tuples tuple-length 0 3 1 st staged-item tier tier-tuples
    tuple-item -> 2 3 name' }T
 \ A constructor: [induct cidx numParams numFields].
@@ -90,14 +95,17 @@ T{ 3 st staged-items 0 3 st staged-item 1 4 st staged-item 3 4 st staged-item
 T{ 4 st staged-name@ 0 4 st staged-item -> 4 name' 2 name' }T
 \ The recursor: [all numParams numIndices numMotives numMinors rules],
 \ its rules [ctor nfields rhs] each; universe parameter u; not k.
-T{ 5 st staged-items 3 5 st staged-item 4 5 st staged-item 5 st staged-k? -> 6 2 2 false }T
+T{ 5 st staged-items 3 5 st staged-item 4 5 st staged-item 5 st staged-k?
+   -> 6 2 2 false }T
 : rules ( -- t ) 5 5 st staged-item ;
 : rule ( k -- u ) rules tier tier-tuples tuple-item ;
-T{ rules tier tier-tuples tuple-length 0 rule 1 rule 2 rule 3 rule -> 6 3 name' 0 0 expr' 4 name' }T
+T{ rules tier tier-tuples tuple-length 0 rule 1 rule 2 rule 3 rule
+   -> 6 3 name' 0 0 expr' 4 name' }T
 T{ 0 5 st staged-params@ tier tier-tuples tuple-item -> 6 name' }T
 \ The constants A and B resolve to their types, declarations 1 and 2.
 T{ 1 expr' st stage-resolved 2 expr' st stage-resolved -> 1 true 2 true }T
-T{ 2 name' st stage-find 3 name' st stage-find 7 name' st stage-find -> 2 true 3 true 6 true }T
+T{ 2 name' st stage-find 3 name' st stage-find 7 name' st stage-find
+   -> 2 true 3 true 6 true }T
 \ Once unmapped, export indices map to nothing.
 st stage-unmap
 T{ 1 st export>name 0 st export>expr -> staged-none staged-none }T
@@ -138,7 +146,8 @@ st stage-free
 : throws ( record -- outcome ) drop 77 throw ;
 T{ 12 st stage-init -> outcome-ok }T
 ' throws kind-app st stage-export export-handler !
-T{ fixture st ' stage-read catch nip nip nip phase counts -> 77 staging-empty empty-counts }T
+T{ fixture st ' stage-read catch nip nip nip phase counts
+   -> 77 staging-empty empty-counts }T
 st handlers-set
 T{ fixture st stage-load counts -> outcome-ok fixture-counts }T
 st stage-free
@@ -155,7 +164,8 @@ T{ 12 st stage-init -> outcome-ok }T
 : named ( record c-addr u -- record ) rot dup >r name-part 2! r> ;
 T{ kind-app forged 0 over app-fn ! 5 over app-arg ! put-app -> outcome-invalid }T
 T{ kind-succ forged 9 over succ-of ! put-succ -> outcome-invalid }T
-T{ kind-name-str forged 3 over name-prefix ! s" x" named put-name-str -> outcome-invalid }T
+T{ kind-name-str forged 3 over name-prefix ! s" x" named put-name-str
+   -> outcome-invalid }T
 T{ kind-sort forged 0 over sort-level ! put-sort -> outcome-ok }T
 \ A theorem whose type is the sort just made but whose value is no
 \ expression, and one with both: only the second is kept. (Their lists
@@ -190,12 +200,14 @@ T{ marked-decl st staged-name@ tier name-prefix@ tier name-text@ s" Nat" compare
 : check-scratch-free ( -- ) check-scratch tier-free ;
 ' check-scratch-free context-teardown
 live-blocks @ constant blocks-with-input
-: in-scratch ( context -- ) context-use tier check-scratch tier-extend ok? 0= abort" extend" ;
+: in-scratch ( context -- ) context-use tier check-scratch tier-extend ok? 0=
+  abort" extend" ;
 : built ( e outcome -- e ) ok? 0= abort" build" ;
 : build ( -- e ) 0 check-scratch expr-bvar built dup check-scratch expr-app built ;
 : build-throw ( context -- ) in-scratch build drop 55 throw ;
 context-new throw constant ctx
-T{ ctx in-scratch build tier tier-exprs cons-numbers u< context-main context-use -> false }T
+T{ ctx in-scratch build tier tier-exprs cons-numbers u< context-main context-use
+   -> false }T
 T{ live-blocks @ blocks-with-input > ctx context-free live-blocks @ blocks-with-input -
    -> true 0 0 }T
 context-new throw constant ctx2

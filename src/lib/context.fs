@@ -256,7 +256,8 @@ end-structure
   repeat ;
 \ Every teardown word with context selected; the current context is
 \ restored afterwards.
-: context-torn ( context -- ior ) lf-context @ >r lf-context ! teardowns-run r> lf-context ! ;
+: context-torn ( context -- ior )
+  lf-context @ >r lf-context ! teardowns-run r> lf-context ! ;
 
 \ Stack needs: the deepest nesting, in data and return-stack cells, that
 \ any module states for one of its checks (such as mixed-beta.fs's nested

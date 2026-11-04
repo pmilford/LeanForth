@@ -16,8 +16,9 @@
 \ Requires: ndjson.fs, manifest.fs. State: the tally record, count-tally,
 \ a member of the checker context (lib/context.fs), and one export record
 \ and one manifest record, counted-export and counted-manifest, which stay
-\ shared because they own heap buffers (a context member may not:
-\ context-free has no release hook); all are reset by every count, so one
+\ shared: they own heap buffers, which a context member may do only with
+\ a teardown word (lib/context.fs, since 2026-11-03), and a counting tool
+\ gains nothing from one per context; all are reset by every count, so one
 \ count runs at a time, in any context.
 
 require ../lib/lib.fs
