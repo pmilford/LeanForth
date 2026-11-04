@@ -196,13 +196,40 @@ end-structure
 : lf-minfer-opened ( base -- fvars n )
   dup lf-minfer-fvar-cell swap lf-minfer-context-depth @ swap - ;
 
+\ How many of the scope's innermost free variables a term read under it
+\ names: 1 + the largest k - d over its bound variables k under d of its
+\ own binders, or 0. A scan of its own (once per path, as the passes
+\ visit), of at most as many visits as the job has fuel, spending none of
+\ it; one that cannot finish gives n, every free variable.
+lf-depth-limit context-walk2: lf-minfer-scan
+: lf-minfer-scan-bvar ( first second walk -- outcome )
+  nip tuck walk-context @ - 1+ over walk-arg @ max swap walk-arg ! outcome-ok ;
+: lf-minfer-scan-binary ( first second walk tag -- outcome )
+  over walk-context @ swap lf-tag-app <> - swap walk-children-at ;
+: lf-minfer-scan-dispatch ( first second walk tag -- outcome )
+  dup lf-term-binary-tag? if lf-minfer-scan-binary exit then
+  lf-tag-bvar = if lf-minfer-scan-bvar else drop 2drop outcome-ok then ;
+: lf-minfer-scan-visit ( walk -- outcome ) lf-terms ['] lf-minfer-scan-dispatch walk-visit ;
+: lf-minfer-loose ( node n -- m )
+  >r 0 lf-minfer-scan walk-arg ! lf-minfer-fuel @ lf-minfer-scan walk-budget drop
+  0 ['] lf-minfer-scan-visit lf-minfer-scan walk-run-pair ok?
+  if lf-minfer-scan walk-arg @ r> min else r> then ;
+\ Of n free variables, the innermost that node needs, at least one: the
+\ pass then visits and pays for node as with all n, and gives the same
+\ term, while checking and copying only those (plan task 6.2.0: a
+\ binder's domain is closed in time independent of the scope's depth).
+: lf-minfer-needed ( node fvars n -- node fvars' n' )
+  dup 2 < if exit then
+  2 pick over lf-minfer-loose 1 max tuck - cells rot + swap ;
+
 \ Opening on the job's fuel (mixed-open.fs), which continues with what it
 \ leaves: node with the free variables opened since base put for its
 \ loose bound variables (instantiate_rev); ok, invalid, exhausted or full.
 : lf-minfer-lend ( -- ) lf-minfer-fuel @ lf-open-fuel ! ;
 : lf-minfer-repay ( -- ) lf-open-fuel @ lf-minfer-fuel ! ;
 : lf-minfer-open ( node base -- node' status )
-  lf-minfer-lend lf-minfer-opened lf-instantiate-rev lf-minfer-repay outcome-sane ;
+  lf-minfer-lend lf-minfer-opened lf-minfer-needed lf-instantiate-rev lf-minfer-repay
+  outcome-sane ;
 \ A term read under the scope, closed with every free variable of the
 \ scope (its loose bound variables are the scope's binders).
 : lf-minfer-closed ( node -- node' status ) 0 lf-minfer-open ;
