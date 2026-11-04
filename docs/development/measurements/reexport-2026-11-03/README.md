@@ -72,7 +72,16 @@ had 150 GB free) were deleted by name afterwards.
 
 ## Logs
 
-RESULT_LOGS
+[`Init.log`](Init.log), [`Std.log`](Std.log) and [`Mathlib.log`](Mathlib.log)
+are `measure.sh`'s output for the final runs (2026-11-03, 18:42 to 18:56,
+the re-exporter as of commit `c6f5e41`, whose code did not change
+afterwards, only a comment of `json-write.fs`; load average about 4.5
+from other work): the tool's line, the
+exit status, `/usr/bin/time -v`'s times and peak memory, both SHA-256
+sums, `wc -lc` of both files, `cmp: identical`, and the SHA-256, wall time
+and peak memory of the dump of the export and then of the copy (`Init`
+9.7 s and 9.9 s, `Std` 16.3 s and 16.7 s, Mathlib 2 min 57 s and
+2 min 58 s, each about 16 MiB at most).
 
 ## Earlier run
 
