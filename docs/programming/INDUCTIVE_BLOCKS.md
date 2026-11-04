@@ -434,7 +434,49 @@ the default is exactly Lean):
 
 ## Evidence
 
-- `make test-inductive-table` (part of `make check`): every one of the 176
+- Task 5.2.1b (2026-11-04, Gforth 1.0.0, Lean 4.35.0). The table now has
+  198 cases (22 added, every verdict Lean's, checked by
+  `inductive-expected.lean`): recursive blocks (a binary tree, functions
+  of one and two arguments into the type, one under a parameter,
+  recursive propositions with one and two constructors, a list in
+  `Sort (max 1 u)`, fields whose type whnf beta-reduces to a function
+  into the type or to `Nat`), negative occurrences behind a beta-redex,
+  in a later binder and in a later field, a non-valid occurrence after a
+  Pi, and uses of the generated recursor of `N`, `List`, the reflexive
+  and the binary-tree types, at renamed, concrete and applied universes
+  and while a block with a parameter checks its constructor. Task
+  5.2.1b's 46 rows: 41 give Lean's verdict (25 accepted, 16 rejected:
+  nonPositive, nonValidOccurrence, universeTooBig, C1, Lean's replay of
+  the `N` block with nine mutations); five are pending, each naming the
+  task that closes it: positivity through `id` and `Function.const`
+  (*unknown*, task 4.2.2's whnf) and the three `iota.*` theorems
+  (*unsupported*: Nat literals, task 5.2.3; iota, task 4.2.2c's hook).
+  Task 5.2.1a's four rows that used or redeclared `Nat` now give Lean's
+  verdict: of its 94 rows, 92 do and two are pending (task 4.2.2). Of
+  the 58 rows of later tasks, 9 give Lean's verdict (among them
+  `result.index-mentions-type`, now rejected by C3 as Lean rejects it),
+  the rest *unsupported*, *unknown* or (2 files naming an undeclared
+  constant, task 5.2.6) *invalid*; none is decided against Lean.
+  `make test-check-block`: 145 committed files; the rows above with their
+  diagnostics and steps, the reference export's `N` tampered (rules
+  swapped, its type replaced, its `isRec` cleared: a warning), a fuel
+  bisection and a full store on `List`, `blocks.ndjson` with `N`, `Nat`,
+  `List` and `Point` accepted and the mutual and nested blocks
+  *unsupported*. 15 planted faults (`rec-*`, `genrec-domains-not-restored`)
+  and the three re-targeted at the changed code are caught. Lean's
+  `Init`, checked whole (a probe, `gforth-fast`, 571 s: stage 33 s, feed
+  52 s, checks 486 s), against the same probe on main before the change:
+  blocks accepted 184 → 261 of 604, *unknown* 90 → 101, *unsupported*
+  330 → 242, none rejected or invalid either time. Its 53 blocks whose
+  fields mention their type: 29 accepted, each recursor generated equal
+  to Lean's (`Nat`, `List`, `Acc`, `Nat.le`, `List.Mem`, `List.Perm`,
+  `List.Sublist`, `Relation.TransGen`, `Lean.RArray`, the `Grind`
+  expressions, ...), 23 stopped by a dependency (K5: 8 *unknown*, 15
+  *unsupported*, such as `Lean.Name`, which uses `String`), and one
+  nested (`Lean.Syntax`, *unsupported*, task 5.2.5). Init's other
+  declarations accepted 1,015 → 1,609; 31 are *full* (was 4), each at the
+  16-dependency cap (task 6.2.0).
+- Task 5.2.1a (2026-11-04): every one of the 176
   cases of `tests/reference/inductive-expected.lean` as the export Lean
   prints for it, checked by LeanForth. Task 5.2.1a's 94 rows: 88 give
   Lean's verdict (45 accepted, 43 rejected, each with Lean's reason), and
@@ -523,3 +565,4 @@ the default is exactly Lean):
 | `make test-check-block` (97 files, 20 tampered runs, about 40 fuel runs; then the capacity test) | — | about 1 s, and 2 s for the capacity test (`gforth`) |
 | `make test-inductive-table` (176 files; one Lean run) | 51,000 lines of Lean output | about 40 s |
 | Lean's `Init`, every declaration checked | 345 MB export, 59,349 declarations, 604 blocks | 896 s (`gforth-fast`): stage 26 s, feed 126 s, checks 744 s |
+| the same after task 5.2.1b (recursive blocks checked; the first run on main the same day: 407 s) | the same | 571 s (`gforth-fast`): stage 33 s, feed 52 s, checks 486 s |

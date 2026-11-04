@@ -1026,6 +1026,27 @@ recursor levels; the generated recursor of decision 12 gets them too.
     minor premise applied to the fields and the recursive calls, whose
     types are its induction hypotheses by construction.
 
+**Evidence** (2026-11-04, Gforth 1.0.0, Lean 4.35.0):
+
+- The table grew from 176 to 198 rows, every verdict Lean's: recursive
+  and reflexive blocks, negative and non-valid occurrences reached
+  through beta, in later binders and fields, and uses of the generated
+  recursor of recursive blocks at other universes and during another
+  block's check. Task 5.2.1b's 46 rows: 41 give Lean's verdict (25
+  accepted, 16 rejected), five are pending (positivity through a
+  definition: task 4.2.2; the three `iota.*` theorems: literals, task
+  5.2.3, and iota, task 4.2.2c). Task 5.2.1a's four rows using `Nat` now
+  give Lean's verdict (92 of 94; two pending on 4.2.2). No row of a later
+  task is decided against Lean.
+- `make test-check-block` (145 committed files), 15 new planted faults
+  and three re-targeted ones, all caught.
+- Lean's `Init` checked whole before and after (probe, `gforth-fast`):
+  blocks accepted 184 → 261 of 604; of its 53 blocks whose fields
+  mention their type, 29 accepted with recursors equal to Lean's, 23
+  stopped by a dependency (K5), one nested (*unsupported*); none rejected
+  or invalid. Other declarations accepted 1,015 → 1,609. Details in
+  [INDUCTIVE_BLOCKS.md](../programming/INDUCTIVE_BLOCKS.md#evidence).
+
 ## Reproduction
 
 ```sh
