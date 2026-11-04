@@ -16,11 +16,16 @@ Usage (from the repository root; GFORTH and LEAN name the toolchains):
 3. Layering: no module that src/core, src/kernel or src/main.fs loads,
    directly or through other modules, is under src/author (the checker never
    loads the authoring program).
-4. --lean: for each fixture with a Lean source tests/reference/author-STEM.lean,
+4. Corpus: the round trip over every term of the term printer's cases
+   (tests/present/print-case-list.fs, built as Lean builds them, corpus-
+   cases.fs) and over every declaration of the five pinned Lean exports
+   (tests/reference/*.ndjson, corpus-lean.fs): print as words, run in a new
+   context, compare the terms and the printed text.
+5. --lean: for each fixture with a Lean source tests/reference/author-STEM.lean,
    pinned Lean (-DwarningAsError=true) prints every declaration; its output
    must equal the fixture's lean: lines, apart from the differences listed in
    KNOWN, each with its reason.
-5. --faults: each planted fault, in a copy of src/, must change a round trip
+6. --faults: each planted fault, in a copy of src/, must change a round trip
    or a lean: line compared with Lean; the spelling check disabled must be
    caught by the Lean comparison (the round trip cannot see it, ADR 0017 §13).
 Finite evidence about these files; it never accepts a theorem.
@@ -34,6 +39,8 @@ import sys
 import tempfile
 
 GFORTH = os.environ.get("GFORTH", "gforth")
+if "/" in GFORTH:  # the planted faults run Gforth in a copy of the tree
+    GFORTH = os.path.abspath(GFORTH)
 LEAN = os.environ.get("LEAN", "lean")
 HERE = pathlib.Path("tests/author")
 GOLDEN = HERE / "fixtures.golden"
@@ -174,6 +181,30 @@ def check_layering():
           "loads src/author")
 
 
+def check_corpus():
+    sys.path.insert(0, "tests/present")
+    sys.path.insert(0, "tests/support")
+    from present_transport import encode
+    from ndjson_preview import preview
+    run = subprocess.run([GFORTH, "tests/author/corpus-cases.fs"], stdin=subprocess.DEVNULL,
+                         capture_output=True, text=True, timeout=300)
+    cases = [line for line in run.stdout.splitlines() if line.startswith("case ")]
+    bad = [line for line in cases if not line.endswith(SAME)]
+    if run.returncode != 0 or not cases or bad:
+        raise Failure("corpus cases:\n" + run.stdout + run.stderr)
+    fixtures = ("identity", "composition", "type-identity", "poly-identity", "constant-fixture")
+    for name in fixtures:
+        with open(f"tests/reference/{name}.ndjson", "rb") as stream:
+            data = encode(preview(stream))
+        run = subprocess.run([GFORTH, "tests/author/corpus-lean.fs"], input=data,
+                             capture_output=True, timeout=120)
+        out = run.stdout.decode("utf-8") + run.stderr.decode("utf-8")
+        if run.returncode != 0 or out.strip().splitlines()[-1:] != [SAME]:
+            raise Failure(f"corpus {name}:\n{out}")
+    print(f"corpus round trips: {len(cases)} printer cases and the declarations of "
+          f"{len(fixtures)} Lean exports give the same terms and text")
+
+
 def lean_lines(stem, workdir):
     source = pathlib.Path(f"tests/reference/author-{stem}.lean")
     run = subprocess.run([LEAN, "-DwarningAsError=true", str(source)], capture_output=True,
@@ -270,6 +301,7 @@ def main(args):
             if "--write" not in args:
                 check_catalogue()
                 check_layering()
+                check_corpus()
     except (Failure, OSError, subprocess.SubprocessError) as error:
         print(f"check_author: {error}", file=sys.stderr)
         return 1

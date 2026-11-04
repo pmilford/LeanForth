@@ -83,7 +83,8 @@ end-structure
 : lfa-entry# ( -- n ) lfa-entries store-count @ ;
 : lfa-spelling ( entry -- c-addr u )
   dup lfa-entry-offset @ lfa-groups lfa-groups-spellings + swap lfa-entry-length @ ;
-: lfa-spell-room? ( u -- flag ) lfa-spelling-capacity lfa-groups lfa-groups-used @ - upto? ;
+: lfa-spell-room? ( u -- flag ) lfa-spelling-capacity lfa-groups lfa-groups-used @ -
+  upto? ;
 : lfa-spell! ( c-addr u entry -- )
   over lfa-spell-room? lfa-e-entries-full lfa-must
   2dup lfa-entry-length ! lfa-groups lfa-groups-used @ swap lfa-entry-offset !
@@ -92,7 +93,8 @@ end-structure
 \ Forget entries i and later.
 : lfa-entries-cut ( i -- )
   dup lfa-entry# < 0= if drop exit then
-  dup lfa-entry lfa-entry-offset @ lfa-groups lfa-groups-used ! lfa-entries store-count ! ;
+  dup lfa-entry lfa-entry-offset @ lfa-groups lfa-groups-used ! lfa-entries store-count
+    ! ;
 
 \ The newest entry with the key's spelling, group and kind.
 : lfa-key! ( c-addr u group kind -- key )
@@ -121,7 +123,8 @@ end-structure
 \ Run the word that the wordlists after wid have for the current token,
 \ or stop: no LeanForth word has it.
 : lfa-pass ( wid -- )
-  lfa-order@ lfa-order-index 1+ lfa-order# tuck min ?do lfa-token i lfa-order-wid search-wordlist
+  lfa-order@ lfa-order-index 1+ lfa-order# tuck min ?do lfa-token i lfa-order-wid
+    search-wordlist
     if unloop execute exit then loop
   lfa-e-unknown lfa-fail ;
 

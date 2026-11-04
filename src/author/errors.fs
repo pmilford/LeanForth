@@ -62,7 +62,8 @@ require ./source.fs
 40 constant lfa-e-file           \ the file cannot be opened or read
 41 constant lfa-e-forth          \ another Forth exception
 50 constant lfa-e-literal        \ unsupported: natural-number literals
-51 constant lfa-e-sketch         \ unsupported: let, have, projections, strings, by, import
+51 constant lfa-e-sketch
+  \ unsupported: let, have, projections, strings, by, import
 52 constant lfa-e-hole           \ unsupported: holes are for the elaborator
 53 constant lfa-e-root-name      \ unsupported: _root_ in a declaration's name
 60 constant lfa-e-terms-full     \ the term store is full
@@ -132,18 +133,19 @@ create lfa-catalogue
   lfa-e-unknown-constant s" unknown constant" lfa-invalid,
   lfa-e-line s" line too long" lfa-full,
   lfa-e-file s" the file cannot be opened or read" lfa-invalid,
-  lfa-e-forth s" a Forth exception (the second number is its code)" lfa-invalid,
+  lfa-e-forth s" a Forth exception, with its THROW code" lfa-invalid,
   lfa-e-literal
   s" not supported yet: natural-number literals need literal nodes (ADR 0017 section 14)"
   lfa-unsupported,
   lfa-e-sketch
-  s" not supported yet: designed in ADR 0017 but not in the term store or authoring program"
+  s" not supported yet: designed in ADR 0017 but not built yet"
   lfa-unsupported,
   lfa-e-hole s" not supported yet: holes are filled by the elaborator (plan task 8.3.1)"
   lfa-unsupported,
   lfa-e-root-name s" not supported yet: _root_ in a declaration's name" lfa-unsupported,
   lfa-e-terms-full s" out of room: the term store is full" lfa-full,
-  lfa-e-levels-full s" out of room: the level store is full or the level too large" lfa-full,
+  lfa-e-levels-full s" out of room: the level store is full or the level too large"
+    lfa-full,
   lfa-e-names-full s" out of room: the name store is full or the name too long" lfa-full,
   lfa-e-references-full s" out of room: the constant-reference store is full" lfa-full,
   lfa-e-values-full s" out of room: too many values in one declaration" lfa-full,
@@ -196,9 +198,11 @@ end-structure
 \ the number for a Forth exception.
 : lfa-.n ( n -- ) base @ >r decimal 0 .r r> base ! ;
 : lfa-.pos ( pos -- ) ." line:col " lfa-pos> swap lfa-.n ." :" lfa-.n ;
-: lfa-.token ( -- ) ."  (token `" lfa-error lfa-err-token lfa-error lfa-err-length @ type ." `)" ;
+: lfa-.token ( -- ) ."  (token `" lfa-error lfa-err-token lfa-error lfa-err-length @ type
+  ." `)" ;
 : lfa-.see ( -- ) lfa-error lfa-err-see @ dup 0< if drop exit then ." ; see " lfa-.pos ;
-: lfa-.number ( -- ) lf-author-code lfa-e-forth = if ."  " lfa-error lfa-err-number @ lfa-.n then ;
+: lfa-.number ( -- ) lf-author-code lfa-e-forth = if ."  " lfa-error lfa-err-number @
+  lfa-.n then ;
 : lf-author-error. ( -- )
   lf-author-code 0= if ." no error" exit then
   ." error " lf-author-code lfa-.n ."  at " lfa-error lfa-err-at @ lfa-.pos lfa-.token

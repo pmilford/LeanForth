@@ -83,13 +83,15 @@ end-structure
 : lfa-buffer ( -- c-addr ) lfa-run lfa-run-line ;
 : lfa-file-line ( -- c-addr u true | false )
   lfa-buffer lfa-line-capacity lfa-run lfa-run-file @ read-line 0= lfa-e-file lfa-must
-  0= if drop false exit then dup lfa-line-capacity < lfa-e-line lfa-must lfa-buffer swap true ;
+  0= if drop false exit then dup lfa-line-capacity < lfa-e-line lfa-must lfa-buffer
+    swap true ;
 : lfa-next-line? ( -- c-addr u true | false )
   lfa-run lfa-run-file @ if lfa-file-line else lfa-text-line then ;
 
 \ Running: each line with LeanForth's order; at the end, no declaration
 \ may be open and no value left.
-: lfa-eval-line ( c-addr u -- ) 2dup lfa-line! lfa-order! lfa-floats! evaluate lfa-floats? ;
+: lfa-eval-line ( c-addr u -- ) 2dup lfa-line! lfa-order! lfa-floats! evaluate
+  lfa-floats? ;
 : lfa-ended ( -- ) depth lfa-floor = lfa-inside? 0= and lfa-e-unfinished lfa-must ;
 : lfa-lines ( -- ) begin lfa-next-line? while lfa-eval-line repeat lfa-ended ;
 
@@ -102,7 +104,8 @@ end-structure
 : lfa-quoted? ( c-addr u -- flag )
   3 <> if drop false exit then dup c@ [char] ' = swap 2 + c@ [char] ' = and ;
 : lfa-prefixed? ( c-addr u -- flag )
-  1 > if dup c@ s" -+#$%&" rot lf-pf-among? swap char+ c@ lfa-digit-like? and else drop false
+  1 > if dup c@ s" -+#$%&" rot lf-pf-among? swap char+ c@ lfa-digit-like? and else
+    drop false
   then ;
 : lfa-number-like? ( c-addr u -- flag )
   over c@ lf-pf-digit? if 2drop true exit then 2dup lfa-quoted? if 2drop true exit then
@@ -110,21 +113,24 @@ end-structure
 : lfa-skip-blanks ( c-addr u -- c-addr' u' )
   begin dup while over c@ lfa-blank? while 1 /string repeat then ;
 : lfa-word-end ( c-addr u -- n )
-  dup >r 0 ?do dup i chars + c@ lfa-blank? if drop i unloop r> drop exit then loop drop r> ;
+  dup >r 0 ?do dup i chars + c@ lfa-blank? if drop i unloop r> drop exit then loop drop
+    r> ;
 : lfa-next-token ( c-addr u -- c-addr' u' token-addr token-u )
   lfa-skip-blanks 2dup lfa-word-end >r over r@ 2swap r> /string 2swap ;
 : lfa-unknown-token ( -- c-addr u )
   lfa-unread begin lfa-next-token dup if 2dup lfa-number-like? else false then
   while 2drop repeat 2swap 2drop ;
 : lfa-foreign ( code -- )
-  dup -13 = if drop lfa-unknown-token 2dup lfa-token! lfa-here lfa-e-unknown lfa-record exit then
+  dup -13 = if drop lfa-unknown-token 2dup lfa-token! lfa-here lfa-e-unknown lfa-record
+    exit then
   lfa-number! lfa-token lfa-here lfa-e-forth lfa-record ;
 : lfa-caught ( code -- outcome )
   ?dup 0= if outcome-ok exit then
   dup lf-author-throw = if drop else lfa-foreign then
   lfa-floats-clear lfa-scope-close lf-author-code lf-author-outcome ;
 : lfa-go ( -- outcome )
-  lfa-error-reset lfa-save decimal depth lfa-floor! ['] lfa-lines catch lfa-restore lfa-caught ;
+  lfa-error-reset lfa-save decimal depth lfa-floor! ['] lfa-lines catch
+    lfa-restore lfa-caught ;
 
 \ Public words; see the header.
 : lf-author-begin ( -- )
@@ -135,10 +141,12 @@ end-structure
 : lf-author-file ( c-addr u -- outcome )
   lfa-error-reset 2dup r/o open-file
   if drop 0 lfa-e-file lfa-record lfa-e-file lf-author-outcome exit then
-  nip nip dup lfa-run lfa-run-file ! lfa-go swap close-file drop 0 lfa-run lfa-run-file ! ;
+  nip nip dup lfa-run lfa-run-file ! lfa-go swap close-file drop 0 lfa-run lfa-run-file
+    ! ;
 : lf-author-count ( -- n ) lfa-decl-count ;
 : lf-author-decl ( i -- decl ) lfa-decl ;
-: lf-author-notes ( i -- first end ) lfa-decl dup lfa-decl-notes @ swap lfa-decl-notes-end @ ;
+: lf-author-notes ( i -- first end ) lfa-decl dup lfa-decl-notes @ swap
+  lfa-decl-notes-end @ ;
 create lfa-blank-line 10 c,
 : lfa-print-one ( fuel i -- outcome )
   dup if lfa-blank-line 1 lf-pp-emit then lfa-decl swap lf-print-forth-decl ;

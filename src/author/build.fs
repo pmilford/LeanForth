@@ -123,8 +123,10 @@ end-structure
   lfa-cref-at lf-cref-read 0= if drop false exit then
   nip >r over lfa-ref-name @ = swap lfa-ref-count @ r> = and ;
 : lfa-ref-levels? ( ref i -- flag )
-  lfa-cref-at lf-cref-levels 0= if drop false exit then rot lfa-ref-pairs swap lfa-pairs= ;
-: lfa-ref-match? ( ref i -- flag ) 2dup lfa-ref-head? if lfa-ref-levels? else 2drop false then ;
+  lfa-cref-at lf-cref-levels 0= if drop false exit then rot lfa-ref-pairs swap
+    lfa-pairs= ;
+: lfa-ref-match? ( ref i -- flag ) 2dup lfa-ref-head? if lfa-ref-levels? else 2drop false
+  then ;
 : lfa-ref-find ( ref -- index identity true | false )
   lf-cref-count @ 0 ?do dup i lfa-ref-match?
     if drop i lfa-cref-at true unloop exit then loop drop false ;

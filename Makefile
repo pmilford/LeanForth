@@ -56,8 +56,8 @@ check-docs:
 # The Forth examples of the user pages print exactly the output shown.
 DOC_EXAMPLE_PAGES := docs/user/CONCEPTS.md docs/user/TERM_PRINTER.md \
 	docs/user/READING_A_LEAN_PROOF.md
-# Its LeanForth syntax is a sketch in text blocks; only its Lean blocks run.
-DOC_EXAMPLE_PAGES += docs/user/LEANFORTH_SYNTAX_SKETCH.md
+# Its LeanForth examples run through the authoring words (src/author/).
+DOC_EXAMPLE_PAGES += docs/user/LEANFORTH_SYNTAX.md
 check-doc-examples:
 	$(RUN) python3 scripts/check-doc-examples.py --gforth $(GFORTH) $(DOC_EXAMPLE_PAGES)
 
@@ -409,3 +409,27 @@ reference-bignum:
 .PHONY: test-bignum reference-bignum
 test: test-bignum
 test-differential: reference-bignum
+
+# The LeanForth authoring words (plan task 8.1.2, ADR 0017; untrusted, not
+# loaded by src/main.fs, so they get their own silent-load check): unit
+# tests of every error code with its line and column, then the 19 example
+# files against their golden report with a round trip each, the error
+# catalogue against docs/programming/LEANFORTH_WORDS.md, the check that
+# the checker never loads src/author, and round trips over the term
+# printer's cases and the five Lean exports. Gforth and Python 3 only.
+test-author:
+	@out=$$($(RUN) $(GFORTH) src/author/runner.fs -e bye 2>&1) || { printf '%s\n' "$$out" >&2; exit 1; }; \
+	if [ -n "$$out" ]; then printf 'src/author/runner.fs printed while loading:\n%s\n' "$$out" >&2; exit 1; fi
+	$(RUN) $(GFORTH) tests/author/author.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/author/check_author.py
+
+# The example files' theorems and definitions as pinned Lean's #print shows
+# them, and seven planted faults that must each be caught (the spelling
+# check disabled only by the comparison with Lean).
+reference-author:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/author/check_author.py --lean
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/author/check_author.py --faults
+
+.PHONY: test-author reference-author
+test: test-author
+test-differential: reference-author

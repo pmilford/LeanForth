@@ -25,7 +25,7 @@ see [project progress](project/PROJECT_PROGRESS.md). Documents marked
 - [TERMS_FOR_NEW_READERS.md](user/TERMS_FOR_NEW_READERS.md) — plain-language glossary: level, `Sort`, theorem, kernel.
 - [SETUP_WSL.md](user/SETUP_WSL.md) — Windows / WSL2 development setup.
 - [TERM_PRINTER.md](user/TERM_PRINTER.md) — printing terms readably in Lean notation, ASCII and LaTeX (Markdown math); binder names without capture; the presentation side table.
-- [LEANFORTH_SYNTAX_SKETCH.md](user/LEANFORTH_SYNTAX_SKETCH.md) — design sketch, not implemented: writing theorems and proofs in LeanForth's own Forth syntax ([ADR 0017](adr/0017-leanforth-syntax.md)), with notes that stay with the proof; four examples in three forms.
+- [LEANFORTH_SYNTAX.md](user/LEANFORTH_SYNTAX.md) — writing theorems and proofs as LeanForth's own Forth words ([ADR 0017](adr/0017-leanforth-syntax.md); implemented, experimental, [parser] gate open), with notes that stay with the proof; six checked examples in three forms, printing back as words, errors with line and column, limits.
 - [READABLE_PROOFS_SKETCH.md](user/READABLE_PROOFS_SKETCH.md) — design sketch, not implemented: the proof of `composition` as the planned proof-outline printer would show it, in mathematics, LeanForth Forth and Lean, and which parts of it are checked and which are only explanation.
 
 The user guide is a start: manuals for each audience grow with the
@@ -40,6 +40,7 @@ features they describe.
 - [PROGRAM_EXAMPLES_REFERENCE.md](programming/PROGRAM_EXAMPLES_REFERENCE.md) — independent Lean references for those examples.
 - [PROGRAM_IR.md](programming/PROGRAM_IR.md) — program IR 0.1: its text form, its Lean semantics, the reader from Forth source, and the proofs that the six example words' IR equals their reference models (implemented, untrusted, checked by Lean).
 - [DIAGNOSTICS.md](programming/DIAGNOSTICS.md) — why a check failed: the first failure's reason code, site and numbers, recorded per checker context; the code catalogue (implemented, first form, untrusted).
+- [LEANFORTH_WORDS.md](programming/LEANFORTH_WORDS.md) — the LeanForth authoring words (`src/author/`) and the printer's Forth mode: modules, every word and its stack effect, the Forth interface, the error catalogue, limits and tests (implemented, untrusted, [parser] gate open).
 - [CHECKED_ENVIRONMENT.md](programming/CHECKED_ENVIRONMENT.md) — the checked environment v0 (ADR 0012): the input, slots, snapshots and handles, finding constants, the publisher, axiom sets; interface, a three-form example, measured limits (implemented, experimental [kernel] code not through the review gate; the type check that fills it is task 2.2.3).
 - [PROGRAM_IR_RUN.md](programming/PROGRAM_IR_RUN.md) — the program IR interpreter in Forth and the three-way comparison of the interpreter, the host words and Lean's evaluation of the model (implemented, untrusted; testing, not proof).
 - [PROGRAM_RECEIPTS.md](programming/PROGRAM_RECEIPTS.md) — program receipt schema 0.1: separate CHECK, VERIFY and RUN statuses, assumptions, and the standard-library validator (implemented; the clamp receipt is generated).

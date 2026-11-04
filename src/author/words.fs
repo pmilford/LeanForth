@@ -35,7 +35,8 @@ require ./declarations.fs
 : lfa-w-fun ( t -- t' ) lfa-closing lf-tag-lam lfa-close ;
 : lfa-w-forall ( t -- t' ) lfa-closing lf-tag-pi lfa-close ;
 : lfa-two-terms ( a b -- ta tb ) swap lfa>term swap lfa>term ;
-: lfa-w-arrow ( a b -- t ) 2 lfa-args lfa-two-terms lfa-here lfa-arrow true lfa-term-value ;
+: lfa-w-arrow ( a b -- t ) 2 lfa-args lfa-two-terms lfa-here lfa-arrow true
+  lfa-term-value ;
 
 \ Terms: f a $, c l ^, Prop, l Type, l Sort, n var#, root: NAME.
 : lfa-w-app ( f a -- t ) 2 lfa-args lfa-two-terms lfa-here lfa-app lfa-term-value ;
@@ -64,7 +65,8 @@ require ./declarations.fs
 \ Labels and notes on the term on top: label: NAME, note" text",
 \ ai-note" text". The term gets a node of its own (build.fs); the note
 \ records the position of the word that made it.
-: lfa-note! ( term c-addr u kind -- term i ) 3 pick lf-note-add ok? lfa-e-notes-full lfa-must ;
+: lfa-note! ( term c-addr u kind -- term i ) 3 pick lf-note-add ok? lfa-e-notes-full
+  lfa-must ;
 : lfa-annotate ( t c-addr u kind -- t' i )
   >r rot lfa>term+ lfa-own -rot r> lfa-note! swap true lfa-term-value swap ;
 : lfa-label-free ( c-addr u -- c-addr u )

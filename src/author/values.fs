@@ -58,14 +58,17 @@ lfa-item-capacity /lfa-item 0 context-store: lfa-items
 \ Constants as terms. Following the values a ^ added to gives the
 \ universe arguments, last one first; their number must be the
 \ constant's. Errors point at the ^ or $ that used it and at the constant.
-: lfa-chain# ( item -- n ) 0 swap begin lfa-item-second @ ?dup while lfa-item swap 1+ swap repeat ;
-: lfa-base-item ( item -- item' ) begin dup lfa-item-second @ ?dup while nip lfa-item repeat ;
+: lfa-chain# ( item -- n ) 0 swap begin lfa-item-second @ ?dup while lfa-item swap 1+ swap
+  repeat ;
+: lfa-base-item ( item -- item' ) begin dup lfa-item-second @ ?dup while nip lfa-item
+  repeat ;
 : lfa-arity? ( item -- flag ) dup lfa-chain# swap lfa-item-first @ lfa-decl-universes = ;
 : lfa-pair! ( level i -- )
   >r dup lf-level-identity drop swap lfa-sought-ref lfa-ref-pairs r> 2* cells + 2! ;
 : lfa-levels! ( item n -- )
   begin 1- dup 0< 0= while
-    over lfa-item-third @ over lfa-pair! swap lfa-item-second @ lfa-item swap repeat 2drop ;
+    over lfa-item-third @ over lfa-pair! swap lfa-item-second @ lfa-item swap repeat
+      2drop ;
 : lfa-ref! ( item -- )
   dup lfa-item-first @ lfa-decl-name lfa-sought-ref lfa-ref-name !
   dup lfa-chain# dup lfa-sought-ref lfa-ref-count ! lfa-levels! ;

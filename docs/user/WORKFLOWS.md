@@ -15,23 +15,26 @@ There are two ways in, and both end at the same checker:
   Lean, as usual. Lean's exporter writes the checked declarations as an
   NDJSON file; LeanForth reads that file and checks every declaration
   again, on its own, in the file's order.
-- **In LeanForth itself** (planned): you write the theorem and its proof
-  with Forth words. An authoring program, separate from the checker, turns
-  them into terms and hands the checker serialized terms only, so nothing
-  the author's code does can reach the checker's memory. The syntax is
-  proposed, not yet approved or implemented
-  ([ADR 0017](../adr/0017-leanforth-syntax.md), plan task 8.1.1; a short
-  [design sketch](LEANFORTH_SYNTAX_SKETCH.md)); the term builder, the
-  separate authoring process and untrusted helpers such as implicit
-  arguments and tactics follow (tasks 8.1.2, 8.2.1, 8.3). The same checker
-  decides; a LeanForth-written theorem can also be printed as Lean source
-  for Lean to check as a second opinion.
+- **In LeanForth itself** (the words exist; the separate process is
+  planned): you write the theorem and its proof with Forth words
+  ([LeanForth syntax](LEANFORTH_SYNTAX.md), [ADR 0017](../adr/0017-leanforth-syntax.md),
+  approved by the owner). The authoring words (`src/author/`, plan task
+  8.1.2) run a file line by line through Forth's own interpreter, build
+  the terms, report mistakes with line and column, and print a declaration
+  back as words. They are untrusted, and the checker never loads them.
+  Still planned: running them in an authoring program of their own, which
+  hands the checker serialized terms only, so nothing the author's code
+  does can reach the checker's memory (8.2.1); untrusted helpers such as
+  implicit arguments and tactics (8.3). The same checker decides; a
+  LeanForth-written theorem can also be printed as Lean source for Lean
+  to check as a second opinion.
 
 ```mermaid
 flowchart TD
   src["Lean source file (.lean)"]
-  lfsrc["LeanForth source file (.lf, proposed)<br/>theorem and proof written with Forth words<br/>syntax: ADR 0017, proposed"]
-  author["Authoring program, its own Gforth process<br/>term builder, implicit arguments, tactics<br/>untrusted; tasks 8.1.2, 8.2.1, 8.3"]
+  lfsrc["LeanForth source file (.lf)<br/>theorem and proof written with Forth words<br/>syntax: ADR 0017"]
+  author["Authoring words, src/author<br/>run by Forth's interpreter, line by line;<br/>errors with line and column; printed back as words<br/>untrusted; task 8.1.2"]
+  proc["Authoring program, its own Gforth process<br/>implicit arguments, tactics<br/>untrusted; tasks 8.2.1, 8.3"]
   lean["Lean 4.35.0 elaborates and checks it"]
   exp["leanexport (lean4export 3.1.0)<br/>writes the declarations"]
   nd["NDJSON export file<br/>one JSON record per line"]
@@ -47,9 +50,9 @@ flowchart TD
   ref["Lean's verdicts on the same cases<br/>differential tests in make check"]
 
   src --> lean --> exp --> nd --> rd
-  lfsrc --> author
+  lfsrc --> author --> proc
   rd --> stage
-  author -- "serialized terms only" --> stage
+  proc -- "serialized terms only" --> stage
   stage --> chk
   chk -- "ok only" --> pub --> env
   env -- "earlier accepted declarations" --> chk
@@ -61,7 +64,7 @@ flowchart TD
 
   classDef planned stroke-dasharray: 6 4
   classDef gate stroke-width: 3px
-  class stage,out,more,lfsrc,author planned
+  class stage,out,more,proc planned
   class chk planned
   class chk,pub,env gate
 ```

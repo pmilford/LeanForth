@@ -9,13 +9,14 @@
 \   round trip: the printed words run again, in a new checker context,
 \     and printed again: the terms (with binder names and kinds, levels,
 \     constants and universe arguments, labels and notes, compared by an
-\     independent tree dump) and the text must be the same.
+\     independent tree dump, dump.fs) and the text must be the same.
 \ Usage: gforth tests/author/report.fs -e 's" FILE" report bye'
+\ The corpus tests (corpus-cases.fs, corpus-lean.fs) reuse its round trip.
 \ Test-only; not a public interface.
 require ../../src/author/runner.fs
 require ./dump.fs
 
-100000 constant fuel
+100000 constant print-fuel
 : ok! ( outcome -- ) dup ok? if drop else ." (print failed: " outcome-text type ." )" then ;
 
 \ The Lean notation, as #print shows it.
@@ -27,13 +28,13 @@ require ./dump.fs
   lf-fdecl-kind @ case lf-decl-theorem of ." theorem" endof lf-decl-def of ." def" endof
     lf-decl-axiom of ." axiom" endof ." import-stub" endcase ;
 : .type ( decl -- )
-  dup lf-fdecl-type @ fuel rot lf-fdecl-kind @ lf-decl-theorem =
+  dup lf-fdecl-type @ print-fuel rot lf-fdecl-kind @ lf-decl-theorem =
   if lf-print-statement else lf-print-term then ok! ;
 : .head ( decl -- ) dup .kind space dup lf-fdecl-name @ lf-print-name ok! .universes ;
 : .lean ( decl -- )
   ." lean: " dup .head ."  : " dup .type
   dup lf-fdecl-value @ 0< if drop cr exit then
-  ."  :=" cr ." lean: " lf-fdecl-value @ fuel lf-print-term ok! cr ;
+  ."  :=" cr ." lean: " lf-fdecl-value @ print-fuel lf-print-term ok! cr ;
 : .stub ( decl -- )
   dup lf-fdecl-type @ 0< if drop exit then
   ." type: " dup lf-fdecl-name @ lf-print-name ok! dup .universes ."  : " .type cr ;
@@ -66,12 +67,13 @@ variable into   variable into#
   tuck into @ into# @ @ + swap move into# @ +! ;
 : capture-into ( buffer count -- ) 0 over ! into# ! into ! ;
 ' capture is dump-out
-: print-words ( -- outcome ) ['] capture lf-print-unicode lf-print-setup fuel lf-author-print ;
-: dump-all ( -- ) lf-author-count 0 ?do
-    i lf-author-decl dump-decl loop ;
-: captured ( buffer count -- c-addr u ) @ ;
+: to-capture ( -- ) ['] capture lf-print-unicode lf-print-setup ;
+: print-words ( -- outcome ) to-capture print-fuel lf-author-print ;
+: dump-all ( -- ) lf-author-count 0 ?do i lf-author-decl dump-decl loop ;
 
-\ The round trip, in a new context.
+\ The round trip, in a new context: the words of the first run (words1)
+\ run there; they are printed and dumped again (words2, dump2). Each
+\ context has its own printer settings, so the sink is set in both.
 variable trip
 : second-run ( -- outcome )
   lf-author-begin words1 words1# @ lf-author-text dup ok? 0= if exit then drop
@@ -82,18 +84,24 @@ variable trip
   trip @ context-free throw ;
 : same? ( a1 u1 a2 u2 -- flag ) compare 0= ;
 : .same ( flag -- ) if ." same" else ." DIFFERENT" then ;
-: round-trip ( -- )
-  words1 words1# capture-into print-words dup ok? 0= if
-    ." round trip: the words could not be printed (" outcome-text type ." )" cr exit then drop
-  dump1 dump1# capture-into dump-all ['] second-run in-new-context
+: .trip ( -- )
+  ['] second-run in-new-context ['] type lf-print-unicode lf-print-setup
   dup ok? 0= if ." round trip: the printed words did not run (" outcome-text type ." )" cr
     exit then drop
   ." round trip: terms, names, kinds, labels and notes "
   dump1 dump1# @ dump2 dump2# @ same? .same
   ." ; printed text " words1 words1# @ words2 words2# @ same? .same cr ;
+\ The round trip of what print-xt ( -- outcome ) prints and dump-xt ( -- )
+\ dumps in the current context.
+: round-trip-of ( print-xt dump-xt -- )
+  >r words1 words1# capture-into execute dup ok? 0= if r> drop ['] type lf-print-unicode
+    lf-print-setup ." round trip: the words could not be printed (" outcome-text type ." )"
+    cr exit then drop
+  dump1 dump1# capture-into r> execute .trip ;
+: round-trip ( -- ) ['] print-words ['] dump-all round-trip-of ;
 
 : .printed ( -- )
-  ." words:" cr ['] type lf-print-unicode lf-print-setup fuel lf-author-print dup ok?
+  ." words:" cr ['] type lf-print-unicode lf-print-setup print-fuel lf-author-print dup ok?
   if drop else cr ok! cr then ;
 : report-run ( -- )
   ['] type lf-print-unicode lf-print-setup

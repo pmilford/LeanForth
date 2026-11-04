@@ -133,7 +133,8 @@ create lf-pf-eol 10 c,
   case lf-note-person of s\" note\" " endof lf-note-ai of s\" ai-note\" " endof
   s" label: " rot endcase ;
 : lf-pf-note ( i -- )
-  lf-pf-mark over lf-note-kind@ dup >r lf-pf-note-word lf-pp-put over lf-note-text@ lf-pp-put
+  lf-pf-mark over lf-note-kind@ dup >r lf-pf-note-word lf-pp-put over lf-note-text@
+    lf-pp-put
   r@ lf-note-label <> if s\" \"" lf-pp-put then lf-pf-unit drop
   r> lf-note-label <> if lf-pf-end-line then ;
 : lf-pf-notes ( term -- )
@@ -152,12 +153,14 @@ create lf-pf-eol 10 c,
 : lf-pf-var ( i -- outcome )
   dup 0 lf-pp-depth within 0= if drop-invalid exit then
   dup lf-pf-visible? 0= if drop-invalid exit then
-  dup lf-pf-hidden? if lf-pf-inner# lf-pf-var# else lf-pf-shown lf-pf-text then outcome-ok ;
+  dup lf-pf-hidden? if lf-pf-inner# lf-pf-var# else lf-pf-shown lf-pf-text then
+    outcome-ok ;
 
 \ A word, as a step that cannot fail; a word after a step, only when the
 \ step succeeded.
 : lf-pf-say ( c-addr u -- outcome ) lf-pf-text outcome-ok ;
-: lf-pf-then-word ( outcome c-addr u -- outcome ) rot dup ok? if drop lf-pf-say else nip nip then ;
+: lf-pf-then-word ( outcome c-addr u -- outcome ) rot dup ok? if drop lf-pf-say else nip
+  nip then ;
 : lf-pf-number ( u -- ) lf-pf-mark swap lf-pf-put-number lf-pf-unit ;
 
 \ Universe levels, postfix: 0, 2, u, u 1 level+, a b level-max, a b level-imax.
@@ -170,7 +173,8 @@ defer lf-pf-level-visit ( level x -- outcome )
   if lf-pf-unit outcome-ok else lf-pp-used ! outcome-unsupported then ;
 \ Unchecked: level is valid; successors point to earlier levels.
 : lf-pf-succs ( level -- base n )
-  0 begin over lf-level-tag@ lf-level-tag-succ = while swap lf-level-first@ swap 1+ repeat ;
+  0 begin over lf-level-tag@ lf-level-tag-succ = while swap lf-level-first@ swap 1+
+    repeat ;
 : lf-pf-zero? ( level -- flag ) lf-level-tag@ lf-level-tag-zero = ;
 : lf-pf-offset ( base n -- outcome )
   swap lf-pf-level dup ok? if drop lf-pf-number s" level+" lf-pf-say else nip then ;
@@ -213,7 +217,8 @@ defer lf-pf-level-visit ( level x -- outcome )
   2drop false ;
 : lf-pf-root? ( id -- flag )
   dup lf-pf-decl-universe? if drop true exit then
-  lf-pf-mark swap lf-pf-put-name dup lf-pp-pending 2dup lf-pf-token? 0= -rot 0 lf-pp-any? or
+  lf-pf-mark swap lf-pf-put-name dup lf-pp-pending 2dup lf-pf-token? 0= -rot 0 lf-pp-any?
+    or
   swap lf-pp-used ! ;
 : lf-pf-const-name ( id -- outcome )
   dup lf-pf-writable? 0= if drop outcome-unsupported exit then
@@ -234,18 +239,21 @@ defer lf-pf-term-visit ( term x -- outcome )
 : lf-pf-term ( term -- outcome ) 0 ['] lf-pf-term-visit lf-pp-call ;
 : lf-pf-binder-name ( node -- name kind ) lf-pres-binder@ 0= if 0 lf-binder-default then ;
 : lf-pf-kind-word ( kind -- c-addr u )
-  case lf-binder-implicit of s" implicit:" endof lf-binder-strict of s" strict-implicit:" endof
+  case lf-binder-implicit of s" implicit:" endof lf-binder-strict of s" strict-implicit:"
+    endof
     lf-binder-instance of s" instance:" endof s" explicit:" rot endcase ;
 : lf-pf-spellable? ( id -- flag ) dup 0= swap lf-pf-writable? or ;
 : lf-pf-name-text ( id -- ) ?dup if lf-pf-put-name else lf-pf-anonymous lf-pp-put then ;
 : lf-pf-opener ( node -- outcome )
   lf-pf-binder-name over lf-pf-spellable? 0= if 2drop outcome-unsupported exit then
-  lf-pf-mark swap lf-pf-kind-word lf-pp-put s"  " lf-pp-put swap lf-pf-name-text lf-pf-unit
+  lf-pf-mark swap lf-pf-kind-word lf-pp-put s"  " lf-pp-put swap lf-pf-name-text
+    lf-pf-unit
   outcome-ok ;
 \ The name its variables are written by, put in the pool, if they can be.
 : lf-pf-referable ( id -- )
   dup lf-pf-writable? 0= if drop exit then
-  lf-pf-mark swap lf-pf-put-name dup lf-pp-pending lf-pf-token? if drop else lf-pp-used ! then ;
+  lf-pf-mark swap lf-pf-put-name dup lf-pp-pending lf-pf-token? if drop else lf-pp-used !
+    then ;
 : lf-pf-bind-visible ( node -- outcome )
   lf-pf-mark swap lf-pf-binder-name drop lf-pf-referable 0 swap lf-pp-bind ;
 : lf-pf-bind-arrow ( -- outcome ) -1 lf-pf-mark lf-pp-bind ;
@@ -269,7 +277,8 @@ defer lf-pf-term-visit ( term x -- outcome )
   dup lf-pf-arrow? dup ok? 0= if nip nip exit then drop
   if lf-pf-arrow else s" forall" lf-pf-binder then ;
 : lf-pf-app ( app -- outcome )
-  dup lf-term-first@ lf-pf-term ok-then? if lf-term-second@ lf-pf-term s" $" lf-pf-then-word then ;
+  dup lf-term-first@ lf-pf-term ok-then? if lf-term-second@ lf-pf-term s" $"
+    lf-pf-then-word then ;
 
 \ A CASE with one arm per term tag, read as a table; then the node's
 \ labels and notes.
@@ -283,7 +292,8 @@ defer lf-pf-term-visit ( term x -- outcome )
     lf-tag-pi of lf-pf-pi endof
     lf-tag-constant of lf-pf-const endof
     >r drop-invalid r> endcase ;
-: lf-pf-noted ( term x -- outcome ) drop dup lf-pf-node dup ok? if over lf-pf-notes then nip ;
+: lf-pf-noted ( term x -- outcome )
+  drop dup lf-pf-node dup ok? if over lf-pf-notes then nip ;
 ' lf-pf-noted is lf-pf-term-visit
 
 \ Declarations.
@@ -298,9 +308,11 @@ defer lf-pf-term-visit ( term x -- outcome )
   swap lf-pf-put-name lf-pf-unit outcome-ok ;
 : lf-pf-universe ( id -- outcome )
   dup lf-pf-writable? 0= if drop outcome-unsupported exit then
-  2 lf-pf-open lf-pf-mark s" universe " lf-pp-put swap lf-pf-put-name lf-pf-unit outcome-ok ;
+  2 lf-pf-open lf-pf-mark s" universe " lf-pp-put swap lf-pf-put-name lf-pf-unit
+    outcome-ok ;
 : lf-pf-universes ( -- outcome )
-  lf-pf-universe-ids 0 ?do dup i cells + @ lf-pf-universe dup ok? 0= if nip unloop exit then
+  lf-pf-universe-ids 0 ?do dup i cells + @ lf-pf-universe dup ok? 0= if nip unloop exit
+    then
     drop loop drop outcome-ok ;
 \ A parameter: its own line, then its binder stays in scope.
 : lf-pf-param-line ( binder -- outcome ) 2 lf-pf-open lf-pf-head ;
@@ -321,7 +333,8 @@ defer lf-pf-term-visit ( term x -- outcome )
   repeat outcome-ok ;
 : lf-pf-body ( term -- outcome ) 2 lf-pf-open lf-pf-term ;
 : lf-pf-definition ( decl -- outcome )
-  dup lf-fdecl-type @ swap lf-fdecl-value @ lf-pf-def-params dup ok? 0= if nip nip exit then
+  dup lf-fdecl-type @ swap lf-fdecl-value @ lf-pf-def-params dup ok? 0= if nip nip exit
+    then
   drop swap lf-pf-body dup ok? 0= if nip exit then drop
   0 lf-pf-open s" :=" lf-pf-text lf-pf-body ;
 : lf-pf-statement ( decl -- outcome )
@@ -330,7 +343,8 @@ defer lf-pf-term-visit ( term x -- outcome )
 : lf-pf-parts ( decl -- outcome )
   dup lf-fdecl-kind @ lf-decl-def > if lf-pf-statement else lf-pf-definition then ;
 : lf-pf-end ( decl -- outcome )
-  0 lf-pf-open lf-pf-mark s" end " lf-pp-put swap lf-fdecl-name @ lf-pf-put-name lf-pf-unit
+  0 lf-pf-open lf-pf-mark s" end " lf-pp-put swap lf-fdecl-name @ lf-pf-put-name
+    lf-pf-unit
   lf-pf-eol 1 lf-pp-emit 0 lf-pf-column ! outcome-ok ;
 : lf-pf-declaration ( decl x -- outcome )
   drop dup lf-pf-header dup ok? 0= if nip exit then drop

@@ -55,7 +55,8 @@ end-structure
 \ mark the line as read up to its end.
 : lfa-token! ( c-addr u -- )
   2dup + lfa-source lfa-source-text @ - lfa-source lfa-source-end !
-  lfa-source lfa-source-length ! lfa-source lfa-source-text @ - 1+ lfa-source lfa-source-column ! ;
+  lfa-source lfa-source-length ! lfa-source lfa-source-text @ - 1+ lfa-source
+    lfa-source-column ! ;
 \ The current token's text, while its line is kept; never beyond the line.
 : lfa-token ( -- c-addr u )
   lfa-the-line lfa-source lfa-source-column @ 1- 0 max over min /string
@@ -66,4 +67,5 @@ end-structure
 \ The line has been read up to >IN (after a comment or a note's text).
 : lfa-read! ( -- ) >in @ lfa-source lfa-source-end ! ;
 \ The part of the line after the last token a LeanForth word read.
-: lfa-unread ( -- c-addr u ) lfa-the-line lfa-source lfa-source-end @ 0 max over min /string ;
+: lfa-unread ( -- c-addr u ) lfa-the-line lfa-source lfa-source-end @ 0 max over
+  min /string ;

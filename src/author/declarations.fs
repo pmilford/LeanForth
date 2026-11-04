@@ -38,10 +38,12 @@ require ./groups.fs
   0 -rot begin dup while lfa-intern-step repeat 2drop ;
 : lfa-anonymous? ( c-addr u -- flag ) lf-pf-anonymous compare 0= ;
 \ A binder's name: [anonymous] is the anonymous name.
-: lfa-binder-name-of ( c-addr u -- name ) 2dup lfa-anonymous? if 2drop 0 else lfa-intern then ;
+: lfa-binder-name-of ( c-addr u -- name ) 2dup lfa-anonymous? if 2drop 0 else lfa-intern
+  then ;
 \ The name after a word, made the current token; a word with no name after
 \ it on its line stops with the error at the word.
-: lfa-name-token ( -- c-addr u ) parse-name dup 0<> lfa-e-no-name lfa-must 2dup lfa-token! ;
+: lfa-name-token ( -- c-addr u ) parse-name dup 0<> lfa-e-no-name lfa-must 2dup
+  lfa-token! ;
 
 \ Texts of up to 256 characters in a record: the declaration's token and
 \ full name, a namespace name being made.
@@ -94,7 +96,8 @@ end-structure
   lfa-known# 0 ?do 2dup i lfa-known lfa-known-name compare 0=
     if 2drop i true unloop exit then loop 2drop false ;
 : lfa-known-room? ( u -- flag )
-  lfa-known-bytes lfa-knowns lfa-knowns-used @ - upto? lfa-known# lfa-known-capacity < and ;
+  lfa-known-bytes lfa-knowns lfa-knowns-used @ - upto? lfa-known# lfa-known-capacity <
+    and ;
 : lfa-known-text! ( c-addr u known -- )
   2dup lfa-known-length ! lfa-knowns lfa-knowns-used @ swap lfa-known-offset !
   tuck lfa-knowns lfa-knowns-bytes lfa-knowns lfa-knowns-used @ + swap move
@@ -143,7 +146,8 @@ lfa-space-capacity /lfa-space 0 context-store: lfa-spaces
 \ Declarations: kind NAME starts one.
 : lfa-root-name? ( c-addr u -- flag )
   2dup s" _root_" compare 0= >r 7 min s" _root_." compare 0= r> or ;
-: lfa-end-token! ( c-addr u -- ) lfa-current lfa-current-token dup lfa-text-clear lfa-text+ ;
+: lfa-end-token! ( c-addr u -- ) lfa-current lfa-current-token dup lfa-text-clear
+  lfa-text+ ;
 : lfa-full! ( c-addr u -- )
   lfa-current lfa-current-full dup lfa-text-clear lfa-current-space rot lfa-text+
   lfa-current lfa-current-full lfa-text-dotted ;
@@ -189,21 +193,25 @@ lfa-space-capacity /lfa-space 0 context-store: lfa-spaces
   if lfa-depth 1- lfa-local! else 2drop then ;
 \ value kind: the binder word; its frame starts below the domain.
 : lfa-binder-word ( value kind -- )
-  depth 2 - >r >r lfa>term r> lfa-here lfa-open r> over lfa-binder-mark ! lfa-name-binder ;
+  depth 2 - >r >r lfa>term r> lfa-here lfa-open r> over lfa-binder-mark !
+    lfa-name-binder ;
 \ The node of a binder around body, with its name, kind and position.
 : lfa-named-node ( binder body tag -- term )
   >r over lfa-binder-domain @ swap r> lfa-binder-node swap >r
   r@ lfa-binder-name @ r@ lfa-binder-kind @ lfa-name! r> lfa-binder-at @ lfa-span ;
-: lfa-binder-drop ( -- ) lfa-innermost lfa-binder-entries @ lfa-entries-cut lfa-binder-pop ;
+: lfa-binder-drop ( -- ) lfa-innermost lfa-binder-entries @ lfa-entries-cut
+  lfa-binder-pop ;
 \ Before fun or forall: a binder that may close, and one value above it.
 : lfa-closing ( -- )
   lfa-closable 0> lfa-e-no-binder lfa-must
-  depth lfa-frame - 1 = if exit then lfa-innermost lfa-binder-at @ lfa-e-body lfa-fail-see ;
+  depth lfa-frame - 1 = if exit then lfa-innermost lfa-binder-at @ lfa-e-body
+    lfa-fail-see ;
 : lfa-close ( value tag -- value' )
   >r lfa>term lfa-innermost swap r> lfa-named-node lfa-binder-drop true lfa-term-value ;
 
 \ := takes the statement; the binders open now are the parameters.
-: lfa-definable? ( -- flag ) lfa-inside? if lfa-this-kind lf-decl-def > 0= lfa-params 0< and
+: lfa-definable? ( -- flag ) lfa-inside? if lfa-this-kind lf-decl-def > 0= lfa-params 0<
+  and
   else false then ;
 : lfa-define ( -- )
   lfa-definable? lfa-e-define-here lfa-must 1 lfa-e-statement lfa-exactly
@@ -219,7 +227,8 @@ lfa-space-capacity /lfa-space 0 context-store: lfa-spaces
 : lfa-proof-end ( above -- value )
   lfa-params 0< 0= lfa-e-no-define lfa-must lfa-same-binders
   1 = lfa-e-proof lfa-must lfa>term ;
-: lfa-no-statement? ( above -- flag ) 0= lfa-depth 0= and lfa-this-kind lf-decl-stub = and ;
+: lfa-no-statement? ( above -- flag ) 0= lfa-depth 0= and lfa-this-kind lf-decl-stub =
+  and ;
 : lfa-statement-end ( above -- )
   dup lfa-no-statement? if drop exit then
   1 = lfa-e-statement lfa-must lfa>term lfa-this lf-fdecl-type ! lfa-depth lfa-params! ;
@@ -227,12 +236,14 @@ lfa-space-capacity /lfa-space 0 context-store: lfa-spaces
   over 0< if drop exit then swap lf-tag-lam lfa-named-node ;
 : lfa-close-param ( type value -- type' value' )
   lfa-innermost tuck lfa-around >r swap lf-tag-pi lfa-named-node r> lfa-binder-drop ;
-: lfa-close-params ( type value -- type' value' ) begin lfa-depth while lfa-close-param repeat ;
+: lfa-close-params ( type value -- type' value' ) begin lfa-depth while lfa-close-param
+  repeat ;
 \ The constant's words: the full name, and the rest of it in the wordlist
 \ of each namespace its name is inside.
 : lfa-constant! ( c-addr u wid -- )
   lfa-entry-new lfa-entry-constant lfa-current lfa-current-decl @ rot lfa-entry-set ;
-: lfa-at-dot ( c-addr u i -- ) >r over r@ lfa-namespace -rot r> 1+ /string rot lfa-constant! ;
+: lfa-at-dot ( c-addr u i -- ) >r over r@ lfa-namespace -rot r> 1+ /string rot
+  lfa-constant! ;
 : lfa-register ( -- )
   lfa-full 2dup lf-consts lfa-constant!
   dup 0 ?do over i chars + c@ [char] . = if 2dup i lfa-at-dot then loop 2drop ;
@@ -243,12 +254,14 @@ lfa-space-capacity /lfa-space 0 context-store: lfa-spaces
   lfa-this dup lf-fdecl-type @ dup 0< if 2drop exit then
   swap lf-fdecl-name @ swap lf-pres-declare ok? lfa-e-entries-full lfa-must ;
 : lfa-finish ( type value -- )
-  lfa-record-decl lfa-publish lfa-current lfa-current-entries @ lfa-entries-cut lfa-register
+  lfa-record-decl lfa-publish lfa-current lfa-current-entries @ lfa-entries-cut
+    lfa-register
   lfa-scope-close lfa-items-reset ;
 : lfa-end-check ( c-addr u -- )
   lfa-current lfa-current-token lfa-text compare 0= lfa-e-end-name lfa-must ;
 : lfa-end-declaration ( above c-addr u -- )
-  lfa-end-check lfa-this-kind lf-decl-def > if lfa-statement-end -1 else lfa-proof-end then
+  lfa-end-check lfa-this-kind lf-decl-def > if lfa-statement-end -1 else lfa-proof-end
+    then
   lfa-this lf-fdecl-type @ swap lfa-finish ;
 
 \ namespace NAME and end NAME outside declarations; open NAME.
@@ -273,7 +286,8 @@ lfa-space-capacity /lfa-space 0 context-store: lfa-spaces
 \ The namespace prefix p-addr p-u joined to the name x-addr x-u, in the
 \ scratch text.
 : lfa-joined ( x-addr x-u p-addr p-u -- c-addr u )
-  lfa-scratch dup lfa-text-clear lfa-text+ lfa-scratch lfa-text-dotted lfa-scratch lfa-text ;
+  lfa-scratch dup lfa-text-clear lfa-text+ lfa-scratch lfa-text-dotted lfa-scratch
+    lfa-text ;
 : lfa-from ( -- n ) lfa-current-space nip dup if 1+ then ;
 : lfa-namespace-word ( -- )
   lfa-outside lfa-name-token 2dup lfa-empty-part? 0= lfa-e-bad-name lfa-must
@@ -297,7 +311,8 @@ lfa-space-capacity /lfa-space 0 context-store: lfa-spaces
 \ open NAME: the namespace NAME inside the current namespace or one
 \ around it, innermost first, as Lean resolves it; it must be known (a
 \ namespace entered, or the namespace of a constant).
-: lfa-cut ( c-addr u -- c-addr u' ) begin dup while 1- 2dup chars + c@ [char] . = until then ;
+: lfa-cut ( c-addr u -- c-addr u' ) begin dup while 1- 2dup chars + c@ [char] . = until
+  then ;
 : lfa-try ( x-addr x-u p-addr p-u -- i true | false ) lfa-joined lfa-known-find ;
 : lfa-resolve ( c-addr u -- i )
   lfa-current-space begin 2over 2over lfa-try if nip nip nip nip exit then

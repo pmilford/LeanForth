@@ -58,7 +58,8 @@ end-structure
 : lf-note-text@ ( i -- c-addr u )
   lf-note dup lf-pnote-offset @ lf-notes lf-notes-pool + swap lf-pnote-length @ ;
 \ Does live entry i belong to term?
-: lf-note-on? ( term i -- flag ) dup lf-note-live? if lf-note-term@ = else 2drop false then ;
+: lf-note-on? ( term i -- flag ) dup lf-note-live? if lf-note-term@ = else 2drop false
+  then ;
 \ Does term carry any live entry?
 : lf-note-any? ( term -- flag )
   lf-note-count 0 ?do dup i lf-note-on? if drop true unloop exit then loop drop false ;
@@ -102,5 +103,6 @@ end-structure
   dup lf-note-kind@ lf-note-label <> if drop 2drop false exit then
   lf-note-text@ compare 0= ;
 : lf-note-label? ( c-addr u from -- flag )
-  0 max lf-note-count swap ?do 2dup i lf-note-label-at? if 2drop true unloop exit then loop
+  0 max lf-note-count swap ?do 2dup i lf-note-label-at? if 2drop true unloop exit then
+    loop
   2drop false ;

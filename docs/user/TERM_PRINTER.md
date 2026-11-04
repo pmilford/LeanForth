@@ -57,10 +57,12 @@ and in LaTeX the proof term is
 \lambda\ \{A\ B\ C\}\ f\ g\ \mathit{value} \mapsto g\ (f\ \mathit{value})
 ```
 
-In LeanForth Forth, a program prints a term with the words below. LeanForth's
-own syntax for *writing* terms is not designed yet (plan task 8.1.1); today
-terms come from the importer or from Forth words such as the test helpers in
-`tests/present/build.fs`, used here. The examples on this page run after
+In LeanForth Forth, a program prints a term with the words below. Terms
+come from the importer, from LeanForth's own words for *writing* them
+([LeanForth syntax](LEANFORTH_SYNTAX.md); the printer's Forth mode,
+`src/present/print-forth.fs`, prints a term back as those words), or from
+Forth words such as the test helpers in `tests/present/build.fs`, used
+here. The examples on this page run after
 `gforth src/main.fs` from the repository root, with these helpers loaded
 first; `make test` checks that each prints exactly the text shown after it.
 
