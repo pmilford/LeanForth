@@ -28,10 +28,11 @@ require ./import/ndjson.fs
 
 \ The importer stage (ADR 0016 C9 step 2): an export, checked against its
 \ manifest, staged into a compact input tier (core/compact*.fs) with its
-\ declarations. Not yet read by the checker, which still uses the term,
-\ level and name stores (C9 step 3); it declares no context member and
-\ allocates nothing while loading.
+\ declarations; it declares no context member and allocates nothing while
+\ loading. The feed (C9 step 3, plan task 3.2.2) makes a sealed stage the
+\ checker's input in file order, its names read from the input tier.
 require ./import/stage.fs
+require ./import/feed.fs
 
 \ Verified-program track: example words, the stack-depth analyzer, the
 \ reader from restricted Forth source to the program IR and its interpreter.

@@ -7,7 +7,7 @@
 
 require ./print-tokens.fs
 
-lf-level-capacity context-walk: lf-pp-level-walk
+lf-level-depth-limit context-walk: lf-pp-level-walk
 
 \ Level scans with the print's fuel. Always zero (Lean's isAlwaysZero):
 \ no successor or parameter is reachable through max operands or imax's

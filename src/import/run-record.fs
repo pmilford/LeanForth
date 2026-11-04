@@ -31,7 +31,9 @@
 \   loaded have the SHA-256 rr-start recorded), and keeps the outcome and
 \   whether the manifest was enforced. It is the only way a record can
 \   say enforced: another importer gives its outcome to rr-read!, and the
-\   record then says not enforced.
+\   record then says not enforced. A run that is not to be recorded skips
+\   rr-start and loads the file once with rr-read-once ( c-addr u flag --
+\   outcome ); rr-write then refuses (invalid).
 \ - rr-check ( -- ) checks every declaration of the input in input order
 \   in a new environment, which it keeps current, as lf-check-input does
 \   (check-declaration.fs: lf-check-declaration, the budget, no new
@@ -163,7 +165,7 @@ begin-structure /rr
   rr-file-room +field rr-file-buf
   field: rr-run             \ the run's outcome
   field: rr-fault           \ the first failure rr-write found itself, or ok
-  lf-input-capacity /rr-step * +field rr-kept
+  lf-input-default /rr-step * +field rr-kept   \ at most lf-input-default declarations
   field: rr-name-size
   rr-name-room +field rr-name-buf
   field: rr-text-size
@@ -180,11 +182,12 @@ rr-depth 0 run-record rr-writer jw-init 0= [if] .( run-record.fs: writer) cr abo
 : rr-unknown ( -- )
   run-record dup rr-exporter rr-forget dup rr-exporter-version rr-forget
   dup rr-format rr-forget dup rr-lean rr-forget rr-githash rr-forget ;
+: rr-unread ( -- )
+  outcome-invalid run-record rr-read ! false run-record rr-enforced !
+  false run-record rr-moved ! false run-record rr-checked ! 0 run-record rr-file-size ! ;
 : rr-reset ( -- )
   rr-unknown outcome-invalid run-record rr-manifest-outcome !
-  0 run-record rr-manifest-key ! 0 run-record rr-manifest-reason !
-  outcome-invalid run-record rr-read ! false run-record rr-enforced !
-  false run-record rr-checked ! 0 run-record rr-file-size ! ;
+  0 run-record rr-manifest-key ! 0 run-record rr-manifest-reason ! rr-unread ;
 : rr-no-source ( -- ) run-record rr-commit rr-forget false run-record rr-modified ! ;
 rr-reset rr-no-source
 
@@ -295,6 +298,12 @@ rr-reset rr-no-source
 : rr-checked-read ( c-addr u -- outcome )
   cin-read-checked dup ok? if drop rr-bytes-check then ;
 : rr-load ( flag -- outcome ) rr-file rot if rr-checked-read else cin-read then ;
+\ A run that is not recorded (bin/leanforth check without --record): the
+\ export file c-addr u read once, into the checker's input, its manifest
+\ checked when flag is true, with none of rr-start's reads (digest,
+\ metadata, manifest) and no name kept, so rr-write then refuses (invalid).
+: rr-read-once ( c-addr u flag -- outcome )
+  rr-release rr-reset if cin-read-checked else cin-read then dup rr-read! ;
 : rr-unstarted ( flag -- outcome ) drop outcome-invalid dup rr-read! ;
 : rr-import ( flag -- outcome )
   false run-record rr-moved ! rr-file nip 0= if rr-unstarted exit then
@@ -324,14 +333,16 @@ rr-reset rr-no-source
 : rr-own! ( env -- )
   dup run-record rr-env ! lf-envh-identity @ run-record rr-env-id !
   true run-record rr-own ! ;
+\ A record keeps at most lf-input-default declarations: more is full.
 : rr-run-in ( env -- outcome )
   dup rr-own! lf-env-use
+  lf-input-count lf-input-default > if drop outcome-full exit then
   dup ok? if drop lf-input-count rr-steps rr-confirm then ;
 \ A new run: an earlier run's environment freed, no step taken, and every
 \ kept outcome invalid until its step publishes one, never ok (0).
 : rr-unkept ( -- )
-  run-record rr-kept lf-input-capacity /rr-step * erase
-  lf-input-capacity 0 do outcome-invalid i rr-step-of kept-outcome ! loop ;
+  run-record rr-kept lf-input-default /rr-step * erase
+  lf-input-default 0 do outcome-invalid i rr-step-of kept-outcome ! loop ;
 : rr-begun ( -- )
   rr-release rr-unkept true run-record rr-checked ! 0 run-record rr-stepped !
   false run-record rr-own ! ;
@@ -428,7 +439,11 @@ rr-power 2constant rr-exact
   s" outcome" rr-key run-record rr-manifest-outcome @ rr-outcome
   run-record rr-manifest-key s" field" rr-member rr-why-out rr-enforced-out
   rr-end-object ;
+\ A run that did not start with rr-start (rr-read-once) has no facts of
+\ its file to record: the text fails as invalid.
+: rr-started? ( -- flag ) rr-file nip 0<> ;
 : rr-input-out ( -- )
+  rr-started? 0= if outcome-invalid rr-fail then
   s" input" rr-key rr-object run-record rr-before rr-facts-out rr-manifest-out
   rr-end-object ;
 : rr-exporter-out ( -- )

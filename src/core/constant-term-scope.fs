@@ -13,7 +13,7 @@ require ./diagnostics.fs
 require ./tagged-sort-boundary.fs
 require ./terms.fs
 
-lf-term-capacity context-walk2: lf-cts-walker
+lf-depth-limit context-walk2: lf-cts-walker
 
 \ Fuel left after an audit; kernel passes continue with it.
 : lf-cts-fuel ( -- addr ) lf-cts-walker walk-fuel ;
@@ -58,7 +58,7 @@ lf-term-capacity context-walk2: lf-cts-walker
 \ visit costs one unit of fuel, including repeated DAG visits. Negative
 \ fuel or an out-of-range depth is invalid. Unknown names and declaration
 \ types are not examined; nothing is allocated and nothing is accepted.
-: lf-cts-depth? ( depth -- flag ) lf-term-capacity upto? ;
+: lf-cts-depth? ( depth -- flag ) lf-depth-limit upto? ;
 : lf-constant-term-scope ( index identity depth fuel -- status )
   lf-cts-walker walk-budget 0= if 2drop drop outcome-invalid exit then
   dup lf-cts-depth? if lf-cts-scope else drop 2drop outcome-invalid then ;

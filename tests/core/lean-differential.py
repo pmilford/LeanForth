@@ -282,6 +282,14 @@ BINDER_KNOWN = {
     # D3) runs out of room (with 160 nodes: rejected, D3+D4+D5).
     "decl.lambda-in-argument-wrong-body": "unknown",
 }
+# Plan task 3.3.1 (ADR 0016 C9 step 3): the store capacities are settings.
+# The *-large tables run the same cases with every store's capacity
+# raised (src/core/terms.fs and the other stores), lines the driver runs
+# after loading; the depth limits stay. They must give the table's answer
+# with no known difference: the three rows above are then decided.
+LARGE_CAPACITIES = ["4096 lf-term-capacity! must-ok", "1024 lf-level-capacity! must-ok",
+                    "1024 lf-name-capacity! must-ok", "1024 lf-cref-capacity! must-ok",
+                    "256 lf-input-capacity! must-ok"]
 
 
 def rule_steps(rule):
@@ -320,15 +328,19 @@ def first_checker_cases():
         return first_checker_modules(temporary)
 
 
-def checker_rows(text):
-    """Run every case through tests/support/first-checker-driver.fs."""
+def checker_rows(text, prelude=()):
+    """Run every case through tests/support/first-checker-driver.fs, after
+    the Forth lines of prelude (such as LARGE_CAPACITIES)."""
     driver = Path("tests/support/first-checker-driver.fs").resolve()
-    script = [f"require {driver}"]
+    script = [f"require {driver}", ": must-ok ( outcome -- ) ok? 0= abort\" setting\" ;",
+              *prelude]
+    started = False
     for line in text.splitlines():
         word, rest = line.split(" ", 1)
         if word == "CASE":
-            if len(script) > 1:
+            if started:
                 script.append("fc-run")
+            started = True
             script.append(f"fc-case {rest}")
         elif word == "DECL":
             script.append(f"fc-decl {rest}")
@@ -399,15 +411,15 @@ def checker_summary(name, rows, known):
           f"known differences: {', '.join(known) or 'none'}")
 
 
-def first_checker():
+def first_checker(prelude=(), name="first checker"):
     table, text = first_checker_cases()
-    rows, verdicts = checker_rows(text)
+    rows, verdicts = checker_rows(text, prelude)
     if sorted(rows) != sorted(table) or len(rows) != 69:
         raise Mismatch("first checker: the Forth rows are not the table's 69 cases")
     for case, (lean, expected, rule) in table.items():
         checker_row(case, lean, expected, rule, rows[case], verdicts[case],
                     FIRST_CHECKER_KNOWN)
-    checker_summary("first checker", rows, FIRST_CHECKER_KNOWN)
+    checker_summary(name, rows, FIRST_CHECKER_KNOWN)
     return len(rows)
 
 
@@ -436,22 +448,23 @@ def binder_domain_cases():
     return {row[0]: row[1:] for row in table}, text
 
 
-def binder_domains():
+def binder_domains(prelude=(), known=None, name="binder domains"):
+    known = BINDER_KNOWN if known is None else known
     table, text = binder_domain_cases()
-    rows, verdicts = checker_rows(text)
+    rows, verdicts = checker_rows(text, prelude)
     if sorted(rows) != sorted(table) or len(rows) != 22:
         raise Mismatch("binder domains: the Forth rows are not the table's 22 cases")
     for case, (lean, _, amended, rule) in table.items():
         checker_row(case, BINDER_LEAN.get(lean, lean), BINDER_ANSWERS[amended], rule,
-                    rows[case], verdicts[case], BINDER_KNOWN)
-    checker_summary("binder domains", rows, BINDER_KNOWN)
+                    rows[case], verdicts[case], known)
+    checker_summary(name, rows, known)
     return len(rows)
 
 
 # Universe scope (ADR 0012 test-matrix row 4): universe-scope-terms.lean
 # checks Lean's verdict on each case and prints its expectation (EXPECT
 # lines), then the cases.
-def universe_scope():
+def universe_scope(prelude=(), name="universe scope"):
     with tempfile.TemporaryDirectory() as temporary:
         first_checker_modules(temporary)
         output = subprocess.run([LEAN, "-DwarningAsError=true",
@@ -462,13 +475,25 @@ def universe_scope():
     table = {words[1]: words[2:] for words in map(str.split, lines)
              if words[0] == "EXPECT"}
     rows, verdicts = checker_rows("\n".join(line for line in lines
-                                            if not line.startswith("EXPECT ")))
+                                            if not line.startswith("EXPECT ")), prelude)
     if sorted(rows) != sorted(table) or len(rows) != 49:
         raise Mismatch("universe scope: the Forth rows are not the table's 49 cases")
     for case, (lean, expected, rule) in table.items():
         checker_row(case, lean, expected, rule, rows[case], verdicts[case], {})
-    checker_summary("universe scope", rows, {})
+    checker_summary(name, rows, {})
     return len(rows)
+
+
+def first_checker_large():
+    return first_checker(LARGE_CAPACITIES, "first checker, large capacities")
+
+
+def binder_domains_large():
+    return binder_domains(LARGE_CAPACITIES, {}, "binder domains, large capacities")
+
+
+def universe_scope_large():
+    return universe_scope(LARGE_CAPACITIES, "universe scope, large capacities")
 
 
 TABLES = {
@@ -492,6 +517,13 @@ TABLES = {
                                        "and the amended LeanForth answers, end to end"),
     "universe-scope": (universe_scope, "universe-scope rows agree with Lean's kernel and "
                                        "the expected LeanForth outcomes, end to end"),
+    "first-checker-large": (first_checker_large, "first-checker rows agree with Lean's "
+                                                 "kernel at large store capacities"),
+    "binder-domains-large": (binder_domains_large, "binder-domain rows agree with Lean's "
+                                                   "kernel at large store capacities, "
+                                                   "with no known difference"),
+    "universe-scope-large": (universe_scope_large, "universe-scope rows agree with Lean's "
+                                                   "kernel at large store capacities"),
 }
 
 

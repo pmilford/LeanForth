@@ -181,6 +181,16 @@ char x hex-byte c!
 T{ true rr-import rr-moved? -> outcome-invalid true }T
 T{ s" " rr-file! false rr-import rr-moved? -> true outcome-invalid false }T
 rr-release
+\ A run read once, without rr-start (bin/leanforth check without
+\ --record): checked as usual, never recorded, whatever facts an earlier
+\ run left.
+T{ constant-fixture true rr-read-once -> outcome-ok }T
+fuel 64 rr-settings! rr-check
+T{ run-record rr-run @ rr-started? rr-write -> outcome-ok false outcome-invalid }T
+\ ... also when the manifest's outcome left in the record would pass.
+outcome-ok run-record rr-manifest-outcome !
+T{ rr-write -> outcome-invalid }T
+rr-release
 \ Checks run although the read was not ok (rvRP3 L1, its probe p8): the
 \ input is still the earlier file's, so no record.
 constant-fixture rr-start ok? must fuel 64 rr-settings!

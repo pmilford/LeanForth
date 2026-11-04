@@ -40,11 +40,14 @@
 \ context moves no longer matches its mark.
 \
 \ Untrusted [import] data; part of the first checker's [kernel] path, not
-\ yet through the review gate. Up to lf-param-capacity universe
-\ parameters per declaration (Mathlib uses up to 30 universe arguments:
-\ a phase-2 limit, like the eight levels of a constant reference).
-\ State: the declaration store lf-inputs and one record, lf-input-state,
-\ both members of the checker context; written only while loading and by
+\ yet through the review gate. Up to lf-param-capacity (64) universe
+\ parameters per declaration (Mathlib's most is 30); the number of
+\ declarations is a capacity setting (lf-input-capacity!). The
+\ fingerprint also covers the references' universe arguments (their
+\ pool) and, under a name view (names.fs), every input name's hash.
+\ State: the declaration store lf-inputs (a heap store), the name index
+\ lf-input-names (a heap slab) and one record, lf-input-state, all
+\ members of the checker context; written only while loading and by
 \ lf-input-reset, then read by every check in that context. The layout is
 \ host-specific and never serialized.
 
@@ -55,8 +58,8 @@ require ./levels.fs
 require ./names.fs
 require ./constant-references.fs
 
-32 constant lf-input-capacity
-8 constant lf-param-capacity
+32 constant lf-input-default
+64 constant lf-param-capacity
 
 \ Declaration kinds, as Lean's ConstantInfo; 0 is no kind.
 1 constant lf-kind-definition
@@ -85,9 +88,35 @@ begin-structure /lf-idecl
   field: lf-idecl-height    \ a regular hint's height, else 0
   field: lf-idecl-arity     \ number of universe parameters
   lf-param-capacity cells +field lf-idecl-params   \ their name IDs, in order
+  field: lf-idecl-prev      \ set by lf-input-add: the declaration before it
+                            \ of the same name, plus one; 0 for none
 end-structure
 
-lf-input-capacity /lf-idecl 0 context-store: lf-inputs
+\ The declarations: a heap store growing up to a capacity that is a
+\ setting of each context, as for terms (terms.fs); a new context starts
+\ with lf-input-default.
+store-header context-record: lf-inputs
+: lf-inputs-make ( -- )
+  lf-input-default /lf-idecl 0 lf-inputs store-heap-init ok? 0= abort" input: no heap" ;
+' lf-inputs-make context-setup
+:noname ( -- ) lf-inputs store-heap-free ; context-teardown
+: lf-input-capacity ( -- n ) lf-inputs store-limit @ ;
+: lf-input-capacity! ( n -- outcome ) lf-inputs store-limit! ;
+
+\ The name index (ADR 0016 C4; ADR 0012 E5): for each name ID, the newest
+\ declaration of that name plus one (0 for none), and in each declaration
+\ the one before it of the same name (lf-idecl-prev); lf-input-add fills
+\ both. When names are interned in a shared input tier (a name view,
+\ names.fs), the declarations named n are exactly n's chain, so the
+\ environment reads the chain instead of scanning every earlier
+\ declaration (lf-input-indexed?); tests check that both agree. A heap
+\ slab of cells, a member of the checker context with a teardown word.
+/slab context-record: lf-input-names
+: lf-input-names-make ( -- ) 1 cells max-n 1 cells / lf-input-names slab-init drop ;
+' lf-input-names-make context-setup
+:noname ( -- ) lf-input-names slab-free ; context-teardown
+: lf-input-newest-cell ( name -- addr ) lf-input-names column-at ;
+: lf-input-indexed? ( -- flag ) lf-name-viewed? ;
 
 5 constant lf-input-stores#
 begin-structure /lf-inrec
@@ -127,8 +156,15 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
 \ The name bytes in use when loading ended, and their count. Unchecked:
 \ the count is within the pool (lf-input-end checks it).
 : lf-fp-names ( h -- h' ) lf-input-bytes @ tuck fnv-step lf-name-bytes rot bytes-mix ;
+\ The universe arguments of the references, in their pool, and under a
+\ name view the count and stored hash of every name.
+: lf-fp-pool ( h -- h' ) 0 lf-cref-pool slab-at lf-cref-top 2* lf-fp-cells ;
+: lf-fp-view-names ( h -- h' )
+  lf-name-numbers tuck fnv-step swap 0 ?do i lf-name-hash fnv-step loop ;
+: lf-fp-view ( h -- h' ) lf-name-viewed? if lf-fp-view-names then ;
 : lf-input-print ( -- h )
-  0 lf-input-stores# 0 ?do i lf-input-marked lf-fp-store loop lf-fp-names ;
+  0 lf-input-stores# 0 ?do i lf-input-marked lf-fp-store loop lf-fp-names lf-fp-pool
+  lf-fp-view ;
 \ The fingerprint recorded when loading ended; 0 before.
 : lf-input-fingerprint ( -- h ) lf-input-state lf-inrec-fingerprint @ ;
 
@@ -139,6 +175,11 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
 : lf-param@ ( params k -- name ) cells + @ ;
 : lf-idecl-params@ ( decl -- params n ) dup lf-idecl-params swap lf-idecl-arity @ ;
 : lf-input-params ( i -- params n ) lf-input-decl lf-idecl-params@ ;
+\ The newest declaration named name, and the one named alike before d;
+\ -1 for none. Unchecked: a valid name, d a valid index.
+: lf-input-newest ( name -- d|-1 )
+  dup lf-input-names slab-capacity u< if lf-input-newest-cell @ 1- else drop -1 then ;
+: lf-input-before ( d -- d'|-1 ) lf-input-decl lf-idecl-prev @ 1- ;
 
 \ Whether the input is as loading left it (see above).
 : lf-input-intact? ( -- flag )
@@ -179,9 +220,17 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
 \ room. lf-input-end marks every input store and ends loading: ok; or
 \ invalid, still loading, when loading had already ended, the name store
 \ or its byte count is out of range, or a store is invalid.
+\ Room in the name index for decl's name, and the links of declaration i.
+: lf-input-index-room ( decl -- outcome )
+  lf-idecl-name @ 1+ lf-input-names column-reserve ;
+: lf-input-link ( i -- )
+  dup lf-input-name lf-input-newest-cell 2dup @ swap lf-input-decl lf-idecl-prev !
+  swap 1+ swap ! ;
 : lf-input-copy ( decl -- i outcome )
+  dup lf-input-index-room ok? 0= if drop -1 outcome-full exit then
+  lf-inputs store-grow drop
   lf-inputs store-new-slot 0= if drop -1 outcome-full exit then
-  >r /lf-idecl move r> outcome-ok ;
+  >r /lf-idecl move r> dup lf-input-link outcome-ok ;
 : lf-input-add ( decl -- i outcome )
   lf-input-sealed? if drop -1 outcome-invalid exit then
   dup lf-input-decl-ok? if lf-input-copy else drop -1 outcome-invalid then ;
@@ -205,4 +254,5 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
 \ end the sealed state. Every environment made over the old input then
 \ fails closed: its fingerprint covers the declarations' identities, which
 \ never repeat.
-: lf-input-reset ( -- ) lf-inputs store-clear lf-input-state /lf-inrec erase ;
+: lf-input-reset ( -- )
+  lf-inputs store-clear lf-input-state /lf-inrec erase lf-input-names column-erase ;

@@ -40,7 +40,7 @@ begin-structure /lf-sigs
   lf-msp-capacity cells +field lf-sigs-roots
   lf-msp-capacity cells +field lf-sigs-ids
   lf-msp-capacity cells +field lf-sigs-arities
-  lf-msp-capacity lf-level-capacity * cells +field lf-sigs-formals
+  lf-msp-capacity lf-level-params-limit * cells +field lf-sigs-formals
 end-structure
 
 \ One request. Put fills name, root, id, formals, arity and fuel; specialize
@@ -54,7 +54,7 @@ begin-structure /lf-sigreq
   field: lf-sigreq-actuals            \ address of arity (index identity) pairs
   field: lf-sigreq-arity
   field: lf-sigreq-fuel
-  lf-level-capacity 2* cells +field lf-sigreq-zeros
+  lf-level-params-limit 2* cells +field lf-sigreq-zeros
 end-structure
 
 /lf-sigs context-record: lf-msp-index
@@ -75,7 +75,7 @@ end-structure
 : lf-msp-ids ( -- addr ) lf-msp-index lf-sigs-ids ;
 : lf-msp-arities ( -- addr ) lf-msp-index lf-sigs-arities ;
 : lf-msp-formals ( -- addr ) lf-msp-index lf-sigs-formals ;
-: lf-msp-formals-at ( position -- addr ) lf-level-capacity * cells lf-msp-formals + ;
+: lf-msp-formals-at ( position -- addr ) lf-level-params-limit * cells lf-msp-formals + ;
 \ Unchecked: one field of the record at a position below the count.
 : lf-msp-name@ ( position -- name ) cells lf-msp-names + @ ;
 : lf-msp-root@ ( position -- root ) cells lf-msp-roots + @ ;
@@ -121,11 +121,11 @@ end-structure
 : lf-msp-position ( name -- position | -1 ) lf-msp-count @ lf-msp-find ;
 
 \ A request is well formed when its token is current, its fuel is
-\ nonnegative, its arity is 0..lf-level-capacity and its name is a positive,
+\ nonnegative, its arity is 0..lf-level-params-limit and its name is a positive,
 \ live name ID. Only then may the index be searched.
 : lf-msp-name? ( name -- flag ) dup 0> swap lf-name-valid? and ;
 : lf-msp-sizes? ( req -- flag )
-  dup lf-sigreq-fuel @ 0< 0= swap lf-sigreq-arity @ lf-level-capacity upto? and ;
+  dup lf-sigreq-fuel @ 0< 0= swap lf-sigreq-arity @ lf-level-params-limit upto? and ;
 : lf-msp-well-formed? ( token req -- flag )
   dup lf-msp-sizes? swap lf-sigreq-name @ lf-msp-name? and swap lf-msp-current? and ;
 : lf-msp-budget! ( count fuel req -- ) tuck lf-sigreq-fuel ! lf-sigreq-arity ! ;

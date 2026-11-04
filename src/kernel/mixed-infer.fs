@@ -37,7 +37,7 @@
 \ recursion and set once, at load time, and shared.
 \ Stack use: the recursion runs on the host stacks, a bounded number of
 \ cells per level of inference or of the rejection analysis (the two share
-\ the frame limit), at most lf-term-capacity levels, and a conversion,
+\ the frame limit), at most lf-depth-limit levels, and a conversion,
 \ reduction or level evaluation at the deepest level nests beta's passes,
 \ a level comparison Lean's normalize (see the need stated at the end);
 \ a host stack overflow throws and never yields a result.
@@ -71,7 +71,7 @@ require ./mixed-signature-probe.fs
 
 begin-structure /lf-ijob
   field: lf-ijob-fuel      \ visits left
-  field: lf-ijob-depth     \ active frames, at most lf-term-capacity
+  field: lf-ijob-depth     \ active frames, at most lf-depth-limit
   field: lf-ijob-token     \ signature index token
   field: lf-ijob-terms     \ term count before the call; source nodes lie below
   field: lf-ijob-levels    \ level count before the call
@@ -79,7 +79,7 @@ begin-structure /lf-ijob
   field: lf-ijob-binders   \ binder domains in the context
   field: lf-ijob-aside     \ true while inference runs aside, for test P2
   field: lf-ijob-env       \ true in environment mode (lf-minfer-start-env)
-  lf-term-capacity cells +field lf-ijob-domains
+  lf-depth-limit cells +field lf-ijob-domains
   lf-cref-argument-capacity 2* cells +field lf-ijob-actuals
 end-structure
 /lf-ijob context-record: lf-minfer-job
@@ -118,7 +118,7 @@ end-structure
 \ push is popped after its body, whatever the outcome.
 : lf-minfer-domain-cell ( i -- addr ) cells lf-minfer-job lf-ijob-domains + ;
 : lf-minfer-push ( domain -- flag )
-  lf-minfer-context-depth @ dup lf-term-capacity <
+  lf-minfer-context-depth @ dup lf-depth-limit <
   if lf-minfer-domain-cell ! 1 lf-minfer-context-depth +! true else 2drop false then ;
 : lf-minfer-pop ( -- ) -1 lf-minfer-context-depth +! ;
 : lf-minfer-bound ( index -- domain )
@@ -398,7 +398,7 @@ defer lf-minfer-apart ( left right -- mask flag )
 : lf-minfer-domain ( domain -- level status )
   lf-minfer-walk dup ok? if drop lf-minfer-domain-sort then ;
 : lf-minfer-crowded ( -- -1 status )
-  lf-minfer-context-depth @ lf-term-capacity lf-diag-binders-full lf-minfer-note
+  lf-minfer-context-depth @ lf-depth-limit lf-diag-binders-full lf-minfer-note
   -1 outcome-full ;
 : lf-minfer-under ( domain body -- type status )
   swap lf-minfer-push if lf-minfer-walk lf-minfer-pop
@@ -457,16 +457,16 @@ defer lf-minfer-apart ( left right -- mask flag )
   lf-minfer-read if lf-minfer-dispatch else -1 outcome-invalid then ;
 
 \ Each visit costs one unit of fuel and holds one of at most
-\ lf-term-capacity frames. No fuel left is exhausted and no free frame is
+\ lf-depth-limit frames. No fuel left is exhausted and no free frame is
 \ full (with neither, the fuel decides); both spend nothing and are
 \ recorded as diagnostics.
 : lf-minfer-frames-full ( -- )
-  lf-minfer-depth @ lf-term-capacity lf-diag-frame-limit lf-minfer-note ;
+  lf-minfer-depth @ lf-depth-limit lf-diag-frame-limit lf-minfer-note ;
 : lf-minfer-refused ( outcome -- outcome )
   dup outcome-full = if lf-minfer-frames-full
   else lf-minfer-fuel @ lf-minfer-site lf-diag-exhausted then ;
 : lf-minfer-room ( -- outcome )
-  lf-minfer-fuel @ lf-minfer-depth @ lf-term-capacity < visit-outcome
+  lf-minfer-fuel @ lf-minfer-depth @ lf-depth-limit < visit-outcome
   dup ok? 0= if lf-minfer-refused then ;
 : lf-minfer-enter ( -- ) -1 lf-minfer-fuel +! 1 lf-minfer-depth +! ;
 : lf-minfer-in-frame ( node -- type status )
@@ -559,8 +559,8 @@ defer lf-minfer-apart ( left right -- mask flag )
 \ constants' levels in conversion, or by rule D1 -- runs Lean's
 \ normalize instead, never inside beta's passes: lf-lnorm-*-cells
 \ (level-normalize.fs: 7 return and 3 data cells per node of the level
-\ store, 6.5 and 2.5 measured, plus the name order; 576 and 384 cells for
-\ 64-node level and name stores). So the deepest level nests the larger
+\ graph, 6.5 and 2.5 measured, plus the name order; 576 and 384 cells for
+\ level graphs and names 64 deep). So the deepest level nests the larger
 \ of beta's need and normalize's; tests/core/infer-deep.fs runs the
 \ deepest normalize the level store allows at the deepest inference.
 \ The frame that hands over from inference to the analysis, from the
@@ -570,9 +570,9 @@ defer lf-minfer-apart ( left right -- mask flag )
 \ (painted on both hosts, review of 2026-11-02), and either slack holds
 \ the extra cell. There is at most one such frame on any path: inference
 \ within the analysis (P2) runs aside, with no rule, so it never hands
-\ over again. So a check nests at most lf-term-capacity levels of
+\ over again. So a check nests at most lf-depth-limit levels of
 \ inference or analysis plus the larger nested need, beta's at these
-\ capacities: 1,728 return and 1,280 data cells. Loading stops when the
+\ limits: 1,728 return and 1,280 data cells. Loading stops when the
 \ host's stacks are smaller, and the need is stated for the job pool
 \ (context-need).
 8 constant lf-minfer-rs-level   \ return-stack cells per level
@@ -580,9 +580,9 @@ defer lf-minfer-apart ( left right -- mask flag )
 \ At the deepest level: beta's passes or a level comparison, never both.
 lf-mbeta-return-cells lf-lnorm-return-cells max constant lf-minfer-rs-nested
 lf-mbeta-data-cells lf-lnorm-data-cells max constant lf-minfer-ds-nested
-: lf-minfer-need ( cells-per-level nested-cells -- cells ) swap lf-term-capacity * + ;
+: lf-minfer-need ( cells-per-level nested-cells -- cells ) swap lf-depth-limit * + ;
 lf-minfer-rs-level lf-minfer-rs-nested lf-minfer-need constant lf-minfer-return-cells
 lf-minfer-ds-level lf-minfer-ds-nested lf-minfer-need constant lf-minfer-data-cells
 lf-minfer-data-cells lf-minfer-return-cells lf-mbeta-host?
-0= [if] .( mixed-infer.fs: host stacks too small for lf-term-capacity) cr abort [then]
+0= [if] .( mixed-infer.fs: host stacks too small for lf-depth-limit) cr abort [then]
 lf-minfer-data-cells lf-minfer-return-cells context-need

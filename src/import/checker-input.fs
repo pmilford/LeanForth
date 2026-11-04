@@ -30,9 +30,11 @@
 \ is invalid), the default of the command line. Outcomes: ok; the
 \ reader's or the manifest check's (invalid malformed, unsupported for
 \ other versions); a handler's: full when a store or table of this phase
-\ has no room (64 names, levels and term nodes, 32 declarations and
-\ constant references, 8 universe parameters per declaration and 8
-\ universe arguments per constant: only small exports fit) or a numeric
+\ has no room (its tables hold the stores' default capacities, 64 names,
+\ levels and term nodes, whatever the context's settings; 32 declarations
+\ and constant references by default; 64 universe parameters per
+\ declaration and 64 universe arguments per constant: only small exports
+\ fit) or a numeric
 \ name part is larger than max-n (never wrapped into another), unsupported
 \ for the kinds above, invalid for a declaration the input refuses; or
 \ lf-input-end's. After a failure the input is not sealed and nothing can
@@ -42,7 +44,7 @@
 \
 \ Untrusted [import] code: it can hand the checker a wrong claim, never
 \ make one accepted. Limits are the stores' (above): a larger file stops
-\ with full (plan task 3.3.1 makes them configurable).
+\ with full (import/feed.fs, through import/stage.fs, has no such limit).
 \ State: one record in the checker context, cin-state (the tables from
 \ export indices to LeanForth's names, levels and expressions, a
 \ constant's universe arguments, the declaration being built and the
@@ -68,9 +70,9 @@ require ./ndjson.fs
 require ./manifest.fs
 
 begin-structure /import-map
-  lf-name-capacity cells +field map-names        \ export name -> name ID
-  lf-level-capacity cells +field map-levels      \ export level -> level index
-  lf-term-capacity 2* cells +field map-exprs     \ export expression -> handle
+  lf-name-default cells +field map-names        \ export name -> name ID
+  lf-level-default cells +field map-levels      \ export level -> level index
+  lf-term-default 2* cells +field map-exprs     \ export expression -> handle
   lf-cref-argument-capacity 2* cells +field map-pairs   \ a constant's levels
   /lf-idecl +field map-decl                      \ the declaration being built
   field: map-why                                 \ counted string, or 0
@@ -111,7 +113,7 @@ manifest: cin-manifest
 
 \ Names (both passes see them; the first interns them).
 : cin-name! ( id record -- outcome )
-  record-index @ cin-names lf-name-capacity cin-store
+  record-index @ cin-names lf-name-default cin-store
   if outcome-ok else cin-names-full then ;
 : cin-prefix ( record -- prefix ) name-prefix @ cin-name ;
 : cin-interned ( id true | false record -- outcome )
@@ -139,7 +141,7 @@ manifest: cin-manifest
 \ Levels (second pass).
 : cin-level-keep ( index true | false record -- outcome )
   swap 0= if drop cin-levels-full exit then
-  record-index @ cin-levels lf-level-capacity cin-store
+  record-index @ cin-levels lf-level-default cin-store
   if outcome-ok else cin-levels-full then ;
 : cin-two ( record -- l r ) dup max-left @ cin-level@ swap max-right @ cin-level@ ;
 : cin-succ ( record -- outcome )
@@ -154,7 +156,7 @@ manifest: cin-manifest
 \ Expressions (second pass), kept as handles.
 : cin-expr-keep ( index identity true | false record -- outcome )
   swap 0= if drop cin-exprs-full exit then
-  record-index @ dup lf-term-capacity u< 0= if drop 2drop cin-exprs-full exit then
+  record-index @ dup lf-term-default u< 0= if drop 2drop cin-exprs-full exit then
   2* cells cin-exprs + 2! outcome-ok ;
 : cin-bvar ( record -- outcome ) dup >r bvar-index @ lf-hterm-bvar r> cin-expr-keep ;
 : cin-sort ( record -- outcome )

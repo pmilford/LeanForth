@@ -190,6 +190,9 @@ create cli-order
   true not-checked 1+ 0 do i cells cli-order + @ cli-item loop drop cr ;
 
 \ Notes after a run: the limits behind full, the fuel behind exhausted.
+\ check leaves the stores' capacity settings at their defaults: it reads
+\ with import/checker-input.fs and keeps the run record in run-record.fs's
+\ tables, both sized for those defaults (import/feed.fs takes any size).
 : cli-limits ( -- )
   ." note: today's check holds at most " lf-name-capacity .decimal ."  names, "
   lf-level-capacity .decimal ."  levels, " lf-term-capacity .decimal ."  term nodes and "
@@ -246,10 +249,16 @@ create cli-order
 : cli-opens? ( -- flag )
   0 cli-file r/o bin open-file if drop false else close-file drop true then ;
 : cli-unopened ( -- code ) ." error: cannot open the export" cr exit-malformed ;
-\ The export rr-start kept (file 0) into the checker's input through the
-\ run record's rr-import, which records the outcome and whether the
-\ manifest was enforced (not with --no-manifest); when it reads, the run.
-: cli-input ( -- outcome ) cli-unchecked @ 0= rr-import ;
+\ The export (file 0) into the checker's input, its manifest checked
+\ unless --no-manifest. With a record (--record, replay): the file rr-start
+\ kept and hashed, through rr-import, which records the outcome and whether
+\ the manifest was enforced. Without one: the file read once
+\ (rr-read-once), with no hash, metadata or manifest pass of the record's,
+\ so a plain check of a large export reads it only as the checker needs.
+: cli-checked? ( -- flag ) cli-unchecked @ 0= ;
+: cli-import ( -- outcome ) cli-checked? rr-import ;
+: cli-input ( -- outcome )
+  cli-record? if cli-import else 0 cli-file cli-checked? rr-read-once then ;
 : cli-run ( -- ) cli-input dup ok? if drop rr-check cli-results else cli-unread then ;
 : cli-settings ( -- ) rr-release cli-fuel @ cli-pool rr-settings! ;
 
@@ -272,15 +281,12 @@ create cli-order
 : cli-record-failed ( outcome -- )
   ." error: the run record was not written: " dup outcome-text type cr outcome>code
   cli-code! ;
-: cli-unstarted ( outcome -- )
-  ." error: the export could not be read: " dup outcome-text type cr outcome>code
-  cli-code! ;
-\ Every check starts with rr-start, which keeps the export's name for the
-\ run's later reads (rr-import, rr-finish); a start that fails is the
-\ record's failure when recording, else the export's.
-: cli-begun? ( -- flag )
-  cli-record-start dup ok? if drop true exit then
-  cli-record? if cli-record-failed else cli-unstarted then false ;
+\ Only a check with --record starts with rr-start, which reads the export
+\ for the record (its digest, metadata and manifest) and keeps its name for
+\ the run's later reads (rr-import, rr-finish).
+: cli-recording? ( -- flag )
+  cli-record? 0= if true exit then
+  cli-record-start dup ok? if drop true else cli-record-failed false then ;
 : cli-saved ( -- outcome )
   cli-record-text dup ok? if drop cli-record 2@ rr-save then ;
 : cli-recorded ( -- )
@@ -291,7 +297,7 @@ create cli-order
   cli-record? if cli-record 2@ 0 cli-file compare 0= else false then ;
 : cli-checks ( -- code )
   cli-unchecked-note cli-settings
-  cli-begun? if cli-run cli-recorded then rr-release cli-worst @ ;
+  cli-recording? if cli-run cli-recorded then rr-release cli-worst @ ;
 : check-command ( -- code )
   cli-start cli-opens? 0= if cli-unopened exit then
   cli-over-export? if ." error: RECORD must not be EXPORT" cr exit-malformed exit then
@@ -303,7 +309,7 @@ create cli-order
 \ cannot be compared or the export cannot be checked again.
 : cli-rerun ( -- outcome )
   cli-settings cli-record-start dup ok? 0= if exit then drop
-  cli-input ok? if rr-check then cli-record-text ;
+  cli-import ok? if rr-check then cli-record-text ;
 : cli-compared ( outcome -- outcome )
   ok? if 1 cli-file rp-replay else rp-rerun-refused then ;
 : replay-command ( -- code )

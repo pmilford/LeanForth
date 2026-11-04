@@ -53,7 +53,7 @@ require ./mixed-shift.fs
   over lf-mbeta-app? 0= if drop outcome-ok exit then
   over lf-mbeta-function over frame-call ok-keep2? if lf-mbeta-head then ;
 \ The frames, whose visitor is set once, here.
-lf-term-capacity ' lf-mbeta-visit context-frames: lf-mbeta-frames
+lf-depth-limit ' lf-mbeta-visit context-frames: lf-mbeta-frames
 
 \ Fuel left after a reduction; mixed-convert continues with it.
 : lf-mbeta-fuel ( -- addr ) lf-mbeta-frames frame-fuel ;
@@ -88,8 +88,8 @@ lf-term-capacity ' lf-mbeta-visit context-frames: lf-mbeta-frames
   lf-mbeta-frames frame-reset lf-minst-frames frame-reset lf-mshift-frames frame-reset ;
 
 \ Host stacks. A beta visit runs instantiate passes and an instantiate
-\ visit runs shift passes, each pass up to lf-term-capacity frames deep, so
-\ up to three times lf-term-capacity frames can be nested at once. By stack
+\ visit runs shift passes, each pass up to lf-depth-limit frames deep, so
+\ up to three times lf-depth-limit frames can be nested at once. By stack
 \ painting (Gforth 0.7.3 and 1.0 agree), one frame holds at most 4
 \ return-stack and 3 data-stack cells in beta, 6 and 4 in instantiate, and
 \ 5 and 4 in shift; the slack covers the entry words, the work at the
@@ -104,7 +104,7 @@ lf-term-capacity ' lf-mbeta-visit context-frames: lf-mbeta-frames
 15 constant lf-mbeta-rs-level   \ return-stack cells: one frame of each pass
 11 constant lf-mbeta-ds-level   \ data-stack cells: one frame of each pass
 256 constant lf-mbeta-stack-slack
-: lf-mbeta-need ( cells-per-level -- cells ) lf-term-capacity * lf-mbeta-stack-slack + ;
+: lf-mbeta-need ( cells-per-level -- cells ) lf-depth-limit * lf-mbeta-stack-slack + ;
 lf-mbeta-rs-level lf-mbeta-need constant lf-mbeta-return-cells
 lf-mbeta-ds-level lf-mbeta-need constant lf-mbeta-data-cells
 : lf-mbeta-fits? ( need c-addr u -- flag ) environment? if > 0= else drop true then ;
@@ -112,5 +112,5 @@ lf-mbeta-ds-level lf-mbeta-need constant lf-mbeta-data-cells
 : lf-mbeta-host? ( data-cells return-cells -- flag )
   s" RETURN-STACK-CELLS" lf-mbeta-fits? swap s" STACK-CELLS" lf-mbeta-fits? and ;
 lf-mbeta-data-cells lf-mbeta-return-cells lf-mbeta-host?
-0= [if] .( mixed-beta.fs: host stacks too small for lf-term-capacity) cr abort [then]
+0= [if] .( mixed-beta.fs: host stacks too small for lf-depth-limit) cr abort [then]
 lf-mbeta-data-cells lf-mbeta-return-cells context-need

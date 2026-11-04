@@ -9,7 +9,12 @@ depends on. Until the owner approves the checker, Lean's own kernel is the
 referee. **Today's check holds small exports only** — 64 names, 64 levels,
 64 term nodes and 32 declarations per export — so it works on test
 fixtures such as the ones below, and any larger export ends *full*
-(exit status 3). Growing the stores is plan task 3.3.1.
+(exit status 3). The stores themselves now grow (plan task 3.3.1), and
+the Forth words that stage an export and feed it to the checker take any
+size (all of `Init`; see [NDJSON_READER.md](../development/NDJSON_READER.md#feeding-the-checker)),
+but `check` still reads the export with the first reader and keeps its run
+record in tables sized for these defaults; moving `check` onto the feed is
+the next step.
 
 Every example on this page is run by `make test` (the shell and Forth
 examples) and `make check` (the Lean ones), and must print exactly what is
@@ -252,7 +257,7 @@ unsupported (check answers unsupported, exit 2):
   unfolding definitions: some correct proofs end unknown (exit 2)
 limits (check answers full, exit 3; small exports only):
   64 names (2048 bytes), 64 levels, 64 term nodes, 32 declarations per export
-  8 universe parameters per declaration, 8 universe arguments per constant
+  64 universe parameters per declaration, 64 universe arguments per constant
   16 dependencies per declaration, 64 per export
   fuel 100000 steps per declaration (--fuel N)
 planned, not built: print, program, serve, --json receipts,
@@ -299,7 +304,14 @@ commit and Forth system checked it (the commit `bin/leanforth` finds with
 git, or null), with which fuel and limits, and each declaration's verdict,
 read from its published slot. The printed verdicts and the exit status are
 those of `check` alone; a record that cannot be written is reported and
-the status is then at least 4. `replay EXPORT RECORD` checks the export
+the status is then at least 4. A record costs reads: with `--record` (and
+in `replay`) the export is read before the check for its SHA-256, its
+metadata and its manifest, and once more after the check to see that it
+did not change, besides the checker's own read. Without `--record`,
+`check` reads the export only as the checker needs it (one read, with
+the manifest checked unless `--no-manifest`), so a plain check of a large
+export pays nothing for records (`tests/cli/leanforth.fs` checks that no
+record read happens then). `replay EXPORT RECORD` checks the export
 again in the same way and compares the new record with RECORD, field by
 field; its output is the replay report, one JSON line:
 

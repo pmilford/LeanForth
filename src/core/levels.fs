@@ -3,24 +3,42 @@
 \ level equality, validate parameter scope, check declarations or confer
 \ theorem validity. Parameter identifiers are opaque positive cell values,
 \ not a complete Lean name representation.
-\ Each level is a tagged node (lib/node.fs) in a bounded store
-\ (lib/store.fs) whose record 0 is always the zero level.
-\ State: the store lf-levels, a member of the checker context
-\ (lib/context.fs), reset by a set-up word in every context;
-\ single-threaded within one context. A reset invalidates all indices. The
-\ cell layout is host-specific and must never be serialized directly.
+\ Each level is a tagged node (lib/node.fs) in a heap store
+\ (lib/store.fs) whose record 0 is always the zero level, growing up to a
+\ capacity that is a setting of each context, as for terms (terms.fs):
+\ lf-level-capacity reads it, lf-level-capacity! sets it, a new context
+\ starts with lf-level-default. Per-level side data of other modules lives
+\ in columns of the group lf-level-columns (store-columns.fs). The deepest
+\ level graph the level passes walk is lf-level-depth-limit.
+\ State: the store header lf-levels, a member of the checker context
+\ (lib/context.fs) whose block is on the heap, made and reset by set-up
+\ words in every context and freed by its teardown word; single-threaded
+\ within one context. A reset invalidates all indices. The cell layout is
+\ host-specific and must never be serialized directly.
 
 require ../lib/lib.fs
 require ./diagnostics.fs
+require ./store-columns.fs
 
-64 constant lf-level-capacity
+64 constant lf-level-default
+64 constant lf-level-depth-limit
+\ Most universe parameters a session's level context, an assignment, a
+\ substitution or a signature holds.
+64 constant lf-level-params-limit
 0 constant lf-level-tag-zero
 1 constant lf-level-tag-succ
 2 constant lf-level-tag-max
 3 constant lf-level-tag-imax
 4 constant lf-level-tag-param
 
-lf-level-capacity /node 1 context-store: lf-levels
+store-header context-record: lf-levels
+: lf-levels-make ( -- )
+  lf-level-default /node 1 lf-levels store-heap-init ok? 0= abort" levels: no heap" ;
+' lf-levels-make context-setup
+:noname ( -- ) lf-levels store-heap-free ; context-teardown
+\ The capacity setting of this context, and setting it (as for terms).
+: lf-level-capacity ( -- n ) lf-levels store-limit @ ;
+: lf-level-capacity! ( n -- outcome ) lf-levels store-limit! ;
 
 \ The store's fields under their established names; other modules roll back
 \ lf-level-count, and tests corrupt these cells to check fail-closed behavior.
@@ -53,8 +71,13 @@ lf-level-capacity /node 1 context-store: lf-levels
 : lf-level-site ( -- site ) c" levels lf-level-add" ;
 : lf-level-refused ( -- false )
   lf-levels lf-level-site lf-diag-levels-full lf-diag-store false ;
-: lf-level-add ( tag first second -- index true | false )
+' lf-levels column-group: lf-level-columns
+: lf-level-room? ( -- flag )
+  lf-levels store-grow ok? if lf-level-columns columns-cover ok? else false then ;
+: lf-level-new ( tag first second -- index true | false )
   lf-levels node-new dup 0= if drop lf-level-refused then ;
+: lf-level-add ( tag first second -- index true | false )
+  lf-level-room? if lf-level-new else 2drop drop lf-level-refused then ;
 
 \ Successor of an existing level; the second field is unused.
 : lf-level-succ ( child -- index true | false )
@@ -83,5 +106,7 @@ lf-level-tag-imax lf-level-tag-max 1+ <>
 : lf-level-first@ ( index -- first ) lf-level-slot node-first @ ;
 : lf-level-second@ ( index -- second ) lf-level-slot node-second @ ;
 
-\ Every context starts with the zero level alone.
+\ Every context starts with the zero level alone, and with its columns.
 ' lf-level-reset context-setup
+:noname ( -- ) lf-level-columns columns-setup ; context-setup
+:noname ( -- ) lf-level-columns columns-free ; context-teardown

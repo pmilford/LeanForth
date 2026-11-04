@@ -20,8 +20,8 @@ require ../core/names.fs
 require ../core/tagged-sort-boundary.fs
 require ../core/terms.fs
 
-lf-term-capacity context-walk2: lf-mcompare-walker
-lf-level-capacity context-walk2: lf-mcompare-level-walker
+lf-depth-limit context-walk2: lf-mcompare-walker
+lf-level-depth-limit context-walk2: lf-mcompare-level-walker
 
 \ Fuel left after a comparison; zero after negative fuel or a failed audit.
 : lf-mcompare-fuel ( -- addr ) lf-mcompare-walker walk-fuel ;
@@ -64,10 +64,8 @@ lf-level-capacity context-walk2: lf-mcompare-level-walker
 \ the anonymous root, by kind and then by number or bytes, even when the
 \ IDs coincide; each component costs one unit of the given walk's fuel.
 : lf-mcompare-kinds? ( a b -- flag ) lf-name-tag@ swap lf-name-tag@ = ;
-: lf-mcompare-numbers? ( a b -- flag )
-  lf-name-slot lf-entry-payload @ swap lf-name-slot lf-entry-payload @ = ;
-: lf-mcompare-bytes? ( a b -- flag )
-  lf-name-slot lf-name-bytes@ rot lf-name-slot lf-name-bytes@ compare 0= ;
+: lf-mcompare-numbers? ( a b -- flag ) lf-name-payload swap lf-name-payload = ;
+: lf-mcompare-bytes? ( a b -- flag ) lf-name-text rot lf-name-text compare 0= ;
 : lf-mcompare-payloads? ( a b -- flag )
   over lf-name-tag@ lf-name-tag-num =
   if lf-mcompare-numbers? else lf-mcompare-bytes? then ;
@@ -123,7 +121,7 @@ lf-level-capacity context-walk2: lf-mcompare-level-walker
 \ The level arrays of two references of equal arity, and their level
 \ indices at one position.
 : lf-mcompare-arrays ( slot slot -- addr addr count )
-  lf-cref-pairs >r swap lf-crec-levels swap r> ;
+  lf-cref-pairs >r swap lf-cref-pairs drop swap r> ;
 : lf-mcompare-arg ( addr addr i -- level level )
   tuck lf-cref-pair@ drop >r lf-cref-pair@ drop r> ;
 : lf-mcompare-args ( slot slot -- outcome )

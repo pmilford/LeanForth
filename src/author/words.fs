@@ -55,8 +55,10 @@ require ./declarations.fs
 
 \ Terms: f a $, c l ^, Prop, l Type, l Sort, n var#, root: NAME.
 : lfa-w-app ( f a -- t ) 2 lfa-args lfa-two-terms lfa-here lfa-app lfa-term-value ;
+\ The authoring layer keeps its own limit of lf-decl-universe-capacity (8)
+\ universe arguments, as for declarations, whatever the checker allows.
 : lfa-w-univ ( c l -- c' )
-  2 lfa-args lfa>level over lfa>constant lfa-chain# lf-cref-argument-capacity <
+  2 lfa-args lfa>level over lfa>constant lfa-chain# lf-decl-universe-capacity <
   lfa-e-many-levels lfa-must lfa-more-levels ;
 : lfa-sort-value ( level -- t ) lfa-here lfa-sort lfa-term-value ;
 : lfa-w-prop ( -- t ) 0 lfa-args 0 lfa-sort-value ;

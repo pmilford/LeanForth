@@ -12,11 +12,12 @@
 \ store interns names), as level-compare and the witnesses of level-value
 \ assume.
 \ State: one record, lf-lmk-state: how many leading nodes have current
-\ facts, and per node its class (the smallest index of a structurally
-\ equal node, so two levels are equal exactly when their classes are) and
-\ its flags (never zero; has a parameter). A member of the checker context
-\ (lib/context.fs). Facts are computed in index order on demand; every
-\ public word first forgets them all (a raw write keeps a node's index),
+\ facts; and per node, in two columns of the level store, its class (the
+\ smallest index of a structurally equal node, so two levels are equal
+\ exactly when their classes are) and its flags (never zero; has a
+\ parameter). Members of the checker context (lib/context.fs). Facts are
+\ computed in index order on demand; every public word first forgets them
+\ all (a raw write keeps a node's index),
 \ and a caller that rolls the level store back calls lf-lmk-truncate. The
 \ two rule tables of mk_max and mk_imax are shared and read-only.
 \ Bounded work: the facts of n nodes take at most n*n/2 node comparisons;
@@ -27,17 +28,21 @@ require ../core/levels.fs
 
 begin-structure /lf-lmkrec
   field: lf-lmkrec-known                            \ facts current below this index
-  lf-level-capacity cells +field lf-lmkrec-classes
-  lf-level-capacity cells +field lf-lmkrec-flags
 end-structure
 /lf-lmkrec context-record: lf-lmk-state
+\ Per node, two columns of the level store (core/store-columns.fs): its
+\ class and its flags.
+/slab context-record: lf-lmk-classes
+1 cells ' lf-lmk-classes lf-level-columns column-add
+/slab context-record: lf-lmk-flag-cells
+1 cells ' lf-lmk-flag-cells lf-level-columns column-add
 
 1 constant lf-lmk-nonzero   \ flag: not zero under any assignment (is_not_zero)
 2 constant lf-lmk-param     \ flag: has a parameter (has_param)
 
 : lf-lmk-known ( -- addr ) lf-lmk-state lf-lmkrec-known ;
-: lf-lmk-class-cell ( index -- addr ) cells lf-lmk-state lf-lmkrec-classes + ;
-: lf-lmk-flags-cell ( index -- addr ) cells lf-lmk-state lf-lmkrec-flags + ;
+: lf-lmk-class-cell ( index -- addr ) lf-lmk-classes column-at ;
+: lf-lmk-flags-cell ( index -- addr ) lf-lmk-flag-cells column-at ;
 \ Unchecked: facts of a node below lf-lmk-known.
 : lf-lmk-class@ ( index -- class ) lf-lmk-class-cell @ ;
 : lf-lmk-flags@ ( index -- flags ) lf-lmk-flags-cell @ ;
