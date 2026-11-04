@@ -174,26 +174,34 @@ variable decl-top  variable types-seen  variable ctors-seen  variable recs-seen
   dup compact-stage staged-hint@ .int dup compact-stage staged-safety@ .int .all-names ;
 : emit-block ( d -- )
   s" decl.inductive" top 0 types-seen ! 0 ctors-seen ! 0 recs-seen !
-  0 over .item 1 over .item 2 swap .item ;
+  more-block-types over .item more-block-ctors over .item
+  more-block-recursors swap .item ;
 : emit-type ( d -- )
-  s" ind.type" types-seen element dup .decl 0 over .item 1 over .item 2 over .names-item
-  3 over .names-item 4 over .item dup compact-stage staged-rec? .flag
-  dup compact-stage staged-unsafe? .flag compact-stage staged-reflexive? .flag ;
+  s" ind.type" types-seen element dup .decl more-type-params over .item
+  more-type-indices over .item more-type-all over .names-item
+  more-type-ctors over .names-item more-type-nested over .item
+  dup compact-stage staged-rec? .flag dup compact-stage staged-unsafe? .flag
+  compact-stage staged-reflexive? .flag ;
 : emit-ctor ( d -- )
-  s" ind.ctor" ctors-seen element dup .decl 0 over compact-stage staged-item name-index
-  .int
-  1 over .item 2 over .item 3 over .item compact-stage staged-unsafe? .flag ;
+  s" ind.ctor" ctors-seen element dup .decl
+  more-ctor-induct over compact-stage staged-item name-index .int
+  more-ctor-cidx over .item more-ctor-params over .item more-ctor-fields over .item
+  compact-stage staged-unsafe? .flag ;
 : rule-item ( k t -- u ) compact-tier tier-tuples tuple-item ;
+\ The rule whose items start at k of the rules tuple t.
 : .rule ( k t -- )
-  2dup rule-item name-index 0 .r ." :" over 1+ over rule-item 0 .r ." :"
-  swap 2 + swap rule-item expr-index 0 .r ;
+  over rule-ctor-item + over rule-item name-index 0 .r ." :"
+  over rule-fields-item + over rule-item 0 .r ." :"
+  swap rule-rhs-item + swap rule-item expr-index 0 .r ;
 : .rules ( t -- )
   space ." [" dup compact-tier tier-tuples tuple-length 0 ?do
-    i if ." ," then i over .rule 3 +loop drop ." ]" ;
+    i if ." ," then i over .rule /rule-items +loop drop ." ]" ;
 : emit-recursor ( d -- )
-  s" ind.rec" recs-seen element dup .decl 0 over .names-item 1 over .item 2 over .item
-  3 over .item 4 over .item dup compact-stage staged-k? .flag
-  dup compact-stage staged-unsafe? .flag 5 swap compact-stage staged-item .rules ;
+  s" ind.rec" recs-seen element dup .decl more-rec-all over .names-item
+  more-rec-params over .item more-rec-indices over .item more-rec-motives over .item
+  more-rec-minors over .item dup compact-stage staged-k? .flag
+  dup compact-stage staged-unsafe? .flag more-rec-rules swap compact-stage staged-item
+  .rules ;
 : emit-decl ( d -- )
   dup compact-stage staged-kind@ case
     kind-axiom of s" decl.axiom" top dup .decl compact-stage staged-unsafe? .flag endof
@@ -282,13 +290,14 @@ variable decl-top  variable types-seen  variable ctors-seen  variable recs-seen
     i named? if i compact-stage staged-name@ dup resolve if = if 1+ then else drop then
     then
   loop ;
+: text-lookups ( -- found )
+  compact-tier compact-scratch tier-extend ok? 0= abort" lookups: no scratch tier"
+  text-finds compact-scratch tier-free ;
 : compact-lookups ( -- )
   now >r array-finds now r> - >r
   ." name lookups through the array: declarations=" swap 0 .r ."  found=" 0 .r space r>
-  .ms cr
-  compact-tier compact-scratch tier-extend ok? 0= abort" compact-lookups: no scratch tier"
-  now text-finds now rot - swap
-  ." name lookups by text: found=" 0 .r space .ms cr compact-scratch tier-free ;
+  .ms cr now text-lookups now rot - swap
+  ." name lookups by text: found=" 0 .r space .ms cr ;
 
 \ ---- Resolutions: every constant of the input against the array. One
 \ declaration of its name: the payload names it; several: payload 0.
@@ -299,21 +308,35 @@ variable decl-top  variable types-seen  variable ctors-seen  variable recs-seen
   dup compact-tier expr-a@ dup decls-named rot compact-tier expr-payload@
   over 1 = if nip ?dup if 1- compact-stage staged-name@ = else drop false then
   else 0= swap 1 > and nip then ;
-: compact-resolutions ( -- )
+: resolutions ( -- constants wrong )
   0 0 compact-tier tier-exprs cons-numbers 0 ?do
     i compact-tier expr-tag@ tag-const = if
       swap 1+ swap i resolution-ok? 0= if 1+ then
     then
-  loop ." constants=" swap 0 .r ."  wrong=" 0 .r cr ;
+  loop ;
+: compact-resolutions ( -- )
+  resolutions ." constants=" swap 0 .r ."  wrong=" 0 .r cr ;
+
+\ ---- The derived data, checked silently: every named declaration found
+\ through the array and by its text, every constant's resolution right.
+\ Prints one line, which compact-verify.sh refuses, when anything misses.
+: derived-misses ( -- named array text wrong )
+  array-finds text-lookups resolutions nip ;
+: derived-ok? ( named array text wrong -- flag ) 0= >r 2 pick = >r = r> and r> and ;
+: compact-derived ( -- )
+  derived-misses 2over 2over derived-ok? if 2drop 2drop exit then
+  ." error: derived data: wrong=" 0 .r ."  by text=" 0 .r ."  by array=" 0 .r
+  ."  named=" 0 .r cr ;
 
 \ ---- Entry words.
-\ Load the export named c-addr u and print its dump lines.
+\ Load the export named c-addr u, print its dump lines, then check the
+\ derived data.
 : compact-dump ( c-addr u -- )
   16 compact-load dup ok? 0= if ." error: " . cr exit then drop compact-emit
-  compact-free ;
+  compact-derived compact-free ;
 : compact-dump-unchecked ( c-addr u -- )
   16 compact-load-unchecked dup ok? 0= if ." error: " . cr exit then drop
-  compact-emit compact-free ;
+  compact-emit compact-derived compact-free ;
 \ Load the export named c-addr u and report, for tests/core/test_stage.py:
 \ "ok decls=N" with the lookups and resolutions; or, after the line
 \ compact-load prints, "outcome=N" and for an unknown constant its name.

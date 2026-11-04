@@ -7,7 +7,9 @@
 \ another file, the memory limit, a handler's THROW) rolled back to
 \ empty, so that the stage then loads exactly as a fresh one; a bad
 \ reference refused by the stage's own checks, through forged records; an
-\ mdata expression staged but marked, with the declaration that holds it;
+\ mdata expression staged but marked, with the declarations that hold it
+\ through a type, a letE's body, a recursor rule or a projection, its
+\ bitset counted against the memory limit; stage-unmap before sealing;
 \ a scratch tier over the sealed input as a checker-context member, freed
 \ by its teardown word, also after a THROW; and every heap block given
 \ back by stage-free (heap-watch.fs). tests/core/test_stage.py covers the
@@ -179,9 +181,9 @@ st stage-free
 
 \ ---------------------------------------------------------------------------
 \ mdata, staged but marked (kinds.ndjson, Lean's export of every record
-\ kind, has one: a `borrowed` annotation in Nat.add's value): Nat.add is
-\ marked, and no other declaration (an independent walk of the file in
-\ Python finds the same one).
+\ kind, has one: a `borrowed` annotation reachable only from Nat.add's
+\ type): Nat.add is marked, and no other declaration (an independent walk
+\ of the file in Python finds the same one).
 T{ 12 st stage-init kinds st stage-load-unchecked -> outcome-ok outcome-ok }T
 : marked ( -- n last )
   0 0 st stage-decls 0 ?do i st staged-marked? if nip i swap 1+ then loop swap ;
@@ -213,6 +215,37 @@ T{ live-blocks @ blocks-with-input > ctx context-free live-blocks @ blocks-with-
 context-new throw constant ctx2
 T{ ctx2 ' build-throw context-catch nip lf-context @ context-main = -> 55 true }T
 T{ ctx2 context-free live-blocks @ blocks-with-input - -> 0 0 }T
+st stage-free
+
+\ ---------------------------------------------------------------------------
+\ The marks through each way a declaration can hold mdata
+\ (stage-cases/marks.ndjson, from the independent review): a constructor
+\ whose type is a letE with the mdata in its body (declaration 4), a
+\ recursor one of whose rules has a lambda over an application with it as
+\ argument (5), and a theorem whose value projects out of it (6); not the
+\ block, the types or the other constructor. In unref.ndjson the same
+\ mdata record is staged, but no declaration holds it.
+: marks-file ( -- c-addr u ) s" tests/core/stage-cases/marks.ndjson" ;
+: unref-file ( -- c-addr u ) s" tests/core/stage-cases/unref.ndjson" ;
+: marked-set ( -- bits )
+  0 st stage-decls 0 ?do i st staged-marked? if 1 i lshift or then loop ;
+T{ 12 st stage-init marks-file st stage-load-unchecked -> outcome-ok outcome-ok }T
+T{ st stage-decls st stage-mdata @ st stage-marks @ marked-set -> 7 1 3 112 }T
+st stage-free
+T{ 12 st stage-init unref-file st stage-load-unchecked -> outcome-ok outcome-ok }T
+T{ st stage-decls st stage-mdata @ st stage-marks @ marked-set -> 7 1 0 0 }T
+st stage-free
+\ The marks' bitset is counted against the memory limit: with no room
+\ left, sealing is full, with the reason, and the stage broken.
+T{ 12 st stage-init marks-file st stage-read-unchecked -> outcome-ok outcome-ok }T
+st stage-allocated st stage-limit!
+T{ st stage-seal phase -> outcome-full staging-broken }T
+T{ why s" memory limit of the stage reached" compare -> 0 }T
+st stage-free
+\ Before sealing, stage-unmap does nothing: a read afterwards works.
+T{ 12 st stage-init -> outcome-ok }T
+st stage-unmap
+T{ fixture st stage-load st stage-decls -> outcome-ok 3 }T
 st stage-free
 T{ live-blocks @ blocks-at-start - -> 0 }T
 T{ depth -> 0 }T

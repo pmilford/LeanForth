@@ -184,11 +184,14 @@ variable late-setup-fails  0 late-setup-fails !
 ' c-late-setup context-setup
 variable tear-count  variable early-at  variable late-at  variable tear-context
 variable tear-throws  0 tear-throws !  variable tear-unbalance  0 tear-unbalance !
+variable tear-careless  0 tear-careless !
 : tear-tick ( addr -- ) 1 tear-count +! tear-count @ swap ! ;
 : c-tear-early ( -- ) early-at tear-tick c-heap-free ;
+\ On request it also selects the main context before it throws, as a
+\ helper that saves and restores lf-context without CATCH would.
 : c-tear-late ( -- )
   late-at tear-tick lf-context @ tear-context ! tear-unbalance @ if 1 then
-  tear-throws @ ?dup if throw then ;
+  tear-careless @ if context-main lf-context ! then tear-throws @ ?dup if throw then ;
 ' c-tear-early context-teardown
 ' c-tear-late context-teardown
 
@@ -335,6 +338,12 @@ T{ context-new throw context-free blocks-held -> 91 0 }T
 0 tear-throws !  true tear-unbalance !
 T{ context-new throw context-free blocks-held -> context-unbalanced 0 }T
 false tear-unbalance !
+\ One that throws with the main context selected: the next still frees
+\ the freed context's block, never the main context's.
+c-heap @ constant main-heap
+92 tear-throws !  true tear-careless !
+T{ context-new throw context-free blocks-held c-heap @ main-heap = -> 92 0 true }T
+0 tear-throws !  false tear-careless !
 \ A setup word that fails after another allocated: context-new gives
 \ that block back through the teardown words.
 1 late-setup-fails !

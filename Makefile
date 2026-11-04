@@ -600,10 +600,11 @@ test-compact:
 # scratch tier as a context member), the cases that need a changed export
 # (unknown constants, duplicate names, truncated files, 32-bit limits), and
 # every other fixture export of tests/, which have no manifest (loaded
-# unchecked, explicitly), re-emitted as the reader dumps it. Gforth and
-# Python 3 only.
+# unchecked, explicitly), re-emitted as the reader dumps it, with every
+# declaration found by name and every constant's resolution checked.
+# Gforth and Python 3 only.
 STAGE_FIXTURES := tests/core/check-declaration-cases/*.ndjson tests/core/ndjson-block.ndjson \
-	tests/core/reexport/kinds.ndjson
+	tests/core/reexport/kinds.ndjson tests/core/stage-cases/*.ndjson
 test-stage:
 	$(RUN) $(GFORTH) tests/core/stage.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/core/test_stage.py
