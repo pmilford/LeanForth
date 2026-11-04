@@ -1,0 +1,60 @@
+== host: gforth 0.7.3
+== 1. correctness mode against the golden IR
+identical: src/program/clamp.fs -> tests/program/ir/clamp.ir (17 lines, sha256 651875025cec88f7...)
+identical: src/program/examples.fs -> tests/program/ir/examples.ir (148 lines, sha256 586643a623c094ff...)
+identical: tests/program/ir/all-primitives.fs -> tests/program/ir/all-primitives.ir (42 lines, sha256 a75b9dd457918c4a...)
+== 2. run mode: the same files in plain Forth
+e4444161f4a3436b1a4509338e15fe2aeb47cab1f4327069e31b401bf1dc6a30  src/program/clamp.fs
+72f5575434335d59800f4f0f8ce91983ffd686d34fee4539ca2d207936fb5583  src/program/examples.fs
+run mode: 19 calls checked, 0 failures
+== 3. today's reader tests, replayed
+reader tests replayed: 106 verdict cases, 19 output checks, 0 differences; 93 test blocks not of these shapes skipped
+== 4. adversarial inputs
+adversarial: 5 accepted, 81 refused
+== 5. round trip IR -> Forth -> IR, awkward names
+tests/program/ir/clamp.ir: identical IR (15 instructions)
+tests/program/ir/examples.ir: identical IR (146 instructions)
+tests/program/ir/all-primitives.ir: identical IR (40 instructions)
+docs/development/measurements/two-mode-prototype-2026-11-03/awkward.ir: identical IR (51 instructions)
+vocabulary-name: outcome 2: unsupported @1:3: name already defined: dup
+forward-call: outcome 2: unsupported @1:5: not a known word or 32-bit decimal: g
+recursion: outcome 2: unsupported @1:5: recursive call: f
+redefinition: outcome 2: unsupported @3:3: name already defined: FOO
+round trip: 0 failures
+== 6. planted faults in a copy of the vocabulary
+fault s/s" else" f-if f-else cv-turn/s" then" f-if f-else cv-turn/: golden files differing 1 of 3, replayed reader checks differing 0
+fault s/cv-digits if negate true else false then exit/cv-digits if true else false then exit/: golden files differing 1 of 3, replayed reader checks differing 4
+fault s/2r> cv-fold align ;/2r> 2drop align ;/: golden files differing 0 of 3, replayed reader checks differing 5
+fault s/cv-tok# @ 31 > if why-long-name/cv-tok# @ 99 > if why-long-name/: golden files differing 0 of 3, replayed reader checks differing 1
+== 7. symbolic mode (question 4(b)), clamp and examples
+sym lf-clamp  (3 inputs)
+  when (lower > upper):  false
+  when not (lower > upper):  min(max(value, lower), upper) true
+outcome 0 
+sym lf-example-max = rshift(-1, 1)
+sym lf-example-min = invert(lf-example-max)
+sym lf-add-above?  (2 inputs)
+  when always:  (a > (lf-example-max - b))
+sym lf-add-below?  (2 inputs)
+  when always:  (a < (lf-example-min - b))
+sym lf-add-overflow?  (2 inputs)
+  when (b > 0):  (a > (lf-example-max - b))
+  when not (b > 0):  (if (b < 0) then (a < (lf-example-min - b)) else false)
+sym lf-checked-add  (2 inputs)
+  when not (if (b > 0) then (a > (lf-example-max - b)) else (if (b < 0) then (a < (lf-example-min - b)) else false)):  (a + b) true
+  when (if (b > 0) then (a > (lf-example-max - b)) else (if (b < 0) then (a < (lf-example-min - b)) else false)):  false
+sym lf-checked-abs  (1 inputs)
+  when not (n = lf-example-min):  abs(n) true
+  when (n = lf-example-min):  false
+sym lf-product-over?  (2 inputs)
+  when always:  (product > (lf-example-max / n))
+sym lf-factorial-from: unsupported: a loop: needs an invariant (plan 4.4.1)
+sym lf-factorial: unsupported: calls a word that is not supported
+sym lf-euclid: unsupported: a loop: needs an invariant (plan 4.4.1)
+sym lf-gcd: unsupported: calls a word that is not supported
+sym lf-within-closed?  (3 inputs)
+  when always:  (not (lower > value) and not (value > upper))
+sym lf-in-range  (3 inputs)
+  when not (lower > upper):  (not (lower > value) and not (value > upper)) true
+  when (lower > upper):  false
+outcome 0 

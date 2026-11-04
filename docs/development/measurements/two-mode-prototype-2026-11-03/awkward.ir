@@ -1,0 +1,53 @@
+lf-ir 0.1
+source awkward.fs
+constant 5
+  lit 7
+end
+constant -0
+  call 5
+  prim negate
+end
+word 1e
+  call 5
+  lit 5
+  prim +
+end
+word $10
+  call 1e
+  if
+    call -0
+  else
+    lit -2147483647
+  then
+end
+word 'a'
+  begin
+    prim dup
+    lit 0
+    prim >
+  while
+    prim 1-
+  repeat
+end
+word ->x
+  call 'a'
+  exit
+end
+word forth:dup
+  call ->x
+  call $10
+end
+word "x"
+  call forth:dup
+  if
+  else
+  then
+end
+word x:dup
+  call "x"
+  lit 2147483647
+  lit -5
+end
+word abcdefghijklmnopqrstuvwxyz01234
+  call x:dup
+end
