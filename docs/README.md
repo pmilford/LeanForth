@@ -104,6 +104,7 @@ approval; the others are proposals.
 [0011](adr/0011-definite-rejection.md) definite rejection and the first checker's scope (rules accepted) ·
 [0012](adr/0012-checked-environment.md) the checked environment's implementation (design accepted) ·
 [0013](adr/0013-derivation-log.md) the derivation log and the proof outline (proposed) ·
+[0014](adr/0014-definitional-equality.md) definitional equality as Lean's kernel decides it: unfolding with hints and lazy delta, theorems unfold last, eta, proof irrelevance, `let`, caches (proposed; Lean-checked table in `make check`) ·
 [0016](adr/0016-compact-store.md) the compact store for Mathlib-scale input: 16-byte nodes, a shared input tier, hash tables (proposed) ·
 [0017](adr/0017-leanforth-syntax.md) LeanForth Forth syntax for theorems and proofs (accepted as the design basis) ·
 [0018](adr/0018-exceptions.md) when to use `CATCH` and `THROW` (proposed; piloted on level substitution) ·
