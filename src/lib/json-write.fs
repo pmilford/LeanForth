@@ -55,10 +55,18 @@
 \ Sink rules. The sink uses or copies its text before returning: the text
 \ may lie in the writer's scratch or in the caller's string. It calls no
 \ word of the same writer but jw-outcome and jw-written: any other is
-\ refused, failing the text as invalid. It should not THROW: after a THROW
-\ out of it the writer refuses everything until jw-reset makes it idle,
-\ with outcome invalid, so that jw-start can begin a new text.
-\ Unchecked: the sink is such an xt; strings are real memory; the record
+\ refused, failing the text as invalid, and jw-reset or jw-init, which
+\ would restart the writer under the call that runs the sink, fail the
+\ text as invalid when the sink returns. It should not THROW.
+\ THROWs. After a THROW out of the sink the writer is busy and refuses
+\ everything until jw-reset. A THROW from anywhere else in a writer word
+\ (an interrupt, a stack overflow) is not marked: the writer may still
+\ look ok although the text stops part way through a call. So a caller
+\ that catches a THROW from a writer word discards the text and calls
+\ jw-reset, or jw-start, before writing again.
+\ Unchecked: the sink is such an xt and writes over neither the string
+\ nor the view being written (it could otherwise turn valid UTF-8 into
+\ invalid bytes after the check); strings are real memory; the record
 \ keeps the capacity and room jw-init gave it; a view given to jw-copy
 \ holds a successful parse. The file loads in decimal whatever BASE is,
 \ then restores it.
@@ -76,7 +84,7 @@ require ./json.fs
 \ Room for the decimal digits of any cell and a sign, or for one escape.
 cell-digits 2 + aligned constant jw-scratch-size
 
-begin-structure jw-header
+begin-structure /jw-header
   field: jw-sink                   \ xt ( c-addr u -- ) receiving the text
   field: jw-status                 \ ok, or the first failure since jw-start
   field: jw-state                  \ what may come next
@@ -92,16 +100,18 @@ end-structure
 
 \ One open container. An object's last key lies in the key pool, after the
 \ keys of the objects around it; an array holds no key, so its offset is
-\ that of the next object inside it.
+\ that of the next object inside it. A container jw-copy opens records
+\ where it ends in the view being copied; one the caller opens records -1.
 begin-structure /jw-nest
   field: jw-nest-kind              \ json-object or json-array
   field: jw-nest-items             \ members or elements written
   field: jw-nest-key               \ offset of the last key in the pool
   field: jw-nest-key-size          \ its length
+  field: jw-nest-end               \ jw-copy's: index of the token after it; else -1
 end-structure
 
 \ A record: the header, depth nests, then room bytes of key pool.
-: jw-nests ( writer -- addr ) jw-header + ;
+: jw-nests ( writer -- addr ) /jw-header + ;
 : jw-pool ( writer -- addr ) dup jw-capacity @ /jw-nest * swap jw-nests + ;
 \ The innermost open container; unchecked: one is open.
 : jw-nest ( writer -- nest ) dup jw-depth @ 1- /jw-nest * swap jw-nests + ;
@@ -112,11 +122,12 @@ end-structure
 \ max-n; for a bad plan it gives false and writes nothing. json-writer:
 \ defines name ( -- writer ) in the dictionary and aborts on a bad plan.
 \ jw-sorted and jw-limit are settings the caller may store; they are
-\ kept from text to text.
-: jw-size ( depth room -- u ) swap /jw-nest * + jw-header + ;
+\ kept from text to text. The nests and key pool take at most jw-most
+\ bytes, so that a record's size fits in a cell.
+max-n /jw-header - constant jw-most
+: jw-size ( depth room -- u ) swap /jw-nest * + /jw-header + ;
 : jw-plan? ( depth room -- flag )
-  dup 0 max-n jw-header - between? 0= if 2drop false exit then
-  max-n jw-header - swap - /jw-nest / upto? ;
+  dup 0 jw-most between? 0= if 2drop false exit then jw-most swap - /jw-nest / upto? ;
 : jw-format ( depth room writer -- )
   >r 2dup jw-size r@ swap erase r@ jw-room ! r@ jw-capacity ! max-n r> jw-limit ! ;
 : jw-init ( depth room writer -- flag )
@@ -142,8 +153,10 @@ end-structure
   dup jw-busy @ over jw-sane? 0= or if jw-invalid false exit then jw-outcome ok? ;
 
 \ Starting and ending a text. jw-start begins a new text for the sink; a
-\ call from inside the sink is refused. jw-reset, after a THROW out of the
-\ sink, makes the writer idle with outcome invalid.
+\ call from inside the sink is refused. jw-reset, after a THROW out of a
+\ writer word, makes the writer idle and not busy, and fails the text as
+\ invalid; a text that had already failed keeps its first failure, so a
+\ full text stays full.
 : jw-start ( sink writer -- )
   dup jw-busy @ if nip jw-invalid exit then
   tuck jw-sink ! outcome-ok over jw-status ! jw-want-value over jw-state !
@@ -154,9 +167,12 @@ end-structure
   dup jw-ready? if dup jw-state @ jw-want-end = over jw-expect
     if jw-idle over jw-state ! then then jw-outcome ;
 
-\ Giving bytes to the sink, counting them; busy while it runs.
+\ Giving bytes to the sink, counting them; busy while it runs. A sink that
+\ cleared busy has called jw-reset or jw-init, restarting the writer under
+\ the call that gave it the bytes: the text fails as invalid.
+: jw-unbusy ( writer -- ) dup jw-busy @ 0= if dup jw-invalid then false swap jw-busy ! ;
 : jw-type ( c-addr u writer -- )
-  >r dup r@ jw-written +! true r@ jw-busy ! r@ jw-sink @ execute false r> jw-busy ! ;
+  >r dup r@ jw-written +! true r@ jw-busy ! r@ jw-sink @ execute r> jw-unbusy ;
 \ Room for n more bytes within jw-limit, else full.
 : jw-fits? ( n writer -- flag ) dup jw-limit @ swap jw-written @ - > 0= ;
 : jw-room? ( n writer -- flag ) tuck jw-fits? swap jw-within ;
@@ -166,13 +182,19 @@ end-structure
 : jw-comma? ( writer -- flag )
   dup jw-listing? if jw-nest jw-nest-items @ 0<> else drop false then ;
 : jw-comma ( writer -- ) dup jw-comma? if s" ," rot jw-type else drop then ;
+\ n bytes, and one more for a comma when one is due.
+: jw-with-comma ( n writer -- n' ) jw-comma? if 1+ then ;
+
+\ A container's marks: the bytes that open and close it, "{}" or "[]",
+\ and what may come next inside it.
+: jw-marks ( kind -- c-addr state )
+  json-object = if s" {}" drop jw-want-key else s" []" drop jw-want-element then ;
+: jw-inside ( kind -- state ) jw-marks nip ;
 
 \ A value is complete: the text's own, or one more item of its container.
-: jw-container-state ( kind -- state )
-  json-object = if jw-want-key else jw-want-element then ;
 : jw-done ( writer -- )
   dup jw-depth @ 0= if jw-want-end swap jw-state ! exit then
-  dup jw-nest 1 over jw-nest-items +! jw-nest-kind @ jw-container-state swap jw-state ! ;
+  dup jw-nest 1 over jw-nest-items +! jw-nest-kind @ jw-inside swap jw-state ! ;
 
 \ Whether a value of n bytes may come next (else invalid), with room for
 \ it and a comma when one is due (else full).
@@ -181,7 +203,7 @@ end-structure
 : jw-value-next? ( writer -- flag )
   dup jw-ready? if dup jw-value-state? swap jw-expect else drop false then ;
 : jw-value? ( n writer -- flag )
-  dup jw-value-next? if tuck jw-comma? negate + swap jw-room? else 2drop false then ;
+  dup jw-value-next? if tuck jw-with-comma swap jw-room? else 2drop false then ;
 \ Write a value whose bytes are c-addr u.
 : jw-scalar ( c-addr u writer -- )
   2dup jw-value? if dup jw-comma dup >r jw-type r> jw-done else drop 2drop then ;
@@ -235,6 +257,8 @@ max-n 4 - 6 / constant jw-longest
 \ (else invalid).
 : jw-text? ( c-addr u writer -- flag )
   >r dup jw-longest u> if 2drop false r> jw-within exit then utf8-valid? r> jw-expect ;
+\ A string or key that may not be written: drop it and its writer.
+: jw-refuse ( c-addr u writer -- false ) drop 2drop false ;
 
 \ Writing a string: the plain bytes in runs, each other byte as its escape,
 \ built in the scratch.
@@ -261,8 +285,8 @@ create jw-quote-mark quote-byte c,
 : jw-quoted ( c-addr u writer -- ) dup jw-quote dup >r jw-escaped r> jw-quote ;
 \ A string value.
 : jw-string? ( c-addr u writer -- flag )
-  dup jw-value-next? 0= if drop 2drop false exit then
-  >r 2dup r@ jw-text? if jw-escaped-size r> jw-value? else 2drop r> drop false then ;
+  dup jw-value-next? 0= if jw-refuse exit then
+  >r 2dup r@ jw-text? if jw-escaped-size r> jw-value? else r> jw-refuse then ;
 : jw-string ( c-addr u writer -- )
   >r 2dup r@ jw-string? if r@ jw-comma r@ jw-quoted r> jw-done else 2drop r> drop then ;
 
@@ -279,7 +303,7 @@ create jw-quote-mark quote-byte c,
 : jw-key-fits? ( u writer -- flag ) tuck jw-pool-left > 0= swap jw-within ;
 : jw-ordered? ( c-addr u writer -- flag )
   dup jw-sorted @ 0= if drop 2drop true exit then
-  >r 2dup r@ jw-key-after? if nip r> jw-key-fits? else 2drop r> drop false then ;
+  >r 2dup r@ jw-key-after? if nip r> jw-key-fits? else r> jw-refuse then ;
 : jw-keep-key ( c-addr u writer -- )
   dup jw-sorted @ 0= if drop 2drop exit then
   >r dup r@ jw-nest jw-nest-key-size ! r@ jw-pool r> jw-nest jw-nest-key @ + swap move ;
@@ -287,12 +311,12 @@ create jw-quote-mark quote-byte c,
 : jw-key-next? ( writer -- flag )
   dup jw-ready? if dup jw-state @ jw-want-key = swap jw-expect else drop false then ;
 : jw-key-text? ( c-addr u writer -- flag )
-  >r 2dup r@ jw-text? if r> jw-ordered? else 2drop r> drop false then ;
+  >r 2dup r@ jw-text? if r> jw-ordered? else r> jw-refuse then ;
 \ The key's bytes: a comma when due, the quoted key and a colon.
+: jw-key-size ( c-addr u writer -- n ) >r jw-escaped-size 1+ r> jw-with-comma ;
 : jw-key? ( c-addr u writer -- flag )
-  dup jw-key-next? 0= if drop 2drop false exit then
-  >r 2dup r@ jw-key-text? if jw-escaped-size 1+ r@ jw-comma? negate + r> jw-room?
-  else 2drop r> drop false then ;
+  dup jw-key-next? 0= if jw-refuse exit then
+  >r 2dup r@ jw-key-text? if r@ jw-key-size r> jw-room? else r> jw-refuse then ;
 : jw-colon ( writer -- ) s" :" rot jw-type ;
 : jw-member ( c-addr u writer -- )
   >r r@ jw-comma 2dup r@ jw-quoted r@ jw-colon r@ jw-keep-key
@@ -303,64 +327,47 @@ create jw-quote-mark quote-byte c,
 
 \ Containers. An open is a value that nests one level deeper (else full);
 \ a close must match the innermost open and may not follow a key.
-: jw-bracket ( kind -- c-addr u ) json-object = if s" {" else s" [" then ;
-: jw-brace ( kind -- c-addr u ) json-object = if s" }" else s" ]" then ;
 : jw-key-top ( writer -- offset )
   dup jw-depth @ 0= if drop 0 exit then
   jw-nest dup jw-nest-key @ swap jw-nest-key-size @ + ;
-: jw-nest! ( kind offset nest -- )
-  tuck jw-nest-key ! tuck jw-nest-kind !
-  0 over jw-nest-items ! 0 swap jw-nest-key-size ! ;
-: jw-push ( kind writer -- )
-  dup jw-key-top over 1 swap jw-depth +! swap jw-nest jw-nest! ;
+\ One level deeper: a container of kind that ends before token end (-1
+\ when jw-copy does not open it), its key after the keys around it.
+: jw-push ( kind end writer -- )
+  dup jw-key-top swap 1 over jw-depth +! jw-nest
+  dup /jw-nest erase tuck jw-nest-key ! tuck jw-nest-end ! jw-nest-kind ! ;
 : jw-deeper? ( writer -- flag ) dup jw-depth @ over jw-capacity @ < swap jw-within ;
 : jw-open? ( writer -- flag ) 1 over jw-value? if jw-deeper? else drop false then ;
-: jw-open ( kind writer -- )
-  dup jw-open? 0= if 2drop exit then
-  >r r@ jw-comma dup jw-bracket r@ jw-type
-  dup r@ jw-push jw-container-state r> jw-state ! ;
+: jw-open-to ( kind end writer -- )
+  dup jw-open? 0= if drop 2drop exit then
+  >r over r@ jw-comma jw-marks swap 1 r@ jw-type -rot r@ jw-push r> jw-state ! ;
 : jw-closable? ( kind writer -- flag )
   dup jw-depth @ 0= if 2drop false exit then
   tuck jw-nest jw-nest-kind @ = swap jw-state @ jw-want-value <> and ;
 : jw-close? ( kind writer -- flag )
   dup jw-ready? 0= if 2drop false exit then
   tuck jw-closable? over jw-expect if 1 swap jw-room? else drop false then ;
+: jw-closer ( kind -- c-addr 1 ) jw-marks drop char+ 1 ;
 : jw-close ( kind writer -- )
-  2dup jw-close? if >r jw-brace r@ jw-type -1 r@ jw-depth +! r> jw-done else 2drop then ;
-: jw-open-object ( writer -- ) json-object swap jw-open ;
+  2dup jw-close? if >r jw-closer r@ jw-type -1 r@ jw-depth +! r> jw-done else 2drop then ;
+: jw-open-object ( writer -- ) json-object -1 rot jw-open-to ;
 : jw-close-object ( writer -- ) json-object swap jw-close ;
-: jw-open-array ( writer -- ) json-array swap jw-open ;
+: jw-open-array ( writer -- ) json-array -1 rot jw-open-to ;
 : jw-close-array ( writer -- ) json-array swap jw-close ;
 
 \ Copying the value at a token index of a json.fs view, with everything in
 \ it, as the calls above would write it: keys in the tape's order (in
 \ sorted mode they must increase), strings and integers re-encoded in
 \ canonical form, a real number unsupported, an index outside the tape
-\ invalid. Containers recurse through the table below, one level per open
-\ container, so the depth reached is at most the writer's depth plus one;
-\ each level holds 3 data-stack and 6 return-stack cells (measured on
-\ Gforth 0.7.3 and 1.0: 193 and 393 cells for 64 levels in all). Copying
-\ stops at the first failure.
-create jw-copiers 8 cells allot   \ indexed by token kind
-: jw-copy ( index view writer -- )
-  >r 2dup json-kind-at dup json-object json-null between?
-  if cells jw-copiers + @ r> swap execute else drop 2drop r> jw-invalid then ;
-: jw-copy-item ( i view writer -- i' view writer )
-  >r 2dup r@ jw-copy tuck json-next swap r> ;
-: jw-copy-key ( i view writer -- i' view writer )
-  >r 2dup json-text@ r@ jw-key swap 1+ swap r> ;
-: jw-copy-member ( i view writer -- i' view writer ) jw-copy-key jw-copy-item ;
-\ Whether the loop over a container's tokens goes on.
-: jw-copying? ( end i view writer -- end i view writer flag )
-  2over > over jw-outcome ok? and ;
-: jw-copy-members ( end first view writer -- )
-  begin jw-copying? while jw-copy-member repeat 2drop 2drop ;
-: jw-copy-elements ( end first view writer -- )
-  begin jw-copying? while jw-copy-item repeat 2drop 2drop ;
-: jw-copy-object ( index view writer -- )
-  dup jw-open-object >r tuck json-contents rot r@ jw-copy-members r> jw-close-object ;
-: jw-copy-array ( index view writer -- )
-  dup jw-open-array >r tuck json-contents rot r@ jw-copy-elements r> jw-close-array ;
+\ invalid. The copy is a loop over the value's tokens, one call per
+\ token, without recursion: a container it opens records the index of the
+\ token after it, and closes when the copy reaches that token. So the
+\ data and return stacks hold a few cells at any depth, which only the
+\ writer's depth bounds. Copying stops at the first failure.
+
+\ The copiers of values, by token kind: a container opens, recording
+\ where it ends; any other token is written whole.
+: jw-copy-object ( index view writer -- ) >r json-next json-object swap r> jw-open-to ;
+: jw-copy-array ( index view writer -- ) >r json-next json-array swap r> jw-open-to ;
 : jw-copy-string ( index view writer -- ) >r json-text@ r> jw-string ;
 : jw-copy-integer ( index view writer -- ) >r json-text@ r> jw-digits ;
 : jw-copy-real ( index view writer -- )
@@ -368,10 +375,41 @@ create jw-copiers 8 cells allot   \ indexed by token kind
 : jw-copy-true ( index view writer -- ) nip nip true swap jw-bool ;
 : jw-copy-false ( index view writer -- ) nip nip false swap jw-bool ;
 : jw-copy-null ( index view writer -- ) nip nip jw-null ;
+create jw-copiers 8 cells allot   \ indexed by token kind
 : jw-copier! ( xt kind -- ) cells jw-copiers + ! ;
 ' jw-copy-object json-object jw-copier!  ' jw-copy-array json-array jw-copier!
 ' jw-copy-string json-string jw-copier!  ' jw-copy-integer json-integer jw-copier!
 ' jw-copy-real json-real jw-copier!  ' jw-copy-true json-true jw-copier!
 ' jw-copy-false json-false jw-copier!  ' jw-copy-null json-null jw-copier!
+: jw-copier ( index view -- xt ) json-kind@ cells jw-copiers + @ ;
+
+\ Where the innermost container ends, as a token index, when jw-copy
+\ opened it; -1 when the caller did, or none is open.
+: jw-innermost-end ( writer -- index )
+  dup jw-depth @ 0> if jw-nest jw-nest-end @ else drop -1 then ;
+\ A key is due: inside an object jw-copy opened, after its { or a member.
+\ In an object the caller opened, a token is a value, and so refused.
+: jw-key-due? ( writer -- flag )
+  dup jw-state @ jw-want-key = swap jw-innermost-end 0>= and ;
+\ One token: a key when one is due, else a value.
+: jw-copy-key ( index view writer -- ) >r json-text@ r> jw-key ;
+: jw-copy-value ( index view writer -- ) >r 2dup jw-copier r> swap execute ;
+: jw-copy-token ( index view writer -- )
+  dup jw-key-due? if jw-copy-key else jw-copy-value then ;
+\ Close each container the copy opened that ends at token i.
+: jw-copy-ends? ( i writer -- flag ) tuck jw-innermost-end = swap jw-outcome ok? and ;
+: jw-close-innermost ( writer -- ) dup jw-nest jw-nest-kind @ swap jw-close ;
+: jw-copy-closes ( i writer -- )
+  begin 2dup jw-copy-ends? while dup jw-close-innermost repeat 2drop ;
+\ Copy token i, then close what ends after it.
+: jw-copy-step ( view writer i -- view writer )
+  >r 2dup r@ -rot jw-copy-token r> 1+ over jw-copy-closes ;
+\ Copy the tokens first .. end-1 in order, stopping at the first failure.
+: jw-copy-tokens ( end first view writer -- )
+  2swap ?do i jw-copy-step dup jw-outcome ok? 0= if leave then loop 2drop ;
+: jw-token? ( index view -- flag ) json-kind-at json-object json-null between? ;
+: jw-copy ( index view writer -- )
+  >r 2dup jw-token? if 2dup json-next -rot r> jw-copy-tokens
+  else 2drop r> jw-invalid then ;
 
 base !   \ the BASE this file was loaded with

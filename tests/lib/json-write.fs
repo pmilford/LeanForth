@@ -1,8 +1,9 @@
 \ Unit tests of src/lib/json-write.fs: every word's positive and negative
 \ cases, sticky failures and the sink rules, every limit at and one past
 \ its bound, sorted keys, independent writers and a writer as a context
-\ member, a randomized round trip through src/lib/json.fs, jw-copy, and
-\ the NDJSON corpus copied back byte for byte. The module is loaded under
+\ member, a randomized round trip through src/lib/json.fs, jw-copy (also
+\ 10,000 containers deep), and the NDJSON corpus copied back byte for
+\ byte. The module is loaded under
 \ HEX: its numbers must not depend on BASE, and it must leave BASE as it
 \ found it; some writes also run under HEX.
 include ../support/tester.fs
@@ -11,9 +12,10 @@ hex require ../../src/lib/json-write.fs base @ decimal constant base-after-load
 
 T{ base-after-load -> 16 }T
 T{ jw-scratch-size cell-digits 2 + aligned = jw-longest max-n 4 - 6 / = -> true true }T
+T{ jw-most max-n /jw-header - = -> true }T
 
-\ The test sink appends to a buffer.
-4096 constant sunk-size
+\ The test sink appends to a buffer, large enough for 10,000 nested arrays.
+32768 constant sunk-size
 create sunk sunk-size allot  variable sunk-length
 : to-sunk ( c-addr u -- )
   dup sunk-length @ + sunk-size > abort" test sink overflow"
@@ -30,9 +32,9 @@ max-n invert constant min-n
 
 \ Planning and making writers.
 T{ 0 0 jw-plan? 8 64 jw-plan? -1 0 jw-plan? 0 -1 jw-plan? -> true true false false }T
-T{ 0 max-n jw-header - jw-plan? 0 max-n jw-header - 1+ jw-plan? max-n 0 jw-plan? -> true false false }T
-T{ max-n jw-header - /jw-nest / 0 jw-plan? max-n jw-header - /jw-nest / 1+ 0 jw-plan? -> true false }T
-T{ 8 64 jw-size jw-header 8 /jw-nest * + 64 + = -> true }T
+T{ 0 jw-most jw-plan? 0 jw-most 1+ jw-plan? max-n 0 jw-plan? -> true false false }T
+T{ jw-most /jw-nest / 0 jw-plan? jw-most /jw-nest / 1+ 0 jw-plan? -> true false }T
+T{ 8 64 jw-size /jw-header 8 /jw-nest * + 64 + = -> true }T
 create probe 512 allot
 : probe-x ( -- ) probe 512 [char] x fill ;
 : probe-untouched? ( -- flag ) true 512 0 do probe i + c@ [char] x = and loop ;
@@ -158,8 +160,11 @@ T{ start sunk -1 w jw-string s" a" w jw-key w jw-outcome -> outcome-full }T
 T{ start sunk -1 w jw-string 5 w jw-bool s" 01" w jw-digits w jw-outcome -> outcome-full }T
 T{ start 5 w jw-bool sunk -1 w jw-string w jw-reset w jw-outcome -> outcome-invalid }T
 T{ start 3 w jw-n s" 3" wrote= -> outcome-ok true }T
-\ jw-reset makes the writer idle with outcome invalid.
+\ jw-reset makes the writer idle with outcome invalid; a text that had
+\ already failed keeps its first failure.
 T{ start w jw-reset 1 w jw-n w jw-end sunk-length @ -> outcome-invalid 0 }T
+T{ start sunk -1 w jw-string w jw-reset w jw-outcome w jw-state @
+   -> outcome-full jw-idle }T
 
 \ Nesting is bounded by the writer's depth: 8 here.
 : opens ( n -- ) 0 ?do w jw-open-array loop ;
@@ -226,6 +231,18 @@ T{ sorted start in-array s\" {\"a\":[{\"b\":1,\"c\":2},{\"a\":1,\"b\":2}],\"b\":
 \ Unsorted, any order and duplicates are written as given.
 T{ unsorted start w jw-open-object s" b" 1 member s" a" 2 member s" a" 3 member w jw-close-object
    s\" {\"b\":1,\"a\":2,\"a\":3}" wrote= -> outcome-ok true }T
+\ Keys are checked as strings are, in either mode: invalid UTF-8 is
+\ invalid, a key longer than jw-longest is full, and no byte of a refused
+\ key is written, not even the comma before it.
+: bad-key ( c-addr u -- outcome n )
+  start w jw-open-object w jw-key w jw-end sunk-length @ ;
+T{ s\" a\x80" bad-key s\" \xed\xa0\x80" bad-key s\" \xc3" bad-key
+   -> outcome-invalid 1 outcome-invalid 1 outcome-invalid 1 }T
+T{ sunk jw-longest 1+ bad-key sunk -1 bad-key -> outcome-full 1 outcome-full 1 }T
+T{ sorted s\" \xc0\xaf" bad-key sunk jw-longest 1+ bad-key unsorted
+   -> outcome-invalid 1 outcome-full 1 }T
+T{ start w jw-open-object s" a" 1 member s\" \xf4\x90\x80\x80" w jw-key 2 w jw-n
+   s\" {\"a\":1" wrote= -> outcome-invalid true }T
 \ The key pool holds the open objects' last keys: 4 bytes here.
 8 4 json-writer: tight
 : tight-start ( -- ) 0 sunk-length ! ['] to-sunk tight jw-start true tight jw-sorted ! ;
@@ -258,6 +275,16 @@ T{ ' nested-write meddling one-array s" [" wrote= -> outcome-invalid true }T
 T{ ' nested-start meddling w jw-open-array w jw-depth @ w jw-outcome -> 1 outcome-invalid }T
 T{ ' nested-end meddling one-array s" [" wrote= -> outcome-invalid true }T
 T{ ' nested-look meddling one-array s" [1]" wrote= -> outcome-ok true }T
+\ jw-reset or jw-init from inside the sink would restart the writer under
+\ the call that runs the sink: the text fails as invalid when the sink
+\ returns, even after a new jw-start there, and nothing more is written.
+: nested-reset ( -- ) w jw-reset ['] to-sunk w jw-start ;
+: nested-init ( -- ) 8 64 w jw-init drop ;
+: nested-init-start ( -- ) nested-init ['] to-sunk w jw-start ;
+T{ ' nested-reset meddling one-array s" [" wrote= -> outcome-invalid true }T
+T{ ' nested-init meddling one-array s" [" wrote= -> outcome-invalid true }T
+T{ ' nested-init-start meddling one-array s" [" wrote= -> outcome-invalid true }T
+T{ w jw-busy @ start 1 w jw-n s" 1" wrote= -> false outcome-ok true }T
 \ A THROW sunk of the sink leaves the writer busy until jw-reset.
 : throwing-sink ( c-addr u -- ) 2drop 99 throw ;
 T{ ' throwing-sink w jw-start 5 w ' jw-n catch nip nip w jw-busy @ 0<> -> 99 true }T
@@ -315,9 +342,11 @@ create text 64 allot  variable text-length
 : string-back? ( -- flag )
   rt-rnd-text 2dup start w jw-string w jw-end ok? parsed ok? and
   0 jv json-kind@ json-string = and -rot 0 jv json-text@ compare 0= and ;
+\ The text written first, kept while the copy writes it again.
+create first-text sunk-size allot
 : copied-back? ( -- flag )
-  output out2 swap move sunk-length @ >r start 0 jv w jw-copy w jw-end ok?
-  out2 r> output compare 0= and ;
+  output first-text swap move sunk-length @ >r start 0 jv w jw-copy w jw-end ok?
+  first-text r> output compare 0= and ;
 variable mismatches
 : strings-back ( n -- )
   0 ?do string-back? copied-back? and 0= if 1 mismatches +! then loop ;
@@ -361,6 +390,47 @@ T{ s" [[[[[[[[1]]]]]]]]" parse-text 0 copied -> outcome-ok outcome-ok }T
 T{ s\" \"\\u001f\\u007f\"" parse-text 0 copied output s\" \"\\u001f\x7f\"" compare
    -> outcome-ok outcome-ok 0 }T
 T{ s" [1,2]" parse-text start 0 jv w ' jw-copy rs-checked w jw-end -> outcome-ok outcome-ok }T
+\ A close the copy cannot write (full here) stops it; nothing more is tried.
+T{ s" [[1]]" parse-text 4 limited 0 jv w jw-copy unlimited output s" [[1]" compare
+   w jw-end -> outcome-ok 0 outcome-full }T
+T{ s\" {\"a\":{}}" parse-text 6 limited 0 jv w jw-copy unlimited w jw-end output nip
+   -> outcome-ok outcome-full 6 }T
+\ The copy closes only the containers it opened; the caller's stay open,
+\ and in the caller's object a key is due, so a copied string is refused.
+T{ s" []" parse-text start w jw-open-array 0 jv w jw-copy 0 jv w jw-copy
+   w jw-close-array s" [[],[]]" wrote= -> outcome-ok outcome-ok true }T
+T{ start w jw-open-object s" a" w jw-key 0 jv w jw-copy w jw-close-object
+   s\" {\"a\":[]}" wrote= -> outcome-ok true }T
+T{ s\" \"a\"" parse-text start w jw-open-object 0 jv w jw-copy s" {" wrote=
+   -> outcome-ok outcome-invalid true }T
+T{ s\" {\"a\":1}" parse-text start w jw-open-object 1 jv w jw-copy s" {" wrote=
+   -> outcome-ok outcome-invalid true }T
+\ Containers that end together close together, innermost first.
+: together ( -- c-addr u ) s\" [{\"a\":[[{}]]},[[]]]" ;
+T{ together parse-text 0 copied output together compare -> outcome-ok outcome-ok 0 }T
+
+\ jw-copy is a loop, not a recursion: a value nested 10,000 deep is copied
+\ whole by a writer as deep, with both stacks balanced, and one level
+\ deeper is full after exactly 10,000 opens. (A recursive copy overflowed
+\ the return stack after a few hundred levels.)
+10000 constant very-deep
+json: deep-view
+T{ very-deep 1+ deep-view json-init -> outcome-ok }T
+very-deep 0 jw-size allocate throw constant deep-writer
+T{ very-deep 0 deep-writer jw-init -> true }T
+\ n opening brackets, then n closing ones, in parse-buffer.
+: fill-with ( addr n c-addr 1 -- ) drop c@ fill ;
+: nest-text ( n -- c-addr u )
+  >r parse-buffer r@ s" [" fill-with
+  parse-buffer r@ + r@ s" ]" fill-with parse-buffer r> 2* ;
+: deep-start ( n -- outcome )
+  nest-text deep-view json-parse 0 sunk-length ! ['] to-sunk deep-writer jw-start ;
+: deep-copy ( -- ) 0 deep-view deep-writer ['] jw-copy rs-checked ;
+T{ very-deep deep-start ' deep-copy catch deep-writer jw-end -> outcome-ok 0 outcome-ok }T
+T{ output very-deep nest-text compare -> 0 }T
+T{ very-deep 1+ deep-start ' deep-copy catch deep-writer jw-end sunk-length @
+   -> outcome-ok 0 outcome-full very-deep }T
+T{ deep-view json-free deep-writer free -> 0 }T
 
 \ The NDJSON corpus, copied back byte for byte in both key modes: every
 \ line of the reference exports and tests/lib/json-write-corpus.ndjson,

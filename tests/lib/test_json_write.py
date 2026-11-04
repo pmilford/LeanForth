@@ -12,7 +12,9 @@
    with sort_keys for the sorted cases, and outcome ok.
 3. Copy oracle: the same kind of values printed non-canonically (ASCII
    escapes, surrogate pairs, \\/, spaces), read by json.fs and copied with
-   jw-copy, must give the same bytes.
+   jw-copy, must give the same bytes. The deep copy oracle does the same
+   for values nested up to the driver's depth of 64, objects and arrays
+   mixed, where several containers often close together.
 4. Refusals: invalid UTF-8 at a random place in an array, keys out of
    order in sorted mode, and a real number given to jw-copy fail as
    invalid, invalid and unsupported, with exactly the canonical prefix
@@ -79,6 +81,21 @@ def gen_value(rng, bits, depth=0):
     if r < 0.85:
         return rng.choice([True, False])
     return None
+
+
+def gen_deep(rng, bits, levels):
+    """A value nested levels containers deep: at each level an object or an
+    array holding a few scalars around the next level (unique keys, so no
+    level is lost)."""
+    value = gen_value(rng, bits, 4)
+    for _ in range(levels):
+        items = ([gen_value(rng, bits, 4) for _ in range(rng.randint(0, 2))] + [value]
+                 + [gen_value(rng, bits, 4) for _ in range(rng.randint(0, 1))])
+        if rng.random() < 0.5:
+            value = items
+        else:
+            value = {gen_string(rng) + str(n): x for n, x in enumerate(items)}
+    return value
 
 
 def forth_string(data):
@@ -197,6 +214,22 @@ class JsonWriteTest(unittest.TestCase):
             cases.append((f"{mode} case-start {text} copy-text case-end unsorted",
                           canonical(value, sort), b"ok"))
         print(f"copy oracle: seed {SEED + 1}, {self.check(cases)} values", file=sys.stderr)
+
+    def test_deep_copy_oracle(self):
+        rng = random.Random(SEED + 3)
+        cases, deepest = [], 0
+        for n in range(40):
+            levels = 64 if n % 8 == 0 else rng.randint(1, 64)
+            value = gen_deep(rng, self.bits, levels)
+            sort = n % 2 == 1
+            mode = "sorted" if sort else "unsorted"
+            text = forth_string(messy(value, sort, rng).encode("ascii"))
+            cases.append((f"{mode} case-start {text} copy-text case-end unsorted",
+                          canonical(value, sort), b"ok"))
+            deepest = max(deepest, levels)
+        self.assertEqual(deepest, 64)
+        print(f"deep copy oracle: seed {SEED + 3}, {self.check(cases)} values, "
+              f"up to {deepest} deep", file=sys.stderr)
 
     def test_refusals(self):
         rng = random.Random(SEED + 2)
