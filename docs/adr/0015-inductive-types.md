@@ -853,6 +853,13 @@ and its members' exported data into the input (`core/input.fs`,
   `Nat`), 49 with a literal, projection or other U2 form. **None is
   rejected or invalid**, and no block has a B4 warning. With them, 763 of
   Init's definitions and theorems are accepted.
+- The same probe after the name-view fix (rvKC H1, 2026-11-04; staging
+  20 s, the feed 33 s, every check 291 s): all 30 blocks the defect left
+  *unknown* are accepted, and 12 more whose dependency was undecided
+  (K5); 12 such blocks are now *unsupported*, as a dependency of theirs
+  is. Of the 551 blocks in scope, **184 are accepted**, 90 *unknown*,
+  277 *unsupported*; still none is rejected or invalid. 1,014 of Init's
+  definitions and theorems are accepted.
 
 ## Reproduction
 
