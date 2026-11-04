@@ -857,19 +857,23 @@ one) and 4.3.2 (the unknown rate).
 
 ### Progress
 
-**4.2.2a, implemented 2026-11-03 and 2026-11-04 (agent D2A); its
-[kernel] gate is pending** (independent review, owner approval). What changed:
+**4.2.2a, implemented 2026-11-03 and 2026-11-04 (agent D2A), reviewed
+by rvD2A (2026-11-04: no way found to accept what Lean or the code before
+rejects; F1-F5 corrected below); its [kernel] gate awaits the owner's
+approval.** What changed:
 
 - *Free variables and the local context*
   (`src/core/local-context.fs`): a free variable is a term node of tag
   `lf-tag-fvar` whose number is its entry in the check's local context, a
   heap store in the checker context holding the node (with its
-  identity), its type and, for a `let` variable, its value. Entries are
-  only appended while a job runs (inference empties the local context
-  when a job starts), so a number is never reused within a check; a
-  node is a live free variable only when its own entry names it with its
-  current identity, which every audit (`lf-cterm-check`) requires. Its
-  capacity is a per-context setting; full is *full*, never ok.
+  identity), its type and, for a `let` variable, its value. Inference
+  empties it when a job starts, and when it discards scratch it drops the
+  entries whose nodes went with it (`lf-lctx-drop`; review F3: before,
+  entries grew with every binder opened, 32,767 for a 15-node DAG), so a
+  number may be taken again; a node is a live free variable only when its
+  own entry names it with its current identity, which every audit
+  (`lf-cterm-check`) requires, so a discarded node never names the new
+  entry. Its capacity is a per-context setting; full is *full*, never ok.
 - *Lean's substitutions* (`src/kernel/mixed-open.fs`): `instantiate`,
   `instantiate_rev`, `abstract` and `mk_pi`, ports of `instantiate.cpp`
   15–39 and 99–118, `abstract.cpp` 14–32 and `local_ctx.cpp` 93–125, with
@@ -890,13 +894,24 @@ one) and 4.3.2 (the unknown rate).
   subject, as the derivation log (ADR 0013) records it. A free variable's
   type is its entry's (`infer_fvar`); an application's argument is closed
   and put into the Π body with Lean's `instantiate`; a Π's type is
-  `Sort (mk_imax u v)`. A chain of λs gets `mk_pi` of its free variables
+  `Sort (mk_imax u v)`. The instantiate no longer runs
+  `lf-mixed-instantiate`'s audit of its two graphs (review F5): the body
+  is a type inference made or audited input holds, the argument an
+  audited source node closed by mixed-open (which checks each leaf's
+  shape, liveness and child order), and every comparison that can lead to
+  acceptance audits both of its graphs (`lf-minfer-compare`, through
+  `lf-mixed-convert-keeping`). Because source nodes are read under the
+  scope, a source node is no closed term: a future inference cache must
+  be keyed by the opened term or by (node, scope) (Q2 note, Q10; review
+  F2). A chain of λs gets `mk_pi` of its free variables
   over the innermost body's type, built once from the inside out: the
   body's type abstracted over the chain's free variables, the Π of each
   source domain around it, and at the chain's top the loose bound
   variables of outer binders closed. This equals Lean's result, since a
   source domain abstracted after `instantiate_rev` is the domain itself;
-  making `mk_pi` per λ instead would cost nodes quadratic in a chain's
+  the review proved the two equal node for node, apart from
+  `cheap_beta_reduce`; making `mk_pi` per λ instead would cost nodes
+  quadratic in a chain's
   depth (composition's value would no longer fit the 64-term store of
   `check-declaration`'s `value-room` case). The binder-domain stack and
   the shift of a bound variable's domain are gone. ADR 0011's rejection
@@ -924,27 +939,45 @@ from the code before only where the code before ran out of room:
 `compare.eta-under-beta-domain`, `compare.lambda-beta-domain-different-body`
 and `decl.lambda-in-argument-wrong-body` now give the table's answer at
 64 nodes, so the binder-domain table has no known difference left.
-A randomized differential against main at `87f0f79`
-(`.claude/work/D2A/difftrial.fs`: random closed terms, half of them well
-typed by construction, some variables eta-expanded into λ arguments,
-through inference and both probes; seed 20261103, 20,000 terms, 134,991
-runs: 42,101 ok, 80,025 rejected, 12,865 unknown) finds no difference in
-outcome, diagnostic code, D-rule mask or inferred type. With too little
-fuel (seed 777: 122,221 runs compared) or room (seed 4242: 106,830) the
-only differences, 124 and 519, are *unknown* against *rejected* (the
-analysis stays unknown when it runs out, and the two spend fuel and room
-differently), never another verdict. Planted faults `infer-imax-zero`
-and `infer-chain-top-ignored` give 1,379 and 49,727 differences;
-`infer-chain-unclosed` gives none there (the generator's λ arguments
-never reach it) and is caught by `tests/core/mixed-infer.fs`. The
+The first randomized differential against main at `87f0f79`
+(`.claude/work/D2A/difftrial.fs`; seed 20261103, 20,000 terms, 134,991
+runs: 42,101 ok, 80,025 rejected, 12,865 unknown) found no difference in
+outcome, diagnostic code, D-rule mask or inferred type, but it tested
+little of what changed (review F1): its random terms are mostly ill typed,
+and of its well-typed ones few contain an application and none a λ
+argument (50 of 1,534 typed terms in 3,000 cases had an application), so
+it never reached the chain closing or the argument closing: the planted
+fault `infer-chain-unclosed` gave no difference there.
+The typed-term trial, adapted from the review's generator,
+`tests/core/infer_typed_trial.py` with `tests/support/infer-trial.fs`,
+makes well-typed terms with parameters, polymorphic variables, `id.{0/1}`,
+λ arguments and dependent λ chains as arguments under binders (a quarter
+mutated), and checks every unmutated case's inferred type against a
+simple named-term model, exactly. Seed 1 (2,000 cases): 1,323 λ arguments
+under binders, 921 of them dependent, 362 chains, 1,027 well-typed cases,
+all equal to the model. Old against new (main `147fde8` against this
+change, `--compare`): seeds 1 and 2 at ample fuel, 16,613 runs, all
+identical; seed 3 (fuel below 3,000) and seed 4 (a store of the input plus
+up to 120): only runs that ran out of fuel or room in one tree differ,
+and unknown against rejected. Calibration, each planted fault in a copy:
+`infer-chain-unclosed` 193 of the 1,027 cases differ from the model,
+`infer-arg-unclosed` (an argument not closed) 405, `infer-domain-unclosed`
+(a domain not closed) 1,000, `infer-abstract-innermost` 989,
+`infer-chain-top-ignored` 1,020, `infer-imax-zero` 28. With too little
+fuel or room the first differential's only differences, 124 and 519,
+were *unknown* against *rejected* too. The
 derivation log's outlines of every pinned export and broken copy are
 those of the code before, step numbers aside. Unit tests of the local
 context, the four ports and
 a λ argument under a binder (`tests/core/mixed-instantiate.fs`,
-`tests/core/mixed-infer.fs`); 20 planted faults in
-`tests/mutants/faults.toml` for this task: 19 caught, and
-`rej-p2-open-term` a known equivalent (P2 inferring an open term of the
-analysis under the scope infers its closed copy).
+`tests/core/mixed-infer.fs`), the local context's drop on the review's
+DAG (`tests/core/infer-deep.fs`) and mixed-open's recovery after a THROW
+(`tests/core/mixed-instantiate.fs`, `tests/core/mixed-beta.fs`:
+`lf-mixed-rebuild-reset` now resets all four rebuilding passes, review
+F4); 25 planted faults in `tests/mutants/faults.toml` for this task: 24
+caught, and `rej-p2-open-term` a known equivalent (P2 inferring an open
+term of the analysis under the scope infers its closed copy; the closing
+stays, for closed cache keys).
 
 ## Test plan
 

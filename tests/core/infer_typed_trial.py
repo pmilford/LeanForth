@@ -390,6 +390,10 @@ def run_tree(tree, text):
 
 def compare(old_path, new_path):
     old, new = runs(pathlib.Path(old_path).read_text()), runs(pathlib.Path(new_path).read_text())
+    # A case whose inference ran out of fuel or room in either run has its
+    # inferred-type probes in the other run only.
+    ran_out = {k for (kind, k), v in list(old.items()) + list(new.items())
+               if kind == 'I' and v[0] in '26'}
     classes, bad = collections.Counter(), []
     for key in sorted(set(old) | set(new)):
         a, b = old.get(key), new.get(key)
@@ -398,7 +402,8 @@ def compare(old_path, new_path):
             continue
         if a is None or b is None:
             classes['in one only'] += 1
-            bad.append((key, a, b))
+            if key[1] not in ran_out:
+                bad.append((key, a, b))
             continue
         classes[(NAMES[a[0]], NAMES[b[0]])] += 1
         limited = a[0] in '26' or b[0] in '26' or {a[0], b[0]} == {'3', '4'}

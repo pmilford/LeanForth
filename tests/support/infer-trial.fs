@@ -75,10 +75,13 @@ variable term  variable inferred  variable value  variable claim
   r> if lf-mixed-theorem-probe else lf-mixed-definition-probe then ;
 : probe-line ( claim theorem? c-addr u -- ) 2>r run-probe 2r> .head .n .diag cr ;
 : redex-of ( type -- node ) 2 make-sort 0 make-var make-lam swap make-app ;
+\ A redex that does not fit a small store (mode 2) is a full run.
+: redex-probe ( -- )
+  inferred @ ['] redex-of catch
+  if drop s" DB" .head outcome-full .n 0 .n 0 .n cr exit then false s" DB" probe-line ;
 : inferred-probes ( -- )
   inferred @ 0< if exit then
-  inferred @ false s" DI" probe-line inferred @ true s" TI" probe-line
-  inferred @ redex-of false s" DB" probe-line ;
+  inferred @ false s" DI" probe-line inferred @ true s" TI" probe-line redex-probe ;
 
 \ A case: a fresh session and index, built by the generated line; then
 \ the inference and the probes. A probe that does not fit a small store

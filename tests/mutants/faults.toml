@@ -887,7 +887,7 @@ old = '''  lf-minfer-close ok-then? 0= if drop false exit then'''
 new = ''''''
 test = "$GFORTH tests/core/definite-rejection.fs"
 reason = "4.2.2a: P2 infers a term of the analysis without closing it first"
-equivalent = "inference reads a loose bound variable k under the scope as the scope's free variable k places from the top, and P2 runs with the analysis's D4 binders on the scope, so inferring the open term is inferring its closed copy: the same types, only less scratch (caught under the telescope design of 5053a98, where inference read only closed terms)"
+equivalent = "inference reads a loose bound variable k under the scope as the scope's free variable k places from the top, and P2 runs with the analysis's D4 binders on the scope, so inferring the open term is inferring its closed copy: the same types, only less scratch (caught under the telescope design of 5053a98, where inference read only closed terms); the closing stays so that what P2 infers is a closed term, the key a future inference cache needs (review rvD2A F2)"
 
 [[fault]]
 id = "rej-d4-domain-open"
