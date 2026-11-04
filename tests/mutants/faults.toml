@@ -2552,7 +2552,8 @@ reason = "T5 skipped: a block with the universe parameters u, u passes"
 [[fault]]
 id = "ind-skip-names"
 file = "src/kernel/check-block.fs"
-old = '''  lf-ind-name lf-blk-fresh ['] lf-blk-rec-name! lf-blk-then ['] lf-blk-rec-fresh lf-blk-then ;'''
+old = '''  lf-ind-name lf-blk-fresh ['] lf-blk-rec-name! lf-blk-then
+  ['] lf-blk-rec-fresh lf-blk-then ;'''
 new = '''  lf-blk-rec-name! ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "N2 skipped for a block: a type declared twice in one input is accepted twice"
