@@ -133,11 +133,20 @@ end-structure
 \ Validity checks; none of them reads a record.
 : store-live? ( store -- flag ) dup store-generation @ 0< 0= swap store-shape? and ;
 : store-bounds ( store -- base capacity ) dup store-base @ swap store-capacity @ ;
+\ The check every checked access makes: store-live? and base <= count <=
+\ capacity, written out in one word because it runs so often.
 : store-count-valid? ( store -- flag )
-  dup store-live? swap dup store-count @ swap store-bounds between? and ;
+  >r r@ store-check r@ store-seal @ = r@ store-generation @ 0< 0= and
+  r@ store-width @ store-width? and r@ store-base @ r@ store-capacity @ store-upto? and
+  r@ store-capacity @ r@ store-limit @ store-upto? and
+  r@ store-count @ r@ store-base @ r> store-capacity @ between? and ;
 : store-valid? ( index store -- flag )
   dup store-count-valid? if store-count @ 0 swap within else 2drop false then ;
-: store-pair-valid? ( left right store -- flag ) tuck store-valid? >r store-valid? r> and ;
+\ One check of the store for both indices.
+: store-in-count? ( index count -- flag ) 0 swap within ;
+: store-pair-valid? ( left right store -- flag )
+  dup store-count-valid? 0= if drop 2drop false exit then
+  store-count @ tuck store-in-count? >r store-in-count? r> and ;
 
 \ Allocation. store-new fails, changing nothing, on an invalid store, a full
 \ store or a spent serial.

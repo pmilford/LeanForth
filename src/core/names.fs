@@ -106,8 +106,10 @@ end-structure
 : lf-name-state-valid? ( -- flag )
   lf-names store-count-valid? lf-name-used @ lf-name-byte-capacity upto? and ;
 \ An ID is allocated now; a reused stale ID is undetectable.
+\ The state check covers the store's (store-count-valid?), so the ID is
+\ only compared with the count.
 : lf-name-stored? ( id -- flag )
-  lf-name-state-valid? if lf-names store-valid? else drop false then ;
+  lf-name-state-valid? if 0 lf-name-count @ within else drop false then ;
 : lf-name-valid? ( id -- flag )
   lf-name-viewed? if lf-name-tier name-valid? else lf-name-stored? then ;
 

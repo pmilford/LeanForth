@@ -73,7 +73,11 @@ store-header context-record: lf-terms
 : lf-term-refused ( -- false )
   lf-terms lf-term-site lf-diag-terms-full lf-diag-store false ;
 1 cells context-record: lf-term-covered   \ capacity the columns last covered
+\ The usual case first: a free record and columns that cover the store.
+: lf-term-steady? ( -- flag )
+  lf-terms dup store-filled? 0= swap store-capacity @ lf-term-covered @ = and ;
 : lf-term-room? ( -- flag )
+  lf-term-steady? if true exit then
   lf-terms store-ready ok? if lf-term-covered lf-term-columns columns-ready else false then ;
 : lf-term-new ( tag first second -- index true | false )
   lf-terms node-new dup 0= if drop lf-term-refused then ;

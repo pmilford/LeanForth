@@ -73,7 +73,11 @@ store-header context-record: lf-levels
   lf-levels lf-level-site lf-diag-levels-full lf-diag-store false ;
 ' lf-levels column-group: lf-level-columns
 1 cells context-record: lf-level-covered   \ capacity the columns last covered
+\ The usual case first: a free record and columns that cover the store.
+: lf-level-steady? ( -- flag )
+  lf-levels dup store-filled? 0= swap store-capacity @ lf-level-covered @ = and ;
 : lf-level-room? ( -- flag )
+  lf-level-steady? if true exit then
   lf-levels store-ready ok? if lf-level-covered lf-level-columns columns-ready else false then ;
 : lf-level-new ( tag first second -- index true | false )
   lf-levels node-new dup 0= if drop lf-level-refused then ;
