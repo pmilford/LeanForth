@@ -57,7 +57,11 @@ c-addr1 u1 and writes its record to c-addr2 u2; `ni-replay` with the same
 arguments checks it again, compares and prints the report. The lower
 level, `ni-run ( c-addr u fuel -- outcome )`, leaves the record in memory
 (`rr-text`), and `rp-replay-text ( c-addr u -- outcome )` compares a record
-given as text.
+given as text. Underneath, a run is `rr-start ( c-addr u -- outcome )`
+(which keeps the file's name), `rr-settings!`, `rr-import ( flag --
+outcome )` (the manifest enforced when flag is true), `rr-check` after a
+read that was ok, `rr-finish ( -- outcome )`, `rr-write` and `rr-release`
+(`src/import/run-record.fs` documents each).
 
 ## What a record holds
 
@@ -127,16 +131,26 @@ what a check said about itself:
 matches the manifest beside it; `manifest.enforced` says whether that
 mattered to the check. The record says enforced only when the run record
 module loaded the input itself with the manifest checked
-(`rr-import ( c-addr u flag -- outcome )`, flag true: `cin-read-checked`
-of `src/import/checker-input.fs`), as `bin/leanforth check` does by
-default; then an input that does not match is not read at all, and a
-record that says enforced with a read that succeeded and a manifest that
-did not match is refused (by the writer and by the schema). With
-`--no-manifest`, from `tests/support/run-records.fs` (and so the golden
-records and `make run-record`), and whenever another importer hands its
-outcome to `rr-read!`, the record says not enforced, also when the manifest
-is missing or does not match: the record never claims a check it did not
-see done.
+(`rr-import ( flag -- outcome )`, flag true: `cin-read-checked` of
+`src/import/checker-input.fs`), as `bin/leanforth check` does by default.
+`rr-import` takes no file name: it reads the file `rr-start` kept and
+hashed, as `rr-finish` does, so no run can hash one file and check another
+(review rvRP3, M1). And a checked read fails, invalid, unless the bytes it
+loaded have the SHA-256 `rr-start` recorded (`cin-digest`, the digest the
+manifest check itself computed over those bytes): the verdicts of an
+enforced record are those of the bytes `input.sha256` names, even when the
+file was swapped for another export with its own manifest and swapped back
+between `rr-start` and `rr-finish` (A, then B, then A; a test does exactly
+that). Then an input that does not match its manifest is not read at
+all, and a record that says enforced with a read that succeeded and a
+manifest that did not match is refused (by the writer and by the schema).
+With `--no-manifest`, from `tests/support/run-records.fs` (and so the
+golden records and `make run-record`), and whenever another importer hands
+its outcome to `rr-read!`, the record says not enforced, also when the
+manifest is missing or does not match: the record never claims a check it
+did not see done. Such an unchecked read computes no digest of its own, so
+there the bytes checked are tied to `input.sha256` only by the reads
+before and after (see the limits below).
 
 **Only the run's own environment.** Verdicts are read only from the
 checked environment that the run's own `rr-check` made, never from another
@@ -144,14 +158,21 @@ one that happens to be current, even over the same input (review F1).
 Environments are compared by identity, which never repeats, not by
 address: when the run's environment is freed and a new one is made at the
 same address, the new one is another environment (round 2 of the review;
-its probe is a test), so no record is written, and `rr-release` frees only
-an environment that still has the run's identity. If
+its probe is a test), so no record is written. `rr-release` frees the
+run's environment only while it is the current one with the run's
+identity, through the current environment and never through the address
+it kept: an environment the caller made another one current over, or
+freed, is never read or freed again (it stays allocated unless the caller
+frees it; rvRP3 L2). So the caller must not free the run's environment
+itself, and if it displaces it, it frees it. If
 the run could not make its environment (no memory, a pool out of range),
 the record lists no declaration and its `check.run` says why, with `mode`
 and `allowlistVersion` null. If the run's environment was freed, or another
 is current when the record is written, no record is written (`rr-write`
 gives invalid). Each kept outcome starts invalid, never ok, so a slot is
-never matched with a step that did not run.
+never matched with a step that did not run. And checks that ran although
+the read was not ok checked whatever input an earlier read left: such a
+record is refused too (rvRP3 L1).
 
 **A run that stops.** When a check or its publication throws, the run stops
 there (ADR 0012, E4): `check.run` is invalid, that declaration is invalid
@@ -181,10 +202,16 @@ code point, all as of Unicode 15.1. So a name that is empty, blank, a
 filler, or made only of combining marks or of ignorable characters is
 refused, by the same check as a blank one; `a` followed by a combining
 accent is shown. Unlike the receipts' rule this does not ask for an ASCII
-character, because a Lean name may be written in any script. The rule and
-its tables are in `src/import/text-rule.fs`; the tests rebuild the table
-of characters that are not seen from Python's Unicode 15.1 data and
-compare it, and the schema's class, with it.
+character, because a Lean name may be written in any script. Characters
+of private use (such as U+E000) and code points not yet assigned (such as
+U+FFFF) count as seen, though many fonts draw them blank: which code
+points are assigned changes with every Unicode version, so banning them
+would make the rule move with it. The rule is the library
+`src/lib/text-rule.fs` ([Forth libraries](../development/FORTH_LIBRARY.md));
+its two tables are generated by `scripts/text_rule_tables.py` from Python's
+Unicode data, and the tests check both tables, and the schema's two
+patterns, against it (Unicode 15.0 and 15.1 give the same; on CI another
+version fails the test instead of skipping it).
 Limits: names 1024 bytes, other texts 128 bytes, a site 255. The writer
 checks every text it writes against the same rule and limits, character by
 character, and refuses the record (invalid, or full for a length) rather
@@ -269,11 +296,15 @@ the golden records written by 1.0.0 the same way).
   the record's. The transport from the file is test-only; it could hand
   the checker a different claim than the file holds, which no record can
   show.
-- The record is read from the file, the transport and the environment at
+- The record is read from the file, the importer and the environment at
   different times: the file is read up to six times (hash, metadata,
-  manifest, the transport's two passes, hash again). A file that changes
-  between the first and last read fails the run; phase 3's importer will
-  read once.
+  manifest, the importer's two passes, hash again). A file whose digest,
+  size or lines differ at the last read from the first fails the run. A
+  file changed and changed back between them (A, then B, then A) is caught
+  only by an enforced read, which compares the digest of the bytes it
+  loaded with the first (above); an unchecked read (`--no-manifest`, the
+  test driver, `rr-read!`) does not detect it, and such a record says not
+  enforced. Phase 3's importer will read once.
 - The commit is what the caller says, checked only for its form; the host
   fields are what Gforth reports.
 - Diagnostic numbers are those the check recorded. For the internal faults
@@ -299,12 +330,21 @@ commit's form, each failure of `rr-write` and `rr-finish`, a foreign
 environment (the review's reproducer: none of its verdicts is written),
 the run's environment freed and a new one made at the same address (the
 second review's `aba.fs`, with its fuel and with equal fuel: no record,
-and the new environment left alive), whether the manifest was enforced
-(checked read, unchecked read, the driver, `rr-read!`, a checked read of a
-copy without a manifest, and a contradiction refused), the text rule,
+the new environment left alive, and the address's reuse asserted, or a
+note printed when the allocator did not reuse it), a displaced environment
+left alone by `rr-release`, whether the manifest was enforced (checked
+read, unchecked read, the driver, `rr-read!`, a checked read of a copy
+without a manifest, and a contradiction refused), a checked read of other
+bytes than `rr-start` hashed, `rr-import` with no started file, checks run
+after a read that failed (the third review's `p8`), the text rule,
 blank-looking texts (the fillers, combining marks or ignorable characters
 alone) and the number range, hashing, cuts between characters, and replay
-findings; `tests/core/test_run_records.py` writes the nine records
+findings; `tests/lib/text-rule.fs` tests the text rule on its own,
+malformed UTF-8 and the private helpers on bytes that are not UTF-8
+included; `tests/core/test_run_records.py` swaps the export and its
+manifest for another export and back between `rr-start` and `rr-finish`
+(the third review's `p3`: the checked read fails, and the record lists no
+verdict), writes the nine records
 to files and checks them against the schema, Python's SHA-256, the golden
 records and each other, and replays them. It refuses 15 tampered records,
 each with its code and path (a changed verdict, hash, host version, reason
@@ -321,9 +361,9 @@ break the text rule, a limit or the real values of `mode` and
 `allowlistVersion`, or whose name looks blank; that each schema pattern
 means the same in ECMA-262 (node, `u` flag) and in Python; that the
 writer's text rule equals the schema's on 1,623 code points (every range's
-ends and their neighbours); and that the characters that are not seen, in
-`src/import/text-rule.fs` and in the schema, are exactly those of Unicode
-15.1's data. Thirty-four faults planted in the modules
+ends and their neighbours); and that both tables of `src/lib/text-rule.fs`
+and the schema's two patterns are exactly what `scripts/text_rule_tables.py`
+computes from Unicode 15.0 or 15.1. Thirty-six faults planted in the modules
 (`tests/mutants/faults.toml`, section "run records and replay") are each
 caught by these tests; `tests/cli/test_leanforth.py` checks that the
 command line's records say enforced, and say not enforced with
@@ -346,7 +386,9 @@ refuses a record of any other version (`unknown-schema`).
   second round, still the same day and still with no record published
   outside the tests: the field `input.manifest.enforced` (required), and
   blank-looking texts refused. The golden records were written again; the
-  version stays 0.1.
+  version stays 0.1. The third round changed no field or schema rule: it
+  tied `enforced` to the recorded bytes and the run to rr-start's file
+  (records only got stricter to write), so the version stays 0.1.
 
 ## Rejected alternatives
 

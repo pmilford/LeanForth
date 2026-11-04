@@ -7,6 +7,7 @@
 \ raw edits and nested calls.
 
 require ../lib/lib.fs
+require ../core/derivation-log.fs
 require ../core/diagnostics.fs
 require ../core/terms.fs
 require ./mixed-instantiate.fs
@@ -28,9 +29,16 @@ require ./mixed-shift.fs
 : lf-mbeta-instantiate ( body argument frames -- result outcome )
   >r lf-mbeta-handles r@ frame-fuel @ lf-mixed-instantiate nip
   lf-minst-fuel @ r> frame-fuel ! ;
+\ The derivation log (ADR 0013): with it on, the instantiation is one beta
+\ step of the lambda body and the argument, closed before the contractum
+\ is reduced further; both paths run the same instantiation.
+: lf-mbeta-step-logged ( body argument frames -- result outcome )
+  >r 2dup lf-rule-beta lf-log-open r> lf-mbeta-instantiate lf-log-close ;
+: lf-mbeta-step ( body argument frames -- result outcome )
+  lf-log? if lf-mbeta-step-logged else lf-mbeta-instantiate then ;
 : lf-mbeta-contract ( body argument frames -- result outcome )
   >r 2dup lf-mbeta-live? 0= if 2drop r> drop lf-rebuild-invalid exit then
-  r@ lf-mbeta-instantiate dup ok? if drop r> frame-call else r> drop then ;
+  r@ lf-mbeta-step dup ok? if drop r> frame-call else r> drop then ;
 
 \ After the function reduced to the head r: a lambda head contracts with
 \ the argument, an unchanged head keeps the node, and any other head is
@@ -74,10 +82,16 @@ lf-depth-limit ' lf-mbeta-visit context-frames: lf-mbeta-frames
   0 lf-mbeta-fuel ! outcome-invalid lf-mbeta-refuse ;
 : lf-mbeta-site ( -- site ) c" mixed-beta lf-mixed-beta" ;
 : lf-mbeta-explain ( outcome -- outcome ) lf-mbeta-frames lf-mbeta-site lf-diag-frames ;
-: lf-mixed-beta ( index identity fuel -- index identity status )
+: lf-mbeta-pass ( index identity fuel -- index identity status )
   lf-mbeta-frames frame-budget 0= if lf-mbeta-unfueled exit then
   2dup lf-mbeta-frames lf-rebuild-audit dup ok? 0= if lf-mbeta-refuse exit then
   2drop 0 lf-mbeta-frames lf-rebuild-run lf-mbeta-explain ;
+\ The derivation log (ADR 0013): with it on, a reduction that changes the
+\ term is one whnf step (one that changes nothing writes no record).
+: lf-mbeta-logged ( index identity fuel -- index identity status )
+  2 pick lf-log-none lf-rule-whnf lf-log-open lf-mbeta-pass lf-log-close-whnf ;
+: lf-mixed-beta ( index identity fuel -- index identity status )
+  lf-log? if lf-mbeta-logged else lf-mbeta-pass then ;
 
 \ Recovery. A THROW out of any of the three rebuilding passes (such as a
 \ host stack overflow) leaves their records busy, so that every later pass

@@ -313,6 +313,28 @@ defer lf-pp-names-visit ( lam x -- outcome )
   1 lf-print-ready? 0= if drop-invalid exit then
   0 ['] lf-pp-name-visit lf-pp-call lf-pp-finish ;
 
+\ Open terms (plan task 2.4.4, for the proof outline): a term whose
+\ variables refer to count binders, the lambda or Pi nodes at addr,
+\ outermost first, brought into scope with display names chosen as for one
+\ fun (no name repeats, and no capture). lf-print-scoped prints the term
+\ in that scope; lf-print-scope-name prints the innermost binder's name.
+\ A node that is no lambda or Pi, or a count past lf-print-binder-capacity,
+\ is invalid (full when no room is left in the scope).
+: lf-pp-binder-node? ( node -- flag )
+  dup lf-tag-lam lf-pp-is? swap lf-tag-pi lf-pp-is? or ;
+: lf-pp-scope-bind ( node -- outcome )
+  dup lf-pp-binder-node? 0= if drop-invalid exit then
+  dup 0 lf-pp-name-binder ok-then2? if swap lf-term-first@ swap lf-pp-bind then ;
+: lf-pp-scope ( addr count -- outcome )
+  0 ?do dup i cells + @ lf-pp-scope-bind ok-then? 0= if unloop exit then
+  loop drop outcome-ok ;
+: lf-print-scoped ( term addr count fuel -- outcome )
+  lf-print-ready? 0= if 2drop drop-invalid exit then
+  lf-pp-scope ok-then? if 0 lf-pp-term-call then lf-pp-finish ;
+: lf-print-scope-name ( addr count fuel -- outcome )
+  lf-print-ready? 0= if 2drop outcome-invalid exit then
+  lf-pp-scope dup ok? if drop 0 lf-pp-var then lf-pp-finish ;
+
 \ Markdown math, as GitHub renders it: a term in LaTeX between $ and $
 \ (inline) or $$ and $$ (display), whatever the mode set by lf-print-setup,
 \ which stays as it is. A busy printer refuses at once and writes nothing.

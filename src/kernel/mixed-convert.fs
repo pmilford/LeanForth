@@ -13,6 +13,7 @@
 
 require ../lib/lib.fs
 require ../core/constant-term-boundary.fs
+require ../core/derivation-log.fs
 require ../core/diagnostics.fs
 require ../core/levels.fs
 require ../core/tagged-sort-boundary.fs
@@ -90,9 +91,15 @@ lf-depth-limit context-walk2: lf-mconvert-walker
 \ lf-mixed-convert-keeping differs only in the fuel left after an undecided
 \ level comparison (lf-level-compare-keeping): mixed-infer uses it, so that
 \ its rejection analysis (ADR 0011) can go on after an undecided step.
-: lf-mconvert-checked ( left lid right rid fuel -- status )
+: lf-mconvert-pass ( left lid right rid fuel -- status )
   lf-mconvert-walker tuck walk-budget 0= if lf-mcompare-refused exit then
   lf-mcompare-roots ok-then? if lf-mconvert-run else nip then ;
+\ The derivation log (ADR 0013): with it on, a conversion is one defeq
+\ step of left and right; both paths run the same pass.
+: lf-mconvert-logged ( left lid right rid fuel -- status )
+  4 pick 3 pick lf-rule-defeq lf-log-open lf-mconvert-pass lf-log-decided ;
+: lf-mconvert-checked ( left lid right rid fuel -- status )
+  lf-log? if lf-mconvert-logged else lf-mconvert-pass then ;
 : lf-mixed-convert ( left lid right rid fuel -- status )
   false lf-mconvert-keep ! lf-mconvert-checked ;
 : lf-mixed-convert-keeping ( left lid right rid fuel -- status )

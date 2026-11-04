@@ -102,6 +102,20 @@ cli-options composition cli-record!
 T{ composition cli-check outcome-ok tally -> 4 0 }T
 cli-options
 
+\ Only a check with --record reads the export for the record (rr-start: its
+\ digest, metadata and manifest). Without it the export is read once, by
+\ the checker's input: the record's facts stay as cleared, and no file is
+\ kept, so no record can be written from that run.
+: hashed-bytes ( -- ud ) run-record rr-before facts-bytes 2@ ;
+: unhashed ( -- ) run-record rr-before /rr-facts erase ;
+unhashed
+T{ fixture cli-check -> 0 }T
+T{ hashed-bytes rr-started? run-record rr-exporter rr-note? -> 0 0 false false }T
+T{ rr-write -> outcome-invalid }T
+unhashed s" /dev/null" cli-record!
+T{ fixture cli-check hashed-bytes d0= rr-started? -> 0 false true }T
+cli-options
+
 \ Internal faults, each in a context of its own (a THROW in a check
 \ spends its context for good). Staging composition makes n allocations:
 \ a THROW at the first is one while staging; at n + 1, one in the check.
