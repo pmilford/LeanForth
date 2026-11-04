@@ -12,8 +12,8 @@
 \ and the binder gets a new free variable of the local context
 \ (core/local-context.fs) whose type is the domain closed with the free
 \ variables of the binders around it (instantiate_rev, mixed-open.fs); it
-\ waits on the job's scope, at most lf-depth-limit (more is full, as the
-\ binder context was). A chain of lambdas has Lean's mk_pi over its free
+\ waits on the job's scope, which grows as binders are opened (a scope
+\ the heap cannot grow is full, as the binder context was). A chain of lambdas has Lean's mk_pi over its free
 \ variables of the innermost body's type as its type, built once from the
 \ inside out (lf-minfer-lam), a Pi the Sort of the levels' imax, and a
 \ free variable its entry's type (infer_fvar, 93-99). Inference reads its
@@ -63,16 +63,13 @@
 \ only appended to during it, so a free variable's number is unique within
 \ the job; discarding scratch (a failure, test P2, the rejection analysis)
 \ leaves the entries of discarded free variables dead, never reused. A
-\ node's intermediate results stay on the data stack. Single-threaded
-\ within one context.
-\ lf-minfer-walk and lf-minfer-apart are deferred only for the mutual
-\ recursion and set once, at load time, and shared.
-\ Stack use: the recursion runs on the host stacks, a bounded number of
-\ cells per level of inference or of the rejection analysis (the two share
-\ the frame limit), at most lf-depth-limit levels, and a conversion,
-\ reduction or level evaluation at the deepest level nests beta's passes,
-\ a level comparison Lean's normalize (see the need stated at the end);
-\ a host stack overflow throws and never yields a result.
+\ node's intermediate results wait on the job's frames, an explicit stack
+\ in the heap that grows with the depth (lib/frame.fs; plan task 6.2.0):
+\ no depth limit, and a stack the heap cannot grow is full. Single-threaded
+\ within one context. lf-minfer-walk, lf-minfer-apart and a few steps are
+\ deferred only so that words defined before them can call them, and set
+\ once, at load time, and shared. Stack use: see "Host stacks" at the
+\ end.
 \ mixed-definition-probe.fs starts a job with
 \ lf-minfer-start, calls lf-minfer-walk, lf-minfer-sort-rule,
 \ lf-minfer-zero?, lf-minfer-agree, lf-minfer-verdict and lf-minfer-reject
@@ -103,8 +100,7 @@ require ./mixed-signature-audit.fs
 require ./mixed-signature-probe.fs
 
 begin-structure /lf-ijob
-  field: lf-ijob-fuel      \ visits left
-  field: lf-ijob-depth     \ active frames, at most lf-depth-limit
+  /frames +field lf-ijob-frames  \ fuel, visits in progress, the explicit stack
   field: lf-ijob-token     \ signature index token
   field: lf-ijob-terms     \ term count before the call
   field: lf-ijob-levels    \ level count before the call
@@ -114,17 +110,22 @@ begin-structure /lf-ijob
   field: lf-ijob-env       \ true in environment mode (lf-minfer-start-env)
   field: lf-ijob-argument  \ the argument an application's type is instantiated with
   field: lf-ijob-chain     \ for a lambda's lambda body, where the chain began, else -1
-  lf-depth-limit cells +field lf-ijob-fvars   \ the scope's free variables, outermost
-                                               \ first
-  lf-depth-limit cells +field lf-ijob-sorts   \ beside each, its domain's Sort level (Pis)
 end-structure
+0 lf-ijob-frames 0<> [if] .( mixed-infer.fs: frames must come first) cr abort [then]
 /lf-ijob context-record: lf-minfer-job
+: lf-ijob-fuel ( job -- addr ) lf-ijob-frames frame-fuel ;     \ visits left
+: lf-ijob-depth ( job -- addr ) lf-ijob-frames frame-depth ;   \ visits in progress
+\ The scope's free variables, outermost first, and beside each its
+\ domain's Sort level (Pis): as many as are opened (no fixed limit).
+1 cells context-slab: lf-minfer-fvars
+1 cells context-slab: lf-minfer-sorts
 \ A constant's universe arguments, copied: as many as it has (no fixed
 \ limit); one the heap cannot hold is full.
 2 cells context-slab: lf-minfer-actual-pairs
 
 \ Fields of the record. Tests read the fuel left and the scope's depth
 \ (the binders opened), and mixed-definition-probe reads the fuel left.
+: lf-minfer-frames ( -- frames ) lf-minfer-job lf-ijob-frames ;
 : lf-minfer-fuel ( -- addr ) lf-minfer-job lf-ijob-fuel ;
 : lf-minfer-depth ( -- addr ) lf-minfer-job lf-ijob-depth ;
 : lf-minfer-token ( -- addr ) lf-minfer-job lf-ijob-token ;
@@ -169,22 +170,25 @@ end-structure
 \ checked, where Lean extends its local context (type_checker.cpp 131-136,
 \ 151-155): a new entry of the local context, of the domain as its type,
 \ with its place on the scope (which the derivation log reads).
-\ More than lf-depth-limit open binders is full, recorded as a full binder
-\ context, whatever fuel is left (ADR 0008); so is a full local context or
-\ term store. Every telescope gives its binders back when it ends
+\ A scope the heap cannot grow is full (plan task 6.2.0), recorded as a
+\ full binder context with the depth and the room, whatever fuel is left
+\ (ADR 0008); so is a full local context or term store. Every telescope gives its binders back when it ends
 \ (lf-minfer-unbind), whatever the outcome; their entries stay until the
 \ next job starts, so that a number is never reused within a job.
-: lf-minfer-fvar-cell ( i -- addr ) cells lf-minfer-job lf-ijob-fvars + ;
-: lf-minfer-sort-cell ( i -- addr ) cells lf-minfer-job lf-ijob-sorts + ;
+: lf-minfer-fvar-cell ( i -- addr ) cells lf-minfer-fvars slab-base + ;
+: lf-minfer-sort-cell ( i -- addr ) cells lf-minfer-sorts slab-base + ;
 : lf-minfer-crowded ( -- outcome )
-  lf-minfer-context-depth @ lf-depth-limit lf-diag-binders-full lf-minfer-note
-  outcome-full ;
+  lf-minfer-context-depth @ lf-minfer-fvars slab-capacity lf-diag-binders-full
+  lf-minfer-note outcome-full ;
+: lf-minfer-scope-room? ( -- flag )
+  lf-minfer-context-depth @ 1+ dup lf-minfer-fvars slab-hold ok?
+  swap lf-minfer-sorts slab-hold ok? and ;
 : lf-minfer-scope-push ( fvar level -- )
   lf-minfer-context-depth @ tuck lf-minfer-sort-cell ! lf-minfer-fvar-cell !
   1 lf-minfer-context-depth +! ;
 : lf-minfer-placed ( fvar -- fvar ) lf-minfer-context-depth @ over lf-fvar-depth! ;
 : lf-minfer-bind ( type level -- outcome )
-  lf-minfer-context-depth @ lf-depth-limit < 0= if 2drop lf-minfer-crowded exit then
+  lf-minfer-scope-room? 0= if 2drop lf-minfer-crowded exit then
   swap lf-lctx-local ok-then? if lf-minfer-placed swap lf-minfer-scope-push outcome-ok
   else nip then ;
 : lf-minfer-unbind ( base -- ) lf-minfer-context-depth ! ;
@@ -302,6 +306,14 @@ end-structure
   lf-minfer-context-depth @ 2dup < 0= if lf-minfer-unbound exit then
   swap - 1- lf-minfer-fvar-cell @ lf-minfer-fvar ;
 
+\ Inference and the rejection analysis run on the job's frames, an
+\ explicit stack that grows with the depth (lib/frame.fs; plan task
+\ 6.2.0): a node's visit is a chain of steps ( ... frames -- ... frames
+\ next ) that keep on the stack what they need across a child's visit.
+\ lf-minfer-walk ( node -- type status ) and lf-minfer-apart ( left right
+\ -- mask flag ) run one visit to its end, as a loop of its own from what
+\ the stack then holds, so that the analysis, test P2 and the callers
+\ outside can use them from inside a step.
 defer lf-minfer-walk ( node -- type status )
 
 \ After a step that succeeded, keep x and the step's result; otherwise drop
@@ -400,7 +412,7 @@ defer lf-minfer-walk ( node -- type status )
 \ from the pair down to the pair that decided, or (0 false). The pair is
 \ closed at the start; below a D4 level it is open for the analysis's own
 \ binders (see lf-minfer-closed). Each level reduces both sides; see
-\ lf-minfer-apart-frame for its cost.
+\ lf-minfer-apart-call for its cost.
 1 constant lf-rule-d1
 2 constant lf-rule-d2
 4 constant lf-rule-d3
@@ -420,10 +432,29 @@ defer lf-minfer-apart ( left right -- mask flag )
 : lf-minfer-sorts-apart ( left right -- mask flag )
   lf-minfer-firsts lf-minfer-fuel @ lf-level-inequivalent? lf-lcmp-fuel lf-minfer-take
   ok? and lf-rule-d1 lf-minfer-holds ;
+\ Each level of the analysis is a visit on the job's frames: a frame and
+\ a unit of fuel, as an inference visit takes; with neither left (no fuel,
+\ or a stack the heap cannot grow), the pair is not shown apart. A level's
+\ steps ( ... frames -- ... frames next ) end with ( mask flag frames 0 );
+\ lf-minfer-apart-call asks for a level's visit of a pair, continuing with
+\ cont ( mask flag frames -- ... ). The diagnostics of the refusals are
+\ inference's (lf-minfer-room).
+: lf-minfer-frames-full ( -- )
+  lf-minfer-frames dup frame-used @ swap frame-capacity @ lf-diag-frame-limit lf-minfer-note ;
+: lf-minfer-refused ( outcome -- outcome )
+  dup outcome-full = if lf-minfer-frames-full exit then
+  dup outcome-exhausted = if lf-minfer-fuel @ lf-minfer-site lf-diag-exhausted then ;
+: lf-minfer-room ( frames -- outcome ) frame-admit dup ok? 0= if lf-minfer-refused then ;
+defer lf-minfer-apart-step ( left right frames -- ... frames next )
+: lf-minfer-apart-call ( left right frames cont -- ... frames next )
+  over lf-minfer-room ok? 0= if 2>r 2drop 0 false 2r> exit then
+  ['] lf-minfer-apart-step frame-open ;
+: lf-minfer-return ( mask flag frames -- mask flag frames 0 ) 0 ;
 \ D3 and D5, two variables with arguments (is_def_eq_app, 878-895, needs
 \ the same head and number): a different number of arguments, or
 \ different variables known not to be proofs, are apart (D3); the same
-\ variable and number are apart when some argument pair is (D5). A head is
+\ variable and number are apart when some argument pair is (D5), the
+\ pairs compared last argument first, each a level of its own. A head is
 \ a free variable (of inference's binders) or a bound one (of the
 \ analysis's): the same variable when both tag and number are.
 : lf-minfer-count ( node -- count ) lf-mhead-spine nip ;
@@ -433,9 +464,18 @@ defer lf-minfer-apart ( left right -- mask flag )
 : lf-minfer-same-head? ( left right -- flag )
   lf-minfer-variable rot lf-minfer-variable rot = >r = r> and ;
 : lf-minfer-d5 ( left right mask -- mask' true ) nip nip lf-rule-d5 or true ;
-: lf-minfer-args-apart ( left right count -- mask flag )
-  0 ?do 2dup lf-minfer-seconds lf-minfer-apart if lf-minfer-d5 unloop exit then
-    drop lf-minfer-firsts loop 2drop 0 false ;
+\ count argument pairs left, from left right down their functions; left,
+\ right and count wait on the stack while the last pair is compared.
+defer lf-minfer-args-apart ( left right count frames -- ... frames next )
+: lf-minfer-args-back ( mask flag frames -- ... frames next )
+  >r r@ frame-restore r@ frame-restore r@ frame-restore   ( mask flag left right count )
+  >r 2swap r> swap if drop lf-minfer-d5 r> 0 exit then
+  nip >r lf-minfer-firsts r> 1- r> ['] lf-minfer-args-apart ;
+: lf-minfer-args-step ( left right count frames -- ... frames next )
+  over 0= if >r drop 2drop 0 false r> 0 exit then
+  >r r@ frame-save 2dup r@ frame-save r@ frame-save
+  lf-minfer-seconds r> ['] lf-minfer-args-back lf-minfer-apart-call ;
+' lf-minfer-args-step is lf-minfer-args-apart
 : lf-minfer-heads ( left right -- head head' ) lf-minfer-head swap lf-minfer-head swap ;
 : lf-minfer-heads-apart ( left right -- mask flag )
   lf-minfer-heads lf-minfer-free2? lf-rule-d3 lf-minfer-holds ;
@@ -459,11 +499,11 @@ defer lf-minfer-apart ( left right -- mask flag )
   lf-minfer-type-kind swap lf-minfer-aside ! >r lf-minfer-counts! r> ;
 : lf-minfer-unit-free? ( node -- flag )
   lf-minfer-kind-aside dup lf-head-constant <> swap lf-head-none <> and ;
-: lf-minfer-vars-apart ( left right -- mask flag )
-  over lf-minfer-unit-free? 0= if 2drop 0 false exit then
-  lf-minfer-arity? 0= if lf-rule-d3 true exit then
+: lf-minfer-vars-apart ( left right frames -- ... frames next )
+  >r over lf-minfer-unit-free? 0= if 2drop 0 false r> 0 exit then
+  lf-minfer-arity? 0= if lf-rule-d3 true r> 0 exit then
   >r 2dup lf-minfer-same-head?
-  if r> lf-minfer-args-apart else r> drop lf-minfer-heads-apart then ;
+  if r> r> lf-minfer-args-apart else r> drop lf-minfer-heads-apart r> 0 then ;
 \ D4, two Pis or two lambdas (is_def_eq_binding, 752-779; ADR 0003
 \ Amendment 1, owner answers G6 and G7): when the domains are equal by the
 \ cautious comparison, the pair is apart when the bodies are, the variable
@@ -474,14 +514,20 @@ defer lf-minfer-apart ( left right -- mask flag )
 \ is not apart.
 : lf-minfer-enter-binder ( domain -- status )
   lf-minfer-closed ok-then? if 0 lf-minfer-bind then ;
-: lf-minfer-bodies-apart ( left right -- mask flag )
-  lf-minfer-context-depth @ -rot dup lf-term-first@ lf-minfer-enter-binder ok?
-  if lf-minfer-seconds lf-minfer-apart else 2drop 0 false then rot lf-minfer-unbind ;
-: lf-minfer-binders-apart ( left right -- mask flag )
-  2dup lf-minfer-firsts lf-minfer-compare case
-    outcome-ok of lf-minfer-bodies-apart endof
-    outcome-unknown of lf-minfer-firsts lf-minfer-apart endof
-    >r 2drop 0 false r> endcase lf-rule-d4 lf-minfer-via ;
+\ The result of D4's comparison, of the bodies with the scope's depth
+\ before their binder (base) waiting on the stack, or of the domains.
+: lf-minfer-d4 ( mask flag frames -- mask' flag frames 0 ) >r lf-rule-d4 lf-minfer-via r> 0 ;
+: lf-minfer-bodies-back ( mask flag frames -- mask' flag frames 0 )
+  >r r@ frame-restore lf-minfer-unbind r> lf-minfer-d4 ;
+: lf-minfer-bodies-apart ( left right frames -- ... frames next )
+  >r lf-minfer-context-depth @ -rot dup lf-term-first@ lf-minfer-enter-binder ok?
+  if rot r@ frame-save lf-minfer-seconds r> ['] lf-minfer-bodies-back lf-minfer-apart-call
+  else 2drop lf-minfer-unbind 0 false r> lf-minfer-d4 then ;
+: lf-minfer-binders-apart ( left right frames -- ... frames next )
+  >r 2dup lf-minfer-firsts lf-minfer-compare
+  dup ok? if drop r> lf-minfer-bodies-apart exit then
+  outcome-unknown = if lf-minfer-firsts r> ['] lf-minfer-d4 lf-minfer-apart-call exit then
+  2drop 0 false r> lf-minfer-d4 ;
 \ One level: two Sorts by D1; otherwise P1 (both rigid) and P3 (not
 \ exactly one a lambda) on the shapes, P2 on both sides (no proof
 \ irrelevance), then D2 for different shapes among Sort, Pi and bound
@@ -491,16 +537,30 @@ defer lf-minfer-apart ( left right -- mask flag )
 : lf-minfer-one-lam? ( kl kr -- flag ) lf-head-lam = swap lf-head-lam = xor ;
 : lf-minfer-shapes? ( kl kr -- flag )
   2dup lf-minfer-one-lam? 0= -rot lf-mhead-shape? swap lf-mhead-shape? and and ;
-: lf-minfer-shapes-apart ( left right kl kr -- mask flag )
-  2dup <> if 2drop 2drop lf-rule-d2 true exit then
-  drop lf-head-var = if lf-minfer-vars-apart else lf-minfer-binders-apart then ;
-: lf-minfer-rigid-apart ( left right kl kr -- mask flag )
-  2dup lf-minfer-shapes? 0= if 2drop 2drop 0 false exit then
-  2over lf-minfer-free2? if lf-minfer-shapes-apart else 2drop 2drop 0 false then ;
+: lf-minfer-shapes-apart ( left right kl kr frames -- ... frames next )
+  >r 2dup <> if 2drop 2drop lf-rule-d2 true r> 0 exit then
+  drop lf-head-var = if r> lf-minfer-vars-apart else r> lf-minfer-binders-apart then ;
+: lf-minfer-rigid-apart ( left right kl kr frames -- ... frames next )
+  >r 2dup lf-minfer-shapes? 0= if 2drop 2drop 0 false r> 0 exit then
+  2over lf-minfer-free2? if r> lf-minfer-shapes-apart else 2drop 2drop 0 false r> 0 then ;
 : lf-minfer-sorts? ( kl kr -- flag ) lf-head-sort = swap lf-head-sort = and ;
-: lf-minfer-apart-visit ( left right -- mask flag )
-  lf-minfer-whnf2 0= if 0 false exit then lf-minfer-kinds
-  2dup lf-minfer-sorts? if 2drop lf-minfer-sorts-apart else lf-minfer-rigid-apart then ;
+: lf-minfer-apart-visit ( left right frames -- ... frames next )
+  >r lf-minfer-whnf2 0= if 0 false r> 0 exit then lf-minfer-kinds
+  2dup lf-minfer-sorts? if 2drop lf-minfer-sorts-apart r> 0 else r> lf-minfer-rigid-apart then ;
+\ A level's first step: it keeps the arena counts (terms on top) and the
+\ step that restores them when the level returns, discarding the nodes,
+\ levels and references it made.
+: lf-minfer-counts-save ( frames -- )
+  >r lf-minfer-counts r@ frame-save r@ frame-save r> frame-save ;
+: lf-minfer-restored ( mask flag frames -- mask flag frames 0 )
+  >r r@ frame-restore r@ frame-restore r@ frame-restore lf-minfer-counts! r> 0 ;
+: lf-minfer-apart-begin ( left right frames -- ... frames next )
+  dup lf-minfer-counts-save ['] lf-minfer-restored over frame-save lf-minfer-apart-visit ;
+' lf-minfer-apart-begin is lf-minfer-apart-step
+: lf-minfer-apart-run ( left right -- mask flag )
+  lf-minfer-frames dup frame-used @ >r ['] lf-minfer-return lf-minfer-apart-call
+  r> frame-loop drop ;
+' lf-minfer-apart-run is lf-minfer-apart
 
 \ Compare an inferred type (left) with an expected type (right), in
 \ Lean's order: (0 ok) when equal; (mask rejected) when the comparison is
@@ -513,23 +573,39 @@ defer lf-minfer-apart ( left right -- mask flag )
   2dup lf-minfer-compare dup outcome-unknown <> if nip nip 0 swap exit then
   drop lf-minfer-mismatch if outcome-rejected else outcome-unknown then ;
 
-\ Application: the function's type must be a visible Pi (otherwise unknown,
-\ or rejected by F1), the argument's type must convert to its domain
-\ (otherwise unknown, or rejected by D1-D5: appTypeMismatch), and the type
-\ is the Pi body instantiated with the argument.
+\ Inference's visits. lf-minfer-call asks for the visit of node,
+\ continuing with cont ( type status frames -- ... ); the visit's first
+\ step is the frames' visitor, lf-minfer-visit-step below.
+: lf-minfer-call ( node frames cont -- ... frames next )
+  over lf-minfer-room dup ok? if drop frame-opened else frame-refuse then ;
+
+\ Application, in three steps: the function's type must be a visible Pi
+\ (otherwise unknown, or rejected by F1), the argument's type must
+\ convert to its domain (otherwise unknown, or rejected by D1-D5:
+\ appTypeMismatch), and the type is the Pi body instantiated with the
+\ argument. The argument waits on the stack while the function's type is
+\ inferred; the body, the argument, the domain and the term count before
+\ the argument's inference (its scratch is discarded) while the
+\ argument's is.
 : lf-minfer-pi-parts ( type -- domain body true | outcome false )
   dup lf-term-read 0= if drop outcome-invalid false exit then
   rot lf-tag-pi = if rot drop true else 2drop lf-minfer-not-pi false then ;
-: lf-minfer-argument ( domain argument -- status )
-  lf-term-count @ -rot lf-minfer-walk ok-then? 0= if nip swap lf-minfer-discard exit then
+: lf-minfer-argued ( mark domain A status -- status )
+  ok-then? 0= if nip swap lf-minfer-discard exit then
   swap lf-minfer-agree lf-minfer-site lf-diag-argument-apart lf-minfer-verdict
   swap lf-minfer-discard ;
-: lf-minfer-apply ( domain body argument -- type status )
-  rot over lf-minfer-argument ok-then?
-  if lf-minfer-instantiate else nip lf-minfer-none then ;
-: lf-minfer-app ( function argument -- type status )
-  swap lf-minfer-walk lf-minfer-step? 0= if exit then
-  lf-minfer-pi-parts if rot lf-minfer-apply else nip lf-minfer-none then ;
+: lf-minfer-applied ( body argument status -- type status )
+  ok-then? if lf-minfer-instantiate else nip lf-minfer-none then ;
+: lf-minfer-app-arg ( A status frames -- type status frames 0 )
+  >r r@ frame-restore r@ frame-restore 2swap lf-minfer-argued
+  r@ frame-restore r@ frame-restore swap rot lf-minfer-applied r> 0 ;
+: lf-minfer-app-fn ( T status frames -- ... frames next )
+  >r r@ frame-restore -rot lf-minfer-step? 0= if r> 0 exit then
+  lf-minfer-pi-parts 0= if nip lf-minfer-none r> 0 exit then
+  r@ frame-save swap dup r@ frame-save swap r@ frame-save lf-term-count @ r@ frame-save
+  r> ['] lf-minfer-app-arg lf-minfer-call ;
+: lf-minfer-app ( function argument frames -- ... frames next )
+  tuck frame-save ['] lf-minfer-app-fn lf-minfer-call ;
 
 \ Source nodes lie below the term count at the start; inference that runs
 \ aside (test P2) reads every live node, among them the closed copies P2
@@ -546,19 +622,15 @@ defer lf-minfer-apart ( left right -- mask flag )
 \ a free variable whose type is the domain closed with the scope's free
 \ variables (instantiate_rev), with that Sort's level beside it. The body
 \ is inferred one binder deeper, and the binder goes back to the scope
-\ whatever the outcome (lf-minfer-unbind). The words that call
-\ lf-minfer-walk keep their state on the data stack and call no other
-\ word between their visits, so that every nested level holds few cells
-\ of the return stack (see "Host stacks" at the end).
+\ whatever the outcome (lf-minfer-unbind).
 : lf-minfer-domain-sort ( type -- level status )
   lf-minfer-site lf-diag-domain-type lf-minfer-sort-rule ;
 : lf-minfer-domain-level ( mark type status -- level status )
   dup ok? if drop lf-minfer-domain-sort then rot lf-minfer-discard ;
 : lf-minfer-open-binder ( domain level -- status )
   swap lf-minfer-closed ok-then? if swap lf-minfer-bind else nip then ;
-: lf-minfer-binding ( base domain -- base status )
-  lf-term-count @ over lf-minfer-walk lf-minfer-domain-level
-  ok-then? if lf-minfer-open-binder else nip then ;
+: lf-minfer-bound ( domain mark D status -- status )
+  lf-minfer-domain-level ok-then? if lf-minfer-open-binder else nip then ;
 \ For a caller that walks a telescope itself, as Lean's check_constructors
 \ does (check-block.fs, plan task 5.2.1a), in a job it started: a binder
 \ domain's level (its inference and Sort, scratch kept); a domain, a term
@@ -590,35 +662,51 @@ defer lf-minfer-apart ( left right -- mask flag )
 \ Lean's, built in one pass. The job's chain field names the depth where
 \ the chain began while a lambda's body is a lambda; the inner lambda
 \ takes it as it starts (lf-minfer-top), so no other node sees it.
+\ Steps: the domain's inference, with the scope's depth before the
+\ binder (base), the chain's top, the domain, the body and the term
+\ count waiting on the stack; then the body's, with base, top and the
+\ domain.
 : lf-minfer-chain ( -- addr ) lf-minfer-job lf-ijob-chain ;
 : lf-minfer-top ( base -- top )
   lf-minfer-chain dup @ -1 rot ! dup 0< if drop else nip then ;
 : lf-minfer-lam? ( node -- flag ) lf-minfer-read if nip nip lf-tag-lam = else false then ;
 : lf-minfer-abstract ( type top -- type' status )
   lf-minfer-lend lf-minfer-opened lf-abstract lf-minfer-repay outcome-sane ;
-: lf-minfer-lam-body ( top body -- type status )
-  dup lf-minfer-lam? if swap lf-minfer-chain ! lf-minfer-walk -1 lf-minfer-chain !
-  else lf-minfer-walk lf-minfer-good? if swap lf-minfer-abstract else rot drop then then ;
 : lf-minfer-lam-type ( domain type status -- type status )
   lf-minfer-good? if lf-term-pi if outcome-ok else -1 outcome-full then
   else rot drop then ;
 : lf-minfer-lam-close ( base top type status -- type status )
   2swap over = >r lf-minfer-unbind r>
   if lf-minfer-good? if lf-minfer-closed then then ;
-: lf-minfer-lam-bound ( base top domain body -- base top domain body status )
-  3 pick 2 pick lf-minfer-binding nip ;
-: lf-minfer-lam ( domain body -- type status )
-  lf-minfer-context-depth @ dup lf-minfer-top 2swap lf-minfer-lam-bound
-  ok-then? 0= if nip nip nip no-result exit then
-  2 pick swap lf-minfer-lam-body lf-minfer-lam-type lf-minfer-lam-close ;
+: lf-minfer-lam-end ( T status frames -- type status frames 0 )
+  >r r@ frame-restore r@ frame-restore r@ frame-restore 2>r -rot lf-minfer-lam-type
+  2r> swap 2swap lf-minfer-lam-close r> 0 ;
+: lf-minfer-lam-chained ( T status frames -- type status frames 0 )
+  -1 lf-minfer-chain ! lf-minfer-lam-end ;
+: lf-minfer-lam-plain ( T status frames -- type status frames 0 )
+  >r 1 r@ frame-pick -rot lf-minfer-good? if swap lf-minfer-abstract else rot drop then
+  r> lf-minfer-lam-end ;
+: lf-minfer-lam-domain ( D status frames -- ... frames next )
+  >r 2 r@ frame-pick 0 r@ frame-pick 2swap lf-minfer-bound
+  dup ok? 0= if no-result 5 r@ frame-drop r> 0 exit then
+  drop 1 r@ frame-pick 2 r@ frame-drop
+  dup lf-minfer-lam? if 1 r@ frame-pick lf-minfer-chain ! r> ['] lf-minfer-lam-chained
+  else r> ['] lf-minfer-lam-plain then lf-minfer-call ;
+: lf-minfer-lam ( domain body frames -- ... frames next )
+  >r lf-minfer-context-depth @ dup lf-minfer-top 2swap
+  3 pick r@ frame-save 2 pick r@ frame-save over r@ frame-save dup r@ frame-save
+  drop nip nip lf-term-count @ r@ frame-save r> ['] lf-minfer-lam-domain lf-minfer-call ;
 \ A Pi's type is Sort (mk_imax u v) for a domain in Sort u and a body in
 \ Sort v: Lean's infer_pi builds the level innermost first
-\ (type_checker.cpp 158-165), as this recursion does (ADR 0011, Amendment
+\ (type_checker.cpp 158-165), as these steps do (ADR 0011, Amendment
 \ 1; level-make.fs). S4 (ADR 0011, Amendment 2): the body's type must be a
 \ Sort too (infer_pi's ensure_sort_core on the body, 158); when it is no
 \ visible Sort and its whnfB is rigid and not a Sort, Lean's kernel fails
 \ with typeExpected. A full level store is full. Only the level is
 \ needed, so the Pi's scratch is discarded before its Sort is made.
+\ Steps: the domain's inference, with the body, the scope's depth before
+\ the binder (base), the term count and the domain waiting on the stack;
+\ then the body's, with base and the count.
 : lf-minfer-body-sort ( type -- level status )
   lf-minfer-site lf-diag-body-type lf-minfer-sort-rule ;
 : lf-minfer-imax ( v base -- level status )
@@ -627,10 +715,17 @@ defer lf-minfer-apart ( left right -- mask flag )
   lf-minfer-body-sort lf-minfer-good? if over lf-minfer-imax then ;
 : lf-minfer-pi-end ( mark base level status -- type status )
   rot lf-minfer-unbind rot lf-minfer-discard lf-minfer-good? if lf-minfer-sort then ;
-: lf-minfer-pi ( domain body -- type status )
-  lf-term-count @ -rot lf-minfer-context-depth @ rot lf-minfer-binding ok-then?
-  0= if nip nip no-result exit then swap lf-minfer-walk lf-minfer-good?
-  if lf-minfer-pi-level then lf-minfer-pi-end ;
+: lf-minfer-pi-body ( T status frames -- type status frames 0 )
+  >r r@ frame-restore r@ frame-restore 2swap
+  lf-minfer-good? if lf-minfer-pi-level then lf-minfer-pi-end r> 0 ;
+: lf-minfer-pi-domain ( D status frames -- ... frames next )
+  >r r@ frame-restore 0 r@ frame-pick 2swap lf-minfer-bound
+  dup ok? 0= if no-result 3 r@ frame-drop r> 0 exit then drop
+  r@ frame-restore r@ frame-restore r@ frame-restore -rot r@ frame-save r@ frame-save
+  r> ['] lf-minfer-pi-body lf-minfer-call ;
+: lf-minfer-pi ( domain body frames -- ... frames next )
+  >r r@ frame-save lf-minfer-context-depth @ r@ frame-save lf-term-count @ r@ frame-save
+  dup r@ frame-save r> ['] lf-minfer-pi-domain lf-minfer-call ;
 
 \ Infer an original source node; nodes made by this inference are output
 \ data, never input. Constructors outside this subset are unknown, and
@@ -642,48 +737,36 @@ defer lf-minfer-apart ( left right -- mask flag )
     lf-tag-constant of lf-minfer-constant endof
     lf-tag-bvar of lf-minfer-bvar endof
     nip lf-minfer-unsupported rot endcase ;
-: lf-minfer-binary ( first second tag -- type status )
-  case lf-tag-app of lf-minfer-app endof
-    lf-tag-lam of lf-minfer-lam endof
-    lf-tag-pi of lf-minfer-pi endof
-    nip nip lf-minfer-unsupported rot endcase ;
-: lf-minfer-dispatch ( first second tag -- type status )
-  dup lf-term-binary-tag? if lf-minfer-binary else nip lf-minfer-leaf then ;
-: lf-minfer-visit ( node -- type status )
-  dup lf-minfer-fvar? lf-minfer-aside @ and if lf-minfer-fvar exit then
-  lf-minfer-read if lf-minfer-dispatch else -1 outcome-invalid then ;
+: lf-minfer-binary ( first second tag frames -- ... frames next )
+  over lf-tag-app = if nip lf-minfer-app exit then
+  over lf-tag-lam = if nip lf-minfer-lam exit then
+  over lf-tag-pi = if nip lf-minfer-pi exit then
+  >r nip nip lf-minfer-unsupported rot drop r> 0 ;
+: lf-minfer-dispatch ( first second tag frames -- ... frames next )
+  over lf-term-binary-tag? if lf-minfer-binary else >r nip lf-minfer-leaf r> 0 then ;
+: lf-minfer-visit ( node frames -- ... frames next )
+  >r dup lf-minfer-fvar? lf-minfer-aside @ and if lf-minfer-fvar r> 0 exit then
+  lf-minfer-read if r> lf-minfer-dispatch else -1 outcome-invalid r> 0 then ;
 
-\ Each visit costs one unit of fuel and holds one of at most
-\ lf-depth-limit frames. No fuel left is exhausted and no free frame is
-\ full (with neither, the fuel decides); both spend nothing and are
-\ recorded as diagnostics.
-: lf-minfer-frames-full ( -- )
-  lf-minfer-depth @ lf-depth-limit lf-diag-frame-limit lf-minfer-note ;
-: lf-minfer-refused ( outcome -- outcome )
-  dup outcome-full = if lf-minfer-frames-full
-  else lf-minfer-fuel @ lf-minfer-site lf-diag-exhausted then ;
-: lf-minfer-room ( -- outcome )
-  lf-minfer-fuel @ lf-minfer-depth @ lf-depth-limit < visit-outcome
-  dup ok? 0= if lf-minfer-refused then ;
-: lf-minfer-enter ( -- ) -1 lf-minfer-fuel +! 1 lf-minfer-depth +! ;
-\ The derivation log (ADR 0013): with it on, the visit is one inference
-\ step (sort, variable, constant, application, lambda or Pi) at the binder
-\ context's depth; both paths run the same visit.
+\ A visit's first step, the frames' visitor. The derivation log (ADR
+\ 0013): with it on, the visit is one inference step (sort, variable,
+\ constant, application, lambda or Pi) at the binder context's depth,
+\ closed by the step it keeps for the visit's end; both paths run the
+\ same visit.
 : lf-minfer-logged ( node -- node ) lf-minfer-context-depth @ lf-log-infer ;
-: lf-minfer-in-frame ( node -- type status )
-  lf-minfer-room ok-then? 0= if no-result exit then
-  lf-minfer-enter lf-log? if lf-minfer-logged lf-minfer-visit lf-log-close
-  else lf-minfer-visit then -1 lf-minfer-depth +! ;
-' lf-minfer-in-frame is lf-minfer-walk
-
-\ Each level of the rejection analysis takes a frame and a unit of fuel
-\ like an inference visit (with neither left, the pair is not shown
-\ apart), and discards the nodes, levels and references it made.
-: lf-minfer-apart-frame ( left right -- mask flag )
-  lf-minfer-room ok? 0= if 2drop 0 false exit then
-  lf-minfer-enter >r >r lf-minfer-counts r> r> lf-minfer-apart-visit
-  2>r lf-minfer-counts! 2r> -1 lf-minfer-depth +! ;
-' lf-minfer-apart-frame is lf-minfer-apart
+: lf-minfer-closing ( type status frames -- type status frames 0 ) >r lf-log-close r> 0 ;
+: lf-minfer-visit-step ( node frames -- ... frames next )
+  lf-log? if ['] lf-minfer-closing over frame-save swap lf-minfer-logged swap then
+  lf-minfer-visit ;
+: lf-minfer-walk-run ( node -- type status )
+  lf-minfer-frames dup frame-used @ >r ['] frame-return lf-minfer-call r> frame-loop drop ;
+' lf-minfer-walk-run is lf-minfer-walk
+\ The frames and their visitor, set up once in every context; their stack
+\ is freed with the context.
+: lf-minfer-setup ( -- ) ['] lf-minfer-visit-step lf-minfer-frames frame-init ;
+' lf-minfer-setup context-setup
+: lf-minfer-release ( -- ) lf-minfer-frames frame-free ;
+' lf-minfer-release context-teardown
 
 \ Preflight before any allocation: the closed root's binder scope, then the
 \ whole signature index, each continuing with the fuel the last one left.
@@ -705,7 +788,7 @@ defer lf-minfer-apart ( left right -- mask flag )
   lf-minfer-job dup lf-ijob-terms @ lf-term-count ! dup lf-ijob-levels @ lf-level-count !
   lf-ijob-crefs @ lf-cref-count ! ;
 : lf-minfer-idle ( job -- )
-  0 over lf-ijob-depth ! 0 over lf-ijob-binders !
+  dup lf-ijob-frames frame-reset 0 over lf-ijob-binders !
   -1 over lf-ijob-chain !
   false over lf-ijob-aside ! false swap lf-ijob-env ! ;
 
@@ -742,60 +825,22 @@ defer lf-minfer-apart ( left right -- mask flag )
   >r rot r> lf-minfer-start over swap lf-minfer-preflight
   dup ok? if drop lf-minfer-run else nip lf-minfer-failed then ;
 
-\ Host stacks. Each level of the recursion holds at most 8 return-stack
-\ and 6 data-stack cells: stack painting on Gforth 0.7.3 and 1.0 (which
-\ agree) along inference's five paths, an application's argument and
-\ function, a binder's body and domain, and a Pi's body, at every depth
-\ that ends ok (7 and 5; 2026-11-02), and along the rejection analysis's
-\ two recursive paths, a D4 telescope (7 and 3) and D5 arguments (8 and 5:
-\ the ?DO loop adds two return cells), which share the frame limit with
-\ inference (the D5 depth 0-8 white-box, the D4 depth 1-7 through the
-\ definition probe; 2026-11-02). Since free variables (plan task 4.2.2a,
-\ painted on Gforth 0.7.3 and 1.0, which agree, 2026-11-04, as the cells
-\ per level between depths 10 and 50): an argument chain 7 and 4, a Pi's
-\ domain chain 6 and 5, a Pi's body chain 5 and 2.5, a chain of lambdas
-\ 6 and 3, lambdas in arguments 6.5 and 4 per frame, D4 6 and 4, D5 8
-\ and 5; a function chain 10 and 5, of which the
-\ instantiate pass that the deepest application nests accounts for the
-\ part above 8 (its depth grows with the chain's; it is no more than
-\ beta's nesting, below). Opening and closing a binder (mixed-open.fs)
-\ nests one pass of at most lf-depth-limit frames, fewer cells than beta's
-\ three. At any level a comparison runs
-\ conversion, whose beta reductions nest instantiate and shift passes
-\ (lf-mbeta-*-cells, whose slack also covers the entry words of
-\ conversion, of the definition probe and of the analysis's leaf steps:
-\ test P2, which nests inference within the same frame limit, a
-\ reduction, and level-value's evaluation for normalizes_to_zero, in S3
-\ and P2, whose depth limit of 64 levels at about 8 return cells each
-\ needs fewer cells than beta). A level comparison -- of two Sorts or of
-\ constants' levels in conversion, or by rule D1 -- runs Lean's
-\ normalize instead, never inside beta's passes: lf-lnorm-*-cells
-\ (level-normalize.fs: 7 return and 3 data cells per level frame, 6.5 and
-\ 2.5 measured, at most lf-level-depth-limit frames, counted, whatever the
-\ level capacity; the name order is iterative; 512 and 256 cells). So the
-\ deepest level nests the larger of beta's need and normalize's;
-\ tests/core/infer-deep.fs runs the deepest normalize the default level
-\ store allows at the deepest inference.
-\ The frame that hands over from inference to the analysis, from the
-\ inference frame whose argument is compared to the analysis's first
-\ frame (in-frame, visit, dispatch, binary, app, apply, argument, agree,
-\ mismatch, apart-frame), holds 9 return cells, one more than a level
-\ (painted on both hosts, review of 2026-11-02), and either slack holds
-\ the extra cell. There is at most one such frame on any path: inference
-\ within the analysis (P2) runs aside, with no rule, so it never hands
-\ over again. So a check nests at most lf-depth-limit levels of
-\ inference or analysis plus the larger nested need, beta's at these
-\ limits: 1,728 return and 1,344 data cells (Gforth 0.7.3 has 1,920 and
-\ 2,048). Loading stops when the host's stacks are smaller, and the need
-\ is stated for the job pool (context-need).
-8 constant lf-minfer-rs-level   \ return-stack cells per level
-6 constant lf-minfer-ds-level   \ data-stack cells per level
-\ At the deepest level: beta's passes or a level comparison, never both.
+\ Host stacks. Inference and the analysis keep every level on the job's
+\ frames (plan task 6.2.0), so their host-stack use does not grow with the
+\ depth: a step holds a few cells while it runs, and the loops that nest
+\ are few -- inference's; within its step, the analysis's (lf-minfer-agree);
+\ within an analysis step, an inference aside (test P2, the unit check),
+\ which never runs the analysis again (it has no rule); and within any of
+\ them conversion, whose beta reductions nest instantiate and shift
+\ passes (lf-mbeta-*-cells), or a level comparison's normalize
+\ (lf-lnorm-*-cells, level-normalize.fs), never both. lf-minfer-loop-cells
+\ bounds a loop with its step's words, generously (the deepest painted
+\ level of the recursive version held 9 return and 6 data cells).
+128 constant lf-minfer-loop-cells
 lf-mbeta-return-cells lf-lnorm-return-cells max constant lf-minfer-rs-nested
 lf-mbeta-data-cells lf-lnorm-data-cells max constant lf-minfer-ds-nested
-: lf-minfer-need ( cells-per-level nested-cells -- cells ) swap lf-depth-limit * + ;
-lf-minfer-rs-level lf-minfer-rs-nested lf-minfer-need constant lf-minfer-return-cells
-lf-minfer-ds-level lf-minfer-ds-nested lf-minfer-need constant lf-minfer-data-cells
+3 lf-minfer-loop-cells * lf-minfer-rs-nested + constant lf-minfer-return-cells
+3 lf-minfer-loop-cells * lf-minfer-ds-nested + constant lf-minfer-data-cells
 lf-minfer-data-cells lf-minfer-return-cells lf-mbeta-host?
-0= [if] .( mixed-infer.fs: host stacks too small for lf-depth-limit) cr abort [then]
+0= [if] .( mixed-infer.fs: host stacks too small) cr abort [then]
 lf-minfer-data-cells lf-minfer-return-cells context-need

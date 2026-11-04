@@ -85,7 +85,7 @@ end-structure
 
 \ Cells a step may save without checking (see Steps above), and the room
 \ a visit's admission makes: its own continuation cells and that many.
-6 constant frame-spare
+8 constant frame-spare
 3 frame-spare + constant frame-need
 16 constant frame-first-cells
 
@@ -111,10 +111,13 @@ end-structure
   over 0< over frame-busy? or if 2drop false else frame-fuel ! true then ;
 
 \ The stack. Unchecked: frame-save needs room (frame-spare, above), and
-\ frame-restore a cell saved by the same visit.
+\ frame-restore, frame-pick (cell i from the top, 0 the last saved) and
+\ frame-drop (n cells) cells saved by the same visit.
 : frame-top ( frames -- addr ) dup frame-used @ cells swap frame-block @ + ;
 : frame-save ( x frames -- ) tuck frame-top ! 1 swap frame-used +! ;
 : frame-restore ( frames -- x ) -1 over frame-used +! frame-top @ ;
+: frame-pick ( i frames -- x ) frame-top swap 1+ cells - @ ;
+: frame-drop ( n frames -- ) frame-used swap negate swap +! ;
 \ Room for n more cells: true, or false when the heap refuses the larger
 \ block (the stack is then unchanged). 0 <= used <= capacity (sound).
 : frame-sound? ( frames -- flag ) dup frame-used @ 0 rot frame-capacity @ between? ;
@@ -146,6 +149,13 @@ end-structure
   -1 over frame-fuel +! 1 over frame-depth +! dup frame-visitor @ ;
 : frame-opened ( x frames cont -- x frames visitor )
   over frame-save ['] frame-exit over frame-save frame-enter ;
+\ For a pass whose visits are of several kinds (mixed-infer.fs): open a
+\ visit that frame-admit admitted, whose first step is xt, with values of
+\ any kind below the record, continuing with cont. It ends with
+\ frame-left: one frame less, the results as they are.
+: frame-left ( frames -- frames 0 ) -1 over frame-depth +! 0 ;
+: frame-open ( frames cont xt -- frames xt )
+  >r over frame-save ['] frame-left over frame-save frame-enter drop r> ;
 : frame-call ( x frames cont -- x frames visitor | -1 outcome frames cont )
   over frame-admit dup ok? if drop frame-opened else frame-refuse then ;
 \ One context level deeper, restored when the visit returns. The visit
@@ -168,6 +178,8 @@ end-structure
 : frame-loop ( i*x frames next base -- j*x frames )
   >r begin dup 0= if drop dup frame-used @ r@ = if r> drop exit then dup frame-restore then
     execute again ;
+\ Run the step xt, and the steps it leads to, to its return.
+: frame-steps ( i*x frames xt -- j*x frames ) over frame-used @ frame-loop ;
 
 \ A pass: an idle record takes the root's context, then the root is
 \ visited. A busy record refuses, changing nothing: no result, invalid.

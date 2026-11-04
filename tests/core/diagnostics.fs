@@ -235,11 +235,16 @@ T{ shared-imax @ u-formal level-u cells4 ! cells4 1 100 lf-lsubst diag
   -> outcome-unknown shared-imax @ 0 lf-diag-shared-level }T
 T{ s" level-substitute lf-lsubst" at? -> true }T
 end-check
-begin-check 10 lf-minfer-fuel ! lf-term-capacity lf-minfer-depth ! lf-diag-clear
-T{ 0 lf-minfer-walk diag -> -1 outcome-full 64 64 lf-diag-frame-limit }T
+\ Inference's frames and scope grow (plan task 6.2.0); a growth the heap
+\ refuses is full, recorded with the frames' cells in use and capacity,
+\ or the scope's depth and room.
+begin-check 10 lf-minfer-fuel ! lf-minfer-frames refused-frames
+T{ 0 lf-minfer-walk diag -> -1 outcome-full 0 0 lf-diag-frame-limit }T
 T{ s" mixed-infer lf-mixed-infer" at? -> true }T
-lf-diag-clear 0 lf-minfer-depth ! lf-depth-limit lf-minfer-context-depth !
-T{ 0 0 lf-minfer-bind diag -> outcome-full 64 64 lf-diag-binders-full }T
+lf-minfer-fvars slab-capacity constant scope-room
+lf-diag-clear scope-room lf-minfer-context-depth !  1 heap-refusals !
+T{ 0 0 lf-minfer-bind diag -> outcome-full scope-room scope-room lf-diag-binders-full }T
+0 lf-minfer-context-depth !
 end-check
 begin-check 0 lf-cts-walker walk-pending ! max-n lf-cts-walker walk-context ! lf-diag-clear
 T{ 0 0 lf-cts-walker lf-tag-lam lf-cts-binary diag -> outcome-full max-n max-n lf-diag-binders-full }T
