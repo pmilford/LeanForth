@@ -334,13 +334,19 @@ case (25 applications, a 59-level normalisation; the review of
 with it off; 601 and 222 at level `terms` or `steps` (158 records); 599
 and 222 truncated by three term copies; the fuel the same in every run.
 The stated need is 1,728 return and 1,280 data cells. The printers' own
-walks over a formula (rebuilding copies, naming them, looking for a bound
-variable) nest at most 128 deep, about 4 return cells a level, well
-inside Gforth 0.7.3's 1,920 return cells (1.0: 3,968) and above the 64
-levels any check reaches; deeper, the formula prints as `?`
-(`tests/core/derivation-log.fs` rebuilds a 120-deep copy and refuses a
-450-deep one on both hosts; at the earlier limit of 512, 451 levels
-overflowed 0.7.3's return stack).
+walks over a formula (naming copies, rebuilding them, looking for a bound
+variable, and the proof outline's walk over the derivation) keep no
+depth on the host's stacks (plan task 6.2.0): they run on growable work
+stacks (`src/lib/walk.fs`), a copy is rebuilt by marking the copies it
+needs and then building them in the log's order, and the term printer
+keeps its own pending work on the heap (`src/present/print-job.fs`). So a
+formula prints as `?` only when the heap refuses, the log lacks it or its
+print fails. `tests/core/derivation-log.fs` rebuilds 120-deep and
+450-deep copies in the same painted return-stack cells (before plan task
+6.2.0 the walks stopped at 128 levels and refused the 450-deep one; at an
+earlier limit of 512, 451 levels overflowed Gforth 0.7.3's return stack).
+The log's own copier truncates a log whose copy nests deeper than its
+stacks of 512 entries, so deeper formulas do not reach the printers yet.
 
 **Test preset.** A word `lf-log-preset-level` defined before
 `src/core/derivation-log.fs` loads (`gforth -e "2 constant lf-log-preset-level" …`)

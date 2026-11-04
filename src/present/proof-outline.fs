@@ -45,13 +45,18 @@
 \ A step is a proof when it is a variable whose binder's domain is a
 \ proposition, a constant naming a theorem, an application whose head is
 \ a proof, or a lambda whose body is one.
+\ Depth (plan task 6.2.0): the walk over the derivation, the check that
+\ the recognisers cover it and the scan for a bound variable run on
+\ growable work stacks (lib/walk.fs), so no depth of a proof is tied to
+\ the host's stacks; the walk's room is made before anything is printed.
 \ State: a small context record, lf-ol-input (the input's name and the
 \ declaration's line, set before printing), and one cell, lf-ol-held,
 \ pointing to a heap block (about 25 KB) that exists only while
 \ lf-outline prints (the context's teardown frees one left by a THROW):
 \ the verdict given, the line count, indent, templates used, the current
 \ line's steps and uses, and per step its concluding line, its binder's
-\ line and whether it is a proof. Printing state is log-view.fs's.
+\ line and whether it is a proof; and three walk records of the context.
+\ Printing state is log-view.fs's.
 
 require ./log-view.fs
 require ./log-check.fs
@@ -200,8 +205,8 @@ end-structure
 : lf-ol-innermost ( s -- r ) begin dup lf-ol-second dup lf-ol-lambda? while
   nip repeat drop ;
 \ A binder's display name, in its lambda's scope with the lambda itself.
-: lf-ol-name ( r -- ) dup lf-lv-at if lf-lv-a lf-lv-push lf-lv-name-here else drop
-  lf-lv-fail then ;
+: lf-ol-name ( r -- )
+  dup lf-lv-at if lf-lv-a lf-lv-name-of-node else drop lf-lv-fail then ;
 \ The binder of lambda step r is introduced on this line.
 : lf-ol-introduce ( r class -- )
   lf-class-assume = over lf-ol-proof ! lf-ol-line# over lf-ol-intro !
@@ -260,11 +265,29 @@ end-structure
   lf-lv-put
   lf-ol-more-end lf-ol-line# swap lf-ol-line-of ! ;
 
+\ The walk over the value's derivation takes its tasks one at a time from
+\ a stack (a paired walk record of lib/walk.fs, used as a growable stack
+\ of a step and the task's xt ( s -- )), the task pushed last first:
+\ walking a step (lf-ol-walk) prints its own lines and pushes what it
+\ leaves for later, so the walk keeps no depth on the host's stacks. Its
+\ room is made before the outline is printed (lf-ol-tasks-room?): the
+\ derivation is a tree, so each step is the subject of at most three
+\ tasks (its walk, its application line, its discharge). A task that
+\ cannot be pushed all the same prints "?".
+lf-walk-room context-walk2: lf-ol-tasks
+: lf-ol-later ( s xt -- ) lf-ol-tasks walk-push-pair 0= if lf-lv-fail then ;
+: lf-ol-tasks-room? ( -- flag )
+  lf-ol-tasks walk-clear lf-log-count 6 * 2 + lf-ol-tasks walk-room-for? ;
+: lf-ol-run-tasks ( -- )
+  begin lf-ol-tasks walk-pending @ 0> while lf-ol-tasks walk-pop-pair execute repeat ;
 defer lf-ol-walk ( s -- )
-\ A lambda chain: its binders, its body (indented), its discharge.
+: lf-ol-walk-later ( s -- ) ['] lf-ol-walk lf-ol-later ;
+\ A lambda chain: its binders now, then its body (indented) and its
+\ discharge.
+: lf-ol-discharged ( s0 -- ) -2 lf-ol-indent +! lf-ol-discharge ;
 : lf-ol-lambda ( s -- )
-  dup lf-ol-binders 2 lf-ol-indent +! dup lf-ol-innermost lf-ol-second lf-ol-walk
-  -2 lf-ol-indent +! lf-ol-discharge ;
+  dup lf-ol-binders 2 lf-ol-indent +! dup ['] lf-ol-discharged lf-ol-later
+  lf-ol-innermost lf-ol-second lf-ol-walk-later ;
 
 \ A variable points to its binder's line and is a proof when its binder
 \ is an assumption.
@@ -294,29 +317,35 @@ defer lf-ol-walk ( s -- )
   dup lf-ol-resolved lf-ol-theorem-slot? swap lf-ol-proof ! ;
 
 \ Applications: the head and arguments of a spine, the head's lines
-\ first, then the arguments' from the innermost application out.
+\ first, then the arguments' from the innermost application out: walking
+\ down the spine from the outermost application, each argument's walk is
+\ pushed, the head's last.
 : lf-ol-head ( s -- h ) begin dup lf-ol-application? while lf-ol-first repeat ;
 : lf-ol-spine ( s -- )
-  dup lf-ol-application? if dup lf-ol-first recurse lf-ol-second
-  lf-ol-walk else lf-ol-walk
-  then ;
+  begin dup lf-ol-application? while dup lf-ol-second lf-ol-walk-later lf-ol-first repeat
+  lf-ol-walk-later ;
 : lf-ol-spine-sets ( s -- )
-  dup lf-ol-application? 0= if lf-ol-line-of @ lf-ol-ref+ exit then
-  dup lf-ol-step+ dup lf-ol-second lf-ol-line-of @ lf-ol-ref+ lf-ol-first recurse ;
-\ Whether term (in the term store) mentions bound variable k.
-defer lf-ol-mentions? ( term k -- flag )
-: lf-ol-in-children ( k first second inner -- flag )
-  >r rot tuck r> + lf-ol-mentions? if 2drop true else lf-ol-mentions? then ;
-: lf-ol-mentions-in ( term k -- flag )
-  swap lf-term-read 0= if drop false exit then rot case
-    lf-tag-bvar of drop = endof lf-tag-app of 0 lf-ol-in-children endof
-    lf-tag-lam of 1 lf-ol-in-children endof lf-tag-pi of 1 lf-ol-in-children endof
-    >r 2drop drop false r> endcase ;
-\ Deeper than the walks' bound, a term counts as mentioning k (so the
-\ line says ∀-elimination, which reads true of every Pi).
-: lf-ol-mentions ( term k -- flag )
-  lf-lv-deeper 0= if 2drop true exit then lf-ol-mentions-in lf-lv-shallower ;
-' lf-ol-mentions is lf-ol-mentions?
+  begin dup lf-ol-application? while
+    dup lf-ol-step+ dup lf-ol-second lf-ol-line-of @ lf-ol-ref+ lf-ol-first
+  repeat lf-ol-line-of @ lf-ol-ref+ ;
+\ Whether term (in the term store) mentions bound variable k: a paired
+\ walk of its own (lib/walk.fs; a node and the binders above it in the
+\ term), with the formula fuel. A walk that cannot finish (out of fuel or
+\ room) counts as mentioning k (so the line says ∀-elimination, which
+\ reads true of every Pi); a node that cannot be read mentions nothing,
+\ and the walk goes on with the rest. A hit is reported as rejected, a
+\ stop signal here (lf-pp-hit?), never a verdict.
+lf-walk-room context-walk2: lf-ol-scan
+: lf-ol-scan-bvar ( i walk -- outcome ) dup walk-context @ swap walk-arg @ + = lf-pp-hit ;
+: lf-ol-scan-dispatch ( first second walk tag -- outcome )
+  dup lf-tag-bvar = if drop nip lf-ol-scan-bvar exit then
+  dup lf-term-binary-tag? if lf-pp-scan-binary else drop 2drop drop outcome-ok then ;
+: lf-ol-scan-visit ( walk -- outcome )
+  lf-terms walk-read if lf-ol-scan-dispatch else outcome-ok then ;
+: lf-ol-mentions? ( term k -- flag )
+  lf-ol-scan walk-arg ! lf-lv lf-lv-fuel @ lf-ol-scan walk-budget drop
+  0 ['] lf-ol-scan-visit lf-ol-scan walk-run-pair lf-pp-hit?
+  dup ok? if drop else outcome-invalid <> nip then ;
 \ Whether a function's type (a reference) is a Pi, and one whose body uses
 \ its binder.
 : lf-ol-pi? ( ref -- flag ) lf-lv-tag if lf-tag-pi = else false then ;
@@ -343,7 +372,7 @@ defer lf-ol-mentions? ( term k -- flag )
   dup lf-lv-out-ref swap lf-lv-formula s" ." lf-lv-put ;
 : lf-ol-pi-name ( ref s -- )
   lf-lv-at 0= if drop lf-lv-fail exit then
-  lf-lv-term if lf-lv-push lf-lv-name-here else lf-lv-fail then lf-lv-release ;
+  lf-lv-term if lf-lv-name-of-node else lf-lv-fail then lf-lv-release ;
 : lf-ol-forall ( s -- )
   s" because " lf-lv-put dup lf-ol-fn-at s"  holds for every " lf-lv-put
   dup lf-ol-first lf-lv-out-ref over lf-ol-pi-name s" , in particular for " lf-lv-put
@@ -363,28 +392,42 @@ defer lf-ol-mentions? ( term k -- flag )
   lf-ol-rule lf-ol-end
   lf-ol-more over swap lf-ol-reason lf-ol-more-end
   lf-ol-line# over lf-ol-line-of ! dup lf-ol-head lf-ol-proof @ swap lf-ol-proof ! ;
-: lf-ol-app ( s -- ) dup lf-ol-first lf-ol-spine dup lf-ol-second lf-ol-walk
-  lf-ol-app-line ;
+\ An application: its function's spine, then its argument, then its line.
+: lf-ol-app ( s -- )
+  dup ['] lf-ol-app-line lf-ol-later dup lf-ol-second lf-ol-walk-later
+  lf-ol-first lf-ol-spine ;
 
-\ The walk over the value's derivation: one word per recognised rule.
+\ Walking a step: one word per recognised rule.
 : lf-ol-walk-step ( s -- )
   dup lf-lv-rule case lf-rule-variable of lf-ol-var endof
     lf-rule-constant of lf-ol-recall endof lf-rule-application of lf-ol-app endof
     lf-rule-lambda of lf-ol-lambda endof nip endcase ;
 ' lf-ol-walk-step is lf-ol-walk
 
-\ Whether the recognisers cover the derivation of step s.
-defer lf-ol-known? ( s -- flag )
-: lf-ol-known-app ( s -- flag )
-  dup 0 lf-lv-inference 0= if drop false exit then lf-ol-known? 0= if drop false exit then
-  1 lf-lv-inference if lf-ol-known? else false then ;
-: lf-ol-known-lam ( s -- flag ) 1 lf-lv-inference if lf-ol-known? else false then ;
-: lf-ol-known-step ( s -- flag )
-  dup lf-lv-outcome ok? 0= if drop false exit then
-  dup lf-lv-rule case lf-rule-variable of drop true endof
-    lf-rule-constant of drop true endof lf-rule-application of lf-ol-known-app endof
-    lf-rule-lambda of lf-ol-known-lam endof nip false swap endcase ;
-' lf-ol-known-step is lf-ol-known?
+\ Whether the recognisers cover the derivation of step s: a walk over the
+\ inference premises it needs (lib/walk.fs; each an earlier step than its
+\ parent), which stops at the first step they do not cover, reported as
+\ rejected (a stop signal here, never a verdict).
+lf-walk-room context-walk: lf-ol-premises
+: lf-ol-known-premise ( walk s i -- outcome )
+  rot >r lf-lv-inference if r> walk-child else r> drop outcome-rejected then ;
+: lf-ol-known-app ( s walk -- outcome )
+  2dup swap 0 lf-ol-known-premise dup ok?
+  if drop swap 1 lf-ol-known-premise else nip nip then ;
+: lf-ol-known-lam ( s walk -- outcome ) swap 1 lf-ol-known-premise ;
+\ A CASE with one arm per recognised rule (read as a table).
+: lf-ol-known-rule ( s walk rule -- outcome )
+  case lf-rule-variable of 2drop outcome-ok endof
+    lf-rule-constant of 2drop outcome-ok endof
+    lf-rule-application of lf-ol-known-app endof
+    lf-rule-lambda of lf-ol-known-lam endof
+    >r 2drop outcome-rejected r> endcase ;
+: lf-ol-known-visit ( walk -- outcome )
+  dup walk-node @ dup lf-lv-outcome ok? 0= if 2drop outcome-rejected exit then
+  tuck lf-lv-rule lf-ol-known-rule ;
+: lf-ol-known? ( s -- flag )
+  max-n lf-ol-premises walk-budget drop
+  ['] lf-ol-known-visit lf-ol-premises walk-run ok? ;
 
 \ The declaration's steps: its own (the last declaration step), the
 \ value's inference, the final comparison and the type formation.
@@ -487,7 +530,8 @@ defer lf-ol-known? ( s -- flag )
   lf-lv-cr lf-ol-theorem? if s" Proof (reconstructed from the proof term)."
   else s" Construction (reconstructed from the value)." then lf-ol-line ;
 : lf-ol-outline ( D -- )
-  lf-ol-proof-title dup lf-ol-first lf-ol-walk lf-ol-statement lf-ol-footer ;
+  lf-ol-proof-title lf-ol-tasks walk-clear
+  dup lf-ol-first lf-ol-walk-later lf-ol-run-tasks lf-ol-statement lf-ol-footer ;
 
 \ Why no outline is printed, and the steps where they explain.
 : lf-ol-list ( -- ) lf-lv-cr s" Steps." lf-ol-line lf-log-count lf-lv-list ;
@@ -561,6 +605,7 @@ defer lf-ol-known? ( s -- flag )
 : lf-ol-verdict! ( outcome axioms -- )
   0 lf-olr-axioms lf-ol-field ! 0 lf-olr-outcome lf-ol-field ! ;
 : lf-ol-blocks ( -- flag )
+  lf-ol-tasks-room? 0= if false exit then
   lf-ol-open 0= if false exit then 0 100000 lf-lv-setup dup 0= if lf-ol-close drop then ;
 : lf-ol-no-memory ( -- ) ." No proof outline: no memory for the printer." cr ;
 : lf-ol-print ( detail -- )

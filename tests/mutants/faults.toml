@@ -2931,12 +2931,12 @@ test = "$GFORTH tests/core/derivation-log.fs"
 reason = "a test log keeps the last check's published slot, so a printer can take it for that check's log (N4 of the second review)"
 
 [[fault]]
-id = "printer-nests-too-deep"
+id = "printer-rebuilds-only-the-top"
 file = "src/present/log-view.fs"
-old = '''128 constant lf-lv-nest-limit'''
-new = '''100000 constant lf-lv-nest-limit'''
+old = '''  1+ 0 ?do i lf-lv-tready 0= if false unloop exit then loop true ;'''
+new = '''  lf-lv-tready ;'''
 test = "$GFORTH tests/core/derivation-log.fs"
-reason = "the printer's walks are not bounded below the host's return stack (N5 of the second review): a 450-deep copy is rebuilt instead of refused"
+reason = "the rebuild of a copy (plan task 6.2.0) builds only the copy asked for, not the copies below it that its walk marked, so a copy with copied children prints as ?"
 
 [[fault]]
 id = "iso-log-module-if-line"

@@ -3,8 +3,11 @@
 \ term (for grouping {A B : Prop}), is a term a proposition (for ∀ against
 \ →), and which arguments of an application are explicit (hidden implicit
 \ arguments). Untrusted presentation code; every answer only chooses a
-\ spelling. Requires print-levels.fs. No state of its own: comparisons
-\ count their binder depth in the print's frames record.
+\ spelling. Requires print-levels.fs. No state of its own: a comparison
+\ is a visit of the print's frames (print-job.fs), counting its binder
+\ depth in their context cell; it runs as a loop of its own from inside
+\ the step that asks for it (lf-pp-run), and asks for no other
+\ comparison, so that nests once on the host's stacks whatever the depth.
 
 require ./print-levels.fs
 
@@ -23,27 +26,37 @@ require ./print-levels.fs
 : lf-pp-decided ( outcome -- flag outcome )
   dup ok? if true swap exit then lf-pp-hit? >r drop false r> ;
 
-\ Structural equality of levels (Lean's Level ==).
-defer lf-pp-lsame-visit ( l1 l2 -- outcome )
-: lf-pp-lsame-call ( l1 l2 -- outcome ) ['] lf-pp-lsame-visit lf-pp-call ;
+\ Structural equality of levels (Lean's Level ==). Both operands of a max
+\ or imax compare, the pair waiting while the first ones do.
+defer lf-pp-lsame-step ( l1 l2 frames -- ... frames next )
+: lf-pp-lsame-call ( l1 l2 frames cont -- ... frames next )
+  ['] lf-pp-lsame-step lf-pp-call ;
 : lf-pp-lfirsts ( l1 l2 -- f1 f2 ) lf-level-first@ swap lf-level-first@ swap ;
 : lf-pp-lseconds ( l1 l2 -- s1 s2 ) lf-level-second@ swap lf-level-second@ swap ;
-: lf-pp-lsame-both ( l1 l2 -- outcome )
-  2dup lf-pp-lfirsts lf-pp-lsame-call ok-then2? if lf-pp-lseconds lf-pp-lsame-call then ;
-\ A CASE with one short arm per level tag (six lines, kept together so the
-\ tags read as a table); an unknown tag is invalid.
-: lf-pp-lsame-by ( l1 l2 tag -- outcome )
-  case lf-level-tag-zero of 2drop outcome-ok endof
-    lf-level-tag-param of lf-pp-lfirsts = lf-pp-equal endof
-    lf-level-tag-succ of lf-pp-lfirsts lf-pp-lsame-call endof
-    lf-level-tag-max of lf-pp-lsame-both endof
-    lf-level-tag-imax of lf-pp-lsame-both endof
-    >r 2drop outcome-invalid r> endcase ;
-: lf-pp-lsame ( l1 l2 -- outcome )
-  2dup lf-level-pair-valid? 0= if 2drop outcome-invalid exit then
-  over lf-level-tag@ over lf-level-tag@ <> if 2drop outcome-rejected exit then
-  over lf-level-tag@ lf-pp-lsame-by ;
-' lf-pp-lsame is lf-pp-lsame-visit
+: lf-pp-lsame-second ( outcome frames -- ... frames next )
+  >r r@ lf-pp-restore2 rot ok-then2?
+  if lf-pp-lseconds r> ['] frame-return lf-pp-lsame-call else r> 0 then ;
+: lf-pp-lsame-both ( l1 l2 frames -- ... frames next )
+  >r 2dup r@ lf-pp-save2 lf-pp-lfirsts r> ['] lf-pp-lsame-second lf-pp-lsame-call ;
+: lf-pp-lsame-zero ( l1 l2 frames -- outcome frames 0 ) >r 2drop outcome-ok r> 0 ;
+: lf-pp-lsame-param ( l1 l2 frames -- outcome frames 0 )
+  >r lf-pp-lfirsts = lf-pp-equal r> 0 ;
+: lf-pp-lsame-succ ( l1 l2 frames -- ... frames next )
+  >r lf-pp-lfirsts r> ['] frame-return lf-pp-lsame-call ;
+\ The step for a level tag: a CASE with one short arm per tag (kept
+\ together so the tags read as a table); an unknown tag is invalid.
+: lf-pp-lsame-by ( tag -- xt )
+  case lf-level-tag-zero of ['] lf-pp-lsame-zero endof
+    lf-level-tag-param of ['] lf-pp-lsame-param endof
+    lf-level-tag-succ of ['] lf-pp-lsame-succ endof
+    lf-level-tag-max of ['] lf-pp-lsame-both endof
+    lf-level-tag-imax of ['] lf-pp-lsame-both endof
+    ['] lf-pp-invalid-step swap endcase ;
+: lf-pp-lsame ( l1 l2 frames -- ... frames next )
+  >r 2dup lf-level-pair-valid? 0= if 2drop outcome-invalid r> 0 exit then
+  over lf-level-tag@ over lf-level-tag@ <> if 2drop outcome-rejected r> 0 exit then
+  over lf-level-tag@ lf-pp-lsame-by r> swap execute ;
+' lf-pp-lsame is lf-pp-lsame-step
 
 \ Constants: name and universe arguments of a constant node.
 : lf-pp-cref ( term -- index identity ) dup lf-term-first@ swap lf-term-second@ ;
@@ -51,55 +64,81 @@ defer lf-pp-lsame-visit ( l1 l2 -- outcome )
   lf-pp-cref lf-cref-read if 2drop true else false then ;
 : lf-pp-const-levels ( term -- addr count true | false ) lf-pp-cref lf-cref-levels ;
 : lf-pp-level-at ( addr i -- level ) lf-cref-pair@ drop ;
-: lf-pp-lsame-list ( addr1 addr2 n -- outcome )
-  0 ?do over i lf-pp-level-at over i lf-pp-level-at lf-pp-lsame-call
-    ok-then2? 0= if unloop exit then loop 2drop outcome-ok ;
+\ The pairs of levels from i up to n, addr1's first, a part of a visit:
+\ each pair compares after the one before it, the addresses, n and the
+\ next index waiting meanwhile.
+defer lf-pp-lsame-rest ( addr1 addr2 n i frames -- ... frames next )
+: lf-pp-lsame-back ( outcome frames -- ... frames next )
+  4 lf-pp-failed? if 0 exit then
+  >r r@ lf-pp-restore2 r@ lf-pp-restore2 r> lf-pp-lsame-rest ;
+: lf-pp-lsame-pair ( addr1 addr2 i -- l1 l2 ) tuck lf-pp-level-at >r lf-pp-level-at r> ;
+: lf-pp-lsame-from ( addr1 addr2 n i frames -- ... frames next )
+  >r 2dup > 0= if 2drop 2drop outcome-ok r> 0 exit then
+  2dup 1+ r@ lf-pp-save2 nip -rot 2dup r@ lf-pp-save2 rot lf-pp-lsame-pair
+  r> ['] lf-pp-lsame-back lf-pp-lsame-call ;
+' lf-pp-lsame-from is lf-pp-lsame-rest
+: lf-pp-lsame-list ( addr1 addr2 n frames cont -- ... frames next )
+  over frame-save 0 swap lf-pp-lsame-rest ;
 : lf-pp-names-same ( a b -- outcome )
   lf-pp-const-name 0= if drop-invalid exit then
   swap lf-pp-const-name 0= if drop-invalid exit then = lf-pp-equal ;
-: lf-pp-levels-same ( a b -- outcome )
-  lf-pp-const-levels 0= if drop-invalid exit then
-  rot lf-pp-const-levels 0= if 2drop outcome-invalid exit then
-  rot over <> if 2drop drop outcome-rejected exit then lf-pp-lsame-list ;
-: lf-pp-const-same ( a b -- outcome )
-  2dup lf-pp-names-same ok-then2? if lf-pp-levels-same then ;
+: lf-pp-levels-same ( a b frames -- ... frames next )
+  >r lf-pp-const-levels 0= if drop-invalid r> 0 exit then
+  rot lf-pp-const-levels 0= if 2drop outcome-invalid r> 0 exit then
+  rot over <> if 2drop drop outcome-rejected r> 0 exit then
+  r> ['] frame-return lf-pp-lsame-list ;
+: lf-pp-const-same ( a b frames -- ... frames next )
+  >r 2dup lf-pp-names-same ok-then2? if r> lf-pp-levels-same else r> 0 then ;
 
 \ Structural equality of b with a lifted over one binder: the test of
 \ Lean's shouldGroupWithNext, which compares the next binder's domain with
 \ this one's. Binder names and kinds inside are ignored, as Lean's Expr ==
-\ ignores them. The binder depth inside a and b is the frames record's
-\ context cell; variable i of a at depth d matches i in b when i < d and
-\ i + 1 otherwise.
-defer lf-pp-same-visit ( a b -- outcome )
+\ ignores them. The binder depth inside a and b is the frames' context
+\ cell; variable i of a at depth d matches i in b when i < d and i + 1
+\ otherwise. Both children compare, the pair waiting while the first ones
+\ do; a binder's second ones one binder deeper (frame-up restores it).
+defer lf-pp-same-step ( a b frames -- ... frames next )
 : lf-pp-tag-known? ( tag -- flag ) lf-tag-sort lf-tag-constant between? ;
-: lf-pp-same-call ( a b -- outcome ) ['] lf-pp-same-visit lf-pp-call ;
-: lf-pp-cmp-depth ( -- addr ) lf-pjob lf-pjob-context ;
+: lf-pp-same-call ( a b frames cont -- ... frames next ) ['] lf-pp-same-step lf-pp-call ;
+: lf-pp-cmp-depth ( -- addr ) lf-pp-frames frame-context ;
 : lf-pp-var-same? ( i j -- flag ) over lf-pp-cmp-depth @ < if = else swap 1+ = then ;
 : lf-pp-firsts ( a b -- a1 b1 ) lf-term-first@ swap lf-term-first@ swap ;
 : lf-pp-seconds ( a b -- a2 b2 ) lf-term-second@ swap lf-term-second@ swap ;
-: lf-pp-under ( a b -- outcome )
-  1 lf-pp-cmp-depth +! lf-pp-same-call -1 lf-pp-cmp-depth +! ;
-: lf-pp-same-app ( a b -- outcome )
-  2dup lf-pp-firsts lf-pp-same-call ok-then2? if lf-pp-seconds lf-pp-same-call then ;
-: lf-pp-same-binder ( a b -- outcome )
-  2dup lf-pp-firsts lf-pp-same-call ok-then2? if lf-pp-seconds lf-pp-under then ;
-\ A CASE with one short arm per term tag (six lines, kept together so the
-\ tags read as a table); λ and Π, the remaining known tags, compare alike.
-: lf-pp-same-by ( a b tag -- outcome )
-  case lf-tag-sort of lf-pp-firsts = lf-pp-equal endof
-    lf-tag-bvar of lf-pp-firsts lf-pp-var-same? lf-pp-equal endof
-    lf-tag-symbolic-sort of lf-pp-firsts lf-pp-lsame-call endof
-    lf-tag-constant of lf-pp-const-same endof
-    lf-tag-app of lf-pp-same-app endof
-    >r lf-pp-same-binder r> endcase ;
-: lf-pp-same ( a b -- outcome )
-  2dup lf-term-pair-valid? 0= if 2drop outcome-invalid exit then
-  over lf-term-tag@ over lf-term-tag@ <> if 2drop outcome-rejected exit then
-  over lf-term-tag@ dup lf-pp-tag-known?
-  if lf-pp-same-by else drop 2drop outcome-invalid then ;
-' lf-pp-same is lf-pp-same-visit
-: lf-pp-same-domain? ( a b -- flag outcome ) 0 lf-pp-cmp-depth ! lf-pp-same-call
-  lf-pp-decided ;
+: lf-pp-same-second ( outcome frames -- ... frames next )
+  >r r@ lf-pp-restore2 rot ok-then2?
+  if lf-pp-seconds r> ['] frame-return lf-pp-same-call else r> 0 then ;
+\ (frame-up works on any results below the frames: it touches only them.)
+: lf-pp-same-body ( outcome frames -- ... frames next )
+  >r r@ lf-pp-restore2 rot ok-then2? 0= if r> 0 exit then
+  lf-pp-seconds 1 r@ frame-context+! r> ['] frame-up lf-pp-same-call ;
+: lf-pp-same-pair ( a b frames cont -- ... frames next )
+  2>r 2dup 2r@ drop lf-pp-save2 lf-pp-firsts 2r> lf-pp-same-call ;
+: lf-pp-same-app ( a b frames -- ... frames next ) ['] lf-pp-same-second lf-pp-same-pair ;
+: lf-pp-same-binder ( a b frames -- ... frames next )
+  ['] lf-pp-same-body lf-pp-same-pair ;
+: lf-pp-same-sort ( a b frames -- outcome frames 0 ) >r lf-pp-firsts = lf-pp-equal r> 0 ;
+: lf-pp-same-bvar ( a b frames -- outcome frames 0 )
+  >r lf-pp-firsts lf-pp-var-same? lf-pp-equal r> 0 ;
+: lf-pp-same-levels ( a b frames -- ... frames next )
+  >r lf-pp-firsts r> ['] frame-return lf-pp-lsame-call ;
+\ The step for a term tag: a CASE with one short arm per tag (kept
+\ together so the tags read as a table); λ and Π, the remaining known
+\ tags, compare alike.
+: lf-pp-same-by ( tag -- xt )
+  case lf-tag-sort of ['] lf-pp-same-sort endof
+    lf-tag-bvar of ['] lf-pp-same-bvar endof
+    lf-tag-symbolic-sort of ['] lf-pp-same-levels endof
+    lf-tag-constant of ['] lf-pp-const-same endof
+    lf-tag-app of ['] lf-pp-same-app endof
+    ['] lf-pp-same-binder swap endcase ;
+: lf-pp-same ( a b frames -- ... frames next )
+  >r 2dup lf-term-pair-valid? 0= if 2drop outcome-invalid r> 0 exit then
+  over lf-term-tag@ over lf-term-tag@ <> if 2drop outcome-rejected r> 0 exit then
+  over lf-term-tag@ dup lf-pp-tag-known? 0= if drop 2drop outcome-invalid r> 0 exit then
+  lf-pp-same-by r> swap execute ;
+' lf-pp-same is lf-pp-same-step
+: lf-pp-same-domain? ( a b -- flag outcome )
+  0 lf-pp-cmp-depth ! ['] lf-pp-same-step lf-pp-run lf-pp-decided ;
 
 \ Lean's isPropQuick, the test the delaborator uses to print a Pi as ∀:
 \ after the Pi binders, the body is a variable, or a variable applied to n
