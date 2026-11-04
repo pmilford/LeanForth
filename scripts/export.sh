@@ -15,6 +15,9 @@
 #                   (default: the project's .tools toolchain)
 #   LEAN_PATH       where leanexport finds the modules' .olean files, as for
 #                   leanexport itself (for Mathlib: its .lake build folders)
+#   LEANEXPORT      the exporter (default: the toolchain's bin/leanexport;
+#                   the Makefile's test recipes set the cache's stand-in,
+#                   scripts/leanexport-cache.py)
 #   MATHLIB_COMMIT  the Mathlib commit exported, recorded in the manifest
 #                   (optional; 40 lowercase hexadecimal digits)
 set -eu
@@ -39,10 +42,11 @@ if [ "$revision" != eb6cafb7290e8bd5f2937522d8d804f58f02bafc ]; then
   exit 1
 fi
 toolchain=$("$lean" --print-prefix)
+leanexport=${LEANEXPORT:-$toolchain/bin/leanexport}
 
 partial="$output.partial"
 trap 'rm -f "$partial"' EXIT   # only this script's own partial file
-PATH="$toolchain/bin:$PATH" "$toolchain/bin/leanexport" "$@" >"$partial"
+PATH="$toolchain/bin:$PATH" "$leanexport" "$@" >"$partial"
 mv "$partial" "$output"
 python3 "$here/scripts/export_manifest.py" ${MATHLIB_COMMIT:+--mathlib-commit "$MATHLIB_COMMIT"} \
   "$output"

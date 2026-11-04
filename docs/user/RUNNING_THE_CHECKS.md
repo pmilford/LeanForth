@@ -22,15 +22,25 @@ then fails. Run everything from the repository root.
 
 ## The two suites
 
-| Command | Needs | Time, measured 2026-11-02 | Runs |
+| Command | Needs | Time, measured 2026-11-03 (8 jobs, 10 cores) | Runs |
 | --- | --- | --- | --- |
-| `make test` | Gforth and Python 3 | about 7 s | Documentation, Lean-source and portability checks, the silent-load check of every module, the test harness's own tests, every Forth unit test, the NDJSON reader's file tests, the fixture bridge, the program examples, the term printer, the receipt schema and the IR reader |
-| `make check` | also Lean 4.35.0 | 90–100 s | `make test`, then every comparison with pinned Lean |
+| `make test` | Gforth and Python 3 | about 8 s (36 s with `JOBS=1`) | Documentation, Lean-source and portability checks, the silent-load check of every module, the test harness's own tests, every Forth unit test, the NDJSON reader's file tests, the fixture bridge, the program examples, the term printer, the receipt schema and the IR reader |
+| `make check` | also Lean 4.35.0 | about 45 s with the Lean cache filled, about 70 s with an empty one, about 75 s without it (`LEAN_CACHE=0`, as CI) | `make test`, then every comparison with pinned Lean |
 
-Both stop at the first failure and exit with a nonzero status. CI runs
-`make test` on Ubuntu's Gforth 0.7.3 and `make check` on the pinned tools
-for every push to `main` ([project progress](../project/PROJECT_PROGRESS.md)
-records the latest runs). Run `make test` before every commit.
+Make runs 8 targets at a time (`JOBS=1` runs one at a time) and prints each
+target's output in one piece. At the first failure it starts no more
+targets, lets the running ones finish, names the failing target
+(`make: *** [Makefile:LINE: TARGET] Error N`) and exits with a nonzero
+status. Outside CI, `make check` replays pinned Lean's runs on unchanged
+inputs from a cache shared by the clone's worktrees; `LEAN_CACHE=0` runs
+Lean every time, and `LEAN_CACHE=verify` runs it and compares with the cache
+([testing strategy](../development/TESTING_STRATEGY.md#running-the-suites-parallel-jobs-and-the-lean-cache)).
+CI runs `make test` on Ubuntu's Gforth 0.7.3 and `make check LEAN_CACHE=0`
+on the pinned tools for every push to `main`
+([project progress](../project/PROJECT_PROGRESS.md) records the latest
+runs), so CI never replays a cached run. Run `make test` before every
+commit; while working, `make test-changed` runs only the targets that use a
+file changed since `main`.
 
 ## What each part shows, and what it does not
 
@@ -46,6 +56,7 @@ records the latest runs). Run `make test` before every commit.
 | `test-composition-fixture` | The test-only Python bridge stages the pinned fixtures into the Forth stores, and the definition probe reaches the expected diagnostics | Import or checking of real libraries |
 | `test-program` | The six example words give the expected results on sample and small exhaustive inputs | That the words are correct for all inputs: testing is not proof |
 | `test-program-ir` | The receipt schema accepts its valid examples and refuses each invalid one for its pinned reason; the reference models copied into the IR's Lean file are verbatim; the IR reader's output for the example words equals the golden IR | That the reader's translation is faithful |
+| `test-lean-cache` | The Lean cache, on a fake toolchain, replays a repeated call exactly and misses on every changed input; it never caches IO inputs, and the Makefile uses it only without `LEAN_CACHE=0` and `CI` | That pinned Lean itself is deterministic (`make check LEAN_CACHE=verify` reruns every call and compares) |
 | `test-present` | The term printer meets its unit tests, ends every print of 49 cases in three modes at every fuel level with a defined outcome, and prints the golden text for those cases and the five fixtures | That the printed text is what Lean prints (that is `test-printer-differential`) |
 | `reference`, `reference-export` | The Lean reference files check with pinned Lean and fail on `sorry`; re-exporting the fixtures gives byte-identical NDJSON | Anything about LeanForth |
 | `reference-first-checker` | Lean's verdicts on the first checker's 60 expected-results cases and 27 broken source copies are as recorded ([expected results](../reviews/FIRST_CHECKER_EXPECTED.md)) | LeanForth's answers (that is `test-first-checker-differential`) |

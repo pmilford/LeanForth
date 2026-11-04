@@ -268,7 +268,8 @@ def compile_and_export(lean, source, names, workdir):
         dumps = lean_dump(lean, prefix, module, names, workdir)
         env = dict(os.environ, LEAN_PATH=str(workdir),
                    PATH=f"{prefix}/bin:{os.environ.get('PATH', '')}")
-        export = subprocess.run([f"{prefix}/bin/leanexport", module, "--", *names],
+        exporter = os.environ.get("LEANEXPORT") or f"{prefix}/bin/leanexport"  # may be cached
+        export = subprocess.run([exporter, module, "--", *names],
                                 capture_output=True, text=True, timeout=300, env=env)
     finally:
         for made in workdir.glob(f"{module}.*"):

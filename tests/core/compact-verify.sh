@@ -35,10 +35,12 @@ split() {   # stdin: dump lines; $1: prefix of the family files
                             { print > (p ".other") }'
   for f in $families other; do touch "$1.$f"; done
 }
+# The two runs are independent: run them side by side and wait for both.
 timeout -k 5 "$seconds" "$gforth" tests/core/ndjson-dump.fs \
-  -e "s\" $export_file\" dump-export bye" </dev/null 2>"$work/reader.err" | split "$work/reader"
+  -e "s\" $export_file\" dump-export bye" </dev/null 2>"$work/reader.err" | split "$work/reader" &
 timeout -k 5 "$seconds" "$gforth" tests/support/compact-load.fs \
-  -e "s\" $export_file\" $dump bye" </dev/null 2>"$work/store.err" | split "$work/store"
+  -e "s\" $export_file\" $dump bye" </dev/null 2>"$work/store.err" | split "$work/store" &
+wait
 status=0
 for family in $families; do
   a=$(sha256sum < "$work/reader.$family" | cut -c1-64); b=$(sha256sum < "$work/store.$family" | cut -c1-64)

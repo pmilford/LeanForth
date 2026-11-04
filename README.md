@@ -79,7 +79,11 @@ override with `GFORTH=...` or `LEAN=...`. It calls the toolchain binary
 directly, so no `ELAN_HOME` is needed. Individual targets such as
 `make reference` or `make test-constant-term-scope-differential` can also be
 run on their own; `make check` runs every one listed in `DIFFERENTIAL_TARGETS`.
-A missing or failing tool makes the command fail.
+A missing or failing tool makes the command fail. Make runs 8 targets at a
+time (`JOBS=1` for one at a time) and replays pinned Lean's runs on unchanged
+inputs from a local cache (`LEAN_CACHE=0` runs Lean every time, as CI does);
+the [testing strategy](docs/development/TESTING_STRATEGY.md#running-the-suites-parallel-jobs-and-the-lean-cache)
+explains both.
 [Running the checks](docs/user/RUNNING_THE_CHECKS.md) says what each target
 shows and what it does not.
 

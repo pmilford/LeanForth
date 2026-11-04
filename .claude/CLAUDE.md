@@ -27,11 +27,23 @@ OpenAI Codex. Codex-era docs (`docs/project/CODEX_HANDOFF.md`, `prompts/FIRST_CO
 
 ## Checks
 
-- `make test` — Forth and Python tests, about 7 s; run before every commit.
-- `make check` — `make test` plus every pinned-Lean comparison, about 100 s.
-- CI runs `make test` on Ubuntu's Gforth 0.7.3 and `make check` on pinned
-  Gforth 1.0.0 and Lean 4.35.0. After pushing, check `gh run list --limit 3`
-  and record the run URL and outcome, as `AGENTS.md` requires.
+- Make runs 8 targets at a time by default (`JOBS=1` for one at a time); do
+  not start several make commands at once. Timings of 2026-11-03 (10 cores,
+  other agents running); per-target tables are in
+  `docs/development/TESTING_STRATEGY.md`, "Running the suites".
+- Inner loop: the focused test of what you change (the test file itself, its
+  module's target, or `make test-changed`).
+- `make test` — Forth and Python tests, about 8 s (36 s one target at a
+  time); run before every commit.
+- `make check` — `make test` plus every pinned-Lean comparison: about
+  45 s when pinned Lean's runs are replayed from the shared Lean cache
+  (`.claude/work/lean-cache` of the main checkout), about 70 s with an empty
+  cache, about 75 s with `LEAN_CACHE=0` (as CI runs it); 345 s one target at
+  a time without the cache. Run it once, at the end of a task.
+- CI runs `make test` on Ubuntu's Gforth 0.7.3 and `make check LEAN_CACHE=0`
+  on pinned Gforth 1.0.0 and Lean 4.35.0. After pushing, check
+  `gh run list --limit 3` and record the run URL and outcome, as `AGENTS.md`
+  requires.
 
 ## Reviews
 

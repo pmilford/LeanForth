@@ -24,6 +24,7 @@ if [ "$revision" != eb6cafb7290e8bd5f2937522d8d804f58f02bafc ]; then
   exit 1
 fi
 toolchain=$("$lean" --print-prefix)
+leanexport=${LEANEXPORT:-$toolchain/bin/leanexport}   # the Makefile's may replay a cached run
 fixture=tests/core/reexport/kinds.ndjson
 temporary=$(mktemp -d)
 trap 'rm -f "$temporary/LeanForthReexportKinds.olean" "$temporary/LeanForthReexportStrings.olean" \
@@ -36,7 +37,7 @@ export_names() {
   local module=$1 output=$2
   shift 2
   PATH="$toolchain/bin:$PATH" LEAN_PATH="$temporary" \
-    "$toolchain/bin/leanexport" --export-mdata --export-unsafe "$module" -- "$@" >"$output"
+    "$leanexport" --export-mdata --export-unsafe "$module" -- "$@" >"$output"
 }
 
 "$lean" -DwarningAsError=true -o "$temporary/LeanForthReexportKinds.olean" \
