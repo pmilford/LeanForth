@@ -84,8 +84,8 @@ starting others; make waits for the running ones, prints
 `make: *** [Makefile:LINE: TARGET] Error N` naming the target, and exits
 with status 2. CI runs both suites with the default 8 jobs.
 
-**The Lean cache.** Pinned Lean is deterministic, and most of `make check`'s
-time was Lean re-checking unchanged files. Unless `LEAN_CACHE=0`, the
+**The Lean cache.** Pinned Lean's verdicts are deterministic, and most of
+`make check`'s time was Lean re-checking unchanged files. Unless `LEAN_CACHE=0`, the
 recipes get `LEAN` set to `scripts/lean-cache.py` and `LEANEXPORT` to
 `scripts/leanexport-cache.py`, stand-ins that replay a stored run when
 every input of it is unchanged and run the real tool otherwise:
@@ -119,9 +119,17 @@ every input of it is unchanged and run the real tool otherwise:
 - `LEAN_CACHE=0` runs every Lean and exporter call and stores nothing; it
   is the default when the `CI` variable is set, and `.github/workflows/ci.yml`
   passes it explicitly, so CI never replays a cached run. `LEAN_CACHE=verify`
-  runs every call and fails (status 125) where a stored entry differs from
-  the new run: on 2026-11-03 a `make check LEAN_CACHE=verify` over a full
-  cache found no difference.
+  runs every call and fails (status 125) where a stored entry's status or
+  output differs from the new run. On 2026-11-03 `make check
+  LEAN_CACHE=verify` over a full cache reran the 294 cached calls: 292 gave
+  the same status and output as stored, none differed, and two missed:
+  they import the `.olean` of `tests/reference/stack-clamp.lean`, which Lean
+  4.35 writes with other bytes on every compile (four compiles, four
+  files; same messages and status). So a replayed `.olean` is one Lean
+  wrote for the same inputs, not always the bytes a new run would write;
+  every call that imports it is keyed by the bytes replayed, and verify
+  mode only logs a differing `.olean`. The other `.olean` files measured
+  (`program-contracts`, `composition`, `checked-add`) were identical.
 - The cache is shared by every worktree of a clone: the main checkout's
   `.claude/work/lean-cache/` (git ignores it; set `LEAN_CACHE_DIR` for
   another place). Entries are written to a temporary folder and renamed
@@ -140,10 +148,12 @@ every input of it is unchanged and run the real tool otherwise:
   with the same output, status and `.olean`, and a change to each input
   misses (source text, module name, option, imported `.olean`, toolchain
   binary and library, `LEAN_*` variable, exporter arguments); it checks
-  what is never cached, `LEAN_CACHE=0`, verify mode, restored paths, one
-  stream's order, and that the Makefile uses the cache only without
-  `LEAN_CACHE=0` and `CI`. Eight planted faults (`lc-*` in
-  `tests/mutants/faults.toml`) are each caught by it.
+  what is never cached, `LEAN_CACHE=0`, verify mode (a changed output
+  fails, a changed `.olean` is logged, the Makefile's own `LEAN_CACHE` and
+  `LEAN_CACHE_DIR` do not change the key), restored paths, one stream's
+  order, and that the Makefile uses the cache only without `LEAN_CACHE=0`
+  and `CI`. Nine planted faults (`lc-*` in `tests/mutants/faults.toml`)
+  are each caught by it.
 
 **Timings.** Each target of `make check` run on its own, one after another,
 on Gforth 1.0 and Lean 4.35.0 (10 cores, other work on the machine; load

@@ -11,15 +11,20 @@ Each takes the real tool's own arguments and environment, and these:
   LEANFORTH_LEAN_CACHE      1 (use the cache), 0 (always run the tool, store
                             nothing) or verify (always run the tool, store
                             what is missing, and fail with status 125 when a
-                            stored entry differs from what the tool did)
+                            stored entry's status or output differs from
+                            what the tool did; a differing .olean is only
+                            logged, as "verified olean-differs")
   LEANFORTH_LEAN_CACHE_DIR  the cache folder (created when missing)
   LEANFORTH_LEAN_CACHE_LOG  optional: a file to which every call appends a
                             line "hit|miss|verified|differs|run REASON WHAT"
 
-Lean is deterministic: the same toolchain, given the same source text,
-options, LEAN_* environment and imported modules, prints the same messages,
-exits with the same status and writes the same .olean; leanexport, given
-the same arguments and modules, writes the same export. This script caches
+Lean is deterministic in what the tests read: the same toolchain, given the
+same source text, options, LEAN_* environment and imported modules, prints
+the same messages and exits with the same status; leanexport, given the
+same arguments and modules, writes the same export. The .olean it writes is
+not always the same bytes (VARYING_OLEAN): a replayed .olean is one Lean
+wrote for the same inputs, and every call that imports it is keyed by the
+bytes replayed. This script caches
 two kinds of call only. For Lean, `lean [-DOPTION=VALUE]... [-o OUT.olean]
 [--run] FILE.lean` with nothing after the file; for leanexport, any call.
 The key is the SHA-256 of everything such a call reads:
@@ -37,7 +42,8 @@ The key is the SHA-256 of everything such a call reads:
   - leanexport: its arguments, in order;
   - every LEAN_PATH folder outside the toolchain: each file's relative path
     and SHA-256 (the .olean files compiled earlier in the same test);
-  - every other LEAN_* environment variable;
+  - every other LEAN_* environment variable but the Makefile's own
+    (LEAN_CACHE, LEAN_CACHE_DIR, LEAN_BINARY: NOT_READ_BY_LEAN);
   - whether stdout and stderr are the same file (then they are captured as
     one stream, in the tool's own order).
 
@@ -77,6 +83,17 @@ IO_INPUTS = [b"IO.FS", b"readFile", b"readBinFile", b"FS.lines", b"getStdin", b"
 STORED_STATUS = (0, 1)
 RESOURCE_FAILURES = [b"out of memory", b"stack overflow", b"deep recursion"]
 MAX_PATH_FILES, MAX_PATH_BYTES = 1000, 512 * 1024 * 1024
+# Measured 2026-11-03: four compiles of tests/reference/stack-clamp.lean
+# wrote four different .olean files (1,783,384 and 1,783,512 bytes) with the
+# same messages and status; program-contracts.lean, composition.lean and
+# checked-add.lean wrote the same bytes each time. A replayed .olean is
+# therefore one that Lean wrote for these inputs, not necessarily the bytes
+# a new run would write; what imports it is keyed by the bytes replayed.
+VARYING_OLEAN = "tests/reference/stack-clamp.lean"
+# LEAN_* variables that are no input of Lean: LEAN_PATH, keyed by its
+# folders' contents, and the Makefile's own settings, which make passes on
+# to the recipes when they are given on its command line.
+NOT_READ_BY_LEAN = {"LEAN_PATH", "LEAN_CACHE", "LEAN_CACHE_DIR", "LEAN_BINARY"}
 BLOCK = 1 << 20
 
 
@@ -234,7 +251,7 @@ def same_file(first, second):
 
 def common_key(fingerprint, prefix, cache):
     environment = sorted((k, v) for k, v in os.environ.items()
-                         if k.startswith("LEAN_") and k != "LEAN_PATH")
+                         if k.startswith("LEAN_") and k not in NOT_READ_BY_LEAN)
     return {"format": FORMAT, "toolchain": fingerprint, "environment": environment,
             "lean_path": search_path(prefix, cache), "merged": same_file(1, 2)}
 
@@ -302,12 +319,15 @@ def storable(status, work):
     return status in STORED_STATUS and not any(word in text for word in RESOURCE_FAILURES)
 
 
-def same_entry(entry, work):
-    names = sorted(name for name in os.listdir(work) if name != "key.json")
-    if names != sorted(name for name in os.listdir(entry) if name != "key.json"):
-        return False
-    return all(sha256_file(os.path.join(entry, n)) == sha256_file(os.path.join(work, n))
-               for n in names)
+def differences(entry, work):
+    """The files of a fresh run that differ from its stored entry. Lean 4.35
+    does not always write the same .olean bytes for the same source (see
+    VARYING_OLEAN), so verify mode logs a differing .olean but does not fail."""
+    names = {name for name in os.listdir(work) if name != "key.json"}
+    names |= {name for name in os.listdir(entry) if name != "key.json"}
+    return sorted(name for name in names if not os.path.exists(os.path.join(entry, name))
+                  or not os.path.exists(os.path.join(work, name))
+                  or sha256_file(os.path.join(entry, name)) != sha256_file(os.path.join(work, name)))
 
 
 class Call:
@@ -372,12 +392,13 @@ class Call:
             if keep and self.out and os.path.exists(os.path.join(work, "olean")):
                 mark_olean(cache, os.path.join(work, "olean"))
             if os.path.exists(os.path.join(entry, "status")):
-                if not same_entry(entry, work):
+                differ = differences(entry, work)
+                if differ not in ([], ["olean"]):
                     sys.stderr.write(f"lean-cache: verify: the run of {self.subject} differs "
-                                     f"from the cache entry {entry}\n")
-                    log("differs", "-", self.subject)
+                                     f"from the cache entry {entry} in {', '.join(differ)}\n")
+                    log("differs", ",".join(differ), self.subject)
                     return 125
-                log("verified", "-", self.subject)
+                log("verified", "olean-differs" if differ else "-", self.subject)
             elif keep:
                 try:
                     os.rename(work, entry)

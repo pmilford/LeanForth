@@ -1815,10 +1815,18 @@ reason = "a crash or a killed run is stored and replayed"
 [[fault]]
 id = "lc-verify-trusts-entry"
 file = "scripts/lean-cache.py"
-old = '''                if not same_entry(entry, work):'''
+old = '''                if differ not in ([], ["olean"]):'''
 new = '''                if False:'''
 test = "python3 tests/lean-cache/test_lean_cache.py"
 reason = "LEAN_CACHE=verify no longer notices a run that differs from its entry"
+
+[[fault]]
+id = "lc-make-settings-keyed"
+file = "scripts/lean-cache.py"
+old = '''NOT_READ_BY_LEAN = {"LEAN_PATH", "LEAN_CACHE", "LEAN_CACHE_DIR", "LEAN_BINARY"}'''
+new = '''NOT_READ_BY_LEAN = {"LEAN_PATH"}'''
+test = "python3 tests/lean-cache/test_lean_cache.py"
+reason = "make check LEAN_CACHE=verify keys its runs apart from ordinary ones, so it compares nothing"
 
 [[fault]]
 id = "lc-cache-in-ci"

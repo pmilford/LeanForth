@@ -56,7 +56,8 @@ if "ERROR" in text:
 if "EXIT3" in text:
     sys.exit(3)
 if out:
-    open(out, "w").write(f"olean of {os.path.relpath(os.path.abspath(source))}: {text}")
+    open(out, "w").write(f"olean of {os.path.relpath(os.path.abspath(source))}: {text}"
+                         + os.environ.get("FAKE_OLEAN_NOISE", ""))
 '''
 
 FAKE_EXPORT = r'''#!/usr/bin/env python3
@@ -176,6 +177,28 @@ class CacheTest(unittest.TestCase):
         name = self.source("A.lean", "def a")
         self.assert_cached(name)
         self.assert_cached(name, LEAN_NUM_THREADS="2")
+
+    def test_verify_logs_a_varying_olean(self):
+        """Lean 4.35 may write other .olean bytes for the same source: verify
+        mode logs that but fails only on a different status or output."""
+        name = self.source("Dep.lean", "def dep")
+        self.assert_cached("-o", "Dep.olean", name)
+        log = Path(self.temporary.name) / "cache.log"
+        status, _, stderr = self.lean("-o", "Dep.olean", name, LEANFORTH_LEAN_CACHE="verify",
+                                      LEANFORTH_LEAN_CACHE_LOG=str(log), FAKE_OLEAN_NOISE="x")
+        self.assertEqual((status, stderr), (0, b""))
+        self.assertEqual(log.read_text().split()[:2], ["verified", "olean-differs"])
+
+    def test_makefile_settings_hit(self):
+        """make passes LEAN_CACHE=verify or LEAN_CACHE_DIR=... from its command
+        line to the recipes; they are no input of Lean, so verify mode compares
+        with the entries of ordinary runs."""
+        name = self.source("A.lean", "def a")
+        self.assert_cached(name)
+        status, _, stderr = self.lean(name, LEAN_CACHE="verify", LEAN_CACHE_DIR="/elsewhere",
+                                      LEAN_BINARY="/real/lean", LEANFORTH_LEAN_CACHE="verify",
+                                      FAKE_NOISE="changed")
+        self.assertEqual(status, 125, stderr)
 
     def test_changed_import_misses(self):
         library = self.work / "library"
