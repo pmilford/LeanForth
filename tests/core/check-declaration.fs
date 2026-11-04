@@ -271,6 +271,33 @@ fc-decl check thm safe cites 0 TYPE P S z P V 0 V 1 VALUE L S z L V 0 A A C fixt
   check-run lf-env-view ok? must 0 slot-deps nip 1 slot-deps nip 2 deps@
   2 lf-env-axioms ok? must env-done ;
 T{ dependencies -> 0 1 0 1 2 0 }T
+\ Inference run aside (rule P2, in the search for a rejection) records no
+\ dependency. bad : (fun _ : Prop => Prop) D := f, with f : B -> B and
+\ D = c0 -> ... -> c14 (each : Prop := forall p, p), records D's 15
+\ constants and f, the 16 a check may hold; P2 then infers the type of
+\ B -> B aside and meets B. Were B recorded, the dependencies would be
+\ full, P2 would fail and the check stay unknown. Lean's kernel rejects
+\ it (declTypeMismatch).
+fc-case aside-deps
+fc-decl before def safe B 0 TYPE S z VALUE P S z V 0
+fc-decl before def safe c0 0 TYPE S z VALUE P S z V 0
+fc-decl before def safe c1 0 TYPE S z VALUE P S z V 0
+fc-decl before def safe c2 0 TYPE S z VALUE P S z V 0
+fc-decl before def safe c3 0 TYPE S z VALUE P S z V 0
+fc-decl before def safe c4 0 TYPE S z VALUE P S z V 0
+fc-decl before def safe c5 0 TYPE S z VALUE P S z V 0
+fc-decl before def safe c6 0 TYPE S z VALUE P S z V 0
+fc-decl before def safe c7 0 TYPE S z VALUE P S z V 0
+fc-decl before def safe c8 0 TYPE S z VALUE P S z V 0
+fc-decl before def safe c9 0 TYPE S z VALUE P S z V 0
+fc-decl before def safe c10 0 TYPE S z VALUE P S z V 0
+fc-decl before def safe c11 0 TYPE S z VALUE P S z V 0
+fc-decl before def safe c12 0 TYPE S z VALUE P S z V 0
+fc-decl before def safe c13 0 TYPE S z VALUE P S z V 0
+fc-decl before def safe c14 0 TYPE S z VALUE P S z V 0
+fc-decl before def safe f 0 TYPE P C B 0 C B 0 VALUE L C B 0 V 0
+fc-decl check def safe bad 0 TYPE A L S z S z P C c0 0 P C c1 0 P C c2 0 P C c3 0 P C c4 0 P C c5 0 P C c6 0 P C c7 0 P C c8 0 P C c9 0 P C c10 0 P C c11 0 P C c12 0 P C c13 0 C c14 0 VALUE C f 0
+T{ check-last -> outcome-rejected lf-diag-value-apart compare-step }T
 
 \ The input is unchanged by every check: its fingerprint, computed again,
 \ is the one recorded when loading ended.
@@ -279,6 +306,16 @@ fc-decl before def safe fixtureId 1 u TYPE P S p u P V 0 V 1 VALUE L S p u L V 0
 fc-decl check thm safe wrong 0 TYPE P S z P S z P V 1 V 2 VALUE L S z L S z L V 0 V 0
 : unchanged ( -- flag ) check-run env-done lf-input-print lf-input-fingerprint = ;
 T{ unchanged -> true }T
+
+\ Step 7 gives back the room of steps 4-6: composition's declared type
+\ takes 11 scratch terms there and its value 20 in step 7. After an
+\ earlier axiom (unsupported, so never typed) of 16 terms, the 64-term
+\ store holds both only once the 11 are given back; kept, step 7 would be
+\ full. Lean's kernel accepts both declarations.
+fc-case value-room
+fc-decl before ax safe pad 0 TYPE P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z S s s z VALUE none
+fc-decl check thm safe composition 0 TYPE P S z P S z P S z P P V 2 V 2 P P V 2 V 2 P V 4 V 3 VALUE L S z L S z L S z L P V 2 V 2 L P V 2 V 2 L V 4 A V 1 A V 2 V 0
+T{ check-last -> outcome-ok 0 lf-step-done }T
 
 \ ---------------------------------------------------------------------------
 \ Fuel sweeps: for every fuel from 0 to limit, a check of the case's last
