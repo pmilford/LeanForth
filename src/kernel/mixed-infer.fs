@@ -6,8 +6,16 @@
 \ scans and topological staging are additional work. Only a directly visible
 \ Pi is applied; uncertain conversion is unknown.
 \ Free variables (ADR 0014 Q2, plan task 4.2.2a; [kernel] code, not yet
-\ through the review gate): every type inference computes is closed, as
-\ in Lean's kernel. When inference enters a lambda or Pi (infer_lambda,
+\ through the review gate): the type inference gives back for a node is
+\ closed, as in Lean's kernel (inside a chain of lambdas, an inner
+\ lambda's type is over the scope's bound variables until the chain's top
+\ closes it; only the enclosing lambda sees it). The terms it reads are
+\ not: a source node is read under the scope (below), so the same node,
+\ shared by two places (a hash-consed #0, say), stands for different
+\ variables at different depths. A cache of inferred types (ADR 0014
+\ Q10, plan task 4.2.7) must therefore be keyed by the opened term (a
+\ closed copy) or by the node with the scope, never by the source node
+\ alone. When inference enters a lambda or Pi (infer_lambda,
 \ infer_pi, type_checker.cpp 125-166), the domain must be a type (S2),
 \ and the binder gets a new free variable of the local context
 \ (core/local-context.fs) whose type is the domain closed with the free
@@ -24,9 +32,15 @@
 \ without copying each body first (Lean opens a telescope of binders at
 \ once; the binders here are entered one by one, each one inference step
 \ with its source node as its subject, as the derivation log records it).
-\ An application's argument is closed before it is put into the Pi body.
+\ An application's argument is closed before it is put into the Pi body,
+\ by Lean's instantiate without the audit that lf-mixed-instantiate ran
+\ before free variables: the body is a type inference made or the audited
+\ input holds, the argument an audited source node closed by mixed-open
+\ (which checks each leaf's shape, liveness and child order), and every
+\ comparison that can lead to acceptance audits both of its graphs
+\ (lf-minfer-compare, through lf-mixed-convert-keeping).
 \ The rejection analysis below keeps its own binders as bound variables
-\ too (see lf-minfer-closed), and scratch a step no longer needs is
+\ too (see lf-minfer-close), and scratch a step no longer needs is
 \ discarded (lf-minfer-discard). Lean then also applies
 \ cheap_beta_reduce to a lambda body's type (instantiate.cpp 211-230,
 \ type_checker.cpp 140); that would change inferred
@@ -59,10 +73,11 @@
 \ opened binders' free variables and a Pi telescope's levels), whether
 \ inference runs aside, whether it runs in environment mode, and a copy of
 \ a reference's levels; a member of the checker context (lib/context.fs).
-\ The local context is local-context.fs's: emptied when a job starts and
-\ only appended to during it, so a free variable's number is unique within
-\ the job; discarding scratch (a failure, test P2, the rejection analysis)
-\ leaves the entries of discarded free variables dead, never reused. A
+\ The local context is local-context.fs's: emptied when a job starts;
+\ discarding scratch (a binder domain's or an argument's inference, a
+\ Pi's, test P2, a failure) drops the entries of the free variables it
+\ discards with them (lf-lctx-drop), so their numbers may be taken again
+\ and the entries never outnumber the live nodes. A
 \ node's intermediate results stay on the data stack. Single-threaded
 \ within one context.
 \ lf-minfer-walk and lf-minfer-apart are deferred only for the mutual
@@ -160,7 +175,7 @@ end-structure
 \ the caches of ADR 0014 Q10 come, which keep scratch until the check
 \ ends. After a failure the job's own rollback discards everything.
 : lf-minfer-discard ( outcome mark -- outcome )
-  over ok? if lf-term-count ! else drop then ;
+  over ok? if dup lf-term-count ! lf-lctx-drop else drop then ;
 : lf-minfer-note ( n1 n2 code -- ) lf-minfer-site swap lf-diag-note ;
 
 \ The scope: the free variables of the binders opened around the node
@@ -172,8 +187,8 @@ end-structure
 \ More than lf-depth-limit open binders is full, recorded as a full binder
 \ context, whatever fuel is left (ADR 0008); so is a full local context or
 \ term store. Every telescope gives its binders back when it ends
-\ (lf-minfer-unbind), whatever the outcome; their entries stay until the
-\ next job starts, so that a number is never reused within a job.
+\ (lf-minfer-unbind), whatever the outcome; their entries stay while their
+\ nodes do, and go with them when scratch is discarded.
 : lf-minfer-fvar-cell ( i -- addr ) cells lf-minfer-job lf-ijob-fvars + ;
 : lf-minfer-sort-cell ( i -- addr ) cells lf-minfer-job lf-ijob-sorts + ;
 : lf-minfer-crowded ( -- outcome )
@@ -201,7 +216,7 @@ end-structure
   lf-minfer-lend lf-minfer-opened lf-instantiate-rev lf-minfer-repay outcome-sane ;
 \ A term read under the scope, closed with every free variable of the
 \ scope (its loose bound variables are the scope's binders).
-: lf-minfer-closed ( node -- node' status ) 0 lf-minfer-open ;
+: lf-minfer-close ( node -- node' status ) 0 lf-minfer-open ;
 
 \ Live nodes as handles; the right one is checked first.
 : lf-minfer-handle ( node -- node identity true | false )
@@ -230,7 +245,7 @@ end-structure
   lf-minfer-put ! lf-minfer-lend lf-minfer-put 1 lf-instantiate lf-minfer-repay
   outcome-sane ;
 : lf-minfer-put-closed ( body argument -- type status )
-  lf-minfer-closed ok-then? if lf-minfer-substitute else nip no-result then ;
+  lf-minfer-close ok-then? if lf-minfer-substitute else nip no-result then ;
 : lf-minfer-instantiate ( body argument -- type status )
   lf-log? if 2dup lf-rule-instantiate lf-log-open lf-minfer-put-closed lf-log-close
   else lf-minfer-put-closed then ;
@@ -361,7 +376,7 @@ defer lf-minfer-walk ( node -- type status )
 \ variable on the scope, and the bodies keep their loose bound variables
 \ for those binders, innermost the scope's top, as inference reads a term
 \ under the scope. A term of the analysis is closed with the scope's free
-\ variables (lf-minfer-closed), as D4's domains need and P2 does; terms
+\ variables (lf-minfer-close), as D4's domains need and P2 does; terms
 \ read under binders that a caller opened itself (check-block.fs) close
 \ the same way. Comparing and reducing such terms needs no closing.
 
@@ -380,14 +395,14 @@ defer lf-minfer-walk ( node -- type status )
   lf-minfer-whnf ok-then? 0= if drop false exit then
   lf-minfer-sort? if lf-minfer-nonzero? else false then ;
 : lf-minfer-free? ( node -- flag )
-  lf-minfer-closed ok-then? 0= if drop false exit then
+  lf-minfer-close ok-then? 0= if drop false exit then
   lf-minfer-type2 ok-then? if lf-minfer-sorted-free? else drop false then ;
 \ The arena counts, kept on the data stack around work whose allocations
 \ are discarded (the return stack has less room for recursion).
 : lf-minfer-counts ( -- terms levels crefs )
   lf-term-count @ lf-level-count @ lf-cref-count @ ;
 : lf-minfer-counts! ( terms levels crefs -- )
-  lf-cref-count ! lf-level-count ! lf-term-count ! ;
+  lf-cref-count ! lf-level-count ! dup lf-term-count ! lf-lctx-drop ;
 : lf-minfer-proof-free? ( node -- flag )
   >r lf-minfer-counts lf-minfer-aside @ r> true lf-minfer-aside !
   lf-minfer-free? swap lf-minfer-aside ! >r lf-minfer-counts! r> ;
@@ -399,7 +414,7 @@ defer lf-minfer-walk ( node -- type status )
 \ is_def_eq is certainly false: (mask true), mask being the rules used
 \ from the pair down to the pair that decided, or (0 false). The pair is
 \ closed at the start; below a D4 level it is open for the analysis's own
-\ binders (see lf-minfer-closed). Each level reduces both sides; see
+\ binders (see lf-minfer-close). Each level reduces both sides; see
 \ lf-minfer-apart-frame for its cost.
 1 constant lf-rule-d1
 2 constant lf-rule-d2
@@ -473,7 +488,7 @@ defer lf-minfer-apart ( left right -- mask flag )
 \ the domains are apart. A binder that cannot be entered (no room or fuel)
 \ is not apart.
 : lf-minfer-enter-binder ( domain -- status )
-  lf-minfer-closed ok-then? if 0 lf-minfer-bind then ;
+  lf-minfer-close ok-then? if 0 lf-minfer-bind then ;
 : lf-minfer-bodies-apart ( left right -- mask flag )
   lf-minfer-context-depth @ -rot dup lf-term-first@ lf-minfer-enter-binder ok?
   if lf-minfer-seconds lf-minfer-apart else 2drop 0 false then rot lf-minfer-unbind ;
@@ -555,7 +570,7 @@ defer lf-minfer-apart ( left right -- mask flag )
 : lf-minfer-domain-level ( mark type status -- level status )
   dup ok? if drop lf-minfer-domain-sort then rot lf-minfer-discard ;
 : lf-minfer-open-binder ( domain level -- status )
-  swap lf-minfer-closed ok-then? if swap lf-minfer-bind else nip then ;
+  swap lf-minfer-close ok-then? if swap lf-minfer-bind else nip then ;
 : lf-minfer-binding ( base domain -- base status )
   lf-term-count @ over lf-minfer-walk lf-minfer-domain-level
   ok-then? if lf-minfer-open-binder else nip then ;
@@ -604,7 +619,7 @@ defer lf-minfer-apart ( left right -- mask flag )
   else rot drop then ;
 : lf-minfer-lam-close ( base top type status -- type status )
   2swap over = >r lf-minfer-unbind r>
-  if lf-minfer-good? if lf-minfer-closed then then ;
+  if lf-minfer-good? if lf-minfer-close then then ;
 : lf-minfer-lam-bound ( base top domain body -- base top domain body status )
   3 pick 2 pick lf-minfer-binding nip ;
 : lf-minfer-lam ( domain body -- type status )
@@ -703,7 +718,7 @@ defer lf-minfer-apart ( left right -- mask flag )
   lf-cref-count @ swap lf-ijob-crefs ! ;
 : lf-minfer-rollback ( -- )
   lf-minfer-job dup lf-ijob-terms @ lf-term-count ! dup lf-ijob-levels @ lf-level-count !
-  lf-ijob-crefs @ lf-cref-count ! ;
+  dup lf-ijob-crefs @ lf-cref-count ! lf-ijob-terms @ lf-lctx-drop ;
 : lf-minfer-idle ( job -- )
   0 over lf-ijob-depth ! 0 over lf-ijob-binders !
   -1 over lf-ijob-chain !
