@@ -113,8 +113,9 @@ rr-release
 \ Verdicts only from the run's own environment (review F1). B: rr-check
 \ cannot make its environment (a pool out of range) while the caller's
 \ own environment over the same input is current: the record lists no
-\ declaration, and says why. C: rr-check makes its environment, then the
-\ caller makes another current: no record.
+\ declaration, and says why. C: rr-check makes its environment and checks
+\ with the same fuel, then the caller makes another current: no record,
+\ though every verdict there agrees with the run's own.
 variable foreign
 : foreign-current ( -- ) fuel 64 lf-check-input ok? must foreign ! ;
 : foreign-free ( -- ) foreign @ lf-env-free ok? must ;
@@ -128,7 +129,7 @@ T{ constant-fixture rr-finish rr-write -> outcome-ok outcome-ok }T
 T{ no-env holds? s" accepted" holds? -> true false }T
 foreign-free
 T{ constant-fixture rr-start -> outcome-ok }T
-0 64 rr-settings!
+fuel 64 rr-settings!
 T{ constant-fixture ni-read dup rr-read! -> outcome-ok }T
 foreign-current rr-check foreign @ lf-env-use ok? must
 T{ constant-fixture rr-finish rr-write -> outcome-ok outcome-invalid }T
@@ -153,6 +154,16 @@ T{ no-break-x rr-shown? en-quad rr-shown? -> true false }T
 \ Numbers within +-(2^53 - 1).
 T{ 0 0 rr-exact? -1 s>d rr-exact? -> true true }T
 T{ rr-exact rr-exact? rr-exact 1 m+ rr-exact? -> true false }T
+\ The writer refuses what the schema refuses: a blank metadata text, and
+\ fuel beyond I-JSON's range (where a cell can hold it).
+: blank-text ( -- c-addr u ) s"   " ;
+T{ composition fuel ni-run -> outcome-ok }T
+blank-text run-record rr-lean rr-note! drop
+T{ rr-write -> outcome-invalid }T
+rr-release
+: huge-fuel ( -- outcome ) max-n s>d rr-exact? if outcome-ok else outcome-invalid then ;
+T{ composition max-n ni-run -> huge-fuel }T
+rr-release
 
 \ The verdicts are the slots' own: the same as lf-check-input's.
 : slot-verdicts ( c-addr u -- o0 o1 o2 )

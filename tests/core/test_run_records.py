@@ -188,14 +188,16 @@ class Checks:
             self.expect(set(findings(report)) <= allowed,
                         f"{export}: golden replay {findings(report)}")
 
-    # Tampered records: each refused with its code and path.
+    # Tampered records: each refused with its code and path; with none
+    # expected, a change of spelling only, confirmed.
     def tampered(self, name, export, base, change, expected, fuel=FUEL, source=None):
         text = change(Path(base).read_text(encoding="utf-8"))
         path = self.tmp / f"tampered-{name}.json"
         path.write_text(text, encoding="utf-8")
         report = replay(self.gforth, export, path, fuel, source)
         got = findings(report)
-        self.expect(report["result"] == "refused" and got[:len(expected)] == expected,
+        result = "refused" if expected else "confirmed"
+        self.expect(report["result"] == result and got[:len(expected)] == expected,
                     f"tamper {name}: {got}")
 
     def tamper(self):
@@ -254,6 +256,14 @@ class Checks:
              edit(lambda d: d["input"].update(bytes=str(d["input"]["bytes"]))),
              [("input-differs", "$.input.bytes")]),
             ("not-json", comp, comp_record, lambda t: t[:-10], [("not-json", "$")]),
+            ("fraction", comp, comp_record,
+             lambda t: t.replace('"fuel":100000', '"fuel":100000.0', 1),
+             [("settings-differ", "$.settings.fuel")]),
+            ("exponent", comp, comp_record,
+             lambda t: t.replace('"fuel":100000', '"fuel":1e5', 1),
+             [("settings-differ", "$.settings.fuel")]),
+            ("escaped-verdict", comp, comp_record,
+             lambda t: t.replace('"verdict":"accepted"', '"verdict":"\\u0061ccepted"', 1), []),
             ("schema-version", comp, comp_record,
              edit(lambda d: d.update(schemaVersion="0.2")), [("unknown-schema", "$")]),
         ]

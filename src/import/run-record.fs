@@ -6,7 +6,8 @@
 \ decides no verdict, and the checker never reads a record. A record
 \ claims no more than the checker established: every verdict is read
 \ after the run from the declaration's slot in the checked environment
-\ (lf-env-readable, lf-env-axioms). Accepted only for a final slot whose
+\ the run made (lf-env-readable, lf-env-axioms), never from another one
+\ that happens to be current (rr-ours?). Accepted only for a final slot whose
 \ outcome is ok, and then labelled "experimental, not independently
 \ audited", with the axiom set that slot holds; a slot that is not final
 \ is invalid when its check began (it or its publication failed, and the
@@ -37,11 +38,15 @@
 \ - rr-write ( -- outcome ) writes the record into the module's buffer,
 \   rr-text ( -- c-addr u ); rr-save ( c-addr u -- outcome ) writes that
 \   to the file named c-addr u, then a line feed. rr-write is full when
-\   the text passes rr-text-room bytes or a name rr-name-room; invalid
-\   when a final slot's outcome is not the one its step published, when
-\   an accepted slot's axiom set is unreadable or not empty (allowlist
-\   version 0 names no axiom), or when no snapshot of the run's
-\   environment can be taken. A failed text is never a record.
+\   the text passes rr-text-room bytes, a name rr-name-room or a host
+\   text rr-note-room; invalid when a final slot's outcome is not the one
+\   its step published, when an accepted slot's axiom set is unreadable
+\   or not empty (allowlist version 0 names no axiom), when the run made
+\   its environment but that is freed or not the current one, when a text
+\   breaks the text rule (below) or a name, host or metadata text is
+\   blank, or when a number is outside I-JSON's exact range. A run that
+\   could not make its environment lists no declaration. A failed text is
+\   never a record: the writer never writes what the schema refuses.
 \ - rr-release ( -- ) frees the run's environment; rr-start does it too.
 \ rr-source! ( c-addr u flag -- outcome ) names the LeanForth commit, 40
 \ lowercase hexadecimal digits (else invalid), and whether the working
@@ -49,6 +54,8 @@
 \ says null for both. The host's Forth, version and engine come from
 \ Gforth's words where the host has them (rr-forth-version, rr-program),
 \ else "unknown".
+\
+\ It reads bytes (c@) only to decode UTF-8 for the text rule.
 \
 \ Requires: lib/json-write.fs, lib/sha256.fs, import/ndjson.fs,
 \ import/manifest.fs, present/print-names.fs (names as text) and
