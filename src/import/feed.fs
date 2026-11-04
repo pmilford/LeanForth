@@ -428,7 +428,8 @@ here feed-steps - 1 cells / constant feed-steps#
 \ ( d before after -- ), called after each declaration; neither may change a
 \ store of the checker (the presentation's side table is not one).
 : lf-feed-hooked ( stage feed binder-hook decl-hook -- outcome )
-  2>r dup /feed erase tuck feed-stage ! 2r> 2 pick feed-decl-hook ! over feed-binder-hook !
+  2>r dup /feed erase tuck feed-stage !
+  2r> 2 pick feed-decl-hook ! over feed-binder-hook !
   dup feed-stage @ stage-sealed? 0= if drop outcome-invalid exit then
   dup feed-run swap feed-free ;
 : lf-feed ( stage feed -- outcome ) 0 0 lf-feed-hooked ;

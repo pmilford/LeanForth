@@ -551,12 +551,13 @@ lf-walk-room context-walk: lf-ol-premises
   true lf-tpl-count 0 ?do 1 i lshift 0 lf-olr-templates lf-ol-field @ and
     if dup 0= if s" , " lf-lv-put then drop false i lf-tpl-name lf-lv-put then loop drop ;
 \ In LaTeX style the table ends and the footer is a small paragraph.
+: lf-ol-table-end ( -- ) s\" \\end{tabular}}\n" lf-lv-out ;
+: lf-ol-small-open ( -- ) s\" \\begin{flushleft}\\small\n" lf-lv-out ;
 : lf-ol-tex-open ( -- ) lf-lv-tex? if s\" \\begin{flushleft}\n" lf-lv-out then ;
 : lf-ol-tex-close ( -- ) lf-lv-tex? if s\" \\end{flushleft}\n" lf-lv-out then ;
 : lf-ol-end-mark ( -- c-addr u ) lf-lv-tex? if s" $\blacksquare$" else s" ∎" then ;
 : lf-ol-footer ( -- )
-  lf-lv-tex? if s\" \\end{tabular}}\n" lf-lv-out s\" \\begin{flushleft}\\small\n" lf-lv-out
-  then
+  lf-lv-tex? if lf-ol-table-end lf-ol-small-open then
   lf-ol-end-mark lf-ol-line
   s" Rules, formulas and step numbers come from the checker's log; the sentences are"
   lf-ol-line s" fixed templates (structured-template), not checked reasoning." lf-ol-line
@@ -575,14 +576,14 @@ lf-walk-room context-walk: lf-ol-premises
 \ In LaTeX style the title ends the header's paragraph and the lines are the
 \ rows of a table: number, sentence, rule and uses, steps.
 : lf-ol-table ( -- )
-  s\" \\par\\noindent{\\small\n\\begin{tabular}{@{}r@{\\hspace{1em}}p{0.46\\linewidth}" lf-lv-out
-  s\" @{\\hspace{1em}}p{0.27\\linewidth}l@{}}\n" lf-lv-out ;
+  s\" \\par\\noindent{\\small\n\\begin{tabular}{@{}r@{\\hspace{1em}}" lf-lv-out
+  s\" p{0.46\\linewidth}@{\\hspace{1em}}p{0.27\\linewidth}l@{}}\n" lf-lv-out ;
 : lf-ol-proof-words ( -- c-addr u )
   lf-ol-theorem? if s" Proof (reconstructed from the proof term)."
   else s" Construction (reconstructed from the value)." then ;
 : lf-ol-proof-title ( -- )
-  lf-lv-tex? if lf-ol-tex-close s" \noindent\textit{" lf-lv-put lf-ol-proof-words lf-lv-put
-    s" }" lf-lv-put 0 lf-lv-flush lf-lv-cr lf-ol-table exit then
+  lf-lv-tex? if lf-ol-tex-close s" \noindent\textit{" lf-lv-put lf-ol-proof-words
+    lf-lv-put s" }" lf-lv-put 0 lf-lv-flush lf-lv-cr lf-ol-table exit then
   lf-lv-cr lf-ol-proof-words lf-ol-line ;
 : lf-ol-outline ( D -- )
   lf-ol-proof-title lf-ol-tasks walk-clear

@@ -78,7 +78,8 @@ end-structure
 : lf-sf-indent ( -- ) lf-sf lf-sf-bol @ 0= if exit then false lf-sf-bol!
   lf-lv-tex? if s" \hspace*{2em}" lf-lv-out else 4 lf-lv-blank-run then ;
 : lf-sf-plain-byte ( c-addr -- )
-  dup c@ 10 = if drop s\" \n" lf-lv-out true lf-sf-bol! else lf-sf-indent 1 lf-lv-out then ;
+  dup c@ 10 = if drop s\" \n" lf-lv-out true lf-sf-bol! exit then
+  lf-sf-indent 1 lf-lv-out ;
 : lf-sf-tex-block-byte ( c-addr -- )
   dup c@ 10 = if drop lf-sf-newline lf-lv-out true lf-sf-bol! exit then
   lf-sf-indent lf-sf-tex-byte ;

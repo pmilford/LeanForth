@@ -4133,8 +4133,8 @@ quick = true
 [[fault]]
 id = "outline-latex-table-not-closed"
 file = "src/present/proof-outline.fs"
-old = '''  lf-lv-tex? if s\" \\end{tabular}}\n" lf-lv-out s\" \\begin{flushleft}\\small\n" lf-lv-out'''
-new = '''  lf-lv-tex? if s\" \\begin{flushleft}\\small\n" lf-lv-out'''
+old = '''  lf-lv-tex? if lf-ol-table-end lf-ol-small-open then'''
+new = '''  lf-lv-tex? if lf-ol-small-open then'''
 test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
 reason = "the proof table is not ended before the footer, so the fragment leaves its environment open and does not compile"
 quick = true

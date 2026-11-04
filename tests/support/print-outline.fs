@@ -31,7 +31,8 @@ require ../../src/cli/print.fs
 \ The same, then an environment to check it in, made current.
 : po-load ( c-addr u -- env )
   po-reload
-  po-fuel lf-check-budget lf-env-pool-max lf-env-new ok? 0= abort" print-outline: no environment"
+  po-fuel lf-check-budget lf-env-pool-max lf-env-new ok?
+  0= abort" print-outline: no environment"
   dup lf-env-use ok? 0= abort" print-outline: environment not used" ;
 : po-free ( env -- ) lf-env-free ok? 0= abort" print-outline: environment not freed" ;
 : po-run-file ( c-addr u detail -- )
