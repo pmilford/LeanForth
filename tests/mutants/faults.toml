@@ -938,6 +938,14 @@ new = '''  lf-lmk-offset nip swap lf-lmk-offset nip < if 1 else 2 then ;'''
 test = "$GFORTH tests/core/level-compare.fs"
 reason = "mk_max of two explicit levels of equal depth gives the second, where Lean gives the first"
 
+[[fault]]
+id = "lv-normalize-need-under-measured"
+file = "src/kernel/level-normalize.fs"
+old = '''7 constant lf-lnorm-rs-level    \ return-stack cells per level node'''
+new = '''6 constant lf-lnorm-rs-level    \ return-stack cells per level node'''
+test = "$GFORTH tests/core/level-deep.fs"
+reason = "normalize's stated return-stack need per level node falls below the 6.5 cells painted, so a larger level store could outgrow the stated need"
+
 # --- NDJSON reader (src/import/ndjson.fs) ----------------------------------
 
 [[fault]]
