@@ -493,7 +493,7 @@ where LeanForth wrote `imax 1 (u+1)`), and then compares levels by a fixed
 procedure that is deliberately incomplete: it sometimes calls two levels
 different even though they always have the same value. LeanForth made the
 untidied expressions and compared them with its own rule, so in four
-review cases (and a fifth found since) it said "equal" where Lean says
+review cases (and two more found since) it said "equal" where Lean says
 "different" — it **accepted declarations that Lean rejects**, the worst
 kind of mismatch. It was not a logical error (the levels really are equal
 in value), but it broke the rule that LeanForth gives Lean's verdict.
@@ -501,14 +501,16 @@ in value), but it broke the rule that LeanForth gives Lean's verdict.
 The fix copies Lean exactly: LeanForth now tidies levels with exact copies
 of Lean's `mk_max` and `mk_imax` wherever Lean's kernel does, and compares
 levels with an exact copy of Lean's `is_equivalent` (including its
-incomplete `normalize` step and Lean's ordering of names). All six review
-cases and 37 new ones now give Lean's own verdict; levels never need
+incomplete `normalize` step and Lean's ordering of names). The six review
+cases, 26 further declarations checked with the pinned Lean, and 1,800
+random pairs of levels now all give Lean's own answer. Levels never need
 *unknown* in a declaration's check any more, except in one odd situation
 where Lean itself gives two different answers to the very same input
-(rule K6, below), where LeanForth now says *unknown*. Where Lean's
+(rule K6, below): there LeanForth now says *unknown*. Where Lean's
 comparison misses a true equality, LeanForth now misses it too, as the
 owner's rule requires; those cases are recorded in
-`docs/project/BEYOND_LEAN.md` (row BL-1) for a later improved mode.
+`docs/project/BEYOND_LEAN.md` (rows BL-1 and BL-3) for a later improved
+mode.
 
 ### Lean's source
 
@@ -604,8 +606,31 @@ is the same either way.
 
 ### Evidence
 
-See [the expected results](../reviews/FIRST_CHECKER_EXPECTED.md#universe-levels-amendment-1)
-for the rows and measurements.
+Measured 2026-11-03 with Lean 4.35.0 and Gforth 1.0.0 (rows and commands
+in [the expected results](../reviews/FIRST_CHECKER_EXPECTED.md#universe-levels-amendment-1)):
+
+- **Universe-scope table**, 49 rows (17 before, 32 new), each with Lean's
+  verdict checked by the Lean file: LeanForth gives Lean's verdict on all
+  45 rows outside K6 (25 accepted, 20 rejected) and *unknown* on the four
+  K6 rows. On `main` before the fix, the review's four and the two
+  zero-rewrite rows were *accepted*, and T3 *unknown*.
+- **The 62-row table**: unchanged but for `equal-universe-other-spelling`,
+  now *accepted* as by Lean (was *unknown*, K4). Binder domains unchanged.
+- **Random levels against Lean's kernel**: 1,800 seeded pairs over `u`,
+  `v`, `w` agree with `Kernel.isDefEq` on `Sort`s (`is_equivalent`: 708
+  equal, 1,092 not), with `mk_max` (through `instantiate`) and with
+  `mk_imax` (through `infer_pi`), byte for byte
+  (`tests/core/level-kernel-differential.py`).
+- **Against an independent model** (`tests/core/level-compare.fs`, make
+  test): 18,000 `mk_max`, `mk_imax` and `operator==` checks on random level
+  DAGs against a plain recursive port of `level.cpp`, every rule reached;
+  855 equivalent pairs, each equal in value under the witness assignments
+  and symmetric.
+- **Planted faults** (`tests/mutants/faults.toml`): each fix reverted in
+  turn (raw `imax` for a Π, raw rebuild in substitution, witness D1, the
+  sharing rule kept or dropped) and each of Lean's rules broken one by
+  one: all 16 caught by `make test`'s files; the raw `imax`, the raw
+  rebuild and a reversed name order also fail the pinned-Lean tables.
 
 ## Consequences
 

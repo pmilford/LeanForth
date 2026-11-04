@@ -51,10 +51,10 @@ recognised by their fixed message.
 
 | | Lean accepted | Lean rejected | Total |
 | --- | ---: | ---: | ---: |
-| LeanForth **accepted** | 14 | 0 | 14 |
+| LeanForth **accepted** | 15 | 0 | 15 |
 | LeanForth **rejected** | 0 | 28 | 28 |
 | LeanForth **invalid** | 0 | 1 | 1 |
-| LeanForth **unknown** | 10 | 1 | 11 |
+| LeanForth **unknown** | 9 | 1 | 10 |
 | LeanForth **unsupported** | 8 | 0 | 8 |
 | Total | 32 | 30 | 62 |
 
@@ -93,10 +93,10 @@ handle, and no other slot gives a handle.
 
 | | Lean accepted | Lean rejected | Total |
 | --- | ---: | ---: | ---: |
-| LeanForth **accepted** | 14 | 0 | 14 |
+| LeanForth **accepted** | 15 | 0 | 15 |
 | LeanForth **rejected** | 0 | 28 | 28 |
 | LeanForth **invalid** | 0 | 1 | 1 |
-| LeanForth **unknown** | 10 | 1 | 11 |
+| LeanForth **unknown** | 9 | 1 | 10 |
 | LeanForth **unsupported** | 8 | 0 | 8 |
 | Total | 32 | 30 | 62 |
 
@@ -126,7 +126,50 @@ and `decl.lambda-in-argument-wrong-body` stay *unknown* where the table says
 2026-11-02). The universe-scope rows of ADR 0012's test matrix, row 4
 (`tests/reference/universe-scope-terms.lean`, `make
 test-universe-scope-differential`): 17 cases, every one as expected —
-6 accepted, 10 rejected (L1, L2, L3, D1), 1 unknown (K4).
+6 accepted, 10 rejected (L1, L2, L3, D1), 1 unknown (K4); since ADR 0011
+Amendment 1 the K4 row is accepted, as by Lean, and 32 rows follow (next
+section).
+
+## Universe levels (Amendment 1)
+
+Measured 2026-11-03 (agent LV). The independent review of the declaration
+check found that LeanForth **accepted four declarations that Lean
+rejects** (and a fifth and sixth were found since): it built raw `imax`
+and `max` levels where Lean's kernel builds them with `mk_imax` and
+`mk_max`, and its comparison dropped `max … 0` at any depth, which Lean's
+`normalize` does not. [ADR 0011, Amendment 1](../adr/0011-definite-rejection.md#amendment-1-proposed-2026-11-03-universe-levels-are-built-and-compared-as-lean-builds-and-compares-them)
+copies Lean exactly. The rows, all in `universe-scope-terms.lean` with
+Lean's verdict checked by the file itself (on `main` before the fix,
+LeanForth gave *accepted* on the six marked †):
+
+| Row | What | Lean 4.35.0 | LeanForth | Rule |
+| --- | --- | --- | --- | --- |
+| `pi-imax-swapped` † | T1: `(A : Sort v) → Sort u` claimed at `Sort (imax (v+1) (u+1))` | declTypeMismatch | rejected | D1 |
+| `pi-imax-sorted` | T2: the same with u and v in Lean's name order | accepted | accepted | A1 |
+| `pi-max` | T3: claimed at `Sort (max (v+1) (u+1))` (was *unknown*) | accepted | accepted | A1 |
+| `pi-imax-prop-domain` † | T4: `(A : Prop) → Sort u` at `Sort (imax 1 (u+1))` | declTypeMismatch | rejected | D1 |
+| `app-imax` † | th: a Π of sort `max 1 (u+1)` passed for `Sort (imax 1 (u+1))` | appTypeMismatch | rejected | D1 |
+| `instance-imax-nonzero` † | d: `T.{1, w+1}` at `Sort (imax 1 (w+1) + 1)` | declTypeMismatch | rejected | D1 |
+| `zero-rewrite-gone` † | `max 0 (imax 1 (u+1))` against `imax 1 (u+1)`, under `+1` | declTypeMismatch | rejected | D1 |
+| `zero-rewrite-gone-reversed` † | the same the other way round | declTypeMismatch | rejected | D1 |
+| `offsets`, `pi-equal-parameters`, `nested-max-explicit`, `nested-max-swapped`, `explicit-max`, `pi-into-prop` | `max (u+1) u`; `imax (u+1) (u+1)`; `max (v+1) (max (u+1) 1)` both ways; `max 0 1`; a Π into Prop | accepted (6) | accepted | A1 |
+| `instance-imax-zero`, `-zero-left`, `-equal`, `-max`, `instance-max-order`, `instance-swapped-max`, `instance-sorted-max`, `instance-nested-zero`, `instance-nested`, `instance-nested-succ` | specializations of `T.{u,v} : Sort (imax u v + 1)` and `T2.{u,v}` (`max u (imax v u)`) that make an imax's right side zero, or never zero, or the sides equal | accepted (10) | accepted | A1 |
+| `instance-imax-zero-wrong`, `instance-imax-stays`, `instance-imax-order`, `instance-swapped-imax` | the same specializations claimed at a level Lean's comparison calls different | declTypeMismatch (4) | rejected | D1 |
+| `shared-object`, `shared-object-max` | `T5.{u}` (type `Sort (imax 1 (u+1) + 1)`) with the very `u` object of its stored type | accepted / declTypeMismatch | unknown | K6 |
+| `fresh-object`, `fresh-object-max` | the same text with a freshly allocated `u` | declTypeMismatch / accepted | unknown | K6 |
+
+All 49 universe-scope rows equal the table (25 accepted, 20 rejected,
+4 unknown): LeanForth gives Lean's verdict on every row except the four
+K6 rows, where Lean itself gives both verdicts on the same input. The
+62-row table above is unchanged except for `equal-universe-other-spelling`
+(now *accepted*, as Lean). `tests/core/level-compare-differential.sh` now
+compares with Lean's kernel (`Kernel.isDefEq`) instead of the
+elaborator's `Level.isEquiv` (15 fixed cases), and 1,800 seeded random
+pairs of levels agree with Lean's kernel on `is_equivalent`, `mk_max` and
+`mk_imax` (`tests/core/level-kernel-differential.py`). Planted faults —
+each fix reverted in turn, and Lean's rules one by one — are in
+`tests/mutants/faults.toml` (ids `lv-*`, `infer-imax-zero`,
+`rej-d1-syntactic-levels`); every one is caught.
 
 ## composition
 
@@ -203,7 +246,7 @@ P x := proof`.
 | `swapped-universe` | the proof takes A : Sort v where the statement says Sort u | declTypeMismatch | **rejected** | D1 | yes | rejected (D1+D4) |
 | `theorem-over-sort-u` | P : A → Sort u: a proposition only when u = 0, so not for every u | thmTypeIsNotProp | **rejected** | S3 | yes | rejected (S3) |
 | `definition-over-sort-u` | the same term as a definition is fine | accepted | **accepted** | A1 |  | accepted |
-| `equal-universe-other-spelling` | the proof writes Sort (max u u); Lean's level normalisation equates it with Sort u | accepted | **unknown** | K4 |  | unknown |
+| `equal-universe-other-spelling` | the proof writes Sort (max u u); Lean's level normalisation equates it with Sort u | accepted | **accepted** | A1 |  | accepted (was unknown, K4, before ADR 0011 Amendment 1) |
 | `proof-irrelevance-imax` | P y from a proof of P x, A : Sort (imax u 0), which is Prop for every u: x and y are proofs | accepted | **unknown** | K2 |  | unknown |
 | `proof-irrelevance-max-zero` | the same with A : Sort (max 0 0), which is Prop | accepted | **unknown** | K2 |  | unknown |
 
@@ -348,3 +391,17 @@ none". SHA-256 at that run: `first-checker-terms.lean`
 (Before task 2.2.3, with a test stand-in for the audit, on the 62 rows:
 "14 accepted, 1 full, 1 invalid, 28 rejected, 10 unknown, 8
 unsupported".)
+
+Run again on 2026-11-03 after ADR 0011 Amendment 1 (agent LV), Lean
+4.35.0 and Gforth 1.0.0: "first checker: 15 accepted, 1 invalid, 28
+rejected, 10 unknown, 8 unsupported; 8 decided by the declaration audit;
+known differences: none"; binder domains unchanged; "universe scope: 25
+accepted, 20 rejected, 4 unknown; …; known differences: none" (49 rows);
+`first-checker-check.sh` with the changed row: "(62 cases)" and the same
+27 source copies. `make test-level-compare-differential`: "Fifteen level
+comparisons match Lean's kernel: twelve equal, three not" and "1800
+random level pairs agree with Lean's kernel". SHA-256 of the changed
+tables: `first-checker-expected.lean`
+`68e8dc670ae5eeccffbc491fdc0e71046bd7a6d23096b99d70015fcc817d5665`,
+`first-checker-expected.tsv`
+`d747f71a8cf78306904d8d3093ad06c02e2c2eb7689f939880bbf3e6c2c5529a`.
