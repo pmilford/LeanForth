@@ -66,3 +66,17 @@
 {"ie":36,"lam":{"binderInfo":"default","body":35,"name":11,"type":6}}
 {"ie":37,"lam":{"binderInfo":"default","body":36,"name":6,"type":23}}
 {"thm":{"all":[10],"levelParams":[],"name":10,"type":24,"value":37}}
+{"in":26,"str":{"pre":1,"str":"swap"}}
+{"forallE":{"binderInfo":"default","body":1,"name":7,"type":1},"ie":38}
+{"const":{"name":4,"us":[1]},"ie":39}
+{"in":27,"num":{"i":2605673588,"pre":21}}
+{"in":28,"str":{"pre":27,"str":"_hygCtx"}}
+{"in":29,"str":{"pre":28,"str":"_hyg"}}
+{"in":30,"num":{"i":7,"pre":29}}
+{"ie":40,"lam":{"binderInfo":"default","body":1,"name":30,"type":1}}
+{"app":{"arg":40,"fn":39},"ie":41}
+{"app":{"arg":8,"fn":41},"ie":42}
+{"app":{"arg":5,"fn":42},"ie":43}
+{"app":{"arg":4,"fn":43},"ie":44}
+{"ie":45,"lam":{"binderInfo":"default","body":44,"name":7,"type":1}}
+{"def":{"all":[26],"hints":{"regular":1},"levelParams":[],"name":26,"safety":"safe","type":38,"value":45}}

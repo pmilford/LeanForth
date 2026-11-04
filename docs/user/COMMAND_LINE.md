@@ -212,7 +212,8 @@ constructors and its recursor — checked together by the first member's
 check, as Lean's kernel adds them together ([inductive blocks](../programming/INDUCTIVE_BLOCKS.md),
 plan task 5.2.1a: blocks that are not recursive, indexed or mutual). Each
 member gets the block's verdict. `tests/cli/inductive.lean` declares a
-type with two values and proves a theorem with its recursor:
+type with two values, proves a theorem with its recursor and defines a
+function with it:
 
 ```lean
 inductive Two where
@@ -222,6 +223,9 @@ inductive Two where
 theorem Two.cases (motive : Two → Prop) (a : motive Two.first) (b : motive Two.second)
     (t : Two) : motive t :=
   Two.rec a b t
+
+noncomputable def Two.swap (t : Two) : Two :=
+  Two.rec (motive := fun _ => Two) Two.second Two.first t
 
 #print axioms Two.cases
 ```
@@ -237,14 +241,18 @@ Two.first: accepted (experimental, not independently audited); axioms: none
 Two.second: accepted (experimental, not independently audited); axioms: none
 Two.rec: accepted (experimental, not independently audited); axioms: none
 Two.cases: accepted (experimental, not independently audited); axioms: none
-5 declarations: 5 accepted
-accepted: 5 (experimental, not independently audited); axioms: none
+Two.swap: accepted (experimental, not independently audited); axioms: none
+6 declarations: 6 accepted
+accepted: 6 (experimental, not independently audited); axioms: none
 exit status 0
 ```
 
 In mathematics: a set *T* = {first, second} and, for every property *P*
 of its elements, *P*(first) ∧ *P*(second) → ∀ *t* ∈ *T*, *P*(*t*), proved
-by cases. In LeanForth's Forth, the same check is
+by cases; and the map swap: *T* → *T* that exchanges the two values,
+defined by cases (`noncomputable` because Lean's compiler does not compile
+a recursor; Lean's kernel checks it all the same). In LeanForth's Forth,
+the same check is
 `s" tests/cli/inductive.ndjson" cli-check`, which prints the lines above
 and leaves 0. An export that uses every kind of record Lean writes,
 `tests/core/reexport/kinds.ndjson`, shows the mix a real library gives
@@ -351,14 +359,16 @@ Two.first: accepted (experimental, not independently audited); axioms: none
 Two.second: accepted (experimental, not independently audited); axioms: none
 Two.rec: accepted (experimental, not independently audited); axioms: none
 Two.cases: accepted (experimental, not independently audited); axioms: none
-5 declarations: 5 accepted
-accepted: 5 (experimental, not independently audited); axioms: none
+Two.swap: accepted (experimental, not independently audited); axioms: none
+6 declarations: 6 accepted
+accepted: 6 (experimental, not independently audited); axioms: none
 resources:
   time (s)     wall      cpu
-  input: 5 declarations, 38 term nodes, 3 levels, 4 constant references, 26 names
-  fuel: 1171 steps in all, at most 100000 per declaration
+  input: 6 declarations, 46 term nodes, 3 levels, 5 constant references, 31 names
+  fuel: 1520 steps in all, at most 100000 per declaration
   most fuel used:
        832 Two.cases (accepted)
+       349 Two.swap (accepted)
        339 Two (accepted)
 ```
 

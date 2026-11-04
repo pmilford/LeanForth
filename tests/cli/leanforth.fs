@@ -93,7 +93,9 @@ T{ s" 99999999999999999999999999999999999999999" cli-decimal -> false }T
 cli-options
 T{ composition cli-check outcome-ok tally -> 0 1 }T
 T{ fixture cli-check outcome-ok tally -> 0 3 }T
-T{ inductive cli-check outcome-ok tally -> 0 5 }T  \ a block of 4 and a theorem
+\ An inductive type (a block of 4), a theorem and a definition by its
+\ recursor: Lean's verdicts, all accepted, none unsupported.
+T{ inductive cli-check outcome-ok tally outcome-unsupported tally -> 0 6 0 }T
 T{ chain cli-check outcome-ok tally -> 0 1 }T      \ larger than --record holds
 T{ wrong cli-check -> 4 }T                          \ no manifest beside it
 T{ s" tests/cli/no-such.ndjson" cli-check -> 4 }T

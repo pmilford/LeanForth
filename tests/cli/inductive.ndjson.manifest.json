@@ -1,5 +1,5 @@
 {
-  "bytes": 3696,
+  "bytes": 4385,
   "export_format": "3.1.0",
   "exporter": "lean4export",
   "exporter_version": "3.1.0",
@@ -7,20 +7,20 @@
   "format_version": 1,
   "lean_githash": "eb6cafb7290e8bd5f2937522d8d804f58f02bafc",
   "lean_version": "4.35.0",
-  "lines": 68,
+  "lines": 82,
   "mathlib_commit": null,
   "records": {
     "decl.axiom": 0,
-    "decl.def": 0,
+    "decl.def": 1,
     "decl.inductive": 1,
     "decl.opaque": 0,
     "decl.quot": 0,
     "decl.thm": 1,
-    "expr.app": 8,
+    "expr.app": 12,
     "expr.bvar": 5,
-    "expr.const": 4,
-    "expr.forallE": 7,
-    "expr.lam": 11,
+    "expr.const": 5,
+    "expr.forallE": 8,
+    "expr.lam": 13,
     "expr.letE": 0,
     "expr.mdata": 0,
     "expr.natVal": 0,
@@ -35,8 +35,8 @@
     "level.param": 1,
     "level.succ": 1,
     "meta": 1,
-    "name.num": 3,
-    "name.str": 22
+    "name.num": 5,
+    "name.str": 25
   },
-  "sha256": "e71e8ee75011c93056ac9097814f8a1a1c679bdf8ff31777721515c8f1e86019"
+  "sha256": "5c14b3b4a2879eea1b1c15184706af5c8c02a55358292c60f6b55ec00de5e12c"
 }

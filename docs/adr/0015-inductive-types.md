@@ -798,11 +798,17 @@ and its members' exported data into the input (`core/input.fs`,
    recursor's result type by construction.
 8. *B4* differences set a warning bit per block (`lf-block-warnings`,
    owner answer Q2), kept on the accepted block's slots
-   (`lf-env-warnings`; review rvI21 M2); no command-line output prints
-   them yet, since the command line's reader still refuses inductive
-   types. B5's generated values are not yet published: the slots hold
-   the file's data, whose recursor and constructor numbers B3 proved equal
-   to LeanForth's, but whose type fields `numIndices`, `isRec`,
+   (`lf-env-warnings`; review rvI21 M2). Since 2026-11-04 `bin/leanforth
+   check` stages and feeds the export, so inductive blocks get the
+   checker's verdicts from the command line, but it prints no B4 warning
+   yet (plan task 6.5.2's per-declaration report is where it belongs);
+   `check --record`, `replay` and `print` still read with
+   `import/checker-input.fs`, which refuses inductive types: a temporary
+   gap, closed by a run record version for any size (6.5.2) and by
+   moving `print` onto the feed (3.4.1). B5's generated values are not
+   yet published: the slots hold the file's data, whose recursor and
+   constructor numbers B3 proved equal to LeanForth's, but whose type
+   fields `numIndices`, `isRec`,
    `isReflexive`, `numNested` are the file's and untrusted (the warning
    bits say which differ from LeanForth's); tasks 5.2.1b and 5.2.2, the
    first to read them, must use LeanForth's values.

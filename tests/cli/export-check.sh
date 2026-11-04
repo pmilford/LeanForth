@@ -2,9 +2,10 @@
 # The command line's three Lean fixtures with pinned Lean: Lean accepts
 # tests/cli/chain.lean (larger than check --record holds), unfold.lean (a
 # proof that needs a definition unfolded) and inductive.lean (an inductive
-# type and a theorem proved with its recursor), each without axioms, and
-# scripts/export.sh reproduces the committed exports and their manifests
-# byte for byte. LEAN names the pinned Lean 4.35.0 binary.
+# type, a theorem proved with its recursor and a definition computed with
+# it), each without axioms, and scripts/export.sh reproduces the committed
+# exports and their manifests byte for byte. LEAN names the pinned Lean
+# 4.35.0 binary.
 set -eu
 
 lean=${LEAN:-lean}
@@ -38,6 +39,6 @@ reproduce() {
 }
 reproduce chain LeanForthChain chain chain
 reproduce unfold LeanForthUnfold impliesSelf Implies impliesSelf
-reproduce inductive LeanForthInductive Two.cases Two.cases
-printf '%s\n' 'Lean accepts chain, impliesSelf and Two.cases;' \
+reproduce inductive LeanForthInductive Two.cases Two.cases Two.swap
+printf '%s\n' 'Lean accepts chain, impliesSelf, Two.cases and Two.swap;' \
   'scripts/export.sh reproduces the three exports and their manifests.'

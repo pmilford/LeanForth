@@ -107,10 +107,12 @@ class ExitCodes(unittest.TestCase):
                      "3 declarations: 3 accepted", accepted(3)])
         self.expect(["check", CHAIN], 0,
                     [f"chain: {LABEL}", "1 declaration: 1 accepted", accepted(1)])
+        # An inductive type, a theorem and a definition by its recursor:
+        # Lean's verdicts, accepted, not unsupported (as --record answers).
         self.expect(["check", INDUCTIVE], 0,
                     [f"Two: {LABEL}", f"Two.first: {LABEL}", f"Two.second: {LABEL}",
-                     f"Two.rec: {LABEL}", f"Two.cases: {LABEL}", "5 declarations: 5 accepted",
-                     accepted(5)])
+                     f"Two.rec: {LABEL}", f"Two.cases: {LABEL}", f"Two.swap: {LABEL}",
+                     "6 declarations: 6 accepted", accepted(6)])
 
     def test_1_rejected(self):
         self.expect(["check", "--no-manifest", f"{CASES}/composition-wrong-argument.ndjson"], 1,
@@ -634,11 +636,12 @@ class JsonReport(unittest.TestCase):
         self.assertEqual((status, got["run"], got["read"]["outcome"], got["manifest"]),
                          (0, "ok", "ok", "checked"))
         self.assertEqual([d["fuel"] > 0 for d in got["declarations"]],
-                         [True, False, False, False, True])   # the block's fuel is Two's
+                         [True, False, False, False, True, True])   # the block's is Two's
         self.assertEqual((got["fuel"]["total"], got["fuel"]["unknown"]),
                          (sum(d["fuel"] for d in got["declarations"]), 0))
-        self.assertEqual([t["name"] for t in got["fuel"]["top"]], ["Two.cases", "Two"])
-        self.assertEqual(got["input"]["declarations"], 5)
+        self.assertEqual([t["name"] for t in got["fuel"]["top"]],
+                         ["Two.cases", "Two.swap", "Two"])
+        self.assertEqual((got["input"]["declarations"], got["stopped"]), (6, False))
         # Fuel not known: a check that failed in inference gave its counter
         # up; it is in no total and never among the most fuel used.
         _, got, _ = report("--no-manifest", "tests/core/reexport/kinds.ndjson")
@@ -664,19 +667,20 @@ class Resources(unittest.TestCase):
     def test_report(self):
         status, out, err = run("check", "--resources", INDUCTIVE)
         lines = out.splitlines()
-        self.assertEqual((status, err, lines[:8]),
+        self.assertEqual((status, err, lines[:9]),
                          (0, "", run("check", INDUCTIVE)[1].splitlines() + ["resources:"]))
-        rest = lines[8:]
+        rest = lines[9:]
         self.assertEqual(rest[0], "  time (s)     wall      cpu")
         self.assertEqual([line.split()[0] for line in rest[1:5]],
                          ["stage", "feed", "check", "total"])
         self.assertRegex(rest[5], r"^  memory: peak resident \d+(\.\d)? [kM]B; "
                                   r"the stage's heap blocks \d+(\.\d)? [kM]B$")
         self.assertEqual(rest[6:], [
-            "  input: 5 declarations, 38 term nodes, 3 levels, 4 constant references, 26 names",
-            "  fuel: 1171 steps in all, at most 100000 per declaration",
+            "  input: 6 declarations, 46 term nodes, 3 levels, 5 constant references, 31 names",
+            "  fuel: 1520 steps in all, at most 100000 per declaration",
             "  most fuel used:",
             "       832 Two.cases (accepted)",
+            "       349 Two.swap (accepted)",
             "       339 Two (accepted)"])
 
     def test_stable_but_for_time_and_memory(self):
