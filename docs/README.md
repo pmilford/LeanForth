@@ -60,6 +60,7 @@ features they describe.
 - [VERSIONS.md](development/VERSIONS.md) — observed tool versions and pinned download hashes.
 - [PROFILING.md](development/PROFILING.md) — opt-in time and memory measurement; results in [measurements/](development/measurements/).
 - [Lean kernel profile](development/measurements/lean-kernel-profile-2026-11-02/README.md) — where Lean 4.35.0's kernel spends its time on `Init`, `Std` and a Mathlib slice (by function family, measured with perf), per-declaration times and the slowest declarations, and a nanoda comparison (2026-11-02).
+- [Two-mode program words prototype](development/measurements/two-mode-prototype-2026-11-03/README.md) — throwaway evidence for ADR 0019: the real example sources, run by Forth's interpreter with a LeanForth vocabulary, give byte-identical IR on Gforth 1.0.0 and 0.7.3; run mode, replayed reader tests, hostile inputs, an IR round trip, planted faults and a symbolic demo (2026-11-03).
 - [KERNEL_START.md](development/KERNEL_START.md) — prerequisites for starting the trusted kernel.
 - [ARENA_PROTOTYPE.md](development/ARENA_PROTOTYPE.md) — notes and limits of the experimental term storage.
 - [NDJSON_PREVIEW.md](development/NDJSON_PREVIEW.md) — the development-only Lean NDJSON preview.
@@ -101,7 +102,8 @@ approval; the others are proposals.
 [0013](adr/0013-derivation-log.md) the derivation log and the proof outline (proposed) ·
 [0016](adr/0016-compact-store.md) the compact store for Mathlib-scale input: 16-byte nodes, a shared input tier, hash tables (proposed) ·
 [0017](adr/0017-leanforth-syntax.md) LeanForth Forth syntax for theorems and proofs (accepted as the design basis) ·
-[0018](adr/0018-exceptions.md) when to use `CATCH` and `THROW` (proposed; piloted on level substitution).
+[0018](adr/0018-exceptions.md) when to use `CATCH` and `THROW` (proposed; piloted on level substitution) ·
+[0019](adr/0019-program-words-two-modes.md) program words in two modes: the same source loaded with a LeanForth vocabulary that emits IR, or with ordinary Forth to run it (proposed; [prototype](development/measurements/two-mode-prototype-2026-11-03/README.md)).
 
 ## `reviews/` — review packets and records
 

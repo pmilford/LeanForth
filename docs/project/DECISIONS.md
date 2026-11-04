@@ -694,3 +694,36 @@ wiped `/tmp`. Rejected alternative: keeping LeanForth deliberately more
 cautious than Lean where Lean decides; the owner wants identical behaviour
 first, improvements later. See
 [OWNER_DECISIONS.md](OWNER_DECISIONS.md#gate-answers-and-working-guidelines-2026-11-03).
+
+## Program words in two modes — proposed, 2026-11-03
+
+[ADR 0019](../adr/0019-program-words-two-modes.md) answers the owner's
+preference for option 2 (the program reader's [parser] gate is paused):
+the same source file is loaded either with a LeanForth correctness
+vocabulary, whose words have the names of Forth's words and write IR 0.1
+when Forth's own interpreter runs them, or with ordinary Forth to run it.
+Decided in the proposal: `:` leaves Forth interpreting, so each body word
+runs once and writes its instruction, and the structure words write nested
+blocks from a frame stack of their own, never evaluating a condition;
+calls are bound when Forth finds the word, and redefinition stays refused
+so a name is one definition; numbers are read by Forth and checked by every
+word against the text before it (plain decimals only, as many as the stack
+grew, with the written values), which is portable without recognizers and
+leaves nothing a number could forge; only the vocabulary and the file's
+own word list are in the search order, `BASE` is ten, `STATE` never
+changes, and the caller's settings are restored; it runs in the authoring
+program (8.2.1). IR stays the single proved meaning: symbolic execution
+comes later as an untrusted producer checked against it, growing into the
+proof producer for LeanForth's checker. Today's reader becomes a test
+oracle until the switch, then retires. A throwaway prototype loaded the
+real example files unchanged and wrote byte-identical IR on Gforth 1.0.0
+and 0.7.3, ran them in plain Forth, replayed the reader's 106 verdict
+tests with no difference, refused 81 of 86 hostile inputs (the other five
+are meant to pass), round-tripped IR with awkward names and caught four
+planted faults. Rejected: compiling and then running in an emit mode, our
+own token loop (option 1 again), Gforth recognizers, signed or tagged
+stack values, symbolic results as the obligations themselves, a late-bound
+dictionary, and running in the checker's process. Prior art cited:
+MiniForth (<https://github.com/leodemoura/MiniForth>, commit `e8756e2`,
+no licence, ideas only). Open for the owner: the four questions at the end
+of the ADR.
