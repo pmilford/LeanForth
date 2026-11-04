@@ -100,6 +100,72 @@ T{ s" d" small text-intern s" b" small text-intern -> -1 outcome-full 1 0 }T
 T{ small cons-numbers small cons-table htab-count small cons-bytes slab-count -> 3 3 3 }T
 small cons-free
 
+\ At most two tiers: a set over a sealed extension is refused (numbers
+\ name records one tier down only), and so is a set over an open one.
+create low /cons allot   create mid /cons allot   create top3 /cons allot
+T{ 2 text-class low cons-init s" a" low text-intern low cons-seal -> 0 0 0 0 }T
+T{ 2 low mid cons-extend s" b" mid text-intern mid cons-seal -> 0 1 0 0 }T
+T{ low cons-base? mid cons-base? 2 mid top3 cons-extend -> true false outcome-invalid }T
+top3 cons-free mid cons-free
+\ Sealing freezes the table: finds through an extension change no byte of
+\ the sealed set's record or slots, and count themselves in the extension.
+create base-copy /cons allot
+: low-slots ( -- addr u ) low cons-table htab-block @ low cons-table htab-slots u32s ;
+create slots-copy 64 u32s allot
+T{ low cons-table htab-frozen? low-slots nip 64 u32s <= -> true true }T
+low base-copy /cons move  low-slots slots-copy swap move
+T{ 2 low mid cons-extend s" a" mid text-intern s" a" mid text-intern s" z" mid text-intern -> 0 0 0 0 0 1 0 }T
+T{ low base-copy /cons tuck compare low-slots slots-copy over compare mid cons-under-finds @ -> 0 0 3 }T
+mid cons-free low cons-free
+
+\ A text from the set's own byte slab: its address is kept as an offset,
+\ found again after the slab moves (here moved by hand, the old block
+\ overwritten before it is freed).
+create own /cons allot
+: move-bytes ( cons -- )
+  cons-bytes >r r@ slab-bytes allocate drop r@ slab-block @ over r@ slab-bytes move
+  r@ slab-block @ r@ slab-bytes [char] # fill r@ slab-block @ free drop
+  r@ slab-capacity r@ slab-block! r> drop ;
+T{ 2 text-class own cons-init s" abcdefgh" own text-intern -> 0 0 0 }T
+T{ 0 own text@ own cons-key! own cons-key-base @ -> 0 }T
+T{ own move-bytes own cons-key-fix own cons-key 2@ s" abcdefgh" compare -> 0 }T
+T{ s" elsewhere" own cons-key! own cons-key-base @ -> -1 }T
+\ Interning a part of an own text, the slab growing meanwhile.
+T{ 0 own text@ 4 - own text-intern 1 own text@ s" abcd" compare -> 1 0 0 }T
+T{ 0 own text@ own text-intern 1 own text@ own text-intern -> 0 0 1 0 }T
+own cons-free
+
+\ Bounds that reach the cell's end, as a 32-bit host reaches them at 2^32:
+\ a class whose numbers, times its record size, pass what a cell
+\ addresses still makes a set, its slab limit clamped ...
+max-n 8 / constant big-unit
+big-unit max-n cons-class: huge-class
+' text-rehash ' text-same ' text-span huge-class cons-hooks!
+create huge /cons allot
+T{ 2 huge-class huge cons-init huge cons-records slab-limit -> 0 max-n big-unit / }T
+huge cons-free
+\ ... and a commit one number before the class's limit (on a 32-bit host
+\ max-n, the cell's end), or past it, is full, never a wrapped sum.
+1 u32s max-n cons-class: wide-tuples
+' tuple-rehash ' tuple-same ' tuple-span wide-tuples cons-hooks!
+create wide /cons allot
+T{ 2 wide-tuples wide cons-init -> 0 }T
+wide cons-limit 1- wide cons-first !
+T{ wide tuple-start 5 wide tuple-add wide tuple-end wide cons-numbers -> 0 0 -1 outcome-full wide cons-limit 1- }T
+wide cons-limit 2 + wide cons-first !
+T{ wide tuple-start wide tuple-end -> 0 -1 outcome-full }T
+0 wide cons-first !  wide cons-reset drop
+\ A list whose length field is corrupted to 2^32 - 1 is no entry, found at
+\ once: its span saturates instead of wrapping.
+T{ wide tuple-start 5 wide tuple-add wide tuple-end -> 0 0 0 0 }T
+T{ u32-mask 0 wide cons-at u32! 0 wide cons-entry? 0 wide tuple-span -> false u32-mask }T
+wide cons-free
+\ A rollback whose table misses an entry gives invalid, after rolling back.
+create gap /cons allot  create gap-mark /cons-mark allot
+T{ 2 text-class gap cons-init gap-mark gap cons-mark s" p" gap text-intern s" q" gap text-intern -> 0 0 0 0 1 0 }T
+T{ 1 s" q" hash-bytes gap cons-table htab-remove gap-mark gap cons-rollback gap cons-numbers -> 0 1 0 }T
+gap cons-free
+
 \ A class of single 32-bit values whose hash keeps two bits: most records
 \ collide in the table. The key is the value, kept in cons-key.
 1 u32s cons-numbers-max cons-class: value-class

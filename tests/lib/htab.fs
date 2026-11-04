@@ -70,8 +70,21 @@ T{ 101 key-find drop 5 t ' htab-holds? rs-checked 0 5 t htab-holds? -> true fals
 T{ t htab-spread t htab-slots 6 t htab-presize t htab-slots 3 t htab-presize t htab-slots -> outcome-ok 16 outcome-ok 64 outcome-ok 64 }T
 T{ 1 3 all-found? 7 11 all-found? -> true true }T
 T{ t htab-spread t htab-slots -> outcome-ok 16 }T
-T{ t htab-clear t htab-count 101 key-find nip -> 0 false }T
+\ A live table; one with a broken size field or no block is not.
+T{ t htab-live? t htab-mask @ 1 t htab-mask ! t htab-live? swap t htab-mask ! -> true false }T
+\ A frozen table finds, writing nothing (its record and slots keep every
+\ byte), and refuses every change.
+create before /htab 64 u32s + allot
+: snapshot ( addr -- ) t over /htab move /htab + t htab-block @ swap 16 u32s move ;
+: unchanged? ( -- flag )
+  here snapshot before /htab here /htab compare 0=
+  before /htab + 16 u32s here /htab + 16 u32s compare 0= and ;
+T{ t htab-freeze t htab-frozen? before snapshot -> true }T
+T{ 1 3 all-found? 7 11 all-found? 200 key-find nip unchanged? -> true true false true }T
+T{ t htab-ready 101 key-find drop 5 t htab-remove 8 t htab-presize t htab-spread -> 1 1 1 0 }T
+T{ 4 t htab-resize t htab-clear unchanged? t htab-count -> outcome-invalid true 8 }T
 t htab-free
+T{ t htab-live? -> false }T
 
 \ A randomized model: inserts and removals of keys 0 .. 63, compared with a
 \ table of which keys are present and their entries.

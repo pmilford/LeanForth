@@ -51,10 +51,10 @@
 \ Interface: the tags (tag-bvar ... tag-mdata), let-tag? binder-tag?
 \ lam-head pi-head let-head proj-head expr-class expr-make expr-let
 \ expr-bvar expr-sort expr-const expr-app expr-nat expr-str expr-fvar
-\ expr-mdata
+\ expr-mdata expr-next expr-resolve!
 \ expr-valid? expr-head@ expr-tag@ expr-payload@ expr-a@ expr-b@ expr-data@
 \ expr-body@ data-range data-depth data-params? data-fvars? range-max
-\ depth-max. Outcomes: ok, full, invalid. State: expr-class and the check
+\ depth-max bvar-fits?. Outcomes: ok, full, invalid. State: expr-class and the check
 \ table, made while loading, read-only afterwards.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
@@ -178,8 +178,8 @@ require ./compact-levels.fs
 : pair-under? ( top exprs -- flag )
   cons-first @ >r dup quad-a u32@ r@ u< swap quad-b u32@ r> u< and ;
 \ The payload as a name of the tier: whether it is one, and an input one.
-: payload-name ( top exprs -- name names ) swap quad-head u32@ head-payload swap
-  exprs>names ;
+: payload-name ( top exprs -- name names )
+  swap quad-head u32@ head-payload swap exprs>names ;
 : name-checks ( top exprs -- valid? under? ) payload-name 2dup cons-in? -rot cons-under? ;
 
 : expr-bad ( top exprs -- under? outcome ) 2drop false outcome-invalid ;
@@ -189,30 +189,37 @@ require ./compact-levels.fs
 : check-binder ( top exprs -- under? outcome )
   2dup binder-pair >r data-deeper data! 2dup name-checks r> rot and >r >r
   pair-under? r> and r> flag>outcome ;
-: check-let ( top exprs -- under? outcome )
+\ A letE's data: its type's, value's and lowered body's, one level
+\ deeper; valid when all three are expressions of the set and the tag is
+\ a letE's. Its parts are input records when type, value and body are.
+: let-data ( top exprs -- top exprs valid? )
   2dup child-pair 2over child-body >r data-lower r> merged >r data-deeper data!
-  over quad-head u32@ head-tag let-tag? r> and >r 2dup name-checks r> rot and >r >r
-  2dup swap body-of swap cons-under? >r pair-under? r> and r> and r> flag>outcome ;
+  over quad-head u32@ head-tag let-tag? r> and ;
+: body-under? ( top exprs -- flag ) swap body-of swap cons-under? ;
+: let-under? ( top exprs -- flag ) 2dup body-under? >r pair-under? r> and ;
+: check-let ( top exprs -- under? outcome )
+  let-data >r 2dup name-checks r> rot and >r >r let-under? r> and r> flag>outcome ;
 : check-proj ( top exprs -- under? outcome )
   2dup child-a >r data-deeper data! 2dup name-checks r> rot and >r >r
   swap quad-a u32@ swap cons-under? r> and r> flag>outcome ;
-\ A bound variable's range beyond 2^20 - 1 is full (Lean's limit, L2).
+\ A bound variable's index must be below 2^20 - 1, so that its range,
+\ index + 1, is at most Lean's limit (L2); beyond it, full. The index is
+\ compared before 1+, which would wrap at 2^32 - 1 on a 32-bit host.
+: bvar-fits? ( index -- flag ) range-max u< ;
 : check-bvar ( top exprs -- under? outcome )
   drop dup bare? 0= if drop false outcome-invalid exit then
-  dup quad-a u32@ 1+ dup range-max u> if 2drop false outcome-full exit then
-  swap quad-data u32! true outcome-ok ;
-\ A level operand's data: its parameter bit.
-: level-data ( l levels -- d valid? )
-  2dup cons-in? if cons-at quad-data u32@ true else 2drop 0 false then ;
+  dup quad-a u32@ dup bvar-fits? 0= if 2drop false outcome-full exit then
+  1+ swap quad-data u32! true outcome-ok ;
 : check-sort ( top exprs -- under? outcome )
   exprs>levels >r dup quad-a u32@ r@ level-data >r over quad-data u32! dup bare? r> and
   swap quad-a u32@ r> cons-under? swap flag>outcome ;
 \ A constant's list: a list of the tier whose n items at addr are levels,
 \ their parameter bits or-ed.
+: item-data ( addr levels -- d valid? ) swap u32@ swap level-data ;
 : items-data ( addr n levels -- d valid? )
-  swap 0 swap 0 ?do 2 pick i u32s + u32@ 2 pick level-data
-    0= if 2drop 2drop 0 false unloop exit then or
-  loop nip nip true ;
+  0 swap 2swap u32s over + swap ?do
+    i over item-data 0= if 2drop drop 0 false unloop exit then rot or swap
+  1 u32s +loop drop true ;
 : tuple-data ( t exprs -- d valid? )
   exprs>tier >r dup r@ tier-tuples cons-entry? 0= if r> 2drop 0 false exit then
   r@ tier-tuples cons-at dup u32@ swap 1 u32s + swap r> tier-levels items-data ;
@@ -247,8 +254,8 @@ check-table expr-checks
 binder-checks
 
 \ Find or keep the checked candidate of units records.
-: expr-check ( top exprs -- under? outcome ) over quad-head u32@ head-tag expr-checks
-  check-run ;
+: expr-check ( top exprs -- under? outcome )
+  over quad-head u32@ head-tag expr-checks check-run ;
 : expr-keep ( units under? exprs -- e outcome )
   dup >r cons-top expr-hash swap r@ cons-find
   if nip r> drop outcome-ok else r> cons-commit then ;
@@ -260,8 +267,7 @@ binder-checks
 \ field beyond 32 bits or a sealed tier; -1 and full when there is no
 \ room or for a bound variable beyond Lean's limit.
 : expr-make ( head a b tier -- e outcome )
-  tier-exprs >r fields-fit? 0= if outcome-invalid fail3 r> drop exit then
-  1 0 r@ cons-room dup ok? 0= if fail3 r> drop exit then drop
+  tier-exprs >r 1 r@ quad-room dup ok? 0= if fail3 r> drop exit then drop
   r@ cand! 1 r> expr-finish ;
 \ The letE with head (let-head), type, value and body: as expr-make.
 : let-body! ( body exprs -- )
@@ -269,10 +275,10 @@ binder-checks
   0 r@ quad-b u32! 0 r> quad-data u32! ;
 : expr-let ( head type value body tier -- e outcome )
   tier-exprs >r dup u32-mask u> if drop outcome-invalid fail3 r> drop exit then
-  2 0 r@ cons-room dup ok? 0= if nip fail3 r> drop exit then drop
-  r@ let-body! fields-fit? 0= if outcome-invalid fail3 r> drop exit then
-  r@ cand! r@ cons-top r@ check-let dup ok? if drop 2 swap r> expr-keep
-  else nip r> drop no-result then ;
+  >r 2 2r@ drop quad-room dup ok? 0= if fail3 2r> 2drop exit then drop
+  r> r@ let-body! r@ cand! r@ cons-top r@ check-let
+  dup ok? if drop 2 swap r> expr-keep else nip r> drop no-result then ;
+
 
 : expr-app ( f a tier -- e outcome ) >r tag-app -rot r> expr-make ;
 : expr-bvar ( i tier -- e outcome ) >r tag-bvar swap 0 r> expr-make ;
@@ -282,5 +288,15 @@ binder-checks
 : expr-str ( text tier -- e outcome ) >r tag-str swap 0 r> expr-make ;
 : expr-fvar ( n tier -- e outcome ) >r tag-fvar swap 0 r> expr-make ;
 : expr-mdata ( e tier -- e' outcome ) >r tag-mdata swap 0 r> expr-make ;
+
+\ Walking a tier's own expressions by number: the number after e (a letE
+\ spans two). Unchecked, like the accessors.
+: expr-next ( e tier -- e' ) over swap expr-record record-let? if 2 else 1 then + ;
+\ Resolving a constant (C4), while its tier is still open: u, below
+\ payload-limit, becomes constant e's payload, its declaration's number
+\ + 1 (0: none, or several). The payload is not part of the key, so the
+\ tables stay as they are. Unchecked: e is a constant of an open tier.
+: expr-resolve! ( u e tier -- )
+  expr-record >r tag-const swap pack-head r> quad-head u32! ;
 
 base !   \ the BASE this file was loaded with

@@ -20,7 +20,7 @@
 \ declaration has its name, and 0 when several have (the array and the
 \ chain then decide); a constant whose name no declaration has is invalid.
 \
-\ Life cycle, each step refused (invalid) out of order:
+\ Life cycle, the reading and sealing steps refused (invalid) out of order:
 \   stage-init     an empty stage; the expression table starts at 2^log2
 \                  slots (pre-size it from the export, about 59 bytes per
 \                  expression, so that it seldom doubles), the others at 2^12
@@ -29,8 +29,9 @@
 \   stage-read-unchecked   read it without one: the caller's explicit choice
 \   stage-seal     resolve the constants, mark, and make the tier read-only
 \   stage-load, stage-load-unchecked   read, then seal
-\   stage-unmap    free the export-index maps once nothing needs them
-\   stage-free     free everything; the record is blank again
+\   stage-unmap    free the export-index maps of a sealed stage once nothing
+\                  needs them; on any other stage it does nothing
+\   stage-free     free everything, in any state; the record is blank again
 \ A read that fails, for any reason or by a THROW (which then passes on),
 \ rolls the stage back to empty (stage-init's state), so nothing of a
 \ partial, malformed or mismatched file stays; a stage whose rollback or
@@ -54,7 +55,12 @@
 \ blocks the stage may hold (stage-allocated: the tier, maps and
 \ declarations); the read stops as full at the first record after which
 \ they exceed it. Blocks grow by doubling, so the peak may pass the limit
-\ by the last block's growth. 0, the default, is no limit but the heap's.
+\ by the last block's growth. Sealing counts the marks' bitset (one bit
+\ per expression, made only when an mdata record was staged) against it,
+\ but not tier-seal's rebuild of each table at most half full, which for
+\ a moment holds a table's old and new slots (1.07 GB new for Mathlib's
+\ expressions, whose table pre-sized to 2^28 is not rebuilt). 0, the
+\ default, is no limit but the heap's.
 \
 \ Example:
 \   create lib /stage allot
@@ -125,11 +131,14 @@ require ./stage-records.fs
 : stage-init ( log2 stage -- outcome )
   dup /stage erase tuck tier-start ['] slabs-start and-then ['] tier-marked and-then
   ['] export-start and-then staging-empty stage-state! ;
-: stage-unmap ( stage -- )
+\ The export-index maps: freed by stage-free in any state, and by
+\ stage-unmap only once the stage is sealed.
+: maps-free ( stage -- )
   dup stage-name-map slab-free dup stage-level-map slab-free stage-expr-map slab-free ;
+: stage-unmap ( stage -- ) dup stage-sealed? if maps-free else drop then ;
 : stage-free ( stage -- )
   dup stage-tier tier-free dup stage-export export-free dup stage-manifest manifest-free
-  dup stage-unmap dup stage-decl-records slab-free dup stage-by-name slab-free
+  dup maps-free dup stage-decl-records slab-free dup stage-by-name slab-free
   dup stage-reach heap-release /stage erase ;
 
 \ ---- Reading. A failed read rolls the stage back: the tier to the mark
@@ -161,10 +170,15 @@ require ./stage-records.fs
 \ The array covers every name of the tier.
 : names-covered ( stage -- outcome )
   dup stage-tier tier-names cons-numbers 1- swap by-name-cover ;
-\ The expression records of the input tier, walked by number: a letE
-\ spans two.
-: input-exprs ( stage -- slab ) stage-tier tier-exprs cons-records ;
-: record-span ( addr -- units ) record-let? if 2 else 1 then ;
+\ Every expression of the input tier in number order (a letE spans two
+\ numbers): xt ( e stage -- outcome ) on each, stopping at the first
+\ outcome that is not ok.
+: input-exprs ( stage -- n ) stage-tier tier-exprs cons-numbers ;
+: exprs-walk ( stage xt -- outcome )
+  over input-exprs 0 begin 2dup > while
+    dup 4 pick 4 pick execute dup ok? 0= if nip nip nip nip exit then drop
+    3 pick stage-tier expr-next
+  repeat 2drop 2drop outcome-ok ;
 
 \ Constants. What a constant of name n resolves to: its declaration + 1,
 \ or 0 when several declarations have the name; false when none has.
@@ -173,53 +187,64 @@ require ./stage-records.fs
   dup 1- rot staged-prev@ if drop 0 then true ;
 : unknown-constant ( n stage -- outcome )
   tuck stage-culprit ! c" unknown constant" swap stage-why ! outcome-invalid ;
-: const-resolve ( addr stage -- outcome )
-  over quad-a u32@ over resolution if nip tag-const swap pack-head swap quad-head u32!
-    outcome-ok exit then
-  swap quad-a u32@ swap unknown-constant ;
-: const-at? ( addr -- flag ) quad-head u32@ head-tag tag-const = ;
-: record-resolve ( addr stage -- outcome )
-  over const-at? if const-resolve else 2drop outcome-ok then ;
-: consts-resolve ( stage -- outcome )
-  dup input-exprs 0 begin 2dup swap slab-count < while
-    2dup swap slab-at dup >r 3 pick record-resolve
-    ok? 0= if r> drop 2drop drop outcome-invalid exit then r> record-span +
-  repeat 2drop drop outcome-ok ;
+: const-resolve ( e stage -- outcome )
+  2dup stage-tier expr-a@ over resolution if -rot stage-tier expr-resolve! outcome-ok
+  else tuck stage-tier expr-a@ swap unknown-constant then ;
+: record-resolve ( e stage -- outcome )
+  2dup stage-tier expr-tag@ tag-const = if const-resolve else 2drop outcome-ok then ;
+: consts-resolve ( stage -- outcome ) ['] record-resolve exprs-walk ;
 
-\ Marks, only when an mdata record was staged. The reach fields (heap,
-\ freed after sealing) hold one 32-bit field per expression number: 1
-\ when the expression is or holds an mdata record. Children have smaller
-\ numbers than their parents, so one pass in number order fills them.
-: reach-at ( e stage -- addr ) stage-reach @ swap u32s + ;
-: reach@ ( e stage -- flag ) reach-at u32@ 0<> ;
-: a-reach? ( addr stage -- flag ) swap quad-a u32@ swap reach@ ;
-: b-reach? ( addr stage -- flag ) swap quad-b u32@ swap reach@ ;
-: body-reach? ( addr stage -- flag ) swap body-of swap reach@ ;
-: two-children? ( tag -- flag ) dup tag-app = over binder-tag? or swap let-tag? or ;
-: one-child? ( tag -- flag ) dup tag-proj = swap tag-mdata = or ;
-: reaches? ( addr stage -- flag )
-  over quad-head u32@ head-tag >r r@ tag-mdata = if 2drop r> drop true exit then
-  r@ two-children? r@ one-child? or 0= if 2drop r> drop false exit then
-  2dup a-reach? r@ two-children? if >r 2dup b-reach? r> or then
-  r> let-tag? if >r body-reach? r> or else nip nip then ;
-: reach-fill ( stage -- )
-  dup input-exprs 0 begin 2dup swap slab-count < while
-    2dup swap slab-at dup 4 pick reaches? 1 and 2 pick 5 pick reach-at u32!
-    record-span +
-  repeat 2drop drop ;
+\ Marks, only when an mdata record was staged. The reach bitset (heap,
+\ freed after sealing, counted against the limit) holds one bit per
+\ expression number, set when the expression is or holds an mdata record.
+\ Children have smaller numbers than their parents, so one walk in number
+\ order fills it.
+: reach-bit ( e stage -- addr mask )
+  stage-reach @ over 5 rshift u32s + swap 31 and 1 swap lshift ;
+: reach@ ( e stage -- flag ) reach-bit swap u32@ and 0<> ;
+: reach! ( e stage -- ) reach-bit over u32@ or swap u32! ;
+\ Whether an expression reaches one, by its tag ( e stage -- flag ).
+: reach-none ( e stage -- flag ) 2drop false ;
+: reach-self ( e stage -- flag ) 2drop true ;
+: a-reach? ( e stage -- flag ) tuck stage-tier expr-a@ swap reach@ ;
+: b-reach? ( e stage -- flag ) tuck stage-tier expr-b@ swap reach@ ;
+: body-reach? ( e stage -- flag ) tuck stage-tier expr-body@ swap reach@ ;
+: pair-reach? ( e stage -- flag ) 2dup a-reach? >r b-reach? r> or ;
+: let-reach? ( e stage -- flag ) 2dup pair-reach? >r body-reach? r> or ;
+check-table reach-checks
+' reach-none reach-checks check-fill
+' reach-self tag-mdata reach-checks check!
+' a-reach? tag-proj reach-checks check!
+' pair-reach? tag-app reach-checks check!
+' let-reach? tag-let reach-checks check!
+' let-reach? tag-let-nondep reach-checks check!
+: binder-reaches ( -- ) 8 0 do ['] pair-reach? tag-lam i + reach-checks check! loop ;
+binder-reaches
+: reach-note ( e stage -- outcome )
+  2dup 2dup stage-tier expr-tag@ reach-checks check-run
+  if reach! else 2drop then outcome-ok ;
+\ The bitset: room under the limit, then a zeroed block.
+: reach-bytes ( stage -- u ) input-exprs 31 + 5 rshift 1 max u32s ;
+: reach-room? ( u stage -- flag )
+  dup stage-limit @ ?dup if >r stage-allocated + r> u> 0= else 2drop true then ;
+: limit-reached ( stage -- outcome )
+  c" memory limit of the stage reached" swap stage-why ! outcome-full ;
 : reach-make ( stage -- outcome )
-  dup input-exprs slab-count 1 max u32s dup allocate if 2drop drop outcome-full exit then
+  dup reach-bytes 2dup swap reach-room? 0= if drop limit-reached exit then
+  dup allocate if 2drop drop outcome-full exit then
   dup rot erase swap stage-reach ! outcome-ok ;
 : reach-free ( stage -- ) stage-reach heap-release ;
 \ Whether a declaration's type, value or recursor rules reach one.
 : field-reach? ( e stage -- flag ) over none? if 2drop false else reach@ then ;
 : rules-reach? ( t stage -- flag )
   2dup stage-tuples tuple-length 0 ?do
-    i 2 + 2 pick 2 pick stage-tuples tuple-item over reach@ if 2drop true unloop exit then
-  3 +loop 2drop false ;
+    i rule-rhs-item + 2 pick 2 pick stage-tuples tuple-item over reach@
+    if 2drop true unloop exit then
+  /rule-items +loop 2drop false ;
 : decl-reach? ( d stage -- flag )
   2dup staged-type@ over field-reach? >r 2dup staged-value@ over field-reach? r> or >r
-  2dup staged-kind@ kind-recursor = if 5 2 pick 2 pick staged-item swap rules-reach? nip
+  2dup staged-kind@ kind-recursor = if
+    more-rec-rules 2 pick 2 pick staged-item swap rules-reach? nip
   else 2drop false then r> or ;
 : staged-mark ( d stage -- )
   tuck staged-at staged-head dup u32@ staged-marked-bit or swap u32!
@@ -229,7 +254,7 @@ require ./stage-records.fs
 : stage-marking ( stage -- outcome )
   dup stage-mdata @ 0= if drop outcome-ok exit then
   dup reach-make dup ok? 0= if nip exit then drop
-  dup reach-fill dup decls-mark reach-free outcome-ok ;
+  dup ['] reach-note exprs-walk drop dup decls-mark reach-free outcome-ok ;
 
 \ Sealing: the array covers every name, the marks are set, every constant
 \ is resolved, and the tier is sealed (its tables spread, its slabs

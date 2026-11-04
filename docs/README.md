@@ -19,6 +19,7 @@ see [project progress](project/PROJECT_PROGRESS.md). Documents marked
 - [USER_GUIDE.md](user/USER_GUIDE.md) — start here: what LeanForth is and is not, trust boundaries, the experimental label, what you can do today, reading paths for Forth users and developers, Lean users, mathematicians and AI tools.
 - [READING_A_LEAN_PROOF.md](user/READING_A_LEAN_PROOF.md) — for readers new to Lean and logic notation: every symbol; composition, "A and B implies B and A" and `2 + 2 = 4` read as textbook proofs; positional encoding and de Bruijn indices; each theorem as Lean source, `#print`, explicit form, kernel nodes, NDJSON, Forth words and printer output; where tactics fit (Lean and Forth examples checked by `make check` and `make test`).
 - [CONCEPTS.md](user/CONCEPTS.md) — level, `Sort`, `Prop`/`Type`, term, binder, de Bruijn index, constant, declaration, theorem and definition, kernel, outcomes: each as mathematics, LeanForth Forth (run on Gforth 1.0 and 0.7.3) and Lean (checked with pinned Lean).
+- [COMMAND_LINE.md](user/COMMAND_LINE.md) — the command line `bin/leanforth` (version 0, experimental): `check` a Lean export with the first checker (`--record` writes its run record), `replay`, `count`, `reexport`, `version`, `capabilities`; what it prints, exit statuses 0–5, manifests, and its limit to small exports; every example run by `make test` and `make check`.
 - [FIRST_CHECK.md](user/FIRST_CHECK.md) — the first checker (experimental, not through its review gate): `composition` read from its NDJSON export, checked and accepted, and a broken copy rejected, in mathematics, LeanForth Forth and Lean.
 - [WORKFLOWS.md](user/WORKFLOWS.md) — diagrams of checking a theorem and verifying a Forth program, marking what exists and what is planned.
 - [RUNNING_THE_CHECKS.md](user/RUNNING_THE_CHECKS.md) — the `make` targets and tools, what a pass shows and what it does not.
@@ -103,6 +104,8 @@ approval; the others are proposals.
 [0011](adr/0011-definite-rejection.md) definite rejection and the first checker's scope (rules accepted) ·
 [0012](adr/0012-checked-environment.md) the checked environment's implementation (design accepted) ·
 [0013](adr/0013-derivation-log.md) the derivation log and the proof outline (proposed) ·
+[0014](adr/0014-definitional-equality.md) definitional equality as Lean's kernel decides it: unfolding with hints and lazy delta, theorems unfold last, eta, proof irrelevance, `let`, caches (proposed; Lean-checked table in `make check`) ·
+[0015](adr/0015-inductive-types.md) inductive types, constructors and recursors as Lean's kernel checks them; structures, projections, quotients, literals, and the `Nat.add_zero` target (proposed; 100 Lean-checked cases) ·
 [0016](adr/0016-compact-store.md) the compact store for Mathlib-scale input: 16-byte nodes, a shared input tier, hash tables (proposed) ·
 [0017](adr/0017-leanforth-syntax.md) LeanForth Forth syntax for theorems and proofs (accepted as the design basis) ·
 [0018](adr/0018-exceptions.md) when to use `CATCH` and `THROW` (proposed; piloted on level substitution) ·

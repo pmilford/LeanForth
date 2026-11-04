@@ -31,7 +31,7 @@ variants were retired on 2026-11-02.
 | Hash-consed sets in two tiers | `src/lib/cons.fs`, `src/lib/pools.fs` | Each distinct record once, named by a number; a sealed input set shared read-only and scratch sets over it whose numbers continue; marks, resets, sealing; interned lists of 32-bit numbers (tuples, no fixed length) and texts ([below](#the-compact-store)) | New 2026-11-03; `tests/lib/cons.fs` |
 | Compact store | `src/core/compact.fs` and `compact-tier.fs`, `compact-names.fs`, `compact-levels.fs`, `compact-exprs.fs` | ADR 0016's Lean layer: names, levels, universe lists, literals and 16-byte expression records in input and scratch tiers ([below](#the-compact-store)) | New 2026-11-03; not yet used by the kernel; `tests/core/compact.fs`, round trips of the reference exports and of `Init` |
 | Big natural numbers | `src/lib/bignum.fs` | Arbitrary-precision naturals for Lean's `Nat` literals ([below](#big-natural-numbers)): numbers in an arena the caller provides (`/big-arena`, `big-arena-init`; `big-mark` and `big-release` give back what was made since a mark), one-cell limbs whose width is counted (`limb-bits`), decimal reading and printing (`decimal>big`, `big>decimal`), conversion to and from a cell (`u>big`, `big>u`), comparison (`big-compare`, `big=`, `big<=`), and the operations Lean 4.35.0's kernel computes on literals (`big+ big- big* big/ big-mod big-gcd big-and big-or big-xor big-lshift big-rshift big-pow`, each `( a b arena -- c outcome )`). Schoolbook multiplication with Karatsuba from 48 limbs, Knuth's algorithm D, Lehmer's gcd. Outcomes ok, invalid (a malformed or released number, text or arena) and full (no room, or more bits than the arena's limit, by default Lean's 2^30). No state; loads in decimal whatever `BASE` is | New 2026-11-02 (plan task 5.2.3, library part); not yet used by the kernel (task 5.1.4); `tests/lib/bignum.fs` reaches every outcome; `make test` compares 37,585 cases with Python's integers on the running Gforth and catches 22 planted faults; review fixes of 2026-11-03 (printing overwrote the number below its text, stale operands, two speed fixes) with guarded-arena sweeps; `make check` has 984 of them computed by pinned Lean's kernel |
-| SHA-256 | `src/lib/sha256.fs` | FIPS 180-4 SHA-256, incremental ([below](#sha-256)): `sha256:` (or `/sha256` address units of the caller's memory), `sha256-init ( sha -- )`, `sha256-update ( c-addr u sha -- )` with pieces of any size, `sha256-final ( c-addr sha -- )` for the 32-byte digest, `digest>hex ( c-addr1 c-addr2 -- )` for its 64 lowercase hexadecimal digits. One word per FIPS function (`sha-rotr`, `sha-shr`, `sha-ch`, `sha-maj`, `sha-big-sigma0`, `sha-big-sigma1`, `sha-small-sigma0`, `sha-small-sigma1`), the plain round and schedule built from them, and on cells of 64 bits or more a fast round and schedule with the functions written out in place. Standalone: requires only `portability.fs`; no state of its own; nothing fails. Loads in decimal whatever `BASE` is | New 2026-11-03 (plan task 3.2.6, for the export manifests); the program track's flagship verification target; `make test-sha256`: NIST vectors, every split of messages up to 200 bytes, the functions against independent models, the fast round against the plain one, 306 random messages against Python's `hashlib` on both paths, the header's example run from a folder outside the project; 13 planted faults each caught |
+| SHA-256 | `src/lib/sha256.fs` | FIPS 180-4 SHA-256, incremental ([below](#sha-256)): `sha256:` (or `/sha256` address units of the caller's memory), `sha256-init ( sha -- )`, `sha256-update ( c-addr u sha -- )` with pieces of any size, `sha256-final ( c-addr sha -- )` for the 32-byte digest, `sha256-hex ( c-addr1 c-addr2 -- )` for its 64 lowercase hexadecimal digits. One word per FIPS function (`sha-rotr`, `sha-shr`, `sha-ch`, `sha-maj`, `sha-big-sigma0`, `sha-big-sigma1`, `sha-small-sigma0`, `sha-small-sigma1`), the plain round and schedule built from them, and on cells of 64 bits or more a fast round and schedule with the functions written out in place. Standalone: requires only `portability.fs` and `module.fs`; helpers private in `lf-lib-private` (ADR 0010); no state of its own; nothing fails. Loads in decimal whatever `BASE` is | New 2026-11-03 (plan task 3.2.6, for the export manifests); the program track's flagship verification target; `make test-sha256`: NIST vectors, every split of messages up to 200 bytes, the functions against independent models, the fast round against the plain one, 306 random messages against Python's `hashlib` on both paths, the header's example and the exact public interface checked from a folder outside the project; 14 planted faults each caught |
 | Portability adapter | `src/lib/portability.fs` | Forth-2012 definitions of `>=`, `<=`, `0<=`, `0>=`, `-rot`, `max-n`, `cell` and the structure words, compiled only where the host lacks them. `scripts/check-portable-forth.py` refuses a module under `src/` that uses one of them without loading this file, directly or through the files it loads | New 2026-11-02; defines nothing under Gforth except `max-n`; `cell` and the load check added 2026-11-02 |
 | Diagnostics | `src/core/diagnostics.fs` | One record per checker context explaining the first failure of a check: a reason code, the site (module and word, a counted string) and two numbers; first failure wins until `lf-diag-clear`; `lf-diag@`, `lf-diag.`; helpers `lf-diag-walk`, `lf-diag-frames` and `lf-diag-store` explain a walk's, a pass's or a store's failure. Never changes an outcome; catalogue in [DIAGNOSTICS.md](../programming/DIAGNOSTICS.md) | New 2026-11-02 (plan 6.7, first form); every core and kernel module records its full and exhausted sites; `tests/core/diagnostics.fs` |
 | Expression store | `src/core/terms.fs` | Index-based nodes for sorts, bound variables, application, λ, Π and constants; nodes refer to earlier indices, so a term is a DAG with sharing | A heap store per checker context whose capacity is a setting (default 64, `lf-term-capacity!`), grown by doubling; per-term side data in growable columns (`store-columns.fs`); constructors check ranges only |
@@ -65,7 +65,7 @@ LeanForth, unless coupling gains a lot. Audit of `src/lib/` on 2026-11-03:
 | `store.fs`, `node.fs`, `walk.fs`, `frame.fs` (bounded stores, records, explicit-stack walks) | yes | the shared outcome vocabulary |
 | `context.fs`, `task.fs` (per-task contexts, job pool) | partly: a general job pool and context mechanism, designed around the checker's per-check state | the checker's context model (ADR 0009) |
 | `outcome.fs` (ok, invalid, exhausted, unknown, rejected, unsupported, full) | LeanForth's shared result vocabulary | deliberately shared: one vocabulary for every module |
-| `sha256.fs` (SHA-256) | yes, written to this rule (2026-11-03) | requires only `portability.fs`; an example in its header and [below](#sha-256), run from a folder outside the project by `make test-sha256`; helper names (`sha-…`) still public until ADR 0010's word lists exist |
+| `sha256.fs` (SHA-256) | yes, written to this rule (2026-11-03) | requires only `portability.fs` and `module.fs`; helpers in `lf-lib-private`, 16 public words (the hashing interface and FIPS 180-4's functions), all named `sha-…` or `sha256…`; an example in its header and [below](#sha-256), run with the interface checked from a folder outside the project by `make test-sha256` |
 | coming: the compact store (ADR 0016) | written to this rule from the start | — |
 
 **Why they are not yet packaged as standalone libraries.** They were built
@@ -125,8 +125,13 @@ FIPS 180-4 defines it, in portable Forth-2012, for the export manifests
 ([NDJSON_READER.md](NDJSON_READER.md#manifests)), which hash a whole export
 during its single read. A standalone library under the owner's rule
 ([above](#reusability-the-libraries-as-standalone-forth-code)): it requires
-only `portability.fs` and knows nothing of LeanForth; any Forth-2012 system
-with cells of at least 32 bits and 8-bit characters can load it. Untrusted
+only `portability.fs` and `module.fs` and knows nothing of LeanForth; any
+Forth-2012 system with cells of at least 32 bits and 8-bit characters can
+load it. Its public words, in the word list `lf-lib`, are the hashing
+interface below and FIPS 180-4's functions; every helper (the round, the
+schedule, the compression, padding, the record's fields) is in
+`lf-lib-private` (ADR 0010), which tests and proofs open with
+`lf-lib-private order+`; every name starts `sha-` or `sha256`. Untrusted
 until reviewed; the program track's flagship target is to prove it equal
 to FIPS 180-4 ([plan](../project/PLAN_DRAFT.md), "Flagship program
 target").
@@ -137,7 +142,7 @@ sha256: hasher                \ a record holding one hash in progress
 create digest 32 allot  create text 64 allot
 hasher sha256-init
 s" ab" hasher sha256-update  s" c" hasher sha256-update
-digest hasher sha256-final  digest text digest>hex  text 64 type
+digest hasher sha256-final  digest text sha256-hex  text 64 type
 ```
 
 prints `ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad`,
@@ -147,6 +152,18 @@ memory serve as well as `sha256:`; separate records are independent. After
 `sha256-final` a record must be given to `sha256-init` again. Nothing
 fails: every byte string is a message. A message must be shorter than
 2^64 bits (FIPS 180-4, 5.1.1).
+
+| Public word | Stack effect | Does |
+| --- | --- | --- |
+| `/sha256`, `sha256:` | `( -- u )`, `( "name" -- )` | the record's size; a named record |
+| `sha256-init` | `( sha -- )` | starts a hash |
+| `sha256-update` | `( c-addr u sha -- )` | adds bytes to the message |
+| `sha256-final` | `( c-addr sha -- )` | writes the 32-byte digest |
+| `sha256-hex` | `( c-addr1 c-addr2 -- )` | the digest as 64 lowercase hexadecimal digits |
+| `sha-digest-bytes` | `( -- 32 )` | the digest's size |
+| `sha-w32`, `sha-shr`, `sha-rotr` | `( x -- u )`, `( u n -- u' )` | 3.2: modulo 2^32, SHR^n, ROTR^n |
+| `sha-ch`, `sha-maj` | `( x y z -- u )` | 4.1.2: Ch, Maj |
+| `sha-big-sigma0`, `sha-big-sigma1`, `sha-small-sigma0`, `sha-small-sigma1` | `( u -- u' )` | 4.1.2: Σ0, Σ1, σ0, σ1 |
 
 **Design.** One word per FIPS function, each with the section it
 implements: `sha-shr` and `sha-rotr` (3.2), `sha-ch` and `sha-maj` (4.2,
@@ -203,15 +220,18 @@ for the plain path, the tests and the proofs. At 70 MB/s all of Mathlib's
 - `tests/lib/test_sha256.py`: 306 random messages (every length to 300
   bytes, and 1 KiB to 1 MiB) hashed in updates of random sizes, 0 to 139
   bytes, against Python's `hashlib`, on both paths, one also against
-  `sha256sum`; and the header's example, with the library and
-  `portability.fs` copied into a fresh folder outside the project, run
-  there as a program of its own.
-- 13 planted faults, kept in `tests/mutants/faults.toml` (`make mutants`;
+  `sha256sum`; and the header's example, with the library,
+  `portability.fs` and `module.fs` copied into a fresh folder outside the
+  project, run there as a program of its own; there too every public word
+  is found and every other name the library's source defines is hidden,
+  and the public names are exactly the table above.
+- 14 planted faults, kept in `tests/mutants/faults.toml` (`make mutants`;
   ids `sha-…`) (a rotation's shift, Maj, a Σ1 shift and an unmasked
   store in the fast round, a σ0 shift in the fast schedule, a K constant,
   an initial hash word, the byte order, the final addition's row, the
   length's carry, the padding boundary, the buffer's room, the hexadecimal
-  letters), each caught by the unit tests; the tree without a fault passes.
+  letters, and the helpers made public), each caught by the tests; the
+  tree without a fault passes.
 
 ## Big natural numbers
 
@@ -428,9 +448,9 @@ and documents its interface with an example in its header:
 | File | What it gives |
 | --- | --- |
 | `slab.fs` | **Growable heap stores** (plan 1.1.5). A slab holds units of a fixed size (records, 32-bit fields or bytes) in one heap block that doubles by `RESIZE` up to a limit. `slab-room`, `slab-claim` and `slab-reserve` give *full* when the limit would be passed or the heap has no room, with the slab unchanged; *invalid* for a negative size or a slab that is not live. A check value seals the unit size, the limit, the block and its capacity (resealed when the block grows), so corrupting any one of them, the count or the generation fails closed. Units past the count are free space where a caller builds a candidate record (`slab-top`) and keeps it with `slab-commit`. Marks: `slab-mark`, `slab-rollback` and `slab-mark-valid?` refuse, as `store.fs` does, a mark of another slab, of another generation (a `slab-clear` since), of a poisoned slab, or stale because a rollback went below it; instead of per-record identities a slab keeps a stack of marked counts, strictly increasing, each with a serial that never repeats, so a mark is valid exactly while its entry is on the stack (ADR 0016 C3), and marks at one count share an entry |
-| `htab.fs` | **Hash tables**: open addressing with linear probing over 32-bit slots holding a record number plus one; the owner gives hooks to recompute an entry's hash and to compare an entry with a key. `htab-ready` doubles the table before it would pass 3/4 full; `htab-remove` deletes by Knuth's Algorithm R, so every other entry stays findable whatever the order of insertions and growth; `htab-spread` rebuilds at the smallest power of two at most half full (C4), `htab-presize` grows ahead of known insertions; finds, compared slots and doublings are counted |
+| `htab.fs` | **Hash tables**: open addressing with linear probing over 32-bit slots holding a record number plus one; the owner gives hooks to recompute an entry's hash and to compare an entry with a key. `htab-ready` doubles the table before it would pass 3/4 full; `htab-remove` deletes by Knuth's Algorithm R, so every other entry stays findable whatever the order of insertions and growth; `htab-spread` rebuilds at the smallest power of two at most half full (C4), `htab-presize` grows ahead of known insertions; finds, compared slots and doublings are counted. `htab-freeze` makes a table read-only: finds in it write nothing (not even the statistics), so any number of tasks may find in it at once, and every change is refused; `htab-live?` checks a table's block and sizes |
 | `hash32.fs` | Murmur3's 32-bit finaliser (`hash-fmix`), `hash-step`, and FNV-1a over bytes (`hash-bytes`), equal on 32- and 64-bit hosts (C4) |
-| `cons.fs` | **Hash-consed sets in two tiers.** A set keeps each distinct record once, named by a number; a class gives the record size, a limit of numbers and three hooks (rehash, compare, record span). Building follows one protocol: `cons-room` (room for the candidate and its text, the table ready), write the candidate at `cons-top`, `cons-find` (an equal record's number, or the empty slot), `cons-commit` (full at the class's limit; two spare units let an existing record be found at the limit) and `cons-text,`. A set can extend a *sealed* set (`cons-extend`): numbers continue after the under set's, and a find looks in the under set first, read-only, when the caller says every part of the candidate is an under record. `cons-mark`, `cons-rollback` (which also takes the given-back records out of the table), `cons-reset` (emptying the table, or forgetting the records one by one when they are few, so a large table costs nothing per check) and `cons-seal` (read-only; the table spread, the slabs trimmed). `cons-entry?` checks a number exactly: in range and found in its table |
+| `cons.fs` | **Hash-consed sets in two tiers.** A set keeps each distinct record once, named by a number; a class gives the record size, a limit of numbers and three hooks (rehash, compare, record span). Building follows one protocol: `cons-room` (room for the candidate and its text, the table ready), write the candidate at `cons-top`, `cons-find` (an equal record's number, or the empty slot), `cons-commit` (full at the class's limit; two spare units let an existing record be found at the limit) and `cons-text,`. A set can extend a *sealed* set that extends none (`cons-extend`, `cons-base?`; so at most two tiers): numbers continue after the under set's, and a find looks in the under set first, read-only (sealing froze its table; the find is counted in the extension, `cons-under-finds`), when the caller says every part of the candidate is an under record. A candidate's text goes into the set's key with `cons-key!`, which keeps it as an offset when it lies in the set's own byte slab, and `cons-room-key` finds it again after the slab moved. `cons-mark`, `cons-rollback` (which also takes the given-back records out of the table), `cons-reset` (emptying the table, or forgetting the records one by one when they are few, so a large table costs nothing per check) and `cons-seal` (read-only; the table spread, the slabs trimmed). `cons-entry?` checks a number exactly: in range and found in its table |
 | `pools.fs` | Two classes: **tuples**, interned lists of 32-bit numbers of any length, built in steps (`tuple-start`, `tuple-add`, `tuple-end`; plan 6.2.0's variable-length universe and parameter lists, no fixed limit), and **texts**, interned byte strings (`text-intern`, `text@`) |
 | `module.fs` | ADR 0010's `lf-lib` and `lf-lib-private` wordlists and `module-open`/`module-close` |
 
@@ -538,7 +558,7 @@ is C9 step 3.
   `tests/`, `make check` on `Init` exported by the pinned `leanexport`
   (`tests/core/compact-init.sh`, which writes its manifest). The stage's
   own tests are in [NDJSON_READER.md](NDJSON_READER.md#staging-into-the-compact-store).
-- `tests/core/compact_faults.py` (`make check`): 19 faults planted in a copy
+- `tests/core/compact_faults.py` (`make check`): 27 faults planted in a copy
   (operands ignored by hash-consing, texts or lists compared by length or
   hash only, a rollback that keeps the count or the table entries, a reset
   that keeps old marks valid, two off-by-one 32-bit fields, growth losing
@@ -546,7 +566,21 @@ is C9 step 3.
   uncapped depth, Lean's bound-variable limit off by one, a constant's
   payload in its key, a scratch build never looking in the input, a `letE`
   body record taken as a child, a sealed set accepting records, a class
-  limit off by one): each is caught.
+  limit off by one; and, after the review of 2026-11-03, a set over a
+  sealed extension (three tiers), a find counting in a frozen table,
+  sealing without freezing, an own-slab text keeping its old address, an
+  unclamped slab limit, a bound-variable index compared after `1+`, a list
+  span that wraps, a commit past the limit): each is caught. The review's
+  eight are also in `tests/mutants/faults.toml`.
+- Since the review, the tests also show that lookups and builds through a
+  scratch tier leave every byte of the sealed input's records and table
+  slots as they were; that a sealed scratch tier cannot be extended; that
+  a component or text taken from the tier's own byte slab is read again
+  after the slab moved (moved by hand, the old block overwritten); and the
+  arithmetic at the bounds a 32-bit host reaches at 2³² (a class whose
+  limit times its record size passes the cell, a commit at and past the
+  class's limit, a bound-variable index of 2³² − 1 read as the cell −1,
+  a list length of 2³² − 1). No 32-bit host was available to run them on.
 
 ### Measured
 
@@ -903,15 +937,22 @@ context. The adapter chooses one of three hosts when it loads:
   sizes less the slack (a host that does not report a size through
   `ENVIRONMENT?` is not checked). So lowering `task-data-cells` or
   `task-return-cells` with `TO` below the need is caught whichever of
-  `task.fs` and the kernel loads first. The checker states two needs:
+  `task.fs` and the kernel loads first. The checker states three needs:
   beta with its nested instantiate and shift passes (`mixed-beta.fs`,
-  1,216 return and 960 data cells) and inference, which can nest them at
-  its deepest level (`mixed-infer.fs`, 1,728 and 1,280: at most 8 return
-  and 5 data cells per level, measured by stack painting along its five
-  recursion paths and the two of its rejection analysis (plan task 2.2.1;
-  the D5 path needs 8) on Gforth 0.7.3 and 1.0, which agree, times
-  `lf-term-capacity` levels, plus beta's need; the definition probe nests
-  no deeper). The test job's 500-frame pass used 1,004 return-stack and
+  1,216 return and 960 data cells), Lean's normalize in a level
+  comparison (`level-normalize.fs`, 576 and 384: at most 7 return and 3
+  data cells per node of the level store, 6.5 and 2.5 measured, and 1
+  and 2 per name component, plus 64), and inference, which can nest
+  either at its deepest level, never both (`mixed-infer.fs`, 1,728 and
+  1,280: at most 8 return and 5 data cells per level, measured by stack
+  painting along its five recursion paths and the two of its rejection
+  analysis (plan task 2.2.1; the D5 path needs 8) on Gforth 0.7.3 and
+  1.0, which agree, times `lf-term-capacity` levels, plus the larger
+  nested need, beta's; the definition probe nests no deeper;
+  `tests/core/level-deep.fs` and `tests/core/infer-deep.fs` paint the
+  deepest normalize, alone and at the deepest inference: 408 and 149
+  cells for 62 levels alone, 368 and 136 added to an inference of 229
+  and 85). The test job's 500-frame pass used 1,004 return-stack and
   1,001 data-stack cells inside each worker; the deepest checker inputs
   known used 688 and 480 inside a job, and 16 random trials of 2,000
   steps at most 90 and 28 above the caller.

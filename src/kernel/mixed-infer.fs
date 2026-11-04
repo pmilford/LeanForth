@@ -38,9 +38,10 @@
 \ Stack use: the recursion runs on the host stacks, a bounded number of
 \ cells per level of inference or of the rejection analysis (the two share
 \ the frame limit), at most lf-depth-limit levels, and a conversion,
-\ reduction or level evaluation at the deepest level nests beta's passes
-\ (see the need stated at the end); a host stack overflow throws and never
-\ yields a result. mixed-definition-probe.fs starts a job with
+\ reduction or level evaluation at the deepest level nests beta's passes,
+\ a level comparison Lean's normalize (see the need stated at the end);
+\ a host stack overflow throws and never yields a result.
+\ mixed-definition-probe.fs starts a job with
 \ lf-minfer-start, calls lf-minfer-walk, lf-minfer-sort-rule,
 \ lf-minfer-zero?, lf-minfer-agree, lf-minfer-verdict and lf-minfer-reject
 \ directly, and reads lf-minfer-fuel afterwards; check-declaration.fs does
@@ -58,6 +59,7 @@ require ../core/terms.fs
 require ./env-signature.fs
 require ./level-compare.fs
 require ./level-make.fs
+require ./level-normalize.fs
 require ./level-value.fs
 require ./mixed-beta.fs
 require ./mixed-convert.fs
@@ -551,23 +553,36 @@ defer lf-minfer-apart ( left right -- mask flag )
 \ (lf-mbeta-*-cells, whose slack also covers the entry words of
 \ conversion, of the definition probe and of the analysis's leaf steps:
 \ test P2, which nests inference within the same frame limit, a
-\ reduction, and the witness evaluation of level-value, whose own depth
-\ limit needs fewer cells than beta). The frame that hands over from
-\ inference to the analysis, from the inference frame whose argument is
-\ compared to the analysis's first frame (in-frame, visit, dispatch,
-\ binary, app, apply, argument, agree, mismatch, apart-frame), holds 9
-\ return cells, one more than a level (painted on both hosts, review of
-\ 2026-11-02), and the slack holds the extra cell. There is at most one
-\ such frame on any path: inference within the analysis (P2) runs aside,
-\ with no rule, so it never hands over again. So a check nests at most
-\ lf-depth-limit levels of inference or analysis plus beta's need:
-\ 1,728 return and 1,280 data cells. Loading stops when the host's stacks
-\ are smaller, and the need is stated for the job pool (context-need).
+\ reduction, and level-value's evaluation for normalizes_to_zero, in S3
+\ and P2, whose depth limit of 64 levels at about 8 return cells each
+\ needs fewer cells than beta). A level comparison -- of two Sorts or of
+\ constants' levels in conversion, or by rule D1 -- runs Lean's
+\ normalize instead, never inside beta's passes: lf-lnorm-*-cells
+\ (level-normalize.fs: 7 return and 3 data cells per node of the level
+\ graph, 6.5 and 2.5 measured, plus the name order; 576 and 384 cells for
+\ level graphs and names 64 deep). So the deepest level nests the larger
+\ of beta's need and normalize's; tests/core/infer-deep.fs runs the
+\ deepest normalize the level store allows at the deepest inference.
+\ The frame that hands over from inference to the analysis, from the
+\ inference frame whose argument is compared to the analysis's first
+\ frame (in-frame, visit, dispatch, binary, app, apply, argument, agree,
+\ mismatch, apart-frame), holds 9 return cells, one more than a level
+\ (painted on both hosts, review of 2026-11-02), and either slack holds
+\ the extra cell. There is at most one such frame on any path: inference
+\ within the analysis (P2) runs aside, with no rule, so it never hands
+\ over again. So a check nests at most lf-depth-limit levels of
+\ inference or analysis plus the larger nested need, beta's at these
+\ limits: 1,728 return and 1,280 data cells. Loading stops when the
+\ host's stacks are smaller, and the need is stated for the job pool
+\ (context-need).
 8 constant lf-minfer-rs-level   \ return-stack cells per level
 5 constant lf-minfer-ds-level   \ data-stack cells per level
-: lf-minfer-need ( cells-per-level beta-cells -- cells ) swap lf-depth-limit * + ;
-lf-minfer-rs-level lf-mbeta-return-cells lf-minfer-need constant lf-minfer-return-cells
-lf-minfer-ds-level lf-mbeta-data-cells lf-minfer-need constant lf-minfer-data-cells
+\ At the deepest level: beta's passes or a level comparison, never both.
+lf-mbeta-return-cells lf-lnorm-return-cells max constant lf-minfer-rs-nested
+lf-mbeta-data-cells lf-lnorm-data-cells max constant lf-minfer-ds-nested
+: lf-minfer-need ( cells-per-level nested-cells -- cells ) swap lf-depth-limit * + ;
+lf-minfer-rs-level lf-minfer-rs-nested lf-minfer-need constant lf-minfer-return-cells
+lf-minfer-ds-level lf-minfer-ds-nested lf-minfer-need constant lf-minfer-data-cells
 lf-minfer-data-cells lf-minfer-return-cells lf-mbeta-host?
 0= [if] .( mixed-infer.fs: host stacks too small for lf-depth-limit) cr abort [then]
 lf-minfer-data-cells lf-minfer-return-cells context-need

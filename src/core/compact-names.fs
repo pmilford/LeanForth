@@ -15,15 +15,17 @@
 \ components under 2^27 bytes, numeric components up to 2^32-1 (Mathlib's
 \ largest fits; a larger one is reported full, not cut). Outcomes: ok,
 \ full, invalid for a prefix that is not a name or a sealed tier.
-\ name-find-str and name-find-num look a name up without adding it; like
-\ every word that builds, they need an open tier, so look names up in a
-\ sealed input tier through a scratch tier over it. The text given to
-\ name-str or name-find-str must not lie in the same tier's byte slab,
-\ which may move while the word makes room (an input tier's text, given
-\ to a scratch tier over it, is fine: a sealed tier never moves).
+\ name-seek-str and name-seek-num look a name up without adding it (-1
+\ when it is absent; name-find-str and name-find-num are the older forms,
+\ which cannot tell an absent name from a failed lookup); like every word
+\ that builds, they need an open tier, so look names up in a sealed input
+\ tier through a scratch tier over it. A component's text may lie
+\ anywhere, even in the tier's own byte slab, which moves when it grows:
+\ it is kept as an offset meanwhile (cons-key!, lib/cons.fs).
 \
 \ Interface: tag-name-anon tag-name-str tag-name-num name-anonymous
-\ name-class name-str name-num name-find-str name-find-num name-valid?
+\ name-class name-str name-num name-seek-str name-seek-num name-find-str
+\ name-find-num name-valid?
 \ name-tag@ name-prefix@ name-number@ name-text@ name-hash@ name-anon-make.
 \ State: name-class, made while loading and read-only afterwards.
 
@@ -69,6 +71,7 @@ require ./compact-tier.fs
 : name-span ( local cons -- units ) 2drop 1 ;
 ' name-rehash ' name-same ' name-span name-class cons-hooks!
 
+
 \ Building the candidate.
 : name-cand ( tier -- addr ) tier-names cons-top ;
 \ Room for a candidate with bytes of text, its prefix checked.
@@ -85,26 +88,29 @@ require ./compact-tier.fs
 : name-lookup ( tier -- n true | i false )
   dup name-cand quad-data u32@ over name-under? rot tier-names cons-find ;
 : name-keep ( i tier -- n outcome ) 1 -rot tier-names cons-commit ;
-: name-intern ( tier -- n outcome ) dup name-lookup if nip outcome-ok else swap
-  name-keep then ;
+: name-intern ( tier -- n outcome )
+  dup name-lookup if nip outcome-ok else swap name-keep then ;
 \ A string component: the record is kept first (at the limit it is full),
 \ then its text, whose offset goes into the record.
 : str-text! ( n tier -- n )
   tier-names >r r@ cons-key 2@ r@ cons-text, over r> cons-at quad-b u32! ;
 : str-keep ( i tier -- n outcome )
   tuck name-keep dup ok? if drop swap str-text! outcome-ok else rot drop then ;
-: str-intern ( tier -- n outcome ) dup name-lookup if nip outcome-ok else swap str-keep
-  then ;
-: name-find ( tier -- n true | false ) name-lookup dup 0= if nip then ;
+: str-intern ( tier -- n outcome )
+  dup name-lookup if nip outcome-ok else swap str-keep then ;
 
-\ A string component: the text in the key, room for it, head and hash.
+\ A string component. Its text goes into the set's key first (cons-key!),
+\ so that a text from the tier's own byte slab, which may move while room
+\ is made, is found again (cons-room-key); then the head and the hash.
+: str-room ( prefix tier -- prefix outcome )
+  2dup name-valid? 0= if drop outcome-invalid exit then 1 swap tier-names cons-room-key ;
+: str-head! ( prefix tier -- )
+  >r tag-name-str r@ tier-names cons-key @ pack-head r> name-head! ;
+: str-hash! ( tier -- ) dup tier-names cons-key 2@ hash-bytes swap name-hash! ;
 : str-setup ( prefix addr u tier -- outcome )
-  >r 2dup r@ tier-names cons-key 2! nip
-  dup payload-limit u< 0= if 2drop r> drop outcome-full exit then
-  2dup r@ name-room dup ok? 0= if nip nip r> drop exit then drop
-  tag-name-str swap pack-head r@ name-head! r@ tier-names cons-key 2@ hash-bytes r>
-  name-hash!
-  outcome-ok ;
+  >r dup payload-limit u< 0= if 2drop drop r> drop outcome-full exit then
+  r@ tier-names cons-key! r@ str-room dup ok? 0= if nip r> drop exit then drop
+  r@ str-head! r> str-hash! outcome-ok ;
 \ A numeric component: room, head, the number and hash.
 : num-setup ( prefix u tier -- outcome )
   over u32-mask u> if drop 2drop outcome-full exit then
@@ -117,12 +123,20 @@ require ./compact-tier.fs
   dup >r str-setup dup ok? if drop r> str-intern else r> drop no-result then ;
 : name-num ( prefix u tier -- n outcome )
   dup >r num-setup dup ok? if drop r> name-intern else r> drop no-result then ;
-\ The same names looked up without adding them: the number and true, or
-\ false when the name is absent or the lookup fails.
-: name-find-str ( prefix addr u tier -- n true | false )
-  dup >r str-setup ok? if r> name-find else r> drop false then ;
-: name-find-num ( prefix u tier -- n true | false )
-  dup >r num-setup ok? if r> name-find else r> drop false then ;
+\ The same names looked up without adding them: the number and ok; -1
+\ and ok when the name is absent; -1 and full or invalid when the lookup
+\ fails, as name-str and name-num would.
+: name-seek ( tier -- n outcome ) name-lookup 0= if drop -1 then outcome-ok ;
+: name-seek-str ( prefix addr u tier -- n outcome )
+  dup >r str-setup dup ok? if drop r> name-seek else r> drop no-result then ;
+: name-seek-num ( prefix u tier -- n outcome )
+  dup >r num-setup dup ok? if drop r> name-seek else r> drop no-result then ;
+\ The older forms: the number and true, or false, both when the name is
+\ absent and when the lookup fails (name-seek-str tells them apart).
+: seek>find ( n outcome -- n true | false ) ok? over 0< 0= and dup 0= if nip then ;
+: name-find-str ( prefix addr u tier -- n true | false ) name-seek-str seek>find ;
+: name-find-num ( prefix u tier -- n true | false ) name-seek-num seek>find ;
+
 
 \ The anonymous name, made first in an input tier (compact.fs).
 : name-anon-make ( tier -- n outcome )

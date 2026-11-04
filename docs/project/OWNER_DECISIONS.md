@@ -478,6 +478,40 @@ produces can be verified.
   picks between constants by type the words ask for the full name; field
   notation and `export` are not supported yet; Lean's exporter does not
   record `protected`, so real imports need it from elsewhere (8.2.1).
+- **Declaration check, [kernel] and [bypass] gates: approved**
+  (2026-11-03, plan task 2.2.3), with the universe-level fix that ports
+  Lean's level code exactly (ADR 0011 Amendment 1, rules S4 and K6), as
+  recommended: 69 table rows and 49 universe rows give Lean's answers, and
+  1,800 random level pairs and 800 random declarations match Lean. Every
+  acceptance stays labelled *experimental — not independently audited*.
+- **ADR 0014, definitional equality (phase 4): accepted** (2026-11-03) with
+  G5 and Q-A to Q-D as recommended: unfold theorems exactly as Lean does
+  and keep proofs in memory; replace the cautious rules by a line-by-line
+  copy of Lean's procedure once it passes its gate (the old rules stay as
+  a cross-check during the switch); Lean's free-variable naming inside a
+  check; Lean's caches copied exactly, per declaration; *unknown* for
+  Lean's specially named constants until phase 5.
+- **Speed target (ADR 0014 Q-E):** measure time per distinct node and
+  cache hits from the start; within twice Lean's one-thread time before
+  phase 6, then close the gap. The owner: "I'm unclear how close we can
+  get, even if 2x is possible, so don't spend too much time optimizing
+  yet. I'm thinking it will mostly using smarter algorithms. there is a
+  chance we will end up using a machine code (assember) version of a few
+  words to speed up, but we lose so much portability doing that, i'd much
+  prefer avoid." Rule: algorithms first; no machine code without the
+  owner's decision.
+- **Lean's built-in arithmetic trusted by name (ADR 0015 Q1): copy Lean by
+  default, with a toggle.** The owner: "lets default to the same way as
+  Lean, but have an easy toggle to make more secure." By default LeanForth
+  computes `Nat.add` and the other built-in operations by name exactly as
+  Lean does; a documented option (for example `--strict-builtins`) answers
+  *unsupported* unless `Nat` and its operations are exactly Lean 4.35.0's
+  own. Answer to the owner's question: other arithmetic (clock arithmetic
+  `Fin n`, `ZMod n`, integers) uses its own types and operations in Lean
+  and never redefines `Nat.add`; an ordinary Lean file cannot redefine it
+  at all (the name exists, and a second declaration is refused); only files
+  that start with `prelude`, such as Lean's own core library and kernel
+  tests, can. Recorded in BEYOND_LEAN.
 - **Later: investigate offloading part of the work to a GPU.** Under the
   design rules in `AGENTS.md` a GPU never belongs to the trusted kernel and
   a CPU path is always kept; candidates are untrusted bulk work such as

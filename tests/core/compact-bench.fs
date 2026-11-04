@@ -34,9 +34,11 @@ require ../support/compact-load.fs
     i app? if i 2 pick execute then loop
   2drop now r> - ;
 : .per ( us n c-addr u -- ) type ." : " swap 1000 * swap 1 max / 0 .r ."  ns per build" cr ;
+\ The input's table is frozen and counts nothing; the scratch set counts
+\ the finds it makes there.
 : .finds ( -- )
-  ."   input table finds/compared " compact-tier tier-exprs cons-table htab-stats drop swap 0 .r
-  ." /" 0 .r ."   scratch table " compact-scratch tier-exprs cons-table htab-stats drop
+  ."   finds in the input " compact-scratch tier-exprs cons-under-finds @ 0 .r
+  ."   scratch table finds/compared " compact-scratch tier-exprs cons-table htab-stats drop
   swap 0 .r ." /" 0 .r cr ;
 : compact-bench ( c-addr u log2 -- )
   compact-load ok? 0= abort" bench: load failed" scratch-ready

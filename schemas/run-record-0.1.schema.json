@@ -2,8 +2,8 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/pmilford/LeanForth/schemas/run-record-0.1.schema.json",
   "title": "LeanForth run record, schema version 0.1",
-  "description": "The evidence of one check of a Lean export by LeanForth's first checker: the input's SHA-256, size and manifest outcome, the Lean and exporter versions its metadata names, the LeanForth commit, the host Forth, the settings, and every declaration's verdict in input order, read from the checked environment after the run. Written by src/import/run-record.fs and compared with a new run by src/import/run-replay.fs; documented in docs/programming/RUN_RECORDS.md. A record is evidence, not an approval, and never a source of saved results.",
-  "$comment": "Uses only the keywords that tests/support/schema_subset.py implements; it refuses any other keyword. Patterns are ECMA-262 regular expressions for the u flag.",
+  "description": "The evidence of one check of a Lean export by LeanForth's first checker: the input's SHA-256, size and manifest outcome, the Lean and exporter versions its metadata names, the LeanForth commit, the host Forth, the settings, and every declaration's verdict in input order, read after the run from the checked environment the run made, never from another. Written by src/import/run-record.fs and compared with a new run by src/import/run-replay.fs; documented in docs/programming/RUN_RECORDS.md. A record is evidence, not an approval, and never a source of saved results.",
+  "$comment": "Uses only the keywords that tests/support/schema_subset.py implements; it refuses any other keyword. Patterns are ECMA-262 regular expressions for the u flag, which schema_subset.py reads as Python regular expressions with ECMA-262's ^, $ and .; characters outside the Basic Multilingual Plane are written as JSON escapes. Texts follow the text rule the owner approved for program receipts 0.2. Lengths are counted in characters, as JSON Schema counts them; the writer applies the same numbers as limits in bytes, which is stricter. JSON Schema sees a number only after it is parsed, so it cannot tell 100000.0 or 1e5 from 100000: the strict loader (load_strict) refuses those spellings and replay compares a number's text; the schema bounds every number to I-JSON's exact range. Tightened in place on 2026-11-03 after the independent review, before any record was published outside the tests.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema", "schemaVersion", "input", "export", "leanforth", "host", "settings",
@@ -18,7 +18,7 @@
     "settings": {"$ref": "#/$defs/settings"},
     "check": {"$ref": "#/$defs/check"},
     "declarations": {
-      "description": "Every declaration of the input, in input order, when the check ran; none otherwise.",
+      "description": "Every declaration of the input, in input order, when the run made its environment; none otherwise.",
       "type": "array",
       "maxItems": 32,
       "items": {"$ref": "#/$defs/declaration"}
@@ -26,9 +26,15 @@
   },
   "allOf": [
     {
-      "description": "Declarations are listed only when the check ran.",
-      "if": {"properties": {"check": {"properties": {"run": {"const": "not-run"}}}}},
+      "description": "Declarations are listed only when the run made its environment, whose mode is then known.",
+      "if": {"properties": {"check": {"properties": {"mode": {"const": null}}}}},
       "then": {"properties": {"declarations": {"maxItems": 0}}}
+    },
+    {
+      "description": "A run that ended ok made every slot final: no declaration is not-checked.",
+      "if": {"properties": {"check": {"properties": {"run": {"const": "ok"}}}}},
+      "then": {"properties": {"declarations": {"items": {
+        "properties": {"verdict": {"not": {"const": "not-checked"}}}}}}}
     }
   ],
   "$defs": {
@@ -36,13 +42,27 @@
       "description": "ADR 0008's outcome vocabulary.",
       "enum": ["ok", "invalid", "exhausted", "unknown", "rejected", "unsupported", "full"]
     },
-    "count": {"type": "integer", "minimum": 0},
+    "count": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+    "signed": {"type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991},
     "text": {
-      "description": "A text the checker kept: at most 128 bytes, no control character.",
+      "description": "The text rule of program receipts 0.2: no control characters (Unicode Cc), no format characters (Cf as of Unicode 15.1: bidirectional controls, zero-width characters, tags), no line or paragraph separators and no surrogates, so a text shows what it says and cannot start a new line.",
       "type": "string",
-      "pattern": "^[^\\u0000-\\u001f\\u007f]*$"
+      "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u0600-\\u0605\\u061c\\u06dd\\u070f\\u0890\\u0891\\u08e2\\u180e\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u2064\\u2066-\\u206f\\ud800-\\udfff\\ufeff\\ufff9-\\ufffb\ud804\udcbd\ud804\udccd\ud80d\udc30-\ud80d\udc3f\ud82f\udca0-\ud82f\udca3\ud834\udd73-\ud834\udd7a\udb40\udc01\udb40\udc20-\udb40\udc7f]*$"
     },
-    "maybeText": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/text"}]},
+    "shown": {
+      "description": "A text with at least one character that is not a space (space, no-break space, Ogham space mark, en quad to hair space, narrow no-break, medium mathematical and ideographic spaces), so it is neither empty nor blank. Unlike the receipts' rule it does not require an ASCII character: a Lean name may be written in any script.",
+      "allOf": [{"$ref": "#/$defs/text"},
+        {"pattern": "[^ \\u00a0\\u1680\\u2000-\\u200a\\u202f\\u205f\\u3000]"}]
+    },
+    "note": {
+      "description": "A text of at most 128 bytes, possibly empty.",
+      "allOf": [{"$ref": "#/$defs/text"}, {"pattern": "^.{0,128}$"}]
+    },
+    "short": {
+      "description": "A shown text of at most 128 bytes.",
+      "allOf": [{"$ref": "#/$defs/shown"}, {"pattern": "^.{1,128}$"}]
+    },
+    "maybeShort": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/short"}]},
     "input": {
       "type": "object",
       "additionalProperties": false,
@@ -65,12 +85,12 @@
           "required": ["outcome", "field", "reason"],
           "properties": {
             "outcome": {"$ref": "#/$defs/outcome"},
-            "field": {"$ref": "#/$defs/text"},
-            "reason": {"$ref": "#/$defs/text"}
+            "field": {"$ref": "#/$defs/note"},
+            "reason": {"$ref": "#/$defs/note"}
           },
           "if": {"properties": {"outcome": {"const": "ok"}}},
           "then": {"properties": {"field": {"const": ""}, "reason": {"const": ""}}},
-          "else": {"properties": {"reason": {"minLength": 1}}}
+          "else": {"properties": {"reason": {"$ref": "#/$defs/short"}}}
         }
       }
     },
@@ -80,11 +100,11 @@
       "additionalProperties": false,
       "required": ["exporter", "exporterVersion", "format", "lean", "leanGithash"],
       "properties": {
-        "exporter": {"$ref": "#/$defs/maybeText"},
-        "exporterVersion": {"$ref": "#/$defs/maybeText"},
-        "format": {"$ref": "#/$defs/maybeText"},
-        "lean": {"$ref": "#/$defs/maybeText"},
-        "leanGithash": {"$ref": "#/$defs/maybeText"}
+        "exporter": {"$ref": "#/$defs/maybeShort"},
+        "exporterVersion": {"$ref": "#/$defs/maybeShort"},
+        "format": {"$ref": "#/$defs/maybeShort"},
+        "lean": {"$ref": "#/$defs/maybeShort"},
+        "leanGithash": {"$ref": "#/$defs/maybeShort"}
       }
     },
     "leanforth": {
@@ -108,10 +128,10 @@
       "additionalProperties": false,
       "required": ["forth", "version", "engine", "cellBits"],
       "properties": {
-        "forth": {"$ref": "#/$defs/text"},
-        "version": {"$ref": "#/$defs/text"},
-        "engine": {"$ref": "#/$defs/text"},
-        "cellBits": {"type": "integer", "minimum": 32}
+        "forth": {"$ref": "#/$defs/short"},
+        "version": {"$ref": "#/$defs/short"},
+        "engine": {"$ref": "#/$defs/short"},
+        "cellBits": {"type": "integer", "minimum": 32, "maximum": 4096}
       }
     },
     "settings": {
@@ -133,15 +153,15 @@
       }
     },
     "check": {
-      "description": "The importer's outcome, the run's (not-run when the input was not read), and the environment's run mode and axiom allowlist version (null without an environment).",
+      "description": "The importer's outcome, the run's (not-run when the input was not read), and the run mode and axiom allowlist version of the environment the run made: final and 0 in the first checker, null when it made none.",
       "type": "object",
       "additionalProperties": false,
       "required": ["read", "run", "mode", "allowlistVersion"],
       "properties": {
         "read": {"$ref": "#/$defs/outcome"},
         "run": {"anyOf": [{"$ref": "#/$defs/outcome"}, {"const": "not-run"}]},
-        "mode": {"enum": [null, "final", "development"]},
-        "allowlistVersion": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/count"}]}
+        "mode": {"enum": [null, "final"]},
+        "allowlistVersion": {"enum": [null, 0]}
       },
       "allOf": [
         {
@@ -150,22 +170,35 @@
           "else": {"properties": {"run": {"const": "not-run"}}}
         },
         {
+          "if": {"properties": {"mode": {"const": null}}},
+          "then": {"properties": {"allowlistVersion": {"const": null}}},
+          "else": {"properties": {"allowlistVersion": {"const": 0}}}
+        },
+        {
           "if": {"properties": {"run": {"const": "not-run"}}},
-          "then": {"properties": {"mode": {"const": null}, "allowlistVersion": {"const": null}}}
+          "then": {"properties": {"mode": {"const": null}}}
+        },
+        {
+          "if": {"properties": {"run": {"const": "ok"}}},
+          "then": {"properties": {"mode": {"const": "final"}}}
         }
       ]
     },
     "diagnostic": {
-      "description": "What the failed check recorded: the reason code and its name (docs/programming/DIAGNOSTICS.md), the site, its two numbers and the step of check-declaration it reached.",
+      "description": "What the failed check recorded: the reason code and its name (docs/programming/DIAGNOSTICS.md), the site (module and word, at most 255 bytes, or empty), its two numbers and the step of check-declaration it reached.",
       "type": "object",
       "additionalProperties": false,
       "required": ["code", "reason", "site", "numbers", "step"],
       "properties": {
-        "code": {"type": "integer", "minimum": 1},
-        "reason": {"type": "string", "minLength": 1},
-        "site": {"type": "string"},
-        "numbers": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer"}},
-        "step": {"type": "integer", "minimum": 0}
+        "code": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+        "reason": {"$ref": "#/$defs/short"},
+        "site": {
+          "anyOf": [{"const": ""},
+            {"allOf": [{"$ref": "#/$defs/shown"}, {"pattern": "^.{1,255}$"}]}]
+        },
+        "numbers": {"type": "array", "minItems": 2, "maxItems": 2,
+          "items": {"$ref": "#/$defs/signed"}},
+        "step": {"$ref": "#/$defs/count"}
       }
     },
     "declaration": {
@@ -173,10 +206,16 @@
       "additionalProperties": false,
       "required": ["index", "name", "verdict"],
       "properties": {
-        "index": {"$ref": "#/$defs/count"},
-        "name": {"type": "string"},
+        "index": {
+          "description": "The declaration's position in the input, counted from 0; replay checks that it matches.",
+          "$ref": "#/$defs/count"
+        },
+        "name": {
+          "description": "The declaration's name as the term printer writes it: a shown text of at most 1024 bytes.",
+          "allOf": [{"$ref": "#/$defs/shown"}, {"pattern": "^.{1,1024}$"}]
+        },
         "verdict": {
-          "description": "accepted only for a slot made final with outcome ok; not-checked for a slot the run never made final.",
+          "description": "accepted only for a slot made final with outcome ok; invalid also for a slot whose check began but did not end final; not-checked for a slot the run never reached.",
           "enum": ["accepted", "rejected", "unknown", "unsupported", "invalid", "exhausted",
             "full", "not-checked"]
         },

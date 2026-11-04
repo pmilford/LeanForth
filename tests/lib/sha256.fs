@@ -11,6 +11,7 @@
 \ numbers must not depend on BASE, and it must leave BASE as it found it.
 include ../support/tester.fs
 hex require ../../src/lib/sha256.fs base @ decimal constant base-after-load
+lf-lib-private order+   \ the helpers: the round, the schedule, padding, fields
 
 T{ base-after-load -> 16 }T
 T{ sha-cell-bits 32 >= sha-mask 1+ sha-mask and -> true 0 }T
@@ -19,7 +20,7 @@ sha256: hasher
 create digest 32 allot
 create text 64 allot
 : hex? ( c-addr u -- flag ) text 64 compare 0= ;
-: digest-text ( -- ) digest hasher sha256-final digest text digest>hex ;
+: digest-text ( -- ) digest hasher sha256-final digest text sha256-hex ;
 : hashed ( c-addr u -- ) hasher sha256-init hasher sha256-update digest-text ;
 : hashed? ( c-addr u c-addr2 u2 -- flag ) 2>r hashed 2r> hex? ;
 
@@ -154,7 +155,7 @@ create table-2 sha-table-rows sha-rows allot
 : tables-equal? ( -- flag ) table-1 table-bytes table-2 over compare 0= ;
 : expand-plain ( table -- )
   16 sha-rows + sha-rounds 16 do
-    dup sha-schedule-plain over row-w ! /sha-row +
+    dup sha-schedule-plain over sha-row-w ! /sha-row +
   loop drop ;
 : rounds-plain ( table -- ) sha-rounds 0 do sha-round-plain loop drop ;
 : fast-equal? ( -- flag )
@@ -182,7 +183,7 @@ create other-text 64 allot
   hasher sha256-init other sha256-init
   s" ab" hasher sha256-update s" xy" other sha256-update
   s" c" hasher sha256-update s" z" other sha256-update
-  other-digest other sha256-final other-digest other-text digest>hex digest-text ;
+  other-digest other sha256-final other-digest other-text sha256-hex digest-text ;
 T{ interleaved s" ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad" hex?
    s" xyz" hashed other-text 64 hex? -> true true }T
 

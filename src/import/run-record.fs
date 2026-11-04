@@ -6,7 +6,8 @@
 \ decides no verdict, and the checker never reads a record. A record
 \ claims no more than the checker established: every verdict is read
 \ after the run from the declaration's slot in the checked environment
-\ (lf-env-readable, lf-env-axioms). Accepted only for a final slot whose
+\ the run made (lf-env-readable, lf-env-axioms), never from another one
+\ that happens to be current (rr-ours?). Accepted only for a final slot whose
 \ outcome is ok, and then labelled "experimental, not independently
 \ audited", with the axiom set that slot holds; a slot that is not final
 \ is invalid when its check began (it or its publication failed, and the
@@ -22,9 +23,8 @@
 \ - rr-settings! ( fuel deps -- ) gives every check fuel and the
 \   environment room for deps dependencies, as lf-check-input takes them.
 \ - The caller loads the same file into this context's input with its
-\   importer (in phase 2 the test-only transport,
-\   tests/support/ndjson-input.fs), gives the importer's outcome to
-\   rr-read! and, when it is ok, calls rr-check.
+\   importer (in phase 2 import/checker-input.fs), gives the importer's
+\   outcome to rr-read! and, when it is ok, calls rr-check.
 \ - rr-check ( -- ) checks every declaration of the input in input order
 \   in a new environment, which it keeps current, as lf-check-input does
 \   (check-declaration.fs: lf-check-declaration, the budget, no new
@@ -37,11 +37,15 @@
 \ - rr-write ( -- outcome ) writes the record into the module's buffer,
 \   rr-text ( -- c-addr u ); rr-save ( c-addr u -- outcome ) writes that
 \   to the file named c-addr u, then a line feed. rr-write is full when
-\   the text passes rr-text-room bytes or a name rr-name-room; invalid
-\   when a final slot's outcome is not the one its step published, when
-\   an accepted slot's axiom set is unreadable or not empty (allowlist
-\   version 0 names no axiom), or when no snapshot of the run's
-\   environment can be taken. A failed text is never a record.
+\   the text passes rr-text-room bytes, a name rr-name-room or a host
+\   text rr-note-room; invalid when a final slot's outcome is not the one
+\   its step published, when an accepted slot's axiom set is unreadable
+\   or not empty (allowlist version 0 names no axiom), when the run made
+\   its environment but that is freed or not the current one, when a text
+\   breaks the text rule (below) or a name, host or metadata text is
+\   blank, or when a number is outside I-JSON's exact range. A run that
+\   could not make its environment lists no declaration. A failed text is
+\   never a record: the writer never writes what the schema refuses.
 \ - rr-release ( -- ) frees the run's environment; rr-start does it too.
 \ rr-source! ( c-addr u flag -- outcome ) names the LeanForth commit, 40
 \ lowercase hexadecimal digits (else invalid), and whether the working
@@ -49,6 +53,8 @@
 \ says null for both. The host's Forth, version and engine come from
 \ Gforth's words where the host has them (rr-forth-version, rr-program),
 \ else "unknown".
+\
+\ It reads bytes (c@) only to decode UTF-8 for the text rule.
 \
 \ Requires: lib/json-write.fs, lib/sha256.fs, import/ndjson.fs,
 \ import/manifest.fs, present/print-names.fs (names as text) and
@@ -130,6 +136,7 @@ begin-structure /rr
   field: rr-checked         \ true once rr-check ran
   field: rr-stepped         \ declarations whose check began
   field: rr-env             \ the environment rr-check made, or 0
+  field: rr-own             \ true once rr-check made its environment
   field: rr-run             \ the run's outcome
   field: rr-fault           \ the first failure rr-write found itself, or ok
   lf-input-default /rr-step * +field rr-kept   \ at most lf-input-default declarations
@@ -177,7 +184,7 @@ rr-reset rr-no-source
 : rr-facts-start ( facts -- ) /rr-facts erase run-record rr-sha sha256-init ;
 : rr-facts-end ( facts -- )
   dup facts-open @ if 1 over facts-lines rr-d+! then
-  run-record rr-digest dup run-record rr-sha sha256-final swap facts-hex digest>hex ;
+  run-record rr-digest dup run-record rr-sha sha256-final swap facts-hex sha256-hex ;
 : rr-hash-open ( fid facts -- outcome )
   2dup rr-chunks >r drop close-file r> swap if drop outcome-invalid then ;
 \ The facts of the file named c-addr u: ok, or invalid when it cannot be
@@ -244,16 +251,29 @@ rr-reset rr-no-source
   dup 1+ run-record rr-stepped ! dup >r ['] lf-check-declaration swap lf-env-step
   swap r> rr-keep lf-env-spent? or ;
 : rr-steps ( n -- ) 0 ?do i rr-step if unloop exit then loop ;
+\ The run's own environment, the one rr-check made, is the current one:
+\ verdicts are never read from any other (review F1).
+: rr-ours? ( -- flag ) run-record rr-env @ dup if lf-env = else drop false then ;
+\ A snapshot of every slot of the run's own environment.
+: rr-viewed? ( -- flag )
+  rr-ours? if lf-env-view ok? lf-name-storage-valid? and else false then ;
 : rr-final? ( d -- flag ) lf-env-readable dup if nip then ;
 : rr-all-final? ( -- flag ) true lf-input-count 0 ?do i rr-final? and loop ;
 : rr-confirm ( -- outcome )
-  lf-env-view ok? if rr-all-final? flag>outcome else outcome-invalid then ;
+  rr-viewed? if rr-all-final? flag>outcome else outcome-invalid then ;
 \ A record keeps at most lf-input-default declarations: more is full.
 : rr-run-in ( env -- outcome )
-  dup run-record rr-env ! lf-env-use
+  dup run-record rr-env ! true run-record rr-own ! lf-env-use
   lf-input-count lf-input-default > if drop outcome-full exit then
   dup ok? if drop lf-input-count rr-steps rr-confirm then ;
-: rr-begun ( -- ) true run-record rr-checked ! 0 run-record rr-stepped ! ;
+\ A new run: an earlier run's environment freed, no step taken, and every
+\ kept outcome invalid until its step publishes one, never ok (0).
+: rr-unkept ( -- )
+  run-record rr-kept lf-input-default /rr-step * erase
+  lf-input-default 0 do outcome-invalid i rr-step-of kept-outcome ! loop ;
+: rr-begun ( -- )
+  rr-release rr-unkept true run-record rr-checked ! 0 run-record rr-stepped !
+  false run-record rr-own ! ;
 : rr-check ( -- )
   rr-begun run-record rr-fuel @ lf-check-budget run-record rr-deps @ lf-env-new
   dup ok? if drop rr-run-in else nip then run-record rr-run ! ;
@@ -284,6 +304,56 @@ rr-reset rr-no-source
 : rr-engine ( -- c-addr u ) rr-program rr-basename ;
 : rr-cell-bits ( -- n ) 0 1 begin ?dup while 1 lshift swap 1+ swap repeat ;
 
+\ The text rule, the owner's rule for program receipts 0.2
+\ (docs/programming/PROGRAM_RECEIPTS.md): a text is valid UTF-8 and holds
+\ no control character (C0, C1), no format character (Unicode Cf as of
+\ 15.1: bidirectional controls, zero-width characters, tags), no line or
+\ paragraph separator and no surrogate. These are the ranges of code
+\ points it bans, the same as the schema's text pattern (the tests compare
+\ the two at every range's ends). A shown text also has a character that
+\ is not a space, so it is neither empty nor blank.
+create rr-banned
+  $0000 , $001f ,  $007f , $009f ,  $00ad , $00ad ,  $0600 , $0605 ,  $061c , $061c ,
+  $06dd , $06dd ,  $070f , $070f ,  $0890 , $0891 ,  $08e2 , $08e2 ,  $180e , $180e ,
+  $200b , $200f ,  $2028 , $202e ,  $2060 , $2064 ,  $2066 , $206f ,  $d800 , $dfff ,
+  $feff , $feff ,  $fff9 , $fffb ,  $110bd , $110bd ,  $110cd , $110cd ,
+  $13430 , $1343f ,  $1bca0 , $1bca3 ,  $1d173 , $1d17a ,  $e0001 , $e0001 ,
+  $e0020 , $e007f ,
+here rr-banned - 2 cells / constant rr-banned#
+create rr-spaces   \ the space characters the rule does not ban already
+  $0020 , $0020 ,  $00a0 , $00a0 ,  $1680 , $1680 ,  $2000 , $200a ,  $202f , $202f ,
+  $205f , $205f ,  $3000 , $3000 ,
+here rr-spaces - 2 cells / constant rr-spaces#
+: rr-range ( table k -- lo hi ) 2* cells + dup @ swap cell+ @ ;
+: rr-among? ( code table n -- flag )
+  0 ?do 2dup i rr-range between? if 2drop true unloop exit then loop 2drop false ;
+: rr-banned? ( code -- flag ) rr-banned rr-banned# rr-among? ;
+: rr-blank? ( code -- flag ) rr-spaces rr-spaces# rr-among? ;
+\ Decoding valid UTF-8: the code point of the n-byte character at c-addr,
+\ from the lead byte's low bits and six bits of each byte after it.
+: rr-mask ( n -- mask )
+  case 1 of $7f endof 2 of $1f endof 3 of $0f endof $07 swap endcase ;
+: rr-tail ( code c-addr -- code' ) c@ $3f and swap 6 lshift or ;
+: rr-decode ( c-addr n -- code )
+  over c@ over rr-mask and -rot 1 ?do dup i chars + rot swap rr-tail swap loop drop ;
+: rr-next ( c-addr u -- c-addr' u' code )
+  2dup utf8-length >r over r@ rr-decode -rot r> /string rot ;
+\ Whether xt ( code -- flag ) holds for some character of valid UTF-8.
+: rr-some? ( c-addr u xt -- flag )
+  >r begin dup while rr-next r@ execute if 2drop r> drop true exit then repeat
+  2drop r> drop false ;
+: rr-rule? ( c-addr u -- flag )
+  2dup utf8-valid? if ['] rr-banned? rr-some? 0= else 2drop false then ;
+: rr-seen? ( code -- flag ) rr-blank? 0= ;
+: rr-shown? ( c-addr u -- flag )
+  2dup rr-rule? if ['] rr-seen? rr-some? else 2drop false then ;
+
+\ Numbers a record holds are exact in every JSON reader: within
+\ +-(2^53 - 1), I-JSON's range (RFC 7493).
+: rr-power ( -- d ) 1 0 53 0 do 2dup d+ loop -1 m+ ;
+rr-power 2constant rr-exact
+: rr-exact? ( d -- flag ) dabs rr-exact 2swap d< 0= ;
+
 \ Writing: the writer's sink appends to the text buffer; jw-limit keeps
 \ the text within it.
 : rr-text ( -- c-addr u ) run-record dup rr-text-buf swap rr-text-size @ ;
@@ -294,15 +364,27 @@ rr-reset rr-no-source
 : rr-array ( -- ) rr-w jw-open-array ;
 : rr-end-array ( -- ) rr-w jw-close-array ;
 : rr-key ( c-addr u -- ) rr-w jw-key ;
-: rr-string ( c-addr u -- ) rr-w jw-string ;
-: rr-int ( n -- ) rr-w jw-n ;
-: rr-ud ( ud -- ) decimal-text rr-w jw-digits ;
 : rr-null ( -- ) rr-w jw-null ;
+\ The first failure rr-write finds itself.
+: rr-fail ( outcome -- ) run-record rr-fault dup @ ok? if ! else 2drop then ;
+\ Values. A string that breaks the text rule, a shown one that is blank or
+\ longer than its room, and a number outside I-JSON's range fail the text
+\ as invalid (full for the length): the record never holds what its
+\ schema refuses.
+: rr-string ( c-addr u -- )
+  2dup rr-rule? 0= if outcome-invalid rr-fail then rr-w jw-string ;
+: rr-shown ( c-addr u room -- )
+  over < if outcome-full rr-fail then
+  2dup rr-shown? 0= if outcome-invalid rr-fail then rr-string ;
+: rr-int ( n -- ) dup s>d rr-exact? 0= if outcome-invalid rr-fail then rr-w jw-n ;
+: rr-ud ( ud -- )
+  2dup rr-exact? 0= if outcome-invalid rr-fail then decimal-text rr-w jw-digits ;
 : rr-outcome ( outcome -- ) outcome-text rr-string ;
 : rr-note-out ( note -- ) dup rr-note? if rr-note rr-string else drop rr-null then ;
 : rr-member ( note c-addr u -- ) rr-key rr-note-out ;
-\ The first failure rr-write finds itself.
-: rr-fail ( outcome -- ) run-record rr-fault dup @ ok? if ! else 2drop then ;
+\ A note that, when it is there, must be shown.
+: rr-shown-out ( note c-addr u -- )
+  rr-key dup rr-note? if rr-note rr-note-room rr-shown else drop rr-null then ;
 
 \ The sections, in the record's order.
 : rr-head ( -- )
@@ -310,29 +392,33 @@ rr-reset rr-no-source
 : rr-facts-out ( facts -- )
   s" sha256" rr-key dup facts-hex sha-digest-bytes 2* rr-string
   s" bytes" rr-key dup facts-bytes 2@ rr-ud s" lines" rr-key facts-lines 2@ rr-ud ;
+\ The manifest's outcome, field and reason; a failure's reason is shown.
+: rr-why-out ( -- )
+  run-record dup rr-manifest-reason swap rr-manifest-outcome @ ok?
+  if s" reason" rr-member else s" reason" rr-shown-out then ;
 : rr-manifest-out ( -- )
   s" manifest" rr-key rr-object
   s" outcome" rr-key run-record rr-manifest-outcome @ rr-outcome
-  run-record rr-manifest-key s" field" rr-member
-  run-record rr-manifest-reason s" reason" rr-member rr-end-object ;
+  run-record rr-manifest-key s" field" rr-member rr-why-out rr-end-object ;
 : rr-input-out ( -- )
   s" input" rr-key rr-object run-record rr-before rr-facts-out rr-manifest-out
   rr-end-object ;
 : rr-exporter-out ( -- )
-  run-record rr-exporter s" exporter" rr-member
-  run-record rr-exporter-version s" exporterVersion" rr-member
-  run-record rr-format s" format" rr-member ;
+  run-record rr-exporter s" exporter" rr-shown-out
+  run-record rr-exporter-version s" exporterVersion" rr-shown-out
+  run-record rr-format s" format" rr-shown-out ;
 : rr-export-out ( -- )
-  s" export" rr-key rr-object rr-exporter-out run-record rr-lean s" lean" rr-member
-  run-record rr-githash s" leanGithash" rr-member rr-end-object ;
+  s" export" rr-key rr-object rr-exporter-out run-record rr-lean s" lean" rr-shown-out
+  run-record rr-githash s" leanGithash" rr-shown-out rr-end-object ;
 : rr-modified-out ( -- )
   run-record dup rr-commit rr-note? if rr-modified @ rr-w jw-bool else drop rr-null then ;
 : rr-source-out ( -- )
   s" leanforth" rr-key rr-object run-record rr-commit s" commit" rr-member
   s" modified" rr-key rr-modified-out rr-end-object ;
+: rr-host-shown ( c-addr u key-addr key-u -- ) rr-key rr-note-room rr-shown ;
 : rr-host-out ( -- )
-  s" host" rr-key rr-object s" forth" rr-key rr-forth rr-string
-  s" version" rr-key rr-forth-version rr-string s" engine" rr-key rr-engine rr-string
+  s" host" rr-key rr-object rr-forth s" forth" rr-host-shown
+  rr-forth-version s" version" rr-host-shown rr-engine s" engine" rr-host-shown
   s" cellBits" rr-key rr-cell-bits rr-int rr-end-object ;
 : rr-setting ( n c-addr u -- ) rr-key rr-int ;
 : rr-stores ( -- )
@@ -370,7 +456,7 @@ rr-reset rr-no-source
   tuck rr-name + swap move run-record rr-name-size +! ;
 : rr-name-out ( d -- )
   0 run-record rr-name-size ! lf-input-name ['] rr-name-sink lf-pp-name-to
-  rr-name rr-string ;
+  rr-name rr-name-room rr-shown ;
 
 \ A declaration's verdict. Accepted: the label and the axiom set read from
 \ the slot, which must be empty. Any other: its name and the diagnostic its
@@ -408,12 +494,13 @@ rr-reset rr-no-source
 : rr-decl-out ( d -- )
   rr-object s" index" rr-key dup rr-int s" name" rr-key dup rr-name-out
   dup lf-env-readable if rr-verdict-out else rr-open-out then rr-end-object ;
-\ Every declaration, in input order, read in a snapshot of every slot;
-\ none when no check ran.
-: rr-viewed? ( -- flag ) lf-env-view ok? lf-name-storage-valid? and ;
+\ Every declaration, in input order, read in a snapshot of every slot of
+\ the run's own environment; none when no check ran or the run could not
+\ make its environment (the run's outcome says why). When that environment
+\ is freed or another one is current, the text fails as invalid.
+: rr-made-own? ( -- flag ) run-record dup rr-checked @ swap rr-own @ and ;
 : rr-decls ( -- )
-  run-record rr-checked @ 0= if exit then
-  rr-viewed? 0= if outcome-invalid rr-fail exit then
+  rr-made-own? 0= if exit then rr-viewed? 0= if outcome-invalid rr-fail exit then
   lf-input-count 0 ?do i rr-decl-out loop ;
 : rr-decls-out ( -- ) s" declarations" rr-key rr-array rr-decls rr-end-array ;
 

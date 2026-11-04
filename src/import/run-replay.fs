@@ -14,11 +14,16 @@
 \ finding per difference (rp-total counts them); invalid when the old record
 \ cannot be compared at all (unreadable or larger than rp-room, not JSON,
 \ not a run record of version 0.1) or the new one is not there.
-\ rp-report ( -- outcome ) then writes the report with TYPE and gives the
-\ writer's outcome. Nothing is ever confirmed silently: a different input
-\ hash, manifest, export, LeanForth commit, host or setting is a finding
-\ as much as a different verdict, and only a report without findings says
-\ "confirmed".
+\ rp-report ( -- outcome ) then writes the report with TYPE, whole or not
+\ at all, and gives the writer's outcome. Nothing is ever confirmed
+\ silently: a different input hash, manifest, export, LeanForth commit,
+\ host or setting is a finding as much as a different verdict, and only a
+\ report without findings says "confirmed".
+\
+\ How values compare: strings by their decoded text, so an escape such as
+\ a equals the letter a and whitespace between tokens is no
+\ difference; numbers by their text, so 100000.0 or 1e5 differs from
+\ 100000; members by key, whatever their order; array elements in order.
 \
 \ The new record leads the comparison. For each member of each object in
 \ it, the old record must have exactly one member of the same key
@@ -37,8 +42,8 @@
 \ new record's shape, so the comparison's depth is the new record's, and
 \ JSON nesting deeper than rp-depth is refused as not-json. Paths are
 \ JSON paths from $, such as $.declarations[0].verdict; an old key that
-\ goes into a path is cut at the path's room. The first rp-kept findings
-\ are kept; all are counted.
+\ goes into a path is cut at the path's room, between two characters. The
+\ first rp-kept findings are kept; all are counted.
 \
 \ Requires: run-record.fs (and through it the JSON reader and writer).
 \ State: one shared record, run-replay: the two texts, their JSON views
@@ -58,6 +63,9 @@ rr-text-room 2* constant rp-room   \ largest old record read: room for whitespac
 8 constant rp-depth                \ deepest nesting of either record
 128 constant rp-path-room          \ longest path kept
 32 constant rp-kept                \ findings kept
+\ Room for the longest report: rp-kept findings whose paths are escaped
+\ at six bytes a byte (\u00xx), each with its code and punctuation.
+rp-path-room 6 * 64 + rp-kept * 256 + constant rp-report-room
 : rp-schema ( -- c-addr u ) s" leanforth-replay-report" ;
 : rp-version ( -- c-addr u ) s" 0.1" ;
 
@@ -144,6 +152,8 @@ begin-structure /rp
   aligned field: rp-total             \ findings, all counted
   rp-kept /rp-finding * +field rp-findings
   aligned rp-depth 0 jw-size +field rp-writer
+  field: rp-report-size
+  rp-report-room +field rp-report-buf  \ the report, typed only once it is complete
 end-structure
 create run-replay /rp allot  run-replay /rp erase
 rp-depth 0 run-replay rp-writer jw-init 0= [if] .( run-replay.fs: writer) cr abort [then]
@@ -153,8 +163,16 @@ rp-depth 0 run-replay rp-writer jw-init 0= [if] .( run-replay.fs: writer) cr abo
 \ The path, and the code of a difference at it: saved and restored around
 \ each member and element.
 : rp-path ( -- c-addr u ) run-replay dup rp-path-buf swap rp-path-size @ ;
-: rp-path+ ( c-addr u -- )   \ append, cut at the path's room
-  rp-path-room run-replay rp-path-size @ - min tuck rp-path + swap move
+\ The bytes of the whole characters of c-addr u that fit in n bytes: a
+\ cut never splits a character (review F2). c-addr u is valid UTF-8, as
+\ the JSON reader checked; at an invalid byte the cut stops.
+: rp-whole ( c-addr u n -- u' )
+  >r 0 -rot begin dup while 2dup utf8-length ?dup 0= if 2drop r> drop exit then
+    3 pick over + r@ > if drop 2drop r> drop exit then
+    dup >r /string rot r> + -rot repeat 2drop r> drop ;
+: rp-cut ( c-addr u n -- c-addr u' ) 2 pick -rot rp-whole ;
+: rp-path+ ( c-addr u -- )   \ append, cut between characters at the path's room
+  rp-path-room run-replay rp-path-size @ - rp-cut tuck rp-path + swap move
   run-replay rp-path-size +! ;
 : rp-saved ( -- size code ) run-replay dup rp-path-size @ swap rp-code @ ;
 : rp-restore ( size code -- ) run-replay tuck rp-code ! rp-path-size ! ;
@@ -339,6 +357,15 @@ defer rp-value ( n o -- )   \ compare value n of the new record with value o of 
   rp-w jw-close-array s" findingsTotal" rp-key run-replay rp-total @ rp-w jw-n ;
 : rp-body ( -- ) rp-w jw-open-object rp-head-out rp-findings-out rp-w jw-close-object ;
 \ Write the report of the last replay with TYPE, then a line feed.
-: rp-report ( -- outcome ) ['] type rp-w jw-start rp-body rp-w jw-end cr ;
+\ The report is written into its buffer first and typed, with a line
+\ feed, only when the writer ends ok: a failure types nothing, never part
+\ of a text (review F2).
+: rp-report-text ( -- c-addr u ) run-replay dup rp-report-buf swap rp-report-size @ ;
+: rp-report-sink ( c-addr u -- )
+  tuck rp-report-text + swap move run-replay rp-report-size +! ;
+: rp-report ( -- outcome )
+  0 run-replay rp-report-size ! rp-report-room rp-w jw-limit !
+  ['] rp-report-sink rp-w jw-start rp-body rp-w jw-end
+  dup ok? if rp-report-text type cr then ;
 
 base !   \ the BASE this file was loaded with

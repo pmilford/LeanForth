@@ -7,9 +7,9 @@
 \ whose IR the interpreter then loads and runs) and the term printer run
 \ over the trial's terms, levels and names in all three modes; a new
 \ context starts as the main context did right after src/main.fs loaded;
-\ and the state words of the loader, the printer, the program reader and
-\ the interpreter lie inside the context, at the same offset in every
-\ context. tests/core/contexts.fs does the rest with the core and kernel
+\ and the state words of the loader, the printer, the program reader, the
+\ interpreter, the staging of exports and the command line lie inside the
+\ context, at the same offset in every context. tests/core/contexts.fs does the rest with the core and kernel
 \ modules alone. Nothing here checks or accepts a theorem.
 include ../support/tester.fs
 include ../support/checks.fs
@@ -34,7 +34,7 @@ include ../support/dictionary-check.fs
 \ Members outside the core and kernel modules.
 create state-words
   ' lf-load-batch , ' lf-pjob , ' lf-pres , ' lf-pp-scan-walk , ' lf-pp-level-walk ,
-  ' lf-ir-reader , ' irx-state ,
+  ' lf-ir-reader , ' irx-state , ' cin-state , ' cli-state ,
 here state-words - 1 cells / constant state-count
 : state-word ( i -- addr ) cells state-words + @ execute ;
 : state-offset ( addr -- n ) lf-context @ - ;

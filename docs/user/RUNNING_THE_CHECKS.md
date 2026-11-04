@@ -1,10 +1,11 @@
 # Running the checks today
 
-LeanForth has no `leanforth` command yet (plan task 3.4.1). What you can
-run are the test suites and the comparisons with Lean, through `make`, and
-a few Forth tools. This page says what each one runs, what a pass shows,
-and — just as important — what it does not show. Status 2026-11-02, commit
-`fc558cc`.
+What you can run are the test suites and the comparisons with Lean,
+through `make`, a few Forth tools, and the command line `bin/leanforth`
+(version 0, [its manual](COMMAND_LINE.md)), which checks small Lean exports
+with the experimental first checker. This page says what each one runs,
+what a pass shows, and — just as important — what it does not show.
+Status 2026-11-02, commit `fc558cc`; the command line added 2026-11-03.
 
 **Nothing below proves a theorem or verifies a program with LeanForth.**
 A pass shows that untrusted, experimental code behaved as its tests and
@@ -21,15 +22,25 @@ then fails. Run everything from the repository root.
 
 ## The two suites
 
-| Command | Needs | Time, measured 2026-11-02 | Runs |
+| Command | Needs | Time, measured 2026-11-03 (8 jobs, 10 cores) | Runs |
 | --- | --- | --- | --- |
-| `make test` | Gforth and Python 3 | about 7 s | Documentation, Lean-source and portability checks, the silent-load check of every module, the test harness's own tests, every Forth unit test, the NDJSON reader's file tests, the fixture bridge, the program examples, the term printer, the receipt schema and the IR reader |
-| `make check` | also Lean 4.35.0 | 90–100 s | `make test`, then every comparison with pinned Lean |
+| `make test` | Gforth and Python 3 | about 8 s (36 s with `JOBS=1`) | Documentation, Lean-source and portability checks, the silent-load check of every module, the test harness's own tests, every Forth unit test, the NDJSON reader's file tests, the fixture bridge, the program examples, the term printer, the receipt schema and the IR reader |
+| `make check` | also Lean 4.35.0 | about 45 s with the Lean cache filled, about 70 s with an empty one, about 75 s without it (`LEAN_CACHE=0`, as CI) | `make test`, then every comparison with pinned Lean |
 
-Both stop at the first failure and exit with a nonzero status. CI runs
-`make test` on Ubuntu's Gforth 0.7.3 and `make check` on the pinned tools
-for every push to `main` ([project progress](../project/PROJECT_PROGRESS.md)
-records the latest runs). Run `make test` before every commit.
+Make runs 8 targets at a time (`JOBS=1` runs one at a time) and prints each
+target's output in one piece. At the first failure it starts no more
+targets, lets the running ones finish, names the failing target
+(`make: *** [Makefile:LINE: TARGET] Error N`) and exits with a nonzero
+status. Outside CI, `make check` replays pinned Lean's runs on unchanged
+inputs from a cache shared by the clone's worktrees; `LEAN_CACHE=0` runs
+Lean every time, and `LEAN_CACHE=verify` runs it and compares with the cache
+([testing strategy](../development/TESTING_STRATEGY.md#running-the-suites-parallel-jobs-and-the-lean-cache)).
+CI runs `make test` on Ubuntu's Gforth 0.7.3 and `make check LEAN_CACHE=0`
+on the pinned tools for every push to `main`
+([project progress](../project/PROJECT_PROGRESS.md) records the latest
+runs), so CI never replays a cached run. Run `make test` before every
+commit; while working, `make test-changed` runs only the targets that use a
+file changed since `main`.
 
 ## What each part shows, and what it does not
 
@@ -45,12 +56,15 @@ records the latest runs). Run `make test` before every commit.
 | `test-composition-fixture` | The test-only Python bridge stages the pinned fixtures into the Forth stores, and the definition probe reaches the expected diagnostics | Import or checking of real libraries |
 | `test-program` | The six example words give the expected results on sample and small exhaustive inputs | That the words are correct for all inputs: testing is not proof |
 | `test-program-ir` | The receipt schema accepts its valid examples and refuses each invalid one for its pinned reason; the reference models copied into the IR's Lean file are verbatim; the IR reader's output for the example words equals the golden IR | That the reader's translation is faithful |
+| `test-lean-cache` | The Lean cache, on a fake toolchain, replays a repeated call exactly and misses on every changed input; it never caches IO inputs, and the Makefile uses it only without `LEAN_CACHE=0` and `CI` | That pinned Lean itself is deterministic (`make check LEAN_CACHE=verify` reruns every call and compares) |
 | `test-present` | The term printer meets its unit tests, ends every print of 49 cases in three modes at every fuel level with a defined outcome, and prints the golden text for those cases and the five fixtures | That the printed text is what Lean prints (that is `test-printer-differential`) |
 | `reference`, `reference-export` | The Lean reference files check with pinned Lean and fail on `sorry`; re-exporting the fixtures gives byte-identical NDJSON | Anything about LeanForth |
 | `reference-first-checker` | Lean's verdicts on the first checker's 60 expected-results cases and 27 broken source copies are as recorded ([expected results](../reviews/FIRST_CHECKER_EXPECTED.md)) | LeanForth's answers (that is `test-first-checker-differential`) |
 | `reference-binder-domains` | Lean's answers on comparing binders whose argument types differ ([ADR 0003, Amendment 1](../adr/0003-conversion.md)) | LeanForth's answers (that is `test-binder-domains-differential`) |
 | `test-first-checker-differential`, `test-binder-domains-differential`, `test-universe-scope-differential` | The first checker, run end to end through the checked environment, gives the expected outcome on the 62 table cases, the 22 binder-domain cases (three known capacity differences, each a failure) and 17 universe-scope cases; every rejection names Lean's reason; every accepted case prints its *experimental* label ([first check](FIRST_CHECK.md)) | That the checker is correct beyond these cases, or reviewed: it has not passed its gate |
 | `test-environment` | The checked environment and check-declaration meet their unit tests: every outcome, Lean's order, fuel sweeps, and the pinned NDJSON exports checked and accepted | The same |
+| `test-cli` | `bin/leanforth` reaches every exit status 0–5 with its exact output (accepted, rejected, unsupported and unknown, out of fuel and out of room, malformed files and command lines, injected internal faults), from other folders, and agrees with the counter and the re-exporter | That a verdict is right beyond these cases: the checker has not passed its gate |
+| `reference-cli` | Pinned Lean accepts the command line's two Lean fixtures, and `scripts/export.sh` reproduces their exports and manifests byte for byte | Anything about LeanForth |
 | `reference-program-ir` | Lean proves the six words' IR equal to their reference models, using only `propext`, `Classical.choice` and `Quot.sound`, and the IR it prints equals the reader's | Anything checked by LeanForth, or the host's behaviour |
 | `test-printer-differential` | The printer's Unicode output equals Lean's own printing on 49 cases and the five fixtures' `#print` lines, and its ASCII output, read back by Lean, elaborates to the original declarations | That any printed statement was checked |
 | `test-*-differential` | On finite tables, the experimental Forth passes (shift, instantiation, beta reduction, comparison, conversion, inference, level operations, names, the definition probe) and the program words agree with pinned Lean | General correctness: agreement on samples is evidence, not proof |
@@ -62,6 +76,10 @@ one in the Makefile's `DIFFERENTIAL_TARGETS`. The
 and the planted-fault checks behind them.
 
 ## Tools you can run on your own files
+
+Check a small export with the experimental first checker, one verdict per
+declaration and an exit status ([the command line](COMMAND_LINE.md)):
+`bin/leanforth check FILE.ndjson`.
 
 Count the records of any lean4export 3.1.0 file written by Lean 4.35.0
 (`gforth-fast` is about three times faster than `gforth`). The file is
@@ -122,7 +140,10 @@ Report Forth style signals: `make forth-metrics`.
   all of `Init` (6.1 million expressions) fits in about 1.3 GB. A constant
   reference takes at most 64 universe arguments (Mathlib's largest has 30).
   The checking passes nest at most 64 deep (`lf-depth-limit`): a deeper
-  term gives *full* (plan task 6.2.0 lifts it).
+  term gives *full* (plan task 6.2.0 lifts it). `bin/leanforth check` still
+  reads an export straight into the default capacities
+  (`src/import/checker-input.fs`), so it ends *full*, exit status 3, on
+  anything larger than a test fixture until it uses the feed.
 - The checking passes run with explicit fuel; running out gives
   *exhausted*, running out of room *full*. Neither is ever accepted.
 - Only the pinned exporter, format and Lean version are read; anything else

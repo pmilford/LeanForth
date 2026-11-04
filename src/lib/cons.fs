@@ -58,10 +58,15 @@
 \
 \ Interface: cons-class: cons-hooks! /cons cons-init cons-extend cons-free
 \ cons-numbers cons-first cons-under cons-at cons-text-at cons-top
-\ cons-key cons-room cons-find cons-text, cons-commit cons-entry? /cons-mark
-\ cons-mark cons-mark-valid? cons-rollback cons-reset cons-seal
-\ cons-sealed? cons-building cons-table cons-records cons-bytes
-\ cons-numbers-max. State: none of its own; classes are made while
+\ cons-key cons-key! cons-key-fix cons-room cons-room-key cons-find
+\ cons-text, cons-commit cons-entry? cons-in? cons-under? cons-base?
+\ cons-open? cons-allocated cons-used /cons-mark cons-mark
+\ cons-mark-valid? cons-rollback cons-reset cons-seal cons-sealed?
+\ cons-building cons-table cons-records cons-bytes cons-under-finds
+\ cons-numbers-max.
+\ A sealed set's table is frozen (htab.fs): finds in it write nothing.
+\ Only a base set (sealed, extending none) can be extended, so there are
+\ at most two tiers. State: none of its own; classes are made while
 \ loading and read-only afterwards; a set owns its heap blocks until
 \ cons-free. A set is single-threaded while it changes; any number of
 \ tasks may read and find in a sealed set. Speed: the hooks are called
@@ -110,14 +115,20 @@ begin-structure /cons
   field: cons-sealed          \ true once sealed
   field: cons-building        \ for classes that build a candidate in steps
   aligned 2 cells +field cons-key   \ the candidate's text, address and length
+  field: cons-key-base        \ where that text lies in cons-bytes, or -1
+  field: cons-under-finds     \ statistics: finds this set made in its under set
 end-structure
 
 \ Numbers so far, and the set that holds number n: the under set below the
 \ first own number.
 : cons-numbers ( cons -- n ) dup cons-first @ swap cons-records slab-count + ;
 : cons-sealed? ( cons -- flag ) cons-sealed @ ;
+\ Whether n is a number of the set or its under set, and whether it is an
+\ under number.
+: cons-in? ( n cons -- flag ) cons-numbers u< ;
+: cons-under? ( n cons -- flag ) cons-first @ u< ;
 lf-lib-private set-current
-: cons-home ( n cons -- n cons' ) 2dup cons-first @ u< if cons-under @ then ;
+: cons-home ( n cons -- n cons' ) 2dup cons-under? if cons-under @ then ;
 : cons-local ( n cons -- local slab ) tuck cons-first @ - swap cons-records ;
 lf-lib set-current
 \ Unchecked: the address of record n, of the bytes at offset of record
@@ -125,19 +136,33 @@ lf-lib set-current
 : cons-at ( n cons -- addr ) cons-home cons-local slab-at ;
 : cons-text-at ( offset n cons -- addr ) cons-home nip cons-bytes slab-at ;
 : cons-top ( cons -- addr ) cons-records slab-top ;
+\ Address units allocated, and in use, by the set's slabs and table.
+: cons-allocated ( cons -- u )
+  dup cons-records slab-bytes over cons-bytes slab-bytes +
+  swap cons-table htab-slots u32s + ;
+: cons-used ( cons -- u )
+  dup cons-records slab-used-bytes over cons-bytes slab-used-bytes +
+  swap cons-table htab-slots u32s + ;
 lf-lib-private set-current
 
-\ The class's hooks, for the set's own records.
+\ The class's hooks, for the set's own records. A span of 0 counts as 1,
+\ so that walking the records always moves on.
 : cons-rehash ( n cons -- h ) dup cons-class @ hook-rehash @ execute ;
-: cons-span ( local cons -- units ) dup cons-class @ class-span @ execute 1 max ;
+: cons-span ( local cons -- units )
+  dup cons-class @ class-span @ execute ?dup 0= if 1 then ;
 
 \ Making a set. The records' slab holds two units more than the numbers
 \ the class allows, so that a candidate of up to two units can be built,
-\ and found, when the set is at its limit; cons-commit checks the limit.
+\ and found, when the set is at its limit (cons-commit checks the limit);
+\ never more than a cell can address, which on a 32-bit host is less than
+\ cons-numbers-max of 16-byte records.
 2 constant cons-spare
 : cons-limit ( cons -- n ) cons-class @ class-limit @ ;
+: spare+ ( n -- n' ) dup max-n cons-spare - u< if cons-spare + else drop max-n then ;
+: cons-records-limit ( limit cons -- units )
+  cons-class @ class-unit @ slab-limit-max swap spare+ min ;
 : cons-records-init ( limit cons -- outcome )
-  swap cons-spare + over cons-class @ class-unit @ swap rot cons-records slab-init ;
+  tuck cons-records-limit over cons-class @ class-unit @ swap rot cons-records slab-init ;
 : cons-bytes-init ( cons -- outcome ) 1 chars cons-numbers-max rot cons-bytes slab-init ;
 : cons-slabs-init ( cons -- outcome )
   dup cons-limit over cons-records-init dup ok? if drop cons-bytes-init else nip then ;
@@ -146,27 +171,30 @@ lf-lib set-current
 \ a bad class, or full. It allocates only the table; the slabs grow when
 \ used. It must not be given a set that holds memory: cons-free first.
 : cons-init ( log2 class cons -- outcome )
-  dup /cons erase tuck cons-class ! dup cons-slabs-init dup ok?
+  dup /cons erase -1 over cons-key-base ! tuck cons-class ! dup cons-slabs-init dup ok?
   if drop dup cons-class @ swap cons-table htab-init else nip nip then ;
 : cons-free ( cons -- )
-  dup cons-table htab-free dup cons-records slab-free dup cons-bytes slab-free /cons
-  erase ;
+  dup cons-table htab-free dup cons-records slab-free
+  dup cons-bytes slab-free /cons erase ;
 lf-lib-private set-current
 : cons-attach ( under cons -- outcome )
   2dup cons-under ! swap cons-numbers over cons-first !
   dup cons-limit over cons-first @ - swap cons-records-init ;
-: cons-sealed-live? ( cons -- flag )
-  dup cons-sealed? swap cons-table htab-block @ 0<> and ;
 lf-lib set-current
-\ An empty set over the sealed set under, of its class, with a table of
-\ 2^log2 slots: ok, invalid when under is not sealed, or full.
+\ Whether a set may be extended: sealed, with a live table, and extending
+\ no set itself. Numbers name records one tier down only, so a set over a
+\ sealed scratch set (three tiers) is refused.
+: cons-base? ( cons -- flag )
+  dup cons-sealed? over cons-table htab-live? and swap cons-under @ 0= and ;
+\ An empty set over the set under, of its class, with a table of 2^log2
+\ slots: ok, invalid when under is not a base set (cons-base?), or full.
 : cons-extend ( log2 under cons -- outcome )
-  over cons-sealed-live? 0= if 2drop drop outcome-invalid exit then
+  over cons-base? 0= if 2drop drop outcome-invalid exit then
   >r dup cons-class @ rot swap r@ cons-init dup ok?
   if drop r> cons-attach else nip r> drop then ;
 
-\ An open set may change: not sealed, with a table.
-: cons-open? ( cons -- flag ) dup cons-sealed? 0= swap cons-table htab-block @ 0<> and ;
+\ An open set may change: not sealed, with a live table.
+: cons-open? ( cons -- flag ) dup cons-sealed? 0= swap cons-table htab-live? and ;
 lf-lib-private set-current
 : cons-bytes-room ( bytes cons -- outcome )
   over if cons-bytes slab-room else 2drop outcome-ok then ;
@@ -178,15 +206,30 @@ lf-lib set-current
   tuck cons-bytes-room dup ok? 0= if nip nip exit then drop
   tuck cons-records slab-room dup ok? 0= if nip exit then drop
   cons-table htab-ready ;
+\ The candidate's text, kept in cons-key: addr u, and where addr lies in
+\ the set's own byte slab, which may move while room is made (or -1).
+: cons-key! ( addr u cons -- )
+  >r 2dup r@ cons-key 2! drop r@ cons-bytes slab-offset r> cons-key-base ! ;
+\ After room is made: the text's address again, when it lies in the slab.
+: cons-key-fix ( cons -- )
+  dup cons-key-base @ dup 0< if 2drop exit then over cons-bytes slab-at
+  swap cons-key cell+ ! ;
+\ Room for a candidate of units record units and the key's text (as
+\ cons-room), its address found again: a text may come from the set's own
+\ byte slab, for example a name's component given back to name-str.
+: cons-room-key ( units cons -- outcome )
+  >r r@ cons-key @ r@ cons-room dup ok? if r@ cons-key-fix then r> drop ;
 lf-lib-private set-current
-\ Look in the under set, read-only, giving the key as this set.
+\ Look in the under set, read-only, giving the key as this set; the find
+\ is counted here, in this set (the under set's table is frozen).
 : cons-under-find ( h cons -- n true | false )
   dup cons-under @ ?dup 0= if 2drop false exit then
-  rot swap htab-find dup 0= if nip then ;
+  over cons-under-finds 1 swap +! rot swap htab-find dup 0= if nip then ;
 lf-lib set-current
 \ Find the candidate whose hash is h: under? says it may be in the under
-\ set, which is searched first. A record's number and true, or the empty
-\ slot of the own table where it belongs and false. cons-room first.
+\ set, which is searched first, read-only (a sealed set's table is frozen,
+\ so the find writes nothing there). A record's number and true, or the
+\ empty slot of the own table where it belongs and false. cons-room first.
 : cons-find ( h under? cons -- n true | i false )
   swap if 2dup cons-under-find if nip nip true exit then then tuck cons-table htab-find ;
 \ Unchecked, after cons-room and a find that gave false: keep u bytes of
@@ -199,7 +242,10 @@ lf-lib set-current
 \ would be passed. A text the record refers to is kept after it, with
 \ cons-text, (whose room cons-room made).
 lf-lib-private set-current
-: cons-past? ( units cons -- flag ) dup cons-numbers rot + swap cons-limit > ;
+\ Whether units more numbers pass the limit, or the numbers already do;
+\ compares with the numbers left, so no sum can wrap.
+: cons-past? ( units cons -- flag )
+  dup cons-limit swap cons-numbers 2dup u< if 2drop drop true else - u> then ;
 lf-lib set-current
 : cons-commit ( units i cons -- n outcome )
   >r over r@ cons-past? if 2drop r> drop outcome-full no-result exit then
@@ -211,30 +257,34 @@ lf-lib set-current
 \ the middle of a record, or of a part of a record that is not an entry,
 \ is refused).
 lf-lib-private set-current
-: cons-fits? ( n cons -- flag ) cons-numbers 0 swap within ;
-\ Unchecked: n is in range. Its record ends within its tier.
+\ Unchecked: n is in range. Its record ends within its tier; the span is
+\ compared with the records left, so no sum can wrap.
 : cons-whole? ( n cons -- flag )
-  cons-home tuck cons-local slab-count >r tuck swap cons-span + r> <= ;
+  cons-home tuck cons-local slab-count over - >r swap cons-span r> u> 0= ;
 : cons-listed? ( n cons -- flag ) cons-home 2dup cons-rehash swap cons-table htab-holds? ;
 lf-lib set-current
 : cons-entry? ( n cons -- flag )
-  2dup cons-fits? 0= if 2drop false exit then
+  2dup cons-in? 0= if 2drop false exit then
   2dup cons-whole? if cons-listed? else 2drop false then ;
 
-\ Forgetting the own records from local on: their table entries go.
+\ Forgetting the own records from local on: their table entries go. An
+\ entry that is missing (a corrupted table) is invalid, after the others
+\ have gone.
 lf-lib-private set-current
-: cons-unlist ( local cons -- )
-  tuck cons-first @ + swap 2dup cons-rehash swap cons-table htab-remove drop ;
-: cons-forget ( local cons -- )
-  begin 2dup cons-records slab-count < while
-    2dup cons-unlist 2dup cons-span rot + swap
+: cons-unlist ( local cons -- outcome )
+  tuck cons-first @ + swap 2dup cons-rehash swap cons-table htab-remove ;
+\ The first failure of two outcomes.
+: worse ( outcome1 outcome2 -- outcome ) over ok? if nip else drop then ;
+: cons-forget ( local cons -- outcome )
+  outcome-ok -rot begin 2dup cons-records slab-count < while
+    2dup cons-unlist >r rot r> worse -rot 2dup cons-span rot + swap
   repeat 2drop ;
 \ Emptying the table costs its size; forgetting costs the records: choose
 \ the cheaper.
-: cons-crowded? ( cons -- flag ) dup cons-records slab-count 4 * swap cons-table
-  htab-slots > ;
-: cons-empty ( cons -- )
-  dup cons-crowded? if cons-table htab-clear else 0 swap cons-forget then ;
+: cons-crowded? ( cons -- flag )
+  dup cons-records slab-count 4 * swap cons-table htab-slots > ;
+: cons-empty ( cons -- outcome )
+  dup cons-crowded? if cons-table htab-clear outcome-ok else 0 swap cons-forget then ;
 : cons-cleared ( cons -- ) dup cons-records slab-clear cons-bytes slab-clear ;
 
 \ Marks: one for the records and one for the texts.
@@ -244,15 +294,15 @@ begin-structure /cons-mark
   /slab-mark +field cons-mark-bytes
 end-structure
 lf-lib-private set-current
-: cons-mark-records? ( mark cons -- mark-part slab ) cons-records swap cons-mark-records
-  swap ;
+: cons-mark-records? ( mark cons -- mark-part slab )
+  cons-records swap cons-mark-records swap ;
 : cons-mark-bytes? ( mark cons -- mark-part slab ) cons-bytes swap cons-mark-bytes swap ;
 lf-lib set-current
 \ Mark an open set: ok; or, with a mark every rollback refuses, invalid or
 \ full.
 : cons-mark ( mark cons -- outcome )
   dup cons-open? 0= if drop /cons-mark erase outcome-invalid exit then
-  2dup cons-mark-records? slab-mark dup ok? 0= if nip nip exit then drop
+  2dup cons-mark-records? slab-mark ok-then2? 0= if exit then
   cons-mark-bytes? slab-mark ;
 : cons-mark-valid? ( mark cons -- flag )
   dup cons-open? 0= if 2drop false exit then
@@ -262,24 +312,28 @@ lf-lib-private set-current
   2dup cons-mark-records? slab-rollback drop cons-mark-bytes? slab-rollback drop ;
 lf-lib set-current
 \ Give back every record made since the mark, with its table entry and
-\ text: ok, or invalid with nothing changed. A candidate being built is
-\ dropped.
+\ text: ok; invalid with nothing changed for a mark that is not valid; or
+\ invalid after the rollback when the table missed an entry (corrupted). A
+\ candidate being built is dropped.
 : cons-rollback ( mark cons -- outcome )
   2dup cons-mark-valid? 0= if 2drop outcome-invalid exit then
-  over cons-mark-records slab-mark-count @ over cons-forget
-  false over cons-building ! cons-slabs-back outcome-ok ;
-\ Empty an open set: ok, or invalid for a sealed one. Its generation
-\ grows, so every mark of it is refused afterwards.
+  over cons-mark-records slab-mark-count @ over cons-forget >r
+  false over cons-building ! cons-slabs-back r> ;
+\ Empty an open set: ok, invalid for a sealed one (or, after emptying it,
+\ when the table missed an entry). Its generation grows, so every mark of
+\ it is refused afterwards.
 : cons-reset ( cons -- outcome )
   dup cons-open? 0= if drop outcome-invalid exit then
-  dup cons-empty false over cons-building ! cons-cleared outcome-ok ;
+  dup cons-empty >r false over cons-building ! cons-cleared r> ;
 \ Make an open set read-only: the table rebuilt at most half full and the
 \ slabs trimmed (both kept as they were when the heap has no room for it,
-\ which only costs speed). ok, or invalid when it is not open.
+\ which only costs speed), then the table frozen, so that finds in it
+\ write nothing. ok, or invalid when it is not open.
 : cons-seal ( cons -- outcome )
   dup cons-open? 0= if drop outcome-invalid exit then
   dup cons-table htab-spread drop dup cons-records slab-trim drop
-  dup cons-bytes slab-trim drop true swap cons-sealed ! outcome-ok ;
+  dup cons-bytes slab-trim drop
+  true over cons-sealed ! cons-table htab-freeze outcome-ok ;
 
 module-close
 base !   \ the BASE this file was loaded with

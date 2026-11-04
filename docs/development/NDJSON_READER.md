@@ -6,8 +6,9 @@ declaration library as NDJSON: one JSON object per line, first a metadata
 record, then names, universe levels, expressions and declarations, each
 referring to earlier records by index. The reader decodes those records and
 hands each one, checked for shape and references, to a word the caller
-chooses. It is the first step of `leanforth check FILE.ndjson` (plan phase
-3): under the owner's product rule, end users need only a Forth system and
+chooses. It is the first step of `leanforth check FILE.ndjson`
+([the command line](../user/COMMAND_LINE.md), version 0, plan phase 3):
+under the owner's product rule, end users need only a Forth system and
 an NDJSON file, so nothing on the user's path is Python
 ([OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md), "Product dependencies"
 and OQ-4).
@@ -18,7 +19,10 @@ checker, never a checked declaration. Since 2026-11-03 the importer stage
 stages every record of an export into the compact store, all of Mathlib
 included ([Staging into the compact store](#staging-into-the-compact-store),
 plan items 3.2.1 and 3.3.1 in part); the checker does not read it yet, and
-its term, level and name stores still hold 64 entries each. The Python preview
+its term, level and name stores still hold 64 entries each:
+`src/import/checker-input.fs` fills those for today's checker (plan task
+3.2.2, version 0; `bin/leanforth check`), so only exports the size of the
+test fixtures can be checked. The Python preview
 ([NDJSON_PREVIEW.md](NDJSON_PREVIEW.md)) stays as an independent second
 reader for tests.
 
@@ -33,7 +37,9 @@ measurement script `docs/development/measurements/scale-2026-11-02/count.py`:
 ```
 
 `gforth-fast` is about three times faster than `gforth` and gives the same
-results. The file is checked against its manifest,
+results. `bin/leanforth count FILE` runs the same report from the shell,
+with the command line's exit statuses ([the command line](../user/COMMAND_LINE.md)).
+The file is checked against its manifest,
 `mathlib.ndjson.manifest.json` beside it, by default ([Manifests](#manifests));
 `s" OTHER.json" count-manifest` before `count-export` names another
 manifest file, and `count-export-unchecked` reads without one, a choice
@@ -504,14 +510,15 @@ test and the tally of each record's kind), and checked 205.29 billion.
   composition fixture and its manifest byte for byte; the check accepts
   it and refuses a copy with one letter changed, which the unchecked
   reader accepts.
-- 13 planted faults, kept in `tests/mutants/faults.toml` (`make mutants`;
+- 15 planted faults, kept in `tests/mutants/faults.toml` (`make mutants`;
   ids `manifest-…`, `ndjson-tap-skipped`, `ndjson-tally-refused`), each
   caught: line feeds not
   hashed, the SHA-256 or the bytes not compared, extra members allowed,
   any format version, a digest's length unchecked, the 64 KiB limit one
   byte short, non-canonical numbers, the tap left set after a read, the
   failure's line not reset, a handler's `manifest-read` on its own export
-  not refused, the tap never called, refused records counted; the tree
+  not refused, an entry missing from the table of type checks or of
+  version checks, the tap never called, refused records counted; the tree
   without a fault passes.
 
 ## Staging into the compact store
@@ -594,7 +601,9 @@ expression's key-value data, which Lean's exporter writes only when asked
 the expression it wraps under its own tag (`tag-mdata`), counts it
 (`stage-mdata`), and at sealing marks every declaration whose type, value
 or recursor rule holds one (`staged-marked?`, `stage-marks`), found in
-one pass over the expressions in number order. The stored term is then not
+one walk over the expressions in number order with a bitset of one bit
+per expression (13 MB for an export of Mathlib's size), made only when an
+`mdata` record was staged. The stored term is then not
 the term exported, so no check may accept a marked declaration; the
 checker can refuse it as unsupported without walking it.
 
@@ -603,7 +612,11 @@ bounds the heap blocks the stage holds (`stage-allocated`: the tier, the
 maps, the declarations and the array; not the reader's line buffer); the
 read stops as *full* at the first record after which they exceed it.
 Blocks grow by doubling, so the peak may pass the limit by the last
-block's growth. 0, the default, is no limit but the heap's.
+block's growth. Sealing counts the marks' bitset against the limit
+(*full*, the stage broken), but not the tier's rebuild of each table at
+most half full, which for a moment holds a table's old and new slots
+(Mathlib's expression table, pre-sized to 2^28, is not rebuilt). 0, the
+default, is no limit but the heap's.
 
 **Tests** (`make test-stage`, in `make test`; the round trips also in
 `make test-compact`):
@@ -617,7 +630,11 @@ block's growth. 0, the default, is no limit but the heap's.
   stage loads exactly as a fresh one; bad references refused by the
   stage's own checks, through forged records; the `mdata` of
   `reexport/kinds.ndjson` staged and `Nat.add`, the one declaration that
-  holds it, marked (a Python walk of the file finds the same one); a
+  holds it (through its type), marked (a Python walk of the file finds the
+  same one); the marks through a letE's body, a recursor rule and a
+  projection (`stage-cases/marks.ndjson`), none when no declaration holds
+  the `mdata` (`stage-cases/unref.ndjson`), and the bitset over the limit;
+  `stage-unmap` before sealing doing nothing; a
   scratch tier over the sealed input as a checker-context member, freed by
   its teardown word, also after a `THROW`; every heap block given back.
   Loaded under `HEX`.
@@ -631,16 +648,19 @@ block's growth. 0, the default, is no limit but the heap's.
 - The round trip, `tests/core/compact-verify.sh`: every fixture export of
   `tests/` (the five reference exports with their manifests, the four
   check-declaration cases, `ndjson-block.ndjson` and
-  `reexport/kinds.ndjson`, which has every record kind, unchecked) staged
-  and re-emitted from the store, metadata, names, levels, expressions and
-  declarations, equal family by family to this reader's dump; and `Init`
-  in `make check` (`reference-compact-init`).
+  `reexport/kinds.ndjson`, which has every record kind, and the two
+  `stage-cases`, unchecked) staged and re-emitted from the store,
+  metadata, names, levels, expressions and declarations, equal family by
+  family to this reader's dump, with every named declaration found through
+  the array and by its text and every constant's resolution checked; and
+  `Init` in `make check` (`reference-compact-init`).
 - Planted faults in `tests/mutants/faults.toml` (`stage-…`), each caught:
   a named declaration dropped, a constant no declaration has taken as
   resolved, a name with two declarations resolved to the newest, the
   chain to the earlier declaration lost, a failed read not rolled back, a
-  bad reference read as record 0, `mdata` left unmarked, a declaration's
-  value not checked.
+  bad reference read as record 0, `mdata` left unmarked, or unmarked when
+  reached only through a recursor rule, a letE's body or a projection, a
+  declaration's value not checked.
 
 **Measured** (2026-11-03, `gforth-fast` of Gforth 1.0, one thread, this
 machine shared with other agents; `tests/support/compact-load.fs`'s
@@ -989,8 +1009,8 @@ Python's line-parsing rate, in constant memory (the resident size is
 Gforth's own image plus the line buffer). On `Init`, about two thirds of
 the time is JSON tokenizing and one third decoding and checking records;
 splitting lines and the framing checks take under a tenth. The default
-`gforth` engine is about 3.3 times slower; the command-line tool should use
-`gforth-fast`. Exports were made with
+`gforth` engine is about 3.3 times slower; the command line (`bin/leanforth
+count` and `reexport`) uses `gforth-fast`. Exports were made with
 `leanexport Init` and `leanexport Std` from the pinned toolchain (SHA-256
 `c1b2071a…a59a179` and `bae74d69…a9afcbeb`); the Mathlib export is the one
 recorded in the Mathlib measurements (`18448e5d…59c6`).
@@ -1126,8 +1146,10 @@ dumps are equal, as above.
   each changed by one of the reader's mutations, above): every mutant the
   reader refuses is refused with an error line, and every one it accepts
   comes back as a copy the reader reads into the same dump and that
-  re-exports to itself byte for byte (in `make test` 42 accepted, 21 of
-  them already in the exporter's form; a run of 3,000 accepted 614, all
+  re-exports to itself byte for byte (in `make test` 40 accepted, 18 of
+  them already in the exporter's form, since the three exports of
+  `tests/reference/inductive/` joined the files the sweep draws from
+  (ADR 0015; before, 42 and 22); a run of 3,000 accepted 614, all
   passing, 292 unchanged); and the script in both modes, on a file in
   another spelling, on a file the reader refuses and with bad usage.
   Plan task 3.2.4 asked for identity on all fixtures and accepted fuzz

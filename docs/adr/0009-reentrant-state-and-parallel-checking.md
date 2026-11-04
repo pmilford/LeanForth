@@ -123,8 +123,11 @@ when the job that used it ended with a `THROW`.
 own heap blocks only if its module registers, while loading, a *teardown
 word* `( -- )` that frees them. `context-free` runs every teardown word,
 newest first, in the context being freed (selected as the current context
-while they run), and then frees the context's block; `context-new` runs
-them too when a setup word fails, before it gives its block back. A
+afresh before each, so that one which threw with another context selected
+cannot make the next free that context's blocks), and then frees the
+context's block; `context-new` runs them too when a setup word fails,
+before it gives its block back, and gives the setup word's code, the
+earliest failure. A
 teardown word must free exactly what its member holds, whatever happened
 to it: after a `THROW` in the middle of a check, and on a member that its
 setup word never reached (still zeroed), so it frees only the blocks it

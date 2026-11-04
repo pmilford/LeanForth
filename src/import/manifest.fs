@@ -82,9 +82,10 @@ end-structure
 \ than manifest-name-room.
 : manifest-suffix ( -- c-addr u ) s" .manifest.json" ;
 : name-part! ( c-addr u offset m -- ) manifest-name swap chars + swap chars move ;
+: suffix-at! ( offset m -- ) manifest-suffix 2swap name-part! ;
 : default-name ( c-addr u m -- c-addr' u' true | false )
   >r dup manifest-suffix nip + manifest-name-room > if 2drop r> drop false exit then
-  tuck 0 r@ name-part!  manifest-suffix 2 pick r@ name-part!
+  tuck 0 r@ name-part!  dup r@ suffix-at!
   manifest-suffix nip + r> manifest-name swap true ;
 : given? ( m -- flag ) manifest-given 2@ nip 0<> ;
 : manifest-file ( c-addr u m -- c-addr' u' true | false )
@@ -122,7 +123,7 @@ end-structure
 : keys-size ( table -- n )
   0 swap begin dup count nip while key-next swap 1+ swap repeat drop ;
 : has-key? ( key index view -- flag ) json-find dup if nip then ;
-: all-keys? ( table index view -- flag )
+: all-keys? ( table index view -- flag )   \ every key of the table a member
   2>r begin dup count nip while
     dup 2r@ has-key? 0= if drop 2r> 2drop false exit then key-next
   repeat drop 2r> 2drop true ;
@@ -132,8 +133,10 @@ end-structure
 \ members as keys, and every key found.
 : exact-keys? ( table index view -- flag )
   2>r dup keys-size 2r@ members? if 2r> all-keys? else drop 2r> 2drop false then ;
-\ The value of the member key of the manifest's object, token 0, or -1.
+\ The value of the member key of the manifest's object, token 0, or -1;
+\ and the same with the manifest's JSON view.
 : member ( key m -- value ) 0 swap manifest-json json-find 0= if -1 then ;
+: member-at ( key m -- value view ) tuck member swap manifest-json ;
 : string-value ( value view -- c-addr u true | false )
   2dup json-kind-at json-string = if json-text@ true else 2drop false then ;
 \ A natural number in canonical decimal: no sign, no leading zero.
@@ -167,62 +170,80 @@ create kind-keys
 kind-keys keys-size kind-count <>
 [if] .( manifest.fs: one key per record kind) cr abort [then]
 : kind-member ( kind -- c-addr ) kind-keys swap 0 ?do key-next loop ;
+\ The member key of the object at index as a natural number.
+: natural-found? ( key index view -- flag )
+  >r r@ json-find if r> natural-at dup if nip nip then else r> drop false then ;
+: naturals? ( table index view -- flag )   \ every key of the table a natural
+  2>r begin dup count nip while
+    dup 2r@ natural-found? 0= if drop 2r> 2drop false exit then key-next
+  repeat drop 2r> 2drop true ;
 \ The manifest's count of kind, in the records object at index.
 : recorded ( kind index view -- c-addr u true | false )
   >r swap kind-member swap r@ json-find if r> natural-at else r> drop false then ;
 
+\ Tables of checks, one entry per member: a cell (an xt), then the
+\ member's key as a counted string; a cell of 0 ends the table.
+: check, ( xt "key" -- ) , parse-name counted, ;
+: check-key ( entry -- key ) cell+ ;
+: check-next ( entry -- entry' ) check-key count + aligned ;
+\ Run xt ( entry m -- outcome ) on each entry in turn while it gives ok.
+: each-check ( table m xt -- outcome )
+  >r swap begin dup @ while
+    2dup swap r@ execute dup ok? 0= if nip nip r> drop exit then drop check-next
+  repeat 2drop r> drop outcome-ok ;
+
 \ Checking the manifest before the export is read: its format, then the
 \ type of each member, then the versions.
 : manifest-name? ( m -- flag )
-  c" format" over member swap manifest-json string-value
+  c" format" swap member-at string-value
   if s" leanforth-export-manifest" compare 0= else false then ;
 : version? ( m -- flag )
-  c" format_version" over member swap manifest-json natural-at
-  if s" 1" compare 0= else false then ;
+  c" format_version" swap member-at natural-at if s" 1" compare 0= else false then ;
 : version-bad ( m -- outcome )
   c" format_version" c" unsupported manifest format version" rot manifest-bad ;
 : keys-check ( m -- outcome )
-  manifest-keys 0 2 pick manifest-json exact-keys?
+  dup manifest-json manifest-keys 0 rot exact-keys?
   if drop outcome-ok else 0 swap manifest-broken then ;
 \ The name and version first, so that another version is told as such.
 : format-check ( m -- outcome )
   dup 0 swap manifest-json object-size if drop else 0 swap manifest-broken exit then
   dup manifest-name? 0= if c" format" swap manifest-broken exit then
   dup version? if keys-check else version-bad then ;
-: commit? ( m -- flag )
-  c" mathlib_commit" over member swap manifest-json
-  2dup json-kind-at json-null = if 2drop true exit then
+
+\ The type of each member, ( key m -- flag ): true when well formed.
+: digest? ( key m -- flag ) member-at string-value if 64 hex-text? else false then ;
+: commit? ( key m -- flag )
+  member-at 2dup json-kind-at json-null = if 2drop true exit then
   string-value if 40 hex-text? else false then ;
-: digest? ( m -- flag )
-  c" sha256" over member swap manifest-json string-value if 64 hex-text? else false then ;
-: natural-member? ( key m -- flag )
-  tuck member swap manifest-json natural-at dup if nip nip then ;
-: kind-ok? ( index view kind -- flag ) -rot recorded dup if nip nip then ;
-: kinds? ( index m -- flag )   \ every member of the records object a natural
-  manifest-json true kind-count 0 do 2 pick 2 pick i kind-ok? and loop nip nip ;
-: records? ( m -- flag )
-  c" records" over member over manifest-json kind-keys -rot 2dup 2>r exact-keys?
-  if 2r> drop swap kinds? else 2r> 2drop drop false then ;
-: types-check ( m -- outcome )
-  dup digest? 0= if c" sha256" swap manifest-broken exit then
-  dup commit? 0= if c" mathlib_commit" swap manifest-broken exit then
-  c" bytes" over natural-member? 0= if c" bytes" swap manifest-broken exit then
-  c" lines" over natural-member? 0= if c" lines" swap manifest-broken exit then
-  dup records? 0= if c" records" swap manifest-broken exit then
-  drop outcome-ok ;
-\ A member that must hold a string equal to c-addr u: malformed when it
-\ is no string, another version when it differs.
+: natural-member? ( key m -- flag ) member-at natural-at dup if nip nip then ;
+\ The records object: exactly the record kinds, each a natural number.
+: records? ( key m -- flag )
+  member-at kind-keys -rot 2dup 2>r exact-keys?
+  if kind-keys 2r> naturals? else 2r> 2drop false then ;
+create type-checks
+  ' digest? check, sha256          ' commit? check, mathlib_commit
+  ' natural-member? check, bytes   ' natural-member? check, lines
+  ' records? check, records        0 ,
+: type-entry ( entry m -- outcome )
+  over check-key swap 2dup 2>r rot @ execute 2r> rot
+  if 2drop outcome-ok else manifest-broken then ;
+: types-check ( m -- outcome ) type-checks swap ['] type-entry each-check ;
+
+\ The versions: each member must hold a string equal to the pinned one its
+\ entry's xt ( -- c-addr u ) gives: malformed when it is no string,
+\ another version when it differs.
 : pinned-check ( c-addr u key m -- outcome )
-  2dup member over manifest-json string-value 0= if 2swap 2drop manifest-broken exit then
+  2dup member-at string-value 0= if 2swap 2drop manifest-broken exit then
   2rot compare 0= if 2drop outcome-ok exit then
   c" manifest names another exporter or Lean version" swap manifest-bad ;
-: versions-check ( m -- outcome )
-  >r pinned-exporter c" exporter" r@ pinned-check
-  dup ok? if drop pinned-exporter-version c" exporter_version" r@ pinned-check then
-  dup ok? if drop pinned-format-version c" export_format" r@ pinned-check then
-  dup ok? if drop pinned-lean-version c" lean_version" r@ pinned-check then
-  dup ok? if drop pinned-lean-githash c" lean_githash" r@ pinned-check then
-  r> drop ;
+create version-checks
+  ' pinned-exporter check, exporter
+  ' pinned-exporter-version check, exporter_version
+  ' pinned-format-version check, export_format
+  ' pinned-lean-version check, lean_version
+  ' pinned-lean-githash check, lean_githash  0 ,
+: version-entry ( entry m -- outcome ) >r dup @ execute rot check-key r> pinned-check ;
+: versions-check ( m -- outcome ) version-checks swap ['] version-entry each-check ;
 : manifest-check ( m -- outcome )
   >r r@ format-check dup ok? if drop r@ types-check then
   dup ok? if drop r@ versions-check then r> drop ;
@@ -234,7 +255,7 @@ kind-keys keys-size kind-count <>
   >r dup 1+ 0 r@ manifest-count 2@ d+ r@ manifest-count 2!
   r@ manifest-sha sha256-update line-feed r> manifest-sha sha256-update ;
 : manifest-start ( m -- )
-  dup manifest-sha sha256-init 0 0 2 pick manifest-count 2!
+  dup manifest-sha sha256-init dup manifest-count 0 0 rot 2!
   ['] manifest-tap over manifest-export @ export-tap! ;
 \ The read, with the tap removed afterwards on every path: a THROW from a
 \ handler passes on after that.
@@ -267,7 +288,7 @@ kind-keys keys-size kind-count <>
   if r> manifest-hex sha-digest-bytes 2* compare 0= else r> drop false then ;
 : sha-check ( m -- outcome )
   dup manifest-digest over manifest-sha sha256-final
-  dup manifest-digest over manifest-hex digest>hex
+  dup manifest-digest over manifest-hex sha256-hex
   dup sha-same? if drop outcome-ok else c" sha256" swap differs then ;
 : compare-all ( m -- outcome )
   >r r@ manifest-export @ export-at @ 0 c" lines" r@ number-check

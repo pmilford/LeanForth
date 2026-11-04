@@ -175,18 +175,10 @@ T{ context-needs -> lf-minfer-data-cells lf-minfer-return-cells }T
 T{ lf-minfer-data-cells lf-mbeta-data-cells >
   lf-minfer-return-cells lf-mbeta-return-cells > -> true true }T
 T{ context-needs job-stacks-cover? -> true }T
-1400 constant paint-cells
-48879 constant paint-mark
-: paint-span ( top -- end start ) dup paint-cells cells - ;
-: paint ( top -- ) paint-span ?do paint-mark i ! 1 cells +loop ;
-: used ( top -- cells )
-  dup paint-span ?do i @ paint-mark <> if i - 1 cells / unloop exit then 1 cells +loop
-  drop 0 ;
-: tops ( -- rtop stop ) rp@ 16 cells - sp@ 16 cells - ;
+require ../support/stack-paint.fs
 : deeper ( rcells scells -- )
   depths depths-data dup @ rot max swap ! depths depths-return dup @ rot max swap ! ;
-: painted ( xt -- )
-  tops 2dup paint paint 2>r execute 2r> used swap used swap deeper ;
+: painted ( xt -- ) stack-painted deeper ;
 \ The deepest nesting found for a 64-node store (tests/core/mixed-beta.fs):
 \ app(T, T) with T = m lambdas over bvar m-1, over one constant.
 : lams ( body n -- node ) 0 ?do 0 swap make-lam loop ;
