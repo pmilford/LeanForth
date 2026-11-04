@@ -441,7 +441,7 @@ defer lf-whnf-cored ( t1 outcome frames -- ... frames next )
 \ visits nothing but body's loose bound variables (lf-whnf-loose?);
 \ e must be closed.
 : lf-whnf-stripped ( fn n -- body i )
-  0 begin 2 pick lf-whnf-lam? over 2 pick < and while 1+ rot lf-term-second@ -rot repeat nip ;
+  0 begin 2 pick lf-whnf-lam? over 3 pick < and while 1+ rot lf-term-second@ -rot repeat nip ;
 \ For body bound variable k: argument i-k, cell n-i+k of the array.
 : lf-whnf-named ( body n i -- arg n i )
   >r tuck r@ - swap lf-term-first@ + lf-whnf-arg @ swap r> ;

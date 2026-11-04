@@ -380,25 +380,33 @@ T{ check-last -> outcome-ok 0 lf-step-done }T
 \ ---------------------------------------------------------------------------
 \ Fuel sweeps: for every fuel from 0 to limit, a check of the case's last
 \ declaration ends exhausted below some fuel and with its final outcome
-\ (the one at limit) from some fuel on; it is never accepted earlier. In
-\ between, a rejection's analysis that runs out of fuel leaves the step
-\ unknown (ADR 0011, Implementation), so a rejected case may be unknown
-\ there; an accepted one never is.
+\ (the one at limit) from some fuel on; it is never accepted earlier, and
+\ never unknown for want of fuel: a rejection's analysis that runs out of
+\ fuel is exhausted (ADR 0008; since plan task 4.2.2c, unknown before). A
+\ check is unknown early only when an earlier declaration ran out of fuel
+\ (the same budget each): its dependency is undecided (K5, code 35).
 variable sweep-final
 variable first-final
 variable sweep-ok
+variable sweep-code
+variable sweep-final-code
 : sweep-run ( fuel -- outcome )
   lf-check-budget 64 lf-env-new ok? must dup the-env ! lf-env-use ok? must
-  ['] lf-check-declaration ['] fc-no-maker lf-env-run ok? must
+  ['] lf-check-declaration ['] fc-no-maker lf-env-run ok? must lf-diag-code@ sweep-code !
   lf-env-view ok? must fc-last lf-env-outcome env-done ;
 : sweep-first ( fuel -- ) first-final @ 0< if first-final ! else drop then ;
 : sweep-early? ( outcome -- flag )
-  dup outcome-exhausted = swap outcome-unknown = sweep-final @ outcome-rejected = and or ;
+  dup outcome-exhausted = swap outcome-unknown =
+  sweep-code @ lf-diag-dependency-undecided = and or ;
+\ The final outcome, with the final diagnostic.
+: sweep-final? ( outcome -- flag )
+  sweep-final @ = sweep-code @ sweep-final-code @ = and ;
 : sweep-note ( fuel outcome -- )
-  dup sweep-final @ = if drop sweep-first exit then nip
+  dup sweep-final? if drop sweep-first exit then nip
   sweep-early? first-final @ 0< and 0= if false sweep-ok ! then ;
 : sweep ( limit -- final first ok? )
-  lf-input-end ok? must dup sweep-run sweep-final ! -1 first-final ! true sweep-ok !
+  lf-input-end ok? must dup sweep-run sweep-final ! sweep-code @ sweep-final-code !
+  -1 first-final ! true sweep-ok !
   1+ 0 ?do i dup sweep-run sweep-note loop
   sweep-final @ first-final @ sweep-ok @ fc-fuel lf-check-budget ;
 \ Each gives the final outcome, whether every run kept the rule, and
@@ -413,6 +421,16 @@ T{ 600 swept -> outcome-ok true true }T
 fc-case sweep-rejected
 fc-decl check thm safe wrong 0 TYPE P S z P S z P V 1 V 2 VALUE L S z L S z L V 0 V 0
 T{ 700 swept -> outcome-rejected true true }T
+\ CLI2's case (tests/cli/unfold.lean): Implies A A against A → A needs
+\ Implies unfolded by lazy delta reduction (plan task 4.2.2d): unknown
+\ from 230, the fuel the whole check takes, and at every fuel below
+\ exhausted (or unknown for Implies itself out of fuel), never unknown for
+\ want of fuel (it was unknown, code 30, at every fuel from 151 to 280
+\ before: the analysis ran out and left the step unknown).
+fc-case sweep-unknown
+fc-decl before def safe Implies 0 TYPE P S z P S z S z VALUE L S z L S z P V 1 V 1
+fc-decl check thm safe impliesSelf 0 TYPE P S z A A C Implies 0 V 0 V 0 VALUE L S z L V 0 V 0
+T{ 400 sweep -> outcome-unknown 230 true }T
 
 cases-done
 bye

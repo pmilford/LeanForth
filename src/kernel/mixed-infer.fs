@@ -126,6 +126,7 @@ begin-structure /lf-ijob
   field: lf-ijob-env       \ true in environment mode (lf-minfer-start-env)
   field: lf-ijob-argument  \ the argument an application's type is instantiated with
   field: lf-ijob-chain     \ for a lambda's lambda body, where the chain began, else -1
+  field: lf-ijob-short     \ the first exhausted or full the rejection analysis met, or 0
 end-structure
 0 lf-ijob-frames 0<> [if] .( mixed-infer.fs: frames must come first) cr abort [then]
 /lf-ijob context-record: lf-minfer-job
@@ -378,8 +379,14 @@ defer lf-minfer-walk ( node -- type status )
 \ with code and the mask of rules; any other outcome passes.
 : lf-minfer-verdict ( mask status site code -- status )
   2swap dup outcome-rejected = if drop -rot lf-minfer-reject else nip nip nip then ;
+\ The first time the analysis runs out of fuel or room (lf-minfer-agree
+\ reports it, ADR 0008).
+: lf-minfer-short ( -- addr ) lf-minfer-job lf-ijob-short ;
+: lf-minfer-shortage ( status -- )
+  dup outcome-exhausted = over outcome-full = or lf-minfer-short @ 0= and
+  if lf-minfer-short ! else drop then ;
 : lf-minfer-take ( status addr -- status )
-  over ok? if lf-minfer-refuel else drop 0 lf-minfer-fuel ! then ;
+  over ok? if lf-minfer-refuel else drop dup lf-minfer-shortage 0 lf-minfer-fuel ! then ;
 \ whnfB (ADR 0003 step 1) of a live node, with the job's fuel.
 : lf-minfer-reduce ( node identity -- node' status )
   lf-minfer-fuel @ lf-mixed-beta nip outcome-sane lf-mbeta-fuel lf-minfer-take ;
@@ -492,8 +499,8 @@ defer lf-minfer-apart ( left right -- mask flag )
 : lf-minfer-room ( frames -- outcome ) frame-admit dup ok? 0= if lf-minfer-refused then ;
 defer lf-minfer-apart-step ( left right frames -- ... frames next )
 : lf-minfer-apart-call ( left right frames cont -- ... frames next )
-  over lf-minfer-room ok? 0= if 2>r 2drop 0 false 2r> exit then
-  ['] lf-minfer-apart-step frame-open ;
+  over lf-minfer-room dup ok? 0= if lf-minfer-shortage 2>r 2drop 0 false 2r> exit then
+  drop ['] lf-minfer-apart-step frame-open ;
 \ D3 and D5, two variables with arguments (is_def_eq_app, 878-895, needs
 \ the same head and number): a different number of arguments, or
 \ different variables known not to be proofs, are apart (D3); the same
@@ -611,10 +618,22 @@ defer lf-minfer-args-apart ( left right count frames -- ... frames next )
 \ comparison's own. The analysis begins at the scope's current depth.
 : lf-minfer-mismatch ( left right -- mask flag )
   lf-minfer-deciding? 0= if 2drop 0 false exit then
-  lf-minfer-apart ;
+  0 lf-minfer-short ! lf-minfer-apart ;
+\ A pair the analysis did not show apart is unknown -- or exhausted (full)
+\ when the analysis ran out of fuel (room) first, or had none to begin
+\ with: with more it might have shown the pair apart, so by ADR 0008's
+\ order the limit decides (an exhaustion recorded as such, replacing the
+\ comparison's note). CLI2's finding of 2026-11-04: before, such a check
+\ was unknown.
+: lf-minfer-ran-out ( -- status )
+  lf-minfer-fuel @ lf-minfer-site lf-diag-fuel 0 -rot lf-diag! outcome-exhausted ;
+: lf-minfer-undecided ( -- status )
+  lf-minfer-deciding? 0= if outcome-unknown exit then
+  lf-minfer-short @ dup outcome-exhausted = if drop lf-minfer-ran-out exit then
+  ?dup if exit then lf-minfer-fuel @ 0> if outcome-unknown else lf-minfer-ran-out then ;
 : lf-minfer-agree ( left right -- mask status )
   2dup lf-minfer-compare dup outcome-unknown <> if nip nip 0 swap exit then
-  drop lf-minfer-mismatch if outcome-rejected else outcome-unknown then ;
+  drop lf-minfer-mismatch if outcome-rejected else lf-minfer-undecided then ;
 
 \ Inference's visits. lf-minfer-call asks for the visit of node,
 \ continuing with cont ( type status frames -- ... ); the visit's first
