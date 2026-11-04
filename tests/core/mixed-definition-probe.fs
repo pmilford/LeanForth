@@ -82,7 +82,8 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
 T{ statuses -> outcome-ok outcome-invalid outcome-exhausted outcome-unknown }T
 T{ statuses -> outcome-ok outcome-invalid outcome-exhausted outcome-unknown }T
 \ The success fuel is pinned: preflight and the pair's inference spend 189
-\ units here (observed before the refactor, at 398b76b).
+\ units here (observed before the refactor, at 398b76b), 183 since ADR 0011
+\ Amendment 1 (structural level equality costs nothing).
 \ The rejections are ADR 0011's, each as Lean's kernel decides: the value
 \ id.{u} (Sort u) applies id to an argument of the wrong universe (D1 in
 \ the value: appTypeMismatch); a function claimed to be a Sort u (D2:
@@ -90,7 +91,7 @@ T{ statuses -> outcome-ok outcome-invalid outcome-exhausted outcome-unknown }T
 : rejected-code? ( code -- flag ) lf-diag-code@ = ;
 : basic-case ( -- )
   setup snapshot 4 9 50000 probe outcome-ok expect-status assert-rollback
-  lf-mdefinition-fuel @ 49811 <> abort" success fuel"
+  lf-mdefinition-fuel @ 49817 <> abort" success fuel"
   lf-term-serial @ term-serial-before @ <= abort" expected allocations"
   snapshot 0 10 50000 probe outcome-rejected expect-status assert-rollback
   lf-mdefinition-fuel @ 0<> abort" rejected fuel"

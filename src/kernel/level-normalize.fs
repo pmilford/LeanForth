@@ -15,9 +15,8 @@
 \ that are interned names).
 \ State: one record, lf-lnorm-state: the first failure of the call, the
 \ fuel left, the argument stack of the max case (its top and cells), a
-\ mark of the level store before the call, and per level the normal form
-\ found (or, while checking names, whether the level is reached). A
-\ member of the checker context (lib/context.fs). The normal forms are
+\ mark of the level store before the call, and per level of the input the
+\ normal form found. A member of the checker context (lib/context.fs). The normal forms are
 \ new nodes of the level store, given back when the call ends; the facts
 \ of level-make are truncated with them. Single-threaded within one
 \ context.
@@ -113,7 +112,12 @@ defer lf-lnorm-less ( a b -- flag )
 : lf-lnorm-rights ( a b -- a' b' ) lf-level-second@ swap lf-level-second@ swap ;
 : lf-lnorm-sides< ( ba bb -- flag )
   2dup lf-lnorm-lefts lf-lmk-same? if lf-lnorm-rights else lf-lnorm-lefts then lf-lnorm-less ;
-: lf-lnorm-names< ( ba bb -- flag ) lf-lnorm-lefts lf-lnorm-name-cmp 0< ;
+\ Two different parameters need their names: an ID that is not a valid
+\ name leaves the comparison undecided (unknown).
+: lf-lnorm-named? ( a b -- flag ) lf-lnorm-name-ok? swap lf-lnorm-name-ok? and ;
+: lf-lnorm-unnamed ( a b -- false ) 2drop outcome-unknown lf-lnorm-fail false ;
+: lf-lnorm-names< ( ba bb -- flag )
+  lf-lnorm-lefts 2dup lf-lnorm-named? if lf-lnorm-name-cmp 0< else lf-lnorm-unnamed then ;
 : lf-lnorm-bases< ( ba bb -- flag )
   2dup lf-lmk-tags 2dup <> if < nip nip exit then 2drop
   dup lf-level-tag@ lf-level-tag-param = if lf-lnorm-names< else lf-lnorm-sides< then ;
@@ -215,30 +219,10 @@ defer lf-lnorm-walk ( level -- level' )
 ' lf-lnorm-visit is lf-lnorm-walk
 
 \ ---------------------------------------------------------------------------
-\ Every parameter reached from two roots is a valid name (the order needs
-\ names); the reached marks use the memo cells and are cleared after.
-: lf-lnorm-reached ( level -- ) true swap lf-lnorm-memo ! ;
-: lf-lnorm-reach ( level -- )
-  dup lf-level-tag@ dup lf-level-binary-tag?
-  if drop dup lf-level-first@ lf-lnorm-reached lf-level-second@ lf-lnorm-reached exit then
-  lf-level-tag-succ = if lf-level-first@ lf-lnorm-reached else drop then ;
-: lf-lnorm-param-ok? ( level -- flag )
-  dup lf-level-tag@ lf-level-tag-param = if lf-level-first@ lf-lnorm-name-ok? else drop true then ;
-: lf-lnorm-seen-ok? ( level -- flag )
-  dup lf-lnorm-memo @ 0= if drop true exit then dup lf-lnorm-reach lf-lnorm-param-ok? ;
-: lf-lnorm-names? ( l1 l2 -- flag )
-  2dup lf-lnorm-reached lf-lnorm-reached max 0 swap
-  do i lf-lnorm-seen-ok? 0= if unloop false exit then -1 +loop true ;
-
-\ ---------------------------------------------------------------------------
 \ is_equivalent: structurally equal, or so after normalize (left first).
-\ Names that cannot be ordered leave it undecided (unknown).
-: lf-lnorm-normals ( l1 l2 -- flag )
-  swap lf-lnorm-walk swap lf-lnorm-walk lf-lmk-same? ;
-: lf-lnorm-unnamed ( l1 l2 -- false ) 2drop outcome-unknown lf-lnorm-fail false ;
 : lf-lnorm-decide ( l1 l2 -- flag )
   2dup lf-lmk-same? if 2drop true exit then
-  2dup lf-lnorm-names? lf-lnorm-clear if lf-lnorm-normals else lf-lnorm-unnamed then ;
+  swap lf-lnorm-walk swap lf-lnorm-walk lf-lmk-same? ;
 \ A call: the store marked first, given back last (a refused rollback is
 \ invalid), the facts of level-make cut back with it.
 : lf-lnorm-store-mark ( -- addr ) lf-lnorm-state lf-lnrec-mark ;
@@ -254,8 +238,10 @@ defer lf-lnorm-walk ( level -- level' )
 
 \ Whether Lean's is_equivalent holds for two live levels whose graphs a
 \ scope check validated, with fuel: (flag ok) when decided; (false
-\ unknown) for a parameter whose name is not a valid entry of the name
-\ store; (false exhausted) when the fuel runs out; (false full) when the
+\ unknown) when two different parameters must be ordered and one's ID is
+\ not a valid name of the name store (never in a declaration's check,
+\ whose parameters are names); (false exhausted) when the fuel runs out;
+\ (false full) when the
 \ level store or the argument stack is full; (false invalid) for negative
 \ fuel, an invalid level or a refused rollback. lf-lnorm-fuel is the fuel
 \ left (0 after invalid input). Nothing stays allocated.

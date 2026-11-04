@@ -106,15 +106,20 @@ T{ check-last -> outcome-rejected lf-diag-argument-apart value-step }T
 
 \ ---------------------------------------------------------------------------
 \ Unknown. K5: a declaration that uses an undecided one (here invalid: a
-\ definition without a value). K4: a level that is equal only after
-\ Lean's normalisation.
+\ definition without a value). K6: a level whose specialization depends on
+\ object sharing in Lean (ADR 0011, Amendment 1). And no longer K4: a
+\ level equal only after Lean's normalisation is equal, as for Lean.
 fc-case k5
 fc-decl before def safe broken 0 TYPE S s z VALUE none
 fc-decl check def safe user 0 TYPE S s z VALUE C broken 0
 T{ check-last -> outcome-unknown lf-diag-dependency-undecided value-step }T
 fc-case k4
 fc-decl check def safe spelling 1 u TYPE P S p u P V 0 V 1 VALUE L S m p u p u L V 0 V 0
-T{ check-last -> outcome-unknown lf-diag-symbolic-level compare-step }T
+T{ check-last -> outcome-ok 0 lf-step-done }T
+fc-case k6
+fc-decl before def safe T5 1 u TYPE S s i s z s p u VALUE S i s z s p u
+fc-decl check def safe S5 1 u TYPE S s i s z s p u VALUE C T5 1 p u
+T{ check-last -> outcome-unknown lf-diag-shared-level value-step }T
 
 \ ---------------------------------------------------------------------------
 \ Unsupported. U1: every kind but a safe definition or theorem, before any

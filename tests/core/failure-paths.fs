@@ -410,8 +410,10 @@ T{ outcome-rejected 1 ' n1 s" n1" fp-case -> }T
 T{ outcome-rejected 1 ' d-value s" d-value" fp-case -> }T
 
 \ Unknown: K5 in the type (4) and in the value (7), after a definition
-\ without a value (invalid in the audit, 1); K4, a level equal only after
-\ Lean's normalisation (8).
+\ without a value (invalid in the audit, 1); K6, a specialized level that
+\ depends on object sharing in Lean (7, ADR 0011 Amendment 1). A level
+\ equal only after Lean's normalisation (formerly K4) is accepted, as
+\ Lean accepts it.
 : broken ( -- ) fc-world s" fc-decl before def safe broken 0 TYPE S s z VALUE none" evaluate ;
 : k5-type ( -- )
   broken s" fc-decl check def safe both 0 TYPE C broken 0 VALUE C missing 0" evaluate fc-end ;
@@ -420,9 +422,14 @@ T{ outcome-rejected 1 ' d-value s" d-value" fp-case -> }T
 : k4-level ( -- )
   s" fc-decl check def safe spelling 1 u TYPE P S p u P V 0 V 1 VALUE L S m p u p u L V 0 V 0"
   fc-text ;
+: k6-level ( -- )
+  fc-world s" fc-decl before def safe T5 1 u TYPE S s i s z s p u VALUE S i s z s p u"
+  evaluate s" fc-decl check def safe S5 1 u TYPE S s i s z s p u VALUE C T5 1 p u"
+  evaluate fc-end ;
 T{ outcome-invalid outcome-unknown 2 ' k5-type s" k5-type" fp-case -> }T
 T{ outcome-invalid outcome-unknown 2 ' k5-value s" k5-value" fp-case -> }T
-T{ outcome-unknown 1 ' k4-level s" k4" fp-case -> }T
+T{ outcome-ok 1 ' k4-level s" k4" fp-case -> }T
+T{ outcome-ok outcome-unknown 2 ' k6-level s" k6" fp-case -> }T
 
 \ Unsupported: an axiom (U1) and a let (U2) in the audit (1); a use of an
 \ axiom in the declared type (4) and in the value (7).

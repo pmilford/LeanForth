@@ -141,22 +141,27 @@ max-u-v1 .level cr
 lf-lassign-reset  1 2 lf-lassign-add made  2 0 lf-lassign-add made   \ u = 2, v = 0
 max-u-v1 1000 lf-level-value-assigned . . cr   \ status, then value
 max-u-v1 1000 lf-level-value . . cr            \ no assignment
-max-u-v1 max-v1-u 1000 lf-level-compare . cr   \ the cautious comparison
+max-u-v1 max-v1-u 1000 lf-level-compare . cr   \ Lean's level comparison
 ```
 
 ```text
 max(u, (v+1))
 0 2
 3 -1
-3
+0
 ```
 
 With the assignment the value is 2 (status 0, *ok*). Without one, the
 parameter has no value and the answer is *unknown* (3), not a guess. The
-comparison also answers *unknown*: the cautious rule does not reorder
-`max`, so it cannot show the two levels equal — but *unknown* never means
-"different". Lean decides such equalities by normalising levels; LeanForth
-plans to do the same (task 4.1.2).
+comparison answers *ok* (0): LeanForth compares levels exactly as Lean's
+kernel does ([ADR 0011, Amendment 1](../adr/0011-definite-rejection.md#amendment-1-proposed-2026-11-03-universe-levels-are-built-and-compared-as-lean-builds-and-compares-them)) —
+equal as written, or equal after Lean's `normalize`, which sorts the
+arguments of a `max` (`src/kernel/level-normalize.fs`). That procedure is
+deliberately incomplete: $\mathrm{imax}(1, u+1)$ and $\max(1, u+1)$ have
+the same value for every $u$, yet Lean's kernel calls them different, and
+so does LeanForth (it answers *unknown* to the comparison, and rejects a
+declaration that needs them equal, as Lean does). Such cases are recorded
+in `docs/project/BEYOND_LEAN.md` for a possible later mode.
 
 **Lean.** Lean's kernel shows the two levels equal:
 
@@ -238,13 +243,16 @@ all-type sort-of
 ```text
 (Pi Sort 0, (Pi #0, #1))
 Sort 0 = Sort 0
-Sort imax(((0+1)+1), imax((0+1), (0+1))) = Sort 2
+Sort ((0+1)+1) = Sort 2
 ```
 
-Inference writes `imax(a, 0)` as `0` at once (`lf-minfer-imax`), which is
-why the first answer is already `Sort 0`. The second is
-$\mathrm{imax}(2, \mathrm{imax}(1, 1)) = 2$. (`Type0` avoids the name
-`Type`: Gforth ignores case, and `type` is a standard Forth word.)
+Inference builds the level of a `Pi` as Lean's kernel does, with Lean's
+`mk_imax` (`src/kernel/level-make.fs`): $\mathrm{imax}(a, 0)$ is $0$, and
+$\mathrm{imax}(a, b)$ for a $b$ that is never $0$ is $\max(a, b)$, which
+for two numbers is the larger one. So the first answer is `Sort 0` and the
+second $\mathrm{imax}(2, \mathrm{imax}(1, 1)) = \max(2, 1) = 2$, written
+`Sort 2` at once. (`Type0` avoids the name `Type`: Gforth ignores case,
+and `type` is a standard Forth word.)
 
 **Lean.**
 
@@ -590,7 +598,8 @@ unfolded first), which does not matter here.
 
 **Mathematics.** The composition statement is a proposition. The type
 $\Pi (A : \mathrm{Sort}\ u),\ A \to A$ has sort
-$\mathrm{Sort}\,(\mathrm{imax}(u+1, \mathrm{imax}(u, u)))$, which is
+$\mathrm{Sort}\,(\mathrm{imax}(u+1, \mathrm{imax}(u, u)))$, which Lean's
+kernel writes $\mathrm{Sort}\,(\mathrm{imax}(u+1, u))$; it is
 $\mathrm{Sort}\ 0$ when $u = 0$ but $\mathrm{Sort}\ 2$ when $u = 1$; it is
 not a proposition, so a value of that type can be a definition but not a
 theorem.
@@ -618,7 +627,7 @@ index @ id-type id-value 1000 lf-mixed-theorem-probe . cr
 ```
 
 ```text
-Sort imax((u+1), imax(u, u))
+Sort imax((u+1), u)
 0 2
 0 4
 ```
@@ -761,14 +770,12 @@ b1 b0 >Pi  Sort-u >Pi  2constant id-type
 b0 b0 >fun  Sort-u >fun  2constant id-value
 b1 b0 >fun  Sort-u >fun  2constant bad-value
 b0 b0 >fun  2constant open-term                        \ fun (x : #0) => x: #0 is unbound
-\ fun (A : Sort (max u u)) (x : A) => x: Lean equates max u u with u
-1 lf-hlevel-param made drop dup lf-level-max made dup lf-level-identity made
-lf-hterm-sort made
-b0 b0 >fun  2swap >fun  2constant max-value
+0 s" k" lf-name-str made lf-name-generation @ 0 0 lf-cref-new made
+lf-cterm-new made 2constant k-term                    \ a constant k, never declared
 index @ id-type id-value 1000 lf-mixed-definition-probe .  \ ok
 index @ open-term 1000 lf-mixed-infer . 2drop              \ invalid
 index @ id-type id-value 10 lf-mixed-definition-probe .    \ exhausted: fuel 10
-index @ id-type max-value 1000 lf-mixed-definition-probe . \ unknown
+index @ k-term 1000 lf-mixed-infer . 2drop                 \ unknown
 index @ id-type bad-value 1000 lf-mixed-definition-probe . \ rejected
 : use-up-nodes ( -- ) begin 0 lf-hterm-bvar while 2drop repeat ;   \ all 64 nodes
 use-up-nodes  index @ Sort-u 1000 lf-mixed-infer . 2drop   \ full
@@ -784,10 +791,14 @@ cr
 5
 ```
 
-`max-value` is *unknown*: Lean's level normalisation equates `max u u`
-with `u`, which the cautious comparison does not do, and no witness
-assignment tells them apart (rule K4 of ADR 0011, the
-`equal-universe-other-spelling` row of the expected results). The last
+`k-term` is *unknown* to this experimental inference: the signature index
+holds no candidate type for `k`, so it cannot tell (a declaration's check
+asks the checked environment instead, where an undeclared name is rule
+N1, *rejected*). Until 2026-11-03 this example used
+`fun (A : Sort (max u u)) (x : A) => x`, which was *unknown* because the
+comparison did not normalise levels; it now compares levels as Lean's
+kernel does, equates `max u u` with `u` and answers *ok*, as Lean does
+([ADR 0011, Amendment 1](../adr/0011-definite-rejection.md#amendment-1-proposed-2026-11-03-universe-levels-are-built-and-compared-as-lean-builds-and-compares-them)). The last
 line is the NDJSON reader refusing a record kind for which no handler was
 set: it never skips a record silently.
 
