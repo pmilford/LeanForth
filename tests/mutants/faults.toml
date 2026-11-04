@@ -1987,6 +1987,22 @@ reason = "the review's L1: a failed attach keeps the generation, so the input fe
 
 # --- the release hook of checker contexts, continued (src/lib/context.fs)
 
+
+[[fault]]
+id = "input-index-unhooked"
+file = "src/core/input.fs"
+old = '''  lf-inputs store-grow-refused? if drop outcome-full exit then'''
+new = '''  false if drop outcome-full exit then'''
+test = "$GFORTH tests/core/store-growth.fs"
+reason = "the review's M3: the input's name index grows without asking the fault hook, so its refusal is never injected"
+
+[[fault]]
+id = "cref-pool-first-unhooked"
+file = "src/core/constant-references.fs"
+old = '''  lf-crefs store-grow-refused? if outcome-full exit then'''
+new = '''  false if outcome-full exit then'''
+test = "$GFORTH tests/core/store-growth.fs"
+reason = "the review's M3: the reference pool's first reserve, in context setup, does not ask the fault hook"
 [[fault]]
 id = "context-teardown-selected-once"
 file = "src/lib/context.fs"

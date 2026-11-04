@@ -117,9 +117,12 @@ T{ fixture cli-check hashed-bytes d0= rr-started? -> 0 false true }T
 cli-options
 
 \ Internal faults, each in a context of its own (a THROW in a check
-\ spends its context for good). Staging composition makes n allocations:
-\ a THROW at the first is one while staging; at n + 1, one in the check.
-: staging-allocations ( -- n ) 0 af-arm composition cin-read drop af-seen@ af-off ;
+\ spends its context for good). Staging composition in a new context
+\ makes n allocations (the input's name index grows there too): a THROW at
+\ the first is one while staging; at n + 1, one in the check.
+: staging-allocations ( -- n )
+  context-new throw dup >r context-use 0 af-arm composition cin-read drop af-seen@ af-off
+  context-main context-use r> context-free throw ;
 staging-allocations constant staged#
 : in-context ( k -- code spent? )
   context-new throw dup >r context-use af-arm-throw composition cli-check af-off

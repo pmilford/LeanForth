@@ -234,6 +234,7 @@ test-core:
 	$(RUN) $(GFORTH) tests/core/contexts.fs
 	$(RUN) $(GFORTH) tests/core/contexts-serial.fs
 	$(RUN) $(GFORTH) tests/core/contexts-main.fs
+	$(RUN) $(GFORTH) tests/core/store-growth.fs
 	$(RUN) $(GFORTH) tests/core/diagnostics.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/core/check_diagnostics_catalogue.py
 	$(RUN) $(GFORTH) tests/core/load.fs

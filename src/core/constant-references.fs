@@ -55,11 +55,15 @@ store-header context-record: lf-crefs
 2 cells constant /lf-cref-pair
 /slab context-record: lf-cref-pool
 \ It starts with room for 8 pairs per record, the old fixed layout, so
-\ references within that size never grow it.
+\ references within that size never grow it; the test hook of lib/store.fs
+\ is asked before that first reserve too.
 : lf-cref-pool-made ( outcome -- ) ok? 0= abort" references: pool" ;
+: lf-cref-pool-first ( -- outcome )
+  lf-crefs store-grow-refused? if outcome-full exit then
+  lf-cref-default 8 * lf-cref-pool column-reserve ;
 : lf-cref-pool-make ( -- )
   /lf-cref-pair max-n /lf-cref-pair / lf-cref-pool slab-init lf-cref-pool-made
-  lf-cref-default 8 * lf-cref-pool column-reserve lf-cref-pool-made ;
+  lf-cref-pool-first lf-cref-pool-made ;
 ' lf-cref-pool-make context-setup
 :noname ( -- ) lf-cref-pool slab-free ; context-teardown
 
