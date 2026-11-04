@@ -283,7 +283,10 @@ kind-keys keys-size kind-count <>
   r@ manifest-load dup ok? if drop r@ manifest-check then
   dup ok? if drop r@ manifest-export-read r> compare-after exit then
   nip nip r> drop ;
+\ A handler of the export that calls it gets invalid, as from export-read,
+\ and changes nothing of the read in progress.
 : manifest-read ( c-addr u m -- outcome )
+  dup manifest-export @ export-idle dup ok? 0= if nip nip nip exit then drop
   dup >r ['] manifest-steps catch r> manifest-release throw ;
 
 base !   \ the BASE this file was loaded with (not reached when loading throws)

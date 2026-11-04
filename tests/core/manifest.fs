@@ -42,6 +42,18 @@ T{ ' throws kind-app ex export-handler !
    -> 55 0 true }T
 ' accept-all handlers
 T{ composition checks manifest-read idle? -> outcome-ok true }T
+\ A handler that calls manifest-read on its own export gets invalid and
+\ changes nothing of the read in progress: when it returns ok anyway, the
+\ outer read still hashes and compares the whole file, and is ok; when it
+\ returns the inner outcome, the outer read stops with it.
+variable inner
+: reenters ( record -- outcome ) drop identity checks manifest-read dup inner ! ;
+: reenters-ok ( record -- outcome ) reenters drop outcome-ok ;
+T{ ' reenters-ok kind-app ex export-handler ! composition checks manifest-read inner @ idle?
+   -> outcome-ok outcome-invalid true }T
+T{ ' reenters kind-app ex export-handler ! composition checks manifest-read
+   why s" export read again by its own handler" compare idle? -> outcome-invalid 0 true }T
+' accept-all handlers
 
 \ A manifest named with manifest-use serves one read: identity's manifest
 \ for composition differs; the next read uses the default name again.

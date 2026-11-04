@@ -453,20 +453,28 @@ alternating; `.claude/work/CK/measure.sh` in the agent's notes):
 | Export | Size | Read, unchecked | Read with manifest (SHA-256 during the read) | Manifest written by `export_manifest.py` |
 | --- | --- | --- | --- | --- |
 | `Init` (`scripts/export.sh … Init`: 29 s; SHA-256 `c1b2071a…a59a179`, as before) | 345,690,182 B, 6,452,982 lines | 6.1–6.4 s | 11.6–12.1 s | 14 s |
-| all of Mathlib (`18448e5d…59c6`, equal to `sha256sum`'s) | 6,258,342,501 B, 110,895,826 lines | MATHLIB_UNCHECKED | MATHLIB_CHECKED | 4 min 14 s |
+| all of Mathlib (`18448e5d…59c6`, equal to `sha256sum`'s) | 6,258,342,501 B, 110,895,826 lines | 1 min 58.6 s (117.2 s user) | 3 min 35.8 s (214.8 s user) | 4 min 14 s |
 
-The hash costs about 5.6 s on `Init`, 62 MB/s of the file, a little under
-the library's 69–73 MB/s in memory because each line is a separate update
-(one more for its line feed); the reports were byte-identical with and
-without it. Memory stays that of the reader: 13,960 KiB resident against
-13,956.
+The hash costs about 5.6 s on `Init` and 97 s on Mathlib, 62–65 MB/s of
+the file, a little under the library's 69–73 MB/s in memory because each
+line is a separate update (one more for its line feed); the reports were
+byte-identical with and without it, and the checked Mathlib read passing
+shows the Forth SHA-256 equal to `sha256sum`'s, `18448e5d…59c6`. Memory
+stays that of the reader (13,960 against 13,956 KiB resident on `Init`;
+17,032 against 17,124 on Mathlib). Other agents' jobs ran on the machine
+during the Mathlib runs, one run each. Counted in user-mode instructions
+(`perf stat`, `Init`, two runs each, the same to 0.01%): main's reader
+took 109.68 billion, this one unchecked 110.49 billion (+0.74%: the tap's
+test and the tally of each record's kind), and checked 205.29 billion.
 
 **Tests** (`make test-manifest`; the export step with pinned Lean in
 `make check`):
 
 - `tests/core/manifest.fs`: a checked read of a fixture, the tap removed
   and the text freed after every read and after a handler's `THROW` (file
-  closed), `manifest-use` for one read only, a missing manifest, a file
+  closed), a handler that calls `manifest-read` on its own export
+  (invalid, as `export-read` gives, the outer read's tap and text left
+  alone), `manifest-use` for one read only, a missing manifest, a file
   name too long, the error fields at line 0, and the heap blocks given
   back by `manifest-free`.
 - `tests/core/test_export_manifest.py`: the writer gives exactly the five
@@ -493,12 +501,13 @@ without it. Memory stays that of the reader: 13,960 KiB resident against
   composition fixture and its manifest byte for byte; the check accepts
   it and refuses a copy with one letter changed, which the unchecked
   reader accepts.
-- 12 planted faults, each undone afterwards, each caught: line feeds not
+- 13 planted faults, each undone afterwards, each caught: line feeds not
   hashed, the SHA-256 or the bytes not compared, extra members allowed,
   any format version, a digest's length unchecked, the 64 KiB limit one
   byte short, non-canonical numbers, the tap left set after a read, the
-  failure's line not reset, the tap never called, refused records
-  counted.
+  failure's line not reset, a handler's `manifest-read` on its own export
+  not refused, the tap never called, refused records counted; the tree
+  without a fault passes.
 
 ## Evidence
 

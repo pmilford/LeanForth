@@ -185,9 +185,9 @@ end-structure
   over win-w-15 + @ sha-small-sigma0 + swap win-w-16 + @ + sha-w32 ;
 
 \ For speed, on cells of 64 bits or more: the same round and schedule
-\ word with the functions written out in place, which takes a third of
-\ the time of the plain words, whose calls cost more than their work
-\ (measured: FORTH_LIBRARY.md). A rotation is one shift of the word
+\ word with the functions written out in place, which take about a
+\ quarter of the time of the plain words, whose calls cost more than
+\ their work (measured: FORTH_LIBRARY.md). A rotation is one shift of the word
 \ written twice: sha-doubled gives u + u * 2^32, and for 0 <= n < 32 its
 \ bits n to n+31 are ROTR^n(u). Only the stored words are masked. In
 \ between, the code uses +, xor, and, or, and right shifts of doubled
