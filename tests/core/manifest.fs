@@ -30,7 +30,7 @@ T{ ex export-init ex checks manifest-init -> outcome-ok outcome-ok }T
 \ A checked read: ok, every record counted, the tap gone and the text freed.
 T{ composition checks manifest-read idle? line kind-thm ex export-kind-count
    -> outcome-ok true 35 1 }T
-T{ checks manifest-digest checks manifest-hex digest>hex checks manifest-hex 64
+T{ checks manifest-digest checks manifest-hex sha256-hex checks manifest-hex 64
    s" 7778d2ef5da2f0935fb0180c953afa9371843f4ceec2660122f8c792b9ca2fec" compare -> 0 }T
 T{ checks manifest-count 2@ -> 1787 0 }T
 

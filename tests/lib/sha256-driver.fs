@@ -22,4 +22,4 @@ variable split-seed
   2drop ;
 : hash-file ( c-addr u seed -- )
   split-seed ! file-bytes over >r hasher sha256-init chunks
-  digest hasher sha256-final digest text digest>hex text 64 type cr r> free throw ;
+  digest hasher sha256-final digest text sha256-hex text 64 type cr r> free throw ;

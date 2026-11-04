@@ -31,7 +31,7 @@ variants were retired on 2026-11-02.
 | Hash-consed sets in two tiers | `src/lib/cons.fs`, `src/lib/pools.fs` | Each distinct record once, named by a number; a sealed input set shared read-only and scratch sets over it whose numbers continue; marks, resets, sealing; interned lists of 32-bit numbers (tuples, no fixed length) and texts ([below](#the-compact-store)) | New 2026-11-03; `tests/lib/cons.fs` |
 | Compact store | `src/core/compact.fs` and `compact-tier.fs`, `compact-names.fs`, `compact-levels.fs`, `compact-exprs.fs` | ADR 0016's Lean layer: names, levels, universe lists, literals and 16-byte expression records in input and scratch tiers ([below](#the-compact-store)) | New 2026-11-03; not yet used by the kernel; `tests/core/compact.fs`, round trips of the reference exports and of `Init` |
 | Big natural numbers | `src/lib/bignum.fs` | Arbitrary-precision naturals for Lean's `Nat` literals ([below](#big-natural-numbers)): numbers in an arena the caller provides (`/big-arena`, `big-arena-init`; `big-mark` and `big-release` give back what was made since a mark), one-cell limbs whose width is counted (`limb-bits`), decimal reading and printing (`decimal>big`, `big>decimal`), conversion to and from a cell (`u>big`, `big>u`), comparison (`big-compare`, `big=`, `big<=`), and the operations Lean 4.35.0's kernel computes on literals (`big+ big- big* big/ big-mod big-gcd big-and big-or big-xor big-lshift big-rshift big-pow`, each `( a b arena -- c outcome )`). Schoolbook multiplication with Karatsuba from 48 limbs, Knuth's algorithm D, Lehmer's gcd. Outcomes ok, invalid (a malformed or released number, text or arena) and full (no room, or more bits than the arena's limit, by default Lean's 2^30). No state; loads in decimal whatever `BASE` is | New 2026-11-02 (plan task 5.2.3, library part); not yet used by the kernel (task 5.1.4); `tests/lib/bignum.fs` reaches every outcome; `make test` compares 37,585 cases with Python's integers on the running Gforth and catches 22 planted faults; review fixes of 2026-11-03 (printing overwrote the number below its text, stale operands, two speed fixes) with guarded-arena sweeps; `make check` has 984 of them computed by pinned Lean's kernel |
-| SHA-256 | `src/lib/sha256.fs` | FIPS 180-4 SHA-256, incremental ([below](#sha-256)): `sha256:` (or `/sha256` address units of the caller's memory), `sha256-init ( sha -- )`, `sha256-update ( c-addr u sha -- )` with pieces of any size, `sha256-final ( c-addr sha -- )` for the 32-byte digest, `digest>hex ( c-addr1 c-addr2 -- )` for its 64 lowercase hexadecimal digits. One word per FIPS function (`sha-rotr`, `sha-shr`, `sha-ch`, `sha-maj`, `sha-big-sigma0`, `sha-big-sigma1`, `sha-small-sigma0`, `sha-small-sigma1`), the plain round and schedule built from them, and on cells of 64 bits or more a fast round and schedule with the functions written out in place. Standalone: requires only `portability.fs`; no state of its own; nothing fails. Loads in decimal whatever `BASE` is | New 2026-11-03 (plan task 3.2.6, for the export manifests); the program track's flagship verification target; `make test-sha256`: NIST vectors, every split of messages up to 200 bytes, the functions against independent models, the fast round against the plain one, 306 random messages against Python's `hashlib` on both paths, the header's example run from a folder outside the project; 13 planted faults each caught |
+| SHA-256 | `src/lib/sha256.fs` | FIPS 180-4 SHA-256, incremental ([below](#sha-256)): `sha256:` (or `/sha256` address units of the caller's memory), `sha256-init ( sha -- )`, `sha256-update ( c-addr u sha -- )` with pieces of any size, `sha256-final ( c-addr sha -- )` for the 32-byte digest, `sha256-hex ( c-addr1 c-addr2 -- )` for its 64 lowercase hexadecimal digits. One word per FIPS function (`sha-rotr`, `sha-shr`, `sha-ch`, `sha-maj`, `sha-big-sigma0`, `sha-big-sigma1`, `sha-small-sigma0`, `sha-small-sigma1`), the plain round and schedule built from them, and on cells of 64 bits or more a fast round and schedule with the functions written out in place. Standalone: requires only `portability.fs` and `module.fs`; helpers private in `lf-lib-private` (ADR 0010); no state of its own; nothing fails. Loads in decimal whatever `BASE` is | New 2026-11-03 (plan task 3.2.6, for the export manifests); the program track's flagship verification target; `make test-sha256`: NIST vectors, every split of messages up to 200 bytes, the functions against independent models, the fast round against the plain one, 306 random messages against Python's `hashlib` on both paths, the header's example and the exact public interface checked from a folder outside the project; 14 planted faults each caught |
 | Portability adapter | `src/lib/portability.fs` | Forth-2012 definitions of `>=`, `<=`, `0<=`, `0>=`, `-rot`, `max-n`, `cell` and the structure words, compiled only where the host lacks them. `scripts/check-portable-forth.py` refuses a module under `src/` that uses one of them without loading this file, directly or through the files it loads | New 2026-11-02; defines nothing under Gforth except `max-n`; `cell` and the load check added 2026-11-02 |
 | Diagnostics | `src/core/diagnostics.fs` | One record per checker context explaining the first failure of a check: a reason code, the site (module and word, a counted string) and two numbers; first failure wins until `lf-diag-clear`; `lf-diag@`, `lf-diag.`; helpers `lf-diag-walk`, `lf-diag-frames` and `lf-diag-store` explain a walk's, a pass's or a store's failure. Never changes an outcome; catalogue in [DIAGNOSTICS.md](../programming/DIAGNOSTICS.md) | New 2026-11-02 (plan 6.7, first form); every core and kernel module records its full and exhausted sites; `tests/core/diagnostics.fs` |
 | Expression store | `src/core/terms.fs` | Index-based nodes for sorts, bound variables, application, λ, Π and constants; nodes refer to earlier indices, so a term is a DAG with sharing | 64 nodes per checker context; built on `context-store:`; constructors check ranges only |
@@ -65,7 +65,7 @@ LeanForth, unless coupling gains a lot. Audit of `src/lib/` on 2026-11-03:
 | `store.fs`, `node.fs`, `walk.fs`, `frame.fs` (bounded stores, records, explicit-stack walks) | yes | the shared outcome vocabulary |
 | `context.fs`, `task.fs` (per-task contexts, job pool) | partly: a general job pool and context mechanism, designed around the checker's per-check state | the checker's context model (ADR 0009) |
 | `outcome.fs` (ok, invalid, exhausted, unknown, rejected, unsupported, full) | LeanForth's shared result vocabulary | deliberately shared: one vocabulary for every module |
-| `sha256.fs` (SHA-256) | yes, written to this rule (2026-11-03) | requires only `portability.fs`; an example in its header and [below](#sha-256), run from a folder outside the project by `make test-sha256`; helper names (`sha-…`) still public until ADR 0010's word lists exist |
+| `sha256.fs` (SHA-256) | yes, written to this rule (2026-11-03) | requires only `portability.fs` and `module.fs`; helpers in `lf-lib-private`, 16 public words (the hashing interface and FIPS 180-4's functions), all named `sha-…` or `sha256…`; an example in its header and [below](#sha-256), run with the interface checked from a folder outside the project by `make test-sha256` |
 | coming: the compact store (ADR 0016) | written to this rule from the start | — |
 
 **Why they are not yet packaged as standalone libraries.** They were built
@@ -125,8 +125,13 @@ FIPS 180-4 defines it, in portable Forth-2012, for the export manifests
 ([NDJSON_READER.md](NDJSON_READER.md#manifests)), which hash a whole export
 during its single read. A standalone library under the owner's rule
 ([above](#reusability-the-libraries-as-standalone-forth-code)): it requires
-only `portability.fs` and knows nothing of LeanForth; any Forth-2012 system
-with cells of at least 32 bits and 8-bit characters can load it. Untrusted
+only `portability.fs` and `module.fs` and knows nothing of LeanForth; any
+Forth-2012 system with cells of at least 32 bits and 8-bit characters can
+load it. Its public words, in the word list `lf-lib`, are the hashing
+interface below and FIPS 180-4's functions; every helper (the round, the
+schedule, the compression, padding, the record's fields) is in
+`lf-lib-private` (ADR 0010), which tests and proofs open with
+`lf-lib-private order+`; every name starts `sha-` or `sha256`. Untrusted
 until reviewed; the program track's flagship target is to prove it equal
 to FIPS 180-4 ([plan](../project/PLAN_DRAFT.md), "Flagship program
 target").
@@ -137,7 +142,7 @@ sha256: hasher                \ a record holding one hash in progress
 create digest 32 allot  create text 64 allot
 hasher sha256-init
 s" ab" hasher sha256-update  s" c" hasher sha256-update
-digest hasher sha256-final  digest text digest>hex  text 64 type
+digest hasher sha256-final  digest text sha256-hex  text 64 type
 ```
 
 prints `ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad`,
@@ -147,6 +152,18 @@ memory serve as well as `sha256:`; separate records are independent. After
 `sha256-final` a record must be given to `sha256-init` again. Nothing
 fails: every byte string is a message. A message must be shorter than
 2^64 bits (FIPS 180-4, 5.1.1).
+
+| Public word | Stack effect | Does |
+| --- | --- | --- |
+| `/sha256`, `sha256:` | `( -- u )`, `( "name" -- )` | the record's size; a named record |
+| `sha256-init` | `( sha -- )` | starts a hash |
+| `sha256-update` | `( c-addr u sha -- )` | adds bytes to the message |
+| `sha256-final` | `( c-addr sha -- )` | writes the 32-byte digest |
+| `sha256-hex` | `( c-addr1 c-addr2 -- )` | the digest as 64 lowercase hexadecimal digits |
+| `sha-digest-bytes` | `( -- 32 )` | the digest's size |
+| `sha-w32`, `sha-shr`, `sha-rotr` | `( x -- u )`, `( u n -- u' )` | 3.2: modulo 2^32, SHR^n, ROTR^n |
+| `sha-ch`, `sha-maj` | `( x y z -- u )` | 4.1.2: Ch, Maj |
+| `sha-big-sigma0`, `sha-big-sigma1`, `sha-small-sigma0`, `sha-small-sigma1` | `( u -- u' )` | 4.1.2: Σ0, Σ1, σ0, σ1 |
 
 **Design.** One word per FIPS function, each with the section it
 implements: `sha-shr` and `sha-rotr` (3.2), `sha-ch` and `sha-maj` (4.2,
@@ -203,15 +220,18 @@ for the plain path, the tests and the proofs. At 70 MB/s all of Mathlib's
 - `tests/lib/test_sha256.py`: 306 random messages (every length to 300
   bytes, and 1 KiB to 1 MiB) hashed in updates of random sizes, 0 to 139
   bytes, against Python's `hashlib`, on both paths, one also against
-  `sha256sum`; and the header's example, with the library and
-  `portability.fs` copied into a fresh folder outside the project, run
-  there as a program of its own.
-- 13 planted faults, kept in `tests/mutants/faults.toml` (`make mutants`;
+  `sha256sum`; and the header's example, with the library,
+  `portability.fs` and `module.fs` copied into a fresh folder outside the
+  project, run there as a program of its own; there too every public word
+  is found and every other name the library's source defines is hidden,
+  and the public names are exactly the table above.
+- 14 planted faults, kept in `tests/mutants/faults.toml` (`make mutants`;
   ids `sha-…`) (a rotation's shift, Maj, a Σ1 shift and an unmasked
   store in the fast round, a σ0 shift in the fast schedule, a K constant,
   an initial hash word, the byte order, the final addition's row, the
   length's carry, the padding boundary, the buffer's room, the hexadecimal
-  letters), each caught by the unit tests; the tree without a fault passes.
+  letters, and the helpers made public), each caught by the tests; the
+  tree without a fault passes.
 
 ## Big natural numbers
 
