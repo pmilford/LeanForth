@@ -30,7 +30,10 @@
 \ ok: printed. invalid: malformed input, as for lf-print-term, or a
 \ variable bound by an arrow. unsupported: a name the words cannot spell
 \ (a part with a dot, a space or only digits; a universe parameter named
-\ like a syntax word). exhausted and full: as for lf-print-term.
+\ like a syntax word), or a label or note that would not read back as
+\ itself (from lf-note-add, not the words), which is never printed as
+\ live words. exhausted and full: as for lf-print-term. On a failure the
+\ text sent to the sink so far is incomplete.
 
 require ./term-printer.fs
 require ./note-table.fs

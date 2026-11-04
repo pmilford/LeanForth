@@ -22,23 +22,25 @@ Usage (from the repository root; GFORTH and LEAN name the toolchains):
    (tests/reference/*.ndjson, corpus-lean.fs): print as words, run in a new
    context, compare the terms and the printed text.
 5. --lean: for each fixture with a Lean source tests/reference/author-STEM.lean,
-   pinned Lean (-DwarningAsError=true) compiles it, and the pinned exporter
-   (lean4export 3.1.0, the toolchain's leanexport) exports every declaration
-   the fixture makes, with their dependencies. Term for term (lean_terms.py):
-   each theorem, definition and axiom must have exactly Lean's universe
-   parameters, statement and proof (every node, index, constant, universe
-   argument, level, binder name and binder kind; dump.fs's format), and
-   each import stub Lean's universe parameters and, when it states one,
-   Lean's type. As text: Lean's #print of every declaration must equal the
-   fixture's lean: lines, apart from the differences listed in KNOWN, each
-   with its reason.
+   pinned Lean (-DwarningAsError=true) compiles it. Term for term
+   (lean_terms.py), against Lean's own declarations (a Lean metaprogram) and
+   against the pinned exporter's (lean4export 3.1.0, the toolchain's
+   leanexport; apart from binder names and kinds, which that exporter
+   merges): each theorem, definition and axiom the fixture makes must have
+   exactly Lean's universe parameters, statement and proof (every node,
+   index, constant, universe argument, level, binder name and binder kind;
+   dump.fs's format), and each import stub Lean's universe parameters and,
+   when it states one, Lean's type; the binder names listed in KNOWN_NAMES
+   are read as Lean's. As text: Lean's #print of every declaration must
+   equal the fixture's lean: lines, apart from the differences listed in
+   KNOWN, each with its reason.
 6. --faults: each planted fault, in a copy of src/, must be caught: a unit
    test of tests/author/author.fs fails, or a fixture's output changes (a
    round trip, a term or a lean: line compared with Lean, or a fixture that
-   no longer runs). Faults that only Lean can see must be caught by the
-   comparison with Lean: the spelling check disabled (the round trip cannot
-   see it, ADR 0017 §13) and every universe argument 0 (the printed text
-   hides universe arguments).
+   no longer runs). Some must be caught by the comparison with Lean: the
+   spelling check disabled (the round trip cannot see it, ADR 0017 §13),
+   every universe argument 0 (the printed text hides universe arguments)
+   and the two name-resolution faults (16-namespaces.lf).
 Finite evidence about these files; it never accepts a theorem.
 """
 import os
@@ -400,10 +402,12 @@ def check_lean():
         counted = compared_terms(forth_terms(texts[stem]))
         decls, terms, lines = decls + counted[0], terms + counted[1], lines + len(printed)
     known = sum(len(v) for v in KNOWN.values())
-    print(f"authoring words build Lean's terms, term for term: {decls} declarations, "
-          f"{terms} statements and proofs, of {len(reference)} fixtures, equal to Lean's own "
-          "(binder names and kinds included) and to the pinned export (apart from binder "
-          "names and kinds, which the exporter merges)")
+    names = sum(len(v) for v in KNOWN_NAMES.values())
+    print(f"authoring words build Lean's terms, term for term: {decls} declarations of "
+          f"{len(reference)} fixtures, {terms} terms (statements, proofs, stubs' stated types), "
+          "equal to Lean's own (binder names and kinds included; "
+          f"{names} listed binder name) and to the pinned export (apart from binder names "
+          "and kinds, which that exporter merges)")
     print(f"authoring words agree with pinned Lean's #print: {lines} lines "
           f"({known} known printer difference, listed with its reason)")
 

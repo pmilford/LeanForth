@@ -8,7 +8,9 @@
 \ after Forth has left the line (an unknown token) can still point into
 \ it. A position is one nonnegative cell, the line times 65536 plus the
 \ column, both counted from 1; a column beyond 65535 is recorded as 65535,
-\ and on a 32-bit host lines beyond 32767 wrap. Untrusted authoring code.
+\ and on a 32-bit host lines beyond 32767 wrap. It also reads token text:
+\ the tokens of a line, the dots of a name, and which tokens are numbers
+\ (only plain decimals) or look like one. Untrusted authoring code.
 \ State: one context record, lfa-source (ADR 0009).
 
 require ../lib/lib.fs

@@ -22,14 +22,15 @@ plan task 8.2.1 and is not built.
 
 | File | Holds | State (context members, ADR 0009) |
 | --- | --- | --- |
-| `src/author/source.fs` | the line being run and the current token; positions | `lfa-source` |
+| `src/author/source.fs` | the line being run and the current token; positions; token text: dots in names, plain decimals | `lfa-source` |
 | `src/author/errors.fs` | error codes, the catalogue, the error record, `lfa-fail` | `lfa-error` |
 | `src/author/build.fs` | nodes in the term, level and reference stores, shared by content; `->`'s shift | `lfa-sought`, `lfa-sought-ref` (lookup keys) |
 | `src/author/scopes.fs` | open binders and stack frames | `lfa-binders`, `lfa-scope` |
 | `src/author/constants.fs` | the declarations of a run | `lfa-decls` |
-| `src/author/values.fs` | LeanForth values on the data stack | `lfa-items` |
-| `src/author/groups.fs` | the wordlists, syntax words, name groups and their entries | `lfa-entries`, `lfa-groups` |
-| `src/author/declarations.fs` | declarations, universes, binders, namespaces, `open` | `lfa-current`, `lfa-spaces`, `lfa-knowns` |
+| `src/author/values.fs` | LeanForth values on the data stack, each used once | `lfa-items` |
+| `src/author/groups.fs` | the wordlists, syntax words, name groups and their entries; the numbers check | `lfa-entries`, `lfa-groups` |
+| `src/author/namespaces.fs` | namespaces, `open`, and which constant a name means (Lean's resolution) | `lfa-spaces`, `lfa-knowns` |
+| `src/author/declarations.fs` | declarations, universes, binders | `lfa-current` |
 | `src/author/words.fs` | the vocabulary (LF-WORDS) | none |
 | `src/author/runner.fs` | running text and files; the public interface | `lfa-run` |
 | `src/present/note-table.fs` | labels and notes per term | `lf-notes` |
@@ -45,10 +46,10 @@ the authoring program's only dictionary growth.
 ## The vocabulary
 
 While a proof runs, the search order is LF-WORDS (`lf-words`), LF-LOCALS
-(`lf-locals`), the namespaces entered and opened (newest first) and
-LF-CONST (`lf-consts`); BASE is decimal. Values: *t* a term, *l* a
+(`lf-locals`) and LF-CONST (`lf-consts`); BASE is decimal. The only
+numbers are plain decimals: one to nine digits. Values: *t* a term, *l* a
 universe level or a number, *c* a constant waiting for universe arguments,
-*n* a number.
+*n* a number. Each value is used once, by the word that takes it.
 
 | Word | Stack effect | Meaning |
 | --- | --- | --- |
@@ -76,11 +77,28 @@ A name's word pushes a variable and/or a universe parameter (LF-LOCALS)
 or a constant. Names are case-sensitive: one Forth word stands for every
 spelling equal apart from case and acts on the exact spelling it was
 called with, or passes the token on to the wordlists searched after its
-own. A short name found through a namespace that is also a different
-constant elsewhere in the search order is ambiguous (error 27). Each
-syntax word is a Lean keyword or contains a character no unquoted Lean
-identifier has (ADR 0017, rule R1), and must be in the printer's list of
-the words it writes (checked when `words.fs` loads).
+own. A constant has an entry under its full name in LF-CONST, and each
+shorter name it can be written by (what follows a dot of its name) has a
+word there too. Which constant a name means is pinned Lean 4.35's rule
+(`resolveGlobalName`): the first of `P.name` for the current namespace
+`P` and each namespace around it, innermost first; otherwise the name at
+the root and `O.name` for each open namespace `O`, which must all be the
+same constant, or it is ambiguous (error 27; Lean would try each against
+the expected type). Inside a declaration the current namespace is its own
+name's prefix (`def N.foo` resolves in `N`). `namespace A.B` enters two
+scopes; `end NAME` leaves one per part, each part naming its scope;
+`open N` opens `P.N` for the nearest namespace `P` around that has it, or
+`N`, and `O.N` for each open `O`. A namespace is known once entered or
+once it is a prefix of a declared name.
+
+No name of a declaration, universe or namespace, and no part of one, may
+be number-like (a digit first, or one of `- + # $ % & '` and more after
+it; error 30), so no word ever stands where a number is meant; a binder
+may have such a name but gets no word (`n var#` refers to it). Numeric
+name parts (`x.1`) have no leading zero. Each syntax word is a Lean
+keyword or contains a character no unquoted Lean identifier has (ADR
+0017, rule R1), and must be in the printer's list of the words it writes
+(checked when `words.fs` loads).
 
 ## Forth interface
 
@@ -109,25 +127,43 @@ the run; begin a new one. The runner restores the caller's search order,
 compilation wordlist and BASE, also after an error. Its `THROW` code for
 an authoring error is −4129 (`lf-author-throw`), in the range ADR 0018
 reserves for LeanForth; only the runner catches it, as the authoring
-program's top level. Gforth's −13 (a token no LeanForth word has) is
-reported as error 1 at the first token after the last one a word read
-that Forth could not have read as a number.
+program's top level.
+
+Numbers are refused the same way on every host. Forth's interpreter
+converts a token that no word has as a number, in whatever forms its host
+reads (Gforth 0.7.3: `-3`, `$10`, `%11`, `#1`, `'a'`, `1.`, floats;
+Gforth 1.0 also `0x3`, `"x"`, `->x`, `${NAME}` and more, some of which act
+at once). So: on Gforth 1.0 the runner limits the recognizer (`rec-forth`)
+to words and digit strings while a proof runs, and restores it after; on
+every host each LeanForth word, before it acts, checks the tokens of its
+line between the last token a word read and its own, which are the
+numbers, and the runner checks the rest of each line. The first token
+that is no plain decimal stops the run at itself: error 35 if it is
+number-like, otherwise error 1. Gforth's −13 (a token no word has and no
+number) is reported the same way, at the first such token after the last
+one a word read.
 
 The printer's Forth mode returns ok; invalid for a malformed term or a
 variable bound by an arrow; unsupported for a name it cannot spell (a
 part with a dot, a space or only digits, or a universe parameter named
-like a syntax word); exhausted and full as the term printer. Running the
-printed words gives the identical term, names, binder kinds, labels and
-notes; a Pi printed as `->` comes back with the anonymous name.
+like a syntax word) and for a label or note that would not read back as
+itself (a label that is empty or has a blank or control character, a
+note with `"` or a line end), which it never prints as live words;
+exhausted and full as the term printer. On a failure the text printed so
+far is incomplete. Running the printed words gives the identical term,
+names, binder kinds, labels and notes; a Pi printed as `->` comes back
+with the anonymous name.
 
 ## Errors
 
 Codes are stable; tests pin them, never the wording.
 `tests/author/check_author.py` checks that this table and
 `src/author/errors.fs` agree. Unless the message names another, the
-position is the word that found the mistake; codes 11, 12 and 21 also give
-a second place (where the constant was written, where the binder was
-opened).
+position is the word that found the mistake (for codes 1 and 35, the
+refused token itself; for 39, the long line's first token); codes 11, 12,
+18 and 21 also give a second place (where the constant was written, where
+the binder was opened; for 18, the parameter's binder with a value left
+below it).
 
 | Code | Outcome | Message |
 | --- | --- | --- |
@@ -186,9 +222,15 @@ opened).
 | 66 | full | out of room: too many names, namespaces or declarations |
 | 67 | full | out of room: too many labels and notes |
 
-`tests/author/author.fs` reaches every code except 39 (a line of 1024
-characters or more in a file) and 41 (no Forth exception other than −13
-is known to be reachable from proof text).
+The tests reach every code: `tests/author/author.fs` all but 39, which
+the example file `17-long-line.lf` reaches (a line of 1024 characters or
+more in a file). Proof text cannot reach 34, since it cannot write a
+negative number and each value is used once; the unit tests reach it by
+calling the words with a used value and with a variable outside its
+binder. Code 41 is reachable: very many numbers overflow Forth's data
+stack (−3, on Gforth 1.0 and 0.7.3 alike). Before the review of
+2026-11-03 this page said no Forth exception other than −13 was
+reachable; on Gforth 1.0, `->x` then threw −21.
 
 ## Limits
 
@@ -197,23 +239,49 @@ Per run: the term store's 64 nodes (equal subterms share a node, except a
 step with a label or note), 64 levels, 64 names in 2,048 bytes, 32
 constant references, 32 declarations, 256 name entries in 4,096 bytes,
 64 open binders, 512 values per declaration, 64 labels and notes in
-4,096 bytes, 13 namespaces in the search order (16 wordlists on Gforth;
-5 on a Forth-2012 system with the minimum of 8), 8 universe parameters
-per declaration and 8 universe arguments per constant, lines of at most
-1,023 characters in a file. A source position is the line times 65,536
-plus the column; on a 32-bit host lines beyond 32,767 wrap.
+4,096 bytes, 16 namespace scopes and open namespaces at once, 32 known
+namespaces in 1,024 bytes, 8 universe parameters per declaration and 8
+universe arguments per constant, numbers of at most 9 digits, lines of
+at most 1,023 characters in a file. A source position is the line times
+65,536 plus the column; on a 32-bit host lines beyond 32,767 wrap.
 
 ## Tests
 
 `make test` (target `test-author`): `tests/author/author.fs` (every
 reachable error code with its line and column, case sensitivity, Forth's
-words invisible, namespaces, `var#`, `root:`, positions, labels and notes,
-the runner's restoring, the note table, the Forth mode on its own) and
-`tests/author/check_author.py` (19 example files against
-`fixtures.golden`, with a round trip each; this table; the layering
-check; round trips over the term printer's 50 cases and the five Lean
-exports); the syntax page's examples. `make check` (target
-`reference-author`): the example files' theorems and definitions against
-pinned Lean's `#print` (`tests/reference/author-*.lean`), one known
-printer difference listed with its reason, and seven planted faults, each
-caught (the spelling check disabled only by the comparison with Lean).
+words invisible, numbers in every host form, values used once, names
+that are numbers, namespaces and which constant a name means, `var#`,
+`root:`, positions, labels and notes, the runner's restoring, the note
+table, the Forth mode on its own and the labels and notes it refuses) and
+`tests/author/check_author.py` (21 example files against
+`fixtures.golden`, which records each declaration's terms as a tree dump,
+with a round trip each; this table; the layering check; round trips over
+the term printer's 50 cases and the five Lean exports); the syntax page's
+examples. Run the unit tests with Gforth 0.7.3 too when the runner
+changes: the numbers check is host-sensitive.
+
+`make check` (target `reference-author`) compares with Lean, for the 15
+example files with a Lean source (`tests/reference/author-*.lean`):
+
+- **Terms, term for term** (`tests/author/lean_terms.py`). Pinned Lean
+  compiles the source; a Lean metaprogram writes each declaration as Lean
+  holds it, in the tree-dump format, and every theorem, definition and
+  axiom must equal the words' terms exactly: every node, de Bruijn index,
+  constant, universe argument, level, binder name and binder kind; each
+  import stub must have Lean's universe parameters and, when it states a
+  type, Lean's type. The pinned exporter (`leanexport`, lean4export 3.1.0)
+  exports the same declarations, which must also agree, apart from binder
+  names and kinds: that exporter shares nodes that differ only in binder
+  names or kinds, so a later declaration can come out with an earlier
+  one's (checked with three alpha-equivalent theorems). One binder name is
+  a listed difference, with its reason (`12-hygienic-used.lf` names a
+  binder with a hygienic name Lean's source cannot write). The example file
+  `16-namespaces.lf` puts Lean's name resolution under this comparison.
+- **Text**: pinned Lean's `#print` of every declaration against the
+  example's `lean:` lines, one known printer difference listed with its
+  reason.
+- **Planted faults**: 22, each caught. Seven are faults in the printer and
+  the words; fifteen each undo one fix of the review of 2026-11-03. The
+  spelling check disabled, "every universe argument is 0" and the two name
+  resolution faults must be caught by the comparison with Lean (the round
+  trip and the printed text cannot see them).

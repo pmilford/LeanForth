@@ -38,19 +38,28 @@ Forth: the parts come first, then the word that combines them.
 - `A B ->` is "A implies B" (or "functions from A to B").
 - `Prop`, `l Type`, `l Sort` are the universes; `c l ^` gives the constant
   `c` the universe level `l` (Lean's `c.{l}`); `u 1 level+`, `u v level-max`
-  and `u v level-imax` build levels.
+  and `u v level-imax` build levels. Numbers are plain decimals (`0`, `1`,
+  `12`, at most nine digits); Forth's other number forms (`-3`, `$10`,
+  `1.`, `'a'`) are refused.
 - `theorem NAME … := … end NAME` (also `def` and `axiom`): the variables
   still open at `:=` are the hypotheses; before `:=` comes the statement,
   after it the proof. `universe u` right after the name adds a universe
   parameter. `end NAME` defines a word for the theorem, so later proofs can
-  use it. `namespace N … end N` and `open N` work as in Lean.
+  use it. `namespace N … end N` and `open N` work as in Lean, and a name
+  means the constant Lean would pick: inside `namespace N`, or in a
+  declaration named `N.foo`, `bar` means `N.bar` if there is one. Where
+  Lean would choose between two open namespaces by type, LeanForth asks
+  for the full name.
 - Names are Lean's names, exactly, with upper and lower case distinct
   (`x : X` works), although Forth finds words regardless of case: each
   word checks the spelling it was called with. LeanForth's own words are
   either Lean keywords or contain a character no Lean name has (`-`, `:`,
-  `$`, `^`), so they never clash with a name. Forth's own words, such as
-  `+` or `dup`, are not visible while a proof runs.
-- Comments are Forth's: `\` to the end of the line, `( … )` within a line.
+  `$`, `^`), so they never clash with a name. The name of a theorem,
+  universe or namespace may not look like a number (`1`, `N.1`, `-x`), so
+  a name never hides a number. Forth's own words, such as `+` or `dup`,
+  are not visible while a proof runs.
+- Comments are Forth's: `\` to the end of the line, `( … )` within a line
+  (a `(` must be closed on its line).
 
 Lean's core library is not imported yet (plan 8.2.1): a file names the
 constants it uses with `import-stub NAME [universe u]… [TYPE] end NAME`, a
@@ -492,9 +501,15 @@ own words are unknown names too: `A dup` in a proof stops at `dup`.
   natural-number and string literals, `let`/`have`, projections, holes
   `_`, tactic blocks `by`, `import`, and `_root_` in a declaration's name.
   Inductive types and structures are sketched in ADR 0017 only.
-- **One line per word and name.** A word that reads a name, and a note,
-  must have it on the same line; lines are at most 1023 characters in a
-  file.
+- **One line per word and name.** A word that reads a name, a note and a
+  `( … )` comment must have it on the same line; lines are at most 1023
+  characters in a file.
+- **Where LeanForth is stricter than Lean.** Lean chooses between two
+  constants a name could mean (from two open namespaces, or one open and
+  the root) by their types; LeanForth has no types here and asks for the
+  full name (error 27). A name Lean reads as a field of a variable or
+  constant (`h.symm`) is an unknown name: projections are not supported
+  yet. `_root_.x` is written `root: x`.
 - **Printing.** In Lean notation an instance argument's name is shown in
   `fun [inst : C]` where Lean writes `fun [C]` when the printed body does
   not show the name (ADR 0017, example 8); the terms are the same. A Pi

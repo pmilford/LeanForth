@@ -1,6 +1,6 @@
 # ADR 0017: LeanForth Forth syntax for theorems, definitions and proofs
 
-Status: **accepted as the design basis** by the owner on 2026-11-02 (decisions 1–4 as recommended, see [owner decisions](../project/OWNER_DECISIONS.md)); proposed 2026-11-02 (plan task 8.1.1). **Implemented** 2026-11-03 in `src/author/` and the term printer's Forth mode (plan task 8.1.2; [programming reference](../programming/LEANFORTH_WORDS.md), [user page](../user/LEANFORTH_SYNTAX.md)); the implementation still passes the [parser] gate before anything relies on it. Two points of the implementation refine this record: while the stores hold 64 nodes, equal subterms share one node, which keeps the position where it was first written (a step with a label or note always has its own node); and the stand-in for imports is the word `import-stub` (the prototype's `stub` and `declare`). Before that, a throwaway prototype (outside the
+Status: **accepted as the design basis** by the owner on 2026-11-02 (decisions 1–4 as recommended, see [owner decisions](../project/OWNER_DECISIONS.md)); proposed 2026-11-02 (plan task 8.1.1). **Implemented** 2026-11-03 in `src/author/` and the term printer's Forth mode (plan task 8.1.2; [programming reference](../programming/LEANFORTH_WORDS.md), [user page](../user/LEANFORTH_SYNTAX.md)); the implementation still passes the [parser] gate before anything relies on it. Two points of the implementation refine this record: while the stores hold 64 nodes, equal subterms share one node, which keeps the position where it was first written (a step with a label or note always has its own node); and the stand-in for imports is the word `import-stub` (the prototype's `stub` and `declare`). The independent review of the implementation (2026-11-03) corrected four points of this record, in §3, §6, §9 and §10; they are listed under [corrections after the review](#corrections-after-the-review-2026-11-03). Before that, a throwaway prototype (outside the
 repository, see [Evidence](#evidence)) ran every example below as Forth
 words through Forth's own interpreter, built the terms in LeanForth's
 existing stores, printed them with the term printer, and ran its own
@@ -204,9 +204,11 @@ searched in this order:
 
 1. **LF-WORDS**, the syntax words (tables below);
 2. **LF-LOCALS**, the variables and universe parameters in scope;
-3. the namespaces entered with `namespace` and opened with `open`, newest
-   first;
-4. **LF-CONST**, every declared or imported constant under its full name.
+3. **LF-CONST**, every declared or imported constant under its full name,
+   and a word for each shorter name it can be written by.
+
+(Corrected after the review: namespaces are not wordlists in the search
+order; which constant a name means is decided as Lean decides it, §9.)
 
 Forth's own wordlist is not in the order, so Forth's words (`+`, `CHAR`,
 `AND`, `MAX` …) are invisible in proof text: Lean's `Char`, `And` and `Max`
@@ -289,11 +291,19 @@ case-sensitive ones (`table`).
 
 A LeanForth value on the Forth data stack — a term, a universe level, a
 name, a constant waiting for its universe arguments — is one cell: a
-reference to an item kept by the authoring program, always negative. Forth
-number literals are nonnegative, and Lean has no negative literals or
-levels, so a word that accepts a level or a term tells a number from a
-value by its sign. So `0` is the level 0 before `^`, and the natural-number
-literal 0 before `$`.
+reference to an item kept by the authoring program, always negative.
+Forth's own number literals can be negative (`-3`) and come in other forms
+(`$10`, `1.`, `'a'`, floats), so the authoring program reads only *plain
+decimals*: one to nine digits, never negative. Every other number form is
+refused at its token, the same on every Forth host. Lean has no negative
+literals or levels either, so a word that accepts a level or a term tells
+a number from a value by its sign. So `0` is the level 0 before `^`, and
+the natural-number literal 0 before `$`. Each value is used once: the word
+that takes it marks its item used, so a copy of a value can never stand
+for a term twice, and a variable is used only while its binder is open.
+(The first version of this record said Forth number literals are
+nonnegative; that was wrong, and the review showed `-3` standing for an
+earlier value.)
 
 | Word | Stack effect | Builds (Lean `Expr`) | Lean source |
 | --- | --- | --- | --- |
@@ -360,15 +370,22 @@ by `l n level+` (`l + n`), `a b level-max` (`max a b`) and `a b level-imax`
 
 ### 9. Namespaces, `open` and the printer's names
 
-`namespace N … end N` puts the declarations inside under `N.` and puts
-`N`'s wordlist in the search order; `open N` adds `N`'s wordlist until the
-enclosing namespace ends. Forth stops at the first match in the search
-order; LeanForth adds one check, because an added `open` must not silently
-change the meaning of text further down: a constant's word found under its
-short name looks for the same spelling in the other visible namespaces and
-at the root, and stops with "ambiguous name: write the full name" if there
-is one. Forth-2012 promises at least eight wordlists in the search order,
-which leaves room for five namespaces at once on the smallest system.
+`namespace N … end N` puts the declarations inside under `N.`; `open N`
+opens `N` until the enclosing namespace ends. Which constant a name means
+is decided exactly as pinned Lean 4.35 decides it (its `resolveGlobalName`;
+corrected after the review, which found `def N.foo … := bar` building the
+root `bar` where Lean builds `N.bar`): the first of `P.name` for the current
+namespace `P` and each namespace around it, innermost first; otherwise the
+name at the root and `O.name` for each open namespace `O`, which must all
+be the same constant. While a declaration is made its own name's prefix is
+the current namespace (Lean reads `def N.foo` as `namespace N def foo
+end N`). `namespace A.B` enters two scopes, which `end A.B` (or `end B`
+then `end A`) leaves; `open N` opens `P.N` for the nearest namespace `P`
+around that has it, or `N`, and `O.N` for each open `O`. Where Lean would
+choose between two candidates by their types, the authoring words, which
+have no types, stop with "ambiguous name: write the full name". The
+first version of this record put namespaces in the search order and added
+its own ambiguity check; both are replaced by Lean's rule.
 
 The printer writes every constant with its full name (so printed text needs
 no `open`), `root: NAME` where a variable has the same name, and `n var#`
@@ -384,8 +401,8 @@ for `$` the `$`, for a binder its opening word. Errors print the position
 (``error at line:col 8:27 (token `valeu`)``); proof steps and receipts
 carry it as `sourceSpan`. A token that is no word at all never reaches a
 LeanForth word: Forth reports it as an undefined word (`THROW` −13), and
-the authoring program finds it as the first non-number after the last word
-that ran. The checker receives terms only and reports node numbers; the
+the authoring program finds it as the first token after the last word that
+ran that is no plain decimal (§6). The checker receives terms only and reports node numbers; the
 authoring program maps them back to positions. Spans never affect a
 verdict.
 
@@ -570,7 +587,11 @@ notes like terms. Whether proof files may define their own helper words
 `DEPTH`, `CATCH`/`THROW`. The prototype (which itself uses Gforth's locals
 for brevity) gave byte-identical output on Gforth 1.0, on Gforth 0.7.3 and
 with case-sensitive wordlists. The canonical text uses spaces, line ends,
-printable ASCII words and UTF-8 in names (Lean names are Unicode).
+printable ASCII words and UTF-8 in names (Lean names are Unicode). One
+host extension is used where it exists: on Gforth 1.0, whose interpreter
+recognizes more than words and numbers, the authoring program limits the
+recognizer to words and digits while a proof runs (`rec-forth`, guarded by
+`[DEFINED]`); every host then refuses the same tokens.
 
 **Scale.** Every constant an author can name is a Forth word. In Gforth 1.0
 a name group with its entry took 119 bytes of dictionary, 6 µs to define
@@ -581,8 +602,40 @@ the modules a file imports. The checker is not affected.
 
 **Trusted base.** None of this is trusted. A wrong word produces a
 different term, which the checker checks as it is and the printer shows;
-the defences are the round-trip test, comparison of printed statements
-with Lean's, and the printed statement in every receipt.
+the defences are the round-trip test, comparison of the terms with
+Lean's, term for term, and of printed statements with Lean's, and the
+printed statement in every receipt.
+
+### Corrections after the review (2026-11-03)
+
+The independent review of the implementation found that a file could
+build a different term than its reader expects. The corrections, each
+with tests and a planted fault that the tests catch
+([programming reference](../programming/LEANFORTH_WORDS.md#tests)):
+
+- **Numbers (§6).** Forth reads `-3` as a number, so a negative literal
+  could stand for an earlier value; Gforth 1.0 also reads `$10`, `0x3`,
+  `"x"`, `->x` and more, unlike Gforth 0.7.3. Now only plain decimals are
+  numbers; every other form is refused at its token, identically on both
+  hosts (on Gforth 1.0 the interpreter's recognizer is limited to words and
+  digits while a proof runs). Each value is used once.
+- **Names that are numbers.** `universe 1` made `1 Type` mean the universe
+  parameter, and left a word `1` behind for later runs. No name of a
+  universe, declaration or namespace may now be number-like; a binder may
+  be, but then gets no word (`n var#` refers to it).
+- **Namespaces (§3, §9).** Names resolve as Lean resolves them, including
+  inside a declaration with a dotted name.
+- **Text that silently changed meaning.** A `(` comment without its `)`
+  on the line, numeric name parts with leading zeros (`x.01` and `x.1` are
+  one Lean name), and labels or notes that would print as live words are
+  refused; a value left below a parameter's binder stops at `:=`.
+- **Evidence.** The comparison with Lean now covers the terms themselves,
+  not only their printed text, which hides universe arguments and implicit
+  arguments: each example's Lean source is compiled by pinned Lean, and the
+  words' terms must equal Lean's own, node for node, with every universe
+  argument, binder name and binder kind (and the pinned exporter's, apart
+  from binder names and kinds, which that exporter merges between
+  declarations).
 
 ## Worked examples
 
