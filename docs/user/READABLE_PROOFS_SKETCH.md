@@ -1,9 +1,10 @@
 # Readable proofs: what a checked proof will look like
 
-> **Design sketch, not implemented.** Nothing on this page runs yet. It
-> shows what the planned *proof-outline printer* (plan task 2.4.4) would
-> print, following the proposed design in
-> [ADR 0013](../adr/0013-derivation-log.md). The Lean examples were checked
+> **Superseded: the printer is implemented.** See
+> [the proof outline](PROOF_OUTLINE.md) for what it prints today, checked
+> by `make test`. This page is the design sketch it was built from (plan
+> task 2.4.4, [ADR 0013](../adr/0013-derivation-log.md)); its mock-ups
+> differ from the output in details. The Lean examples were checked
 > by hand with the pinned Lean 4.35.0; the Forth on this page is
 > illustrative.
 

@@ -16,6 +16,7 @@
 \ one context.
 
 require ../lib/lib.fs
+require ../core/derivation-log.fs
 require ../core/diagnostics.fs
 require ../core/level-scope.fs
 require ../core/levels.fs
@@ -73,10 +74,16 @@ end-structure
 \ status is returned; this word cannot register a declaration.
 \ lf-level-compare-keeping differs only in the fuel an undecided comparison
 \ leaves (see lf-lcmp-fail).
-: lf-level-compare-run ( left right fuel keep -- status )
+: lf-lcmp-pass ( left right fuel keep -- status )
   lf-lcmp-keep ! false lf-lcmp-apart ! dup 0< if lf-lcmp-negative exit then
   lf-lcmp-fuel ! 2dup lf-lcmp-scopes
   dup ok? if drop lf-lcmp-decide else nip nip lf-lcmp-fail then ;
+\ The derivation log (ADR 0013): with it on, a comparison is one level-eq
+\ step of the two levels; both paths run the same pass.
+: lf-lcmp-logged ( left right fuel keep -- status )
+  3 pick 3 pick lf-rule-level-eq lf-log-open lf-lcmp-pass lf-log-decided ;
+: lf-level-compare-run ( left right fuel keep -- status )
+  lf-log? if lf-lcmp-logged else lf-lcmp-pass then ;
 : lf-level-compare ( left right fuel -- status ) false lf-level-compare-run ;
 : lf-level-compare-keeping ( left right fuel -- status ) true lf-level-compare-run ;
 \ Rule D1 (ADR 0011, Amendment 1): whether Lean's is_equivalent is false.
