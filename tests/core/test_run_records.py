@@ -660,8 +660,16 @@ class Checks:
                         and lines[1] == refused and lines[2].split() == ["0", "0"]
                         and facts(lines[3], a) == (True, True, flag == "true", "invalid", []),
                         f"first pass, {name}: {opens} opens, {out[:300]} {err[:300]}")
-        # Read once: the first pass reads B (with B's manifest), the second A.
+        # rr-start's own later reads (round 3): its metadata read, then its
+        # manifest check (with B's manifest put beside B while the metadata
+        # read is served), read B after rr-hash read A; rr-start fails.
         (a, ma), (b, mb) = use
+        for name, plan in (("metadata", [(a, None), (b, None)]),
+                           ("manifest", [(a, None), (a, mb), (b, ma)])):
+            status, out, err, opens = self.run_served(name, ma, plan, ["x rr-start . rr-moved? ."])
+            self.expect(status == 0 and opens == len(plan) and out.split() == ["1", "-1"],
+                        f"start, {name}: {opens} opens, {out[:300]} {err[:300]}")
+        # Read once: the first pass reads B (with B's manifest), the second A.
         for name, flag in (("once", "true"), ("once-unchecked", "false")):
             status, out, err, opens = self.run_served(name, mb, [(b, ma), (a, None)], once(flag))
             self.expect(status == 0 and opens == 2 and out.split("\n")[:2] == ["1 ", refused],

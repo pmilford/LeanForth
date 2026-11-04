@@ -2229,11 +2229,43 @@ reason = "rvRP 2: an enforced manifest that does not match an input read past it
 [[fault]]
 id = "rr-bytes-unchecked"
 file = "src/import/run-record.fs"
-old = ''': rr-same-bytes? ( -- flag ) cin-digest rr-recorded compare 0= ;'''
-new = ''': rr-same-bytes? ( -- flag ) true ;'''
+old = ''': rr-bytes-check ( -- outcome ) cin-digest rr-matches ;'''
+new = ''': rr-bytes-check ( -- outcome ) outcome-ok ;'''
 test = "$GFORTH tests/core/run-record.fs && python3 tests/core/test_run_records.py"
 reason = "rvRP3 M1: a checked read of other bytes than rr-start hashed is recorded as enforced"
 quick = true
+
+[[fault]]
+id = "rr-matches-always"
+file = "src/import/run-record.fs"
+old = '''  rr-recorded compare 0= dup 0= run-record rr-moved ! flag>outcome ;'''
+new = '''  2drop false run-record rr-moved ! outcome-ok ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "rvRP3 round 3: no later read of a run is compared with the digest rr-start recorded"
+
+[[fault]]
+id = "rr-meta-read-unmatched"
+file = "src/import/run-record.fs"
+old = '''  run-record rr-export export-untap ok? if rr-tapped rr-matches else outcome-ok then ;'''
+new = '''  run-record rr-export export-untap drop outcome-ok ;'''
+test = "python3 tests/core/test_run_records.py"
+reason = "rvRP3 round 3: rr-start's metadata read of other bytes than it hashed is recorded"
+
+[[fault]]
+id = "rr-manifest-read-unmatched"
+file = "src/import/run-record.fs"
+old = '''  ok? if rr-manifest-seen rr-matches else outcome-ok then ;'''
+new = '''  drop outcome-ok ;'''
+test = "python3 tests/core/test_run_records.py"
+reason = "rvRP3 round 3: rr-start's manifest check of other bytes than it hashed is recorded as ok"
+
+[[fault]]
+id = "rr-meta-line-feeds-unhashed"
+file = "src/import/run-record.fs"
+old = ''': rr-line ( c-addr u sha -- ) dup >r sha256-update s\" \n" r> sha256-update ;'''
+new = ''': rr-line ( c-addr u sha -- ) sha256-update ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "rvRP3 round 3: the metadata read's digest is not the file's, so every run fails to start"
 
 [[fault]]
 id = "cin-passes-unpaired"
