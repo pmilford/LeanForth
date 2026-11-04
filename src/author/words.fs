@@ -24,6 +24,19 @@ require ./declarations.fs
 : lfa-w-def ( -- ) lf-decl-def lfa-declare ;
 : lfa-w-axiom ( -- ) lf-decl-axiom lfa-declare ;
 : lfa-w-import-stub ( -- ) lf-decl-stub lfa-declare ;
+\ protected KIND NAME, as in Lean: the declaration word comes right after.
+\ A protected constant is never found by its last part alone through a
+\ namespace (namespaces.fs).
+: lfa-kind-of ( c-addr u -- kind | -1 )
+  2dup s" theorem" compare 0= if 2drop lf-decl-theorem exit then
+  2dup s" def" compare 0= if 2drop lf-decl-def exit then
+  2dup s" axiom" compare 0= if 2drop lf-decl-axiom exit then
+  s" import-stub" compare if -1 else lf-decl-stub then ;
+: lfa-w-protected ( -- )
+  lfa-name-token lfa-kind-of dup 0< 0= lfa-e-protected-here lfa-must lfa-declare
+  lfa-protect ;
+\ export makes aliases, which change what names mean: not built yet.
+: lfa-w-export ( -- ) lfa-e-export lfa-fail ;
 \ Errors of end point at end itself, so its name is not made current.
 : lfa-w-end ( -- )
   lfa-above parse-name dup 0<> lfa-e-no-name lfa-must lfa-read!
@@ -97,6 +110,8 @@ require ./declarations.fs
 ' lfa-w-def lfa-word def
 ' lfa-w-axiom lfa-word axiom
 ' lfa-w-import-stub lfa-word import-stub
+' lfa-w-protected lfa-word protected
+' lfa-w-export lfa-word export
 ' lfa-universe-word lfa-word universe
 ' lfa-define lfa-word :=
 ' lfa-w-end lfa-word end

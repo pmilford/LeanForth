@@ -180,7 +180,7 @@ term:   value none
 term: 3 outParam u:u
 term:   type none
 term:   value none
-term: 3 Nat.add_comm
+term: 3 Nat.add_comm protected
 term:   type none
 term:   value none
 term: 3 Eq u:u_1
@@ -213,7 +213,7 @@ import-stub outParam
   universe u
 end outParam
 
-import-stub Nat.add_comm
+protected import-stub Nat.add_comm
 end Nat.add_comm
 
 import-stub Eq
@@ -713,3 +713,171 @@ end W.t9
 round trip: terms, names, kinds, labels and notes same; printed text same
 == 17-long-line
 ran: error 39 at line:col 4:3 (token `Prop`): line too long; outcome full
+== 18-protected
+ran: ok
+lean: def bar : Type :=
+lean: Prop
+lean: protected def N.bar : Type :=
+lean: Prop
+lean: def N.baz : Type :=
+lean: Prop
+lean: def A.x : Type :=
+lean: Prop
+lean: protected def A.B.x : Type :=
+lean: Prop
+lean: protected def P.q : Type :=
+lean: Prop
+lean: def q : Type :=
+lean: Prop
+lean: def N.t1 : Type :=
+lean: bar
+lean: def N.t2 : Type :=
+lean: N.bar
+lean: def N.t3 : Type :=
+lean: N.baz
+lean: def N.t4 : Type :=
+lean: bar
+lean: def M.t5 : Type :=
+lean: N.baz
+lean: def M.t6 : Type :=
+lean: bar
+lean: def A.B.t7 : Type :=
+lean: A.x
+lean: def P.t8 : Type :=
+lean: q
+term: 1 bar
+term:   type (Sort (succ 0))
+term:   value (Sort 0)
+term: 1 N.bar protected
+term:   type (Sort (succ 0))
+term:   value (Sort 0)
+term: 1 N.baz
+term:   type (Sort (succ 0))
+term:   value (Sort 0)
+term: 1 A.x
+term:   type (Sort (succ 0))
+term:   value (Sort 0)
+term: 1 A.B.x protected
+term:   type (Sort (succ 0))
+term:   value (Sort 0)
+term: 1 P.q protected
+term:   type (Sort (succ 0))
+term:   value (Sort 0)
+term: 1 q
+term:   type (Sort (succ 0))
+term:   value (Sort 0)
+term: 1 N.t1
+term:   type (Sort (succ 0))
+term:   value (const bar)
+term: 1 N.t2
+term:   type (Sort (succ 0))
+term:   value (const N.bar)
+term: 1 N.t3
+term:   type (Sort (succ 0))
+term:   value (const N.baz)
+term: 1 N.t4
+term:   type (Sort (succ 0))
+term:   value (const bar)
+term: 1 M.t5
+term:   type (Sort (succ 0))
+term:   value (const N.baz)
+term: 1 M.t6
+term:   type (Sort (succ 0))
+term:   value (const bar)
+term: 1 A.B.t7
+term:   type (Sort (succ 0))
+term:   value (const A.x)
+term: 1 P.t8
+term:   type (Sort (succ 0))
+term:   value (const q)
+words:
+def bar
+  0 Type
+:=
+  Prop
+end bar
+
+protected def N.bar
+  0 Type
+:=
+  Prop
+end N.bar
+
+def N.baz
+  0 Type
+:=
+  Prop
+end N.baz
+
+def A.x
+  0 Type
+:=
+  Prop
+end A.x
+
+protected def A.B.x
+  0 Type
+:=
+  Prop
+end A.B.x
+
+protected def P.q
+  0 Type
+:=
+  Prop
+end P.q
+
+def q
+  0 Type
+:=
+  Prop
+end q
+
+def N.t1
+  0 Type
+:=
+  bar
+end N.t1
+
+def N.t2
+  0 Type
+:=
+  N.bar
+end N.t2
+
+def N.t3
+  0 Type
+:=
+  N.baz
+end N.t3
+
+def N.t4
+  0 Type
+:=
+  bar
+end N.t4
+
+def M.t5
+  0 Type
+:=
+  N.baz
+end M.t5
+
+def M.t6
+  0 Type
+:=
+  bar
+end M.t6
+
+def A.B.t7
+  0 Type
+:=
+  A.x
+end A.B.t7
+
+def P.t8
+  0 Type
+:=
+  q
+end P.t8
+round trip: terms, names, kinds, labels and notes same; printed text same

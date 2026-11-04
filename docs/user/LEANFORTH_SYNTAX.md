@@ -47,7 +47,9 @@ Forth: the parts come first, then the word that combines them.
   parameter. `end NAME` defines a word for the theorem, so later proofs can
   use it. `namespace N … end N` and `open N` work as in Lean, and a name
   means the constant Lean would pick: inside `namespace N`, or in a
-  declaration named `N.foo`, `bar` means `N.bar` if there is one. Where
+  declaration named `N.foo`, `bar` means `N.bar` if there is one, unless
+  `N.bar` is *protected* (`protected def N.bar …`, as in Lean): a protected
+  constant is found only by a name with a dot, such as `N.bar`. Where
   Lean would choose between two open namespaces by type, LeanForth asks
   for the full name.
 - Names are Lean's names, exactly, with upper and lower case distinct
@@ -64,7 +66,9 @@ Forth: the parts come first, then the word that combines them.
 Lean's core library is not imported yet (plan 8.2.1): a file names the
 constants it uses with `import-stub NAME [universe u]… [TYPE] end NAME`, a
 stand-in that only defines the constant's word (and, given a type, lets
-the printer hide its implicit arguments as Lean does).
+the printer hide its implicit arguments as Lean does). A stub for a
+constant Lean protects says so, `protected import-stub Nat.add_comm …`, so
+that names resolve as in Lean.
 
 ## Running it
 
@@ -270,7 +274,7 @@ import-stub instAddNat end instAddNat
 import-stub instHAdd  universe u_1  end instHAdd
 import-stub HAdd  universe u  universe v  universe w  end HAdd
 import-stub outParam  universe u  end outParam
-import-stub Nat.add_comm end Nat.add_comm
+protected import-stub Nat.add_comm end Nat.add_comm
 import-stub Eq
   universe u_1
   u_1 Sort implicit: α
@@ -509,7 +513,9 @@ own words are unknown names too: `A dup` in a proof stops at `dup`.
   the root) by their types; LeanForth has no types here and asks for the
   full name (error 27). A name Lean reads as a field of a variable or
   constant (`h.symm`) is an unknown name: projections are not supported
-  yet. `_root_.x` is written `root: x`.
+  yet. `_root_.x` is written `root: x`. `export`, which gives a constant a
+  second name, is not supported yet (error 54); so a name that Lean finds
+  only through such an alias in its library is an unknown name here.
 - **Printing.** In Lean notation an instance argument's name is shown in
   `fun [inst : C]` where Lean writes `fun [C]` when the printed body does
   not show the name (ADR 0017, example 8); the terms are the same. A Pi

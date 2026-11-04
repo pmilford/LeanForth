@@ -15,6 +15,7 @@ create fdecls slots /lf-fdecl * allot
 : fdecl ( i -- addr ) /lf-fdecl * fdecls + ;
 : >kind ( reader-kind -- kind ) if lf-decl-theorem else lf-decl-def then ;
 : fdecl-head! ( d f -- )
+  false over lf-fdecl-protected !
   over decl-kind @ >kind over lf-fdecl-kind ! swap decl-name @ swap lf-fdecl-name ! ;
 : fdecl-terms! ( d f -- )
   over decl-type @ over lf-fdecl-type ! swap decl-value @ swap lf-fdecl-value ! ;

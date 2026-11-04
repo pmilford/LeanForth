@@ -62,11 +62,14 @@ require ./source.fs
 40 constant lfa-e-file           \ the file cannot be opened or read
 41 constant lfa-e-forth          \ another Forth exception
 42 constant lfa-e-comment-end    \ a ( comment without its closing ) on the line
+43 constant lfa-e-protected-here \ protected not right before a declaration word
+44 constant lfa-e-protected-root \ a protected declaration outside every namespace
 50 constant lfa-e-literal        \ unsupported: natural-number literals
 51 constant lfa-e-sketch
   \ unsupported: let, have, projections, strings, by, import
 52 constant lfa-e-hole           \ unsupported: holes are for the elaborator
 53 constant lfa-e-root-name      \ unsupported: _root_ in a declaration's name
+54 constant lfa-e-export         \ unsupported: export and its aliases
 60 constant lfa-e-terms-full     \ the term store is full
 61 constant lfa-e-levels-full    \ the level store or a level is too large
 62 constant lfa-e-names-full     \ the name store is full, or a name too long
@@ -144,6 +147,9 @@ create lfa-catalogue
   lfa-e-file s" the file cannot be opened or read" lfa-invalid,
   lfa-e-forth s" a Forth exception, with its THROW code" lfa-invalid,
   lfa-e-comment-end s" a ( comment must end with ) on the same line" lfa-invalid,
+  lfa-e-protected-here
+  s" protected comes right before theorem, def, axiom or import-stub" lfa-invalid,
+  lfa-e-protected-root s" protected declarations must be in a namespace" lfa-invalid,
   lfa-e-literal
   s" not supported yet: natural-number literals need literal nodes (ADR 0017 section 14)"
   lfa-unsupported,
@@ -153,6 +159,7 @@ create lfa-catalogue
   lfa-e-hole s" not supported yet: holes are filled by the elaborator (plan task 8.3.1)"
   lfa-unsupported,
   lfa-e-root-name s" not supported yet: _root_ in a declaration's name" lfa-unsupported,
+  lfa-e-export s" not supported yet: export and the aliases it makes" lfa-unsupported,
   lfa-e-terms-full s" out of room: the term store is full" lfa-full,
   lfa-e-levels-full s" out of room: the level store is full or the level too large"
     lfa-full,

@@ -461,7 +461,7 @@ test-differential: reference-manifest
 
 # The LeanForth authoring words (plan task 8.1.2, ADR 0017; untrusted, not
 # loaded by src/main.fs, so they get their own silent-load check): unit
-# tests of every error code with its line and column, then the 21 example
+# tests of every error code with its line and column, then the 22 example
 # files against their golden report (with each declaration's terms) and a
 # round trip each, the error catalogue against
 # docs/programming/LEANFORTH_WORDS.md, the check that the checker never
@@ -477,7 +477,7 @@ test-author:
 
 # The example files' declarations against pinned Lean's, term for term
 # (Lean's own, by a metaprogram, and the pinned exporter's) and as #print
-# shows them, and 22 planted faults that must each be caught (four only by
+# shows them, and 24 planted faults that must each be caught (five only by
 # the comparison with Lean).
 reference-author:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/author/check_author.py --lean
