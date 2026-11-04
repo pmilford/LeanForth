@@ -155,10 +155,15 @@ Report Forth style signals: `make forth-metrics`.
   capacity that is a setting of each checker context (default 64, 64, 64,
   32 and 32 entries; `lf-term-capacity!` and the like, plan task 3.3.1);
   feeding a staged export (`src/import/feed.fs`) raises them to fit it, and
-  all of `Init` (6.1 million expressions) fits in about 1.3 GB. A constant
-  reference takes at most 64 universe arguments (Mathlib's largest has 30).
-  The checking passes nest at most 64 deep (`lf-depth-limit`): a deeper
-  term gives *full* (plan task 6.2.0 lifts it). `bin/leanforth check` still
+  all of `Init` (6.1 million expressions) fits in about 1.3 GB. Universe
+  lists have no fixed length (Mathlib's longest has 30), and terms and
+  levels no fixed depth: every checking pass keeps its pending work on
+  explicit stacks in the heap (plan task 6.2.0; terms 2,000 and 10,000 deep
+  are compared with Lean, `test-depth-differential` and
+  `test-depth-deep-differential`). The work grows with the square of the
+  depth there, so such terms need much more fuel than the default (a
+  10,000-deep application chain about 150 million steps; table fuel
+  10,000 million). `bin/leanforth check` still
   reads an export straight into the default capacities
   (`src/import/checker-input.fs`), so it ends *full*, exit status 3, on
   anything larger than a test fixture until it uses the feed.

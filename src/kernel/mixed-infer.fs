@@ -201,7 +201,7 @@ end-structure
 \ own binders, or 0. A scan of its own (once per path, as the passes
 \ visit), of at most as many visits as the job has fuel, spending none of
 \ it; one that cannot finish gives n, every free variable.
-lf-depth-limit context-walk2: lf-minfer-scan
+lf-walk-room context-walk2: lf-minfer-scan
 : lf-minfer-scan-bvar ( first second walk -- outcome )
   nip tuck walk-context @ - 1+ over walk-arg @ max swap walk-arg ! outcome-ok ;
 : lf-minfer-scan-binary ( first second walk tag -- outcome )

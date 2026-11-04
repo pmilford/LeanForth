@@ -264,9 +264,11 @@ classDiagram
 - **Names** (`src/core/names.fs`): a prefix name and a string or number
   component; equal names are stored once, string bytes in a 2,048-byte pool.
 - **Walk and frames records** (`src/lib/walk.fs`, `src/lib/frame.fs`): the
-  fuel, the current node and a bounded work stack of one walk; or the fuel,
-  depth limit and visitor of a bounded recursive pass. Running out of fuel
-  gives *exhausted*, out of room *full*.
+  fuel, the current node and the work stack of one walk; or the fuel,
+  visitor and explicit stack of a pass whose visits are chains of steps
+  run by a loop. Both stacks grow in the heap (plan task 6.2.0), so no
+  pass's depth is limited by the Forth stacks or a constant. Running out
+  of fuel gives *exhausted*, out of room (the heap refuses) *full*.
 - **Contexts** (`src/lib/context.fs`): a header (size, owner) followed by
   the data of every declared member at its offset. The member records
   themselves live in the dictionary, linked from `context-layout`, which

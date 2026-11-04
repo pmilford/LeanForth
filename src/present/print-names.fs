@@ -14,7 +14,7 @@ require ../core/generation-handles.fs
 require ../core/constant-references.fs
 require ../core/constant-term-boundary.fs
 
-lf-depth-limit context-walk2: lf-pp-scan-walk
+lf-walk-room context-walk2: lf-pp-scan-walk
 
 \ A structured name as text, components joined by dots, sent to xt
 \ ( c-addr u -- ), from the first component on without recursion: the

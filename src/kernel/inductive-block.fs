@@ -69,8 +69,8 @@ end-structure
 \ The type's binder domains, parameters then indices: as many as its
 \ telescope has (plan task 6.2.0); one the heap cannot hold is full.
 1 cells context-slab: lf-ind-domains
-lf-depth-limit context-walk: lf-ind-walker
-lf-depth-limit context-walk2: lf-ind-pair-walker
+lf-walk-room context-walk: lf-ind-walker
+lf-walk-room context-walk2: lf-ind-pair-walker
 
 : lf-ind-site ( -- site ) c" inductive-block lf-ind-audit" ;
 : lf-ind-first@ ( -- i ) lf-ind-state lf-ind-first @ ;

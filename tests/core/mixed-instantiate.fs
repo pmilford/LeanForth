@@ -295,10 +295,10 @@ T{ 3 lf-open-fuel ! 9 subst 2 lf-instantiate-rev nip lf-open-fuel @ -> outcome-o
 1 lf-open-frames frame-depth !
 T{ 9 2 rev -> -1 outcome-invalid }T
 lf-open-frames frame-reset
-\ No depth limit (plan task 6.2.0): a chain lf-depth-limit + 1 deep is
+\ No depth limit (plan task 6.2.0): a chain lf-walk-room + 1 deep is
 \ opened, on a stack that grows; a growth the heap refuses is full.
-: deep ( -- node ) 2 lf-depth-limit 0 do 1 swap lf-term-lam 0= abort" deep" loop ;
-lf-depth-limit 4 * lf-term-capacity! drop
+: deep ( -- node ) 2 lf-walk-room 0 do 1 swap lf-term-lam 0= abort" deep" loop ;
+lf-walk-room 4 * lf-term-capacity! drop
 lf-term-count @ constant before-deep
 T{ deep 1 rev nip -> outcome-ok }T
 before-deep lf-term-count !  lf-open-frames frame-free  1 heap-refusals !

@@ -349,7 +349,7 @@ def fed_script(text, directory, prelude=()):
     and feed every case, written as an export in directory first, after the
     Forth lines of prelude (such as DEPTH_SETTINGS)."""
     script = [f"require {Path('tests/support/fed-checker-driver.fs').resolve()}",
-              *prelude]
+              ": must-ok ( outcome -- ) ok? 0= abort\" setting\" ;", *prelude]
     for k, (case, export) in enumerate(case_exports(text)):
         path = Path(directory) / f"case-{k}.ndjson"
         path.write_text(export)
@@ -510,10 +510,13 @@ def case_blocks(lines, prefix):
     return kept
 
 
-def expect_table(source, count, prelude=(), name="universe scope", fed=False, prefix=""):
+def expect_table(source, count, prelude=(), name="universe scope", fed=False, prefix="",
+                 known=None):
     """A table whose Lean file checks Lean's verdicts and prints EXPECT lines,
     then the cases (universe-scope-terms.lean, universe-many-terms.lean);
-    only the cases whose id starts with prefix."""
+    only the cases whose id starts with prefix; known: the rows allowed
+    another outcome, as checker_row takes them."""
+    known = known or {}
     with tempfile.TemporaryDirectory() as temporary:
         first_checker_modules(temporary)
         output = subprocess.run([LEAN, "-DwarningAsError=true", source],
@@ -527,8 +530,8 @@ def expect_table(source, count, prelude=(), name="universe scope", fed=False, pr
     if sorted(rows) != sorted(table) or len(rows) != count:
         raise Mismatch(f"{name}: the Forth rows are not the table's {count} cases")
     for case, (lean, expected, rule) in table.items():
-        checker_row(case, lean, expected, rule, rows[case], verdicts[case], {})
-    checker_summary(name, rows, {})
+        checker_row(case, lean, expected, rule, rows[case], verdicts[case], known)
+    checker_summary(name, rows, known)
     return len(rows)
 
 
@@ -559,17 +562,21 @@ def universe_many_fed():
 # successor chains 2,000 and 10,000 deep (depth-terms.lean), each accepted
 # or rejected for Lean's reason. LeanForth's work grows with the square of
 # the depth here (every reduction and opening audits or visits the term
-# below it), so the cases get ample fuel, and the 10,000-deep table, which
-# takes minutes, is fed only and is not part of make check
-# (test-depth-deep-differential).
-DEPTH_FUEL = ["10000000000 lf-check-budget"]
-DEPTH_CAPACITIES = DEPTH_FUEL + ["262144 lf-term-capacity! must-ok",
-                                 "65536 lf-level-capacity! must-ok"]
+# below it, and the rejection analysis infers the rest of a type at each
+# binder), so the cases get ample fuel and term store, and the 10,000-deep
+# table, which takes minutes, is fed only and is not part of make check
+# (test-depth-deep-differential). One known difference, conservative: the
+# analysis that rejects the wrong lambda (D4 down every binder) infers the
+# rest of the type aside at each binder, and every free variable it opens
+# keeps its number until the check ends, so the n * n of them at 10,000
+# outgrow the local context's limit of 4,194,304 entries (about 2,900 deep
+# is the most it holds); the step then stays unknown, never accepted.
+DEPTH_SETTINGS = ["10000000000 lf-check-budget", "1048576 lf-term-capacity! must-ok",
+                  "65536 lf-level-capacity! must-ok"]
 
 
 def depth(fed=False):
-    return expect_table("tests/reference/depth-terms.lean", 6,
-                        DEPTH_FUEL if fed else DEPTH_CAPACITIES,
+    return expect_table("tests/reference/depth-terms.lean", 6, DEPTH_SETTINGS,
                         "depth 2000" + (", fed" if fed else ""), fed, "depth2000.")
 
 
@@ -577,9 +584,12 @@ def depth_fed():
     return depth(fed=True)
 
 
+DEPTH_DEEP_KNOWN = {"depth10000.lam-wrong": "unknown"}
+
+
 def depth_deep_fed():
-    return expect_table("tests/reference/depth-terms.lean", 6, DEPTH_FUEL,
-                        "depth 10000, fed", True, "depth10000.")
+    return expect_table("tests/reference/depth-terms.lean", 6, DEPTH_SETTINGS,
+                        "depth 10000, fed", True, "depth10000.", DEPTH_DEEP_KNOWN)
 
 
 def first_checker_large():

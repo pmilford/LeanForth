@@ -647,16 +647,16 @@ reason = "K1: P3 skipped; a lambda is rejected against another shape though eta 
 [[fault]]
 id = "rej-d4-domains-ignored"
 file = "src/kernel/mixed-infer.fs"
-old = '''    outcome-unknown of lf-minfer-firsts lf-minfer-apart endof'''
-new = '''    outcome-unknown of 2drop 0 false endof'''
+old = '''  outcome-unknown = if lf-minfer-firsts r> ['] lf-minfer-d4 lf-minfer-apart-call exit then'''
+new = '''  outcome-unknown = if 2drop 0 false r> lf-minfer-d4 exit then'''
 test = "$GFORTH tests/core/check-declaration.fs"
 reason = "D4 no longer looks at two binders whose domains are apart"
 
 [[fault]]
 id = "rej-d4-left-domain"
 file = "src/kernel/mixed-infer.fs"
-old = '''  lf-minfer-context-depth @ -rot dup lf-term-first@ lf-minfer-enter-binder ok?'''
-new = '''  lf-minfer-context-depth @ -rot over lf-term-first@ lf-minfer-enter-binder ok?'''
+old = '''  >r lf-minfer-context-depth @ -rot dup lf-term-first@ lf-minfer-enter-binder ok?'''
+new = '''  >r lf-minfer-context-depth @ -rot over lf-term-first@ lf-minfer-enter-binder ok?'''
 test = "$GFORTH tests/core/definite-rejection.fs"
 reason = "D4/B2: the bodies are compared with the left (inferred) domain instead of the expected one; caught by the d4-pair white-box test of lf-minfer-binders-apart (through lf-minfer-apart, P2 on the two Pis fails first for such a pair, so no input that reaches D4 can tell)"
 
@@ -671,8 +671,8 @@ reason = "the diagnostic of a D5 rejection no longer names rule D5"
 [[fault]]
 id = "rej-d3-arity-ignored"
 file = "src/kernel/mixed-infer.fs"
-old = '''  lf-minfer-arity? 0= if lf-rule-d3 true exit then'''
-new = '''  lf-minfer-arity? 0= if 0 false exit then'''
+old = '''  lf-minfer-arity? 0= if lf-rule-d3 true r> 0 exit then'''
+new = '''  lf-minfer-arity? 0= if 0 false r> 0 exit then'''
 test = "$GFORTH tests/core/definite-rejection.fs"
 reason = "D3: two variables applied to different numbers of arguments are no longer apart"
 
@@ -803,8 +803,8 @@ reason = "4.2.2a: every lambda takes itself for its chain's top, so an inner lam
 [[fault]]
 id = "infer-chain-never"
 file = "src/kernel/mixed-infer.fs"
-old = '''  dup lf-minfer-lam? if swap lf-minfer-chain ! lf-minfer-walk -1 lf-minfer-chain !'''
-new = '''  false if swap lf-minfer-chain ! lf-minfer-walk -1 lf-minfer-chain !'''
+old = '''  dup lf-minfer-lam? if 1 r@ frame-pick lf-minfer-chain ! r> ['] lf-minfer-lam-chained'''
+new = '''  false if 1 r@ frame-pick lf-minfer-chain ! r> ['] lf-minfer-lam-chained'''
 test = "$GFORTH tests/core/check-declaration.fs"
 reason = "4.2.2a: each lambda abstracts and closes its own type (the same types, but nodes quadratic in a chain's depth): composition's value no longer fits the 64-term store after the pad (value-room)"
 
@@ -835,10 +835,10 @@ reason = "4.2.2a: the copier's memo ignores the context, so a node copied under 
 [[fault]]
 id = "infer-scope-unchecked"
 file = "src/kernel/mixed-infer.fs"
-old = '''  lf-minfer-context-depth @ lf-depth-limit < 0= if 2drop lf-minfer-crowded exit then'''
+old = '''  lf-minfer-scope-room? 0= if 2drop lf-minfer-crowded exit then'''
 new = ''''''
 test = "$GFORTH tests/core/mixed-infer.fs"
-reason = "4.2.2a: a binder is opened on a full scope (past the job record's arrays) instead of full"
+reason = "4.2.2a, 6.2.0: a binder is opened without room on the scope (past its growable arrays) instead of full"
 
 [[fault]]
 id = "rej-p2-open-term"
@@ -1023,8 +1023,10 @@ reason = "LV fix reverted: D1 by witness values again, so T1, T4, th and d are u
 [[fault]]
 id = "lv-normalize-imax-again"
 file = "src/kernel/level-normalize.fs"
-old = '''  lf-lnorm-imax r> lf-lnorm-succs ;'''
-new = '''  lf-lnorm-imax lf-lnorm-walk r> lf-lnorm-succs ;'''
+old = '''  >r r@ frame-restore swap lf-lnorm-imax r@ frame-restore drop r@ frame-restore
+  lf-lnorm-succs r> 0 ;'''
+new = '''  >r r@ frame-restore swap lf-lnorm-imax r@ frame-restore drop r@ frame-restore
+  lf-lnorm-succs r> ['] frame-return lf-lnorm-call ;'''
 test = "$GFORTH tests/core/level-compare.fs"
 reason = "normalize re-normalizes what mk_imax built, more complete than Lean (imax 1 (u+1) equals u+1)"
 
@@ -1110,23 +1112,14 @@ new = '''  drop true ;'''
 test = "$GFORTH tests/core/level-compare.fs"
 reason = "level-make's kept facts are never checked against the nodes' identities, so a node rolled back and made again keeps the class of the node it replaced"
 [[fault]]
-id = "lv-normalize-need-under-measured"
-file = "src/kernel/level-normalize.fs"
-old = '''7 constant lf-lnorm-rs-level    \ return-stack cells per level node'''
-new = '''6 constant lf-lnorm-rs-level    \ return-stack cells per level node'''
-test = "$GFORTH tests/core/level-deep.fs"
-reason = "normalize's stated return-stack need per level node falls below the 6.5 cells painted, so a larger level store could outgrow the stated need"
-
-# --- NDJSON reader (src/import/ndjson.fs) ----------------------------------
-
-
-[[fault]]
 id = "lnorm-frames-uncounted"
 file = "src/kernel/level-normalize.fs"
-old = '''  lf-lnorm-nest @ lf-level-depth-limit < dup if 1 lf-lnorm-nest +! else lf-lnorm-deep then ;'''
-new = '''  true 1 lf-lnorm-nest +! ;'''
+old = '''  frame-need 2 pick frame-room?
+  if over frame-visitor @ frame-open'''
+new = '''  true
+  if over frame-visitor @ frame-open'''
 test = "$GFORTH tests/core/level-deep.fs"
-reason = "the review's M1: normalize's level frames are not limited, so a deep graph at a raised level capacity overflows the host stack"
+reason = "6.2.0: normalize opens a visit without making room on its frames, so a visit past the stack's block writes outside it (the review's M1, now on an explicit stack: level-deep refuses the growth)"
 
 [[fault]]
 id = "lnorm-merge-unsorted"
@@ -2850,8 +2843,8 @@ quick = true
 [[fault]]
 id = "log-logged-infer-drops-type"
 file = "src/kernel/mixed-infer.fs"
-old = '''  lf-minfer-enter lf-log? if lf-minfer-logged lf-minfer-visit lf-log-close'''
-new = '''  lf-minfer-enter lf-log? if lf-minfer-logged lf-minfer-visit lf-log-close 2drop -1 outcome-unknown'''
+old = ''': lf-minfer-closing ( type status frames -- type status frames 0 ) >r lf-log-close r> 0 ;'''
+new = ''': lf-minfer-closing ( type status frames -- type status frames 0 ) >r lf-log-close 2drop -1 outcome-unknown r> 0 ;'''
 test = "$GFORTH tests/core/log-trials.fs"
 reason = "a log that changes a verdict: the logged inference visit returns unknown, so the trials' digests with the log on differ"
 
@@ -3230,8 +3223,8 @@ quick = true
 [[fault]]
 id = "ind-geq-equal-only"
 file = "src/kernel/level-geq.fs"
-old = '''  2dup lf-lmk-same? over lf-geq-zero? or if 2drop true exit then'''
-new = '''  2dup lf-lmk-same? over lf-geq-zero? or 0= if 2drop false exit then 2drop true exit'''
+old = '''  2dup lf-lmk-same? over lf-geq-zero? or if 2drop true r> 0 exit then'''
+new = '''  2dup lf-lmk-same? over lf-geq-zero? or 0= if 2drop false r> 0 exit then 2drop true r> 0 exit'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "is_geq answers only equal or zero: a field one universe below the result (params.index-one-universe-up) is too big"
 
@@ -3287,8 +3280,8 @@ reason = "B5: a block's outcome published for its first member only; the other m
 [[fault]]
 id = "ind-no-unit-like-guard"
 file = "src/kernel/mixed-infer.fs"
-old = '''  over lf-minfer-unit-free? 0= if 2drop 0 false exit then'''
-new = ''''''
+old = '''  >r over lf-minfer-unit-free? 0= if 2drop 0 false r> 0 exit then'''
+new = '''  >r'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "P4 dropped: P x and P y for x y : PUnit are called apart, so a theorem Lean accepts by is_def_eq_unit_like is rejected"
 quick = true
@@ -3463,11 +3456,10 @@ reason = "rvI21 M2: an accepted block's B4 warnings are not kept on its slots"
 [[fault]]
 id = "geq-depth-uncounted"
 file = "src/kernel/level-geq.fs"
-old = '''  lf-geq-enter 0= if 2drop false exit then
-'''
-new = ''''''
+old = '''  frame-need 2 pick frame-room? if ['] lf-geq-step frame-open exit then'''
+new = '''  ['] lf-geq-step frame-open exit'''
 test = "$GFORTH tests/core/level-deep.fs"
-reason = "heap-store review: is_geq's recursion is not counted (and the leave makes the count negative); a max chain of 60 is decided on a deeper host stack instead of full"
+reason = "6.2.0: is_geq opens a visit without making room on normalize's frames, so a visit past the stack's block writes outside it (level-deep refuses the growth)"
 
 [[fault]]
 id = "columns-ready-unvalidated"

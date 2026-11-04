@@ -13,7 +13,7 @@ require ./diagnostics.fs
 require ./tagged-sort-boundary.fs
 require ./terms.fs
 
-lf-depth-limit context-walk2: lf-cts-walker
+lf-walk-room context-walk2: lf-cts-walker
 
 \ Fuel left after an audit; kernel passes continue with it.
 : lf-cts-fuel ( -- addr ) lf-cts-walker walk-fuel ;

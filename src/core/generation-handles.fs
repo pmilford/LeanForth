@@ -24,7 +24,7 @@ require ./terms.fs
 1 cells ' lf-hsort-term-identities lf-term-columns column-add
 /slab context-record: lf-hsort-level-identities
 1 cells ' lf-hsort-level-identities lf-term-columns column-add
-lf-depth-limit context-walk: lf-href-walker
+lf-walk-room context-walk: lf-href-walker
 
 \ Stamp cells of a symbolic Sort at a valid term index.
 : lf-hsort-term-stamp ( index -- addr ) lf-hsort-term-identities column-at ;

@@ -48,8 +48,8 @@ terms (free variables) for a body's loose bound variables, `abstract` turns
 free variables back into bound ones, and `mk_pi` wraps a type in the Πs of
 free variables. `mixed-infer.fs` enters the binders of a telescope of λs
 or Πs one at a time, each checked as Lean's `infer_lambda` and `infer_pi`
-check it, and keeps the opened binders' free variables on its *scope* (at
-most `lf-depth-limit`). It reads source terms under the scope (a loose
+check it, and keeps the opened binders' free variables on its *scope* (a
+growable array: no fixed depth, plan task 6.2.0). It reads source terms under the scope (a loose
 bound variable `k` is the scope's free variable `k` places from the top),
 which infers Lean's opened body without copying it, so that each binder
 stays one step with its source node in the derivation log; a chain of λs

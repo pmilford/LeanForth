@@ -21,8 +21,8 @@ require ../core/names.fs
 require ../core/tagged-sort-boundary.fs
 require ../core/terms.fs
 
-lf-depth-limit context-walk2: lf-mcompare-walker
-lf-level-depth-limit context-walk2: lf-mcompare-level-walker
+lf-walk-room context-walk2: lf-mcompare-walker
+lf-level-walk-room context-walk2: lf-mcompare-level-walker
 
 \ Fuel left after a comparison; zero after negative fuel or a failed audit.
 : lf-mcompare-fuel ( -- addr ) lf-mcompare-walker walk-fuel ;

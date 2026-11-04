@@ -14,7 +14,7 @@ require ../lib/lib.fs
 require ../core/terms.fs
 require ./errors.fs
 
-lf-depth-limit constant lfa-binder-capacity
+lf-walk-room constant lfa-binder-capacity
 
 begin-structure /lfa-binder
   field: lfa-binder-name      \ name ID

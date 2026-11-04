@@ -134,6 +134,15 @@ require ../../src/kernel/level-geq.fs
 T{ 10 geq-deep -> false outcome-ok }T
 T{ 60 geq-deep -> false outcome-ok }T
 T{ 200 geq-deep -> false outcome-ok }T
+\ After a call has sized normalize's arrays, a call whose frames the heap
+\ cannot grow is full, recorded with their cells in use and capacity.
+: geq-refused ( n -- flag outcome code )
+  lf-name-reset lf-level-reset lf-lscope-context-reset max-chain
+  0 s" q" lf-name-str must param 2dup 10000000 lf-level-geq? 2drop
+  lf-lnorm-frames frame-free 1 heap-refusals ! lf-diag-clear
+  10000000 lf-level-geq? lf-diag-code@ ;
+T{ 60 geq-refused -> false outcome-full lf-diag-frame-limit }T
+0 heap-refusals !
 variable chain-top
 : geq-chain ( -- ) chain-top @ other @ 10000000 lf-level-geq? verdict ! drop ;
 : painted-geq ( n -- return-cells data-cells )
