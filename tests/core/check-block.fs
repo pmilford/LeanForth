@@ -85,6 +85,9 @@ T{ s" ind.unit" verdict -> outcome-ok 0 all-steps }T
 T{ s" universe.field-fits" verdict -> outcome-ok 0 all-steps }T
 T{ s" universe.predicate-any-field" verdict -> outcome-ok 0 all-steps }T
 T{ s" params.constructor-binder-beta" verdict -> outcome-ok 0 all-steps }T
+\ An index (task 5.2.1c's row, decided here too): its field a : α in Type
+\ fits Type 1 by is_geq's offsets, not by equality.
+T{ s" params.index-one-universe-up" verdict -> outcome-ok 0 all-steps }T
 \ Two universe parameters: until the name view's level order is fixed
 \ (lf-lnorm-limb-ok?, agent KC), U1's is_geq cannot order u and v.
 : ok-or-unknown? ( outcome -- flag ) dup ok? swap outcome-unknown = or ;
