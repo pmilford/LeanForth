@@ -1430,7 +1430,7 @@ A4): the reader must refuse to start while Forth is compiling, must refuse
 invisible control characters, and must stop before Gforth's dictionary is
 full (Gforth 1.0 lets it overrun by a few bytes). Today's authoring words
 were built for 64-node stores and need growable tables before they meet
-Init or Mathlib (task 8.2.1b). An inline check takes about 0.7 ms on Gforth
+Init or Mathlib (task 8.2.1b). An inline check takes under 1 ms on Gforth
 1.0 (p08). Checking a file against `Init` re-checks all of `Init` each
 run (about 21 s) until saved results exist.
 
@@ -1577,7 +1577,8 @@ either Gforth; four need a new rule** (marked *new*).
 
 Rows 5, 7, 11 and 12 are the new rules (task 8.2.1a); rows 2 and 8 are
 hardening of what already holds. The checker and LeanForth's words load
-together silently on both hosts (p02: 1.58 MB and 115 KB of dictionary).
+together silently on both hosts (p02: about 1.6 MB and 120 KB of
+dictionary).
 
 ### A5. Downsides
 
@@ -1596,15 +1597,18 @@ together silently on both hosts (p02: 1.58 MB and 115 KB of dictionary).
    reads tokens differently.
 3. **The words' memory safety now matters to the checker** (row 12),
    as the NDJSON reader's does.
-4. **Speed.** Reading is cheap: 74 µs for the composition text on Gforth
-   1.0 and 265 µs on 0.7.3; a whole inline check, with a fresh environment
-   each time, 0.73 ms and 1.85 ms (p08, 1,000 runs). But today's words were
-   built for stores of 64 nodes: they find shared nodes by scanning the
-   whole store (`lfa-find`, quadratic in the file's size), shift terms by
-   recursion on Forth's return stack (`lfa-shift`, against Addendum 11 of
-   the work rules and plan 6.2.0 (b)), and keep fixed tables (256 names,
-   4,096 spelling bytes, 64 open binders, 32 namespaces). Task 8.2.1b
-   removes all three before files meet `Init` or Mathlib. A file checked
+4. **Speed.** Reading is cheap: 63–74 µs for the composition text on
+   Gforth 1.0 and 255–271 µs on 0.7.3; a whole inline check, with a fresh
+   environment each time, 0.73–0.95 ms and 1.85–3.2 ms (p08, 1,000 runs
+   each, before and after merging plan 6.2.0 (b), on a machine shared with
+   other work). But today's words were built for stores of 64 nodes: they
+   find shared nodes by scanning the whole store (`lfa-find`, quadratic in
+   the file's size), shift terms by recursion on Forth's return stack
+   (`lfa-shift`, against plan 6.2.0 (b)'s rule that no pass's depth depends
+   on it), and keep fixed tables (512 values, 256 names, 4,096 spelling
+   bytes, 16 namespaces …, listed in plan 6.2.4; the binder store grows
+   since 6.2.0 (b)). Task 8.2.1b removes all three before files meet
+   `Init` or Mathlib. A file checked
    against `Init` re-checks all of `Init` (about 21 s today) until saved
    results (OQ-3, ADR 0012 E8) let a development run reuse them, labelled.
 5. **Error messages.** Positions are the file's line and column; inline,
@@ -1769,14 +1773,14 @@ run under `ulimit -u 500; timeout -k 5 … setsid`, on the pinned Gforth
 | --- | --- | --- |
 | p00 | the hosts: recognizer words, stack sizes, dictionary | 1.0 has `rec-forth` and the nine recognizers probed by name (`rec-name`, `rec-number`, `rec-float`, `rec-string`, `rec-to`, `rec-tick`, `rec-dtick`, `rec-env`, `rec-scope`), 0.7.3 none; dictionaries about 7.7 and 8.0 MB free at start |
 | p01 | 89 tokens evaluated with only a sealed list in the order: Gforth 1.0 default, 1.0 restricted as the runner does, 0.7.3 | 1.0 default: 41 tokens converted or run, **three wrote a VALUE or DEFER of the sealed list**; 1.0 restricted: only the sealed word (two spellings) and four digit strings, 83 −13; 0.7.3: 24 converted or run, 65 −13; `BASE` and `STATE` unchanged in all |
-| p02 | the checker and the authoring words in one image | load silently on both; 1.58 MB and 115 KB of dictionary |
+| p02 | the checker and the authoring words in one image | load silently on both; about 1.6 MB and 120 KB of dictionary (1.62 and 0.12 MB on 1.0, 1.65 and 0.12 MB on 0.7.3) |
 | p03 | the real runner: 11 errors with `BASE` 16 before; the runner called while compiling | settings restored in every case on both; while compiling, `theorem` was compiled into the caller (needs the `STATE` rule) |
 | p04, p04c | stack overflows; 60,000 decimals in a text; names that are Forth words | THROWs −3 and −5 caught (also `gforth-fast`); the session went on; 18 odd names harmless; outputs equal on both hosts except the line where the stack fills |
 | p05, p05b | the dictionary filling | 48 bytes per name; −8 caught; Gforth 1.0 lets `HERE` pass the end (needs the reserve) |
 | p06 | inline, end to end: `lf[ … ]lf`, `param:`, five instances checked by the real checker, a wrong proof, a misspelling | five accepted, one rejected, error 1 at 8:33; output identical on both hosts (80 lines) |
 | p06b | the instances written as words and re-checked from a file in a fresh process | five accepted; statements identical to p06's; identical on both hosts |
 | p07 | which bytes split tokens | TAB, LF, VT, FF, CR and space on both hosts, identical |
-| p08 | speed of 1,000 inline checks | 0.73 ms each on 1.0 and 1.85 ms on 0.7.3 (the sealed run alone 74 and 265 µs) |
+| p08 | speed of 1,000 inline checks | 0.73–0.95 ms each on 1.0 and 1.85–3.2 ms on 0.7.3 (the sealed run alone 63–74 and 255–271 µs), three runs, before and after merging plan 6.2.0 (b) |
 | Lean | `lean/forms.lean`, `reserved.lean`, `plain.lean` with pinned Lean 4.35.0, `-DwarningAsError=true` | the instances' statements equal Lean's `#print` (Lean wraps the longer one); the kernel forms of `2 + 2 = 4` and `n + 0 = n` as quoted; `example` refused as an identifier, `param` accepted |
 
 **Finding on soundness.** Nothing found makes the sealed approach unsound
@@ -1814,7 +1818,7 @@ receives serialized terms only (OQ-1)"):
 | Step | What | Gates | Tests (three forms where a theorem is shown: mathematics, LeanForth, Lean) |
 | --- | --- | --- | --- |
 | 8.2.1a | Runner rules for the checker's process: the `STATE` rule, control bytes and UTF-8, the dictionary reserve, the private list for the defining `EVALUATE`, the sealed-list content test, a named line for Forth exceptions | [parser] | p01, p03, p04, p05, p07 as tests on both hosts, each refusal with a stable code; planted faults: no `STATE` rule, a VALUE in LF-WORDS (caught on 1.0), no reserve |
-| 8.2.1b | Authoring words at the checker's scale: shared nodes found through a hash table (`src/lib/htab.fs`) or not shared, `lfa-shift` on `src/lib/frame.fs` steps, every table growable in the heap (Addendum 11) | [parser] | today's tests unchanged; a text of 100,000 nodes; a term nested 1,221 deep (Mathlib's deepest); round trips |
+| 8.2.1b | Authoring words at the checker's scale: shared nodes found through a hash table (`src/lib/htab.fs`) or not shared, `lfa-shift` on `src/lib/frame.fs` steps, every table growable in the heap (the authoring words' part of plan 6.2.4) | [parser] | today's tests unchanged; a text of 100,000 nodes; a term nested 1,221 deep (Mathlib's deepest); round trips |
 | 8.2.1c | The words to the checker: `end NAME` adds an input declaration; `leanforth check FILE.lf` for files without a library; `example`; verdict lines with the statement in three forms (8.6.2) | [bypass], [parser] | `tests/author`'s fixtures accepted with the three forms (Lean compiled with pinned Lean, statements equal to `#print`, terms equal node for node); mutated proofs *rejected*; an axiom *unsupported*; a failed run checks nothing (exit 4) |
 | 8.2.1d | Against a library: `--env EXPORT`, the names look-ahead, the environment's constants in §9's resolution, `protected` recorded by the export pipeline, `import-stub` refused in check runs and then removed | [bypass], [import] | a file using `True.intro` and `And.intro` checked against `Init`, verdicts equal to the same theorems' Lean export; names only in the file, only in `Init`, in both (N2, as Lean); a protected `Init` constant through a namespace |
 | 8.2.1e | Inline words (A6): `lf-session`, `lf[ … ]lf`, `lf-run`, `param:`, the parameter, term-building and result words; scratch rolled back after each check; examples never published; the session label | [parser], [bypass] | p06 as a test (five accepted, one rejected, the misspelling's position); one row each for accepted, rejected, unknown, unsupported; a parameter missing or left over; the `STATE` refusal; a planted forgery by a user program, shown and documented as outside the label |
