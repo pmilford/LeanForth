@@ -3562,16 +3562,16 @@ reason = "ADR 0015 decision 12: the recipe never reaches the block's slots; a us
 [[fault]]
 id = "genrec-arity-unchecked"
 file = "src/kernel/env-signature.fs"
-old = '''  lf-envsig-count lf-genrec-params nip 2dup = if 2drop outcome-ok'''
-new = '''  lf-envsig-count lf-genrec-params nip 2dup 2drop true if 2drop outcome-ok'''
+old = '''  dup lf-genrec-arity lf-envsig-count swap 2dup = if 2drop outcome-ok'''
+new = '''  dup lf-genrec-arity lf-envsig-count swap 2dup 2drop true if 2drop outcome-ok'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "ADR 0015 decision 12: L1 skipped for the generated recursor; IE.B.rec without its universe argument is not rejected as Lean's universeArity"
 
 [[fault]]
 id = "genrec-not-raw"
 file = "src/kernel/generated-recursor.fs"
-old = '''  lf-genrec-raw? 0= if 0 0 exit then'''
-new = '''  0 0 exit'''
+old = '''  lf-genrec-raw? 0= if 0 exit then'''
+new = '''  0 exit'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "ADR 0015 decision 12: every telescope counted as not raw; no recipe, so the generated recursor is never usable"
 
@@ -3646,6 +3646,65 @@ old = '''  lf-ind-empty? if lf-blk-empty else lf-blk-run lf-blk-added then ;'''
 new = '''  lf-ind-empty? if outcome-ok else lf-blk-run lf-blk-added then ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "an empty block is accepted where Lean's kernel rejects it (emptyBlock)"
+
+[[fault]]
+id = "genrec-elim-always-large"
+file = "src/kernel/generated-recursor.fs"
+old = ''': lf-genrec-large? ( d -- flag )
+  lf-env lf-env-slot lf-slot-recipe @ lf-recipe-large and 0<> ;'''
+new = ''': lf-genrec-large? ( d -- flag ) drop true ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 R4-2: every generated recursor given a motive universe; a use of Or's or Exists' recursor (Prop only) is rejected for its universe count"
+
+[[fault]]
+id = "genrec-fields-zero"
+file = "src/kernel/generated-recursor.fs"
+old = '''    if drop outcome-invalid unloop exit then i lf-ind-nfields !'''
+new = '''    if drop outcome-invalid unloop exit then drop 0 i lf-ind-nfields !'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 R4-2: the rebuilt recursor gives every constructor no field; And's and Exists' generated recursors differ from Lean's"
+
+[[fault]]
+id = "genrec-raw-always"
+file = "src/kernel/generated-recursor.fs"
+old = ''': lf-genrec-raw? ( -- flag )
+'''
+new = ''': lf-genrec-raw? ( -- flag ) true exit
+'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 R4-2: a type that is a Sort only after whnf gets a recipe; its rebuilt recursor is invalid instead of unknown"
+
+[[fault]]
+id = "genrec-no-restore"
+file = "src/kernel/generated-recursor.fs"
+old = '''  lf-genrec-save lf-genrec-run lf-genrec-restore ;'''
+new = '''  lf-genrec-save lf-genrec-run ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 R4-2: the block record is not given back after a rebuild during another block's check, which then checks the wrong block"
+
+[[fault]]
+id = "genrec-result-ignored"
+file = "src/kernel/env-signature.fs"
+old = '''  dup 0< if drop lf-env-genrec-of lf-envsig-generated exit then'''
+new = ''''''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 R4-5: a lookup's generated recursor (-1 ok) read as a slot; its uses are not accepted"
+
+[[fault]]
+id = "env-genrec-as-type-slot"
+file = "src/kernel/environment.fs"
+old = '''  dup lf-env-rebuildable? if nip 1+ lf-env-gen-state ! -1 outcome-ok exit then'''
+new = '''  dup lf-env-rebuildable? if nip dup 1+ lf-env-gen-state ! outcome-ok exit then'''
+test = "python3 tests/present/test_outline_block.py"
+reason = "rvI21 R4-5: a lookup of a generated T.rec answers T's slot, so the log resolves T.rec to T"
+
+[[fault]]
+id = "outline-reads-no-type"
+file = "src/present/proof-outline.fs"
+old = '''  lf-ol-decl lf-idecl-type @ dup 0< if drop s" none" lf-ol-line exit then'''
+new = '''  lf-ol-decl lf-idecl-type @'''
+test = "python3 tests/present/test_outline_block.py"
+reason = "rvI21 R4-6: the outline prints the type -1 of an empty block's declaration"
 
 [[fault]]
 id = "pub-rec-name-not-held"

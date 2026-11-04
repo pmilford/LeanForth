@@ -331,13 +331,19 @@ handles and axiom sets (`lf-env-handle`, `lf-env-axioms`) stay for
 accepted slots only.
 
 The recursor a block generated, when no slot holds `T.rec` (ADR 0015
-decision 12): the block check sets a recipe with `lf-env-recipe! ( name
-bits -- )` (`lf-recipe-raw`, `lf-recipe-large`), kept on its slots
-(`lf-slot-recipe@`). A lookup of `T.rec` that finds no slot but a holder
-type with a recipe answers (d ok), d the type's slot, with
-`lf-env-genrec? ( -- flag )` true until the next lookup; `env-signature.fs`
-then builds the recursor again (`generated-recursor.fs`, `lf-genrec ( d
-fuel -- fuel' outcome )`) and specializes its type.
+decision 12): the block check sets a recipe with `lf-env-recipe! ( bits
+-- )` (`lf-recipe-raw`, `lf-recipe-large`), kept on its slots
+(`lf-slot-recipe`). A lookup (`lf-env-lookup`, `lf-env-resolve`) of
+`T.rec` that finds no slot but a holder type with a recipe answers (-1
+ok): no slot is the constant, so no caller, log or outline can take the
+type's slot for it (review rvI21 R4-5); the type's slot is then
+`lf-env-genrec-of ( -- d )` until the next lookup, and `lf-env-resolve`
+records it as the dependency. `env-signature.fs` then checks the use's
+universe arguments against the recursor's own (`lf-genrec-arity ( d -- n
+)`: the motive's, when it has one, then the block's) and builds the
+recursor at those arguments (`generated-recursor.fs`, `lf-genrec ( d
+pairs fuel -- fuel' outcome )`, its type `lf-genrec-root`), which is its
+type instantiated.
 
 ### Diagnostics
 
