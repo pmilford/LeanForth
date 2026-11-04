@@ -64,10 +64,14 @@ PENDING = {
         " (whnf and unfolding at a lookup, steps 4.2.2b-e)"),
 }
 # Rows of later tasks whose file refers to a constant it does not declare,
-# which the importer refuses (invalid) before any check: id -> reason.
+# which the importer refuses (invalid) before any check, where Lean rejects
+# the declaration concerned: id -> reason, ending with the task that closes
+# it (5.2.6; the row's own task does not lift the importer's refusal).
 UNCLOSED = {
-    "names.reserved-nested-prefix": "the constructor names _nested.T, declared nowhere",
-    "quotinit.without-eq": "the quotient records' types name Eq, absent from the file",
+    "names.reserved-nested-prefix": "the constructor names _nested.T, declared nowhere."
+        " Closed by task 5.2.6 (verdicts per declaration for a file not closed)",
+    "quotinit.without-eq": "the quotient records' types name Eq, absent from the file."
+        " Closed by task 5.2.6 (verdicts per declaration for a file not closed)",
 }
 OUTCOME = {"accepted": "ok"}
 

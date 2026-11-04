@@ -3677,8 +3677,8 @@ reason = "rvI21 R4-2: a type that is a Sort only after whnf gets a recipe; its r
 [[fault]]
 id = "genrec-no-restore"
 file = "src/kernel/generated-recursor.fs"
-old = ''': lf-genrec ( d pairs fuel -- fuel' outcome ) lf-genrec-save lf-genrec-run lf-genrec-restore ;'''
-new = ''': lf-genrec ( d pairs fuel -- fuel' outcome ) lf-genrec-save lf-genrec-run ;'''
+old = '''  lf-genrec-save lf-genrec-run lf-genrec-restore ;'''
+new = '''  lf-genrec-save lf-genrec-run ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvI21 R4-2: the block record is not given back after a rebuild during another block's check, which then checks the wrong block"
 

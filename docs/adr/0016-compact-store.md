@@ -741,6 +741,16 @@ byte for byte. Seven planted faults (`stage-any-generated-*`,
 `ndjson-empty-*`, `feed-empty-not-staged`, `ind-empty-*`) are caught. The
 rest of C4, and every other refusal of the importer, is unchanged.
 
+*Remaining difference, temporary (task 5.2.6).* Two kinds of file are
+still refused as a whole (*invalid*) where pinned Lean 4.35.0 gives a
+verdict per declaration (checked 2026-11-04): a file that names a constant
+no declaration has, other than a generated recursor (Lean rejects the
+declaration that names it: `unknownConstant`, by the kernel and in
+replay; the rest of the file is checked), and an inductive record with
+constructors or recursors but no type (Lean's replay refuses those:
+"No such constructor", "No such recursor"). Plan task 5.2.6 makes the
+importer stage them so that the checker gives those verdicts.
+
 ## Consequences
 
 - All of Mathlib's input fits in about 3 GB with one shared copy, so

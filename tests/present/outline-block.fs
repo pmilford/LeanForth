@@ -39,7 +39,8 @@ s" tests/core/check-block-cases/after.recursor-left-out-then-use-rec.ndjson" sta
 T{ 0 checked 3 checked -> outcome-ok outcome-ok }T
 : resolve? ( s -- flag ) lf-log-rule@ lf-rule-resolve = ;
 : named-right? ( s -- flag )
-  dup lf-log-out@ dup 0< if 2drop true exit then lf-input-name swap lf-log-a@ lf-name-same? ;
+  dup lf-log-out@ dup 0< if 2drop true exit then
+  lf-input-name swap lf-log-a@ lf-name-same? ;
 : generated? ( s -- flag ) dup lf-log-out@ 0< swap lf-log-outcome@ ok? and ;
 : resolves ( -- right? generated? )
   true false lf-log-count 1+ 1 ?do i resolve? if

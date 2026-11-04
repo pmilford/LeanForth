@@ -72,7 +72,7 @@ end-structure
 \ telescope is not raw.
 : lf-genrec-recipe ( -- bits )
   lf-genrec-raw? 0= if 0 exit then
-  lf-ind-state lf-ind-elim-name @ if lf-recipe-raw lf-recipe-large or else lf-recipe-raw then ;
+  lf-recipe-raw lf-ind-state lf-ind-elim-name @ if lf-recipe-large or then ;
 
 \ ---------------------------------------------------------------------------
 \ At a lookup: the facts again, from the raw input. The telescope: each
@@ -106,7 +106,8 @@ end-structure
   if dup 0 lf-cref-pair @ lf-ind-state lf-ind-elim ! 1 lf-cref-pair
   else 0 lf-ind-state lf-ind-elim ! then ;
 : lf-genrec-pairs ( pairs -- outcome )
-  lf-ind-lparams nip dup lf-rcr-pair-cells slab-hold ok? 0= if 2drop outcome-full exit then
+  lf-ind-lparams nip dup lf-rcr-pair-cells slab-hold ok? 0=
+  if 2drop outcome-full exit then
   0 ?do dup i lf-cref-pair 2@ i lf-rcr-pair 2! loop drop outcome-ok ;
 
 \ The build, between the copy of the block record and its return.
@@ -130,5 +131,6 @@ end-structure
 \ lf-genrec-root; or (fuel' failure): full (a full store or pair slab),
 \ exhausted, invalid (an input that is not what the recipe says). The
 \ block record is as before.
-: lf-genrec ( d pairs fuel -- fuel' outcome ) lf-genrec-save lf-genrec-run lf-genrec-restore ;
+: lf-genrec ( d pairs fuel -- fuel' outcome )
+  lf-genrec-save lf-genrec-run lf-genrec-restore ;
 : lf-genrec-root ( -- root ) lf-genrec-state lf-genrec-root-cell @ ;
