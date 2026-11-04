@@ -1,7 +1,9 @@
 \ The deepest nesting a full level store allows: a chain of 63 successor
 \ steps above zero, evaluated and compared within the default host stacks
-\ of Gforth 0.7.3 and 1.0 (both passes recurse on the host stacks). A host
-\ stack overflow would throw and fail this test.
+\ of Gforth 0.7.3 and 1.0 (both passes recurse on the host stacks), and
+\ Lean's normalize on its deepest inputs, whose stack use, painted, stays
+\ within the need level-normalize.fs states. A host stack overflow would
+\ throw and fail this test.
 include ../support/tester.fs
 include ../support/checks.fs
 require ../../src/lib/lib.fs
@@ -50,4 +52,48 @@ u-id lf-level-param must drop v-id lf-level-param must constant v
 T{ v u lf-level-tag-max 60 chain lf-level-count @ -> 62 63 }T
 T{ 62 u 100000 lf-level-inequivalent? lf-level-count @ -> true outcome-ok 63 }T
 T{ 62 62 100000 lf-level-compare -> outcome-ok }T
+
+\ The host stacks normalize needs (level-normalize.fs), painted below a
+\ comparison from here. The deepest normalize: levels alternating imax
+\ and max over u, which hold the most cells per level, filling the store
+\ (62 levels); Lean's normalize reduces them to u, allocating nothing.
+\ Their cells per level stay within the need stated per level node, and
+\ all within lf-lnorm-return-cells and lf-lnorm-data-cells.
+require ../support/stack-paint.fs
+: at-most ( n limit -- flag ) > 0= ;
+: alternating ( n -- top )
+  u swap 0 ?do u i 1 and if lf-level-max else lf-level-imax then must loop ;
+variable deepest  variable other  variable verdict
+: compare-deepest ( -- ) deepest @ other @ 100000 lf-level-compare verdict ! ;
+: painted-alternating ( n -- return-cells data-cells )
+  lf-level-reset u-id lf-level-param must drop
+  alternating deepest ! u other ! ['] compare-deepest stack-painted ;
+62 painted-alternating 2constant alternating-62
+T{ verdict @ lf-level-count @ -> outcome-ok 64 }T
+31 painted-alternating 2constant alternating-31
+T{ verdict @ lf-level-count @ -> outcome-ok 33 }T
+\ Cells per level: the difference over 31 levels; return and data.
+: difference ( r1 d1 r2 d2 -- r d ) rot swap - >r - r> ;
+T{ alternating-62 alternating-31 difference 31 lf-lnorm-ds-level * at-most
+   swap 31 lf-lnorm-rs-level * at-most -> true true }T
+T{ alternating-62 lf-lnorm-data-cells at-most
+   swap lf-lnorm-return-cells at-most -> true true }T
+\ The deepest name order: two parameters whose names have n components
+\ (31 at most: the name store holds 63), different in every one; max p q
+\ is sorted, so its normal form is new, and differs from q (Lean's false:
+\ unknown).
+: deep-name ( c-addr u n -- id )
+  >r 0 -rot r> 0 ?do 2>r 2r@ lf-name-str must 2r> loop 2drop ;
+: param ( id -- level ) dup lf-lscope-context-add must lf-level-param must ;
+: name-params ( n -- p q )
+  lf-name-reset lf-level-reset lf-lscope-context-reset
+  >r s" x" r@ deep-name param s" y" r> deep-name param ;
+: painted-names ( n -- return-cells data-cells )
+  name-params dup other ! lf-level-max must deepest !
+  ['] compare-deepest stack-painted ;
+31 painted-names 2constant names-31
+T{ verdict @ lf-level-count @ -> outcome-unknown 4 }T
+15 painted-names 2constant names-15
+T{ names-31 names-15 difference 16 lf-lnorm-ds-name * at-most
+   swap 16 lf-lnorm-rs-name * at-most -> true true }T
 bye

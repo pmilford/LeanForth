@@ -37,4 +37,37 @@ T{ 26 apps 100000 infer lf-minfer-fuel @ lf-term-count @ -> 63 outcome-ok 98517 
 T{ 29 apps 100000 infer lf-minfer-fuel @ lf-term-count @ -> -1 outcome-full 0 35 }T
 T{ 31 lams 100000 infer lf-minfer-fuel @ lf-term-count @ -> -1 outcome-full 0 33 }T
 T{ 29 apps 100 infer lf-minfer-fuel @ lf-term-count @ -> -1 outcome-exhausted 0 35 }T
+
+\ The deepest normalize at the deepest inference: fun (f : S -> S)
+\ (c : Sort L) => f (f ... (f c)) with 25 applications (Sort L is one
+\ more node than above), L m levels alternating imax and max over u,
+\ which hold the most cells per level and which Lean's normalize reduces
+\ to u. The innermost application, at the deepest inference frame,
+\ compares Sort u with Sort L by normalize. With m = 59 the level store
+\ is full at the end. Painted, the cells that the normalize adds to the
+\ same inference with L = u stay within its stated need (level-normalize.fs),
+\ and the whole inference within lf-minfer-return-cells and -data-cells.
+require ../support/stack-paint.fs
+: alternating ( m -- level )
+  1 swap 0 ?do 1 i 1 and if lf-level-max else lf-level-imax then 0= abort" level" loop ;
+: deep-sort ( m -- ) alternating dup lf-level-identity 0= abort" lid" lf-hterm-sort save ;
+: deep-apps ( n m -- root )
+  setup deep-sort 0 h 0 h lf-hterm-pi save 1 lf-hterm-bvar save   \ 2: Sort L, 3, 4: f
+  1 swap 0 ?do 4 h rot h lf-hterm-app save newest loop
+  2 h rot h lf-hterm-lam save newest 3 h rot h lf-hterm-lam save newest ;
+variable deep-root  variable deep-status
+: infer-deep ( -- ) deep-root @ 100000 infer deep-status ! drop ;
+: painted-infer ( n m -- return-cells data-cells )
+  deep-apps deep-root ! ['] infer-deep stack-painted ;
+: at-most ( n limit -- flag ) > 0= ;
+: difference ( r1 d1 r2 d2 -- r d ) rot swap - >r - r> ;
+25 59 painted-infer 2constant deep-normalize
+T{ deep-status @ lf-minfer-fuel @ lf-term-count @ lf-level-count @
+   -> outcome-ok 97774 63 64 }T
+25 0 painted-infer 2constant shallow-normalize
+T{ deep-status @ lf-minfer-fuel @ lf-term-count @ -> outcome-ok 98598 63 }T
+T{ deep-normalize shallow-normalize difference lf-lnorm-data-cells at-most
+   swap lf-lnorm-return-cells at-most -> true true }T
+T{ deep-normalize lf-minfer-data-cells at-most
+   swap lf-minfer-return-cells at-most -> true true }T
 bye

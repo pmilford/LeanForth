@@ -895,16 +895,22 @@ context. The adapter chooses one of three hosts when it loads:
   sizes less the slack (a host that does not report a size through
   `ENVIRONMENT?` is not checked). So lowering `task-data-cells` or
   `task-return-cells` with `TO` below the need is caught whichever of
-  `task.fs` and the kernel loads first. The checker states two needs:
+  `task.fs` and the kernel loads first. The checker states three needs:
   beta with its nested instantiate and shift passes (`mixed-beta.fs`,
-  1,216 return and 960 data cells) and inference, which can nest them at
-  its deepest level (`mixed-infer.fs`, 1,728 and 1,280: at most 8 return
-  and 5 data cells per level, measured by stack painting along its five
-  recursion paths and the two of its rejection analysis (plan task 2.2.1;
-  the D5 path needs 8) on Gforth 0.7.3 and 1.0, which agree, times
-  `lf-term-capacity` levels, plus beta's need; the definition probe nests
-  no deeper). The test job's 500-frame pass used 1,004 return-stack and
-  1,001 data-stack cells inside each worker; the deepest checker inputs
+  1,216 return and 960 data cells), Lean's normalize in a level
+  comparison (`level-normalize.fs`, 576 and 384: at most 7 return and 3
+  data cells per node of the level store, 6.5 and 2.5 measured, and 1
+  and 2 per name component, plus 64), and inference, which can nest
+  either at its deepest level, never both (`mixed-infer.fs`, 1,728 and
+  1,280: at most 8 return and 5 data cells per level, measured by stack
+  painting along its five recursion paths and the two of its rejection
+  analysis (plan task 2.2.1; the D5 path needs 8) on Gforth 0.7.3 and
+  1.0, which agree, times `lf-term-capacity` levels, plus the larger
+  nested need, beta's; the definition probe nests no deeper;
+  `tests/core/level-deep.fs` and `infer-deep.fs` paint the deepest
+  normalize, alone and at the deepest inference). The test job's
+  500-frame pass used 1,004 return-stack and 1,001 data-stack cells
+  inside each worker; the deepest checker inputs
   known used 688 and 480 inside a job, and 16 random trials of 2,000
   steps at most 90 and 28 above the caller.
 - A stack overflow inside a job is never reported as success. Gforth 1.0:
