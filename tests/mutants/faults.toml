@@ -1100,8 +1100,8 @@ reason = "no comma after the first element or member"
 [[fault]]
 id = "jw-unit-separator-raw"
 file = "src/lib/json-write.fs"
-old = ''': jw-escape-controls ( -- ) 32 0 do [char] u 5 i jw-escape! loop ;'''
-new = ''': jw-escape-controls ( -- ) 31 0 do [char] u 5 i jw-escape! loop ;'''
+old = ''': jw-controls! ( table -- ) 32 0 do [char] u i 2 pick jw-escape! loop drop ;'''
+new = ''': jw-controls! ( table -- ) 31 0 do [char] u i 2 pick jw-escape! loop drop ;'''
 test = "$GFORTH tests/lib/json-write.fs && python3 tests/lib/test_json_write.py"
 reason = "byte 31 is written raw inside a string, which JSON forbids"
 
