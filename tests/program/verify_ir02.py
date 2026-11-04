@@ -27,8 +27,18 @@ One Gforth process per batch:
    255 and beyond, SPACES of positive, zero and negative counts, `."` with
    leading blanks, S" ... " TYPE, .S of 0, 3 and 12 cells: the bytes Gforth
    prints must be the interpreter's.
-3. Literals (A3, test 2): every Forth-2012 form at the edges, as the
-   program words read them and as Gforth reads them.
+3. Literals (A3, test 2; review rvIR3, L3 and L4): every token of one to
+   --fuzz-length (default 3; 4 is the review's 89,045 tokens) characters
+   over `#$%'-019afAFgx_.+`, every 'c' form, the range's edges in every
+   base with signs and leading zeros, and the forms the hosts disagree on.
+   The program words must read each as tests/program/verify_check.py's
+   rule says, and every token they accept must be read by Gforth as one
+   cell of the same value, also right after Gforth has read another token
+   (Gforth 1.0 keeps state from one number to the next).
+
+4. The portable .S of src/lib/portability.fs (compiled where a Forth has
+   none; here under another name) prints what this Gforth's .S prints, on
+   stacks of 0, 3, 12 and 4 cells (the smallest and largest among them).
 
 With --lean, Lean's model (tests/reference/program-ir-run.lean) also runs
 the cases of the first eight generated files and must give the
@@ -36,6 +46,7 @@ interpreter's stacks. Finite tests on the Gforth that GFORTH names, not a
 proof.
 """
 import argparse
+import itertools
 import os
 from pathlib import Path
 import random
@@ -174,16 +185,47 @@ variable token
   space show-items cr ok? ;
 : run-case ( c-addr u k i*x n -- )
   inputs! cells tokens + @ token ! ir-name 2! ." CASE" cr ir-run if host-run then ;
-\\ A literal as the program words read it, and as the host does.
-: lit-case ( c-addr u -- )
-  2dup type space 2dup pv-literal? if ." WORDS " d. else ." WORDS - " then
+\\ A literal as the program words read it, and, when they accept it, as
+\\ the host does (a token they refuse may be a host word, never run here).
+: host-reading ( c-addr u -- )
   depth 2 - >r ['] evaluate catch if 2drop r> drop ." HOST -" cr exit then
   ." HOST " depth r> - 0 ?do . loop cr ;
+: lit-case ( c-addr u -- )
+  2dup type space 2dup pv-literal? if ." WORDS " d. host-reading exit then
+  ." WORDS - HOST -" cr 2drop ;
+\\ The same after the host has read another token first (Gforth 1.0 keeps
+\\ state from one number to the next).
+: try ( c-addr u -- ) depth 2 - >r ['] evaluate catch if 2drop then depth r> ?do drop loop ;
+: pair-case ( c-addr u c-addr2 u2 -- ) ." PAIR " 2swap 2dup type space try lit-case ;
 """
 
 
-def driver_text(files, directory, edges, literals):
-    lines = [DRIVER]
+PORTABILITY = ROOT / "src/lib/portability.fs"
+
+
+def portable_dot_s():
+    """src/lib/portability.fs's .S for a Forth without one, renamed, so that
+    this Gforth, which has its own, compiles it beside it."""
+    text = PORTABILITY.read_text(encoding="utf-8")
+    body = re.search(r"^\[undefined\] \.s \[if\]\n(.*?)^\[then\]", text, re.M | re.S).group(1)
+    return body.replace(": .s ", ": portable-.s ", 1)
+
+
+def dot_s_lines(stacks):
+    """The host's .S and the portable one on each stack, between markers."""
+    lines = [portable_dot_s()]
+    for n, stack in enumerate(stacks):
+        values = " ".join(map(str, stack))
+        lines.append(f'." DOTS {n} {START}" {values} .s ." {MIDDLE}" portable-.s '
+                     f'." {END}" cr clear-stack')
+    return lines
+
+
+DOT_S_STACKS = [[], [1, 2, 3], list(range(12)), [MIN, MAX, -1, 0]]
+
+
+def driver_text(files, directory, edges, literals, pairs):
+    lines = [DRIVER] + dot_s_lines(DOT_S_STACKS)
     for n, f in enumerate(files):
         path = Path(directory) / f"r{n:03d}.fs"
         path.write_text("\n".join(f.lines) + "\n", encoding="latin-1")
@@ -205,6 +247,7 @@ def driver_text(files, directory, edges, literals):
         lines.append(f's" {name}" {k} {" ".join(map(str, xs))} {len(xs)} run-case')
     lines.append('." LITERALS" cr')
     lines += [f"{forth_string(t)} lit-case" for t in literals]
+    lines += [f"{forth_string(p)} {forth_string(t)} pair-case" for p, t in pairs]
     lines.append("bye")
     driver = Path(directory) / "driver.fs"
     driver.write_text("\n".join(lines) + "\n", encoding="latin-1")
@@ -234,20 +277,55 @@ LITERALS = ["0", "-0", "4294967295", "-2147483648", "4294967296", "-2147483649",
             "#10", "#-10", "#4294967295", "$10", "$ff", "$FF", "$-80000000", "$FFFFFFFF",
             "$100000000", "%101", "%-101", "%11111111111111111111111111111111", "'a'", "'''",
             "'\"'", "'~'", "-$10", "1_000", "0x10", "1.", "-'a'", "'ab'", "$", "#-", "%2",
-            "$1g", "0004294967295", "00000000001"]
+            "$1g", "0004294967295", "00000000001",
+            # A 'c' form must close with its quote (review rvIR3, L3).
+            "'ab", "'a-", "'>x", "'a", "''", "'a''"]
+# The review's literal fuzz (rvIR3, L3), as a sample: every token of one to
+# --fuzz-length characters (3 here; 4 gives the review's 89,045 tokens)
+# over this alphabet, every 'c' form, and the range's edges in every base
+# with signs and leading zeros.
+FUZZ_ALPHABET = "#$%'-019afAFgx_.+"
+EDGE_VALUES = [0, 1, 2 ** 31 - 1, 2 ** 31, 2 ** 31 + 1, 2 ** 32 - 1, 2 ** 32, 65536]
+# Tokens the host reads before an accepted one (review rvIR3, L4: Gforth
+# 1.0 carries state from one number to the next), accepted, refused and
+# Gforth-only forms among them.
+BEFORE = ["$-10", "-$10", "#-5", "5", "'a'", "1_000", "$1_0", "0x10", "-'a'", "1.", "-5"]
+
+
+def fuzz_tokens(length):
+    tokens = set(LITERALS)
+    for n in range(1, length + 1):
+        tokens.update("".join(t) for t in itertools.product(FUZZ_ALPHABET, repeat=n))
+    tokens.update(f"'{chr(c)}'" for c in range(33, 127))
+    for value in EDGE_VALUES:
+        for sign in ("", "-"):
+            for prefix, form in (("", "d"), ("#", "d"), ("$", "x"), ("$", "X"), ("%", "b")):
+                for zeros in range(3):
+                    digits = "0" * zeros + format(value, form)
+                    tokens.update({prefix + sign + digits, sign + prefix + digits})
+    return sorted(tokens)
+
+
+def pair_cases():
+    targets = [t for t in LITERALS if predicted_literal(t) is not None]
+    return [(before, target) for before in BEFORE for target in targets]
 
 
 def parse(stdout):
     """The records the driver printed: files (IR lines, verdict, cases) and
     literals."""
     files, literals, current, case, section = [], [], None, None, None
+    dots = []
     data = stdout
     pos = 0
     while pos < len(data):
         end = data.find(b"\n", pos)
         end = len(data) if end < 0 else end
         line = data[pos:end]
-        if line.startswith(b"FILE "):
+        if line.startswith(b"DOTS "):
+            host = line.split(START.encode(), 1)[1].split(MIDDLE.encode(), 1)
+            dots.append((host[0], host[1].split(END.encode(), 1)[0]))
+        elif line.startswith(b"FILE "):
             current = {"name": line[5:].decode(), "ir": [], "verify": None, "cases": []}
             files.append(current)
             section = "file"
@@ -276,7 +354,7 @@ def parse(stdout):
                 case["host"] = data[stop + len(END):result_end].decode().split()[1:]
                 end = result_end
         pos = end + 1
-    return files, literals
+    return files, literals, dots
 
 
 def predicted_literal(text):
@@ -315,15 +393,25 @@ def check(files, generated, literals):
                 problems.append(f"file {record['name']} case {n}: interpreter printed "
                                 f"{case['ir_out']!r}, Gforth {case['host_out']!r}")
             counts["bytes"] += len(case["host_out"])
+    counts.update(literals=0, accepted=0, pairs=0)
     for line in literals:
+        before = ""
+        if line.startswith("PAIR "):
+            before, _, line = line[5:].partition(" ")
+            counts["pairs"] += 1
+        else:
+            counts["literals"] += 1
         text, _, rest = line.partition(" WORDS ")
         words, _, host = rest.partition(" HOST ")
         expected = predicted_literal(text)
+        where = f"literal {text}" + (f" after {before}" if before else "")
         if (words.strip() == "-") != (expected is None) or (
                 expected is not None and int(words) != expected):
-            problems.append(f"literal {text}: program words {words}, expected {expected}")
-        if expected is not None and host.strip() != str(expected):
-            problems.append(f"literal {text}: the program words read {expected}, Gforth {host}")
+            problems.append(f"{where}: program words {words}, the rule says {expected}")
+        if expected is not None:
+            counts["accepted"] += not before
+            if host.strip() != str(expected):
+                problems.append(f"{where}: the program words read {expected}, Gforth {host}")
     return problems, counts
 
 
@@ -362,20 +450,26 @@ def main():
     parser.add_argument("--seed", type=int, default=20261104)
     parser.add_argument("--files", type=int, default=60)
     parser.add_argument("--lean", action="store_true")
+    parser.add_argument("--fuzz-length", type=int, default=3)
     args = parser.parse_args()
     gforth = os.environ.get("GFORTH", "gforth")
     rng = random.Random(args.seed)
     generated = [File(rng) for _ in range(args.files)]
     with tempfile.TemporaryDirectory() as directory:
-        driver = driver_text(generated, directory, edge_cases(), LITERALS)
+        driver = driver_text(generated, directory, edge_cases(),
+                             fuzz_tokens(args.fuzz_length), pair_cases())
         done = subprocess.run(["timeout", "-k", "5", "600", gforth, str(driver)],
                               capture_output=True, stdin=subprocess.DEVNULL, cwd=ROOT)
         if done.returncode != 0:
             print(done.stdout[-3000:].decode("latin-1"), done.stderr[-3000:].decode("latin-1"),
                   file=sys.stderr)
             return 1
-        files, literals = parse(done.stdout)
+        files, literals, dots = parse(done.stdout)
         problems, counts = check(files, generated, literals)
+        problems += [f".S of {DOT_S_STACKS[n]}: Gforth {host!r}, portability.fs {ours!r}"
+                     for n, (host, ours) in enumerate(dots) if host != ours]
+        if len(dots) != len(DOT_S_STACKS):
+            problems.append(f"{len(dots)} .S comparisons for {len(DOT_S_STACKS)} stacks")
         lean_note = ""
         if args.lean:
             more, compared = lean_problems(os.environ.get("LEAN", "lean"), files, generated,
@@ -388,8 +482,10 @@ def main():
           f"their predicted version names, {counts['cases']} cases, {counts['compared']} "
           f"run by both (the rest end abnormally in the IR: underflow, unmodeled), "
           f"{counts['edges']} of them output words at the edges, {counts['bytes']} bytes "
-          f"printed alike; {len(literals)} literals read as Gforth reads them{lean_note}; "
-          f"{len(problems)} problems")
+          f"printed alike; {counts['literals']} tokens read as the rule says, the "
+          f"{counts['accepted']} accepted read alike by Gforth, also in {counts['pairs']} "
+          f"pairs after another token; portability.fs's .S prints Gforth's .S on "
+          f"{len(dots)} stacks{lean_note}; {len(problems)} problems")
     return 1 if problems else 0
 
 

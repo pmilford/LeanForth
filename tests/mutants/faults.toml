@@ -1436,8 +1436,8 @@ reason = "a literal's minus sign is dropped: examples.fs's golden IR (-1 1 rshif
 [[fault]]
 id = "pv-names-not-folded"
 file = "src/program/verify-semantics.fs"
-old = '''  0 over pv-def-length ! pv-token-text 2 pick pv-def+ dup pv-def-chars pv-fold'''
-new = '''  0 over pv-def-length ! pv-token-text 2 pick pv-def+ dup pv-def-chars 2drop'''
+old = ''': pv-name-folded ( def -- def ) dup pv-def-chars pv-fold ;'''
+new = ''': pv-name-folded ( def -- def ) ;'''
 test = "$GFORTH tests/program/verify.fs && python3 tests/program/verify_check.py"
 reason = "a definition's name is written as spelt, not in lower case, unlike today's reader (the clamp in upper case)"
 
@@ -1624,8 +1624,8 @@ reason = "the literal -2147483649, below -2^31, is accepted"
 [[fault]]
 id = "pv-hex-as-decimal"
 file = "src/program/verify-semantics.fs"
-old = '''[char] $ of 16 8 endof'''
-new = '''[char] $ of 10 8 endof'''
+old = '''16 8 pv-radix, pv-radix-16'''
+new = '''10 8 pv-radix, pv-radix-16'''
 test = "$GFORTH tests/program/verify.fs"
 reason = "A3: $10 is read in decimal, or refused for its hexadecimal letters"
 
@@ -1702,8 +1702,8 @@ reason = "A2: an output word outside a definition, which would print while the f
 [[fault]]
 id = "pv-s-quote-without-type"
 file = "src/program/verify-semantics.fs"
-old = '''  pv-token @ pv-token# @ parse-name 2dup pv-type? 0= pv-why-not-ir pv-?fail'''
-new = '''  pv-token @ pv-token# @ parse-name'''
+old = '''  2dup pv-type? 0= pv-why-not-ir pv-?fail'''
+new = ''''''
 test = "$GFORTH tests/program/verify.fs"
 reason = "A2: S\" is accepted before any word, though its string's address is memory IR 0.2 lacks"
 
@@ -1762,6 +1762,80 @@ old = ''': irx-new? ( -- ) irx-state irx-s-new @ irx-expect ;'''
 new = ''': irx-new? ( -- ) ;'''
 test = "$GFORTH tests/program/ir-run.fs"
 reason = "A4: an IR 0.2 instruction under an IR 0.1 version line is loaded"
+
+# Review rvIR3's faults, and those of its fixes.
+
+[[fault]]
+id = "rv-type-identity-skipped"
+file = "src/program/verify.fs"
+old = '''  >r pv-host r> pv-entry-host @ <> pv-why-replaced pv-?fail ;'''
+new = '''  drop 2drop ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "rvIR3 L2: the mode shift no longer checks TYPE after S\" by identity, so a TYPE redefined before the run is accepted there"
+
+[[fault]]
+id = "rv-char-unclosed"
+file = "src/program/verify-semantics.fs"
+old = '''  dup pv-quote-char? over 2 chars + pv-quote-char? and 0= if drop false exit then'''
+new = '''  dup pv-quote-char? 0= if drop false exit then'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "rvIR3 L3: 'ab, 'a- and '>x are read as numbers, though both Gforths refuse them"
+
+[[fault]]
+id = "rv-collision-skips-first"
+file = "src/program/verify-semantics.fs"
+old = '''  pv-defs store-count @ 1- 0 ?do dup i pv-same-name? if drop true unloop exit then loop'''
+new = '''  pv-defs store-count @ 1- 1 max 1 ?do dup i pv-same-name? if drop true unloop exit then loop'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "rvIR3: the collision check ignores the file's first definition (: x'1 ; : x ; : X ;)"
+
+[[fault]]
+id = "rv-dot-quote-not-new"
+file = "src/program/verify-semantics.fs"
+old = '''  pv-out-line s\" .\q " pv-append pv-append s\" \q" pv-append pv-done ;'''
+new = '''  s" out " pv-line-start s\" .\q " pv-append pv-append s\" \q" pv-append pv-done ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "rvIR3: a file whose only IR 0.2 lines are .\" or S\" TYPE is labelled lf-ir 0.1"
+
+[[fault]]
+id = "pv-calls-by-source-name"
+file = "src/program/verify-semantics.fs"
+old = ''': pv-call-inside ( index -- ) pv-visible s" call " pv-line-start pv-call-text pv-done ;'''
+new = ''': pv-call-inside ( index -- ) pv-visible begin dup pv-def pv-def-prev @ dup 0< 0= while nip repeat drop s" call " pv-line-start pv-call-text pv-done ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "A1 test 4: a call is written with the source name (the first version's), so Lean's lookup reaches the oldest version where Gforth calls the newest"
+
+[[fault]]
+id = "pv-full-sends-lines"
+file = "src/program/verify-report.fs"
+old = ''': pv-flush ( -- ) pv-full? 0= if pv-send-lines then pv-send-said ;'''
+new = ''': pv-flush ( -- ) pv-send-lines pv-send-said ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "rvIR3 L1: a run that stops as full, the heap's above all, sends the IR it had, which can look whole"
+
+[[fault]]
+id = "pv-heap-full-diagnostic-lost"
+file = "src/program/verify-report.fs"
+old = ''': pv-send-said ( -- ) pv-said dup if pv-emit else 2drop then ;'''
+new = ''': pv-send-said ( -- ) ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "rvIR3 L1: the diagnostic line is never sent"
+
+[[fault]]
+id = "portable-dots-ten"
+file = "src/lib/portability.fs"
+old = '''depth 9 min dup 0 ?do dup i - pick . loop drop ;'''
+new = '''depth 10 min dup 0 ?do dup i - pick . loop drop ;'''
+test = "python3 tests/program/verify_ir02.py"
+reason = "rvIR3 L9: the portable .S shows ten cells where both Gforths show nine"
+
+[[fault]]
+id = "irx-spaces-unbounded"
+file = "src/program/ir-run.fs"
+old = ''': irx-print-spaces ( op -- ) drop irx-data-pop irx-fuel @ min irx-say-blanks ;'''
+new = ''': irx-print-spaces ( op -- ) drop irx-data-pop irx-say-blanks ;'''
+test = "$GFORTH tests/program/ir-run.fs"
+reason = "rvIR3 L8: the interpreter's SPACES prints a count beyond its fuel, so a huge one keeps a run going for ages"
 
 [[fault]]
 id = "pv-frames-capacity"

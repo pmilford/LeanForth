@@ -1091,9 +1091,12 @@ left open or departs from it:
 - **The version line comes last.** Since it depends on every line, the
   program words keep the IR in a heap buffer during the run and send it,
   version line first, to the output word when the run ends (after the
-  caller's settings are back, while the run is still under way); a run
-  whose IR the heap cannot hold stops as *full*. An output word that fails
-  still fails the run as invalid ("output word failed").
+  caller's settings are back, while the run is still under way), with no
+  limit of their own; a run whose IR the heap cannot hold stops as *full*.
+  The diagnostic line has a slot of its own, and a run that stops as *full*
+  sends it alone, no IR line (review rvIR3, L1: the first version sent the
+  IR held so far, with no diagnostic, when the heap was full). An output
+  word that fails still fails the run as invalid ("output word failed").
 - **A new reason 32**, "text not closed on its line", for `."` and `S"`
   without their closing quote on the line (A2 names no reason; reason 8's
   "comment not closed" would mislead); a tab in such a text is refused as
@@ -1106,8 +1109,9 @@ left open or departs from it:
   written exactly on 32-bit hosts too.
 - **`-rot` and `.S`** have verification semantics, so they must be words of
   the verifying Forth; `src/lib/portability.fs`, which the program words
-  load, defines `-rot` as `rot rot` on a Forth without it, and run mode
-  needs it loaded first there.
+  load, defines `-rot` as `rot rot` and `.S` as both Gforths print it on a
+  Forth without them (review rvIR3, L9), and run mode needs it loaded
+  first there.
 - **The IR interpreter** (`src/program/ir-run.fs`) reads IR 0.2, refuses an
   IR 0.2 instruction under IR 0.1's version line, and prints what out lines
   print to a sink, `.S` as both Gforths print it; `Event.render` in Lean
@@ -1570,10 +1574,13 @@ Forth-2012's prefixed forms: `#[-]digits`, `$[-]hexdigits` (either case),
 `%[-]binary digits` and `'c'` for a printable character other than a
 space, each with a value from −2^31 to 2^32 − 1, so that every 32-bit
 word, signed or unsigned, can be written. Both hosts read each of these
-forms identically (probe 4). Refused: the forms on which the hosts differ,
-`-$10` (Gforth 1.0 refuses it, 0.7.3 reads −16), `1_000` and `$1_0` (1.0
-reads them, 0.7.3 refuses them); `0x10`, which both read but Forth-2012
-does not define; and double-cell numbers such as `1.`. The IR still
+forms identically (probe 4). Refused: `-$10`, which Forth-2012 does not
+define (its sign must follow the prefix; the probe's "Gforth 1.0 refuses
+it, 0.7.3 reads −16" was wrong: Gforth 1.0 keeps state from one number to
+the next, refuses `-$10` right after `$-10`, as in the probe, and reads −16
+otherwise, review rvIR3, L4); the forms on which the hosts differ, `1_000`
+and `$1_0` (1.0 reads them, 0.7.3 refuses them); `0x10`, which both read
+but Forth-2012 does not define; and double-cell numbers such as `1.`. The IR still
 writes decimals (`lit 4294967295`). IR 0.1's semantics already makes a
 literal outside the cell *unmodeled*, so a theorem that uses one must
 assume cells of at least 33 bits, and Lean holds it to that. The separate

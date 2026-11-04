@@ -24,6 +24,8 @@ and counted:
 
   not-ir-text  the same refusal as today's reader's "a Forth word outside IR
                0.1", which names IR 0.2 now;
+  full-alone   the same refusal as full, sent as its diagnostic line alone
+               (review rvIR3, L1: no IR of a run cut short by a capacity);
   core-word    a Forth-2012 Core or Core Ext word outside IR 0.2 (also S"
                not followed by TYPE, and TYPE alone) is refused as "a Forth
                word outside IR 0.2" where today's reader says "not a known
@@ -375,6 +377,9 @@ def intended(old, new):
     if not new_lines:
         return None
     last = new_lines[-1]
+    if (new_verdict == old_verdict and new_verdict[0] == OUTCOME["full"]
+            and new_lines == old_lines[-1:]):
+        return "full-alone"
     if (new_verdict == old_verdict and new_verdict[1] == NOT_IR
             and new_lines[:-1] == old_lines[:-1]
             and old_lines[-1] == last.replace(NOT_IR_TEXT, OLD_NOT_IR_TEXT, 1)):
