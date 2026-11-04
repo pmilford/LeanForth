@@ -152,6 +152,27 @@ lf-level-walk-room context-walk2: lf-mcompare-level-walker
   ['] lf-mcompare-visit lf-mcompare-walker walk-run-pair
   lf-mcompare-walker lf-mcompare-site lf-diag-walk ;
 
+\ Lean's structural equality, operator== on terms (expr_eq_fn.cpp
+\ 123-125; ADR 0014 Q3, plan task 4.2.2b): the same constructors, bound
+\ and free variables, constant names and ordered universe arguments, and
+\ the same level syntax; binder names and annotations are not stored, so
+\ they never differ (Lean's == ignores them, 98-103). The same node is
+\ equal at once (is_eqp). (flag ok), with flag Lean's answer, or (false
+\ outcome) for a failure: exhausted, full or invalid, recorded as a
+\ diagnostic; two terms that differ record nothing, as == is no failure.
+\ Each visit costs one unit of fuel; the fuel left is in lf-mcompare-fuel.
+\ Unchecked: both roots are audited live terms (lf-cterm-check), as every
+\ term conversion compares; open terms compare their loose bound
+\ variables by index.
+: lf-mcompare-equal ( outcome -- flag outcome )
+  dup outcome-unknown = if drop false outcome-ok exit then
+  dup ok? if true swap exit then
+  lf-mcompare-walker lf-mcompare-site lf-diag-walk false swap ;
+: lf-expr-equal ( left right fuel -- flag outcome )
+  lf-mcompare-walker walk-budget 0= if 2drop false outcome-invalid exit then
+  2dup = if 2drop true outcome-ok exit then
+  ['] lf-mcompare-visit lf-mcompare-walker walk-run-pair lf-mcompare-equal ;
+
 \ Audit both roots completely, left first, with the walk's fuel; a failed
 \ audit leaves no fuel. lf-cterm-check fails only as invalid, exhausted or
 \ full. Five inputs: two handles and the walk. Shared with mixed-convert.fs,

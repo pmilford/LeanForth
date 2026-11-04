@@ -100,6 +100,10 @@ require ../lib/lib.fs
 76 constant lf-diag-ctors-full         \ full: the block's constructors, capacity
 77 constant lf-diag-generated-recursor \ unknown: the name, the slot that holds it
 78 constant lf-diag-empty-block        \ rejected: the block's declaration, 0
+\ Lean's weak head normal form (ADR 0014; plan task 4.2.2c,
+\ kernel/whnf.fs): routes LeanForth does not port yet (unknown).
+79 constant lf-diag-iota-pending       \ unknown: the recursor at the head, 0
+80 constant lf-diag-name-matched       \ K7 (unknown): the constant at the head, 0
 
 begin-structure /lf-diag
   field: lf-diag-code       \ reason code; lf-diag-none while clear
@@ -249,6 +253,10 @@ create lf-diag-catalogue
   lf-diag-generated-recursor
     s" undecided: a constant Lean's kernel holds, no slot accepted" lf-diag-entry,
   lf-diag-empty-block s" rejected: an inductive block without types" lf-diag-entry,
+  lf-diag-iota-pending
+    s" undecided: a recursor reduction LeanForth does not port yet" lf-diag-entry,
+  lf-diag-name-matched
+    s" undecided: a constant Lean's kernel matches by name (K7)" lf-diag-entry,
   lf-diag-none s" unknown code" lf-diag-entry,
 : lf-diag-end? ( code entry -- flag ) lf-diag-entry-code tuck = swap lf-diag-none = or ;
 \ The entry of code, or the last entry.
