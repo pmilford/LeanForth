@@ -628,3 +628,40 @@ reference-compact-init:
 test: test-compact test-stage
 check: test-compact-faults
 test-differential: reference-compact-init
+
+# The derivation log (ADR 0013, plan task 2.4.1; docs/programming/DERIVATION_LOG.md)
+# and the proof outline printed from it (plan task 2.4.4; docs/user/PROOF_OUTLINE.md):
+# the log of every pinned export and broken copy off, on and full at every bound,
+# with nothing changed; the checker trials with the log off, on, full and
+# interleaved; the golden outlines; the rule catalogue against its documentation;
+# the isolation rules. Gforth and Python 3 only.
+test-log:
+	$(RUN) $(GFORTH) tests/core/derivation-log.fs
+	$(RUN) $(GFORTH) tests/core/log-trials.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/present/check_outline.py
+	GFORTH=$(GFORTH) $(RUN) python3 tests/core/check_log_catalogue.py
+	$(RUN) python3 tests/core/check_log_isolation.py
+
+# The proof outline of every declaration of a Lean export, or with DETAIL=1
+# every step of its derivation log (exit status 1 when the file cannot be read):
+#   make print EXPORT=tests/reference/composition.ndjson [DETAIL=1]
+print:
+	$(RUN) $(GFORTH) tests/support/print-outline.fs \
+	-e 's" $(EXPORT)" $(if $(DETAIL),true,false) po-exit' </dev/null
+
+# The evidence that the log changes nothing (ADR 0013, owner decision D5): all of
+# make test and every pinned-Lean comparison of make test-differential with the
+# log on in every context (tests/support/gforth-log.sh), then on and full after 5
+# records, then make test with 2 term copies, 1 level copy and 3 open rules.
+# About ten minutes; not part of make check.
+LOG_GFORTH = $(if $(findstring /,$(GFORTH)),$(abspath $(GFORTH)),$(shell command -v $(GFORTH)))
+LOG_RUN = LF_GFORTH=$(LOG_GFORTH) LF_LOG_LEVEL=2
+check-log-identity:
+	$(LOG_RUN) $(MAKE) test test-differential GFORTH=tests/support/gforth-log.sh
+	$(LOG_RUN) LF_LOG_RECORDS=5 $(MAKE) test test-differential GFORTH=tests/support/gforth-log.sh
+	$(LOG_RUN) LF_LOG_TERMS=2 LF_LOG_LEVELS=1 LF_LOG_MARKS=3 $(MAKE) test \
+	GFORTH=tests/support/gforth-log.sh
+
+.PHONY: test-log print check-log-identity
+test: test-log
+DOC_EXAMPLE_PAGES += docs/user/PROOF_OUTLINE.md

@@ -69,6 +69,7 @@
 \ host-specific and never serialized.
 
 require ../lib/lib.fs
+require ../core/derivation-log.fs
 require ../core/diagnostics.fs
 require ../core/names.fs
 require ../core/name-equal.fs
@@ -274,6 +275,7 @@ end-structure
 \ final. The diagnostic is cleared, and the candidate starts empty, its
 \ outcome invalid until lf-env-finish.
 : lf-env-begin ( i -- outcome )
+  dup lf-log-begin
   lf-diag-clear lf-env-clear lf-env-spent? if lf-env-spent else lf-env-start then ;
 \ A snapshot of every slot, for queries once a run has ended: ok, or
 \ invalid without a valid current environment. It is not a check.
@@ -364,10 +366,16 @@ end-structure
 \ first); (-1 invalid)
 \ without a valid snapshot or name, when a same-named earlier slot is not
 \ final (started too early), or when two were accepted.
-: lf-env-lookup ( name -- d outcome )
+: lf-env-lookup-pass ( name -- d outcome )
   lf-env-snapshot 0= if drop -1 outcome-invalid exit then nip
   over lf-env-name-ok? 0= if drop lf-env-bad-name exit then
   2dup lf-env-find dup ok? if 2swap 2drop exit then nip lf-env-n1 no-result ;
+\ The derivation log (ADR 0013): with it on, a lookup is one resolve step
+\ of the name, its result the slot found.
+: lf-env-lookup-logged ( name -- d outcome )
+  dup lf-log-none lf-rule-resolve lf-log-open lf-env-lookup-pass lf-log-close ;
+: lf-env-lookup ( name -- d outcome )
+  lf-log? if lf-env-lookup-logged else lf-env-lookup-pass then ;
 \ N2 for the declaration being checked, by the same lookup on its own
 \ name: ok when no earlier one of that name was accepted (none, or all
 \ rejected); rejected when one was; unknown or unsupported when one was
@@ -381,10 +389,18 @@ end-structure
 : lf-env-n2 ( d outcome -- outcome )
   dup outcome-rejected = if 2drop outcome-ok exit then
   dup ok? if drop lf-env-declared else nip then ;
-: lf-env-own-name ( -- outcome )
+: lf-env-own-name-pass ( -- outcome )
   lf-env-checking 0= if outcome-invalid exit then nip
   lf-name-storage-valid? 0= if drop outcome-invalid exit then
   dup lf-input-name swap lf-env-find lf-env-n2 ;
+\ The derivation log (ADR 0013) records N2 as a fresh-name step, L1 as a
+\ universe-arity step, L2 as a universe-parameter step and L3 as a
+\ distinct-parameters step; a and b as the catalogue gives them (the
+\ declaration as its number, a name as its ID).
+: lf-env-logged ( a b rule xt -- outcome ) >r lf-log-open r> execute lf-log-decided ;
+: lf-env-own-name ( -- outcome )
+  lf-log? 0= if lf-env-own-name-pass exit then
+  lf-env-limit lf-log-none lf-rule-fresh-name ['] lf-env-own-name-pass lf-env-logged ;
 \ G-P5, for a scheduler outside any check: whether every declaration
 \ before i named name has a final slot in the current environment. False
 \ inside a job or a check (the scheduler alone asks), without a valid
@@ -450,29 +466,39 @@ end-structure
 \ d's number of parameters, else rejected; invalid as lf-env-params.
 : lf-env-arity-rejected ( n arity -- outcome )
   c" environment lf-env-arity?" lf-diag-level-count lf-diag-note outcome-rejected ;
-: lf-env-arity? ( n d -- outcome )
+: lf-env-arity-pass ( n d -- outcome )
   lf-env-params ok? 0= if 2drop drop outcome-invalid exit then
   nip 2dup = if 2drop outcome-ok else lf-env-arity-rejected then ;
+: lf-env-arity? ( n d -- outcome )
+  lf-log? 0= if lf-env-arity-pass exit then
+  2dup lf-rule-universe-arity ['] lf-env-arity-pass lf-env-logged ;
 \ L2: whether name is a universe parameter of the declaration being
 \ checked: ok or rejected; invalid without a check's snapshot or for an
 \ invalid name.
 : lf-env-undeclared ( name -- outcome )
   0 c" environment lf-env-param?" lf-diag-undeclared-param lf-diag-note
   outcome-rejected ;
-: lf-env-param? ( name -- outcome )
+: lf-env-param-pass ( name -- outcome )
   lf-env-checking 0= if drop outcome-invalid exit then nip
   over lf-env-name-ok? 0= if 2drop outcome-invalid exit then
   over swap lf-input-params lf-params-has?
   if drop outcome-ok else lf-env-undeclared then ;
+: lf-env-param? ( name -- outcome )
+  lf-log? 0= if lf-env-param-pass exit then
+  dup lf-log-none lf-rule-universe-parameter ['] lf-env-param-pass lf-env-logged ;
 \ L3: the declaration being checked lists no parameter twice: ok or
 \ rejected; invalid without a check's snapshot.
 : lf-env-repeated ( i -- outcome )
   0 c" environment lf-env-own-params" lf-diag-duplicate-param lf-diag-note
   outcome-rejected ;
-: lf-env-own-params ( -- outcome )
+: lf-env-own-params-pass ( -- outcome )
   lf-env-checking 0= if outcome-invalid exit then nip
   lf-name-storage-valid? 0= if drop outcome-invalid exit then
   dup lf-input-params lf-params-distinct? if drop outcome-ok else lf-env-repeated then ;
+: lf-env-own-params ( -- outcome )
+  lf-log? 0= if lf-env-own-params-pass exit then
+  lf-env-limit lf-log-none lf-rule-distinct-parameters ['] lf-env-own-params-pass
+  lf-env-logged ;
 
 \ Results, read within this context's snapshot (G-P4; after a run, take
 \ one with lf-env-view). The outcome of declaration d when the snapshot

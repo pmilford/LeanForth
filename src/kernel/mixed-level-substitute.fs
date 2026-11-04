@@ -16,6 +16,7 @@
 require ../lib/lib.fs
 require ../core/constant-references.fs
 require ../core/constant-term-boundary.fs
+require ../core/derivation-log.fs
 require ../core/diagnostics.fs
 require ../core/generation-handles.fs
 require ../core/levels.fs
@@ -207,8 +208,16 @@ lf-term-capacity context-walk: lf-mls-walker
 \ checks and topological staging are additional bounded work. Status is invalid
 \ for malformed, stale or out-of-scope input, exhausted when the fuel runs
 \ out, and full for a full work stack or store or a spent identity serial.
-: lf-mixed-level-substitute
+: lf-mls-pass
   ( index id formals actual-pairs count fuel -- index id 0 | status )
   lf-mls-walker walk-budget 0= if 2drop 2drop drop outcome-invalid exit then
   dup lf-level-capacity upto? 0= if 2drop 2drop drop outcome-invalid exit then
   lf-mls-use lf-mls-prepare dup ok? if drop lf-mls-run else nip nip then ;
+\ The derivation log (ADR 0013): with it on, the substitution is one
+\ instantiate-levels step of the type with count levels; both paths run
+\ the same pass.
+: lf-mls-logged ( index id formals actual-pairs count fuel -- index id 0 | status )
+  5 pick 2 pick lf-rule-instantiate-levels lf-log-open lf-mls-pass lf-log-close-maybe ;
+: lf-mixed-level-substitute
+  ( index id formals actual-pairs count fuel -- index id 0 | status )
+  lf-log? if lf-mls-logged else lf-mls-pass then ;

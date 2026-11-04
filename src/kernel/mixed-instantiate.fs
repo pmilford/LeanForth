@@ -9,6 +9,7 @@
 
 require ../lib/lib.fs
 require ../core/constant-term-boundary.fs
+require ../core/derivation-log.fs
 require ../core/diagnostics.fs
 require ../core/tagged-sort-boundary.fs
 require ../core/terms.fs
@@ -97,7 +98,13 @@ end-structure
 \ Running out of fuel or frames is recorded as a diagnostic.
 : lf-minst-site ( -- site ) c" mixed-instantiate lf-mixed-instantiate" ;
 : lf-minst-explain ( outcome -- outcome ) lf-minst-frames lf-minst-site lf-diag-frames ;
-: lf-mixed-instantiate ( source sid replacement rid fuel -- result id status )
+: lf-minst-pass ( source sid replacement rid fuel -- result id status )
   lf-minst-frames frame-budget 0= if lf-minst-unfueled exit then
   lf-minst-audit dup ok? 0= if lf-minst-refuse exit then
   2drop nip lf-minst-begin lf-rebuild-run lf-minst-explain ;
+\ The derivation log (ADR 0013): with it on, the pass is one instantiate
+\ step of the source and the replacement; both paths run the same pass.
+: lf-minst-logged ( source sid replacement rid fuel -- result id status )
+  4 pick 3 pick lf-rule-instantiate lf-log-open lf-minst-pass lf-log-close-handle ;
+: lf-mixed-instantiate ( source sid replacement rid fuel -- result id status )
+  lf-log? if lf-minst-logged else lf-minst-pass then ;

@@ -39,5 +39,8 @@ require ./program/program-depth.fs
 require ./program/ir-reader.fs
 require ./program/ir-run.fs
 
-\ Presentation: the term printer and its side table (untrusted output).
+\ Presentation: the term printer and its side table, and the proof outline
+\ printed from the derivation log (untrusted output; the checker loads
+\ only the log itself, src/core/derivation-log.fs).
 require ./present/term-printer.fs
+require ./present/proof-outline.fs

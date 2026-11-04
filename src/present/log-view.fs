@@ -1,0 +1,328 @@
+\ Reading the derivation log for printing (ADR 0013 L7, plan task 2.4.4):
+\ the formulas of the log's records, printed by the term printer in the
+\ scope of the binders around each step, and the list of every step that
+\ the proof outline's --detail shows. Untrusted presentation code: the
+\ checker never loads it, and nothing it prints is evidence of anything.
+\
+\ Formulas. An input object (a reference n >= 0) is printed from the
+\ stores. A copy from the log's pools is first rebuilt as scratch nodes
+\ above the input marks (lf-lv-term), printed, and then rolled back with
+\ lf-input-rollback (lf-lv-release): the printer never prints a formula
+\ the checker did not compute, and the input below the marks is never
+\ written. So it runs only between checks, in the context that ran the
+\ check, with its input intact; the scratch it allocates advances the
+\ stores' identity serials, as a check does. A copied lambda or Pi takes
+\ its binder name from the side table entry of the input node it was
+\ made from: the lambda whose type it is (a lambda step), or the node a
+\ shift, an instantiation or a universe instantiation rebuilt (lf-lv-names);
+\ otherwise it prints as x, as the printer does.
+\
+\ Scopes. A record at depth d lies under d binders; the binder at depth k
+\ is the subject of the nearest later lambda or Pi step at depth k whose
+\ sub-derivation holds the record (lf-lv-scope-of). A formula is printed
+\ open, under those binders' names (lf-print-scoped).
+\
+\ Text. Each line is built in a buffer by the term printer's sink and the
+\ words below, then written to the output sink (default TYPE), padded by
+\ characters (UTF-8 aware) where a column is wanted.
+\ State: one context record, lf-lv (ADR 0009): the output sink, the line
+\ buffer, the formula fuel, the scope, the rebuilt copies and the names of
+\ copies. Requires a check's log in the current context.
+
+require ./term-printer.fs
+require ../lib/bytes.fs
+require ../core/derivation-log.fs
+require ../core/input.fs
+
+1024 constant lf-lv-buffer-size
+
+begin-structure /lf-lv
+  field: lf-lv-sink          \ xt ( c-addr u -- ) of the finished text
+  field: lf-lv-used          \ bytes in the line buffer
+  field: lf-lv-fuel          \ fuel of each formula
+  field: lf-lv-bad           \ formulas that failed to print
+  field: lf-lv-depth         \ binders in the scope
+  lf-term-capacity cells +field lf-lv-scope          \ binder nodes, outermost first
+  lf-log-term-capacity cells +field lf-lv-made       \ copy k's rebuilt term + 1, or 0
+  lf-log-level-capacity cells +field lf-lv-lmade     \ copy k's rebuilt level + 1, or 0
+  lf-log-term-capacity cells +field lf-lv-namer      \ input binder naming copy k, + 1
+  lf-lv-buffer-size +field lf-lv-buffer
+end-structure
+/lf-lv context-record: lf-lv
+
+\ Text: the buffer, the output, numbers, padding by characters.
+: lf-lv-text ( -- c-addr u ) lf-lv lf-lv-buffer lf-lv lf-lv-used @ ;
+: lf-lv-clear ( -- ) 0 lf-lv lf-lv-used ! ;
+: lf-lv-room ( -- n ) lf-lv-buffer-size lf-lv lf-lv-used @ - ;
+: lf-lv-put ( c-addr u -- )
+  lf-lv-room min tuck lf-lv-text + swap move lf-lv lf-lv-used +! ;
+: lf-lv-out ( c-addr u -- ) lf-lv lf-lv-sink @ ?dup if execute else type then ;
+: lf-lv-n ( n -- ) dup 0< if s" -" lf-lv-put negate then lf-pp-digits lf-lv-put ;
+: lf-lv-chars ( c-addr u -- n )
+  0 -rot begin dup while 2dup utf8-length 1 max /string rot 1+ -rot repeat 2drop ;
+create lf-lv-blanks 64 allot lf-lv-blanks 64 bl fill
+: lf-lv-spaces ( n -- ) begin dup 0> while lf-lv-blanks over 64 min lf-lv-out
+  64 - repeat drop ;
+\ Write the buffer, padded with spaces to width characters, and empty it.
+: lf-lv-flush ( width -- )
+  lf-lv-text lf-lv-out lf-lv-text lf-lv-chars - lf-lv-spaces lf-lv-clear ;
+: lf-lv-cr ( -- ) s\" \n" lf-lv-out ;
+: lf-lv-step ( s -- ) s" s" lf-lv-put lf-lv-n ;
+
+\ The records' fields.
+: lf-lv-rule ( s -- rule ) lf-log-record logrec-rule @ ;
+: lf-lv-a ( s -- ref ) lf-log-record logrec-a @ ;
+: lf-lv-b ( s -- ref ) lf-log-record logrec-b @ ;
+: lf-lv-out-ref ( s -- ref ) lf-log-record logrec-out @ ;
+: lf-lv-depth@ ( s -- d ) lf-log-record logrec-depth @ ;
+: lf-lv-start ( s -- start ) lf-log-record logrec-start @ ;
+: lf-lv-outcome ( s -- outcome ) lf-log-record logrec-outcome @ ;
+: lf-lv-binder-rule? ( rule -- flag ) dup lf-rule-lambda = swap lf-rule-pi = or ;
+: lf-lv-infer-rule? ( rule -- flag ) lf-rule-sort lf-rule-form between? ;
+
+\ Premises: s-1, then each start of the last, while above s's start.
+\ lf-lv-premises counts them; lf-lv-premise gives the i-th, ascending.
+: lf-lv-premises ( s -- n )
+  dup lf-lv-start >r 0 swap 1- begin dup r@ > while swap 1+ swap lf-log-premise
+  repeat drop r> drop ;
+: lf-lv-premise ( s i -- p )
+  over lf-lv-premises swap - 1- swap 1- swap 0 ?do lf-log-premise loop ;
+\ The i-th premise (ascending) that is an inference step.
+: lf-lv-inference ( s i -- p true | false )
+  swap dup lf-lv-premises 0 ?do dup i lf-lv-premise dup lf-lv-rule lf-lv-infer-rule?
+    if rot ?dup 0= if nip true unloop exit then 1- -rot then drop
+  loop 2drop false ;
+
+\ Scopes: the binder at depth k around step s, and all d of them.
+: lf-lv-encloses? ( s r k -- flag )
+  over lf-lv-depth@ = >r dup lf-lv-rule lf-lv-binder-rule? >r lf-lv-start
+  > r> r> and and ;
+: lf-lv-binder ( s k -- r true | false )
+  over lf-log-count 1+ swap 1+ ?do over i 2 pick lf-lv-encloses?
+    if 2drop i true unloop exit then loop 2drop false ;
+: lf-lv-scope! ( node k -- ) cells lf-lv lf-lv-scope + ! ;
+\ Fill the scope with step s's binders: their number, or -1 when one of
+\ them is not in the log (a step of the rejection analysis).
+: lf-lv-scope-of ( s -- d )
+  dup lf-lv-depth@ dup lf-term-capacity > if 2drop -1 exit then
+  dup 0 ?do over i lf-lv-binder 0= if 2drop -1 unloop exit then lf-lv-a i
+  lf-lv-scope! loop
+  nip ;
+\ Bring node into the scope set, as its innermost binder.
+: lf-lv-push ( node -- )
+  lf-lv lf-lv-depth @ dup lf-term-capacity < if lf-lv-scope! 1 lf-lv lf-lv-depth +!
+  else 2drop then ;
+
+\ Names of copies (see the header), computed once per log: the input
+\ binder (or the copy's name source) that a copy of a lambda or Pi was
+\ made from.
+: lf-lv-namer@ ( k -- addr ) cells lf-lv lf-lv-namer + ;
+: lf-lv-name-of ( ref -- node true | false )
+  dup 0< 0= if true exit then
+  dup lf-log-copy? 0= if drop false exit then
+  lf-log-copy-index lf-lv-namer@ @ 1- dup 0< if drop false else true then ;
+: lf-lv-name! ( node k -- ) lf-lv-namer@ dup @ if 2drop else swap 1+ swap ! then ;
+\ A reference's node: tag first second, from the stores or the pool.
+: lf-lv-node ( ref -- tag first second true | false )
+  dup 0< 0= if lf-term-read exit then
+  dup lf-log-copy? 0= if drop false exit then
+  lf-log-copy-index dup lf-log-term-copies < if lf-log-term-slot node@ true else
+  drop false then ;
+\ Walk an input-or-copy reference a and a copy reference out of the same
+\ shape together, naming each copied node from its partner (only lambda
+\ and Pi nodes have names in the side table).
+: lf-lv-pair-name ( a out -- )
+  dup lf-log-copy? 0= if 2drop exit then
+  swap lf-lv-name-of if swap lf-log-copy-index lf-lv-name! else drop then ;
+: lf-lv-tag ( ref -- tag true | false ) lf-lv-node if 2drop true else false then ;
+: lf-lv-alike? ( a out -- flag )
+  lf-lv-tag 0= if drop false exit then swap lf-lv-tag 0= if drop false exit then = ;
+\ Part 1 (first) or 2 (second) of a reference to a binary node.
+: lf-lv-child-ref ( ref part -- ref' true | false )
+  swap lf-lv-node 0= if drop false exit then
+  2 pick lf-term-binary-tag? 0= if 2drop 2drop false exit then
+  rot drop rot 1 = if drop else nip then true ;
+: lf-lv-both ( a out part -- a' out' true | false )
+  tuck lf-lv-child-ref 0= if 2drop false exit then
+  -rot lf-lv-child-ref 0= if drop false exit then swap true ;
+: lf-lv-parallel ( a out -- )
+  2dup lf-lv-pair-name 2dup lf-lv-alike? 0= if 2drop exit then
+  2dup 1 lf-lv-both if recurse then 2 lf-lv-both if recurse then ;
+: lf-lv-rebuilt? ( rule -- flag )
+  dup lf-rule-shift = over lf-rule-instantiate = or swap lf-rule-instantiate-levels = or ;
+: lf-lv-name-step ( s -- )
+  dup lf-lv-rule lf-rule-lambda = if dup lf-lv-a swap lf-lv-out-ref
+  lf-lv-pair-name exit then
+  dup lf-lv-rule lf-lv-rebuilt? if dup lf-lv-a swap lf-lv-out-ref lf-lv-parallel
+  exit then drop ;
+: lf-lv-names ( -- )
+  lf-lv lf-lv-namer lf-log-term-capacity cells erase
+  lf-log-count 0 ?do i 1+ lf-lv-name-step loop ;
+
+\ Rebuilding copies as scratch nodes, children first (a copy's children
+\ are input objects or earlier copies), named from the side table.
+: lf-lv-made@ ( k -- addr ) cells lf-lv lf-lv-made + ;
+: lf-lv-lmade@ ( k -- addr ) cells lf-lv lf-lv-lmade + ;
+defer lf-lv-level ( ref -- level true | false )
+: lf-lv-lchild ( ref -- level true | false ) lf-lv-level ;
+: lf-lv-lfields ( tag first second -- tag first' second' true | false )
+  2 pick lf-level-tag-succ = if swap lf-lv-lchild 0= if 2drop false exit then
+  swap true exit then
+  2 pick lf-level-binary-tag? 0= if true exit then
+  swap lf-lv-lchild 0= if 2drop false exit then swap
+  lf-lv-lchild 0= if 2drop false exit then true ;
+: lf-lv-lnew ( k -- level true | false )
+  dup lf-log-level-slot node@ lf-lv-lfields 0= if drop false exit then
+  lf-level-add 0= if drop false exit then dup 1+ rot lf-lv-lmade@ ! true ;
+: lf-lv-level-copy ( k -- level true | false )
+  dup lf-log-level-copies < 0= if drop false exit then
+  dup lf-lv-lmade@ @ ?dup if nip 1- true else lf-lv-lnew then ;
+: lf-lv-valid ( index flag -- index true | false ) dup 0= if nip then ;
+: lf-lv-level-ref ( ref -- level true | false )
+  dup 0< 0= if dup lf-level-valid? lf-lv-valid exit then
+  dup lf-log-copy? if lf-log-copy-index lf-lv-level-copy else drop false then ;
+' lf-lv-level-ref is lf-lv-level
+
+defer lf-lv-term ( ref -- term true | false )
+: lf-lv-tfields ( tag first second -- tag first' second' true | false )
+  2 pick lf-term-binary-tag? if
+    swap lf-lv-term 0= if 2drop false exit then swap
+    lf-lv-term 0= if 2drop false exit then true exit then
+  2 pick lf-tag-symbolic-sort = if swap lf-lv-level 0= if 2drop false exit then
+  swap then true ;
+: lf-lv-named ( term k -- term )
+  lf-lv-namer@ @ ?dup 0= if exit then 1- lf-pres-binder@ 0= if exit then
+  2 pick -rot lf-pres-binder! drop ;
+: lf-lv-tnew ( k -- term true | false )
+  dup lf-log-term-slot node@ lf-lv-tfields 0= if drop false exit then
+  lf-term-add 0= if drop false exit then
+  over lf-lv-named dup 1+ rot lf-lv-made@ ! true ;
+: lf-lv-term-copy ( k -- term true | false )
+  dup lf-log-term-copies < 0= if drop false exit then
+  dup lf-lv-made@ @ ?dup if nip 1- true else lf-lv-tnew then ;
+: lf-lv-term-ref ( ref -- term true | false )
+  dup 0< 0= if dup lf-term-valid? lf-lv-valid exit then
+  dup lf-log-copy? if lf-log-copy-index lf-lv-term-copy else drop false then ;
+' lf-lv-term-ref is lf-lv-term
+\ Forget the rebuilt nodes: the stores back to the input marks.
+: lf-lv-release ( -- )
+  lf-input-rollback drop
+  lf-lv lf-lv-made lf-log-term-capacity cells erase
+  lf-lv lf-lv-lmade lf-log-level-capacity cells erase ;
+
+\ Formulas into the line buffer: a term or a level reference in step s's
+\ scope (or the scope already set, lf-lv-depth binders); "?" for one that
+\ cannot be printed (unkept, not in the log, or a print that failed).
+: lf-lv-fail ( -- ) s" ?" lf-lv-put 1 lf-lv lf-lv-bad +! ;
+: lf-lv-printed ( outcome -- ) ok? 0= if lf-lv-fail then ;
+: lf-lv-scope-set ( -- addr d ) lf-lv lf-lv-scope lf-lv lf-lv-depth @ ;
+: lf-lv-term-here ( term -- )
+  lf-lv-scope-set lf-lv lf-lv-fuel @ lf-print-scoped lf-lv-printed ;
+: lf-lv-ref-here ( ref -- ) lf-lv-term if lf-lv-term-here else lf-lv-fail
+  then lf-lv-release ;
+: lf-lv-at ( s -- flag ) lf-lv-scope-of dup 0 max lf-lv lf-lv-depth ! 0< 0= ;
+\ The reference ref in step s's scope.
+: lf-lv-formula ( ref s -- ) lf-lv-at if lf-lv-ref-here else drop lf-lv-fail then ;
+\ Child part (1 first, 2 second) of a term reference, in step s's scope.
+: lf-lv-child ( term part -- term' ) 1 = if lf-term-first@ else lf-term-second@ then ;
+: lf-lv-part ( ref part s -- )
+  lf-lv-at 0= if 2drop lf-lv-fail exit then
+  swap lf-lv-term if swap lf-lv-child lf-lv-term-here else drop lf-lv-fail
+  then lf-lv-release ;
+\ A level reference.
+: lf-lv-level-here ( ref -- )
+  lf-lv-level if lf-lv lf-lv-fuel @ lf-print-level lf-lv-printed else lf-lv-fail
+  then lf-lv-release ;
+\ The display name of the innermost binder of the scope set.
+: lf-lv-name-here ( -- )
+  lf-lv-scope-set lf-lv lf-lv-fuel @ lf-print-scope-name lf-lv-printed ;
+\ A shift's input lies under amount fewer binders than its step.
+: lf-lv-fewer ( amount -- ) negate lf-lv lf-lv-depth +! lf-lv lf-lv-depth dup
+  @ 0 max swap ! ;
+: lf-lv-lifted ( ref amount s -- )
+  lf-lv-at 0= if 2drop lf-lv-fail exit then lf-lv-fewer lf-lv-ref-here ;
+\ An instantiation's or a contraction's body (under one more binder) and
+\ argument, shown as the redex they form: (fun x ↦ body) argument.
+: lf-lv-unbuilt ( x -- ) drop lf-lv-fail lf-lv-release ;
+: lf-lv-redex ( body arg s -- )
+  lf-lv-at 0= if 2drop lf-lv-fail exit then
+  swap lf-lv-term 0= if lf-lv-unbuilt exit then dup lf-term-lam 0= if
+  lf-lv-unbuilt exit then
+  swap lf-lv-term 0= if lf-lv-unbuilt exit then
+  lf-term-app if lf-lv-term-here else lf-lv-fail then lf-lv-release ;
+\ A name ID, and a declaration's name.
+: lf-lv-name-id ( id -- ) lf-print-name lf-lv-printed ;
+: lf-lv-decl-name ( i -- )
+  dup 0 lf-input-count within if lf-input-name lf-lv-name-id else lf-lv-n then ;
+
+\ Setting up: the term printer writes into the line buffer, in Unicode;
+\ lf-lv-done gives it back its sink and options.
+: lf-lv-setup ( sink fuel -- )
+  lf-lv lf-lv-fuel ! lf-lv lf-lv-sink ! 0 lf-lv lf-lv-bad ! lf-lv-clear
+  ['] lf-lv-put lf-print-unicode lf-print-setup lf-lv-names ;
+: lf-lv-done ( -- ) ['] type lf-print-unicode lf-print-setup ;
+
+\ The list of every step (--detail, and a log no outline is printed from):
+\ step, rule, depth, the formulas the rule relates, its premises and,
+\ unless ok, its outcome.
+: lf-lv-arrow ( -- ) s"  ⟶ " lf-lv-put ;
+: lf-lv-as ( ref s -- ) over lf-log-none = if 2drop else lf-lv-formula then ;
+: lf-lv-typed ( s -- )
+  dup lf-lv-a over lf-lv-as dup lf-lv-out-ref lf-log-none = if drop exit then
+  s"  : " lf-lv-put dup lf-lv-out-ref swap lf-lv-as ;
+: lf-lv-reduced ( s -- ) dup lf-lv-a over lf-lv-as lf-lv-arrow dup
+  lf-lv-out-ref swap lf-lv-as ;
+: lf-lv-beta ( s -- )
+  dup lf-lv-a over lf-lv-b 2 pick lf-lv-redex lf-lv-arrow dup
+  lf-lv-out-ref swap lf-lv-as ;
+: lf-lv-shifted ( s -- )
+  dup lf-lv-a over lf-lv-b 2 pick lf-lv-lifted s"  shifted by " lf-lv-put
+  dup lf-lv-b lf-lv-n
+  lf-lv-arrow dup lf-lv-out-ref swap lf-lv-as ;
+: lf-lv-defeq ( s -- ) dup lf-lv-a over lf-lv-as s"  ≡ " lf-lv-put dup
+  lf-lv-b swap lf-lv-as ;
+: lf-lv-levels ( s -- )
+  dup lf-lv-a lf-lv-level-here s"  = " lf-lv-put lf-lv-b lf-lv-level-here ;
+: lf-lv-counted ( s c-addr u -- )
+  2>r dup lf-lv-a over lf-lv-as 2r> lf-lv-put dup lf-lv-b lf-lv-n
+  lf-lv-arrow dup lf-lv-out-ref swap lf-lv-as ;
+: lf-lv-resolve ( s -- ) dup lf-lv-a lf-lv-name-id s"  ↦ d" lf-lv-put
+  lf-lv-out-ref lf-lv-n ;
+: lf-lv-decl ( s -- ) s" declaration " lf-lv-put lf-lv-a lf-lv-decl-name ;
+: lf-lv-arity ( s -- )
+  dup lf-lv-a lf-lv-n s"  levels for d" lf-lv-put lf-lv-b lf-lv-n ;
+: lf-lv-formed ( s -- )
+  dup lf-lv-a over lf-lv-as s"  : Sort " lf-lv-put lf-lv-out-ref lf-lv-level-here ;
+: lf-lv-defined ( s -- ) dup lf-lv-a over lf-lv-as s"  := " lf-lv-put dup
+  lf-lv-b swap lf-lv-as ;
+: lf-lv-published ( s -- )
+  s" d" lf-lv-put dup lf-lv-a lf-lv-n s" , " lf-lv-put lf-lv-b lf-lv-n s"  dependencies"
+  lf-lv-put ;
+\ A CASE with one arm per rule (read as a table).
+: lf-lv-relates ( s -- )
+  dup lf-lv-rule dup lf-lv-infer-rule? if drop lf-lv-typed exit then
+  case lf-rule-whnf of lf-lv-reduced endof lf-rule-beta of lf-lv-beta endof
+    lf-rule-defeq of lf-lv-defeq endof lf-rule-level-eq of lf-lv-levels endof
+    lf-rule-instantiate of lf-lv-beta endof
+    lf-rule-shift of lf-lv-shifted endof
+    lf-rule-instantiate-levels of s"  with levels: " lf-lv-counted endof
+    lf-rule-resolve of lf-lv-resolve endof
+    lf-rule-universe-arity of lf-lv-arity endof
+    lf-rule-universe-parameter of lf-lv-a lf-lv-name-id endof
+    lf-rule-proposition of lf-lv-formed endof lf-rule-type of lf-lv-formed endof
+    lf-rule-declaration of lf-lv-defined endof lf-rule-publish of lf-lv-published endof
+    >r lf-lv-decl r> endcase ;
+: lf-lv-premise-list ( s -- )
+  dup lf-lv-premises dup 0= if 2drop exit then s"   ← " lf-lv-put
+  0 ?do i if s" , " lf-lv-put then dup i lf-lv-premise lf-lv-step loop drop ;
+: lf-lv-outcome. ( s -- )
+  lf-lv-outcome dup ok? if drop exit then s"   [" lf-lv-put outcome-text lf-lv-put
+  s" ]" lf-lv-put ;
+\ One step's line.
+: lf-lv-list-step ( s -- )
+  s"   " lf-lv-put dup lf-lv-step 9 lf-lv-flush
+  dup lf-lv-rule lf-log-rule-name lf-lv-put 20 lf-lv-flush
+  s" depth " lf-lv-put dup lf-lv-depth@ lf-lv-n 10 lf-lv-flush
+  dup lf-lv-relates dup lf-lv-premise-list lf-lv-outcome. 0 lf-lv-flush lf-lv-cr ;
+\ Steps 1 to n.
+: lf-lv-list ( n -- ) 0 ?do i 1+ lf-lv-list-step loop ;

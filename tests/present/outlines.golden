@@ -1,0 +1,321 @@
+== identity
+Theorem identity
+  accepted (experimental, not independently audited); axioms: none
+  Statement: ∀ {P : Prop}, P → P
+  Input:     tests/reference/identity.ndjson line 12
+  Checker log: 21 steps, complete. The statement is a proposition: s10 (from s3).
+
+Proof (reconstructed from the proof term).
+  1  Let P be a proposition.                       [∀-introduction]                   s11
+  2  Assume proof : P.                             [assumption]                       s13
+  3  Discharging 2 and 1 gives                     [→/∀-introduction ← 1, 2]          s16–s17
+       ∀ {P : Prop}, P → P.
+  4  This is the statement.                        [definitional equality ← 3]        s19
+∎
+Rules, formulas and step numbers come from the checker's log; the sentences are
+fixed templates (structured-template), not checked reasoning.
+Templates: let-props/v0, assume/v0, discharge/v0, statement/v0.
+
+== composition
+Theorem composition
+  accepted (experimental, not independently audited); axioms: none
+  Statement: ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
+  Input:     tests/reference/composition.ndjson line 35
+  Checker log: 65 steps, complete. The statement is a proposition: s26 (from s3).
+
+Proof (reconstructed from the proof term).
+  1  Let A, B, C be propositions.                  [∀-introduction]                   s27–s29
+  2  Assume f : A → B.                             [assumption]                       s34
+  3  Assume g : B → C.                             [assumption]                       s39
+  4  Assume value : A.                             [assumption]                       s41
+  5    Then f value : B,                           [→-elimination ← 2, 4]             s50
+         because f turns any proof of A into a proof of B.
+  6    Then g (f value) : C,                       [→-elimination ← 3, 5]             s53
+         because g turns any proof of B into a proof of C.
+  7  Discharging 4, 3, 2 and 1 gives               [→/∀-introduction ← 1, 2, 3, 4, 6] s54–s59
+       ∀ {A B C : Prop}, (A → B) → (B → C) → A → C.
+  8  This is the statement.                        [definitional equality ← 7]        s63
+∎
+Rules, formulas and step numbers come from the checker's log; the sentences are
+fixed templates (structured-template), not checked reasoning.
+Templates: let-props/v0, assume/v0, implies-elim/v0, discharge/v0, statement/v0.
+
+== type-identity
+Theorem type_identity
+  accepted (experimental, not independently audited); axioms: none
+  Statement: ∀ {A : Type} {P : A → Prop} {x : A}, P x → P x
+  Input:     tests/reference/type-identity.ndjson line 29
+  Checker log: 53 steps, complete. The statement is a proposition: s28 (from s3).
+
+Proof (reconstructed from the proof term).
+  1  Let A be a type.                              [∀-introduction]                   s29
+  2  Let P : A → Prop.                             [∀-introduction]                   s33
+  3  Let x : A.                                    [∀-introduction]                   s35
+  4  Assume proof : P x.                           [assumption]                       s42
+  5  Discharging 4, 3, 2 and 1 gives               [→/∀-introduction ← 1, 2, 3, 4]    s45–s48
+       ∀ {A : Type} {P : A → Prop} {x : A}, P x → P x.
+  6  This is the statement.                        [definitional equality ← 5]        s51
+∎
+Rules, formulas and step numbers come from the checker's log; the sentences are
+fixed templates (structured-template), not checked reasoning.
+Templates: let-types/v0, let/v0, assume/v0, discharge/v0, statement/v0.
+
+== poly-identity
+Theorem poly_identity
+  accepted (experimental, not independently audited); axioms: none
+  Statement: ∀ {A : Sort u} {P : A → Prop} {x : A}, P x → P x
+  Input:     tests/reference/poly-identity.ndjson line 30
+  Checker log: 55 steps, complete. The statement is a proposition: s29 (from s3).
+
+Proof (reconstructed from the proof term).
+  1  Let A be a type.                              [∀-introduction]                   s31
+  2  Let P : A → Prop.                             [∀-introduction]                   s35
+  3  Let x : A.                                    [∀-introduction]                   s37
+  4  Assume proof : P x.                           [assumption]                       s44
+  5  Discharging 4, 3, 2 and 1 gives               [→/∀-introduction ← 1, 2, 3, 4]    s47–s50
+       ∀ {A : Sort u} {P : A → Prop} {x : A}, P x → P x.
+  6  This is the statement.                        [definitional equality ← 5]        s53
+∎
+Rules, formulas and step numbers come from the checker's log; the sentences are
+fixed templates (structured-template), not checked reasoning.
+Templates: let-types/v0, let/v0, assume/v0, discharge/v0, statement/v0.
+
+== constant-fixture
+Definition fixtureId
+  accepted (experimental, not independently audited); axioms: none
+  Type:      {α : Sort u} → α → α
+  Input:     tests/reference/constant-fixture.ndjson line 14
+  Checker log: 23 steps, complete. The type is a type: s11 (from s3).
+
+Construction (reconstructed from the value).
+  1  Let α be a type.                              [∀-introduction]                   s13
+  2  Let x : α.                                    [∀-introduction]                   s15
+  3  Discharging 2 and 1 gives                     [∀-introduction ← 1, 2]            s18–s19
+       {α : Sort u} → α → α.
+  4  This is the declared type.                    [definitional equality ← 3]        s21
+∎
+Rules, formulas and step numbers come from the checker's log; the sentences are
+fixed templates (structured-template), not checked reasoning.
+Templates: let-types/v0, let/v0, discharge/v0, statement/v0.
+
+Definition fixturePoly
+  accepted (experimental, not independently audited); axioms: none
+  Type:      {α : Sort u} → α → α
+  Input:     tests/reference/constant-fixture.ndjson line 21
+  Checker log: 37 steps, complete. The type is a type: s11 (from s3).
+
+Construction (reconstructed from the value).
+  1  Let α be a type.                              [∀-introduction]                   s13
+  2  Let x : α.                                    [∀-introduction]                   s15
+  3    Recall @fixtureId : {α : Sort u} → α → α,   [earlier declaration]              s20
+         accepted above as d0.
+  4    Then fixtureId x : α,                       [application ← 1, 2, 3]            s26, s31
+         by applying fixtureId.
+  5  Discharging 2 and 1 gives                     [∀-introduction ← 1, 2, 4]         s32–s33
+       {α : Sort u} → α → α.
+  6  This is the declared type.                    [definitional equality ← 5]        s35
+∎
+Rules, formulas and step numbers come from the checker's log; the sentences are
+fixed templates (structured-template), not checked reasoning.
+Templates: let-types/v0, let/v0, apply/v0, recall/v0, discharge/v0, statement/v0.
+
+Theorem fixtureUse
+  accepted (experimental, not independently audited); axioms: none
+  Statement: ∀ {P : Prop}, P → P
+  Input:     tests/reference/constant-fixture.ndjson line 32
+  Checker log: 34 steps, complete. The statement is a proposition: s10 (from s3).
+
+Proof (reconstructed from the proof term).
+  1  Let P be a proposition.                       [∀-introduction]                   s11
+  2  Assume h : P.                                 [assumption]                       s13
+  3    Recall @fixtureId : ∀ {α : Prop}, α → α,    [earlier declaration]              s17
+         accepted above as d0.
+  4    Then fixtureId h : P,                       [application ← 1, 2, 3]            s23, s28
+         by applying fixtureId.
+  5  Discharging 2 and 1 gives                     [→/∀-introduction ← 1, 2, 4]       s29–s30
+       ∀ {P : Prop}, P → P.
+  6  This is the statement.                        [definitional equality ← 5]        s32
+∎
+Rules, formulas and step numbers come from the checker's log; the sentences are
+fixed templates (structured-template), not checked reasoning.
+Templates: let-props/v0, assume/v0, apply/v0, recall/v0, discharge/v0, statement/v0.
+
+== composition --detail
+Theorem composition
+  accepted (experimental, not independently audited); axioms: none
+  Statement: ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
+  Input:     tests/reference/composition.ndjson line 35
+  Checker log: 65 steps, complete. The statement is a proposition: s26 (from s3).
+
+Steps.
+  s1     fresh-name          depth 0   declaration composition
+  s2     distinct-parameters depth 0   declaration composition
+  s3     sort                depth 0   Prop : Type
+  s4     sort                depth 1   Prop : Type
+  s5     sort                depth 2   Prop : Type
+  s6     shift               depth 3   Prop shifted by 3 ⟶ Prop
+  s7     variable            depth 3   A : Prop  ← s6
+  s8     shift               depth 4   Prop shifted by 3 ⟶ Prop
+  s9     variable            depth 4   B : Prop  ← s8
+  s10    pi                  depth 3   A → B : Prop  ← s7, s9
+  s11    shift               depth 4   Prop shifted by 3 ⟶ Prop
+  s12    variable            depth 4   B : Prop  ← s11
+  s13    shift               depth 5   Prop shifted by 3 ⟶ Prop
+  s14    variable            depth 5   C : Prop  ← s13
+  s15    pi                  depth 4   B → C : Prop  ← s12, s14
+  s16    shift               depth 5   Prop shifted by 5 ⟶ Prop
+  s17    variable            depth 5   A : Prop  ← s16
+  s18    shift               depth 6   Prop shifted by 4 ⟶ Prop
+  s19    variable            depth 6   C : Prop  ← s18
+  s20    pi                  depth 5   A → C : Prop  ← s17, s19
+  s21    pi                  depth 4   (B → C) → A → C : Prop  ← s15, s20
+  s22    pi                  depth 3   (A → B) → (B → C) → A → C : Prop  ← s10, s21
+  s23    pi                  depth 2   ∀ {C : Prop}, (A → B) → (B → C) → A → C : Prop  ← s5, s22
+  s24    pi                  depth 1   ∀ {B C : Prop}, (A → B) → (B → C) → A → C : Prop  ← s4, s23
+  s25    pi                  depth 0   ∀ {A B C : Prop}, (A → B) → (B → C) → A → C : Prop  ← s3, s24
+  s26    proposition         depth 0   ∀ {A B C : Prop}, (A → B) → (B → C) → A → C : Sort 0  ← s25
+  s27    sort                depth 0   Prop : Type
+  s28    sort                depth 1   Prop : Type
+  s29    sort                depth 2   Prop : Type
+  s30    shift               depth 3   Prop shifted by 3 ⟶ Prop
+  s31    variable            depth 3   A : Prop  ← s30
+  s32    shift               depth 4   Prop shifted by 3 ⟶ Prop
+  s33    variable            depth 4   B : Prop  ← s32
+  s34    pi                  depth 3   A → B : Prop  ← s31, s33
+  s35    shift               depth 4   Prop shifted by 3 ⟶ Prop
+  s36    variable            depth 4   B : Prop  ← s35
+  s37    shift               depth 5   Prop shifted by 3 ⟶ Prop
+  s38    variable            depth 5   C : Prop  ← s37
+  s39    pi                  depth 4   B → C : Prop  ← s36, s38
+  s40    shift               depth 5   Prop shifted by 5 ⟶ Prop
+  s41    variable            depth 5   A : Prop  ← s40
+  s42    shift               depth 6   B → C shifted by 2 ⟶ B → C
+  s43    variable            depth 6   g : B → C  ← s42
+  s44    shift               depth 6   A → B shifted by 3 ⟶ A → B
+  s45    variable            depth 6   f : A → B  ← s44
+  s46    shift               depth 6   A shifted by 1 ⟶ A
+  s47    variable            depth 6   value : A  ← s46
+  s48    defeq               depth 6   A ≡ A
+  s49    instantiate         depth 6   (fun x ↦ B) value ⟶ B
+  s50    application         depth 6   f value : B  ← s45, s47, s48, s49
+  s51    defeq               depth 6   B ≡ B
+  s52    instantiate         depth 6   (fun x ↦ C) (f value) ⟶ C
+  s53    application         depth 6   g (f value) : C  ← s43, s50, s51, s52
+  s54    lambda              depth 5   fun value ↦ g (f value) : A → C  ← s41, s53
+  s55    lambda              depth 4   fun g value ↦ g (f value) : (B → C) → A → C  ← s39, s54
+  s56    lambda              depth 3   fun f g value ↦ g (f value) : (A → B) → (B → C) → A → C  ← s34, s55
+  s57    lambda              depth 2   fun {C} f g value ↦ g (f value) : ∀ {C : Prop}, (A → B) → (B → C) → A → C  ← s29, s56
+  s58    lambda              depth 1   fun {B C} f g value ↦ g (f value) : ∀ {B C : Prop}, (A → B) → (B → C) → A → C  ← s28, s57
+  s59    lambda              depth 0   fun {A B C} f g value ↦ g (f value) : ∀ {A B C : Prop}, (A → B) → (B → C) → A → C  ← s27, s58
+  s60    level-eq            depth 0   0 = 0
+  s61    level-eq            depth 0   0 = 0
+  s62    level-eq            depth 0   0 = 0
+  s63    defeq               depth 0   ∀ {A B C : Prop}, (A → B) → (B → C) → A → C ≡ ∀ {A B C : Prop}, (A → B) → (B → C) → A → C  ← s60, s61, s62
+  s64    declaration         depth 0   ∀ {A B C : Prop}, (A → B) → (B → C) → A → C := fun {A B C} f g value ↦ g (f value)  ← s1, s2, s26, s59, s63
+  s65    publish             depth 0   d0, 0 dependencies  ← s64
+
+== composition, log truncated
+Theorem composition
+  accepted (experimental, not independently audited); axioms: none
+  Statement: ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
+  Input:     tests/reference/composition.ndjson line 35
+  Checker log: 30 steps, incomplete: truncated at step 31 (records).
+
+Proof outline not available: the checker's log was truncated at step 31 (records); the verdict is unaffected.
+
+== composition, log without formulas
+Theorem composition
+  accepted (experimental, not independently audited); axioms: none
+  Statement: ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
+  Input:     tests/reference/composition.ndjson line 35
+  Checker log: 65 steps, complete. The statement is a proposition: s26 (from s3).
+
+Proof outline not available: the log was kept without formulas (level steps).
+
+== composition-wrong-argument
+Theorem composition
+  rejected
+  Diagnostic: rejected: argument type mismatch (D1-D5) (4, 0)
+  Statement: ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
+  Input:     tests/core/check-declaration-cases/composition-wrong-argument.ndjson line 35
+  Checker log: 67 steps, complete. The statement is a proposition: s26 (from s3).
+
+No proof outline: the declaration was not accepted.
+
+== composition-wrong-argument --detail
+Theorem composition
+  rejected
+  Diagnostic: rejected: argument type mismatch (D1-D5) (4, 0)
+  Statement: ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
+  Input:     tests/core/check-declaration-cases/composition-wrong-argument.ndjson line 35
+  Checker log: 67 steps, complete. The statement is a proposition: s26 (from s3).
+
+Steps.
+  s1     fresh-name          depth 0   declaration composition
+  s2     distinct-parameters depth 0   declaration composition
+  s3     sort                depth 0   Prop : Type
+  s4     sort                depth 1   Prop : Type
+  s5     sort                depth 2   Prop : Type
+  s6     shift               depth 3   Prop shifted by 3 ⟶ Prop
+  s7     variable            depth 3   A : Prop  ← s6
+  s8     shift               depth 4   Prop shifted by 3 ⟶ Prop
+  s9     variable            depth 4   B : Prop  ← s8
+  s10    pi                  depth 3   A → B : Prop  ← s7, s9
+  s11    shift               depth 4   Prop shifted by 3 ⟶ Prop
+  s12    variable            depth 4   B : Prop  ← s11
+  s13    shift               depth 5   Prop shifted by 3 ⟶ Prop
+  s14    variable            depth 5   C : Prop  ← s13
+  s15    pi                  depth 4   B → C : Prop  ← s12, s14
+  s16    shift               depth 5   Prop shifted by 5 ⟶ Prop
+  s17    variable            depth 5   A : Prop  ← s16
+  s18    shift               depth 6   Prop shifted by 4 ⟶ Prop
+  s19    variable            depth 6   C : Prop  ← s18
+  s20    pi                  depth 5   A → C : Prop  ← s17, s19
+  s21    pi                  depth 4   (B → C) → A → C : Prop  ← s15, s20
+  s22    pi                  depth 3   (A → B) → (B → C) → A → C : Prop  ← s10, s21
+  s23    pi                  depth 2   ∀ {C : Prop}, (A → B) → (B → C) → A → C : Prop  ← s5, s22
+  s24    pi                  depth 1   ∀ {B C : Prop}, (A → B) → (B → C) → A → C : Prop  ← s4, s23
+  s25    pi                  depth 0   ∀ {A B C : Prop}, (A → B) → (B → C) → A → C : Prop  ← s3, s24
+  s26    proposition         depth 0   ∀ {A B C : Prop}, (A → B) → (B → C) → A → C : Sort 0  ← s25
+  s27    sort                depth 0   Prop : Type
+  s28    sort                depth 1   Prop : Type
+  s29    sort                depth 2   Prop : Type
+  s30    shift               depth 3   Prop shifted by 3 ⟶ Prop
+  s31    variable            depth 3   A : Prop  ← s30
+  s32    shift               depth 4   Prop shifted by 3 ⟶ Prop
+  s33    variable            depth 4   B : Prop  ← s32
+  s34    pi                  depth 3   A → B : Prop  ← s31, s33
+  s35    shift               depth 4   Prop shifted by 3 ⟶ Prop
+  s36    variable            depth 4   B : Prop  ← s35
+  s37    shift               depth 5   Prop shifted by 3 ⟶ Prop
+  s38    variable            depth 5   C : Prop  ← s37
+  s39    pi                  depth 4   B → C : Prop  ← s36, s38
+  s40    shift               depth 5   Prop shifted by 5 ⟶ Prop
+  s41    variable            depth 5   A : Prop  ← s40
+  s42    shift               depth 6   B → C shifted by 2 ⟶ B → C
+  s43    variable            depth 6   g : B → C  ← s42
+  s44    shift               depth 6   A shifted by 1 ⟶ A
+  s45    variable            depth 6   value : A  ← s44
+  s46    defeq               depth 6   A ≡ B  [unknown]
+  s47    shift               depth 6   Prop shifted by 6 ⟶ Prop
+  s48    variable            depth 6   A : Prop  ← s47
+  s49    sort                depth 6   Prop : Type
+  s50    shift               depth 6   Prop shifted by 5 ⟶ Prop
+  s51    variable            depth 6   B : Prop  ← s50
+  s52    sort                depth 6   Prop : Type
+  s53    shift               depth 6   Prop shifted by 6 ⟶ Prop
+  s54    variable            depth 6   A : Prop  ← s53
+  s55    sort                depth 6   Prop : Type
+  s56    shift               depth 6   Prop shifted by 5 ⟶ Prop
+  s57    variable            depth 6   B : Prop  ← s56
+  s58    sort                depth 6   Prop : Type
+  s59    application         depth 6   g value  ← s43, s45, s46, s48, s49, s51, s52, s54, s55, s57, s58  [rejected]
+  s60    lambda              depth 5   fun value ↦ g value  ← s41, s59  [rejected]
+  s61    lambda              depth 4   fun g value ↦ g value  ← s39, s60  [rejected]
+  s62    lambda              depth 3   fun f g value ↦ g value  ← s34, s61  [rejected]
+  s63    lambda              depth 2   fun {C} f g value ↦ g value  ← s29, s62  [rejected]
+  s64    lambda              depth 1   fun {B C} f g value ↦ g value  ← s28, s63  [rejected]
+  s65    lambda              depth 0   fun {A B C} f g value ↦ g value  ← s27, s64  [rejected]
+  s66    declaration         depth 0   ∀ {A B C : Prop}, (A → B) → (B → C) → A → C := fun {A B C} f g value ↦ g value  ← s1, s2, s26, s65  [rejected]
+  s67    publish             depth 0   d0, 0 dependencies  ← s66  [rejected]
+
