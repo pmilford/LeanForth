@@ -110,6 +110,11 @@ s" 42" input tier-texts text-intern drop constant t42
 t42 input expr-nat ex constant nat42
 T{ t42 input expr-str ex nat42 <> t42 input expr-nat -> true nat42 0 }T
 T{ nat42 input expr-a@ input tier-texts text@ s" 42" compare nat42 range@ -> 0 0 }T
+\ mdata, a kind staged but marked (import/stage.fs): the wrapped
+\ expression, whose data it takes one level deeper.
+succ-b0 input expr-mdata ex constant md
+T{ md range@ md depth@ md input expr-a@ md input expr-tag@ -> 1 2 succ-b0 tag-mdata }T
+T{ succ-b0 input expr-mdata md input expr-mdata ex md depth@ 1+ swap depth@ -> md 0 3 3 }T
 \ The depth is capped at 1023.
 : chain ( n -- e ) b0 swap 0 ?do c-succ swap input expr-app ex loop ;
 T{ 1022 chain depth@ 1023 chain depth@ 1100 chain depth@ -> 1022 1023 1023 }T
@@ -120,7 +125,8 @@ T{ range-max 1- input expr-bvar ex range@ range-max input expr-bvar -> range-max
 input tier-exprs cons-numbers constant before
 T{ c-succ 99999 input expr-app let1 1+ b0 input expr-app -1 b0 input expr-app -> -1 1 -1 1 -1 1 }T
 T{ tag-app 1 pack-head c-succ b0 input expr-make tag-let 0 pack-head prop b0 input expr-make -> -1 1 -1 1 }T
-T{ tag-let-body 0 pack-head b0 0 input expr-make 0 0 0 input expr-make 20 0 pack-head 0 0 input expr-make -> -1 1 -1 1 -1 1 }T
+T{ tag-let-body 0 pack-head b0 0 input expr-make 0 0 0 input expr-make 21 0 pack-head 0 0 input expr-make -> -1 1 -1 1 -1 1 }T
+T{ 99999 input expr-mdata tag-mdata 0 pack-head b0 1 input expr-make let1 1+ input expr-mdata -> -1 1 -1 1 -1 1 }T
 T{ 99999 0 lam-head prop b0 input expr-make 99999 proj-head b0 0 input expr-make -> -1 1 -1 1 }T
 T{ tag-app 0 pack-head prop b0 b1 input expr-let tag-bvar 0 pack-head 0 1 input expr-make -> -1 1 -1 1 }T
 T{ 99 input expr-sort nat-add 2 input expr-const 99 no-levels input expr-const -> -1 1 -1 1 -1 1 }T
@@ -152,6 +158,7 @@ T{ b0 c-succ check expr-app nip [u] check tier-tuples tuple-length -> 0 1 }T
 input tier-exprs cons-numbers constant in-exprs
 input tier-names cons-numbers constant in-names
 T{ c-succ c-succ check expr-app c-succ c-succ check expr-app -> in-exprs 0 in-exprs 0 }T
+T{ succ-b0 check expr-mdata -> md 0 }T
 T{ nat s" zero" check name-str nat s" zero" check name-str -> in-names 0 in-names 0 }T
 T{ in-names 0 lam-head prop b0 check expr-make nip in-names input name-valid? -> 0 false }T
 \ A child of the scratch tier: the input's table is not probed.

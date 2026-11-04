@@ -51,8 +51,9 @@
 \ reexporter (the writer, the output and types buffers, the counts, the
 \ file written and mdata's sorted keys), reached through the accessors
 \ below it, and one export record, reexported. Both stay shared, like
-\ ndjson-count.fs's export record, because they own heap buffers, which a
-\ context member may not (context-free has no release hook);
+\ ndjson-count.fs's export record: they own heap buffers, which a context
+\ member may do only with a teardown word (lib/context.fs, since
+\ 2026-11-03), and a test tool gains nothing from one context each;
 \ reexport-begin resets both, so one re-export runs at a time. The tables
 \ below are constant after loading. The file loads in decimal whatever
 \ BASE is, then restores it.

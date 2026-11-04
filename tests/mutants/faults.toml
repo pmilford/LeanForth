@@ -1458,6 +1458,102 @@ new = '''2dup kind-tally 1 swap +! export-handed ;'''
 test = "$GFORTH tests/core/ndjson.fs"
 reason = "records a handler refused are counted in the tally"
 
+# --- the importer stage (src/import/stage.fs, stage-records.fs) -----------
+
+[[fault]]
+id = "stage-dropped-declaration"
+file = "src/import/stage-records.fs"
+old = '''  over draft-keep swap rot newest! outcome-ok ;'''
+new = '''  2drop outcome-ok ;'''
+test = "$GFORTH tests/core/stage.fs"
+reason = "a dropped constant: a named declaration is checked but never kept, so it cannot be found and the declarations are miscounted"
+quick = true
+
+[[fault]]
+id = "stage-unknown-constant-resolved"
+file = "src/import/stage.fs"
+old = '''  tuck stage-by-name fields@ dup 0= if nip exit then'''
+new = '''  tuck stage-by-name fields@ dup 0= if nip true exit then'''
+test = "python3 tests/core/test_stage.py"
+reason = "an unresolved name taken as resolved: a constant no declaration has passes sealing (payload 0) instead of making it invalid"
+quick = true
+
+[[fault]]
+id = "stage-duplicate-name-resolved"
+file = "src/import/stage.fs"
+old = '''  dup 1- rot staged-prev@ if drop 0 then true ;'''
+new = '''  dup 1- rot staged-prev@ drop true ;'''
+test = "python3 tests/core/test_stage.py"
+reason = "a name with two declarations is resolved to the newest at sealing, which ADR 0012 E5 must decide"
+
+[[fault]]
+id = "stage-rollback-missed"
+file = "src/import/stage.fs"
+old = '''  over ok? if staging-filled swap stage-state ! else stage-rollback drop then ;'''
+new = '''  over ok? if staging-filled swap stage-state ! else drop then ;'''
+test = "$GFORTH tests/core/stage.fs"
+reason = "a missed rollback: the records of a failed read stay in the stage, so a later load is not that of a fresh stage"
+quick = true
+
+[[fault]]
+id = "stage-chain-lost"
+file = "src/import/stage-records.fs"
+old = '''  tuck stage-by-name fields@ swap draft staged-prev u32! outcome-ok ;'''
+new = '''  nip 0 swap draft staged-prev u32! outcome-ok ;'''
+test = "python3 tests/core/test_stage.py"
+reason = "a declaration does not record the earlier one of its name: the older is lost from the chain and the name looks resolved"
+
+[[fault]]
+id = "stage-bad-reference-kept"
+file = "src/import/stage-records.fs"
+old = ''': map> ( i map -- n ) 2dup slab-count u< if fields@ else 2drop staged-none then ;'''
+new = ''': map> ( i map -- n ) 2dup slab-count u< if fields@ else 2drop 0 then ;'''
+test = "$GFORTH tests/core/stage.fs"
+reason = "an export index no map holds reads as record 0, so a bad reference is staged instead of refused"
+
+[[fault]]
+id = "stage-mdata-unmarked"
+file = "src/import/stage.fs"
+old = '''  dup reach-fill dup decls-mark reach-free outcome-ok ;'''
+new = '''  dup reach-fill reach-free outcome-ok ;'''
+test = "$GFORTH tests/core/stage.fs"
+reason = "a declaration holding an mdata expression is not marked, so the checker could read it as the term exported"
+
+[[fault]]
+id = "stage-value-unchecked"
+file = "src/import/stage-records.fs"
+old = '''  dup draft staged-value u32@ over dup draft-kind valued? ['] expr-ok? either-ok? nip ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/core/stage.fs"
+reason = "a declaration's value is not checked when it is kept, so a theorem whose value is no expression is staged"
+
+# --- the release hook of checker contexts (src/lib/context.fs) ------------
+
+[[fault]]
+id = "context-teardown-skipped"
+file = "src/lib/context.fs"
+old = '''  dup context-torn swap context-discard ior-earlier ;'''
+new = '''  0 swap context-discard ior-earlier ;'''
+test = "$GFORTH tests/lib/context.fs"
+reason = "context-free runs no teardown word, so a member's heap blocks leak"
+quick = true
+
+[[fault]]
+id = "context-new-failure-leaks"
+file = "src/lib/context.fs"
+old = '''  dup context-fill dup if swap dup context-torn drop context-discard drop 0 swap then ;'''
+new = '''  dup context-fill dup if swap context-discard drop 0 swap then ;'''
+test = "$GFORTH tests/lib/context.fs"
+reason = "a context-new whose setup word fails gives back its block but not the heap blocks earlier setup words made"
+
+[[fault]]
+id = "context-teardown-stops"
+file = "src/lib/context.fs"
+old = '''    dup >r teardown-xt @ teardown-call ior-earlier r> teardown-link @'''
+new = '''    dup >r teardown-xt @ execute r> teardown-link @'''
+test = "$GFORTH tests/lib/context.fs"
+reason = "a teardown word that throws stops context-free, which then frees neither the others' blocks nor the context"
+
 # --- the runner itself (scripts/mutants.py) --------------------------------
 
 [[fault]]

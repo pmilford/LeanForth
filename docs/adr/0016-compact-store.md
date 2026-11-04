@@ -577,15 +577,35 @@ needed (Rejected alternatives).
   Rolling back removes each given-back record from the table by Knuth's
   Algorithm R, whatever the table's growth since, instead of an undo log
   (C3).
-- Step 2 in part: the loader that fills an input tier from the NDJSON
-  reader is test code (`tests/support/compact-load.fs`); it loads `Init`
-  and gives back every name, level and expression exactly as the reader's
-  dump (`make check`), and loads all of Mathlib in 221 s into a 2.94 GB
-  input tier (3.36 GB peak). Declarations, the name-to-declaration array
-  and constants resolved at sealing are still to come, with the importer.
-- Steps 3–6 not started. Step 3 needs a release hook in `lib/context.fs`
-  first, since a scratch tier owns heap memory and context members may
-  not (ADR 0009).
+- Step 2, done (2026-11-03) as the importer stage, not yet read by the
+  checker: `src/import/stage.fs` and `stage-records.fs`, loaded by
+  `src/main.fs`, fill an input tier from the NDJSON reader with the
+  export's manifest checked by default, with the export-index maps, every
+  declaration as C2's 32-byte record (kind and flags, name, parameter
+  list, type, value, height, a tuple of the kind's other data — `all`,
+  an inductive type's counts and constructors, a constructor's, a
+  recursor's rules — and the previous declaration of the same name), the
+  name-to-declaration array, and constants resolved at sealing as C4
+  says. Details differ in three ways. A constant whose name no
+  declaration of the export has makes sealing *invalid* (fail-closed;
+  Lean's exporter never writes one). An `mdata` expression is staged
+  without its data under a tag of its own (20) and every declaration
+  that holds one is marked, instead of refusing the whole export
+  (*unsupported*), so an export written with `--export-mdata` still
+  loads and only those declarations are refused. A failed read rolls the
+  stage back to empty through a tier mark. Capacities are growth with an
+  optional byte limit (*full*; plan 3.3.1 in part). It stages `Init` with
+  its manifest in 16.4 s (218 MB peak) and all of Mathlib in 326 s
+  (3.41 GB peak; input tier 2.949 GB, 736,276 declaration records in
+  23.6 MB, the array 17.0 MB); every one of Mathlib's 729,263 named
+  declarations is found by its name, and all 1,426,722 constants are
+  resolved ([NDJSON_READER.md, "Staging"](../development/NDJSON_READER.md#staging-into-the-compact-store)).
+  Every fixture export of `tests/` and `Init` round-trip through it, the
+  declarations included.
+- The release hook step 3 needed is done (2026-11-03): `context-teardown`
+  in `src/lib/context.fs` lets a scratch tier be a context member,
+  freed by `context-free` ([ADR 0009, Amendment 1](0009-reentrant-state-and-parallel-checking.md#amendment-1-2026-11-03-context-members-that-own-heap-memory)).
+- Steps 3–6 not started.
 
 ## Consequences
 
