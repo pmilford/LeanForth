@@ -260,7 +260,7 @@ T{ lf-log-options lf-logopt-level @ -> 0 }T
 
 \ A declaration's name as text, and finding it.
 T{ fixture true rr-read-once s" fixturePoly" pr-find -> outcome-ok 1 true }T
-T{ s" fixture" pr-find 2 pr-name s" fixtureUse" compare -> false 0 }T
+T{ s" fixture" pr-find s" fixtureUse" pr-find -> false 2 true }T
 
 \ Internal faults, each in a context of its own (a THROW in a check
 \ spends its context for good). Staging and feeding composition in a new

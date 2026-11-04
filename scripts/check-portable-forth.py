@@ -91,6 +91,9 @@ BYTE_MODULES = {
     "src/present/print-forth.fs":
         "Forth-mode printer checks the characters of name parts and keeps its word list as "
         "counted strings",
+    "src/present/statement-forms.fs":
+        "the statement's text is escaped for LaTeX and indented a byte at a time as the "
+        "printers write it",
     "src/program/ir-reader.fs":
         "program reader splits source lines into tokens, checks that every character is "
         "printable ASCII and folds A-Z to a-z, as Gforth finds names",

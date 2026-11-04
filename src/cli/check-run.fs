@@ -129,6 +129,8 @@ begin-structure /ck
   field: ck-checked              \ true once ck-check made its environment
   field: ck-env-id               \ the run's environment's identity, or 0
   field: ck-stepped              \ declarations whose check began
+  field: ck-binder-hook          \ the feed's binder hook, or 0 (ck-hooks!)
+  field: ck-decl-hook            \ the feed's declaration hook, or 0
   field: ck-faulted              \ true when the run stopped on a fault
   field: ck-began-feed           \ true once the feed began: names attached
   ck-capacities# cells +field ck-saved   \ capacities before the feed
@@ -284,8 +286,13 @@ create ck-line ck-line-room 2 + allot
   lf-level-count @ ck-state ck-levels# ! lf-cref-count @ ck-state ck-references# ! ;
 \ The feed, after the capacities are kept: from here on the names are
 \ attached to the stage (feed.fs's first step), whatever its outcome.
+\ The feed's hooks (import/feed.fs, lf-feed-hooked), set after ck-start and
+\ before ck-load by a caller that reads what the feed drops: print's
+\ binder names and declaration lines (cli/print.fs).
+: ck-hooks! ( binder-xt decl-xt -- ) ck-state ck-decl-hook ! ck-state ck-binder-hook ! ;
 : ck-fed ( -- outcome )
-  ck-save true ck-state ck-began-feed ! ck-stage ck-feeding-record lf-feed ;
+  ck-save true ck-state ck-began-feed ! ck-stage ck-feeding-record
+  ck-state ck-binder-hook @ ck-state ck-decl-hook @ lf-feed-hooked ;
 \ A failed phase is kept as the one that failed.
 : ck-fail ( outcome phase -- outcome ) over ok? if drop else ck-state ck-failed ! then ;
 : ck-stage-phase ( c-addr u checked? -- outcome )

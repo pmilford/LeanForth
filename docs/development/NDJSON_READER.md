@@ -710,6 +710,18 @@ lib feeding lf-feed .                    \ 0, ok
 100000 65536 lf-check-input              \ ( env outcome ), as for any input
 ```
 
+`lf-feed-hooked ( stage feed binder-hook decl-hook -- outcome )` is the
+same with two optional hooks (an xt, or 0 for none), for a presentation
+that reads what the feed drops (plan task 3.4.1, `leanforth print`): the
+binder hook `( term name kind -- )` is called for every binder made (the
+stage's binder name and kind), the declaration hook `( d before after -- )`
+after each declaration fed, with the numbers of input declarations before
+and after it (a block's members one by one). The stage keeps the line of
+the export each declaration came from, `staged-line@ ( d stage -- line )`
+(4 bytes a declaration, in a slab of its own). A feed without hooks is
+`lf-feed`; the hooks may not change the checker's stores (the printer's
+side table is not one).
+
 The stage's names stay in its input tier, shared and read-only: the
 context attaches the tier as its names (`lf-name-attach`), so a name's ID
 is its number in the stage, and the environment finds a name's

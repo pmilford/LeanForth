@@ -3352,7 +3352,7 @@ reason = "an inductive block's check writes no covering step, so its publish ste
 [[fault]]
 id = "outline-ignores-validator"
 file = "src/present/proof-outline.fs"
-old = '''  lf-ol-flaw ?dup if lf-ol-malformed drop lf-lv-cr exit then'''
+old = '''  lf-ol-flaw ?dup if lf-ol-malformed drop lf-ol-tex-close lf-lv-cr exit then'''
 new = ''''''
 test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
 reason = "the printer prints from a log the structural check rejects (N1 of the second review)"
@@ -4087,8 +4087,8 @@ reason = "rvI21 R4-5: a lookup of a generated T.rec answers T's slot, so the log
 [[fault]]
 id = "outline-reads-no-type"
 file = "src/present/proof-outline.fs"
-old = '''  lf-ol-decl lf-idecl-type @ dup 0< if drop s" none" lf-ol-line exit then'''
-new = '''  lf-ol-decl lf-idecl-type @'''
+old = '''  lf-ol-decl lf-idecl-type @ 0< if'''
+new = '''  false if'''
 test = "python3 tests/present/test_outline_block.py"
 reason = "rvI21 R4-6: the outline prints the type -1 of an empty block's declaration"
 
@@ -4275,3 +4275,126 @@ old = '''  lf-genrec-kept-cells slab-base lf-ind-domains slab-base lf-genrec-kep
 new = '''  ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "5.2.1b: a rebuild during a block's check leaves that block's parameter domains overwritten"
+
+# --- the LaTeX outline style and the statement in three forms (plan tasks 8.6.1, 8.6.2) ---
+# tests/present/check_outline.py compares the golden outlines (plain and LaTeX), checks
+# the fragments' structure, compiles them where pdflatex exists, and runs each printed
+# LeanForth block through the authoring words to the identical statement.
+
+[[fault]]
+id = "forms-latex-underscore-unescaped"
+file = "src/present/statement-forms.fs"
+old = '''[char] _ of s" \_" true endof'''
+new = '''[char] _ of s" _" true endof'''
+test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
+reason = "the typewriter block leaves an underscore unescaped, so poly_identity breaks the LaTeX it is printed in"
+quick = true
+
+[[fault]]
+id = "forms-forth-block-no-universes"
+file = "src/present/statement-forms.fs"
+old = '''  -1 lf-sf lf-sf-decl lf-fdecl-value ! lf-sf-universes lf-sf lf-sf-decl ;'''
+new = '''  -1 lf-sf lf-sf-decl lf-fdecl-value ! drop lf-sf lf-sf-decl ;'''
+test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
+reason = "the LeanForth block of a statement with a universe parameter forgets its universe line, so the words no longer build the statement"
+quick = true
+
+[[fault]]
+id = "forms-default-shows-none"
+file = "src/present/statement-forms.fs"
+old = ''': lf-forms ( -- mask ) lf-sf lf-sf-hidden @ lf-forms-all xor ;'''
+new = ''': lf-forms ( -- mask ) lf-sf lf-sf-hidden @ ;'''
+test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
+reason = "the default hides every form of the statement instead of showing all three"
+
+[[fault]]
+id = "forms-math-line-dropped"
+file = "src/present/statement-forms.fs"
+old = '''  lf-form-mathematics lf-forms-has? if lf-sf-copy lf-sf-math-line then'''
+new = ''''''
+test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
+reason = "the header never prints the statement in mathematics"
+quick = true
+
+[[fault]]
+id = "outline-latex-math-left-open"
+file = "src/present/log-view.fs"
+old = '''  lf-lv lf-lv-mathing @ 0= if lf-lv-last-dollar then ;'''
+new = ''' ;'''
+test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
+reason = "a LaTeX formula is opened with $ and never closed, so the fragment's math is unbalanced"
+quick = true
+
+[[fault]]
+id = "outline-latex-table-not-closed"
+file = "src/present/proof-outline.fs"
+old = '''  lf-lv-tex? if lf-ol-table-end lf-ol-small-open then'''
+new = '''  lf-lv-tex? if lf-ol-small-open then'''
+test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
+reason = "the proof table is not ended before the footer, so the fragment leaves its environment open and does not compile"
+quick = true
+
+[[fault]]
+id = "cli-statement-forms-wrong-bit"
+file = "src/cli/print.fs"
+old = '''  2dup s" lean" compare 0= if 2drop lf-form-lean exit then'''
+new = '''  2dup s" lean" compare 0= if 2drop lf-form-mathematics exit then'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Print"
+reason = "--statement lean selects the mathematics line"
+quick = true
+
+[[fault]]
+id = "cli-statement-forms-trailing-comma"
+file = "src/cli/print.fs"
+old = '''  2dup pr-ends-comma? if 2drop false exit then'''
+new = ''''''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Print"
+reason = "a list of forms ending in a comma is accepted instead of refused"
+
+# --- print on the importer stage and the feed (plan task 3.4.1) -------------------------
+# tests/present/check_outline.py (the golden outlines of the pinned exports, fed through the
+# stage with print's hooks) and tests/cli/test_leanforth.py (print beyond the small reader).
+
+[[fault]]
+id = "feed-hook-binder-kind-wrong"
+file = "src/import/feed.fs"
+old = ''': feed-binder-info ( tag -- kind ) tag-lam - 3 and ;'''
+new = ''': feed-binder-info ( tag -- kind ) tag-lam - 1 and ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Print"
+reason = "the binder hook gives a strict-implicit or instance binder the wrong kind, so an instance argument prints in braces"
+quick = true
+
+[[fault]]
+id = "feed-hook-declaration-never-called"
+file = "src/import/feed.fs"
+old = '''  feed-decl-hook @ ?dup if >r lf-input-count r> execute else 2drop then ;'''
+new = '''  drop 2drop ;'''
+test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
+reason = "the declaration hook is never called, so no outline says which line of the export its declaration came from"
+quick = true
+
+[[fault]]
+id = "stage-keeps-no-line"
+file = "src/import/stage-records.fs"
+old = '''  over record-line @ over stage-lines fields-push dup ok? 0= if nip nip exit then drop'''
+new = '''  0 over stage-lines fields-push dup ok? 0= if nip nip exit then drop'''
+test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
+reason = "the stage forgets the line of each declaration it stages, so every outline reads line 0"
+quick = true
+
+[[fault]]
+id = "pres-type-not-in-input"
+file = "src/present/binder-table.fs"
+old = '''  dup lf-pres-find if nip lf-pdecl-type @ true else lf-pres-input-type@ then ;'''
+new = '''  dup lf-pres-find if nip lf-pdecl-type @ true else drop false then ;'''
+test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
+reason = "the printer no longer finds a constant's declared type in the input, so the implicit arguments it hides show again"
+
+[[fault]]
+id = "print-title-name-unescaped"
+file = "src/present/log-view.fs"
+old = '''  lf-lv lf-lv-declname @ lf-lv-tex? 0= and if lf-lv-decl-shown else lf-lv-printed-name then ;'''
+new = '''  lf-lv-printed-name ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Names"
+reason = "print shows a declaration's name as the printer spells it, so a name with a newline starts a line of its own in the outline"
+quick = true

@@ -84,7 +84,7 @@ def accepted(n):
 
 NO_MANIFEST = "note: the export's manifest is not checked (--no-manifest)"
 LIMITS = [
-    "note: check --record, replay and print hold at most 64 names, 64 levels,",
+    "note: check --record and replay hold at most 64 names, 64 levels,",
     "note: 64 term nodes and 32 declarations per export; check without --record holds "
     "any size",
 ]
@@ -317,6 +317,7 @@ class ExitCodes(unittest.TestCase):
 
 
 OUTLINES = ROOT / "tests" / "present" / "outlines.golden"
+LATEX_OUTLINES = ROOT / "tests" / "present" / "outlines-latex.golden"
 REFUSED = "No proof outline: the declaration was not accepted."
 
 
@@ -343,6 +344,75 @@ class Print(unittest.TestCase):
                      "constant-fixture"):
             self.assertEqual(self.lines(f"tests/reference/{name}.ndjson"), (0, golden(name)))
         self.assertEqual(self.lines("--detail", COMPOSITION), (0, golden("composition --detail")))
+
+    def test_0_statement_forms(self):
+        """--statement picks the forms of the statement the header shows (plan task
+        8.6.2): each alone, in any order and all (the default); a form that is no
+        form, or an empty list, is a command-line mistake (status 4)."""
+        full = golden("composition")
+        math = next(i for i, l in enumerate(full) if l.startswith("  Statement in mathematics:"))
+        forth = next(i for i, l in enumerate(full) if l.startswith("  Statement in LeanForth"))
+        end = full.index("    end composition")
+        parts = {"lean": full[math - 1:math], "mathematics": full[math:math + 1],
+                 "leanforth": full[forth:end + 1]}
+        before, after = full[:math - 1], full[end + 1:]
+        for forms in ("lean", "mathematics", "leanforth", "lean,leanforth", "leanforth,lean",
+                      "mathematics,lean", "all"):
+            wanted = [name for name in parts if name in forms.split(",") or forms == "all"]
+            expected = before + [l for name in wanted for l in parts[name]] + after
+            self.assertEqual(self.lines("--statement", forms, COMPOSITION), (0, expected), forms)
+        for bad in ("", "lean,", "latin", "lean,,mathematics", "Lean"):
+            status, out, err = run("print", "--statement", bad, COMPOSITION)
+            self.assertEqual((status, out.startswith("error:")), (4, True), bad)
+        status, out, err = run("check", "--statement", "lean", COMPOSITION)
+        self.assertEqual((status, out.startswith("error: an option this command does not take")),
+                         (4, True))
+
+    def test_0_beyond_the_small_reader(self):
+        """print holds what check holds (the stage and the feed, plan task 3.4.1), not the
+        64 names and 32 declarations of the first reader: chain.ndjson has 81 expressions,
+        inductive.ndjson has inductive types. Each declaration check reports has its
+        header, and the status is check's; chain's line is read from the stage."""
+        for path in ("tests/cli/chain.ndjson", "tests/cli/inductive.ndjson",
+                     "tests/cli/unfold.ndjson"):
+            check_status, check_out, _ = run("check", path)
+            status, out = self.lines(path)
+            self.assertEqual(status, check_status, path)
+            names = [l.split(": ")[0] for l in check_out.splitlines()
+                     if re.match(r"^\S+: (accepted|rejected|unknown|unsupported)", l)]
+            self.assertTrue(names, path)
+            heads = {l.split(" ", 1)[1] for l in out if re.match(
+                r"^(Theorem|Definition|Axiom|Opaque|Declaration) ", l)}
+            # An inductive block's later members are published with its first and
+            # printed once, under it.
+            members = {"Two.first", "Two.second", "Two.rec"} if "inductive" in path else set()
+            self.assertEqual(sorted(set(names) - members), sorted(heads), path)
+        status, out = self.lines("tests/cli/chain.ndjson")
+        self.assertIn("  Input:     tests/cli/chain.ndjson line 114", out)
+        self.assertIn("      L M -> explicit: f12", out)
+        self.assertEqual(out[-1], "Templates: let-props/v0, assume/v0, implies-elim/v0, "
+                                  "discharge/v0, statement/v0.")
+
+    def test_0_binder_kinds(self):
+        """The binder kinds the feed's hook keeps reach the printer: implicit and instance
+        binders print in their brackets (declarations that print as types, from an export
+        of kinds of declarations; its manifest is not checked)."""
+        status, out = self.lines("--no-manifest", "--statement", "lean",
+                                 "tests/core/reexport/kinds.ndjson")
+        self.assertIn("  Type in Lean:             {α : Type u} → (x : Nat) → [self : OfNat α x] → α",
+                      out)
+        self.assertIn("  Type in Lean:             {α : Type u_1} → [Add α] → HAdd α α α", out)
+
+    def test_0_latex(self):
+        """--latex prints the outlines as the LaTeX fragments of tests/present/
+        outlines-latex.golden (plan task 8.6.1); with --detail the steps stay plain."""
+        parts = re.split(r"^== (.*)$", LATEX_OUTLINES.read_text(encoding="utf-8"), flags=re.M)
+        fragments = dict(zip(parts[1::2], parts[2::2]))
+        for name in ("identity", "composition", "constant-fixture"):
+            self.assertEqual(self.lines("--latex", f"tests/reference/{name}.ndjson"),
+                             (0, fragments[name].strip("\n").splitlines()), name)
+        self.assertEqual(self.lines("--latex", "--detail", COMPOSITION),
+                         (0, golden("composition --detail")))
 
     def test_0_named(self):
         fixture = golden("constant-fixture")
@@ -514,7 +584,7 @@ class Behaviour(unittest.TestCase):
         self.assertEqual(run("--version")[:2], (0, out))
         status, out, _ = run("capabilities")
         self.assertEqual(status, 0)
-        self.assertIn("  check --record, replay, print: 64 names, 64 levels, 64 term nodes,\n"
+        self.assertIn("  check --record, replay: 64 names, 64 levels, 64 term nodes,\n"
                       "    32 declarations per export, 64 dependencies per export\n", out)
         status, out, _ = run("help")
         self.assertEqual((status, run("--help")[1], run("-h")[1]), (0, out, out))
@@ -816,6 +886,47 @@ class Names(unittest.TestCase):
             ("x»y", "x»y"),                                         # holds », as Lean: no « »
         ]:
             self.shown([{"str": {"pre": 0, "str": text}}], shown)
+
+    def test_print_escaped(self):
+        """print shows every declaration name as check does (name-text.fs): a name
+        holding a newline cannot start a line of the outline, in the header, the
+        statement or the input line."""
+        forged = f"composition: rejected\nforged: {LABEL}\nx"
+        shown = "«composition: rejected\\u{A}forged: " + LABEL + "\\u{A}x»"
+        with tempfile.TemporaryDirectory() as folder:
+            export = self.renamed(folder, [{"str": {"pre": 0, "str": forged}}])
+            status, out, err = run("print", "--no-manifest", export)
+            lines = out.splitlines()
+            self.assertEqual((status, err), (0, ""))
+            self.assertIn("Theorem " + shown, lines)
+            self.assertFalse([l for l in lines if l.startswith("forged")], lines)
+            self.assertEqual(sum(l.startswith("Theorem ") for l in lines), 1)
+            # a name no word of LeanForth can spell is not printed as words
+            self.assertTrue(any("(not complete:" in l for l in lines))
+            status, out, err = run("print", "--no-manifest", "--name", forged, export)
+            self.assertEqual((status, err), (0, ""))
+            self.assertIn("Theorem " + shown, out.splitlines())
+            status, out, err = run("print", "--no-manifest", "--name", "x\ny", export)
+            self.assertEqual((status, out.splitlines()[-1], err),
+                             (4, "error: no declaration named x\\u{A}y", ""))
+
+    def test_print_long_names(self):
+        """--name picks a declaration by its whole name, however long: no fixed
+        buffer (review B-L3: a 256-byte one dropped components, so a long name
+        could select the wrong declaration)."""
+        long = "a" * 300
+        deep = [{"str": {"pre": 12 + i if i else 0, "str": "b" * 100}} for i in range(5)]
+        for records, name in [([{"str": {"pre": 0, "str": long}}], long),
+                              (deep, ".".join(["b" * 100] * 5))]:
+            with tempfile.TemporaryDirectory() as folder:
+                export = self.renamed(folder, records)
+                status, out, err = run("print", "--no-manifest", "--name", name, export)
+                self.assertEqual((status, err), (0, ""), name[:20])
+                self.assertIn(f"Theorem {name}", out.splitlines())
+                # the first 256 characters, or all but the last component, name nothing
+                for wrong in (name[:256], name[:-1], name[1:]):
+                    status, out, err = run("print", "--no-manifest", "--name", wrong, export)
+                    self.assertEqual(status, 4, wrong[:20])
 
     def test_components(self):
         # A numeric component in decimal, an empty one as «», and a name

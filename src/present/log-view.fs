@@ -55,6 +55,10 @@ begin-structure /lf-lv
   field: lf-lv-bad           \ formulas that failed to print
   field: lf-lv-lost          \ rollbacks that failed
   field: lf-lv-depth         \ binders in the scope
+  field: lf-lv-tex           \ true: LaTeX style (lf-lv-latex!)
+  field: lf-lv-mathing       \ open math groups in the line (LaTeX style)
+  field: lf-lv-declname         \ xt ( id -- c-addr u flag ) of a declaration's name, or 0
+  field: lf-lv-escape        \ xt ( c-addr u -- c-addr' u' flag ) escaping any text, or 0
   lf-log-term-capacity cells +field lf-lv-made      \ copy k's rebuilt term + 1, -1, or 0
   lf-log-level-capacity cells +field lf-lv-lmade    \ copy k's rebuilt level + 1, -1, or 0
   lf-log-term-capacity cells +field lf-lv-namer      \ input binder naming copy k, + 1
@@ -82,19 +86,40 @@ end-structure
 : lf-lv-text ( -- c-addr u ) lf-lv lf-lv-buffer lf-lv lf-lv-used @ ;
 : lf-lv-clear ( -- ) 0 lf-lv lf-lv-used ! ;
 : lf-lv-room ( -- n ) lf-lv-buffer-size lf-lv lf-lv-used @ - ;
-: lf-lv-put ( c-addr u -- )
+\ The outline's text goes into the buffer as it is (lf-lv-put-raw) or, in plain
+\ style when the caller gave an escaping word (lf-outline-names!), escaped, so
+\ that a name in a formula cannot start a line of its own; text that cannot
+\ be escaped (no heap) shows as ?.
+: lf-lv-put-raw ( c-addr u -- )
   lf-lv-room min tuck lf-lv-text + swap move lf-lv lf-lv-used +! ;
+: lf-lv-safe ( c-addr u -- c-addr' u' )
+  lf-lv lf-lv-escape @ ?dup 0= if exit then lf-lv lf-lv-tex @ if drop exit then
+  execute 0= if 2drop s" ?" then ;
+: lf-lv-put ( c-addr u -- ) lf-lv-safe lf-lv-put-raw ;
 : lf-lv-out ( c-addr u -- ) lf-lv lf-lv-sink @ ?dup if execute else type then ;
 : lf-lv-n ( n -- ) dup 0< if s" -" lf-lv-put negate then lf-pp-digits lf-lv-put ;
 : lf-lv-chars ( c-addr u -- n )
   0 -rot begin dup while 2dup utf8-length 1 max /string rot 1+ -rot repeat 2drop ;
 create lf-lv-blanks 64 allot lf-lv-blanks 64 bl fill
-: lf-lv-spaces ( n -- ) begin dup 0> while lf-lv-blanks over 64 min lf-lv-out
+: lf-lv-blank-run ( n -- ) begin dup 0> while lf-lv-blanks over 64 min lf-lv-out
   64 - repeat drop ;
+\ LaTeX style (lf-lv-latex!, used by the proof outline): n blanks are n
+\ space widths of the font, a column ends with & and a line with \\.
+: lf-lv-tex? ( -- flag ) lf-lv lf-lv-tex @ 0<> ;
+: lf-lv-hspace ( n -- )
+  dup 0> 0= if drop exit then s" \hspace*{" lf-lv-out lf-pp-digits lf-lv-out
+  s" \fontdimen2\font}" lf-lv-out ;
+: lf-lv-spaces ( n -- ) lf-lv-tex? if lf-lv-hspace else lf-lv-blank-run then ;
 \ Write the buffer, padded with spaces to width characters, and empty it.
 : lf-lv-flush ( width -- )
   lf-lv-text lf-lv-out lf-lv-text lf-lv-chars - lf-lv-spaces lf-lv-clear ;
 : lf-lv-cr ( -- ) s\" \n" lf-lv-out ;
+\ A table column ends: padded to width in plain style, & in LaTeX style.
+: lf-lv-col ( width -- )
+  lf-lv-tex? if drop 0 lf-lv-flush s"  & " lf-lv-out else lf-lv-flush then ;
+\ A line ends: with \\ in LaTeX style. A blank line is a paragraph break there.
+: lf-lv-eol ( -- ) lf-lv-tex? if s"  \\" lf-lv-out then lf-lv-cr ;
+: lf-lv-gap ( -- ) lf-lv-tex? if s\" \\par\n" lf-lv-out else lf-lv-cr then ;
 : lf-lv-step ( s -- ) s" s" lf-lv-put lf-lv-n ;
 
 \ The records' fields.
@@ -365,8 +390,21 @@ lf-walk-room context-walk: lf-lv-term-work
 : lf-lv-fail ( -- ) s" ?" lf-lv-put 1 lf-lv lf-lv-bad +! ;
 : lf-lv-printed ( outcome -- ) ok? 0= if lf-lv-fail then ;
 : lf-lv-scope-set ( -- addr d ) lf-lv-scope-cells slab-base lf-lv lf-lv-depth @ ;
+\ LaTeX style: a formula, a name or a level is math, between $ and $ (once
+\ when groups nest: the sentence "Assume f : A → B." opens one around the
+\ name and the type). The buffer may be full: the closing $ then replaces
+\ its last byte, so that no math is left open.
+: lf-lv-last-dollar ( -- )
+  lf-lv-room 0= if -1 lf-lv lf-lv-used +! then s" $" lf-lv-put ;
+: lf-lv-math-open ( -- )
+  lf-lv-tex? 0= if exit then 1 lf-lv lf-lv-mathing +!
+  lf-lv lf-lv-mathing @ 1 = if s" $" lf-lv-put then ;
+: lf-lv-math-close ( -- )
+  lf-lv-tex? 0= if exit then -1 lf-lv lf-lv-mathing +!
+  lf-lv lf-lv-mathing @ 0= if lf-lv-last-dollar then ;
 : lf-lv-term-here ( term -- )
-  lf-lv-scope-set lf-lv lf-lv-fuel @ lf-print-scoped lf-lv-printed ;
+  lf-lv-math-open lf-lv-scope-set lf-lv lf-lv-fuel @ lf-print-scoped lf-lv-printed
+  lf-lv-math-close ;
 : lf-lv-ref-here ( ref -- ) lf-lv-term if lf-lv-term-here else lf-lv-fail
   then lf-lv-release ;
 : lf-lv-at ( s -- flag ) lf-lv-scope-of dup 0 max lf-lv lf-lv-depth ! 0< 0= ;
@@ -381,12 +419,14 @@ lf-walk-room context-walk: lf-lv-term-work
   swap lf-lv-term if swap lf-lv-part-here else drop lf-lv-fail then lf-lv-release ;
 \ A level reference.
 : lf-lv-level-here ( ref -- )
+  lf-lv-math-open
   lf-lv-level if lf-lv lf-lv-fuel @ lf-print-level lf-lv-printed else lf-lv-fail
-  then lf-lv-release ;
+  then lf-lv-release lf-lv-math-close ;
 \ The display name of the innermost binder of the scope set; of node,
 \ brought into it first ("?" when there is no room for it).
 : lf-lv-name-here ( -- )
-  lf-lv-scope-set lf-lv lf-lv-fuel @ lf-print-scope-name lf-lv-printed ;
+  lf-lv-math-open lf-lv-scope-set lf-lv lf-lv-fuel @ lf-print-scope-name lf-lv-printed
+  lf-lv-math-close ;
 : lf-lv-name-of-node ( node -- ) lf-lv-push if lf-lv-name-here else lf-lv-fail then ;
 \ A shift's input lies under amount fewer binders than its step.
 : lf-lv-fewer ( amount -- ) negate lf-lv lf-lv-depth +! lf-lv lf-lv-depth dup
@@ -403,7 +443,15 @@ lf-walk-room context-walk: lf-lv-term-work
   swap lf-lv-term 0= if lf-lv-unbuilt exit then
   lf-term-app if lf-lv-term-here else lf-lv-fail then lf-lv-release ;
 \ A name ID, and a declaration's name.
-: lf-lv-name-id ( id -- ) lf-print-name lf-lv-printed ;
+\ A name given a namer (plain style) is shown as it shows it, which escapes it
+\ whole and is not escaped again.
+: lf-lv-decl-shown ( id -- )
+  lf-lv lf-lv-declname @ execute
+  if lf-lv-put-raw else 2drop s" ?" lf-lv-put-raw 1 lf-lv lf-lv-bad +! then ;
+: lf-lv-printed-name ( id -- )
+  lf-lv-math-open lf-print-name lf-lv-printed lf-lv-math-close ;
+: lf-lv-name-id ( id -- )
+  lf-lv lf-lv-declname @ lf-lv-tex? 0= and if lf-lv-decl-shown else lf-lv-printed-name then ;
 : lf-lv-decl-name ( i -- )
   dup 0 lf-input-count within if lf-input-name lf-lv-name-id else lf-lv-n then ;
 
@@ -416,6 +464,11 @@ lf-walk-room context-walk: lf-lv-term-work
   lf-lv lf-lv-fuel ! lf-lv lf-lv-sink ! 0 lf-lv lf-lv-bad !
   lf-lv-clear ['] lf-lv-put lf-print-unicode lf-print-setup lf-lv-names true ;
 : lf-lv-done ( -- ) ['] type lf-print-unicode lf-print-setup lf-lv-close drop ;
+\ The style of the next lines: LaTeX (true) or Unicode (false, the default
+\ of a new block); the term printer follows.
+: lf-lv-mode ( -- mode ) lf-lv-tex? if lf-print-latex else lf-print-unicode then ;
+: lf-lv-printer ( -- ) ['] lf-lv-put lf-lv-mode lf-print-setup ;
+: lf-lv-latex! ( flag -- ) lf-lv lf-lv-tex ! 0 lf-lv lf-lv-mathing ! lf-lv-printer ;
 
 \ The list of every step (--detail, and a log no outline is printed from):
 \ step, rule, depth, the formulas the rule relates, its premises and,
