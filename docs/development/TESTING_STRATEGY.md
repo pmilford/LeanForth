@@ -196,7 +196,7 @@ average 1–8). *Before*: commit `8148f3f`, before these changes. *No cache*:
 | `test-core` | test | 5.9 | 6.2 | 6.7 |
 | `test-composition-fixture` | test | 4.4 | 4.7 | 5.3 |
 | `test-program` | test | 0.0 | 0.0 | 0.0 |
-| `test-present` | test | 0.3 | 0.3 | 0.3 |
+| `test-present` | test | 0.3 | 0.3 | 0.3 (6 since plan task 6.2.0: `print-deep.fs` prints terms 10,000 deep) |
 | `check-doc-examples` | test | 1.5 | 1.6 | 1.8 |
 | `test-program-ir` | test | 0.4 | 0.4 | 0.5 |
 | `test-program-ir-run` | test | 0.4 | 0.4 | 0.4 |
@@ -241,6 +241,8 @@ average 1–8). *Before*: commit `8148f3f`, before these changes. *No cache*:
 | `test-first-checker-differential` | check | 1.9 | 2.3 | 0.3 |
 | `test-binder-domains-differential` | check | 3.5 | 4.0 | 0.3 |
 | `test-universe-scope-differential` | check | 2.6 | 3.0 | 1.2 |
+| `test-depth-differential`, `test-depth-fed-differential` (plan task 6.2.0, 2026-11-04; listed first in `check`) | check | — | about 40 each | about 40 each |
+| `test-depth-deep-differential` (not in `check`) | — | — | about 270 | about 270 |
 | `test-program-differential` | check | 0.8 | 0.9 | 0.1 |
 | `test-program-stack-differential` | check | 1.2 | 1.5 | 0.2 |
 | `test-program-values-differential` | check | 0.9 | 1.1 | 0.2 |

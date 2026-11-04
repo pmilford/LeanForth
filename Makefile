@@ -140,7 +140,8 @@ test-differential: $(DIFFERENTIAL_TARGETS)
 
 # With parallel jobs make starts targets in the order listed: the slowest
 # first (each is also named again below), so that none of them starts last.
-check: reference-compact-init reference-author reference reference-program-ir-run \
+check: test-depth-differential test-depth-fed-differential \
+	reference-compact-init reference-author reference reference-program-ir-run \
 	reference-bignum test-doc-examples-lean test-compact-faults
 check: test test-differential mutants-check
 
