@@ -640,3 +640,13 @@ ADR 0019 Amendment 1 (agent IR2; probes in
   an isolation check refuses other code touching the log. The owner
   accepted the measured memory: about 218 KB per context while the log is
   on (D3 had estimated about 150 KB), under 1 KB while off.
+
+## Free variables approved (2026-11-04)
+
+- **Plan task 4.2.2a approved [kernel]** (ADR 0014 Q2: free variables, the
+  local context, `instantiate_rev`/`abstract`; inference enters binders one
+  at a time). Independent review rvD2A, two rounds, every finding closed;
+  the chain typing proved equal to Lean's `mk_pi`; a well-typed random
+  trial (now in `make test`) agrees with the old code and an independent
+  typing model. Accepted cost: checking is 10–25% slower until the
+  loose-variable range of ADR 0014 Q12 is built.

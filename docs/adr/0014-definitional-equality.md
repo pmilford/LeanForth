@@ -1,6 +1,6 @@
 # ADR 0014: Definitional equality as Lean's kernel decides it
 
-Status: **accepted** by the owner on 2026-11-03 (G5 and Q-A to Q-D as recommended; Q-E: within twice Lean's one-thread time before phase 6, then close the gap, by algorithms first — [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md#gate-answers-and-working-guidelines-2026-11-03)). Previously: **proposed**, 2026-11-03 (plan task 4.1.1, with the sections task
+Status: task **4.2.2a implemented and approved** [kernel] by the owner on 2026-11-04 ([decisions](../project/OWNER_DECISIONS.md#free-variables-approved-2026-11-04)); 4.2.2b–e next. **Accepted** by the owner on 2026-11-03 (G5 and Q-A to Q-D as recommended; Q-E: within twice Lean's one-thread time before phase 6, then close the gap, by algorithms first — [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md#gate-answers-and-working-guidelines-2026-11-03)). Previously: **proposed**, 2026-11-03 (plan task 4.1.1, with the sections task
 4.1.3 asks for: eta, proof irrelevance, `let` and metadata). A [kernel]
 design: it passes the review gate in `AGENTS.md` only with the owner's
 approval of the plain-language summary below, and the code that implements
