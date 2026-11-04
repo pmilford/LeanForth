@@ -67,6 +67,239 @@ compiler and runtime correctness.
 The 2026-11-02 coverage review and its open items are recorded in
 [the test coverage review](TEST_COVERAGE_REVIEW.md).
 
+## Running the suites: parallel jobs and the Lean cache
+
+Added 2026-11-03, when `make test` had grown to 36 s and `make check` to
+345 s run one target at a time, and agents ran them several times per task.
+
+**Parallel jobs.** The Makefile runs `JOBS` targets at a time (default 8,
+unless `-j` is given; `JOBS=1` or `-j1` runs one at a time) and prints each
+target's output in one piece (`--output-sync=target`, GNU make 4.0 or
+later). Every target writes only into temporary folders of its own
+(`mktemp -d`, Python's `tempfile`), never into a fixed path or the tree: a
+`make -j8 check` of the unchanged suite (commit `8148f3f`) passed and left
+no file of the tree changed. `tests/core/compact-verify.sh` runs its two
+independent Gforth runs side by side. A failing target stops make from
+starting others; make waits for the running ones, prints
+`make: *** [Makefile:LINE: TARGET] Error N` naming the target, and exits
+with status 2. CI runs both suites with the default 8 jobs.
+
+**The Lean cache.** Pinned Lean is deterministic, and most of `make check`'s
+time was Lean re-checking unchanged files. Unless `LEAN_CACHE=0`, the
+recipes get `LEAN` set to `scripts/lean-cache.py` and `LEANEXPORT` to
+`scripts/leanexport-cache.py`, stand-ins that replay a stored run when
+every input of it is unchanged and run the real tool otherwise:
+
+- What is cached: a Lean call `lean [-D…]… [-o OUT.olean] [--run] FILE.lean`
+  with nothing after the file (its output, exit status and `.olean`), and
+  any `leanexport` call (its output and status). Only Lean's or the
+  exporter's own run is skipped: the Forth side of every comparison, and
+  every script that reads Lean's output, always runs.
+- The key is the SHA-256 of everything such a call reads: the toolchain
+  (SHA-256 of the `lean` binary and its shared libraries, `lean --githash`,
+  the name and size of every file of its library folder; recomputed when
+  the binary, a shared library or the library folder changes on disk, so a
+  file edited in place deep inside the library is not noticed: reinstall a
+  toolchain, never edit it), the options in order, the source text, the
+  main module's name (Lean 4.35 derives it from the source's path relative
+  to the working folder, and it changes the `.olean`), the SHA-256 of every
+  file of each `LEAN_PATH` folder outside the toolchain, every
+  other `LEAN_*` variable, the exporter's arguments, and whether stdout and
+  stderr are one file. The paths Lean echoes (the source as given, the `-o`
+  path, `LEAN_PATH`) are stored as placeholders and restored on replay, so a
+  file checked from a new temporary folder still hits.
+- Never cached, so always run: `--version`, `--githash`, `--print-prefix`,
+  `--run` with program arguments (`tests/reference/program-ir-run.lean`
+  reads its cases from files), any other argument, a source whose text
+  names an IO input (files, stdin, the environment, processes, clocks,
+  random numbers; `universe-scope-terms.lean` reads the clock), any call
+  that imports an `.olean` the cache did not see compiled by a cacheable
+  call (so an IO input cannot hide in an imported module), exit statuses
+  other than 0 and 1, and output that reports exhausted memory or stack.
+- `LEAN_CACHE=0` runs every Lean and exporter call and stores nothing; it
+  is the default when the `CI` variable is set, and `.github/workflows/ci.yml`
+  passes it explicitly, so CI never replays a cached run. `LEAN_CACHE=verify`
+  runs every call and fails (status 125) where a stored entry differs from
+  the new run: on 2026-11-03 a `make check LEAN_CACHE=verify` over a full
+  cache found no difference.
+- The cache is shared by every worktree of a clone: the main checkout's
+  `.claude/work/lean-cache/` (git ignores it; set `LEAN_CACHE_DIR` for
+  another place). Entries are written to a temporary folder and renamed
+  into place, so parallel jobs and worktrees can share it; the scripts
+  delete nothing but their own temporary folders. After one `make check` it
+  held 223 entries in 361 MB (344 MiB), nearly all of it the export of
+  Lean's `Init` (346 MB on its own, written once per toolchain). Entries of changed inputs
+  stay until the folder is deleted (by name) to empty it. `LEANFORTH_LEAN_CACHE_LOG=FILE` logs every call as hit, miss
+  or run, with the reason.
+- Trust: the cache is local data, trusted like the working tree. A local
+  pass with the cache replays Lean's earlier verdicts on identical inputs;
+  CI's run without the cache is the record. Time reports inside a replayed
+  run (the SHA-256 specification's "proved in N s") show the replay's time.
+- Tests: `make test-lean-cache` (in `make test`) runs the stand-ins on a
+  fake toolchain: a repeated call is replayed without running the tool,
+  with the same output, status and `.olean`, and a change to each input
+  misses (source text, module name, option, imported `.olean`, toolchain
+  binary and library, `LEAN_*` variable, exporter arguments); it checks
+  what is never cached, `LEAN_CACHE=0`, verify mode, restored paths, one
+  stream's order, and that the Makefile uses the cache only without
+  `LEAN_CACHE=0` and `CI`. Eight planted faults (`lc-*` in
+  `tests/mutants/faults.toml`) are each caught by it.
+
+**Timings.** Each target of `make check` run on its own, one after another,
+on Gforth 1.0 and Lean 4.35.0 (10 cores, other work on the machine; load
+average 1–8). *Before*: commit `8148f3f`, before these changes. *No cache*:
+`LEAN_CACHE=0`, as CI runs. *Cached*: every Lean and exporter run replayed.
+
+| Target | Suite | Before (s) | No cache (s) | Cached (s) |
+| --- | --- | ---: | ---: | ---: |
+| `check-docs` | test | 0.1 | 0.1 | 0.1 |
+| `check-lean-sources` | test | 0.1 | 0.1 | 0.1 |
+| `check-portable-forth` | test | 0.7 | 0.8 | 0.8 |
+| `smoke` | test | 1.5 | 1.6 | 1.8 |
+| `test-harness` | test | 0.0 | 0.0 | 0.0 |
+| `test-lib` | test | 0.8 | 0.8 | 0.9 |
+| `test-core` | test | 5.9 | 6.2 | 6.7 |
+| `test-composition-fixture` | test | 4.4 | 4.7 | 5.3 |
+| `test-program` | test | 0.0 | 0.0 | 0.0 |
+| `test-present` | test | 0.3 | 0.3 | 0.3 |
+| `check-doc-examples` | test | 1.5 | 1.6 | 1.8 |
+| `test-program-ir` | test | 0.4 | 0.4 | 0.5 |
+| `test-program-ir-run` | test | 0.4 | 0.4 | 0.4 |
+| `test-environment` | test | 3.2 | 3.4 | 3.6 |
+| `test-run-records` | test | 3.1 | 3.4 | 3.7 |
+| `test-bignum` | test | 4.5 | 4.7 | 5.1 |
+| `test-sha256` | test | 1.5 | 1.6 | 1.8 |
+| `test-manifest` | test | 0.2 | 0.2 | 0.2 |
+| `test-author` | test | 1.0 | 1.0 | 1.1 |
+| `test-mutants` | test | 3.2 | 3.2 | 3.2 |
+| `test-reexport` | test | 1.0 | 1.0 | 1.2 |
+| `test-compact` | test | 0.9 | 0.9 | 0.9 |
+| `test-stage` | test | 1.0 | 0.9 | 0.9 |
+| `test-doc-examples-lean` | check | 8.4 | 9.0 | 2.7 |
+| `reference` | check | 39.4 | 46.3 | 1.6 |
+| `reference-export` | check | 2.8 | 3.1 | 0.5 |
+| `reference-first-checker` | check | 1.9 | 2.3 | 0.3 |
+| `reference-binder-domains` | check | 0.9 | 1.0 | 0.1 |
+| `test-name-differential` | check | 0.7 | 0.9 | 0.1 |
+| `test-level-differential` | check | 0.8 | 0.9 | 0.2 |
+| `test-level-assignment-differential` | check | 0.7 | 0.8 | 0.2 |
+| `test-level-compare-differential` | check | 2.4 | 2.8 | 0.3 |
+| `test-level-substitute-differential` | check | 0.8 | 1.0 | 0.2 |
+| `test-mixed-shift-differential` | check | 0.8 | 1.0 | 0.2 |
+| `test-mixed-instantiate-differential` | check | 0.8 | 0.9 | 0.1 |
+| `test-mixed-beta-differential` | check | 0.8 | 1.0 | 0.1 |
+| `test-mixed-convert-differential` | check | 0.8 | 1.0 | 0.2 |
+| `test-mixed-level-substitute-differential` | check | 0.9 | 0.9 | 0.2 |
+| `test-mixed-signature-differential` | check | 0.8 | 1.0 | 0.2 |
+| `test-mixed-infer-differential` | check | 0.9 | 0.9 | 0.2 |
+| `test-constant-term-scope-differential` | check | 0.9 | 0.9 | 0.2 |
+| `test-mixed-shift-plain-differential` | check | 0.9 | 0.9 | 0.2 |
+| `test-mixed-instantiate-plain-differential` | check | 0.8 | 1.0 | 0.2 |
+| `test-mixed-beta-plain-differential` | check | 0.9 | 1.0 | 0.2 |
+| `test-mixed-convert-plain-differential` | check | 0.9 | 1.0 | 0.2 |
+| `test-mixed-infer-plain-differential` | check | 3.8 | 4.1 | 0.3 |
+| `test-mixed-definition-differential` | check | 0.9 | 1.0 | 0.2 |
+| `test-mixed-level-substitute-plain-differential` | check | 0.9 | 1.0 | 0.2 |
+| `test-mixed-infer-constant-differential` | check | 0.8 | 1.0 | 0.2 |
+| `test-export-signature-differential` | check | 1.2 | 1.3 | 0.4 |
+| `test-export-specialization-differential` | check | 1.4 | 1.6 | 0.6 |
+| `test-first-checker-differential` | check | 1.9 | 2.3 | 0.3 |
+| `test-binder-domains-differential` | check | 3.5 | 4.0 | 0.3 |
+| `test-universe-scope-differential` | check | 2.6 | 3.0 | 1.2 |
+| `test-program-differential` | check | 0.8 | 0.9 | 0.1 |
+| `test-program-stack-differential` | check | 1.2 | 1.5 | 0.2 |
+| `test-program-values-differential` | check | 0.9 | 1.1 | 0.2 |
+| `test-program-depth-differential` | check | 0.8 | 0.9 | 0.2 |
+| `test-example-reference-differential` | check | 1.6 | 1.9 | 0.2 |
+| `test-add-reference-differential` | check | 1.7 | 2.0 | 0.2 |
+| `test-abs-reference-differential` | check | 1.4 | 1.9 | 0.2 |
+| `test-factorial-reference-differential` | check | 1.5 | 2.0 | 0.2 |
+| `test-gcd-reference-differential` | check | 1.5 | 1.8 | 0.2 |
+| `test-range-64-differential` | check | 1.5 | 1.9 | 0.2 |
+| `test-memory-reference-differential` | check | 1.2 | 1.5 | 0.2 |
+| `test-memory-frame-differential` | check | 2.3 | 2.8 | 0.3 |
+| `test-printer-differential` | check | 2.6 | 3.2 | 0.4 |
+| `reference-program-ir` | check | 5.2 | 6.3 | 0.1 |
+| `reference-program-ir-run` | check | 29.9 | 29.4 | 9.9 |
+| `reference-bignum` | check | 10.9 | 9.9 | 3.4 |
+| `reference-manifest` | check | 1.1 | 0.8 | 0.3 |
+| `reference-author` | check | 69.4 | 60.6 | 13.2 |
+| `reference-reexport` | check | 2.0 | 1.8 | 0.5 |
+| `reference-compact-init` | check | 78.5 | 57.3 | 40.7 |
+| `mutants-check` | check | 0.1 | 0.0 | 0.0 |
+| `test-compact-faults` | check | 7.5 | 6.9 | 6.1 |
+| `test-lean-cache` | test | — | 2.6 | 2.6 |
+| sum, every target of make test | | 36 | 40 | 43 |
+| sum, every target of make check | | 345 | 335 | 132 |
+
+`reference-compact-init` fell from 78.5 s to 57.3 s by running
+`compact-verify.sh`'s two Gforth runs side by side, and to 40.7 s with
+the export of `Init` replayed; staging it into the compact store and
+writing its manifest always run. What remains of `reference-program-ir-run`
+(9.9 s) is mostly `program-ir-run.lean`, which reads its cases from files
+and is never cached; of `reference-author` (13.2 s), the authoring words
+and planted faults. The suites as a whole (wall time; `make test` has no
+Lean runs, so the cache does not change it):
+
+| Command (wall time, 2026-11-03) | Before | After |
+| --- | ---: | ---: |
+| `make test`, one target at a time (`JOBS=1`) | 36.2 s | 40.5 s |
+| `make test` (8 jobs, the default) | — | 7.9–8.5 s |
+| `make check`, one target at a time, without the cache (sum of the table) | 345 s | 335 s |
+| `make -j8 check` | 97.0 s | — |
+| `make check LEAN_CACHE=0` (8 jobs; what CI runs) | — | 75.3 s |
+| `make check`, empty cache (every run stored) | — | 68.7 s |
+| `make check`, cache filled (every run replayed) | — | 43.4 s |
+
+`make check` starts its slowest targets first (they are listed first in
+the Makefile); before that change the same runs took 89.5 s without the
+cache, 93.7 s with an empty one and 55.6 s with a full one. Each run
+passed. The longest target, `reference-compact-init`, now bounds `make
+check`.
+
+**Testing while you work.** The inner loop is the focused test of what you
+change; `make test` before each commit; `make check` once, at the end of a
+task (and before pushing). Text for agent briefs:
+
+> Testing: while you work, run only the focused tests of the files you
+> change: the test file itself (`.tools/gforth/bin/gforth tests/core/names.fs
+> </dev/null`), its module's target from the table in
+> docs/development/TESTING_STRATEGY.md ("Testing while you work"), or
+> `make test-changed` (every target of `make test` that uses a file changed
+> since main). Run `make test` (about 8 s, 8 jobs) before each commit, and
+> `make check` (about 45 s with the shared Lean cache, 75 s without) once
+> at the end. `make check LEAN_CACHE=0` is what CI runs. Do not run
+> several make commands at once: make already runs 8 jobs.
+
+`make test-changed` and `make check-changed` (`scripts/changed-tests.py`;
+`BASE=REF` for another base than `main`, `--why` lists each target's
+reasons) run the targets that use a file changed since the merge base,
+uncommitted and new files included. A target uses the files its recipe
+names and, transitively, what those programs use: Forth `require` and
+`include`, Python imports, and repository paths named in the code of
+Forth, Python and shell files (not in comments or docstrings); Lean files
+and data are used but not followed. A changed Forth source also selects
+`smoke` and `check-portable-forth`, a changed Markdown file `check-docs`, a
+changed Makefile everything. Most tests load `src/main.fs`, so a change to
+a checker module still selects 25–40 of the 77 targets; a changed test, Lean
+file, script or document selects a few (`tests/reference/clamp.lean`: 6,
+`src/author/runner.fs`: 4, `tests/core/names.fs`: 1). It is a heuristic,
+not a proof that the other targets are unaffected (a path built at run
+time, as `scripts/export.sh` builds `export_manifest.py`'s, is not seen).
+
+| You change | Focused targets |
+| --- | --- |
+| `src/lib/` | `test-lib`; `test-compact` (slab, htab, hash32, cons, pools), `test-bignum`, `test-sha256`, `test-environment` (store marks) |
+| `src/core/` | `test-core`; `test-compact`, `test-stage` (compact store) |
+| `src/kernel/` | `test-core`, `test-environment`; the matching `test-*-differential` and `test-first-checker-differential` |
+| `src/import/` | `test-core` (NDJSON reader, load), `test-manifest`, `test-stage`, `test-reexport`, `test-run-records`, `test-compact` |
+| `src/program/` | `test-program`, `test-program-ir`, `test-program-ir-run` |
+| `src/present/` | `test-present`; `test-printer-differential` |
+| `src/author/` | `test-author`; `reference-author` |
+| `tests/reference/*.lean` | the target that runs the file (`make check-changed` finds it) |
+| `scripts/lean-cache.py`, the Makefile | `test-lean-cache`, then `make check` |
+| `docs/` | `check-docs`, `check-doc-examples` |
+
 ## Failure paths and allocation-failure injection (plan tasks 2.2.4, 1.4.6)
 
 Added 2026-11-03. The first checker must fail closed wherever it runs out

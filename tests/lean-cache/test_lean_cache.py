@@ -23,7 +23,6 @@ Python 3 and make; runs no Lean and no Forth.
 import os
 import stat
 import subprocess
-import sys
 import tempfile
 import unittest
 from pathlib import Path

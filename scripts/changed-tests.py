@@ -6,18 +6,23 @@ Usage (from the repository root):
 
 Prints, on one line, every leaf target of `make test` (or `make check`) that
 uses a file that differs from the merge base of REF (default main) and the
-working tree, new untracked files included; with --why, also each target's
-changed files on stderr. A target uses the files its recipe names (as
-`make -n` expands it, globs included), and, transitively, the files those
-name: repository paths (src/, tests/, scripts/, docs/) anywhere in their
-text, a Forth file's require and include, a Python file's imports of a
-module beside it or in scripts/. Two rules cover what that misses: a
-changed Forth source selects check-portable-forth and smoke, a changed
-Markdown file check-docs. A changed Makefile selects every target.
+working tree, new untracked files included (or the files given by --files);
+with --why, also each chosen target's changed files on stderr.
+
+A target uses the files its recipe names (as `make -n` expands it, globs
+included) and, transitively, what those programs use: a Forth file's
+require and include; a Python file's imports of a module beside it or in
+scripts/; and the repository paths (src/, tests/, scripts/, docs/) named in
+the code of Forth, Python and shell files, comments and Python docstrings
+left out. Lean files, the fault list and data files are used but not
+followed further. Rules cover what that misses: a changed Forth source
+selects check-portable-forth and smoke, a changed Markdown file check-docs,
+a changed Makefile every target.
 
 This is a heuristic for an agent's inner loop, not a proof that the other
 targets are unaffected: run `make test` before every commit and `make check`
-at the end. Needs git, make and Python 3.
+at the end. Most tests load src/main.fs, so a change to a checker module
+still selects most targets. Needs git, make and Python 3.
 """
 import argparse
 import glob
@@ -30,9 +35,10 @@ from concurrent.futures import ThreadPoolExecutor
 PATH = re.compile(r"(?<![\w./-])(?:\./)?((?:src|tests|scripts|docs)/[\w.*/+-]*[\w*])")
 FORTH_LOAD = re.compile(r"\b(?:require|include|needs)\s+(\S+\.fs)\b", re.IGNORECASE)
 PY_IMPORT = re.compile(r"^\s*(?:from\s+(\w+)\s+import|import\s+(\w+))", re.MULTILINE)
+DOCSTRING = re.compile(r'^(?:#.*\n|\s*\n)*(?:"""|\'\'\').*?(?:"""|\'\'\')', re.DOTALL)
+COMMENT = {".fs": "\\", ".py": "#", ".sh": "#"}
 AGGREGATES = {"test": ["test"], "check": ["test", "test-differential", "check"]}
 TEXT_LIMIT = 2 * 1024 * 1024
-CODE = (".fs", ".py", ".sh", ".lean", ".toml")
 
 
 def git(*args):
@@ -65,21 +71,27 @@ def recipe(target):
 
 
 def named_files(text):
-    """Repository files a text names: paths, with globs and folders expanded."""
+    """Repository files a text names: paths, with globs expanded (a folder's
+    name alone, as comments use it, does not select its files)."""
     found = set()
     for token in PATH.findall(text):
         for path in (glob.glob(token) if "*" in token else [token]):
             if os.path.isfile(path):
                 found.add(os.path.normpath(path))
-            elif os.path.isdir(path):
-                found.update(os.path.normpath(os.path.join(root, name))
-                             for root, _, names in os.walk(path) for name in names)
     return found
 
 
+def code_of(path, text):
+    """The text of a program without its comment lines and module docstring."""
+    if path.endswith(".py"):
+        text = DOCSTRING.sub("", text, count=1)
+    mark = COMMENT[os.path.splitext(path)[1]]
+    return "\n".join(line for line in text.splitlines() if not line.lstrip().startswith(mark))
+
+
 def used_files(path, text):
-    """The files one file uses: named paths, Forth loads, Python imports."""
-    found = named_files(text)
+    """The files one program uses: named paths, Forth loads, Python imports."""
+    found = named_files(code_of(path, text))
     folder = os.path.dirname(path)
     if path.endswith(".fs"):
         for name in FORTH_LOAD.findall(text):
@@ -97,21 +109,21 @@ def used_files(path, text):
 
 
 def closure(start, cache):
+    """Every file the start files use, following programs (not Lean or data)."""
     seen, todo = set(), list(start)
     while todo:
         path = todo.pop()
         if path in seen:
             continue
         seen.add(path)
-        if path not in cache and not path.endswith(CODE):
-            cache[path] = set()  # documents and data name files but do not run them
+        if os.path.splitext(path)[1] not in COMMENT:
+            continue
         if path not in cache:
             try:
                 with open(path, encoding="utf-8", errors="replace") as stream:
-                    text = stream.read(TEXT_LIMIT)
+                    cache[path] = used_files(path, stream.read(TEXT_LIMIT))
             except OSError:
-                text = ""
-            cache[path] = used_files(path, text)
+                cache[path] = set()
         todo += cache[path] - seen
     return seen
 
@@ -126,11 +138,13 @@ def main():
     changed = args.files or changed_files(args.base)
     targets = leaf_targets(args.aggregate)
     if "Makefile" in changed:
+        if args.why:
+            print("the Makefile changed: every target", file=sys.stderr)
         print(" ".join(targets))
         return 0
     with ThreadPoolExecutor(max_workers=8) as pool:
         recipes = dict(zip(targets, pool.map(recipe, targets)))
-    cache, chosen = {}, []
+    cache, chosen, used = {}, [], set()
     for target in targets:
         uses = closure(named_files(recipes[target]), cache)
         hits = [name for name in changed if name in uses]
@@ -139,13 +153,12 @@ def main():
         hits += [name for name in changed if name.endswith(".md") and target == "check-docs"]
         if hits:
             chosen.append(target)
+            used.update(hits)
             if args.why:
                 print(f"{target}: {' '.join(sorted(set(hits)))}", file=sys.stderr)
-    unused = [name for name in changed
-              if not any(name in closure(named_files(recipes[t]), cache) for t in chosen)
-              and not name.endswith(".md")]
+    unused = [name for name in changed if name not in used]
     if args.why and unused:
-        print(f"no selected target uses: {' '.join(unused)}", file=sys.stderr)
+        print(f"no target uses: {' '.join(unused)}", file=sys.stderr)
     print(" ".join(chosen))
     return 0
 

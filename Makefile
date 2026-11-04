@@ -82,6 +82,8 @@ DIFFERENTIAL_TARGETS := \
 	forth-metrics $(DIFFERENTIAL_TARGETS)
 
 # Gforth and Python 3 only; run on every CI host and before every commit.
+# The slowest targets first (see check below).
+test: test-core test-composition-fixture test-bignum test-run-records test-environment
 test: check-docs check-lean-sources check-portable-forth smoke test-harness test-lib test-core \
 	test-composition-fixture test-program test-present check-doc-examples
 
@@ -120,6 +122,10 @@ forth-metrics:
 # Requires pinned Lean 4.35.0 as well as Gforth and Python 3.
 test-differential: $(DIFFERENTIAL_TARGETS)
 
+# With parallel jobs make starts targets in the order listed: the slowest
+# first (each is also named again below), so that none of them starts last.
+check: reference-compact-init reference-author reference reference-program-ir-run \
+	reference-bignum test-doc-examples-lean test-compact-faults
 check: test test-differential mutants-check
 
 # src/main.fs must load silently: a "redefined" warning means two modules
@@ -664,8 +670,8 @@ test: test-compact test-stage
 check: test-compact-faults
 test-differential: reference-compact-init
 
-# The Lean cache (scripts/lean-cache.py; TESTING_STRATEGY.md, "The Lean
-# cache"): with a fake toolchain, a repeated call replayed exactly, every
+# The Lean cache (scripts/lean-cache.py; TESTING_STRATEGY.md, "Running the
+# suites"): with a fake toolchain, a repeated call replayed exactly, every
 # input's change missing the cache, what is never cached, verify mode, and
 # the Makefile's choice of the cache (never with LEAN_CACHE=0 or CI set).
 # Python 3 and make only.
