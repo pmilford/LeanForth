@@ -2,6 +2,9 @@
 ran: ok
 lean: theorem identity : ∀ {P : Prop}, P → P :=
 lean: fun {P} proof ↦ proof
+term: 0 identity
+term:   type (pi P 1 (Sort 0) (pi proof 0 #0 #1))
+term:   value (lam P 1 (Sort 0) (lam proof 0 #0 #0))
 words:
 theorem identity
   Prop implicit: P
@@ -15,6 +18,9 @@ round trip: terms, names, kinds, labels and notes same; printed text same
 ran: ok
 lean: theorem composition : ∀ {A B C : Prop}, (A → B) → (B → C) → A → C :=
 lean: fun {A B C} f g value ↦ g (f value)
+term: 0 composition
+term:   type (pi A 1 (Sort 0) (pi B 1 (Sort 0) (pi C 1 (Sort 0) (pi f 0 (pi [arrow] 0 #2 #2) (pi g 0 (pi [arrow] 0 #2 #2) (pi [arrow] 0 #4 #3))))))
+term:   value (lam A 1 (Sort 0) (lam B 1 (Sort 0) (lam C 1 (Sort 0) (lam f 0 (pi [arrow] 0 #2 #2) (lam g 0 (pi [arrow] 0 #2 #2) (lam value 0 #4 (app #1 (app #2 #0))))))))
 words:
 theorem composition
   Prop implicit: A
@@ -31,6 +37,9 @@ round trip: terms, names, kinds, labels and notes same; printed text same
 ran: ok
 lean: theorem type_identity : ∀ {A : Type} {P : A → Prop} {x : A}, P x → P x :=
 lean: fun {A} {P} {x} proof ↦ proof
+term: 0 type_identity
+term:   type (pi A 1 (Sort (succ 0)) (pi P 1 (pi [arrow] 0 #0 (Sort 0)) (pi x 1 #1 (pi proof 0 (app #1 #0) (app #2 #1)))))
+term:   value (lam A 1 (Sort (succ 0)) (lam P 1 (pi [arrow] 0 #0 (Sort 0)) (lam x 1 #1 (lam proof 0 (app #1 #0) #0))))
 words:
 theorem type_identity
   0 Type implicit: A
@@ -46,6 +55,9 @@ round trip: terms, names, kinds, labels and notes same; printed text same
 ran: ok
 lean: theorem poly_identity.{u} : ∀ {A : Sort u} {P : A → Prop} {x : A}, P x → P x :=
 lean: fun {A} {P} {x} proof ↦ proof
+term: 0 poly_identity u:u
+term:   type (pi A 1 (Sort (param u)) (pi P 1 (pi [arrow] 0 #0 (Sort 0)) (pi x 1 #1 (pi proof 0 (app #1 #0) (app #2 #1)))))
+term:   value (lam A 1 (Sort (param u)) (lam P 1 (pi [arrow] 0 #0 (Sort 0)) (lam x 1 #1 (lam proof 0 (app #1 #0) #0))))
 words:
 theorem poly_identity
   universe u
@@ -66,6 +78,15 @@ lean: def fixturePoly.{u} : {α : Sort u} → α → α :=
 lean: fun {α} x ↦ fixtureId x
 lean: theorem fixtureUse : ∀ {P : Prop}, P → P :=
 lean: fun {P} h ↦ fixtureId h
+term: 1 fixtureId u:u
+term:   type (pi α 1 (Sort (param u)) (pi x 0 #0 #1))
+term:   value (lam α 1 (Sort (param u)) (lam x 0 #0 #0))
+term: 1 fixturePoly u:u
+term:   type (pi α 1 (Sort (param u)) (pi x 0 #0 #1))
+term:   value (lam α 1 (Sort (param u)) (lam x 0 #0 (app (app (const fixtureId (param u)) #1) #0)))
+term: 0 fixtureUse
+term:   type (pi P 1 (Sort 0) (pi h 0 #0 #1))
+term:   value (lam P 1 (Sort 0) (lam h 0 #0 (app (app (const fixtureId 0) #1) #0)))
 words:
 def fixtureId
   universe u
@@ -101,6 +122,15 @@ lean: def PairSort.{u, v} : Sort u → Sort v → Type (max u v) :=
 lean: fun _A _B ↦ Sort (max u v)
 lean: def ImaxSort.{u, v} : Sort u → Sort v → Type (imax u v) :=
 lean: fun _A _B ↦ Sort (imax u v)
+term: 1 Big u:u
+term:   type (Sort (succ (succ (param u))))
+term:   value (Sort (succ (param u)))
+term: 1 PairSort u:u u:v
+term:   type (pi _A 0 (Sort (param u)) (pi _B 0 (Sort (param v)) (Sort (succ (max (param u) (param v))))))
+term:   value (lam _A 0 (Sort (param u)) (lam _B 0 (Sort (param v)) (Sort (max (param u) (param v)))))
+term: 1 ImaxSort u:u u:v
+term:   type (pi _A 0 (Sort (param u)) (pi _B 0 (Sort (param v)) (Sort (succ (imax (param u) (param v))))))
+term:   value (lam _A 0 (Sort (param u)) (lam _B 0 (Sort (param v)) (Sort (imax (param u) (param v)))))
 words:
 def Big
   universe u
@@ -135,6 +165,33 @@ type: Eq.{u_1} : {α : Sort u_1} → α → α → Prop
 type: HAdd.hAdd.{u, v, w} : {α : Type u} → {β : Type v} → {γ : @outParam (Type w)} → [self : @HAdd α β γ] → α → β → γ
 lean: theorem add_comm' : ∀ (n m : Nat), Eq (HAdd.hAdd n m) (HAdd.hAdd m n) :=
 lean: fun n m ↦ Nat.add_comm n m
+term: 3 Nat
+term:   type none
+term:   value none
+term: 3 instAddNat
+term:   type none
+term:   value none
+term: 3 instHAdd u:u_1
+term:   type none
+term:   value none
+term: 3 HAdd u:u u:v u:w
+term:   type none
+term:   value none
+term: 3 outParam u:u
+term:   type none
+term:   value none
+term: 3 Nat.add_comm
+term:   type none
+term:   value none
+term: 3 Eq u:u_1
+term:   type (pi α 1 (Sort (param u_1)) (pi [arrow] 0 #0 (pi [arrow] 0 #1 (Sort 0))))
+term:   value none
+term: 3 HAdd.hAdd u:u u:v u:w
+term:   type (pi α 1 (Sort (succ (param u))) (pi β 1 (Sort (succ (param v))) (pi γ 1 (app (const outParam (succ (succ (param w)))) (Sort (succ (param w)))) (pi self 3 (app (app (app (const HAdd (param u) (param v) (param w)) #2) #1) #0) (pi [arrow] 0 #3 (pi [arrow] 0 #3 #3))))))
+term:   value none
+term: 0 add_comm'
+term:   type (pi n 0 (const Nat) (pi m 0 (const Nat) (app (app (app (const Eq (succ 0)) (const Nat)) (app (app (app (app (app (app (const HAdd.hAdd 0 0 0) (const Nat)) (const Nat)) (const Nat)) (app (app (const instHAdd 0) (const Nat)) (const instAddNat))) #1) #0)) (app (app (app (app (app (app (const HAdd.hAdd 0 0 0) (const Nat)) (const Nat)) (const Nat)) (app (app (const instHAdd 0) (const Nat)) (const instAddNat))) #0) #1))))
+term:   value (lam n 0 (const Nat) (lam m 0 (const Nat) (app (app (const Nat.add_comm) #1) #0)))
 words:
 import-stub Nat
 end Nat
@@ -143,7 +200,7 @@ import-stub instAddNat
 end instAddNat
 
 import-stub instHAdd
-  universe u
+  universe u_1
 end instHAdd
 
 import-stub HAdd
@@ -195,10 +252,29 @@ type: MyMonoid.one.{u} : {M : Type u} → [self : MyMonoid M] → M
 type: MyMonoid.mul_one.{u} : {M : Type u} → [self : MyMonoid M] → (a : M) → Eq (MyMonoid.mul a MyMonoid.one) a
 lean: theorem MyMonoid.mul_one'.{u} : ∀ {M : Type u} [inst : MyMonoid M] (a : M), Eq (MyMonoid.mul a MyMonoid.one) a :=
 lean: fun {M} [inst : MyMonoid M] a ↦ MyMonoid.mul_one a
+term: 3 MyMonoid u:u
+term:   type (pi M 0 (Sort (succ (param u))) (Sort (succ (param u))))
+term:   value none
+term: 3 Eq u:u_1
+term:   type (pi α 1 (Sort (param u_1)) (pi [arrow] 0 #0 (pi [arrow] 0 #1 (Sort 0))))
+term:   value none
+term: 3 MyMonoid.mul u:u
+term:   type (pi M 1 (Sort (succ (param u))) (pi self 3 (app (const MyMonoid (param u)) #0) (pi [arrow] 0 #1 (pi [arrow] 0 #2 #3))))
+term:   value none
+term: 3 MyMonoid.one u:u
+term:   type (pi M 1 (Sort (succ (param u))) (pi self 3 (app (const MyMonoid (param u)) #0) #1))
+term:   value none
+term: 3 MyMonoid.mul_one u:u
+term:   type (pi M 1 (Sort (succ (param u))) (pi self 3 (app (const MyMonoid (param u)) #0) (pi a 0 #1 (app (app (app (const Eq (succ (param u))) #2) (app (app (app (app (const MyMonoid.mul (param u)) #2) #1) #0) (app (app (const MyMonoid.one (param u)) #2) #1))) #0))))
+term:   value none
+term: 0 MyMonoid.mul_one' u:u
+term:   type (pi M 1 (Sort (succ (param u))) (pi inst 3 (app (const MyMonoid (param u)) #0) (pi a 0 #1 (app (app (app (const Eq (succ (param u))) #2) (app (app (app (app (const MyMonoid.mul (param u)) #2) #1) #0) (app (app (const MyMonoid.one (param u)) #2) #1))) #0))))
+term:   value (lam M 1 (Sort (succ (param u))) (lam inst 3 (app (const MyMonoid (param u)) #0) (lam a 0 #1 (app (app (app (const MyMonoid.mul_one (param u)) #2) #1) #0))))
 words:
 import-stub MyMonoid
   universe u
-  u Type u Type ->
+  u Type explicit: M
+  u Type
 end MyMonoid
 
 import-stub Eq
@@ -246,6 +322,9 @@ lean: fun {A B C D} f g h a ↦ h (g (f a))
 note: chain/to-B (line 12), by an AI: f turns the proof a of A into a proof of B
 note: chain/to-C (line 13), by an AI: g turns that into a proof of C
 note: chain/to-D (line 14), by a person: h finishes the chain: a proof of D
+term: 0 chain
+term:   type (pi A 1 (Sort 0) (pi B 1 (Sort 0) (pi C 1 (Sort 0) (pi D 1 (Sort 0) (pi f 0 (pi [arrow] 0 #3 #3) (pi g 0 (pi [arrow] 0 #3 #3) (pi h 0 (pi [arrow] 0 #3 #3) (pi [arrow] 0 #6 #4))))))))
+term:   value (lam A 1 (Sort 0) (lam B 1 (Sort 0) (lam C 1 (Sort 0) (lam D 1 (Sort 0) (lam f 0 (pi [arrow] 0 #3 #3) (lam g 0 (pi [arrow] 0 #3 #3) (lam h 0 (pi [arrow] 0 #3 #3) (lam a 0 #6 (app #1 (app #2 (app #3 #0)))))))))))
 words:
 theorem chain
   Prop implicit: A
@@ -271,6 +350,12 @@ lean: theorem chain : ∀ {A B C D : Prop}, (A → B) → (B → C) → (C → D
 lean: fun {A B C D} f g h a ↦ h (composition f g a)
 note: chain/to-C (line 24), by a person: composition does the first two steps at once
 note: chain/to-D (line 25), by a person: h finishes the chain: a proof of D
+term: 0 composition
+term:   type (pi A 1 (Sort 0) (pi B 1 (Sort 0) (pi C 1 (Sort 0) (pi f 0 (pi [arrow] 0 #2 #2) (pi g 0 (pi [arrow] 0 #2 #2) (pi [arrow] 0 #4 #3))))))
+term:   value (lam A 1 (Sort 0) (lam B 1 (Sort 0) (lam C 1 (Sort 0) (lam f 0 (pi [arrow] 0 #2 #2) (lam g 0 (pi [arrow] 0 #2 #2) (lam value 0 #4 (app #1 (app #2 #0))))))))
+term: 0 chain
+term:   type (pi A 1 (Sort 0) (pi B 1 (Sort 0) (pi C 1 (Sort 0) (pi D 1 (Sort 0) (pi f 0 (pi [arrow] 0 #3 #3) (pi g 0 (pi [arrow] 0 #3 #3) (pi h 0 (pi [arrow] 0 #3 #3) (pi [arrow] 0 #6 #4))))))))
+term:   value (lam A 1 (Sort 0) (lam B 1 (Sort 0) (lam C 1 (Sort 0) (lam D 1 (Sort 0) (lam f 0 (pi [arrow] 0 #3 #3) (lam g 0 (pi [arrow] 0 #3 #3) (lam h 0 (pi [arrow] 0 #3 #3) (lam a 0 #6 (app #1 (app (app (app (app (app (app (const composition) #7) #6) #5) #3) #2) #0))))))))))
 words:
 theorem composition
   Prop implicit: A
@@ -311,6 +396,9 @@ ran: error 1 at line:col 4:3 (token `p`): unknown name: no syntax word, bound va
 ran: ok
 lean: theorem strict_example : ∀ {A : Type} {P : A → Prop}, (∀ ⦃x : A⦄, P x) → ∀ (y : A), P y :=
 lean: fun {A} {P} h y ↦ h
+term: 0 strict_example
+term:   type (pi A 1 (Sort (succ 0)) (pi P 1 (pi [arrow] 0 #0 (Sort 0)) (pi h 0 (pi x 2 #1 (app #1 #0)) (pi y 0 #2 (app #2 #0)))))
+term:   value (lam A 1 (Sort (succ 0)) (lam P 1 (pi [arrow] 0 #0 (Sort 0)) (lam h 0 (pi x 2 #1 (app #1 #0)) (lam y 0 #2 (app #1 #0)))))
 words:
 theorem strict_example
   0 Type implicit: A
@@ -326,6 +414,9 @@ round trip: terms, names, kinds, labels and notes same; printed text same
 ran: ok
 lean: theorem hyg_used : ∀ (P : Prop), P → P :=
 lean: fun Q q ↦ q
+term: 0 hyg_used
+term:   type (pi P._@.Main._hyg.#3 0 (Sort 0) (pi [arrow] 0 #0 #1))
+term:   value (lam Q 0 (Sort 0) (lam q 0 #0 #0))
 words:
 theorem hyg_used
   Prop explicit: P._@.Main._hyg.3 P._@.Main._hyg.3 P._@.Main._hyg.3 -> forall
@@ -338,10 +429,20 @@ ran: ok
 type: MyMonoid.{u} : Type u → Type u
 type: Eq.{u_1} : {α : Sort u_1} → α → α → Prop
 type: MyMonoid.mk.{u} : {M : Type u} → (mul : M → M → M) → (one : M) → ((a : M) → Eq (mul a one) a) → MyMonoid M
+term: 3 MyMonoid u:u
+term:   type (pi M 0 (Sort (succ (param u))) (Sort (succ (param u))))
+term:   value none
+term: 3 Eq u:u_1
+term:   type (pi α 1 (Sort (param u_1)) (pi [arrow] 0 #0 (pi [arrow] 0 #1 (Sort 0))))
+term:   value none
+term: 3 MyMonoid.mk u:u
+term:   type (pi M 1 (Sort (succ (param u))) (pi mul 0 (pi [arrow] 0 #0 (pi [arrow] 0 #1 #2)) (pi one 0 #1 (pi mul_one 0 (pi a 0 #2 (app (app (app (const Eq (succ (param u))) #3) (app (app #2 #0) #1)) #0)) (app (const MyMonoid (param u)) #3)))))
+term:   value none
 words:
 import-stub MyMonoid
   universe u
-  u Type u Type ->
+  u Type explicit: M
+  u Type
 end MyMonoid
 
 import-stub Eq
@@ -369,6 +470,24 @@ lean: def bothIds : Id Nat → Id Nat :=
 lean: fun f ↦ id f
 lean: def propVar : Prop → Prop :=
 lean: fun prop ↦ prop
+term: 3 Nat
+term:   type none
+term:   value none
+term: 3 id u:u
+term:   type (pi α 1 (Sort (param u)) (pi a 0 #0 #1))
+term:   value none
+term: 3 Id u:u
+term:   type (pi type 0 (Sort (succ (param u))) (Sort (succ (param u))))
+term:   value none
+term: 1 caseVar
+term:   type (pi X 1 (Sort (succ 0)) (pi x 0 #0 #1))
+term:   value (lam X 1 (Sort (succ 0)) (lam x 0 #0 #0))
+term: 1 bothIds
+term:   type (pi f 0 (app (const Id 0) (const Nat)) (app (const Id 0) (const Nat)))
+term:   value (lam f 0 (app (const Id 0) (const Nat)) (app (app (const id (succ 0)) (app (const Id 0) (const Nat))) #0))
+term: 1 propVar
+term:   type (pi prop 0 (Sort 0) (Sort 0))
+term:   value (lam prop 0 (Sort 0) #0)
 words:
 import-stub Nat
 end Nat
@@ -376,12 +495,14 @@ end Nat
 import-stub id
   universe u
   u Sort implicit: α
-  α α ->
+  α explicit: a
+  α
 end id
 
 import-stub Id
   universe u
-  u Type u Type ->
+  u Type explicit: type
+  u Type
 end Id
 
 def caseVar
@@ -410,6 +531,9 @@ round trip: terms, names, kinds, labels and notes same; printed text same
 ran: ok
 lean: def caseVar : {X : Type} → X → X :=
 lean: fun {X} x ↦ x
+term: 1 caseVar
+term:   type (pi X 1 (Sort (succ 0)) (pi x 0 #0 #1))
+term:   value (lam X 1 (Sort (succ 0)) (lam x 0 #0 #0))
 words:
 def caseVar
   0 Type implicit: X
@@ -419,3 +543,173 @@ def caseVar
   x
 end caseVar
 round trip: terms, names, kinds, labels and notes same; printed text same
+== 16-namespaces
+ran: ok
+lean: def c : Type :=
+lean: Prop
+lean: def A.c : Type :=
+lean: Prop
+lean: def A.B.c : Type :=
+lean: Prop
+lean: def X.c : Type :=
+lean: Prop
+lean: def X.d : Type :=
+lean: Prop
+lean: def Y.Z.h : Type :=
+lean: Prop
+lean: def A.t1 : Type :=
+lean: A.c
+lean: def A.t2 : Type :=
+lean: A.c
+lean: def A.B.t3 : Type :=
+lean: A.B.c
+lean: def A.B.t4 : Type :=
+lean: A.B.c
+lean: def A.B.t5 : Type :=
+lean: A.B.c
+lean: def A.t6 : Type :=
+lean: A.c
+lean: def A.t7 : Type :=
+lean: A.c
+lean: def A.t8 : Type :=
+lean: X.d
+lean: def W.t9 : Type :=
+lean: Y.Z.h
+term: 1 c
+term:   type (Sort (succ 0))
+term:   value (Sort 0)
+term: 1 A.c
+term:   type (Sort (succ 0))
+term:   value (Sort 0)
+term: 1 A.B.c
+term:   type (Sort (succ 0))
+term:   value (Sort 0)
+term: 1 X.c
+term:   type (Sort (succ 0))
+term:   value (Sort 0)
+term: 1 X.d
+term:   type (Sort (succ 0))
+term:   value (Sort 0)
+term: 1 Y.Z.h
+term:   type (Sort (succ 0))
+term:   value (Sort 0)
+term: 1 A.t1
+term:   type (Sort (succ 0))
+term:   value (const A.c)
+term: 1 A.t2
+term:   type (Sort (succ 0))
+term:   value (const A.c)
+term: 1 A.B.t3
+term:   type (Sort (succ 0))
+term:   value (const A.B.c)
+term: 1 A.B.t4
+term:   type (Sort (succ 0))
+term:   value (const A.B.c)
+term: 1 A.B.t5
+term:   type (Sort (succ 0))
+term:   value (const A.B.c)
+term: 1 A.t6
+term:   type (Sort (succ 0))
+term:   value (const A.c)
+term: 1 A.t7
+term:   type (Sort (succ 0))
+term:   value (const A.c)
+term: 1 A.t8
+term:   type (Sort (succ 0))
+term:   value (const X.d)
+term: 1 W.t9
+term:   type (Sort (succ 0))
+term:   value (const Y.Z.h)
+words:
+def c
+  0 Type
+:=
+  Prop
+end c
+
+def A.c
+  0 Type
+:=
+  Prop
+end A.c
+
+def A.B.c
+  0 Type
+:=
+  Prop
+end A.B.c
+
+def X.c
+  0 Type
+:=
+  Prop
+end X.c
+
+def X.d
+  0 Type
+:=
+  Prop
+end X.d
+
+def Y.Z.h
+  0 Type
+:=
+  Prop
+end Y.Z.h
+
+def A.t1
+  0 Type
+:=
+  A.c
+end A.t1
+
+def A.t2
+  0 Type
+:=
+  A.c
+end A.t2
+
+def A.B.t3
+  0 Type
+:=
+  A.B.c
+end A.B.t3
+
+def A.B.t4
+  0 Type
+:=
+  A.B.c
+end A.B.t4
+
+def A.B.t5
+  0 Type
+:=
+  A.B.c
+end A.B.t5
+
+def A.t6
+  0 Type
+:=
+  A.c
+end A.t6
+
+def A.t7
+  0 Type
+:=
+  A.c
+end A.t7
+
+def A.t8
+  0 Type
+:=
+  X.d
+end A.t8
+
+def W.t9
+  0 Type
+:=
+  Y.Z.h
+end W.t9
+round trip: terms, names, kinds, labels and notes same; printed text same
+== 17-long-line
+ran: error 39 at line:col 4:3 (token `Prop`): line too long; outcome full

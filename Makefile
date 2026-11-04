@@ -461,20 +461,24 @@ test-differential: reference-manifest
 
 # The LeanForth authoring words (plan task 8.1.2, ADR 0017; untrusted, not
 # loaded by src/main.fs, so they get their own silent-load check): unit
-# tests of every error code with its line and column, then the 19 example
-# files against their golden report with a round trip each, the error
-# catalogue against docs/programming/LEANFORTH_WORDS.md, the check that
-# the checker never loads src/author, and round trips over the term
-# printer's cases and the five Lean exports. Gforth and Python 3 only.
+# tests of every error code with its line and column, then the 21 example
+# files against their golden report (with each declaration's terms) and a
+# round trip each, the error catalogue against
+# docs/programming/LEANFORTH_WORDS.md, the check that the checker never
+# loads src/author, and round trips over the term printer's cases and the
+# five Lean exports. Gforth and Python 3 only. The unit tests are
+# host-sensitive (numbers): run them with Gforth 0.7.3 too when the runner
+# changes.
 test-author:
 	@out=$$($(RUN) $(GFORTH) src/author/runner.fs -e bye 2>&1) || { printf '%s\n' "$$out" >&2; exit 1; }; \
 	if [ -n "$$out" ]; then printf 'src/author/runner.fs printed while loading:\n%s\n' "$$out" >&2; exit 1; fi
 	$(RUN) $(GFORTH) tests/author/author.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/author/check_author.py
 
-# The example files' theorems and definitions as pinned Lean's #print shows
-# them, and seven planted faults that must each be caught (the spelling
-# check disabled only by the comparison with Lean).
+# The example files' declarations against pinned Lean's, term for term
+# (Lean's own, by a metaprogram, and the pinned exporter's) and as #print
+# shows them, and 22 planted faults that must each be caught (four only by
+# the comparison with Lean).
 reference-author:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/author/check_author.py --lean
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/author/check_author.py --faults

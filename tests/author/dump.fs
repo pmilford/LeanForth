@@ -8,11 +8,14 @@
 \ and the symbolic Sort of the level n (ADR 0007); and the name of a Pi
 \ binder that prints as -> (explicit, unused, anonymous or hygienic), the
 \ round trip's one stated exception (ADR 0017 section 13).
-\ Output goes to dump-out ( c-addr u -- ), which the caller sets.
+\ Output goes to dump-out ( c-addr u -- ), which the caller sets; labels
+\ and notes are dumped while dump-notes? holds true (the comparison with
+\ Lean's export, lean_terms.py, writes the same format without them).
 \ Test-only; not a public interface.
 require ../../src/author/runner.fs
 
 defer dump-out ( c-addr u -- )
+variable dump-notes?  true dump-notes? !
 : d ( c-addr u -- ) dump-out ;
 : d# ( n -- ) base @ >r decimal dup abs 0 <# #s rot sign #> r> base ! d ;
 
@@ -80,7 +83,8 @@ defer dump-sub ( term -- )
     lf-tag-pi of s" (pi" d dup dump-pi-binder s"  " d dup lf-term-first@ dump-sub s"  " d
       lf-term-second@ dump-sub s" )" d endof
     s" (bad term)" d nip endcase ;
-: dump-term ( term -- ) dup 0< if drop s" none" d exit then dup dump-node dump-notes ;
+: dump-term ( term -- )
+  dup 0< if drop s" none" d exit then dup dump-node dump-notes? @ if dump-notes else drop then ;
 ' dump-term is dump-sub
 
 create dump-eol 10 c,

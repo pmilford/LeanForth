@@ -49,18 +49,19 @@ require ./source.fs
 27 constant lfa-e-ambiguous      \ a short name found in two places
 28 constant lfa-e-declared       \ a constant or universe declared twice
 29 constant lfa-e-label-twice    \ a label used twice in one declaration
-30 constant lfa-e-bad-name       \ not a name: a number or an empty part
+30 constant lfa-e-bad-name       \ not a name: number-like, an empty part, a leading zero
 31 constant lfa-e-var-index      \ var# outside the binders
 32 constant lfa-e-count          \ a count (a number) is needed
 33 constant lfa-e-unfinished     \ the text ends inside a declaration
-34 constant lfa-e-not-value      \ a negative number that is no LeanForth value
-35 constant lfa-e-not-word       \ a token Forth read as something else, such as a float
+34 constant lfa-e-not-value      \ a cell that is no live, unused LeanForth value
+35 constant lfa-e-not-word       \ a number-like token that is no plain decimal
 36 constant lfa-e-interpreter    \ a name word not run by the text interpreter
 37 constant lfa-e-note-end       \ a note without its closing " on the line
 38 constant lfa-e-unknown-constant \ root: names no constant
 39 constant lfa-e-line           \ a line longer than the runner's buffer
 40 constant lfa-e-file           \ the file cannot be opened or read
 41 constant lfa-e-forth          \ another Forth exception
+42 constant lfa-e-comment-end    \ a ( comment without its closing ) on the line
 50 constant lfa-e-literal        \ unsupported: natural-number literals
 51 constant lfa-e-sketch
   \ unsupported: let, have, projections, strings, by, import
@@ -75,16 +76,22 @@ require ./source.fs
 66 constant lfa-e-entries-full   \ too many names, namespaces or declarations
 67 constant lfa-e-notes-full     \ too many labels and notes
 
-\ The catalogue: code, outcome, message. One entry per code, in order.
-: lfa-entry, ( code outcome c-addr u -- )
-  2swap swap , , dup , here swap dup allot move align ;
-: lfa-entry-code ( entry -- code ) @ ;
-: lfa-entry-outcome ( entry -- outcome ) cell+ @ ;
-: lfa-entry-text ( entry -- c-addr u ) 2 cells + dup cell+ swap @ ;
-: lfa-entry-next ( entry -- entry' ) lfa-entry-text + aligned ;
-: lfa-invalid, ( code c-addr u -- ) outcome-invalid -rot lfa-entry, ;
-: lfa-unsupported, ( code c-addr u -- ) outcome-unsupported -rot lfa-entry, ;
-: lfa-full, ( code c-addr u -- ) outcome-full -rot lfa-entry, ;
+\ The catalogue: one message record per code, in order, each followed by
+\ its text and aligned; a record with code 0 closes it.
+begin-structure /lfa-message
+  field: lfa-message-code
+  field: lfa-message-outcome
+  field: lfa-message-length
+  0 +field lfa-message-chars
+end-structure
+: lfa-message, ( code outcome c-addr u -- )
+  2swap swap , , dup , here swap dup chars allot move align ;
+: lfa-message-text ( message -- c-addr u )
+  dup lfa-message-chars swap lfa-message-length @ ;
+: lfa-message-next ( message -- message' ) lfa-message-text chars + aligned ;
+: lfa-invalid, ( code c-addr u -- ) outcome-invalid -rot lfa-message, ;
+: lfa-unsupported, ( code c-addr u -- ) outcome-unsupported -rot lfa-message, ;
+: lfa-full, ( code c-addr u -- ) outcome-full -rot lfa-message, ;
 create lfa-catalogue
   lfa-e-unknown
   s" unknown name: no syntax word, bound variable, universe parameter or constant has it"
@@ -121,12 +128,14 @@ create lfa-catalogue
   lfa-e-ambiguous s" ambiguous name: write the full name" lfa-invalid,
   lfa-e-declared s" already declared" lfa-invalid,
   lfa-e-label-twice s" label used twice in this declaration" lfa-invalid,
-  lfa-e-bad-name s" not a name: a number, or an empty part between dots" lfa-invalid,
+  lfa-e-bad-name s" not a name: an empty part, a part like a number, or a leading zero"
+  lfa-invalid,
   lfa-e-var-index s" var# index outside the binders" lfa-invalid,
   lfa-e-count s" a count (a number) is needed here" lfa-invalid,
   lfa-e-unfinished s" the text ends inside a declaration or with values left" lfa-invalid,
-  lfa-e-not-value s" not a LeanForth value" lfa-invalid,
-  lfa-e-not-word s" not a LeanForth word: Forth read a token of this line as a float"
+  lfa-e-not-value s" not a live LeanForth value: each value is used once" lfa-invalid,
+  lfa-e-not-word
+  s" not a LeanForth word or number: numbers are plain decimals of at most 9 digits"
   lfa-invalid,
   lfa-e-interpreter s" a LeanForth word must be run by the text interpreter" lfa-invalid,
   lfa-e-note-end s\" a note must end with \" on the same line" lfa-invalid,
@@ -134,6 +143,7 @@ create lfa-catalogue
   lfa-e-line s" line too long" lfa-full,
   lfa-e-file s" the file cannot be opened or read" lfa-invalid,
   lfa-e-forth s" a Forth exception, with its THROW code" lfa-invalid,
+  lfa-e-comment-end s" a ( comment must end with ) on the same line" lfa-invalid,
   lfa-e-literal
   s" not supported yet: natural-number literals need literal nodes (ADR 0017 section 14)"
   lfa-unsupported,
@@ -152,15 +162,15 @@ create lfa-catalogue
   lfa-e-binders-full s" out of room: too many binders open" lfa-full,
   lfa-e-entries-full s" out of room: too many names, namespaces or declarations" lfa-full,
   lfa-e-notes-full s" out of room: too many labels and notes" lfa-full,
-  0 outcome-invalid s" " lfa-entry,
+  0 outcome-invalid s" " lfa-message,
 
-\ The catalogue entry of a code; an unknown code gives the closing entry.
-: lfa-last? ( entry -- flag ) lfa-entry-code 0= ;
-: lfa-entry-of ( code -- entry )
-  lfa-catalogue begin dup lfa-last? 0= while 2dup lfa-entry-code <> while lfa-entry-next
-  repeat then nip ;
-: lf-author-message ( code -- c-addr u ) lfa-entry-of lfa-entry-text ;
-: lf-author-outcome ( code -- outcome ) lfa-entry-of lfa-entry-outcome ;
+\ The catalogue record of a code; an unknown code gives the closing record.
+: lfa-last? ( message -- flag ) lfa-message-code @ 0= ;
+: lfa-message-of ( code -- message )
+  lfa-catalogue begin dup lfa-last? 0= while 2dup lfa-message-code @ <> while
+    lfa-message-next repeat then nip ;
+: lf-author-message ( code -- c-addr u ) lfa-message-of lfa-message-text ;
+: lf-author-outcome ( code -- outcome ) lfa-message-of lfa-message-outcome @ ;
 
 \ The error record: the first error of a run.
 64 constant lfa-token-keep

@@ -8,7 +8,9 @@
 \ after Forth has left the line (an unknown token) can still point into
 \ it. A position is one nonnegative cell, the line times 65536 plus the
 \ column, both counted from 1; a column beyond 65535 is recorded as 65535,
-\ and on a 32-bit host lines beyond 32767 wrap. Untrusted authoring code.
+\ and on a 32-bit host lines beyond 32767 wrap. It also reads token text:
+\ the tokens of a line, the dots of a name, and which tokens are numbers
+\ (only plain decimals) or look like one. Untrusted authoring code.
 \ State: one context record, lfa-source (ADR 0009).
 
 require ../lib/lib.fs
@@ -66,6 +68,52 @@ end-structure
 : lfa-parse-name ( -- c-addr u ) parse-name 2dup lfa-token! ;
 \ The line has been read up to >IN (after a comment or a note's text).
 : lfa-read! ( -- ) >in @ lfa-source lfa-source-end ! ;
-\ The part of the line after the last token a LeanForth word read.
-: lfa-unread ( -- c-addr u ) lfa-the-line lfa-source lfa-source-end @ 0 max over
-  min /string ;
+\ The part of the line after the last token a LeanForth word read, up to
+\ offset n (clamped into the line).
+: lfa-unread-to ( n -- c-addr u )
+  lfa-the-line rot min 0 max lfa-source lfa-source-end @ 0 max over min /string ;
+\ Is c-addr in the line being run (its end included)?
+: lfa-on-line? ( c-addr -- flag ) lfa-the-line over + 1+ within ;
+: lfa-offset ( c-addr -- n ) lfa-source lfa-source-text @ - ;
+
+\ Tokens of a text, split at blanks.
+: lfa-skip-blanks ( c-addr u -- c-addr' u' )
+  begin dup while over c@ lfa-blank? while 1 /string repeat then ;
+: lfa-word-end ( c-addr u -- n )
+  dup >r 0 ?do dup i chars + c@ lfa-blank? if drop i unloop r> drop exit then loop drop
+    r> ;
+: lfa-next-token ( c-addr u -- c-addr' u' token-addr token-u )
+  lfa-skip-blanks 2dup lfa-word-end >r over r@ 2swap r> /string 2swap ;
+
+\ Names in token text: parts between dots.
+: lfa-dot-at? ( c-addr i -- flag ) chars + c@ [char] . = ;
+: lfa-last-char ( c-addr u -- char ) + 1- c@ ;
+\ The offset of the first dot, or u.
+: lfa-dot ( c-addr u -- n )
+  dup >r 0 ?do dup i lfa-dot-at? if drop i unloop r> drop exit then loop drop r> ;
+\ The name without its last part (and the dot before it); empty for one part.
+: lfa-cut ( c-addr u -- c-addr u' ) begin dup while 1- 2dup lfa-dot-at? until then ;
+\ An empty part: a dot first, last or twice in a row, or no text.
+: lfa-empty-part? ( c-addr u -- flag )
+  dup 0= if 2drop true exit then
+  over c@ [char] . = >r 2dup lfa-last-char [char] . = r> or if 2drop true exit then
+  s" .." search nip nip ;
+
+\ Numbers. The only LeanForth number is a plain decimal: one to nine
+\ digits, exact in a cell on every host. A spelling is number-like when a
+\ Forth host may read it as a number in some form: a digit first, or a
+\ sign, base prefix or quote (- + # $ % & ') and more after it. No name
+\ is number-like (groups.fs, declarations.fs), so no word ever stands
+\ where a number is meant, and every number-like token that is no plain
+\ decimal is refused (groups.fs).
+9 constant lfa-digits-max
+: lfa-digit? ( char -- flag ) [char] 0 [char] 9 1+ within ;
+: lfa-digits? ( c-addr u -- flag )
+  true -rot chars over + swap ?do i c@ lfa-digit? and loop ;
+: lfa-plain-decimal? ( c-addr u -- flag )
+  dup 1 lfa-digits-max 1+ within if lfa-digits? else 2drop false then ;
+: lfa-prefix-char? ( char -- flag )
+  dup [char] # [char] ' 1+ within over [char] + = or swap [char] - = or ;
+: lfa-number-like? ( c-addr u -- flag )
+  dup 0= if 2drop false exit then over c@ lfa-digit? if 2drop true exit then
+  1 > swap c@ lfa-prefix-char? and ;
