@@ -131,19 +131,24 @@ the lines above; the printer's LaTeX mode is plan task 8.6.1):
 
 ## Printing an outline
 
-From the repository root, for any Lean export the checker's input reader
+With the [command line](COMMAND_LINE.md#printing-a-readable-proof), from
+the repository root, for any Lean export the checker's input reader
 (`src/import/checker-input.fs`) holds (64 names, levels and term nodes,
 32 declarations):
 
 ```text
-make print EXPORT=tests/reference/composition.ndjson            # the outlines
-make print EXPORT=tests/reference/composition.ndjson DETAIL=1   # every step
+bin/leanforth print tests/reference/composition.ndjson                 # the outlines
+bin/leanforth print --detail tests/reference/composition.ndjson        # every step
+bin/leanforth print --name fixtureUse tests/reference/constant-fixture.ndjson
 ```
 
-or, in Forth, after `require ~+/tests/support/print-outline.fs`:
+`make print EXPORT=FILE [DETAIL=1] [NAME=NAME]` runs the same, and in
+Forth, after `require ~+/tests/support/print-outline.fs`,
 `s" FILE" false po-file` (outlines) or `s" FILE" true po-file` (every
 step). Each declaration of the file is checked in turn with the log at
-level `terms`, and printed after its check. `--detail` (`DETAIL=1`) lists
+level `terms`, and printed after its check; the exit status is `check`'s
+for a declaration refused, 3 for a log that ran out of room
+([details](COMMAND_LINE.md#printing-a-readable-proof)). `--detail` lists
 all 65 steps of `composition` instead, for example
 
 ```text
@@ -152,8 +157,6 @@ all 65 steps of `composition` instead, for example
 ```
 
 (the full list is in [`tests/present/outlines.golden`](../../tests/present/outlines.golden)).
-`leanforth print FILE` will replace `make print` when the command line
-lands (plan task 3.4).
 
 **When there is no outline.** The printer prints the verdict and says why
 instead:

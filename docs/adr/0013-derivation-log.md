@@ -19,7 +19,9 @@ patterns of the [diagnostics](../programming/DIAGNOSTICS.md).
 Implemented on a branch of agent RB (plan tasks 2.4.1 and 2.4.4): the log
 in `src/core/derivation-log.fs`, one guarded call per kernel site, the
 proof outline in `src/present/proof-outline.fs` and `log-view.fs`,
-`make print`; reference in
+`make print`, and since then `bin/leanforth print`
+([command line](../user/COMMAND_LINE.md#printing-a-readable-proof),
+`src/cli/print.fs`); reference in
 [DERIVATION_LOG.md](../programming/DERIVATION_LOG.md), user page in
 [PROOF_OUTLINE.md](../user/PROOF_OUTLINE.md). The gate's evidence (D5) is
 listed there; the owner's approval of the summary is still to come. Where
