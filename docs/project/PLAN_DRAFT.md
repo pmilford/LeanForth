@@ -696,6 +696,21 @@ related rules into one packet where they are reviewed together anyway, but
 never batch across gates (AGENTS.md). Your time is the scarcest resource on
 the critical path; each summary should take under ten minutes to read.
 
+### W9 Related work
+
+Review projects close to LeanForth and record what to adopt, with the plan
+tasks each finding affects:
+
+- **MiniForth** (<https://github.com/leodemoura/MiniForth>), a Forth written
+  in Lean by Leonardo de Moura — the mirror image of LeanForth's Lean in
+  Forth (owner, 2026-11-03: "review this and see if we can learn anything
+  useful to apply"). Questions: its model of Forth state, words, memory and
+  control flow against IR 0.1's Lean semantics; whether it can serve as an
+  independent reference for the program track (three-way comparisons, the
+  two-mode design of ADR 0019); its licence. Review started 2026-11-03.
+- Other independent Lean kernel checkers (lean4lean, nanoda) as second
+  referees (already plan 6.4.1).
+
 ### W8 Improved mode (beyond Lean)
 
 The owner (2026-11-03): "we need 100% compatibility with lean, but, also,
