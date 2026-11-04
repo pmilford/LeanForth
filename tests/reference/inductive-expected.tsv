@@ -65,6 +65,8 @@ k.eq-different-ends	declTypeMismatch	rejected	R2	5.2.1c
 eta.structure	accepted	accepted	R4	5.2.2	
 unit.punit	accepted	accepted	R5	5.2.2	
 unit.bool-not-unit-like	declTypeMismatch	rejected	R5	5.2.2	
+unit.punit-variables	accepted	accepted	R5	5.2.2	
+unit.bool-variables	declTypeMismatch	rejected	R5	5.2.2	
 unit.pair-of-units	declTypeMismatch	rejected	R4 R5	5.2.2	
 proj.data	accepted	accepted	J1	5.2.2	
 proj.proof-of-proof	accepted	accepted	J1	5.2.2	

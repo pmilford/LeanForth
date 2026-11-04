@@ -96,6 +96,9 @@ end-structure
 : lf-block-warnings ( -- bits ) lf-ind-state lf-ind-warned @ ;
 : lf-block-step@ ( -- step ) lf-ind-state lf-ind-step-reached @ ;
 : lf-blk-reject ( n1 n2 code -- outcome ) lf-blk-site swap lf-diag-note outcome-rejected ;
+\ B3's rejections replace what the structural comparison recorded on the
+\ way (a difference is undecided there, and decisive here).
+: lf-blk-replace ( n1 n2 code -- outcome ) lf-blk-site swap lf-diag! outcome-rejected ;
 \ Run xt ( -- outcome ) only when the outcome so far is ok.
 : lf-blk-then ( outcome xt -- outcome ) over ok? if nip execute else drop then ;
 
@@ -311,7 +314,7 @@ end-structure
   dup lf-blk-ctor-data lf-ict-params lf-more-field lf-ind-nparams <> if drop 4 exit then
   dup lf-blk-ctor-data lf-ict-fields lf-more-field swap lf-ind-nfields @ <> 5 and ;
 : lf-blk-ctor-differs ( j field -- outcome )
-  swap lf-ind-types@ + swap lf-diag-invalid-constructor lf-blk-reject ;
+  swap lf-ind-types@ + swap lf-diag-invalid-constructor lf-blk-replace ;
 : lf-blk-ctors-b3 ( -- outcome )
   lf-ind-ctors@ 0 ?do i lf-blk-ctor-diff ?dup if i swap lf-blk-ctor-differs unloop exit then
   loop outcome-ok ;
@@ -360,7 +363,7 @@ end-structure
 : lf-blk-rec-member ( r -- k ) lf-ind-types@ + lf-ind-ctors@ + ;
 : lf-blk-no-such ( r -- outcome ) lf-blk-rec-member 0 lf-diag-no-such-recursor lf-blk-reject ;
 : lf-blk-rec-differs ( r field -- outcome )
-  swap lf-blk-rec-member swap lf-diag-invalid-recursor lf-blk-reject ;
+  swap lf-blk-rec-member swap lf-diag-invalid-recursor lf-blk-replace ;
 : lf-blk-rec-b3 ( r -- outcome )
   dup lf-ind-rec lf-idecl-name @ lf-blk-rec-id lf-name-same? 0= if lf-blk-no-such exit then
   dup lf-blk-rec-diff ok-then? 0= if nip exit then

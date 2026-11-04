@@ -432,6 +432,16 @@ def reductions : List Red := [
   { id := "unit.bool-not-unit-like",
     type := "∀ x y : Bool, x = y", value := "fun (x y : Bool) => Eq.refl x",
     lean := "declTypeMismatch", leanforth := "rejected", rule := "R5", task := "5.2.2" },
+  -- Unit-like on two variables of a predicate's argument, without `Eq`: once PUnit is
+  -- accepted (task 5.2.1a), rules D3/D5 must not call `P x` and `P y` apart.
+  { id := "unit.punit-variables",
+    type := "∀ (x y : PUnit.{1}) (P : PUnit.{1} → Prop), P x → P y",
+    value := "fun (x y : PUnit.{1}) (P : PUnit.{1} → Prop) (h : P x) => h",
+    lean := "accepted", leanforth := "accepted", rule := "R5", task := "5.2.2" },
+  { id := "unit.bool-variables",
+    type := "∀ (x y : Bool) (P : Bool → Prop), P x → P y",
+    value := "fun (x y : Bool) (P : Bool → Prop) (h : P x) => h",
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "R5", task := "5.2.2" },
   { id := "unit.pair-of-units",
     type := "∀ x y : PUnit.{1} × PUnit.{1}, x = y",
     value := "fun (x y : PUnit.{1} × PUnit.{1}) => Eq.refl x",

@@ -503,6 +503,17 @@ test-environment:
 .PHONY: test-environment
 test: test-environment
 DOC_EXAMPLE_PAGES += docs/programming/CHECKED_ENVIRONMENT.md
+
+# Inductive blocks (plan task 5.2.1a; ADR 0015): the block check end to
+# end on cases of the inductive table, every outcome and rule with its
+# diagnostic and step, Lean's replay of the Bool block mutated, blocks
+# published together, the reference export tampered one field at a time,
+# a fuel bisection and a full term store. Gforth only.
+test-check-block:
+	$(RUN) $(GFORTH) tests/core/check-block.fs
+
+.PHONY: test-check-block
+test: test-check-block
 DOC_EXAMPLE_PAGES += docs/user/FIRST_CHECK.md
 
 # Run records and their replay (plan task 2.2.5; docs/programming/RUN_RECORDS.md):

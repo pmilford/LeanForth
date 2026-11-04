@@ -30,6 +30,7 @@ import tempfile
 
 LEAN_FILE = "tests/reference/inductive-expected.lean"
 TSV = "tests/reference/inductive-expected.tsv"
+FIXTURES = "tests/core/check-block-cases"
 DONE_TASKS = {"5.2.1a"}
 # Rows of task 5.2.1a that LeanForth cannot decide yet: id -> (outcome now,
 # reason). Each needs something outside task 5.2.1a; the table's own row with
@@ -149,6 +150,22 @@ def row_outcome(own, result):
     return "ok", ""
 
 
+def stale_fixtures(cases):
+    """tests/core/check-block-cases/ID.ndjson (tests/core/check-block.fs,
+    make test) must be Lean's file for row ID, byte for byte; ID.invalid
+    too (a file no export can be, which the reader refuses)."""
+    bodies = {case_id: body for case_id, _, body in cases}
+    failures = []
+    for name in sorted(os.listdir(FIXTURES)):
+        case_id = name.rsplit(".", 1)[0]
+        with open(os.path.join(FIXTURES, name), encoding="utf-8") as fixture:
+            if bodies.get(case_id) != fixture.read():
+                failures.append(f"{FIXTURES}/{name}: not Lean's file for row {case_id}")
+    print(f"inductive-table: the {len(os.listdir(FIXTURES))} files of {FIXTURES}"
+          f" checked against Lean's")
+    return failures
+
+
 def main():
     lean = os.environ.get("LEAN", "lean")
     gforth = os.environ.get("GFORTH", "gforth")
@@ -197,6 +214,7 @@ def main():
             print(f"{case_id}\t{task}\t{rule}\tLean {lean_verdict}\tLeanForth {got}")
     missing = set(rows) - {c[0] for c in cases}
     failures += [f"{r}: a row without a case" for r in sorted(missing)]
+    failures += stale_fixtures(cases)
     done = sum(n for (d, _), n in tally.items() if d)
     later = sum(n for (d, _), n in tally.items() if not d)
     print(f"inductive-table: {len(cases)} cases; task 5.2.1a rows {done}:",
