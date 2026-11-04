@@ -6,7 +6,8 @@
 \   dec A     A read and printed again
 \   limit N   the arena's limit becomes N bits; prints "limit"
 \ A result is decimal digits, true or false (beq, ble), -1, 0 or 1 (cmp),
-\ or the name of the outcome (full, invalid) of the first step that failed.
+\ or the name of the outcome (full, invalid) of the first step that failed;
+\ a printed number that printing changed has a note appended.
 \ Usage, from the repository root:
 \   gforth tests/lib/bignum-cases.fs -e 's" CASES" run-cases bye'
 \ A planted fault: the Python script loads a changed copy of the library
@@ -28,8 +29,15 @@ line-max 2 + allocate throw constant line
 : token ( addr u -- rest-addr rest-u tok-addr tok-u )
   2dup space-index >r over r@ 2swap r> /string dup if 1 /string then 2swap ;
 
-\ Printing results.
-: .big ( big -- ) arena big>decimal ok? if type else 2drop ." print-failed" then ;
+\ Printing results. Every number printed is compared afterwards with a
+\ copy made before, in an arena of its own: printing must leave it as it
+\ was (it once wrote the top chunk's leading zeros into the number).
+create shadow /big-arena allot
+arena-bytes allocate throw arena-bytes shadow big-arena-init
+: .digits ( big -- ) arena big>decimal ok? if type else 2drop ." print-failed" then ;
+: .big ( big -- )
+  shadow big-mark >r dup shadow big-copy drop over .digits
+  big= 0= if ."  (printing changed the number)" then r> shadow big-release drop ;
 : show ( big outcome -- ) dup ok? if drop .big else nip outcome-text type then ;
 : .flag ( flag -- ) if ." true" else ." false" then ;
 

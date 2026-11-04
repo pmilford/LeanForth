@@ -26,7 +26,10 @@ the same reasons as Lean's kernel. On the 62 test cases of its table
 (the five pinned examples plus deliberately broken or out-of-scope copies,
 each checked by pinned Lean) it gives Lean's answer every time: 14
 accepted, 28 rejected with Lean's kind of error, 11 unknown, 8 unsupported,
-1 invalid. Nothing it says is trusted yet: the declaration check and the
+1 invalid. **But its independent review found a serious defect** (2026-11-03):
+it *accepts* four small declarations that Lean *rejects*, because it builds
+universe levels without Lean's simplifications (`mk_max`/`mk_imax`) and then
+compares them; a fix that ports Lean's exact rules is in progress. Nothing it says is trusted yet: the declaration check and the
 checked environment it publishes into are still in their review gates, and
 every acceptance is labelled *experimental — not independently audited*.
 
@@ -65,9 +68,9 @@ the 32-bit access words exist in `src/`; building it is plan tasks
 | Rejection rules in comparison and inference (plan 2.2.1) | [kernel] | **approved** 2026-11-03 |
 | NDJSON reader (Lean export files) | [import] | **approved** 2026-11-03, with a checksum manifest to add |
 | Design records ADR 0010, 0013, 0016, 0017, 0018 | design | **accepted** (0017 on 2026-11-02; the rest 2026-11-03) |
-| Checked environment v0 (2.2.2) | [kernel] | fourth review's fixes merged; short re-review running, then the owner |
-| Declaration check (2.2.3) | [kernel], [bypass] | merged 2026-11-03; independent review running, then the owner |
-| Program reader (Forth to program IR, 2.5.3) | [parser] | final review: nothing blocking; three small items being fixed, then the owner |
+| Checked environment v0 (2.2.2) | [kernel] | final re-review: nothing blocking; three small items being fixed, then the owner |
+| Declaration check (2.2.3) | [kernel], [bypass] | merged 2026-11-03; its review **blocks**: four wrong acceptances from universe levels built unlike Lean's; fix (exact port of Lean's level rules) running |
+| Program reader (Forth to program IR, 2.5.3) | [parser] | final review: nothing blocking; its three small items fixed (merged 2026-11-03); the reviewer is checking the fixes, then the owner |
 | LeanForth syntax words (8.1.2) | [parser] | merged 2026-11-03; independent review running, then the owner |
 | Program receipt schema 0.1 (2.5.1) | [format] | waiting for the owner, together with the program reader |
 | Big-number library (`lib/bignum.fs`, for literals) | [forth-review] | review found one serious memory bug in printing; fix running |
@@ -134,6 +137,17 @@ sizes are relative and dates are not estimated.
 8. **Validation, outside audit, release 1.0 (phase 9):** reproduce
    published Lean results, an outside Lean-expert audit, the upgrade
    procedure, and a second Forth host.
+
+**The program track runs beside these, without delaying them** (owner,
+2026-11-03). Its flagship target is LeanForth's own SHA-256: a Lean
+specification of FIPS 180-4 checked against the NIST vectors first, then
+proofs that the Forth words compute it — the helper functions, the loops
+of the block compression, then padding and buffers — as the program IR
+gains loops and memory, and finally checked by LeanForth itself
+([plan](PLAN_DRAFT.md#program-track-goal-most-of-forth-2012-core-owner-2026-11-02)).
+Before that: contracts for the five other example words (in progress) and
+the owner's [parser] and [format] decisions on the program reader and
+receipts.
 
 **When will all of Mathlib be checked?** Not soon, and no date is
 estimated: milestones 2–5 must all be built, and milestone 4 alone covers
@@ -411,6 +425,10 @@ was the first CI run of the pinned-Lean comparisons.
   declaration check and the checked environment await their reviews and
   the owner; every acceptance is labelled *experimental — not
   independently audited*, and no outside Lean expert has audited it.
+- Known defect (found 2026-11-03, fix in progress): the declaration check
+  accepts some declarations whose universe levels Lean builds in simplified
+  form and then rejects (four Lean-checked examples); no logical falsehood
+  is accepted, but the verdict differs from Lean's.
 - It covers only universes, variables, functions, "for all" and earlier
   checked declarations, without unfolding: data types, literals,
   structures, `let`, projections and quotients are *unsupported*.
