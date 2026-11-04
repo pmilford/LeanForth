@@ -2992,6 +2992,24 @@ test = "python3 tests/core/check_log_isolation.py"
 reason = "a printer overwrites a copy in the log's pool with node! (N2 of the second review)"
 
 [[fault]]
+id = "iso-code-after-string-comment"
+file = "src/core/derivation-log.fs"
+old = ''': lf-kind-out ( rule -- kind ) 4 lf-log-kind ;'''
+new = ''': lf-kind-out ( rule -- kind ) 4 lf-log-kind ;
+: lf-log-x ( -- ) s" \ " 2drop 0 0 lf-term-app 2drop ;'''
+test = "python3 tests/core/check_log_isolation.py"
+reason = "code hidden after a string that holds a backslash, which a reader stripping comments before strings takes for a comment (N7 of the third review)"
+
+[[fault]]
+id = "iso-kernel-evaluates-log-word"
+file = "src/kernel/mixed-shift.fs"
+old = ''': lf-mixed-shift ( index identity cutoff amount fuel -- index identity status )'''
+new = ''': lf-mshift-x ( -- ) s" 2 lf-log-start" evaluate ;
+: lf-mixed-shift ( index identity cutoff amount fuel -- index identity status )'''
+test = "python3 tests/core/check_log_isolation.py"
+reason = "a kernel file runs a log word through EVALUATE, which names it only inside a string (N7 of the third review)"
+
+[[fault]]
 id = "log-module-rolls-back"
 file = "src/core/derivation-log.fs"
 old = ''': lf-log-counted ( -- )

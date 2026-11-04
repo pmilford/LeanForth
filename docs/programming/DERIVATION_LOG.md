@@ -268,14 +268,19 @@ and `lf-log-arg-ref` for a copied constant reference; no word they may use
 gives an address of the log's records, pools or header.
 
 **The isolation check.** `tests/core/check_log_isolation.py` (in `make
-test`) checks allow-lists on the source text. Comments, strings and the
-exact load-time assertion `[if] .( … ) cr abort [then]` are removed;
-every other token is checked, also inside `[if] … [then]` and after `'`
-or `[']`. A kernel file may name only the protocol above and the rule
+test`) checks allow-lists on the source text, read left to right as
+Forth reads it: a string ends at its closing quote before any comment is
+recognised, so no code hides behind a string that holds `\` or `(`.
+Comments, string texts and the exact load-time assertion `[if] .( … ) cr
+abort [then]` are removed; every other token is checked, also inside
+`[if] … [then]` and after `'` or `[']`. No file, in any layer but the two
+that run program text by design (`src/author/` and `src/program/`), may
+use a word that looks a name up or runs text (`EVALUATE`, `FIND`,
+`INCLUDED` and the like), and an `INCLUDED` counts as a load of the
+string before it. A kernel file may name only the protocol above and the rule
 codes, and loads nothing from `src/present/` or `src/cli/`. A printer
 (`src/present/`) may name only the log's reading words (all of which give
-values), loads only from `./`, `../lib/` and `../core/`, and uses no word
-that looks a name up or runs text (`EVALUATE`, `FIND` and the like). The
+values) and loads only from `./`, `../lib/` and `../core/`. The
 command line (`src/cli/`, which turns the log on for `leanforth print`)
 may name only the switches `lf-log-set`, `lf-log-limits`,
 `lf-log-capacities`, the levels and the read-only `lf-log-level` and
@@ -292,8 +297,13 @@ from `./` and `../lib/`. `ALLOCATE` appears only in the word that makes
 its pools, `FREE` only in the one that gives them back, `THROW` only in
 its context teardown, `ABORT"` only in the catalogue's load-time index,
 `ALLOT`, `HERE`, `,` and `ALIGN` only at load time, and `CREATE` and
-`CONSTANT` only at top level. The ten evasions planted by the second
-review are flagged (planted faults `iso-*` in `make mutants`).
+`CONSTANT` only at top level. The evasions planted by the second and
+third reviews (code on `[if]` lines, writes through address-returning
+words, run-time `ALLOT`, loads of kernel or presentation code by
+`require` or `INCLUDED`, record and copy writes from a printer, `EVALUATE`
+in a printer, kernel or command-line file, and code hidden after a string
+holding `\` or `(`) are all flagged; eight of them are planted faults
+(`iso-*` in `make mutants`).
 
 What it cannot see: an address computed by arithmetic from an allowed
 one (the log module's own state plus an offset); an execution token
