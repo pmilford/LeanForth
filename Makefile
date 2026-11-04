@@ -483,3 +483,32 @@ coverage:
 
 .PHONY: mutants mutants-quick mutants-check test-mutants coverage
 test: test-mutants
+
+# The NDJSON re-exporter (plan task 3.2.4; docs/development/NDJSON_READER.md,
+# "Re-export"): unit tests of every record kind, every failure and two
+# planted faults; then every export under tests/ re-exported through files,
+# byte for byte, and read back into the same dump, seeded sweeps of other
+# spellings and of the reader's mutations, and the comparison tool. Gforth
+# and Python 3 only.
+test-reexport:
+	$(RUN) $(GFORTH) tests/core/ndjson-emit.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/core/test_ndjson_emit.py
+
+# Pinned Lean's export of every record kind is tests/core/reexport/kinds.ndjson,
+# and its export of a string literal with every class of escape re-exports
+# byte for byte.
+reference-reexport:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/core/reexport/lean-check.sh
+
+# Re-export any export and compare the copy with it, byte for byte, then
+# read the copy back (not with COPY=-, which streams and keeps no copy):
+#   make reexport EXPORT=file.ndjson COPY=copy.ndjson
+# Uses the pinned gforth-fast; all of Mathlib takes several minutes.
+REEXPORT_TIMEOUT ?= 7200
+reexport:
+	timeout $(REEXPORT_TIMEOUT) bash scripts/ndjson-reexport.sh \
+	$(if $(filter -,$(COPY)),,--reimport) "$(EXPORT)" "$(COPY)"
+
+.PHONY: test-reexport reference-reexport reexport
+test: test-reexport
+test-differential: reference-reexport

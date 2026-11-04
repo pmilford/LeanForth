@@ -45,7 +45,7 @@ fit. There is no command-line tool yet; everything runs through tests.
 | --- | --- |
 | Read and validate the whole Mathlib export in Forth: all 110,895,826 records (6.3 GB) in about 1 min 49 s with `gforth-fast`, in 17 MB of memory; every record's shape and every reference to an earlier record is checked, and the result equals the independent Python reader's field for field | Keep what was read: the checker's stores hold 64 entries, so nothing read from Mathlib is stored for the checker |
 | Count every kind of record and declaration (184,355 definitions, 517,916 theorems, 7,046 inductive types, …) | Look up a Mathlib theorem by name, print it, or check it |
-| In a measurement prototype (not the product): load all of Mathlib into the compact store design (2.94 GB, 4.16 GB peak), look up all 729,263 names (0.69 s), walk every declaration, and re-emit every record from memory equal to the reader's dump, line for line | Re-export Mathlib byte for byte in Lean's own format and compare it with Lean's file — planned (task 3.2.4, now with the checksum manifest) |
+| In a measurement prototype (not the product): load all of Mathlib into the compact store design (2.94 GB, 4.16 GB peak), look up all 729,263 names (0.69 s), walk every declaration, and re-emit every record from memory equal to the reader's dump, line for line | *(Since 2026-11-03, plan task 3.2.4:)* re-export `Init`, `Std` and all of Mathlib byte for byte in Lean's own NDJSON format — the copies' SHA-256 equal the originals', and reading them back gives the same records ([measurements](../development/measurements/reexport-2026-11-03/README.md); Mathlib in 5 min 29 s, 20 MB) |
 
 **What "the contents" of an imported library are** (the stored data, not
 just the 16-byte node links of [ADR 0016](../adr/0016-compact-store.md)):
@@ -72,7 +72,7 @@ the 32-bit access words exist in `src/`; building it is plan tasks
 | Declaration check (2.2.3) | [kernel], [bypass] | merged 2026-11-03; its review **blocks**: four wrong acceptances from universe levels built unlike Lean's; fix (exact port of Lean's level rules) running |
 | Program reader (Forth to program IR, 2.5.3) | [parser] | **paused by the owner** (2026-11-03): reviews clean, but the owner prefers a Forth-like design — the program's own words emitting IR in a verification mode — over today's text reader; design record with a prototype in progress |
 | LeanForth syntax words (8.1.2) | [parser] | merged 2026-11-03; independent review running, then the owner |
-| Program receipt schema 0.1 (2.5.1) | [format] | independent review (2026-11-03) found four medium items (labels of failed runs, stale docs, who discharged an obligation, duplicate keys in replay); fix running |
+| Program receipt schema (2.5.1) | [format] | the review's four medium items and five lows fixed in schema 0.2 (merged 2026-11-03; 0.1 kept readable unchanged); the reviewer is checking the fixes, then the owner |
 | Big-number library (`lib/bignum.fs`, for literals) | [forth-review] | review found one serious memory bug in printing; fix running |
 
 ### Test tooling (2026-11-03)
@@ -110,7 +110,7 @@ sizes are relative and dates are not estimated.
    Stage the reader's records into stores built on the compact design
    (ADR 0016; plan 1.1.5, 3.2.1, 3.3.1, 6.2.0); feed declarations to the
    checker in file order (3.2.2); re-export byte for byte and compare with
-   Lean's file (3.2.4); the checksum manifest checked by default and an
+   Lean's file (3.2.4, **done 2026-11-03**); the checksum manifest checked by default and an
    upgrade test for new Lean and Mathlib versions (owner, 2026-11-03);
    `leanforth check FILE.ndjson`, `leanforth print` and exit codes
    (3.4); the JSON API v0 for AI tools with schemas and golden examples
@@ -255,7 +255,7 @@ P3.2). Changes of state within the tasks:
 
 | Milestone | Status and evidence / remaining work |
 | --- | --- |
-| 1. Contract and assumptions | In progress: [receipt schema 0.1](../programming/PROGRAM_RECEIPTS.md) keeps CHECK, VERIFY and RUN apart and requires runtime, cell, Lean, reader and floating-point assumptions; three valid and four invalid examples and 30 mutations are tested; the format awaits the owner's *[format]* approval. |
+| 1. Contract and assumptions | In progress: [receipt schema 0.2](../programming/PROGRAM_RECEIPTS.md) keeps CHECK, VERIFY and RUN apart, says whether Lean or LeanForth settled each obligation, lists axioms per theorem and requires runtime, cell, stack-capacity, two's-complement, Lean, reader, generator and floating-point assumptions; 29 tests with 114 mutations; the format awaits its re-check and the owner's *[format]* approval. |
 | 2. Tested Forth example | In progress: six example words with finite tests; all six now have formal contracts (plan 1.5.3, done 2026-11-03): Lean proves each word's reference model and IR meet its contract for every cell width (gcd and factorial through loop invariants) and refutes deliberately wrong models and programs, 27 theorems using at most `propext`, `Classical.choice` and `Quot.sound`. Choosing one word as the acceptance target (P2.3) remains. |
 | 3. Formal execution model | 2 of 3 done (P3.1, P3.2): IR 0.1 and its Lean semantics. Remaining: review the model against documented Forth behaviour (P3.3). |
 | 4. Model/runtime comparisons | In progress: finite comparisons of the words with Lean models (686 clamp triples, 1,296 memory cases and others); the IR interpreter (`src/program/ir-run.fs`) agrees with the host words and with Lean's evaluation of the model on 5,152 cases (5,092 also run on the host) and 300 random IR programs (2.5.4); testing is not proof. |
