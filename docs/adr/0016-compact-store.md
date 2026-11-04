@@ -709,6 +709,20 @@ name no declaration has is still an unknown constant: another last part
 (`T.recOn`), a malformed one (`T.rec_`, `T.rec_x`), or a prefix that names
 no type (a theorem, a constructor).
 
+*Change (empty blocks).* An inductive record with no type, constructor or
+recursor cannot come from lean4export, but Lean's kernel gives a verdict on
+such a declaration: it rejects it (`emptyBlock`). The reader
+(`src/import/ndjson.fs`, `v-types`) reads it (a block with no type but
+with constructors or recursors stays malformed, *invalid*), the stage holds
+it as any block, and the feed (`src/import/feed.fs`, `feed-empty-block`)
+adds one input declaration for it, of kind `lf-kind-block`: no name, no
+universe parameter, no type, no value, a member of its own block
+(`core/input.fs`, `lf-input-empty-ok?`). The block check rejects it at
+step 4, as Lean's `elim_nested_inductive_fn` does before anything else of
+the declaration (diagnostic 78), and the file's other declarations are
+checked as usual. The re-emitter writes the record back unchanged
+(`ndjson-emit.fs`, `block-empty`).
+
 *Evidence.* `tests/core/test_stage.py`: `B.rec` and `B.rec_1` (`B` a type
 of the block fixture) load, resolved with payload 0; `B.recOn`, `B.rec_`,
 `B.rec_x`, `t.rec` (`t` a theorem) and `A.mk.rec` (a constructor) stay
@@ -716,9 +730,16 @@ unknown constants (*invalid*), as before. The rows
 `after.recursor-left-out-then-use-rec` and
 `after.recursor-left-out-then-use-rec-no-level` of
 `tests/reference/inductive-expected.lean` give Lean's verdicts (accepted;
-`universeArity`, rejected). Two planted faults (`stage-any-generated-*`)
-are caught. The rest of C4, and every other refusal of the importer, is
-unchanged.
+`universeArity`, rejected), and so does `names.empty-block` (`emptyBlock`,
+rejected). `tests/core/ndjson.fs`: an empty record is read and handed over
+alone; one with no type but a constructor or a recursor stays malformed.
+`tests/core/test_empty_block.py`: an empty block before the Bool block,
+and two around it, are each rejected (diagnostic 78, step 4) while the
+Bool block is accepted; a block with no type but a constructor leaves the
+file *invalid*. `tests/core/test_ndjson_emit.py` re-emits the empty record
+byte for byte. Seven planted faults (`stage-any-generated-*`,
+`ndjson-empty-*`, `feed-empty-not-staged`, `ind-empty-*`) are caught. The
+rest of C4, and every other refusal of the importer, is unchanged.
 
 ## Consequences
 

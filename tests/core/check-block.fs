@@ -175,10 +175,10 @@ T{ s" replay-or.recursor-large-elimination" verdict-field
 T{ s" params.constructor-binder-defeq" verdict nip -> outcome-unknown 9 }T
 T{ s" ind.nat" verdict -> outcome-unsupported lf-diag-block-scope 1 }T
 T{ s" mutual.single-ctor-props" verdict -> outcome-unsupported lf-diag-block-scope 1 }T
-\ An empty block (its file named .invalid, as no export holds one) is
-\ refused by the reader before any check.
-: empty-block ( -- c-addr u ) s" tests/core/check-block-cases/names.empty-block.invalid" ;
-T{ empty-block staged unstage -> outcome-invalid }T
+\ An empty block: the importer stages it as one declaration (ADR 0016
+\ amendment 1), which the check rejects at step 4 as Lean's kernel does
+\ (emptyBlock).
+T{ s" names.empty-block" verdict -> outcome-rejected lf-diag-empty-block 4 }T
 \ Two variables of a unit-like structure: Lean's is_def_eq_unit_like
 \ equates them, so D3/D5 must not call P x and P y apart (P4).
 T{ s" unit.punit-variables" verdict nip -> outcome-unknown 8 }T

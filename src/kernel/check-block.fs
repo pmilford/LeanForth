@@ -465,6 +465,14 @@ here lf-blk-steps - 1 cells / constant lf-blk-steps#
 13 constant lf-blk-b3-step
 : lf-blk-added ( outcome -- outcome )
   dup outcome-rejected = lf-block-step@ lf-blk-b3-step = and lf-env-added! ;
+\ An empty block: Lean's elim_nested_inductive_fn refuses a declaration
+\ without types (inductive.cpp 1153, emptyBlock) before anything else of
+\ it, the checks before it having nothing to look at; rejected at step 4.
+4 constant lf-blk-t1-step
+: lf-blk-empty ( -- outcome )
+  lf-blk-t1-step lf-blk-step! lf-ind-first@ 0 lf-diag-empty-block lf-blk-reject ;
+: lf-blk-checked ( -- outcome )
+  lf-ind-empty? if lf-blk-empty else lf-blk-run lf-blk-added then ;
 : lf-block-check ( fuel -- outcome )
-  lf-blk-begin dup ok? if drop lf-blk-run lf-blk-added then
+  lf-blk-begin dup ok? if drop lf-blk-checked then
   false lf-ind-state lf-ind-visible ! ;
