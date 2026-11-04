@@ -19,6 +19,7 @@ require ./constant-references.fs
 require ./diagnostics.fs
 require ./generation-handles.fs
 require ./level-scope.fs
+require ./local-context.fs
 require ./symbolic-session.fs
 require ./tagged-sort-boundary.fs
 require ./terms.fs
@@ -55,8 +56,9 @@ lf-depth-limit context-walk: lf-cterm-walker
 
 \ Visiting one node. A constant must carry its own stamp and a live
 \ reference whose levels all pass; a symbolic Sort must carry the handle
-\ stamps (lf-hterm-sort) and a level that passes; binary children must come
-\ earlier.
+\ stamps (lf-hterm-sort) and a level that passes; a free variable must be
+\ live, named by its own entry of the local context (local-context.fs), so
+\ only a check's scratch can hold one; binary children must come earlier.
 : lf-cterm-stamped? ( node -- flag )
   dup lf-term-identity if swap lf-cterm-stamp-cell @ = else drop false then ;
 : lf-cterm-reference ( first second walk -- outcome )
@@ -67,11 +69,14 @@ lf-depth-limit context-walk: lf-cterm-walker
 : lf-cterm-sort ( first second walk -- outcome )
   >r 2dup r@ walk-node @ lf-cterm-sort?
   if drop r> lf-lscope-walk-check else 2drop r> drop outcome-invalid then ;
+: lf-cterm-fvar ( first second walk -- outcome )
+  nip nip walk-node @ lf-fvar-live? flag>outcome ;
 : lf-cterm-dispatch ( first second walk tag -- outcome )
   dup lf-term-binary-tag? if drop walk-children exit then
   case lf-tag-constant of lf-cterm-reference endof
     lf-tag-bvar of lf-repr-bvar endof
-    lf-tag-symbolic-sort of lf-cterm-sort endof walk-bad-tag endcase ;
+    lf-tag-symbolic-sort of lf-cterm-sort endof
+    lf-tag-fvar of lf-cterm-fvar endof walk-bad-tag endcase ;
 : lf-cterm-visit ( walk -- outcome ) lf-terms ['] lf-cterm-dispatch walk-visit ;
 
 \ Validate a live root and its reachable mixed symbolic graph. Each term and

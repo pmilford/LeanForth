@@ -311,16 +311,25 @@ T{ two-sorts lf-minfer-apart -> lf-rule-d1 true }T
 T{ two-sorts lf-term-capacity lf-minfer-depth ! lf-minfer-apart -> 0 false }T
 T{ two-sorts true lf-minfer-aside ! lf-minfer-mismatch -> 0 false }T
 T{ fresh 0 make-sort 1 make-sort tok @ 0 lf-minfer-start lf-minfer-apart -> 0 false }T
+\ A context for the white-box tests below: each variable a free variable
+\ of the local context (core/local-context.fs) of the given type, made in
+\ a job started with lf-minfer-start (which empties the local context);
+\ the terms over them are closed, as every term inference compares is
+\ since plan task 4.2.2a (before it, they were bound variables of a
+\ binder context pushed by hand).
+: bind ( type -- fvar ) lf-lctx-local ok? must ;
+variable ctx-a variable ctx-p variable ctx-x variable ctx-y
+variable ctx-a1 variable ctx-b1 variable ctx-g variable ctx-q
 \ P3 directly, in the context A : Type, P : A -> Prop: P against fun (y :
 \ A) => P y is never apart (Lean equates them by eta), while P against
 \ Prop is (D2). The table's K3 cases fill the store before this pair.
 : eta-context ( -- )
-  fresh 1 make-sort 0 make-var 0 make-sort make-pi tok @ 1000 lf-minfer-start
-  swap lf-minfer-push must lf-minfer-push must ;
-: eta-of-p ( -- node ) 1 make-var 1 make-var 0 make-var make-app make-lam ;
-T{ eta-context 0 make-var eta-of-p lf-minfer-apart -> 0 false }T
-T{ eta-context eta-of-p 0 make-var lf-minfer-apart -> 0 false }T
-T{ eta-context 0 make-var 0 make-sort lf-minfer-apart -> lf-rule-d2 true }T
+  fresh tok @ 1000 lf-minfer-start 1 make-sort bind ctx-a !
+  ctx-a @ 0 make-sort make-pi bind ctx-p ! ;
+: eta-of-p ( -- node ) ctx-a @ ctx-p @ 0 make-var make-app make-lam ;
+T{ eta-context ctx-p @ eta-of-p lf-minfer-apart -> 0 false }T
+T{ eta-context eta-of-p ctx-p @ lf-minfer-apart -> 0 false }T
+T{ eta-context ctx-p @ 0 make-sort lf-minfer-apart -> lf-rule-d2 true }T
 \ P2 directly, on pairs where it alone keeps the analysis from D3 and D5
 \ (review M1): two proofs of one proposition are never apart, as Lean
 \ equates them (K2), while the same terms as data are. Context A : Type,
@@ -328,13 +337,13 @@ T{ eta-context 0 make-var 0 make-sort lf-minfer-apart -> lf-rule-d2 true }T
 \ proofs, and Lean accepts a w : R (x a) as an R (x b) and as an R y; with
 \ s = 1, x a and x b are apart by their arguments (D5, D3), and x a and y
 \ by their counts (D3). Through the table such pairs fill the store first.
-: bind ( domain -- ) lf-minfer-push must ;
 : proof-context ( s -- )
-  fresh tok @ 100000 lf-minfer-start 1 make-sort bind make-sort bind
-  1 make-var 1 make-var make-pi bind 1 make-var bind 3 make-var bind 4 make-var bind ;
-: x-a ( -- node ) 3 make-var 1 make-var make-app ;
-: x-b ( -- node ) 3 make-var 0 make-var make-app ;
-: y-var ( -- node ) 2 make-var ;
+  fresh tok @ 100000 lf-minfer-start 1 make-sort bind ctx-a ! make-sort bind ctx-p !
+  ctx-a @ ctx-p @ make-pi bind ctx-x ! ctx-p @ bind ctx-y !
+  ctx-a @ bind ctx-a1 ! ctx-a @ bind ctx-b1 ! ;
+: x-a ( -- node ) ctx-x @ ctx-a1 @ make-app ;
+: x-b ( -- node ) ctx-x @ ctx-b1 @ make-app ;
+: y-var ( -- node ) ctx-y @ ;
 T{ 0 proof-context x-a x-b lf-minfer-apart -> 0 false }T
 T{ 0 proof-context x-a y-var lf-minfer-apart -> 0 false }T
 T{ 1 proof-context x-a x-b lf-minfer-apart -> lf-rule-d3 lf-rule-d5 or true }T
@@ -365,9 +374,9 @@ T{ d4-pair swap lf-minfer-binders-apart -> lf-rule-d3 lf-rule-d4 or true }T
 \ X : Sort s, g : X -> X: proofs when s = 0 (Lean accepts one for the
 \ other), apart by their bodies' counts when s = 1 (D4, D3).
 : lam-context ( s -- )
-  fresh tok @ 100000 lf-minfer-start make-sort bind 0 make-var 1 make-var make-pi bind ;
+  fresh tok @ 100000 lf-minfer-start make-sort bind ctx-a ! ctx-a @ dup make-pi bind ctx-g ! ;
 : lam-pair ( -- left right )
-  1 make-var 0 make-var make-lam 1 make-var 1 make-var 0 make-var make-app make-lam ;
+  ctx-a @ 0 make-var make-lam ctx-a @ ctx-g @ 0 make-var make-app make-lam ;
 T{ 0 lam-context lam-pair lf-minfer-apart -> 0 false }T
 T{ 0 lam-context lam-pair swap lf-minfer-apart -> 0 false }T
 T{ 1 lam-context lam-pair lf-minfer-apart -> lf-rule-d3 lf-rule-d4 or true }T
@@ -377,9 +386,9 @@ T{ 1 lam-context lam-pair lf-minfer-apart -> lf-rule-d3 lf-rule-d4 or true }T
 \ are proofs (Lean accepts; the table's proof-irrelevance-imax and
 \ -max-zero rows); under Sort u or Type they are not (D5, D3).
 : level-context ( level -- )
-  tok @ 100000 lf-minfer-start make-sort bind 0 make-var 0 make-sort make-pi bind
-  1 make-var bind 2 make-var bind ;
-: q-pair ( -- left right ) 2 make-var 1 make-var make-app 2 make-var 0 make-var make-app ;
+  tok @ 100000 lf-minfer-start make-sort bind ctx-p ! ctx-p @ 0 make-sort make-pi bind ctx-q !
+  ctx-p @ bind ctx-a1 ! ctx-p @ bind ctx-b1 ! ;
+: q-pair ( -- left right ) ctx-q @ ctx-a1 @ make-app ctx-q @ ctx-b1 @ make-app ;
 : q-apart ( level -- mask flag ) level-context q-pair lf-minfer-apart ;
 T{ fresh level-u 0 imax-of q-apart -> 0 false }T
 T{ fresh 0 0 max-of q-apart -> 0 false }T

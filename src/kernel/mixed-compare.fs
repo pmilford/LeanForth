@@ -16,6 +16,7 @@ require ../core/constant-references.fs
 require ../core/constant-term-boundary.fs
 require ../core/diagnostics.fs
 require ../core/levels.fs
+require ../core/local-context.fs
 require ../core/names.fs
 require ../core/tagged-sort-boundary.fs
 require ../core/terms.fs
@@ -131,13 +132,16 @@ lf-level-depth-limit context-walk2: lf-mcompare-level-walker
   >r lf-mcompare-crefs r> lf-mcompare-heads if lf-mcompare-args then ;
 
 \ Terms. Both graphs passed the full audit, so only binary nodes, bound
-\ variables, symbolic Sorts and constants occur, children come earlier and
-\ the work stack cannot overflow. Each visit costs one unit of fuel.
+\ variables, live free variables, symbolic Sorts and constants occur,
+\ children come earlier and the work stack cannot overflow. Two free
+\ variables are equal when their numbers are (one node per entry of the
+\ local context). Each visit costs one unit of fuel.
 : lf-mcompare-sort ( a b walk -- outcome ) drop lf-mcompare-firsts lf-mcompare-level ;
 : lf-mcompare-dispatch ( a b walk tag -- outcome )
   dup lf-term-binary-tag? if drop lf-mcompare-children exit then
   case lf-tag-constant of lf-mcompare-constant endof
     lf-tag-bvar of lf-mcompare-same-first endof
+    lf-tag-fvar of lf-mcompare-same-first endof
     lf-tag-symbolic-sort of lf-mcompare-sort endof walk-bad-tag endcase ;
 : lf-mcompare-visit ( walk -- outcome )
   lf-terms ['] lf-mcompare-dispatch lf-mcompare-visit-pair ;

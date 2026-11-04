@@ -1,7 +1,11 @@
 \ The head of a term in weak-head beta normal form, as ADR 0011's rules
-\ name it: rigid when the head is a Sort, a Pi, a lambda or a bound
-\ variable (Lean's whnf leaves such a term as it is, fact 3), flexible when
-\ it is a constant (Lean may unfold it, fact 2). The caller reduces the
+\ name it: rigid when the head is a Sort, a Pi, a lambda or a variable
+\ (Lean's whnf leaves such a term as it is, fact 3), flexible when it is a
+\ constant (Lean may unfold it, fact 2). A variable is a bound variable
+\ or a free variable of the local context (core/local-context.fs), the
+\ form the checker's terms have since plan task 4.2.2a; a let variable,
+\ which Lean's whnf replaces by its value, does not occur before plan
+\ task 4.2.3 and must then not count as rigid. The caller reduces the
 \ term first (mixed-beta); this module only reads the reduced node and its
 \ application spine. Untrusted; part of the first checker's [kernel] path,
 \ not yet through the review gate.
@@ -9,6 +13,7 @@
 
 require ../lib/lib.fs
 require ../core/constant-term-boundary.fs
+require ../core/local-context.fs
 require ../core/tagged-sort-boundary.fs
 require ../core/terms.fs
 
@@ -19,7 +24,7 @@ require ../core/terms.fs
 1 constant lf-head-sort        \ a symbolic Sort
 2 constant lf-head-pi
 3 constant lf-head-lam
-4 constant lf-head-var         \ a bound variable, with or without arguments
+4 constant lf-head-var         \ a bound or free variable, with or without arguments
 5 constant lf-head-applied     \ a Sort or Pi applied to arguments
 6 constant lf-head-constant    \ a constant, with or without arguments
 
@@ -37,6 +42,7 @@ require ../core/terms.fs
   lf-term-tag@ case
     lf-tag-symbolic-sort of lf-head-sort endof  lf-tag-pi of lf-head-pi endof
     lf-tag-lam of lf-head-lam endof  lf-tag-bvar of lf-head-var endof
+    lf-tag-fvar of lf-head-var endof
     lf-tag-constant of lf-head-constant endof  lf-head-none swap endcase ;
 : lf-mhead-applied ( kind -- kind' )
   case lf-head-sort of lf-head-applied endof

@@ -146,7 +146,7 @@ A file whose declarations end differently counts each verdict:
 $ bin/leanforth check tests/cli/unfold.ndjson; echo "exit status $?"
 Implies: accepted (experimental, not independently audited); axioms: none
 impliesSelf: unknown
-  undecided: terms or levels differ; diagnostic 30 at mixed-convert lf-mixed-convert: 16 10
+  undecided: terms or levels differ; diagnostic 30 at mixed-convert lf-mixed-convert: 18 10
 2 declarations: 1 accepted, 1 unknown
 exit status 2
 ```

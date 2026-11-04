@@ -254,8 +254,12 @@ fc-decl before def safe c15 0 TYPE P S z S z VALUE L S z V 0
 fc-decl before def safe c16 0 TYPE P S z S z VALUE L S z V 0
 fc-decl check def safe user 0 TYPE S z VALUE A C c0 0 A C c1 0 A C c2 0 A C c3 0 A C c4 0 A C c5 0 A C c6 0 A C c7 0 A C c8 0 A C c9 0 A C c10 0 A C c11 0 A C c12 0 A C c13 0 A C c14 0 A C c15 0 A C c16 0 P S z V 0
 T{ check-last -> outcome-full lf-diag-deps-full value-step }T
+\ The declared type is a telescope of 40 binders (Prop -> ... -> Prop):
+\ its 41 nodes and a free variable per binder (plan task 4.2.2a) do not
+\ fit the 64 terms. (The binder-domain table's eta case, used here
+\ before, now fits: inference discards its scratch as it goes.)
 fc-case terms-full
-fc-decl check thm safe bdCompare 0 TYPE P P P S s z P A L S s z V 0 P V 0 V 1 P V 1 V 2 S z P A V 0 L S s z L A L S s z V 0 P V 0 V 1 V 0 A V 1 L S s z L P V 0 V 1 L V 1 A V 1 V 0 VALUE L P P S s z P A L S s z V 0 P V 0 V 1 P V 1 V 2 S z L A V 0 L S s z L A L S s z V 0 P V 0 V 1 V 0 V 0
+fc-decl check def safe wide 0 TYPE P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z S z VALUE S z
 T{ check-last -> outcome-full lf-diag-terms-full type-step }T
 
 \ ---------------------------------------------------------------------------

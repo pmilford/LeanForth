@@ -223,8 +223,8 @@ end-check
 begin-check 10 lf-minfer-fuel ! lf-term-capacity lf-minfer-depth ! lf-diag-clear
 T{ 0 lf-minfer-walk diag -> -1 outcome-full 64 64 lf-diag-frame-limit }T
 T{ s" mixed-infer lf-mixed-infer" at? -> true }T
-lf-diag-clear 0 lf-minfer-depth ! lf-term-capacity lf-minfer-context-depth !
-T{ 0 0 lf-minfer-under diag -> -1 outcome-full 64 64 lf-diag-binders-full }T
+lf-diag-clear 0 lf-minfer-depth ! lf-depth-limit lf-minfer-context-depth !
+T{ 0 0 lf-minfer-bind diag -> outcome-full 64 64 lf-diag-binders-full }T
 end-check
 begin-check 0 lf-cts-walker walk-pending ! max-n lf-cts-walker walk-context ! lf-diag-clear
 T{ 0 0 lf-cts-walker lf-tag-lam lf-cts-binary diag -> outcome-full max-n max-n lf-diag-binders-full }T

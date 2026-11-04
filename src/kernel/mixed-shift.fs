@@ -12,6 +12,7 @@
 require ../lib/lib.fs
 require ../core/constant-term-boundary.fs
 require ../core/diagnostics.fs
+require ../core/local-context.fs
 require ../core/tagged-sort-boundary.fs
 require ../core/terms.fs
 require ./mixed-rebuild.fs
@@ -36,7 +37,9 @@ end-structure
 \ Visiting one node of the shift. The preaudit establishes tags, payloads
 \ and backward edges. A variable below the cutoff is kept; the others move
 \ up by the amount, which is full past lf-mshift-max (no room in a cell).
-\ Leaves are kept and binary nodes rebuilt; any other tag is invalid.
+\ Leaves are kept (a free variable too: it binds nothing and is bound by
+\ nothing, core/local-context.fs) and binary nodes rebuilt; any other tag
+\ is invalid.
 : lf-mshift-amount@ ( frames -- amount ) lf-shiftjob-amount @ ;
 : lf-mshift-site ( -- site ) c" mixed-shift lf-mixed-shift" ;
 \ No room in a cell: recorded with the index and the amount.
@@ -52,6 +55,7 @@ end-structure
   case lf-tag-bvar of lf-mshift-bvar endof
     lf-tag-constant of lf-rebuild-keep endof
     lf-tag-symbolic-sort of lf-rebuild-keep endof
+    lf-tag-fvar of lf-rebuild-keep endof
     >r lf-rebuild-bad r> endcase ;
 \ A binary node goes straight to lf-rebuild-binary: no word in between.
 : lf-mshift-visit ( node frames -- result outcome )
