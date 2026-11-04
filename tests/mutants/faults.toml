@@ -3707,6 +3707,14 @@ test = "python3 tests/present/test_outline_block.py"
 reason = "rvI21 R4-6: the outline prints the type -1 of an empty block's declaration"
 
 [[fault]]
+id = "genrec-no-substitution"
+file = "src/kernel/generated-recursor.fs"
+old = '''  lf-ind-lparams nip 0= if outcome-ok exit then'''
+new = '''  outcome-ok exit'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 R5-1: the generated recursor's domains keep the block's own universes; uses of Eq's, Exists' and Pr's recursor at other universes are not accepted as Lean accepts them"
+
+[[fault]]
 id = "pub-rec-name-not-held"
 file = "src/kernel/env-publish.fs"
 old = '''  0 lf-cand-span@ 0 ?do ['] lf-slot-conflict? i lf-own-matches + i lf-own-held + loop ;'''

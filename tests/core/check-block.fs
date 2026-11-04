@@ -401,6 +401,19 @@ T{ s" after.index-left-out-then-use-rec" used -> outcome-ok 0 }T
 T{ s" after.many-universes-left-out-then-use-rec" used -> outcome-ok 0 }T
 T{ s" after.recursor-left-out-then-lookup-in-def" used -> outcome-ok 0 }T
 T{ s" after.recursor-left-out-then-lookup-during-block" used -> outcome-ok 0 }T
+\ The generated recursor at universes other than its own names (review
+\ rvI21 R5-1): renamed, concrete, swapped and applied (eta) uses of Eq's,
+\ Exists' and Pr's, whose domains mention the block's universes.
+T{ s" after.eq-at-renamed" used -> outcome-ok 0 }T
+T{ s" after.eq-at-concrete" used -> outcome-ok 0 }T
+T{ s" after.eq-at-applied" used -> outcome-ok 0 }T
+T{ s" after.exists-at-renamed" used -> outcome-ok 0 }T
+T{ s" after.exists-at-concrete" used -> outcome-ok 0 }T
+T{ s" after.exists-at-applied" used -> outcome-ok 0 }T
+T{ s" after.universe-max-at-renamed" used -> outcome-ok 0 }T
+T{ s" after.universe-max-at-concrete" used -> outcome-ok 0 }T
+T{ s" after.universe-max-at-swapped" used -> outcome-ok 0 }T
+T{ s" after.universe-max-at-applied" used -> outcome-ok 0 }T
 T{ s" after.redex-type-left-out-then-use-rec" used
    -> outcome-unknown lf-diag-generated-recursor }T
 \ The marks on the slots: the type and constructors, not the recursor.

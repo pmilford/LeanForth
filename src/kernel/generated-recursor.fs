@@ -18,12 +18,18 @@
 \ universe (its motive universe its first universe parameter) or only
 \ into Prop, and that the telescope the check walked after whnf was the
 \ raw one (lf-genrec-raw?, tested when the check built the recursor).
-\ The recursor is built at the use's universe arguments directly -- the
-\ motive's Sort at the first when it has one, the block's constants at the
-\ others -- which is Lean's instantiate_type_lparams of its type; so no
+\ The recursor is built at the use's universe arguments: the motive's
+\ Sort at the first when it has one; the block's constants at the others;
+\ and every binder domain read from instances of the block's type and
+\ constructor types in which the block's universe parameters are replaced
+\ by those same arguments (lf-mixed-level-substitute; review rvI21 R5-1).
+\ Since building copies the domains and only adds constants and the
+\ motive's Sort, the result is Lean's instantiate_type_lparams of the
+\ recursor's type at the use's arguments (rows after.*-at-*: renamed,
+\ concrete, swapped and applied universes on Eq, Exists and Pr). No
 \ universe name of the recursor's own is ever made (the motive's `u` need
-\ not be a name or a level of the file; review rvI21 R4-1) and the number
-\ of universe parameters has no limit of its own (R4-3). A block whose
+\ not be a name or a level of the file; R4-1), and the number of universe
+\ parameters has no limit of its own (R4-3). A block whose
 \ telescope only whnf shows has no recipe: a use of its T.rec is then
 \ unknown (diagnostic 77) until unfolding and whnf at a lookup (plan task
 \ 4.2.2, its steps 4.2.2b-e). Nothing is trusted from the file beyond
@@ -44,12 +50,16 @@ require ./environment.fs
 require ./inductive-block.fs
 require ./inductive-recursor.fs
 require ./mixed-head.fs
+require ./mixed-level-substitute.fs
 
 begin-structure /lf-genrec
   field: lf-genrec-root-cell    \ the recursor's type, built
+  field: lf-genrec-args         \ the use's arguments for the block's parameters
   /lf-ind +field lf-genrec-saved \ the block record while the build runs
 end-structure
 /lf-genrec context-record: lf-genrec-state
+\ The constructors' types instantiated, one cell each: a growable array.
+1 cells context-slab: lf-genrec-ctor-cells
 
 \ ---------------------------------------------------------------------------
 \ At the block check, after the build (step 12): whether the telescope it
@@ -80,8 +90,8 @@ end-structure
 \ it is not what the recipe says (no raw Sort end, too few binders).
 : lf-genrec-bind ( node i -- node' )
   over lf-term-first@ swap lf-ind-domain ! lf-term-second@ ;
-: lf-genrec-tele ( -- outcome )
-  lf-ind-type lf-idecl-type @ 0 begin over lf-tag-pi lf-ind-tag? while
+: lf-genrec-tele ( root -- outcome )
+  0 begin over lf-tag-pi lf-ind-tag? while
     dup lf-ind-binder-capacity < 0= if 2drop outcome-full exit then
     tuck lf-genrec-bind swap 1+
   repeat lf-ind-nparams - dup 0< if 2drop outcome-invalid exit then
@@ -106,20 +116,43 @@ end-structure
   if dup 0 lf-cref-pair @ lf-ind-state lf-ind-elim ! 1 lf-cref-pair
   else 0 lf-ind-state lf-ind-elim ! then ;
 : lf-genrec-pairs ( pairs -- outcome )
+  dup lf-genrec-state lf-genrec-args !
   lf-ind-lparams nip dup lf-rcr-pair-cells slab-hold ok? 0=
   if 2drop outcome-full exit then
   0 ?do dup i lf-cref-pair 2@ i lf-rcr-pair 2! loop drop outcome-ok ;
+\ An input root with the block's universe parameters replaced by the
+\ use's arguments for them (lf-genrec-args), on the block's fuel; a
+\ block without universe parameters keeps the root.
+: lf-genrec-subst-run ( root identity -- root' outcome )
+  lf-ind-lparams drop lf-genrec-state lf-genrec-args @ lf-ind-lparams nip lf-ind-fuel @
+  lf-mixed-level-substitute lf-mls-fuel @ lf-ind-fuel !
+  dup ok? if 2drop outcome-ok else -1 swap then ;
+: lf-genrec-subst ( root -- root' outcome )
+  lf-ind-lparams nip 0= if outcome-ok exit then
+  dup lf-term-identity 0= if drop -1 outcome-invalid exit then lf-genrec-subst-run ;
+\ The type's telescope from its instance; each constructor's type
+\ instantiated into the array.
+: lf-genrec-type ( -- outcome )
+  lf-ind-type lf-idecl-type @ lf-genrec-subst dup ok? 0= if nip exit then drop
+  lf-genrec-tele ;
+: lf-genrec-ctor ( j -- outcome )
+  dup lf-ind-ctor-type lf-genrec-subst dup ok? 0= if nip nip exit then drop
+  swap lf-genrec-ctor-cells slab-at ! outcome-ok ;
+: lf-genrec-ctors ( -- outcome )
+  lf-ind-ctors@ 1 max lf-genrec-ctor-cells slab-hold ok? 0= if outcome-full exit then
+  lf-ind-ctors@ 0 ?do i lf-genrec-ctor dup ok? 0= if unloop exit then drop loop
+  outcome-ok ;
 
 \ The build, between the copy of the block record and its return.
 : lf-genrec-then ( outcome xt -- outcome ) over ok? if nip execute else drop then ;
-: lf-genrec-facts ( d -- outcome )
-  lf-ind-open nip ['] lf-genrec-tele lf-genrec-then ['] lf-genrec-fields lf-genrec-then ;
+: lf-genrec-facts ( d -- outcome ) lf-ind-open nip ['] lf-genrec-fields lf-genrec-then ;
 : lf-genrec-made ( -- outcome )
-  lf-recursor-build-at dup ok? 0= if exit then
+  0 lf-genrec-ctor-cells slab-at lf-recursor-build-at dup ok? 0= if exit then
   lf-ind-state lf-ind-rec-type @ lf-genrec-state lf-genrec-root-cell ! ;
 : lf-genrec-run ( d pairs fuel -- fuel' outcome )
   >r over lf-genrec-facts dup ok? 0= if nip nip r> swap exit then drop
   r> lf-ind-fuel ! swap lf-genrec-large? lf-genrec-elim lf-genrec-pairs
+  ['] lf-genrec-type lf-genrec-then ['] lf-genrec-ctors lf-genrec-then
   ['] lf-genrec-made lf-genrec-then lf-ind-fuel @ swap ;
 : lf-genrec-save ( -- ) lf-ind-state lf-genrec-state lf-genrec-saved /lf-ind move ;
 : lf-genrec-restore ( -- ) lf-genrec-state lf-genrec-saved lf-ind-state /lf-ind move ;
