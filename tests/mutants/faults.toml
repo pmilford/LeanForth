@@ -1900,8 +1900,8 @@ reason = "growing a heap store loses the records made before"
 [[fault]]
 id = "store-seal-ignores-block"
 file = "src/lib/store.fs"
-old = '''  dup store-shape@ >store-seal over store-block @ xor swap store-limit @ xor ;'''
-new = '''  dup store-shape@ >store-seal swap store-limit @ xor ;'''
+old = '''  over store-block @ xor swap store-limit @ xor ;'''
+new = '''  swap store-limit @ xor ;'''
 test = "$GFORTH tests/lib/lib.fs"
 reason = "a corrupted block address keeps the seal: a store reads records elsewhere"
 
