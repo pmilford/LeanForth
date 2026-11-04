@@ -78,6 +78,13 @@ end-structure
 : columns-cover ( group -- outcome )
   dup columns-short? 0= if drop outcome-ok exit then
   dup group-store@ store-grow-refused? if drop outcome-full exit then columns-grow ;
+\ The cheap form before each new record: mark is a cell of the owner's
+\ (a context member) holding the store capacity the columns last covered;
+\ only a different capacity runs columns-cover. Columns never shrink, so
+\ an equal capacity is still covered.
+: columns-ready ( mark group -- flag )
+  over @ over group-capacity = if 2drop true exit then
+  dup columns-cover ok? if group-capacity swap ! true else 2drop false then ;
 
 \ Setting up and tearing down every column of a group in the current
 \ context.

@@ -72,8 +72,9 @@ store-header context-record: lf-terms
 : lf-term-site ( -- site ) c" terms lf-term-add" ;
 : lf-term-refused ( -- false )
   lf-terms lf-term-site lf-diag-terms-full lf-diag-store false ;
+1 cells context-record: lf-term-covered   \ capacity the columns last covered
 : lf-term-room? ( -- flag )
-  lf-terms store-grow ok? if lf-term-columns columns-cover ok? else false then ;
+  lf-terms store-ready ok? if lf-term-covered lf-term-columns columns-ready else false then ;
 : lf-term-new ( tag first second -- index true | false )
   lf-terms node-new dup 0= if drop lf-term-refused then ;
 : lf-term-add ( tag first second -- index true | false )

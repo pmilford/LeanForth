@@ -66,7 +66,7 @@ end-structure
 \ The block of a store made in place: right after its header.
 : store-inline ( store -- addr ) store-header + ;
 : store-identities ( store -- addr )
-  dup store-block @ ?dup if nip else store-inline then ;
+  dup store-block @ ?dup if nip exit then store-header + ;
 : store-records ( store -- addr ) dup store-identities swap store-capacity @ cells + ;
 \ Unchecked: addresses for an already validated index.
 : store-slot ( index store -- addr ) tuck store-width @ * swap store-records + ;
@@ -76,15 +76,21 @@ end-structure
 : store-shape@ ( store -- capacity width base )
   dup store-capacity @ over store-width @ rot store-base @ ;
 : >store-seal ( capacity width base -- x ) xor xor invert ;
-\ The seal covers the block and the limit too.
+\ The seal covers the block and the limit too. These words run on every
+\ checked access (store-count-valid? below), so they are straight-line
+\ code without branches.
 : store-check ( store -- x )
-  dup store-shape@ >store-seal over store-block @ xor swap store-limit @ xor ;
+  dup store-capacity @ over store-width @ xor over store-base @ xor invert
+  over store-block @ xor swap store-limit @ xor ;
 : store-width? ( width -- flag ) dup 0> swap dup aligned = and ;
 : store-sealed? ( store -- flag ) dup store-check swap store-seal @ = ;
-: store-limit? ( store -- flag ) dup store-capacity @ swap store-limit @ upto? ;
+\ 0 <= x <= y, signed, as upto? (bounds.fs).
+: store-upto? ( x y -- flag ) dup 0< 0= -rot u> 0= and ;
+: store-limit? ( store -- flag ) dup store-capacity @ swap store-limit @ store-upto? ;
+: store-ranges? ( store -- flag )
+  dup store-base @ over store-capacity @ store-upto? swap store-limit? and ;
 : store-shape? ( store -- flag )
-  dup store-base @ over store-capacity @ upto? over store-width @ store-width? and
-  over store-limit? and swap store-sealed? and ;
+  dup store-sealed? over store-width @ store-width? and swap store-ranges? and ;
 
 \ Planning a store: its size in address units, and whether a shape is
 \ sound. A sound shape has 0 <= base <= capacity, a positive aligned width,
@@ -233,6 +239,12 @@ defer store-refuse? ( store -- flag )
   dup store-count-valid? 0= if drop outcome-invalid exit then
   dup store-room? if drop outcome-ok exit then
   dup store-growable? if dup store-doubled swap store-resize else drop outcome-full then ;
+\ The cheap form before an allocation: store-grow only when the raw count
+\ has reached the capacity, else ok without any check, for callers whose
+\ allocation (store-new, store-open?) checks the store anyway. Same
+\ outcome of the allocation as store-grow first.
+: store-filled? ( store -- flag ) dup store-count @ swap store-capacity @ < 0= ;
+: store-ready ( store -- outcome ) dup store-filled? if store-grow else drop outcome-ok then ;
 \ Set a live heap store's limit, at least its count and a sound size;
 \ a block that holds more records shrinks to it: ok, full when that
 \ shrinking finds no heap (nothing changed), invalid otherwise.

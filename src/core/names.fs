@@ -176,7 +176,7 @@ end-structure
 
 \ Appending; callers have checked validity, absence and room. The store's
 \ identities are issued but unused: names are compared by content.
-: lf-name-room? ( -- flag ) lf-names store-grow drop lf-names store-open? ;
+: lf-name-room? ( -- flag ) lf-names store-ready drop lf-names store-open? ;
 : lf-name-byte-room? ( length -- flag ) lf-name-byte-capacity lf-name-used @ - upto? ;
 : lf-name-new ( prefix tag -- entry id )
   lf-names store-claim dup >r lf-name-slot tuck lf-entry-tag ! tuck lf-entry-prefix ! r> ;

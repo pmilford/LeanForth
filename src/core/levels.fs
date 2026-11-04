@@ -72,8 +72,9 @@ store-header context-record: lf-levels
 : lf-level-refused ( -- false )
   lf-levels lf-level-site lf-diag-levels-full lf-diag-store false ;
 ' lf-levels column-group: lf-level-columns
+1 cells context-record: lf-level-covered   \ capacity the columns last covered
 : lf-level-room? ( -- flag )
-  lf-levels store-grow ok? if lf-level-columns columns-cover ok? else false then ;
+  lf-levels store-ready ok? if lf-level-covered lf-level-columns columns-ready else false then ;
 : lf-level-new ( tag first second -- index true | false )
   lf-levels node-new dup 0= if drop lf-level-refused then ;
 : lf-level-add ( tag first second -- index true | false )

@@ -228,7 +228,7 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
   swap 1+ swap ! ;
 : lf-input-copy ( decl -- i outcome )
   dup lf-input-index-room ok? 0= if drop -1 outcome-full exit then
-  lf-inputs store-grow drop
+  lf-inputs store-ready drop
   lf-inputs store-new-slot 0= if drop -1 outcome-full exit then
   >r /lf-idecl move r> dup lf-input-link outcome-ok ;
 : lf-input-add ( decl -- i outcome )
