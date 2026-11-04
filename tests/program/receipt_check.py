@@ -203,6 +203,14 @@ def offline_problems():
     other["run"]["cases"] -= 1
     if not program_receipt.verify(receipt, program_receipt.CONTRACT, other):
         problems.append("the receipt verified against different evidence")
+    for change in ({"sha256": "0" * 64}, {"words": "src/program/ir-reader.fs"}, None):
+        other = copy.deepcopy(evidence)
+        other["ir"] = None if change is None else {**other["ir"], **change}
+        try:
+            program_receipt.build(program_receipt.CONTRACT, other)
+            problems.append(f"a receipt was built from evidence whose IR is {other['ir']}")
+        except SystemExit:
+            pass
     return problems
 
 

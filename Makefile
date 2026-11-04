@@ -364,6 +364,19 @@ reference-program-ir:
 test: test-program-ir
 test-differential: reference-program-ir
 
+# The program words in two modes (ADR 0019; docs/programming/PROGRAM_IR.md):
+# their library, the mode shift and the separate vocabulary, their
+# cross-check against today's reader, round trip and random programs.
+# Gforth and Python 3 only.
+test-program-verify:
+	$(RUN) $(GFORTH) tests/lib/text-run.fs
+	$(RUN) $(GFORTH) tests/program/verify.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/program/verify_check.py
+	GFORTH=$(GFORTH) $(RUN) python3 tests/program/verify_roundtrip.py
+
+.PHONY: test-program-verify
+test: test-program-verify
+
 # Program track, phase 2, tasks 2.5.4 to 2.5.6 (docs/programming/PROGRAM_IR_RUN.md,
 # PROGRAM_VC.md and PROGRAM_RECEIPTS.md): the IR interpreter against the host's
 # own words, the verification-condition generator's golden output, and the
