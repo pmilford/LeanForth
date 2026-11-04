@@ -633,9 +633,9 @@ T{ start long-text 128 feed verdict -> outcome-invalid ir-why-unreadable 1 0 }T
 T{ start long-text 200 feed verdict -> outcome-invalid ir-why-unreadable 1 0 }T
 \ A fed line's length is unsigned: -1 is too long, so the line is refused
 \ unread, neither copied nor read past its end. The line and block
-\ buffers keep what lf-ir-start left there: the path and zeros.
+\ buffers keep what lf-ir-start left there, not the blanks of long-text.
 T{ start s" : f ;" drop -1 lf-ir-feed verdict -> outcome-invalid ir-why-unreadable 1 0 }T
-T{ start long-text -1 lf-ir-feed ir-text 4 s" t.fs" compare ir-block c@ -> 0 0 }T
+T{ start long-text -1 lf-ir-feed ir-text c@ bl = ir-block c@ -> false 0 }T
 \ So even a bad address only fails the read: here address 0, from which
 \ the copy of a line cut to the buffer's size once threw -9.
 T{ start 0 -1 ' lf-ir-feed catch verdict -> 0 outcome-invalid ir-why-unreadable 1 0 }T

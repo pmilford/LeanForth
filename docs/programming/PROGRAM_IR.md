@@ -276,9 +276,10 @@ reader enforces the following on them, and this is the whole list:
   word runs ends the read *invalid*; or leaves the reader busy for good,
   if it comes after the word made the reader busy but before its handler
   is set up, or after its work threw but before the handler has run; or,
-  if it comes during the entry check or after the work has returned,
-  leaves the read as if it had come before or after the call (the call
-  counted). So a read whose work an exception cut short never ends *ok*.
+  if it comes during the entry check or once the work has made the
+  reader idle again, leaves the read as if it had come before or after
+  the call (the call counted). So a read never ends *ok* if an exception
+  cut its work short or came before its reader went idle again.
   Every exception passes on, closing first a file whose lines were being
   read.
 - *Lines out of turn fail the read:* a line fed before `lf-ir-start` or

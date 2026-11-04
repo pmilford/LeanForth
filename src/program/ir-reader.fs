@@ -29,8 +29,9 @@
 \ - An exception inside a reader word fails the read as invalid, or
 \   leaves the reader busy for good (just before the word's handler is
 \   set up, or just after its work threw), or, during the entry check or
-\   after the work returned, acts as if it came before or after the call:
-\   a read whose work an exception cut short never ends ok. Every
+\   once the work has made the reader idle again, acts as if it came
+\   before or after the call: a read never ends ok if an exception cut
+\   its work short or came before its reader went idle again. Every
 \   exception passes on; one that stops the reading of a file's lines
 \   closes the file first.
 \ - A line fed before lf-ir-start or after lf-ir-finish fails the read; a
