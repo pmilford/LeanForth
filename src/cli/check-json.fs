@@ -16,13 +16,13 @@
 \ of the export file named c-addr u, its manifest checked when checked? is
 \ true: ok, or the writer's failure (invalid for a text it refuses, full
 \ when a name finds no heap), after which standard output holds a text
-\ cut short, never a whole report.
-\ State: two shared records, the writer cj-writer and the byte slab
-\ cj-name that holds a name while it is written (heap, freed at the end).
+\ cut short, never a whole report. Names, and the export's file name, are
+\ written as cli/name-text.fs shows them (Lean's Name.toString, with
+\ escapes), so the report holds the same text as the text output.
+\ State: one shared record, the writer cj-writer.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
-require ../lib/slab.fs
 require ../lib/json-write.fs
 require ../core/diagnostics.fs
 require ../core/input.fs
@@ -31,12 +31,12 @@ require ../kernel/check-declaration.fs
 require ../import/manifest.fs
 require ../import/stage.fs
 require ../import/feed.fs
-require ../present/print-names.fs
+require ../import/run-record.fs
 require ./tally.fs
+require ./name-text.fs
 require ./check-run.fs
 
 8 0 json-writer: cj-writer
-create cj-name /slab allot  cj-name /slab erase
 : cj-schema ( -- c-addr u ) s" leanforth-check-report" ;
 : cj-version ( -- c-addr u ) s" 0.1" ;
 : cj-label ( -- c-addr u ) s" experimental, not independently audited" ;
@@ -56,18 +56,10 @@ create cj-name /slab allot  cj-name /slab erase
 : cj-flag ( flag key-addr key-u -- ) cj-key cj-writer jw-bool ;
 : cj-null-member ( key-addr key-u -- ) cj-key cj-null ;
 
-\ A declaration's name, as the term printer writes it, gathered in
-\ cj-name; a name the heap cannot hold fails the text as full.
-: cj-name-sink ( c-addr u -- )
-  dup cj-name slab-claim ok? if cj-name slab-at swap move exit then
-  drop 2drop outcome-full cj-writer jw-fail ;
-\ An empty inductive block has no name: Lean's anonymous name, which Lean
-\ prints as [anonymous] (and cli/leanforth.fs too).
-: cj-name-text ( d -- c-addr u )
-  lf-input-name ?dup 0= if s" [anonymous]" exit then
-  cj-name slab-clear ['] cj-name-sink lf-pp-name-to 0 cj-name slab-at cj-name slab-count ;
-: cj-names-make ( -- )
-  cj-name slab-free 1 chars dup slab-limit-max cj-name slab-init drop ;
+\ A text as cli/name-text.fs shows it; one the heap cannot hold fails the
+\ report as full.
+: cj-shown ( c-addr u flag -- c-addr u ) 0= if outcome-full cj-writer jw-fail then ;
+: cj-name-text ( d -- c-addr u ) lf-input-name nt-name cj-shown ;
 
 \ ---- The read: its outcome, and for a failure where it failed.
 : cj-nowhere ( -- )
@@ -94,26 +86,22 @@ create cj-name /slab allot  cj-name /slab erase
 \ ---- The run and its declarations, in input order.
 : cj-run ( -- )
   ck-loaded? if ck-outcome outcome-text else s" not-run" then s" run" cj-text ;
-\ Whether the run stopped on an internal fault, as the text's line "the
-\ run stopped" says: a check threw (the context spent) or publishing
-\ failed (the run invalid), in a run whose verdicts can be read.
-: cj-stopped? ( -- flag )
-  ck-verdicts? if lf-env-spent? ck-outcome ok? 0= or else false then ;
-: cj-stopped ( -- ) cj-stopped? s" stopped" cj-flag ;
+\ Whether the run stopped on an internal fault (a check threw, or
+\ publishing failed), as the text's line "the run stopped" says.
+: cj-stopped ( -- ) ck-stopped? s" stopped" cj-flag ;
 : cj-began? ( d -- flag ) ck-steps-begun < ;
 \ The verdict as a run record writes it: accepted for ok.
 : cj-verdict-text ( d -- c-addr u )
-  dup cj-began? 0= if drop s" not-checked" exit then
-  lf-env-outcome dup ok? if drop s" accepted" else outcome-text then ;
+  dup cj-began? if lf-env-outcome else drop not-checked then verdict-name ;
 : cj-site ( site -- c-addr u ) ?dup if count else s" " then ;
 : cj-numbers ( step -- )
-  s" numbers" cj-key cj-array dup cks-first @ cj-n cks-second @ cj-n cj-end-array ;
+  s" numbers" cj-key cj-array dup kept-first @ cj-n kept-second @ cj-n cj-end-array ;
 : cj-reason ( step -- )
-  cj-object dup cks-code @ dup s" code" cj-number lf-diag-name s" reason" cj-text
-  dup cks-site @ cj-site s" site" cj-text dup cj-numbers cks-step @ s" step" cj-number
+  cj-object dup kept-code @ dup s" code" cj-number lf-diag-name s" reason" cj-text
+  dup kept-site @ cj-site s" site" cj-text dup cj-numbers kept-step @ s" step" cj-number
   cj-end-object ;
 : cj-diagnostic ( d -- )
-  s" diagnostic" cj-key ck-kept dup cks-code @ lf-diag-none =
+  s" diagnostic" cj-key ck-kept dup kept-code @ lf-diag-none =
   if drop cj-null else cj-reason then ;
 : cj-axioms ( d -- )
   lf-env-axioms drop dup s" axiomBits" cj-number 0<> s" notProved" cj-flag ;
@@ -132,13 +120,12 @@ create cj-name /slab allot  cj-name /slab erase
   s" declarations" cj-key cj-array
   ck-verdicts? if lf-input-count 0 ?do i cj-decl loop then cj-end-array ;
 
-\ ---- The counts (cli/tally.fs), null when no verdict could be read.
-: cj-count ( k c-addr u -- ) cj-key cli-count-of @ cj-n ;
-: cj-tallies ( -- )
-  outcome-ok s" accepted" cj-count outcome-rejected s" rejected" cj-count
-  outcome-unknown s" unknown" cj-count outcome-unsupported s" unsupported" cj-count
-  outcome-invalid s" invalid" cj-count outcome-exhausted s" exhausted" cj-count
-  outcome-full s" full" cj-count not-checked s" notChecked" cj-count ;
+\ ---- The counts (cli/tally.fs, in its verdict order), null when no
+\ verdict could be read.
+: cj-count-key ( verdict -- c-addr u )
+  dup not-checked = if drop s" notChecked" else verdict-name then ;
+: cj-count ( verdict -- ) dup cj-count-key cj-key cli-count-of @ cj-n ;
+: cj-tallies ( -- ) verdict-kinds 0 do i verdict-kind cj-count loop ;
 : cj-counts ( -- )
   s" counts" cj-key ck-verdicts? 0= if cj-null exit then
   cj-object lf-input-count s" declarations" cj-number cj-tallies
@@ -159,22 +146,21 @@ create cj-name /slab allot  cj-name /slab erase
 \ references and names; null when it was not fed.
 : cj-input ( -- )
   s" input" cj-key ck-loaded? 0= if cj-null exit then
-  cj-object 0 ck-count s" declarations" cj-number 1 ck-count s" terms" cj-number
-  2 ck-count s" levels" cj-number 3 ck-count s" references" cj-number
-  ck-staged-names s" names" cj-number cj-end-object ;
+  cj-object ck-input-declarations s" declarations" cj-number
+  ck-input-terms s" terms" cj-number ck-input-levels s" levels" cj-number
+  ck-input-references s" references" cj-number ck-staged-names s" names" cj-number
+  cj-end-object ;
 
-\ ---- Measured: times in microseconds (null on a host without clocks),
-\ the peak resident memory in bytes (null where the host does not say)
-\ and the stage's heap bytes (null when nothing was staged).
-: cj-time ( wall cpu c-addr u -- )
-  cj-key cj-object 2swap s" wall" cj-key cj-ud s" cpu" cj-key cj-ud cj-end-object ;
-: cj-phase ( k c-addr u -- ) 2>r dup ck-phase-wall rot ck-phase-cpu 2r> cj-time ;
-: cj-phases ( -- )
-  ck-staging s" stage" cj-phase ck-feeding s" feed" cj-phase
-  ck-checking s" check" cj-phase ck-total-wall ck-total-cpu s" total" cj-time ;
+\ ---- Measured: each phase's times in microseconds, the run's total so
+\ far the last (null on a host without clocks), the peak resident memory
+\ in bytes (null where the host does not say) and the stage's heap bytes
+\ (null when nothing was staged).
+: cj-phase ( k -- )
+  dup ck-phase-name cj-key cj-object dup ck-phase-wall s" wall" cj-key cj-ud
+  ck-phase-cpu s" cpu" cj-key cj-ud cj-end-object ;
 : cj-times ( -- )
   s" microseconds" cj-key ck-timed? 0= if cj-null exit then
-  cj-object cj-phases cj-end-object ;
+  ck-finish cj-object ck-phases 0 do i cj-phase loop cj-end-object ;
 : cj-peak ( -- ) s" peakResidentBytes" cj-key ck-peak if cj-n else cj-null then ;
 : cj-stage-bytes ( -- )
   s" stageBytes" cj-key ck-staged? if ck-staged-bytes cj-n else cj-null then ;
@@ -182,10 +168,10 @@ create cj-name /slab allot  cj-name /slab erase
   s" measured" cj-key cj-object cj-times cj-peak cj-stage-bytes cj-end-object ;
 
 \ ---- The report.
+: cj-export ( c-addr u -- ) nt-text cj-shown s" export" cj-text ;
 : cj-head ( c-addr u checked? -- )
-  cj-schema s" schema" cj-text cj-version s" schemaVersion" cj-text
-  >r s" export" cj-text r> if s" checked" else s" not-checked" then s" manifest" cj-text
-  cj-label s" label" cj-text ;
+  cj-schema s" schema" cj-text cj-version s" schemaVersion" cj-text >r cj-export
+  r> if s" checked" else s" not-checked" then s" manifest" cj-text cj-label s" label" cj-text ;
 : cj-settings ( -- )
   s" settings" cj-key cj-object ck-fuel-budget s" fuel" cj-number
   lf-env-pool-max s" dependencyPool" cj-number cj-end-object ;
@@ -194,7 +180,6 @@ create cj-name /slab allot  cj-name /slab erase
   cj-object cj-head cj-settings cj-read cj-run cj-stopped cj-decls cj-counts cj-fuel
   cj-input cj-status cj-measured cj-end-object ;
 : cj-report ( c-addr u checked? -- outcome )
-  cj-names-make ['] type cj-writer jw-start cj-body cj-writer jw-end
-  dup ok? if cr then cj-name slab-free ;
+  ['] type cj-writer jw-start cj-body cj-writer jw-end dup ok? if cr then ;
 
 base !   \ the BASE this file was loaded with

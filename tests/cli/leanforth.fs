@@ -47,25 +47,27 @@ T{ outcome-unknown outcome>code outcome-unsupported outcome>code -> 2 2 }T
 T{ outcome-exhausted outcome>code outcome-full outcome>code -> 3 3 }T
 T{ outcome-invalid outcome>code 7 outcome>code -1 outcome>code -> 4 5 5 }T
 
-\ Severity, as the documentation states it: 0 < 2 < 3 < 1 < 4 < 5. The
+\ Severity, as the documentation states it: 0 < 6 < 2 < 3 < 1 < 4 < 5. The
 \ more severe of two codes is the same both ways round and is the later
 \ of the two in that order.
-create stated  0 , 2 , 3 , 1 , 4 , 5 ,
+create stated  0 , 6 , 2 , 3 , 1 , 4 , 5 ,
 : stated-rank ( code -- n )
-  6 0 do dup i cells stated + @ = if drop i unloop exit then loop drop 99 ;
+  7 0 do dup i cells stated + @ = if drop i unloop exit then loop drop 99 ;
 : later? ( a b w -- flag ) stated-rank >r stated-rank swap stated-rank max r> = ;
 : pair-ok? ( a b -- flag )
   2dup 2dup worse-code >r swap worse-code r@ = -rot r> later? and ;
-: all-pairs? ( -- flag ) true 6 0 do 6 0 do i j pair-ok? and loop loop ;
+: all-pairs? ( -- flag ) true 7 0 do 7 0 do i j pair-ok? and loop loop ;
 T{ all-pairs? -> true }T
 
 \ NOT PROVED: an accepted declaration with an axiom, and only that; it is
-\ counted apart and changes no code.
+\ counted apart and has its own code, 6 (proposed), which every other
+\ failure outranks.
 T{ outcome-ok 0 not-proved? outcome-ok 4 not-proved? -> false true }T
 T{ outcome-rejected 4 not-proved? outcome-unknown 0 not-proved? -> false false }T
 cli-start
 T{ outcome-ok 4 cli-tally-proved outcome-ok 0 cli-tally-proved cli-not-proved @ -> 1 }T
-T{ outcome-rejected 1 cli-tally-proved cli-not-proved @ cli-worst @ -> 1 0 }T
+T{ outcome-rejected 1 cli-tally-proved cli-not-proved @ cli-worst @ -> 1 6 }T
+T{ outcome-unknown cli-tally cli-worst @ -> 2 }T
 \ The summary's line of the accepted, from planted counts (no check can
 \ make one NOT PROVED yet); where the host can capture output (Gforth 1.0).
 [defined] >string-execute [if]
@@ -88,6 +90,40 @@ T{ s" " cli-decimal s" -1" cli-decimal s" +1" cli-decimal s" 1x" cli-decimal
 : max-text ( -- c-addr u ) max-n 0 <# #s #> ;
 T{ max-text cli-decimal -> max-n true }T
 T{ s" 99999999999999999999999999999999999999999" cli-decimal -> false }T
+\ --fuel takes at most 2^53 - 1 (on a 64-bit host): exact in JSON.
+: bits64? ( -- flag ) max-n 53 rshift 0<> ;
+bits64? [if]
+T{ cli-fuel-most 1+ 1 53 lshift = -> true }T
+[then]
+
+\ Names as cli/name-text.fs shows them: Lean's Name.toString, with « »
+\ around a component that is not an identifier and escapes for what the
+\ text rule bans; names of any depth.
+: shows ( c-addr u -- c-addr' u' ) 0 -rot lf-name-str drop nt-name drop ;
+: num-shows ( n -- c-addr u ) 0 swap lf-name-num drop nt-name drop ;
+T{ s" fixtureUse" shows s" fixtureUse" compare -> 0 }T
+T{ s" with space" shows s" «with space»" compare -> 0 }T
+T{ s" " shows s" «»" compare -> 0 }T
+T{ s\" a\nb" shows s" «a\u{A}b»" compare -> 0 }T
+T{ s\" a\rb\x1b[2K" shows s" «a\u{D}b\u{1B}[2K»" compare -> 0 }T
+T{ s\" a\xe2\x80\xaeb" shows s" «a\u{202E}b»" compare -> 0 }T
+T{ s\" a\\b" shows s" «a\\b»" compare -> 0 }T
+T{ s\" a\xc2\xbbb" shows s\" a\xc2\xbbb" compare -> 0 }T      \ holds », as Lean: no « »
+T{ s\" \xce\xb1\xce\xb2\xce\xb3" shows s\" \xce\xb1\xce\xb2\xce\xb3" compare -> 0 }T
+T{ s" x'" shows s" x'" compare s" 1x" shows s" «1x»" compare -> 0 0 }T
+T{ 7 num-shows s" 7" compare 0 nt-name drop s" [anonymous]" compare -> 0 0 }T
+\ Deeper than the term printer's 64 components: every component shown
+\ (the name store made larger for it, then given back its default).
+: deep ( n -- id ) 0 swap 0 ?do s" a" lf-name-str drop loop ;
+: dots ( n -- u ) 2* 1- ;
+lf-name-reset 200 lf-name-capacity! drop
+T{ 100 deep nt-name -rot nip 100 dots = -> true true }T
+lf-name-reset lf-name-default lf-name-capacity! drop
+\ A name with macro scopes is shown without « », as Lean shows it.
+: hygienic ( -- id ) 0 s" x" lf-name-str drop s" _@" lf-name-str drop s" _hyg" lf-name-str drop ;
+T{ hygienic nt-name drop s" x._@._hyg" compare -> 0 }T
+\ An export's file name: the same escapes, no « ».
+T{ s\" a b\x01\xff" nt-text drop s" a b\u{1}\x{FF}" compare -> 0 }T
 
 \ The codes of the check, with the declarations counted by verdict.
 cli-options
