@@ -55,6 +55,7 @@ require ../lib/lib.fs
 33 constant lf-diag-no-signature       \ the constant's name ID, 0
 34 constant lf-diag-symbolic-level     \ the level, 0
 35 constant lf-diag-dependency-undecided   \ the slot, its outcome
+36 constant lf-diag-shared-level      \ K6: the level node Lean may keep or rebuild, 0
 \ A construct not implemented yet (outcome unknown in inference; the
 \ declaration audit makes it unsupported), a dependency that is
 \ unsupported, or a declaration outside the first checker's scope.
@@ -184,6 +185,7 @@ create lf-diag-catalogue
   lf-diag-no-signature s" undecided: no candidate signature" lf-diag-entry,
   lf-diag-symbolic-level s" undecided: symbolic level" lf-diag-entry,
   lf-diag-dependency-undecided s" undecided: dependency undecided" lf-diag-entry,
+  lf-diag-shared-level s" undecided: Lean's level depends on sharing (K6)" lf-diag-entry,
   lf-diag-unsupported s" unsupported construct" lf-diag-entry,
   lf-diag-dependency-unsupported s" unsupported: dependency unsupported" lf-diag-entry,
   lf-diag-unsupported-kind s" unsupported: declaration kind (U1)" lf-diag-entry,

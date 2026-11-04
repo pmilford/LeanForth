@@ -69,17 +69,17 @@ what was used and the limit.
 | Code | Printed name | Outcome | First number | Second number | Recorded at |
 | --- | --- | --- | --- | --- | --- |
 | 0 | (no diagnostic) | — | 0 | 0 | — |
-| 1 | fuel exhausted | exhausted | fuel left (0; negative if corrupted) | 0 | every walk and recursive pass (see *Sites*), `level-value`, `level-compare`, `mixed-infer`, `mixed-signature-audit` |
+| 1 | fuel exhausted | exhausted | fuel left (0; negative if corrupted) | 0 | every walk and recursive pass (see *Sites*), `level-value`, `level-normalize` (level comparison), `mixed-infer`, `mixed-signature-audit` |
 | 2 | term store full | full | count | capacity | `terms lf-term-add` |
-| 3 | level store full | full | count, or the index a planned node would get | capacity | `levels lf-level-add`; `level-substitute lf-lsubst` when planning |
+| 3 | level store full | full | count, or the index a new node would get | capacity | `levels lf-level-add`; `level-substitute lf-lsubst` before it adds a node |
 | 4 | name store full | full | count | capacity | `names lf-name-intern` |
 | 5 | name bytes full | full | bytes needed | byte capacity | `names lf-name-intern` (a string component) |
 | 6 | reference store full | full | count | capacity | `constant-references lf-cref-new` |
 | 7 | signature index full | full | count | capacity | `mixed-signature-probe lf-msp` (in `lf-msp-put`) |
-| 8 | identity serial spent | full | the store's serial | identities needed | the term, level, name and reference stores (1 needed); `level-substitute lf-lsubst` (the nodes it would add) |
-| 9 | work stack full | full | cells pending | capacity | every walk |
+| 8 | identity serial spent | full | the store's serial | identities needed | the term, level, name and reference stores (1 needed); `level-substitute lf-lsubst` (1, before it adds a node) |
+| 9 | work stack full | full | cells pending | capacity | every walk; `level-normalize` (the arguments of a `max` being normalized) |
 | 10 | frame limit | full | frames in use | limit | `mixed-shift`, `mixed-instantiate`, `mixed-beta` (both numbers the limit: every frame was in use); `mixed-infer` |
-| 11 | depth limit | full | depth | limit | `level-value`, `level-compare` |
+| 11 | depth limit | full | depth | limit | `level-value` |
 | 12 | binder context full | full | binders | limit | `constant-term-scope` and `mixed-rebuild lf-rebuild-binary` (a binder depth at the largest cell, `max-n` twice); `mixed-infer` (binders, capacity) |
 | 13 | value at cell maximum | full | the value | the amount to add | `level-value` (a successor of `max-n`: value, 1); `mixed-shift` (variable index, shift amount) |
 | 14 | heap allocation failed | full | bytes | the `ALLOCATE` ior | reserved: no site in `core/` or `kernel/` allocates; see *Not yet covered* |
@@ -101,6 +101,7 @@ what was used and the limit.
 | 33 | undecided: no candidate signature | unknown | the constant's name ID | 0 | `mixed-signature-probe lf-msp` (in `lf-msp-specialize`) |
 | 34 | undecided: symbolic level | unknown | the level | 0 | `level-value` |
 | 35 | undecided: dependency undecided | unknown | the earlier slot (the first of that name) | its outcome | `environment lf-env-lookup` (K5; also for N2) |
+| 36 | undecided: Lean's level depends on sharing (K6) | unknown | the `max` or `imax` node of the constant's type | 0 | `level-substitute lf-lsubst` (ADR 0011, Amendment 1: Lean keeps the node only when the universe arguments are the very objects in memory its type holds) |
 | 40 | unsupported construct | unknown | the node's tag | 0 | `mixed-infer` (a constructor outside its subset; in a declaration's check the audit finds every unsupported form first, code 43, so inference never meets one there) |
 | 41 | unsupported: dependency unsupported | unsupported | the earlier slot | 0 | `environment lf-env-lookup` (K5; also for N2) |
 | 42 | unsupported: declaration kind (U1) | unsupported | the declaration's kind (`lf-kind-…`) | its safety (`lf-safety-…`) | `check-declaration lf-check-declaration` (anything but a safe definition or theorem: an axiom, an opaque declaration, an unsafe or partial definition, …) |
