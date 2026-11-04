@@ -47,7 +47,8 @@ end-structure
 \ order of more than run-settings-order-max word lists aborts.
 : run-settings-save ( settings -- )
   >r get-order dup run-settings-order-max > abort" run-settings: search order too long"
-  r@ run-settings-order! base @ r@ run-settings-base ! get-current r> run-settings-current ! ;
+  r@ run-settings-order! base @ r@ run-settings-base !
+  get-current r> run-settings-current ! ;
 \ The saved search order on the stack, as SET-ORDER takes it.
 : run-settings-wid@ ( settings i -- wid settings i ) 2dup swap run-settings-wid @ -rot ;
 : run-settings-order@ ( settings -- widn .. wid1 n )

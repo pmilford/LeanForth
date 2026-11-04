@@ -54,7 +54,8 @@ end-structure
 \ Each token of a gap is a plain decimal, written as lit n, or refused.
 : pv-gap-token ( c-addr u -- )
   2dup pv-token! pv-literal? 0= if pv-why-unknown pv-fail then dup pv-gap-push pv-lit ;
-: pv-gap-scan ( c-addr u -- ) begin lfa-next-token dup while pv-gap-token repeat 2drop 2drop ;
+: pv-gap-scan ( c-addr u -- )
+  begin lfa-next-token dup while pv-gap-token repeat 2drop 2drop ;
 \ The cells Forth's interpreter pushed: one per decimal, the last on top.
 : pv-host-value ( x i -- ) pv-gap-value @ <> if pv-why-host-literal pv-fail then ;
 : pv-taken ( i*x -- )
@@ -68,9 +69,10 @@ end-structure
 \ than by the runner's EVALUATE of the line refuses.
 : pv-ours? ( -- flag ) source pv-evaluated rot = >r = r> and ;
 : pv-read-in ( -- ) >in @ pv-text nip min pv-synced ! ;
+: pv-offset ( c-addr -- offset ) pv-text drop - ;
 : pv-sync ( -- )
   pv-ours? 0= if pv-why-interrupted pv-fail-here then
-  lfa-invoked 2dup 2>r drop pv-text drop - pv-synced @ swap pv-gap 2r> pv-token! pv-read-in ;
+  lfa-invoked 2dup 2>r drop pv-offset pv-synced @ swap pv-gap 2r> pv-token! pv-read-in ;
 \ A word of the vocabulary, and a word of the file, when the interpreter
 \ runs it; the line counts as read up to >IN afterwards, past any text
 \ the word parsed.
@@ -96,13 +98,14 @@ set-current
 \ file word can shadow one of it; the rest of each line checked after it.
 : pv-alias-prefix ( -- c-addr u ) s" " ;
 : pv-alias-order ( -- ) pv-words @ pv-alias-words 2 set-order ;
-: pv-alias-line ( -- ) 0 pv-synced ! pv-evaluated evaluate pv-synced @ pv-text nip pv-gap ;
+: pv-rest-of-line ( -- from to ) pv-synced @ pv-text nip ;
+: pv-alias-line ( -- ) 0 pv-synced ! pv-evaluated evaluate pv-rest-of-line pv-gap ;
 \ After a THROW of the host's: the gap up to the first token that is no
 \ plain decimal, refused as unknown; were there none, the exception.
 : pv-alias-caught ( code -- )
-  drop pv-floats-clear 0 pv-gap# ! pv-synced @ pv-text nip pv-span pv-gap-scan
-  pv-why-interrupted pv-fail-here ;
-' pv-alias-prefix ' pv-alias-order ' pv-alias-line ' pv-alias-caught pv-design: pv-alias-design
+  pv-floats-clear 0 pv-gap# ! pv-rest-of-line pv-span pv-gap-scan pv-interrupted ;
+' pv-alias-prefix ' pv-alias-order ' pv-alias-line ' pv-alias-caught
+pv-design: pv-alias-design
 
 : lf-alias-file ( c-addr u -- outcome ) pv-alias-design pv-file-run ;
 : lf-alias-text ( c-addr u c-addr2 u2 -- outcome ) pv-alias-design pv-text-run ;

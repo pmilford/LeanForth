@@ -159,7 +159,8 @@ end-structure
 : pv-output-failed ( -- )
   outcome-invalid pv-outcome ! pv-why-output pv-reason ! pv-throw throw ;
 : pv-call-out ( c-addr u -- code ) pv-emit-xt @ catch dup if nip nip then ;
-: pv-emit ( c-addr u -- ) depth >r pv-call-out depth r> 1- <> or if pv-output-failed then ;
+: pv-emit ( c-addr u -- )
+  depth >r pv-call-out depth r> 1- <> or if pv-output-failed then ;
 : pv-send ( -- ) pv-out pv-out# @ 0 pv-out# ! pv-emit ;
 
 \ Numbers are written in decimal whatever BASE is.

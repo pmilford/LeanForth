@@ -46,10 +46,12 @@ require ./verify-runner.fs
   over pv-entry-host @ <> if drop pv-why-replaced pv-fail then pv-perform ;
 \ A token with no entry: a host word refuses; anything else must be a
 \ plain decimal.
+: pv-unknown ( -- ) pv-why-unknown pv-fail ;
 : pv-shift-other ( c-addr u xt|0 -- )
-  if 2drop pv-why-unknown pv-fail then pv-literal? 0= if pv-why-unknown pv-fail then pv-lit ;
+  if 2drop pv-unknown then pv-literal? 0= if pv-unknown then pv-lit ;
 : pv-shift-named ( c-addr u -- )
-  2dup pv-host >r 2dup pv-entry-of if nip nip r> pv-shift-entry else r> pv-shift-other then ;
+  2dup pv-host >r 2dup pv-entry-of
+  if nip nip r> pv-shift-entry else r> pv-shift-other then ;
 \ One token in verification state.
 : pv-shift-token ( c-addr u -- )
   2dup pv-token! 2dup pv-file-word if nip nip pv-call else pv-shift-named then ;

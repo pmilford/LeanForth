@@ -76,16 +76,19 @@ end-structure
 : pv-host ( c-addr u -- xt|0 ) forth-wordlist search-wordlist 0= if 0 then ;
 : pv-name-room ( c-addr u -- c-addr u )
   dup pv-entry-chars > abort" pv: name too long" 2dup pv-entry-of abort" pv: name twice" ;
+: pv-entry-text! ( c-addr u entry -- )
+  2dup pv-entry-length ! pv-entry-name swap chars move ;
 : pv-name, ( c-addr u -- entry )
   pv-name-room pv-names store-new-slot 0= abort" pv: table full" drop >r
-  2dup pv-host r@ pv-entry-host ! dup r@ pv-entry-length ! r@ pv-entry-name swap chars move r> ;
+  2dup pv-host r@ pv-entry-host ! r@ pv-entry-text! r> ;
 : pv-typed ( datum entry kind -- ) over pv-entry-kind ! pv-entry-datum ! ;
 : pv-data ( effect c-addr u -- ) pv-name, pv-kind-data pv-typed ;
 : pv-division ( effect c-addr u -- ) pv-name, pv-kind-divide pv-typed ;
 : pv-return ( effect c-addr u -- ) pv-name, pv-kind-rstack pv-typed ;
 : pv-act ( xt c-addr u -- ) pv-name, pv-kind-action pv-typed ;
 : pv-reserve ( c-addr u -- ) 0 -rot pv-name, pv-kind-reserved pv-typed ;
-: pv-reserve-all ( c-addr u -- ) begin lfa-next-token dup while pv-reserve repeat 2drop 2drop ;
+: pv-reserve-all ( c-addr u -- )
+  begin lfa-next-token dup while pv-reserve repeat 2drop 2drop ;
 
 \ Literals: a minus sign or none, then one to ten decimal digits, at most
 \ 2147483647 in size, so that the same source suits 32-bit cells; the
@@ -111,11 +114,12 @@ end-structure
 \ "x", x:dup and -rot are names.
 : pv-digit? ( char -- flag ) [char] 0 [char] 9 1+ within ;
 : pv-hex-letter? ( char -- flag ) pv-lower [char] a [char] f 1+ within ;
-: pv-prefix? ( char -- flag ) dup [char] # [char] & 1+ within over [char] + = or swap [char] - = or ;
+: pv-sign? ( char -- flag ) dup [char] + = swap [char] - = or ;
+: pv-prefix? ( char -- flag ) dup [char] # [char] & 1+ within swap pv-sign? or ;
 : pv-unprefixed? ( char -- flag ) pv-prefix? 0= ;
 : pv-quote? ( c-addr u -- flag ) 1 > if c@ [char] ' = else drop false then ;
-: pv-point-digit? ( c-addr u -- flag ) 1 > if dup c@ [char] . = swap char+ c@ pv-digit? and
-  else drop false then ;
+: pv-point-digit? ( c-addr u -- flag )
+  1 > if dup c@ [char] . = swap char+ c@ pv-digit? and else drop false then ;
 : pv-numeric? ( char prefixed? -- flag ) over pv-hex-letter? and swap pv-digit? or ;
 \ The rest after the signs and prefixes, and whether there were any.
 : pv-prefixes ( c-addr u -- c-addr' u' prefixed? )
@@ -233,13 +237,18 @@ defer pv-word-runs ( index -- )
   pv-kept# @ pv-kept-max < 0= if pv-why-capacity pv-fail then
   pv-kept# @ pv-kept pv-kept! 1 pv-kept# +! ;
 
-\ Literals, calls and primitives.
-: pv-lit ( n -- )
-  pv-in-def? if s" lit " pv-line-start pv-number pv-done exit then 0 1 pv-take pv-kept-lit pv-keep ;
+\ Literals, calls and primitives. Outside a definition each is kept, a
+\ literal and a constant's call giving one cell.
+: pv-keep-one ( value kind -- ) 0 1 pv-take pv-keep ;
+: pv-lit-inside ( n -- ) s" lit " pv-line-start pv-number pv-done ;
+: pv-lit ( n -- ) pv-in-def? if pv-lit-inside else pv-kept-lit pv-keep-one then ;
+\ A word is visible inside its own definition, but Gforth hides it until
+\ ; so a call there would be of an earlier word of that name.
 : pv-call-inside ( index -- )
-  dup pv-current @ = if pv-why-recursive pv-fail then s" call " pv-line-start pv-call-text pv-done ;
+  dup pv-current @ = if pv-why-recursive pv-fail then
+  s" call " pv-line-start pv-call-text pv-done ;
 : pv-call-top ( index -- )
-  dup pv-constant? 0= if pv-why-outside pv-fail then 0 1 pv-take pv-kept-call pv-keep ;
+  dup pv-constant? 0= if pv-why-outside pv-fail then pv-kept-call pv-keep-one ;
 : pv-call ( index -- ) pv-in-def? if pv-call-inside else pv-call-top then ;
 : pv-effect ( entry -- taken given ) pv-entry-datum @ 10 /mod swap ;
 \ Gforth runs the tokens before CONSTANT while it loads the file: a
@@ -266,7 +275,8 @@ defer pv-word-runs ( index -- )
 : pv-top ( -- addr ) pv-depth @ 1- pv-frame ;
 : pv-top? ( frame -- flag ) pv-depth @ if pv-top @ = else drop false then ;
 : pv-push ( frame -- )
-  pv-depth @ pv-frames-max < 0= if drop pv-why-capacity pv-fail then 1 pv-depth +! pv-top ! ;
+  pv-depth @ pv-frames-max < 0= if drop pv-why-capacity pv-fail then
+  1 pv-depth +! pv-top ! ;
 : pv-open ( c-addr u frame -- ) >r pv-depth @ 1+ pv-keyword r> pv-push ;
 \ ELSE and WHILE turn their IF's or BEGIN's frame into their own, and are
 \ written one level out, beside it.
@@ -283,39 +293,47 @@ defer pv-word-runs ( index -- )
 : pv-while ( -- )
   pv-inside pv-frame-while pv-top? if pv-why-two-whiles pv-fail then
   s" while" pv-frame-begin pv-frame-while pv-turn ;
-: pv-repeat ( -- ) pv-inside pv-frame-while pv-top? 0= if pv-unbalanced then s" repeat" pv-close ;
+: pv-repeat ( -- )
+  pv-inside pv-frame-while pv-top? 0= if pv-unbalanced then s" repeat" pv-close ;
 : pv-exit ( -- ) pv-inside s" exit" pv-line-start pv-done ;
 
 \ Definitions. The location of `word` is the colon's; of `constant` and
 \ its `end`, the constant's name; of a word's `end`, the semicolon.
+: pv-no-values-left ( -- ) pv-kept# @ if pv-why-left-over pv-fail then ;
+: pv-word-line ( index -- ) s" word " pv-append pv-call-text pv-mark @ pv-done-at ;
 : pv-colon ( -- )
-  pv-in-def? if pv-why-nested pv-fail then pv-kept# @ if pv-why-left-over pv-fail then
-  pv-here lfa-pos pv-mark ! pv-kind-word pv-define dup pv-current !
-  s" word " pv-append pv-call-text pv-mark @ pv-done-at ;
+  pv-in-def? if pv-why-nested pv-fail then pv-no-values-left
+  pv-here lfa-pos pv-mark ! pv-kind-word pv-define dup pv-current ! pv-word-line ;
+: pv-end ( -- ) s" end" pv-append pv-done ;
+: pv-defined ( index -- ) true swap pv-def pv-def-done ! ;
 : pv-semicolon ( -- )
-  pv-inside pv-depth @ if pv-unbalanced then s" end" pv-append pv-done
-  true pv-current @ pv-def pv-def-done ! -1 pv-current ! ;
+  pv-inside pv-depth @ if pv-unbalanced then
+  pv-end pv-current @ pv-defined -1 pv-current ! ;
+\ A kept token's instruction: there are only three kinds.
 : pv-kept-text ( value kind -- )
   case pv-kept-prim of s" prim " pv-append pv-entry-text pv-append endof
     pv-kept-lit of s" lit " pv-append pv-number endof
     pv-kept-call of s" call " pv-append pv-call-text endof
     true abort" pv: kept kind" endcase ;
 : pv-replay ( kept -- )
-  1 pv-indent dup pv-kept-value @ over pv-kept-kind @ pv-kept-text pv-kept-pos @ pv-done-at ;
-: pv-replay-all ( -- ) pv-kept# @ 0 ?do i pv-kept pv-replay loop 0 pv-kept# ! 0 pv-values ! ;
+  1 pv-indent dup pv-kept-value @ over pv-kept-kind @ pv-kept-text
+  pv-kept-pos @ pv-done-at ;
+: pv-replay-all ( -- )
+  pv-kept# @ 0 ?do i pv-kept pv-replay loop 0 pv-kept# ! 0 pv-values ! ;
 : pv-constant-lines ( index -- )
-  s" constant " pv-append dup pv-call-text pv-done pv-replay-all s" end" pv-append pv-done
-  true swap pv-def pv-def-done ! ;
+  s" constant " pv-append dup pv-call-text pv-done pv-replay-all pv-end pv-defined ;
 \ CONSTANT with nothing before it would take a value from outside the
 \ file, as + would.
 : pv-constant ( -- )
   pv-top-only pv-kept# @ 0= if pv-why-no-value pv-fail then
-  pv-values @ 1 <> if pv-why-one-value pv-fail then pv-kind-constant pv-define pv-constant-lines ;
+  pv-values @ 1 <> if pv-why-one-value pv-fail then
+  pv-kind-constant pv-define pv-constant-lines ;
 \ BASE is ten for the whole run, so DECIMAL changes nothing.
 : pv-base-ten ( -- ) pv-top-only ;
 \ Comments: ( must close on its line; \ ends the line.
 : pv-line-end ( -- c-addr ) pv-text chars + ;
-: pv-paren ( -- ) [char] ) parse chars + pv-line-end < 0= if pv-why-comment pv-fail then ;
+: pv-paren ( -- )
+  [char] ) parse chars + pv-line-end < 0= if pv-why-comment pv-fail then ;
 : pv-backslash ( -- ) source nip >in ! ;
 
 \ At the end of the text: no definition open, no value left.

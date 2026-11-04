@@ -110,7 +110,8 @@ end-structure
 : pv-heap ( -- )
   pv-file-chars 1+ allocate if drop pv-why-capacity pv-fail-here then pv-buffer ! ;
 : pv-read-file ( -- )
-  pv-path pv-buffer @ pv-file-chars 1+ file-slurp if drop pv-why-unreadable pv-fail-here then
+  pv-path pv-buffer @ pv-file-chars 1+ file-slurp
+  if drop pv-why-unreadable pv-fail-here then
   dup pv-file-chars > pv-cut ! pv-file-chars min pv-buffer @ swap pv-rest! ;
 : pv-source-text ( -- ) pv-file? @ if pv-heap pv-read-file then ;
 : pv-free ( -- ) pv-buffer @ ?dup if free drop then 0 pv-buffer ! ;

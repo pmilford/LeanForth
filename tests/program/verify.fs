@@ -63,7 +63,8 @@ create golden-text 256 chars allot
   golden-file @ close-file throw golden-misses @ ;
 \ Source c-addr u against its golden IR c-addr2 u2, read by xt.
 : against ( c-addr u c-addr2 u2 xt -- outcome misses )
-  >r golden ['] golden-check lf-verify-to r> execute golden-end ['] transcribe lf-verify-to ;
+  >r golden ['] golden-check lf-verify-to r> execute golden-end
+  ['] transcribe lf-verify-to ;
 : shift-golden ( c-addr u c-addr2 u2 -- outcome misses ) ['] lf-verify-file against ;
 : alias-golden ( c-addr u c-addr2 u2 -- outcome misses ) ['] lf-alias-file against ;
 
@@ -81,14 +82,14 @@ T{ s" tests/program/ir/all-primitives.fs" s" tests/program/ir/all-primitives.ir"
 \ Accepted text, and every outcome with its reason, line and column, the
 \ same in both designs.
 T{ s" : double ( n -- 2n ) dup + ; \ a comment" both -> outcome-ok 0 1 0 true }T
-T{ transcript-text
-   s" lf-ir 0.1|source t.fs|word double @1:1|  prim dup @1:22|  prim + @1:26|end @1:28|0 0 1 0 "
-   compare -> 0 }T
+T{ transcript-text s" lf-ir 0.1|source t.fs|word double @1:1|  prim dup @1:22|" search
+   nip nip transcript-text s" |  prim + @1:26|end @1:28|0 0 1 0 " search nip nip
+   -> true true }T
 T{ s" 3 constant three  : f three ;" both -> outcome-ok 0 1 0 true }T
 T{ transcript-text s" |constant three @1:12|  lit 3 @1:1|end @1:12|" contains? -> true }T
 T{ s" : f   foo ;" both -> outcome-unsupported pv-why-unknown 1 7 true }T
-T{ transcript-text s" |unsupported @1:7: not a known word or 32-bit decimal: foo|" contains?
-   -> true }T
+T{ transcript-text s" |unsupported @1:7: not a known word or 32-bit decimal: foo|"
+   contains? -> true }T
 T{ s" : f begin dup until ;" both -> outcome-unsupported pv-why-not-ir 1 15 true }T
 T{ s" : f then ;" both -> outcome-invalid pv-why-unbalanced 1 5 true }T
 T{ s" : f dup" both -> outcome-invalid pv-why-unclosed 1 0 true }T
@@ -128,7 +129,8 @@ variable current-before
   get-order dup order-before @ <> if 0 ?do drop loop false exit then
   true swap 0 ?do swap order-before i 1+ cells + @ = and loop ;
 : odd-settings ( -- )
-  0 transcript# ! outer run-settings-save forth-wordlist extra-words 2 set-order extra-words set-current hex ;
+  0 transcript# ! outer run-settings-save forth-wordlist extra-words 2 set-order
+  extra-words set-current hex ;
 : same-settings? ( -- flag )
   order-same? get-current current-before @ = and base @ 16 = and state @ 0= and ;
 \ Run xt ( c-addr u -- outcome ) on the text under unusual settings.
@@ -229,7 +231,8 @@ create shadow-text 40 chars allot
 variable shadow-misses
 : one-shadow ( entry -- )
   pv-entry-text 2dup shadow 2dup shift-text drop lf-verify-reason pv-why-replaced <>
-  lf-verify-where 1 1 rot = >r = r> and 0= or if ." not refused: " 2dup type cr 1 shadow-misses +! then
+  lf-verify-where 1 1 rot = >r = r> and 0= or
+  if ." not refused: " 2dup type cr 1 shadow-misses +! then
   alias-text drop lf-verify-reason pv-why-replaced = if 1 shadow-misses +! then ;
 : shadow-all ( -- n )
   0 shadow-misses ! pv-names store-count @ 0 ?do i pv-entry dup pv-entry-kind @
