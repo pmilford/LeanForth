@@ -205,8 +205,8 @@ end-structure
 : lf-ol-innermost ( s -- r ) begin dup lf-ol-second dup lf-ol-lambda? while
   nip repeat drop ;
 \ A binder's display name, in its lambda's scope with the lambda itself.
-: lf-ol-name ( r -- ) dup lf-lv-at if lf-lv-a lf-lv-push lf-lv-name-here else drop
-  lf-lv-fail then ;
+: lf-ol-name ( r -- )
+  dup lf-lv-at if lf-lv-a lf-lv-name-of-node else drop lf-lv-fail then ;
 \ The binder of lambda step r is introduced on this line.
 : lf-ol-introduce ( r class -- )
   lf-class-assume = over lf-ol-proof ! lf-ol-line# over lf-ol-intro !
@@ -270,8 +270,9 @@ end-structure
 \ of a step and the task's xt ( s -- )), the task pushed last first:
 \ walking a step (lf-ol-walk) prints its own lines and pushes what it
 \ leaves for later, so the walk keeps no depth on the host's stacks. Its
-\ room is made before the outline is printed (lf-ol-tasks-room?): a step
-\ pushes at most three tasks, each of a different step. A task that
+\ room is made before the outline is printed (lf-ol-tasks-room?): the
+\ derivation is a tree, so each step is the subject of at most three
+\ tasks (its walk, its application line, its discharge). A task that
 \ cannot be pushed all the same prints "?".
 lf-depth-limit context-walk2: lf-ol-tasks
 : lf-ol-later ( s xt -- ) lf-ol-tasks walk-push-pair 0= if lf-lv-fail then ;
@@ -331,14 +332,16 @@ defer lf-ol-walk ( s -- )
 \ walk of its own (lib/walk.fs; a node and the binders above it in the
 \ term), with the formula fuel. A walk that cannot finish (out of fuel or
 \ room) counts as mentioning k (so the line says ∀-elimination, which
-\ reads true of every Pi); a node that cannot be read, as not. A hit is
-\ reported as rejected, a stop signal here (lf-pp-hit?), never a verdict.
+\ reads true of every Pi); a node that cannot be read mentions nothing,
+\ and the walk goes on with the rest. A hit is reported as rejected, a
+\ stop signal here (lf-pp-hit?), never a verdict.
 lf-depth-limit context-walk2: lf-ol-scan
 : lf-ol-scan-bvar ( i walk -- outcome ) dup walk-context @ swap walk-arg @ + = lf-pp-hit ;
 : lf-ol-scan-dispatch ( first second walk tag -- outcome )
   dup lf-tag-bvar = if drop nip lf-ol-scan-bvar exit then
   dup lf-term-binary-tag? if lf-pp-scan-binary else drop 2drop drop outcome-ok then ;
-: lf-ol-scan-visit ( walk -- outcome ) lf-terms ['] lf-ol-scan-dispatch walk-visit ;
+: lf-ol-scan-visit ( walk -- outcome )
+  lf-terms walk-read if lf-ol-scan-dispatch else outcome-ok then ;
 : lf-ol-mentions? ( term k -- flag )
   lf-ol-scan walk-arg ! lf-lv lf-lv-fuel @ lf-ol-scan walk-budget drop
   0 ['] lf-ol-scan-visit lf-ol-scan walk-run-pair lf-pp-hit?
@@ -369,7 +372,7 @@ lf-depth-limit context-walk2: lf-ol-scan
   dup lf-lv-out-ref swap lf-lv-formula s" ." lf-lv-put ;
 : lf-ol-pi-name ( ref s -- )
   lf-lv-at 0= if drop lf-lv-fail exit then
-  lf-lv-term if lf-lv-push lf-lv-name-here else lf-lv-fail then lf-lv-release ;
+  lf-lv-term if lf-lv-name-of-node else lf-lv-fail then lf-lv-release ;
 : lf-ol-forall ( s -- )
   s" because " lf-lv-put dup lf-ol-fn-at s"  holds for every " lf-lv-put
   dup lf-ol-first lf-lv-out-ref over lf-ol-pi-name s" , in particular for " lf-lv-put
@@ -412,13 +415,16 @@ lf-depth-limit context-walk: lf-ol-premises
   2dup swap 0 lf-ol-known-premise dup ok?
   if drop swap 1 lf-ol-known-premise else nip nip then ;
 : lf-ol-known-lam ( s walk -- outcome ) swap 1 lf-ol-known-premise ;
+\ A CASE with one arm per recognised rule (read as a table).
+: lf-ol-known-rule ( s walk rule -- outcome )
+  case lf-rule-variable of 2drop outcome-ok endof
+    lf-rule-constant of 2drop outcome-ok endof
+    lf-rule-application of lf-ol-known-app endof
+    lf-rule-lambda of lf-ol-known-lam endof
+    >r 2drop outcome-rejected r> endcase ;
 : lf-ol-known-visit ( walk -- outcome )
   dup walk-node @ dup lf-lv-outcome ok? 0= if 2drop outcome-rejected exit then
-  dup lf-lv-rule case lf-rule-variable of 2drop outcome-ok endof
-    lf-rule-constant of 2drop outcome-ok endof
-    lf-rule-application of swap lf-ol-known-app endof
-    lf-rule-lambda of swap lf-ol-known-lam endof
-    >r 2drop outcome-rejected r> endcase ;
+  tuck lf-lv-rule lf-ol-known-rule ;
 : lf-ol-known? ( s -- flag )
   max-n lf-ol-premises walk-budget drop
   ['] lf-ol-known-visit lf-ol-premises walk-run ok? ;

@@ -94,13 +94,11 @@ defer lf-pp-term-step ( term pos frames -- ... frames next )
 \ their number and the next index wait while one prints.
 defer lf-pp-uargs ( addr n i frames -- ... frames next )
 : lf-pp-uargs-back ( outcome frames -- ... frames next )
-  over ok? 0= if 3 over frame-drop 0 exit then nip
-  >r r@ frame-restore r@ frame-restore r@ frame-restore r> lf-pp-uargs ;
+  3 lf-pp-failed? if 0 exit then dup >r lf-pp-restore3 r> lf-pp-uargs ;
 : lf-pp-uargs-next ( addr n i frames -- ... frames next )
   >r 2dup > 0= if 2drop drop lf-pp-universes-close outcome-ok r> 0 exit then
   dup if lf-pp-list-comma then
-  dup 1+ r@ frame-save over r@ frame-save 2 pick r@ frame-save nip lf-pp-level-at
-  false r> ['] lf-pp-uargs-back lf-pp-level-part ;
+  r@ lf-pp-keep-next nip lf-pp-level-at false r> ['] lf-pp-uargs-back lf-pp-level-part ;
 ' lf-pp-uargs-next is lf-pp-uargs
 : lf-pp-universe-args ( term frames cont -- ... frames next )
   2>r lf-pp-const-levels 0= if outcome-invalid 2r> exit then
@@ -131,11 +129,10 @@ defer lf-pp-uargs ( addr n i frames -- ... frames next )
 : lf-pp-arg-term ( app info i -- arg pos ) tuck lf-pp-arg-pos >r lf-pp-arg-at r> ;
 defer lf-pp-args ( app info i frames -- ... frames next )
 : lf-pp-args-back ( outcome frames -- ... frames next )
-  over ok? 0= if 3 over frame-drop 0 exit then nip
-  >r r@ frame-restore r@ frame-restore r@ frame-restore r> lf-pp-args ;
+  3 lf-pp-failed? if 0 exit then dup >r lf-pp-restore3 r> lf-pp-args ;
 : lf-pp-arg ( app info i frames -- ... frames next )
-  >r dup 1+ r@ frame-save over r@ frame-save 2 pick r@ frame-save
-  lf-pp-arg-term lf-pp-space r> ['] lf-pp-args-back lf-pp-term-call ;
+  >r r@ lf-pp-keep-next lf-pp-arg-term lf-pp-space
+  r> ['] lf-pp-args-back lf-pp-term-call ;
 : lf-pp-more? ( app info i -- app info i flag ) 2 pick lf-pp-head nip over > ;
 : lf-pp-shown? ( app info i -- app info i flag ) 2 pick over lf-pp-visible? ;
 : lf-pp-args-from ( app info i frames -- ... frames next )
@@ -145,8 +142,8 @@ defer lf-pp-args ( app info i frames -- ... frames next )
 \ The head and the arguments, a part of the visit: app, info and the
 \ first index wait while the head prints.
 : lf-pp-applied ( app pos frames cont -- ... frames next )
-  over frame-save >r over swap lf-pp-args-info 0 r@ frame-save
-  r@ frame-save dup r@ frame-save r> ['] lf-pp-args-back lf-pp-fn ;
+  over frame-save >r over swap lf-pp-args-info 2dup 0 r@ lf-pp-save3 drop
+  r> ['] lf-pp-args-back lf-pp-fn ;
 \ No argument shown: the head alone, in the application's own position.
 : lf-pp-bare ( app pos frames -- ... frames next )
   >r swap lf-pp-head 2dup lf-pp-at? >r drop dup lf-pp-atom-head?
@@ -173,7 +170,7 @@ defer lf-pp-args ( app info i frames -- ... frames next )
 \ unless nameless, the domain, the closing bracket; node and the name's
 \ mark wait while the domain prints.
 : lf-pp-typed-back ( outcome frames -- ... frames next )
-  over ok? 0= if 2 over frame-drop 0 exit then nip
+  2 lf-pp-failed? if 0 exit then
   >r r@ lf-pp-restore2 over lf-pp-kind lf-pp-close swap lf-term-first@ swap lf-pp-bind
   r> 0 ;
 : lf-pp-typed-binder ( node nameless from frames cont -- ... frames next )
@@ -255,7 +252,7 @@ defer lf-pp-group-step ( pi flags frames -- ... frames next )
 \ A → B: pi and flags wait while A prints, the parenthesis flag below.
 : lf-pp-arrow-done ( outcome frames -- outcome frames 0 ) 1 lf-pp-unbind 0 ;
 : lf-pp-arrow-domain ( outcome frames -- ... frames next )
-  over ok? 0= if 2 over frame-drop 0 exit then nip
+  2 lf-pp-failed? if 0 exit then
   >r r@ lf-pp-restore2 lf-pp-arrow over lf-pp-bind-plain ok-then2? 0= if r> 0 exit then
   swap lf-term-second@ swap lf-prec-arrow lf-pp-body-pos
   r> ['] lf-pp-arrow-done lf-pp-term-call ;
@@ -344,7 +341,7 @@ defer lf-pp-names-step ( lam x frames -- ... frames next )
   >r lf-pp-mapsto 0 r> ['] frame-return lf-pp-term-call ;
 defer lf-pp-lam-groups ( node frames -- ... frames next )
 : lf-pp-groups-back ( outcome frames -- ... frames next )
-  over ok? 0= if 2 over frame-drop 0 exit then nip
+  2 lf-pp-failed? if 0 exit then
   >r r@ lf-pp-restore2 lf-pp-depth swap - lf-pp-bodies r> lf-pp-lam-groups ;
 : lf-pp-group-part ( node frames -- ... frames next )
   >r dup lf-pp-depth r@ lf-pp-save2 r> ['] lf-pp-groups-back lf-pp-lam-group ;
@@ -371,27 +368,27 @@ defer lf-pp-lam-groups ( node frames -- ... frames next )
 \ arm for each other tag (read as a table) gives the visit's first step.
 : lf-pp-applied-tag? ( tag -- flag )
   dup lf-tag-app = over lf-tag-bvar = or swap lf-tag-constant = or ;
-: lf-pp-bad-step ( term pos frames -- outcome frames 0 ) >r 2drop outcome-invalid r> 0 ;
 : lf-pp-tag-step ( tag -- xt )
   dup lf-pp-applied-tag? if drop ['] lf-pp-app exit then
   case lf-tag-sort of ['] lf-pp-concrete-step endof
     lf-tag-symbolic-sort of ['] lf-pp-symbolic endof
     lf-tag-lam of ['] lf-pp-lam endof
     lf-tag-pi of ['] lf-pp-pi endof
-    ['] lf-pp-bad-step swap endcase ;
+    ['] lf-pp-invalid-step swap endcase ;
 : lf-pp-term ( term pos frames -- ... frames next )
-  2 pick lf-pp-tag if lf-pp-tag-step else ['] lf-pp-bad-step then execute ;
+  2 pick lf-pp-tag if lf-pp-tag-step else ['] lf-pp-invalid-step then execute ;
 ' lf-pp-term is lf-pp-term-step
 
-\ Public words; see the header. Every print visits its root as a visit of
-\ the frames (lf-pp-run), so the printer is busy while it runs. A name cut
-\ short for lack of pool room makes an otherwise good print full. A print
-\ ends with its visit count back at zero; any other count, or a print the
-\ sink reset (against the sink rules), is invalid, and the printer is
-\ reset. A result outside the outcome vocabulary is invalid.
+\ Public words; see the header. Every print is busy from lf-pp-start to
+\ lf-pp-finish, and visits its root as a visit of the frames (lf-pp-run).
+\ A name left out of the pool for lack of room makes an otherwise good
+\ print full. A print ends with its visit count back at zero; any other
+\ count, or a print the sink reset (against the sink rules), is invalid,
+\ and the printer is reset. A result outside the outcome vocabulary is
+\ invalid.
 : lf-pp-finish ( outcome -- outcome )
-  lf-pp-busy? lf-pp-broken @ or if drop lf-print-reset outcome-invalid exit then
-  outcome-sane dup ok? lf-pp-full? and if drop outcome-full then ;
+  lf-pp-frames frame-busy? lf-pp-broken @ or if drop lf-pp-reset outcome-invalid exit then
+  false lf-pp-printing ! outcome-sane dup ok? lf-pp-full? and if drop outcome-full then ;
 : lf-print-ready? ( fuel -- flag )
   lf-name-storage-valid? if lf-pp-start else drop false then ;
 : lf-print-run ( term pos fuel -- outcome )

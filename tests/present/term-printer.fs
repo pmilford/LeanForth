@@ -281,6 +281,13 @@ T{ cap-reset 5 ' lf-print-reset 0 sink-calls t1 @ fuel lf-print-term lf-pp-busy?
   -> outcome-invalid false }T
 T{ 1 ' lf-print-reset 0 sink-calls nat-id @ lf-print-name -> outcome-invalid }T
 T{ 1 ' lf-print-reset 0 sink-calls u-level @ fuel lf-print-level -> outcome-invalid }T
+\ Also a binder's name, which prints without a visit (the printer is busy
+\ from the start of a print to its end).
+create scope-cell 1 cells allot
+T{ t1 @ scope-cell ! 1 ' lf-print-reset 0 sink-calls scope-cell 1 fuel lf-print-scope-name
+  lf-pp-busy? -> outcome-invalid false }T
+T{ 0 mode cap-reset scope-cell 1 fuel lf-print-scope-name -> outcome-ok }T
+T{ s" al" expect-text -> }T
 T{ 3 ' lf-print-reset 0 sink-calls t1 @ fuel lf-print-inline lf-pp-math?
   -> outcome-invalid false }T
 T{ 0 mode t1 @ s" ∀ {al : Prop} [h : al], al" shows -> }T

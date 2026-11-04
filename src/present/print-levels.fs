@@ -112,7 +112,7 @@ defer lf-pp-level-step ( view arg? frames -- ... frames next )
 : lf-pp-same-tag? ( view tag -- flag ) swap lf-pp-view-tag if = else drop false then ;
 defer lf-pp-items ( view tag frames -- ... frames next )
 : lf-pp-items-back ( outcome frames -- ... frames next )
-  over ok? 0= if 2 over frame-drop 0 exit then nip
+  2 lf-pp-failed? if 0 exit then
   >r r@ frame-restore r@ frame-restore 2dup swap lf-pp-same-tag?
   if swap r> lf-pp-items exit then nip r> ['] frame-return lf-pp-item ;
 : lf-pp-items-next ( view tag frames -- ... frames next )
@@ -133,16 +133,15 @@ defer lf-pp-items ( view tag frames -- ... frames next )
   lf-level-tag-max swap lf-pp-level-list ;
 : lf-pp-level-imax ( view arg? frames -- ... frames next )
   lf-level-tag-imax swap lf-pp-level-list ;
-: lf-pp-level-bad ( view arg? frames -- outcome frames 0 ) >r 2drop outcome-invalid r> 0 ;
 : lf-pp-level-by ( tag -- xt )
   case lf-level-tag-zero of ['] lf-pp-level-zero endof
     lf-level-tag-param of ['] lf-pp-level-name endof
     lf-level-tag-succ of ['] lf-pp-level-succ endof
     lf-level-tag-max of ['] lf-pp-level-max endof
     lf-level-tag-imax of ['] lf-pp-level-imax endof
-    ['] lf-pp-level-bad swap endcase ;
+    ['] lf-pp-invalid-step swap endcase ;
 : lf-pp-level-impl ( view arg? frames -- ... frames next )
-  2 pick lf-pp-view-tag if lf-pp-level-by else ['] lf-pp-level-bad then execute ;
+  2 pick lf-pp-view-tag if lf-pp-level-by else ['] lf-pp-invalid-step then execute ;
 ' lf-pp-level-impl is lf-pp-level-step
 
 \ A level by index, in argument position or not: as a print's root, and

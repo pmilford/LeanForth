@@ -144,10 +144,12 @@ create lf-lv-blanks 64 allot lf-lv-blanks 64 bl fill
   dup 0 ?do over i lf-lv-binder 0= if 2drop -1 unloop exit then lf-lv-a i
   lf-lv-scope! loop
   nip ;
-\ Bring node into the scope set, as its innermost binder.
+\ Bring node into the scope set, as its innermost binder: false, the
+\ scope unchanged, when the heap has no room for it.
 : lf-lv-depth+ ( node k -- ) lf-lv-scope! 1 lf-lv lf-lv-depth +! ;
-: lf-lv-push ( node -- )
-  lf-lv lf-lv-depth @ dup 1+ lf-lv-scope-room? if lf-lv-depth+ else 2drop then ;
+: lf-lv-push ( node -- flag )
+  lf-lv lf-lv-depth @ dup 1+ lf-lv-scope-room?
+  if lf-lv-depth+ true else 2drop false then ;
 
 \ Names of copies (see the header), computed once per log: the input
 \ binder (or the copy's name source) that a copy of a lambda or Pi was
@@ -381,9 +383,11 @@ lf-depth-limit context-walk: lf-lv-term-work
 : lf-lv-level-here ( ref -- )
   lf-lv-level if lf-lv lf-lv-fuel @ lf-print-level lf-lv-printed else lf-lv-fail
   then lf-lv-release ;
-\ The display name of the innermost binder of the scope set.
+\ The display name of the innermost binder of the scope set; of node,
+\ brought into it first ("?" when there is no room for it).
 : lf-lv-name-here ( -- )
   lf-lv-scope-set lf-lv lf-lv-fuel @ lf-print-scope-name lf-lv-printed ;
+: lf-lv-name-of-node ( node -- ) lf-lv-push if lf-lv-name-here else lf-lv-fail then ;
 \ A shift's input lies under amount fewer binders than its step.
 : lf-lv-fewer ( amount -- ) negate lf-lv lf-lv-depth +! lf-lv lf-lv-depth dup
   @ 0 max swap ! ;

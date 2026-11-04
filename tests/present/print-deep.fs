@@ -112,6 +112,18 @@ T{ fresh 10000 app-chain ' forth-it painted forth-31 near? result @ -> true outc
 T{ fresh 10000 level-chain ' level-it painted level-31 near? result @
   -> true outcome-ok }T
 T{ out-len @ s" max u (imax u (max u (" starts? -> 10000 level-size true }T
+\ An implicit group fun {h.1 ... h.n} ↦ h.1 (each h.k : Prop): a visit per
+\ name, nested, each asking whether the next binder's domain is the same
+\ (a comparison, a loop of its own); its size is the lambda chain's.
+: implicit-named ( t id -- t ) over swap lf-binder-implicit lf-pres-binder! must-ok ;
+: implicit-chain ( n -- t )
+  s" h" nm h-prefix ! dup 1- t-var 1 rot do t-prop swap t-lam i h-name implicit-named
+  -1 +loop ;
+T{ fresh 31 implicit-chain ' print-it painted 2constant implicit-31 result @ out-len @
+  -> outcome-ok 31 lam-size }T
+T{ s" fun {h.1 h.2 h.3" starts? s" h.31} ↦ h.1" ends? -> true true }T
+T{ fresh 2000 implicit-chain ' print-it painted implicit-31 near? result @ out-len @
+  -> true outcome-ok 2000 lam-size }T
 \ The lambda chain's type, ∀ (P : Prop), P → ... → P, nests n arrows; its
 \ print costs fuel quadratic in n (each Π asks Lean's quick test whether
 \ it is a proposition, which walks the rest of the chain), so 2,000 deep.

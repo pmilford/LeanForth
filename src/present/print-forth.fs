@@ -226,17 +226,18 @@ defer lf-pf-level-step ( level x frames -- ... frames next )
 : lf-pf-level-zero ( level frames -- outcome frames 0 ) >r drop s" 0" lf-pf-say r> 0 ;
 : lf-pf-level-param ( level frames -- outcome frames 0 )
   >r lf-level-first@ lf-pf-param r> 0 ;
-: lf-pf-level-bad ( level frames -- outcome frames 0 ) >r drop-invalid r> 0 ;
+\ The step of a visit that cannot print its node (a level or a term): invalid.
+: lf-pf-invalid-step ( x frames -- outcome frames 0 ) >r drop-invalid r> 0 ;
 : lf-pf-level-by ( tag -- xt )
   case lf-level-tag-zero of ['] lf-pf-level-zero endof
     lf-level-tag-succ of ['] lf-pf-succ-level endof
     lf-level-tag-max of ['] lf-pf-binary endof
     lf-level-tag-imax of ['] lf-pf-binary endof
     lf-level-tag-param of ['] lf-pf-level-param endof
-    ['] lf-pf-level-bad swap endcase ;
+    ['] lf-pf-invalid-step swap endcase ;
 : lf-pf-level-node ( level x frames -- ... frames next )
   nip over lf-level-valid?
-  if over lf-level-tag@ lf-pf-level-by else ['] lf-pf-level-bad then execute ;
+  if over lf-level-tag@ lf-pf-level-by else ['] lf-pf-invalid-step then execute ;
 ' lf-pf-level-node is lf-pf-level-step
 
 \ Sorts: Prop, l Type for Sort (l + 1), l Sort otherwise. A concrete Sort
@@ -273,12 +274,10 @@ defer lf-pf-level-step ( level x frames -- ... frames next )
 \ number and the next index wait while one prints.
 defer lf-pf-args ( addr n i frames -- ... frames next )
 : lf-pf-args-back ( outcome frames -- ... frames next )
-  over ok? 0= if 3 over frame-drop 0 exit then nip
-  s" ^" lf-pf-text >r r@ frame-restore r@ frame-restore r@ frame-restore r> lf-pf-args ;
+  3 lf-pp-failed? if 0 exit then s" ^" lf-pf-text dup >r lf-pp-restore3 r> lf-pf-args ;
 : lf-pf-args-next ( addr n i frames -- ... frames next )
   >r 2dup > 0= if 2drop drop outcome-ok r> 0 exit then
-  dup 1+ r@ frame-save over r@ frame-save 2 pick r@ frame-save nip lf-pp-level-at
-  r> ['] lf-pf-args-back lf-pf-level ;
+  r@ lf-pp-keep-next nip lf-pp-level-at r> ['] lf-pf-args-back lf-pf-level ;
 ' lf-pf-args-next is lf-pf-args
 : lf-pf-universe-args ( term frames -- ... frames next )
   >r lf-pp-const-levels 0= if outcome-invalid r> 0 exit then 0 r> lf-pf-args ;
@@ -364,7 +363,6 @@ defer lf-pf-term-step ( term x frames -- ... frames next )
 : lf-pf-symbolic-step ( term frames -- ... frames next )
   >r lf-term-first@ r> lf-pf-symbolic ;
 : lf-pf-lam ( lam frames -- ... frames next ) true swap lf-pf-binder ;
-: lf-pf-node-bad ( term frames -- outcome frames 0 ) >r drop-invalid r> 0 ;
 : lf-pf-node-by ( tag -- xt )
   case lf-tag-bvar of ['] lf-pf-var-step endof
     lf-tag-sort of ['] lf-pf-sort-step endof
@@ -373,12 +371,12 @@ defer lf-pf-term-step ( term x frames -- ... frames next )
     lf-tag-lam of ['] lf-pf-lam endof
     lf-tag-pi of ['] lf-pf-pi endof
     lf-tag-constant of ['] lf-pf-const endof
-    ['] lf-pf-node-bad swap endcase ;
+    ['] lf-pf-invalid-step swap endcase ;
 : lf-pf-noted-end ( outcome frames -- outcome frames 0 )
   >r r@ frame-restore swap ok-then? if lf-pf-notes then r> 0 ;
 : lf-pf-noted ( term x frames -- ... frames next )
   nip 2dup frame-save ['] lf-pf-noted-end over frame-save
-  over lf-pp-tag if lf-pf-node-by else ['] lf-pf-node-bad then execute ;
+  over lf-pp-tag if lf-pf-node-by else ['] lf-pf-invalid-step then execute ;
 ' lf-pf-noted is lf-pf-term-step
 
 \ Declarations.

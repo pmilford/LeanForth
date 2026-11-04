@@ -59,6 +59,7 @@ begin-structure /lf-pjob
   field: lf-pjob-math        \ true while lf-print-inline or -display forces LaTeX
   field: lf-pjob-sinking     \ true while the sink runs
   field: lf-pjob-broken      \ true once the sink reset the print in progress
+  field: lf-pjob-printing    \ true from a print's start to its end (or a THROW)
 end-structure
 0 lf-pjob-frames 0<> [if] .( print-job.fs: frames must come first) cr abort [then]
 /lf-pjob context-record: lf-pjob
@@ -68,8 +69,11 @@ end-structure
 
 : lf-pp-frames ( -- frames ) lf-pjob lf-pjob-frames ;
 : lf-print-fuel ( -- addr ) lf-pp-frames frame-fuel ;
-\ Busy while a print is in progress, or after a THROW out of one.
-: lf-pp-busy? ( -- flag ) lf-pp-frames frame-busy? ;
+\ Busy while a print is in progress (from lf-pp-start to lf-pp-finish,
+\ term-printer.fs, its visits open on the frames meanwhile), or after a
+\ THROW out of one.
+: lf-pp-printing ( -- addr ) lf-pjob lf-pjob-printing ;
+: lf-pp-busy? ( -- flag ) lf-pp-printing @ lf-pp-frames frame-busy? or ;
 
 \ Settings. lf-print-setup takes the sink and the options (a mode plus
 \ option bits); lf-print-limit! the most nested visits per print, at least
@@ -124,7 +128,9 @@ end-structure
 \ (cont waits on the stack, under the part's own cells, until then).
 \ Between two visits a visit's steps save at most lf-pp-spare cells: each
 \ visit's admission makes that room. A visit's results go to cont as they
-\ are; lf-pp-finish (term-printer.fs) makes the print's own sane.
+\ are; lf-pp-finish (term-printer.fs) makes the print's own sane. Every
+\ step and part carries the protocol's cells (frames, and next or cont)
+\ besides its own values, so stack comments of four items are usual here.
 12 constant lf-pp-spare
 : lf-pp-within? ( frames -- flag ) dup frame-depth @ swap lf-pjob-limit @ < ;
 : lf-pp-admit ( frames -- outcome )
@@ -139,9 +145,21 @@ end-structure
 : lf-pp-run ( a b xt -- outcome )
   lf-pp-frames frame-used @ >r >r lf-pp-frames ['] frame-return r> lf-pp-call
   r> frame-loop drop ;
-\ Two cells kept on the stack across a visit, given back in their order.
+\ Two or three cells kept on the stack across a visit, given back in
+\ their order.
 : lf-pp-save2 ( x1 x2 frames -- ) tuck frame-save frame-save ;
 : lf-pp-restore2 ( frames -- x1 x2 ) dup frame-restore swap frame-restore ;
+: lf-pp-save3 ( x1 x2 x3 frames -- ) tuck frame-save lf-pp-save2 ;
+: lf-pp-restore3 ( frames -- x1 x2 x3 ) dup >r lf-pp-restore2 r> frame-restore ;
+\ A loop over the indexes of a node's parts keeps x, y and the next index.
+: lf-pp-keep-next ( x y i frames -- x y i ) >r dup 1+ 2over rot r> lf-pp-save3 ;
+\ A part's continuation, after a child's visit, when the part kept n
+\ cells: a failed outcome drops them and ends the part with it (true);
+\ ok goes (false), the cells still kept.
+: lf-pp-failed? ( outcome frames n -- outcome frames true | frames false )
+  >r over ok? if nip r> drop false else r> over frame-drop true then ;
+\ The step of a visit that cannot print its node: invalid.
+: lf-pp-invalid-step ( a b frames -- outcome frames 0 ) >r 2drop outcome-invalid r> 0 ;
 \ One unit of fuel for a step along a spine or chain, false when none is left.
 : lf-pp-spend ( -- flag ) lf-print-fuel dup @ 0> if -1 swap +! true else drop false then ;
 \ Close a parenthesis opened when flag is true; the step that does so for
@@ -173,7 +191,7 @@ end-structure
 \ The binders in scope, bottom first, in a growable array; lf-pp-entry
 \ counts from the innermost (j = 0), as a bound variable's index does. The
 \ count is clamped into the array's range (defence in depth: see the sink
-\ rules). A binder the heap has no room for is full.
+\ rules). A binder the heap has no room for is full (slab-hold's outcome).
 : lf-pp-depth ( -- n )
   lf-pjob lf-pjob-binders @ 0 max lf-pp-scope-table slab-capacity min ;
 : lf-pp-bind-at ( i -- bind ) lf-pp-scope-table slab-at ;
@@ -185,7 +203,7 @@ end-structure
   >r dup r@ lf-pbind-offset ! lf-pp-pending nip r@ lf-pbind-length !
   r> lf-pbind-domain ! ;
 : lf-pp-bind ( domain mark -- outcome )
-  lf-pp-depth 1+ lf-pp-scope-table slab-hold ok? 0= if 2drop outcome-full exit then
+  lf-pp-depth 1+ lf-pp-scope-table slab-hold dup ok? 0= if nip nip exit then drop
   lf-pp-depth lf-pp-bind-at lf-pp-bind-set 1 lf-pjob lf-pjob-binders +! outcome-ok ;
 \ Leave the innermost n binders; their names leave the pool. Nothing is
 \ left when none is in scope.
@@ -201,14 +219,18 @@ end-structure
 : lf-pp-clear ( -- )
   0 lf-pjob lf-pjob-binders ! 0 lf-pjob lf-pjob-chain ! 0 lf-pp-used ! false lf-pjob
   lf-pjob-full ! ;
+: lf-pp-begun ( -- ) lf-pp-clear false lf-pp-broken ! true lf-pp-printing ! ;
 : lf-pp-start ( fuel -- flag )
-  lf-pp-frames frame-budget dup if lf-pp-clear false lf-pp-broken ! then ;
+  lf-pp-busy? if drop false exit then
+  lf-pp-frames frame-budget dup if lf-pp-begun then ;
 \ Recover after a THROW out of a print: idle, with an empty scope and
 \ pool, in the mode lf-print-setup set (a Markdown math print forced
 \ LaTeX without changing the options). Called by the sink while a print
 \ is in progress, against the sink rules, it only marks that print, which
 \ goes on to its end, its steps' stack whole, and then ends invalid and
-\ resets the printer.
+\ resets the printer (lf-pp-reset, at once).
+: lf-pp-reset ( -- )
+  lf-pp-frames frame-reset lf-pp-clear false lf-pp-math! false lf-pp-broken !
+  false lf-pp-printing ! ;
 : lf-print-reset ( -- )
-  lf-pp-sinking @ lf-pp-busy? and if true lf-pp-broken ! exit then
-  lf-pp-frames frame-reset lf-pp-clear false lf-pp-math! false lf-pp-broken ! ;
+  lf-pp-sinking @ lf-pp-busy? and if true lf-pp-broken ! else lf-pp-reset then ;

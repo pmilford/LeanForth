@@ -43,7 +43,6 @@ defer lf-pp-lsame-step ( l1 l2 frames -- ... frames next )
   >r lf-pp-lfirsts = lf-pp-equal r> 0 ;
 : lf-pp-lsame-succ ( l1 l2 frames -- ... frames next )
   >r lf-pp-lfirsts r> ['] frame-return lf-pp-lsame-call ;
-: lf-pp-lsame-bad ( l1 l2 frames -- outcome frames 0 ) >r 2drop outcome-invalid r> 0 ;
 \ The step for a level tag: a CASE with one short arm per tag (kept
 \ together so the tags read as a table); an unknown tag is invalid.
 : lf-pp-lsame-by ( tag -- xt )
@@ -52,7 +51,7 @@ defer lf-pp-lsame-step ( l1 l2 frames -- ... frames next )
     lf-level-tag-succ of ['] lf-pp-lsame-succ endof
     lf-level-tag-max of ['] lf-pp-lsame-both endof
     lf-level-tag-imax of ['] lf-pp-lsame-both endof
-    ['] lf-pp-lsame-bad swap endcase ;
+    ['] lf-pp-invalid-step swap endcase ;
 : lf-pp-lsame ( l1 l2 frames -- ... frames next )
   >r 2dup lf-level-pair-valid? 0= if 2drop outcome-invalid r> 0 exit then
   over lf-level-tag@ over lf-level-tag@ <> if 2drop outcome-rejected r> 0 exit then
@@ -70,7 +69,7 @@ defer lf-pp-lsame-step ( l1 l2 frames -- ... frames next )
 \ next index waiting meanwhile.
 defer lf-pp-lsame-rest ( addr1 addr2 n i frames -- ... frames next )
 : lf-pp-lsame-back ( outcome frames -- ... frames next )
-  over ok? 0= if 4 over frame-drop 0 exit then nip
+  4 lf-pp-failed? if 0 exit then
   >r r@ lf-pp-restore2 r@ lf-pp-restore2 r> lf-pp-lsame-rest ;
 : lf-pp-lsame-pair ( addr1 addr2 i -- l1 l2 ) tuck lf-pp-level-at >r lf-pp-level-at r> ;
 : lf-pp-lsame-from ( addr1 addr2 n i frames -- ... frames next )
@@ -108,6 +107,7 @@ defer lf-pp-same-step ( a b frames -- ... frames next )
 : lf-pp-same-second ( outcome frames -- ... frames next )
   >r r@ lf-pp-restore2 rot ok-then2?
   if lf-pp-seconds r> ['] frame-return lf-pp-same-call else r> 0 then ;
+\ (frame-up works on any results below the frames: it touches only them.)
 : lf-pp-same-body ( outcome frames -- ... frames next )
   >r r@ lf-pp-restore2 rot ok-then2? 0= if r> 0 exit then
   lf-pp-seconds 1 r@ frame-context+! r> ['] frame-up lf-pp-same-call ;
