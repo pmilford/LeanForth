@@ -35,12 +35,16 @@
 \ 4.2.2, its steps 4.2.2b-e). Nothing is trusted from the file beyond
 \ what the block check itself read.
 \ [kernel] code: experimental, not through the review gate.
+\ A recursive block's recursor has its induction hypotheses: the builder
+\ finds its recursive fields again on the constructors' instances (plan
+\ task 5.2.1b).
 \ State: lf-genrec-state, a member of the checker context: the type built
 \ and a copy of the block record lf-ind-state, which the build overwrites
 \ and gives back (a lookup can happen during another block's check, whose
-\ record must survive it); the build's own state and level pairs are
-\ inductive-recursor.fs's (lf-rcr-state, lf-rcr-pair-cells), unused while
-\ a block's inference steps run.
+\ record must survive it), with a copy of that block's binder domains
+\ (lf-ind-domains) in lf-genrec-kept-cells; the build's own state and
+\ level pairs are inductive-recursor.fs's (lf-rcr-state and its slabs),
+\ unused while a block's inference steps run.
 
 require ../lib/lib.fs
 require ../core/input.fs
@@ -55,11 +59,14 @@ require ./mixed-level-substitute.fs
 begin-structure /lf-genrec
   field: lf-genrec-root-cell    \ the recursor's type, built
   field: lf-genrec-args         \ the use's arguments for the block's parameters
+  field: lf-genrec-kept         \ the block's domains copied, how many cells
   /lf-ind +field lf-genrec-saved \ the block record while the build runs
 end-structure
 /lf-genrec context-record: lf-genrec-state
 \ The constructors' types instantiated, one cell each: a growable array.
 1 cells context-slab: lf-genrec-ctor-cells
+\ The binder domains of the block whose check the lookup interrupts.
+1 cells context-slab: lf-genrec-kept-cells
 
 \ ---------------------------------------------------------------------------
 \ At the block check, after the build (step 12): whether the telescope it
@@ -154,16 +161,29 @@ end-structure
   r> lf-ind-fuel ! swap lf-genrec-large? lf-genrec-elim lf-genrec-pairs
   ['] lf-genrec-type lf-genrec-then ['] lf-genrec-ctors lf-genrec-then
   ['] lf-genrec-made lf-genrec-then lf-ind-fuel @ swap ;
-: lf-genrec-save ( -- ) lf-ind-state lf-genrec-state lf-genrec-saved /lf-ind move ;
-: lf-genrec-restore ( -- ) lf-genrec-state lf-genrec-saved lf-ind-state /lf-ind move ;
+\ The block record, and every cell of the domains slab (the record does
+\ not say how many the interrupted check filled): copied aside, full when
+\ the heap cannot hold the copy; given back after the build.
+: lf-genrec-kept@ ( -- n ) lf-genrec-state lf-genrec-kept @ ;
+: lf-genrec-keep ( -- outcome )
+  lf-ind-domains slab-capacity dup lf-genrec-kept-cells slab-hold ok? 0=
+  if drop outcome-full exit then
+  dup lf-genrec-state lf-genrec-kept !
+  lf-ind-domains slab-base lf-genrec-kept-cells slab-base rot cells move outcome-ok ;
+: lf-genrec-save ( -- outcome )
+  lf-genrec-keep dup ok? if lf-ind-state lf-genrec-state lf-genrec-saved /lf-ind move then ;
+: lf-genrec-restore ( -- )
+  lf-genrec-state lf-genrec-saved lf-ind-state /lf-ind move
+  lf-genrec-kept-cells slab-base lf-ind-domains slab-base lf-genrec-kept@ cells move ;
 
 \ Build the recursor of the block whose type is slot d (readable, with a
 \ recipe: lf-env-rebuildable?) at the universe arguments at pairs, as
 \ many as lf-genrec-arity says (the caller checks them, L1 and L2), in
 \ this check's scratch, with fuel: (fuel' ok), its type then
-\ lf-genrec-root; or (fuel' failure): full (a full store or pair slab),
-\ exhausted, invalid (an input that is not what the recipe says). The
-\ block record is as before.
+\ lf-genrec-root; or (fuel' failure): full (a full store or pair slab, or
+\ no room to keep the domains), exhausted, invalid (an input that is not
+\ what the recipe says). The block record and domains are as before.
 : lf-genrec ( d pairs fuel -- fuel' outcome )
-  lf-genrec-save lf-genrec-run lf-genrec-restore ;
+  lf-genrec-save ok? 0= if nip nip outcome-full exit then
+  lf-genrec-run lf-genrec-restore ;
 : lf-genrec-root ( -- root ) lf-genrec-state lf-genrec-root-cell @ ;

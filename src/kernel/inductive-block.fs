@@ -1,14 +1,13 @@
 \ An inductive block in the checker's input, and the checks of ADR 0015
-\ that read it without typing (plan task 5.2.1a; Lean 4.35.0's
-\ inductive.cpp, commit eb6cafb7):
+\ that read it without typing (plan tasks 5.2.1a and 5.2.1b; Lean
+\ 4.35.0's inductive.cpp, commit eb6cafb7):
 \   B0 the block's shape, as lean4export writes it (invalid otherwise);
 \   the audit, before any typing, as check-declaration's audit of a
 \     definition: unsafe members (Lean's replay skips them) and the term
 \     forms the checker lacks (U2) unsupported; loose variables invalid
-\     (V1); and the scope of task 5.2.1a: one type (a mutual block is
-\     task 5.2.5) that its constructors mention only as the head of their
-\     result (an occurrence in a field's type makes a recursive block,
-\     5.2.1b; in a result index, 5.2.1c), else unsupported;
+\     (V1); and the scope of tasks 5.2.1a and 5.2.1b: one type (a mutual
+\     block is task 5.2.5) with no nested occurrence (task 5.2.5), else
+\     unsupported; on the way, Lean's is_rec and is_reflexive;
 \   T0 no constant named under the reserved prefix _nested
 \     (check_no_nested_aux, inductive.cpp 1222-1233, from 1241, 1244);
 \   C1 every occurrence of the type in a constructor type applied to the
@@ -27,9 +26,12 @@
 \ only for the shape; check-block.fs compares the rest (B3, B4).
 \ State: one record, lf-ind-state (the block, the facts computed so far,
 \ per constructor its field count, minor premise and rule, the step
-\ reached, the fuel, the warnings), and two walk records, lf-ind-walker
-\ (U2, T0 and occurrences) and lf-ind-pair-walker (C1, with binder
-\ depths), all members of the checker context (lib/context.fs).
+\ reached, the fuel, the warnings), the slab of the type's binder
+\ domains lf-ind-domains, and three walk records, lf-ind-walker (U2, T0,
+\ occurrences, nested occurrences), lf-ind-inner-walker (occurrences
+\ within an argument, during a walk of lf-ind-walker) and
+\ lf-ind-pair-walker (C1, with binder depths), all members of the
+\ checker context (lib/context.fs).
 
 require ../lib/lib.fs
 require ../core/constant-references.fs
@@ -42,6 +44,7 @@ require ../core/name-equal.fs
 require ../core/names.fs
 require ../core/terms.fs
 require ../core/unsupported-forms.fs
+require ./environment.fs
 
 512 constant lf-ind-ctor-capacity      \ constructors one block may have
 
@@ -61,6 +64,9 @@ begin-structure /lf-ind
   field: lf-ind-k            \ computed: K-like reduction target (flag)
   field: lf-ind-rec-type     \ generated: the recursor's type
   field: lf-ind-count        \ occurrences counted by a walk
+  field: lf-ind-is-rec       \ computed: Lean's is_rec (a field mentions the type)
+  field: lf-ind-is-refl      \ computed: Lean's is_reflexive
+  field: lf-ind-large        \ the recursor has a motive universe of its own
   lf-ind-ctor-capacity cells +field lf-ind-field-cells    \ per constructor: fields
   lf-ind-ctor-capacity cells +field lf-ind-minor-cells    \ per constructor: minor
   lf-ind-ctor-capacity cells +field lf-ind-rule-cells     \ per constructor: rule
@@ -70,6 +76,7 @@ end-structure
 \ telescope has (plan task 6.2.0); one the heap cannot hold is full.
 1 cells context-slab: lf-ind-domains
 lf-walk-room context-walk: lf-ind-walker
+lf-walk-room context-walk: lf-ind-inner-walker
 lf-walk-room context-walk2: lf-ind-pair-walker
 
 : lf-ind-site ( -- site ) c" inductive-block lf-ind-audit" ;
@@ -233,10 +240,12 @@ lf-walk-room context-walk2: lf-ind-pair-walker
 : lf-ind-visit ( walk -- outcome ) lf-terms ['] lf-ind-dispatch walk-visit ;
 : lf-ind-walked ( outcome -- outcome )
   lf-ind-walker walk-fuel @ lf-ind-fuel ! lf-ind-walker lf-ind-site lf-diag-walk ;
+\ A walk of root by the visitor visit-xt ( walk -- outcome ).
+: lf-ind-run ( root visit-xt -- outcome )
+  lf-ind-fuel @ lf-ind-walker walk-budget 0= if 2drop outcome-invalid exit then
+  lf-ind-walker walk-run lf-ind-walked ;
 : lf-ind-walk ( root leaf-xt -- outcome )
-  lf-ind-walker walk-arg ! lf-ind-fuel @ lf-ind-walker walk-budget 0=
-  if drop outcome-invalid exit then
-  ['] lf-ind-visit lf-ind-walker walk-run lf-ind-walked ;
+  lf-ind-walker walk-arg ! ['] lf-ind-visit lf-ind-run ;
 
 \ U2: no leaf of an unsupported form (core/unsupported-forms.fs).
 : lf-ind-form ( first second walk tag -- outcome )
@@ -250,30 +259,123 @@ lf-walk-room context-walk2: lf-ind-pair-walker
     outcome-invalid exit then
   0 lf-ind-fuel @ lf-constant-term-scope lf-cts-fuel @ lf-ind-fuel ! ;
 
-\ The scope of task 5.2.1a: one type, mentioned by a constructor type at
-\ most once, as the head of its result.
+\ Occurrences of the block's type (one type: the scope, below) in a term,
+\ counted by a walk on the block's fuel.
 : lf-ind-occurrence ( first second walk tag -- outcome )
   lf-tag-constant = if walk-node @ lf-ind-type-node? 1 and lf-ind-state lf-ind-count +!
   else drop then 2drop outcome-ok ;
 : lf-ind-occurrences ( root -- n outcome )
   0 lf-ind-state lf-ind-count ! ['] lf-ind-occurrence lf-ind-walk
   lf-ind-state lf-ind-count @ swap ;
+\ The same within a walk of lf-ind-walker, on its fuel: a walk of its own
+\ (lf-ind-inner-walker), whose fuel goes back to the outer walk; whether
+\ root mentions the type.
+: lf-ind-inner-visit ( walk -- outcome ) lf-terms ['] lf-ind-dispatch walk-visit ;
+: lf-ind-inner-run ( root -- outcome )
+  ['] lf-ind-occurrence lf-ind-inner-walker walk-arg !
+  lf-ind-walker walk-fuel @ lf-ind-inner-walker walk-budget drop
+  ['] lf-ind-inner-visit lf-ind-inner-walker walk-run
+  lf-ind-inner-walker walk-fuel @ lf-ind-walker walk-fuel !
+  lf-ind-inner-walker lf-ind-site lf-diag-walk ;
+: lf-ind-mentions? ( root -- flag outcome )
+  0 lf-ind-state lf-ind-count ! lf-ind-inner-run
+  lf-ind-state lf-ind-count @ 0<> swap ;
+
+\ The scope of tasks 5.2.1a and 5.2.1b: one type (a mutual block is task
+\ 5.2.5), and no nested occurrence (5.2.5). Lean's elim_nested_inductive
+\ (inductive.cpp 1023-1055, 1133-1176) replaces, anywhere in a
+\ constructor's type after its parameters, each application I Ds is of an
+\ inductive type I of its environment whose parametric arguments Ds
+\ mention a type being declared, and checks the block as a mutual one
+\ with I's types copied in. The test is Lean's, syntactic, on every
+\ application node there (Lean's replace descends into a function that
+\ is no such occurrence, so its partial applications are tested too):
+\ its head a constant naming an earlier inductive type of the input
+\ (Lean's environment holds at most those), the block's type in one of
+\ its first numParams arguments -- in any argument when that type is not
+\ usable, its numParams then not known to be Lean's -- so a nested block
+\ is never checked as another one; the test may only find more.
+\ Occurrences in a parameter's domain are left to C1, which rejects them.
+\ An earlier inductive type named name: its declaration, or -1.
+: lf-ind-earlier ( name -- d ) ['] lf-slot-type? lf-env-limit lf-env-first ;
+\ The leading arguments of an application of n arguments, headed by the
+\ earlier type d, that may be its parametric ones: numParams when d is
+\ usable (B3 compared it with Lean's), none when that is more than n.
+: lf-ind-usable? ( d -- flag ) lf-env-readable if lf-slot-usable? else false then ;
+: lf-ind-parametric ( n d -- k )
+  dup lf-ind-usable? 0= if drop exit then
+  lf-input-decl lf-idecl-data lf-ity-params lf-more-field
+  2dup < if 2drop 0 else nip then ;
+\ Whether one of the first k of the n arguments of node's spine mentions
+\ the type.
+: lf-ind-some-arg? ( node n k -- flag outcome )
+  0 ?do
+    2dup i lf-ind-arg lf-ind-mentions? ok-then? 0= if nip nip false swap unloop exit then
+    if 2drop true outcome-ok unloop exit then
+  loop 2drop false outcome-ok ;
+: lf-ind-no-nest ( x -- false outcome ) drop false outcome-ok ;
+: lf-ind-nested? ( node -- flag outcome )
+  dup lf-ind-spine over lf-tag-constant lf-ind-tag? 0= if 2drop lf-ind-no-nest exit then
+  over lf-ind-type-node? if 2drop lf-ind-no-nest exit then
+  swap lf-ind-const-name lf-ind-earlier dup 0< if 2drop lf-ind-no-nest exit then
+  over swap lf-ind-parametric lf-ind-some-arg? ;
+\ The walk: an application node that is a nested occurrence ends it,
+\ unsupported; every node's children are visited.
+: lf-ind-nest-app ( first second walk -- outcome )
+  dup walk-node @ lf-ind-nested? ok-then? 0= if >r 2drop drop r> exit then
+  if 2drop drop outcome-unsupported else walk-children then ;
+: lf-ind-nest-dispatch ( first second walk tag -- outcome )
+  dup lf-tag-app = if drop lf-ind-nest-app else lf-ind-dispatch then ;
+: lf-ind-nest-visit ( walk -- outcome ) lf-terms ['] lf-ind-nest-dispatch walk-visit ;
+: lf-ind-no-leaf ( first second walk tag -- outcome ) 2drop 2drop outcome-ok ;
+: lf-ind-nests ( root -- outcome )
+  ['] lf-ind-no-leaf lf-ind-walker walk-arg ! ['] lf-ind-nest-visit lf-ind-run ;
+\ Constructor j's type after its parameters (where its binders end, if
+\ before them: T1 rejects it later).
+: lf-ind-after-params ( j -- node )
+  lf-ind-ctor-type lf-ind-nparams 0 ?do
+    dup lf-tag-pi lf-ind-tag? 0= if leave then lf-term-second@
+  loop ;
+\ On the way, for B4: Lean's is_rec, a field whose type mentions the type
+\ (inductive.cpp 308-329), and is_reflexive, such a field type that is a
+\ Pi (337-352), both syntactic.
+: lf-ind-flag! ( addr -- ) true swap ! ;
+: lf-ind-field-flags ( domain -- outcome )
+  dup lf-ind-occurrences ok-then? 0= if nip exit then
+  0= if drop outcome-ok exit then lf-ind-state lf-ind-is-rec lf-ind-flag!
+  lf-tag-pi lf-ind-tag? if lf-ind-state lf-ind-is-refl lf-ind-flag! then outcome-ok ;
+: lf-ind-fields-flags ( node -- outcome )
+  begin dup lf-tag-pi lf-ind-tag? while
+    dup lf-term-first@ lf-ind-field-flags dup ok? 0= if nip exit then drop lf-term-second@
+  repeat drop outcome-ok ;
 : lf-ind-ctor-scoped ( j -- outcome )
-  lf-ind-ctor-type dup lf-ind-occurrences ok-then? 0= if nip exit then
-  dup 0= if 2drop outcome-ok exit then
-  1 = swap lf-ind-body drop lf-ind-headed? and
-  if outcome-ok else outcome-unsupported then ;
+  lf-ind-after-params dup lf-ind-fields-flags dup ok? 0= if nip exit then drop lf-ind-nests ;
+\ A block whose constructors mention the type at most once each, as the
+\ head of their result, is in scope at once (task 5.2.1a's test): no
+\ field mentions the type, and no other occurrence can be nested.
+: lf-ind-plain? ( j -- flag outcome )
+  lf-ind-ctor-type dup lf-ind-occurrences ok-then? 0= if nip false swap exit then
+  dup 0= if 2drop true outcome-ok exit then
+  1 = swap lf-ind-body drop lf-ind-headed? and outcome-ok ;
+: lf-ind-ctors-plain? ( -- flag outcome )
+  lf-ind-ctors@ 0 ?do
+    i lf-ind-plain? ok-then? 0= if false swap unloop exit then
+    0= if false outcome-ok unloop exit then
+  loop true outcome-ok ;
 : lf-ind-out-of-scope ( reason -- outcome )
   lf-ind-first@ swap lf-ind-site lf-diag-block-scope lf-diag-note outcome-unsupported ;
 1 constant lf-scope-mutual
-2 constant lf-scope-occurrence
+3 constant lf-scope-nested
 : lf-ind-ctors-scoped ( -- outcome )
   lf-ind-ctors@ 0 ?do i lf-ind-ctor-scoped dup ok? 0= if unloop exit then drop loop
   outcome-ok ;
 : lf-ind-scoped ( -- outcome )
   lf-ind-types@ 1 > if lf-scope-mutual lf-ind-out-of-scope exit then
+  lf-ind-ctors-plain? ok-then? 0= if exit then if outcome-ok exit then
   lf-ind-ctors-scoped dup outcome-unsupported =
-  if drop lf-scope-occurrence lf-ind-out-of-scope then ;
+  if drop lf-scope-nested lf-ind-out-of-scope then ;
+\ Whether some field of the block mentions its type (after the audit).
+: lf-ind-recursive? ( -- flag ) lf-ind-state lf-ind-is-rec @ ;
 
 \ The audit, in this order: B0; unsafe members; U2, then V1, on every term;
 \ the scope.

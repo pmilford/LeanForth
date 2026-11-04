@@ -18,12 +18,24 @@ ind.reflexive	accepted	accepted	A1 P1	5.2.1b	O: idx=0 rec=1 refl=1 nested=0 elim
 ind.universe-max	accepted	accepted	A1 U1	5.2.1a	Pr: idx=0 rec=0 refl=0 nested=0 elim=any k=0 motives=1 minors=1 fields=[2]
 ind.sort-max	accepted	accepted	A1 U1	5.2.1a	S: idx=0 rec=0 refl=0 nested=0 elim=any k=0 motives=1 minors=2 fields=[1, 1]
 ind.annotated-fields	accepted	accepted	A1 G1	5.2.1a	An: idx=0 rec=0 refl=0 nested=0 elim=any k=0 motives=1 minors=1 fields=[2]
+ind.binary-tree	accepted	accepted	A1 G1	5.2.1b	BT: idx=0 rec=1 refl=0 nested=0 elim=any k=0 motives=1 minors=2 fields=[0, 2]
+ind.reflexive-two-arguments	accepted	accepted	A1 P1 G1	5.2.1b	R2: idx=0 rec=1 refl=1 nested=0 elim=any k=0 motives=1 minors=2 fields=[0, 1]
+ind.reflexive-parameter	accepted	accepted	A1 P1 G1	5.2.1b	RP: idx=0 rec=1 refl=1 nested=0 elim=any k=0 motives=1 minors=2 fields=[1, 1]
+ind.recursive-predicate	accepted	accepted	A1 E1 G1	5.2.1b	Ev: idx=0 rec=1 refl=0 nested=0 elim=Prop k=0 motives=1 minors=2 fields=[0, 1]
+ind.recursive-predicate-one-constructor	accepted	accepted	A1 E3 G1	5.2.1b	Inf: idx=0 rec=1 refl=0 nested=0 elim=any k=0 motives=1 minors=1 fields=[1]
+ind.list-sort-max	accepted	accepted	A1 U1 G1	5.2.1b	LS: idx=0 rec=1 refl=0 nested=0 elim=any k=0 motives=1 minors=2 fields=[0, 2]
+ind.recursive-through-beta	accepted	accepted	A1 P1 G1	5.2.1b	Bt: idx=0 rec=1 refl=0 nested=0 elim=any k=0 motives=1 minors=2 fields=[0, 1]
+ind.erased-by-beta	accepted	accepted	A1 P1 G1	5.2.1b	Eb: idx=0 rec=1 refl=0 nested=0 elim=any k=0 motives=1 minors=1 fields=[1]
 pos.negative	nonPositive	rejected	P1	5.2.1b	
 pos.double-negative	nonPositive	rejected	P1	5.2.1b	
 pos.through-definition	nonPositive	rejected	P1	5.2.1b	
 pos.erased-by-definition	accepted	accepted	A1 P1	5.2.1b	Ok: idx=0 rec=1 refl=0 nested=0 elim=any k=0 motives=1 minors=1 fields=[1]
 pos.non-valid-occurrence	nonValidOccurrence	rejected	P2	5.2.1b	
 pos.universe-checked-first	universeTooBig	rejected	U1	5.2.1b	
+pos.negative-through-beta	nonPositive	rejected	P1	5.2.1b	
+pos.negative-second-binder	nonPositive	rejected	P1	5.2.1b	
+pos.negative-later-field	nonPositive	rejected	P1	5.2.1b	
+pos.non-valid-after-pi	nonValidOccurrence	rejected	P2	5.2.1b	
 uniform.other-argument	nonUniformOccurrence	rejected	C1	5.2.1b	
 uniform.definitionally-equal-argument	nonUniformOccurrence	rejected	C1	5.2.1b	
 uniform.result-other-argument	nonUniformOccurrence	rejected	C1	5.2.1a	
@@ -165,6 +177,15 @@ after.universe-max-at-concrete	accepted	accepted	B4 G1	5.2.1a
 after.universe-max-at-swapped	accepted	accepted	B4 G1	5.2.1a	
 after.universe-max-at-applied	accepted	accepted	B4 G1	5.2.1a	
 after.redex-type-left-out-then-use-rec	declTypeMismatch	rejected	B4 G1	5.2.1a	
+after.nat-left-out-then-use-rec	accepted	accepted	B4 G1	5.2.1b	
+after.list-left-out-then-use-rec	accepted	accepted	B4 G1	5.2.1b	
+after.reflexive-left-out-then-use-rec	accepted	accepted	B4 G1	5.2.1b	
+after.binary-tree-left-out-then-use-rec	accepted	accepted	B4 G1	5.2.1b	
+after.list-at-renamed	accepted	accepted	B4 G1	5.2.1b	
+after.list-at-concrete	accepted	accepted	B4 G1	5.2.1b	
+after.list-at-applied	accepted	accepted	B4 G1	5.2.1b	
+after.list-sort-max-at-concrete	accepted	accepted	B4 G1 U1	5.2.1b	
+after.reflexive-parameter-at-renamed	accepted	accepted	B4 G1	5.2.1b	
 names.reserved-nested-prefix	reservedNestedPrefix	rejected	T0	5.2.5	
 names.reserved-nested-prefix-declared	reservedNestedPrefix	rejected	T0	5.2.1a	
 names.constructor-already-declared	alreadyDeclared	rejected	N2	5.2.1a	
