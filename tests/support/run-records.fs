@@ -31,9 +31,8 @@ require ../../src/import/run-replay.fs
 \ read still gets a record, which says so and lists no declarations. The
 \ run's environment stays current until rr-release.
 : ni-run ( c-addr u fuel -- outcome )
-  ni-pool rr-settings! 2dup rr-start dup ok? 0= if nip nip exit then drop
-  2dup false rr-import ok? if rr-check then
-  rr-finish dup ok? if drop rr-write then ;
+  ni-pool rr-settings! rr-start dup ok? 0= if exit then drop
+  false rr-import ok? if rr-check then rr-finish dup ok? if drop rr-write then ;
 \ Write the record of the export file c-addr1 u1 to the file c-addr2 u2.
 : ni-record ( c-addr1 u1 fuel c-addr2 u2 -- outcome )
   2>r ni-run dup ok? if drop 2r> rr-save else 2r> 2drop then rr-release ;

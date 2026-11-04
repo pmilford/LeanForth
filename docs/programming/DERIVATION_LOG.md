@@ -258,8 +258,11 @@ also on Gforth 0.7.3.
   steps, at three sets of random limits, and interleaved step by step with
   one context logging and one not: every digest of outcomes, results, fuel,
   store counts and serials, and diagnostics equals the log-off digest
-  (about 100,000 checker calls; 75,445 records written; 22,773 logs
-  truncated and restarted).
+  (about 100,000 checker calls; 84,920 records written; 18,510 logs
+  truncated and restarted). On the heap stores of ADR 0016 step 3, also a
+  copied constant reference rebuilt for printing, and chains of 200
+  applications (copied whole, 201 copies) and 300 (too large to copy: the
+  log truncated, the answer unchanged) in a store of 1,000 terms.
 - The whole of `make test` with the log on (`LF_LOG_LEVEL=2`), full after 5
   records, and with 2 term copies, 1 level copy and 3 open rules; and the
   pinned-Lean differentials of `make test-differential` with the log on and
