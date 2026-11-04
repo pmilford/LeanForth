@@ -224,6 +224,8 @@ fed-allocations constant fed#
 T{ fed# 0> -> true }T
 T{ 1 in-context -> 5 false true }T
 T{ fed# 1+ in-context -> 5 true true }T
+\ The run that stopped is invalid: its slot did not end final.
+T{ ck-outcome -> outcome-invalid }T
 
 \ print reads with the checker's input: n allocations stage composition
 \ there, fewer than print makes in all.
