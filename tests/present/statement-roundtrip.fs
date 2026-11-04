@@ -20,9 +20,7 @@ create words-path 256 allot  variable words-len
 
 \ The checker's side: the export read, then each declaration's type dumped
 \ as the statement's axiom.
-: load-export ( -- )
-  export-path export-len @ 2dup cin-read ok? 0= abort" statement-roundtrip: not read"
-  false pr-present ok? 0= abort" statement-roundtrip: names not read" ;
+: load-export ( -- ) export-path export-len @ po-reload ;
 : dump-statements ( -- )
   lf-input-count 0 ?do i lf-input-decl lf-sf-fdecl dump-decl loop ;
 

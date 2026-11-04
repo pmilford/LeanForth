@@ -76,7 +76,7 @@ def accepted(n):
 
 NO_MANIFEST = "note: the export's manifest is not checked (--no-manifest)"
 LIMITS = [
-    "note: check --record, replay and print hold at most 64 names, 64 levels,",
+    "note: check --record and replay hold at most 64 names, 64 levels,",
     "note: 64 term nodes and 32 declarations per export; check without --record holds "
     "any size",
 ]
@@ -507,7 +507,7 @@ class Behaviour(unittest.TestCase):
         self.assertEqual(run("--version")[:2], (0, out))
         status, out, _ = run("capabilities")
         self.assertEqual(status, 0)
-        self.assertIn("  check --record, replay, print: 64 names, 64 levels, 64 term nodes,\n"
+        self.assertIn("  check --record, replay: 64 names, 64 levels, 64 term nodes,\n"
                       "    32 declarations per export, 64 dependencies per export\n", out)
         status, out, _ = run("help")
         self.assertEqual((status, run("--help")[1], run("-h")[1]), (0, out, out))

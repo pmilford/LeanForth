@@ -24,7 +24,8 @@
 \       check the export again and compare the new run record with RECORD
 \       (import/run-replay.fs): the replay report, exit 0 confirmed, 1
 \       refused (a difference), 4 when it cannot be compared;
-\   print [--no-manifest] [--fuel N] [--detail] [--name NAME] EXPORT
+\   print [--no-manifest] [--fuel N] [--detail] [--name NAME] [--latex]
+\         [--statement FORMS] EXPORT
 \       check the export as check does, one declaration at a time with the
 \       derivation log on, and print each one's proof outline right after
 \       its check (cli/print.fs, present/proof-outline.fs), or with
@@ -51,7 +52,7 @@
 \ claim or misreport a failure, never make a declaration accepted. An
 \ accepted declaration whose axiom set is not empty is marked NOT PROVED
 \ (the owner's rule; the first checker accepts no axiom, so none is yet).
-\ check --record, replay and print hold small exports only (64 names,
+\ check --record and replay hold small exports only (64 names,
 \ levels and term nodes, 32 declarations): anything larger ends full, exit
 \ 3, and the output says so. Untrusted, like everything in src/ until the
 \ review gate.
@@ -250,7 +251,7 @@ create cli-order
 \ run-record.fs's tables, both sized for those defaults; check without it
 \ feeds the stores, which grow, so only the checks' own limits remain.
 : cli-limits ( -- )
-  ." note: check --record, replay and print hold at most " lf-name-capacity .decimal
+  ." note: check --record and replay hold at most " lf-name-capacity .decimal
   ."  names, " lf-level-capacity .decimal ."  levels," cr ." note: "
   lf-term-capacity .decimal ."  term nodes and " lf-input-capacity .decimal
   ."  declarations per export; check without --record holds any size" cr ;
@@ -478,8 +479,9 @@ create cli-order
   rp-report ok? 0= if drop outcome-invalid then outcome>code ;
 
 \ ---------------------------------------------------------------------------
-\ print: the export (file 0) read as check reads it (its manifest checked
-\ unless --no-manifest), read once more for binder names (cli/print.fs),
+\ print: the export (file 0) staged and fed as check reads it (its manifest
+\ checked unless --no-manifest; any size), with the feed's hooks that keep
+\ binder names and declaration lines for the printer (cli/print.fs),
 \ then each declaration checked in file order with the derivation log on
 \ and printed right after its check with its proof outline
 \ (present/proof-outline.fs: the verdict with its label and axioms, the
@@ -525,21 +527,24 @@ create cli-order
   over lf-env-use ok? 0= if drop c" the checked environment could not be used" cli-fault
   0 exit then ['] cli-print-run catch dup if nip then ;
 : cli-print-env ( chosen -- )
-  cli-fuel @ lf-check-budget cli-pool lf-env-new cli-env-made 0= if drop exit then
+  cli-fuel @ lf-check-budget lf-env-pool-max lf-env-new cli-env-made 0= if drop exit then
   swap cli-print-guarded swap cli-print-free throw ;
-: cli-print-names ( -- flag )
-  0 cli-file cli-checked? pr-present dup ok? if drop true else cli-unread false then ;
 \ The log on for the run, and off again after it, also after a THROW.
 : cli-style ( -- )
   cli-state opt-latex @ lf-outline-latex!
   cli-state opt-forms @ ?dup 0= if lf-forms-all then lf-forms! ;
 : cli-printing ( -- )
-  cli-print-names 0= if exit then cli-chosen 0= if cli-no-such exit then cli-style
+  cli-chosen 0= if cli-no-such exit then cli-style
   pr-log-on ['] cli-print-env catch lf-log-off lf-log-set throw ;
+\ A read that failed, as check's is reported (cli-fed-unread), and its code.
+: cli-print-unread ( outcome -- ) cli-fed-unread ck-read-outcome outcome>code cli-code! ;
+: cli-print-library ( -- )
+  0 cli-file cli-checked? pr-load dup ok? if drop cli-printing else cli-print-unread then ;
+\ The run, then everything it holds freed, after a THROW too (passed on).
 : print-command ( -- code )
-  cli-start cli-opens? 0= if cli-unopened exit then cli-unchecked-note
-  rr-release 0 cli-file cli-checked? rr-read-once dup ok?
-  if drop cli-printing else cli-unread then cli-worst @ ;
+  cli-start cli-opens? 0= if cli-unopened exit then
+  true cli-state run-fed ! rr-release rr-reset cli-unchecked-note
+  cli-fuel @ ck-start ['] cli-print-library catch ck-release throw cli-worst @ ;
 
 \ ---------------------------------------------------------------------------
 \ count: the report of ndjson-count.fs, or its error line.
@@ -610,7 +615,7 @@ create cli-order
   ."   let (4.2.3), literals (5.2.3), projections (5.2.2) and metadata in a term;" cr
   ."   recursive and indexed inductive types (5.2.1b, 5.2.1c), quotients (5.2.4)," cr
   ."   mutual and nested blocks (5.2.5); unfolding definitions (4.2.2), so some" cr
-  ."   correct proofs end unknown; check --record, replay and print refuse" cr
+  ."   correct proofs end unknown; check --record and replay refuse" cr
   ."   inductive types while reading" cr ;
 : cli-limits. ( -- )
   ." limits (check answers full or exhausted, exit 3):" cr
@@ -618,7 +623,7 @@ create cli-order
   ."     of a term (plan task 6.2.0); "
   lf-env-dep-capacity .decimal ."  dependencies per declaration, "
   lf-env-pool-max .decimal ."  per export" cr
-  ."   check --record, replay, print: " lf-name-capacity .decimal ."  names, "
+  ."   check --record, replay: " lf-name-capacity .decimal ."  names, "
   lf-level-capacity .decimal ."  levels, " lf-term-capacity .decimal ."  term nodes," cr
   ."     " lf-input-capacity .decimal ."  declarations per export, "
   cli-pool .decimal ."  dependencies per export" cr
@@ -626,7 +631,7 @@ create cli-order
   ."     no fixed limit (memory)" cr
   ."   fuel " cli-default-fuel .decimal ."  steps per declaration (--fuel N)" cr ;
 : cli-planned. ( -- )
-  ." planned, not built: program, serve, print and --record on any size," cr
+  ." planned, not built: program, serve and --record on any size," cr
   ."   the axiom names of each accepted declaration (plan task 5.3.2)" cr ;
 : capabilities-command ( -- code )
   ." leanforth " cli-version-text type ." : what this build can do" cr

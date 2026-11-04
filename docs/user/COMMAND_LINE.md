@@ -13,10 +13,10 @@ checked from the command line — all of Lean's `Init`, 59,349
 declarations, in [about ten minutes, four with `gforth-fast`](#a-whole-library-leans-init). Most
 of a real library still ends *unsupported* or *unknown*, because
 unfolding definitions (plan task 4.2.2), recursive data types and
-literals (phase 5) are not built yet. Three commands keep the first,
+literals (phase 5) are not built yet. Two commands keep the first,
 small path —
-`check --record`, `replay` and `print` hold 64 names, 64 levels, 64 term
-nodes and 32 declarations per export ([small exports](#small-exports-check---record-replay-and-print)).
+`check --record` and `replay` hold 64 names, 64 levels, 64 term
+nodes and 32 declarations per export ([small exports](#small-exports-check---record-and-replay)).
 
 Every example on this page is run by `make test` (the shell and Forth
 examples) and `make check` (the Lean ones), and must print exactly what is
@@ -112,8 +112,8 @@ Options:
 - `--record RECORD` writes the run record of the check to RECORD
   ([run records and replay](#run-records-and-replay)); RECORD must not be
   the export. Run records 0.1 hold at most 32 declarations, so `check
-  --record` reads the export as `print` does, into the checker's default
-  sizes ([small exports](#small-exports-check---record-replay-and-print)).
+  --record` reads the export straight into the checker's default
+  sizes ([small exports](#small-exports-check---record-and-replay)).
 - `--resources` (`check` only) adds the [resource report](#the-resource-report)
   after the summary: time, memory, the input's size and fuel.
 - `--json` (`check` only) prints the whole result as one
@@ -428,9 +428,9 @@ status is 0 to 4. The format has not passed the owner's [format] gate.
 
 ## Printing a readable proof
 
-`print` checks the export as `check --record` does (small exports, see
-[below](#small-exports-check---record-replay-and-print); plan task 3.4.1
-moves it onto the feed later), one declaration at a
+`print` checks the export as `check` does (staged and fed to the checker,
+so any size: it prints a chosen theorem of Lean's `Init` as well as a
+fixture), one declaration at a
 time with the checker's [derivation log](../programming/DERIVATION_LOG.md)
 on, and prints each declaration right after its check: the verdict with
 its label and axioms, the statement, and a short readable proof (the
@@ -610,10 +610,9 @@ reported the same way (`internal fault: a Forth exception (THROW n)`);
 `make test` injects one while an export is fed to the checker and one
 inside a check, and checks that the stage is freed either way.
 
-## Small exports: `check --record`, `replay` and `print`
+## Small exports: `check --record` and `replay`
 
-Run records 0.1 hold at most 32 declarations, and `print` reads binder
-names for its outlines through the same reader, so these three commands
+Run records 0.1 hold at most 32 declarations, so these two commands
 keep the first path: the export read straight into the checker's stores
 at their default sizes, 64 names, 64 levels and 64 term nodes — the
 export's own and each check's working terms together — and 32
@@ -630,7 +629,7 @@ accepted: 1 (experimental, not independently audited); axioms: none
 exit status 0
 $ bin/leanforth check --record /dev/null tests/cli/chain.ndjson; echo "exit status $?"
 error: full: too many expression nodes or constant references for the check's stores (line 97)
-note: check --record, replay and print hold at most 64 names, 64 levels,
+note: check --record and replay hold at most 64 names, 64 levels,
 note: 64 term nodes and 32 declarations per export; check without --record holds any size
 exit status 3
 $ bin/leanforth check --no-manifest --record /dev/null tests/core/reexport/kinds.ndjson; echo "exit status $?"
@@ -664,17 +663,17 @@ not yet supported (check answers unsupported or unknown, exit 2):
   let (4.2.3), literals (5.2.3), projections (5.2.2) and metadata in a term;
   recursive and indexed inductive types (5.2.1b, 5.2.1c), quotients (5.2.4),
   mutual and nested blocks (5.2.5); unfolding definitions (4.2.2), so some
-  correct proofs end unknown; check --record, replay and print refuse
+  correct proofs end unknown; check --record and replay refuse
   inductive types while reading
 limits (check answers full or exhausted, exit 3):
   check: stores that grow with the export (memory); a walk holds 64 levels
     of a term (plan task 6.2.0); 16 dependencies per declaration, 65536 per export
-  check --record, replay, print: 64 names, 64 levels, 64 term nodes,
+  check --record, replay: 64 names, 64 levels, 64 term nodes,
     32 declarations per export, 64 dependencies per export
   universe parameters per declaration and universe arguments per constant:
     no fixed limit (memory)
   fuel 100000 steps per declaration (--fuel N)
-planned, not built: program, serve, print and --record on any size,
+planned, not built: program, serve and --record on any size,
   the axiom names of each accepted declaration (plan task 5.3.2)
 ```
 
@@ -720,7 +719,7 @@ read from its published slot. The printed verdicts and the exit status are
 those of the check alone; a record that cannot be written is reported and
 the status is then at least 4. A record holds at most 32 declarations, so
 `check --record` reads the export into the checker's default sizes
-([above](#small-exports-check---record-replay-and-print)); what a record
+([above](#small-exports-check---record-and-replay)); what a record
 version 0.2 for exports of any size would need is written down in
 [run records](../programming/RUN_RECORDS.md#version-02-records-of-any-size),
 and needs the owner's [format] gate. A record costs reads: with
@@ -801,11 +800,10 @@ reads: lean4export 3.1.0, format 3.1.0, Lean 4.35.0 (eb6cafb7290e8bd5f2937522d8d
 
 `program` (a program receipt), `serve` (the JSON-RPC interface for AI
 tools, plan section 3.5), receipts that carry each theorem's statement
-(task 3.4.3 beyond the check report), `print` and `--record` on exports of
-any size, the names of the axioms each accepted declaration uses (task
-5.3.2), the resource report in run records and in `print` (task 6.5.2),
-and Markdown, LaTeX and JSON forms of `print`'s outline (tasks 2.4.4 and
-8.6.1).
+(task 3.4.3 beyond the check report), `--record` on exports of any size,
+the names of the axioms each accepted declaration uses (task 5.3.2), the
+resource report in run records and in `print` (task 6.5.2), and Markdown
+and JSON forms of `print`'s outline (task 2.4.4).
 
 ## Tests
 

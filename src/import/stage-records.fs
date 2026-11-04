@@ -105,6 +105,7 @@ begin-structure /stage
   /slab +field stage-expr-map        \ export expression index -> expression
   /slab +field stage-decl-records    \ the declarations, /staged each
   /slab +field stage-by-name         \ name -> its newest declaration + 1, or 0
+  /slab +field stage-lines           \ declaration -> its line in the export
   /tier-mark +field stage-start      \ the tier as stage-init left it
   field: stage-state                 \ staging-blank .. staging-broken
   field: stage-limit                 \ most bytes of heap blocks; 0: no limit
@@ -137,7 +138,8 @@ end-structure
 : stage-allocated ( stage -- u )
   dup stage-tier tier-allocated over stage-name-map slab-bytes +
   over stage-level-map slab-bytes + over stage-expr-map slab-bytes +
-  over stage-decl-records slab-bytes + swap stage-by-name slab-bytes + ;
+  over stage-decl-records slab-bytes + over stage-by-name slab-bytes +
+  swap stage-lines slab-bytes + ;
 : stage-over? ( stage -- flag )
   dup stage-limit @ ?dup if swap stage-allocated u< else drop false then ;
 \ After a record is kept: full, with the reason, once past the limit.
@@ -263,9 +265,12 @@ end-structure
   0 over staged-prev u32! staged-none over staged-params u32!
   staged-none over staged-type u32! staged-none over staged-value u32!
   staged-none swap staged-more u32! ;
-\ Room for a draft of the record's kind, every field blank.
+\ Room for a draft of the record's kind, every field blank, and the line
+\ of the export it came from kept (staged-line@; the presentation reads it,
+\ the checker never does).
 : draft-open ( record stage -- outcome )
   1 over stage-decl-records slab-room dup ok? 0= if nip nip exit then drop
+  over record-line @ over stage-lines fields-push dup ok? 0= if nip nip exit then drop
   swap record-kind @ swap draft draft-blank outcome-ok ;
 
 \ Gathering a tuple's items in the stage, then making the tuple: full for
@@ -449,6 +454,8 @@ here stage-handlers - cell / kind-count <>
 : staged-hint@ ( d stage -- u ) staged-at staged-hint u32@ ;
 : staged-more@ ( d stage -- t ) staged-at staged-more u32@ ;
 : staged-prev@ ( d stage -- u ) staged-at staged-prev u32@ ;
+\ The line of the export that declaration d came from, 0 for none.
+: staged-line@ ( d stage -- line ) stage-lines map> dup staged-none = if drop 0 then ;
 : staged-bit? ( d stage bit -- flag ) >r staged-flags@ r> and 0<> ;
 : staged-unsafe? ( d stage -- flag ) staged-unsafe-bit staged-bit? ;
 : staged-k? ( d stage -- flag ) staged-k-bit staged-bit? ;

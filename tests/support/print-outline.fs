@@ -6,10 +6,14 @@
 \ outline (detail: every step of its log) with the log at level terms;
 \ po-run-file with the log options as they are, so that a test can set a
 \ limit or level steps; po-check-file checks every declaration with the
-\ log at level terms and prints nothing, leaving the last one's log. A
-\ file that cannot be read, or an environment that cannot be made, used
+\ log at level terms and prints nothing, leaving the last one's log. The
+\ export is staged and fed as `leanforth check` does it, with print's hooks
+\ (binder names and declaration lines); the stage and the input stay until
+\ the next po-load or po-reload (ck-start frees the last run), so that a log
+\ can be printed against its input after the environment is freed.
+\ A file that cannot be read, or an environment that cannot be made, used
 \ or freed, aborts. Test support.
-\ State: none of its own (print.fs's and checker-input's).
+\ State: none of its own (print.fs's and check-run.fs's).
 
 require ../../src/cli/print.fs
 
@@ -20,12 +24,14 @@ require ../../src/cli/print.fs
   lf-input-count 0 ?do i pr-due? if
     2 pick 2 pick 2 pick i po-one if ." the run stopped" cr leave then then
   loop drop 2drop ;
-\ The export read (and read again for names) and an environment to check
-\ it in, made current.
+\ The export staged and fed (a new input, the last run's freed), without an
+\ environment.
+: po-reload ( c-addr u -- )
+  po-fuel ck-start false pr-load ok? 0= abort" print-outline: not read" ;
+\ The same, then an environment to check it in, made current.
 : po-load ( c-addr u -- env )
-  2dup cin-read ok? 0= abort" print-outline: not read"
-  false pr-present ok? 0= abort" print-outline: names not read"
-  po-fuel lf-check-budget 64 lf-env-new ok? 0= abort" print-outline: no environment"
+  po-reload
+  po-fuel lf-check-budget lf-env-pool-max lf-env-new ok? 0= abort" print-outline: no environment"
   dup lf-env-use ok? 0= abort" print-outline: environment not used" ;
 : po-free ( env -- ) lf-env-free ok? 0= abort" print-outline: environment not freed" ;
 : po-run-file ( c-addr u detail -- )

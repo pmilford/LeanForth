@@ -1,13 +1,15 @@
-\ Proof outlines from a Lean export (plan task 2.4.4; ADR 0013 L7): the
-\ words behind `leanforth print` (cli/leanforth.fs) and make print
-\ (tests/support/print-outline.fs). After the export is read into the
-\ checker's input (import/checker-input.fs), pr-present reads it once more
-\ and puts binder names and kinds, each expression's source and each
-\ declaration's line and declared type into the presentation side table
-\ (present/binder-table.fs), which the checker never reads; with the
-\ manifest checked, that read checks it again, so names come from the
-\ bytes checked; without it (--no-manifest), the file could change between
-\ the two reads and binder names (only names) could come from other bytes.
+\ Proof outlines from a Lean export (plan tasks 2.4.4 and 3.4.1; ADR 0013
+\ L7): the words behind `leanforth print` (cli/leanforth.fs) and make print
+\ (tests/support/print-outline.fs). The export is staged and fed to the
+\ checker as `check` does (cli/check-run.fs: import/stage.fs, import/
+\ feed.fs; any size), with two hooks on the feed, which read what the feed
+\ drops and put it into the presentation side table
+\ (present/binder-table.fs), which the checker never reads: every binder's
+\ name and kind (pr-binder-hook), and the line of the export each
+\ declaration came from (pr-decl-hook, the stage keeps it). The declared
+\ type of a constant is found in the input itself (lf-pres-type@), so the
+\ side table's small table of declarations is not used. The export is read
+\ once, so the names come from the very bytes checked.
 \ Then each declaration is checked in turn, through the checked
 \ environment's serial step (lf-env-step) with the derivation log at
 \ level terms and every limit at its capacity, and its outline
@@ -23,9 +25,10 @@
 \ serials, so a diagnostic whose numbers are identities or serials (codes
 \ 8, 21, 25, 27) can differ from check's for a later declaration; no
 \ verdict depends on them.
-\ State: one record in the checker context, print-state: the line of each
-\ declaration in the file, the declarations the extra read counted, and
-\ the text of a declaration's name being compared.
+\ State: one record in the checker context, print-state (the declarations
+\ whose line is kept and the text of a declaration's name being compared),
+\ and a growable array of the context, pr-lines: the line of each input
+\ declaration in the file.
 
 require ../lib/lib.fs
 require ../core/input.fs
@@ -33,53 +36,36 @@ require ../core/derivation-log.fs
 require ../kernel/environment.fs
 require ../kernel/env-publish.fs
 require ../kernel/check-declaration.fs
-require ../import/ndjson.fs
-require ../import/checker-input.fs
 require ../present/binder-table.fs
 require ../present/print-names.fs
 require ../present/proof-outline.fs
+require ./check-run.fs
 
 256 constant pr-text-capacity
 begin-structure /pr
-  field: pr-decls                       \ declarations the extra read counted
+  field: pr-decls                       \ input declarations whose line is kept
   field: pr-text-used                   \ bytes of the name text
-  lf-input-default cells +field pr-lines   \ each declaration's line in the file
   pr-text-capacity +field pr-text
 end-structure
 /pr context-record: print-state
+1 cells context-slab: pr-lines          \ each input declaration's line, by index
 
-\ The extra read: binders' names and kinds, sources of expressions, lines
-\ and declared types of declarations (checker-input's tables give the
-\ indices). Every other record passes; a side-table refusal only leaves a
-\ name out.
-: pr-binder ( record -- outcome )
-  dup record-index @ cin-root over binder-name @ cin-name rot binder-info @
-  lf-pres-binder! ;
-: pr-expr ( record -- outcome )
-  dup record-index @ cin-root swap record-index @ lf-pres-source! ;
-: pr-bound ( record -- outcome )
-  dup pr-expr ok? 0= if drop outcome-ok exit then pr-binder drop outcome-ok ;
-: pr-source ( record -- outcome ) pr-expr drop outcome-ok ;
-: pr-line! ( line k -- ) cells print-state pr-lines + ! ;
-: pr-decl ( record -- outcome )
-  print-state pr-decls @ dup lf-input-default < 0= if 2drop outcome-full exit then
-  over record-line @ swap pr-line! 1 print-state pr-decls +!
-  dup decl-name @ cin-name swap decl-type @ cin-root lf-pres-declare drop outcome-ok ;
-create pr-handlers
-  ' cin-pass-by , ' cin-pass-by , ' cin-pass-by , ' cin-pass-by , ' cin-pass-by ,
-  ' cin-pass-by , ' cin-pass-by , ' pr-source , ' pr-source , ' pr-source ,
-  ' pr-source , ' pr-bound , ' pr-bound , ' pr-source , ' pr-source ,
-  ' pr-source , ' pr-source , ' pr-source , ' pr-decl , ' pr-decl ,
-  ' pr-decl , ' pr-decl , ' cin-pass-by , ' cin-pass-by , 0 , 0 , 0 ,
-pr-handlers cin-table-check
-: pr-reader ( checked? -- xt ) if ['] cin-checked else ['] cin-plain then ;
-: pr-read ( c-addr u checked? -- outcome )
-  pr-reader pr-handlers cin-handlers execute ;
-\ Read the export c-addr u again into the side table, its manifest
-\ checked when checked? is true: ok, or the reader's outcome.
+\ The feed's hooks. A binder's name and kind go to the side table (a
+\ refusal only leaves a name out); the line of declaration d goes to each
+\ input declaration it made (a block's members one by one, its header none).
+: pr-binder-hook ( term name kind -- ) lf-pres-binder! drop ;
+: pr-line! ( line i -- ) pr-lines slab-at ! ;
+: pr-lines-room? ( n -- flag ) pr-lines slab-hold ok? ;
+: pr-decl-hook ( d before after -- )
+  dup pr-lines-room? 0= if drop 2drop exit then
+  dup print-state pr-decls ! rot ck-stage staged-line@ -rot swap
+  ?do dup i pr-line! loop drop ;
 : pr-reset ( -- ) 0 print-state pr-decls ! lf-pres-reset ;
-: pr-present ( c-addr u checked? -- outcome )
-  pr-reset cin-init dup ok? 0= if nip nip nip cin-done exit then drop pr-read cin-done ;
+\ Stage and feed the export c-addr u (cli/check-run.fs's ck-load, after
+\ ck-start), its manifest checked when checked? is true, the hooks on:
+\ the outcome of the stage or the feed.
+: pr-load ( c-addr u checked? -- outcome )
+  pr-reset ['] pr-binder-hook ['] pr-decl-hook ck-hooks! ck-load ;
 
 \ A declaration's name as text, and the declaration named by a text.
 : pr-used ( -- addr ) print-state pr-text-used ;
@@ -107,7 +93,7 @@ pr-handlers cin-table-check
   lf-env-view ok? 0= if drop outcome-invalid -1 exit then
   dup lf-env-outcome swap lf-env-axioms ok? 0= if drop -1 then ;
 : pr-line ( i -- line )
-  dup print-state pr-decls @ < if cells print-state pr-lines + @ else drop 0 then ;
+  dup print-state pr-decls @ < if pr-lines slab-at @ else drop 0 then ;
 \ Print the outline of declaration i of the export c-addr u (detail:
 \ every step of its log), right after its check; its outcome.
 : pr-print ( c-addr u i detail -- outcome )

@@ -123,6 +123,7 @@ require ./stage-records.fs
   cons-numbers-max over stage-level-map fields-init drop
   cons-numbers-max over stage-expr-map fields-init drop
   payload-limit over stage-by-name fields-init drop
+  cons-numbers-max over stage-lines fields-init drop
   /staged payload-limit 1- 2 pick stage-decl-records slab-init drop maps-start ;
 : tier-marked ( stage -- outcome ) dup stage-start swap stage-tier tier-mark ;
 : export-start ( stage -- outcome )
@@ -142,6 +143,7 @@ require ./stage-records.fs
 : stage-free ( stage -- )
   dup stage-tier tier-free dup stage-export export-free dup stage-manifest manifest-free
   dup maps-free dup stage-decl-records slab-free dup stage-by-name slab-free
+  dup stage-lines slab-free
   dup stage-reach heap-release /stage erase ;
 
 \ ---- Reading. A failed read rolls the stage back: the tier to the mark
@@ -149,7 +151,8 @@ require ./stage-records.fs
 : own-clear ( stage -- outcome )
   dup stage-name-map slab-clear dup stage-level-map slab-clear
   dup stage-expr-map slab-clear dup stage-decl-records slab-clear
-  dup stage-by-name slab-clear 0 over stage-mdata ! 0 over stage-marks !
+  dup stage-by-name slab-clear dup stage-lines slab-clear
+  0 over stage-mdata ! 0 over stage-marks !
   0 over stage-why ! maps-start ;
 : stage-rollback ( stage -- outcome )
   dup stage-start over stage-tier tier-rollback ['] own-clear and-then
@@ -292,6 +295,7 @@ binder-reaches
 \ a RESIZE that fails there is no failure). Any failure breaks the stage.
 : tier-sealing ( stage -- outcome )
   dup stage-decl-records slab-trim drop dup stage-by-name slab-trim drop
+  dup stage-lines slab-trim drop
   stage-tier tier-seal ;
 : stage-seal ( stage -- outcome )
   dup staging-filled stage-in? 0= if drop outcome-invalid exit then
