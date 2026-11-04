@@ -191,8 +191,8 @@
         },
         "diagnostic": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/diagnostic"}]},
         "fuel": {
-          "description": "Fuel the declaration's check used; 0 for a member of an inductive block after its first, whose check is the first's, and for one not checked.",
-          "$ref": "#/$defs/count"
+          "description": "Fuel the declaration's check used: exact for an accepted one (with that budget it is accepted, with one less not) and the budget for an exhausted one; 0 for a member of an inductive block after its first, whose check is the first's, and for one not checked; null when not known, for a check that ended with no fuel left without running out (a failed inference gives its counter up).",
+          "anyOf": [{"type": "null"}, {"$ref": "#/$defs/count"}]
         }
       },
       "allOf": [
@@ -240,10 +240,11 @@
     "fuel": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["perDeclaration", "total", "top"],
+      "required": ["perDeclaration", "total", "unknown", "top"],
       "properties": {
         "perDeclaration": {"$ref": "#/$defs/count"},
-        "total": {"description": "Fuel used by every check of the run.", "$ref": "#/$defs/count"},
+        "total": {"description": "Fuel used by every check of the run whose use is known.", "$ref": "#/$defs/count"},
+        "unknown": {"description": "Declarations whose fuel used is not known (null fuel).", "$ref": "#/$defs/count"},
         "top": {
           "description": "The declarations that used the most fuel, most first, those of equal fuel in input order; none that used none.",
           "type": "array",

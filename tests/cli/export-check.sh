@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# The command line's two Lean fixtures with pinned Lean: Lean accepts
-# tests/cli/chain.lean (larger than today's check holds) and unfold.lean
-# (a proof that needs a definition unfolded), each without axioms, and
+# The command line's three Lean fixtures with pinned Lean: Lean accepts
+# tests/cli/chain.lean (larger than check --record holds), unfold.lean (a
+# proof that needs a definition unfolded) and inductive.lean (an inductive
+# type and a theorem proved with its recursor), each without axioms, and
 # scripts/export.sh reproduces the committed exports and their manifests
 # byte for byte. LEAN names the pinned Lean 4.35.0 binary.
 set -eu
@@ -11,8 +12,9 @@ temporary=$(mktemp -d)
 # Delete exactly the files this script writes, by name, then the folder.
 cleanup() {
   local name
-  for name in LeanForthChain.olean LeanForthUnfold.olean chain.ndjson \
-    chain.ndjson.manifest.json unfold.ndjson unfold.ndjson.manifest.json; do
+  for name in LeanForthChain.olean LeanForthUnfold.olean LeanForthInductive.olean \
+    chain.ndjson chain.ndjson.manifest.json unfold.ndjson unfold.ndjson.manifest.json \
+    inductive.ndjson inductive.ndjson.manifest.json; do
     rm -f "$temporary/$name"
   done
   rmdir "$temporary"
@@ -36,5 +38,6 @@ reproduce() {
 }
 reproduce chain LeanForthChain chain chain
 reproduce unfold LeanForthUnfold impliesSelf Implies impliesSelf
-printf '%s\n' 'Lean accepts chain and impliesSelf;' \
-  'scripts/export.sh reproduces both exports and their manifests.'
+reproduce inductive LeanForthInductive Two.cases Two.cases
+printf '%s\n' 'Lean accepts chain, impliesSelf and Two.cases;' \
+  'scripts/export.sh reproduces the three exports and their manifests.'

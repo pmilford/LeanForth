@@ -45,9 +45,14 @@
 \ (lf-check-left) up to step 3 of check-declaration, inference's
 \ (lf-minfer-fuel) from step 4 on; a check that began no step used none.
 \ So a declaration accepted with fuel used u is accepted with a budget of
-\ u and exhausted with u - 1 (tests/cli/leanforth.fs checks it). The
-\ members after a block's first count no fuel of their own. A report
-\ only: nothing reads it back into a check.
+\ u and exhausted with u - 1 (tests/cli/leanforth.fs and
+\ test_leanforth.py check it), and one exhausted used the budget. A
+\ failed inference gives its counter up (mixed-infer's lf-minfer-failed
+\ leaves zero): a check that failed with no fuel left but not exhausted
+\ used an amount not known, kept as ck-fuel-unknown (-1), counted apart
+\ (ck-fuel-unknowns) and in no total. The members after a block's first
+\ count no fuel of their own. A report only: nothing reads it back into a
+\ check.
 \
 \ Host words: utime and cputime (Gforth 0.7.3 and 1.0) give wall and CPU
 \ time in microseconds, where a host without them reports none
@@ -99,7 +104,8 @@ begin-structure /ck
   field: ck-stage-bytes          \ heap bytes of the stage, once staged
   4 cells +field ck-counts       \ after the feed: declarations, terms, levels, references
   field: ck-names                \ names of the stage's input tier
-  2 cells +field ck-fuel-sum     \ fuel used by every check, a double
+  2 cells +field ck-fuel-sum     \ fuel used by every check whose use is known, a double
+  field: ck-unknowns             \ checks whose fuel used is not known
   field: ck-top-count            \ entries in ck-top
   ck-top-room cells +field ck-top   \ declarations by fuel used, most first
   2 cells +field ck-wall-mark    \ the clock when the phase began, doubles
@@ -127,6 +133,8 @@ create ck-feeding-record /feed allot  ck-feeding-record /feed erase
 : ck-steps-begun ( -- n ) ck-state ck-stepped @ ;
 : ck-made? ( -- flag ) ck-state ck-checked @ ;
 : ck-fuel-total ( -- ud ) ck-state ck-fuel-sum 2@ ;
+: ck-fuel-unknowns ( -- n ) ck-state ck-unknowns @ ;
+-1 constant ck-fuel-unknown   \ a check's fuel used, when it is not known
 \ The stage's heap bytes and the stage's names; the input's declarations
 \ (k 0), term nodes (1), levels (2) and constant references (3).
 : ck-staged-bytes ( -- u ) ck-state ck-stage-bytes @ ;
@@ -255,7 +263,12 @@ create ck-capacities
   lf-check-step@ ck-inference-step < if lf-check-left @ else lf-minfer-fuel @ then ;
 : ck-member? ( d -- flag ) lf-input-decl lf-ind-member? ;
 : ck-left ( d -- n ) dup ck-member? if ck-block-left else drop ck-decl-left then ;
-: ck-used ( d -- n ) ck-fuel-budget swap ck-left - 0 max ;
+\ No fuel left by a check that failed without running out: a failure gave
+\ the counter up (an accepted one used exactly its budget).
+: ck-ran-out? ( outcome -- flag ) dup ok? swap outcome-exhausted = or ;
+: ck-gave-up? ( outcome left -- flag ) 0= swap ck-ran-out? 0= and ;
+: ck-used ( outcome d -- n )
+  ck-left tuck ck-gave-up? if drop ck-fuel-unknown else ck-fuel-budget swap - 0 max then ;
 : ck-step-reached ( d -- step ) ck-member? if lf-block-step@ else lf-check-step@ then ;
 
 \ ---- Checking, one declaration at a time.
@@ -263,7 +276,7 @@ create ck-capacities
   >r lf-diag@ r@ cks-code ! r@ cks-site ! r@ cks-second ! r> cks-first ! ;
 \ Keep what declaration d's check left, with the outcome it published.
 : ck-keep ( outcome d -- )
-  dup ck-used over ck-kept cks-fuel ! dup ck-step-reached over ck-kept cks-step !
+  2dup ck-used over ck-kept cks-fuel ! dup ck-step-reached over ck-kept cks-step !
   ck-kept dup ck-diag! cks-outcome ! ;
 \ Check declaration d: whether the run must stop, after a fault or a
 \ THROW in the check (the context is then spent).
@@ -296,7 +309,8 @@ create ck-capacities
   drop dup ck-own lf-env-use ;
 
 \ ---- The fuel used in all, and the declarations that used the most,
-\ most first, those of equal fuel in file order; none that used none.
+\ most first, those of equal fuel in file order; none that used none or
+\ an amount not known.
 : ck-top-cell ( k -- addr ) cells ck-state ck-top + ;
 : ck-top@ ( k -- d ) ck-top-cell @ ;
 : ck-tops ( -- n ) ck-state ck-top-count @ ;
@@ -308,9 +322,11 @@ create ck-capacities
   ck-tops 1+ ck-top-room min dup ck-state ck-top-count !
   1- begin 2dup < while dup 1- ck-top@ over ck-top-cell ! 1- repeat 2drop ;
 : ck-offer ( d -- )
-  dup ck-fuel-of dup 0= if 2drop exit then ck-rank
+  dup ck-fuel-of dup 0> 0= if 2drop exit then ck-rank
   dup ck-top-room < if dup ck-shift ck-top-cell ! else 2drop then ;
-: ck-add ( d -- ) ck-fuel-of ck-state ck-fuel-sum 2@ rot m+ ck-state ck-fuel-sum 2! ;
+: ck-add ( d -- )
+  ck-fuel-of dup 0< if drop 1 ck-state ck-unknowns +! exit then
+  ck-state ck-fuel-sum 2@ rot m+ ck-state ck-fuel-sum 2! ;
 : ck-tally ( -- ) lf-input-count 0 ?do i ck-add i ck-offer loop ;
 
 \ Check every declaration (see the header).

@@ -113,10 +113,11 @@ create cj-name /slab allot  cj-name /slab erase
 : cj-detail ( d -- )
   dup cj-began? 0= if drop exit then
   dup lf-env-outcome ok? if cj-accepted else cj-diagnostic then ;
+\ A check's fuel used, null when it is not known (cli/check-run.fs).
+: cj-fuel-used ( d -- ) s" fuel" cj-key ck-fuel-of dup 0< if drop cj-null else cj-n then ;
 : cj-decl ( d -- )
   cj-object dup s" index" cj-number dup cj-name-text s" name" cj-text
-  dup cj-verdict-text s" verdict" cj-text dup cj-detail ck-fuel-of s" fuel" cj-number
-  cj-end-object ;
+  dup cj-verdict-text s" verdict" cj-text dup cj-detail cj-fuel-used cj-end-object ;
 : cj-decls ( -- )
   s" declarations" cj-key cj-array
   ck-verdicts? if lf-input-count 0 ?do i cj-decl loop then cj-end-array ;
@@ -138,10 +139,11 @@ create cj-name /slab allot  cj-name /slab erase
   ck-top@ cj-object dup s" index" cj-number dup cj-name-text s" name" cj-text
   dup ck-fuel-of s" fuel" cj-number cj-verdict-text s" verdict" cj-text cj-end-object ;
 : cj-tops ( -- ) s" top" cj-key cj-array ck-tops 0 ?do i cj-top loop cj-end-array ;
+: cj-no-tops ( -- ) s" top" cj-key cj-array cj-end-array ;
 : cj-fuel ( -- )
   s" fuel" cj-key cj-object ck-fuel-budget s" perDeclaration" cj-number
-  s" total" cj-key ck-fuel-total cj-ud ck-verdicts? if cj-tops else s" top" cj-key cj-array
-  cj-end-array then cj-end-object ;
+  s" total" cj-key ck-fuel-total cj-ud ck-fuel-unknowns s" unknown" cj-number
+  ck-verdicts? if cj-tops else cj-no-tops then cj-end-object ;
 
 \ ---- The input as fed: declarations, term nodes, levels, constant
 \ references and names; null when it was not fed.

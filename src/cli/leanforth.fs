@@ -361,9 +361,13 @@ create cli-order
   ."   input: " 0 ck-count .decimal ."  declarations, " 1 ck-count .decimal
   ."  term nodes, " 2 ck-count .decimal ."  levels, " 3 ck-count .decimal
   ."  constant references, " ck-staged-names .decimal ."  names" cr ;
+: cli-unknown-fuel. ( -- )
+  ck-fuel-unknowns ?dup 0= if exit then
+  ."   fuel not known for " .decimal ."  declarations: a failed inference gives its"
+  cr ."     counter up (their checks are not in the fuel above)" cr ;
 : cli-fuel. ( -- )
   ."   fuel: " ck-fuel-total decimal-text type ."  steps in all, at most "
-  ck-fuel-budget .decimal ."  per declaration" cr ;
+  ck-fuel-budget .decimal ."  per declaration" cr cli-unknown-fuel. ;
 : cli-verdict-word ( d -- c-addr u )
   lf-env-outcome dup ok? if drop s" accepted" else outcome-text then ;
 : cli-fuel-column ( n -- )
