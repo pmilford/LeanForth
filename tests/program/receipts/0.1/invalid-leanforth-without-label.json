@@ -1,0 +1,142 @@
+{
+  "schema": "leanforth-program-receipt",
+  "schemaVersion": "0.1",
+  "provenance": {
+    "kind": "example",
+    "createdAt": "2026-11-02",
+    "note": "Written by hand to show the shape of a phase 5 receipt. LeanForth cannot produce it yet: nothing in it was checked."
+  },
+  "program": {
+    "word": "lf-clamp",
+    "stackEffect": "( value lower upper -- result true | false )",
+    "source": {
+      "path": "src/program/clamp.fs",
+      "line": 12,
+      "sha256": "e4444161f4a3436b1a4509338e15fe2aeb47cab1f4327069e31b401bf1dc6a30"
+    },
+    "ir": {
+      "version": "0.1",
+      "sha256": "651875025cec88f7ae5b6669b227df28ebd3bbcbc29f11af08370024bf5cfb50"
+    },
+    "floatingPoint": false
+  },
+  "contract": {
+    "id": "lf-clamp/0",
+    "statement": "For integers v, l, u: if l ≤ u the word returns min(max(v, l), u) and true; if l > u it consumes its three inputs and returns false. Cells below are kept.",
+    "lean": "ProgramIR.clamp_correct",
+    "file": {
+      "path": "tests/reference/program-ir.lean",
+      "sha256": "c2cd91dec1b7f9fb6c45abaec64225d64f9c62ef7bed8317565de9f6359fca97"
+    }
+  },
+  "check": {
+    "status": "accepted-by-leanforth",
+    "checker": {
+      "name": "leanforth",
+      "version": "0.0.0-dev"
+    },
+    "theorems": [
+      "clamp.O1",
+      "clamp.O2",
+      "clamp.O3",
+      "clamp.O4"
+    ],
+    "label": "verified",
+    "axioms": [],
+    "evidence": [
+      {
+        "path": "tests/reference/program-ir.lean",
+        "sha256": "c2cd91dec1b7f9fb6c45abaec64225d64f9c62ef7bed8317565de9f6359fca97"
+      }
+    ]
+  },
+  "verify": {
+    "status": "discharged",
+    "generator": {
+      "name": "leanforth",
+      "version": "0.0.0-dev"
+    },
+    "obligations": [
+      {
+        "id": "O1",
+        "statement": "lower > upper: the stack becomes false.",
+        "status": "discharged",
+        "theorem": "clamp.O1"
+      },
+      {
+        "id": "O2",
+        "statement": "lower ≤ upper: >R MAX R> leaves max(v, l) u.",
+        "status": "discharged",
+        "theorem": "clamp.O2"
+      },
+      {
+        "id": "O3",
+        "statement": "MIN TRUE leaves min(max(v, l), u) true.",
+        "status": "discharged",
+        "theorem": "clamp.O3"
+      },
+      {
+        "id": "O4",
+        "statement": "l ≤ min(max(v, l), u) ≤ u.",
+        "status": "discharged",
+        "theorem": "clamp.O4"
+      }
+    ]
+  },
+  "run": {
+    "status": "passed",
+    "host": {
+      "forth": "gforth",
+      "version": "1.0.0",
+      "os": "linux",
+      "arch": "x86-64",
+      "cellBits": 64
+    },
+    "cases": 686,
+    "failures": 0,
+    "label": "runtime-tested; testing is not proof",
+    "evidence": [
+      {
+        "path": "tests/program/differential.sh",
+        "sha256": "1019ee9ea260254b5555696c3c7557cad97ceba65dee0e1acec12f69ec640a1c"
+      }
+    ]
+  },
+  "assumptions": [
+    {
+      "id": "A1",
+      "kind": "host-cells",
+      "text": "Every value is one signed host cell; the Lean theorems hold for every cell width of at least two bits, the runtime tests ran on 64-bit cells."
+    },
+    {
+      "id": "A2",
+      "kind": "twos-complement",
+      "text": "Cells use two's complement, so arithmetic wraps as the IR semantics says; the clamp itself does no arithmetic."
+    },
+    {
+      "id": "A3",
+      "kind": "trusted-reader",
+      "text": "The reader translated the colon definition into the IR faithfully; nothing checks the translation itself."
+    },
+    {
+      "id": "A4",
+      "kind": "trusted-runtime",
+      "text": "Gforth and its compiler execute 2DUP, >, IF, 2DROP, DROP, >R, MAX, R>, MIN, TRUE, FALSE and EXIT as the IR semantics says."
+    },
+    {
+      "id": "A5",
+      "kind": "stack-capacity",
+      "text": "The data and return stacks have room for the word's items; underflow and overflow are not proved absent on the host."
+    }
+  ],
+  "tools": [
+    {
+      "name": "gforth",
+      "version": "1.0.0"
+    },
+    {
+      "name": "leanforth",
+      "version": "0.0.0-dev"
+    }
+  ]
+}

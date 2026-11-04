@@ -5,16 +5,25 @@ Prints each validation error and exits 1 if any file is invalid.
 
 Implements the part of JSON Schema draft 2020-12 that the project's schemas
 use, and fails closed on everything else: a schema keyword outside SUPPORTED,
-a `$ref` that is not a local `#/...` pointer or does not resolve, or a
-keyword value of the wrong shape raises SchemaError before any instance is
-validated. So a schema can never appear to enforce a rule this validator
-does not implement. Instances are parsed strictly: duplicate object keys,
-NaN and Infinity are errors.
+a `$ref` that is not a local `#/...` pointer to a schema, or a keyword value
+of the wrong shape raises SchemaError before any instance is validated. So a
+schema can never appear to enforce a rule this validator does not implement.
+
+Documents are parsed strictly by load_strict, which raises InstanceError
+for: text that is not JSON; duplicate object keys; NaN and Infinity; any
+number with a fraction or an exponent (the project's JSON has integers
+only, and 1e-400 or 12.0000000000000001 would be read lossily); integers
+outside I-JSON's exact range -(2**53-1)..2**53-1 (RFC 7493) unless the
+caller widens it; lone surrogates; and nesting deeper than MAX_DEPTH.
 
 Deviations from the standard, all on the strict side:
 - `pattern` is a Python regular expression searched in the string, as the
-  standard does, but a final unescaped `$` matches only at the very end
-  (Python's `$` would also match before a final newline).
+  standard does, but `^`, `$` and `.` outside a character class mean what
+  they mean in ECMA-262: the start and the end of the whole string (`\\A`,
+  `\\Z`; Python's `$` also matches before a final newline), and any
+  character but a line terminator (Python's `.` also matches a carriage
+  return and U+2028). So `^...$` must match the whole string. Inline flags
+  and a `]` first in a class, which differ between the two, are refused.
 - `additionalProperties` must be a boolean.
 - Formats, dynamic references, `unevaluated*`, `dependent*`, remote `$ref`
   and the other keywords not in SUPPORTED are refused.
@@ -47,20 +56,70 @@ class InstanceError(Exception):
     """The document is not strict JSON."""
 
 
-def load_strict(text):
-    """Parse JSON, refusing duplicate keys, NaN and Infinity."""
-    def pairs(items):
-        result = {}
-        for key, value in items:
-            if key in result:
-                raise InstanceError(f"duplicate key {key!r}")
-            result[key] = value
-        return result
+MAX_DEPTH = 64              # nesting of arrays and objects; a receipt needs 5
+MAX_SAFE_INTEGER = 2 ** 53 - 1
 
-    def constant(name):
-        raise InstanceError(f"non-standard number {name}")
 
-    return json.loads(text, object_pairs_hook=pairs, parse_constant=constant)
+def _pairs(items):
+    result = {}
+    for key, value in items:
+        if key in result:
+            raise InstanceError(f"duplicate key {key!r}")
+        result[key] = value
+    return result
+
+
+def _constant(name):
+    raise InstanceError(f"non-standard number {name}")
+
+
+def _fraction(literal):
+    raise InstanceError(f"number {literal[:40]} has a fraction or an exponent; "
+                        "only integers are allowed")
+
+
+def _integers(bound):
+    """A parse_int hook refusing integers outside -bound..bound."""
+    def integer(literal):
+        if len(literal.lstrip("-")) > len(str(bound)) or abs(int(literal)) > bound:
+            raise InstanceError(f"integer {literal[:40]} is outside -{bound}..{bound}")
+        return int(literal)
+    return integer
+
+
+def _check_tree(value):
+    """Refuse nesting deeper than MAX_DEPTH and strings with lone surrogates."""
+    stack = [(value, 0)]
+    while stack:
+        node, depth = stack.pop()
+        if depth > MAX_DEPTH:
+            raise InstanceError(f"nested deeper than {MAX_DEPTH} levels")
+        if isinstance(node, dict):
+            stack += [(key, depth) for key in node] + [(v, depth + 1) for v in node.values()]
+        elif isinstance(node, list):
+            stack += [(item, depth + 1) for item in node]
+        elif isinstance(node, str):
+            try:
+                node.encode("utf-8")
+            except UnicodeEncodeError:
+                raise InstanceError(f"lone surrogate in string {node[:40]!r}") from None
+
+
+def load_strict(text, max_integer=MAX_SAFE_INTEGER):
+    """Parse strict JSON (see the module's docstring), or raise InstanceError.
+
+    max_integer widens the integer range for a file of the project that is
+    not read by other tools, such as a list of 64-bit test cells.
+    """
+    try:
+        value = json.loads(text, object_pairs_hook=_pairs, parse_constant=_constant,
+                           parse_float=_fraction, parse_int=_integers(max_integer))
+    except RecursionError:
+        raise InstanceError(f"nested deeper than {MAX_DEPTH} levels") from None
+    except json.JSONDecodeError as error:
+        raise InstanceError(f"not JSON: {error}") from None
+    _check_tree(value)
+    return value
 
 
 def is_number(value):
@@ -99,11 +158,44 @@ def json_equal(left, right):
     return left == right
 
 
+# ECMA-262's `.`: any character but a line terminator.
+NOT_LINE_TERMINATOR = "[^\\n\\r\\u2028\\u2029]"
+OUTSIDE_CLASS = {"^": r"\A", "$": r"\Z", ".": NOT_LINE_TERMINATOR}
+
+
 def python_pattern(pattern):
-    """Make a final unescaped `$` match only at the end of the string."""
-    if pattern.endswith("$") and not pattern.endswith("\\$"):
-        return pattern[:-1] + r"\Z"
-    return pattern
+    """The Python form of a schema pattern, with ECMA-262's `^`, `$` and `.`.
+
+    Escapes and character classes are copied; outside a class `^` becomes
+    `\\A`, `$` becomes `\\Z` and `.` excludes line terminators. Raises
+    SchemaError for an inline flag such as `(?x)`, and for a `]` first in a
+    class (literal in Python, the end of an empty class in ECMA-262).
+    """
+    out, i, in_class = [], 0, False
+    while i < len(pattern):
+        char = pattern[i]
+        if char == "\\":
+            out.append(pattern[i:i + 2])
+            i += 2
+            continue
+        if in_class:
+            in_class = char != "]"
+        elif char == "[":
+            in_class = True
+            if pattern.startswith(("]", "^]"), i + 1):
+                raise SchemaError(f"pattern {pattern!r}: a class may not start with ]")
+        elif char == "(" and re.match(r"\(\?[-aiLmsux]", pattern[i:]):
+            raise SchemaError(f"pattern {pattern!r}: inline flags are not supported")
+        else:
+            char = OUTSIDE_CLASS.get(char, char)
+        out.append(char)
+        i += 1
+    return "".join(out)
+
+
+def pointer_part(name):
+    """A key as one JSON pointer segment (RFC 6901): ~ is ~0 and / is ~1."""
+    return name.replace("~", "~0").replace("/", "~1")
 
 
 class Validator:
@@ -111,11 +203,18 @@ class Validator:
 
     def __init__(self, schema):
         self.root = schema
+        self._schemas = set()      # JSON pointers of every subschema
+        self._refs = []
+        self._patterns = {}
         self._check(schema, "#")
+        for ref in self._refs:
+            if ref not in self._schemas:
+                raise SchemaError(f"$ref {ref!r}: does not point at a schema")
 
     # Schema checking: fail closed on anything not implemented.
 
     def _check(self, schema, where):
+        self._schemas.add(where)
         if isinstance(schema, bool):
             return
         if not isinstance(schema, dict):
@@ -124,7 +223,7 @@ class Validator:
         if unknown:
             raise SchemaError(f"{where}: unsupported keyword(s) {sorted(unknown)}")
         for key, value in schema.items():
-            self._check_keyword(key, value, f"{where}/{key}")
+            self._check_keyword(key, value, f"{where}/{pointer_part(key)}")
 
     def _check_keyword(self, key, value, where):
         if key in ANNOTATIONS:
@@ -133,7 +232,7 @@ class Validator:
         elif key in ("$defs", "properties"):
             self._need(isinstance(value, dict), where, "an object of schemas")
             for name, sub in value.items():
-                self._check(sub, f"{where}/{name}")
+                self._check(sub, f"{where}/{pointer_part(name)}")
         elif key in ("items", "contains", "if", "then", "else", "not"):
             self._check(value, where)
         elif key in ("allOf", "anyOf"):
@@ -143,6 +242,7 @@ class Validator:
         elif key == "$ref":
             self._need(isinstance(value, str), where, "a string")
             self._resolve(value)
+            self._refs.append(value)
         elif key == "type":
             names = value if isinstance(value, list) else [value]
             self._need(names and all(n in TYPES for n in names), where, "JSON type names")
@@ -155,7 +255,7 @@ class Validator:
             self._need(isinstance(value, list) and value, where, "a non-empty array")
         elif key == "pattern":
             self._need(isinstance(value, str), where, "a string")
-            re.compile(python_pattern(value))
+            self._patterns[value] = re.compile(python_pattern(value))
         elif key in ("minLength", "minItems", "maxItems"):
             self._need(isinstance(value, int) and not isinstance(value, bool) and value >= 0,
                        where, "a nonnegative integer")
@@ -222,8 +322,12 @@ class Validator:
                          f"{json.dumps(rule, ensure_ascii=False)}")
 
     def _kw_pattern(self, value, rule, schema, path, found):
-        if isinstance(value, str) and not re.search(python_pattern(rule), value):
-            found.append(f"{path}: does not match pattern {rule}")
+        """A long pattern is cut in the message, followed by its schema's description."""
+        if isinstance(value, str) and not self._patterns[rule].search(value):
+            shown = rule if len(rule) <= 64 else rule[:24] + "…"
+            why = f" ({schema['description']})" if len(rule) > 64 and "description" in schema \
+                else ""
+            found.append(f"{path}: does not match pattern {shown}{why}")
 
     def _kw_minLength(self, value, rule, schema, path, found):
         if isinstance(value, str) and len(value) < rule:

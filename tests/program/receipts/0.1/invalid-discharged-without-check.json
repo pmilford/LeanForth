@@ -1,0 +1,86 @@
+{
+  "schema": "leanforth-program-receipt",
+  "schemaVersion": "0.1",
+  "provenance": {
+    "kind": "example",
+    "createdAt": "2026-11-02",
+    "note": "Written by hand: the smallest valid receipt, nothing checked or run."
+  },
+  "program": {
+    "word": "lf-gcd",
+    "stackEffect": "( a b -- gcd true | false )",
+    "source": {
+      "path": "src/program/examples.fs",
+      "line": 40,
+      "sha256": "72f5575434335d59800f4f0f8ce91983ffd686d34fee4539ca2d207936fb5583"
+    },
+    "ir": null,
+    "floatingPoint": false
+  },
+  "contract": {
+    "id": "lf-gcd/0",
+    "statement": "For nonnegative a and b returns gcd(a, b) and true, with gcd(0, 0) = 0; for a negative input returns false."
+  },
+  "check": {
+    "status": "not-checked",
+    "label": "not checked",
+    "axioms": [],
+    "evidence": []
+  },
+  "verify": {
+    "status": "discharged",
+    "generator": {
+      "name": "leanforth",
+      "version": "0.0.0-dev"
+    },
+    "obligations": [
+      {
+        "id": "O1",
+        "statement": "lower > upper: the stack becomes false.",
+        "status": "discharged",
+        "theorem": "clamp.O1"
+      },
+      {
+        "id": "O2",
+        "statement": "lower ≤ upper: >R MAX R> leaves max(v, l) u.",
+        "status": "discharged",
+        "theorem": "clamp.O2"
+      },
+      {
+        "id": "O3",
+        "statement": "MIN TRUE leaves min(max(v, l), u) true.",
+        "status": "discharged",
+        "theorem": "clamp.O3"
+      },
+      {
+        "id": "O4",
+        "statement": "l ≤ min(max(v, l), u) ≤ u.",
+        "status": "discharged",
+        "theorem": "clamp.O4"
+      }
+    ]
+  },
+  "run": {
+    "status": "not-run",
+    "cases": 0,
+    "failures": 0
+  },
+  "assumptions": [
+    {
+      "id": "A1",
+      "kind": "host-cells",
+      "text": "Every value is one signed host cell."
+    },
+    {
+      "id": "A2",
+      "kind": "trusted-runtime",
+      "text": "The Forth host executes the word as written."
+    }
+  ],
+  "tools": [
+    {
+      "name": "gforth",
+      "version": "1.0.0"
+    }
+  ]
+}
