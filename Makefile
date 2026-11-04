@@ -222,6 +222,7 @@ test-lib:
 
 test-core:
 	$(RUN) $(GFORTH) tests/core/terms.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/core/infer_typed_trial.py
 	$(RUN) $(GFORTH) tests/core/tagged-sort-boundary.fs
 	$(RUN) $(GFORTH) tests/core/symbolic-session.fs
 	$(RUN) $(GFORTH) tests/core/symbolic-session-extra.fs
