@@ -1,0 +1,11 @@
+\ Lean: theorem strict_example {A : Type} {P : A → Prop} (h : ∀ ⦃x : A⦄, P x) (y : A) :
+\         P y := @h y
+theorem strict_example
+  0 Type implicit: A
+  A Prop ->  implicit: P
+  A strict-implicit: x  P x $  forall  explicit: h
+  A explicit: y
+  P y $
+:=
+  h y $
+end strict_example

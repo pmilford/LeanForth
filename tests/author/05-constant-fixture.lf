@@ -1,0 +1,29 @@
+\ Lean: universe u
+\       def fixtureId {α : Sort u} (x : α) : α := x
+\       def fixturePoly {α : Sort u} (x : α) : α := fixtureId x
+\       theorem fixtureUse {P : Prop} (h : P) : P := fixtureId h
+def fixtureId
+  universe u
+  u Sort implicit: α
+  α explicit: x
+  α
+:=
+  x
+end fixtureId
+
+def fixturePoly
+  universe u
+  u Sort implicit: α
+  α explicit: x
+  α
+:=
+  fixtureId u ^ α $ x $      \ @fixtureId.{u} α x
+end fixturePoly
+
+theorem fixtureUse
+  Prop implicit: P
+  P explicit: h
+  P
+:=
+  fixtureId 0 ^ P $ h $      \ @fixtureId.{0} P h
+end fixtureUse

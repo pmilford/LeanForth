@@ -1,0 +1,10 @@
+\ Lean: theorem type_identity {A : Type} {P : A → Prop} {x : A} (proof : P x) : P x := proof
+theorem type_identity
+  0 Type implicit: A
+  A Prop ->  implicit: P
+  A implicit: x
+  P x $  explicit: proof
+  P x $
+:=
+  proof
+end type_identity

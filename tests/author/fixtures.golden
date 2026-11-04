@@ -1,0 +1,421 @@
+== 01-identity
+ran: ok
+lean: theorem identity : ∀ {P : Prop}, P → P :=
+lean: fun {P} proof ↦ proof
+words:
+theorem identity
+  Prop implicit: P
+  P explicit: proof
+  P
+:=
+  proof
+end identity
+round trip: terms, names, kinds, labels and notes same; printed text same
+== 02-composition
+ran: ok
+lean: theorem composition : ∀ {A B C : Prop}, (A → B) → (B → C) → A → C :=
+lean: fun {A B C} f g value ↦ g (f value)
+words:
+theorem composition
+  Prop implicit: A
+  Prop implicit: B
+  Prop implicit: C
+  A B -> explicit: f
+  B C -> explicit: g
+  A C ->
+:=
+  A explicit: value g f value $ $ fun
+end composition
+round trip: terms, names, kinds, labels and notes same; printed text same
+== 03-type-identity
+ran: ok
+lean: theorem type_identity : ∀ {A : Type} {P : A → Prop} {x : A}, P x → P x :=
+lean: fun {A} {P} {x} proof ↦ proof
+words:
+theorem type_identity
+  0 Type implicit: A
+  A Prop -> implicit: P
+  A implicit: x
+  P x $ explicit: proof
+  P x $
+:=
+  proof
+end type_identity
+round trip: terms, names, kinds, labels and notes same; printed text same
+== 04-poly-identity
+ran: ok
+lean: theorem poly_identity.{u} : ∀ {A : Sort u} {P : A → Prop} {x : A}, P x → P x :=
+lean: fun {A} {P} {x} proof ↦ proof
+words:
+theorem poly_identity
+  universe u
+  u Sort implicit: A
+  A Prop -> implicit: P
+  A implicit: x
+  P x $ explicit: proof
+  P x $
+:=
+  proof
+end poly_identity
+round trip: terms, names, kinds, labels and notes same; printed text same
+== 05-constant-fixture
+ran: ok
+lean: def fixtureId.{u} : {α : Sort u} → α → α :=
+lean: fun {α} x ↦ x
+lean: def fixturePoly.{u} : {α : Sort u} → α → α :=
+lean: fun {α} x ↦ fixtureId x
+lean: theorem fixtureUse : ∀ {P : Prop}, P → P :=
+lean: fun {P} h ↦ fixtureId h
+words:
+def fixtureId
+  universe u
+  u Sort implicit: α
+  α explicit: x
+  α
+:=
+  x
+end fixtureId
+
+def fixturePoly
+  universe u
+  u Sort implicit: α
+  α explicit: x
+  α
+:=
+  fixtureId u ^ α $ x $
+end fixturePoly
+
+theorem fixtureUse
+  Prop implicit: P
+  P explicit: h
+  P
+:=
+  fixtureId 0 ^ P $ h $
+end fixtureUse
+round trip: terms, names, kinds, labels and notes same; printed text same
+== 06-universes
+ran: ok
+lean: def Big.{u} : Type (u + 1) :=
+lean: Type u
+lean: def PairSort.{u, v} : Sort u → Sort v → Type (max u v) :=
+lean: fun _A _B ↦ Sort (max u v)
+lean: def ImaxSort.{u, v} : Sort u → Sort v → Type (imax u v) :=
+lean: fun _A _B ↦ Sort (imax u v)
+words:
+def Big
+  universe u
+  u 1 level+ Type
+:=
+  u Type
+end Big
+
+def PairSort
+  universe u
+  universe v
+  u Sort explicit: _A
+  v Sort explicit: _B
+  u v level-max Type
+:=
+  u v level-max Sort
+end PairSort
+
+def ImaxSort
+  universe u
+  universe v
+  u Sort explicit: _A
+  v Sort explicit: _B
+  u v level-imax Type
+:=
+  u v level-imax Sort
+end ImaxSort
+round trip: terms, names, kinds, labels and notes same; printed text same
+== 07-add-comm
+ran: ok
+type: Eq.{u_1} : {α : Sort u_1} → α → α → Prop
+type: HAdd.hAdd.{u, v, w} : {α : Type u} → {β : Type v} → {γ : @outParam (Type w)} → [self : @HAdd α β γ] → α → β → γ
+lean: theorem add_comm' : ∀ (n m : Nat), Eq (HAdd.hAdd n m) (HAdd.hAdd m n) :=
+lean: fun n m ↦ Nat.add_comm n m
+words:
+import-stub Nat
+end Nat
+
+import-stub instAddNat
+end instAddNat
+
+import-stub instHAdd
+  universe u
+end instHAdd
+
+import-stub HAdd
+  universe u
+  universe v
+  universe w
+end HAdd
+
+import-stub outParam
+  universe u
+end outParam
+
+import-stub Nat.add_comm
+end Nat.add_comm
+
+import-stub Eq
+  universe u_1
+  u_1 Sort implicit: α
+  α α Prop -> ->
+end Eq
+
+import-stub HAdd.hAdd
+  universe u
+  universe v
+  universe w
+  u Type implicit: α
+  v Type implicit: β
+  outParam w 2 level+ ^ w Type $ implicit: γ
+  HAdd u ^ v ^ w ^ α $ β $ γ $ instance: self
+  α β γ -> ->
+end HAdd.hAdd
+
+theorem add_comm'
+  Nat explicit: n
+  Nat explicit: m
+  Eq 1 ^ Nat $ HAdd.hAdd 0 ^ 0 ^ 0 ^ Nat $ Nat $ Nat $ instHAdd 0 ^ Nat $ instAddNat $ $ n
+    $ m $ $ HAdd.hAdd 0 ^ 0 ^ 0 ^ Nat $ Nat $ Nat $ instHAdd 0 ^ Nat $ instAddNat $ $ m $
+    n $ $
+:=
+  Nat.add_comm n $ m $
+end add_comm'
+round trip: terms, names, kinds, labels and notes same; printed text same
+== 08-monoid
+ran: ok
+type: MyMonoid.{u} : Type u → Type u
+type: Eq.{u_1} : {α : Sort u_1} → α → α → Prop
+type: MyMonoid.mul.{u} : {M : Type u} → [self : MyMonoid M] → M → M → M
+type: MyMonoid.one.{u} : {M : Type u} → [self : MyMonoid M] → M
+type: MyMonoid.mul_one.{u} : {M : Type u} → [self : MyMonoid M] → (a : M) → Eq (MyMonoid.mul a MyMonoid.one) a
+lean: theorem MyMonoid.mul_one'.{u} : ∀ {M : Type u} [inst : MyMonoid M] (a : M), Eq (MyMonoid.mul a MyMonoid.one) a :=
+lean: fun {M} [inst : MyMonoid M] a ↦ MyMonoid.mul_one a
+words:
+import-stub MyMonoid
+  universe u
+  u Type u Type ->
+end MyMonoid
+
+import-stub Eq
+  universe u_1
+  u_1 Sort implicit: α
+  α α Prop -> ->
+end Eq
+
+import-stub MyMonoid.mul
+  universe u
+  u Type implicit: M
+  MyMonoid u ^ M $ instance: self
+  M M M -> ->
+end MyMonoid.mul
+
+import-stub MyMonoid.one
+  universe u
+  u Type implicit: M
+  MyMonoid u ^ M $ instance: self
+  M
+end MyMonoid.one
+
+import-stub MyMonoid.mul_one
+  universe u
+  u Type implicit: M
+  MyMonoid u ^ M $ instance: self
+  M explicit: a
+  Eq u 1 level+ ^ M $ MyMonoid.mul u ^ M $ self $ a $ MyMonoid.one u ^ M $ self $ $ $ a $
+end MyMonoid.mul_one
+
+theorem MyMonoid.mul_one'
+  universe u
+  u Type implicit: M
+  MyMonoid u ^ M $ instance: inst
+  M explicit: a
+  Eq u 1 level+ ^ M $ MyMonoid.mul u ^ M $ inst $ a $ MyMonoid.one u ^ M $ inst $ $ $ a $
+:=
+  MyMonoid.mul_one u ^ M $ inst $ a $
+end MyMonoid.mul_one'
+round trip: terms, names, kinds, labels and notes same; printed text same
+== 09a-chain-draft
+ran: ok
+lean: theorem chain : ∀ {A B C D : Prop}, (A → B) → (B → C) → (C → D) → A → D :=
+lean: fun {A B C D} f g h a ↦ h (g (f a))
+note: chain/to-B (line 12), by an AI: f turns the proof a of A into a proof of B
+note: chain/to-C (line 13), by an AI: g turns that into a proof of C
+note: chain/to-D (line 14), by a person: h finishes the chain: a proof of D
+words:
+theorem chain
+  Prop implicit: A
+  Prop implicit: B
+  Prop implicit: C
+  Prop implicit: D
+  A B -> explicit: f
+  B C -> explicit: g
+  C D -> explicit: h
+  A D ->
+:=
+  A explicit: a h g f a $ label: to-B ai-note" f turns the proof a of A into a proof of B"
+    $ label: to-C ai-note" g turns that into a proof of C"
+    $ label: to-D note" h finishes the chain: a proof of D"
+    fun
+end chain
+round trip: terms, names, kinds, labels and notes same; printed text same
+== 09b-chain-edit
+ran: ok
+lean: theorem composition : ∀ {A B C : Prop}, (A → B) → (B → C) → A → C :=
+lean: fun {A B C} f g value ↦ g (f value)
+lean: theorem chain : ∀ {A B C D : Prop}, (A → B) → (B → C) → (C → D) → A → D :=
+lean: fun {A B C D} f g h a ↦ h (composition f g a)
+note: chain/to-C (line 24), by a person: composition does the first two steps at once
+note: chain/to-D (line 25), by a person: h finishes the chain: a proof of D
+words:
+theorem composition
+  Prop implicit: A
+  Prop implicit: B
+  Prop implicit: C
+  A B -> explicit: f
+  B C -> explicit: g
+  A C ->
+:=
+  A explicit: value g f value $ $ fun
+end composition
+
+theorem chain
+  Prop implicit: A
+  Prop implicit: B
+  Prop implicit: C
+  Prop implicit: D
+  A B -> explicit: f
+  B C -> explicit: g
+  C D -> explicit: h
+  A D ->
+:=
+  A explicit: a h composition A $ B $ C $ f $ g $ a $ label: to-C
+    note" composition does the first two steps at once"
+    $ label: to-D note" h finishes the chain: a proof of D"
+    fun
+end chain
+round trip: terms, names, kinds, labels and notes same; printed text same
+== 10a-missing-app
+ran: error 12 at line:col 8:37 (token `fun`): the body of the binder must be exactly one term; see line:col 8:5; outcome invalid
+== 10b-typo
+ran: error 1 at line:col 8:27 (token `valeu`): unknown name: no syntax word, bound variable, universe parameter or constant has it; outcome invalid
+== 10c-universe
+ran: error 11 at line:col 16:15 (token `$`): wrong number of universe arguments for the constant (write each with ^); see line:col 16:3; outcome invalid
+== 10d-case
+ran: error 1 at line:col 4:3 (token `p`): unknown name: no syntax word, bound variable, universe parameter or constant has it; outcome invalid
+== 11-strict
+ran: ok
+lean: theorem strict_example : ∀ {A : Type} {P : A → Prop}, (∀ ⦃x : A⦄, P x) → ∀ (y : A), P y :=
+lean: fun {A} {P} h y ↦ h
+words:
+theorem strict_example
+  0 Type implicit: A
+  A Prop -> implicit: P
+  A strict-implicit: x P x $ forall explicit: h
+  A explicit: y
+  P y $
+:=
+  h y $
+end strict_example
+round trip: terms, names, kinds, labels and notes same; printed text same
+== 12-hygienic-used
+ran: ok
+lean: theorem hyg_used : ∀ (P : Prop), P → P :=
+lean: fun Q q ↦ q
+words:
+theorem hyg_used
+  Prop explicit: P._@.Main._hyg.3 P._@.Main._hyg.3 P._@.Main._hyg.3 -> forall
+:=
+  Prop explicit: Q Q explicit: q q fun fun
+end hyg_used
+round trip: terms, names, kinds, labels and notes same; printed text same
+== 13-structure-ctor
+ran: ok
+type: MyMonoid.{u} : Type u → Type u
+type: Eq.{u_1} : {α : Sort u_1} → α → α → Prop
+type: MyMonoid.mk.{u} : {M : Type u} → (mul : M → M → M) → (one : M) → ((a : M) → Eq (mul a one) a) → MyMonoid M
+words:
+import-stub MyMonoid
+  universe u
+  u Type u Type ->
+end MyMonoid
+
+import-stub Eq
+  universe u_1
+  u_1 Sort implicit: α
+  α α Prop -> ->
+end Eq
+
+import-stub MyMonoid.mk
+  universe u
+  u Type implicit: M
+  M M M -> -> explicit: mul
+  M explicit: one
+  M explicit: a Eq u 1 level+ ^ M $ mul a $ one $ $ a $ forall explicit: mul_one
+  MyMonoid u ^ M $
+end MyMonoid.mk
+round trip: terms, names, kinds, labels and notes same; printed text same
+== 14-case
+ran: ok
+type: id.{u} : {α : Sort u} → α → α
+type: Id.{u} : Type u → Type u
+lean: def caseVar : {X : Type} → X → X :=
+lean: fun {X} x ↦ x
+lean: def bothIds : Id Nat → Id Nat :=
+lean: fun f ↦ id f
+lean: def propVar : Prop → Prop :=
+lean: fun prop ↦ prop
+words:
+import-stub Nat
+end Nat
+
+import-stub id
+  universe u
+  u Sort implicit: α
+  α α ->
+end id
+
+import-stub Id
+  universe u
+  u Type u Type ->
+end Id
+
+def caseVar
+  0 Type implicit: X
+  X explicit: x
+  X
+:=
+  x
+end caseVar
+
+def bothIds
+  Id 0 ^ Nat $ explicit: f
+  Id 0 ^ Nat $
+:=
+  id 1 ^ Id 0 ^ Nat $ $ f $
+end bothIds
+
+def propVar
+  Prop explicit: prop
+  Prop
+:=
+  prop
+end propVar
+round trip: terms, names, kinds, labels and notes same; printed text same
+== 15-case-variables
+ran: ok
+lean: def caseVar : {X : Type} → X → X :=
+lean: fun {X} x ↦ x
+words:
+def caseVar
+  0 Type implicit: X
+  X explicit: x
+  X
+:=
+  x
+end caseVar
+round trip: terms, names, kinds, labels and notes same; printed text same
