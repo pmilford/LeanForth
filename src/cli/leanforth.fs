@@ -233,8 +233,10 @@ create cli-order
 \ A checked read whose bytes are not the ones the run hashed first.
 : cli-moved ( -- )
   ." error: invalid: the export changed between its digest and its reading" cr ;
+: cli-read-error ( outcome -- outcome )
+  rr-moved? if cli-moved else dup cli-input-error then ;
 : cli-unread ( outcome -- )
-  rr-moved? if cli-moved else dup cli-input-error then dup outcome-full = if cli-limits then
+  cli-read-error dup outcome-full = if cli-limits then
   dup manifest-failed? if cli-manifest-hint then outcome>code cli-code! ;
 : cli-unchecked-note ( -- )
   cli-unchecked @ 0= if exit then

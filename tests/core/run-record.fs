@@ -171,7 +171,8 @@ rr-release foreign-free
 \ digest is changed instead of the file; test_run_records.py swaps the
 \ file itself) fails, and says so.
 : hex-byte ( -- addr ) run-record rr-before facts-hex ;
-T{ constant-fixture rr-start fuel 64 rr-settings! true rr-import -> outcome-ok outcome-ok }T
+constant-fixture rr-start ok? must fuel 64 rr-settings!
+T{ true rr-import -> outcome-ok }T
 rr-check
 T{ rr-finish rr-write -> outcome-ok outcome-ok }T
 T{ third-accepted holds? s\" \"enforced\":true}" holds? -> true true }T
@@ -182,7 +183,8 @@ T{ s" " rr-file! false rr-import rr-moved? -> true outcome-invalid false }T
 rr-release
 \ Checks run although the read was not ok (rvRP3 L1, its probe p8): the
 \ input is still the earlier file's, so no record.
-T{ constant-fixture rr-start fuel 64 rr-settings! true rr-import -> outcome-ok outcome-ok }T
+constant-fixture rr-start ok? must fuel 64 rr-settings!
+T{ true rr-import -> outcome-ok }T
 rr-check
 T{ composition rr-start -> outcome-ok }T
 rr-check

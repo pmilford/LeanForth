@@ -398,7 +398,8 @@ class Checks:
         words = {}
         for name in ("x", "a", "b"):
             for suffix, tag in ((".ndjson", ""), (".ndjson.manifest.json", "-m")):
-                words[name + tag] = f": {name}{tag} ( -- c-addr u ) s\" {folder}/{name}{suffix}\" ;"
+                path = f"{folder}/{name}{suffix}"
+                words[name + tag] = f": {name}{tag} ( -- c-addr u ) s\" {path}\" ;"
 
         def move(old, new):
             return [f"{old} {new} rename-file 0= must", f"{old}-m {new}-m rename-file 0= must"]

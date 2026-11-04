@@ -295,8 +295,9 @@ rr-reset rr-no-source
 : rr-checked-read ( c-addr u -- outcome )
   cin-read-checked dup ok? if drop rr-bytes-check then ;
 : rr-load ( flag -- outcome ) rr-file rot if rr-checked-read else cin-read then ;
+: rr-unstarted ( flag -- outcome ) drop outcome-invalid dup rr-read! ;
 : rr-import ( flag -- outcome )
-  false run-record rr-moved ! rr-file nip 0= if drop outcome-invalid dup rr-read! exit then
+  false run-record rr-moved ! rr-file nip 0= if rr-unstarted exit then
   dup rr-load dup rr-read! swap 0<> run-record rr-enforced ! ;
 : rr-source! ( c-addr u flag -- outcome )
   >r 2dup 40 hex-text? 0= if 2drop r> drop outcome-invalid exit then
