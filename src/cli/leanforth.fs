@@ -454,8 +454,7 @@ create cli-order
   ."   unfolding definitions: some correct proofs end unknown (exit 2)" cr ;
 : cli-limits. ( -- )
   ." limits (check answers full, exit 3; small exports only):" cr
-  ."   " lf-name-capacity .decimal ."  names (" lf-name-byte-capacity .decimal
-  ."  bytes), " lf-level-capacity .decimal ."  levels, " lf-term-capacity .decimal
+  ."   " lf-name-capacity .decimal ."  names, " lf-level-capacity .decimal ."  levels, " lf-term-capacity .decimal
   ."  term nodes, " lf-input-capacity .decimal ."  declarations per export" cr
   ."   universe parameters per declaration and universe arguments per constant:" cr
   ."     no fixed limit (memory)" cr

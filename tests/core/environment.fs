@@ -122,7 +122,7 @@ T{ lf-name-bytes ' flip-byte sees? lf-input-print lf-input-fingerprint = -> true
 \ Loading cannot end with the name bytes out of range.
 lf-input-reset n.A def add
 lf-name-used @ constant used-now
-lf-name-byte-capacity 1+ lf-name-used !
+lf-name-byte-room 1+ lf-name-used !
 T{ lf-input-end lf-input-sealed? -> outcome-invalid false }T
 used-now lf-name-used !
 T{ lf-input-end lf-input-intact? -> outcome-ok true }T

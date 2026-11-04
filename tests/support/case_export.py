@@ -35,6 +35,7 @@ class Export:
     def __init__(self):
         self.lines = [META]
         self.names, self.levels, self.exprs = {}, {("zero",): 0}, {}
+        self.params = []          # universe parameter names, in order of use
 
     def name(self, text):
         if text not in self.names:
@@ -53,6 +54,10 @@ class Export:
             self.exprs[key] = len(self.exprs)
             self.lines.append({"ie": self.exprs[key], **body})
         return self.exprs[key]
+
+    def note_param(self, text):
+        if text not in self.params:
+            self.params.append(text)
 
     def text(self):
         return "".join(json.dumps(line, sort_keys=True, separators=(",", ":")) + "\n"
@@ -91,7 +96,9 @@ class Reader:
             right = self.level()
             return self.export.level((kind, left, right), {kind: [left, right]})
         if tag == "p":
-            name = self.export.name(self.token())
+            text = self.token()
+            self.export.note_param(text)
+            name = self.export.name(text)
             return self.export.level(("param", name), {"param": name})
         raise CaseError(f"level {tag}")
 
@@ -148,7 +155,10 @@ class Reader:
         self.token()                       # before or check
         kind, safety = self.token(), self.token()
         name = self.export.name(self.token())
-        params = [self.export.name(self.token()) for _ in range(self.number())]
+        texts = [self.token() for _ in range(self.number())]
+        for text in texts:
+            self.export.note_param(text)
+        params = [self.export.name(text) for text in texts]
         self.expect("TYPE")
         claim = self.term()
         self.expect("VALUE")
@@ -168,6 +178,37 @@ class Reader:
         else:
             raise CaseError(f"kind {kind}")
         self.export.lines.append(record)
+
+
+def case_params(text):
+    """Each case of the text, in order, as (id, the universe parameter names
+    it declares or uses)."""
+    return [(case, export_of(case_text).params) for case, case_text in case_texts(text)]
+
+
+def case_texts(text):
+    """The text split by case: (id, its DECL lines)."""
+    cases, case, lines = [], None, []
+    for line in text.splitlines():
+        word, rest = line.split(" ", 1)
+        if word == "CASE":
+            if case is not None:
+                cases.append((case, lines))
+            case, lines = rest, []
+        elif word == "DECL" and case is not None:
+            lines.append(rest)
+        else:
+            raise CaseError(f"unexpected line {line!r}")
+    if case is not None:
+        cases.append((case, lines))
+    return cases
+
+
+def export_of(lines):
+    export = Export()
+    for rest in lines:
+        Reader(export, rest.split()).declaration()
+    return export
 
 
 def case_exports(text):
