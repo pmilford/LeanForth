@@ -2238,6 +2238,31 @@ theorem clampDebug_prints (c : Cells) (fuel : Nat) (lower upper value : Int)
   by_cases h : lower > upper <;>
     simp [runOut, lookup_clampDebug, clampDebugBody, step, h, Out.effect, Out.events]
 
+/-- The bytes an event prints, as both Gforths print them (the amendment's
+probes 2 and 3, and tests/program/verify_ir02.py): a number in decimal and
+a blank; a newline as LF; EMIT's byte x mod 256; blanks; the text. `.S` has
+none here: Forth-2012 leaves its format to the system. The IR interpreter
+(src/program/ir-run.fs) prints these bytes, which the tests compare with
+both Gforths; nothing proves that a host prints them. -/
+def decimalBytes (n : Int) : List Nat := (toString n).toList.map Char.toNat
+
+def Event.render : Event → Option (List Nat)
+  | .number n => some (decimalBytes n ++ [32])
+  | .unsigned u => some (decimalBytes u ++ [32])
+  | .newline => some [10]
+  | .char x => some [(x % 256).toNat]
+  | .blanks n => some (List.replicate n 32)
+  | .text s => some (s.toList.map Char.toNat)
+  | .stack _ => none
+
+-- What probes 2 and 3 saw both Gforths print, on 64-bit cells.
+example : Event.render (.number (-5)) = some [45, 53, 32] := by decide
+example : (Out.events cells64 .uDot ⟨[-1], []⟩).map Event.render =
+    [some ("18446744073709551615 ".toList.map Char.toNat)] := by decide
+example : (Out.events cells64 .emit ⟨[321], []⟩).map Event.render = [some [65]] := by decide
+example : (Out.events cells64 .emit ⟨[-1], []⟩).map Event.render = [some [255]] := by decide
+example : (Out.events cells64 .spaces ⟨[-2], []⟩).map Event.render = [some []] := by decide
+
 /-- Planted fault, refuted: `.` modelled as taking no cell would leave the
 duplicate behind. -/
 theorem dot_takes_a_cell :

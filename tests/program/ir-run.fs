@@ -460,6 +460,10 @@ variable printed#
 : print+ ( c-addr u -- ) tuck printed printed# @ chars + swap chars move printed# +! ;
 : printing ( -- ) 0 printed# ! ['] print+ irx-output-to ;
 : printed? ( c-addr u -- flag ) printed printed# @ compare 0= ;
+T{ g( s"   out ." >ir )g -> }T
+T{ printing -5 in1 1 f drop s" -5 " printed? -> true }T
+T{ printing max-n 1+ in1 1 f drop printed printed# @ s" -" search nip nip -> true }T
+T{ printing 0 given 1 f irx-result printed# @ -> outcome-invalid irx-underflow 0 }T
 T{ g( s"   out ." >ir s"   out u." >ir s"   out space" >ir )g -> }T
 T{ printing -5 7 in2 1 f s" 7 18446744073709551611  " 2drop printed# @ 0> -> outcome-ok true }T
 T{ printing -5 7 in2 1 f drop s" 7 " printed printed# @ 2 min compare -> 0 }T

@@ -373,11 +373,11 @@ The generated clamp receipt (`tests/program/receipts/generated/lf-clamp.json`):
       },
       {
         "path": "src/program/ir-run.fs",
-        "sha256": "2c0b0c8914df9f58cbc2e24e42a371164bdff69623bad8198e54df0389e58cf4"
+        "sha256": "67156226a80e6f88462ba96987bcc8b1079a2e7285b275b93fbdc638a0600ab0"
       },
       {
         "path": "tests/program/ir_run_differential.py",
-        "sha256": "ec87230ab75a150633137183a659be70e64e1b0fa6f1f9246c748c4377cf725e"
+        "sha256": "be074390110925e9b32f83a223be300b6e4f9e1a881dc261ca1c7f29010b2a26"
       },
       {
         "path": "tests/reference/program-ir-run.lean",
@@ -477,6 +477,39 @@ version comes is for the owner to decide at the gate.
   of Python's `\UXXXXXXXX`, which ECMA-262 engines cannot compile). On
   every Unicode code point it accepts exactly what it accepted before, so
   no receipt's validity changed; a test pins the file's hash from then on.
+  On 2026-11-04, with IR 0.2 implemented, the clamp receipt was
+  regenerated, still 0.2, its IR byte for byte the same: only the
+  `trusted-reader` assumption's text changed (redefinitions of the file's
+  own words are now accepted as versions, numbers may carry Forth-2012's
+  prefixes), and the evidence's date.
+
+### Schema 0.3: what IR 0.2 receipts need
+
+[IR 0.2](PROGRAM_IR.md#ir-02) is implemented, but no receipt can describe
+an IR 0.2 program yet: schema 0.2's `program.ir.version` is the constant
+`"0.1"`, and nothing in it says that a word prints. So
+`scripts/program_receipt.py` refuses to write a receipt for an IR whose
+first line is not `lf-ir 0.1` ("needs receipt schema 0.3 … awaits the
+owner's [format] gate; no receipt written"), and `tests/program/receipt_check.py`
+checks that refusal. Receipts of IR 0.1 programs, version names such as
+`lf-clamp'1` included, stay schema 0.2 (`program.word` admits `'`; the
+`trusted-reader` assumption then says which later version the name means
+after loading). Schema 0.3, proposed by ADR 0019 Amendment 1 (A4) and to
+be decided at the [format] gate with the first IR 0.2 receipt (a SHA-2
+helper word), would change exactly two things:
+
+1. `program.ir.version`: `"0.1"` or `"0.2"`.
+2. `program.output` (boolean, required): true when the word or any word it
+   calls has an `out` line; then an assumption of the new kind `output` is
+   required (as `floatingPoint` requires `floating-point`), saying whether
+   the contract describes the output or only the stacks, that output is
+   assumed to succeed (a closed pipe stops Gforth with THROW −2049, which
+   the model does not have), and the `BASE` assumed. The `run` part would
+   compare stacks as today and, for a contract that describes output, the
+   captured standard output with the events Lean's `Event.render` gives.
+
+The pending renaming of `trusted-reader` could ride along. Nothing of
+this is implemented; the schema file stays 0.2.
 
 The plan extends the schema to theorem receipts (task 3.4.3) and wraps it
 in the versioned JSON-RPC interface (task 3.5.1, [interface

@@ -529,7 +529,7 @@ max-n 1+ irx-width constant irx-cell-digits
   2dup s\" \"" search 0= if 2drop 2drop false exit then
   2swap drop 2 pick over - 1 chars / 2swap 1 /string true ;
 : irx-text-location ( rest-addr rest-u -- )
-  0 irx-tokens# ! dup if over c@ bl = irx-expect 1 /string irx-tokens else 2drop then
+  0 irx-tokens# ! dup if 2dup irx-space? irx-expect 1 /string irx-tokens else 2drop then
   irx-locate irx-tokens# @ 0= irx-expect ;
 : irx-text-size ( u -- size ) chars cell+ aligned ;
 : irx-texts# ( -- addr ) irx-state irx-s-texts# ;
