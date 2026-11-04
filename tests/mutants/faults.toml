@@ -1436,8 +1436,8 @@ reason = "a literal's minus sign is dropped: examples.fs's golden IR (-1 1 rshif
 [[fault]]
 id = "pv-names-not-folded"
 file = "src/program/verify-semantics.fs"
-old = '''  0 over pv-def-length ! pv-token-text 2 pick pv-def+ dup pv-def-chars pv-fold'''
-new = '''  0 over pv-def-length ! pv-token-text 2 pick pv-def+ dup pv-def-chars 2drop'''
+old = ''': pv-name-folded ( def -- def ) dup pv-def-chars pv-fold ;'''
+new = ''': pv-name-folded ( def -- def ) ;'''
 test = "$GFORTH tests/program/verify.fs && python3 tests/program/verify_check.py"
 reason = "a definition's name is written as spelt, not in lower case, unlike today's reader (the clamp in upper case)"
 
@@ -1624,8 +1624,8 @@ reason = "the literal -2147483649, below -2^31, is accepted"
 [[fault]]
 id = "pv-hex-as-decimal"
 file = "src/program/verify-semantics.fs"
-old = '''[char] $ of 16 8 endof'''
-new = '''[char] $ of 10 8 endof'''
+old = '''16 8 pv-radix, pv-radix-16'''
+new = '''10 8 pv-radix, pv-radix-16'''
 test = "$GFORTH tests/program/verify.fs"
 reason = "A3: $10 is read in decimal, or refused for its hexadecimal letters"
 
@@ -1702,8 +1702,8 @@ reason = "A2: an output word outside a definition, which would print while the f
 [[fault]]
 id = "pv-s-quote-without-type"
 file = "src/program/verify-semantics.fs"
-old = '''  pv-token @ pv-token# @ parse-name 2dup pv-type? 0= pv-why-not-ir pv-?fail'''
-new = '''  pv-token @ pv-token# @ parse-name'''
+old = '''  2dup pv-type? 0= pv-why-not-ir pv-?fail'''
+new = ''''''
 test = "$GFORTH tests/program/verify.fs"
 reason = "A2: S\" is accepted before any word, though its string's address is memory IR 0.2 lacks"
 
@@ -1762,6 +1762,80 @@ old = ''': irx-new? ( -- ) irx-state irx-s-new @ irx-expect ;'''
 new = ''': irx-new? ( -- ) ;'''
 test = "$GFORTH tests/program/ir-run.fs"
 reason = "A4: an IR 0.2 instruction under an IR 0.1 version line is loaded"
+
+# Review rvIR3's faults, and those of its fixes.
+
+[[fault]]
+id = "rv-type-identity-skipped"
+file = "src/program/verify.fs"
+old = '''  >r pv-host r> pv-entry-host @ <> pv-why-replaced pv-?fail ;'''
+new = '''  drop 2drop ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "rvIR3 L2: the mode shift no longer checks TYPE after S\" by identity, so a TYPE redefined before the run is accepted there"
+
+[[fault]]
+id = "rv-char-unclosed"
+file = "src/program/verify-semantics.fs"
+old = '''  dup pv-quote-char? over 2 chars + pv-quote-char? and 0= if drop false exit then'''
+new = '''  dup pv-quote-char? 0= if drop false exit then'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "rvIR3 L3: 'ab, 'a- and '>x are read as numbers, though both Gforths refuse them"
+
+[[fault]]
+id = "rv-collision-skips-first"
+file = "src/program/verify-semantics.fs"
+old = '''  pv-defs store-count @ 1- 0 ?do dup i pv-same-name? if drop true unloop exit then loop'''
+new = '''  pv-defs store-count @ 1- 1 max 1 ?do dup i pv-same-name? if drop true unloop exit then loop'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "rvIR3: the collision check ignores the file's first definition (: x'1 ; : x ; : X ;)"
+
+[[fault]]
+id = "rv-dot-quote-not-new"
+file = "src/program/verify-semantics.fs"
+old = '''  pv-out-line s\" .\q " pv-append pv-append s\" \q" pv-append pv-done ;'''
+new = '''  s" out " pv-line-start s\" .\q " pv-append pv-append s\" \q" pv-append pv-done ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "rvIR3: a file whose only IR 0.2 lines are .\" or S\" TYPE is labelled lf-ir 0.1"
+
+[[fault]]
+id = "pv-calls-by-source-name"
+file = "src/program/verify-semantics.fs"
+old = ''': pv-call-inside ( index -- ) pv-visible s" call " pv-line-start pv-call-text pv-done ;'''
+new = ''': pv-call-inside ( index -- ) pv-visible begin dup pv-def pv-def-prev @ dup 0< 0= while nip repeat drop s" call " pv-line-start pv-call-text pv-done ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "A1 test 4: a call is written with the source name (the first version's), so Lean's lookup reaches the oldest version where Gforth calls the newest"
+
+[[fault]]
+id = "pv-full-sends-lines"
+file = "src/program/verify-report.fs"
+old = ''': pv-flush ( -- ) pv-full? 0= if pv-send-lines then pv-send-said ;'''
+new = ''': pv-flush ( -- ) pv-send-lines pv-send-said ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "rvIR3 L1: a run that stops as full, the heap's above all, sends the IR it had, which can look whole"
+
+[[fault]]
+id = "pv-heap-full-diagnostic-lost"
+file = "src/program/verify-report.fs"
+old = ''': pv-send-said ( -- ) pv-said dup if pv-emit else 2drop then ;'''
+new = ''': pv-send-said ( -- ) ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "rvIR3 L1: the diagnostic line is never sent"
+
+[[fault]]
+id = "portable-dots-ten"
+file = "src/lib/portability.fs"
+old = '''depth 9 min dup 0 ?do dup i - pick . loop drop ;'''
+new = '''depth 10 min dup 0 ?do dup i - pick . loop drop ;'''
+test = "python3 tests/program/verify_ir02.py"
+reason = "rvIR3 L9: the portable .S shows ten cells where both Gforths show nine"
+
+[[fault]]
+id = "irx-spaces-unbounded"
+file = "src/program/ir-run.fs"
+old = ''': irx-print-spaces ( op -- ) drop irx-data-pop irx-fuel @ min irx-say-blanks ;'''
+new = ''': irx-print-spaces ( op -- ) drop irx-data-pop irx-say-blanks ;'''
+test = "$GFORTH tests/program/ir-run.fs"
+reason = "rvIR3 L8: the interpreter's SPACES prints a count beyond its fuel, so a huge one keeps a run going for ages"
 
 [[fault]]
 id = "pv-frames-capacity"
@@ -2136,10 +2210,26 @@ quick = true
 [[fault]]
 id = "cli-severity-order"
 file = "src/cli/tally.fs"
-old = '''create cli-severity  0 , 3 , 1 , 2 , 4 , 5 ,'''
-new = '''create cli-severity  0 , 1 , 3 , 2 , 4 , 5 ,'''
+old = '''create cli-severity  0 , 4 , 2 , 3 , 5 , 6 , 1 ,'''
+new = '''create cli-severity  0 , 2 , 4 , 3 , 5 , 6 , 1 ,'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "an unknown declaration outranks a rejected one: the documented order is broken"
+
+[[fault]]
+id = "cli-not-proved-status-0"
+file = "src/cli/tally.fs"
+old = '''create cli-severity  0 , 4 , 2 , 3 , 5 , 6 , 1 ,'''
+new = '''create cli-severity  0 , 4 , 2 , 3 , 5 , 6 , 0 ,'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "NOT PROVED ranks with all accepted: a declaration resting on an axiom can leave status 0"
+
+[[fault]]
+id = "cli-not-proved-uncoded"
+file = "src/cli/tally.fs"
+old = '''  not-proved? if 1 cli-not-proved +! exit-not-proved cli-code! then ;'''
+new = '''  not-proved? if 1 cli-not-proved +! then ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "NOT PROVED is counted but has no exit code of its own (owner's rule; review rvCLI2 M5)"
 
 [[fault]]
 id = "cli-verdicts-not-in-code"
@@ -2168,11 +2258,11 @@ reason = "a Forth exception inside a command exits 0 instead of 5, an internal f
 
 [[fault]]
 id = "cli-spent-context-ignored"
-file = "src/cli/leanforth.fs"
-old = ''': cli-faulted? ( -- flag ) lf-env-spent? cli-run-outcome ok? 0= or ;'''
-new = ''': cli-faulted? ( -- flag ) cli-run-outcome ok? 0= ;'''
-test = "$GFORTH tests/cli/leanforth.fs"
-reason = "a check that threw is reported as invalid input (4), not as an internal fault (5)"
+file = "src/cli/check-run.fs"
+old = '''  ck-viewed? if ck-all-final? ck-stopped? 0= and flag>outcome else outcome-invalid then ;'''
+new = '''  ck-viewed? if ck-all-final? flag>outcome else outcome-invalid then ;'''
+test = "python3 tests/cli/test_leanforth.py"
+reason = "a run whose last check threw ends ok: the report says run ok and stopped (review rvCLI2 L1)"
 
 [[fault]]
 id = "cli-not-proved-never"
@@ -2215,6 +2305,7 @@ old = ''': ck-final? ( d -- flag ) lf-env-readable dup if nip then ;'''
 new = ''': ck-final? ( d -- flag ) drop true ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "a run whose publisher failed, leaving a slot open, is not reported as stopped"
+equivalent = "defence in depth since review rvCLI2 L1: a run leaves a slot open only when lf-env-step reports a stop (a THROW, a publisher fault) or the run stops before it, and either sets ck-faulted, which ck-confirm also requires clear; caught before L1, when the stop flag was dropped"
 
 [[fault]]
 id = "cli-fuel-off-by-one"
@@ -2235,8 +2326,8 @@ reason = "a failed inference's zeroed counter is reported as the whole budget us
 [[fault]]
 id = "cli-capacities-kept-raised"
 file = "src/cli/check-run.fs"
-old = '''  lf-name-detach ck-empty ck-restore false ck-state ck-began-feed ! ;'''
-new = '''  lf-name-detach ck-empty false ck-state ck-began-feed ! ;'''
+old = '''  lf-name-detach ck-empty ck-restore ck-state ck-restored-outcome !'''
+new = '''  lf-name-detach ck-empty outcome-ok ck-state ck-restored-outcome !'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "after a check the stores keep the sizes the feed raised, so later small checks differ"
 
@@ -2260,8 +2351,8 @@ quick = true
 [[fault]]
 id = "cli-json-all-accepted"
 file = "src/cli/check-json.fs"
-old = '''  lf-env-outcome dup ok? if drop s" accepted" else outcome-text then ;'''
-new = '''  drop s" accepted" ;'''
+old = '''  dup cj-began? if lf-env-outcome else drop not-checked then verdict-name ;'''
+new = '''  drop outcome-ok verdict-name ;'''
 test = "python3 tests/cli/test_leanforth.py"
 reason = "trust boundary: the JSON report calls every declaration accepted, not its slot's verdict"
 quick = true
@@ -2269,8 +2360,8 @@ quick = true
 [[fault]]
 id = "cli-json-never-stopped"
 file = "src/cli/check-json.fs"
-old = '''  ck-verdicts? if lf-env-spent? ck-outcome ok? 0= or else false then ;'''
-new = '''  false ;'''
+old = ''': cj-stopped ( -- ) ck-stopped? s" stopped" cj-flag ;'''
+new = ''': cj-stopped ( -- ) false s" stopped" cj-flag ;'''
 test = "python3 tests/cli/test_leanforth.py"
 reason = "the JSON report of a run that stopped on a fault does not say so"
 
@@ -2335,10 +2426,61 @@ reason = "a Gforth that fails on its own is reported with exit status 0"
 [[fault]]
 id = "wrapper-takes-host-status"
 file = "bin/leanforth"
-old = '''  10[0-5]) code=$((status - 100)) ;;'''
-new = '''  10[0-5] | [0-5]) code=$((status % 100)) ;;'''
+old = '''  10[0-6]) code=$((status - 100)) ;;'''
+new = '''  10[0-6] | [0-6]) code=$((status % 100)) ;;'''
 test = "python3 tests/cli/test_leanforth.py"
 reason = "Gforth's own exit status (0 after it ends early, 1 after an error) reads as a verdict"
+
+# --- names as Lean shows them (src/cli/name-text.fs; review rvCLI2 M1, M2) --
+
+[[fault]]
+id = "cli-name-raw"
+file = "src/cli/name-text.fs"
+old = '''  2dup s" »" nt-holds? 0= r> and if nt-quoted else nt-escaped then ;'''
+new = '''  r> drop nt-put ;'''
+test = "python3 tests/cli/test_leanforth.py"
+reason = "a name is printed raw: a line feed in it forges a line such as 'x: accepted ...'"
+quick = true
+
+[[fault]]
+id = "cli-name-banned-kept"
+file = "src/cli/name-text.fs"
+old = '''  3 pick over nt-banned? if nt-banned exit then'''
+new = '''  3 pick over 2drop false if nt-banned exit then'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "control and bidirectional characters in a name are printed as they are, inside « »"
+
+[[fault]]
+id = "cli-name-backslash-kept"
+file = "src/cli/name-text.fs"
+old = '''  swap [char] \ = if drop nt-backslash else nt-raw then ;'''
+new = '''  nip nt-raw ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "a backslash in a name is not escaped, so a name can show the text of an escape it does not hold"
+
+[[fault]]
+id = "cli-name-no-root"
+file = "src/cli/name-text.fs"
+old = '''    over swap nt-parts slab-at ! lf-name-prefix@'''
+new = '''    over swap nt-parts slab-at ! drop 0'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "only a name's last component is shown, not the walk to its root"
+
+[[fault]]
+id = "cli-fuel-unbounded"
+file = "src/cli/leanforth.fs"
+old = '''  dup cli-fuel-most > if drop c" a fuel amount above 9007199254740991" cli-wrong exit then'''
+new = '''  dup drop false if drop c" a fuel amount above 9007199254740991" cli-wrong exit then'''
+test = "python3 tests/cli/test_leanforth.py"
+reason = "--fuel above 2^53 - 1 is taken, and the report's fuel is beyond what JSON holds exactly"
+
+[[fault]]
+id = "cli-schema-status-0-loose"
+file = "schemas/check-report-0.1.schema.json"
+old = '''          "counts": {"allOf": [{"$ref": "#/$defs/allAccepted"}, {"properties": {"notProved": {"const": 0}}}]},'''
+new = '''          "counts": {"type": "object"},'''
+test = "python3 tests/cli/test_leanforth.py"
+reason = "the schema takes a status-0 report whose counts hold a rejected or NOT PROVED declaration"
 
 # --- the importer stage (src/import/stage.fs, stage-records.fs) -----------
 

@@ -619,6 +619,7 @@ Lean. **Roadmap:** T10.1–T10.4, P6–P9, D1.
 | 8.4.3 | (P) Translation validation for a bounded subset (P9.3) | Adversarial compiler outputs rejected | 8.4.2 | [runtime], [kernel] | L |
 | 8.5.1 | Same schemas exposed as MCP tools and editor integration (INTERFACE_CONTRACTS.md, handoff §6) | Golden tests shared with 3.5.3 | 3.5.3 | [owner] (new dependency) | M |
 | 8.6.1 | LaTeX output mode of the term and proof printers (owner, 2026-11-03), beside Unicode and ASCII; untrusted presentation | Golden LaTeX for the pinned examples; renders with a standard LaTeX install | 2.4.4 | — | S |
+| 8.6.2 | The statement in three forms in every printed outline and `leanforth print` (owner, 2026-11-04: "as well as mathematical notation, potentially Lean notation, we should be showing the problem statement in LeanForth"): the outline's header gives the statement in LeanForth words (the printer's Forth mode, `src/present/print-forth.fs`), in Lean's notation (today's Statement line) and in mathematical notation (LaTeX, 8.6.1); an option chooses which; untrusted presentation | Golden outlines for the pinned examples show all three forms; the LeanForth form, read back by the authoring words (8.1.2), builds the identical statement term | 2.4.4, 8.1.2, 8.6.1 | — | S |
 
 ### Phase 9 — Research validation, outside audit and release 1.0
 

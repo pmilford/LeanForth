@@ -25,46 +25,49 @@
 \       (import/run-replay.fs): the replay report, exit 0 confirmed, 1
 \       refused (a difference), 4 when it cannot be compared;
 \   print [--no-manifest] [--fuel N] [--detail] [--name NAME] EXPORT
-\       check the export as check does, one declaration at a time with the
-\       derivation log on, and print each one's proof outline right after
-\       its check (cli/print.fs, present/proof-outline.fs), or with
-\       --detail every step of its log; with --name only that declaration;
+\       check the export as check --record does, one declaration at a time
+\       with the derivation log on, and print each one's proof outline
+\       right after its check (cli/print.fs, present/proof-outline.fs), or
+\       with --detail every step of its log; with --name only that one;
 \   count [--no-manifest] EXPORT          the record counts (ndjson-count.fs);
 \   reexport [--no-manifest] EXPORT COPY  the byte-exact copy (ndjson-emit.fs);
 \   version, capabilities, help (also --version, --help and -h).
-\ Exit codes: 0 all accepted (or the command done), 1 something rejected,
-\ 2 unsupported or unknown, 3 a resource limit (out of fuel or room),
-\ 4 malformed input (also a malformed command line, or a file that cannot
-\ be opened or created), 5 an internal fault (a Forth exception, a check
-\ that threw, a publisher fault). When outcomes differ, the most severe
-\ wins, in the order 5, 4, 1, 3, 2, 0: a fault or a malformed export puts
-\ every verdict in doubt; a rejection is Lean's definite "no"; a limit or
-\ a missing feature leaves a declaration undecided. cli-main leaves the
-\ host with status 100 + code, so that bin/leanforth tells LeanForth's
-\ codes from the host's own failures (Gforth ends with 0 or 1 after an
-\ uncaught error), and maps any other status to 5.
+\ Exit codes (cli/tally.fs): 0 all accepted (or the command done), 1
+\ something rejected, 2 unsupported or unknown, 3 a resource limit (out of
+\ fuel or room), 4 malformed input (also a malformed command line, or a
+\ file that cannot be opened or created), 5 an internal fault (a Forth
+\ exception, a check that threw, a publisher fault), 6 all accepted but
+\ some NOT PROVED (proposed; owner's confirmation pending). When codes
+\ differ, the most severe wins, in the order 5, 4, 1, 3, 2, 6, 0. cli-main
+\ leaves the host with status 100 + code, so that bin/leanforth tells
+\ LeanForth's codes from the host's own failures (Gforth ends with 0 or 1
+\ after an uncaught error), and maps any other status to 5.
 \
 \ Trust boundary: "accepted" is printed only by lf-check-verdict.
 \ (kernel/check-declaration.fs) from a declaration's published slot, and
 \ the exit code comes from the slots' outcomes as lf-env-outcome reads
 \ them; staging, parsing and printing here can hand the checker a wrong
-\ claim or misreport a failure, never make a declaration accepted. An
-\ accepted declaration whose axiom set is not empty is marked NOT PROVED
-\ (the owner's rule; the first checker accepts no axiom, so none is yet).
-\ check --record, replay and print hold small exports only (64 names,
-\ levels and term nodes, 32 declarations): anything larger ends full, exit
-\ 3, and the output says so. Untrusted, like everything in src/ until the
-\ review gate.
+\ claim or misreport a failure, never make a declaration accepted. Names
+\ are printed as cli/name-text.fs shows them, escaped, so a crafted name
+\ cannot forge a line. An accepted declaration whose axiom set is not
+\ empty is marked NOT PROVED (the owner's rule; the first checker accepts
+\ no axiom, so none is yet). check --record, replay and print hold small
+\ exports only (64 names, levels and term nodes, 32 declarations):
+\ anything larger ends full, exit 3, and the output says so. Untrusted,
+\ like everything in src/ until the review gate.
 \
 \ The Forth interface, for a Forth session or a test, each ( -- code )
 \ after its arguments, printing what the command prints: cli-check
 \ ( c-addr u ), cli-replay ( export-addr export-u record-addr record-u ),
-\ cli-count ( c-addr u ), cli-reexport ( in-addr in-u out-addr out-u ),
-\ cli-version, cli-capabilities, cli-help. They use the options in force:
-\ cli-options restores the defaults (manifest checked, fuel
-\ cli-default-fuel, no record, text without the resource report),
-\ cli-no-manifest, cli-fuel!, cli-record!, cli-resources and cli-json
-\ change them. A THROW inside a command is caught and reported: code 5.
+\ cli-print ( c-addr u ), cli-count ( c-addr u ), cli-reexport ( in-addr
+\ in-u out-addr out-u ), cli-version, cli-capabilities, cli-help. They use
+\ the options in force: cli-options restores the defaults (manifest
+\ checked, fuel cli-default-fuel, no record, text without the resource
+\ report), cli-no-manifest, cli-fuel!, cli-record!, cli-resources and
+\ cli-json change them. A THROW inside a command is caught and reported:
+\ code 5. A check that threw spends its context (ADR 0012, G-P6): every
+\ later check in that context ends invalid, with diagnostic 29, so a
+\ session runs the next command in a new context (context-new).
 \
 \ Host words: next-arg (Gforth 0.7.3 and 1.0) reads the command line,
 \ where a host without it reads none; (bye) leaves with a status, where a
@@ -79,7 +82,7 @@
 \ (the exit code so far and the declarations counted by verdict); and
 \ one manifest record, cli-manifest, for re-exports, shared because it
 \ owns heap buffers. A check's run is in cli/check-run.fs's shared
-\ records, or with --record in run-record.fs's. One command runs at a
+\ globals, or with --record in run-record.fs's. One command runs at a
 \ time.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
@@ -90,6 +93,7 @@ require ../core/input.fs
 require ../kernel/environment.fs
 require ../kernel/env-publish.fs
 require ../kernel/check-declaration.fs
+require ../kernel/inductive-block.fs
 require ../import/ndjson.fs
 require ../import/manifest.fs
 require ../import/checker-input.fs
@@ -97,13 +101,18 @@ require ../import/run-record.fs
 require ../import/run-replay.fs
 require ../import/ndjson-count.fs
 require ../import/ndjson-emit.fs
-require ../present/print-names.fs
 require ./print.fs
 require ./tally.fs
+require ./name-text.fs
 require ./check-run.fs
 require ./check-json.fs
 
 100000 constant cli-default-fuel   \ fuel of each declaration's check
+\ The most fuel --fuel takes: 2^53 - 1, the largest integer every JSON
+\ reader holds exactly (I-JSON), so that reports and records hold it; on
+\ a host whose cells are smaller, the largest cell.
+: cli-fuel-limit ( -- n ) max-n 53 rshift if 1 53 lshift 1- else max-n then ;
+cli-fuel-limit constant cli-fuel-most
 begin-structure /cli-run
   field: opt-unchecked          \ true: manifests are not checked (--no-manifest)
   field: opt-fuel               \ fuel each declaration's check starts with (--fuel)
@@ -117,7 +126,7 @@ begin-structure /cli-run
   field: arg-set                \ the options the command takes, as bits
   2 cells +field arg-culprit    \ the argument of the first mistake, or 0 0
   field: arg-mistake            \ counted string: the first mistake, or 0
-  field: run-fed                \ true: the last check was cli/check-run.fs's
+  field: run-ops                \ the run the last check made: its words (/cli-ops)
 end-structure
 /cli-run context-record: cli-state
 manifest: cli-manifest
@@ -142,13 +151,21 @@ manifest: cli-manifest
 : cli-json ( -- ) true cli-state opt-json ! ;
 : cli-resources? ( -- flag ) cli-state opt-resources @ ;
 : cli-json? ( -- flag ) cli-state opt-json @ ;
-: cli-fed? ( -- flag ) cli-state run-fed @ ;
+: cli-checked? ( -- flag ) cli-unchecked @ 0= ;
 
-\ Printing numbers in decimal, whatever BASE is.
-: .decimal ( n -- ) base @ >r decimal 0 .r r> base ! ;
+\ Numbers in decimal, whatever BASE is: xt runs with BASE decimal.
+: in-decimal ( i*x xt -- j*x ) base @ >r decimal execute r> base ! ;
+: do-decimal ( n -- ) 0 .r ;
+: .decimal ( n -- ) ['] do-decimal in-decimal ;
+: do-number-text ( n -- c-addr u ) 0 <# #s #> ;
+: cli-number-text ( n -- c-addr u ) ['] do-number-text in-decimal ;
 \ An internal fault: one line, and code 5.
 : cli-fault ( c-addr -- ) ." internal fault: " count type cr exit-fault cli-code! ;
 : cli-note ( c-addr -- ) ." note: " count type cr ;
+\ A declaration's name as cli/name-text.fs shows it; one the heap cannot
+\ hold is not shown, and is an internal fault.
+: cli-unshown ( c-addr u -- ) 2drop ." [a name with no room to show]" exit-fault cli-code! ;
+: cli-name. ( d -- ) lf-input-name nt-name if type else cli-unshown then ;
 
 \ ---------------------------------------------------------------------------
 \ check. Two runs, each checking every declaration in input order, each
@@ -158,32 +175,32 @@ manifest: cli-manifest
 \ size, every check's fuel kept), and with --record run-record.fs's
 \ rr-check (small exports, written to a run record 0.1). The verdicts are
 \ read after the run, each from its published slot, with the diagnostic
-\ its check left: first counted (cli/tally.fs), then printed.
+\ its check left: first counted (cli/tally.fs), then printed. The run
+\ made is a table of its words (/cli-ops), chosen when the check starts.
 \ Dependencies the --record run's environment holds, as make run-record's.
 64 constant cli-pool
-\ A declaration's name; an empty inductive block has none: Lean's
-\ anonymous name, which Lean prints as [anonymous].
-: cli-name. ( d -- )
-  lf-input-name ?dup 0= if ." [anonymous]" exit then ['] type lf-pp-name-to ;
-\ Which run the check made: its declarations whose check began, its
-\ outcome, whether it is the current environment (by identity), and the
-\ diagnostic declaration d's check left.
-: cli-stepped ( -- n ) cli-fed? if ck-steps-begun else run-record rr-stepped @ then ;
-: cli-run-outcome ( -- outcome ) cli-fed? if ck-outcome else run-record rr-run @ then ;
-: cli-ours? ( -- flag ) cli-fed? if ck-ours? else rr-ours? then ;
-: cli-recorded-diag ( d -- first second site code )
-  rr-step-of dup kept-first @ over kept-second @ rot dup kept-site @ swap kept-code @ ;
-: cli-fed-diag ( d -- first second site code )
-  ck-kept dup cks-first @ over cks-second @ rot dup cks-site @ swap cks-code @ ;
-: cli-diag ( d -- first second site code )
-  cli-fed? if cli-fed-diag else cli-recorded-diag then ;
+begin-structure /cli-ops
+  field: ops-stepped      \ ( -- n ) declarations whose check began
+  field: ops-outcome      \ ( -- outcome ) the run's outcome
+  field: ops-ours?        \ ( -- flag ) the run's environment is current
+  field: ops-kept         \ ( d -- step ) what d's check left: a /rr-step
+  field: ops-stopped?     \ ( -- flag ) the run stopped on a fault
+  field: ops-no-env.      \ ( -- ) why no environment could be made or used
+  field: ops-room.        \ ( -- ) the note behind full
+end-structure
+: cli-ops ( -- ops ) cli-state run-ops @ ;
+: cli-stepped ( -- n ) cli-ops ops-stepped @ execute ;
+: cli-run-outcome ( -- outcome ) cli-ops ops-outcome @ execute ;
+: cli-kept ( d -- step ) cli-ops ops-kept @ execute ;
 \ Whether the run stopped on a fault: a THROW spends the context, a
 \ publisher's fault leaves a slot open.
-: cli-faulted? ( -- flag ) lf-env-spent? cli-run-outcome ok? 0= or ;
+: cli-faulted? ( -- flag ) cli-ops ops-stopped? @ execute ;
 \ Verdicts only from the run's own environment, by identity.
-: cli-made? ( -- flag ) cli-ours? lf-env-view ok? and ;
+: cli-made? ( -- flag ) cli-ops ops-ours? @ execute lf-env-view ok? and ;
 \ A declaration's axiom set: 0 when it is not accepted.
 : cli-bits ( d -- bits ) lf-env-axioms drop ;
+\ No room is a resource limit; anything else is a fault.
+: full-or-fault ( outcome -- code ) outcome-full = if exit-limit else exit-fault then ;
 
 \ Counting: each declaration whose check began by the verdict its slot
 \ holds (and NOT PROVED apart), the rest not checked after a fault.
@@ -192,18 +209,17 @@ manifest: cli-manifest
   exit-fault cli-code! lf-input-count cli-stepped - not-checked cli-count-of +! ;
 : cli-tally-verdicts ( -- )
   cli-stepped 0 ?do i cli-tally-one loop cli-faulted? if cli-tally-stopped then ;
-\ No environment could be made or used: no room for it, or a fault.
-: cli-tally-no-env ( -- )
-  cli-run-outcome outcome-full = if exit-limit else exit-fault then cli-code! ;
-: cli-tally-run ( -- ) cli-made? if cli-tally-verdicts else cli-tally-no-env then ;
+: cli-tally-run ( -- )
+  cli-made? if cli-tally-verdicts else cli-run-outcome full-or-fault cli-code! then ;
 
 \ Printing. The diagnostic declaration d's check left, when it left one.
-: cli-at. ( first second site -- )
-  ."  at " lf-diag-site. ." : " swap .decimal space .decimal ;
-: cli-reason. ( first second site code -- )
-  dup lf-diag-none = if 2drop 2drop exit then
+: cli-at. ( step -- )
+  ."  at " dup kept-site @ lf-diag-site. ." : " dup kept-first @ .decimal space
+  kept-second @ .decimal ;
+: cli-reason. ( step -- )
+  dup kept-code @ dup lf-diag-none = if 2drop exit then
   ."   " dup lf-diag-name type ." ; diagnostic " .decimal cli-at. cr ;
-: cli-why. ( d -- ) cli-diag cli-reason. ;
+: cli-why. ( d -- ) cli-kept cli-reason. ;
 \ An accepted declaration that depends on an axiom is NOT PROVED.
 : cli-not-proved. ( d -- )
   dup lf-env-outcome swap cli-bits not-proved?
@@ -219,19 +235,15 @@ manifest: cli-manifest
 : cli-verdicts ( -- )
   cli-stepped 0 ?do i cli-verdict loop cli-faulted? if cli-stopped then ;
 
-\ The summary: "N declarations: a accepted, r rejected, ...", in this order.
-create cli-order
-  outcome-ok , outcome-rejected , outcome-unknown , outcome-unsupported ,
-  outcome-invalid , outcome-exhausted , outcome-full , not-checked ,
-: cli-kind. ( k -- )
-  case outcome-ok of ." accepted" endof not-checked of ." not checked" endof
-    dup outcome-text type endcase ;
-: cli-item ( first? k -- first? )
+\ The summary: "N declarations: a accepted, r rejected, ...", in
+\ cli/tally.fs's verdict order.
+: cli-kind. ( verdict -- ) dup not-checked = if drop ." not checked" else verdict-name type then ;
+: cli-item ( first? verdict -- first? )
   dup cli-count-of @ ?dup 0= if drop exit then
   rot 0= if ." , " then .decimal space cli-kind. false ;
 : cli-summary ( -- )
   lf-input-count dup .decimal ."  declaration" 1 <> if ." s" then ." : "
-  true not-checked 1+ 0 do i cells cli-order + @ cli-item loop drop cr ;
+  true verdict-kinds 0 do i verdict-kind cli-item loop drop cr ;
 \ The accepted ones' label and axioms, read from their slots: none, or
 \ how many are NOT PROVED.
 : cli-axioms. ( -- )
@@ -252,27 +264,50 @@ create cli-order
   ."  names, " lf-level-capacity .decimal ."  levels," cr ." note: "
   lf-term-capacity .decimal ."  term nodes and " lf-input-capacity .decimal
   ."  declarations per export; check without --record holds any size" cr ;
+\ The checker's fixed capacities that end a check full (plan task 6.2.0).
+: cli-capacities. ( -- )
+  lf-env-dep-capacity .decimal ."  dependencies per declaration, " lf-env-pool-max .decimal
+  ."  per export, " lf-ind-ctor-capacity .decimal ."  constructors per" cr ;
 : cli-room-note ( -- )
-  ." note: a check ran out of room; its diagnostic names the limit: a walk holds 64"
-  cr ." note: levels of a term (plan task 6.2.0 lifts it), a declaration "
-  lf-env-dep-capacity .decimal ."  dependencies" cr ;
+  ." note: a check ran out of room; its diagnostic names the limit: memory, or" cr
+  ." note: " cli-capacities. ." note: inductive block (plan task 6.2.0)" cr ;
 : cli-fuel-note ( -- )
   ." note: a check ran out of fuel (" cli-fuel @ .decimal
   ."  steps each); --fuel N gives each more" cr ;
 : cli-notes ( -- )
-  outcome-full cli-count-of @ if cli-fed? if cli-room-note else cli-limits then then
+  outcome-full cli-count-of @ if cli-ops ops-room. @ execute then
   outcome-exhausted cli-count-of @ if cli-fuel-note then ;
 
 \ After the run, counted: the verdicts, the summary and the notes; or why
 \ there was no run, when no environment could be made or used.
 : cli-no-room. ( -- ) ." error: no room for the checked environment" cr ;
 : cli-no-room ( -- ) cli-no-room. exit-limit cli-code! ;
-: cli-no-env. ( -- )
-  cli-run-outcome outcome-full = if cli-no-room. exit then
+: cli-no-env. ( outcome -- )
+  outcome-full = if cli-no-room. exit then
   ." internal fault: no checked environment could be made or used" cr ;
 : cli-results. ( -- )
-  cli-made? if cli-verdicts cli-summary cli-accepted. cli-notes else cli-no-env. then ;
+  cli-made? if cli-verdicts cli-summary cli-accepted. cli-notes
+  else cli-ops ops-no-env. @ execute then ;
 : cli-results ( -- ) cli-tally-run cli-results. ;
+
+\ The two runs' words. --record: run-record.fs's run.
+: rr-stepped@ ( -- n ) run-record rr-stepped @ ;
+: rr-run@ ( -- outcome ) run-record rr-run @ ;
+: rr-stopped? ( -- flag ) lf-env-spent? rr-run@ ok? 0= or ;
+: rr-no-env. ( -- ) rr-run@ cli-no-env. ;
+create cli-recorded-ops
+  ' rr-stepped@ , ' rr-run@ , ' rr-ours? , ' rr-step-of , ' rr-stopped? , ' rr-no-env. ,
+  ' cli-limits ,
+\ The feed's run (cli/check-run.fs); its facts may have found no room
+\ before the environment was made.
+: ck-run-stopped? ( -- flag ) ck-stopped? ck-outcome ok? 0= or ;
+: ck-no-env. ( -- )
+  ck-facts-made? if ck-outcome cli-no-env. exit then
+  ." error: no room for the run's facts (a record of each declaration)" cr ;
+create cli-fed-ops
+  ' ck-steps-begun , ' ck-outcome , ' ck-ours? , ' ck-kept , ' ck-run-stopped? ,
+  ' ck-no-env. , ' cli-room-note ,
+: cli-fed? ( -- flag ) cli-ops cli-fed-ops = ;
 
 \ A read that failed: the outcome, the reason, the field and the line
 \ (0 for the manifest), and for a JSON error the byte within the line.
@@ -288,7 +323,7 @@ create cli-order
 \ A failure about the manifest is at line 0 (the export opened, see
 \ cli-opens?): a hint at the export step and the explicit way out.
 : manifest-failed? ( outcome -- flag )
-  outcome-invalid = cli-unchecked @ 0= and cin-error 2drop 2drop 0= and ;
+  outcome-invalid = cli-checked? and cin-error 2drop 2drop 0= and ;
 : cli-manifest-hint ( -- )
   c" the export is checked against EXPORT.manifest.json, which scripts/export.sh writes;"
   cli-note c" --no-manifest skips that check" cli-note ;
@@ -312,7 +347,6 @@ create cli-order
 \ its manifest checked unless --no-manifest: the file rr-start kept and
 \ hashed, through rr-import, which records the outcome and whether the
 \ manifest was enforced.
-: cli-checked? ( -- flag ) cli-unchecked @ 0= ;
 : cli-import ( -- outcome ) cli-checked? rr-import ;
 : cli-run ( -- ) cli-import dup ok? if drop rr-check cli-results else cli-unread then ;
 : cli-settings ( -- ) rr-release cli-fuel @ cli-pool rr-settings! ;
@@ -321,7 +355,7 @@ create cli-order
 \ failed is reported as a read is, with the stage's line, field and
 \ reason; one that failed on its manifest is invalid at line 0 with no
 \ reason of sealing (stage-why). A feed that failed gives the number of
-\ the expression or declaration where it stopped.
+\ the expression or declaration where it stopped, as feed.fs keeps it.
 : cli-stage-error ( outcome -- )
   >r ck-stage stage-error r> -rot cli-error-head ck-stage stage-export cli-where ;
 : cli-stage-manifest? ( outcome -- flag )
@@ -329,32 +363,30 @@ create cli-order
   ck-stage stage-why @ 0= and ;
 : cli-feed-error ( outcome -- )
   s" the staged export could not be fed to the checker" cli-error-head
-  ."  (at " ck-feeding-record feed-at .decimal ." )" cr ;
+  ."  (it stopped at expression or declaration " ck-feeding-record feed-at .decimal
+  ." )" cr ;
 : cli-fed-unread ( outcome -- )
   ck-phase-failed ck-staging = 0= if cli-feed-error exit then
   dup cli-stage-error cli-stage-manifest? if cli-manifest-hint then ;
 
 \ The resource report (--resources), after the summary and notes: each
-\ phase's wall and CPU time in seconds, the peak resident memory and the
-\ stage's heap blocks, the input's size, and the fuel used in all and by
-\ the declarations that used the most. Times and memory differ from run
-\ to run; the rest does not.
-: cli-number-text ( n -- c-addr u ) base @ >r decimal 0 <# #s #> r> base ! ;
+\ phase's wall and CPU time in seconds, the run's total so far the last,
+\ the peak resident memory and the stage's heap blocks, the input's size,
+\ and the fuel used in all and by the declarations that used the most.
+\ Times and memory differ from run to run; the rest does not.
 \ Text right-aligned in a column of width characters.
 : cli-column ( c-addr u width -- ) over - 0 max spaces type ;
 \ Milliseconds as seconds with three decimals; microseconds in a column.
-: cli-seconds ( ms -- c-addr u )
-  base @ >r decimal 0 <# # # # [char] . hold #s #> r> base ! ;
+: do-seconds ( ms -- c-addr u ) 0 <# # # # [char] . hold #s #> ;
+: cli-seconds ( ms -- c-addr u ) ['] do-seconds in-decimal ;
 : cli-second. ( d-us -- ) 1000 um/mod nip cli-seconds 9 cli-column ;
-\ A row of the time table: its name, then the wall and CPU times.
-: cli-row ( wall cpu c-addr u -- )
-  ."   " dup >r type 8 r> - spaces 2swap cli-second. cli-second. cr ;
-: cli-phase-row ( k c-addr u -- ) 2>r dup ck-phase-wall rot ck-phase-cpu 2r> cli-row ;
+\ Phase k's row: its name, then its wall and CPU times.
+: cli-row ( k -- )
+  ."   " dup ck-phase-name dup >r type 8 r> - spaces
+  dup ck-phase-wall cli-second. ck-phase-cpu cli-second. cr ;
 : cli-times. ( -- )
   ck-timed? 0= if ."   time: not measured on this host" cr exit then
-  ."   time (s)     wall      cpu" cr
-  ck-staging s" stage" cli-phase-row ck-feeding s" feed" cli-phase-row
-  ck-checking s" check" cli-phase-row ck-total-wall ck-total-cpu s" total" cli-row ;
+  ck-finish ."   time (s)     wall      cpu" cr ck-phases 0 do i cli-row loop ;
 \ Bytes in kB (10^3 bytes) below a MB, else in MB (10^6) with one decimal.
 : cli-mb. ( bytes -- ) 100000 / 10 /mod .decimal ." ." .decimal ."  MB" ;
 : cli-size. ( bytes -- )
@@ -365,9 +397,10 @@ create cli-order
 : cli-memory. ( -- ) ."   memory: peak resident " cli-peak. cli-stage-bytes. cr ;
 : cli-input. ( -- )
   ck-loaded? 0= if exit then
-  ."   input: " 0 ck-count .decimal ."  declarations, " 1 ck-count .decimal
-  ."  term nodes, " 2 ck-count .decimal ."  levels, " 3 ck-count .decimal
-  ."  constant references, " ck-staged-names .decimal ."  names" cr ;
+  ."   input: " ck-input-declarations .decimal ."  declarations, "
+  ck-input-terms .decimal ."  term nodes, " ck-input-levels .decimal ."  levels, "
+  ck-input-references .decimal ."  constant references, " ck-staged-names .decimal
+  ."  names" cr ;
 : cli-unknown-fuel. ( -- )
   ck-fuel-unknowns ?dup 0= if exit then
   ."   fuel not known for " .decimal ."  declarations: a failed inference gives its"
@@ -375,13 +408,11 @@ create cli-order
 : cli-fuel. ( -- )
   ."   fuel: " ck-fuel-total decimal-text type ."  steps in all, at most "
   ck-fuel-budget .decimal ."  per declaration" cr cli-unknown-fuel. ;
-: cli-verdict-word ( d -- c-addr u )
-  lf-env-outcome dup ok? if drop s" accepted" else outcome-text then ;
 : cli-fuel-column ( n -- )
   ck-fuel-budget cli-number-text nip >r cli-number-text r> cli-column ;
 : cli-top. ( k -- )
   ck-top@ ."     " dup ck-fuel-of cli-fuel-column space dup cli-name. ."  ("
-  cli-verdict-word type ." )" cr ;
+  lf-env-outcome verdict-name type ." )" cr ;
 : cli-tops. ( -- )
   ck-tops 0= if exit then ."   most fuel used:" cr ck-tops 0 ?do i cli-top. loop ;
 : cli-resources. ( -- )
@@ -402,17 +433,23 @@ create cli-order
 : cli-fed-report ( -- ) cli-json? if cli-fed-json else cli-fed-text then ;
 : cli-library-run ( -- )
   0 cli-file cli-checked? ck-load ok? if ck-check then cli-fed-tally cli-fed-report ;
-\ The run, its report, then everything it holds freed, after a THROW too
-\ (passed on). The run record's state is cleared first, as no record can
-\ be written from this run.
+\ After the run: stores that could not be given back their sizes are an
+\ internal fault (later checks in this context would hold more).
+: cli-restored ( -- )
+  ck-restored ok? if exit then
+  c" the stores could not be given back their sizes" cli-fault ;
+\ The run xt, its report, then everything it holds freed, after a THROW
+\ too (passed on). The run record's state is cleared first, as no record
+\ can be written from this run.
+: cli-fed-run ( xt -- code )
+  cli-fed-ops cli-state run-ops ! rr-release rr-reset cli-fuel @ ck-start
+  catch ck-release throw cli-restored cli-worst @ ;
 : cli-library ( -- code )
-  true cli-state run-fed ! rr-release rr-reset cli-json? 0= if cli-unchecked-note then
-  cli-fuel @ ck-start ['] cli-library-run catch ck-release throw cli-worst @ ;
+  cli-json? 0= if cli-unchecked-note then ['] cli-library-run cli-fed-run ;
 \ An export that does not open: the JSON report says so too.
-: cli-unopened-json ( -- code )
-  cli-fuel @ ck-start ck-unopened exit-malformed cli-code! cli-fed-json ck-release
-  cli-worst @ ;
-: cli-not-opened ( -- code ) cli-json? if cli-unopened-json else cli-unopened then ;
+: cli-unopened-run ( -- ) ck-unopened exit-malformed cli-code! cli-fed-json ;
+: cli-not-opened ( -- code )
+  cli-json? if ['] cli-unopened-run cli-fed-run else cli-unopened then ;
 
 \ The run record (--record, and replay): the commit bin/leanforth found
 \ (LEANFORTH_COMMIT, with LEANFORTH_MODIFIED true when the tree differed
@@ -448,7 +485,7 @@ create cli-order
 : cli-over-export? ( -- flag )
   cli-record? if cli-record 2@ 0 cli-file compare 0= else false then ;
 : cli-checks ( -- code )
-  false cli-state run-fed ! cli-unchecked-note cli-settings
+  cli-recorded-ops cli-state run-ops ! cli-unchecked-note cli-settings
   cli-recording? if cli-run cli-recorded then rr-release cli-worst @ ;
 \ --record keeps the run of small exports, whose record has no resource
 \ report: --json and --resources do not go with it (a mistake, code 4).
@@ -476,17 +513,17 @@ create cli-order
   rp-report ok? 0= if drop outcome-invalid then outcome>code ;
 
 \ ---------------------------------------------------------------------------
-\ print: the export (file 0) read as check reads it (its manifest checked
-\ unless --no-manifest), read once more for binder names (cli/print.fs),
-\ then each declaration checked in file order with the derivation log on
-\ and printed right after its check with its proof outline
-\ (present/proof-outline.fs: the verdict with its label and axioms, the
-\ statement, the outline), or with --detail every step of its log. With
-\ --name only that declaration is printed (the ones before it are checked
-\ too, unprinted; the ones after it are not checked). No outline is ever
-\ printed for a declaration that was not accepted, nor from a log that ran
-\ out of room: the printer says why. Codes: those of check, from the
-\ verdicts of the declarations printed (0 when every one is accepted,
+\ print: the export (file 0) read as check --record reads it (its manifest
+\ checked unless --no-manifest), read once more for binder names
+\ (cli/print.fs), then each declaration checked in file order with the
+\ derivation log on and printed right after its check with its proof
+\ outline (present/proof-outline.fs: the verdict with its label and axioms,
+\ the statement, the outline), or with --detail every step of its log.
+\ With --name only that declaration is printed (the ones before it are
+\ checked too, unprinted; the ones after it are not checked). No outline
+\ is ever printed for a declaration that was not accepted, nor from a log
+\ that ran out of room: the printer says why. Codes: those of check, from
+\ the verdicts of the declarations printed (0 when every one is accepted,
 \ whether or not its outline could be printed: an accepted declaration
 \ whose log ran out of room says so in its text), 4 for a name no
 \ declaration has, 5 when the run stopped (a check threw, publishing
@@ -571,7 +608,8 @@ create cli-order
   cli-opens? if cli-unchecked-note cli-reexported else cli-unopened then ;
 
 \ ---------------------------------------------------------------------------
-\ version and capabilities.
+\ version and capabilities. The texts are lists, one line of output per
+\ line of source, split by what they describe.
 : cli-version-text ( -- c-addr u ) s" 0.1.0-dev" ;
 [defined] version-string [if]
 : cli-host. ( -- ) ." Gforth " version-string type ;
@@ -586,40 +624,44 @@ create cli-order
   ." leanforth " cli-version-text type
   ."  (development version; experimental, not independently audited)" cr
   ." forth: " cli-host. cr cli-reads. exit-accepted ;
-: cli-checks. ( -- )
-  ." supported:" cr
+: cli-check-input. ( -- )
   ."   check: Lean 4.35.0 exports (lean4export 3.1.0 NDJSON) of any size, such as" cr
   ."     all of Lean's Init, staged and fed in Forth; the manifest checked unless" cr
-  ."     --no-manifest; a summary, --resources (time, memory, fuel), --json" cr
+  ."     --no-manifest; a summary, --resources (time, memory, fuel), --json" cr ;
+: cli-check-rules. ( -- )
   ."   check: definitions and theorems built from Sort, variables, application, fun," cr
   ."     forall and earlier accepted declarations (the first checker, ADR 0011)," cr
   ."     and inductive blocks that are not recursive, indexed or mutual (5.2.1a);" cr
-  ."     an accepted one is labelled experimental, not independently audited" cr
+  ."     an accepted one is labelled experimental, not independently audited" cr ;
+: cli-other-commands. ( -- )
   ."   check --record, replay: run records 0.1 and their replay (plan task 2.2.5)" cr
   ."   print: a readable proof outline of each accepted declaration, from the" cr
   ."     checker's derivation log (plan tasks 2.4.1, 2.4.4; untrusted presentation)" cr
   ."   count, reexport: exports of any size, up to all of Mathlib" cr ;
+: cli-checks. ( -- ) ." supported:" cr cli-check-input. cli-check-rules. cli-other-commands. ;
 : cli-lacks. ( -- )
   ." not yet supported (check answers unsupported or unknown, exit 2):" cr
   ."   axioms (5.3.1), opaque declarations (4.2.6), unsafe and partial definitions;" cr
-  ."   let (4.2.3), literals (5.2.3), projections (5.2.2) and metadata in a term;" cr
+  ."   let (4.2.3), literals (5.2.3), projections (5.2.2) and metadata (4.1.3) in a term;" cr
   ."   recursive and indexed inductive types (5.2.1b, 5.2.1c), quotients (5.2.4)," cr
   ."   mutual and nested blocks (5.2.5); unfolding definitions (4.2.2), so some" cr
   ."   correct proofs end unknown; check --record, replay and print refuse" cr
   ."   inductive types while reading" cr ;
-: cli-limits. ( -- )
-  ." limits (check answers full or exhausted, exit 3):" cr
-  ."   check: stores that grow with the export (memory); a walk holds 64 levels" cr
-  ."     of a term (plan task 6.2.0); "
-  lf-env-dep-capacity .decimal ."  dependencies per declaration, "
-  lf-env-pool-max .decimal ."  per export" cr
+: cli-check-limits. ( -- )
+  ."   check: stores and walks that grow with the export (memory, any depth);" cr
+  ."     " cli-capacities. ."     inductive block (plan task 6.2.0)" cr ;
+: cli-small-limits. ( -- )
   ."   check --record, replay, print: " lf-name-capacity .decimal ."  names, "
   lf-level-capacity .decimal ."  levels, " lf-term-capacity .decimal ."  term nodes," cr
   ."     " lf-input-capacity .decimal ."  declarations per export, "
-  cli-pool .decimal ."  dependencies per export" cr
+  cli-pool .decimal ."  dependencies per export" cr ;
+: cli-limits. ( -- )
+  ." limits (check answers full or exhausted, exit 3):" cr cli-check-limits.
+  cli-small-limits.
   ."   universe parameters per declaration and universe arguments per constant:" cr
   ."     no fixed limit (memory)" cr
-  ."   fuel " cli-default-fuel .decimal ."  steps per declaration (--fuel N)" cr ;
+  ."   fuel " cli-default-fuel .decimal ."  steps per declaration (--fuel N, at most "
+  cli-fuel-most cli-number-text type ." )" cr ;
 : cli-planned. ( -- )
   ." planned, not built: program, serve, print and --record on any size," cr
   ."   the axiom names of each accepted declaration (plan task 5.3.2)" cr ;
@@ -628,28 +670,33 @@ create cli-order
   cli-checks. cli-lacks. cli-limits. cli-planned. exit-accepted ;
 
 \ ---------------------------------------------------------------------------
-\ help.
-: cli-usage. ( -- )
-  ." usage: leanforth COMMAND [OPTION]... [FILE]..." cr
+\ help, one part per kind of command.
+: cli-check-usage. ( -- )
   ."   check [--no-manifest] [--fuel N] [--resources] [--json] EXPORT" cr
   ."       check every declaration of a Lean export, in file order, any size;" cr
   ."       --resources adds time, memory and fuel, --json prints it all as JSON" cr
   ."   check [--no-manifest] [--fuel N] --record RECORD EXPORT" cr
-  ."       the same for a small export, and write its run record to RECORD" cr
+  ."       the same for a small export, and write its run record to RECORD" cr ;
+: cli-other-usage. ( -- )
   ."   replay [--no-manifest] [--fuel N] EXPORT RECORD" cr
   ."       check the export again and compare the run record with RECORD" cr
   ."   print [--no-manifest] [--fuel N] [--detail] [--name NAME] EXPORT" cr
   ."       check the export and print each accepted declaration's proof outline" cr
   ."   count [--no-manifest] EXPORT     count the export's records by kind" cr
   ."   reexport [--no-manifest] EXPORT COPY" cr
-  ."       write the export again, byte for byte as Lean's exporter writes it" cr
+  ."       write the export again, byte for byte as Lean's exporter writes it" cr ;
+: cli-info-usage. ( -- )
   ."   version        versions of LeanForth, its Forth host and the format read" cr
   ."   capabilities   what this build supports, what it does not, and its limits" cr
   ."   help           this text" cr ;
+: cli-usage. ( -- )
+  ." usage: leanforth COMMAND [OPTION]... [FILE]..." cr
+  cli-check-usage. cli-other-usage. cli-info-usage. ;
 : cli-codes. ( -- )
   ." exit status: 0 all accepted (or done), 1 something rejected," cr
   ."   2 unsupported or unknown, 3 a resource limit, 4 malformed input or" cr
-  ."   command line, 5 an internal fault; the most severe of 5, 4, 1, 3, 2 wins" cr ;
+  ."   command line, 5 an internal fault, 6 all accepted but some NOT PROVED" cr
+  ."   (proposed); the most severe of 5, 4, 1, 3, 2, 6 wins" cr ;
 : help-command ( -- code ) cli-usage. cli-codes. exit-accepted ;
 
 \ ---------------------------------------------------------------------------
@@ -716,13 +763,18 @@ end-structure
 : cli-value ( c-addr u -- c-addr' u' true | false )
   cli-arg if 2swap 2drop true else c" an option without its value" cli-wrong false then ;
 \ A decimal number from 0 to max-n with nothing else: (n true) or false.
-: cli-digits ( c-addr u -- ud rest ) base @ >r decimal 0 0 2swap >number r> base ! nip ;
+: do-digits ( c-addr u -- ud rest ) 0 0 2swap >number nip ;
+: cli-digits ( c-addr u -- ud rest ) ['] do-digits in-decimal ;
 : cli-in-range? ( ud -- n true | false ) 0= over 0< 0= and if true else drop false then ;
 : cli-decimal ( c-addr u -- n true | false )
   dup 0= if 2drop false exit then cli-digits if 2drop false else cli-in-range? then ;
+\ A fuel amount, at most cli-fuel-most.
+: cli-fuel-value ( c-addr u n -- )
+  dup cli-fuel-most > if drop c" a fuel amount above 9007199254740991" cli-wrong exit then
+  cli-fuel! 2drop ;
 : cli-fuel-option ( c-addr u -- )
   cli-value 0= if exit then 2dup cli-decimal
-  if cli-fuel! 2drop else c" not a fuel amount" cli-wrong then ;
+  if cli-fuel-value else c" not a fuel amount" cli-wrong then ;
 : cli-record-option ( c-addr u -- ) cli-value if cli-record! then ;
 : cli-manifest-option ( c-addr u -- ) 2drop cli-no-manifest ;
 : cli-detail-option ( c-addr u -- ) 2drop true cli-state opt-detail ! ;

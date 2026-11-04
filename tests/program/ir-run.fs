@@ -457,20 +457,38 @@ T{ g( s"   prim -rot" >ir )g 1 2 in2 1 f -> outcome-invalid }T
 \ What out lines print, into a buffer.
 create printed 256 chars allot
 variable printed#
-: print+ ( c-addr u -- ) tuck printed printed# @ chars + swap chars move printed# +! ;
+: print+ ( c-addr u -- )
+  dup printed# @ + 256 > abort" printed full"
+  tuck printed printed# @ chars + swap chars move printed# +! ;
 : printing ( -- ) 0 printed# ! ['] print+ irx-output-to ;
 : printed? ( c-addr u -- flag ) printed printed# @ compare 0= ;
+\ The text expected, built here from the host's own number conversion.
+create wanted 256 chars allot
+variable wanted#
+: want ( -- ) 0 wanted# ! ;
+: want+ ( c-addr u -- ) tuck wanted wanted# @ chars + swap chars move wanted# +! ;
+: want-signed ( n -- ) s>d tuck dabs <# #s rot sign #> want+ s"  " want+ ;
+: want-unsigned ( u -- ) 0 <# #s #> want+ s"  " want+ ;
+: as-wanted? ( -- flag ) wanted wanted# @ printed? ;
 T{ g( s"   out ." >ir )g -> }T
 T{ printing -5 in1 1 f drop s" -5 " printed? -> true }T
-T{ printing max-n 1+ in1 1 f drop printed printed# @ s" -" search nip nip -> true }T
+T{ printing max-n 1+ in1 1 f drop want max-n 1+ want-signed as-wanted? -> true }T
+T{ printing max-n in1 1 f drop want max-n want-signed as-wanted? -> true }T
 T{ printing 0 given 1 f irx-result printed# @ -> outcome-invalid irx-underflow 0 }T
 T{ g( s"   out ." >ir s"   out u." >ir s"   out space" >ir )g -> }T
-T{ printing -5 7 in2 1 f s" 7 18446744073709551611  " 2drop printed# @ 0> -> outcome-ok true }T
-T{ printing -5 7 in2 1 f drop s" 7 " printed printed# @ 2 min compare -> 0 }T
+T{ printing -5 7 in2 1 f want 7 want-signed -5 want-unsigned s"  " want+ as-wanted?
+   -> outcome-ok true }T
 T{ printing max-n 1+ in1 1 s" f" run -> outcome-invalid }T
 T{ g( s"   out cr" >ir s"   out emit" >ir s"   out spaces" >ir )g -> }T
-T{ printing 3 321 in2 1 f drop s\" \nA   " printed? -> true }T
+T{ printing 3 321 in2 9 f drop s\" \nA   " printed? -> true }T
 T{ printing -2 -1 in2 1 f drop printed# @ printed 1 chars + c@ -> 2 255 }T
+\ SPACES prints at most as many blanks as the block has fuel: a word run
+\ with fuel 3 has 2; the stacks and the result are the model's.
+T{ g( s"   out spaces" >ir )g -> }T
+T{ printing 1000 in1 3 f printed# @ irx-depth -> outcome-ok 2 0 }T
+T{ printing max-n in1 3 f printed# @ irx-depth -> outcome-ok 2 0 }T
+T{ printing 5 in1 9 f printed# @ -> outcome-ok 5 }T
+T{ printing max-n 1+ in1 9 f printed# @ -> outcome-ok 0 }T
 T{ g( s"   out .s" >ir s\"   out .\" \"" >ir s\"   out .\"  a @1:2 \" @3:4" >ir )g -> }T
 T{ printing 1 2 in2 1 f drop s"  <2> 1 2  a @1:2 " 1 /string printed? -> true }T
 T{ irx-last -> 3 4 }T
