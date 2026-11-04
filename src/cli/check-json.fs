@@ -94,6 +94,12 @@ create cj-name /slab allot  cj-name /slab erase
 \ ---- The run and its declarations, in input order.
 : cj-run ( -- )
   ck-loaded? if ck-outcome outcome-text else s" not-run" then s" run" cj-text ;
+\ Whether the run stopped on an internal fault, as the text's line "the
+\ run stopped" says: a check threw (the context spent) or publishing
+\ failed (the run invalid), in a run whose verdicts can be read.
+: cj-stopped? ( -- flag )
+  ck-verdicts? if lf-env-spent? ck-outcome ok? 0= or else false then ;
+: cj-stopped ( -- ) cj-stopped? s" stopped" cj-flag ;
 : cj-began? ( d -- flag ) ck-steps-begun < ;
 \ The verdict as a run record writes it: accepted for ok.
 : cj-verdict-text ( d -- c-addr u )
@@ -183,9 +189,10 @@ create cj-name /slab allot  cj-name /slab erase
 : cj-settings ( -- )
   s" settings" cj-key cj-object ck-fuel-budget s" fuel" cj-number
   lf-env-pool-max s" dependencyPool" cj-number cj-end-object ;
+: cj-status ( -- ) cli-worst @ s" exitStatus" cj-number ;
 : cj-body ( c-addr u checked? -- )
-  cj-object cj-head cj-settings cj-read cj-run cj-decls cj-counts cj-fuel cj-input
-  cli-worst @ s" exitStatus" cj-number cj-measured cj-end-object ;
+  cj-object cj-head cj-settings cj-read cj-run cj-stopped cj-decls cj-counts cj-fuel
+  cj-input cj-status cj-measured cj-end-object ;
 : cj-report ( c-addr u checked? -- outcome )
   cj-names-make ['] type cj-writer jw-start cj-body cj-writer jw-end
   dup ok? if cr then cj-name slab-free ;

@@ -10,7 +10,7 @@ approves the checker, Lean's own kernel is the referee. `check` takes
 exports of any size: it stages the export with the importer stage and
 feeds it to the checker, whose stores grow to fit, so a whole library is
 checked from the command line — all of Lean's `Init`, 59,349
-declarations, in [INIT-MINUTES](#a-whole-library-leans-init). Most
+declarations, in [about ten minutes, four with `gforth-fast`](#a-whole-library-leans-init). Most
 of a real library still ends *unsupported* or *unknown*, because
 unfolding definitions (plan task 4.2.2), recursive data types and
 literals (phase 5) are not built yet. Three commands keep the first,
@@ -267,7 +267,36 @@ take the staged declarations. Lean's own `Init` library, exported with
 `scripts/export.sh` (345.7 MB, 59,349 declarations), checked on
 2026-11-04 with the default fuel:
 
-INIT-EXAMPLE
+```text
+$ bin/leanforth check --resources init.ndjson | tail -n 27
+59349 declarations: 1617 accepted, 3746 unknown, 53765 unsupported, 162 exhausted, 59 full
+accepted: 1617 (experimental, not independently audited); axioms: none
+note: a check ran out of room; its diagnostic names the limit: a walk holds 64
+note: levels of a term (plan task 6.2.0 lifts it), a declaration 16 dependencies
+note: a check ran out of fuel (100000 steps each); --fuel N gives each more
+resources:
+  time (s)     wall      cpu
+  stage      74.960   72.068
+  feed       47.671   43.769
+  check     475.480  466.903
+  total     598.636  583.266
+  memory: peak resident 1258.2 MB; the stage's heap blocks 215.1 MB
+  input: 59349 declarations, 6099054 term nodes, 578 levels, 56957 constant references, 295432 names
+  fuel: 25224868 steps in all, at most 100000 per declaration
+  fuel not known for 29999 declarations: a failed inference gives its
+    counter up (their checks are not in the fuel above)
+  most fuel used:
+    100000 Lean.Omega.Constraint.add_sat (exhausted)
+    100000 ByteArray.utf8Decode?.go._unary.eq_def (exhausted)
+    100000 String.Slice.Pos.copy_eq_append_get (exhausted)
+    100000 Array.map_attach_eq_pmap (exhausted)
+    100000 Std.IterM.step_filterMapM (exhausted)
+    100000 Std.Iter.forIn'_eq_match_step (exhausted)
+    100000 Std.IterM.step_filterMap (exhausted)
+    100000 Std.IterM.toList_filterMap (exhausted)
+    100000 Std.Iter.toList_attachWith (exhausted)
+    100000 Std.Iter.step_mapM (exhausted)
+```
 
 Nothing was rejected and nothing was invalid. The 1,617 accepted
 declarations include `id`, `Function.comp` and whole inductive blocks
@@ -288,6 +317,18 @@ no plan task names that limit yet), and *exhausted* a check that needed
 more than 100,000 steps (`--fuel N` gives more). The `gforth-fast`
 engine gives the same output, byte for byte but for the times, in less
 than half the time: set `GFORTH=.tools/gforth/bin/gforth-fast`.
+
+The run above used the default `gforth` engine on a 10-core WSL2 machine
+while other test runs shared it (one core for this run). With
+`gforth-fast` the same run took 4 min 5 s (staging 16.6 s, feeding
+12.0 s, checking 216.1 s; peak 1.24 GB), byte for byte the same
+verdicts. The ten
+declarations that used the most fuel all ran out of it; among the
+accepted ones the most was 48,291 steps (a `match` auxiliary of
+`Sum.exists`). Half the declarations' fuel is not known: their check
+failed inside inference, which gives its counter up, so neither the
+total nor the list counts them ([fuel](#the-resource-report)); a later
+step of plan task 6.5.2 can keep it, with a change to the checker.
 
 ### The resource report
 
@@ -346,7 +387,7 @@ member is cut off:
 
 ```console
 $ bin/leanforth check --json tests/cli/unfold.ndjson | sed "s/,\"measured\":.*/}/"; echo "exit status ${PIPESTATUS[0]}"
-{"schema":"leanforth-check-report","schemaVersion":"0.1","export":"tests/cli/unfold.ndjson","manifest":"checked","label":"experimental, not independently audited","settings":{"fuel":100000,"dependencyPool":65536},"read":{"outcome":"ok","phase":null,"line":null,"field":null,"reason":null,"at":null},"run":"ok","declarations":[{"index":0,"name":"Implies","verdict":"accepted","label":"experimental, not independently audited","axiomBits":0,"notProved":false,"fuel":137},{"index":1,"name":"impliesSelf","verdict":"unknown","diagnostic":{"code":30,"reason":"undecided: terms or levels differ","site":"mixed-convert lf-mixed-convert","numbers":[17,10],"step":8},"fuel":281}],"counts":{"declarations":2,"accepted":1,"rejected":0,"unknown":1,"unsupported":0,"invalid":0,"exhausted":0,"full":0,"notChecked":0,"notProved":0},"fuel":{"perDeclaration":100000,"total":418,"unknown":0,"top":[{"index":1,"name":"impliesSelf","fuel":281,"verdict":"unknown"},{"index":0,"name":"Implies","fuel":137,"verdict":"accepted"}]},"input":{"declarations":2,"terms":14,"levels":1,"references":1,"names":10},"exitStatus":2}
+{"schema":"leanforth-check-report","schemaVersion":"0.1","export":"tests/cli/unfold.ndjson","manifest":"checked","label":"experimental, not independently audited","settings":{"fuel":100000,"dependencyPool":65536},"read":{"outcome":"ok","phase":null,"line":null,"field":null,"reason":null,"at":null},"run":"ok","stopped":false,"declarations":[{"index":0,"name":"Implies","verdict":"accepted","label":"experimental, not independently audited","axiomBits":0,"notProved":false,"fuel":137},{"index":1,"name":"impliesSelf","verdict":"unknown","diagnostic":{"code":30,"reason":"undecided: terms or levels differ","site":"mixed-convert lf-mixed-convert","numbers":[17,10],"step":8},"fuel":281}],"counts":{"declarations":2,"accepted":1,"rejected":0,"unknown":1,"unsupported":0,"invalid":0,"exhausted":0,"full":0,"notChecked":0,"notProved":0},"fuel":{"perDeclaration":100000,"total":418,"unknown":0,"top":[{"index":1,"name":"impliesSelf","fuel":281,"verdict":"unknown"},{"index":0,"name":"Implies","fuel":137,"verdict":"accepted"}]},"input":{"declarations":2,"terms":14,"levels":1,"references":1,"names":10},"exitStatus":2}
 exit status 2
 ```
 
@@ -358,6 +399,7 @@ exit status 2
 | `settings` | the fuel per check and the dependencies the environment holds |
 | `read` | the read's outcome and, for a failure, its `phase` (`open`, `stage`, `feed`), `line`, `field`, `reason`, and for the feed the number `at` which it stopped |
 | `run` | the run's outcome: `ok` when every slot ended final, `not-run` when the export was not read |
+| `stopped` | true when the run stopped on an internal fault (a check threw, or publishing failed), as the text's `internal fault: the run stopped` line says; the status is then 5 |
 | `declarations` | each declaration in file order: `index`, `name`, `verdict` (`accepted`, an outcome, or `not-checked`), `fuel` (null when not known); an accepted one's `label`, `axiomBits` (0: none) and `notProved`; any other's `diagnostic` (code, reason, site, two numbers, step) |
 | `counts` | the declarations by verdict, `notChecked` and `notProved`; null when no verdict could be read |
 | `fuel` | `perDeclaration`, `total` (of the known), `unknown` (how many are not known) and `top` (the ten that used the most) |

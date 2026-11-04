@@ -258,6 +258,18 @@ class ExitCodes(unittest.TestCase):
                 stub.chmod(stub.stat().st_mode | stat.S_IXUSR)
                 status, out, err = run("check", COMPOSITION, gforth=str(stub))
                 self.assertEqual((status, out.splitlines(), err), (5, lines, ""), k)
+                # With --json: a THROW outside a check leaves no report; one
+                # inside a check, a whole report of a run that stopped.
+                status, out, err = run("check", "--json", COMPOSITION, gforth=str(stub))
+                if k == 1:
+                    self.assertEqual((status, out.splitlines(), err), (5, lines, ""))
+                    continue
+                got = json.loads(out)
+                schema = Validator(json.loads(
+                    (ROOT / "schemas/check-report-0.1.schema.json").read_text()))
+                self.assertEqual((status, schema.errors(got), got["stopped"], got["exitStatus"],
+                                  got["declarations"][0]["diagnostic"]["code"]),
+                                 (5, [], True, 5, 29))
 
 
 OUTLINES = ROOT / "tests" / "present" / "outlines.golden"
@@ -562,6 +574,7 @@ class JsonReport(unittest.TestCase):
             self.assertEqual((self.schema.errors(got), err), ([], ""), args)
             text_status, text, _ = run("check", *args)
             self.assertEqual((status, got["exitStatus"]), (text_status, text_status), args)
+            self.assertEqual(got["stopped"], "internal fault: the run stopped" in text, args)
             # Each declaration's line, in order, says the report's verdict.
             words = {"accepted": LABEL, "not-checked": "not checked"}
             lines = text.splitlines()
@@ -600,6 +613,7 @@ class JsonReport(unittest.TestCase):
             (good, lambda r: r["fuel"]["top"].append(r["fuel"]["top"][0]) or
              r["fuel"]["top"].extend(r["fuel"]["top"] * 5)),                    # more than 10
             (good, lambda r: r.update(extra=1)),
+            (good, lambda r: r.update(stopped=True)),                            # status 0
             (good, lambda r: r["declarations"][4].update(verdict="not-checked")),  # run ok
             (unread, lambda r: r.update(counts=good["counts"])),                 # not read
             (unread, lambda r: r["read"].update(phase=None)),                    # failed read

@@ -8,7 +8,7 @@
   "additionalProperties": false,
   "required": [
     "schema", "schemaVersion", "export", "manifest", "label", "settings", "read", "run",
-    "declarations", "counts", "fuel", "input", "exitStatus", "measured"
+    "stopped", "declarations", "counts", "fuel", "input", "exitStatus", "measured"
   ],
   "properties": {
     "schema": {"const": "leanforth-check-report"},
@@ -36,6 +36,10 @@
     "run": {
       "description": "The run's outcome: ok when every declaration's slot ended final; not-run when the export was not read.",
       "enum": ["ok", "invalid", "exhausted", "unknown", "rejected", "unsupported", "full", "not-run"]
+    },
+    "stopped": {
+      "description": "true when the run stopped on an internal fault (a check threw, or publishing failed): the declaration where it stopped is invalid, and those after it are not checked.",
+      "type": "boolean"
     },
     "declarations": {
       "description": "Every declaration in input order, when the run's environment could be read; none otherwise.",
@@ -105,9 +109,14 @@
       "then": {"properties": {"exitStatus": {"enum": [4, 5]}}}
     },
     {
-      "description": "A declaration not checked means the run stopped on an internal fault: status 5.",
+      "description": "A declaration not checked means the run stopped on an internal fault.",
       "if": {"properties": {"declarations": {"contains": {"properties": {"verdict": {"const": "not-checked"}}}}}},
-      "then": {"properties": {"exitStatus": {"const": 5}}}
+      "then": {"properties": {"stopped": {"const": true}}}
+    },
+    {
+      "description": "A run that stopped on an internal fault has status 5; one that never ran did not stop.",
+      "if": {"properties": {"stopped": {"const": true}}},
+      "then": {"properties": {"exitStatus": {"const": 5}, "counts": {"type": "object"}}}
     }
   ],
   "$defs": {
