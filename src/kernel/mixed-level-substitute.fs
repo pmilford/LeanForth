@@ -29,13 +29,17 @@ begin-structure /lf-mlsrec
   field: lf-mlsrec-terms       \ store counts to roll back to
   field: lf-mlsrec-levels
   field: lf-mlsrec-crefs
-  lf-level-capacity cells +field lf-mlsrec-actuals    \ replacement levels
+  lf-level-params-limit cells +field lf-mlsrec-actuals    \ replacement levels
   lf-cref-argument-capacity 2* cells +field lf-mlsrec-args  \ new level pairs
-  lf-term-capacity cells +field lf-mlsrec-seen        \ reached by the audit
-  lf-term-capacity cells +field lf-mlsrec-results     \ each reached term's image
 end-structure
-lf-term-capacity context-walk: lf-mls-walker
+lf-depth-limit context-walk: lf-mls-walker
 /lf-mlsrec context-record: lf-mls-job
+\ Per term, columns of the term store (core/store-columns.fs): whether the
+\ audit reached it, and its image.
+/slab context-record: lf-mls-seen-column
+1 cells ' lf-mls-seen-column lf-term-columns column-add
+/slab context-record: lf-mls-results-column
+1 cells ' lf-mls-results-column lf-term-columns column-add
 
 \ Fuel left after a call; the signature probe continues with it, and tests
 \ read it. Every helper this module calls reports only ok, invalid,
@@ -45,8 +49,8 @@ lf-term-capacity context-walk: lf-mls-walker
 : lf-mls-count ( -- addr ) lf-mls-job lf-mlsrec-count ;
 : lf-mls-actuals ( -- addr ) lf-mls-job lf-mlsrec-actuals ;
 : lf-mls-args ( -- addr ) lf-mls-job lf-mlsrec-args ;
-: lf-mls-seen ( index -- addr ) cells lf-mls-job lf-mlsrec-seen + ;
-: lf-mls-result ( index -- addr ) cells lf-mls-job lf-mlsrec-results + ;
+: lf-mls-seen ( index -- addr ) lf-mls-seen-column column-at ;
+: lf-mls-result ( index -- addr ) lf-mls-results-column column-at ;
 
 \ The rollback point: the counts of the term, level and reference stores.
 : lf-mls-snapshot ( -- )
@@ -86,7 +90,7 @@ lf-term-capacity context-walk: lf-mls-walker
     lf-tag-constant of lf-mls-reference endof
     lf-tag-bvar of drop 2drop outcome-ok endof walk-bad-tag endcase ;
 : lf-mls-visit ( walk -- outcome ) lf-terms ['] lf-mls-dispatch walk-visit ;
-: lf-mls-unseen ( -- ) 0 lf-mls-seen lf-term-capacity cells erase ;
+: lf-mls-unseen ( -- ) lf-mls-seen-column column-erase ;
 : lf-mls-site ( -- site ) c" mixed-level-substitute lf-mixed-level-substitute" ;
 \ The formals and count are those last given to lf-lsubst-use.
 : lf-mls-audit-from ( root -- status )
@@ -98,8 +102,8 @@ lf-term-capacity context-walk: lf-mls-walker
 \ count formal IDs at formals, with the given fuel; gives the fuel left.
 \ The caller has validated root's graph (lf-cterm-check). An audit reads
 \ no actuals, so none are given. Nothing is allocated. Negative fuel or a
-\ count outside 0..lf-level-capacity is invalid and spends nothing.
-: lf-mls-audit-input? ( count fuel -- flag ) 0< 0= swap lf-level-capacity upto? and ;
+\ count outside 0..lf-level-params-limit is invalid and spends nothing.
+: lf-mls-audit-input? ( count fuel -- flag ) 0< 0= swap lf-level-params-limit upto? and ;
 : lf-mls-audit-formals ( root formals count fuel -- fuel' status )
   2dup lf-mls-audit-input? 0= if nip nip nip outcome-invalid exit then
   lf-mls-fuel ! 0 swap lf-lsubst-use lf-mls-audit-from lf-mls-fuel @ swap ;
@@ -210,5 +214,5 @@ lf-term-capacity context-walk: lf-mls-walker
 : lf-mixed-level-substitute
   ( index id formals actual-pairs count fuel -- index id 0 | status )
   lf-mls-walker walk-budget 0= if 2drop 2drop drop outcome-invalid exit then
-  dup lf-level-capacity upto? 0= if 2drop 2drop drop outcome-invalid exit then
+  dup lf-level-params-limit upto? 0= if 2drop 2drop drop outcome-invalid exit then
   lf-mls-use lf-mls-prepare dup ok? if drop lf-mls-run else nip nip then ;

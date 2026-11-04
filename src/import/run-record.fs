@@ -132,7 +132,7 @@ begin-structure /rr
   field: rr-env             \ the environment rr-check made, or 0
   field: rr-run             \ the run's outcome
   field: rr-fault           \ the first failure rr-write found itself, or ok
-  lf-input-capacity /rr-step * +field rr-kept
+  lf-input-default /rr-step * +field rr-kept   \ at most lf-input-default declarations
   field: rr-name-size
   rr-name-room +field rr-name-buf
   field: rr-text-size
@@ -248,8 +248,10 @@ rr-reset rr-no-source
 : rr-all-final? ( -- flag ) true lf-input-count 0 ?do i rr-final? and loop ;
 : rr-confirm ( -- outcome )
   lf-env-view ok? if rr-all-final? flag>outcome else outcome-invalid then ;
+\ A record keeps at most lf-input-default declarations: more is full.
 : rr-run-in ( env -- outcome )
   dup run-record rr-env ! lf-env-use
+  lf-input-count lf-input-default > if drop outcome-full exit then
   dup ok? if drop lf-input-count rr-steps rr-confirm then ;
 : rr-begun ( -- ) true run-record rr-checked ! 0 run-record rr-stepped ! ;
 : rr-check ( -- )

@@ -20,8 +20,8 @@ require ../core/names.fs
 require ../core/tagged-sort-boundary.fs
 require ../core/terms.fs
 
-lf-term-capacity context-walk2: lf-mcompare-walker
-lf-level-capacity context-walk2: lf-mcompare-level-walker
+lf-depth-limit context-walk2: lf-mcompare-walker
+lf-level-depth-limit context-walk2: lf-mcompare-level-walker
 
 \ Fuel left after a comparison; zero after negative fuel or a failed audit.
 : lf-mcompare-fuel ( -- addr ) lf-mcompare-walker walk-fuel ;
@@ -123,7 +123,7 @@ lf-level-capacity context-walk2: lf-mcompare-level-walker
 \ The level arrays of two references of equal arity, and their level
 \ indices at one position.
 : lf-mcompare-arrays ( slot slot -- addr addr count )
-  lf-cref-pairs >r swap lf-crec-levels swap r> ;
+  lf-cref-pairs >r swap lf-cref-pairs drop swap r> ;
 : lf-mcompare-arg ( addr addr i -- level level )
   tuck lf-cref-pair@ drop >r lf-cref-pair@ drop r> ;
 : lf-mcompare-args ( slot slot -- outcome )

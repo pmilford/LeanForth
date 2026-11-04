@@ -67,7 +67,7 @@ begin-structure /lf-chk
   field: lf-chk-found    \ the last result: a type node, or the type's Sort level
 end-structure
 /lf-chk context-record: lf-check-state
-lf-term-capacity context-walk: lf-check-walker
+lf-depth-limit context-walk: lf-check-walker
 
 \ The budget of every later check in this context, and the step at which
 \ the last one ended: 0 before its snapshot was found, 1-8 as above,

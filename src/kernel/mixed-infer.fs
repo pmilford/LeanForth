@@ -37,7 +37,7 @@
 \ recursion and set once, at load time, and shared.
 \ Stack use: the recursion runs on the host stacks, a bounded number of
 \ cells per level of inference or of the rejection analysis (the two share
-\ the frame limit), at most lf-term-capacity levels, and a conversion,
+\ the frame limit), at most lf-depth-limit levels, and a conversion,
 \ reduction or level evaluation at the deepest level nests beta's passes
 \ (see the need stated at the end); a host stack overflow throws and never
 \ yields a result. mixed-definition-probe.fs starts a job with
@@ -69,7 +69,7 @@ require ./mixed-signature-probe.fs
 
 begin-structure /lf-ijob
   field: lf-ijob-fuel      \ visits left
-  field: lf-ijob-depth     \ active frames, at most lf-term-capacity
+  field: lf-ijob-depth     \ active frames, at most lf-depth-limit
   field: lf-ijob-token     \ signature index token
   field: lf-ijob-terms     \ term count before the call; source nodes lie below
   field: lf-ijob-levels    \ level count before the call
@@ -77,7 +77,7 @@ begin-structure /lf-ijob
   field: lf-ijob-binders   \ binder domains in the context
   field: lf-ijob-aside     \ true while inference runs aside, for test P2
   field: lf-ijob-env       \ true in environment mode (lf-minfer-start-env)
-  lf-term-capacity cells +field lf-ijob-domains
+  lf-depth-limit cells +field lf-ijob-domains
   lf-cref-argument-capacity 2* cells +field lf-ijob-actuals
 end-structure
 /lf-ijob context-record: lf-minfer-job
@@ -116,7 +116,7 @@ end-structure
 \ push is popped after its body, whatever the outcome.
 : lf-minfer-domain-cell ( i -- addr ) cells lf-minfer-job lf-ijob-domains + ;
 : lf-minfer-push ( domain -- flag )
-  lf-minfer-context-depth @ dup lf-term-capacity <
+  lf-minfer-context-depth @ dup lf-depth-limit <
   if lf-minfer-domain-cell ! 1 lf-minfer-context-depth +! true else 2drop false then ;
 : lf-minfer-pop ( -- ) -1 lf-minfer-context-depth +! ;
 : lf-minfer-bound ( index -- domain )
@@ -396,7 +396,7 @@ defer lf-minfer-apart ( left right -- mask flag )
 : lf-minfer-domain ( domain -- level status )
   lf-minfer-walk dup ok? if drop lf-minfer-domain-sort then ;
 : lf-minfer-crowded ( -- -1 status )
-  lf-minfer-context-depth @ lf-term-capacity lf-diag-binders-full lf-minfer-note
+  lf-minfer-context-depth @ lf-depth-limit lf-diag-binders-full lf-minfer-note
   -1 outcome-full ;
 : lf-minfer-under ( domain body -- type status )
   swap lf-minfer-push if lf-minfer-walk lf-minfer-pop
@@ -455,16 +455,16 @@ defer lf-minfer-apart ( left right -- mask flag )
   lf-minfer-read if lf-minfer-dispatch else -1 outcome-invalid then ;
 
 \ Each visit costs one unit of fuel and holds one of at most
-\ lf-term-capacity frames. No fuel left is exhausted and no free frame is
+\ lf-depth-limit frames. No fuel left is exhausted and no free frame is
 \ full (with neither, the fuel decides); both spend nothing and are
 \ recorded as diagnostics.
 : lf-minfer-frames-full ( -- )
-  lf-minfer-depth @ lf-term-capacity lf-diag-frame-limit lf-minfer-note ;
+  lf-minfer-depth @ lf-depth-limit lf-diag-frame-limit lf-minfer-note ;
 : lf-minfer-refused ( outcome -- outcome )
   dup outcome-full = if lf-minfer-frames-full
   else lf-minfer-fuel @ lf-minfer-site lf-diag-exhausted then ;
 : lf-minfer-room ( -- outcome )
-  lf-minfer-fuel @ lf-minfer-depth @ lf-term-capacity < visit-outcome
+  lf-minfer-fuel @ lf-minfer-depth @ lf-depth-limit < visit-outcome
   dup ok? 0= if lf-minfer-refused then ;
 : lf-minfer-enter ( -- ) -1 lf-minfer-fuel +! 1 lf-minfer-depth +! ;
 : lf-minfer-in-frame ( node -- type status )
@@ -560,14 +560,14 @@ defer lf-minfer-apart ( left right -- mask flag )
 \ 2026-11-02), and the slack holds the extra cell. There is at most one
 \ such frame on any path: inference within the analysis (P2) runs aside,
 \ with no rule, so it never hands over again. So a check nests at most
-\ lf-term-capacity levels of inference or analysis plus beta's need:
+\ lf-depth-limit levels of inference or analysis plus beta's need:
 \ 1,728 return and 1,280 data cells. Loading stops when the host's stacks
 \ are smaller, and the need is stated for the job pool (context-need).
 8 constant lf-minfer-rs-level   \ return-stack cells per level
 5 constant lf-minfer-ds-level   \ data-stack cells per level
-: lf-minfer-need ( cells-per-level beta-cells -- cells ) swap lf-term-capacity * + ;
+: lf-minfer-need ( cells-per-level beta-cells -- cells ) swap lf-depth-limit * + ;
 lf-minfer-rs-level lf-mbeta-return-cells lf-minfer-need constant lf-minfer-return-cells
 lf-minfer-ds-level lf-mbeta-data-cells lf-minfer-need constant lf-minfer-data-cells
 lf-minfer-data-cells lf-minfer-return-cells lf-mbeta-host?
-0= [if] .( mixed-infer.fs: host stacks too small for lf-term-capacity) cr abort [then]
+0= [if] .( mixed-infer.fs: host stacks too small for lf-depth-limit) cr abort [then]
 lf-minfer-data-cells lf-minfer-return-cells context-need

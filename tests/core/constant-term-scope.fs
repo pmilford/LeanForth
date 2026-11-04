@@ -71,20 +71,20 @@ T{ 10 lf-term-serial @ 0 6 lf-constant-term-scope -> outcome-ok }T
 \ A single variable costs one structural and one scope visit.
 T{ 2 var-id @ 1 1 lf-constant-term-scope -> outcome-exhausted }T
 T{ 2 var-id @ 1 2 lf-constant-term-scope -> outcome-ok }T
-T{ 2 var-id @ lf-term-capacity 2 lf-constant-term-scope -> outcome-ok }T
+T{ 2 var-id @ lf-depth-limit 2 lf-constant-term-scope -> outcome-ok }T
 T{ 2 var-id @ 1 -1 lf-constant-term-scope -> outcome-invalid }T
 \ Malformed edges and stale Sort stamps fail before scope is accepted.
 5 lf-term-slot cell+ @ saved-child !
 5 5 lf-term-slot cell+ !
 T{ 5 5 lf-term-identity drop 0 100 lf-constant-term-scope -> outcome-invalid }T
 saved-child @ 5 lf-term-slot cell+ !
-1 cells lf-hsort-level-identities + @ saved-sort-stamp !
-0 1 cells lf-hsort-level-identities + !
+1 lf-hsort-level-stamp @ saved-sort-stamp !
+0 1 lf-hsort-level-stamp !
 T{ 4 lambda-id @ 0 100 lf-constant-term-scope -> outcome-invalid }T
-saved-sort-stamp @ 1 cells lf-hsort-level-identities + !
+saved-sort-stamp @ 1 lf-hsort-level-stamp !
 T{ lf-term-count @ lf-level-count @ -> 11 1 }T
 T{ 4 lambda-id @ -1 100 lf-constant-term-scope -> outcome-invalid }T
-T{ 4 lambda-id @ lf-term-capacity 1+ 100 lf-constant-term-scope -> outcome-invalid }T
+T{ 4 lambda-id @ lf-depth-limit 1+ 100 lf-constant-term-scope -> outcome-invalid }T
 T{ 4 lambda-id @ 0 0 lf-constant-term-scope -> outcome-exhausted }T
 T{ 4 lambda-id @ 0 100 ' lf-constant-term-scope rs-checked -> outcome-ok }T
 T{ 4 lambda-id @ 1+ 0 100 lf-constant-term-scope -> outcome-invalid }T

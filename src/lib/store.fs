@@ -14,12 +14,29 @@
 \ restarts. Identities come from a serial that only grows and never wraps;
 \ a reset does not rewind it.
 \
-\ The shape (capacity, width, base) is fixed and checked when the store is
-\ made, and sealed: corrupting any one shape field breaks the seal, and
-\ every check then fails. A store is made in the dictionary by store:, or
-\ at run time in store-size bytes of memory the caller provides (from
-\ ALLOCATE or inside a larger record) by store-init; both give the same
-\ layout and behaviour.
+\ The shape (capacity, width, base, the block and the limit) is fixed and
+\ checked when the store is made, and sealed: corrupting any one shape
+\ field breaks the seal, and every check then fails. A store is made in
+\ the dictionary by store:, or at run time in store-size bytes of memory
+\ the caller provides (from ALLOCATE or inside a larger record) by
+\ store-init; both give the same layout and behaviour: the header, then
+\ the block of capacity identity cells and the records.
+\
+\ Heap stores (plan task 1.1.5; ADR 0016 C5). store-heap-init makes a
+\ store whose header lives in the caller's memory (store-header bytes,
+\ such as a checker-context member) and whose block is ALLOCATEd, so that
+\ it can grow: store-grow doubles the block, up to the store's limit,
+\ when every record is in use. The header never moves, so marks stay
+\ valid while the block grows; the block may move, so an address from
+\ store-slot is valid only until the next store-grow (keep indices, never
+\ addresses, across it). Growth that the limit or the heap refuses
+\ changes nothing and gives full (ADR 0008). store-limit! sets the limit
+\ (shrinking the block when it holds more), store-heap-free frees the
+\ block. Every other word works alike on both kinds. Example:
+\   create big store-header allot
+\   4 /node 0 big store-heap-init drop   1000 big store-limit! drop
+\   big store-grow drop    \ ok: room for 4 more; once full, 8 records
+\   big store-heap-free
 \
 \ Untrusted. One store is single-threaded: callers must not change it
 \ during a call. Separate stores are independent. The layout (header,
@@ -38,9 +55,17 @@ begin-structure store-header
   field: store-count        \ records allocated
   field: store-generation   \ reset epoch; negative when poisoned
   field: store-serial       \ last identity issued
+  field: store-block        \ a heap store's block, or 0 for a block right after
+                            \ the header (so a store made in place has the same
+                            \ bytes wherever it is, and a heap store's header
+                            \ may move, as a context member does, while its
+                            \ block stays)
+  field: store-limit        \ most records: the capacity, or a heap store's limit
 end-structure
 
-: store-identities ( store -- addr ) store-header + ;
+\ The block of a store made in place: right after its header.
+: store-inline ( store -- addr ) store-header + ;
+: store-identities ( store -- addr ) dup store-block @ ?dup if nip else store-inline then ;
 : store-records ( store -- addr ) dup store-identities swap store-capacity @ cells + ;
 \ Unchecked: addresses for an already validated index.
 : store-slot ( index store -- addr ) tuck store-width @ * swap store-records + ;
@@ -50,11 +75,15 @@ end-structure
 : store-shape@ ( store -- capacity width base )
   dup store-capacity @ over store-width @ rot store-base @ ;
 : >store-seal ( capacity width base -- x ) xor xor invert ;
+\ The seal covers the block and the limit too.
+: store-check ( store -- x )
+  dup store-shape@ >store-seal over store-block @ xor swap store-limit @ xor ;
 : store-width? ( width -- flag ) dup 0> swap dup aligned = and ;
-: store-sealed? ( store -- flag ) dup store-shape@ >store-seal swap store-seal @ = ;
+: store-sealed? ( store -- flag ) dup store-check swap store-seal @ = ;
+: store-limit? ( store -- flag ) dup store-capacity @ swap store-limit @ upto? ;
 : store-shape? ( store -- flag )
   dup store-base @ over store-capacity @ upto? over store-width @ store-width? and
-  swap store-sealed? and ;
+  over store-limit? and swap store-sealed? and ;
 
 \ Planning a store: its size in address units, and whether a shape is
 \ sound. A sound shape has 0 <= base <= capacity, a positive aligned width,
@@ -75,12 +104,17 @@ end-structure
 : store-bytes ( store -- u ) dup store-capacity @ swap store-width @ cell+ * ;
 : store-shape! ( capacity width base store -- )
   >r r@ store-base ! r@ store-width ! r> store-capacity ! ;
-: store-seal! ( store -- ) dup store-shape@ >store-seal swap store-seal ! ;
-\ Unchecked: the shape fields are set; zero everything after them.
-: store-end ( store -- addr ) dup store-shape@ drop store-size + ;
-: store-zero ( store -- ) dup store-end swap store-count tuck - erase ;
+: store-seal! ( store -- ) dup store-check swap store-seal ! ;
+\ Unchecked: the shape fields are set. Zero the counters, put the block (0
+\ for the one right after the header) and the limit (the capacity), seal,
+\ and zero the block.
+: store-counters-zero ( store -- )
+  0 over store-count ! 0 over store-generation ! 0 swap store-serial ! ;
+: store-place ( block store -- )
+  tuck store-block ! dup store-capacity @ over store-limit ! store-seal! ;
+: store-zero ( store -- ) dup store-identities swap store-bytes erase ;
 : store-format ( capacity width base store -- )
-  dup >r store-shape! r@ store-seal! r> store-zero ;
+  dup >r store-shape! r@ store-counters-zero 0 r@ store-place r> store-zero ;
 : store-init ( capacity width base store -- flag )
   >r 2>r dup 2r@ store-plan? 2r> rot
   if r> store-format true else 2drop drop r> drop false then ;
@@ -122,9 +156,12 @@ defer store-refuse? ( store -- flag )
 : store-open? ( store -- flag )
   dup store-count-valid? over store-room? and over store-spent? 0= and
   if store-refuse? 0= else drop false then ;
+\ The hook is also asked before a heap store's block grows (store-grow).
+: store-grow-refused? ( store -- flag ) store-refuse? ;
 [else]
 : store-open? ( store -- flag )
   dup store-count-valid? over store-room? and swap store-spent? 0= and ;
+: store-grow-refused? ( store -- false ) drop false ;
 [then]
 \ Unchecked: the caller has established store-open?. The count advances
 \ before the caller writes the record, so a failure between the two must
@@ -144,6 +181,68 @@ defer store-refuse? ( store -- flag )
 : store-epoch+ ( store -- ) store-generation dup @ epoch+ swap ! ;
 : store-clear ( store -- ) dup store-base @ over store-count ! store-epoch+ ;
 : store-poison ( store -- ) 0 over store-count ! -1 swap store-generation ! ;
+
+\ Heap stores (see the header). A store is a heap store when it names a
+\ block of its own; a zeroed header names none.
+: store-heap? ( store -- flag ) store-block @ 0<> ;
+\ ALLOCATE u zeroed address units: the address and 0, or the ior.
+: store-zeroed-block ( u -- addr ior )
+  dup allocate ?dup if rot drop exit then tuck swap erase 0 ;
+\ Make a heap store of capacity records in a zeroed block, its limit the
+\ capacity: ok; invalid for an unsound shape or full when the heap has no
+\ room, the header then zero (no check accepts it). The header must not
+\ hold a block: store-heap-free first.
+: store-heap-init ( capacity width base store -- outcome )
+  >r 2>r dup 2r@ store-plan? 2r> rot 0= if 2drop drop r> store-header erase
+    outcome-invalid exit then
+  r@ store-shape! r@ store-counters-zero r@ store-bytes store-zeroed-block
+  if drop r> store-header erase outcome-full exit then r> store-place outcome-ok ;
+\ Free a heap store's block and zero its header; a store made in place is
+\ left alone.
+: store-heap-free ( store -- )
+  dup store-heap? 0= if drop exit then
+  dup store-identities free drop store-header erase ;
+\ Moving to a new zeroed block of n records: the first min(n, capacity)
+\ identities and records are copied, the old block freed. Unchecked: a
+\ live heap store and n >= count.
+: store-kept ( n store -- m ) store-capacity @ min ;
+: store-copy-ids ( new m store -- ) >r swap r> store-identities swap rot cells move ;
+: store-copy-records ( new n m store -- )
+  >r >r cells + r> r@ store-width @ * r> store-records -rot move ;
+: store-rehome ( new n store -- )
+  >r dup r@ store-kept 2 pick over r@ store-copy-ids r> store-copy-records ;
+: store-install ( new n store -- )
+  dup store-identities free drop tuck store-capacity ! tuck store-block ! store-seal! ;
+: store-resize ( n store -- outcome )
+  2dup store-width @ cell+ * store-zeroed-block if drop 2drop outcome-full exit then
+  -rot >r 2dup r@ store-rehome r> store-install outcome-ok ;
+\ The capacity growth gives: double, at least 16 more, never past the
+\ limit (so it cannot overflow).
+: store-doubled ( store -- n )
+  dup store-capacity @ dup 16 max rot store-limit @ 2 pick - min + ;
+: store-at-limit? ( store -- flag ) dup store-capacity @ swap store-limit @ = ;
+\ Make room for one more record: ok when there is room, grown or not;
+\ full when the store is at its limit, is not a heap store, the heap has
+\ no room or the test hook refuses (nothing changed then); invalid for a
+\ store that is not live.
+: store-growable? ( store -- flag )
+  dup store-heap? over store-at-limit? 0= and if store-grow-refused? 0= else drop false then ;
+: store-grow ( store -- outcome )
+  dup store-count-valid? 0= if drop outcome-invalid exit then
+  dup store-room? if drop outcome-ok exit then
+  dup store-growable? if dup store-doubled swap store-resize else drop outcome-full then ;
+\ Set a live heap store's limit, at least its count and a sound size;
+\ a block that holds more records shrinks to it: ok, full when that
+\ shrinking finds no heap (nothing changed), invalid otherwise.
+: store-limit-ok? ( limit store -- flag )
+  dup store-live? over store-heap? and 0= if 2drop false exit then
+  2dup store-count @ < if 2drop false exit then
+  >r r@ store-width @ r> store-base @ store-plan? ;
+: store-limit-set ( limit store -- ) tuck store-limit ! store-seal! ;
+: store-limit! ( limit store -- outcome )
+  2dup store-limit-ok? 0= if 2drop outcome-invalid exit then
+  2dup store-capacity @ < if 2dup store-resize dup ok? 0= if nip nip exit then drop then
+  store-limit-set outcome-ok ;
 
 \ Marks (plan task 1.1.3). store-mark records where a store's allocation
 \ stands, in a /store-mark record the caller provides; store-rollback

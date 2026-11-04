@@ -49,10 +49,14 @@ begin-structure /depths
 end-structure
 /depths context-record: depths
 
-\ The main context right after loading, before any test changes it.
+\ The main context right after loading, before any test changes it: its
+\ bytes with the heap addresses of its heap-owning members blanked, and
+\ the digest of what those members hold (tests/support/context-canon.fs).
+include ../support/context-canon.fs
 context-bytes constant loaded-bytes
 create loaded loaded-bytes allot
-context-main loaded loaded-bytes move
+context-main loaded loaded-bytes move  loaded canon-zero
+canon-digest constant loaded-digest
 \ The checked environment's test world and input (part d); including it
 \ declares a member and builds the world in the main context.
 include ../support/env-cases.fs
@@ -85,7 +89,10 @@ T{ all-inside? offsets -> true context-main context-use offsets }T
 \ (after the header, whose size grew; the member env-cases.fs declared
 \ later starts zeroed).
 : past-header ( addr -- addr' u ) /context-header + loaded-bytes /context-header - ;
-T{ other past-header loaded past-header compare -> 0 }T
+create other-bytes loaded-bytes allot
+other other-bytes loaded-bytes move  other-bytes canon-zero
+: other-digest ( -- h ) other context-use canon-digest context-main context-use ;
+T{ other-bytes past-header loaded past-header compare other-digest -> 0 loaded-digest }T
 T{ other loaded-bytes + context-bytes loaded-bytes - 1 cells / cells-zero? -> true }T
 T{ other context-free -> 0 }T
 

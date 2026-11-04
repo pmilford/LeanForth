@@ -55,8 +55,8 @@ require ./levels.fs
 require ./names.fs
 require ./constant-references.fs
 
-32 constant lf-input-capacity
-8 constant lf-param-capacity
+32 constant lf-input-default
+64 constant lf-param-capacity
 
 \ Declaration kinds, as Lean's ConstantInfo; 0 is no kind.
 1 constant lf-kind-definition
@@ -87,7 +87,16 @@ begin-structure /lf-idecl
   lf-param-capacity cells +field lf-idecl-params   \ their name IDs, in order
 end-structure
 
-lf-input-capacity /lf-idecl 0 context-store: lf-inputs
+\ The declarations: a heap store growing up to a capacity that is a
+\ setting of each context, as for terms (terms.fs); a new context starts
+\ with lf-input-default.
+store-header context-record: lf-inputs
+: lf-inputs-make ( -- )
+  lf-input-default /lf-idecl 0 lf-inputs store-heap-init ok? 0= abort" input: no heap" ;
+' lf-inputs-make context-setup
+:noname ( -- ) lf-inputs store-heap-free ; context-teardown
+: lf-input-capacity ( -- n ) lf-inputs store-limit @ ;
+: lf-input-capacity! ( n -- outcome ) lf-inputs store-limit! ;
 
 5 constant lf-input-stores#
 begin-structure /lf-inrec
@@ -180,6 +189,7 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
 \ invalid, still loading, when loading had already ended, the name store
 \ or its byte count is out of range, or a store is invalid.
 : lf-input-copy ( decl -- i outcome )
+  lf-inputs store-grow drop
   lf-inputs store-new-slot 0= if drop -1 outcome-full exit then
   >r /lf-idecl move r> outcome-ok ;
 : lf-input-add ( decl -- i outcome )

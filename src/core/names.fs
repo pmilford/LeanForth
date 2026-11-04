@@ -16,7 +16,7 @@
 require ../lib/lib.fs
 require ./diagnostics.fs
 
-64 constant lf-name-capacity
+64 constant lf-name-default
 2048 constant lf-name-byte-capacity
 0 constant lf-name-tag-anon
 1 constant lf-name-tag-str
@@ -32,7 +32,16 @@ begin-structure /lf-entry
 end-structure
 /lf-entry 1 cells / constant lf-name-slot-cells
 
-lf-name-capacity /lf-entry 1 context-store: lf-names
+\ The entries are a heap store growing up to a capacity that is a setting
+\ of each context, as for terms (terms.fs); a new context starts with
+\ lf-name-default entries.
+store-header context-record: lf-names
+: lf-names-make ( -- )
+  lf-name-default /lf-entry 1 lf-names store-heap-init ok? 0= abort" names: no heap" ;
+' lf-names-make context-setup
+:noname ( -- ) lf-names store-heap-free ; context-teardown
+: lf-name-capacity ( -- n ) lf-names store-limit @ ;
+: lf-name-capacity! ( n -- outcome ) lf-names store-limit! ;
 
 \ The byte pool: bytes in use, the pool itself, and a copy of each query,
 \ made first so that the query may alias any buffer of this module.
@@ -115,7 +124,7 @@ end-structure
 
 \ Appending; callers have checked validity, absence and room. The store's
 \ identities are issued but unused: names are compared by content.
-: lf-name-room? ( -- flag ) lf-names store-open? ;
+: lf-name-room? ( -- flag ) lf-names store-grow drop lf-names store-open? ;
 : lf-name-byte-room? ( length -- flag ) lf-name-byte-capacity lf-name-used @ - upto? ;
 : lf-name-new ( prefix tag -- entry id )
   lf-names store-claim dup >r lf-name-slot tuck lf-entry-tag ! tuck lf-entry-prefix ! r> ;

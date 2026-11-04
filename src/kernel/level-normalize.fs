@@ -23,7 +23,7 @@
 \ context.
 \ Stack use: normalize, push_max_args, is_norm_lt and the name order
 \ recurse on the host stacks once per level of a graph (children are
-\ earlier nodes, at most lf-level-capacity deep), a few cells each.
+\ earlier nodes, at most lf-level-depth-limit deep), a few cells each.
 
 require ../lib/lib.fs
 require ../core/diagnostics.fs
@@ -40,17 +40,20 @@ begin-structure /lf-lnrec
   field: lf-lnrec-top                               \ argument cells in use
   /store-mark +field lf-lnrec-mark                  \ the level store before the call
   lf-lnorm-capacity cells +field lf-lnrec-args
-  lf-level-capacity cells +field lf-lnrec-memo      \ normal form + 1, or 0
 end-structure
 /lf-lnrec context-record: lf-lnorm-state
+\ Per level, a column of the level store (core/store-columns.fs): its
+\ normal form + 1, or 0.
+/slab context-record: lf-lnorm-memo-column
+1 cells ' lf-lnorm-memo-column lf-level-columns column-add
 
 : lf-lnorm-status ( -- addr ) lf-lnorm-state lf-lnrec-status ;
 \ Fuel left after lf-level-equivalent; level-compare continues with it.
 : lf-lnorm-fuel ( -- addr ) lf-lnorm-state lf-lnrec-fuel ;
 : lf-lnorm-top ( -- addr ) lf-lnorm-state lf-lnrec-top ;
 : lf-lnorm-arg ( i -- addr ) cells lf-lnorm-state lf-lnrec-args + ;
-: lf-lnorm-memo ( level -- addr ) cells lf-lnorm-state lf-lnrec-memo + ;
-: lf-lnorm-clear ( -- ) 0 lf-lnorm-memo lf-level-capacity cells erase ;
+: lf-lnorm-memo ( level -- addr ) lf-lnorm-memo-column column-at ;
+: lf-lnorm-clear ( -- ) lf-lnorm-memo-column column-erase ;
 : lf-lnorm-site ( -- site ) c" level-normalize lf-level-equivalent" ;
 
 \ ---------------------------------------------------------------------------

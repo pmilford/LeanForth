@@ -23,7 +23,7 @@ begin-structure /lf-session
   field: lf-session-context    \ captured parameter-context generation
 end-structure
 /lf-session context-record: lf-ssession
-lf-term-capacity context-walk: lf-ssession-walker
+lf-depth-limit context-walk: lf-ssession-walker
 
 : lf-ssession-active ( -- addr ) lf-ssession lf-session-active ;
 \ Fuel left after a check; generation-handles continues with it.
