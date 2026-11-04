@@ -85,11 +85,13 @@ lf-lib set-current
 u32-mask 0> [if] u32-mask [else] max-n [then] constant cons-numbers-max
 
 begin-structure /cons-class
+lf-lib-private set-current
   /htab-hooks +field class-hooks    \ first: the table's rehash and same
   field: class-span        \ xt ( local cons -- units )
   field: class-unit        \ address units per record unit
   field: class-limit       \ most numbers in the two tiers together
 end-structure
+lf-lib set-current
 \ A class of records of unit address units, at most limit numbers.
 : cons-class: ( unit limit "name" -- )
   create here /cons-class allot dup /cons-class erase
