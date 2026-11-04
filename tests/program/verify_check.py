@@ -143,10 +143,10 @@ def reader_cases():
     return cases
 
 
-# The prototype's hostile inputs (docs/development/measurements/two-mode-
-# prototype-2026-11-03/adversarial.fs, its F part, a run while compiling, is
-# in tests/program/verify.fs), then more: names that read as numbers, Core
-# words as names, control characters, comments, lengths.
+# The hostile inputs of ADR 0019's prototype (its adversarial.fs; the F
+# part, a run while compiling, is in tests/program/verify.fs), then more:
+# names that read as numbers, Core words as names, control characters,
+# comments, lengths.
 HOSTILE = [
     # A. Recognizer and number syntaxes.
     ': f "x" ;', ': f "x dup y" ;', ": f `dup ;", ": f ``dup ;", ": f <dup> ;", ": f ->x ;",
