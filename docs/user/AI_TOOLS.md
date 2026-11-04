@@ -22,7 +22,10 @@ they hold whatever a tool is asked to do.
    accepted ([outcomes](CONCEPTS.md#outcomes)).
 3. **Keep a program's three answers apart.** A receipt's `check`, `verify`
    and `run` parts are never merged into one "verified"
-   ([program receipts](../programming/PROGRAM_RECEIPTS.md)).
+   ([program receipts](../programming/PROGRAM_RECEIPTS.md)). `check.status`
+   and `verify.settledBy` say who checked: `checked-by-lean-reference` means
+   Lean, not LeanForth. A receipt's notes and texts are unchecked prose;
+   only its statuses, fixed labels and assumptions carry meaning.
 4. **Label every explanation** by where it came from: a fixed template, a
    reconstruction from the proof term, or AI-written. Explanations are never
    part of what is checked.
@@ -44,7 +47,8 @@ they hold whatever a tool is asked to do.
 | Export manifest writer | `scripts/export.sh OUT.ndjson MODULE...` (export and manifest) or `python3 scripts/export_manifest.py EXPORT [--mathlib-commit SHA]` | `EXPORT.manifest.json`, valid under `schemas/export-manifest-1.schema.json`; exit status 0 | One line on standard error, no manifest written, exit status 1 |
 | Forth words | `.tools/gforth/bin/gforth src/main.fs`, then the words of `src/` (each module's header gives stack effects, state and error cases) | Values on the data stack; an outcome number 0–6 | An outcome other than 0; refused constructions give `false` |
 | IR reader | `lf-ir-read-file ( xt c-addr u -- outcome )`; `xt ( c-addr u -- )` receives each line | IR 0.1 text ([program IR](../programming/PROGRAM_IR.md)) | One line such as `unsupported @1:7: not a known word or 32-bit decimal: foo` and *unsupported*, *invalid* or *full*; lines written before it must not be used |
-| Receipt validator | `python3 -I tests/support/schema_subset.py schemas/program-receipt-0.1.schema.json FILE...` | Exit status 0 and no output | One line per problem, such as `FILE: $: additional property 'verified' is not allowed`, and exit status 1 |
+| Receipt reader | `python3 -I scripts/program_receipt.py validate FILE...` (strict JSON, the schema the receipt names, and the rules beyond JSON Schema); `verify FILE` also replays the clamp receipt | Exit status 0 and no output | One line per problem on standard error, `FILE: CODE: PATH: MESSAGE` with CODE `not-strict-json`, `unknown-version`, `schema`, `rule` or `replay`, such as `FILE: schema: $: additional property 'verified' is not allowed`; exit status 1 (2 for a usage error) |
+| Receipt schema only | `python3 -I tests/support/schema_subset.py schemas/program-receipt-0.2.schema.json FILE...` | Exit status 0 and no output | One line per problem, such as `FILE: $: additional property 'verified' is not allowed`, and exit status 1 |
 
 The outcome numbers are fixed by [ADR 0008](../adr/0008-outcome-vocabulary.md):
 0 ok, 1 invalid, 2 exhausted, 3 unknown, 4 rejected, 5 unsupported,
@@ -73,7 +77,7 @@ success.
 
 | Piece | State |
 | --- | --- |
-| Program receipt, schema 0.1 (`schemas/program-receipt-0.1.schema.json`) | Exists, with valid and invalid examples and a standard-library validator; a proposal under the *[format]* gate until the owner approves it; no receipt is generated yet (task 2.5.6) |
+| Program receipt, schema 0.2 (`schemas/program-receipt-0.2.schema.json`; 0.1 is kept unchanged for receipts that name it) | Exists, with valid and invalid examples, a standard-library validator and a strict reader; the clamp receipt is generated (task 2.5.6, [`lf-clamp.json`](../../tests/program/receipts/generated/lf-clamp.json)): checked and discharged by the Lean reference, not by LeanForth, and runtime-tested; a proposal under the *[format]* gate until the owner approves it |
 | JSON reader in Forth (`src/lib/json.fs`) | Exists; reads Lean's exports, and will read API requests |
 | Run records with input hashes and verdicts, replay | Planned, task 2.2.5 |
 | `leanforth` command with `--json` output and fixed exit codes (0 all accepted, 1 something rejected, 2 unsupported or unknown, 3 resource limit, 4 malformed input, 5 internal fault) | Planned, tasks 3.4.1–3.4.3; the codes are a proposal |

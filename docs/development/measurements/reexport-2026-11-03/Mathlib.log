@@ -1,0 +1,20 @@
+== final-Mathlib 2026-11-03T18:44:07-08:00 .tools/gforth/bin/gforth-fast
+reexported 110895826 lines
+forth exit 0
+	User time (seconds): 324.44
+	System time (seconds): 4.31
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 5:28.85
+	Maximum resident set size (kbytes): 20104
+18448e5d228e385d75bf6bad5bd9208a8b561b5e395f372e85caa350211559c6  /home/peter/code/LeanForth/.tools/mathlib/mathlib.ndjson
+18448e5d228e385d75bf6bad5bd9208a8b561b5e395f372e85caa350211559c6  /home/peter/code/LeanForth/.claude/work/RX/final-Mathlib.copy.ndjson
+  110895826  6258342501 /home/peter/code/LeanForth/.tools/mathlib/mathlib.ndjson
+  110895826  6258342501 /home/peter/code/LeanForth/.claude/work/RX/final-Mathlib.copy.ndjson
+  221791652 12516685002 total
+cmp: identical
+3cf988e8b53bc3c13944762728503a62022f3a2c663d3ff966e760f831ddd674  -
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 2:57.31
+	Maximum resident set size (kbytes): 16740
+3cf988e8b53bc3c13944762728503a62022f3a2c663d3ff966e760f831ddd674  -
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 2:58.45
+	Maximum resident set size (kbytes): 16648
+== end 2026-11-03T18:55:46-08:00

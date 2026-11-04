@@ -1,10 +1,10 @@
 {
   "schema": "leanforth-program-receipt",
-  "schemaVersion": "0.1",
+  "schemaVersion": "0.2",
   "provenance": {
     "kind": "example",
     "createdAt": "2026-11-02",
-    "note": "Written by hand to illustrate schema 0.1; not evidence. What it states held at the commit that added it: tests/reference/program-ir.lean proves clamp_correct and make test-program-differential passed 686 cases."
+    "note": "Written by hand to illustrate schema 0.2; not evidence. Lean 4.35.0 reports these axioms for clamp_correct and clamp_matches_stack_model; the run counts are those of its 0.1 version (tests/program/receipts/0.1/), written on 2026-11-02. The generated clamp receipt is in generated/."
   },
   "program": {
     "word": "lf-clamp",
@@ -26,7 +26,7 @@
     "lean": "ProgramIR.clamp_correct",
     "file": {
       "path": "tests/reference/program-ir.lean",
-      "sha256": "c2cd91dec1b7f9fb6c45abaec64225d64f9c62ef7bed8317565de9f6359fca97"
+      "sha256": "b07091d5c8f46a0667c0a6e35eb19ac52b79c0685a593f5eccf347b5fbfbef09"
     }
   },
   "check": {
@@ -36,8 +36,22 @@
       "version": "0.0.0-dev"
     },
     "theorems": [
-      "ProgramIR.clamp_correct",
-      "ProgramIR.clamp_matches_stack_model"
+      {
+        "name": "ProgramIR.clamp_correct",
+        "axioms": [
+          "propext",
+          "Classical.choice",
+          "Quot.sound"
+        ]
+      },
+      {
+        "name": "ProgramIR.clamp_matches_stack_model",
+        "axioms": [
+          "propext",
+          "Classical.choice",
+          "Quot.sound"
+        ]
+      }
     ],
     "label": "checked by the Lean reference, not by LeanForth",
     "axioms": [
@@ -48,7 +62,7 @@
     "evidence": [
       {
         "path": "tests/reference/program-ir.lean",
-        "sha256": "c2cd91dec1b7f9fb6c45abaec64225d64f9c62ef7bed8317565de9f6359fca97"
+        "sha256": "b07091d5c8f46a0667c0a6e35eb19ac52b79c0685a593f5eccf347b5fbfbef09"
       }
     ],
     "note": "The theorems are about the IR's semantics, not about Gforth running the source."
@@ -56,7 +70,7 @@
   "verify": {
     "status": "not-generated",
     "obligations": [],
-    "note": "Verification conditions are generated from 2.5.5 on."
+    "note": "This example shows a check without generated obligations; the generated receipt has them."
   },
   "run": {
     "status": "passed",

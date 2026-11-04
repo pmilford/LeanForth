@@ -3,17 +3,18 @@
 
 Usage (from the repository root):
   python3 scripts/program_receipt.py write   # receipt and printed form from recorded evidence
-  python3 scripts/program_receipt.py verify RECEIPT.json   # recompute and compare
+  python3 scripts/program_receipt.py validate RECEIPT.json...   # read strictly, check the rules
+  python3 scripts/program_receipt.py verify RECEIPT.json   # validate, recompute and compare
   GFORTH=... LEAN=... python3 scripts/program_receipt.py record --out EVIDENCE.json
 Options: --contract (default tests/program/contracts/lf-clamp.contract),
 --evidence, --out, --markdown.
 
-A receipt (schema 0.1, docs/programming/PROGRAM_RECEIPTS.md) states what is
+A receipt (schema 0.2, docs/programming/PROGRAM_RECEIPTS.md) states what is
 known about one word, in three separate parts:
   CHECK  which theorems Lean checked (the contract theorem and the path
-         obligations of scripts/program_vc.py), with their axioms;
+         obligations of scripts/program_vc.py), each with its axioms;
   VERIFY whether the obligations generated from the IR and the contract
-         are discharged;
+         are discharged, and by which check;
   RUN    what the three-way runtime comparison of the IR interpreter, the
          host word and Lean's model showed (tests/program/ir-run-table.fs).
 and every assumption they rest on.
@@ -22,14 +23,23 @@ and every assumption they rest on.
 the generated obligations and their summary, hashed as they are) and from
 an evidence record, which `record` makes by running Lean and Gforth:
 Lean's version and the axioms of each theorem, and the runtime counts.
-`verify` rebuilds the receipt the same way and reports every field that
-differs, so a receipt edited by hand, or one whose files changed since,
-is rejected. A receipt that verifies is consistent with the repository and
-the evidence; it is not an approval of anything, and it passes no review
-gate. Untrusted tooling.
+`validate` reads any receipt the way every reader here does: strict JSON
+(tests/support/schema_subset.py: no duplicate keys, no fractions, no lone
+surrogates, bounded nesting), the schema its schemaVersion names (0.1 and
+0.2 are known; 0.1 is kept unchanged for receipts written before 0.2),
+and for 0.2 the rules JSON Schema cannot state (rule_problems). `verify`
+validates, then rebuilds the receipt the same way and reports every field
+that differs, so a receipt edited by hand, or one whose files changed
+since, is rejected. Each problem is one line `FILE: CODE: PATH: MESSAGE` on
+standard error, CODE one of not-strict-json, unknown-version, schema, rule,
+replay; the exit status is 0 when there is none, 1 when there is one and 2
+for a usage error. A receipt that verifies is
+consistent with the repository and the evidence; it is not an approval of
+anything, and it passes no review gate. Untrusted tooling.
 """
 import argparse
 import datetime
+import functools
 import hashlib
 import json
 import os
@@ -41,10 +51,17 @@ import sys
 import tempfile
 import textwrap
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT / "tests" / "support"))
 import program_vc  # noqa: E402
+from schema_subset import (MAX_SAFE_INTEGER, InstanceError, Validator,  # noqa: E402
+                           load_strict)
 
-VERSION = "0.1"
+VERSION = "0.2"
+SCHEMA_VERSION = "0.2"
+SCHEMAS = {version: ROOT / "schemas" / f"program-receipt-{version}.schema.json"
+           for version in ("0.1", "0.2")}
 CONTRACT = "tests/program/contracts/lf-clamp.contract"
 VC_LEAN = "tests/program/vc/obligations.lean"
 VC_SUMMARY = "tests/program/vc/obligations.json"
@@ -73,8 +90,16 @@ def word_line(ir_text, word):
     return int(match.group(1))
 
 
+def read_json(path, max_integer=MAX_SAFE_INTEGER):
+    """A JSON file read strictly, or stop with the reason."""
+    try:
+        return load_strict(Path(path).read_text(encoding="utf-8"), max_integer)
+    except (InstanceError, ValueError) as error:
+        raise SystemExit(f"{path}: not strict JSON: {error}") from None
+
+
 def vc_entry(contract_id):
-    summary = json.loads(Path(VC_SUMMARY).read_text(encoding="utf-8"))
+    summary = read_json(VC_SUMMARY, max_integer=2 ** 64)   # it lists 64-bit test cells
     found = [c for c in summary["contracts"] if c["id"] == contract_id]
     if len(found) != 1 or found[0]["status"] != "discharged":
         raise SystemExit(f"{contract_id}: no discharged contract in {VC_SUMMARY}")
@@ -117,7 +142,7 @@ def assumptions(word, prims, cases):
                  "is not modeled."},
         {"id": "A6", "kind": "trusted-lean",
          "text": "Lean 4.35.0, the pinned toolchain, checked the theorems correctly."},
-        {"id": "A7", "kind": "other",
+        {"id": "A7", "kind": "untrusted-generator",
          "text": "The obligations come from an untrusted generator (scripts/program_vc.py). "
                  "This is safe only because the contract theorem Lean proved is stated "
                  "against the IR semantics copied verbatim from "
@@ -138,6 +163,11 @@ def prim_words(ir_text, word):
     return ", ".join(seen[:-1]) + " and " + seen[-1] if len(seen) > 1 else "".join(seen)
 
 
+def allowlist_order(axioms):
+    """Axioms in the allowlist's order; any other is listed too, and the schema rejects it."""
+    return [a for a in ALLOWED_AXIOMS if a in axioms] + sorted(set(axioms) - set(ALLOWED_AXIOMS))
+
+
 def build(contract_path, evidence):
     contract = program_vc.parse_contract(Path(contract_path).read_text(encoding="utf-8"),
                                          contract_path)
@@ -146,15 +176,18 @@ def build(contract_path, evidence):
     word = contract["word"]
     source = program_vc.ir_source(ir_text)
     lean, run = evidence["lean"], evidence["run"]
-    used = {a for t in vc["theorems"] for a in lean["axioms"][t]}
-    # Any axiom outside the allowlist is listed too, and the schema rejects it.
-    axioms = [a for a in ALLOWED_AXIOMS if a in used] + sorted(used - set(ALLOWED_AXIOMS))
     contract_theorem = f"{vc['namespace']}.contract"
+    names = [contract_theorem] + [o["theorem"] for o in vc["obligations"]]
+    if sorted(names) != sorted(vc["theorems"]):
+        raise SystemExit(f"{contract['id']}: the theorems in {VC_SUMMARY} are not the contract "
+                         "theorem and one per obligation")
+    theorems = [{"name": n, "axioms": allowlist_order(lean["axioms"][n])} for n in names]
+    axioms = allowlist_order({a for t in theorems for a in t["axioms"]})
     host = {"forth": run["forth"], "version": run["version"], "os": run["os"],
             "arch": run["arch"], "cellBits": run["cellBits"]}
     return {
         "schema": "leanforth-program-receipt",
-        "schemaVersion": "0.1",
+        "schemaVersion": SCHEMA_VERSION,
         "provenance": {
             "kind": "generated",
             "generator": {"name": "python", "version": f"program_receipt.py {VERSION}"},
@@ -177,7 +210,7 @@ def build(contract_path, evidence):
         "check": {
             "status": "checked-by-lean-reference",
             "checker": {"name": "lean", "version": lean["version"], "commit": lean["commit"]},
-            "theorems": [contract_theorem] + [o["theorem"] for o in vc["obligations"]],
+            "theorems": theorems,
             "label": CHECK_LABEL,
             "axioms": axioms,
             "evidence": [file_ref(p) for p in CHECK_EVIDENCE],
@@ -188,13 +221,15 @@ def build(contract_path, evidence):
         },
         "verify": {
             "status": "discharged",
+            "settledBy": "checked-by-lean-reference",
             "generator": {"name": "python", "version": f"program_vc.py {program_vc.GENERATOR_VERSION}"},
             "obligations": [{"id": o["id"], "statement": obligation_text(o),
                              "status": "discharged", "theorem": o["theorem"]}
                             for o in vc["obligations"]],
             "note": "One obligation per path through the word's IR (IF splits a path), "
                     "generated by an untrusted generator from the IR and the contract; each "
-                    "is discharged by the Lean theorem named with it.",
+                    "is discharged by the Lean theorem named with it, checked by the Lean "
+                    "reference, not by LeanForth.",
         },
         "run": {
             "status": "passed" if run["failures"] == 0 else "failed",
@@ -221,7 +256,7 @@ WIDTH = 90
 
 
 def wrapped(label, body, indent=10):
-    lines = textwrap.wrap(body, WIDTH - indent)
+    lines = textwrap.wrap(body, WIDTH - indent, break_on_hyphens=False)
     return [f"{label:<{indent}}{lines[0]}"] + [" " * indent + line for line in lines[1:]]
 
 
@@ -234,7 +269,7 @@ def markdown(receipt):
                                                       "run"))
     out = [f"# Program receipt: `{p['word']}`", "",
            "Generated by `scripts/program_receipt.py` from "
-           "[the JSON receipt](lf-clamp.json) (schema 0.1); do not edit. "
+           f"[the JSON receipt](lf-clamp.json) (schema {receipt['schemaVersion']}); do not edit. "
            "CHECK, VERIFY and RUN are separate answers: none of them alone, and not all "
            "three together, make the word verified on the host. This receipt passes no "
            "review gate.", "", "```text"]
@@ -244,12 +279,15 @@ def markdown(receipt):
     out.append(f"  IR:     version {p['ir']['version']}, sha256 {short(p['ir']['sha256'])}")
     out += wrapped("Contract", f"{c['id']}: {c['statement']}")
     out.append("")
+    proved = "; ".join(f"{t['name']} (axioms {', '.join(t['axioms']) or 'none'})"
+                       for t in check["theorems"])
     out += wrapped("CHECK", f"{check['status']} — {check['label']}. Lean "
                    f"{check['checker']['version']} ({check['checker']['commit'][:8]}) proved "
-                   f"{', '.join(check['theorems'])}. Axioms: {', '.join(check['axioms'])}.")
-    out += wrapped("VERIFY", f"{verify['status']} — {len(verify['obligations'])} obligations "
-                   "generated from the IR and the contract by an untrusted generator; each "
-                   "discharged by the Lean theorem named below.")
+                   f"{proved}. All axioms: {', '.join(check['axioms'])}.")
+    out += wrapped("VERIFY", f"{verify['status']}, settled by {verify['settledBy']} — "
+                   f"{len(verify['obligations'])} obligations generated from the IR and the "
+                   "contract by an untrusted generator; each discharged by the Lean theorem "
+                   "named below.")
     host = run["host"]
     out += wrapped("RUN", f"{run['status']} — {run['label']}. {host['forth']} "
                    f"{host['version']}, {host['os']} {host['arch']}, {host['cellBits']}-bit "
@@ -322,6 +360,87 @@ def lean_agreement(lean, lines):
     return len(lines)
 
 
+# --------------------------------------------------------------------- reading
+
+@functools.lru_cache(maxsize=None)
+def validator(version):
+    return Validator(read_json(SCHEMAS[version]))
+
+
+def repeated(where, what, items):
+    """A problem for each item that appears more than once."""
+    seen, problems = set(), []
+    for item in items:
+        if item in seen:
+            problems.append(f"{where}: {what} {json.dumps(item, ensure_ascii=False)} "
+                            "appears more than once")
+        seen.add(item)
+    return problems
+
+
+def rule_problems(receipt):
+    """Schema 0.2's rules that JSON Schema cannot state, for a receipt the schema accepts.
+
+    Ids, theorem names and axioms are distinct; check.axioms is the union of
+    the theorems' axioms; a settled obligation's theorem, and for a
+    discharged verify the contract's theorem, are among the checked
+    theorems; failures are at most the cases; the checker and the generator
+    are among the tools.
+    """
+    check, verify, run = receipt["check"], receipt["verify"], receipt["run"]
+    theorems = check.get("theorems", [])
+    names = [t["name"] for t in theorems]
+    problems = (repeated("$.assumptions", "id", [a["id"] for a in receipt["assumptions"]])
+                + repeated("$.verify.obligations", "id", [o["id"] for o in verify["obligations"]])
+                + repeated("$.check.theorems", "theorem", names)
+                + repeated("$.check.axioms", "axiom", check["axioms"]))
+    for i, theorem in enumerate(theorems):
+        problems += repeated(f"$.check.theorems[{i}].axioms", "axiom", theorem["axioms"])
+    if set(check["axioms"]) != {a for t in theorems for a in t["axioms"]}:
+        problems.append("$.check.axioms: not the union of the theorems' axioms")
+    for i, obligation in enumerate(verify["obligations"]):
+        if "theorem" in obligation and obligation["theorem"] not in names:
+            problems.append(f"$.verify.obligations[{i}].theorem: not among check.theorems")
+    if verify["status"] == "discharged" and receipt["contract"]["lean"] not in names:
+        problems.append("$.contract.lean: the contract's theorem is not among check.theorems")
+    if run["failures"] > run["cases"]:
+        problems.append("$.run.failures: more failures than cases")
+    for where, tool in (("$.check.checker", check.get("checker")),
+                        ("$.verify.generator", verify.get("generator"))):
+        if tool is not None and tool not in receipt["tools"]:
+            problems.append(f"{where}: not among tools")
+    return problems
+
+
+def receipt_problems(receipt):
+    """Problems of a parsed receipt: its schema version, schema and rules."""
+    version = receipt.get("schemaVersion") if isinstance(receipt, dict) else None
+    if not isinstance(version, str) or version not in SCHEMAS:
+        return [f"unknown-version: $.schemaVersion: {json.dumps(version, ensure_ascii=False)} "
+                f"is not one of {', '.join(SCHEMAS)}"]
+    problems = [f"schema: {p}" for p in validator(version).errors(receipt)]
+    if not problems and version == SCHEMA_VERSION:
+        problems = [f"rule: {p}" for p in rule_problems(receipt)]
+    return problems
+
+
+def read_text(text):
+    """(receipt or None, problems) for a receipt's text, read strictly."""
+    try:
+        receipt = load_strict(text)
+    except InstanceError as error:
+        return None, [f"not-strict-json: $: {error}"]
+    return receipt, receipt_problems(receipt)
+
+
+def read_file(path):
+    try:
+        text = Path(path).read_text(encoding="utf-8")
+    except (OSError, ValueError) as error:
+        return None, [f"not-strict-json: $: {error}"]
+    return read_text(text)
+
+
 # ------------------------------------------------------------------- verifying
 
 def differences(left, right, where="$"):
@@ -345,7 +464,7 @@ def differences(left, right, where="$"):
 
 def verify(receipt, contract_path, evidence):
     """Every field of the receipt that the repository and evidence do not imply."""
-    return differences(receipt, build(contract_path, evidence))
+    return [f"replay: {d}" for d in differences(receipt, build(contract_path, evidence))]
 
 
 def dump(receipt):
@@ -354,8 +473,8 @@ def dump(receipt):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("action", choices=["write", "verify", "record"])
-    parser.add_argument("receipt", nargs="?")
+    parser.add_argument("action", choices=["write", "validate", "verify", "record"])
+    parser.add_argument("receipts", nargs="*")
     parser.add_argument("--contract", default=CONTRACT)
     parser.add_argument("--evidence", default="tests/program/receipts/generated/lf-clamp-evidence.json")
     parser.add_argument("--out", default="tests/program/receipts/generated/lf-clamp.json")
@@ -364,17 +483,23 @@ def main():
     if args.action == "record":
         Path(args.out).write_text(dump(record(args.contract)), encoding="utf-8")
         return 0
-    evidence = json.loads(Path(args.evidence).read_text(encoding="utf-8"))
     if args.action == "write":
-        receipt = build(args.contract, evidence)
+        receipt = build(args.contract, read_json(args.evidence))
         Path(args.out).write_text(dump(receipt), encoding="utf-8")
         Path(args.markdown).write_text(markdown(receipt), encoding="utf-8")
         return 0
-    receipt = json.loads(Path(args.receipt).read_text(encoding="utf-8"))
-    problems = verify(receipt, args.contract, evidence)
-    for problem in problems:
-        print(problem, file=sys.stderr)
-    return 1 if problems else 0
+    if args.action == "verify" and len(args.receipts) != 1 or not args.receipts:
+        parser.error("verify needs one receipt" if args.action == "verify" else
+                     "validate needs receipts")
+    status = 0
+    for path in args.receipts:
+        receipt, problems = read_file(path)
+        if args.action == "verify" and not problems:
+            problems = verify(receipt, args.contract, read_json(args.evidence))
+        for problem in problems:
+            print(f"{path}: {problem}", file=sys.stderr)
+        status = status or int(bool(problems))
+    return status
 
 
 if __name__ == "__main__":

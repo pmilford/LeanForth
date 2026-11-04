@@ -1,6 +1,6 @@
 {
   "schema": "leanforth-program-receipt",
-  "schemaVersion": "0.1",
+  "schemaVersion": "0.2",
   "provenance": {
     "kind": "example",
     "createdAt": "2026-11-02",
@@ -34,7 +34,8 @@
   "run": {
     "status": "not-run",
     "cases": 0,
-    "failures": 0
+    "failures": 0,
+    "label": "not run"
   },
   "assumptions": [
     {
@@ -46,6 +47,16 @@
       "id": "A2",
       "kind": "trusted-runtime",
       "text": "The Forth host executes the word as written."
+    },
+    {
+      "id": "A3",
+      "kind": "twos-complement",
+      "text": "Cells are two's complement."
+    },
+    {
+      "id": "A4",
+      "kind": "stack-capacity",
+      "text": "The data and return stacks have room for the word's items."
     }
   ],
   "tools": [
