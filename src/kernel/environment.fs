@@ -4,8 +4,8 @@
 \ numbers never depend on timing. Only the publisher (env-publish.fs)
 \ writes a slot, once, after its declaration's check has ended: first the
 \ outcome and, for an accepted declaration, its record (E2), then, last,
-\ the state that makes it final. A final slot never changes, and only a
-\ final slot is ever read.
+\ the state that makes it final. Until then the slot's outcome is invalid,
+\ never ok. A final slot never changes, and only a final slot is ever read.
 \
 \ Identity (E3). Each environment gets a number from a serial that only
 \ grows and never repeats; once it is spent no environment can be made.
@@ -182,11 +182,18 @@ end-structure
   lf-input-fingerprint over lf-envh-input ! lf-mode-final over lf-envh-mode ! ;
 : lf-env-identity+ ( env -- env )
   lf-env-may-write 1 lf-env-serial +! lf-env-serial @ over lf-envh-identity ! ;
-\ Format the pool and give the environment its identity: (env ok); or
-\ (0 invalid), the memory freed, for a pool shape store-init refuses.
+\ Every slot starts not final with outcome invalid, never ok, though
+\ nothing reads a slot before it is final. lf-env-unpublished writes only
+\ through lf-slot-invalid!, which refuses inside a job.
+: lf-slot-invalid! ( slot -- ) lf-env-may-write outcome-invalid swap lf-slot-outcome ! ;
+: lf-env-unpublished ( env -- env )
+  dup lf-env-length 0 ?do i over lf-env-slot lf-slot-invalid! loop ;
+\ Format the slots and the pool and give the environment its identity:
+\ (env ok); or (0 invalid), the memory freed, for a pool shape
+\ store-init refuses.
 : lf-env-made ( deps env -- env outcome )
-  lf-env-may-write lf-env-fields tuck lf-env-pool >r 1 cells 0 r> store-init
-  if lf-env-identity+ outcome-ok else free drop 0 outcome-invalid then ;
+  lf-env-may-write lf-env-fields lf-env-unpublished tuck lf-env-pool >r 1 cells 0 r>
+  store-init if lf-env-identity+ outcome-ok else free drop 0 outcome-invalid then ;
 : lf-env-deps? ( deps -- flag ) 0 lf-env-pool-max between? ;
 : lf-env-new-ok? ( deps -- flag )
   lf-env-deps? lf-input-intact? and context-in-job? 0= and ;

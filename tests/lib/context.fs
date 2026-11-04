@@ -5,8 +5,9 @@
 \ as they are declared and in every new context; a refused declaration,
 \ even one whose memory cannot be allocated, changes nothing, and a setup
 \ word that throws is not registered; contexts are independent; ownership
-\ limits who may select, claim and free a context; call-balanced catches a
-\ word with a wrong stack effect. A randomized model then
+\ limits who may select, claim, release and free a context; call-balanced
+\ catches a word with a wrong stack effect, and context-catch restores the
+\ current context after a word. A randomized model then
 \ runs the same operations on context stores and walks, switching context
 \ at every step, and on dictionary records, and compares results and every
 \ byte.
@@ -197,10 +198,11 @@ T{ junk use-fails? 0 use-fails? lf-context @ ctx1 = -> true true true }T
 \ Ownership (task.fs claims a job's context): only an idle context other
 \ than the main and the current one can be claimed, by a nonzero token.
 \ An owned context is selected only under its owner's token and cannot be
-\ freed; under a nonzero token (inside a job) no context can be made or
-\ freed and no other context selected.
+\ freed; under a nonzero token (inside a job) no context can be made,
+\ freed, claimed or released and no other context selected.
 : free-fails? ( addr -- flag ) ['] context-free catch dup if nip then 0<> ;
 : new-fails? ( -- flag ) ['] context-new catch 0<> ;
+: release-fails? ( addr -- flag ) ['] context-release catch dup if nip then 0<> ;
 context-new throw constant ctx2
 T{ 7 context-main context-claim 7 junk context-claim -> false false }T
 T{ 7 0 context-claim -> false }T
@@ -213,12 +215,19 @@ T{ context-in-job? ctx2 ' context-use rs-checked lf-context @ ctx2 = -> true tru
 T{ ctx1 use-fails? context-main use-fails? -> true true }T
 T{ new-fails? ctx1 free-fails? -> true true }T
 T{ lf-context @ ctx2 = -> true }T
+\ Nor can a job claim another context or release its own (the review's
+\ M1): claiming gives false and releasing aborts, changing nothing.
+T{ 7 ctx1 context-claim ctx2 release-fails? -> false true }T
+T{ ctx1 context-idle? ctx2 context-owner @ -> true 7 }T
 \ A check run outside the job pool holds context-check-owner: it counts as
 \ inside a job, and no context is its own, not even the current one.
 context-check-owner lf-owner !
 T{ context-in-job? context-check-owner 0= -> true false }T
 T{ ctx2 use-fails? ctx1 use-fails? context-main use-fails? -> true true true }T
 T{ new-fails? ctx1 free-fails? lf-context @ ctx2 = -> true true true }T
+\ Such a check claims and releases nothing either (probes p1 and p5).
+T{ context-check-owner ctx1 context-claim ctx2 release-fails? -> false true }T
+T{ ctx1 context-idle? ctx2 context-owner @ -> true 7 }T
 0 lf-owner !  ctx1 context-use
 T{ ctx2 context-release ctx2 context-idle? ctx2 context-free -> true 0 }T
 
@@ -235,6 +244,12 @@ T{ context-unbalanced ' c-keeps balanced-ior ' c-leaves balanced-ior -> -4096 0 
 T{ ' c-eats balanced-ior ' c-swaps balanced-ior -> context-unbalanced context-unbalanced }T
 T{ 1 2 ' c-throws balanced-ior 3 ' c-keeps balanced-ior -> 1 2 55 3 0 }T
 T{ true ?call-balanced false ' ?call-balanced catch nip -> context-unbalanced }T
+
+\ context-catch is CATCH that restores the current context afterwards,
+\ whether the word returned or threw.
+: c-select-throw ( context -- ) context-use 56 throw ;
+T{ lf-context @ context-main ' context-use context-catch lf-context @ rot = -> 0 true }T
+T{ 1 2 context-main ' c-select-throw context-catch nip lf-context @ ctx1 = -> 1 2 56 true }T
 
 \ Freeing: the main context and non-contexts abort; freeing the current
 \ context returns the task to the main one.

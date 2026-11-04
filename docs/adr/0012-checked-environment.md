@@ -13,8 +13,9 @@ structure of [ADR 0009](0009-reentrant-state-and-parallel-checking.md)
 
 Amended 2026-11-02 ([Amendment 1](#amendment-1-2026-11-02-after-the-independent-review-of-v0)):
 stricter or clarifying changes after the independent review of the
-implementation, and clarifications after its second and third rounds,
-including the threat model (item 15); the status above is unchanged.
+implementation, and clarifications after its second, third and fourth
+rounds, including the threat model (items 15 and 17); the status above
+is unchanged.
 
 ## Summary in plain words
 
@@ -623,6 +624,40 @@ below adds or changes a rule of this design.
     (*Threat model*) lists exactly which misuse by each is detected and
     fails closed, and which is not; reviews judge the implementation
     against that list.
+
+**Clarifications after the fourth review round (2026-11-03).** The
+independent review of those changes again found no path by which a
+failed check is published or read as accepted. It found that a check
+could still claim and release contexts, and gaps in the threat model, a
+test and the docs. None of the changes below adds or changes a rule of
+this design.
+
+16. **Claiming and releasing contexts (G-P1).** Inside a job or a check,
+    `context-claim` gives false and `context-release` aborts, as the
+    words that make, select and free contexts already refused there.
+    Before, a check could claim an idle context with its own token and
+    select it, release another job's context, or claim the serial run's
+    home context after a `THROW`, so that the run threw to its caller and
+    the home context could never be freed. The job pool claims and
+    releases only outside jobs, so it needs no unguarded copy.
+17. **Library words on an environment's addresses (threat model).** A
+    check that applies a library word, such as `store-rollback`, to the
+    environment's pool and the publisher's mark writes outside its own
+    context as a plain store does, and no guard sees it: the pool
+    shrinks, a later publication overwrites an accepted slot's
+    dependencies, and the run still answers *ok*. It is listed with the
+    other undetected writes. A possible follow-up, not implemented: the
+    run's end could check that each accepted slot's dependencies lie
+    within the pool.
+18. **Slots not yet published (E2).** A new environment's slots start not
+    final with outcome *invalid*; before, they held 0, which is *ok*.
+    Nothing read the outcome of a slot that is not final, so no result
+    changes; the change removes an *ok* that a mistake could read.
+19. **The maker's answer (item 13).** An address that cannot be read is
+    refused only where the host turns the memory fault into a `THROW`,
+    as Gforth does; Forth-2012 leaves reading such an address undefined.
+    The run frees the contexts it made, never one a maker gave that it
+    refused.
 
 ## Reproduction
 

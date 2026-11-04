@@ -29,8 +29,9 @@
 \ (the checked environment's serial driver, kernel/env-publish.fs). A
 \ task may select only a context whose owner is its own token: the main
 \ task only idle contexts, a job only its own, a check outside the pool
-\ none. An owned context cannot be freed, and contexts are made and freed
-\ only outside jobs; context-in-job? counts such a check as inside one.
+\ none. An owned context cannot be freed, and contexts are made, freed,
+\ claimed and released only outside jobs; context-in-job? counts such a
+\ check as inside one.
 \
 \ Handles: a context's address is its handle, valid from context-new until
 \ context-free. A handle must never be used after context-free: context?
@@ -256,11 +257,21 @@ context-bytes allocate0 throw dup context-sized context-main!
 \ Claiming for a job (task.fs). context-claim makes owner, a nonzero
 \ token, the owner of an idle context and gives true; it gives false and
 \ changes nothing for an address that is not a context, the main context,
-\ the current task's context or a context already owned. context-release
-\ makes a context idle again.
+\ the current task's context or a context already owned, and inside a job
+\ or a check. context-release makes a context idle again; it aborts inside
+\ a job or a check. Both are refused there like context-new and
+\ context-free: otherwise a check could claim a context with its own token
+\ and select it, or release another job's context. task.fs, which alone
+\ calls them, claims in job-submit and releases in job-submit and
+\ job-wait, each after refusing a call inside a job, so it needs no
+\ unguarded copy.
 : context-claimable? ( context -- flag )
-  dup context? 0= if drop false exit then
+  dup context? 0= context-in-job? or if drop false exit then
   dup context-main <> over lf-context @ <> and swap context-idle? and ;
 : context-claim ( owner context -- flag )
   dup context-claimable? if context-owner ! true else 2drop false then ;
-: context-release ( context -- ) 0 swap context-owner ! ;
+: context-release ( context -- ) context-outside-job 0 swap context-owner ! ;
+
+\ CATCH that restores the current task's context afterwards, whatever xt
+\ selected or threw: ior is 0 or xt's THROW code, as for CATCH.
+: context-catch ( i*x xt -- j*x ior ) lf-context @ >r catch r> lf-context ! ;
