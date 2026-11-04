@@ -187,4 +187,18 @@ create other-text 64 allot
 T{ interleaved s" ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad" hex?
    s" xyz" hashed other-text 64 hex? -> true true }T
 
+\ sha256-line adds the text, then one line feed: the SHA-256 (hashlib's) of
+\ "abc\n", of "\n" and of "x\n\ny\n" given as the lines x, empty and y.
+: lines-hashed ( c-addr u -- )   \ the digest of "abc" given as a line
+  hasher sha256-init hasher sha256-line digest-text ;
+T{ s" abc" lines-hashed s" edeaaff3f1774ad2888673770c6d64097e391bc362d7d6fb34982ddf0efd18cb"
+   hex? -> true }T
+T{ s" " lines-hashed s" 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+   hex? -> true }T
+: three-lines ( -- )
+  hasher sha256-init s" x" hasher sha256-line s" " hasher sha256-line
+  s" y" hasher sha256-line digest-text ;
+T{ three-lines s" 9e999adc348bc9bf4cd26312129af41b3255e8a06b523e17b2398f808ef52fff"
+   hex? -> true }T
+
 bye

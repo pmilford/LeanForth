@@ -38,7 +38,7 @@ LIBRARY = ROOT / "src" / "lib" / "sha256.fs"
 PORTABILITY = ROOT / "src" / "lib" / "portability.fs"
 MODULE = ROOT / "src" / "lib" / "module.fs"
 # The documented interface: the hashing words and FIPS 180-4's functions.
-PUBLIC = {"/sha256", "sha256:", "sha256-init", "sha256-update", "sha256-final",
+PUBLIC = {"/sha256", "sha256:", "sha256-init", "sha256-update", "sha256-line", "sha256-final",
           "sha256-hex", "sha-digest-bytes", "sha-w32", "sha-shr", "sha-rotr", "sha-ch",
           "sha-maj", "sha-big-sigma0", "sha-big-sigma1", "sha-small-sigma0",
           "sha-small-sigma1"}

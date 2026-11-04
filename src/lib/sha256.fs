@@ -20,7 +20,7 @@
 \ reuse.
 \
 \ Public words (word list lf-lib), each documented where it is defined:
-\   /sha256 sha256: sha256-init sha256-update sha256-final sha256-hex
+\   /sha256 sha256: sha256-init sha256-update sha256-line sha256-final sha256-hex
 \   sha-digest-bytes
 \ and FIPS 180-4's functions, for the program track's proofs: sha-w32
 \ (addition modulo 2^32), sha-shr, sha-rotr, sha-ch, sha-maj,
@@ -331,6 +331,10 @@ lf-lib set-current
 \ then compress whole blocks in place, then keep the rest (fewer than 64).
 : sha256-update ( c-addr u sha -- )
   dup >r sha-used @ if r@ sha-take then r@ sha-blocks r> sha-take 2drop ;
+\ Add one line of text and then a line feed (10), as a hash of a text file
+\ read line by line sees it: the same as sha256-update of c-addr u and of
+\ the one byte 10.
+: sha256-line ( c-addr u sha -- ) dup >r sha256-update s\" \n" r> sha256-update ;
 \ Finish the hash: count the waiting bytes, pad, compress, and write the
 \ 32-byte digest at c-addr.
 : sha256-final ( c-addr sha -- )

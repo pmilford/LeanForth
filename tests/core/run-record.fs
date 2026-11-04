@@ -428,5 +428,27 @@ T{ s" host" rp-sections rp-named rp-entry-code -> rp-tool-differs }T
 T{ s" nothing" rp-sections rp-named rp-entry-code -> -1 }T
 T{ rp-start 3 rp-index+ s" verdict" rp-key+ rp-path s" $[3].verdict" compare -> 0 }T
 
+\ cin-digest is the digest of this context's own last read: another
+\ context's read does not replace it (rvRP3 round 4, p13; ADR 0009).
+create first-digest sha-digest-bytes 2* allot
+: first-digest? ( -- flag ) cin-digest first-digest sha-digest-bytes 2* compare 0= ;
+composition cin-read ok? must cin-digest drop first-digest sha-digest-bytes 2* move
+context-new throw constant other-context
+other-context context-use
+constant-fixture cin-read ok? must
+T{ first-digest? -> false }T
+context-main context-use
+T{ first-digest? -> true }T
+other-context context-free drop
+
+\ A handler that THROWs in cin-read leaves no tap on the reader (rvRP3
+\ round 4): the plain read's hashing tap is removed on every path.
+: thrower ( record -- outcome ) -1 throw ;
+: thrown ( -- ior ) composition ['] cin-read catch nip nip ;
+' thrower cin-first 1 cells + !   \ the name handler of the first pass
+T{ thrown cin-export export-tap @ -> -1 0 }T
+' cin-str cin-first 1 cells + !
+cin-done
+
 cases-done
 bye
