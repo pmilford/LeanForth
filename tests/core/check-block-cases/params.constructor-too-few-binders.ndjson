@@ -1,0 +1,12 @@
+{"meta":{"exporter":{"name":"lean4export","version":"3.1.0"},"format":{"version":"3.1.0"},"lean":{"githash":"eb6cafb7290e8bd5f2937522d8d804f58f02bafc","version":"4.35.0"}}}
+{"in":1,"str":{"pre":0,"str":"IE"}}
+{"in":2,"str":{"pre":1,"str":"T"}}
+{"in":3,"str":{"pre":0,"str":"a"}}
+{"in":4,"str":{"pre":3,"str":"_@"}}
+{"in":5,"str":{"pre":4,"str":"_internal"}}
+{"in":6,"str":{"pre":5,"str":"_hyg"}}
+{"in":7,"num":{"i":0,"pre":6}}
+{"ie":0,"sort":0}
+{"forallE":{"binderInfo":"default","body":0,"name":7,"type":0},"ie":1}
+{"in":8,"str":{"pre":2,"str":"mk"}}
+{"inductive":{"ctors":[{"cidx":0,"induct":2,"isUnsafe":false,"levelParams":[],"name":8,"numFields":0,"numParams":1,"type":0}],"recs":[],"types":[{"all":[2],"ctors":[8],"isRec":false,"isReflexive":false,"isUnsafe":false,"levelParams":[],"name":2,"numIndices":0,"numNested":0,"numParams":1,"type":1}]}}

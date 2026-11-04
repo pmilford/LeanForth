@@ -50,6 +50,11 @@ PENDING = {
         "C2 needs id Type unfolded (delta, phase 4): K1; twin params.constructor-binder-beta"),
     "names.empty-block": ("invalid",
         "no declaration to check: an empty block record cannot come from lean4export (B0)"),
+    "after.recursor-left-out-then-use-rec": ("invalid",
+        "the file names IE.B.rec but leaves it out, so the importer refuses the file before"
+        " any check (ADR 0016 C4: a constant must be declared in the file); Lean's replay"
+        " generates IE.B.rec. Twin after.recursor-left-out-then-use-and-def-rec, where the"
+        " use is unknown (diagnostic 77)"),
 }
 # Rows of later tasks whose file refers to a constant it does not declare,
 # which the importer refuses (invalid) before any check: id -> reason.

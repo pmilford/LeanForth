@@ -89,16 +89,16 @@ member (`check-declaration.fs` sends every block member to
 `lf-block-check`). Its steps, each ended by the first failure; the step
 reached is `lf-block-step@` (15 when every step succeeded); every
 rejection names Lean's reason through a diagnostic
-([codes 62–75](DIAGNOSTICS.md#catalogue)):
+([codes 62–77](DIAGNOSTICS.md#catalogue)):
 
 | Step | Rule (ADR 0015) | What | Lean (`inductive.cpp`, 4.35.0) | LeanForth's outcome on failure |
 | ---: | --- | --- | --- | --- |
-| 1 | B0, U1 (audit), U2, V1, scope | the block as lean4export writes it; no unsafe member; no `let`, literal, projection or metadata; no loose variable; one type, mentioned by each constructor only as the head of its result | replay's reading; 1237–1247 | invalid (shape, V1); unsupported (unsafe, U2, mutual, recursive, the type in a result index) |
+| 1 | B0, U1 (audit), U2, V1, scope | the block as lean4export writes it, at most 512 constructors (checked when the block is opened, before anything is written for them); no unsafe member; no `let`, literal, projection or metadata; no loose variable; one type, mentioned by each constructor only as the head of its result | replay's reading; 1237–1247 | invalid (shape, V1); full (more than 512 constructors, the whole block); unsupported (unsafe, U2, mutual, recursive, the type in a result index) |
 | 2 | T0 | no constant named under `_nested` | 1222–1233 | rejected |
 | 3 | C1 | each occurrence of the type applied to the block's universe parameters and parameters | 134–164 | rejected |
-| 4 | T1 | at least `numParams` binders | 1138–1146 | rejected |
+| 4 | T1 | at least `numParams` binders in the type, then in each constructor's type (`get_params`, called by `elim_nested_inductive_fn` 1151–1166 for both) | 1138–1166 | rejected |
 | 5 | T5 | universe parameters distinct | 869 | rejected |
-| 6 | N2 | the type's name and `T.rec` unused | 258–259 | rejected; unknown or unsupported when an earlier declaration of that name is undecided or unsupported (K5) |
+| 6 | N2 | the type's name and `T.rec` unused, also as the recursor Lean generated for an earlier type (below) | 258–259 | rejected; unknown or unsupported when an earlier declaration of that name is undecided or unsupported (K5) |
 | 7 | — | the type's type inferred | 261 | inference's outcome |
 | 8 | T2 | its telescope (parameters, indices) and a `Sort` at the end | 263–287 | rejected (typeExpected); unknown where Lean's `whnf` might unfold a definition |
 | 9 | C4, N2, C2, U1, C3 | each constructor: name unique, unused, its type inferred, each parameter's domain the type's, each field's universe within the result's (Lean's `is_geq`) unless the type is a proposition, its result `T As is` | 456–497 | rejected; unknown where a comparison needs unfolding |
@@ -106,7 +106,7 @@ rejection names Lean's reason through a diagnostic
 | 11 | N2 | `T.rec` is no constructor's name | 813 | rejected |
 | 12 | G1, G2 | the recursor's type and rules built | 632–819 | full when the term store has no room |
 | 13 | B3 | every constructor and every exported recursor equal to the one built, by Lean's `==` | `Lean/Replay.lean` 148–164 | rejected (Invalid constructor, Invalid recursor, No such recursor) |
-| 14 | B4 | the type's `numIndices`, `isRec`, `isReflexive`, `numNested`, and a recursor missing from the block: never used, never failing | replay ignores them | accepted, with a warning bit (`lf-block-warnings`) |
+| 14 | B4 | the type's `numIndices`, `isRec`, `isReflexive`, `numNested` against LeanForth's values, and a recursor missing from the block: never used, never failing | replay ignores them | accepted, with a warning bit (`lf-block-warnings`; on the accepted block's slots, `lf-env-warnings`) |
 
 Not run: positivity (436–452) holds trivially, since the scope leaves no
 field mentioning the type and reduction never creates an occurrence; G4,
@@ -138,16 +138,39 @@ store keeps no binder names or annotations, which Lean's `==` ignores.
 **Publication (B5).** The check's candidate covers all the block's
 members (`lf-env-span!`, `environment.fs`); the publisher re-checks every
 member (kind, safety, no value, its block, distinct universe parameters,
-every name unused below the block), writes every slot with the one
-outcome, the input declaration and the shared dependencies, and marks them
-final last (`env-publish.fs`). The serial run skips the members already
-final.
+every name unused below the block, also as a generated recursor),
+writes every slot with the one outcome, the input declaration, the shared
+dependencies and, for an accepted block, its B4 warning bits, and marks
+them final last (`env-publish.fs`). The serial run skips the members
+already final.
+
+**Lean's generated recursor, when the file leaves it out.** Lean's
+`add_inductive` adds the recursor `T.rec` it generates to its environment,
+whatever the file holds; Lean's replay accepts a block without it (B4).
+LeanForth cannot publish that recursor: a slot is an input declaration,
+one per record of the file, fixed when the environment is made, and the
+generated terms are the check's scratch, given back after it. So the
+environment *reserves the name* (`environment.fs`, `lf-env-reserving`;
+review rvI21 B2): a name `P.rec` is held by every earlier inductive type
+named `P`, and `P.rec_<digits>` (the auxiliary recursors of a nested
+block) by every such type not accepted, since no accepted block is nested
+yet (plan task 5.2.2 must hold those names for the nested blocks it
+accepts). N2 (`lf-env-fresh`) treats a held name as declared when the type
+is accepted (Lean's `alreadyDeclared`: the rows `after.*`), K5 when it is
+undecided or unsupported, and *invalid* (too early) while it is open; the
+publisher's re-check and the scheduler's readiness (`lf-env-ready?`) see
+the same. A lookup of a held name that no slot holds is *unknown*
+(diagnostic 77), where Lean would use its kernel's recursor. A file that
+uses `T.rec` and declares it nowhere is refused whole by the importer
+(*invalid*, ADR 0016 C4; the row `after.recursor-left-out-then-use-rec`,
+pending).
 
 **The block's own type during the check.** Lean adds the type to its
 environment before it checks the constructors. LeanForth's inference finds
 it through a hook in `env-signature.fs` (`lf-envsig-local`), set by
-`check-block.fs` and answering only during a block's step 9, with L1 and L2
-as for any constant and no dependency.
+`check-block.fs` and answering only during a block's step 9 and, in depth,
+only while the declaration checked is the block's first member (review
+rvI21 M1), with L1 and L2 as for any constant and no dependency.
 
 **A guard in comparison (P4).** With structures in the environment,
 Lean's last comparison route, `is_def_eq_unit_like`, makes any two terms of
@@ -156,7 +179,12 @@ a structure like `PUnit` equal. Rules D3 and D5 of
 variable-headed terms apart unless the left one's type is visibly no
 constant application (`lf-minfer-unit-free?`, `mixed-infer.fs`). Without
 it, `fun x y P h => h : ∀ x y : PUnit, ∀ P, P x → P y`, which Lean
-accepts, would be rejected (row `unit.punit-variables`).
+accepts, would be rejected (row `unit.punit-variables`). With the
+derivation log on, the aside inference's steps are logged as premises of
+the step they serve; the log copies each scratch term into its own pools
+when it writes the record (identity checked, `core/derivation-log.fs`), so
+the proof outline never prints a node the aside gave back (review rvI21
+L4).
 
 ## Data in the input
 
@@ -172,14 +200,39 @@ inductive types.
 
 ## Limits
 
-- 512 constructors per block (`lf-ind-ctor-capacity`); parameters plus
-  indices, and the fields of one constructor, at most 64 (inference's
-  binder context); a check records at most 16 dependencies
-  (`lf-env-dep-capacity`). Beyond: *full*.
-- A recursor missing from the block is accepted (B4, as Lean's replay),
-  but no slot holds it: a later declaration naming it is rejected as an
-  unknown constant, where Lean's replay would use the recursor its kernel
-  generated (a tampered file only; lean4export always writes it).
+- At most 512 constructors per block (`lf-ind-ctor-capacity`): a block
+  with more is *full*, every member, found when the block is opened,
+  before anything is written for its constructors (diagnostic 76; review
+  rvI21 B1: the limit was not enforced, and 600 constructors wrote past
+  the block's state). Parameters plus indices, and the fields of one
+  constructor, at most 64 (inference's binder context); a check records
+  at most 16 dependencies (`lf-env-dep-capacity`). Beyond: *full*.
+- A recursor missing from the block (B4) is accepted, as Lean's replay
+  accepts it; its name is reserved, as above, so a later definition of it
+  is rejected as Lean rejects it, a later use is *unknown*, and a file
+  that uses it without declaring it is *invalid*. Only a tampered file can
+  do this: lean4export writes every recursor.
+- The published slots of an accepted block hold the file's own data
+  (`lf-idecl-more`): its recursors' numbers, `k` and rules, and its
+  constructors' numbers, equal LeanForth's (B3 compared them); the type's
+  `numIndices`, `isRec`, `isReflexive` and `numNested` are the file's and
+  untrusted. LeanForth's values for a block of this task are the
+  recursor's `numIndices`, `isRec` and `isReflexive` false and
+  `numNested` 0; the warning bits on the slots (`lf-env-warnings`) say
+  which of the file's differ. Tasks 5.2.1b and 5.2.2, the first to read
+  these fields, must use LeanForth's values (ADR 0015 B5).
+- A scheduler that checks declarations in parallel must skip a block's
+  later members, as `lf-env-next` does (each would otherwise start a check
+  of its own and fail closed as *invalid*), and must ask `lf-env-ready?`,
+  which also waits for the types that may hold a name `T.rec`.
+- B0's distinct-name test and C4 compare names pairwise without fuel:
+  quadratic in the block's members. The constructors are at most 512; a
+  header with very many types still reaches B0 before the scope check
+  makes it *unsupported*.
+- The export's numbers are 32-bit; on a host with 32-bit cells the feed
+  refuses one that is no positive cell (*invalid*) instead of reading a
+  negative count (review rvI21 L3), and each count in a block's header is
+  checked to lie within the input before the counts are added.
 - Under the feed's name view, U1's `is_geq` orders two universe
   parameters by their names in the stage (`lf-name-part-ok?`); until the
   review rvKC's finding H1 was fixed (2026-11-04) it read the plain name
@@ -188,29 +241,43 @@ inductive types.
 
 ## Evidence
 
-- `make test-inductive-table` (part of `make check`): every one of the 120
+- `make test-inductive-table` (part of `make check`): every one of the 139
   cases of `tests/reference/inductive-expected.lean` as the export Lean
-  prints for it, checked by LeanForth. Task 5.2.1a's 44 rows: 38 give
-  Lean's verdict (19 accepted, 19 rejected, each with Lean's reason), and
-  six are pending, each
-  named with its reason: four use or redeclare `Nat` (task 5.2.1b), one
-  needs unfolding (`id Type`), and an empty block has no declaration to
-  check (the reader refuses it). Each pending rule is reached by a twin
-  row without the dependency. The 76 rows of later tasks give
-  *unsupported* or *unknown*, or Lean's own verdict (`ind.eq`, an indexed
-  family; two universe rows with indices; none differs), except two
-  whose files name a constant they never declare, which the importer
-  refuses as *invalid*.
-- `make test-check-block` (part of `make test`): 41 of those files
+  prints for it, checked by LeanForth. Task 5.2.1a's 63 rows: 56 give
+  Lean's verdict (20 accepted, 36 rejected, each with Lean's reason), and
+  seven are pending, each named with its reason: four use or redeclare
+  `Nat` (task 5.2.1b), one needs unfolding (`id Type`), an empty block has
+  no declaration to check (the reader refuses it), and a file that uses
+  `IE.B.rec` without declaring it is refused by the importer. Each pending
+  rule is reached by a twin row without the dependency. The 76 rows of
+  later tasks give *unsupported* or *unknown*, or Lean's own verdict
+  (`ind.eq`, an indexed family; two universe rows with indices; none
+  differs), except two whose files name a constant they never declare,
+  which the importer refuses as *invalid*. The review rvI21 added 19 rows:
+  its probes as Lean's replays (the `Bool` recursor's universe renamed or
+  doubled, its `all` doubled, its minor premises swapped, a constructor
+  given a universe; `k` set for `And` and `U`; `Or` eliminating into every
+  universe), `optParam` and `outParam` fields, T0 with the reserved
+  constant declared, T1 on a constructor, N2 on a constructor and on a
+  constructor named `rec`, and five rows `after.*` of declarations after
+  a block, whose verdict is the last declaration's (a definition of
+  `IE.B.rec` with and without the recursor in the file, a use of it, a use
+  of a rejected block's type).
+- `make test-check-block` (part of `make test`): 60 of those files
   committed in `tests/core/check-block-cases/` (the table test checks they
   are still Lean's), every outcome with its rule's diagnostic and step,
-  Lean's replay of the `Bool` block with twelve mutations, `blocks.ndjson`
-  published block by block and tampered one field at a time (recursor
-  numbers, rules, `k`, constructor fields; B4 fields; B0, unsafe, U2, V1),
-  a fuel bisection (exhausted below the least budget, ok from it), and a
-  full term store.
-- Eighteen planted faults (`ind-*` in `tests/mutants/faults.toml`), each
-  caught by `tests/core/check-block.fs`.
+  Lean's replay of the `Bool` block with eighteen mutations and of `And`,
+  `U` and `Or` with one each, `blocks.ndjson` published block by block and
+  tampered one field at a time (recursor numbers, rules, `k`, constructor
+  fields; B4 fields; B0, unsafe, U2, V1), a fuel bisection (exhausted
+  below the least budget, ok from it), a full term store, the reserved
+  recursor name (N2, a use, the scheduler's readiness, the publisher's
+  re-check), the type's visibility after its block, the publisher's member
+  re-check, the warnings on the slots; and `tests/core/test_block_capacity.py`:
+  512 constructors accepted, 513 and 1,600 *full*, a valid block after
+  each still accepted.
+- 38 planted faults (`ind-*`, and `env-*`, `pub-*`, `geq-*` of the review
+  rvI21's fixes, in `tests/mutants/faults.toml`), each caught.
 - Lean's `Init` checked whole (2026-11-04, a probe, 896 s with
   `gforth-fast`; details in ADR 0015, *Implementation (plan task
   5.2.1a)*): of its 604 blocks, 551 are in this task's scope; 142 are
@@ -223,6 +290,6 @@ inductive types.
 
 | What | Size | Time |
 | --- | --- | --- |
-| `make test-check-block` (41 files, 20 tampered runs, about 40 fuel runs) | — | 0.3 s (`gforth`) |
-| `make test-inductive-table` (120 files; one Lean run) | 50,000 lines of Lean output | 38 s |
+| `make test-check-block` (60 files, 20 tampered runs, about 40 fuel runs; then the capacity test) | — | about 1 s, and 2 s for the capacity test (`gforth`) |
+| `make test-inductive-table` (139 files; one Lean run) | 56,000 lines of Lean output | about 40 s |
 | Lean's `Init`, every declaration checked | 345 MB export, 59,349 declarations, 604 blocks | 896 s (`gforth-fast`): stage 26 s, feed 126 s, checks 744 s |

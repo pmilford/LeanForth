@@ -408,8 +408,9 @@ end-structure
 \ block (named after its first type), is held the same way except by an
 \ accepted type: LeanForth accepts no nested block yet (plan task 5.2.2
 \ must hold these names for the nested blocks it accepts).
+: lf-env-number-rest ( c-addr u -- u' ) 0 0 2swap >number >r 2drop drop r> ;
 : lf-env-digits? ( c-addr u -- flag )
-  dup 0> -rot bounds ?do i c@ [char] 0 [char] 9 1+ within and loop ;
+  dup 0> >r base @ >r decimal lf-env-number-rest r> base ! 0= r> and ;
 : lf-env-aux-rec? ( c-addr u -- flag )
   2dup 4 min s" rec_" compare if 2drop false else 4 /string lf-env-digits? then ;
 \ The kind of name's last part: 1 rec, 2 rec_<digits>, 0 any other.
@@ -440,14 +441,17 @@ here lf-env-holders - 2 cells / constant lf-env-holders#
   2drop -1 outcome-rejected ;
 : lf-env-aux-held ( d class -- d class ) dup ok? if 2drop -1 outcome-rejected then ;
 \ The name of the types that may hold name, 0 when no type can.
-: lf-env-type-name ( name -- prefix|0 ) dup lf-env-rec-kind if lf-name-prefix@ else drop 0 then ;
+: lf-env-type-name ( name -- prefix|0 )
+  dup lf-env-rec-kind if lf-name-prefix@ else drop 0 then ;
 : lf-env-reserving ( name limit -- d class )
-  over lf-env-rec-kind >r swap lf-env-type-name ?dup 0= if r> 2drop -1 outcome-rejected exit then
+  over lf-env-rec-kind >r swap lf-env-type-name ?dup 0=
+  if r> 2drop -1 outcome-rejected exit then
   swap lf-env-holding r> 2 = if lf-env-aux-held then ;
 \ Whether a type that may hold name below i is not final (the scheduler's
 \ readiness, lf-env-ready?).
 : lf-env-held-open? ( name i -- flag )
-  swap lf-env-type-name ?dup 0= if drop false exit then swap ['] lf-slot-type-open? lf-env-any? ;
+  swap lf-env-type-name ?dup 0= if drop false exit then
+  swap ['] lf-slot-type-open? lf-env-any? ;
 
 \ N1 for a lookup that found no declaration of name below limit: rejected
 \ (an unknown constant); unknown when an accepted type reserves the name
@@ -465,7 +469,8 @@ here lf-env-holders - 2 cells / constant lf-env-holders#
     >r rot drop swap c" environment lf-env-lookup" lf-diag-too-early lf-diag-note
     outcome-invalid r> endcase ;
 : lf-env-n1 ( name limit outcome -- outcome )
-  dup outcome-rejected = if drop 2dup lf-env-reserving lf-env-absent-as else nip nip then ;
+  dup outcome-rejected = 0= if nip nip exit then
+  drop 2dup lf-env-reserving lf-env-absent-as ;
 \ Find the constant named name for the check in this context: (d ok) for
 \ the accepted earlier declaration of that name; (-1 rejected) when none
 \ was accepted, undecided or unsupported (N1), and no earlier type holds
@@ -502,7 +507,8 @@ here lf-env-holders - 2 cells / constant lf-env-holders#
 \ class): an accepted type holding the name declares it; K5 and too early
 \ as for the name's own slots.
 : lf-env-held-early ( d -- outcome )
-  lf-env-limit c" environment lf-env-own-name" lf-diag-too-early lf-diag-note outcome-invalid ;
+  lf-env-limit c" environment lf-env-own-name" lf-diag-too-early lf-diag-note
+  outcome-invalid ;
 : lf-env-n2-held ( d class -- outcome )
   case outcome-ok of lf-env-declared endof  outcome-rejected of drop outcome-ok endof
     outcome-unknown of lf-env-k5-unknown endof
@@ -645,4 +651,5 @@ here lf-env-holders - 2 cells / constant lf-env-holders#
 \ (0 invalid).
 : lf-env-warnings ( d -- bits outcome )
   lf-env-readable 0= if 0 outcome-invalid exit then
-  dup lf-slot-accepted? if lf-slot-warnings @ outcome-ok else drop 0 outcome-invalid then ;
+  dup lf-slot-accepted? if lf-slot-warnings @ outcome-ok
+  else drop 0 outcome-invalid then ;

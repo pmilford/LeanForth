@@ -131,7 +131,8 @@ lf-depth-limit context-walk2: lf-ind-pair-walker
   lf-hdr-recs lf-more-field lf-ind-state lf-ind-recs ! ;
 : lf-ind-count? ( n -- flag ) lf-input-count upto? ;
 : lf-ind-counts? ( -- flag )
-  lf-ind-types@ lf-ind-count? lf-ind-ctors@ lf-ind-count? and lf-ind-recs@ lf-ind-count? and ;
+  lf-ind-types@ lf-ind-count? lf-ind-ctors@ lf-ind-count? and
+  lf-ind-recs@ lf-ind-count? and ;
 : lf-ind-fits? ( i -- flag )
   lf-ind-counts? 0= if drop false exit then
   dup lf-ind-first@ = lf-ind-members 0> and lf-ind-types@ 0> and
@@ -140,7 +141,8 @@ lf-depth-limit context-walk2: lf-ind-pair-walker
   lf-ind-ctors@ lf-ind-ctor-capacity lf-ind-site lf-diag-ctors-full lf-diag-note
   lf-ind-members outcome-full ;
 : lf-ind-sized ( -- span outcome )
-  lf-ind-ctors@ lf-ind-ctor-capacity > if lf-ind-crowded else lf-ind-members outcome-ok then ;
+  lf-ind-ctors@ lf-ind-ctor-capacity >
+  if lf-ind-crowded else lf-ind-members outcome-ok then ;
 : lf-ind-open ( i -- span outcome )
   dup lf-input-decl lf-idecl-header ?dup 0= if drop 1 outcome-invalid exit then
   lf-ind-take lf-ind-fits? if lf-ind-sized else 1 outcome-invalid then ;
@@ -204,7 +206,7 @@ lf-depth-limit context-walk2: lf-ind-pair-walker
 \ Every term of the block, in input order -- the types and constructor
 \ types, the recursor types and their rules' right sides -- given to xt
 \ ( root -- outcome ) until one is not ok.
-: lf-ind-rhs@ ( rules k -- root ) lf-irc-rule 2 cells + @ ;
+: lf-ind-rhs@ ( rules k -- root ) lf-irc-rule lf-irule-rhs ;
 : lf-ind-rules-each ( xt decl -- outcome )
   lf-idecl-data lf-irc-rules@ 0 ?do
     2dup i lf-ind-rhs@ swap execute dup ok? 0= if nip nip unloop exit then drop

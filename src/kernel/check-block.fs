@@ -153,13 +153,16 @@ end-structure
 \ The indices: the binders after the parameters. T1 (step 4) leaves at
 \ least numParams; fewer, were T1 bypassed, is invalid (review rvI21 L2).
 : lf-blk-count ( outcome i -- outcome )
-  lf-ind-nparams - dup 0< if 2drop outcome-invalid exit then lf-ind-state lf-ind-indices ! ;
+  lf-ind-nparams - dup 0< if 2drop outcome-invalid exit then
+  lf-ind-state lf-ind-indices ! ;
 : lf-blk-pi? ( node -- flag ) lf-mhead-kind lf-head-pi = ;
 : lf-blk-room? ( i -- flag ) lf-ind-binder-capacity < ;
+\ A Pi of the telescope at binder i: its domain recorded, then its body.
+: lf-blk-bind ( pi i -- body i+1 )
+  2dup swap lf-term-first@ swap lf-ind-domain ! 1+ swap lf-term-second@ swap ;
 : lf-blk-tele ( node i -- outcome )
   begin swap lf-minfer-whnf ok-then? 0= if nip exit then dup lf-blk-pi? while
-    over lf-blk-room? 0= if 2drop outcome-full exit then
-    dup lf-term-first@ 2 pick lf-ind-domain ! lf-term-second@ swap 1+
+    over lf-blk-room? 0= if 2drop outcome-full exit then swap lf-blk-bind
   repeat lf-blk-end swap lf-blk-count ;
 : lf-blk-telescope ( -- outcome )
   lf-blk-job lf-ind-type lf-idecl-type @ 0 lf-blk-tele lf-blk-refuel ;
@@ -241,7 +244,8 @@ end-structure
 \ refused a telescope longer than it; review rvI21 L2).
 : lf-blk-check! ( pos -- outcome )
   lf-blk-checks# dup lf-ind-binder-capacity < 0= if 2drop outcome-full exit then
-  cells lf-blk-state lf-blkrec-positions + ! 1 lf-blk-state lf-blkrec-checks +! outcome-ok ;
+  cells lf-blk-state lf-blkrec-positions + !
+  1 lf-blk-state lf-blkrec-checks +! outcome-ok ;
 : lf-blk-proof? ( domain -- flag status )
   lf-minfer-domain ok-then? 0= if false swap exit then lf-minfer-zero? ;
 : lf-blk-e-field ( node i -- node i outcome )
@@ -316,15 +320,28 @@ end-structure
   0 ?do over i cells + @ over i cells + @ lf-name-same? 0= if 2drop false unloop exit then
   loop 2drop true ;
 : lf-blk-params= ( decl -- flag ) lf-idecl-params@ lf-ind-lparams lf-blk-names= ;
-\ Constructor j: the field that differs (1 levelParams, 3 cidx, 4
-\ numParams, 5 numFields), or 0; its name, type and induct are the ones
-\ the kernel uses (B0).
+\ B3's comparisons of numbers and names: tables of tests ( x -- differs? ),
+\ each with the number of the field it compares (its place in Lean's
+\ structure, as the diagnostic gives it), run in order; the first field
+\ that differs, or 0.
+: lf-b3-test ( x entry -- x field|0 ) 2@ >r over r> execute and ;
+: lf-b3-scan ( x table n -- field )
+  2* cells bounds ?do i lf-b3-test ?dup if nip unloop exit then 2 cells +loop drop 0 ;
+\ Constructor j's fields 1 levelParams, 3 cidx, 4 numParams and 5
+\ numFields; its name, type (2) and induct are the ones the kernel uses
+\ (B0).
 : lf-blk-ctor-data ( j -- data ) lf-ind-ctor lf-idecl-data ;
-: lf-blk-ctor-diff ( j -- field )
-  dup lf-ind-ctor lf-blk-params= 0= if drop 1 exit then
-  dup lf-blk-ctor-data lf-ict-cidx lf-more-field over <> if drop 3 exit then
-  dup lf-blk-ctor-data lf-ict-params lf-more-field lf-ind-nparams <> if drop 4 exit then
-  dup lf-blk-ctor-data lf-ict-fields lf-more-field swap lf-ind-nfields @ <> 5 and ;
+: lf-b3-ctor-lparams? ( j -- flag ) lf-ind-ctor lf-blk-params= 0= ;
+: lf-b3-cidx? ( j -- flag ) dup lf-blk-ctor-data lf-ict-cidx lf-more-field <> ;
+: lf-b3-ctor-params? ( j -- flag )
+  lf-blk-ctor-data lf-ict-params lf-more-field lf-ind-nparams <> ;
+: lf-b3-ctor-fields? ( j -- flag )
+  dup lf-blk-ctor-data lf-ict-fields lf-more-field swap lf-ind-nfields @ <> ;
+create lf-b3-ctor
+  ' lf-b3-ctor-lparams? , 1 ,  ' lf-b3-cidx? , 3 ,  ' lf-b3-ctor-params? , 4 ,
+  ' lf-b3-ctor-fields? , 5 ,
+here lf-b3-ctor - 2 cells / constant lf-b3-ctor#
+: lf-blk-ctor-diff ( j -- field ) lf-b3-ctor lf-b3-ctor# lf-b3-scan ;
 : lf-blk-ctor-differs ( j field -- outcome )
   swap lf-ind-types@ + swap lf-diag-invalid-constructor lf-blk-replace ;
 : lf-blk-ctors-b3 ( -- outcome )
@@ -348,25 +365,32 @@ end-structure
   over @ r> lf-name-same? 0= if 2drop false exit then
   1- swap cell+ swap lf-ind-lparams lf-blk-names= ;
 : lf-blk-self ( -- items n ) lf-ind-type lf-idecl-name 1 ;
-: lf-blk-numbers ( data -- field )
-  dup lf-irc-params lf-more-field lf-ind-nparams <> if drop 5 exit then
-  dup lf-irc-indices lf-more-field lf-blk-n <> if drop 6 exit then
-  dup lf-irc-motives lf-more-field 1 <> if drop 7 exit then
-  lf-irc-minors lf-more-field lf-ind-ctors@ <> 8 and ;
+\ A recursor's fields 4 all, 5 numParams, 6 numIndices, 7 numMotives and
+\ 8 numMinors (its data).
+: lf-b3-all? ( data -- flag ) lf-irc-all@ lf-blk-self lf-blk-names= 0= ;
+: lf-b3-rec-params? ( data -- flag ) lf-irc-params lf-more-field lf-ind-nparams <> ;
+: lf-b3-indices? ( data -- flag ) lf-irc-indices lf-more-field lf-blk-n <> ;
+: lf-b3-motives? ( data -- flag ) lf-irc-motives lf-more-field 1 <> ;
+: lf-b3-minors? ( data -- flag ) lf-irc-minors lf-more-field lf-ind-ctors@ <> ;
+create lf-b3-rec
+  ' lf-b3-all? , 4 ,  ' lf-b3-rec-params? , 5 ,  ' lf-b3-indices? , 6 ,
+  ' lf-b3-motives? , 7 ,  ' lf-b3-minors? , 8 ,
+here lf-b3-rec - 2 cells / constant lf-b3-rec#
 : lf-blk-k= ( data -- flag ) lf-irc-k lf-more-field 0<> lf-ind-state lf-ind-k @ 0<> = ;
+\ Rule j (field 9): its constructor, its fields, then its right side.
+: lf-b3-rule-head? ( rule j -- flag )
+  over lf-irule-ctor over lf-blk-ctor-name lf-name-same? 0=
+  -rot lf-ind-nfields @ swap lf-irule-nfields <> or ;
 : lf-blk-rule-diff ( rules j -- differs? outcome )
-  2dup lf-irc-rule @ over lf-blk-ctor-name lf-name-same?
-  0= if 2drop true outcome-ok exit then
-  2dup lf-irc-rule cell+ @ over lf-ind-nfields @ <> if 2drop true outcome-ok exit then
-  tuck lf-irc-rule 2 cells + @ swap lf-ind-rule @ swap lf-blk-same >r 0= r> ;
+  tuck lf-irc-rule 2dup swap lf-b3-rule-head? if 2drop true outcome-ok exit then
+  lf-irule-rhs swap lf-ind-rule @ swap lf-blk-same >r 0= r> ;
 : lf-blk-rules-diff ( data -- field outcome )
   lf-irc-rules@ dup lf-ind-ctors@ <> if 2drop 9 outcome-ok exit then
   0 ?do dup i lf-blk-rule-diff ok-then? 0= if nip 0 swap unloop exit then
     if drop 9 outcome-ok unloop exit then
   loop drop 0 outcome-ok ;
 : lf-blk-data-diff ( data -- field outcome )
-  dup lf-irc-all@ lf-blk-self lf-blk-names= 0= if drop 4 outcome-ok exit then
-  dup lf-blk-numbers ?dup if nip outcome-ok exit then
+  dup lf-b3-rec lf-b3-rec# lf-b3-scan ?dup if nip outcome-ok exit then
   dup lf-blk-rules-diff ok-then? 0= if nip 0 swap exit then
   ?dup if nip outcome-ok exit then
   lf-blk-k= if 0 else 10 then outcome-ok ;
@@ -389,17 +413,28 @@ end-structure
   lf-ind-recs@ 0 ?do i lf-blk-rec-b3 dup ok? 0= if unloop exit then drop loop outcome-ok ;
 : lf-blk-compare ( -- outcome ) lf-blk-ctors-b3 ['] lf-blk-recs-b3 lf-blk-then ;
 
-\ Step 14, B4: the type's fields Lean's replay ignores, and a missing
-\ recursor, as warning bits; never a failure.
+\ Step 14, B4: the type's fields Lean's replay ignores, each against
+\ what LeanForth computed for a block of task 5.2.1a (numIndices; isRec,
+\ isReflexive false; numNested 0), and a missing recursor, as warning
+\ bits; never a failure. The bits go to the candidate, and so onto the
+\ accepted block's slots (lf-env-warnings).
 : lf-blk-flag ( data bit -- flag ) swap lf-ity-flags lf-more-field and 0<> ;
+: lf-b4-indices? ( data -- flag ) lf-ity-indices lf-more-field lf-blk-n <> ;
+: lf-b4-rec? ( data -- flag ) lf-ity-rec-bit lf-blk-flag ;
+: lf-b4-reflexive? ( data -- flag ) lf-ity-reflexive-bit lf-blk-flag ;
+: lf-b4-nested? ( data -- flag ) lf-ity-nested lf-more-field 0<> ;
+: lf-b4-no-recursor? ( data -- flag ) drop lf-ind-recs@ 0= ;
+create lf-b4-tests
+  ' lf-b4-indices? , lf-warn-indices ,  ' lf-b4-rec? , lf-warn-rec ,
+  ' lf-b4-reflexive? , lf-warn-reflexive ,  ' lf-b4-nested? , lf-warn-nested ,
+  ' lf-b4-no-recursor? , lf-warn-no-recursor ,
+here lf-b4-tests - 2 cells / constant lf-b4-tests#
+: lf-b4-bits ( data -- bits )
+  0 swap lf-b4-tests lf-b4-tests# 2* cells bounds
+  ?do i lf-b3-test rot or swap 2 cells +loop drop ;
 : lf-blk-b4 ( -- outcome )
-  lf-ind-type-data >r 0
-  r@ lf-ity-indices lf-more-field lf-blk-n <> lf-warn-indices and or
-  r@ lf-ity-rec-bit lf-blk-flag lf-warn-rec and or
-  r@ lf-ity-reflexive-bit lf-blk-flag lf-warn-reflexive and or
-  r> lf-ity-nested lf-more-field 0<> lf-warn-nested and or
-  lf-ind-recs@ 0= lf-warn-no-recursor and or
-  dup lf-env-warnings! lf-ind-state lf-ind-warned ! outcome-ok ;
+  lf-ind-type-data lf-b4-bits dup lf-env-warnings!
+  lf-ind-state lf-ind-warned ! outcome-ok ;
 
 \ ---------------------------------------------------------------------------
 \ The steps ( -- outcome ), in order.

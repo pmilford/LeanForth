@@ -213,7 +213,8 @@ defer lf-env-before-final
 \ A name Lean's generated recursor of an earlier type holds (environment.fs,
 \ lf-env-reserving) is a conflict too, unless nothing holds it.
 : lf-own-held ( k -- n )
-  lf-env-limit + lf-input-name lf-env-limit lf-env-reserving nip outcome-rejected <> 1 and ;
+  lf-env-limit + lf-input-name lf-env-limit lf-env-reserving nip
+  outcome-rejected <> 1 and ;
 : lf-span-conflicts ( -- n )
   0 lf-cand-span@ 0 ?do ['] lf-slot-conflict? i lf-own-matches + i lf-own-held + loop ;
 : lf-recheck-name? ( -- flag )

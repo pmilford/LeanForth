@@ -48,11 +48,14 @@ defer lf-geq ( l1 l2 -- flag )   \ is_geq: normalize both, then the core
 \ Either side of l1 (a max) >= l2.
 : lf-geq-either ( l1 l2 -- flag )
   over lf-geq-lhs over lf-geq if 2drop true else swap lf-geq-rhs swap lf-geq then ;
-\ The offsets case (536-540).
+\ The offsets case (536-540): l1 = b1 + k1 and l2 = b2 + k2. The same
+\ base, or b2 zero: k1 >= k2; else equal positive offsets: b1 >= b2.
+: lf-geq-bases ( l1 l2 -- b1 b2 ) lf-lmk-offset drop swap lf-lmk-offset drop swap ;
+: lf-geq-ks ( l1 l2 -- k1 k2 ) lf-lmk-offset nip swap lf-lmk-offset nip swap ;
+: lf-geq-base-ok? ( l1 l2 -- flag ) lf-geq-bases dup lf-geq-zero? -rot lf-lmk-same? or ;
 : lf-geq-offsets ( l1 l2 -- flag )
-  lf-lmk-offset rot lf-lmk-offset rot   ( b2 b1 k1 k2 )
-  2over lf-lmk-same? 4 pick lf-geq-zero? or if >= nip nip exit then
-  over = swap 0> and if swap lf-geq else 2drop false then ;
+  2dup lf-geq-base-ok? if lf-geq-ks >= exit then
+  2dup lf-geq-ks over = swap 0> and if lf-geq-bases lf-geq else 2drop false then ;
 \ After the max and imax cases of l2 and l1.
 : lf-geq-rest ( l1 l2 -- flag )
   dup lf-geq-imax? if lf-geq-both exit then
