@@ -30,6 +30,7 @@ checker's usual gate, with "nothing changed" as the evidence.
 | [`src/core/derivation-log.fs`](../../src/core/derivation-log.fs) | the log: options, per-context state, the open and close protocol, the copier, the rule catalogue |
 | `src/kernel/*.fs` | one guarded call per site (below): `lf-log? if` logged path `else` plain path `then`, both running the same kernel word |
 | [`src/present/log-view.fs`](../../src/present/log-view.fs) | reading a log for printing: formulas in each step's scope, the step list |
+| [`src/present/log-check.fs`](../../src/present/log-check.fs) | the structural check of a log (`lf-log-flaw`): the printer prints nothing from a log that fails it, and the tests check every log they make with it |
 | [`src/present/proof-outline.fs`](../../src/present/proof-outline.fs) | the proof outline (plan task 2.4.4) |
 | [`src/cli/print.fs`](../../src/cli/print.fs) | `bin/leanforth print` ([command line](../user/COMMAND_LINE.md#printing-a-readable-proof)) and `make print`: binder names from the export, each declaration checked with the log on and printed right after its check, and when no outline may be printed |
 | [`tests/support/print-outline.fs`](../../tests/support/print-outline.fs) | the same words for tests and the user page, without the command line's manifest check and exit codes |
@@ -108,18 +109,41 @@ in a context that has none and freed when a check begins with the log off
 (`lf-log-stop`) and by the context's teardown. So a context with the log
 off pays 224 bytes, and one with the log on about 218 KiB more, once. The
 printers' state is heap-held only while an outline prints (39,480 bytes
-for `log-view.fs`, 25,144 for `proof-outline.fs`); a context holds 24
-bytes for the input's name and line, two pointer cells, and `print.fs`'s
-528 bytes. In all, a context grew from 93,784 bytes before the log to
-94,600 (with other modules' growth since); at the first review it was
-381,872. The ADR's estimate approved in D3 ("about 150 KB per worker
-while it is on") is low: the measured cost while on is 218 KiB.
+for `log-view.fs`, 25,144 for `proof-outline.fs`; a THROW while printing
+leaves them held until the next outline, which zeroes and reuses them, or
+the context's teardown). The log's own share of every context is
+therefore 224 bytes, plus 40 for the printers (the input's name and line,
+two pointer cells) and 528 for `print.fs`'s line table; the context as a
+whole is larger and grows with other modules. At the first review the
+log's share was 288,088 bytes. The ADR's estimate approved in D3 ("about
+150 KB per worker while it is on") is low: the measured cost while on is
+218 KiB.
+
+**Heap with the log on and off.** Since the pools exist only while the
+log is on, a run with the log on uses about 218 KiB more heap per context
+than one with it off. On a host where that much memory decides whether a
+heap store can grow, a check could end *full* with the log on and *ok*
+with it off; nowhere else can the two differ. (Allocating the pools for
+every context, log on or off, would remove the difference and cost every
+context the 218 KiB again.)
 
 **Header.** Besides the counts and limits, the header keeps the input's
 fingerprint when the log started (`lf-log-input`), and the slot and
 outcome the check published (`lf-log-published ( -- slot outcome )`, slot
-−1 until a check publishes), also when the log is off or truncated. The
+−1 until a check publishes; `lf-log-start`, which starts a log of no
+check, sets it back to −1), also when the log is off or truncated. The
 outline printer compares them with the verdict it is given.
+
+**Inductive blocks.** The check of an inductive block (ADR 0015, plan
+task 5.2.1a; `lf-check-block`) is one `inductive-block` step (44) at its
+first member's slot, closed with the block's outcome; the publish step
+follows it, so a block's log passes the structural check like a
+declaration's. The steps inside it are those its logged sites write
+(inference of the types, universe instantiation); positivity, the
+universe rules, the recursor's construction and the B3 comparison are not
+yet steps of their own. That is enough for the log's guarantees (a
+consistent, nested prefix that changes no answer); detailed block steps
+come with the block's own outline templates.
 
 ## Rule catalogue
 
@@ -151,8 +175,9 @@ equal to the code's.
 | 34 | `distinct-parameters` | number | none | none | L3 for declaration a | — |
 | 40 | `proposition` | term | none | level | a theorem's statement is a proposition (S1, S3): its Sort's level | the statement's type |
 | 41 | `declaration` | term | term | none | the whole check of a declaration (type, value) | name and parameter rules, type formation, the value's type, `defeq` |
-| 42 | `publish` | number | number | none | the published outcome: slot a with b dependencies | the `declaration` |
+| 42 | `publish` | number | number | none | the published outcome: slot a with b dependencies | the `declaration` or `inductive-block` |
 | 43 | `type` | term | none | level | a definition's declared type is a type (S1) | the type's type |
+| 44 | `inductive-block` | number | none | none | the whole check of an inductive block (ADR 0015), at the slot a of its first member; its inner steps are not yet logged in detail | the steps its logged sites wrote (inference, universe instantiation) |
 
 **Room to grow.** Codes 10–19 are conversion and reduction. Phase 4
 (definitional equality with unfolding) adds, in this range, `unfold` (14:
@@ -182,6 +207,7 @@ failures stay explained by the [diagnostic](DIAGNOSTICS.md).
 | `instantiate-levels` | `lf-mixed-level-substitute` in [`mixed-level-substitute.fs`](../../src/kernel/mixed-level-substitute.fs) |
 | `resolve`, `fresh-name`, `universe-arity`, `universe-parameter`, `distinct-parameters` | `lf-env-lookup`, `lf-env-own-name`, `lf-env-arity?`, `lf-env-param?`, `lf-env-own-params` in [`environment.fs`](../../src/kernel/environment.fs) |
 | `proposition`, `type`, `declaration` | `lf-check-type` (opens), `lf-check-prop` (closes), `lf-check-run` in [`check-declaration.fs`](../../src/kernel/check-declaration.fs) |
+| `inductive-block` | `lf-check-block` in `check-declaration.fs`, around check-block.fs's `lf-block-check`: one step for the whole block check, closed with its outcome (positivity, universes, the recursor and the B3 comparison are not yet steps of their own) |
 | `publish` | `lf-env-step` in [`env-publish.fs`](../../src/kernel/env-publish.fs), after the hand-over |
 | (begin) | `lf-env-begin` in `environment.fs` |
 
@@ -220,22 +246,50 @@ The kernel's protocol (only `src/kernel/` calls these, always after
 `lf-log-close-handle`, `lf-log-close-maybe`, `lf-log-close-whnf`,
 `lf-log-close-all`, and, unconditionally, `lf-log-begin ( i -- )` at the
 start of a check and `lf-log-publish ( slot deps outcome -- )` after its
-hand-over. `tests/core/check_log_isolation.py` (in `make test`) checks
-allow-lists, not deny-lists: a kernel file may name only that protocol
-and the rule codes, and loads no presentation code; a printer
-(`src/present/`) only the reading words (the record and copy fields, the
-counts, the catalogue, the header's questions); the command line
-(`src/cli/`, which turns the log on for `leanforth print`) only the
-switches `lf-log-set`, `lf-log-limits`, `lf-log-capacities`, the levels
-and the read-only `lf-log-level` and `lf-log-complete?`; any other source
-file no log word; no file outside the log module may store into a field
-of a record, mark, copied reference, the header, the pools or the
-options; and the log module may name only its own words, standard Forth
-words, the context words and the stores' read-only accessors (so no
-diagnostic, printing, store allocation or rollback, walk or fuel word),
-with `ALLOCATE` only in the word that makes its pools, `FREE` only in the
-one that gives them back, `THROW` only in its context teardown and `ABORT"`
-only in the catalogue's load-time index.
+hand-over.
+
+The printers and the structural check read the log only through value
+words: `lf-log-rule@`, `lf-log-outcome@`, `lf-log-depth@`, `lf-log-a@`,
+`lf-log-b@`, `lf-log-out@` and `lf-log-premise ( s -- x )` for a record's
+fields, `lf-log-term-node@` and `lf-log-level-node@ ( k -- tag first
+second )` for a copy, `lf-log-cref@ ( k -- name generation count args )`
+and `lf-log-arg-ref` for a copied constant reference; no word they may use
+gives an address of the log's records, pools or header.
+
+**The isolation check.** `tests/core/check_log_isolation.py` (in `make
+test`) checks allow-lists on the source text. Comments, strings and the
+exact load-time assertion `[if] .( … ) cr abort [then]` are removed;
+every other token is checked, also inside `[if] … [then]` and after `'`
+or `[']`. A kernel file may name only the protocol above and the rule
+codes, and loads nothing from `src/present/` or `src/cli/`. A printer
+(`src/present/`) may name only the log's reading words (all of which give
+values), loads only from `./`, `../lib/` and `../core/`, and uses no word
+that looks a name up or runs text (`EVALUATE`, `FIND` and the like). The
+command line (`src/cli/`, which turns the log on for `leanforth print`)
+may name only the switches `lf-log-set`, `lf-log-limits`,
+`lf-log-capacities`, the levels and the read-only `lf-log-level` and
+`lf-log-complete?`; any other source file no log word. No file outside the
+log module may store into a field of a record, mark, copied reference,
+the header, the pools or the options. The log module may name only its
+own words, standard Forth words, the context words and the stores'
+value-giving read accessors (`lf-term-read`, `lf-term-identity`,
+`lf-level-read`, `lf-level-identity`, `lf-cref-read`, `lf-cref-level`,
+`lf-input-mark-count`, `lf-input-intact?`, `lf-input-fingerprint`): no
+diagnostic, printing, store allocation or rollback, walk, fuel or
+name-lookup word, and no address of another module's state. It loads only
+from `./` and `../lib/`. `ALLOCATE` appears only in the word that makes
+its pools, `FREE` only in the one that gives them back, `THROW` only in
+its context teardown, `ABORT"` only in the catalogue's load-time index,
+`ALLOT`, `HERE`, `,` and `ALIGN` only at load time, and `CREATE` and
+`CONSTANT` only at top level. The ten evasions planted by the second
+review are flagged (planted faults `iso-*` in `make mutants`).
+
+What it cannot see: an address computed by arithmetic from an allowed
+one (the log module's own state plus an offset); an execution token
+taken elsewhere and passed in; and what the words it allows do in turn
+(their list is reviewed by hand). It does not check the compiled code's
+word references: Gforth's threaded code has no portable reader, and 0.7.3
+and 1.0 differ. The behavioural tests are the evidence for those.
 
 **Lifetime.** `lf-env-begin` starts a fresh log for the check at the
 options' level, or, when that is off, frees the pools and clears it.
@@ -256,7 +310,12 @@ with it off; 601 and 222 at level `terms` or `steps` (158 records); 599
 and 222 truncated by three term copies; the fuel the same in every run.
 The stated need is 1,728 return and 1,280 data cells. The printers' own
 walks over a formula (rebuilding copies, naming them, looking for a bound
-variable) nest at most 512 deep; deeper, the formula prints as `?`.
+variable) nest at most 128 deep, about 4 return cells a level, well
+inside Gforth 0.7.3's 1,920 return cells (1.0: 3,968) and above the 64
+levels any check reaches; deeper, the formula prints as `?`
+(`tests/core/derivation-log.fs` rebuilds a 120-deep copy and refuses a
+450-deep one on both hosts; at the earlier limit of 512, 451 levels
+overflowed 0.7.3's return stack).
 
 **Test preset.** A word `lf-log-preset-level` defined before
 `src/core/derivation-log.fs` loads (`gforth -e "2 constant lf-log-preset-level" …`)
@@ -303,9 +362,12 @@ also on Gforth 0.7.3.
   full at every record limit from 0 to 139, every open-rule limit from 0
   to 23, every term-copy limit from 0 to 39 and every level-copy limit
   from 0 to 11 (2,272 truncated logs), every log passing the structural
-  check of `tests/support/log-check.fs` (numbering, nesting, references,
-  copies, the prefix, a publish step whose premise is the declaration
-  step, and each ok step's premise kinds: an application at least two
+  check of `src/present/log-check.fs` (numbering, nesting, references,
+  copies, the prefix, a publish step whose premise is the declaration or
+  inductive-block step, and each ok step's premise kinds, a step's later
+  parts checked only when its earlier ones passed and premises followed
+  only while strictly earlier, so a damaged start fails part 2 at once
+  instead of looping: an application at least two
   inference premises, one defeq and one instantiate; a lambda and a Pi
   two inference premises; a variable only shifts; a Sort only
   universe-parameter steps; a proposition or type step one inference
@@ -314,7 +376,13 @@ also on Gforth 0.7.3.
   of its failure's analysis); an unreadable input; a check that throws
   with rules open (its log truncated as interrupted, not complete); a
   validator that refuses a publish step after another step and an ok
-  declaration step without its premises.
+  declaration step without its premises; a damaged start (part 2, no
+  loop); a test log that forgets the last check's slot; a 120-deep copy
+  rebuilt and a 450-deep one refused by the printer on both hosts; and
+  nine inductive-block exports (Bool, Nat, Eq, And, Or, Exists, a mutual
+  block, two rejected blocks) with the same outcomes with the log off and
+  on, every log valid and every block's publish step after its
+  inductive-block step.
 - `tests/core/log-trials.fs` (`make test`): the checker trials of
   `tests/support/checker-trial.fs`, 8 seeds of 1,000 random steps
   (inference, conversion, comparison, beta, shift, instantiation, the level

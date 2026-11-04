@@ -42,5 +42,10 @@ s" composition's log, after identity is loaded" section
 s" tests/reference/composition.ndjson" po-check-file
 s" tests/reference/identity.ndjson" 2dup cin-read drop false pr-present drop
 outcome-ok 0 false lf-outline
+\ And a log the structural check rejects (N1 of the second review):
+\ composition's, with step 26's start overwritten to its own step.
+s" composition's log, damaged" section
+s" tests/reference/composition.ndjson" po-check-file
+26 26 lf-log-record logrec-start ! outcome-ok 0 false lf-outline
 lf-log-off lf-log-set
 bye

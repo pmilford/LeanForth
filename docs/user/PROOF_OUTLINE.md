@@ -177,7 +177,10 @@ is still intact, by the check of this declaration, which published that
 outcome — it prints only `No outline: the checker's log does not belong to
 this declaration's published verdict, or the input changed since the
 check.` (`leanforth print` always pairs them correctly; this guards other
-callers of the Forth words.)
+callers of the Forth words.) Nor does it print anything from a log that
+fails the log's structural check (`src/present/log-check.fs`): it says
+`No outline: the checker's log fails its structural check (part N);
+nothing is printed from it.`
 
 ## What is checked, and what is only explanation
 

@@ -252,6 +252,82 @@ T{ lf-rule-declaration published-after lf-rule-fresh-name published-after -> tru
   lc-valid? lc-why lf-log-stop ;
 T{ outcome-ok declared outcome-rejected declared -> false 9 true 0 }T
 
+\ A corrupted start (at or above its own step) stops the validator at
+\ part 2 instead of sending part 9's premise walk round for ever (N3 of
+\ the second review): a record is overwritten in place, as the planted
+\ fault log-start-one-step-late does.
+lf-log-terms level!
+: bad-start ( start -- why )
+  0 file run drop 26 lf-log-record logrec-start ! lc-valid? drop lc-why ;
+T{ 26 bad-start 30 bad-start -> 2 2 }T
+\ A test log after a check publishes nothing (N4): lf-log-start forgets
+\ the last check's slot.
+T{ 0 file run drop lf-log-published drop -1 > lf-log-terms lf-log-start lf-log-published
+  drop lf-log-stop -> true -1 }T
+
+\ The printer's walks stop at lf-lv-nest-limit (128) levels, inside Gforth
+\ 0.7.3's return stack (N5): a right-nested chain, which the copier keeps
+\ whole, of 120 applications is rebuilt for printing; one of 450 (which
+\ overflowed 0.7.3's return stack at the old limit) is refused, printed as
+\ "?", never a THROW.
+T{ 2000 lf-term-capacity! -> outcome-ok }T
+: rchain ( n -- term id )
+  0 lf-term-bvar must dup rot 0 ?do over swap lf-term-app must loop nip
+  dup lf-term-identity must ;
+: rebuilt? ( n -- complete? flag )
+  lf-log-terms lf-log-start rchain 0 1 10000 lf-mixed-shift drop 2drop lf-log-complete?
+  lf-lv-open must 1 lf-log-a@ lf-lv-term dup if nip then lf-lv-release lf-lv-close throw
+  lf-log-stop lf-input-rollback drop ;
+T{ lf-lv-nest-limit 120 rebuilt? 450 rebuilt? -> 128 true true true false }T
+
+\ Inductive blocks (ADR 0015; N1 of the second review): with the log at
+\ terms, the check of a block's first member is one inductive-block step,
+\ which the publish step follows; every log passes the validator; and the
+\ published outcomes are the log-off ones. A block's later members are
+\ published by that check and skipped, as the environment's run skips
+\ them.
+require ../../src/import/feed.fs
+create blk-stage /stage allot
+create blk-feed /feed allot
+variable blk-bad
+: blk-path ( c-addr u -- c-addr' u' )
+  0 path c! s" tests/core/check-block-cases/" path-add path-add s" .ndjson" path-add
+  path count ;
+: blk-staged ( c-addr u -- )
+  blk-path 16 blk-stage stage-init ok? must blk-stage stage-load-unchecked ok? must
+  blk-stage blk-feed lf-feed ok? must ;
+: blk-unstage ( -- ) lf-name-viewed? if lf-name-detach then blk-stage stage-free ;
+: blk-premise ( -- rule ) lf-log-count 1- ?dup if lf-log-rule@ else 0 then ;
+: blk-member? ( -- flag ) lf-log-decl lf-input-decl lf-ind-member? ;
+: blk-wrong? ( -- flag )
+  lc-valid? 0= blk-member? blk-premise lf-rule-inductive-block <> and or ;
+: blk-note ( -- ) lf-log-level if blk-wrong? if 1 blk-bad +! then then ;
+: blk-step ( digest i -- digest' )
+  ['] lf-check-declaration swap lf-env-step drop blk-note swap 31 * + ;
+: blk-steps ( -- digest )
+  0 lf-input-count 0 ?do i lf-env-published? 0= if i blk-step then loop ;
+: blk-run ( c-addr u -- digest )
+  blk-staged 1000000 lf-check-budget 4096 lf-env-new ok? must dup lf-env-use ok? must
+  >r blk-steps r> lf-env-free ok? must blk-unstage ;
+: blk-same? ( c-addr u -- flag )
+  2dup lf-log-off level! blk-run >r lf-log-terms level! blk-run r> = ;
+: blocks-same? ( -- flag )
+  0 blk-bad ! s" ind.bool" blk-same? s" ind.nat" blk-same? and s" ind.eq" blk-same? and
+  s" ind.and" blk-same? and s" ind.or" blk-same? and s" ind.exists" blk-same? and
+  s" mutual.single-ctor-props" blk-same? and
+  s" replay-bool.constructor-type-changed" blk-same? and
+  s" params.constructor-mismatch-sort" blk-same? and ;
+T{ blocks-same? blk-bad @ -> true 0 }T
+\ A block log whose publish step's start is its own step fails part 2
+\ (the printer then prints nothing from it: tests/present/outline-cases.fs).
+: blk-cut ( -- part )
+  s" ind.bool" blk-staged 1000000 lf-check-budget 4096 lf-env-new ok? must
+  dup lf-env-use ok? must >r ['] lf-check-declaration 0 lf-env-step 2drop
+  lf-log-count dup lf-log-record logrec-start ! lf-log-flaw r> lf-env-free ok? must
+  blk-unstage ;
+lf-log-terms level!
+T{ blk-cut -> 2 }T
+
 ample 0 lf-log-set
 cases-done
 bye
