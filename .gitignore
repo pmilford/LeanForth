@@ -4,3 +4,5 @@ __pycache__/
 *.pyc
 /.profiling/
 /.claude/settings.local.json
+/.claude/work/
+/.claude/worktrees/
