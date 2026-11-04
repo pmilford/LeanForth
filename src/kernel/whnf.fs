@@ -55,9 +55,13 @@
 \ reduction step inside one, costs one unit of the frames' fuel; the
 \ substitutions they run (mixed-open.fs, mixed-level-substitute.fs) are
 \ paid from it too. Out of fuel is exhausted, a stack or store the heap
-\ cannot grow full; neither is ever a result. Inputs must be closed,
-\ audited terms whose free variables are live (as every term inference
-\ and conversion give); results are new scratch nodes or input nodes,
+\ cannot grow full; neither is ever a result. Inputs are audited terms
+\ whose free variables are live (as every term inference and conversion
+\ give). Lean's kernel reduces closed terms only, but ADR 0011's analysis
+\ and check-block.fs compare terms read under binders they did not open:
+\ a beta argument with a loose bound variable is lifted as Lean's
+\ instantiate lifts it (lf-whnf-beta); cheap_beta_reduce takes closed
+\ terms only (inference's). Results are new scratch nodes or input nodes,
 \ never discarded here.
 \
 \ The iota hook (for plan task 5.2.1b; its stack effect is stable):
@@ -83,12 +87,20 @@
 \ otherwise. Quotients (Quot.lift, Quot.ind) are unsupported declarations
 \ (U1), so Lean's quot_reduce_rec never applies to a checked term.
 \
+\ For plan task 5.2.1b, the words to call: lf-whnf-iota (set it with
+\ IS), lf-whnf-call and lf-whnf-core-call from inside it, lf-whnf-on and
+\ lf-whnf-core-on from a word (check-block's telescope, in place of its
+\ beta-only stand-in), lf-whnf-env?, and lf-whnf-iota-default to fall
+\ back on.
+\
 \ State: two growable arrays, members of the checker context
 \ (lib/context.fs): an application's arguments, last first, as Lean's
 \ get_app_rev_args gives them, and a copy of a constant's universe
 \ arguments; each is filled and used within one step, never across a
-\ child visit. The hook is deferred only so that plan task 5.2.1b can
-\ set it, once, while loading; it is shared and read-only afterwards.
+\ child visit. One paired walk record, lf-whnf-scan, for
+\ has_loose_bvars. Shared and read-only: the table of Lean's binary Nat
+\ operations (K7), and the hook, deferred only so that plan task 5.2.1b
+\ can set it, once, while loading.
 
 require ../lib/lib.fs
 require ../lib/slab.fs
@@ -131,7 +143,8 @@ require ./mixed-rebuild.fs
 : lf-whnf-collect ( node n -- )
   0 ?do dup lf-term-second@ i lf-whnf-arg ! lf-term-first@ loop drop ;
 : lf-whnf-args! ( node n -- outcome )
-  dup lf-whnf-args slab-hold dup ok? if drop lf-whnf-collect outcome-ok else nip nip then ;
+  dup lf-whnf-args slab-hold dup ok?
+  if drop lf-whnf-collect outcome-ok else nip nip then ;
 \ Collect node's arguments: their number and ok, or the failure.
 : lf-whnf-spine-args ( node -- n outcome ) dup lf-mhead-spine nip tuck lf-whnf-args! ;
 : lf-whnf-apply ( f k -- node outcome )
@@ -198,7 +211,8 @@ lf-walk-room context-walk2: lf-whnf-scan
 \ variable, the head lambda takes one argument, by mixed-instantiate.fs,
 \ which lifts, and the result is reduced again: the same weak head
 \ normal form, one contraction at a time.
-: lf-whnf-arg-open? ( frames i -- frames flag outcome ) lf-whnf-arg @ over lf-whnf-loose? ;
+: lf-whnf-arg-open? ( frames i -- frames flag outcome )
+  lf-whnf-arg @ over lf-whnf-loose? ;
 : lf-whnf-open-args? ( k m frames -- flag outcome )
   -rot over + swap ?do i lf-whnf-arg-open? ok-then? 0= if nip false swap unloop exit then
     if drop true outcome-ok unloop exit then
@@ -265,7 +279,8 @@ lf-walk-room context-walk2: lf-whnf-scan
 : lf-whnf-copy ( addr count -- pairs count )
   tuck 2* cells 0 lf-whnf-pairs slab-at swap move 0 lf-whnf-pairs slab-at swap ;
 : lf-whnf-pairs! ( addr count -- pairs count outcome )
-  dup lf-whnf-pairs slab-hold dup ok? if drop lf-whnf-copy outcome-ok else >r 2drop 0 0 r> then ;
+  dup lf-whnf-pairs slab-hold dup ok?
+  if drop lf-whnf-copy outcome-ok else >r 2drop 0 0 r> then ;
 : lf-whnf-substituted ( index id 0 | status -- index outcome )
   dup ok? if 2drop outcome-ok else no-result then ;
 : lf-whnf-substitute ( value decl pairs count frames -- value' outcome )
@@ -273,7 +288,8 @@ lf-walk-room context-walk2: lf-whnf-scan
   r@ frame-fuel @ lf-mixed-level-substitute lf-whnf-substituted
   lf-mls-fuel @ r> frame-fuel ! ;
 : lf-whnf-value ( decl const frames -- value outcome )
-  >r lf-whnf-cref lf-cref-pairs dup 0= if 2drop lf-idecl-value @ r> drop outcome-ok exit then
+  >r lf-whnf-cref lf-cref-pairs
+  dup 0= if 2drop lf-idecl-value @ r> drop outcome-ok exit then
   lf-whnf-pairs! ok-then? 0= if nip nip r> drop no-result exit then
   rot dup lf-idecl-value @ swap 2swap r> lf-whnf-substitute ;
 
@@ -306,17 +322,20 @@ create lf-whnf-nat-binary
   s" shiftLeft" lf-whnf-text,  s" shiftRight" lf-whnf-text,  0 ,
 \ Whether name is a string component of these bytes after the prefix.
 : lf-whnf-part? ( name c-addr u -- flag )
-  rot dup lf-name-tag@ lf-name-tag-str = if lf-name-text compare 0= else drop 2drop false then ;
+  rot dup lf-name-tag@ lf-name-tag-str =
+  if lf-name-text compare 0= else drop 2drop false then ;
+: lf-whnf-anon? ( name -- flag ) lf-name-tag@ lf-name-tag-anon = ;
 : lf-whnf-nat? ( name -- flag )
-  lf-name-prefix@ dup s" Nat" lf-whnf-part? if lf-name-prefix@ lf-name-tag@ lf-name-tag-anon =
-  else drop false then ;
+  lf-name-prefix@ dup s" Nat" lf-whnf-part?
+  if lf-name-prefix@ lf-whnf-anon? else drop false then ;
 : lf-whnf-binary? ( name -- flag )
   lf-whnf-nat-binary begin dup @ while
     2dup lf-whnf-text lf-whnf-part? if 2drop true exit then lf-whnf-text + aligned
   repeat 2drop false ;
 : lf-whnf-matched? ( name n -- flag )
   over lf-whnf-nat? 0= if 2drop false exit then
-  case 1 of s" succ" lf-whnf-part? endof 2 of lf-whnf-binary? endof nip false swap endcase ;
+  case 1 of s" succ" lf-whnf-part? endof  2 of lf-whnf-binary? endof
+    nip false swap endcase ;
 : lf-whnf-k7? ( node -- flag )
   lf-mhead-spine over lf-whnf-const? 0= if 2drop false exit then
   swap lf-whnf-cref dup lf-crec-arity @ if 2drop false exit then
@@ -330,7 +349,8 @@ create lf-whnf-nat-binary
 defer lf-whnf-iota ( app frames -- ... frames next )
 : lf-whnf-recursor? ( d -- flag outcome )
   dup -1 = if drop true outcome-ok exit then dup 0< if drop false outcome-ok exit then
-  lf-whnf-decl ok-then? if lf-idecl-kind @ lf-kind-recursor = outcome-ok else false swap then ;
+  lf-whnf-decl ok-then?
+  if lf-idecl-kind @ lf-kind-recursor = outcome-ok else false swap then ;
 : lf-whnf-pending ( const -- -1 outcome )
   0 lf-diag-iota-pending lf-whnf-note -1 outcome-unknown ;
 : lf-whnf-iota-const ( const -- reduct outcome )
@@ -441,7 +461,8 @@ defer lf-whnf-cored ( t1 outcome frames -- ... frames next )
 \ visits nothing but body's loose bound variables (lf-whnf-loose?);
 \ e must be closed.
 : lf-whnf-stripped ( fn n -- body i )
-  0 begin 2 pick lf-whnf-lam? over 3 pick < and while 1+ rot lf-term-second@ -rot repeat nip ;
+  0 begin 2 pick lf-whnf-lam? over 3 pick < and
+  while 1+ rot lf-term-second@ -rot repeat nip ;
 \ For body bound variable k: argument i-k, cell n-i+k of the array.
 : lf-whnf-named ( body n i -- arg n i )
   >r tuck r@ - swap lf-term-first@ + lf-whnf-arg @ swap r> ;

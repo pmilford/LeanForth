@@ -3,8 +3,10 @@
 \ authority. One stable index/session, no raw writes, resets or concurrent
 \ calls. Handles are local diagnostics. Fuel is shared by preflight,
 \ traversal, specialization and transformations; bounded metadata, identity
-\ scans and topological staging are additional work. Only a directly visible
-\ Pi is applied; uncertain conversion is unknown.
+\ scans and topological staging are additional work. A type that is no
+\ visible Sort or Pi where one is needed is put in Lean's whnf first
+\ (ensure_sort_core, ensure_pi_core: plan task 4.2.2c); uncertain
+\ conversion is unknown.
 \ Free variables (ADR 0014 Q2, plan task 4.2.2a; [kernel] code, not yet
 \ through the review gate): the type inference gives back for a node is
 \ closed, as in Lean's kernel (inside a chain of lambdas, an inner
@@ -41,22 +43,23 @@
 \ (lf-minfer-compare, through lf-mixed-convert-keeping).
 \ The rejection analysis below keeps its own binders as bound variables
 \ too (see lf-minfer-close), and scratch a step no longer needs is
-\ discarded (lf-minfer-discard). Lean then also applies
-\ cheap_beta_reduce to a lambda body's type (instantiate.cpp 211-230,
-\ type_checker.cpp 140); that would change inferred
-\ types, so it comes with the ports that need it (plan task 4.2.2c), not
-\ with this change of representation, which changes no outcome.
-\ Definite rejection (ADR 0011, ADR 0008 step 3; [kernel] code, not yet
-\ through the review gate): where a step is undecided, rules F1 (a
-\ function's type is no Pi), S2 (a binder domain is no type), S4 (a Pi's
-\ body is no type) and D1-D5 (an argument's type and the function's domain
-\ are apart) may show that
-\ Lean's kernel certainly fails the same step, and the outcome is then
-\ rejected, recorded with the rule; otherwise it stays unknown. Like every
-\ result here, a rejection holds only if the candidate signatures are the
-\ constants' true types: they are unchecked assumptions at this interface.
-\ The analysis only ever turns an unknown into rejected: when it cannot decide,
-\ or runs out of fuel or room, the step stays unknown. The proof test P2
+\ discarded (lf-minfer-discard). As Lean, the innermost body's type of a
+\ chain of lambdas goes through cheap_beta_reduce (instantiate.cpp
+\ 211-230, type_checker.cpp 140; whnf.fs), since plan task 4.2.2c.
+\ Rejection ([kernel] code, not yet through the review gate): a type
+\ whose whnf is no Sort or Pi is Lean's typeExpected or funExpected,
+\ rejected with the codes of ADR 0011's rules S1, S2, S4 and F1, which
+\ Lean's ensure_sort_core and ensure_pi_core replace since plan task
+\ 4.2.2c. Where a comparison is undecided, rules D1-D5 (ADR 0011, ADR
+\ 0008 step 3: an argument's type and the function's domain are apart)
+\ may show that Lean's kernel certainly fails the same step, and the
+\ outcome is then rejected, recorded with the rule; otherwise it stays
+\ unknown, or exhausted or full when the analysis ran out of fuel or room
+\ (ADR 0008; since plan task 4.2.2c). Like every result here, a
+\ rejection holds only if the candidate signatures are the constants'
+\ true types: they are unchecked assumptions at this interface. The
+\ analysis only ever turns an unknown into rejected, exhausted or full,
+\ and is retired by plan task 4.2.2d. The proof test P2
 \ runs inference "aside": with no rule, on any live node (whnf results and
 \ inferred types, which the checker's own passes made from the audited
 \ input), discarding what it allocates.
@@ -71,8 +74,10 @@
 \ State: one inference record, lf-minfer-job (fields lf-ijob-*): fuel, frame
 \ depth, index token, the arena counts before the call, the scope (the
 \ opened binders' free variables and a Pi telescope's levels), whether
-\ inference runs aside, whether it runs in environment mode, and a copy of
-\ a reference's levels; a member of the checker context (lib/context.fs).
+\ inference runs aside, whether it runs in environment mode, a copy of a
+\ reference's levels, and the first shortage of fuel or room the
+\ rejection analysis met; a member of the checker context
+\ (lib/context.fs). Lean's whnf (whnf.fs) runs on the job's frames.
 \ The local context is local-context.fs's: emptied when a job starts;
 \ discarding scratch (a binder domain's or an argument's inference, a
 \ Pi's, test P2, a level of the rejection analysis, a failure) drops the
@@ -754,7 +759,8 @@ defer lf-minfer-args-apart ( left right count frames -- ... frames next )
 \ The innermost body's type T, put through cheap_beta_reduce first, as
 \ infer_lambda does (type_checker.cpp 140, whnf.fs; plan task 4.2.2c).
 : lf-minfer-body-type ( top T -- type status )
-  lf-minfer-frames lf-cheap-beta ok-then? if swap lf-minfer-abstract else nip no-result then ;
+  lf-minfer-frames lf-cheap-beta
+  ok-then? if swap lf-minfer-abstract else nip no-result then ;
 : lf-minfer-lam-plain ( T status frames -- type status frames 0 )
   >r 1 r@ frame-pick -rot lf-minfer-good? if lf-minfer-body-type else rot drop then
   r> lf-minfer-lam-end ;

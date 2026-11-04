@@ -181,7 +181,8 @@ end-structure
   r@ lf-lcmp-fuel lf-dq-lend lf-dq-level-lists r> lf-lcmp-fuel lf-dq-repay ;
 \ Step 7 (1174-1175): the same free variable (one node per entry).
 : lf-dq-fvars? ( t s -- flag )
-  2dup lf-tag-fvar lf-dq-both? if lf-term-first@ swap lf-term-first@ = else 2drop false then ;
+  2dup lf-tag-fvar lf-dq-both?
+  if lf-term-first@ swap lf-term-first@ = else 2drop false then ;
 
 \ ---------------------------------------------------------------------------
 \ The visits refer to each other; each is set once below.
@@ -274,13 +275,15 @@ defer lf-bd-pair ( t s frames -- ... frames next )
   >r 2dup lf-bd-domains r@ lf-dq-same ok-then? 0= if nip nip r> lf-bd-fail exit then
   if r> lf-bd-same-domain else r> lf-bd-differ then ; is lf-bd-pair
 :noname ( t s frames -- ... frames next )
-  lf-dq-depth @ over frame-save 2 pick lf-dq-tag over frame-save lf-bd-pair ; is lf-bd-visit
+  lf-dq-depth @ over frame-save 2 pick lf-dq-tag over frame-save lf-bd-pair ;
+is lf-bd-visit
 
 \ ---------------------------------------------------------------------------
 \ is_def_eq_app (878-895). The visit keeps t and s, then the number of
 \ arguments n and the next argument i, compared left to right.
 : lf-ap-i ( frames -- i n ) dup 0 swap frame-pick swap 1 swap frame-pick ;
-: lf-ap-nth ( node frames -- arg ) lf-ap-i swap - 1- 0 ?do lf-term-first@ loop lf-term-second@ ;
+: lf-ap-nth ( node frames -- arg )
+  lf-ap-i swap - 1- 0 ?do lf-term-first@ loop lf-term-second@ ;
 defer lf-ap-arg ( frames -- ... frames next )
 : lf-ap-next ( flag outcome frames -- ... frames next )
   >r ok-then? 0= if r> 4 lf-dq-drop-failed exit then
@@ -334,7 +337,8 @@ defer lf-ap-arg ( frames -- ... frames next )
   r@ lf-dq-sides lf-dq-undecided outcome-unknown r> 4 lf-dq-drop-failed ;
 \ Steps 6, 7, then 10.
 : lf-dq-tail ( frames -- ... frames next )
-  >r r@ lf-dq-sides 2dup r@ lf-dq-consts ok-then? 0= if nip nip r> 4 lf-dq-drop-failed exit then
+  >r r@ lf-dq-sides 2dup r@ lf-dq-consts
+  ok-then? 0= if nip nip r> 4 lf-dq-drop-failed exit then
   if 2drop true r> 4 lf-dq-drop-answer exit then
   2dup lf-dq-fvars? if 2drop true r> 4 lf-dq-drop-answer exit then
   r> ['] lf-dq-app-back lf-ap-call ;

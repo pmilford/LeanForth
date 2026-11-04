@@ -1,6 +1,6 @@
 # ADR 0014: Definitional equality as Lean's kernel decides it
 
-Status: task **4.2.2a implemented and approved** [kernel] by the owner on 2026-11-04 ([decisions](../project/OWNER_DECISIONS.md#free-variables-approved-2026-11-04)); 4.2.2b–e next. **Accepted** by the owner on 2026-11-03 (G5 and Q-A to Q-D as recommended; Q-E: within twice Lean's one-thread time before phase 6, then close the gap, by algorithms first — [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md#gate-answers-and-working-guidelines-2026-11-03)). Previously: **proposed**, 2026-11-03 (plan task 4.1.1, with the sections task
+Status: task **4.2.2a implemented and approved** [kernel] by the owner on 2026-11-04 ([decisions](../project/OWNER_DECISIONS.md#free-variables-approved-2026-11-04)); **4.2.2b and 4.2.2c implemented** 2026-11-04, their gate pending (see [Progress](#progress)); 4.2.2d–e next. **Accepted** by the owner on 2026-11-03 (G5 and Q-A to Q-D as recommended; Q-E: within twice Lean's one-thread time before phase 6, then close the gap, by algorithms first — [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md#gate-answers-and-working-guidelines-2026-11-03)). Previously: **proposed**, 2026-11-03 (plan task 4.1.1, with the sections task
 4.1.3 asks for: eta, proof irrelevance, `let` and metadata). A [kernel]
 design: it passes the review gate in `AGENTS.md` only with the owner's
 approval of the plain-language summary below, and the code that implements
@@ -978,6 +978,105 @@ F4); 25 planted faults in `tests/mutants/faults.toml` for this task: 24
 caught, and `rej-p2-open-term` a known equivalent (P2 inferring an open
 term of the analysis under the scope infers its closed copy; the closing
 stays, for closed cache keys).
+
+**4.2.2b and 4.2.2c, implemented 2026-11-04 (agent U4); their [kernel]
+gate awaits an independent review and the owner's approval.** What
+changed:
+
+- *Lean's `whnf_core`, `whnf`, `is_delta` and `unfold_definition`*
+  (`src/kernel/whnf.fs`), in Lean's order, as frame steps on the
+  caller's frames record (no depth limit, plan task 6.2.0): beta takes
+  all leading λs at once (Lean's `instantiate`, `mixed-open.fs`), zeta
+  for `let` variables (none occur before 4.2.3), and an unchanged head
+  that is no λ goes to the **iota hook** `lf-whnf-iota ( app frames --
+  ... frames next )`, Lean's `reduce_recursor`: the hook's visit ends
+  with `( reduct outcome frames 0 )`, `-1 ok` for no rule, and may ask
+  for `lf-whnf-call` and `lf-whnf-core-call` visits on the same frames
+  (the module header documents it for plan task 5.2.1b; the default
+  answers *unknown*, diagnostic 81, for a recursor at the head). Delta
+  unfolds a definition or a **theorem** (G5) the check's snapshot holds,
+  given as many universe arguments as it has parameters: its value with
+  the arguments substituted (the stored value itself without any, as
+  Lean); opaque declarations, axioms, inductive types, constructors and
+  recursors never. Where Lean's `reduce_nat` would look by name (K7),
+  *unknown* (diagnostic 82, plan task 5.2.3); outside a check (the
+  signature index's constants) a constant at the head of `whnf` is
+  *unknown* (K1, diagnostic 64). `cheap_beta_reduce` (`instantiate.cpp`
+  211–230) is ported, and `infer_lambda` applies it to the innermost
+  body's type (tc 140). An argument with a loose bound variable (terms
+  that ADR 0011's analysis and `check-block.fs` compare under their own
+  binders) is put under a λ one at a time by `mixed-instantiate.fs`,
+  which lifts it, as Lean's `instantiate` does with `lift_loose_bvars`.
+- *`ensure_sort` and `ensure_pi` through `whnf`* (`mixed-infer.fs`,
+  tc 62–83): a type that is no visible Sort (Π) is put in `whnf`, and one
+  that is still none is Lean's `typeExpected` (`funExpected`), rejected
+  with the diagnostic codes of S1, S2, S4 and F1, which these ports
+  replace. The rows `sort.*` and `pi.*` give Lean's verdict; so do the
+  first checker's `pi-body.needs-unfolding` (accepted) and `-wrong`
+  (rejected), `constant.function-type-behind-definition` and
+  `constant.sort-behind-definition` (accepted), and a binder domain whose
+  type is a β-redex (definition-table case 0/4, until then a known
+  *unknown*).
+- *Lean's `==`* (`expr_eq_fn`) is `lf-expr-equal` (`mixed-compare.fs`),
+  a structural walk: the term store keeps no binder names or annotations,
+  so it is name-insensitive by construction. The skeletons of Q3
+  (hash-consed nodes, `==` as one comparison) come with the caches of
+  plan task 4.2.7, which need them as keys; until then `==` costs one
+  unit of fuel per node visited (Q12).
+- *`quick_is_def_eq`, `is_def_eq_binding`, `is_def_eq_app`,
+  `is_def_eq_args` and the steps of `is_def_eq_core` LeanForth has*
+  (`src/kernel/defeq.fs`): (1) `quick_is_def_eq` decides yes or no;
+  (2) the `Bool.true` test is skipped (it only says yes; K7, 4.2.2d);
+  (3) `whnf_core` of both sides and `quick_is_def_eq` again; then the
+  steps that only say yes: (6) the same constant with equivalent universe
+  arguments, (7) the same free variable, (10) `is_def_eq_app`. Where none
+  says yes the answer is *unknown* (proof irrelevance 4.2.5, lazy delta
+  4.2.2d, eta 4.2.4, structure eta and unit-like types 5.2.2 may decide
+  there). Skipping steps 4 and 5 is sound for a yes: steps 6, 7 and 10
+  say yes only for terms equal up to β and universe equivalence, which
+  Lean finds equal whatever route it takes (ADR 0003's argument, on which
+  conversion has always rested). `is_def_eq_binding` gives each binder a
+  free variable of the right side's domain (B2); where Lean uses its
+  placeholder `dontcare` (neither body uses the variable) no later term
+  mentions it, so the free variable LeanForth always makes gives the same
+  terms.
+- *Conversion* (`mixed-convert.fs`) is the port after its audits: yes is
+  *ok*; Lean's no is still reported *unknown*, with `lf-mconvert-apart`
+  set, and ADR 0011's analysis decides rejections until 4.2.2d retires it
+  (the port's no is its cross-check). A rejection analysis that runs out
+  of fuel or room is now *exhausted* or *full*, not *unknown* (ADR 0008;
+  agent CLI2's finding: `impliesSelf` was *unknown* at every fuel from 151
+  to 280, and is now *exhausted* below 230, the fuel its whole check
+  takes, and *unknown* from there, as before).
+- Not yet as Lean, with no verdict depending on them: Lean's caches
+  (4.2.7), the unfold counts of kernel diagnostics (4.2.7, 4.3.1), the
+  log's `delta` records (4.2.2e). The inductive type's telescope and
+  positivity in `check-block.fs` still use their β-only stand-in
+  (`lf-blk-left?`), which task 5.2.1b replaces with `whnf.fs`'s
+  `lf-whnf-on`.
+
+Evidence (2026-11-04, Gforth 1.0.0, Lean 4.35.0; details in the agent
+report): `make test-definitional-equality-differential` (new, part of
+`make check`) runs the table's rows that declare something or ask for
+`whnf` end to end (44 of 50; `definitional-equality-terms.lean` prints
+them for the first checker's driver, `tests/support/whnf-probe.fs`
+probes `whnf`; the 6 rows that name Lean's own library wait for phase
+5): the 8 `sort.*`, `pi.*` and `whnf.*` rows give Lean's answer except
+`whnf.opaque`, *unsupported* until 4.2.6 holds opaque declarations, and
+no row contradicts Lean (4 accepted, 4 rejected, 3 unfolds, 22 unknown,
+11 unsupported). Unit tests: `tests/core/defeq.fs`, `tests/core/whnf.fs`.
+Old against new (main `b20d9a7`): conversion on random terms without
+definitions (seeds 1–8, 32,987 comparisons: 26,631 ok, 6,356 unknown)
+identical at ample fuel, where a planted fault (`is_def_eq_app` without
+its arguments) gives 53 differences; the typed-term trial of inference
+(seeds 11 and 12, 20,575 runs at ample fuel) identical, and at low fuel
+or little room the only differences are *exhausted* or *full* against
+*ok*, or the analysis's *unknown* now *exhausted*, *full* or *rejected*.
+26 new planted faults (`tests/mutants/faults.toml`): 23 caught, 2 known
+equivalents (`dq-binding-left-domain`, `infer-not-pi-aside-rejects`)
+and 1 gap (`whnf-iota-hook-silent`, closed by 5.2.1b's iota rows); 10
+re-targeted at the new code, 9 caught and `rej-p2-open-term` equivalent
+as before.
 
 ## Test plan
 

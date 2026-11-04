@@ -42,7 +42,8 @@ end-structure
 /lf-mcvs context-record: lf-mconvert-state
 \ The frames' visitor is never run: every visit of the port is opened
 \ with frame-open, each with its own first step (defeq.fs, whnf.fs).
-: lf-mconvert-no-visit ( x frames -- -1 outcome frames 0 ) nip outcome-invalid no-result rot 0 ;
+: lf-mconvert-no-visit ( x frames -- -1 outcome frames 0 )
+  nip outcome-invalid no-result rot 0 ;
 ' lf-mconvert-no-visit context-frames: lf-mconvert-frames
 
 \ Fuel left after a conversion; mixed-infer continues with it.
@@ -68,7 +69,8 @@ end-structure
 \ restored on every result, and the local context entries of the free
 \ variables the comparison made dropped, discarding all temporary
 \ allocations (serials never rewind).
-: lf-mconvert-marks ( -- terms levels crefs ) lf-term-count @ lf-level-count @ lf-cref-count @ ;
+: lf-mconvert-marks ( -- terms levels crefs )
+  lf-term-count @ lf-level-count @ lf-cref-count @ ;
 : lf-mconvert-restore ( terms levels crefs -- )
   lf-cref-count ! lf-level-count ! dup lf-term-count ! lf-lctx-drop ;
 : lf-mconvert-run ( left right -- outcome )

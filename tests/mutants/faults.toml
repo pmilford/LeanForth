@@ -815,8 +815,8 @@ reason = "4.2.2a (review rvD2A): a binder's free variable gets its domain as rea
 [[fault]]
 id = "infer-abstract-innermost"
 file = "src/kernel/mixed-infer.fs"
-old = '''  lf-minfer-frames lf-cheap-beta ok-then? if swap lf-minfer-abstract else nip no-result then ;'''
-new = '''  lf-minfer-frames lf-cheap-beta ok-then? if nip lf-minfer-context-depth @ 1- lf-minfer-abstract else nip no-result then ;'''
+old = '''  ok-then? if swap lf-minfer-abstract else nip no-result then ;'''
+new = '''  ok-then? if nip lf-minfer-context-depth @ 1- lf-minfer-abstract else nip no-result then ;'''
 test = "python3 tests/core/infer_typed_trial.py"
 reason = "4.2.2a (review rvD2A): the bottom of a chain of lambdas abstracts its body's type over the innermost lambda's free variable only, leaving the others free in the chain's type"
 
@@ -971,8 +971,8 @@ reason = "constants with different universe arguments compare equal"
 [[fault]]
 id = "conv-fvar-number-ignored"
 file = "src/kernel/defeq.fs"
-old = '''  2dup lf-tag-fvar lf-dq-both? if lf-term-first@ swap lf-term-first@ = else 2drop false then ;'''
-new = '''  2dup lf-tag-fvar lf-dq-both? if 2drop true else 2drop false then ;'''
+old = '''  if lf-term-first@ swap lf-term-first@ = else 2drop false then ;'''
+new = '''  if 2drop true else 2drop false then ;'''
 test = "$GFORTH tests/core/defeq.fs"
 reason = "4.2.2b (was conv-bvar-index-ignored): step 7 calls any two free variables the same, so fun x y => x converts to fun x y => y"
 quick = true
@@ -1049,8 +1049,8 @@ reason = "is_delta unfolds a constant given the wrong number of universe argumen
 [[fault]]
 id = "whnf-levels-not-substituted"
 file = "src/kernel/whnf.fs"
-old = '''  >r lf-whnf-cref lf-cref-pairs dup 0= if 2drop lf-idecl-value @ r> drop outcome-ok exit then'''
-new = '''  >r lf-whnf-cref lf-cref-pairs true if 2drop lf-idecl-value @ r> drop outcome-ok exit then'''
+old = '''  dup 0= if 2drop lf-idecl-value @ r> drop outcome-ok exit then'''
+new = '''  true if 2drop lf-idecl-value @ r> drop outcome-ok exit then'''
 test = "$GFORTH tests/core/whnf.fs"
 reason = "instantiate_value_lparams skipped: the value keeps the declaration's own universe parameters (row whnf-universe)"
 
@@ -1082,8 +1082,8 @@ reason = "an argument with a loose bound variable is put under a lambda without 
 [[fault]]
 id = "whnf-k7-off"
 file = "src/kernel/whnf.fs"
-old = '''  lf-name-prefix@ dup s" Nat" lf-whnf-part? if lf-name-prefix@ lf-name-tag@ lf-name-tag-anon ='''
-new = '''  lf-name-prefix@ dup s" Nat" lf-whnf-part? if lf-name-prefix@ drop false'''
+old = '''  if lf-name-prefix@ lf-whnf-anon? else drop false then ;'''
+new = '''  if drop false else drop false then ;'''
 test = "$GFORTH tests/core/defeq.fs"
 reason = "K7 (ADR 0014 Q8): whnf unfolds a user's Nat.succ or Nat.add where Lean's reduce_nat looks at it by name"
 
@@ -1227,8 +1227,10 @@ quick = true
 [[fault]]
 id = "infer-cheap-beta-skipped"
 file = "src/kernel/mixed-infer.fs"
-old = '''  lf-minfer-frames lf-cheap-beta ok-then? if swap lf-minfer-abstract else nip no-result then ;'''
-new = '''  outcome-ok ok-then? if swap lf-minfer-abstract else nip no-result then ;'''
+old = '''  lf-minfer-frames lf-cheap-beta
+'''
+new = '''  outcome-ok
+'''
 test = "$GFORTH tests/core/defeq.fs"
 reason = "infer_lambda without cheap_beta_reduce (type_checker.cpp 140): a body type that is a redex stays one"
 
