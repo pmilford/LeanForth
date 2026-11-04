@@ -17,13 +17,14 @@
 \
 \ Untrusted: the words translate text and prove nothing; receipts name
 \ them in their trusted-reader assumption. State: one context record,
-\ pv-run, reached only through the accessors below, and the catalogue, a
-\ read-only table. The output word, run while a run is under way, must
-\ take its two cells and leave none, and must not start a run in its own
-\ context: either fails the run as invalid ("output word failed").
+\ pv-run, reached only through the accessors below; the catalogue, the
+\ indentation's blanks and the two designs' records, read-only once
+\ loaded. The output word, run while a run is under way, must take its
+\ two cells and leave none (else the run fails as invalid, "output word
+\ failed"); a run it starts in its own context aborts (THROW -2) and
+\ changes nothing.
 
 require ../lib/lib.fs
-require ../lib/text-run.fs
 require ../author/errors.fs
 
 \ The THROW code with which a word stops a run after recording its
@@ -91,12 +92,26 @@ create pv-catalogue
 128 constant pv-line-chars       \ source lines must be shorter than this
 32 constant pv-prefix-chars      \ room before the line for a design's entry word
 128 constant pv-path-chars       \ a longer path is cut (it cannot fit its header line)
+20 constant pv-indent-chars      \ the deepest indentation (verify-semantics.fs checks it)
+
+\ A design: how it runs a line, made once while its file loads and read
+\ only afterwards. The mode shift (verify.fs) and the separate vocabulary
+\ (verify-alias.fs) are the two; pv-design: makes an empty one, whose
+\ fields the design's file fills.
+begin-structure /pv-design
+  field: pv-design-prefix        \ ( -- c-addr u ) text before each line
+  field: pv-design-order         \ ( -- ) set the run's search order
+  field: pv-design-line          \ ( -- ) run the line in the source buffer
+  field: pv-design-caught        \ ( code -- ) after a THROW that is no diagnostic
+  field: pv-design-call          \ ( index -- ) a word of the file, run by Forth's interpreter
+end-structure
+: pv-design: ( "name" -- ) create here /pv-design dup allot erase ;
 
 begin-structure /pv-run
   field: pv-run-emit             \ the output word ( c-addr u -- )
   field: pv-run-busy             \ true while a run is under way in this context
   \ The run: pv-reset erases everything from here on.
-  field: pv-run-design           \ the design running it (verify-runner.fs)
+  field: pv-run-design           \ the design running it
   field: pv-run-outcome          \ ok until the first diagnostic
   field: pv-run-reason           \ why it stopped, or pv-why-none
   field: pv-run-line             \ the line being run, from 1; 0 before the first
@@ -118,6 +133,9 @@ end-structure
 : pv-busy ( -- addr ) pv-run pv-run-busy ;
 : pv-emit-xt ( -- addr ) pv-run pv-run-emit ;
 : pv-design ( -- addr ) pv-run pv-run-design ;
+: pv-design@ ( -- design ) pv-design @ ;
+\ A word of the file when Forth's interpreter runs it: the design says.
+: pv-word-runs ( index -- ) pv-design@ pv-design-call @ execute ;
 : pv-outcome ( -- addr ) pv-run pv-run-outcome ;
 : pv-reason ( -- addr ) pv-run pv-run-reason ;
 : pv-line# ( -- addr ) pv-run pv-run-line ;
@@ -144,10 +162,11 @@ end-structure
 ' pv-setup context-setup
 : lf-verify-to ( xt -- ) pv-emit-xt ! ;
 
-\ The current token, as an offset into the line being run; none (-1) for
-\ a diagnostic without one, whose column is then 0.
+\ The current token, as an offset in characters into the line being run;
+\ none (-1) for a diagnostic without one, whose column is then 0.
 : pv-no-token ( -- ) -1 pv-token ! 0 pv-token# ! ;
-: pv-token! ( c-addr u -- ) pv-token# ! pv-text drop - pv-token ! ;
+: pv-chars-in ( c-addr -- offset ) pv-text drop - 1 chars / ;
+: pv-token! ( c-addr u -- ) pv-token# ! pv-chars-in pv-token ! ;
 : pv-offset! ( offset -- ) pv-token ! 0 pv-token# ! ;
 : pv-column ( -- column ) pv-token @ 1+ 0 max ;
 : pv-here ( -- line column ) pv-line# @ pv-column ;
@@ -187,13 +206,17 @@ end-structure
 : pv-stop ( -- ) pv-throw throw ;
 : pv-fail ( reason -- ) >r pv-token-text r> pv-report pv-stop ;
 : pv-fail-here ( reason -- ) >r s" " r> pv-report pv-stop ;
+\ The same when the flag is true.
+: pv-?fail ( flag reason -- ) swap if pv-fail then drop ;
+: pv-?fail-here ( flag reason -- ) swap if pv-fail-here then drop ;
 
 \ Pieces of an IR line. Text that would not fit stops the run as full.
-: pv-append ( c-addr u -- ) dup pv-room > if 2drop pv-why-capacity pv-fail then pv-copy ;
+: pv-append ( c-addr u -- ) dup pv-room > pv-why-capacity pv-?fail pv-copy ;
 : pv-number ( n -- ) pv-decimal pv-append ;
 : pv-location ( line column -- )
   s"  @" pv-append swap pv-number s" :" pv-append pv-number ;
 : pv-done ( -- ) pv-here pv-location pv-send ;
 : pv-done-at ( pos -- ) lfa-pos> pv-location pv-send ;
 \ Two spaces per level: level 1 for a definition's top instructions.
-: pv-indent ( level -- ) 2* s"                     " drop swap pv-append ;
+create pv-blanks pv-indent-chars chars allot  pv-blanks pv-indent-chars blank
+: pv-indent ( level -- ) 2* pv-blanks swap pv-append ;

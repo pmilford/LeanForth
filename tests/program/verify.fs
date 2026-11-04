@@ -129,7 +129,7 @@ variable current-before
   get-order dup order-before @ <> if 0 ?do drop loop false exit then
   true swap 0 ?do swap order-before i 1+ cells + @ = and loop ;
 : odd-settings ( -- )
-  0 transcript# ! outer run-settings-save forth-wordlist extra-words 2 set-order
+  0 transcript# ! outer run-settings-save drop forth-wordlist extra-words 2 set-order
   extra-words set-current hex ;
 : same-settings? ( -- flag )
   order-same? get-current current-before @ = and base @ 16 = and state @ 0= and ;
@@ -193,13 +193,16 @@ T{ s" : f ;" both -> outcome-ok 0 1 0 true }T
 \ value of the text before it (or a floating-point number), which no
 \ host reading with BASE ten gives; here a design whose line word makes
 \ one. The line counts, so the refusal is on line 1, column 0.
+\ A design like the separate vocabulary, with the line word xt.
+: alias-like ( xt design -- )
+  pv-alias-design over /pv-design move pv-design-line ! ;
 : wrong-cell ( -- ) 0 pv-gap# ! 5 pv-gap-push 6 pv-taken ;
-' pv-alias-prefix ' pv-alias-order ' wrong-cell ' pv-alias-caught pv-design: wrong-design
+pv-design: wrong-design  ' wrong-cell wrong-design alias-like
 T{ s" x" s" t.fs" wrong-design pv-text-run verdict
    -> outcome-invalid pv-why-host-literal 1 0 }T
 [defined] fdepth [if]
 : wrong-float ( -- ) 0 pv-gap# ! 1e0 pv-taken ;
-' pv-alias-prefix ' pv-alias-order ' wrong-float ' pv-alias-caught pv-design: float-design
+pv-design: float-design  ' wrong-float float-design alias-like
 T{ fdepth s" x" s" t.fs" float-design pv-text-run verdict fdepth
    -> 0 outcome-invalid pv-why-host-literal 1 0 0 }T
 [then]
