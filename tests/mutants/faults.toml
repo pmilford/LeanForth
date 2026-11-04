@@ -502,8 +502,9 @@ reason = "a serial run ends ok without checking that its environment is current 
 [[fault]]
 id = "ctx-claim-inside-job"
 file = "src/lib/context.fs"
-old = '''  dup context? 0= context-in-job? or if drop false exit then'''
-new = '''  dup context? 0= if drop false exit then'''
+old = '''  context-in-job? if drop false exit then
+  dup context? if context-other? else drop false then ;'''
+new = '''  dup context? if context-other? else drop false then ;'''
 test = "$GFORTH tests/lib/context.fs"
 reason = "X5 M1: a check may claim a context with its own token"
 quick = true
