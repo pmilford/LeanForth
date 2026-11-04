@@ -1282,6 +1282,23 @@ def redexUse : Declaration :=
   .defnDecl { name := `IE.U2.bad, levelParams := [], type := .sort 0,
               value := mkConst `IE.U2.rec [1], hints := .regular 1, safety := .safe }
 
+/-- `@IE.L.rec.{1, 1} Type (fun _ => Prop) Q (fun _ _ _ => Q) (@IE.L.nil.{1} Type)`, a
+proposition, and a block `IE.W (α : Type) : Prop` whose constructor's field is that
+proposition behind a β-redex: the recursor of the list `IE.L` is built again while W's
+constructors are checked, after W's parameter domains were recorded (plan task 5.2.1b). -/
+def lType : Expr := mkApp (mkConst `IE.L [1]) (.sort 1)
+def recListAtOne : Expr :=
+  let motive : Expr := .lam `x lType (.sort 0) .default
+  let consCase : Expr :=
+    .lam `h (.sort 1) (.lam `t lType (.lam `ih (.sort 0) qProp .default) .default) .default
+  mkAppN (mkConst `IE.L.rec [1, 1])
+    #[.sort 1, motive, qProp, consCase, mkApp (mkConst `IE.L.nil [1]) (.sort 1)]
+def lookupDuringParamBlock : Declaration :=
+  let field : Expr := .app (.lam `x (.sort 0) (.bvar 0) .default) recListAtOne
+  .inductDecl [] 1 [⟨`IE.W, .forallE `α (.sort 1) (.sort 0) .default,
+    [⟨`IE.W.mk, .forallE `α (.sort 1)
+      (.forallE `h field (mkApp (mkConst `IE.W) (.bvar 1)) .default) .default⟩]⟩] false
+
 /-- `IE.U70.{u_1 … u_70} : Type` with one constructor: a recursor of 71 universe
 parameters (review rvI21 R4-3: no fixed limit). -/
 def manyNames : List Name := (List.range 70).map fun i => Name.mkSimple s!"u_{i + 1}"
@@ -1392,7 +1409,10 @@ def stripped : List Stripped := [
     lean := "accepted", leanforth := "accepted", rule := "B4 G1 U1", task := "5.2.1b" },
   { id := "after.reflexive-parameter-at-renamed", block := blockDecl "ind.reflexive-parameter",
     uses := fun r => [useRecAt "Renamed" [`w] [lp `w] 0 r],
-    lean := "accepted", leanforth := "accepted", rule := "B4 G1", task := "5.2.1b" }
+    lean := "accepted", leanforth := "accepted", rule := "B4 G1", task := "5.2.1b" },
+  { id := "after.list-left-out-then-lookup-during-param-block", block := blockDecl "ind.list",
+    uses := fun _ => [lookupDuringParamBlock], lean := "accepted", leanforth := "accepted",
+    rule := "B4 G1 C2", task := "5.2.1b" }
 ]
 
 /-- A stripped case's block constants without recursors, the environment Lean's

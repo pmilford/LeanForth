@@ -104,10 +104,11 @@ cli-no-manifest
 T{ wrong cli-check outcome-rejected tally outcome-ok tally -> 1 1 0 }T
 T{ postulate cli-check outcome-unsupported tally -> 2 1 }T
 T{ with-literal cli-check outcome-unsupported tally -> 2 1 }T
-\ Every record kind (tests/core/reexport/kinds.lean): 30 accepted, among
-\ them inductive blocks; the rest unknown or unsupported (plan phases 4, 5).
+\ Every record kind (tests/core/reexport/kinds.lean): 58 accepted, among
+\ them inductive blocks, Nat and List (plan task 5.2.1b) and what uses
+\ them; the rest unknown or unsupported (plan phases 4, 5).
 T{ kinds cli-check outcome-ok tally outcome-unknown tally outcome-unsupported tally
-  -> 2 30 4 72 }T
+  -> 2 58 5 43 }T
 T{ loose cli-check outcome-invalid tally -> 4 1 }T
 T{ s" tests/cli/leanforth.fs" cli-check -> 4 }T
 0 cli-fuel!

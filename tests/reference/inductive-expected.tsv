@@ -186,6 +186,7 @@ after.list-at-concrete	accepted	accepted	B4 G1	5.2.1b
 after.list-at-applied	accepted	accepted	B4 G1	5.2.1b	
 after.list-sort-max-at-concrete	accepted	accepted	B4 G1 U1	5.2.1b	
 after.reflexive-parameter-at-renamed	accepted	accepted	B4 G1	5.2.1b	
+after.list-left-out-then-lookup-during-param-block	accepted	accepted	B4 G1 C2	5.2.1b	
 names.reserved-nested-prefix	reservedNestedPrefix	rejected	T0	5.2.5	
 names.reserved-nested-prefix-declared	reservedNestedPrefix	rejected	T0	5.2.1a	
 names.constructor-already-declared	alreadyDeclared	rejected	N2	5.2.1a	

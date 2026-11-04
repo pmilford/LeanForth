@@ -163,11 +163,12 @@ end-structure
 : lf-blk-op-names ( -- c-addr u )
   s"  succ add sub mul pow gcd mod div beq ble land lor xor shiftLeft shiftRight " ;
 \ Whether text is a word of that list: found with a space on each side.
+: lf-blk-space? ( c-addr -- flag ) 1 s"  " compare 0= ;
 : lf-blk-op-text? ( c-addr u -- flag )
   dup >r lf-blk-op-names 2swap search 0= if r> drop 2drop false exit then
   dup r@ > 0= if r> drop 2drop false exit then
   over lf-blk-op-names drop = if r> drop 2drop false exit then
-  drop dup 1- c@ bl = swap r> + c@ bl = and ;
+  drop dup 1- lf-blk-space? swap r> + lf-blk-space? and ;
 : lf-blk-nat? ( name -- flag )
   dup lf-name-tag@ lf-name-tag-str = 0= if drop false exit then
   dup lf-name-prefix@ if drop false exit then lf-name-text s" Nat" compare 0= ;
