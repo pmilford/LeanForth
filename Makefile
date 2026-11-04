@@ -116,7 +116,7 @@ reference-export:
 	LEAN=$(LEAN) $(RUN) bash tests/reference/export-check.sh
 
 # Lean's verdicts for inductive types, reductions, the replay of exported
-# blocks, primitive names and quotients (ADR 0015): 99 kernel cases; the
+# blocks, primitive names and quotients (ADR 0015): 100 kernel cases; the
 # exports of tests/reference/inductive/ reproduced byte for byte and staged
 # by the Forth importer.
 reference-inductive:

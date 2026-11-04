@@ -82,16 +82,17 @@ lit.gcd	accepted	accepted	L1	5.2.3
 lit.ble	accepted	accepted	L1	5.2.3	
 lit.string-expansion	accepted	accepted	L4	5.2.3	
 lit.string-expansion-wrong	declTypeMismatch	rejected	L4	5.2.3	
-replay.original	accepted	accepted	B1	5.2.1b	
-replay.rule-right-sides-swapped	invalidRecursor	rejected	B2	5.2.1b	
-replay.recursor-k-set	invalidRecursor	rejected	B2	5.2.1b	
-replay.recursor-motives-changed	invalidRecursor	rejected	B2	5.2.1b	
-replay.constructor-fields-changed	invalidConstructor	rejected	B2	5.2.1b	
-replay.constructor-type-changed	invalidRecursor	rejected	B1 B2	5.2.1b	
+replay.original	accepted	accepted	A1 B3	5.2.1b	
+replay.rule-right-sides-swapped	invalidRecursor	rejected	B3	5.2.1b	
+replay.recursor-k-set	invalidRecursor	rejected	B3	5.2.1b	
+replay.recursor-motives-changed	invalidRecursor	rejected	B3	5.2.1b	
+replay.constructor-fields-changed	invalidConstructor	rejected	B3	5.2.1b	
+replay.constructor-type-changed	invalidRecursor	rejected	B1 B3	5.2.1b	
 replay.parameters-changed	kernel nonUniformOccurrence	rejected	B1 C1	5.2.1b	
-replay.isRec-changed	accepted	accepted	B3	5.2.1b	
-replay.indices-changed	accepted	accepted	B3	5.2.1b	
-replay.recursor-left-out	accepted	accepted	B3	5.2.1b	
+replay.isRec-changed	accepted	accepted	B4	5.2.1b	
+replay.indices-changed	accepted	accepted	B4	5.2.1b	
+replay.recursor-left-out	accepted	accepted	B4	5.2.1b	
+names.reserved-nested-prefix	reservedNestedPrefix	rejected	T0	5.2.5	
 primitive.forged-add-computes	accepted	unsupported	L5	5.2.3	
 primitive.forged-add-unfolds	accepted	unsupported	L5	5.2.3	
 primitive.five-is-two	accepted	unsupported	L5	5.2.3	

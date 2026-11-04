@@ -74,6 +74,7 @@ def otherCodes : List (String × String) := [
   ("duplicate constructor name", "duplicateConstructor"),
   ("invalid empty (mutual) inductive datatype declaration", "emptyBlock"),
   ("duplicate universe level parameter", "duplicateLevelParam"),
+  ("it uses the reserved prefix", "reservedNestedPrefix"),
   ("failed to initialize quot module", "quotEqShape")]
 
 def otherCode (msg : String) : String :=
@@ -530,28 +531,28 @@ def nToNToN : Expr := .forallE `a (mkConst `IE.N) nToN .default
 
 def mutations : List Mutation := [
   { id := "replay.original", change := some,
-    lean := "accepted", leanforth := "accepted", rule := "B1" },
+    lean := "accepted", leanforth := "accepted", rule := "A1 B3" },
   { id := "replay.rule-right-sides-swapped", change := onRec swapRules,
-    lean := "invalidRecursor", leanforth := "rejected", rule := "B2" },
+    lean := "invalidRecursor", leanforth := "rejected", rule := "B3" },
   { id := "replay.recursor-k-set", change := onRec fun r => { r with k := true },
-    lean := "invalidRecursor", leanforth := "rejected", rule := "B2" },
+    lean := "invalidRecursor", leanforth := "rejected", rule := "B3" },
   { id := "replay.recursor-motives-changed", change := onRec fun r => { r with numMotives := 2 },
-    lean := "invalidRecursor", leanforth := "rejected", rule := "B2" },
+    lean := "invalidRecursor", leanforth := "rejected", rule := "B3" },
   { id := "replay.constructor-fields-changed",
     change := onCtor `IE.N.succ fun c => { c with numFields := 2 },
-    lean := "invalidConstructor", leanforth := "rejected", rule := "B2" },
+    lean := "invalidConstructor", leanforth := "rejected", rule := "B3" },
   { id := "replay.constructor-type-changed",
     change := onCtor `IE.N.succ fun c => { c with type := nToNToN, numFields := 2 },
-    lean := "invalidRecursor", leanforth := "rejected", rule := "B1 B2" },
+    lean := "invalidRecursor", leanforth := "rejected", rule := "B1 B3" },
   { id := "replay.parameters-changed", change := onType fun i => { i with numParams := 1 },
     lean := "kernel nonUniformOccurrence", leanforth := "rejected", rule := "B1 C1" },
   { id := "replay.isRec-changed", change := onType fun i => { i with isRec := false },
-    lean := "accepted", leanforth := "accepted", rule := "B3" },
+    lean := "accepted", leanforth := "accepted", rule := "B4" },
   { id := "replay.indices-changed", change := onType fun i => { i with numIndices := 1 },
-    lean := "accepted", leanforth := "accepted", rule := "B3" },
+    lean := "accepted", leanforth := "accepted", rule := "B4" },
   { id := "replay.recursor-left-out",
     change := fun c => match c with | .recInfo _ => none | c => some c,
-    lean := "accepted", leanforth := "accepted", rule := "B3" }
+    lean := "accepted", leanforth := "accepted", rule := "B4" }
 ]
 
 /-! ## Primitive names and quotient initialisation, in an empty environment -/
@@ -631,6 +632,18 @@ def chains : List Chain := [
     lean := "quotEqShape", leanforth := "rejected", rule := "Q1", task := "5.2.4" }
 ]
 
+/-- A constructor that names `_nested.T`, a name only the kernel's nested
+elimination may use; the constant need not exist, since the name is checked
+before any typing. Added to the `import Lean` environment. -/
+def reservedPrefix : Declaration :=
+  let t : Expr := mkConst `IE.T
+  .inductDecl [] 0 [⟨`IE.T, .sort 1, [⟨`IE.T.mk, .forallE `x (mkConst `_nested.T) t .default⟩]⟩] false
+
+def onBase : List Chain := [
+  { id := "names.reserved-nested-prefix", decls := [reservedPrefix],
+    lean := "reservedNestedPrefix", leanforth := "rejected", rule := "T0", task := "5.2.5" }
+]
+
 /-- Add `ds` in order; the verdict is that of the first failure, or of the last. -/
 def addAll (env : Kernel.Environment) : List Declaration → Except Kernel.Exception Kernel.Environment
   | [] => .ok env
@@ -673,7 +686,12 @@ run_cmd do
     let got ← replayVerdict base (cs.filterMap m.change)
     unless got == m.lean do throwError "{m.id}: Lean's verdict is {got}, expected {m.lean}"
     row m.id got m.leanforth m.rule "5.2.1b" ""
-  -- 4. Primitive names and quotient initialisation, from an empty environment.
+  -- 4. Hand-built declarations, in the `import Lean` environment.
+  for c in onBase do
+    let got := verdict (addAll base c.decls)
+    unless got == c.lean do throwError "{c.id}: Lean's verdict is {got}, expected {c.lean}"
+    row c.id got c.leanforth c.rule c.task ""
+  -- 5. Primitive names and quotient initialisation, from an empty environment.
   let empty := (← mkEmptyEnvironment).toKernelEnv
   for c in chains do
     let got := verdict (addAll empty c.decls)
