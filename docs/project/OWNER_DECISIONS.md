@@ -674,3 +674,25 @@ ADR 0019 Amendment 1 (agent IR2; probes in
   report and gate question presents a step as part of an unfinished design
   and names, for each temporary gap from Lean (an *unknown* or a refusal
   where Lean decides), the plan task that makes it identical to Lean.
+
+## Data types, first step: condition met (2026-11-04, late)
+
+- **Plan task 5.2.1a: the owner's 100%-Lean condition is met** (answer
+  "Condition met"). Independent review rvI21 rounds 4–6 (the last with
+  nothing blocking) checked the closing work of agent I21: a file that
+  leaves out `T.rec` gets LeanForth's own recursor, built at the use's
+  universes exactly as Lean's `instantiate_type_lparams` of the
+  recursor's type; a block rejected at B3 keeps its type and constructors
+  usable; an empty block is rejected at Lean's step. Evidence: the
+  inductive table, 176 cases against pinned Lean 4.35.0; task 5.2.1a's 94
+  rows give Lean's verdict on 88 and are pending on 6, each naming its
+  task (5.2.1b, 4.2.2). LeanForth accepts nothing Lean refuses.
+- Every remaining difference is temporary and cautious (*unknown*,
+  *unsupported*, *full* or *invalid* where Lean decides), closed by a
+  later step of the design: recursive types 5.2.1b; unfolding 4.2.2
+  (including a type that is a Sort only after reduction); the unit-like
+  guard and projections 5.2.2; K-like reduction 5.2.1c; literals 5.2.3;
+  quotients 5.2.4; mutual and nested blocks 5.2.5; capacities 6.2.0; a
+  file naming a constant it never declares, refused whole where Lean
+  rejects only the declaration concerned, 5.2.6 (new); the command line's
+  reader moving to the importer's stage and feed (agent CLI2, plan 3.4).
