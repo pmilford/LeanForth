@@ -20,25 +20,35 @@
 \ execution token SEARCH-WORDLIST gives and its name: Gforth 0.7.3 gives
 \ every compile-only word (IF, THEN, ; ...) one shared token, so the token
 \ alone does not tell them apart; Forth-2012 has no name tokens.
-64 constant vt-max
+96 constant vt-max
 create vt-xt vt-max cells allot  create vt-kind vt-max cells allot
 create vt-x vt-max cells allot   create vt-name vt-max cells allot  variable vt#
 0 constant v-prim  1 constant v-action
 : host ( c-addr u -- xt ) forth-wordlist search-wordlist 0= abort" ms: no host word" ;
 : name, ( c-addr u -- c-addr' ) here >r dup c, here swap dup allot move align r> ;
-: vt! ( c-addr u xt kind x -- )
-  vt# @ vt-max = abort" ms: table full"
-  vt# @ >r r@ cells vt-x + ! r@ cells vt-kind + ! r@ cells vt-xt + ! name,
-  r> cells vt-name + ! 1 vt# +! ;
 create folded 32 allot  variable folded#  variable want-xt
+defer vt-find ( xt c-addr u -- i true | false )
+\ A new entry, or new semantics for a word that has an entry (IR v1).
+: vt-slot ( c-addr u xt -- i )
+  >r 2dup r@ -rot vt-find if nip nip r> drop exit then
+  vt# @ vt-max = abort" ms: table full"
+  name, vt# @ tuck cells vt-name + ! r> over cells vt-xt + ! 1 vt# +! ;
+: vt! ( c-addr u xt kind x -- )
+  2>r vt-slot 2r> rot >r r@ cells vt-x + ! r> cells vt-kind + ! ;
 : fold! ( c-addr u -- ) 31 min dup folded# ! folded swap move folded folded# @ cv-fold ;
+\ An entry with token 0 is known by its name alone (see verifies-name).
 : vt-same? ( i -- flag )
-  dup cells vt-xt + @ want-xt @ = if cells vt-name + @ count folded folded# @ compare 0=
-  else drop false then ;
-: vt-find ( xt c-addr u -- i true | false )
+  dup cells vt-xt + @ dup 0= swap want-xt @ = or
+  if cells vt-name + @ count folded folded# @ compare 0= else drop false then ;
+:noname ( xt c-addr u -- i true | false )
   fold! want-xt ! vt# @ 0 ?do i vt-same? if i true unloop exit then loop false ;
+is vt-find
 \ "verifies NAME": NAME's verification semantics are to execute action.
 : verifies ( action "name" -- ) >r parse-name 2dup host v-action r> vt! ;
+\ The same for a word whose token the host does not keep fixed: Gforth
+\ 1.0's SEARCH-WORDLIST gives RECURSE a token that changes with every new
+\ definition, so it is known by its name (and must be FORTH's).
+: verifies-name ( action "name" -- ) >r parse-name 2dup host drop 0 v-action r> vt! ;
 \ "prim NAME": NAME writes "prim NAME" (with cv.fs's record of it).
 : prim ( "name" -- )
   parse-name 2dup 2dup host >r cv-words search-wordlist 0= abort" ms: no record" >body
@@ -74,9 +84,9 @@ prim max  prim min  prim true  prim false
 \ Forth's, as Forth finds names before numbers; else a plain decimal.
 : ms-token ( c-addr u -- )
   over cv-line-addr @ - cv-tok ! dup cv-tok# !
-  2dup cv-prog @ search-wordlist if nip nip >body cv-call exit then
+  2dup cv-prog @ search-wordlist if nip nip >body cv-call-xt @ execute exit then
   2dup forth-wordlist search-wordlist if ms-host exit then
-  cv-literal? if cv-lit exit then why-unknown cv-unsupported! ;
+  cv-literal? if cv-lit-xt @ execute exit then why-unknown cv-unsupported! ;
 wordlist constant ms-entry
 get-current ms-entry set-current
 \ The verification-state interpreter, for the rest of the input source.

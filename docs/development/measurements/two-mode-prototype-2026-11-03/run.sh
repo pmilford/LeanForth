@@ -34,4 +34,8 @@ done
 echo "== 7. symbolic mode (question 4(b)), clamp and examples"
 bash "$here/sym-of.sh" "$g" src/program/clamp.fs 2>/dev/null
 bash "$here/sym-of.sh" "$g" src/program/examples.fs 2>/dev/null
+echo "== 8. mode shift: alias (cv), portable third state (ms), Gforth 1.0's own third state (g1)"
+bash "$here/modes.sh" "$g" || status=1
+echo "== 9. defining words and loops (draft IR v1), in both designs"
+bash "$here/v1.sh" "$g" || status=1
 exit $status

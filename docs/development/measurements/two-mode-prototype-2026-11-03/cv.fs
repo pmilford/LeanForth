@@ -91,7 +91,9 @@ variable cv-outcome  variable cv-why  variable cv-err-line  variable cv-err-col
 : cv-n+ ( n -- ) dup abs 0 <# #s rot sign #> cv+ ;
 : cv-at+ ( line col -- ) s"  @" cv+ swap cv-n+ s" :" cv+ cv-n+ ;
 : cv-indent+ ( level -- ) 0 ?do s"   " cv+ loop ;
-: cv-line ( -- ) cv-quiet @ 0= if cv-out cv-out# @ type cr then 0 cv-out# ! ;
+variable cv-lines#         \ lines written so far
+: cv-line ( -- )
+  cv-quiet @ 0= if cv-out cv-out# @ type cr then 0 cv-out# ! 1 cv-lines# +! ;
 : cv-outcome. ( outcome -- )
   case cv-invalid of ." invalid" endof cv-unsupported of ." unsupported" endof
     cv-full of ." full" endof endcase ;

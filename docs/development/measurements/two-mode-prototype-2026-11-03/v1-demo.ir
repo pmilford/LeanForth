@@ -1,0 +1,95 @@
+lf-ir 0.1
+source docs/development/measurements/two-mode-prototype-2026-11-03/v1-demo.fs
+word sum-below @4:1
+  lit 0 @4:26
+  prim swap @4:28
+  lit 0 @4:33
+  ?do @4:35
+    i @4:39
+    prim + @4:41
+  loop @4:43
+end @4:48
+word pairs @5:1
+  lit 0 @5:20
+  lit 3 @5:22
+  lit 0 @5:24
+  do @5:26
+    lit 2 @5:29
+    lit 0 @5:31
+    do @5:33
+      i @5:36
+      j @5:38
+      prim + @5:40
+      prim + @5:42
+    loop @5:44
+  loop @5:49
+end @5:54
+word first-big @6:1
+  lit 0 @6:28
+  prim swap @6:30
+  lit 0 @6:35
+  do @6:37
+    i @6:40
+    prim dup @6:42
+    prim * @6:46
+    lit 50 @6:48
+    prim > @6:51
+    if @6:53
+      prim drop @6:56
+      i @6:61
+      leave @6:63
+    then @6:69
+  loop @6:74
+end @6:79
+word count-down @7:1
+  begin @7:25
+    prim 1- @7:31
+    prim dup @7:34
+    prim 0= @7:38
+  until @7:41
+end @7:47
+word fact @8:1
+  prim dup @8:20
+  lit 1 @8:24
+  prim > @8:26
+  if @8:28
+    prim dup @8:31
+    prim 1- @8:35
+    call fact @8:38
+    prim * @8:46
+  then @8:48
+end @8:53
+word holder @9:1
+  create @9:26
+  prim , @9:33
+does @9:35
+  prim @ @9:41
+end @9:43
+created seven @10:10
+  cell 7
+  does holder
+end
+created squares @11:8
+  cell 0 @11:18
+  cell 1 @11:22
+  cell 4 @11:26
+  cell 9 @11:30
+end
+created total @12:10
+  cell undefined
+end
+word add-seven @13:1
+  addr total @13:20
+  prim @ @13:26
+  call seven @13:28
+  prim + @13:34
+  addr total @13:36
+  prim ! @13:42
+end @13:44
+word square @14:1
+  prim cells @14:21
+  addr squares @14:27
+  prim + @14:35
+  prim @ @14:37
+end @14:39
+outcome 0 
