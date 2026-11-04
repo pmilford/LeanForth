@@ -16,7 +16,7 @@
 include ../support/tester.fs
 require ../support/first-checker-driver.fs
 
-variable probe-node  variable probe-outcome  variable probe-same
+variable probe-node  variable probe-outcome  variable probe-same  variable probe-diag
 \ The value of declaration d.
 : value-of ( d -- node ) lf-input-decl lf-idecl-value @ ;
 \ Whether the result equals the expected term, by Lean's ==, compared
@@ -26,7 +26,7 @@ variable probe-node  variable probe-outcome  variable probe-same
   probe-node @ fc-last 1- value-of 100000 lf-expr-equal ok? and probe-same ! ;
 : probe-whnf ( -- )
   100000 lf-minfer-start-env lf-env-limit value-of lf-minfer-frames lf-whnf-on
-  probe-outcome ! probe-node ! probe-compare ;
+  probe-outcome ! probe-node ! lf-diag-code@ probe-diag ! probe-compare ;
 : probing ( -- ) lf-env-limit fc-last = if probe-whnf then lf-check-declaration ;
 : probe-run ( -- )
   -1 probe-node ! outcome-invalid probe-outcome ! false probe-same !
@@ -93,6 +93,12 @@ T{ probe-run expected? -> true outcome-ok }T
 fc-case whnf-stays
 fc-decl check def safe probe 0 TYPE P S s z S s z VALUE L S s z V 0
 T{ probe-run unfolds? -> false outcome-ok }T
+\ A constant Lean's environment does not hold (N1) is no delta target:
+\ whnf leaves it, and the lookup's note is put back (no failure: the
+\ diagnostic stays clear; the probe's own check then rejects it, N1).
+fc-case whnf-absent
+fc-decl check def safe probe 0 TYPE S s z VALUE C absent 0
+T{ probe-run unfolds? probe-diag @ -> false outcome-ok lf-diag-none }T
 
 \ ensure_sort and ensure_pi through whnf, with the rows' verdicts:
 \ sort.after-unfolding (A : dqProp, accepted), sort.not-after-unfolding

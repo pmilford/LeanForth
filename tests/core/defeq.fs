@@ -76,6 +76,12 @@ T{ 0 make-var 1 redex telescope 0 make-var telescope defeq -> true outcome-ok }T
 T{ lf-dq-depth @ -> 0 }T
 T{ 0 make-var telescope 1 make-sort telescope defeq lf-dq-depth @ -> 0 outcome-unknown 0 }T
 
+\ Two different free variables (the bodies of fun x y => x and fun x y =>
+\ y) are not shown equal (step 7 needs the same one): unknown.
+: two-lams ( body -- node ) 1 make-sort swap make-lam 1 make-sort swap make-lam ;
+T{ 1 make-var two-lams 0 make-var two-lams defeq -> 0 outcome-unknown }T
+T{ 1 make-var two-lams 1 make-var two-lams defeq -> true outcome-ok }T
+
 \ is_def_eq_app: the functions, the counts, then the arguments left to
 \ right; is_def_eq_args: the last arguments first, the spines end together.
 : pair-app ( a b -- node ) 2 make-var rot make-app swap make-app ;
@@ -88,6 +94,7 @@ T{ 0 make-sort 1 make-sort pair-app 2 make-sort 1 make-sort pair-app args? -> fa
 \ The spines end together: f a b against g b (g = f a) holds by args
 \ only if both run out of applications at once.
 T{ 0 make-sort 1 make-sort pair-app 2 make-var 0 make-sort make-app args? -> false outcome-ok }T
+T{ 0 make-sort 1 make-sort pair-app 2 make-var 1 make-sort make-app args? -> false outcome-ok }T
 T{ 2 make-var 2 make-var args? -> true outcome-ok }T
 
 \ ---------------------------------------------------------------------------
@@ -141,6 +148,28 @@ create one-level 2 cells allot
   0 one-level ! 0 lf-level-identity must one-level cell+ !
   lf-name-generation @ one-level 1 lf-cref-new must lf-cterm-new must drop ;
 T{ s" succ" nat-name leveled 0 make-sort make-app lf-whnf-k7? -> false }T
+
+\ Step 6: the same constant with equivalent universe arguments; with
+\ universe arguments that differ (Sort 1 and Sort 2 levels) not shown
+\ equal: unknown (only lazy delta, plan task 4.2.2d, could unfold them).
+: c-at ( level -- node )
+  dup one-level ! lf-level-identity must one-level cell+ !
+  s" c" name-of lf-name-generation @ one-level 1 lf-cref-new must lf-cterm-new must drop ;
+T{ 1 c-at 1 c-at defeq -> true outcome-ok }T
+T{ 1 c-at 2 c-at defeq -> 0 outcome-unknown }T
+T{ level-u level-v max-of c-at level-v level-u max-of c-at defeq -> true outcome-ok }T
+
+\ cheap_beta_reduce in inference (type_checker.cpp 140): fun (A : Sort 1)
+\ (h : (fun T : Sort 1 => T) A) => h has the type (A : Sort 1) -> (h :
+\ (fun T : Sort 1 => T) A) -> A, the body's type reduced, not left a redex.
+: wrapped-id ( -- node )
+  1 make-sort  1 make-sort 0 make-var make-lam 0 make-var make-app  0 make-var make-lam
+  make-lam ;
+: wrapped-type ( -- node )
+  1 make-sort  1 make-sort 0 make-var make-lam 0 make-var make-app  1 make-var make-pi
+  make-pi ;
+T{ empty-token wrapped-id handle 100000 lf-mixed-infer nip swap wrapped-type same?
+   -> outcome-ok true }T
 
 \ ---------------------------------------------------------------------------
 \ Every failure outcome, and a fuel sweep: with less fuel a comparison is

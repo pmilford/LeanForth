@@ -617,10 +617,10 @@ reason = "D1 never tries the witness that sets the last universe parameter alone
 [[fault]]
 id = "rej-f1-off"
 file = "src/kernel/mixed-infer.fs"
-old = '''  if lf-minfer-site lf-diag-function-expected lf-minfer-reject else outcome-unknown then ;'''
-new = '''  if drop then outcome-unknown ;'''
+old = '''  lf-minfer-deciding? if lf-minfer-site lf-diag-function-expected lf-minfer-reject'''
+new = '''  false if lf-minfer-site lf-diag-function-expected lf-minfer-reject'''
 test = "$GFORTH tests/core/definite-rejection.fs"
-reason = "K1: F1 never rejects an application of a non-function"
+reason = "F1, since plan task 4.2.2c Lean's ensure_pi_core: a function type whose whnf is no Pi is never rejected"
 
 [[fault]]
 id = "rej-s1-flexible-head"
@@ -660,7 +660,8 @@ file = "src/kernel/mixed-infer.fs"
 old = '''  >r lf-minfer-context-depth @ -rot dup lf-term-first@ lf-minfer-enter-binder ok?'''
 new = '''  >r lf-minfer-context-depth @ -rot over lf-term-first@ lf-minfer-enter-binder ok?'''
 test = "$GFORTH tests/core/definite-rejection.fs"
-reason = "D4/B2: the bodies are compared with the left (inferred) domain instead of the expected one; caught by the d4-pair white-box test of lf-minfer-binders-apart (through lf-minfer-apart, P2 on the two Pis fails first for such a pair, so no input that reaches D4 can tell)"
+reason = "D4/B2: the bodies are compared with the left (inferred) domain instead of the expected one"
+equivalent = "D4 enters two binders only when conversion found their domains equal, so they are equal up to beta; since plan task 4.2.2c inference puts a domain's type in Lean's whnf, so P2 and the head tests infer the same under either domain (the d4-pair test, which told them apart while only a visible Sort was a type, now finds the pair apart under both, by D3, as Lean rejects it); the analysis is retired by plan task 4.2.2d"
 
 [[fault]]
 id = "rej-d5-rule-unrecorded"
@@ -685,6 +686,7 @@ old = '''  2dup lf-minfer-compare dup outcome-unknown <> if nip nip 0 swap exit 
 new = '''  2dup lf-minfer-compare dup ok? if nip nip 0 swap exit then'''
 test = "$GFORTH tests/core/definite-rejection.fs"
 reason = "a comparison that ran out of fuel or room is analysed and may be rejected instead of exhausted"
+equivalent = "since plan task 4.2.2c a comparison that ran out of fuel leaves none, so the analysis the fault lets run is refused at once and lf-minfer-undecided reports the shortage: exhausted either way (ADR 0008); a comparison out of room with room left for the analysis is not reachable from these cases, and its rejection would be Lean's (each D rule implies Lean's no)"
 
 [[fault]]
 id = "rej-argument-unrecorded"
@@ -813,8 +815,8 @@ reason = "4.2.2a (review rvD2A): a binder's free variable gets its domain as rea
 [[fault]]
 id = "infer-abstract-innermost"
 file = "src/kernel/mixed-infer.fs"
-old = '''  >r 1 r@ frame-pick -rot lf-minfer-good? if swap lf-minfer-abstract else rot drop then'''
-new = '''  >r 1 r@ frame-pick -rot lf-minfer-good? if swap drop lf-minfer-context-depth @ 1- lf-minfer-abstract else rot drop then'''
+old = '''  lf-minfer-frames lf-cheap-beta ok-then? if swap lf-minfer-abstract else nip no-result then ;'''
+new = '''  lf-minfer-frames lf-cheap-beta ok-then? if nip lf-minfer-context-depth @ 1- lf-minfer-abstract else nip no-result then ;'''
 test = "python3 tests/core/infer_typed_trial.py"
 reason = "4.2.2a (review rvD2A): the bottom of a chain of lambdas abstracts its body's type over the innermost lambda's free variable only, leaving the others free in the chain's type"
 
@@ -885,7 +887,7 @@ reason = "4.2.2a, 6.2.0: a binder is opened without room on the scope (past its 
 [[fault]]
 id = "rej-p2-open-term"
 file = "src/kernel/mixed-infer.fs"
-old = '''  lf-minfer-close ok-then? 0= if drop false exit then'''
+old = '''  lf-minfer-close ok-then? 0= if lf-minfer-unknown exit then'''
 new = ''''''
 test = "$GFORTH tests/core/definite-rejection.fs"
 reason = "4.2.2a: P2 infers a term of the analysis without closing it first"
@@ -894,8 +896,8 @@ equivalent = "inference reads a loose bound variable k under the scope as the sc
 [[fault]]
 id = "rej-d4-domain-open"
 file = "src/kernel/mixed-infer.fs"
-old = '''  lf-minfer-close ok-then? if 0 lf-minfer-bind then ;'''
-new = '''  0 lf-minfer-bind ;'''
+old = '''  lf-minfer-close ok-then? if 0 lf-minfer-bind then dup lf-minfer-shortage ;'''
+new = '''  0 lf-minfer-bind dup lf-minfer-shortage ;'''
 test = "$GFORTH tests/core/definite-rejection.fs"
 reason = "4.2.2a: D4's free variable gets the right domain unclosed, with loose bound variables of the analysis's outer binders, so P2 cannot infer its type"
 
@@ -967,46 +969,46 @@ test = "$GFORTH tests/core/mixed-compare.fs"
 reason = "constants with different universe arguments compare equal"
 
 [[fault]]
-id = "conv-bvar-index-ignored"
-file = "src/kernel/mixed-convert.fs"
-old = '''  drop 2dup lf-mcompare-seconds = >r lf-mcompare-firsts = r> and lf-mcompare-verdict ;'''
-new = '''  drop 2dup lf-mcompare-seconds = >r lf-mcompare-firsts 2drop r> lf-mcompare-verdict ;'''
-test = "$GFORTH tests/core/mixed-convert.fs"
-reason = "bound variables with different indices convert"
+id = "conv-fvar-number-ignored"
+file = "src/kernel/defeq.fs"
+old = '''  2dup lf-tag-fvar lf-dq-both? if lf-term-first@ swap lf-term-first@ = else 2drop false then ;'''
+new = '''  2dup lf-tag-fvar lf-dq-both? if 2drop true else 2drop false then ;'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "4.2.2b (was conv-bvar-index-ignored): step 7 calls any two free variables the same, so fun x y => x converts to fun x y => y"
 quick = true
 
 [[fault]]
 id = "conv-no-reduction"
-file = "src/kernel/mixed-convert.fs"
-old = '''  dup lf-mconvert-reduce-pair ok-then?'''
-new = '''  true'''
-test = "$GFORTH tests/core/mixed-convert.fs"
-reason = "conversion compares without beta reduction, so beta-equal terms stay unknown"
+file = "src/kernel/whnf.fs"
+old = '''  over lf-whnf-lam? if lf-wc-beta exit then'''
+new = '''  false if lf-wc-beta exit then'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "4.2.2b-c: whnf_core never contracts a lambda head, so beta-equal terms stay unknown"
 
 [[fault]]
 id = "conv-universe-args-skipped"
-file = "src/kernel/mixed-convert.fs"
-old = '''  lf-mcompare-arrays 0 ?do 2dup i lf-mcompare-arg lf-mconvert-levels'''
-new = '''  lf-mcompare-arrays 0 ?do 2dup i lf-mcompare-arg 2drop outcome-ok'''
-test = "$GFORTH tests/core/mixed-convert.fs"
-reason = "constants with different universe arguments convert"
-
-[[fault]]
-id = "conv-sort-second-unchecked"
-file = "src/kernel/mixed-convert.fs"
-old = '''  drop 2dup lf-mcompare-seconds = if lf-mcompare-firsts lf-mconvert-levels'''
-new = '''  drop true if lf-mcompare-firsts lf-mconvert-levels'''
-test = "$GFORTH tests/core/mixed-convert.fs"
-reason = "two Sorts convert without their second fields being compared"
-equivalent = "every symbolic Sort conversion meets has second field 0: both roots pass lf-cterm-check, whose lf-cterm-sort? requires lf-repr-leaf?, and reduction makes Sorts only with lf-term-symbolic-sort, which writes 0"
+file = "src/kernel/defeq.fs"
+old = '''  r@ lf-lcmp-fuel lf-dq-lend lf-dq-level-lists r> lf-lcmp-fuel lf-dq-repay ;'''
+new = '''  2drop r> drop true outcome-ok ;'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "4.2.2b: step 6 calls the same constant at any universe arguments equal"
 
 [[fault]]
 id = "conv-scratch-kept"
 file = "src/kernel/mixed-convert.fs"
-old = '''  lf-mconvert-marks 2>r lf-mconvert-walk 2r> lf-mconvert-restore ;'''
-new = '''  lf-mconvert-walk ;'''
+old = '''  lf-mconvert-marks 2>r >r lf-mconvert-defeq r> 2r> lf-mconvert-restore ;'''
+new = '''  lf-mconvert-defeq ;'''
 test = "$GFORTH tests/core/mixed-convert.fs"
-reason = "the terms and levels a conversion made are not discarded"
+reason = "the terms, levels and local-context entries a conversion made are not discarded"
+
+[[fault]]
+id = "conv-no-as-equal"
+file = "src/kernel/mixed-convert.fs"
+old = '''  dup ok? if drop if 2drop outcome-ok else lf-mconvert-no then else nip nip nip then ;'''
+new = '''  dup ok? if drop drop 2drop outcome-ok else nip nip nip then ;'''
+test = "$GFORTH tests/core/mixed-convert.fs"
+reason = "4.2.2b: conversion reports Lean's no as equal"
+quick = true
 
 [[fault]]
 id = "conv-keeps-fuel"
@@ -1015,6 +1017,220 @@ old = '''  false lf-mconvert-keep ! lf-mconvert-checked ;'''
 new = '''  true lf-mconvert-keep ! lf-mconvert-checked ;'''
 test = "$GFORTH tests/core/definite-rejection.fs"
 reason = "lf-mixed-convert keeps the fuel of an undecided level comparison, as only the keeping variant may"
+
+# --- Lean's whnf and is_def_eq (plan tasks 4.2.2b-c, ADR 0014 Q3-Q5;
+# src/kernel/whnf.fs, defeq.fs, and their use in mixed-infer.fs)
+
+[[fault]]
+id = "whnf-theorem-not-unfolded"
+file = "src/kernel/whnf.fs"
+old = '''  dup lf-kind-definition = swap lf-kind-theorem = or and ;'''
+new = '''  lf-kind-definition = and ;'''
+test = "$GFORTH tests/core/whnf.fs"
+reason = "ADR 0014 G5: a theorem never unfolds (row whnf.theorem: Lean's whnf unfolds it)"
+quick = true
+
+[[fault]]
+id = "whnf-opaque-unfolded"
+file = "src/kernel/whnf.fs"
+old = '''  dup lf-kind-definition = swap lf-kind-theorem = or and ;'''
+new = '''  dup lf-kind-definition = over lf-kind-theorem = or swap lf-kind-opaque = or and ;'''
+test = "$GFORTH tests/core/whnf.fs"
+reason = "is_delta accepts an opaque declaration (has_value is false for it, declaration.h 466-468)"
+
+[[fault]]
+id = "whnf-arity-ignored"
+file = "src/kernel/whnf.fs"
+old = '''  over lf-idecl-arity @ = swap lf-idecl-kind @'''
+new = '''  drop true swap lf-idecl-kind @'''
+test = "$GFORTH tests/core/whnf.fs"
+reason = "is_delta unfolds a constant given the wrong number of universe arguments (tc 559)"
+
+[[fault]]
+id = "whnf-levels-not-substituted"
+file = "src/kernel/whnf.fs"
+old = '''  >r lf-whnf-cref lf-cref-pairs dup 0= if 2drop lf-idecl-value @ r> drop outcome-ok exit then'''
+new = '''  >r lf-whnf-cref lf-cref-pairs true if 2drop lf-idecl-value @ r> drop outcome-ok exit then'''
+test = "$GFORTH tests/core/whnf.fs"
+reason = "instantiate_value_lparams skipped: the value keeps the declaration's own universe parameters (row whnf-universe)"
+
+[[fault]]
+id = "whnf-arguments-dropped"
+file = "src/kernel/whnf.fs"
+old = '''  lf-whnf-spine-args ok-then? if lf-whnf-apply else nip no-result then ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/core/whnf.fs"
+reason = "unfold_definition does not apply the arguments again (tc 595)"
+
+[[fault]]
+id = "whnf-beta-reversed"
+file = "src/kernel/whnf.fs"
+old = '''  >r lf-whnf-arg swap r@ lf-whnf-lend lf-instantiate r> lf-whnf-repay ;'''
+new = '''  >r lf-whnf-arg swap r@ lf-whnf-lend lf-instantiate-rev r> lf-whnf-repay ;'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "beta puts the arguments in reverse order: (fun x y => x) a b gives b"
+quick = true
+
+[[fault]]
+id = "whnf-open-argument-unlifted"
+file = "src/kernel/whnf.fs"
+old = '''  if r> lf-whnf-beta-one else r> lf-whnf-beta-all then ;'''
+new = '''  drop r> lf-whnf-beta-all ;'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "an argument with a loose bound variable is put under a lambda without lifting (Lean's lift_loose_bvars): it is captured"
+
+[[fault]]
+id = "whnf-k7-off"
+file = "src/kernel/whnf.fs"
+old = '''  lf-name-prefix@ dup s" Nat" lf-whnf-part? if lf-name-prefix@ lf-name-tag@ lf-name-tag-anon ='''
+new = '''  lf-name-prefix@ dup s" Nat" lf-whnf-part? if lf-name-prefix@ drop false'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "K7 (ADR 0014 Q8): whnf unfolds a user's Nat.succ or Nat.add where Lean's reduce_nat looks at it by name"
+
+[[fault]]
+id = "whnf-delta-outside-check"
+file = "src/kernel/whnf.fs"
+old = '''  lf-whnf-env? 0= if lf-whnf-k1 exit then'''
+new = '''  lf-whnf-env? 0= if drop -1 outcome-ok exit then'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "K1: outside a check a signature candidate's constant is taken to have no value, where Lean may unfold it"
+
+[[fault]]
+id = "whnf-n1-note-kept"
+file = "src/kernel/whnf.fs"
+old = '''  if 2drop lf-diag! lf-whnf-absent outcome-ok else 2>r 2drop 2drop 2r> then ;'''
+new = '''  if 2drop 2drop 2drop lf-whnf-absent outcome-ok else 2>r 2drop 2drop 2r> then ;'''
+test = "$GFORTH tests/core/whnf.fs"
+reason = "a lookup that finds no constant (no delta, no failure) leaves its unknown-constant note, which would explain a later failure wrongly"
+
+[[fault]]
+id = "whnf-iota-hook-silent"
+file = "src/kernel/whnf.fs"
+old = '''  if lf-whnf-pending else drop -1 outcome-ok then ;'''
+new = '''  drop drop -1 outcome-ok ;'''
+test = "$GFORTH tests/core/whnf.fs"
+reason = "whnf_core treats a recursor at the head as having no rule, where Lean's iota may reduce it"
+gap = "no test reaches the hook with a recursor head: the fc driver builds no inductive block, and the checker's inductive rows that would (iota.*) need Nat literals (task 5.2.3); task 5.2.1b's iota rows close it"
+
+[[fault]]
+id = "whnf-cheap-beta-off"
+file = "src/kernel/whnf.fs"
+old = '''  over lf-whnf-beta-head? 0= if drop outcome-ok exit then'''
+new = '''  drop outcome-ok exit'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "cheap_beta_reduce does nothing: a lambda's type keeps its body's redex (type_checker.cpp 140)"
+
+[[fault]]
+id = "dq-quick-sorts-equal"
+file = "src/kernel/defeq.fs"
+old = '''  ok-then? if lf-dq-lbool outcome-ok else lf-dq-undef swap then r> 0 ;'''
+new = '''  ok-then? if drop lf-dq-yes outcome-ok else lf-dq-undef swap then r> 0 ;'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "quick_is_def_eq calls two Sorts equal whatever their levels"
+quick = true
+
+[[fault]]
+id = "dq-binding-domains-skipped"
+file = "src/kernel/defeq.fs"
+old = '''  if r> lf-bd-same-domain else r> lf-bd-differ then ; is lf-bd-pair'''
+new = '''  drop r> lf-bd-same-domain ; is lf-bd-pair'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "is_def_eq_binding never compares two domains that are not == (fun x : Prop => x against fun x : Type => x)"
+
+[[fault]]
+id = "dq-binding-left-domain"
+file = "src/kernel/defeq.fs"
+old = '''  >r dup r@ lf-bd-domain ok-then? 0= if nip nip r> lf-bd-fail exit then r> lf-bd-bind ;'''
+new = '''  >r over r@ lf-bd-domain ok-then? 0= if nip nip r> lf-bd-fail exit then r> lf-bd-bind ;'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "B2: the bound variable gets the left side's domain where the domains are =="
+equivalent = "where the domains are == (this case), the two opened domains are equal terms, so the free variable's type is the same; and no step of tasks 4.2.2b-c reads a free variable's type (proof irrelevance and eta, which do, are tasks 4.2.5 and 4.2.4)"
+
+[[fault]]
+id = "dq-app-arguments-skipped"
+file = "src/kernel/defeq.fs"
+old = '''  r@ frame-save 0 r@ frame-save r> lf-ap-arg ;'''
+new = '''  drop true r> 2 lf-dq-drop-answer ;'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "is_def_eq_app answers yes once the functions and the counts agree, without the arguments"
+quick = true
+
+[[fault]]
+id = "dq-args-not-ended-together"
+file = "src/kernel/defeq.fs"
+old = '''  >r 2dup lf-dq-apps? 0= if lf-dq-app? 0= swap lf-dq-app? 0= and r> lf-dq-answer exit then'''
+new = '''  >r 2dup lf-dq-apps? 0= if 2drop true r> lf-dq-answer exit then'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "is_def_eq_args answers yes when one spine has more applications than the other (tc 837)"
+
+[[fault]]
+id = "dq-whnf-core-skipped"
+file = "src/kernel/defeq.fs"
+old = '''  r@ lf-dq-pick2 drop r> ['] lf-dq-tn lf-whnf-core-call ;'''
+new = '''  r@ lf-dq-pick2 drop outcome-unknown r> lf-dq-tn ;'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "is_def_eq_core's step 3 never reduces the left side, so (fun x => x) Prop against Prop stays unknown"
+
+[[fault]]
+id = "dq-unknown-as-no"
+file = "src/kernel/defeq.fs"
+old = '''  r@ lf-dq-sides lf-dq-undecided outcome-unknown r> 4 lf-dq-drop-failed ;'''
+new = '''  false r> 4 lf-dq-drop-answer ;'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "ADR 0014 Q1: where only unported steps (proof irrelevance, lazy delta, eta) could decide, the port says no instead of unknown"
+quick = true
+
+[[fault]]
+id = "dq-depth-not-popped"
+file = "src/kernel/defeq.fs"
+old = '''  dup lf-bd-base lf-dq-depth ! 2 over frame-drop 0 ;'''
+new = '''  2 over frame-drop 0 ;'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "a telescope's free variables stay on the stack after its comparison"
+
+[[fault]]
+id = "infer-ensure-sort-no-whnf"
+file = "src/kernel/mixed-infer.fs"
+old = '''  lf-minfer-whnf-job ok-then? 0= if 2r> 2drop no-result exit then
+  dup lf-minfer-sort? if nip 2r> 2drop outcome-ok else 2r> lf-minfer-not-type then ;'''
+new = '''  dup lf-minfer-sort? if nip 2r> 2drop outcome-ok else 2r> lf-minfer-not-type then ;'''
+test = "$GFORTH tests/core/whnf.fs"
+reason = "4.2.2c: ensure_sort_core without whnf: A : dqProp is no type (row sort.after-unfolding: Lean accepts)"
+quick = true
+
+[[fault]]
+id = "infer-ensure-pi-no-whnf"
+file = "src/kernel/mixed-infer.fs"
+old = '''  dup lf-minfer-pi? if rot drop true else lf-minfer-pi-whnf then ;'''
+new = '''  dup lf-minfer-pi? if rot drop true else lf-minfer-not-pi false then ;'''
+test = "$GFORTH tests/core/whnf.fs"
+reason = "4.2.2c: ensure_pi_core without whnf: f : dqPropFn is no function (row pi.after-unfolding: Lean accepts)"
+
+[[fault]]
+id = "infer-not-pi-aside-rejects"
+file = "src/kernel/mixed-infer.fs"
+old = '''  lf-minfer-deciding? if lf-minfer-site lf-diag-function-expected lf-minfer-reject'''
+new = '''  true if lf-minfer-site lf-diag-function-expected lf-minfer-reject'''
+test = "$GFORTH tests/core/definite-rejection.fs"
+reason = "inference run aside for test P2 records a rejection (its failures only mean not known)"
+equivalent = "aside, inference is run by the analysis's P2 and P4 tests, which turn every failure into not known and restore nothing but the counts: a rejected status there is read as not ok, as unknown is, so no verdict changes; the record is overwritten or kept as before only when a later rejection replaces it"
+
+[[fault]]
+id = "infer-analysis-shortage-ignored"
+file = "src/kernel/mixed-infer.fs"
+old = '''  drop lf-minfer-mismatch if outcome-rejected else lf-minfer-undecided then ;'''
+new = '''  drop lf-minfer-mismatch if outcome-rejected else outcome-unknown then ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "ADR 0008 (CLI2's finding): an analysis that ran out of fuel leaves the step unknown, not exhausted (impliesSelf at fuel 151-229)"
+quick = true
+
+[[fault]]
+id = "infer-cheap-beta-skipped"
+file = "src/kernel/mixed-infer.fs"
+old = '''  lf-minfer-frames lf-cheap-beta ok-then? if swap lf-minfer-abstract else nip no-result then ;'''
+new = '''  outcome-ok ok-then? if swap lf-minfer-abstract else nip no-result then ;'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "infer_lambda without cheap_beta_reduce (type_checker.cpp 140): a body type that is a redex stays one"
 
 # --- universe levels as Lean builds and compares them (ADR 0011 Amendment 1;
 # src/kernel/level-make.fs, level-normalize.fs, level-compare.fs,
@@ -1125,17 +1341,17 @@ quick = true
 id = "lv-s4-off"
 file = "src/kernel/mixed-infer.fs"
 old = '''  lf-minfer-body-sort lf-minfer-good? if over lf-minfer-imax then ;'''
-new = '''  lf-minfer-sort-level lf-minfer-good? if over lf-minfer-imax then ;'''
+new = '''  lf-minfer-sort? if outcome-ok else -1 outcome-unknown then lf-minfer-good? if over lf-minfer-imax then ;'''
 test = "$GFORTH tests/core/check-declaration.fs"
-reason = "S4 (ADR 0011 Amendment 2) off: a Pi whose body is not a type stays unknown where Lean rejects"
+reason = "S4 (ADR 0011 Amendment 2; Lean's ensure_sort_core on a Pi's body since plan task 4.2.2c) off: a Pi whose body is not a type stays unknown where Lean rejects"
 
 [[fault]]
 id = "lv-s4-reads-flexible"
 file = "src/kernel/mixed-infer.fs"
 old = '''  lf-minfer-site lf-diag-body-type lf-minfer-sort-rule ;'''
-new = '''  lf-minfer-sort-level dup outcome-unknown = if 2drop -1 0 lf-minfer-site lf-diag-body-type lf-minfer-reject then ;'''
+new = '''  lf-minfer-sort? if outcome-ok else 0 lf-minfer-site lf-diag-body-type lf-minfer-reject no-result then ;'''
 test = "$GFORTH tests/core/check-declaration.fs"
-reason = "S4 rejects every body whose type is no visible Sort, also behind a constant Lean may unfold (K1)"
+reason = "S4 rejects every body whose type is no visible Sort, without Lean's whnf: also one that unfolds to a Sort (case s4-unfolding)"
 
 [[fault]]
 id = "lv-explicit-tie-second"

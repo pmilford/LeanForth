@@ -128,6 +128,12 @@ name-x @ 1 ref-term
 name-x @ 1 ref-term ;
 universe-fixtures
 T{ 28 h 29 h 20000 lf-mixed-convert -> outcome-ok }T
+\ Lean's no (Sort 0 against Sort 1, quick_is_def_eq on their levels) is
+\ reported unknown, with lf-mconvert-apart set, until plan task 4.2.2d
+\ lets it reject (ADR 0011's analysis decides rejections meanwhile).
+: sort-zero ( -- node identity ) 0 dup lf-level-identity 0= abort" zero" lf-hterm-sort 0= abort" sort" ;
+T{ sort-zero 6 h 20000 lf-mixed-convert lf-mconvert-apart @ -> outcome-unknown true }T
+T{ 6 h 7 h 20000 lf-mixed-convert lf-mconvert-apart @ -> outcome-ok false }T
 \ A bad discarded argument is audited even below a redex on either side.
  : malformed-fixture ( -- )
 0 lf-term-symbolic-sort 0= abort" malformed sort" drop
