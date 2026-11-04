@@ -16,8 +16,9 @@
 \ State: one record, lf-lnorm-state: the first failure of the call, the
 \ fuel left, the argument stack of the max case (its top and cells), a
 \ mark of the level store before the call, and per level of the input the
-\ normal form found. A member of the checker context (lib/context.fs). The normal forms are
-\ new nodes of the level store, given back when the call ends; the facts
+\ normal form found. A member of the checker context (lib/context.fs).
+\ The normal forms are new nodes of the level store, given back when the
+\ call ends; the facts
 \ of level-make are truncated with them. Single-threaded within one
 \ context.
 \ Stack use: normalize, push_max_args, is_norm_lt and the name order
@@ -65,17 +66,21 @@ end-structure
 : lf-lnorm-spend ( -- )
   lf-lnorm-fuel @ 0> if -1 lf-lnorm-fuel +! else lf-lnorm-dry then ;
 \ New nodes: a full store or spent serial (recorded by lf-level-add) is full.
-: lf-lnorm-made ( level true | false -- level ) if exit then outcome-full lf-lnorm-fail 0 ;
+: lf-lnorm-made ( level true | false -- level )
+  if exit then outcome-full lf-lnorm-fail 0 ;
 : lf-lnorm-succ ( level -- level' ) lf-lnorm-ok? if lf-level-succ lf-lnorm-made then ;
 : lf-lnorm-succs ( level k -- level' ) 0 ?do lf-lnorm-succ loop ;
-: lf-lnorm-max ( l1 l2 -- level ) lf-lnorm-ok? if lf-lmk-max lf-lnorm-made else drop then ;
-: lf-lnorm-imax ( l1 l2 -- level ) lf-lnorm-ok? if lf-lmk-imax lf-lnorm-made else drop then ;
+: lf-lnorm-max ( l1 l2 -- level )
+  lf-lnorm-ok? if lf-lmk-max lf-lnorm-made else drop then ;
+: lf-lnorm-imax ( l1 l2 -- level )
+  lf-lnorm-ok? if lf-lmk-imax lf-lnorm-made else drop then ;
 
 \ ---------------------------------------------------------------------------
 \ Lean's name order: -1, 0 or 1. Unchecked: both names passed
 \ lf-lnorm-name-ok?, so every prefix is an earlier valid entry.
 : lf-lnorm-sign ( n -- -1|0|1 ) dup 0> 1 and swap 0< or ;
-: lf-lnorm-depth ( id -- n ) 0 swap begin dup while lf-name-prefix@ swap 1+ swap repeat drop ;
+: lf-lnorm-depth ( id -- n )
+  0 swap begin dup while lf-name-prefix@ swap 1+ swap repeat drop ;
 : lf-lnorm-up ( id n -- id' ) 0 ?do lf-name-prefix@ loop ;
 \ One component each (203-215): a string after a number; strings by bytes
 \ and then length (Forth's COMPARE), numbers by value.
@@ -97,7 +102,8 @@ end-structure
   2dup lf-lnorm-depths 2dup - lf-lnorm-sign >r lf-lnorm-trimmed lf-lnorm-level-cmp
   ?dup if r> drop else r> then ;
 \ A name whose every component is a valid entry.
-: lf-lnorm-limb-ok? ( id -- flag ) dup lf-name-valid? if lf-name-entry-ok? else drop false then ;
+: lf-lnorm-limb-ok? ( id -- flag )
+  dup lf-name-valid? if lf-name-entry-ok? else drop false then ;
 : lf-lnorm-name-ok? ( id -- flag )
   begin dup while dup lf-lnorm-limb-ok? 0= if drop false exit then lf-name-prefix@ repeat
   drop true ;
@@ -111,7 +117,8 @@ defer lf-lnorm-less ( a b -- flag )
 : lf-lnorm-lefts ( a b -- a' b' ) lf-level-first@ swap lf-level-first@ swap ;
 : lf-lnorm-rights ( a b -- a' b' ) lf-level-second@ swap lf-level-second@ swap ;
 : lf-lnorm-sides< ( ba bb -- flag )
-  2dup lf-lnorm-lefts lf-lmk-same? if lf-lnorm-rights else lf-lnorm-lefts then lf-lnorm-less ;
+  2dup lf-lnorm-lefts lf-lmk-same? if lf-lnorm-rights else lf-lnorm-lefts then
+  lf-lnorm-less ;
 \ Two different parameters need their names: an ID that is not a valid
 \ name leaves the comparison undecided (unknown).
 : lf-lnorm-named? ( a b -- flag ) lf-lnorm-name-ok? swap lf-lnorm-name-ok? and ;
@@ -197,7 +204,8 @@ defer lf-lnorm-walk ( level -- level' )
   lf-lnorm-imax r> lf-lnorm-succs ;
 \ max (468-514): the arguments, each normalized and flattened again,
 \ pushed above the max's own arguments; the stack is given back after.
-: lf-lnorm-flatten ( from to -- ) swap ?do i lf-lnorm-arg @ lf-lnorm-walk lf-lnorm-push-args loop ;
+: lf-lnorm-flatten ( from to -- )
+  swap ?do i lf-lnorm-arg @ lf-lnorm-walk lf-lnorm-push-args loop ;
 : lf-lnorm-args ( r -- from to )
   lf-lnorm-top @ swap lf-lnorm-push-args lf-lnorm-top @ 2dup lf-lnorm-flatten
   nip lf-lnorm-top @ ;
@@ -245,7 +253,8 @@ defer lf-lnorm-walk ( level -- level' )
 \ level store or the argument stack is full; (false invalid) for negative
 \ fuel, an invalid level or a refused rollback. lf-lnorm-fuel is the fuel
 \ left (0 after invalid input). Nothing stays allocated.
-: lf-lnorm-refused ( l1 l2 -- false outcome ) 2drop 0 lf-lnorm-fuel ! false outcome-invalid ;
+: lf-lnorm-refused ( l1 l2 -- false outcome )
+  2drop 0 lf-lnorm-fuel ! false outcome-invalid ;
 : lf-level-equivalent ( l1 l2 fuel -- flag outcome )
   >r 2dup r@ lf-lnorm-usable? 0= if r> drop lf-lnorm-refused exit then
   r> lf-lnorm-begin ok? 0= if lf-lnorm-refused exit then

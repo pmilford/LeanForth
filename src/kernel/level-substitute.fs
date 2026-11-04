@@ -135,14 +135,17 @@ lf-level-capacity context-walk: lf-lsubst-walker
 \ failure, tests/support/alloc-fail.fs) is full too, recorded by the store.
 : lf-lsubst-made ( level true | false -- level outcome )
   if outcome-ok else 0 outcome-full then ;
+: lf-lsubst-child ( index -- child' child ) lf-level-first@ dup lf-lsubst-image swap ;
 : lf-lsubst-succ ( index -- index' outcome )
-  dup lf-level-first@ lf-lsubst-image over lf-level-first@ over = if drop outcome-ok exit then
-  nip lf-lsubst-room ok-then? if lf-level-succ lf-lsubst-made else 0 swap then ;
+  dup lf-lsubst-child = if outcome-ok exit then
+  lf-level-first@ lf-lsubst-image
+  lf-lsubst-room ok-then? if lf-level-succ lf-lsubst-made else 0 swap then ;
 \ mk_max or mk_imax (by tag) of two images: one of them, or a new node.
 : lf-lsubst-choice ( first' second' tag -- choice )
   lf-level-tag-max = if lf-lmk-max-choice else lf-lmk-imax-choice then ;
 : lf-lsubst-new ( first' second' tag -- level outcome )
-  >r lf-lsubst-room ok-then? if r> lf-level-binary lf-lsubst-made else r> drop nip 0 swap then ;
+  >r lf-lsubst-room ok-then? if r> lf-level-binary lf-lsubst-made exit then
+  r> drop nip 0 swap ;
 : lf-lsubst-mk ( first' second' tag -- level outcome )
   >r 2dup r@ lf-lsubst-choice dup 3 = if drop r> drop lf-level-tag-max recurse exit then
   ?dup if r> drop lf-lmk-pick outcome-ok else r> lf-lsubst-new then ;

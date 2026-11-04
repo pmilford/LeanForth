@@ -57,9 +57,11 @@ end-structure
 \ undecided one (unknown) recorded with both roots.
 : lf-lcmp-failed ( left right outcome -- status )
   dup outcome-unknown = if -rot lf-lcmp-undecided else nip nip then ;
+: lf-lcmp-different ( left right -- status )
+  true lf-lcmp-apart ! lf-lcmp-undecided outcome-unknown ;
 : lf-lcmp-verdict ( left right flag outcome -- status )
   dup ok? 0= if nip lf-lcmp-failed exit then
-  drop if 2drop outcome-ok else true lf-lcmp-apart ! lf-lcmp-undecided outcome-unknown then ;
+  drop if 2drop outcome-ok else lf-lcmp-different then ;
 : lf-lcmp-decide ( left right -- status )
   2dup lf-lcmp-fuel @ lf-level-equivalent lf-lnorm-fuel @ lf-lcmp-fuel !
   lf-lcmp-verdict lf-lcmp-settle ;
@@ -73,7 +75,8 @@ end-structure
 \ leaves (see lf-lcmp-fail).
 : lf-level-compare-run ( left right fuel keep -- status )
   lf-lcmp-keep ! false lf-lcmp-apart ! dup 0< if lf-lcmp-negative exit then
-  lf-lcmp-fuel ! 2dup lf-lcmp-scopes dup ok? if drop lf-lcmp-decide else nip nip lf-lcmp-fail then ;
+  lf-lcmp-fuel ! 2dup lf-lcmp-scopes
+  dup ok? if drop lf-lcmp-decide else nip nip lf-lcmp-fail then ;
 : lf-level-compare ( left right fuel -- status ) false lf-level-compare-run ;
 : lf-level-compare-keeping ( left right fuel -- status ) true lf-level-compare-run ;
 \ Rule D1 (ADR 0011, Amendment 1): whether Lean's is_equivalent is false.

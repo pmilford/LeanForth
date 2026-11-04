@@ -17,7 +17,8 @@
 \ its flags (never zero; has a parameter). A member of the checker context
 \ (lib/context.fs). Facts are computed in index order on demand; every
 \ public word first forgets them all (a raw write keeps a node's index),
-\ and a caller that rolls the level store back calls lf-lmk-truncate.
+\ and a caller that rolls the level store back calls lf-lmk-truncate. The
+\ two rule tables of mk_max and mk_imax are shared and read-only.
 \ Bounded work: the facts of n nodes take at most n*n/2 node comparisons;
 \ no fuel. Single-threaded within one context.
 
@@ -79,11 +80,13 @@ end-structure
   dup lf-level-first@ lf-lmk-flags@ swap lf-level-second@ lf-lmk-flags@ ;
 : lf-lmk-imax-flags ( index -- flags )
   lf-lmk-child-flags swap lf-lmk-param and or ;
+: lf-lmk-succ-flags ( index -- flags )
+  lf-level-first@ lf-lmk-flags@ lf-lmk-param and lf-lmk-nonzero or ;
 : lf-lmk-flags-of ( index -- flags )
   dup lf-level-tag@ case
     lf-level-tag-zero of drop 0 endof
     lf-level-tag-param of drop lf-lmk-param endof
-    lf-level-tag-succ of lf-level-first@ lf-lmk-flags@ lf-lmk-param and lf-lmk-nonzero or endof
+    lf-level-tag-succ of lf-lmk-succ-flags endof
     lf-level-tag-max of lf-lmk-child-flags or endof
     >r lf-lmk-imax-flags r> endcase ;
 : lf-lmk-facts-of ( index -- class flags )
@@ -136,7 +139,8 @@ end-structure
 \ l2 is a max with l1 as one argument (90-91).
 : lf-lmk-in-max? ( l1 l2 -- flag )
   dup lf-lmk-max? 0= if 2drop false exit then
-  2dup lf-level-first@ lf-lmk-same? if 2drop true else lf-level-second@ lf-lmk-same? then ;
+  2dup lf-level-first@ lf-lmk-same? if 2drop true exit then
+  lf-level-second@ lf-lmk-same? ;
 : lf-lmk-max-rule ( l1 l2 -- choice )
   2dup lf-lmk-in-max? if 2drop 2 else swap lf-lmk-in-max? 1 and then ;
 \ The same base under different offsets (95-99): the larger offset.
