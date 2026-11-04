@@ -6,11 +6,11 @@
 \ Untrusted until reviewed; the program track's plan is to prove it equal
 \ to FIPS 180-4 (docs/project/PLAN_DRAFT.md, "Flagship program target").
 \
-\   sha256: hash                  \ a record holding one hash in progress
+\   sha256: hasher                \ a record holding one hash in progress
 \   create digest 32 allot  create text 64 allot
-\   hash sha256-init
-\   s" ab" hash sha256-update  s" c" hash sha256-update
-\   digest hash sha256-final  digest text digest>hex  text 64 type
+\   hasher sha256-init
+\   s" ab" hasher sha256-update  s" c" hasher sha256-update
+\   digest hasher sha256-final  digest text digest>hex  text 64 type
 \
 \ prints ba7816bf...f20015ad, the SHA-256 of "abc". The message may come in
 \ pieces of any size, from 0 bytes on; the digest is the same however it
