@@ -77,9 +77,10 @@ begin-structure /lf-blkrec
   field: lf-blkrec-rec       \ the name T.rec
   field: lf-blkrec-ctor      \ the constructor being checked
   field: lf-blkrec-checks    \ fields whose type is no proposition (E3)
-  lf-ind-binder-capacity cells +field lf-blkrec-positions   \ their binders
 end-structure
 /lf-blkrec context-record: lf-blk-state
+\ Their binders' positions, as many as there are (plan task 6.2.0).
+1 cells context-slab: lf-blk-positions
 
 1 constant lf-warn-indices       \ B4 warning bits
 2 constant lf-warn-rec
@@ -157,7 +158,8 @@ end-structure
   lf-ind-nparams - dup 0< if 2drop outcome-invalid exit then
   lf-ind-state lf-ind-indices ! ;
 : lf-blk-pi? ( node -- flag ) lf-mhead-kind lf-head-pi = ;
-: lf-blk-room? ( i -- flag ) lf-ind-binder-capacity < ;
+\ Room for binder i's domain; none (the heap refuses) is full.
+: lf-blk-room? ( i -- flag ) 1+ lf-ind-domains slab-hold ok? ;
 \ A Pi of the telescope at binder i: its domain recorded, then its body.
 : lf-blk-bind ( pi i -- body i+1 )
   2dup swap lf-term-first@ swap lf-ind-domain ! 1+ swap lf-term-second@ swap ;
@@ -240,12 +242,11 @@ end-structure
 \ of its own type, 553-566); a field whose type is no proposition must be
 \ an argument of the result, else Prop only (E4).
 : lf-blk-checks# ( -- n ) lf-blk-state lf-blkrec-checks @ ;
-: lf-blk-check@ ( k -- pos ) cells lf-blk-state lf-blkrec-positions + @ ;
-\ Recording a position: full past the capacity (unreachable: step 9
-\ refused a telescope longer than it; review rvI21 L2).
+: lf-blk-check@ ( k -- pos ) cells lf-blk-positions slab-base + @ ;
+\ Recording a position: full when the heap cannot hold it.
 : lf-blk-check! ( pos -- outcome )
-  lf-blk-checks# dup lf-ind-binder-capacity < 0= if 2drop outcome-full exit then
-  cells lf-blk-state lf-blkrec-positions + !
+  lf-blk-checks# dup 1+ lf-blk-positions slab-hold ok? 0= if 2drop outcome-full exit then
+  cells lf-blk-positions slab-base + !
   1 lf-blk-state lf-blkrec-checks +! outcome-ok ;
 : lf-blk-proof? ( domain -- flag status )
   lf-minfer-domain ok-then? 0= if false swap exit then lf-minfer-zero? ;

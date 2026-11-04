@@ -35,7 +35,7 @@ begin-structure /lf-lsrec
   field: lf-lsrec-count        \ number of formals
   /store-mark +field lf-lsrec-mark                  \ the level store before a build
 end-structure
-lf-level-depth-limit context-walk: lf-lsubst-walker
+lf-level-walk-room context-walk: lf-lsubst-walker
 /lf-lsrec context-record: lf-lsubst-job
 \ Per level, columns of the level store (lib/store-columns.fs): whether
 \ the source walk reached it, and its image.

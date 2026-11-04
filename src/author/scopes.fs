@@ -8,13 +8,13 @@
 \ A variable is the binder's position (its slot); its de Bruijn index is
 \ counted when it is used. Untrusted authoring code.
 \ State: the binder store lfa-binders and one record, lfa-scope, both in
-\ the checker context (ADR 0009).
+\ the checker context (ADR 0009). The binder store is a heap store that
+\ grows as binders open, limited only by the heap (plan task 6.2.0); a
+\ binder's address is valid until the next one opens.
 
 require ../lib/lib.fs
 require ../core/terms.fs
 require ./errors.fs
-
-lf-depth-limit constant lfa-binder-capacity
 
 begin-structure /lfa-binder
   field: lfa-binder-name      \ name ID
@@ -24,7 +24,15 @@ begin-structure /lfa-binder
   field: lfa-binder-at        \ position of the binder word
   field: lfa-binder-entries   \ names defined before this binder's (groups.fs)
 end-structure
-lfa-binder-capacity /lfa-binder 0 context-store: lfa-binders
+store-header context-record: lfa-binders
+\ The first room, and the largest limit a store of binders takes.
+16 constant lfa-binder-room
+max-n store-header - /lfa-binder cell+ / constant lfa-binder-limit
+: lfa-binders-make ( -- )
+  lfa-binder-room /lfa-binder 0 lfa-binders store-heap-init ok? 0= abort" author: no heap"
+  lfa-binder-limit lfa-binders store-limit! ok? 0= abort" author: binder limit" ;
+' lfa-binders-make context-setup
+:noname ( -- ) lfa-binders store-heap-free ; context-teardown
 
 begin-structure /lfa-scope
   field: lfa-scope-base       \ data-stack depth where the declaration began; -1 outside
@@ -46,8 +54,9 @@ end-structure
 : lfa-binder ( slot -- binder ) lfa-binders store-slot ;
 : lfa-innermost ( -- binder ) lfa-depth 1- lfa-binder ;
 : lfa-index ( slot -- i ) lfa-depth 1- swap - ;
-\ A new binder record, zeroed; too many binders stop the run.
+\ A new binder record, zeroed; a store the heap cannot grow stops the run.
 : lfa-binder-push ( -- binder )
+  lfa-binders store-ready drop
   lfa-binders store-new-slot lfa-e-binders-full lfa-must drop dup /lfa-binder erase ;
 : lfa-binder-pop ( -- ) -1 lfa-binders store-count +! ;
 

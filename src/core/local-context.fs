@@ -25,8 +25,10 @@
 \ Entries live in a heap store (lib/store.fs) that grows up to a limit, a
 \ setting of each context: lf-lctx-capacity reads it, lf-lctx-capacity!
 \ sets it. A live entry names a live node, so the entries in use never
-\ outnumber the term store's nodes; the default limit is far above that.
-\ Running out is full, never ok. Words: lf-lctx-local and lf-lctx-let ( Lean's mk_local_decl
+\ outnumber the term store's nodes. The default limit is the largest a
+\ store of entries can count (lf-lctx-default-limit), so only the heap
+\ limits the local context (plan task 6.2.0), as Lean's has no limit of
+\ its own; a caller may set a lower one. Running out is full, never ok. Words: lf-lctx-local and lf-lctx-let ( Lean's mk_local_decl
 \ ), lf-fvar-live?, lf-fvar-number, lf-fvar-type, lf-fvar-value,
 \ lf-fvar-let?, lf-fvar-depth and lf-fvar-depth! (where its binder
 \ stands, for the derivation log), lf-lctx-count, lf-lctx-reset,
@@ -47,7 +49,6 @@ require ./terms.fs
 
 9 constant lf-tag-fvar
 64 constant lf-lctx-default          \ entries a new context's block holds at first
-4194304 constant lf-lctx-default-limit
 
 begin-structure /lf-ldecl
   field: lf-ldecl-fvar       \ the free variable's node
@@ -57,6 +58,8 @@ begin-structure /lf-ldecl
   field: lf-ldecl-depth      \ binders around its binder, or -1 (see below)
 end-structure
 
+\ The largest limit a store of entries takes (lib/store.fs, store-plan?).
+max-n store-header - /lf-ldecl cell+ / constant lf-lctx-default-limit
 store-header context-record: lf-lctx
 : lf-lctx-make ( -- )
   lf-lctx-default /lf-ldecl 0 lf-lctx store-heap-init ok? 0= abort" lctx: no heap"

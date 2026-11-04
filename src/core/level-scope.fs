@@ -29,7 +29,7 @@ end-structure
 /lf-lsctx context-record: lf-lscope-state
 1 cells context-slab: lf-lscope-ids     \ the parameter IDs, in order
 1 cells context-slab: lf-lscope-table   \ the audit's scratch table
-lf-level-depth-limit context-walk: lf-lscope-walk
+lf-level-walk-room context-walk: lf-lscope-walk
 
 \ The context's fields under their established names (other modules read
 \ the count and generation; tests corrupt them). lf-lscope-context is the

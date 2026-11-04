@@ -14,7 +14,7 @@ require ./terms.fs
 6 constant lf-tag-symbolic-sort
 0 constant lf-repr-concrete
 1 constant lf-repr-symbolic
-lf-depth-limit context-walk: lf-repr-walker
+lf-walk-room context-walk: lf-repr-walker
 
 \ Fuel left after a check; callers that share one budget read it back.
 : lf-repr-fuel ( -- addr ) lf-repr-walker walk-fuel ;

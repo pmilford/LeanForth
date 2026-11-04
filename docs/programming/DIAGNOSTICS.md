@@ -78,8 +78,8 @@ what was used and the limit.
 | 7 | signature index full | full | count | capacity | `mixed-signature-probe lf-msp` (in `lf-msp-put`) |
 | 8 | identity serial spent | full | the store's serial | identities needed | the term, level, name and reference stores (1 needed); `level-substitute lf-lsubst` (1, before it adds a node) |
 | 9 | work stack full | full | cells pending | capacity | every walk; `level-normalize` (the arguments of a `max` being normalized) |
-| 10 | frame limit | full | frames in use | limit | `mixed-shift`, `mixed-instantiate`, `mixed-beta`, `mixed-open` (both numbers the limit: every frame was in use); `mixed-infer` |
-| 11 | depth limit | full | depth | limit | `level-value` |
+| 10 | frame limit | full | the frames' stack cells in use | its capacity | a pass whose explicit stack the heap would not grow (plan task 6.2.0): `mixed-shift`, `mixed-instantiate`, `mixed-beta`, `mixed-open`, `mixed-infer`, `level-value`, `level-normalize` (also for is_geq) |
+| 11 | depth limit | full | depth | limit | none since plan task 6.2.0 (formerly `level-value` and normalize's level frames); kept so the code's meaning stays fixed |
 | 12 | binder context full | full | binders | limit | `constant-term-scope` and `mixed-rebuild lf-rebuild-binary` (a binder depth at the largest cell, `max-n` twice); `mixed-infer` (the binders opened on its scope, the scope's capacity); `local-context lf-lctx-local` (the local context's entries, its capacity: plan task 4.2.2a) |
 | 13 | value at cell maximum | full | the value | the amount to add | `level-value` (a successor of `max-n`: value, 1); `mixed-shift` (variable index, shift amount) |
 | 14 | heap allocation failed | full | bytes | the `ALLOCATE` ior | reserved: no site in `core/` or `kernel/` allocates; see *Not yet covered* |
@@ -203,9 +203,8 @@ is kept.
   record and its first-failure rule; every store's full, spent-serial and
   corrupted cases; a fuel sweep of every walk and pass that finds each
   site's own exhaustion and the fuel code on every exhausted run; the room
-  limits a 64-node store cannot reach, white-box (a work stack of capacity
-  1, frames limited to 1, the depth limits, the cell maximum, full binder
-  contexts); the shift past the largest cell, the shift with no room for a
+  limits a 64-node store cannot reach, white-box (a work stack or frames
+  whose growth the heap refuses, the cell maximum, full binder contexts); the shift past the largest cell, the shift with no room for a
   binder, a substitution that fills the level store or spends its serial,
   a shift that fills the term store; and each invalid and undecided code.
 - Over random checker work (`tests/support/checker-trial.fs`, 8 trials of
@@ -228,9 +227,9 @@ is kept.
   that every context records the same diagnostics interleaved, as jobs and
   alone (2026-11-02, review M3).
 - Planted faults are caught: a record that overwrites the first failure
-  (by the unit test, and without it by the shift case, whose frame limit
-  would hide the cell maximum), a site that forgets to record, and a wrong
-  code.
+  (by the unit test, and without it by the shift case, whose frames'
+  room would hide the cell maximum), a site that forgets to record, and a
+  wrong code.
 - Cost: the fixed checker workload of the [library notes](../development/FORTH_LIBRARY.md#design-per-task-contexts-and-how-modules-convert)
   took about 1% longer.
 

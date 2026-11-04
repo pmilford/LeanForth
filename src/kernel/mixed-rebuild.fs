@@ -5,11 +5,13 @@
 \ State: none. Every word works on the frames record (lib/frame.fs) that its
 \ pass passes on the stack.
 
-\ Visit results. Each node occurrence costs one unit of fuel and one frame,
-\ so the frames also bound the recursion depth. Leaf constants and
-\ symbolic Sorts are kept with their original stamps; rebuilt nodes are
-\ appended in post-order. A visit gives a node and ok, or -1 and the
-\ failure.
+\ Visit results. Each node occurrence costs one unit of fuel and one frame
+\ on the pass's explicit stack (lib/frame.fs), which grows with the
+\ depth: no depth limit (plan task 6.2.0). Leaf constants and symbolic
+\ Sorts are kept with their original stamps; rebuilt nodes are appended in
+\ post-order. A visit gives a node and ok, or -1 and the failure. Every
+\ visitor and continuation here is a step ( ... frames -- ... frames next
+\ ), and a leaf's step returns with lf-rebuild-return.
 
 require ../lib/lib.fs
 require ../core/constant-term-boundary.fs
@@ -20,6 +22,11 @@ require ../core/terms.fs
 : lf-rebuild-full ( -- -1 outcome ) outcome-full no-result ;
 : lf-rebuild-bad ( node frames -- -1 outcome ) 2drop lf-rebuild-invalid ;
 : lf-rebuild-keep ( node frames -- node outcome ) drop outcome-ok ;
+\ A visit's step that returns what xt ( node frames -- result outcome )
+\ gives for its node.
+: lf-rebuild-return ( node frames xt -- result outcome frames 0 )
+  over >r execute r> 0 ;
+: lf-rebuild-refuse ( node frames -- -1 outcome frames 0 ) ['] lf-rebuild-bad lf-rebuild-return ;
 \ A visitor dispatches on the tag of its node; a node the store does not
 \ hold gives tag 0, which no term has, so the default arm refuses it.
 0 constant lf-rebuild-no-tag
@@ -38,8 +45,10 @@ require ../core/terms.fs
 \ The check is independent of fuel (ADR 0008): a node whose own visit took
 \ the last unit is still full there, not exhausted, and it is recorded as
 \ a full binder context.
-\ Every nested visit holds a few cells of the host's stacks, so the words
-\ between two visits are kept few and flat (see mixed-beta.fs).
+\ The node is kept on the pass's stack while its first child is visited,
+\ the node and the first result while its second is: three steps, the
+\ visit (lf-rebuild-first), then each child's continuation
+\ (lf-rebuild-next, lf-rebuild-joined), shared with mixed-open.fs.
 : lf-rebuild-binder? ( node -- flag ) lf-term-tag@ lf-tag-app <> ;
 : lf-rebuild-stuck? ( node frames -- flag )
   frame-context @ max-n = swap lf-rebuild-binder? and ;
@@ -48,15 +57,34 @@ require ../core/terms.fs
   max-n dup lf-rebuild-site lf-diag-binders-full lf-diag-note lf-rebuild-full ;
 : lf-rebuild-build ( r1 node r2 -- result outcome )
   swap lf-term-tag@ lf-term-binary lf-rebuild-allocated ;
+\ A failed child: its ( -1 outcome ) is the visit's, the n cells the
+\ visit kept dropped.
+: lf-rebuild-failed ( -1 outcome frames n -- -1 outcome frames 0 )
+  0 ?do dup frame-restore drop loop 0 ;
+\ The second child of a lambda or Pi is one binder deeper.
 : lf-rebuild-descend ( node -- xt )
   lf-rebuild-binder? if ['] frame-under else ['] frame-call then ;
-: lf-rebuild-join ( r1 node frames -- result outcome )
-  >r dup lf-term-second@ over lf-rebuild-descend r> swap execute
-  ok-keep2? if lf-rebuild-build then ;
-\ Visit both children with the pass's frames record, then append the node.
-: lf-rebuild-binary ( node frames -- result outcome )
-  2dup lf-rebuild-stuck? if 2drop lf-rebuild-deep exit then
-  over lf-term-first@ over frame-call ok-keep2? if -rot lf-rebuild-join then ;
+\ Keep the node and visit its first child, then cont.
+: lf-rebuild-first ( node frames cont -- first frames next )
+  >r over lf-term-first@ -rot tuck frame-save r> frame-call ;
+\ After the first child: keep r1 too and visit the second child, then cont.
+: lf-rebuild-next ( r1 outcome frames cont -- second frames next | -1 outcome frames 0 )
+  >r over ok? 0= if r> drop 1 lf-rebuild-failed exit then nip
+  dup frame-restore 2dup swap frame-save -rot tuck frame-save
+  over lf-term-second@ -rot swap lf-rebuild-descend r> swap execute ;
+\ After the second child: the node made from r1 and r2 by xt ( r1 node r2
+\ -- result outcome ).
+: lf-rebuild-joined ( r2 outcome frames xt -- result outcome frames 0 )
+  >r over ok? 0= if r> drop 2 lf-rebuild-failed exit then nip
+  >r r@ frame-restore r@ frame-restore rot r> r> swap >r execute r> 0 ;
+\ A binary node: both children visited, then the node appended.
+: lf-rebuild-built ( r2 outcome frames -- result outcome frames 0 )
+  ['] lf-rebuild-build lf-rebuild-joined ;
+: lf-rebuild-second ( r1 outcome frames -- second frames next | -1 outcome frames 0 )
+  ['] lf-rebuild-built lf-rebuild-next ;
+: lf-rebuild-binary ( node frames -- first frames next | -1 outcome frames 0 )
+  2dup lf-rebuild-stuck? if nip >r lf-rebuild-deep r> 0 exit then
+  ['] lf-rebuild-second lf-rebuild-first ;
 
 \ Audit a whole root with the pass's fuel before anything is allocated. The
 \ pass continues with the fuel the audit leaves, or zero after a failure.
