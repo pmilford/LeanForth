@@ -125,7 +125,9 @@ end-structure
 : pv-sign? ( char -- flag ) dup [char] + = swap [char] - = or ;
 : pv-prefix? ( char -- flag ) dup [char] # [char] & 1+ within swap pv-sign? or ;
 : pv-unprefixed? ( char -- flag ) pv-prefix? 0= ;
-: pv-first? ( c-addr u char -- flag ) over 1 > if nip swap c@ = else 2drop drop false then ;
+\ Whether c-addr u starts with char and has more after it.
+: pv-first? ( c-addr u char -- flag )
+  over 1 > if nip swap c@ = else 2drop drop false then ;
 : pv-quote? ( c-addr u -- flag ) [char] ' pv-first? ;
 : pv-point? ( c-addr u -- flag ) [char] . pv-first? ;
 \ The first character of a number after the signs and prefixes.
@@ -253,7 +255,8 @@ end-structure
 \ A word is visible inside its own definition, but Gforth hides it until
 \ ; so a call there would be of an earlier word of that name.
 : pv-call-inside ( index -- )
-  dup pv-current @ = pv-why-recursive pv-?fail s" call " pv-line-start pv-call-text pv-done ;
+  dup pv-current @ = pv-why-recursive pv-?fail
+  s" call " pv-line-start pv-call-text pv-done ;
 : pv-call-top ( index -- )
   dup pv-constant? 0= pv-why-outside pv-?fail pv-kept-call pv-keep-one ;
 : pv-call ( index -- ) pv-in-def? if pv-call-inside else pv-call-top then ;
@@ -299,7 +302,8 @@ end-structure
 : pv-while ( -- )
   pv-inside pv-frame-while pv-top? pv-why-two-whiles pv-?fail
   pv-frame-begin pv-frame-while pv-retag s" while" pv-beside ;
-: pv-repeat ( -- ) pv-inside pv-frame-while pv-top? 0= pv-unbalanced? s" repeat" pv-close ;
+: pv-repeat ( -- )
+  pv-inside pv-frame-while pv-top? 0= pv-unbalanced? s" repeat" pv-close ;
 : pv-exit ( -- ) pv-inside s" exit" pv-line-start pv-done ;
 
 \ Definitions. The location of `word` is the colon's; of `constant` and

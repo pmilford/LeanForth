@@ -61,7 +61,8 @@ T{ s" tests/program/ir/clamp.ir" file-buffer 10 text-file-slurp -> 10 outcome-fu
   0 closed ! true interrupt-read ! s" tests/program/ir/clamp.ir" file-buffer 4096
   ['] text-file-slurp catch dup if >r 2drop 2drop r> then closed @ ;
 T{ slurp-interrupted -> -28 1 }T
-T{ s" tests/program/ir/clamp.ir" file-buffer 4096 text-file-slurp closed @ -> 296 outcome-ok 2 }T
+T{ s" tests/program/ir/clamp.ir" file-buffer 4096 text-file-slurp closed @
+   -> 296 outcome-ok 2 }T
 
 \ Lines: the first line's length and whether an LF ends it; one CR
 \ before it dropped.

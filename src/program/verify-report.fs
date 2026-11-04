@@ -103,7 +103,7 @@ begin-structure /pv-design
   field: pv-design-order         \ ( -- ) set the run's search order
   field: pv-design-line          \ ( -- ) run the line in the source buffer
   field: pv-design-caught        \ ( code -- ) after a THROW that is no diagnostic
-  field: pv-design-call          \ ( index -- ) a word of the file, run by Forth's interpreter
+  field: pv-design-call          \ ( index -- ) a word of the file run by the host
 end-structure
 : pv-design: ( "name" -- ) create here /pv-design dup allot erase ;
 

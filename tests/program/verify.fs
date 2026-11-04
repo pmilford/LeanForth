@@ -222,7 +222,8 @@ T{ 9 nested both -> outcome-full pv-why-capacity 10 1 true }T
 \ refused as full before anything changes, the order is the caller's
 \ still, and the context is not left busy.
 create deep-before /run-settings allot
-: deep ( -- ) get-order run-settings-order-max 0 ?do forth-wordlist swap 1+ loop set-order ;
+: deep ( -- )
+  get-order run-settings-order-max 0 ?do forth-wordlist swap 1+ loop set-order ;
 : order-depth ( -- n ) get-order dup >r 0 ?do drop loop r> ;
 variable deep-order#
 : deep-run ( xt -- outcome reason same-depth? )

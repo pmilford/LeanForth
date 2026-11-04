@@ -86,9 +86,11 @@ wordlist constant pv-alias-words
 s" pv-alias-make " nip pv-entry-chars + constant pv-alias-chars
 create pv-alias-text pv-alias-chars chars allot
 \ Append c-addr u to the text, which holds n characters.
-: pv-alias-append ( c-addr u n -- n' ) >r tuck pv-alias-text r@ chars + swap chars move r> + ;
+: pv-alias-append ( c-addr u n -- n' )
+  >r tuck pv-alias-text r@ chars + swap chars move r> + ;
 : pv-alias-name ( entry -- c-addr u )
-  s" pv-alias-make " 0 pv-alias-append >r pv-entry-text r> pv-alias-append pv-alias-text swap ;
+  s" pv-alias-make " 0 pv-alias-append >r pv-entry-text r> pv-alias-append
+  pv-alias-text swap ;
 : pv-alias ( i -- ) pv-entry dup pv-alias-name evaluate ;
 get-current pv-alias-words set-current
 :noname ( -- ) pv-names store-count @ 0 ?do i pv-alias loop ; execute

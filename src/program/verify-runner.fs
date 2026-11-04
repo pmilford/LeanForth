@@ -97,7 +97,8 @@ end-structure
 \ and keeps a CR at its end, which is then refused as a character.
 : pv-unreadable ( -- ) pv-no-token pv-why-unreadable pv-fail-here ;
 : pv-refill ( -- )
-  pv-block pv-block-chars pv-fid @ read-file if drop pv-unreadable then pv-got ! 0 pv-block-at ! ;
+  pv-block pv-block-chars pv-fid @ read-file if drop pv-unreadable then
+  pv-got ! 0 pv-block-at ! ;
 : pv-unread? ( -- flag ) pv-block-at @ pv-got @ < ;
 : pv-take-char ( -- char ) pv-block-at @ chars pv-block + c@ 1 pv-block-at +! ;
 : pv-next-char ( -- char true | false )
@@ -108,7 +109,8 @@ end-structure
   1 pv-held +! ;
 : pv-line-char ( char -- lf? ) dup pv-lf = if drop true else pv-hold false then ;
 : pv-held-line ( -- c-addr u ) pv-held-text pv-held @ ;
-: pv-last-line? ( -- c-addr u true | false ) pv-held-line dup if true else 2drop false then ;
+: pv-last-line? ( -- c-addr u true | false )
+  pv-held-line dup if true else 2drop false then ;
 : pv-file-line? ( -- c-addr u true | false )
   0 pv-held ! begin pv-next-char while pv-line-char until pv-held-line text-cr-drop true
   else pv-last-line? then ;
@@ -137,7 +139,8 @@ end-structure
   pv-path dup pv-room > if pv-why-capacity pv-report pv-stop then pv-copy pv-send ;
 : pv-not-compiling ( -- ) state @ pv-why-compiling pv-?fail-here ;
 \ The caller's settings, kept unless its search order is too deep.
-: pv-save ( -- ) pv-settings run-settings-save dup pv-saved ! 0= pv-why-capacity pv-?fail-here ;
+: pv-save ( -- )
+  pv-settings run-settings-save dup pv-saved ! 0= pv-why-capacity pv-?fail-here ;
 : pv-isolate ( -- ) pv-design@ pv-design-order @ execute decimal ;
 \ A file is opened as a binary file, so that no host translates its line
 \ ends; one that cannot be opened is unreadable.
