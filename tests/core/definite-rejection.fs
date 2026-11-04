@@ -295,6 +295,16 @@ T{ outcome-full outcome-rejected 2 outcome-set seen-all? -> true }T
 T{ seen @ outcome-full outcome-unknown outcome-rejected 3 outcome-set invert and -> 0 }T
 .( room sweep outcomes seen, as bits: ) seen @ . cr
 
+\ D1 itself (ADR 0011, Amendment 1), white-box: two Sorts are apart
+\ exactly when Lean's is_equivalent is false for their levels, never just
+\ because the levels are written differently.
+: sorts-apart ( a b -- mask flag )
+  make-sort swap make-sort swap tok @ 1000 lf-minfer-start lf-minfer-sorts-apart ;
+fresh
+T{ level-u level-u level-u max-of sorts-apart -> 0 false }T
+T{ level-u level-v max-of level-v level-u max-of sorts-apart -> 0 false }T
+T{ level-u level-v sorts-apart -> lf-rule-d1 true }T
+T{ 1 level-u next-level imax-of 1 level-u next-level max-of sorts-apart -> lf-rule-d1 true }T
 \ White-box: no frame left, or rules off (inference aside), is never apart.
 : two-sorts ( -- s0 s1 ) fresh 0 make-sort 1 make-sort tok @ 1000 lf-minfer-start ;
 T{ two-sorts lf-minfer-apart -> lf-rule-d1 true }T
@@ -329,6 +339,28 @@ T{ 0 proof-context x-a x-b lf-minfer-apart -> 0 false }T
 T{ 0 proof-context x-a y-var lf-minfer-apart -> 0 false }T
 T{ 1 proof-context x-a x-b lf-minfer-apart -> lf-rule-d3 lf-rule-d5 or true }T
 T{ 1 proof-context x-a y-var lf-minfer-apart -> lf-rule-d3 true }T
+\ D4 enters the bodies under the right (expected) side's domain (ADR 0003
+\ Amendment 1, B2), and P2 then infers with it. Left:
+\ (x : Sort 1) -> (h j : x -> Prop) -> (z : x) -> j z; right: the same
+\ with x : (fun (X : Sort 2) => X) (Sort 1), a redex equal to Sort 1, and
+\ h z. Under the right domain x is no visible Sort, so h's type cannot be
+\ inferred, P2 cannot show h and j are not proofs, and the bodies are not
+\ apart; under the left one D3 would apply. Through lf-minfer-apart the
+\ two cannot differ: P2 on the two Pis comes first and fails for the right
+\ one for the same reason (so the pair is not apart; Lean would reject,
+\ LeanForth stays unknown). This white-box test of lf-minfer-binders-apart
+\ pins the rule itself.
+: x-to-prop ( k -- node ) make-var 0 make-sort make-pi ;
+: d4-pair ( -- left right )
+  fresh tok @ 100000 lf-minfer-start
+  1 make-sort 0 x-to-prop 1 x-to-prop 2 make-var 1 make-var 0 make-var make-app
+  make-pi make-pi make-pi make-pi
+  2 make-sort 0 make-var make-lam 1 make-sort make-app
+  0 x-to-prop 1 x-to-prop 2 make-var 2 make-var 0 make-var make-app
+  make-pi make-pi make-pi make-pi ;
+T{ d4-pair lf-minfer-apart -> 0 false }T
+T{ d4-pair lf-minfer-binders-apart -> 0 false }T
+T{ d4-pair swap lf-minfer-binders-apart -> lf-rule-d3 lf-rule-d4 or true }T
 \ Two lambdas, fun (h : X) => h and fun (h : X) => g h, in the context
 \ X : Sort s, g : X -> X: proofs when s = 0 (Lean accepts one for the
 \ other), apart by their bodies' counts when s = 1 (D4, D3).

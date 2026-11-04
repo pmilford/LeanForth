@@ -116,6 +116,35 @@ T{ check-last -> outcome-unknown lf-diag-dependency-undecided value-step }T
 fc-case k4
 fc-decl check def safe spelling 1 u TYPE P S p u P V 0 V 1 VALUE L S m p u p u L V 0 V 0
 T{ check-last -> outcome-ok 0 lf-step-done }T
+\ The independent review's cases (ADR 0011, Amendment 1), with Lean's
+\ verdicts: the type of a Pi is built with mk_imax, a constant's type is
+\ specialized as Lean's instantiate does, and levels compare by Lean's
+\ is_equivalent, so these four are rejected (D1), as Lean rejects them;
+\ the same with u and v swapped, and with max for imax, are accepted.
+fc-case T1
+fc-decl check def safe T1 2 u v TYPE S i s p v s p u VALUE P S p v S p u
+T{ check-last -> outcome-rejected lf-diag-value-apart compare-step }T
+fc-case T2
+fc-decl check def safe T2 2 u v TYPE S i s p u s p v VALUE P S p u S p v
+T{ check-last -> outcome-ok 0 lf-step-done }T
+fc-case T3
+fc-decl check def safe T3 2 u v TYPE S m s p v s p u VALUE P S p v S p u
+T{ check-last -> outcome-ok 0 lf-step-done }T
+fc-case T4
+fc-decl check def safe T4 1 u TYPE S i s z s p u VALUE P S z S p u
+T{ check-last -> outcome-rejected lf-diag-value-apart compare-step }T
+fc-case th
+fc-decl check thm safe th 1 u TYPE P S z P V 0 V 1 VALUE L S z L V 0 A L S i s z s p u V 1 P S z S p u
+T{ check-last -> outcome-rejected lf-diag-argument-apart value-step }T
+fc-case d
+fc-decl before def safe T 2 u v TYPE S s i p u p v VALUE S i p u p v
+fc-decl check def safe d 1 w TYPE S s i s z s p w VALUE C T 2 s z s p w
+T{ check-last -> outcome-rejected lf-diag-value-apart compare-step }T
+\ The zero inside a max that LeanForth used to drop at any depth, and
+\ Lean's normalize does not drop here.
+fc-case zero-rewrite
+fc-decl check def safe X 1 u TYPE S s m z i s z s p u VALUE S i s z s p u
+T{ check-last -> outcome-rejected lf-diag-value-apart compare-step }T
 fc-case k6
 fc-decl before def safe T5 1 u TYPE S s i s z s p u VALUE S i s z s p u
 fc-decl check def safe S5 1 u TYPE S s i s z s p u VALUE C T5 1 p u
