@@ -583,11 +583,11 @@ reason = "the current task's own context may be claimed for a job"
 [[fault]]
 id = "rej-d1-syntactic-levels"
 file = "src/kernel/mixed-infer.fs"
-old = '''  lf-minfer-firsts lf-minfer-fuel @ lf-level-apart? lf-lvalue-fuel lf-minfer-take
+old = '''  lf-minfer-firsts lf-minfer-fuel @ lf-level-inequivalent? lf-lcmp-fuel lf-minfer-take
   ok? and lf-rule-d1 lf-minfer-holds ;'''
 new = '''  lf-minfer-firsts <> lf-rule-d1 lf-minfer-holds ;'''
 test = "$GFORTH tests/core/definite-rejection.fs"
-reason = "K1: two Sorts are rejected whenever their levels are written differently (max u v, max v u)"
+reason = "K1: two Sorts are rejected whenever their levels are written differently (max u v, max v u); re-targeted at Amendment 1's D1"
 quick = true
 
 [[fault]]
@@ -660,8 +660,7 @@ file = "src/kernel/mixed-infer.fs"
 old = '''  dup lf-term-first@ lf-minfer-push 0= if 2drop 0 false exit then'''
 new = '''  over lf-term-first@ lf-minfer-push 0= if 2drop 0 false exit then'''
 test = "$GFORTH tests/core/definite-rejection.fs"
-reason = "D4/B2: the bodies are compared with the left (inferred) domain instead of the expected one"
-gap = "the domains converted, so only P2 on a bound variable can tell, when inference of one domain fails and of the other succeeds (an expected domain written as a redex); no test has such a case"
+reason = "D4/B2: the bodies are compared with the left (inferred) domain instead of the expected one; caught by the d4-pair white-box test of lf-minfer-binders-apart (through lf-minfer-apart, P2 on the two Pis fails first for such a pair, so no input that reaches D4 can tell)"
 
 [[fault]]
 id = "rej-d5-rule-unrecorded"
@@ -698,10 +697,10 @@ reason = "an argument rejected by D1-D5 is no longer recorded with its rules (ap
 [[fault]]
 id = "infer-imax-zero"
 file = "src/kernel/mixed-infer.fs"
-old = '''  dup 0= if nip true else lf-level-imax then ;'''
-new = '''  lf-level-imax ;'''
+old = '''  lf-level-mk-imax if lf-minfer-sort else -1 outcome-full then ;'''
+new = '''  lf-level-imax if lf-minfer-sort else -1 outcome-full then ;'''
 test = "$GFORTH tests/core/mixed-infer-coverage.fs"
-reason = "a Pi into Prop gets the type Sort (imax u 0) instead of Sort 0"
+reason = "a Pi's sort is a raw imax, not Lean's mk_imax: a Pi into Prop gets Sort (imax u 0), not Sort 0 (re-targeted at Amendment 1's lf-minfer-pi-sort)"
 
 # --- comparison and conversion (src/kernel/mixed-compare.fs, mixed-convert.fs)
 
@@ -736,8 +735,7 @@ file = "src/kernel/mixed-compare.fs"
 old = '''    lf-level-tag-param of lf-mcompare-same-first endof'''
 new = '''    lf-level-tag-param of drop 2drop outcome-ok endof'''
 test = "$GFORTH tests/core/mixed-compare.fs"
-reason = "any two universe parameters compare equal"
-gap = "no test of lf-mixed-compare has two Sorts or constants whose levels differ only in a parameter (Sort u, Sort v)"
+reason = "any two universe parameters compare equal (Sort u and Sort v, x.{u} and x.{v}; the last section of the test)"
 
 [[fault]]
 id = "cmp-bvars-equal"
@@ -812,6 +810,133 @@ old = '''  false lf-mconvert-keep ! lf-mconvert-checked ;'''
 new = '''  true lf-mconvert-keep ! lf-mconvert-checked ;'''
 test = "$GFORTH tests/core/definite-rejection.fs"
 reason = "lf-mixed-convert keeps the fuel of an undecided level comparison, as only the keeping variant may"
+
+# --- universe levels as Lean builds and compares them (ADR 0011 Amendment 1;
+# src/kernel/level-make.fs, level-normalize.fs, level-compare.fs,
+# level-substitute.fs). Each fix of agent LV reverted in turn, plus Lean's
+# rules one at a time.
+
+[[fault]]
+id = "lv-subst-raw-rebuild"
+file = "src/kernel/level-substitute.fs"
+old = '''  dup lf-lsubst-images rot lf-level-tag@ lf-lsubst-mk ;'''
+new = '''  dup lf-lsubst-images rot lf-level-tag@ lf-lsubst-new ;'''
+test = "$GFORTH tests/core/level-substitute.fs"
+reason = "LV fix reverted: a specialized max or imax is rebuilt raw, not by mk_max/mk_imax (the review's case d is accepted)"
+quick = true
+
+[[fault]]
+id = "lv-subst-always-keep"
+file = "src/kernel/level-substitute.fs"
+old = '''  dup dup lf-lsubst-images lf-lsubst-same? if lf-lsubst-unchanged exit then'''
+new = '''  dup dup lf-lsubst-images lf-lsubst-same? if outcome-ok exit then'''
+test = "$GFORTH tests/core/level-substitute.fs"
+reason = "K6 lost: a node whose images are unchanged is always kept, as Lean does only with shared objects"
+
+[[fault]]
+id = "lv-subst-always-rebuild"
+file = "src/kernel/level-substitute.fs"
+old = '''  dup dup lf-lsubst-images lf-lsubst-same? if lf-lsubst-unchanged exit then'''
+new = ''''''
+test = "$GFORTH tests/core/level-substitute.fs"
+reason = "K6 lost: a node whose images are unchanged is always rebuilt, as Lean does only with fresh objects"
+
+[[fault]]
+id = "lv-subst-param-free-rebuilt"
+file = "src/kernel/level-substitute.fs"
+old = '''  dup lf-lmk-param? 0= if outcome-ok exit then'''
+new = ''''''
+test = "$GFORTH tests/core/level-substitute.fs"
+reason = "a max or imax without a parameter is simplified, where Lean's replace keeps it"
+
+[[fault]]
+id = "lv-d1-witness"
+file = "src/kernel/mixed-infer.fs"
+old = '''  lf-minfer-firsts lf-minfer-fuel @ lf-level-inequivalent? lf-lcmp-fuel lf-minfer-take'''
+new = '''  lf-minfer-firsts lf-minfer-fuel @ lf-level-apart? lf-lvalue-fuel lf-minfer-take'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "LV fix reverted: D1 by witness values again, so T1, T4, th and d are unknown where Lean rejects"
+
+[[fault]]
+id = "lv-normalize-imax-again"
+file = "src/kernel/level-normalize.fs"
+old = '''  lf-lnorm-imax r> lf-lnorm-succs ;'''
+new = '''  lf-lnorm-imax lf-lnorm-walk r> lf-lnorm-succs ;'''
+test = "$GFORTH tests/core/level-compare.fs"
+reason = "normalize re-normalizes what mk_imax built, more complete than Lean (imax 1 (u+1) equals u+1)"
+
+[[fault]]
+id = "lv-name-order-reversed"
+file = "src/kernel/level-normalize.fs"
+old = '''  lf-lnorm-lefts 2dup lf-lnorm-named? if lf-lnorm-name-cmp 0< else lf-lnorm-unnamed then ;'''
+new = '''  lf-lnorm-lefts 2dup lf-lnorm-named? if lf-lnorm-name-cmp 0> else lf-lnorm-unnamed then ;'''
+test = "$GFORTH tests/core/level-compare.fs"
+reason = "parameters sorted against Lean's name order: T1 and T2 of the review swap verdicts"
+
+[[fault]]
+id = "lv-normalize-unsorted"
+file = "src/kernel/level-normalize.fs"
+old = '''  >r 2dup lf-lnorm-sort over swap lf-lnorm-dedup'''
+new = '''  >r over swap lf-lnorm-dedup'''
+test = "$GFORTH tests/core/level-compare.fs"
+reason = "a max's arguments are not sorted, so max u v and max v u differ"
+
+[[fault]]
+id = "lv-normalize-no-subsumption"
+file = "src/kernel/level-normalize.fs"
+old = '''  over lf-lnorm-explicit-at? 0= if drop exit then'''
+new = '''  drop exit'''
+test = "$GFORTH tests/core/level-compare.fs"
+reason = "an explicit level covered by a later offset is kept: max 1 (u+1) no longer equals u+1"
+
+[[fault]]
+id = "lv-mkmax-no-base-rule"
+file = "src/kernel/level-make.fs"
+old = '''  ' lf-lmk-max-rule , ' lf-lmk-base-rule ,'''
+new = '''  ' lf-lmk-max-rule , ' lf-lmk-max-rule ,'''
+test = "$GFORTH tests/core/level-compare.fs"
+reason = "mk_max misses its same-base rule (level.cpp 95-99): max (u+1) u stays a max"
+
+[[fault]]
+id = "lv-mkimax-no-low-rule"
+file = "src/kernel/level-make.fs"
+old = '''  ' lf-lmk-nonzero-rule , ' lf-lmk-right-zero-rule , ' lf-lmk-low-rule ,'''
+new = '''  ' lf-lmk-nonzero-rule , ' lf-lmk-right-zero-rule , ' lf-lmk-right-zero-rule ,'''
+test = "$GFORTH tests/core/level-compare.fs"
+reason = "mk_imax misses imax 0 u = imax 1 u = u (level.cpp 117-118)"
+
+[[fault]]
+id = "lv-same-ignores-params"
+file = "src/kernel/level-make.fs"
+old = '''    lf-level-tag-param of lf-lmk-firsts = endof'''
+new = '''    lf-level-tag-param of 2drop true endof'''
+test = "$GFORTH tests/core/level-compare.fs"
+reason = "Lean's operator== calls any two parameters equal (u = v): a wrong accepted"
+quick = true
+
+[[fault]]
+id = "lv-s4-off"
+file = "src/kernel/mixed-infer.fs"
+old = '''  lf-minfer-body-sort lf-minfer-step? if lf-minfer-pi-sort then ;'''
+new = '''  lf-minfer-sort-level lf-minfer-step? if lf-minfer-pi-sort then ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "S4 (ADR 0011 Amendment 2) off: a Pi whose body is not a type stays unknown where Lean rejects"
+
+[[fault]]
+id = "lv-s4-reads-flexible"
+file = "src/kernel/mixed-infer.fs"
+old = '''  lf-minfer-site lf-diag-body-type lf-minfer-sort-rule ;'''
+new = '''  lf-minfer-sort-level dup outcome-unknown = if 2drop -1 0 lf-minfer-site lf-diag-body-type lf-minfer-reject then ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "S4 rejects every body whose type is no visible Sort, also behind a constant Lean may unfold (K1)"
+
+[[fault]]
+id = "lv-explicit-tie-second"
+file = "src/kernel/level-make.fs"
+old = '''  lf-lmk-offset nip swap lf-lmk-offset nip > if 2 else 1 then ;'''
+new = '''  lf-lmk-offset nip swap lf-lmk-offset nip < if 1 else 2 then ;'''
+test = "$GFORTH tests/core/level-compare.fs"
+reason = "mk_max of two explicit levels of equal depth gives the second, where Lean gives the first"
 
 # --- NDJSON reader (src/import/ndjson.fs) ----------------------------------
 

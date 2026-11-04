@@ -46,8 +46,8 @@ first-context context-use
 end-check
 \ Every code of the catalogue has a name.
 create codes 1 , 2 , 3 , 4 , 5 , 6 , 7 , 8 , 9 , 10 , 11 , 12 , 13 , 14 , 15 , 16 ,
-  20 , 21 , 22 , 23 , 24 , 25 , 26 , 27 , 28 , 29 , 30 , 31 , 32 , 33 , 34 , 35 ,
-  40 , 41 , 42 , 43 , 50 , 51 , 52 , 53 , 54 , 55 , 56 , 57 , 58 , 59 , 60 ,
+  20 , 21 , 22 , 23 , 24 , 25 , 26 , 27 , 28 , 29 , 30 , 31 , 32 , 33 , 34 , 35 , 36 ,
+  40 , 41 , 42 , 43 , 50 , 51 , 52 , 53 , 54 , 55 , 56 , 57 , 58 , 59 , 60 , 61 ,
 here codes - 1 cells / constant code-count
 : named? ( code -- flag ) lf-diag-name s" unknown code" compare 0<> ;
 : all-named? ( -- flag ) true code-count 0 ?do i cells codes + @ named? and loop ;
@@ -158,12 +158,13 @@ T{ ' f-shift 20 s" mixed-shift lf-mixed-shift" sweep -> true 0 }T
 T{ ' f-inst 20 s" mixed-instantiate lf-mixed-instantiate" sweep -> true 0 }T
 T{ ' f-infer 80 s" mixed-infer lf-mixed-infer" sweep -> true 0 }T
 T{ ' f-value 20 s" level-value lf-level-value" sweep -> true 0 }T
-T{ ' f-lcompare 40 s" level-compare lf-level-compare" sweep -> true 0 }T
+T{ ' f-lcompare 40 s" level-normalize lf-level-equivalent" sweep -> true 0 }T
 T{ ' f-audit 5 s" mixed-signature-audit lf-mixed-signature-audit" sweep -> true 0 }T
 T{ ' f-lsubst 20 s" level-substitute lf-lsubst" sweep -> true 0 }T
 T{ ' f-mls 30 s" mixed-level-substitute lf-mixed-level-substitute" sweep -> true 0 }T
-\ The shrinking step of level-compare runs out of fuel by itself.
-T{ 0 lf-lcmp-fuel ! lf-diag-clear 0 lf-lcmp-shrink diag -> -1 outcome-exhausted 0 0 lf-diag-fuel }T
+\ Lean's normalize (level-compare's decision) runs out of fuel by itself.
+T{ lf-diag-clear 3 4 0 lf-level-equivalent diag -> false outcome-exhausted 0 0 lf-diag-fuel }T
+T{ s" level-normalize lf-level-equivalent" at? -> true }T
 end-check
 
 \ Room limits that a 64-node store cannot reach, white-box: a work stack
@@ -203,9 +204,21 @@ T{ s" level-value lf-level-value" at? -> true }T
 lf-diag-clear
 T{ max-n lf-lvalue-succ+ diag -> -1 outcome-full max-n 1 lf-diag-cell-maximum }T
 end-check
-begin-check 10 lf-lcmp-fuel ! lf-diag-clear
-T{ 0 0 lf-lcmp-depth-limit lf-lcmp-walk diag -> outcome-full 64 64 lf-diag-depth-limit }T
-T{ s" level-compare lf-level-compare" at? -> true }T
+\ Lean's normalize flattens a max of maxes onto its argument stack: eight
+\ doublings of u stand for 256 arguments, more than its 128 cells.
+: doubled ( level n -- level' ) 0 ?do dup lf-level-max must loop ;
+begin-check lf-diag-clear
+T{ level-u level-u 8 doubled 100000 lf-level-compare diag
+  -> outcome-full 128 128 lf-diag-work-stack-full }T
+T{ s" level-normalize lf-level-equivalent" at? -> true }T
+end-check
+\ K6: specializing imax 1 (u+1) with u for u depends on object sharing in
+\ Lean; level-substitute records the node.
+variable shared-imax
+begin-check 1 level-u lf-level-succ must lf-level-imax must shared-imax ! lf-diag-clear
+T{ shared-imax @ u-formal level-u cells4 ! cells4 1 100 lf-lsubst diag
+  -> outcome-unknown shared-imax @ 0 lf-diag-shared-level }T
+T{ s" level-substitute lf-lsubst" at? -> true }T
 end-check
 begin-check 10 lf-minfer-fuel ! lf-term-capacity lf-minfer-depth ! lf-diag-clear
 T{ 0 lf-minfer-walk diag -> -1 outcome-full 64 64 lf-diag-frame-limit }T

@@ -50,7 +50,9 @@ T{ 0 level-u 0 imax-of max-of zero? -> true outcome-ok }T
 T{ level-w zero? -> false outcome-invalid }T
 T{ imax-uv 1 lf-level-zero? -> false outcome-exhausted }T
 
-\ Rule D1: some witness gives different values.
+\ Witnesses: some assignment gives different values (rule D1 before ADR
+\ 0011 Amendment 1; D1 is now Lean's is_equivalent false,
+\ lf-level-inequivalent?, and the witnesses check it below).
 : apart? ( a b -- flag status ) 1000 lf-level-apart? ;
 T{ level-u dup next-level apart? -> true outcome-ok }T
 T{ level-u level-v apart? -> true outcome-ok }T
@@ -64,8 +66,10 @@ T{ level-u level-v 2 lf-level-apart? lf-lvalue-fuel @ -> false outcome-exhausted
 
 \ Random levels against independent models: normalizes_to_zero exactly as
 \ Lean writes it (level.cpp 174-187), and evaluation under the witnesses
-\ (every parameter 0; u alone 1; v alone 1). D1 must agree with the
-\ models and never call two levels apart that level-compare finds equal.
+\ (every parameter 0; u alone 1; v alone 1). The witnesses must agree
+\ with the models; D1 must hold whenever a witness tells two levels apart
+\ (Lean's normalize keeps values) and never for two levels level-compare
+\ finds equal.
 variable level-seed
 : level-rnd ( n -- u )
   level-seed @ 1103515245 * 12345 + dup level-seed ! 16 rshift 32767 and swap mod ;
@@ -100,10 +104,14 @@ variable model-checks
 : check-zero ( level -- )
   dup zero? ok? if swap lean-nz? <> abort" normalizes_to_zero" 1 model-checks +!
   else 2drop then ;
+: check-d1 ( a b witness-apart -- )
+  >r 2dup 10000 lf-level-inequivalent? ok? 0= if 2drop drop r> drop exit then
+  dup 0= r> and abort" a witness tells them apart, is_equivalent holds"
+  -rot 10000 lf-level-compare ok? and abort" D1 but equal" ;
 : check-apart ( a b -- )
   2dup apart? ok? 0= if drop 2drop exit then
   >r 2dup model-apart? r@ <> abort" witness model"
-  10000 lf-level-compare ok? r> and abort" apart but equal" 1 model-checks +! ;
+  r> check-d1 1 model-checks +! ;
 : model-round ( seed -- )
   level-seed ! fresh-session grow-levels
   lf-level-count @ 0 do i check-zero loop
@@ -114,8 +122,9 @@ T{ model-checks @ 5000 > -> true }T
 .( level checks against the models: ) model-checks @ . cr
 
 \ ---------------------------------------------------------------------------
-\ Keeping comparisons: the outcome is the same; only an undecided, symbolic
-\ level comparison keeps its fuel instead of none.
+\ Keeping comparisons: the outcome is the same; only an undecided level
+\ comparison (Lean's is_equivalent false, ADR 0011 Amendment 1) keeps its
+\ fuel instead of none, concrete levels such as 1 and 2 too.
 fresh-session
 T{ level-u level-v 1000 lf-level-compare lf-lcmp-fuel @ -> outcome-unknown 0 }T
 T{ level-u level-v 1000 lf-level-compare-keeping lf-lcmp-fuel @ 0>
@@ -123,7 +132,7 @@ T{ level-u level-v 1000 lf-level-compare-keeping lf-lcmp-fuel @ 0>
 : both-modes ( a b fuel -- status status' same-fuel? )
   >r 2dup r@ lf-level-compare lf-lcmp-fuel @ 2swap r> lf-level-compare-keeping
   lf-lcmp-fuel @ rot = ;
-T{ 1 2 1000 both-modes -> outcome-unknown outcome-unknown true }T
+T{ 1 2 1000 both-modes -> outcome-unknown outcome-unknown false }T
 T{ level-u level-u 1000 both-modes -> outcome-ok outcome-ok true }T
 T{ level-u level-v 3 both-modes -> outcome-exhausted outcome-exhausted true }T
 T{ level-u level-v -1 lf-level-compare-keeping lf-lcmp-fuel @ -> outcome-invalid 0 }T
@@ -231,12 +240,13 @@ T{ 0 d5-term checked drop -> outcome-unknown lf-diag-undecided }T
   0 make-sort make-pi 1 make-var 2 make-var make-app 1 make-var 0 make-var make-app
   make-lam make-lam make-lam make-lam make-lam ;
 T{ k3-term checked drop -> outcome-unknown lf-diag-undecided }T
-\ K4: fun (A : Sort u) (f : Sort (max u u) -> Prop) => f A: Lean's level
-\ normalisation equates them (it accepts); no witness differs; unknown.
+\ Formerly K4: fun (A : Sort u) (f : Sort (max u u) -> Prop) => f A:
+\ Lean's level normalisation equates them (it accepts), and so does
+\ LeanForth since ADR 0011 Amendment 1 (ok).
 : k4-term ( -- node )
   fresh level-u make-sort level-u level-u max-of make-sort 0 make-sort make-pi
   0 make-var 1 make-var make-app make-lam make-lam ;
-T{ k4-term checked drop -> outcome-unknown lf-diag-symbolic-level }T
+T{ k4-term checked 2drop -> outcome-ok }T
 \ K1: fun (A : Type) (f : k -> Prop) (x : A) => f x: A against the
 \ constant k, which might unfold; unknown.
 : k1-term ( -- node )
@@ -285,6 +295,16 @@ T{ outcome-full outcome-rejected 2 outcome-set seen-all? -> true }T
 T{ seen @ outcome-full outcome-unknown outcome-rejected 3 outcome-set invert and -> 0 }T
 .( room sweep outcomes seen, as bits: ) seen @ . cr
 
+\ D1 itself (ADR 0011, Amendment 1), white-box: two Sorts are apart
+\ exactly when Lean's is_equivalent is false for their levels, never just
+\ because the levels are written differently.
+: sorts-apart ( a b -- mask flag )
+  make-sort swap make-sort swap tok @ 1000 lf-minfer-start lf-minfer-sorts-apart ;
+fresh
+T{ level-u level-u level-u max-of sorts-apart -> 0 false }T
+T{ level-u level-v max-of level-v level-u max-of sorts-apart -> 0 false }T
+T{ level-u level-v sorts-apart -> lf-rule-d1 true }T
+T{ 1 level-u next-level imax-of 1 level-u next-level max-of sorts-apart -> lf-rule-d1 true }T
 \ White-box: no frame left, or rules off (inference aside), is never apart.
 : two-sorts ( -- s0 s1 ) fresh 0 make-sort 1 make-sort tok @ 1000 lf-minfer-start ;
 T{ two-sorts lf-minfer-apart -> lf-rule-d1 true }T
@@ -319,6 +339,28 @@ T{ 0 proof-context x-a x-b lf-minfer-apart -> 0 false }T
 T{ 0 proof-context x-a y-var lf-minfer-apart -> 0 false }T
 T{ 1 proof-context x-a x-b lf-minfer-apart -> lf-rule-d3 lf-rule-d5 or true }T
 T{ 1 proof-context x-a y-var lf-minfer-apart -> lf-rule-d3 true }T
+\ D4 enters the bodies under the right (expected) side's domain (ADR 0003
+\ Amendment 1, B2), and P2 then infers with it. Left:
+\ (x : Sort 1) -> (h j : x -> Prop) -> (z : x) -> j z; right: the same
+\ with x : (fun (X : Sort 2) => X) (Sort 1), a redex equal to Sort 1, and
+\ h z. Under the right domain x is no visible Sort, so h's type cannot be
+\ inferred, P2 cannot show h and j are not proofs, and the bodies are not
+\ apart; under the left one D3 would apply. Through lf-minfer-apart the
+\ two cannot differ: P2 on the two Pis comes first and fails for the right
+\ one for the same reason (so the pair is not apart; Lean would reject,
+\ LeanForth stays unknown). This white-box test of lf-minfer-binders-apart
+\ pins the rule itself.
+: x-to-prop ( k -- node ) make-var 0 make-sort make-pi ;
+: d4-pair ( -- left right )
+  fresh tok @ 100000 lf-minfer-start
+  1 make-sort 0 x-to-prop 1 x-to-prop 2 make-var 1 make-var 0 make-var make-app
+  make-pi make-pi make-pi make-pi
+  2 make-sort 0 make-var make-lam 1 make-sort make-app
+  0 x-to-prop 1 x-to-prop 2 make-var 2 make-var 0 make-var make-app
+  make-pi make-pi make-pi make-pi ;
+T{ d4-pair lf-minfer-apart -> 0 false }T
+T{ d4-pair lf-minfer-binders-apart -> 0 false }T
+T{ d4-pair swap lf-minfer-binders-apart -> lf-rule-d3 lf-rule-d4 or true }T
 \ Two lambdas, fun (h : X) => h and fun (h : X) => g h, in the context
 \ X : Sort s, g : X -> X: proofs when s = 0 (Lean accepts one for the
 \ other), apart by their bodies' counts when s = 1 (D4, D3).

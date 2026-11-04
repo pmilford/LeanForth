@@ -125,4 +125,25 @@ T{ 2 tiny walk-pending ! 0 lf-term-slot dup tiny lf-mcompare-children
   tiny walk-pending @ -> outcome-full 4 }T
 T{ lf-term-count @ tiny walk-node ! 0 tiny walk-context ! tiny lf-mcompare-visit -> outcome-invalid }T
 T{ 0 lf-term-slot dup tiny lf-tag-sort lf-mcompare-dispatch -> outcome-invalid }T
+
+\ Two Sorts, and two constants, whose levels differ only in a parameter
+\ (Sort u and Sort v, x.{u} and x.{v}) are different syntax: unknown, never
+\ equal. The same parameter in two separate nodes is equal.
+: made ( true | false -- ) 0= abort" setup" ;
+lf-name-reset lf-level-reset lf-term-reset lf-lscope-context-reset lf-cref-reset
+0 s" u" lf-name-str made constant name-u   0 s" v" lf-name-str made constant name-v
+0 s" x" lf-name-str made name-x !
+name-u lf-lscope-context-add made  name-v lf-lscope-context-add made
+T{ lf-ssession-begin -> true }T
+name-u lf-level-param made constant level-u
+name-v lf-level-param made constant level-v
+name-u lf-level-param made constant level-u'
+: sort-of ( level -- node identity ) dup lf-level-identity made lf-hterm-sort made ;
+: x-of ( level -- node identity )
+  dup args ! lf-level-identity made args cell+ !
+  name-x @ lf-name-generation @ args 1 lf-cref-new made lf-cterm-new made ;
+T{ level-u sort-of level-v sort-of 1000 lf-mixed-compare -> outcome-unknown }T
+T{ level-u sort-of level-u' sort-of 1000 lf-mixed-compare -> outcome-ok }T
+T{ level-u x-of level-v x-of 1000 lf-mixed-compare -> outcome-unknown }T
+T{ level-u x-of level-u' x-of 1000 lf-mixed-compare -> outcome-ok }T
 bye

@@ -47,12 +47,15 @@ name-x @ 0 ref-term
 setup
 
 \ Fuel left, pinned against the previous implementation; conversion charges
-\ its own walk and never changes the comparison's fuel.
+\ its own walk and never changes the comparison's fuel. Since ADR 0011
+\ Amendment 1 a level comparison charges its scope checks and Lean's
+\ normalize, and structural equality nothing: three units less per pair of
+\ equal levels here (982, 973, 944 and 901 before).
 : convert-fuel ( a aid b bid -- status fuel )
   1000 ['] lf-mixed-convert rs-checked lf-mconvert-fuel @ ;
 T{ 0 h 1 h 1000 lf-mixed-compare -> outcome-ok }T
-T{ 0 h 1 h convert-fuel -> outcome-ok 982 }T
-T{ 4 h 5 h convert-fuel -> outcome-ok 973 }T
+T{ 0 h 1 h convert-fuel -> outcome-ok 985 }T
+T{ 4 h 5 h convert-fuel -> outcome-ok 979 }T
 T{ 8 h 8 h convert-fuel -> outcome-ok 993 }T
 T{ 0 h 3 h convert-fuel -> outcome-unknown 991 }T
 T{ 8 h 9 h convert-fuel -> outcome-unknown 993 }T
@@ -78,8 +81,8 @@ T{ 3 h 0 h 10000 ' lf-mixed-convert rs-checked -> outcome-unknown }T
 more
 T{ 18 h 0 h 10000 lf-mixed-convert -> outcome-ok }T
 T{ 19 h 20 h 10000 lf-mixed-convert -> outcome-ok }T
-T{ 18 h 0 h convert-fuel -> outcome-ok 944 }T
-T{ 19 h 20 h convert-fuel -> outcome-ok 901 }T
+T{ 18 h 0 h convert-fuel -> outcome-ok 947 }T
+T{ 19 h 20 h convert-fuel -> outcome-ok 907 }T
 variable term-start variable level-start variable serial-start variable saw-allocated
 : sweep ( -- )
   lf-term-count @ term-start ! lf-level-count @ level-start !

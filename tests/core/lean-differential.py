@@ -29,9 +29,8 @@ EQUAL, INVALID, UNKNOWN = "0", "1", "3"
 
 # Cases where Lean succeeds but the current Forth code answers unknown.
 KNOWN_UNKNOWN = {
-    # max u v and max v u are equal for every u and v; lf-level-compare does
-    # not decide this commutation symbolically.
-    ("convert", ("2", "6")),
+    # (Until ADR 0011 Amendment 1, max u v against max v u, convert case
+    # 2/6, was here: lf-level-compare now decides it as Lean's normalize.)
     # The claim's binder domain is the redex (fun X : Sort 1 => X) Sort 0;
     # lf-mixed-infer needs the inferred type of a domain to be a Sort
     # without weak-head reduction (src/kernel/mixed-infer.fs, the word
@@ -238,7 +237,7 @@ REJECTION_CODES = {
     52: ("L1", "levelCount"), 53: ("L2", "undefinedLevelParam"),
     54: ("L3", "duplicateLevelParam"), 55: ("S1", "typeExpected"),
     56: ("S2", "typeExpected"), 57: ("S3", "thmTypeIsNotProp"),
-    58: ("F1", "funExpected"), 59: ("D", "appTypeMismatch"),
+    58: ("F1", "funExpected"), 59: ("D", "appTypeMismatch"), 61: ("S4", "typeExpected"),
     60: ("D", "declTypeMismatch"),
 }
 OUTCOMES = {"ok": "accepted", "rejected": "rejected", "unknown": "unknown",
@@ -258,7 +257,7 @@ INSIDE = {"type", "value"}
 TYPING = {"type", "sort", "proposition", "value", "comparison"}
 RULE_STEPS = {"A1": {"done"}, "B1": {"done"}, "U1": {"audit"}, "U2": {"audit"},
               "V1": {"audit"}, "N2": {"name"}, "L3": {"params"}, "S1": {"sort"},
-              "S3": {"proposition"}, "N1": INSIDE, "L1": INSIDE, "L2": INSIDE,
+              "S3": {"proposition"}, "S4": INSIDE, "N1": INSIDE, "L1": INSIDE, "L2": INSIDE,
               "S2": INSIDE, "F1": INSIDE, "K5": INSIDE | {"name"},
               "D": INSIDE | {"comparison"}}
 # Rows where today's code gives another failure than the table, with the
@@ -403,8 +402,8 @@ def checker_summary(name, rows, known):
 def first_checker():
     table, text = first_checker_cases()
     rows, verdicts = checker_rows(text)
-    if sorted(rows) != sorted(table) or len(rows) != 62:
-        raise Mismatch("first checker: the Forth rows are not the table's 62 cases")
+    if sorted(rows) != sorted(table) or len(rows) != 69:
+        raise Mismatch("first checker: the Forth rows are not the table's 69 cases")
     for case, (lean, expected, rule) in table.items():
         checker_row(case, lean, expected, rule, rows[case], verdicts[case],
                     FIRST_CHECKER_KNOWN)
@@ -464,8 +463,8 @@ def universe_scope():
              if words[0] == "EXPECT"}
     rows, verdicts = checker_rows("\n".join(line for line in lines
                                             if not line.startswith("EXPECT ")))
-    if sorted(rows) != sorted(table) or len(rows) != 17:
-        raise Mismatch("universe scope: the Forth rows are not the table's 17 cases")
+    if sorted(rows) != sorted(table) or len(rows) != 49:
+        raise Mismatch("universe scope: the Forth rows are not the table's 49 cases")
     for case, (lean, expected, rule) in table.items():
         checker_row(case, lean, expected, rule, rows[case], verdicts[case], {})
     checker_summary("universe scope", rows, {})
@@ -477,8 +476,7 @@ TABLES = {
     "shift": (shift, "plain shift cases agree with Lean's liftLooseBVars"),
     "instantiate": (instantiate, "plain instantiation cases agree with Lean's instantiate1"),
     "beta": (beta, "closed weak-head beta cases agree with Lean's Kernel.whnf"),
-    "convert": (convert, "conversion cases agree with Lean's isDefEq "
-                         "(one known conservative unknown)"),
+    "convert": (convert, "conversion cases agree with Lean's isDefEq"),
     "infer": (infer, "inference cases agree with Lean's Kernel.check"),
     "definition": (definition, "definition-probe cases agree with Lean's kernel "
                                "(one known conservative unknown)"),

@@ -28,8 +28,9 @@ variable token
 : infer ( root fuel -- type status ) >r h token @ -rot r> lf-mixed-infer nip ;
 
 \ The deepest successful inference: 26 applications under two binders; its
-\ type fills the store exactly.
-T{ 26 apps 100000 infer lf-minfer-fuel @ lf-term-count @ -> 63 outcome-ok 98439 64 }T
+\ type fills the store exactly. Fuel left: 98517 since ADR 0011 Amendment 1
+\ (structural level equality costs nothing; 98439 before).
+T{ 26 apps 100000 infer lf-minfer-fuel @ lf-term-count @ -> 63 outcome-ok 98517 64 }T
 \ Deeper inputs run out of room for their output types: full (not
 \ exhausted: fuel is plentiful), with every count rolled back and no fuel
 \ left, never a crash. With too little fuel the same input is exhausted.

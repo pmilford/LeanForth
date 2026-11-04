@@ -55,6 +55,7 @@ require ../lib/lib.fs
 33 constant lf-diag-no-signature       \ the constant's name ID, 0
 34 constant lf-diag-symbolic-level     \ the level, 0
 35 constant lf-diag-dependency-undecided   \ the slot, its outcome
+36 constant lf-diag-shared-level      \ K6: the level node Lean may keep or rebuild, 0
 \ A construct not implemented yet (outcome unknown in inference; the
 \ declaration audit makes it unsupported), a dependency that is
 \ unsupported, or a declaration outside the first checker's scope.
@@ -63,7 +64,7 @@ require ../lib/lib.fs
 42 constant lf-diag-unsupported-kind   \ the declaration's kind, its safety (U1)
 43 constant lf-diag-unsupported-form   \ the form, the node (U2)
 \ Rejected by a rule of ADR 0011 (outcome rejected): 50-54 by the checked
-\ environment, 55-60 by comparison and inference, where a rejection
+\ environment, 55-61 by comparison and inference, where a rejection
 \ replaces the record of the undecided step it decides.
 50 constant lf-diag-unknown-constant   \ name ID, the declaration (N1)
 51 constant lf-diag-already-declared   \ name ID, the accepted slot (N2)
@@ -76,6 +77,7 @@ require ../lib/lib.fs
 58 constant lf-diag-function-expected  \ F1: the function's type, reduced, 0
 59 constant lf-diag-argument-apart     \ D1-D5, an argument: the rules used, 0
 60 constant lf-diag-value-apart        \ D1-D5, the value: the rules used, 0
+61 constant lf-diag-body-type          \ S4: a Pi body's type, reduced, 0
 
 begin-structure /lf-diag
   field: lf-diag-code       \ reason code; lf-diag-none while clear
@@ -184,6 +186,7 @@ create lf-diag-catalogue
   lf-diag-no-signature s" undecided: no candidate signature" lf-diag-entry,
   lf-diag-symbolic-level s" undecided: symbolic level" lf-diag-entry,
   lf-diag-dependency-undecided s" undecided: dependency undecided" lf-diag-entry,
+  lf-diag-shared-level s" undecided: Lean's level depends on sharing (K6)" lf-diag-entry,
   lf-diag-unsupported s" unsupported construct" lf-diag-entry,
   lf-diag-dependency-unsupported s" unsupported: dependency unsupported" lf-diag-entry,
   lf-diag-unsupported-kind s" unsupported: declaration kind (U1)" lf-diag-entry,
@@ -199,6 +202,7 @@ create lf-diag-catalogue
   lf-diag-function-expected s" rejected: function expected (F1)" lf-diag-entry,
   lf-diag-argument-apart s" rejected: argument type mismatch (D1-D5)" lf-diag-entry,
   lf-diag-value-apart s" rejected: declared type mismatch (D1-D5)" lf-diag-entry,
+  lf-diag-body-type s" rejected: Pi body not a type (S4)" lf-diag-entry,
   lf-diag-none s" unknown code" lf-diag-entry,
 : lf-diag-end? ( code entry -- flag ) lf-diag-entry-code tuck = swap lf-diag-none = or ;
 \ The entry of code, or the last entry.

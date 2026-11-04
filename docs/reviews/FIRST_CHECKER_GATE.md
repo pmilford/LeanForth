@@ -53,7 +53,7 @@ proofs that Lean accepts but LeanForth cannot yet confirm, so it answers
 | Evidence | Status |
 | --- | --- |
 | Rules follow Lean's own kernel: each rejection rule cites the Lean 4.35.0 source file and function that makes the rejection certain | done (ADR 0011) |
-| Lean's answer for every test case, run with the pinned Lean: 62 cases since 2026-11-02 (60 at the time of this summary: the 7 declarations of the 5 example files, 46 broken or near-identical copies, 7 out-of-scope cases) — 30 accepted, 30 rejected by Lean, all as recorded | done, 2026-11-02 |
+| Lean's answer for every test case, run with the pinned Lean: 62 cases since 2026-11-02 (60 at the time of this summary: the 7 declarations of the 5 example files, 46 broken or near-identical copies, 7 out-of-scope cases) — 30 accepted, 30 rejected by Lean, all as recorded; 69 since 2026-11-03 (7 rows for a "for all" whose body is not a type, ADR 0011 Amendment 2), and 49 universe-level rows (Amendment 1) | done, 2026-11-02; extended 2026-11-03 |
 | 27 of the broken copies also written as ordinary Lean source, in one file; Lean rejects every one for the expected reason | done, 2026-11-02 |
 | The test script catches planted mistakes in its own tables (6 tried, 6 caught) | done, 2026-11-02 |
 | LeanForth's answers agree with the table: 14 accepted, 28 rejected, 1 invalid, 9 unknown, 8 unsupported | **not started** — needs the checker (tasks 2.2.1–2.2.3) |
@@ -72,6 +72,13 @@ proofs that Lean accepts but LeanForth cannot yet confirm, so it answers
    when every comparison is exact (same structure after simple
    substitution), the narrowest rule there is. Results stay labelled *not
    independently audited* until an outside Lean expert reviews them.
+   *Correction, 2026-11-03:* for universe levels this was not narrow
+   enough. Lean's kernel tidies levels as it builds them and compares them
+   with a procedure that sometimes calls equal-valued levels different;
+   LeanForth built untidied levels and dropped `max … 0` everywhere, so it
+   accepted five declarations that Lean rejects (found by the independent
+   review of the declaration check). It now builds and compares levels
+   exactly as Lean does ([ADR 0011, Amendment 1](../adr/0011-definite-rejection.md#amendment-1-proposed-2026-11-03-universe-levels-are-built-and-compared-as-lean-builds-and-compares-them)).
 3. **An assumption that LeanForth computes the same types as Lean.** The
    rules depend on it; the existing Lean comparisons and the planned ones
    test it, but tests are finite.

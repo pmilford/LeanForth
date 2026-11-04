@@ -14,7 +14,14 @@ probe answer *rejected* by the rules of
 the head kinds those rules read are in `mixed-head.fs`, the level tests in
 `level-value.fs`), the environment by N1, N2 and L1–L3, the declaration
 audit *unsupported* by U1 and U2; every other failure stays *unknown*,
-*invalid*, *exhausted* or *full*.
+*invalid*, *exhausted* or *full*. Universe levels are built and compared
+exactly as Lean's kernel does (ADR 0011, Amendment 1): `level-make.fs`
+ports Lean's `mk_max`, `mk_imax` and structural level equality,
+`level-normalize.fs` its `normalize`, name order and `is_equivalent`,
+which `level-compare.fs` (conversion, rule D1) uses; `mixed-infer.fs`
+types a Π with `mk_imax`, and `level-substitute.fs` specializes a
+constant's type as Lean's `instantiate` does. A new place that builds a
+level where Lean's kernel builds one must use the same ports.
 
 **Nothing here is verified yet.** The code is in progress, and it becomes
 trusted only when the owner declares it so, after the review gate in

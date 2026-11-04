@@ -401,8 +401,8 @@ def polyIdentityCases : List Case := [
   { id := "poly-identity.equal-universe-other-spelling",
     decl := thm `poly_identity_max (typeIdentityType sortU prop)
       (typeIdentityValue (.sort (.max lu lu)) prop) [`u],
-    lean := "accepted", leanforth := "unknown", rule := "K4",
-    what := "the proof writes Sort (max u u); Lean's level normalisation equates it with Sort u" },
+    lean := "accepted", leanforth := "accepted", rule := "A1",
+    what := "the proof writes Sort (max u u); Lean's level normalisation equates it with Sort u (ADR 0011 Amendment 1)" },
   { id := "poly-identity.proof-irrelevance-imax",
     decl := thm `poly_identity_imax (twinType sortImaxU0) (twinValue sortImaxU0) [`u],
     lean := "accepted", leanforth := "unknown", rule := "K2",
@@ -553,9 +553,54 @@ def scopeCases : List Case := [
     what := "a definition marked partial" }
 ]
 
+/-! ## A Π whose body is not a type (rule S4, ADR 0011 Amendment 2)
+
+Lean's `infer_pi` requires the body's type to be a `Sort` too
+(`ensure_sort_core`, `type_checker.cpp` 158): `typeExpected` otherwise.
+LeanForth rejects only when the body's type, after weak-head beta
+reduction, is rigid and not a `Sort`; behind a constant it stays unknown
+(K1), as Lean may unfold it either way. -/
+
+def sort2 : Expr := .sort (.succ (.succ .zero))
+/-- `S1 : Sort 2 := Type` and `F1 : Type := Prop → Prop`, to unfold. -/
+def s1 : Declaration := defn `S1 sort2 type
+def f1 : Declaration := defn `F1 type (foralls [ex `p prop] prop)
+
+def piBodyCases : List Case := [
+  { id := "pi-body.variable",
+    decl := defn `piBodyVariable sort2 (foralls [ex `A type, ex `a (v `A)] (v `a)),
+    lean := "typeExpected", leanforth := "rejected", rule := "S4",
+    what := "(A : Type) → (a : A) → a: the body a is a value of type A, not a type" },
+  { id := "pi-body.lambda",
+    decl := defn `piBodyLambda type (foralls [ex `x prop] (funs [ex `y prop] (v `y))),
+    lean := "typeExpected", leanforth := "rejected", rule := "S4",
+    what := "(x : Prop) → fun (y : Prop) => y: the body is a function" },
+  { id := "pi-body.in-claim",
+    decl := thm `piBodyClaim (foralls [ex `A prop, ex `a (v `A)] (v `a))
+      (funs [ex `A prop, ex `a (v `A)] (v `a)),
+    lean := "typeExpected", leanforth := "rejected", rule := "S4",
+    what := "the claimed statement (A : Prop) → (a : A) → a has a proof as its body" },
+  { id := "pi-body.type",
+    decl := defn `piBodyType sort2 (foralls [ex `A type, ex `a (v `A)] (v `A)),
+    lean := "accepted", leanforth := "accepted", rule := "A1",
+    what := "the neighbour (A : Type) → (a : A) → A: the body A is a type" },
+  { id := "pi-body.proposition",
+    decl := defn `piBodyProp prop (foralls [ex `x prop] (v `x)),
+    lean := "accepted", leanforth := "accepted", rule := "A1",
+    what := "(x : Prop) → x: the body x is a proposition, a type" },
+  { id := "pi-body.needs-unfolding", before := [s1],
+    decl := defn `piBodyUnfold sort2 (foralls [ex `y (.const `S1 [])] (v `y)),
+    lean := "accepted", leanforth := "unknown", rule := "K1",
+    what := "(y : S1) → y: y's type S1 unfolds to Type, a Sort" },
+  { id := "pi-body.needs-unfolding-wrong", before := [f1],
+    decl := defn `piBodyUnfoldWrong sort2 (foralls [ex `y (.const `F1 [])] (v `y)),
+    lean := "typeExpected", leanforth := "unknown", rule := "K1",
+    what := "(y : F1) → y: y's type F1 unfolds to Prop → Prop, not a Sort" }
+]
+
 def cases : List Case :=
   compositionCases ++ identityCases ++ typeIdentityCases ++ polyIdentityCases ++
-    constantCases ++ scopeCases
+    constantCases ++ scopeCases ++ piBodyCases
 
 /-- Rename `FirstCheckerSource.n` to `n` in constant references. -/
 def unqualify (e : Expr) : Expr :=

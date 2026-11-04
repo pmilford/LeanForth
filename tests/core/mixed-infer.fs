@@ -87,10 +87,11 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
 
 \ Check the result semantically, rather than relying on generated node indices.
 \ The fuel left is pinned: preflight, inference and the specialization of
-\ id spend 109 units here (observed before the refactor, at 398b76b).
+\ id spend 109 units here (observed before the refactor, at 398b76b), 106
+\ since ADR 0011 Amendment 1 (structural level equality costs nothing).
 : poly-case ( -- )
   setup 9 50000 infer outcome-ok expect-status
-  lf-minfer-fuel @ 49891 <> abort" poly fuel"
+  lf-minfer-fuel @ 49894 <> abort" poly fuel"
   4 h 50000 lf-mixed-convert outcome-ok <> abort" poly type" ;
 : invalid-argument-case ( -- )
   \ id.{u} (Sort u): the argument has type Sort (u+1) where id.{u} wants a
@@ -129,10 +130,11 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
 : non-type-case ( -- )
   \ fun (x : fun A => A) => x has a binder domain whose type, a Pi, is not a
   \ Sort: rule S2 rejects it (Lean: typeExpected). (A : Sort u) -> fun (x :
-  \ A) => x has such a Pi body; no rule of ADR 0011 covers a Pi body, so it
-  \ stays unknown.
+  \ A) => x has such a Pi body: rule S4 rejects it (ADR 0011 Amendment 2;
+  \ Lean's infer_pi: typeExpected), recorded with code 61.
   setup 13 h 1 h lf-hterm-lam save 0 h 12 h lf-hterm-pi save \ 14, 15
-  14 rejected-rolled-back 15 unknown-rolled-back ;
+  14 rejected-rolled-back 15 rejected-rolled-back
+  lf-diag-code@ lf-diag-body-type <> abort" S4 code" ;
 : preflight-fuel-case ( -- )
   setup
   9 -1 infer outcome-invalid expect-status 2drop

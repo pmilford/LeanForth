@@ -7,8 +7,9 @@
 \ Pi is applied; uncertain conversion is unknown.
 \ Definite rejection (ADR 0011, ADR 0008 step 3; [kernel] code, not yet
 \ through the review gate): where a step is undecided, rules F1 (a
-\ function's type is no Pi), S2 (a binder domain is no type) and D1-D5 (an
-\ argument's type and the function's domain are apart) may show that
+\ function's type is no Pi), S2 (a binder domain is no type), S4 (a Pi's
+\ body is no type) and D1-D5 (an argument's type and the function's domain
+\ are apart) may show that
 \ Lean's kernel certainly fails the same step, and the outcome is then
 \ rejected, recorded with the rule; otherwise it stays unknown. Like every
 \ result here, a rejection holds only if the candidate signatures are the
@@ -55,6 +56,8 @@ require ../core/levels.fs
 require ../core/tagged-sort-boundary.fs
 require ../core/terms.fs
 require ./env-signature.fs
+require ./level-compare.fs
+require ./level-make.fs
 require ./level-value.fs
 require ./mixed-beta.fs
 require ./mixed-convert.fs
@@ -298,10 +301,11 @@ defer lf-minfer-apart ( left right -- mask flag )
   swap lf-minfer-whnf ok-then? if true else 2drop false then ;
 : lf-minfer-kinds ( left right -- left right kl kr )
   2dup swap lf-mhead-kind swap lf-mhead-kind ;
-\ D1: two Sorts whose levels some witness assignment tells apart (facts 5
-\ and 7); no precondition, as quick_is_def_eq decides two Sorts at once.
+\ D1: two Sorts whose levels Lean's is_equivalent calls different (fact 5,
+\ ADR 0011 Amendment 1); no precondition, as quick_is_def_eq decides two
+\ Sorts at once.
 : lf-minfer-sorts-apart ( left right -- mask flag )
-  lf-minfer-firsts lf-minfer-fuel @ lf-level-apart? lf-lvalue-fuel lf-minfer-take
+  lf-minfer-firsts lf-minfer-fuel @ lf-level-inequivalent? lf-lcmp-fuel lf-minfer-take
   ok? and lf-rule-d1 lf-minfer-holds ;
 \ D3 and D5, two bound variables with arguments (is_def_eq_app, 878-895,
 \ needs the same head and number): a different number of arguments, or
@@ -405,15 +409,22 @@ defer lf-minfer-apart ( left right -- mask flag )
   over swap lf-minfer-under lf-minfer-step? if lf-minfer-lam-type then ;
 : lf-minfer-lam ( domain body -- type status )
   over lf-minfer-domain dup ok? if 2drop lf-minfer-lam-body else 2swap 2drop then ;
-\ A Pi's type is Sort (imax u v) for a domain in Sort u and a body in
-\ Sort v, or Sort 0 when v is the zero level.
-: lf-minfer-imax ( u v -- level true | false )
-  dup 0= if nip true else lf-level-imax then ;
+\ A Pi's type is Sort (mk_imax u v) for a domain in Sort u and a body in
+\ Sort v: Lean's infer_pi (type_checker.cpp 144-166, 163) builds the level
+\ with mk_imax, innermost binder first, as this recursion does (ADR 0011,
+\ Amendment 1; level-make.fs). A full level store is full.
 : lf-minfer-pi-sort ( u v -- type status )
-  lf-minfer-imax if lf-minfer-sort else -1 outcome-full then ;
+  lf-level-mk-imax if lf-minfer-sort else -1 outcome-full then ;
+\ S4 (ADR 0011, Amendment 2): the body's type must be a Sort too
+\ (infer_pi's ensure_sort_core on the body, type_checker.cpp 158); when it
+\ is no visible Sort and its whnfB is rigid and not a Sort, Lean's kernel
+\ fails with typeExpected. The binder is already popped: whnfB and the head
+\ kind do not read the binder context.
+: lf-minfer-body-sort ( type -- level status )
+  lf-minfer-site lf-diag-body-type lf-minfer-sort-rule ;
 : lf-minfer-pi-body ( level domain body -- type status )
   lf-minfer-under lf-minfer-step? 0= if exit then
-  lf-minfer-sort-level lf-minfer-step? if lf-minfer-pi-sort then ;
+  lf-minfer-body-sort lf-minfer-step? if lf-minfer-pi-sort then ;
 : lf-minfer-pi ( domain body -- type status )
   over lf-minfer-domain dup ok? if drop -rot lf-minfer-pi-body else 2swap 2drop then ;
 

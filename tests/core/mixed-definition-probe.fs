@@ -82,7 +82,8 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
 T{ statuses -> outcome-ok outcome-invalid outcome-exhausted outcome-unknown }T
 T{ statuses -> outcome-ok outcome-invalid outcome-exhausted outcome-unknown }T
 \ The success fuel is pinned: preflight and the pair's inference spend 189
-\ units here (observed before the refactor, at 398b76b).
+\ units here (observed before the refactor, at 398b76b), 183 since ADR 0011
+\ Amendment 1 (structural level equality costs nothing).
 \ The rejections are ADR 0011's, each as Lean's kernel decides: the value
 \ id.{u} (Sort u) applies id to an argument of the wrong universe (D1 in
 \ the value: appTypeMismatch); a function claimed to be a Sort u (D2:
@@ -90,7 +91,7 @@ T{ statuses -> outcome-ok outcome-invalid outcome-exhausted outcome-unknown }T
 : rejected-code? ( code -- flag ) lf-diag-code@ = ;
 : basic-case ( -- )
   setup snapshot 4 9 50000 probe outcome-ok expect-status assert-rollback
-  lf-mdefinition-fuel @ 49811 <> abort" success fuel"
+  lf-mdefinition-fuel @ 49817 <> abort" success fuel"
   lf-term-serial @ term-serial-before @ <= abort" expected allocations"
   snapshot 0 10 50000 probe outcome-rejected expect-status assert-rollback
   lf-mdefinition-fuel @ 0<> abort" rejected fuel"
@@ -162,11 +163,12 @@ create two-u-args 4 cells allot
 : non-type-case ( -- )
   \ fun (x : fun A => A) => x has a binder domain whose type is not a Sort
   \ (S2: typeExpected); (A : Sort u) -> fun (x : A) => x has such a Pi
-  \ body, which no rule covers (unknown). Neither is accepted.
+  \ body as the claim (S4, ADR 0011 Amendment 2: typeExpected).
   setup 13 h 1 h lf-hterm-lam save 0 h 12 h lf-hterm-pi save \ 14, 15
   snapshot 4 14 50000 probe outcome-rejected expect-status assert-rollback
   lf-diag-domain-type rejected-code? 0= abort" S2"
-  snapshot 15 9 50000 probe outcome-unknown expect-status assert-rollback ;
+  snapshot 15 9 50000 probe outcome-rejected expect-status assert-rollback
+  lf-diag-body-type rejected-code? 0= abort" S4" ;
 : future-handle-case ( -- )
   \ A forged future identity would become live after the first allocation if
   \ the second source or later index record were checked too late.
