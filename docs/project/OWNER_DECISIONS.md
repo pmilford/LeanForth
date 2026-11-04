@@ -393,6 +393,12 @@ produces can be verified.
   parallelism only for specific tests. Corrected by the owner the same day:
   this does not limit how many development agents run, as long as they do
   not take too much CPU ("continue with more agents in parallel").
+- **Local Gforth 0.7.3 runs only for major changes** (owner, the same
+  day, to speed work up: "I believe it has been very very compatible").
+  CI still runs `make test` on Gforth 0.7.3 for every push; locally it runs
+  only for host-sensitive changes (the job pool, contexts, portability and
+  32-bit access words, byte reading, exceptions, `BASE`, cell width) and
+  before gate decisions.
 - **Later: investigate offloading part of the work to a GPU.** Under the
   design rules in `AGENTS.md` a GPU never belongs to the trusted kernel and
   a CPU path is always kept; candidates are untrusted bulk work such as
