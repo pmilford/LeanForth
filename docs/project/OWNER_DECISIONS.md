@@ -422,6 +422,19 @@ produces can be verified.
   from that, but otherwise should be more general." Added to `AGENTS.md`;
   audit and plan task 1.1.8 in
   [FORTH_LIBRARY.md](../development/FORTH_LIBRARY.md#reusability-the-libraries-as-standalone-forth-code).
+- **Program correctness the Forth way: words in two modes** (owner, the
+  same day, on the program reader's [parser] gate, which is therefore
+  **not approved** and paused). The owner asked whether the reader is
+  "1) an ascii file read and translation … or 2) a set of LeanForth words
+  with the same names, that, instead of running, output the IR (in
+  correctness mode) and execute in run mode", and: "I much prefer 2 and
+  your description is vague", "this is important and may need more
+  design", and "option 1 for program correctness isn't a very Forth like
+  way to operate." Today's reader is option 1 (it splits the file into
+  tokens itself and looks them up in its own table; nothing in the file
+  runs). A design record for option 2 — the same source loaded with a
+  LeanForth vocabulary whose words emit IR, and with ordinary Forth to
+  run — comes first, with a prototype, before any gate question.
 - **Later: investigate offloading part of the work to a GPU.** Under the
   design rules in `AGENTS.md` a GPU never belongs to the trusted kernel and
   a CPU path is always kept; candidates are untrusted bulk work such as

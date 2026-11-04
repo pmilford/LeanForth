@@ -36,7 +36,7 @@ the same x86-64 Linux platform; test other hosts before claiming support.
   a reproducible test; distinguish unsupported behavior from rejection.
 - Differential and adversarial: compare supported terms with pinned Lean,
   test both false acceptance and false rejection, fuzz malformed inputs, and
-  consider mutation testing to evaluate whether tests catch faults.
+  plant faults (`make mutants`, below) to check that the tests catch them.
 - Portability: run portable tests on supported Forth hosts; record exact host
   versions and separate host assumptions from tested LeanForth behavior.
 
@@ -66,6 +66,190 @@ compiler and runtime correctness.
 
 The 2026-11-02 coverage review and its open items are recorded in
 [the test coverage review](TEST_COVERAGE_REVIEW.md).
+
+## Failure paths and allocation-failure injection (plan tasks 2.2.4, 1.4.6)
+
+Added 2026-11-03. The first checker must fail closed wherever it runs out
+of fuel or room, or a word throws: nothing that fails may be stored,
+published, given a handle or printed as accepted.
+
+**The hook.** `src/lib/store.fs` has one test-only hook. A program that
+defines the word `store-fault-hooks` before the store library loads gets
+`store-refuse? ( store -- flag )`, a `DEFER` that `store-open?` asks about
+every allocation that would otherwise go ahead, in every store: the term,
+level, name, reference and input stores of each context and the checked
+environment's dependency pool (`store-new`, and the name table's
+`store-open?` then `store-claim`). True refuses the allocation as if the
+store were full, changing nothing; the word may also `THROW`. Without
+`store-fault-hooks`, `store-open?` is compiled exactly as before: no
+`DEFER`, no extra call, no cost. LeanForth never interprets its input as
+Forth and `src/main.fs` never defines that word, so no input can turn the
+hook on or reach it. `tests/support/alloc-fail.fs`, loaded before anything
+else, defines it and makes the k-th allocation after `af-arm` (or
+`af-arm-throw`) fail, counted across every store; only that one fails.
+
+**The suite.** `tests/core/failure-paths.fs` (in `make test`, under a
+second on either Gforth) runs check-declaration through the publisher on
+the five pinned fixtures and on 18 cases in the first-checker driver's
+text, most of them rows of `tests/core/check-declaration.fs`, that end
+rejected, unknown, unsupported, invalid or full at each step. For
+each case it records a baseline, then refuses allocation k for every k,
+sweeps the fuel from 0 until the baseline returns, and throws at
+allocation k for every k (each run in a new context, with a maker that
+loads the same input into another one, so that the run goes on; and twice
+with no maker, so that it stops). After every step it checks that only
+that declaration's slot changed, that the dependency pool grew only by an
+accepted declaration's dependencies (a failed publication takes its
+entries back) and that every input store is back at its mark with the
+input's fingerprint unchanged; after every run, that a slot is accepted
+only where its baseline is and every slot it depended on is accepted now,
+that the slot an injected failure reached is full (refused), invalid
+(thrown) or, when the publisher failed, open and cleared with the run
+stopped, that later slots keep their baseline outcome or become unknown
+(K5) when an earlier one changed, that handles and printed verdicts agree
+with each slot's outcome (an axiom bit planted in an accepted slot must
+print), and that a refusal or fuel never spends a context while a `THROW`
+in a check does. It also checks that the publisher's re-check publishes a
+passed check with a false claim as invalid. About 4,500 injected runs.
+
+It prints the outcomes reached per check step and fails unless they are
+exactly these (2026-11-03):
+
+| Step | Outcomes reached |
+| --- | --- |
+| 0 before a snapshot | invalid |
+| 1 audit | invalid, exhausted, unsupported |
+| 2 name (N2) | unknown, rejected, unsupported |
+| 3 parameters (L3) | rejected |
+| 4 declared type's type | invalid, exhausted, unknown, rejected, unsupported, full |
+| 5 a Sort (S1) | unknown, rejected |
+| 6 a proposition (S3) | exhausted, rejected |
+| 7 value's type | invalid, exhausted, unknown, rejected, unsupported, full |
+| 8 comparison (D1–D5) | invalid, exhausted, unknown, rejected |
+| 9 every step done | ok, invalid (a failed publication) |
+
+No run of these cases reaches the empty cells: steps 2, 3, 5 and 6
+allocate nothing and steps 2 and 3 use no fuel; step 5 runs out of fuel
+only in its search for a rejection, which then leaves it *unknown* (ADR
+0011); a `THROW` can be injected only at an allocation; and step 8
+allocates only in its search for a rejection, where a refused allocation
+leaves the step *unknown* as well, not *full*: weaker than Lean's
+rejection and than ADR 0008's *full*, never accepted.
+
+**Planted faults.** `tests/core/failure_path_faults.py` (also in `make
+test`, about 2 s) runs the suite in a temporary copy of the tree with one
+fault planted at a time, and requires it to fail on each of nine: the
+publisher marking a slot final before writing its record, a check accepted
+before its comparison, a step's *full* turned into ok, the level store's
+rollback and the pool's rollback after a failed publication forgotten, a
+check that ends full finished ok, "axioms: none" printed without reading
+the slot, the hook switched off, and a `THROW` in a check that no longer
+spends its context. All nine are caught.
+
+## Planted faults (`make mutants`)
+
+A planted fault (a *mutant*) is a small deliberate bug: if no test fails
+with it in place, the tests do not check what that code does. Reviews used
+to plant faults in throwaway scripts that were then lost; `make mutants`
+(plan task 1.4.2) keeps them as a checked-in list,
+`tests/mutants/faults.toml`, run by `scripts/mutants.py`. Each entry names:
+
+- `file`, the file it changes, and `old`, an exact text that must occur
+  there exactly once, with `new`, its replacement;
+- `test`, the shell command that must catch it (`$GFORTH` names the Gforth
+  of the run), and `reason`, one line on what it breaks;
+- optionally `equivalent`, why no test can tell it from the original, or
+  `gap`, the missing test that would catch it; both are expected to survive;
+- optionally `quick = true`, for the sample `make mutants-quick` runs.
+
+The runner first checks every entry's `old` text: one that no longer
+occurs exactly once is *stale* (the code changed under it), which fails
+the run; re-target such a fault at the new code rather than deleting it.
+Then it copies the tree's files (git's tracked and new files) into a new
+temporary directory outside the tree, runs every distinct test once on the
+unchanged copy (each must pass), and plants each fault in turn: it writes
+the change, checks that the changed file still loads (a Forth module on its
+own and silently, as `make smoke` requires; a Python file must parse; a
+change that does not load would prove nothing and fails the run), runs the
+test and restores the file. It reports each fault as caught or survived and
+exits nonzero when a fault expected to be caught survives, a fault listed
+as equivalent or as a gap is caught (correct the entry), or an entry is
+stale. It never writes the working tree: it hashes every file of the tree
+before and after the run and fails if anything changed, and
+`make test-mutants` (part of `make test`) checks every verdict and exit
+status on a small tree, and that the tree is untouched after each run.
+
+| Target | What it runs |
+| --- | --- |
+| `make mutants` | every fault (about 25 s on Gforth 1.0; not part of `make test` or `make check`) |
+| `make mutants-quick` | the faults marked `quick`, one or two per module |
+| `make mutants-check` | only the stale-entry check, without running anything (part of `make check`, so the list cannot go stale unnoticed) |
+| `make test-mutants` | the runner's own tests (in `make test`) |
+
+Run it with `GFORTH=...` for another host. On 2026-11-03 (Gforth 1.0) the
+list held 134 faults over `check-declaration.fs`, the checked environment
+(`environment.fs`, `env-publish.fs`, `env-signature.fs`), the rejection
+rules (`mixed-infer.fs`, `mixed-head.fs`, `level-value.fs`), comparison and
+conversion, the NDJSON reader, the program reader, `lib/context.fs`,
+`lib/json-write.fs` and the runner itself. They re-create the faults that
+earlier reviews planted by hand in scratch scripts since lost (those of
+check-declaration and the rejection rules, all 9 of the checked
+environment's fourth review, some of the JSON writer's), and add new ones.
+123 were caught; 10 survive as known gaps and 1 as equivalent, each with
+its reason in the list. The gaps are tests that do not exist yet, for
+example a name compared with another that differs only in a numeric
+component, metadata that differs from the pinned versions only in the
+format or Lean version, or an upper-case `Z` in program source.
+
+Some test suites plant faults of their own and must keep doing so: the
+big-number differential (`tests/lib/bignum_differential.py`, 20 faults, in
+`make test`), the IR interpreter's differential
+(`tests/program/ir_run_differential.py`, 2 faults in its primitive table),
+the receipt validator's test (`tests/program/test_receipts.py`), the
+verification-condition check (`tests/program/vc_check.py`, faults Lean must
+reject, in `make check`) and the authoring words' round trips
+(`tests/author/check_author.py --faults`, 7 faults, in `make check`). The
+JSON writer's and the packed-field module's reviews planted their faults by
+hand (`FORTH_LIBRARY.md`); the list above re-creates some of them.
+
+## Block coverage (`make coverage`)
+
+`make coverage` (plan task 1.4.1) reports which Forth code `make test`
+runs. `scripts/coverage.py` runs `make test` with `GFORTH` set to
+`scripts/coverage-gforth.sh`, which starts Gforth 1.0 with
+`scripts/coverage-prelude.fs` before the test's own arguments; the Python
+tests' Gforth runs go through it too. The prelude loads Gforth 1.0's
+`coverage.fs`, which puts a counter on every basic block compiled after it
+(at each colon definition's start, each control-flow word and each source
+line inside a definition), and writes the counts when Gforth ends, also
+after an error (`BYE`, `(BYE)`, an uncaught `THROW` out of a command-line
+argument, `DOERROR`). The script then joins the counts of all runs and
+prints, for each folder of `src/`, the blocks compiled in any run and how
+many ran at least once; `make test`'s smoke check loads every module on its
+own, so modules that no test runs count too. Options: `--files` prints
+every file, `--uncovered FILE` writes each block that never ran as
+`file:line:column`, `--keep DIR` keeps the raw counts.
+
+It needs Gforth 1.0 (`.tools/`; Gforth 0.7.3 has no `coverage.fs`) and
+takes about 50 s. It is not part of `make test` or `make check`. Runs on
+copies of the tree outside it (the big-number planted faults) are not
+counted. On 2026-11-03 it reported:
+
+| Folder | Blocks | Ran | Coverage |
+| --- | --- | --- | --- |
+| `src/author` | 1,085 | 1,024 | 94.4% |
+| `src/core` | 1,008 | 995 | 98.7% |
+| `src/import` | 796 | 767 | 96.4% |
+| `src/kernel` | 3,180 | 3,096 | 97.4% |
+| `src/lib` | 2,595 | 2,531 | 97.5% |
+| `src/present` | 2,164 | 2,021 | 93.4% |
+| `src/program` | 1,265 | 1,246 | 98.5% |
+| total | 12,093 | 11,680 | 96.6% |
+
+A block that ran is not a tested block: coverage finds code no test
+reaches and says nothing about whether the tests check what the code does,
+which is what `make mutants` asks. The 2026-11-02 review's figure (90.7% of
+5,532 blocks) measured `make test-core` alone, over the code of that day.
 
 ## Self-verification
 

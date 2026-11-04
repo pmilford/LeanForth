@@ -2,7 +2,9 @@ lf-contract 0.1
 # lf-factorial loops (in lf-factorial-from): generator v0 has no loop
 # invariants, so it reports the word unsupported. Its correctness is proved
 # by induction directly on the IR semantics instead (factorial_correct in
-# tests/reference/program-ir.lean).
+# tests/reference/program-ir.lean), and its formal contract (FactorialSpec,
+# which this language cannot state) through a hand-written loop invariant
+# (factorial_meets_contract there).
 id lf-factorial/0
 word lf-factorial
 ir tests/program/ir/examples.ir

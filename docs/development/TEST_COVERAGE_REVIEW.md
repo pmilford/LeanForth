@@ -64,8 +64,8 @@ comparison must reject a known-wrong table).
 | X1 | Lean reference checks accepted `sorry`: a false theorem proved with `sorry` exited 0 | **Fixed**: `-DwarningAsError=true` on every Lean run, `sorry-must-fail.lean`, `make check-lean-sources` |
 | X2 | No timeouts; one mutant made a test loop ~2^63 times, which would hang CI | **Fixed**: `timeout` on every Make recipe, CI `timeout-minutes` |
 | X3 | `memory-reference-differential.sh` size guard could not fail (`[ ] && [ ]` under `set -e`) | **Fixed** |
-| X4 | No mutation testing in the suite | Later: check in mutants with a list of known-equivalent ones and a `make` target |
-| X5 | No coverage measurement in the suite | Later: package the Gforth `coverage.fs` wrapper used in the review as `make coverage` |
+| X4 | No mutation testing in the suite | **Fixed** 2026-11-03: `make mutants` runs the checked-in planted faults of `tests/mutants/faults.toml`, with known-equivalent and known-gap entries ([testing strategy](TESTING_STRATEGY.md#planted-faults-make-mutants)) |
+| X5 | No coverage measurement in the suite | **Fixed** 2026-11-03: `make coverage` reports per-folder block coverage of `src/` over `make test` with Gforth 1.0's `coverage.fs` ([testing strategy](TESTING_STRATEGY.md#block-coverage-make-coverage)) |
 | X6 | No fuzzing of Forth stream readers, DAG inputs or the NDJSON preview | Later |
 | X7 | Only 64-bit x86 Linux tested; no 32-bit host; number base never varied | Later |
 | X8 | Comparison scripts have no self-test that a known-wrong table is rejected | Later |
@@ -149,4 +149,5 @@ Each reviewer read the code and tests, ran `make test` and the relevant Lean
 comparisons with Gforth 1.0.0 and Lean 4.35.0, and planted faults in scratch
 copies (never in the repository). Not run: Gforth 0.7.3 comparisons, 32-bit
 hosts and CI. The scratch tools (coverage wrapper, mutation scripts, probes)
-are outside the repository; turning them into project tooling is X4 and X5.
+are outside the repository; turning them into project tooling is X4 and X5
+(done 2026-11-03: `make mutants` and `make coverage`).

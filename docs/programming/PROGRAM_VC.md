@@ -129,8 +129,8 @@ changed without its proofs, and the program's MAX and MIN exchanged.
 | `lf-checked-add` | returns a + b and true when a + b fits, else false | 5: b > 0 with or without overflow; b < 0 with or without; b = 0 | discharged |
 | `lf-checked-abs` | false for the smallest cell, else \|n\| and true, \|n\| ≤ max | 2 | discharged |
 | `lf-in-range` | false for l > u, else flag(l ≤ v ≤ u) and true | 2 | discharged |
-| `lf-gcd` | false for a negative input, else g ≥ 0 and true | — | unsupported: its loop (in `lf-euclid`) needs an invariant |
-| `lf-factorial` | false for n < 0, else f ≥ 1 and true | — | unsupported: its loop (in `lf-factorial-from`) needs an invariant |
+| `lf-gcd` | false for a negative input, else g ≥ 0 and true | — | unsupported: its loop (in `lf-euclid`) needs an invariant (stated and proved by hand in Lean, below) |
+| `lf-factorial` | false for n < 0, else f ≥ 1 and true | — | unsupported: its loop (in `lf-factorial-from`) needs an invariant (stated and proved by hand in Lean, below) |
 
 Version 0 also accepts only the literals −1, 0 and 1, which fit every cell
 width (`Cells.fits_*` in the model); a larger literal may not fit a small
@@ -142,6 +142,33 @@ which the plan puts in IR and VC version 1 (tasks 4.4.1 and 4.4.2). The two
 loop words are already proved correct by induction directly on the
 semantics (`gcd_correct`, `factorial_correct` in
 [program IR](PROGRAM_IR.md)); the generator does not claim them.
+
+Since 2026-11-03 (plan task 1.5.3) the Lean side of loop obligations
+exists: Part 5 of `program-ir.lean` defines `LoopInvariant`, the three
+obligations of a `BEGIN test WHILE body REPEAT rest` loop (the test leaves
+a flag; on zero, `rest` reaches the goal; otherwise the body restores the
+invariant with a smaller measure, or stops with a result that meets the
+goal), proves the loop rule that combines them, states the invariants of
+`lf-euclid` and `lf-factorial-from`, and proves the formal contracts of
+`lf-gcd` and `lf-factorial` through them
+([contracts of the five other words](PROGRAM_IR.md#contracts-of-the-five-other-words)).
+Those proofs are written by hand. What the generator still lacks, so that
+it could produce them:
+
+- contract syntax for a loop's invariant and measure (one pair per
+  `BEGIN`), since an invariant cannot be guessed;
+- symbolic execution that stops at a loop: assume the invariant for an
+  arbitrary state, check the test and body once, and continue after the
+  loop from the invariant and a zero flag;
+- writing the three obligations of `LoopInvariant` for each loop, with
+  proof scripts, and a contract theorem that applies `loop_rule`;
+- calls into a word with a loop, as `lf-gcd` calls `lf-euclid`: the
+  loop's obligations generated inside the callee, or the callee's own
+  contract used at the call.
+
+The `ensure` lines of `lf-gcd.contract` and `lf-factorial.contract` are
+also weaker than the formal contracts: the contract language has no
+divisibility and no factorial.
 
 Three deliberately wrong contracts are refuted by Lean:
 

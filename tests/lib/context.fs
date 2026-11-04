@@ -203,6 +203,11 @@ T{ junk use-fails? 0 use-fails? lf-context @ ctx1 = -> true true true }T
 : free-fails? ( addr -- flag ) ['] context-free catch dup if nip then 0<> ;
 : new-fails? ( -- flag ) ['] context-new catch 0<> ;
 : release-fails? ( addr -- flag ) ['] context-release catch dup if nip then 0<> ;
+\ context-claim's flag and the THROW code it raised (0 for none).
+: claim-caught ( owner addr -- flag ior )
+  ['] context-claim catch dup if nip nip 0 swap then ;
+\ An address no process can read on Linux (the first page is never mapped).
+8 constant unreadable
 context-new throw constant ctx2
 T{ 7 context-main context-claim 7 junk context-claim -> false false }T
 T{ 7 0 context-claim -> false }T
@@ -219,6 +224,9 @@ T{ lf-context @ ctx2 = -> true }T
 \ M1): claiming gives false and releasing aborts, changing nothing.
 T{ 7 ctx1 context-claim ctx2 release-fails? -> false true }T
 T{ ctx1 context-idle? ctx2 context-owner @ -> true 7 }T
+\ The claim is refused before the address is read (the fifth review's
+\ probe p10): false even for an address that cannot be read.
+T{ 7 unreadable claim-caught -> false 0 }T
 \ A check run outside the job pool holds context-check-owner: it counts as
 \ inside a job, and no context is its own, not even the current one.
 context-check-owner lf-owner !
@@ -228,6 +236,7 @@ T{ new-fails? ctx1 free-fails? lf-context @ ctx2 = -> true true true }T
 \ Such a check claims and releases nothing either (probes p1 and p5).
 T{ context-check-owner ctx1 context-claim ctx2 release-fails? -> false true }T
 T{ ctx1 context-idle? ctx2 context-owner @ -> true 7 }T
+T{ context-check-owner unreadable claim-caught -> false 0 }T
 0 lf-owner !  ctx1 context-use
 T{ ctx2 context-release ctx2 context-idle? ctx2 context-free -> true 0 }T
 

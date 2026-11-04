@@ -68,12 +68,24 @@ the 32-bit access words exist in `src/`; building it is plan tasks
 | Rejection rules in comparison and inference (plan 2.2.1) | [kernel] | **approved** 2026-11-03 |
 | NDJSON reader (Lean export files) | [import] | **approved** 2026-11-03, with a checksum manifest to add |
 | Design records ADR 0010, 0013, 0016, 0017, 0018 | design | **accepted** (0017 on 2026-11-02; the rest 2026-11-03) |
-| Checked environment v0 (2.2.2) | [kernel] | final re-review: nothing blocking; three small items being fixed, then the owner |
+| Checked environment v0 (2.2.2) | [kernel] | review cycle complete (its last three small items merged 2026-11-03); ready for the owner, together with the declaration check built on it |
 | Declaration check (2.2.3) | [kernel], [bypass] | merged 2026-11-03; its review **blocks**: four wrong acceptances from universe levels built unlike Lean's; fix (exact port of Lean's level rules) running |
-| Program reader (Forth to program IR, 2.5.3) | [parser] | final review: nothing blocking; its three small items fixed (merged 2026-11-03); the reviewer is checking the fixes, then the owner |
+| Program reader (Forth to program IR, 2.5.3) | [parser] | **paused by the owner** (2026-11-03): reviews clean, but the owner prefers a Forth-like design — the program's own words emitting IR in a verification mode — over today's text reader; design record with a prototype in progress |
 | LeanForth syntax words (8.1.2) | [parser] | merged 2026-11-03; independent review running, then the owner |
-| Program receipt schema 0.1 (2.5.1) | [format] | waiting for the owner, together with the program reader |
+| Program receipt schema 0.1 (2.5.1) | [format] | independent review (2026-11-03) found four medium items (labels of failed runs, stale docs, who discharged an obligation, duplicate keys in replay); fix running |
 | Big-number library (`lib/bignum.fs`, for literals) | [forth-review] | review found one serious memory bug in printing; fix running |
+
+### Test tooling (2026-11-03)
+
+- `make mutants`: 134 deliberate bugs kept in `tests/mutants/faults.toml`,
+  each planted in a temporary copy and run against the test meant to catch
+  it — 123 caught, 1 shown to make no difference, 10 known test gaps being
+  closed (one of them in universe-level comparison, which the level fix
+  covers). `make check` fails if an entry no longer matches the code.
+- `make coverage`: 96.6% of the 12,093 code blocks of `src/` run during
+  `make test` (lowest: printing 93.4%, authoring 94.4%). Running code is
+  not the same as checking it; that is what the planted faults measure.
+- The failure-path suite (2.2.4, 1.4.6) — see milestone 1 below.
 
 ### Next major milestones
 
@@ -85,8 +97,9 @@ sizes are relative and dates are not estimated.
    gates above (environment, declaration check, program reader, syntax);
    add Lean's rejection of a "for all" whose body is not a type (ADR 0011
    amendment, owner rule "identical to Lean"); the failure-path suite
-   (2.2.4: every check reaches every outcome, nothing failing ever
-   stored as accepted); replay (2.2.5: a run record with the input's
+   (2.2.4, **done 2026-11-03**: 4,493 runs with each allocation refused
+   or thrown in turn and fuel swept from zero; nothing failing is ever
+   accepted, published or printed as accepted); replay (2.2.5: a run record with the input's
    SHA-256 and byte-identical verdicts on replay); and the first readable
    proof of `composition` from the derivation log (ADR 0013, plan
    2.4.1 and 2.4.4). *You will see:* the five pinned examples print
@@ -145,7 +158,7 @@ proofs that the Forth words compute it — the helper functions, the loops
 of the block compression, then padding and buffers — as the program IR
 gains loops and memory, and finally checked by LeanForth itself
 ([plan](PLAN_DRAFT.md#program-track-goal-most-of-forth-2012-core-owner-2026-11-02)).
-Before that: contracts for the five other example words (in progress) and
+Before that: contracts for the five other example words (done 2026-11-03) and
 the owner's [parser] and [format] decisions on the program reader and
 receipts.
 
@@ -243,7 +256,7 @@ P3.2). Changes of state within the tasks:
 | Milestone | Status and evidence / remaining work |
 | --- | --- |
 | 1. Contract and assumptions | In progress: [receipt schema 0.1](../programming/PROGRAM_RECEIPTS.md) keeps CHECK, VERIFY and RUN apart and requires runtime, cell, Lean, reader and floating-point assumptions; three valid and four invalid examples and 30 mutations are tested; the format awaits the owner's *[format]* approval. |
-| 2. Tested Forth example | In progress: six example words with finite tests; formal contracts for the five words other than clamp remain (plan 1.5.3). |
+| 2. Tested Forth example | In progress: six example words with finite tests; all six now have formal contracts (plan 1.5.3, done 2026-11-03): Lean proves each word's reference model and IR meet its contract for every cell width (gcd and factorial through loop invariants) and refutes deliberately wrong models and programs, 27 theorems using at most `propext`, `Classical.choice` and `Quot.sound`. Choosing one word as the acceptance target (P2.3) remains. |
 | 3. Formal execution model | 2 of 3 done (P3.1, P3.2): IR 0.1 and its Lean semantics. Remaining: review the model against documented Forth behaviour (P3.3). |
 | 4. Model/runtime comparisons | In progress: finite comparisons of the words with Lean models (686 clamp triples, 1,296 memory cases and others); the IR interpreter (`src/program/ir-run.fs`) agrees with the host words and with Lean's evaluation of the model on 5,152 cases (5,092 also run on the host) and 300 random IR programs (2.5.4); testing is not proof. |
 | 5. Shared proof kernel | In progress only through the theorem track: the experimental declaration check exists, but program facts need data types (natural numbers, comparisons), so the first program fact checked by LeanForth arrives with phase 5 (owner answer OQ-5). |

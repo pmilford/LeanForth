@@ -413,7 +413,7 @@ env-free
 \ readiness says false. This check of 2 tries each, records the answers,
 \ then checks as usual; the step and the verdict are as before, and the
 \ task's own token and context come back.
-create answers 24 cells allot
+create answers 28 cells allot
 : answer! ( x k -- ) cells answers + ! ;
 : answer@ ( k -- x ) cells answers + @ ;
 : try-public ( -- )
@@ -440,13 +440,18 @@ create answers 24 cells allot
 \ nothing changes; the check catches each abort and carries on.
 context-new throw constant victim
 context-new throw constant held  7 held context-claim drop
-: use-ior ( context -- ior )
-  lf-context @ >r ['] context-use catch dup if nip then r> lf-context ! ;
+: use-ior ( context -- ior ) ['] context-use context-catch dup if nip then ;
 : try-contexts ( -- )
   context-check-owner victim context-claim 21 answer!  victim use-ior 22 answer!
   held ['] context-release catch dup if nip then 23 answer! ;
+\ The parallel scheduler's entry (the fifth review's probe p7), with the
+\ ior of a job that threw: refused before it records the THROW, so
+\ nothing is recorded and the check's own context is not spent.
+: try-job-entry ( -- )
+  lf-diag-clear -5 2 lf-env-hand-over-job 25 answer! 24 answer!
+  lf-env-spent? 26 answer!  lf-diag-code@ 27 answer! ;
 : trying-check ( -- )
-  me 2 = if try-public try-inside try-undo try-contexts then syn-check ;
+  me 2 = if try-public try-inside try-undo try-contexts try-job-entry then syn-check ;
 8 fresh-env
 ' syn-check 2 checked-run
 T{ ' trying-check 2 checked-step step-failures @ lf-env-spent? -> outcome-rejected 0 false }T
@@ -459,6 +464,7 @@ T{ 19 answer@ refused? 20 answer@ refused? -> true true }T
 T{ lf-owner @ lf-context @ context-main = pool-count 3 slot@ lf-slot-final? -> 0 true 1 false }T
 T{ 1 slot@ lf-slot-accepted? 1 deps 0 slot@ lf-slot-accepted? -> true 0 1 true }T
 T{ 21 answer@ 22 answer@ 23 answer@ victim context-idle? held context-owner @ -> false -2 -2 true 7 }T
+T{ 24 answer@ 25 answer@ 26 answer@ 27 answer@ -> outcome-invalid true false lf-diag-none }T
 env-free
 held context-release  held context-free throw  victim context-free throw
 \ The review's probe p4: the check of 3 begins 2, claims it ok and hands
@@ -629,6 +635,17 @@ from-spare 0 given-calls ! live-blocks @ constant blocks-10
 T{ ' twice-throwing ' giving-maker lf-env-run back-home? given-calls @ -> outcome-invalid true 2 }T
 T{ live-blocks @ blocks-10 - given context? given context-idle? -> 0 true true }T
 env-free home-7 @ unspare  given context-free throw
+\ A maker that leaves another owner token selected (the fifth review's
+\ probe p9a): the run restores the caller's token, as it restores the
+\ current context, and goes on. (The token is reset before the results
+\ are compared, so that a failure here cannot break the tests below.)
+: token-maker ( -- context ior ) main-maker 7 lf-owner ! ;
+: token-reset ( -- token ) lf-owner @ 0 lf-owner ! ;
+from-spare
+T{ ' throwing-check ' token-maker run-caught token-reset back-home? -> outcome-ok 0 0 true }T
+lf-env-view drop
+T{ 1 lf-env-outcome 2 lf-env-outcome -> outcome-invalid outcome-rejected }T
+env-free home-7 @ unspare
 \ A check cannot claim the run's home context (M1, the review's probe
 \ p2): after the check of 1 threw there, the run goes on in a context
 \ from its maker, where the check of 2 tries. The claim gives false, and

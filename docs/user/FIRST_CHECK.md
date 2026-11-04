@@ -132,6 +132,21 @@ in the application
 - Limits today: 64 term nodes, 64 levels and 64 names per input, 32
   declarations, 16 dependencies per declaration.
 
+## When a check runs out of fuel or room
+
+A check that runs out of its budget of steps ends *exhausted*; one that
+runs out of memory for the terms or levels it builds ends *full* (or
+*unknown*, when that happens while it looks for a reason to reject); one
+that hits an internal error ends *invalid*. None of these is ever
+accepted, and the declaration's work is thrown away: the library of
+accepted declarations is exactly as it would be had the declaration
+failed for any other reason, so a later declaration that uses it is
+*unknown*, never accepted. The test suite `tests/core/failure-paths.fs`
+checks this for the fixtures above by making each memory allocation of
+each check fail in turn, by giving each check every amount of fuel from
+none upward, and by raising an internal error at each allocation
+([testing strategy](../development/TESTING_STRATEGY.md)).
+
 `python3 scripts/check-doc-examples.py --gforth GFORTH --lean LEAN
 docs/user/FIRST_CHECK.md` runs these examples and compares the output
 (`make test` runs its Forth, `make check` its Lean; done on 2026-11-02

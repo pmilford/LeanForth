@@ -13,9 +13,9 @@ structure of [ADR 0009](0009-reentrant-state-and-parallel-checking.md)
 
 Amended 2026-11-02 ([Amendment 1](#amendment-1-2026-11-02-after-the-independent-review-of-v0)):
 stricter or clarifying changes after the independent review of the
-implementation, and clarifications after its second, third and fourth
-rounds, including the threat model (items 15 and 17); the status above
-is unchanged.
+implementation, and clarifications after its second, third, fourth and
+fifth rounds, including the threat model (items 15, 17 and 21); the
+status above is unchanged.
 
 ## Summary in plain words
 
@@ -658,6 +658,32 @@ this design.
     as Gforth does; Forth-2012 leaves reading such an address undefined.
     The run frees the contexts it made, never one a maker gave that it
     refused.
+
+**Clarifications after the fifth review round (2026-11-03).** The
+independent re-review of those changes found nothing that blocks and
+again no path by which a failed check is published or read as accepted.
+It found three low gaps between the code and its documentation. None of
+the changes below adds or changes a rule of this design.
+
+20. **The scheduler's entry inside a check (G-P1, item 8).**
+    `lf-env-hand-over-job` refuses inside a job or a check before it
+    does anything else. Before, called there with a nonzero ior, it
+    recorded the `THROW` and spent the check's own context before the
+    hand-over refused, where the documentation promised "refused,
+    nothing changed".
+21. **The maker's owner token (G-P6, item 15).** The serial driver
+    restores the caller's owner token after the maker, as it restores the
+    current context; before, a maker that left another token selected
+    made the run abort to its caller with that token still selected. The
+    threat model now names two misuses that are not detected: a check
+    that stores into its owner token, `lf-owner`, which every G-P1 guard
+    reads (0 switches them off until the check returns), and a maker that
+    frees a context the run uses (its caller's or the current one), after
+    which the run reads or selects freed memory.
+22. **Claiming inside a job (item 16).** `context-claim` tests whether it
+    runs inside a job or a check before it reads the address it is
+    given, so there it gives false for any address, as documented,
+    instead of a memory fault for one that cannot be read.
 
 ## Reproduction
 
