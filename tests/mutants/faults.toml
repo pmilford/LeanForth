@@ -716,18 +716,18 @@ quick = true
 [[fault]]
 id = "cmp-name-bytes-ignored"
 file = "src/kernel/mixed-compare.fs"
-old = '''  lf-name-slot lf-name-bytes@ rot lf-name-slot lf-name-bytes@ compare 0= ;'''
-new = '''  lf-name-slot lf-name-bytes@ rot lf-name-slot lf-name-bytes@ 2drop 2drop true ;'''
+old = '''lf-name-text rot lf-name-text compare 0= ;'''
+new = '''lf-name-text rot lf-name-text 2drop 2drop true ;'''
 test = "$GFORTH tests/core/mixed-compare.fs"
-reason = "names that differ only in a string component compare equal"
+reason = "names that differ only in a string component compare equal (re-targeted at the compact store: names read through accessors)"
 
 [[fault]]
 id = "cmp-name-numbers-ignored"
 file = "src/kernel/mixed-compare.fs"
-old = '''  lf-name-slot lf-entry-payload @ swap lf-name-slot lf-entry-payload @ = ;'''
-new = '''  lf-name-slot lf-entry-payload @ swap lf-name-slot lf-entry-payload @ 2drop true ;'''
+old = '''lf-name-payload swap lf-name-payload = ;'''
+new = '''lf-name-payload swap lf-name-payload 2drop true ;'''
 test = "$GFORTH tests/core/mixed-compare.fs"
-reason = "names that differ only in a numeric component compare equal: the test compares x.10 with x.11, which Lean's Name.num tells apart"
+reason = "names that differ only in a numeric component compare equal: the test compares x.10 with x.11, which Lean's Name.num tells apart (re-targeted at the compact store: names read through accessors)"
 
 [[fault]]
 id = "cmp-level-params-equal"

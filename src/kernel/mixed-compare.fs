@@ -64,10 +64,8 @@ lf-level-depth-limit context-walk2: lf-mcompare-level-walker
 \ the anonymous root, by kind and then by number or bytes, even when the
 \ IDs coincide; each component costs one unit of the given walk's fuel.
 : lf-mcompare-kinds? ( a b -- flag ) lf-name-tag@ swap lf-name-tag@ = ;
-: lf-mcompare-numbers? ( a b -- flag )
-  lf-name-slot lf-entry-payload @ swap lf-name-slot lf-entry-payload @ = ;
-: lf-mcompare-bytes? ( a b -- flag )
-  lf-name-slot lf-name-bytes@ rot lf-name-slot lf-name-bytes@ compare 0= ;
+: lf-mcompare-numbers? ( a b -- flag ) lf-name-payload swap lf-name-payload = ;
+: lf-mcompare-bytes? ( a b -- flag ) lf-name-text rot lf-name-text compare 0= ;
 : lf-mcompare-payloads? ( a b -- flag )
   over lf-name-tag@ lf-name-tag-num =
   if lf-mcompare-numbers? else lf-mcompare-bytes? then ;
