@@ -308,9 +308,7 @@ lf-rechecks# 1+ constant lf-recheck-moved
 \ Slot k of the span gets declaration limit+k, copied whole.
 : lf-slot-input! ( k slot -- )
   lf-env-may-write swap lf-env-limit + lf-input-decl swap lf-slot-decl /lf-idecl move ;
-: lf-slot-recipe! ( slot -- )
-  lf-env-cand dup lf-cand-recipe @ rot tuck lf-slot-recipe !
-  swap lf-cand-motive @ swap lf-slot-motive ! ;
+: lf-slot-recipe! ( slot -- ) lf-env-cand lf-cand-recipe @ swap lf-slot-recipe ! ;
 : lf-slot-sets! ( slot -- )
   lf-env-may-write lf-env-cand lf-cand-axioms @ over lf-slot-axioms !
   dup lf-slot-recipe!

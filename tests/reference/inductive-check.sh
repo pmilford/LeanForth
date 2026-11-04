@@ -2,7 +2,7 @@
 # Inductive types, recursors, reductions and quotients against pinned Lean
 # 4.35.0 (ADR 0015, docs/adr/0015-inductive-types.md; plan task 5.1.1).
 #
-# 1. inductive-expected.lean asks Lean's kernel for its verdict on 151 cases
+# 1. inductive-expected.lean asks Lean's kernel for its verdict on 166 cases
 #    (inductive declarations, reductions, Lean's replay of exported blocks,
 #    primitive names, quotient initialisation). It fails unless every
 #    verdict is the recorded one, and prints one row per case; the rows

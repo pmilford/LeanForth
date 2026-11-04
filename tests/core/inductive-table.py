@@ -57,6 +57,11 @@ PENDING = {
     "params.constructor-binder-defeq": ("unknown",
         "C2 needs id Type unfolded: K1; twin params.constructor-binder-beta."
         " Closed by task 4.2.2 (unfolding, delta)"),
+    "after.redex-type-left-out-then-use-rec": ("unknown",
+        "IE.U2's type is a Sort only after whnf, so its block left no recipe of the"
+        " generated recursor (ADR 0015 decision 12): a use of IE.U2.rec is unknown"
+        " (diagnostic 77); twin after.unit-left-out-then-use-rec. Closed by task 4.2.2"
+        " (whnf and unfolding at a lookup, steps 4.2.2b-e)"),
 }
 # Rows of later tasks whose file refers to a constant it does not declare,
 # which the importer refuses (invalid) before any check: id -> reason.
