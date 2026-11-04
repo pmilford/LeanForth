@@ -492,6 +492,7 @@ test-program-verify:
 	$(RUN) $(GFORTH) tests/program/verify.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/program/verify_check.py
 	GFORTH=$(GFORTH) $(RUN) python3 tests/program/verify_roundtrip.py
+	GFORTH=$(GFORTH) $(RUN) python3 tests/program/verify_ir02.py
 
 .PHONY: test-program-verify
 test: test-program-verify
@@ -511,6 +512,7 @@ test-program-ir-run:
 # checked by Lean with planted faults, and the receipt's evidence recorded afresh.
 reference-program-ir-run:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/program/ir_run_differential.py --lean
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/program/verify_ir02.py --lean
 	LEAN=$(LEAN) $(RUN) python3 tests/program/vc_check.py --lean
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/program/receipt_check.py --record
 

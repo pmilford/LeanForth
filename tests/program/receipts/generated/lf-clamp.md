@@ -32,23 +32,26 @@ Assumptions
       the host's word of that name does, and nothing else in the source file changes what
       its words mean on the host. They run the file through Forth's own text interpreter,
       one line at a time, with only their entry word visible; each token must be a word of
-      the file (a call, bound when Forth finds it), a word of FORTH-WORDLIST with
-      verification semantics and the identity it had when they loaded, or a plain decimal,
-      which they read themselves; no word of the file or of the host runs. A standard word
+      the file (a call, bound when Forth finds it, to the version visible there), a word
+      of FORTH-WORDLIST with verification semantics and the identity it had when they
+      loaded, or a number in a Forth-2012 form (decimal, # $ % prefixes or 'c'), which
+      they read themselves; no word of the file or of the host runs. A standard word
       redefined after they loaded and before the run is refused, except, on Gforth 0.7.3,
       a compile-only word, since all of those share one token there; one redefined before
       they loaded is not noticed, so the verifying Forth too is assumed to have its own
-      standard words. They refuse a redefinition, under any spelling, of a Forth-2012 Core
-      or Core Ext word or of the file's own words, a name that reads as a number, any byte
-      outside printable ASCII other than a space, a tab, an LF and a CR just before an LF,
-      and a division before CONSTANT. Gforth is assumed to load the file with its default
-      settings (decimal BASE, standard words), and the file to define no name that code
-      compiled after it in the same session uses, other than the words under test:
-      definitions of host words outside those word sets, such as Gforth's own, are
-      accepted and would change what such code, a test harness for example, means. Nothing
-      proves the translation; recording the evidence wrote this IR again with the program
-      words, and make test compares them with the IR named here and with the earlier
-      reader (src/program/ir-reader.fs).
+      standard words. A file may define its own words again, as Forth allows; each version
+      has its own IR name (x, x'1, ...), and program.word names one. They refuse a
+      redefinition, under any spelling, of a word with verification semantics or of a
+      Forth-2012 Core or Core Ext word, a name the IR gives another version, a name that
+      reads as a number, any byte outside printable ASCII other than a space, a tab, an LF
+      and a CR just before an LF, and a division before CONSTANT. Gforth is assumed to
+      load the file with its default settings (decimal BASE, standard words), and the file
+      to define no name that code compiled after it in the same session uses, other than
+      the words under test: definitions of host words outside those word sets, such as
+      Gforth's own, are accepted and would change what such code, a test harness for
+      example, means. Nothing proves the translation; recording the evidence wrote this IR
+      again with the program words, and make test compares them with the IR named here and
+      with the earlier reader (src/program/ir-reader.fs).
   A4  trusted-runtime: Gforth and its compiler execute 2DUP, >, IF, 2DROP, DROP, FALSE,
       EXIT, THEN, >R, MAX, R>, MIN and TRUE as the IR semantics says. The runtime
       comparison tested this on 986 cases; it does not prove it.

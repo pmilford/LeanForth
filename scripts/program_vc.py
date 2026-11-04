@@ -52,7 +52,8 @@ SMALL_LITERALS = (-1, 0, 1)
 
 def model_ranges(lines):
     """The copied parts of the model, by anchors: the semantics (cells to the
-    ir_simp tactic) and the IR text printer (irVersion to render)."""
+    ir_simp tactic) and the IR text printer (Prim.word to render, the
+    lowest version that fits included)."""
     def at(prefix):
         for i, line in enumerate(lines):
             if line.startswith(prefix):
@@ -68,7 +69,7 @@ def model_ranges(lines):
     part3 = at("-- Part 3. The six example words")
     prelude_end = max(i for i in range(1, part3) if lines[i - 1].strip())
     return (at("/-- A host cell of"), prelude_end), \
-        (at("def irVersion"), last_before_blank(at("def render ")))
+        (at("def Prim.word"), last_before_blank(at("def render ")))
 
 RESERVED = re.compile(r"(c|fuel|tail|rs|out|g|h|this|[fhp][0-9]+|pre[0-9]+)$")
 CELL_BITS = 64               # counterexamples are searched and refuted on 64-bit cells

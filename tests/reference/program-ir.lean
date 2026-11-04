@@ -264,7 +264,8 @@ theorem rshift_neg_one : c.signed (c.unsigned (-1) >>> 1) = c.max := by
 
 end Cells
 
-/-- The primitive words of IR 0.1, named after the Forth words they model. -/
+/-- The primitive words of IR 0.2, named after the Forth words they model;
+the last two, `LSHIFT` and `-ROT`, are new in IR 0.2. -/
 inductive Prim where
   | dup | drop | swap | over | nip | tuck | rot | twoDup | twoDrop
   | toR | fromR | rFetch
@@ -272,10 +273,18 @@ inductive Prim where
   | eq | ne | lt | gt | zeroEq | zeroNe | zeroLt | zeroGt
   | and | or | xor | invert | rshift
   | max | min | true | false
+  | lshift | negRot
+  deriving Repr, DecidableEq
+
+/-- An output word of IR 0.2 (ADR 0019 Amendment 1, A2): `.`, `U.`, `CR`,
+`EMIT`, `SPACE`, `SPACES`, `.S`, and `."` or `S" … " TYPE` with its text. -/
+inductive Out where
+  | dot | uDot | cr | emit | space | spaces | dotS | text (s : String)
   deriving Repr, DecidableEq
 
 /-- An instruction. `ifElse` is `IF yes ELSE no THEN`; `loop` is
-`BEGIN test WHILE body REPEAT`; `exit` leaves the current word. -/
+`BEGIN test WHILE body REPEAT`; `exit` leaves the current word; `out` is an
+output word (IR 0.2). -/
 inductive Instr where
   | prim (p : Prim)
   | lit (n : Int)
@@ -283,6 +292,7 @@ inductive Instr where
   | ifElse (yes no : List Instr)
   | loop (test body : List Instr)
   | exit
+  | out (o : Out)
   deriving Repr
 
 /-- Data and return stacks, top of stack first. -/
@@ -372,20 +382,36 @@ def step (c : Cells) : Prim → State → Result
   | .min, ⟨b :: a :: d, r⟩ => .next ⟨(if a < b then a else b) :: d, r⟩
   | .true, ⟨d, r⟩ => .next ⟨-1 :: d, r⟩
   | .false, ⟨d, r⟩ => .next ⟨0 :: d, r⟩
+  | .lshift, ⟨n :: a :: d, r⟩ =>
+      if 0 ≤ n ∧ n < c.bits then .next ⟨c.signed ((c.unsigned a <<< n.toNat) % 2 ^ c.bits) :: d, r⟩
+      else .failed .unmodeled
+  | .negRot, ⟨x3 :: x2 :: x1 :: d, r⟩ => .next ⟨x2 :: x1 :: x3 :: d, r⟩
   | _, _ => .failed .underflow
 
--- Lean generates the equation of each of the 38 primitive cases when it is
+-- Lean generates the equation of each of the 40 primitive cases when it is
 -- first named; naming them here also lets `simp` use them.
 attribute [local simp] step.eq_1 step.eq_2 step.eq_3 step.eq_4 step.eq_5 step.eq_6 step.eq_7
   step.eq_8 step.eq_9 step.eq_10 step.eq_11 step.eq_12 step.eq_13 step.eq_14 step.eq_15
   step.eq_16 step.eq_17 step.eq_18 step.eq_19 step.eq_20 step.eq_21 step.eq_22 step.eq_23
   step.eq_24 step.eq_25 step.eq_26 step.eq_27 step.eq_28 step.eq_29 step.eq_30 step.eq_31
   step.eq_32 step.eq_33 step.eq_34 step.eq_35 step.eq_36 step.eq_37 step.eq_38
+  step.eq_39 step.eq_40
+
+/-- An output word's effect on the stacks (IR 0.2): `.`, `U.`, `EMIT` and
+`SPACES` take one cell (`underflow` without one), the others none. What it
+prints is an event (`runOut` below), which no instruction reads. -/
+def Out.effect : Out → State → Result
+  | .dot, ⟨_ :: d, r⟩ | .uDot, ⟨_ :: d, r⟩ | .emit, ⟨_ :: d, r⟩ | .spaces, ⟨_ :: d, r⟩ =>
+      .next ⟨d, r⟩
+  | .dot, _ | .uDot, _ | .emit, _ | .spaces, _ => .failed .underflow
+  | _, s => .next s
 
 /-- Run a block. A called word starts with an empty return stack of its own
 and must leave it empty. A literal must fit in a cell; one that does not is
-`unmodeled` (the reader writes only literals that fit in 32 bits, so on
-cells of 32 bits or more every literal it writes fits). Fuel bounds the nesting depth
+`unmodeled` (the IR 0.1 reader writes only literals that fit in 32 bits, so
+on cells of 32 bits or more every literal it writes fits; IR 0.2's go up to
+2^32 - 1, which fit cells of 33 bits or more). An output word has its
+stack effect only. Fuel bounds the nesting depth
 of calls and the repetitions of each loop: a callee runs with one unit
 less than its caller, which continues with its own fuel afterwards, and
 each repetition of a loop leaves one unit less for the repetitions after
@@ -429,6 +455,10 @@ def run (c : Cells) (p : Program) : Nat → List Instr → State → Result
             match run c p (fuel + 1) body ⟨d, r⟩ with
             | .next s' => run c p fuel (.loop test body :: rest) s'
             | other => other
+      | other => other
+  | fuel, .out o :: rest, s =>
+      match o.effect s with
+      | .next s' => run c p fuel rest s'
       | other => other
 termination_by fuel code => (fuel, sizeOf code)
 
@@ -515,6 +545,13 @@ theorem run_loop (fuel : Nat) (test body rest : List Instr) (s : State) :
             match run c p (fuel + 1) body ⟨d, r⟩ with
             | .next s' => run c p fuel (.loop test body :: rest) s'
             | other => other
+      | other => other := by
+  rw [run]
+
+theorem run_out (fuel : Nat) (o : Out) (rest : List Instr) (s : State) :
+    run c p fuel (.out o :: rest) s =
+      match o.effect s with
+      | .next s' => run c p fuel rest s'
       | other => other := by
   rw [run]
 
@@ -1212,8 +1249,6 @@ end ProgramIR
 
 namespace ProgramIR
 
-def irVersion : String := "0.1"
-
 /-- The Forth word a primitive models. -/
 def Prim.word : Prim → String
   | .dup => "dup" | .drop => "drop" | .swap => "swap" | .over => "over" | .nip => "nip"
@@ -1225,6 +1260,35 @@ def Prim.word : Prim → String
   | .zeroEq => "0=" | .zeroNe => "0<>" | .zeroLt => "0<" | .zeroGt => "0>"
   | .and => "and" | .or => "or" | .xor => "xor" | .invert => "invert" | .rshift => "rshift"
   | .max => "max" | .min => "min" | .true => "true" | .false => "false"
+  | .lshift => "lshift" | .negRot => "-rot"
+
+/-- An output word as an `out` line writes it; a text between `." ` and `"`. -/
+def Out.word : Out → String
+  | .dot => "." | .uDot => "u." | .cr => "cr" | .emit => "emit" | .space => "space"
+  | .spaces => "spaces" | .dotS => ".s" | .text s => ".\" " ++ s ++ "\""
+
+/-- Whether an instruction is new in IR 0.2 (ADR 0019 Amendment 1, A4): an
+`out` line, `prim lshift` or `prim -rot`, also inside IF and loops. -/
+def Prim.new : Prim → Bool
+  | .lshift | .negRot => Bool.true
+  | _ => Bool.false
+
+mutual
+def Instr.new : Instr → Bool
+  | .prim p => p.new
+  | .out _ => true
+  | .ifElse yes no => blockNew yes || blockNew no
+  | .loop test body => blockNew test || blockNew body
+  | _ => false
+
+def blockNew : List Instr → Bool
+  | [] => false
+  | i :: rest => i.new || blockNew rest
+end
+
+/-- The lowest version that fits: IR 0.2 only when an instruction needs it. -/
+def irVersion (p : Program) : String :=
+  if p.any (fun d => match d.2 with | .word b | .constant b => blockNew b) then "0.2" else "0.1"
 
 mutual
 def renderInstr (pad : String) : Instr → List String
@@ -1239,6 +1303,7 @@ def renderInstr (pad : String) : Instr → List String
   | .loop test body =>
       [pad ++ "begin"] ++ renderBlock (pad ++ "  ") test ++ [pad ++ "while"] ++
         renderBlock (pad ++ "  ") body ++ [pad ++ "repeat"]
+  | .out o => [pad ++ "out " ++ o.word]
 
 def renderBlock (pad : String) : List Instr → List String
   | [] => []
@@ -1250,7 +1315,7 @@ def renderDef : String × Def → List String
   | (name, .constant body) => ["constant " ++ name] ++ renderBlock "  " body ++ ["end"]
 
 def render (source : String) (p : Program) : String :=
-  String.intercalate "\n" (["lf-ir " ++ irVersion, "source " ++ source] ++
+  String.intercalate "\n" (["lf-ir " ++ irVersion p, "source " ++ source] ++
     p.flatMap renderDef) ++ "\n"
 
 /-- tests/program/ir/all-primitives.fs: every primitive once, in the order
@@ -1261,10 +1326,25 @@ def allPrimitivesProgram : Program :=
     .oneMinus, .eq, .ne, .lt, .gt, .zeroEq, .zeroNe, .zeroLt, .zeroGt, .and, .or, .xor,
     .invert, .rshift, .max, .min, .true, .false].map Instr.prim))]
 
+/-- tests/program/ir/ir-0.2.fs: every addition of IR 0.2 at least once (the
+two primitives, every output word, prefixed and 32-bit literals, and a
+second version of `show` calling the first). -/
+def ir02Program : Program := [
+  ("mask32", .constant [.lit 65536, .prim .dup, .prim .mul, .prim .oneMinus]),
+  ("rotl1", .word [.prim .dup, .lit 1, .prim .lshift, .prim .swap, .lit 31, .prim .rshift,
+    .prim .or, .call "mask32", .prim .and]),
+  ("shuffle", .word [.prim .negRot]),
+  ("literals", .word [.lit 10, .lit (-16), .lit 5, .lit 97, .lit 4294967295,
+    .lit (-2147483648)]),
+  ("show", .word [.prim .dup, .out .dot, .prim .dup, .out .uDot, .out .cr, .prim .dup,
+    .out .emit, .out .space, .lit 2, .out .spaces, .out .dotS, .out (.text "text")]),
+  ("show'1", .word [.out (.text "<"), .call "show", .out (.text "  >")])]
+
 def main : IO Unit := do
   IO.print (render "src/program/clamp.fs" clampProgram)
   IO.print (render "src/program/examples.fs" examplesProgram)
   IO.print (render "tests/program/ir/all-primitives.fs" allPrimitivesProgram)
+  IO.print (render "tests/program/ir/ir-0.2.fs" ir02Program)
 
 end ProgramIR
 
@@ -1920,6 +2000,707 @@ theorem constant_with_if_not_wellFormed :
 #print axioms constant_calling_word_not_wellFormed
 #print axioms constant_with_if_not_wellFormed
 
+theorem ir02_wellFormed : WellFormed ir02Program = true := by decide
+theorem constant_with_out_not_wellFormed :
+    WellFormed [("k", .constant [.lit 1, .out .dot, .lit 2])] = false := by decide
+/-- A program whose call reaches a later version: refuted. -/
+theorem later_version_not_wellFormed :
+    WellFormed [("f", .word []), ("g", .word [.call "f'1"]), ("f'1", .word [])] = false := by
+  decide
+
+#print axioms ir02_wellFormed
+#print axioms constant_with_out_not_wellFormed
+#print axioms later_version_not_wellFormed
+
 end ProgramIR
 
-def main : IO Unit := ProgramIR.main
+-- Part 7. IR 0.2's output words (ADR 0019 Amendment 1, A2). `runOut` runs a
+-- block as `run` does and also collects, in order, the events the output
+-- words print; `runOut_result` proves that its stacks and failures are
+-- `run`'s for every program, fuel, block and state, so a contract about the
+-- stacks, stated with `run`, holds whatever a word prints. Then the
+-- debugging pair `dup .`, the clamp with `dup .` added (the proof of
+-- `clamp_returns`, unchanged but for the simp set) and what it prints.
+
+namespace ProgramIR
+
+/-- What an output word prints. -/
+inductive Event where
+  | number (n : Int) | unsigned (u : Nat) | newline | char (x : Int)
+  | blanks (n : Nat) | text (s : String) | stack (d : List Int)
+  deriving Repr, DecidableEq
+
+/-- The events an output word gives in a state: `.` the top cell, `U.` its
+bit pattern, `SPACES` max(n, 0) blanks, `.S` the whole data stack; none
+when it underflows. -/
+def Out.events (c : Cells) : Out → State → List Event
+  | .dot, ⟨n :: _, _⟩ => [.number n]
+  | .uDot, ⟨u :: _, _⟩ => [.unsigned (c.unsigned u)]
+  | .cr, _ => [.newline]
+  | .emit, ⟨x :: _, _⟩ => [.char x]
+  | .space, _ => [.blanks 1]
+  | .spaces, ⟨n :: _, _⟩ => [.blanks n.toNat]
+  | .dotS, ⟨d, _⟩ => [.stack d]
+  | .text s, _ => [.text s]
+  | _, _ => []
+
+/-- `run`, also collecting what the output words print: a callee's events
+where it is called; a run that fails keeps the events before the failure,
+which the host printed. -/
+def runOut (c : Cells) (p : Program) : Nat → List Instr → State → Result × List Event
+  | _, [], s => (.next s, [])
+  | fuel, .prim op :: rest, s =>
+      match step c op s with
+      | .next s' => runOut c p fuel rest s'
+      | other => (other, [])
+  | fuel, .lit n :: rest, ⟨d, r⟩ =>
+      if c.min ≤ n ∧ n ≤ c.max then runOut c p fuel rest ⟨n :: d, r⟩
+      else (.failed .unmodeled, [])
+  | _, .exit :: _, s => (.exited s, [])
+  | _, .ifElse _ _ :: _, ⟨[], _⟩ => (.failed .underflow, [])
+  | fuel, .ifElse yes no :: rest, ⟨f :: d, r⟩ =>
+      let branch := if f ≠ 0 then runOut c p fuel yes ⟨d, r⟩ else runOut c p fuel no ⟨d, r⟩
+      match branch.1 with
+      | .next s' => let after := runOut c p fuel rest s'; (after.1, branch.2 ++ after.2)
+      | other => (other, branch.2)
+  | 0, .call _ :: _, _ => (.failed .outOfFuel, [])
+  | fuel + 1, .call name :: rest, ⟨d, r⟩ =>
+      match lookup p name with
+      | none => (.failed .unknownWord, [])
+      | some (.word body) =>
+          let inner := runOut c p fuel body ⟨d, []⟩
+          match inner.1 with
+          | .next ⟨d', []⟩ =>
+              let after := runOut c p (fuel + 1) rest ⟨d', r⟩; (after.1, inner.2 ++ after.2)
+          | .exited ⟨d', []⟩ =>
+              let after := runOut c p (fuel + 1) rest ⟨d', r⟩; (after.1, inner.2 ++ after.2)
+          | .failed e => (.failed e, inner.2)
+          | _ => (.failed .unbalanced, inner.2)
+      | some (.constant body) =>
+          let inner := runOut c p fuel body ⟨[], []⟩
+          match inner.1 with
+          | .next ⟨[v], []⟩ =>
+              let after := runOut c p (fuel + 1) rest ⟨v :: d, r⟩; (after.1, inner.2 ++ after.2)
+          | .failed e => (.failed e, inner.2)
+          | _ => (.failed .badConstant, inner.2)
+  | 0, .loop _ _ :: _, _ => (.failed .outOfFuel, [])
+  | fuel + 1, .loop test body :: rest, s =>
+      let tested := runOut c p (fuel + 1) test s
+      match tested.1 with
+      | .next ⟨[], _⟩ => (.failed .underflow, tested.2)
+      | .next ⟨f :: d, r⟩ =>
+          if f = 0 then
+            let after := runOut c p (fuel + 1) rest ⟨d, r⟩; (after.1, tested.2 ++ after.2)
+          else
+            let looped := runOut c p (fuel + 1) body ⟨d, r⟩
+            match looped.1 with
+            | .next s' =>
+                let after := runOut c p fuel (.loop test body :: rest) s'
+                (after.1, tested.2 ++ looped.2 ++ after.2)
+            | other => (other, tested.2 ++ looped.2)
+      | other => (other, tested.2)
+  | fuel, .out o :: rest, s =>
+      match o.effect s with
+      | .next s' => let after := runOut c p fuel rest s'; (after.1, o.events c s ++ after.2)
+      | other => (other, [])
+termination_by fuel code => (fuel, sizeOf code)
+
+/-- The stacks never depend on output: `runOut`'s result is `run`'s, for
+every program, fuel, block and state. -/
+theorem runOut_result (c : Cells) (p : Program) :
+    ∀ (fuel : Nat) (code : List Instr) (s : State),
+      (runOut c p fuel code s).1 = run c p fuel code s
+  | _, [], s => by rw [runOut, run]
+  | fuel, .prim op :: rest, s => by
+      rw [runOut, run]
+      split <;> simp_all [runOut_result c p fuel rest]
+  | fuel, .lit n :: rest, ⟨d, r⟩ => by
+      rw [runOut, run]
+      split <;> simp_all [runOut_result c p fuel rest]
+  | _, .exit :: _, s => by rw [runOut, run]
+  | _, .ifElse _ _ :: _, ⟨[], _⟩ => by rw [runOut, run]
+  | fuel, .ifElse yes no :: rest, ⟨f :: d, r⟩ => by
+      rw [runOut, run]
+      by_cases h : f = 0
+      · simp only [h, ne_eq, not_true_eq_false, ↓reduceIte, runOut_result c p fuel no]
+        split <;> simp_all [runOut_result c p fuel rest]
+      · simp only [h, ne_eq, not_false_eq_true, ↓reduceIte, runOut_result c p fuel yes]
+        split <;> simp_all [runOut_result c p fuel rest]
+  | 0, .call _ :: _, _ => by rw [runOut, run]
+  | fuel + 1, .call name :: rest, ⟨d, r⟩ => by
+      rw [runOut, run]
+      split
+      · rfl
+      · rename_i body _
+        simp only [runOut_result c p fuel body]
+        split <;> simp_all [runOut_result c p (fuel + 1) rest]
+      · rename_i body _
+        simp only [runOut_result c p fuel body]
+        split <;> simp_all [runOut_result c p (fuel + 1) rest]
+  | 0, .loop _ _ :: _, _ => by rw [runOut, run]
+  | fuel + 1, .loop test body :: rest, s => by
+      rw [runOut, run]
+      simp only [runOut_result c p (fuel + 1) test s]
+      split
+      · rfl
+      · rename_i f d r _
+        by_cases h : f = 0
+        · simp only [h, ↓reduceIte, runOut_result c p (fuel + 1) rest]
+        · simp only [h, ↓reduceIte, runOut_result c p (fuel + 1) body]
+          split <;> simp_all [runOut_result c p fuel (.loop test body :: rest)]
+      · rfl
+  | fuel, .out o :: rest, s => by
+      rw [runOut, run]
+      split <;> simp_all [runOut_result c p fuel rest]
+termination_by fuel code => (fuel, sizeOf code)
+
+theorem callWord_runOut (c : Cells) (p : Program) (fuel : Nat) (name : String) (s : State) :
+    (runOut c p fuel [.call name] s).1 = callWord c p fuel name s :=
+  runOut_result c p fuel _ s
+
+/-- The debugging pair `dup .` changes no stack. -/
+theorem debug_pair (c : Cells) (p : Program) (fuel : Nat) (x : Int) (d r : List Int)
+    (rest : List Instr) :
+    run c p fuel (.prim .dup :: .out .dot :: rest) ⟨x :: d, r⟩ = run c p fuel rest ⟨x :: d, r⟩ := by
+  rw [run_prim]
+  simp only [step.eq_1]
+  rw [run_out]
+  rfl
+
+/-- And it prints the top cell. -/
+theorem debug_pair_prints (c : Cells) (p : Program) (fuel : Nat) (x : Int) (d r : List Int)
+    (rest : List Instr) :
+    (runOut c p fuel (.prim .dup :: .out .dot :: rest) ⟨x :: d, r⟩).2 =
+      .number x :: (runOut c p fuel rest ⟨x :: d, r⟩).2 := by
+  rw [runOut]
+  simp only [step.eq_1]
+  rw [runOut]
+  rfl
+
+/-- `ir_simp` with IR 0.2's output words. -/
+macro "ir_simp_out" : tactic => `(tactic| simp only [run_prim, run_lit, run_exit, run_nil, run_if,
+  run_out, Out.effect,
+  Cells.fits_zero, Cells.fits_one, Cells.fits_neg_one,
+  flag_ne_zero, flag_beq_zero, flag_true, flag_false, and_flags, or_flags, beq_iff_eq,
+  bne_iff_ne, decide_eq_true_eq, ↓reduceIte,
+  step.eq_1, step.eq_2, step.eq_3, step.eq_4, step.eq_5, step.eq_6, step.eq_7, step.eq_8,
+  step.eq_9, step.eq_10, step.eq_11, step.eq_12, step.eq_13, step.eq_14, step.eq_15,
+  step.eq_16, step.eq_17, step.eq_18, step.eq_19, step.eq_20, step.eq_21, step.eq_22,
+  step.eq_23, step.eq_24, step.eq_25, step.eq_26, step.eq_27, step.eq_28, step.eq_29,
+  step.eq_30, step.eq_31, step.eq_32, step.eq_33, step.eq_34, step.eq_35, step.eq_36,
+  step.eq_37, step.eq_38, step.eq_39, step.eq_40])
+
+section Debug
+open Instr
+
+/-- `lf-clamp` with `dup .` after MAX (the amendment's probe 5): the clamp,
+printing max(value, lower) when lower ≤ upper. -/
+def clampDebugBody : List Instr :=
+  [prim .twoDup, prim .gt, ifElse [prim .twoDrop, prim .drop, prim .false, exit] [],
+   prim .toR, prim .max, prim .dup, out .dot, prim .fromR, prim .min, prim .true]
+
+def clampDebugProgram : Program := [("lf-clamp", .word clampDebugBody)]
+
+end Debug
+
+theorem lookup_clampDebug :
+    lookup clampDebugProgram "lf-clamp" = some (.word clampDebugBody) := rfl
+
+theorem clampDebug_returns (c : Cells) (fuel : Nat) (lower upper value : Int)
+    (tail : List Int) :
+    (run c clampDebugProgram fuel clampDebugBody ⟨upper :: lower :: value :: tail, []⟩).returned =
+      some ((if lower > upper then [0] else [-1, clamp lower upper value]) ++ tail) := by
+  simp only [clampDebugBody]
+  ir_simp_out
+  by_cases h : lower > upper
+  · simp only [h, ↓reduceIte]
+    simp [Result.returned]
+  · simp only [h, ↓reduceIte]
+    ir_simp_out
+    simp only [Result.returned, clamp, List.cons_append, List.nil_append, Option.some.injEq,
+      List.cons.injEq, true_and, and_true]
+    repeat' split
+    all_goals omega
+
+/-- The clamp with `dup .` meets `clamp_correct`'s statement unchanged. -/
+theorem clampDebug_correct (c : Cells) (fuel : Nat) (lower upper value : Int)
+    (tail rs : List Int) (enough : 1 ≤ fuel) :
+    callWord c clampDebugProgram fuel "lf-clamp" ⟨upper :: lower :: value :: tail, rs⟩ =
+      .next ⟨(if lower > upper then [0] else [-1, clamp lower upper value]) ++ tail, rs⟩ :=
+  callWord_of_returns lookup_clampDebug (clampDebug_returns c _ lower upper value tail) enough
+
+/-- What it prints: max(value, lower) when lower ≤ upper, nothing otherwise. -/
+theorem clampDebug_prints (c : Cells) (fuel : Nat) (lower upper value : Int)
+    (tail rs : List Int) :
+    (runOut c clampDebugProgram (fuel + 1) [.call "lf-clamp"]
+      ⟨upper :: lower :: value :: tail, rs⟩).2 =
+      if lower > upper then [] else [.number (if value < lower then lower else value)] := by
+  by_cases h : lower > upper <;>
+    simp [runOut, lookup_clampDebug, clampDebugBody, step, h, Out.effect, Out.events]
+
+/-- The bytes an event prints, as both Gforths print them (the amendment's
+probes 2 and 3, and tests/program/verify_ir02.py): a number in decimal and
+a blank; a newline as LF; EMIT's byte x mod 256; blanks; the text. `.S` has
+none here: Forth-2012 leaves its format to the system. The IR interpreter
+(src/program/ir-run.fs) prints these bytes, which the tests compare with
+both Gforths; nothing proves that a host prints them. -/
+def decimalBytes (n : Int) : List Nat := (toString n).toList.map Char.toNat
+
+def Event.render : Event → Option (List Nat)
+  | .number n => some (decimalBytes n ++ [32])
+  | .unsigned u => some (decimalBytes u ++ [32])
+  | .newline => some [10]
+  | .char x => some [(x % 256).toNat]
+  | .blanks n => some (List.replicate n 32)
+  | .text s => some (s.toList.map Char.toNat)
+  | .stack _ => none
+
+-- What probes 2 and 3 saw both Gforths print, on 64-bit cells.
+example : Event.render (.number (-5)) = some [45, 53, 32] := by decide
+example : (Out.events cells64 .uDot ⟨[-1], []⟩).map Event.render =
+    [some ("18446744073709551615 ".toList.map Char.toNat)] := by decide
+example : (Out.events cells64 .emit ⟨[321], []⟩).map Event.render = [some [65]] := by decide
+example : (Out.events cells64 .emit ⟨[-1], []⟩).map Event.render = [some [255]] := by decide
+example : (Out.events cells64 .spaces ⟨[-2], []⟩).map Event.render = [some []] := by decide
+
+/-- Planted fault, refuted: `.` modelled as taking no cell would leave the
+duplicate behind. -/
+theorem dot_takes_a_cell :
+    Out.effect .dot ⟨[1, 1], []⟩ ≠ Out.effect .cr ⟨[1, 1], []⟩ := by
+  simp [Out.effect]
+
+#print axioms runOut_result
+#print axioms debug_pair
+#print axioms debug_pair_prints
+#print axioms clampDebug_correct
+#print axioms clampDebug_prints
+
+end ProgramIR
+
+-- Part 8. Stage SHA-2 of the SHA-256 flagship (docs/project/PLAN_DRAFT.md;
+-- ADR 0019 Amendment 1, A3): the helper words of src/program/sha-words.fs
+-- in the IR, as the program words write them (tests/program/ir/sha-words.ir),
+-- proved equal to FIPS 180-4's functions, copied verbatim from
+-- tests/reference/sha256-spec.lean, for every cell width of at least 33
+-- bits, every 32-bit word (a cell holding its number x.toNat), every count
+-- below 32 and every stack below; and wrong variants refuted.
+
+namespace Sha256Spec
+-- BEGIN VERBATIM tests/reference/sha256-spec.lean 42-61
+abbrev Word := BitVec 32
+
+/-- Section 3.2: the right shift SHR^n(x) = x >> n, for 0 ≤ n < 32. -/
+def SHR (n : Nat) (x : Word) : Word := x >>> n
+
+/-- Section 3.2: the rotate right (circular right shift)
+ROTR^n(x) = (x >> n) ∨ (x << 32 - n), for 0 ≤ n < 32. -/
+def ROTR (n : Nat) (x : Word) : Word := (x >>> n) ||| (x <<< (32 - n))
+
+/-! ## Part 2. Functions and constants -/
+
+/-- Section 4.1.2, (4.2): Ch(x, y, z) = (x ∧ y) ⊕ (¬x ∧ z). -/
+def Ch (x y z : Word) : Word := (x &&& y) ^^^ (~~~x &&& z)
+
+/-- Section 4.1.2, (4.3): Maj(x, y, z) = (x ∧ y) ⊕ (x ∧ z) ⊕ (y ∧ z). -/
+def Maj (x y z : Word) : Word := (x &&& y) ^^^ (x &&& z) ^^^ (y &&& z)
+
+/-- Section 4.1.2, (4.4): Σ0(x) = ROTR^2(x) ⊕ ROTR^13(x) ⊕ ROTR^22(x).
+(Lean reserves the letter Σ, hence the spelled-out names.) -/
+def bigSigma0 (x : Word) : Word := ROTR 2 x ^^^ ROTR 13 x ^^^ ROTR 22 x
+-- END VERBATIM
+
+/-- ROTR's number: the two shifts or'ed, cut to 32 bits. -/
+theorem ROTR_toNat (n : Nat) (x : Word) :
+    (ROTR n x).toNat = (x.toNat >>> n ||| x.toNat <<< (32 - n)) % 2 ^ 32 := by
+  have small : x.toNat >>> n < 2 ^ 32 := by
+    have := (x >>> n).isLt
+    simpa using this
+  simp only [ROTR, BitVec.toNat_or, BitVec.toNat_ushiftRight, BitVec.toNat_shiftLeft]
+  rw [Nat.or_mod_two_pow, Nat.mod_eq_of_lt small]
+
+/-- The heart of 32-bit masking on a wide cell: on any width w ≥ 32, the
+right shift or'ed with the left shift cut to w bits, then and'ed with
+2^32 - 1, is ROTR. -/
+theorem rotr_masked (w n : Nat) (x : Word) (wide : 32 ≤ w) :
+    (x.toNat >>> n ||| (x.toNat <<< (32 - n)) % 2 ^ w) &&& (2 ^ 32 - 1) =
+      (ROTR n x).toNat := by
+  rw [ROTR_toNat, Nat.and_two_pow_sub_one_eq_mod, Nat.or_mod_two_pow, Nat.or_mod_two_pow,
+    Nat.mod_mod_of_dvd _ (Nat.pow_dvd_pow 2 wide)]
+end Sha256Spec
+
+namespace ProgramIR
+open Sha256Spec (Word ROTR Ch Maj bigSigma0 rotr_masked)
+
+namespace Cells
+variable (c : Cells)
+
+theorem pow_split : 2 ^ c.bits = 2 * 2 ^ (c.bits - 1) := by
+  have := c.two_le
+  have e : c.bits = (c.bits - 1) + 1 := by omega
+  conv => lhs; rw [e]
+  rw [Nat.pow_succ]
+  omega
+
+theorem modulus_eq : c.modulus = ((2 ^ c.bits : Nat) : Int) := by
+  have := c.pow_split
+  simp only [modulus, half]
+  omega
+
+/-- Cells of at least 33 bits hold every number below 2^32. -/
+theorem big_half (wide : 33 ≤ c.bits) : (4294967296 : Int) ≤ c.half := by
+  have h : 2 ^ 32 ≤ 2 ^ (c.bits - 1) := Nat.pow_le_pow_right (by decide) (by omega)
+  have e : (2 : Nat) ^ 32 = 4294967296 := by decide
+  simp only [half]
+  omega
+
+theorem fits_word (wide : 33 ≤ c.bits) {u : Int} (h0 : 0 ≤ u) (h1 : u < 4294967296) :
+    c.Fits u := by
+  have := c.big_half wide
+  simp only [Fits, min, max]
+  omega
+
+theorem signed_word (wide : 33 ≤ c.bits) {u : Nat} (h : u < 4294967296) :
+    c.signed u = u := by
+  have := c.big_half wide
+  have hmax : c.max = c.half - 1 := rfl
+  simp only [signed]
+  split <;> omega
+
+theorem unsigned_nat (u : Nat) : c.unsigned u = u := by
+  simp only [unsigned]
+  split <;> omega
+
+theorem unsigned_signed {u : Nat} (h : u < 2 ^ c.bits) : c.unsigned (c.signed u) = u := by
+  have hm := c.modulus_eq
+  have hmax : c.max = c.half - 1 := rfl
+  have := c.two_le_half
+  simp only [unsigned, signed]
+  split <;> split <;> omega
+
+theorem wrap_sub_one (a : Int) : c.wrap (c.wrap a - 1) = c.wrap (a - 1) := by
+  simp only [wrap]
+  have hq := Int.mul_ediv_add_emod (a - c.min) c.modulus
+  have e : (a - c.min) % c.modulus + c.min - 1 - c.min =
+      a - 1 - c.min + c.modulus * -((a - c.min) / c.modulus) := by
+    rw [Int.mul_neg]
+    omega
+  rw [e, Int.add_mul_emod_self_left]
+
+/-- `65536 DUP * 1-` is 2^32 - 1 on every cell of at least 33 bits: on 33
+bits 2^32 wraps to the smallest cell, and 1- wraps it back. -/
+theorem mask_value (wide : 33 ≤ c.bits) :
+    c.wrap (c.wrap (65536 * 65536) - 1) = 4294967295 := by
+  rw [c.wrap_sub_one, show (65536 * 65536 : Int) - 1 = 4294967295 by omega]
+  exact c.wrap_of_fits (c.fits_word wide (by omega) (by omega))
+
+end Cells
+
+section Sha
+open Instr
+
+/-- src/program/sha-words.fs, in source order. -/
+def shaMaskBody : List Instr := [lit 65536, prim .dup, prim .mul, prim .oneMinus]
+def shaW32Body : List Instr := [call "sha-mask", prim .and]
+def shaShrBody : List Instr := [prim .rshift]
+def shaRotrBody : List Instr :=
+  [prim .twoDup, prim .rshift, prim .negRot, lit 32, prim .swap, prim .sub, prim .lshift,
+   prim .or, call "sha-w32"]
+def shaChBody : List Instr := [prim .tuck, prim .xor, prim .rot, prim .and, prim .xor]
+def shaMajBody : List Instr :=
+  [prim .toR, prim .twoDup, prim .and, prim .negRot, prim .or, prim .fromR, prim .and,
+   prim .or]
+def shaBigSigma0Body : List Instr :=
+  [prim .dup, lit 2, call "sha-rotr", prim .over, lit 13, call "sha-rotr", prim .xor,
+   prim .swap, lit 22, call "sha-rotr", prim .xor]
+
+def shaProgram : Program := [
+  ("sha-mask", .constant shaMaskBody),
+  ("sha-w32", .word shaW32Body),
+  ("sha-shr", .word shaShrBody),
+  ("sha-rotr", .word shaRotrBody),
+  ("sha-ch", .word shaChBody),
+  ("sha-maj", .word shaMajBody),
+  ("sha-big-sigma0", .word shaBigSigma0Body)]
+
+end Sha
+
+theorem lookup_shaMask : lookup shaProgram "sha-mask" = some (.constant shaMaskBody) := rfl
+theorem lookup_shaW32 : lookup shaProgram "sha-w32" = some (.word shaW32Body) := rfl
+theorem lookup_shaRotr : lookup shaProgram "sha-rotr" = some (.word shaRotrBody) := rfl
+theorem lookup_shaCh : lookup shaProgram "sha-ch" = some (.word shaChBody) := rfl
+theorem lookup_shaMaj : lookup shaProgram "sha-maj" = some (.word shaMajBody) := rfl
+theorem lookup_shaBigSigma0 :
+    lookup shaProgram "sha-big-sigma0" = some (.word shaBigSigma0Body) := rfl
+
+theorem shaProgram_wellFormed : WellFormed shaProgram = true := by decide
+
+/-- Unfold known IR code, with the local facts (fits, counts) as rewrites. -/
+macro "sha_simp" : tactic => `(tactic| simp only [run_prim, run_lit, run_exit, run_nil,
+  ↓reduceIte, and_self, step.eq_1, step.eq_3, step.eq_4, step.eq_6, step.eq_7, step.eq_8,
+  step.eq_10, step.eq_11, step.eq_14, step.eq_21, step.eq_15, step.eq_30, step.eq_31,
+  step.eq_32, step.eq_34, step.eq_39, step.eq_40, *])
+
+theorem shaMask_value (c : Cells) (p : Program) (fuel : Nat) (wide : 33 ≤ c.bits) :
+    run c p fuel shaMaskBody ⟨[], []⟩ = .next ⟨[4294967295], []⟩ := by
+  have f : c.Fits 65536 := c.fits_word wide (by omega) (by omega)
+  simp only [shaMaskBody]
+  sha_simp
+  rw [c.mask_value wide]
+
+theorem shaW32_returns (c : Cells) (fuel : Nat) (wide : 33 ≤ c.bits) (pos : 0 < fuel)
+    (v : Int) (d : List Int) :
+    (run c shaProgram fuel shaW32Body ⟨v :: d, []⟩).returned =
+      some (bitwise c (· &&& ·) v 4294967295 :: d) := by
+  simp only [shaW32Body]
+  rw [run_call_constant c shaProgram lookup_shaMask (shaMask_value c _ _ wide) pos]
+  sha_simp
+  rfl
+
+/-- The arithmetic of `sha-rotr`: the right shift or'ed with the left shift
+cut to the cell, and'ed with 2^32 - 1, is ROTR on every cell of at least
+33 bits (the proof idea of the amendment's probe 7, for every width). -/
+theorem rotr_value (c : Cells) (wide : 33 ≤ c.bits) (x : Word) (n : Nat) (hn : n < 32) :
+    bitwise c (· &&& ·)
+      (bitwise c (· ||| ·) (c.signed (c.unsigned (x.toNat : Int) >>> (n : Int).toNat))
+        (c.signed ((c.unsigned (x.toNat : Int) <<< (32 - (n : Int)).toNat) % 2 ^ c.bits)))
+      4294967295 = ((ROTR n x).toNat : Int) := by
+  have hx := x.isLt
+  have e32 : (2 : Nat) ^ 32 = 4294967296 := by decide
+  have count : (32 - (n : Int)).toNat = 32 - n := by omega
+  have hw : 2 ^ 32 ≤ 2 ^ c.bits := Nat.pow_le_pow_right (by decide) (by omega)
+  have right : x.toNat >>> n < 4294967296 := by
+    rw [Nat.shiftRight_eq_div_pow]
+    exact Nat.lt_of_le_of_lt (Nat.div_le_self _ _) (by omega)
+  have left : (x.toNat <<< (32 - n)) % 2 ^ c.bits < 2 ^ c.bits :=
+    Nat.mod_lt _ (Nat.two_pow_pos _)
+  have both : x.toNat >>> n ||| (x.toNat <<< (32 - n)) % 2 ^ c.bits < 2 ^ c.bits :=
+    Nat.or_lt_two_pow (by omega) left
+  have result : (ROTR n x).toNat < 4294967296 := by
+    have := (ROTR n x).isLt
+    omega
+  have masked : (x.toNat >>> n ||| (x.toNat <<< (32 - n)) % 2 ^ c.bits) &&& 4294967295 =
+      (ROTR n x).toNat := by
+    have := rotr_masked c.bits n x (by omega)
+    rw [e32] at this
+    simpa using this
+  simp only [bitwise, c.unsigned_nat, count, Int.toNat_natCast, c.signed_word wide right,
+    c.unsigned_signed left, c.unsigned_signed both]
+  rw [show c.unsigned 4294967295 = 4294967295 from c.unsigned_nat 4294967295, masked,
+    c.signed_word wide result]
+
+theorem shaRotr_returns (c : Cells) (fuel : Nat) (wide : 33 ≤ c.bits) (enough : 2 ≤ fuel)
+    (x : Word) (k : Int) (n : Nat) (hk : k = n) (hn : n < 32) (d : List Int) :
+    (run c shaProgram fuel shaRotrBody ⟨k :: (x.toNat : Int) :: d, []⟩).returned =
+      some (((ROTR n x).toNat : Int) :: d) := by
+  subst hk
+  have f32 : c.Fits 32 := c.fits_word wide (by omega) (by omega)
+  have c0 : (0 : Int) ≤ n := by omega
+  have cb : (n : Int) < c.bits := by omega
+  have hw : c.wrap (32 - (n : Int)) = 32 - n :=
+    c.wrap_of_fits (c.fits_word wide (by omega) (by omega))
+  have g0 : (0 : Int) ≤ 32 - n := by omega
+  have g1 : 32 - (n : Int) < c.bits := by omega
+  simp only [shaRotrBody]
+  sha_simp
+  rw [run_call_word c shaProgram lookup_shaW32 (shaW32_returns c _ wide (by omega) _ _)
+    (by omega)]
+  simp only [run_nil, Result.returned, rotr_value c wide x n hn]
+
+/-- `sha-rotr` leaves FIPS 180-4's ROTR^n(x) for every 32-bit word x and
+count n below 32, on every cell of at least 33 bits, and keeps the cells
+below and the caller's return stack. -/
+theorem shaRotr_correct (c : Cells) (fuel : Nat) (wide : 33 ≤ c.bits) (enough : 3 ≤ fuel)
+    (x : Word) (n : Nat) (hn : n < 32) (d rs : List Int) :
+    callWord c shaProgram fuel "sha-rotr" ⟨(n : Int) :: (x.toNat : Int) :: d, rs⟩ =
+      .next ⟨((ROTR n x).toNat : Int) :: d, rs⟩ :=
+  callWord_of_returns lookup_shaRotr
+    (shaRotr_returns c _ wide (by omega) x n n rfl hn d) (by omega)
+
+/-- A wrong variant, refuted: `sha-rotr` without its mask leaves the left
+shift's bits above bit 31 in the cell (x = 2^31, n = 1, 64-bit cells). -/
+def unmaskedRotrProgram : Program :=
+  [("sha-rotr", .word [.prim .twoDup, .prim .rshift, .prim .negRot, .lit 32, .prim .swap,
+    .prim .sub, .prim .lshift, .prim .or])]
+
+/-- What it leaves for x = 2^31, n = 1: 2^62 + 2^30, not ROTR's 2^30. -/
+theorem unmasked_rotr_value :
+    callWord cells64 unmaskedRotrProgram 1 "sha-rotr" ⟨[1, 2147483648], []⟩ =
+      .next ⟨[4611686019501129728], []⟩ := by
+  have bits : cells64.bits = 64 := rfl
+  have low : cells64.min = -9223372036854775808 := by decide
+  have high : cells64.max = 9223372036854775807 := by decide
+  have size : cells64.modulus = 18446744073709551616 := by decide
+  have f : cells64.Fits 32 := by simp only [Cells.Fits, low, high]; decide
+  simp [callWord, run_call, unmaskedRotrProgram, lookup, run_prim, run_lit _ _ _ _ _ _ _ f,
+    step, bitwise, Cells.wrap, Cells.unsigned, Cells.signed, bits, low, high, size]
+
+theorem unmasked_rotr_refuted :
+    ¬ ∀ (x : Word) (n : Nat), n < 32 →
+      callWord cells64 unmaskedRotrProgram 1 "sha-rotr" ⟨[(n : Int), (x.toNat : Int)], []⟩ =
+        .next ⟨[((ROTR n x).toNat : Int)], []⟩ := by
+  intro claim
+  have bad := claim 2147483648 1 (by decide)
+  have word : ((2147483648 : Word).toNat : Int) = 2147483648 := by decide
+  have rotated : ((ROTR 1 (2147483648 : Word)).toNat : Int) = 1073741824 := by decide
+  rw [word, rotated, show ((1 : Nat) : Int) = 1 from rfl, unmasked_rotr_value] at bad
+  simp at bad
+
+/-- A bitwise primitive on two words, whose result is a word, gives that
+word: no sign appears on cells of at least 33 bits. -/
+theorem bitwise_words (c : Cells) (wide : 33 ≤ c.bits) (op : Nat → Nat → Nat) (a b : Nat)
+    (hop : op a b < 4294967296) : bitwise c op (a : Int) (b : Int) = ((op a b : Nat) : Int) := by
+  simp only [bitwise, c.unsigned_nat, c.signed_word wide hop]
+
+theorem word_lt (x : Word) : x.toNat < 4294967296 := x.isLt
+
+/-- Ch as `sha-ch` computes it: z xor (x and (y xor z)), on each bit. -/
+theorem Ch_toNat (x y z : Word) :
+    (Ch x y z).toNat = z.toNat ^^^ ((y.toNat ^^^ z.toNat) &&& x.toNat) := by
+  have e : Ch x y z = z ^^^ ((y ^^^ z) &&& x) := by
+    apply BitVec.eq_of_getLsbD_eq
+    intro i hi
+    simp only [Ch, BitVec.getLsbD_xor, BitVec.getLsbD_and, BitVec.getLsbD_not, hi,
+      decide_true, Bool.true_and]
+    cases x.getLsbD i <;> cases y.getLsbD i <;> cases z.getLsbD i <;> rfl
+  rw [e, BitVec.toNat_xor, BitVec.toNat_and, BitVec.toNat_xor]
+
+/-- Maj as `sha-maj` computes it: (x and y) or ((x or y) and z), on each bit. -/
+theorem Maj_toNat (x y z : Word) :
+    (Maj x y z).toNat = (x.toNat &&& y.toNat) ||| ((x.toNat ||| y.toNat) &&& z.toNat) := by
+  have e : Maj x y z = (x &&& y) ||| ((x ||| y) &&& z) := by
+    apply BitVec.eq_of_getLsbD_eq
+    intro i hi
+    simp only [Maj, BitVec.getLsbD_xor, BitVec.getLsbD_and, BitVec.getLsbD_or]
+    cases x.getLsbD i <;> cases y.getLsbD i <;> cases z.getLsbD i <;> rfl
+  rw [e, BitVec.toNat_or, BitVec.toNat_and, BitVec.toNat_and, BitVec.toNat_or]
+
+theorem shaCh_returns (c : Cells) (fuel : Nat) (wide : 33 ≤ c.bits) (x y z : Word)
+    (d : List Int) :
+    (run c shaProgram fuel shaChBody
+      ⟨(z.toNat : Int) :: (y.toNat : Int) :: (x.toNat : Int) :: d, []⟩).returned =
+      some (((Ch x y z).toNat : Int) :: d) := by
+  have e32 : (2 : Nat) ^ 32 = 4294967296 := by decide
+  have hx := word_lt x
+  have hy := word_lt y
+  have hz := word_lt z
+  have yz : y.toNat ^^^ z.toNat < 4294967296 := by
+    rw [← e32]; exact Nat.xor_lt_two_pow (by omega) (by omega)
+  have yzx : (y.toNat ^^^ z.toNat) &&& x.toNat < 4294967296 := by
+    rw [← e32]; exact Nat.and_lt_two_pow _ (by omega)
+  have all : z.toNat ^^^ ((y.toNat ^^^ z.toNat) &&& x.toNat) < 4294967296 := by
+    rw [← e32]; exact Nat.xor_lt_two_pow (by omega) (by omega)
+  simp only [shaChBody, run_prim, run_nil, step.eq_6, step.eq_7, step.eq_30, step.eq_32]
+  rw [bitwise_words c wide (· ^^^ ·) _ _ yz, bitwise_words c wide (· &&& ·) _ _ yzx,
+    bitwise_words c wide (· ^^^ ·) _ _ all, Ch_toNat]
+  rfl
+
+theorem shaMaj_returns (c : Cells) (fuel : Nat) (wide : 33 ≤ c.bits) (x y z : Word)
+    (d : List Int) :
+    (run c shaProgram fuel shaMajBody
+      ⟨(z.toNat : Int) :: (y.toNat : Int) :: (x.toNat : Int) :: d, []⟩).returned =
+      some (((Maj x y z).toNat : Int) :: d) := by
+  have e32 : (2 : Nat) ^ 32 = 4294967296 := by decide
+  have hx := word_lt x
+  have hy := word_lt y
+  have hz := word_lt z
+  have xy : x.toNat &&& y.toNat < 4294967296 := by
+    rw [← e32]; exact Nat.and_lt_two_pow _ (by omega)
+  have xoy : x.toNat ||| y.toNat < 4294967296 := by
+    rw [← e32]; exact Nat.or_lt_two_pow (by omega) (by omega)
+  have xoyz : (x.toNat ||| y.toNat) &&& z.toNat < 4294967296 := by
+    rw [← e32]; exact Nat.and_lt_two_pow _ (by omega)
+  have all : (x.toNat &&& y.toNat) ||| ((x.toNat ||| y.toNat) &&& z.toNat) < 4294967296 := by
+    rw [← e32]; exact Nat.or_lt_two_pow (by omega) (by omega)
+  simp only [shaMajBody, run_prim, run_nil, step.eq_8, step.eq_10, step.eq_11, step.eq_30,
+    step.eq_31, step.eq_40]
+  rw [bitwise_words c wide (· &&& ·) _ _ xy, bitwise_words c wide (· ||| ·) _ _ xoy,
+    bitwise_words c wide (· &&& ·) _ _ xoyz, bitwise_words c wide (· ||| ·) _ _ all, Maj_toNat]
+  rfl
+
+theorem shaBigSigma0_returns (c : Cells) (fuel : Nat) (wide : 33 ≤ c.bits) (enough : 3 ≤ fuel)
+    (x : Word) (d : List Int) :
+    (run c shaProgram fuel shaBigSigma0Body ⟨(x.toNat : Int) :: d, []⟩).returned =
+      some (((bigSigma0 x).toNat : Int) :: d) := by
+  have e32 : (2 : Nat) ^ 32 = 4294967296 := by decide
+  have f2 : c.Fits 2 := c.fits_word wide (by omega) (by omega)
+  have f13 : c.Fits 13 := c.fits_word wide (by omega) (by omega)
+  have f22 : c.Fits 22 := c.fits_word wide (by omega) (by omega)
+  have r2 := word_lt (ROTR 2 x)
+  have r13 := word_lt (ROTR 13 x)
+  have r22 := word_lt (ROTR 22 x)
+  have two : (ROTR 2 x).toNat ^^^ (ROTR 13 x).toNat < 4294967296 := by
+    rw [← e32]; exact Nat.xor_lt_two_pow (by omega) (by omega)
+  have all : (ROTR 2 x).toNat ^^^ (ROTR 13 x).toNat ^^^ (ROTR 22 x).toNat < 4294967296 := by
+    rw [← e32]; exact Nat.xor_lt_two_pow (by omega) (by omega)
+  simp only [shaBigSigma0Body, run_prim, run_lit _ _ _ _ _ _ _ f2, step.eq_1]
+  rw [run_call_word c shaProgram lookup_shaRotr
+    (shaRotr_returns c (fuel - 1) wide (by omega) x 2 2 rfl (by decide) _) (by omega)]
+  simp only [run_prim, run_lit _ _ _ _ _ _ _ f13, step.eq_4]
+  rw [run_call_word c shaProgram lookup_shaRotr
+    (shaRotr_returns c (fuel - 1) wide (by omega) x 13 13 rfl (by decide) _) (by omega)]
+  simp only [run_prim, run_lit _ _ _ _ _ _ _ f22, step.eq_3, step.eq_32]
+  rw [run_call_word c shaProgram lookup_shaRotr
+    (shaRotr_returns c (fuel - 1) wide (by omega) x 22 22 rfl (by decide) _) (by omega)]
+  simp only [run_prim, run_nil, step.eq_32]
+  rw [bitwise_words c wide (· ^^^ ·) _ _ two, bitwise_words c wide (· ^^^ ·) _ _ all]
+  simp only [Result.returned, bigSigma0, BitVec.toNat_xor]
+
+/-- `sha-ch` leaves FIPS 180-4's Ch(x, y, z) for all 32-bit words. -/
+theorem shaCh_correct (c : Cells) (fuel : Nat) (wide : 33 ≤ c.bits) (enough : 1 ≤ fuel)
+    (x y z : Word) (d rs : List Int) :
+    callWord c shaProgram fuel "sha-ch"
+      ⟨(z.toNat : Int) :: (y.toNat : Int) :: (x.toNat : Int) :: d, rs⟩ =
+      .next ⟨((Ch x y z).toNat : Int) :: d, rs⟩ :=
+  callWord_of_returns lookup_shaCh (shaCh_returns c _ wide x y z d) enough
+
+/-- `sha-maj` leaves FIPS 180-4's Maj(x, y, z) for all 32-bit words. -/
+theorem shaMaj_correct (c : Cells) (fuel : Nat) (wide : 33 ≤ c.bits) (enough : 1 ≤ fuel)
+    (x y z : Word) (d rs : List Int) :
+    callWord c shaProgram fuel "sha-maj"
+      ⟨(z.toNat : Int) :: (y.toNat : Int) :: (x.toNat : Int) :: d, rs⟩ =
+      .next ⟨((Maj x y z).toNat : Int) :: d, rs⟩ :=
+  callWord_of_returns lookup_shaMaj (shaMaj_returns c _ wide x y z d) enough
+
+/-- `sha-big-sigma0` leaves FIPS 180-4's Σ0(x) for every 32-bit word. -/
+theorem shaBigSigma0_correct (c : Cells) (fuel : Nat) (wide : 33 ≤ c.bits) (enough : 4 ≤ fuel)
+    (x : Word) (d rs : List Int) :
+    callWord c shaProgram fuel "sha-big-sigma0" ⟨(x.toNat : Int) :: d, rs⟩ =
+      .next ⟨((bigSigma0 x).toNat : Int) :: d, rs⟩ :=
+  callWord_of_returns lookup_shaBigSigma0
+    (shaBigSigma0_returns c _ wide (by omega) x d) (by omega)
+
+/-- A wrong variant, refuted: Ch without its complement, x and (y xor z),
+which is (x and y) xor (x and z); for x = 0, y = 0, z = 1 it leaves 0, not
+Ch's 1 (64-bit cells). -/
+def complementlessChProgram : Program :=
+  [("sha-ch", .word [.prim .tuck, .prim .xor, .prim .rot, .prim .and])]
+
+theorem complementless_ch_refuted :
+    ¬ ∀ x y z : Word,
+      callWord cells64 complementlessChProgram 1 "sha-ch"
+        ⟨[(z.toNat : Int), (y.toNat : Int), (x.toNat : Int)], []⟩ =
+        .next ⟨[((Ch x y z).toNat : Int)], []⟩ := by
+  intro claim
+  have bad := claim 0 0 1
+  have one : ((1 : Word).toNat : Int) = 1 := by decide
+  have zero : ((0 : Word).toNat : Int) = 0 := by decide
+  have ch : ((Ch 0 0 1).toNat : Int) = 1 := by decide
+  rw [one, zero, ch] at bad
+  revert bad
+  simp [callWord, run_call, complementlessChProgram, lookup, run_prim, step, bitwise,
+    Cells.unsigned, Cells.signed]
+
+#print axioms rotr_value
+#print axioms shaRotr_correct
+#print axioms unmasked_rotr_refuted
+#print axioms shaCh_correct
+#print axioms shaMaj_correct
+#print axioms shaBigSigma0_correct
+#print axioms complementless_ch_refuted
+#print axioms shaProgram_wellFormed
+
+end ProgramIR
+
+def main : IO Unit := do
+  ProgramIR.main
+  IO.print (ProgramIR.render "src/program/sha-words.fs" ProgramIR.shaProgram)

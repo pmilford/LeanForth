@@ -4,7 +4,8 @@ Status: **implementation approved [parser]** by the owner on 2026-11-04
 ([decisions](../project/OWNER_DECISIONS.md#program-words-and-run-records-approved-2026-11-04);
 next: IR 0.2 with redefinition by early binding and output words, as the
 owner asked, designed in [Amendment 1](#amendment-1-proposed-ir-02-redefinition-output-words-and-sha-2),
-*proposed* the same day and not implemented). **Accepted in direction** by the owner on 2026-11-03
+approved in design the same day and **implemented** the same day, before
+its [parser] implementation gate). **Accepted in direction** by the owner on 2026-11-03
 ([answers below](#the-owners-answers-2026-11-03)): option 2, IR first,
 today's reader kept as a cross-check and then retired, names that read as
 numbers refused. The question of [§9](#9-mode-shift-or-a-separate-vocabulary)
@@ -1049,8 +1050,9 @@ from the same folder.
 
 ## Amendment 1 (proposed): IR 0.2, redefinition, output words and SHA-2
 
-**Status: approved in design by the owner on 2026-11-04 [parser]; not yet
-implemented.** Answers: own words may be redefined, Forth's way (A1);
+**Status: approved in design by the owner on 2026-11-04 [parser];
+implemented the same day, before its [parser] implementation gate (below).**
+Answers: own words may be redefined, Forth's way (A1);
 standard words stay refused for now; output words allowed as effects (A2);
 `LSHIFT`, `-rot`, number prefixes and 32-bit literals approved (A3), with
 the owner's condition "the non-standard words should have portability
@@ -1075,6 +1077,45 @@ needs it. It changes no typing or conversion rule of the checker.
 Evidence: [probes](../development/measurements/ir-0.2-probes-2026-11-04/README.md)
 run on Gforth 1.0.0 and 0.7.3 (their standard output identical but for
 three number forms outside Forth-2012), and two Lean checks.
+
+**Implemented 2026-11-04, before its [parser] implementation gate**, in
+both designs, as A1-A4 say; the [program IR](../programming/PROGRAM_IR.md#ir-02)
+describes it and its evidence (A5), and Lean's Parts 7 and 8 of
+`tests/reference/program-ir.lean` prove `runOut_result`, the debugging pair,
+the clamp with `dup .`, and the SHA-2 stage's first words: `sha-rotr`,
+`sha-ch`, `sha-maj` and `sha-big-sigma0` (`src/program/sha-words.fs`) equal
+to FIPS 180-4's ROTR, Ch, Maj and Σ0 for all 32-bit inputs on every cell of
+at least 33 bits. Where the implementation settles what this amendment
+left open or departs from it:
+
+- **The version line comes last.** Since it depends on every line, the
+  program words keep the IR in a heap buffer during the run and send it,
+  version line first, to the output word when the run ends (after the
+  caller's settings are back, while the run is still under way); a run
+  whose IR the heap cannot hold stops as *full*. An output word that fails
+  still fails the run as invalid ("output word failed").
+- **A new reason 32**, "text not closed on its line", for `."` and `S"`
+  without their closing quote on the line (A2 names no reason; reason 8's
+  "comment not closed" would mislead); a tab in such a text is refused as
+  reason 16, since IR text holds none.
+- **`TYPE` after `S"`** is read by `S"`, as `:` reads its name, and checked
+  by the design: the mode shift by identity (a `TYPE` redefined before the
+  run is refused there, reason 29), the separate vocabulary by name, as it
+  knows all its words.
+- **Literals are doubles** while they are read, so a value up to 2^32 − 1 is
+  written exactly on 32-bit hosts too.
+- **`-rot` and `.S`** have verification semantics, so they must be words of
+  the verifying Forth; `src/lib/portability.fs`, which the program words
+  load, defines `-rot` as `rot rot` on a Forth without it, and run mode
+  needs it loaded first there.
+- **The IR interpreter** (`src/program/ir-run.fs`) reads IR 0.2, refuses an
+  IR 0.2 instruction under IR 0.1's version line, and prints what out lines
+  print to a sink, `.S` as both Gforths print it; `Event.render` in Lean
+  gives the other events' bytes.
+- **Receipts:** the generator refuses an IR 0.2 program, and
+  [PROGRAM_RECEIPTS.md](../programming/PROGRAM_RECEIPTS.md#schema-03-what-ir-02-receipts-need)
+  states what schema 0.3 needs; `src/lib/sha256.fs` is unchanged (it does
+  not load `src/program/sha-words.fs` yet).
 
 ### In plain words
 
