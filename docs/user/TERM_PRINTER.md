@@ -283,14 +283,16 @@ entry per term (64 today) and 32 declarations.
   `fun P h.1 … h.n ↦ h.1` and the application chain
   `fun P h ↦ (fun x ↦ x) ((fun x ↦ x) (… h))`, of the application chain in
   the Forth mode, and of a level alternating `max` and `imax`: each uses
-  the same cells at depths 31, 2,000 and 10,000 (18, 14, 9 and 13
-  return-stack cells below the caller's), as does the statement
-  `∀ (P : Prop), P → … → P` at 31 and 2,000 (16). On the development
-  machine (Gforth 1.0) the 10,000-deep lambda chain prints in about 1.5 s
-  (a new name is compared with every name in scope, as Lean's
-  `getUnusedName` does: n² comparisons), the application chain in about
-  70 ms; the 2,000-deep statement takes about 1.4 s and 8 million units of
-  fuel.
+  the same cells at depths 31, 2,000 and 10,000, but for the lambda
+  chain's three more where its arrays grow (painted on Gforth 1.0, below
+  the caller's: 16 or 19, 14, 9 and 13 return-stack cells and at most 2
+  data-stack cells; on 0.7.3 one cell fewer for the last two), as does the
+  statement `∀ (P : Prop), P → … → P` at 31 and 2,000 (16). On the
+  development machine the 10,000-deep lambda chain prints in about 1.3 s
+  on Gforth 1.0 and 2.0 s on 0.7.3 (each new name is compared with every
+  name in scope, as Lean's `getUnusedName` does: n² comparisons), the
+  application chain in 73 and 248 ms; the 2,000-deep statement takes about
+  1.5 and 3.1 s and 8 million units of fuel.
 
 ## Evidence
 

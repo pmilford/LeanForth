@@ -78,7 +78,8 @@ fresh
 \ Shallow, 31 deep: the cells to compare with.
 : app-start ( -- c-addr u ) s" fun P h ↦ (fun x ↦ x) ((fun x ↦ x) (" ;
 T{ 31 lam-chain ' print-it painted 2constant lam-31 result @ -> outcome-ok }T
-T{ out-len @ s" fun P h.1 h.2 h.3" starts? s" h.31 ↦ h.1" ends? -> 31 lam-size true true }T
+T{ out-len @ s" fun P h.1 h.2 h.3" starts? s" h.31 ↦ h.1" ends?
+  -> 31 lam-size true true }T
 T{ 31 app-chain ' print-it painted 2constant app-31 result @ -> outcome-ok }T
 T{ out-len @ app-start starts? s" x) h" 30 then-closing ends? -> 31 app-size true true }T
 T{ 31 level-chain ' level-it painted 2constant level-31 result @ -> outcome-ok }T
@@ -90,7 +91,8 @@ T{ out-len @ s" max u (imax u (max u (" starts? s" max u u" 30 then-closing ends
 \ prints.
 fresh
 T{ 2000 app-chain the-term ! 0 counting 1 heap-refusals !
-  the-term @ deep-fuel lf-print-term heap-refusals @ lf-pp-busy? -> outcome-full 0 false }T
+  the-term @ deep-fuel lf-print-term heap-refusals @ lf-pp-busy?
+  -> outcome-full 0 false }T
 T{ 0 counting the-term @ deep-fuel lf-print-term out-len @ -> outcome-ok 2000 app-size }T
 
 \ 2,000 and 10,000 deep, in the cells of 31: whether they are, the outcome,
