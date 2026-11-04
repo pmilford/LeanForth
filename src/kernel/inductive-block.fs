@@ -44,7 +44,6 @@ require ../core/terms.fs
 require ../core/unsupported-forms.fs
 
 512 constant lf-ind-ctor-capacity      \ constructors one block may have
-lf-depth-limit constant lf-ind-binder-capacity   \ parameters plus indices
 
 begin-structure /lf-ind
   field: lf-ind-first        \ input index of the block's first member
@@ -62,12 +61,14 @@ begin-structure /lf-ind
   field: lf-ind-k            \ computed: K-like reduction target (flag)
   field: lf-ind-rec-type     \ generated: the recursor's type
   field: lf-ind-count        \ occurrences counted by a walk
-  lf-ind-binder-capacity cells +field lf-ind-domain-cells \ parameters, then indices
   lf-ind-ctor-capacity cells +field lf-ind-field-cells    \ per constructor: fields
   lf-ind-ctor-capacity cells +field lf-ind-minor-cells    \ per constructor: minor
   lf-ind-ctor-capacity cells +field lf-ind-rule-cells     \ per constructor: rule
 end-structure
 /lf-ind context-record: lf-ind-state
+\ The type's binder domains, parameters then indices: as many as its
+\ telescope has (plan task 6.2.0); one the heap cannot hold is full.
+1 cells context-slab: lf-ind-domains
 lf-depth-limit context-walk: lf-ind-walker
 lf-depth-limit context-walk2: lf-ind-pair-walker
 
@@ -90,7 +91,7 @@ lf-depth-limit context-walk2: lf-ind-pair-walker
 : lf-ind-lparams ( -- params n ) lf-ind-type lf-idecl-params@ ;
 : lf-ind-lparam ( i -- name ) cells lf-ind-lparams drop + @ ;
 : lf-ind-ctor-type ( j -- root ) lf-ind-ctor lf-idecl-type @ ;
-: lf-ind-domain ( i -- addr ) cells lf-ind-state lf-ind-domain-cells + ;
+: lf-ind-domain ( i -- addr ) cells lf-ind-domains slab-base + ;
 : lf-ind-nfields ( j -- addr ) cells lf-ind-state lf-ind-field-cells + ;
 : lf-ind-minor-type ( j -- addr ) cells lf-ind-state lf-ind-minor-cells + ;
 : lf-ind-rule ( j -- addr ) cells lf-ind-state lf-ind-rule-cells + ;

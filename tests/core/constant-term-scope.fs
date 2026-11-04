@@ -84,7 +84,10 @@ T{ 4 lambda-id @ 0 100 lf-constant-term-scope -> outcome-invalid }T
 saved-sort-stamp @ 1 lf-hsort-level-stamp !
 T{ lf-term-count @ lf-level-count @ -> 11 1 }T
 T{ 4 lambda-id @ -1 100 lf-constant-term-scope -> outcome-invalid }T
-T{ 4 lambda-id @ lf-depth-limit 1+ 100 lf-constant-term-scope -> outcome-invalid }T
+\ Any nonnegative outer depth is taken (plan task 6.2.0); at max-n the
+\ lambda's binder cannot be entered: full.
+T{ 4 lambda-id @ lf-depth-limit 1+ 100 lf-constant-term-scope -> outcome-ok }T
+T{ 4 lambda-id @ max-n 100 lf-constant-term-scope -> outcome-full }T
 T{ 4 lambda-id @ 0 0 lf-constant-term-scope -> outcome-exhausted }T
 T{ 4 lambda-id @ 0 100 ' lf-constant-term-scope rs-checked -> outcome-ok }T
 T{ 4 lambda-id @ 1+ 0 100 lf-constant-term-scope -> outcome-invalid }T

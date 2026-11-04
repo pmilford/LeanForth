@@ -96,13 +96,16 @@ arguments, and where their level references start in the argument pool,
 `lf-log-arg-ref`), however many arguments it has.
 
 The copier walks a node post-order with two stacks of its own (tasks and
-values, 512 cells each), so it never recurses and does not depend on the
-term and level stores' capacities, which are per-context settings of the
-heap stores (ADR 0016). One copy may run 4,096 tasks.
+values) as deep as one copy's work (plan task 6.2.0): a copy that would
+need more stack could not finish within its work anyway. So it never
+recurses, a formula's depth is no limit of its own, and it
+does not depend on the term and level stores' capacities, which are
+per-context settings of the heap stores (ADR 0016). One copy may run 4,096
+tasks.
 
 **Truncation.** The first bound reached wins: no room for a record, for an
 open rule, in the term, level or reference pools, a formula that needs
-more stack or work than one copy may use (`lf-bound-work`), a node the
+more work than one copy may use (`lf-bound-work`), a node the
 copier cannot read (not live, or not the node the rule opened with; a
 child index below 0 counts as one), a check that ended with rules still
 open (`lf-bound-interrupted`: a THROW in the check, ADR 0013 L6's
@@ -118,7 +121,7 @@ open rules, the term, level and reference copies, the copier's memos and
 stacks — are one heap block of 223,264 bytes, allocated when a log starts
 in a context that has none and freed when a check begins with the log off
 (`lf-log-stop`) and by the context's teardown. So a context with the log
-off pays 224 bytes, and one with the log on about 218 KiB more, once. The
+off pays 224 bytes, and one with the log on about 410 KiB more, once. The
 printers' state is heap-held only while an outline prints (39,480 bytes
 for `log-view.fs`, 25,144 for `proof-outline.fs`; a THROW while printing
 leaves them held until the next outline, which zeroes and reuses them, or
@@ -128,15 +131,16 @@ two pointer cells) and 528 for `print.fs`'s line table; the context as a
 whole is larger and grows with other modules. At the first review the
 log's share was 288,088 bytes. The ADR's estimate approved in D3 ("about
 150 KB per worker while it is on") is low: the measured cost while on is
-218 KiB.
+410 KiB (419,872 bytes) since the copier's stacks are as deep as one
+copy's work (plan task 6.2.0; 218 KiB before).
 
 **Heap with the log on and off.** Since the pools exist only while the
-log is on, a run with the log on uses about 218 KiB more heap per context
+log is on, a run with the log on uses about 410 KiB more heap per context
 than one with it off. On a host where that much memory decides whether a
 heap store can grow, a check could end *full* with the log on and *ok*
 with it off; nowhere else can the two differ. (Allocating the pools for
 every context, log on or off, would remove the difference and cost every
-context the 218 KiB again.)
+context the 410 KiB again.)
 
 **Header.** Besides the counts and limits, the header keeps the input's
 fingerprint when the log started (`lf-log-input`), and the slot and

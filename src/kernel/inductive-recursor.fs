@@ -45,9 +45,10 @@ begin-structure /lf-rcr
   field: lf-rcr-status       \ the first failure of the build; ok while none
   field: lf-rcr-motive       \ the motive's type
   field: lf-rcr-scratch-count  \ binder domains in the scratch
-  lf-ind-binder-capacity cells +field lf-rcr-scratch-cells   \ domains about to be bound
 end-structure
 /lf-rcr context-record: lf-rcr-state
+\ The scratch: domains about to be bound, as many as a telescope has.
+1 cells context-slab: lf-rcr-scratch-cells
 \ The type's levels, as many as it has universe parameters (no fixed limit).
 2 cells context-slab: lf-rcr-pair-cells
 
@@ -129,10 +130,10 @@ end-structure
   lf-rcr-n 1- lf-rcr-n lf-rcr-apply-vars ;
 \ Binding a telescope: the scratch holds the domains, outermost first;
 \ wrapping binds them around body, innermost first, with tag.
-: lf-rcr-scratch ( k -- addr ) cells lf-rcr-state lf-rcr-scratch-cells + ;
+: lf-rcr-scratch ( k -- addr ) cells lf-rcr-scratch-cells slab-base + ;
 : lf-rcr-scratch# ( -- n ) lf-rcr-state lf-rcr-scratch-count @ ;
 : lf-rcr-room ( n -- flag )
-  dup lf-ind-binder-capacity > if drop outcome-full lf-rcr-failing drop false exit then
+  dup lf-rcr-scratch-cells slab-hold ok? 0= if drop outcome-full lf-rcr-failing drop false exit then
   lf-rcr-state lf-rcr-scratch-count ! true ;
 : lf-rcr-wrap ( body tag domain -- node tag ) swap >r swap r@ lf-rcr-bind r> ;
 : lf-rcr-over-scratch ( body tag -- node tag )

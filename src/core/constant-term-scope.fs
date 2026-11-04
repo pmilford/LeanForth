@@ -54,11 +54,11 @@ lf-depth-limit context-walk2: lf-cts-walker
   >r over >r lf-cts-audit r> r> rot dup ok? if drop lf-cts-run else nip nip then ;
 
 \ Check a live root whose outer depth (binders available around it) is
-\ between 0 and the term capacity; the walk may enter further binders. Each
-\ visit costs one unit of fuel, including repeated DAG visits. Negative
-\ fuel or an out-of-range depth is invalid. Unknown names and declaration
+\ nonnegative (no fixed limit: plan task 6.2.0); the walk may enter
+\ further binders. Each visit costs one unit of fuel, including repeated
+\ DAG visits. Negative fuel or a negative depth is invalid. Unknown names and declaration
 \ types are not examined; nothing is allocated and nothing is accepted.
-: lf-cts-depth? ( depth -- flag ) lf-depth-limit upto? ;
+: lf-cts-depth? ( depth -- flag ) 0< 0= ;
 : lf-constant-term-scope ( index identity depth fuel -- status )
   lf-cts-walker walk-budget 0= if 2drop drop outcome-invalid exit then
   dup lf-cts-depth? if lf-cts-scope else drop 2drop outcome-invalid then ;

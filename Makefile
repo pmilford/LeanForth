@@ -82,6 +82,7 @@ DIFFERENTIAL_TARGETS := \
 	test-universe-scope-large-differential test-first-checker-fed-differential \
 	test-binder-domains-fed-differential test-universe-scope-fed-differential \
 	test-universe-many-differential test-universe-many-fed-differential \
+	test-depth-differential test-depth-fed-differential \
 	test-program-differential test-program-stack-differential \
 	test-program-values-differential test-program-depth-differential \
 	test-example-reference-differential test-add-reference-differential \
@@ -371,6 +372,20 @@ test-universe-many-differential:
 
 test-universe-many-fed-differential:
 	$(LEAN_TABLE) universe-many-fed
+
+# No depth limit (plan task 6.2.0, part (b)): lambda, application and
+# successor chains 2,000 deep, by checker input and fed; 10,000 deep, fed,
+# in test-depth-deep-differential, which takes minutes and is not part of
+# make check.
+test-depth-differential:
+	$(LEAN_TABLE) depth
+
+test-depth-fed-differential:
+	$(LEAN_TABLE) depth-fed
+
+.PHONY: test-depth-deep-differential
+test-depth-deep-differential:
+	$(LEAN_TABLE) depth-deep-fed
 
 test-composition-fixture:
 	$(RUN) python3 tests/core/test_preview_contract.py

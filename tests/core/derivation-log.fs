@@ -207,9 +207,13 @@ lf-log-stop lf-input-rollback drop
 \ outcome, result and fuel are the same with the log off and on. 200
 \ deep, the shift succeeds (its stack grows: plan task 6.2.0) and the
 \ chain and its shifted copy are copied whole (201 and 401 copies, the
-\ log complete and valid); 300 deep it needs more stack than one copy may
-\ use, so the log is truncated (work) and the shift's answer stands.
-T{ 1000 lf-term-capacity! -> outcome-ok }T
+\ log complete and valid). A copy's depth is no limit of its own (the
+\ copier's stacks hold what its work can push; with the 512-entry stacks
+\ before plan task 6.2.0, 300 deep was truncated): 1,000 deep the shift
+\ runs out of fuel and the log is complete; 2,000 deep the copy needs
+\ more than lf-log-copy-work tasks, so the log is truncated (work), and
+\ the shift's answer stands.
+T{ 8000 lf-term-capacity! -> outcome-ok }T
 : chain ( n -- term id )
   0 lf-term-bvar must dup rot 0 ?do over lf-term-app must loop nip dup lf-term-identity must ;
 : shift-chain ( n -- index outcome fuel )
@@ -219,7 +223,9 @@ T{ 1000 lf-term-capacity! -> outcome-ok }T
   lf-log-terms lf-log-start shift-chain lf-input-rollback drop ;
 T{ 200 run-off -> 200 run-on }T
 T{ lf-log-complete? lf-log-term-copies lc-valid? -> true 602 true }T
-T{ 300 run-off -> 300 run-on }T
+T{ 1000 run-off -> 1000 run-on }T
+T{ lf-log-complete? lc-valid? -> true true }T
+T{ 2000 run-off -> 2000 run-on }T
 T{ lf-log-cut nip lf-log-count -> lf-bound-work 0 }T
 lf-log-stop
 

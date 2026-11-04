@@ -84,13 +84,14 @@
 \ lf-log-mark-capacity open rules, lf-log-term-capacity and
 \ lf-log-level-capacity copies, lf-log-cref-capacity copied references
 \ with lf-log-arg-capacity arguments in all, and per copy
-\ lf-log-copy-work tasks on stacks of lf-log-stack-capacity entries.
+\ lf-log-copy-work tasks, on stacks that hold whatever those tasks push,
+\ so a copy's depth is bounded only by its work (plan task 6.2.0).
 \ State: the shared options record lf-log-options (read-only during a
 \ run), the code-indexed catalogue and the two copier descriptors
 \ (constant), one small context record, lf-log-state (ADR 0009): the
 \ header, counts and limits; and, only while a log is on in a context, one
 \ heap block it points to (lf-log-pools: open rules, records, pools, memos
-\ and the copiers' stacks, about 223 KB), freed by lf-log-stop and by the
+\ and the copiers' stacks, about 410 KiB), freed by lf-log-stop and by the
 \ context's teardown (ADR 0009, amended 2026-11-03).
 
 require ../lib/lib.fs
@@ -107,9 +108,13 @@ require ./local-context.fs
 2048 constant lf-log-term-capacity
 512 constant lf-log-level-capacity
 1024 constant lf-log-memo-size        \ memo entries per store
-512 constant lf-log-stack-capacity    \ entries of each copier stack
-lf-log-stack-capacity 2* constant lf-log-task-cells \ a task is two cells
 4096 constant lf-log-copy-work        \ tasks one copy may run
+\ The copier's stacks are as deep as one copy's work (plan task 6.2.0): a
+\ copy that would hold more tasks or values could not finish within its
+\ work anyway (every waiting task costs at least one unit, every value is
+\ a task done), so a push past them truncates the log as the work would.
+lf-log-copy-work constant lf-log-stack-capacity        \ values
+lf-log-copy-work 2* constant lf-log-task-cells         \ a task is two cells
 256 constant lf-log-cref-capacity     \ copied constant references
 2048 constant lf-log-arg-capacity     \ their universe arguments, in all
 
@@ -569,8 +574,10 @@ end-structure
 \ direct-mapped by index; a live node's identity is never 0, and an
 \ identity of 0 never matches, so a cleared entry never matches, and a
 \ collision costs only a second copy. One copy may spend lf-log-copy-work
-\ tasks; a formula that needs more, or more stack, truncates the log
-\ (lf-bound-work).
+\ tasks; a formula that needs more truncates the log (lf-bound-work),
+\ whatever its depth: the stacks are as deep as that work (a push past
+\ them, which only a copy that the work would cut can make, truncates the
+\ log the same way).
 begin-structure /lf-copier
   field: copier-mark       \ offset in lf-log-state of the input mark
   field: copier-memo       \ offset in the pools of the memo

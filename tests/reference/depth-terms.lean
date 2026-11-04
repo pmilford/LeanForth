@@ -6,15 +6,18 @@ import LeanForthFirstCheckerTerms
 
 Mathlib's terms nest up to 1,221 deep, and Lean's kernel, which recurses
 on the C++ stack, checks far deeper ones: every case below at depths 2,000
-and 10,000 gets Lean's verdict here (a probe on 2026-11-04 found the same
-at 100,000; see docs/project/BEYOND_LEAN.md). For n = 2,000 and 10,000:
+and 10,000 gets Lean's verdict here. Deeper, Lean depends on its stack: a
+probe on 2026-11-04 found lambda and successor chains still accepted at
+100,000, but the application chain refused with `deepRecursion` from
+20,000 on (docs/project/BEYOND_LEAN.md). For n = 2,000 and 10,000:
 
 * `lam`: `∀ (P : Prop), P → … → P` with n hypotheses, proved by
   `fun P h₁ … hₙ => h₁`: binders nest n deep (accepted); and the same proof
-  returning `P` itself, which is no proof (declTypeMismatch);
+  returning `P` itself, which is no proof (declTypeMismatch; LeanForth's
+  rules D4 down all n binders, then D2);
 * `app`: `(fun x => x) ((fun x => x) (… h))`, n applications deep, at type
   `P` (accepted), and the same around `P` instead of `h`, a Prop where a
-  proof of `P` is expected (appTypeMismatch);
+  proof of `P` is expected (appTypeMismatch; rule D2);
 * `level`: `Sort (u + n) : Sort (u + n + 1)` (accepted), and the claim
   `Sort (u + n)` (declTypeMismatch).
 
@@ -23,7 +26,8 @@ Like `universe-scope-terms.lean`, each case is added with
 environment, and the run fails unless Lean's verdict is the recorded one. It
 prints one `EXPECT <id> <lean> <leanforth> <rule>` line per case, then every
 case in the format of `first-checker-terms.lean`, for
-`tests/core/lean-differential.py` (tables `depth` and `depth-fed`).
+`tests/core/lean-differential.py` (tables `depth` and `depth-fed` at 2,000,
+`depth-deep-fed` at 10,000).
 -/
 
 open Lean FirstChecker
@@ -68,14 +72,14 @@ def casesFor (n : Nat) : List Case :=
       lean := "accepted", leanforth := "accepted", rule := "A1",
       what := s!"{n} binders" },
     { id := s!"depth{n}.lam-wrong", decl := lamDecl n true,
-      lean := "declTypeMismatch", leanforth := "rejected", rule := "D1",
-      what := "the proof returns P" },
+      lean := "declTypeMismatch", leanforth := "rejected", rule := "D4",
+      what := "the proof returns P, so its type ends in Prop: D4 down every binder, then D2" },
     { id := s!"depth{n}.app", decl := appDecl n false,
       lean := "accepted", leanforth := "accepted", rule := "A1",
       what := s!"{n} applications" },
     { id := s!"depth{n}.app-wrong", decl := appDecl n true,
-      lean := "appTypeMismatch", leanforth := "rejected", rule := "D1",
-      what := "the innermost argument is P, a Prop" },
+      lean := "appTypeMismatch", leanforth := "rejected", rule := "D2",
+      what := "the innermost argument is P, of type Prop, not P (D2)" },
     { id := s!"depth{n}.level", decl := levelDecl n false,
       lean := "accepted", leanforth := "accepted", rule := "A1",
       what := s!"a level {n} successors deep" },
