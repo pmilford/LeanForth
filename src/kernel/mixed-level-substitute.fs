@@ -150,7 +150,7 @@ lf-depth-limit context-walk: lf-mls-walker
   0 max 0 ?do 2dup i lf-mls-cell= 0= if 2drop false unloop exit then loop 2drop true ;
 : lf-mls-changed? ( addr count -- flag ) 2* lf-mls-args swap lf-mls-cells= 0= ;
 : lf-mls-arg-room ( addr count -- addr count outcome )
-  dup lf-mls-arg-pairs slab-reserve ;
+  dup lf-mls-arg-pairs slab-hold ;
 : lf-mls-substituted ( slot -- changed outcome )
   lf-cref-pairs lf-mls-arg-room ok-then? 0= if nip nip false swap exit then
   2dup lf-mls-args! dup ok?
@@ -212,7 +212,7 @@ lf-depth-limit context-walk: lf-mls-walker
   dup lf-mls-count ! rot lf-mls-formals ! ;
 : lf-mls-prepare ( index id pairs count -- index id outcome )
   2over lf-mls-ready? 0= if 2drop outcome-invalid exit then
-  dup lf-mls-actual-cells slab-reserve ok-then? 0= if nip nip exit then
+  dup lf-mls-actual-cells slab-hold ok-then? 0= if nip nip exit then
   lf-mls-snapshot lf-mls-actuals! flag>outcome ;
 
 \ Substitute count actual (index identity) level pairs for count formal IDs

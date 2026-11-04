@@ -139,7 +139,11 @@ sizes are relative and dates are not estimated.
 2. **Lean files in, a command-line tool out — release 0.1 (phase 3).**
    Stage the reader's records into stores built on the compact design
    (ADR 0016; plan 1.1.5, 3.2.1, 3.3.1, 6.2.0; staging is approved, and
-   the checker's stores now grow, merged with its review pending); feed
+   the checker's stores now grow, merged with its review pending; 6.2.0 is
+   in progress, brought forward by the owner: universe parameter and
+   argument lists and the level context have no fixed limit since
+   2026-11-04, checked against Lean with 100, 300 and 1,000 parameters,
+   and the depth limits are next); feed
    declarations to the checker in file order (3.2.2; works for `Init`
    today, gate pending); re-export byte for byte and compare with
    Lean's file (3.2.4, **done 2026-11-03**); the checksum manifest checked by default and an

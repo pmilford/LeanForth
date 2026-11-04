@@ -280,7 +280,7 @@ end-structure
 : lf-minfer-signature ( name pairs count -- root identity fuel' 0 | status )
   lf-minfer-env? if lf-minfer-stored else lf-minfer-candidate then ;
 : lf-minfer-room? ( slot -- slot flag )
-  dup lf-crec-arity @ lf-minfer-actual-pairs slab-reserve ok? ;
+  dup lf-crec-arity @ lf-minfer-actual-pairs slab-hold ok? ;
 : lf-minfer-constant ( reference -- type status )
   lf-cref-slot lf-minfer-room? 0= if drop -1 outcome-full exit then
   dup lf-crec-name @ swap lf-minfer-copy lf-minfer-signature lf-minfer-specialized ;

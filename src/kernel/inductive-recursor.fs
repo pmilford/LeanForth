@@ -103,7 +103,7 @@ end-structure
   dup lf-ind-lparam lf-level-param if dup lf-level-identity drop swap rot lf-rcr-pair 2!
   else drop outcome-full lf-rcr-failing drop then ;
 : lf-rcr-levels ( -- )
-  lf-ind-lparams nip dup lf-rcr-pair-cells slab-reserve ok? 0=
+  lf-ind-lparams nip dup lf-rcr-pair-cells slab-hold ok? 0=
   if drop outcome-full lf-rcr-failing drop exit then
   0 ?do i lf-rcr-level! loop ;
 : lf-rcr-referenced ( index identity true | false -- node )

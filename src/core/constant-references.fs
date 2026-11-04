@@ -13,8 +13,8 @@
 \ rollback of the records gives their pairs back too. A reference may have
 \ any number of arguments (plan task 6.2.0; Mathlib's largest constant has
 \ 30): the pool grows, and one it cannot grow is full. lf-cref-argument-
-\ capacity, 64, is only the arguments the callers' buffers start with
-\ room for. The records grow up to a capacity that is a setting
+\ capacity, 64, is no limit: only the number run records 0.1 report. The
+\ records grow up to a capacity that is a setting
 \ of each context, as for terms (terms.fs), starting at lf-cref-default.
 \ State: the reference records, a heap store whose header lf-crefs is a
 \ member of the checker context (lib/context.fs), and the pairs pool, a

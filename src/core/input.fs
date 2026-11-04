@@ -44,7 +44,7 @@
 \ universe parameters (plan task 6.2.0; Mathlib's most is 30): an
 \ importer's record points at its own array of them, and lf-input-add
 \ copies them into the input's cells (lf-input-more); lf-param-capacity,
-\ 64, is only the room the importers' arrays start with. The number of
+\ 64, is no limit: only the number run records 0.1 report. The number of
 \ declarations is a capacity setting (lf-input-capacity!). The
 \ fingerprint also covers the references' universe arguments (their
 \ pool) and, under a name view (names.fs), every input name's hash.

@@ -34,7 +34,7 @@ lf-level-depth-limit context-walk: lf-lscope-walk
 \ The context's fields under their established names (other modules read
 \ the count and generation; tests corrupt them). lf-lscope-context is the
 \ first ID's address, valid while the list does not grow.
-: lf-lscope-context ( -- addr ) 0 lf-lscope-ids slab-at ;
+: lf-lscope-context ( -- addr ) lf-lscope-ids slab-base ;
 : lf-lscope-context-count ( -- addr ) lf-lscope-state lf-lsctx-count ;
 : lf-lscope-generation ( -- addr ) lf-lscope-state lf-lsctx-generation ;
 
@@ -49,11 +49,12 @@ lf-level-depth-limit context-walk: lf-lscope-walk
 : lf-lscope-count-valid? ( -- flag )
   lf-lscope-context-count @ lf-lscope-ids slab-capacity upto?
   lf-lscope-generation @ 0< 0= and ;
-: lf-lscope-slot ( i -- addr ) lf-lscope-ids slab-at ;
+: lf-lscope-slot ( i -- addr ) cells lf-lscope-context + ;
 : lf-lscope-id@ ( i -- id ) lf-lscope-slot @ ;
 \ Search the first n entries; the caller has validated n.
 : lf-lscope-in? ( id n -- flag )
-  0 ?do dup i lf-lscope-id@ = if drop true unloop exit then loop drop false ;
+  cells lf-lscope-context tuck + swap ?do dup i @ = if drop true unloop exit then
+  cell +loop drop false ;
 : lf-lscope-member? ( id -- flag ) lf-lscope-context-count @ lf-lscope-in? ;
 \ Every entry is positive and differs from every other; the count was
 \ checked first. Separate from visit fuel. A few entries are compared
@@ -65,7 +66,7 @@ lf-level-depth-limit context-walk: lf-lscope-walk
 16 constant lf-lscope-few
 : lf-lscope-pair-ok? ( i -- flag )
   dup lf-lscope-id@ dup 0> if swap lf-lscope-in? 0= else 2drop false then ;
-: lf-lscope-seen ( slot -- addr ) lf-lscope-table slab-at ;
+: lf-lscope-seen ( slot -- addr ) cells lf-lscope-table slab-base + ;
 \ Unchecked: id > 0 and mask + 1 a power of two of free or used slots.
 \ True when id is in the table already, else put it in.
 : lf-lscope-seen? ( id mask -- flag )
@@ -81,7 +82,7 @@ lf-level-depth-limit context-walk: lf-lscope-walk
   dup cells 0 lf-lscope-seen swap erase 1- lf-lscope-context-count @ 0 ?do
     i lf-lscope-hash-ok? 0= if drop false unloop exit then loop drop true ;
 : lf-lscope-table? ( slots -- flag )
-  dup lf-lscope-power-of-two? if lf-lscope-table slab-reserve ok? else drop false then ;
+  dup lf-lscope-power-of-two? if lf-lscope-table slab-hold ok? else drop false then ;
 : lf-lscope-hashed-ok? ( -- flag )
   lf-lscope-context-count @ lf-lscope-slots dup lf-lscope-table?
   if lf-lscope-hashed else drop lf-lscope-pairs-ok? then ;
@@ -97,7 +98,7 @@ lf-level-depth-limit context-walk: lf-lscope-walk
 : lf-lscope-new-id? ( id -- flag ) dup 0> swap lf-lscope-member? 0= and ;
 : lf-lscope-room? ( -- flag )
   lf-lscope-generation @ max-n <> dup 0= if exit then
-  drop lf-lscope-context-count @ 1+ lf-lscope-ids slab-reserve ok? ;
+  drop lf-lscope-context-count @ 1+ lf-lscope-ids slab-hold ok? ;
 : lf-lscope-addable? ( id -- flag ) lf-lscope-new-id? lf-lscope-room? and ;
 : lf-lscope-append ( id -- )
   lf-lscope-context-count @ lf-lscope-slot ! 1 lf-lscope-context-count +! ;

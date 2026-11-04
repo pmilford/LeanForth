@@ -71,7 +71,7 @@ end-structure
 \ Fuel left after lf-level-equivalent; level-compare continues with it.
 : lf-lnorm-fuel ( -- addr ) lf-lnorm-state lf-lnrec-fuel ;
 : lf-lnorm-top ( -- addr ) lf-lnorm-state lf-lnrec-top ;
-: lf-lnorm-arg ( i -- addr ) lf-lnorm-arg-cells slab-at ;
+: lf-lnorm-arg ( i -- addr ) cells lf-lnorm-arg-cells slab-base + ;
 : lf-lnorm-memo ( level -- addr ) lf-lnorm-memo-column column-at ;
 : lf-lnorm-clear ( -- ) lf-lnorm-memo-column column-erase ;
 : lf-lnorm-site ( -- site ) c" level-normalize lf-level-equivalent" ;
@@ -178,7 +178,7 @@ defer lf-lnorm-less ( a b -- flag )
 : lf-lnorm-crowded ( level -- )
   drop lf-lnorm-ok? if lf-lnorm-top @ lf-lnorm-arg-cells slab-capacity lf-lnorm-site
     lf-diag-work-stack-full lf-diag-note then outcome-full lf-lnorm-fail ;
-: lf-lnorm-room? ( n -- flag ) 1+ lf-lnorm-arg-cells slab-reserve ok? ;
+: lf-lnorm-room? ( n -- flag ) 1+ lf-lnorm-arg-cells slab-hold ok? ;
 : lf-lnorm-push ( level -- )
   lf-lnorm-top @ dup lf-lnorm-room?
   if lf-lnorm-arg ! 1 lf-lnorm-top +! else drop lf-lnorm-crowded then ;
@@ -242,7 +242,7 @@ defer lf-lnorm-push-args ( level -- )
 : lf-lnorm-pass ( from -- )
   begin dup lf-lnorm-to @ < while dup lf-lnorm-run lf-lnorm-width @ 2* + repeat drop ;
 : lf-lnorm-widen ( -- ) lf-lnorm-width @ 2* lf-lnorm-width ! ;
-: lf-lnorm-scratch? ( from to -- flag ) dup rot - + lf-lnorm-arg-cells slab-reserve ok? ;
+: lf-lnorm-scratch? ( from to -- flag ) dup rot - + lf-lnorm-arg-cells slab-hold ok? ;
 : lf-lnorm-merge-sort ( from to -- )
   2dup lf-lnorm-scratch? 0= if drop lf-lnorm-arg @ lf-lnorm-crowded exit then
   lf-lnorm-to ! 1 lf-lnorm-width !

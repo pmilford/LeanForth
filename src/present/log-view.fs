@@ -242,7 +242,7 @@ defer lf-lv-level ( ref -- level true | false )
   0 ?do dup i lf-lv-arg 0= if drop false unloop exit then loop drop true ;
 : lf-lv-cref ( ref -- cref id true | false )
   lf-log-copy-index dup lf-log-cref-copies < 0= if drop false exit then
-  lf-log-cref@ over >r r@ lf-lv-pair-cells slab-reserve ok? 0=
+  lf-log-cref@ over >r r@ lf-lv-pair-cells slab-hold ok? 0=
   if 2drop 2drop r> drop false exit then
   swap lf-lv-args 0= if 2drop r> drop false exit then
   0 lf-lv-pair-cells slab-at r> lf-cref-new ;

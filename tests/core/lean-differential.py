@@ -526,8 +526,14 @@ def universe_scope(prelude=(), name="universe scope", fed=False):
 # universe parameters per declaration and arguments per constant, each
 # accepted or refused for Lean's reason (universe-many-terms.lean), by
 # checker input and fed.
+MANY_CAPACITIES = ["65536 lf-term-capacity! must-ok", "65536 lf-level-capacity! must-ok",
+                   "4096 lf-name-capacity! must-ok", "4096 lf-cref-capacity! must-ok",
+                   "256 lf-input-capacity! must-ok"]
+
+
 def universe_many(fed=False):
-    return expect_table("tests/reference/universe-many-terms.lean", 24, (),
+    return expect_table("tests/reference/universe-many-terms.lean", 24,
+                        () if fed else MANY_CAPACITIES,
                         "universe many" + (", fed" if fed else ""), fed)
 
 

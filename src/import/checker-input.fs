@@ -192,7 +192,7 @@ create cin-hash /import-hash allot
 : cin-many-args ( record n -- outcome )
   2drop outcome-full c" no room for a constant's universe arguments" cin-stop ;
 : cin-const ( record -- outcome )
-  dup cin-arity dup cin-pair-cells slab-reserve ok? 0= if cin-many-args exit then
+  dup cin-arity dup cin-pair-cells slab-hold ok? 0= if cin-many-args exit then
   over >r cin-constant r> cin-expr-keep ;
 \ Two children, at the field offsets first and second, as handles.
 : cin-child ( record offset -- index identity ) + @ cin-expr@ ;
@@ -232,7 +232,7 @@ create cin-hash /import-hash allot
 : cin-many-params ( record n -- record outcome )
   drop outcome-full c" no room for a declaration's universe parameters" cin-stop ;
 : cin-params ( record -- record outcome )
-  dup decl-params @ over list-count dup cin-param-cells slab-reserve ok? 0=
+  dup decl-params @ over list-count dup cin-param-cells slab-hold ok? 0=
   if cin-many-params exit then
   0 cin-param-cells slab-at cin-decl lf-idecl-params !
   dup cin-decl lf-idecl-arity ! 0 ?do i cin-decl-param loop outcome-ok ;

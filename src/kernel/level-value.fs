@@ -52,8 +52,8 @@ end-structure
 : lf-lvalue-fuel ( -- addr ) lf-lvalue-state lf-lvrec-fuel ;
 : lf-lassign-count ( -- addr ) lf-lvalue-state lf-lvrec-count ;
 \ The first ID's and value's addresses, valid while the table does not grow.
-: lf-lassign-ids ( -- addr ) 0 lf-lassign-id-cells slab-at ;
-: lf-lassign-values ( -- addr ) 0 lf-lassign-value-cells slab-at ;
+: lf-lassign-ids ( -- addr ) lf-lassign-id-cells slab-base ;
+: lf-lassign-values ( -- addr ) lf-lassign-value-cells slab-base ;
 
 \ The assignment table: a finite map from parameter IDs to nonnegative
 \ cells. A reset empties it and binds it to the current level store and
@@ -61,8 +61,8 @@ end-structure
 : lf-lassign-reset ( -- )
   0 lf-lassign-count ! lf-level-generation @ lf-lvalue-state lf-lvrec-levels !
   lf-lscope-generation @ lf-lvalue-state lf-lvrec-context ! ;
-: lf-lassign-id@ ( i -- id ) lf-lassign-id-cells slab-at @ ;
-: lf-lassign-value@ ( i -- value ) lf-lassign-value-cells slab-at @ ;
+: lf-lassign-id@ ( i -- id ) cells lf-lassign-ids + @ ;
+: lf-lassign-value@ ( i -- value ) cells lf-lassign-values + @ ;
 : lf-lassign-room ( -- n ) lf-lassign-id-cells slab-capacity lf-lassign-value-cells slab-capacity min ;
 \ Position of an ID among the first n entries.
 : lf-lassign-position ( id n -- i true | false )
@@ -95,8 +95,8 @@ end-structure
 \ context that has none yet. A table the heap cannot grow, a duplicate, a
 \ stale table or a negative value returns false and changes nothing.
 : lf-lassign-grown? ( -- flag )
-  lf-lassign-count @ 1+ dup lf-lassign-id-cells slab-reserve ok?
-  swap lf-lassign-value-cells slab-reserve ok? and ;
+  lf-lassign-count @ 1+ dup lf-lassign-id-cells slab-hold ok?
+  swap lf-lassign-value-cells slab-hold ok? and ;
 : lf-lassign-new? ( id value -- flag )
   0< 0= over lf-lscope-member? and swap lf-lassign-count @ lf-lassign-in? 0= and
   dup if drop lf-lassign-grown? then ;

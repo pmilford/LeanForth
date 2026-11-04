@@ -84,8 +84,8 @@ end-structure
 1 context-slab: lf-name-byte-cells
 1 context-slab: lf-name-query-cells
 : lf-name-pool-make ( -- )
-  lf-name-byte-capacity dup lf-name-byte-cells slab-reserve ok?
-  swap lf-name-query-cells slab-reserve ok? and 0= abort" names: no heap" ;
+  lf-name-byte-capacity dup lf-name-byte-cells slab-hold ok?
+  swap lf-name-query-cells slab-hold ok? and 0= abort" names: no heap" ;
 ' lf-name-pool-make context-setup
 : lf-name-used ( -- addr ) lf-name-pool lf-npool-used ;
 : lf-name-bytes ( -- addr ) 0 lf-name-byte-cells slab-at ;
@@ -168,7 +168,7 @@ end-structure
 \ Appending; callers have checked validity, absence and room. The store's
 \ identities are issued but unused: names are compared by content.
 : lf-name-room? ( -- flag ) lf-names store-ready drop lf-names store-open? ;
-: lf-name-byte-room? ( length -- flag ) lf-name-used @ + lf-name-byte-cells slab-reserve ok? ;
+: lf-name-byte-room? ( length -- flag ) lf-name-used @ + lf-name-byte-cells slab-hold ok? ;
 : lf-name-new ( prefix tag -- entry id )
   lf-names store-claim dup >r lf-name-slot tuck lf-entry-tag ! tuck lf-entry-prefix ! r> ;
 : lf-name-add-num ( prefix number -- id )
@@ -312,7 +312,7 @@ create lf-name-viewed-ops /lf-nops allot
 \ changes, so it may overlap any buffer here; it must stay readable during
 \ the copy. Invalid input changes nothing.
 : lf-name-query-room? ( length -- flag )
-  dup 0< if drop false else lf-name-query-cells slab-reserve ok? then ;
+  dup 0< if drop false else lf-name-query-cells slab-hold ok? then ;
 : lf-name-str-args? ( prefix length -- flag )
   lf-name-query-room? swap lf-name-valid? and lf-name-storage-valid? and ;
 : lf-name-copy-in ( addr length -- length ) tuck lf-name-input-copy swap move ;

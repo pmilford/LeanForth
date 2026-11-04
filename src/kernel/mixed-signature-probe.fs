@@ -162,7 +162,7 @@ end-structure
 : lf-msp-discard ( root identity 0 | status -- status ) dup ok? if nip nip then ;
 : lf-msp-cover ( req -- status )
   lf-msp-zeros-at over lf-sigreq-actuals ! lf-msp-substitute lf-msp-discard ;
-: lf-msp-zero-room ( req -- outcome ) lf-sigreq-arity @ lf-msp-zero-pairs slab-reserve ;
+: lf-msp-zero-room ( req -- outcome ) lf-sigreq-arity @ lf-msp-zero-pairs slab-hold ;
 : lf-msp-zero-actuals ( req -- status )
   dup lf-msp-zero-room ok-then? 0= if nip exit then
   0 lf-level-identity if over lf-msp-zeros lf-msp-cover else drop-invalid then ;
@@ -180,7 +180,7 @@ end-structure
 : lf-msp-room ( -- outcome )
   lf-msp-count @ lf-msp-capacity < if outcome-ok else lf-msp-full then ;
 : lf-msp-pool-room ( req -- outcome )
-  lf-msp-count @ lf-msp-formal-cells swap lf-sigreq-arity @ + lf-msp-formal-pool slab-reserve ;
+  lf-msp-count @ lf-msp-formal-cells swap lf-sigreq-arity @ + lf-msp-formal-pool slab-hold ;
 : lf-msp-addable ( token req -- status )
   tuck lf-msp-new? 0= if drop outcome-invalid exit then
   lf-msp-room dup ok? if drop lf-msp-pool-room else nip then ;
