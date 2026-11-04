@@ -83,8 +83,8 @@ require ../lib/lib.fs
 \ unfolding (unknown), and Lean's rejections of inductive.cpp and of
 \ Lean's replay (rejected).
 62 constant lf-diag-block-shape        \ B0 (invalid): the block's first member, 0
-63 constant lf-diag-block-scope        \ unsupported: the first member, 1 mutual or
-                                       \ 3 nested (2 is no longer given)
+63 constant lf-diag-block-scope        \ unsupported: the first member, 3 nested
+                                       \ (1 and 2 are no longer given)
 64 constant lf-diag-needs-unfolding    \ K1 (unknown): the node Lean may unfold, 0
 65 constant lf-diag-reserved-prefix    \ T0: the block's first member, 0
 66 constant lf-diag-nonuniform         \ C1: the occurrence's node, its binder depth
@@ -102,6 +102,9 @@ require ../lib/lib.fs
 78 constant lf-diag-empty-block        \ rejected: the block's declaration, 0
 79 constant lf-diag-non-positive       \ P1: the constructor, the field's binder
 80 constant lf-diag-non-valid          \ P2: the constructor, the field's binder
+81 constant lf-diag-mutual-params      \ T3: the D rules used, 0
+82 constant lf-diag-param-count        \ T3: the type, the parameter binders found
+83 constant lf-diag-universe-mismatch  \ T4: the type, 0
 
 begin-structure /lf-diag
   field: lf-diag-code       \ reason code; lf-diag-none while clear
@@ -229,7 +232,8 @@ create lf-diag-catalogue
   lf-diag-value-apart s" rejected: declared type mismatch (D1-D5)" lf-diag-entry,
   lf-diag-body-type s" rejected: Pi body not a type (S4)" lf-diag-entry,
   lf-diag-block-shape s" invalid input: inductive block shape (B0)" lf-diag-entry,
-  lf-diag-block-scope s" unsupported: inductive block outside tasks 5.2.1a-b" lf-diag-entry,
+  lf-diag-block-scope
+    s" unsupported: inductive block outside tasks 5.2.1a-b, 5.2.5a" lf-diag-entry,
   lf-diag-needs-unfolding
     s" undecided: Lean may unfold a definition here (K1)" lf-diag-entry,
   lf-diag-reserved-prefix s" rejected: reserved prefix _nested (T0)" lf-diag-entry,
@@ -254,6 +258,12 @@ create lf-diag-catalogue
   lf-diag-non-positive
     s" rejected: non-positive occurrence of the type (P1)" lf-diag-entry,
   lf-diag-non-valid s" rejected: non-valid occurrence of the type (P2)" lf-diag-entry,
+  lf-diag-mutual-params
+    s" rejected: mutual types' parameters differ (T3)" lf-diag-entry,
+  lf-diag-param-count
+    s" rejected: a mutual type has too few parameters (T3)" lf-diag-entry,
+  lf-diag-universe-mismatch
+    s" rejected: mutual types in different universes (T4)" lf-diag-entry,
   lf-diag-none s" unknown code" lf-diag-entry,
 : lf-diag-end? ( code entry -- flag ) lf-diag-entry-code tuck = swap lf-diag-none = or ;
 \ The entry of code, or the last entry.

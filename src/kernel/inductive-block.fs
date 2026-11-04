@@ -5,9 +5,9 @@
 \   the audit, before any typing, as check-declaration's audit of a
 \     definition: unsafe members (Lean's replay skips them) and the term
 \     forms the checker lacks (U2) unsupported; loose variables invalid
-\     (V1); and the scope of tasks 5.2.1a and 5.2.1b: one type (a mutual
-\     block is task 5.2.5) with no nested occurrence (task 5.2.5), else
-\     unsupported; on the way, Lean's is_rec and is_reflexive;
+\     (V1); and the scope of tasks 5.2.1a, 5.2.1b and 5.2.5a: one type, or
+\     several (a mutual block), with no nested occurrence (task 5.2.5b),
+\     else unsupported; on the way, Lean's is_rec and is_reflexive;
 \   T0 no constant named under the reserved prefix _nested
 \     (check_no_nested_aux, inductive.cpp 1222-1233, from 1241, 1244);
 \   C1 every occurrence of the type in a constructor type applied to the
@@ -56,13 +56,12 @@ begin-structure /lf-ind
   field: lf-ind-step-reached \ the step of check-block.fs reached
   field: lf-ind-fuel-left    \ fuel left between steps
   field: lf-ind-warned       \ B4 warnings (check-block.fs's lf-warn-* bits)
-  field: lf-ind-visible      \ true once the type is visible to inference
-  field: lf-ind-indices      \ computed: numIndices
-  field: lf-ind-level        \ computed: the result Sort's level
+  field: lf-ind-visible      \ true once the types are visible to inference
+  field: lf-ind-level        \ computed: the first type's result Sort's level
   field: lf-ind-elim         \ computed: the elimination level, 0 for Prop
   field: lf-ind-elim-name    \ its parameter's name ID, 0 for Prop
   field: lf-ind-k            \ computed: K-like reduction target (flag)
-  field: lf-ind-rec-type     \ generated: the recursor's type
+  field: lf-ind-domains-used \ binder domains recorded in lf-ind-domains
   field: lf-ind-count        \ occurrences counted by a walk
   field: lf-ind-is-rec       \ computed: Lean's is_rec (a field mentions the type)
   field: lf-ind-is-refl      \ computed: Lean's is_reflexive
@@ -72,8 +71,21 @@ begin-structure /lf-ind
   lf-ind-ctor-capacity cells +field lf-ind-rule-cells     \ per constructor: rule
 end-structure
 /lf-ind context-record: lf-ind-state
-\ The type's binder domains, parameters then indices: as many as its
-\ telescope has (plan task 6.2.0); one the heap cannot hold is full.
+\ Per type of the block (plan task 5.2.5a: a mutual block has several), as
+\ many as it has (no fixed limit); one the heap cannot hold is full.
+begin-structure /lf-ty
+  field: lf-ty-indices       \ computed: numIndices, binders after the parameters
+  field: lf-ty-domain        \ where its first index's domain is in lf-ind-domains
+  field: lf-ty-ctor          \ its first constructor's number in the block
+  field: lf-ty-ctors         \ its constructors
+  field: lf-ty-motive        \ generated: its motive's type
+  field: lf-ty-rec-type      \ generated: its recursor's type
+  field: lf-ty-rec-name      \ the name T.rec
+end-structure
+/lf-ty context-slab: lf-ind-type-cells
+\ The types' binder domains: the first type's parameters and indices, then
+\ each other type's indices; as many as the telescopes have (plan task
+\ 6.2.0); one the heap cannot hold is full.
 1 cells context-slab: lf-ind-domains
 lf-walk-room context-walk: lf-ind-walker
 lf-walk-room context-walk: lf-ind-inner-walker
@@ -102,6 +114,17 @@ lf-walk-room context-walk2: lf-ind-pair-walker
 : lf-ind-nfields ( j -- addr ) cells lf-ind-state lf-ind-field-cells + ;
 : lf-ind-minor-type ( j -- addr ) cells lf-ind-state lf-ind-minor-cells + ;
 : lf-ind-rule ( j -- addr ) cells lf-ind-state lf-ind-rule-cells + ;
+\ Type d of the block (from 0): its declaration, name, type, record, its
+\ number of indices and the domain of its index i.
+: lf-ind-type-at ( d -- decl ) lf-ind-member ;
+: lf-ind-tname ( d -- name ) lf-ind-type-at lf-idecl-name @ ;
+: lf-ind-ty ( d -- addr ) lf-ind-type-cells slab-at ;
+: lf-ind-n ( d -- n ) lf-ind-ty lf-ty-indices @ ;
+: lf-ind-index-domain ( d i -- addr ) swap lf-ind-ty lf-ty-domain @ + lf-ind-domain ;
+\ The type that constructor j builds: d with ctor(d) <= j < ctor(d+1).
+: lf-ind-owner ( j -- d )
+  lf-ind-types@ 1 ?do dup i lf-ind-ty lf-ty-ctor @ < if drop i 1- unloop exit then loop
+  drop lf-ind-types@ 1- ;
 
 \ ---------------------------------------------------------------------------
 \ Terms the checks read, all validated (V1) before they are read. A raw
@@ -115,12 +138,16 @@ lf-walk-room context-walk2: lf-ind-pair-walker
 : lf-ind-arg ( node n i -- arg ) - 1- 0 ?do lf-term-first@ loop lf-term-second@ ;
 : lf-ind-bvar? ( node index -- flag )
   over lf-tag-bvar lf-ind-tag? if swap lf-term-first@ = else 2drop false then ;
-\ A constant node's name; whether a node is the block's type, unapplied.
+\ A constant node's name; which type of the block a node is, unapplied:
+\ d, or -1 for none; whether it is one.
 : lf-ind-const-name ( node -- name ) lf-term-first@ lf-cref-slot lf-crec-name @ ;
-: lf-ind-type-node? ( node -- flag )
-  dup lf-tag-constant lf-ind-tag? if lf-ind-const-name lf-ind-name lf-name-same?
-  else drop false then ;
-\ Whether a spine's head is the block's type.
+: lf-ind-which-name ( name -- d )
+  lf-ind-types@ 0 ?do dup i lf-ind-tname lf-name-same? if drop i unloop exit then loop
+  drop -1 ;
+: lf-ind-which ( node -- d )
+  dup lf-tag-constant lf-ind-tag? if lf-ind-const-name lf-ind-which-name else drop -1 then ;
+: lf-ind-type-node? ( node -- flag ) lf-ind-which 0< 0= ;
+\ Whether a spine's head is a type of the block.
 : lf-ind-headed? ( node -- flag ) lf-ind-spine drop lf-ind-type-node? ;
 
 \ ---------------------------------------------------------------------------
@@ -149,8 +176,8 @@ lf-walk-room context-walk2: lf-ind-pair-walker
   lf-ind-ctors@ lf-ind-ctor-capacity lf-ind-site lf-diag-ctors-full lf-diag-note
   lf-ind-members outcome-full ;
 : lf-ind-sized ( -- span outcome )
-  lf-ind-ctors@ lf-ind-ctor-capacity >
-  if lf-ind-crowded else lf-ind-members outcome-ok then ;
+  lf-ind-ctors@ lf-ind-ctor-capacity > if lf-ind-crowded exit then
+  lf-ind-members lf-ind-types@ lf-ind-type-cells slab-hold ;
 \ An empty block (ADR 0016 amendment 1): no member but the one declaration
 \ the importer added for it (lf-kind-block), which is the header's first;
 \ (1 ok), and check-block.fs rejects it (lf-ind-empty?).
@@ -164,12 +191,11 @@ lf-walk-room context-walk2: lf-ind-pair-walker
 
 \ ---------------------------------------------------------------------------
 \ B0, the shape (ADR 0015 §4): every member points at this header and has
-\ its kind's data; the type's all list is the type alone, and the
-\ constructors are its ctors list in order, each naming the type; every
-\ recursor names the type in its all list; the member names are
-\ distinct. Anything else cannot come from lean4export: invalid. (Only
-\ the kinds and header of a mutual block are checked here; the scope
-\ check makes it unsupported.)
+\ its kind's data; each type's all list is the block's types in order, with
+\ the first type's universe parameters and numParams; the constructors are
+\ the types' ctors lists in order, each naming its type; every recursor
+\ names the first type in its all list; the member names are distinct.
+\ Anything else cannot come from lean4export: invalid.
 : lf-ind-kind-at ( k -- kind )
   dup lf-ind-types@ < if drop lf-kind-inductive exit then
   lf-ind-types@ lf-ind-ctors@ + < if lf-kind-constructor else lf-kind-recursor then ;
@@ -178,19 +204,40 @@ lf-walk-room context-walk2: lf-ind-pair-walker
   dup lf-idecl-more @ 0<> over lf-idecl-block @ lf-ind-type lf-idecl-block @ = and
   swap lf-idecl-kind @ rot = and ;
 : lf-ind-members-ok? ( -- flag ) true lf-ind-members 0 ?do i lf-ind-member-ok? and loop ;
-\ Whether name is in a list of names.
+\ Whether name is in a list of names; two lists equal name by name.
 : lf-ind-in? ( name items n -- flag )
   0 ?do 2dup i cells + @ lf-name-same? if 2drop true unloop exit then loop 2drop false ;
-: lf-ind-all-ok? ( -- flag )
-  lf-ind-type-data lf-ity-all@ 1 = if @ lf-ind-name lf-name-same? else drop false then ;
-\ Constructor j: named as the type's ctors list says, naming the type.
-: lf-ind-listed ( j -- name ) cells lf-ind-type-data lf-ity-ctors@ drop + @ ;
+: lf-ind-names= ( items n items' n' -- flag )
+  rot over <> if drop 2drop false exit then
+  0 ?do over i cells + @ over i cells + @ lf-name-same? 0= if 2drop false unloop exit then
+  loop 2drop true ;
+\ The block's types' names, as the first type's all list holds them once
+\ B0 passed.
+: lf-ind-all ( -- items n ) lf-ind-type-data lf-ity-all@ ;
+: lf-ind-all-at? ( items n -- flag )
+  dup lf-ind-types@ <> if 2drop false exit then
+  true swap 0 ?do over i cells + @ i lf-ind-tname lf-name-same? and loop nip ;
+: lf-ind-type-ok? ( d -- flag )
+  lf-ind-type-at dup lf-idecl-data dup lf-ity-all@ lf-ind-all-at?
+  swap lf-ity-params lf-more-field lf-ind-nparams = and
+  swap lf-idecl-params@ lf-ind-lparams lf-ind-names= and ;
+: lf-ind-types-ok? ( -- flag ) true lf-ind-types@ 0 ?do i lf-ind-type-ok? and loop ;
+\ Each type's constructors, from its ctors list: the first's number in the
+\ block and how many; true when they are the block's constructors.
+: lf-ind-ctors-of ( d -- items n ) lf-ind-type-at lf-idecl-data lf-ity-ctors@ ;
+: lf-ind-layout ( -- flag )
+  0 lf-ind-types@ 0 ?do
+    dup i lf-ind-ty lf-ty-ctor ! i lf-ind-ctors-of nip dup i lf-ind-ty lf-ty-ctors ! +
+  loop lf-ind-ctors@ = ;
+\ Constructor j: named as its type's ctors list says, naming its type.
+: lf-ind-listed ( j -- name )
+  dup lf-ind-owner tuck lf-ind-ty lf-ty-ctor @ - cells swap lf-ind-ctors-of drop + @ ;
 : lf-ind-induct ( j -- name ) lf-ind-ctor lf-idecl-data lf-ict-induct lf-more-field ;
 : lf-ind-ctor-ok? ( j -- flag )
   dup lf-ind-ctor lf-idecl-name @ over lf-ind-listed lf-name-same?
-  swap lf-ind-induct lf-ind-name lf-name-same? and ;
+  over lf-ind-induct rot lf-ind-owner lf-ind-tname lf-name-same? and ;
 : lf-ind-ctors-ok? ( -- flag )
-  lf-ind-type-data lf-ity-ctors@ nip lf-ind-ctors@ <> if false exit then
+  lf-ind-layout 0= if false exit then
   true lf-ind-ctors@ 0 ?do i lf-ind-ctor-ok? and loop ;
 : lf-ind-rec-ok? ( r -- flag )
   lf-ind-rec lf-idecl-data lf-irc-all@ lf-ind-name -rot lf-ind-in? ;
@@ -209,8 +256,8 @@ lf-walk-room context-walk2: lf-ind-pair-walker
 : lf-ind-distinct? ( -- flag ) true lf-ind-members 0 ?do i lf-ind-unique? and loop ;
 : lf-ind-shape? ( -- flag )
   lf-ind-members-ok? 0= if false exit then
-  lf-ind-types@ 1 > if lf-ind-distinct? exit then
-  lf-ind-all-ok? lf-ind-ctors-ok? and lf-ind-recs-ok? and lf-ind-distinct? and ;
+  lf-ind-types-ok? 0= if false exit then
+  lf-ind-ctors-ok? lf-ind-recs-ok? and lf-ind-distinct? and ;
 : lf-ind-b0 ( -- outcome )
   lf-ind-shape? if outcome-ok exit then
   lf-ind-first@ 0 lf-ind-site lf-diag-block-shape lf-diag-note outcome-invalid ;
@@ -259,8 +306,8 @@ lf-walk-room context-walk2: lf-ind-pair-walker
     outcome-invalid exit then
   0 lf-ind-fuel @ lf-constant-term-scope lf-cts-fuel @ lf-ind-fuel ! ;
 
-\ Occurrences of the block's type (one type: the scope, below) in a term,
-\ counted by a walk on the block's fuel.
+\ Occurrences of the block's types in a term, counted by a walk on the
+\ block's fuel.
 : lf-ind-occurrence ( first second walk tag -- outcome )
   lf-tag-constant = if walk-node @ lf-ind-type-node? 1 and lf-ind-state lf-ind-count +!
   else drop then 2drop outcome-ok ;
@@ -281,8 +328,8 @@ lf-walk-room context-walk2: lf-ind-pair-walker
   0 lf-ind-state lf-ind-count ! lf-ind-inner-run
   lf-ind-state lf-ind-count @ 0<> swap ;
 
-\ The scope of tasks 5.2.1a and 5.2.1b: one type (a mutual block is task
-\ 5.2.5), and no nested occurrence (5.2.5). Lean's elim_nested_inductive
+\ The scope of tasks 5.2.1a, 5.2.1b and 5.2.5a: one type or several (a
+\ mutual block), and no nested occurrence (5.2.5b). Lean's elim_nested_inductive
 \ (inductive.cpp 1023-1055, 1133-1176) replaces, anywhere in a
 \ constructor's type after its parameters, each application I Ds is of an
 \ inductive type I of its environment whose parametric arguments Ds
@@ -365,13 +412,11 @@ lf-walk-room context-walk2: lf-ind-pair-walker
   loop true outcome-ok ;
 : lf-ind-out-of-scope ( reason -- outcome )
   lf-ind-first@ swap lf-ind-site lf-diag-block-scope lf-diag-note outcome-unsupported ;
-1 constant lf-scope-mutual
 3 constant lf-scope-nested
 : lf-ind-ctors-scoped ( -- outcome )
   lf-ind-ctors@ 0 ?do i lf-ind-ctor-scoped dup ok? 0= if unloop exit then drop loop
   outcome-ok ;
 : lf-ind-scoped ( -- outcome )
-  lf-ind-types@ 1 > if lf-scope-mutual lf-ind-out-of-scope exit then
   lf-ind-ctors-plain? ok-then? 0= if exit then if outcome-ok exit then
   lf-ind-ctors-scoped dup outcome-unsupported =
   if drop lf-scope-nested lf-ind-out-of-scope then ;
@@ -406,7 +451,9 @@ lf-walk-room context-walk2: lf-ind-pair-walker
   lf-ind-first@ 0 lf-ind-site lf-diag-reserved-prefix lf-diag-note outcome-rejected ;
 : lf-ind-t0-term ( root -- outcome ) ['] lf-ind-prefix lf-ind-walk ;
 : lf-ind-t0 ( -- outcome )
-  lf-ind-type lf-idecl-type @ lf-ind-t0-term dup ok? 0= if exit then drop
+  lf-ind-types@ 0 ?do
+    i lf-ind-type-at lf-idecl-type @ lf-ind-t0-term dup ok? 0= if unloop exit then drop
+  loop
   lf-ind-ctors@ 0 ?do
     i lf-ind-ctor-type lf-ind-t0-term dup ok? 0= if unloop exit then drop
   loop outcome-ok ;

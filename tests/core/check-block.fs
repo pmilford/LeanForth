@@ -118,6 +118,27 @@ T{ s" ind.recursive-predicate-one-constructor" verdict -> outcome-ok 0 all-steps
 T{ s" ind.list-sort-max" verdict -> outcome-ok 0 all-steps }T
 T{ s" ind.recursive-through-beta" verdict -> outcome-ok 0 all-steps }T
 T{ s" ind.erased-by-beta" verdict -> outcome-ok 0 all-steps }T
+\ Mutual blocks (task 5.2.5a): each type's recursor with one motive per
+\ type and the minor premises of every constructor, equal to Lean's: two
+\ propositions (Prop only), tree and forest, even and odd with an index,
+\ indexed data, three types with a parameter and a universe, a function
+\ field into the other type.
+T{ s" mutual.single-ctor-props" verdict -> outcome-ok 0 all-steps }T
+T{ s" mutual.tree-forest" verdict -> outcome-ok 0 all-steps }T
+T{ s" mutual.even-odd-constructors" verdict -> outcome-ok 0 all-steps }T
+T{ s" mutual.indexed-data" verdict -> outcome-ok 0 all-steps }T
+T{ s" mutual.three-types" verdict -> outcome-ok 0 all-steps }T
+T{ s" mutual.reflexive" verdict -> outcome-ok 0 all-steps }T
+\ One constructor in the whole block: E1 (Prop only), where one type would
+\ have E3's large eliminator.
+T{ s" mutual.one-constructor" verdict -> outcome-ok 0 all-steps }T
+\ Rejected as Lean's check_inductive_types rejects them, at step 8 of the
+\ second type: parameters that differ, too few of them, another universe;
+\ and a negative occurrence of the other type (step 9, P1).
+T{ s" mutual.parameter-mismatch" verdict -> outcome-rejected lf-diag-mutual-params 8 }T
+T{ s" mutual.parameter-count" verdict-field -> outcome-rejected lf-diag-param-count 8 0 }T
+T{ s" mutual.universe-mismatch" verdict -> outcome-rejected lf-diag-universe-mismatch 8 }T
+T{ s" mutual.non-positive" verdict-field -> outcome-rejected lf-diag-non-positive 9 0 }T
 
 \ Rejected, each with its rule's diagnostic, at its step.
 T{ s" uniform.result-other-argument" verdict -> outcome-rejected lf-diag-nonuniform 3 }T
@@ -238,8 +259,7 @@ T{ s" replay.recursor-left-out" verdict-warned
 \ definition in positivity (id (Bad -> Nat)), unknown until task 4.2.2.
 T{ s" params.constructor-binder-defeq" verdict nip -> outcome-unknown 9 }T
 T{ s" pos.through-definition" verdict -> outcome-unknown lf-diag-needs-unfolding 9 }T
-T{ s" mutual.single-ctor-props" verdict -> outcome-unsupported lf-diag-block-scope 1 }T
-\ Nested blocks (task 5.2.5): List Tree, and List (Bad -> Nat), which Lean
+\ Nested blocks (task 5.2.5b): List Tree, and List (Bad -> Nat), which Lean
 \ rejects only after making the block mutual.
 T{ s" nested.tree" verdict-field -> outcome-unsupported lf-diag-block-scope 1 3 }T
 T{ s" nested.non-positive" verdict-field -> outcome-unsupported lf-diag-block-scope 1 3 }T
@@ -252,9 +272,9 @@ T{ s" names.empty-block" verdict -> outcome-rejected lf-diag-empty-block 4 }T
 T{ s" unit.punit-variables" verdict nip -> outcome-unknown 8 }T
 
 \ ---------------------------------------------------------------------------
-\ 2. blocks.ndjson: N, Both, Same, Either, Nat, List and Point accepted,
-\ every member's slot final and accepted, with a handle and no axioms;
-\ the mutual Even/Odd and the nested Tree unsupported (task 5.2.5), and
+\ 2. blocks.ndjson: N, Both, Same, Either, Nat, the mutual Even/Odd, List
+\ and Point accepted, every member's slot final and accepted, with a
+\ handle and no axioms; the nested Tree unsupported (task 5.2.5b), and
 \ Point.x (a projection, task 5.2.2).
 : blocks ( -- c-addr u ) s" tests/reference/inductive/blocks.ndjson" ;
 : member-ok? ( d -- flag )
@@ -264,7 +284,7 @@ T{ s" unit.punit-variables" verdict nip -> outcome-unknown 8 }T
 : all-unsupported? ( from to -- flag )
   true -rot swap ?do i lf-env-outcome outcome-unsupported = and loop ;
 T{ blocks staged fuel checked -> outcome-ok }T
-T{ 0 18 all-ok? 18 25 all-unsupported? 25 29 all-ok? -> true true true }T
+T{ 0 18 all-ok? 18 25 all-ok? 25 29 all-ok? -> true true true }T
 T{ 29 33 all-unsupported? 33 36 all-ok? 36 37 all-unsupported? -> true true true }T
 finish
 
@@ -426,13 +446,16 @@ T{ ready-around -> false true }T
 \ Which types hold a name (lf-env-reserving's class): T.rec by T accepted
 \ or not; T.rec_<digits>, the auxiliary recursors of a nested block, only
 \ by a T not accepted (no accepted block is nested yet); no other name.
-: held-as ( part-addr part-u c-addr u -- class )
-  case-path staged ok? must fuel checked
-  0 lf-input-name -rot lf-name-str must lf-env lf-env-length lf-env-reserving nip finish ;
+\ The type is the file's declaration d (held-at) or its first (held-as).
+: held-at ( part-addr part-u c-addr u d -- class )
+  >r case-path staged ok? must fuel checked
+  r> lf-input-name -rot lf-name-str must lf-env lf-env-length lf-env-reserving nip finish ;
+: held-as ( part-addr part-u c-addr u -- class ) 0 held-at ;
 T{ s" rec" s" ind.bool" held-as -> outcome-ok }T
 T{ s" rec" s" ind.nat" held-as -> outcome-ok }T
-T{ s" rec" s" mutual.single-ctor-props" held-as -> outcome-unsupported }T
-T{ s" rec_1" s" mutual.single-ctor-props" held-as -> outcome-unsupported }T
+T{ s" rec" s" mutual.single-ctor-props" held-as -> outcome-ok }T
+T{ s" rec" s" nested.tree" 4 held-at -> outcome-unsupported }T
+T{ s" rec_1" s" nested.tree" 4 held-at -> outcome-unsupported }T
 T{ s" rec_1" s" ind.nat" held-as -> outcome-rejected }T
 T{ s" rec_1" s" ind.bool" held-as -> outcome-rejected }T
 T{ s" recOn" s" ind.bool" held-as -> outcome-rejected }T
@@ -519,6 +542,14 @@ T{ s" after.reflexive-parameter-at-renamed" used -> outcome-ok 0 }T
 \ The list's recursor built again while a block with a parameter checks
 \ its constructor: that block's parameter domains survive the rebuild.
 T{ s" after.list-left-out-then-lookup-during-param-block" used -> outcome-ok 0 }T
+\ Mutual blocks (task 5.2.5a): the generated recursor of the first type and
+\ of a later one, with indices, and at concrete and renamed universes.
+T{ s" after.mutual-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.even-odd-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.even-odd-left-out-then-use-second-rec" used -> outcome-ok 0 }T
+T{ s" after.indexed-data-left-out-then-use-second-rec" used -> outcome-ok 0 }T
+T{ s" after.three-types-at-concrete" used -> outcome-ok 0 }T
+T{ s" after.three-types-at-renamed" used -> outcome-ok 0 }T
 \ The marks on the slots: the type and constructors, not the recursor.
 : added? ( d -- flag ) lf-env lf-env-slot lf-slot-added? ;
 : marks ( -- f0 f1 f2 f3 )

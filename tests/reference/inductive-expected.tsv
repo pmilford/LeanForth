@@ -56,15 +56,21 @@ params.constructor-binder-defeq	accepted	accepted	A1 C2	5.2.1a	T: idx=0 rec=0 re
 params.constructor-binder-beta	accepted	accepted	A1 C2	5.2.1a	T: idx=0 rec=0 refl=0 nested=0 elim=any k=0 motives=1 minors=1 fields=[0]
 params.index-instead-of-parameter	universeTooBig	rejected	U1	5.2.1c	
 params.index-one-universe-up	accepted	accepted	A1 U1	5.2.1c	T: idx=1 rec=0 refl=0 nested=0 elim=any k=0 motives=1 minors=1 fields=[2]
-mutual.even-odd	accepted	accepted	A1 E1	5.2.5	Even: idx=1 rec=1 refl=0 nested=0 elim=Prop k=0 motives=2 minors=3 fields=[0, 2]; Odd: idx=1 rec=1 refl=0 nested=0 elim=Prop k=0 motives=2 minors=3 fields=[2]
-mutual.tree-forest	accepted	accepted	A1	5.2.5	Tree: idx=0 rec=1 refl=0 nested=0 elim=any k=0 motives=2 minors=3 fields=[2]; Forest: idx=0 rec=1 refl=0 nested=0 elim=any k=0 motives=2 minors=3 fields=[0, 2]
-mutual.single-ctor-props	accepted	accepted	A1 E1	5.2.5	A: idx=0 rec=0 refl=0 nested=0 elim=Prop k=0 motives=2 minors=2 fields=[0]; B: idx=0 rec=0 refl=0 nested=0 elim=Prop k=0 motives=2 minors=2 fields=[0]
-mutual.universe-mismatch	mutualUniverseMismatch	rejected	T4	5.2.5	
-mutual.parameter-mismatch	mutualParamMismatch	rejected	T3	5.2.5	
-mutual.parameter-count	paramCountMismatch	rejected	T3	5.2.5	
-nested.tree	accepted	accepted	A1 N1	5.2.5	Tree: idx=0 rec=1 refl=0 nested=1 elim=any k=0 motives=2 minors=3 fields=[1] aux=[rec_1]
-nested.non-positive	nonPositive	rejected	N1 P1	5.2.5	
-nested.local-variable	nestedLocalVariable	rejected	N2	5.2.5	
+mutual.even-odd	accepted	accepted	A1 E1	5.2.5a	Even: idx=1 rec=1 refl=0 nested=0 elim=Prop k=0 motives=2 minors=3 fields=[0, 2]; Odd: idx=1 rec=1 refl=0 nested=0 elim=Prop k=0 motives=2 minors=3 fields=[2]
+mutual.tree-forest	accepted	accepted	A1	5.2.5a	Tree: idx=0 rec=1 refl=0 nested=0 elim=any k=0 motives=2 minors=3 fields=[2]; Forest: idx=0 rec=1 refl=0 nested=0 elim=any k=0 motives=2 minors=3 fields=[0, 2]
+mutual.single-ctor-props	accepted	accepted	A1 E1	5.2.5a	A: idx=0 rec=0 refl=0 nested=0 elim=Prop k=0 motives=2 minors=2 fields=[0]; B: idx=0 rec=0 refl=0 nested=0 elim=Prop k=0 motives=2 minors=2 fields=[0]
+mutual.universe-mismatch	mutualUniverseMismatch	rejected	T4	5.2.5a	
+mutual.parameter-mismatch	mutualParamMismatch	rejected	T3	5.2.5a	
+mutual.parameter-count	paramCountMismatch	rejected	T3	5.2.5a	
+mutual.even-odd-constructors	accepted	accepted	A1 E1 G1	5.2.5a	Ev: idx=1 rec=1 refl=0 nested=0 elim=Prop k=0 motives=2 minors=3 fields=[0, 2]; Od: idx=1 rec=1 refl=0 nested=0 elim=Prop k=0 motives=2 minors=3 fields=[2]
+mutual.indexed-data	accepted	accepted	A1 G1	5.2.5a	MA: idx=1 rec=1 refl=0 nested=0 elim=any k=0 motives=2 minors=3 fields=[0, 2]; MB: idx=1 rec=1 refl=0 nested=0 elim=any k=0 motives=2 minors=3 fields=[2]
+mutual.three-types	accepted	accepted	A1 G1	5.2.5a	X: idx=0 rec=1 refl=0 nested=0 elim=any k=0 motives=3 minors=5 fields=[2, 0]; Y: idx=0 rec=1 refl=0 nested=0 elim=any k=0 motives=3 minors=5 fields=[1]; Z: idx=0 rec=1 refl=0 nested=0 elim=any k=0 motives=3 minors=5 fields=[1, 0]
+mutual.reflexive	accepted	accepted	A1 P1 G1	5.2.5a	MR: idx=0 rec=1 refl=1 nested=0 elim=any k=0 motives=2 minors=3 fields=[1]; MS: idx=0 rec=1 refl=1 nested=0 elim=any k=0 motives=2 minors=3 fields=[1, 0]
+mutual.non-positive	nonPositive	rejected	P1	5.2.5a	
+mutual.one-constructor	accepted	accepted	A1 E1	5.2.5a	OA: idx=0 rec=1 refl=0 nested=0 elim=Prop k=0 motives=2 minors=1 fields=[1]; OB: idx=0 rec=1 refl=0 nested=0 elim=Prop k=0 motives=2 minors=1 fields=[]
+nested.tree	accepted	accepted	A1 N1	5.2.5b	Tree: idx=0 rec=1 refl=0 nested=1 elim=any k=0 motives=2 minors=3 fields=[1] aux=[rec_1]
+nested.non-positive	nonPositive	rejected	N1 P1	5.2.5b	
+nested.local-variable	nestedLocalVariable	rejected	N2	5.2.5b	
 names.already-declared	alreadyDeclared	rejected	T5	5.2.1a	
 names.duplicate-constructor	duplicateConstructor	rejected	C4	5.2.1a	
 names.duplicate-universe	duplicateLevelParam	rejected	T5	5.2.1a	
@@ -162,7 +168,7 @@ after.universe-max-left-out-then-use-rec	accepted	accepted	B4 G1 U1	5.2.1a
 after.predicate-any-field-left-out-then-use-rec	accepted	accepted	B4 G1 E4	5.2.1a	
 after.eq-left-out-then-use-rec	accepted	accepted	B4 G1 K1	5.2.1c	
 after.index-left-out-then-use-rec	accepted	accepted	B4 G1	5.2.1c	
-after.mutual-left-out-then-use-rec	accepted	accepted	B4 G1	5.2.5	
+after.mutual-left-out-then-use-rec	accepted	accepted	B4 G1	5.2.5a	
 after.recursor-left-out-then-lookup-in-def	accepted	accepted	B4 G1	5.2.1a	
 after.recursor-left-out-then-lookup-during-block	accepted	accepted	B4 G1	5.2.1a	
 after.many-universes-left-out-then-use-rec	accepted	accepted	B4 G1	5.2.1a	
@@ -187,7 +193,12 @@ after.list-at-applied	accepted	accepted	B4 G1	5.2.1b
 after.list-sort-max-at-concrete	accepted	accepted	B4 G1 U1	5.2.1b	
 after.reflexive-parameter-at-renamed	accepted	accepted	B4 G1	5.2.1b	
 after.list-left-out-then-lookup-during-param-block	accepted	accepted	B4 G1 C2	5.2.1b	
-names.reserved-nested-prefix	reservedNestedPrefix	rejected	T0	5.2.5	
+after.even-odd-left-out-then-use-rec	accepted	accepted	B4 G1	5.2.5a	
+after.even-odd-left-out-then-use-second-rec	accepted	accepted	B4 G1	5.2.5a	
+after.indexed-data-left-out-then-use-second-rec	accepted	accepted	B4 G1	5.2.5a	
+after.three-types-at-concrete	accepted	accepted	B4 G1	5.2.5a	
+after.three-types-at-renamed	accepted	accepted	B4 G1	5.2.5a	
+names.reserved-nested-prefix	reservedNestedPrefix	rejected	T0	5.2.5b	
 names.reserved-nested-prefix-declared	reservedNestedPrefix	rejected	T0	5.2.1a	
 names.constructor-already-declared	alreadyDeclared	rejected	N2	5.2.1a	
 names.already-declared-earlier	alreadyDeclared	rejected	T5	5.2.1a	

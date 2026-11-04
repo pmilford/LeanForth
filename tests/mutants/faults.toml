@@ -3600,8 +3600,8 @@ reason = "B3: the exported k flag is never compared; a recursor with k set is ac
 [[fault]]
 id = "ind-cidx-not-compared"
 file = "src/kernel/check-block.fs"
-old = ''': lf-b3-cidx? ( j -- flag ) dup lf-blk-ctor-data lf-ict-cidx lf-more-field <> ;'''
-new = ''': lf-b3-cidx? ( j -- flag ) drop false ;'''
+old = '''  dup lf-blk-ctor-data lf-ict-cidx lf-more-field swap dup lf-blk-first-of - <> ;'''
+new = '''  drop false ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "B3: a constructor's index is never compared"
 
@@ -3674,8 +3674,8 @@ reason = "C3 skipped: a constructor returning Prop instead of its type is not re
 [[fault]]
 id = "ind-skip-duplicate-constructor"
 file = "src/kernel/check-block.fs"
-old = '''    if drop lf-blk-dup unloop exit then'''
-new = '''    if drop outcome-ok unloop exit then'''
+old = '''    if 2drop lf-blk-dup unloop exit then'''
+new = '''    if 2drop outcome-ok unloop exit then'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "C4 skipped: two constructors of one name pass"
 
@@ -3690,8 +3690,8 @@ reason = "T5 skipped: a block with the universe parameters u, u passes"
 [[fault]]
 id = "ind-skip-names"
 file = "src/kernel/check-block.fs"
-old = '''  lf-ind-name lf-blk-fresh ['] lf-blk-rec-name! lf-blk-then
-  ['] lf-blk-rec-fresh lf-blk-then ;'''
+old = '''  dup lf-ind-tname lf-blk-fresh ok-then? 0= if exit then
+  dup lf-blk-rec-name! ok-then? 0= if exit then lf-blk-rec-id lf-blk-fresh ;'''
 new = '''  lf-blk-rec-name! ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "N2 skipped for a block: a type declared twice in one input is accepted twice"
@@ -3735,9 +3735,12 @@ reason = "rvI21 M1: consume_type_annotations skipped; An's recursor keeps optPar
 [[fault]]
 id = "ind-t0-skip"
 file = "src/kernel/inductive-block.fs"
-old = '''  lf-ind-type lf-idecl-type @ lf-ind-t0-term dup ok? 0= if exit then drop
+old = '''  lf-ind-types@ 0 ?do
+    i lf-ind-type-at lf-idecl-type @ lf-ind-t0-term dup ok? 0= if unloop exit then drop
 '''
 new = '''  outcome-ok exit
+  lf-ind-types@ 0 ?do
+    i lf-ind-type-at lf-idecl-type @ lf-ind-t0-term dup ok? 0= if unloop exit then drop
 '''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvI21 M1: T0 skipped; a constructor using the declared constant _nested.X is accepted where Lean rejects the reserved prefix"
@@ -3763,7 +3766,7 @@ reason = "rvI21 M1: B3 field 1 of a constructor never compared; a constructor gi
 [[fault]]
 id = "ind-rec-all-unchecked"
 file = "src/kernel/check-block.fs"
-old = ''': lf-b3-all? ( data -- flag ) lf-irc-all@ lf-blk-self lf-blk-names= 0= ;'''
+old = ''': lf-b3-all? ( data -- flag ) lf-irc-all@ lf-ind-all lf-blk-names= 0= ;'''
 new = ''': lf-b3-all? ( data -- flag ) drop false ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvI21 M1: B3 field 4 (all) never compared; a recursor whose all names the type twice is accepted"
@@ -3817,9 +3820,8 @@ reason = "rvI21 M1: with the flag left set, a later definition using a rejected 
 [[fault]]
 id = "ind-capacity-unchecked"
 file = "src/kernel/inductive-block.fs"
-old = '''  lf-ind-ctors@ lf-ind-ctor-capacity >
-  if lf-ind-crowded else lf-ind-members outcome-ok then ;'''
-new = '''  lf-ind-members outcome-ok ;'''
+old = '''  lf-ind-ctors@ lf-ind-ctor-capacity > if lf-ind-crowded exit then'''
+new = ''''''
 test = "python3 tests/core/test_block_capacity.py"
 reason = "rvI21 B1: a block of more than 512 constructors is checked, writing past its state record"
 
@@ -4053,10 +4055,8 @@ reason = "rvI21 R4-2: the rebuilt recursor gives every constructor no field; And
 [[fault]]
 id = "genrec-raw-always"
 file = "src/kernel/generated-recursor.fs"
-old = ''': lf-genrec-raw? ( -- flag )
-'''
-new = ''': lf-genrec-raw? ( -- flag ) true exit
-'''
+old = ''': lf-genrec-raw? ( -- flag ) true lf-ind-types@ 0 ?do i lf-genrec-type-raw? and loop ;'''
+new = ''': lf-genrec-raw? ( -- flag ) true ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvI21 R4-2: a type that is a Sort only after whnf gets a recipe; its rebuilt recursor is invalid instead of unknown"
 
@@ -4198,8 +4198,10 @@ reason = "5.2.1b: a definition counted as a head Lean's whnf leaves; id (Bad -> 
 [[fault]]
 id = "rec-c3-indices-unchecked"
 file = "src/kernel/check-block.fs"
-old = '''  r> lf-blk-indices-free? ;'''
-new = '''  r> 2drop true outcome-ok ;'''
+old = '''  >r >r over swap r> lf-blk-shape-of? 0= if r> 2drop false outcome-ok exit then
+  r> lf-blk-indices-free? ;'''
+new = '''  >r >r over swap r> lf-blk-shape-of? 0= if r> 2drop false outcome-ok exit then
+  r> 2drop true outcome-ok ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "5.2.1b: is_valid_ind_app does not test the indices; mk : T (T Nat) is accepted"
 
@@ -4271,8 +4273,8 @@ reason = "5.2.1b: the generated recursor of a recursive block is built without i
 [[fault]]
 id = "genrec-domains-not-restored"
 file = "src/kernel/generated-recursor.fs"
-old = '''  lf-genrec-kept-cells slab-base lf-ind-domains slab-base lf-genrec-kept@ cells move ;'''
-new = '''  ;'''
+old = '''  lf-genrec-state lf-genrec-kept @ lf-genrec-kept-cells lf-ind-domains lf-genrec-back'''
+new = ''''''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "5.2.1b: a rebuild during a block's check leaves that block's parameter domains overwritten"
 
@@ -4398,3 +4400,74 @@ new = '''  lf-lv-printed-name ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Names"
 reason = "print shows a declaration's name as the printer spells it, so a name with a newline starts a line of its own in the outline"
 quick = true
+
+# --- mutual inductive blocks (plan task 5.2.5a; ADR 0015 §13, test plan 7) ---
+# src/kernel/check-block.fs (steps 6-8 per type, E1, C3 per type),
+# inductive-block.fs (B0, constructors' types), inductive-recursor.fs (one
+# motive per type, hypotheses into any type), generated-recursor.fs (the
+# recursor of a later type); each caught by tests/core/check-block.fs.
+
+[[fault]]
+id = "mut-one-motive"
+file = "src/kernel/inductive-recursor.fs"
+old = ''': lf-rcr-mm ( -- M ) lf-ind-types@ ;'''
+new = ''': lf-rcr-mm ( -- M ) 1 ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.5a: a mutual block's recursors get one motive; Lean's (one per type) are rejected"
+quick = true
+
+[[fault]]
+id = "mut-params-not-compared"
+file = "src/kernel/check-block.fs"
+old = '''  dup lf-ind-nparams < if lf-diag-mutual-params lf-blk-param-as else drop lf-blk-index! then ;'''
+new = '''  dup lf-ind-nparams < if nip lf-blk-param-dom lf-blk-push else drop lf-blk-index! then ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.5a: a later type's parameters are not compared with the first's; A : Type -> Type, B : Prop -> Type is accepted"
+
+[[fault]]
+id = "mut-universe-not-compared"
+file = "src/kernel/check-block.fs"
+old = '''  ok-then? 0= if exit then lf-blk-same-level ;'''
+new = '''  ok-then? 0= if exit then drop outcome-ok ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.5a: T4 skipped; mutual types in Type and Prop are accepted"
+
+[[fault]]
+id = "mut-param-count-unchecked"
+file = "src/kernel/check-block.fs"
+old = '''  dup lf-ind-nparams < if lf-blk-few-params exit then'''
+new = '''  dup lf-ind-nparams < if 2drop -1 outcome-ok exit then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.5a: a later type with too few parameters is not Lean's paramCountMismatch"
+
+[[fault]]
+id = "mut-owner-first"
+file = "src/kernel/inductive-block.fs"
+old = '''  drop lf-ind-types@ 1- ;'''
+new = '''  drop 0 ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.5a: the last type's constructors are taken for the first type's; their results fail C3"
+
+[[fault]]
+id = "mut-hypothesis-first-motive"
+file = "src/kernel/inductive-recursor.fs"
+old = ''': lf-rcr-target ( end -- e ) lf-ind-spine drop lf-ind-which ;'''
+new = ''': lf-rcr-target ( end -- e ) drop 0 ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.5a: every induction hypothesis uses the first type's motive and recursor; tree and forest's recursors differ from Lean's"
+
+[[fault]]
+id = "mut-elim-any"
+file = "src/kernel/check-block.fs"
+old = '''  lf-ind-types@ 1 > if true outcome-ok exit then'''
+new = ''''''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.5a: E1 skipped for mutual predicates; two one-constructor propositions get a large eliminator, unlike Lean's"
+
+[[fault]]
+id = "mut-generated-first-type"
+file = "src/kernel/generated-recursor.fs"
+old = '''  lf-hdr-first lf-more-field tuck - lf-genrec-state lf-genrec-which !'''
+new = '''  lf-hdr-first lf-more-field tuck - drop 0 lf-genrec-state lf-genrec-which !'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.5a: a use of a later type's generated recursor gets the first type's"
