@@ -732,8 +732,7 @@ file = "src/kernel/mixed-compare.fs"
 old = '''  lf-name-slot lf-entry-payload @ swap lf-name-slot lf-entry-payload @ = ;'''
 new = '''  lf-name-slot lf-entry-payload @ swap lf-name-slot lf-entry-payload @ 2drop true ;'''
 test = "$GFORTH tests/core/mixed-compare.fs"
-reason = "names that differ only in a numeric component compare equal"
-gap = "tests/core/mixed-compare.fs compares no two names that differ only in a numeric component (x.1, x.2)"
+reason = "names that differ only in a numeric component compare equal: the test compares x.10 with x.11, which Lean's Name.num tells apart"
 
 [[fault]]
 id = "cmp-level-params-equal"
