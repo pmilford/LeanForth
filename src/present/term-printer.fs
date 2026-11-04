@@ -8,6 +8,11 @@
 \ Untrusted presentation code: the checker never loads it and no output is
 \ evidence of anything. Requires print-analysis.fs and the modules it
 \ loads. State: the printer record of print-job.fs.
+\ Depth (plan task 6.2.0): every node is a visit of the print's frames
+\ (print-job.fs), a chain of steps that keeps what it needs across a
+\ child's visit on the frames' explicit stack, so a print holds a constant
+\ number of host-stack cells whatever the depth of its term, and its
+\ binders in scope and their names grow on the heap too.
 \
 \ Public words (outcomes from lib/outcome.fs):
 \   lf-print-setup ( sink options -- )   sink xt ( c-addr u -- ); a mode
@@ -21,14 +26,17 @@
 \     anonymous name 0 prints as [anonymous]
 \   lf-print-inline, lf-print-display ( term fuel -- outcome )  the term in
 \     LaTeX as Markdown math, $...$ or $$...$$
+\   lf-print-limit! ( n -- flag )   at most n nested visits per print (no
+\     limit unless set)
 \   lf-print-reset ( -- )   recover after a THROW out of a print
 \ ok: printed. invalid: malformed input (bad index, stale reference,
 \ unknown tag, a variable outside the term's binders, a corrupted name
 \ store), a busy printer, negative fuel, or a print during which the sink
 \ called lf-print-reset. exhausted: out of fuel (one unit per visited
-\ node). full: out of nested visits (lf-print-limit!) or out of room for
-\ binder names. After a failure the sink has received a partial text. The
-\ sink rules are in print-job.fs.
+\ node). full: no room on the heap for the print's stack, its binders in
+\ scope or their names, or out of nested visits once the caller set a
+\ limit (lf-print-limit!). After a failure the sink has received a partial
+\ text. The sink rules are in print-job.fs.
 
 require ./print-analysis.fs
 
@@ -54,39 +62,54 @@ require ./print-analysis.fs
   >r over lf-pos-prec < swap lf-pos-followed? r> and or ;
 : lf-pp-open-if ( flag -- flag ) dup if s" (" lf-pp-emit then ;
 : lf-pp-enclose ( pos flag -- pos' flag ) dup if s" (" lf-pp-emit nip 0 swap then ;
-\ Leave the binders bound since the scope had depth0 binders.
+\ Leave the binders bound since the scope had depth0 binders; the step
+\ that does so at the end of a part, for the depth saved under it.
 : lf-pp-leave ( outcome depth0 -- outcome ) lf-pp-depth swap - lf-pp-unbind ;
+: lf-pp-leaving ( outcome frames -- outcome frames 0 ) >r r@ frame-restore lf-pp-leave r> 0 ;
 
-defer lf-pp-term-visit ( term pos -- outcome )
-: lf-pp-term-call ( term pos -- outcome ) ['] lf-pp-term-visit lf-pp-call ;
+defer lf-pp-term-step ( term pos frames -- ... frames next )
+: lf-pp-term-call ( term pos frames cont -- ... frames next ) ['] lf-pp-term-step lf-pp-call ;
 
-\ Sorts: Prop and Type are atoms; Type u and Sort u are not.
+\ Sorts: Prop and Type are atoms; Type u and Sort u are not (their
+\ parenthesis flag waits while the level prints).
 : lf-pp-concrete ( term pos -- outcome )
   swap lf-term-first@ dup 2 < if nip lf-pp-sort-number outcome-ok exit then
   swap lf-prec-lead false lf-pp-parens? lf-pp-open-if >r lf-pp-sort-number outcome-ok r>
   lf-pp-wrap ;
-: lf-pp-symbolic ( term pos -- outcome )
-  swap lf-term-first@ dup lf-pp-level-atom? if nip lf-pp-sort-level exit then
-  swap lf-prec-lead false lf-pp-parens? lf-pp-open-if >r lf-pp-sort-level r> lf-pp-wrap ;
+: lf-pp-concrete-step ( term pos frames -- outcome frames 0 ) >r lf-pp-concrete r> 0 ;
+: lf-pp-symbolic ( term pos frames -- ... frames next )
+  >r swap lf-term-first@ dup lf-pp-level-atom? if nip lf-pp-sort-atom r> 0 exit then
+  swap lf-prec-lead false lf-pp-parens? lf-pp-open-if r@ frame-save
+  r> ['] lf-pp-wrapped lf-pp-sort-body ;
 
 \ Atoms: a variable by its display name; a constant by name, with its
 \ universe arguments when lf-print-universes is set; @ when asked.
 : lf-pp-var ( i -- outcome )
   dup 0 lf-pp-depth within 0= if drop-invalid exit then
   lf-pp-entry lf-pp-text lf-pp-ident outcome-ok ;
-: lf-pp-levels-out ( addr count -- outcome )
-  0 ?do i if lf-pp-list-comma then dup i lf-pp-level-at false lf-pp-level
-    ok-then? 0= if unloop exit then loop drop outcome-ok ;
-: lf-pp-universe-args ( term -- outcome )
-  lf-pp-const-levels 0= if outcome-invalid exit then
-  dup 0= if 2drop outcome-ok exit then
-  lf-pp-universes-open lf-pp-levels-out dup ok? if lf-pp-universes-close then ;
-: lf-pp-const ( term -- outcome )
-  dup lf-pp-const-name 0= if drop-invalid exit then lf-pp-constant
-  lf-pp-universes? if lf-pp-universe-args else drop outcome-ok then ;
-: lf-pp-atom ( head at? -- outcome )
-  if lf-pp-explicit then
-  dup lf-tag-bvar lf-pp-is? if lf-term-first@ lf-pp-var else lf-pp-const then ;
+\ Universe arguments from index i on, a comma before all but the first
+\ and the closing brace after the last: the reference's levels (addr),
+\ their number and the next index wait while one prints.
+defer lf-pp-uargs ( addr n i frames -- ... frames next )
+: lf-pp-uargs-back ( outcome frames -- ... frames next )
+  over ok? 0= if 3 over frame-drop 0 exit then nip
+  >r r@ frame-restore r@ frame-restore r@ frame-restore r> lf-pp-uargs ;
+: lf-pp-uargs-next ( addr n i frames -- ... frames next )
+  >r 2dup > 0= if 2drop drop lf-pp-universes-close outcome-ok r> 0 exit then
+  dup if lf-pp-list-comma then
+  dup 1+ r@ frame-save over r@ frame-save 2 pick r@ frame-save nip lf-pp-level-at
+  false r> ['] lf-pp-uargs-back lf-pp-level-part ;
+' lf-pp-uargs-next is lf-pp-uargs
+: lf-pp-universe-args ( term frames cont -- ... frames next )
+  2>r lf-pp-const-levels 0= if outcome-invalid 2r> exit then
+  dup 0= if 2drop outcome-ok 2r> exit then
+  lf-pp-universes-open 2r> over frame-save 0 swap lf-pp-uargs ;
+: lf-pp-const ( term frames cont -- ... frames next )
+  2>r dup lf-pp-const-name 0= if drop-invalid 2r> exit then lf-pp-constant
+  lf-pp-universes? if 2r> lf-pp-universe-args else drop outcome-ok 2r> then ;
+: lf-pp-atom ( head at? frames cont -- ... frames next )
+  2>r if lf-pp-explicit then
+  dup lf-tag-bvar lf-pp-is? if lf-term-first@ lf-pp-var 2r> else 2r> lf-pp-const then ;
 
 \ Applications: the head, then the shown arguments, each in argument
 \ position; an argument is followed unless it is the last shown one and
@@ -95,28 +118,43 @@ defer lf-pp-term-visit ( term pos -- outcome )
 : lf-pp-info ( last followed -- info ) 1 and swap 2* or ;
 : lf-pp-info-last ( info -- i ) 2/ ;
 : lf-pp-info-followed? ( info -- flag ) 1 and 0<> ;
-: lf-pp-fn ( app -- outcome )
-  lf-pp-head 2dup lf-pp-at? >r drop dup lf-pp-atom-head?
-  if r> lf-pp-atom else r> drop lf-prec-max true lf-pos lf-pp-term-call then ;
+: lf-pp-fn ( app frames cont -- ... frames next )
+  2>r lf-pp-head 2dup lf-pp-at? >r drop dup lf-pp-atom-head?
+  if r> 2r> lf-pp-atom exit then r> drop lf-prec-max true lf-pos 2r> lf-pp-term-call ;
 : lf-pp-args-info ( app pos -- info ) lf-pos-followed? swap lf-pp-last swap lf-pp-info ;
 : lf-pp-arg-pos ( info i -- pos )
   over lf-pp-info-last < swap lf-pp-info-followed? or lf-prec-arg swap lf-pos ;
-: lf-pp-arg ( app info i -- outcome )
-  >r over r@ lf-pp-visible? 0= if 2drop r> drop outcome-ok exit then
-  r@ lf-pp-arg-pos swap r> lf-pp-arg-at swap lf-pp-space lf-pp-term-call ;
-: lf-pp-args ( app info -- outcome )
-  over lf-pp-head nip 0 ?do 2dup i lf-pp-arg ok-then2? 0= if unloop exit then loop
-  2drop outcome-ok ;
-: lf-pp-applied ( app pos -- outcome )
-  over swap lf-pp-args-info over lf-pp-fn ok-then2? if lf-pp-args then ;
+\ The shown arguments from index i on, each after a space: app, info and
+\ the next index wait while one prints.
+: lf-pp-arg-term ( app info i -- arg pos ) tuck lf-pp-arg-pos >r lf-pp-arg-at r> ;
+defer lf-pp-args ( app info i frames -- ... frames next )
+: lf-pp-args-back ( outcome frames -- ... frames next )
+  over ok? 0= if 3 over frame-drop 0 exit then nip
+  >r r@ frame-restore r@ frame-restore r@ frame-restore r> lf-pp-args ;
+: lf-pp-arg ( app info i frames -- ... frames next )
+  >r dup 1+ r@ frame-save over r@ frame-save 2 pick r@ frame-save
+  lf-pp-arg-term lf-pp-space r> ['] lf-pp-args-back lf-pp-term-call ;
+: lf-pp-more? ( app info i -- app info i flag ) 2 pick lf-pp-head nip over > ;
+: lf-pp-shown? ( app info i -- app info i flag ) 2 pick over lf-pp-visible? ;
+: lf-pp-args-from ( app info i frames -- ... frames next )
+  >r begin lf-pp-more? while lf-pp-shown? if r> lf-pp-arg exit then 1+ repeat
+  drop 2drop outcome-ok r> 0 ;
+' lf-pp-args-from is lf-pp-args
+\ The head and the arguments, a part of the visit: app, info and the
+\ first index wait while the head prints.
+: lf-pp-applied ( app pos frames cont -- ... frames next )
+  over frame-save >r over swap lf-pp-args-info 0 r@ frame-save
+  r@ frame-save dup r@ frame-save r> ['] lf-pp-args-back lf-pp-fn ;
 \ No argument shown: the head alone, in the application's own position.
-: lf-pp-bare ( app pos -- outcome )
-  swap lf-pp-head 2dup lf-pp-at? >r drop dup lf-pp-atom-head?
-  if nip r> lf-pp-atom else r> drop swap lf-pp-term-call then ;
-: lf-pp-app ( term pos -- outcome )
-  over lf-pp-spine >r 2drop r> ok-then2? 0= if exit then
-  over lf-pp-shown# 0= if lf-pp-bare exit then
-  dup lf-prec-lead false lf-pp-parens? lf-pp-enclose >r lf-pp-applied r> lf-pp-wrap ;
+: lf-pp-bare ( app pos frames -- ... frames next )
+  >r swap lf-pp-head 2dup lf-pp-at? >r drop dup lf-pp-atom-head?
+  if nip r> r> ['] frame-return lf-pp-atom exit then
+  r> drop swap r> ['] frame-return lf-pp-term-call ;
+: lf-pp-app ( term pos frames -- ... frames next )
+  >r over lf-pp-spine >r 2drop r> ok-then2? 0= if r> 0 exit then
+  over lf-pp-shown# 0= if r> lf-pp-bare exit then
+  dup lf-prec-lead false lf-pp-parens? lf-pp-enclose r@ frame-save
+  r> ['] lf-pp-wrapped lf-pp-applied ;
 
 \ Binders. A binder's display name is chosen (print-names.fs), shown and
 \ brought into scope; its domain is printed before it is in scope. from is
@@ -129,13 +167,17 @@ defer lf-pp-term-visit ( term pos -- outcome )
 : lf-pp-bind-plain ( node -- outcome )
   dup lf-pp-depth lf-pp-name-binder ok-then2?
   if swap lf-term-first@ swap lf-pp-bind then ;
-\ The last binder of a bracketed group: its name unless nameless, the
-\ domain, the closing bracket.
-: lf-pp-typed-binder ( node nameless from -- outcome )
-  >r over r> lf-pp-name-binder dup ok? 0= if nip nip nip exit then drop
-  swap 0= if dup lf-pp-pending lf-pp-ident lf-pp-colon then
-  over lf-term-first@ 0 lf-pp-term-call ok-then2? 0= if exit then
-  over lf-pp-kind lf-pp-close swap lf-term-first@ swap lf-pp-bind ;
+\ The last binder of a bracketed group, a part of the visit: its name
+\ unless nameless, the domain, the closing bracket; node and the name's
+\ mark wait while the domain prints.
+: lf-pp-typed-back ( outcome frames -- ... frames next )
+  over ok? 0= if 2 over frame-drop 0 exit then nip
+  >r r@ lf-pp-restore2 over lf-pp-kind lf-pp-close swap lf-term-first@ swap lf-pp-bind
+  r> 0 ;
+: lf-pp-typed-binder ( node nameless from frames cont -- ... frames next )
+  over frame-save >r >r over r> lf-pp-name-binder dup ok? 0= if nip nip nip r> 0 exit then
+  drop swap 0= if dup lf-pp-pending lf-pp-ident lf-pp-colon then
+  over lf-term-first@ -rot r@ lf-pp-save2 0 r> ['] lf-pp-typed-back lf-pp-term-call ;
 
 \ Pi. Its flags say whether the Pi is a proposition (lf-flag-prop) and
 \ whether its first binder prints as a binder (lf-flag-dep: it is used in
@@ -180,146 +222,195 @@ defer lf-pp-term-visit ( term pos -- outcome )
   lf-pres-binder@ if lf-pp-hygienic else false then ;
 : lf-pp-nameless? ( pi dep -- flag )
   0= swap dup lf-pp-kind lf-binder-instance = swap lf-pp-hygienic-binder? and and ;
-defer lf-pp-group-visit ( pi flags -- outcome )
-: lf-pp-group-call ( pi flags -- outcome ) ['] lf-pp-group-visit lf-pp-call ;
-: lf-pp-group-more ( pi flags -- outcome )
-  swap dup lf-pp-depth lf-pp-show-bind ok-then2? 0= if exit then
-  lf-pp-space lf-term-second@ swap lf-pp-group-call ;
-: lf-pp-group-end ( pi flags -- outcome )
-  lf-flags-dep? over swap lf-pp-nameless? lf-pp-depth lf-pp-typed-binder ;
-: lf-pp-group ( pi flags -- outcome )
-  2dup lf-pp-flags@ lf-pp-joins? dup ok? 0= if nip nip nip exit then drop
-  if lf-pp-group-more else lf-pp-group-end then ;
-' lf-pp-group is lf-pp-group-visit
-\ A bracketed group from pi; the term after it.
-: lf-pp-binders ( pi flags -- outcome ) over lf-pp-kind lf-pp-open lf-pp-group-call ;
+\ A group visit: binders that join show their names, the next one in the
+\ next group visit; the last one ends the group.
+defer lf-pp-group-step ( pi flags frames -- ... frames next )
+: lf-pp-group-call ( pi flags frames cont -- ... frames next )
+  ['] lf-pp-group-step lf-pp-call ;
+: lf-pp-group-more ( pi flags frames -- ... frames next )
+  >r swap dup lf-pp-depth lf-pp-show-bind ok-then2? 0= if r> 0 exit then
+  lf-pp-space lf-term-second@ swap r> ['] frame-return lf-pp-group-call ;
+: lf-pp-group-end ( pi flags frames -- ... frames next )
+  >r lf-flags-dep? over swap lf-pp-nameless? lf-pp-depth r> ['] frame-return
+  lf-pp-typed-binder ;
+: lf-pp-group ( pi flags frames -- ... frames next )
+  >r 2dup lf-pp-flags@ lf-pp-joins? dup ok? 0= if nip nip nip r> 0 exit then drop
+  r> swap if lf-pp-group-more else lf-pp-group-end then ;
+' lf-pp-group is lf-pp-group-step
+\ A bracketed group from pi, a part of the visit that continues with cont
+\ ( body outcome frames -- ... ), body the term after the group: pi and the
+\ scope's depth before it wait meanwhile.
 : lf-pp-after ( pi depth0 -- body ) lf-pp-depth swap - lf-pp-bodies ;
-: lf-pp-group-then ( pi flags -- body outcome )
-  lf-pp-depth >r over swap lf-pp-binders r> swap >r lf-pp-after r> ;
+: lf-pp-group-back ( outcome frames -- body outcome frames cont )
+  >r r@ lf-pp-restore2 lf-pp-after swap r> dup frame-restore ;
+: lf-pp-group-then ( pi flags frames cont -- ... frames next )
+  over frame-save >r over lf-pp-depth r@ lf-pp-save2
+  over lf-pp-kind lf-pp-open r> ['] lf-pp-group-back lf-pp-group-call ;
 \ The body of a Pi spine keeps the proposition flag.
 : lf-pp-body-pos ( flags prec -- pos )
   swap lf-flags-prop? if lf-prop-pos else false lf-pos then ;
 
-\ A → B.
-: lf-pp-arrow-body ( pi flags -- outcome )
-  over lf-term-first@ lf-prec-domain true lf-pos lf-pp-term-call ok-then2? 0= if exit then
-  lf-pp-arrow over lf-pp-bind-plain ok-then2? 0= if exit then
-  swap lf-term-second@ swap lf-prec-arrow lf-pp-body-pos lf-pp-term-call 1 lf-pp-unbind ;
-: lf-pp-arrow-form ( pi pos flags -- outcome )
-  swap lf-prec-arrow true lf-pp-parens? lf-pp-open-if >r lf-pp-arrow-body r> lf-pp-wrap ;
-\ (x : A) → B and {x : A} → B, for a Pi that is not a proposition.
-: lf-pp-dep-body ( pi flags -- outcome )
-  lf-pp-depth >r tuck lf-pp-group-then ok-then?
-  if lf-pp-arrow swap lf-prec-arrow lf-pp-body-pos lf-pp-term-call else nip then r>
-  lf-pp-leave ;
-: lf-pp-dep-form ( pi pos flags -- outcome )
-  swap lf-prec-arrow true lf-pp-parens? lf-pp-open-if >r lf-pp-dep-body r> lf-pp-wrap ;
-\ ∀ g1 g2 ..., B: further binder groups of the proposition join the ∀.
-defer lf-pp-forall-visit ( term x -- outcome )
-: lf-pp-forall-call ( term x -- outcome ) ['] lf-pp-forall-visit lf-pp-call ;
+\ A → B: pi and flags wait while A prints, the parenthesis flag below.
+: lf-pp-arrow-done ( outcome frames -- outcome frames 0 ) 1 lf-pp-unbind 0 ;
+: lf-pp-arrow-domain ( outcome frames -- ... frames next )
+  over ok? 0= if 2 over frame-drop 0 exit then nip
+  >r r@ lf-pp-restore2 lf-pp-arrow over lf-pp-bind-plain ok-then2? 0= if r> 0 exit then
+  swap lf-term-second@ swap lf-prec-arrow lf-pp-body-pos
+  r> ['] lf-pp-arrow-done lf-pp-term-call ;
+: lf-pp-arrow-body ( pi flags frames cont -- ... frames next )
+  over frame-save >r 2dup r@ lf-pp-save2 drop
+  lf-term-first@ lf-prec-domain true lf-pos r> ['] lf-pp-arrow-domain lf-pp-term-call ;
+: lf-pp-arrow-form ( pi pos flags frames -- ... frames next )
+  >r swap lf-prec-arrow true lf-pp-parens? lf-pp-open-if r@ frame-save
+  r> ['] lf-pp-wrapped lf-pp-arrow-body ;
+\ (x : A) → B and {x : A} → B, for a Pi that is not a proposition: the
+\ scope's depth before the group and the flags wait meanwhile.
+: lf-pp-dep-group ( body outcome frames -- ... frames next )
+  >r r@ frame-restore -rot ok-then? 0= if nip r> lf-pp-leaving exit then
+  lf-pp-arrow swap lf-prec-arrow lf-pp-body-pos r> ['] lf-pp-leaving lf-pp-term-call ;
+: lf-pp-dep-body ( pi flags frames cont -- ... frames next )
+  over frame-save >r lf-pp-depth r@ frame-save dup r@ frame-save
+  r> ['] lf-pp-dep-group lf-pp-group-then ;
+: lf-pp-dep-form ( pi pos flags frames -- ... frames next )
+  >r swap lf-prec-arrow true lf-pp-parens? lf-pp-open-if r@ frame-save
+  r> ['] lf-pp-wrapped lf-pp-dep-body ;
+\ ∀ g1 g2 ..., B: further binder groups of the proposition join the ∀, a
+\ visit each; the depth before the ∀ waits under them, with the step that
+\ leaves its binders.
+defer lf-pp-forall-step ( term x frames -- ... frames next )
+: lf-pp-forall-call ( term x frames cont -- ... frames next )
+  ['] lf-pp-forall-step lf-pp-call ;
 : lf-pp-forall-next? ( term -- flags flag outcome )
   dup lf-tag-pi lf-pp-is? 0= if drop 0 false outcome-ok exit then
   dup true lf-pp-dep? dup ok? 0= if >r 2drop 0 false r> exit then drop
   tuck lf-pp-arrow? 0= swap true swap lf-pp-flags swap outcome-ok ;
-: lf-pp-forall-end ( term -- outcome ) lf-pp-comma 0 lf-prop-pos lf-pp-term-call ;
-: lf-pp-forall-more ( term flags -- outcome )
-  lf-pp-space lf-pp-group-then ok-then? if 0 lf-pp-forall-call then ;
-: lf-pp-forall-rest ( term x -- outcome )
-  drop dup lf-pp-forall-next? dup ok? 0= if nip nip nip exit then drop
-  if lf-pp-forall-more else drop lf-pp-forall-end then ;
-' lf-pp-forall-rest is lf-pp-forall-visit
-: lf-pp-forall-body ( pi flags -- outcome )
-  lf-pp-depth >r lf-pp-forall lf-pp-group-then ok-then?
-  if 0 lf-pp-forall-call then r> lf-pp-leave ;
-: lf-pp-forall-form ( pi pos flags -- outcome )
-  swap lf-prec-lead true lf-pp-parens? lf-pp-open-if >r lf-pp-forall-body r> lf-pp-wrap ;
-: lf-pp-pi ( pi pos -- outcome )
-  2dup lf-pp-pi-flags ok-then? 0= if nip nip exit then
-  >r over r@ lf-pp-flags@ nip lf-pp-arrow? if r> lf-pp-arrow-form exit then
-  r@ lf-flags-prop? if r> lf-pp-forall-form else r> lf-pp-dep-form then ;
+: lf-pp-forall-on ( body outcome frames -- ... frames next )
+  >r ok-then? if 0 r> ['] frame-return lf-pp-forall-call else r> 0 then ;
+: lf-pp-forall-end ( term frames -- ... frames next )
+  >r lf-pp-comma 0 lf-prop-pos r> ['] frame-return lf-pp-term-call ;
+: lf-pp-forall-more ( term flags frames -- ... frames next )
+  lf-pp-space ['] lf-pp-forall-on lf-pp-group-then ;
+: lf-pp-forall-rest ( term x frames -- ... frames next )
+  >r drop dup lf-pp-forall-next? dup ok? 0= if nip nip nip r> 0 exit then drop
+  r> swap if lf-pp-forall-more else nip lf-pp-forall-end then ;
+' lf-pp-forall-rest is lf-pp-forall-step
+: lf-pp-forall-body ( pi flags frames cont -- ... frames next )
+  over frame-save >r lf-pp-depth r@ frame-save ['] lf-pp-leaving r@ frame-save
+  lf-pp-forall r> ['] lf-pp-forall-on lf-pp-group-then ;
+: lf-pp-forall-form ( pi pos flags frames -- ... frames next )
+  >r swap lf-prec-lead true lf-pp-parens? lf-pp-open-if r@ frame-save
+  r> ['] lf-pp-wrapped lf-pp-forall-body ;
+\ The form a Pi prints in, from its flags.
+: lf-pp-pi-form ( pi flags -- xt )
+  2dup lf-pp-flags@ nip lf-pp-arrow? if 2drop ['] lf-pp-arrow-form exit then
+  nip lf-flags-prop? if ['] lf-pp-forall-form else ['] lf-pp-dep-form then ;
+: lf-pp-pi ( pi pos frames -- ... frames next )
+  >r 2dup lf-pp-pi-flags ok-then? 0= if nip nip r> 0 exit then
+  2 pick over lf-pp-pi-form r> swap execute ;
 
 \ fun b1 b2 ... ↦ body: one fun for a chain of lambdas. Explicit binders
 \ show their names only, implicit ones group as {A B}, an instance binder
 \ shows [A] or, when used, [a : A]. Names in one fun never repeat.
 : lf-pp-chain-from ( -- from ) lf-pjob lf-pjob-chain @ ;
-defer lf-pp-names-visit ( lam x -- outcome )
-: lf-pp-names-call ( lam x -- outcome ) ['] lf-pp-names-visit lf-pp-call ;
-: lf-pp-more-names ( lam -- outcome )
-  dup lf-pp-groupable? ok-then2? 0= if exit then
-  if lf-pp-space lf-term-second@ 0 lf-pp-names-call else drop outcome-ok then ;
-: lf-pp-lam-names ( lam x -- outcome )
-  drop dup lf-pp-chain-from lf-pp-show-bind ok-then? if lf-pp-more-names then ;
-' lf-pp-lam-names is lf-pp-names-visit
-: lf-pp-lam-bracket ( lam -- outcome )
-  dup lf-pp-kind dup >r lf-pp-open 0 lf-pp-names-call r> over ok?
-  if lf-pp-close else drop then ;
-: lf-pp-lam-instance ( lam -- outcome )
-  dup lf-term-second@ 0 lf-pp-loose? ok-keep? 0= if nip exit then
-  lf-binder-instance lf-pp-open 0= lf-pp-chain-from lf-pp-typed-binder ;
-: lf-pp-lam-group ( lam -- outcome )
-  lf-pp-space dup lf-pp-kind case
-    lf-binder-default of lf-pp-chain-from lf-pp-show-bind endof
-    lf-binder-instance of lf-pp-lam-instance endof
-    >r lf-pp-lam-bracket r> endcase ;
-: lf-pp-lam-next ( lam0 -- node ) lf-pp-depth lf-pp-chain-from - lf-pp-bodies ;
-: lf-pp-lam-groups ( lam0 -- body outcome )
-  begin dup lf-pp-lam-next dup lf-tag-lam lf-pp-is? while
-    lf-pp-lam-group dup ok? 0= if exit then drop
-  repeat nip outcome-ok ;
-: lf-pp-fun-body ( lam -- outcome )
-  lf-pp-fun lf-pp-lam-groups ok-then? if lf-pp-mapsto 0 lf-pp-term-call then ;
-: lf-pp-fun-scope ( lam -- outcome )
-  lf-pp-chain-from >r lf-pp-depth dup lf-pjob lf-pjob-chain ! >r
-  lf-pp-fun-body r> lf-pp-leave r> lf-pjob lf-pjob-chain ! ;
-: lf-pp-lam ( lam pos -- outcome )
-  lf-prec-max true lf-pp-parens? lf-pp-open-if >r lf-pp-fun-scope r> lf-pp-wrap ;
+\ A bracket group's names, a visit each.
+defer lf-pp-names-step ( lam x frames -- ... frames next )
+: lf-pp-names-call ( lam x frames cont -- ... frames next )
+  ['] lf-pp-names-step lf-pp-call ;
+: lf-pp-lam-names ( lam x frames -- ... frames next )
+  >r drop dup lf-pp-chain-from lf-pp-show-bind ok-then? 0= if r> 0 exit then
+  dup lf-pp-groupable? ok-then2? 0= if r> 0 exit then
+  if lf-pp-space lf-term-second@ 0 r> ['] frame-return lf-pp-names-call
+  else drop outcome-ok r> 0 then ;
+' lf-pp-lam-names is lf-pp-names-step
+\ Groups that are parts of the fun's visit: a bracket (its kind waits for
+\ the closing bracket) or an instance binder.
+: lf-pp-closing ( outcome frames -- outcome frames 0 )
+  >r r@ frame-restore over ok? if lf-pp-close else drop then r> 0 ;
+: lf-pp-lam-bracket ( lam frames cont -- ... frames next )
+  over frame-save >r dup lf-pp-kind dup r@ frame-save lf-pp-open
+  0 r> ['] lf-pp-closing lf-pp-names-call ;
+: lf-pp-lam-instance ( lam frames cont -- ... frames next )
+  2>r dup lf-term-second@ 0 lf-pp-loose? ok-keep? 0= if nip 2r> exit then
+  lf-binder-instance lf-pp-open 0= lf-pp-chain-from 2r> lf-pp-typed-binder ;
+: lf-pp-lam-group ( lam frames cont -- ... frames next )
+  2 pick lf-pp-kind lf-binder-instance = if lf-pp-lam-instance else lf-pp-lam-bracket then ;
+\ The fun's groups from node, the next binder to bring into scope:
+\ explicit binders at once, any other group as a part of the visit, node
+\ and the depth before it waiting meanwhile; then ↦ and the body.
+: lf-pp-fun-tail ( body frames -- ... frames next )
+  >r lf-pp-mapsto 0 r> ['] frame-return lf-pp-term-call ;
+defer lf-pp-lam-groups ( node frames -- ... frames next )
+: lf-pp-groups-back ( outcome frames -- ... frames next )
+  over ok? 0= if 2 over frame-drop 0 exit then nip
+  >r r@ lf-pp-restore2 lf-pp-depth swap - lf-pp-bodies r> lf-pp-lam-groups ;
+: lf-pp-group-part ( node frames -- ... frames next )
+  >r dup lf-pp-depth r@ lf-pp-save2 r> ['] lf-pp-groups-back lf-pp-lam-group ;
+: lf-pp-lam-default ( node -- node' outcome )
+  dup lf-pp-chain-from lf-pp-show-bind swap lf-term-second@ swap ;
+: lf-pp-groups-from ( node frames -- ... frames next )
+  >r begin dup lf-tag-lam lf-pp-is? while
+    lf-pp-space dup lf-pp-kind lf-binder-default <> if r> lf-pp-group-part exit then
+    lf-pp-lam-default ok-then? 0= if r> 0 exit then
+  repeat r> lf-pp-fun-tail ;
+' lf-pp-groups-from is lf-pp-lam-groups
+\ The fun's visit: its parenthesis flag, the chain's start before it and
+\ the depth before it wait until it ends.
+: lf-pp-fun-end ( outcome frames -- outcome frames 0 )
+  >r r@ frame-restore lf-pp-leave r@ frame-restore lf-pjob lf-pjob-chain ! r> lf-pp-wrapped ;
+: lf-pp-lam ( lam pos frames -- ... frames next )
+  >r lf-prec-max true lf-pp-parens? lf-pp-open-if r@ frame-save
+  lf-pp-chain-from r@ frame-save lf-pp-depth dup r@ frame-save lf-pjob lf-pjob-chain !
+  ['] lf-pp-fun-end r@ frame-save lf-pp-fun r> lf-pp-lam-groups ;
 
 \ Dispatch on the node's tag. Variables and constants print through the
-\ application printer, which decides on @ for them too; the CASE has one
-\ arm for each other tag (eight lines in all, read as a table).
+\ application printer, which decides on @ for them too; a CASE with one
+\ arm for each other tag (read as a table) gives the visit's first step.
 : lf-pp-applied-tag? ( tag -- flag )
   dup lf-tag-app = over lf-tag-bvar = or swap lf-tag-constant = or ;
-: lf-pp-term ( term pos -- outcome )
-  over lf-pp-tag 0= if 2drop outcome-invalid exit then
-  dup lf-pp-applied-tag? if drop lf-pp-app exit then
-  case lf-tag-sort of lf-pp-concrete endof
-    lf-tag-symbolic-sort of lf-pp-symbolic endof
-    lf-tag-lam of lf-pp-lam endof
-    lf-tag-pi of lf-pp-pi endof
-    >r 2drop outcome-invalid r> endcase ;
-' lf-pp-term is lf-pp-term-visit
+: lf-pp-bad-step ( term pos frames -- outcome frames 0 ) >r 2drop outcome-invalid r> 0 ;
+: lf-pp-tag-step ( tag -- xt )
+  dup lf-pp-applied-tag? if drop ['] lf-pp-app exit then
+  case lf-tag-sort of ['] lf-pp-concrete-step endof
+    lf-tag-symbolic-sort of ['] lf-pp-symbolic endof
+    lf-tag-lam of ['] lf-pp-lam endof
+    lf-tag-pi of ['] lf-pp-pi endof
+    ['] lf-pp-bad-step swap endcase ;
+: lf-pp-term ( term pos frames -- ... frames next )
+  2 pick lf-pp-tag if lf-pp-tag-step else ['] lf-pp-bad-step then execute ;
+' lf-pp-term is lf-pp-term-step
 
-\ Public words; see the header. Every print visits its root through
-\ lf-pp-call, so the printer is busy while it runs. A name cut short for
-\ lack of pool room makes an otherwise good print full. A print ends with
-\ its visit count back at zero; any other count means that the sink
-\ called lf-print-reset during the print, against the sink rules: the
-\ print is invalid and the printer is reset again.
+\ Public words; see the header. Every print visits its root as a visit of
+\ the frames (lf-pp-run), so the printer is busy while it runs. A name cut
+\ short for lack of pool room makes an otherwise good print full. A print
+\ ends with its visit count back at zero; any other count, or a print the
+\ sink reset (against the sink rules), is invalid, and the printer is
+\ reset. A result outside the outcome vocabulary is invalid.
 : lf-pp-finish ( outcome -- outcome )
-  lf-pp-busy? if drop lf-print-reset outcome-invalid exit then
-  dup ok? lf-pp-full? and if drop outcome-full then ;
+  lf-pp-busy? lf-pp-broken @ or if drop lf-print-reset outcome-invalid exit then
+  outcome-sane dup ok? lf-pp-full? and if drop outcome-full then ;
 : lf-print-ready? ( fuel -- flag )
   lf-name-storage-valid? if lf-pp-start else drop false then ;
 : lf-print-run ( term pos fuel -- outcome )
-  lf-print-ready? if lf-pp-term-call lf-pp-finish else 2drop outcome-invalid then ;
+  lf-print-ready? if ['] lf-pp-term-step lf-pp-run lf-pp-finish else 2drop outcome-invalid
+  then ;
 : lf-print-term ( term fuel -- outcome ) 0 swap lf-print-run ;
 : lf-print-statement ( term fuel -- outcome ) 0 lf-prop-pos swap lf-print-run ;
 : lf-print-level ( level fuel -- outcome )
   lf-print-ready? if false lf-pp-level lf-pp-finish else drop-invalid then ;
 \ A name is one visit, with one unit of fuel.
-: lf-pp-name-visit ( id x -- outcome ) drop lf-pp-constant outcome-ok ;
+: lf-pp-name-visit ( id x frames -- outcome frames 0 ) >r drop lf-pp-constant outcome-ok r> 0 ;
 : lf-print-name ( id -- outcome )
   dup lf-name-valid? 0= if drop-invalid exit then
   1 lf-print-ready? 0= if drop-invalid exit then
-  0 ['] lf-pp-name-visit lf-pp-call lf-pp-finish ;
+  0 ['] lf-pp-name-visit lf-pp-run lf-pp-finish ;
 
 \ Open terms (plan task 2.4.4, for the proof outline): a term whose
 \ variables refer to count binders, the lambda or Pi nodes at addr,
 \ outermost first, brought into scope with display names chosen as for one
 \ fun (no name repeats, and no capture). lf-print-scoped prints the term
 \ in that scope; lf-print-scope-name prints the innermost binder's name.
-\ A node that is no lambda or Pi, or a count past lf-print-binder-capacity,
-\ is invalid (full when no room is left in the scope).
+\ A node that is no lambda or Pi is invalid; the scope is full when the
+\ heap has no room for its binders or their names.
 : lf-pp-binder-node? ( node -- flag )
   dup lf-tag-lam lf-pp-is? swap lf-tag-pi lf-pp-is? or ;
 : lf-pp-scope-bind ( node -- outcome )
@@ -330,7 +421,7 @@ defer lf-pp-names-visit ( lam x -- outcome )
   loop drop outcome-ok ;
 : lf-print-scoped ( term addr count fuel -- outcome )
   lf-print-ready? 0= if 2drop drop-invalid exit then
-  lf-pp-scope ok-then? if 0 lf-pp-term-call then lf-pp-finish ;
+  lf-pp-scope ok-then? if 0 ['] lf-pp-term-step lf-pp-run then lf-pp-finish ;
 : lf-print-scope-name ( addr count fuel -- outcome )
   lf-print-ready? 0= if 2drop outcome-invalid exit then
   lf-pp-scope dup ok? if drop 0 lf-pp-var then lf-pp-finish ;

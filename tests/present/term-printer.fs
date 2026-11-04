@@ -1,7 +1,9 @@
 \ Unit tests of the presentation side table and the term printer: every
 \ public word's success and failure outcomes, stale entries, fuel, visit
-\ and pool limits, a busy printer, and the Markdown wrappers. The printed
-\ text of many more cases is in print-cases.golden (check_golden.py).
+\ limits, a pool and a scope that grow until the heap refuses, a busy
+\ printer, and the Markdown wrappers. The printed text of many more cases
+\ is in print-cases.golden (check_golden.py).
+include ../support/heap-watch.fs
 require ./build.fs
 
 variable t1   variable t2   variable t3
@@ -135,13 +137,20 @@ T{ 2 ' inner-name 0 sink-calls cap-reset t1 @ fuel lf-print-inline nested-result
 T{ s" $\forall \{P : \mathrm{Prop}\},\ P \to P$" expect-text -> }T
 T{ 0 mode cap-reset t1 @ fuel lf-print-term -> outcome-ok }T
 
-\ Binder names fill the pool: 45 binders of 98 bytes that must all differ
-\ (the text goes nowhere).
+\ Binder names fill the pool, which grows: 45 binders of 98 bytes that
+\ must all differ, more than the 4,096 bytes it once held (the text goes
+\ nowhere). When the heap refuses to grow the pool, the scope or the
+\ print's stack, a print that needs more room is full (200 such binders
+\ need more than any print before), and the printer is idle again.
 : long-name ( -- c-addr u )
   s" a-rather-long-binder-name-repeated-in-one-fun-again-and-again-and-again-to-about-a-hundred-bytes" ;
-: long-fun ( -- t ) t-prop 0 t-var 45 0 do over swap t-lam long-name ex. loop nip ;
+: long-fun ( n -- t ) t-prop 0 t-var rot 0 do over swap t-lam long-name ex. loop nip ;
 : no-sink ( c-addr u -- ) 2drop ;
-T{ fresh ' no-sink 0 lf-print-setup long-fun fuel lf-print-term -> outcome-full }T
+T{ fresh 512 lf-term-capacity! -> outcome-ok }T
+T{ ' no-sink 0 lf-print-setup 45 long-fun fuel lf-print-term -> outcome-ok }T
+T{ 200 long-fun 1 heap-refusals ! 100000 lf-print-term heap-refusals @ lf-pp-busy?
+  -> outcome-full 0 false }T
+T{ fresh lf-term-default lf-term-capacity! -> outcome-ok }T
 
 \ Levels and names on their own; Markdown math.
 fresh 0 mode
@@ -250,16 +259,16 @@ T{ cap-reset odd4 lf-tex-ident odd4 mathit expect-text -> }T
 T{ cap-reset s" α" lf-tex-ident s" \alpha" expect-text -> }T
 T{ cap-reset s" x₀" lf-tex-ident s" x_{0}" expect-text -> }T
 
-\ A constant's LaTeX spelling that does not fit in the name pool behind
-\ binder names that nearly fill it makes the print full; in Unicode the
-\ constant takes no pool room.
+\ A constant's LaTeX spelling goes into the name pool behind the binder
+\ names, past the 4,096 bytes the pool once held, and prints; in Unicode
+\ the constant takes no pool room.
 : long-const ( -- t )   \ the constant long-name.long-name, 197 bytes
   long-name nm long-name nm. lf-name-generation @ cargs 0 lf-cref-new must
   lf-cterm-new must drop ;
 : crowded ( n -- t ) t-prop long-const rot 0 do over swap t-lam long-name ex. loop nip ;
 T{ fresh ' no-sink 0 lf-print-setup 40 crowded t1 ! -> }T
 T{ t1 @ fuel lf-print-term -> outcome-ok }T
-T{ ' no-sink lf-print-latex lf-print-setup t1 @ fuel lf-print-term -> outcome-full }T
+T{ ' no-sink lf-print-latex lf-print-setup t1 @ fuel lf-print-term -> outcome-ok }T
 
 \ lf-print-reset from the sink, against the sink rules, ends the print
 \ invalid and leaves the printer idle; a THROW leaves it busy, and in a
@@ -283,8 +292,8 @@ T{ t1 @ s" ∀ {al : Prop} [h : al], al" shows -> }T
 \ Defence in depth: counts read from the printer's state are clamped.
 T{ t1 @ -1 lf-pp-bodies -> t1 @ }T
 T{ -5 lf-pjob lf-pjob-binders ! lf-pp-depth -> 0 }T
-T{ lf-print-binder-capacity 9 + lf-pjob lf-pjob-binders ! lf-pp-depth
-  -> lf-print-binder-capacity }T
+T{ lf-pp-scope-table slab-capacity 9 + lf-pjob lf-pjob-binders ! lf-pp-depth
+  -> lf-pp-scope-table slab-capacity }T
 T{ 0 lf-pjob lf-pjob-binders ! s" x" 5 lf-pp-any? -> false }T
 T{ 0 lf-pp-used ! 7 lf-pp-pending nip -> 0 }T
 lf-print-reset
