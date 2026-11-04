@@ -243,7 +243,7 @@ test-export-specialization-differential:
 # The first checker end to end (ADR 0011, plan tasks 2.2.1 and 2.2.3):
 # every case checked by check-declaration through the checked environment.
 # The 62 table cases; the 22 binder-domain cases (ADR 0003 Amendment 1);
-# the 17 universe-scope cases (ADR 0012 test-matrix row 4). Every rejection
+# the 49 universe-scope cases (ADR 0012 test-matrix row 4). Every rejection
 # agrees with Lean's exception, every other row keeps the table's outcome,
 # and every accepted row prints its label and gets a valid handle.
 test-first-checker-differential:

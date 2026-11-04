@@ -26,10 +26,11 @@ the same reasons as Lean's kernel. On the 62 test cases of its table
 (the five pinned examples plus deliberately broken or out-of-scope copies,
 each checked by pinned Lean) it gives Lean's answer every time: 14
 accepted, 28 rejected with Lean's kind of error, 11 unknown, 8 unsupported,
-1 invalid. **But its independent review found a serious defect** (2026-11-03):
-it *accepts* four small declarations that Lean *rejects*, because it builds
-universe levels without Lean's simplifications (`mk_max`/`mk_imax`) and then
-compares them; a fix that ports Lean's exact rules is in progress. Nothing it says is trusted yet: the declaration check and the
+1 invalid. Its independent review found a serious defect (2026-11-03): it
+*accepted* small declarations that Lean *rejects*, because it built and
+compared universe levels differently from Lean. **Fixed the same day:**
+LeanForth now ports Lean's own level code exactly, and all 49 universe
+cases and 69 table cases give Lean's answers. Nothing it says is trusted yet: the declaration check and the
 checked environment it publishes into are still in their review gates, and
 every acceptance is labelled *experimental — not independently audited*.
 
@@ -69,7 +70,7 @@ the 32-bit access words exist in `src/`; building it is plan tasks
 | NDJSON reader (Lean export files) | [import] | **approved** 2026-11-03, with a checksum manifest to add |
 | Design records ADR 0010, 0013, 0016, 0017, 0018 | design | **accepted** (0017 on 2026-11-02; the rest 2026-11-03) |
 | Checked environment v0 (2.2.2) | [kernel] | review cycle complete (its last three small items merged 2026-11-03); ready for the owner, together with the declaration check built on it |
-| Declaration check (2.2.3) | [kernel], [bypass] | merged 2026-11-03; its review **blocks**: four wrong acceptances from universe levels built unlike Lean's; fix (exact port of Lean's level rules) running |
+| Declaration check (2.2.3) and the level fix | [kernel], [bypass] | merged 2026-11-03; its review's blocker (wrong acceptances from universe levels) fixed by an exact port of Lean's level code (ADR 0011 Amendment 1, rule S4 for a Pi whose body is not a type); the fix's independent review next, then the owner |
 | Program reader (Forth to program IR, 2.5.3) | [parser] | **paused by the owner** (2026-11-03): reviews clean, but the owner prefers a Forth-like design — the program's own words emitting IR in a verification mode — over today's text reader; design record with a prototype in progress |
 | LeanForth syntax words (8.1.2) | [parser] | merged 2026-11-03; independent review running, then the owner |
 | Program receipt schema (2.5.1) | [format] | the review's four medium items and five lows fixed in schema 0.2 (merged 2026-11-03; 0.1 kept readable unchanged); the reviewer is checking the fixes, then the owner |
@@ -96,7 +97,7 @@ sizes are relative and dates are not estimated.
 1. **First checked declaration (finish phase 2).** Close the four open
    gates above (environment, declaration check, program reader, syntax);
    add Lean's rejection of a "for all" whose body is not a type (ADR 0011
-   amendment, owner rule "identical to Lean"); the failure-path suite
+   amendment, owner rule "identical to Lean"; **done 2026-11-03**, rule S4); the failure-path suite
    (2.2.4, **done 2026-11-03**: 4,493 runs with each allocation refused
    or thrown in turn and fuel swept from zero; nothing failing is ever
    accepted, published or printed as accepted); replay (2.2.5: a run record with the input's
@@ -219,7 +220,7 @@ P3.2). Changes of state within the tasks:
 
 | Task | Change | Evidence |
 | --- | --- | --- |
-| T5.3 checker | rejection rules approved; declaration check merged | owner's [kernel] approval of plan 2.2.1; the declaration check gives Lean's answer on all 62 table rows, 22 binder-domain rows (three capacity failures of the 64-node store, none accepted) and 17 universe rows |
+| T5.3 checker | rejection rules approved; declaration check merged | owner's [kernel] approval of plan 2.2.1; the declaration check gives Lean's answer on all 69 table rows, 22 binder-domain rows (three capacity failures of the 64-node store, none accepted) and 49 universe rows, after the level fix of 2026-11-03 |
 | T6.1 export pinned and tested | reader approved | owner's [import] approval; remaining: detection of a file cut off between lines (the checksum manifest) |
 | T10.1 Forth words that build terms | syntax words merged | 15 example files and 50 printer cases round-trip; 42 `#print` lines from 14 fixtures equal pinned Lean's; the authoring program does not yet hand terms to the checker (8.2.1) |
 | T9.4 Mathlib time and memory | storage design accepted | ADR 0016: 2.94 GB stored, 4.16 GB peak, measured |
@@ -438,10 +439,8 @@ was the first CI run of the pinned-Lean comparisons.
   declaration check and the checked environment await their reviews and
   the owner; every acceptance is labelled *experimental — not
   independently audited*, and no outside Lean expert has audited it.
-- Known defect (found 2026-11-03, fix in progress): the declaration check
-  accepts some declarations whose universe levels Lean builds in simplified
-  form and then rejects (four Lean-checked examples); no logical falsehood
-  is accepted, but the verdict differs from Lean's.
+- Where Lean's own verdict depends on how its level objects share memory
+  (rule K6, BEYOND_LEAN BL-3), LeanForth answers *unknown*.
 - It covers only universes, variables, functions, "for all" and earlier
   checked declarations, without unfolding: data types, literals,
   structures, `let`, projections and quotients are *unsupported*.
