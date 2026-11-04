@@ -13,9 +13,9 @@ IR 0.2 is implemented.
 | `p03-emit.fs` | The bytes `EMIT` writes for 65, 0, 9, 200, 255, 321, 955 and −1 (shown as numbers by `run.sh`) |
 | `p04-shifts-literals.fs` | `LSHIFT` and `RSHIFT` by 0, 63, 64, 65, 127 and −1; how each host reads `$10`, `$-10`, `-$10`, `#-10`, `%-101`, `'a'`, 32-bit and 64-bit constants and Gforth's own forms (`1_000`, `0x10`); whether `-rot`, `.s` and the output words are host words |
 | `p05-debug.fs` | The owner's case: `lf-clamp` with `dup .` added, and the real `lf-clamp` wrapped by a second version of its name that shows the stack before and after calling the first |
-| `closed-stdout.sh` | `.` with standard output closed, and with a pipe whose reader has gone (one `.`, then 100,000) |
 | `p06-debug-pair.lean`, `debug-pair.sh` | The clamp proof of `tests/reference/program-ir.lean`, copied unchanged, proves the clamp with `dup .` added (`.` written as its IR 0.2 stack effect, `prim .drop`); with `.` planted as doing nothing, Lean rejects it |
 | `p07-rotr.lean` | `sha-rotr`'s arithmetic: or'ing the shifts and masking with 2^32 − 1 is FIPS 180-4's ROTR on every cell width of at least 32 bits (`rotr_masked`), and the instructions of `sha-rotr` and `sha-w32`, with `LSHIFT` as IR 0.2 would define it, leave ROTR on 64-bit cells (`rotr_cells64`); without the mask they do not (`unmasked_rotr_wrong`) |
+| `p08-closed-stdout.sh` | `.` with standard output closed, and with a pipe whose reader has gone (one `.`, then 100,000) |
 
 ## Results
 
@@ -24,7 +24,7 @@ IR 0.2 is implemented.
 three number forms outside Forth-2012 (`-$10`: 1.0 refuses it, 0.7.3
 reads −16; `1_000` and `$1_0`: 1.0 reads them, 0.7.3 refuses them);
 Gforth's "redefined" warnings go to standard error on both, in different
-layouts. `closed-stdout.out` is the same on both hosts: with standard
+layouts. `p08-closed-stdout.out` is the same on both hosts: with standard
 output closed, `.` returns normally (THROW code 0, output lost); with a
 broken pipe, one `.` returns normally (buffered) and 100,000 end in
 THROW −2049. `lean.out` holds the two Lean checks: probe 6 accepted
@@ -40,7 +40,8 @@ From the repository root:
 D=docs/development/measurements/ir-0.2-probes-2026-11-04
 bash $D/run.sh .tools/gforth/bin/gforth
 bash $D/run.sh GFORTH_0_7_3_WRAPPER
-bash $D/closed-stdout.sh .tools/gforth/bin/gforth
+bash $D/p08-closed-stdout.sh .tools/gforth/bin/gforth
+bash $D/p08-closed-stdout.sh GFORTH_0_7_3_WRAPPER
 LEAN=.tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean
 bash $D/debug-pair.sh $LEAN
 bash $D/debug-pair.sh $LEAN fault

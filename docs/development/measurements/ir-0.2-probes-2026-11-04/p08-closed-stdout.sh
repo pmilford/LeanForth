@@ -1,11 +1,11 @@
 #!/bin/bash
-# IR 0.2 probe 5 (ADR 0019 Amendment 1): what an output word does when
+# IR 0.2 probe 8 (ADR 0019 Amendment 1): what an output word does when
 # standard output is closed or is a pipe whose reader has gone. The Forth
 # text prints 5 with . once, then 100,000 times (more than any output
 # buffer), each time under CATCH; after each, if Forth is still running,
 # it writes the THROW code to standard error, and it leaves with exit
 # code 3.
-#   bash docs/development/measurements/ir-0.2-probes-2026-11-04/closed-stdout.sh GFORTH
+#   bash docs/development/measurements/ir-0.2-probes-2026-11-04/p08-closed-stdout.sh GFORTH
 set -u
 gforth=$(realpath "$1")
 text=': print-once 5 . ;  : print-many 100000 0 do 5 . loop ;

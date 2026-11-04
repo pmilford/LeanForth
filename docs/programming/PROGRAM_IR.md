@@ -6,7 +6,8 @@ model, checked by Lean, not by LeanForth. What turns Forth source into IR
 is ordinary, unverified Forth: since 2026-11-03 the
 [program words](#the-program-words-correctness-mode) of ADR 0019, which run
 the source file in correctness mode, with today's [reader](#the-reader)
-kept beside them as their test oracle until the [parser] gate.
+kept beside them as their test oracle until the [parser] gate. IR 0.2
+is [planned](#planned-for-ir-02), not implemented.
 
 The verified-program track needs an exact, small description of what a
 Forth word does, between its source text and the proof obligations about
@@ -758,6 +759,33 @@ Not established here: anything about Gforth or the reader beyond what is
 said above; and that the five words' contracts are those a user wants,
 which is for the owner to judge. The generator still reports the two loop
 words *unsupported* (see [what is missing](PROGRAM_VC.md#results-2026-11-02)).
+
+## Planned for IR 0.2
+
+**Proposed in [ADR 0019 Amendment 1](../adr/0019-program-words-two-modes.md#amendment-1-proposed-ir-02-redefinition-output-words-and-sha-2)
+(2026-11-04); nothing below is implemented, and the [parser] gate decides
+it first.** Everything on this page describes IR 0.1 as it is.
+
+- **Redefinition with Forth's early binding** (the owner's request): a
+  file may define its own words again; each use means the version visible
+  where it is written, and each version has its own IR name (`lf-clamp`,
+  `lf-clamp'1`, …), so a proof and a receipt name exactly one version.
+  Redefining Forth-2012 standard words stays refused (recommended).
+- **Output words as effects:** `.`, `U.`, `CR`, `EMIT`, `SPACE`, `SPACES`,
+  `."`, `S" … " TYPE` and `.S` inside definitions, written `out .` and so
+  on; for the stacks they only take their argument, and what they print
+  goes to a list of events that a stack proof ignores (a planned Lean
+  theorem says the stacks never depend on it). `dup .` for debugging is
+  the main use.
+- **For SHA-256's helper words** (plan stage SHA-2): the primitives
+  `lshift` and `-rot`, and Forth-2012's prefixed numbers (`$`, `#`, `%`,
+  `'c'`) with values from −2^31 to 2^32 − 1.
+- **Versioning:** a file using none of the new instructions still gives
+  today's IR, labelled `lf-ir 0.1`; receipts of IR 0.2 programs need
+  receipt schema 0.3 ([format] gate).
+
+Probes behind the design, on both Gforths and in Lean:
+[IR 0.2 probes](../development/measurements/ir-0.2-probes-2026-11-04/README.md).
 
 ## Versioning
 
