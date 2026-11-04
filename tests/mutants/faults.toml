@@ -429,8 +429,8 @@ reason = "E4: kind, safety, value and parameters are not re-checked"
 [[fault]]
 id = "pub-verdict-trusts-check"
 file = "src/kernel/env-publish.fs"
-old = '''  drop lf-recheck if lf-recheck-failed else outcome-ok then ;'''
-new = '''  drop outcome-ok ;'''
+old = '''  lf-recheck if nip lf-recheck-failed false lf-env-added! then ;'''
+new = ''' ;'''
 test = "$GFORTH tests/core/environment.fs"
 reason = "E4: the publisher trusts an ok check without any re-check"
 
@@ -3457,10 +3457,10 @@ reason = "rvI21 B2: N2 ignores Lean's generated recursor; def IE.B.rec after IE.
 [[fault]]
 id = "env-generated-rec-unknown-constant"
 file = "src/kernel/environment.fs"
-old = '''    outcome-ok of nip lf-env-generated endof'''
-new = '''    outcome-ok of drop lf-env-unknown-constant endof'''
+old = '''    outcome-ok of nip lf-env-genrec endof'''
+new = '''    outcome-ok of drop lf-env-unknown-constant no-result endof'''
 test = "$GFORTH tests/core/check-block.fs"
-reason = "rvI21 B2: a use of the generated recursor, which Lean's kernel holds, is rejected as an unknown constant instead of unknown"
+reason = "rvI21 B2: a use of the generated recursor, which Lean's kernel holds, is rejected as an unknown constant"
 
 [[fault]]
 id = "env-aux-rec-not-held"
@@ -3513,28 +3513,18 @@ reason = "rvI21 R2-1: a B3-rejected block's marks are never published; def IE.B 
 [[fault]]
 id = "pub-added-recursor-too"
 file = "src/kernel/env-publish.fs"
-old = '''  lf-env-limit + lf-input-decl lf-idecl-kind @ lf-kind-recursor <>
-  lf-env-cand lf-cand-added @ 0<> and ;'''
-new = '''  drop lf-env-cand lf-cand-added @ 0<> ;'''
+old = ''': lf-member-added? ( k -- flag ) lf-member-kind lf-kind-recursor <> lf-cand-added? and ;'''
+new = ''': lf-member-added? ( k -- flag ) drop lf-cand-added? ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvI21 R2-1: the file's renamed recursor IE.B.recursor marked taken, which Lean's kernel never added; a later def of it is rejected"
 
 [[fault]]
-id = "env-added-free"
+id = "env-added-unusable"
 file = "src/kernel/environment.fs"
-old = '''  2dup lf-env-added if nip nip lf-env-declared exit then
-'''
-new = ''''''
+old = '''  dup lf-slot-added? swap lf-slot-recorded? and ;'''
+new = '''  drop false ;'''
 test = "$GFORTH tests/core/check-block.fs"
-reason = "rvI21 R2-1: N2 ignores the marks; def IE.B after the B3-rejected block IE.B is accepted"
-
-[[fault]]
-id = "env-added-use-rejected"
-file = "src/kernel/environment.fs"
-old = '''  2dup lf-env-added if nip lf-env-generated else lf-env-undecided-k5 then ;'''
-new = '''  lf-env-undecided-k5 ;'''
-test = "$GFORTH tests/core/check-block.fs"
-reason = "rvI21 R2-1: a use of a B3-rejected type is rejected (N1), where Lean's kernel holds it: unknown required"
+reason = "owner condition, 2026-11-04: a B3-rejected block's type and constructors are not usable; a later use of IE.B is not accepted as Lean accepts it"
 
 [[fault]]
 id = "env-added-type-holds-nothing"
@@ -3551,6 +3541,71 @@ old = '''  dup lf-slot-open? over lf-slot-added? or swap lf-slot-outcome@ outcom
 new = '''  dup lf-slot-open? swap lf-slot-outcome@ outcome-rejected <> or ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvI21 R2-1: the publisher's name re-check ignores the marks; def IE.B claimed ok after the B3-rejected block is published"
+
+[[fault]]
+id = "genrec-no-recipe"
+file = "src/kernel/check-block.fs"
+old = '''  lf-recursor-build dup ok? if lf-genrec-recipe lf-env-recipe! then ;'''
+new = '''  lf-recursor-build ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "ADR 0015 decision 12: no recipe is left, so a use of IE.B.rec that no slot holds is unknown where Lean accepts it"
+
+[[fault]]
+id = "pub-recipe-dropped"
+file = "src/kernel/env-publish.fs"
+old = '''  dup lf-slot-recipe!
+'''
+new = ''''''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "ADR 0015 decision 12: the recipe never reaches the block's slots; a use of the generated IE.B.rec is unknown"
+
+[[fault]]
+id = "genrec-arity-unchecked"
+file = "src/kernel/env-signature.fs"
+old = '''  lf-envsig-count lf-genrec-params nip 2dup = if 2drop outcome-ok'''
+new = '''  lf-envsig-count lf-genrec-params nip 2dup 2drop true if 2drop outcome-ok'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "ADR 0015 decision 12: L1 skipped for the generated recursor; IE.B.rec without its universe argument is not rejected as Lean's universeArity"
+
+[[fault]]
+id = "genrec-not-raw"
+file = "src/kernel/generated-recursor.fs"
+old = '''  lf-genrec-raw? 0= if 0 0 exit then'''
+new = '''  0 0 exit'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "ADR 0015 decision 12: every telescope counted as not raw; no recipe, so the generated recursor is never usable"
+
+[[fault]]
+id = "pub-ctor-params-kept"
+file = "src/kernel/env-publish.fs"
+old = '''  if lf-slot-type-params! else 2drop then ;'''
+new = '''  2drop ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "ADR 0015 decision 11: an added constructor keeps its file record's universe parameters, not the type's, as Lean's kernel declares it"
+
+[[fault]]
+id = "pub-added-params-all"
+file = "src/kernel/env-publish.fs"
+old = '''  lf-cand-added? if lf-member-kind lf-kind-inductive = else drop true then ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "ADR 0015 decision 11: the re-check reads the B3-rejected recursor's own repeated universe parameters, so the block is invalid instead of rejected"
+
+[[fault]]
+id = "stage-any-generated-name"
+file = "src/import/stage.fs"
+old = '''  2dup stage-tier name-text@ generated-text? 0= if 2drop false exit then'''
+new = ''''''
+test = "python3 tests/core/test_stage.py"
+reason = "ADR 0016 amendment 1: any undeclared P.x with P a type loads; B.recOn is no longer an unknown constant"
+
+[[fault]]
+id = "stage-any-generated-prefix"
+file = "src/import/stage.fs"
+old = '''  tuck stage-tier name-prefix@ swap type-named? ;'''
+new = '''  2drop true ;'''
+test = "python3 tests/core/test_stage.py"
+reason = "ADR 0016 amendment 1: rec under any prefix loads; t.rec (t a theorem) is no longer an unknown constant"
 
 [[fault]]
 id = "pub-rec-name-not-held"

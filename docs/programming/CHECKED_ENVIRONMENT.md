@@ -313,16 +313,31 @@ block check), the publisher's name re-check and `lf-env-ready?` treat
 `T.rec` of an earlier inductive type `T` as declared when `T` is
 accepted, with K5 when it is undecided or unsupported (and
 `T.rec_<digits>` for a type not accepted); a lookup of such a name that no
-slot holds is *unknown* (diagnostic 77).
+slot holds gets the generated recursor (below), or is *unknown*
+(diagnostic 77) when the type left no recipe.
 
 A block rejected only by B3, replay's comparison, has been added by
 Lean's kernel before the comparison failed (ADR 0015 decision 11). Its
-check says so with `lf-env-added! ( flag -- )`; the publisher then marks
-the type's and constructors' slots (`lf-slot-added`, read by
-`lf-slot-added?`), and N2, the publisher's name re-check, the holders of
-`T.rec` and lookups treat those names as declared by Lean's kernel:
-*rejected* (`alreadyDeclared`) for a later declaration of the name,
-*unknown* (diagnostic 77) for a use.
+check says so with `lf-env-added! ( flag -- )`; the publisher then
+re-checks and records it as an accepted block (outcome still rejected),
+marks the type's and constructors' slots (`lf-slot-added`, read by
+`lf-slot-added?`), each constructor with the type's universe parameters,
+and N2, the publisher's name re-check and the holders of `T.rec` treat
+those names as declared (*rejected*, `alreadyDeclared`, for a later
+declaration of the name). Lookups, dependencies and the publisher's
+dependency re-check read slots as *usable* (`lf-slot-usable?`,
+`lf-env-usable ( d -- slot outcome )`): accepted, or added and recorded;
+handles and axiom sets (`lf-env-handle`, `lf-env-axioms`) stay for
+accepted slots only.
+
+The recursor a block generated, when no slot holds `T.rec` (ADR 0015
+decision 12): the block check sets a recipe with `lf-env-recipe! ( name
+bits -- )` (`lf-recipe-raw`, `lf-recipe-large`), kept on its slots
+(`lf-slot-recipe@`). A lookup of `T.rec` that finds no slot but a holder
+type with a recipe answers (d ok), d the type's slot, with
+`lf-env-genrec? ( -- flag )` true until the next lookup; `env-signature.fs`
+then builds the recursor again (`generated-recursor.fs`, `lf-genrec ( d
+fuel -- fuel' outcome )`) and specializes its type.
 
 ### Diagnostics
 

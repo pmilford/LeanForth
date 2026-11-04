@@ -686,6 +686,40 @@ needed (Rejected alternatives).
     in 5% fewer instructions than the code before the heap stores.
 - Steps 4–6 not started.
 
+## Amendment 1 (2026-11-04): constants Lean's kernel generates
+
+*Context.* The owner approved plan task 5.2.1a on condition that, with no
+flags, LeanForth's verdicts are exactly Lean's
+([OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md)). Lean's
+`add_inductive` adds the recursors it generates to its environment --
+`T.rec` for each type `T` of a block, `T.rec_1`, `T.rec_2`, ... for a
+nested one -- whatever the export holds, so a declaration may use `T.rec`
+in a file that never declares it (a tampered or hand-made file; lean4export
+writes every recursor). Lean checks such a file; C4's sealing refused it as
+naming an unknown constant (*invalid*).
+
+*Change.* Sealing (`src/import/stage.fs`, `const-resolve`) keeps a
+constant whose name no declaration has when the name is one the kernel
+generates for a type of the file: its last part `rec` or `rec_<digits>`,
+its prefix the name of a type declaration of the file. It resolves as a
+name several declarations have (payload 0): the checked environment decides
+at the check, from the type's slot (ADR 0015 decision 12: the recursor the
+block generated, built again from its recipe, or no constant). Every other
+name no declaration has is still an unknown constant: another last part
+(`T.recOn`), a malformed one (`T.rec_`, `T.rec_x`), or a prefix that names
+no type (a theorem, a constructor).
+
+*Evidence.* `tests/core/test_stage.py`: `B.rec` and `B.rec_1` (`B` a type
+of the block fixture) load, resolved with payload 0; `B.recOn`, `B.rec_`,
+`B.rec_x`, `t.rec` (`t` a theorem) and `A.mk.rec` (a constructor) stay
+unknown constants (*invalid*), as before. The rows
+`after.recursor-left-out-then-use-rec` and
+`after.recursor-left-out-then-use-rec-no-level` of
+`tests/reference/inductive-expected.lean` give Lean's verdicts (accepted;
+`universeArity`, rejected). Two planted faults (`stage-any-generated-*`)
+are caught. The rest of C4, and every other refusal of the importer, is
+unchanged.
+
 ## Consequences
 
 - All of Mathlib's input fits in about 3 GB with one shared copy, so

@@ -183,7 +183,7 @@ defer lf-env-before-final
 : lf-recheck-order? ( k -- flag )
   dup 0= if drop true exit then dup 1- lf-dep@ swap lf-dep@ < ;
 : lf-recheck-dep? ( k -- flag )
-  dup lf-dep@ lf-env-accepted nip ok? swap lf-recheck-order? and ;
+  dup lf-dep@ lf-env-usable nip ok? swap lf-recheck-order? and ;
 : lf-recheck-deps? ( -- flag )
   lf-cand-count? 0= if false exit then
   true lf-cand-count@ 0 ?do i lf-recheck-dep? and loop ;
@@ -241,9 +241,18 @@ defer lf-env-before-final
   lf-env-limit lf-input-decl lf-header-fits? 0= if false exit then
   true lf-cand-span@ 0 ?do lf-env-limit i + lf-input-decl lf-recheck-member? and loop ;
 : lf-recheck-one? ( decl -- flag ) lf-recheck-kind? lf-cand-span@ 1 = and ;
+\ A block rejected only by B3 (lf-env-added!) publishes its type's and
+\ constructors' slots with the type's universe parameters, as Lean's
+\ kernel declares them (its file records may differ: B3 field 1); only
+\ the type's are re-checked then.
+: lf-cand-added? ( -- flag ) lf-env-cand lf-cand-added @ 0<> ;
+: lf-member-kind ( k -- kind ) lf-env-limit + lf-input-decl lf-idecl-kind @ ;
+: lf-member-checked? ( k -- flag )
+  lf-cand-added? if lf-member-kind lf-kind-inductive = else drop true then ;
 : lf-recheck-params? ( -- flag )
-  true lf-cand-span@ 0 ?do
-    lf-env-limit i + lf-input-decl lf-idecl-params@ lf-params-distinct? and loop ;
+  true lf-cand-span@ 0 ?do i lf-member-checked? if
+    lf-env-limit i + lf-input-decl lf-idecl-params@ lf-params-distinct? and then
+  loop ;
 : lf-recheck-decl? ( -- flag )
   lf-env-limit lf-input-decl dup lf-idecl-block @
   if drop lf-recheck-members? else lf-recheck-one? then lf-recheck-params? and ;
@@ -266,9 +275,14 @@ lf-rechecks# 1+ constant lf-recheck-moved
   outcome-invalid ;
 \ The outcome to record: the check's; ok only when the re-check passes.
 : lf-cand-outcome@ ( -- outcome ) lf-env-cand lf-cand-outcome @ outcome-sane ;
+\ A block rejected only by B3 is recorded too (ADR 0015 decision 11: its
+\ type and constructors are usable), so it is re-checked as an accepted
+\ one; one that fails the re-check is invalid and not added.
+: lf-env-recorded? ( outcome -- flag )
+  dup ok? swap outcome-rejected = lf-cand-added? and or ;
 : lf-env-verdict ( -- outcome )
-  lf-cand-outcome@ dup ok? 0= if exit then
-  drop lf-recheck if lf-recheck-failed else outcome-ok then ;
+  lf-cand-outcome@ dup lf-env-recorded? 0= if exit then
+  lf-recheck if nip lf-recheck-failed false lf-env-added! then ;
 
 \ E4 step 2 for an ok outcome. The pool has room for n more when both its
 \ records and its identities suffice; a refusal after that check is a
@@ -294,8 +308,12 @@ lf-rechecks# 1+ constant lf-recheck-moved
 \ Slot k of the span gets declaration limit+k, copied whole.
 : lf-slot-input! ( k slot -- )
   lf-env-may-write swap lf-env-limit + lf-input-decl swap lf-slot-decl /lf-idecl move ;
+: lf-slot-recipe! ( slot -- )
+  lf-env-cand dup lf-cand-recipe @ rot tuck lf-slot-recipe !
+  swap lf-cand-motive @ swap lf-slot-motive ! ;
 : lf-slot-sets! ( slot -- )
   lf-env-may-write lf-env-cand lf-cand-axioms @ over lf-slot-axioms !
+  dup lf-slot-recipe!
   lf-env-cand lf-cand-warnings @ over lf-slot-warnings !
   lf-env-cand lf-cand-provenance @ swap lf-slot-provenance ! ;
 : lf-slot-deps! ( first slot -- )
@@ -317,12 +335,19 @@ lf-rechecks# 1+ constant lf-recheck-moved
 \ when it is the type or a constructor, which Lean's kernel added; the
 \ file's recursor is not (Lean's T.rec, which its type holds, may differ
 \ from it, or have another name).
-: lf-member-added? ( k -- flag )
-  lf-env-limit + lf-input-decl lf-idecl-kind @ lf-kind-recursor <>
-  lf-env-cand lf-cand-added @ 0<> and ;
+: lf-member-added? ( k -- flag ) lf-member-kind lf-kind-recursor <> lf-cand-added? and ;
+\ A constructor's slot takes the type's universe parameters (slot 0 of
+\ the span is the type's).
+: lf-slot-type-params! ( type-slot slot -- )
+  swap lf-slot-decl swap lf-slot-decl
+  over lf-idecl-param-at @ over lf-idecl-param-at !
+  swap lf-idecl-arity @ swap lf-idecl-arity ! ;
+: lf-member-added! ( slot k -- )
+  2dup lf-slot+ over lf-member-added? over lf-slot-added !
+  swap lf-member-kind lf-kind-constructor = lf-cand-added? and
+  if lf-slot-type-params! else 2drop then ;
 : lf-span-added! ( slot -- )
-  lf-env-may-write lf-cand-span@ 0
-  ?do i lf-member-added? over i lf-slot+ lf-slot-added ! loop drop ;
+  lf-env-may-write lf-cand-span@ 0 ?do dup i lf-member-added! loop drop ;
 : lf-span-final! ( slot -- )
   lf-env-may-write lf-cand-span@ 0 ?do lf-state-final over i lf-slot+ lf-slot-state ! loop
   drop ;
@@ -332,8 +357,11 @@ lf-rechecks# 1+ constant lf-recheck-moved
 \ Publish the candidate in this context into its slot: the outcome
 \ recorded. Internal: only lf-env-hand-over calls it, outside jobs, under
 \ CATCH, with the slot its target.
+: lf-env-recorded ( slot outcome -- slot outcome' )
+  >r lf-env-record dup ok? if drop r> else r> drop then ;
 : lf-env-write ( slot -- outcome )
-  lf-env-may-write lf-env-verdict dup ok? if drop lf-env-record then lf-env-final ;
+  lf-env-may-write lf-env-verdict dup lf-env-recorded? if lf-env-recorded then
+  lf-env-final ;
 
 \ After a THROW in the publisher: the diagnostic and, while the slot is
 \ not final, the pool back to its mark and the slot cleared: not final,

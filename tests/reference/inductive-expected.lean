@@ -76,7 +76,8 @@ def otherCodes : List (String × String) := [
   ("invalid empty (mutual) inductive datatype declaration", "emptyBlock"),
   ("duplicate universe level parameter", "duplicateLevelParam"),
   ("it uses the reserved prefix", "reservedNestedPrefix"),
-  ("failed to initialize quot module", "quotEqShape")]
+  ("failed to initialize quot module", "quotEqShape"),
+  ("incorrect number of universe levels", "universeArity")]
 
 def otherCode (msg : String) : String :=
   match otherCodes.find? (fun (p, _) => has msg p) with
@@ -857,6 +858,18 @@ def renamedRec : ConstantInfo → Option ConstantInfo :=
 def trueIndexZero : ConstantInfo → Option ConstantInfo :=
   onCtor `IE.B.true fun c => { c with cidx := 0 }
 
+/-- Uses after a block: `IE.B.false`, `IE.B.rec` without its universe argument, and
+the renamed recursor `IE.B.recursor`, which Lean's kernel never added. -/
+def useFalse : Declaration :=
+  .defnDecl { name := `IE.useFalse, levelParams := [], type := mkConst `IE.B,
+              value := mkConst `IE.B.false, hints := .regular 1, safety := .safe }
+def useRecNoLevel : Declaration :=
+  .defnDecl { name := `IE.useRec0, levelParams := [], type := .sort 1,
+              value := mkConst `IE.B.rec, hints := .regular 1, safety := .safe }
+def useRenamed : Declaration :=
+  .defnDecl { name := `IE.useRenamed, levelParams := [], type := .sort 1,
+              value := mkConst `IE.B.recursor, hints := .regular 1, safety := .safe }
+
 def sequels (recType : Expr) : List Sequel := [
   { id := "after.recursor-left-out-then-def-rec", bool := some false, decls := [defBRec],
     lean := "alreadyDeclared", leanforth := "rejected", rule := "B4 N2" },
@@ -885,7 +898,19 @@ def sequels (recType : Expr) : List Sequel := [
     decls := [defNamed `IE.B.false], lean := "alreadyDeclared", leanforth := "rejected",
     rule := "B3 N2" },
   { id := "after.b3-ctor-then-use", bool := some false, change := trueIndexZero,
-    decls := [useB], lean := "accepted", leanforth := "accepted", rule := "B3 N1" }
+    decls := [useB], lean := "accepted", leanforth := "accepted", rule := "B3 N1" },
+  { id := "after.b3-ctor-then-use-constructor", bool := some false, change := trueIndexZero,
+    decls := [useFalse], lean := "accepted", leanforth := "accepted", rule := "B3 N1" },
+  { id := "after.b3-ctor-then-use-rec", bool := some false, change := trueIndexZero,
+    decls := [useBRec recType], lean := "accepted", leanforth := "accepted", rule := "B3 G1" },
+  { id := "after.b3-renamed-then-use-rec", bool := some true, change := renamedRec,
+    decls := [useBRec recType], lean := "accepted", leanforth := "accepted", rule := "B3 G1" },
+  { id := "after.b3-renamed-then-use-renamed", bool := some true, change := renamedRec,
+    decls := [useRenamed], lean := "unknownConstant", leanforth := "rejected",
+    rule := "B3 N1" },
+  { id := "after.recursor-left-out-then-use-rec-no-level", bool := some false,
+    decls := [useRecNoLevel], lean := "universeArity", leanforth := "rejected",
+    rule := "B4 L1" }
 ]
 
 /-- What replay's `addDecl` adds for a block: the declaration rebuilt from the
