@@ -96,7 +96,14 @@ specification states it, with H0(0) = 6a09e667 as the input:
 
 The Forth line is a run on Gforth, a test of one input. The Lean line is
 the specification's own value. Stage SHA-2 is to prove that the Forth word
-agrees with the Lean function for all 2^32 inputs.
+agrees with the Lean function for all 2^32 inputs. It has started
+(2026-11-04, [program IR](PROGRAM_IR.md#ir-02)): `sha-rotr`, `sha-ch`,
+`sha-maj` and `sha-big-sigma0`, as program words in
+`src/program/sha-words.fs` with the library's text, are proved equal to
+`ROTR`, `Ch`, `Maj` and `bigSigma0` on every cell of at least 33 bits, as
+theorems about each word's whole run rather than the continuation form
+planned below; `sha-shr`, Σ1, σ0 and σ1 remain, and `sha256.fs` does not
+run these words yet.
 
 ## Representation choices
 

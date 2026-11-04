@@ -104,7 +104,8 @@ max-n 1 cells / constant walk-most-cells
 : walk-grow ( n walk -- flag )
   dup walk-capacity @ 1 < if 2drop false exit then
   dup walk-pending @ 0 2 pick walk-capacity @ between? 0= if 2drop false exit then
-  tuck walk-new-room swap walk-moved ;
+  2dup walk-new-room rot 2 pick walk-pending @ + over > if 2drop false exit then
+  swap walk-moved ;
 : walk-room-for? ( n walk -- flag )
   2dup walk-fits? if 2drop true exit then
   dup walk-grows @ if walk-grow else 2drop false then ;

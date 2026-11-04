@@ -8,9 +8,12 @@ an [axiom] part (§8) and one [bypass]-class risk (§7, L5). **Task 5.2.1a
 is implemented** (2026-11-04, experimental, its [kernel][import] gate
 open: [Implementation](#implementation-plan-task-521a)): a block of one
 non-recursive inductive type is checked, its recursor generated and
-compared, and the block published. Every other inductive block, and every
-quotient, literal and projection, is still *unsupported* (ADR 0011 rules
-U1, U2). It extends ADR 0011 (rejection rules) and ADR 0012
+compared, and the block published. **Task 5.2.1b is implemented**
+(2026-11-04, experimental, its [kernel] gate open:
+[Implementation](#implementation-plan-task-521b)): recursive blocks of
+one type, with positivity and induction hypotheses. Mutual and nested
+blocks, and every quotient, literal and projection, are still
+*unsupported* (ADR 0011 rules U1, U2). It extends ADR 0011 (rejection rules) and ADR 0012
 (the checked environment) and supersedes neither. Each implementation task
 of §12 passes its own review gate (`AGENTS.md`): Lean's published rules,
 agreeing pinned-Lean differential tests reaching every outcome, an
@@ -602,7 +605,7 @@ table is read off the terms, not traced from Lean's kernel.
 | ID | Task | Rules | Acceptance | Needs | Gates | Size |
 | --- | --- | --- | --- | --- | --- | --- |
 | 5.2.1a | Non-recursive blocks (`Bool`, `And`, structures `HAdd`, `PProd`, `PUnit`, `OfNat`): B0–B5, steps 1–12 of §3 without recursive fields, elimination level, recursor and rules generated and compared; block publication | V1, T0–T5, C1–C4, U1, E0–E4, G1–G4, B0–B5 | every `5.2.1a` row of the table; generated blocks equal to every non-recursive block of `Init`; mutated recursors rejected | phase 2; C9 step 3 | [kernel], [import] | M |
-| 5.2.1b | Recursive blocks (`Nat`, `List`, reflexive): positivity, recursive fields, induction hypotheses; iota (R1) with literal majors (L2); the replay rows | P1, P2, R1, L2 | every `5.2.1b` row; all recursive non-nested blocks of `Init` regenerated equal | 5.2.1a; phase 4 delta | [kernel] | M |
+| 5.2.1b | Recursive blocks (`Nat`, `List`, reflexive): positivity, recursive fields, induction hypotheses; iota (R1) with literal majors (L2); the replay rows. *Implemented 2026-11-04 except iota (behind task 4.2.2c's hook) and the positivity that needs unfolding (4.2.2); gate open* | P1, P2, R1, L2 | every `5.2.1b` row; all recursive non-nested blocks of `Init` regenerated equal | 5.2.1a; phase 4 delta | [kernel] | M |
 | 5.2.1c | Indexed families (`Eq`, vectors): indices, K target, K-like reduction | K1, R2 | every `5.2.1c` row | 5.2.1b | [kernel] | M |
 | 5.2.2 | Structures and projections: `infer_proj`, `reduce_proj`, R3, R4, R5 in Lean's order | J1, J2, R3–R5 | every `5.2.2` row; BL-7 and BL-8 rows rejected as by Lean | 5.2.1a; phase 4 | [kernel], [import] | M |
 | 5.2.3 | Literals: `bignum.fs` in `reduce_nat` with Lean's size exceptions, L2–L4, and the primitive check of Q1 | L1–L5 | every `5.2.3` row; bignum differential (exists) | 5.2.1b; Q1 | [kernel] | M |
@@ -965,6 +968,84 @@ and its members' exported data into the input (`core/input.fs`,
   is. Of the 551 blocks in scope, **184 are accepted**, 90 *unknown*,
   277 *unsupported*; still none is rejected or invalid. 1,014 of Init's
   definitions and theorems are accepted.
+
+## Implementation (plan task 5.2.1b)
+
+Written 2026-11-04 by agent N1; experimental [kernel] code, **not
+through its gate** (Lean's rules, the differential evidence below, an
+independent AI review and the owner's approval are still needed). It
+extends 5.2.1a's check to recursive blocks of one type, as Lean's
+`add_inductive` checks them; developer notes in
+[INDUCTIVE_BLOCKS.md](../programming/INDUCTIVE_BLOCKS.md).
+
+**What.** The audit (`inductive-block.fs`) admits a block whose fields
+mention its type and refuses a nested one (an earlier inductive type
+applied to arguments mentioning the type, Lean's
+`elim_nested_inductive` test: *unsupported*, task 5.2.5), recording
+Lean's `is_rec` and `is_reflexive` for B4. Step 9 (`check-block.fs`)
+runs Lean's `check_positivity` on each field after its universe check
+(P1, P2; diagnostics 79, 80), and C3 tests that the result's indices do
+not mention the type. The builder (`inductive-recursor.fs`) finds the
+recursive fields (`is_rec_argument`), gives each minor premise its
+induction hypotheses and each rule its recursive calls at Lean's
+recursor levels; the generated recursor of decision 12 gets them too.
+
+**Decisions**, none of which adds or widens a rule beyond Lean's:
+
+13. *whnf where Lean reduces.* Lean's positivity, recursive-field test
+    and telescope put terms in `whnf`. Until task 4.2.2's whnf (agent
+    U4) is on main, LeanForth uses whnfB and goes on only where Lean's
+    whnf provably stops (a Sort, Pi, lambda or variable head, the type
+    itself, or a constant declared as an inductive type, constructor,
+    axiom or opaque constant, named none of `reduce_nat`'s operations);
+    elsewhere the block is *unknown* (diagnostic 64). The same test lets
+    step 8 reject a telescope ending in such a constant (`T : Nat`,
+    Lean's `typeExpected`), where 5.2.1a said *unknown*.
+14. *Fields without an occurrence* are not put in whnf: reduction never
+    makes an occurrence of a type being declared (Lean's own comment,
+    `inductive.cpp` 129–133), so positivity passes and the field is not
+    recursive whatever whnf gives. Lean computes that whnf and drops it;
+    only a resource exception during it (`deepRecursion`, the literal
+    size limit) could make Lean reject where LeanForth goes on: an open
+    question for the owner, closed by calling 4.2.2's whnf there.
+15. *The nested test may find more* than Lean's: an earlier type that is
+    not usable (undecided, unsupported) has every argument tested, its
+    exported `numParams` not being known to be Lean's. Only
+    *unsupported* can follow.
+16. *Iota* (R1, with literal majors L2) lives in Lean's `whnf_core`;
+    agent U4's port leaves a hook for it. It is not implemented here (a
+    second whnf is not to be written): plan task 4.2.2c's hook, then the
+    5.2.1b follow-up. Rows `iota.*` stay *unsupported* (they use
+    literals, task 5.2.3).
+17. *A rebuild keeps the interrupted block's domains.* The generated
+    recursor (decision 12), built during another block's check, wrote
+    over that block's parameter domains; it now copies them aside and
+    gives them back (row `after.list-left-out-then-lookup-during-param-block`,
+    *invalid* before).
+18. *G4* stays unrun (decision 7): a recursive rule's reduct is the
+    minor premise applied to the fields and the recursive calls, whose
+    types are its induction hypotheses by construction.
+
+**Evidence** (2026-11-04, Gforth 1.0.0, Lean 4.35.0):
+
+- The table grew from 176 to 198 rows, every verdict Lean's: recursive
+  and reflexive blocks, negative and non-valid occurrences reached
+  through beta, in later binders and fields, and uses of the generated
+  recursor of recursive blocks at other universes and during another
+  block's check. Task 5.2.1b's 46 rows: 41 give Lean's verdict (25
+  accepted, 16 rejected), five are pending (positivity through a
+  definition: task 4.2.2; the three `iota.*` theorems: literals, task
+  5.2.3, and iota, task 4.2.2c). Task 5.2.1a's four rows using `Nat` now
+  give Lean's verdict (92 of 94; two pending on 4.2.2). No row of a later
+  task is decided against Lean.
+- `make test-check-block` (145 committed files), 15 new planted faults
+  and three re-targeted ones, all caught.
+- Lean's `Init` checked whole before and after (probe, `gforth-fast`):
+  blocks accepted 184 → 261 of 604; of its 53 blocks whose fields
+  mention their type, 29 accepted with recursors equal to Lean's, 23
+  stopped by a dependency (K5), one nested (*unsupported*); none rejected
+  or invalid. Other declarations accepted 1,015 → 1,609. Details in
+  [INDUCTIVE_BLOCKS.md](../programming/INDUCTIVE_BLOCKS.md#evidence).
 
 ## Reproduction
 

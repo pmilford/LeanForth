@@ -50,7 +50,7 @@ create codes 1 , 2 , 3 , 4 , 5 , 6 , 7 , 8 , 9 , 10 , 11 , 12 , 13 , 14 , 15 , 1
   20 , 21 , 22 , 23 , 24 , 25 , 26 , 27 , 28 , 29 , 30 , 31 , 32 , 33 , 34 , 35 , 36 ,
   40 , 41 , 42 , 43 , 50 , 51 , 52 , 53 , 54 , 55 , 56 , 57 , 58 , 59 , 60 , 61 ,
   62 , 63 , 64 , 65 , 66 , 67 , 68 , 69 , 70 , 71 , 72 , 73 , 74 , 75 , 76 , 77 , 78 ,
-  79 , 80 ,
+  79 , 80 , 81 , 82 ,
 here codes - 1 cells / constant code-count
 : named? ( code -- flag ) lf-diag-name s" unknown code" compare 0<> ;
 : all-named? ( -- flag ) true code-count 0 ?do i cells codes + @ named? and loop ;
@@ -345,7 +345,7 @@ end-check
 : room-code? ( code -- flag ) lf-diag-terms-full lf-diag-pool-full 1+ within ;
 : input-code? ( code -- flag ) lf-diag-bad-argument lf-diag-publisher-fault 1+ within ;
 \ Since plan task 4.2.2c also Lean's whnf where LeanForth does not reduce
-\ yet: K1 (64), iota (79), K7 (80).
+\ yet: K1 (64), iota (81), K7 (82).
 : whnf-undecided? ( code -- flag )
   dup lf-diag-needs-unfolding = over lf-diag-iota-pending = or swap lf-diag-name-matched = or ;
 : undecided-code? ( code -- flag )

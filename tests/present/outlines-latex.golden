@@ -1,0 +1,295 @@
+== identity
+\begin{flushleft}
+\textbf{Theorem }$\mathsf{identity}$ \\
+  accepted (experimental, not independently audited); axioms: none \\
+Statement in Lean (ASCII): {\ttfamily forall~\{P~:~Prop\},~P~->~P} \\
+Statement in mathematics: $\forall \{P : \mathrm{Prop}\},\ P \to P$ \\
+Statement in LeanForth (the statement only, written as an axiom; nothing is assumed): \\
+{\ttfamily \hspace*{2em}axiom~identity \\
+\hspace*{2em}~~Prop~implicit:~P \\
+\hspace*{2em}~~P~explicit:~proof \\
+\hspace*{2em}~~P \\
+\hspace*{2em}end~identity \\
+}
+  Input:     \texttt{tests/reference/identity.ndjson} line 12 \\
+  Checker log: 17 steps, complete. The statement is a proposition: s8 (from s3). \\
+\end{flushleft}
+\noindent\textit{Proof (reconstructed from the proof term).}
+\par\noindent{\small
+\begin{tabular}{@{}r@{\hspace{1em}}p{0.46\linewidth}@{\hspace{1em}}p{0.27\linewidth}l@{}}
+  1 & Let $P$ be a proposition. & [$\forall$-introduction] & s9 \\
+  2 & Assume $\mathit{proof} : P$. & [assumption] & s10 \\
+  3 & Discharging 2 and 1 gives & [$\to$/$\forall$-introduction $\leftarrow$ 1, 2] & s12--s13 \\
+& \multicolumn{3}{@{}p{0.72\linewidth}@{}}{\hspace*{7\fontdimen2\font}$\forall \{P : \mathrm{Prop}\},\ P \to P$.} \\
+  4 & This is the statement. & [definitional equality $\leftarrow$ 3] & s15 \\
+\end{tabular}}
+\begin{flushleft}\small
+$\blacksquare$ \\
+Rules, formulas and step numbers come from the checker's log; the sentences are \\
+fixed templates (structured-template), not checked reasoning. \\
+Templates: let-props/v0, assume/v0, discharge/v0, statement/v0. \\
+\end{flushleft}
+
+== composition
+\begin{flushleft}
+\textbf{Theorem }$\mathsf{composition}$ \\
+  accepted (experimental, not independently audited); axioms: none \\
+Statement in Lean (ASCII): {\ttfamily forall~\{A~B~C~:~Prop\},~(A~->~B)~->~(B~->~C)~->~A~->~C} \\
+Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$ \\
+Statement in LeanForth (the statement only, written as an axiom; nothing is assumed): \\
+{\ttfamily \hspace*{2em}axiom~composition \\
+\hspace*{2em}~~Prop~implicit:~A \\
+\hspace*{2em}~~Prop~implicit:~B \\
+\hspace*{2em}~~Prop~implicit:~C \\
+\hspace*{2em}~~A~B~->~explicit:~f \\
+\hspace*{2em}~~B~C~->~explicit:~g \\
+\hspace*{2em}~~A~C~-> \\
+\hspace*{2em}end~composition \\
+}
+  Input:     \texttt{tests/reference/composition.ndjson} line 35 \\
+  Checker log: 51 steps, complete. The statement is a proposition: s20 (from s3). \\
+\end{flushleft}
+\noindent\textit{Proof (reconstructed from the proof term).}
+\par\noindent{\small
+\begin{tabular}{@{}r@{\hspace{1em}}p{0.46\linewidth}@{\hspace{1em}}p{0.27\linewidth}l@{}}
+  1 & Let $A$, $B$, $C$ be propositions. & [$\forall$-introduction] & s21--s23 \\
+  2 & Assume $f : A \to B$. & [assumption] & s26 \\
+  3 & Assume $g : B \to C$. & [assumption] & s29 \\
+  4 & Assume $\mathit{value} : A$. & [assumption] & s30 \\
+  5 & \hspace*{2\fontdimen2\font}Then $f\ \mathit{value} : B$, & [$\to$-elimination $\leftarrow$ 2, 4] & s36 \\
+& \multicolumn{3}{@{}p{0.72\linewidth}@{}}{\hspace*{9\fontdimen2\font}because $f$ turns any proof of $A$ into a proof of $B$.} \\
+  6 & \hspace*{2\fontdimen2\font}Then $g\ (f\ \mathit{value}) : C$, & [$\to$-elimination $\leftarrow$ 3, 5] & s39 \\
+& \multicolumn{3}{@{}p{0.72\linewidth}@{}}{\hspace*{9\fontdimen2\font}because $g$ turns any proof of $B$ into a proof of $C$.} \\
+  7 & Discharging 4, 3, 2 and 1 gives & [$\to$/$\forall$-introduction $\leftarrow$ 1, 2, 3, 4, 6] & s40--s45 \\
+& \multicolumn{3}{@{}p{0.72\linewidth}@{}}{\hspace*{7\fontdimen2\font}$\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$.} \\
+  8 & This is the statement. & [definitional equality $\leftarrow$ 7] & s49 \\
+\end{tabular}}
+\begin{flushleft}\small
+$\blacksquare$ \\
+Rules, formulas and step numbers come from the checker's log; the sentences are \\
+fixed templates (structured-template), not checked reasoning. \\
+Templates: let-props/v0, assume/v0, implies-elim/v0, discharge/v0, statement/v0. \\
+\end{flushleft}
+
+== type-identity
+\begin{flushleft}
+\textbf{Theorem }$\mathsf{type\_identity}$ \\
+  accepted (experimental, not independently audited); axioms: none \\
+Statement in Lean (ASCII): {\ttfamily forall~\{A~:~Type\}~\{P~:~A~->~Prop\}~\{x~:~A\},~P~x~->~P~x} \\
+Statement in mathematics: $\forall \{A : \mathrm{Type}\}\ \{P : A \to \mathrm{Prop}\}\ \{x : A\},\ P\ x \to P\ x$ \\
+Statement in LeanForth (the statement only, written as an axiom; nothing is assumed): \\
+{\ttfamily \hspace*{2em}axiom~type\_identity \\
+\hspace*{2em}~~0~Type~implicit:~A \\
+\hspace*{2em}~~A~Prop~->~implicit:~P \\
+\hspace*{2em}~~A~implicit:~x \\
+\hspace*{2em}~~P~x~\$~explicit:~proof \\
+\hspace*{2em}~~P~x~\$ \\
+\hspace*{2em}end~type\_identity \\
+}
+  Input:     \texttt{tests/reference/type-identity.ndjson} line 29 \\
+  Checker log: 42 steps, complete. The statement is a proposition: s22 (from s3). \\
+\end{flushleft}
+\noindent\textit{Proof (reconstructed from the proof term).}
+\par\noindent{\small
+\begin{tabular}{@{}r@{\hspace{1em}}p{0.46\linewidth}@{\hspace{1em}}p{0.27\linewidth}l@{}}
+  1 & Let $A$ be a type. & [$\forall$-introduction] & s23 \\
+  2 & Let $P : A \to \mathrm{Prop}$. & [$\forall$-introduction] & s26 \\
+  3 & Let $x : A$. & [$\forall$-introduction] & s27 \\
+  4 & Assume $\mathit{proof} : P\ x$. & [assumption] & s32 \\
+  5 & Discharging 4, 3, 2 and 1 gives & [$\to$/$\forall$-introduction $\leftarrow$ 1, 2, 3, 4] & s34--s37 \\
+& \multicolumn{3}{@{}p{0.72\linewidth}@{}}{\hspace*{7\fontdimen2\font}$\forall \{A : \mathrm{Type}\}\ \{P : A \to \mathrm{Prop}\}\ \{x : A\},\ P\ x \to P\ x$.} \\
+  6 & This is the statement. & [definitional equality $\leftarrow$ 5] & s40 \\
+\end{tabular}}
+\begin{flushleft}\small
+$\blacksquare$ \\
+Rules, formulas and step numbers come from the checker's log; the sentences are \\
+fixed templates (structured-template), not checked reasoning. \\
+Templates: let-types/v0, let/v0, assume/v0, discharge/v0, statement/v0. \\
+\end{flushleft}
+
+== poly-identity
+\begin{flushleft}
+\textbf{Theorem }$\mathsf{poly\_identity}$ \\
+  accepted (experimental, not independently audited); axioms: none \\
+Statement in Lean (ASCII): {\ttfamily forall~\{A~:~Sort~u\}~\{P~:~A~->~Prop\}~\{x~:~A\},~P~x~->~P~x} \\
+Statement in mathematics: $\forall \{A : \mathrm{Sort}\ u\}\ \{P : A \to \mathrm{Prop}\}\ \{x : A\},\ P\ x \to P\ x$ \\
+Statement in LeanForth (the statement only, written as an axiom; nothing is assumed): \\
+{\ttfamily \hspace*{2em}axiom~poly\_identity \\
+\hspace*{2em}~~universe~u \\
+\hspace*{2em}~~u~Sort~implicit:~A \\
+\hspace*{2em}~~A~Prop~->~implicit:~P \\
+\hspace*{2em}~~A~implicit:~x \\
+\hspace*{2em}~~P~x~\$~explicit:~proof \\
+\hspace*{2em}~~P~x~\$ \\
+\hspace*{2em}end~poly\_identity \\
+}
+  Input:     \texttt{tests/reference/poly-identity.ndjson} line 30 \\
+  Checker log: 44 steps, complete. The statement is a proposition: s23 (from s3). \\
+\end{flushleft}
+\noindent\textit{Proof (reconstructed from the proof term).}
+\par\noindent{\small
+\begin{tabular}{@{}r@{\hspace{1em}}p{0.46\linewidth}@{\hspace{1em}}p{0.27\linewidth}l@{}}
+  1 & Let $A$ be a type. & [$\forall$-introduction] & s25 \\
+  2 & Let $P : A \to \mathrm{Prop}$. & [$\forall$-introduction] & s28 \\
+  3 & Let $x : A$. & [$\forall$-introduction] & s29 \\
+  4 & Assume $\mathit{proof} : P\ x$. & [assumption] & s34 \\
+  5 & Discharging 4, 3, 2 and 1 gives & [$\to$/$\forall$-introduction $\leftarrow$ 1, 2, 3, 4] & s36--s39 \\
+& \multicolumn{3}{@{}p{0.72\linewidth}@{}}{\hspace*{7\fontdimen2\font}$\forall \{A : \mathrm{Sort}\ u\}\ \{P : A \to \mathrm{Prop}\}\ \{x : A\},\ P\ x \to P\ x$.} \\
+  6 & This is the statement. & [definitional equality $\leftarrow$ 5] & s42 \\
+\end{tabular}}
+\begin{flushleft}\small
+$\blacksquare$ \\
+Rules, formulas and step numbers come from the checker's log; the sentences are \\
+fixed templates (structured-template), not checked reasoning. \\
+Templates: let-types/v0, let/v0, assume/v0, discharge/v0, statement/v0. \\
+\end{flushleft}
+
+== constant-fixture
+\begin{flushleft}
+\textbf{Definition }$\mathsf{fixtureId}$ \\
+  accepted (experimental, not independently audited); axioms: none \\
+Type in Lean (ASCII): {\ttfamily \{α~:~Sort~u\}~->~α~->~α} \\
+Type in mathematics: $\{\alpha : \mathrm{Sort}\ u\} \to \alpha \to \alpha$ \\
+Type in LeanForth (the statement only, written as an axiom; nothing is assumed): \\
+{\ttfamily \hspace*{2em}axiom~fixtureId \\
+\hspace*{2em}~~universe~u \\
+\hspace*{2em}~~u~Sort~implicit:~α \\
+\hspace*{2em}~~α~explicit:~x \\
+\hspace*{2em}~~α \\
+\hspace*{2em}end~fixtureId \\
+}
+  Input:     \texttt{tests/reference/constant-fixture.ndjson} line 14 \\
+  Checker log: 19 steps, complete. The type is a type: s9 (from s3). \\
+\end{flushleft}
+\noindent\textit{Construction (reconstructed from the value).}
+\par\noindent{\small
+\begin{tabular}{@{}r@{\hspace{1em}}p{0.46\linewidth}@{\hspace{1em}}p{0.27\linewidth}l@{}}
+  1 & Let $\alpha$ be a type. & [$\forall$-introduction] & s11 \\
+  2 & Let $x : \alpha$. & [$\forall$-introduction] & s12 \\
+  3 & Discharging 2 and 1 gives & [$\forall$-introduction $\leftarrow$ 1, 2] & s14--s15 \\
+& \multicolumn{3}{@{}p{0.72\linewidth}@{}}{\hspace*{7\fontdimen2\font}$\{\alpha : \mathrm{Sort}\ u\} \to \alpha \to \alpha$.} \\
+  4 & This is the declared type. & [definitional equality $\leftarrow$ 3] & s17 \\
+\end{tabular}}
+\begin{flushleft}\small
+$\blacksquare$ \\
+Rules, formulas and step numbers come from the checker's log; the sentences are \\
+fixed templates (structured-template), not checked reasoning. \\
+Templates: let-types/v0, let/v0, discharge/v0, statement/v0. \\
+\end{flushleft}
+
+\begin{flushleft}
+\textbf{Definition }$\mathsf{fixturePoly}$ \\
+  accepted (experimental, not independently audited); axioms: none \\
+Type in Lean (ASCII): {\ttfamily \{α~:~Sort~u\}~->~α~->~α} \\
+Type in mathematics: $\{\alpha : \mathrm{Sort}\ u\} \to \alpha \to \alpha$ \\
+Type in LeanForth (the statement only, written as an axiom; nothing is assumed): \\
+{\ttfamily \hspace*{2em}axiom~fixturePoly \\
+\hspace*{2em}~~universe~u \\
+\hspace*{2em}~~u~Sort~implicit:~α \\
+\hspace*{2em}~~α~explicit:~x \\
+\hspace*{2em}~~α \\
+\hspace*{2em}end~fixturePoly \\
+}
+  Input:     \texttt{tests/reference/constant-fixture.ndjson} line 21 \\
+  Checker log: 32 steps, complete. The type is a type: s9 (from s3). \\
+\end{flushleft}
+\noindent\textit{Construction (reconstructed from the value).}
+\par\noindent{\small
+\begin{tabular}{@{}r@{\hspace{1em}}p{0.46\linewidth}@{\hspace{1em}}p{0.27\linewidth}l@{}}
+  1 & Let $\alpha$ be a type. & [$\forall$-introduction] & s11 \\
+  2 & Let $x : \alpha$. & [$\forall$-introduction] & s12 \\
+  3 & \hspace*{2\fontdimen2\font}Recall $@\mathsf{fixtureId} : \{\alpha : \mathrm{Sort}\ u\} \to \alpha \to \alpha$, & [earlier declaration] & s17 \\
+& \multicolumn{3}{@{}p{0.72\linewidth}@{}}{\hspace*{9\fontdimen2\font}accepted above as d0.} \\
+  4 & \hspace*{2\fontdimen2\font}Then $\mathsf{fixtureId}\ x : \alpha$, & [application $\leftarrow$ 1, 2, 3] & s22, s26 \\
+& \multicolumn{3}{@{}p{0.72\linewidth}@{}}{\hspace*{9\fontdimen2\font}by applying $\mathsf{fixtureId}$.} \\
+  5 & Discharging 2 and 1 gives & [$\forall$-introduction $\leftarrow$ 1, 2, 4] & s27--s28 \\
+& \multicolumn{3}{@{}p{0.72\linewidth}@{}}{\hspace*{7\fontdimen2\font}$\{\alpha : \mathrm{Sort}\ u\} \to \alpha \to \alpha$.} \\
+  6 & This is the declared type. & [definitional equality $\leftarrow$ 5] & s30 \\
+\end{tabular}}
+\begin{flushleft}\small
+$\blacksquare$ \\
+Rules, formulas and step numbers come from the checker's log; the sentences are \\
+fixed templates (structured-template), not checked reasoning. \\
+Templates: let-types/v0, let/v0, apply/v0, recall/v0, discharge/v0, statement/v0. \\
+\end{flushleft}
+
+\begin{flushleft}
+\textbf{Theorem }$\mathsf{fixtureUse}$ \\
+  accepted (experimental, not independently audited); axioms: none \\
+Statement in Lean (ASCII): {\ttfamily forall~\{P~:~Prop\},~P~->~P} \\
+Statement in mathematics: $\forall \{P : \mathrm{Prop}\},\ P \to P$ \\
+Statement in LeanForth (the statement only, written as an axiom; nothing is assumed): \\
+{\ttfamily \hspace*{2em}axiom~fixtureUse \\
+\hspace*{2em}~~Prop~implicit:~P \\
+\hspace*{2em}~~P~explicit:~x \\
+\hspace*{2em}~~P \\
+\hspace*{2em}end~fixtureUse \\
+}
+  Input:     \texttt{tests/reference/constant-fixture.ndjson} line 32 \\
+  Checker log: 29 steps, complete. The statement is a proposition: s8 (from s3). \\
+\end{flushleft}
+\noindent\textit{Proof (reconstructed from the proof term).}
+\par\noindent{\small
+\begin{tabular}{@{}r@{\hspace{1em}}p{0.46\linewidth}@{\hspace{1em}}p{0.27\linewidth}l@{}}
+  1 & Let $P$ be a proposition. & [$\forall$-introduction] & s9 \\
+  2 & Assume $h : P$. & [assumption] & s10 \\
+  3 & \hspace*{2\fontdimen2\font}Recall $@\mathsf{fixtureId} : \forall \{\alpha : \mathrm{Prop}\},\ \alpha \to \alpha$, & [earlier declaration] & s14 \\
+& \multicolumn{3}{@{}p{0.72\linewidth}@{}}{\hspace*{9\fontdimen2\font}accepted above as d0.} \\
+  4 & \hspace*{2\fontdimen2\font}Then $\mathsf{fixtureId}\ h : P$, & [application $\leftarrow$ 1, 2, 3] & s19, s23 \\
+& \multicolumn{3}{@{}p{0.72\linewidth}@{}}{\hspace*{9\fontdimen2\font}by applying $\mathsf{fixtureId}$.} \\
+  5 & Discharging 2 and 1 gives & [$\to$/$\forall$-introduction $\leftarrow$ 1, 2, 4] & s24--s25 \\
+& \multicolumn{3}{@{}p{0.72\linewidth}@{}}{\hspace*{7\fontdimen2\font}$\forall \{P : \mathrm{Prop}\},\ P \to P$.} \\
+  6 & This is the statement. & [definitional equality $\leftarrow$ 5] & s27 \\
+\end{tabular}}
+\begin{flushleft}\small
+$\blacksquare$ \\
+Rules, formulas and step numbers come from the checker's log; the sentences are \\
+fixed templates (structured-template), not checked reasoning. \\
+Templates: let-props/v0, assume/v0, apply/v0, recall/v0, discharge/v0, statement/v0. \\
+\end{flushleft}
+
+== composition-wrong-argument
+\begin{flushleft}
+\textbf{Theorem }$\mathsf{composition}$ \\
+  rejected \\
+  Diagnostic: rejected: argument type mismatch (D1-D5) (4, 0) \\
+Statement in Lean (ASCII): {\ttfamily forall~\{A~B~C~:~Prop\},~(A~->~B)~->~(B~->~C)~->~A~->~C} \\
+Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$ \\
+Statement in LeanForth (the statement only, written as an axiom; nothing is assumed): \\
+{\ttfamily \hspace*{2em}axiom~composition \\
+\hspace*{2em}~~Prop~implicit:~A \\
+\hspace*{2em}~~Prop~implicit:~B \\
+\hspace*{2em}~~Prop~implicit:~C \\
+\hspace*{2em}~~A~B~->~explicit:~f \\
+\hspace*{2em}~~B~C~->~explicit:~g \\
+\hspace*{2em}~~A~C~-> \\
+\hspace*{2em}end~composition \\
+}
+  Input:     \texttt{tests/core/check-declaration-cases/composition-wrong-argument.ndjson} line 35 \\
+  Checker log: 51 steps, complete. The statement is a proposition: s20 (from s3). \\
+\par
+No proof outline: the declaration was not accepted. \\
+\end{flushleft}
+
+== composition, log truncated
+\begin{flushleft}
+\textbf{Theorem }$\mathsf{composition}$ \\
+  accepted (experimental, not independently audited); axioms: none \\
+Statement in Lean (ASCII): {\ttfamily forall~\{A~B~C~:~Prop\},~(A~->~B)~->~(B~->~C)~->~A~->~C} \\
+Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$ \\
+Statement in LeanForth (the statement only, written as an axiom; nothing is assumed): \\
+{\ttfamily \hspace*{2em}axiom~composition \\
+\hspace*{2em}~~Prop~implicit:~A \\
+\hspace*{2em}~~Prop~implicit:~B \\
+\hspace*{2em}~~Prop~implicit:~C \\
+\hspace*{2em}~~A~B~->~explicit:~f \\
+\hspace*{2em}~~B~C~->~explicit:~g \\
+\hspace*{2em}~~A~C~-> \\
+\hspace*{2em}end~composition \\
+}
+  Input:     \texttt{tests/reference/composition.ndjson} line 35 \\
+  Checker log: 30 steps, incomplete: truncated at step 31 (records). \\
+\par
+No proof outline: the declaration is accepted, but the checker's log was truncated at step 31 (records); the verdict is unaffected. \\
+\end{flushleft}
+

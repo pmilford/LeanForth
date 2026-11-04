@@ -162,7 +162,7 @@ as the subscript `_{2}` and keeps primes. `lf-print-inline` and
 `lf-print-display` wrap a term's LaTeX in `$…$` or `$$…$$` for Markdown;
 GitHub renders those, and also fenced `math` blocks as used on this page.
 Rendering on GitHub was not checked in the session that wrote the printer;
-no LaTeX installation is used or needed by the tests.
+no LaTeX installation is needed by the term printer's own tests. The [proof outline's](PROOF_OUTLINE.md#latex) LaTeX style (plan task 8.6.1), which uses this mode, is compiled with `pdflatex` by `make test` where it is installed (all five pinned examples compile), and is checked structurally where it is not.
 
 ## Interface (Forth)
 

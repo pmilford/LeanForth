@@ -247,7 +247,38 @@ def accepted : List Block := [
   -- removed (`consume_type_annotations`; review rvI21 M1).
   { id := "ind.annotated-fields",
     types := [⟨"An", "Type", [("mk", "(p : optParam Prop True) → (q : outParam Prop) → An")]⟩],
-    lean := "accepted", leanforth := "accepted", rule := "A1 G1", task := "5.2.1a" }
+    lean := "accepted", leanforth := "accepted", rule := "A1 G1", task := "5.2.1a" },
+  -- Recursive blocks (plan task 5.2.1b): two recursive fields, a function field of two
+  -- arguments, a reflexive field under a parameter, recursive propositions (Prop only,
+  -- and any universe with one constructor), a list in `Sort (max 1 u)`, and fields whose
+  -- type is a β-redex: one Lean's `whnf` turns into a function into the type (recursive,
+  -- not reflexive: `is_reflexive` reads the raw type), one it turns into `Nat`
+  -- (`is_rec` is syntactic, the field is no recursive argument).
+  { id := "ind.binary-tree", types := [⟨"BT", "Type",
+      [("leaf", "BT"), ("node", "BT → BT → BT")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 G1", task := "5.2.1b" },
+  { id := "ind.reflexive-two-arguments", types := [⟨"R2", "Type",
+      [("z", "R2"), ("f", "(Nat → Bool → R2) → R2")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 P1 G1", task := "5.2.1b" },
+  { id := "ind.reflexive-parameter", nparams := 1, types := [⟨"RP", "Type → Type",
+      [("leaf", "(α : Type) → α → RP α"), ("sup", "(α : Type) → (α → RP α) → RP α")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 P1 G1", task := "5.2.1b" },
+  { id := "ind.recursive-predicate", types := [⟨"Ev", "Prop",
+      [("base", "Ev"), ("step", "Ev → Ev")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 E1 G1", task := "5.2.1b" },
+  { id := "ind.recursive-predicate-one-constructor", types := [⟨"Inf", "Prop",
+      [("mk", "Inf → Inf")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 E3 G1", task := "5.2.1b" },
+  { id := "ind.list-sort-max", lparams := [`u], nparams := 1,
+    types := [⟨"LS", "Sort u → Sort (max 1 u)",
+      [("nil", "(α : Sort u) → LS α"), ("cons", "(α : Sort u) → α → LS α → LS α")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 U1 G1", task := "5.2.1b" },
+  { id := "ind.recursive-through-beta", types := [⟨"Bt", "Type",
+      [("z", "Bt"), ("mk", "(fun (X : Type) => Nat → X) Bt → Bt")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 P1 G1", task := "5.2.1b" },
+  { id := "ind.erased-by-beta", types := [⟨"Eb", "Type",
+      [("mk", "(fun (X : Type) => Nat) Eb → Eb")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 P1 G1", task := "5.2.1b" }
 ]
 
 /-- Declarations Lean rejects, each next to an accepted neighbour. -/
@@ -269,6 +300,20 @@ def checks : List Block := [
   { id := "pos.universe-checked-first",
     types := [⟨"Bad", "Type", [("mk", "(f : Type → Type) → f Bad → Bad")]⟩],
     lean := "universeTooBig", leanforth := "rejected", rule := "U1", task := "5.2.1b" },
+  -- The same rules where whnf only β-reduces, in a later binder, and after a Pi.
+  { id := "pos.negative-through-beta",
+    types := [⟨"Bad", "Type", [("mk", "(fun (X : Type) => X → Nat) Bad → Bad")]⟩],
+    lean := "nonPositive", leanforth := "rejected", rule := "P1", task := "5.2.1b" },
+  { id := "pos.negative-second-binder",
+    types := [⟨"Bad", "Type", [("mk", "(Nat → Bad → Nat) → Bad")]⟩],
+    lean := "nonPositive", leanforth := "rejected", rule := "P1", task := "5.2.1b" },
+  { id := "pos.negative-later-field",
+    types := [⟨"Bad", "Type", [("z", "Bad"), ("mk", "Bad → (Bad → Bad) → Bad")]⟩],
+    lean := "nonPositive", leanforth := "rejected", rule := "P1", task := "5.2.1b" },
+  { id := "pos.non-valid-after-pi", nparams := 1,
+    types := [⟨"Bad", "(Type → Type) → Type",
+      [("mk", "(f : Type → Type) → (Nat → f (Bad f)) → Bad f")]⟩],
+    lean := "nonValidOccurrence", leanforth := "rejected", rule := "P2", task := "5.2.1b" },
   -- Occurrences applied to the parameters (check_uniform_ind_occs).
   { id := "uniform.other-argument", nparams := 1,
     types := [⟨"T", "Type → Type", [("mk", "(α : Type) → T Nat → T α")]⟩],
@@ -1237,6 +1282,23 @@ def redexUse : Declaration :=
   .defnDecl { name := `IE.U2.bad, levelParams := [], type := .sort 0,
               value := mkConst `IE.U2.rec [1], hints := .regular 1, safety := .safe }
 
+/-- `@IE.L.rec.{1, 1} Type (fun _ => Prop) Q (fun _ _ _ => Q) (@IE.L.nil.{1} Type)`, a
+proposition, and a block `IE.W (α : Type) : Prop` whose constructor's field is that
+proposition behind a β-redex: the recursor of the list `IE.L` is built again while W's
+constructors are checked, after W's parameter domains were recorded (plan task 5.2.1b). -/
+def lType : Expr := mkApp (mkConst `IE.L [1]) (.sort 1)
+def recListAtOne : Expr :=
+  let motive : Expr := .lam `x lType (.sort 0) .default
+  let consCase : Expr :=
+    .lam `h (.sort 1) (.lam `t lType (.lam `ih (.sort 0) qProp .default) .default) .default
+  mkAppN (mkConst `IE.L.rec [1, 1])
+    #[.sort 1, motive, qProp, consCase, mkApp (mkConst `IE.L.nil [1]) (.sort 1)]
+def lookupDuringParamBlock : Declaration :=
+  let field : Expr := .app (.lam `x (.sort 0) (.bvar 0) .default) recListAtOne
+  .inductDecl [] 1 [⟨`IE.W, .forallE `α (.sort 1) (.sort 0) .default,
+    [⟨`IE.W.mk, .forallE `α (.sort 1)
+      (.forallE `h field (mkApp (mkConst `IE.W) (.bvar 1)) .default) .default⟩]⟩] false
+
 /-- `IE.U70.{u_1 … u_70} : Type` with one constructor: a recursor of 71 universe
 parameters (review rvI21 R4-3: no fixed limit). -/
 def manyNames : List Name := (List.range 70).map fun i => Name.mkSimple s!"u_{i + 1}"
@@ -1318,7 +1380,39 @@ def stripped : List Stripped := [
     lean := "accepted", leanforth := "accepted", rule := "B4 G1" },
   { id := "after.redex-type-left-out-then-use-rec", block := pure redexBlock,
     uses := fun _ => [redexUse], lean := "declTypeMismatch", leanforth := "rejected",
-    rule := "B4 G1" }
+    rule := "B4 G1" },
+  -- Recursive blocks (plan task 5.2.1b): the generated recursor, with its induction
+  -- hypotheses, at its own universes and at others.
+  { id := "after.nat-left-out-then-use-rec", block := blockDecl "ind.nat",
+    uses := fun r => [useRecOf r], lean := "accepted", leanforth := "accepted",
+    rule := "B4 G1", task := "5.2.1b" },
+  { id := "after.list-left-out-then-use-rec", block := blockDecl "ind.list",
+    uses := fun r => [useRecOf r], lean := "accepted", leanforth := "accepted",
+    rule := "B4 G1", task := "5.2.1b" },
+  { id := "after.reflexive-left-out-then-use-rec", block := blockDecl "ind.reflexive",
+    uses := fun r => [useRecOf r], lean := "accepted", leanforth := "accepted",
+    rule := "B4 G1", task := "5.2.1b" },
+  { id := "after.binary-tree-left-out-then-use-rec", block := blockDecl "ind.binary-tree",
+    uses := fun r => [useRecOf r], lean := "accepted", leanforth := "accepted",
+    rule := "B4 G1", task := "5.2.1b" },
+  { id := "after.list-at-renamed", block := blockDecl "ind.list",
+    uses := fun r => [useRecAt "Renamed" [`a, `b] [lp `a, lp `b] 0 r],
+    lean := "accepted", leanforth := "accepted", rule := "B4 G1", task := "5.2.1b" },
+  { id := "after.list-at-concrete", block := blockDecl "ind.list",
+    uses := fun r => [useRecAt "Concrete" [] [lv 0, lv 1] 0 r],
+    lean := "accepted", leanforth := "accepted", rule := "B4 G1", task := "5.2.1b" },
+  { id := "after.list-at-applied", block := blockDecl "ind.list",
+    uses := fun r => [useRecAt "Applied" [`a, `b] [lp `a, lp `b] 2 r],
+    lean := "accepted", leanforth := "accepted", rule := "B4 G1", task := "5.2.1b" },
+  { id := "after.list-sort-max-at-concrete", block := blockDecl "ind.list-sort-max",
+    uses := fun r => [useRecAt "Concrete" [] [lv 2, lv 0] 0 r],
+    lean := "accepted", leanforth := "accepted", rule := "B4 G1 U1", task := "5.2.1b" },
+  { id := "after.reflexive-parameter-at-renamed", block := blockDecl "ind.reflexive-parameter",
+    uses := fun r => [useRecAt "Renamed" [`w] [lp `w] 0 r],
+    lean := "accepted", leanforth := "accepted", rule := "B4 G1", task := "5.2.1b" },
+  { id := "after.list-left-out-then-lookup-during-param-block", block := blockDecl "ind.list",
+    uses := fun _ => [lookupDuringParamBlock], lean := "accepted", leanforth := "accepted",
+    rule := "B4 G1 C2", task := "5.2.1b" }
 ]
 
 /-- A stripped case's block constants without recursors, the environment Lean's

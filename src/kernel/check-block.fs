@@ -1,13 +1,13 @@
-\ check-block (plan task 5.2.1a; ADR 0015 §3, §4): the check of an
-\ inductive block that check-declaration runs when the snapshot's
+\ check-block (plan tasks 5.2.1a and 5.2.1b; ADR 0015 §3, §4): the check
+\ of an inductive block that check-declaration runs when the snapshot's
 \ declaration is a block's first member. It runs Lean 4.35.0's
 \ add_inductive (inductive.cpp 1235-1350, commit eb6cafb7) for a block of
-\ one non-recursive type, step by step in Lean's order, then compares
+\ one type, recursive or not, step by step in Lean's order, then compares
 \ what it generated with what the file holds as Lean's replay does
 \ (Lean/Replay.lean 102-164), and ends with one outcome for every member:
 \    1 the audit (inductive-block.fs): B0 shape (invalid), unsafe members
 \      and U2 forms (unsupported), V1 (invalid), the scope (unsupported:
-\      mutual, recursive, or the type in a result index);
+\      mutual or nested);
 \    2 T0 the reserved prefix _nested (1241, 1244);
 \    3 C1 uniform occurrences (check_uniform_ind_occs, 134-164);
 \    4 T1 at least numParams binders (get_params, 1138-1146);
@@ -23,11 +23,10 @@
 \      Lean declares it first, 308-375), then its raw telescope: C2 each
 \      parameter's domain against the type's (is_def_eq, D1-D5 reject,
 \      else unknown), U1 each field's universe (Lean's is_geq,
-\      level-geq.fs, or a result level that normalizes to zero), C3 the
-\      result a valid application of the type (is_valid_ind_app 381-409);
-\      numFields its binders after the parameters (499-519). Positivity
-\      (436-452) holds trivially: the audit's scope leaves no field type
-\      mentioning the type, and whnf never makes an occurrence;
+\      level-geq.fs, or a result level that normalizes to zero), then its
+\      positivity (P1, P2; check_positivity 436-452), C3 the result a
+\      valid application of the type (is_valid_ind_app 381-409);
+\      numFields its binders after the parameters (499-519);
 \   10 the elimination level (elim_only_at_universe_zero 522-577, E0-E4;
 \      its universe u, or u_1, u_2, ... when taken, 579-592) and K
 \      (init_K_target 594-616);
@@ -45,15 +44,24 @@
 \ The first step that does not succeed decides the outcome; every member
 \ gets it, through the publisher's block publication (env-publish.fs:
 \ the candidate's span). G4 (check_recursors 829-866, a defensive check
-\ of Lean's own generation) is not run: for a non-recursive block each
-\ rule's reduct is minor_j b, whose type is minor_j's result type,
-\ motive js (c_j As b), by construction the type the recursor gives the
-\ left side; the generated recursor is compared with Lean's own (B3).
+\ of Lean's own generation) is not run: each rule's reduct is minor_j b
+\ v, v the induction hypotheses fun xs => T.rec As motive minors ks
+\ (u xs) of the recursive fields u, whose types are the minor premise's
+\ hypotheses by construction, so its type is minor_j's result type,
+\ motive js (c_j As b), the type the recursor gives the left side; the
+\ generated recursor is compared with Lean's own (B3).
+\ Where Lean's add_inductive puts a term in whnf (steps 8, 9's
+\ positivity, the recursor's recursive fields), LeanForth reduces with
+\ whnfB and goes on only where Lean's whnf provably stops there
+\ (lf-blk-left?): a head that Lean's whnf could unfold or reduce leaves
+\ the block unknown until plan task 4.2.2 (whnf with delta and iota) is
+\ on main.
 \ [kernel] code: experimental, not through the review gate; not
 \ independently audited.
 \ State: one record, lf-blk-state (the T.rec name, the constructor and
-\ binder being checked, the fields of the elimination test), a member of
-\ the checker context, beside the block's record lf-ind-state.
+\ binder being checked, the fields of the elimination test), and the
+\ slab lf-blk-positions, members of the checker context, beside the
+\ block's record lf-ind-state.
 
 require ../lib/lib.fs
 require ../core/diagnostics.fs
@@ -76,6 +84,7 @@ require ./mixed-infer.fs
 begin-structure /lf-blkrec
   field: lf-blkrec-rec       \ the name T.rec
   field: lf-blkrec-ctor      \ the constructor being checked
+  field: lf-blkrec-field     \ its binder whose positivity is checked
   field: lf-blkrec-checks    \ fields whose type is no proposition (E3)
 end-structure
 /lf-blkrec context-record: lf-blk-state
@@ -140,17 +149,63 @@ end-structure
 \ Step 7: the type's type.
 : lf-blk-type ( -- outcome ) lf-ind-type lf-idecl-type @ lf-blk-infer ;
 
-\ Step 8: the telescope. Each node is put in whnf (whnfB here; a constant
-\ head is K1); a Pi's domain is binder i's; anything else ends it, and
-\ must be a Sort (else Lean's typeExpected, rule T2).
+\ ---------------------------------------------------------------------------
+\ Where Lean's whnf stops. On a term in whnfB whose head is a constant,
+\ Lean's whnf (type_checker.cpp 706-743) goes on when whnf_core reduces a
+\ recursor or quotient application (reduce_recursor, 393-407), when
+\ reduce_nat computes a Nat operation it knows by name (672-703), or when
+\ the head is a definition or theorem it unfolds (is_delta 555-563). So it
+\ stops at once when the head is the block's own type, or a constant
+\ declared as an inductive type, a constructor, an axiom or an opaque
+\ constant, named none of those operations; for any other head LeanForth
+\ cannot follow Lean yet (unknown, K1). A Sort, a Pi, a lambda or a
+\ variable head stops it too (fact 3).
+: lf-blk-op-names ( -- c-addr u )
+  s"  succ add sub mul pow gcd mod div beq ble land lor xor shiftLeft shiftRight " ;
+\ Whether text is a word of that list: found with a space on each side.
+: lf-blk-space? ( c-addr -- flag ) 1 s"  " compare 0= ;
+: lf-blk-op-text? ( c-addr u -- flag )
+  dup >r lf-blk-op-names 2swap search 0= if r> drop 2drop false exit then
+  dup r@ > 0= if r> drop 2drop false exit then
+  over lf-blk-op-names drop = if r> drop 2drop false exit then
+  drop dup 1- lf-blk-space? swap r> + lf-blk-space? and ;
+: lf-blk-nat? ( name -- flag )
+  dup lf-name-tag@ lf-name-tag-str = 0= if drop false exit then
+  dup lf-name-prefix@ if drop false exit then lf-name-text s" Nat" compare 0= ;
+: lf-blk-nat-op? ( name -- flag )
+  dup lf-name-tag@ lf-name-tag-str = 0= if drop false exit then
+  dup lf-name-prefix@ ?dup 0= if drop false exit then
+  lf-blk-nat? if lf-name-text lf-blk-op-text? else drop false then ;
+: lf-blk-stuck-kind? ( kind -- flag )
+  dup lf-kind-inductive = over lf-kind-constructor = or
+  over lf-kind-axiom = or swap lf-kind-opaque = or ;
+: lf-blk-stuck-name? ( name -- flag )
+  dup lf-blk-nat-op? if drop false exit then
+  lf-env-lookup-pass ok? 0= if drop false exit then
+  dup 0< if drop false exit then lf-input-decl lf-idecl-kind @ lf-blk-stuck-kind? ;
+: lf-blk-stuck? ( node -- flag )
+  lf-ind-spine drop dup lf-ind-type-node? if drop true exit then
+  lf-ind-const-name lf-blk-stuck-name? ;
+\ Whether Lean's whnf leaves node, a term in whnfB, as it is.
+: lf-blk-left? ( node -- flag )
+  dup lf-mhead-kind case
+    lf-head-constant of lf-blk-stuck? endof
+    lf-head-none of drop false endof
+    nip true swap endcase ;
 : lf-blk-unfold ( node -- outcome )
   0 lf-blk-site lf-diag-needs-unfolding lf-diag-note outcome-unknown ;
+
+\ Step 8: the telescope. Each node is put in whnf (whnfB here; a constant
+\ head Lean might unfold is K1); a Pi's domain is binder i's; anything
+\ else ends it, and must be a Sort (else Lean's typeExpected, rule T2).
 : lf-blk-not-sort ( node -- outcome ) 0 lf-diag-block-not-sort lf-blk-reject ;
 : lf-blk-sorted ( node -- outcome )
   lf-term-first@ lf-ind-state lf-ind-level ! outcome-ok ;
+: lf-blk-constant-end ( node -- outcome )
+  dup lf-blk-stuck? if lf-blk-not-sort else lf-blk-unfold then ;
 : lf-blk-end ( node -- outcome )
   dup lf-mhead-kind case
-    lf-head-sort of lf-blk-sorted endof  lf-head-constant of lf-blk-unfold endof
+    lf-head-sort of lf-blk-sorted endof  lf-head-constant of lf-blk-constant-end endof
     lf-head-none of drop outcome-invalid endof  >r lf-blk-not-sort r> endcase ;
 \ The indices: the binders after the parameters. T1 (step 4) leaves at
 \ least numParams; fewer, were T1 bypassed, is invalid (review rvI21 L2).
@@ -198,9 +253,74 @@ end-structure
   if outcome-ok else lf-blk-too-big then ;
 : lf-blk-fits ( level -- outcome )
   lf-blk-geq? ok-then? 0= if exit then if outcome-ok else lf-blk-predicate then ;
+\ is_valid_ind_app (381-400) of node at binder depth depth: T at the
+\ universe parameters, numParams + numIndices arguments, argument i the
+\ variable of parameter i (lf-blk-shape?), and indices that mention no
+\ type of the block, each counted by xt ( node -- n outcome ).
+: lf-blk-arity ( -- n ) lf-ind-nparams lf-blk-n + ;
+: lf-blk-c3-arg? ( node depth i -- flag )
+  tuck - 1- >r lf-blk-arity swap lf-ind-arg r> lf-ind-bvar? ;
+: lf-blk-c3-params? ( node depth -- flag )
+  lf-ind-nparams 0 ?do 2dup i lf-blk-c3-arg? 0= if 2drop false unloop exit then loop
+  2drop true ;
+: lf-blk-shape? ( node depth -- flag )
+  over lf-ind-spine lf-blk-arity <> if drop 2drop false exit then
+  dup lf-ind-type-node? 0= if drop 2drop false exit then
+  lf-term-first@ lf-ind-levels? 0= if 2drop false exit then
+  dup lf-ind-nparams < if 2drop false exit then lf-blk-c3-params? ;
+: lf-blk-none? ( n outcome -- flag outcome )
+  ok-then? if 0= outcome-ok else false swap then ;
+: lf-blk-index-free? ( node i xt -- flag outcome )
+  >r lf-blk-arity swap lf-ind-arg r> execute lf-blk-none? ;
+: lf-blk-indices-free? ( node xt -- flag outcome )
+  lf-blk-arity lf-ind-nparams ?do
+    2dup i swap lf-blk-index-free? ok-then? 0= if nip nip false swap unloop exit then
+    0= if 2drop false outcome-ok unloop exit then
+  loop 2drop true outcome-ok ;
+: lf-blk-valid? ( node depth xt -- flag outcome )
+  >r over swap lf-blk-shape? 0= if r> 2drop false outcome-ok exit then
+  r> lf-blk-indices-free? ;
+
+\ Positivity (P1, P2; check_positivity 436-452), in step 9's inference
+\ job, of field i, whose type node is read under the constructor's i
+\ binders: a block's field that mentions its type (no other: reduction
+\ never makes an occurrence, the type being in no environment a definition
+\ unfolds into, so Lean's test passes on it whatever whnf gives). The type
+\ is put in whnf (whnfB, and Lean's whnf stops there: lf-blk-left?,
+\ else unknown); with no occurrence left it is a non-recursive field;
+\ a Pi whose domain mentions the type is nonPositive, else its body is
+\ checked one binder deeper; anything else must be a valid application
+\ of the type (a recursive field), else nonValidOccurrence. Occurrences
+\ are counted on the job's fuel.
+: lf-blk-occurs ( node -- n outcome )
+  lf-minfer-fuel @ lf-ind-fuel ! lf-ind-occurrences lf-ind-fuel @ lf-minfer-fuel ! ;
+: lf-blk-occurs? ( node -- flag outcome )
+  lf-blk-occurs ok-then? if 0<> outcome-ok else false swap then ;
+: lf-pos-fail ( code -- outcome )
+  >r lf-blk-member lf-blk-state lf-blkrec-field @ r> lf-blk-reject ;
+: lf-pos-end ( node depth -- outcome )
+  ['] lf-blk-occurs lf-blk-valid? ok-then? 0= if exit then
+  if outcome-ok else lf-diag-non-valid lf-pos-fail then ;
+: lf-pos-pi ( node depth -- node' depth' true | outcome false )
+  over lf-term-first@ lf-blk-occurs? ok-then? 0= if nip nip false exit then
+  if 2drop lf-diag-non-positive lf-pos-fail false exit then
+  1+ swap lf-term-second@ swap true ;
+: lf-pos-step ( node depth -- node' depth' true | outcome false )
+  swap lf-minfer-whnf ok-then? 0= if nip false exit then swap
+  over lf-blk-occurs? ok-then? 0= if nip nip false exit then
+  0= if 2drop outcome-ok false exit then
+  over lf-blk-left? 0= if drop lf-blk-unfold false exit then
+  over lf-blk-pi? if lf-pos-pi exit then lf-pos-end false ;
+: lf-blk-positive ( node depth -- outcome ) begin lf-pos-step 0= until ;
+: lf-blk-positivity ( node i -- outcome )
+  lf-ind-recursive? 0= if 2drop outcome-ok exit then
+  dup lf-blk-state lf-blkrec-field !
+  over lf-blk-occurs? ok-then? 0= if nip nip exit then
+  if lf-blk-positive else 2drop outcome-ok then ;
 : lf-blk-field ( node i -- outcome )
-  drop lf-term-first@ dup lf-minfer-domain ok-then? 0= if nip exit then
-  lf-blk-fits ok-then? 0= if exit then lf-rcr-consume lf-blk-push ;
+  swap lf-term-first@ dup lf-minfer-domain ok-then? 0= if nip nip exit then
+  lf-blk-fits ok-then? 0= if nip exit then
+  dup rot lf-blk-positivity ok-then? 0= if exit then lf-rcr-consume lf-blk-push ;
 : lf-blk-binder ( node i -- outcome )
   dup lf-ind-nparams < if lf-blk-param else lf-blk-field then ;
 \ The raw telescope: (body k outcome), k its binders.
@@ -208,24 +328,14 @@ end-structure
   0 begin over lf-tag-pi lf-ind-tag? while
     2dup lf-blk-binder dup ok? 0= if exit then drop swap lf-term-second@ swap 1+
   repeat outcome-ok ;
-\ C3: the result is T As is: T at the universe parameters, numParams +
-\ numIndices arguments, argument i the variable of parameter i. Its
-\ indices hold no occurrence of T: the audit's scope allows none there.
-: lf-blk-arity ( -- n ) lf-ind-nparams lf-blk-n + ;
-: lf-blk-c3-arg? ( node depth i -- flag )
-  tuck - 1- >r lf-blk-arity swap lf-ind-arg r> lf-ind-bvar? ;
-: lf-blk-c3-params? ( node depth -- flag )
-  lf-ind-nparams 0 ?do 2dup i lf-blk-c3-arg? 0= if 2drop false unloop exit then loop
-  2drop true ;
-: lf-blk-c3? ( node depth -- flag )
-  over lf-ind-spine lf-blk-arity <> if drop 2drop false exit then
-  dup lf-ind-type-node? 0= if drop 2drop false exit then
-  lf-term-first@ lf-ind-levels? 0= if 2drop false exit then
-  dup lf-ind-nparams < if 2drop false exit then lf-blk-c3-params? ;
+\ C3: the result is a valid application of T (above), its indices counted
+\ on the block's fuel.
+: lf-blk-c3 ( node depth -- flag outcome ) ['] lf-ind-occurrences lf-blk-valid? ;
 : lf-blk-bad-return ( -- outcome ) lf-blk-member 0 lf-diag-return-type lf-blk-reject ;
 : lf-blk-ctor-walk ( j -- outcome )
   lf-blk-job lf-ind-ctor-type lf-blk-binders lf-blk-refuel ok-then2? 0= if exit then
-  2dup lf-blk-c3? 0= if 2drop lf-blk-bad-return exit then
+  2dup lf-blk-c3 ok-then? 0= if nip nip exit then
+  0= if 2drop lf-blk-bad-return exit then
   nip lf-ind-nparams - lf-blk-ctor@ lf-ind-nfields ! outcome-ok ;
 : lf-blk-ctor ( j -- outcome )
   dup lf-blk-state lf-blkrec-ctor !
@@ -292,7 +402,8 @@ end-structure
   lf-blk-elim-name 0= if false exit then
   dup lf-level-param if true else drop false then ;
 : lf-blk-elim! ( name level -- )
-  lf-ind-state lf-ind-elim ! lf-ind-state lf-ind-elim-name ! ;
+  lf-ind-state lf-ind-elim ! dup 0<> lf-ind-state lf-ind-large !
+  lf-ind-state lf-ind-elim-name ! ;
 \ K: a predicate with one constructor that has no fields.
 : lf-blk-k-shape? ( -- flag )
   lf-ind-ctors@ 1 = if 0 lf-ind-nfields @ 0= else false then ;
@@ -418,14 +529,17 @@ here lf-b3-rec - 2 cells / constant lf-b3-rec#
 : lf-blk-compare ( -- outcome ) lf-blk-ctors-b3 ['] lf-blk-recs-b3 lf-blk-then ;
 
 \ Step 14, B4: the type's fields Lean's replay ignores, each against
-\ what LeanForth computed for a block of task 5.2.1a (numIndices; isRec,
-\ isReflexive false; numNested 0), and a missing recursor, as warning
-\ bits; never a failure. The bits go to the candidate, and so onto the
-\ accepted block's slots (lf-env-warnings).
+\ what LeanForth computed (numIndices; isRec and isReflexive, the audit's
+\ is_rec and is_reflexive; numNested 0, the block not being nested), and
+\ a missing recursor, as warning bits; never a failure. The bits go to
+\ the candidate, and so onto the accepted block's slots (lf-env-warnings).
 : lf-blk-flag ( data bit -- flag ) swap lf-ity-flags lf-more-field and 0<> ;
+: lf-blk-differs? ( flag x -- flag' ) 0<> <> ;
 : lf-b4-indices? ( data -- flag ) lf-ity-indices lf-more-field lf-blk-n <> ;
-: lf-b4-rec? ( data -- flag ) lf-ity-rec-bit lf-blk-flag ;
-: lf-b4-reflexive? ( data -- flag ) lf-ity-reflexive-bit lf-blk-flag ;
+: lf-b4-rec? ( data -- flag )
+  lf-ity-rec-bit lf-blk-flag lf-ind-state lf-ind-is-rec @ lf-blk-differs? ;
+: lf-b4-reflexive? ( data -- flag )
+  lf-ity-reflexive-bit lf-blk-flag lf-ind-state lf-ind-is-refl @ lf-blk-differs? ;
 : lf-b4-nested? ( data -- flag ) lf-ity-nested lf-more-field 0<> ;
 : lf-b4-no-recursor? ( data -- flag ) drop lf-ind-recs@ 0= ;
 create lf-b4-tests

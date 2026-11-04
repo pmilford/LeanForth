@@ -29,9 +29,9 @@
 \ - K7: before a delta step, where Lean's reduce_nat (672-703) would look
 \   -- Nat.succ with one argument, or one of its fourteen binary Nat
 \   operations with two, matched by name and without universe arguments --
-\   unknown, diagnostic 80 (plan task 5.2.3, literals);
+\   unknown, diagnostic 82 (plan task 5.2.3, literals);
 \ - iota: the default hook answers unknown for a recursor at the head,
-\   diagnostic 79 (plan task 5.2.1b, which brings recursor reduction);
+\   diagnostic 81 (plan task 5.2.1b, which brings recursor reduction);
 \ - outside a check of the checked environment (lf-mixed-infer, the
 \   probe and lf-mixed-convert's tables, whose constants are the
 \   signature index's), a constant at the head of whnf may have a value:
@@ -77,7 +77,7 @@
 \ across them with frame-save and frame-restore (at most frame-spare
 \ cells at once). lf-whnf-env? says whether the checked environment can
 \ be asked (lf-env-lookup and its slots). The default, lf-whnf-iota-
-\ default, answers unknown (diagnostic 79) for a constant head that names
+\ default, answers unknown (diagnostic 81) for a constant head that names
 \ a recursor -- a usable slot of that kind, or Lean's generated recursor
 \ of an accepted type (lf-env-genrec-of) -- in a check, and no rule
 \ otherwise. Quotients (Quot.lift, Quot.ind) are unsupported declarations
@@ -292,7 +292,7 @@ lf-walk-room context-walk2: lf-whnf-scan
 \ K7 (ADR 0014 Q8): where reduce_nat (672-703) would look at node -- a
 \ constant without universe arguments named Nat.succ with one argument,
 \ or one of the fourteen binary operations with two -- unknown,
-\ diagnostic 80 with the head; else ok. Names are compared by their
+\ diagnostic 82 with the head; else ok. Names are compared by their
 \ components (Lean's name equality), from the last.
 \ A table of texts: each entry its length in a cell and its characters,
 \ aligned; a length of 0 ends it. Shared and read-only.

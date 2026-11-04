@@ -118,8 +118,11 @@ end-structure
 \ signed or unsigned, can be written. At most 10 decimal, 8 hexadecimal or
 \ 32 binary digits, so that leading zeros stay limited as before. The value
 \ is a double, exact on 32-bit hosts too. Refused: a sign before a prefix
-\ (-$10, on which the hosts differ) or before 'c', Gforth's digit
-\ separator (1_000), 0x10, double numbers (1.) and every other form.
+\ (-$10, which Forth-2012 does not define, and which Gforth 1.0 reads or
+\ not depending on the number it read before) or before 'c', Gforth's
+\ digit separator (1_000), 0x10, double numbers (1.) and every other form.
+\ tests/program/verify_ir02.py compares this reading with both Gforths'
+\ own on many tokens.
 : pv-digit? ( char -- flag ) [char] 0 [char] 9 1+ within ;
 : pv-letter? ( char -- flag ) pv-lower [char] a [char] z 1+ within ;
 \ The value of a digit or letter, 99 for any other character.
@@ -135,29 +138,37 @@ end-structure
 \ The value of the digits c-addr u in base, or false at a character that
 \ is no digit of it.
 : pv-digits ( c-addr u base -- d true | false )
-  >r 0 0 begin 2over nip while
-    2over drop c@ r@ pv-digit+ 0= if 2drop r> drop false exit then
-    2swap 1 /string 2swap
-  repeat 2swap 2drop r> drop true ;
-\ One to max digits.
-: pv-numeral ( c-addr u base max -- d true | false )
-  2 pick swap 1+ 1 swap within if pv-digits else 2drop drop false then ;
+  -rot 0 0 2swap chars over + swap ?do
+    2 pick i c@ swap pv-digit+ 0= if drop unloop false exit then
+  1 chars +loop rot drop true ;
+\ A radix: the base of a prefix's digits and how many there may be.
+begin-structure /pv-radix
+  field: pv-radix-base
+  field: pv-radix-digits
+end-structure
+: pv-radix, ( base digits "name" -- ) create swap , , ;
+10 10 pv-radix, pv-radix-10      16 8 pv-radix, pv-radix-16
+2 32 pv-radix, pv-radix-2
+\ The radix a prefix character names, or 0.
+: pv-radix ( char -- radix|0 )
+  case [char] # of pv-radix-10 endof [char] $ of pv-radix-16 endof
+    [char] % of pv-radix-2 endof >r 0 r> endcase ;
+\ One digit to the radix's most.
+: pv-few? ( u radix -- flag ) pv-radix-digits @ 1+ 1 swap within ;
+: pv-numeral ( c-addr u radix -- d true | false )
+  2dup pv-few? if pv-radix-base @ pv-digits else 2drop drop false then ;
 : pv-negative ( c-addr u -- c-addr' u' flag )
   dup if over c@ [char] - = if 1 /string true exit then then false ;
 \ The largest magnitude: 2^31 below zero, 2^32 - 1 above.
 : pv-limit ( negative? -- d ) if 32768 65536 um* else 65536 65536 um* 1 0 d- then ;
 : pv-in-range? ( d negative? -- d' true | false )
   dup >r pv-limit 2over du< if 2drop r> drop false exit then r> if dnegate then true ;
-: pv-signed ( c-addr u base max -- d true | false )
-  2swap pv-negative >r 2swap pv-numeral if r> pv-in-range? else r> drop false then ;
-\ A prefix's base and most digits; 0 0 for a character that is none.
-: pv-radix ( char -- base max )
-  case [char] # of 10 10 endof [char] $ of 16 8 endof
-    [char] % of 2 32 endof >r 0 0 r> endcase ;
+: pv-signed ( c-addr u radix -- d true | false )
+  >r pv-negative r> swap >r pv-numeral if r> pv-in-range? else r> drop false then ;
 \ After a prefix, or without one.
 : pv-prefixed ( c-addr u -- d true | false )
   dup 0= if 2drop false exit then
-  over c@ pv-radix dup if 2>r 1 /string 2r> else 2drop 10 10 then pv-signed ;
+  over c@ pv-radix ?dup if >r 1 /string r> else pv-radix-10 then pv-signed ;
 : pv-quote-char? ( c-addr -- flag ) c@ [char] ' = ;
 : pv-char-literal? ( c-addr u -- d true | false )
   3 <> if drop false exit then
@@ -298,13 +309,13 @@ end-structure
   pv-token-text pv-number-like?    pv-why-number-name pv-?fail ;
 \ The definition's IR name: the token folded to lower case, then 'k for
 \ the k-th redefinition of that name.
-: pv-def+ ( c-addr u def -- )
-  >r r@ pv-def-chars chars + swap dup >r chars move r> r> pv-def-length +! ;
-: pv-suffix+ ( def k -- ) s" '" 3 pick pv-def+ pv-decimal rot pv-def+ ;
+: pv-def+ ( c-addr u def -- def )
+  >r r@ pv-def-chars chars + swap dup >r chars move r> r@ pv-def-length +! r> ;
+: pv-suffix+ ( def k -- ) >r s" '" rot pv-def+ r> pv-decimal rot pv-def+ drop ;
 : pv-version-suffix ( def -- ) dup pv-def-version @ ?dup if pv-suffix+ else drop then ;
+: pv-name-folded ( def -- def ) dup pv-def-chars pv-fold ;
 : pv-ir-name! ( def -- )
-  0 over pv-def-length ! pv-token-text 2 pick pv-def+ dup pv-def-chars pv-fold
-  pv-version-suffix ;
+  0 over pv-def-length ! >r pv-token-text r> pv-def+ pv-name-folded pv-version-suffix ;
 \ The version the token's new definition replaces, if any, and its number.
 : pv-replaced ( -- index|-1 ) pv-token-text pv-file-word 0= if -1 then ;
 : pv-version-of ( prev -- k ) dup 0< if drop 0 else pv-def pv-def-version @ 1+ then ;
@@ -416,12 +427,14 @@ end-structure
 : pv-dot-quote ( -- ) pv-inside pv-quoted pv-out-text ;
 : pv-type? ( c-addr u -- flag )
   pv-entry-of if pv-entry-text s" type" compare 0= else false then ;
-\ The token after S" must be TYPE; it is the current token while the
-\ design checks it, S" before and after.
-: pv-then-type ( -- )
-  pv-token @ pv-token# @ parse-name 2dup pv-type? 0= pv-why-not-ir pv-?fail
-  2dup pv-token! 2dup pv-entry-of drop pv-design@ pv-design-host @ execute
-  pv-token# ! pv-token ! ;
+\ The token after S" must be TYPE, refused at S" otherwise; it is then the
+\ current token while the design checks it, S" before and after.
+: pv-token@ ( -- offset u ) pv-token @ pv-token# @ ;
+: pv-token-back ( offset u -- ) pv-token# ! pv-token ! ;
+: pv-check-type ( c-addr u -- )
+  2dup pv-type? 0= pv-why-not-ir pv-?fail
+  2dup pv-token! 2dup pv-entry-of drop pv-design@ pv-design-host @ execute ;
+: pv-then-type ( -- ) pv-token@ parse-name pv-check-type pv-token-back ;
 : pv-s-quote ( -- ) pv-inside pv-quoted pv-then-type pv-out-text ;
 : pv-type-alone ( -- ) pv-why-not-ir pv-fail ;
 

@@ -39,6 +39,9 @@
 \ declaration number where it stopped. The input is left partly filled
 \ after a failure: lf-input-reset (or another feed) starts over.
 \ feed-free frees the loading aids (lf-feed frees them itself).
+\ lf-feed-hooked ( stage feed binder-hook decl-hook -- outcome ) is lf-feed
+\ with two optional hooks for a presentation that reads what the feed
+\ drops (see "Hooks" below); lf-feed is it with none.
 \
 \ State: none of its own; every word takes a feed record (/feed), which
 \ owns its heap blocks (the export-to-store maps, zeroed, so that an
@@ -63,6 +66,8 @@ begin-structure /feed
   field: feed-where        \ the expression or declaration where it stopped
   field: feed-d            \ the declaration being fed
   field: feed-header       \ the current block's header cell, plus one; 0 for none
+  field: feed-binder-hook  \ xt ( term name kind -- ) of each binder made, or 0
+  field: feed-decl-hook    \ xt ( d before after -- ) of each declaration fed, or 0
   field: feed-members      \ members of the current block still to come
   2 cells +field feed-pair-buf   \ heap: a constant's level pairs, and their room
   2 cells +field feed-param-buf  \ heap: a declaration's parameters, and their room
@@ -163,6 +168,20 @@ here feed-settings - /feed-setting / constant feed-settings#
     i over feed-level dup ok? 0= if nip unloop exit then drop
   loop drop outcome-ok ;
 
+\ ---- Hooks (lf-feed-hooked): a presentation reads what the feed drops, the
+\ names and kinds of binders and the line each declaration came from, while
+\ the maps that give a stage record's term exist. A hook that is 0 is not
+\ called, so a feed without hooks is the feed of lf-feed.
+\ The binder hook is given the term's index, the binder's name and its kind
+\ (0 explicit, 1 implicit, 2 strict implicit, 3 instance), after the term
+\ is made.
+: feed-binder-info ( tag -- kind ) tag-lam - 3 and ;
+: feed-note-binder ( e feed hook -- )
+  >r 2dup feed-root >r 2dup feed-tier expr-payload@ >r feed-tier expr-tag@
+  feed-binder-info r> swap r> -rot r> execute ;
+: feed-binder-noted ( e feed -- )
+  dup feed-binder-hook @ ?dup 0= if 2drop exit then
+  >r 2dup feed-tier expr-tag@ binder-tag? if r> feed-note-binder else r> drop 2drop then ;
 \ ---- Expressions, in number order (a letE spans two records). A store
 \ that refuses a term is full; an expression of a kind the checker's stores
 \ do not hold (a free or meta variable) is invalid.
@@ -211,7 +230,8 @@ lf-form-string tag-str feed-form!  lf-form-mdata tag-mdata feed-form!
   dup binder-tag? if feed-binder feed-built exit then
   dup feed-form@ ?dup if nip nip nip lf-hterm-unsupported feed-built else feed-core then ;
 : feed-expr ( e feed -- outcome )
-  2dup >r >r 2dup feed-tier expr-tag@ feed-term-made r> r> feed-kept ;
+  2dup >r >r 2dup feed-tier expr-tag@ feed-term-made r> r> 2dup 2>r feed-kept
+  dup ok? if 2r> feed-binder-noted else 2r> 2drop then ;
 : feed-span ( e feed -- units ) feed-tier expr-tag@ let-tag? if 2 else 1 then ;
 : feed-exprs-all ( feed -- outcome )
   0 begin over feed-exprs# over > while
@@ -375,9 +395,17 @@ here feed-kinds - 1 cells / constant feed-kinds#
 : feed-one ( d feed -- outcome )
   tuck feed-d ! dup feed-known-kind? 0= if drop outcome-invalid exit then
   dup feed-block? if feed-dfeed feed-header-record else feed-added then ;
+\ Declaration d fed: the declaration hook is given d and the numbers of
+\ input declarations before and after it (a block's members one by one,
+\ its header none).
+: feed-decl-noted ( d before feed -- )
+  feed-decl-hook @ ?dup if >r lf-input-count r> execute else 2drop then ;
+: feed-decl-one ( d feed -- outcome )
+  2dup lf-input-count -rot feed-one
+  dup ok? if drop swap feed-decl-noted outcome-ok else >r 2drop drop r> then ;
 : feed-decls-all ( feed -- outcome )
   dup feed-decls# 0 ?do
-    i over feed-where ! i over feed-one dup ok? 0= if nip unloop exit then drop
+    i over feed-where ! i over feed-decl-one dup ok? 0= if nip unloop exit then drop
   loop drop outcome-ok ;
 
 \ ---- The whole feed: the steps ( feed -- outcome ), in order.
@@ -395,7 +423,13 @@ here feed-steps - 1 cells / constant feed-steps#
   feed-steps# 0 do dup i feed-step dup ok? 0= if nip unloop exit then drop loop
   drop outcome-ok ;
 \ Feed the sealed stage into this context's input (see the header).
-: lf-feed ( stage feed -- outcome )
-  dup /feed erase tuck feed-stage !
+\ The same with hooks, each an xt or 0: binder-hook ( term name kind -- ),
+\ called for every binder after its term is made, and decl-hook
+\ ( d before after -- ), called after each declaration; neither may change a
+\ store of the checker (the presentation's side table is not one).
+: lf-feed-hooked ( stage feed binder-hook decl-hook -- outcome )
+  2>r dup /feed erase tuck feed-stage !
+  2r> 2 pick feed-decl-hook ! over feed-binder-hook !
   dup feed-stage @ stage-sealed? 0= if drop outcome-invalid exit then
   dup feed-run swap feed-free ;
+: lf-feed ( stage feed -- outcome ) 0 0 lf-feed-hooked ;

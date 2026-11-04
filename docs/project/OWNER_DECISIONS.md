@@ -696,3 +696,46 @@ ADR 0019 Amendment 1 (agent IR2; probes in
   file naming a constant it never declares, refused whole where Lean
   rejects only the declaration concerned, 5.2.6 (new); the command line's
   reader moving to the importer's stage and feed (agent CLI2, plan 3.4).
+
+## IR 0.2 implementation approved (2026-11-04, late)
+
+- **ADR 0019 Amendment 1, IR 0.2 [parser] implementation gate: approved**
+  (owner, "Approve"). Agent IR3's implementation (merged `cc3afaf`, review
+  fixes `71f31b4`): redefinition by Forth's early binding, output words as
+  `out` effects (Lean's `runOut_result`: printing never changes the
+  computation), `LSHIFT` and `-rot` (portable definition), `#` `$` `%`
+  `'c'` numbers; a file using nothing new still gives `lf-ir 0.1` byte for
+  byte; Lean proves `sha-rotr`, `sha-ch`, `sha-maj` and `sha-big-sigma0`
+  equal FIPS 180-4's ROTR, Ch, Maj and Σ0 for all 32-bit inputs.
+  Independent review rvIR3: nothing blocking; its fixes merged. Approved
+  with the four additions beyond the design: reason 32 for an unclosed
+  text; a run that ends *full* sends only its diagnostic; `TYPE` after
+  `S"` checked to be Forth's own; a portable `.S`.
+- Named follow-ups: L6 (Lean's printed bytes against the interpreter's),
+  L7 (tie `clampDebugProgram` to program-word IR), L10 (narrow the
+  portability exemption of `sha-words.fs`), L11 (a receipt for an earlier
+  version runs that version's execution token). Next on the track:
+  `src/lib/sha256.fs` runs the proved words; receipt schema 0.3 at the
+  [format] gate with the first receipt that needs it.
+
+## Checker on the large store approved; resource settings (2026-11-04, late)
+
+- **The checker on the large store, with no depth limit, [kernel] gate:
+  approved** (owner, "Approve"; held since the morning until the fixed
+  limits became dynamic). ADR 0016's heap stores and the importer's stage
+  feed; plan 6.2.0 part (a), universe lists of any length, and part (b),
+  every pass on explicit growable stacks (agent KC, merged `215a406`).
+  Evidence: Lean's whole `Init` checked from the command line (1,618
+  accepted, 0 rejected); random-test answers identical before and after;
+  the 2,000- and 10,000-deep Lean differentials agree on every row;
+  independent re-review rvKC (REVIEW-B): nothing blocking, five low
+  findings being fixed. Temporary gaps, each with its task: time quadratic
+  in a term's depth (6.5.5); the remaining fixed capacities (6.2.0, 6.2.2,
+  6.2.4).
+- **Resource settings are not verdicts** (owner, "Yes, a resource"): the
+  100%-Lean rule means Lean's verdict when Lean has enough of its resource
+  settings. Lean's `maxRecDepth` refusals (`deepRecursion`, BL-9) and
+  `maxHeartbeats` timeouts are resource refusals, as LeanForth's fuel
+  (*exhausted*) and memory (*full*) are; LeanForth does not copy Lean's
+  counters. An option that emulates `maxRecDepth` would be a later opt-in
+  flag, never the default.

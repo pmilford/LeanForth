@@ -84,7 +84,7 @@ require ../lib/lib.fs
 \ Lean's replay (rejected).
 62 constant lf-diag-block-shape        \ B0 (invalid): the block's first member, 0
 63 constant lf-diag-block-scope        \ unsupported: the first member, 1 mutual or
-                                       \ 2 an occurrence outside a result's head
+                                       \ 3 nested (2 is no longer given)
 64 constant lf-diag-needs-unfolding    \ K1 (unknown): the node Lean may unfold, 0
 65 constant lf-diag-reserved-prefix    \ T0: the block's first member, 0
 66 constant lf-diag-nonuniform         \ C1: the occurrence's node, its binder depth
@@ -100,10 +100,12 @@ require ../lib/lib.fs
 76 constant lf-diag-ctors-full         \ full: the block's constructors, capacity
 77 constant lf-diag-generated-recursor \ unknown: the name, the slot that holds it
 78 constant lf-diag-empty-block        \ rejected: the block's declaration, 0
+79 constant lf-diag-non-positive       \ P1: the constructor, the field's binder
+80 constant lf-diag-non-valid          \ P2: the constructor, the field's binder
 \ Lean's weak head normal form (ADR 0014; plan task 4.2.2c,
 \ kernel/whnf.fs): routes LeanForth does not port yet (unknown).
-79 constant lf-diag-iota-pending       \ unknown: the recursor at the head, 0
-80 constant lf-diag-name-matched       \ K7 (unknown): the constant at the head, 0
+81 constant lf-diag-iota-pending       \ unknown: the recursor at the head, 0
+82 constant lf-diag-name-matched       \ K7 (unknown): the constant at the head, 0
 
 begin-structure /lf-diag
   field: lf-diag-code       \ reason code; lf-diag-none while clear
@@ -231,7 +233,7 @@ create lf-diag-catalogue
   lf-diag-value-apart s" rejected: declared type mismatch (D1-D5)" lf-diag-entry,
   lf-diag-body-type s" rejected: Pi body not a type (S4)" lf-diag-entry,
   lf-diag-block-shape s" invalid input: inductive block shape (B0)" lf-diag-entry,
-  lf-diag-block-scope s" unsupported: inductive block outside task 5.2.1a" lf-diag-entry,
+  lf-diag-block-scope s" unsupported: inductive block outside tasks 5.2.1a-b" lf-diag-entry,
   lf-diag-needs-unfolding
     s" undecided: Lean may unfold a definition here (K1)" lf-diag-entry,
   lf-diag-reserved-prefix s" rejected: reserved prefix _nested (T0)" lf-diag-entry,
@@ -253,6 +255,9 @@ create lf-diag-catalogue
   lf-diag-generated-recursor
     s" undecided: a constant Lean's kernel holds, no slot accepted" lf-diag-entry,
   lf-diag-empty-block s" rejected: an inductive block without types" lf-diag-entry,
+  lf-diag-non-positive
+    s" rejected: non-positive occurrence of the type (P1)" lf-diag-entry,
+  lf-diag-non-valid s" rejected: non-valid occurrence of the type (P2)" lf-diag-entry,
   lf-diag-iota-pending
     s" undecided: a recursor reduction LeanForth does not port yet" lf-diag-entry,
   lf-diag-name-matched

@@ -78,6 +78,9 @@ BYTE_MODULES = {
         "texts are decoded from UTF-8, character by character, to check them against "
         "the text rule of run records and receipts",
     "src/lib/hash32.fs": "FNV-1a hashes a text one byte at a time (ADR 0016 C4)",
+    "src/cli/name-text.fs":
+        "names are decoded from UTF-8, character by character, to show them as Lean does, "
+        "with escapes",
     "src/author/source.fs":
         "authoring runner re-reads the token that invoked a word from the source line's text",
     "src/author/groups.fs": "a syntax word keeps its exact spelling as a counted string",
@@ -88,6 +91,9 @@ BYTE_MODULES = {
     "src/present/print-forth.fs":
         "Forth-mode printer checks the characters of name parts and keeps its word list as "
         "counted strings",
+    "src/present/statement-forms.fs":
+        "the statement's text is escaped for LaTeX and indented a byte at a time as the "
+        "printers write it",
     "src/program/ir-reader.fs":
         "program reader splits source lines into tokens, checks that every character is "
         "printable ASCII and folds A-Z to a-z, as Gforth finds names",
