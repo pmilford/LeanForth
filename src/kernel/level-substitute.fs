@@ -194,7 +194,7 @@ lf-level-depth-limit context-walk: lf-lsubst-walker
   dup ok? if drop lf-lsubst-store-mark lf-levels store-mark then ;
 : lf-lsubst-run ( root -- result ok | status )
   lf-lsubst-prepare ok-then? 0= if exit then
-  lf-lmk-forget dup lf-lsubst-build lf-lsubst-finish ;
+  lf-lmk-sync dup lf-lsubst-build lf-lsubst-finish ;
 
 \ Substitute count formals by count actuals in root. Invalid input or scope
 \ is invalid; running out of fuel is exhausted; a full work stack or level

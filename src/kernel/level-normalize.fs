@@ -272,7 +272,7 @@ defer lf-lnorm-walk ( level -- level' )
 : lf-lnorm-begin ( fuel -- outcome )
   lf-lnorm-fuel ! outcome-ok lf-lnorm-status ! 0 lf-lnorm-top ! 0 lf-lnorm-nest !
   lf-lnorm-clear
-  lf-lmk-forget lf-lnorm-store-mark lf-levels store-mark ;
+  lf-lmk-sync lf-lnorm-store-mark lf-levels store-mark ;
 : lf-lnorm-end ( -- )
   lf-lnorm-store-mark lf-levels store-rollback lf-lnorm-fail
   lf-level-count @ lf-lmk-truncate ;

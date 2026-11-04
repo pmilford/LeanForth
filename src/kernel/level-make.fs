@@ -11,44 +11,111 @@
 \ IDs denote equal names and different IDs different names (the name
 \ store interns names), as level-compare and the witnesses of level-value
 \ assume.
-\ State: one record, lf-lmk-state: how many leading nodes have current
-\ facts; and per node, in two columns of the level store, its class (the
-\ smallest index of a structurally equal node, so two levels are equal
-\ exactly when their classes are) and its flags (never zero; has a
-\ parameter). Members of the checker context (lib/context.fs). Facts are
-\ computed in index order on demand; every public word first forgets them
-\ all (a raw write keeps a node's index),
-\ and a caller that rolls the level store back calls lf-lmk-truncate. The
-\ two rule tables of mk_max and mk_imax are shared and read-only.
-\ Bounded work: the facts of n nodes take at most n*n/2 node comparisons;
-\ no fuel. Single-threaded within one context.
+\ State: one record, lf-lmk-state: how many leading nodes have facts,
+\ and the level capacity the index of classes was built for; and per
+\ node, in columns of the level store, its class (the smallest index of a
+\ structurally equal node, so two levels are equal exactly when their
+\ classes are), its flags (never zero; has a parameter), the node's
+\ identity when they were found, and its place in the index. Members of
+\ the checker context (lib/context.fs). Facts are found in index order on
+\ demand and kept from call to call: records are only ever given back
+\ from the top of the store and made again with new identities, so every
+\ public word first gives up the facts of the nodes above the count and
+\ of those whose identity changed (lf-lmk-sync), and a caller that rolls
+\ the level store back may call lf-lmk-truncate. A write into a node that
+\ keeps its index and identity is not seen (only tests do that). The two
+\ rule tables of mk_max and mk_imax are shared and read-only.
+\ The index of classes: one node of each class is in it, under the hash
+\ of its tag and its children's classes (or its parameter's ID), in one
+\ chain per bucket of as many buckets as the store's capacity, newest
+\ first; a node's class is then found among the few nodes of its bucket,
+\ not by comparing it with every earlier node.
+\ Bounded work: no fuel; each node's facts are found once while it lives,
+\ in expected constant time (the hash spreads the classes; nodes made to
+\ collide would share a bucket), and the index is rebuilt in time linear
+\ in the facts when the level store grows. Single-threaded within one
+\ context.
 
 require ../lib/lib.fs
+require ../lib/bytes.fs
 require ../core/levels.fs
+require ../core/store-columns.fs
 
 begin-structure /lf-lmkrec
-  field: lf-lmkrec-known                            \ facts current below this index
+  field: lf-lmkrec-known       \ facts current below this index
+  field: lf-lmkrec-built       \ the level capacity the index was built for; 0 none
 end-structure
 /lf-lmkrec context-record: lf-lmk-state
-\ Per node, two columns of the level store (core/store-columns.fs): its
-\ class and its flags.
+\ Per node, columns of the level store (core/store-columns.fs): its class,
+\ its flags and its identity when they were found; a class's hash, or -1
+\ for a node that is not in the index, and the next class in its bucket
+\ + 1, or 0. Per bucket, below the store's capacity, its newest class + 1,
+\ or 0.
 /slab context-record: lf-lmk-classes
 1 cells ' lf-lmk-classes lf-level-columns column-add
 /slab context-record: lf-lmk-flag-cells
 1 cells ' lf-lmk-flag-cells lf-level-columns column-add
+/slab context-record: lf-lmk-stamps
+1 cells ' lf-lmk-stamps lf-level-columns column-add
+/slab context-record: lf-lmk-keys
+1 cells ' lf-lmk-keys lf-level-columns column-add
+/slab context-record: lf-lmk-links
+1 cells ' lf-lmk-links lf-level-columns column-add
+/slab context-record: lf-lmk-heads
+1 cells ' lf-lmk-heads lf-level-columns column-add
 
 1 constant lf-lmk-nonzero   \ flag: not zero under any assignment (is_not_zero)
 2 constant lf-lmk-param     \ flag: has a parameter (has_param)
 
 : lf-lmk-known ( -- addr ) lf-lmk-state lf-lmkrec-known ;
+: lf-lmk-built ( -- addr ) lf-lmk-state lf-lmkrec-built ;
 : lf-lmk-class-cell ( index -- addr ) lf-lmk-classes column-at ;
 : lf-lmk-flags-cell ( index -- addr ) lf-lmk-flag-cells column-at ;
+: lf-lmk-stamp-cell ( index -- addr ) lf-lmk-stamps column-at ;
+: lf-lmk-key-cell ( index -- addr ) lf-lmk-keys column-at ;
+: lf-lmk-link-cell ( index -- addr ) lf-lmk-links column-at ;
 \ Unchecked: facts of a node below lf-lmk-known.
 : lf-lmk-class@ ( index -- class ) lf-lmk-class-cell @ ;
 : lf-lmk-flags@ ( index -- flags ) lf-lmk-flags-cell @ ;
-\ Forget every fact; facts at and above count, after a rollback to count.
-: lf-lmk-forget ( -- ) 0 lf-lmk-known ! ;
-: lf-lmk-truncate ( count -- ) lf-lmk-known @ min lf-lmk-known ! ;
+: lf-lmk-identity ( index -- identity ) lf-levels store-identity @ ;
+
+\ ---------------------------------------------------------------------------
+\ The index of classes. A class's bucket is its hash modulo the number of
+\ buckets, the heads column's units (as many as the store's capacity once
+\ the columns cover it); the heads are rebuilt from the facts when that
+\ number has changed since they were built.
+: lf-lmk-buckets ( -- n ) lf-lmk-heads slab-capacity ;
+: lf-lmk-head ( h -- addr ) lf-lmk-buckets mod lf-lmk-heads column-at ;
+: lf-lmk-insert ( index h -- )
+  2dup swap lf-lmk-key-cell ! dup lf-lmk-head @ 2 pick lf-lmk-link-cell !
+  lf-lmk-head swap 1+ swap ! ;
+: lf-lmk-not-class ( index -- ) -1 swap lf-lmk-key-cell ! ;
+: lf-lmk-reinsert ( index -- )
+  dup lf-lmk-key-cell @ dup 0< if 2drop else lf-lmk-insert then ;
+: lf-lmk-rebuild ( -- )
+  0 lf-lmk-heads column-at lf-lmk-buckets cells erase
+  lf-lmk-known @ 0 ?do i lf-lmk-reinsert loop lf-lmk-buckets lf-lmk-built ! ;
+: lf-lmk-index-ready ( -- ) lf-lmk-built @ lf-lmk-buckets <> if lf-lmk-rebuild then ;
+\ Take the newest node with facts out of its bucket, whose newest class it
+\ is; if it is not (only after a raw write), the index is rebuilt at its
+\ next use.
+: lf-lmk-unlink ( index -- )
+  dup lf-lmk-key-cell @ dup 0< if 2drop exit then lf-lmk-head 2dup @ swap 1+ =
+  if swap lf-lmk-link-cell @ swap ! else 2drop 0 lf-lmk-built ! then ;
+
+\ Giving facts up: those of nodes at and above count, after a rollback
+\ to count; all of them; and at each public word, those of nodes no longer
+\ there or made again since (their identity differs; as records go and
+\ come back from the top, the highest node with facts tells).
+: lf-lmk-pop ( -- ) -1 lf-lmk-known +! lf-lmk-known @ lf-lmk-unlink ;
+: lf-lmk-truncate ( count -- )
+  0 max begin lf-lmk-known @ over > while lf-lmk-pop repeat drop ;
+: lf-lmk-forget ( -- ) 0 lf-lmk-truncate ;
+: lf-lmk-current? ( -- flag )
+  lf-lmk-known @ ?dup 0= if true exit then
+  1- dup lf-lmk-stamp-cell @ swap lf-lmk-identity = ;
+: lf-lmk-sync ( -- )
+  lf-level-count @ lf-lmk-truncate begin lf-lmk-current? 0= while lf-lmk-pop repeat ;
 
 \ ---------------------------------------------------------------------------
 \ Facts of one node, from its children's. A node with an unknown tag or a
@@ -77,8 +144,35 @@ end-structure
 : lf-lmk-alike? ( i j -- flag )
   dup lf-lmk-shape? 0= if 2drop false exit then
   2dup lf-lmk-tags over = if lf-lmk-fields= else drop 2drop false then ;
+\ A well-shaped node's key: its parameter's ID, or its children's
+\ classes (none for zero), hashed with its tag; never negative.
+: lf-lmk-child-classes ( index -- a b )
+  dup lf-level-first@ lf-lmk-class@ swap lf-level-second@ lf-lmk-class@ ;
+: lf-lmk-key ( index -- a b )
+  dup lf-level-tag@ case
+    lf-level-tag-zero of drop 0 0 endof
+    lf-level-tag-param of lf-level-first@ 0 endof
+    lf-level-tag-succ of lf-level-first@ lf-lmk-class@ 0 endof
+    >r lf-lmk-child-classes r> endcase ;
+: lf-lmk-hash ( index -- h )
+  dup lf-level-tag@ 1000003 swap fnv-step swap lf-lmk-key >r fnv-step r> fnv-step
+  max-n and ;
+\ The class of index: an earlier node alike to it, found in its bucket
+\ (the index holds one node of each class, the class itself), which it
+\ then joins; or index itself, a new class, which goes into the index.
+\ Every node of the bucket is compared (lf-lmk-alike?), its hash is not
+\ trusted to tell nodes apart.
+: lf-lmk-match? ( index h j -- index h j flag ) 2 pick over lf-lmk-alike? ;
+: lf-lmk-next ( j -- j' ) lf-lmk-link-cell @ 1- ;
+: lf-lmk-find ( index h -- class )
+  dup lf-lmk-head @ 1- begin dup 0< 0= while
+    lf-lmk-match? if nip nip exit then lf-lmk-next
+  repeat 2drop ;
+: lf-lmk-new-class ( index h -- index ) over >r lf-lmk-insert r> ;
+: lf-lmk-old-class ( index h class -- class ) nip swap lf-lmk-not-class ;
 : lf-lmk-class-of ( index -- class )
-  dup 0 ?do dup i lf-lmk-alike? if drop i unloop exit then loop ;
+  lf-lmk-index-ready dup lf-lmk-hash 2dup lf-lmk-find
+  dup 3 pick = if drop lf-lmk-new-class else lf-lmk-old-class then ;
 \ Flags: zero none; a parameter has one; succ is never zero; max is never
 \ zero when either side is not; imax when its right side is not.
 : lf-lmk-child-flags ( index -- first second )
@@ -95,13 +189,14 @@ end-structure
     lf-level-tag-max of lf-lmk-child-flags or endof
     >r lf-lmk-imax-flags r> endcase ;
 : lf-lmk-facts-of ( index -- class flags )
-  dup lf-lmk-shape? if dup lf-lmk-class-of swap lf-lmk-flags-of else 0 then ;
+  dup lf-lmk-shape? if dup lf-lmk-class-of swap lf-lmk-flags-of else dup lf-lmk-not-class 0 then ;
 : lf-lmk-compute ( index -- )
-  dup >r lf-lmk-facts-of r@ lf-lmk-flags-cell ! r> lf-lmk-class-cell ! ;
-\ Make the facts current up to index (nothing when they already are).
-: lf-lmk-upto ( limit -- ) lf-lmk-known @ ?do i lf-lmk-compute loop ;
-: lf-lmk-fill ( index -- )
-  1+ dup lf-lmk-known @ > if dup lf-lmk-upto lf-lmk-known ! else drop then ;
+  dup >r lf-lmk-facts-of r@ lf-lmk-flags-cell ! r@ lf-lmk-class-cell !
+  r@ lf-lmk-identity r> lf-lmk-stamp-cell ! ;
+\ Make the facts current up to index (nothing when they already are),
+\ one node at a time, so that the count of facts is always exact.
+: lf-lmk-upto ( limit -- ) lf-lmk-known @ ?do i lf-lmk-compute 1 lf-lmk-known +! loop ;
+: lf-lmk-fill ( index -- ) 1+ dup lf-lmk-known @ > if lf-lmk-upto else drop then ;
 : lf-lmk-class ( level -- class ) dup lf-lmk-fill lf-lmk-class@ ;
 : lf-lmk-flags ( level -- flags ) dup lf-lmk-fill lf-lmk-flags@ ;
 
@@ -184,7 +279,8 @@ create lf-lmk-imax-rules
 \ ---------------------------------------------------------------------------
 \ Public words, each on two live levels of a valid store; any other input
 \ gives false (or, for equality, false) without reading a node.
-: lf-lmk-begin? ( l1 l2 -- l1 l2 flag ) lf-lmk-forget 2dup lf-level-pair-valid? ;
+: lf-lmk-begin? ( l1 l2 -- l1 l2 flag )
+  2dup lf-level-pair-valid? dup if lf-lmk-sync then ;
 \ Lean's operator== on two levels.
 : lf-level-same? ( l1 l2 -- flag ) lf-lmk-begin? if lf-lmk-same? else 2drop false then ;
 \ Lean's mk_max and mk_imax: an argument, or a new node (false when the

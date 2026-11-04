@@ -938,6 +938,14 @@ new = '''  lf-lmk-offset nip swap lf-lmk-offset nip < if 1 else 2 then ;'''
 test = "$GFORTH tests/core/level-compare.fs"
 reason = "mk_max of two explicit levels of equal depth gives the second, where Lean gives the first"
 
+
+[[fault]]
+id = "lmk-facts-never-stale"
+file = "src/kernel/level-make.fs"
+old = '''  1- dup lf-lmk-stamp-cell @ swap lf-lmk-identity = ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/core/level-compare.fs"
+reason = "level-make's kept facts are never checked against the nodes' identities, so a node rolled back and made again keeps the class of the node it replaced"
 [[fault]]
 id = "lv-normalize-need-under-measured"
 file = "src/kernel/level-normalize.fs"

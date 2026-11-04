@@ -345,4 +345,48 @@ equivalence-rounds
 T{ eqs @ 100 > crowded @ 100 < -> true true }T
 .( equivalent pairs checked against the witnesses: ) eqs @ .
 .( ; pairs that filled the store: ) crowded @ . cr
+
+\ Level-make's facts are kept from call to call, found through the index
+\ of classes, and given up from the top (the review's finding M2: refilled
+\ from nothing at every call they cost n*n/2 node comparisons, 22 s for
+\ one call above 16,000 levels). At a raised capacity, one comparison at
+\ the top of 3,001 levels finds the facts of all of them; the next finds
+\ none again. Records rolled back and made again with other nodes (new
+\ identities) get new facts: a parameter where a successor was is a new
+\ class, and equal again to a parameter made after it.
+\ First, at the default capacity: nodes that share a bucket of the index
+\ are told apart by comparing them. Parameters whose IDs differ only from
+\ bit 20 up share a bucket (with a power of two of buckets, the bucket
+\ depends on the low bits alone), and are still different classes, each
+\ equal to itself made again.
+lf-level-reset
+: own-classes? ( n -- flag ) true swap 1+ 1 ?do i lf-lmk-class@ i = and loop ;
+: far-param ( k -- level ) 20 lshift 1+ lf-level-param must ;
+: far-params ( n -- ) 0 ?do i 1+ far-param drop loop ;
+: bucket ( index -- b ) lf-lmk-hash lf-lmk-buckets mod ;
+10 far-params
+T{ 10 1 lf-level-same? 10 own-classes? 1 bucket 10 bucket = -> false true true }T
+T{ 1 far-param 1 lf-level-same? -> true }T
+T{ 16384 lf-level-capacity! -> outcome-ok }T
+lf-level-reset
+: succs ( level n -- top ) 0 ?do lf-level-succ must loop ;
+0 3000 succs constant tall
+T{ tall tall lf-level-same? lf-lmk-known @ -> true 3001 }T
+T{ tall 0 lf-level-same? lf-lmk-known @ -> false 3001 }T
+T{ 0 1000 succs drop lf-level-count @ -> 4001 }T
+T{ tall 1000 succs 0 4000 succs lf-level-same? lf-lmk-known @ -> true 9001 }T
+1000 lf-level-count !
+u-id @ lf-level-param must constant u1
+u-id @ lf-level-param must constant u2
+T{ u1 u2 lf-level-same? u1 999 lf-level-same? lf-lmk-known @ -> true false 1002 }T
+T{ 999 lf-lmk-class@ u1 lf-lmk-class@ u2 lf-lmk-class@ -> 999 1000 1000 }T
+\ Many classes at a raised capacity: 2,000 different parameters are
+\ 2,000 classes.
+lf-level-reset
+: params ( n -- ) 0 ?do i 1+ lf-level-param must drop loop ;
+2000 params
+T{ 2000 2000 lf-level-same? 2000 own-classes? -> true true }T
+T{ 1234 lf-level-param must 1234 lf-level-same? -> true }T
+lf-level-reset
+T{ lf-level-default lf-level-capacity! -> outcome-ok }T
 bye
