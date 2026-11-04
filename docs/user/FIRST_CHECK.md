@@ -18,7 +18,11 @@ answer for 62 such cases, with Lean's own verdict beside it, is in the
 
 For each definition or theorem of its input, in order, it answers one of:
 
-- **accepted** — every step succeeded, as Lean's kernel would take it;
+- **accepted** — every step succeeded, as Lean's kernel would take it.
+  Until 2026-11-03 this was not always true for universe levels: LeanForth
+  accepted a few declarations whose levels have equal values but which
+  Lean's level comparison rejects; it now builds and compares levels
+  exactly as Lean does ([ADR 0011, Amendment 1](../adr/0011-definite-rejection.md#amendment-1-proposed-2026-11-03-universe-levels-are-built-and-compared-as-lean-builds-and-compares-them));
 - **rejected** — Lean's kernel certainly rejects it, for the reason named;
 - **unknown** — deciding it needs a rule the first checker does not have
   yet (such as unfolding a definition), so it does not guess;

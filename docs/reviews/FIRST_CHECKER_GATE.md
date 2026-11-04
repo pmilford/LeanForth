@@ -72,6 +72,13 @@ proofs that Lean accepts but LeanForth cannot yet confirm, so it answers
    when every comparison is exact (same structure after simple
    substitution), the narrowest rule there is. Results stay labelled *not
    independently audited* until an outside Lean expert reviews them.
+   *Correction, 2026-11-03:* for universe levels this was not narrow
+   enough. Lean's kernel tidies levels as it builds them and compares them
+   with a procedure that sometimes calls equal-valued levels different;
+   LeanForth built untidied levels and dropped `max … 0` everywhere, so it
+   accepted five declarations that Lean rejects (found by the independent
+   review of the declaration check). It now builds and compares levels
+   exactly as Lean does ([ADR 0011, Amendment 1](../adr/0011-definite-rejection.md#amendment-1-proposed-2026-11-03-universe-levels-are-built-and-compared-as-lean-builds-and-compares-them)).
 3. **An assumption that LeanForth computes the same types as Lean.** The
    rules depend on it; the existing Lean comparisons and the planned ones
    test it, but tests are finite.

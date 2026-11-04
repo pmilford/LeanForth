@@ -1,6 +1,6 @@
 # ADR 0011: definite rejection and the first checker's scope
 
-Status: **rules accepted** by the owner on 2026-11-02 (gate questions G1–G4 in [the gate summary](../reviews/FIRST_CHECKER_GATE.md#owners-answer)); the implementation still needs its own gate approval with test results. **Implemented** for comparison and inference on 2026-11-02 (plan task 2.2.1; see [Implementation](#implementation-plan-task-221)); its [kernel] gate was **approved by the owner on 2026-11-03** ([OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md#gate-answers-and-working-guidelines-2026-11-03)), with Lean's rule for a "for all" whose body is not a type to follow as an amendment. Previously: **proposed**, 2026-11-02 (plan task 2.1.1). A checker rule: it must
+Status: **rules accepted** by the owner on 2026-11-02 (gate questions G1–G4 in [the gate summary](../reviews/FIRST_CHECKER_GATE.md#owners-answer)); the implementation still needs its own gate approval with test results. **Implemented** for comparison and inference on 2026-11-02 (plan task 2.2.1; see [Implementation](#implementation-plan-task-221)); its [kernel] gate was **approved by the owner on 2026-11-03** ([OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md#gate-answers-and-working-guidelines-2026-11-03)), with Lean's rule for a "for all" whose body is not a type to follow as an amendment. **[Amendment 1](#amendment-1-proposed-2026-11-03-universe-levels-are-built-and-compared-as-lean-builds-and-compares-them)** (proposed, 2026-11-03, after the independent review of the declaration check found four wrong *accepted* answers): universe levels are built and compared exactly as Lean's kernel builds and compares them; it corrects fact 7, *Equal*, D1 and K4 below and adds rule K6. Previously: **proposed**, 2026-11-02 (plan task 2.1.1). A checker rule: it must
 pass the review gate in `AGENTS.md` — rules that follow Lean's published
 kernel, agreeing pinned-Lean differential tests that reach every outcome, an
 independent AI review with no unresolved findings, and the owner's approval
@@ -174,6 +174,12 @@ that depends on one can be, rule K5).
    Lean also equates some levels that are not structurally identical
    (`max u u` and `u`), so where neither structure, concrete values nor a
    witness decides, LeanForth answers *unknown* (rule K4).
+   *Corrected by Amendment 1 (2026-11-03):* the converse fails —
+   `is_equivalent` also calls some levels with equal values *different*
+   (`imax 1 (u+1)` and `max 1 (u+1)`), because `normalize` leaves the
+   arguments of a `max` that `mk_imax` produced unsorted. LeanForth now
+   computes `is_equivalent` itself, exactly as Lean does, and builds every
+   level the way Lean's kernel builds it.
 
 ## Decision (proposed)
 
@@ -207,6 +213,16 @@ are failures, and neither claims Lean's reason.
   equal levels. Every *equal* answer is also equal for Lean
   (`quick_is_def_eq`, `is_def_eq_binding`, `is_def_eq_app`, and the
   constant and variable cases at 1170–1175).
+  *Corrected by Amendment 1 (2026-11-03):* that last sentence was false
+  for universe levels. LeanForth typed a `Π` with a raw `imax` and
+  specialized a constant's type without simplifying, where Lean's kernel
+  builds simplified levels (`mk_imax`, `mk_max`); and its level comparison
+  removed `max … 0` and `imax … 0` at any depth, which Lean's `normalize`
+  does not always do. Both made LeanForth call levels equal that Lean calls
+  different, so it accepted four declarations Lean rejects (and a fifth
+  found since). Levels are now *equal* exactly when Lean's
+  `is_equivalent` holds for the levels Lean itself would have built
+  ([Amendment 1](#amendment-1-proposed-2026-11-03-universe-levels-are-built-and-compared-as-lean-builds-and-compares-them)).
 - *Witness assignments* for levels: all parameters 0; and, for each
   parameter, that parameter 1 and all others 0.
 
@@ -229,7 +245,10 @@ are failures, and neither claims Lean's reason.
 `s' = whnfβ(s)`.
 
 - **D1** — both are `Sort`s and some witness assignment gives their levels
-  different values (facts 5 and 7).
+  different values (facts 5 and 7). *Amended 2026-11-03 (Amendment 1):*
+  both are `Sort`s and Lean's `is_equivalent` is false for their levels —
+  exactly `quick_is_def_eq`'s answer (fact 5). A witness that tells the
+  levels apart implies this, so every earlier D1 rejection stays.
 
 Otherwise the pair must satisfy three preconditions — **P1** both rigid (no
 unfolding, fact 2); **P2** both known not to be proofs (no proof
@@ -280,7 +299,16 @@ result type, and D5 `P y` claimed from `P x`.
   known not to be a proof.
 - **K3 eta** — a `λ` compared with a non-`λ`.
 - **K4 levels** — two levels that are not identical, not both concrete and
-  equal, and have no witness (fact 7).
+  equal, and have no witness (fact 7). *Amended 2026-11-03 (Amendment 1):*
+  only when Lean's `is_equivalent` cannot be computed — a parameter whose
+  name is not in the name store (never in a declaration's check), or too
+  little fuel or room.
+- **K6 shared universe objects** (Amendment 1) — specializing a constant's
+  type meets a `max` or `imax` that contains a parameter, whose children
+  come out structurally unchanged, and that Lean's `mk_max` or `mk_imax`
+  would simplify. Lean keeps such a node only when the universe arguments
+  are the very objects in memory that the stored type holds, so Lean's
+  verdict depends on memory sharing that no input format records.
 - **K5 undecided dependency** — a constant naming an earlier declaration of
   the input whose check ended *unknown*, *exhausted*, *full* or *invalid*;
   the dependent ends *unknown*, or *unsupported* if the dependency was
@@ -361,7 +389,7 @@ records a diagnostic naming it
 | S2 | `mixed-infer` `lf-minfer-domain` → `lf-minfer-sort-rule` | the same for a λ's or Π's domain; a Π's *body* that is no type stays unknown (no rule) |
 | S3 | `mixed-definition-probe` `lf-mdefinition-prop`, in the new `lf-mixed-theorem-probe` | `level-value` `lf-level-zero?`: Lean's `normalizes_to_zero`, computed as "zero when every parameter is 1" (equivalent, by induction on the level) |
 | F1 | `mixed-infer` `lf-minfer-not-pi` | a function's type is not a visible Pi, and its whnfβ is rigid and not a Pi |
-| D1 | `mixed-infer` `lf-minfer-sorts-apart` | `level-value` `lf-level-apart?`: the witness assignments of *Terms the rules talk about* |
+| D1 | `mixed-infer` `lf-minfer-sorts-apart` | `level-value` `lf-level-apart?`: the witness assignments of *Terms the rules talk about*. *Since Amendment 1:* `level-compare` `lf-level-inequivalent?`, Lean's `is_equivalent` false |
 | D2–D5 | `mixed-infer` `lf-minfer-apart` and the words before it; at an application (`lf-minfer-argument`) and for the declaration (`lf-mdefinition-value-type`) | P1 and P3 on head kinds (`mixed-head`), P2 by `lf-minfer-proof-free?`, then the shapes; D4 enters bodies under the right (expected) side's domain (ADR 0003 Amendment 1, B2) |
 
 Decisions of the implementation, none of which adds or widens a rule:
@@ -449,6 +477,136 @@ sweeps) and `check-declaration-ndjson.fs` (the pinned exports); planted
 faults; randomized differentials of the paths that existed before, with no
 difference ([expected results](../reviews/FIRST_CHECKER_EXPECTED.md)).
 
+## Amendment 1 (proposed, 2026-11-03): universe levels are built and compared as Lean builds and compares them
+
+Status: **proposed**; [kernel] change, for the gate in `AGENTS.md`.
+Written by agent LV after the independent review of the declaration check
+(`.claude/work/LV/REVIEW-CD.md`, finding 1, category 1: four wrong
+*accepted* answers).
+
+### Summary for the owner
+
+A universe level is a small expression such as `u`, `u+1`, `max u v` or
+`imax u v` that says how "big" a type is. Lean's kernel tidies these
+expressions whenever it makes one (for example it writes `max 1 (u+1)`
+where LeanForth wrote `imax 1 (u+1)`), and then compares levels by a fixed
+procedure that is deliberately incomplete: it sometimes calls two levels
+different even though they always have the same value. LeanForth made the
+untidied expressions and compared them with its own rule, so in four
+review cases (and a fifth found since) it said "equal" where Lean says
+"different" — it **accepted declarations that Lean rejects**, the worst
+kind of mismatch. It was not a logical error (the levels really are equal
+in value), but it broke the rule that LeanForth gives Lean's verdict.
+
+The fix copies Lean exactly: LeanForth now tidies levels with exact copies
+of Lean's `mk_max` and `mk_imax` wherever Lean's kernel does, and compares
+levels with an exact copy of Lean's `is_equivalent` (including its
+incomplete `normalize` step and Lean's ordering of names). All six review
+cases and 37 new ones now give Lean's own verdict; levels never need
+*unknown* in a declaration's check any more, except in one odd situation
+where Lean itself gives two different answers to the very same input
+(rule K6, below), where LeanForth now says *unknown*. Where Lean's
+comparison misses a true equality, LeanForth now misses it too, as the
+owner's rule requires; those cases are recorded in
+`docs/project/BEYOND_LEAN.md` (row BL-1) for a later improved mode.
+
+### Lean's source
+
+Read at the pinned commit `eb6cafb7290e8bd5f2937522d8d804f58f02bafc` (the
+`lean --githash` of the toolchain) from
+`raw.githubusercontent.com/leanprover/lean4/<commit>/src/…` on 2026-11-03;
+SHA-256 under *Reproduction* below (`level.cpp` and `type_checker.cpp`
+have the hashes recorded above for `v4.35.0`).
+
+| Lean function | Where | What it does |
+| --- | --- | --- |
+| `mk_succ`, `mk_max_core`, `mk_imax_core` | `level.cpp` 33–35 → `Level.succ`, `.max`, `.imax` (`Lean/Level.lean` 142–149, 157–161) | the raw constructors: no simplification |
+| `is_explicit`, `to_offset`, `get_depth` | `level.cpp` 54–64, 67–74, 40 | `succ`ⁿ `zero`; strip successors; an explicit level's depth is n |
+| `mk_max` | `level.cpp` 81–104 | both explicit: the deeper (the first on a tie); equal: the first; a `zero` argument: the other; one argument of a `max` that is the other: that `max`; same base: the larger offset; otherwise a raw `max` |
+| `mk_imax` | `level.cpp` 112–123 (`is_one` 110) | right side never zero (`is_not_zero`, 160–172): `mk_max`; right side `zero`: `zero`; left side `zero` or `1`: the right side; equal: the left; otherwise a raw `imax` |
+| `operator==` | `level.cpp` 125–150 | structural equality (hash, depth and pointer tests only shortcut it); parameters by name |
+| `instantiate` with `replace` | `level.cpp` 317–340, 261–277 | a level without parameters is kept; a parameter becomes its argument; others are rebuilt from their rebuilt children |
+| `update_succ`, `update_max` | `level.cpp` 301–306, 308–315 | rebuild with `mk_succ`, or `mk_max`/`mk_imax`, **unless every child is the very same object** (`is_eqp`, pointer identity), when the node is kept |
+| `instantiate_lparams`, `instantiate_type_lparams` | `instantiate.cpp` 232–246, 248–254 (`update_sort`, `update_const`: `expr.cpp` 342–347, 349) | a constant's type specialized: `instantiate` on every `Sort` level and constant level |
+| `infer_constant` | `type_checker.cpp` 101–123 | the constant's type is `instantiate_type_lparams` (122) |
+| `infer_pi` | `type_checker.cpp` 144–166 | the type of `Π`s is `Sort` of `mk_imax(u₁, mk_imax(u₂, … s))` (163), innermost first |
+| `infer_type_core`, `Sort` case | `type_checker.cpp` 345–348 | the type of `Sort l` is `Sort (mk_succ l)` (347): raw |
+| `is_def_eq(level)`, `quick_is_def_eq` | `type_checker.cpp` 781–787, 810–811 | two `Sort`s, and two constants' levels, are compared by `is_equivalent` |
+| `is_equivalent` | `level.cpp` 518–521 | structurally equal, or structurally equal after `normalize` |
+| `normalize` | `level.cpp` 454–516 (with `push_max_args` 420–427, `mk_max` of a list 429–444, `mk_succ(l, k)` 446–452) | strip successors; `imax`: `mk_imax` of the normalized sides, **not normalized again**; `max`: flatten, normalize each argument and flatten again, sort by `is_norm_lt`, drop an explicit level that a later argument's offset covers, keep the largest offset per base, add the successors back to each, and fold with `mk_max` from the right |
+| `is_norm_lt` | `level.cpp` 395–418, kinds in `level.h` 30 | by base, then offset; bases by kind (`zero` < `succ` < `max` < `imax` < `param`), parameters by name, `max`/`imax` by left then right side |
+| name order | `name.h` 114, `name.cpp` 191–220 (`string_ref` `<`: `object.cpp` 2210–2215) | component by component from the root; a string component after a number; strings by bytes, then length; numbers by value; a prefix first |
+
+### Where LeanForth builds levels
+
+| Site | Lean's counterpart | Before | Now |
+| --- | --- | --- | --- |
+| `mixed-infer` `lf-minfer-pi-sort` (the type of a `Π`) | `infer_pi` 163 | raw `imax`, or `0` for a `0` body | `lf-level-mk-imax` (`level-make`) |
+| `mixed-infer` `lf-minfer-sort-type` (the type of a `Sort`) | `infer_type_core` 347 | raw `succ` | unchanged: `mk_succ` is raw |
+| `level-substitute` `lf-lsubst` (specializing a constant's type, through `mixed-level-substitute` and `env-signature`; also the signature probe) | `instantiate` with `update_succ`/`update_max` | rebuilt nodes kept their kind, unsimplified | each `max`/`imax` with a parameter whose children changed is rebuilt with `mk_max`/`mk_imax`; one without a parameter is kept |
+| `level-normalize` (temporary levels of one comparison, rolled back after it) | `normalize` | none (a zero rewrite instead) | exact port |
+
+Every other place that makes a level stores one as written in the input
+(the importers, `author/build.fs`, `lf-hlevel-succ`): the input is what
+Lean's elaborator or exporter wrote, which the kernel takes as it is.
+Every site where Lean's kernel builds a level must build exactly Lean's
+level; a new site needs the same port.
+
+### Comparison
+
+`level-compare` decides two levels by Lean's `is_equivalent`: structural
+equality (parameters by their name IDs), or structural equality of the two
+`normalize` results, with Lean's name order for parameters. *Equal* is
+exactly Lean's *true*; a *false* answer is *unknown* to conversion (as
+before) and is rule D1's rejection. The old rewrite of `max … 0` and
+`imax … 0` at any depth is gone: it equated `succ (max 0 (imax 1 (u+1)))`
+with `succ (imax 1 (u+1))`, which Lean does not (row
+`universe.zero-rewrite-gone`). Concrete levels need no separate evaluation:
+`normalize` turns a level without parameters into its value.
+
+### The shared-object case (rule K6)
+
+`update_max` keeps a `max` or `imax` node unchanged when both rebuilt
+children are the same objects in memory as before. So when a constant's
+stored type holds a node that `mk_max`/`mk_imax` would simplify, such as
+`imax 1 (u+1)`, and a reference passes back exactly the parameter objects
+the type holds, Lean keeps the node; with equal but separately allocated
+arguments, it simplifies it. Measured with pinned Lean
+(`tests/reference/universe-scope-terms.lean`, rows
+`universe.shared-object` and `universe.fresh-object`): the same
+declaration is accepted with the shared object and rejected
+(`declTypeMismatch`) with a fresh one. No export or text format records
+sharing, so LeanForth cannot know which Lean would see; it answers
+*unknown* (diagnostic 36), and only there: a node without parameters is
+kept (as `replace` keeps it), a node whose children changed in structure
+is certainly rebuilt, and a node that `mk_max`/`mk_imax` would not change
+is the same either way.
+
+### Rules changed
+
+- **D1** — Lean's `is_equivalent` false (was: a witness assignment). Fact
+  5: `quick_is_def_eq` decides two `Sort`s by it at once.
+- **K4** — only when `is_equivalent` cannot be computed.
+- **K6** — new, above.
+- **A1** — unchanged in wording; *equal* levels now mean Lean's
+  `is_equivalent` on Lean's own levels.
+
+### Rejected alternatives
+
+- **Unknown for every comparison with a `max` or `imax`** (the review's
+  stopgap). Safe, but weaker than Lean: the declarations Lean accepts
+  (`T2`, `T3`, `N2`, …) would be *unknown*, against the owner's rule.
+- **A complete level comparison** (equal for all parameter values). It
+  would accept what Lean rejects (`T1`, `T4`, …); recorded as BL-1 in
+  `docs/project/BEYOND_LEAN.md` for a later, labelled improved mode.
+- **Choosing one sharing model** (always keep, or always rebuild). Each
+  accepts a declaration Lean rejects in the other model.
+
+### Evidence
+
+See [the expected results](../reviews/FIRST_CHECKER_EXPECTED.md#universe-levels-amendment-1)
+for the rows and measurements.
+
 ## Consequences
 
 - ADR 0008 step 3 gets its rule list. ADR 0003's "unknown is never
@@ -522,3 +680,28 @@ Full SHA-256 of the Lean files read: `src/kernel/type_checker.cpp`
 `61bd41532dc7bd3c0632130c3bf718975094be36740cd1189f1885e6656d398a`,
 `src/kernel/quot.h`
 `17105c835e79ccb397194e9663dba71b5515edbc89c9698b0d58a95dc30a8243`.
+
+Amendment 1 read these at commit
+`eb6cafb7290e8bd5f2937522d8d804f58f02bafc` (2026-11-03,
+`curl -fsSL https://raw.githubusercontent.com/leanprover/lean4/eb6cafb7290e8bd5f2937522d8d804f58f02bafc/src/<path>`):
+`src/kernel/level.cpp`
+`7cb927c6fabd9fb843f548443494d3673a08074e26fe32b679e80f4664fc7f25`,
+`src/kernel/level.h`
+`c8bd15369a7defcde87a5e0b750ab46512c28ce0a4de30f9be3eff8e3069c483`,
+`src/kernel/type_checker.cpp`
+`26eae5ebb88f6f7da2c0a91f470aae4b74d370569dc5ca81b44b2d5c24c8df4e`,
+`src/kernel/instantiate.cpp`
+`42527c96f4053fb3cbf4c26fbd544b1c4e0399e5c41b0fd792935d1d42f8916a`,
+`src/kernel/expr.cpp`
+`cb02c18964aca67289b8c1d64864355bb5c10fc93d55bd3c3c9646776af9c592`,
+`src/util/name.cpp`
+`644d615eb92757c3b5c92987ba0e0485eff988d32c3d22fad1607a03d83291fe`,
+`src/util/name.h`
+`604f5351cfcd65019f8a30c4c09b917204bc1b9dc53d123d6f530627d75cfd98`,
+`src/runtime/string_ref.h`
+`a970beded7021919ba0b5be211941c42e67ad0f6cd212e1d9fd6ad557d1c9f5e`,
+`src/runtime/object.cpp`
+`1dba3476a698ab05f8f0a56c323487755790675046e90219218cb9727658ead4`.
+`level.cpp` and `type_checker.cpp` are byte for byte the files read for
+`v4.35.0` above. The Lean-side constructors are in the toolchain's own
+`src/lean/Lean/Level.lean`.
