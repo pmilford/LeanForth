@@ -18,11 +18,14 @@ spec=tests/reference/sha256-spec.lean
 work=$(mktemp -d)
 trap 'rm -r "$work"' EXIT
 
+# The names of the theorems of $spec, one per line.
+theorem_names() { sed -n 's/^theorem \([A-Za-z_][A-Za-z0-9_]*\).*/\1/p' "$spec"; }
+
 # Fails unless every theorem of $spec has an axiom report in the Lean output
 # $1 that lists allowed axioms only.
 axioms_allowed() {
   local name report
-  for name in $(sed -n 's/^theorem \([A-Za-z0-9_]*\).*/\1/p' "$spec"); do
+  for name in $(theorem_names); do
     report=$(grep -F "'Sha256Spec.$name' " "$1" || true)
     case "$report" in
       "'Sha256Spec.$name' does not depend on any axioms") ;;
@@ -42,11 +45,12 @@ axioms_allowed() {
 }
 
 # The axiom check must refuse a report it should refuse.
-first=$(sed -n 's/^theorem \([A-Za-z0-9_]*\).*/\1/p' "$spec" | head -n 1)
+first=$(theorem_names | head -n 1)
 printf "'Sha256Spec.%s' depends on axioms: [propext, Lean.ofReduceBool]\n" "$first" \
   >"$work/planted.txt"
-if axioms_allowed "$work/planted.txt" 2>/dev/null; then
-  printf '%s\n' 'The axiom check accepted a planted Lean.ofReduceBool' >&2
+if axioms_allowed "$work/planted.txt" 2>"$work/planted-error.txt" ||
+   ! grep -q 'uses the axiom Lean.ofReduceBool' "$work/planted-error.txt"; then
+  printf '%s\n' 'The axiom check did not refuse a planted Lean.ofReduceBool' >&2
   exit 1
 fi
 
@@ -58,7 +62,7 @@ if ! "$lean" -DwarningAsError=true "$spec" >"$work/out.txt" 2>&1; then
 fi
 seconds=$(($(date +%s) - start))
 axioms_allowed "$work/out.txt"
-theorems=$(grep -c '^theorem ' "$spec")
+theorems=$(theorem_names | wc -l)
 vectors=$(grep -cE '^theorem (nist|boundary)_' "$spec")
 
 # The cut-down file: parts 1 to 4, the test helper utf8 and the "abc" vector.

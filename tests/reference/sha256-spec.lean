@@ -12,9 +12,11 @@ names the section it follows. The file has six parts:
 2. The functions and constants (4.1.2, 4.2.2, 5.3.3).
 3. Preprocessing: padding and parsing (5.1.1, 5.2.1, 6.2.1).
 4. The hash computation (6.2.2).
-5. Test vectors, each checked by Lean's kernel evaluating `sha256` on the
-   message (`decide +kernel`; never `native_decide`, which would trust
-   Lean's compiler through the axiom `Lean.ofReduceBool`).
+5. Checks that Lean's kernel evaluates (`decide +kernel`; never
+   `native_decide`, which would trust Lean's compiler through the axiom
+   `Lean.ofReduceBool`): the constants match the roots of primes that
+   sections 4.2.2 and 5.3.3 describe, and `sha256` gives the expected
+   digest of each test vector.
 6. Lemmas for the later stages: the helper functions as rewrite rules on
    the numbers a Forth cell holds, padding, parsing, the message schedule
    in the standard's form, one round at a time, and hashing block by block.
@@ -218,37 +220,87 @@ def digest (H : HashValue) : List UInt8 :=
 parse, hash every block from H(0), and output the digest. -/
 def sha256 (m : List UInt8) : List UInt8 := digest (hashBlocks initialHash (blocks (pad m)))
 
-/-! ## Part 5. Test vectors, checked by the kernel
+/-! ## Part 5. Checks by the kernel
 
-`decide +kernel` asks Lean's kernel itself to evaluate `sha256` on the
-message and compare the result with the expected bytes; nothing else is
-trusted for the answer. The expected digests are written as plain byte
-lists, so that no function of this file computes them. -/
+`decide +kernel` asks Lean's kernel itself to evaluate the statement and
+find it true; nothing else is trusted for the answer.
+
+### The constants are what their sections say
+
+Sections 4.2.2 and 5.3.3 give the constants in hexadecimal and say where
+they come from; these two theorems check that the hexadecimal values
+match that description. -/
+
+/-- n is prime: at least 2, and no d with 2 ≤ d < n divides it. -/
+def isPrime (n : Nat) : Bool := 2 ≤ n && (List.range n).all fun d => d < 2 || n % d != 0
+
+/-- The first `count` primes in increasing order, for count ≤ 64 (the 64th
+prime is 311). -/
+def firstPrimes (count : Nat) : List Nat := ((List.range 312).filter isPrime).take count
+
+/-- `bits` are the first 32 bits of the fractional part of the k-th root
+of p, whose whole part is `whole`. Exactly then is r = whole · 2^32 + bits
+the whole part of p^(1/k) · 2^32, that is r^k ≤ p · 2^(32k) < (r + 1)^k. -/
+def rootBits (k p whole bits : Nat) : Bool :=
+  let r := whole * 2 ^ 32 + bits
+  bits < 2 ^ 32 && r ^ k ≤ p * 2 ^ (32 * k) && p * 2 ^ (32 * k) < (r + 1) ^ k
+
+/-- The whole part of p^(1/k), counted for a small p. (If it were wrong,
+`rootBits` would fail, not pass.) -/
+def wholeRoot (k p : Nat) : Nat := ((List.range (p + 1)).filter fun i => i ^ k ≤ p).length - 1
+
+/-- Section 4.2.2: K0 … K63 are the first 32 bits of the fractional parts
+of the cube roots of the first 64 primes. -/
+theorem K_cube_roots :
+    (firstPrimes 64).length = 64 ∧ K.length = 64 ∧
+    ((firstPrimes 64).zip K).all (fun (p, k) => rootBits 3 p (wholeRoot 3 p) k.toNat) = true := by
+  decide +kernel
+
+/-- Section 5.3.3: H(0) is the first 32 bits of the fractional parts of
+the square roots of the first 8 primes. -/
+theorem initialHash_square_roots :
+    let H := initialHash
+    ((firstPrimes 8).zip [H.H0, H.H1, H.H2, H.H3, H.H4, H.H5, H.H6, H.H7]).all
+      (fun (p, h) => rootBits 2 p (wholeRoot 2 p) h.toNat) = true := by
+  decide +kernel
+
+/-- The worked example of docs/programming/SHA256_SPEC.md: Σ0 of H0(0). -/
+theorem bigSigma0_example : bigSigma0 0x6a09e667 = 0xce20b47e := by
+  decide +kernel
+
+/-! ### Test vectors
+
+Each theorem has the kernel compute `sha256` of the message and compare
+it with the expected digest, written as plain bytes so that no function
+of this file computes it. -/
 
 /-- The UTF-8 bytes of a string; for the ASCII test messages, one byte per
 character. -/
 def utf8 (s : String) : List UInt8 := s.toUTF8.data.toList
 
-/-- NIST (FIPS 180-4 examples, csrc.nist.gov): the empty message. -/
+/-- NIST (CAVP short messages, Len = 0): the empty message. -/
 theorem nist_empty : sha256 [] =
   [0xe3, 0xb0, 0xc4, 0x42, 0x98, 0xfc, 0x1c, 0x14, 0x9a, 0xfb, 0xf4, 0xc8, 0x99, 0x6f, 0xb9, 0x24,
    0x27, 0xae, 0x41, 0xe4, 0x64, 0x9b, 0x93, 0x4c, 0xa4, 0x95, 0x99, 0x1b, 0x78, 0x52, 0xb8, 0x55] := by
   decide +kernel
 
-/-- NIST: "abc", one block. -/
+/-- NIST (FIPS 180-2 appendix B.1; the one-block example of FIPS 180-4):
+"abc". -/
 theorem nist_abc : sha256 (utf8 "abc") =
   [0xba, 0x78, 0x16, 0xbf, 0x8f, 0x01, 0xcf, 0xea, 0x41, 0x41, 0x40, 0xde, 0x5d, 0xae, 0x22, 0x23,
    0xb0, 0x03, 0x61, 0xa3, 0x96, 0x17, 0x7a, 0x9c, 0xb4, 0x10, 0xff, 0x61, 0xf2, 0x00, 0x15, 0xad] := by
   decide +kernel
 
-/-- NIST: the 448-bit (56-byte) message, two blocks: the length no longer
-fits in the first block, so the second holds only padding. -/
+/-- NIST (FIPS 180-2 appendix B.2; the two-block example of FIPS 180-4):
+the 448-bit (56-byte) message. The length no longer fits in the first
+block, so the second holds only padding. -/
 theorem nist_448 : sha256 (utf8 "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq") =
   [0x24, 0x8d, 0x6a, 0x61, 0xd2, 0x06, 0x38, 0xb8, 0xe5, 0xc0, 0x26, 0x93, 0x0c, 0x3e, 0x60, 0x39,
    0xa3, 0x3c, 0xe4, 0x59, 0x64, 0xff, 0x21, 0x67, 0xf6, 0xec, 0xed, 0xd4, 0x19, 0xdb, 0x06, 0xc1] := by
   decide +kernel
 
-/-- NIST: the 896-bit (112-byte) message, two blocks that both hold
+/-- The 896-bit (112-byte) message of NIST's SHA-384 and SHA-512 examples,
+with its widely published SHA-256 digest: two blocks that both hold
 message bytes. -/
 theorem nist_896 : sha256 (utf8 ("abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmno" ++
     "ijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu")) =
@@ -256,8 +308,9 @@ theorem nist_896 : sha256 (utf8 ("abcdefghbcdefghicdefghijdefghijkefghijklfghijk
    0x0b, 0x24, 0x9b, 0x11, 0xe8, 0xf0, 0x7a, 0x51, 0xaf, 0xac, 0x45, 0x03, 0x7a, 0xfe, 0xe9, 0xd1] := by
   decide +kernel
 
-/-- Bytes 255, 254, …, 256 - n: a message of n bytes, half of them 128 or
-more, for the padding boundaries below. -/
+/-- Bytes 255, 254, …, 256 - n: a message of n bytes for the padding
+boundaries below. For n ≤ 128 every byte is 128 or more, unlike the ASCII
+messages above. -/
 def countdown (n : Nat) : List UInt8 := (List.range n).map fun i => (255 - i).toUInt8
 
 /-! Padding boundaries, with digests from Python's `hashlib` (OpenSSL), an
@@ -297,9 +350,10 @@ theorem nist_abc_wrong_refuted : sha256 (utf8 "abc") ≠
    0xb0, 0x03, 0x61, 0xa3, 0x96, 0x17, 0x7a, 0x9c, 0xb4, 0x10, 0xff, 0x61, 0xf2, 0x00, 0x15, 0xac] := by
   decide +kernel
 
-/-! The one-million-'a' vector (cdc76e5c …) is not checked: it has 15,626
-blocks, and the kernel needs about 0.5 s and 140 MB per block within one
-theorem (docs/programming/SHA256_SPEC.md, "What the kernel checks"). -/
+/-! The one-million-'a' vector of FIPS 180-2 appendix B.3 (cdc76e5c …) is
+not checked: it has 15,626 blocks, and the kernel needs about 0.5 s and
+130 MB per block within one theorem, so about 2 hours and 2 TB
+(docs/programming/SHA256_SPEC.md, "What the kernel checks"). -/
 
 /-! ## Part 6. Lemmas for the later stages -/
 
@@ -582,6 +636,9 @@ theorem sha256_append_blocks (a b : List UInt8) (ha : a.length % 64 = 0) :
 Every theorem's axioms, checked by tests/reference/sha256-spec-check.sh:
 only `propext`, `Classical.choice` and `Quot.sound` may appear. -/
 
+#print axioms K_cube_roots
+#print axioms initialHash_square_roots
+#print axioms bigSigma0_example
 #print axioms nist_empty
 #print axioms nist_abc
 #print axioms nist_448
