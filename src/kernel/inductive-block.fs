@@ -118,19 +118,32 @@ lf-depth-limit context-walk2: lf-ind-pair-walker
 \ ---------------------------------------------------------------------------
 \ Opening the block of declaration i, the check's: (span ok), its
 \ members recorded and span their number; (1 invalid) when i is not a
-\ block's first member or its members do not fit in the input.
+\ block's first member or its members do not fit in the input; (span
+\ full) when it has more constructors than the per-constructor arrays
+\ hold (lf-ind-ctor-capacity), checked before anything is written to
+\ them (review rvI21, B1). Each count is first checked to lie within the
+\ input, so their sum cannot wrap.
 : lf-ind-take ( header -- )
   lf-ind-state /lf-ind erase
   dup lf-hdr-first lf-more-field lf-ind-state lf-ind-first !
   dup lf-hdr-types lf-more-field lf-ind-state lf-ind-types !
   dup lf-hdr-ctors lf-more-field lf-ind-state lf-ind-ctors !
   lf-hdr-recs lf-more-field lf-ind-state lf-ind-recs ! ;
+: lf-ind-count? ( n -- flag ) lf-input-count upto? ;
+: lf-ind-counts? ( -- flag )
+  lf-ind-types@ lf-ind-count? lf-ind-ctors@ lf-ind-count? and lf-ind-recs@ lf-ind-count? and ;
 : lf-ind-fits? ( i -- flag )
+  lf-ind-counts? 0= if drop false exit then
   dup lf-ind-first@ = lf-ind-members 0> and lf-ind-types@ 0> and
   swap lf-ind-members + lf-input-count upto? and ;
+: lf-ind-crowded ( -- span outcome )
+  lf-ind-ctors@ lf-ind-ctor-capacity lf-ind-site lf-diag-ctors-full lf-diag-note
+  lf-ind-members outcome-full ;
+: lf-ind-sized ( -- span outcome )
+  lf-ind-ctors@ lf-ind-ctor-capacity > if lf-ind-crowded else lf-ind-members outcome-ok then ;
 : lf-ind-open ( i -- span outcome )
   dup lf-input-decl lf-idecl-header ?dup 0= if drop 1 outcome-invalid exit then
-  lf-ind-take lf-ind-fits? if lf-ind-members outcome-ok else 1 outcome-invalid then ;
+  lf-ind-take lf-ind-fits? if lf-ind-sized else 1 outcome-invalid then ;
 \ Whether a declaration is a member of an inductive block.
 : lf-ind-member? ( decl -- flag ) lf-idecl-block @ 0<> ;
 

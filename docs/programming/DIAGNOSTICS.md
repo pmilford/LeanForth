@@ -132,6 +132,8 @@ what was used and the limit.
 | 73 | rejected: constructor differs from Lean's (B3) | rejected | the constructor's member | the field that differs (1 levelParams, 2 induct, 3 cidx, 4 numParams, 5 numFields) | `check-block lf-block-check` (Lean's replay: "Invalid constructor") |
 | 74 | rejected: recursor differs from Lean's (B3) | rejected | the recursor's member | the field that differs (1 name, 2 levelParams, 3 type, 4 all, 5 numParams, 6 numIndices, 7 numMotives, 8 numMinors, 9 rules, 10 k) | `check-block lf-block-check` (Lean's replay: "Invalid recursor") |
 | 75 | rejected: recursor Lean does not generate (B3) | rejected | the recursor's member | 0 | `check-block lf-block-check` (Lean's replay: "No such recursor") |
+| 76 | inductive block: too many constructors | full | the block's constructors | the capacity, `lf-ind-ctor-capacity` (512) | `inductive-block lf-ind-audit` (review rvI21 B1: the whole block is *full*, before anything is written for its constructors) |
+| 77 | undecided: a recursor Lean generated, held by no slot | unknown | the name | the inductive type's slot | `environment lf-env-lookup` (a reference to `T.rec` of an accepted type `T` whose file left `T.rec` out: Lean's kernel holds it, the environment has no slot for it; review rvI21 B2) |
 
 Codes 1–16 explain *exhausted* (more fuel would help) and *full* (more
 memory or a larger limit would help); 20–29 explain *invalid* input or
