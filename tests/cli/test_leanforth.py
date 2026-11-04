@@ -24,6 +24,12 @@
 4. count prints what src/import/ndjson-count.fs prints, and reexport writes
    a copy equal to the export, byte for byte, for every reference export.
 5. version, capabilities and help exit 0; capabilities states the limits.
+6. print prints each declaration's proof outline exactly as the outline's
+   golden file has it (all five reference exports, one declaration by
+   name, every step with --detail); a declaration not accepted is refused,
+   with its outcome's code, and no outline appears except below the
+   experimental label; a name no declaration has, and print's command-line
+   mistakes, are 4.
 
 Run with GFORTH set to the Forth binary (the Makefile does this).
 """
@@ -207,6 +213,87 @@ class ExitCodes(unittest.TestCase):
                 stub.chmod(stub.stat().st_mode | stat.S_IXUSR)
                 status, out, err = run("check", COMPOSITION, gforth=str(stub))
                 self.assertEqual((status, out.splitlines(), err), (5, lines, ""), k)
+
+
+OUTLINES = ROOT / "tests" / "present" / "outlines.golden"
+REFUSED = "No proof outline: the declaration was not accepted."
+
+
+def golden(section):
+    """A section of the outlines' golden file (tests/present/outlines.golden,
+    printed by tests/present/outline-cases.fs), as lines."""
+    parts = re.split(r"^== (.*)$", OUTLINES.read_text(encoding="utf-8"), flags=re.M)
+    return dict(zip(parts[1::2], parts[2::2]))[section].strip("\n").splitlines()
+
+
+class Print(unittest.TestCase):
+    """print (plan task 2.4.4): each declaration's proof outline, printed
+    from the checker's derivation log right after its check; never one for
+    a declaration that is not accepted. The text equals the outline's
+    golden file, which the outline printer's own test pins."""
+
+    def lines(self, *args):
+        status, out, err = run("print", *args)
+        self.assertEqual(err, "", args)
+        return status, out.strip("\n").splitlines()
+
+    def test_0_outlines(self):
+        for name in ("identity", "composition", "type-identity", "poly-identity",
+                     "constant-fixture"):
+            self.assertEqual(self.lines(f"tests/reference/{name}.ndjson"), (0, golden(name)))
+        self.assertEqual(self.lines("--detail", COMPOSITION), (0, golden("composition --detail")))
+
+    def test_0_named(self):
+        fixture = golden("constant-fixture")
+        use = fixture[fixture.index("Theorem fixtureUse"):]
+        self.assertEqual(self.lines("--name", "fixtureUse", FIXTURE), (0, use))
+        poly = fixture[fixture.index("Definition fixturePoly"):fixture.index("Theorem fixtureUse")]
+        self.assertEqual(self.lines("--name", "fixturePoly", FIXTURE), (0, poly[:-1]))
+
+    def test_refused(self):
+        status, out = self.lines("--no-manifest", f"{CASES}/composition-wrong-argument.ndjson")
+        self.assertEqual((status, out), (1, [NO_MANIFEST, *golden("composition-wrong-argument")]))
+        status, out = self.lines("tests/cli/unfold.ndjson")
+        self.assertEqual(status, 2)
+        self.assertEqual(out[out.index("Theorem impliesSelf"):][1], "  unknown")
+        self.assertEqual(out[-1], REFUSED)
+        status, out = self.lines("--fuel", "0", FIXTURE)
+        self.assertEqual((status, out.count(REFUSED), out.count("  exhausted")), (3, 3, 3))
+        status, out = self.lines("--no-manifest", f"{CASES}/composition-postulate.ndjson")
+        self.assertEqual((status, out[1:3], out[-1]),
+                         (2, ["Axiom composition", "  unsupported"], REFUSED))
+        for args, code in [((FIXTURE,), 0), (("tests/cli/unfold.ndjson",), 2),
+                           (("--fuel", "0", FIXTURE), 3),
+                           (("--no-manifest", f"{CASES}/composition-wrong-argument.ndjson"), 1)]:
+            status, out = self.lines(*args)
+            self.assertEqual(status, code, args)
+            # Each verdict, the line after a declaration's title, is the label
+            # or a failure; an outline appears only below the label.
+            titles = [i for i, line in enumerate(out)
+                      if re.match(r"(Theorem|Definition|Axiom|Opaque|Declaration) ", line)]
+            verdicts = [out[i + 1] for i in titles]
+            self.assertTrue(all(v == f"  {LABEL}" or "accepted" not in v for v in verdicts),
+                            verdicts)
+            shown = sum(line.startswith(("Proof (", "Construction (", "No outline template"))
+                        for line in out)
+            self.assertEqual(shown, out.count(f"  {LABEL}"), args)
+
+    def test_4_mistakes(self):
+        self.assertEqual(self.lines("--name", "noSuch", FIXTURE),
+                         (4, ["error: no declaration named noSuch"]))
+        self.assertEqual(self.lines("tests/cli/no-such.ndjson"),
+                         (4, ["error: cannot open the export"]))
+        hint = "try: leanforth help"
+        for args, error in [
+            ([], "error: a wrong number of file names"),
+            ([FIXTURE, "--name"], "error: an option without its value: --name"),
+            (["--record", "r.json", FIXTURE], "error: an option this command does not take: "
+                                              "--record"),
+        ]:
+            self.assertEqual(self.lines(*args), (4, [error, hint]), args)
+        status, out, _ = run("check", "--detail", COMPOSITION)
+        self.assertEqual((status, out.splitlines()),
+                         (4, ["error: an option this command does not take: --detail", hint]))
 
 
 def git_source():

@@ -11,6 +11,7 @@
 
 require ../lib/lib.fs
 require ../core/constant-term-boundary.fs
+require ../core/derivation-log.fs
 require ../core/diagnostics.fs
 require ../core/local-context.fs
 require ../core/tagged-sort-boundary.fs
@@ -95,7 +96,14 @@ end-structure
 : lf-mshift-root ( index identity cutoff -- index identity status )
   >r 2dup lf-mshift-frames lf-rebuild-audit dup ok?
   if drop r> lf-mshift-copy else r> drop nip nip lf-rebuild-none then ;
-: lf-mixed-shift ( index identity cutoff amount fuel -- index identity status )
+: lf-mshift-pass ( index identity cutoff amount fuel -- index identity status )
   lf-mshift-frames frame-budget 0= if lf-mshift-refuse exit then
   2dup lf-mshift-args? if lf-mshift-amount ! lf-mshift-root lf-mshift-explain
   else lf-mshift-refuse then ;
+\ The derivation log (ADR 0013): with it on, the pass is one shift step of
+\ the term by the amount; both paths run the same pass. The shift inside
+\ instantiation (lf-mshift-inside) is part of that step, not logged.
+: lf-mshift-logged ( index identity cutoff amount fuel -- index identity status )
+  4 pick 2 pick lf-rule-shift lf-log-open lf-mshift-pass lf-log-close-handle ;
+: lf-mixed-shift ( index identity cutoff amount fuel -- index identity status )
+  lf-log? if lf-mshift-logged else lf-mshift-pass then ;

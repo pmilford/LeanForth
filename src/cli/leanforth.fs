@@ -13,6 +13,11 @@
 \       check the export again and compare the new run record with RECORD
 \       (import/run-replay.fs): the replay report, exit 0 confirmed, 1
 \       refused (a difference), 4 when it cannot be compared;
+\   print [--no-manifest] [--fuel N] [--detail] [--name NAME] EXPORT
+\       check the export as check does, one declaration at a time with the
+\       derivation log on, and print each one's proof outline right after
+\       its check (cli/print.fs, present/proof-outline.fs), or with
+\       --detail every step of its log; with --name only that declaration;
 \   count [--no-manifest] EXPORT          the record counts (ndjson-count.fs);
 \   reexport [--no-manifest] EXPORT COPY  the byte-exact copy (ndjson-emit.fs);
 \   version, capabilities, help (also --version, --help and -h).
@@ -77,6 +82,7 @@ require ../import/run-replay.fs
 require ../import/ndjson-count.fs
 require ../import/ndjson-emit.fs
 require ../present/print-names.fs
+require ./print.fs
 
 \ Exit codes, and the code of each outcome.
 0 constant exit-accepted     \ every declaration accepted, or the command done
@@ -106,6 +112,8 @@ begin-structure /cli-run
   field: opt-unchecked          \ true: manifests are not checked (--no-manifest)
   field: opt-fuel               \ fuel each declaration's check starts with (--fuel)
   2 cells +field opt-record     \ the run record's file name (--record), or 0 0
+  field: opt-detail             \ true: print every step of the log (--detail)
+  2 cells +field opt-name       \ the declaration to print (--name), or 0 0
   4 cells +field arg-files      \ the file names given, in order (two c-addr u)
   field: arg-count              \ how many were given
   field: arg-set                \ the options the command takes, as bits
@@ -213,7 +221,8 @@ create cli-order
 : cli-no-env ( -- )
   run-record rr-run @ outcome-full = if cli-no-room exit then
   c" no checked environment could be made or used" cli-fault ;
-: cli-made? ( -- flag ) run-record rr-env @ 0<> lf-env-view ok? and ;
+\ Verdicts only from the run's own environment, by identity (rr-ours?).
+: cli-made? ( -- flag ) rr-ours? lf-env-view ok? and ;
 : cli-results ( -- )
   cli-made? if cli-verdicts cli-summary cli-notes else cli-no-env then ;
 
@@ -232,8 +241,13 @@ create cli-order
 : cli-manifest-hint ( -- )
   c" the export is checked against EXPORT.manifest.json, which scripts/export.sh writes;"
   cli-note c" --no-manifest skips that check" cli-note ;
+\ A checked read whose bytes are not the ones the run hashed first.
+: cli-moved ( -- )
+  ." error: invalid: the export changed between its digest and its reading" cr ;
+: cli-read-error ( outcome -- outcome )
+  rr-moved? if cli-moved else dup cli-input-error then ;
 : cli-unread ( outcome -- )
-  dup cli-input-error dup outcome-full = if cli-limits then
+  cli-read-error dup outcome-full = if cli-limits then
   dup manifest-failed? if cli-manifest-hint then outcome>code cli-code! ;
 : cli-unchecked-note ( -- )
   cli-unchecked @ 0= if exit then
@@ -243,11 +257,16 @@ create cli-order
 : cli-opens? ( -- flag )
   0 cli-file r/o bin open-file if drop false else close-file drop true then ;
 : cli-unopened ( -- code ) ." error: cannot open the export" cr exit-malformed ;
-\ The export, file 0, into the checker's input through the run record's
-\ rr-import, which records the outcome and whether the manifest was
-\ enforced (not with --no-manifest); when it reads, the run.
+\ The export (file 0) into the checker's input, its manifest checked
+\ unless --no-manifest. With a record (--record, replay): the file rr-start
+\ kept and hashed, through rr-import, which records the outcome and whether
+\ the manifest was enforced. Without one: the file read once
+\ (rr-read-once), with no hash, metadata or manifest pass of the record's,
+\ so a plain check of a large export reads it only as the checker needs.
+: cli-checked? ( -- flag ) cli-unchecked @ 0= ;
+: cli-import ( -- outcome ) cli-checked? rr-import ;
 : cli-input ( -- outcome )
-  0 cli-file cli-unchecked @ 0= rr-import ;
+  cli-record? if cli-import else 0 cli-file cli-checked? rr-read-once then ;
 : cli-run ( -- ) cli-input dup ok? if drop rr-check cli-results else cli-unread then ;
 : cli-settings ( -- ) rr-release cli-fuel @ cli-pool rr-settings! ;
 
@@ -266,11 +285,13 @@ create cli-order
 : cli-source ( -- )
   s" LEANFORTH_COMMIT" cli-env cli-modified? rr-source! ok? 0= if rr-no-source then ;
 : cli-record-start ( -- outcome ) cli-source 0 cli-file rr-start ;
-: cli-record-text ( -- outcome )
-  0 cli-file rr-finish dup ok? if drop rr-write then ;
+: cli-record-text ( -- outcome ) rr-finish dup ok? if drop rr-write then ;
 : cli-record-failed ( outcome -- )
   ." error: the run record was not written: " dup outcome-text type cr outcome>code
   cli-code! ;
+\ Only a check with --record starts with rr-start, which reads the export
+\ for the record (its digest, metadata and manifest) and keeps its name for
+\ the run's later reads (rr-import, rr-finish).
 : cli-recording? ( -- flag )
   cli-record? 0= if true exit then
   cli-record-start dup ok? if drop true else cli-record-failed false then ;
@@ -296,12 +317,61 @@ create cli-order
 \ cannot be compared or the export cannot be checked again.
 : cli-rerun ( -- outcome )
   cli-settings cli-record-start dup ok? 0= if exit then drop
-  cli-input ok? if rr-check then cli-record-text ;
+  cli-import ok? if rr-check then cli-record-text ;
 : cli-compared ( outcome -- outcome )
   ok? if 1 cli-file rp-replay else rp-rerun-refused then ;
 : replay-command ( -- code )
   cli-opens? 0= if cli-unopened exit then cli-rerun cli-compared rr-release
   rp-report ok? 0= if drop outcome-invalid then outcome>code ;
+
+\ ---------------------------------------------------------------------------
+\ print: the export (file 0) read as check reads it (its manifest checked
+\ unless --no-manifest), read once more for binder names (cli/print.fs),
+\ then each declaration checked in file order with the derivation log on
+\ and printed right after its check with its proof outline
+\ (present/proof-outline.fs: the verdict with its label and axioms, the
+\ statement, the outline), or with --detail every step of its log. With
+\ --name only that declaration is printed (the ones before it are checked
+\ too, unprinted; the ones after it are not checked). No outline is ever
+\ printed for a declaration that was not accepted, nor from a log that ran
+\ out of room: the printer says why. Codes: 0 when every declaration
+\ printed has its outline; otherwise the code of a declaration's outcome
+\ (1 rejected, 2 unsupported or unknown, 3 out of fuel or room, 4
+\ invalid), 3 for a log that ran out of room, 4 for a name no declaration
+\ has, 5 when the run stopped (a check threw, or publishing failed).
+: cli-detail? ( -- flag ) cli-state opt-detail @ ;
+: cli-named ( -- c-addr u ) cli-state opt-name 2@ ;
+\ The declaration to print: its index, or -1 for all; false when none
+\ has the name given.
+: cli-chosen ( -- i true | false ) cli-named dup 0= if 2drop -1 true exit then pr-find ;
+: cli-no-such ( -- )
+  ." error: no declaration named " cli-named type cr exit-malformed cli-code! ;
+: cli-shown? ( chosen i -- flag ) over 0< if 2drop true else = then ;
+: cli-print-one ( i -- )
+  >r 0 cli-file r@ cli-detail? pr-print r> pr-refusal outcome>code cli-code! ;
+: cli-print-stopped ( -- )
+  c" the run stopped: a check threw, or publishing failed" cli-fault ;
+: cli-print-run ( chosen -- )
+  lf-input-count 0 ?do
+    i pr-step if cli-print-stopped unloop drop exit then
+    dup i cli-shown? if i cli-print-one then dup i = if leave then
+  loop drop ;
+\ The environment of the run: made with the fuel and pool of check.
+: cli-env-made ( env outcome -- env true | false )
+  dup ok? if drop true exit then nip outcome-full =
+  if cli-no-room else c" no checked environment could be made" cli-fault then false ;
+: cli-print-env ( chosen -- )
+  cli-fuel @ lf-check-budget cli-pool lf-env-new cli-env-made 0= if drop exit then
+  dup lf-env-use drop swap cli-print-run lf-env-free drop ;
+: cli-print-names ( -- flag )
+  0 cli-file cli-checked? pr-present dup ok? if drop true else cli-unread false then ;
+: cli-printing ( -- )
+  cli-print-names 0= if exit then cli-chosen 0= if cli-no-such exit then
+  pr-log-on cli-print-env lf-log-off lf-log-set ;
+: print-command ( -- code )
+  cli-start cli-opens? 0= if cli-unopened exit then cli-unchecked-note
+  rr-release 0 cli-file cli-checked? rr-read-once dup ok?
+  if drop cli-printing else cli-unread then cli-worst @ ;
 
 \ ---------------------------------------------------------------------------
 \ count: the report of ndjson-count.fs, or its error line.
@@ -361,6 +431,8 @@ create cli-order
   ."     forall and earlier accepted declarations (the first checker, ADR 0011);" cr
   ."     an accepted one is labelled experimental, not independently audited" cr
   ."   check --record, replay: run records 0.1 and their replay (plan task 2.2.5)" cr
+  ."   print: a readable proof outline of each accepted declaration, from the" cr
+  ."     checker's derivation log (plan tasks 2.4.1, 2.4.4; untrusted presentation)" cr
   ."   count, reexport: exports of any size, up to all of Mathlib" cr ;
 : cli-lacks. ( -- )
   ." unsupported (check answers unsupported, exit 2):" cr
@@ -379,7 +451,7 @@ create cli-order
   cli-pool .decimal ."  per export" cr
   ."   fuel " cli-default-fuel .decimal ."  steps per declaration (--fuel N)" cr ;
 : cli-planned. ( -- )
-  ." planned, not built: print, program, serve, --json receipts," cr
+  ." planned, not built: program, serve, --json receipts," cr
   ."   larger stores (plan task 3.3.1)" cr ;
 : capabilities-command ( -- code )
   ." leanforth " cli-version-text type ." : what this build can do" cr
@@ -393,6 +465,8 @@ create cli-order
   ."       check every declaration of a Lean export, in file order" cr
   ."   replay [--no-manifest] [--fuel N] EXPORT RECORD" cr
   ."       check the export again and compare the run record with RECORD" cr
+  ."   print [--no-manifest] [--fuel N] [--detail] [--name NAME] EXPORT" cr
+  ."       check the export and print each accepted declaration's proof outline" cr
   ."   count [--no-manifest] EXPORT     count the export's records by kind" cr
   ."   reexport [--no-manifest] EXPORT COPY" cr
   ."       write the export again, byte for byte as Lean's exporter writes it" cr
@@ -415,6 +489,11 @@ create cli-order
 : cli-check ( c-addr u -- code ) 0 cli-file! ['] check-command cli-guard ;
 : cli-replay ( export-addr export-u record-addr record-u -- code )
   1 cli-file! 0 cli-file! ['] replay-command cli-guard ;
+: cli-print ( c-addr u -- code ) 0 cli-file! ['] print-command cli-guard ;
+\ print's options: every step (--detail), one declaration (--name; the
+\ name must stay unchanged meanwhile).
+: cli-detail ( -- ) true cli-state opt-detail ! ;
+: cli-name! ( c-addr u -- ) cli-state opt-name 2! ;
 : cli-count ( c-addr u -- code ) 0 cli-file! ['] count-command cli-guard ;
 : cli-reexport ( in-addr in-u out-addr out-u -- code )
   1 cli-file! 0 cli-file! ['] reexport-command cli-guard ;
@@ -457,6 +536,8 @@ end-structure
 1 constant takes-no-manifest
 2 constant takes-fuel
 4 constant takes-record
+8 constant takes-detail
+16 constant takes-name
 : cli-value ( c-addr u -- c-addr' u' true | false )
   cli-arg if 2swap 2drop true else c" an option without its value" cli-wrong false then ;
 \ A decimal number from 0 to max-n with nothing else: (n true) or false.
@@ -469,10 +550,14 @@ end-structure
   if cli-fuel! 2drop else c" not a fuel amount" cli-wrong then ;
 : cli-record-option ( c-addr u -- ) cli-value if cli-record! then ;
 : cli-manifest-option ( c-addr u -- ) 2drop cli-no-manifest ;
+: cli-detail-option ( c-addr u -- ) 2drop true cli-state opt-detail ! ;
+: cli-name-option ( c-addr u -- ) cli-value if cli-state opt-name 2! then ;
 create cli-option-table
   ' cli-manifest-option takes-no-manifest 0 cli-entry, --no-manifest
   ' cli-fuel-option takes-fuel 0 cli-entry, --fuel
   ' cli-record-option takes-record 0 cli-entry, --record
+  ' cli-detail-option takes-detail 0 cli-entry, --detail
+  ' cli-name-option takes-name 0 cli-entry, --name
   0 ,
 : cli-takes? ( entry -- flag ) cli-entry-first @ cli-state arg-set @ and 0<> ;
 : cli-taken ( c-addr u entry -- )
@@ -494,9 +579,11 @@ create cli-option-table
 \ needs and the options it takes.
 takes-no-manifest takes-fuel or takes-record or constant check-set
 takes-no-manifest takes-fuel or constant replay-set
+takes-no-manifest takes-fuel or takes-detail or takes-name or constant print-set
 create cli-commands
   ' check-command 1 check-set cli-entry, check
   ' replay-command 2 replay-set cli-entry, replay
+  ' print-command 1 print-set cli-entry, print
   ' count-command 1 takes-no-manifest cli-entry, count
   ' reexport-command 2 takes-no-manifest cli-entry, reexport
   ' version-command 0 0 cli-entry, version

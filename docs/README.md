@@ -28,7 +28,8 @@ see [project progress](project/PROJECT_PROGRESS.md). Documents marked
 - [SETUP_WSL.md](user/SETUP_WSL.md) — Windows / WSL2 development setup.
 - [TERM_PRINTER.md](user/TERM_PRINTER.md) — printing terms readably in Lean notation, ASCII and LaTeX (Markdown math); binder names without capture; the presentation side table.
 - [LEANFORTH_SYNTAX.md](user/LEANFORTH_SYNTAX.md) — writing theorems and proofs as LeanForth's own Forth words ([ADR 0017](adr/0017-leanforth-syntax.md); implemented, experimental, [parser] gate open), with notes that stay with the proof; six checked examples in three forms, printing back as words, errors with line and column, limits.
-- [READABLE_PROOFS_SKETCH.md](user/READABLE_PROOFS_SKETCH.md) — design sketch, not implemented: the proof of `composition` as the planned proof-outline printer would show it, in mathematics, LeanForth Forth and Lean, and which parts of it are checked and which are only explanation.
+- [PROOF_OUTLINE.md](user/PROOF_OUTLINE.md) — readable proofs (implemented, untrusted presentation): the proof outline of `composition` in mathematics, LeanForth words and Lean, printed from the checker's derivation log with every line naming its checker steps; `make print`, `--detail`, when no outline is printed, what is checked and what is template.
+- [READABLE_PROOFS_SKETCH.md](user/READABLE_PROOFS_SKETCH.md) — the design sketch the proof outline was built from (superseded): the proof of `composition` as the planned proof-outline printer would show it, in mathematics, LeanForth Forth and Lean, and which parts of it are checked and which are only explanation.
 
 The user guide is a start: manuals for each audience grow with the
 features they describe.
@@ -41,6 +42,7 @@ features they describe.
 - [PROGRAM_EXAMPLES.md](programming/PROGRAM_EXAMPLES.md) — the executable Forth examples and their tests.
 - [PROGRAM_EXAMPLES_REFERENCE.md](programming/PROGRAM_EXAMPLES_REFERENCE.md) — independent Lean references for those examples.
 - [PROGRAM_IR.md](programming/PROGRAM_IR.md) — program IR 0.1: its text form, its Lean semantics, the reader from Forth source, and the proofs that the six example words' IR equals their reference models (implemented, untrusted, checked by Lean).
+- [DERIVATION_LOG.md](programming/DERIVATION_LOG.md) — the derivation log (ADR 0013; implemented, [kernel] path with the no-behaviour-change review): records, references and copies, the rule catalogue, where each rule records, the Forth interface, the test preset, and the evidence that it changes no answer.
 - [DIAGNOSTICS.md](programming/DIAGNOSTICS.md) — why a check failed: the first failure's reason code, site and numbers, recorded per checker context; the code catalogue (implemented, first form, untrusted).
 - [LEANFORTH_WORDS.md](programming/LEANFORTH_WORDS.md) — the LeanForth authoring words (`src/author/`) and the printer's Forth mode: modules, every word and its stack effect, the Forth interface, the error catalogue, limits and tests (implemented, untrusted, [parser] gate open).
 - [CHECKED_ENVIRONMENT.md](programming/CHECKED_ENVIRONMENT.md) — the checked environment v0 (ADR 0012): the input, slots, snapshots and handles, finding constants, the publisher, axiom sets; interface, a three-form example, measured limits (implemented, experimental [kernel] code not through the review gate; the type check that fills it is task 2.2.3).
