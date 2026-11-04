@@ -590,11 +590,22 @@ rule-shape nd-listed v-rules
 end-shape
 type-shape nd-listed v-type-list  ctor-shape nd-listed v-ctors
 recursor-shape nd-listed v-recursors
-\ A block declares at least one type.
+\ The value at the counted string key in the block object, token 2 of
+\ the line {"inductive":{...}}.
+2 constant block-token
+: block-value ( c-addr export -- value true | false )
+  block-token swap export-json json-find ;
+\ A block declares at least one type, unless it is empty: no type, no
+\ constructor and no recursor (ADR 0016 amendment 1: Lean's kernel
+\ rejects such a declaration, emptyBlock, and the checker reports it so).
 : no-types? ( value export -- flag )
   export-json json-array swap json-items-of if 0= else false then ;
+: empty-list? ( c-addr export -- flag )
+  tuck block-value if swap no-types? else drop false then ;
+: empty-block? ( export -- flag )
+  c" ctors" over empty-list? swap c" recs" swap empty-list? and ;
 : v-types ( value slot export -- outcome )
-  >r over r@ no-types?
+  >r over r@ no-types? r@ empty-block? 0= and
   if 2drop r> c" inductive block without types" export-bad exit then r> v-type-list ;
 0 export-record 0 shape: inductive-shape
   0 block-types ' v-types nd-member types
@@ -784,12 +795,8 @@ here families - cell / constant #families
 \ Hand over each element of the list, decoded with table.
 : export-elements ( list table export -- outcome )
   0 over export-ordinal ! rot over cursor-start elements-walk ;
-\ The array at the counted string key in the block object, token 2 of
-\ the line {"inductive":{...}}; invalid only when a handler changed the
-\ export's JSON view.
-2 constant block-token
-: block-value ( c-addr export -- value true | false )
-  block-token swap export-json json-find ;
+\ The array at the counted string key in the block object (block-value,
+\ above); invalid only when a handler changed the export's JSON view.
 : view-lost ( export -- outcome false ) c" handler changed the export" export-bad false ;
 : block-array ( c-addr export -- list true | outcome false )
   tuck block-value 0= if view-lost exit then

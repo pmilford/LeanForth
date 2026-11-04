@@ -441,8 +441,8 @@ lf-walk-room context-walk: lf-lv-term-work
 : lf-lv-counted ( s c-addr u -- )
   2>r dup lf-lv-a over lf-lv-as 2r> lf-lv-put dup lf-lv-b lf-lv-n
   lf-lv-arrow dup lf-lv-out-ref swap lf-lv-as ;
-: lf-lv-resolve ( s -- ) dup lf-lv-a lf-lv-name-id s"  ↦ d" lf-lv-put
-  lf-lv-out-ref lf-lv-n ;
+: lf-lv-resolve ( s -- ) dup lf-lv-a lf-lv-name-id lf-lv-out-ref dup 0<
+  if drop s"  ↦ generated" lf-lv-put else s"  ↦ d" lf-lv-put lf-lv-n then ;
 : lf-lv-decl ( s -- ) s" declaration " lf-lv-put lf-lv-a lf-lv-decl-name ;
 : lf-lv-arity ( s -- )
   dup lf-lv-a lf-lv-n s"  levels for d" lf-lv-put lf-lv-b lf-lv-n ;

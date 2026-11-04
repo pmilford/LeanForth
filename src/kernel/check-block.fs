@@ -64,6 +64,7 @@ require ../core/names.fs
 require ../core/terms.fs
 require ./environment.fs
 require ./env-signature.fs
+require ./generated-recursor.fs
 require ./inductive-block.fs
 require ./inductive-recursor.fs
 require ./level-geq.fs
@@ -311,8 +312,10 @@ end-structure
   lf-ind-ctors@ 0 ?do i lf-blk-ctor-name lf-blk-rec-id lf-name-same?
     if i lf-blk-rec-clash unloop exit then
   loop outcome-ok ;
-\ Step 12: the recursor (inductive-recursor.fs).
-: lf-blk-build ( -- outcome ) lf-recursor-build ;
+\ Step 12: the recursor (inductive-recursor.fs), and the recipe that lets
+\ a later declaration build it again (generated-recursor.fs).
+: lf-blk-build ( -- outcome )
+  lf-recursor-build dup ok? if lf-genrec-recipe lf-env-recipe! then ;
 
 \ ---------------------------------------------------------------------------
 \ Step 13, B3. Name lists equal name by name.
@@ -457,5 +460,20 @@ here lf-blk-steps - 1 cells / constant lf-blk-steps#
 \ Check the block whose first member is this context's snapshot, with
 \ fuel: ok when every step succeeded, else the first failure, as above.
 \ Afterwards the type is no longer visible to inference.
+\ A block rejected at step 13 alone, B3, which Lean's replay runs after its
+\ kernel added the block: the publisher marks the members' names taken
+\ (lf-env-added!; ADR 0015 decision 11, review rvI21 R2-1).
+13 constant lf-blk-b3-step
+: lf-blk-added ( outcome -- outcome )
+  dup outcome-rejected = lf-block-step@ lf-blk-b3-step = and lf-env-added! ;
+\ An empty block: Lean's elim_nested_inductive_fn refuses a declaration
+\ without types (inductive.cpp 1153, emptyBlock) before anything else of
+\ it, the checks before it having nothing to look at; rejected at step 4.
+4 constant lf-blk-t1-step
+: lf-blk-empty ( -- outcome )
+  lf-blk-t1-step lf-blk-step! lf-ind-first@ 0 lf-diag-empty-block lf-blk-reject ;
+: lf-blk-checked ( -- outcome )
+  lf-ind-empty? if lf-blk-empty else lf-blk-run lf-blk-added then ;
 : lf-block-check ( fuel -- outcome )
-  lf-blk-begin dup ok? if drop lf-blk-run then false lf-ind-state lf-ind-visible ! ;
+  lf-blk-begin dup ok? if drop lf-blk-checked then
+  false lf-ind-state lf-ind-visible ! ;

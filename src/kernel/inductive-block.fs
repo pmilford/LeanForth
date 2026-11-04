@@ -144,9 +144,14 @@ lf-walk-room context-walk2: lf-ind-pair-walker
 : lf-ind-sized ( -- span outcome )
   lf-ind-ctors@ lf-ind-ctor-capacity >
   if lf-ind-crowded else lf-ind-members outcome-ok then ;
+\ An empty block (ADR 0016 amendment 1): no member but the one declaration
+\ the importer added for it (lf-kind-block), which is the header's first;
+\ (1 ok), and check-block.fs rejects it (lf-ind-empty?).
+: lf-ind-empty? ( -- flag ) lf-ind-members 0= ;
 : lf-ind-open ( i -- span outcome )
   dup lf-input-decl lf-idecl-header ?dup 0= if drop 1 outcome-invalid exit then
-  lf-ind-take lf-ind-fits? if lf-ind-sized else 1 outcome-invalid then ;
+  lf-ind-take dup lf-ind-first@ = lf-ind-empty? and if drop 1 outcome-ok exit then
+  lf-ind-fits? if lf-ind-sized else 1 outcome-invalid then ;
 \ Whether a declaration is a member of an inductive block.
 : lf-ind-member? ( decl -- flag ) lf-idecl-block @ 0<> ;
 

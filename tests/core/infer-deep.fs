@@ -83,4 +83,22 @@ T{ added lf-lnorm-data-cells at-most swap lf-lnorm-return-cells at-most -> true 
 T{ added drop 64 at-most -> true }T
 T{ with-normalize lf-minfer-data-cells at-most
    swap lf-minfer-return-cells at-most -> true true }T
+
+\ Local-context entries go with the scratch they name (plan task 4.2.2a,
+\ review F3): P0 = Prop -> Prop, P(k+1) = P(k) -> P(k) is a DAG of k + 1
+\ Pis whose inference opens 2^(k+1) - 1 binders, one entry each; every Pi
+\ discards its scratch, entries included, so none is left and the local
+\ context never grows past its first block (64 entries). Before, k = 14
+\ left 32,767 entries, and k = 18 about 100,000. (Each Pi's level is made
+\ in the level store, which scratch discards do not give back: hence its
+\ large capacity here.)
+include ../support/plain-terms.fs
+variable dag-token
+: dag ( k -- node ) 0 make-sort 0 make-sort make-pi swap 0 ?do dup make-pi loop ;
+: dag-infer ( k -- status entries )
+  fresh-session 100000 lf-level-capacity! drop
+  empty-token dag-token ! dag handle >r >r dag-token @ r> r>
+  1000000 lf-mixed-infer nip nip lf-lctx-count @ ;
+T{ 10 dag-infer lf-lctx store-capacity @ -> outcome-ok 0 64 }T
+T{ 14 dag-infer lf-lctx store-capacity @ -> outcome-ok 0 64 }T
 bye

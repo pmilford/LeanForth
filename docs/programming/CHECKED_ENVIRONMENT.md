@@ -208,7 +208,7 @@ ever turns a failure into ok.
 
 | Word | Stack effect | Does |
 | --- | --- | --- |
-| `/lf-idecl`, `lf-idecl-name`, `-kind`, `-safety`, `-type`, `-value`, `-hint`, `-height`, `-arity`, `-params` | record and fields | one input declaration: name ID, kind (`lf-kind-definition` … `lf-kind-recursor`), safety and hint coded as the NDJSON reader codes them, type and value term indices (value −1 for none), the number of universe parameters and the address of the importer's array of their name IDs, any number of them (`lf-input-add` copies them; `lf-idecl-params@` reads an added declaration's) |
+| `/lf-idecl`, `lf-idecl-name`, `-kind`, `-safety`, `-type`, `-value`, `-hint`, `-height`, `-arity`, `-params` | record and fields | one input declaration: name ID, kind (`lf-kind-definition` … `lf-kind-recursor`, or `lf-kind-block` for an empty inductive block, which has no name and no type: ADR 0016 amendment 1), safety and hint coded as the NDJSON reader codes them, type and value term indices (value −1 for none), the number of universe parameters and the address of the importer's array of their name IDs, any number of them (`lf-input-add` copies them; `lf-idecl-params@` reads an added declaration's) |
 | `lf-input-add` | `( decl -- i outcome )` | copy a filled record while loading: ok; invalid after loading ended or for a record out of range or with a reference that is not live; full when the input is full |
 | `lf-input-end` | `( -- outcome )` | end loading: mark every input store (terms, levels, names, references, declarations) and record the input's fingerprint; invalid when already ended or the name store or its byte count is out of range |
 | `lf-input-intact?` | `( -- flag )` | loading ended, every mark still valid (no reset, nothing rolled back below it) and the name bytes still in use |
@@ -313,7 +313,37 @@ block check), the publisher's name re-check and `lf-env-ready?` treat
 `T.rec` of an earlier inductive type `T` as declared when `T` is
 accepted, with K5 when it is undecided or unsupported (and
 `T.rec_<digits>` for a type not accepted); a lookup of such a name that no
-slot holds is *unknown* (diagnostic 77).
+slot holds gets the generated recursor (below), or is *unknown*
+(diagnostic 77) when the type left no recipe.
+
+A block rejected only by B3, replay's comparison, has been added by
+Lean's kernel before the comparison failed (ADR 0015 decision 11). Its
+check says so with `lf-env-added! ( flag -- )`; the publisher then
+re-checks and records it as an accepted block (outcome still rejected),
+marks the type's and constructors' slots (`lf-slot-added`, read by
+`lf-slot-added?`), each constructor with the type's universe parameters,
+and N2, the publisher's name re-check and the holders of `T.rec` treat
+those names as declared (*rejected*, `alreadyDeclared`, for a later
+declaration of the name). Lookups, dependencies and the publisher's
+dependency re-check read slots as *usable* (`lf-slot-usable?`,
+`lf-env-usable ( d -- slot outcome )`): accepted, or added and recorded;
+handles and axiom sets (`lf-env-handle`, `lf-env-axioms`) stay for
+accepted slots only.
+
+The recursor a block generated, when no slot holds `T.rec` (ADR 0015
+decision 12): the block check sets a recipe with `lf-env-recipe! ( bits
+-- )` (`lf-recipe-raw`, `lf-recipe-large`), kept on its slots
+(`lf-slot-recipe`). A lookup (`lf-env-lookup`, `lf-env-resolve`) of
+`T.rec` that finds no slot but a holder type with a recipe answers (-1
+ok): no slot is the constant, so no caller, log or outline can take the
+type's slot for it (review rvI21 R4-5); the type's slot is then
+`lf-env-genrec-of ( -- d )` until the next lookup, and `lf-env-resolve`
+records it as the dependency. `env-signature.fs` then checks the use's
+universe arguments against the recursor's own (`lf-genrec-arity ( d -- n
+)`: the motive's, when it has one, then the block's) and builds the
+recursor at those arguments (`generated-recursor.fs`, `lf-genrec ( d
+pairs fuel -- fuel' outcome )`, its type `lf-genrec-root`), which is its
+type instantiated.
 
 ### Diagnostics
 

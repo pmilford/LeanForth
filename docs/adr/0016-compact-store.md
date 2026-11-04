@@ -686,6 +686,71 @@ needed (Rejected alternatives).
     in 5% fewer instructions than the code before the heap stores.
 - Steps 4–6 not started.
 
+## Amendment 1 (2026-11-04): constants Lean's kernel generates
+
+*Context.* The owner approved plan task 5.2.1a on condition that, with no
+flags, LeanForth's verdicts are exactly Lean's
+([OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md)). Lean's
+`add_inductive` adds the recursors it generates to its environment --
+`T.rec` for each type `T` of a block, `T.rec_1`, `T.rec_2`, ... for a
+nested one -- whatever the export holds, so a declaration may use `T.rec`
+in a file that never declares it (a tampered or hand-made file; lean4export
+writes every recursor). Lean checks such a file; C4's sealing refused it as
+naming an unknown constant (*invalid*).
+
+*Change.* Sealing (`src/import/stage.fs`, `const-resolve`) keeps a
+constant whose name no declaration has when the name is one the kernel
+generates for a type of the file: its last part `rec` or `rec_<digits>`,
+its prefix the name of a type declaration of the file. It resolves as a
+name several declarations have (payload 0): the checked environment decides
+at the check, from the type's slot (ADR 0015 decision 12: the recursor the
+block generated, built again from its recipe, or no constant). Every other
+name no declaration has is still an unknown constant: another last part
+(`T.recOn`), a malformed one (`T.rec_`, `T.rec_x`), or a prefix that names
+no type (a theorem, a constructor).
+
+*Change (empty blocks).* An inductive record with no type, constructor or
+recursor cannot come from lean4export, but Lean's kernel gives a verdict on
+such a declaration: it rejects it (`emptyBlock`). The reader
+(`src/import/ndjson.fs`, `v-types`) reads it (a block with no type but
+with constructors or recursors stays malformed, *invalid*), the stage holds
+it as any block, and the feed (`src/import/feed.fs`, `feed-empty-block`)
+adds one input declaration for it, of kind `lf-kind-block`: no name, no
+universe parameter, no type, no value, a member of its own block
+(`core/input.fs`, `lf-input-empty-ok?`). The block check rejects it at
+step 4, as Lean's `elim_nested_inductive_fn` does before anything else of
+the declaration (diagnostic 78), and the file's other declarations are
+checked as usual. The re-emitter writes the record back unchanged
+(`ndjson-emit.fs`, `block-empty`).
+
+*Evidence.* `tests/core/test_stage.py`: `B.rec` and `B.rec_1` (`B` a type
+of the block fixture) load, resolved with payload 0; `B.recOn`, `B.rec_`,
+`B.rec_x`, `t.rec` (`t` a theorem) and `A.mk.rec` (a constructor) stay
+unknown constants (*invalid*), as before. The rows
+`after.recursor-left-out-then-use-rec` and
+`after.recursor-left-out-then-use-rec-no-level` of
+`tests/reference/inductive-expected.lean` give Lean's verdicts (accepted;
+`universeArity`, rejected), and so does `names.empty-block` (`emptyBlock`,
+rejected). `tests/core/ndjson.fs`: an empty record is read and handed over
+alone; one with no type but a constructor or a recursor stays malformed.
+`tests/core/test_empty_block.py`: an empty block before the Bool block,
+and two around it, are each rejected (diagnostic 78, step 4) while the
+Bool block is accepted; a block with no type but a constructor leaves the
+file *invalid*. `tests/core/test_ndjson_emit.py` re-emits the empty record
+byte for byte. Seven planted faults (`stage-any-generated-*`,
+`ndjson-empty-*`, `feed-empty-not-staged`, `ind-empty-*`) are caught. The
+rest of C4, and every other refusal of the importer, is unchanged.
+
+*Remaining difference, temporary (task 5.2.6).* Two kinds of file are
+still refused as a whole (*invalid*) where pinned Lean 4.35.0 gives a
+verdict per declaration (checked 2026-11-04): a file that names a constant
+no declaration has, other than a generated recursor (Lean rejects the
+declaration that names it: `unknownConstant`, by the kernel and in
+replay; the rest of the file is checked), and an inductive record with
+constructors or recursors but no type (Lean's replay refuses those:
+"No such constructor", "No such recursor"). Plan task 5.2.6 makes the
+importer stage them so that the checker gives those verdicts.
+
 ## Consequences
 
 - All of Mathlib's input fits in about 3 GB with one shared copy, so

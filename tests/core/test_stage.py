@@ -6,7 +6,10 @@ compact-try-unchecked where the file has no manifest), and its report
 compared with the expected one:
 
 - an expression naming a constant that no declaration has: read ok, then
-  sealing is invalid ("unknown constant", the name given), never ok;
+  sealing is invalid ("unknown constant", the name given), never ok --
+  unless it names a recursor Lean's kernel generates for a type of the
+  file (P.rec, P.rec_<digits>; ADR 0016 amendment 1), which loads,
+  resolved as a name several declarations have (payload 0);
 - two declarations of one name and a constant naming it: loaded; both
   declarations are found by the name (the newest, then the one before it
   along the chain) and the constant is resolved to neither (payload 0),
@@ -115,6 +118,27 @@ def cases(folder):
                  [identity[0].replace("4.35.0", "4.36.0")] + identity[1:])
     out.append(("another Lean version", path, False, None,
                 ["unsupported exporter, format or Lean version", "outcome=5"], ["ok decls"]))
+    # ADR 0016 amendment 1: a recursor Lean's kernel generates for a type of
+    # the file (B, name 2, a type of the block) may be named without a
+    # declaration (B.rec, B.rec_1: loaded, resolved at the check); any other
+    # undeclared name is still an unknown constant: another last part, a
+    # malformed rec_, or a prefix that names no type (the theorem t, the
+    # constructor A.mk).
+    def named(pre, text):
+        return block + ['{"in":8,"str":{"pre":%d,"str":"%s"}}\n' % (pre, text),
+                        '{"const":{"name":8,"us":[]},"ie":3}\n']
+    for text in ("rec", "rec_1"):
+        path = write(folder, f"generated-{text}.ndjson", named(2, text))
+        out.append((f"generated B.{text}", path, False, None,
+                    ["ok decls=7", "constants=3 wrong=0"], ["outcome="]))
+    # (the culprit is printed by its last part)
+    for pre, text, whole in ((2, "recOn", "B.recOn"), (2, "rec_", "B.rec_"),
+                             (2, "rec_x", "B.rec_x"), (7, "rec", "t.rec"),
+                             (3, "rec", "A.mk.rec")):
+        path = write(folder, f"undeclared-{pre}-{text}.ndjson", named(pre, text))
+        out.append((f"undeclared {whole}", path, False, None,
+                    ["why unknown constant", "outcome=1", f"culprit={text}\n"],
+                    ["ok decls"]))
     # The unchanged files load.
     out.append(("identity", IDENTITY, True, None,
                 ["ok decls=1", "found=1", "constants=0 wrong=0"], ["outcome="]))

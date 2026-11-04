@@ -313,7 +313,7 @@ def check_unsupported_declaration(kind, value, names, name_keys, node_count):
     if kind == "inductive":
         for key, expected in INDUCTIVE_FIELDS.items():
             objects(item[key], expected)
-        if not item["types"]:
+        if not item["types"] and (item["ctors"] or item["recs"]):
             fail("inductive block without types")
         for recursor in item["recs"]:
             objects(recursor["rules"], RECURSOR_RULE_FIELDS)

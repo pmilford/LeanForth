@@ -291,10 +291,14 @@ lf-term-count @ constant count-before
 T{ 2 lf-open-fuel ! 9 subst 2 lf-instantiate-rev lf-term-count @ lf-open-fuel @
   -> -1 outcome-exhausted count-before 0 }T
 T{ 3 lf-open-fuel ! 9 subst 2 lf-instantiate-rev nip lf-open-fuel @ -> outcome-ok 0 }T
-\ A pass in progress refuses another, changing nothing.
-1 lf-open-frames frame-depth !
+\ A pass in progress refuses another, changing nothing; after a THROW out
+\ of a pass (which leaves the record busy), lf-open-reset makes it idle
+\ again and the next pass runs.
+: thrower ( -- ) 1 lf-open-frames frame-depth ! -77 throw ;
+T{ ' thrower catch -> -77 }T
 T{ 9 2 rev -> -1 outcome-invalid }T
-lf-open-frames frame-reset
+lf-open-reset
+T{ lf-open-frames frame-busy? 9 2 rev nip -> false outcome-ok }T
 \ No depth limit (plan task 6.2.0): a chain lf-walk-room + 1 deep is
 \ opened, on a stack that grows; a growth the heap refuses is full.
 : deep ( -- node ) 2 lf-walk-room 0 do 1 swap lf-term-lam 0= abort" deep" loop ;

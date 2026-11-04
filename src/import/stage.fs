@@ -18,7 +18,10 @@
 \ stage-unmap). Sealing resolves every constant (C4, P3): a constant's
 \ payload becomes its declaration's number + 1 when exactly one
 \ declaration has its name, and 0 when several have (the array and the
-\ chain then decide); a constant whose name no declaration has is invalid.
+\ chain then decide); a constant whose name no declaration has is invalid,
+\ unless it names a recursor Lean's kernel generates for an inductive type
+\ of the file (ADR 0016 amendment 1: P.rec or P.rec_<digits>, P a type
+\ declaration's name), which resolves as several do, at the check.
 \
 \ Life cycle, the reading and sealing steps refused (invalid) out of order:
 \   stage-init     an empty stage; the expression table starts at 2^log2
@@ -187,9 +190,36 @@ require ./stage-records.fs
   dup 1- rot staged-prev@ if drop 0 then true ;
 : unknown-constant ( n stage -- outcome )
   tuck stage-culprit ! c" unknown constant" swap stage-why ! outcome-invalid ;
+\ ADR 0016 amendment 1 (2026-11-04; the owner's condition: exactly Lean's
+\ verdicts): Lean's add_inductive adds the recursors it generates, T.rec
+\ for each type T of a block and T.rec_1, T.rec_2, ... for a nested one,
+\ whatever the file holds, so a file may use one it never declares. Such
+\ a name -- last part rec or rec_<digits>, its prefix the name of a type
+\ declaration of the file -- is kept, as a name several declarations
+\ have: the checked environment resolves it at the check (the recursor
+\ the block generated, or no constant). Any other name no declaration
+\ has stays an unknown constant.
+: generated-digits? ( c-addr u -- flag )
+  dup 0> >r base @ >r decimal 0 0 2swap >number >r 2drop drop r>
+  r> base ! 0= r> and ;
+: generated-text? ( c-addr u -- flag )
+  2dup s" rec" compare 0= if 2drop true exit then
+  2dup 4 min s" rec_" compare if 2drop false exit then 4 /string generated-digits? ;
+: type-decl? ( d stage -- flag ) staged-kind@ kind-type = ;
+: type-named? ( n stage -- flag )
+  2dup stage-by-name slab-count u< 0= if 2drop false exit then
+  tuck stage-by-name fields@ begin ?dup while
+    1- 2dup swap type-decl? if 2drop true exit then over staged-prev@
+  repeat drop false ;
+: generated-name? ( n stage -- flag )
+  2dup stage-tier name-tag@ tag-name-str <> if 2drop false exit then
+  2dup stage-tier name-text@ generated-text? 0= if 2drop false exit then
+  tuck stage-tier name-prefix@ swap type-named? ;
+: resolved ( u e stage -- outcome ) stage-tier expr-resolve! outcome-ok ;
 : const-resolve ( e stage -- outcome )
-  2dup stage-tier expr-a@ over resolution if -rot stage-tier expr-resolve! outcome-ok
-  else tuck stage-tier expr-a@ swap unknown-constant then ;
+  2dup stage-tier expr-a@ over resolution if -rot resolved exit then
+  2dup stage-tier expr-a@ over generated-name? if 0 -rot resolved exit then
+  tuck stage-tier expr-a@ swap unknown-constant ;
 : record-resolve ( e stage -- outcome )
   2dup stage-tier expr-tag@ tag-const = if const-resolve else 2drop outcome-ok then ;
 : consts-resolve ( stage -- outcome ) ['] record-resolve exprs-walk ;

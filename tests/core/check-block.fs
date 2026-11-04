@@ -175,10 +175,10 @@ T{ s" replay-or.recursor-large-elimination" verdict-field
 T{ s" params.constructor-binder-defeq" verdict nip -> outcome-unknown 9 }T
 T{ s" ind.nat" verdict -> outcome-unsupported lf-diag-block-scope 1 }T
 T{ s" mutual.single-ctor-props" verdict -> outcome-unsupported lf-diag-block-scope 1 }T
-\ An empty block (its file named .invalid, as no export holds one) is
-\ refused by the reader before any check.
-: empty-block ( -- c-addr u ) s" tests/core/check-block-cases/names.empty-block.invalid" ;
-T{ empty-block staged unstage -> outcome-invalid }T
+\ An empty block: the importer stages it as one declaration (ADR 0016
+\ amendment 1), which the check rejects at step 4 as Lean's kernel does
+\ (emptyBlock).
+T{ s" names.empty-block" verdict -> outcome-rejected lf-diag-empty-block 4 }T
 \ Two variables of a unit-like structure: Lean's is_def_eq_unit_like
 \ equates them, so D3/D5 must not call P x and P y apart (P4).
 T{ s" unit.punit-variables" verdict nip -> outcome-unknown 8 }T
@@ -288,16 +288,18 @@ T{ s" after.recursor-then-def-rec" verdict drop
    -> outcome-rejected lf-diag-already-declared }T
 T{ s" after.recursor-left-out-then-use-and-def-rec" verdict drop
    -> outcome-rejected lf-diag-already-declared }T
-\ A use of it before that definition (declaration 3) is unknown: Lean's
-\ kernel holds the recursor, no slot does. A file that uses it and
-\ declares it nowhere is refused by the importer.
+\ A use of it before that definition (declaration 3) is accepted, as
+\ Lean accepts it: Lean's kernel holds the recursor it generated, and
+\ LeanForth builds the same again from the recipe on IE.B's slot (ADR
+\ 0015 decision 12); so is a use in a file that declares IE.B.rec nowhere
+\ (ADR 0016 amendment 1), and one without its universe argument is
+\ rejected (L1), as Lean's universeArity.
 : decl-verdict ( c-addr u d -- outcome code )
   >r case-path staged ok? must fuel checked r> result drop finish ;
-T{ s" after.recursor-left-out-then-use-and-def-rec" 3 decl-verdict
-   -> outcome-unknown lf-diag-generated-recursor }T
-: use-unclosed ( -- c-addr u )
-  s" tests/core/check-block-cases/after.recursor-left-out-then-use-rec.invalid" ;
-T{ use-unclosed staged unstage -> outcome-invalid }T
+T{ s" after.recursor-left-out-then-use-and-def-rec" 3 decl-verdict -> outcome-ok 0 }T
+T{ s" after.recursor-left-out-then-use-rec" verdict drop -> outcome-ok 0 }T
+T{ s" after.recursor-left-out-then-use-rec-no-level" verdict drop
+   -> outcome-rejected lf-diag-level-count }T
 \ A rejected block's type is no constant for a later declaration (Lean's
 \ unknownConstant). The type is visible to inference only within the
 \ block's own check: the flag is clear after it, and a flag left set
@@ -346,6 +348,74 @@ T{ s" rec" s" ind.nat" held-as -> outcome-unsupported }T
 T{ s" rec_1" s" ind.nat" held-as -> outcome-unsupported }T
 T{ s" rec_1" s" ind.bool" held-as -> outcome-rejected }T
 T{ s" recOn" s" ind.bool" held-as -> outcome-rejected }T
+T{ s" rec_x" s" ind.nat" held-as -> outcome-rejected }T
+\ A block rejected only by B3 (review rvI21 R2-1; ADR 0015 decision 11):
+\ Lean's replay compares after its kernel added the block, so the type's,
+\ the constructors' and T.rec's names are taken (a later definition of one
+\ is alreadyDeclared) and later uses of them are accepted, as Lean's later
+\ declarations meet the kernel's constants; the file's recursor, renamed,
+\ is neither taken nor usable. A block the kernel rejects (U1) takes no
+\ name.
+T{ s" after.b3-renamed-then-def-rec" verdict drop
+   -> outcome-rejected lf-diag-already-declared }T
+T{ s" after.b3-ctor-then-def-rec" verdict drop
+   -> outcome-rejected lf-diag-already-declared }T
+T{ s" after.b3-ctor-then-def-type" verdict drop
+   -> outcome-rejected lf-diag-already-declared }T
+T{ s" after.b3-ctor-then-def-constructor" verdict drop
+   -> outcome-rejected lf-diag-already-declared }T
+T{ s" after.b3-renamed-then-def-renamed" verdict drop -> outcome-ok 0 }T
+T{ s" after.rejected-block-then-def-rec" verdict drop -> outcome-ok 0 }T
+T{ s" after.b3-ctor-then-use" verdict drop -> outcome-ok 0 }T
+T{ s" after.b3-ctor-then-use-constructor" verdict drop -> outcome-ok 0 }T
+T{ s" after.b3-ctor-then-use-rec" verdict drop -> outcome-ok 0 }T
+T{ s" after.b3-renamed-then-use-rec" verdict drop -> outcome-ok 0 }T
+T{ s" after.b3-renamed-then-use-renamed" verdict drop
+   -> outcome-rejected lf-diag-unknown-constant }T
+\ Its constructors take the type's universe parameters (Lean's kernel
+\ declares them so), not their file records' (B3 field 1).
+: ctor-arity ( -- n )
+  s" replay-bool.constructor-universe-added" case-path staged ok? must fuel checked
+  2 lf-env-params drop nip finish ;
+T{ ctor-arity -> 0 }T
+\ The generated recursor on several shapes (review rvI21 R4-2): each block
+\ with its recursors left out, then def T.useRec.{us} : <Lean's type of
+\ T.rec> := @T.rec.{us}, accepted as Lean accepts it: And (fields, large
+\ elimination), Or and Exists (Prop only), True (K), an empty Prop, a
+\ Unit, Pr (two universes and fields), a predicate with a Type field
+\ (Prop only), Eq (indices, K) and a family with an index; and a use at
+\ level 1 in a definition and during another block's check, where the
+\ motive's universe is no level of the file (R4-1). A type that is a
+\ Sort only after whnf leaves no recipe: unknown (task 4.2.2).
+: used ( c-addr u -- outcome code ) verdict drop ;
+T{ s" after.and-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.or-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.exists-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.true-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.empty-prop-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.unit-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.universe-max-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.predicate-any-field-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.eq-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.index-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.many-universes-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.recursor-left-out-then-lookup-in-def" used -> outcome-ok 0 }T
+T{ s" after.recursor-left-out-then-lookup-during-block" used -> outcome-ok 0 }T
+T{ s" after.redex-type-left-out-then-use-rec" used
+   -> outcome-unknown lf-diag-generated-recursor }T
+\ The marks on the slots: the type and constructors, not the recursor.
+: added? ( d -- flag ) lf-env lf-env-slot lf-slot-added? ;
+: marks ( -- f0 f1 f2 f3 )
+  s" after.b3-renamed-then-def-rec" case-path staged ok? must fuel checked
+  0 added? 1 added? 2 added? 3 added? finish ;
+T{ marks -> true true true false }T
+\ The publisher's re-check: def IE.B claimed ok after the B3-rejected
+\ block (its name, part 4) is refused.
+: claimed-type ( -- outcome outcome )
+  s" after.b3-ctor-then-def-type" case-path staged ok? must
+  fuel fresh ['] record 0 lf-env-step 2drop
+  3 claim lf-env-view ok? must 3 lf-env-outcome finish ;
+T{ claimed-type -> outcome-invalid outcome-invalid }T
 \ An accepted block's warnings stay on its slots (review rvI21 M2).
 : slot-warned ( c-addr u -- bits outcome )
   case-path staged ok? must fuel checked final-decl lf-env-warnings finish ;

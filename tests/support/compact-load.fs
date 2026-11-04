@@ -300,14 +300,15 @@ variable decl-top  variable types-seen  variable ctors-seen  variable recs-seen
   ." name lookups by text: found=" 0 .r space .ms cr ;
 
 \ ---- Resolutions: every constant of the input against the array. One
-\ declaration of its name: the payload names it; several: payload 0.
+\ declaration of its name: the payload names it; several: payload 0;
+\ none: payload 0, a recursor Lean generates (ADR 0016 amendment 1).
 : decls-named ( n -- k )
   compact-stage stage-find 0= if 0 exit then
   1 begin swap compact-stage stage-previous while swap 1+ repeat ;
 : resolution-ok? ( e -- flag )
   dup compact-tier expr-a@ dup decls-named rot compact-tier expr-payload@
   over 1 = if nip ?dup if 1- compact-stage staged-name@ = else drop false then
-  else 0= swap 1 > and nip then ;
+  else 0= swap ?dup if 1 > and nip else swap compact-stage generated-name? and then then ;
 : resolutions ( -- constants wrong )
   0 0 compact-tier tier-exprs cons-numbers 0 ?do
     i compact-tier expr-tag@ tag-const = if

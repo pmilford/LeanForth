@@ -224,6 +224,7 @@ test-lib:
 
 test-core:
 	$(RUN) $(GFORTH) tests/core/terms.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/core/infer_typed_trial.py
 	$(RUN) $(GFORTH) tests/core/tagged-sort-boundary.fs
 	$(RUN) $(GFORTH) tests/core/symbolic-session.fs
 	$(RUN) $(GFORTH) tests/core/symbolic-session-extra.fs
@@ -460,6 +461,7 @@ test-present:
 	$(RUN) $(GFORTH) tests/present/term-printer.fs
 	$(RUN) $(GFORTH) tests/present/print-sweep.fs
 	$(RUN) $(GFORTH) tests/present/print-deep.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/present/test_outline_block.py
 	GFORTH=$(GFORTH) $(RUN) python3 tests/present/check_golden.py
 
 # The printer's Unicode output against pinned Lean's own printing, and its
@@ -569,6 +571,7 @@ DOC_EXAMPLE_PAGES += docs/programming/CHECKED_ENVIRONMENT.md
 test-check-block:
 	$(RUN) $(GFORTH) tests/core/check-block.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/core/test_block_capacity.py
+	GFORTH=$(GFORTH) $(RUN) python3 tests/core/test_empty_block.py
 
 .PHONY: test-check-block
 test: test-check-block
@@ -786,6 +789,10 @@ test-compact-faults:
 # into the compact store and re-emitted: all 6.4 million name, level,
 # expression and declaration records equal the reader's dump (about 1.5
 # minutes with gforth-fast).
+# It exports and stages all of Init, about 1.5 minutes here but close to the
+# 600 s test limit on CI's smaller runners with 8 jobs at once (CI runs
+# 41900142434 and 41902902037 timed out), so it alone gets 1,500 s.
+reference-compact-init: RUN := timeout 1500
 reference-compact-init:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/core/compact-init.sh
 

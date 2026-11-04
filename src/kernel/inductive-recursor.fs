@@ -218,7 +218,14 @@ end-structure
 \ failure (full, exhausted, invalid), the terms then unusable.
 : lf-rcr-minors ( -- ) lf-rcr-m 0 ?do i lf-rcr-minor i lf-ind-minor-type ! loop ;
 : lf-rcr-rules ( -- ) lf-rcr-m 0 ?do i lf-rcr-rule i lf-ind-rule ! loop ;
-: lf-recursor-build ( -- outcome )
-  outcome-ok lf-rcr-state lf-rcr-status ! lf-rcr-levels
+: lf-rcr-terms ( -- outcome )
   lf-rcr-motive-type lf-rcr-state lf-rcr-motive ! lf-rcr-minors
   lf-rcr-type lf-ind-state lf-ind-rec-type ! lf-rcr-rules lf-rcr-state lf-rcr-status @ ;
+: lf-recursor-build ( -- outcome )
+  outcome-ok lf-rcr-state lf-rcr-status ! lf-rcr-levels lf-rcr-terms ;
+\ The same at given levels: the block's constants at the level pairs the
+\ caller put in the pair cells (lf-rcr-pair, as many as the block has
+\ universe parameters) and the motive's Sort at lf-ind-elim, instead of
+\ the block's own parameters and the motive's universe: the recursor's
+\ type instantiated (generated-recursor.fs).
+: lf-recursor-build-at ( -- outcome ) outcome-ok lf-rcr-state lf-rcr-status ! lf-rcr-terms ;

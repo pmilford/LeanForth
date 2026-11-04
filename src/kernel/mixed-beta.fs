@@ -11,6 +11,7 @@ require ../core/derivation-log.fs
 require ../core/diagnostics.fs
 require ../core/terms.fs
 require ./mixed-instantiate.fs
+require ./mixed-open.fs
 require ./mixed-rebuild.fs
 require ./mixed-shift.fs
 
@@ -99,14 +100,16 @@ require ./mixed-shift.fs
 : lf-mixed-beta ( index identity fuel -- index identity status )
   lf-log? if lf-mbeta-logged else lf-mbeta-pass then ;
 
-\ Recovery. A THROW out of any of the three rebuilding passes (only a
-\ fault: their depth no longer uses the host's stacks) leaves their
-\ records busy, so that every later pass
-\ refuses as invalid, and leaves in the term store whatever the pass
-\ appended. The code that catches it must discard those nodes (reset the
-\ store, or restore lf-term-count) and then make the records idle again.
+\ Recovery. A THROW out of any of the four rebuilding passes -- beta,
+\ instantiate, shift and mixed-open's substitutions (plan task 4.2.2a);
+\ only a fault, as their depth no longer uses the host's stacks -- leaves
+\ their records busy, so that every later pass refuses as invalid, and
+\ leaves in the term store whatever the pass appended. The code that
+\ catches it must discard those nodes (reset the store, or restore
+\ lf-term-count) and then make the records idle again.
 : lf-mixed-rebuild-reset ( -- )
-  lf-mbeta-frames frame-reset lf-minst-frames frame-reset lf-mshift-frames frame-reset ;
+  lf-mbeta-frames frame-reset lf-minst-frames frame-reset lf-mshift-frames frame-reset
+  lf-open-reset ;
 
 \ Host stacks. The three passes run on their frames' explicit stacks
 \ (lib/frame.fs), whatever the depth (plan task 6.2.0): a beta step runs

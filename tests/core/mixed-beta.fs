@@ -155,7 +155,8 @@ T{ 60 twin 100000 lf-mixed-beta fuels lf-term-count @ ->
 \ Records in use. A record left busy (by a THROW out of a pass, or a pass
 \ asked again from inside itself) refuses its pass as invalid, changing
 \ nothing a running pass relies on, so the outer pass fails closed;
-\ lf-mixed-rebuild-reset makes the three records idle again.
+\ lf-mixed-rebuild-reset makes the four records idle again (mixed-open's
+\ too, plan task 4.2.2a).
 setup
 T{ 3 0 lf-term-app -> 4 true }T
 T{ 4 lf-term-serial @ 200 lf-mixed-beta -> 0 cid @ outcome-ok }T
@@ -164,8 +165,10 @@ T{ 4 lf-term-serial @ 200 lf-mixed-beta lf-term-count @ -> -1 0 outcome-invalid 
 1 lf-mbeta-frames frame-depth !  1 lf-mshift-frames frame-depth !
 T{ 4 lf-term-serial @ 200 lf-mixed-beta -> -1 0 outcome-invalid }T
 T{ 0 cid @ 0 1 9 lf-mixed-shift -> -1 0 outcome-invalid }T
+1 lf-open-frames frame-depth !
 lf-mixed-rebuild-reset
 T{ lf-mbeta-frames frame-busy? lf-minst-frames frame-busy? lf-mshift-frames frame-busy? ->
   false false false }T
+T{ lf-open-frames frame-busy? -> false }T
 T{ 4 lf-term-serial @ 200 ' lf-mixed-beta rs-checked -> 0 cid @ outcome-ok }T
 bye

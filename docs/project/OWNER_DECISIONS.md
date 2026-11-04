@@ -640,3 +640,37 @@ ADR 0019 Amendment 1 (agent IR2; probes in
   an isolation check refuses other code touching the log. The owner
   accepted the measured memory: about 218 KB per context while the log is
   on (D3 had estimated about 150 KB), under 1 KB while off.
+
+## Free variables approved (2026-11-04)
+
+- **Plan task 4.2.2a approved [kernel]** (ADR 0014 Q2: free variables, the
+  local context, `instantiate_rev`/`abstract`; inference enters binders one
+  at a time). Independent review rvD2A, two rounds, every finding closed;
+  the chain typing proved equal to Lean's `mk_pi`; a well-typed random
+  trial (now in `make test`) agrees with the old code and an independent
+  typing model. Accepted cost: checking is 10–25% slower until the
+  loose-variable range of ADR 0014 Q12 is built.
+
+## Data types, first step, approved with a condition (2026-11-04)
+
+- **Plan task 5.2.1a approved [kernel][import]** (non-recursive inductive
+  blocks; independent review rvI21, three rounds, the last clean). The
+  owner: "I think approve, but I am concerned about the difference with
+  Lean - do we have to be different? if this is better, it should be with
+  a flag, I'd like 100% compatible." None of the differences is better
+  than Lean; each is a cautious gap (refused or unknown where Lean
+  accepts). Condition recorded: close them so the default is 100% Lean —
+  (1) a file that uses `T.rec` without declaring it: use LeanForth's own
+  generated recursor, as Lean's kernel does; (2) a block rejected at the
+  final comparison (B3): its type and constructors stay usable afterwards,
+  as in Lean's environment; (3) the P4 guard on unit-like structures:
+  closed by task 5.2.2's port of Lean's rules. Any stricter behaviour only
+  behind an opt-in flag.
+
+## How progress is described (2026-11-04)
+
+- The owner: "be a bit more clear that we are working on an in progress
+  design that will be completed and compatible at a later step!" Every
+  report and gate question presents a step as part of an unfinished design
+  and names, for each temporary gap from Lean (an *unknown* or a refusal
+  where Lean decides), the plan task that makes it identical to Lean.

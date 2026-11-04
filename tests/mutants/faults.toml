@@ -429,8 +429,8 @@ reason = "E4: kind, safety, value and parameters are not re-checked"
 [[fault]]
 id = "pub-verdict-trusts-check"
 file = "src/kernel/env-publish.fs"
-old = '''  drop lf-recheck if lf-recheck-failed else outcome-ok then ;'''
-new = '''  drop outcome-ok ;'''
+old = '''  lf-recheck if nip lf-recheck-failed false lf-env-added! then ;'''
+new = ''' ;'''
 test = "$GFORTH tests/core/environment.fs"
 reason = "E4: the publisher trusts an ok check without any re-check"
 
@@ -445,8 +445,10 @@ reason = "a pool without room aborts in the publisher (invalid) instead of answe
 [[fault]]
 id = "pub-final-before-outcome"
 file = "src/kernel/env-publish.fs"
-old = '''  lf-env-may-write 2dup lf-span-outcome! lf-env-before-final swap lf-span-final! ;'''
-new = '''  lf-env-may-write over lf-span-final! 2dup lf-span-outcome! lf-env-before-final nip ;'''
+old = '''  lf-env-may-write 2dup lf-span-outcome! over lf-span-added! lf-env-before-final
+  swap lf-span-final! ;'''
+new = '''  lf-env-may-write over lf-span-final! 2dup lf-span-outcome! over lf-span-added!
+  lf-env-before-final nip ;'''
 test = "$GFORTH tests/core/environment.fs"
 reason = "E4 step 3: the slot is marked final before its outcome is written"
 
@@ -787,10 +789,50 @@ reason = "4.2.2a: a lambda does not give its binder back to the scope"
 [[fault]]
 id = "infer-chain-unclosed"
 file = "src/kernel/mixed-infer.fs"
-old = '''  if lf-minfer-good? if lf-minfer-closed then then ;'''
+old = '''  if lf-minfer-good? if lf-minfer-close then then ;'''
 new = '''  drop ;'''
 test = "$GFORTH tests/core/mixed-infer.fs"
 reason = "4.2.2a: the top of a chain of lambdas under binders keeps the outer binders' loose bound variables in its type instead of closing them with their free variables"
+
+[[fault]]
+id = "infer-arg-unclosed"
+file = "src/kernel/mixed-infer.fs"
+old = '''  lf-minfer-close ok-then? if lf-minfer-substitute else nip no-result then ;'''
+new = '''  lf-minfer-substitute ;'''
+test = "python3 tests/core/infer_typed_trial.py"
+reason = "4.2.2a (review rvD2A): an application's argument, read under the scope, is put into the Pi body without being closed, so its loose bound variables end up in a closed type"
+
+[[fault]]
+id = "infer-domain-unclosed"
+file = "src/kernel/mixed-infer.fs"
+old = '''  swap lf-minfer-close ok-then? if swap lf-minfer-bind else nip then ;'''
+new = '''  lf-minfer-bind ;'''
+test = "python3 tests/core/infer_typed_trial.py"
+reason = "4.2.2a (review rvD2A): a binder's free variable gets its domain as read, not closed with the scope's free variables, so a dependent domain's type is open"
+
+[[fault]]
+id = "infer-abstract-innermost"
+file = "src/kernel/mixed-infer.fs"
+old = '''  >r 1 r@ frame-pick -rot lf-minfer-good? if swap lf-minfer-abstract else rot drop then'''
+new = '''  >r 1 r@ frame-pick -rot lf-minfer-good? if swap drop lf-minfer-context-depth @ 1- lf-minfer-abstract else rot drop then'''
+test = "python3 tests/core/infer_typed_trial.py"
+reason = "4.2.2a (review rvD2A): the bottom of a chain of lambdas abstracts its body's type over the innermost lambda's free variable only, leaving the others free in the chain's type"
+
+[[fault]]
+id = "lctx-never-dropped"
+file = "src/core/local-context.fs"
+old = ''': lf-lctx-drop ( mark -- ) begin dup lf-lctx-above? while -1 lf-lctx-count +! repeat drop ;'''
+new = ''': lf-lctx-drop ( mark -- ) drop ;'''
+test = "$GFORTH tests/core/infer-deep.fs"
+reason = "4.2.2a (review rvD2A F3): discarded scratch keeps its local-context entries, which then grow with the binders inference opens, not with the live nodes"
+
+[[fault]]
+id = "open-reset-idle"
+file = "src/kernel/mixed-open.fs"
+old = ''': lf-open-reset ( -- ) lf-open-frames frame-reset ;'''
+new = ''': lf-open-reset ( -- ) ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "4.2.2a (review rvD2A F4): after a THROW out of a mixed-open pass the record stays busy, so every later instantiate, instantiate_rev and abstract refuses"
 
 [[fault]]
 id = "infer-chain-top-ignored"
@@ -843,16 +885,16 @@ reason = "4.2.2a, 6.2.0: a binder is opened without room on the scope (past its 
 [[fault]]
 id = "rej-p2-open-term"
 file = "src/kernel/mixed-infer.fs"
-old = '''  lf-minfer-closed ok-then? 0= if drop false exit then'''
+old = '''  lf-minfer-close ok-then? 0= if drop false exit then'''
 new = ''''''
 test = "$GFORTH tests/core/definite-rejection.fs"
 reason = "4.2.2a: P2 infers a term of the analysis without closing it first"
-equivalent = "inference reads a loose bound variable k under the scope as the scope's free variable k places from the top, and P2 runs with the analysis's D4 binders on the scope, so inferring the open term is inferring its closed copy: the same types, only less scratch (caught under the telescope design of 5053a98, where inference read only closed terms)"
+equivalent = "inference reads a loose bound variable k under the scope as the scope's free variable k places from the top, and P2 runs with the analysis's D4 binders on the scope, so inferring the open term is inferring its closed copy: the same types, only less scratch (caught under the telescope design of 5053a98, where inference read only closed terms); the closing stays so that what P2 infers is a closed term, the key a future inference cache needs (review rvD2A F2)"
 
 [[fault]]
 id = "rej-d4-domain-open"
 file = "src/kernel/mixed-infer.fs"
-old = '''  lf-minfer-closed ok-then? if 0 lf-minfer-bind then ;'''
+old = '''  lf-minfer-close ok-then? if 0 lf-minfer-bind then ;'''
 new = '''  0 lf-minfer-bind ;'''
 test = "$GFORTH tests/core/definite-rejection.fs"
 reason = "4.2.2a: D4's free variable gets the right domain unclosed, with loose bound variables of the analysis's outer binders, so P2 cannot infer its type"
@@ -3365,8 +3407,9 @@ reason = "rvI21 M1: the publisher never re-checks a block's members; a block cla
 [[fault]]
 id = "ind-visible-never-reset"
 file = "src/kernel/check-block.fs"
-old = '''  lf-blk-begin dup ok? if drop lf-blk-run then false lf-ind-state lf-ind-visible ! ;'''
-new = '''  lf-blk-begin dup ok? if drop lf-blk-run then ;'''
+old = '''  lf-blk-begin dup ok? if drop lf-blk-checked then
+  false lf-ind-state lf-ind-visible ! ;'''
+new = '''  lf-blk-begin dup ok? if drop lf-blk-checked then ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvI21 M1: the type stays visible to inference after its block's check (the flag is still set afterwards)"
 
@@ -3407,16 +3450,16 @@ reason = "rvI21 B2: N2 ignores Lean's generated recursor; def IE.B.rec after IE.
 [[fault]]
 id = "env-generated-rec-unknown-constant"
 file = "src/kernel/environment.fs"
-old = '''    outcome-ok of nip lf-env-generated endof'''
-new = '''    outcome-ok of drop lf-env-unknown-constant endof'''
+old = '''    outcome-ok of nip lf-env-genrec endof'''
+new = '''    outcome-ok of drop lf-env-unknown-constant no-result endof'''
 test = "$GFORTH tests/core/check-block.fs"
-reason = "rvI21 B2: a use of the generated recursor, which Lean's kernel holds, is rejected as an unknown constant instead of unknown"
+reason = "rvI21 B2: a use of the generated recursor, which Lean's kernel holds, is rejected as an unknown constant"
 
 [[fault]]
 id = "env-aux-rec-not-held"
 file = "src/kernel/environment.fs"
-old = '''  lf-name-text 2dup s" rec" compare 0= if 2drop 1 else lf-env-aux-rec? 2 and then ;'''
-new = '''  lf-name-text 2dup s" rec" compare 0= if 2drop 1 else 2drop 0 then ;'''
+old = '''  if 2drop lf-rec-main else lf-env-aux-rec? lf-rec-aux and then ;'''
+new = '''  if 2drop lf-rec-main else 2drop 0 then ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvI21 B2: T.rec_1, an auxiliary recursor of a nested (unsupported) block, is not held, so a definition of it could be accepted"
 
@@ -3427,6 +3470,234 @@ old = ''': lf-env-aux-held ( d class -- d class ) dup ok? if 2drop -1 outcome-re
 new = ''': lf-env-aux-held ( d class -- d class ) ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvI21 B2: T.rec_1 held by an accepted non-nested T, for which Lean generates no such recursor; a definition of it would be rejected"
+
+[[fault]]
+id = "env-aux-digits-any"
+file = "src/kernel/environment.fs"
+old = '''  dup 0> >r base @ >r decimal lf-env-number-rest r> base ! 0= r> and ;'''
+new = '''  2drop true ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 round 2: any rec_<text> counts as an auxiliary recursor; IE.N.rec_x is held by the unsupported IE.N"
+
+[[fault]]
+id = "ind-b3-not-added"
+file = "src/kernel/check-block.fs"
+old = '''  dup outcome-rejected = lf-block-step@ lf-blk-b3-step = and lf-env-added! ;'''
+new = '''  false lf-env-added! ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 R2-1: a block rejected by B3 takes no name; def IE.B.rec after it is accepted where Lean's kernel already added IE.B.rec"
+
+[[fault]]
+id = "ind-added-any-step"
+file = "src/kernel/check-block.fs"
+old = '''  dup outcome-rejected = lf-block-step@ lf-blk-b3-step = and lf-env-added! ;'''
+new = '''  dup outcome-rejected = lf-env-added! ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 R2-1: a block the kernel rejects (U1) takes its names; def IE.Big.rec after it is rejected where Lean accepts it"
+
+[[fault]]
+id = "pub-added-not-written"
+file = "src/kernel/env-publish.fs"
+old = '''  lf-env-may-write 2dup lf-span-outcome! over lf-span-added! lf-env-before-final'''
+new = '''  lf-env-may-write 2dup lf-span-outcome! lf-env-before-final'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 R2-1: a B3-rejected block's marks are never published; def IE.B after it is accepted"
+
+[[fault]]
+id = "pub-added-recursor-too"
+file = "src/kernel/env-publish.fs"
+old = ''': lf-member-added? ( k -- flag ) lf-member-kind lf-kind-recursor <> lf-cand-added? and ;'''
+new = ''': lf-member-added? ( k -- flag ) drop lf-cand-added? ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 R2-1: the file's renamed recursor IE.B.recursor marked taken, which Lean's kernel never added; a later def of it is rejected"
+
+[[fault]]
+id = "env-added-unusable"
+file = "src/kernel/environment.fs"
+old = '''  dup lf-slot-added? swap lf-slot-recorded? and ;'''
+new = '''  drop false ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "owner condition, 2026-11-04: a B3-rejected block's type and constructors are not usable; a later use of IE.B is not accepted as Lean accepts it"
+
+[[fault]]
+id = "env-added-type-holds-nothing"
+file = "src/kernel/environment.fs"
+old = '''  ' lf-slot-type-added? , outcome-ok ,  ' lf-slot-type-undecided? , outcome-unknown ,'''
+new = '''  ' lf-slot-type-undecided? , outcome-unknown ,'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 R2-1: T.rec of a B3-rejected T is free; def IE.B.rec after it is accepted where Lean's kernel generated IE.B.rec"
+
+[[fault]]
+id = "pub-added-no-conflict"
+file = "src/kernel/env-publish.fs"
+old = '''  dup lf-slot-open? over lf-slot-added? or swap lf-slot-outcome@ outcome-rejected <> or ;'''
+new = '''  dup lf-slot-open? swap lf-slot-outcome@ outcome-rejected <> or ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 R2-1: the publisher's name re-check ignores the marks; def IE.B claimed ok after the B3-rejected block is published"
+
+[[fault]]
+id = "genrec-no-recipe"
+file = "src/kernel/check-block.fs"
+old = '''  lf-recursor-build dup ok? if lf-genrec-recipe lf-env-recipe! then ;'''
+new = '''  lf-recursor-build ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "ADR 0015 decision 12: no recipe is left, so a use of IE.B.rec that no slot holds is unknown where Lean accepts it"
+
+[[fault]]
+id = "pub-recipe-dropped"
+file = "src/kernel/env-publish.fs"
+old = '''  dup lf-slot-recipe!
+'''
+new = ''''''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "ADR 0015 decision 12: the recipe never reaches the block's slots; a use of the generated IE.B.rec is unknown"
+
+[[fault]]
+id = "genrec-arity-unchecked"
+file = "src/kernel/env-signature.fs"
+old = '''  dup lf-genrec-arity lf-envsig-count swap 2dup = if 2drop outcome-ok'''
+new = '''  dup lf-genrec-arity lf-envsig-count swap 2dup 2drop true if 2drop outcome-ok'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "ADR 0015 decision 12: L1 skipped for the generated recursor; IE.B.rec without its universe argument is not rejected as Lean's universeArity"
+
+[[fault]]
+id = "genrec-not-raw"
+file = "src/kernel/generated-recursor.fs"
+old = '''  lf-genrec-raw? 0= if 0 exit then'''
+new = '''  0 exit'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "ADR 0015 decision 12: every telescope counted as not raw; no recipe, so the generated recursor is never usable"
+
+[[fault]]
+id = "pub-ctor-params-kept"
+file = "src/kernel/env-publish.fs"
+old = '''  if lf-slot-type-params! else 2drop then ;'''
+new = '''  2drop ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "ADR 0015 decision 11: an added constructor keeps its file record's universe parameters, not the type's, as Lean's kernel declares it"
+
+[[fault]]
+id = "pub-added-params-all"
+file = "src/kernel/env-publish.fs"
+old = '''  lf-cand-added? if lf-member-kind lf-kind-inductive = else drop true then ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "ADR 0015 decision 11: the re-check reads the B3-rejected recursor's own repeated universe parameters, so the block is invalid instead of rejected"
+
+[[fault]]
+id = "stage-any-generated-name"
+file = "src/import/stage.fs"
+old = '''  2dup stage-tier name-text@ generated-text? 0= if 2drop false exit then'''
+new = ''''''
+test = "python3 tests/core/test_stage.py"
+reason = "ADR 0016 amendment 1: any undeclared P.x with P a type loads; B.recOn is no longer an unknown constant"
+
+[[fault]]
+id = "stage-any-generated-prefix"
+file = "src/import/stage.fs"
+old = '''  tuck stage-tier name-prefix@ swap type-named? ;'''
+new = '''  2drop true ;'''
+test = "python3 tests/core/test_stage.py"
+reason = "ADR 0016 amendment 1: rec under any prefix loads; t.rec (t a theorem) is no longer an unknown constant"
+
+[[fault]]
+id = "ndjson-empty-block-refused"
+file = "src/import/ndjson.fs"
+old = '''  >r over r@ no-types? r@ empty-block? 0= and'''
+new = '''  >r over r@ no-types?'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "ADR 0016 amendment 1: an empty inductive record is refused as malformed again, so the file is invalid where Lean's kernel rejects only the block (emptyBlock)"
+
+[[fault]]
+id = "ndjson-empty-siblings-ignored"
+file = "src/import/ndjson.fs"
+old = '''  c" ctors" over empty-list? swap c" recs" swap empty-list? and ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "ADR 0016 amendment 1: a block with no type but with constructors is read, not refused as malformed"
+
+[[fault]]
+id = "feed-empty-not-staged"
+file = "src/import/feed.fs"
+old = '''  over ok? over feed-members @ 0= and if nip feed-empty-block else drop then ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "ADR 0016 amendment 1: an empty block gets no declaration, so no verdict, where Lean rejects it (emptyBlock)"
+
+[[fault]]
+id = "ind-empty-not-opened"
+file = "src/kernel/inductive-block.fs"
+old = '''  lf-ind-take dup lf-ind-first@ = lf-ind-empty? and if drop 1 outcome-ok exit then'''
+new = '''  lf-ind-take'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "an empty block's declaration is invalid instead of rejected as Lean's emptyBlock"
+
+[[fault]]
+id = "ind-empty-accepted"
+file = "src/kernel/check-block.fs"
+old = '''  lf-ind-empty? if lf-blk-empty else lf-blk-run lf-blk-added then ;'''
+new = '''  lf-ind-empty? if outcome-ok else lf-blk-run lf-blk-added then ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "an empty block is accepted where Lean's kernel rejects it (emptyBlock)"
+
+[[fault]]
+id = "genrec-elim-always-large"
+file = "src/kernel/generated-recursor.fs"
+old = ''': lf-genrec-large? ( d -- flag )
+  lf-env lf-env-slot lf-slot-recipe @ lf-recipe-large and 0<> ;'''
+new = ''': lf-genrec-large? ( d -- flag ) drop true ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 R4-2: every generated recursor given a motive universe; a use of Or's or Exists' recursor (Prop only) is rejected for its universe count"
+
+[[fault]]
+id = "genrec-fields-zero"
+file = "src/kernel/generated-recursor.fs"
+old = '''    if drop outcome-invalid unloop exit then i lf-ind-nfields !'''
+new = '''    if drop outcome-invalid unloop exit then drop 0 i lf-ind-nfields !'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 R4-2: the rebuilt recursor gives every constructor no field; And's and Exists' generated recursors differ from Lean's"
+
+[[fault]]
+id = "genrec-raw-always"
+file = "src/kernel/generated-recursor.fs"
+old = ''': lf-genrec-raw? ( -- flag )
+'''
+new = ''': lf-genrec-raw? ( -- flag ) true exit
+'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 R4-2: a type that is a Sort only after whnf gets a recipe; its rebuilt recursor is invalid instead of unknown"
+
+[[fault]]
+id = "genrec-no-restore"
+file = "src/kernel/generated-recursor.fs"
+old = '''  lf-genrec-save lf-genrec-run lf-genrec-restore ;'''
+new = '''  lf-genrec-save lf-genrec-run ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 R4-2: the block record is not given back after a rebuild during another block's check, which then checks the wrong block"
+
+[[fault]]
+id = "genrec-result-ignored"
+file = "src/kernel/env-signature.fs"
+old = '''  dup 0< if drop lf-env-genrec-of lf-envsig-generated exit then'''
+new = ''''''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvI21 R4-5: a lookup's generated recursor (-1 ok) read as a slot; its uses are not accepted"
+
+[[fault]]
+id = "env-genrec-as-type-slot"
+file = "src/kernel/environment.fs"
+old = '''  dup lf-env-rebuildable? if nip 1+ lf-env-gen-state ! -1 outcome-ok exit then'''
+new = '''  dup lf-env-rebuildable? if nip dup 1+ lf-env-gen-state ! outcome-ok exit then'''
+test = "python3 tests/present/test_outline_block.py"
+reason = "rvI21 R4-5: a lookup of a generated T.rec answers T's slot, so the log resolves T.rec to T"
+
+[[fault]]
+id = "outline-reads-no-type"
+file = "src/present/proof-outline.fs"
+old = '''  lf-ol-decl lf-idecl-type @ dup 0< if drop s" none" lf-ol-line exit then'''
+new = '''  lf-ol-decl lf-idecl-type @'''
+test = "python3 tests/present/test_outline_block.py"
+reason = "rvI21 R4-6: the outline prints the type -1 of an empty block's declaration"
 
 [[fault]]
 id = "pub-rec-name-not-held"
