@@ -12,7 +12,9 @@ outcome that is not accepted among the case's own declarations, in input order,
 else accepted; a file the feed refuses gives the feed's outcome. A row `after.*`
 (declarations after a block, whose verdict is the last one's) is judged on the
 file's last declarations, those its marker names: an earlier declaration of the
-file may have the same name.
+file may have the same name. A case whose marker names nothing (the empty block,
+which declares no constant) is judged on its declarations without a name: the one
+the importer stages for an empty block (ADR 0016 amendment 1).
 
 Required of each row:
   - a row of a task done (DONE_TASKS): the table's `leanforth` column, except
@@ -36,38 +38,40 @@ TSV = "tests/reference/inductive-expected.tsv"
 FIXTURES = "tests/core/check-block-cases"
 DONE_TASKS = {"5.2.1a"}
 # Rows of task 5.2.1a that LeanForth cannot decide yet: id -> (outcome now,
-# reason). Each needs something outside task 5.2.1a; the table's own row with
-# "Nat" replaced, or the same rule reached without the dependency, is a row of
-# its own (the twin given), which must give the table's column.
+# reason, ending with the task that closes it). Each needs something outside
+# task 5.2.1a; the table's own row with "Nat" replaced, or the same rule
+# reached without the dependency, is a row of its own (the twin given), which
+# must give the table's column. Never accepted, never a verdict Lean does not
+# give.
 PENDING = {
     "universe.type-not-a-sort": ("unsupported",
-        "uses Nat, a recursive type (task 5.2.1b): K5; twin universe.type-not-a-sort-param"),
+        "uses Nat, a recursive type: K5; twin universe.type-not-a-sort-param."
+        " Closed by task 5.2.1b (recursive blocks)"),
     "result.other-type": ("unsupported",
-        "uses Nat (task 5.2.1b): K5; twin result.other-type-sort"),
+        "uses Nat: K5; twin result.other-type-sort. Closed by task 5.2.1b"),
     "params.constructor-mismatch": ("unsupported",
-        "uses Nat (task 5.2.1b): K5; twin params.constructor-mismatch-sort"),
+        "uses Nat: K5; twin params.constructor-mismatch-sort. Closed by task 5.2.1b"),
     "names.already-declared": ("unsupported",
-        "redeclares Nat, which is unsupported (task 5.2.1b): K5 on N2;"
-        " twin names.already-declared-earlier"),
+        "redeclares Nat, which is unsupported: K5 on N2; twin"
+        " names.already-declared-earlier. Closed by task 5.2.1b"),
     "params.constructor-binder-defeq": ("unknown",
-        "C2 needs id Type unfolded (delta, phase 4): K1; twin params.constructor-binder-beta"),
-    "names.empty-block": ("invalid",
-        "no declaration to check: an empty block record cannot come from lean4export (B0)"),
-    "after.b3-ctor-then-use": ("unknown",
-        "the block is rejected by B3 (replay's comparison), after Lean's kernel added it,"
-        " so Lean's later declarations meet IE.B; LeanForth publishes no usable IE.B and"
-        " answers unknown (diagnostic 77), never rejected (ADR 0015 decision 11)"),
-    "after.recursor-left-out-then-use-rec": ("invalid",
-        "the file names IE.B.rec but leaves it out, so the importer refuses the file before"
-        " any check (ADR 0016 C4: a constant must be declared in the file); Lean's replay"
-        " generates IE.B.rec. Twin after.recursor-left-out-then-use-and-def-rec, where the"
-        " use is unknown (diagnostic 77)"),
+        "C2 needs id Type unfolded: K1; twin params.constructor-binder-beta."
+        " Closed by task 4.2.2 (unfolding, delta)"),
+    "after.redex-type-left-out-then-use-rec": ("unknown",
+        "IE.U2's type is a Sort only after whnf, so its block left no recipe of the"
+        " generated recursor (ADR 0015 decision 12): a use of IE.U2.rec is unknown"
+        " (diagnostic 77); twin after.unit-left-out-then-use-rec. Closed by task 4.2.2"
+        " (whnf and unfolding at a lookup, steps 4.2.2b-e)"),
 }
 # Rows of later tasks whose file refers to a constant it does not declare,
-# which the importer refuses (invalid) before any check: id -> reason.
+# which the importer refuses (invalid) before any check, where Lean rejects
+# the declaration concerned: id -> reason, ending with the task that closes
+# it (5.2.6; the row's own task does not lift the importer's refusal).
 UNCLOSED = {
-    "names.reserved-nested-prefix": "the constructor names _nested.T, declared nowhere",
-    "quotinit.without-eq": "the quotient records' types name Eq, absent from the file",
+    "names.reserved-nested-prefix": "the constructor names _nested.T, declared nowhere."
+        " Closed by task 5.2.6 (verdicts per declaration for a file not closed)",
+    "quotinit.without-eq": "the quotient records' types name Eq, absent from the file."
+        " Closed by task 5.2.6 (verdicts per declaration for a file not closed)",
 }
 OUTCOME = {"accepted": "ok"}
 
@@ -140,8 +144,10 @@ def row_outcome(case_id, own, result):
     feed, decls, checks = result
     if feed is not None:
         return feed, ""
-    if case_id.startswith("after."):
-        mine = decls[-len(own):] if own else []
+    if not own:
+        mine = [d for d in decls if d[1] == ""]
+    elif case_id.startswith("after."):
+        mine = decls[-len(own):]
         if [d[1] for d in mine] != own:
             return "missing", "the last declarations are not the marker's"
     else:

@@ -442,6 +442,7 @@ test-present:
 	if [ -n "$$out" ]; then printf 'src/present/term-printer.fs printed while loading:\n%s\n' "$$out" >&2; exit 1; fi
 	$(RUN) $(GFORTH) tests/present/term-printer.fs
 	$(RUN) $(GFORTH) tests/present/print-sweep.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/present/test_outline_block.py
 	GFORTH=$(GFORTH) $(RUN) python3 tests/present/check_golden.py
 
 # The printer's Unicode output against pinned Lean's own printing, and its
@@ -551,6 +552,7 @@ DOC_EXAMPLE_PAGES += docs/programming/CHECKED_ENVIRONMENT.md
 test-check-block:
 	$(RUN) $(GFORTH) tests/core/check-block.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/core/test_block_capacity.py
+	GFORTH=$(GFORTH) $(RUN) python3 tests/core/test_empty_block.py
 
 .PHONY: test-check-block
 test: test-check-block

@@ -807,22 +807,21 @@ and its members' exported data into the input (`core/input.fs`,
    bits say which differ from LeanForth's); tasks 5.2.1b and 5.2.2, the
    first to read them, must use LeanForth's values.
 9. *A recursor missing from the block* (B4) is accepted, as Lean's replay
-   accepts it. Lean's kernel then holds the recursor it generated, which
-   LeanForth cannot publish (a slot is an input declaration, fixed when the
-   environment is made; the generated terms are the check's scratch), so
-   it reserves the name (review rvI21 B2, which found that a later
-   `def T.rec` was accepted where Lean answers `alreadyDeclared`): N2, the
-   publisher's re-check and the scheduler's readiness treat `T.rec` of an
-   earlier type `T` as declared when `T` is accepted (K5 when undecided or
-   unsupported), and `T.rec_<n>` likewise for a type not accepted; a later
-   use of it is *unknown* (diagnostic 77) where Lean would use its
-   kernel's recursor; and a file that uses it but declares it nowhere is
-   refused whole by the importer (*invalid*, before any check; this
-   corrects the earlier text, which said "rejected as an unknown
-   constant"). Only a tampered file can do any of this. *An empty block*
-   has no declaration to check: the reader refuses it (*invalid*). *A file
-   naming a constant it never declares* is refused by the importer
-   (*invalid*) before any check.
+   accepts it. Lean's kernel then holds the recursor it generated. Its
+   name is reserved (review rvI21 B2): N2, the publisher's re-check and the
+   scheduler's readiness treat `T.rec` of an earlier type `T` as declared
+   when `T` is accepted or added (decision 11; K5 when undecided or
+   unsupported), and `T.rec_<n>` likewise for a type not accepted. A later
+   use of it gets LeanForth's generated recursor, which is Lean's (decision
+   12), and a file that uses it but declares it nowhere is checked as Lean
+   checks it (ADR 0016 amendment 1; until then the importer refused it as
+   *invalid*). Only a tampered file can do any of this. *An empty block*
+   (no type, constructor or recursor) is staged by the importer as one
+   declaration without a name (ADR 0016 amendment 1), which the block
+   check rejects at step 4 as Lean's kernel does (`emptyBlock`,
+   diagnostic 78); the file goes on. *A file naming any other constant it
+   never declares*, or holding a block with no type but with constructors
+   or recursors, is refused by the importer (*invalid*) before any check.
 10. *Capacity.* A block of more than 512 constructors is *full*, found
     when it is opened, before anything is written for its constructors
     (review rvI21 B1). T1 also counts each constructor's binders, as
@@ -835,12 +834,51 @@ and its members' exported data into the input (`core/input.fs`,
     replay compares after its kernel added the block, so `T`, its
     constructors and `T.rec` are declared although the file's records are
     refused. The check marks such a block (`lf-env-added!`); the publisher
-    marks its type's and constructors' slots (not the file's recursors,
-    which the kernel may not have added); N2, the publisher's re-check and
-    the holders of `T.rec` count them as declared (*rejected*,
-    `alreadyDeclared`), and a later use is *unknown* (diagnostic 77), never
-    *rejected*, since Lean's later declarations meet the kernel's
-    constants. The block's own outcome stays *rejected*.
+    re-checks it as an accepted block and records its slots (declaration,
+    dependencies, axioms, the recipe of decision 12), and marks its type's
+    and constructors' slots added (not the file's recursors, which the
+    kernel may not have added), each constructor with the type's universe
+    parameters, as the kernel declares it. N2, the publisher's re-check and
+    the holders of `T.rec` count the names as declared (*rejected*,
+    `alreadyDeclared`); lookups find the added slots usable
+    (`lf-slot-usable?`), so a later use of the type, a constructor or
+    `T.rec` (decision 12) gets Lean's verdict (owner's condition of
+    2026-11-04: rows `after.b3-*`). The block's own outcome stays
+    *rejected*. Their types were checked by steps 1–12, so nothing from the
+    file is trusted that Lean does not trust.
+12. *The generated recursor for later declarations* (owner's condition of
+    2026-11-04). When no slot holds `T.rec` (the file left it out, or holds
+    a different or renamed one in a block rejected by B3), Lean's kernel
+    still holds the recursor it generated. The block check leaves a recipe
+    on the block's slots (`lf-env-recipe!`: whether the recursor eliminates
+    into every universe, and whether the telescope it walked after whnf was
+    the raw one). A later lookup of `T.rec` that no slot holds answers (-1
+    ok), the type's slot given apart (`lf-env-genrec-of`; review rvI21
+    R4-5: no caller, log or outline takes `T`'s slot for `T.rec`).
+    Inference applies L1 against the recursor's own universe parameters
+    (the motive's first), L2, records the block as the dependency, and
+    builds the recursor in its own scratch at the use's universe
+    arguments, from the block's input, with the same builder
+    (`generated-recursor.fs`; `inductive-recursor.fs`
+    `lf-recursor-build-at`): its type instantiated, as Lean's
+    `instantiate_type_lparams` gives it. No universe name of the
+    recursor's own is made, so its motive universe need not be a level of
+    the file (R4-1: such a file was *invalid*), and its universe parameters
+    have no limit of their own (R4-3: they were capped at 64). A block
+    whose type is a Sort only after whnf has no recipe: a use of its
+    `T.rec` stays *unknown* (diagnostic 77; row
+    `after.redex-type-left-out-then-use-rec`, a block such as `IE.U2 :
+    (fun x : Type 1 => x) Type`), a temporary gap until task 4.2.2 brings
+    whnf and unfolding to a lookup (steps 4.2.2b-e). The P4 guard of
+    decision 6 is a temporary gap until task 5.2.2 (structure eta and
+    unit-like comparison): it can only turn *rejected* into *unknown*.
+    The other temporary gaps of the default mode, each with its task:
+    the capacities (512 constructors, 64 parameters plus indices or
+    fields, 16 dependencies: *full*; task 6.2.0); a file that names an
+    undeclared constant or holds a block with constructors or recursors
+    but no type (*invalid* as a whole, where Lean rejects the declaration
+    concerned; task 5.2.6); a binder whose type's type is a Sort only
+    after whnf (*unknown*; task 4.2.2).
 
 **Evidence** (2026-11-04, Gforth 1.0.0, Lean 4.35.0):
 
@@ -866,9 +904,20 @@ and its members' exported data into the input (`core/input.fs`,
 - The review rvI21 (2026-11-04) added 19 rows (139 in all): its probes as
   Lean's replays, `optParam`/`outParam` fields, T0, T1 and N2 cases, and
   five rows of declarations after a block (decision 9). Its second round
-  added seven rows after a block (decision 11; 146 in all). Of task
-  5.2.1a's 70 rows, 62 give Lean's verdict and 8 are pending, each with
-  its reason; 47 planted faults are caught.
+  added seven rows after a block (decision 11; 146 in all). The owner's
+  condition (2026-11-04) added five more (151): uses after a block
+  rejected by B3 (the type, a constructor, `T.rec`, the renamed recursor)
+  and `T.rec` without its universe argument, with
+  `after.recursor-left-out-then-use-rec` and `after.b3-ctor-then-use` now
+  giving Lean's verdict (decisions 11, 12; ADR 0016 amendment 1). Of task
+  5.2.1a's 75 rows, 70 give Lean's verdict (27 accepted, 43 rejected, the
+  empty block among them since the importer stages it) and 5 are
+  pending, each naming the later task that closes it: 5.2.1b (four rows
+  using or redeclaring `Nat`) and 4.2.2 (one needing unfolding). The
+  review's fourth round added 15 rows that strip a block's recursors and
+  use the generated one (166 in all): of task 5.2.1a's 87 rows, 81 give
+  Lean's verdict (38 accepted, 43 rejected) and 6 are pending (5.2.1b
+  four, 4.2.2 two). 66 planted faults are caught.
 - `make test-check-block` (41 committed table files, 60 since the review; blocks published
   together; the reference export tampered field by field; fuel bisection;
   a full store), eighteen planted faults (`ind-*`) all caught, and the
