@@ -15,8 +15,10 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y gforth
       - name: Report host version
         run: gforth --version
+      # make runs 8 jobs at once by default; LEAN_CACHE=0: CI never replays
+      # cached Lean runs (it is also the Makefile's default when CI is set).
       - name: Run Forth and Python tests
-        run: make test GFORTH=gforth
+        run: make test GFORTH=gforth LEAN_CACHE=0
 
   pinned:
     name: Pinned Gforth 1.0.0 and Lean 4.35.0 (full suite)
@@ -54,4 +56,4 @@ jobs:
           "$HOME/.cache/leanforth/lean-4.35.0/bin/lean" --version
           python3 --version
       - name: Run Forth, Python and pinned-Lean tests
-        run: make check
+        run: make check LEAN_CACHE=0

@@ -276,7 +276,9 @@ class CacheTest(unittest.TestCase):
 
 class MakefileTest(unittest.TestCase):
     def recipe(self, *assignments):
-        env = {k: v for k, v in os.environ.items() if k not in ("CI", "LEAN_CACHE")}
+        # A fresh make: not the variables of a make that runs this test.
+        env = {k: v for k, v in os.environ.items()
+               if k not in ("CI", "LEAN_CACHE", "MAKEFLAGS", "MFLAGS", "MAKELEVEL")}
         return subprocess.run(["make", "-n", "--no-print-directory", "reference-first-checker",
                                *assignments], cwd=ROOT, capture_output=True, text=True,
                               env=env, check=True, timeout=60).stdout
