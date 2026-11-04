@@ -101,7 +101,8 @@ end-structure
   loop drop outcome-ok ;
 
 \ ---- Levels, in number order; number 0 is level zero, the store's 0.
-: feed-made ( index true | false -- index outcome ) if outcome-ok else -1 outcome-full then ;
+: feed-made ( index true | false -- index outcome )
+  if outcome-ok else -1 outcome-full then ;
 : feed-a ( l feed -- index ) tuck feed-tier level-a@ swap feed-level@ ;
 : feed-b ( l feed -- index ) tuck feed-tier level-b@ swap feed-level@ ;
 : feed-two ( l feed -- left right ) 2dup feed-a -rot feed-b ;
@@ -140,22 +141,27 @@ end-structure
   2dup feed-tier expr-b@ over feed-args ok? 0= if drop 2drop false exit then
   >r tuck feed-tier expr-a@ lf-name-generation @ rot feed-pairs r> lf-cref-new
   if lf-cterm-new else false then ;
-: feed-form ( e feed form -- index identity true | false ) nip nip lf-hterm-unsupported ;
-: feed-term-made ( e feed tag -- index identity true | false )
-  dup binder-tag? if tag-pi < if feed-children lf-hterm-lam else feed-children lf-hterm-pi
-    then exit then
-  case
-    tag-bvar of feed-tier expr-a@ lf-hterm-bvar endof
-    tag-sort of tuck feed-tier expr-a@ swap feed-handle lf-hterm-sort endof
-    tag-const of feed-const endof
-    tag-app of feed-children lf-hterm-app endof
-    tag-let of lf-form-let feed-form endof
-    tag-let-nondep of lf-form-let feed-form endof
-    tag-proj of lf-form-proj feed-form endof
-    tag-nat of lf-form-nat feed-form endof
-    tag-str of lf-form-string feed-form endof
-    tag-mdata of lf-form-mdata feed-form endof
+\ The unsupported form of each expression tag, 0 for a supported one
+\ (core/unsupported-forms.fs); a table filled while loading.
+tag-mdata 1+ constant feed-tags#
+create feed-forms feed-tags# cells allot  feed-forms feed-tags# cells erase
+: feed-form! ( form tag -- ) cells feed-forms + ! ;
+lf-form-let tag-let feed-form!  lf-form-let tag-let-nondep feed-form!
+lf-form-proj tag-proj feed-form!  lf-form-nat tag-nat feed-form!
+lf-form-string tag-str feed-form!  lf-form-mdata tag-mdata feed-form!
+: feed-form@ ( tag -- form )
+  dup 0 feed-tags# within if cells feed-forms + @ else drop 0 then ;
+: feed-binder ( e feed tag -- index identity true | false )
+  >r feed-children r> tag-pi < if lf-hterm-lam else lf-hterm-pi then ;
+: feed-sort ( e feed -- index identity true | false )
+  tuck feed-tier expr-a@ swap feed-handle lf-hterm-sort ;
+: feed-core ( e feed tag -- index identity true | false )
+  case tag-bvar of feed-tier expr-a@ lf-hterm-bvar endof  tag-sort of feed-sort endof
+    tag-const of feed-const endof  tag-app of feed-children lf-hterm-app endof
     >r 2drop false r> endcase ;
+: feed-term-made ( e feed tag -- index identity true | false )
+  dup binder-tag? if feed-binder exit then
+  dup feed-form@ ?dup if nip nip nip lf-hterm-unsupported else feed-core then ;
 : feed-expr ( e feed -- outcome )
   2dup >r >r 2dup feed-tier expr-tag@ feed-term-made r> r> feed-kept ;
 : feed-span ( e feed -- units ) feed-tier expr-tag@ let-tag? if 2 else 1 then ;
@@ -173,26 +179,33 @@ create feed-kinds
   lf-kind-quotient , 0 , lf-kind-inductive , lf-kind-constructor , lf-kind-recursor ,
 : feed-kind ( d stage -- kind ) staged-kind@ kind-axiom - cells feed-kinds + @ ;
 : feed-decl! ( x field-xt feed -- ) feed-decl swap execute ! ;
-: feed-start ( d feed -- )
+\ A field of declaration d, read from the stage with xt ( d stage -- x ).
+: feed-staged ( d feed xt -- d feed x ) >r 2dup feed-stage @ r> execute ;
+\ A field holding the term of the stage's expression read with xt.
+: feed-term! ( d feed xt field-xt -- d feed )
+  >r feed-staged over feed-root r> 2 pick feed-decl! ;
+: feed-blank ( feed -- )
   dup feed-decl /lf-idecl erase  lf-hint-opaque ['] lf-idecl-hint 2 pick feed-decl!
-  -1 ['] lf-idecl-value 2 pick feed-decl!
-  over over feed-stage @ feed-kind ['] lf-idecl-kind 2 pick feed-decl!
-  over over feed-stage @ staged-name@ ['] lf-idecl-name 2 pick feed-decl!
-  over over feed-stage @ staged-type@ over feed-root ['] lf-idecl-type rot feed-decl! drop ;
+  -1 ['] lf-idecl-value rot feed-decl! ;
+: feed-start ( d feed -- )
+  dup feed-blank ['] feed-kind feed-staged ['] lf-idecl-kind 2 pick feed-decl!
+  ['] staged-name@ feed-staged ['] lf-idecl-name 2 pick feed-decl!
+  ['] staged-type@ ['] lf-idecl-type feed-term! 2drop ;
 \ A definition's safety and hints; any other kind is safe unless marked
 \ unsafe (a theorem has no such mark).
+: feed-height ( d feed hints -- d feed )
+  lf-hint-regular = if ['] staged-hint@ feed-staged ['] lf-idecl-height 2 pick feed-decl!
+  then ;
 : feed-def ( d feed -- )
-  2dup feed-stage @ staged-safety@ ['] lf-idecl-safety 2 pick feed-decl!
-  2dup feed-stage @ staged-hints@ dup ['] lf-idecl-hint 3 pick feed-decl!
-  lf-hint-regular = if 2dup feed-stage @ staged-hint@ ['] lf-idecl-height 2 pick feed-decl!
-  then 2drop ;
+  ['] staged-safety@ feed-staged ['] lf-idecl-safety 2 pick feed-decl!
+  ['] staged-hints@ feed-staged dup ['] lf-idecl-hint 3 pick feed-decl!
+  feed-height 2drop ;
+: feed-safe ( unsafe? -- safety ) if lf-safety-unsafe else lf-safety-safe then ;
 : feed-safety ( d feed -- )
-  2dup feed-stage @ staged-unsafe? if lf-safety-unsafe else lf-safety-safe then
-  ['] lf-idecl-safety rot feed-decl! drop ;
+  ['] staged-unsafe? feed-staged feed-safe ['] lf-idecl-safety rot feed-decl! drop ;
 : feed-valued? ( kind -- flag )
   dup lf-kind-definition = over lf-kind-theorem = or swap lf-kind-opaque = or ;
-: feed-value ( d feed -- )
-  2dup feed-stage @ staged-value@ over feed-root ['] lf-idecl-value rot feed-decl! drop ;
+: feed-value ( d feed -- ) ['] staged-value@ ['] lf-idecl-value feed-term! 2drop ;
 : feed-kind@ ( feed -- kind ) feed-decl lf-idecl-kind @ ;
 : feed-details ( d feed -- )
   dup feed-kind@ dup feed-valued? if >r 2dup feed-value r> then

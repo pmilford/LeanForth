@@ -221,7 +221,8 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
 \ invalid, still loading, when loading had already ended, the name store
 \ or its byte count is out of range, or a store is invalid.
 \ Room in the name index for decl's name, and the links of declaration i.
-: lf-input-index-room ( decl -- outcome ) lf-idecl-name @ 1+ lf-input-names column-reserve ;
+: lf-input-index-room ( decl -- outcome )
+  lf-idecl-name @ 1+ lf-input-names column-reserve ;
 : lf-input-link ( i -- )
   dup lf-input-name lf-input-newest-cell 2dup @ swap lf-input-decl lf-idecl-prev !
   swap 1+ swap ! ;

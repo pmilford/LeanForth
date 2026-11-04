@@ -41,7 +41,9 @@ end-structure
 : group-capacity ( group -- n ) group-store@ store-capacity @ ;
 \ Run xt ( column -- ) for every column of the group, newest first.
 : columns-each ( xt group -- )
-  group-newest @ begin ?dup while 2dup >r >r swap execute r> r> column-link @ repeat drop ;
+  group-newest @ begin ?dup while
+    2dup >r >r swap execute r> r> column-link @
+  repeat drop ;
 
 \ Units. Unchecked: i is below the store's capacity.
 : column-at ( i slab -- addr ) slab-at ;
@@ -93,7 +95,8 @@ end-structure
 \ Add a column of units of width address units, the member xt ( -- slab )
 \ (a /slab context record declared just before), to a group, and make it
 \ in the current (the main) context at once.
-: column-link-in ( column group -- ) 2dup group-newest @ swap column-link ! group-newest ! ;
+: column-link-in ( column group -- )
+  2dup group-newest @ swap column-link ! group-newest ! ;
 : column-add ( width xt group -- )
   >r align here /column allot tuck column-xt ! tuck column-width ! dup r@ column-link-in
   dup column-setup r> group-capacity swap column-slab column-reserve

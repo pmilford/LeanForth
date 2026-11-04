@@ -15,8 +15,9 @@
 \ facts; and per node, in two columns of the level store, its class (the
 \ smallest index of a structurally equal node, so two levels are equal
 \ exactly when their classes are) and its flags (never zero; has a
-\ parameter). Members of the checker context (lib/context.fs). Facts are computed in index order on demand; every
-\ public word first forgets them all (a raw write keeps a node's index),
+\ parameter). Members of the checker context (lib/context.fs). Facts are
+\ computed in index order on demand; every public word first forgets them
+\ all (a raw write keeps a node's index),
 \ and a caller that rolls the level store back calls lf-lmk-truncate. The
 \ two rule tables of mk_max and mk_imax are shared and read-only.
 \ Bounded work: the facts of n nodes take at most n*n/2 node comparisons;

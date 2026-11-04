@@ -99,7 +99,8 @@ end-structure
 \ the scratch tier is emptied.
 : lf-name-scratch-reset ( -- ) lf-name-viewed? if lf-name-tier tier-reset drop then ;
 : lf-name-reset ( -- )
-  lf-name-scratch-reset 0 lf-name-slot /lf-entry erase 0 lf-name-used ! lf-names store-clear ;
+  lf-name-scratch-reset 0 lf-name-slot /lf-entry erase 0 lf-name-used !
+  lf-names store-clear ;
 
 \ Count, byte use and generation are in range; checked before addressing.
 : lf-name-state-valid? ( -- flag )
@@ -114,10 +115,11 @@ end-structure
 \ scratch tier and advancing the generation: ok, or the outcome of making
 \ the scratch tier (no view then). Detach: back to the entry store.
 : lf-name-viewing ( input -- ) lf-name-view lf-nview-input ! lf-name-reset ;
+: lf-name-unview ( -- ) lf-name-tier tier-free 0 lf-name-view lf-nview-input ! ;
 : lf-name-attach ( input -- outcome )
-  lf-name-tier tier-free 0 lf-name-view lf-nview-input !
-  dup lf-name-tier tier-extend dup ok? if drop lf-name-viewing outcome-ok else nip then ;
-: lf-name-detach ( -- ) lf-name-tier tier-free 0 lf-name-view lf-nview-input ! lf-name-reset ;
+  lf-name-unview dup lf-name-tier tier-extend dup ok?
+  if drop lf-name-viewing outcome-ok else nip then ;
+: lf-name-detach ( -- ) lf-name-unview lf-name-reset ;
 \ The number of names under the view, for digests.
 : lf-name-numbers ( -- n ) lf-name-tier tier-names cons-numbers ;
 

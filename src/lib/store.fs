@@ -65,7 +65,8 @@ end-structure
 
 \ The block of a store made in place: right after its header.
 : store-inline ( store -- addr ) store-header + ;
-: store-identities ( store -- addr ) dup store-block @ ?dup if nip else store-inline then ;
+: store-identities ( store -- addr )
+  dup store-block @ ?dup if nip else store-inline then ;
 : store-records ( store -- addr ) dup store-identities swap store-capacity @ cells + ;
 \ Unchecked: addresses for an already validated index.
 : store-slot ( index store -- addr ) tuck store-width @ * swap store-records + ;
@@ -224,9 +225,10 @@ defer store-refuse? ( store -- flag )
 \ Make room for one more record: ok when there is room, grown or not;
 \ full when the store is at its limit, is not a heap store, the heap has
 \ no room or the test hook refuses (nothing changed then); invalid for a
-\ store that is not live.
+\ store whose count is not valid (store-count-valid?).
+: store-below-limit? ( store -- flag ) dup store-heap? swap store-at-limit? 0= and ;
 : store-growable? ( store -- flag )
-  dup store-heap? over store-at-limit? 0= and if store-grow-refused? 0= else drop false then ;
+  dup store-below-limit? if store-grow-refused? 0= else drop false then ;
 : store-grow ( store -- outcome )
   dup store-count-valid? 0= if drop outcome-invalid exit then
   dup store-room? if drop outcome-ok exit then

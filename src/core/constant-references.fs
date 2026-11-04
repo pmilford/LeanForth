@@ -56,9 +56,10 @@ store-header context-record: lf-crefs
 /slab context-record: lf-cref-pool
 \ It starts with room for 8 pairs per record, the old fixed layout, so
 \ references within that size never grow it.
+: lf-cref-pool-made ( outcome -- ) ok? 0= abort" references: pool" ;
 : lf-cref-pool-make ( -- )
-  /lf-cref-pair max-n /lf-cref-pair / lf-cref-pool slab-init ok? 0= abort" references: pool"
-  lf-cref-default 8 * lf-cref-pool column-reserve ok? 0= abort" references: pool" ;
+  /lf-cref-pair max-n /lf-cref-pair / lf-cref-pool slab-init lf-cref-pool-made
+  lf-cref-default 8 * lf-cref-pool column-reserve lf-cref-pool-made ;
 ' lf-cref-pool-make context-setup
 :noname ( -- ) lf-cref-pool slab-free ; context-teardown
 
@@ -129,7 +130,8 @@ store-header context-record: lf-crefs
   lf-crefs lf-cref-site lf-diag-references-full lf-diag-store false ;
 \ Where the next record's pairs start: after the last record's.
 : lf-cref-end ( slot -- offset ) dup lf-crec-offset @ swap lf-crec-arity @ + ;
-: lf-cref-top ( -- offset ) lf-cref-count @ ?dup if 1- lf-cref-slot lf-cref-end else 0 then ;
+: lf-cref-top ( -- offset )
+  lf-cref-count @ ?dup if 1- lf-cref-slot lf-cref-end else 0 then ;
 : lf-cref-pool-refused ( -- false )
   lf-cref-top lf-cref-pool slab-capacity lf-cref-site lf-diag-references-full lf-diag-note
   false ;
@@ -137,7 +139,8 @@ store-header context-record: lf-crefs
 \ before it grows).
 : lf-cref-pool-room ( end -- outcome )
   dup lf-cref-pool slab-capacity > 0= if drop outcome-ok exit then
-  lf-crefs store-grow-refused? if drop outcome-full exit then lf-cref-pool column-reserve ;
+  lf-crefs store-grow-refused? if drop outcome-full exit then
+  lf-cref-pool column-reserve ;
 : lf-cref-room? ( count -- offset true | false )
   lf-cref-top dup 0 lf-cref-pool slab-capacity between? 0= if 2drop false exit then
   tuck + lf-cref-pool-room ok? if true else drop false then ;
