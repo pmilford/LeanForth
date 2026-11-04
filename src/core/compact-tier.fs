@@ -158,7 +158,8 @@ end-structure
 
 \ Address units allocated, and in use, by a tier's slabs and tables.
 : cons-allocated ( cons -- u )
-  dup cons-records slab-bytes over cons-bytes slab-bytes + swap cons-table htab-slots u32s + ;
+  dup cons-records slab-bytes over cons-bytes slab-bytes + swap cons-table htab-slots
+  u32s + ;
 : slab-used-bytes ( slab -- u ) dup slab-count swap slab-unit * ;
 : cons-used ( cons -- u )
   dup cons-records slab-used-bytes over cons-bytes slab-used-bytes +

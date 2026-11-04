@@ -76,7 +76,8 @@ lf-lib set-current
 : tuple-add ( u cons -- outcome )
   dup tuple-step? 0= if 2drop outcome-invalid exit then
   over tuple-wide? if 2drop outcome-invalid exit then
-  >r r@ tuple-count 2 + 0 r@ cons-room dup ok? if drop r@ tuple-item! outcome-ok else nip then
+  >r r@ tuple-count 2 + 0 r@ cons-room dup ok? if drop r@ tuple-item! outcome-ok else
+  nip then
   r> drop ;
 lf-lib-private set-current
 : tuple-keep ( i cons -- t outcome ) >r r@ tuple-count 1+ swap r> cons-commit ;
@@ -114,7 +115,8 @@ lf-lib set-current
 \ set's own byte slab, which may move while room is made.
 : text-intern ( addr u cons -- t outcome )
   >r 1 over r@ cons-room dup ok? 0= if nip nip r> drop no-result exit then drop
-  2dup r@ cons-key 2! hash-bytes true r@ cons-find if r> drop outcome-ok else r> text-keep then ;
+  2dup r@ cons-key 2! hash-bytes true r@ cons-find if r> drop outcome-ok else r>
+  text-keep then ;
 
 module-close
 base !   \ the BASE this file was loaded with

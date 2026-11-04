@@ -448,3 +448,37 @@ reference-author:
 .PHONY: test-author reference-author
 test: test-author
 test-differential: reference-author
+
+# The compact store (ADR 0016; plan tasks 1.1.5 and 6.2.0-6.2.2, library
+# part): growable heap stores, hash tables, hashing and hash-consed sets in
+# two tiers (src/lib/slab.fs, htab.fs, hash32.fs, cons.fs, pools.fs) and
+# Lean's names, levels and expressions on them (src/core/compact*.fs). Unit
+# tests with randomized models, then every pinned reference export loaded
+# into the store and re-emitted as the NDJSON reader dumps it. Not loaded by
+# src/main.fs yet; make smoke loads each module on its own. Gforth only.
+test-compact:
+	$(RUN) $(GFORTH) tests/lib/hash32.fs
+	$(RUN) $(GFORTH) tests/lib/slab.fs
+	$(RUN) $(GFORTH) tests/lib/htab.fs
+	$(RUN) $(GFORTH) tests/lib/cons.fs
+	$(RUN) $(GFORTH) tests/core/compact.fs
+	@for f in tests/reference/*.ndjson; do \
+	  $(RUN) bash tests/core/compact-verify.sh $$f $(GFORTH) >/dev/null \
+	  || { bash tests/core/compact-verify.sh $$f $(GFORTH); exit 1; }; \
+	done; echo "The compact store re-emits every reference export as the reader dumps it."
+
+# Nineteen faults planted in a copy of the compact store, each caught by the
+# checks of test-compact (about 25 s; part of make check).
+test-compact-faults:
+	GFORTH=$(GFORTH) $(RUN) python3 tests/core/compact_faults.py
+
+# Lean's Init, exported by the pinned leanexport, loaded into the compact
+# store and re-emitted: all 6.4 million name, level and expression records
+# equal the reader's dump (about 1.5 minutes with gforth-fast).
+reference-compact-init:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/core/compact-init.sh
+
+.PHONY: test-compact test-compact-faults reference-compact-init
+test: test-compact
+check: test-compact-faults
+test-differential: reference-compact-init

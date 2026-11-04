@@ -11,16 +11,22 @@
 \ compact-exprs.fs, then tier-seal it; then make a scratch tier over it
 \ per check with tier-extend, and tier-reset that after each check.
 \
-\ Example: Nat.succ and an application of it in an input tier, found again
-\ through a scratch tier.
+\ Example: Nat.succ #0 in an input tier, found again through a scratch
+\ tier (outcomes dropped for brevity; a caller checks each).
 \   create input /tier allot   create check /tier allot
 \   16 input tier-init drop
-\   name-anonymous s" Nat" input name-str drop s" succ" input name-str drop  ( n )
-\   input tier-tuples tuple-start drop input tier-tuples tuple-end drop     ( n [] )
-\   input expr-const drop                                                  ( c )
-\   0 input expr-bvar drop input expr-app drop  input tier-seal drop       ( app )
-\   input check tier-extend drop
-\   0 0 input expr-const ...   \ see tests/core/compact.fs for the full form
+\   name-anonymous s" Nat" input name-str drop
+\   s" succ" input name-str drop constant nat-succ
+\   input tier-tuples tuple-start drop
+\   input tier-tuples tuple-end drop constant no-levels
+\   nat-succ no-levels input expr-const drop constant succ
+\   0 input expr-bvar drop constant x
+\   succ x input expr-app drop constant succ-x
+\   input tier-seal drop  input check tier-extend drop
+\   succ x check expr-app drop succ-x = .       \ -1: the input's number
+\   succ succ-x check expr-app drop .           \ 3: the scratch tier's first
+\   succ-x check expr-data@ data-range .        \ 1: #0 is loose
+\   check tier-reset drop  check tier-free  input tier-free
 \
 \ Interface: tier-init, and everything the modules below give. State: none.
 
@@ -36,7 +42,8 @@ require ./compact-exprs.fs
 \ The classes of the five families, in tier order (compact-tier.fs).
 create tier-classes name-class , level-class , tuple-class , text-class , expr-class ,
 : tier-class ( i -- class ) cells tier-classes + @ ;
-: tier-init-family ( log2 tier i -- outcome ) tuck swap tier-family >r tier-class r> cons-init ;
+: tier-init-family ( log2 tier i -- outcome )
+  tuck swap tier-family >r tier-class r> cons-init ;
 : tier-families-init ( log2 tier -- outcome )
   tier-families 0 do
     2dup i tier-init-family dup ok? 0= if nip nip unloop exit then drop

@@ -57,10 +57,10 @@ require ./compact-tier.fs
 \ The class's hooks. Two names are equal when tag, length, prefix and
 \ hash agree and then the strings, or the numbers, do.
 : name-rehash ( n cons -- h ) cons-at quad-data u32@ ;
-: quad-same? ( addr1 addr2 field-xt -- flag ) tuck execute u32@ >r execute u32@ r> = ;
+\ The stored hash first: it tells almost every other name apart.
 : name-fixed= ( record candidate -- flag )
-  2dup ['] quad-head quad-same? >r 2dup ['] quad-a quad-same? >r
-  ['] quad-data quad-same? r> r> and and ;
+  over quad-data u32@ over quad-data u32@ <> if 2drop false exit then
+  over quad-head u32@ over quad-head u32@ = >r quad-a u32@ swap quad-a u32@ = r> and ;
 : name-same ( n key cons -- flag )
   >r over r@ cons-at over cons-top name-fixed= 0= if r> drop 2drop false exit then
   over r@ cons-at quad-head u32@ head-tag tag-name-str =
@@ -85,14 +85,16 @@ require ./compact-tier.fs
 : name-lookup ( tier -- n true | i false )
   dup name-cand quad-data u32@ over name-under? rot tier-names cons-find ;
 : name-keep ( i tier -- n outcome ) 1 -rot tier-names cons-commit ;
-: name-intern ( tier -- n outcome ) dup name-lookup if nip outcome-ok else swap name-keep then ;
+: name-intern ( tier -- n outcome ) dup name-lookup if nip outcome-ok else swap
+  name-keep then ;
 \ A string component: the record is kept first (at the limit it is full),
 \ then its text, whose offset goes into the record.
 : str-text! ( n tier -- n )
   tier-names >r r@ cons-key 2@ r@ cons-text, over r> cons-at quad-b u32! ;
 : str-keep ( i tier -- n outcome )
   tuck name-keep dup ok? if drop swap str-text! outcome-ok else rot drop then ;
-: str-intern ( tier -- n outcome ) dup name-lookup if nip outcome-ok else swap str-keep then ;
+: str-intern ( tier -- n outcome ) dup name-lookup if nip outcome-ok else swap str-keep
+  then ;
 : name-find ( tier -- n true | false ) name-lookup dup 0= if nip then ;
 
 \ A string component: the text in the key, room for it, head and hash.
@@ -100,7 +102,8 @@ require ./compact-tier.fs
   >r 2dup r@ tier-names cons-key 2! nip
   dup payload-limit u< 0= if 2drop r> drop outcome-full exit then
   2dup r@ name-room dup ok? 0= if nip nip r> drop exit then drop
-  tag-name-str swap pack-head r@ name-head! r@ tier-names cons-key 2@ hash-bytes r> name-hash!
+  tag-name-str swap pack-head r@ name-head! r@ tier-names cons-key 2@ hash-bytes r>
+  name-hash!
   outcome-ok ;
 \ A numeric component: room, head, the number and hash.
 : num-setup ( prefix u tier -- outcome )

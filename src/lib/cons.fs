@@ -147,7 +147,8 @@ lf-lib set-current
   dup /cons erase tuck cons-class ! dup cons-slabs-init dup ok?
   if drop dup cons-class @ swap cons-table htab-init else nip nip then ;
 : cons-free ( cons -- )
-  dup cons-table htab-free dup cons-records slab-free dup cons-bytes slab-free /cons erase ;
+  dup cons-table htab-free dup cons-records slab-free dup cons-bytes slab-free /cons
+  erase ;
 lf-lib-private set-current
 : cons-attach ( under cons -- outcome )
   2dup cons-under ! swap cons-numbers over cons-first !
@@ -200,7 +201,8 @@ lf-lib-private set-current
 lf-lib set-current
 : cons-commit ( units i cons -- n outcome )
   >r over r@ cons-past? if 2drop r> drop outcome-full no-result exit then
-  r@ cons-numbers tuck swap r@ cons-table htab-put swap r> cons-records slab-commit outcome-ok ;
+  r@ cons-numbers tuck swap r@ cons-table htab-put swap r> cons-records slab-commit
+  outcome-ok ;
 
 \ Whether n names a record of the set or its under set: in range, the
 \ record within the numbers, and found in its table (exact: a number in
@@ -227,7 +229,8 @@ lf-lib-private set-current
   repeat 2drop ;
 \ Emptying the table costs its size; forgetting costs the records: choose
 \ the cheaper.
-: cons-crowded? ( cons -- flag ) dup cons-records slab-count 4 * swap cons-table htab-slots > ;
+: cons-crowded? ( cons -- flag ) dup cons-records slab-count 4 * swap cons-table
+  htab-slots > ;
 : cons-empty ( cons -- )
   dup cons-crowded? if cons-table htab-clear else 0 swap cons-forget then ;
 : cons-cleared ( cons -- ) dup cons-records slab-clear cons-bytes slab-clear ;
@@ -239,7 +242,8 @@ begin-structure /cons-mark
   /slab-mark +field cons-mark-bytes
 end-structure
 lf-lib-private set-current
-: cons-mark-records? ( mark cons -- mark-part slab ) cons-records swap cons-mark-records swap ;
+: cons-mark-records? ( mark cons -- mark-part slab ) cons-records swap cons-mark-records
+  swap ;
 : cons-mark-bytes? ( mark cons -- mark-part slab ) cons-bytes swap cons-mark-bytes swap ;
 lf-lib set-current
 \ Mark an open set: ok; or, with a mark every rollback refuses, invalid or

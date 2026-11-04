@@ -67,6 +67,7 @@ BYTE_MODULES = {
         "Forth-2012 version with c@ and c! in a byte order the module fixes",
     "src/lib/bignum.fs":
         "big numbers read and write decimal digit characters; limbs are only read as cells",
+    "src/lib/hash32.fs": "FNV-1a hashes a text one byte at a time (ADR 0016 C4)",
     "src/author/source.fs":
         "authoring runner re-reads the token that invoked a word from the source line's text",
     "src/author/groups.fs": "a syntax word keeps its exact spelling as a counted string",

@@ -40,7 +40,7 @@
 \   create pool /slab allot    create here-mark /slab-mark allot
 \   1 chars 1048576 pool slab-init drop
 \   here-mark pool slab-mark drop
-\   s" Nat" tuck pool slab-claim drop pool slab-at swap move   \ unit 0
+\   s" Nat" dup pool slab-claim drop pool slab-at swap move    \ units 0 .. 2
 \   here-mark pool slab-rollback drop    \ the count is 0 again
 \   pool slab-free
 \
@@ -112,7 +112,8 @@ lf-lib-private set-current
   dup slab-unit over slab-limit xor over slab-block @ xor swap slab-capacity xor invert ;
 : slab-reseal ( slab -- ) dup slab-check swap slab-seal ! ;
 : slab-sealed? ( slab -- flag ) dup slab-check swap slab-seal @ = ;
-: slab-block! ( addr units slab -- ) tuck slab-room-units ! tuck slab-block ! slab-reseal ;
+: slab-block! ( addr units slab -- ) tuck slab-room-units ! tuck slab-block !
+  slab-reseal ;
 \ A sound shape: a positive unit and 0 <= limit, small enough that limit
 \ units fit in a cell of address units.
 : slab-plan? ( unit limit -- flag )
@@ -122,7 +123,8 @@ lf-lib set-current
 \ Whether the slab may be used: not poisoned, sealed, 0 <= count <=
 \ capacity.
 : slab-live? ( slab -- flag )
-  dup slab-generation 0< 0= over slab-sealed? and swap dup slab-count swap slab-capacity upto? and ;
+  dup slab-generation 0< 0= over slab-sealed? and swap dup slab-count swap slab-capacity
+  upto? and ;
 \ Whether unit i is in use, 0 <= i < count, in a live slab.
 : slab-valid? ( i slab -- flag )
   dup slab-live? if slab-count 0 swap within else 2drop false then ;
@@ -144,7 +146,8 @@ lf-lib set-current
 lf-lib-private set-current
 : slab-release ( addr -- ) ?dup if free drop then ;
 lf-lib set-current
-: slab-free ( slab -- ) dup slab-block @ slab-release dup slab-marks @ slab-release /slab erase ;
+: slab-free ( slab -- ) dup slab-block @ slab-release dup slab-marks @ slab-release
+  /slab erase ;
 lf-lib-private set-current
 
 \ Growth. ALLOCATE the first block, RESIZE the others; on failure the old
@@ -208,8 +211,10 @@ lf-lib-private set-current
   dup slab-depth @ if dup slab-newest mark-entry-count @ swap slab-count =
   else drop false then ;
 : slab-marks-grow ( slab -- outcome )
-  >r r@ slab-marks-room @ 2* slab-min-marks max dup /mark-entry * r@ slab-marks @ slab-heap
-  if 2drop r> drop outcome-full else r@ slab-marks ! r> slab-marks-room ! outcome-ok then ;
+  >r r@ slab-marks-room @ 2* slab-min-marks max dup /mark-entry * r@ slab-marks @
+  slab-heap
+  if 2drop r> drop outcome-full else r@ slab-marks ! r> slab-marks-room ! outcome-ok
+  then ;
 : slab-marks-ready ( slab -- outcome )
   dup slab-depth @ over slab-marks-room @ < if drop outcome-ok else slab-marks-grow then ;
 : slab-serial+ ( slab -- serial ) slab-serial 1 over +! @ ;

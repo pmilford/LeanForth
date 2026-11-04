@@ -65,9 +65,11 @@ require ./compact-names.fs
 : level-in? ( l levels -- flag ) cons-in? ;
 : cand-payload ( cons -- u ) cand-head head-payload ;
 : cand-a-level ( levels -- d valid? )
-  dup cand-a over level-in? if dup cand-a swap cons-at quad-data u32@ true else drop 0 false then ;
+  dup cand-a over level-in? if dup cand-a swap cons-at quad-data u32@ true else drop 0
+  false then ;
 : cand-b-level ( levels -- d valid? )
-  dup cand-b over level-in? if dup cand-b swap cons-at quad-data u32@ true else drop 0 false then ;
+  dup cand-b over level-in? if dup cand-b swap cons-at quad-data u32@ true else drop 0
+  false then ;
 : cand-a-under? ( cons -- flag ) dup cand-a swap cons-under? ;
 : cand-b-under? ( cons -- flag ) dup cand-b swap cons-under? ;
 : cand-bare? ( cons -- flag ) dup cand-payload 0= over cand-a 0= and swap cand-b 0= and ;
@@ -108,10 +110,12 @@ check-table level-checks
 : level-build ( head a b tier -- l outcome )
   tier-levels >r fields-fit? 0= if outcome-invalid fail3 r> drop exit then
   1 0 r@ cons-room dup ok? 0= if fail3 r> drop exit then drop
-  r@ cand! r@ check-level if r> level-keep else drop r> drop outcome-invalid no-result then ;
+  r@ cand! r@ check-level if r> level-keep else drop r> drop outcome-invalid no-result
+  then ;
 : level-succ ( l tier -- l' outcome ) >r tag-level-succ swap 0 r> level-build ;
 : level-max ( l1 l2 tier -- l outcome ) >r tag-level-max -rot r> level-build ;
 : level-imax ( l1 l2 tier -- l outcome ) >r tag-level-imax -rot r> level-build ;
-: level-param ( name tier -- l outcome ) >r tag-level-param swap pack-head 0 0 r> level-build ;
+: level-param ( name tier -- l outcome ) >r tag-level-param swap pack-head 0 0 r>
+  level-build ;
 
 base !   \ the BASE this file was loaded with

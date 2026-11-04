@@ -6,10 +6,11 @@ Previously: **proposed**, 2026-11-02 (plan tasks 6.0.1 and 6.2.0–6.2.3; also
 1.1.5, 3.2.1 and 3.3.1). The owner approved writing this design and asked
 the questions answered below. It changes how terms are stored, not what
 the checker decides, so it is a [kernel] no-behaviour-change design: the
-code that implements it needs the review gate in `AGENTS.md`. Nothing in
-`src/` implements it yet except the 32-bit access words of `src/lib/u32.fs`,
-which the owner approved separately; the measurements come from a scratch
-prototype ([measurements](../development/measurements/compact-store-2026-11-02/README.md)).
+code that implements it needs the review gate in `AGENTS.md`. The 32-bit
+access words of `src/lib/u32.fs`, which the owner approved separately, and
+since 2026-11-03 the library code of C9 step 1 implement it (see
+[C9's progress](#c9-migration-and-the-plan-tasks-it-covers)); the checker does not use it yet. The
+measurements come from a scratch prototype ([measurements](../development/measurements/compact-store-2026-11-02/README.md)).
 It builds on [ADR 0009](0009-reentrant-state-and-parallel-checking.md)
 (accepted: per-task contexts, a shared read-only environment) and
 [ADR 0012](0012-checked-environment.md) (design accepted: input,
@@ -557,6 +558,34 @@ When implemented this covers plan tasks 1.1.5, 3.2.1 and 3.3.1 in part,
 6.0.1 (this record turns the scale report into a design and a budget),
 6.2.0 for universe lists, and 6.2.1–6.2.3; file-backed storage is not
 needed (Rejected alternatives).
+
+**Progress (2026-11-03).** Described in
+[FORTH_LIBRARY.md](../development/FORTH_LIBRARY.md#the-compact-store).
+
+- Step 1, done as library code, not yet used by the checker: growable heap
+  stores with marks (`src/lib/slab.fs`, plan 1.1.5), hash tables
+  (`htab.fs`), the C4 hashes (`hash32.fs`), hash-consed sets in two tiers
+  (`cons.fs`) with interned lists and texts (`pools.fs`), standalone
+  libraries; and the Lean layer of C1–C4 in `src/core/compact*.fs`: names,
+  levels, variable-length universe and parameter lists (6.2.0's lists, no
+  fixed limit), literals and 16-byte expression records, an input tier
+  sealed read-only and scratch tiers with marks. Every record is checked
+  when built (C8). A failed `ALLOCATE` or `RESIZE` and every C1 limit give
+  *full* (C5). Two details differ from the text above. A mark is valid
+  while its entry is on a stack of marked counts, and marks at one count
+  share an entry, so a slab's marks behave exactly as `store.fs`'s (C3).
+  Rolling back removes each given-back record from the table by Knuth's
+  Algorithm R, whatever the table's growth since, instead of an undo log
+  (C3).
+- Step 2 in part: the loader that fills an input tier from the NDJSON
+  reader is test code (`tests/support/compact-load.fs`); it loads `Init`
+  and gives back every name, level and expression exactly as the reader's
+  dump (`make check`), and loads all of Mathlib in 221 s into a 2.94 GB
+  input tier (3.36 GB peak). Declarations, the name-to-declaration array
+  and constants resolved at sealing are still to come, with the importer.
+- Steps 3–6 not started. Step 3 needs a release hook in `lib/context.fs`
+  first, since a scratch tier owns heap memory and context members may
+  not (ADR 0009).
 
 ## Consequences
 

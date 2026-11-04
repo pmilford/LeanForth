@@ -30,7 +30,8 @@
 \
 \ Example (with hash32.fs): distinct numbers below 2^32 kept in an array,
 \ found by value.
-\   create values 100 cells allot   create seen /htab allot   create hooks /htab-hooks allot
+\   create values 100 cells allot   create seen /htab allot
+\   create hooks /htab-hooks allot
 \   : value@ ( n -- x ) cells values + @ ;
 \   : rehash ( n htab -- h ) drop value@ hash-fmix ;
 \   : same ( n key htab -- flag ) drop swap value@ = ;
@@ -149,7 +150,8 @@ lf-lib set-current
 : htab-limit ( log2 htab -- ) swap htab-log2-max min 0 max swap htab-most ! ;
 : htab-free ( htab -- ) dup htab-block @ ?dup if free drop then /htab erase ;
 \ Empty the table, keeping its size.
-: htab-clear ( htab -- ) 0 over htab-entries ! dup htab-block @ swap htab-slots u32s erase ;
+: htab-clear ( htab -- ) 0 over htab-entries ! dup htab-block @ swap htab-slots u32s
+  erase ;
 \ Before an insertion: double the table if one more entry would make it
 \ more than 3/4 full. ok, or full with the table unchanged.
 : htab-ready ( htab -- outcome )

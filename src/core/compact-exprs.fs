@@ -128,10 +128,12 @@ require ./compact-levels.fs
 : record-body? ( addr -- flag ) quad-head u32@ head-tag tag-let-body = ;
 : body-of ( addr -- body ) /quad + quad-a u32@ ;
 : expr-hash ( addr -- h )
-  dup quad-head u32@ key-head hash-fmix over quad-a u32@ hash-step over quad-b u32@ hash-step
+  dup quad-head u32@ key-head hash-fmix over quad-a u32@ hash-step over quad-b u32@
+  hash-step
   swap dup record-let? if body-of hash-step else drop then ;
 : heads= ( addr1 addr2 -- flag )
-  quad-head u32@ swap quad-head u32@ 2dup = if 2drop true else key-head swap key-head = then ;
+  quad-head u32@ swap quad-head u32@ 2dup = if 2drop true else key-head swap key-head =
+  then ;
 : expr-key= ( addr1 addr2 -- flag )
   2dup quad-ab= 0= if 2drop false exit then 2dup heads= 0= if 2drop false exit then
   dup record-let? if body-of swap body-of = else 2drop true then ;
@@ -164,16 +166,19 @@ require ./compact-levels.fs
 : merged ( d1 valid1? d2 valid2? -- d valid? ) rot and >r data-merge r> ;
 \ An application's children; a binder's type and body seen from outside.
 : child-pair ( top exprs -- d valid? ) 2dup child-a 2swap child-b merged ;
-: binder-pair ( top exprs -- d valid? ) 2dup child-a 2swap child-b >r data-lower r> merged ;
+: binder-pair ( top exprs -- d valid? ) 2dup child-a 2swap child-b >r data-lower r>
+  merged ;
 : pair-under? ( top exprs -- flag )
   cons-first @ >r dup quad-a u32@ r@ u< swap quad-b u32@ r> u< and ;
 \ The payload as a name of the tier: whether it is one, and an input one.
-: payload-name ( top exprs -- name names ) swap quad-head u32@ head-payload swap exprs>names ;
+: payload-name ( top exprs -- name names ) swap quad-head u32@ head-payload swap
+  exprs>names ;
 : name-checks ( top exprs -- valid? under? ) payload-name 2dup cons-in? -rot cons-under? ;
 
 : expr-bad ( top exprs -- under? outcome ) 2drop false outcome-invalid ;
 : check-app ( top exprs -- under? outcome )
-  2dup child-pair >r data-deeper data! over payload-zero? r> and >r pair-under? r> flag>outcome ;
+  2dup child-pair >r data-deeper data! over payload-zero? r> and >r pair-under? r>
+  flag>outcome ;
 : check-binder ( top exprs -- under? outcome )
   2dup binder-pair >r data-deeper data! 2dup name-checks r> rot and >r >r
   pair-under? r> and r> flag>outcome ;
@@ -213,7 +218,8 @@ require ./compact-levels.fs
   swap quad-a u32@ r> cons-under? swap flag>outcome ;
 \ A free variable: only in a scratch tier, never an input record.
 : check-fvar ( top exprs -- under? outcome )
-  cons-under @ 0<> over bare? and data-fvars-bit rot quad-data u32! false swap flag>outcome ;
+  cons-under @ 0<> over bare? and data-fvars-bit rot quad-data u32! false swap
+  flag>outcome ;
 
 check-table expr-checks
 ' expr-bad expr-checks check-fill
@@ -229,7 +235,8 @@ check-table expr-checks
 binder-checks
 
 \ Find or keep the checked candidate of units records.
-: expr-check ( top exprs -- under? outcome ) over quad-head u32@ head-tag expr-checks check-run ;
+: expr-check ( top exprs -- under? outcome ) over quad-head u32@ head-tag expr-checks
+  check-run ;
 : expr-keep ( units under? exprs -- e outcome )
   dup >r cons-top expr-hash swap r@ cons-find
   if nip r> drop outcome-ok else r> cons-commit then ;
