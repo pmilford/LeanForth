@@ -15,23 +15,32 @@ NDJSON_READER.md, "Re-export").
    JSON spellings of the same records (white space, members in another
    order, other escapes) must re-export to the original bytes, which are
    lean4export's.
-3. The tool: identical files give exit 0 with both modes; a file in
+3. A seeded fuzz sweep with the reader's mutations
+   (tests/core/test_ndjson_reader.py): a mutated export the reader
+   refuses is refused with an error line; one it accepts comes back as a
+   copy that the reader reads into the same dump, and that re-exports to
+   itself byte for byte (the exporter's form is a fixed point).
+4. The tool: identical files give exit 0 with both modes; a file in
    another spelling reports its first differing line and byte, exit 1,
    with equal dumps; a file the reader refuses gives the reader's error
    and exit 1; bad usage gives exit 2.
 
 Run with GFORTH set to the Forth binary (the Makefile does this). Set
-LF_REEXPORT_SPELLINGS to change the spellings per export (default 2).
+LF_REEXPORT_SPELLINGS to change the spellings per export (default 2) and
+LF_REEXPORT_MUTATIONS the mutated exports (default 200).
 """
 import json
 import os
 from pathlib import Path
 import random
 import subprocess
+import sys
 import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "tests" / "core"))
+from test_ndjson_reader import mutate  # noqa: E402
 GFORTH = os.environ.get("GFORTH", "gforth")
 EMIT_FS = "src/import/ndjson-emit.fs"
 DUMP_FS = "tests/core/ndjson-dump.fs"
@@ -43,6 +52,7 @@ NOT_EXPORTS = {
 }
 SEED = 20261103
 SPELLINGS = int(os.environ.get("LF_REEXPORT_SPELLINGS", "2"))
+MUTATIONS = int(os.environ.get("LF_REEXPORT_MUTATIONS", "200"))
 MARK = "@@@"
 NL = b"\n"
 
@@ -55,8 +65,15 @@ def exports():
     return [name for name in ndjson_files() if name not in NOT_EXPORTS]
 
 
-def forth_calls(driver, calls):
-    """Run each Forth call after loading driver, in one process; one output each."""
+def forth_calls(driver, calls, batch=200):
+    """Run each Forth call after loading driver, batch calls per process; one output each."""
+    outputs = []
+    for start in range(0, len(calls), batch):
+        outputs += forth_batch(driver, calls[start:start + batch])
+    return outputs
+
+
+def forth_batch(driver, calls):
     text = " ".join(f"{call} cr .( {MARK}) cr" for call in calls)
     result = subprocess.run([GFORTH, driver, "-e", text + " bye"], cwd=ROOT,
                             stdin=subprocess.DEVNULL, capture_output=True, timeout=600)
@@ -185,6 +202,37 @@ class Exports(unittest.TestCase):
                 self.assertEqual(report, f"reexported {original.count(NL)} lines", name)
                 self.assertEqual(copy.read_bytes(), original, name)
             self.assertEqual(different, len(pairs))
+
+    def test_accepted_fuzz_cases_come_back_and_stay(self):
+        rng = random.Random(SEED + 1)
+        sources = [(ROOT / name).read_bytes().split(b"\n")[:-1] for name in exports()]
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory)
+            mutants = [folder / f"m{n}.ndjson" for n in range(MUTATIONS)]
+            copies = [folder / f"c{n}.ndjson" for n in range(MUTATIONS)]
+            again = [folder / f"a{n}.ndjson" for n in range(MUTATIONS)]
+            for path in mutants:
+                path.write_bytes(b"\n".join(mutate(rng, rng.choice(sources))) + b"\n")
+            reports = reexport_all(list(zip(mutants, copies)))
+            read = dumps(mutants)
+            accepted = [n for n in range(MUTATIONS) if read[n].endswith("ok")]
+            for n in range(MUTATIONS):
+                if n not in accepted:
+                    self.assertTrue(reports[n].startswith("error: "), f"m{n}: {reports[n]}")
+            for n in accepted:
+                lines = mutants[n].read_bytes().count(NL)
+                self.assertEqual(reports[n], f"reexported {lines} lines", f"m{n}")
+            chosen = [copies[n] for n in accepted]
+            self.assertEqual(dumps(chosen), [read[n] for n in accepted])
+            reexport_all([(copies[n], again[n]) for n in accepted])
+            same = sum(mutants[n].read_bytes() == copies[n].read_bytes() for n in accepted)
+            for n in accepted:
+                self.assertEqual(again[n].read_bytes(), copies[n].read_bytes(), f"m{n}")
+        print(f"fuzz sweep: seed {SEED + 1}, {MUTATIONS} mutated exports, {len(accepted)} "
+              f"accepted ({same} already in the exporter's form), "
+              f"{MUTATIONS - len(accepted)} refused", file=sys.stderr)
+        self.assertGreater(len(accepted), 0)
+        self.assertGreater(MUTATIONS - len(accepted), 0)
 
 
 class Tool(unittest.TestCase):

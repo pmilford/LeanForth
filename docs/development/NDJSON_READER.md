@@ -734,8 +734,17 @@ dumps are equal, as above.
   byte for byte, and read back into the same dump; a seeded sweep (seed
   20261103, two spellings of each export) with random white space,
   shuffled members and random escapes, each of which must come back as
-  the original bytes; and the script in both modes, on a file in another
-  spelling, on a file the reader refuses and with bad usage.
+  the original bytes; a seeded fuzz sweep (seed 20261104, 200 exports
+  each changed by one of the reader's mutations, above): every mutant the
+  reader refuses is refused with an error line, and every one it accepts
+  comes back as a copy the reader reads into the same dump and that
+  re-exports to itself byte for byte (in `make test` 42 accepted, 21 of
+  them already in the exporter's form; a run of 3,000 accepted 614, all
+  passing, 292 unchanged); and the script in both modes, on a file in
+  another spelling, on a file the reader refuses and with bad usage.
+  Plan task 3.2.4 asked for identity on all fixtures and accepted fuzz
+  cases: byte identity where the input is in the exporter's form, and
+  otherwise the same records and a fixed point.
 - `tests/core/reexport/kinds.ndjson` is pinned Lean's own export (with
   `--export-mdata --export-unsafe`) of `tests/core/reexport/kinds.lean`:
   1,390 lines with every record kind, levels `max` and `imax`, a 129-bit

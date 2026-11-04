@@ -452,8 +452,9 @@ test-differential: reference-author
 # The NDJSON re-exporter (plan task 3.2.4; docs/development/NDJSON_READER.md,
 # "Re-export"): unit tests of every record kind, every failure and two
 # planted faults; then every export under tests/ re-exported through files,
-# byte for byte, and read back into the same dump, a seeded sweep of other
-# spellings, and the comparison tool. Gforth and Python 3 only.
+# byte for byte, and read back into the same dump, seeded sweeps of other
+# spellings and of the reader's mutations, and the comparison tool. Gforth
+# and Python 3 only.
 test-reexport:
 	$(RUN) $(GFORTH) tests/core/ndjson-emit.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/core/test_ndjson_emit.py
