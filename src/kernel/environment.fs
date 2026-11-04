@@ -125,11 +125,11 @@ begin-structure /lf-slot
   field: lf-slot-added      \ true on the type and constructors of a block
                             \ rejected only by B3: Lean's kernel added them
   field: lf-slot-recipe     \ a block's generated recursor: lf-recipe-... bits
-  field: lf-slot-motive     \ and its motive universe's name (large elimination)
 end-structure
 \ The recipe bits (ADR 0015 decision 12): the recursor LeanForth generated
 \ for the block can be built again from its input (generated-recursor.fs);
-\ it eliminates into every universe (named by lf-slot-motive).
+\ it eliminates into every universe (its motive universe its first
+\ universe parameter).
 1 constant lf-recipe-raw
 2 constant lf-recipe-large
 
@@ -146,7 +146,6 @@ begin-structure /lf-cand
   field: lf-cand-warnings   \ a block's B4 warning bits, published with it
   field: lf-cand-added      \ a block rejected only by B3 (lf-env-added!)
   field: lf-cand-recipe     \ its generated recursor's recipe (lf-env-recipe!)
-  field: lf-cand-motive
   lf-env-dep-capacity cells +field lf-cand-deps   \ their slots, ascending
 end-structure
 /lf-cand context-record: lf-env-cand
@@ -168,12 +167,11 @@ end-structure
 \ constructors' slots (lf-slot-added?), and the name checks below read
 \ them.
 : lf-env-added! ( flag -- ) lf-env-cand lf-cand-added ! ;
-\ A block's check sets the recipe of the recursor it generated (motive
-\ universe name, or 0, and lf-recipe-... bits); the publisher keeps it on
-\ the block's slots, where a later lookup of T.rec that no slot holds
-\ finds it (ADR 0015 decision 12).
-: lf-env-recipe! ( name bits -- )
-  lf-env-cand tuck lf-cand-recipe ! lf-cand-motive ! ;
+\ A block's check sets the recipe of the recursor it generated
+\ (lf-recipe-... bits); the publisher keeps it on the block's slots, where
+\ a later lookup of T.rec that no slot holds finds it (ADR 0015 decision
+\ 12).
+: lf-env-recipe! ( bits -- ) lf-env-cand lf-cand-recipe ! ;
 
 \ A context as a worker (G-P6). Zero in a new context; never cleared.
 begin-structure /lf-worker
@@ -516,41 +514,44 @@ here lf-env-holders - 2 cells / constant lf-env-holders#
 : lf-env-unknown-constant ( name limit -- outcome )
   c" environment lf-env-lookup" lf-diag-unknown-constant lf-diag-note outcome-rejected ;
 \ A lookup that found Lean's generated recursor of the block whose type
-\ is slot d, which no slot holds: (d ok), and lf-env-genrec? true until
-\ the next lookup; the caller builds the recursor again from the recipe on
-\ slot d (env-signature.fs, generated-recursor.fs). Without a recipe
-\ (a type whose telescope only whnf shows), unknown.
+\ is slot d, which no slot holds: (-1 ok) -- no slot is the constant,
+\ so no caller can read T's slot as T.rec's (review rvI21 R4-5) -- with
+\ d given by lf-env-genrec-of until the next lookup; the caller builds
+\ the recursor again from the recipe on slot d (env-signature.fs,
+\ generated-recursor.fs). Without a recipe (a type whose telescope only
+\ whnf shows), unknown.
 1 cells context-record: lf-env-gen-state
-: lf-env-genrec? ( -- flag ) lf-env-gen-state @ ;
-: lf-slot-recipe@ ( slot -- name bits ) dup lf-slot-motive @ swap lf-slot-recipe @ ;
+: lf-env-genrec-of ( -- d|-1 ) lf-env-gen-state @ 1- ;
 : lf-env-rebuildable? ( d -- flag )
   lf-env lf-env-slot lf-slot-recipe @ lf-recipe-raw and 0<> ;
-: lf-env-genrec ( name d -- d outcome )
-  dup lf-env-rebuildable? if nip true lf-env-gen-state ! outcome-ok exit then
+: lf-env-genrec ( name d -- -1 outcome )
+  dup lf-env-rebuildable? if nip 1+ lf-env-gen-state ! -1 outcome-ok exit then
   lf-env-generated no-result ;
 : lf-env-absent-early ( name limit d -- outcome )
   rot drop swap c" environment lf-env-lookup" lf-diag-too-early lf-diag-note
   outcome-invalid ;
-: lf-env-absent-as ( name limit d class -- d outcome )
+: lf-env-absent-as ( name limit d class -- -1 outcome )
   case outcome-rejected of drop lf-env-unknown-constant no-result endof
     outcome-ok of nip lf-env-genrec endof
     outcome-unknown of nip nip lf-env-k5-unknown no-result endof
     outcome-unsupported of nip nip lf-env-k5-unsupported no-result endof
     >r lf-env-absent-early no-result r> endcase ;
-: lf-env-n1 ( name limit outcome -- d outcome )
+: lf-env-n1 ( name limit outcome -- -1 outcome )
   dup outcome-rejected = 0= if nip nip no-result exit then
   drop 2dup lf-env-reserving lf-env-absent-as ;
 \ Find the constant named name for the check in this context: (d ok) for
-\ the accepted earlier declaration of that name; (-1 rejected) when none
-\ was accepted, undecided or unsupported (N1), and no earlier type holds
-\ the name as its generated recursor (lf-env-reserving: then unknown, or
-\ K5 by that type); (-1 unknown) when one was
-\ undecided, else (-1 unsupported) when one was unsupported (K5, unknown
-\ first); (-1 invalid)
-\ without a valid snapshot or name, when a same-named earlier slot is not
-\ final (started too early), or when two were accepted.
+\ the usable earlier declaration of that name (accepted, or added with a
+\ block rejected only by B3); (-1 ok) for the recursor Lean's kernel
+\ generated for an earlier type that holds the name and no slot holds,
+\ the type's slot then lf-env-genrec-of (ADR 0015 decision 12); (-1
+\ rejected) when none was usable, undecided or unsupported (N1) and no
+\ earlier type holds the name; (-1 unknown) when one was undecided, or a
+\ holder type left no recipe, else (-1 unsupported) when one was
+\ unsupported (K5, unknown first); (-1 invalid) without a valid snapshot
+\ or name, when a same-named earlier slot or a holder type is not final
+\ (started too early), or when two were usable.
 : lf-env-lookup-pass ( name -- d outcome )
-  false lf-env-gen-state !
+  0 lf-env-gen-state !
   lf-env-snapshot 0= if drop -1 outcome-invalid exit then nip
   over lf-env-name-ok? 0= if drop lf-env-bad-name exit then
   2dup lf-env-find dup ok? if 2swap 2drop exit then nip lf-env-n1 ;
@@ -650,10 +651,14 @@ here lf-env-holders - 2 cells / constant lf-env-holders#
 : lf-env-depend ( d -- outcome )
   lf-cand-count? 0= if drop outcome-invalid exit then
   dup lf-env-usable ok? if lf-cand-add else 2drop outcome-invalid then ;
-\ Look name up and record it as a dependency: (d ok), or (-1 outcome).
+\ Look name up and record it as a dependency: (d ok); (-1 ok) for a
+\ generated recursor, its type's slot (lf-env-genrec-of) recorded; or
+\ (-1 outcome).
+: lf-env-resolve-generated ( -1 -- -1 outcome ) lf-env-genrec-of lf-env-depend ;
 : lf-env-resolve ( name -- d outcome )
-  lf-env-lookup dup ok? 0= if exit then
-  drop dup lf-env-depend dup ok? if exit then nip no-result ;
+  lf-env-lookup dup ok? 0= if exit then drop
+  dup 0< if lf-env-resolve-generated exit then
+  dup lf-env-depend dup ok? if exit then nip no-result ;
 
 \ Universe parameters (E2; ADR 0011 rules L1–L3). Names compare
 \ structurally. Unchecked: the names are valid in an audited name store.

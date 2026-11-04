@@ -1,37 +1,49 @@
 \ The program words' run record, reasons and output (ADR 0019): shared by
 \ both designs that run a Forth source file in correctness mode, the mode
 \ shift (verify.fs) and the separate vocabulary (verify-alias.fs). A run
-\ writes IR 0.1 (docs/programming/PROGRAM_IR.md) one line at a time
-\ through an output word ( c-addr u -- ), each line with the line and
-\ column of its source token, and stops at the first refusal with one
-\ diagnostic line, "OUTCOME @line:column: reason: token", and an outcome
-\ (ADR 0008): unsupported for Forth outside IR 0.1, invalid for malformed
-\ Forth or an unreadable file, full when a capacity is reached.
+\ writes the program IR (docs/programming/PROGRAM_IR.md) one line at a
+\ time, each line with the line and column of its source token, and stops
+\ at the first refusal with one diagnostic line, "OUTCOME @line:column:
+\ reason: token", and an outcome (ADR 0008): unsupported for Forth outside
+\ IR 0.2, invalid for malformed Forth or an unreadable file, full when a
+\ capacity is reached.
 \
-\ Reasons are numbered as src/program/ir-reader.fs, today's reader and
-\ the program words' test oracle, numbers its diagnostics, plus four of
-\ their own (27 to 30); their messages are records in the format of the
-\ authoring layer's catalogue (src/author/errors.fs), each with its fixed
-\ outcome. The current token is an offset into the line being run, the
-\ authoring layer's idea of a position (src/author/source.fs).
+\ The lines wait in a buffer and go to the output word ( c-addr u -- )
+\ when the run ends, after the version line, which depends on all of them
+\ (ADR 0019 Amendment 1, A4): "lf-ir 0.2" when a line uses something new
+\ in IR 0.2 (an out line, prim lshift or prim -rot), "lf-ir 0.1"
+\ otherwise, so that a file using nothing new gives IR 0.1 byte for byte.
+\ The buffer comes from the heap and doubles as it fills; when the heap
+\ refuses more, the run stops as full there, without its diagnostic line.
+\
+\ Reasons are numbered as src/program/ir-reader.fs, the reader of IR 0.1
+\ and the program words' earlier test oracle, numbers its diagnostics,
+\ plus six of their own (27 to 32); their messages are records in the
+\ format of the authoring layer's catalogue (src/author/errors.fs), each
+\ with its fixed outcome. The current token is an offset into the line
+\ being run, the authoring layer's idea of a position
+\ (src/author/source.fs).
 \
 \ Untrusted: the words translate text and prove nothing; receipts name
 \ them in their trusted-reader assumption. State: one context record,
-\ pv-run, reached only through the accessors below; the catalogue, the
-\ indentation's blanks and the two designs' records, read-only once
-\ loaded. The output word, run while a run is under way, must take its
-\ two cells and leave none (else the run fails as invalid, "output word
-\ failed"); a run it starts in its own context aborts (THROW -2) and
-\ changes nothing.
+\ pv-run, reached only through the accessors below, and the heap buffer it
+\ points to during a run; the catalogue, the indentation's blanks and the
+\ two designs' records, read-only once loaded. The output word runs when a
+\ run ends, while the run is still under way; it must take its two cells
+\ and leave none (else the run fails as invalid, "output word failed"),
+\ and a run it starts in its own context aborts (THROW -2) and changes
+\ nothing.
 
 require ../lib/lib.fs
+require ../lib/text-run.fs
 require ../author/errors.fs
 
 \ The THROW code with which a word stops a run after recording its
 \ diagnostic; only the runner (verify-runner.fs) catches it.
 -4130 constant pv-throw
 
-\ Reasons. 1 to 21 and 26 are today's reader's, with its messages.
+\ Reasons. 1 to 21 and 26 are the IR 0.1 reader's, with its messages but
+\ for reason 2, which names IR 0.2.
 0 constant pv-why-none
 1 constant pv-why-unknown        2 constant pv-why-not-ir
 3 constant pv-why-outside        4 constant pv-why-inside
@@ -47,10 +59,11 @@ require ../author/errors.fs
 25 constant pv-why-busy          26 constant pv-why-interrupted
 27 constant pv-why-host-literal  28 constant pv-why-compiling
 29 constant pv-why-replaced      30 constant pv-why-number-name
+31 constant pv-why-version-name  32 constant pv-why-open-text
 
 create pv-catalogue
   pv-why-unknown s" not a known word or 32-bit decimal" lfa-unsupported,
-  pv-why-not-ir s" a Forth word outside IR 0.1" lfa-unsupported,
+  pv-why-not-ir s" a Forth word outside IR 0.2" lfa-unsupported,
   pv-why-outside s" not allowed outside a definition" lfa-unsupported,
   pv-why-inside s" not allowed inside a definition" lfa-unsupported,
   pv-why-unbalanced s" unbalanced control structure" lfa-invalid,
@@ -77,6 +90,8 @@ create pv-catalogue
   pv-why-compiling s" run while Forth is compiling" lfa-invalid,
   pv-why-replaced s" a standard word redefined before the run" lfa-unsupported,
   pv-why-number-name s" a name that reads as a number" lfa-unsupported,
+  pv-why-version-name s" a name the IR gives another version" lfa-unsupported,
+  pv-why-open-text s" text not closed on its line" lfa-unsupported,
   pv-why-none outcome-invalid s" no diagnostic" lfa-message,
 
 \ A reason's record; any number the catalogue lacks gives the closing
@@ -87,12 +102,13 @@ create pv-catalogue
 : lf-verify-message ( reason -- c-addr u ) pv-message-of lfa-message-text ;
 : pv-reason-outcome ( reason -- outcome ) pv-message-of lfa-message-outcome @ ;
 
-\ Capacities: those of today's reader.
+\ Capacities: those of the IR 0.1 reader.
 96 constant pv-out-chars         \ longest output line
 128 constant pv-line-chars       \ source lines must be shorter than this
 32 constant pv-prefix-chars      \ room before the line for a design's entry word
 128 constant pv-path-chars       \ a longer path is cut (it cannot fit its header line)
 20 constant pv-indent-chars      \ the deepest indentation (verify-semantics.fs checks it)
+4096 constant pv-written-start   \ characters first allocated for the lines written
 
 \ A design: how it runs a line, made once while its file loads and read
 \ only afterwards. The mode shift (verify.fs) and the separate vocabulary
@@ -104,6 +120,7 @@ begin-structure /pv-design
   field: pv-design-line          \ ( -- ) run the line in the source buffer
   field: pv-design-caught        \ ( code -- ) after a THROW that is no diagnostic
   field: pv-design-call          \ ( index -- ) a word of the file run by the host
+  field: pv-design-host          \ ( c-addr u entry -- ) a host word an action reads
 end-structure
 : pv-design: ( "name" -- ) create here /pv-design dup allot erase ;
 
@@ -126,6 +143,10 @@ begin-structure /pv-run
   pv-prefix-chars pv-line-chars + chars aligned +field pv-run-source  \ evaluated
   field: pv-run-path#
   pv-path-chars chars aligned +field pv-run-path
+  field: pv-run-written          \ the lines written, each ended by an LF: address, or 0
+  field: pv-run-written#         \ characters in them
+  field: pv-run-written-size     \ characters allocated
+  field: pv-run-new              \ true once a line uses something new in IR 0.2
 end-structure
 /pv-run context-record: pv-run
 
@@ -149,6 +170,10 @@ end-structure
 : pv-out ( -- c-addr ) pv-run pv-run-out ;
 : pv-source ( -- c-addr ) pv-run pv-run-source ;
 : pv-path ( -- c-addr u ) pv-run dup pv-run-path swap pv-run-path# @ ;
+: pv-written-at ( -- addr ) pv-run pv-run-written ;
+: pv-written# ( -- addr ) pv-run pv-run-written# ;
+: pv-written-size ( -- addr ) pv-run pv-run-written-size ;
+: pv-new ( -- addr ) pv-run pv-run-new ;
 \ A copy of the path, so that it may be in a transient buffer; a longer
 \ one is cut, and cannot fit its header line either.
 : pv-path! ( c-addr u -- )
@@ -173,37 +198,75 @@ end-structure
 : pv-token-text ( -- c-addr u )
   pv-token @ 0< if s" " exit then pv-text drop pv-token @ chars + pv-token# @ ;
 
-\ The output line under construction, sent through the output word. An
-\ output word that throws, or that leaves the stack at another depth,
-\ fails the run as invalid ("output word failed"), the exception caught.
+\ The output line under construction.
 : pv-room ( -- u ) pv-out-chars pv-out# @ - ;
 : pv-copy ( c-addr u -- ) pv-out pv-out# @ chars + swap dup pv-out# +! chars move ;
 : pv-clipped ( c-addr u -- ) pv-room min pv-copy ;
+
+\ The first refusal is recorded with where it happened; later ones are
+\ ignored.
+: pv-record ( reason -- )
+  dup pv-reason-outcome pv-outcome ! pv-reason ! pv-here lfa-pos pv-where ! ;
+: pv-stop ( -- ) pv-throw throw ;
+
+\ The lines written, kept until the run ends. Room for u more characters:
+\ the buffer grows to twice its size, or more, or its first size; false
+\ when the heap refuses (the buffer then stays as it was).
+: pv-written ( -- c-addr u ) pv-written-at @ pv-written# @ ;
+: pv-new-size ( u -- u' ) pv-written-size @ 2* max pv-written-start max ;
+: pv-reallocated ( size -- a-addr ior )
+  chars pv-written-at @ ?dup if swap resize else allocate then ;
+: pv-resized? ( size -- flag )
+  dup pv-reallocated if 2drop false exit then pv-written-at ! pv-written-size ! true ;
+: pv-room-for? ( u -- flag )
+  pv-written# @ + dup pv-written-size @ > if pv-new-size pv-resized? else drop true then ;
+: pv-written-end ( -- c-addr ) pv-written chars + ;
+: pv-written+ ( c-addr u -- ) pv-written-end swap dup pv-written# +! chars move ;
+: pv-written-lf ( -- ) 10 pv-written-end c! 1 pv-written# +! ;
+\ A line that does not fit stops the run as full, at the current token,
+\ unless it already stopped (it was then the diagnostic line).
+: pv-written-full ( -- ) pv-outcome @ ok? if pv-why-capacity pv-record then pv-stop ;
+: pv-write ( c-addr u -- )
+  dup 1+ pv-room-for? 0= if 2drop pv-written-full then pv-written+ pv-written-lf ;
+: pv-send ( -- ) pv-out pv-out# @ 0 pv-out# ! pv-write ;
+\ The buffer given back, at the end of every run.
+: pv-written-free ( -- )
+  pv-written-at @ ?dup if free drop then
+  0 pv-written-at ! 0 pv-written# ! 0 pv-written-size ! ;
+
+\ The lines sent through the output word, the version first. An output
+\ word that throws, or that leaves the stack at another depth, fails the
+\ run as invalid ("output word failed"), the exception caught; the lines
+\ after it are not sent.
 : pv-output-failed ( -- )
-  outcome-invalid pv-outcome ! pv-why-output pv-reason ! pv-throw throw ;
+  outcome-invalid pv-outcome ! pv-why-output pv-reason ! pv-stop ;
 : pv-call-out ( c-addr u -- code ) pv-emit-xt @ catch dup if nip nip then ;
 : pv-emit ( c-addr u -- )
   depth >r pv-call-out depth r> 1- <> or if pv-output-failed then ;
-: pv-send ( -- ) pv-out pv-out# @ 0 pv-out# ! pv-emit ;
+\ A line uses something new in IR 0.2: the version line will say so.
+: pv-new-ir ( -- ) true pv-new ! ;
+: pv-version ( -- c-addr u ) pv-new @ if s" lf-ir 0.2" else s" lf-ir 0.1" then ;
+\ The first line written, without its LF, and the lines after it.
+: pv-first-line ( c-addr u -- c-addr2 u2 c-addr3 u3 )
+  2dup text-line-end drop >r over r@ 2swap r> 1+ over min /string 2swap ;
+: pv-flush ( -- )
+  pv-version pv-emit pv-written begin dup while pv-first-line pv-emit repeat 2drop ;
 
 \ Numbers are written in decimal whatever BASE is.
 : pv-decimal ( n -- c-addr u ) base @ >r decimal dup abs 0 <# #s rot sign #> r> base ! ;
+: pv-decimal-d ( d -- c-addr u ) base @ >r decimal tuck dabs <# #s rot sign #> r> base ! ;
 
-\ The diagnostic: the first refusal is recorded with where it happened
-\ and written as one line, its pieces clipped to the line; later ones are
-\ ignored. pv-fail stops the run there, quoting the current token;
-\ pv-fail-here the same without the token.
+\ The diagnostic: the first refusal is written as one line, its pieces
+\ clipped to the line. pv-fail stops the run there, quoting the current
+\ token; pv-fail-here the same without the token.
 : pv-at ( line column -- )
   s"  @" pv-clipped swap pv-decimal pv-clipped s" :" pv-clipped pv-decimal pv-clipped ;
 : pv-quote ( c-addr u -- ) dup if s" : " pv-clipped pv-clipped else 2drop then ;
 : pv-diagnostic ( c-addr u -- )
   0 pv-out# ! pv-outcome @ outcome-text pv-clipped pv-where @ lfa-pos> pv-at
   s" : " pv-clipped pv-reason @ lf-verify-message pv-clipped pv-quote pv-send ;
-: pv-record ( reason -- )
-  dup pv-reason-outcome pv-outcome ! pv-reason ! pv-here lfa-pos pv-where ! ;
 : pv-report ( c-addr u reason -- )
   pv-outcome @ ok? if pv-record pv-diagnostic else drop 2drop then ;
-: pv-stop ( -- ) pv-throw throw ;
 : pv-fail ( reason -- ) >r pv-token-text r> pv-report pv-stop ;
 : pv-fail-here ( reason -- ) >r s" " r> pv-report pv-stop ;
 \ The same when the flag is true.
@@ -213,6 +276,7 @@ end-structure
 \ Pieces of an IR line. Text that would not fit stops the run as full.
 : pv-append ( c-addr u -- ) dup pv-room > pv-why-capacity pv-?fail pv-copy ;
 : pv-number ( n -- ) pv-decimal pv-append ;
+: pv-number-d ( d -- ) pv-decimal-d pv-append ;
 : pv-location ( line column -- )
   s"  @" pv-append swap pv-number s" :" pv-append pv-number ;
 : pv-done ( -- ) pv-here pv-location pv-send ;

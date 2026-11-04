@@ -442,6 +442,7 @@ test-present:
 	if [ -n "$$out" ]; then printf 'src/present/term-printer.fs printed while loading:\n%s\n' "$$out" >&2; exit 1; fi
 	$(RUN) $(GFORTH) tests/present/term-printer.fs
 	$(RUN) $(GFORTH) tests/present/print-sweep.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/present/test_outline_block.py
 	GFORTH=$(GFORTH) $(RUN) python3 tests/present/check_golden.py
 
 # The printer's Unicode output against pinned Lean's own printing, and its
@@ -491,6 +492,7 @@ test-program-verify:
 	$(RUN) $(GFORTH) tests/program/verify.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/program/verify_check.py
 	GFORTH=$(GFORTH) $(RUN) python3 tests/program/verify_roundtrip.py
+	GFORTH=$(GFORTH) $(RUN) python3 tests/program/verify_ir02.py
 
 .PHONY: test-program-verify
 test: test-program-verify
@@ -510,6 +512,7 @@ test-program-ir-run:
 # checked by Lean with planted faults, and the receipt's evidence recorded afresh.
 reference-program-ir-run:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/program/ir_run_differential.py --lean
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/program/verify_ir02.py --lean
 	LEAN=$(LEAN) $(RUN) python3 tests/program/vc_check.py --lean
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/program/receipt_check.py --record
 

@@ -850,18 +850,42 @@ and its members' exported data into the input (`core/input.fs`,
     2026-11-04). When no slot holds `T.rec` (the file left it out, or holds
     a different or renamed one in a block rejected by B3), Lean's kernel
     still holds the recursor it generated. The block check leaves a recipe
-    on the block's slots (`lf-env-recipe!`: the motive universe's name or
-    Prop, and whether the telescope it walked after whnf was the raw one);
-    a later lookup of `T.rec` resolves to the type's slot as the generated
-    recursor (`lf-env-genrec?`), and inference builds the recursor again in
-    its own scratch from the block's input and the recipe, with the same
-    builder (`generated-recursor.fs`, `inductive-recursor.fs`), then
-    applies L1 against its own universe parameters (the motive's first),
-    L2, the block as the dependency, and specializes its type. A block whose
-    telescope only whnf shows has no recipe, and a use of its `T.rec` stays
-    *unknown* (diagnostic 77); no such block is known. The P4 guard of
+    on the block's slots (`lf-env-recipe!`: whether the recursor eliminates
+    into every universe, and whether the telescope it walked after whnf was
+    the raw one). A later lookup of `T.rec` that no slot holds answers (-1
+    ok), the type's slot given apart (`lf-env-genrec-of`; review rvI21
+    R4-5: no caller, log or outline takes `T`'s slot for `T.rec`).
+    Inference applies L1 against the recursor's own universe parameters
+    (the motive's first), L2, records the block as the dependency, and
+    builds the recursor in its own scratch at the use's universe
+    arguments, from the block's input, with the same builder
+    (`generated-recursor.fs`; `inductive-recursor.fs`
+    `lf-recursor-build-at`): the motive's Sort at the first argument, the
+    block's constants at the others, and every binder domain read from
+    instances of the block's type and constructor types with the block's
+    universe parameters replaced by those arguments
+    (`lf-mixed-level-substitute`; review rvI21 R5-1, which found the
+    domains left at the block's own universes). That is the recursor's
+    type instantiated, as Lean's `instantiate_type_lparams` gives it
+    (rows `after.eq-at-*`, `after.exists-at-*`, `after.universe-max-at-*`:
+    renamed, concrete, swapped and applied universes). No universe name of the
+    recursor's own is made, so its motive universe need not be a level of
+    the file (R4-1: such a file was *invalid*), and its universe parameters
+    have no limit of their own (R4-3: they were capped at 64). A block
+    whose type is a Sort only after whnf has no recipe: a use of its
+    `T.rec` stays *unknown* (diagnostic 77; row
+    `after.redex-type-left-out-then-use-rec`, a block such as `IE.U2 :
+    (fun x : Type 1 => x) Type`), a temporary gap until task 4.2.2 brings
+    whnf and unfolding to a lookup (steps 4.2.2b-e). The P4 guard of
     decision 6 is a temporary gap until task 5.2.2 (structure eta and
     unit-like comparison): it can only turn *rejected* into *unknown*.
+    The other temporary gaps of the default mode, each with its task:
+    the capacities (512 constructors, 64 parameters plus indices or
+    fields, 16 dependencies: *full*; task 6.2.0); a file that names an
+    undeclared constant or holds a block with constructors or recursors
+    but no type (*invalid* as a whole, where Lean rejects the declaration
+    concerned; task 5.2.6); a binder whose type's type is a Sort only
+    after whnf (*unknown*; task 4.2.2).
 
 **Evidence** (2026-11-04, Gforth 1.0.0, Lean 4.35.0):
 
@@ -896,8 +920,12 @@ and its members' exported data into the input (`core/input.fs`,
   5.2.1a's 75 rows, 70 give Lean's verdict (27 accepted, 43 rejected, the
   empty block among them since the importer stages it) and 5 are
   pending, each naming the later task that closes it: 5.2.1b (four rows
-  using or redeclaring `Nat`) and 4.2.2 (one needing unfolding). 59
-  planted faults are caught.
+  using or redeclaring `Nat`) and 4.2.2 (one needing unfolding). The
+  review's fourth round added 15 rows that strip a block's recursors and
+  use the generated one (166 in all), and its fifth 10 that use it at
+  universes other than its own names (176): of task 5.2.1a's 94 rows, 88
+  give Lean's verdict (45 accepted, 43 rejected) and 6 are pending
+  (5.2.1b four, 4.2.2 two). 67 planted faults are caught.
 - `make test-check-block` (41 committed table files, 60 since the review; blocks published
   together; the reference export tampered field by field; fuel bisection;
   a full store), eighteen planted faults (`ind-*`) all caught, and the

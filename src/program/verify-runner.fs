@@ -20,6 +20,8 @@
 \ names the token at fault, or ends the run as invalid ("read stopped by
 \ an exception"). A run is the authoring program's top level (ADR 0018):
 \ nothing passes on to the caller but the outcome, and the file is closed.
+\ The lines written go to the output word at the end, the version line
+\ first (verify-report.fs).
 \
 \ Untrusted. State: one context record, pv-flow, and those of
 \ verify-report.fs and verify-semantics.fs. A run in progress makes its
@@ -135,10 +137,11 @@ end-structure
 : pv-lines ( -- )
   begin pv-next-line? while 1 pv-line# +! pv-no-token pv-one-line repeat pv-end-of-text ;
 
-\ The header, as today's reader writes it: a path too long for its line
+\ The header's second line, as the IR 0.1 reader writes it (the version
+\ line comes first when the lines are sent): a path too long for its line
 \ stops the run as full, quoting it.
 : pv-header ( -- )
-  s" lf-ir 0.1" pv-append pv-send s" source " pv-append
+  s" source " pv-append
   pv-path dup pv-room > if pv-why-capacity pv-report pv-stop then pv-copy pv-send ;
 : pv-not-compiling ( -- ) state @ pv-why-compiling pv-?fail-here ;
 \ The caller's settings, kept unless its search order is too deep.
@@ -172,9 +175,16 @@ end-structure
 : pv-prepare ( c-addr u design -- )
   pv-claim ['] pv-new-run catch ?dup if false pv-busy ! throw then ;
 : pv-close-file ( -- ) pv-fid @ ?dup if close-file drop then 0 pv-fid ! ;
+\ The lines go to the output word once the caller's settings are back and
+\ the file is closed, while the run is still under way; an exception
+\ there that is no diagnostic counts as the output word failing.
+: pv-deliver ( -- )
+  ['] pv-flush catch dup pv-settled? if drop exit then
+  drop outcome-invalid pv-outcome ! pv-why-output pv-reason ! ;
 : pv-finish ( -- )
   pv-close-file pv-saved @ if pv-settings run-settings-restore then pv-floats-clear
-  false pv-busy ! pv-outcome @ ok? if pv-line# @ 0 lfa-pos pv-where ! then ;
+  pv-deliver pv-written-free false pv-busy !
+  pv-outcome @ ok? if pv-line# @ 0 lfa-pos pv-where ! then ;
 : pv-go ( -- outcome ) ['] pv-work catch pv-caught pv-finish pv-outcome @ ;
 
 \ Running text or a file in a design; the public words of verify.fs and

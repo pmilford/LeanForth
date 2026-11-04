@@ -1,13 +1,18 @@
-# Program IR, version 0.1
+# Program IR, versions 0.1 and 0.2
 
-**Status: implemented and untrusted (2026-11-02, tasks 2.5.2 and 2.5.3 of
-the [plan draft](../project/PLAN_DRAFT.md)).** The IR's semantics is a Lean
-model, checked by Lean, not by LeanForth. What turns Forth source into IR
-is ordinary, unverified Forth: since 2026-11-03 the
+**Status: IR 0.1 implemented and untrusted (2026-11-02, tasks 2.5.2 and
+2.5.3 of the [plan draft](../project/PLAN_DRAFT.md)); IR 0.2 implemented
+and untrusted (2026-11-04, [ADR 0019 Amendment 1](../adr/0019-program-words-two-modes.md#amendment-1-proposed-ir-02-redefinition-output-words-and-sha-2),
+approved in design by the owner), before its [parser] implementation
+gate.** The IR's semantics is a Lean model, checked by Lean, not by
+LeanForth. What turns Forth source into IR is ordinary, unverified Forth:
+since 2026-11-03 the
 [program words](#the-program-words-correctness-mode) of ADR 0019, which run
-the source file in correctness mode, with today's [reader](#the-reader)
-kept beside them as their test oracle until the [parser] gate. IR 0.2
-is [planned](#planned-for-ir-02), not implemented.
+the source file in correctness mode, with the IR 0.1 [reader](#the-reader)
+kept beside them as a test oracle for IR 0.1; IR 0.2's oracle is plain
+Gforth. [IR 0.2](#ir-02) adds redefinition by Forth's early binding,
+output words, `LSHIFT`, `-ROT` and Forth-2012's number prefixes; a file
+that uses none of them still gives IR 0.1, byte for byte.
 
 The verified-program track needs an exact, small description of what a
 Forth word does, between its source text and the proof obligations about
@@ -100,8 +105,11 @@ instructions:
 | `if` *yes* `else` *no* `then` | `IF … ELSE … THEN` | pop a flag; nonzero runs *yes*, zero runs *no* (empty without `ELSE`) |
 | `begin` *test* `while` *body* `repeat` | `BEGIN … WHILE … REPEAT` | run *test*, pop a flag, stop on zero, else run *body* and repeat |
 | `exit` | `EXIT` | leave the current word |
+| `out o` (IR 0.2) | `.` `U.` `CR` `EMIT` `SPACE` `SPACES` `."` `S" … " TYPE` `.S` | its stack effect; what it prints is an event ([IR 0.2](#ir-02)) |
 
-Primitives, with Forth-2012 stack effects (the top is on the right):
+Primitives, with Forth-2012 stack effects (the top is on the right); IR
+0.2 adds `lshift` (bits, defined for a count below the cell width) and
+`-rot` (stack):
 
 | Group | Words |
 | --- | --- |
@@ -163,13 +171,20 @@ loop invariants and a general loop rule
 ## Text form
 
 ```text
-program    = "lf-ir 0.1" NL "source " path NL { definition }
+program    = ( "lf-ir 0.1" | "lf-ir 0.2" ) NL "source " path NL { definition }
 definition = ( "word " name | "constant " name ) [loc] NL { line } "end" [loc] NL
 line       = indent ( "prim " word | "lit " integer | "call " name | "exit"
-                    | "if" | "else" | "then" | "begin" | "while" | "repeat" ) [loc] NL
+                    | "if" | "else" | "then" | "begin" | "while" | "repeat"
+                    | "out " outword | "out ." QUOTE " " text QUOTE ) [loc] NL
+outword    = "." | "u." | "cr" | "emit" | "space" | "spaces" | ".s"
+text       = { printable ASCII character other than QUOTE, or space }
 loc        = " @" line-number ":" column-number
 integer    = [ "-" ] digit { digit }      (decimal)
 ```
+
+`out` lines and the words `lshift` and `-rot` are IR 0.2's, and appear
+only under its version line (see [IR 0.2](#ir-02)); QUOTE is `"`, so the
+first `"` after `out ." ` ends the text.
 
 An integer is read as the mathematical integer it denotes, so leading
 zeros are allowed and change nothing (`-007` is −7). An integer outside
@@ -212,10 +227,14 @@ default), and gives an outcome; `lf-verify-text ( c-addr u c-addr2 u2 --
 outcome )` and `lf-alias-text` run lines of text named c-addr2 u2 in the
 header, and `lf-verify-reason`, `lf-verify-where` and `lf-verify-message`
 tell why and where the last run stopped. A diagnostic has the reader's form
-(below) and its reason numbers, plus four: 27 "the host read a literal
+(below) and its reason numbers, plus six: 27 "the host read a literal
 differently from its text" (the separate vocabulary only), 28 "run while
 Forth is compiling", 29 "a standard word redefined before the run" (the
-mode shift only) and 30 "a name that reads as a number".
+mode shift only), 30 "a name that reads as a number", and, for
+[IR 0.2](#ir-02), 31 "a name the IR gives another version" and 32 "text
+not closed on its line"; reason 2 reads "a Forth word outside IR 0.2".
+The lines reach the output word when the run ends, the version line
+first (IR 0.2 only when a line needs it).
 
 | Module | What it is |
 | --- | --- |
@@ -257,13 +276,15 @@ a host word named like a decimal, which the mode shift refuses.
 and constants made of IR 0.1's primitives, control words, plain decimals
 and earlier definitions, with `\` and `( )` comments and `DECIMAL`, in any
 case of letters; the same lines and characters and the same capacities,
-with a file read a block at a time and no limit on its size. They differ
-from the reader on purpose in four ways, from the owner's answers and ADR
-0019 §2-§3:
+with a file read a block at a time and no limit on its size; and, since
+IR 0.2, what [IR 0.2](#ir-02) adds (redefinitions of the file's own words,
+output words, `LSHIFT`, `-ROT`, prefixed numbers and 32-bit literals). On
+IR 0.1 input they differ from the reader on purpose in four ways, from the
+owner's answers and ADR 0019 §2-§3:
 
-- *Forth-2012's Core and Core Ext words are reserved:* one outside IR 0.1
-  (`CELLS`, `S"`, `EVALUATE`, `HEX` …) is refused as "a Forth word outside
-  IR 0.1" where the reader says "not a known word", and none may be
+- *Forth-2012's Core and Core Ext words are reserved:* one outside IR 0.2
+  (`CELLS`, `S\"`, `EVALUATE`, `HEX` …) is refused as "a Forth word outside
+  IR 0.2" where the reader says "not a known word", and none may be
   defined by the file (`: . drop ;`, `: depth 0 ;`), which narrows the
   reader's caveat that the file must be loaded last to Gforth's own words.
 - *Names that read as numbers are refused* (answer 4) in `:` and
@@ -603,12 +624,14 @@ of fuel, unbalanced return stack, bad constant, unknown word), and refutes two d
 with `MAX` and `MIN` exchanged, and checked add without its overflow test,
 which on 64-bit cells wraps max + 1 to min. `make check-lean-sources`
 forbids `sorry`, `native_decide` and axioms in the file, and
-`make reference-program-ir` accepts each of the 35 theorems it lists (the
-nine above, the eighteen of the contracts below and the eight of
-well-formedness) only if it uses no axioms beyond Lean's `propext`,
-`Classical.choice` and `Quot.sound`: 26 report exactly these three,
-`FactorialReference.checked_contract` reports `propext` and `Quot.sound`,
-and the eight of well-formedness `propext` alone.
+`make reference-program-ir` accepts each of the 51 theorems it lists (the
+nine above, the eighteen of the contracts below, the eight of
+well-formedness, and IR 0.2's sixteen: three of well-formedness, five
+about output words and eight of the SHA-2 stage, see [IR 0.2](#ir-02))
+only if it uses no axioms beyond Lean's `propext`, `Classical.choice` and
+`Quot.sound`: the 35 of IR 0.1 report exactly what they reported before
+(26 these three, `FactorialReference.checked_contract` `propext` and
+`Quot.sound`, the eight of well-formedness `propext` alone).
 
 **Well-formedness** (Part 6, ADR 0019 test plan 4, MiniForth's linker
 idea): `WellFormed p` is a decidable check of a program as the program
@@ -760,48 +783,199 @@ said above; and that the five words' contracts are those a user wants,
 which is for the owner to judge. The generator still reports the two loop
 words *unsupported* (see [what is missing](PROGRAM_VC.md#results-2026-11-02)).
 
-## Planned for IR 0.2
+## IR 0.2
 
-**Proposed in [ADR 0019 Amendment 1](../adr/0019-program-words-two-modes.md#amendment-1-proposed-ir-02-redefinition-output-words-and-sha-2)
-(2026-11-04); nothing below is implemented, and the [parser] gate decides
-it first.** Everything on this page describes IR 0.1 as it is.
-
-- **Redefinition with Forth's early binding** (the owner's request): a
-  file may define its own words again; each use means the version visible
-  where it is written, and each version has its own IR name (`lf-clamp`,
-  `lf-clamp'1`, …), so a proof and a receipt name exactly one version.
-  Redefining Forth-2012 Core and Core Ext words stays refused
-  (recommended).
-- **Output words as effects:** `.`, `U.`, `CR`, `EMIT`, `SPACE`, `SPACES`,
-  `."`, `S" … " TYPE` and `.S` inside definitions, written `out .` and so
-  on; for the stacks they only take their argument, and what they print
-  goes to a list of events that a stack proof ignores (a planned Lean
-  theorem says the stacks never depend on it). `dup .` for debugging is
-  the main use.
-- **For SHA-256's helper words** (plan stage SHA-2): the primitives
-  `lshift` and `-rot`, and Forth-2012's prefixed numbers (`$`, `#`, `%`,
-  `'c'`) with values from −2^31 to 2^32 − 1.
-- **Versioning:** a file using none of the new instructions still gives
-  today's IR, labelled `lf-ir 0.1`; receipts of IR 0.2 programs need
-  receipt schema 0.3 ([format] gate).
-
-Probes behind the design, on both Gforths and in Lean:
+**Implemented 2026-11-04 as [ADR 0019 Amendment 1](../adr/0019-program-words-two-modes.md#amendment-1-proposed-ir-02-redefinition-output-words-and-sha-2)
+designs it and the owner approved it (answers in
+[decisions](../project/OWNER_DECISIONS.md#ir-02-design-approved-2026-11-04)),
+before its [parser] implementation gate.** IR 0.2 is IR 0.1 plus three
+instructions, `prim lshift`, `prim -rot` and `out` lines; the program
+words also accept three things that need no new instruction: redefinition,
+prefixed numbers and 32-bit literals. Probes behind the design:
 [IR 0.2 probes](../development/measurements/ir-0.2-probes-2026-11-04/README.md).
+
+**One example in four forms: the debugging pair.** *Mathematics:* the
+clamp of [above](#one-example-in-four-forms), printing max(v, l) when
+l ≤ u. *Forth* (the amendment's probe 5):
+
+```forth
+: lf-clamp ( value lower upper -- result true | false )
+  2dup > if 2drop drop false exit then
+  >r max dup . r> min true ;
+```
+
+*IR 0.2*, the line after `max`: `prim dup`, then `out .`; the header says
+`lf-ir 0.2`. *Lean* (`tests/reference/program-ir.lean`, Part 7):
+`clampDebug_correct` has `clamp_correct`'s statement unchanged, proved by
+the same proof; `clampDebug_prints` says what it prints:
+
+```lean
+theorem clampDebug_prints (c : Cells) (fuel : Nat) (lower upper value : Int) (tail rs : List Int) :
+    (runOut c clampDebugProgram (fuel + 1) [.call "lf-clamp"] ⟨upper :: lower :: value :: tail, rs⟩).2 =
+      if lower > upper then [] else [.number (if value < lower then lower else value)]
+```
+
+**Redefinition, Forth's early binding (A1).** A file may define its own
+words again, in any case of letters. Every use binds to the version
+visible where the interpreter reaches it, as Gforth binds it; inside its
+own definition a name means the version before it (a definition is hidden
+until its `;`), and with none it is refused as "recursive call". Each
+version has its own IR name: the name folded to lower case, then `'k` for
+the k-th redefinition (`pf`, `pf'1`, `pf'2`), and every `word`,
+`constant` and `call` line uses it:
+
+```text
+: pf 1 ; : pg pf ; : pf 2 ; : ph pf ;     →   word pf / word pg: call pf /
+                                              word pf'1 / word ph: call pf'1
+```
+
+A definition whose IR name another definition already has (`x'1` after
+`x` twice) is refused, reason 31 "a name the IR gives another version",
+so IR names stay unique and Lean's `lookup` is exact. Standard words (the
+table's, Core and Core Ext) stay refused as names (the owner's answer to
+question 2), and so do `-rot` and `.s` now. Each version counts against
+the 32 definitions of a file. A receipt names one version
+(`program.word`); for a version that is not the last, its trusted-reader
+assumption says which later version the name means after loading.
+
+**Output words as effects (A2).** Inside definitions only:
+
+| Forth | IR 0.2 line | Stack | Event (Lean `Event`) |
+| --- | --- | --- | --- |
+| `.` | `out .` | `( n -- )` | `number n` |
+| `U.` | `out u.` | `( u -- )` | `unsigned` (the cell's bit pattern) |
+| `CR` | `out cr` | `( -- )` | `newline` |
+| `EMIT` | `out emit` | `( x -- )` | `char x` (the byte x mod 256) |
+| `SPACE` | `out space` | `( -- )` | `blanks 1` |
+| `SPACES` | `out spaces` | `( n -- )` | `blanks` max(n, 0) |
+| `." text"` | `out ." text"` | `( -- )` | `text` |
+| `S" text" TYPE` | `out ." text"` | `( -- )` | `text` |
+| `.S` | `out .s` | `( -- )` | `stack` (the whole data stack) |
+
+`."` and `S"` must close on their line (reason 32, "text not closed on its
+line"); a tab in the text is refused (reason 16); `S"` must be followed at
+once by `TYPE`, the host's own as the design knows words; `S"` anywhere
+else, `TYPE` alone, `S\"` and `.(` stay refused (reason 2). Outside a
+definition every output word is refused (reason 3): it would print while
+the file loads.
+
+**LSHIFT, -ROT and numbers (A3).** `LSHIFT ( x u -- x' )` for a count
+below the cell width: the bit pattern shifted left, the bits above the
+cell dropped; any other count is *unmodeled*, as for `RSHIFT`. `-ROT
+( x1 x2 x3 -- x3 x1 x2 )` is `ROT ROT`; it is no Forth-2012 word, but both
+Gforths have it, and [`src/lib/portability.fs`](../../src/lib/portability.fs)
+defines it as `rot rot` on a Forth without it (which the program words
+load, and which run mode must load first there: the owner's condition that
+non-standard words have portable definitions). Numbers: plain decimals,
+`#[-]digits`, `$[-]hexadecimal digits` (either case), `%[-]binary digits`
+and `'c'` for a printable character, from −2^31 to 2^32 − 1, at most 10,
+8 or 32 digits; the IR writes them in decimal (`$FFFFFFFF` is
+`lit 4294967295`). Refused: `-$10` (Gforth 1.0 refuses it, 0.7.3 reads
+−16), `1_000`, `0x10`, `1.`, `-'a'` and every other form. A literal above
+2^31 − 1 fits only cells of at least 33 bits; elsewhere it is *unmodeled*,
+so a theorem that uses one assumes such cells.
+
+**Versioning (A4).** The program words write `lf-ir 0.2` only when a line
+uses one of the three new instructions, `lf-ir 0.1` otherwise: the golden
+files `clamp.ir`, `examples.ir` and `all-primitives.ir` and the clamp
+receipt's IR are unchanged, byte for byte. Since the version line depends
+on every line, the program words keep the IR in a heap buffer during the
+run and send it to the output word at the end (a run whose IR the heap
+cannot hold stops as *full*). The IR 0.1 reader stays IR 0.1 and refuses
+every IR 0.2 input; the IR interpreter reads both versions and refuses an
+IR 0.2 instruction under an IR 0.1 version line. Reason 2 now reads "a
+Forth word outside IR 0.2". Receipts are not changed: schema 0.2 has
+`program.ir.version` "0.1" only, so the receipt generator refuses to write
+one for an IR 0.2 program until the owner decides schema 0.3 at the
+[format] gate ([receipts](PROGRAM_RECEIPTS.md#schema-03-what-ir-02-receipts-need)).
+
+**Lean (Parts 7 and 8 of `program-ir.lean`).** `Prim` gains `lshift` and
+`negRot`, `Instr` gains `out`; `run` gives an output word its stack effect
+only. `runOut` follows `run` and also collects the events in order (a
+callee's where it is called; those before a failure kept), and
+**`runOut_result`** proves `(runOut c p fuel code s).1 = run c p fuel
+code s` for every program, fuel, block and state: a contract about the
+stacks, stated with `run`, holds whatever a word prints. `debug_pair`
+proves that `dup .` changes no stack, and `debug_pair_prints` that it
+prints the top cell. `Event.render` gives the bytes of each event (none
+for `.S`, whose format Forth-2012 leaves to the system), checked by
+`decide` against bytes both Gforths printed. Well-formedness refuses `out`
+in a constant's body and a call of a later version. All 35 earlier
+theorems check unchanged, with the same axioms.
+
+**The SHA-2 stage (plan stage SHA-2 of the SHA-256 flagship).**
+[`src/program/sha-words.fs`](../../src/program/sha-words.fs) holds the
+helper words of `src/lib/sha256.fs`, character for character
+(`check_program_ir.py` checks it): `sha-mask`, `sha-w32`, `sha-shr`,
+`sha-rotr`, `sha-ch`, `sha-maj` and `sha-big-sigma0`. Its IR is
+[`sha-words.ir`](../../tests/program/ir/sha-words.ir), and Part 8 proves,
+for every cell width of at least 33 bits, every 32-bit word x, y, z (a
+cell holding `x.toNat`), every count n below 32 and every stack below:
+
+| Word | Theorem | FIPS 180-4 (copied from `sha256-spec.lean`) | Fuel |
+| --- | --- | --- | --- |
+| `sha-rotr` | `shaRotr_correct` | `ROTR n x` | 3 |
+| `sha-ch` | `shaCh_correct` | `Ch x y z` | 1 |
+| `sha-maj` | `shaMaj_correct` | `Maj x y z` | 1 |
+| `sha-big-sigma0` | `shaBigSigma0_correct` | `bigSigma0 x` | 4 |
+
+and refutes two wrong variants: `sha-rotr` without its mask (x = 2^31,
+n = 1 leaves 2^62 + 2^30 on 64-bit cells) and `Ch` without its complement.
+The arithmetic heart, `rotr_value`, shows that the right shift or'ed with
+the left shift cut to the cell, and'ed with `65536 dup * 1-` (2^32 − 1 on
+every such width, also on 33 bits where 2^32 wraps), is ROTR. All use
+only `propext`, `Classical.choice` and `Quot.sound`. Plain Gforth runs the
+words on FIPS 180-4's values (`tests/program/verify.fs`). Not established:
+that `src/lib/sha256.fs` runs this code (it defines the same words with
+the same text but does not load this file yet, the stage's next step), and
+on 64-bit hosts its round and schedule do not call these words at all
+(`sha-doubling`, amendment finding 3), which stage SHA-3 must address; 32-
+bit cells; Σ1, σ0 and σ1, which follow ROTR's theorem the same way.
+
+**Evidence** (2026-11-04, Gforth 1.0.0 and 0.7.3, Lean 4.35.0):
+`tests/program/verify.fs` (both designs: every IR 0.2 refusal at its token,
+probe 1's redefinition cases with their IR lines, the golden files
+`ir-0.2.ir` and `sha-words.ir`, the 32-version capacity, text lengths at
+the line's limit); `tests/program/verify_check.py` (289 inputs: the two
+designs identical on all; against the IR 0.1 reader, every difference
+explained by a rule, and identical wherever nothing new is used);
+`tests/program/verify_roundtrip.py` (round trip of the six golden files;
+the 400 random programs give the reader's output but for the counted
+rules); **`tests/program/verify_ir02.py`**, the host oracle: 60 generated
+files with redefinitions, output words, the new primitives and prefixed
+numbers, each loaded by plain Gforth line by line, every definition's
+token kept, and run on random inputs against the IR interpreter on the
+program words' IR, by version name: identical stacks and printed bytes on
+both Gforths on all 1,174 cases that end normally (also 297 output-word
+cases at the edges: `.` and `U.` at the cell's and 32-bit edges, `EMIT` of
+0 to 255 and beyond, `SPACES` of negative counts, `.S` of 12 cells), the
+version names as predicted, and 34 literals read as Gforth reads them;
+`tests/program/ir_run_differential.py --lean` (150 random IR 0.2 programs
+with `lshift`, `-rot`, out lines and version names: the interpreter and
+Lean's model agree on every case); planted faults (`tests/mutants/faults.toml`,
+the `pv-` and `irx-` entries).
 
 ## Versioning
 
-The version string `0.1` appears in the text form's first line, in the
-reader's output and in receipts (`program.ir.version`). Any change to the
-syntax, the primitives or the semantics gives a new version; the Lean
-model, the reader, its golden files and the receipt schema change together.
+The version string appears in the text form's first line, in the program
+words' and the reader's output and in receipts (`program.ir.version`).
+Any change to the syntax, the primitives or the semantics gives a new
+version; the Lean model, the program words, the golden files and the
+receipt schema change together. IR 0.2 is the second version; the program
+words write the lowest version that fits.
 
 ## Running the checks
 
 ```sh
 make test-program-ir        # receipts, verbatim copies, reader tests and files (Gforth, Python)
 make test-program-verify    # the program words: both designs, cross-check, round trip
-make reference-program-ir   # the Lean model, its axioms, its IR against the reader's
+make reference-program-ir   # the Lean model, its axioms, its IR against the golden files
+GFORTH=... python3 tests/program/verify_ir02.py   # IR 0.2 against plain Gforth (host oracle)
 ```
+
+`verify_ir02.py` (about 4 s; `--lean` also runs Lean's model on the cases
+of eight files) is not yet in a make target: it is to join
+`make test-program-verify`.
 
 The first two are part of `make test`, the last of `make check`. Measured on
 2026-11-02 (Ryzen 5 7600X, WSL2): `make reference-program-ir` takes about

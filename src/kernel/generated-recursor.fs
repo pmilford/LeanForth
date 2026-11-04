@@ -14,17 +14,33 @@
 \ on the same facts, which the recipe and the input determine.
 \ The facts: the type's telescope (parameters and indices, the result
 \ Sort) and each constructor's field count are read from the raw input
-\ terms; the recipe gives the motive's universe (or Prop) and says that
-\ the telescope the check walked after whnf was the raw one
-\ (lf-genrec-raw?, tested when the check built the recursor). A block
-\ whose telescope only whnf shows has no recipe: a use of its T.rec is
-\ then unknown (diagnostic 77), never decided. Nothing is trusted from
-\ the file beyond what the block check itself read.
+\ terms; the recipe says whether the recursor eliminates into every
+\ universe (its motive universe its first universe parameter) or only
+\ into Prop, and that the telescope the check walked after whnf was the
+\ raw one (lf-genrec-raw?, tested when the check built the recursor).
+\ The recursor is built at the use's universe arguments: the motive's
+\ Sort at the first when it has one; the block's constants at the others;
+\ and every binder domain read from instances of the block's type and
+\ constructor types in which the block's universe parameters are replaced
+\ by those same arguments (lf-mixed-level-substitute; review rvI21 R5-1).
+\ Since building copies the domains and only adds constants and the
+\ motive's Sort, the result is Lean's instantiate_type_lparams of the
+\ recursor's type at the use's arguments (rows after.*-at-*: renamed,
+\ concrete, swapped and applied universes on Eq, Exists and Pr). No
+\ universe name of the recursor's own is ever made (the motive's `u` need
+\ not be a name or a level of the file; R4-1), and the number of universe
+\ parameters has no limit of its own (R4-3). A block whose
+\ telescope only whnf shows has no recipe: a use of its T.rec is then
+\ unknown (diagnostic 77) until unfolding and whnf at a lookup (plan task
+\ 4.2.2, its steps 4.2.2b-e). Nothing is trusted from the file beyond
+\ what the block check itself read.
 \ [kernel] code: experimental, not through the review gate.
-\ State: lf-genrec-state, a member of the checker context: the type built,
-\ its universe parameters, and a copy of the block record lf-ind-state,
-\ which the build overwrites and gives back (a lookup can happen during
-\ another block's check, whose record must survive it).
+\ State: lf-genrec-state, a member of the checker context: the type built
+\ and a copy of the block record lf-ind-state, which the build overwrites
+\ and gives back (a lookup can happen during another block's check, whose
+\ record must survive it); the build's own state and level pairs are
+\ inductive-recursor.fs's (lf-rcr-state, lf-rcr-pair-cells), unused while
+\ a block's inference steps run.
 
 require ../lib/lib.fs
 require ../core/input.fs
@@ -34,20 +50,22 @@ require ./environment.fs
 require ./inductive-block.fs
 require ./inductive-recursor.fs
 require ./mixed-head.fs
+require ./mixed-level-substitute.fs
 
 begin-structure /lf-genrec
   field: lf-genrec-root-cell    \ the recursor's type, built
-  field: lf-genrec-count        \ its universe parameters
-  lf-param-capacity cells +field lf-genrec-param-cells
+  field: lf-genrec-args         \ the use's arguments for the block's parameters
   /lf-ind +field lf-genrec-saved \ the block record while the build runs
 end-structure
 /lf-genrec context-record: lf-genrec-state
+\ The constructors' types instantiated, one cell each: a growable array.
+1 cells context-slab: lf-genrec-ctor-cells
 
 \ ---------------------------------------------------------------------------
 \ At the block check, after the build (step 12): whether the telescope it
 \ walked, binder by binder after whnf, is the raw one -- each domain the
 \ raw Pi's own node, the end a raw Sort of the result level.
-: lf-genrec-arity ( -- n ) lf-ind-nparams lf-ind-state lf-ind-indices @ + ;
+: lf-genrec-binders ( -- n ) lf-ind-nparams lf-ind-state lf-ind-indices @ + ;
 : lf-genrec-step ( node i -- node' flag )
   over lf-tag-pi lf-ind-tag? 0= if drop false exit then
   lf-ind-domain @ over lf-term-first@ = swap lf-term-second@ swap ;
@@ -56,16 +74,15 @@ end-structure
   dup lf-genrec-sorted? 0= if drop false exit then
   lf-term-first@ lf-ind-state lf-ind-level @ = ;
 : lf-genrec-raw? ( -- flag )
-  lf-ind-type lf-idecl-type @ lf-genrec-arity 0 ?do
+  lf-ind-type lf-idecl-type @ lf-genrec-binders 0 ?do
     i lf-genrec-step 0= if drop false unloop exit then
   loop lf-genrec-sort? ;
-\ The recipe the block check publishes: the motive universe's name, or 0
-\ for Prop, and lf-recipe-raw (with lf-recipe-large for a name); 0 0
-\ when the telescope is not raw.
-: lf-genrec-recipe ( -- name bits )
-  lf-genrec-raw? 0= if 0 0 exit then
-  lf-ind-state lf-ind-elim-name @ dup if lf-recipe-raw lf-recipe-large or
-  else lf-recipe-raw then ;
+\ The recipe the block check publishes: lf-recipe-raw, with
+\ lf-recipe-large when the motive has a universe of its own; 0 when the
+\ telescope is not raw.
+: lf-genrec-recipe ( -- bits )
+  lf-genrec-raw? 0= if 0 exit then
+  lf-recipe-raw lf-ind-state lf-ind-elim-name @ if lf-recipe-large or then ;
 
 \ ---------------------------------------------------------------------------
 \ At a lookup: the facts again, from the raw input. The telescope: each
@@ -73,8 +90,8 @@ end-structure
 \ it is not what the recipe says (no raw Sort end, too few binders).
 : lf-genrec-bind ( node i -- node' )
   over lf-term-first@ swap lf-ind-domain ! lf-term-second@ ;
-: lf-genrec-tele ( -- outcome )
-  lf-ind-type lf-idecl-type @ 0 begin over lf-tag-pi lf-ind-tag? while
+: lf-genrec-tele ( root -- outcome )
+  0 begin over lf-tag-pi lf-ind-tag? while
     dup lf-ind-binder-capacity < 0= if 2drop outcome-full exit then
     tuck lf-genrec-bind swap 1+
   repeat lf-ind-nparams - dup 0< if 2drop outcome-invalid exit then
@@ -86,44 +103,67 @@ end-structure
     i lf-ind-ctor-type lf-ind-body nip lf-ind-nparams - dup 0<
     if drop outcome-invalid unloop exit then i lf-ind-nfields !
   loop outcome-ok ;
-\ The motive's universe: the recipe's name as a level, or Prop.
-: lf-genrec-elim ( name bits -- outcome )
-  lf-recipe-large and 0= if drop 0 0 else
-    dup lf-level-param 0= if drop outcome-full exit then
-  then lf-ind-state lf-ind-elim ! lf-ind-state lf-ind-elim-name ! outcome-ok ;
-\ The universe parameters: the motive's first when it has one, then the
-\ block's (Lean's declare_recursors).
-: lf-genrec-param! ( name -- )
-  lf-genrec-state dup lf-genrec-count @ cells over lf-genrec-param-cells + rot swap !
-  1 swap lf-genrec-count +! ;
-: lf-genrec-params! ( -- outcome )
-  0 lf-genrec-state lf-genrec-count !
-  lf-ind-lparams nip lf-ind-state lf-ind-elim-name @ 0<> - lf-param-capacity >
-  if outcome-full exit then
-  lf-ind-state lf-ind-elim-name @ ?dup if lf-genrec-param! then
-  lf-ind-lparams 0 ?do dup i cells + @ lf-genrec-param! loop drop outcome-ok ;
+\ The recursor's universe parameters (Lean's declare_recursors): the
+\ motive's first when it eliminates into every universe, then the
+\ block's; their number is what a use must supply (L1).
+: lf-genrec-large? ( d -- flag )
+  lf-env lf-env-slot lf-slot-recipe @ lf-recipe-large and 0<> ;
+: lf-genrec-arity ( d -- n ) dup lf-input-params nip swap lf-genrec-large? 1 and + ;
+\ The use's arguments, (index identity) pairs as constant references hold
+\ them: the motive's Sort at the first when it has one; the block's
+\ constants at the rest, put in the builder's pair cells.
+: lf-genrec-elim ( pairs large? -- pairs' )
+  if dup 0 lf-cref-pair @ lf-ind-state lf-ind-elim ! 1 lf-cref-pair
+  else 0 lf-ind-state lf-ind-elim ! then ;
+: lf-genrec-pairs ( pairs -- outcome )
+  dup lf-genrec-state lf-genrec-args !
+  lf-ind-lparams nip dup lf-rcr-pair-cells slab-hold ok? 0=
+  if 2drop outcome-full exit then
+  0 ?do dup i lf-cref-pair 2@ i lf-rcr-pair 2! loop drop outcome-ok ;
+\ An input root with the block's universe parameters replaced by the
+\ use's arguments for them (lf-genrec-args), on the block's fuel; a
+\ block without universe parameters keeps the root.
+: lf-genrec-subst-run ( root identity -- root' outcome )
+  lf-ind-lparams drop lf-genrec-state lf-genrec-args @ lf-ind-lparams nip lf-ind-fuel @
+  lf-mixed-level-substitute lf-mls-fuel @ lf-ind-fuel !
+  dup ok? if 2drop outcome-ok else -1 swap then ;
+: lf-genrec-subst ( root -- root' outcome )
+  lf-ind-lparams nip 0= if outcome-ok exit then
+  dup lf-term-identity 0= if drop -1 outcome-invalid exit then lf-genrec-subst-run ;
+\ The type's telescope from its instance; each constructor's type
+\ instantiated into the array.
+: lf-genrec-type ( -- outcome )
+  lf-ind-type lf-idecl-type @ lf-genrec-subst dup ok? 0= if nip exit then drop
+  lf-genrec-tele ;
+: lf-genrec-ctor ( j -- outcome )
+  dup lf-ind-ctor-type lf-genrec-subst dup ok? 0= if nip nip exit then drop
+  swap lf-genrec-ctor-cells slab-at ! outcome-ok ;
+: lf-genrec-ctors ( -- outcome )
+  lf-ind-ctors@ 1 max lf-genrec-ctor-cells slab-hold ok? 0= if outcome-full exit then
+  lf-ind-ctors@ 0 ?do i lf-genrec-ctor dup ok? 0= if unloop exit then drop loop
+  outcome-ok ;
 
 \ The build, between the copy of the block record and its return.
 : lf-genrec-then ( outcome xt -- outcome ) over ok? if nip execute else drop then ;
-: lf-genrec-facts ( d -- outcome )
-  lf-ind-open nip ['] lf-genrec-tele lf-genrec-then ['] lf-genrec-fields lf-genrec-then ;
+: lf-genrec-facts ( d -- outcome ) lf-ind-open nip ['] lf-genrec-fields lf-genrec-then ;
 : lf-genrec-made ( -- outcome )
-  lf-recursor-build dup ok? 0= if exit then drop
-  lf-ind-state lf-ind-rec-type @ lf-genrec-state lf-genrec-root-cell ! lf-genrec-params! ;
-: lf-genrec-run ( d fuel -- fuel' outcome )
-  >r dup lf-genrec-facts dup ok? 0= if nip r> swap exit then drop
-  r> lf-ind-fuel ! lf-env lf-env-slot lf-slot-recipe@ lf-genrec-elim
+  0 lf-genrec-ctor-cells slab-at lf-recursor-build-at dup ok? 0= if exit then
+  lf-ind-state lf-ind-rec-type @ lf-genrec-state lf-genrec-root-cell ! ;
+: lf-genrec-run ( d pairs fuel -- fuel' outcome )
+  >r over lf-genrec-facts dup ok? 0= if nip nip r> swap exit then drop
+  r> lf-ind-fuel ! swap lf-genrec-large? lf-genrec-elim lf-genrec-pairs
+  ['] lf-genrec-type lf-genrec-then ['] lf-genrec-ctors lf-genrec-then
   ['] lf-genrec-made lf-genrec-then lf-ind-fuel @ swap ;
 : lf-genrec-save ( -- ) lf-ind-state lf-genrec-state lf-genrec-saved /lf-ind move ;
 : lf-genrec-restore ( -- ) lf-genrec-state lf-genrec-saved lf-ind-state /lf-ind move ;
 
 \ Build the recursor of the block whose type is slot d (readable, with a
-\ recipe: lf-env-rebuildable?) in this check's scratch, with fuel: (fuel'
-\ ok), the type then lf-genrec-root and its universe parameters
-\ lf-genrec-params; or (fuel' failure): full (a full store, more
-\ parameters than lf-param-capacity), exhausted, invalid (an input that
-\ is not what the recipe says). The block record is as before.
-: lf-genrec ( d fuel -- fuel' outcome ) lf-genrec-save lf-genrec-run lf-genrec-restore ;
+\ recipe: lf-env-rebuildable?) at the universe arguments at pairs, as
+\ many as lf-genrec-arity says (the caller checks them, L1 and L2), in
+\ this check's scratch, with fuel: (fuel' ok), its type then
+\ lf-genrec-root; or (fuel' failure): full (a full store or pair slab),
+\ exhausted, invalid (an input that is not what the recipe says). The
+\ block record is as before.
+: lf-genrec ( d pairs fuel -- fuel' outcome )
+  lf-genrec-save lf-genrec-run lf-genrec-restore ;
 : lf-genrec-root ( -- root ) lf-genrec-state lf-genrec-root-cell @ ;
-: lf-genrec-params ( -- params n )
-  lf-genrec-state dup lf-genrec-param-cells swap lf-genrec-count @ ;

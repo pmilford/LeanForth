@@ -140,6 +140,31 @@ after.b3-ctor-then-use-rec	accepted	accepted	B3 G1	5.2.1a
 after.b3-renamed-then-use-rec	accepted	accepted	B3 G1	5.2.1a	
 after.b3-renamed-then-use-renamed	unknownConstant	rejected	B3 N1	5.2.1a	
 after.recursor-left-out-then-use-rec-no-level	universeArity	rejected	B4 L1	5.2.1a	
+after.and-left-out-then-use-rec	accepted	accepted	B4 G1	5.2.1a	
+after.or-left-out-then-use-rec	accepted	accepted	B4 G1 E1	5.2.1a	
+after.exists-left-out-then-use-rec	accepted	accepted	B4 G1 E4	5.2.1a	
+after.true-left-out-then-use-rec	accepted	accepted	B4 G1 K1	5.2.1a	
+after.empty-prop-left-out-then-use-rec	accepted	accepted	B4 G1 E2	5.2.1a	
+after.unit-left-out-then-use-rec	accepted	accepted	B4 G1	5.2.1a	
+after.universe-max-left-out-then-use-rec	accepted	accepted	B4 G1 U1	5.2.1a	
+after.predicate-any-field-left-out-then-use-rec	accepted	accepted	B4 G1 E4	5.2.1a	
+after.eq-left-out-then-use-rec	accepted	accepted	B4 G1 K1	5.2.1c	
+after.index-left-out-then-use-rec	accepted	accepted	B4 G1	5.2.1c	
+after.mutual-left-out-then-use-rec	accepted	accepted	B4 G1	5.2.5	
+after.recursor-left-out-then-lookup-in-def	accepted	accepted	B4 G1	5.2.1a	
+after.recursor-left-out-then-lookup-during-block	accepted	accepted	B4 G1	5.2.1a	
+after.many-universes-left-out-then-use-rec	accepted	accepted	B4 G1	5.2.1a	
+after.eq-at-renamed	accepted	accepted	B4 G1	5.2.1c	
+after.eq-at-concrete	accepted	accepted	B4 G1	5.2.1c	
+after.eq-at-applied	accepted	accepted	B4 G1	5.2.1c	
+after.exists-at-renamed	accepted	accepted	B4 G1	5.2.1a	
+after.exists-at-concrete	accepted	accepted	B4 G1	5.2.1a	
+after.exists-at-applied	accepted	accepted	B4 G1	5.2.1a	
+after.universe-max-at-renamed	accepted	accepted	B4 G1	5.2.1a	
+after.universe-max-at-concrete	accepted	accepted	B4 G1	5.2.1a	
+after.universe-max-at-swapped	accepted	accepted	B4 G1	5.2.1a	
+after.universe-max-at-applied	accepted	accepted	B4 G1	5.2.1a	
+after.redex-type-left-out-then-use-rec	declTypeMismatch	rejected	B4 G1	5.2.1a	
 names.reserved-nested-prefix	reservedNestedPrefix	rejected	T0	5.2.5	
 names.reserved-nested-prefix-declared	reservedNestedPrefix	rejected	T0	5.2.1a	
 names.constructor-already-declared	alreadyDeclared	rejected	N2	5.2.1a	

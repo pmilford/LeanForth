@@ -378,6 +378,44 @@ T{ s" after.b3-renamed-then-use-renamed" verdict drop
   s" replay-bool.constructor-universe-added" case-path staged ok? must fuel checked
   2 lf-env-params drop nip finish ;
 T{ ctor-arity -> 0 }T
+\ The generated recursor on several shapes (review rvI21 R4-2): each block
+\ with its recursors left out, then def T.useRec.{us} : <Lean's type of
+\ T.rec> := @T.rec.{us}, accepted as Lean accepts it: And (fields, large
+\ elimination), Or and Exists (Prop only), True (K), an empty Prop, a
+\ Unit, Pr (two universes and fields), a predicate with a Type field
+\ (Prop only), Eq (indices, K) and a family with an index; and a use at
+\ level 1 in a definition and during another block's check, where the
+\ motive's universe is no level of the file (R4-1). A type that is a
+\ Sort only after whnf leaves no recipe: unknown (task 4.2.2).
+: used ( c-addr u -- outcome code ) verdict drop ;
+T{ s" after.and-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.or-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.exists-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.true-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.empty-prop-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.unit-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.universe-max-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.predicate-any-field-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.eq-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.index-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.many-universes-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.recursor-left-out-then-lookup-in-def" used -> outcome-ok 0 }T
+T{ s" after.recursor-left-out-then-lookup-during-block" used -> outcome-ok 0 }T
+\ The generated recursor at universes other than its own names (review
+\ rvI21 R5-1): renamed, concrete, swapped and applied (eta) uses of Eq's,
+\ Exists' and Pr's, whose domains mention the block's universes.
+T{ s" after.eq-at-renamed" used -> outcome-ok 0 }T
+T{ s" after.eq-at-concrete" used -> outcome-ok 0 }T
+T{ s" after.eq-at-applied" used -> outcome-ok 0 }T
+T{ s" after.exists-at-renamed" used -> outcome-ok 0 }T
+T{ s" after.exists-at-concrete" used -> outcome-ok 0 }T
+T{ s" after.exists-at-applied" used -> outcome-ok 0 }T
+T{ s" after.universe-max-at-renamed" used -> outcome-ok 0 }T
+T{ s" after.universe-max-at-concrete" used -> outcome-ok 0 }T
+T{ s" after.universe-max-at-swapped" used -> outcome-ok 0 }T
+T{ s" after.universe-max-at-applied" used -> outcome-ok 0 }T
+T{ s" after.redex-type-left-out-then-use-rec" used
+   -> outcome-unknown lf-diag-generated-recursor }T
 \ The marks on the slots: the type and constructors, not the recursor.
 : added? ( d -- flag ) lf-env lf-env-slot lf-slot-added? ;
 : marks ( -- f0 f1 f2 f3 )
