@@ -261,8 +261,7 @@ rr-reset rr-no-source
 \ (manifest.fs), through the reader's tap: each line, then its line feed.
 \ When it was ok, its digest must be rr-start's (rvRP3 round 3); a read
 \ that failed has no whole digest, and the record keeps what it found.
-: rr-line ( c-addr u sha -- ) dup >r sha256-update s\" \n" r> sha256-update ;
-: rr-tap ( export -- ) >r run-record rr-sha dup sha256-init ['] rr-line r> export-tap! ;
+: rr-tap ( export -- ) >r run-record rr-sha dup sha256-init ['] sha256-line r> export-tap! ;
 : rr-tapped ( -- c-addr u )
   run-record dup rr-digest swap rr-sha sha256-final
   run-record dup rr-digest swap rr-seen sha256-hex

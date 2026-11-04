@@ -1813,10 +1813,19 @@ reason = "the table of version checks lacks lean_version: a manifest naming Lean
 [[fault]]
 id = "manifest-no-line-feeds"
 file = "src/import/manifest.fs"
-old = '''r@ manifest-sha sha256-update line-feed r> manifest-sha sha256-update ;'''
+old = '''r> manifest-sha sha256-line ;'''
 new = '''r> manifest-sha sha256-update ;'''
 test = "$GFORTH tests/core/manifest.fs"
 reason = "the line feeds are not hashed; the fixture's digest differs"
+quick = true
+
+[[fault]]
+id = "sha256-line-no-line-feed"
+file = "src/lib/sha256.fs"
+old = '''dup >r sha256-update s\" \n" r> sha256-update ;'''
+new = '''sha256-update ;'''
+test = "$GFORTH tests/lib/sha256.fs"
+reason = "sha256-line does not add the line feed after the text"
 quick = true
 
 [[fault]]
@@ -2473,8 +2482,8 @@ reason = "rvRP3 round 3: rr-start's manifest check of other bytes than it hashed
 [[fault]]
 id = "rr-meta-line-feeds-unhashed"
 file = "src/import/run-record.fs"
-old = ''': rr-line ( c-addr u sha -- ) dup >r sha256-update s\" \n" r> sha256-update ;'''
-new = ''': rr-line ( c-addr u sha -- ) sha256-update ;'''
+old = '''['] sha256-line r> export-tap! ;'''
+new = '''['] sha256-update r> export-tap! ;'''
 test = "$GFORTH tests/core/run-record.fs"
 reason = "rvRP3 round 3: the metadata read's digest is not the file's, so every run fails to start"
 
@@ -2498,8 +2507,8 @@ reason = "rvRP3 round 3: without the manifest check, a change during the first p
 [[fault]]
 id = "cin-line-feeds-unhashed"
 file = "src/import/checker-input.fs"
-old = ''': cin-line ( c-addr u sha -- ) dup >r sha256-update s\" \n" r> sha256-update ;'''
-new = ''': cin-line ( c-addr u sha -- ) sha256-update ;'''
+old = '''['] sha256-line cin-export export-tap! ;'''
+new = '''['] sha256-update cin-export export-tap! ;'''
 test = "$GFORTH tests/core/run-record.fs"
 reason = "rvRP3 round 3: an unchecked read's digest is not the file's SHA-256"
 
@@ -2523,7 +2532,7 @@ reason = "rvRP3 round 3: an unchecked recorded read of other bytes than rr-start
 [[fault]]
 id = "cin-passes-same"
 file = "src/import/checker-input.fs"
-old = '''  cin-digest cin-kept compare if cin-passes-differ else outcome-ok then ;'''
+old = '''  cin-pass-hex cin-kept compare if cin-passes-differ else outcome-ok then ;'''
 new = '''  outcome-ok ;'''
 test = "python3 tests/core/test_run_records.py"
 reason = "rvRP3 R2-1: the second pass's digest is not compared with the first's"
@@ -2531,10 +2540,28 @@ reason = "rvRP3 R2-1: the second pass's digest is not compared with the first's"
 [[fault]]
 id = "cin-digest-not-kept"
 file = "src/import/checker-input.fs"
-old = '''  cin-digest drop cin-kept move true cin-state map-digested ! outcome-ok ;'''
-new = '''  cin-digest 2drop true cin-state map-digested ! outcome-ok ;'''
+old = '''  cin-pass-hex drop cin-kept move true cin-state map-digested ! outcome-ok ;'''
+new = '''  cin-pass-hex 2drop true cin-state map-digested ! outcome-ok ;'''
 test = "$GFORTH tests/core/run-record.fs"
 reason = "rvRP3 R2-1: the first pass's digest is not kept, so every checked read is refused"
+
+[[fault]]
+id = "cin-digest-pass-global"
+file = "src/import/checker-input.fs"
+old = '''\ they record.
+: cin-digest ( -- c-addr u ) cin-kept ;'''
+new = '''\ they record.
+: cin-digest ( -- c-addr u ) cin-pass-hex ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "rvRP3 round 4: cin-digest is the last pass's, shared by all contexts, not the context's own"
+
+[[fault]]
+id = "cin-plain-tap-kept-on-throw"
+file = "src/import/checker-input.fs"
+old = '''  cin-tap cin-read-caught cin-export export-untap throw'''
+new = '''  cin-tap cin-export export-read cin-export export-untap'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "rvRP3 round 4: a handler's THROW in a plain read leaves the hashing tap set"
 
 [[fault]]
 id = "rr-decls-over-limit"

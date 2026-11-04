@@ -1,0 +1,8 @@
+lean exit: 0; errors: 0
+'ProgramIR.clampDebug_correct' depends on axioms: [propext, Classical.choice, Quot.sound]
+lean exit: 1; errors: 6
+'ProgramIR.clampDebug_correct' depends on axioms: [propext, sorryAx, Classical.choice, Quot.sound]
+'rotr_masked' depends on axioms: [propext, Classical.choice, Quot.sound]
+'rotr_cells64' depends on axioms: [propext, Classical.choice, Quot.sound]
+'unmasked_rotr_wrong' depends on axioms: [propext, Quot.sound]
+p07 lean exit: 0
