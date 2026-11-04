@@ -306,7 +306,8 @@ end-structure
   lf-rcr-state lf-rcr-past @ lf-rcr-q@ + lf-rcr-state lf-rcr-gap @ + lf-rcr-s@ + 1- ;
 : lf-rcr-ks ( f -- node ) lf-rcr-n 0 ?do i lf-rcr-k-arg lf-rcr-app loop ;
 : lf-rcr-u-xs ( -- node )
-  lf-rcr-state lf-rcr-gap @ lf-rcr-s@ + 1- lf-rcr-bvar lf-rcr-s@ dup 1- swap lf-rcr-apply-vars ;
+  lf-rcr-state lf-rcr-gap @ lf-rcr-s@ + 1- lf-rcr-bvar
+  lf-rcr-s@ dup 1- swap lf-rcr-apply-vars ;
 \ The x binders around body, innermost first, with tag.
 : lf-rcr-over-xs ( body tag -- node )
   lf-rcr-s@ 0 ?do lf-rcr-s@ 1- i - lf-rcr-x-dom lf-rcr-wrap loop drop ;

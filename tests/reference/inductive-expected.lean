@@ -277,7 +277,7 @@ def accepted : List Block := [
       [("z", "Bt"), ("mk", "(fun (X : Type) => Nat → X) Bt → Bt")]⟩],
     lean := "accepted", leanforth := "accepted", rule := "A1 P1 G1", task := "5.2.1b" },
   { id := "ind.erased-by-beta", types := [⟨"Eb", "Type",
-      [("mk", "(fun (_ : Type) => Nat) Eb → Eb")]⟩],
+      [("mk", "(fun (X : Type) => Nat) Eb → Eb")]⟩],
     lean := "accepted", leanforth := "accepted", rule := "A1 P1 G1", task := "5.2.1b" }
 ]
 

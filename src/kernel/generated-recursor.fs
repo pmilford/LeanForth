@@ -171,7 +171,8 @@ end-structure
   dup lf-genrec-state lf-genrec-kept !
   lf-ind-domains slab-base lf-genrec-kept-cells slab-base rot cells move outcome-ok ;
 : lf-genrec-save ( -- outcome )
-  lf-genrec-keep dup ok? if lf-ind-state lf-genrec-state lf-genrec-saved /lf-ind move then ;
+  lf-genrec-keep dup ok? 0= if exit then
+  lf-ind-state lf-genrec-state lf-genrec-saved /lf-ind move ;
 : lf-genrec-restore ( -- )
   lf-genrec-state lf-genrec-saved lf-ind-state /lf-ind move
   lf-genrec-kept-cells slab-base lf-ind-domains slab-base lf-genrec-kept@ cells move ;

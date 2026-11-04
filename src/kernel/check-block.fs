@@ -268,8 +268,9 @@ end-structure
   dup lf-ind-type-node? 0= if drop 2drop false exit then
   lf-term-first@ lf-ind-levels? 0= if 2drop false exit then
   dup lf-ind-nparams < if 2drop false exit then lf-blk-c3-params? ;
+: lf-blk-none? ( n outcome -- flag outcome ) ok-then? if 0= outcome-ok else false swap then ;
 : lf-blk-index-free? ( node i xt -- flag outcome )
-  >r lf-blk-arity swap lf-ind-arg r> execute ok-then? if 0= outcome-ok else false swap then ;
+  >r lf-blk-arity swap lf-ind-arg r> execute lf-blk-none? ;
 : lf-blk-indices-free? ( node xt -- flag outcome )
   lf-blk-arity lf-ind-nparams ?do
     2dup i swap lf-blk-index-free? ok-then? 0= if nip nip false swap unloop exit then

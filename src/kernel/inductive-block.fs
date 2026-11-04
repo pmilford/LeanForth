@@ -349,7 +349,8 @@ lf-walk-room context-walk2: lf-ind-pair-walker
     dup lf-term-first@ lf-ind-field-flags dup ok? 0= if nip exit then drop lf-term-second@
   repeat drop outcome-ok ;
 : lf-ind-ctor-scoped ( j -- outcome )
-  lf-ind-after-params dup lf-ind-fields-flags dup ok? 0= if nip exit then drop lf-ind-nests ;
+  lf-ind-after-params dup lf-ind-fields-flags dup ok? 0= if nip exit then
+  drop lf-ind-nests ;
 \ A block whose constructors mention the type at most once each, as the
 \ head of their result, is in scope at once (task 5.2.1a's test): no
 \ field mentions the type, and no other occurrence can be nested.
