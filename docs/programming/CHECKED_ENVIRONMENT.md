@@ -463,9 +463,12 @@ and a replacement context needs no reload.
 | E9 outcomes | as above |
 
 `check-declaration` (task 2.2.3) is done ([above](#check-declaration-plan-task-223)).
-Not done here: the failure-path suite
-with allocation-failure injection (tasks 2.2.4, 1.4.6: no injection
-exists, so "the k-th allocation fails" is untested), the replay record
+The failure-path suite with allocation-failure injection (tasks 2.2.4,
+1.4.6) is done: `tests/core/failure-paths.fs` refuses or throws at each
+allocation of every store and the dependency pool in turn and sweeps the
+fuel, through 4,493 injected runs, with a hook in `src/lib/store.fs` that
+exists only when a test defines `store-fault-hooks` before loading.
+Not done here: the replay record
 (task 2.2.5), retiring or repurposing `src/kernel/mixed-signature-probe.fs`
 and `src/core/generation-handles.fs` (ADR 0012 asks task 2.2.2 to do it;
 left for after the context conversion), and replacing the hand-written
