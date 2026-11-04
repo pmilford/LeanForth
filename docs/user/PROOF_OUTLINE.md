@@ -164,11 +164,20 @@ instead:
 - the declaration was not accepted: `No proof outline: the declaration was
   not accepted.` (with `--detail`, the steps end with the rules that
   failed, each marked with its outcome, such as `[rejected]`);
-- the log ran out of room: `Proof outline not available: the checker's log
-  was truncated at step 31 (records); the verdict is unaffected.` (owner
-  decision D2: never an outline from an incomplete log);
+- the log ran out of room: `No proof outline: the declaration is
+  accepted, but the checker's log was truncated at step 31 (records); the
+  verdict is unaffected.` (owner decision D2: never an outline from an
+  incomplete log);
 - the log was kept without formulas (level `steps`);
 - no template covers the proof: its steps are listed.
+
+The printer does not take the verdict it is given on trust. Unless the
+log is the one that verdict belongs to — taken over this very input, which
+is still intact, by the check of this declaration, which published that
+outcome — it prints only `No outline: the checker's log does not belong to
+this declaration's published verdict, or the input changed since the
+check.` (`leanforth print` always pairs them correctly; this guards other
+callers of the Forth words.)
 
 ## What is checked, and what is only explanation
 

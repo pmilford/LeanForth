@@ -51,16 +51,6 @@ PENDING = {
     "names.empty-block": ("invalid",
         "no declaration to check: an empty block record cannot come from lean4export (B0)"),
 }
-# Rows of task 5.2.1a that a known defect outside this task's code turns
-# undecided: id -> (outcome while it lasts, reason). Either that outcome or
-# the table's column passes, so the row needs no change when the fix lands.
-KNOWN_DEFECT = {
-    "ind.universe-max": ("unknown",
-        "U1's is_geq orders the universe parameters u and v by name; under the feed's"
-        " name view level-normalize reads the plain name store (lf-lnorm-limb-ok?),"
-        " so the order is undecided (fix on agent KC's branch)"),
-    "ind.sort-max": ("unknown", "as ind.universe-max: max 1 u v"),
-}
 # Rows of later tasks whose file refers to a constant it does not declare,
 # which the importer refuses (invalid) before any check: id -> reason.
 UNCLOSED = {
@@ -194,10 +184,7 @@ def main():
         got, why = row_outcome(own, result)
         want = OUTCOME.get(leanforth, leanforth)
         tally[(task in DONE_TASKS, got)] = tally.get((task in DONE_TASKS, got), 0) + 1
-        if case_id in KNOWN_DEFECT:
-            ok = got in (KNOWN_DEFECT[case_id][0], want)
-            print(f"known defect {case_id}: {got} ({KNOWN_DEFECT[case_id][1]})")
-        elif task in DONE_TASKS:
+        if task in DONE_TASKS:
             expected = PENDING.get(case_id, (want, ""))[0]
             ok = got == expected
             if case_id in PENDING and ok:

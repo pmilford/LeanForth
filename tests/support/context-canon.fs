@@ -19,15 +19,26 @@
 create canon-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf-inputs ,
 5 constant canon-stores#
 : canon-store# ( i -- store ) cells canon-stores + @ execute ;
+: canon-mix ( h x -- h' ) swap 31 * + ;
+\ The derivation log's pools (src/core/derivation-log.fs, when loaded): a
+\ heap block only while a log is on, its unused parts never cleared; its
+\ address is blanked, and only whether it exists goes into the digest
+\ (the log's counts are in the context record itself).
+[defined] lf-log-state [if]
+: canon-log ( dst -- ) lf-log-state lf-logs-pools canon-at 0 swap ! ;
+: canon-log-digest ( h -- h' ) lf-log-pools 0<> canon-mix ;
+[else]
+: canon-log ( dst -- ) drop ;
+: canon-log-digest ( h -- h' ) ;
+[then]
 \ Blank every heap field in the copy at dst.
 : canon-zero ( dst -- )
   canon-stores# 0 do dup i canon-store# canon-store loop
   dup lf-cref-pool canon-slab
   ['] canon-column lf-term-columns columns-each ['] canon-column lf-level-columns columns-each
-  drop ;
+  canon-log ;
 
 \ The digest: shape, counters and contents.
-: canon-mix ( h x -- h' ) swap 31 * + ;
 : canon-bytes ( h addr u -- h' ) 0 ?do dup i + c@ rot swap canon-mix swap loop drop ;
 : canon-store-digest ( h store -- h' )
   >r r@ store-capacity @ canon-mix r@ store-limit @ canon-mix
@@ -39,7 +50,5 @@ create canon-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf-in
 : canon-digest ( -- h )
   0 canon-stores# 0 do i canon-store# canon-store-digest loop
   lf-cref-pool canon-slab-digest
-  lf-term-columns group-newest @ begin ?dup while tuck canon-column-digest swap column-link @
-  repeat
-  lf-level-columns group-newest @ begin ?dup while tuck canon-column-digest swap column-link @
-  repeat ;
+  ['] canon-column-digest lf-term-columns columns-each
+  ['] canon-column-digest lf-level-columns columns-each canon-log-digest ;

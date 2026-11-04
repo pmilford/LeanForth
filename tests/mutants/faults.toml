@@ -936,6 +936,14 @@ new = '''  lf-lmk-offset nip swap lf-lmk-offset nip < if 1 else 2 then ;'''
 test = "$GFORTH tests/core/level-compare.fs"
 reason = "mk_max of two explicit levels of equal depth gives the second, where Lean gives the first"
 
+
+[[fault]]
+id = "lmk-facts-never-stale"
+file = "src/kernel/level-make.fs"
+old = '''  1- dup lf-lmk-stamp-cell @ swap lf-lmk-identity = ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/core/level-compare.fs"
+reason = "level-make's kept facts are never checked against the nodes' identities, so a node rolled back and made again keeps the class of the node it replaced"
 [[fault]]
 id = "lv-normalize-need-under-measured"
 file = "src/kernel/level-normalize.fs"
@@ -946,6 +954,14 @@ reason = "normalize's stated return-stack need per level node falls below the 6.
 
 # --- NDJSON reader (src/import/ndjson.fs) ----------------------------------
 
+
+[[fault]]
+id = "lnorm-frames-uncounted"
+file = "src/kernel/level-normalize.fs"
+old = '''  lf-lnorm-nest @ lf-level-depth-limit < dup if 1 lf-lnorm-nest +! else lf-lnorm-deep then ;'''
+new = '''  true 1 lf-lnorm-nest +! ;'''
+test = "$GFORTH tests/core/level-deep.fs"
+reason = "the review's M1: normalize's level frames are not limited, so a deep graph at a raised level capacity overflows the host stack"
 [[fault]]
 id = "ndjson-self-reference"
 file = "src/import/ndjson.fs"
@@ -1632,10 +1648,19 @@ reason = "the table of version checks lacks lean_version: a manifest naming Lean
 [[fault]]
 id = "manifest-no-line-feeds"
 file = "src/import/manifest.fs"
-old = '''r@ manifest-sha sha256-update line-feed r> manifest-sha sha256-update ;'''
+old = '''r> manifest-sha sha256-line ;'''
 new = '''r> manifest-sha sha256-update ;'''
 test = "$GFORTH tests/core/manifest.fs"
 reason = "the line feeds are not hashed; the fixture's digest differs"
+quick = true
+
+[[fault]]
+id = "sha256-line-no-line-feed"
+file = "src/lib/sha256.fs"
+old = '''dup >r sha256-update s\" \n" r> sha256-update ;'''
+new = '''sha256-update ;'''
+test = "$GFORTH tests/lib/sha256.fs"
+reason = "sha256-line does not add the line feed after the text"
 quick = true
 
 [[fault]]
@@ -1817,8 +1842,8 @@ reason = "replay confirms any record without comparing it with the new run"
 [[fault]]
 id = "cin-checked-reads-plain"
 file = "src/import/checker-input.fs"
-old = '''  cin-manifest manifest-read dup ok? if drop cin-pass-digest then ;'''
-new = '''  cin-export export-read dup ok? if drop cin-pass-digest then ;'''
+old = '''  cin-manifest manifest-read dup ok? if drop cin-checked-digest cin-pass-digest then ;'''
+new = '''  cin-export export-read dup ok? if drop cin-checked-digest cin-pass-digest then ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "cin-read-checked never compares the export with its manifest"
 
@@ -1977,7 +2002,7 @@ test = "$GFORTH tests/lib/context.fs"
 reason = "a teardown word that throws stops context-free, which then frees neither the others' blocks nor the context"
 
 # --- heap stores, columns and the feed (ADR 0016 C9 step 3: src/lib/store.fs,
-# src/core/store-columns.fs, constant-references.fs, input.fs, names.fs,
+# src/lib/store-columns.fs, src/core/constant-references.fs, input.fs, names.fs,
 # src/kernel/environment.fs, src/import/feed.fs)
 
 [[fault]]
@@ -1999,14 +2024,14 @@ reason = "growing a heap store loses the records made before"
 [[fault]]
 id = "store-seal-ignores-block"
 file = "src/lib/store.fs"
-old = '''  dup store-shape@ >store-seal over store-block @ xor swap store-limit @ xor ;'''
-new = '''  dup store-shape@ >store-seal swap store-limit @ xor ;'''
+old = '''  over store-block @ xor swap store-limit @ xor ;'''
+new = '''  swap store-limit @ xor ;'''
 test = "$GFORTH tests/lib/lib.fs"
 reason = "a corrupted block address keeps the seal: a store reads records elsewhere"
 
 [[fault]]
 id = "column-new-units-unzeroed"
-file = "src/core/store-columns.fs"
+file = "src/lib/store-columns.fs"
 old = '''  dup slab-capacity >r tuck slab-reserve dup ok? if r@ rot column-clear-from else nip then'''
 new = '''  dup slab-capacity >r tuck slab-reserve dup ok? if nip else nip then'''
 test = "$GFORTH tests/core/terms.fs"
@@ -2039,8 +2064,8 @@ reason = "the name index is never filled: under a name view every constant is un
 [[fault]]
 id = "feed-value-is-type"
 file = "src/import/feed.fs"
-old = ''': feed-value ( d feed -- ) ['] staged-value@ ['] lf-idecl-value feed-term! 2drop ;'''
-new = ''': feed-value ( d feed -- ) ['] staged-type@ ['] lf-idecl-value feed-term! 2drop ;'''
+old = ''': feed-value ( feed -- ) ['] staged-value@ ['] lf-idecl-value feed-term-copy ;'''
+new = ''': feed-value ( feed -- ) ['] staged-type@ ['] lf-idecl-value feed-term-copy ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "the feed gives a declaration its type as its value"
 
@@ -2052,8 +2077,40 @@ new = '''  2drop drop false ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "under a name view a string name can no longer be interned"
 
+[[fault]]
+id = "lnorm-name-part-from-entries"
+file = "src/kernel/level-normalize.fs"
+old = '''  dup lf-name-valid? if lf-name-part-ok? else drop false then ;'''
+new = '''  dup lf-name-valid? if lf-name-entry-ok? else drop false then ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "the review's H1: under a name view the name order audits the entry store, so a fed max v u against max u v is unknown where Lean accepts"
+
+[[fault]]
+id = "names-unview-keeps-generation"
+file = "src/core/names.fs"
+old = ''': lf-name-unview ( -- ) lf-name-tier tier-free 0 lf-name-view lf-nview-input ! lf-name-reset ;'''
+new = ''': lf-name-unview ( -- ) lf-name-tier tier-free 0 lf-name-view lf-nview-input ! ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "the review's L1: a failed attach keeps the generation, so the input fed before still looks intact"
+
 # --- the release hook of checker contexts, continued (src/lib/context.fs)
 
+
+[[fault]]
+id = "input-index-unhooked"
+file = "src/core/input.fs"
+old = '''  lf-inputs store-grow-refused? if drop outcome-full exit then'''
+new = '''  false if drop outcome-full exit then'''
+test = "$GFORTH tests/core/store-growth.fs"
+reason = "the review's M3: the input's name index grows without asking the fault hook, so its refusal is never injected"
+
+[[fault]]
+id = "cref-pool-first-unhooked"
+file = "src/core/constant-references.fs"
+old = '''  lf-crefs store-grow-refused? if outcome-full exit then'''
+new = '''  false if outcome-full exit then'''
+test = "$GFORTH tests/core/store-growth.fs"
+reason = "the review's M3: the reference pool's first reserve, in context setup, does not ask the fault hook"
 [[fault]]
 id = "context-teardown-selected-once"
 file = "src/lib/context.fs"
@@ -2227,25 +2284,90 @@ reason = "rvRP 2: an enforced manifest that does not match an input read past it
 [[fault]]
 id = "rr-bytes-unchecked"
 file = "src/import/run-record.fs"
-old = ''': rr-same-bytes? ( -- flag ) cin-digest rr-recorded compare 0= ;'''
-new = ''': rr-same-bytes? ( -- flag ) true ;'''
+old = ''': rr-bytes-check ( -- outcome ) cin-digest rr-matches ;'''
+new = ''': rr-bytes-check ( -- outcome ) outcome-ok ;'''
 test = "$GFORTH tests/core/run-record.fs && python3 tests/core/test_run_records.py"
 reason = "rvRP3 M1: a checked read of other bytes than rr-start hashed is recorded as enforced"
 quick = true
 
 [[fault]]
+id = "rr-matches-always"
+file = "src/import/run-record.fs"
+old = '''  rr-recorded compare 0= dup 0= run-record rr-moved ! flag>outcome ;'''
+new = '''  2drop false run-record rr-moved ! outcome-ok ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "rvRP3 round 3: no later read of a run is compared with the digest rr-start recorded"
+
+[[fault]]
+id = "rr-meta-read-unmatched"
+file = "src/import/run-record.fs"
+old = '''  run-record rr-export export-untap ok? if rr-tapped rr-matches else outcome-ok then ;'''
+new = '''  run-record rr-export export-untap drop outcome-ok ;'''
+test = "python3 tests/core/test_run_records.py"
+reason = "rvRP3 round 3: rr-start's metadata read of other bytes than it hashed is recorded"
+
+[[fault]]
+id = "rr-manifest-read-unmatched"
+file = "src/import/run-record.fs"
+old = '''  ok? if rr-manifest-seen rr-matches else outcome-ok then ;'''
+new = '''  drop outcome-ok ;'''
+test = "python3 tests/core/test_run_records.py"
+reason = "rvRP3 round 3: rr-start's manifest check of other bytes than it hashed is recorded as ok"
+
+[[fault]]
+id = "rr-meta-line-feeds-unhashed"
+file = "src/import/run-record.fs"
+old = '''['] sha256-line r> export-tap! ;'''
+new = '''['] sha256-update r> export-tap! ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "rvRP3 round 3: the metadata read's digest is not the file's, so every run fails to start"
+
+[[fault]]
 id = "cin-passes-unpaired"
 file = "src/import/checker-input.fs"
-old = '''  cin-manifest manifest-read dup ok? if drop cin-pass-digest then ;'''
-new = '''  cin-manifest manifest-read ;'''
+old = '''  cin-manifest manifest-read dup ok? if drop cin-checked-digest cin-pass-digest then ;'''
+new = '''  cin-manifest manifest-read dup ok? if drop cin-checked-digest outcome-ok then ;'''
 test = "python3 tests/core/test_run_records.py"
 reason = "rvRP3 R2-1: an export changed during the first pass only pairs one file's names with another's terms"
 quick = true
 
 [[fault]]
+id = "cin-unchecked-passes-unpaired"
+file = "src/import/checker-input.fs"
+old = '''  dup ok? if drop cin-hashed cin-pass-digest then ;'''
+new = '''  dup ok? if drop cin-hashed outcome-ok then ;'''
+test = "python3 tests/core/test_run_records.py"
+reason = "rvRP3 round 3: without the manifest check, a change during the first pass only is not caught"
+
+[[fault]]
+id = "cin-line-feeds-unhashed"
+file = "src/import/checker-input.fs"
+old = '''['] sha256-line cin-export export-tap! ;'''
+new = '''['] sha256-update cin-export export-tap! ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "rvRP3 round 3: an unchecked read's digest is not the file's SHA-256"
+
+[[fault]]
+id = "cin-passes-differ-line"
+file = "src/import/checker-input.fs"
+old = '''  cin-export export-restart
+  outcome-invalid c" the export changed between the two passes" cin-stop ;'''
+new = '''  outcome-invalid c" the export changed between the two passes" cin-stop ;'''
+test = "python3 tests/core/test_run_records.py"
+reason = "rvRP3 round 3: the passes' refusal reports the last line, not line 0"
+
+[[fault]]
+id = "rr-unchecked-bytes-unchecked"
+file = "src/import/run-record.fs"
+old = '''  rr-file rot rr-read-file dup ok? if drop rr-bytes-check then ;'''
+new = '''  rr-file rot dup >r rr-read-file dup ok? r> and if drop rr-bytes-check then ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "rvRP3 round 3: an unchecked recorded read of other bytes than rr-start hashed is recorded"
+
+[[fault]]
 id = "cin-passes-same"
 file = "src/import/checker-input.fs"
-old = '''  cin-digest cin-kept compare if cin-passes-differ else outcome-ok then ;'''
+old = '''  cin-pass-hex cin-kept compare if cin-passes-differ else outcome-ok then ;'''
 new = '''  outcome-ok ;'''
 test = "python3 tests/core/test_run_records.py"
 reason = "rvRP3 R2-1: the second pass's digest is not compared with the first's"
@@ -2253,10 +2375,28 @@ reason = "rvRP3 R2-1: the second pass's digest is not compared with the first's"
 [[fault]]
 id = "cin-digest-not-kept"
 file = "src/import/checker-input.fs"
-old = '''  cin-digest drop cin-kept move true cin-state map-digested ! outcome-ok ;'''
-new = '''  cin-digest 2drop true cin-state map-digested ! outcome-ok ;'''
+old = '''  cin-pass-hex drop cin-kept move true cin-state map-digested ! outcome-ok ;'''
+new = '''  cin-pass-hex 2drop true cin-state map-digested ! outcome-ok ;'''
 test = "$GFORTH tests/core/run-record.fs"
 reason = "rvRP3 R2-1: the first pass's digest is not kept, so every checked read is refused"
+
+[[fault]]
+id = "cin-digest-pass-global"
+file = "src/import/checker-input.fs"
+old = '''\ they record.
+: cin-digest ( -- c-addr u ) cin-kept ;'''
+new = '''\ they record.
+: cin-digest ( -- c-addr u ) cin-pass-hex ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "rvRP3 round 4: cin-digest is the last pass's, shared by all contexts, not the context's own"
+
+[[fault]]
+id = "cin-plain-tap-kept-on-throw"
+file = "src/import/checker-input.fs"
+old = '''  cin-tap cin-read-caught cin-export export-untap throw'''
+new = '''  cin-tap cin-export export-read cin-export export-untap'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "rvRP3 round 4: a handler's THROW in a plain read leaves the hashing tap set"
 
 [[fault]]
 id = "rr-decls-over-limit"
@@ -2554,8 +2694,8 @@ quick = true
 [[fault]]
 id = "log-start-one-step-late"
 file = "src/core/derivation-log.fs"
-old = '''  tuck logmark-depth ! 2dup logmark-rule ! lf-log-count over logmark-start !'''
-new = '''  tuck logmark-depth ! 2dup logmark-rule ! lf-log-count 1+ over logmark-start !'''
+old = '''  tuck logmark-depth ! tuck logmark-rule ! lf-log-count swap logmark-start ! ;'''
+new = '''  tuck logmark-depth ! tuck logmark-rule ! lf-log-count 1+ swap logmark-start ! ;'''
 test = "$GFORTH tests/core/derivation-log.fs"
 reason = "a step referencing a missing step: start saved one step late, so a step's premises skip the record before it and a leaf names itself"
 
@@ -2574,6 +2714,65 @@ old = '''  lf-log-complete? 0= if lf-ol-truncated true exit then false ;'''
 new = '''  false ;'''
 test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
 reason = "the printer goes on from an incomplete log (owner decision D2: never), so the truncated composition section no longer says why there is no outline"
+
+[[fault]]
+id = "outline-trusts-callers-verdict"
+file = "src/present/proof-outline.fs"
+old = '''  lf-ol-same-input? lf-ol-header-agrees? and lf-ol-log-agrees? and ;'''
+new = '''  true ;'''
+test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
+reason = "the printer takes the caller's verdict on trust (M1 of the review of 2026-11-03): a rejected declaration's log, or a log over another input, is printed as accepted"
+quick = true
+
+[[fault]]
+id = "log-thrown-check-complete"
+file = "src/core/derivation-log.fs"
+old = '''  2 pick over lf-log-published! lf-log-interrupted'''
+new = '''  2 pick over lf-log-published!'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "a check that threw with rules open leaves a log reported complete, whose publish step follows an inner step (M2 of the review of 2026-11-03)"
+
+[[fault]]
+id = "log-validator-any-publish-premise"
+file = "tests/support/log-check.fs"
+old = '''  dup lc-after-declaration? over lf-log-count = and'''
+new = '''  dup lf-log-count ='''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "the validator accepts a publish step whose premise is not the check's declaration step"
+
+[[fault]]
+id = "log-module-rolls-back"
+file = "src/core/derivation-log.fs"
+old = ''': lf-log-counted ( -- )
+  1 lf-log-state lf-logs-count +! 1 lf-log-state lf-logs-written +! ;'''
+new = ''': lf-log-counted ( -- )
+  1 lf-log-state lf-logs-count +! 1 lf-log-state lf-logs-written +! lf-input-rollback drop ;'''
+test = "python3 tests/core/check_log_isolation.py"
+reason = "the log module names a word outside its allow-list (a store rollback), which the isolation check must refuse (L2 of the review of 2026-11-03)"
+
+[[fault]]
+id = "log-module-allocates-anywhere"
+file = "src/core/derivation-log.fs"
+old = ''': lf-log-on ( level -- ) dup lf-log-state lf-logs-level ! lf-log-state lf-logs-active ! ;'''
+new = ''': lf-log-on ( level -- ) 8 allocate 2drop dup lf-log-state lf-logs-level ! lf-log-state lf-logs-active ! ;'''
+test = "python3 tests/core/check_log_isolation.py"
+reason = "the log module allocates outside the word that makes its pools"
+
+[[fault]]
+id = "printer-writes-a-record"
+file = "src/present/proof-outline.fs"
+old = ''': lf-ol-foreign ( -- )'''
+new = ''': lf-ol-foreign ( -- ) 0 1 lf-log-record logrec-outcome !'''
+test = "python3 tests/core/check_log_isolation.py"
+reason = "a printer stores into a log record's field"
+
+[[fault]]
+id = "print-leaves-log-on-after-throw"
+file = "src/cli/leanforth.fs"
+old = '''  pr-log-on ['] cli-print-env catch lf-log-off lf-log-set throw ;'''
+new = '''  pr-log-on cli-print-env lf-log-off lf-log-set ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "a THROW while printing leaves the derivation log switched on for every later command (C2 of the review of 2026-11-03)"
 
 # --- the Lean cache (scripts/lean-cache.py, Makefile) ----------------------
 

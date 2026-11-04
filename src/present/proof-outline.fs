@@ -10,7 +10,13 @@
 \ Untrusted presentation code: the checker never loads it, and nothing it
 \ prints is evidence of anything. The verdict and the axiom list are the
 \ caller's, read from the checked environment (lf-outline); like all of
-\ src/present/ the printer loads nothing from src/kernel/.
+\ src/present/ the printer loads nothing from src/kernel/. It does not
+\ take that verdict on trust (M1 of the review of 2026-11-03): it prints
+\ nothing but a refusal unless the log is the one the verdict belongs to
+\ (lf-ol-matches?): taken over this input, which is still intact; the
+\ check of the log's declaration published the caller's outcome (the
+\ log's header); and, when the log is complete, its last step is that
+\ publish step.
 \
 \ What is printed. The header: kind and name, the verdict with its label
 \ and axioms, the statement (or type), the input line (lf-outline-source),
@@ -38,10 +44,13 @@
 \ A step is a proof when it is a variable whose binder's domain is a
 \ proposition, a constant naming a theorem, an application whose head is
 \ a proof, or a lambda whose body is one.
-\ State: one context record, lf-ol (ADR 0009): the line count, indent,
-\ templates used, the input's name and line, the current line's steps and
-\ uses, and per step its concluding line, its binder's line and whether it
-\ is a proof. Printing state is log-view.fs's.
+\ State: a small context record, lf-ol-input (the input's name and the
+\ declaration's line, set before printing), and one cell, lf-ol-held,
+\ pointing to a heap block (about 25 KB) that exists only while
+\ lf-outline prints (the context's teardown frees one left by a THROW):
+\ the verdict given, the line count, indent, templates used, the current
+\ line's steps and uses, and per step its concluding line, its binder's
+\ line and whether it is a proof. Printing state is log-view.fs's.
 
 require ./log-view.fs
 require ../core/diagnostics.fs
@@ -72,13 +81,17 @@ require ../core/diagnostics.fs
 2 constant lf-class-type      \ ranges over types: its domain is another Sort
 3 constant lf-class-assume    \ an assumption: its domain is a proposition
 
+begin-structure /lf-olin
+  field: lf-olin-source      \ the input's name, address
+  field: lf-olin-len         \ ... length; 0 for none
+  field: lf-olin-line        \ the declaration's line in it
+end-structure
+/lf-olin context-record: lf-ol-input
+
 begin-structure /lf-ol
   field: lf-olr-lines        \ lines numbered so far
   field: lf-olr-indent       \ spaces before a body line's sentence
   field: lf-olr-templates    \ the templates used
-  field: lf-olr-source       \ the input's name, address
-  field: lf-olr-source-len   \ ... length; 0 for none
-  field: lf-olr-source-line  \ the declaration's line in it
   field: lf-olr-outcome      \ the published outcome the caller gave
   field: lf-olr-axioms       \ the axiom set the caller gave, -1 when unknown
   field: lf-olr-steps#
@@ -89,7 +102,14 @@ begin-structure /lf-ol
   lf-log-record-capacity cells +field lf-olr-intro
   lf-log-record-capacity cells +field lf-olr-proof
 end-structure
-/lf-ol context-record: lf-ol
+1 cells context-record: lf-ol-held
+: lf-ol ( -- addr ) lf-ol-held @ ;
+\ The block, as log-view.fs's (lf-lv-open, lf-lv-close).
+: lf-ol-open ( -- flag )
+  lf-ol if true exit then /lf-ol allocate0 if drop false exit then lf-ol-held ! true ;
+: lf-ol-close ( -- ior )
+  lf-ol dup 0= if exit then free dup 0= if 0 lf-ol-held ! then ;
+:noname ( -- ) lf-ol-close throw ; context-teardown
 
 : lf-ol-field ( offset -- addr ) lf-ol + ;
 : lf-ol-of ( s offset -- addr ) lf-ol-field swap 1- cells + ;
@@ -164,7 +184,7 @@ end-structure
 
 \ Lambda chains. A lambda step's domain is its node's first field; its
 \ first inference premise infers the domain, its second the body.
-: lf-ol-domain ( r -- term ) lf-lv-a lf-term-first@ ;
+: lf-ol-domain ( r -- ref ) lf-lv-a 1 lf-lv-child-ref 0= if lf-log-none then ;
 : lf-ol-assumption? ( r -- flag ) lf-ol-first lf-lv-out-ref lf-ol-prop? ;
 : lf-ol-class ( r -- class )
   dup lf-ol-domain dup lf-ol-sort?
@@ -245,8 +265,11 @@ defer lf-ol-walk ( s -- )
 
 \ A variable points to its binder's line and is a proof when its binder
 \ is an assumption.
+: lf-ol-bvar ( ref -- k true | false )
+  lf-lv-node 0= if false exit then drop swap lf-tag-bvar = if true else drop false then ;
 : lf-ol-var-binder ( s -- r true | false )
-  dup lf-lv-depth@ over lf-lv-a lf-term-first@ - 1- lf-lv-binder ;
+  dup lf-lv-a lf-ol-bvar 0= if drop false exit then over lf-lv-depth@ swap - 1-
+  lf-lv-binder ;
 : lf-ol-var ( s -- )
   dup lf-ol-var-binder 0= if drop exit then
   dup lf-ol-intro @ 2 pick lf-ol-line-of ! lf-ol-proof @ swap lf-ol-proof ! ;
@@ -281,22 +304,30 @@ defer lf-ol-walk ( s -- )
 defer lf-ol-mentions? ( term k -- flag )
 : lf-ol-in-children ( k first second inner -- flag )
   >r rot tuck r> + lf-ol-mentions? if 2drop true else lf-ol-mentions? then ;
-: lf-ol-mentions ( term k -- flag )
+: lf-ol-mentions-in ( term k -- flag )
   swap lf-term-read 0= if drop false exit then rot case
     lf-tag-bvar of drop = endof lf-tag-app of 0 lf-ol-in-children endof
     lf-tag-lam of 1 lf-ol-in-children endof lf-tag-pi of 1 lf-ol-in-children endof
     >r 2drop drop false r> endcase ;
+\ Deeper than the walks' bound, a term counts as mentioning k (so the
+\ line says ∀-elimination, which reads true of every Pi).
+: lf-ol-mentions ( term k -- flag )
+  lf-lv-deeper 0= if 2drop true exit then lf-ol-mentions-in lf-lv-shallower ;
 ' lf-ol-mentions is lf-ol-mentions?
-\ Whether a function's type (a reference) is a Pi whose body uses it.
+\ Whether a function's type (a reference) is a Pi, and one whose body uses
+\ its binder.
+: lf-ol-pi? ( ref -- flag ) lf-lv-tag if lf-tag-pi = else false then ;
 : lf-ol-dependent? ( ref -- flag )
   lf-lv-term 0= if lf-lv-release false exit then
   dup lf-tag-pi lf-pp-is? if lf-term-second@ 0 lf-ol-mentions? else drop false
   then lf-lv-release ;
+\ An application's template: by applying, unless its head is a proof
+\ whose type is a Pi (once the checker unfolds definitions, a function's
+\ type may be a constant whose value is a Pi: that reads "by applying").
 : lf-ol-template ( s -- template )
   dup lf-ol-head lf-ol-proof @ 0= if drop lf-tpl-apply exit then
-  lf-ol-first lf-lv-out-ref lf-ol-dependent? if lf-tpl-forall-elim else
-  lf-tpl-implies-elim
-  then ;
+  lf-ol-first lf-lv-out-ref dup lf-ol-pi? 0= if drop lf-tpl-apply exit then
+  lf-ol-dependent? if lf-tpl-forall-elim else lf-tpl-implies-elim then ;
 : lf-ol-elimination ( template -- c-addr u )
   case lf-tpl-implies-elim of s" →-elimination" endof
     lf-tpl-forall-elim of s" ∀-elimination" endof >r s" application" r> endcase ;
@@ -400,15 +431,17 @@ defer lf-ol-known? ( s -- flag )
   lf-ol-decl lf-idecl-type @ lf-lv lf-lv-fuel @
   lf-ol-theorem? if lf-print-statement else lf-print-term then lf-lv-printed
   0 lf-lv-flush lf-lv-cr ;
+: lf-ol-source-name ( -- c-addr u ) lf-ol-input dup lf-olin-source @ swap lf-olin-len @ ;
 : lf-ol-source ( -- )
-  0 lf-olr-source-len lf-ol-field @ 0= if exit then s"   Input:     " lf-lv-put
-  0 lf-olr-source lf-ol-field @ 0 lf-olr-source-len lf-ol-field @ lf-lv-put s"  line "
-  lf-lv-put 0 lf-olr-source-line lf-ol-field @ lf-lv-n 0 lf-lv-flush lf-lv-cr ;
+  lf-ol-source-name dup 0= if 2drop exit then s"   Input:     " lf-lv-put lf-lv-put
+  s"  line " lf-lv-put lf-ol-input lf-olin-line @ lf-lv-n 0 lf-lv-flush lf-lv-cr ;
 : lf-ol-bound ( bound -- c-addr u )
   case lf-bound-records of s" records" endof lf-bound-marks of s" open rules" endof
     lf-bound-terms of s" term copies" endof lf-bound-levels of s" level copies" endof
     lf-bound-work of s" a formula too large to copy" endof
     lf-bound-refs of s" constant references" endof
+    lf-bound-interrupted of s" the check stopped with rules open" endof
+    lf-bound-memory of s" no memory for the log" endof
     >r s" a node it could not read" r> endcase ;
 : lf-ol-cut ( -- ) s" truncated at step " lf-lv-put lf-log-cut swap lf-lv-n s"  ("
   lf-lv-put
@@ -457,8 +490,8 @@ defer lf-ol-known? ( s -- flag )
 : lf-ol-list ( -- ) lf-lv-cr s" Steps." lf-ol-line lf-log-count lf-lv-list ;
 : lf-ol-none ( c-addr u -- ) lf-lv-cr lf-ol-line ;
 : lf-ol-truncated ( -- )
-  lf-lv-cr s" Proof outline not available: the checker's log was " lf-lv-put lf-ol-cut
-  s" ; the verdict is unaffected." lf-ol-line ;
+  lf-lv-cr s" No proof outline: the declaration is accepted, but the checker's log was "
+  lf-lv-put lf-ol-cut s" ; the verdict is unaffected." lf-ol-line ;
 : lf-ol-uncovered ( -- )
   s" No outline template covers this proof; its steps follow." lf-ol-none lf-ol-list ;
 : lf-ol-recognised ( -- D true | false )
@@ -484,19 +517,45 @@ defer lf-ol-known? ( s -- flag )
 \ header of the next outline (a length of 0 prints none). The name is not
 \ copied: it must stay where it is until then.
 : lf-outline-source ( c-addr u line -- )
-  0 lf-olr-source-line lf-ol-field ! 0 lf-olr-source-len lf-ol-field !
-  0 lf-olr-source lf-ol-field ! ;
+  lf-ol-input tuck lf-olin-line ! tuck lf-olin-len ! lf-olin-source ! ;
+
+\ Whether the log is the one the caller's verdict belongs to (see the
+\ header): the same intact input; the header's published slot and outcome
+\ the log's declaration and the caller's outcome; and the last step of a
+\ complete log that publish step. A log kept off has only its header.
+: lf-ol-same-input? ( -- flag )
+  lf-input-intact? lf-input-fingerprint lf-log-input = and ;
+: lf-ol-header-agrees? ( -- flag )
+  lf-log-published lf-ol-outcome = swap lf-log-decl = and ;
+: lf-ol-publish-step? ( rec -- flag )
+  dup logrec-rule @ lf-rule-publish = over logrec-a @ lf-log-decl = and
+  swap logrec-outcome @ lf-ol-outcome = and ;
+: lf-ol-log-agrees? ( -- flag )
+  lf-log-level 0= lf-log-complete? 0= or if true exit then
+  lf-log-count ?dup 0= if false exit then lf-log-record lf-ol-publish-step? ;
+: lf-ol-matches? ( -- flag )
+  lf-ol-same-input? lf-ol-header-agrees? and lf-ol-log-agrees? and ;
+: lf-ol-foreign ( -- )
+  s" No outline: the checker's log does not belong to this declaration's published"
+  lf-lv-put s"  verdict, or the input changed since the check." lf-ol-line ;
+
 \ Print the outline of the declaration whose check wrote this context's
 \ log, or with detail true every step of the log, to TYPE: after the
 \ check, in the context that ran it, its input intact. outcome and axioms
 \ are the verdict the caller read from the checked environment for that
 \ declaration (lf-env-outcome, and lf-env-axioms's bits when accepted, -1
-\ when they could not be read); the printer never reads the environment.
+\ when they could not be read); the printer never reads the environment,
+\ and prints only a refusal unless the log agrees (lf-ol-matches?).
 : lf-ol-clear ( -- )
   0 0 lf-olr-lines lf-ol-field ! 0 lf-ol-indent ! 0 0 lf-olr-templates lf-ol-field !
   lf-ol-sets-clear 0 lf-olr-line-of lf-ol-field lf-log-record-capacity 3 * cells erase ;
 : lf-ol-verdict! ( outcome axioms -- )
   0 lf-olr-axioms lf-ol-field ! 0 lf-olr-outcome lf-ol-field ! ;
+: lf-ol-blocks ( -- flag )
+  lf-ol-open 0= if false exit then 0 100000 lf-lv-setup dup 0= if lf-ol-close drop then ;
+: lf-ol-no-memory ( -- ) ." No proof outline: no memory for the printer." cr ;
+: lf-ol-print ( detail -- )
+  lf-ol-matches? if lf-ol-header lf-ol-body else drop lf-ol-foreign then lf-lv-cr ;
 : lf-outline ( outcome axioms detail -- )
-  >r lf-ol-verdict! lf-ol-clear 0 100000 lf-lv-setup lf-ol-header r> lf-ol-body
-  lf-lv-cr lf-lv-done ;
+  >r lf-ol-blocks 0= if 2drop r> drop lf-ol-no-memory exit then
+  lf-ol-verdict! lf-ol-clear r> lf-ol-print lf-lv-done lf-ol-close drop ;

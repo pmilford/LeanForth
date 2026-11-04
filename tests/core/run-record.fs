@@ -166,10 +166,10 @@ reused? [if] T{ reused? -> true }T [else] .( note: ABA not exercised, no reuse) 
 rr-release foreign-free
 
 \ The file is rr-start's for every later read (rvRP3 M1): rr-import has no
-\ name of its own, and without a started file it reads nothing. A checked
-\ read whose bytes are not the ones rr-start hashed (here the recorded
-\ digest is changed instead of the file; test_run_records.py swaps the
-\ file itself) fails, and says so.
+\ name of its own, and without a started file it reads nothing. A read,
+\ checked or not, whose bytes are not the ones rr-start hashed (here the
+\ recorded digest is changed instead of the file; test_run_records.py
+\ swaps the file itself) fails, and says so.
 : hex-byte ( -- addr ) run-record rr-before facts-hex ;
 constant-fixture rr-start ok? must fuel 64 rr-settings!
 T{ true rr-import -> outcome-ok }T
@@ -179,6 +179,13 @@ T{ third-accepted holds? s\" \"enforced\":true}" holds? -> true true }T
 T{ composition rr-start -> outcome-ok }T
 char x hex-byte c!
 T{ true rr-import rr-moved? -> outcome-invalid true }T
+T{ false rr-import rr-moved? -> outcome-invalid true }T
+\ The digest of a read that was ok is the file's (rr-hash's), checked or
+\ not.
+: digest-of ( c-addr u flag -- c-addr u )
+  >r rr-start ok? must r> rr-import ok? must cin-digest ;
+T{ composition true digest-of rr-recorded compare -> 0 }T
+T{ composition false digest-of rr-recorded compare -> 0 }T
 \ rr-file! and rr-read! are internal (rvRP3 R2-3): a recorded run reads
 \ its input only through rr-import of rr-start's file. The tests below
 \ reach them through rr-internal.
@@ -420,6 +427,28 @@ T{ -1 rp-code-name s" ?" compare -> 0 }T
 T{ s" host" rp-sections rp-named rp-entry-code -> rp-tool-differs }T
 T{ s" nothing" rp-sections rp-named rp-entry-code -> -1 }T
 T{ rp-start 3 rp-index+ s" verdict" rp-key+ rp-path s" $[3].verdict" compare -> 0 }T
+
+\ cin-digest is the digest of this context's own last read: another
+\ context's read does not replace it (rvRP3 round 4, p13; ADR 0009).
+create first-digest sha-digest-bytes 2* allot
+: first-digest? ( -- flag ) cin-digest first-digest sha-digest-bytes 2* compare 0= ;
+composition cin-read ok? must cin-digest drop first-digest sha-digest-bytes 2* move
+context-new throw constant other-context
+other-context context-use
+constant-fixture cin-read ok? must
+T{ first-digest? -> false }T
+context-main context-use
+T{ first-digest? -> true }T
+other-context context-free drop
+
+\ A handler that THROWs in cin-read leaves no tap on the reader (rvRP3
+\ round 4): the plain read's hashing tap is removed on every path.
+: thrower ( record -- outcome ) -1 throw ;
+: thrown ( -- ior ) composition ['] cin-read catch nip nip ;
+' thrower cin-first 1 cells + !   \ the name handler of the first pass
+T{ thrown cin-export export-tap @ -> -1 0 }T
+' cin-str cin-first 1 cells + !
+cin-done
 
 cases-done
 bye

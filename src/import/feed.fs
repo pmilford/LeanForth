@@ -9,6 +9,9 @@
 \ core/names.fs), so a name's ID is its number in the stage, equal names
 \ are one ID, and the environment finds the declarations of a name through
 \ the input's name index instead of scanning (ADR 0012 E5, ADR 0016 C4).
+\ The context's scratch tier then points into the stage's input tier, so
+\ the stage must outlive the view: free it only after lf-name-detach, or
+\ after the context is freed.
 \ Levels, expressions and declarations are copied into the context's
 \ stores, whose capacities lf-feed raises to fit the stage plus room for
 \ the checks' scratch: the checker reads terms through handles and
@@ -27,15 +30,19 @@
 \ parameter a level names joins the session's level context first.
 \
 \ lf-feed ( stage feed -- outcome ): ok; invalid for a stage that is not
-\ sealed, a record the stores refuse as malformed or a failed loading
-\ end; full for a store, the level context, a universe list longer than
-\ the checker takes, or no heap; feed-at then gives the expression or
+\ sealed, a level or expression of a kind the checker's stores do not
+\ hold (a free or meta variable), a declaration of a kind it does not
+\ know, a block with no type or with members missing, a member outside a
+\ block, or a failed loading end; full for a store that refuses a record
+\ (its capacity, no heap), the level context, or a universe list longer
+\ than the checker takes; feed-at then gives the expression or
 \ declaration number where it stopped. The input is left partly filled
 \ after a failure: lf-input-reset (or another feed) starts over.
 \ feed-free frees the loading aids (lf-feed frees them itself).
 \
 \ State: none of its own; every word takes a feed record (/feed), which
-\ owns its heap blocks (the export-to-store maps) only during lf-feed.
+\ owns its heap blocks (the export-to-store maps, zeroed, so that an
+\ entry never set is no handle) only during lf-feed.
 
 require ../lib/bytes.fs
 require ../core/compact.fs
@@ -54,6 +61,7 @@ begin-structure /feed
   field: feed-levels       \ heap: per stage level, its store index
   field: feed-exprs        \ heap: per stage expression, its term handle (2 cells)
   field: feed-where        \ the expression or declaration where it stopped
+  field: feed-d            \ the declaration being fed
   field: feed-header       \ the current block's header cell, plus one; 0 for none
   field: feed-members      \ members of the current block still to come
   lf-cref-argument-capacity 2* cells +field feed-pairs
@@ -66,26 +74,42 @@ end-structure
   dup feed-levels heap-release dup feed-exprs heap-release drop ;
 
 \ ---- Capacities: the stage's records plus room for the checks; a
-\ setting is only ever raised.
+\ setting is only ever raised. One row per setting: the stage's records
+\ ( feed -- n ), the room added, and the setting's reader and writer.
 : feed-numbers ( feed xt -- n ) swap feed-tier swap execute cons-numbers ;
-: feed-set ( outcome n xt -- outcome )
-  rot dup ok? if drop execute else nip nip then ;
+: feed-exprs# ( feed -- n ) ['] tier-exprs feed-numbers ;
+: feed-levels# ( feed -- n ) ['] tier-levels feed-numbers ;
+: feed-decls# ( feed -- n ) feed-stage @ stage-decls ;
+begin-structure /feed-setting
+  field: setting-records   \ xt ( feed -- n )
+  field: setting-room
+  field: setting-get       \ xt ( -- n )
+  field: setting-set       \ xt ( n -- outcome )
+end-structure
+create feed-settings
+  ' feed-exprs# , feed-term-room , ' lf-term-capacity , ' lf-term-capacity! ,
+  ' feed-levels# , feed-level-room , ' lf-level-capacity , ' lf-level-capacity! ,
+  ' feed-exprs# , feed-cref-room , ' lf-cref-capacity , ' lf-cref-capacity! ,
+  ' feed-decls# , 0 , ' lf-input-capacity , ' lf-input-capacity! ,
+here feed-settings - /feed-setting / constant feed-settings#
+\ Raise a setting to n, after an earlier ok; the first failure stays.
+: feed-raise ( outcome n get-xt set-xt -- outcome )
+  >r execute max r> rot dup ok? if drop execute else nip nip then ;
+: feed-setting ( outcome feed row -- outcome )
+  >r r@ setting-records @ execute r@ setting-room @ +
+  r@ setting-get @ r> setting-set @ feed-raise ;
 : feed-capacities ( feed -- outcome )
-  >r outcome-ok
-  r@ ['] tier-exprs feed-numbers feed-term-room + lf-term-capacity max
-  ['] lf-term-capacity! feed-set
-  r@ ['] tier-levels feed-numbers feed-level-room + lf-level-capacity max
-  ['] lf-level-capacity! feed-set
-  r@ ['] tier-exprs feed-numbers feed-cref-room + lf-cref-capacity max
-  ['] lf-cref-capacity! feed-set
-  r> feed-stage @ stage-decls lf-input-capacity max ['] lf-input-capacity! feed-set ;
+  outcome-ok feed-settings# 0 do
+    over i /feed-setting * feed-settings + feed-setting
+  loop nip ;
 
-\ ---- Maps: heap blocks of cells, freed by feed-free.
+\ ---- Maps: heap blocks of cells, zeroed, freed by feed-free.
 : feed-block ( cells addr -- outcome )
-  >r cells 1 max allocate if drop r> drop outcome-full exit then r> ! outcome-ok ;
+  >r cells 1 max dup allocate if 2drop r> drop outcome-full exit then
+  tuck swap erase r> ! outcome-ok ;
 : feed-maps ( feed -- outcome )
-  dup ['] tier-levels feed-numbers over feed-levels feed-block dup ok? 0= if nip exit then
-  drop dup ['] tier-exprs feed-numbers 2* swap feed-exprs feed-block ;
+  dup feed-levels# over feed-levels feed-block dup ok? 0= if nip exit then
+  drop dup feed-exprs# 2* swap feed-exprs feed-block ;
 : feed-level! ( index l feed -- ) feed-levels @ swap cells + ! ;
 : feed-level@ ( l feed -- index ) feed-levels @ swap cells + @ ;
 : feed-handle ( l feed -- index identity )
@@ -101,35 +125,40 @@ end-structure
 : feed-level-param ( l tier -- outcome )
   2dup level-tag@ tag-level-param = if level-name@ feed-param else 2drop outcome-ok then ;
 : feed-context ( feed -- outcome )
-  dup feed-tier swap ['] tier-levels feed-numbers 0 ?do
+  dup feed-tier swap feed-levels# 0 ?do
     i over feed-level-param dup ok? 0= if nip unloop exit then drop
   loop drop outcome-ok ;
 
-\ ---- Levels, in number order; number 0 is level zero, the store's 0.
+\ ---- Levels, in number order; number 0 is level zero, the store's 0. A
+\ store that refuses a node is full; a level of another kind is invalid.
 : feed-made ( index true | false -- index outcome )
   if outcome-ok else -1 outcome-full then ;
 : feed-a ( l feed -- index ) tuck feed-tier level-a@ swap feed-level@ ;
 : feed-b ( l feed -- index ) tuck feed-tier level-b@ swap feed-level@ ;
 : feed-two ( l feed -- left right ) 2dup feed-a -rot feed-b ;
-: feed-level-made ( l feed -- index true | false )
+: feed-level-made ( l feed -- index outcome )
   2dup feed-tier level-tag@ case
-    tag-level-succ of feed-a lf-level-succ endof
-    tag-level-max of feed-two lf-level-max endof
-    tag-level-imax of feed-two lf-level-imax endof
-    tag-level-param of feed-tier level-name@ lf-level-param endof
-    >r 2drop false r> endcase ;
+    tag-level-succ of feed-a lf-level-succ feed-made endof
+    tag-level-max of feed-two lf-level-max feed-made endof
+    tag-level-imax of feed-two lf-level-imax feed-made endof
+    tag-level-param of feed-tier level-name@ lf-level-param feed-made endof
+    >r 2drop -1 outcome-invalid r> endcase ;
 : feed-level ( l feed -- outcome )
-  2dup feed-level-made feed-made dup ok? if drop -rot feed-level! outcome-ok
+  2dup feed-level-made dup ok? if drop -rot feed-level! outcome-ok
   else nip nip nip then ;
 : feed-levels-all ( feed -- outcome )
   0 0 2 pick feed-level!
-  dup ['] tier-levels feed-numbers 1 ?do
+  dup feed-levels# 1 ?do
     i over feed-level dup ok? 0= if nip unloop exit then drop
   loop drop outcome-ok ;
 
-\ ---- Expressions, in number order (a letE spans two records).
-: feed-kept ( index identity true | false e feed -- outcome )
-  rot 0= if 2drop outcome-full exit then feed-expr-at 2! outcome-ok ;
+\ ---- Expressions, in number order (a letE spans two records). A store
+\ that refuses a term is full; an expression of a kind the checker's stores
+\ do not hold (a free or meta variable) is invalid.
+: feed-built ( index identity true | false -- index identity outcome )
+  if outcome-ok else 0 0 outcome-full then ;
+: feed-kept ( index identity outcome e feed -- outcome )
+  2>r dup ok? if drop 2r> feed-expr-at 2! outcome-ok else nip nip 2r> 2drop then ;
 : feed-a-term ( e feed -- index identity ) tuck feed-tier expr-a@ swap feed-term@ ;
 : feed-b-term ( e feed -- index identity ) tuck feed-tier expr-b@ swap feed-term@ ;
 : feed-children ( e feed -- l lid r rid ) 2dup feed-a-term 2swap feed-b-term ;
@@ -160,67 +189,68 @@ lf-form-string tag-str feed-form!  lf-form-mdata tag-mdata feed-form!
   >r feed-children r> tag-pi < if lf-hterm-lam else lf-hterm-pi then ;
 : feed-sort ( e feed -- index identity true | false )
   tuck feed-tier expr-a@ swap feed-handle lf-hterm-sort ;
-: feed-core ( e feed tag -- index identity true | false )
-  case tag-bvar of feed-tier expr-a@ lf-hterm-bvar endof  tag-sort of feed-sort endof
-    tag-const of feed-const endof  tag-app of feed-children lf-hterm-app endof
-    >r 2drop false r> endcase ;
-: feed-term-made ( e feed tag -- index identity true | false )
-  dup binder-tag? if feed-binder exit then
-  dup feed-form@ ?dup if nip nip nip lf-hterm-unsupported else feed-core then ;
+: feed-core ( e feed tag -- index identity outcome )
+  case tag-bvar of feed-tier expr-a@ lf-hterm-bvar feed-built endof
+    tag-sort of feed-sort feed-built endof
+    tag-const of feed-const feed-built endof
+    tag-app of feed-children lf-hterm-app feed-built endof
+    >r 2drop 0 0 outcome-invalid r> endcase ;
+: feed-term-made ( e feed tag -- index identity outcome )
+  dup binder-tag? if feed-binder feed-built exit then
+  dup feed-form@ ?dup if nip nip nip lf-hterm-unsupported feed-built else feed-core then ;
 : feed-expr ( e feed -- outcome )
   2dup >r >r 2dup feed-tier expr-tag@ feed-term-made r> r> feed-kept ;
 : feed-span ( e feed -- units ) feed-tier expr-tag@ let-tag? if 2 else 1 then ;
 : feed-exprs-all ( feed -- outcome )
-  0 begin over ['] tier-exprs feed-numbers over > while
+  0 begin over feed-exprs# over > while
     dup 2 pick feed-where ! 2dup swap feed-expr dup ok? 0= if nip nip exit then drop
     2dup swap feed-span +
   repeat 2drop outcome-ok ;
 
-\ ---- Declarations, in file order. Kinds as the reader codes them
-\ (import/ndjson.fs), the checker's (core/input.fs) per kind, 0 for a
-\ block.
+\ ---- Declarations, in file order: the one being fed is feed-d. Kinds as
+\ the reader codes them (import/ndjson.fs, kind-axiom on), the checker's
+\ (core/input.fs) per kind, 0 for a block; any other kind is invalid.
 create feed-kinds
   lf-kind-axiom , lf-kind-definition , lf-kind-theorem , lf-kind-opaque ,
   lf-kind-quotient , 0 , lf-kind-inductive , lf-kind-constructor , lf-kind-recursor ,
-: feed-kind ( d stage -- kind ) staged-kind@ kind-axiom - cells feed-kinds + @ ;
-: feed-decl! ( x field-xt feed -- ) feed-decl swap execute ! ;
-\ A field of declaration d, read from the stage with xt ( d stage -- x ).
-: feed-staged ( d feed xt -- d feed x ) >r 2dup feed-stage @ r> execute ;
-\ A field holding the term of the stage's expression read with xt.
-: feed-term! ( d feed xt field-xt -- d feed )
-  >r feed-staged over feed-root r> 2 pick feed-decl! ;
+here feed-kinds - 1 cells / constant feed-kinds#
+\ A field of the declaration being fed, read from the stage with xt
+\ ( d stage -- x ); a field of the record being filled, with field-xt
+\ ( decl -- addr ); a staged field copied into it, a staged expression as
+\ its term.
+: feed-staged@ ( feed xt -- x ) >r dup feed-d @ swap feed-stage @ r> execute ;
+: feed-field ( feed field-xt -- addr ) swap feed-decl swap execute ;
+: feed-copy ( feed xt field-xt -- ) >r over swap feed-staged@ swap r> feed-field ! ;
+: feed-term-copy ( feed xt field-xt -- )
+  >r over swap feed-staged@ over feed-root swap r> feed-field ! ;
+: feed-code ( feed -- i ) ['] staged-kind@ feed-staged@ kind-axiom - ;
+: feed-known-kind? ( feed -- flag ) feed-code 0 feed-kinds# within ;
+: feed-kind ( feed -- kind ) feed-code cells feed-kinds + @ ;
+: feed-kind@ ( feed -- kind ) feed-decl lf-idecl-kind @ ;
 : feed-blank ( feed -- )
-  dup feed-decl /lf-idecl erase  lf-hint-opaque ['] lf-idecl-hint 2 pick feed-decl!
-  -1 ['] lf-idecl-value rot feed-decl! ;
-: feed-start ( d feed -- )
-  dup feed-blank ['] feed-kind feed-staged ['] lf-idecl-kind 2 pick feed-decl!
-  ['] staged-name@ feed-staged ['] lf-idecl-name 2 pick feed-decl!
-  ['] staged-type@ ['] lf-idecl-type feed-term! 2drop ;
-\ A definition's safety and hints; any other kind is safe unless marked
-\ unsafe (a theorem has no such mark).
-: feed-height ( d feed hints -- d feed )
-  lf-hint-regular = if ['] staged-hint@ feed-staged ['] lf-idecl-height 2 pick feed-decl!
-  then ;
-: feed-def ( d feed -- )
-  ['] staged-safety@ feed-staged ['] lf-idecl-safety 2 pick feed-decl!
-  ['] staged-hints@ feed-staged dup ['] lf-idecl-hint 3 pick feed-decl!
-  feed-height 2drop ;
+  dup feed-decl /lf-idecl erase  lf-hint-opaque over ['] lf-idecl-hint feed-field !
+  -1 swap ['] lf-idecl-value feed-field ! ;
+: feed-start ( feed -- )
+  dup feed-blank dup feed-kind over ['] lf-idecl-kind feed-field !
+  dup ['] staged-name@ ['] lf-idecl-name feed-copy
+  ['] staged-type@ ['] lf-idecl-type feed-term-copy ;
+\ A definition's safety and hints, its height when they are regular; any
+\ other kind is safe unless marked unsafe (a theorem has no such mark).
+: feed-height ( feed -- )
+  dup ['] lf-idecl-hint feed-field @ lf-hint-regular =
+  if ['] staged-hint@ ['] lf-idecl-height feed-copy else drop then ;
+: feed-def ( feed -- )
+  dup ['] staged-safety@ ['] lf-idecl-safety feed-copy
+  dup ['] staged-hints@ ['] lf-idecl-hint feed-copy feed-height ;
 : feed-safe ( unsafe? -- safety ) if lf-safety-unsafe else lf-safety-safe then ;
-: feed-safety ( d feed -- )
-  ['] staged-unsafe? feed-staged feed-safe ['] lf-idecl-safety rot feed-decl! drop ;
+: feed-safety ( feed -- )
+  dup ['] staged-unsafe? feed-staged@ feed-safe swap ['] lf-idecl-safety feed-field ! ;
 : feed-valued? ( kind -- flag )
   dup lf-kind-definition = over lf-kind-theorem = or swap lf-kind-opaque = or ;
-: feed-value ( d feed -- ) ['] staged-value@ ['] lf-idecl-value feed-term! 2drop ;
-: feed-kind@ ( feed -- kind ) feed-decl lf-idecl-kind @ ;
-: feed-details ( d feed -- )
-  dup feed-kind@ dup feed-valued? if >r 2dup feed-value r> then
-  lf-kind-definition = if feed-def else feed-safety then ;
-: feed-params ( d feed -- outcome )
-  tuck feed-stage @ staged-params@ over feed-tier tier-tuples 2dup tuple-length
-  dup lf-param-capacity > if 2drop 2drop outcome-full exit then
-  dup 4 pick feed-decl lf-idecl-arity ! 0 ?do
-    i 2 pick 2 pick tuple-item 3 pick feed-decl lf-idecl-params i cells + !
-  loop 2drop drop outcome-ok ;
+: feed-value ( feed -- ) ['] staged-value@ ['] lf-idecl-value feed-term-copy ;
+: feed-details ( feed -- )
+  dup feed-kind@ feed-valued? if dup feed-value then
+  dup feed-kind@ lf-kind-definition = if feed-def else feed-safety then ;
 \ ---- Inductive blocks (plan task 5.2.1a; ADR 0015 B1): the block
 \ record gives a header in the input's inductive data, [first types ctors
 \ recursors] (core/input.fs), and the next types + ctors + recursors
@@ -293,14 +323,27 @@ create feed-kinds
   nip feed-members @ if outcome-invalid else outcome-ok then ;
 : feed-joined ( d feed -- outcome )
   2dup feed-member? if feed-member else feed-outside then ;
-: feed-block? ( d feed -- flag ) feed-stage @ staged-kind@ kind-inductive = ;
-: feed-one ( d feed -- outcome )
-  2dup feed-block? if feed-header-record exit then
-  2dup feed-start 2dup feed-details 2dup feed-joined dup ok? 0= if nip nip exit then drop
-  tuck feed-params dup ok? 0= if nip exit then
+\ The universe parameters: their tuple, and parameter i of it; a list
+\ longer than the checker takes is full.
+: feed-tuple ( feed -- t tuples ) dup ['] staged-params@ feed-staged@ swap feed-tier tier-tuples ;
+: feed-param! ( i feed -- )
+  2dup feed-tuple tuple-item -rot feed-decl lf-idecl-params swap cells + ! ;
+: feed-params ( feed -- outcome )
+  dup feed-tuple tuple-length dup lf-param-capacity > if 2drop outcome-full exit then
+  2dup swap feed-decl lf-idecl-arity ! 0 ?do i over feed-param! loop drop outcome-ok ;
+\ The block words above take ( d feed ): the declaration being fed, then
+\ the record.
+: feed-dfeed ( feed -- d feed ) dup feed-d @ swap ;
+: feed-block? ( feed -- flag ) ['] staged-kind@ feed-staged@ kind-inductive = ;
+: feed-added ( feed -- outcome )
+  dup feed-start dup feed-details dup feed-dfeed feed-joined dup ok? 0= if nip exit then
+  drop dup feed-params dup ok? 0= if nip exit then
   drop feed-decl lf-input-add nip ;
+: feed-one ( d feed -- outcome )
+  tuck feed-d ! dup feed-known-kind? 0= if drop outcome-invalid exit then
+  dup feed-block? if feed-dfeed feed-header-record else feed-added then ;
 : feed-decls-all ( feed -- outcome )
-  dup feed-stage @ stage-decls 0 ?do
+  dup feed-decls# 0 ?do
     i over feed-where ! i over feed-one dup ok? 0= if nip unloop exit then drop
   loop drop outcome-ok ;
 

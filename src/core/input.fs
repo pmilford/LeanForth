@@ -53,6 +53,8 @@
 \ host-specific and never serialized.
 
 require ../lib/lib.fs
+require ../lib/slab.fs
+require ../lib/store-columns.fs
 require ../lib/bytes.fs
 require ./terms.fs
 require ./levels.fs
@@ -310,15 +312,19 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
 \ room. lf-input-end marks every input store and ends loading: ok; or
 \ invalid, still loading, when loading had already ended, the name store
 \ or its byte count is out of range, or a store is invalid.
-\ Room in the name index for decl's name, and the links of declaration i.
+\ Room in the name index for decl's name (the test hook of lib/store.fs is
+\ asked before it grows, as for the store's own block), and the links of
+\ declaration i.
 : lf-input-index-room ( decl -- outcome )
-  lf-idecl-name @ 1+ lf-input-names column-reserve ;
+  lf-idecl-name @ 1+ dup lf-input-names slab-capacity > 0= if drop outcome-ok exit then
+  lf-inputs store-grow-refused? if drop outcome-full exit then
+  lf-input-names column-reserve ;
 : lf-input-link ( i -- )
   dup lf-input-name lf-input-newest-cell 2dup @ swap lf-input-decl lf-idecl-prev !
   swap 1+ swap ! ;
 : lf-input-copy ( decl -- i outcome )
-  dup lf-input-index-room ok? 0= if drop -1 outcome-full exit then
-  lf-inputs store-grow drop
+  dup lf-input-index-room dup ok? 0= if nip -1 swap exit then drop
+  lf-inputs store-ready drop
   lf-inputs store-new-slot 0= if drop -1 outcome-full exit then
   >r /lf-idecl move r> dup lf-input-link outcome-ok ;
 : lf-input-add ( decl -- i outcome )

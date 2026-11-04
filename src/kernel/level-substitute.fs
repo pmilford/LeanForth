@@ -22,6 +22,8 @@
 \ the checks below from its own passes.
 
 require ../lib/lib.fs
+require ../lib/slab.fs
+require ../lib/store-columns.fs
 require ../core/diagnostics.fs
 require ../core/level-scope.fs
 require ../core/levels.fs
@@ -35,7 +37,7 @@ begin-structure /lf-lsrec
 end-structure
 lf-level-depth-limit context-walk: lf-lsubst-walker
 /lf-lsrec context-record: lf-lsubst-job
-\ Per level, columns of the level store (core/store-columns.fs): whether
+\ Per level, columns of the level store (lib/store-columns.fs): whether
 \ the source walk reached it, and its image.
 /slab context-record: lf-lsubst-seen-column
 1 cells ' lf-lsubst-seen-column lf-level-columns column-add
@@ -194,7 +196,7 @@ lf-level-depth-limit context-walk: lf-lsubst-walker
   dup ok? if drop lf-lsubst-store-mark lf-levels store-mark then ;
 : lf-lsubst-run ( root -- result ok | status )
   lf-lsubst-prepare ok-then? 0= if exit then
-  lf-lmk-forget dup lf-lsubst-build lf-lsubst-finish ;
+  lf-lmk-sync dup lf-lsubst-build lf-lsubst-finish ;
 
 \ Substitute count formals by count actuals in root. Invalid input or scope
 \ is invalid; running out of fuel is exhausted; a full work stack or level

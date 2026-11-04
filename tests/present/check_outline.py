@@ -22,10 +22,14 @@ import sys
 GFORTH = os.environ.get("GFORTH", "gforth")
 CASES = pathlib.Path("tests/present/outline-cases.fs")
 GOLDEN = pathlib.Path("tests/present/outlines.golden")
+FOREIGN = "No outline: the checker's log does not belong to this declaration's published"
 NO_OUTLINE = {
-    "composition, log truncated": "Proof outline not available: the checker's log was truncated",
+    "composition, log truncated": "No proof outline: the declaration is accepted, but the"
+                                  " checker's log was truncated",
     "composition, log without formulas": "Proof outline not available: the log was kept",
     "composition-wrong-argument": "No proof outline: the declaration was not accepted.",
+    "a rejected declaration's log, given as accepted": FOREIGN,
+    "composition's log, after identity is loaded": FOREIGN,
 }
 
 
