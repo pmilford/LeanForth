@@ -43,7 +43,7 @@ record written, or a record confirmed; replay prints its report on
 standard output. The same in Forth, from the repository root:
 
 ```forth
-require tests/support/run-records.fs
+require ~+/tests/support/run-records.fs
 s" COMMIT" false ni-source    \ optional: 40 lowercase hexadecimal digits
 s" tests/reference/composition.ndjson" 100000 s" composition.json" ni-record .
 s" tests/reference/composition.ndjson" 100000 s" composition.json" ni-replay .
@@ -190,9 +190,10 @@ the golden records written by 1.0.0 the same way).
   the checker a different claim than the file holds, which no record can
   show.
 - The record is read from the file, the transport and the environment at
-  different times: the file is read six times (hash, metadata, manifest,
-  the transport's two passes, hash again). A file that changes between
-  the first and last read fails the run; phase 3's importer will read once.
+  different times: the file is read up to six times (hash, metadata,
+  manifest, the transport's two passes, hash again). A file that changes
+  between the first and last read fails the run; phase 3's importer will
+  read once.
 - The commit is what the caller says, checked only for its form; the host
   fields are what Gforth reports.
 - Diagnostic numbers are those the check recorded. For the internal faults
