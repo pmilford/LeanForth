@@ -863,3 +863,27 @@ Only the three standard axioms count as proved, and `Lean.ofReduceBool` and
 `Lean.trustCompiler` are never allowed. The importer stage was approved
 ([import]) and ADR 0015 accepted as a design in the same answers. These
 rules are decided, not yet implemented.
+
+## The importer's two passes must read the same bytes — 2026-11-03
+
+The third review of the run records (rvRP3, round 2, R2-1) showed that
+`cin-read-checked` (`src/import/checker-input.fs`), which reads an export
+twice (names first, then terms and declarations), checked each pass against
+the manifest as it stood for that pass. An export swapped, with its
+manifest, during the first pass only gave a check that paired one file's
+names with another file's terms: an enforced run record, and a plain
+`bin/leanforth check`, then reported verdicts that the hashed file's check
+does not give (a test reproduces it through a FIFO).
+
+- **Decision.** A checked read keeps the first pass's SHA-256 and requires
+  the second pass's to equal it, else the read is invalid ("the export
+  changed between the two passes"). The run records then compare that
+  SHA-256 with the one `rr-start` recorded, so an enforced record's
+  verdicts are those of bytes with the recorded SHA-256. This is [import]
+  code and needs human review.
+- **Rejected: narrowing the documented claim** to exclude a change during
+  the first pass. It would leave plain checks exposed and make the run
+  record's `enforced` weaker than it reads.
+- **Not affected:** the importer stage (`src/import/stage.fs`) reads the
+  export once, hashing the very lines it stages, and `src/import/feed.fs`
+  reads no file.

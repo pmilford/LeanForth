@@ -27,12 +27,13 @@
 \   environment room for deps dependencies, as lf-check-input takes them.
 \ - rr-import ( flag -- outcome ) loads that same file into this context's
 \   input with import/checker-input.fs, its manifest enforced when flag is
-\   true (cin-read-checked; the read then also fails unless the bytes it
-\   loaded have the SHA-256 rr-start recorded), and keeps the outcome and
-\   whether the manifest was enforced. It is the only way a record can
-\   say enforced: another importer gives its outcome to rr-read!, and the
-\   record then says not enforced. A run that is not to be recorded skips
-\   rr-start and loads the file once with rr-read-once ( c-addr u flag --
+\   true (cin-read-checked: its two passes must read bytes of one
+\   SHA-256; the read then also fails unless that is the SHA-256 rr-start
+\   recorded), and keeps the outcome and whether the manifest was
+\   enforced. It is the only way a recorded run reads its input, and the
+\   only way a record can say enforced (rr-read! and rr-file! are
+\   internal). A run that is not to be recorded skips rr-start and loads
+\   the file with the importer alone, rr-read-once ( c-addr u flag --
 \   outcome ); rr-write then refuses (invalid).
 \ - rr-check ( -- ) checks every declaration of the input in input order
 \   in a new environment, which it keeps current, as lf-check-input does
@@ -94,8 +95,17 @@ require ./ndjson.fs
 require ./manifest.fs
 require ./checker-input.fs
 require ../lib/text-rule.fs
+require ../lib/module.fs
+
+\ Words only this module uses (rr-file!, rr-read!), in a word list that
+\ is searched only while this file loads (ADR 0010's idea): so a recorded
+\ run reads its input only through rr-import of rr-start's file. Tests
+\ reach them with `rr-internal order+`.
+wordlist constant rr-internal
+rr-internal order+
 
 65536 constant rr-text-room       \ longest record text, in bytes
+255 constant rr-site-room         \ longest diagnostic site: a counted string's
 4096 constant rr-file-room        \ longest name of the export file kept
 1024 constant rr-name-room        \ longest declaration name written
 128 constant rr-note-room         \ longest metadata, manifest or source text kept
@@ -270,43 +280,55 @@ rr-reset rr-no-source
 : rr-release ( -- ) rr-ours? if lf-env lf-env-free drop then rr-forget-env ;
 
 \ The export file the run keeps: rr-start's, which every later read of
-\ the run uses (rvRP3 M1).
+\ the run uses (rvRP3 M1). rr-file! is internal (rr-internal): nothing
+\ else may name the file of a recorded run (rvRP3 R2-3).
 : rr-file ( -- c-addr u ) run-record dup rr-file-buf swap rr-file-size @ ;
+: rr-started? ( -- flag ) rr-file nip 0<> ;
+get-current rr-internal set-current
 : rr-file! ( c-addr u -- flag )
   dup rr-file-room > if 2drop false exit then
   dup run-record rr-file-size ! run-record rr-file-buf swap move true ;
+set-current
 \ Start a run on the export file named c-addr u, as described above.
 : rr-hash-file ( -- outcome ) rr-file run-record rr-before rr-hash ;
 : rr-start ( c-addr u -- outcome )
   rr-release rr-reset rr-file! 0= if outcome-full exit then
   rr-hash-file dup ok? if drop rr-file rr-reads then ;
 : rr-settings! ( fuel deps -- ) run-record rr-deps ! run-record rr-fuel ! ;
-\ The importer's outcome. rr-read! takes it from any importer, which this
-\ module cannot see enforce the manifest: the record says not enforced.
+\ The importer's outcome, and no manifest enforced; internal: only
+\ rr-import and rr-read-once below load the input (rvRP3 R2-3).
+get-current rr-internal set-current
 : rr-read! ( outcome -- ) run-record rr-read ! false run-record rr-enforced ! ;
+set-current
 \ rr-import loads the run's file itself with checker-input.fs, with the
 \ manifest checked (cin-read-checked) when flag is true; the record says
-\ enforced exactly then. A checked read also fails (invalid, rr-moved?
-\ true) unless the bytes it loaded, whose SHA-256 the manifest check
-\ computed (cin-digest), are the bytes rr-start recorded: so a file
-\ changed between the two reads, even back again before rr-finish, is
-\ never recorded as enforced. An unchecked read has no digest of its own.
+\ enforced exactly then. What an enforced read guarantees: both of the
+\ importer's passes read bytes with one SHA-256 (checker-input.fs compares
+\ the second pass's digest with the first's, rvRP3 R2-1), each pass
+\ matched the manifest beside the file as it stood for that pass, and
+\ that SHA-256 is the one rr-start recorded (rr-same-bytes?, else the read
+\ is invalid and rr-moved? true). So the verdicts of an enforced record
+\ are those of bytes whose SHA-256 is input.sha256, whatever happened to
+\ the file between the reads, or back again before rr-finish. An
+\ unchecked read computes no digest of its own: its record says not
+\ enforced, and only rr-start's and rr-finish's reads bound its bytes.
 : rr-recorded ( -- c-addr u ) run-record rr-before facts-hex sha-digest-bytes 2* ;
-: rr-bytes-check ( -- outcome )
-  cin-digest rr-recorded compare 0<> dup run-record rr-moved ! 0= flag>outcome ;
+: rr-same-bytes? ( -- flag ) cin-digest rr-recorded compare 0= ;
+: rr-bytes-check ( -- outcome ) rr-same-bytes? dup 0= run-record rr-moved ! flag>outcome ;
 : rr-moved? ( -- flag ) run-record rr-moved @ ;
 : rr-checked-read ( c-addr u -- outcome )
   cin-read-checked dup ok? if drop rr-bytes-check then ;
 : rr-load ( flag -- outcome ) rr-file rot if rr-checked-read else cin-read then ;
 \ A run that is not recorded (bin/leanforth check without --record): the
-\ export file c-addr u read once, into the checker's input, its manifest
-\ checked when flag is true, with none of rr-start's reads (digest,
-\ metadata, manifest) and no name kept, so rr-write then refuses (invalid).
+\ export file c-addr u loaded by the importer alone (its two passes, the
+\ manifest checked when flag is true, both passes' digests equal), with
+\ none of rr-start's three reads (digest, metadata, manifest) and no name
+\ kept, so rr-write then refuses (invalid).
 : rr-read-once ( c-addr u flag -- outcome )
   rr-release rr-reset if cin-read-checked else cin-read then dup rr-read! ;
 : rr-unstarted ( flag -- outcome ) drop outcome-invalid dup rr-read! ;
 : rr-import ( flag -- outcome )
-  false run-record rr-moved ! rr-file nip 0= if rr-unstarted exit then
+  false run-record rr-moved ! rr-started? 0= if rr-unstarted exit then
   dup rr-load dup rr-read! swap 0<> run-record rr-enforced ! ;
 : rr-source! ( c-addr u flag -- outcome )
   >r 2dup 40 hex-text? 0= if 2drop r> drop outcome-invalid exit then
@@ -441,7 +463,6 @@ rr-power 2constant rr-exact
   rr-end-object ;
 \ A run that did not start with rr-start (rr-read-once) has no facts of
 \ its file to record: the text fails as invalid.
-: rr-started? ( -- flag ) rr-file nip 0<> ;
 : rr-input-out ( -- )
   rr-started? 0= if outcome-invalid rr-fail then
   s" input" rr-key rr-object run-record rr-before rr-facts-out rr-manifest-out
@@ -522,7 +543,8 @@ rr-power 2constant rr-exact
   s" code" rr-key dup kept-code @ dup rr-int
   s" reason" rr-key lf-diag-name rr-note-room rr-shown ;
 : rr-site-out ( step -- step )
-  s" site" rr-key dup kept-site @ rr-site dup if 255 rr-shown else rr-string then ;
+  s" site" rr-key dup kept-site @ rr-site
+  dup if rr-site-room rr-shown else rr-string then ;
 : rr-reason-out ( step -- )
   rr-object rr-code-out rr-site-out
   dup rr-numbers-out s" step" rr-key kept-step @ rr-int rr-end-object ;
@@ -548,10 +570,14 @@ rr-power 2constant rr-exact
 \ Every declaration, in input order, read in a snapshot of every slot of
 \ the run's own environment; none when no check ran or the run could not
 \ make its environment (the run's outcome says why). When that environment
-\ is freed or another one is current, the text fails as invalid.
+\ is freed or another one is current, the text fails as invalid; when the
+\ input holds more declarations than a record keeps (lf-input-default; the
+\ schema's limit), as full (rvRP3 R2-2).
 : rr-made-own? ( -- flag ) run-record dup rr-checked @ swap rr-own @ and ;
+: rr-fits? ( -- flag ) lf-input-count lf-input-default upto? ;
 : rr-decls ( -- )
-  rr-made-own? 0= if exit then rr-viewed? 0= if outcome-invalid rr-fail exit then
+  rr-made-own? 0= if exit then rr-fits? 0= if outcome-full rr-fail exit then
+  rr-viewed? 0= if outcome-invalid rr-fail exit then
   lf-input-count 0 ?do i rr-decl-out loop ;
 : rr-decls-out ( -- ) s" declarations" rr-key rr-array rr-decls rr-end-array ;
 
@@ -572,4 +598,5 @@ rr-power 2constant rr-exact
   >r rr-text r@ write-file rr-lf r@ write-file or r> close-file or
   if outcome-invalid else outcome-ok then ;
 
+order-   \ rr-internal off the search order
 base !   \ the BASE this file was loaded with

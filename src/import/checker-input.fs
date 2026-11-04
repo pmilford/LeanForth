@@ -27,7 +27,8 @@
 \ this context's input, replacing what was there, and ends loading;
 \ cin-read-checked does the same with the export's manifest checked on
 \ both passes (manifest.fs: "<file>.manifest.json"; any failure about it
-\ is invalid), the default of the command line. Outcomes: ok; the
+\ is invalid) and the two passes' digests equal (else invalid: the file
+\ changed between them), the default of the command line. Outcomes: ok; the
 \ reader's or the manifest check's (invalid malformed, unsupported for
 \ other versions); a handler's: full when a store or table of this phase
 \ has no room (its tables hold the stores' default capacities, 64 names,
@@ -68,6 +69,7 @@ require ../core/unsupported-forms.fs
 require ../core/input.fs
 require ./ndjson.fs
 require ./manifest.fs
+require ../lib/sha256.fs
 
 begin-structure /import-map
   lf-name-default cells +field map-names        \ export name -> name ID
@@ -76,6 +78,8 @@ begin-structure /import-map
   lf-cref-argument-capacity 2* cells +field map-pairs   \ a constant's levels
   /lf-idecl +field map-decl                      \ the declaration being built
   field: map-why                                 \ counted string, or 0
+  field: map-digested                            \ true once a checked pass kept one
+  sha-digest-bytes 2* +field map-digest          \ that digest, in hexadecimal
 end-structure
 /import-map context-record: cin-state
 export: cin-export
@@ -275,10 +279,33 @@ cin-second cin-table-check
   cin-export export-handlers-clear
   kind-count 0 do dup i cells + @ i cin-handler! loop drop ;
 
+\ After a checked pass that was ok: the SHA-256, as 64 lowercase
+\ hexadecimal digits, of the bytes it read, which the manifest check
+\ hashed and compared with the manifest as it stood for that pass.
+\ After a cin-read-checked that was ok, the digest of the bytes both
+\ passes read (below). Meaningless after any other read. The run records
+\ compare it with the digest they record.
+: cin-digest ( -- c-addr u ) cin-manifest manifest-hex sha-digest-bytes 2* ;
+\ The two checked passes must read the same bytes: the first pass's
+\ digest is kept, and the second's must equal it, else the read is
+\ invalid. Each pass is checked against the manifest as it stands when
+\ that pass reads it, so without this an export changed, with its
+\ manifest, during the first pass only could pair the first pass's names
+\ with the second pass's terms (review rvRP3, R2-1).
+: cin-kept ( -- c-addr u ) cin-state map-digest sha-digest-bytes 2* ;
+: cin-keep ( -- outcome )
+  cin-digest drop cin-kept move true cin-state map-digested ! outcome-ok ;
+: cin-passes-differ ( -- outcome )
+  outcome-invalid c" the export changed between the two passes" cin-stop ;
+: cin-same ( -- outcome )
+  cin-digest cin-kept compare if cin-passes-differ else outcome-ok then ;
+: cin-pass-digest ( -- outcome ) cin-state map-digested @ if cin-same else cin-keep then ;
+
 \ Reading the file once, by xt ( c-addr u -- outcome ): the reader alone,
-\ or with the manifest checked.
+\ or with the manifest checked and the passes' digests compared.
 : cin-plain ( c-addr u -- outcome ) cin-export export-read ;
-: cin-checked ( c-addr u -- outcome ) cin-manifest manifest-read ;
+: cin-checked ( c-addr u -- outcome )
+  cin-manifest manifest-read dup ok? if drop cin-pass-digest then ;
 : cin-pass ( c-addr u xt table -- outcome ) cin-handlers execute ;
 \ A fresh input in this context.
 : cin-fresh ( -- )
@@ -302,11 +329,6 @@ cin-second cin-table-check
   cin-fresh cin-both cin-done ;
 : cin-read ( c-addr u -- outcome ) ['] cin-plain cin-file ;
 : cin-read-checked ( c-addr u -- outcome ) ['] cin-checked cin-file ;
-\ After a cin-read-checked that was ok: the SHA-256, as 64 lowercase
-\ hexadecimal digits, of the bytes it loaded (its second pass, which the
-\ manifest check hashed and compared with the manifest). Meaningless after
-\ any other read. The run records compare it with the digest they record.
-: cin-digest ( -- c-addr u ) cin-manifest manifest-hex sha-digest-bytes 2* ;
 
 \ After a failure: the line, the field (empty if none) and the reason, a
 \ handler's own in place of the reader's "handler refused the record".
