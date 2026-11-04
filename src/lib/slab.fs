@@ -47,6 +47,7 @@
 \ Interface: /slab slab-init slab-free slab-live? slab-valid? slab-count
 \ slab-capacity slab-limit slab-unit slab-at slab-top slab-room
 \ slab-reserve slab-claim slab-commit slab-trim slab-clear slab-bytes
+\ slab-used-bytes slab-limit-max slab-offset
 \ slab-generation /slab-mark slab-mark slab-mark-valid? slab-rollback
 \ slab-mark-count. State: none of its own; every word takes a slab record
 \ made by the caller (in the dictionary or inside a larger record) and a
@@ -133,6 +134,14 @@ lf-lib set-current
 : slab-top ( slab -- addr ) dup slab-count swap slab-at ;
 \ Address units held, and in use.
 : slab-bytes ( slab -- u ) dup slab-capacity swap slab-unit * ;
+: slab-used-bytes ( slab -- u ) dup slab-count swap slab-unit * ;
+\ The largest limit a slab of units of unit address units may have.
+: slab-limit-max ( unit -- n ) 1 max max-n swap / ;
+\ Where addr lies in the slab's block, in address units from its start; or
+\ -1 when it lies outside. An address inside moves when the block grows:
+\ keep the offset across slab-room and find the address again with it.
+: slab-offset ( addr slab -- offset | -1 )
+  swap over slab-block @ - tuck swap slab-bytes u< 0= if drop -1 then ;
 
 \ Making and freeing. slab-init formats an unused record as an empty slab
 \ of units of unit address units and at most limit units: ok, or invalid

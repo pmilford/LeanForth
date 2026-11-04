@@ -62,17 +62,17 @@ require ./compact-names.fs
 \ levels is the tier's level set: each writes the data field and says
 \ whether the candidate may be an input record (every part it refers to
 \ is one).
-: level-in? ( l levels -- flag ) cons-in? ;
+\ A level of the set: its data field (the parameter bit) and true; or 0
+\ and false when l is not one.
+: level-data ( l levels -- d valid? )
+  2dup cons-in? if cons-at quad-data u32@ true else 2drop 0 false then ;
 : cand-payload ( cons -- u ) cand-head head-payload ;
-: cand-a-level ( levels -- d valid? )
-  dup cand-a over level-in? if dup cand-a swap cons-at quad-data u32@ true else drop 0
-  false then ;
-: cand-b-level ( levels -- d valid? )
-  dup cand-b over level-in? if dup cand-b swap cons-at quad-data u32@ true else drop 0
-  false then ;
+: cand-a-level ( levels -- d valid? ) dup cand-a swap level-data ;
+: cand-b-level ( levels -- d valid? ) dup cand-b swap level-data ;
 : cand-a-under? ( cons -- flag ) dup cand-a swap cons-under? ;
 : cand-b-under? ( cons -- flag ) dup cand-b swap cons-under? ;
-: cand-bare? ( cons -- flag ) dup cand-payload 0= over cand-a 0= and swap cand-b 0= and ;
+: cand-ab-zero? ( cons -- flag ) dup cand-a 0= swap cand-b 0= and ;
+: cand-bare? ( cons -- flag ) dup cand-payload 0= swap cand-ab-zero? and ;
 : check-zero ( levels -- under? valid? ) cand-bare? true swap ;
 : check-succ ( levels -- under? valid? )
   dup cand-payload 0= over cand-b 0= and >r dup cand-a-level r> and
@@ -85,7 +85,7 @@ require ./compact-names.fs
 : levels>tier ( levels -- tier ) 0 tier-levels - ;
 : check-param ( levels -- under? valid? )
   data-params-bit over cand-data! dup cand-payload over levels>tier tier-names
-  2dup cons-in? >r cons-under? swap dup cand-a 0= swap cand-b 0= and r> and ;
+  2dup cons-in? >r cons-under? swap cand-ab-zero? r> and ;
 : level-bad ( levels -- under? valid? ) drop false false ;
 
 \ The check of each tag; a tag without one is invalid.
@@ -108,14 +108,13 @@ check-table level-checks
 \ not fit 32 bits, or the tier is sealed; -1 and full when there is no
 \ room.
 : level-build ( head a b tier -- l outcome )
-  tier-levels >r fields-fit? 0= if outcome-invalid fail3 r> drop exit then
-  1 0 r@ cons-room dup ok? 0= if fail3 r> drop exit then drop
-  r@ cand! r@ check-level if r> level-keep else drop r> drop outcome-invalid no-result
-  then ;
+  tier-levels >r 1 r@ quad-room dup ok? 0= if fail3 r> drop exit then drop
+  r@ cand! r@ check-level
+  if r> level-keep else drop r> drop outcome-invalid no-result then ;
 : level-succ ( l tier -- l' outcome ) >r tag-level-succ swap 0 r> level-build ;
 : level-max ( l1 l2 tier -- l outcome ) >r tag-level-max -rot r> level-build ;
 : level-imax ( l1 l2 tier -- l outcome ) >r tag-level-imax -rot r> level-build ;
-: level-param ( name tier -- l outcome ) >r tag-level-param swap pack-head 0 0 r>
-  level-build ;
+: level-param ( name tier -- l outcome )
+  >r tag-level-param swap pack-head 0 0 r> level-build ;
 
 base !   \ the BASE this file was loaded with

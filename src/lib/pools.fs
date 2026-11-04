@@ -60,7 +60,10 @@ lf-lib-private set-current
   over u32@ over u32@ <> if 2drop false exit then over u32@ 1+ u32s tuck compare 0= ;
 : tuple-rehash ( n cons -- h ) cons-at tuple-hash ;
 : tuple-same ( n key cons -- flag ) rot swap cons-at swap cons-top tuple= ;
-: tuple-span ( local cons -- units ) cons-records slab-at u32@ 1+ ;
+\ The fields of the tuple at local: its length plus one, saturating at
+\ u32-mask, so that a corrupted length never wraps on a 32-bit host.
+: tuple-span ( local cons -- units )
+  cons-records slab-at u32@ dup u32-mask <> if 1+ then ;
 ' tuple-rehash ' tuple-same ' tuple-span tuple-class cons-hooks!
 
 \ The candidate's length so far, and its next item.
@@ -76,8 +79,7 @@ lf-lib set-current
 : tuple-add ( u cons -- outcome )
   dup tuple-step? 0= if 2drop outcome-invalid exit then
   over tuple-wide? if 2drop outcome-invalid exit then
-  >r r@ tuple-count 2 + 0 r@ cons-room dup ok? if drop r@ tuple-item! outcome-ok else
-  nip then
+  >r r@ tuple-count 2 + 0 r@ cons-room ok-then? if r@ tuple-item! outcome-ok then
   r> drop ;
 lf-lib-private set-current
 : tuple-keep ( i cons -- t outcome ) >r r@ tuple-count 1+ swap r> cons-commit ;
@@ -106,17 +108,19 @@ lf-lib-private set-current
 : text-record! ( offset length addr -- ) tuck 1 u32s + u32! u32! ;
 \ Keep the key's text as a new text: the record first (at the class's
 \ limit it is full), then the bytes, whose offset goes into the record.
+: text-place ( t cons -- )
+  >r r@ cons-key 2@ r@ cons-text, r@ cons-key @ rot r> cons-at text-record! ;
 : text-keep ( i cons -- t outcome )
-  >r 1 swap r@ cons-commit dup ok? 0= if r> drop exit then drop
-  r@ cons-key 2@ r@ cons-text, r@ cons-key @ 2 pick r> cons-at text-record! outcome-ok ;
+  >r 1 swap r@ cons-commit dup ok? if drop dup r@ text-place outcome-ok then r> drop ;
 lf-lib set-current
 \ The number of the text addr u (an equal text's, which may be the under
-\ set's) and ok; or -1 and full or invalid. The text must not lie in the
-\ set's own byte slab, which may move while room is made.
+\ set's) and ok; or -1 and full or invalid. The text may lie anywhere,
+\ even in the set's own byte slab, which may move while room is made: its
+\ address is found again (cons-room-key).
 : text-intern ( addr u cons -- t outcome )
-  >r 1 over r@ cons-room dup ok? 0= if nip nip r> drop no-result exit then drop
-  2dup r@ cons-key 2! hash-bytes true r@ cons-find if r> drop outcome-ok else r>
-  text-keep then ;
+  >r r@ cons-key! 1 r@ cons-room-key dup ok? 0= if r> drop no-result exit then drop
+  r@ cons-key 2@ hash-bytes true r@ cons-find
+  if r> drop outcome-ok else r> text-keep then ;
 
 module-close
 base !   \ the BASE this file was loaded with

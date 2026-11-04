@@ -27,7 +27,9 @@
 \ head-payload payload-limit /tier tier-names tier-levels tier-tuples
 \ tier-texts tier-exprs tier-extend tier-seal /tier-mark tier-mark
 \ tier-mark-valid? tier-rollback tier-reset tier-free tier-allocated
-\ tier-used. tier-init, which needs every family, is in compact.fs.
+\ tier-used; for the family modules quad-room, cand!, fields-fit?, fail3
+\ and the check tables. tier-init, which needs every family, is in
+\ compact.fs.
 \ State: none of its own; every word takes a tier record, which owns its
 \ heap memory until tier-free. A scratch tier may be a checker-context
 \ member only with a teardown word that calls tier-free on it
@@ -77,14 +79,14 @@ end-structure
 \ data field is 0.
 : cand! ( head a b cons -- )
   cons-top >r r@ quad-b u32! r@ quad-a u32! r@ quad-head u32! 0 r> quad-data u32! ;
-\ Whether number n is below the set's first own number: an under record.
-: cons-under? ( n cons -- flag ) cons-first @ u< ;
-\ Whether n is a number of the set or its under set.
-: cons-in? ( n cons -- flag ) cons-numbers u< ;
 \ Whether three fields fit 32 bits each (cand! would cut them otherwise).
 : fields-fit? ( x y z -- x y z flag ) dup 2over rot or or u32-mask u> 0= ;
 \ A builder's failure with its three fields: -1 in the result's place.
 : fail3 ( x y z outcome -- -1 outcome ) nip nip nip no-result ;
+\ Before a builder writes its candidate of units records: fields that fit
+\ 32 bits (invalid otherwise) and room in the set (cons-room).
+: quad-room ( head a b units cons -- head a b outcome )
+  >r >r fields-fit? if r> 0 r> cons-room else r> r> 2drop outcome-invalid then ;
 
 \ Tables of one check per tag: check-table makes one, check-fill sets
 \ every entry, check! one; check-run runs the check of tag on the
@@ -112,20 +114,22 @@ create tier-family-xts ' tier-names , ' tier-levels , ' tier-tuples , ' tier-tex
 10 constant tier-scratch-log2
 
 \ Make a scratch tier over a sealed input tier: ok, invalid when the input
-\ is not sealed, or full. Stops at the first failure; tier-free then frees
-\ what was made. The record must not hold memory: tier-free first.
+\ is not sealed (or is itself a sealed scratch tier: there are at most
+\ two tiers, cons.fs), or full. Stops at the first failure; tier-free then
+\ frees what was made. The record must not hold memory: tier-free first.
 : tier-extend-family ( input tier i -- outcome )
   tuck swap tier-family >r swap tier-family tier-scratch-log2 swap r> cons-extend ;
 : tier-extend ( input tier -- outcome )
   dup /tier erase tier-families 0 do
-    2dup i tier-extend-family dup ok? 0= if nip nip unloop exit then drop
+    2dup i tier-extend-family ok-then2? 0= if unloop exit then
   loop 2drop outcome-ok ;
 
-\ Seal an input tier: every family read-only. ok, or invalid for a tier
-\ that is not open (sealed already, or a family missing).
+\ Seal an input tier: every family read-only, its tables frozen. ok, or
+\ invalid for a tier that is not open (sealed already, or a family
+\ missing). A sealed scratch tier is read-only too but cannot be extended.
 : tier-seal ( tier -- outcome )
   tier-families 0 do
-    i over tier-family cons-seal dup ok? 0= if nip unloop exit then drop
+    i over tier-family cons-seal ok-then? 0= if unloop exit then
   loop drop outcome-ok ;
 : tier-free ( tier -- )
   tier-families 0 do i over tier-family cons-free loop drop ;
@@ -141,31 +145,28 @@ end-structure
 \ a mark every rollback refuses, invalid or full.
 : tier-mark ( mark tier -- outcome )
   tier-families 0 do
-    2dup i tier-pair cons-mark dup ok? 0= if nip nip unloop exit then drop
+    2dup i tier-pair cons-mark ok-then2? 0= if unloop exit then
   loop 2drop outcome-ok ;
 : tier-mark-valid? ( mark tier -- flag )
-  tier-families 0 do 2dup i tier-pair cons-mark-valid? 0= if 2drop false unloop exit then
+  tier-families 0 do
+    2dup i tier-pair cons-mark-valid? 0= if 2drop false unloop exit then
   loop 2drop true ;
-\ Give back every record made since the mark: ok, or invalid with nothing
-\ changed.
+\ Give back every record made since the mark: ok; invalid with nothing
+\ changed for a mark that is not valid; or invalid after the rollback when
+\ a family's table missed an entry (corrupted).
 : tier-rollback ( mark tier -- outcome )
   2dup tier-mark-valid? 0= if 2drop outcome-invalid exit then
-  tier-families 0 do 2dup i tier-pair cons-rollback drop loop 2drop outcome-ok ;
+  true -rot tier-families 0 do
+    2dup i tier-pair cons-rollback ok? >r rot r> and -rot
+  loop 2drop flag>outcome ;
 \ Empty a scratch tier after a check, whatever its outcome: ok, or invalid
-\ for a sealed tier.
+\ for a sealed tier (or a corrupted table).
 : tier-reset ( tier -- outcome )
   outcome-ok tier-families 0 do
     over i swap tier-family cons-reset ok? 0= if drop outcome-invalid then
   loop nip ;
 
 \ Address units allocated, and in use, by a tier's slabs and tables.
-: cons-allocated ( cons -- u )
-  dup cons-records slab-bytes over cons-bytes slab-bytes + swap cons-table htab-slots
-  u32s + ;
-: slab-used-bytes ( slab -- u ) dup slab-count swap slab-unit * ;
-: cons-used ( cons -- u )
-  dup cons-records slab-used-bytes over cons-bytes slab-used-bytes +
-  swap cons-table htab-slots u32s + ;
 : tier-allocated ( tier -- u )
   0 swap tier-families 0 do i over tier-family cons-allocated rot + swap loop drop ;
 : tier-used ( tier -- u )

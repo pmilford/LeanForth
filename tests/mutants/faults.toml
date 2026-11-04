@@ -1730,6 +1730,75 @@ new = '''  true ;'''
 test = "$GFORTH tests/core/run-record.fs"
 reason = "a text that names another format or version is compared instead of refused"
 
+# --- the compact store (src/lib/cons.fs, htab.fs, pools.fs, src/core/compact-exprs.fs)
+# The four findings of its review (2026-11-03); tests/core/compact_faults.py
+# (make check) plants these and its other faults too.
+
+[[fault]]
+id = "cons-three-tiers"
+file = "src/lib/cons.fs"
+old = '''  dup cons-sealed? over cons-table htab-live? and swap cons-under @ 0= and ;'''
+new = '''  dup cons-sealed? swap cons-table htab-live? and ;'''
+test = "$GFORTH tests/lib/cons.fs"
+reason = "a set over a sealed extension is accepted; its numbers would name records two tiers down, which cons-at never reaches"
+quick = true
+
+[[fault]]
+id = "htab-frozen-counts"
+file = "src/lib/htab.fs"
+old = ''': htab-tally ( n addr htab -- ) htab-frozen? if 2drop else +! then ;'''
+new = ''': htab-tally ( n addr htab -- ) drop +! ;'''
+test = "$GFORTH tests/lib/htab.fs"
+reason = "a find writes its statistics into a frozen table, so workers sharing a sealed input race on it"
+
+[[fault]]
+id = "cons-seal-unfrozen"
+file = "src/lib/cons.fs"
+old = '''  true over cons-sealed ! cons-table htab-freeze outcome-ok ;'''
+new = '''  true swap cons-sealed ! outcome-ok ;'''
+test = "$GFORTH tests/lib/cons.fs"
+reason = "sealing leaves the table unfrozen: finds through an extension write the sealed input"
+
+[[fault]]
+id = "cons-own-text-stale"
+file = "src/lib/cons.fs"
+old = '''  dup cons-key-base @ dup 0< if 2drop exit then over cons-bytes slab-at'''
+new = '''  drop exit dup cons-key-base @ dup 0< if 2drop exit then over cons-bytes slab-at'''
+test = "$GFORTH tests/lib/cons.fs"
+reason = "a text from the set's own byte slab keeps its address after the slab moved, and is read from freed memory"
+
+[[fault]]
+id = "cons-limit-unclamped"
+file = "src/lib/cons.fs"
+old = '''  cons-class @ class-unit @ slab-limit-max swap spare+ min ;'''
+new = '''  drop cons-spare + ;'''
+test = "$GFORTH tests/lib/cons.fs"
+reason = "a class limit times the record size past a cell refuses every set (on a 32-bit host, every class)"
+
+[[fault]]
+id = "cons-past-wraps"
+file = "src/lib/cons.fs"
+old = '''  dup cons-limit swap cons-numbers 2dup u< if 2drop drop true else - u> then ;'''
+new = '''  dup cons-limit swap cons-numbers - u> ;'''
+test = "$GFORTH tests/lib/cons.fs"
+reason = "numbers past the limit read as room left, so a set commits beyond its class's limit"
+
+[[fault]]
+id = "bvar-index-wraps"
+file = "src/core/compact-exprs.fs"
+old = ''': bvar-fits? ( index -- flag ) range-max u< ;'''
+new = ''': bvar-fits? ( index -- flag ) 1+ range-max u> 0= ;'''
+test = "$GFORTH tests/core/compact.fs"
+reason = "the index is compared after 1+, which wraps 2^32 - 1 to a range of 0 on a 32-bit host"
+
+[[fault]]
+id = "tuple-span-wraps"
+file = "src/lib/pools.fs"
+old = '''u32@ dup u32-mask <> if 1+ then ;'''
+new = '''u32@ 1+ ;'''
+test = "$GFORTH tests/lib/cons.fs"
+reason = "a corrupted list length of 2^32 - 1 wraps its span on a 32-bit host, and the entry check then walks 2^32 items"
+
 # --- the runner itself (scripts/mutants.py) --------------------------------
 
 [[fault]]

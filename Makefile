@@ -612,7 +612,7 @@ test-stage:
 	  || { bash tests/core/compact-verify.sh --unchecked $$f $(GFORTH); exit 1; }; \
 	done; echo "The stage re-emits every other fixture export as the reader dumps it."
 
-# Nineteen faults planted in a copy of the compact store, each caught by the
+# Twenty-seven faults planted in a copy of the compact store, each caught by the
 # checks of test-compact (about 25 s; part of make check).
 test-compact-faults:
 	GFORTH=$(GFORTH) $(RUN) python3 tests/core/compact_faults.py
