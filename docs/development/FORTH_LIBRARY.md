@@ -200,7 +200,8 @@ for the plain path, the tests and the proofs. At 70 MB/s all of Mathlib's
   `sha256sum`; and the header's example, with the library and
   `portability.fs` copied into a fresh folder outside the project, run
   there as a program of its own.
-- 13 planted faults (a rotation's shift, Maj, a Σ1 shift and an unmasked
+- 13 planted faults, kept in `tests/mutants/faults.toml` (`make mutants`;
+  ids `sha-…`) (a rotation's shift, Maj, a Σ1 shift and an unmasked
   store in the fast round, a σ0 shift in the fast schedule, a K constant,
   an initial hash word, the byte order, the final addition's row, the
   length's carry, the padding boundary, the buffer's room, the hexadecimal

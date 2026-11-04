@@ -501,7 +501,9 @@ test and the tally of each record's kind), and checked 205.29 billion.
   composition fixture and its manifest byte for byte; the check accepts
   it and refuses a copy with one letter changed, which the unchecked
   reader accepts.
-- 13 planted faults, each undone afterwards, each caught: line feeds not
+- 13 planted faults, kept in `tests/mutants/faults.toml` (`make mutants`;
+  ids `manifest-…`, `ndjson-tap-skipped`, `ndjson-tally-refused`), each
+  caught: line feeds not
   hashed, the SHA-256 or the bytes not compared, extra members allowed,
   any format version, a digest's length unchecked, the 64 KiB limit one
   byte short, non-canonical numbers, the tap left set after a read, the
