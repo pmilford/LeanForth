@@ -46,6 +46,7 @@ features they describe.
 - [PROGRAM_IR_RUN.md](programming/PROGRAM_IR_RUN.md) — the program IR interpreter in Forth and the three-way comparison of the interpreter, the host words and Lean's evaluation of the model (implemented, untrusted; testing, not proof).
 - [PROGRAM_RECEIPTS.md](programming/PROGRAM_RECEIPTS.md) — program receipt schema 0.2 (the draft 0.1 superseded and refused): separate CHECK, VERIFY and RUN statuses, who settled an obligation, assumptions, per-theorem axioms, and the standard-library validator (implemented; the clamp receipt is generated).
 - [PROGRAM_VC.md](programming/PROGRAM_VC.md) — verification-condition generator v0 and contract language: obligations and contract theorems checked by Lean (not by LeanForth), wrong contracts refuted, and the generated clamp receipt.
+- [SHA256_SPEC.md](programming/SHA256_SPEC.md) — SHA-256 specified in Lean from FIPS 180-4 (flagship stage SHA-1): NIST vectors and the constants checked by Lean's kernel, lemmas for the later stages, what is and is not proved (implemented, checked by Lean, not by LeanForth; nothing yet about the Forth code).
 - Lean reference models for individual programs: [checked addition](programming/CHECKED_ADD_REFERENCE.md), [factorial](programming/FACTORIAL_REFERENCE.md), [gcd](programming/GCD_REFERENCE.md), [stack and memory](programming/MEMORY_PROGRAM_REFERENCE.md), [memory copy](programming/MEMORY_COPY_REFERENCE.md), [memory swap](programming/MEMORY_SWAP_REFERENCE.md).
 
 ## `development/` — contributing, testing and tooling
