@@ -1554,6 +1554,82 @@ new = '''    dup >r teardown-xt @ execute r> teardown-link @'''
 test = "$GFORTH tests/lib/context.fs"
 reason = "a teardown word that throws stops context-free, which then frees neither the others' blocks nor the context"
 
+# --- heap stores, columns and the feed (ADR 0016 C9 step 3: src/lib/store.fs,
+# src/core/store-columns.fs, constant-references.fs, input.fs, names.fs,
+# src/kernel/environment.fs, src/import/feed.fs)
+
+[[fault]]
+id = "store-grow-past-limit"
+file = "src/lib/store.fs"
+old = ''': store-at-limit? ( store -- flag ) dup store-capacity @ swap store-limit @ = ;'''
+new = ''': store-at-limit? ( store -- flag ) drop false ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "a heap store grows past its capacity setting instead of giving full"
+
+[[fault]]
+id = "store-grow-drops-records"
+file = "src/lib/store.fs"
+old = '''  >r dup r@ store-kept 2 pick over r@ store-copy-ids r> store-copy-records ;'''
+new = '''  >r dup r@ store-kept 2 pick over r@ store-copy-ids r> 2drop 2drop ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "growing a heap store loses the records made before"
+
+[[fault]]
+id = "store-seal-ignores-block"
+file = "src/lib/store.fs"
+old = '''  dup store-shape@ >store-seal over store-block @ xor swap store-limit @ xor ;'''
+new = '''  dup store-shape@ >store-seal swap store-limit @ xor ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "a corrupted block address keeps the seal: a store reads records elsewhere"
+
+[[fault]]
+id = "column-new-units-unzeroed"
+file = "src/core/store-columns.fs"
+old = '''  dup slab-capacity >r tuck slab-reserve dup ok? if r@ rot column-clear-from else nip then'''
+new = '''  dup slab-capacity >r tuck slab-reserve dup ok? if nip else nip then'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "a column's new units hold whatever RESIZE left, so a stamp may match by chance"
+
+[[fault]]
+id = "cref-span-unchecked"
+file = "src/core/constant-references.fs"
+old = '''  dup lf-cref-span? if lf-cref-pairs lf-cref-input-ok? else drop false then ;'''
+new = '''  lf-cref-pairs lf-cref-input-ok? ;'''
+test = "$GFORTH tests/core/constant-references.fs"
+reason = "a reference whose pairs lie outside the pool is read anyway"
+
+[[fault]]
+id = "e5-chain-newest"
+file = "src/kernel/environment.fs"
+old = '''    lf-env-chain-step if r> drop dup >r then lf-input-before'''
+new = '''    lf-env-chain-step if r@ 0< if r> drop dup >r then then lf-input-before'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "ADR 0012 E5 through the name index: the newest same-named declaration, not the first, is used"
+
+[[fault]]
+id = "e5-index-unlinked"
+file = "src/core/input.fs"
+old = '''  >r /lf-idecl move r> dup lf-input-link outcome-ok ;'''
+new = '''  >r /lf-idecl move r> outcome-ok ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "the name index is never filled: under a name view every constant is unknown to the environment (N1)"
+
+[[fault]]
+id = "feed-value-is-type"
+file = "src/import/feed.fs"
+old = '''  2dup feed-stage @ staged-value@ over feed-root ['] lf-idecl-value rot feed-decl! drop ;'''
+new = '''  2dup feed-stage @ staged-type@ over feed-root ['] lf-idecl-value rot feed-decl! drop ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "the feed gives a declaration its type as its value"
+
+[[fault]]
+id = "names-view-unshared"
+file = "src/core/names.fs"
+old = '''  lf-name-query lf-name-tier name-str lf-name-made ;'''
+new = '''  2drop drop false ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "under a name view a string name can no longer be interned"
+
 # --- run records and replay (src/import/run-record.fs, run-replay.fs) -------
 
 [[fault]]

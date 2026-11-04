@@ -85,9 +85,19 @@ T{ s" tests/core/check-declaration-cases/composition-literal.ndjson" fed-case
   -> outcome-unsupported lf-diag-unsupported-form 1 }T
 T{ s" tests/core/check-declaration-cases/composition-loose.ndjson" fed-case
   -> outcome-invalid lf-diag-out-of-scope 1 }T
-\ The stores grew past their defaults, and the names are the stage's.
+\ The stores grew past their defaults, and the names are the stage's: a
+\ name made under the view that the stage has gets the stage's ID (here
+\ from the stage's own text, which is copied first), a new one the next
+\ number.
 T{ s" tests/reference/composition.ndjson" fed lf-term-capacity lf-term-default >
    lf-input-indexed? -> outcome-ok true true }T
+0 lf-input-name constant comp-name
+T{ comp-name lf-name-prefix@ comp-name lf-name-text lf-name-str -> comp-name true }T
+lf-name-numbers constant fresh-id
+T{ 0 s" not.in.the.stage" lf-name-str -> fresh-id true }T
+T{ fresh-id lf-name-text s" not.in.the.stage" compare fresh-id 7 lf-name-num nip
+   -> 0 true }T
+T{ comp-name fresh-id lf-name-equal? comp-name comp-name lf-name-equal? -> false true }T
 unstage
 T{ lf-input-indexed? -> false }T
 \ Only a sealed stage is fed.
@@ -105,9 +115,11 @@ variable e5-name  variable e5-test  variable e5-limit
   e5-args lf-env-chain-matches e5-args lf-env-scan-matches = and ;
 create e5-tests
   ' lf-slot-accepted? , ' lf-slot-undecided? , ' lf-slot-unsupported? , ' lf-slot-open? ,
+  ' lf-slot-final? ,
+here e5-tests - 1 cells / constant e5-tests#
 variable e5-checks
 : e5-tested? ( -- flag )
-  true 4 0 ?do i cells e5-tests + @ e5-test ! e5-same? and 1 e5-checks +! loop ;
+  true e5-tests# 0 ?do i cells e5-tests + @ e5-test ! e5-same? and 1 e5-checks +! loop ;
 : e5-named? ( -- flag )
   true lf-name-numbers 0 ?do i e5-name ! e5-tested? and loop ;
 : e5-all? ( -- flag )
@@ -116,7 +128,14 @@ variable e5-checks
 T{ s" tests/reference/constant-fixture.ndjson" e5-file -> true }T
 T{ s" tests/reference/composition.ndjson" e5-file -> true }T
 T{ s" tests/core/check-declaration-cases/composition-postulate.ndjson" e5-file -> true }T
-T{ e5-checks @ 300 > -> true }T
+\ The theorem declared twice (a copy of the export with its last line
+\ repeated): the second is rejected as already declared (N2), as Lean's
+\ kernel does, by both paths; its chain holds both.
+: twice ( -- c-addr u ) s" tests/core/check-declaration-cases/composition-twice.ndjson" ;
+T{ twice case-file -> outcome-rejected lf-diag-already-declared 2 }T
+T{ twice fed-case -> outcome-rejected lf-diag-already-declared 2 }T
+T{ twice e5-file -> true }T
+T{ e5-checks @ 500 > -> true }T
 ." E5 chain against scan: " e5-checks @ . ." lookups agree" cr
 
 cases-done

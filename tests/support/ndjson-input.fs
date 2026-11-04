@@ -19,9 +19,10 @@
 \ inductive block stops reading as unsupported: the input cannot hold it.
 \ Equal nodes are not shared beyond what the export shares.
 \
-\ Untrusted [import] code, test-only: phase 3 (plan task 3.2.2) replaces
-\ it. Limits are the stores' (64 names, levels and terms; 32
-\ declarations): a larger file stops with full.
+\ Untrusted [import] code, test-only: src/import/feed.fs (plan task 3.2.2)
+\ replaces it. Limits are the stores' default capacities (64 names, levels
+\ and terms; 32 declarations), which its tables hold whatever the
+\ context's settings are: a larger file stops with full.
 \ State: the export ni-export and four tables from export indices to
 \ LeanForth's (names, levels, expressions) and one declaration buffer, all
 \ global and test-only; single-threaded.
@@ -29,9 +30,9 @@
 require ../../src/main.fs
 
 export: ni-export
-create ni-names lf-name-capacity cells allot          \ export name -> name ID
-create ni-levels lf-level-capacity cells allot        \ export level -> level index
-create ni-exprs lf-term-capacity 2* cells allot       \ export expression -> handle
+create ni-names lf-name-default cells allot          \ export name -> name ID
+create ni-levels lf-level-default cells allot        \ export level -> level index
+create ni-exprs lf-term-default 2* cells allot       \ export expression -> handle
 create ni-pairs lf-cref-argument-capacity 2* cells allot
 create ni-decl /lf-idecl allot
 
@@ -48,7 +49,7 @@ create ni-decl /lf-idecl allot
   ni-cell if ! outcome-ok else drop outcome-full then ;
 
 \ Names (both passes see them; the first interns them).
-: ni-name! ( id record -- outcome ) record-index @ ni-names lf-name-capacity ni-store ;
+: ni-name! ( id record -- outcome ) record-index @ ni-names lf-name-default ni-store ;
 : ni-prefix ( record -- prefix ) name-prefix @ ni-name ;
 : ni-digits ( c-addr u -- n ) 0 0 2swap >number 2drop drop ;
 : ni-interned ( id true | false record -- outcome )
@@ -66,7 +67,7 @@ create ni-decl /lf-idecl allot
 \ Levels (second pass).
 : ni-level-keep ( index true | false record -- outcome )
   swap 0= if drop outcome-full exit then
-  record-index @ ni-levels lf-level-capacity ni-store ;
+  record-index @ ni-levels lf-level-default ni-store ;
 : ni-two ( record -- l r ) dup max-left @ ni-level@ swap max-right @ ni-level@ ;
 : on-succ ( record -- outcome )
   dup >r succ-of @ ni-level@ lf-level-succ r> ni-level-keep ;
@@ -79,7 +80,7 @@ create ni-decl /lf-idecl allot
 \ Expressions (second pass), kept as handles.
 : ni-expr-keep ( index identity true | false record -- outcome )
   swap 0= if drop outcome-full exit then
-  record-index @ dup lf-term-capacity u< 0= if drop 2drop outcome-full exit then
+  record-index @ dup lf-term-default u< 0= if drop 2drop outcome-full exit then
   2* cells ni-exprs + 2! outcome-ok ;
 : on-bvar ( record -- outcome ) dup >r bvar-index @ lf-hterm-bvar r> ni-expr-keep ;
 : on-sort ( record -- outcome )
@@ -169,8 +170,8 @@ create ni-second
 \ A fresh input in this context.
 : ni-fresh ( -- )
   lf-name-reset lf-level-reset lf-term-reset lf-lscope-context-reset lf-cref-reset
-  lf-input-reset ni-names lf-name-capacity cells erase
-  ni-levels lf-level-capacity cells erase ;
+  lf-input-reset ni-names lf-name-default cells erase
+  ni-levels lf-level-default cells erase ;
 : ni-passes ( c-addr u -- outcome )
   2dup ni-first ni-pass dup ok? 0= if nip nip exit then drop
   lf-ssession-begin 0= if 2drop outcome-invalid exit then

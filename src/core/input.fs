@@ -40,11 +40,14 @@
 \ context moves no longer matches its mark.
 \
 \ Untrusted [import] data; part of the first checker's [kernel] path, not
-\ yet through the review gate. Up to lf-param-capacity universe
-\ parameters per declaration (Mathlib uses up to 30 universe arguments:
-\ a phase-2 limit, like the eight levels of a constant reference).
-\ State: the declaration store lf-inputs and one record, lf-input-state,
-\ both members of the checker context; written only while loading and by
+\ yet through the review gate. Up to lf-param-capacity (64) universe
+\ parameters per declaration (Mathlib's most is 30); the number of
+\ declarations is a capacity setting (lf-input-capacity!). The
+\ fingerprint also covers the references' universe arguments (their
+\ pool) and, under a name view (names.fs), every input name's hash.
+\ State: the declaration store lf-inputs (a heap store), the name index
+\ lf-input-names (a heap slab) and one record, lf-input-state, all
+\ members of the checker context; written only while loading and by
 \ lf-input-reset, then read by every check in that context. The layout is
 \ host-specific and never serialized.
 

@@ -137,6 +137,10 @@ T{ 0 live-id lf-cref-valid? 0 live-id lf-cref-levels -> false false }T
 T{ 0 live-id lf-cref-valid? 0 live-id lf-cref-levels -> false false }T
 lf-cref-pool slab-capacity 1- offset!
 T{ 0 live-id lf-cref-valid? 0 live-id lf-cref-levels -> false false }T
+\ Far outside the pool: refused before any address is formed (without the
+\ check, reading there would fault).
+1 30 lshift offset!
+T{ 0 live-id lf-cref-valid? 0 live-id lf-cref-levels -> false false }T
 0 offset!
 T{ 0 live-id lf-cref-valid? -> true }T
 lf-cref-argument-capacity 1+ arity!

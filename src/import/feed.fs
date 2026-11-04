@@ -60,16 +60,20 @@ end-structure
 : feed-free ( feed -- )
   dup feed-levels heap-release dup feed-exprs heap-release drop ;
 
-\ ---- Capacities: the stage's records plus room for the checks.
+\ ---- Capacities: the stage's records plus room for the checks; a
+\ setting is only ever raised.
 : feed-numbers ( feed xt -- n ) swap feed-tier swap execute cons-numbers ;
 : feed-set ( outcome n xt -- outcome )
   rot dup ok? if drop execute else nip nip then ;
 : feed-capacities ( feed -- outcome )
   >r outcome-ok
-  r@ ['] tier-exprs feed-numbers feed-term-room + ['] lf-term-capacity! feed-set
-  r@ ['] tier-levels feed-numbers feed-level-room + ['] lf-level-capacity! feed-set
-  r@ ['] tier-exprs feed-numbers feed-cref-room + ['] lf-cref-capacity! feed-set
-  r> feed-stage @ stage-decls 1 max ['] lf-input-capacity! feed-set ;
+  r@ ['] tier-exprs feed-numbers feed-term-room + lf-term-capacity max
+  ['] lf-term-capacity! feed-set
+  r@ ['] tier-levels feed-numbers feed-level-room + lf-level-capacity max
+  ['] lf-level-capacity! feed-set
+  r@ ['] tier-exprs feed-numbers feed-cref-room + lf-cref-capacity max
+  ['] lf-cref-capacity! feed-set
+  r> feed-stage @ stage-decls lf-input-capacity max ['] lf-input-capacity! feed-set ;
 
 \ ---- Maps: heap blocks of cells, freed by feed-free.
 : feed-block ( cells addr -- outcome )
