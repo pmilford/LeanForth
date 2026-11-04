@@ -106,7 +106,7 @@ end-structure
 : lf-blk-job ( -- ) lf-ind-fuel @ lf-minfer-start-env ;
 : lf-blk-refuel ( outcome -- outcome ) lf-minfer-fuel @ lf-ind-fuel ! ;
 : lf-blk-infer ( root -- outcome ) lf-blk-job lf-minfer-walk nip lf-blk-refuel ;
-: lf-blk-push ( domain -- outcome ) lf-minfer-push if outcome-ok else outcome-full then ;
+: lf-blk-push ( domain -- outcome ) lf-minfer-push ;
 
 \ While the constructors are checked, the type is a constant inference
 \ finds (Lean's declare_inductive_types), through env-signature's hook:

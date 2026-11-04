@@ -459,29 +459,41 @@ T{ outcome-unsupported outcome-unsupported 2 ' n2-unsupported s" n2-unsupported"
   fp-case -> }T
 
 \ Invalid: a variable without a binder (V1, 1). Full: the term store fills
-\ while the declared type is inferred (4).
+\ while the declared type is inferred (4): a telescope of 40 binders,
+\ Prop -> ... -> Prop, whose 41 nodes and a free variable per binder (plan
+\ task 4.2.2a) do not fit the 64 terms. (The binder-domain table's eta
+\ case, used here before, now fits: inference discards its scratch as it
+\ goes.)
 : loose ( -- )
   s" fc-decl check thm safe loose 0 TYPE P S z P V 0 V 1 VALUE L S z L V 0 V 2" fc-text ;
 : terms-full ( -- )
-  s" fc-decl check thm safe bdCompare 0 TYPE P P P S s z P A L S s z V 0 P V 0 V 1 P V 1 V 2 S z P A V 0 L S s z L A L S s z V 0 P V 0 V 1 V 0 A V 1 L S s z L P V 0 V 1 L V 1 A V 1 V 0 VALUE L P P S s z P A L S s z V 0 P V 0 V 1 P V 1 V 2 S z L A V 0 L S s z L A L S s z V 0 P V 0 V 1 V 0 V 0"
+  s" fc-decl check def safe wide 0 TYPE P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z S z VALUE S z"
   fc-text ;
 T{ outcome-invalid 1 ' loose s" loose" fp-case -> }T
 T{ outcome-full 1 ' terms-full s" terms-full" fp-case -> }T
-\ The same declaration with the term store's capacity raised, a setting
-\ of the context (plan task 3.3.1; ADR 0016 C5): the store and its
-\ columns grow while the type is inferred, and every growth is an
-\ allocation the sweeps refuse or make throw: full, never accepted. The
-\ capacity goes back to the default afterwards.
+\ The binder-domain table's eta case with the term store's capacity
+\ raised, a setting of the context (plan task 3.3.1; ADR 0016 C5): the
+\ store and its columns grow while the types are inferred and compared,
+\ and every growth is an allocation the sweeps refuse or make throw:
+\ full, never accepted. The capacity goes back to the default afterwards.
+: eta-compare ( -- )
+  s" fc-decl check thm safe bdCompare 0 TYPE P P P S s z P A L S s z V 0 P V 0 V 1 P V 1 V 2 S z P A V 0 L S s z L A L S s z V 0 P V 0 V 1 V 0 A V 1 L S s z L P V 0 V 1 L V 1 A V 1 V 0 VALUE L P P S s z P A L S s z V 0 P V 0 V 1 P V 1 V 2 S z L A V 0 L S s z L A L S s z V 0 P V 0 V 1 V 0 V 0"
+  fc-text ;
 \ Before each run the block shrinks to the input and the columns are made
-\ as large as the capacity, so that every run grows the store at the same
-\ allocations (blocks never shrink by themselves).
+\ as large as the capacity, and the local context's block (which grows
+\ when a check opens more than lf-lctx-default binders) shrinks to its
+\ first size, so that every run grows the stores at the same allocations
+\ (blocks never shrink by themselves).
 4096 constant grown
 : grown-capacity ( n -- ) lf-term-capacity! ok? s" no setting" fp-must ;
 : column-grown ( column -- ) grown swap column-slab column-reserve ok? s" no column" fp-must ;
+: lctx-capacity ( n -- ) lf-lctx-capacity! ok? s" no local context" fp-must ;
+: lctx-first ( -- )
+  lf-lctx-reset lf-lctx-default lctx-capacity lf-lctx-default-limit lctx-capacity ;
 : grown-block ( -- )
   lf-term-count @ grown-capacity grown grown-capacity
-  ['] column-grown lf-term-columns columns-each ;
-: terms-grown ( -- ) lf-term-reset grown grown-capacity terms-full ;
+  ['] column-grown lf-term-columns columns-each lctx-first ;
+: terms-grown ( -- ) lf-term-reset grown grown-capacity eta-compare ;
 ' grown-block fp-prepare !
 T{ outcome-unknown 1 ' terms-grown s" terms-grown" fp-case -> }T
 ' noop fp-prepare !

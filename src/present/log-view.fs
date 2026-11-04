@@ -185,9 +185,18 @@ create lf-lv-blanks 64 allot lf-lv-blanks 64 bl fill
   lf-lv-shallower ;
 : lf-lv-rebuilt? ( rule -- flag )
   dup lf-rule-shift = over lf-rule-instantiate = or swap lf-rule-instantiate-levels = or ;
+\ A lambda's type: each Pi down its spine named from the lambda at the
+\ same place in the subject's, as Lean's mk_pi takes the binders' names
+\ (since plan task 4.2.2a each lambda's type is made afresh over its free
+\ variable, so the inner Pis are not the inner steps' copies).
+: lf-lv-tag? ( ref tag -- flag ) swap lf-lv-tag if = else drop false then ;
+: lf-lv-lam-pi? ( a out -- flag ) lf-tag-pi lf-lv-tag? swap lf-tag-lam lf-lv-tag? and ;
+: lf-lv-spine ( a out -- )
+  begin 2dup lf-lv-pair-name 2dup lf-lv-lam-pi? while 2 lf-lv-both 0= if exit then
+  repeat 2drop ;
 : lf-lv-name-step ( s -- )
   dup lf-lv-rule lf-rule-lambda = if dup lf-lv-a swap lf-lv-out-ref
-  lf-lv-pair-name exit then
+  lf-lv-spine exit then
   dup lf-lv-rule lf-lv-rebuilt? if dup lf-lv-a swap lf-lv-out-ref lf-lv-parallel
   exit then drop ;
 : lf-lv-names ( -- )

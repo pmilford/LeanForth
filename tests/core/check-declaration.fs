@@ -254,8 +254,12 @@ fc-decl before def safe c15 0 TYPE P S z S z VALUE L S z V 0
 fc-decl before def safe c16 0 TYPE P S z S z VALUE L S z V 0
 fc-decl check def safe user 0 TYPE S z VALUE A C c0 0 A C c1 0 A C c2 0 A C c3 0 A C c4 0 A C c5 0 A C c6 0 A C c7 0 A C c8 0 A C c9 0 A C c10 0 A C c11 0 A C c12 0 A C c13 0 A C c14 0 A C c15 0 A C c16 0 P S z V 0
 T{ check-last -> outcome-full lf-diag-deps-full value-step }T
+\ The declared type is a telescope of 40 binders (Prop -> ... -> Prop):
+\ its 41 nodes and a free variable per binder (plan task 4.2.2a) do not
+\ fit the 64 terms. (The binder-domain table's eta case, used here
+\ before, now fits: inference discards its scratch as it goes.)
 fc-case terms-full
-fc-decl check thm safe bdCompare 0 TYPE P P P S s z P A L S s z V 0 P V 0 V 1 P V 1 V 2 S z P A V 0 L S s z L A L S s z V 0 P V 0 V 1 V 0 A V 1 L S s z L P V 0 V 1 L V 1 A V 1 V 0 VALUE L P P S s z P A L S s z V 0 P V 0 V 1 P V 1 V 2 S z L A V 0 L S s z L A L S s z V 0 P V 0 V 1 V 0 V 0
+fc-decl check def safe wide 0 TYPE P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z P S z S z VALUE S z
 T{ check-last -> outcome-full lf-diag-terms-full type-step }T
 
 \ ---------------------------------------------------------------------------
@@ -356,12 +360,14 @@ fc-decl check thm safe wrong 0 TYPE P S z P S z P V 1 V 2 VALUE L S z L S z L V 
 T{ unchanged -> true }T
 
 \ Step 7 gives back the room of steps 4-6: composition's declared type
-\ takes 11 scratch terms there and its value 20 in step 7. After an
-\ earlier axiom (unsupported, so never typed) of 16 terms, the 64-term
-\ store holds both only once the 11 are given back; kept, step 7 would be
-\ full. Lean's kernel accepts both declarations.
+\ took 11 scratch terms there before plan task 4.2.2a, and leaves 1 since
+\ (a Pi's inference discards its scratch). After an earlier axiom
+\ (unsupported, so never typed) of 27 terms, the 64-term store holds the
+\ value's inference only once that term is given back; kept, step 7 is
+\ full (measured 2026-11-04: 26 Pis in the axiom fit only with the
+\ rollback, 27 not at all). Lean's kernel accepts both declarations.
 fc-case value-room
-fc-decl before ax safe pad 0 TYPE P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z S s s z VALUE none
+fc-decl before ax safe pad 0 TYPE P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z P S s s z S s s z VALUE none
 fc-decl check thm safe composition 0 TYPE P S z P S z P S z P P V 2 V 2 P P V 2 V 2 P V 4 V 3 VALUE L S z L S z L S z L P V 2 V 2 L P V 2 V 2 L V 4 A V 1 A V 2 V 0
 T{ check-last -> outcome-ok 0 lf-step-done }T
 

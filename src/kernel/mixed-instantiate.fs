@@ -11,6 +11,7 @@ require ../lib/lib.fs
 require ../core/constant-term-boundary.fs
 require ../core/derivation-log.fs
 require ../core/diagnostics.fs
+require ../core/local-context.fs
 require ../core/tagged-sort-boundary.fs
 require ../core/terms.fs
 require ./mixed-rebuild.fs
@@ -60,12 +61,12 @@ end-structure
   over lf-term-first@ swap lf-minst-variable ;
 
 \ Visiting one source node. Application, lambda and Pi nodes are rebuilt;
-\ leaves are kept; any other tag is malformed. Each visit costs one unit of
-\ fuel.
+\ leaves are kept (free variables too, which the audit found live); any
+\ other tag is malformed. Each visit costs one unit of fuel.
 : lf-minst-binary ( node frames -- result outcome )
   over lf-minst-children? if lf-rebuild-binary else lf-rebuild-bad then ;
 : lf-minst-leaf ( node frames tag -- result outcome )
-  case lf-tag-bvar of lf-minst-bvar endof
+  case lf-tag-bvar of lf-minst-bvar endof  lf-tag-fvar of lf-rebuild-keep endof
     lf-tag-constant of lf-rebuild-keep endof
     lf-tag-symbolic-sort of lf-rebuild-keep endof
     >r lf-rebuild-bad r> endcase ;

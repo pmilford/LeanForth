@@ -74,7 +74,7 @@ create state-words
   ' lf-mcompare-level-walker , ' lf-mconvert-walker , ' lf-minfer-job ,
   ' lf-mls-walker , ' lf-mls-job , ' lf-mdefinition-request , ' lf-msp-index ,
   ' lf-msp-request , ' lf-msa-state , ' lf-diagnostic , ' lf-inputs ,
-  ' lf-input-state , ' lf-env-cand ,
+  ' lf-input-state , ' lf-env-cand , ' lf-lctx , ' lf-open-job ,
 here state-words - 1 cells / constant state-count
 : state-word ( i -- addr ) cells state-words + @ execute ;
 : state-offset ( addr -- n ) lf-context @ - ;

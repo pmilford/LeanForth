@@ -78,17 +78,17 @@ what was used and the limit.
 | 7 | signature index full | full | count | capacity | `mixed-signature-probe lf-msp` (in `lf-msp-put`) |
 | 8 | identity serial spent | full | the store's serial | identities needed | the term, level, name and reference stores (1 needed); `level-substitute lf-lsubst` (1, before it adds a node) |
 | 9 | work stack full | full | cells pending | capacity | every walk; `level-normalize` (the arguments of a `max` being normalized) |
-| 10 | frame limit | full | frames in use | limit | `mixed-shift`, `mixed-instantiate`, `mixed-beta` (both numbers the limit: every frame was in use); `mixed-infer` |
+| 10 | frame limit | full | frames in use | limit | `mixed-shift`, `mixed-instantiate`, `mixed-beta`, `mixed-open` (both numbers the limit: every frame was in use); `mixed-infer` |
 | 11 | depth limit | full | depth | limit | `level-value` |
-| 12 | binder context full | full | binders | limit | `constant-term-scope` and `mixed-rebuild lf-rebuild-binary` (a binder depth at the largest cell, `max-n` twice); `mixed-infer` (binders, capacity) |
+| 12 | binder context full | full | binders | limit | `constant-term-scope` and `mixed-rebuild lf-rebuild-binary` (a binder depth at the largest cell, `max-n` twice); `mixed-infer` (the binders opened on its scope, the scope's capacity); `local-context lf-lctx-local` (the local context's entries, its capacity: plan task 4.2.2a) |
 | 13 | value at cell maximum | full | the value | the amount to add | `level-value` (a successor of `max-n`: value, 1); `mixed-shift` (variable index, shift amount) |
 | 14 | heap allocation failed | full | bytes | the `ALLOCATE` ior | reserved: no site in `core/` or `kernel/` allocates; see *Not yet covered* |
 | 15 | dependency list full | full | dependencies recorded | `lf-env-dep-capacity` | `environment lf-env-depend` (the check's candidate) |
 | 16 | dependency pool full | full | dependencies needed (in the pool plus the candidate's) | the pool's capacity | `env-publish lf-env-append` |
 | 20 | invalid input: bad argument | invalid | the value | 0 | negative fuel: `mixed-infer`, `level-compare`, `mixed-signature-audit` |
 | 21 | invalid input: stale handle | invalid | index | identity | `constant-term-boundary lf-cterm-check`, through which every kernel pass audits its roots |
-| 22 | invalid input: malformed graph | invalid | the node being visited (-1 when the walk ended before its first visit) | 0 | every walk, when nothing more specific was recorded |
-| 23 | invalid input: out of scope | invalid | variable index, or parameter ID | binders, or 0 for a parameter | `constant-term-scope` (an unbound variable), `level-scope` (a parameter outside the context) |
+| 22 | invalid input: malformed graph | invalid | the node being visited (-1 when the walk ended before its first visit) | 0 | every walk, when nothing more specific was recorded; `mixed-infer` (a free variable that the local context does not name) |
+| 23 | invalid input: out of scope | invalid | variable index, or parameter ID | binders, or 0 for a parameter | `constant-term-scope` (an unbound variable), `level-scope` (a parameter outside the context), `mixed-infer` (a bound variable beyond the binders open on its scope, which preflight finds first in any input: its index, the binders open) |
 | 24 | invalid input: corrupted store | invalid | count | capacity | the four stores, when a store fails its own checks |
 | 25 | invalid: environment handle | invalid | the handle's (or snapshot's) environment identity | the slot | `environment lf-env-handle?`; `environment lf-env-accepted` (a dependency or parameter query on a slot the snapshot may not read, or not accepted) |
 | 26 | invalid: check started too early | invalid | the same-named slot that is not final | the declaration checked | `environment lf-env-lookup` (also for N2 on the declaration's own name) |

@@ -150,7 +150,7 @@ A file whose declarations end differently counts each verdict:
 $ bin/leanforth check tests/cli/unfold.ndjson; echo "exit status $?"
 Implies: accepted (experimental, not independently audited); axioms: none
 impliesSelf: unknown
-  undecided: terms or levels differ; diagnostic 30 at mixed-convert lf-mixed-convert: 16 10
+  undecided: terms or levels differ; diagnostic 30 at mixed-convert lf-mixed-convert: 17 10
 2 declarations: 1 accepted, 1 unknown
 exit status 2
 ```
@@ -188,20 +188,20 @@ Theorem composition
   accepted (experimental, not independently audited); axioms: none
   Statement: ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Input:     tests/reference/composition.ndjson line 35
-  Checker log: 65 steps, complete. The statement is a proposition: s26 (from s3).
+  Checker log: 51 steps, complete. The statement is a proposition: s20 (from s3).
 
 Proof (reconstructed from the proof term).
-  1  Let A, B, C be propositions.                  [∀-introduction]                   s27–s29
-  2  Assume f : A → B.                             [assumption]                       s34
-  3  Assume g : B → C.                             [assumption]                       s39
-  4  Assume value : A.                             [assumption]                       s41
-  5    Then f value : B,                           [→-elimination ← 2, 4]             s50
+  1  Let A, B, C be propositions.                  [∀-introduction]                   s21–s23
+  2  Assume f : A → B.                             [assumption]                       s26
+  3  Assume g : B → C.                             [assumption]                       s29
+  4  Assume value : A.                             [assumption]                       s30
+  5    Then f value : B,                           [→-elimination ← 2, 4]             s36
          because f turns any proof of A into a proof of B.
-  6    Then g (f value) : C,                       [→-elimination ← 3, 5]             s53
+  6    Then g (f value) : C,                       [→-elimination ← 3, 5]             s39
          because g turns any proof of B into a proof of C.
-  7  Discharging 4, 3, 2 and 1 gives               [→/∀-introduction ← 1, 2, 3, 4, 6] s54–s59
+  7  Discharging 4, 3, 2 and 1 gives               [→/∀-introduction ← 1, 2, 3, 4, 6] s40–s45
        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C.
-  8  This is the statement.                        [definitional equality ← 7]        s63
+  8  This is the statement.                        [definitional equality ← 7]        s49
 ∎
 Rules, formulas and step numbers come from the checker's log; the sentences are
 fixed templates (structured-template), not checked reasoning.
@@ -225,7 +225,7 @@ Theorem composition
   Diagnostic: rejected: argument type mismatch (D1-D5) (4, 0)
   Statement: ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Input:     tests/core/check-declaration-cases/composition-wrong-argument.ndjson line 35
-  Checker log: 69 steps, complete. The statement is a proposition: s26 (from s3).
+  Checker log: 51 steps, complete. The statement is a proposition: s20 (from s3).
 
 No proof outline: the declaration was not accepted.
 

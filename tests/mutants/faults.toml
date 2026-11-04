@@ -655,8 +655,8 @@ reason = "D4 no longer looks at two binders whose domains are apart"
 [[fault]]
 id = "rej-d4-left-domain"
 file = "src/kernel/mixed-infer.fs"
-old = '''  dup lf-term-first@ lf-minfer-push 0= if 2drop 0 false exit then'''
-new = '''  over lf-term-first@ lf-minfer-push 0= if 2drop 0 false exit then'''
+old = '''  lf-minfer-context-depth @ -rot dup lf-term-first@ lf-minfer-enter-binder ok?'''
+new = '''  lf-minfer-context-depth @ -rot over lf-term-first@ lf-minfer-enter-binder ok?'''
 test = "$GFORTH tests/core/definite-rejection.fs"
 reason = "D4/B2: the bodies are compared with the left (inferred) domain instead of the expected one; caught by the d4-pair white-box test of lf-minfer-binders-apart (through lf-minfer-apart, P2 on the two Pis fails first for such a pair, so no input that reaches D4 can tell)"
 
@@ -687,18 +687,183 @@ reason = "a comparison that ran out of fuel or room is analysed and may be rejec
 [[fault]]
 id = "rej-argument-unrecorded"
 file = "src/kernel/mixed-infer.fs"
-old = '''  swap lf-minfer-agree lf-minfer-site lf-diag-argument-apart lf-minfer-verdict ;'''
-new = '''  swap lf-minfer-agree nip ;'''
+old = '''  swap lf-minfer-agree lf-minfer-site lf-diag-argument-apart lf-minfer-verdict'''
+new = '''  swap lf-minfer-agree nip'''
 test = "$GFORTH tests/core/definite-rejection.fs"
 reason = "an argument rejected by D1-D5 is no longer recorded with its rules (appTypeMismatch)"
 
 [[fault]]
 id = "infer-imax-zero"
 file = "src/kernel/mixed-infer.fs"
-old = '''  lf-level-mk-imax if lf-minfer-sort else -1 outcome-full then ;'''
-new = '''  lf-level-imax if lf-minfer-sort else -1 outcome-full then ;'''
+old = '''  lf-minfer-sort-cell @ swap lf-level-mk-imax if outcome-ok else -1 outcome-full then ;'''
+new = '''  lf-minfer-sort-cell @ swap lf-level-imax if outcome-ok else -1 outcome-full then ;'''
 test = "$GFORTH tests/core/mixed-infer-coverage.fs"
-reason = "a Pi's sort is a raw imax, not Lean's mk_imax: a Pi into Prop gets Sort (imax u 0), not Sort 0 (re-targeted at Amendment 1's lf-minfer-pi-sort)"
+reason = "a Pi's sort is a raw imax, not Lean's mk_imax: a Pi into Prop gets Sort (imax u 0), not Sort 0 (re-targeted at Amendment 1's lf-minfer-pi-sort, then at plan task 4.2.2a's lf-minfer-imax)"
+
+# --- free variables and the local context (plan task 4.2.2a, ADR 0014 Q2:
+# src/core/local-context.fs, src/kernel/mixed-open.fs, mixed-infer.fs)
+
+[[fault]]
+id = "fv-live-ignores-identity"
+file = "src/core/local-context.fs"
+old = '''  lf-ldecl 2dup lf-ldecl-fvar @ = if lf-ldecl-identity @ swap lf-term-identity drop ='''
+new = '''  lf-ldecl 2dup lf-ldecl-fvar @ = if 2drop true'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "4.2.2a: a node at a discarded free variable's index, with its number, passes for that free variable (identity not compared)"
+
+[[fault]]
+id = "fv-full-is-ok"
+file = "src/core/local-context.fs"
+old = '''  lf-lctx lf-lctx-site lf-diag-binders-full lf-diag-store -1 outcome-full ;'''
+new = '''  lf-lctx lf-lctx-site lf-diag-binders-full lf-diag-store -1 outcome-ok ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "4.2.2a: a full local context reports ok (with no free variable) instead of full"
+
+[[fault]]
+id = "fv-audit-any-fvar"
+file = "src/core/constant-term-boundary.fs"
+old = '''  nip nip walk-node @ lf-fvar-live? flag>outcome ;'''
+new = '''  drop 2drop outcome-ok ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "4.2.2a: the term audit accepts any node of the free-variable tag, live or not"
+
+[[fault]]
+id = "open-rev-not-reversed"
+file = "src/kernel/mixed-open.fs"
+old = ''': lf-open-k ( k frames -- j ) dup lf-open-rev? if lf-open-n swap - 1- else drop then ;'''
+new = ''': lf-open-k ( k frames -- j ) drop ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "4.2.2a: instantiate_rev puts s(k) instead of s(n - k - 1) for loose variable k (Lean's instantiate.cpp 110)"
+
+[[fault]]
+id = "open-rev-not-reversed-infer"
+file = "src/kernel/mixed-open.fs"
+old = ''': lf-open-k ( k frames -- j ) dup lf-open-rev? if lf-open-n swap - 1- else drop then ;'''
+new = ''': lf-open-k ( k frames -- j ) drop ;'''
+test = "$GFORTH tests/core/mixed-infer.fs"
+reason = "4.2.2a: as open-rev-not-reversed; inference of a telescope of two or more binders then types the wrong variable"
+
+[[fault]]
+id = "open-abstract-off-by-one"
+file = "src/kernel/mixed-open.fs"
+old = '''  dup lf-open-n rot - 1- swap frame-context @ + lf-open-leaf-at ;'''
+new = '''  dup lf-open-n rot - swap frame-context @ + lf-open-leaf-at ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "4.2.2a: abstract makes free variable i bound variable d + n - i, one too far (abstract.cpp 26)"
+
+[[fault]]
+id = "open-update-half-changed"
+file = "src/kernel/mixed-open.fs"
+old = '''  >r 2dup lf-term-first@ = over lf-term-second@ r@ = and'''
+new = '''  >r 2dup lf-term-first@ = over lf-term-second@ r@ = or'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "4.2.2a: update_app/update_binding keep the node when only one child is unchanged, dropping the other's change"
+
+[[fault]]
+id = "open-dead-fvar-kept"
+file = "src/kernel/mixed-open.fs"
+old = '''  over lf-fvar-live? 0= if lf-rebuild-bad exit then
+  dup lf-open-abstract? if lf-open-abstract-fvar else lf-rebuild-keep then ;'''
+new = '''  dup lf-open-abstract? if lf-open-abstract-fvar else lf-rebuild-keep then ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "4.2.2a: a pass keeps a free variable that the local context no longer names"
+
+[[fault]]
+id = "infer-fvar-type-self"
+file = "src/kernel/mixed-infer.fs"
+old = '''  dup lf-fvar-live? if lf-fvar-type outcome-ok exit then'''
+new = '''  dup lf-fvar-live? if outcome-ok exit then'''
+test = "$GFORTH tests/core/mixed-infer.fs"
+reason = "4.2.2a: a free variable's type is the variable itself instead of its entry's (infer_fvar, type_checker.cpp 93-99)"
+
+[[fault]]
+id = "infer-telescope-leaks"
+file = "src/kernel/mixed-infer.fs"
+old = '''  2swap over = >r lf-minfer-unbind r>'''
+new = '''  2swap over = >r drop r>'''
+test = "$GFORTH tests/core/mixed-infer.fs"
+reason = "4.2.2a: a lambda does not give its binder back to the scope"
+
+[[fault]]
+id = "infer-chain-unclosed"
+file = "src/kernel/mixed-infer.fs"
+old = '''  if lf-minfer-good? if lf-minfer-closed then then ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/core/mixed-infer.fs"
+reason = "4.2.2a: the top of a chain of lambdas under binders keeps the outer binders' loose bound variables in its type instead of closing them with their free variables"
+
+[[fault]]
+id = "infer-chain-top-ignored"
+file = "src/kernel/mixed-infer.fs"
+old = '''  lf-minfer-chain dup @ -1 rot ! dup 0< if drop else nip then ;'''
+new = '''  lf-minfer-chain dup @ -1 rot ! drop ;'''
+test = "$GFORTH tests/core/mixed-infer.fs"
+reason = "4.2.2a: every lambda takes itself for its chain's top, so an inner lambda's closed type (holding the outer binder's free variable) goes into the outer Pi"
+
+[[fault]]
+id = "infer-chain-never"
+file = "src/kernel/mixed-infer.fs"
+old = '''  dup lf-minfer-lam? if swap lf-minfer-chain ! lf-minfer-walk -1 lf-minfer-chain !'''
+new = '''  false if swap lf-minfer-chain ! lf-minfer-walk -1 lf-minfer-chain !'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "4.2.2a: each lambda abstracts and closes its own type (the same types, but nodes quadratic in a chain's depth): composition's value no longer fits the 64-term store after the pad (value-room)"
+
+[[fault]]
+id = "log-fvar-index-off"
+file = "src/core/derivation-log.fs"
+old = '''  lf-log-state lf-logs-at-context @ swap - 1- dup 0< if lf-log-unreadable exit then true ;'''
+new = '''  lf-log-state lf-logs-at-context @ swap - dup 0< if lf-log-unreadable exit then true ;'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "4.2.2a: a free variable is copied into the log as the bound variable one binder further out than the one it stands for"
+
+[[fault]]
+id = "log-body-context-off"
+file = "src/core/derivation-log.fs"
+old = '''    lf-rule-instantiate of drop 1 endof lf-rule-beta of drop 1 endof'''
+new = '''    lf-rule-instantiate of drop 0 endof lf-rule-beta of drop 1 endof'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "4.2.2a: an instantiate step's body is copied in the record's context, not under its own binder, so its free variables become the wrong bound variables"
+
+[[fault]]
+id = "log-memo-any-context"
+file = "src/core/derivation-log.fs"
+old = '''  >r r@ 2 cells + @ = swap dup 0<> swap r@ cell+ @ = and and swap r> @ = and ;'''
+new = '''  >r drop dup 0<> swap r@ cell+ @ = and swap r> @ = and ;'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "4.2.2a: the copier's memo ignores the context, so a node copied under one binder count is reused under another"
+
+[[fault]]
+id = "infer-scope-unchecked"
+file = "src/kernel/mixed-infer.fs"
+old = '''  lf-minfer-context-depth @ lf-depth-limit < 0= if 2drop lf-minfer-crowded exit then'''
+new = ''''''
+test = "$GFORTH tests/core/mixed-infer.fs"
+reason = "4.2.2a: a binder is opened on a full scope (past the job record's arrays) instead of full"
+
+[[fault]]
+id = "rej-p2-open-term"
+file = "src/kernel/mixed-infer.fs"
+old = '''  lf-minfer-closed ok-then? 0= if drop false exit then'''
+new = ''''''
+test = "$GFORTH tests/core/definite-rejection.fs"
+reason = "4.2.2a: P2 infers a term of the analysis without closing it first"
+equivalent = "inference reads a loose bound variable k under the scope as the scope's free variable k places from the top, and P2 runs with the analysis's D4 binders on the scope, so inferring the open term is inferring its closed copy: the same types, only less scratch (caught under the telescope design of 5053a98, where inference read only closed terms)"
+
+[[fault]]
+id = "rej-d4-domain-open"
+file = "src/kernel/mixed-infer.fs"
+old = '''  lf-minfer-closed ok-then? if 0 lf-minfer-bind then ;'''
+new = '''  0 lf-minfer-bind ;'''
+test = "$GFORTH tests/core/definite-rejection.fs"
+reason = "4.2.2a: D4's free variable gets the right domain unclosed, with loose bound variables of the analysis's outer binders, so P2 cannot infer its type"
+
+[[fault]]
+id = "rej-same-head-number-only"
+file = "src/kernel/mixed-infer.fs"
+old = '''  lf-minfer-variable rot lf-minfer-variable rot = >r = r> and ;'''
+new = '''  lf-minfer-variable drop swap lf-minfer-variable drop = ;'''
+test = "$GFORTH tests/core/definite-rejection.fs"
+reason = "4.2.2a: a bound variable of the analysis and a free variable of the same number count as the same head (head-pair test)"
 
 # --- comparison and conversion (src/kernel/mixed-compare.fs, mixed-convert.fs)
 
@@ -915,8 +1080,8 @@ quick = true
 [[fault]]
 id = "lv-s4-off"
 file = "src/kernel/mixed-infer.fs"
-old = '''  lf-minfer-body-sort lf-minfer-step? if lf-minfer-pi-sort then ;'''
-new = '''  lf-minfer-sort-level lf-minfer-step? if lf-minfer-pi-sort then ;'''
+old = '''  lf-minfer-body-sort lf-minfer-good? if over lf-minfer-imax then ;'''
+new = '''  lf-minfer-sort-level lf-minfer-good? if over lf-minfer-imax then ;'''
 test = "$GFORTH tests/core/check-declaration.fs"
 reason = "S4 (ADR 0011 Amendment 2) off: a Pi whose body is not a type stays unknown where Lean rejects"
 
@@ -2825,6 +2990,24 @@ new = ''': lf-lv-rule ( s -- rule ) lf-log-rule@ ;
 : lf-lv-x ( k -- ) >r 0 0 0 r> lf-log-term-slot node! ;'''
 test = "python3 tests/core/check_log_isolation.py"
 reason = "a printer overwrites a copy in the log's pool with node! (N2 of the second review)"
+
+[[fault]]
+id = "iso-code-after-string-comment"
+file = "src/core/derivation-log.fs"
+old = ''': lf-kind-out ( rule -- kind ) 4 lf-log-kind ;'''
+new = ''': lf-kind-out ( rule -- kind ) 4 lf-log-kind ;
+: lf-log-x ( -- ) s" \ " 2drop 0 0 lf-term-app 2drop ;'''
+test = "python3 tests/core/check_log_isolation.py"
+reason = "code hidden after a string that holds a backslash, which a reader stripping comments before strings takes for a comment (N7 of the third review)"
+
+[[fault]]
+id = "iso-kernel-evaluates-log-word"
+file = "src/kernel/mixed-shift.fs"
+old = ''': lf-mixed-shift ( index identity cutoff amount fuel -- index identity status )'''
+new = ''': lf-mshift-x ( -- ) s" 2 lf-log-start" evaluate ;
+: lf-mixed-shift ( index identity cutoff amount fuel -- index identity status )'''
+test = "python3 tests/core/check_log_isolation.py"
+reason = "a kernel file runs a log word through EVALUATE, which names it only inside a string (N7 of the third review)"
 
 [[fault]]
 id = "log-module-rolls-back"

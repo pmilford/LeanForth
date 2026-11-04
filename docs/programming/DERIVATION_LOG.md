@@ -55,10 +55,10 @@ of everything it used (post-order). Each record is seven cells:
 of its sub-derivation: the record just before it (`s−1`), then the record
 just before that premise's own sub-derivation (its `start`), and so on
 while the step is above the rule's `start` (`lf-log-premise`). For
-`composition`, application step s50 opened when 43 records existed; its
-premises are s49 (start 48), s48 (start 47), s47 (start 45) and s45 (start
-43, which ends the chain): the function's type, the argument's type, their
-comparison and the instantiation. A step that failed may have more: the
+`composition`, application step s36 opened when 31 records existed; its
+premises are s35 (start 34), s34 (start 33), s33 (start 32) and s32 (start
+31, which ends the chain): the instantiation, the comparison, the
+argument's type and the function's type. A step that failed may have more: the
 steps of its failure's analysis (for a rejected application, the
 inference steps the rejection's diagnosis ran) appear among its premises
 too, since they were written while the rule was open.
@@ -75,9 +75,20 @@ is copied into the log's pools when the record is written, after its
 identity is checked against the one recorded when the rule opened. A copy
 is a node (`tag first second`, as in the term and level stores) whose
 children are input objects or earlier copies, so input subterms are
-shared and each copy refers only backwards. A memo (1,024 entries per
-store, direct-mapped by index and checked by identity) copies a live
-scratch node once; a collision only costs a second copy. Symbolic Sorts
+shared and each copy refers only backwards. A copy is made in a
+*context*, the number of binders around the node: the record's depth for
+its inputs and result, one more for the body of an `instantiate` or
+`beta` step, `amount` fewer for the term of a `shift` (as the step list
+below reads them), and one more under each lambda or Π binder within the
+copied term. A free variable of the local context (plan task 4.2.2a;
+[`src/core/local-context.fs`](../../src/core/local-context.fs)) is copied
+as the bound variable it stands for there: `c − 1 − d` in context `c`,
+for the depth `d` at which inference opened its binder (recorded in its
+entry), so a copy, like an input object, holds bound variables only; a
+free variable not live, or opened outside its context, is unreadable. A
+memo (1,024 entries per store, direct-mapped by index and checked by
+identity and context) copies a live scratch node once per context; a
+collision only costs a second copy. Symbolic Sorts
 refer to level references. A constant keeps its reference when that lies
 below the input marks; any other reference is copied too
 (`lf-log-cref-slot`: its name, name generation, number of universe
@@ -155,7 +166,7 @@ equal to the code's.
 | Code | Rule | a | b | out | Written by | Premises |
 | --- | --- | --- | --- | --- | --- | --- |
 | 1 | `sort` | term | none | term | inference of a Sort | the universe-parameter checks of its level |
-| 2 | `variable` | term | none | term | inference of a bound variable | the `shift` of its binder's domain |
+| 2 | `variable` | term | none | term | inference of a variable: its type is its local-context entry's (plan task 4.2.2a; before, the `shift` of its binder's domain was a premise) | — |
 | 3 | `constant` | term | none | term | inference of a constant | `resolve`, `universe-arity`, `universe-parameter`, `instantiate-levels` |
 | 4 | `application` | term | none | term | inference of an application | function's type, argument's type, `defeq`, `instantiate` |
 | 5 | `lambda` | term | none | term | inference of a λ: its type, a Π | the domain's type, the body's type |
@@ -257,14 +268,19 @@ and `lf-log-arg-ref` for a copied constant reference; no word they may use
 gives an address of the log's records, pools or header.
 
 **The isolation check.** `tests/core/check_log_isolation.py` (in `make
-test`) checks allow-lists on the source text. Comments, strings and the
-exact load-time assertion `[if] .( … ) cr abort [then]` are removed;
-every other token is checked, also inside `[if] … [then]` and after `'`
-or `[']`. A kernel file may name only the protocol above and the rule
+test`) checks allow-lists on the source text, read left to right as
+Forth reads it: a string ends at its closing quote before any comment is
+recognised, so no code hides behind a string that holds `\` or `(`.
+Comments, string texts and the exact load-time assertion `[if] .( … ) cr
+abort [then]` are removed; every other token is checked, also inside
+`[if] … [then]` and after `'` or `[']`. No file, in any layer but the two
+that run program text by design (`src/author/` and `src/program/`), may
+use a word that looks a name up or runs text (`EVALUATE`, `FIND`,
+`INCLUDED` and the like), and an `INCLUDED` counts as a load of the
+string before it. A kernel file may name only the protocol above and the rule
 codes, and loads nothing from `src/present/` or `src/cli/`. A printer
 (`src/present/`) may name only the log's reading words (all of which give
-values), loads only from `./`, `../lib/` and `../core/`, and uses no word
-that looks a name up or runs text (`EVALUATE`, `FIND` and the like). The
+values) and loads only from `./`, `../lib/` and `../core/`. The
 command line (`src/cli/`, which turns the log on for `leanforth print`)
 may name only the switches `lf-log-set`, `lf-log-limits`,
 `lf-log-capacities`, the levels and the read-only `lf-log-level` and
@@ -281,8 +297,13 @@ from `./` and `../lib/`. `ALLOCATE` appears only in the word that makes
 its pools, `FREE` only in the one that gives them back, `THROW` only in
 its context teardown, `ABORT"` only in the catalogue's load-time index,
 `ALLOT`, `HERE`, `,` and `ALIGN` only at load time, and `CREATE` and
-`CONSTANT` only at top level. The ten evasions planted by the second
-review are flagged (planted faults `iso-*` in `make mutants`).
+`CONSTANT` only at top level. The evasions planted by the second and
+third reviews (code on `[if]` lines, writes through address-returning
+words, run-time `ALLOT`, loads of kernel or presentation code by
+`require` or `INCLUDED`, record and copy writes from a printer, `EVALUATE`
+in a printer, kernel or command-line file, and code hidden after a string
+holding `\` or `(`) are all flagged; eight of them are planted faults
+(`iso-*` in `make mutants`).
 
 What it cannot see: an address computed by arithmetic from an allowed
 one (the log module's own state plus an offset); an execution token
@@ -342,8 +363,8 @@ from, a comparison `left ≡ right`), the premises after `←`, and the outcome
 in brackets unless ok. For `composition`:
 
 ```text
-  s49    instantiate         depth 6   (fun x ↦ B) value ⟶ B
-  s50    application         depth 6   f value : B  ← s45, s47, s48, s49
+  s35    instantiate         depth 6   (fun x ↦ B) value ⟶ B
+  s36    application         depth 6   f value : B  ← s32, s33, s34, s35
 ```
 
 The complete list is in [`tests/present/outlines.golden`](../../tests/present/outlines.golden),
@@ -355,8 +376,9 @@ All run with Gforth 1.0 on 2026-11-03 (branch of agent RB); the unit tests
 also on Gforth 0.7.3.
 
 - `tests/core/derivation-log.fs` (`make test`): off by default, in new
-  contexts too; composition's log is 65 steps with the ADR's rules, depths
-  and premises; the nine fixture and broken exports give the same
+  contexts too; composition's log is 51 steps with the ADR's rules, depths
+  and premises (65 before plan task 4.2.2a: its 14 `shift` steps, each a
+  variable step's premise, are gone); the nine fixture and broken exports give the same
   published outcomes, check steps, diagnostics (code and numbers) and fuel
   with the log off, at level steps and at level terms, and with the log
   full at every record limit from 0 to 139, every open-rule limit from 0
