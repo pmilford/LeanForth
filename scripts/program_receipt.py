@@ -25,15 +25,16 @@ an evidence record, which `record` makes by running Lean and Gforth:
 Lean's version and the axioms of each theorem, and the runtime counts.
 `validate` reads any receipt the way every reader here does: strict JSON
 (tests/support/schema_subset.py: no duplicate keys, no fractions, no lone
-surrogates, bounded nesting), the schema its schemaVersion names (0.1 and
-0.2 are known; 0.1 is kept unchanged for receipts written before 0.2),
-and for 0.2 the rules JSON Schema cannot state (rule_problems). `verify`
-validates, then rebuilds the receipt the same way and reports every field
-that differs, so a receipt edited by hand, or one whose files changed
-since, is rejected. Each problem is one line `FILE: CODE: PATH: MESSAGE` on
-standard error, CODE one of not-strict-json, unknown-version, schema, rule,
-replay; the exit status is 0 when there is none, 1 when there is one and 2
-for a usage error. A receipt that verifies is
+surrogates, bounded nesting), schema 0.2 and the rules JSON Schema cannot
+state (rule_problems). Only schema 0.2 is read: 0.1 was a draft the owner
+never approved, and a receipt that names it is refused (it would otherwise
+escape 0.2's rules). `verify` validates, then rebuilds the receipt the same
+way and reports every field that differs, so a receipt edited by hand, or
+one whose files changed since, is rejected. Each problem is one line
+`FILE: CODE: PATH: MESSAGE` on standard error, CODE one of unreadable,
+not-strict-json, superseded-version, unknown-version, schema, rule, replay;
+the exit status is 0 when there is none, 1 when there is one and 2 for a
+usage error. A receipt that verifies is
 consistent with the repository and the evidence; it is not an approval of
 anything, and it passes no review gate. Untrusted tooling.
 """
@@ -60,8 +61,10 @@ from schema_subset import (MAX_SAFE_INTEGER, InstanceError, Validator,  # noqa: 
 
 VERSION = "0.2"
 SCHEMA_VERSION = "0.2"
-SCHEMAS = {version: ROOT / "schemas" / f"program-receipt-{version}.schema.json"
-           for version in ("0.1", "0.2")}
+SCHEMA = ROOT / "schemas" / f"program-receipt-{SCHEMA_VERSION}.schema.json"
+# Drafts the owner never approved. Their schema files stay unchanged as a
+# record, but a receipt naming one is refused: 0.2 closed holes 0.1 has.
+SUPERSEDED_VERSIONS = ("0.1",)
 CONTRACT = "tests/program/contracts/lf-clamp.contract"
 VC_LEAN = "tests/program/vc/obligations.lean"
 VC_SUMMARY = "tests/program/vc/obligations.json"
@@ -363,8 +366,8 @@ def lean_agreement(lean, lines):
 # --------------------------------------------------------------------- reading
 
 @functools.lru_cache(maxsize=None)
-def validator(version):
-    return Validator(read_json(SCHEMAS[version]))
+def validator():
+    return Validator(read_json(SCHEMA))
 
 
 def repeated(where, what, items):
@@ -415,13 +418,14 @@ def rule_problems(receipt):
 def receipt_problems(receipt):
     """Problems of a parsed receipt: its schema version, schema and rules."""
     version = receipt.get("schemaVersion") if isinstance(receipt, dict) else None
-    if not isinstance(version, str) or version not in SCHEMAS:
-        return [f"unknown-version: $.schemaVersion: {json.dumps(version, ensure_ascii=False)} "
-                f"is not one of {', '.join(SCHEMAS)}"]
-    problems = [f"schema: {p}" for p in validator(version).errors(receipt)]
-    if not problems and version == SCHEMA_VERSION:
-        problems = [f"rule: {p}" for p in rule_problems(receipt)]
-    return problems
+    shown = json.dumps(version, ensure_ascii=False)
+    if isinstance(version, str) and version in SUPERSEDED_VERSIONS:
+        return [f"superseded-version: $.schemaVersion: {shown} was a draft that was never "
+                f"approved; only {SCHEMA_VERSION} is read"]
+    if version != SCHEMA_VERSION:
+        return [f"unknown-version: $.schemaVersion: {shown} is not {SCHEMA_VERSION}"]
+    problems = [f"schema: {p}" for p in validator().errors(receipt)]
+    return problems or [f"rule: {p}" for p in rule_problems(receipt)]
 
 
 def read_text(text):
@@ -434,10 +438,11 @@ def read_text(text):
 
 
 def read_file(path):
+    """(receipt or None, problems) for a receipt file; unreadable if it cannot be read as UTF-8."""
     try:
         text = Path(path).read_text(encoding="utf-8")
     except (OSError, ValueError) as error:
-        return None, [f"not-strict-json: $: {error}"]
+        return None, [f"unreadable: $: {error}"]
     return read_text(text)
 
 

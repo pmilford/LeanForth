@@ -1,8 +1,9 @@
 # Program receipts, schema version 0.2
 
 **Status: implemented as a schema with examples, a validator and a strict
-reader (version 0.2, 2026-11-03; version 0.1 of 2026-11-02, task 2.5.1 of
-the [plan draft](../project/PLAN_DRAFT.md), is kept unchanged). The clamp
+reader (version 0.2, 2026-11-03; the draft 0.1 of 2026-11-02, task 2.5.1
+of the [plan draft](../project/PLAN_DRAFT.md), is superseded and refused).
+The clamp
 receipt of task 2.5.6 is generated** by `scripts/program_receipt.py` from
 the actual checks ([verification conditions and the clamp
 receipt](PROGRAM_VC.md)). The format falls under the *[format]* review gate
@@ -25,18 +26,21 @@ look at all three parts and at the assumptions; that is deliberate
 and a source proof does not verify them).
 
 - **Schema:** [`schemas/program-receipt-0.2.schema.json`](../../schemas/program-receipt-0.2.schema.json)
-  (JSON Schema draft 2020-12, subset below). Version 0.1,
+  (JSON Schema draft 2020-12, subset below; its patterns are also valid
+  ECMA-262 expressions for the `u` flag). The superseded draft 0.1,
   [`schemas/program-receipt-0.1.schema.json`](../../schemas/program-receipt-0.1.schema.json),
-  stays as it was for receipts that name it ([versioning](#versioning)).
+  is kept unchanged as a record only: the reader refuses every receipt
+  that names it ([versioning](#versioning)).
 - **The generated receipt:** [`tests/program/receipts/generated/lf-clamp.json`](../../tests/program/receipts/generated/lf-clamp.json)
   and its [printed form](../../tests/program/receipts/generated/lf-clamp.md).
 - **Examples:** [`tests/program/receipts/`](../../tests/program/receipts/):
   three valid hand-written receipts (clamp checked by the Lean reference
   without obligations; gcd with nothing checked or run yet; the shape a
   phase 5 receipt checked by LeanForth will have) and four invalid ones,
-  each rejected for one pinned reason. The 0.1 examples are in
-  [`tests/program/receipts/0.1/`](../../tests/program/receipts/0.1/).
-  Hand-written examples are never evidence.
+  each rejected for one pinned reason. The 0.1 examples and the 0.1 clamp
+  receipt are kept in [`tests/program/receipts/0.1/`](../../tests/program/receipts/0.1/)
+  as a record, and the reader refuses them. Hand-written examples are never
+  evidence.
 - **Validator:** [`tests/support/schema_subset.py`](../../tests/support/schema_subset.py),
   Python standard library only.
 - **Reader:** `scripts/program_receipt.py validate` reads a receipt
@@ -161,17 +165,21 @@ python3 -I scripts/program_receipt.py verify tests/program/receipts/generated/lf
 python3 -I tests/support/schema_subset.py schemas/program-receipt-0.2.schema.json RECEIPT.json
 ```
 
-`validate` reads each receipt with the strict loader, picks the schema its
-`schemaVersion` names (0.1 or 0.2) and, for 0.2, checks the rules beyond
-JSON Schema; `verify` does the same for one receipt and then replays it.
-Both print nothing and exit 0 when there is no problem; otherwise they
-print one line per problem on standard error and exit 1 (2 for a usage
-error). Each line is `FILE: CODE: PATH: MESSAGE`:
+`validate` reads each receipt with the strict loader, requires
+`schemaVersion` 0.2, and checks schema 0.2 and the rules beyond JSON
+Schema; `verify` does the same for one receipt and then replays it. A
+receipt that names the superseded draft 0.1 is refused with its own code:
+0.1 lacks the rules 0.2 added, so reading it would let a receipt escape
+them by naming the older version. Both print nothing and exit 0 when there
+is no problem; otherwise they print one line per problem on standard error
+and exit 1 (2 for a usage error). Each line is `FILE: CODE: PATH: MESSAGE`:
 
 | Code | Meaning |
 | --- | --- |
-| `not-strict-json` | The file cannot be read as UTF-8 or is not strict JSON (see below); nothing else is checked |
-| `unknown-version` | `schemaVersion` is missing or names no known schema |
+| `unreadable` | The file cannot be opened or is not UTF-8; nothing else is checked |
+| `not-strict-json` | The file is not strict JSON (see below); nothing else is checked |
+| `superseded-version` | `schemaVersion` is `0.1`, a draft that was never approved; nothing else is checked |
+| `unknown-version` | `schemaVersion` is missing or is not `0.2` |
 | `schema` | The schema refuses the receipt; PATH is the JSON path, such as `$.run.label` |
 | `rule` | A rule beyond JSON Schema fails |
 | `replay` (`verify` only) | The field differs from the receipt rebuilt from the repository and the recorded evidence |
@@ -198,7 +206,13 @@ enforce a rule the validator does not implement. A pattern's `^`, `$` and
 `.` mean what they mean in ECMA-262, as JSON Schema says: `^...$` must match
 the whole string (Python's `$` would also match before a final newline),
 and `.` matches no line terminator (Python's would match a carriage return
-or U+2028); inline flags are refused.
+or U+2028); inline flags are refused. The schema's patterns use only
+syntax both engines share, so a standard validator (ECMA-262 with the `u`
+flag, as ajv uses) compiles them too: characters outside the Basic
+Multilingual Plane are written as JSON escapes, never as Python's
+`\UXXXXXXXX`. When node is installed, `make test` compiles every pattern
+with the `u` flag and checks that it accepts the same sample strings as
+the Python reading.
 
 Documents are parsed strictly, and every reader of receipts uses this
 loader: duplicate keys are errors (Python's `json` would keep the last),
@@ -216,8 +230,10 @@ above, and one for every finding of the review of 2026-11-03) and each
 mutation that breaks a rule beyond JSON Schema fails for its stated reason,
 checks the validator's own rules, plants a fault in the validator (it stops
 checking `contains`) and in the rules (they stop finding duplicates) to
-show that the suites catch them, pins schema 0.1 by its hash, and checks
-that the JSON receipt below is the generated one. `receipt_check.py`
+show that the suites catch them, pins schemas 0.1 and 0.2 by their hashes,
+checks that every 0.1 receipt, and each hole 0.2 closed written into a 0.1
+receipt, is refused as `superseded-version`, and checks that the JSON
+receipt below is the generated one. `receipt_check.py`
 checks the generated receipt and that tampered receipts and texts are
 refused by the layer named with each.
 
@@ -423,18 +439,22 @@ The generated clamp receipt (`tests/program/receipts/generated/lf-clamp.json`):
 
 ## Versioning
 
-`schemaVersion` names the schema a receipt follows, and a schema, once a
-receipt names it, never changes: any change to the fields or rules gives a
-new version and a new schema file next to the old one, and old receipts
-keep validating against the schema they name. Until the owner approves the
-format (the *[format]* gate), every version is a draft.
+`schemaVersion` names the schema a receipt follows. A schema, once a
+receipt names it, keeps its meaning: any change to the fields or rules
+gives a new version and a new schema file next to the old one. Until the
+owner approves the format (the *[format]* gate), every version is a draft,
+and a draft that a later version supersedes is not read at all: it lacks
+rules the later version added, so the reader refuses a receipt that names
+it (`superseded-version`) rather than let the receipt choose the weaker
+rules. What happens to receipts of an approved version when a later
+version comes is for the owner to decide at the gate.
 
-- **0.1** (2026-11-02): the first version. It was tightened in place after
-  an independent review, before any receipt had been generated; then the
-  clamp receipt was generated as 0.1. It is kept byte for byte (a test pins
-  its hash), its examples are in `tests/program/receipts/0.1/` together
-  with the generated 0.1 clamp receipt, and `validate` still reads 0.1
-  receipts against it. The stricter validator applies to it too.
+- **0.1** (2026-11-02): the first draft, never approved. It was tightened in
+  place after an independent review, before any receipt had been
+  generated; then the clamp receipt was generated as 0.1. Superseded by
+  0.2: the reader refuses every 0.1 receipt. The file is kept byte for byte
+  as a record (a test pins its hash), with its examples and the 0.1 clamp
+  receipt in `tests/program/receipts/0.1/`.
 - **0.2** (2026-11-03), after the independent review of 0.1, and what the
   generator now writes; the clamp receipt was regenerated. Changes:
   `run.label` required with one label per run status, and `not-run` with no
@@ -448,6 +468,11 @@ format (the *[format]* gate), every version is a draft.
   `lean` or `leanforth`; `check.theorems` items are objects with a `name`
   and their own `axioms`; text rules for every text and note (notes must
   not be empty); and the rules beyond JSON Schema, checked by the reader.
+  Later the same day, after the re-review, the text pattern was re-encoded
+  (characters outside the Basic Multilingual Plane as JSON escapes instead
+  of Python's `\UXXXXXXXX`, which ECMA-262 engines cannot compile). On
+  every Unicode code point it accepts exactly what it accepted before, so
+  no receipt's validity changed; a test pins the file's hash from then on.
 
 The plan extends the schema to theorem receipts (task 3.4.3) and wraps it
 in the versioned JSON-RPC interface (task 3.5.1, [interface

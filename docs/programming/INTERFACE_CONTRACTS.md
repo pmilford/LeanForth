@@ -41,7 +41,7 @@ Required method families: `system.capabilities`, `source.parse`, `source.elabora
 
 ### Program verification receipt
 
-The receipt format that exists is schema 0.1, described in
+The receipt format that exists is schema 0.2, described in
 [program receipts](PROGRAM_RECEIPTS.md); the sketch below predates it.
 
 ```json
