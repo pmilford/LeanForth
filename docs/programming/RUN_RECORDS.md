@@ -1,8 +1,9 @@
 # Run records and replay, schema version 0.1
 
 **Status: implemented 2026-11-03 (plan task 2.2.5 of the
-[plan draft](../project/PLAN_DRAFT.md)); the format is a draft under the
-*[format]* review gate of `AGENTS.md` until the owner approves it.** A
+[plan draft](../project/PLAN_DRAFT.md)); format 0.1 approved by the owner
+[format] on 2026-11-04 after three independent review rounds
+([decisions](../project/OWNER_DECISIONS.md#program-words-and-run-records-approved-2026-11-04)).** A
 *run record* is the evidence of one check of a Lean export by LeanForth's
 first checker: which file was checked, by which tools, with which settings,
 and the verdict of every declaration. *Replay* checks the same file again

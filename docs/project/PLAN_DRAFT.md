@@ -576,6 +576,15 @@ the program-track lane and never delays the theorem track. Stages:
 | --- | --- | --- | --- |
 | SHA-1 | Lean specification of FIPS 180-4 SHA-256, written from the standard, checked against the NIST test vectors by Lean's kernel (no `Lean.ofReduceBool`) | now (Lean only) | Spec agrees with every NIST vector; reviewed against the standard's text |
 | SHA-2 | The helper words (ROTR, SHR, Ch, Maj, Σ0, Σ1, σ0, σ1) as straight-line IR words with 32-bit masking; IR additions they need (`lshift`, 32-bit constants beyond today's literal limit) | IR 0.2 (small extension of IR 0.1) | Each word's IR proved equal to its spec function for all 32-bit inputs; wrong variants refuted |
+
+IR 0.2 also takes the owner's request of 2026-11-04 (approving the program
+words): "reconsider the refusal of redefinintions - for example sometimes
+adding a dup . into a word definition for debugging helps - surely they can
+nest the names?" Redefinition follows Forth's own early binding (each use
+names the definition current where it is compiled, and each version of a
+name is its own IR name), and output words such as `.`, `CR`, `EMIT` and
+`.S` are allowed as effects that leave the stack proof unchanged; designed
+in an ADR 0019 amendment before coding, under the [parser] gate.
 | SHA-3 | Message schedule and one compression round, then the 64-round block compression: counted loops with invariants | G1 (IR v1 loops, plan 4.4.1) | Block compression proved equal to the spec for every block and state |
 | SHA-4 | Padding, buffers and the incremental interface (init, update, final) over memory | G2 (memory model) | The whole word set proved to compute the spec for every message and every split into updates; receipt ties the exact source file to the proof |
 | SHA-5 | The proof checked by LeanForth itself, not by Lean | phase 5 (first program fact checked by LeanForth) | Receipt says *kernel-accepted (experimental)* |

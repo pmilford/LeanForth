@@ -567,3 +567,28 @@ Claude Code session after the questions were asked in plain words.
   option that differs from Lean 4.35.0 (`--strict-builtins`,
   `--standard-axioms-only`, a strict import, a later improved mode) is
   opt-in; with no options LeanForth's verdicts are Lean's.
+
+## Program words and run records approved (2026-11-04)
+
+- **Two-mode program words approved [parser]** (ADR 0019, mode shift with
+  the alias vocabulary beside it; merges ce25b28, afcb4cf, 1b08f1f;
+  independent review rvPW, three rounds, every finding closed). Approved
+  with its stated limits: the step from source text to IR is tested, not
+  proved (receipt assumption A3); a standard word redefined before the
+  program words load is not noticed, nor a compile-only word redefined
+  after they load on Gforth 0.7.3; run mode trusts its Forth's standard
+  words. The owner added: "reconsider the refusal of redefinintions - for
+  example sometimes adding a dup . into a word definition for debugging
+  helps - surely they can nest the names?" Recorded as the next program-IR
+  design step (IR 0.2, ADR 0019 amendment): redefinition with Forth's own
+  early binding, each version of a name its own IR name, and output words
+  such as `.` as effects that leave the stack proof unchanged.
+- **Run-record format 0.1 approved [format]** (`docs/programming/RUN_RECORDS.md`;
+  independent review rvRP3, three rounds, every finding closed). The
+  in-progress tie of the importer's two passes for reads without the
+  manifest changes no field and gets its own review before merging.
+- **Cause of the 2026-11-04 crashes.** Both the WSL crash and the Claude
+  Code crash were the new test wrapper `scripts/gforth-strict.sh` calling
+  itself (about a thousand copies exhausted 39 GB of memory and 16 GB of
+  swap); fixed in e6a0a74 with self-reference and depth guards. No work
+  was lost: agents' uncommitted changes were saved as WIP commits.
