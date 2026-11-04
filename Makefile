@@ -17,6 +17,7 @@ RUN := timeout $(TEST_TIMEOUT)
 DIFFERENTIAL_TARGETS := \
 	test-doc-examples-lean \
 	reference reference-export reference-first-checker reference-binder-domains \
+	reference-definitional-equality \
 	test-name-differential \
 	test-level-differential \
 	test-level-assignment-differential test-level-compare-differential \
@@ -110,6 +111,11 @@ reference-first-checker:
 # 10 comparisons, each in both orders, and 12 declarations.
 reference-binder-domains:
 	LEAN=$(LEAN) $(RUN) bash tests/reference/binder-domains-check.sh
+
+# Lean's definitional-equality procedure (ADR 0014): 50 cases with Lean's
+# verdict and, when accepted, how often each constant was unfolded.
+reference-definitional-equality:
+	LEAN=$(LEAN) $(RUN) bash tests/reference/definitional-equality-check.sh
 
 reference-export:
 	LEAN=$(LEAN) $(RUN) bash tests/reference/export-check.sh
