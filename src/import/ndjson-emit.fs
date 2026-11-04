@@ -129,7 +129,7 @@ export: reexported
 : left-recursors ( -- addr ) reexporter reexport-recursors ;
 : emit-lines ( -- addr ) reexporter reexport-lines ;
 : emit-mark ( -- addr ) reexporter reexport-mark ;
-: member ( i -- addr ) cells reexporter reexport-members + ;
+: data-key ( i -- addr ) cells reexporter reexport-members + ;
 \ Stop loading when a check made while loading fails.
 : load-check ( flag -- ) 0= abort" ndjson-emit: inconsistent tables" ;
 reexport-depth reexport-key-room emit-w jw-init load-check
@@ -215,7 +215,7 @@ create hint-texts  2 ,  s" opaque" counted,  s" abbrev" counted,
 \ invalid too; more than data-most members are full. The key tokens are
 \ sorted by insertion, in the module record.
 : key< ( key1 key2 view -- flag ) tuck json-text@ 2>r json-text@ 2r> compare 0< ;
-: member-pair ( j -- addr-j addr-j-1 ) dup member swap 1- member ;
+: member-pair ( j -- addr-j addr-j-1 ) dup data-key swap 1- data-key ;
 : member-smaller? ( j view -- flag ) >r member-pair @ swap @ swap r> key< ;
 : members-exchange ( j -- ) member-pair 2dup @ swap @ rot ! swap ! ;
 : member-insert ( j view -- )
@@ -226,10 +226,11 @@ create hint-texts  2 ,  s" opaque" counted,  s" abbrev" counted,
 \ The key of the next member: after the value that follows key.
 : member-next ( key view -- key' ) swap 1+ swap json-next ;
 : members-collect ( object view -- )
-  2dup json-items@ >r tuck json-contents nip r> 0 ?do dup i member ! over member-next loop
+  2dup json-items@ >r tuck json-contents nip r>
+  0 ?do dup i data-key ! over member-next loop
   2drop ;
 : member-write ( key view -- ) 2dup json-text@ emit-key swap 1+ swap emit-w jw-copy ;
-: members-write ( n view -- ) swap 0 ?do i member @ over member-write loop drop ;
+: members-write ( n view -- ) swap 0 ?do i data-key @ over member-write loop drop ;
 : data-members ( object view -- )
   2dup members-collect tuck json-items@ swap 2dup members-sort members-write ;
 : data-object ( object view -- )
@@ -336,13 +337,13 @@ begin-structure /line-form
   0 +field form-key                \ counted string
 end-structure
 : index-member ( record form -- ) form-index @ count emit-key record-index @ emit-u ;
-: kind-member ( record form -- ) dup form-key count emit-key form-value @ execute ;
+: form-member ( record form -- ) dup form-key count emit-key form-value @ execute ;
 : kind-first? ( form -- flag ) dup form-key count rot form-index @ count compare 0< ;
 : indexed-members ( record form -- )
-  dup kind-first? if 2dup kind-member index-member exit then
-  2dup index-member kind-member ;
+  dup kind-first? if 2dup form-member index-member exit then
+  2dup index-member form-member ;
 : line-members ( record form -- )
-  dup form-index @ if indexed-members else kind-member then ;
+  dup form-index @ if indexed-members else form-member then ;
 : line-start ( -- ) block-left @ if emit-invalid then emit-out emit-text ;
 : emit-line ( record form -- outcome )
   line-start emit-open line-members emit-close line-end ;
@@ -452,16 +453,23 @@ here reexport-handlers - kind-count cells = load-check
   emit-out buffer-release emit-types buffer-release reexported export-free ;
 
 \ Re-export the export file named c-addr u into fid: the reading's
-\ outcome, then the writing's. A Forth exception is invalid, after which
-\ export-read has closed the input. On a failure the file holds at most
-\ the lines before the failing one; the caller discards it.
-: reexport-fault ( x x x -- outcome )
-  2drop drop 0 reexported export-key !
+\ outcome, then the writing's. reexport-read reads with xt ( c-addr u --
+\ outcome ), which must read the export reexported (export-read, as
+\ reexport-plain does, or a manifest check bound to it, as the command
+\ line's does), and lets a Forth exception pass on; in reexport-file it is
+\ invalid. Either way export-read has closed the input. On a failure the
+\ file holds at most the lines before the failing one; the caller
+\ discards it.
+: reexport-fault ( x x x x -- outcome )
+  2drop 2drop 0 reexported export-key !
   c" a Forth exception" reexported export-why ! outcome-invalid ;
 : reexport-ended ( outcome -- outcome ) dup ok? if drop reexport-end then ;
+: reexport-read ( c-addr u fid xt -- outcome )
+  >r reexport-begin dup ok? 0= if nip nip r> drop exit then drop
+  r> execute reexport-ended ;
+: reexport-plain ( c-addr u -- outcome ) reexported export-read ;
 : reexport-file ( c-addr u fid -- outcome )
-  reexport-begin dup ok? 0= if nip nip exit then drop
-  reexported ['] export-read catch if reexport-fault then reexport-ended ;
+  ['] reexport-plain ['] reexport-read catch if reexport-fault then ;
 
 \ The command line's word. Errors are reported as ndjson-count.fs does:
 \ the outcome's name, why, the field, the line and, for a JSON error, the

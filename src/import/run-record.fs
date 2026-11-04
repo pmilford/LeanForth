@@ -22,9 +22,8 @@
 \ - rr-settings! ( fuel deps -- ) gives every check fuel and the
 \   environment room for deps dependencies, as lf-check-input takes them.
 \ - The caller loads the same file into this context's input with its
-\   importer (in phase 2 the test-only transport,
-\   tests/support/ndjson-input.fs), gives the importer's outcome to
-\   rr-read! and, when it is ok, calls rr-check.
+\   importer (in phase 2 import/checker-input.fs), gives the importer's
+\   outcome to rr-read! and, when it is ok, calls rr-check.
 \ - rr-check ( -- ) checks every declaration of the input in input order
 \   in a new environment, which it keeps current, as lf-check-input does
 \   (check-declaration.fs: lf-check-declaration, the budget, no new

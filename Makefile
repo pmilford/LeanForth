@@ -628,3 +628,23 @@ reference-compact-init:
 test: test-compact test-stage
 check: test-compact-faults
 test-differential: reference-compact-init
+
+# The command line (plan tasks 3.4.1-3.4.2; docs/user/COMMAND_LINE.md): the
+# Forth side's exit codes, their severity, the record hook and two injected
+# internal faults; then bin/leanforth itself, every exit code 0-5 with its
+# output, from other folders, against the counter and the re-exporter, and
+# with a broken Gforth. The page's console examples run in check-doc-examples.
+# Gforth and Python 3 only.
+test-cli:
+	$(RUN) $(GFORTH) tests/cli/leanforth.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/cli/test_leanforth.py
+
+# Pinned Lean accepts the two Lean fixtures of the command line's tests and
+# scripts/export.sh reproduces their exports and manifests byte for byte.
+reference-cli:
+	LEAN=$(LEAN) $(RUN) bash tests/cli/export-check.sh
+
+.PHONY: test-cli reference-cli
+test: test-cli
+test-differential: reference-cli
+DOC_EXAMPLE_PAGES += docs/user/COMMAND_LINE.md

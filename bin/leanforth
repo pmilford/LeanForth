@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+# leanforth: LeanForth's command-line tool (plan tasks 3.4.1-3.4.2, v0).
+# A small wrapper: it finds Gforth and runs the Forth entry point,
+#   gforth src/main.fs -e cli-main COMMAND [OPTION]... [FILE]...
+# (src/cli/leanforth.fs), with standard input closed, from any directory;
+# file names are taken relative to the current directory.
+# Usage: leanforth help; docs/user/COMMAND_LINE.md is the manual.
+#
+# Gforth: $GFORTH when set, else the pinned one in .tools/gforth of this
+# checkout (scripts/install-gforth.sh), else gforth on PATH. count and
+# reexport prefer gforth-fast there, about 3.3 times faster on large
+# exports (docs/development/NDJSON_READER.md); check keeps the gforth
+# engine, which reports a Forth error where it happens.
+# Exit status: 0 all accepted (or the command done), 1 something rejected,
+# 2 unsupported or unknown, 3 a resource limit, 4 malformed input or
+# command line, 5 an internal fault. The Forth entry point leaves with 100
+# plus that code; any other status from Gforth (its own failure, a crash,
+# a signal) is an internal fault here, never a verdict.
+# For version and the run record, the checkout's git commit is given when
+# git can tell it (LEANFORTH_COMMIT, LEANFORTH_MODIFIED).
+set -u
+
+self=$0
+command -v readlink >/dev/null 2>&1 && self=$(readlink -f "$0" 2>/dev/null || printf '%s' "$0")
+root=$(cd "$(dirname "$self")/.." && pwd -P) || {
+  printf 'leanforth: internal fault: cannot find the LeanForth checkout\n' >&2
+  exit 5
+}
+engine=gforth
+case ${1:-} in count | reexport) engine=gforth-fast ;; esac
+if [ -z "${GFORTH:-}" ]; then
+  if [ -x "$root/.tools/gforth/bin/$engine" ]; then
+    GFORTH=$root/.tools/gforth/bin/$engine
+  elif command -v "$engine" >/dev/null 2>&1; then
+    GFORTH=$engine
+  elif command -v gforth >/dev/null 2>&1; then
+    GFORTH=gforth
+  else
+    printf 'leanforth: internal fault: no Gforth found; %s\n' \
+      'run scripts/install-gforth.sh or set GFORTH' >&2
+    exit 5
+  fi
+fi
+
+# reexport writes COPY and check --record writes RECORD: refuse one that
+# names the export under another name before anything is written (the
+# Forth side compares the names only as text).
+if [ "${1:-}" = reexport ] || [ "${1:-}" = check ]; then
+  files=() target= previous=
+  for argument in "${@:2}"; do
+    case $previous in
+      --record) target=$argument ;;
+      --fuel) ;;
+      *) case $argument in -*) ;; *) files+=("$argument") ;; esac ;;
+    esac
+    previous=$argument
+  done
+  what=RECORD
+  if [ "$1" = reexport ] && [ "${#files[@]}" -eq 2 ]; then target=${files[1]} what=COPY; fi
+  if [ -n "$target" ] && [ "${#files[@]}" -ge 1 ] && [ -e "$target" ] &&
+    [ "${files[0]}" -ef "$target" ]; then
+    printf 'error: %s must not be EXPORT\n' "$what"
+    exit 4
+  fi
+fi
+
+# The checkout's git commit, and whether tracked files differ from it, for
+# version and for the run record (check --record, replay); none outside a
+# git checkout.
+commit= modified=false
+case ${1:-} in
+  check | replay | version | --version)
+    commit=$(git -C "$root" rev-parse HEAD 2>/dev/null) || commit=
+    if [ -n "$commit" ] && ! git -C "$root" diff --quiet HEAD 2>/dev/null; then
+      modified=true
+    fi
+    ;;
+esac
+export LEANFORTH_COMMIT=$commit LEANFORTH_MODIFIED=$modified
+
+"$GFORTH" "$root/src/main.fs" -e cli-main "$@" </dev/null
+status=$?
+case $status in
+  10[0-5]) code=$((status - 100)) ;;
+  *)
+    printf 'leanforth: internal fault: Gforth ended with status %s\n' "$status" >&2
+    exit 5
+    ;;
+esac
+
+if [ "$code" -eq 0 ] && { [ "${1:-}" = version ] || [ "${1:-}" = --version ]; }; then
+  if [ -z "$commit" ]; then
+    printf 'commit: unknown (not a git checkout)\n'
+  elif $modified; then
+    printf 'commit: %s (with local changes)\n' "$commit"
+  else
+    printf 'commit: %s\n' "$commit"
+  fi
+fi
+exit "$code"

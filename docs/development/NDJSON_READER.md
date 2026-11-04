@@ -6,8 +6,9 @@ declaration library as NDJSON: one JSON object per line, first a metadata
 record, then names, universe levels, expressions and declarations, each
 referring to earlier records by index. The reader decodes those records and
 hands each one, checked for shape and references, to a word the caller
-chooses. It is the first step of `leanforth check FILE.ndjson` (plan phase
-3): under the owner's product rule, end users need only a Forth system and
+chooses. It is the first step of `leanforth check FILE.ndjson`
+([the command line](../user/COMMAND_LINE.md), version 0, plan phase 3):
+under the owner's product rule, end users need only a Forth system and
 an NDJSON file, so nothing on the user's path is Python
 ([OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md), "Product dependencies"
 and OQ-4).
@@ -18,7 +19,10 @@ checker, never a checked declaration. Since 2026-11-03 the importer stage
 stages every record of an export into the compact store, all of Mathlib
 included ([Staging into the compact store](#staging-into-the-compact-store),
 plan items 3.2.1 and 3.3.1 in part); the checker does not read it yet, and
-its term, level and name stores still hold 64 entries each. The Python preview
+its term, level and name stores still hold 64 entries each:
+`src/import/checker-input.fs` fills those for today's checker (plan task
+3.2.2, version 0; `bin/leanforth check`), so only exports the size of the
+test fixtures can be checked. The Python preview
 ([NDJSON_PREVIEW.md](NDJSON_PREVIEW.md)) stays as an independent second
 reader for tests.
 
@@ -33,7 +37,9 @@ measurement script `docs/development/measurements/scale-2026-11-02/count.py`:
 ```
 
 `gforth-fast` is about three times faster than `gforth` and gives the same
-results. The file is checked against its manifest,
+results. `bin/leanforth count FILE` runs the same report from the shell,
+with the command line's exit statuses ([the command line](../user/COMMAND_LINE.md)).
+The file is checked against its manifest,
 `mathlib.ndjson.manifest.json` beside it, by default ([Manifests](#manifests));
 `s" OTHER.json" count-manifest` before `count-export` names another
 manifest file, and `count-export-unchecked` reads without one, a choice
@@ -953,8 +959,8 @@ Python's line-parsing rate, in constant memory (the resident size is
 Gforth's own image plus the line buffer). On `Init`, about two thirds of
 the time is JSON tokenizing and one third decoding and checking records;
 splitting lines and the framing checks take under a tenth. The default
-`gforth` engine is about 3.3 times slower; the command-line tool should use
-`gforth-fast`. Exports were made with
+`gforth` engine is about 3.3 times slower; the command line (`bin/leanforth
+count` and `reexport`) uses `gforth-fast`. Exports were made with
 `leanexport Init` and `leanexport Std` from the pinned toolchain (SHA-256
 `c1b2071a…a59a179` and `bae74d69…a9afcbeb`); the Mathlib export is the one
 recorded in the Mathlib measurements (`18448e5d…59c6`).

@@ -22,9 +22,12 @@ in a record carries the label *experimental, not independently audited*.
   [`tests/support/schema_subset.py`](../../tests/support/schema_subset.py)
   implements ([program receipts](PROGRAM_RECEIPTS.md#the-validator-and-its-json-schema-subset)).
 - **Code:** `src/import/run-record.fs` writes records, `src/import/run-replay.fs`
-  compares them; `tests/support/run-records.fs` drives both through the
-  test-only transport `tests/support/ndjson-input.fs`, which phase 3's
-  importer replaces.
+  compares them; the command line drives both
+  (`bin/leanforth check --record RECORD EXPORT` and
+  `bin/leanforth replay EXPORT RECORD`, [the command line](../user/COMMAND_LINE.md#run-records-and-replay)),
+  and so does `tests/support/run-records.fs`, without the manifest check;
+  both read the export into the checker's input with
+  `src/import/checker-input.fs`.
 - **Golden records:** `tests/core/run-records/`, one per pinned export and
   per broken copy of the composition export, written with Gforth 1.0.0.
 
@@ -35,7 +38,7 @@ make run-record EXPORT=tests/reference/composition.ndjson RECORD=composition.jso
 make replay EXPORT=tests/reference/composition.ndjson RECORD=composition.json
 ```
 
-`FUEL=n` sets the fuel of each check (default 100000, as `ni-check` uses).
+`FUEL=n` sets the fuel of each check (default 100000, as `bin/leanforth check` uses).
 `make run-record` names the LeanForth commit (`git rev-parse HEAD`) and
 whether tracked files differ from it (`git diff --quiet HEAD`); outside a
 git checkout both are null. Both targets exit with status 0 only for a

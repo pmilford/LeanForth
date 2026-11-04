@@ -112,7 +112,7 @@ rr-release
 
 \ The verdicts are the slots' own: the same as lf-check-input's.
 : slot-verdicts ( c-addr u -- o0 o1 o2 )
-  ni-read ok? must fuel 64 lf-check-input ok? must >r lf-env-view ok? must
+  cin-read ok? must fuel 64 lf-check-input ok? must >r lf-env-view ok? must
   0 lf-env-outcome 1 lf-env-outcome 2 lf-env-outcome r> lf-env-free ok? must ;
 T{ constant-fixture slot-verdicts -> outcome-ok outcome-ok outcome-ok }T
 
