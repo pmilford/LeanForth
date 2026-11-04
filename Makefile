@@ -440,6 +440,7 @@ test-sha256:
 	GFORTH=$(GFORTH) $(RUN) python3 tests/lib/test_sha256.py
 
 test-manifest:
+	$(RUN) $(GFORTH) tests/core/manifest.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/core/test_export_manifest.py
 
 # The export step (scripts/export.sh) with pinned Lean reproduces the
