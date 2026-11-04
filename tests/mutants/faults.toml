@@ -789,10 +789,50 @@ reason = "4.2.2a: a lambda does not give its binder back to the scope"
 [[fault]]
 id = "infer-chain-unclosed"
 file = "src/kernel/mixed-infer.fs"
-old = '''  if lf-minfer-good? if lf-minfer-closed then then ;'''
+old = '''  if lf-minfer-good? if lf-minfer-close then then ;'''
 new = '''  drop ;'''
 test = "$GFORTH tests/core/mixed-infer.fs"
 reason = "4.2.2a: the top of a chain of lambdas under binders keeps the outer binders' loose bound variables in its type instead of closing them with their free variables"
+
+[[fault]]
+id = "infer-arg-unclosed"
+file = "src/kernel/mixed-infer.fs"
+old = '''  lf-minfer-close ok-then? if lf-minfer-substitute else nip no-result then ;'''
+new = '''  lf-minfer-substitute ;'''
+test = "python3 tests/core/infer_typed_trial.py"
+reason = "4.2.2a (review rvD2A): an application's argument, read under the scope, is put into the Pi body without being closed, so its loose bound variables end up in a closed type"
+
+[[fault]]
+id = "infer-domain-unclosed"
+file = "src/kernel/mixed-infer.fs"
+old = '''  swap lf-minfer-close ok-then? if swap lf-minfer-bind else nip then ;'''
+new = '''  lf-minfer-bind ;'''
+test = "python3 tests/core/infer_typed_trial.py"
+reason = "4.2.2a (review rvD2A): a binder's free variable gets its domain as read, not closed with the scope's free variables, so a dependent domain's type is open"
+
+[[fault]]
+id = "infer-abstract-innermost"
+file = "src/kernel/mixed-infer.fs"
+old = '''  else lf-minfer-walk lf-minfer-good? if swap lf-minfer-abstract else rot drop then then ;'''
+new = '''  else lf-minfer-walk lf-minfer-good? if swap drop lf-minfer-context-depth @ 1- lf-minfer-abstract else rot drop then then ;'''
+test = "python3 tests/core/infer_typed_trial.py"
+reason = "4.2.2a (review rvD2A): the bottom of a chain of lambdas abstracts its body's type over the innermost lambda's free variable only, leaving the others free in the chain's type"
+
+[[fault]]
+id = "lctx-never-dropped"
+file = "src/core/local-context.fs"
+old = ''': lf-lctx-drop ( mark -- ) begin dup lf-lctx-above? while -1 lf-lctx-count +! repeat drop ;'''
+new = ''': lf-lctx-drop ( mark -- ) drop ;'''
+test = "$GFORTH tests/core/infer-deep.fs"
+reason = "4.2.2a (review rvD2A F3): discarded scratch keeps its local-context entries, which then grow with the binders inference opens, not with the live nodes"
+
+[[fault]]
+id = "open-reset-idle"
+file = "src/kernel/mixed-open.fs"
+old = ''': lf-open-reset ( -- ) lf-open-frames frame-reset ;'''
+new = ''': lf-open-reset ( -- ) ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "4.2.2a (review rvD2A F4): after a THROW out of a mixed-open pass the record stays busy, so every later instantiate, instantiate_rev and abstract refuses"
 
 [[fault]]
 id = "infer-chain-top-ignored"
@@ -845,16 +885,16 @@ reason = "4.2.2a: a binder is opened on a full scope (past the job record's arra
 [[fault]]
 id = "rej-p2-open-term"
 file = "src/kernel/mixed-infer.fs"
-old = '''  lf-minfer-closed ok-then? 0= if drop false exit then'''
+old = '''  lf-minfer-close ok-then? 0= if drop false exit then'''
 new = ''''''
 test = "$GFORTH tests/core/definite-rejection.fs"
 reason = "4.2.2a: P2 infers a term of the analysis without closing it first"
-equivalent = "inference reads a loose bound variable k under the scope as the scope's free variable k places from the top, and P2 runs with the analysis's D4 binders on the scope, so inferring the open term is inferring its closed copy: the same types, only less scratch (caught under the telescope design of 5053a98, where inference read only closed terms)"
+equivalent = "inference reads a loose bound variable k under the scope as the scope's free variable k places from the top, and P2 runs with the analysis's D4 binders on the scope, so inferring the open term is inferring its closed copy: the same types, only less scratch (caught under the telescope design of 5053a98, where inference read only closed terms); the closing stays so that what P2 infers is a closed term, the key a future inference cache needs (review rvD2A F2)"
 
 [[fault]]
 id = "rej-d4-domain-open"
 file = "src/kernel/mixed-infer.fs"
-old = '''  lf-minfer-closed ok-then? if 0 lf-minfer-bind then ;'''
+old = '''  lf-minfer-close ok-then? if 0 lf-minfer-bind then ;'''
 new = '''  0 lf-minfer-bind ;'''
 test = "$GFORTH tests/core/definite-rejection.fs"
 reason = "4.2.2a: D4's free variable gets the right domain unclosed, with loose bound variables of the analysis's outer binders, so P2 cannot infer its type"

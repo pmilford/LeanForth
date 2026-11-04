@@ -7,10 +7,11 @@
 \ node of tag lf-tag-fvar whose first field is its number n and whose
 \ second is 0; entry n of the local context, an array in the checker
 \ context, holds that node, its type and, for a let variable, its value.
-\ A number is unique until lf-lctx-reset (inference resets when a job
-\ starts): entries are only appended. A rollback of the term store that
-\ discards a free variable's node leaves its entry dead, never live again,
-\ since node identities never repeat. Lean also keeps the binder name and
+\ Entries are appended in the order of their nodes. Inference empties the
+\ local context when a job starts (lf-lctx-reset), and when it discards
+\ scratch it drops the entries whose nodes went with it (lf-lctx-drop), so
+\ a later entry may take a dropped number: a node of the old entry is dead
+\ (node identities never repeat), never the new entry's free variable. Lean also keeps the binder name and
 \ annotation for printing; the term store has neither, so neither is kept.
 \
 \ A node is a live free variable (lf-fvar-live?) only when its own entry
@@ -23,12 +24,13 @@
 \
 \ Entries live in a heap store (lib/store.fs) that grows up to a limit, a
 \ setting of each context: lf-lctx-capacity reads it, lf-lctx-capacity!
-\ sets it. The default limit is far above what the term store, which
-\ holds a node for every entry, lets a check reach; running out is full,
-\ never ok. Words: lf-lctx-local and lf-lctx-let ( Lean's mk_local_decl
+\ sets it. A live entry names a live node, so the entries in use never
+\ outnumber the term store's nodes; the default limit is far above that.
+\ Running out is full, never ok. Words: lf-lctx-local and lf-lctx-let ( Lean's mk_local_decl
 \ ), lf-fvar-live?, lf-fvar-number, lf-fvar-type, lf-fvar-value,
 \ lf-fvar-let?, lf-fvar-depth and lf-fvar-depth! (where its binder
-\ stands, for the derivation log), lf-lctx-count, lf-lctx-reset.
+\ stands, for the derivation log), lf-lctx-count, lf-lctx-reset,
+\ lf-lctx-drop.
 \ Outcomes: ok, invalid, full. Untrusted; part of the checker's [kernel]
 \ path, not yet through the review gate.
 \ Example: in a check, x : A is ( A ) lf-lctx-local -> ( x ok ); then
@@ -65,8 +67,6 @@ store-header context-record: lf-lctx
 \ The capacity setting of this context, and setting it (as for terms).
 : lf-lctx-capacity ( -- n ) lf-lctx store-limit @ ;
 : lf-lctx-capacity! ( n -- outcome ) lf-lctx store-limit! ;
-\ Entries in use. Inference saves this count with the term count and
-\ restores both together when it discards scratch.
 : lf-lctx-count ( -- addr ) lf-lctx store-count ;
 \ Discard every entry (a new check).
 : lf-lctx-reset ( -- ) lf-lctx store-clear ;
@@ -113,6 +113,13 @@ store-header context-record: lf-lctx
   else 2drop false then ;
 : lf-fvar-live? ( node -- flag )
   dup lf-term-read if lf-fvar-shape if lf-ldecl-names? exit then then drop false ;
+
+\ Discarding scratch above a term-store mark (lf-term-count set back to
+\ it): the entries whose nodes lie at or above the mark go too. They are
+\ the newest, as entries are made in node order.
+: lf-lctx-above? ( mark -- flag )
+  lf-lctx-count @ ?dup if 1- lf-ldecl lf-ldecl-fvar @ <= else drop false then ;
+: lf-lctx-drop ( mark -- ) begin dup lf-lctx-above? while -1 lf-lctx-count +! repeat drop ;
 
 \ A live free variable's number, entry, type and value (-1 for none).
 \ Unchecked: fvar passed lf-fvar-live?.
