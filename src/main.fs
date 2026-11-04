@@ -26,6 +26,13 @@ require ./kernel/check-declaration.fs
 require ./import/load.fs
 require ./import/ndjson.fs
 
+\ The importer stage (ADR 0016 C9 step 2): an export, checked against its
+\ manifest, staged into a compact input tier (core/compact*.fs) with its
+\ declarations. Not yet read by the checker, which still uses the term,
+\ level and name stores (C9 step 3); it declares no context member and
+\ allocates nothing while loading.
+require ./import/stage.fs
+
 \ Verified-program track: example words, the stack-depth analyzer, the
 \ reader from restricted Forth source to the program IR and its interpreter.
 require ./program/clamp.fs

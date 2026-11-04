@@ -1,0 +1,255 @@
+# Run records and replay, schema version 0.1
+
+**Status: implemented 2026-11-03 (plan task 2.2.5 of the
+[plan draft](../project/PLAN_DRAFT.md)); the format is a draft under the
+*[format]* review gate of `AGENTS.md` until the owner approves it.** A
+*run record* is the evidence of one check of a Lean export by LeanForth's
+first checker: which file was checked, by which tools, with which settings,
+and the verdict of every declaration. *Replay* checks the same file again
+and compares the new record with the old one, field by field. Both are
+written in Forth, with the project's JSON writer and SHA-256: no Python is
+on the path that makes or replays a record.
+
+A record is evidence, not an approval. It passes no review gate, and it is
+never a source of saved results: replay re-checks everything, as the final
+run mode of [ADR 0012, E8](../adr/0012-checked-environment.md#e8-saved-results-and-the-two-run-modes)
+requires. Until the checker passes its review gate, every accepted verdict
+in a record carries the label *experimental, not independently audited*.
+
+- **Schemas:** [`schemas/run-record-0.1.schema.json`](../../schemas/run-record-0.1.schema.json)
+  and [`schemas/replay-report-0.1.schema.json`](../../schemas/replay-report-0.1.schema.json),
+  JSON Schema draft 2020-12 within the subset that
+  [`tests/support/schema_subset.py`](../../tests/support/schema_subset.py)
+  implements ([program receipts](PROGRAM_RECEIPTS.md#the-validator-and-its-json-schema-subset)).
+- **Code:** `src/import/run-record.fs` writes records, `src/import/run-replay.fs`
+  compares them; the command line drives both
+  (`bin/leanforth check --record RECORD EXPORT` and
+  `bin/leanforth replay EXPORT RECORD`, [the command line](../user/COMMAND_LINE.md#run-records-and-replay)),
+  and so does `tests/support/run-records.fs`, without the manifest check;
+  both read the export into the checker's input with
+  `src/import/checker-input.fs`.
+- **Golden records:** `tests/core/run-records/`, one per pinned export and
+  per broken copy of the composition export, written with Gforth 1.0.0.
+
+## Making and replaying a record
+
+```sh
+make run-record EXPORT=tests/reference/composition.ndjson RECORD=composition.json
+make replay EXPORT=tests/reference/composition.ndjson RECORD=composition.json
+```
+
+`FUEL=n` sets the fuel of each check (default 100000, as `bin/leanforth check` uses).
+`make run-record` names the LeanForth commit (`git rev-parse HEAD`) and
+whether tracked files differ from it (`git diff --quiet HEAD`); outside a
+git checkout both are null. Both targets exit with status 0 only for a
+record written, or a record confirmed; replay prints its report on
+standard output. The same in Forth, from the repository root:
+
+```forth
+require ~+/tests/support/run-records.fs
+s" COMMIT" false ni-source    \ optional: 40 lowercase hexadecimal digits
+s" tests/reference/composition.ndjson" 100000 s" composition.json" ni-record .
+s" tests/reference/composition.ndjson" 100000 s" composition.json" ni-replay .
+```
+
+`ni-record ( c-addr1 u1 fuel c-addr2 u2 -- outcome )` checks the export
+c-addr1 u1 and writes its record to c-addr2 u2; `ni-replay` with the same
+arguments checks it again, compares and prints the report. The lower
+level, `ni-run ( c-addr u fuel -- outcome )`, leaves the record in memory
+(`rr-text`), and `rp-replay-text ( c-addr u -- outcome )` compares a record
+given as text.
+
+## What a record holds
+
+The record of the broken copy `composition-wrong-argument.ndjson`, as
+written on one line and shown here indented:
+
+```json
+{
+  "schema": "leanforth-run-record",
+  "schemaVersion": "0.1",
+  "input": {
+    "sha256": "25de2e97121f116649630694fdfa25dd50d74ac20c648e01f68f45781ea193e4",
+    "bytes": 1787,
+    "lines": 35,
+    "manifest": {"outcome": "invalid", "field": "",
+                 "reason": "manifest missing, unreadable or too large"}
+  },
+  "export": {"exporter": "lean4export", "exporterVersion": "3.1.0", "format": "3.1.0",
+             "lean": "4.35.0", "leanGithash": "eb6cafb7290e8bd5f2937522d8d804f58f02bafc"},
+  "leanforth": {"commit": null, "modified": null},
+  "host": {"forth": "gforth", "version": "1.0.0", "engine": "gforth", "cellBits": 64},
+  "settings": {"fuel": 100000, "dependencyPool": 64, "terms": 64, "levels": 64,
+               "names": 64, "declarations": 32, "dependenciesPerCheck": 16,
+               "parameters": 8, "referenceLevels": 8},
+  "check": {"read": "ok", "run": "ok", "mode": "final", "allowlistVersion": 0},
+  "declarations": [
+    {"index": 0, "name": "composition", "verdict": "rejected",
+     "diagnostic": {"code": 59, "reason": "rejected: argument type mismatch (D1-D5)",
+                    "site": "mixed-infer lf-mixed-infer", "numbers": [4, 0], "step": 7}}
+  ]
+}
+```
+
+| Field | Contents | Where it comes from |
+| --- | --- | --- |
+| `input.sha256`, `bytes`, `lines` | SHA-256 of the file's bytes (as `sha256sum` prints it), its size, and its line feeds plus one for a last line without one | the file, read by `rr-hash` before the check and again after it; a change in between fails the run (`rr-finish`) |
+| `input.manifest` | the outcome of checking the file against `FILE.manifest.json` ([NDJSON reader, manifests](../development/NDJSON_READER.md#manifests)); `field` and `reason` are `export-error`'s, empty for ok | `src/import/manifest.fs` |
+| `export` | the exporter, export format and Lean versions the metadata record names; null when no metadata record was read | the NDJSON reader, which accepts only the pinned versions |
+| `leanforth` | the commit and whether tracked files differed from it, or null for both | the caller (`ni-source`; `make run-record` asks git) |
+| `host` | the Forth system, its version, its engine (the program's file name, such as `gforth` or `gforth-fast`) and cell width | Gforth's `version-string` and argument 0, else `unknown` |
+| `settings` | fuel per check, the dependency pool, and the checker's fixed capacities | the run, and the constants of `src/core/` and `src/kernel/` |
+| `check` | the importer's outcome, the run's (`not-run` when the input was not read), and the environment's run mode and allowlist version | the transport, `rr-check`, the environment's header |
+| `declarations` | every declaration in input order: `index`, `name` and `verdict`, and for an accepted one `label` and `axioms`, for any other but `not-checked` its `diagnostic` | the slots of the checked environment, after the run |
+
+## What a verdict claims
+
+Verdicts are read from the checked environment after the run, never from
+what a check said about itself:
+
+- **accepted** only for a slot made final with outcome ok, which only the
+  publisher's full success can make ([ADR 0012, E4](../adr/0012-checked-environment.md#e4-staging-then-publishing-only-after-full-success)).
+  It always has the label *experimental, not independently audited* and the
+  axiom set read from the slot (`lf-env-axioms`). The first checker's
+  allowlist (version 0) names no axiom, so the set must be empty; a slot
+  with any axiom bit fails the record (`rr-write` gives invalid) rather
+  than be written.
+- **rejected, unknown, unsupported, invalid, exhausted, full**: the slot's
+  outcome ([ADR 0008](../adr/0008-outcome-vocabulary.md)), with the
+  diagnostic the check left: its code and catalogue name
+  ([diagnostics](DIAGNOSTICS.md)), site, two numbers and the step of
+  `check-declaration` it reached (null when it recorded none).
+- **invalid** also for a slot that is not final although its check began:
+  the check or its publication threw and the run stopped there (E4).
+- **not-checked** for a slot the run never reached.
+
+`rr-write` also refuses (invalid) a record in which a final slot's outcome
+is not the one its step published, so a diagnostic always belongs to its
+verdict. The schema refuses an accepted verdict without its label or with
+a diagnostic or an axiom, a label on any other verdict, a missing
+diagnostic, and declarations when the check did not run.
+
+## Replay
+
+Replay reads the old record (at most 128 KiB, whitespace allowed), checks
+the input again with the same transport and the replayer's settings, and
+compares. The new record leads: each of its members must be in the old
+record exactly once, with an equal value (same JSON kind; same text for a
+string or number; arrays element by element); a member the old record has
+and the new one lacks is a finding too. A declaration's verdict is compared
+first, and nothing else of it when the verdicts differ. Nothing differs
+silently: a different input, manifest, export, commit, host or setting is
+a finding as much as a different verdict, and only a report without
+findings confirms the record.
+
+```json
+{"schema":"leanforth-replay-report","schemaVersion":"0.1","result":"refused",
+ "findings":[{"code":"settings-differ","path":"$.settings.fuel"},
+             {"code":"accepted-not-established","path":"$.declarations[0].verdict"}],
+ "findingsTotal":2}
+```
+
+(the composition record replayed with fuel 50, which exhausts the check).
+The first 32 findings are listed, all are counted. Codes:
+
+| Code | Meaning |
+| --- | --- |
+| `unreadable` | the old record cannot be read, or is larger than 128 KiB; nothing is compared |
+| `not-json` | the old record is not one JSON text within the reader's limits (nesting at most 8) |
+| `unknown-schema` | not a `leanforth-run-record` of schema version 0.1 |
+| `rerun-failed` | the input could not be checked again (missing, unreadable, changed during the run) |
+| `missing-field` | the old record lacks a field the new one has |
+| `unknown-field` | the old record has a field the new one lacks |
+| `duplicate-key` | the old record repeats a key; its values are not compared |
+| `input-differs` | the input's hash, size, lines or manifest outcome |
+| `export-differs` | the Lean or exporter versions in the metadata |
+| `tool-differs` | the LeanForth commit, or the host Forth's name, version, engine or cell width |
+| `settings-differ` | fuel, the dependency pool or a capacity |
+| `run-differs` | the importer's or the run's outcome, the mode or the allowlist version |
+| `declarations-differ` | the number of declarations, or a declaration's index or name |
+| `verdict-differs` | a verdict, or an accepted declaration's label or axioms |
+| `accepted-not-established` | the old record says accepted where the new run did not accept |
+| `reason-differs` | a diagnostic |
+
+A path names the field: `$.input.sha256`, `$.declarations[0].verdict`. A
+key taken from the old record is cut at 128 bytes in a path.
+
+## Determinism and hosts
+
+Two runs of the same input on the same host write the same bytes (tested
+in one process and in two). Records written by Gforth 1.0.0 and by Gforth
+0.7.3 (CI's portability host) differ only in `host.version` and, where the
+two programs have different names, `host.engine`: on 2026-11-03 all nine
+records agreed otherwise, and each Gforth replayed the other's records
+with findings only there (`tests/core/test_run_records.py --other-gforth`,
+run with the local Gforth 0.7.3; `make test` on CI's Gforth 0.7.3 replays
+the golden records written by 1.0.0 the same way).
+
+## Trust boundaries and limits
+
+- Untrusted code: a record says what the checker's environment held after
+  the run. That the checker is right is the [kernel] gate's question, not
+  the record's. The transport from the file is test-only; it could hand
+  the checker a different claim than the file holds, which no record can
+  show.
+- The record is read from the file, the transport and the environment at
+  different times: the file is read up to six times (hash, metadata,
+  manifest, the transport's two passes, hash again). A file that changes
+  between the first and last read fails the run; phase 3's importer will
+  read once.
+- The commit is what the caller says, checked only for its form; the host
+  fields are what Gforth reports.
+- Diagnostic numbers are those the check recorded. For the internal faults
+  that record environment identities (codes 25 and 27) they differ between
+  two runs in one process; they never arise from a well-formed input.
+- Limits: a record text of 64 KiB, names of 1 KiB, metadata, manifest and
+  commit texts of 128 bytes (a longer metadata text is written null), the
+  checker's own limits (32 declarations). A record that does not fit is
+  not written (`rr-write` gives full).
+- State: one shared record per module (`run-record`, `run-replay`); one
+  run or replay at a time.
+
+## Tests and planted faults
+
+`make test-run-records` (part of `make test`):
+`tests/core/run-record.fs` checks each fixture's verdicts and diagnostics,
+that the verdicts are the slots' (equal to `lf-check-input`'s), the record
+of a run that stops part way (a THROW in the publisher), determinism, the
+commit's form, each failure of `rr-write` and `rr-finish`, hashing, and
+replay findings; `tests/core/test_run_records.py` writes the nine records
+to files and checks them against the schema, Python's SHA-256, the golden
+records and each other, and replays them. It refuses 13 tampered records,
+each with its code and path (a changed verdict, hash, host version, reason
+or manifest outcome; a missing field; a duplicate key; an unknown field; a
+claim of acceptance for a rejected declaration; a dropped declaration; a
+number written as a string; text that is not JSON; another schema
+version), and two replays with another fuel or another commit; it confirms
+a pretty-printed record, and shows that the schema refuses 11 records that
+claim more than a checker could. Twenty-one faults planted in the two modules
+(`tests/mutants/faults.toml`, section "run records and replay") are each
+caught by these tests.
+
+## Versioning
+
+`schemaVersion` names the schema a record or report follows; any change to
+fields or rules gives a new version and a new schema file next to the old
+one, as for [program receipts](PROGRAM_RECEIPTS.md#versioning). Replay
+refuses a record of any other version (`unknown-schema`).
+
+- **0.1** (2026-11-03): the first draft, under the [format] gate.
+
+## Rejected alternatives
+
+- **Writing records with a Python script.** It would put Python on the
+  user's path for every check; the JSON writer and SHA-256 are in Forth.
+- **Comparing whole files byte for byte.** A record from another host or a
+  pretty-printed copy would be refused without saying which field differs;
+  field-by-field findings name the field and keep a duplicate key or an
+  extra field from passing unseen.
+- **Loading records as saved results to skip checks.** ADR 0012 E8 allows
+  that only in a development mode, which phase 2 does not have; replay
+  re-checks everything.
+- **The diagnostic from inside the check.** The publisher can change an
+  outcome after the check (a failed re-check, a full pool, a THROW); the
+  record reads each declaration's diagnostic after its step instead, and
+  refuses a slot whose outcome is not the one the step published.

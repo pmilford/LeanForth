@@ -7,12 +7,12 @@
 \ that is not an export or does not open, a copy over its export), 5 an
 \ internal fault (a THROW while staging, and one inside a check, each
 \ injected at an allocation with tests/support/alloc-fail.fs); the
-\ declarations counted by verdict; the replay record's hook (refused
-\ before anything is read while unset, called with its file name and the
-\ environment's view once set, its failure merged into the code); and
-\ the reading of fuel amounts. tests/cli/test_leanforth.py runs the same
-\ through bin/leanforth, with the text printed. Test-only; nothing here
-\ accepts a theorem outside the code under test.
+\ declarations counted by verdict; the run record (--record: its text
+\ holds the verdicts, a record that cannot be saved is invalid, one that
+\ names its export is refused); and the reading of fuel amounts.
+\ tests/cli/test_leanforth.py runs the same through bin/leanforth, with
+\ the text printed, and replays records. Test-only; nothing here accepts
+\ a theorem outside the code under test.
 include ../support/tester.fs
 include ../support/checks.fs
 require ../support/alloc-fail.fs
@@ -83,28 +83,29 @@ T{ s" tests/cli/no-such.ndjson" s" tests/cli/no-such-copy.ndjson" cli-reexport -
 T{ composition s" tests/cli/no-such-folder/copy.ndjson" cli-reexport -> 4 }T
 T{ cli-version cli-capabilities cli-help -> 0 0 0 }T
 
-\ The replay record's hook. Unset, --record is refused before reading:
-\ nothing counted. Set, it is called after the run with its file name,
-\ while the environment's view can read every slot; its failure joins
-\ the code.
-variable hook-name
-variable hook-view
-: recorder ( c-addr u -- outcome )
-  s" run.record" compare 0= hook-name ! 0 lf-env-outcome hook-view ! outcome-ok ;
-: failing-recorder ( c-addr u -- outcome ) 2drop outcome-full ;
-cli-options s" run.record" cli-record 2!
-T{ composition cli-check outcome-ok tally -> 2 0 }T
-' recorder is cli-record-run
-T{ composition cli-check hook-name @ hook-view @ -> 0 true outcome-ok }T
-' failing-recorder is cli-record-run
-T{ composition cli-check -> 3 }T
-' cli-no-record is cli-record-run
+\ The run record (--record): written after the run (here to /dev/null; the
+\ text stays in rr-text), with every declaration's verdict, the read and
+\ the run, and the code unchanged; one that cannot be saved is reported
+\ and the code is invalid's; one that names the export is refused before
+\ anything is read or written.
+: holds? ( c-addr u -- flag ) rr-text 2swap search nip nip ;
+cli-options s" /dev/null" cli-record!
+T{ fixture cli-check -> 0 }T
+T{ s\" {\"index\":2,\"name\":\"fixtureUse\",\"verdict\":\"accepted\"" holds? -> true }T
+T{ s\" \"check\":{\"read\":\"ok\",\"run\":\"ok\"" holds? -> true }T
+cli-no-manifest
+T{ wrong cli-check -> 1 }T
+T{ s\" \"name\":\"composition\",\"verdict\":\"rejected\"" holds? -> true }T
+cli-options s" tests/cli/no-such-folder/run.json" cli-record!
+T{ composition cli-check outcome-ok tally -> 4 1 }T
+cli-options composition cli-record!
+T{ composition cli-check outcome-ok tally -> 4 0 }T
 cli-options
 
 \ Internal faults, each in a context of its own (a THROW in a check
 \ spends its context for good). Staging composition makes n allocations:
 \ a THROW at the first is one while staging; at n + 1, one in the check.
-: staging-allocations ( -- n ) 0 af-arm composition stage-read drop af-seen@ af-off ;
+: staging-allocations ( -- n ) 0 af-arm composition cin-read drop af-seen@ af-off ;
 staging-allocations constant staged#
 : in-context ( k -- code spent? )
   context-new throw dup >r context-use af-arm-throw composition cli-check af-off

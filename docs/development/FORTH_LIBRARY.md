@@ -490,13 +490,30 @@ helper was 1.6 to 2.5 times slower than the prototype; passing the address
 and computing the data word on the stack brought it to the prototype's
 speed or within 22% of it (below).
 
-**Not yet.** Declarations and the name-to-declaration array (C2, C4) and
-constants resolved at sealing are for the importer and environment steps;
-caches and substitution memos (C4, plan 6.4) are C9 step 6. A scratch
-tier owns heap memory, so it cannot yet be a checker-context member:
-`context.fs` needs a release hook in `context-free` first (ADR 0009). Until
-the importer stage (C9 step 2), the loader is test code,
-`tests/support/compact-load.fs`.
+**The importer stage** (C9 step 2, 2026-11-03; plan 3.2.1, 3.3.1 in
+part): `src/import/stage.fs` and `stage-records.fs` read an export through
+the NDJSON reader, checked against its manifest by default, into an input
+tier, with every declaration as a 32-byte record (C2: kind and flags,
+name, universe parameters, type, value, height, a tuple of the kind's
+other data such as `all`, an inductive type's counts and constructors or
+a recursor's rules, and the previous declaration of the same name), the
+name-to-declaration array (C4), and constants resolved when the tier is
+sealed (C4: a constant's payload names its declaration when exactly one
+has its name; a constant no declaration names makes sealing invalid). A
+failed read rolls the stage back to empty; a byte limit makes it stop as
+*full*; an `mdata` expression, a kind the store does not support yet, is
+staged without its data under its own tag, and every declaration that
+holds one is marked. Its interface, outcomes and measurements are in
+[NDJSON_READER.md, "Staging"](NDJSON_READER.md#staging-into-the-compact-store).
+`src/main.fs` loads it; the checker does not read it yet (C9 step 3).
+A scratch tier owns heap memory, so as a checker-context member it needs
+a teardown word (below, *Rules for converted modules*); since 2026-11-03
+`context.fs` has that hook. `tests/support/compact-load.fs`, the test
+loader, now loads through the stage.
+
+**Not yet.** Caches and substitution memos (C4, plan 6.4) are C9 step 6;
+moving the checker's term, level and name stores onto the compact store
+is C9 step 3.
 
 ### Tests
 
@@ -510,13 +527,17 @@ the importer stage (C9 step 2), the loader is test code,
   data words and depth caps; randomized models of slabs (60,000 steps),
   tables (8,000), sets in two tiers with a four-valued hash (15,000) and
   applications in two tiers (9,900).
-- The round trip (`tests/core/compact-verify.sh`): an export is loaded
-  into an input tier through the NDJSON reader and every name, level and
-  expression record is printed back from the store, references turned into
-  export indices; the lines must equal the reader's own dump
-  (`tests/core/ndjson-dump.fs`), family by family. `make test` runs it on
-  the five pinned reference exports, `make check` on `Init` exported by the
-  pinned `leanexport` (`tests/core/compact-init.sh`).
+- The round trip (`tests/core/compact-verify.sh`): an export is staged
+  into an input tier by the importer stage (with its manifest, or
+  `--unchecked` for a fixture without one) and every record, the
+  metadata, names, levels, expressions and declarations, is printed back
+  from the store, references turned into export indices; the lines must
+  equal the reader's own dump (`tests/core/ndjson-dump.fs`), family by
+  family, and the dump may hold nothing else. `make test` runs it on the
+  five pinned reference exports and the six other fixture exports of
+  `tests/`, `make check` on `Init` exported by the pinned `leanexport`
+  (`tests/core/compact-init.sh`, which writes its manifest). The stage's
+  own tests are in [NDJSON_READER.md](NDJSON_READER.md#staging-into-the-compact-store).
 - `tests/core/compact_faults.py` (`make check`): 19 faults planted in a copy
   (operands ignored by hash-consing, texts or lists compared by length or
   hash only, a rollback that keeps the count or the table entries, a reset
@@ -531,11 +552,14 @@ the importer stage (C9 step 2), the loader is test code,
 
 2026-11-03, this machine (10 logical cores, WSL2) shared with other agents'
 test runs (load average 2–4), `gforth-fast` of Gforth 1.0 unless stated,
-one thread; times vary by about ±20% between runs. The loader is
-`tests/support/compact-load.fs` (`compact-measure`), with the expression
-table pre-sized where stated (`htab-presize`) and every other table
-growing from 2¹²; `/usr/bin/time` gives wall time and peak memory. The
-prototype's figures are ADR 0016's.
+one thread; times vary by about ±20% between runs. The loader was the
+first version of `tests/support/compact-load.fs` (`compact-measure`),
+before the importer stage: names, levels and expressions only, no
+manifest. The expression table is pre-sized where stated
+(`htab-presize`), every other table grows from 2¹²; `/usr/bin/time` gives
+wall time and peak memory. The prototype's figures are ADR 0016's. The
+importer stage's figures, with declarations and the manifest check, are
+in [NDJSON_READER.md](NDJSON_READER.md#staging-into-the-compact-store).
 
 | | Prototype | Library |
 | --- | ---: | ---: |
@@ -695,8 +719,24 @@ Rules for converted modules:
   record (`BEGIN-STRUCTURE`) and then declared with `context-record:`.
 - Data that tasks share — the checked environment, constant tables built at
   load time — stays outside contexts and must not change while jobs run.
-- A member that owns heap memory would need a release hook in
-  `context-free`; none exists yet, so members hold no `ALLOCATE`d memory.
+- A member may own heap memory only with a teardown word (the release
+  hook, since 2026-11-03; [ADR 0009, Amendment 1](../adr/0009-reentrant-state-and-parallel-checking.md#amendment-1-2026-11-03-context-members-that-own-heap-memory)):
+  `' name-free context-teardown`, declared while loading like a member.
+  `context-free` runs every teardown word, newest first, in the context it
+  frees, then frees the context; `context-new` runs them when a setup word
+  fails. A teardown word frees exactly what its member holds, also after a
+  `THROW` and on a member still zeroed (free only the blocks you find,
+  zero what you freed), and selects, makes and frees no context. Each runs
+  balanced under `CATCH`; one that throws or leaves the stack changed
+  makes `context-free` give its code, after every other teardown has run
+  and the context is freed. Before 2026-11-03 members held no `ALLOCATE`d
+  memory at all.
+
+  ```forth
+  /tier context-record: check-scratch          \ a scratch tier (ADR 0016 C3)
+  : check-scratch-free ( -- ) check-scratch tier-free ;
+  ' check-scratch-free context-teardown
+  ```
 - A pass record that embeds its frames record puts the frames first, so
   the visitor finds the pass's own fields at the frames address it is given
   (`mixed-shift.fs` and `mixed-instantiate.fs` check this at load time);

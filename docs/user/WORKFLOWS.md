@@ -81,7 +81,7 @@ What each step means for you:
    under two minutes ([reader guide](../development/NDJSON_READER.md)).
 3. **Staging** copies decoded names, levels and expressions into
    LeanForth's stores, and the declarations into the checker's input
-   (`src/import/stage.fs`, version 0; `bin/leanforth check` runs it, see
+   (`src/import/checker-input.fs`, version 0; `bin/leanforth check` runs it, see
    [the command line](COMMAND_LINE.md)). Today the stores hold 64 entries
    each, so only exports the size of the test fixtures fit; a larger one
    ends *full*.

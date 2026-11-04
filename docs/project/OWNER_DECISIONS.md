@@ -446,6 +446,22 @@ produces can be verified.
   (3) today's text reader stays only as a cross-check until the new design
   passes its [parser] gate, then retires, keeping its tests; (4) names that
   read as numbers are refused in correctness mode.
+- **Checked environment v0, [kernel] gate: approved** (2026-11-03, plan
+  task 2.2.2, ADR 0012 with Amendment 1), as recommended, after six
+  independent review rounds (the last found nothing blocking; its three
+  small items merged) and the failure-path suite (4,493 injected runs,
+  nothing failed ever stored, published or printed as accepted). Every
+  accepted result stays labelled *experimental — not independently
+  audited*.
+- **Program receipt format 0.2, [format] gate: approved** (2026-11-03,
+  plan task 2.5.1), as recommended, after three review rounds. The
+  approved schema file is `schemas/program-receipt-0.2.schema.json`,
+  SHA-256 `bb76793e1cba339d…` (pinned by a test); any later change, even
+  an encoding fix, becomes a new version. A receipt that validates is well
+  formed, not proved true: it cannot show that its axiom list is complete,
+  which only replaying the check can (plan 5.5.2). The two-mode program
+  design (ADR 0019) will add an assumption kind for its vocabulary in a
+  later version. Schema 0.1 was never approved and is refused.
 - **Later: investigate offloading part of the work to a GPU.** Under the
   design rules in `AGENTS.md` a GPU never belongs to the trusted kernel and
   a CPU path is always kept; candidates are untrusted bulk work such as

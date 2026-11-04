@@ -84,7 +84,7 @@ for a person to read.
 | --- | --- | --- | --- |
 | Checker | `src/kernel/` | Decides accepted, rejected, unknown, … | The only part to be trusted, after the review gate of `AGENTS.md`; nothing in it is trusted today |
 | Data model and library | `src/core/`, `src/lib/` | Stores terms, levels and names; walks, outcomes, contexts | Verdicts will depend on them, so they fall under the same gate |
-| Export reader | `src/import/ndjson.fs`, `stage.fs` | Decodes Lean's NDJSON export and stages it as the checker's input | Untrusted, fail-closed: it rejects anything malformed and decides nothing about proofs |
+| Export reader | `src/import/ndjson.fs`, `checker-input.fs`, `stage.fs` | Decodes Lean's NDJSON export and stages it as the checker's input (and, not yet read by the checker, into the compact store) | Untrusted, fail-closed: it rejects anything malformed and decides nothing about proofs |
 | Command line | `bin/leanforth`, `src/cli/` | Runs the reader and the checker; prints each declaration's verdict as the checker published it; exit status | Untrusted: it can misreport a failure, never make a declaration accepted |
 | Program reader | `src/program/ir-reader.fs` | Translates Forth source into the program IR | Untrusted; receipts name it as the assumption `trusted-reader` |
 | Term printer | `src/present/` | Prints terms as Lean does | Presentation only; the checker never loads it |

@@ -35,6 +35,7 @@ LEAN="$lean" bash tests/reference/memory-program-check.sh
 "$lean" -DwarningAsError=true tests/reference/checked-add.lean
 "$lean" -DwarningAsError=true tests/reference/factorial-reference.lean
 "$lean" -DwarningAsError=true tests/reference/gcd-reference.lean
+LEAN="$lean" bash tests/reference/sha256-spec-check.sh
 output=$(mktemp)
 trap 'rm -f "$output"' EXIT
 for test_name in composition-invalid binders-invalid universes-invalid; do

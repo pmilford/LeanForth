@@ -82,7 +82,7 @@ success.
 | --- | --- |
 | Program receipt, schema 0.2 (`schemas/program-receipt-0.2.schema.json`; the superseded draft 0.1 is kept as a record and refused by the reader) | Exists, with valid and invalid examples, a standard-library validator and a strict reader; the clamp receipt is generated (task 2.5.6, [`lf-clamp.json`](../../tests/program/receipts/generated/lf-clamp.json)): checked and discharged by the Lean reference, not by LeanForth, and runtime-tested; a proposal under the *[format]* gate until the owner approves it |
 | JSON reader in Forth (`src/lib/json.fs`) | Exists; reads Lean's exports, and will read API requests |
-| Run records with input hashes and verdicts, replay | Planned, task 2.2.5 |
+| Run records with input hashes and verdicts, replay | Exist, task 2.2.5 ([run records](../programming/RUN_RECORDS.md)): `bin/leanforth check --record RECORD EXPORT` and `bin/leanforth replay EXPORT RECORD`, whose report is JSON (exit 0 confirmed, 1 refused, 4 not comparable); the format awaits the *[format]* gate |
 | `leanforth` command with fixed exit codes (0 all accepted, 1 something rejected, 2 unsupported or unknown, 3 resource limit, 4 malformed input, 5 internal fault) | Version 0 exists, text output only (tasks 3.4.1–3.4.2, [the command line](COMMAND_LINE.md)); `--json` output is planned (task 3.4.3) |
 | JSON-RPC 2.0 over standard input and output: `system.capabilities`, `proof.check`, `proof.pretty`, `program.receipt`, with schemas and golden examples | Planned, tasks 3.5.1–3.5.3 ([design](../programming/INTERFACE_CONTRACTS.md)) |
 | Error-code catalogue and an LLM guide | Planned, task 3.5.4 |

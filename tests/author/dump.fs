@@ -88,8 +88,9 @@ defer dump-sub ( term -- )
 ' dump-term is dump-sub
 
 create dump-eol 10 c,
+: dump-protected ( decl -- ) lf-fdecl-protected @ if s"  protected" d then ;
 : dump-decl ( decl -- )
-  dup lf-fdecl-kind @ d# s"  " d dup lf-fdecl-name @ dump-name
+  dup lf-fdecl-kind @ d# s"  " d dup lf-fdecl-name @ dump-name dup dump-protected
   dup lf-fdecl-universes @ 0 ?do s"  u:" d dup lf-fdecl-universe i cells + @ dump-name loop
   dump-eol 1 d s"   type " d dup lf-fdecl-type @ dump-term dump-eol 1 d
   s"   value " d lf-fdecl-value @ dump-term dump-eol 1 d ;

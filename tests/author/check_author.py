@@ -30,18 +30,19 @@ Usage (from the repository root; GFORTH and LEAN name the toolchains):
    exactly Lean's universe parameters, statement and proof (every node,
    index, constant, universe argument, level, binder name and binder kind;
    dump.fs's format), and each import stub Lean's universe parameters and,
-   when it states one, Lean's type; the binder names listed in KNOWN_NAMES
-   are read as Lean's. As text: Lean's #print of every declaration must
-   equal the fixture's lean: lines, apart from the differences listed in
-   KNOWN, each with its reason.
+   when it states one, Lean's type; each is protected exactly when Lean's
+   is; the binder names listed in KNOWN_NAMES are read as Lean's. As text:
+   Lean's #print of every declaration must equal the fixture's lean: lines,
+   apart from the differences listed in KNOWN, each with its reason.
 6. --faults: each planted fault, in a copy of src/, must be caught: a unit
    test of tests/author/author.fs fails, or a fixture's output changes (a
    round trip, a term or a lean: line compared with Lean, or a fixture that
    no longer runs). Some must be caught by the comparison with Lean: the
    spelling check disabled (the round trip cannot see it, ADR 0017 §13),
    every universe argument 0 (the printed text hides universe arguments)
-   and the two name-resolution faults (16-namespaces.lf); a fixture that
-   Lean accepts and the faulty words refuse counts as a difference.
+   and the three name-resolution faults (16-namespaces.lf and
+   18-protected.lf); a fixture that Lean accepts and the faulty words
+   refuse counts as a difference.
 Finite evidence about these files; it never accepts a theorem.
 """
 import os
@@ -53,7 +54,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from lean_terms import ExportError, compile_and_export, structural  # noqa: E402
+from lean_terms import ExportError, compile_and_export, parse_dumps, structural  # noqa: E402
 
 GFORTH = os.environ.get("GFORTH", "gforth")
 if "/" in GFORTH:  # the planted faults run Gforth in a copy of the tree
@@ -143,6 +144,11 @@ FAULTS = [
     ("6: a value left below the parameters", "any",
      [(DECLS, ": lfa-params-tight ( -- ) lfa-depth 0 ?do i lfa-no-gap loop ;",
        ": lfa-params-tight ( -- ) ;")]),
+    ("re-review: a protected constant found by one part through a namespace", "lean",
+     [(SPACES, "  dup lfa-hidden? if drop false else true then ;", "  true ;")]),
+    ("re-review: protected not printed", "any",
+     [(PRINT, ": lf-pf-modifier ( decl -- ) lf-fdecl-protected @ if s\" protected \" lf-pp-put"
+              " then ;", ": lf-pf-modifier ( decl -- ) drop ;")]),
     ("7: every universe argument is 0", "lean",
      [(VALUES, "  >r dup lf-level-identity drop swap lfa-sought-ref lfa-ref-pairs",
        "  >r drop 0 dup lf-level-identity drop swap lfa-sought-ref lfa-ref-pairs")]),
@@ -284,22 +290,20 @@ STUB = 3  # lf-decl-stub: an import stub stands for a constant of any kind
 
 def forth_terms(text):
     """The fixture's declarations from its term: lines (dump.fs, without notes):
-    name -> (kind, universe names, type, value)."""
+    name -> (kind, protected, universe names, type, value)."""
     lines = [line[len("term: "):] for line in text.splitlines() if line.startswith("term: ")]
-    decls = {}
-    for head, type_, value in zip(lines[0::3], lines[1::3], lines[2::3]):
-        kind, name, *universes = head.split(" ")
-        decls[name] = (int(kind), [u[len("u:"):] for u in universes],
-                       type_[len("  type "):], value[len("  value "):])
-    return decls
+    return parse_dumps(lines, int)
 
 
 def term_parts(forth, lean, same):
     """(what, Forth's, Lean's) for each part compared; same maps a term to
-    the form compared (exact, or structural for the exporter's)."""
-    kind, universes, type_, value = forth
-    lean_kind, lean_universes, lean_type, lean_value = lean
+    the form compared (exact, or structural for the exporter's, which does
+    not say what is protected)."""
+    kind, protected, universes, type_, value = forth
+    lean_kind, lean_protected, lean_universes, lean_type, lean_value = lean
     parts = [("universe parameters", universes, lean_universes)]
+    if lean_protected is not None:
+        parts.append(("protected", protected, lean_protected))
     if kind != STUB:
         parts += [("kind", kind, lean_kind), ("type", same(type_), same(lean_type)),
                   ("value", same(value), same(lean_value))]
@@ -321,11 +325,11 @@ KNOWN_NAMES = {
 
 def known_names(stem, decl):
     """decl with each binder name of KNOWN_NAMES[stem] read as Lean's."""
-    kind, universes, type_, value = decl
+    kind, protected, universes, type_, value = decl
     for old, (new, _) in KNOWN_NAMES.get(stem, {}).items():
         type_, value = (re.sub(r"\((lam|pi) " + re.escape(old) + " ", rf"(\1 {new} ", term)
                         for term in (type_, value))
-    return kind, universes, type_, value
+    return kind, protected, universes, type_, value
 
 
 def compare_terms(stem, forth, lean):
@@ -346,7 +350,7 @@ def compare_terms(stem, forth, lean):
 def compared_terms(forth):
     """The number of declarations and of terms (types and values) compared."""
     terms = sum((kind != STUB or type_ != "none") + (kind != STUB)
-                for kind, _, type_, _ in forth.values())
+                for kind, _, _, type_, _ in forth.values())
     return len(forth), terms
 
 
@@ -406,7 +410,7 @@ def check_lean():
     names = sum(len(v) for v in KNOWN_NAMES.values())
     print(f"authoring words build Lean's terms, term for term: {decls} declarations of "
           f"{len(reference)} fixtures, {terms} terms (statements, proofs, stubs' stated types), "
-          "equal to Lean's own (binder names and kinds included; "
+          "equal to Lean's own (which are protected, binder names and kinds included; "
           f"{names} listed binder name) and to the pinned export (apart from binder names "
           "and kinds, which that exporter merges)")
     print(f"authoring words agree with pinned Lean's #print: {lines} lines "

@@ -30,7 +30,7 @@ include ../support/dictionary-check.fs
 \ Members outside the core and kernel modules.
 create state-words
   ' lf-load-batch , ' lf-pjob , ' lf-pres , ' lf-pp-scan-walk , ' lf-pp-level-walk ,
-  ' lf-ir-reader , ' irx-state , ' stage-state , ' cli-state ,
+  ' lf-ir-reader , ' irx-state , ' cin-state , ' cli-state ,
 here state-words - 1 cells / constant state-count
 : state-word ( i -- addr ) cells state-words + @ execute ;
 : state-offset ( addr -- n ) lf-context @ - ;

@@ -55,6 +55,7 @@ universe level or a number, *c* a constant waiting for universe arguments,
 | --- | --- | --- |
 | `theorem` NAME, `def` NAME, `axiom` NAME | `( -- )` | start a declaration (empty stack) |
 | `import-stub` NAME | `( -- )` | a constant an import would provide; an optional statement |
+| `protected` KIND NAME | `( -- )` | a protected declaration (KIND is `theorem`, `def`, `axiom` or `import-stub`), as Lean's `protected`; it must be in a namespace |
 | `universe` NAME | `( -- )` | a universe parameter, right after the name |
 | `:=` | `( t -- )` | the statement; open binders become the parameters |
 | `end` NAME | `( t -- )` or `( -- )` | close the declaration (proof, or an axiom's statement) or a namespace |
@@ -71,7 +72,7 @@ universe level or a number, *c* a constant waiting for universe arguments,
 | `label:` NAME | `( t -- t )` | a step label, unique in the declaration |
 | `note"` text`"`, `ai-note"` text`"` | `( t -- t )` | a note by a person, by an AI |
 | `\`, `(` | `( -- )` | comments, as in Forth, on one line |
-| `_`, `let:`, `let`, `have`, `field-at`, `by`, `s"`, `import` | — | not supported yet |
+| `_`, `let:`, `let`, `have`, `field-at`, `by`, `s"`, `import`, `export` | — | not supported yet |
 
 A name's word pushes a variable and/or a universe parameter (LF-LOCALS)
 or a constant. Names are case-sensitive: one Forth word stands for every
@@ -84,7 +85,14 @@ word there too. Which constant a name means is pinned Lean 4.35's rule
 `P` and each namespace around it, innermost first; otherwise the name at
 the root and `O.name` for each open namespace `O`, which must all be the
 same constant, or it is ambiguous (error 27; Lean would try each against
-the expected type). Inside a declaration the current namespace is its own
+the expected type). Through a namespace (`P.name` or `O.name`), a name of
+one part never finds a protected constant: inside `namespace Nat`,
+`add_comm` is not `Nat.add_comm` (which Lean's core library protects),
+while `Nat.add_comm` is. Lean also searches aliases made by `export` and
+private names; the words make neither (`export` stops with error 54), so
+here there are none. An import stub must say `protected` where Lean's
+constant is (`make check` compares this with Lean for every example).
+Inside a declaration the current namespace is its own
 name's prefix (`def N.foo` resolves in `N`). `namespace A.B` enters two
 scopes; `end NAME` leaves one per part, each part naming its scope;
 `open N` opens `P.N` for the nearest namespace `P` around that has it, or
@@ -209,10 +217,13 @@ below it).
 | 40 | invalid | the file cannot be opened or read |
 | 41 | invalid | a Forth exception, with its THROW code |
 | 42 | invalid | a ( comment must end with ) on the same line |
+| 43 | invalid | protected comes right before theorem, def, axiom or import-stub |
+| 44 | invalid | protected declarations must be in a namespace |
 | 50 | unsupported | not supported yet: natural-number literals need literal nodes (ADR 0017 section 14) |
 | 51 | unsupported | not supported yet: designed in ADR 0017 but not built yet |
 | 52 | unsupported | not supported yet: holes are filled by the elaborator (plan task 8.3.1) |
 | 53 | unsupported | not supported yet: _root_ in a declaration's name |
+| 54 | unsupported | not supported yet: export and the aliases it makes |
 | 60 | full | out of room: the term store is full |
 | 61 | full | out of room: the level store is full or the level too large |
 | 62 | full | out of room: the name store is full or the name too long |
@@ -253,14 +264,14 @@ words invisible, numbers in every host form, values used once, names
 that are numbers, namespaces and which constant a name means, `var#`,
 `root:`, positions, labels and notes, the runner's restoring, the note
 table, the Forth mode on its own and the labels and notes it refuses) and
-`tests/author/check_author.py` (21 example files against
+`tests/author/check_author.py` (22 example files against
 `fixtures.golden`, which records each declaration's terms as a tree dump,
 with a round trip each; this table; the layering check; round trips over
 the term printer's 50 cases and the five Lean exports); the syntax page's
 examples. Run the unit tests with Gforth 0.7.3 too when the runner
 changes: the numbers check is host-sensitive.
 
-`make check` (target `reference-author`) compares with Lean, for the 15
+`make check` (target `reference-author`) compares with Lean, for the 16
 example files with a Lean source (`tests/reference/author-*.lean`):
 
 - **Terms, term for term** (`tests/author/lean_terms.py`). Pinned Lean
@@ -269,19 +280,24 @@ example files with a Lean source (`tests/reference/author-*.lean`):
   axiom must equal the words' terms exactly: every node, de Bruijn index,
   constant, universe argument, level, binder name and binder kind; each
   import stub must have Lean's universe parameters and, when it states a
-  type, Lean's type. The pinned exporter (`leanexport`, lean4export 3.1.0)
-  exports the same declarations, which must also agree, apart from binder
-  names and kinds: that exporter shares nodes that differ only in binder
+  type, Lean's type; and every declaration, import stubs included, must be
+  protected exactly when Lean's is. The pinned exporter (`leanexport`,
+  lean4export 3.1.0) exports the same declarations, which must also agree,
+  apart from binder names and kinds (and protection, which the export
+  does not carry): that exporter shares nodes that differ only in binder
   names or kinds, so a later declaration can come out with an earlier
   one's (checked with three alpha-equivalent theorems). One binder name is
   a listed difference, with its reason (`12-hygienic-used.lf` names a
-  binder with a hygienic name Lean's source cannot write). The example file
-  `16-namespaces.lf` puts Lean's name resolution under this comparison.
+  binder with a hygienic name Lean's source cannot write). The example
+  files `16-namespaces.lf` and `18-protected.lf` put Lean's name resolution
+  under this comparison, protected constants included.
 - **Text**: pinned Lean's `#print` of every declaration against the
   example's `lean:` lines, one known printer difference listed with its
   reason.
-- **Planted faults**: 22, each caught. Seven are faults in the printer and
-  the words; fifteen each undo one fix of the review of 2026-11-03. The
-  spelling check disabled, "every universe argument is 0" and the two name
-  resolution faults must be caught by the comparison with Lean (the round
-  trip and the printed text cannot see them).
+- **Planted faults**: 24, each caught. Seven are faults in the printer and
+  the words; seventeen each undo one fix of the review of 2026-11-03 or of
+  its re-review (protected constants). The spelling check disabled, "every
+  universe argument is 0" and the three name-resolution faults must be
+  caught by the comparison with Lean (the round trip and the printed text
+  cannot see them); an example Lean accepts that the faulty words refuse
+  counts.

@@ -15,11 +15,14 @@ and OQ-4).
 
 **Status: [import] gate approved by the owner on 2026-11-03** ([OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md#gate-answers-and-working-guidelines-2026-11-03)); the checksum manifest it asked for is implemented and checked by default ([Manifests](#manifests), 2026-11-03, plan task 3.2.6, awaiting its [import] review); next: an upgrade test for new Lean and Mathlib versions. **Implemented 2026-11-02, untrusted, fail-closed.** The reader
 decides nothing about types or proofs; a decoded record is input for the
-checker, never a checked declaration. `src/import/stage.fs` stages an
-export's records into the checker's term, level and name stores and its
-input (plan task 3.2.2, version 0), but those stores hold only 64 entries
-each, so only exports the size of the test fixtures fit; growing them is
-plan item 3.3.1. The Python preview
+checker, never a checked declaration. Since 2026-11-03 the importer stage
+stages every record of an export into the compact store, all of Mathlib
+included ([Staging into the compact store](#staging-into-the-compact-store),
+plan items 3.2.1 and 3.3.1 in part); the checker does not read it yet, and
+its term, level and name stores still hold 64 entries each:
+`src/import/checker-input.fs` fills those for today's checker (plan task
+3.2.2, version 0; `bin/leanforth check`), so only exports the size of the
+test fixtures can be checked. The Python preview
 ([NDJSON_PREVIEW.md](NDJSON_PREVIEW.md)) stays as an independent second
 reader for tests.
 
@@ -516,6 +519,166 @@ test and the tally of each record's kind), and checked 205.29 billion.
   failure's line not reset, a handler's `manifest-read` on its own export
   not refused, the tap never called, refused records counted; the tree
   without a fault passes.
+
+## Staging into the compact store
+
+The importer stage (`src/import/stage.fs`, with the records and handlers
+in `stage-records.fs`; ADR 0016 C9 step 2, plan items 3.2.1 and 3.3.1 in
+part; 2026-11-03) reads an export through this reader, checked against
+its manifest by default, into a compact input tier
+([ADR 0016](../adr/0016-compact-store.md),
+[FORTH_LIBRARY.md](FORTH_LIBRARY.md#the-compact-store)), ready for every
+worker to read without locks. **Untrusted [import] code, fail-closed; not
+yet read by the checker** (moving the checker onto the compact store is
+C9 step 3). Loaded by `src/main.fs`; it declares no context member and
+allocates nothing while loading.
+
+```forth
+require src/import/stage.fs
+create lib /stage allot
+16 lib stage-init drop                         \ expression table: 2^16 slots
+s" tests/reference/constant-fixture.ndjson" lib stage-load .   \ 0: ok
+lib stage-decls .                              \ 3
+lib stage-free
+```
+
+**What a stage holds** after `stage-load`:
+
+- every name, level, expression and literal, hash-consed in the input
+  tier (C1–C4), and the export-index maps that give each export index's
+  store number (`export>name`, `export>level`, `export>expr`; loading aids,
+  4 bytes per record, freed by `stage-unmap`);
+- every declaration as a 32-byte record (C2), numbered in file order (an
+  inductive block, then its types, constructors and recursors): the kind,
+  flags (unsafe, a definition's safety and hints, a quotient's kind, a
+  recursor's `k`, a type's `isRec` and `isReflexive`, and a mark), the
+  name, the universe parameters (a tuple of names), the type, the value of
+  a definition, theorem or opaque, a regular definition's height, a tuple
+  of the kind's other data (`all`; a block's numbers of types,
+  constructors and recursors; a type's `numParams`, `numIndices`, `all`,
+  `ctors`, `numNested`; a constructor's `induct`, `cidx`, `numParams`,
+  `numFields`; a recursor's `all`, `numParams`, `numIndices`,
+  `numMotives`, `numMinors` and its rules, `[ctor nfields rhs]` each),
+  and the declaration staged before it with the same name; read with
+  `staged-kind@`, `staged-name@`, … `staged-item` (the header of
+  `stage-records.fs` lists them all);
+- the name-to-declaration array (C4): `stage-find ( name stage -- d true |
+  false )` gives the newest declaration of a name, `stage-previous` the
+  one before it, so ADR 0012 E5 sees every declaration of a name;
+- constants resolved when sealed (C4): `stage-resolved ( e stage -- d true
+  | false )` gives a constant's declaration when exactly one declaration
+  has its name; with several, false, and the array and chain decide.
+
+**Life cycle.** `stage-init ( log2 stage -- outcome )` makes an empty
+stage whose expression table starts at 2^log2 slots (about 59 bytes of
+export per expression: 2^24 for `Init`, 2^28 for Mathlib), the others at
+2^12. `stage-read ( c-addr u stage -- outcome )` reads the file with its
+manifest, `FILE.manifest.json` or the file `stage-manifest-use` names;
+`stage-read-unchecked` reads it without one, the caller's explicit
+choice. `stage-seal` resolves the constants, sets the marks and makes the
+tier read-only (its tables spread to at most half full, its stores
+trimmed); `stage-load` and `stage-load-unchecked` read, then seal.
+`stage-free` frees everything. Each step out of order is *invalid*. A
+read that fails, for any reason or by a `THROW` (which then passes on),
+rolls the stage back to empty, so nothing of a partial, malformed or
+mismatched file stays, and the stage can read again; a stage whose
+rollback or sealing failed is broken, and only `stage-free` applies.
+
+| Case | Outcome | Reason (`stage-error`) |
+| --- | --- | --- |
+| Any failure of the reader or of the manifest check | the reader's or the manifest's | theirs, as above |
+| An export index no map holds (a bad reference), a name, level, list or expression that is not a record of the tier, a declaration field missing or present against its kind | invalid | handler refused the record, at its line |
+| A constant whose name no declaration has | invalid, at sealing | unknown constant, line 0; `stage-culprit@` gives the name |
+| A number beyond 32 bits where a field holds it (a numeric name component, a projection's index, a count of an inductive type, constructor or recursor, a rule's field count) | full | number beyond 32 bits |
+| The stage's heap blocks past `stage-limit!` | full | memory limit of the stage reached |
+| The limits of C1 (2^27 names, a bound variable's range 2^20 − 1, 2^32 − 1 records per family), more than 2^27 − 1 declarations, no heap | full | handler refused the record |
+| An `mdata` expression | ok: staged but marked | — |
+
+**Staged but marked.** The compact store has no record for an `mdata`
+expression's key-value data, which Lean's exporter writes only when asked
+(`--export-mdata`). Instead of refusing the whole export, the stage keeps
+the expression it wraps under its own tag (`tag-mdata`), counts it
+(`stage-mdata`), and at sealing marks every declaration whose type, value
+or recursor rule holds one (`staged-marked?`, `stage-marks`), found in
+one pass over the expressions in number order. The stored term is then not
+the term exported, so no check may accept a marked declaration; the
+checker can refuse it as unsupported without walking it.
+
+**Memory limit** (plan 3.3.1 in part). `stage-limit! ( bytes stage -- )`
+bounds the heap blocks the stage holds (`stage-allocated`: the tier, the
+maps, the declarations and the array; not the reader's line buffer); the
+read stops as *full* at the first record after which they exceed it.
+Blocks grow by doubling, so the peak may pass the limit by the last
+block's growth. 0, the default, is no limit but the heap's.
+
+**Tests** (`make test-stage`, in `make test`; the round trips also in
+`make test-compact`):
+
+- `tests/core/stage.fs`: the life cycle and its refusals; the
+  declarations of `constant-fixture.ndjson` and of `ndjson-block.ndjson`
+  (a block, two types, two constructors, a recursor with two rules, a
+  theorem) read back field by field; finding by name; each constant's
+  resolution; three failed reads (another file's manifest, the memory
+  limit, a handler's `THROW`), each rolled back to empty, after which the
+  stage loads exactly as a fresh one; bad references refused by the
+  stage's own checks, through forged records; the `mdata` of
+  `reexport/kinds.ndjson` staged and `Nat.add`, the one declaration that
+  holds it, marked (a Python walk of the file finds the same one); a
+  scratch tier over the sealed input as a checker-context member, freed by
+  its teardown word, also after a `THROW`; every heap block given back.
+  Loaded under `HEX`.
+- `tests/core/test_stage.py`: twelve changed exports — an unknown
+  constant (invalid at sealing, its name given), two declarations of one
+  name (both found; the constant naming them resolved to neither), a file
+  cut between two lines and one with a changed byte (the manifest
+  differs), no manifest, a reference to a later expression, three numbers
+  beyond 32 bits (full), another Lean version (unsupported), and two
+  unchanged files.
+- The round trip, `tests/core/compact-verify.sh`: every fixture export of
+  `tests/` (the five reference exports with their manifests, the four
+  check-declaration cases, `ndjson-block.ndjson` and
+  `reexport/kinds.ndjson`, which has every record kind, unchecked) staged
+  and re-emitted from the store, metadata, names, levels, expressions and
+  declarations, equal family by family to this reader's dump; and `Init`
+  in `make check` (`reference-compact-init`).
+- Planted faults in `tests/mutants/faults.toml` (`stage-…`), each caught:
+  a named declaration dropped, a constant no declaration has taken as
+  resolved, a name with two declarations resolved to the newest, the
+  chain to the earlier declaration lost, a failed read not rolled back, a
+  bad reference read as record 0, `mdata` left unmarked, a declaration's
+  value not checked.
+
+**Measured** (2026-11-03, `gforth-fast` of Gforth 1.0, one thread, this
+machine shared with other agents; `tests/support/compact-load.fs`'s
+`compact-measure` under `/usr/bin/time -v`; the ADR 0016 column is its
+prototype's, without declarations or manifest):
+
+| | `Init` | all of Mathlib | ADR 0016 (prototype) |
+| --- | ---: | ---: | --- |
+| Export | 345,690,182 B, SHA-256 `c1b2071a…a59a179` | 6,258,342,501 B, `18448e5d…59c6` | |
+| Load, manifest check and seal (expression table pre-sized) | 16.4 s (2²⁴) | 325.7 s, 5 min 26 s (2²⁸) | 12.1 s; 256 s |
+| The same without the manifest | 11.7 s | not run (the manifest's SHA-256 costs about 97 s on Mathlib, measured above) | |
+| Peak resident memory | 218 MB | 3.41 GB | 0.23 GB; 3.32 GB pre-sized |
+| Input tier in use | 176.4 MB | 2.949 GB | 0.14 GB; 2.94 GB with declarations |
+| Declaration records (blocks included); bytes | 59,953; 1.9 MB | 736,276; 23.6 MB | 729 k × 32 B |
+| Name-to-declaration array | 1.2 MB | 17.0 MB | 17 MB |
+| Export-index maps (freed by `stage-unmap`) | 35.7 MB | 570.7 MB | 0.44 GB |
+| Every named declaration found through the array (newest, then the chain) | 59,349 of 59,349, 1 ms | 729,263 of 729,263, 12 ms | 6.7 ms |
+| The same by its text, component by component through a scratch tier | 59,349, 77 ms | 729,263, 1.06 s | 0.61–0.69 s |
+| Constants resolved, checked against the array | 56,957, none wrong | 1,426,722, none wrong | |
+| Declarations marked (`mdata`) | 0 | 0 | |
+
+Unchecked, the stage loads `Init` in 11.7 s against the library's 11.1 s
+for names, levels and expressions alone
+([FORTH_LIBRARY.md](FORTH_LIBRARY.md#measured)), within the ±20% between
+runs: the declarations, the array, the resolution and the seal cost
+little; the manifest's SHA-256 is the rest. Sealing found no unknown
+constant in Mathlib, and every resolution agrees with the array.
+`Init`'s round trip gives the
+name, level and expression digests of ADR 0016 (`062a404d…`, `a37233ac…`,
+`83d1d3ca…`) and 59,953 declaration lines equal to the reader's
+(`ffb3ba16…`), in 33 s with both dumps; Mathlib's full round trip was not
+run.
 
 ## Evidence
 

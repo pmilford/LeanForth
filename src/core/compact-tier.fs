@@ -29,8 +29,10 @@
 \ tier-mark-valid? tier-rollback tier-reset tier-free tier-allocated
 \ tier-used. tier-init, which needs every family, is in compact.fs.
 \ State: none of its own; every word takes a tier record, which owns its
-\ heap memory until tier-free. A tier must not be a checker-context member
-\ yet: members may not own heap memory (lib/context.fs).
+\ heap memory until tier-free. A scratch tier may be a checker-context
+\ member only with a teardown word that calls tier-free on it
+\ (context-teardown, lib/context.fs), and tier-free frees whatever a
+\ zeroed or partly made tier holds, as a teardown word must.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/portability.fs

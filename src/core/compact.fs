@@ -1,6 +1,8 @@
 \ The compact store for Mathlib-scale input (ADR 0016, accepted
 \ 2026-11-03): loads its families and makes input tiers. Untrusted; not
-\ yet used by the kernel or loaded by src/main.fs (ADR 0016 C9 step 3).
+\ yet used by the kernel (ADR 0016 C9 step 3). The importer stage
+\ (import/stage.fs, loaded by src/main.fs) fills an input tier from a Lean
+\ export.
 \
 \ tier-init makes an empty input tier whose tables start at 2^log2 slots
 \ (they grow by doubling; pre-size them from the export's size to avoid

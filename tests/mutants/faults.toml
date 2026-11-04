@@ -1458,8 +1458,8 @@ new = '''2dup kind-tally 1 swap +! export-handed ;'''
 test = "$GFORTH tests/core/ndjson.fs"
 reason = "records a handler refused are counted in the tally"
 
-# --- the command line (src/cli/leanforth.fs, bin/leanforth) and the staging
-# of exports (src/import/stage.fs), plan tasks 3.4.1-3.4.2 and 3.2.2 v0 ------
+# --- the command line (src/cli/leanforth.fs, bin/leanforth) and the checker's
+# input (src/import/checker-input.fs), plan tasks 3.4.1-3.4.2 and 3.2.2 v0 ---
 
 [[fault]]
 id = "cli-rejected-exits-0"
@@ -1506,48 +1506,56 @@ reason = "a Forth exception inside a command exits 0 instead of 5, an internal f
 [[fault]]
 id = "cli-spent-context-ignored"
 file = "src/cli/leanforth.fs"
-old = '''  ['] lf-check-declaration swap lf-env-step nip lf-env-spent? or ;'''
-new = '''  ['] lf-check-declaration swap lf-env-step nip ;'''
+old = ''': cli-faulted? ( -- flag ) lf-env-spent? run-record rr-run @ ok? 0= or ;'''
+new = ''': cli-faulted? ( -- flag ) run-record rr-run @ ok? 0= ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "a check that threw is reported as invalid input (4), not as an internal fault (5)"
 
 [[fault]]
 id = "cli-manifest-not-checked"
 file = "src/cli/leanforth.fs"
-old = '''  cli-unchecked @ if stage-read else stage-read-checked then ;'''
-new = '''  stage-read ;'''
+old = '''  0 cli-file cli-unchecked @ if cin-read else cin-read-checked then dup rr-read! ;'''
+new = '''  0 cli-file cin-read dup rr-read! ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "check reads exports without their manifests by default"
 
 [[fault]]
-id = "cli-record-not-refused"
+id = "cli-record-failure-ignored"
 file = "src/cli/leanforth.fs"
-old = '''  cli-start cli-record? cli-record-built? 0= and if cli-record-refused exit then'''
-new = '''  cli-start'''
+old = '''  cli-record? 0= if exit then cli-saved dup ok? if drop else cli-record-failed then ;'''
+new = '''  cli-record? 0= if exit then cli-saved drop ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
-reason = "--record without a record module is noticed only after the whole check has run"
+reason = "a run record that could not be written is not reported, and the check exits 0"
 
 [[fault]]
-id = "stage-checked-reads-plain"
-file = "src/import/stage.fs"
-old = ''': stage-checked ( c-addr u -- outcome ) stage-manifest manifest-read ;'''
-new = ''': stage-checked ( c-addr u -- outcome ) stage-export export-read ;'''
+id = "cli-replay-never-compares"
+file = "src/cli/leanforth.fs"
+old = '''  ok? if 1 cli-file rp-replay else rp-rerun-refused then ;'''
+new = '''  drop rp-start outcome-ok ;'''
+test = "python3 tests/cli/test_leanforth.py"
+reason = "replay confirms any record without comparing it with the new run"
+
+[[fault]]
+id = "cin-checked-reads-plain"
+file = "src/import/checker-input.fs"
+old = ''': cin-checked ( c-addr u -- outcome ) cin-manifest manifest-read ;'''
+new = ''': cin-checked ( c-addr u -- outcome ) cin-export export-read ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
-reason = "stage-read-checked never compares the export with its manifest"
+reason = "cin-read-checked never compares the export with its manifest"
 
 [[fault]]
-id = "stage-name-number-wraps"
-file = "src/import/stage.fs"
-old = '''  0 0 2swap >number nip if 2drop false exit then stage-small? dup 0= if nip then ;'''
+id = "cin-name-number-wraps"
+file = "src/import/checker-input.fs"
+old = '''  0 0 2swap >number nip if 2drop false exit then cin-small? dup 0= if nip then ;'''
 new = '''  0 0 2swap >number 2drop drop true ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "a numeric name part beyond a cell wraps into another number, so another name is staged"
 
 [[fault]]
-id = "stage-theorem-without-value"
-file = "src/import/stage.fs"
-old = '''  lf-kind-theorem stage-start stage-value lf-safety-safe stage-safety stage-add ;'''
-new = '''  lf-kind-theorem stage-start lf-safety-safe stage-safety stage-add ;'''
+id = "cin-theorem-without-value"
+file = "src/import/checker-input.fs"
+old = '''  lf-kind-theorem cin-start cin-value lf-safety-safe cin-safety cin-add ;'''
+new = '''  lf-kind-theorem cin-start lf-safety-safe cin-safety cin-add ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "a theorem is staged without its proof; the fixtures are no longer accepted"
 
@@ -1568,6 +1576,278 @@ old = '''  10[0-5]) code=$((status - 100)) ;;'''
 new = '''  10[0-5] | [0-5]) code=$((status % 100)) ;;'''
 test = "python3 tests/cli/test_leanforth.py"
 reason = "Gforth's own exit status (0 after it ends early, 1 after an error) reads as a verdict"
+
+# --- the importer stage (src/import/stage.fs, stage-records.fs) -----------
+
+[[fault]]
+id = "stage-dropped-declaration"
+file = "src/import/stage-records.fs"
+old = '''  over draft-keep swap rot newest! outcome-ok ;'''
+new = '''  2drop outcome-ok ;'''
+test = "$GFORTH tests/core/stage.fs"
+reason = "a dropped constant: a named declaration is checked but never kept, so it cannot be found and the declarations are miscounted"
+quick = true
+
+[[fault]]
+id = "stage-unknown-constant-resolved"
+file = "src/import/stage.fs"
+old = '''  tuck stage-by-name fields@ dup 0= if nip exit then'''
+new = '''  tuck stage-by-name fields@ dup 0= if nip true exit then'''
+test = "python3 tests/core/test_stage.py"
+reason = "an unresolved name taken as resolved: a constant no declaration has passes sealing (payload 0) instead of making it invalid"
+quick = true
+
+[[fault]]
+id = "stage-duplicate-name-resolved"
+file = "src/import/stage.fs"
+old = '''  dup 1- rot staged-prev@ if drop 0 then true ;'''
+new = '''  dup 1- rot staged-prev@ drop true ;'''
+test = "python3 tests/core/test_stage.py"
+reason = "a name with two declarations is resolved to the newest at sealing, which ADR 0012 E5 must decide"
+
+[[fault]]
+id = "stage-rollback-missed"
+file = "src/import/stage.fs"
+old = '''  over ok? if staging-filled swap stage-state ! else stage-rollback drop then ;'''
+new = '''  over ok? if staging-filled swap stage-state ! else drop then ;'''
+test = "$GFORTH tests/core/stage.fs"
+reason = "a missed rollback: the records of a failed read stay in the stage, so a later load is not that of a fresh stage"
+quick = true
+
+[[fault]]
+id = "stage-chain-lost"
+file = "src/import/stage-records.fs"
+old = '''  tuck stage-by-name fields@ swap draft staged-prev u32! outcome-ok ;'''
+new = '''  nip 0 swap draft staged-prev u32! outcome-ok ;'''
+test = "python3 tests/core/test_stage.py"
+reason = "a declaration does not record the earlier one of its name: the older is lost from the chain and the name looks resolved"
+
+[[fault]]
+id = "stage-bad-reference-kept"
+file = "src/import/stage-records.fs"
+old = ''': map> ( i map -- n ) 2dup slab-count u< if fields@ else 2drop staged-none then ;'''
+new = ''': map> ( i map -- n ) 2dup slab-count u< if fields@ else 2drop 0 then ;'''
+test = "$GFORTH tests/core/stage.fs"
+reason = "an export index no map holds reads as record 0, so a bad reference is staged instead of refused"
+
+[[fault]]
+id = "stage-mdata-unmarked"
+file = "src/import/stage.fs"
+old = '''  dup reach-fill dup decls-mark reach-free outcome-ok ;'''
+new = '''  dup reach-fill reach-free outcome-ok ;'''
+test = "$GFORTH tests/core/stage.fs"
+reason = "a declaration holding an mdata expression is not marked, so the checker could read it as the term exported"
+
+[[fault]]
+id = "stage-value-unchecked"
+file = "src/import/stage-records.fs"
+old = '''  dup draft staged-value u32@ over dup draft-kind valued? ['] expr-ok? either-ok? nip ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/core/stage.fs"
+reason = "a declaration's value is not checked when it is kept, so a theorem whose value is no expression is staged"
+
+# --- the release hook of checker contexts (src/lib/context.fs) ------------
+
+[[fault]]
+id = "context-teardown-skipped"
+file = "src/lib/context.fs"
+old = '''  dup context-torn swap context-discard ior-earlier ;'''
+new = '''  0 swap context-discard ior-earlier ;'''
+test = "$GFORTH tests/lib/context.fs"
+reason = "context-free runs no teardown word, so a member's heap blocks leak"
+quick = true
+
+[[fault]]
+id = "context-new-failure-leaks"
+file = "src/lib/context.fs"
+old = '''  dup context-fill dup if swap dup context-torn drop context-discard drop 0 swap then ;'''
+new = '''  dup context-fill dup if swap context-discard drop 0 swap then ;'''
+test = "$GFORTH tests/lib/context.fs"
+reason = "a context-new whose setup word fails gives back its block but not the heap blocks earlier setup words made"
+
+[[fault]]
+id = "context-teardown-stops"
+file = "src/lib/context.fs"
+old = '''    dup >r teardown-xt @ teardown-call ior-earlier r> teardown-link @'''
+new = '''    dup >r teardown-xt @ execute r> teardown-link @'''
+test = "$GFORTH tests/lib/context.fs"
+reason = "a teardown word that throws stops context-free, which then frees neither the others' blocks nor the context"
+
+# --- run records and replay (src/import/run-record.fs, run-replay.fs) -------
+
+[[fault]]
+id = "rr-verdict-from-step"
+file = "src/import/run-record.fs"
+old = '''  lf-slot-outcome@ rr-agrees dup ok? if drop rr-accepted-out else rr-failed-out then ;'''
+new = '''  drop dup rr-step-of kept-outcome @ rr-agrees dup ok? if drop rr-accepted-out else rr-failed-out then ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "the verdict is the step's outcome, not the slot's: a slot that differs is not noticed"
+quick = true
+
+[[fault]]
+id = "rr-no-agreement"
+file = "src/import/run-record.fs"
+old = '''  2dup swap rr-step-of kept-outcome @ <> if outcome-invalid rr-fail then ;'''
+new = '''  ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "a final slot whose outcome is not the one its step published is written anyway"
+
+[[fault]]
+id = "rr-accepts-any-slot"
+file = "src/import/run-record.fs"
+old = '''  lf-slot-outcome@ rr-agrees dup ok? if'''
+new = '''  lf-slot-outcome@ rr-agrees true if'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "every final slot is written as accepted: the record claims more than the checker established"
+quick = true
+
+[[fault]]
+id = "rr-axioms-unread"
+file = "src/import/run-record.fs"
+old = '''  lf-env-axioms ok? 0= or if outcome-invalid rr-fail then'''
+new = '''  drop'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "an accepted slot's axiom set is not read, so a nonempty one is written as axioms: []"
+
+[[fault]]
+id = "rr-no-label"
+file = "src/import/run-record.fs"
+old = '''  s" label" rr-key rr-label rr-string rr-axioms-out ;'''
+new = '''  rr-axioms-out ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "an accepted declaration is written without its label experimental, not independently audited"
+
+[[fault]]
+id = "rr-unfinished-unchecked"
+file = "src/import/run-record.fs"
+old = '''  dup rr-began? if outcome-invalid rr-failed-out else rr-unchecked-out then ;'''
+new = '''  rr-unchecked-out ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "a declaration whose publication threw is written not-checked, without its fault"
+
+[[fault]]
+id = "rr-finish-unchecked"
+file = "src/import/run-record.fs"
+old = '''  run-record rr-after rr-hash dup ok? if drop rr-same-input? flag>outcome then ;'''
+new = '''  run-record rr-after rr-hash ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "an input that changed during the run is not noticed; the record would describe another file"
+
+[[fault]]
+id = "rr-hash-whole-blocks"
+file = "src/import/run-record.fs"
+old = '''  dup if run-record rr-block over r@ rr-take then r> drop ;'''
+new = '''  dup rr-block-room = if run-record rr-block over r@ rr-take then r> drop ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "the last, partial block of the file is neither hashed nor counted"
+
+[[fault]]
+id = "rr-open-line-uncounted"
+file = "src/import/run-record.fs"
+old = '''  dup facts-open @ if 1 over facts-lines rr-d+! then'''
+new = ''''''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "a last line without a line feed is not counted"
+
+[[fault]]
+id = "rr-manifest-always-ok"
+file = "src/import/run-record.fs"
+old = '''  dup run-record rr-manifest-outcome ! ok? if exit then'''
+new = '''  drop outcome-ok run-record rr-manifest-outcome ! exit'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "a missing or different manifest is recorded as ok"
+quick = true
+
+[[fault]]
+id = "rr-metadata-unread"
+file = "src/import/run-record.fs"
+old = '''  ['] rr-on-meta kind-meta rot export-handler ! ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "the export's metadata is never read: the Lean and exporter versions are null"
+
+[[fault]]
+id = "rr-commit-unchecked"
+file = "src/import/run-record.fs"
+old = '''  >r 2dup 40 hex-text? 0= if 2drop r> drop outcome-invalid exit then'''
+new = '''  >r'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "a commit that is not 40 lowercase hexadecimal digits is recorded"
+
+[[fault]]
+id = "rp-no-overclaim"
+file = "src/import/run-replay.fs"
+old = '''  rp-old rp-accepted? swap rp-new rp-accepted? 0= and ;'''
+new = '''  2drop false ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "an old record claiming accepted where the run did not accept is only verdict-differs"
+quick = true
+
+[[fault]]
+id = "rp-missing-ignored"
+file = "src/import/run-replay.fs"
+old = '''  rp-in-old 0= if drop rp-missing-field swap rp-new-found exit then'''
+new = '''  rp-in-old 0= if 2drop exit then'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "a field missing from the old record is not reported"
+
+[[fault]]
+id = "rp-duplicates-ignored"
+file = "src/import/run-replay.fs"
+old = '''  rp-twice? if 2drop rp-duplicate-key swap rp-new-found else nip rp-into then ;'''
+new = '''  nip rp-into ;'''
+test = "python3 tests/core/test_run_records.py"
+reason = "a key the old record repeats is compared by its first value, not refused"
+
+[[fault]]
+id = "rp-unknown-ignored"
+file = "src/import/run-replay.fs"
+old = '''  over swap rp-unknown? if rp-unknown-field swap rp-old-found else drop then ;'''
+new = '''  2drop ;'''
+test = "python3 tests/core/test_run_records.py"
+reason = "a field the new record lacks is not reported"
+
+[[fault]]
+id = "rp-scalars-equal"
+file = "src/import/run-replay.fs"
+old = ''': rp-scalar ( n o -- ) rp-texts compare if rp-differs then ;'''
+new = ''': rp-scalar ( n o -- ) 2drop ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "no string or number is ever found different: a changed hash or setting is confirmed"
+quick = true
+
+[[fault]]
+id = "rp-host-as-setting"
+file = "src/import/run-replay.fs"
+old = '''rp-tool-differs s" host" rp-entry,'''
+new = '''rp-settings-differ s" host" rp-entry,'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "a different host Forth is named a setting, not a tool"
+
+[[fault]]
+id = "rp-findings-ok"
+file = "src/import/run-replay.fs"
+old = '''  run-replay rp-total @ if outcome-rejected else outcome-ok then ;'''
+new = '''  outcome-ok ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "a replay with findings answers ok"
+
+[[fault]]
+id = "rp-report-confirms"
+file = "src/import/run-replay.fs"
+old = ''': rp-result ( -- c-addr u ) run-replay rp-total @ if s" refused" else s" confirmed" then ;'''
+new = ''': rp-result ( -- c-addr u ) s" confirmed" ;'''
+test = "python3 tests/core/test_run_records.py"
+reason = "the report says confirmed whatever was found"
+quick = true
+
+[[fault]]
+id = "rp-any-format"
+file = "src/import/run-replay.fs"
+old = '''  rr-schema s" schema" rp-member= rr-version s" schemaVersion" rp-member= and ;'''
+new = '''  true ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "a text that names another format or version is compared instead of refused"
 
 # --- the runner itself (scripts/mutants.py) --------------------------------
 

@@ -5,7 +5,7 @@
 \ given a handle or printed as accepted.
 \
 \ Cases: the five pinned fixtures (tests/reference/*.ndjson, read with the
-\ staging module src/import/stage.fs), all accepted, and
+\ checker-input module src/import/checker-input.fs), all accepted, and
 \ cases in the first-checker driver's prefix text (tests/support/
 \ first-checker-driver.fs, the rows of tests/core/check-declaration.fs)
 \ that end rejected, unknown, unsupported, invalid or full where Lean's
@@ -55,7 +55,7 @@
 include ../support/tester.fs
 include ../support/checks.fs
 require ../support/alloc-fail.fs
-require ../../src/import/stage.fs
+require ../../src/import/checker-input.fs
 require ../support/first-checker-driver.fs
 decimal
 
@@ -91,7 +91,7 @@ create reached steps# cells allot  reached steps# cells erase
 \ and ends loading.
 variable fp-loader
 : fp-load ( -- ) fp-loader @ execute ;
-: ndjson ( c-addr u -- ) stage-read ok? s" not read" fp-must ;
+: ndjson ( c-addr u -- ) cin-read ok? s" not read" fp-must ;
 
 \ ---------------------------------------------------------------------------
 \ The baseline: per slot its outcome, its dependencies (a bit set of

@@ -27,15 +27,19 @@
 
 Run with GFORTH set to the Forth binary (the Makefile does this).
 """
+import json
 import os
 from pathlib import Path
 import re
 import stat
 import subprocess
+import sys
 import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "tests" / "support"))
+from schema_subset import Validator  # noqa: E402
 TOOL = ROOT / "bin" / "leanforth"
 _gforth = os.environ.get("GFORTH", "gforth")
 GFORTH = str(Path(_gforth).resolve()) if os.sep in _gforth else _gforth
@@ -103,7 +107,7 @@ class ExitCodes(unittest.TestCase):
         self.expect(["check", "tests/cli/chain.ndjson"], 3,
                     ["error: full: too many expression nodes or constant references for the "
                      "check's stores (line 97)", *LIMITS])
-        self.expect(["check", "--no-manifest", f"{CASES}/composition-huge-number.ndjson"], 3,
+        self.expect(["check", "--no-manifest", "tests/cli/composition-huge-number.ndjson"], 3,
                     [NO_MANIFEST, "error: full: a numeric name part larger than the check "
                      "holds (line 12)", *LIMITS])
         exhausted = ["  fuel exhausted; diagnostic 1 at check-declaration "
@@ -161,9 +165,15 @@ class ExitCodes(unittest.TestCase):
             self.expect(["reexport", COMPOSITION, f"{folder}/missing/copy.ndjson"], 4,
                         ["error: cannot create the copy"])
 
-    def test_4_record_refused(self):
-        self.expect(["check", "--record", "run.record", COMPOSITION], 2,
-                    ["error: --record: the replay record (plan task 2.2.5) is not built yet"])
+    def test_4_record_over_export(self):
+        self.expect(["check", "--record", COMPOSITION, COMPOSITION], 4,
+                    ["error: RECORD must not be EXPORT"])
+        self.expect(["check", "--record", "tests/../" + COMPOSITION, COMPOSITION], 4,
+                    ["error: RECORD must not be EXPORT"])
+        with tempfile.TemporaryDirectory() as folder:
+            self.expect(["check", "--record", f"{folder}/missing/run.json", COMPOSITION], 4,
+                        [f"composition: {LABEL}", "1 declaration: 1 accepted",
+                         "error: the run record was not written: invalid"])
 
     def test_5_broken_gforth(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -197,6 +207,61 @@ class ExitCodes(unittest.TestCase):
                 stub.chmod(stub.stat().st_mode | stat.S_IXUSR)
                 status, out, err = run("check", COMPOSITION, gforth=str(stub))
                 self.assertEqual((status, out.splitlines(), err), (5, lines, ""), k)
+
+
+def git_source():
+    """The commit and modified flag bin/leanforth records, or (None, None)."""
+    head = subprocess.run(["git", "-C", str(ROOT), "rev-parse", "HEAD"], capture_output=True,
+                          text=True)
+    if head.returncode != 0:
+        return None, None
+    same = subprocess.run(["git", "-C", str(ROOT), "diff", "--quiet", "HEAD"]).returncode == 0
+    return head.stdout.strip(), not same
+
+
+class RunRecords(unittest.TestCase):
+    """check --record writes the run record of tests/support/run-records.fs's
+    run (src/import/run-record.fs), with the manifest checked and the commit
+    named; replay checks again and confirms it, or refuses a changed one."""
+
+    def record(self, folder, export, *options):
+        path = Path(folder) / "run.json"
+        status, out, err = run("check", *options, "--record", str(path), export)
+        return status, out, json.loads(path.read_text())
+
+    def test_record_as_the_driver(self):
+        schema = Validator(json.loads((ROOT / "schemas/run-record-0.1.schema.json").read_text()))
+        commit, modified = git_source()
+        for name in ["composition", "constant-fixture", "identity"]:
+            with tempfile.TemporaryDirectory() as folder:
+                status, out, got = self.record(folder, f"tests/reference/{name}.ndjson")
+            self.assertEqual(status, 0, out)
+            self.assertEqual(schema.errors(got), [], name)
+            self.assertEqual(got["leanforth"], {"commit": commit, "modified": modified})
+            golden = json.loads((ROOT / f"tests/core/run-records/{name}.json").read_text())
+            for section in ["input", "export", "settings", "check", "declarations"]:
+                self.assertEqual(got[section], golden[section], f"{name} {section}")
+
+    def test_replay(self):
+        with tempfile.TemporaryDirectory() as folder:
+            wrong = f"{CASES}/composition-wrong-argument.ndjson"
+            status, _, record = self.record(folder, wrong, "--no-manifest")
+            self.assertEqual((status, record["declarations"][0]["verdict"]), (1, "rejected"))
+            path = str(Path(folder) / "run.json")
+            confirmed = '{"schema":"leanforth-replay-report","schemaVersion":"0.1",' \
+                        '"result":"confirmed","findings":[],"findingsTotal":0}\n'
+            self.assertEqual(run("replay", "--no-manifest", wrong, path), (0, confirmed, ""))
+            record["declarations"][0]["verdict"] = "accepted"
+            Path(path).write_text(json.dumps(record))
+            status, out, _ = run("replay", "--no-manifest", wrong, path)
+            report = json.loads(out)
+            self.assertEqual((status, report["result"], report["findings"][0]["code"]),
+                             (1, "refused", "accepted-not-established"))
+            status, out, _ = run("replay", wrong, path)     # read without the manifest before
+            self.assertEqual((status, json.loads(out)["result"]), (1, "refused"))
+            status, out, _ = run("replay", COMPOSITION, str(Path(folder) / "missing.json"))
+            self.assertEqual((status, json.loads(out)["findings"][0]["code"]), (4, "unreadable"))
+            self.assertEqual(run("replay", COMPOSITION)[0], 4)
 
 
 class Behaviour(unittest.TestCase):

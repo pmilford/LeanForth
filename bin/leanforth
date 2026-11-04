@@ -16,7 +16,8 @@
 # command line, 5 an internal fault. The Forth entry point leaves with 100
 # plus that code; any other status from Gforth (its own failure, a crash,
 # a signal) is an internal fault here, never a verdict.
-# For version, the checkout's git commit is added when git can tell it.
+# For version and the run record, the checkout's git commit is given when
+# git can tell it (LEANFORTH_COMMIT, LEANFORTH_MODIFIED).
 set -u
 
 self=$0
@@ -41,18 +42,41 @@ if [ -z "${GFORTH:-}" ]; then
   fi
 fi
 
-# reexport writes COPY: refuse one file named twice before anything is
-# created (the Forth side compares the names only as text).
-if [ "${1:-}" = reexport ]; then
-  files=()
+# reexport writes COPY and check --record writes RECORD: refuse one that
+# names the export under another name before anything is written (the
+# Forth side compares the names only as text).
+if [ "${1:-}" = reexport ] || [ "${1:-}" = check ]; then
+  files=() target= previous=
   for argument in "${@:2}"; do
-    case $argument in -*) ;; *) files+=("$argument") ;; esac
+    case $previous in
+      --record) target=$argument ;;
+      --fuel) ;;
+      *) case $argument in -*) ;; *) files+=("$argument") ;; esac ;;
+    esac
+    previous=$argument
   done
-  if [ "${#files[@]}" -eq 2 ] && [ -e "${files[1]}" ] && [ "${files[0]}" -ef "${files[1]}" ]; then
-    printf 'error: COPY must not be EXPORT\n'
+  what=RECORD
+  if [ "$1" = reexport ] && [ "${#files[@]}" -eq 2 ]; then target=${files[1]} what=COPY; fi
+  if [ -n "$target" ] && [ "${#files[@]}" -ge 1 ] && [ -e "$target" ] &&
+    [ "${files[0]}" -ef "$target" ]; then
+    printf 'error: %s must not be EXPORT\n' "$what"
     exit 4
   fi
 fi
+
+# The checkout's git commit, and whether tracked files differ from it, for
+# version and for the run record (check --record, replay); none outside a
+# git checkout.
+commit= modified=false
+case ${1:-} in
+  check | replay | version | --version)
+    commit=$(git -C "$root" rev-parse HEAD 2>/dev/null) || commit=
+    if [ -n "$commit" ] && ! git -C "$root" diff --quiet HEAD 2>/dev/null; then
+      modified=true
+    fi
+    ;;
+esac
+export LEANFORTH_COMMIT=$commit LEANFORTH_MODIFIED=$modified
 
 "$GFORTH" "$root/src/main.fs" -e cli-main "$@" </dev/null
 status=$?
@@ -65,10 +89,9 @@ case $status in
 esac
 
 if [ "$code" -eq 0 ] && { [ "${1:-}" = version ] || [ "${1:-}" = --version ]; }; then
-  commit=$(git -C "$root" rev-parse HEAD 2>/dev/null) || commit=
   if [ -z "$commit" ]; then
     printf 'commit: unknown (not a git checkout)\n'
-  elif [ -n "$(git -C "$root" status --porcelain --untracked-files=no 2>/dev/null)" ]; then
+  elif $modified; then
     printf 'commit: %s (with local changes)\n' "$commit"
   else
     printf 'commit: %s\n' "$commit"

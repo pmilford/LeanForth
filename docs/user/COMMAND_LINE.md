@@ -78,7 +78,8 @@ theorem composition {A B C : Prop} (f : A → B) (g : B → C) : A → C :=
 
 | Command | What it does |
 | --- | --- |
-| `check [--no-manifest] [--fuel N] [--record FILE] EXPORT` | Check every declaration of a Lean export, in file order |
+| `check [--no-manifest] [--fuel N] [--record RECORD] EXPORT` | Check every declaration of a Lean export, in file order; with `--record`, also write the [run record](#run-records-and-replay) |
+| `replay [--no-manifest] [--fuel N] EXPORT RECORD` | Check the export again and compare the new run record with RECORD; print the replay report |
 | `count [--no-manifest] EXPORT` | Count the export's records by kind ([the reader's counter](../development/NDJSON_READER.md#using-it)), for exports of any size |
 | `reexport [--no-manifest] EXPORT COPY` | Write the export again into COPY, byte for byte as Lean's exporter writes it ([re-export](../development/NDJSON_READER.md#re-export)); after an error COPY is incomplete and must be discarded |
 | `version` (or `--version`) | Versions of LeanForth, its Forth host, the export format it reads, and the git commit |
@@ -92,9 +93,9 @@ Options:
   first line.
 - `--fuel N` gives each declaration's check N steps (default 100,000). A
   check that runs out ends *exhausted*.
-- `--record FILE` is reserved for the replay record of a run (plan task
-  2.2.5, being built): until it exists, `check` refuses it before reading
-  anything, with exit status 2.
+- `--record RECORD` writes the run record of the check to RECORD
+  ([run records and replay](#run-records-and-replay)); RECORD must not be
+  the export.
 
 `EXPORT` and `COPY` are file names relative to the current folder; the
 tool works from any folder, and gives the same bytes on every run:
@@ -167,7 +168,7 @@ theorem impliesSelf {A : Prop} : Implies A A := fun a => a
 | --- | --- | --- |
 | 0 | Every declaration accepted (or, for the other commands, done) | every verdict *ok* |
 | 1 | Something rejected: Lean's kernel rejects it too | *rejected* |
-| 2 | Unsupported or unknown: LeanForth cannot decide it yet | *unsupported*, *unknown*; also `--record` |
+| 2 | Unsupported or unknown: LeanForth cannot decide it yet | *unsupported*, *unknown* |
 | 3 | A resource limit: out of fuel or out of room | *exhausted*, *full* |
 | 4 | Malformed input: a broken export, a missing or wrong manifest, a file that cannot be opened or created, or a malformed command line | *invalid* |
 | 5 | An internal fault: a Forth exception, a check that threw, a failed publication, or Gforth ending in an unexpected way | — |
@@ -242,6 +243,7 @@ supported:
   check: definitions and theorems built from Sort, variables, application, fun,
     forall and earlier accepted declarations (the first checker, ADR 0011);
     an accepted one is labelled experimental, not independently audited
+  check --record, replay: run records 0.1 and their replay (plan task 2.2.5)
   count, reexport: exports of any size, up to all of Mathlib
 unsupported (check answers unsupported, exit 2):
   axioms, opaque declarations, unsafe and partial definitions;
@@ -251,9 +253,10 @@ unsupported (check answers unsupported, exit 2):
 limits (check answers full, exit 3; small exports only):
   64 names (2048 bytes), 64 levels, 64 term nodes, 32 declarations per export
   8 universe parameters per declaration, 8 universe arguments per constant
-  16 dependencies per declaration; fuel 100000 steps per declaration (--fuel N)
+  16 dependencies per declaration, 64 per export
+  fuel 100000 steps per declaration (--fuel N)
 planned, not built: print, program, serve, --json receipts,
-  --record (the replay record, plan task 2.2.5), larger stores (3.3.1)
+  larger stores (plan task 3.3.1)
 ```
 
 An export that uses something unsupported while being read, such as an
@@ -284,6 +287,41 @@ note: the export is checked against EXPORT.manifest.json, which scripts/export.s
 note: --no-manifest skips that check
 exit status 4
 ```
+
+## Run records and replay
+
+`check --record RECORD` also writes the *run record* of the check
+([run records](../programming/RUN_RECORDS.md), format 0.1, plan task
+2.2.5): which file was checked (its SHA-256, size, lines and whether its
+manifest matched), which Lean and exporter wrote it, which LeanForth
+commit and Forth system checked it (the commit `bin/leanforth` finds with
+git, or null), with which fuel and limits, and each declaration's verdict,
+read from its published slot. The printed verdicts and the exit status are
+those of `check` alone; a record that cannot be written is reported and
+the status is then at least 4. `replay EXPORT RECORD` checks the export
+again in the same way and compares the new record with RECORD, field by
+field; its output is the replay report, one JSON line:
+
+```console
+$ bin/leanforth check --no-manifest --record /dev/null tests/core/check-declaration-cases/composition-wrong-argument.ndjson; echo "exit status $?"
+note: the export's manifest is not checked (--no-manifest)
+composition: rejected
+  rejected: argument type mismatch (D1-D5); diagnostic 59 at mixed-infer lf-mixed-infer: 4 0
+1 declaration: 1 rejected
+exit status 1
+$ bin/leanforth replay tests/reference/composition.ndjson tests/cli/no-such-record.json; echo "exit status $?"
+{"schema":"leanforth-replay-report","schemaVersion":"0.1","result":"refused","findings":[{"code":"unreadable","path":"$"}],"findingsTotal":1}
+exit status 4
+```
+
+Replay exits 0 when the record is confirmed (`"result":"confirmed"`), 1
+when anything differs (each difference a finding with its code and JSON
+path, such as `accepted-not-established` for a record that claims
+*accepted* where the new run did not accept), and 4 when the record cannot
+be compared or the export cannot be checked again. A record names the
+commit, so after a new commit replay finds `tool-differs`. Give replay the
+same `--fuel` and `--no-manifest` as the check; `make run-record` writes
+records without the manifest check, so replay those with `--no-manifest`.
 
 ## What a verdict does and does not tell you
 
@@ -321,7 +359,7 @@ reads: lean4export 3.1.0, format 3.1.0, Lean 4.35.0 (eb6cafb7290e8bd5f2937522d8d
 
 `print` (the checked statement and its proof, readable), `program` (a
 program receipt), `serve` (the JSON-RPC interface for AI tools, plan
-section 3.5), `--json` receipts (task 3.4.3), `--record` (task 2.2.5) and
+section 3.5), `--json` receipts (task 3.4.3) and
 larger stores (task 3.3.1).
 
 ## Tests

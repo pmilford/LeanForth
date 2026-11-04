@@ -1,12 +1,18 @@
 \ The command line (plan tasks 3.4.1-3.4.2, v0): the Forth entry point that
 \ bin/leanforth runs as `gforth src/main.fs -e cli-main COMMAND ...`.
 \ Commands, documented in docs/user/COMMAND_LINE.md:
-\   check [--no-manifest] [--fuel N] [--record FILE] EXPORT
-\       stage the Lean export (import/stage.fs; its manifest checked unless
-\       --no-manifest says not to), check every declaration in file order
-\       with check-declaration through the checked environment's publisher,
-\       and print one line per declaration with its verdict, read from its
-\       published slot; then a summary;
+\   check [--no-manifest] [--fuel N] [--record RECORD] EXPORT
+\       read the Lean export into the checker's input
+\       (import/checker-input.fs; its manifest checked unless --no-manifest
+\       says not to), check every declaration in file order with
+\       check-declaration through the checked environment's publisher
+\       (import/run-record.fs's run, rr-check), and print one line per
+\       declaration with its verdict, read from its published slot; then a
+\       summary; with --record, also write the run record (plan 2.2.5);
+\   replay [--no-manifest] [--fuel N] EXPORT RECORD
+\       check the export again and compare the new run record with RECORD
+\       (import/run-replay.fs): the replay report, exit 0 confirmed, 1
+\       refused (a difference), 4 when it cannot be compared;
 \   count [--no-manifest] EXPORT          the record counts (ndjson-count.fs);
 \   reexport [--no-manifest] EXPORT COPY  the byte-exact copy (ndjson-emit.fs);
 \   version, capabilities, help (also --version, --help and -h).
@@ -33,24 +39,27 @@
 \
 \ The Forth interface, for a Forth session or a test, each ( -- code )
 \ after its arguments, printing what the command prints: cli-check
-\ ( c-addr u ), cli-count ( c-addr u ), cli-reexport ( in-addr in-u
-\ out-addr out-u ), cli-version, cli-capabilities, cli-help. They use the
-\ options in force: cli-options restores the defaults (manifest checked,
-\ fuel cli-default-fuel, no record), cli-no-manifest and cli-fuel! change
-\ them. A THROW inside a command is caught and reported: code 5.
-\ cli-record-run is the hook of the replay record (plan task 2.2.5), not
-\ built yet: until a module sets it, --record is refused as unsupported
-\ before anything is read.
+\ ( c-addr u ), cli-replay ( export-addr export-u record-addr record-u ),
+\ cli-count ( c-addr u ), cli-reexport ( in-addr in-u out-addr out-u ),
+\ cli-version, cli-capabilities, cli-help. They use the options in force:
+\ cli-options restores the defaults (manifest checked, fuel
+\ cli-default-fuel, no record), cli-no-manifest, cli-fuel! and
+\ cli-record! change them. A THROW inside a command is caught and
+\ reported: code 5.
 \
 \ Host words: next-arg (Gforth 0.7.3 and 1.0) reads the command line,
 \ where a host without it reads none; (bye) leaves with a status, where a
 \ host without it ends with an uncaught THROW, which the wrapper reports
-\ as an internal fault; version-string names the host when it exists.
+\ as an internal fault; version-string names the host when it exists;
+\ getenv reads the commit bin/leanforth found for the run record
+\ (LEANFORTH_COMMIT, LEANFORTH_MODIFIED), where a host without it records
+\ none.
 \ State: one record in the checker context, cli-state (the options, the
 \ command line's file names and first mistake, the exit code so far and
 \ the declarations counted by verdict), set up with the defaults in every
 \ context; and one manifest record, cli-manifest, for re-exports, shared
-\ because it owns heap buffers. One command runs at a time.
+\ because it owns heap buffers. The run itself is in run-record.fs's
+\ shared record. One command runs at a time.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
@@ -62,7 +71,9 @@ require ../kernel/env-publish.fs
 require ../kernel/check-declaration.fs
 require ../import/ndjson.fs
 require ../import/manifest.fs
-require ../import/stage.fs
+require ../import/checker-input.fs
+require ../import/run-record.fs
+require ../import/run-replay.fs
 require ../import/ndjson-count.fs
 require ../import/ndjson-emit.fs
 require ../present/print-names.fs
@@ -94,7 +105,7 @@ create cli-severity  0 , 3 , 1 , 2 , 4 , 5 ,
 begin-structure /cli-run
   field: opt-unchecked          \ true: manifests are not checked (--no-manifest)
   field: opt-fuel               \ fuel each declaration's check starts with (--fuel)
-  2 cells +field opt-record     \ the replay record's file name (--record), or 0 0
+  2 cells +field opt-record     \ the run record's file name (--record), or 0 0
   4 cells +field arg-files      \ the file names given, in order (two c-addr u)
   field: arg-count              \ how many were given
   field: arg-set                \ the options the command takes, as bits
@@ -119,6 +130,10 @@ manifest: cli-manifest
 ' cli-options context-setup
 : cli-no-manifest ( -- ) true cli-unchecked ! ;
 : cli-fuel! ( n -- ) cli-fuel ! ;
+\ Write the run record of every later check to the file named c-addr u,
+\ which must stay unchanged meanwhile.
+: cli-record! ( c-addr u -- ) cli-record 2! ;
+: cli-record? ( -- flag ) cli-record @ 0<> ;
 \ A command's start: nothing counted, nothing failed.
 : cli-start ( -- ) exit-accepted cli-worst ! 0 cli-count-of not-checked 1+ cells erase ;
 : cli-code! ( code -- ) cli-worst @ worse-code cli-worst ! ;
@@ -130,31 +145,35 @@ manifest: cli-manifest
 : cli-note ( c-addr -- ) ." note: " count type cr ;
 
 \ ---------------------------------------------------------------------------
-\ check. Each declaration is checked with lf-env-step, as lf-env-run does
-\ without a maker, so that its verdict and diagnostic can be printed
-\ between the steps; a THROW in a check (the context spent) or a fault of
-\ the publisher stops the run, as there, and is an internal fault.
-: cli-name. ( i -- ) lf-input-name ['] type lf-pp-name-to ;
-\ The diagnostic of the declaration just checked, when it has one.
-: cli-why. ( -- )
-  lf-diag-clear? if exit then lf-diag@ ."   " dup lf-diag-name type ." ; diagnostic "
-  .decimal ."  at " lf-diag-site. ." : " swap .decimal space .decimal cr ;
+\ check. The run is run-record.fs's, rr-check: every declaration in input
+\ order, each with lf-env-step and its diagnostic kept, stopping after a
+\ THROW in a check (the context spent) or a fault of the publisher, which
+\ is an internal fault. The verdicts are printed after the run, each from
+\ its published slot, with the diagnostic its check left.
+64 constant cli-pool   \ dependencies the run's environment holds, as make run-record's
+: cli-name. ( d -- ) lf-input-name ['] type lf-pp-name-to ;
+\ The diagnostic declaration d's check left, when it left one.
+: cli-at. ( step -- )
+  ."  at " dup kept-site @ lf-diag-site. ." : " dup kept-first @ .decimal space
+  kept-second @ .decimal ;
+: cli-why. ( d -- )
+  rr-step-of dup kept-code @ dup lf-diag-none = if 2drop exit then
+  ."   " dup lf-diag-name type ." ; diagnostic " .decimal cli-at. cr ;
 : cli-tally ( outcome -- ) dup outcome>code cli-code! cli-count-of 1 swap +! ;
-\ Declaration i's line: its name and the verdict its slot holds.
-: cli-verdict ( i -- )
+\ Declaration d's line: its name and the verdict its slot holds.
+: cli-verdict ( d -- )
   dup cli-name. ." : " dup lf-check-verdict. cr
-  lf-env-outcome dup cli-tally ok? 0= if cli-why. then ;
-: cli-report ( i -- )
-  lf-env-view ok? if cli-verdict else drop c" no view of the environment" cli-fault then ;
-: cli-step ( i -- fault? )
-  ['] lf-check-declaration swap lf-env-step nip lf-env-spent? or ;
-: cli-skipped ( i -- ) cli-name. ." : not checked" cr 1 not-checked cli-count-of +! ;
-: cli-stopped ( i -- )
+  dup lf-env-outcome dup cli-tally ok? if drop else cli-why. then ;
+: cli-skipped ( d -- ) cli-name. ." : not checked" cr 1 not-checked cli-count-of +! ;
+\ The declarations whose check began; whether the run stopped on a fault:
+\ a THROW spends the context, a publisher's fault leaves a slot open.
+: cli-stepped ( -- n ) run-record rr-stepped @ ;
+: cli-faulted? ( -- flag ) lf-env-spent? run-record rr-run @ ok? 0= or ;
+: cli-stopped ( -- )
   c" the run stopped: a check threw, or publishing failed" cli-fault
-  lf-input-count swap 1+ ?do i cli-skipped loop ;
-: cli-declaration ( i -- fault? ) dup cli-step swap cli-report ;
-: cli-declarations ( -- )
-  lf-input-count 0 ?do i cli-declaration if i cli-stopped unloop exit then loop ;
+  lf-input-count cli-stepped ?do i cli-skipped loop ;
+: cli-verdicts ( -- )
+  cli-stepped 0 ?do i cli-verdict loop cli-faulted? if cli-stopped then ;
 
 \ The summary: "N declarations: a accepted, r rejected, ...", in this order.
 create cli-order
@@ -170,24 +189,6 @@ create cli-order
   lf-input-count dup .decimal ."  declaration" 1 <> if ." s" then ." : "
   true not-checked 1+ 0 do i cells cli-order + @ cli-item loop drop cr ;
 
-\ The replay record's hook (plan task 2.2.5): write the record of the run
-\ that just ended to file c-addr u, reading the declarations and their
-\ slots from the environment's view, which is still current; an outcome.
-defer cli-record-run ( c-addr u -- outcome )
-: cli-no-record ( c-addr u -- outcome ) 2drop outcome-unsupported ;
-' cli-no-record is cli-record-run
-: cli-record? ( -- flag ) cli-record @ 0<> ;
-: cli-record-built? ( -- flag ) ['] cli-record-run defer@ ['] cli-no-record <> ;
-: cli-record-refused ( -- code )
-  ." error: --record: the replay record (plan task 2.2.5) is not built yet" cr
-  exit-undecided ;
-: cli-record-failed ( outcome -- )
-  ." error: the replay record was not written: " dup outcome-text type cr outcome>code
-  cli-code! ;
-: cli-recorded ( -- )
-  cli-record? 0= if exit then
-  cli-record 2@ cli-record-run dup ok? if drop else cli-record-failed then ;
-
 \ Notes after a run: the limits behind full, the fuel behind exhausted.
 : cli-limits ( -- )
   ." note: today's check holds at most " lf-name-capacity .decimal ."  names, "
@@ -202,40 +203,35 @@ defer cli-record-run ( c-addr u -- outcome )
   outcome-full cli-count-of @ if cli-limits then
   outcome-exhausted cli-count-of @ if cli-fuel-note then ;
 
-\ The run, in a new environment with room for every dependency the input
-\ can have.
-: cli-room ( -- deps ) lf-input-capacity lf-env-dep-capacity * ;
-: cli-in ( env -- )
-  dup lf-env-use ok? if cli-declarations cli-summary cli-recorded cli-notes
-  else c" the environment could not be used" cli-fault then
-  lf-env-free ok? 0= if c" the environment could not be freed" cli-fault then ;
+\ After the run: the verdicts, the summary and the notes; or why there was
+\ no run, when no environment could be made or used.
 : cli-no-room ( -- )
   ." error: no room for the checked environment" cr exit-limit cli-code! ;
-: cli-no-env ( outcome -- )
-  outcome-full = if cli-no-room exit then
-  c" no checked environment could be made" cli-fault ;
-: cli-run ( -- )
-  cli-fuel @ lf-check-budget cli-room lf-env-new
-  dup ok? if drop cli-in else nip cli-no-env then ;
+: cli-no-env ( -- )
+  run-record rr-run @ outcome-full = if cli-no-room exit then
+  c" no checked environment could be made or used" cli-fault ;
+: cli-made? ( -- flag ) run-record rr-env @ 0<> lf-env-view ok? and ;
+: cli-results ( -- )
+  cli-made? if cli-verdicts cli-summary cli-notes else cli-no-env then ;
 
 \ A read that failed: the outcome, the reason, the field and the line
 \ (0 for the manifest), and for a JSON error the byte within the line.
 : cli-field. ( c-addr u -- ) dup if ." field " type ." , " else 2drop then ;
 : cli-byte. ( export -- )
   export-json dup json-why @ if ." , byte " json-offset .decimal else drop then ;
-: cli-stage-error ( outcome -- )
-  ." error: " outcome-text type ." : " stage-error type ."  (" cli-field. ." line "
-  .decimal stage-export cli-byte. ." )" cr ;
+: cli-input-error ( outcome -- )
+  ." error: " outcome-text type ." : " cin-error type ."  (" cli-field. ." line "
+  .decimal cin-export cli-byte. ." )" cr ;
 \ A failure about the manifest is at line 0 (the export opened, see
 \ cli-opens?): a hint at the export step and the explicit way out.
 : manifest-failed? ( outcome -- flag )
-  outcome-invalid = cli-unchecked @ 0= and stage-error 2drop 2drop 0= and ;
+  outcome-invalid = cli-unchecked @ 0= and cin-error 2drop 2drop 0= and ;
 : cli-manifest-hint ( -- )
   c" the export is checked against EXPORT.manifest.json, which scripts/export.sh writes;"
   cli-note c" --no-manifest skips that check" cli-note ;
-: cli-unread ( outcome -- code )
-  dup cli-stage-error dup outcome-full = if cli-limits then
-  dup manifest-failed? if cli-manifest-hint then outcome>code ;
+: cli-unread ( outcome -- )
+  dup cli-input-error dup outcome-full = if cli-limits then
+  dup manifest-failed? if cli-manifest-hint then outcome>code cli-code! ;
 : cli-unchecked-note ( -- )
   cli-unchecked @ 0= if exit then
   c" the export's manifest is not checked (--no-manifest)" cli-note ;
@@ -244,18 +240,69 @@ defer cli-record-run ( c-addr u -- outcome )
 : cli-opens? ( -- flag )
   0 cli-file r/o bin open-file if drop false else close-file drop true then ;
 : cli-unopened ( -- code ) ." error: cannot open the export" cr exit-malformed ;
-: cli-stage ( c-addr u -- outcome )
-  cli-unchecked @ if stage-read else stage-read-checked then ;
-: cli-staged ( -- code )
-  0 cli-file cli-stage dup ok? if drop cli-run cli-worst @ else cli-unread then ;
+\ The export, file 0, into the checker's input, its outcome given to the
+\ run record; when it reads, the run.
+: cli-input ( -- outcome )
+  0 cli-file cli-unchecked @ if cin-read else cin-read-checked then dup rr-read! ;
+: cli-run ( -- ) cli-input dup ok? if drop rr-check cli-results else cli-unread then ;
+: cli-settings ( -- ) rr-release cli-fuel @ cli-pool rr-settings! ;
+
+\ The run record (--record, and replay): the commit bin/leanforth found
+\ (LEANFORTH_COMMIT, with LEANFORTH_MODIFIED true when the tree differed
+\ from it), or none, null in the record; rr-start reads the export before
+\ the run, rr-finish after it (invalid when it changed meanwhile),
+\ rr-write writes the record, rr-save the file. A record that fails is
+\ reported, joins the code and is never saved.
+[defined] getenv [if]
+: cli-env ( c-addr u -- c-addr' u' ) getenv ;
+[else]
+: cli-env ( c-addr u -- c-addr' u' ) 2drop 0 0 ;
+[then]
+: cli-modified? ( -- flag ) s" LEANFORTH_MODIFIED" cli-env s" true" compare 0= ;
+: cli-source ( -- )
+  s" LEANFORTH_COMMIT" cli-env cli-modified? rr-source! ok? 0= if rr-no-source then ;
+: cli-record-start ( -- outcome ) cli-source 0 cli-file rr-start ;
+: cli-record-text ( -- outcome )
+  0 cli-file rr-finish dup ok? if drop rr-write then ;
+: cli-record-failed ( outcome -- )
+  ." error: the run record was not written: " dup outcome-text type cr outcome>code
+  cli-code! ;
+: cli-recording? ( -- flag )
+  cli-record? 0= if true exit then
+  cli-record-start dup ok? if drop true else cli-record-failed false then ;
+: cli-saved ( -- outcome )
+  cli-record-text dup ok? if drop cli-record 2@ rr-save then ;
+: cli-recorded ( -- )
+  cli-record? 0= if exit then cli-saved dup ok? if drop else cli-record-failed then ;
+\ RECORD must not name the export: comparing the names as text; the
+\ wrapper also refuses one file under two names.
+: cli-over-export? ( -- flag )
+  cli-record? if cli-record 2@ 0 cli-file compare 0= else false then ;
+: cli-checks ( -- code )
+  cli-unchecked-note cli-settings
+  cli-recording? if cli-run cli-recorded then rr-release cli-worst @ ;
 : check-command ( -- code )
-  cli-start cli-record? cli-record-built? 0= and if cli-record-refused exit then
-  cli-opens? 0= if cli-unopened exit then cli-unchecked-note cli-staged ;
+  cli-start cli-opens? 0= if cli-unopened exit then
+  cli-over-export? if ." error: RECORD must not be EXPORT" cr exit-malformed exit then
+  cli-checks ;
+
+\ replay: the export, file 0, checked again as check --record checks it,
+\ and the new record compared with the record in file 1; the report
+\ printed. 0 confirmed, 1 refused (a difference), 4 when the old record
+\ cannot be compared or the export cannot be checked again.
+: cli-rerun ( -- outcome )
+  cli-settings cli-record-start dup ok? 0= if exit then drop
+  cli-input ok? if rr-check then cli-record-text ;
+: cli-compared ( outcome -- outcome )
+  ok? if 1 cli-file rp-replay else rp-rerun-refused then ;
+: replay-command ( -- code )
+  cli-opens? 0= if cli-unopened exit then cli-rerun cli-compared rr-release
+  rp-report ok? 0= if drop outcome-invalid then outcome>code ;
 
 \ ---------------------------------------------------------------------------
 \ count: the report of ndjson-count.fs, or its error line.
 : cli-count-read ( c-addr u -- outcome )
-  cli-unchecked @ if unchecked-read else checked-read then ;
+  cli-unchecked @ if count-plain-read else count-checked-read then ;
 : cli-counted ( -- code )
   count-start dup ok? if drop 0 cli-file cli-count-read then
   dup ok? if drop .report exit-accepted else dup .count-error outcome>code then ;
@@ -309,6 +356,7 @@ defer cli-record-run ( c-addr u -- outcome )
   ."   check: definitions and theorems built from Sort, variables, application, fun," cr
   ."     forall and earlier accepted declarations (the first checker, ADR 0011);" cr
   ."     an accepted one is labelled experimental, not independently audited" cr
+  ."   check --record, replay: run records 0.1 and their replay (plan task 2.2.5)" cr
   ."   count, reexport: exports of any size, up to all of Mathlib" cr ;
 : cli-lacks. ( -- )
   ." unsupported (check answers unsupported, exit 2):" cr
@@ -323,11 +371,12 @@ defer cli-record-run ( c-addr u -- outcome )
   ."  term nodes, " lf-input-capacity .decimal ."  declarations per export" cr
   ."   " lf-param-capacity .decimal ."  universe parameters per declaration, "
   lf-cref-argument-capacity .decimal ."  universe arguments per constant" cr
-  ."   " lf-env-dep-capacity .decimal ."  dependencies per declaration; fuel "
-  cli-default-fuel .decimal ."  steps per declaration (--fuel N)" cr ;
+  ."   " lf-env-dep-capacity .decimal ."  dependencies per declaration, "
+  cli-pool .decimal ."  per export" cr
+  ."   fuel " cli-default-fuel .decimal ."  steps per declaration (--fuel N)" cr ;
 : cli-planned. ( -- )
   ." planned, not built: print, program, serve, --json receipts," cr
-  ."   --record (the replay record, plan task 2.2.5), larger stores (3.3.1)" cr ;
+  ."   larger stores (plan task 3.3.1)" cr ;
 : capabilities-command ( -- code )
   ." leanforth " cli-version-text type ." : what this build can do" cr
   cli-checks. cli-lacks. cli-limits. cli-planned. exit-accepted ;
@@ -336,8 +385,10 @@ defer cli-record-run ( c-addr u -- outcome )
 \ help.
 : cli-usage. ( -- )
   ." usage: leanforth COMMAND [OPTION]... [FILE]..." cr
-  ."   check [--no-manifest] [--fuel N] [--record FILE] EXPORT" cr
+  ."   check [--no-manifest] [--fuel N] [--record RECORD] EXPORT" cr
   ."       check every declaration of a Lean export, in file order" cr
+  ."   replay [--no-manifest] [--fuel N] EXPORT RECORD" cr
+  ."       check the export again and compare the run record with RECORD" cr
   ."   count [--no-manifest] EXPORT     count the export's records by kind" cr
   ."   reexport [--no-manifest] EXPORT COPY" cr
   ."       write the export again, byte for byte as Lean's exporter writes it" cr
@@ -358,6 +409,8 @@ defer cli-record-run ( c-addr u -- outcome )
 : cli-guard ( xt -- code ) catch ?dup if cli-thrown then ;
 : cli-file! ( c-addr u k -- ) 2* cells cli-state arg-files + 2! ;
 : cli-check ( c-addr u -- code ) 0 cli-file! ['] check-command cli-guard ;
+: cli-replay ( export-addr export-u record-addr record-u -- code )
+  1 cli-file! 0 cli-file! ['] replay-command cli-guard ;
 : cli-count ( c-addr u -- code ) 0 cli-file! ['] count-command cli-guard ;
 : cli-reexport ( in-addr in-u out-addr out-u -- code )
   1 cli-file! 0 cli-file! ['] reexport-command cli-guard ;
@@ -410,7 +463,7 @@ end-structure
 : cli-fuel-option ( c-addr u -- )
   cli-value 0= if exit then 2dup cli-decimal
   if cli-fuel! 2drop else c" not a fuel amount" cli-wrong then ;
-: cli-record-option ( c-addr u -- ) cli-value if cli-record 2! then ;
+: cli-record-option ( c-addr u -- ) cli-value if cli-record! then ;
 : cli-manifest-option ( c-addr u -- ) 2drop cli-no-manifest ;
 create cli-option-table
   ' cli-manifest-option takes-no-manifest 0 cli-entry, --no-manifest
@@ -436,8 +489,10 @@ create cli-option-table
 \ The commands: each one's word ( -- code ), the number of file names it
 \ needs and the options it takes.
 takes-no-manifest takes-fuel or takes-record or constant check-set
+takes-no-manifest takes-fuel or constant replay-set
 create cli-commands
   ' check-command 1 check-set cli-entry, check
+  ' replay-command 2 replay-set cli-entry, replay
   ' count-command 1 takes-no-manifest cli-entry, count
   ' reexport-command 2 takes-no-manifest cli-entry, reexport
   ' version-command 0 0 cli-entry, version

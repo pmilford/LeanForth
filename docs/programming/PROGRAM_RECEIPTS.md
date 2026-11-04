@@ -1,6 +1,8 @@
 # Program receipts, schema version 0.2
 
-**Status: implemented as a schema with examples, a validator and a strict
+**Status: version 0.2 approved by the owner on 2026-11-03 ([format] gate;
+schema SHA-256 `bb76793e1cba339d…`, pinned by a test; any change is a new
+version). Implemented as a schema with examples, a validator and a strict
 reader (version 0.2, 2026-11-03; the draft 0.1 of 2026-11-02, task 2.5.1
 of the [plan draft](../project/PLAN_DRAFT.md), is superseded and refused).
 The clamp

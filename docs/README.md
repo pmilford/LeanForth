@@ -19,7 +19,7 @@ see [project progress](project/PROJECT_PROGRESS.md). Documents marked
 - [USER_GUIDE.md](user/USER_GUIDE.md) — start here: what LeanForth is and is not, trust boundaries, the experimental label, what you can do today, reading paths for Forth users and developers, Lean users, mathematicians and AI tools.
 - [READING_A_LEAN_PROOF.md](user/READING_A_LEAN_PROOF.md) — for readers new to Lean and logic notation: every symbol; composition, "A and B implies B and A" and `2 + 2 = 4` read as textbook proofs; positional encoding and de Bruijn indices; each theorem as Lean source, `#print`, explicit form, kernel nodes, NDJSON, Forth words and printer output; where tactics fit (Lean and Forth examples checked by `make check` and `make test`).
 - [CONCEPTS.md](user/CONCEPTS.md) — level, `Sort`, `Prop`/`Type`, term, binder, de Bruijn index, constant, declaration, theorem and definition, kernel, outcomes: each as mathematics, LeanForth Forth (run on Gforth 1.0 and 0.7.3) and Lean (checked with pinned Lean).
-- [COMMAND_LINE.md](user/COMMAND_LINE.md) — the command line `bin/leanforth` (version 0, experimental): `check` a Lean export with the first checker, `count`, `reexport`, `version`, `capabilities`; what it prints, exit statuses 0–5, manifests, and its limit to small exports; every example run by `make test` and `make check`.
+- [COMMAND_LINE.md](user/COMMAND_LINE.md) — the command line `bin/leanforth` (version 0, experimental): `check` a Lean export with the first checker (`--record` writes its run record), `replay`, `count`, `reexport`, `version`, `capabilities`; what it prints, exit statuses 0–5, manifests, and its limit to small exports; every example run by `make test` and `make check`.
 - [FIRST_CHECK.md](user/FIRST_CHECK.md) — the first checker (experimental, not through its review gate): `composition` read from its NDJSON export, checked and accepted, and a broken copy rejected, in mathematics, LeanForth Forth and Lean.
 - [WORKFLOWS.md](user/WORKFLOWS.md) — diagrams of checking a theorem and verifying a Forth program, marking what exists and what is planned.
 - [RUNNING_THE_CHECKS.md](user/RUNNING_THE_CHECKS.md) — the `make` targets and tools, what a pass shows and what it does not.
@@ -47,6 +47,7 @@ features they describe.
 - [PROGRAM_IR_RUN.md](programming/PROGRAM_IR_RUN.md) — the program IR interpreter in Forth and the three-way comparison of the interpreter, the host words and Lean's evaluation of the model (implemented, untrusted; testing, not proof).
 - [PROGRAM_RECEIPTS.md](programming/PROGRAM_RECEIPTS.md) — program receipt schema 0.2 (the draft 0.1 superseded and refused): separate CHECK, VERIFY and RUN statuses, who settled an obligation, assumptions, per-theorem axioms, and the standard-library validator (implemented; the clamp receipt is generated).
 - [PROGRAM_VC.md](programming/PROGRAM_VC.md) — verification-condition generator v0 and contract language: obligations and contract theorems checked by Lean (not by LeanForth), wrong contracts refuted, and the generated clamp receipt.
+- [SHA256_SPEC.md](programming/SHA256_SPEC.md) — SHA-256 specified in Lean from FIPS 180-4 (flagship stage SHA-1): NIST vectors and the constants checked by Lean's kernel, lemmas for the later stages, what is and is not proved (implemented, checked by Lean, not by LeanForth; nothing yet about the Forth code).
 - Lean reference models for individual programs: [checked addition](programming/CHECKED_ADD_REFERENCE.md), [factorial](programming/FACTORIAL_REFERENCE.md), [gcd](programming/GCD_REFERENCE.md), [stack and memory](programming/MEMORY_PROGRAM_REFERENCE.md), [memory copy](programming/MEMORY_COPY_REFERENCE.md), [memory swap](programming/MEMORY_SWAP_REFERENCE.md).
 
 ## `development/` — contributing, testing and tooling
@@ -61,7 +62,7 @@ features they describe.
 - [VERSIONS.md](development/VERSIONS.md) — observed tool versions and pinned download hashes.
 - [PROFILING.md](development/PROFILING.md) — opt-in time and memory measurement; results in [measurements/](development/measurements/).
 - [Lean kernel profile](development/measurements/lean-kernel-profile-2026-11-02/README.md) — where Lean 4.35.0's kernel spends its time on `Init`, `Std` and a Mathlib slice (by function family, measured with perf), per-declaration times and the slowest declarations, and a nanoda comparison (2026-11-02).
-- [Two-mode program words prototype](development/measurements/two-mode-prototype-2026-11-03/README.md) — throwaway evidence for ADR 0019: the real example sources, run by Forth's interpreter with a LeanForth vocabulary, give byte-identical IR on Gforth 1.0.0 and 0.7.3; run mode, replayed reader tests, hostile inputs, an IR round trip, planted faults and a symbolic demo (2026-11-03).
+- [Two-mode program words prototype](development/measurements/two-mode-prototype-2026-11-03/README.md) — throwaway evidence for ADR 0019: the real example sources, run by Forth's interpreter with a LeanForth vocabulary, give byte-identical IR on Gforth 1.0.0 and 0.7.3; run mode, replayed reader tests, hostile inputs, an IR round trip, planted faults, a symbolic demo, the mode shift (a third interpreter state, on both Gforths) and defining words and loops in both designs (2026-11-03).
 - [KERNEL_START.md](development/KERNEL_START.md) — prerequisites for starting the trusted kernel.
 - [ARENA_PROTOTYPE.md](development/ARENA_PROTOTYPE.md) — notes and limits of the experimental term storage.
 - [NDJSON_PREVIEW.md](development/NDJSON_PREVIEW.md) — the development-only Lean NDJSON preview.
@@ -106,7 +107,7 @@ approval; the others are proposals.
 [0016](adr/0016-compact-store.md) the compact store for Mathlib-scale input: 16-byte nodes, a shared input tier, hash tables (proposed) ·
 [0017](adr/0017-leanforth-syntax.md) LeanForth Forth syntax for theorems and proofs (accepted as the design basis) ·
 [0018](adr/0018-exceptions.md) when to use `CATCH` and `THROW` (proposed; piloted on level substitution) ·
-[0019](adr/0019-program-words-two-modes.md) program words in two modes: the same source loaded with a LeanForth vocabulary that emits IR, or with ordinary Forth to run it (proposed; [prototype](development/measurements/two-mode-prototype-2026-11-03/README.md)).
+[0019](adr/0019-program-words-two-modes.md) program words in two modes: the same source loaded with a LeanForth vocabulary that emits IR, or with ordinary Forth to run it (accepted in direction; mode shift or alias still open; [prototype](development/measurements/two-mode-prototype-2026-11-03/README.md)).
 
 ## `reviews/` — review packets and records
 

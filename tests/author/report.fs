@@ -33,7 +33,9 @@ require ./dump.fs
 : .type ( decl -- )
   dup lf-fdecl-type @ print-fuel rot lf-fdecl-kind @ lf-decl-theorem =
   if lf-print-statement else lf-print-term then ok! ;
-: .head ( decl -- ) dup .kind space dup lf-fdecl-name @ lf-print-name ok! .universes ;
+: .protected ( decl -- ) lf-fdecl-protected @ if ." protected " then ;
+: .head ( decl -- )
+  dup .protected dup .kind space dup lf-fdecl-name @ lf-print-name ok! .universes ;
 : .lean ( decl -- )
   ." lean: " dup .head ."  : " dup .type
   dup lf-fdecl-value @ 0< if drop cr exit then

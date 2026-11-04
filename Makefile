@@ -411,6 +411,38 @@ test: test-environment
 DOC_EXAMPLE_PAGES += docs/programming/CHECKED_ENVIRONMENT.md
 DOC_EXAMPLE_PAGES += docs/user/FIRST_CHECK.md
 
+# Run records and their replay (plan task 2.2.5; docs/programming/RUN_RECORDS.md):
+# unit tests of src/import/run-record.fs and run-replay.fs (every fixture, each
+# failure, replay findings), then records written to files for the five pinned
+# exports and the four broken copies: both schemas, the golden records, two
+# processes writing the same bytes, every record replayed, and tampered records
+# refused with their codes. Gforth and Python 3 only; Python only drives Gforth
+# and reads what it wrote. With a second Gforth (0.7.3, CI's other host):
+#   GFORTH=... python3 tests/core/test_run_records.py --other-gforth GFORTH2
+test-run-records:
+	$(RUN) $(GFORTH) tests/core/run-record.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/core/test_run_records.py
+
+# A run record of any lean4export file, and its replay, with Forth alone
+# (tests/support/run-records.fs); the record names this tree's commit and
+# whether tracked files differ from it. Exit status 0 only for a record
+# written, or a record confirmed:
+#   make run-record EXPORT=file.ndjson RECORD=file.json [FUEL=100000]
+#   make replay EXPORT=file.ndjson RECORD=file.json [FUEL=100000]
+FUEL ?= 100000
+RR_COMMIT = $(shell git rev-parse HEAD 2>/dev/null)
+RR_MODIFIED = $(shell git diff --quiet HEAD -- 2>/dev/null && echo false || echo true)
+RR_SOURCE = $(if $(RR_COMMIT),-e 's" $(RR_COMMIT)" $(RR_MODIFIED) ni-source')
+run-record:
+	$(RUN) $(GFORTH) tests/support/run-records.fs $(RR_SOURCE) \
+	-e 's" $(EXPORT)" $(FUEL) s" $(RECORD)" ni-record ni-exit' </dev/null
+replay:
+	$(RUN) $(GFORTH) tests/support/run-records.fs $(RR_SOURCE) \
+	-e 's" $(EXPORT)" $(FUEL) s" $(RECORD)" ni-replay ni-exit' </dev/null
+
+.PHONY: test-run-records run-record replay
+test: test-run-records
+
 # Big natural numbers for Lean's Nat literals (plan task 5.2.3, library
 # part; docs/development/FORTH_LIBRARY.md): unit tests of every outcome,
 # then about 37,500 cases against Python's integers and 20 planted faults
@@ -461,7 +493,7 @@ test-differential: reference-manifest
 
 # The LeanForth authoring words (plan task 8.1.2, ADR 0017; untrusted, not
 # loaded by src/main.fs, so they get their own silent-load check): unit
-# tests of every error code with its line and column, then the 21 example
+# tests of every error code with its line and column, then the 22 example
 # files against their golden report (with each declaration's terms) and a
 # round trip each, the error catalogue against
 # docs/programming/LEANFORTH_WORDS.md, the check that the checker never
@@ -477,7 +509,7 @@ test-author:
 
 # The example files' declarations against pinned Lean's, term for term
 # (Lean's own, by a metaprogram, and the pinned exporter's) and as #print
-# shows them, and 22 planted faults that must each be caught (four only by
+# shows them, and 24 planted faults that must each be caught (five only by
 # the comparison with Lean).
 reference-author:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/author/check_author.py --lean
@@ -549,8 +581,8 @@ test-differential: reference-reexport
 # two tiers (src/lib/slab.fs, htab.fs, hash32.fs, cons.fs, pools.fs) and
 # Lean's names, levels and expressions on them (src/core/compact*.fs). Unit
 # tests with randomized models, then every pinned reference export loaded
-# into the store and re-emitted as the NDJSON reader dumps it. Not loaded by
-# src/main.fs yet; make smoke loads each module on its own. Gforth only.
+# into the store by the importer stage, with its manifest, and re-emitted
+# as the NDJSON reader dumps it. Gforth only.
 test-compact:
 	$(RUN) $(GFORTH) tests/lib/hash32.fs
 	$(RUN) $(GFORTH) tests/lib/slab.fs
@@ -562,19 +594,38 @@ test-compact:
 	  || { bash tests/core/compact-verify.sh $$f $(GFORTH); exit 1; }; \
 	done; echo "The compact store re-emits every reference export as the reader dumps it."
 
+# The importer stage (ADR 0016 C9 step 2, plan 3.2.1; src/import/stage.fs):
+# unit tests (life cycle, declarations read back, lookups, resolutions,
+# rollbacks, the memory limit, forged bad references, mdata marked, a
+# scratch tier as a context member), the cases that need a changed export
+# (unknown constants, duplicate names, truncated files, 32-bit limits), and
+# every other fixture export of tests/, which have no manifest (loaded
+# unchecked, explicitly), re-emitted as the reader dumps it. Gforth and
+# Python 3 only.
+STAGE_FIXTURES := tests/core/check-declaration-cases/*.ndjson tests/core/ndjson-block.ndjson \
+	tests/core/reexport/kinds.ndjson
+test-stage:
+	$(RUN) $(GFORTH) tests/core/stage.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/core/test_stage.py
+	@for f in $(STAGE_FIXTURES); do \
+	  $(RUN) bash tests/core/compact-verify.sh --unchecked $$f $(GFORTH) >/dev/null \
+	  || { bash tests/core/compact-verify.sh --unchecked $$f $(GFORTH); exit 1; }; \
+	done; echo "The stage re-emits every other fixture export as the reader dumps it."
+
 # Nineteen faults planted in a copy of the compact store, each caught by the
 # checks of test-compact (about 25 s; part of make check).
 test-compact-faults:
 	GFORTH=$(GFORTH) $(RUN) python3 tests/core/compact_faults.py
 
-# Lean's Init, exported by the pinned leanexport, loaded into the compact
-# store and re-emitted: all 6.4 million name, level and expression records
-# equal the reader's dump (about 1.5 minutes with gforth-fast).
+# Lean's Init, exported by the pinned leanexport with its manifest, staged
+# into the compact store and re-emitted: all 6.4 million name, level,
+# expression and declaration records equal the reader's dump (about 1.5
+# minutes with gforth-fast).
 reference-compact-init:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/core/compact-init.sh
 
-.PHONY: test-compact test-compact-faults reference-compact-init
-test: test-compact
+.PHONY: test-compact test-stage test-compact-faults reference-compact-init
+test: test-compact test-stage
 check: test-compact-faults
 test-differential: reference-compact-init
 
