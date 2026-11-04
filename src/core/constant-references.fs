@@ -10,9 +10,11 @@
 \ Universe arguments are variable-length (ADR 0016 C2, plan 6.2.0): a
 \ record holds their number and the offset of its (index identity) pairs
 \ in a pool, where each record's pairs follow the previous record's, so a
-\ rollback of the records gives their pairs back too. At most
-\ lf-cref-argument-capacity arguments per reference (Mathlib's largest
-\ constant has 30); the records grow up to a capacity that is a setting
+\ rollback of the records gives their pairs back too. A reference may have
+\ any number of arguments (plan task 6.2.0; Mathlib's largest constant has
+\ 30): the pool grows, and one it cannot grow is full. lf-cref-argument-
+\ capacity, 64, is only the arguments the callers' buffers start with
+\ room for. The records grow up to a capacity that is a setting
 \ of each context, as for terms (terms.fs), starting at lf-cref-default.
 \ State: the reference records, a heap store whose header lf-crefs is a
 \ member of the checker context (lib/context.fs), and the pairs pool, a
@@ -92,8 +94,8 @@ store-header context-record: lf-crefs
 \ A live name pair binds the index to the current name-table generation.
 : lf-cref-name-valid? ( index generation -- flag )
   lf-name-generation @ = swap lf-name-valid? and lf-name-storage-valid? and ;
-\ count level pairs at addr are all live; at most the argument capacity.
-: lf-cref-arity? ( count -- flag ) lf-cref-argument-capacity upto? ;
+\ count level pairs at addr are all live; count is not negative.
+: lf-cref-arity? ( count -- flag ) 0< 0= ;
 : lf-cref-levels-valid? ( addr count -- flag )
   0 ?do dup i lf-cref-pair@ lf-hlevel-valid? 0= if drop false unloop exit then
   loop drop true ;

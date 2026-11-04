@@ -117,9 +117,11 @@ begin-structure /lf-ijob
   lf-depth-limit cells +field lf-ijob-fvars   \ the scope's free variables, outermost
                                                \ first
   lf-depth-limit cells +field lf-ijob-sorts   \ beside each, its domain's Sort level (Pis)
-  lf-cref-argument-capacity 2* cells +field lf-ijob-actuals
 end-structure
 /lf-ijob context-record: lf-minfer-job
+\ A constant's universe arguments, copied: as many as it has (no fixed
+\ limit); one the heap cannot hold is full.
+2 cells context-slab: lf-minfer-actual-pairs
 
 \ Fields of the record. Tests read the fuel left and the scope's depth
 \ (the binders opened), and mixed-definition-probe reads the fuel left.
@@ -265,7 +267,7 @@ end-structure
 \ (env-signature.fs: N1, K5, L1, then L2 while deciding), else the
 \ candidate in the index. Success continues with the fuel the
 \ specialization left; a failure leaves no fuel.
-: lf-minfer-actuals ( -- addr ) lf-minfer-job lf-ijob-actuals ;
+: lf-minfer-actuals ( -- addr ) 0 lf-minfer-actual-pairs slab-at ;
 : lf-minfer-copy ( slot -- addr count )
   lf-cref-pairs tuck 2* cells lf-minfer-actuals swap move lf-minfer-actuals swap ;
 : lf-minfer-specialized ( root identity fuel' 0 | status -- type status )
@@ -277,9 +279,11 @@ end-structure
   lf-minfer-fuel @ lf-minfer-deciding? lf-env-signature ;
 : lf-minfer-signature ( name pairs count -- root identity fuel' 0 | status )
   lf-minfer-env? if lf-minfer-stored else lf-minfer-candidate then ;
+: lf-minfer-room? ( slot -- slot flag )
+  dup lf-crec-arity @ lf-minfer-actual-pairs slab-reserve ok? ;
 : lf-minfer-constant ( reference -- type status )
-  lf-cref-slot dup lf-crec-name @ swap lf-minfer-copy lf-minfer-signature
-  lf-minfer-specialized ;
+  lf-cref-slot lf-minfer-room? 0= if drop -1 outcome-full exit then
+  dup lf-crec-name @ swap lf-minfer-copy lf-minfer-signature lf-minfer-specialized ;
 
 \ A free variable has its entry's type (infer_fvar, type_checker.cpp
 \ 93-99); one that the local context does not name is malformed. A bound

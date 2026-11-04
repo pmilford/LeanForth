@@ -56,13 +56,14 @@ begin-structure /lf-lv
   field: lf-lv-nest          \ walks nested now
   field: lf-lv-depth         \ binders in the scope
   lf-print-binder-capacity cells +field lf-lv-scope  \ binder nodes, outermost first
-  lf-cref-argument-capacity 2* cells +field lf-lv-pairs   \ a rebuilt reference's levels
   lf-log-term-capacity cells +field lf-lv-made       \ copy k's rebuilt term + 1, or 0
   lf-log-level-capacity cells +field lf-lv-lmade     \ copy k's rebuilt level + 1, or 0
   lf-log-term-capacity cells +field lf-lv-namer      \ input binder naming copy k, + 1
   lf-lv-buffer-size +field lf-lv-buffer
 end-structure
 1 cells context-record: lf-lv-held
+\ A rebuilt reference's levels, as many as it has (no fixed limit).
+2 cells context-slab: lf-lv-pair-cells
 : lf-lv ( -- addr ) lf-lv-held @ ;
 \ The block: made zeroed when there is none (false without memory), or
 \ zeroed again when a THROW left one held (no count of failed rollbacks or
@@ -234,15 +235,17 @@ defer lf-lv-level ( ref -- level true | false )
 \ A copied constant reference rebuilt: its universe arguments' levels
 \ into the pairs buffer, then a reference with its name and those levels.
 : lf-lv-pair! ( level i -- )
-  >r dup lf-level-identity 0= if 0 then swap r> 2* cells lf-lv lf-lv-pairs + 2! ;
+  >r dup lf-level-identity 0= if 0 then swap r> lf-lv-pair-cells slab-at 2! ;
 : lf-lv-arg ( offset i -- flag )
   tuck + lf-log-arg-ref lf-lv-level if swap lf-lv-pair! true else drop false then ;
 : lf-lv-args ( offset count -- flag )
   0 ?do dup i lf-lv-arg 0= if drop false unloop exit then loop drop true ;
 : lf-lv-cref ( ref -- cref id true | false )
   lf-log-copy-index dup lf-log-cref-copies < 0= if drop false exit then
-  lf-log-cref@ over >r swap lf-lv-args 0= if 2drop r> drop false exit then
-  lf-lv lf-lv-pairs r> lf-cref-new ;
+  lf-log-cref@ over >r r@ lf-lv-pair-cells slab-reserve ok? 0=
+  if 2drop 2drop r> drop false exit then
+  swap lf-lv-args 0= if 2drop r> drop false exit then
+  0 lf-lv-pair-cells slab-at r> lf-cref-new ;
 
 defer lf-lv-term ( ref -- term true | false )
 \ A leaf: a symbolic Sort's level rebuilt, a copied reference rebuilt.

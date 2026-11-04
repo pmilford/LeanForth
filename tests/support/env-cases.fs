@@ -79,7 +79,10 @@ create buf /lf-idecl allot
   t-type buf lf-idecl-type ! t-value buf lf-idecl-value !
   lf-input-count building ! the-plan /plan erase 1000 the-plan plan-fuel ! ;
 : no-value ( -- ) -1 buf lf-idecl-value ! ;
-: param ( name -- ) buf lf-idecl-params buf lf-idecl-arity @ cells + ! 1 buf lf-idecl-arity +! ;
+create buf-params 4096 cells allot
+: param ( name -- )
+  buf-params buf lf-idecl-params ! buf-params buf lf-idecl-arity @ cells + !
+  1 buf lf-idecl-arity +! ;
 : uses ( name -- ) the-plan dup plan-count @ cells swap plan-uses + ! 1 the-plan plan-count +! ;
 : audit ( outcome -- ) the-plan plan-audit ! ;
 : verdict ( outcome -- ) the-plan plan-verdict ! ;

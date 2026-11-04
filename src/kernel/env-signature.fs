@@ -100,7 +100,7 @@ end-structure
   dup ok? if drop lf-mls-fuel @ outcome-ok then ;
 : lf-envsig-instantiate ( decl -- root identity fuel' 0 | status )
   dup lf-envsig-root 0= if drop outcome-invalid exit then
-  rot lf-idecl-params lf-envsig-actuals lf-mixed-level-substitute lf-envsig-left ;
+  rot lf-idecl-params@ drop lf-envsig-actuals lf-mixed-level-substitute lf-envsig-left ;
 : lf-envsig-type ( d -- root identity fuel' 0 | status )
   lf-env-accepted ok-then? if lf-slot-decl lf-envsig-instantiate then ;
 

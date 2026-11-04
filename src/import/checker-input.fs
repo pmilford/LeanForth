@@ -80,13 +80,16 @@ begin-structure /import-map
   lf-name-default cells +field map-names        \ export name -> name ID
   lf-level-default cells +field map-levels      \ export level -> level index
   lf-term-default 2* cells +field map-exprs     \ export expression -> handle
-  lf-cref-argument-capacity 2* cells +field map-pairs   \ a constant's levels
   /lf-idecl +field map-decl                      \ the declaration being built
   field: map-why                                 \ counted string, or 0
   field: map-digested                            \ true once a pass kept its digest
   sha-digest-bytes 2* +field map-digest          \ the first pass's, in hexadecimal
 end-structure
 /import-map context-record: cin-state
+\ A constant's levels, and a declaration's universe parameters, as many
+\ as it has (no fixed limit).
+2 cells context-slab: cin-pair-cells
+1 cells context-slab: cin-param-cells
 export: cin-export
 manifest: cin-manifest
 \ Hashing a pass of the file: the hash in progress, then its digest.
@@ -100,7 +103,7 @@ create cin-hash /import-hash allot
 : cin-names ( -- addr ) cin-state map-names ;
 : cin-levels ( -- addr ) cin-state map-levels ;
 : cin-exprs ( -- addr ) cin-state map-exprs ;
-: cin-pairs ( -- addr ) cin-state map-pairs ;
+: cin-pairs ( -- addr ) 0 cin-pair-cells slab-at ;
 : cin-decl ( -- decl ) cin-state map-decl ;
 : cin-why ( -- addr ) cin-state map-why ;
 
@@ -187,10 +190,9 @@ create cin-hash /import-hash allot
 : cin-constant ( record n -- index identity true | false )
   cin-reference if lf-cterm-new else false then ;
 : cin-many-args ( record n -- outcome )
-  2drop outcome-full c" a constant with more universe arguments than the check holds"
-  cin-stop ;
+  2drop outcome-full c" no room for a constant's universe arguments" cin-stop ;
 : cin-const ( record -- outcome )
-  dup cin-arity dup lf-cref-argument-capacity > if cin-many-args exit then
+  dup cin-arity dup cin-pair-cells slab-reserve ok? 0= if cin-many-args exit then
   over >r cin-constant r> cin-expr-keep ;
 \ Two children, at the field offsets first and second, as handles.
 : cin-child ( record offset -- index identity ) + @ cin-expr@ ;
@@ -226,12 +228,13 @@ create cin-hash /import-hash allot
   if dup decl-height @ cin-decl lf-idecl-height ! then ;
 : cin-param-id ( record k -- id ) swap dup decl-params @ swap list-item cin-name ;
 : cin-decl-param ( record k -- record )
-  2dup cin-param-id swap cells cin-decl lf-idecl-params + ! ;
+  2dup cin-param-id swap cin-param-cells slab-at ! ;
 : cin-many-params ( record n -- record outcome )
-  drop outcome-full c" a declaration with more universe parameters than the check holds"
-  cin-stop ;
+  drop outcome-full c" no room for a declaration's universe parameters" cin-stop ;
 : cin-params ( record -- record outcome )
-  dup decl-params @ over list-count dup lf-param-capacity > if cin-many-params exit then
+  dup decl-params @ over list-count dup cin-param-cells slab-reserve ok? 0=
+  if cin-many-params exit then
+  0 cin-param-cells slab-at cin-decl lf-idecl-params !
   dup cin-decl lf-idecl-arity ! 0 ?do i cin-decl-param loop outcome-ok ;
 \ The input's answer: full when it holds no more declarations, invalid
 \ when it refuses the record.

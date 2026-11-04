@@ -127,9 +127,10 @@ create fc-buf /lf-idecl allot
   fc-buf lf-idecl-kind @ lf-kind-definition =
   if lf-hint-regular 1 else lf-hint-opaque 0 then
   fc-buf lf-idecl-height ! fc-buf lf-idecl-hint ! ;
+create fc-param-ids 4096 cells allot   \ a declaration's universe parameters
 : fc-params ( -- )
-  fc-number dup fc-buf lf-idecl-arity !
-  0 ?do fc-name fc-buf lf-idecl-params i cells + ! loop ;
+  fc-param-ids fc-buf lf-idecl-params ! fc-number dup fc-buf lf-idecl-arity !
+  0 ?do fc-name fc-param-ids i cells + ! loop ;
 : fc-value ( -- value )
   >in @ fc-token s" none" compare 0= if drop -1 else >in ! fc-read-term then ;
 : fc-head ( -- )

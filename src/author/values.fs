@@ -83,7 +83,9 @@ lfa-item-capacity /lfa-item 0 context-store: lfa-items
       2drop ;
 : lfa-ref! ( item -- )
   dup lfa-item-first @ lfa-decl-name lfa-sought-ref lfa-ref-name !
-  dup lfa-chain# dup lfa-sought-ref lfa-ref-count ! lfa-levels! ;
+  dup lfa-chain# dup lfa-ref-pair-cells slab-reserve ok? 0=
+  if lfa-e-references-full lfa-fail then
+  dup lfa-sought-ref lfa-ref-count ! lfa-levels! ;
 : lfa-const-at ( item -- pos ) lfa-base-item lfa-item-at @ ;
 : lfa-const-term ( item -- term fresh )
   dup lfa-arity? 0= if lfa-const-at lfa-e-arity lfa-fail-see then
