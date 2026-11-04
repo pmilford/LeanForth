@@ -696,3 +696,24 @@ ADR 0019 Amendment 1 (agent IR2; probes in
   file naming a constant it never declares, refused whole where Lean
   rejects only the declaration concerned, 5.2.6 (new); the command line's
   reader moving to the importer's stage and feed (agent CLI2, plan 3.4).
+
+## IR 0.2 implementation approved (2026-11-04, late)
+
+- **ADR 0019 Amendment 1, IR 0.2 [parser] implementation gate: approved**
+  (owner, "Approve"). Agent IR3's implementation (merged `cc3afaf`, review
+  fixes `71f31b4`): redefinition by Forth's early binding, output words as
+  `out` effects (Lean's `runOut_result`: printing never changes the
+  computation), `LSHIFT` and `-rot` (portable definition), `#` `$` `%`
+  `'c'` numbers; a file using nothing new still gives `lf-ir 0.1` byte for
+  byte; Lean proves `sha-rotr`, `sha-ch`, `sha-maj` and `sha-big-sigma0`
+  equal FIPS 180-4's ROTR, Ch, Maj and Σ0 for all 32-bit inputs.
+  Independent review rvIR3: nothing blocking; its fixes merged. Approved
+  with the four additions beyond the design: reason 32 for an unclosed
+  text; a run that ends *full* sends only its diagnostic; `TYPE` after
+  `S"` checked to be Forth's own; a portable `.S`.
+- Named follow-ups: L6 (Lean's printed bytes against the interpreter's),
+  L7 (tie `clampDebugProgram` to program-word IR), L10 (narrow the
+  portability exemption of `sha-words.fs`), L11 (a receipt for an earlier
+  version runs that version's execution token). Next on the track:
+  `src/lib/sha256.fs` runs the proved words; receipt schema 0.3 at the
+  [format] gate with the first receipt that needs it.
