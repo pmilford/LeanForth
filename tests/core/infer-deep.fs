@@ -1,11 +1,12 @@
 \ Inference at the deepest nesting a 64-node term store allows, on the
-\ default host stacks of Gforth 0.7.3 and 1.0 (inference recurses on the
-\ host stacks; an overflow would throw and fail this test). Outcomes and
-\ fuel equalled those of the code before the refactor; since free
-\ variables (plan task 4.2.2a) a variable's type is its entry's (no
-\ shift) and an application's type is instantiated without an audit, so
-\ less fuel is spent and one more application fits. Then the deepest
-\ normalize the level store allows, at the deepest inference frame.
+\ default host stacks of Gforth 0.7.3 and 1.0. Outcomes and fuel equalled
+\ those of the code before the refactor; since free variables (plan task
+\ 4.2.2a) a variable's type is its entry's (no shift) and an
+\ application's type is instantiated without an audit, so less fuel is
+\ spent and one more application fits; since plan task 6.2.0 inference
+\ keeps its pending work on an explicit stack, with the same outcomes and
+\ fuel. Then the deepest normalize the level store allows, at the deepest
+\ inference visit.
 include ../support/tester.fs
 require ../../src/main.fs
 
@@ -52,10 +53,11 @@ T{ 29 apps 100 infer lf-minfer-fuel @ lf-term-count @ -> -1 outcome-exhausted 0 
 \ compares Sort u with Sort L by normalize. With m = 59 the level store
 \ is full at the end; with m = 0, L is u and the comparison needs no
 \ normalize. Painted, the cells the normalize adds stay within its stated
-\ need (level-normalize.fs), and number over 4 return cells per level of
-\ L (6.24 measured), since it runs nested in the deepest frame (in the
-\ outermost frame it would add about 3 per level); the whole inference
-\ stays within lf-minfer-return-cells and lf-minfer-data-cells.
+\ need (level-normalize.fs) and are a few dozen, whatever the depth of L
+\ or of the inference (both keep their pending work on explicit stacks:
+\ plan task 6.2.0; before it, over 4 return cells per level of L); the
+\ whole inference stays within lf-minfer-return-cells and
+\ lf-minfer-data-cells.
 require ../support/stack-paint.fs
 : alternating ( m -- level )
   1 swap 0 ?do 1 i 1 and if lf-level-max else lf-level-imax then 0= abort" level" loop ;
@@ -78,7 +80,7 @@ T{ deep-status @ lf-minfer-fuel @ lf-term-count @ lf-level-count @
 T{ deep-status @ lf-minfer-fuel @ lf-term-count @ -> outcome-ok 98849 60 }T
 : added ( -- return-cells data-cells ) with-normalize without-normalize difference ;
 T{ added lf-lnorm-data-cells at-most swap lf-lnorm-return-cells at-most -> true true }T
-T{ added drop 59 4 * > -> true }T
+T{ added drop 64 at-most -> true }T
 T{ with-normalize lf-minfer-data-cells at-most
    swap lf-minfer-return-cells at-most -> true true }T
 bye

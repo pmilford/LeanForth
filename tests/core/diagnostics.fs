@@ -208,8 +208,8 @@ T{ 2 handle 3 handle 1000 lf-mixed-instantiate nip nip diag
   -> outcome-full 0 0 lf-diag-frame-limit }T
 T{ s" mixed-instantiate lf-mixed-instantiate" at? -> true }T
 end-check
-begin-check 10 lf-lvalue-fuel ! lf-diag-clear
-T{ 0 lf-lvalue-depth-limit lf-lvalue-walk diag -> -1 outcome-full 64 64 lf-diag-depth-limit }T
+begin-check 10 lf-lvalue-fuel ! lf-lvalue-frames refused-frames
+T{ 0 lf-lvalue-walk diag -> -1 outcome-full 0 0 lf-diag-frame-limit }T
 T{ s" level-value lf-level-value" at? -> true }T
 lf-diag-clear
 T{ max-n lf-lvalue-succ+ diag -> -1 outcome-full max-n 1 lf-diag-cell-maximum }T
@@ -217,14 +217,15 @@ end-check
 \ Lean's normalize flattens a max of maxes onto its argument stack: eight
 \ doublings of u stand for 256 arguments. The stack has no fixed limit
 \ (plan task 6.2.0): it holds them, and it is full only when the heap
-\ refuses it room (heap-watch.fs).
+\ refuses it room (heap-watch.fs): here nine doublings, after eight have
+\ sized normalize's stacks (the arguments' to 1,024 cells: the max's 256,
+\ their 256 normal forms and a sort's scratch), when a push needs more.
 : doubled ( level n -- level' ) 0 ?do dup lf-level-max must loop ;
 begin-check lf-diag-clear
 T{ level-u level-u 8 doubled 100000 lf-level-compare -> outcome-ok }T
-end-check
-begin-check lf-diag-clear 1 heap-refusals !
-T{ level-u level-u 8 doubled 100000 lf-level-compare diag
-  -> outcome-full 0 0 lf-diag-work-stack-full }T
+lf-diag-clear 1 heap-refusals !
+T{ level-u level-u 9 doubled 100000 lf-level-compare diag
+  -> outcome-full 1024 1024 lf-diag-work-stack-full }T
 T{ s" level-normalize lf-level-equivalent" at? -> true }T
 end-check
 \ K6: specializing imax 1 (u+1) with u for u depends on object sharing in

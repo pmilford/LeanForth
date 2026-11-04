@@ -344,10 +344,12 @@ def input_script(text, prelude):
     return script + ["fc-run", "bye"]
 
 
-def fed_script(text, directory):
+def fed_script(text, directory, prelude=()):
     """The Forth lines of tests/support/fed-checker-driver.fs that stage
-    and feed every case, written as an export in directory first."""
-    script = [f"require {Path('tests/support/fed-checker-driver.fs').resolve()}"]
+    and feed every case, written as an export in directory first, after the
+    Forth lines of prelude (such as DEPTH_SETTINGS)."""
+    script = [f"require {Path('tests/support/fed-checker-driver.fs').resolve()}",
+              *prelude]
     for k, (case, export) in enumerate(case_exports(text)):
         path = Path(directory) / f"case-{k}.ndjson"
         path.write_text(export)
@@ -360,7 +362,7 @@ def checker_rows(text, prelude=(), fed=False):
     the Forth lines of prelude (such as LARGE_CAPACITIES); or, fed, as an
     export through the stage and the feed (fed-checker-driver.fs)."""
     with tempfile.TemporaryDirectory() as temporary:
-        script = fed_script(text, temporary) if fed else input_script(text, prelude)
+        script = fed_script(text, temporary, prelude) if fed else input_script(text, prelude)
         path = Path(temporary) / "first-checker-cases.fs"
         path.write_text("\n".join(script) + "\n")
         result = subprocess.run([GFORTH, str(path)], capture_output=True, text=True,

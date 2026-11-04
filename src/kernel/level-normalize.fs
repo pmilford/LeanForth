@@ -13,24 +13,20 @@
 \ BL-1).
 \ Preconditions: those of level-make (validated graphs, parameter IDs
 \ that are interned names).
-\ State: one record, lf-lnorm-state: the first failure of the call, the
-\ fuel left, the level frames nested now, the argument stack of the max
-\ case (its top and cells), a mark of the level store before the call,
-\ and per level of the input the normal form found. A member of the
-\ checker context (lib/context.fs).
+\ State: one record, lf-lnorm-state: normalize's frames (lib/frame.fs),
+\ the first failure of the call, the fuel left, the argument stack of the
+\ max case (its top and cells), a mark of the level store before the
+\ call, a merge's cursors, and per level of the input the normal form
+\ found. A member of the checker context (lib/context.fs).
 \ The normal forms are new nodes of the level store, given back when the
 \ call ends; the facts
 \ of level-make are truncated with them. Single-threaded within one
 \ context.
-\ Stack use: normalize, push_max_args and is_norm_lt recurse on the host
-\ stacks, one level frame per level they enter: measured, at most 7
-\ return and 3 data cells per frame. Every frame is counted while it
-\ runs, and a call that would nest more than lf-level-depth-limit of them
-\ (only a graph or a normal form deeper than the scope check's walks,
-\ which a larger level capacity allows) is full instead, so a call needs
-\ lf-lnorm-return-cells and lf-lnorm-data-cells (see the need stated at
-\ the end) whatever the level store holds. The name order walks names
-\ iteratively, in constant stack space, whatever their depth.
+\ Depth (plan task 6.2.0): normalize keeps a level's pending work on
+\ its frames, an explicit stack that grows with the depth of the level
+\ graph; push_max_args keeps the maxes still to flatten on a growable
+\ array; is_norm_lt and the name order loop. So no depth is limited by
+\ the host's stacks or a constant: a stack the heap cannot grow is full.
 
 require ../lib/lib.fs
 require ../lib/slab.fs
@@ -44,9 +40,9 @@ require ./level-make.fs
 128 constant lf-lnorm-capacity   \ the argument stack's first room, in cells
 
 begin-structure /lf-lnrec
+  /frames +field lf-lnrec-frames                    \ normalize's visits (fuel unused)
   field: lf-lnrec-status                            \ the first failure; ok while none
   field: lf-lnrec-fuel                              \ fuel left
-  field: lf-lnrec-nest                              \ level frames nested now
   field: lf-lnrec-top                               \ argument cells in use
   /store-mark +field lf-lnrec-mark                  \ the level store before the call
   field: lf-lnrec-i                                 \ a merge: the next of the left run,
@@ -62,6 +58,8 @@ end-structure
 \ (plan task 6.2.0; a max of a thousand parameters flattens to a thousand
 \ arguments); one the heap cannot grow is full.
 1 cells context-slab: lf-lnorm-arg-cells
+\ push_max_args's maxes still to flatten (no fixed limit).
+1 cells context-slab: lf-lnorm-todo-cells
 \ Per level, a column of the level store (lib/store-columns.fs): its
 \ normal form + 1, or 0.
 /slab context-record: lf-lnorm-memo-column
@@ -75,6 +73,7 @@ end-structure
 : lf-lnorm-memo ( level -- addr ) lf-lnorm-memo-column column-at ;
 : lf-lnorm-clear ( -- ) lf-lnorm-memo-column column-erase ;
 : lf-lnorm-site ( -- site ) c" level-normalize lf-level-equivalent" ;
+: lf-lnorm-frames ( -- frames ) lf-lnorm-state lf-lnrec-frames ;
 
 \ ---------------------------------------------------------------------------
 \ The first failure wins; once there is one, every step does nothing and
@@ -88,16 +87,12 @@ end-structure
   outcome-exhausted lf-lnorm-fail ;
 : lf-lnorm-spend ( -- )
   lf-lnorm-fuel @ 0> if -1 lf-lnorm-fuel +! else lf-lnorm-dry then ;
-\ Entering a level frame (normalize, push_max_args or is_norm_lt): true
-\ and counted below lf-level-depth-limit frames; else full, recorded as
-\ the depth limit, and false. Every frame entered is left.
-: lf-lnorm-nest ( -- addr ) lf-lnorm-state lf-lnrec-nest ;
-: lf-lnorm-deep ( -- )
-  lf-lnorm-ok? if lf-lnorm-nest @ lf-level-depth-limit lf-lnorm-site lf-diag-depth-limit
-    lf-diag-note then outcome-full lf-lnorm-fail ;
-: lf-lnorm-enter ( -- flag )
-  lf-lnorm-nest @ lf-level-depth-limit < dup if 1 lf-lnorm-nest +! else lf-lnorm-deep then ;
-: lf-lnorm-leave ( -- ) -1 lf-lnorm-nest +! ;
+\ Room on a growable stack or array the heap would not grow: full,
+\ recorded with the cells in use, the capacity and code (the frames' or a
+\ work stack's).
+: lf-lnorm-no-room ( used capacity code -- )
+  lf-lnorm-ok? if lf-lnorm-site swap lf-diag-note else drop 2drop then
+  outcome-full lf-lnorm-fail ;
 \ New nodes: a full store or spent serial (recorded by lf-level-add) is full.
 : lf-lnorm-made ( level true | false -- level )
   if exit then outcome-full lf-lnorm-fail 0 ;
@@ -149,31 +144,28 @@ end-structure
 \ is_norm_lt: by base (the level under its successors), then offset.
 \ Different bases: by kind (level.h 30: zero, succ, max, imax, param, as
 \ LeanForth's tags), parameters by name, max and imax by their left sides,
-\ or by their right sides when the left ones are equal.
-defer lf-lnorm-less ( a b -- flag )
+\ or by their right sides when the left ones are equal. Lean recurses on
+\ the sides; its last call is in tail position, so this loops.
 : lf-lnorm-lefts ( a b -- a' b' ) lf-level-first@ swap lf-level-first@ swap ;
 : lf-lnorm-rights ( a b -- a' b' ) lf-level-second@ swap lf-level-second@ swap ;
-: lf-lnorm-sides< ( ba bb -- flag )
-  2dup lf-lnorm-lefts lf-lmk-same? if lf-lnorm-rights else lf-lnorm-lefts then
-  lf-lnorm-less ;
+: lf-lnorm-sides ( ba bb -- a' b' )
+  2dup lf-lnorm-lefts lf-lmk-same? if lf-lnorm-rights else lf-lnorm-lefts then ;
 \ Two different parameters need their names: an ID that is not a valid
 \ name leaves the comparison undecided (unknown).
 : lf-lnorm-named? ( a b -- flag ) lf-lnorm-name-ok? swap lf-lnorm-name-ok? and ;
 : lf-lnorm-unnamed ( a b -- false ) 2drop outcome-unknown lf-lnorm-fail false ;
 : lf-lnorm-names< ( ba bb -- flag )
   lf-lnorm-lefts 2dup lf-lnorm-named? if lf-lnorm-name-cmp 0< else lf-lnorm-unnamed then ;
-: lf-lnorm-bases< ( ba bb -- flag )
-  2dup lf-lmk-tags 2dup <> if < nip nip exit then 2drop
-  dup lf-level-tag@ lf-level-tag-param = if lf-lnorm-names< else lf-lnorm-sides< then ;
-: lf-lnorm-bases-in< ( ba bb -- flag )
-  lf-lnorm-enter if lf-lnorm-bases< lf-lnorm-leave else 2drop false then ;
-: lf-lnorm-lt ( a b -- flag )
-  2dup = if 2drop false exit then
+\ One step: the answer and true, or the next pair and false.
+: lf-lnorm-bases< ( ba bb -- flag true | a' b' false )
+  2dup lf-lmk-tags 2dup <> if < nip nip true exit then 2drop
+  dup lf-level-tag@ lf-level-tag-param = if lf-lnorm-names< true else lf-lnorm-sides false then ;
+: lf-lnorm-lt-step ( a b -- flag true | a' b' false )
+  2dup = if 2drop false true exit then
   lf-lmk-offset rot lf-lmk-offset rot 2>r swap
-  2dup lf-lmk-same? if 2drop 2r> < else 2r> 2drop lf-lnorm-bases-in< then ;
-' lf-lnorm-lt is lf-lnorm-less
+  2dup lf-lmk-same? if 2drop 2r> < true else 2r> 2drop lf-lnorm-bases< then ;
+: lf-lnorm-lt ( a b -- flag ) begin lf-lnorm-lt-step until ;
 
-\ ---------------------------------------------------------------------------
 \ The argument stack. A push the heap cannot make room for is full.
 : lf-lnorm-crowded ( level -- )
   drop lf-lnorm-ok? if lf-lnorm-top @ lf-lnorm-arg-cells slab-capacity lf-lnorm-site
@@ -182,15 +174,23 @@ defer lf-lnorm-less ( a b -- flag )
 : lf-lnorm-push ( level -- )
   lf-lnorm-top @ dup lf-lnorm-room?
   if lf-lnorm-arg ! 1 lf-lnorm-top +! else drop lf-lnorm-crowded then ;
-\ push_max_args: the arguments of nested maxes, left to right.
-defer lf-lnorm-push-args ( level -- )
-: lf-lnorm-push-both ( max -- )
-  lf-lnorm-enter if dup lf-level-first@ lf-lnorm-push-args lf-level-second@
-    lf-lnorm-push-args lf-lnorm-leave else drop then ;
-: lf-lnorm-push-max ( level -- )
+\ push_max_args: the arguments of nested maxes, left to right, each level
+\ visited spending one unit of fuel. The maxes still to flatten wait on a
+\ growable array, the right side below the left; one the heap cannot grow
+\ is full.
+: lf-lnorm-todo ( -- slab ) lf-lnorm-todo-cells ;
+: lf-lnorm-todo-push ( level n -- n' )
+  dup 1+ lf-lnorm-todo slab-hold ok?
+  if tuck cells lf-lnorm-todo slab-base + ! 1+
+  else nip dup lf-lnorm-todo slab-capacity lf-diag-work-stack-full lf-lnorm-no-room then ;
+: lf-lnorm-todo-pop ( n -- level n' ) 1- dup cells lf-lnorm-todo slab-base + @ swap ;
+: lf-lnorm-push-one ( n level -- n' )
   lf-lnorm-ok? 0= if drop exit then lf-lnorm-spend
-  dup lf-lmk-max? if lf-lnorm-push-both else lf-lnorm-push then ;
-' lf-lnorm-push-max is lf-lnorm-push-args
+  dup lf-lmk-max? if dup lf-level-second@ rot lf-lnorm-todo-push
+    swap lf-level-first@ swap lf-lnorm-todo-push
+  else lf-lnorm-push then ;
+: lf-lnorm-push-args ( level -- )
+  0 lf-lnorm-todo-push begin dup while lf-lnorm-todo-pop swap lf-lnorm-push-one repeat drop ;
 
 \ Sorting arguments from..to-1 in place by is_norm_lt (insertion sort;
 \ only structurally equal arguments tie, so the order is std::sort's).
@@ -286,39 +286,66 @@ defer lf-lnorm-push-args ( level -- )
 
 \ ---------------------------------------------------------------------------
 \ normalize, once per level of the input (the normal forms of a call are
-\ remembered, so a shared graph is not normalized twice).
-defer lf-lnorm-walk ( level -- level' )
-\ imax (463-467): mk_imax of the normalized sides, not normalized again.
-: lf-lnorm-imax-case ( r k -- level )
-  >r dup lf-level-first@ lf-lnorm-walk swap lf-level-second@ lf-lnorm-walk
-  lf-lnorm-imax r> lf-lnorm-succs ;
+\ remembered, so a shared graph is not normalized twice). A level's visit
+\ is a chain of steps on the frames ( ... frames -- ... frames next ) that
+\ ends with its normal form ( level' frames 0 ); lf-lnorm-call asks for the
+\ visit of a level, continuing with cont ( level' frames -- ... ). A visit
+\ the frames cannot hold (the heap refuses) is full and gives 0. The
+\ frames' own fuel is not used: the call's fuel is spent as before.
+: lf-lnorm-call ( level frames cont -- ... frames next )
+  frame-need 2 pick frame-room?
+  if over frame-visitor @ frame-open
+  else >r nip 0 swap dup frame-used @ over frame-capacity @ lf-diag-frame-limit
+    lf-lnorm-no-room r> then ;
+\ imax (463-467): mk_imax of the normalized sides, not normalized again;
+\ the level and its offset wait while the left side is normalized, then
+\ the left side's normal form too.
+: lf-lnorm-imax-done ( l2 frames -- level frames 0 )
+  >r r@ frame-restore swap lf-lnorm-imax r@ frame-restore drop r@ frame-restore
+  lf-lnorm-succs r> 0 ;
+: lf-lnorm-imax-left ( l1 frames -- r frames next )
+  >r r@ frame-save 1 r@ frame-pick lf-level-second@ r> ['] lf-lnorm-imax-done lf-lnorm-call ;
+: lf-lnorm-imax-case ( r k frames -- r' frames next )
+  >r r@ frame-save dup r@ frame-save lf-level-first@ r> ['] lf-lnorm-imax-left lf-lnorm-call ;
 \ max (468-514): the arguments, each normalized and flattened again,
 \ pushed above the max's own arguments; the stack is given back after.
-: lf-lnorm-flatten ( from to -- )
-  swap ?do i lf-lnorm-arg @ lf-lnorm-walk lf-lnorm-push-args loop ;
-: lf-lnorm-args ( r -- from to )
-  lf-lnorm-top @ swap lf-lnorm-push-args lf-lnorm-top @ 2dup lf-lnorm-flatten
-  nip lf-lnorm-top @ ;
+\ The old top, the offset, the end of the max's own arguments and the
+\ next of them wait while each is normalized.
 : lf-lnorm-combine ( from to k -- level )
   >r 2dup lf-lnorm-sort over swap lf-lnorm-dedup 2dup r> lf-lnorm-lift lf-lnorm-fold ;
-: lf-lnorm-max-case ( r k -- level )
-  lf-lnorm-top @ >r >r lf-lnorm-args r>
-  lf-lnorm-ok? if lf-lnorm-combine else drop 2drop 0 then r> lf-lnorm-top ! ;
+: lf-lnorm-max-done ( frames -- level frames 0 )
+  >r r@ frame-restore lf-lnorm-top @ r@ frame-restore lf-lnorm-ok?
+  if lf-lnorm-combine else drop 2drop 0 then r@ frame-restore lf-lnorm-top ! r> 0 ;
+defer lf-lnorm-flatten ( i frames -- ... frames next )
+: lf-lnorm-flattened ( level' frames -- i frames next )
+  >r lf-lnorm-push-args r@ frame-restore 1+ r> ['] lf-lnorm-flatten ;
+: lf-lnorm-next-arg ( i frames -- ... frames next )
+  0 over frame-pick 2 pick > 0= if nip lf-lnorm-max-done exit then
+  2dup frame-save swap lf-lnorm-arg @ swap ['] lf-lnorm-flattened lf-lnorm-call ;
+' lf-lnorm-next-arg is lf-lnorm-flatten
+: lf-lnorm-max-case ( r k frames -- ... frames next )
+  >r lf-lnorm-top @ r@ frame-save r@ frame-save lf-lnorm-top @ swap lf-lnorm-push-args
+  lf-lnorm-top @ r@ frame-save r> lf-lnorm-next-arg ;
 \ Zero and parameters, under any successors, are their own normal form.
-: lf-lnorm-compute ( level -- level' )
-  dup lf-lmk-offset over lf-level-tag@ case
-    lf-level-tag-imax of rot drop lf-lnorm-imax-case endof
-    lf-level-tag-max of rot drop lf-lnorm-max-case endof
-    >r 2drop r> endcase ;
-\ The frame is counted here, not in a word around lf-lnorm-compute, so
-\ that it costs no return cell of its own.
+: lf-lnorm-compute ( level frames -- ... frames next )
+  >r dup lf-lmk-offset over lf-level-tag@ case
+    lf-level-tag-imax of rot drop r> lf-lnorm-imax-case endof
+    lf-level-tag-max of rot drop r> lf-lnorm-max-case endof
+    >r 2drop r> r> swap 0 swap endcase ;
+\ A visit: a level already normalized gives its normal form; else one
+\ unit of fuel, then the normal form, remembered by the step it keeps for
+\ the visit's end.
 : lf-lnorm-remember ( level level' -- level' ) tuck 1+ swap lf-lnorm-memo ! ;
-: lf-lnorm-visit ( level -- level' )
-  lf-lnorm-ok? 0= if drop 0 exit then
-  dup lf-lnorm-memo @ ?dup if nip 1- exit then
-  lf-lnorm-spend lf-lnorm-enter 0= if drop 0 exit then
-  dup lf-lnorm-compute lf-lnorm-remember lf-lnorm-leave ;
-' lf-lnorm-visit is lf-lnorm-walk
+: lf-lnorm-remembered ( level' frames -- level' frames 0 )
+  >r r@ frame-restore swap lf-lnorm-remember r> 0 ;
+: lf-lnorm-visit-step ( level frames -- ... frames next )
+  lf-lnorm-ok? 0= if nip 0 swap 0 exit then
+  over lf-lnorm-memo @ ?dup if rot drop 1- swap 0 exit then
+  lf-lnorm-spend 2dup frame-save ['] lf-lnorm-remembered over frame-save lf-lnorm-compute ;
+\ Normalize one level to the end, as a loop of its own on the frames from
+\ what they hold (level-geq.fs calls it from its steps).
+: lf-lnorm-walk ( level -- level' )
+  lf-lnorm-frames dup frame-used @ >r ['] frame-return lf-lnorm-call r> frame-loop drop ;
 
 \ ---------------------------------------------------------------------------
 \ is_equivalent: structurally equal, or so after normalize (left first).
@@ -329,8 +356,8 @@ defer lf-lnorm-walk ( level -- level' )
 \ invalid), the facts of level-make cut back with it.
 : lf-lnorm-store-mark ( -- addr ) lf-lnorm-state lf-lnrec-mark ;
 : lf-lnorm-begin ( fuel -- outcome )
-  lf-lnorm-fuel ! outcome-ok lf-lnorm-status ! 0 lf-lnorm-top ! 0 lf-lnorm-nest !
-  lf-lnorm-clear
+  lf-lnorm-fuel ! outcome-ok lf-lnorm-status ! 0 lf-lnorm-top ! lf-lnorm-frames frame-reset
+  max-n lf-lnorm-frames frame-fuel ! lf-lnorm-clear
   lf-lmk-sync lf-lnorm-store-mark lf-levels store-mark ;
 : lf-lnorm-end ( -- )
   lf-lnorm-store-mark lf-levels store-rollback lf-lnorm-fail
@@ -344,9 +371,8 @@ defer lf-lnorm-walk ( level -- level' )
 \ unknown) when two different parameters must be ordered and one's ID is
 \ not a valid name of the name store (never in a declaration's check,
 \ whose parameters are names); (false exhausted) when the fuel runs out;
-\ (false full) when the level store or the argument stack is full, or
-\ more than lf-level-depth-limit level frames would nest (recorded as the
-\ depth limit); (false invalid) for negative
+\ (false full) when the level store is full, or the heap cannot grow
+\ the argument stack or the frames; (false invalid) for negative
 \ fuel, an invalid level or a refused rollback. lf-lnorm-fuel is the fuel
 \ left (0 after invalid input). Nothing stays allocated.
 : lf-lnorm-refused ( l1 l2 -- false outcome )
@@ -357,37 +383,16 @@ defer lf-lnorm-walk ( level -- level' )
   lf-lnorm-decide lf-lnorm-end lf-lnorm-result ;
 
 \ ---------------------------------------------------------------------------
-\ Host stacks. Painted on Gforth 0.7.3 and 1.0, which agree, below
-\ lf-level-compare called from a shallow word (2026-11-03;
-\ tests/core/level-deep.fs repeats it): normalize holds 4 return and 2
-\ data cells per imax level (a 61-level imax chain: 249 and 116) and 9
-\ and 3 per max level (visit, compute, the max case and its two cells,
-\ args, and flatten with its loop). A max's arguments are flattened, so
-\ the next level it normalizes is another node, an imax, successor or
-\ leaf: levels alternating imax and max hold the most, 6.5 and 2.5 per
-\ node (61 levels: 399 and 146; 30 max levels, each over a successor:
-\ 275 and 89). push_max_args holds 1 return cell per level (a 60-level
-\ max chain: 64 and 52); is_norm_lt 3 return and no data cells per level
-\ of two normal forms, which differ, so are two nodes, at every level (30
-\ levels: 89 and 0). The name order is iterative: names of 15 and 31
-\ components take the same cells. A call nests at most
-\ lf-level-depth-limit level frames, each counted while it runs (at the
-\ default capacity no graph reaches the limit: the frames on one path are
-\ at different nodes of the store, with one more while push_max_args
-\ takes a max's arguments), at 7 return and 3 data cells each. The
-\ slack covers the entry words of
-\ level-compare, conversion and rule D1, the steps at the deepest frame
-\ and a shallow caller. mixed-infer.fs takes the larger of this need and
-\ beta's (a level comparison never runs inside beta's passes) for its
-\ deepest level and checks the host's stacks; the job pool gets it from
-\ context-need.
-7 constant lf-lnorm-rs-level    \ return-stack cells per level node
-3 constant lf-lnorm-ds-level    \ data-stack cells per level node
-0 constant lf-lnorm-rs-name     \ return-stack cells per name component
-0 constant lf-lnorm-ds-name     \ data-stack cells per name component
-64 constant lf-lnorm-stack-slack
-: lf-lnorm-need ( level-cells name-cells -- cells )
-  lf-name-default * swap lf-level-depth-limit * + lf-lnorm-stack-slack + ;
-lf-lnorm-rs-level lf-lnorm-rs-name lf-lnorm-need constant lf-lnorm-return-cells
-lf-lnorm-ds-level lf-lnorm-ds-name lf-lnorm-need constant lf-lnorm-data-cells
+\ The frames, set up in every context and freed with it. Host stacks: a
+\ call holds a constant number of cells whatever the levels' depth -- its
+\ entry words, the loop, one step and the words it calls (the sort, the
+\ name order, level-make's constructors), and level-geq.fs's loop around
+\ normalize's; lf-lnorm-return-cells and lf-lnorm-data-cells bound that
+\ generously for mixed-infer.fs and the job pool (context-need).
+: lf-lnorm-setup ( -- ) ['] lf-lnorm-visit-step lf-lnorm-frames frame-init ;
+' lf-lnorm-setup context-setup
+: lf-lnorm-release ( -- ) lf-lnorm-frames frame-free ;
+' lf-lnorm-release context-teardown
+256 constant lf-lnorm-return-cells
+256 constant lf-lnorm-data-cells
 lf-lnorm-data-cells lf-lnorm-return-cells context-need
