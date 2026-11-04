@@ -13,7 +13,9 @@ and verification of executable Forth programs. The experimental work
 reported below is an interim development stage, not the project's final
 scope or quality target.
 
-**In one paragraph.** LeanForth still has **no proof checker**: it has
+**In one paragraph.** *(Update 2026-11-03: a first, experimental declaration check now exists and
+gives Lean's answer on all 62 cases of its table; it is not yet approved. A full new snapshot follows.)*
+On 2026-11-02 LeanForth still had **no proof checker**: it had
 never accepted or rejected a declaration. On 2026-11-02 the code base was
 rebuilt on a small Forth library (all modules on named records, one outcome
 vocabulary, the superseded variants retired, each module loading its own
@@ -104,7 +106,7 @@ designs and Lean proofs rather than on LeanForth code.
 | 2. Terms, names and universes | In progress: bounded 64-entry stores on the library's `store:` records, handles that detect stale references, symbolic Sorts kept apart from concrete ones, which no checker pass accepts (ADR 0007; the unsafe draft that mixed them was retired), structured names. Human review of the representation and serialization remain. |
 | 3. Scope and substitutions | In progress: shift, instantiation and universe substitution passes compared with Lean on finite tables (80, 25 and 48 cases and others). General specification and review remain. |
 | 4. Definitional equality | 1 of 3 done (T4.1, rules approved). The experimental conversion compares after beta reduction and answers *unknown* where it cannot decide; unfolding, eta and proof irrelevance are later phases. No pass answers *rejected* yet. |
-| 5. Small trusted checker | 1 of 4 done (T5.1, rules and design approved). Expected results: 62 cases (14 must be accepted, 28 rejected, 1 invalid, 11 unknown, 8 unsupported) checked against Lean. In progress: the rejection rules in comparison and inference (plan 2.2.1) agree with Lean on all 62 rows of the table (28 rejected with Lean's error kind) and the checked environment v0 (2.2.2) is written; both are under independent review before the owner's [kernel] gate. Next: the declaration check (2.2.3), the failure-path suite (2.2.4) and replay (2.2.5). |
+| 5. Small trusted checker | 1 of 4 done (T5.1, rules and design approved). Expected results: 62 cases (14 must be accepted, 28 rejected, 1 invalid, 11 unknown, 8 unsupported) checked against Lean. The rejection rules in comparison and inference (plan 2.2.1) were **approved by the owner on 2026-11-03** ([kernel] gate). The checked environment v0 (2.2.2) awaits its last review fixes and gate. The declaration check (2.2.3) is implemented and merged (2026-11-03): end to end, it gives Lean's answer on all 62 rows; its independent review and gate are next. Next: Lean's rule for a "for all" whose body is not a type (ADR 0011 amendment), the failure-path suite (2.2.4) and replay (2.2.5). |
 | 6. Lean NDJSON importer | In progress: the Forth reader decodes every record kind of lean4export 3.1.0 and all of Mathlib (below). Staging into the stores, feeding the checker and comparing verdicts remain. |
 | 7. Lean checker compatibility corpus | In progress: selected differential tables and the first checker's expected-results table; no official corpus run. |
 | 8. Lean declaration features | In progress: the checked environment is designed (ADR 0012, per-declaration universe scope); candidate signatures remain unchecked assumptions; inductive types, recursors and quotients are decoded by the reader but not checked. |

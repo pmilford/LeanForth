@@ -678,3 +678,19 @@ needed; access is by index and by hash), unshared trees (10^14 nodes),
 chaining, file-backed storage (not needed below about 20 GB), and one
 copy of the input per worker. Open for the owner: the three decisions at
 the end of the ADR.
+
+## 2026-11-03: rejection rules approved; behave identically to Lean; compact store accepted
+
+The owner approved the rejection rules' [kernel] gate (plan 2.2.1) and ADR
+0016 (the compact store) as recommended, and set the principle that
+LeanForth must give Lean 4.35.0's exact verdicts: "Working worse than Lean
+is of no use." Consequence: Lean's rejection of a "for all" whose body is
+not a type, which the first rule set left as *unknown*, is scheduled as an
+ADR 0011 amendment rather than deferred. Also recorded: the one-thread
+speed goal (match or beat Lean's kernel), a cap of about 10 busy processes
+on the owner's machine, a later GPU investigation (outside the trusted
+kernel, with a CPU path kept), and durable agent notes after a restart
+wiped `/tmp`. Rejected alternative: keeping LeanForth deliberately more
+cautious than Lean where Lean decides; the owner wants identical behaviour
+first, improvements later. See
+[OWNER_DECISIONS.md](OWNER_DECISIONS.md#gate-answers-and-working-guidelines-2026-11-03).

@@ -326,3 +326,46 @@ produces can be verified.
   kept through edits and never checked, are what the owner meant by notes
   that stay with an evolving proof. The implementation still passes the
   [parser] gate before it is relied on.
+
+## Gate answers and working guidelines (2026-11-03)
+
+- **Rejection rules, [kernel] gate: approved** (plan task 2.2.1, ADR 0011
+  as implemented), as recommended: when the extra rejection analysis runs
+  out of fuel or room the answer stays *unknown*; Lean's rejection of a
+  "for all" whose body is not a type (`infer_pi`'s `ensure_sort` on the
+  body) is added as an ADR 0011 amendment through the same gate. Every
+  accepted result keeps the label *experimental — not independently
+  audited*.
+- **Behave identically to Lean.** The owner, with that approval: "In
+  general we should behave identical to Lean. Too soon to 'improve' lean.
+  leave that for later. Working worse than Lean is of no use." LeanForth's
+  target is Lean 4.35.0's exact verdicts; an *unknown* where Lean decides
+  is a gap to close, not a design choice, and no rule may differ from
+  Lean's even where it would be "better". Resource limits (*exhausted*,
+  *full*) are reported as such.
+- **ADR 0016, the compact store: accepted**, with its three
+  recommendations: the basis for plan tasks 6.2.0–6.2.3; every theorem's
+  proof stays in memory for now; equal terms are stored once even though
+  the exporter already shares them.
+- **NDJSON reader, [import] gate: not yet approved.** The owner: "Seems
+  ok", and asked whether Lean's export carries a signature or checksum (if
+  not, LeanForth's own exports could add one and import could expect it by
+  default), to keep making reading more robust with more checks, and to
+  expect Lean's format to change: "maintaining full compatibility with
+  Mathlib is of highest importance."
+- **ADR 0013, the derivation log: not yet decided.** The owner: "the
+  ability to pretty print is also important, latex and unicode I assume."
+- **Speed goal.** One-thread performance as close to Lean's kernel as
+  possible, or better; parallel checking then exceeds it.
+- **Machine use.** At most about 10 busy processes at a time, so the rest
+  of the computer stays fast; full parallelism only for specific tests.
+- **Later: investigate offloading part of the work to a GPU.** Under the
+  design rules in `AGENTS.md` a GPU never belongs to the trusted kernel and
+  a CPU path is always kept; candidates are untrusted bulk work such as
+  hashing, decoding or pre-filtering.
+- **Working practice.** Agent notes, reviews and probes are kept in a
+  folder that survives a restart (`.claude/work/`), and agents commit work
+  in progress on their own branches, after a restart wiped `/tmp` and a
+  usage limit cut agents off on 2026-11-03. Progress reports should say
+  plainly what each part can do today, for example what LeanForth can do
+  with an imported Mathlib.

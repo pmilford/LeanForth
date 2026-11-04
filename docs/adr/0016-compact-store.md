@@ -1,6 +1,8 @@
 # ADR 0016: the compact store for Mathlib-scale input
 
-Status: **proposed**, 2026-11-02 (plan tasks 6.0.1 and 6.2.0–6.2.3; also
+Status: **accepted** by the owner on 2026-11-03, with the three recommendations of
+[Decisions for the owner](#decisions-for-the-owner) ([OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md)).
+Previously: **proposed**, 2026-11-02 (plan tasks 6.0.1 and 6.2.0–6.2.3; also
 1.1.5, 3.2.1 and 3.3.1). The owner approved writing this design and asked
 the questions answered below. It changes how terms are stored, not what
 the checker decides, so it is a [kernel] no-behaviour-change design: the
