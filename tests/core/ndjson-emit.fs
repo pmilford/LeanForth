@@ -140,6 +140,9 @@ T{ s\" {\"ie\":3,\"sort\":0}" refused emit-status -> outcome-invalid true outcom
 T{ reexport-end reexport-lines@ -> outcome-invalid 4 }T
 T{ begun sorted-in s\" {\"ie\":1,\"mdata\":{\"data\":{\"a\":{\"y\":1,\"x\":2}},\"expr\":0}}" refused
    -> outcome-ok outcome-ok outcome-invalid true }T
+\ A real number, which Lean never writes there, is unsupported.
+T{ begun sorted-in s\" {\"ie\":1,\"mdata\":{\"data\":{\"a\":1.5},\"expr\":0}}" refused
+   -> outcome-ok outcome-ok outcome-unsupported true }T
 \ More than data-most members are full; data-most are not.
 create wide-line 4096 allot  variable wide-length
 : wide+ ( c-addr u -- ) tuck wide-line wide-length @ + swap move wide-length +! ;

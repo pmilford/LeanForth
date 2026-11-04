@@ -721,7 +721,8 @@ dumps are equal, as above.
   never gives ok and leaves no byte of its line: an enumeration code out
   of range (binder information, safety, quotient kind and hints, given by
   a handler that changes its record), mdata's data with equal keys, an
-  unsorted inner object or 257 members, a key past the writer's key pool,
+  unsorted inner object, a real number or 257 members, a key past the
+  writer's key pool,
   a line inside an unfinished block, a block element outside a block, an
   input that cannot be read and an output that cannot be written; buffer
   growth and its limit; all 11 NDJSON exports under `tests/` re-exported
@@ -778,15 +779,16 @@ the reader's field-by-field dump of each
 
 | Export (pinned Lean 4.35.0) | Lines, bytes | Re-export | Identical | SHA-256 of both | Dump of both |
 | --- | --- | --- | --- | --- | --- |
-| `Init` | 6,452,982, 345,690,182 B | 20.7 s, 14,856 KiB | yes | `c1b2071a…a59a179` | `2ca3a7a2…f6c38e65` |
-| `Std` | 10,193,568, 562,170,995 B | 33.9 s, 14,840 KiB | yes | `bae74d69…a9afcbeb` | `76750d5c…cce14a` |
-| all of Mathlib | 110,895,826, 6,258,342,501 B | 5 min 21 s, 20,196 KiB | yes | `18448e5d…59c6` | `3cf988e8…f831ddd674` |
+| `Init` | 6,452,982, 345,690,182 B | 17.8 s, 14,856 KiB | yes | `c1b2071a…a59a179` | `2ca3a7a2…f6c38e65` |
+| `Std` | 10,193,568, 562,170,995 B | 29.2 s, 14,884 KiB | yes | `bae74d69…a9afcbeb` | `76750d5c…cce14a` |
+| all of Mathlib | 110,895,826, 6,258,342,501 B | 5 min 29 s, 20,104 KiB | yes | `18448e5d…59c6` | `3cf988e8…f831ddd674` |
 
 The dumps of `Init` and Mathlib equal those recorded under
 [Evidence](#evidence). Re-exporting takes about three times as long as
 reading alone (1 min 43 s for Mathlib): the JSON writer checks every call
-and every key's order. Memory stays flat; the peak grows with the longest
-line (Mathlib's 2.7 MB string), held twice, as read and as written.
+and every key's order, and has not been tuned. Memory stays flat; the
+peak grows with the longest line (Mathlib's 2.7 MB string), held as read
+and as written.
 
 ## Is a binary quick-import worth building?
 

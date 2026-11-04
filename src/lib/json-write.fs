@@ -127,8 +127,8 @@ end-structure
 \ escapes, jw-limit max-n; for a bad plan it gives false and writes
 \ nothing. json-writer: defines name ( -- writer ) in the dictionary and
 \ aborts on a bad plan. jw-sorted, jw-lean and jw-limit are settings the
-\ caller may store; they are kept from text to text. The nests and key pool take at most jw-most
-\ bytes, so that a record's size fits in a cell.
+\ caller may store; they are kept from text to text. The nests and key
+\ pool take at most jw-most bytes, so that a record's size fits in a cell.
 max-n /jw-header - constant jw-most
 : jw-size ( depth room -- u ) swap /jw-nest * + /jw-header + ;
 : jw-plan? ( depth room -- flag )
