@@ -71,6 +71,9 @@ STORES = {
     "lf-tag-constant", "lf-tag-app", "lf-tag-lam", "lf-tag-pi", "lf-log-preset-level",
     "lf-log-preset-records", "lf-log-preset-marks", "lf-log-preset-terms",
     "lf-log-preset-levels",
+    # The local context, read only: a free variable is copied as the bound
+    # variable it stands for (plan task 4.2.2a).
+    "lf-tag-fvar", "lf-fvar-live?", "lf-fvar-depth",
 }
 LOG_USES = FORTH | CONTEXT | STORES
 RESTRICTED = {
