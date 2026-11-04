@@ -488,7 +488,7 @@ Declaration kinds, for orientation:
 | 5.3.1 | Axiom allowlist v1: a versioned file with the exact Lean 4.35.0 statements of `propext`, `Classical.choice`, `Quot.sound`; others and altered statements rejected; `Lean.ofReduceBool` and `Lean.trustCompiler` never | Tests for altered and unlisted axioms | 5.1.5 | [axiom], [owner] | S |
 | 5.3.2 | Transitive axiom report on every accepted theorem (CLI, API, printed output) | Matches Lean's `#print axioms` on the corpus | 5.3.1 | [format] | S |
 | 5.4.1 | Corpus C-Nat: export the dependency closures of `Nat.add_zero` and `Nat.zero_add`; manifest with hashes | Every declaration accepted; mutants rejected; printed proofs golden | 5.2.1–5.2.3 | — | M |
-| 5.5.1 | (P) Clamp obligations proved in Lean, exported with their closure, checked by LeanForth (P5.2) | Receipt: source proof *kernel-accepted (experimental)*; mutated program, contract or proof rejected | 5.4.1, 2.5.5 | [bypass], [format], [runtime] | M |
+| 5.5.1 | (P) Clamp obligations proved in Lean, exported with their closure, checked by LeanForth (P5.2) | Receipt: source proof *kernel-accepted (experimental)*; mutated program, contract or proof rejected | 5.4.1, 2.5.5, 5.2.5 (the IR's Lean model uses a nested inductive type; W9 review) | [bypass], [format], [runtime] | M |
 | 5.5.2 | (P) Replay the program receipt independently; source verification reported apart from runtime evidence (P5.3) | Replay identical | 5.5.1 | — | S |
 | 5.6.1 | Printer v2: recognise induction (`Nat.rec` and Lean's compiled recursion), rewriting (`Eq.mpr`, `congrArg`) and equation chains; label *reconstructed from the proof term* | Golden output for both `Nat` theorems | 5.4.1 | — | M |
 
@@ -704,10 +704,19 @@ tasks each finding affects:
 - **MiniForth** (<https://github.com/leodemoura/MiniForth>), a Forth written
   in Lean by Leonardo de Moura — the mirror image of LeanForth's Lean in
   Forth (owner, 2026-11-03: "review this and see if we can learn anything
-  useful to apply"). Questions: its model of Forth state, words, memory and
-  control flow against IR 0.1's Lean semantics; whether it can serve as an
-  independent reference for the program track (three-way comparisons, the
-  two-mode design of ADR 0019); its licence. Review started 2026-11-03.
+  useful to apply"). **Reviewed 2026-11-03**
+  ([review](../development/MINIFORTH_REVIEW.md)): a Lean semantics
+  tutorial (7 primitives, unbounded integers, recursion as the only loop,
+  no memory), pinned to Lean 4.35.0, with no licence (ideas only, no code).
+  Adopted as proposals: early binding of calls and a Lean well-formedness
+  check plus round-trip test in ADR 0019; a fuel-free semantics proved
+  equivalent to the fuelled interpreter in IR v1 (4.4.1); verification
+  conditions v1 as proved Lean rules plus a tactic (4.4.2); helper-word
+  contracts as rewrite rules for SHA-256. Not a test oracle (fragment too
+  small, different number model). Gap found: task 5.5.1 also needs 5.2.5
+  (nested inductive types), because the IR's Lean model uses a nested
+  inductive type and well-founded recursion — or IR v1 picks a simpler
+  encoding.
 - Other independent Lean kernel checkers (lean4lean, nanoda) as second
   referees (already plan 6.4.1).
 

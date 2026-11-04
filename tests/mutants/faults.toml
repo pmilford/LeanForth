@@ -1,0 +1,1143 @@
+# Planted faults for `make mutants` (plan task 1.4.2; scripts/mutants.py
+# documents the format, docs/development/TESTING_STRATEGY.md the use).
+# Each fault changes one exact text of one file, in a temporary copy of
+# the tree, and names the test that must then fail. A fault that no test
+# can catch is listed with `equivalent` (it behaves as the original) or
+# `gap` (a test is missing), with the reason. When code changes under an
+# entry, the runner reports it stale: re-target the fault at the new code
+# (or delete it if the code it broke is gone), never just drop the check.
+#
+# Sources: faults first planted by hand, in scratch scripts since lost, by
+# the reviews of check-declaration (reasons starting "CD"), of the rejection
+# rules ("K1"), the checked environment's fourth review (all 9, "X5"), the
+# coverage review (T2, N1) and the JSON writer's, re-created here; and new
+# ones.
+
+# --- check-declaration (src/kernel/check-declaration.fs) -----------------
+
+[[fault]]
+id = "cd-skip-audit"
+file = "src/kernel/check-declaration.fs"
+old = '''  lf-check-u1 ['] lf-check-u2 lf-check-then ['] lf-check-v1 lf-check-then ;'''
+new = '''  outcome-ok ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "CD: step 1 (the audit) skipped; axioms, let and loose variables reach inference"
+quick = true
+
+[[fault]]
+id = "cd-skip-kind-audit"
+file = "src/kernel/check-declaration.fs"
+old = '''  lf-check-u1 ['] lf-check-u2 lf-check-then'''
+new = '''  outcome-ok ['] lf-check-u2 lf-check-then'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "CD: U1 skipped; an axiom, opaque or unsafe declaration is checked as if in scope"
+
+[[fault]]
+id = "cd-skip-form-audit"
+file = "src/kernel/check-declaration.fs"
+old = ''': lf-check-u2 ( -- outcome ) ['] lf-check-forms lf-check-both ;'''
+new = ''': lf-check-u2 ( -- outcome ) outcome-ok ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "CD: U2 skipped; let, literals and projections reach inference, which says unknown, not unsupported"
+
+[[fault]]
+id = "cd-skip-scope-audit"
+file = "src/kernel/check-declaration.fs"
+old = ''': lf-check-v1 ( -- outcome ) ['] lf-check-closed lf-check-both ;'''
+new = ''': lf-check-v1 ( -- outcome ) outcome-ok ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "CD: V1 skipped; a loose bound variable is no longer refused by the audit"
+
+[[fault]]
+id = "cd-audit-value-only-type"
+file = "src/kernel/check-declaration.fs"
+old = '''  >r lf-check-claim r@ execute dup ok? if drop lf-check-value-root r@ execute then'''
+new = '''  >r lf-check-claim r@ execute'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "CD: the audit looks at the type only, never at the value"
+
+[[fault]]
+id = "cd-skip-type-is-sort"
+file = "src/kernel/check-declaration.fs"
+old = '''  lf-check-found @ lf-check-site lf-diag-type-expected lf-minfer-sort-rule lf-check-keep ;'''
+new = '''  outcome-ok ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "CD: step 5 (S1) skipped; a declared type that is not a type is checked on"
+quick = true
+
+[[fault]]
+id = "cd-theorem-mode-off"
+file = "src/kernel/check-declaration.fs"
+old = '''lf-idecl-kind @ lf-kind-theorem = ;'''
+new = '''lf-idecl-kind @ drop false ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "CD: theorem mode off; a theorem whose statement is not a proposition is accepted (S3)"
+
+[[fault]]
+id = "cd-s3-never-rejects"
+file = "src/kernel/check-declaration.fs"
+old = '''  if drop outcome-ok else lf-check-not-prop then ;'''
+new = '''  if drop outcome-ok else drop outcome-ok then ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "CD: S3 accepts a statement whose Sort is not zero for every universe"
+
+[[fault]]
+id = "cd-skip-compare"
+file = "src/kernel/check-declaration.fs"
+old = '''  lf-check-found @ lf-check-claim lf-minfer-agree'''
+new = '''  0 outcome-ok'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "CD: step 8 skipped; any value is accepted for any well-formed statement"
+quick = true
+
+[[fault]]
+id = "cd-skip-name-step"
+file = "src/kernel/check-declaration.fs"
+old = '''' lf-check-audit , ' lf-env-own-name ,'''
+new = '''' lf-check-audit , ' outcome-ok ,'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "CD: step 2 (N2) skipped; a second declaration of an accepted name is accepted"
+
+[[fault]]
+id = "cd-skip-params-step"
+file = "src/kernel/check-declaration.fs"
+old = '''' lf-env-own-params , ' lf-check-type ,'''
+new = '''' outcome-ok , ' lf-check-type ,'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "CD: step 3 (L3) skipped; repeated universe parameters are accepted"
+
+[[fault]]
+id = "cd-last-step-skipped"
+file = "src/kernel/check-declaration.fs"
+old = '''  lf-check-steps# 0 ?do i lf-check-do'''
+new = '''  lf-check-steps# 1- 0 ?do i lf-check-do'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "CD: the step loop stops one short and never compares the value's type"
+
+[[fault]]
+id = "cd-unlimited-budget"
+file = "src/kernel/check-declaration.fs"
+old = '''  0 lf-check-step! lf-check-state lf-chk-budget @ lf-check-left !'''
+new = '''  0 lf-check-step! 1000000 lf-check-left !'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "CD: the budget is ignored; a check without fuel can be accepted, and fuel sweeps change"
+
+[[fault]]
+id = "cd-no-restart"
+file = "src/kernel/check-declaration.fs"
+old = ''': lf-check-value ( -- outcome ) lf-check-restart ['] lf-check-infer-value lf-check-then ;'''
+new = ''': lf-check-value ( -- outcome ) outcome-ok ['] lf-check-infer-value lf-check-then ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "CD: step 7 keeps the scratch of steps 4-6 instead of rolling it back"
+gap = "no test fills the stores in steps 4-6 so that the value's inference needs their room back; the verdicts and fuel are otherwise the same"
+
+[[fault]]
+id = "cd-axioms-not-read"
+file = "src/kernel/check-declaration.fs"
+old = '''  lf-env-axioms ok? if lf-check-axioms. else drop ." axioms: ?" then ;'''
+new = '''  lf-env-axioms ok? if drop ." axioms: none" else drop ." axioms: ?" then ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "CD: the label prints axioms: none without reading the slot's axiom set"
+gap = "no accepted slot can hold an axiom bit in phase 2; a synthetic environment with an allowed bit (environment.fs) could test it"
+
+[[fault]]
+id = "cd-dependency-recorded-aside"
+file = "src/kernel/env-signature.fs"
+old = '''  lf-envsig-deciding? if dup lf-env-depend else outcome-ok then ;'''
+new = '''  dup lf-env-depend ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "CD: inference run aside (rejection test P2) records the constants it meets as dependencies"
+gap = "aside inference runs only after a step failed, so nothing it records is ever published; a test could read the candidate's dependency count after a rejected check"
+
+[[fault]]
+id = "cd-uses-unaccepted"
+file = "src/kernel/environment.fs"
+old = '''lf-slot-accepted? ( slot -- flag ) dup lf-slot-final? swap lf-slot-outcome@ ok? and ;'''
+new = '''lf-slot-accepted? ( slot -- flag ) dup lf-slot-final? nip ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "CD: a final slot counts as accepted whatever its outcome, so a rejected declaration can be used"
+
+[[fault]]
+id = "cd-dependency-not-recorded"
+file = "src/kernel/env-signature.fs"
+old = '''  lf-envsig-deciding? if dup lf-env-depend else outcome-ok then ;'''
+new = '''  outcome-ok ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "CD: a constant the check uses is not recorded as a dependency (E4, E6)"
+
+[[fault]]
+id = "cd-sort-level-unscoped"
+file = "src/kernel/mixed-infer.fs"
+old = '''  lf-minfer-scoped? if lf-minfer-scope-level else outcome-ok then ;'''
+new = '''  outcome-ok ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "CD/L2: a Sort whose level names a universe that is no parameter of the declaration passes"
+
+[[fault]]
+id = "cd-constant-levels-unscoped"
+file = "src/kernel/env-signature.fs"
+old = '''  lf-envsig-deciding? if lf-envsig-arguments else outcome-ok then ;'''
+new = '''  outcome-ok ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "CD/L2: a constant's universe arguments may name universes that are no parameters of the declaration"
+
+# --- checked environment (src/kernel/environment.fs) ----------------------
+
+[[fault]]
+id = "env-slots-start-ok"
+file = "src/kernel/environment.fs"
+old = '''lf-env-fields lf-env-unpublished tuck'''
+new = '''lf-env-fields tuck'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "X5 L4: a new environment's slots start with outcome 0, which reads as ok"
+quick = true
+
+[[fault]]
+id = "env-slot-invalid-unguarded"
+file = "src/kernel/environment.fs"
+old = ''': lf-slot-invalid! ( slot -- ) lf-env-may-write outcome-invalid'''
+new = ''': lf-slot-invalid! ( slot -- ) outcome-invalid'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "X5 L4: a check may write a slot's outcome (G-P1 guard removed)"
+
+[[fault]]
+id = "env-rejected-counts-undecided"
+file = "src/kernel/environment.fs"
+old = '''  lf-slot-outcome@ dup ok? over outcome-rejected = or swap outcome-unsupported = or 0= ;'''
+new = '''  lf-slot-outcome@ dup ok? swap outcome-unsupported = or 0= ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "K5: a rejected earlier declaration makes a use unknown instead of rejected (N1)"
+
+[[fault]]
+id = "env-k5-unsupported-first"
+file = "src/kernel/environment.fs"
+old = '''    0 of lf-env-undecided no-result endof'''
+new = '''    0 of lf-env-unsupported no-result endof'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "K5 as amended: unknown must come before unsupported; undecided slots are ignored"
+
+[[fault]]
+id = "env-n1-unknown"
+file = "src/kernel/environment.fs"
+old = '''  dup 0< if drop outcome-rejected else lf-env-k5-unsupported then ;'''
+new = '''  dup 0< if drop outcome-unknown else lf-env-k5-unsupported then ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "N1: an unknown constant gives unknown instead of rejected"
+
+[[fault]]
+id = "env-foreign-handle"
+file = "src/kernel/environment.fs"
+old = '''  over lf-env-cand lf-cand-identity @ <> if lf-env-foreign exit then'''
+new = '''  over lf-env-cand lf-cand-identity @ 2drop false if lf-env-foreign exit then'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "E3: a handle of another environment is accepted"
+
+[[fault]]
+id = "env-dep-capacity-off-by-one"
+file = "src/kernel/environment.fs"
+old = '''  lf-cand-count@ lf-env-dep-capacity = if lf-cand-full exit then'''
+new = '''  lf-cand-count@ lf-env-dep-capacity 1+ = if lf-cand-full exit then'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "a 17th dependency is written past the candidate's list instead of full"
+
+[[fault]]
+id = "env-deps-unsorted"
+file = "src/kernel/environment.fs"
+old = '''  lf-cand-count@ 0 ?do dup i lf-cand-dep @ < if drop i unloop exit then loop'''
+new = '''  lf-cand-count@ 0 ?do dup i lf-cand-dep @ > if drop i unloop exit then loop'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "dependencies are kept descending, which the publisher's re-check refuses"
+
+[[fault]]
+id = "env-deps-repeated"
+file = "src/kernel/environment.fs"
+old = '''  over lf-cand-has? if 2drop outcome-ok exit then'''
+new = '''  false if 2drop outcome-ok exit then'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "a dependency used twice is recorded twice"
+
+[[fault]]
+id = "env-axioms-not-joined"
+file = "src/kernel/environment.fs"
+old = '''  dup lf-slot-axioms @ lf-env-cand lf-cand-axioms lf-or!'''
+new = '''  dup lf-slot-axioms @ drop'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "E6: a dependency's axiom set is not joined into the candidate's"
+
+[[fault]]
+id = "env-arity-unchecked"
+file = "src/kernel/environment.fs"
+old = '''  nip 2dup = if 2drop outcome-ok else lf-env-arity-rejected then ;'''
+new = '''  nip 2drop outcome-ok ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "CD/L1: the number of universe arguments of a constant is not checked"
+
+[[fault]]
+id = "env-undeclared-param-ok"
+file = "src/kernel/environment.fs"
+old = '''  if drop outcome-ok else lf-env-undeclared then ;'''
+new = '''  drop drop outcome-ok ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "CD/L2: a universe name that is no parameter of the declaration is accepted"
+
+[[fault]]
+id = "env-repeated-param-pair"
+file = "src/kernel/environment.fs"
+old = '''  1 max 1 ?do dup i lf-param-repeated? if drop false unloop exit then loop drop true ;'''
+new = '''  1 max 2 ?do dup i lf-param-repeated? if drop false unloop exit then loop drop true ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "CD/L3: the second parameter is never compared with the first, so u u passes"
+
+[[fault]]
+id = "env-redeclared-ok"
+file = "src/kernel/environment.fs"
+old = '''  dup ok? if drop lf-env-declared else nip then ;'''
+new = '''  dup ok? if 2drop outcome-ok else nip then ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "N2: a name that was already accepted may be declared again"
+
+[[fault]]
+id = "env-early-lookup"
+file = "src/kernel/environment.fs"
+old = '''  2dup ['] lf-slot-open? lf-env-any? if lf-env-early else lf-env-decide then ;'''
+new = '''  lf-env-decide ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "G-P5: a lookup past a slot that is not final goes on instead of invalid"
+
+[[fault]]
+id = "env-begin-final-slot"
+file = "src/kernel/environment.fs"
+old = '''  2dup lf-env-in? if lf-env-slot lf-slot-open? else 2drop false then ;'''
+new = '''  2dup lf-env-in? if 2drop true else 2drop false then ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "a check may begin on a slot that is already final"
+
+[[fault]]
+id = "env-spent-context-used"
+file = "src/kernel/environment.fs"
+old = '''  lf-diag-clear lf-env-clear lf-env-spent? if lf-env-spent else lf-env-start then ;'''
+new = '''  lf-diag-clear lf-env-clear lf-env-start ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "G-P6: a context in which a check threw serves another check"
+
+[[fault]]
+id = "env-new-inside-job"
+file = "src/kernel/environment.fs"
+old = '''  lf-env-deps? lf-input-intact? and context-in-job? 0= and ;'''
+new = '''  lf-env-deps? lf-input-intact? and ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "G-P1: lf-env-new inside a check throws instead of answering invalid"
+
+[[fault]]
+id = "env-identities-never-spent"
+file = "src/kernel/environment.fs"
+old = '''  lf-env-serial @ max-n = if drop 0 outcome-full exit then'''
+new = '''  lf-env-serial @ drop'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "E3: an identity is issued after the serial is spent, so identities repeat"
+
+[[fault]]
+id = "env-freed-live"
+file = "src/kernel/environment.fs"
+old = '''  dup lf-envh-identity @ 1 lf-env-serial @ between?'''
+new = '''  dup lf-envh-identity @ 0 lf-env-serial @ between?'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "E3: a freed environment (identity 0) still counts as live"
+gap = "no test gives lf-env-use or lf-env-free a record whose identity is 0, as lf-env-free leaves it (a test cannot read freed memory, but can build such a record)"
+
+[[fault]]
+id = "env-pool-max-off-by-one"
+file = "src/kernel/environment.fs"
+old = ''': lf-env-deps? ( deps -- flag ) 0 lf-env-pool-max between? ;'''
+new = ''': lf-env-deps? ( deps -- flag ) 0 lf-env-pool-max 1+ between? ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "a pool larger than lf-env-pool-max is allowed"
+
+# --- the publisher (src/kernel/env-publish.fs) ----------------------------
+
+[[fault]]
+id = "pub-last-slot-unchecked"
+file = "src/kernel/env-publish.fs"
+old = '''  true over lf-env-length 0 ?do over i swap lf-env-slot lf-slot-final? and loop nip ;'''
+new = '''  true over lf-env-length 1- 0 ?do over i swap lf-env-slot lf-slot-final? and loop nip ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "X5 L3: a run ends ok though its last slot is not final"
+
+[[fault]]
+id = "pub-maker-plain-catch"
+file = "src/kernel/env-publish.fs"
+old = '''['] lf-env-two context-catch'''
+new = '''['] lf-env-two catch'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "X5: a maker that throws leaves its context selected"
+
+[[fault]]
+id = "pub-adopts-any-context"
+file = "src/kernel/env-publish.fs"
+old = '''  lf-env-make if drop false else dup lf-env-fresh-caught? ?keep then ;'''
+new = '''  lf-env-make if drop false else true then ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "X5: the run adopts whatever the maker gives: the main, current, owned or spent context"
+
+[[fault]]
+id = "pub-undo-outcome-zero"
+file = "src/kernel/env-publish.fs"
+old = '''  lf-env-pub-mark store-rollback drop dup /lf-slot erase lf-slot-invalid! ;'''
+new = '''  lf-env-pub-mark store-rollback drop /lf-slot erase ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "X5: an undone publication leaves outcome 0 (ok) in the slot"
+
+[[fault]]
+id = "pub-recheck-deps-off"
+file = "src/kernel/env-publish.fs"
+old = '''  ' lf-recheck-deps? , ' lf-recheck-axioms? ,'''
+new = '''  ' true , ' lf-recheck-axioms? ,'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "E4: the publisher no longer re-checks the candidate's dependencies"
+quick = true
+
+[[fault]]
+id = "pub-recheck-axioms-off"
+file = "src/kernel/env-publish.fs"
+old = ''' ' lf-recheck-axioms? , ' lf-recheck-provenance? ,'''
+new = ''' ' true , ' lf-recheck-provenance? ,'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "E4/E6: the axiom set is not re-checked against the dependencies and the allowlist"
+
+[[fault]]
+id = "pub-recheck-provenance-off"
+file = "src/kernel/env-publish.fs"
+old = ''' ' lf-recheck-provenance? ,
+  ' lf-recheck-name? ,'''
+new = ''' ' true ,
+  ' lf-recheck-name? ,'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "E4: the provenance is not re-checked"
+
+[[fault]]
+id = "pub-recheck-name-off"
+file = "src/kernel/env-publish.fs"
+old = '''  ' lf-recheck-name? , ' lf-recheck-decl? ,'''
+new = '''  ' true , ' lf-recheck-decl? ,'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "E4: N2/K5 not re-checked; a candidate whose name was taken is published"
+
+[[fault]]
+id = "pub-recheck-decl-off"
+file = "src/kernel/env-publish.fs"
+old = ''' ' lf-recheck-name? , ' lf-recheck-decl? ,'''
+new = ''' ' lf-recheck-name? , ' true ,'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "E4: kind, safety, value and parameters are not re-checked"
+
+[[fault]]
+id = "pub-verdict-trusts-check"
+file = "src/kernel/env-publish.fs"
+old = '''  drop lf-recheck if lf-recheck-failed else outcome-ok then ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "E4: the publisher trusts an ok check without any re-check"
+
+[[fault]]
+id = "pub-pool-room-ignored"
+file = "src/kernel/env-publish.fs"
+old = '''  if lf-pool-take else lf-pool-full then ;'''
+new = '''  drop lf-pool-take ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "a pool without room aborts in the publisher (invalid) instead of answering full"
+
+[[fault]]
+id = "pub-final-before-outcome"
+file = "src/kernel/env-publish.fs"
+old = '''  lf-env-may-write 2dup swap lf-slot-outcome ! lf-env-before-final
+  lf-state-final rot lf-slot-state ! ;'''
+new = '''  lf-env-may-write over lf-state-final swap lf-slot-state ! 2dup swap lf-slot-outcome !
+  lf-env-before-final nip ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "E4 step 3: the slot is marked final before its outcome is written"
+
+[[fault]]
+id = "pub-thrown-not-spent"
+file = "src/kernel/env-publish.fs"
+old = '''  outcome-invalid lf-env-finish lf-env-spend ;'''
+new = '''  outcome-invalid lf-env-finish ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "G-P6: a context in which a check threw is not spent"
+
+[[fault]]
+id = "pub-moved-snapshot"
+file = "src/kernel/env-publish.fs"
+old = '''  dup lf-env-still? if drop lf-env-hand-over else lf-env-moved then ;'''
+new = '''  drop lf-env-hand-over ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "a check that began another declaration has its candidate published"
+
+[[fault]]
+id = "pub-hand-over-in-job"
+file = "src/kernel/env-publish.fs"
+old = '''  context-in-job? if outcome-invalid true exit then
+  lf-env-target if lf-env-guarded else outcome-invalid true then ;'''
+new = '''  lf-env-target if lf-env-guarded else outcome-invalid true then ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "G-P1: a hand-over inside a check throws instead of being refused"
+
+[[fault]]
+id = "pub-no-rollback"
+file = "src/kernel/env-publish.fs"
+old = '''  lf-env-checked lf-input-rollback ok? 0= or ;'''
+new = '''  lf-env-checked ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "the scratch of a check is not rolled back to the input marks"
+
+[[fault]]
+id = "pub-confirm-ignored"
+file = "src/kernel/env-publish.fs"
+old = '''  lf-env-finished? 0= if drop outcome-invalid then ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "a serial run ends ok without checking that its environment is current and final"
+
+# --- checker contexts (src/lib/context.fs) --------------------------------
+
+[[fault]]
+id = "ctx-claim-inside-job"
+file = "src/lib/context.fs"
+old = '''  context-in-job? if drop false exit then
+  dup context? if context-other? else drop false then ;'''
+new = '''  dup context? if context-other? else drop false then ;'''
+test = "$GFORTH tests/lib/context.fs"
+reason = "X5 M1: a check may claim a context with its own token"
+quick = true
+
+[[fault]]
+id = "ctx-release-unguarded"
+file = "src/lib/context.fs"
+old = ''': context-release ( context -- ) context-outside-job 0 swap context-owner ! ;'''
+new = ''': context-release ( context -- ) 0 swap context-owner ! ;'''
+test = "$GFORTH tests/lib/context.fs"
+reason = "X5 M1: a check may release another job's context"
+
+[[fault]]
+id = "ctx-catch-no-restore"
+file = "src/lib/context.fs"
+old = '''lf-context @ >r catch r> lf-context ! ;'''
+new = '''lf-context @ >r catch r> drop ;'''
+test = "$GFORTH tests/lib/context.fs"
+reason = "X5: context-catch leaves the context the word selected"
+
+[[fault]]
+id = "ctx-balanced-cell-unchecked"
+file = "src/lib/context.fs"
+old = '''  over >r depth >r execute depth r> 1- = ?call-balanced r> = ?call-balanced ;'''
+new = '''  over >r depth >r execute depth r> 1- = ?call-balanced r> 2drop ;'''
+test = "$GFORTH tests/lib/context.fs"
+reason = "call-balanced no longer sees a word that replaced the cell below it"
+
+[[fault]]
+id = "ctx-balanced-depth-unchecked"
+file = "src/lib/context.fs"
+old = '''  over >r depth >r execute depth r> 1- = ?call-balanced r> = ?call-balanced ;'''
+new = '''  over >r depth >r execute r> drop r> = ?call-balanced ;'''
+test = "$GFORTH tests/lib/context.fs"
+reason = "call-balanced no longer checks the stack depth"
+
+[[fault]]
+id = "ctx-use-owned"
+file = "src/lib/context.fs"
+old = '''  dup context-mine? 0= abort" context-use: owned by another job" lf-context ! ;'''
+new = '''  lf-context ! ;'''
+test = "$GFORTH tests/lib/context.fs"
+reason = "a task may select a context another job owns"
+
+[[fault]]
+id = "ctx-free-main"
+file = "src/lib/context.fs"
+old = '''  dup context-main = abort" context-free: the main context"'''
+new = '''  false abort" context-free: the main context"'''
+test = "$GFORTH tests/lib/context.fs"
+reason = "the main context may be freed"
+
+[[fault]]
+id = "ctx-not-sealed"
+file = "src/lib/context.fs"
+old = '''  context-outside-job context-seal'''
+new = '''  context-outside-job'''
+test = "$GFORTH tests/lib/context.fs"
+reason = "members may be declared after context-new, so contexts differ in layout"
+
+[[fault]]
+id = "ctx-check-token-not-in-job"
+file = "src/lib/context.fs"
+old = ''': context-in-job? ( -- flag ) lf-owner @ 0<> ;'''
+new = ''': context-in-job? ( -- flag ) lf-owner @ 0> ;'''
+test = "$GFORTH tests/lib/context.fs"
+reason = "a check (token -1) no longer counts as inside a job, so no guard refuses it"
+
+[[fault]]
+id = "ctx-claim-current"
+file = "src/lib/context.fs"
+old = '''  dup context-main <> over lf-context @ <> and swap context-idle? and ;'''
+new = '''  dup context-main <> swap context-idle? and ;'''
+test = "$GFORTH tests/lib/context.fs"
+reason = "the current task's own context may be claimed for a job"
+
+# --- rejection rules (ADR 0011; src/kernel/mixed-infer.fs, mixed-head.fs,
+# level-value.fs) -----------------------------------------------------------
+
+[[fault]]
+id = "rej-d1-syntactic-levels"
+file = "src/kernel/mixed-infer.fs"
+old = '''  lf-minfer-firsts lf-minfer-fuel @ lf-level-apart? lf-lvalue-fuel lf-minfer-take
+  ok? and lf-rule-d1 lf-minfer-holds ;'''
+new = '''  lf-minfer-firsts <> lf-rule-d1 lf-minfer-holds ;'''
+test = "$GFORTH tests/core/definite-rejection.fs"
+reason = "K1: two Sorts are rejected whenever their levels are written differently (max u v, max v u)"
+quick = true
+
+[[fault]]
+id = "rej-no-proof-test"
+file = "src/kernel/mixed-infer.fs"
+old = '''  swap lf-minfer-proof-free? if lf-minfer-proof-free? else drop false then ;'''
+new = '''  2drop true ;'''
+test = "$GFORTH tests/core/definite-rejection.fs"
+reason = "K1: P2 skipped; two proofs of one statement are rejected though proof irrelevance makes them equal"
+
+[[fault]]
+id = "rej-s3-one-universe"
+file = "src/kernel/level-value.fs"
+old = '''  -1 lf-level-value-witness dup ok? if swap 0= swap else nip false swap then ;'''
+new = '''  0 lf-level-value-witness dup ok? if swap 0= swap else nip false swap then ;'''
+test = "$GFORTH tests/core/definite-rejection.fs"
+reason = "K1: normalizes_to_zero looks at one universe value (all parameters 0) only"
+
+[[fault]]
+id = "rej-d1-skips-last-parameter"
+file = "src/kernel/level-value.fs"
+old = '''  lf-lscope-context-count @ -1 ?do'''
+new = '''  lf-lscope-context-count @ 1- -1 ?do'''
+test = "$GFORTH tests/core/definite-rejection.fs"
+reason = "D1 never tries the witness that sets the last universe parameter alone to 1"
+
+[[fault]]
+id = "rej-f1-off"
+file = "src/kernel/mixed-infer.fs"
+old = '''  if lf-minfer-site lf-diag-function-expected lf-minfer-reject else outcome-unknown then ;'''
+new = '''  if drop then outcome-unknown ;'''
+test = "$GFORTH tests/core/definite-rejection.fs"
+reason = "K1: F1 never rejects an application of a non-function"
+
+[[fault]]
+id = "rej-s1-flexible-head"
+file = "src/kernel/mixed-head.fs"
+old = ''': lf-mhead-not-sort? ( kind -- flag ) dup lf-mhead-rigid? swap lf-head-sort <> and ;'''
+new = ''': lf-mhead-not-sort? ( kind -- flag ) lf-head-sort <> ;'''
+test = "$GFORTH tests/core/definite-rejection.fs"
+reason = "K1: S1/S2 reject a type headed by a constant, which Lean may unfold to a Sort"
+
+[[fault]]
+id = "rej-f1-flexible-head"
+file = "src/kernel/mixed-head.fs"
+old = ''': lf-mhead-not-pi? ( kind -- flag ) dup lf-mhead-rigid? swap lf-head-pi <> and ;'''
+new = ''': lf-mhead-not-pi? ( kind -- flag ) lf-head-pi <> ;'''
+test = "$GFORTH tests/core/definite-rejection.fs"
+reason = "K1: F1 rejects a function type headed by a constant, which Lean may unfold to a Pi"
+
+[[fault]]
+id = "rej-lambda-against-pi"
+file = "src/kernel/mixed-infer.fs"
+old = '''  2dup lf-minfer-one-lam? 0= -rot lf-mhead-shape? swap lf-mhead-shape? and and ;'''
+new = '''  true -rot lf-mhead-shape? swap lf-mhead-shape? and and ;'''
+test = "$GFORTH tests/core/definite-rejection.fs"
+reason = "K1: P3 skipped; a lambda is rejected against another shape though eta may make them equal"
+
+[[fault]]
+id = "rej-d4-domains-ignored"
+file = "src/kernel/mixed-infer.fs"
+old = '''    outcome-unknown of lf-minfer-firsts lf-minfer-apart endof'''
+new = '''    outcome-unknown of 2drop 0 false endof'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "D4 no longer looks at two binders whose domains are apart"
+
+[[fault]]
+id = "rej-d4-left-domain"
+file = "src/kernel/mixed-infer.fs"
+old = '''  dup lf-term-first@ lf-minfer-push 0= if 2drop 0 false exit then'''
+new = '''  over lf-term-first@ lf-minfer-push 0= if 2drop 0 false exit then'''
+test = "$GFORTH tests/core/definite-rejection.fs"
+reason = "D4/B2: the bodies are compared with the left (inferred) domain instead of the expected one"
+gap = "the domains converted, so only P2 on a bound variable can tell, when inference of one domain fails and of the other succeeds (an expected domain written as a redex); no test has such a case"
+
+[[fault]]
+id = "rej-d5-rule-unrecorded"
+file = "src/kernel/mixed-infer.fs"
+old = ''': lf-minfer-d5 ( left right mask -- mask' true ) nip nip lf-rule-d5 or true ;'''
+new = ''': lf-minfer-d5 ( left right mask -- mask' true ) nip nip true ;'''
+test = "$GFORTH tests/core/definite-rejection.fs"
+reason = "the diagnostic of a D5 rejection no longer names rule D5"
+
+[[fault]]
+id = "rej-d3-arity-ignored"
+file = "src/kernel/mixed-infer.fs"
+old = '''  lf-minfer-arity? 0= if lf-rule-d3 true exit then'''
+new = '''  lf-minfer-arity? 0= if 0 false exit then'''
+test = "$GFORTH tests/core/definite-rejection.fs"
+reason = "D3: two variables applied to different numbers of arguments are no longer apart"
+
+[[fault]]
+id = "rej-after-exhaustion"
+file = "src/kernel/mixed-infer.fs"
+old = '''  2dup lf-minfer-compare dup outcome-unknown <> if nip nip 0 swap exit then'''
+new = '''  2dup lf-minfer-compare dup ok? if nip nip 0 swap exit then'''
+test = "$GFORTH tests/core/definite-rejection.fs"
+reason = "a comparison that ran out of fuel or room is analysed and may be rejected instead of exhausted"
+
+[[fault]]
+id = "rej-argument-unrecorded"
+file = "src/kernel/mixed-infer.fs"
+old = '''  swap lf-minfer-agree lf-minfer-site lf-diag-argument-apart lf-minfer-verdict ;'''
+new = '''  swap lf-minfer-agree nip ;'''
+test = "$GFORTH tests/core/definite-rejection.fs"
+reason = "an argument rejected by D1-D5 is no longer recorded with its rules (appTypeMismatch)"
+
+[[fault]]
+id = "infer-imax-zero"
+file = "src/kernel/mixed-infer.fs"
+old = '''  dup 0= if nip true else lf-level-imax then ;'''
+new = '''  lf-level-imax ;'''
+test = "$GFORTH tests/core/mixed-infer-coverage.fs"
+reason = "a Pi into Prop gets the type Sort (imax u 0) instead of Sort 0"
+
+# --- comparison and conversion (src/kernel/mixed-compare.fs, mixed-convert.fs)
+
+[[fault]]
+id = "cmp-arity-unchecked"
+file = "src/kernel/mixed-compare.fs"
+old = '''  >r 2dup lf-mcompare-arity? 0= if 2drop r> drop outcome-unknown false exit then'''
+new = '''  >r false if 2drop r> drop outcome-unknown false exit then'''
+test = "$GFORTH tests/core/mixed-compare.fs"
+reason = "review T2 (M4): constants differing only in their number of universe arguments compare equal"
+quick = true
+
+[[fault]]
+id = "cmp-name-bytes-ignored"
+file = "src/kernel/mixed-compare.fs"
+old = '''  lf-name-slot lf-name-bytes@ rot lf-name-slot lf-name-bytes@ compare 0= ;'''
+new = '''  lf-name-slot lf-name-bytes@ rot lf-name-slot lf-name-bytes@ 2drop 2drop true ;'''
+test = "$GFORTH tests/core/mixed-compare.fs"
+reason = "names that differ only in a string component compare equal"
+
+[[fault]]
+id = "cmp-name-numbers-ignored"
+file = "src/kernel/mixed-compare.fs"
+old = '''  lf-name-slot lf-entry-payload @ swap lf-name-slot lf-entry-payload @ = ;'''
+new = '''  lf-name-slot lf-entry-payload @ swap lf-name-slot lf-entry-payload @ 2drop true ;'''
+test = "$GFORTH tests/core/mixed-compare.fs"
+reason = "names that differ only in a numeric component compare equal"
+gap = "tests/core/mixed-compare.fs compares no two names that differ only in a numeric component (x.1, x.2)"
+
+[[fault]]
+id = "cmp-level-params-equal"
+file = "src/kernel/mixed-compare.fs"
+old = '''    lf-level-tag-param of lf-mcompare-same-first endof'''
+new = '''    lf-level-tag-param of drop 2drop outcome-ok endof'''
+test = "$GFORTH tests/core/mixed-compare.fs"
+reason = "any two universe parameters compare equal"
+gap = "no test of lf-mixed-compare has two Sorts or constants whose levels differ only in a parameter (Sort u, Sort v)"
+
+[[fault]]
+id = "cmp-bvars-equal"
+file = "src/kernel/mixed-compare.fs"
+old = '''    lf-tag-bvar of lf-mcompare-same-first endof'''
+new = '''    lf-tag-bvar of drop 2drop outcome-ok endof'''
+test = "$GFORTH tests/core/mixed-compare.fs"
+reason = "any two bound variables compare equal"
+
+[[fault]]
+id = "cmp-tags-unchecked"
+file = "src/kernel/mixed-compare.fs"
+old = '''  2over lf-mcompare-tags? if lf-mcompare-tagged else 2drop 2drop outcome-unknown then ;'''
+new = '''  lf-mcompare-tagged ;'''
+test = "$GFORTH tests/core/mixed-compare.fs"
+reason = "nodes of different kinds are compared as if they had the left one's kind"
+
+[[fault]]
+id = "cmp-universe-args-skipped"
+file = "src/kernel/mixed-compare.fs"
+old = '''  lf-mcompare-arrays 0 ?do 2dup i lf-mcompare-arg lf-mcompare-level'''
+new = '''  lf-mcompare-arrays 0 ?do 2dup i lf-mcompare-arg 2drop outcome-ok'''
+test = "$GFORTH tests/core/mixed-compare.fs"
+reason = "constants with different universe arguments compare equal"
+
+[[fault]]
+id = "conv-bvar-index-ignored"
+file = "src/kernel/mixed-convert.fs"
+old = '''  drop 2dup lf-mcompare-seconds = >r lf-mcompare-firsts = r> and lf-mcompare-verdict ;'''
+new = '''  drop 2dup lf-mcompare-seconds = >r lf-mcompare-firsts 2drop r> lf-mcompare-verdict ;'''
+test = "$GFORTH tests/core/mixed-convert.fs"
+reason = "bound variables with different indices convert"
+quick = true
+
+[[fault]]
+id = "conv-no-reduction"
+file = "src/kernel/mixed-convert.fs"
+old = '''  dup lf-mconvert-reduce-pair ok-then?'''
+new = '''  true'''
+test = "$GFORTH tests/core/mixed-convert.fs"
+reason = "conversion compares without beta reduction, so beta-equal terms stay unknown"
+
+[[fault]]
+id = "conv-universe-args-skipped"
+file = "src/kernel/mixed-convert.fs"
+old = '''  lf-mcompare-arrays 0 ?do 2dup i lf-mcompare-arg lf-mconvert-levels'''
+new = '''  lf-mcompare-arrays 0 ?do 2dup i lf-mcompare-arg 2drop outcome-ok'''
+test = "$GFORTH tests/core/mixed-convert.fs"
+reason = "constants with different universe arguments convert"
+
+[[fault]]
+id = "conv-sort-second-unchecked"
+file = "src/kernel/mixed-convert.fs"
+old = '''  drop 2dup lf-mcompare-seconds = if lf-mcompare-firsts lf-mconvert-levels'''
+new = '''  drop true if lf-mcompare-firsts lf-mconvert-levels'''
+test = "$GFORTH tests/core/mixed-convert.fs"
+reason = "two Sorts convert without their second fields being compared"
+equivalent = "every symbolic Sort conversion meets has second field 0: both roots pass lf-cterm-check, whose lf-cterm-sort? requires lf-repr-leaf?, and reduction makes Sorts only with lf-term-symbolic-sort, which writes 0"
+
+[[fault]]
+id = "conv-scratch-kept"
+file = "src/kernel/mixed-convert.fs"
+old = '''  lf-mconvert-marks 2>r lf-mconvert-walk 2r> lf-mconvert-restore ;'''
+new = '''  lf-mconvert-walk ;'''
+test = "$GFORTH tests/core/mixed-convert.fs"
+reason = "the terms and levels a conversion made are not discarded"
+
+[[fault]]
+id = "conv-keeps-fuel"
+file = "src/kernel/mixed-convert.fs"
+old = '''  false lf-mconvert-keep ! lf-mconvert-checked ;'''
+new = '''  true lf-mconvert-keep ! lf-mconvert-checked ;'''
+test = "$GFORTH tests/core/definite-rejection.fs"
+reason = "lf-mixed-convert keeps the fuel of an undecided level comparison, as only the keeping variant may"
+
+# --- NDJSON reader (src/import/ndjson.fs) ----------------------------------
+
+[[fault]]
+id = "ndjson-self-reference"
+file = "src/import/ndjson.fs"
+old = ''': ref-below? ( count n outcome -- n flag ) ok? if tuck u> else nip false then ;'''
+new = ''': ref-below? ( count n outcome -- n flag ) ok? if tuck 1+ u> else nip false then ;'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "a record may refer to its own index (a forward reference by one)"
+quick = true
+
+[[fault]]
+id = "ndjson-anonymous-name"
+file = "src/import/ndjson.fs"
+old = '''  tuck name-of 2dup anonymous? if 2drop bad-ref else rot drop then ;'''
+new = '''  tuck name-of false if 2drop bad-ref else rot drop then ;'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "the anonymous name is accepted where a declaration or constant needs a name"
+
+[[fault]]
+id = "ndjson-uint32-max-refused"
+file = "src/import/ndjson.fs"
+old = '''  s" 4294967295" compare 1 < ;'''
+new = '''  s" 4294967295" compare 0< ;'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "the height 4294967295, the largest UInt32, is refused"
+
+[[fault]]
+id = "ndjson-extra-fields"
+file = "src/import/ndjson.fs"
+old = '''  >r table-count @ swap json-object r> export-json json-items-of
+  if = else drop false then ;'''
+new = '''  >r table-count @ swap json-object r> export-json json-items-of
+  if 2drop true else drop false then ;'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "an object with an unexpected extra field is accepted"
+
+[[fault]]
+id = "ndjson-block-without-types"
+file = "src/import/ndjson.fs"
+old = '''  export-json json-array swap json-items-of if 0= else false then ;'''
+new = '''  export-json json-array swap json-items-of if drop false else false then ;'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "an inductive block without types is accepted"
+
+[[fault]]
+id = "ndjson-literal-not-canonical"
+file = "src/import/ndjson.fs"
+old = '''  2dup canonical-natural? if r> drop true exit then'''
+new = '''  true if r> drop true exit then'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "a natVal literal that is not canonical decimal (leading zero, sign) is accepted"
+
+[[fault]]
+id = "ndjson-handler-extra-items"
+file = "src/import/ndjson.fs"
+old = '''  depth r@ < if stack-underflow throw then r> depth-to outcome-invalid false ;'''
+new = '''  depth r@ < if stack-underflow throw then r> depth-to outcome-ok true ;'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "a handler that leaves extra items is taken as ok"
+
+[[fault]]
+id = "ndjson-one-canary"
+file = "src/import/ndjson.fs"
+old = '''  tuck <> -rot <> or if stack-underflow throw then ;'''
+new = '''  tuck <> -rot <> and if stack-underflow throw then ;'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "a handler that changes one of the two canaries under its record goes unnoticed"
+
+[[fault]]
+id = "ndjson-not-busy"
+file = "src/import/ndjson.fs"
+old = '''  true over export-busy ! dup >r dup 2swap'''
+new = '''  false over export-busy ! dup >r dup 2swap'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "a handler may read its own export again"
+
+[[fault]]
+id = "ndjson-format-version-unchecked"
+file = "src/import/ndjson.fs"
+old = '''  over meta-format-version s" 3.1.0" text= and swap pinned-lean? and ;'''
+new = '''  over meta-format-version s" 3.1.0" text= drop swap pinned-lean? and ;'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "an export of another format version is read instead of refused as unsupported"
+gap = "no test reads metadata that differs from the pinned versions only in format.version"
+
+[[fault]]
+id = "ndjson-lean-version-unchecked"
+file = "src/import/ndjson.fs"
+old = '''  dup meta-lean-version s" 4.35.0" text='''
+new = '''  dup meta-lean-version s" 4.35.0" text= drop true'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "an export made by another Lean version is read instead of refused as unsupported"
+gap = "no test reads metadata that differs from the pinned versions only in lean.version"
+
+[[fault]]
+id = "ndjson-index-unchecked"
+file = "src/import/ndjson.fs"
+old = ''': index-is? ( count n outcome -- flag ) ok? -rot = and ;'''
+new = ''': index-is? ( count n outcome -- flag ) ok? -rot 2drop ;'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "an index out of order (a gap or a repeat) is accepted"
+
+[[fault]]
+id = "ndjson-repeated-meta"
+file = "src/import/ndjson.fs"
+old = '''  c" meta" over key-value if drop c" repeated metadata" export-bad exit then'''
+new = '''  c" meta" over key-value if drop then'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "a second metadata record is refused only as an unknown record kind"
+
+[[fault]]
+id = "ndjson-no-declaration-ok"
+file = "src/import/ndjson.fs"
+old = '''  dup export-line-number over export-at ! dup export-metas @ 0= over export-decls @ 0= or'''
+new = '''  dup export-line-number over export-at ! dup export-metas @ 0='''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "a file with metadata but no declaration is read as ok"
+
+[[fault]]
+id = "ndjson-framing-unchecked"
+file = "src/import/ndjson.fs"
+old = '''  >r 2dup text-framed ok? 0='''
+new = '''  >r false'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "review N1: a carriage return or byte-order mark in a line is accepted"
+
+# --- program reader (src/program/ir-reader.fs) -----------------------------
+
+[[fault]]
+id = "ir-literal-too-large"
+file = "src/program/ir-reader.fs"
+old = ''': ir-fits? ( u -- u true | false ) dup ir-literal-max u> if drop false else true then ;'''
+new = ''': ir-fits? ( u -- u true | false ) dup ir-literal-max 1+ u> if drop false else true then ;'''
+test = "$GFORTH tests/program/ir-reader.fs"
+reason = "the literal 2147483648, too large for 32-bit cells, is accepted"
+quick = true
+
+[[fault]]
+id = "ir-del-accepted"
+file = "src/program/ir-reader.fs"
+old = ''': ir-printable? ( char -- flag ) [char] ! [char] ~ 1+ within ;'''
+new = ''': ir-printable? ( char -- flag ) [char] ! [char] ~ 2 + within ;'''
+test = "$GFORTH tests/program/ir-reader.fs"
+reason = "the DEL character (127) is accepted in a line"
+
+[[fault]]
+id = "ir-redefinition-accepted"
+file = "src/program/ir-reader.fs"
+old = '''  2dup ir-known? if ir-why-redefined ir-unsupported false exit then true ;'''
+new = '''  false if ir-why-redefined ir-unsupported false exit then true ;'''
+test = "$GFORTH tests/program/ir-reader.fs"
+reason = "a definition may redefine a known word (dup, or an earlier definition)"
+
+[[fault]]
+id = "ir-recursion-accepted"
+file = "src/program/ir-reader.fs"
+old = '''  dup ir-current @ = if drop ir-why-recursive ir-unsupported exit then'''
+new = '''  false if drop ir-why-recursive ir-unsupported exit then'''
+test = "$GFORTH tests/program/ir-reader.fs"
+reason = "a word that calls itself is read, though Gforth calls the earlier word of that name"
+
+[[fault]]
+id = "ir-constant-two-values"
+file = "src/program/ir-reader.fs"
+old = '''  ir-values @ 1 <> if ir-why-one-value ir-unsupported exit then'''
+new = '''  ir-values @ 1 < if ir-why-one-value ir-unsupported exit then'''
+test = "$GFORTH tests/program/ir-reader.fs"
+reason = "tokens leaving two values before CONSTANT are accepted"
+
+[[fault]]
+id = "ir-borrowed-value"
+file = "src/program/ir-reader.fs"
+old = '''  over ir-values @ > if 2drop ir-why-borrowed ir-unsupported exit then'''
+new = '''  over ir-values @ 1+ > if 2drop ir-why-borrowed ir-unsupported exit then'''
+test = "$GFORTH tests/program/ir-reader.fs"
+reason = "a constant's tokens may take a value from outside the file"
+
+[[fault]]
+id = "ir-second-while"
+file = "src/program/ir-reader.fs"
+old = ''': ir-second-while? ( -- flag ) ir-while ir-top? ;'''
+new = ''': ir-second-while? ( -- flag ) false ;'''
+test = "$GFORTH tests/program/ir-reader.fs"
+reason = "a second WHILE in one BEGIN, outside IR 0.1, is read"
+
+[[fault]]
+id = "ir-busy-not-refused"
+file = "src/program/ir-reader.fs"
+old = ''': ir-claim ( -- ) 1 ir-calls +! ir-busy @ abort" lf-ir: reader busy" true ir-busy ! ;'''
+new = ''': ir-claim ( -- ) 1 ir-calls +! false abort" lf-ir: reader busy" true ir-busy ! ;'''
+test = "$GFORTH tests/program/ir-reader.fs"
+reason = "an output word may call a reader word of its own context"
+
+[[fault]]
+id = "ir-crlf-kept"
+file = "src/program/ir-reader.fs"
+old = ''': ir-line-feed ( -- ) ir-held @ dup ir-cr-last? if 1- then ir-line ;'''
+new = ''': ir-line-feed ( -- ) ir-held @ ir-line ;'''
+test = "$GFORTH tests/program/ir-reader.fs && python3 tests/program/ir_reader_files.py"
+reason = "the CR of a CRLF line end is kept, so a file Gforth loads is refused"
+
+[[fault]]
+id = "ir-fed-after-finish"
+file = "src/program/ir-reader.fs"
+old = ''': ir-unfinished ( -- ) ir-finished @ if ir-why-finished ir-invalid then ;'''
+new = ''': ir-unfinished ( -- ) ir-finished @ drop ;'''
+test = "$GFORTH tests/program/ir-reader.fs"
+reason = "a line fed after lf-ir-finish is read instead of stopping the reader"
+
+[[fault]]
+id = "ir-eleven-digits"
+file = "src/program/ir-reader.fs"
+old = '''  dup 1 ir-digits-max 1+ within 0= if 2drop false exit then'''
+new = '''  dup 1 ir-digits-max 2 + within 0= if 2drop false exit then'''
+test = "$GFORTH tests/program/ir-reader.fs"
+reason = "a literal of eleven digits (with leading zeros) is accepted"
+
+[[fault]]
+id = "ir-z-not-folded"
+file = "src/program/ir-reader.fs"
+old = ''': ir-upper? ( char -- flag ) [char] A [char] Z 1+ within ;'''
+new = ''': ir-upper? ( char -- flag ) [char] A [char] Z within ;'''
+test = "$GFORTH tests/program/ir-reader.fs"
+reason = "Z is not folded to z, unlike Gforth's name lookup"
+gap = "no test source spells a known word or definition with an upper-case Z"
+
+[[fault]]
+id = "ir-unclosed-definition"
+file = "src/program/ir-reader.fs"
+old = '''  ir-mode @ ir-mode-top <> if ir-why-unclosed ir-invalid exit then'''
+new = '''  false if ir-why-unclosed ir-invalid exit then'''
+test = "$GFORTH tests/program/ir-reader.fs"
+reason = "a file that ends inside a definition is read as complete"
+
+# --- JSON writer (src/lib/json-write.fs) -----------------------------------
+# Its review planted 27 faults by hand (docs/development/FORTH_LIBRARY.md);
+# these re-create some of them.
+
+[[fault]]
+id = "jw-limit-off-by-one"
+file = "src/lib/json-write.fs"
+old = ''': jw-fits? ( n writer -- flag ) dup jw-limit @ swap jw-written @ - > 0= ;'''
+new = ''': jw-fits? ( n writer -- flag ) dup jw-limit @ swap jw-written @ - 1+ > 0= ;'''
+test = "$GFORTH tests/lib/json-write.fs"
+reason = "one byte past jw-limit is written, so a buffer of n bytes overflows"
+
+[[fault]]
+id = "jw-upper-case-hex"
+file = "src/lib/json-write.fs"
+old = ''': jw-hex-digit ( n -- c ) dup 10 < if [char] 0 else [char] a 10 - then + ;'''
+new = ''': jw-hex-digit ( n -- c ) dup 10 < if [char] 0 else [char] A 10 - then + ;'''
+test = "$GFORTH tests/lib/json-write.fs && python3 tests/lib/test_json_write.py"
+reason = "a \\u00xx escape has upper-case hex digits, unlike Python's json.dumps"
+
+[[fault]]
+id = "jw-minus-zero-kept"
+file = "src/lib/json-write.fs"
+old = ''': jw-unminus-zero ( c-addr u -- c-addr' u' ) 2dup s" -0" compare 0= if 1 /string then ;'''
+new = ''': jw-unminus-zero ( c-addr u -- c-addr' u' ) ;'''
+test = "$GFORTH tests/lib/json-write.fs"
+reason = "the integer text -0 is written as -0 instead of 0"
+
+[[fault]]
+id = "jw-repeated-key-sorted"
+file = "src/lib/json-write.fs"
+old = '''  jw-last-key 2swap compare 0< ;'''
+new = '''  jw-last-key 2swap compare 1 < ;'''
+test = "$GFORTH tests/lib/json-write.fs"
+reason = "in sorted mode a key equal to the last one is accepted"
+
+[[fault]]
+id = "jw-comma-missing"
+file = "src/lib/json-write.fs"
+old = '''  dup jw-listing? if jw-nest jw-nest-items @ 0<> else drop false then ;'''
+new = '''  dup jw-listing? if jw-nest jw-nest-items @ 1 > else drop false then ;'''
+test = "$GFORTH tests/lib/json-write.fs"
+reason = "no comma after the first element or member"
+
+[[fault]]
+id = "jw-unit-separator-raw"
+file = "src/lib/json-write.fs"
+old = ''': jw-escape-controls ( -- ) 32 0 do [char] u 5 i jw-escape! loop ;'''
+new = ''': jw-escape-controls ( -- ) 31 0 do [char] u 5 i jw-escape! loop ;'''
+test = "$GFORTH tests/lib/json-write.fs && python3 tests/lib/test_json_write.py"
+reason = "byte 31 is written raw inside a string, which JSON forbids"
+
+[[fault]]
+id = "jw-utf8-unchecked"
+file = "src/lib/json-write.fs"
+old = '''  >r dup jw-longest u> if 2drop false r> jw-within exit then utf8-valid? r> jw-expect ;'''
+new = '''  >r dup jw-longest u> if 2drop false r> jw-within exit then 2drop true r> jw-expect ;'''
+test = "$GFORTH tests/lib/json-write.fs"
+reason = "a string or key that is not valid UTF-8 is written"
+
+# --- the runner itself (scripts/mutants.py) --------------------------------
+
+[[fault]]
+id = "runner-plants-in-tree"
+file = "scripts/mutants.py"
+old = '''        copy = work / "tree"
+        copy.mkdir()
+        copy_tree(root, copy)'''
+new = '''        copy = root'''
+test = "python3 tests/mutants/test_mutants.py"
+reason = "the runner plants faults in the tree it was given instead of a copy"
+quick = true
+
+[[fault]]
+id = "runner-no-restore"
+file = "scripts/mutants.py"
+old = '''        path.write_bytes(original)'''
+new = '''        pass'''
+test = "python3 tests/mutants/test_mutants.py"
+reason = "a planted fault stays in the copy, so later faults are judged on a changed tree"
+
+[[fault]]
+id = "runner-stale-unchecked"
+file = "scripts/mutants.py"
+old = '''    return None if count == 1 else f"old text found {count} times"'''
+new = '''    return None'''
+test = "python3 tests/mutants/test_mutants.py"
+reason = "an entry whose old text is gone is planted as a no-op instead of reported stale"
