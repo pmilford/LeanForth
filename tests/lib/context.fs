@@ -100,6 +100,8 @@ T{ 0 context? junk context? -> false false }T
 : walks-pristine? ( -- flag )
   c-walk dw5 5 walk-size same-bytes? c-pairs dp3 3 walk2-size same-bytes? and ;
 T{ c-rec @ c-rec cell+ @ c-rec 2 cells + @ -> 0 0 0 }T
+\ A context's walks are growable (plan task 6.2.0), like these made so.
+dw5 walk-growable dp3 walk-growable
 T{ terms-pristine? walks-pristine? c-levels store-count-valid? -> true true false }T
 T{ c-rec c-terms < c-terms c-levels < -> true true }T
 T{ c-levels c-walk < c-walk c-pairs < -> true true }T
@@ -368,6 +370,8 @@ mcap /node 0 store: ref0   mcap /node 0 store: ref1   mcap /node 0 store: ref2
 mcap /node 0 store: pristine
 mwalk walk: wref0   mwalk walk: wref1   mwalk walk: wref2
 mwalk walk: wpristine
+\ A context's walks are growable (plan task 6.2.0); so are the references.
+wref0 walk-growable wref1 walk-growable wref2 walk-growable wpristine walk-growable
 create refs ref0 , ref1 , ref2 ,
 create wrefs wref0 , wref1 , wref2 ,
 : ref-of ( k table -- x ) swap cells + @ ;

@@ -123,9 +123,12 @@ T{ 5 subst-formals subst-actuals 2 20 lf-lsubst lf-lsubst-fuel @ -> outcome-inva
 T{ 3 subst-formals subst-actuals 2 20 ' lf-lsubst rs-checked -> 7 outcome-ok }T
 
 \ A handle audit starts from an empty work stack, even when the last walk
-\ left it full.
+\ left it full. A checker's walk grows past its first room (plan task
+\ 6.2.0): the push moves the stack to the heap, keeping its items.
 lf-term-capacity lf-href-walker walk-pending !
-T{ 8 lf-href-walker walk-push -> false }T
+7 lf-href-walker walk-stack !
+T{ 8 lf-href-walker walk-push lf-href-walker walk-pending @ -> true lf-term-capacity 1+ }T
+T{ lf-href-walker walk-stack @ lf-href-walker walk-capacity @ lf-term-capacity > -> 7 true }T
 lf-term-reset lf-level-reset lf-lscope-context-reset
 1 lf-lscope-context-add drop
 lf-ssession-begin drop

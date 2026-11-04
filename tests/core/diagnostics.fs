@@ -175,7 +175,9 @@ end-check
 \ Room limits that a 64-node store cannot reach, white-box: a work stack
 \ of capacity 1, frames limited to 1, the depth limits, the cell maximum,
 \ and full binder contexts.
-begin-check samples 1 lf-cterm-walker walk-capacity ! lf-diag-clear
+\ A checker's walk grows past its room (plan task 6.2.0); it is full only
+\ when the heap refuses the growth (heap-watch.fs).
+begin-check samples 1 lf-cterm-walker walk-capacity ! lf-diag-clear 1 heap-refusals !
 T{ 2 handle 10 lf-cterm-check diag -> outcome-full 1 1 lf-diag-work-stack-full }T
 T{ s" constant-term-boundary lf-cterm-check" at? -> true }T
 end-check

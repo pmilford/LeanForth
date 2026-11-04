@@ -207,7 +207,7 @@ context-bytes allocate0 throw dup context-sized context-main!
   swap >r dup member-shape@ rot member-base @ r> store-init
   0= abort" context: bad store" ;
 : member-walk ( addr member -- )
-  member-shape@ rot walk-sized-init 0= abort" context: bad walk" ;
+  member-shape@ 2 pick walk-sized-init 0= abort" context: bad walk" walk-growable ;
 : member-frames ( addr member -- ) dup member-capacity @ swap member-xt @ rot frame-init ;
 : member-setup ( addr member -- ) nip member-xt @ execute ;
 
@@ -219,9 +219,13 @@ context-bytes allocate0 throw dup context-sized context-main!
   >r 2dup r@ store-plan? 0= abort" context-store: bad shape"
   2dup store-size ['] member-store member: member-shape!
   r> over member-base ! member-add ;
+\ A context's walks are growable (walk.fs): capacity is their first room;
+\ their heap blocks are freed with the context (walks-free, below).
+variable context-walks
+: walk-listed ( member -- member ) here context-walks @ , over member-offset @ , context-walks ! ;
 : context-walked ( capacity width "name" -- )
   2dup walk-plan? 0= abort" context-walk: bad capacity"
-  2dup walk-span ['] member-walk member: member-shape! member-add ;
+  2dup walk-span ['] member-walk member: member-shape! walk-listed member-add ;
 : context-walk: ( capacity "name" -- ) 1 context-walked ;
 : context-walk2: ( capacity "name" -- ) 2 context-walked ;
 \ A frames record (frame.fs) allowing limit nested visits of the visitor
@@ -275,6 +279,9 @@ variable context-slabs
 : slabs-free ( -- )
   context-slabs @ begin ?dup while dup cell+ @ lf-context @ + slab-free @ repeat ;
 ' slabs-free context-teardown
+: walks-free ( -- )
+  context-walks @ begin ?dup while dup cell+ @ lf-context @ + walk-free @ repeat ;
+' walks-free context-teardown
 : slab-listed ( member -- member )
   here context-slabs @ , over member-offset @ , context-slabs ! ;
 : context-slab: ( width "name" -- )

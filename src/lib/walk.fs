@@ -24,6 +24,12 @@
 \ In a paired walk (walk2:) each item is a node plus one context cell, such
 \ as the number of binders around that node; walk-take puts the context in
 \ walk-context, and walk-run-pair and walk-push-pair take both cells.
+\ A growable walk (walk-growable; plan task 6.2.0) has no fixed depth: a
+\ push its work stack has no room for moves the stack to a heap block at
+\ least twice as large, so it is full only when the heap refuses (and
+\ for a corrupted count). walk-free gives the block back and returns the
+\ walk to its first room. Every checker context's walks are growable
+\ (lib/context.fs frees their blocks with the context).
 
 require ./bounds.fs
 require ./node.fs
@@ -38,9 +44,12 @@ begin-structure walk-header
   field: walk-pending    \ cells on the work stack
   field: walk-capacity   \ maximum cells
   field: walk-width      \ cells per item: 1, or 2 in a paired walk
+  field: walk-heap       \ a growable walk's stack once it outgrew its room, or 0
+  field: walk-grows      \ true for a growable walk
+  field: walk-room       \ the cells of the record's own stack
 end-structure
 
-: walk-stack ( walk -- addr ) walk-header + ;
+: walk-stack ( walk -- addr ) dup walk-heap @ ?dup if nip exit then walk-header + ;
 : walk-bytes ( cells -- u ) cells walk-header + ;
 : walk-paired? ( walk -- flag ) walk-width @ 2 = ;
 
@@ -55,7 +64,7 @@ end-structure
 : walk-span ( capacity width -- u ) * walk-bytes ;
 : walk-plan? ( capacity width -- flag ) cells max-n walk-header - swap / 1 swap between? ;
 : walk-format ( capacity width walk -- )
-  >r tuck * r@ over walk-bytes erase r@ walk-capacity ! r> walk-width ! ;
+  >r tuck * r@ over walk-bytes erase dup r@ walk-capacity ! r@ walk-room ! r> walk-width ! ;
 : walk-sized-init ( capacity width walk -- flag )
   >r 2dup walk-plan? if r> walk-format true else 2drop r> drop false then ;
 : walk-size ( capacity -- u ) 1 walk-span ;
@@ -71,10 +80,32 @@ end-structure
 \ Set the budget for a walk; a negative fuel is refused and stores nothing.
 : walk-budget ( fuel walk -- flag ) over 0< if 2drop false else walk-fuel ! true then ;
 
-\ The work stack. A push fails, changing nothing, when the stack is full or
-\ its count or capacity is out of range; signed comparisons only.
-: walk-room-for? ( n walk -- flag )
+\ The work stack. A push fails, changing nothing, when the stack is full
+\ (and the walk is not growable, or the heap refuses) or its count or
+\ capacity is out of range; signed comparisons only.
+: walk-fits? ( n walk -- flag )
   dup walk-pending @ swap walk-capacity @ rot - 0 swap between? ;
+: walk-new-room ( n walk -- cells ) dup walk-pending @ rot + swap walk-capacity @ 2* max ;
+\ Move the items to a fresh heap block of cells cells; false, nothing
+\ changed, when the heap refuses.
+: walk-moved ( cells walk -- flag )
+  over cells allocate if drop 2drop false exit then
+  over walk-stack over 3 pick walk-pending @ cells move
+  over walk-heap @ ?dup if free drop then
+  over walk-heap ! walk-capacity ! true ;
+\ A corrupted count, or a capacity below 1 (which no record has), is not
+\ grown.
+: walk-grow ( n walk -- flag )
+  dup walk-capacity @ 1 < if 2drop false exit then
+  dup walk-pending @ 0 2 pick walk-capacity @ between? 0= if 2drop false exit then
+  tuck walk-new-room swap walk-moved ;
+: walk-room-for? ( n walk -- flag )
+  2dup walk-fits? if 2drop true exit then
+  dup walk-grows @ if walk-grow else 2drop false then ;
+\ Make a walk growable; give a growable walk's heap block back.
+: walk-growable ( walk -- ) true swap walk-grows ! ;
+: walk-free ( walk -- )
+  dup walk-heap @ ?dup if free drop then 0 over walk-heap ! dup walk-room @ swap walk-capacity ! ;
 : walk-room? ( walk -- flag ) 1 swap walk-room-for? ;
 : walk-top ( walk -- addr ) dup walk-pending @ cells swap walk-stack + ;
 : walk-push ( index walk -- flag )
