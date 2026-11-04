@@ -74,6 +74,7 @@ features they describe.
 - [Mathlib export measurements](development/measurements/mathlib-2026-11-02/README.md) — the pinned Mathlib for Lean 4.35.0 exported and counted on this machine: 729,263 constants, 105.9 M expression nodes, up to 30 universe arguments (2026-11-02).
 - [Compact-store measurements](development/measurements/compact-store-2026-11-02/README.md) — a prototype of ADR 0016 loaded all of `Init`, `Std` and Mathlib into 16-byte hash-consed nodes, verified by re-emission: 2.94 GB for Mathlib's input, 4.2 GB peak (2026-11-02).
 - [OWNER_DECISIONS.md](project/OWNER_DECISIONS.md) — the owner's plain-language policy decisions.
+- [MINIFORTH_REVIEW.md](development/MINIFORTH_REVIEW.md) — review of MiniForth, a Forth written in Lean (related work, plan W9): what to adopt and what not; no code copied (no licence).
 - [BEYOND_LEAN.md](project/BEYOND_LEAN.md) — places where Lean's kernel rejects or cannot decide something true, recorded for a later opt-in improved mode; compatibility mode is unaffected.
 - [DECISIONS.md](project/DECISIONS.md) — running decision log with rejected alternatives.
 - [IMPLEMENTATION_PLAN.md](project/IMPLEMENTATION_PLAN.md) — staged implementation plan.

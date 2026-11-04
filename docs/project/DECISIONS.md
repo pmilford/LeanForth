@@ -694,3 +694,16 @@ wiped `/tmp`. Rejected alternative: keeping LeanForth deliberately more
 cautious than Lean where Lean decides; the owner wants identical behaviour
 first, improvements later. See
 [OWNER_DECISIONS.md](OWNER_DECISIONS.md#gate-answers-and-working-guidelines-2026-11-03).
+
+## 2026-11-03: MiniForth reviewed as related work
+
+The owner asked to review MiniForth (<https://github.com/leodemoura/MiniForth>,
+commit `e8756e2`), a Forth written in Lean by Leonardo de Moura. Its ideas
+are adopted as proposals (see [the review](../development/MINIFORTH_REVIEW.md)):
+early binding of calls and a Lean well-formedness check for ADR 0019, a
+fuel-free semantics proved equivalent to the fuelled one for IR v1, and
+verification conditions as proved Lean rules plus a tactic. Rejected:
+unbounded integers, a late-bound global dictionary, Lean quotation syntax as
+the canonical form, a mandatory ELSE, and using it as a test oracle. It has
+no licence, so no code is copied. The review found that plan task 5.5.1
+depends on nested inductive types (5.2.5); recorded in the plan.
