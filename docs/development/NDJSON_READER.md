@@ -12,7 +12,7 @@ an NDJSON file, so nothing on the user's path is Python
 ([OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md), "Product dependencies"
 and OQ-4).
 
-**Status (2026-11-02): implemented, untrusted, fail-closed.** The reader
+**Status: [import] gate approved by the owner on 2026-11-03** ([OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md#gate-answers-and-working-guidelines-2026-11-03)); next: a checksum manifest checked by default, and an upgrade test for new Lean and Mathlib versions. **Implemented 2026-11-02, untrusted, fail-closed.** The reader
 decides nothing about types or proofs; a decoded record is input for the
 checker, never a checked declaration. It does not yet stage records into
 the term, level and name stores, which hold only 64 entries each; that is

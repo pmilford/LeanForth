@@ -1,6 +1,8 @@
 # ADR 0010: wordlists and module boundaries — proposal
 
-Status: **proposed**, 2026-11-02 (plan task 1.1.7, plan
+Status: **accepted** by the owner on 2026-11-03, with decisions 1–3 of "What the owner must decide" as recommended
+([OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md#gate-answers-and-working-guidelines-2026-11-03)).
+Previously: **proposed**, 2026-11-02 (plan task 1.1.7, plan
 [§6.9](../project/PLAN_DRAFT.md#69-wordlists-and-namespaces)). A
 code-structure decision for untrusted, in-progress modules: it changes no
 typing or conversion rule and no stack effect. Nothing here is

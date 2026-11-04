@@ -1,6 +1,8 @@
 # ADR 0013: the derivation log and the proof outline
 
-Status: **proposed**, 2026-11-02 (plan tasks 2.4.1 and 2.4.4; design only,
+Status: **accepted** by the owner on 2026-11-03, with D1–D5 as recommended
+([OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md#gate-answers-and-working-guidelines-2026-11-03)).
+Previously: **proposed**, 2026-11-02 (plan tasks 2.4.1 and 2.4.4; design only,
 nothing here is implemented). The log is called from the checker's own
 words, so it is a [kernel] change with the *no-behaviour-change* review the
 plan gives task 2.4.1: it passes the review gate in `AGENTS.md` only with

@@ -1,6 +1,8 @@
 # ADR 0018: exceptions — when to use `CATCH` and `THROW` — proposal
 
-Status: **proposed**, 2026-11-02 (plan task 1.1.6, plan
+Status: **accepted** by the owner on 2026-11-03, with decisions 1–3 of "What the owner must decide" as recommended
+([OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md#gate-answers-and-working-guidelines-2026-11-03)).
+Previously: **proposed**, 2026-11-02 (plan task 1.1.6, plan
 [§6.10](../project/PLAN_DRAFT.md#610-the-catchthrow-decision)). A
 code-structure decision for untrusted, in-progress modules, like
 [ADR 0008](0008-outcome-vocabulary.md) and

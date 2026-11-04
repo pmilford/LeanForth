@@ -347,14 +347,44 @@ produces can be verified.
   recommendations: the basis for plan tasks 6.2.0–6.2.3; every theorem's
   proof stays in memory for now; equal terms are stored once even though
   the exporter already shares them.
-- **NDJSON reader, [import] gate: not yet approved.** The owner: "Seems
-  ok", and asked whether Lean's export carries a signature or checksum (if
-  not, LeanForth's own exports could add one and import could expect it by
-  default), to keep making reading more robust with more checks, and to
-  expect Lean's format to change: "maintaining full compatibility with
-  Mathlib is of highest importance."
-- **ADR 0013, the derivation log: not yet decided.** The owner: "the
-  ability to pretty print is also important, latex and unicode I assume."
+- **NDJSON reader, [import] gate: approved** (second round of questions,
+  the same day), with a new task: LeanForth's export script writes a
+  manifest beside each export (SHA-256 of the file, line and record
+  counts, Lean version, Mathlib commit), and import checks it by default,
+  computing SHA-256 in Forth during its single read; a missing or wrong
+  manifest is *invalid* unless the user asks to skip it. The owner had
+  asked whether Lean's export carries a signature or checksum: it does not
+  (its first line names only the exporter, format and Lean versions, which
+  the reader already requires to be the pinned ones), and a file cut off
+  cleanly between two lines would otherwise read as a shorter library.
+  Also: keep adding reader checks, and add an upgrade test that compares
+  the Forth reader with the independent Python reader record by record on
+  each new Lean or Mathlib. The owner: "maintaining full compatibility with
+  Mathlib is of highest importance." The owner also asked about
+  re-exporting Mathlib from LeanForth and comparing it byte for byte with
+  Lean's file (answered in the progress report).
+- **ADR 0013, the derivation log: accepted** with D1–D5 as recommended
+  (off unless asked; "log incomplete at step N" when full, verdict
+  unchanged; intermediate formulas kept; short readable proof by default
+  with `--detail`; the checker's usual gate with "nothing changed" as the
+  evidence). The owner: "the ability to pretty print is also important,
+  latex and unicode I assume." Printing is Unicode first, through the term
+  printer that matches Lean's `#print`; LaTeX becomes a second output mode
+  of the same (untrusted) printer.
+- **ADR 0018, exceptions: accepted** as recommended: inside one
+  operation *invalid*, *exhausted* and *full* may be thrown and are turned
+  back into outcomes at its entry; adoption module by module (the job-pool
+  prerequisite is already merged). The owner asked about the clean-up
+  when jumping straight out (allocated memory, processes, other): the ADR's
+  decisions 3, 4 and 6 cover it — store marks roll every store back,
+  files and heap buffers are held only by "resource owner" words that
+  release them on every path, context records hold no heap memory, and a
+  `THROW` never crosses a job boundary (each job catches its own and its
+  context is replaced).
+- **ADR 0010, word lists: accepted** as recommended: a public and a
+  private word list per part of the program, a check that no name is
+  defined twice, one-line switches before each group, the library first
+  and then the checked environment.
 - **Speed goal.** One-thread performance as close to Lean's kernel as
   possible, or better; parallel checking then exceeds it.
 - **Machine use.** At most about 10 busy processes at a time, so the rest
