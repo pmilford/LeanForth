@@ -194,12 +194,10 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
   2dup lf-hterm-valid? 0= abort" new term identity"
   over term-serial-before @ 1+ lf-hterm-valid? abort" stale term revived" 2drop ;
 \ A job started directly, as the definition probe does after its own
-\ preflight: the given fuel, no frames or binders, an empty local context.
-\ Since plan task 4.2.2a inference also reads the nodes it made (the
-\ opened bodies, as Lean's infer_lambda does), so the type it inferred
-\ has a type too: a Sort. Before, only nodes below the term count at the
-\ start were read.
-: sort? ( node -- flag ) lf-term-read 0= abort" read" 2drop lf-tag-symbolic-sort = ;
+\ preflight: the given fuel, no frames or binders, an empty local context,
+\ and only nodes below the term count at the start are source; nodes
+\ inference made are not. Since plan task 4.2.2a the lambda's binder got
+\ a free variable of the local context.
 : start-case ( -- )
   setup token @ 500 lf-minfer-start
   lf-minfer-fuel @ 500 <> abort" start fuel"
@@ -208,8 +206,8 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
   13 lf-minfer-walk outcome-ok expect-status lf-term-count @ 1- <> abort" new type"
   lf-minfer-fuel @ 500 < 0= abort" walk fuel"
   lf-lctx-count @ 1 <> abort" one free variable"
-  lf-term-count @ 1- lf-minfer-walk outcome-ok expect-status
-  sort? 0= abort" the type's type" ;
+  lf-term-count @ 1- lf-minfer-walk outcome-invalid expect-status
+  -1 <> abort" no type" ;
 variable saw-exhaustion variable saw-success variable saw-partial
 : fuel-case ( -- )
   false saw-exhaustion ! false saw-success ! false saw-partial !
