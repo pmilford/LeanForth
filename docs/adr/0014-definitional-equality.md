@@ -552,6 +552,17 @@ node's data bit; and the free-variable identity is what makes
 literal. The variable's binder name and annotation are kept for printing
 only.
 
+*Note (plan task 4.2.2a, review rvD2A F2):* as implemented, inference
+does not copy each opened body: it reads a source node *under its scope*
+(a loose bound variable `k` is the scope's free variable `k` places from
+the top), which gives the types of Lean's opened term without making it.
+So a source node is not a closed term there: a hash-consed `#0` shared by
+two depths stands for different free variables. The argument above holds
+for the closed terms inference makes and gives back, not for the source
+nodes it reads: an inference cache (Q10) must be keyed by the opened term
+(a closed copy) or by the pair (node, scope), never by the source node or
+its skeleton alone. Only closed scratch terms may be cached by node.
+
 ### Q3 Structural equality: Lean's `==`, by skeletons
 
 Hash-consed node numbers (ADR 0016) include binder names, annotations and
@@ -656,7 +667,7 @@ into *exhausted*.
 
 | LeanForth cache | Lean's | Key | Value | Notes |
 | --- | --- | --- | --- | --- |
-| inferred types, two modes | `m_infer_type[2]` | skeleton | node | only completed inferences |
+| inferred types, two modes | `m_infer_type[2]` | skeleton of the opened (closed) term, or (node, scope) | node | only completed inferences; never a source node alone, which is read under the scope (Q2 note) |
 | `whnf_core` | `m_whnf_core` | skeleton | node | only without `cheap_*`, as Lean |
 | `whnf` | `m_whnf` | skeleton | node | |
 | unfolding | `m_unfold` | constant node (name, interned level list) | node | only with universe arguments, as Lean |

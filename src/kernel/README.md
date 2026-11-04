@@ -38,7 +38,8 @@ together. Any other block is *unsupported*.
 
 ## Free variables (plan task 4.2.2a, ADR 0014 Q2)
 
-Inference meets only closed terms, as Lean's kernel does. When it enters
+The types inference gives back are closed, as in Lean's kernel; the
+source terms it reads are not (see below). When it enters
 a binder it names the bound variable with a *free variable*: a term node
 of tag `lf-tag-fvar` whose number is an entry of the check's *local
 context* (`src/core/local-context.fs`), which holds the variable's type
@@ -60,11 +61,19 @@ Rules a new kernel module must keep:
 
 - A free variable is valid only while its own entry names it
   (`lf-fvar-live?`): the local context is emptied when an inference job
-  starts and only appended to during it, and a rollback of the term store
-  leaves the entries of discarded variables dead. So never keep a free
-  variable across a job, and audit any term that may hold one with
-  `lf-cterm-check`, which accepts live free variables only. Inputs never
-  hold them.
+  starts, and when inference discards scratch it drops the entries whose
+  nodes went with it (`lf-lctx-drop`), so a number may be taken again by a
+  new node; a discarded node never names the new entry (identities never
+  repeat). So never keep a free variable across a job or a discard, and
+  audit any term that may hold one with `lf-cterm-check`, which accepts
+  live free variables only. Inputs never hold them.
+- Source terms are read under the scope, so one source node can mean
+  different terms: a hash-consed `#0` shared by two depths stands for
+  different free variables. A cache of inferred types (ADR 0014 Q10, plan
+  task 4.2.7) must be keyed by the opened term (a closed copy) or by the
+  pair (node, scope), never by the source node alone; only closed scratch
+  terms may be cached by node. P2 closes its term before inferring it for
+  that reason too.
 - Terms given to inference, conversion's callers and the substitutions are
   closed; `lf-instantiate` and `lf-instantiate-rev` rely on it (Lean's
   `lift_loose_bvars` is then the identity) and do not check it. Inside
@@ -76,10 +85,11 @@ Rules a new kernel module must keep:
   record that depth too.
 - A node's address can move when a store grows: keep node and entry
   numbers, never addresses, across an allocation.
-- ADR 0011's rejection analysis is the one place with open terms: it keeps
-  the binders it enters (D4) as bound variables, each with a free
-  variable on the scope, and closes a term with the scope's free
-  variables (`lf-minfer-close`) before P2 infers it. It is retired by plan task 4.2.2d.
+- Besides inference's own reading of source terms, ADR 0011's rejection
+  analysis works on open terms: it keeps the binders it enters (D4) as
+  bound variables, each with a free variable on the scope, and closes a
+  term with the scope's free variables (`lf-minfer-close`) before P2
+  infers it. It is retired by plan task 4.2.2d.
 - A caller that walks a telescope itself (`check-block.fs`, as Lean's
   `check_constructors`) opens each binder with `lf-minfer-push` (the
   domain closed with the scope's free variables, then a new free

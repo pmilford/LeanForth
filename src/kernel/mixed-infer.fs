@@ -6,8 +6,16 @@
 \ scans and topological staging are additional work. Only a directly visible
 \ Pi is applied; uncertain conversion is unknown.
 \ Free variables (ADR 0014 Q2, plan task 4.2.2a; [kernel] code, not yet
-\ through the review gate): every type inference computes is closed, as
-\ in Lean's kernel. When inference enters a lambda or Pi (infer_lambda,
+\ through the review gate): the type inference gives back for a node is
+\ closed, as in Lean's kernel (inside a chain of lambdas, an inner
+\ lambda's type is over the scope's bound variables until the chain's top
+\ closes it; only the enclosing lambda sees it). The terms it reads are
+\ not: a source node is read under the scope (below), so the same node,
+\ shared by two places (a hash-consed #0, say), stands for different
+\ variables at different depths. A cache of inferred types (ADR 0014
+\ Q10, plan task 4.2.7) must therefore be keyed by the opened term (a
+\ closed copy) or by the node with the scope, never by the source node
+\ alone. When inference enters a lambda or Pi (infer_lambda,
 \ infer_pi, type_checker.cpp 125-166), the domain must be a type (S2),
 \ and the binder gets a new free variable of the local context
 \ (core/local-context.fs) whose type is the domain closed with the free
@@ -24,7 +32,13 @@
 \ without copying each body first (Lean opens a telescope of binders at
 \ once; the binders here are entered one by one, each one inference step
 \ with its source node as its subject, as the derivation log records it).
-\ An application's argument is closed before it is put into the Pi body.
+\ An application's argument is closed before it is put into the Pi body,
+\ by Lean's instantiate without the audit that lf-mixed-instantiate ran
+\ before free variables: the body is a type inference made or the audited
+\ input holds, the argument an audited source node closed by mixed-open
+\ (which checks each leaf's shape, liveness and child order), and every
+\ comparison that can lead to acceptance audits both of its graphs
+\ (lf-minfer-compare, through lf-mixed-convert-keeping).
 \ The rejection analysis below keeps its own binders as bound variables
 \ too (see lf-minfer-close), and scratch a step no longer needs is
 \ discarded (lf-minfer-discard). Lean then also applies
