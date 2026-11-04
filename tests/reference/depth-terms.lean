@@ -23,6 +23,18 @@ and 10,000:
 * `level`: `Sort (u + n) : Sort (u + n + 1)` (accepted), and the claim
   `Sort (u + n)` (declTypeMismatch).
 
+At n = 2,000 only (review rvKC B-L5), three more shapes, each also wrong:
+* `dom`: `T(n)`, where `T0 = Prop` and `T(k+1) = T(k) → Prop`, Pis nested
+  in domain position, a definition of type `Type` (accepted), or `Prop`
+  (declTypeMismatch);
+* `spine`: `fun (P : Prop) (f : P → … → P) (x : P) => f x … x`, an
+  application spine of n arguments in function position (accepted), or
+  with `P` for the first `x` (appTypeMismatch);
+* `maxsort`: `Sort (max u (… u)) : Sort (u+1)`, a Sort of a max chain n
+  deep (accepted), or claimed at `Sort u` (declTypeMismatch).
+Lean counts recursion for the first two (`deep-recursion.lean`), but far
+below its limit here.
+
 Like `universe-scope-terms.lean`, each case is added with
 `Kernel.Environment.addDeclCore` to a scratch copy of the kernel
 environment, and the run fails unless Lean's verdict is the recorded one. It
@@ -69,6 +81,55 @@ def levelDecl (n : Nat) (wrong : Bool) : Declaration :=
     | k+1 => .succ (go k)
   defn (.mkSimple s!"lvl{n}") (.sort (if wrong then go n else .succ (go n))) (.sort (go n)) [`u]
 
+/-- `T(n)` with `T0 = Prop`, `T(k+1) = T(k) → Prop`, at `Type` or, wrong,
+`Prop`. -/
+def domDecl (n : Nat) (wrong : Bool) : Declaration :=
+  let rec go : Nat → Expr
+    | 0 => prop
+    | k+1 => .forallE `x (go k) prop .default
+  defn (.mkSimple s!"dom{n}") (.sort (if wrong then .zero else .succ .zero)) (go n)
+
+/-- `fun P f x => f x … x` (n arguments), or, wrong, `f P x … x`. -/
+def spineDecl (n : Nat) (wrong : Bool) : Declaration :=
+  let rec arrows : Nat → Nat → Expr
+    | k, 0 => .bvar k
+    | k, j+1 => .forallE `a (.bvar k) (arrows (k+1) j) .default
+  let fty := arrows 0 n
+  let rec app : Nat → Expr
+    | 0 => .bvar 1
+    | k+1 => .app (app k) (if wrong && k == 0 then .bvar 2 else .bvar 0)
+  thm (.mkSimple s!"spine{n}")
+    (.forallE `P prop (.forallE `f fty (.forallE `x (.bvar 1) (.bvar 2) .default) .default) .default)
+    (.lam `P prop (.lam `f fty (.lam `x (.bvar 1) (app n) .default) .default) .default)
+
+/-- `Sort (max u (… u))` (n maxes) at `Sort (u+1)` or, wrong, `Sort u`. -/
+def maxSortDecl (n : Nat) (wrong : Bool) : Declaration :=
+  let u := Level.param `u
+  let rec go : Nat → Level
+    | 0 => u
+    | k+1 => .max u (go k)
+  defn (.mkSimple s!"maxsort{n}") (.sort (if wrong then u else .succ u)) (.sort (go n)) [`u]
+
+def shapesFor (n : Nat) : List Case :=
+  [ { id := s!"depth{n}.dom", decl := domDecl n false,
+      lean := "accepted", leanforth := "accepted", rule := "A1",
+      what := s!"Pis nested {n} deep in domain position" },
+    { id := s!"depth{n}.dom-wrong", decl := domDecl n true,
+      lean := "declTypeMismatch", leanforth := "rejected", rule := "D1",
+      what := "claimed in Prop" },
+    { id := s!"depth{n}.spine", decl := spineDecl n false,
+      lean := "accepted", leanforth := "accepted", rule := "A1",
+      what := s!"an application spine of {n} arguments" },
+    { id := s!"depth{n}.spine-wrong", decl := spineDecl n true,
+      lean := "appTypeMismatch", leanforth := "rejected", rule := "D2",
+      what := "the first argument is P, a Prop" },
+    { id := s!"depth{n}.maxsort", decl := maxSortDecl n false,
+      lean := "accepted", leanforth := "accepted", rule := "A1",
+      what := s!"a Sort of a max chain {n} deep" },
+    { id := s!"depth{n}.maxsort-wrong", decl := maxSortDecl n true,
+      lean := "declTypeMismatch", leanforth := "rejected", rule := "D1",
+      what := "claimed one universe too low" } ]
+
 def casesFor (n : Nat) : List Case :=
   [ { id := s!"depth{n}.lam", decl := lamDecl n false,
       lean := "accepted", leanforth := "accepted", rule := "A1",
@@ -89,7 +150,7 @@ def casesFor (n : Nat) : List Case :=
       lean := "declTypeMismatch", leanforth := "rejected", rule := "D1",
       what := "claimed one universe too low" } ]
 
-def cases : List Case := casesFor 2000 ++ casesFor 10000
+def cases : List Case := casesFor 2000 ++ shapesFor 2000 ++ casesFor 10000
 
 end Depth
 

@@ -40,7 +40,7 @@ s" tests/core/check-declaration-cases/composition-wrong-argument.ndjson" po-chec
 outcome-ok 0 false lf-outline
 s" composition's log, after identity is loaded" section
 s" tests/reference/composition.ndjson" po-check-file
-s" tests/reference/identity.ndjson" 2dup cin-read drop false pr-present drop
+s" tests/reference/identity.ndjson" po-reload
 outcome-ok 0 false lf-outline
 \ And a log the structural check rejects (N1 of the second review):
 \ composition's, with step 26's start overwritten to its own step.

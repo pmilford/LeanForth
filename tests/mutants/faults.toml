@@ -3368,7 +3368,7 @@ reason = "an inductive block's check writes no covering step, so its publish ste
 [[fault]]
 id = "outline-ignores-validator"
 file = "src/present/proof-outline.fs"
-old = '''  lf-ol-flaw ?dup if lf-ol-malformed drop lf-lv-cr exit then'''
+old = '''  lf-ol-flaw ?dup if lf-ol-malformed drop lf-ol-tex-close lf-lv-cr exit then'''
 new = ''''''
 test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
 reason = "the printer prints from a log the structural check rejects (N1 of the second review)"
@@ -3682,8 +3682,8 @@ reason = "is_geq answers only equal or zero: a field one universe below the resu
 [[fault]]
 id = "ind-skip-return-type"
 file = "src/kernel/check-block.fs"
-old = '''  2dup lf-blk-c3? 0= if 2drop lf-blk-bad-return exit then'''
-new = ''''''
+old = '''  0= if 2drop lf-blk-bad-return exit then'''
+new = '''  drop'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "C3 skipped: a constructor returning Prop instead of its type is not rejected"
 
@@ -3715,7 +3715,7 @@ reason = "N2 skipped for a block: a type declared twice in one input is accepted
 [[fault]]
 id = "ind-sort-end-unknown"
 file = "src/kernel/check-block.fs"
-old = '''    lf-head-sort of lf-blk-sorted endof  lf-head-constant of lf-blk-unfold endof'''
+old = '''    lf-head-sort of lf-blk-sorted endof  lf-head-constant of lf-blk-constant-end endof'''
 new = '''    lf-head-sort of lf-blk-sorted endof  lf-head-var of lf-blk-unfold endof'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "T2: a telescope ending in a variable is unknown, not Lean's typeExpected"
@@ -4079,8 +4079,8 @@ reason = "rvI21 R4-2: a type that is a Sort only after whnf gets a recipe; its r
 [[fault]]
 id = "genrec-no-restore"
 file = "src/kernel/generated-recursor.fs"
-old = '''  lf-genrec-save lf-genrec-run lf-genrec-restore ;'''
-new = '''  lf-genrec-save lf-genrec-run ;'''
+old = '''  lf-genrec-run lf-genrec-restore ;'''
+new = '''  lf-genrec-run ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvI21 R4-2: the block record is not given back after a rebuild during another block's check, which then checks the wrong block"
 
@@ -4103,8 +4103,8 @@ reason = "rvI21 R4-5: a lookup of a generated T.rec answers T's slot, so the log
 [[fault]]
 id = "outline-reads-no-type"
 file = "src/present/proof-outline.fs"
-old = '''  lf-ol-decl lf-idecl-type @ dup 0< if drop s" none" lf-ol-line exit then'''
-new = '''  lf-ol-decl lf-idecl-type @'''
+old = '''  lf-ol-decl lf-idecl-type @ 0< if'''
+new = '''  false if'''
 test = "python3 tests/present/test_outline_block.py"
 reason = "rvI21 R4-6: the outline prints the type -1 of an empty block's declaration"
 
@@ -4164,3 +4164,253 @@ old = ''': lf-lscope-power-of-two? ( n -- flag ) dup 0> swap dup 1- and 0= and ;
 new = ''': lf-lscope-power-of-two? ( n -- flag ) 0> ;'''
 test = "$GFORTH tests/core/level-scope.fs"
 reason = "R2-L2: the slot-count guard accepts a count that is not a power of two"
+
+# --- recursive inductive blocks (plan task 5.2.1b; ADR 0015 §13, test plan 7) ---
+# src/kernel/check-block.fs (positivity, C3), inductive-block.fs (nested
+# blocks, is_rec), inductive-recursor.fs (induction hypotheses, recursive
+# calls), generated-recursor.fs; each caught by tests/core/check-block.fs.
+
+[[fault]]
+id = "rec-skip-positivity"
+file = "src/kernel/check-block.fs"
+old = '''  lf-ind-recursive? 0= if 2drop outcome-ok exit then'''
+new = '''  2drop outcome-ok exit'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1b: positivity skipped; (Bad -> Nat) -> Bad is accepted"
+quick = true
+
+[[fault]]
+id = "rec-domain-occurrence-ignored"
+file = "src/kernel/check-block.fs"
+old = '''  if 2drop lf-diag-non-positive lf-pos-fail false exit then'''
+new = '''  drop'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1b: P1 skipped, the type in a Pi's domain allowed; (Bad -> Nat) -> Bad is accepted"
+
+[[fault]]
+id = "rec-non-valid-accepted"
+file = "src/kernel/check-block.fs"
+old = '''  if outcome-ok else lf-diag-non-valid lf-pos-fail then ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1b: P2 skipped; f (Bad f) -> Bad f is accepted"
+
+[[fault]]
+id = "rec-positivity-without-whnf"
+file = "src/kernel/check-block.fs"
+old = '''  swap lf-minfer-whnf ok-then? 0= if nip false exit then swap'''
+new = ''''''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1b: a field's type is not put in whnf; a negative occurrence behind a beta-redex is unknown, not Lean's nonPositive"
+
+[[fault]]
+id = "rec-definition-stuck"
+file = "src/kernel/check-block.fs"
+old = '''  over lf-kind-axiom = or swap lf-kind-opaque = or ;'''
+new = '''  over lf-kind-axiom = or over lf-kind-opaque = or swap lf-kind-definition = or ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1b: a definition counted as a head Lean's whnf leaves; id (Bad -> Nat) is decided without unfolding"
+
+[[fault]]
+id = "rec-c3-indices-unchecked"
+file = "src/kernel/check-block.fs"
+old = '''  r> lf-blk-indices-free? ;'''
+new = '''  r> 2drop true outcome-ok ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1b: is_valid_ind_app does not test the indices; mk : T (T Nat) is accepted"
+
+[[fault]]
+id = "rec-flags-never-differ"
+file = "src/kernel/check-block.fs"
+old = ''': lf-blk-differs? ( flag x -- flag' ) 0<> <> ;'''
+new = ''': lf-blk-differs? ( flag x -- flag' ) 2drop false ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1b: B4 never compares isRec and isReflexive; N's cleared isRec gives no warning"
+
+[[fault]]
+id = "rec-nested-not-detected"
+file = "src/kernel/inductive-block.fs"
+old = '''  if 2drop drop outcome-unsupported else walk-children then ;'''
+new = '''  drop walk-children ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1b: a nested block (List Tree) is checked as a recursive one and rejected where Lean accepts it"
+
+[[fault]]
+id = "rec-no-induction-hypothesis"
+file = "src/kernel/inductive-recursor.fs"
+old = '''  dup lf-rcr-headed? if >r lf-rcr-since r> lf-rcr-ih! exit then'''
+new = '''  dup lf-rcr-headed? 0 and if >r lf-rcr-since r> lf-rcr-ih! exit then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1b: no field is recursive; N's minor premise lacks its induction hypothesis and Lean's N.rec is rejected"
+quick = true
+
+[[fault]]
+id = "rec-motive-off-by-one"
+file = "src/kernel/inductive-recursor.fs"
+old = '''  lf-rcr-state lf-rcr-past @ lf-rcr-q@ + lf-rcr-state lf-rcr-gap @ + lf-rcr-s@ + 1- ;'''
+new = '''  lf-rcr-state lf-rcr-past @ lf-rcr-q@ + lf-rcr-state lf-rcr-gap @ + lf-rcr-s@ + ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1b: the induction hypothesis names the wrong binder as the motive"
+
+[[fault]]
+id = "rec-rule-without-call"
+file = "src/kernel/inductive-recursor.fs"
+old = '''  over lf-rcr-r 0 ?do over i lf-rcr-v lf-rcr-app loop nip ;'''
+new = '''  nip ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1b: a recursive rule applies the minor premise without the recursive calls"
+
+[[fault]]
+id = "rec-relocation-one-shift"
+file = "src/kernel/inductive-recursor.fs"
+old = '''  swap lf-rcr-state lf-rcr-gap @ lf-rcr-shift ;'''
+new = '''  nip ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1b: an x domain or index of a hypothesis keeps the fields' variables unshifted"
+
+[[fault]]
+id = "rec-rule-levels-without-motive"
+file = "src/kernel/inductive-recursor.fs"
+old = ''': lf-rcr-large ( -- 0|1 ) lf-ind-state lf-ind-large @ 0<> 1 and ;'''
+new = ''': lf-rcr-large ( -- 0|1 ) 0 ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1b: the recursive call in a rule lacks the motive's universe (get_rec_levels)"
+
+[[fault]]
+id = "rec-generated-without-hypotheses"
+file = "src/kernel/inductive-recursor.fs"
+old = '''  lf-rcr-begin true lf-rcr-ihs false lf-rcr-terms ;'''
+new = '''  lf-rcr-begin false lf-rcr-ihs false lf-rcr-terms ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1b: the generated recursor of a recursive block is built without its induction hypotheses"
+
+[[fault]]
+id = "genrec-domains-not-restored"
+file = "src/kernel/generated-recursor.fs"
+old = '''  lf-genrec-kept-cells slab-base lf-ind-domains slab-base lf-genrec-kept@ cells move ;'''
+new = '''  ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1b: a rebuild during a block's check leaves that block's parameter domains overwritten"
+
+# --- the LaTeX outline style and the statement in three forms (plan tasks 8.6.1, 8.6.2) ---
+# tests/present/check_outline.py compares the golden outlines (plain and LaTeX), checks
+# the fragments' structure, compiles them where pdflatex exists, and runs each printed
+# LeanForth block through the authoring words to the identical statement.
+
+[[fault]]
+id = "forms-latex-underscore-unescaped"
+file = "src/present/statement-forms.fs"
+old = '''[char] _ of s" \_" true endof'''
+new = '''[char] _ of s" _" true endof'''
+test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
+reason = "the typewriter block leaves an underscore unescaped, so poly_identity breaks the LaTeX it is printed in"
+quick = true
+
+[[fault]]
+id = "forms-forth-block-no-universes"
+file = "src/present/statement-forms.fs"
+old = '''  -1 lf-sf lf-sf-decl lf-fdecl-value ! lf-sf-universes lf-sf lf-sf-decl ;'''
+new = '''  -1 lf-sf lf-sf-decl lf-fdecl-value ! drop lf-sf lf-sf-decl ;'''
+test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
+reason = "the LeanForth block of a statement with a universe parameter forgets its universe line, so the words no longer build the statement"
+quick = true
+
+[[fault]]
+id = "forms-default-shows-none"
+file = "src/present/statement-forms.fs"
+old = ''': lf-forms ( -- mask ) lf-sf lf-sf-hidden @ lf-forms-all xor ;'''
+new = ''': lf-forms ( -- mask ) lf-sf lf-sf-hidden @ ;'''
+test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
+reason = "the default hides every form of the statement instead of showing all three"
+
+[[fault]]
+id = "forms-math-line-dropped"
+file = "src/present/statement-forms.fs"
+old = '''  lf-form-mathematics lf-forms-has? if lf-sf-copy lf-sf-math-line then'''
+new = ''''''
+test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
+reason = "the header never prints the statement in mathematics"
+quick = true
+
+[[fault]]
+id = "outline-latex-math-left-open"
+file = "src/present/log-view.fs"
+old = '''  lf-lv lf-lv-mathing @ 0= if lf-lv-last-dollar then ;'''
+new = ''' ;'''
+test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
+reason = "a LaTeX formula is opened with $ and never closed, so the fragment's math is unbalanced"
+quick = true
+
+[[fault]]
+id = "outline-latex-table-not-closed"
+file = "src/present/proof-outline.fs"
+old = '''  lf-lv-tex? if lf-ol-table-end lf-ol-small-open then'''
+new = '''  lf-lv-tex? if lf-ol-small-open then'''
+test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
+reason = "the proof table is not ended before the footer, so the fragment leaves its environment open and does not compile"
+quick = true
+
+[[fault]]
+id = "cli-statement-forms-wrong-bit"
+file = "src/cli/print.fs"
+old = '''  2dup s" lean" compare 0= if 2drop lf-form-lean exit then'''
+new = '''  2dup s" lean" compare 0= if 2drop lf-form-mathematics exit then'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Print"
+reason = "--statement lean selects the mathematics line"
+quick = true
+
+[[fault]]
+id = "cli-statement-forms-trailing-comma"
+file = "src/cli/print.fs"
+old = '''  2dup pr-ends-comma? if 2drop false exit then'''
+new = ''''''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Print"
+reason = "a list of forms ending in a comma is accepted instead of refused"
+
+# --- print on the importer stage and the feed (plan task 3.4.1) -------------------------
+# tests/present/check_outline.py (the golden outlines of the pinned exports, fed through the
+# stage with print's hooks) and tests/cli/test_leanforth.py (print beyond the small reader).
+
+[[fault]]
+id = "feed-hook-binder-kind-wrong"
+file = "src/import/feed.fs"
+old = ''': feed-binder-info ( tag -- kind ) tag-lam - 3 and ;'''
+new = ''': feed-binder-info ( tag -- kind ) tag-lam - 1 and ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Print"
+reason = "the binder hook gives a strict-implicit or instance binder the wrong kind, so an instance argument prints in braces"
+quick = true
+
+[[fault]]
+id = "feed-hook-declaration-never-called"
+file = "src/import/feed.fs"
+old = '''  feed-decl-hook @ ?dup if >r lf-input-count r> execute else 2drop then ;'''
+new = '''  drop 2drop ;'''
+test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
+reason = "the declaration hook is never called, so no outline says which line of the export its declaration came from"
+quick = true
+
+[[fault]]
+id = "stage-keeps-no-line"
+file = "src/import/stage-records.fs"
+old = '''  over record-line @ over stage-lines fields-push dup ok? 0= if nip nip exit then drop'''
+new = '''  0 over stage-lines fields-push dup ok? 0= if nip nip exit then drop'''
+test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
+reason = "the stage forgets the line of each declaration it stages, so every outline reads line 0"
+quick = true
+
+[[fault]]
+id = "pres-type-not-in-input"
+file = "src/present/binder-table.fs"
+old = '''  dup lf-pres-find if nip lf-pdecl-type @ true else lf-pres-input-type@ then ;'''
+new = '''  dup lf-pres-find if nip lf-pdecl-type @ true else drop false then ;'''
+test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
+reason = "the printer no longer finds a constant's declared type in the input, so the implicit arguments it hides show again"
+
+[[fault]]
+id = "print-title-name-unescaped"
+file = "src/present/log-view.fs"
+old = '''  lf-lv lf-lv-declname @ lf-lv-tex? 0= and if lf-lv-decl-shown else lf-lv-printed-name then ;'''
+new = '''  lf-lv-printed-name ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Names"
+reason = "print shows a declaration's name as the printer spells it, so a name with a newline starts a line of its own in the outline"
+quick = true

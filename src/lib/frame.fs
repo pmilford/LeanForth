@@ -29,8 +29,10 @@
 \ and a refused child makes none: so from its admission to its return the
 \ cells a visit holds at once -- every value it saved and not yet took
 \ back, and every continuation step it pushed itself -- never exceed
-\ frame-spare, counted over all its steps (unchecked). A visit takes back
-\ everything it saved before it returns.
+\ frame-spare, counted over all its steps. Only the block is checked
+\ (frame-save): a visit that holds more than its share may still fit in
+\ the block, but one that would write past it throws frame-overrun. A
+\ visit takes back everything it saved before it returns.
 \
 \ frame-call spends one unit of fuel and one frame and runs the visitor on
 \ x; frame-under does the same one context level deeper, restored when
@@ -118,11 +120,17 @@ end-structure
 : frame-budget ( fuel frames -- flag )
   over 0< over frame-busy? or if 2drop false else frame-fuel ! true then ;
 
-\ The stack. Unchecked: frame-save needs room (frame-spare, above), and
-\ frame-restore, frame-pick (cell i from the top, 0 the last saved) and
-\ frame-drop (n cells) cells saved by the same visit.
+\ The stack. frame-save needs room (frame-spare, above): a save the block
+\ cannot hold -- a step that broke the rule, or an unsound count --
+\ throws frame-overrun instead of writing outside the block, a fault that
+\ a check's CATCH turns into an invalid declaration, never a result.
+\ Unchecked: frame-restore, frame-pick (cell i from the top, 0 the last
+\ saved) and frame-drop (n cells) take cells saved by the same visit.
+-4111 constant frame-overrun
 : frame-top ( frames -- addr ) dup frame-used @ cells swap frame-block @ + ;
-: frame-save ( x frames -- ) tuck frame-top ! 1 swap frame-used +! ;
+: frame-held? ( frames -- flag ) dup frame-used @ swap frame-capacity @ u< ;
+: frame-save ( x frames -- )
+  dup frame-held? 0= if frame-overrun throw then tuck frame-top ! 1 swap frame-used +! ;
 : frame-restore ( frames -- x ) -1 over frame-used +! frame-top @ ;
 : frame-pick ( i frames -- x ) frame-top swap 1+ cells - @ ;
 : frame-drop ( n frames -- ) frame-used swap negate swap +! ;
@@ -139,8 +147,12 @@ max-n 1 cells / constant frame-most-cells
 : frame-size ( n frames -- cells )
   tuck frame-used @ + swap frame-capacity @ frame-most-cells 2/ min 2* max
   frame-first-cells max frame-most-cells min ;
+\ A size that still does not hold n more cells (only past
+\ frame-most-cells) is refused like a heap that refuses.
+: frame-short? ( n cells frames -- flag ) frame-used @ rot + < ;
 : frame-grow ( n frames -- flag )
-  tuck frame-size dup cells 2 pick frame-block @ ?dup if swap resize else allocate then
+  2dup frame-size 2dup 2>r swap frame-short? if 2r> 2drop false exit then 2r>
+  dup cells 2 pick frame-block @ ?dup if swap resize else allocate then
   if 2drop drop false else rot tuck frame-block ! frame-capacity ! true then ;
 : frame-room? ( n frames -- flag ) 2dup frame-fits? if 2drop true else frame-grow then ;
 

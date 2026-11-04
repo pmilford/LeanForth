@@ -24,11 +24,12 @@
 \       check the export again and compare the new run record with RECORD
 \       (import/run-replay.fs): the replay report, exit 0 confirmed, 1
 \       refused (a difference), 4 when it cannot be compared;
-\   print [--no-manifest] [--fuel N] [--detail] [--name NAME] EXPORT
-\       check the export as check --record does, one declaration at a time
-\       with the derivation log on, and print each one's proof outline
-\       right after its check (cli/print.fs, present/proof-outline.fs), or
-\       with --detail every step of its log; with --name only that one;
+\   print [--no-manifest] [--fuel N] [--detail] [--name NAME] [--latex]
+\         [--statement FORMS] EXPORT
+\       check the export as check does, one declaration at a time with the
+\       derivation log on, and print each one's proof outline right after
+\       its check (cli/print.fs, present/proof-outline.fs), or with
+\       --detail every step of its log; with --name only that declaration;
 \   count [--no-manifest] EXPORT          the record counts (ndjson-count.fs);
 \   reexport [--no-manifest] EXPORT COPY  the byte-exact copy (ndjson-emit.fs);
 \   version, capabilities, help (also --version, --help and -h).
@@ -51,7 +52,7 @@
 \ are printed as cli/name-text.fs shows them, escaped, so a crafted name
 \ cannot forge a line. An accepted declaration whose axiom set is not
 \ empty is marked NOT PROVED (the owner's rule; the first checker accepts
-\ no axiom, so none is yet). check --record, replay and print hold small
+\ no axiom, so none is yet). check --record and replay hold small
 \ exports only (64 names, levels and term nodes, 32 declarations):
 \ anything larger ends full, exit 3, and the output says so. Untrusted,
 \ like everything in src/ until the review gate.
@@ -121,6 +122,8 @@ begin-structure /cli-run
   2 cells +field opt-name       \ the declaration to print (--name), or 0 0
   field: opt-resources          \ true: print the resource report (--resources)
   field: opt-json               \ true: the report as JSON (--json)
+  field: opt-latex              \ true: print's outlines as LaTeX (--latex)
+  field: opt-forms              \ print's statement forms (--statement), 0: all
   4 cells +field arg-files      \ the file names given, in order (two c-addr u)
   field: arg-count              \ how many were given
   field: arg-set                \ the options the command takes, as bits
@@ -260,7 +263,7 @@ end-structure
 \ run-record.fs's tables, both sized for those defaults; check without it
 \ feeds the stores, which grow, so only the checks' own limits remain.
 : cli-limits ( -- )
-  ." note: check --record, replay and print hold at most " lf-name-capacity .decimal
+  ." note: check --record and replay hold at most " lf-name-capacity .decimal
   ."  names, " lf-level-capacity .decimal ."  levels," cr ." note: "
   lf-term-capacity .decimal ."  term nodes and " lf-input-capacity .decimal
   ."  declarations per export; check without --record holds any size" cr ;
@@ -513,17 +516,18 @@ create cli-fed-ops
   rp-report ok? 0= if drop outcome-invalid then outcome>code ;
 
 \ ---------------------------------------------------------------------------
-\ print: the export (file 0) read as check --record reads it (its manifest
-\ checked unless --no-manifest), read once more for binder names
-\ (cli/print.fs), then each declaration checked in file order with the
-\ derivation log on and printed right after its check with its proof
-\ outline (present/proof-outline.fs: the verdict with its label and axioms,
-\ the statement, the outline), or with --detail every step of its log.
-\ With --name only that declaration is printed (the ones before it are
-\ checked too, unprinted; the ones after it are not checked). No outline
-\ is ever printed for a declaration that was not accepted, nor from a log
-\ that ran out of room: the printer says why. Codes: those of check, from
-\ the verdicts of the declarations printed (0 when every one is accepted,
+\ print: the export (file 0) staged and fed as check reads it (its manifest
+\ checked unless --no-manifest; any size), with the feed's hooks that keep
+\ binder names and declaration lines for the printer (cli/print.fs),
+\ then each declaration checked in file order with the derivation log on
+\ and printed right after its check with its proof outline
+\ (present/proof-outline.fs: the verdict with its label and axioms, the
+\ statement, the outline), or with --detail every step of its log. With
+\ --name only that declaration is printed (the ones before it are checked
+\ too, unprinted; the ones after it are not checked). No outline is ever
+\ printed for a declaration that was not accepted, nor from a log that ran
+\ out of room: the printer says why. Codes: those of check, from the
+\ verdicts of the declarations printed (0 when every one is accepted,
 \ whether or not its outline could be printed: an accepted declaration
 \ whose log ran out of room says so in its text), 4 for a name no
 \ declaration has, 5 when the run stopped (a check threw, publishing
@@ -535,7 +539,8 @@ create cli-fed-ops
 \ has the name given.
 : cli-chosen ( -- i true | false ) cli-named dup 0= if 2drop -1 true exit then pr-find ;
 : cli-no-such ( -- )
-  ." error: no declaration named " cli-named type cr exit-malformed cli-code! ;
+  ." error: no declaration named " cli-named nt-text if type else cli-unshown then cr
+  exit-malformed cli-code! ;
 : cli-shown? ( chosen i -- flag ) over 0< if 2drop true else = then ;
 : cli-print-one ( i -- ) >r 0 cli-file r> cli-detail? pr-print outcome>code cli-code! ;
 : cli-print-stopped ( -- )
@@ -560,18 +565,24 @@ create cli-fed-ops
   over lf-env-use ok? 0= if drop c" the checked environment could not be used" cli-fault
   0 exit then ['] cli-print-run catch dup if nip then ;
 : cli-print-env ( chosen -- )
-  cli-fuel @ lf-check-budget cli-pool lf-env-new cli-env-made 0= if drop exit then
+  cli-fuel @ lf-check-budget lf-env-pool-max lf-env-new cli-env-made 0= if drop exit then
   swap cli-print-guarded swap cli-print-free throw ;
-: cli-print-names ( -- flag )
-  0 cli-file cli-checked? pr-present dup ok? if drop true else cli-unread false then ;
 \ The log on for the run, and off again after it, also after a THROW.
+: cli-style ( -- )
+  cli-state opt-latex @ lf-outline-latex!
+  cli-state opt-forms @ ?dup 0= if lf-forms-all then lf-forms!
+  ['] nt-name ['] nt-text lf-outline-names! ;
 : cli-printing ( -- )
-  cli-print-names 0= if exit then cli-chosen 0= if cli-no-such exit then
+  cli-chosen 0= if cli-no-such exit then cli-style
   pr-log-on ['] cli-print-env catch lf-log-off lf-log-set throw ;
+\ A read that failed, as check's is reported (cli-fed-unread), and its code.
+: cli-print-unread ( outcome -- ) cli-fed-unread ck-read-outcome outcome>code cli-code! ;
+: cli-print-library ( -- )
+  0 cli-file cli-checked? pr-load dup ok? if drop cli-printing else cli-print-unread then ;
+\ The run, then everything it holds freed, after a THROW too (passed on).
 : print-command ( -- code )
-  cli-start cli-opens? 0= if cli-unopened exit then cli-unchecked-note
-  rr-release 0 cli-file cli-checked? rr-read-once dup ok?
-  if drop cli-printing else cli-unread then cli-worst @ ;
+  cli-start cli-opens? 0= if cli-unopened exit then
+  cli-unchecked-note ['] cli-print-library cli-fed-run ;
 
 \ ---------------------------------------------------------------------------
 \ count: the report of ndjson-count.fs, or its error line.
@@ -645,13 +656,13 @@ create cli-fed-ops
   ."   let (4.2.3), literals (5.2.3), projections (5.2.2) and metadata (4.1.3) in a term;" cr
   ."   recursive and indexed inductive types (5.2.1b, 5.2.1c), quotients (5.2.4)," cr
   ."   mutual and nested blocks (5.2.5); unfolding definitions (4.2.2), so some" cr
-  ."   correct proofs end unknown; check --record, replay and print refuse" cr
+  ."   correct proofs end unknown; check --record and replay refuse" cr
   ."   inductive types while reading" cr ;
 : cli-check-limits. ( -- )
   ."   check: stores and walks that grow with the export (memory, any depth);" cr
   ."     " cli-capacities. ."     inductive block (plan task 6.2.0)" cr ;
 : cli-small-limits. ( -- )
-  ."   check --record, replay, print: " lf-name-capacity .decimal ."  names, "
+  ."   check --record, replay: " lf-name-capacity .decimal ."  names, "
   lf-level-capacity .decimal ."  levels, " lf-term-capacity .decimal ."  term nodes," cr
   ."     " lf-input-capacity .decimal ."  declarations per export, "
   cli-pool .decimal ."  dependencies per export" cr ;
@@ -663,7 +674,7 @@ create cli-fed-ops
   ."   fuel " cli-default-fuel .decimal ."  steps per declaration (--fuel N, at most "
   cli-fuel-most cli-number-text type ." )" cr ;
 : cli-planned. ( -- )
-  ." planned, not built: program, serve, print and --record on any size," cr
+  ." planned, not built: program, serve and --record on any size," cr
   ."   the axiom names of each accepted declaration (plan task 5.3.2)" cr ;
 : capabilities-command ( -- code )
   ." leanforth " cli-version-text type ." : what this build can do" cr
@@ -680,8 +691,10 @@ create cli-fed-ops
 : cli-other-usage. ( -- )
   ."   replay [--no-manifest] [--fuel N] EXPORT RECORD" cr
   ."       check the export again and compare the run record with RECORD" cr
-  ."   print [--no-manifest] [--fuel N] [--detail] [--name NAME] EXPORT" cr
-  ."       check the export and print each accepted declaration's proof outline" cr
+  ."   print [--no-manifest] [--fuel N] [--detail] [--name NAME] [--latex]" cr
+  ."         [--statement FORMS] EXPORT" cr
+  ."       check the export and print each accepted declaration's proof outline;" cr
+  ."       FORMS: lean, mathematics, leanforth, all (default), joined by commas" cr
   ."   count [--no-manifest] EXPORT     count the export's records by kind" cr
   ."   reexport [--no-manifest] EXPORT COPY" cr
   ."       write the export again, byte for byte as Lean's exporter writes it" cr ;
@@ -760,6 +773,8 @@ end-structure
 16 constant takes-name
 32 constant takes-resources
 64 constant takes-json
+128 constant takes-latex
+256 constant takes-statement
 : cli-value ( c-addr u -- c-addr' u' true | false )
   cli-arg if 2swap 2drop true else c" an option without its value" cli-wrong false then ;
 \ A decimal number from 0 to max-n with nothing else: (n true) or false.
@@ -781,6 +796,11 @@ end-structure
 : cli-name-option ( c-addr u -- ) cli-value if cli-state opt-name 2! then ;
 : cli-resources-option ( c-addr u -- ) 2drop cli-resources ;
 : cli-json-option ( c-addr u -- ) 2drop cli-json ;
+: cli-latex-option ( c-addr u -- ) 2drop true cli-state opt-latex ! ;
+\ --statement FORMS: lean, mathematics, leanforth (or all), separated by commas.
+: cli-statement-option ( c-addr u -- )
+  cli-value 0= if exit then 2dup pr-forms
+  if cli-state opt-forms ! 2drop else c" not a list of statement forms" cli-wrong then ;
 create cli-option-table
   ' cli-manifest-option takes-no-manifest 0 cli-entry, --no-manifest
   ' cli-fuel-option takes-fuel 0 cli-entry, --fuel
@@ -789,6 +809,8 @@ create cli-option-table
   ' cli-name-option takes-name 0 cli-entry, --name
   ' cli-resources-option takes-resources 0 cli-entry, --resources
   ' cli-json-option takes-json 0 cli-entry, --json
+  ' cli-latex-option takes-latex 0 cli-entry, --latex
+  ' cli-statement-option takes-statement 0 cli-entry, --statement
   0 ,
 : cli-takes? ( entry -- flag ) cli-entry-first @ cli-state arg-set @ and 0<> ;
 : cli-taken ( c-addr u entry -- )
@@ -811,7 +833,8 @@ create cli-option-table
 takes-no-manifest takes-fuel or takes-record or takes-resources or takes-json or
 constant check-set
 takes-no-manifest takes-fuel or constant replay-set
-takes-no-manifest takes-fuel or takes-detail or takes-name or constant print-set
+takes-no-manifest takes-fuel or takes-detail or takes-name or takes-latex or
+takes-statement or constant print-set
 create cli-commands
   ' check-command 1 check-set cli-entry, check
   ' replay-command 2 replay-set cli-entry, replay

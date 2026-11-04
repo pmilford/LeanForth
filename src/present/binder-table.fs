@@ -5,7 +5,8 @@
 \ entry changes only how a term is printed. Requires terms.fs and names.fs.
 \ An importer (the coming Forth NDJSON reader) or a test fills it with
 \ lf-pres-binder! and lf-pres-source! per term and lf-pres-declare per
-\ declaration. A term entry is stamped with the term's identity and the
+\ declaration, or, for the declared types, by feeding the input (core/input.fs),
+\ where lf-pres-type@ finds what the table does not hold. A term entry is stamped with the term's identity and the
 \ name store's generation, a declaration with its type's identity and that
 \ generation, so after a reset of either store a stale entry reads as
 \ absent instead of describing another term.
@@ -19,6 +20,7 @@ require ../lib/slab.fs
 require ../lib/store-columns.fs
 require ../core/terms.fs
 require ../core/names.fs
+require ../core/input.fs
 
 0 constant lf-binder-default    \ (x : A), explicit
 1 constant lf-binder-implicit   \ {x : A}
@@ -135,8 +137,15 @@ end-structure
 : lf-pres-find ( name -- decl true | false )
   lf-pres-count@ 0 ?do dup i lf-pres-decl lf-pres-match?
     if drop i lf-pres-decl true unloop exit then loop drop false ;
+\ A name the table has no record of is looked up in the input's declarations
+\ (core/input.fs), the newest of that name: an importer that feeds the
+\ input need not copy every declaration's type into the table, which holds
+\ lf-pres-declaration-capacity of them.
+: lf-pres-input-type@ ( name -- type true | false )
+  lf-input-newest dup 0< if drop false exit then
+  lf-input-decl lf-idecl-type @ dup 0< if drop false else true then ;
 : lf-pres-type@ ( name -- type true | false )
-  lf-pres-find if lf-pdecl-type @ true else false then ;
+  dup lf-pres-find if nip lf-pdecl-type @ true else lf-pres-input-type@ then ;
 
 : lf-pres-append ( -- decl true | false )
   lf-pres-count@ dup lf-pres-declaration-capacity < 0= if drop false exit then

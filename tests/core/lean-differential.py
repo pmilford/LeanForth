@@ -559,8 +559,9 @@ def universe_many_fed():
 
 
 # Plan task 6.2.0, part (b): no depth limit. Lambda, application and
-# successor chains 2,000 and 10,000 deep (depth-terms.lean), each accepted
-# or rejected for Lean's reason. LeanForth's work grows with the square of
+# successor chains 2,000 and 10,000 deep, and at 2,000 also Pis nested in
+# domain position, application spines and a Sort of a max chain
+# (depth-terms.lean), each accepted or rejected for Lean's reason. LeanForth's work grows with the square of
 # the depth here (every reduction and opening audits or visits the term
 # below it, and the rejection analysis infers the rest of a type at each
 # binder), so the cases get ample fuel and term store, and the 10,000-deep
@@ -575,7 +576,7 @@ DEPTH_SETTINGS = ["10000000000 lf-check-budget", "1048576 lf-term-capacity! must
 
 
 def depth(fed=False):
-    return expect_table("tests/reference/depth-terms.lean", 6, DEPTH_SETTINGS,
+    return expect_table("tests/reference/depth-terms.lean", 12, DEPTH_SETTINGS,
                         "depth 2000" + (", fed" if fed else ""), fed, "depth2000.")
 
 

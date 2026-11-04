@@ -590,6 +590,14 @@ T{ 6 0 f1 ' frame-run rs-checked f1 frame-fuel @ f1 frame-used @ -> 9 outcome-ok
 T{ 1 f1 frame-save 2 f1 frame-save 3 f1 frame-save 0 f1 frame-pick 2 f1 frame-pick
    f1 frame-room@ drop -> 3 1 3 }T
 T{ 2 f1 frame-drop f1 frame-restore f1 frame-used @ -> 1 0 }T
+\ A save the block cannot hold (a step that broke the spare-cell rule, or
+\ an unsound count) throws frame-overrun and writes nothing.
+: save-caught ( used -- ior used' )
+  f1 frame-used ! 7 f1 ['] frame-save catch dup if nip nip then f1 frame-used @ ;
+T{ f1 frame-capacity @ save-caught f1 frame-capacity @ = -> frame-overrun true }T
+T{ -1 save-caught -> frame-overrun -1 }T
+T{ f1 frame-capacity @ 1- save-caught f1 frame-capacity @ = -> 0 true }T
+0 f1 frame-used !
 \ frame-open opens a visit of another kind, whose results need not be an
 \ outcome (frame-left keeps them), on fuel and room the caller found;
 \ frame-steps runs a step to its return, frame-through a visit.
