@@ -177,7 +177,7 @@ rr-reset rr-no-source
 : rr-facts-start ( facts -- ) /rr-facts erase run-record rr-sha sha256-init ;
 : rr-facts-end ( facts -- )
   dup facts-open @ if 1 over facts-lines rr-d+! then
-  run-record rr-digest dup run-record rr-sha sha256-final swap facts-hex digest>hex ;
+  run-record rr-digest dup run-record rr-sha sha256-final swap facts-hex sha256-hex ;
 : rr-hash-open ( fid facts -- outcome )
   2dup rr-chunks >r drop close-file r> swap if drop outcome-invalid then ;
 \ The facts of the file named c-addr u: ok, or invalid when it cannot be

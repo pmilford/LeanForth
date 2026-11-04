@@ -1269,16 +1269,16 @@ quick = true
 [[fault]]
 id = "sha-fast-unmasked-store"
 file = "src/lib/sha256.fs"
-old = '''+ sha-mask and r@ win-e-next + !'''
-new = '''+ r@ win-e-next + !'''
+old = '''+ sha-mask and r@ sha-win-e-next + !'''
+new = '''+ r@ sha-win-e-next + !'''
 test = "$GFORTH tests/lib/sha256.fs"
 reason = "the fast round stores e unmasked; the next doubled rotation reads high bits"
 
 [[fault]]
 id = "sha-fast-sigma0-shift"
 file = "src/lib/sha256.fs"
-old = '''over win-w-15 + @ dup 3 rshift'''
-new = '''over win-w-15 + @ dup 4 rshift'''
+old = '''over sha-win-w-15 + @ dup 3 rshift'''
+new = '''over sha-win-w-15 + @ dup 4 rshift'''
 test = "$GFORTH tests/lib/sha256.fs"
 reason = "the fast schedule's sigma0 shifts by 4 for 3"
 
@@ -1347,6 +1347,33 @@ old = '''[char] a 10 - then'''
 new = '''[char] a 9 - then'''
 test = "$GFORTH tests/lib/sha256.fs"
 reason = "hexadecimal digits a to f written one letter late"
+
+[[fault]]
+id = "sha-helpers-public"
+file = "src/lib/sha256.fs"
+old = '''32 constant sha-digest-bytes
+lf-lib-private set-current'''
+new = '''32 constant sha-digest-bytes
+lf-lib set-current'''
+test = "python3 tests/lib/test_sha256.py"
+reason = "the constant tables and the round table's layout become public words (ADR 0010)"
+
+[[fault]]
+id = "manifest-lines-type-unchecked"
+file = "src/import/manifest.fs"
+old = '''   ' natural-member? check, lines'''
+new = ''
+test = "python3 tests/core/test_export_manifest.py"
+reason = "the table of type checks lets lines hold any value; a null is reported as a difference"
+
+[[fault]]
+id = "manifest-lean-version-unchecked"
+file = "src/import/manifest.fs"
+old = '''  ' pinned-lean-version check, lean_version
+'''
+new = ''
+test = "python3 tests/core/test_export_manifest.py"
+reason = "the table of version checks lacks lean_version: a manifest naming Lean 4.36.0 passes"
 
 # --- export manifests (src/import/manifest.fs; the tap and tally of ndjson.fs)
 
