@@ -898,8 +898,8 @@ reason = "a handler may read its own export again"
 [[fault]]
 id = "ndjson-format-version-unchecked"
 file = "src/import/ndjson.fs"
-old = '''  over meta-format-version s" 3.1.0" text= and swap pinned-lean? and ;'''
-new = '''  over meta-format-version s" 3.1.0" text= drop swap pinned-lean? and ;'''
+old = '''  over meta-format-version pinned-format-version text= and swap pinned-lean? and ;'''
+new = '''  over meta-format-version pinned-format-version text= drop swap pinned-lean? and ;'''
 test = "$GFORTH tests/core/ndjson.fs"
 reason = "an export of another format version is read instead of refused as unsupported"
 gap = "no test reads metadata that differs from the pinned versions only in format.version"
@@ -907,8 +907,8 @@ gap = "no test reads metadata that differs from the pinned versions only in form
 [[fault]]
 id = "ndjson-lean-version-unchecked"
 file = "src/import/ndjson.fs"
-old = '''  dup meta-lean-version s" 4.35.0" text='''
-new = '''  dup meta-lean-version s" 4.35.0" text= drop true'''
+old = '''  dup meta-lean-version pinned-lean-version text='''
+new = '''  dup meta-lean-version pinned-lean-version text= drop true'''
 test = "$GFORTH tests/core/ndjson.fs"
 reason = "an export made by another Lean version is read instead of refused as unsupported"
 gap = "no test reads metadata that differs from the pinned versions only in lean.version"
@@ -1112,6 +1112,226 @@ old = '''  >r dup jw-longest u> if 2drop false r> jw-within exit then utf8-valid
 new = '''  >r dup jw-longest u> if 2drop false r> jw-within exit then 2drop true r> jw-expect ;'''
 test = "$GFORTH tests/lib/json-write.fs"
 reason = "a string or key that is not valid UTF-8 is written"
+
+# --- SHA-256 (src/lib/sha256.fs) ------------------------------------------
+
+[[fault]]
+id = "sha-rotr-short"
+file = "src/lib/sha256.fs"
+old = '''-rot 32 swap - lshift'''
+new = '''-rot 31 swap - lshift'''
+test = "$GFORTH tests/lib/sha256.fs"
+reason = "ROTR's left shift one place short; the functions' models see it"
+quick = true
+
+[[fault]]
+id = "sha-maj-xor"
+file = "src/lib/sha256.fs"
+old = '''r> and or ;'''
+new = '''r> and xor ;'''
+test = "$GFORTH tests/lib/sha256.fs"
+reason = "Maj computed with xor for the last or: wrong where a, b and c are all set"
+
+[[fault]]
+id = "sha-fast-sigma1-shift"
+file = "src/lib/sha256.fs"
+old = '''swap 25 rshift xor  \ Sigma1(e)'''
+new = '''swap 24 rshift xor  \ Sigma1(e)'''
+test = "$GFORTH tests/lib/sha256.fs"
+reason = "the fast round's Sigma1 rotates by 24 for 25; vectors and the plain round see it"
+quick = true
+
+[[fault]]
+id = "sha-fast-unmasked-store"
+file = "src/lib/sha256.fs"
+old = '''+ sha-mask and r@ win-e-next + !'''
+new = '''+ r@ win-e-next + !'''
+test = "$GFORTH tests/lib/sha256.fs"
+reason = "the fast round stores e unmasked; the next doubled rotation reads high bits"
+
+[[fault]]
+id = "sha-fast-sigma0-shift"
+file = "src/lib/sha256.fs"
+old = '''over win-w-15 + @ dup 3 rshift'''
+new = '''over win-w-15 + @ dup 4 rshift'''
+test = "$GFORTH tests/lib/sha256.fs"
+reason = "the fast schedule's sigma0 shifts by 4 for 3"
+
+[[fault]]
+id = "sha-k-constant"
+file = "src/lib/sha256.fs"
+old = '''$b5c0 $fbcf'''
+new = '''$b5c0 $fbce'''
+test = "$GFORTH tests/lib/sha256.fs"
+reason = "K2 one off; every digest changes"
+
+[[fault]]
+id = "sha-h0-constant"
+file = "src/lib/sha256.fs"
+old = '''$6a09 $e667'''
+new = '''$6a09 $e666'''
+test = "$GFORTH tests/lib/sha256.fs"
+reason = "H0 one off; every digest changes"
+
+[[fault]]
+id = "sha-byte-order"
+file = "src/lib/sha256.fs"
+old = '''dup c@ 24 lshift over char+ c@ 16 lshift'''
+new = '''dup c@ 16 lshift over char+ c@ 24 lshift'''
+test = "$GFORTH tests/lib/sha256.fs"
+reason = "a message word's first two bytes swapped: not big-endian"
+
+[[fault]]
+id = "sha-finish-row"
+file = "src/lib/sha256.fs"
+old = '''sha-table sha-rounds 3 + sha-rows +
+  4 0 do 2dup sha-add-pair'''
+new = '''sha-table sha-rounds 2 + sha-rows +
+  4 0 do 2dup sha-add-pair'''
+test = "$GFORTH tests/lib/sha256.fs"
+reason = "step 4 adds row 66 for 67: the variables of round 62"
+
+[[fault]]
+id = "sha-length-carry"
+file = "src/lib/sha256.fs"
+old = '''dup r@ sha-length-lo ! u>'''
+new = '''dup r@ sha-length-lo ! u<'''
+test = "$GFORTH tests/lib/sha256.fs"
+reason = "the length's low word carries into the high word the wrong way"
+
+[[fault]]
+id = "sha-padding-boundary"
+file = "src/lib/sha256.fs"
+old = '''dup sha-free 8 < if'''
+new = '''dup sha-free 9 < if'''
+test = "$GFORTH tests/lib/sha256.fs"
+reason = "an extra padding block at 55 bytes; the boundary lengths see it"
+
+[[fault]]
+id = "sha-buffer-room"
+file = "src/lib/sha256.fs"
+old = '''>r 2dup r@ sha-free min tuck'''
+new = '''>r 2dup r@ sha-free 1+ min tuck'''
+test = "$GFORTH tests/lib/sha256.fs"
+reason = "one byte more than the buffer's room is taken: a split update overruns the block"
+
+[[fault]]
+id = "sha-hex-letters"
+file = "src/lib/sha256.fs"
+old = '''[char] a 10 - then'''
+new = '''[char] a 9 - then'''
+test = "$GFORTH tests/lib/sha256.fs"
+reason = "hexadecimal digits a to f written one letter late"
+
+# --- export manifests (src/import/manifest.fs; the tap and tally of ndjson.fs)
+
+[[fault]]
+id = "manifest-no-line-feeds"
+file = "src/import/manifest.fs"
+old = '''r@ manifest-sha sha256-update line-feed r> manifest-sha sha256-update ;'''
+new = '''r> manifest-sha sha256-update ;'''
+test = "$GFORTH tests/core/manifest.fs"
+reason = "the line feeds are not hashed; the fixture's digest differs"
+quick = true
+
+[[fault]]
+id = "manifest-sha-uncompared"
+file = "src/import/manifest.fs"
+old = '''  dup ok? if drop r@ sha-check then r> drop ;'''
+new = '''  r> drop ;'''
+test = "$GFORTH tests/core/manifest.fs"
+reason = "the SHA-256 is never compared: a changed byte passes"
+
+[[fault]]
+id = "manifest-bytes-uncompared"
+file = "src/import/manifest.fs"
+old = '''  dup ok? if drop r@ manifest-count 2@ c" bytes" r@ number-check then
+'''
+new = ''
+test = "python3 tests/core/test_export_manifest.py"
+reason = "the bytes are never compared"
+
+[[fault]]
+id = "manifest-extra-members"
+file = "src/import/manifest.fs"
+old = '''object-size if = else drop false then'''
+new = '''object-size if <= else drop false then'''
+test = "python3 tests/core/test_export_manifest.py"
+reason = "a manifest with members beyond format 1's is accepted"
+
+[[fault]]
+id = "manifest-any-version"
+file = "src/import/manifest.fs"
+old = '''dup version? if keys-check'''
+new = '''dup version? 0= 0= drop true if keys-check'''
+test = "python3 tests/core/test_export_manifest.py"
+reason = "another format version is read as version 1"
+
+[[fault]]
+id = "manifest-hex-length"
+file = "src/import/manifest.fs"
+old = '''over <> if 2drop false exit then true -rot'''
+new = '''drop true -rot'''
+test = "python3 tests/core/test_export_manifest.py"
+reason = "a digest's length is not checked: a short sha256 is not malformed"
+
+[[fault]]
+id = "manifest-size-limit"
+file = "src/import/manifest.fs"
+old = '''manifest-size-limit 1+ u<'''
+new = '''manifest-size-limit u<'''
+test = "python3 tests/core/test_export_manifest.py"
+reason = "a manifest of exactly 64 KiB is refused"
+
+[[fault]]
+id = "manifest-noncanonical"
+file = "src/import/manifest.fs"
+old = '''2dup canonical-natural? if true'''
+new = '''2dup 2drop true if true'''
+test = "python3 tests/core/test_export_manifest.py"
+reason = "-0 and other non-canonical numbers are accepted"
+
+[[fault]]
+id = "manifest-tap-kept"
+file = "src/import/manifest.fs"
+old = '''read-caught r> export-untap throw'''
+new = '''read-caught r> drop throw'''
+test = "$GFORTH tests/core/manifest.fs"
+reason = "the tap stays set after a read, pointing at the manifest record"
+
+[[fault]]
+id = "manifest-line-kept"
+file = "src/import/manifest.fs"
+old = '''dup export-restart export-marks!'''
+new = '''export-marks!'''
+test = "$GFORTH tests/core/manifest.fs"
+reason = "a manifest failure keeps the last line's number instead of line 0"
+
+[[fault]]
+id = "manifest-reentry"
+file = "src/import/manifest.fs"
+old = '''  dup manifest-export @ export-idle dup ok? 0= if nip nip nip exit then drop
+'''
+new = ''
+test = "$GFORTH tests/core/manifest.fs"
+reason = "a handler's manifest-read on its own export resets the read in progress"
+
+[[fault]]
+id = "ndjson-tap-skipped"
+file = "src/import/ndjson.fs"
+old = '''if r@ export-tapped r> export-line'''
+new = '''if r> export-line'''
+test = "$GFORTH tests/core/manifest.fs"
+reason = "the tap is never shown a line: nothing is hashed"
+quick = true
+
+[[fault]]
+id = "ndjson-tally-refused"
+file = "src/import/ndjson.fs"
+old = '''2dup kind-tally >r export-handed r> counted ;'''
+new = '''2dup kind-tally 1 swap +! export-handed ;'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "records a handler refused are counted in the tally"
 
 # --- the runner itself (scripts/mutants.py) --------------------------------
 

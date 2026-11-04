@@ -196,7 +196,9 @@ earlier reviews planted by hand in scratch scripts since lost (those of
 check-declaration and the rejection rules, all 9 of the checked
 environment's fourth review, some of the JSON writer's), and add new ones.
 123 were caught; 10 survive as known gaps and 1 as equivalent, each with
-its reason in the list. The gaps are tests that do not exist yet, for
+its reason in the list. Later the same day 26 more joined for SHA-256
+(`lib/sha256.fs`) and the export manifests (`import/manifest.fs`, the
+reader's tap and tally), all caught. The gaps are tests that do not exist yet, for
 example a name compared with another that differs only in a numeric
 component, metadata that differs from the pinned versions only in the
 format or Lean version, or an upper-case `Z` in program source.
