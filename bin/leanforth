@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# leanforth: LeanForth's command-line tool (plan tasks 3.4.1-3.4.2, v0).
+# A small wrapper: it finds Gforth and runs the Forth entry point,
+#   gforth src/main.fs -e cli-main COMMAND [OPTION]... [FILE]...
+# (src/cli/leanforth.fs), with standard input closed, from any directory;
+# file names are taken relative to the current directory.
+# Usage: leanforth help; docs/user/COMMAND_LINE.md is the manual.
+#
+# Gforth: $GFORTH when set, else the pinned one in .tools/gforth of this
+# checkout (scripts/install-gforth.sh), else gforth on PATH.
+# Exit status: 0 all accepted (or the command done), 1 something rejected,
+# 2 unsupported or unknown, 3 a resource limit, 4 malformed input or
+# command line, 5 an internal fault. The Forth entry point leaves with 100
+# plus that code; any other status from Gforth (its own failure, a crash,
+# a signal) is an internal fault here, never a verdict.
+# For version, the checkout's git commit is added when git can tell it.
+set -u
+
+self=$0
+command -v readlink >/dev/null 2>&1 && self=$(readlink -f "$0" 2>/dev/null || printf '%s' "$0")
+root=$(cd "$(dirname "$self")/.." && pwd -P) || {
+  printf 'leanforth: internal fault: cannot find the LeanForth checkout\n' >&2
+  exit 5
+}
+if [ -z "${GFORTH:-}" ]; then
+  if [ -x "$root/.tools/gforth/bin/gforth" ]; then
+    GFORTH=$root/.tools/gforth/bin/gforth
+  elif command -v gforth >/dev/null 2>&1; then
+    GFORTH=gforth
+  else
+    printf 'leanforth: internal fault: no Gforth found; run scripts/install-gforth.sh or set GFORTH\n' >&2
+    exit 5
+  fi
+fi
+
+# reexport writes COPY: refuse one file named twice before anything is
+# created (the Forth side compares the names only as text).
+if [ "${1:-}" = reexport ]; then
+  files=()
+  for argument in "${@:2}"; do
+    case $argument in -*) ;; *) files+=("$argument") ;; esac
+  done
+  if [ "${#files[@]}" -eq 2 ] && [ -e "${files[1]}" ] && [ "${files[0]}" -ef "${files[1]}" ]; then
+    printf 'error: COPY must not be EXPORT\n'
+    exit 4
+  fi
+fi
+
+"$GFORTH" "$root/src/main.fs" -e cli-main "$@" </dev/null
+status=$?
+case $status in
+  10[0-5]) code=$((status - 100)) ;;
+  *)
+    printf 'leanforth: internal fault: Gforth ended with status %s\n' "$status" >&2
+    exit 5
+    ;;
+esac
+
+if [ "$code" -eq 0 ] && { [ "${1:-}" = version ] || [ "${1:-}" = --version ]; }; then
+  commit=$(git -C "$root" rev-parse HEAD 2>/dev/null) || commit=
+  if [ -z "$commit" ]; then
+    printf 'commit: unknown (not a git checkout)\n'
+  elif [ -n "$(git -C "$root" status --porcelain --untracked-files=no 2>/dev/null)" ]; then
+    printf 'commit: %s (with local changes)\n' "$commit"
+  else
+    printf 'commit: %s\n' "$commit"
+  fi
+fi
+exit "$code"

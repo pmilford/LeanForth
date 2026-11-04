@@ -1,11 +1,13 @@
-\ LeanForth loader. It requires only the top modules, the ones no other
-\ module requires; each module requires its own direct dependencies, so the
-\ whole data model, library and checker under development load with them.
-\ Usage: gforth src/main.fs   (paths resolve relative to this file).
+\ LeanForth loader and command-line entry point. It requires only the top
+\ modules, the ones no other module requires; each module requires its own
+\ direct dependencies, so the whole data model, library and checker under
+\ development load with them.
+\ Usage: gforth src/main.fs   (paths resolve relative to this file), or,
+\ as bin/leanforth runs it, gforth src/main.fs -e cli-main COMMAND ...
+\ (src/cli/leanforth.fs, docs/user/COMMAND_LINE.md).
 \ Nothing loaded here is verified: the checker in kernel/ is under
 \ development and counts as trusted only once the owner declares it so after
-\ the review gate in AGENTS.md. Later this file becomes the command-line
-\ entry point.
+\ the review gate in AGENTS.md.
 \ Loading leaves both stacks empty and prints nothing; tests/smoke checks it.
 
 \ The checker under development, through its outermost probe: definition
@@ -34,3 +36,8 @@ require ./program/ir-run.fs
 
 \ Presentation: the term printer and its side table (untrusted output).
 require ./present/term-printer.fs
+
+\ The command line: check, count, reexport, version, capabilities. It
+\ loads the staging of exports into the checker's input, the counter, the
+\ re-exporter and the manifest check.
+require ./cli/leanforth.fs

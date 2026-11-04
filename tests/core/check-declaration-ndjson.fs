@@ -1,7 +1,8 @@
 \ The first checker end to end from lean4export NDJSON files (plan task
 \ 2.2.3): the pinned exports of four fixtures (composition, type_identity,
 \ poly_identity and the constant fixture, tests/reference/*.ndjson) are
-\ read with the test-only transport tests/support/ndjson-input.fs and
+\ read with the staging module src/import/stage.fs (each also checked
+\ against its manifest) and
 \ checked by check-declaration through the checked environment: every
 \ declaration accepted, with a valid handle and no axioms. Four copies of
 \ the composition export changed by hand (tests/core/check-declaration-cases)
@@ -13,7 +14,8 @@
 \ Test-only; nothing here accepts a theorem outside the code under test.
 include ../support/tester.fs
 include ../support/checks.fs
-require ../support/ndjson-input.fs
+require ../../src/import/stage.fs
+require ../../src/kernel/check-declaration.fs
 
 : must ( flag -- ) 0= abort" check-declaration-ndjson: refused" ;
 100000 constant fuel
@@ -22,7 +24,7 @@ variable the-env
 \ Read and check a file: the run's outcome; the environment stays current
 \ for the queries below, and env-done frees it.
 : checked ( c-addr u -- outcome )
-  ni-read ok? must fuel 64 lf-check-input swap the-env ! lf-env-view ok? must ;
+  stage-read ok? must fuel 64 lf-check-input swap the-env ! lf-env-view ok? must ;
 : env-done ( -- ) the-env @ lf-env-free ok? must ;
 \ Declaration d accepted, with a handle valid in the view, and no axioms.
 : accepted? ( d -- flag )
@@ -52,7 +54,30 @@ T{ s" tests/core/check-declaration-cases/composition-loose.ndjson" case-file
   -> outcome-invalid lf-diag-out-of-scope 1 }T
 
 \ The reader fails closed on a file that is not an export.
-T{ s" tests/core/check-declaration-ndjson.fs" ni-read ok? -> false }T
+T{ s" tests/core/check-declaration-ndjson.fs" stage-read ok? -> false }T
+
+\ With the manifest checked: the fixtures read as before; a changed copy
+\ without a manifest is refused as invalid, with the manifest's reason,
+\ and nothing is loaded; staged without the manifest, it reads.
+: sealed? ( -- flag ) lf-input-sealed? ;
+\ The reason stage-error gives is c-addr u.
+: why? ( c-addr u -- flag ) stage-error 2>r 2drop drop 2r> compare 0= ;
+T{ s" tests/reference/composition.ndjson" stage-read-checked sealed? -> outcome-ok true }T
+T{ s" tests/reference/constant-fixture.ndjson" stage-read-checked lf-input-count
+  -> outcome-ok 3 }T
+: case-wrong ( -- c-addr u )
+  s" tests/core/check-declaration-cases/composition-wrong-argument.ndjson" ;
+T{ case-wrong stage-read-checked sealed? -> outcome-invalid false }T
+T{ s" manifest missing, unreadable or too large" why? -> true }T
+T{ case-wrong stage-read sealed? -> outcome-ok true }T
+
+\ A handler's refusal carries its own reason, and the reader's line: an
+\ inductive type (line 51 of the export of every record kind) is
+\ unsupported. tests/cli/test_leanforth.py reaches full with a larger file.
+: line@ ( -- line ) stage-error 2drop 2drop ;
+T{ s" tests/core/reexport/kinds.ndjson" stage-read sealed? line@
+  -> outcome-unsupported false 51 }T
+T{ s" an inductive type (not supported yet)" why? -> true }T
 
 cases-done
 bye
