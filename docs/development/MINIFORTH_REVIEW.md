@@ -201,7 +201,7 @@ LeanForth side: `docs/programming/PROGRAM_IR.md`,
 | Specification style | `Eval` relation, `Equiv`, WP/WLP/SafeWLP/Hoare as Lean lemmas | the word's result equals a reference model (`callWord … = .next …`); a contract theorem `∃ out, … ∧ post`; obligations written by an untrusted Python generator, then proved by Lean |
 | Automation | `grind` annotations; `forth_wp` | `ir_simp` (`simp only` with `step.eq_1`…`eq_38`), `omega` |
 | Link to real Forth | none | reader from real source; Gforth vs Forth IR interpreter vs Lean, three ways (5,152 cases, plus 1,200 runs of 300 random IR programs per seed against Lean) |
-| Source locations, receipts, assumptions | none | yes (`@line:col`, receipt schema 0.1, seven listed assumptions) |
+| Source locations, receipts, assumptions | none | yes (`@line:col`, receipt schema 0.2, seven listed assumptions) |
 
 ### Where MiniForth's model is better or more complete
 

@@ -1,17 +1,22 @@
-"""Program receipt schemas 0.2 and 0.1: examples, mutations, rules and the validator itself.
+"""Program receipt schema 0.2: examples, mutations, rules and the validator itself.
 
 ``make test`` runs this file (target test-program-ir). It needs only
 the Python standard library; tests/support/schema_subset.py is the
 validator and scripts/program_receipt.py the reader (schema plus the rules
 JSON Schema cannot state). Every rejected receipt pins the reason it must
 be rejected for, so a receipt cannot pass this test by failing for an
-unrelated reason. Schema 0.1 is published (a generated receipt named it),
-so it is pinned by hash and its examples are kept in receipts/0.1/.
+unrelated reason. Schema 0.1, a draft that was never approved, is kept
+unchanged as a record (pinned by hash, its examples in receipts/0.1/), and
+the reader refuses every receipt that names it. When node is installed,
+the schema's patterns are also compiled and run as ECMA-262 expressions.
 """
 import copy
 import hashlib
+import json
 from pathlib import Path
 import re
+import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -25,6 +30,8 @@ import program_receipt  # noqa: E402
 SCHEMA = Path("schemas/program-receipt-0.2.schema.json")
 SCHEMA_01 = Path("schemas/program-receipt-0.1.schema.json")
 SCHEMA_01_SHA256 = "ed8f25a7a3fd2b71c99f966d52d4d1415644cc894567d004c3c687c90d472218"
+# The generated clamp receipt names 0.2, so its schema changes only on purpose.
+SCHEMA_02_SHA256 = "bb76793e1cba339d44a078817916f800b8662878b0a0f5cdc3c62a19d0dfb478"
 EXAMPLES = Path("tests/program/receipts")
 EXAMPLES_01 = EXAMPLES / "0.1"
 GENERATED = EXAMPLES / "generated" / "lf-clamp.json"
@@ -460,10 +467,13 @@ class SchemaShape(unittest.TestCase):
         self.assertFalse(set(schema["properties"]) & {"verified", "status", "ok", "success"})
         self.assertIs(schema["additionalProperties"], False)
 
-    def test_reader_knows_both_versions(self):
-        self.assertEqual(set(program_receipt.SCHEMAS), {"0.1", "0.2"})
-        self.assertEqual(program_receipt.SCHEMAS["0.2"].resolve(), SCHEMA.resolve())
+    def test_reader_reads_only_02(self):
+        self.assertEqual(program_receipt.SCHEMA.resolve(), SCHEMA.resolve())
         self.assertEqual(program_receipt.SCHEMA_VERSION, "0.2")
+        self.assertEqual(program_receipt.SUPERSEDED_VERSIONS, ("0.1",))
+
+    def test_schema_02_is_pinned(self):
+        self.assertEqual(hashlib.sha256(SCHEMA.read_bytes()).hexdigest(), SCHEMA_02_SHA256)
 
 
 class Examples(unittest.TestCase):
@@ -536,12 +546,24 @@ class Documentation(unittest.TestCase):
         self.assertIn(str(SCHEMA), text)
         self.assertNotIn("no receipt is generated yet", text)
 
+    def test_current_state_documents_do_not_name_the_superseded_schema(self):
+        """Re-review D: documents of the current state say 0.2 (DECISIONS.md keeps history)."""
+        stale = re.compile(r"schema,? 0\.1\b|0\.1 kept readable")
+        for path in (AI_DOC, Path("docs/README.md"), Path("docs/user/WORKFLOWS.md"),
+                     Path("docs/programming/INTERFACE_CONTRACTS.md"),
+                     Path("docs/programming/PROGRAM_VC.md"),
+                     Path("docs/development/MINIFORTH_REVIEW.md"),
+                     Path("docs/project/DEVELOPMENT_ROADMAP.md"),
+                     Path("docs/project/PROJECT_PROGRESS.md")):
+            with self.subTest(path=str(path)):
+                self.assertEqual(stale.findall(path.read_text(encoding="utf-8")), [])
+
 
 class Reader(unittest.TestCase):
     """Finding 4 and the version rule: one strict reader for every receipt."""
 
     def test_unknown_versions_are_refused(self):
-        for version in ("0.3", "1.0", 0.2, None):
+        for version in ("0.3", "1.0", "0.1.0", "0.2\n", 0.2, 0.1, None, ["0.2"]):
             with self.subTest(version=version):
                 receipt = mutated("schemaVersion", version)
                 problems = program_receipt.receipt_problems(receipt)
@@ -564,14 +586,135 @@ class Reader(unittest.TestCase):
                 self.assertIsNone(receipt)
                 self.assertTrue(problems[0].startswith("not-strict-json: "), problems)
 
-    def test_version_01_receipts_are_read_with_schema_01(self):
-        receipt, problems = program_receipt.read_file(EXAMPLES_01 / "generated-lf-clamp.json")
-        self.assertEqual(problems, [])
-        self.assertEqual(receipt["schemaVersion"], "0.1")
+    def test_unreadable_files_have_their_own_code(self):
+        """Re-review C: a missing or non-UTF-8 file is not a JSON problem."""
+        with tempfile.TemporaryDirectory() as directory:
+            bad_bytes = Path(directory) / "latin1.json"
+            bad_bytes.write_bytes(b'{"note": "caf\xe9"}')
+            for path in (Path(directory) / "missing.json", bad_bytes, Path(directory)):
+                with self.subTest(path=path.name):
+                    receipt, problems = program_receipt.read_file(path)
+                    self.assertIsNone(receipt)
+                    self.assertTrue(problems[0].startswith("unreadable: "), problems)
+            done = run_reader("validate", Path(directory) / "missing.json")
+            self.assertEqual(done.returncode, 1)
+            self.assertIn(": unreadable: ", done.stderr)
+
+
+def downgraded(edit):
+    """The generated 0.1 clamp receipt with one of 0.2's closed holes opened."""
+    return edited(edit, EXAMPLES_01 / "generated-lf-clamp.json")
+
+
+# Re-review A: each hole schema 0.2 closed, opened in a receipt that names 0.1.
+DOWNGRADES = [
+    ("run failed with the pass label",
+     lambda: downgraded(lambda r: r["run"].update(status="failed", failures=1))),
+    ("run not-run with host, evidence and the pass label",
+     lambda: downgraded(lambda r: r["run"].update(status="not-run", cases=0, failures=0))),
+    ("Lean check claiming LeanForth's checker", lambda: downgraded(
+        lambda r: r["assumptions"].append({"id": "A8", "kind": "trusted-leanforth",
+                                           "text": "LeanForth's checker accepted the proofs."}))),
+    ("discharged without contract theorem, file or generator assumption", lambda: downgraded(
+        lambda r: (r["contract"].pop("lean"), r["contract"].pop("file"),
+                   r.update(assumptions=[a for a in r["assumptions"] if a["kind"] != "other"])))),
+    ("invisible assumption text",
+     lambda: downgraded(lambda r: r["assumptions"][0].update(text="\u200b"))),
+    ("more failures than cases",
+     lambda: downgraded(lambda r: r["run"].update(status="failed", cases=0, failures=5))),
+]
+
+
+def run_reader(action, path):
+    return subprocess.run([sys.executable, "-I", "scripts/program_receipt.py", action, str(path)],
+                          capture_output=True, text=True, timeout=120)
+
+
+class SupersededVersion(unittest.TestCase):
+    """Re-review A: a receipt cannot escape 0.2's rules by naming 0.1."""
+
+    def test_every_01_receipt_is_refused(self):
+        paths = sorted(EXAMPLES_01.glob("*.json"))
+        self.assertEqual(len(paths), 8)
+        for path in paths:
+            with self.subTest(path=path.name):
+                problems = program_receipt.read_file(path)[1]
+                self.assertEqual(len(problems), 1, problems)
+                self.assertTrue(problems[0].startswith("superseded-version: "), problems)
+
+    def test_downgrades_are_refused(self):
+        for name, make in DOWNGRADES:
+            with self.subTest(name=name):
+                receipt = make()
+                self.assertEqual(schema_validator(SCHEMA_01).errors(receipt), [], "0.1 allows it")
+                problems = program_receipt.receipt_problems(receipt)
+                self.assertTrue(problems[0].startswith("superseded-version: "), problems)
+
+    def test_command_refuses_a_downgrade(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "downgrade.json"
+            path.write_text(json.dumps(DOWNGRADES[0][1]()), encoding="utf-8")
+            for action in ("validate", "verify"):
+                with self.subTest(action=action):
+                    done = run_reader(action, path)
+                    self.assertEqual(done.returncode, 1)
+                    self.assertIn(": superseded-version: ", done.stderr)
+
+
+def schema_patterns(node):
+    """Every pattern in a schema."""
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key == "pattern":
+                yield value
+            else:
+                yield from schema_patterns(value)
+    elif isinstance(node, list):
+        for item in node:
+            yield from schema_patterns(item)
+
+
+# Strings on which Python's reading of each pattern and ECMA-262's must agree.
+PATTERN_SAMPLES = [
+    "", "a", " ", "ok ≤ 3", "a\u200bb", "a\u2028b", "a\rb", "a\nb", "\x00", "\x1b[2K", "\u00ad",
+    "\ufeff", "\u3164", "a\U000110bd", "a\U00013439", "a\U0001d173", "a\U000e0041", "a\U0001f600",
+    "a\ud800", "a\udc00", "( a -- b )", "( a -- b )\n", "( a -- b )\u2028( c )", "0" * 64,
+    "src/x.fs", "../x.fs", ".git/x", "lf-clamp", "LF-Clamp", "2026-11-03", "2026-13-01", "O1",
+    "A12", "abc1234", "\U000e0001",
+]
+
+
+class EcmaPatterns(unittest.TestCase):
+    """Re-review B: the schema's patterns are ECMA-262 too, as JSON Schema says."""
+
+    def patterns(self):
+        return sorted(set(schema_patterns(load(SCHEMA))))
+
+    def test_no_python_only_syntax(self):
+        for pattern in self.patterns():
+            with self.subTest(pattern=pattern[:40]):
+                self.assertNotRegex(pattern, r"\\[UAZ]|\(\?P|\(\?#")
+
+    @unittest.skipUnless(shutil.which("node"), "node is not installed")
+    def test_node_compiles_with_the_u_flag_and_agrees(self):
+        script = ("const {patterns, samples} = JSON.parse(require('fs').readFileSync(0, 'utf8'));"
+                  "console.log(JSON.stringify(patterns.map(p => {"
+                  " const re = new RegExp(p, 'u'); return samples.map(s => re.test(s)); })));")
+        patterns = self.patterns()
+        done = subprocess.run([shutil.which("node"), "-e", script], capture_output=True, text=True,
+                              timeout=60, input=json.dumps({"patterns": patterns,
+                                                            "samples": PATTERN_SAMPLES}))
+        self.assertEqual(done.returncode, 0, done.stderr)
+        ecma = json.loads(done.stdout)
+        validator = schema_validator()
+        for pattern, results in zip(patterns, ecma):
+            python = [bool(validator._patterns[pattern].search(s)) for s in PATTERN_SAMPLES]
+            with self.subTest(pattern=pattern[:40]):
+                self.assertEqual(python, results)
 
 
 class Version01(unittest.TestCase):
-    """Schema 0.1 stays readable exactly as it was."""
+    """Schema 0.1 stays unchanged as a record of the draft."""
 
     def test_schema_01_is_unchanged(self):
         self.assertEqual(hashlib.sha256(SCHEMA_01.read_bytes()).hexdigest(), SCHEMA_01_SHA256)

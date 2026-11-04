@@ -128,7 +128,7 @@ flowchart TD
   leanchk["Proofs checked by Lean<br/>labelled: not by LeanForth"]
   lfchk["Proofs checked by the LeanForth checker<br/>phase 5, with data types"]
   run["RUN: tests on Gforth<br/>make test-program<br/>testing is not proof"]
-  receipt["Receipt, schema 0.1<br/>check, verify and run kept apart<br/>first receipt: clamp, task 2.5.6"]
+  receipt["Receipt, schema 0.2<br/>check, verify and run kept apart<br/>first receipt: clamp, task 2.5.6"]
 
   fs --> rdr --> ir
   ir --> model --> leanchk
