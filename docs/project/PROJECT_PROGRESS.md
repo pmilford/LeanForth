@@ -70,9 +70,8 @@ stricter or different is an opt-in flag.
    arguments, parameters and the level context grow with memory; 100, 300 and
    1,000 universe parameters agree with pinned Lean (24 rows). Depth limits
    (part b) are in progress.
-7. **Program words, run records and the IR 0.2 design approved** (see the
-   gates table); IR 0.2 implemented, its [parser] implementation gate
-   pending.
+7. **Program words, run records and IR 0.2 approved** (see the gates
+   table): IR 0.2's design and, on 2026-11-04, its [parser] implementation.
 8. **A test-suite crash found and fixed.** Both the WSL crash and the Claude
    Code crash of 2026-11-04 were one bug: the new test wrapper
    `scripts/gforth-strict.sh` called itself, a fork bomb of about a thousand
@@ -135,7 +134,7 @@ the 32-bit access words exist in `src/`; building it is plan tasks
 | Free variables and the local context (plan 4.2.2a) | [kernel] | **approved** 2026-11-04 after two review rounds; accepted cost: checking is 10-25% slower until the loose-variable range of ADR 0014 Q12 is built |
 | Derivation log and proof outlines, `leanforth print` (plan 2.4.1, 2.4.4; ADR 0013) | gate D5 | **approved** 2026-11-04 after three review rounds; accepted memory: about 218 KB per context while the log is on, under 1 KB off |
 | Run-record reading change: both passes and the recorded SHA-256 must agree, with or without the manifest (`src/import/checker-input.fs`) | [import] | **approved** 2026-11-04 after four review rounds, the last clean |
-| IR 0.2 design (ADR 0019 Amendment 1: redefinition with Forth's early binding, output words as effects, SHA-2 additions `LSHIFT`, `-rot`, number prefixes, 32-bit literals) | [parser] design | **approved** 2026-11-04 as a design; **implemented** 2026-11-04 (agent IR3, merged `cc3afaf`; independent review rvIR3: nothing blocking, its low findings fixed); the [parser] implementation gate is **pending** (owner); receipt schema 0.3 comes to the [format] gate with the first receipt that needs it |
+| IR 0.2 design (ADR 0019 Amendment 1: redefinition with Forth's early binding, output words as effects, SHA-2 additions `LSHIFT`, `-rot`, number prefixes, 32-bit literals) | [parser] design | **approved** 2026-11-04 as a design; **implemented** 2026-11-04 (agent IR3, merged `cc3afaf`; independent review rvIR3: nothing blocking, its low findings fixed); the [parser] implementation gate **approved** 2026-11-04 (owner); receipt schema 0.3 comes to the [format] gate with the first receipt that needs it |
 | Design records ADR 0010, 0013, 0015, 0016, 0017, 0018 | design | **accepted** (0017 on 2026-11-02; the rest 2026-11-03; 0015 as a design, with a gate per task) |
 | Checked environment v0 (2.2.2) | [kernel] | **approved** 2026-11-03 |
 | Declaration check (2.2.3) and the level fix | [kernel], [bypass] | **approved** 2026-11-03 |
@@ -279,8 +278,8 @@ gains loops and memory, and finally checked by LeanForth itself
 Before that: contracts for the five other example words (done 2026-11-03) and
 the owner's [parser] and [format] decisions on the program reader and
 receipts (both **approved** 2026-11-04). IR 0.2 (redefinition, output
-words and the SHA-2 additions) is **implemented** (2026-11-04; its [parser]
-implementation gate pending), and stage SHA-2 has **started**: the helper
+words and the SHA-2 additions) is **implemented and approved** (2026-11-04,
+[parser] implementation gate), and stage SHA-2 has **started**: the helper
 words `sha-rotr`, `sha-ch`, `sha-maj` and `sha-big-sigma0`, as plain Forth
 program words (`src/program/sha-words.fs`), are proved in Lean equal to
 FIPS 180-4's ROTR, Ch, Maj and Σ0 for every 32-bit input on cells of at

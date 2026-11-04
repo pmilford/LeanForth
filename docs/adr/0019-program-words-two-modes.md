@@ -4,8 +4,9 @@ Status: **implementation approved [parser]** by the owner on 2026-11-04
 ([decisions](../project/OWNER_DECISIONS.md#program-words-and-run-records-approved-2026-11-04);
 next: IR 0.2 with redefinition by early binding and output words, as the
 owner asked, designed in [Amendment 1](#amendment-1-proposed-ir-02-redefinition-output-words-and-sha-2),
-approved in design the same day and **implemented** the same day, before
-its [parser] implementation gate). **Accepted in direction** by the owner on 2026-11-03
+approved in design the same day, **implemented** the same day, and its
+**[parser] implementation approved** by the owner the same evening
+([decisions](../project/OWNER_DECISIONS.md#ir-02-implementation-approved-2026-11-04-late))). **Accepted in direction** by the owner on 2026-11-03
 ([answers below](#the-owners-answers-2026-11-03)): option 2, IR first,
 today's reader kept as a cross-check and then retired, names that read as
 numbers refused. The question of [§9](#9-mode-shift-or-a-separate-vocabulary)
