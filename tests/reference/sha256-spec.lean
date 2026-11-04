@@ -447,8 +447,8 @@ theorem padZeroBits_byte (n : Nat) : padZeroBits (8 * n) % 8 = 7 := by
 theorem length_bytesBE (x : BitVec w) : (bytesBE x).length = w / 8 := by
   simp [bytesBE]
 
-/-- The padding of a message of n bytes: 9 to 72 bytes, so that the padded
-message ends on a block boundary. -/
+/-- The padding of a message of n bytes: the byte 0x80, the zero bytes,
+and the 8 bytes of the length. -/
 theorem length_padding (n : Nat) :
     (padding n).length = 1 + (padZeroBits (8 * n) - 7) / 8 + 8 := by
   simp [padding, length_bytesBE]; omega
