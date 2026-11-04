@@ -180,19 +180,19 @@ inductive types.
   but no slot holds it: a later declaration naming it is rejected as an
   unknown constant, where Lean's replay would use the recursor its kernel
   generated (a tampered file only; lean4export always writes it).
-- Known defect outside this task: under the feed's name view,
-  `level-normalize.fs` orders two universe parameters with the plain name
-  store (`lf-lnorm-limb-ok?`), so U1's `is_geq` on levels such as `max u v`
-  is *unknown* (blocks such as `PProd`), or a THROW for name IDs of 64 or
-  more; a fix is on agent KC's branch.
+- Under the feed's name view, U1's `is_geq` orders two universe
+  parameters by their names in the stage (`lf-name-part-ok?`); until the
+  review rvKC's finding H1 was fixed (2026-11-04) it read the plain name
+  store, which left levels such as `max u v` *unknown* (blocks such as
+  `PProd`).
 
 ## Evidence
 
 - `make test-inductive-table` (part of `make check`): every one of the 120
   cases of `tests/reference/inductive-expected.lean` as the export Lean
-  prints for it, checked by LeanForth. Task 5.2.1a's 44 rows: 36 give
-  Lean's verdict (17 accepted, 19 rejected, each with Lean's reason), two
-  are left unknown by the known defect above, and six are pending, each
+  prints for it, checked by LeanForth. Task 5.2.1a's 44 rows: 38 give
+  Lean's verdict (19 accepted, 19 rejected, each with Lean's reason), and
+  six are pending, each
   named with its reason: four use or redeclare `Nat` (task 5.2.1b), one
   needs unfolding (`id Type`), and an empty block has no declaration to
   check (the reader refuses it). Each pending rule is reached by a twin

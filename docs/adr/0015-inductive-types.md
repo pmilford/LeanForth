@@ -816,11 +816,11 @@ and its members' exported data into the input (`core/input.fs`,
   block unchanged and with twelve mutations (B3, B4), and the two
   unit-like rows of P4.
 - `make test-inductive-table` runs LeanForth on all 120 files. Of task
-  5.2.1a's 44 rows, 36 give Lean's verdict (17 accepted, 19 rejected, each
-  with its rule's diagnostic); two (`ind.universe-max`, `ind.sort-max`)
-  are left *unknown* by a known defect outside this task (level
-  normalization under the feed's name view; fix on agent KC's branch);
-  six are pending, each with its reason: four use or redeclare `Nat`
+  5.2.1a's 44 rows, 38 give Lean's verdict (19 accepted, 19 rejected, each
+  with its rule's diagnostic; `ind.universe-max` and `ind.sort-max` were
+  *unknown* until the fix of level normalization under the feed's name
+  view, the review rvKC's finding H1, 2026-11-04); six are pending, each
+  with its reason: four use or redeclare `Nat`
   (task 5.2.1b; K5), `params.constructor-binder-defeq` needs unfolding,
   and `names.empty-block` is refused by the reader. Of the 76 later rows,
   64 are *unsupported*, 7 *unknown*, 3 give Lean's verdict (`ind.eq`,
@@ -831,10 +831,10 @@ and its members' exported data into the input (`core/input.fs`,
   together; the reference export tampered field by field; fuel bisection;
   a full store), eighteen planted faults (`ind-*`) all caught, and the
   real exports: in `blocks.ndjson` `Both`, `Same` and `Either` are
-  accepted; in `nat-add-zero.ndjson` `Eq`, `Add` and `PUnit` (and so
-  `rfl` and `Unit`), with `HAdd` unknown (unfolding `outParam`) and `PProd`
-  unknown (the known defect); in `axioms.ndjson` `Iff`, `Eq` and
-  `Nonempty`.
+  accepted; in `nat-add-zero.ndjson` `Eq`, `Add`, `PUnit` and, since the
+  name-view fix (rvKC H1, 2026-11-04), `PProd` (and so `rfl` and `Unit`),
+  with `HAdd` unknown (unfolding `outParam`); in `axioms.ndjson` `Iff`,
+  `Eq` and `Nonempty`.
 - Lean's `Init` checked whole (2026-11-04, a probe kept in the agents'
   work folder; `leanexport Init`, SHA-256 `c1b2071a…a179`, the export
   `reference-compact-init` checks; 59,349 declarations, 604 blocks;
@@ -853,6 +853,13 @@ and its members' exported data into the input (`core/input.fs`,
   `Nat`), 49 with a literal, projection or other U2 form. **None is
   rejected or invalid**, and no block has a B4 warning. With them, 763 of
   Init's definitions and theorems are accepted.
+- The same probe after the name-view fix (rvKC H1, 2026-11-04; staging
+  20 s, the feed 33 s, every check 291 s): all 30 blocks the defect left
+  *unknown* are accepted, and 12 more whose dependency was undecided
+  (K5); 12 such blocks are now *unsupported*, as a dependency of theirs
+  is. Of the 551 blocks in scope, **184 are accepted**, 90 *unknown*,
+  277 *unsupported*; still none is rejected or invalid. 1,014 of Init's
+  definitions and theorems are accepted.
 
 ## Reproduction
 

@@ -14,10 +14,14 @@ require ../lib/lib.fs
 require ./diagnostics.fs
 require ./levels.fs
 
+\ The audit of the entries (lf-lscope-entries-ok?) finds repeats through a
+\ scratch table of lf-lscope-slots# cells, twice the most entries.
+lf-level-params-limit 2* constant lf-lscope-slots#
 begin-structure /lf-lsctx
   field: lf-lsctx-count         \ parameter IDs in the context
   field: lf-lsctx-generation    \ advances on every change; negative when spent
   lf-level-params-limit cells +field lf-lsctx-ids
+  lf-lscope-slots# cells +field lf-lsctx-seen   \ the audit's scratch table
 end-structure
 /lf-lsctx context-record: lf-lscope-state
 lf-level-depth-limit context-walk: lf-lscope-walk
@@ -44,13 +48,33 @@ lf-level-depth-limit context-walk: lf-lscope-walk
 : lf-lscope-in? ( id n -- flag )
   0 ?do dup i lf-lscope-id@ = if drop true unloop exit then loop drop false ;
 : lf-lscope-member? ( id -- flag ) lf-lscope-context-count @ lf-lscope-in? ;
-\ Entry i is positive and differs from every earlier entry. Checking all
-\ entries is quadratic, bounded by 64, and separate from visit fuel.
-: lf-lscope-entry-ok? ( i -- flag )
+\ Every entry is positive and differs from every other; the count was
+\ checked first. Separate from visit fuel. A few entries are compared
+\ pairwise; more, such as every universe parameter of a whole export, go
+\ through the scratch table: each ID into the first free slot from its
+\ hash (open addressing; the table, twice the most entries, never fills),
+\ and an ID met there already is a repeat, so the audit stays linear.
+16 constant lf-lscope-few
+: lf-lscope-pair-ok? ( i -- flag )
   dup lf-lscope-id@ dup 0> if swap lf-lscope-in? 0= else 2drop false then ;
-: lf-lscope-entries-ok? ( -- flag )
+: lf-lscope-seen ( slot -- addr ) cells lf-lscope-state lf-lsctx-seen + ;
+: lf-lscope-next ( slot -- slot' ) 1+ lf-lscope-slots# 1- and ;
+\ Unchecked: id > 0. True when id is in the table already, else put it in.
+: lf-lscope-seen? ( id -- flag )
+  dup lf-lscope-slots# 1- and begin dup lf-lscope-seen @ ?dup while
+    2 pick = if 2drop true exit then lf-lscope-next
+  repeat lf-lscope-seen ! false ;
+: lf-lscope-hash-ok? ( i -- flag )
+  lf-lscope-id@ dup 0> if lf-lscope-seen? 0= else drop false then ;
+: lf-lscope-pairs-ok? ( -- flag )
   lf-lscope-context-count @ 0 ?do
-    i lf-lscope-entry-ok? 0= if false unloop exit then loop true ;
+    i lf-lscope-pair-ok? 0= if false unloop exit then loop true ;
+: lf-lscope-hashed-ok? ( -- flag )
+  0 lf-lscope-seen lf-lscope-slots# cells erase lf-lscope-context-count @ 0 ?do
+    i lf-lscope-hash-ok? 0= if false unloop exit then loop true ;
+: lf-lscope-entries-ok? ( -- flag )
+  lf-lscope-context-count @ lf-lscope-few <
+  if lf-lscope-pairs-ok? else lf-lscope-hashed-ok? then ;
 : lf-lscope-context-valid? ( -- flag )
   lf-lscope-count-valid? if lf-lscope-entries-ok? else false then ;
 

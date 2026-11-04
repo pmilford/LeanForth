@@ -35,7 +35,7 @@
 \ block. Every other word works alike on both kinds. Example:
 \   create big store-header allot
 \   4 /node 0 big store-heap-init drop   1000 big store-limit! drop
-\   big store-grow drop    \ ok: room for 4 more; once full, 8 records
+\   big store-grow drop    \ ok: room for 16 more (doubled, at least 16), 20 records
 \   big store-heap-free
 \
 \ Untrusted. One store is single-threaded: callers must not change it
@@ -46,6 +46,15 @@
 require ./bounds.fs
 require ./outcome.fs
 require ./portability.fs
+require ./module.fs
+
+\ The words of this file are public, in the compilation word list current
+\ when it loads, except the helpers of making and moving a heap store's
+\ block, which are private (ADR 0010): between module-open and
+\ module-close the previous word list stays on the stack, and each part
+\ names where its words go.
+lf-lib-private module-open
+dup set-current
 
 begin-structure store-header
   field: store-capacity     \ maximum number of records
@@ -66,7 +75,7 @@ end-structure
 \ The block of a store made in place: right after its header.
 : store-inline ( store -- addr ) store-header + ;
 : store-identities ( store -- addr )
-  dup store-block @ ?dup if nip else store-inline then ;
+  dup store-block @ ?dup if nip exit then store-header + ;
 : store-records ( store -- addr ) dup store-identities swap store-capacity @ cells + ;
 \ Unchecked: addresses for an already validated index.
 : store-slot ( index store -- addr ) tuck store-width @ * swap store-records + ;
@@ -76,15 +85,21 @@ end-structure
 : store-shape@ ( store -- capacity width base )
   dup store-capacity @ over store-width @ rot store-base @ ;
 : >store-seal ( capacity width base -- x ) xor xor invert ;
-\ The seal covers the block and the limit too.
+\ The seal covers the block and the limit too. These words run on every
+\ checked access (store-count-valid? below), so they are straight-line
+\ code without branches.
 : store-check ( store -- x )
-  dup store-shape@ >store-seal over store-block @ xor swap store-limit @ xor ;
+  dup store-capacity @ over store-width @ xor over store-base @ xor invert
+  over store-block @ xor swap store-limit @ xor ;
 : store-width? ( width -- flag ) dup 0> swap dup aligned = and ;
 : store-sealed? ( store -- flag ) dup store-check swap store-seal @ = ;
-: store-limit? ( store -- flag ) dup store-capacity @ swap store-limit @ upto? ;
+\ 0 <= x <= y, signed, as upto? (bounds.fs).
+: store-upto? ( x y -- flag ) dup 0< 0= -rot u> 0= and ;
+: store-limit? ( store -- flag ) dup store-capacity @ swap store-limit @ store-upto? ;
+: store-ranges? ( store -- flag )
+  dup store-base @ over store-capacity @ store-upto? swap store-limit? and ;
 : store-shape? ( store -- flag )
-  dup store-base @ over store-capacity @ upto? over store-width @ store-width? and
-  over store-limit? and swap store-sealed? and ;
+  dup store-sealed? over store-width @ store-width? and swap store-ranges? and ;
 
 \ Planning a store: its size in address units, and whether a shape is
 \ sound. A sound shape has 0 <= base <= capacity, a positive aligned width,
@@ -109,10 +124,12 @@ end-structure
 \ Unchecked: the shape fields are set. Zero the counters, put the block (0
 \ for the one right after the header) and the limit (the capacity), seal,
 \ and zero the block.
+lf-lib-private set-current
 : store-counters-zero ( store -- )
   0 over store-count ! 0 over store-generation ! 0 swap store-serial ! ;
 : store-place ( block store -- )
   tuck store-block ! dup store-capacity @ over store-limit ! store-seal! ;
+dup set-current
 : store-zero ( store -- ) dup store-identities swap store-bytes erase ;
 : store-format ( capacity width base store -- )
   dup >r store-shape! r@ store-counters-zero 0 r@ store-place r> store-zero ;
@@ -127,11 +144,20 @@ end-structure
 \ Validity checks; none of them reads a record.
 : store-live? ( store -- flag ) dup store-generation @ 0< 0= swap store-shape? and ;
 : store-bounds ( store -- base capacity ) dup store-base @ swap store-capacity @ ;
+\ The check every checked access makes: store-live? and base <= count <=
+\ capacity, written out in one word because it runs so often.
 : store-count-valid? ( store -- flag )
-  dup store-live? swap dup store-count @ swap store-bounds between? and ;
+  >r r@ store-check r@ store-seal @ = r@ store-generation @ 0< 0= and
+  r@ store-width @ store-width? and r@ store-base @ r@ store-capacity @ store-upto? and
+  r@ store-capacity @ r@ store-limit @ store-upto? and
+  r@ store-count @ r@ store-base @ r> store-capacity @ between? and ;
 : store-valid? ( index store -- flag )
   dup store-count-valid? if store-count @ 0 swap within else 2drop false then ;
-: store-pair-valid? ( left right store -- flag ) tuck store-valid? >r store-valid? r> and ;
+\ One check of the store for both indices.
+: store-in-count? ( index count -- flag ) 0 swap within ;
+: store-pair-valid? ( left right store -- flag )
+  dup store-count-valid? 0= if drop 2drop false exit then
+  store-count @ tuck store-in-count? >r store-in-count? r> and ;
 
 \ Allocation. store-new fails, changing nothing, on an invalid store, a full
 \ store or a spent serial.
@@ -187,8 +213,10 @@ defer store-refuse? ( store -- flag )
 \ block of its own; a zeroed header names none.
 : store-heap? ( store -- flag ) store-block @ 0<> ;
 \ ALLOCATE u zeroed address units: the address and 0, or the ior.
+lf-lib-private set-current
 : store-zeroed-block ( u -- addr ior )
   dup allocate ?dup if rot drop exit then tuck swap erase 0 ;
+dup set-current
 \ Make a heap store of capacity records in a zeroed block, its limit the
 \ capacity: ok; invalid for an unsound shape or full when the heap has no
 \ room, the header then zero (no check accepts it). The header must not
@@ -206,6 +234,7 @@ defer store-refuse? ( store -- flag )
 \ Moving to a new zeroed block of n records: the first min(n, capacity)
 \ identities and records are copied, the old block freed. Unchecked: a
 \ live heap store and n >= count.
+lf-lib-private set-current
 : store-kept ( n store -- m ) store-capacity @ min ;
 : store-copy-ids ( new m store -- ) >r swap r> store-identities swap rot cells move ;
 : store-copy-records ( new n m store -- )
@@ -217,6 +246,7 @@ defer store-refuse? ( store -- flag )
 : store-resize ( n store -- outcome )
   2dup store-width @ cell+ * store-zeroed-block if drop 2drop outcome-full exit then
   -rot >r 2dup r@ store-rehome r> store-install outcome-ok ;
+dup set-current
 \ The capacity growth gives: double, at least 16 more, never past the
 \ limit (so it cannot overflow).
 : store-doubled ( store -- n )
@@ -233,6 +263,12 @@ defer store-refuse? ( store -- flag )
   dup store-count-valid? 0= if drop outcome-invalid exit then
   dup store-room? if drop outcome-ok exit then
   dup store-growable? if dup store-doubled swap store-resize else drop outcome-full then ;
+\ The cheap form before an allocation: store-grow only when the raw count
+\ has reached the capacity, else ok without any check, for callers whose
+\ allocation (store-new, store-open?) checks the store anyway. Same
+\ outcome of the allocation as store-grow first.
+: store-filled? ( store -- flag ) dup store-count @ swap store-capacity @ < 0= ;
+: store-ready ( store -- outcome ) dup store-filled? if store-grow else drop outcome-ok then ;
 \ Set a live heap store's limit, at least its count and a sound size;
 \ a block that holds more records shrinks to it: ok, full when that
 \ shrinking finds no heap (nothing changed), invalid otherwise.
@@ -307,3 +343,5 @@ end-structure
 : store-rollback ( mark store -- outcome )
   2dup store-mark-valid? if swap mark-count @ swap store-count ! outcome-ok
   else 2drop outcome-invalid then ;
+
+module-close

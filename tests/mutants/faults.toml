@@ -936,6 +936,14 @@ new = '''  lf-lmk-offset nip swap lf-lmk-offset nip < if 1 else 2 then ;'''
 test = "$GFORTH tests/core/level-compare.fs"
 reason = "mk_max of two explicit levels of equal depth gives the second, where Lean gives the first"
 
+
+[[fault]]
+id = "lmk-facts-never-stale"
+file = "src/kernel/level-make.fs"
+old = '''  1- dup lf-lmk-stamp-cell @ swap lf-lmk-identity = ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/core/level-compare.fs"
+reason = "level-make's kept facts are never checked against the nodes' identities, so a node rolled back and made again keeps the class of the node it replaced"
 [[fault]]
 id = "lv-normalize-need-under-measured"
 file = "src/kernel/level-normalize.fs"
@@ -946,6 +954,14 @@ reason = "normalize's stated return-stack need per level node falls below the 6.
 
 # --- NDJSON reader (src/import/ndjson.fs) ----------------------------------
 
+
+[[fault]]
+id = "lnorm-frames-uncounted"
+file = "src/kernel/level-normalize.fs"
+old = '''  lf-lnorm-nest @ lf-level-depth-limit < dup if 1 lf-lnorm-nest +! else lf-lnorm-deep then ;'''
+new = '''  true 1 lf-lnorm-nest +! ;'''
+test = "$GFORTH tests/core/level-deep.fs"
+reason = "the review's M1: normalize's level frames are not limited, so a deep graph at a raised level capacity overflows the host stack"
 [[fault]]
 id = "ndjson-self-reference"
 file = "src/import/ndjson.fs"
@@ -1977,7 +1993,7 @@ test = "$GFORTH tests/lib/context.fs"
 reason = "a teardown word that throws stops context-free, which then frees neither the others' blocks nor the context"
 
 # --- heap stores, columns and the feed (ADR 0016 C9 step 3: src/lib/store.fs,
-# src/core/store-columns.fs, constant-references.fs, input.fs, names.fs,
+# src/lib/store-columns.fs, src/core/constant-references.fs, input.fs, names.fs,
 # src/kernel/environment.fs, src/import/feed.fs)
 
 [[fault]]
@@ -1999,14 +2015,14 @@ reason = "growing a heap store loses the records made before"
 [[fault]]
 id = "store-seal-ignores-block"
 file = "src/lib/store.fs"
-old = '''  dup store-shape@ >store-seal over store-block @ xor swap store-limit @ xor ;'''
-new = '''  dup store-shape@ >store-seal swap store-limit @ xor ;'''
+old = '''  over store-block @ xor swap store-limit @ xor ;'''
+new = '''  swap store-limit @ xor ;'''
 test = "$GFORTH tests/lib/lib.fs"
 reason = "a corrupted block address keeps the seal: a store reads records elsewhere"
 
 [[fault]]
 id = "column-new-units-unzeroed"
-file = "src/core/store-columns.fs"
+file = "src/lib/store-columns.fs"
 old = '''  dup slab-capacity >r tuck slab-reserve dup ok? if r@ rot column-clear-from else nip then'''
 new = '''  dup slab-capacity >r tuck slab-reserve dup ok? if nip else nip then'''
 test = "$GFORTH tests/core/terms.fs"
@@ -2039,8 +2055,8 @@ reason = "the name index is never filled: under a name view every constant is un
 [[fault]]
 id = "feed-value-is-type"
 file = "src/import/feed.fs"
-old = ''': feed-value ( d feed -- ) ['] staged-value@ ['] lf-idecl-value feed-term! 2drop ;'''
-new = ''': feed-value ( d feed -- ) ['] staged-type@ ['] lf-idecl-value feed-term! 2drop ;'''
+old = ''': feed-value ( feed -- ) ['] staged-value@ ['] lf-idecl-value feed-term-copy ;'''
+new = ''': feed-value ( feed -- ) ['] staged-type@ ['] lf-idecl-value feed-term-copy ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "the feed gives a declaration its type as its value"
 
@@ -2052,8 +2068,40 @@ new = '''  2drop drop false ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "under a name view a string name can no longer be interned"
 
+[[fault]]
+id = "lnorm-name-part-from-entries"
+file = "src/kernel/level-normalize.fs"
+old = '''  dup lf-name-valid? if lf-name-part-ok? else drop false then ;'''
+new = '''  dup lf-name-valid? if lf-name-entry-ok? else drop false then ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "the review's H1: under a name view the name order audits the entry store, so a fed max v u against max u v is unknown where Lean accepts"
+
+[[fault]]
+id = "names-unview-keeps-generation"
+file = "src/core/names.fs"
+old = ''': lf-name-unview ( -- ) lf-name-tier tier-free 0 lf-name-view lf-nview-input ! lf-name-reset ;'''
+new = ''': lf-name-unview ( -- ) lf-name-tier tier-free 0 lf-name-view lf-nview-input ! ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "the review's L1: a failed attach keeps the generation, so the input fed before still looks intact"
+
 # --- the release hook of checker contexts, continued (src/lib/context.fs)
 
+
+[[fault]]
+id = "input-index-unhooked"
+file = "src/core/input.fs"
+old = '''  lf-inputs store-grow-refused? if drop outcome-full exit then'''
+new = '''  false if drop outcome-full exit then'''
+test = "$GFORTH tests/core/store-growth.fs"
+reason = "the review's M3: the input's name index grows without asking the fault hook, so its refusal is never injected"
+
+[[fault]]
+id = "cref-pool-first-unhooked"
+file = "src/core/constant-references.fs"
+old = '''  lf-crefs store-grow-refused? if outcome-full exit then'''
+new = '''  false if outcome-full exit then'''
+test = "$GFORTH tests/core/store-growth.fs"
+reason = "the review's M3: the reference pool's first reserve, in context setup, does not ask the fault hook"
 [[fault]]
 id = "context-teardown-selected-once"
 file = "src/lib/context.fs"

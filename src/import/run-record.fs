@@ -381,11 +381,12 @@ set-current
 : rr-own! ( env -- )
   dup run-record rr-env ! lf-envh-identity @ run-record rr-env-id !
   true run-record rr-own ! ;
-\ A record keeps at most lf-input-default declarations: more is full.
+\ A record keeps at most lf-input-default declarations: more is full,
+\ once the environment is in use (a refused use gives its own outcome).
 : rr-run-in ( env -- outcome )
-  dup rr-own! lf-env-use
-  lf-input-count lf-input-default > if drop outcome-full exit then
-  dup ok? if drop lf-input-count rr-steps rr-confirm then ;
+  dup rr-own! lf-env-use dup ok? 0= if exit then drop
+  lf-input-count lf-input-default > if outcome-full exit then
+  lf-input-count rr-steps rr-confirm ;
 \ A new run: an earlier run's environment freed, no step taken, and every
 \ kept outcome invalid until its step publishes one, never ok (0).
 : rr-unkept ( -- )

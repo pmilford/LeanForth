@@ -50,7 +50,5 @@ create canon-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf-in
 : canon-digest ( -- h )
   0 canon-stores# 0 do i canon-store# canon-store-digest loop
   lf-cref-pool canon-slab-digest
-  lf-term-columns group-newest @ begin ?dup while tuck canon-column-digest swap column-link @
-  repeat
-  lf-level-columns group-newest @ begin ?dup while tuck canon-column-digest swap column-link @
-  repeat canon-log-digest ;
+  ['] canon-column-digest lf-term-columns columns-each
+  ['] canon-column-digest lf-level-columns columns-each canon-log-digest ;

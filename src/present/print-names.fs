@@ -17,16 +17,28 @@ require ../core/constant-term-boundary.fs
 lf-depth-limit context-walk2: lf-pp-scan-walk
 
 \ A structured name as text, components joined by dots, sent to xt
-\ ( c-addr u -- ). Unchecked: the ID is valid and the name store passed
-\ lf-name-storage-valid?, so every prefix is an earlier entry and the
-\ recursion is at most as deep as the ID. The anonymous name gives nothing.
+\ ( c-addr u -- ), from the first component on without recursion: the
+\ component k from the root is found by walking up from the name, so a
+\ name of n components takes n*n/2 steps. A name of more than
+\ lf-name-default components prints nothing and marks the pool full (the
+\ print then ends full), as a name too long for the pool does. Unchecked:
+\ the ID is valid and the name storage passed lf-name-storage-valid?, so
+\ every prefix chain ends at the anonymous name, which gives nothing.
 : lf-pp-part ( id xt -- )
   >r dup lf-name-tag@ lf-name-tag-str =
   if lf-name-text r> execute else lf-name-payload r> lf-pp-number-to then ;
 : lf-pp-dot-to ( xt -- ) s" ." rot execute ;
+: lf-pp-name-depth ( id -- n ) 0 begin over while 1+ swap lf-name-prefix@ swap repeat nip ;
+: lf-pp-ancestor ( id k -- id' ) 0 ?do lf-name-prefix@ loop ;
+\ Component k from the root (0 the first) of a name of n components.
+: lf-pp-part-at ( id n k xt -- ) >r - 1- lf-pp-ancestor r> lf-pp-part ;
+: lf-pp-parts-to ( id n xt -- )
+  over 0 ?do i if dup lf-pp-dot-to then 2 pick 2 pick i 3 pick lf-pp-part-at loop
+  drop 2drop ;
+: lf-pp-too-deep ( id n xt -- ) 2drop drop true lf-pjob lf-pjob-full ! ;
 : lf-pp-name-to ( id xt -- )
-  over 0= if 2drop exit then
-  over lf-name-prefix@ ?dup if over recurse dup lf-pp-dot-to then lf-pp-part ;
+  over lf-pp-name-depth swap over lf-name-default >
+  if lf-pp-too-deep else lf-pp-parts-to then ;
 
 \ Hygienic names (Lean's macro scopes, such as a._@._internal._hyg.0)
 \ print as the part before _@, as Lean's delaborator prints them.

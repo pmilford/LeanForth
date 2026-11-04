@@ -88,10 +88,9 @@ T{ s" params.constructor-binder-beta" verdict -> outcome-ok 0 all-steps }T
 \ An index (task 5.2.1c's row, decided here too): its field a : α in Type
 \ fits Type 1 by is_geq's offsets, not by equality.
 T{ s" params.index-one-universe-up" verdict -> outcome-ok 0 all-steps }T
-\ Two universe parameters: until the name view's level order is fixed
-\ (lf-lnorm-limb-ok?, agent KC), U1's is_geq cannot order u and v.
-: ok-or-unknown? ( outcome -- flag ) dup ok? swap outcome-unknown = or ;
-T{ s" ind.universe-max" verdict 2drop ok-or-unknown? -> true }T
+\ Two universe parameters: U1's is_geq orders u and v by their names in
+\ the feed's name view (the review rvKC's finding H1, fixed).
+T{ s" ind.universe-max" verdict -> outcome-ok 0 all-steps }T
 
 \ Rejected, each with its rule's diagnostic, at its step.
 T{ s" uniform.result-other-argument" verdict -> outcome-rejected lf-diag-nonuniform 3 }T

@@ -583,11 +583,12 @@ defer lf-minfer-apart ( left right -- mask flag )
 \ needs fewer cells than beta). A level comparison -- of two Sorts or of
 \ constants' levels in conversion, or by rule D1 -- runs Lean's
 \ normalize instead, never inside beta's passes: lf-lnorm-*-cells
-\ (level-normalize.fs: 7 return and 3 data cells per node of the level
-\ graph, 6.5 and 2.5 measured, plus the name order; 576 and 384 cells for
-\ level graphs and names 64 deep). So the deepest level nests the larger
-\ of beta's need and normalize's; tests/core/infer-deep.fs runs the
-\ deepest normalize the level store allows at the deepest inference.
+\ (level-normalize.fs: 7 return and 3 data cells per level frame, 6.5 and
+\ 2.5 measured, at most lf-level-depth-limit frames, counted, whatever the
+\ level capacity; the name order is iterative; 512 and 256 cells). So the
+\ deepest level nests the larger of beta's need and normalize's;
+\ tests/core/infer-deep.fs runs the deepest normalize the default level
+\ store allows at the deepest inference.
 \ The frame that hands over from inference to the analysis, from the
 \ inference frame whose argument is compared to the analysis's first
 \ frame (in-frame, visit, dispatch, binary, app, apply, argument, agree,

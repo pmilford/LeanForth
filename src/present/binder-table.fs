@@ -10,11 +10,13 @@
 \ generation, so after a reset of either store a stale entry reads as
 \ absent instead of describing another term.
 \ State: one context record, lf-pres, and a column of the term store,
-\ lf-pres-terms (core/store-columns.fs), both members of the checker
+\ lf-pres-terms (lib/store-columns.fs), both members of the checker
 \ context (ADR 0009). Each context has its own table; one context is
 \ single-threaded.
 
 require ../lib/lib.fs
+require ../lib/slab.fs
+require ../lib/store-columns.fs
 require ../core/terms.fs
 require ../core/names.fs
 

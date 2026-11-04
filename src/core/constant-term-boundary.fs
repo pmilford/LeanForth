@@ -5,7 +5,7 @@
 \ resurrect it. Binary constructors capture child indices, not identities;
 \ their safety relies on backward edges and no raw mutation or count edits.
 \ State: the stamp column lf-cterm-stamps of the term store (indexed by
-\ term index; core/store-columns.fs) and one
+\ term index; lib/store-columns.fs) and one
 \ walk record, lf-cterm-walker, both members of the checker context
 \ (lib/context.fs). Each constant and symbolic Sort visit also runs a
 \ level-scope check on level-scope's walk record (lf-lscope-walk), so this
@@ -15,6 +15,8 @@
 \ format.
 
 require ../lib/lib.fs
+require ../lib/slab.fs
+require ../lib/store-columns.fs
 require ./constant-references.fs
 require ./diagnostics.fs
 require ./generation-handles.fs
@@ -47,8 +49,8 @@ lf-depth-limit context-walk: lf-cterm-walker
 
 \ Check each level of a reference's (index identity) pairs in the current
 \ context from inside this walk, with its fuel. The pairs come from
-\ lf-cref-levels, already validated, so count is 0..8 and identities are
-\ not checked again.
+\ lf-cref-levels, already validated, so count is 0..lf-cref-argument-capacity
+\ (64) and identities are not checked again.
 : lf-cterm-levels ( addr count walk -- outcome )
   swap 0 ?do over i lf-cref-pair@ drop over lf-lscope-walk-check dup ok? 0=
     if nip nip unloop exit then drop loop 2drop outcome-ok ;
@@ -81,8 +83,10 @@ lf-depth-limit context-walk: lf-cterm-walker
 \ structural evidence only. The outcome is always ok, invalid, exhausted or
 \ full, never another one: the kernel's rebuilding passes (mixed-rebuild.fs)
 \ pass it on without narrowing, and tests/core/constant-term-boundary.fs
-\ pins that set. Full cannot occur with today's capacities: children come
-\ earlier, so a work stack never holds more items than its store has nodes.
+\ pins that set. Full needs a graph deeper than the walk's work stack,
+\ which only a term or level capacity raised above it allows (children
+\ come earlier, so at the default capacities a work stack never holds
+\ more items than its store has nodes).
 \ A root that is not a live handle is recorded as a stale handle.
 : lf-cterm-site ( -- site ) c" constant-term-boundary lf-cterm-check" ;
 : lf-cterm-run ( root -- status )

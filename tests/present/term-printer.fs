@@ -209,6 +209,16 @@ T{ heal-count t1 @ s" fun x ↦ x" shows -> }T
 T{ t2 @ corrupt-prefix t2 @ lf-print-name t1 @ fuel lf-print-term
   -> outcome-invalid outcome-invalid }T
 
+\ Names print without recursion: one of lf-name-default components prints
+\ whole; one more component prints nothing and the print ends full, as a
+\ name too long for the pool does (the review's finding M1).
+: deep-nm ( n -- id ) 0 swap 0 ?do i lf-name-num must loop ;
+fresh 0 mode
+T{ 256 lf-name-capacity! -> outcome-ok }T
+T{ cap-reset lf-name-default deep-nm lf-print-name cap-len @ -> outcome-ok 181 }T
+T{ cap-reset lf-name-default 1+ deep-nm lf-print-name cap-len @ -> outcome-full 0 }T
+T{ fresh lf-name-default lf-name-capacity! -> outcome-ok }T
+
 \ Numbers print in decimal whatever BASE is, and BASE is kept: a Sort, a
 \ numeric name component, a binder suffix and a LaTeX subscript.
 : in-base ( i*x xt n -- j*x n' ) base @ >r base ! execute base @ r> base ! ;
