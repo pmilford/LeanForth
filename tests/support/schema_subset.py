@@ -322,8 +322,12 @@ class Validator:
                          f"{json.dumps(rule, ensure_ascii=False)}")
 
     def _kw_pattern(self, value, rule, schema, path, found):
+        """A long pattern is cut in the message, followed by its schema's description."""
         if isinstance(value, str) and not self._patterns[rule].search(value):
-            found.append(f"{path}: does not match pattern {rule}")
+            shown = rule if len(rule) <= 64 else rule[:24] + "…"
+            why = f" ({schema['description']})" if len(rule) > 64 and "description" in schema \
+                else ""
+            found.append(f"{path}: does not match pattern {shown}{why}")
 
     def _kw_minLength(self, value, rule, schema, path, found):
         if isinstance(value, str) and len(value) < rule:

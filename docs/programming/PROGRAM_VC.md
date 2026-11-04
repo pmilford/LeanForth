@@ -4,8 +4,9 @@
 the [plan draft](../project/PLAN_DRAFT.md)).** The generator is untrusted
 Python; everything it produces is checked by Lean 4.35.0 — *checked by the
 Lean reference, not by LeanForth*, whose checker cannot check programs
-before data types arrive (phase 5). The receipt format is schema 0.1,
-which is under review; nothing here has passed a review gate.
+before data types arrive (phase 5). The receipt format is
+[schema 0.2](PROGRAM_RECEIPTS.md), under the *[format]* gate; nothing here
+has passed a review gate.
 
 ```text
 Forth source ─reader─▶ IR ─┐
@@ -15,7 +16,7 @@ runtime comparison (PROGRAM_IR_RUN.md) ─────────────�
                                      scripts/program_receipt.py ◀───────┴── evidence ◀──┘
                                                   │
                                                   ▼
-                          receipt (JSON, schema 0.1) and its printed form
+                          receipt (JSON, schema 0.2) and its printed form
 ```
 
 ## One example in three forms
@@ -175,29 +176,32 @@ It keeps the three answers apart:
 
 | Part | Clamp receipt says |
 | --- | --- |
-| CHECK | `checked-by-lean-reference`, label *checked by the Lean reference, not by LeanForth*: Lean 4.35.0 proved `ProgramVC.LfClamp0.contract`, `O1` and `O2`; axioms propext, Classical.choice, Quot.sound |
-| VERIFY | `discharged`: two obligations from the untrusted generator, each with its theorem |
+| CHECK | `checked-by-lean-reference`, label *checked by the Lean reference, not by LeanForth*: Lean 4.35.0 proved `ProgramVC.LfClamp0.contract`, `O1` and `O2`, each listed with its axioms (`O1` propext and Quot.sound, the others also Classical.choice) |
+| VERIFY | `discharged`, `settledBy` `checked-by-lean-reference`: two obligations from the untrusted generator, each with its theorem, discharged by Lean, not by LeanForth |
 | RUN | `passed`, label *runtime-tested; testing is not proof*: Gforth 1.0.0, Linux x86-64, 64-bit cells, 986 cases, 0 failures; Lean's model agreed on all 991 clamp cases |
 
 and lists seven assumptions: host cells, two's complement, the trusted
 reader (which finds names ignoring letter case, as Gforth does), the trusted runtime
 (Gforth executes 2DUP, >, … as the IR semantics says), stack capacity, the
 trusted Lean, and the untrusted generator made safe by stating the
-contract against the IR semantics.
+contract against the IR semantics (kind `untrusted-generator`).
 
-`scripts/program_receipt.py verify RECEIPT.json` rebuilds the receipt and
-reports every field that differs, so a hand-edited receipt, or one whose
-files changed since, is rejected. `make test`
+`scripts/program_receipt.py verify RECEIPT.json` reads the receipt
+strictly, checks its schema and the rules beyond JSON Schema, then
+rebuilds it and reports every field that differs, so a hand-edited
+receipt, or one whose files changed since, is rejected
+([reading a receipt](PROGRAM_RECEIPTS.md#reading-a-receipt)). `make test`
 ([`tests/program/receipt_check.py`](../../tests/program/receipt_check.py))
-checks the golden output, schema 0.1
+checks the golden output, strict reading, schema 0.2 and its rules
 ([`tests/support/schema_subset.py`](../../tests/support/schema_subset.py)),
-the stricter rules the schema review asks for (every discharged
-obligation names its theorem, `program.ir` is an object with a
-*trusted-reader* assumption, only allowlisted axioms, every path inside
-the repository), verification, and that 17 tampered receipts are rejected
-(changed hashes, statuses, labels, counts, theorems, axioms, assumptions,
-an added `verified` field, a path outside the repository). `make check`
-records the evidence again and requires it to equal the committed record.
+that the receipt is checked by the Lean reference with every obligation
+discharged by a named theorem and every path inside the repository,
+verification, and that tampered receipts (changed hashes, statuses,
+labels, counts, theorems, axioms, assumptions, an added `verified` field,
+a path outside the repository) are refused by the layer named with each,
+and tampered texts (duplicate keys, fractions, a lone surrogate, deep
+nesting) by the strict reader. `make check` records the evidence again and
+requires it to equal the committed record.
 
 A receipt that verifies is consistent with the repository and the
 evidence. It is not an approval: the receipt format, the reader and the
