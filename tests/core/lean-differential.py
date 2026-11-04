@@ -464,8 +464,8 @@ def universe_scope():
              if words[0] == "EXPECT"}
     rows, verdicts = checker_rows("\n".join(line for line in lines
                                             if not line.startswith("EXPECT ")))
-    if sorted(rows) != sorted(table) or len(rows) != 17:
-        raise Mismatch("universe scope: the Forth rows are not the table's 17 cases")
+    if sorted(rows) != sorted(table) or len(rows) != 49:
+        raise Mismatch("universe scope: the Forth rows are not the table's 49 cases")
     for case, (lean, expected, rule) in table.items():
         checker_row(case, lean, expected, rule, rows[case], verdicts[case], {})
     checker_summary("universe scope", rows, {})

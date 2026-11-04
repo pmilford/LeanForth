@@ -401,8 +401,8 @@ def polyIdentityCases : List Case := [
   { id := "poly-identity.equal-universe-other-spelling",
     decl := thm `poly_identity_max (typeIdentityType sortU prop)
       (typeIdentityValue (.sort (.max lu lu)) prop) [`u],
-    lean := "accepted", leanforth := "unknown", rule := "K4",
-    what := "the proof writes Sort (max u u); Lean's level normalisation equates it with Sort u" },
+    lean := "accepted", leanforth := "accepted", rule := "A1",
+    what := "the proof writes Sort (max u u); Lean's level normalisation equates it with Sort u (ADR 0011 Amendment 1)" },
   { id := "poly-identity.proof-irrelevance-imax",
     decl := thm `poly_identity_imax (twinType sortImaxU0) (twinValue sortImaxU0) [`u],
     lean := "accepted", leanforth := "unknown", rule := "K2",
