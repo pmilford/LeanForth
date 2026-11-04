@@ -1,13 +1,16 @@
 \ Run records (plan task 2.2.5; ADR 0012 E8): the evidence of one check of
 \ a Lean export by the first checker, written as one JSON text in the
-\ format leanforth-run-record, version 0.1 (schemas/run-record-0.1.schema.json;
-\ fields, rules and use: docs/programming/RUN_RECORDS.md). LeanForth-specific
-\ and untrusted: it decides no verdict, and the checker never reads a
-\ record. A record claims no more than the checker established: every
-\ verdict is read after the run from the declaration's slot in the checked
-\ environment (lf-env-readable, lf-env-axioms), accepted only for a final
-\ slot whose outcome is ok, and then labelled "experimental, not
-\ independently audited", with the axiom set that slot holds.
+\ format leanforth-run-record, version 0.1
+\ (schemas/run-record-0.1.schema.json; fields, rules and use:
+\ docs/programming/RUN_RECORDS.md). LeanForth-specific and untrusted: it
+\ decides no verdict, and the checker never reads a record. A record
+\ claims no more than the checker established: every verdict is read
+\ after the run from the declaration's slot in the checked environment
+\ (lf-env-readable, lf-env-axioms). Accepted only for a final slot whose
+\ outcome is ok, and then labelled "experimental, not independently
+\ audited", with the axiom set that slot holds; a slot that is not final
+\ is invalid when its check began (it or its publication failed, and the
+\ run stopped there, ADR 0012 E4) and not-checked when it never began.
 \
 \ One run, in this order (tests/support/run-records.fs is the driver):
 \ - rr-start ( c-addr u -- outcome ) reads the export file named c-addr u
@@ -20,23 +23,23 @@
 \   environment room for deps dependencies, as lf-check-input takes them.
 \ - The caller loads the same file into this context's input with its
 \   importer (in phase 2 the test-only transport,
-\   tests/support/ndjson-input.fs) and gives the importer's outcome to
-\   rr-read!; then, when it is ok, calls rr-check.
-\ - rr-check ( -- ) checks every declaration of the input in input order in
-\   a new environment, which it keeps current, as lf-check-input does
-\   (check-declaration.fs: lf-check-declaration, the budget, no new context
-\   after a THROW), one declaration at a time with lf-env-step, so that it
-\   can keep each declaration's diagnostic and step after its check. The
-\   run's outcome is ok when every slot ended final.
+\   tests/support/ndjson-input.fs), gives the importer's outcome to
+\   rr-read! and, when it is ok, calls rr-check.
+\ - rr-check ( -- ) checks every declaration of the input in input order
+\   in a new environment, which it keeps current, as lf-check-input does
+\   (check-declaration.fs: lf-check-declaration, the budget, no new
+\   context after a THROW), one declaration at a time with lf-env-step,
+\   so that it can keep each declaration's diagnostic and step after its
+\   check. The run's outcome is ok when every slot ended final.
 \ - rr-finish ( c-addr u -- outcome ) reads the file again: invalid when it
 \   cannot, or when its digest, bytes or lines changed during the run (the
 \   record would describe another input than the one checked).
 \ - rr-write ( -- outcome ) writes the record into the module's buffer,
-\   rr-text ( -- c-addr u ); rr-save ( c-addr u -- outcome ) writes that to
-\   the file named c-addr u, then a line feed. rr-write is full when the
-\   text passes rr-text-room bytes or a name rr-name-room; invalid when a
-\   final slot's outcome is not the one its step published, when an
-\   accepted slot's axiom set is unreadable or not empty (allowlist
+\   rr-text ( -- c-addr u ); rr-save ( c-addr u -- outcome ) writes that
+\   to the file named c-addr u, then a line feed. rr-write is full when
+\   the text passes rr-text-room bytes or a name rr-name-room; invalid
+\   when a final slot's outcome is not the one its step published, when
+\   an accepted slot's axiom set is unreadable or not empty (allowlist
 \   version 0 names no axiom), or when no snapshot of the run's
 \   environment can be taken. A failed text is never a record.
 \ - rr-release ( -- ) frees the run's environment; rr-start does it too.
@@ -44,7 +47,7 @@
 \ lowercase hexadecimal digits (else invalid), and whether the working
 \ tree differed from it; rr-no-source forgets them, and the record then
 \ says null for both. The host's Forth, version and engine come from
-\ Gforth's words where the host has them (rr-forth-version, rr-engine),
+\ Gforth's words where the host has them (rr-forth-version, rr-program),
 \ else "unknown".
 \
 \ Requires: lib/json-write.fs, lib/sha256.fs, import/ndjson.fs,
@@ -54,8 +57,8 @@
 \ JSON writer, the text and, through its export and manifest records,
 \ heap buffers while rr-start runs: one run at a time, in any context, as
 \ with the NDJSON counter's records; not re-entrant. The tables are
-\ constant after loading. The file loads in decimal whatever BASE is, then
-\ restores it.
+\ constant after loading. The file loads in decimal whatever BASE is,
+\ then restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
@@ -87,7 +90,8 @@ rr-note-room cell+ aligned constant /rr-note
 \ Keep c-addr u in the note: ok, or full, with the note unchanged, when
 \ it is longer than rr-note-room.
 : rr-note! ( c-addr u note -- outcome )
-  over rr-note-room > if drop 2drop outcome-full exit then 2dup ! cell+ swap move outcome-ok ;
+  over rr-note-room > if drop 2drop outcome-full exit then
+  2dup ! cell+ swap move outcome-ok ;
 
 \ The facts of a file: its SHA-256 as text, its bytes and lines (doubles)
 \ and whether the bytes so far end inside a line, after no line feed.
@@ -124,6 +128,7 @@ begin-structure /rr
   field: rr-fuel  field: rr-deps
   field: rr-read            \ the importer's outcome
   field: rr-checked         \ true once rr-check ran
+  field: rr-stepped         \ declarations whose check began
   field: rr-env             \ the environment rr-check made, or 0
   field: rr-run             \ the run's outcome
   field: rr-fault           \ the first failure rr-write found itself, or ok
@@ -137,7 +142,7 @@ begin-structure /rr
   aligned rr-depth 0 jw-size +field rr-writer
 end-structure
 create run-record /rr allot  run-record /rr erase
-rr-depth 0 run-record rr-writer jw-init 0= [if] .( run-record.fs: bad writer) cr abort [then]
+rr-depth 0 run-record rr-writer jw-init 0= [if] .( run-record.fs: writer) cr abort [then]
 
 \ The run's data back to "nothing known": no metadata, the manifest and
 \ the read not yet decided, no check. Settings and source stay.
@@ -167,7 +172,8 @@ rr-reset rr-no-source
   >r run-record rr-block rr-block-room rot read-file if drop r> drop -1 exit then
   dup if run-record rr-block over r@ rr-take then r> drop ;
 : rr-chunks ( fid facts -- outcome )
-  begin 2dup rr-chunk dup 0> while drop repeat nip nip 0< if outcome-invalid else outcome-ok then ;
+  begin 2dup rr-chunk dup 0> while drop repeat
+  nip nip 0< if outcome-invalid else outcome-ok then ;
 : rr-facts-start ( facts -- ) /rr-facts erase run-record rr-sha sha256-init ;
 : rr-facts-end ( facts -- )
   dup facts-open @ if 1 over facts-lines rr-d+! then
@@ -202,9 +208,11 @@ rr-reset rr-no-source
   dup run-record rr-manifest-outcome ! ok? if exit then
   run-record rr-export export-error run-record rr-manifest-reason rr-note! drop
   run-record rr-manifest-key rr-note! drop drop ;
+: rr-manifest-read ( c-addr u -- outcome )
+  run-record rr-manifest manifest-read rr-manifest-keep outcome-ok ;
 : rr-manifest-check ( c-addr u -- outcome )
-  run-record rr-export run-record rr-manifest manifest-init dup ok?
-  if drop run-record rr-manifest manifest-read rr-manifest-keep outcome-ok else nip nip then
+  run-record rr-export run-record rr-manifest manifest-init
+  dup ok? if drop rr-manifest-read else nip nip then
   run-record rr-manifest manifest-free ;
 : rr-passes ( c-addr u -- outcome )
   run-record rr-export dup rr-handlers >r 2dup r> export-read drop rr-manifest-check ;
@@ -232,16 +240,20 @@ rr-reset rr-no-source
 \ Check declaration d and keep what it left: whether the run must stop,
 \ after a fault or a THROW (the context is then spent).
 : rr-step ( d -- stop? )
-  dup >r ['] lf-check-declaration swap lf-env-step swap r> rr-keep lf-env-spent? or ;
+  dup 1+ run-record rr-stepped ! dup >r ['] lf-check-declaration swap lf-env-step
+  swap r> rr-keep lf-env-spent? or ;
 : rr-steps ( n -- ) 0 ?do i rr-step if unloop exit then loop ;
 : rr-final? ( d -- flag ) lf-env-readable dup if nip then ;
 : rr-all-final? ( -- flag ) true lf-input-count 0 ?do i rr-final? and loop ;
-: rr-confirm ( -- outcome ) lf-env-view ok? if rr-all-final? flag>outcome else outcome-invalid then ;
+: rr-confirm ( -- outcome )
+  lf-env-view ok? if rr-all-final? flag>outcome else outcome-invalid then ;
 : rr-run-in ( env -- outcome )
-  dup run-record rr-env ! lf-env-use dup ok? if drop lf-input-count rr-steps rr-confirm then ;
+  dup run-record rr-env ! lf-env-use
+  dup ok? if drop lf-input-count rr-steps rr-confirm then ;
+: rr-begun ( -- ) true run-record rr-checked ! 0 run-record rr-stepped ! ;
 : rr-check ( -- )
-  true run-record rr-checked ! run-record rr-fuel @ lf-check-budget
-  run-record rr-deps @ lf-env-new dup ok? if drop rr-run-in else nip then run-record rr-run ! ;
+  rr-begun run-record rr-fuel @ lf-check-budget run-record rr-deps @ lf-env-new
+  dup ok? if drop rr-run-in else nip then run-record rr-run ! ;
 
 \ The end of a run: the file read again, unchanged.
 : rr-same-input? ( -- flag )
@@ -249,19 +261,21 @@ rr-reset rr-no-source
 : rr-finish ( c-addr u -- outcome )
   run-record rr-after rr-hash dup ok? if drop rr-same-input? flag>outcome then ;
 
-\ The host, through Gforth's words where it has them.
-: rr-forth ( -- c-addr u ) s" gforth" environment? if 2drop s" gforth" else s" unknown" then ;
+\ The host, through Gforth's words where it has them: the version, and
+\ the program that runs, its engine.
+: rr-forth ( -- c-addr u )
+  s" gforth" environment? if 2drop s" gforth" else s" unknown" then ;
 [defined] version-string [if]
 : rr-forth-version ( -- c-addr u ) version-string ;
 [else]
 : rr-forth-version ( -- c-addr u ) s" unknown" ;
 [then]
-\ The engine: the name of the program that runs, without its folder.
 [defined] arg [if]
 : rr-program ( -- c-addr u ) 0 arg ;
 [else]
 : rr-program ( -- c-addr u ) s" unknown" ;
 [then]
+\ The engine: the program's file name, without its folder.
 : rr-basename ( c-addr u -- c-addr' u' )
   begin 2dup s" /" search while 1 /string 2swap 2drop repeat 2drop ;
 : rr-engine ( -- c-addr u ) rr-program rr-basename ;
@@ -294,11 +308,13 @@ rr-reset rr-no-source
   s" sha256" rr-key dup facts-hex sha-digest-bytes 2* rr-string
   s" bytes" rr-key dup facts-bytes 2@ rr-ud s" lines" rr-key facts-lines 2@ rr-ud ;
 : rr-manifest-out ( -- )
-  s" manifest" rr-key rr-object s" outcome" rr-key run-record rr-manifest-outcome @ rr-outcome
+  s" manifest" rr-key rr-object
+  s" outcome" rr-key run-record rr-manifest-outcome @ rr-outcome
   run-record rr-manifest-key s" field" rr-member
   run-record rr-manifest-reason s" reason" rr-member rr-end-object ;
 : rr-input-out ( -- )
-  s" input" rr-key rr-object run-record rr-before rr-facts-out rr-manifest-out rr-end-object ;
+  s" input" rr-key rr-object run-record rr-before rr-facts-out rr-manifest-out
+  rr-end-object ;
 : rr-exporter-out ( -- )
   run-record rr-exporter s" exporter" rr-member
   run-record rr-exporter-version s" exporterVersion" rr-member
@@ -307,7 +323,7 @@ rr-reset rr-no-source
   s" export" rr-key rr-object rr-exporter-out run-record rr-lean s" lean" rr-member
   run-record rr-githash s" leanGithash" rr-member rr-end-object ;
 : rr-modified-out ( -- )
-  run-record rr-commit rr-note? if run-record rr-modified @ rr-w jw-bool else rr-null then ;
+  run-record dup rr-commit rr-note? if rr-modified @ rr-w jw-bool else drop rr-null then ;
 : rr-source-out ( -- )
   s" leanforth" rr-key rr-object run-record rr-commit s" commit" rr-member
   s" modified" rr-key rr-modified-out rr-end-object ;
@@ -316,22 +332,27 @@ rr-reset rr-no-source
   s" version" rr-key rr-forth-version rr-string s" engine" rr-key rr-engine rr-string
   s" cellBits" rr-key rr-cell-bits rr-int rr-end-object ;
 : rr-setting ( n c-addr u -- ) rr-key rr-int ;
-: rr-capacities ( -- )
+: rr-stores ( -- )
   lf-term-capacity s" terms" rr-setting lf-level-capacity s" levels" rr-setting
-  lf-name-capacity s" names" rr-setting lf-input-capacity s" declarations" rr-setting
+  lf-name-capacity s" names" rr-setting lf-input-capacity s" declarations" rr-setting ;
+: rr-limits ( -- )
   lf-env-dep-capacity s" dependenciesPerCheck" rr-setting
-  lf-param-capacity s" parameters" rr-setting lf-cref-argument-capacity s" referenceLevels" rr-setting ;
+  lf-param-capacity s" parameters" rr-setting
+  lf-cref-argument-capacity s" referenceLevels" rr-setting ;
 : rr-settings-out ( -- )
   s" settings" rr-key rr-object run-record rr-fuel @ s" fuel" rr-setting
-  run-record rr-deps @ s" dependencyPool" rr-setting rr-capacities rr-end-object ;
+  run-record rr-deps @ s" dependencyPool" rr-setting rr-stores rr-limits rr-end-object ;
 
 \ The run: the importer's outcome, the run's (not-run without rr-check),
 \ and the environment's run mode and allowlist version (null without one).
 : rr-made ( -- env|0 ) run-record dup rr-checked @ if rr-env @ else drop 0 then ;
 : rr-run-out ( -- )
-  run-record dup rr-checked @ if rr-run @ rr-outcome else drop s" not-run" rr-string then ;
-: rr-mode-text ( mode -- c-addr u ) lf-mode-final = if s" final" else s" development" then ;
-: rr-mode-out ( -- ) rr-made ?dup if lf-envh-mode @ rr-mode-text rr-string else rr-null then ;
+  run-record dup rr-checked @ if rr-run @ rr-outcome exit then
+  drop s" not-run" rr-string ;
+: rr-mode-text ( mode -- c-addr u )
+  lf-mode-final = if s" final" else s" development" then ;
+: rr-mode-out ( -- )
+  rr-made ?dup if lf-envh-mode @ rr-mode-text rr-string else rr-null then ;
 : rr-allowlist-out ( -- ) rr-made ?dup if lf-envh-version @ rr-int else rr-null then ;
 : rr-check-out ( -- )
   s" check" rr-key rr-object s" read" rr-key run-record rr-read @ rr-outcome
@@ -345,24 +366,29 @@ rr-reset rr-no-source
   dup run-record rr-name-size @ + rr-name-room > if 2drop outcome-full rr-fail exit then
   tuck rr-name + swap move run-record rr-name-size +! ;
 : rr-name-out ( d -- )
-  0 run-record rr-name-size ! lf-input-name ['] rr-name-sink lf-pp-name-to rr-name rr-string ;
+  0 run-record rr-name-size ! lf-input-name ['] rr-name-sink lf-pp-name-to
+  rr-name rr-string ;
 
 \ A declaration's verdict. Accepted: the label and the axiom set read from
 \ the slot, which must be empty. Any other: its name and the diagnostic its
 \ check left (null when there is none).
 : rr-axioms-out ( d -- )
-  lf-env-axioms ok? 0= or if outcome-invalid rr-fail then s" axioms" rr-key rr-array rr-end-array ;
+  lf-env-axioms ok? 0= or if outcome-invalid rr-fail then
+  s" axioms" rr-key rr-array rr-end-array ;
 : rr-accepted-out ( d -- )
-  s" verdict" rr-key s" accepted" rr-string s" label" rr-key rr-label rr-string rr-axioms-out ;
+  s" verdict" rr-key s" accepted" rr-string
+  s" label" rr-key rr-label rr-string rr-axioms-out ;
 : rr-site ( site -- c-addr u ) ?dup if count else s" " then ;
 : rr-numbers-out ( step -- )
   s" numbers" rr-key rr-array dup kept-first @ rr-int kept-second @ rr-int rr-end-array ;
+: rr-code-out ( step -- step )
+  s" code" rr-key dup kept-code @ dup rr-int s" reason" rr-key lf-diag-name rr-string ;
 : rr-reason-out ( step -- )
-  rr-object s" code" rr-key dup kept-code @ dup rr-int s" reason" rr-key lf-diag-name rr-string
-  s" site" rr-key dup kept-site @ rr-site rr-string dup rr-numbers-out
-  s" step" rr-key kept-step @ rr-int rr-end-object ;
+  rr-object rr-code-out s" site" rr-key dup kept-site @ rr-site rr-string
+  dup rr-numbers-out s" step" rr-key kept-step @ rr-int rr-end-object ;
 : rr-diagnostic-out ( step -- )
-  s" diagnostic" rr-key dup kept-code @ lf-diag-none = if drop rr-null else rr-reason-out then ;
+  s" diagnostic" rr-key
+  dup kept-code @ lf-diag-none = if drop rr-null else rr-reason-out then ;
 : rr-failed-out ( d outcome -- )
   s" verdict" rr-key rr-outcome rr-step-of rr-diagnostic-out ;
 \ The slot's outcome must be the one the step published.
@@ -370,15 +396,21 @@ rr-reset rr-no-source
   2dup swap rr-step-of kept-outcome @ <> if outcome-invalid rr-fail then ;
 : rr-verdict-out ( d slot -- )
   lf-slot-outcome@ rr-agrees dup ok? if drop rr-accepted-out else rr-failed-out then ;
+\ A slot that is not final: invalid, with its diagnostic, when its check
+\ began; not-checked when the run stopped before it.
 : rr-unchecked-out ( d -- ) drop s" verdict" rr-key s" not-checked" rr-string ;
+: rr-began? ( d -- flag ) run-record rr-stepped @ < ;
+: rr-open-out ( d -- )
+  dup rr-began? if outcome-invalid rr-failed-out else rr-unchecked-out then ;
 : rr-decl-out ( d -- )
   rr-object s" index" rr-key dup rr-int s" name" rr-key dup rr-name-out
-  dup lf-env-readable if rr-verdict-out else rr-unchecked-out then rr-end-object ;
+  dup lf-env-readable if rr-verdict-out else rr-open-out then rr-end-object ;
 \ Every declaration, in input order, read in a snapshot of every slot;
 \ none when no check ran.
 : rr-viewed? ( -- flag ) lf-env-view ok? lf-name-storage-valid? and ;
 : rr-decls ( -- )
-  run-record rr-checked @ 0= if exit then rr-viewed? 0= if outcome-invalid rr-fail exit then
+  run-record rr-checked @ 0= if exit then
+  rr-viewed? 0= if outcome-invalid rr-fail exit then
   lf-input-count 0 ?do i rr-decl-out loop ;
 : rr-decls-out ( -- ) s" declarations" rr-key rr-array rr-decls rr-end-array ;
 

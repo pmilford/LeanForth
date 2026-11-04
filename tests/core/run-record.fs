@@ -10,6 +10,8 @@
 \ tampered files are tested by tests/core/test_run_records.py. Test-only.
 include ../support/tester.fs
 include ../support/checks.fs
+\ The publisher's test-only fault hook, lf-env-before-final, to stop a run.
+: lf-env-fault-hooks ( -- ) ;
 require ../support/run-records.fs
 
 100000 constant fuel
@@ -23,8 +25,10 @@ require ../support/run-records.fs
   s" tests/core/check-declaration-cases/composition-wrong-argument.ndjson" ;
 : postulate-case ( -- c-addr u )
   s" tests/core/check-declaration-cases/composition-postulate.ndjson" ;
-: literal-case ( -- c-addr u ) s" tests/core/check-declaration-cases/composition-literal.ndjson" ;
-: loose-case ( -- c-addr u ) s" tests/core/check-declaration-cases/composition-loose.ndjson" ;
+: literal-case ( -- c-addr u )
+  s" tests/core/check-declaration-cases/composition-literal.ndjson" ;
+: loose-case ( -- c-addr u )
+  s" tests/core/check-declaration-cases/composition-loose.ndjson" ;
 : no-export ( -- c-addr u ) s" tests/core/no-such-export.ndjson" ;
 : not-export ( -- c-addr u ) s" tests/core/run-record.fs" ;
 
@@ -34,18 +38,21 @@ require ../support/run-records.fs
 : run-holds? ( c-addr1 u1 c-addr2 u2 -- outcome flag )
   2>r fuel ni-run 2r> holds? rr-release ;
 : accepted ( -- c-addr u )
-  s\" \"verdict\":\"accepted\",\"label\":\"experimental, not independently audited\",\"axioms\":[]" ;
+  s\" \"verdict\":\"accepted\",\"label\":\"experimental, not independently audited\"" ;
+: no-axioms ( -- c-addr u ) s\" audited\",\"axioms\":[]}" ;
 : third-accepted ( -- c-addr u )
   s\" {\"index\":2,\"name\":\"fixtureUse\",\"verdict\":\"accepted\"" ;
-: manifest-ok ( -- c-addr u ) s\" \"manifest\":{\"outcome\":\"ok\",\"field\":\"\",\"reason\":\"\"}" ;
+: manifest-ok ( -- c-addr u )
+  s\" \"manifest\":{\"outcome\":\"ok\",\"field\":\"\",\"reason\":\"\"}" ;
 : pinned ( -- c-addr u )
   s\" \"lean\":\"4.35.0\",\"leanGithash\":\"eb6cafb7290e8bd5f2937522d8d804f58f02bafc\"" ;
 : run-ok ( -- c-addr u )
-  s\" \"check\":{\"read\":\"ok\",\"run\":\"ok\",\"mode\":\"final\",\"allowlistVersion\":0}" ;
+  s\" \"check\":{\"read\":\"ok\",\"run\":\"ok\",\"mode\":\"final\"," ;
 
 \ The pinned exports: every declaration accepted, labelled, no axioms, the
 \ manifest ok, the pinned versions read from the metadata.
 T{ composition accepted run-holds? -> outcome-ok true }T
+T{ composition no-axioms run-holds? -> outcome-ok true }T
 T{ identity accepted run-holds? -> outcome-ok true }T
 T{ type-identity accepted run-holds? -> outcome-ok true }T
 T{ poly-identity accepted run-holds? -> outcome-ok true }T
@@ -56,11 +63,14 @@ T{ composition run-ok run-holds? -> outcome-ok true }T
 
 \ The broken copies: rejected, unsupported and invalid, each with the
 \ diagnostic and step its check left; no manifest beside them.
-: rejected-59 ( -- c-addr u ) s\" \"verdict\":\"rejected\",\"diagnostic\":{\"code\":59," ;
+: rejected-59 ( -- c-addr u )
+  s\" \"verdict\":\"rejected\",\"diagnostic\":{\"code\":59," ;
 : numbers-step ( -- c-addr u ) s\" \"numbers\":[4,0],\"step\":7}" ;
 : no-manifest ( -- c-addr u ) s" manifest missing, unreadable or too large" ;
-: unsupported-42 ( -- c-addr u ) s\" \"verdict\":\"unsupported\",\"diagnostic\":{\"code\":42," ;
-: unsupported-43 ( -- c-addr u ) s\" \"verdict\":\"unsupported\",\"diagnostic\":{\"code\":43," ;
+: unsupported-42 ( -- c-addr u )
+  s\" \"verdict\":\"unsupported\",\"diagnostic\":{\"code\":42," ;
+: unsupported-43 ( -- c-addr u )
+  s\" \"verdict\":\"unsupported\",\"diagnostic\":{\"code\":43," ;
 : invalid-23 ( -- c-addr u ) s\" \"verdict\":\"invalid\",\"diagnostic\":{\"code\":23," ;
 T{ wrong-argument rejected-59 run-holds? -> outcome-ok true }T
 T{ wrong-argument numbers-step run-holds? -> outcome-ok true }T
@@ -73,14 +83,31 @@ T{ wrong-argument s" accepted" run-holds? -> outcome-ok false }T
 \ A file the transport cannot read: a record that says so, with no
 \ declarations; a file that cannot be opened: no record.
 : not-read ( -- c-addr u )
-  s\" \"check\":{\"read\":\"invalid\",\"run\":\"not-run\",\"mode\":null,\"allowlistVersion\":null},\"declarations\":[]}" ;
+  s\" \"check\":{\"read\":\"invalid\",\"run\":\"not-run\",\"mode\":null," ;
+: no-declarations ( -- c-addr u ) s\" \"allowlistVersion\":null},\"declarations\":[]}" ;
 T{ not-export not-read run-holds? -> outcome-ok true }T
+T{ not-export no-declarations run-holds? -> outcome-ok true }T
 T{ no-export fuel ni-run -> outcome-invalid }T
 
 \ Settings: with fuel 0 the check is exhausted, and the record says so.
 T{ composition 0 ni-run -> outcome-ok }T
 T{ s\" \"fuel\":0," holds? -> true }T
 T{ s\" \"verdict\":\"exhausted\"" holds? -> true }T
+rr-release
+
+\ A run that stops: a THROW in the publisher before declaration 1's slot
+\ is final. Its slot is not final: invalid, with the publisher's fault as
+\ its diagnostic; declaration 2 was never checked; the run is invalid.
+: throw-at-1 ( -- ) lf-env-limit 1 = if 4242 throw then ;
+: fault-29 ( -- c-addr u )
+  s\" \"verdict\":\"invalid\",\"diagnostic\":{\"code\":29,\"reason\":\"invalid:" ;
+: unchecked-2 ( -- c-addr u )
+  s\" {\"index\":2,\"name\":\"fixtureUse\",\"verdict\":\"not-checked\"}" ;
+' throw-at-1 is lf-env-before-final
+T{ constant-fixture fuel ni-run -> outcome-ok }T
+' lf-env-no-fault is lf-env-before-final
+T{ s\" \"run\":\"invalid\"" holds? fault-29 holds? unchecked-2 holds? -> true true true }T
+T{ s\" \"numbers\":[1,4242]" holds? accepted holds? -> true true }T
 rr-release
 
 \ The verdicts are the slots' own: the same as lf-check-input's.
@@ -103,7 +130,7 @@ rr-release
 \ The source: a commit of 40 lowercase hexadecimal digits, and the flag.
 : commit ( -- c-addr u ) s" 0123456789abcdef0123456789abcdef01234567" ;
 : commit-modified ( -- c-addr u )
-  s\" \"leanforth\":{\"commit\":\"0123456789abcdef0123456789abcdef01234567\",\"modified\":true}" ;
+  s\" {\"commit\":\"0123456789abcdef0123456789abcdef01234567\",\"modified\":true}" ;
 : no-commit ( -- c-addr u ) s\" \"leanforth\":{\"commit\":null,\"modified\":null}" ;
 T{ commit true rr-source! -> outcome-ok }T
 T{ composition commit-modified run-holds? -> outcome-ok true }T
@@ -129,7 +156,8 @@ T{ rr-write -> outcome-ok }T
 rr-release
 T{ rr-write -> outcome-invalid }T
 create long-name rr-name-room 1+ allot
-T{ rr-begin-text long-name rr-name-room 1+ rr-name-sink run-record rr-fault @ -> outcome-full }T
+: long-name-sink ( -- ) long-name rr-name-room 1+ rr-name-sink ;
+T{ rr-begin-text long-name-sink run-record rr-fault @ -> outcome-full }T
 
 \ The input must not change during the run: rr-finish reads it again.
 T{ composition rr-start -> outcome-ok }T
@@ -139,12 +167,12 @@ T{ no-export rr-finish -> outcome-invalid }T
 
 \ Hashing: SHA-256 of the bytes, the bytes and the lines; a last line
 \ without a line feed counts. composition.ndjson's digest is its manifest's.
-: before-hex ( -- c-addr u ) run-record rr-before facts-hex 64 ;
+: before ( -- facts ) run-record rr-before ;
 : composition-digest ( -- c-addr u )
   s" 7778d2ef5da2f0935fb0180c953afa9371843f4ceec2660122f8c792b9ca2fec" ;
-T{ composition run-record rr-before rr-hash -> outcome-ok }T
-T{ before-hex composition-digest compare -> 0 }T
-T{ run-record rr-before facts-bytes 2@ run-record rr-before facts-lines 2@ -> 1787 0 35 0 }T
+T{ composition before rr-hash -> outcome-ok }T
+T{ before facts-hex 64 composition-digest compare -> 0 }T
+T{ before facts-bytes 2@ before facts-lines 2@ -> 1787 0 35 0 }T
 T{ s\" a\nb\n" rr-feeds -> 2 }T
 T{ s\" a\nb" rr-ends-open? -> true }T
 T{ s\" a\n" rr-ends-open? -> false }T
@@ -154,39 +182,41 @@ T{ s\" a\n" rr-ends-open? -> false }T
 \ record of this format.
 : finding@ ( k -- code ) rp-finding finding-code @ ;
 : finding-path@ ( k -- c-addr u ) rp-finding dup finding-path swap finding-size @ ;
-: replay ( c-addr u fuel -- outcome ) ni-run ok? must kept-text rp-replay-text rr-release ;
+: total ( -- n ) run-replay rp-total @ ;
+: replay ( c-addr u fuel -- outcome )
+  ni-run ok? must kept-text rp-replay-text rr-release ;
 T{ composition fuel ni-run -> outcome-ok }T
 keep-text rr-release
 T{ composition fuel replay -> outcome-ok }T
-T{ run-replay rp-total @ -> 0 }T
+T{ total -> 0 }T
 T{ composition 50 replay -> outcome-rejected }T
-T{ run-replay rp-total @ 0 finding@ 1 finding@
-  -> 2 rp-settings-differ rp-accepted-not-established }T
+T{ total 0 finding@ 1 finding@ -> 2 rp-settings-differ rp-accepted-not-established }T
 T{ 1 finding-path@ s" $.declarations[0].verdict" compare -> 0 }T
 T{ wrong-argument fuel replay -> outcome-rejected }T
 T{ 0 finding@ 0 finding-path@ s" $.input.sha256" compare -> rp-input-differs 0 }T
 T{ type-identity fuel replay -> outcome-rejected }T
-T{ run-replay rp-total @ 3 finding@ -> 4 rp-declarations-differ }T
+T{ total 3 finding@ -> 4 rp-declarations-differ }T
 commit false rr-source! ok? must
 T{ composition fuel replay -> outcome-rejected }T
 T{ 0 finding@ 0 finding-path@ s" $.leanforth.commit" compare -> rp-tool-differs 0 }T
 rr-no-source
 T{ composition fuel ni-run -> outcome-ok }T
 T{ composition rp-replay-text -> outcome-invalid }T
-T{ 0 finding@ run-replay rp-total @ -> rp-not-json 1 }T
+T{ 0 finding@ total -> rp-not-json 1 }T
 T{ s" [1]" rp-replay-text -> outcome-invalid }T
 T{ 0 finding@ -> rp-unknown-schema }T
-T{ s\" {\"schema\":\"leanforth-run-record\",\"schemaVersion\":\"0.2\"}" rp-replay-text
-  -> outcome-invalid }T
+: other-version ( -- c-addr u )
+  s\" {\"schema\":\"leanforth-run-record\",\"schemaVersion\":\"0.2\"}" ;
+T{ other-version rp-replay-text -> outcome-invalid }T
 T{ 0 finding@ -> rp-unknown-schema }T
 \ A record of the format with nothing in it: every member is missing,
 \ within the sections as at the top.
 : hollow ( -- c-addr u )
   s\" {\"schema\":\"leanforth-run-record\",\"schemaVersion\":\"0.1\",\"input\":{}}" ;
 T{ hollow rp-replay-text -> outcome-rejected }T
-T{ run-replay rp-total @ 0 finding@ 9 finding@ -> 10 rp-missing-field rp-missing-field }T
-T{ 0 finding-path@ s" $.input.sha256" compare 9 finding-path@ s" $.declarations" compare
-  -> 0 0 }T
+T{ total 0 finding@ 9 finding@ -> 10 rp-missing-field rp-missing-field }T
+T{ 0 finding-path@ s" $.input.sha256" compare -> 0 }T
+T{ 9 finding-path@ s" $.declarations" compare -> 0 }T
 T{ s" tests/core/no-such-record.json" rp-replay -> outcome-invalid }T
 T{ 0 finding@ -> rp-unreadable }T
 T{ first-text rp-room 1+ rp-replay-text -> outcome-invalid }T

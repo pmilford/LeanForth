@@ -97,11 +97,16 @@ rr-text-room 2* constant rp-room   \ largest old record read: room for whitespac
 
 create rp-names
   rp-unreadable s" unreadable" rp-entry,  rp-not-json s" not-json" rp-entry,
-  rp-unknown-schema s" unknown-schema" rp-entry,  rp-rerun-failed s" rerun-failed" rp-entry,
-  rp-missing-field s" missing-field" rp-entry,  rp-unknown-field s" unknown-field" rp-entry,
-  rp-duplicate-key s" duplicate-key" rp-entry,  rp-input-differs s" input-differs" rp-entry,
-  rp-export-differs s" export-differs" rp-entry,  rp-tool-differs s" tool-differs" rp-entry,
-  rp-settings-differ s" settings-differ" rp-entry,  rp-run-differs s" run-differs" rp-entry,
+  rp-unknown-schema s" unknown-schema" rp-entry,
+  rp-rerun-failed s" rerun-failed" rp-entry,
+  rp-missing-field s" missing-field" rp-entry,
+  rp-unknown-field s" unknown-field" rp-entry,
+  rp-duplicate-key s" duplicate-key" rp-entry,
+  rp-input-differs s" input-differs" rp-entry,
+  rp-export-differs s" export-differs" rp-entry,
+  rp-tool-differs s" tool-differs" rp-entry,
+  rp-settings-differ s" settings-differ" rp-entry,
+  rp-run-differs s" run-differs" rp-entry,
   rp-declarations-differ s" declarations-differ" rp-entry,
   rp-verdict-differs s" verdict-differs" rp-entry,
   rp-accepted-not-established s" accepted-not-established" rp-entry,
@@ -141,7 +146,7 @@ begin-structure /rp
   aligned rp-depth 0 jw-size +field rp-writer
 end-structure
 create run-replay /rp allot  run-replay /rp erase
-rp-depth 0 run-replay rp-writer jw-init 0= [if] .( run-replay.fs: bad writer) cr abort [then]
+rp-depth 0 run-replay rp-writer jw-init 0= [if] .( run-replay.fs: writer) cr abort [then]
 : rp-old ( -- view ) run-replay rp-old-view ;
 : rp-new ( -- view ) run-replay rp-new-view ;
 
@@ -160,8 +165,8 @@ rp-depth 0 run-replay rp-writer jw-init 0= [if] .( run-replay.fs: bad writer) cr
 : rp-finding ( k -- finding ) /rp-finding * run-replay rp-findings + ;
 : rp-keep ( code finding -- )
   tuck finding-code ! >r rp-path dup r@ finding-size ! r> finding-path swap move ;
-: rp-found ( code -- )
-  run-replay rp-total dup @ swap 1 swap +! dup rp-kept < if rp-finding rp-keep else 2drop then ;
+: rp-count ( -- k ) run-replay rp-total dup @ 1 rot +! ;   \ findings before this one
+: rp-found ( code -- ) rp-count dup rp-kept < if rp-finding rp-keep else 2drop then ;
 \ A finding at the path with one more key, and at the path itself.
 : rp-found-at ( code c-addr u -- ) rp-saved 2>r rp-key+ rp-found 2r> rp-restore ;
 : rp-differs ( -- ) run-replay rp-code @ rp-found ;
@@ -186,7 +191,8 @@ rp-depth 0 run-replay rp-writer jw-init 0= [if] .( run-replay.fs: bad writer) cr
   >r begin 2dup > while r@ rp-at-key? if nip nip nip 1+ r> drop true exit then
     r@ rp-step-key repeat 2drop 2drop r> drop false ;
 \ ... in the whole object at index in view.
-: rp-find ( c-addr u object view -- value true | false ) dup >r json-contents r> rp-scan ;
+: rp-find ( c-addr u object view -- value true | false )
+  dup >r json-contents r> rp-scan ;
 \ Whether the old object o has another member of key c-addr u after the
 \ member whose value is v.
 : rp-again? ( c-addr u v o -- flag )
@@ -218,20 +224,21 @@ defer rp-value ( n o -- )   \ compare value n of the new record with value o of 
 \ Member k of the new record against the old object o: missing, there
 \ twice (its value is not compared: which one counts is unclear), or
 \ compared.
+: rp-in-old ( k o -- k o v true | k o false ) 2dup swap rp-key-text rot rp-old rp-find ;
 : rp-member ( k o -- )
-  2dup swap rp-key-text rot rp-old rp-find 0= if drop rp-missing-field swap rp-new-found exit then
+  rp-in-old 0= if drop rp-missing-field swap rp-new-found exit then
   rp-twice? if 2drop rp-duplicate-key swap rp-new-found else nip rp-into then ;
 : rp-new-members ( n o -- )
-  swap rp-new json-contents begin 2dup > while dup 3 pick rp-member rp-new rp-step-key repeat
-  2drop drop ;
+  swap rp-new json-contents
+  begin 2dup > while dup 3 pick rp-member rp-new rp-step-key repeat 2drop drop ;
 \ A member k of the old record whose key the new object n lacks.
 : rp-unknown? ( k n -- flag ) >r rp-old json-text@ r> rp-new rp-find dup if nip then 0= ;
 : rp-old-found ( code k -- ) rp-old json-text@ rp-found-at ;
 : rp-old-member ( k n -- )
   over swap rp-unknown? if rp-unknown-field swap rp-old-found else drop then ;
 : rp-old-members ( n o -- )
-  rp-old json-contents begin 2dup > while dup 3 pick rp-old-member rp-old rp-step-key repeat
-  2drop drop ;
+  rp-old json-contents
+  begin 2dup > while dup 3 pick rp-old-member rp-old rp-step-key repeat 2drop drop ;
 \ A declaration's verdict, compared first.
 : rp-verdict-of ( object view -- value true | false ) >r >r s" verdict" r> r> rp-find ;
 : rp-verdicts ( n o -- nv ov true | false )
@@ -241,9 +248,12 @@ defer rp-value ( n o -- )   \ compare value n of the new record with value o of 
 : rp-same-verdict? ( nv ov -- flag )
   dup rp-string? if rp-texts compare 0= else 2drop false then ;
 : rp-accepted? ( value view -- flag ) json-text@ s" accepted" compare 0= ;
+\ The old record claims accepted where the new run did not accept.
+: rp-overclaim? ( nv ov -- flag )
+  dup rp-string? 0= if 2drop false exit then
+  rp-old rp-accepted? swap rp-new rp-accepted? 0= and ;
 : rp-verdict-code ( nv ov -- code )
-  dup rp-string? if rp-old rp-accepted? swap rp-new rp-accepted? 0= and else 2drop false then
-  if rp-accepted-not-established else rp-verdict-differs then ;
+  rp-overclaim? if rp-accepted-not-established else rp-verdict-differs then ;
 \ Whether the verdicts differ, recorded as a finding at .verdict.
 : rp-verdict-differs? ( nv ov -- flag )
   2dup rp-same-verdict? if 2drop false exit then
@@ -290,7 +300,8 @@ defer rp-value ( n o -- )   \ compare value n of the new record with value o of 
   rp-top run-replay rp-code ! ;
 : rp-refuse ( code -- outcome ) rp-found outcome-invalid ;
 : rp-free ( -- ) rp-old json-free rp-new json-free ;
-: rp-verdict ( -- outcome ) run-replay rp-total @ if outcome-rejected else outcome-ok then ;
+: rp-verdict ( -- outcome )
+  run-replay rp-total @ if outcome-rejected else outcome-ok then ;
 : rp-parsed ( -- outcome )
   rp-old-text rp-old rp-view ok? 0= if rp-not-json rp-refuse exit then
   rp-format? 0= if rp-unknown-schema rp-refuse exit then
@@ -315,7 +326,8 @@ defer rp-value ( n o -- )   \ compare value n of the new record with value o of 
 : rp-string ( c-addr u -- ) rp-w jw-string ;
 : rp-kept# ( -- n ) run-replay rp-total @ rp-kept min ;
 : rp-finding-out ( k -- )
-  rp-finding rp-w jw-open-object s" code" rp-key dup finding-code @ rp-code-name rp-string
+  rp-finding rp-w jw-open-object
+  s" code" rp-key dup finding-code @ rp-code-name rp-string
   s" path" rp-key dup finding-path swap finding-size @ rp-string rp-w jw-close-object ;
 : rp-result ( -- c-addr u ) run-replay rp-total @ if s" refused" else s" confirmed" then ;
 : rp-body ( -- )
