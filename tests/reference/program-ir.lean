@@ -2520,9 +2520,159 @@ theorem unmasked_rotr_refuted :
   rw [word, rotated, show ((1 : Nat) : Int) = 1 from rfl, unmasked_rotr_value] at bad
   simp at bad
 
+/-- A bitwise primitive on two words, whose result is a word, gives that
+word: no sign appears on cells of at least 33 bits. -/
+theorem bitwise_words (c : Cells) (wide : 33 ≤ c.bits) (op : Nat → Nat → Nat) (a b : Nat)
+    (hop : op a b < 4294967296) : bitwise c op (a : Int) (b : Int) = ((op a b : Nat) : Int) := by
+  simp only [bitwise, c.unsigned_nat, c.signed_word wide hop]
+
+theorem word_lt (x : Word) : x.toNat < 4294967296 := x.isLt
+
+/-- Ch as `sha-ch` computes it: z xor (x and (y xor z)), on each bit. -/
+theorem Ch_toNat (x y z : Word) :
+    (Ch x y z).toNat = z.toNat ^^^ ((y.toNat ^^^ z.toNat) &&& x.toNat) := by
+  have e : Ch x y z = z ^^^ ((y ^^^ z) &&& x) := by
+    apply BitVec.eq_of_getLsbD_eq
+    intro i hi
+    simp only [Ch, BitVec.getLsbD_xor, BitVec.getLsbD_and, BitVec.getLsbD_not, hi,
+      decide_true, Bool.true_and]
+    cases x.getLsbD i <;> cases y.getLsbD i <;> cases z.getLsbD i <;> rfl
+  rw [e, BitVec.toNat_xor, BitVec.toNat_and, BitVec.toNat_xor]
+
+/-- Maj as `sha-maj` computes it: (x and y) or ((x or y) and z), on each bit. -/
+theorem Maj_toNat (x y z : Word) :
+    (Maj x y z).toNat = (x.toNat &&& y.toNat) ||| ((x.toNat ||| y.toNat) &&& z.toNat) := by
+  have e : Maj x y z = (x &&& y) ||| ((x ||| y) &&& z) := by
+    apply BitVec.eq_of_getLsbD_eq
+    intro i hi
+    simp only [Maj, BitVec.getLsbD_xor, BitVec.getLsbD_and, BitVec.getLsbD_or]
+    cases x.getLsbD i <;> cases y.getLsbD i <;> cases z.getLsbD i <;> rfl
+  rw [e, BitVec.toNat_or, BitVec.toNat_and, BitVec.toNat_and, BitVec.toNat_or]
+
+theorem shaCh_returns (c : Cells) (fuel : Nat) (wide : 33 ≤ c.bits) (x y z : Word)
+    (d : List Int) :
+    (run c shaProgram fuel shaChBody
+      ⟨(z.toNat : Int) :: (y.toNat : Int) :: (x.toNat : Int) :: d, []⟩).returned =
+      some (((Ch x y z).toNat : Int) :: d) := by
+  have e32 : (2 : Nat) ^ 32 = 4294967296 := by decide
+  have hx := word_lt x
+  have hy := word_lt y
+  have hz := word_lt z
+  have yz : y.toNat ^^^ z.toNat < 4294967296 := by
+    rw [← e32]; exact Nat.xor_lt_two_pow (by omega) (by omega)
+  have yzx : (y.toNat ^^^ z.toNat) &&& x.toNat < 4294967296 := by
+    rw [← e32]; exact Nat.and_lt_two_pow _ (by omega)
+  have all : z.toNat ^^^ ((y.toNat ^^^ z.toNat) &&& x.toNat) < 4294967296 := by
+    rw [← e32]; exact Nat.xor_lt_two_pow (by omega) (by omega)
+  simp only [shaChBody, run_prim, run_nil, step.eq_6, step.eq_7, step.eq_30, step.eq_32]
+  rw [bitwise_words c wide (· ^^^ ·) _ _ yz, bitwise_words c wide (· &&& ·) _ _ yzx,
+    bitwise_words c wide (· ^^^ ·) _ _ all, Ch_toNat]
+  rfl
+
+theorem shaMaj_returns (c : Cells) (fuel : Nat) (wide : 33 ≤ c.bits) (x y z : Word)
+    (d : List Int) :
+    (run c shaProgram fuel shaMajBody
+      ⟨(z.toNat : Int) :: (y.toNat : Int) :: (x.toNat : Int) :: d, []⟩).returned =
+      some (((Maj x y z).toNat : Int) :: d) := by
+  have e32 : (2 : Nat) ^ 32 = 4294967296 := by decide
+  have hx := word_lt x
+  have hy := word_lt y
+  have hz := word_lt z
+  have xy : x.toNat &&& y.toNat < 4294967296 := by
+    rw [← e32]; exact Nat.and_lt_two_pow _ (by omega)
+  have xoy : x.toNat ||| y.toNat < 4294967296 := by
+    rw [← e32]; exact Nat.or_lt_two_pow (by omega) (by omega)
+  have xoyz : (x.toNat ||| y.toNat) &&& z.toNat < 4294967296 := by
+    rw [← e32]; exact Nat.and_lt_two_pow _ (by omega)
+  have all : (x.toNat &&& y.toNat) ||| ((x.toNat ||| y.toNat) &&& z.toNat) < 4294967296 := by
+    rw [← e32]; exact Nat.or_lt_two_pow (by omega) (by omega)
+  simp only [shaMajBody, run_prim, run_nil, step.eq_8, step.eq_10, step.eq_11, step.eq_30,
+    step.eq_31, step.eq_40]
+  rw [bitwise_words c wide (· &&& ·) _ _ xy, bitwise_words c wide (· ||| ·) _ _ xoy,
+    bitwise_words c wide (· &&& ·) _ _ xoyz, bitwise_words c wide (· ||| ·) _ _ all, Maj_toNat]
+  rfl
+
+theorem shaBigSigma0_returns (c : Cells) (fuel : Nat) (wide : 33 ≤ c.bits) (enough : 3 ≤ fuel)
+    (x : Word) (d : List Int) :
+    (run c shaProgram fuel shaBigSigma0Body ⟨(x.toNat : Int) :: d, []⟩).returned =
+      some (((bigSigma0 x).toNat : Int) :: d) := by
+  have e32 : (2 : Nat) ^ 32 = 4294967296 := by decide
+  have f2 : c.Fits 2 := c.fits_word wide (by omega) (by omega)
+  have f13 : c.Fits 13 := c.fits_word wide (by omega) (by omega)
+  have f22 : c.Fits 22 := c.fits_word wide (by omega) (by omega)
+  have r2 := word_lt (ROTR 2 x)
+  have r13 := word_lt (ROTR 13 x)
+  have r22 := word_lt (ROTR 22 x)
+  have two : (ROTR 2 x).toNat ^^^ (ROTR 13 x).toNat < 4294967296 := by
+    rw [← e32]; exact Nat.xor_lt_two_pow (by omega) (by omega)
+  have all : (ROTR 2 x).toNat ^^^ (ROTR 13 x).toNat ^^^ (ROTR 22 x).toNat < 4294967296 := by
+    rw [← e32]; exact Nat.xor_lt_two_pow (by omega) (by omega)
+  simp only [shaBigSigma0Body, run_prim, run_lit _ _ _ _ _ _ _ f2, step.eq_1]
+  rw [run_call_word c shaProgram lookup_shaRotr
+    (shaRotr_returns c (fuel - 1) wide (by omega) x 2 2 rfl (by decide) _) (by omega)]
+  simp only [run_prim, run_lit _ _ _ _ _ _ _ f13, step.eq_4]
+  rw [run_call_word c shaProgram lookup_shaRotr
+    (shaRotr_returns c (fuel - 1) wide (by omega) x 13 13 rfl (by decide) _) (by omega)]
+  simp only [run_prim, run_lit _ _ _ _ _ _ _ f22, step.eq_3, step.eq_32]
+  rw [run_call_word c shaProgram lookup_shaRotr
+    (shaRotr_returns c (fuel - 1) wide (by omega) x 22 22 rfl (by decide) _) (by omega)]
+  simp only [run_prim, run_nil, step.eq_32]
+  rw [bitwise_words c wide (· ^^^ ·) _ _ two, bitwise_words c wide (· ^^^ ·) _ _ all]
+  simp only [Result.returned, bigSigma0, BitVec.toNat_xor]
+
+/-- `sha-ch` leaves FIPS 180-4's Ch(x, y, z) for all 32-bit words. -/
+theorem shaCh_correct (c : Cells) (fuel : Nat) (wide : 33 ≤ c.bits) (enough : 1 ≤ fuel)
+    (x y z : Word) (d rs : List Int) :
+    callWord c shaProgram fuel "sha-ch"
+      ⟨(z.toNat : Int) :: (y.toNat : Int) :: (x.toNat : Int) :: d, rs⟩ =
+      .next ⟨((Ch x y z).toNat : Int) :: d, rs⟩ :=
+  callWord_of_returns lookup_shaCh (shaCh_returns c _ wide x y z d) enough
+
+/-- `sha-maj` leaves FIPS 180-4's Maj(x, y, z) for all 32-bit words. -/
+theorem shaMaj_correct (c : Cells) (fuel : Nat) (wide : 33 ≤ c.bits) (enough : 1 ≤ fuel)
+    (x y z : Word) (d rs : List Int) :
+    callWord c shaProgram fuel "sha-maj"
+      ⟨(z.toNat : Int) :: (y.toNat : Int) :: (x.toNat : Int) :: d, rs⟩ =
+      .next ⟨((Maj x y z).toNat : Int) :: d, rs⟩ :=
+  callWord_of_returns lookup_shaMaj (shaMaj_returns c _ wide x y z d) enough
+
+/-- `sha-big-sigma0` leaves FIPS 180-4's Σ0(x) for every 32-bit word. -/
+theorem shaBigSigma0_correct (c : Cells) (fuel : Nat) (wide : 33 ≤ c.bits) (enough : 4 ≤ fuel)
+    (x : Word) (d rs : List Int) :
+    callWord c shaProgram fuel "sha-big-sigma0" ⟨(x.toNat : Int) :: d, rs⟩ =
+      .next ⟨((bigSigma0 x).toNat : Int) :: d, rs⟩ :=
+  callWord_of_returns lookup_shaBigSigma0
+    (shaBigSigma0_returns c _ wide (by omega) x d) (by omega)
+
+/-- A wrong variant, refuted: Ch without its complement, x and (y xor z),
+which is (x and y) xor (x and z); for x = 0, y = 0, z = 1 it leaves 0, not
+Ch's 1 (64-bit cells). -/
+def complementlessChProgram : Program :=
+  [("sha-ch", .word [.prim .tuck, .prim .xor, .prim .rot, .prim .and])]
+
+theorem complementless_ch_refuted :
+    ¬ ∀ x y z : Word,
+      callWord cells64 complementlessChProgram 1 "sha-ch"
+        ⟨[(z.toNat : Int), (y.toNat : Int), (x.toNat : Int)], []⟩ =
+        .next ⟨[((Ch x y z).toNat : Int)], []⟩ := by
+  intro claim
+  have bad := claim 0 0 1
+  have one : ((1 : Word).toNat : Int) = 1 := by decide
+  have zero : ((0 : Word).toNat : Int) = 0 := by decide
+  have ch : ((Ch 0 0 1).toNat : Int) = 1 := by decide
+  rw [one, zero, ch] at bad
+  revert bad
+  simp [callWord, run_call, complementlessChProgram, lookup, run_prim, step, bitwise,
+    Cells.unsigned, Cells.signed]
+
 #print axioms rotr_value
 #print axioms shaRotr_correct
 #print axioms unmasked_rotr_refuted
+#print axioms shaCh_correct
+#print axioms shaMaj_correct
+#print axioms shaBigSigma0_correct
+#print axioms complementless_ch_refuted
+#print axioms shaProgram_wellFormed
 
 end ProgramIR
 

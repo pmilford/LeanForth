@@ -446,7 +446,8 @@ def file_entries(directory):
 GOLDEN = [("src/program/clamp.fs", "tests/program/ir/clamp.ir"),
           ("src/program/examples.fs", "tests/program/ir/examples.ir"),
           ("tests/program/ir/all-primitives.fs", "tests/program/ir/all-primitives.ir"),
-          ("tests/program/ir/ir-0.2.fs", "tests/program/ir/ir-0.2.ir")]
+          ("tests/program/ir/ir-0.2.fs", "tests/program/ir/ir-0.2.ir"),
+          ("src/program/sha-words.fs", "tests/program/ir/sha-words.ir")]
 
 
 def main():

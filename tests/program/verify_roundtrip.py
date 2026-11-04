@@ -45,7 +45,8 @@ import verify_check  # noqa: E402
 PRIMS = ("dup drop swap over nip tuck rot 2dup 2drop >r r> r@ + - * / mod negate abs 1+ "
          "1- = <> < > 0= 0<> 0< 0> and or xor invert rshift max min true false").split()
 GOLDEN = ["tests/program/ir/clamp.ir", "tests/program/ir/examples.ir",
-          "tests/program/ir/all-primitives.ir", "tests/program/ir/ir-0.2.ir"]
+          "tests/program/ir/all-primitives.ir", "tests/program/ir/ir-0.2.ir",
+          "tests/program/ir/sha-words.ir"]
 AWKWARD = """lf-ir 0.1
 source awkward.fs
 constant k7

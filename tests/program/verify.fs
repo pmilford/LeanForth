@@ -94,6 +94,28 @@ T{ s" tests/program/ir/ir-0.2.fs" s" tests/program/ir/ir-0.2.ir" shift-golden
    -> outcome-ok 0 }T
 T{ s" tests/program/ir/ir-0.2.fs" s" tests/program/ir/ir-0.2.ir" alias-golden
    -> outcome-ok 0 }T
+T{ s" src/program/sha-words.fs" s" tests/program/ir/sha-words.ir" shift-golden
+   -> outcome-ok 0 }T
+T{ s" src/program/sha-words.fs" s" tests/program/ir/sha-words.ir" alias-golden
+   -> outcome-ok 0 }T
+
+\ Run mode of the SHA-2 helper words (src/program/sha-words.fs), loaded
+\ into a word list of their own: FIPS 180-4's values, and the example of
+\ tests/reference/sha256-spec.lean (Sigma0(6a09e667) = ce20b47e).
+wordlist constant sha-words
+get-current sha-words set-current get-order sha-words swap 1+ set-order
+s" ../../src/program/sha-words.fs" included
+previous set-current
+: sha-word ( c-addr u -- xt ) sha-words search-wordlist 0= abort" no such word" ;
+: sha ( i*x c-addr u -- j*x ) sha-word execute ;
+T{ $6a09e667 s" sha-big-sigma0" sha -> $ce20b47e }T
+T{ 1 1 s" sha-rotr" sha $80000000 1 s" sha-rotr" sha -> $80000000 $40000000 }T
+T{ $12345678 8 s" sha-rotr" sha $12345678 31 s" sha-rotr" sha -> $78123456 $2468acf0 }T
+T{ $ffffffff $12345678 $9abcdef0 s" sha-ch" sha -> $12345678 }T
+T{ 0 $12345678 $9abcdef0 s" sha-ch" sha -> $9abcdef0 }T
+T{ $ffffffff 0 $12345678 s" sha-maj" sha $f0f0f0f0 $ff00ff00 $ffff0000 s" sha-maj" sha
+   -> $12345678 $fff0f000 }T
+T{ $ffffffff 7 s" sha-shr" sha 0 s" sha-mask" sha -> $1ffffff 0 $ffffffff }T
 
 \ Accepted text, and every outcome with its reason, line and column, the
 \ same in both designs.

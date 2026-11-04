@@ -34,7 +34,11 @@ import unittest
 
 MODEL = Path("tests/reference/program-ir.lean")
 GOLDEN = [Path("tests/program/ir/clamp.ir"), Path("tests/program/ir/examples.ir"),
-          Path("tests/program/ir/all-primitives.ir"), Path("tests/program/ir/ir-0.2.ir")]
+          Path("tests/program/ir/all-primitives.ir"), Path("tests/program/ir/ir-0.2.ir"),
+          Path("tests/program/ir/sha-words.ir")]
+# Stage SHA-2: the program file's definitions must be the library's text.
+SHA_WORDS = Path("src/program/sha-words.fs")
+SHA_LIBRARY = Path("src/lib/sha256.fs")
 READER = Path("src/program/ir-reader.fs")
 DOC = Path("docs/programming/PROGRAM_IR.md")
 REFERENCES = {
@@ -59,7 +63,11 @@ THEOREMS = [f"ProgramIR.{name}" for name in (
     # IR 0.2 (ADR 0019 Amendment 1): well-formedness, output words (Part 7).
     "ir02_wellFormed", "constant_with_out_not_wellFormed", "later_version_not_wellFormed",
     "runOut_result", "debug_pair", "debug_pair_prints", "clampDebug_correct",
-    "clampDebug_prints")] + [
+    "clampDebug_prints",
+    # Stage SHA-2: the helper words of src/program/sha-words.fs (Part 8).
+    "rotr_value", "shaRotr_correct", "unmasked_rotr_refuted", "shaCh_correct",
+    "shaMaj_correct", "shaBigSigma0_correct", "complementless_ch_refuted",
+    "shaProgram_wellFormed")] + [
     # The reference contracts' own proofs, copied verbatim into Part 5.
     "CheckedAddReference.checkedAdd_contract", "ProgramExamplesReference.checkedAbs_contract",
     "ProgramExamplesReference.inRange_contract", "GcdReference.checked_contract",
@@ -178,6 +186,28 @@ def threat_model_problems(reader_text, doc_text):
     return problems
 
 
+def definitions(text):
+    """The definitions of a Forth text, a colon definition with its next line
+    when it continues there, as lines without comments."""
+    lines, found = [line for line in text.splitlines() if not line.startswith("\\")], []
+    for i, line in enumerate(lines):
+        if line.startswith(": ") or " constant " in line:
+            code = line.split(" \\ ")[0].rstrip()
+            if code.startswith(": ") and not code.endswith(";"):
+                code += "\n" + lines[i + 1].rstrip()
+            found.append(code)
+    return found
+
+
+def sha_word_problems(words_text, library_text):
+    """Each definition of src/program/sha-words.fs must stand in
+    src/lib/sha256.fs as written (that file has comments after some)."""
+    library = [re.sub(r" *\\ .*$", "", line).rstrip() for line in library_text.splitlines()]
+    library_text = "\n".join(library)
+    return [f"not the library's text: {code}" for code in definitions(words_text)
+            if code not in library_text]
+
+
 def golden_text():
     lines = []
     for path in GOLDEN:
@@ -246,6 +276,15 @@ class Copies(unittest.TestCase):
                 changed = words.replace(old, new, 1)
                 self.assertNotEqual(words, changed)
                 self.assertTrue(primitive_problems(changed, lean, WORDS_PRIM, 40))
+
+    def test_sha_words_are_the_library_text(self):
+        words = SHA_WORDS.read_text(encoding="utf-8")
+        library = SHA_LIBRARY.read_text(encoding="utf-8")
+        self.assertEqual(len(definitions(words)), 7)
+        self.assertEqual(sha_word_problems(words, library), [])
+        changed = words.replace("32 swap - lshift", "31 swap - lshift", 1)
+        self.assertNotEqual(words, changed)
+        self.assertTrue(sha_word_problems(changed, library))
 
     def test_threat_model_names_internal_words(self):
         reader = READER.read_text(encoding="utf-8")
