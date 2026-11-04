@@ -2588,3 +2588,14 @@ old = '''LEAN_CACHE ?= $(if $(CI),0,1)'''
 new = '''LEAN_CACHE ?= 1'''
 test = "python3 tests/lean-cache/test_lean_cache.py"
 reason = "CI (the CI variable set) replays cached Lean runs"
+
+# --- the test runner itself ---------------------------------------------
+
+[[fault]]
+id = "base-zero-crash"
+file = "src/lib/hash32.fs"
+old = '''  16 hash-shift hash-m1 hash-mul 13 hash-shift hash-m2 hash-mul 16 hash-shift ;'''
+new = '''  0 base ! 1 throw ;'''
+test = "$GFORTH tests/lib/hash32.fs"
+reason = "TS: Gforth 1.0 exits 0 after an error reported while BASE is 0; scripts/gforth-strict.sh must still fail the run"
+quick = true

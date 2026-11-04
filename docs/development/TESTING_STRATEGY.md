@@ -63,6 +63,20 @@ compiler and runtime correctness.
 - **Size guards.** Differential scripts check both tables' line counts and
   exit on mismatch before comparing them.
 - **Documentation links.** `make check-docs` fails on broken links.
+- **Gforth exit status.** Gforth 1.0 exits 0 after an uncaught error when
+  its error report itself fails: with `BASE` 0 the report divides by `BASE`
+  and ends in "Division by zero" (Gforth 0.7.3 exits 1). A test that
+  crashed after `0 base !` therefore passed silently, and a planted fault
+  survived. The Makefile now overrides `GFORTH` with
+  `scripts/gforth-strict.sh`, which runs the real Gforth (kept in
+  `LEANFORTH_GFORTH`; `GFORTH=...` on the make command line still names
+  it) and exits 1 when Gforth exited 0 but its stderr holds a `Backtrace:`
+  line or "uncaught exception". `scripts/mutants.py` wraps Gforth the same
+  way, and the fault `base-zero-crash` in `tests/mutants/faults.toml`
+  checks it. Stderr is replayed when the run ends, not live. Probes:
+  `.claude/work/TS/p1.fs` to `p3.fs` (local, gitignored). Limit: it
+  recognises Gforth's error report text; a run that ends early without
+  an error report (for example a stray `bye`) is not caught.
 
 The 2026-11-02 coverage review and its open items are recorded in
 [the test coverage review](TEST_COVERAGE_REVIEW.md).
