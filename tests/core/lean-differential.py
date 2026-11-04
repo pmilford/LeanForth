@@ -29,9 +29,8 @@ EQUAL, INVALID, UNKNOWN = "0", "1", "3"
 
 # Cases where Lean succeeds but the current Forth code answers unknown.
 KNOWN_UNKNOWN = {
-    # max u v and max v u are equal for every u and v; lf-level-compare does
-    # not decide this commutation symbolically.
-    ("convert", ("2", "6")),
+    # (Until ADR 0011 Amendment 1, max u v against max v u, convert case
+    # 2/6, was here: lf-level-compare now decides it as Lean's normalize.)
     # The claim's binder domain is the redex (fun X : Sort 1 => X) Sort 0;
     # lf-mixed-infer needs the inferred type of a domain to be a Sort
     # without weak-head reduction (src/kernel/mixed-infer.fs, the word
@@ -477,8 +476,7 @@ TABLES = {
     "shift": (shift, "plain shift cases agree with Lean's liftLooseBVars"),
     "instantiate": (instantiate, "plain instantiation cases agree with Lean's instantiate1"),
     "beta": (beta, "closed weak-head beta cases agree with Lean's Kernel.whnf"),
-    "convert": (convert, "conversion cases agree with Lean's isDefEq "
-                         "(one known conservative unknown)"),
+    "convert": (convert, "conversion cases agree with Lean's isDefEq"),
     "infer": (infer, "inference cases agree with Lean's Kernel.check"),
     "definition": (definition, "definition-probe cases agree with Lean's kernel "
                                "(one known conservative unknown)"),

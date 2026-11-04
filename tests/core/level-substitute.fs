@@ -89,15 +89,15 @@ T{ tree lf-level-identity -> tree-id true }T
 p actuals ! q actuals cell+ !
 T{ tree formals actuals 2 20 lf-lsubst -> tree outcome-ok }T
 
-\ Lean's instantiate (ADR 0011, Amendment 1). Fresh store: p, q and w,
-\ with 1, succ w and imax p q.
+\ Lean's instantiate (ADR 0011, Amendment 1). Fresh store: the parameters
+\ pp (ID 11), qq (22) and w (33), with 1, succ w and imax pp qq.
 require ../../src/core/diagnostics.fs
 : must ( flag -- ) 0= if -1 throw then ;
 lf-level-reset lf-lscope-context-reset
 11 lf-lscope-context-add must 22 lf-lscope-context-add must 33 lf-lscope-context-add must
-11 lf-level-param must constant p     22 lf-level-param must constant q
+11 lf-level-param must constant pp     22 lf-level-param must constant qq
 33 lf-level-param must constant w     0 lf-level-succ must constant one
-w lf-level-succ must constant w+1     p q lf-level-imax must constant ipq
+w lf-level-succ must constant w+1     pp qq lf-level-imax must constant ipq
 : sub ( root a b -- result status ) actuals cell+ ! actuals ! formals actuals 2 100 lf-lsubst ;
 \ T.{1, w+1}: imax 1 (w+1) is rebuilt by mk_imax into max 1 (w+1), the
 \ review's case d.
@@ -113,22 +113,22 @@ T{ lf-level-count @ 1- lf-level-read -> lf-level-tag-imax w+1 w true }T
 \ (replace keeps it, level.cpp 320-321).
 0 one lf-level-max must constant max01
 T{ max01 w w sub -> max01 outcome-ok }T
-\ K6: imax 1 (p+1) whose images are its own children. Lean keeps it only
+\ K6: imax 1 (pp+1) whose images are its own children. Lean keeps it only
 \ when the arguments are the objects its type holds; LeanForth cannot know:
 \ unknown, recorded with the node, nothing appended. The same for an
 \ actual that is another node of the same parameter.
-p lf-level-succ must constant p+1   one p+1 lf-level-imax must constant shared-imax
+pp lf-level-succ must constant pp+1   one pp+1 lf-level-imax must constant shared-imax
 lf-level-count @ constant before-k6
 lf-diag-clear
-T{ shared-imax p q sub -> outcome-unknown }T
+T{ shared-imax pp qq sub -> outcome-unknown }T
 T{ lf-diag@ nip -> shared-imax 0 lf-diag-shared-level }T
 T{ lf-level-count @ -> before-k6 }T
-11 lf-level-param must constant p'
-T{ shared-imax p' q sub -> outcome-unknown }T
-\ One that mk_imax leaves alone is kept: imax q p under p:=p, q:=q.
-q p lf-level-imax must constant iqp
-T{ iqp p q sub -> iqp outcome-ok }T
-\ A changed child rebuilds it: imax 1 (q+1) becomes max 1 (q+1).
-T{ shared-imax q p sub -> lf-level-count @ 1- outcome-ok }T
+11 lf-level-param must constant pp'
+T{ shared-imax pp' qq sub -> outcome-unknown }T
+\ One that mk_imax leaves alone is kept: imax qq pp under pp:=pp, qq:=qq.
+qq pp lf-level-imax must constant iqp
+T{ iqp pp qq sub -> iqp outcome-ok }T
+\ A changed child rebuilds it: imax 1 (qq+1) becomes max 1 (qq+1).
+T{ shared-imax qq pp sub -> lf-level-count @ 1- outcome-ok }T
 T{ lf-level-count @ 1- lf-level-read nip nip -> lf-level-tag-max true }T
 bye
