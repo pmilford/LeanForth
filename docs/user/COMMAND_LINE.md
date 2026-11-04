@@ -10,7 +10,7 @@ approves the checker, Lean's own kernel is the referee. `check` takes
 exports of any size: it stages the export with the importer stage and
 feeds it to the checker, whose stores grow to fit, so a whole library is
 checked from the command line — all of Lean's `Init`, 59,349
-declarations, in [about ten minutes, four with `gforth-fast`](#a-whole-library-leans-init). Most
+declarations, in [about ten minutes, four to five with `gforth-fast`](#a-whole-library-leans-init). Most
 of a real library still ends *unsupported* or *unknown*, because
 unfolding definitions (plan task 4.2.2), recursive data types and
 literals (phase 5) are not built yet. Three commands keep the first,
@@ -302,22 +302,23 @@ take the staged declarations. Lean's own `Init` library, exported with
 2026-11-04 with the default fuel:
 
 ```text
-$ bin/leanforth check --resources init.ndjson | tail -n 27
-59349 declarations: 1617 accepted, 3746 unknown, 53765 unsupported, 162 exhausted, 59 full
-accepted: 1617 (experimental, not independently audited); axioms: none
-note: a check ran out of room; its diagnostic names the limit: a walk holds 64
-note: levels of a term (plan task 6.2.0 lifts it), a declaration 16 dependencies
+$ GFORTH=.tools/gforth/bin/gforth-fast bin/leanforth check --resources init.ndjson | tail -n 28
+59349 declarations: 1618 accepted, 3748 unknown, 53800 unsupported, 179 exhausted, 4 full
+accepted: 1618 (experimental, not independently audited); axioms: none
+note: a check ran out of room; its diagnostic names the limit: memory, or
+note: 16 dependencies per declaration, 65536 per export, 512 constructors per
+note: inductive block (plan task 6.2.0)
 note: a check ran out of fuel (100000 steps each); --fuel N gives each more
 resources:
   time (s)     wall      cpu
-  stage      74.960   72.068
-  feed       47.671   43.769
-  check     475.480  466.903
-  total     598.636  583.266
-  memory: peak resident 1258.2 MB; the stage's heap blocks 215.1 MB
+  stage      18.869   18.869
+  feed       18.717   18.426
+  check     220.083  220.045
+  total     258.063  257.733
+  memory: peak resident 1218.1 MB; the stage's heap blocks 179.4 MB
   input: 59349 declarations, 6099054 term nodes, 578 levels, 56957 constant references, 295432 names
-  fuel: 25224868 steps in all, at most 100000 per declaration
-  fuel not known for 29999 declarations: a failed inference gives its
+  fuel: 26769240 steps in all, at most 100000 per declaration
+  fuel not known for 30023 declarations: a failed inference gives its
     counter up (their checks are not in the fuel above)
   most fuel used:
     100000 Lean.Omega.Constraint.add_sat (exhausted)
@@ -325,14 +326,14 @@ resources:
     100000 String.Slice.Pos.copy_eq_append_get (exhausted)
     100000 Array.map_attach_eq_pmap (exhausted)
     100000 Std.IterM.step_filterMapM (exhausted)
+    100000 Std.IterM.toList_filterMapM_map (exhausted)
     100000 Std.Iter.forIn'_eq_match_step (exhausted)
     100000 Std.IterM.step_filterMap (exhausted)
     100000 Std.IterM.toList_filterMap (exhausted)
-    100000 Std.Iter.toList_attachWith (exhausted)
-    100000 Std.Iter.step_mapM (exhausted)
+    100000 Std.IterM.forIn_filterMapWithPostcondition (exhausted)
 ```
 
-Nothing was rejected and nothing was invalid. The 1,617 accepted
+Nothing was rejected and nothing was invalid. The 1,618 accepted
 declarations include `id`, `Function.comp` and whole inductive blocks
 such as `Bool`, `Option`, `Prod`, `Sum`, `And`, `Or`, `Exists`, `Eq`,
 `HEq` and `Decidable`. Almost everything else is *unsupported* or
@@ -340,23 +341,30 @@ such as `Bool`, `Option`, `Prod`, `Sum`, `And`, `Or`, `Exists`, `Eq`,
 not an answer that differs from Lean's, which accepts all of `Init`:
 recursive and indexed inductive types such as `Nat` and `List` (plan
 tasks 5.2.1b, 5.2.1c; 266 declarations), literals, projections and other
-term forms (5.2.3, 5.2.2, 4.2.3; 25,691 declarations), axioms, opaque,
+term forms (5.2.3, 5.2.2, 4.2.3; 25,703 declarations), axioms, opaque,
 unsafe and partial declarations and quotients (5.3.1, 4.2.6, 5.2.4; 252),
-comparisons that need definitions unfolded (4.2.2; 748 *unknown*, codes
+comparisons that need definitions unfolded (4.2.2; 749 *unknown*, codes
 30–32), and everything that uses
-one of those (27,556 *unsupported* and 2,998 *unknown* only for that).
-*full* means a term nested deeper than the 64 levels a walk holds today
-(55, plan task 6.2.0) or a declaration with more than 16 dependencies (4;
-no plan task names that limit yet), and *exhausted* a check that needed
-more than 100,000 steps (`--fuel N` gives more). The `gforth-fast`
-engine gives the same output, byte for byte but for the times, in less
-than half the time: set `GFORTH=.tools/gforth/bin/gforth-fast`.
+one of those (27,579 *unsupported* and 2,999 *unknown* only for that).
+*full* means a declaration with more than 16 dependencies (4, such as
+`Sum.isRight_iff`; plan task 6.2.0), and *exhausted* a check that needed
+more than 100,000 steps (179; `--fuel N` gives more). No term is too
+deep any more: since the depth work of plan task 6.2.0 (part (b)) the
+55 declarations that ended *full* at a walk's 64 levels in the first run
+of 2026-11-04 get other verdicts (33 *unsupported*, 17 *exhausted*, 4
+*unknown*, 1 accepted), and two that use one of them moved from
+*unknown* to *unsupported*. 183 names, most of them notations such as
+`«term_+_»`, are shown with `«»`, as Lean shows them.
 
-The run above used the default `gforth` engine on a 10-core WSL2 machine
-while other test runs shared it (one core for this run). With
-`gforth-fast` the same run took 4 min 5 s (staging 16.6 s, feeding
-12.0 s, checking 216.1 s; peak 1.24 GB), byte for byte the same
-verdicts. The ten
+The run above used the `gforth-fast` engine
+(`GFORTH=.tools/gforth/bin/gforth-fast`) on a 10-core WSL2 machine that
+other agents' test runs shared. The default `gforth` engine gives the
+same output, byte for byte but for the times, in about two and a half
+times as long (9 min 59 s for an earlier build on 2026-11-04). Freeing
+the stage's export-index maps once it is staged gives back 35.7 MB of
+its 215.1 MB; on three runs of this build, the same verdicts, fuel and
+diagnostics for every declaration, the peak was 1,263 MB without it and
+1,218 MB with it (peaks vary by about 20 MB from run to run). The ten
 declarations that used the most fuel all ran out of it; among the
 accepted ones the most was 48,291 steps (a `match` auxiliary of
 `Sum.exists`). Half the declarations' fuel is not known: their check
@@ -371,7 +379,8 @@ command line's part): the wall and CPU time of each phase — staging,
 feeding, checking — and of the whole run so far, in seconds; the
 process's peak resident memory (`VmHWM` in `/proc/self/status`; on a host
 without it, `not measured on this host`) and the bytes of heap blocks the
-stage held; the size of the input as fed (declarations, term nodes,
+stage holds while the checks run (its export-index maps, which only
+loading needs, are freed once it is staged: `stage-unmap`); the size of the input as fed (declarations, term nodes,
 levels, constant references, names); the fuel all checks used; and the
 ten declarations that used the most, most first, those of equal fuel in
 file order. Times and memory differ from run to run; everything else is
