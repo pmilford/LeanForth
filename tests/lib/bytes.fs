@@ -101,6 +101,10 @@ create codes 0 , $41 , $7f , $80 , $e9 , $7ff , $800 , $d7ff , $e000 , $fffd , $
 T{ all-round-trip? -> true }T
 T{ $e9 bytes utf8-put bytes c@ bytes 1+ c@ -> 2 $c3 $a9 }T
 T{ $1f600 bytes utf8-put bytes 3 + c@ -> 4 $80 }T
+\ utf8-decode gives back every code point encoded, as the model does.
+: decodes? ( code -- flag ) dup bytes utf8-put bytes swap utf8-decode = ;
+: all-decode? ( -- flag ) true 14 0 do codes i cells + @ decodes? and loop ;
+T{ all-decode? s\" \xe2\x80\xae" drop 3 utf8-decode -> true $202e }T
 
 \ byte-scan agrees with the portable loop; lf-index finds the first line feed.
 T{ s" abcabc" char c byte-scan nip -> 4 }T
