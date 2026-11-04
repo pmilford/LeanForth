@@ -21,8 +21,14 @@ IR 0.2 is implemented.
 
 `run-gforth-1.0.0.out` and `run-gforth-0.7.3.out` hold the output of
 `run.sh` on each host. Their standard output is identical except for
-three number forms outside Forth-2012 (`-$10`: 1.0 refuses it, 0.7.3
-reads −16; `1_000` and `$1_0`: 1.0 reads them, 0.7.3 refuses them);
+three number forms outside Forth-2012 (`-$10`: 1.0 refuses it here,
+0.7.3 reads −16; `1_000` and `$1_0`: 1.0 reads them, 0.7.3 refuses them).
+*Correction (review rvIR3, L4):* Gforth 1.0 keeps state from one number to
+the next; it refuses `-$10` here only because `$-10` was read just before
+it, and in a fresh Gforth 1.0 it reads −16 as 0.7.3 does. Refusing
+`-$10` stays right (Forth-2012 does not define it), and
+`tests/program/verify_ir02.py` now checks every accepted form right after
+other tokens;
 Gforth's "redefined" warnings go to standard error on both, in different
 layouts. `p08-closed-stdout.out` is the same on both hosts: with standard
 output closed, `.` returns normally (THROW code 0, output lost); with a

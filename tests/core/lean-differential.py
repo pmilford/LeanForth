@@ -344,10 +344,12 @@ def input_script(text, prelude):
     return script + ["fc-run", "bye"]
 
 
-def fed_script(text, directory):
+def fed_script(text, directory, prelude=()):
     """The Forth lines of tests/support/fed-checker-driver.fs that stage
-    and feed every case, written as an export in directory first."""
-    script = [f"require {Path('tests/support/fed-checker-driver.fs').resolve()}"]
+    and feed every case, written as an export in directory first, after the
+    Forth lines of prelude (such as DEPTH_SETTINGS)."""
+    script = [f"require {Path('tests/support/fed-checker-driver.fs').resolve()}",
+              ": must-ok ( outcome -- ) ok? 0= abort\" setting\" ;", *prelude]
     for k, (case, export) in enumerate(case_exports(text)):
         path = Path(directory) / f"case-{k}.ndjson"
         path.write_text(export)
@@ -360,7 +362,7 @@ def checker_rows(text, prelude=(), fed=False):
     the Forth lines of prelude (such as LARGE_CAPACITIES); or, fed, as an
     export through the stage and the feed (fed-checker-driver.fs)."""
     with tempfile.TemporaryDirectory() as temporary:
-        script = fed_script(text, temporary) if fed else input_script(text, prelude)
+        script = fed_script(text, temporary, prelude) if fed else input_script(text, prelude)
         path = Path(temporary) / "first-checker-cases.fs"
         path.write_text("\n".join(script) + "\n")
         result = subprocess.run([GFORTH, str(path)], capture_output=True, text=True,
@@ -497,9 +499,24 @@ def binder_domains(prelude=(), known=None, name="binder domains", fed=False):
 # Universe scope (ADR 0012 test-matrix row 4): universe-scope-terms.lean
 # checks Lean's verdict on each case and prints its expectation (EXPECT
 # lines), then the cases.
-def expect_table(source, count, prelude=(), name="universe scope", fed=False):
+def case_blocks(lines, prefix):
+    """The CASE lines whose id starts with prefix, each with the lines after it."""
+    kept, keep = [], False
+    for line in lines:
+        if line.startswith("CASE "):
+            keep = line.split()[1].startswith(prefix)
+        if keep:
+            kept.append(line)
+    return kept
+
+
+def expect_table(source, count, prelude=(), name="universe scope", fed=False, prefix="",
+                 known=None):
     """A table whose Lean file checks Lean's verdicts and prints EXPECT lines,
-    then the cases (universe-scope-terms.lean, universe-many-terms.lean)."""
+    then the cases (universe-scope-terms.lean, universe-many-terms.lean);
+    only the cases whose id starts with prefix; known: the rows allowed
+    another outcome, as checker_row takes them."""
+    known = known or {}
     with tempfile.TemporaryDirectory() as temporary:
         first_checker_modules(temporary)
         output = subprocess.run([LEAN, "-DwarningAsError=true", source],
@@ -507,14 +524,14 @@ def expect_table(source, count, prelude=(), name="universe scope", fed=False):
                                 env=dict(os.environ, LEAN_PATH=temporary)).stdout
     lines = output.splitlines()
     table = {words[1]: words[2:] for words in map(str.split, lines)
-             if words[0] == "EXPECT"}
-    rows, verdicts = checker_rows("\n".join(line for line in lines
-                                            if not line.startswith("EXPECT ")), prelude, fed)
+             if words[0] == "EXPECT" and words[1].startswith(prefix)}
+    cases = case_blocks([line for line in lines if not line.startswith("EXPECT ")], prefix)
+    rows, verdicts = checker_rows("\n".join(cases), prelude, fed)
     if sorted(rows) != sorted(table) or len(rows) != count:
         raise Mismatch(f"{name}: the Forth rows are not the table's {count} cases")
     for case, (lean, expected, rule) in table.items():
-        checker_row(case, lean, expected, rule, rows[case], verdicts[case], {})
-    checker_summary(name, rows, {})
+        checker_row(case, lean, expected, rule, rows[case], verdicts[case], known)
+    checker_summary(name, rows, known)
     return len(rows)
 
 
@@ -539,6 +556,36 @@ def universe_many(fed=False):
 
 def universe_many_fed():
     return universe_many(fed=True)
+
+
+# Plan task 6.2.0, part (b): no depth limit. Lambda, application and
+# successor chains 2,000 and 10,000 deep (depth-terms.lean), each accepted
+# or rejected for Lean's reason. LeanForth's work grows with the square of
+# the depth here (every reduction and opening audits or visits the term
+# below it, and the rejection analysis infers the rest of a type at each
+# binder), so the cases get ample fuel and term store, and the 10,000-deep
+# table, which takes minutes, is fed only and is not part of make check
+# (test-depth-deep-differential). The analysis that rejects the wrong
+# lambda (D4 down every binder) infers the rest of the type aside at each
+# binder; the free variables it opens go with that scratch (lf-lctx-drop),
+# and the local context is limited only by the heap, so it holds what any
+# depth needs.
+DEPTH_SETTINGS = ["10000000000 lf-check-budget", "1048576 lf-term-capacity! must-ok",
+                  "65536 lf-level-capacity! must-ok"]
+
+
+def depth(fed=False):
+    return expect_table("tests/reference/depth-terms.lean", 6, DEPTH_SETTINGS,
+                        "depth 2000" + (", fed" if fed else ""), fed, "depth2000.")
+
+
+def depth_fed():
+    return depth(fed=True)
+
+
+def depth_deep_fed():
+    return expect_table("tests/reference/depth-terms.lean", 6, DEPTH_SETTINGS,
+                        "depth 10000, fed", True, "depth10000.")
 
 
 def first_checker_large():
@@ -611,6 +658,10 @@ TABLES = {
                                      "with Lean's kernel"),
     "universe-many-fed": (universe_many_fed, "rows of 100, 300 and 1000 universe parameters "
                                              "agree with Lean's kernel, fed as exports"),
+    "depth": (depth, "rows of terms 2,000 deep agree with Lean's kernel"),
+    "depth-fed": (depth_fed, "rows of terms 2,000 deep agree with Lean's kernel, fed as exports"),
+    "depth-deep-fed": (depth_deep_fed, "rows of terms 10,000 deep agree with Lean's kernel, "
+                                       "fed as exports"),
 }
 
 

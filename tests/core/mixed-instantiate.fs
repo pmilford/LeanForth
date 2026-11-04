@@ -1,6 +1,7 @@
 \ Structural transformation tests; these do not establish theorem validity.
 include ../support/tester.fs
 include ../support/checks.fs
+include ../support/heap-watch.fs
 require ../../src/lib/lib.fs
 require ../../src/core/constant-references.fs
 require ../../src/core/constant-term-boundary.fs
@@ -269,10 +270,12 @@ T{ x 1 lf-term-app -> lf-term-count @ 1- true }T
 T{ lf-term-count @ 1- subst cell+ 1 1000 lf-open-fuel ! lf-abstract drop fields
   -> lf-tag-app x 1 }T
 \ Malformed: abstract over a node that is no live free variable, a dead
-\ free variable met in the term, more than lf-depth-limit or a negative n.
+\ free variable met in the term, or a negative n. Any n the heap can copy
+\ is taken (plan task 6.2.0): a copy it refuses is full.
 T{ 1 subst cell+ ! 9 2 abstracted -> -1 outcome-invalid }T
 open-setup
-T{ 9 lf-depth-limit 1+ rev -> -1 outcome-full }T
+1 heap-refusals !
+T{ 9 100000 rev -> -1 outcome-full }T
 T{ 9 -1 rev -> -1 outcome-invalid }T
 lf-term-count @ constant before-dead
 T{ 1 lf-lctx-local -> before-dead outcome-ok }T
@@ -296,9 +299,13 @@ T{ ' thrower catch -> -77 }T
 T{ 9 2 rev -> -1 outcome-invalid }T
 lf-open-reset
 T{ lf-open-frames frame-busy? 9 2 rev nip -> false outcome-ok }T
-\ The frame limit: a chain lf-depth-limit + 1 deep is full.
-: deep ( -- node ) 2 lf-depth-limit 0 do 1 swap lf-term-lam 0= abort" deep" loop ;
-lf-depth-limit 2* lf-term-capacity! drop
+\ No depth limit (plan task 6.2.0): a chain lf-walk-room + 1 deep is
+\ opened, on a stack that grows; a growth the heap refuses is full.
+: deep ( -- node ) 2 lf-walk-room 0 do 1 swap lf-term-lam 0= abort" deep" loop ;
+lf-walk-room 4 * lf-term-capacity! drop
+lf-term-count @ constant before-deep
+T{ deep 1 rev nip -> outcome-ok }T
+before-deep lf-term-count !  lf-open-frames frame-free  1 heap-refusals !
 T{ deep 1 rev -> -1 outcome-full }T
 \ mk_pi: fun over x : Sort and y : x of y is (x : Sort) -> (y : x) -> y,
 \ in de Bruijn form Pi Sort (Pi #0 #0), the domain x abstracted over x.

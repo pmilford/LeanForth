@@ -12,6 +12,7 @@
 \ Test-only; nothing here accepts a theorem.
 include ../support/tester.fs
 include ../support/checks.fs
+include ../support/heap-watch.fs
 require ../../src/main.fs
 include ../support/plain-terms.fs
 
@@ -305,10 +306,12 @@ T{ level-u level-u level-u max-of sorts-apart -> 0 false }T
 T{ level-u level-v max-of level-v level-u max-of sorts-apart -> 0 false }T
 T{ level-u level-v sorts-apart -> lf-rule-d1 true }T
 T{ 1 level-u next-level imax-of 1 level-u next-level max-of sorts-apart -> lf-rule-d1 true }T
-\ White-box: no frame left, or rules off (inference aside), is never apart.
+\ White-box: no frame left (a stack the heap cannot grow), or rules off
+\ (inference aside), is never apart.
 : two-sorts ( -- s0 s1 ) fresh 0 make-sort 1 make-sort tok @ 1000 lf-minfer-start ;
 T{ two-sorts lf-minfer-apart -> lf-rule-d1 true }T
-T{ two-sorts lf-term-capacity lf-minfer-depth ! lf-minfer-apart -> 0 false }T
+T{ two-sorts lf-minfer-frames frame-free 1 heap-refusals ! lf-minfer-apart -> 0 false }T
+0 heap-refusals !
 T{ two-sorts true lf-minfer-aside ! lf-minfer-mismatch -> 0 false }T
 T{ fresh 0 make-sort 1 make-sort tok @ 0 lf-minfer-start lf-minfer-apart -> 0 false }T
 \ A context for the white-box tests below: each variable a free variable
@@ -368,8 +371,13 @@ T{ 1 proof-context x-a y-var lf-minfer-apart -> lf-rule-d3 true }T
   0 x-to-prop 1 x-to-prop 2 make-var 2 make-var 0 make-var make-app
   make-pi make-pi make-pi make-pi ;
 T{ d4-pair lf-minfer-apart -> 0 false }T
-T{ d4-pair lf-minfer-binders-apart -> 0 false }T
-T{ d4-pair swap lf-minfer-binders-apart -> lf-rule-d3 lf-rule-d4 or true }T
+\ lf-minfer-binders-apart is a step of the analysis (lib/frame.fs), run
+\ here on the job's frames from an empty stack.
+: binders-apart ( left right -- mask flag )
+  frame-need lf-minfer-frames frame-room? drop
+  lf-minfer-frames ['] lf-minfer-binders-apart frame-steps drop ;
+T{ d4-pair binders-apart -> 0 false }T
+T{ d4-pair swap binders-apart -> lf-rule-d3 lf-rule-d4 or true }T
 \ Two lambdas, fun (h : X) => h and fun (h : X) => g h, in the context
 \ X : Sort s, g : X -> X: proofs when s = 0 (Lean accepts one for the
 \ other), apart by their bodies' counts when s = 1 (D4, D3).

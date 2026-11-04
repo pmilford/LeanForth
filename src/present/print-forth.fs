@@ -19,10 +19,13 @@
 \ between a word and the name it reads; a note ends its line.
 \ Untrusted presentation code: the checker never loads it, and no output
 \ is evidence of anything. Uses the term printer's job record
-\ (print-job.fs: sink, fuel, nested visits, binders in scope and the name
-\ pool); a binder in scope holds the name its variables can be written
-\ by (empty when none) and, in its domain cell, -1 for the binder of an
-\ arrow, which the printed words do not count.
+\ (print-job.fs: sink, fuel, the frames its visits run on, binders in
+\ scope and the name pool); a binder in scope holds the name its variables
+\ can be written by (empty when none) and, in its domain cell, -1 for the
+\ binder of an arrow, which the printed words do not count. As in the
+\ term printer, every term, level and the declaration is a visit of the
+\ print's frames, whose steps keep what they need on the frames' stack,
+\ so no depth is tied to the host's stacks (plan task 6.2.0).
 \ State: one context record, lf-pforth (ADR 0009), besides the printer's.
 \
 \ Public words (outcomes from lib/outcome.fs):
@@ -184,9 +187,11 @@ create lf-pf-eol 10 c,
 : lf-pf-number ( u -- ) lf-pf-mark swap lf-pf-put-number lf-pf-unit ;
 
 \ Universe levels, postfix: 0, 2, u, u 1 level+, a b level-max, a b level-imax.
-\ A parameter is written by its name, which must be a usable token.
-defer lf-pf-level-visit ( level x -- outcome )
-: lf-pf-level ( level -- outcome ) 0 ['] lf-pf-level-visit lf-pp-call ;
+\ A parameter is written by its name, which must be a usable token. A
+\ level is a visit; lf-pf-level asks for one, continuing with cont.
+defer lf-pf-level-step ( level x frames -- ... frames next )
+: lf-pf-level ( level frames cont -- ... frames next )
+  rot 0 2swap ['] lf-pf-level-step lf-pp-call ;
 : lf-pf-param ( id -- outcome )
   dup lf-pf-writable? 0= if drop outcome-unsupported exit then
   lf-pf-mark swap lf-pf-put-name dup lf-pp-pending lf-pf-token?
@@ -196,33 +201,54 @@ defer lf-pf-level-visit ( level x -- outcome )
   0 begin over lf-level-tag@ lf-level-tag-succ = while swap lf-level-first@ swap 1+
     repeat ;
 : lf-pf-zero? ( level -- flag ) lf-level-tag@ lf-level-tag-zero = ;
-: lf-pf-offset ( base n -- outcome )
-  swap lf-pf-level dup ok? if drop lf-pf-number s" level+" lf-pf-say else nip then ;
-: lf-pf-succ-level ( level -- outcome )
-  lf-pf-succs over lf-pf-zero? if nip lf-pf-number outcome-ok else lf-pf-offset then ;
-: lf-pf-operands ( level -- outcome )
-  dup lf-level-first@ lf-pf-level ok-then? if lf-level-second@ lf-pf-level then ;
-: lf-pf-binary ( level c-addr u -- outcome ) 2>r lf-pf-operands 2r> lf-pf-then-word ;
-\ A CASE with one arm per level tag, read as a table.
-: lf-pf-level-node ( level x -- outcome )
-  drop dup lf-level-valid? 0= if drop-invalid exit then
-  dup lf-level-tag@ case
-    lf-level-tag-zero of drop s" 0" lf-pf-say endof
-    lf-level-tag-succ of lf-pf-succ-level endof
-    lf-level-tag-max of s" level-max" lf-pf-binary endof
-    lf-level-tag-imax of s" level-imax" lf-pf-binary endof
-    lf-level-tag-param of lf-level-first@ lf-pf-param endof
-    >r drop-invalid r> endcase ;
-' lf-pf-level-node is lf-pf-level-visit
+\ base n level+: n waits while base prints.
+: lf-pf-offset-back ( outcome frames -- outcome frames 0 )
+  >r r@ frame-restore swap dup ok? if drop lf-pf-number s" level+" lf-pf-say else nip then
+  r> 0 ;
+: lf-pf-offset ( base n frames -- ... frames next )
+  tuck frame-save ['] lf-pf-offset-back lf-pf-level ;
+: lf-pf-succ-level ( level frames -- ... frames next )
+  >r lf-pf-succs over lf-pf-zero?
+  if nip lf-pf-number outcome-ok r> 0 else r> lf-pf-offset then ;
+\ a b level-max and a b level-imax: the tag and the level wait while a
+\ prints, the tag while b does.
+: lf-pf-binary-word ( tag -- c-addr u )
+  lf-level-tag-max = if s" level-max" else s" level-imax" then ;
+: lf-pf-binary-end ( outcome frames -- outcome frames 0 )
+  >r r@ frame-restore lf-pf-binary-word lf-pf-then-word r> 0 ;
+: lf-pf-binary-second ( outcome frames -- ... frames next )
+  >r r@ frame-restore swap ok-then?
+  if lf-level-second@ r> ['] lf-pf-binary-end lf-pf-level else r> lf-pf-binary-end then ;
+: lf-pf-binary ( level frames -- ... frames next )
+  >r dup lf-level-tag@ r@ frame-save dup r@ frame-save lf-level-first@
+  r> ['] lf-pf-binary-second lf-pf-level ;
+\ The step for a level's tag: a CASE with one arm per tag, read as a table.
+: lf-pf-level-zero ( level frames -- outcome frames 0 ) >r drop s" 0" lf-pf-say r> 0 ;
+: lf-pf-level-param ( level frames -- outcome frames 0 )
+  >r lf-level-first@ lf-pf-param r> 0 ;
+\ The step of a visit that cannot print its node (a level or a term): invalid.
+: lf-pf-invalid-step ( x frames -- outcome frames 0 ) >r drop-invalid r> 0 ;
+: lf-pf-level-by ( tag -- xt )
+  case lf-level-tag-zero of ['] lf-pf-level-zero endof
+    lf-level-tag-succ of ['] lf-pf-succ-level endof
+    lf-level-tag-max of ['] lf-pf-binary endof
+    lf-level-tag-imax of ['] lf-pf-binary endof
+    lf-level-tag-param of ['] lf-pf-level-param endof
+    ['] lf-pf-invalid-step swap endcase ;
+: lf-pf-level-node ( level x frames -- ... frames next )
+  nip over lf-level-valid?
+  if over lf-level-tag@ lf-pf-level-by else ['] lf-pf-invalid-step then execute ;
+' lf-pf-level-node is lf-pf-level-step
 
 \ Sorts: Prop, l Type for Sort (l + 1), l Sort otherwise. A concrete Sort
 \ n prints the same words (they build the symbolic Sort).
-: lf-pf-sort-word ( level c-addr u -- outcome ) 2>r lf-pf-level 2r> lf-pf-then-word ;
-: lf-pf-symbolic ( level -- outcome )
-  dup lf-level-valid? 0= if drop-invalid exit then
-  dup lf-pf-zero? if drop s" Prop" lf-pf-say exit then
+: lf-pf-type-end ( outcome frames -- outcome frames 0 ) >r s" Type" lf-pf-then-word r> 0 ;
+: lf-pf-sort-end ( outcome frames -- outcome frames 0 ) >r s" Sort" lf-pf-then-word r> 0 ;
+: lf-pf-symbolic ( level frames -- ... frames next )
+  >r dup lf-level-valid? 0= if drop-invalid r> 0 exit then
+  dup lf-pf-zero? if drop s" Prop" lf-pf-say r> 0 exit then
   dup lf-level-tag@ lf-level-tag-succ =
-  if lf-level-first@ s" Type" else s" Sort" then lf-pf-sort-word ;
+  if lf-level-first@ r> ['] lf-pf-type-end else r> ['] lf-pf-sort-end then lf-pf-level ;
 : lf-pf-concrete ( n -- outcome )
   ?dup 0= if s" Prop" lf-pf-say exit then 1- lf-pf-number s" Type" lf-pf-say ;
 
@@ -244,19 +270,28 @@ defer lf-pf-level-visit ( level x -- outcome )
   dup lf-pf-writable? 0= if drop outcome-unsupported exit then
   lf-pf-mark over lf-pf-root? if s" root: " lf-pp-put then swap lf-pf-put-name lf-pf-unit
   outcome-ok ;
-: lf-pf-universe-args ( term -- outcome )
-  lf-pp-const-levels 0= if outcome-invalid exit then
-  0 ?do dup i lf-pp-level-at lf-pf-level ok-then? 0= if unloop exit then
-    s" ^" lf-pf-text loop drop outcome-ok ;
-: lf-pf-const ( term -- outcome )
-  dup lf-pp-const-name 0= if drop-invalid exit then
-  lf-pf-const-name ok-then? if lf-pf-universe-args then ;
+\ Each universe argument from index i on, then ^: the levels (addr), their
+\ number and the next index wait while one prints.
+defer lf-pf-args ( addr n i frames -- ... frames next )
+: lf-pf-args-back ( outcome frames -- ... frames next )
+  3 lf-pp-failed? if 0 exit then s" ^" lf-pf-text dup >r lf-pp-restore3 r> lf-pf-args ;
+: lf-pf-args-next ( addr n i frames -- ... frames next )
+  >r 2dup > 0= if 2drop drop outcome-ok r> 0 exit then
+  r@ lf-pp-keep-next nip lf-pp-level-at r> ['] lf-pf-args-back lf-pf-level ;
+' lf-pf-args-next is lf-pf-args
+: lf-pf-universe-args ( term frames -- ... frames next )
+  >r lf-pp-const-levels 0= if outcome-invalid r> 0 exit then 0 r> lf-pf-args ;
+: lf-pf-const ( term frames -- ... frames next )
+  >r dup lf-pp-const-name 0= if drop-invalid r> 0 exit then
+  lf-pf-const-name ok-then? if r> lf-pf-universe-args else r> 0 then ;
 
 \ Binders: the domain, then kind: NAME, then the body with the binder in
 \ scope, then fun or forall; or A B -> for an arrow. A binder with no
-\ entry in the side table is explicit and anonymous.
-defer lf-pf-term-visit ( term x -- outcome )
-: lf-pf-term ( term -- outcome ) 0 ['] lf-pf-term-visit lf-pp-call ;
+\ entry in the side table is explicit and anonymous. A term is a visit;
+\ lf-pf-term asks for one, continuing with cont.
+defer lf-pf-term-step ( term x frames -- ... frames next )
+: lf-pf-term ( term frames cont -- ... frames next )
+  rot 0 2swap ['] lf-pf-term-step lf-pp-call ;
 : lf-pf-binder-name ( node -- name kind ) lf-pres-binder@ 0= if 0 lf-binder-default then ;
 : lf-pf-kind-word ( kind -- c-addr u )
   case lf-binder-implicit of s" implicit:" endof lf-binder-strict of s" strict-implicit:"
@@ -277,42 +312,72 @@ defer lf-pf-term-visit ( term x -- outcome )
 : lf-pf-bind-visible ( node -- outcome )
   lf-pf-mark swap lf-pf-binder-name drop lf-pf-referable 0 swap lf-pp-bind ;
 : lf-pf-bind-arrow ( -- outcome ) -1 lf-pf-mark lf-pp-bind ;
-: lf-pf-head ( node -- outcome )
-  dup lf-term-first@ lf-pf-term ok-then? 0= if exit then
-  dup lf-pf-opener ok-then? 0= if exit then lf-pf-bind-visible ;
-: lf-pf-binder ( node c-addr u -- outcome )
-  2>r dup lf-pf-head ok-then? 0= if 2r> 2drop exit then
-  lf-term-second@ lf-pf-term 1 lf-pp-unbind 2r> lf-pf-then-word ;
+\ A binder's domain, then kind: NAME and the binder in scope, a part of a
+\ visit: node waits while the domain prints.
+: lf-pf-head-back ( outcome frames -- ... frames next )
+  >r r@ frame-restore swap ok-then? 0= if r> 0 exit then
+  dup lf-pf-opener ok-then? if lf-pf-bind-visible then r> 0 ;
+: lf-pf-head ( node frames cont -- ... frames next )
+  over frame-save >r dup r@ frame-save lf-term-first@ r> ['] lf-pf-head-back lf-pf-term ;
+\ Then the body, fun or forall (lam? says which): lam? waits under the
+\ head, node while the head prints.
+: lf-pf-binder-word ( lam? -- c-addr u ) if s" fun" else s" forall" then ;
+: lf-pf-binder-end ( outcome frames -- outcome frames 0 )
+  >r 1 lf-pp-unbind r@ frame-restore lf-pf-binder-word lf-pf-then-word r> 0 ;
+: lf-pf-binder-body ( outcome frames -- ... frames next )
+  >r r@ frame-restore swap ok-then? 0= if r@ frame-restore drop r> 0 exit then
+  lf-term-second@ r> ['] lf-pf-binder-end lf-pf-term ;
+: lf-pf-binder ( node lam? frames -- ... frames next )
+  >r r@ frame-save dup r@ frame-save r> ['] lf-pf-binder-body lf-pf-head ;
 : lf-pf-loose-name? ( id -- flag ) dup 0= if drop true else lf-pp-hygienic? then ;
 : lf-pf-arrow? ( pi -- flag outcome )
   dup lf-pp-kind lf-binder-default <> if drop false outcome-ok exit then
   dup lf-pf-binder-name drop lf-pf-loose-name? 0= if drop false outcome-ok exit then
   lf-term-second@ 0 lf-pp-loose? >r 0= r> ;
-: lf-pf-arrow ( pi -- outcome )
-  dup lf-term-first@ lf-pf-term ok-then? 0= if exit then
-  lf-pf-bind-arrow ok-then? 0= if exit then
-  lf-term-second@ lf-pf-term 1 lf-pp-unbind s" ->" lf-pf-then-word ;
-: lf-pf-pi ( pi -- outcome )
-  dup lf-pf-arrow? ok-then2? 0= if exit then
-  if lf-pf-arrow else s" forall" lf-pf-binder then ;
-: lf-pf-app ( app -- outcome )
-  dup lf-term-first@ lf-pf-term ok-then? if lf-term-second@ lf-pf-term s" $"
-    lf-pf-then-word then ;
+\ A B ->: pi waits while A prints.
+: lf-pf-arrow-end ( outcome frames -- outcome frames 0 )
+  >r 1 lf-pp-unbind s" ->" lf-pf-then-word r> 0 ;
+: lf-pf-arrow-body ( outcome frames -- ... frames next )
+  >r r@ frame-restore swap ok-then? 0= if r> 0 exit then
+  lf-pf-bind-arrow ok-then? 0= if r> 0 exit then
+  lf-term-second@ r> ['] lf-pf-arrow-end lf-pf-term ;
+: lf-pf-arrow ( pi frames -- ... frames next )
+  >r dup r@ frame-save lf-term-first@ r> ['] lf-pf-arrow-body lf-pf-term ;
+: lf-pf-pi ( pi frames -- ... frames next )
+  >r dup lf-pf-arrow? ok-then2? 0= if r> 0 exit then
+  if r> lf-pf-arrow else false r> lf-pf-binder then ;
+\ f a $: app waits while f prints.
+: lf-pf-app-end ( outcome frames -- outcome frames 0 ) >r s" $" lf-pf-then-word r> 0 ;
+: lf-pf-app-arg ( outcome frames -- ... frames next )
+  >r r@ frame-restore swap ok-then?
+  if lf-term-second@ r> ['] lf-pf-app-end lf-pf-term else r> 0 then ;
+: lf-pf-app ( app frames -- ... frames next )
+  >r dup r@ frame-save lf-term-first@ r> ['] lf-pf-app-arg lf-pf-term ;
 
-\ A CASE with one arm per term tag, read as a table; then the node's
-\ labels and notes.
-: lf-pf-node ( term -- outcome )
-  dup lf-pp-tag 0= if drop-invalid exit then
-  case lf-tag-bvar of lf-term-first@ lf-pf-var endof
-    lf-tag-sort of lf-term-first@ lf-pf-concrete endof
-    lf-tag-symbolic-sort of lf-term-first@ lf-pf-symbolic endof
-    lf-tag-app of lf-pf-app endof
-    lf-tag-lam of s" fun" lf-pf-binder endof
-    lf-tag-pi of lf-pf-pi endof
-    lf-tag-constant of lf-pf-const endof
-    >r drop-invalid r> endcase ;
-: lf-pf-noted ( term x -- outcome ) drop dup lf-pf-node ok-then? if lf-pf-notes then ;
-' lf-pf-noted is lf-pf-term-visit
+\ A term's visit: its node, then its labels and notes, the term waiting
+\ meanwhile. The step for the node's tag: a CASE with one arm per tag,
+\ read as a table.
+: lf-pf-var-step ( term frames -- outcome frames 0 ) >r lf-term-first@ lf-pf-var r> 0 ;
+: lf-pf-sort-step ( term frames -- outcome frames 0 )
+  >r lf-term-first@ lf-pf-concrete r> 0 ;
+: lf-pf-symbolic-step ( term frames -- ... frames next )
+  >r lf-term-first@ r> lf-pf-symbolic ;
+: lf-pf-lam ( lam frames -- ... frames next ) true swap lf-pf-binder ;
+: lf-pf-node-by ( tag -- xt )
+  case lf-tag-bvar of ['] lf-pf-var-step endof
+    lf-tag-sort of ['] lf-pf-sort-step endof
+    lf-tag-symbolic-sort of ['] lf-pf-symbolic-step endof
+    lf-tag-app of ['] lf-pf-app endof
+    lf-tag-lam of ['] lf-pf-lam endof
+    lf-tag-pi of ['] lf-pf-pi endof
+    lf-tag-constant of ['] lf-pf-const endof
+    ['] lf-pf-invalid-step swap endcase ;
+: lf-pf-noted-end ( outcome frames -- outcome frames 0 )
+  >r r@ frame-restore swap ok-then? if lf-pf-notes then r> 0 ;
+: lf-pf-noted ( term x frames -- ... frames next )
+  nip 2dup frame-save ['] lf-pf-noted-end over frame-save
+  over lf-pp-tag if lf-pf-node-by else ['] lf-pf-invalid-step then execute ;
+' lf-pf-noted is lf-pf-term-step
 
 \ Declarations.
 : lf-pf-keyword ( kind -- c-addr u )
@@ -332,46 +397,66 @@ defer lf-pf-term-visit ( term x -- outcome )
 : lf-pf-universes ( -- outcome )
   lf-pf-universe-ids 0 ?do dup i cells + @ lf-pf-universe ok-then? 0= if unloop exit then
     loop drop outcome-ok ;
-\ A parameter: its own line, then its binder stays in scope.
-: lf-pf-param-line ( binder -- outcome ) 2 lf-pf-open lf-pf-head ;
+\ A parameter: its own line, then its binder stays in scope; a part of
+\ the declaration's visit, as is a body on its own line.
+: lf-pf-param-line ( binder frames cont -- ... frames next ) 2 lf-pf-open lf-pf-head ;
 : lf-pf-same-binder? ( pi lam -- flag )
   lf-pf-binder-name rot lf-pf-binder-name rot = >r = r> and ;
 : lf-pf-shares? ( type value -- flag )
   over lf-tag-pi lf-pp-is? over lf-tag-lam lf-pp-is? and 0= if 2drop false exit then
   2dup lf-term-first@ swap lf-term-first@ <> if 2drop false exit then lf-pf-same-binder? ;
 : lf-pf-bodies ( type value -- type' value' ) lf-term-second@ swap lf-term-second@ swap ;
-: lf-pf-def-params ( type value -- type' value' outcome )
-  begin 2dup lf-pf-shares? while
-    over lf-pf-param-line dup ok? 0= if exit then drop lf-pf-bodies
-  repeat outcome-ok ;
-: lf-pf-type-params ( type -- type' outcome )
-  begin dup lf-tag-pi lf-pp-is? while
-    dup lf-pf-arrow? dup ok? 0= if nip exit then drop if outcome-ok exit then
-    dup lf-pf-param-line dup ok? 0= if exit then drop lf-term-second@
-  repeat outcome-ok ;
-: lf-pf-body ( term -- outcome ) 2 lf-pf-open lf-pf-term ;
-: lf-pf-definition ( decl -- outcome )
-  dup lf-fdecl-type @ swap lf-fdecl-value @ lf-pf-def-params ok-then2? 0= if exit then
-  swap lf-pf-body ok-then? 0= if exit then
-  0 lf-pf-open s" :=" lf-pf-text lf-pf-body ;
-: lf-pf-statement ( decl -- outcome )
-  lf-fdecl-type @ dup 0< if drop outcome-ok exit then
-  lf-pf-type-params ok-then? if lf-pf-body then ;
-: lf-pf-parts ( decl -- outcome )
-  dup lf-fdecl-kind @ lf-decl-def > if lf-pf-statement else lf-pf-definition then ;
+: lf-pf-body ( term frames cont -- ... frames next ) 2 lf-pf-open lf-pf-term ;
+\ A definition: its parameters while type and value share them (both
+\ wait while one prints), then the type (the value waits), := and the
+\ value.
+defer lf-pf-def-params ( type value frames -- ... frames next )
+: lf-pf-def-next ( outcome frames -- ... frames next )
+  >r r@ lf-pp-restore2 rot ok-then2? if lf-pf-bodies r> lf-pf-def-params else r> 0 then ;
+: lf-pf-def-value ( outcome frames -- ... frames next )
+  >r r@ frame-restore swap ok-then? 0= if r> 0 exit then
+  0 lf-pf-open s" :=" lf-pf-text r> ['] frame-return lf-pf-body ;
+: lf-pf-def-from ( type value frames -- ... frames next )
+  >r 2dup lf-pf-shares?
+  if 2dup r@ lf-pp-save2 drop r> ['] lf-pf-def-next lf-pf-param-line exit then
+  r@ frame-save r> ['] lf-pf-def-value lf-pf-body ;
+' lf-pf-def-from is lf-pf-def-params
+: lf-pf-definition ( decl frames -- ... frames next )
+  >r dup lf-fdecl-type @ swap lf-fdecl-value @ r> lf-pf-def-params ;
+\ A statement: the leading Pi binders that do not print as ->, a line
+\ each (the type waits while one prints), then the type.
+defer lf-pf-type-params ( type frames -- ... frames next )
+: lf-pf-type-next ( outcome frames -- ... frames next )
+  >r r@ frame-restore swap ok-then?
+  if lf-term-second@ r> lf-pf-type-params else r> 0 then ;
+: lf-pf-type-from ( type frames -- ... frames next )
+  >r dup lf-tag-pi lf-pp-is? 0= if r> ['] frame-return lf-pf-body exit then
+  dup lf-pf-arrow? dup ok? 0= if nip nip r> 0 exit then drop
+  if r> ['] frame-return lf-pf-body exit then
+  dup r@ frame-save r> ['] lf-pf-type-next lf-pf-param-line ;
+' lf-pf-type-from is lf-pf-type-params
+: lf-pf-statement ( decl frames -- ... frames next )
+  >r lf-fdecl-type @ dup 0< if drop outcome-ok r> 0 exit then r> lf-pf-type-params ;
+: lf-pf-parts ( decl frames -- ... frames next )
+  over lf-fdecl-kind @ lf-decl-def > if lf-pf-statement else lf-pf-definition then ;
 : lf-pf-end ( decl -- outcome )
   0 lf-pf-open lf-pf-mark s" end " lf-pp-put swap lf-fdecl-name @ lf-pf-put-name
     lf-pf-unit
   lf-pf-eol 1 lf-pp-emit 0 lf-pf-column ! outcome-ok ;
-: lf-pf-declaration ( decl x -- outcome )
-  drop dup lf-pf-header ok-then? 0= if exit then
-  lf-pf-universes ok-then? 0= if exit then
-  dup lf-pf-parts ok-then? if lf-pf-end then ;
+\ The declaration's visit: header and universes at once, then its parts,
+\ the declaration waiting for its end line.
+: lf-pf-decl-end ( outcome frames -- outcome frames 0 )
+  >r r@ frame-restore swap ok-then? if lf-pf-end then r> 0 ;
+: lf-pf-declaration ( decl x frames -- ... frames next )
+  >r drop dup lf-pf-header ok-then? 0= if r> 0 exit then
+  lf-pf-universes ok-then? 0= if r> 0 exit then
+  dup r@ frame-save ['] lf-pf-decl-end r@ frame-save r> lf-pf-parts ;
 
 \ Public words; see the header.
 : lf-pf-start ( decl -- ) lf-pforth /lf-pforth erase lf-pforth lf-pforth-decl ! ;
 : lf-print-forth-term ( term fuel -- outcome )
-  lf-print-ready? 0= if drop-invalid exit then 0 lf-pf-start lf-pf-term lf-pp-finish ;
+  lf-print-ready? 0= if drop-invalid exit then
+  0 lf-pf-start 0 ['] lf-pf-term-step lf-pp-run lf-pp-finish ;
 : lf-print-forth-decl ( decl fuel -- outcome )
   lf-print-ready? 0= if drop-invalid exit then
-  dup lf-pf-start 0 ['] lf-pf-declaration lf-pp-call lf-pp-finish 0 lf-pf-start ;
+  dup lf-pf-start 0 ['] lf-pf-declaration lf-pp-run lf-pp-finish 0 lf-pf-start ;

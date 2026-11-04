@@ -8,13 +8,17 @@
 \ Then, against the sink rules, a sink calls lf-print-reset at each of its
 \ calls in turn: every such print ends invalid, with both stacks balanced
 \ and the printer idle, which is evidence for the defence in depth of
-\ print-job.fs (no endless loop, no address outside the printer's record).
+\ print-job.fs (no endless loop, no address outside the printer's memory).
+\ After every print the frames its visits ran on are empty again.
 require ./build.fs
 require ../support/checks.fs
 
 variable need   variable prints   variable resets
 : no-sink ( c-addr u -- ) 2drop ;
-: balanced ( depth -- ) depth 1- <> abort" sweep: stack not balanced" ;
+: frames-empty ( -- )
+  lf-pp-frames dup frame-used @ over frame-context @ or swap frame-depth @ or
+  abort" sweep: frames not empty" ;
+: balanced ( depth -- ) depth 1- <> abort" sweep: stack not balanced" frames-empty ;
 : counted ( -- ) 1 prints +! ;
 : print ( t fuel -- outcome ) ['] lf-print-term rs-checked ;
 : used ( t -- n ) fuel print must-ok fuel lf-print-fuel @ - ;

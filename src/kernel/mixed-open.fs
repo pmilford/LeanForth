@@ -8,7 +8,7 @@
 \ (core/local-context.fs). Lean's files at the referee commit eb6cafb7
 \ (ADR 0014, Reproduction).
 \
-\ The passes walk a term on the host stacks with a frames record
+\ The passes walk a term on a frames record's explicit stack
 \ (lib/frame.fs), the binders entered so far (Lean's offset) as the
 \ frames' context, and rebuild it as Lean's replace (replace_fn.cpp 32-75)
 \ does with update_app and update_binding: a node whose children come back
@@ -33,12 +33,14 @@
 \ a memo). A new bound variable reuses the live leaf of its index that a
 \ pass made before, if any: leaves never change, so this shares an equal
 \ term (it saves room in a small term store).
-\ Each visit costs one unit of fuel and one frame (at most lf-depth-limit
-\ nested): no fuel left is exhausted, no frame full. Only nodes older than
+\ Each visit costs one unit of fuel and one frame, on a stack that grows
+\ with the depth (plan task 6.2.0): no fuel left is exhausted, a stack the
+\ heap cannot grow full. Only nodes older than
 \ the pass are read, children before parents; a bound variable must be a
 \ well-formed leaf and a free variable live, else the pass is invalid. Any
-\ failure discards the nodes the pass made. n is at most lf-depth-limit
-\ (more is full; negative invalid), and each of the n a live node.
+\ failure discards the nodes the pass made. n may be as large as the heap
+\ holds a copy of (no room is full; negative invalid), and each of the n a
+\ live node.
 \
 \ Words: lf-instantiate, lf-instantiate-rev, lf-abstract ( node subst n --
 \ node' outcome ) and lf-mk-pi ( body fvars n -- pi outcome ), each
@@ -53,9 +55,10 @@
 \ Untrusted; [kernel] code, not yet through the review gate.
 \ State: one job record, lf-open-job (fields lf-openjob-*): the pass's
 \ frames (fuel, nesting, the offset as context), its mode, the term count
-\ before it, its copy of the n terms and the bound-variable leaves it
-\ made; a member of the checker context (lib/context.fs), whose frames a
-\ set-up word prepares in every context. Single-threaded within one
+\ before it and the bound-variable leaves it made, and its copy of the n
+\ terms in a growable array (lf-open-terms); members of the checker
+\ context (lib/context.fs), whose frames a set-up word prepares in every
+\ context. Single-threaded within one
 \ context; a pass refuses to start inside another (invalid).
 
 require ../lib/lib.fs
@@ -69,7 +72,7 @@ require ./mixed-rebuild.fs
 0 constant lf-open-mode-instantiate
 1 constant lf-open-mode-rev
 2 constant lf-open-mode-abstract
-lf-depth-limit 2* constant lf-open-leaves   \ bound-variable indices whose leaf is kept
+128 constant lf-open-leaves   \ bound-variable indices whose leaf is kept
 
 \ The frames come first, so the visitor finds the job record at the
 \ address of the frames it is given (checked here), as in mixed-shift.fs.
@@ -78,11 +81,12 @@ begin-structure /lf-openjob
   field: lf-openjob-mode               \ one of the lf-open-mode-* constants
   field: lf-openjob-start              \ term count before the pass
   field: lf-openjob-count              \ n
-  lf-depth-limit cells +field lf-openjob-subst      \ s0 .. s(n-1)
   lf-open-leaves 2* cells +field lf-openjob-leaves  \ per index: node, identity
 end-structure
 0 lf-openjob-frames 0<> [if] .( mixed-open.fs: frames come first) cr abort [then]
 /lf-openjob context-record: lf-open-job
+\ s0 .. s(n-1), copied: as many as there are (no fixed limit).
+1 cells context-slab: lf-open-terms
 
 : lf-open-frames ( -- frames ) lf-open-job lf-openjob-frames ;
 \ The fuel of the next pass, and what the last one left.
@@ -90,7 +94,7 @@ end-structure
 
 \ Reading the job from the frames of the visit.
 : lf-open-n ( frames -- n ) lf-openjob-count @ ;
-: lf-open-s ( i frames -- node ) lf-openjob-subst swap cells + @ ;
+: lf-open-s ( i frames -- node ) drop lf-open-terms slab-base swap cells + @ ;
 : lf-open-mode ( frames -- mode ) lf-openjob-mode @ ;
 : lf-open-abstract? ( frames -- flag ) lf-open-mode lf-open-mode-abstract = ;
 
@@ -109,13 +113,14 @@ end-structure
   if nip r> drop outcome-ok else r> lf-rebuild-build then ;
 \ A binary node: the first child at this offset, the second one binder
 \ deeper for a lambda or Pi (mixed-rebuild.fs's limits apply).
-: lf-open-join ( r1 node frames -- result outcome )
-  >r dup lf-term-second@ over lf-rebuild-descend r> swap execute
-  ok-keep2? if lf-open-update then ;
-: lf-open-binary ( node frames -- result outcome )
-  over lf-open-children? 0= if lf-rebuild-bad exit then
-  2dup lf-rebuild-stuck? if 2drop lf-rebuild-deep exit then
-  over lf-term-first@ over frame-call ok-keep2? if -rot lf-open-join then ;
+: lf-open-updated ( r2 outcome frames -- result outcome frames 0 )
+  ['] lf-open-update lf-rebuild-joined ;
+: lf-open-second ( r1 outcome frames -- second frames next | -1 outcome frames 0 )
+  ['] lf-open-updated lf-rebuild-next ;
+: lf-open-binary ( node frames -- ... frames next )
+  over lf-open-children? 0= if lf-rebuild-refuse exit then
+  2dup lf-rebuild-stuck? if nip >r lf-rebuild-deep r> 0 exit then
+  ['] lf-open-second lf-rebuild-first ;
 
 \ A bound-variable leaf of index i: the live one an earlier pass made for
 \ i, else a new one, then kept for i; no room is full.
@@ -167,12 +172,16 @@ end-structure
     lf-tag-constant of lf-rebuild-keep endof
     lf-tag-symbolic-sort of lf-rebuild-keep endof
     >r lf-rebuild-bad r> endcase ;
-: lf-open-visit ( node frames -- result outcome )
+\ The visit's first step (lib/frame.fs).
+: lf-open-visit ( node frames -- ... frames next )
   2dup lf-open-readable? lf-rebuild-tag
-  dup lf-term-binary-tag? if drop lf-open-binary else lf-open-leaf then ;
-\ The frames and their visitor, set up once in every context.
-: lf-open-setup ( -- ) lf-depth-limit ['] lf-open-visit lf-open-frames frame-init ;
+  dup lf-term-binary-tag? if drop lf-open-binary else over >r lf-open-leaf r> 0 then ;
+\ The frames and their visitor, set up once in every context; their stack
+\ is freed with the context.
+: lf-open-setup ( -- ) ['] lf-open-visit lf-open-frames frame-init ;
 ' lf-open-setup context-setup
+: lf-open-release ( -- ) lf-open-frames frame-free ;
+' lf-open-release context-teardown
 \ Recovery after a THROW out of a pass (which leaves the record busy, so
 \ that every later pass refuses as invalid): the record made idle again;
 \ lf-mixed-rebuild-reset (mixed-beta.fs) resets all four rebuilding passes.
@@ -191,9 +200,9 @@ end-structure
 : lf-open-all? ( subst n xt -- flag )
   true 2swap cells over + swap ?do over i @ swap execute and 1 cells +loop nip ;
 : lf-open-count ( n -- outcome )
-  dup 0< if drop outcome-invalid else lf-depth-limit > 0= room>outcome then ;
+  dup 0< if drop outcome-invalid else lf-open-terms slab-hold then ;
 : lf-open-copy ( subst n -- )
-  dup lf-open-job lf-openjob-count ! cells lf-open-job lf-openjob-subst swap move ;
+  dup lf-open-job lf-openjob-count ! cells lf-open-terms slab-base swap move ;
 : lf-open-load ( subst n mode -- outcome )
   over lf-open-count dup ok? 0= if nip nip nip exit then drop
   lf-open-test >r 2dup r> lf-open-all? if lf-open-copy outcome-ok
