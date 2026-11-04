@@ -108,8 +108,10 @@ ways.
   identity proof (λx. x : A → A) proves B — because *twice*(A) is, by
   definition, A → A.
 - **LeanForth** (the [syntax words](../user/LEANFORTH_SYNTAX.md); this text
-  was run through `src/author/` on 2026-11-03 and builds exactly the terms
-  below; the checker cannot yet unfold `twice`):
+  was run through `src/author/` on 2026-11-03 and, printed back, gives the
+  declarations of the Lean text below — though LeanForth's printer shows
+  the arrow `twice A → B` as `∀ (a : twice A), B`, where Lean's `#print`
+  shows `twice A → B`; the checker cannot yet unfold `twice`):
 
   ```forth
   def twice
@@ -362,9 +364,10 @@ What the evidence shows (unfold counts of accepted rows):
 | `delta.same-head-levels-differ` | `dqLift.{0} A` | `dqLift.{1} A` | `dqLift` twice: different universe arguments, equal values |
 | `delta.chain` | `dqC0 A` (1) | `dqC5 A` (6) | `dqC5` … `dqC1` once each, never `dqC0` |
 
-The last two failure rows are the warning for any shortcut: same head and
-different arguments, or different universe arguments, is **not** a
-reason to answer *no* while the head can unfold (contrast
+Rows `delta.same-head-arguments-differ` and `delta.same-head-levels-differ`
+are the warning for any shortcut: the same head with different arguments,
+or with different universe arguments, is **not** a reason to answer *no*
+while the head can unfold (contrast
 `delta.same-head-levels-differ-opaque`, rejected: an opaque declaration
 never unfolds, so there the levels decide).
 
@@ -467,8 +470,9 @@ accepted. Recorded as BL-4 in [BEYOND_LEAN.md](../project/BEYOND_LEAN.md).
    (`has_value`, `declaration.h` 466–468); their hint is `opaque`
    (`declaration.cpp` 294–299), so in lazy delta reduction they are opened
    last, and `whnf` opens them like any definition (row `whnf.theorem`).
-   ADR 0006's "theorems … must not be unfolded" and plan task 4.1.1's
-   wording describe the elaborator, not the kernel.
+   ADR 0006's "Axioms, theorems and opaque declarations must not be
+   unfolded" and plan task 4.1.1's wording describe the elaborator's
+   default view, not the kernel.
 2. **Where it changes a verdict: proofs that data depends on (phase 5).**
    Reducing a recursor puts its major premise into `whnf`
    (`inductive.h` 93), which opens a theorem there. Row
@@ -476,9 +480,8 @@ accepted. Recorded as BL-4 in [BEYOND_LEAN.md](../project/BEYOND_LEAN.md).
    only after Lean opens the theorem `dqAnd` (counts `And.rec:1`,
    `DefEq.dqAnd:1`), so the declaration is accepted; with a variable proof
    in its place (`theorem.variable-proof-stuck`) the recursor is stuck and
-   Lean rejects. The same happens for `Acc.rec` in definitions by
-   well-founded recursion, and for projections out of a proof
-   (`reduce_proj`, tc 452).
+   Lean rejects. The same mechanism reduces `Acc.rec` in definitions by
+   well-founded recursion (not among the rows).
 3. **In phase 4's scope it cannot change a verdict** (an argument, tested
    by the rows but not proved): a theorem applied to arguments is always a
    proof; step 4 (proof irrelevance) decides every comparison whose left
@@ -525,6 +528,11 @@ the caller reports Lean's exception for the step (`declTypeMismatch`,
 - **K4–K6 stay** (levels that cannot be computed; an undecided
   dependency; Lean's level-sharing case), and **K7 is new** (Q8).
 - **A1** reads: every step succeeded by the port.
+
+An *unknown*, *exhausted* or *full* anywhere inside the procedure ends the
+whole comparison with that outcome: the port cannot know which way Lean's
+branch went, so it never continues as if the sub-step had answered *no*
+(for example in the same-head argument test or in `is_def_eq_app`).
 
 ### Q2 Free variables inside a check (locally nameless)
 
@@ -690,7 +698,9 @@ Rules:
 
 ### Q11 The derivation log
 
-ADR 0013's catalogue gains, as an additive amendment (codes free today):
+ADR 0013's catalogue gains, as an additive amendment (codes unused in its
+catalogue today; 20–22 are taken by `instantiate`, `shift` and
+`instantiate-levels`):
 
 | Code | Rule | Inputs a, b | Result | Premises |
 | --- | --- | --- | --- | --- |
@@ -701,7 +711,7 @@ ADR 0013's catalogue gains, as an additive amendment (codes free today):
 | 17 | `same-head-arguments` | left, right | 1 equal, 0 not | `level-eq` and `defeq` per argument |
 | 18 | `proof-irrelevance` | left, right | 1 equal, 0 not | the two statements' inference and their `defeq` |
 | 19 | `eta` | the `λ`, the other term | 1 equal | the other's type, `whnf`, `defeq` |
-| 20 | `cache-hit` | left, right | 1 | none: "shown equal at step n", the log's own memo giving n when the earlier step is in the log |
+| 23 | `cache-hit` | left, right | 1 | none: "shown equal at step n", the log's own memo giving n when the earlier step is in the log |
 
 `defeq` (12) gains a result: 1 for *yes*, 0 for *no* (a *no* is ordinary
 control flow inside the procedure; the check fails only where a caller
@@ -820,14 +830,14 @@ Each is [kernel] code through the gate in `AGENTS.md`, in this order:
 | 4.2.1 Level equality | Lean's `is_equivalent`, `mk_max`, `mk_imax` (ADR 0011 Amendment 1, implemented 2026-11-03) | its gate is passed; nothing more for phase 4 |
 | 4.2.2a Free variables | Q2: free-variable nodes, the local-context array (types, `let` values), `instantiate_rev`/`abstract`; inference moved onto them without behaviour change | the phase-2/3 tables give identical outcomes; randomized differential of inference against the code before |
 | 4.2.2b Skeletons and quick check | Q3; `quick_is_def_eq`, `is_def_eq_binding`, `is_def_eq_app` and `is_def_eq_args` ports | unit tests; binder-domain table unchanged |
-| 4.2.2c `whnf_core`, `whnf`, delta | Q4, Q5 (theorems unfold, opaque never; hints; `m_unfold`); `ensure_sort`/`ensure_pi` through `whnf` | `delta.*`, `sort.*`, `pi.*`, `whnf.*` rows |
-| 4.2.2d Lazy delta and `is_def_eq_core` | Q6 and the step table; deferred routes and K7 (Q8); the retirement of K1 and the rejection analysis (Q1), with the cross-check during the switch | all `delta.*` counts equal Lean's |
+| 4.2.2c `whnf_core`, `whnf`, delta | Q4, Q5 (theorems unfold, opaque never; hints; `m_unfold`); `ensure_sort`/`ensure_pi` through `whnf` | verdicts of the `sort.*`, `pi.*` and `whnf.*` rows |
+| 4.2.2d Lazy delta and `is_def_eq_core` | Q6 and the step table; deferred routes and K7 (Q8); the retirement of K1 and the rejection analysis (Q1), with the cross-check during the switch | verdicts of the `delta.*`, `opaque.*` and `names.*` rows; the K1 rows of the earlier tables |
 | 4.2.2e Log | Q11's records for delta, lazy steps and the argument test | golden log of `delta.argument-after-unfolding` |
 | 4.2.3 `let` | importer stages `letE`; `infer_let`; zeta (Q7) | `let.*` rows |
 | 4.2.4 Eta | Q7, with infer-only inference | `eta.*` rows |
 | 4.2.5 Proof irrelevance | Q7 | `proof-irrelevance.*` rows; ADR 0011's `proof-irrelevance-twin` row becomes *accepted* |
 | 4.2.6 Opaque declarations | import, `add_opaque` check, publication; never unfold | `opaque.*` rows |
-| 4.2.7 Caches v1 | Q10: six caches, skeleton keys, per-check lifetime, epoch reset, counters, off switch; speed report (Q12) | verdicts identical with caches off on every corpus; counts equal Lean's with caches on |
+| 4.2.7 Caches v1 | Q10: six caches, skeleton keys, per-check lifetime, epoch reset, counters, off switch; speed report (Q12) | verdicts identical with caches off on every corpus; every accepted row's unfold counts equal Lean's with caches on (some, such as `sort.after-unfolding`, need the `whnf` cache) |
 
 Then 4.3.1 (this table as a LeanForth differential, plus the randomized
 one) and 4.3.2 (the unknown rate).
@@ -841,8 +851,11 @@ one) and 4.3.2 (the unknown rate).
    unfoldings per constant the way Lean's diagnostics do, recursor
    reductions included); deferred rows *unknown* or *unsupported*.
 2. **Earlier tables**: the first checker's 69 rows, the 22 binder-domain
-   rows and the 49 universe-scope rows re-run; only K1–K3 rows may change,
-   each to Lean's verdict.
+   rows and the 49 universe-scope rows re-run; only the K1–K3 rows may
+   change, each to Lean's verdict: 11 of the 69 (9 to *accepted*,
+   `constant.needs-unfolding-wrong` and `pi-body.needs-unfolding-wrong` to
+   *rejected*) and 6 of the 22 (4 *equal* or *accepted*, 2 *apart* or
+   *rejected*).
 3. **Randomized differential against Lean's kernel**: seeded generators of
    small environments — definitions with random hints (honest, equal and
    inverted heights, abbreviations, opaque hints), theorems, opaque
@@ -880,7 +893,7 @@ one) and 4.3.2 (the unknown rate).
 - **ADR 0012**: E2's `decl-hint` and kept theorem values are used; E3's
   cross-check cache reuse is not used in phase 4 (Q10 rule 4); a new
   declaration kind, opaque.
-- **ADR 0013**: the catalogue grows by codes 7 and 14–20 and `defeq`
+- **ADR 0013**: the catalogue grows by codes 7, 14–19 and 23 and `defeq`
   gains a result (Q11), an additive amendment.
 - **ADR 0016**: free-variable nodes and skeletons are used; theorem
   proofs stay in memory.
@@ -964,6 +977,7 @@ LEAN=.tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean \
   bash tests/reference/definitional-equality-check.sh
 curl -fsSL -o type_checker.h \
   https://raw.githubusercontent.com/leanprover/lean4/eb6cafb7290e8bd5f2937522d8d804f58f02bafc/src/kernel/type_checker.h
+curl -fsSL 'https://api.github.com/repos/leanprover/lean4/contents/src/kernel?ref=eb6cafb7290e8bd5f2937522d8d804f58f02bafc'
 ```
 
 SHA-256 of the files read (at commit `eb6cafb7…`, 2026-11-03). Already
@@ -1013,4 +1027,5 @@ the toolchain's `src/lean/Lean/Environment.lean`
 `Declaration.lean`
 `1cf2f06d848086f165b3df0afe494924ae26aaea248d5e0135d5efc2d588948f` (as
 ADR 0011 records). The GitHub listing of `src/kernel/` at the commit has
-no `equiv_manager.*` and no `instantiate_mvars.*` (both return 404).
+no `equiv_manager.*` and no `instantiate_mvars.*` (both return 404; the
+kernel has no metavariables to instantiate).
