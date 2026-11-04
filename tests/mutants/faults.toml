@@ -1956,8 +1956,8 @@ reason = "the name index is never filled: under a name view every constant is un
 [[fault]]
 id = "feed-value-is-type"
 file = "src/import/feed.fs"
-old = ''': feed-value ( d feed -- ) ['] staged-value@ ['] lf-idecl-value feed-term! 2drop ;'''
-new = ''': feed-value ( d feed -- ) ['] staged-type@ ['] lf-idecl-value feed-term! 2drop ;'''
+old = ''': feed-value ( feed -- ) ['] staged-value@ ['] lf-idecl-value feed-term-copy ;'''
+new = ''': feed-value ( feed -- ) ['] staged-type@ ['] lf-idecl-value feed-term-copy ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "the feed gives a declaration its type as its value"
 

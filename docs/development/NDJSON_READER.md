@@ -720,8 +720,10 @@ identities, which the input tier does not keep. An inductive block gives
 no declaration; its types, constructors and recursors do (refused by the
 audit, U1). Universe parameters join the session's level context first
 (at most 64: `Init` uses 62). Outcomes: ok; invalid for a stage that is
-not sealed or a record the stores refuse as malformed; full for a
-capacity, a list longer than the checker takes, or no heap; `feed-at`
+not sealed, a level or expression of a kind the checker's stores do not
+hold (a free or meta variable), or a declaration of a kind it does not
+know; full for a store that refuses a record (its capacity, no heap),
+the level context, or a list longer than the checker takes; `feed-at`
 names the expression or declaration where it stopped.
 
 The stage must outlive the view: the context's scratch tier points into

@@ -174,6 +174,17 @@ T{ comp-name lf-name-part-ok? fresh-id lf-name-part-ok? comp-name lf-name-entry-
    -> true true false }T
 unstage
 T{ lf-input-indexed? -> false }T
+\ A record the checker's stores do not hold is invalid, not full (the
+\ review's finding L3): an expression whose tag is changed to a free
+\ variable's, and a declaration whose kind is changed to one no reader
+\ gives; feed-at names the record where the feed stopped.
+: retag ( tag addr -- ) dup u32@ head-tag-mask invert and rot or swap u32! ;
+T{ s" tests/reference/composition.ndjson" staged tag-fvar 1 stg stage-tier expr-record
+   quad-head retag stg fdd lf-feed fdd feed-at -> outcome-invalid 1 }T
+unstage
+T{ swap-max staged 31 0 stg staged-at staged-head retag stg fdd lf-feed fdd feed-at
+   -> outcome-invalid 0 }T
+unstage
 \ Only a sealed stage is fed.
 T{ 16 stg stage-init stg fdd lf-feed -> outcome-ok outcome-invalid }T
 stg stage-free
