@@ -2436,10 +2436,26 @@ reason = "NOT PROVED ranks with all accepted: a declaration resting on an axiom 
 [[fault]]
 id = "cli-not-proved-uncoded"
 file = "src/cli/tally.fs"
-old = '''  not-proved? if 1 cli-not-proved +! exit-not-proved cli-code! then ;'''
+old = '''  not-proved? if 1 cli-not-proved +! cli-not-proved-code then ;'''
 new = '''  not-proved? if 1 cli-not-proved +! then ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
-reason = "NOT PROVED is counted but has no exit code of its own (owner's rule; review rvCLI2 M5)"
+reason = "NOT PROVED gets no exit status 6 under --strict-axioms (owner, 2026-11-04)"
+
+[[fault]]
+id = "cli-not-proved-always-6"
+file = "src/cli/tally.fs"
+old = ''': cli-not-proved-code ( -- ) cli-strict-axioms? if exit-not-proved cli-code! then ;'''
+new = ''': cli-not-proved-code ( -- ) exit-not-proved cli-code! ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "NOT PROVED gives exit status 6 by default, not Lean's 0 (owner, 2026-11-04)"
+
+[[fault]]
+id = "cli-strict-axioms-dropped"
+file = "src/cli/leanforth.fs"
+old = '''  cli-start cli-strict? cli-strict-axioms! cli-misused? if cli-misuse-record exit then'''
+new = '''  cli-start cli-misused? if cli-misuse-record exit then'''
+test = "python3 tests/cli/test_leanforth.py"
+reason = "check ignores --strict-axioms: the report says strictAxioms false and NOT PROVED keeps 0"
 
 [[fault]]
 id = "cli-verdicts-not-in-code"
@@ -2703,10 +2719,44 @@ reason = "--fuel above 2^53 - 1 is taken, and the report's fuel is beyond what J
 [[fault]]
 id = "cli-schema-status-0-loose"
 file = "schemas/check-report-0.1.schema.json"
-old = '''          "counts": {"allOf": [{"$ref": "#/$defs/allAccepted"}, {"properties": {"notProved": {"const": 0}}}]},'''
+old = '''          "counts": {"$ref": "#/$defs/allAccepted"},'''
 new = '''          "counts": {"type": "object"},'''
 test = "python3 tests/cli/test_leanforth.py"
-reason = "the schema takes a status-0 report whose counts hold a rejected or NOT PROVED declaration"
+reason = "the schema takes a status-0 report whose counts hold a rejected or not-checked declaration"
+
+[[fault]]
+id = "cli-schema-strict-0-loose"
+file = "schemas/check-report-0.1.schema.json"
+old = '''          "counts": {"properties": {"notProved": {"const": 0}}},
+          "declarations": {"items": {"properties": {"notProved": {"const": false}}}}'''
+new = '''          "counts": {"type": "object"}'''
+test = "python3 tests/cli/test_leanforth.py"
+reason = "the schema takes a status-0 report with a NOT PROVED declaration under --strict-axioms"
+
+[[fault]]
+id = "cli-schema-6-unstrict"
+file = "schemas/check-report-0.1.schema.json"
+old = '''          "settings": {"properties": {"strictAxioms": {"const": true}}},
+          "run": {"const": "ok"},'''
+new = '''          "run": {"const": "ok"},'''
+test = "python3 tests/cli/test_leanforth.py"
+reason = "the schema takes exit status 6 from a run without --strict-axioms"
+
+[[fault]]
+id = "wrapper-fast-ignored"
+file = "bin/leanforth"
+old = '''if $fast; then engine=gforth-fast; fi'''
+new = '''true'''
+test = "python3 tests/cli/test_leanforth.py"
+reason = "--fast does not select gforth-fast when GFORTH is not set"
+
+[[fault]]
+id = "wrapper-fast-beside-ignored"
+file = "bin/leanforth"
+old = '''      GFORTH=$candidate'''
+new = '''      :'''
+test = "python3 tests/cli/test_leanforth.py"
+reason = "--fast keeps the checking engine when GFORTH names it: the report names gforth, not gforth-fast"
 
 # --- the importer stage (src/import/stage.fs, stage-records.fs) -----------
 

@@ -42,7 +42,8 @@
 \   facts with ck-kept (a run-record.fs /rr-step: outcome, diagnostic,
 \   step; then the fuel), ck-fuel-of, ck-fuel-total, ck-fuel-unknowns,
 \   ck-top@ (ck-tops of them), the times (ck-phase-wall, ck-phase-cpu,
-\   ck-phase-name), ck-peak, ck-staged-bytes and the input's sizes;
+\   ck-phase-name), ck-peak, ck-engine, ck-staged-bytes and the input's
+\   sizes;
 \ - ck-release ( -- ) frees the environment (only while it is the
 \   current one with the run's identity, as run-record.fs's rr-release
 \   does), detaches the names from the stage and frees it, empties the
@@ -70,7 +71,9 @@
 \ Host words: utime and cputime (Gforth 0.7.3 and 1.0) give wall and CPU
 \ time in microseconds, where a host without them reports none
 \ (ck-timed? false); the peak resident memory is the VmHWM line of
-\ /proc/self/status (Linux), where a host without that file reports none.
+\ /proc/self/status (Linux), where a host without that file reports none;
+\ getenv reads the engine bin/leanforth ran, where a host without it
+\ reports none.
 \ State: three shared globals, ck-stage (/stage), ck-feeding-record
 \ (/feed) and ck-state (the run's facts and settings), not context
 \ records, because they own heap blocks, as checker-input.fs's records
@@ -236,6 +239,17 @@ create ck-line ck-line-room 2 + allot
 : ck-peak ( -- u true | false )
   ck-status r/o open-file if drop false exit then
   dup >r ck-hwm-scan r> close-file drop dup if swap 1024 * swap then ;
+
+\ ---- The engine: the program bin/leanforth ran (LEANFORTH_ENGINE, the
+\ last part of its file name: gforth, or gforth-fast with --fast), empty
+\ when it is not known (not run by bin/leanforth, or a host without
+\ getenv). How the run was made, not what it found: reports keep it with
+\ the times.
+[defined] getenv [if]
+: ck-engine ( -- c-addr u ) s" LEANFORTH_ENGINE" getenv ;
+[else]
+: ck-engine ( -- c-addr u ) 0 0 ;
+[then]
 
 \ ---- The kept steps: one record per declaration of the input, each
 \ invalid until its step publishes.

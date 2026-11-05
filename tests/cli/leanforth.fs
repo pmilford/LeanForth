@@ -11,8 +11,9 @@
 \ export or does not open, a copy over its export, --json with --record),
 \ 5 an internal fault (a THROW while staging, and one inside a check,
 \ each injected at an allocation with tests/support/alloc-fail.fs; the
-\ publisher made to throw mid-run), 6 NOT PROVED (an axiom planted in an
-\ accepted slot); the declarations counted by verdict; the fuel each
+\ publisher made to throw mid-run), NOT PROVED (an axiom planted in an
+\ accepted slot: Lean's 0 by default, 6 under --strict-axioms); the
+\ declarations counted by verdict; the fuel each
 \ check used (a budget of exactly that much accepts, one less is
 \ exhausted); a second run the same as the first; the stage freed, the
 \ names detached and every store's capacity given back after every check;
@@ -64,14 +65,19 @@ create stated  0 , 6 , 2 , 3 , 1 , 4 , 5 ,
 T{ all-pairs? -> true }T
 
 \ NOT PROVED: an accepted declaration with an axiom, and only that; it is
-\ counted apart and has its own code, 6 (proposed), which every other
-\ failure outranks.
+\ counted apart and keeps Lean's code (0) by default; under
+\ --strict-axioms it has code 6, which every other failure outranks.
 T{ outcome-ok 0 not-proved? outcome-ok 4 not-proved? -> false true }T
 T{ outcome-rejected 4 not-proved? outcome-unknown 0 not-proved? -> false false }T
 cli-start
-T{ outcome-ok 4 cli-tally-proved outcome-ok 0 cli-tally-proved cli-not-proved @ -> 1 }T
-T{ outcome-rejected 1 cli-tally-proved cli-not-proved @ cli-worst @ -> 1 6 }T
+T{ outcome-ok 4 cli-tally-proved outcome-ok 0 cli-tally-proved cli-not-proved @ cli-worst @
+  -> 1 0 }T
+T{ outcome-rejected 1 cli-tally-proved cli-not-proved @ cli-worst @ -> 1 0 }T
+cli-start true cli-strict-axioms!
+T{ outcome-ok 4 cli-tally-proved cli-not-proved @ cli-worst @ -> 1 6 }T
 T{ outcome-unknown cli-tally cli-worst @ -> 2 }T
+cli-start
+T{ cli-strict-axioms? -> false }T
 \ The summary's line of the accepted, from planted counts (no check can
 \ make one NOT PROVED yet); where the host can capture output (Gforth 1.0).
 [defined] >string-execute [if]
@@ -319,22 +325,28 @@ T{ stopped -> 5 outcome-invalid 1 1 1 }T
 
 \ NOT PROVED from a slot: composition checked as check --record checks
 \ it, then its accepted slot given an axiom bit before the verdicts are
-\ read (no check can make one yet): code 6, counted, and said in its line
-\ and the summary.
-: planted-run ( -- )
-  cli-options composition 0 cli-file! cli-start cli-recorded-ops cli-state run-ops !
-  cli-settings cli-record-start drop cli-import drop rr-check
-  4 0 lf-env lf-env-slot lf-slot-axioms ! ;
-: planted ( -- code not-proved# ) planted-run cli-results rr-release cli-worst @ cli-not-proved @ ;
-T{ planted -> 6 1 }T
+\ read (no check can make one yet): counted, and said in its line and the
+\ summary; code 0, Lean's, with a note, or 6 under --strict-axioms.
+: planted-run ( strict? -- )
+  cli-options composition 0 cli-file! cli-start cli-strict-axioms!
+  cli-recorded-ops cli-state run-ops ! cli-settings cli-record-start drop cli-import drop
+  rr-check 4 0 lf-env lf-env-slot lf-slot-axioms ! ;
+: planted ( strict? -- code not-proved# )
+  planted-run cli-results rr-release cli-worst @ cli-not-proved @ ;
+T{ false planted true planted -> 0 1 6 1 }T
 [defined] >string-execute [if]
-: planted-text ( -- c-addr u ) planted-run ['] cli-results >string-execute rr-release ;
+: planted-text ( strict? -- c-addr u )
+  planted-run ['] cli-results >string-execute rr-release ;
 : says? ( c-addr u c-addr2 u2 -- c-addr u flag ) 2over 2swap search nip nip ;
 : planted-line ( -- c-addr u )
-  s" composition: accepted (experimental, not independently audited); axioms: bits 4; NOT PROVED (it depends on an axiom)" ;
-: planted-says ( -- line? summary? )
-  planted-text planted-line says? >r s" axioms: 1 NOT PROVED" says? nip nip r> swap ;
-T{ planted-says -> true true }T
+  s" composition: accepted (experimental, not independently audited); axioms: bits 4; "
+  s" NOT PROVED (it depends on an axiom)" s+ ;
+: noted? ( c-addr u -- c-addr u flag )
+  s" note: NOT PROVED declarations keep Lean's exit status; --strict-axioms" says? ;
+: planted-says ( strict? -- line? summary? note? )
+  planted-text planted-line says? >r s" axioms: 1 NOT PROVED" says? >r noted? nip nip
+  r> r> swap rot ;
+T{ false planted-says true planted-says -> true true true true true false }T
 [then]
 cli-options
 
