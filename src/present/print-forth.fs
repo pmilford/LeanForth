@@ -78,7 +78,7 @@ lf-pf-reserve \ ( theorem def axiom import-stub universe := end namespace open
 lf-pf-reserve explicit: implicit: strict-implicit: instance: fun forall -> $ ^
 lf-pf-reserve Prop Type Sort level+ level-max level-imax var# root:
 lf-pf-reserve label: note" ai-note" _ let: let have field-at by s" import
-lf-pf-reserve protected export
+lf-pf-reserve protected export lit# proj#
 0 c, align
 : lf-pf-next ( c-addr -- c-addr' ) count chars + ;
 : lf-pf-reserved? ( c-addr u -- flag )
@@ -364,6 +364,17 @@ defer lf-pf-term-step ( term x frames -- ... frames next )
   >r lf-term-first@ lf-pf-concrete r> 0 ;
 : lf-pf-symbolic-step ( term frames -- ... frames next )
   >r lf-term-first@ r> lf-pf-symbolic ;
+\ A number literal leaf: n lit# (one cell; a longer one is unsupported). A
+\ projection leaf: i proj# NAME, the full name of the structure. Both are
+\ applied with $, as Lean's Expr.lit and Expr.proj are (the projection
+\ to its term).
+: lf-pf-lit-step ( leaf frames -- outcome frames 0 )
+  >r dup lf-lit-small? over lf-lit-cell 0< 0= and
+  if lf-lit-cell lf-pf-number s" lit#" lf-pf-say else drop outcome-unsupported then r> 0 ;
+: lf-pf-proj-step ( leaf frames -- outcome frames 0 )
+  >r dup lf-proj-name lf-pf-writable? 0= if drop outcome-unsupported r> 0 exit then
+  dup lf-proj-idx lf-pf-number s" proj#" lf-pf-text
+  lf-proj-name lf-pf-mark swap lf-pf-put-name lf-pf-unit outcome-ok r> 0 ;
 : lf-pf-lam ( lam frames -- ... frames next ) true swap lf-pf-binder ;
 : lf-pf-node-by ( tag -- xt )
   case lf-tag-bvar of ['] lf-pf-var-step endof
@@ -373,6 +384,8 @@ defer lf-pf-term-step ( term x frames -- ... frames next )
     lf-tag-lam of ['] lf-pf-lam endof
     lf-tag-pi of ['] lf-pf-pi endof
     lf-tag-constant of ['] lf-pf-const endof
+    lf-tag-lit of ['] lf-pf-lit-step endof
+    lf-tag-proj of ['] lf-pf-proj-step endof
     ['] lf-pf-invalid-step swap endcase ;
 : lf-pf-noted-end ( outcome frames -- outcome frames 0 )
   >r r@ frame-restore swap ok-then? if lf-pf-notes then r> 0 ;

@@ -16,6 +16,8 @@
 
 require ../lib/lib.fs
 require ../core/terms.fs
+require ../core/literals.fs
+require ../core/projections.fs
 require ../core/levels.fs
 require ../core/names.fs
 require ../core/generation-handles.fs
@@ -48,6 +50,10 @@ require ./errors.fs
   lf-cterm-new if drop else lfa-e-terms-full lfa-fail then ;
 : lfa-span ( term pos -- term ) over swap lf-pres-source! drop ;
 
+: lfa-new-lit ( u -- term ) lf-hterm-cell if drop else lfa-e-terms-full lfa-fail then ;
+: lfa-new-proj ( name idx -- term )
+  lf-hterm-proj if drop else lfa-e-terms-full lfa-fail then ;
+
 \ Shared nodes: the term and true when it is new, false when it existed.
 : lfa-app ( f a pos -- term fresh )
   >r 2dup lf-tag-app -rot lfa-seek lfa-find if nip nip r> drop false exit then
@@ -61,6 +67,14 @@ require ./errors.fs
 : lfa-const ( cref identity pos -- term fresh )
   >r 2dup lf-tag-constant -rot lfa-seek lfa-find if nip nip r> drop false exit then
   lfa-new-const r> lfa-span true ;
+
+\ A literal leaf of one cell's value, and a projection leaf (name, index).
+: lfa-lit ( u pos -- term fresh )
+  >r lf-tag-lit over dup 0<> 1 and lfa-seek lfa-find if nip r> drop false exit then
+  lfa-new-lit r> lfa-span true ;
+: lfa-proj ( name idx pos -- term fresh )
+  >r 2dup lf-tag-proj -rot lfa-seek lfa-find if nip nip r> drop false exit then
+  lfa-new-proj r> lfa-span true ;
 
 \ Binder nodes, never shared: the node, then its name and kind.
 : lfa-binder-node ( domain body tag -- term ) lf-term-binary lfa-made ;
@@ -81,6 +95,8 @@ require ./errors.fs
     lf-tag-bvar of lf-term-first@ lfa-new-bvar endof
     lf-tag-symbolic-sort of lf-term-first@ lfa-new-sort endof
     lf-tag-constant of lfa-fields lfa-new-const endof
+    lf-tag-lit of lf-term-first@ lfa-new-lit endof
+    lf-tag-proj of lfa-fields lfa-new-proj endof
   endcase ;
 : lfa-own ( term fresh -- term ) if exit then dup lfa-copy tuck lfa-copy-source ;
 

@@ -82,6 +82,9 @@ defer dump-sub ( term -- )
       lf-term-second@ dump-sub s" )" d endof
     lf-tag-pi of s" (pi" d dup dump-pi-binder s"  " d dup lf-term-first@ dump-sub s"  " d
       lf-term-second@ dump-sub s" )" d endof
+    lf-tag-lit of s" (lit " d dup lf-term-first@ d# s"  " d lf-term-second@ d# s" )" d endof
+    lf-tag-proj of s" (proj " d dup lf-term-first@ dump-name s"  " d lf-term-second@ d#
+      s" )" d endof
     s" (bad term)" d nip endcase ;
 : dump-term ( term -- )
   dup 0< if drop s" none" d exit then dup dump-node dump-notes? @ if dump-notes else drop then ;

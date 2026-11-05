@@ -5,7 +5,7 @@
 \ term printer's list of the words it writes (print-forth.fs) when it
 \ loads. Stack effects are on LeanForth values (values.fs): t a term, l a
 \ universe level (or a number), c a constant, n a number. Forms the term
-\ store cannot hold yet (literals, let, have, projections, strings,
+\ store cannot hold yet (let, have, projections, strings,
 \ tactic blocks, holes, import) stop with "not supported yet". Untrusted
 \ authoring code. No state of its own.
 
@@ -70,6 +70,14 @@ require ./declarations.fs
 : lfa-w-root ( "name" -- c )
   0 lfa-args lfa-name-token lfa-const-named 0= if lfa-e-unknown-constant lfa-fail then
   lfa-const-value ;
+
+\ n lit# is the natural-number literal n (Lean's Expr.lit; one cell); i proj#
+\ NAME the projection leaf of field i of the structure NAME (a full name),
+\ applied with $ to the term it projects (leaf e $).
+: lfa-w-lit ( n -- t ) 1 lfa-args lfa>count lfa-here lfa-lit lfa-term-value ;
+: lfa-w-proj ( i -- t )
+  1 lfa-args lfa>count lfa-name-token lfa-const-named 0= if lfa-e-unknown-constant lfa-fail
+  then lfa-decl-name swap lfa-here lfa-proj lfa-term-value ;
 
 \ Levels: l n level+, a b level-max, a b level-imax.
 : lfa-w-level+ ( l n -- l' )
@@ -136,6 +144,8 @@ require ./declarations.fs
 ' lfa-w-imax lfa-word level-imax
 ' lfa-w-var lfa-word var#
 ' lfa-w-root lfa-word root:
+' lfa-w-lit lfa-word lit#
+' lfa-w-proj lfa-word proj#
 ' lfa-w-label lfa-word label:
 ' lfa-w-note lfa-word note"
 ' lfa-w-ai-note lfa-word ai-note"

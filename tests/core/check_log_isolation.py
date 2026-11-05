@@ -55,6 +55,10 @@ PROTOCOL = {
     "lf-log?", "lf-log-open", "lf-log-infer", "lf-log-close", "lf-log-decided",
     "lf-log-close-handle", "lf-log-close-maybe", "lf-log-close-whnf", "lf-log-close-all",
     "lf-log-begin", "lf-log-publish", "lf-log-none",
+    # The free variables a conversion opens (kernel/defeq.fs): the number open,
+    # and the depth a new variable's binder stands at, so that the copier
+    # writes it as the bound variable it stands for (lf-log-fvar).
+    "lf-log-binders!", "lf-log-depth",
 }
 READERS = {
     "lf-log-count", "lf-log-level", "lf-log-decl", "lf-log-cut", "lf-log-complete?",

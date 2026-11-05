@@ -69,6 +69,8 @@ universe level or a number, *c* a constant waiting for universe arguments,
 | `level+`; `level-max`, `level-imax` | `( l n -- l )`; `( l l -- l )` | l + n; max, imax |
 | `var#` | `( n -- t )` | bound variable n (de Bruijn index) |
 | `root:` NAME | `( -- c )` | the constant NAME in LF-CONST, whatever else has the name |
+| `lit#` | `( n -- t )` | the natural-number literal n (Lean's `Expr.lit (.natVal n)`; a number of one cell, at most 2^63 - 1). `OfNat.ofNat 0 ^ Nat $ 0 lit# $ instOfNatNat 0 lit# $ $ $` is Lean's `(0 : Nat)` |
+| `proj#` NAME | `( i -- t )` | the projection leaf of field i (from 0) of the structure NAME, a full name of a declared constant; as Lean's `Expr.proj S i e` is the leaf applied to e: `0 proj# Prod p $` is `p.1` |
 | `label:` NAME | `( t -- t )` | a step label, unique in the declaration |
 | `note"` text`"`, `ai-note"` text`"` | `( t -- t )` | a note by a person, by an AI |
 | `\`, `(` | `( -- )` | comments, as in Forth, on one line |

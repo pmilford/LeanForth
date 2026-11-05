@@ -489,6 +489,17 @@ T{ 0 lf-author-decl lf-fdecl-type @ forth-text rot rot s" Prop explicit: x x fun
 T{ 0 lf-author-decl lf-fdecl-type @ -1 lf-print-forth-term -> outcome-invalid }T
 T{ 0 lf-author-decl lf-fdecl-type @ 1 lf-print-forth-term -> outcome-exhausted }T
 T{ 99 1000 lf-print-forth-term -> outcome-invalid }T
+\ Number literals and projections: n lit# and i proj# NAME build the leaves,
+\ shared when equal, and print as the words that built them.
+T{ s" import-stub Nat end Nat import-stub Prod end Prod def f Prod explicit: p Nat := 0 proj# Prod p $ end f def g Nat := 7 lit# end g def h Nat := 7 lit# end h"
+   run -> outcome-ok }T
+T{ 3 lf-author-decl lf-fdecl-value @ lf-lit-leaf? -> true }T
+T{ 3 lf-author-decl lf-fdecl-value @ lf-lit-cell -> 7 }T
+T{ 3 lf-author-decl lf-fdecl-value @ 4 lf-author-decl lf-fdecl-value @ = -> true }T
+T{ 4 lf-author-decl lf-fdecl-value @ forth-text rot rot s" 7 lit#" compare -> outcome-ok 0 }T
+T{ 2 lf-author-decl lf-fdecl-value @ forth-text rot rot s" Prod explicit: p 0 proj# Prod p $ fun" compare
+   -> outcome-ok 0 }T
+T{ s" import-stub Nat end Nat def f Nat := 0 proj# Missing end f" fails drop drop -> lfa-e-unknown-constant }T
 \ A label or note the words cannot read back as itself (added through the
 \ note table, not by the words) is refused, never printed as live words.
 : noted ( c-addr u kind -- outcome )

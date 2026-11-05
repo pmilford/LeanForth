@@ -230,6 +230,50 @@ fails the log's structural check (`src/present/log-check.fs`): it says
 `No outline: the checker's log fails its structural check (part N);
 nothing is printed from it.`
 
+## The first real theorem: Nat.add_zero
+
+`Nat.add_zero` (`n + 0 = n`, proved by induction on `n` with `Nat.rec`;
+plan task 5.4.1) is the first theorem LeanForth accepts from Lean's own
+export, `tests/reference/inductive/nat-add-zero.ndjson`. Its proof uses
+number literals and a recursor, so no outline template covers it yet and
+the printer lists the checker's steps instead; the statement is printed
+in full in the three forms, and the LeanForth words run (as `lit#`
+for a literal) to the identical type:
+
+```
+leanforth print --name Nat.add_zero tests/reference/inductive/nat-add-zero.ndjson
+```
+
+```
+Theorem Nat.add_zero
+  accepted (experimental, not independently audited); axioms: none
+  Statement in Lean:        ∀ (n : Nat), Eq (HAdd.hAdd n (OfNat.ofNat 0)) n
+  Statement in mathematics: $\forall (n : \mathsf{Nat}),\ \mathsf{Eq}\ (\mathsf{HAdd.hAdd}\ n\ (\mathsf{OfNat.ofNat}\ 0))\ n$
+  Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
+    axiom Nat.add_zero
+      Nat explicit: n
+      Eq 1 ^ Nat $ HAdd.hAdd 0 ^ 0 ^ 0 ^ Nat $ Nat $ Nat $ instHAdd 0 ^ Nat $ instAddNat $ $ n
+        $ OfNat.ofNat 0 ^ Nat $ 0 lit# $ instOfNatNat 0 lit# $ $ $ $ n $
+    end Nat.add_zero
+  Input:     tests/reference/inductive/nat-add-zero.ndjson line 637
+  Checker log: 236 steps, complete. The statement is a proposition: s106 (from s3).
+
+No outline template covers this proof; its steps follow.
+
+Steps.
+  s1     fresh-name          depth 0   declaration Nat.add_zero
+  ...
+```
+
+The log is complete (236 steps, none cut): it records number literals and
+projections as it records other terms, and the free variables a definitional
+equality opens count as binders around the steps it opens. Running the
+block needs the constants it mentions (`Nat`, `Eq`, `HAdd.hAdd`, ...) first,
+as for any statement; `tests/present/nat-add-zero-prelude.lf` stubs them for
+the round trip. A literal of more than one machine cell is not written as
+words (the printer says so). The golden output is `tests/present/outlines.golden`
+(sections `nat-add-zero` and `nat-zero-add`).
+
 ## LaTeX
 
 `leanforth print --latex FILE` (in Forth, `true lf-outline-latex!` before
