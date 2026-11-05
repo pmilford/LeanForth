@@ -807,3 +807,15 @@ ADR 0017 Amendment 1 (agent AU2), the owner's answers:
   focused tests and one `make check` per task, no local Gforth 0.7.3 runs
   unless host-specific, at most one whole-`Init` run, short reports, one
   soundness-focused review round per gate, no new agents while several run.
+
+## Data types, part 2 approved (2026-11-04, late)
+
+- **Plan tasks 5.2.1b (recursive types), 5.2.5a (mutual blocks) and iota
+  [kernel][import]: approved** (owner, "Approve"). Agent N1's work, merged
+  `13b9a65`, `126a49d`, `55ed9ed`. Evidence: 268 Lean-checked table cases,
+  none contradicted; independent review rvN1 round 1 found two wrong
+  acceptances on hand-made files (fixed), round 2 found none in 143 more
+  probes; `Init`: 261 of 604 blocks accepted (184 before), none rejected.
+  Temporary gaps, each with its task: nested blocks 5.2.5b; structures and
+  projections 5.2.2 (in progress); literals 5.2.3; proof irrelevance and
+  eta 4.2.5, 4.2.4.
