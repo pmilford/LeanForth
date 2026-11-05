@@ -519,6 +519,14 @@ the default is exactly Lean):
 
 ## Evidence
 
+- Task 5.2.5a, mutual blocks (2026-11-04): the table's mutual rows give
+  Lean's verdict (13 accepted, 4 rejected; `mutual.even-odd` pending on
+  literals, task 5.2.3). Lean's `Init` has no mutual block (each of its
+  604 blocks has one type; `Lean.Syntax`, nested, is the only one out of
+  scope), so its numbers are unchanged, also after review rvN1's fixes
+  and task 4.2.2c's whnf (whole-`Init` probe, `gforth-fast`): 261
+  blocks accepted, 101 *unknown*, 242 *unsupported*, none rejected or
+  invalid.
 - Review rvN1 of task 5.2.1b, its findings fixed (2026-11-04, Gforth
   1.0.0, Lean 4.35.0). The table has 244 cases (35 added, every verdict
   Lean's): the review's probes (a W type, an `Acc`, five indexed

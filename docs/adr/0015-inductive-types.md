@@ -1163,6 +1163,8 @@ universes). Task 5.2.5a's 18 rows: 17 give Lean's verdict (13 accepted,
 4 rejected: T3 twice, T4, P1); `mutual.even-odd` is pending (Nat
 literals, task 5.2.3). `make test-check-block` checks them with their
 diagnostics and steps; 8 new planted faults (`mut-*`) are caught.
+Lean's `Init` has no mutual block, so its numbers stay 261 of 604 blocks
+accepted, none rejected or invalid (whole-`Init` probe).
 
 ## Plan (task 5.2.5b): nested blocks
 
