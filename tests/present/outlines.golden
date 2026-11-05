@@ -3,7 +3,7 @@ Theorem identity
   accepted (experimental, not independently audited); axioms: none
   Statement in Lean:        ∀ {P : Prop}, P → P
   Statement in mathematics: $\forall \{P : \mathrm{Prop}\},\ P \to P$
-  Statement in LeanForth (the statement only, written as an axiom; nothing is assumed):
+  Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom identity
       Prop implicit: P
       P explicit: proof
@@ -28,7 +28,7 @@ Theorem composition
   accepted (experimental, not independently audited); axioms: none
   Statement in Lean:        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$
-  Statement in LeanForth (the statement only, written as an axiom; nothing is assumed):
+  Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom composition
       Prop implicit: A
       Prop implicit: B
@@ -62,7 +62,7 @@ Theorem type_identity
   accepted (experimental, not independently audited); axioms: none
   Statement in Lean:        ∀ {A : Type} {P : A → Prop} {x : A}, P x → P x
   Statement in mathematics: $\forall \{A : \mathrm{Type}\}\ \{P : A \to \mathrm{Prop}\}\ \{x : A\},\ P\ x \to P\ x$
-  Statement in LeanForth (the statement only, written as an axiom; nothing is assumed):
+  Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom type_identity
       0 Type implicit: A
       A Prop -> implicit: P
@@ -91,7 +91,7 @@ Theorem poly_identity
   accepted (experimental, not independently audited); axioms: none
   Statement in Lean:        ∀ {A : Sort u} {P : A → Prop} {x : A}, P x → P x
   Statement in mathematics: $\forall \{A : \mathrm{Sort}\ u\}\ \{P : A \to \mathrm{Prop}\}\ \{x : A\},\ P\ x \to P\ x$
-  Statement in LeanForth (the statement only, written as an axiom; nothing is assumed):
+  Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom poly_identity
       universe u
       u Sort implicit: A
@@ -121,7 +121,7 @@ Definition fixtureId
   accepted (experimental, not independently audited); axioms: none
   Type in Lean:             {α : Sort u} → α → α
   Type in mathematics:      $\{\alpha : \mathrm{Sort}\ u\} \to \alpha \to \alpha$
-  Type in LeanForth (the statement only, written as an axiom; nothing is assumed):
+  Type in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom fixtureId
       universe u
       u Sort implicit: α
@@ -146,7 +146,7 @@ Definition fixturePoly
   accepted (experimental, not independently audited); axioms: none
   Type in Lean:             {α : Sort u} → α → α
   Type in mathematics:      $\{\alpha : \mathrm{Sort}\ u\} \to \alpha \to \alpha$
-  Type in LeanForth (the statement only, written as an axiom; nothing is assumed):
+  Type in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom fixturePoly
       universe u
       u Sort implicit: α
@@ -175,7 +175,7 @@ Theorem fixtureUse
   accepted (experimental, not independently audited); axioms: none
   Statement in Lean:        ∀ {P : Prop}, P → P
   Statement in mathematics: $\forall \{P : \mathrm{Prop}\},\ P \to P$
-  Statement in LeanForth (the statement only, written as an axiom; nothing is assumed):
+  Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom fixtureUse
       Prop implicit: P
       P explicit: x
@@ -204,7 +204,7 @@ Theorem composition
   accepted (experimental, not independently audited); axioms: none
   Statement in Lean:        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$
-  Statement in LeanForth (the statement only, written as an axiom; nothing is assumed):
+  Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom composition
       Prop implicit: A
       Prop implicit: B
@@ -271,7 +271,7 @@ Theorem composition
   accepted (experimental, not independently audited); axioms: none
   Statement in Lean:        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$
-  Statement in LeanForth (the statement only, written as an axiom; nothing is assumed):
+  Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom composition
       Prop implicit: A
       Prop implicit: B
@@ -290,7 +290,7 @@ Theorem composition
   accepted (experimental, not independently audited); axioms: none
   Statement in Lean:        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$
-  Statement in LeanForth (the statement only, written as an axiom; nothing is assumed):
+  Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom composition
       Prop implicit: A
       Prop implicit: B
@@ -310,7 +310,7 @@ Theorem composition
   Diagnostic: rejected: argument type mismatch (D1-D5) (4, 0)
   Statement in Lean:        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$
-  Statement in LeanForth (the statement only, written as an axiom; nothing is assumed):
+  Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom composition
       Prop implicit: A
       Prop implicit: B
@@ -330,7 +330,7 @@ Theorem composition
   Diagnostic: rejected: argument type mismatch (D1-D5) (4, 0)
   Statement in Lean:        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$
-  Statement in LeanForth (the statement only, written as an axiom; nothing is assumed):
+  Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom composition
       Prop implicit: A
       Prop implicit: B

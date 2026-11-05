@@ -131,7 +131,7 @@ end-structure
 \ text, each an xt or 0 (as they are, the default); the text of either is
 \ valid until the next call, and a false flag means it must not be shown.
 : lf-outline-names! ( namer escape -- ) lf-ol-style 3 cells + ! lf-ol-style 2 cells + ! ;
-: lf-ol-set-names ( -- ) lf-ol-style 2 cells + @ lf-lv lf-lv-declname !
+: lf-ol-set-names ( -- ) lf-ol-style 2 cells + @ lf-lv lf-lv-decl-namer !
   lf-ol-style 3 cells + @ lf-lv lf-lv-escape ! ;
 
 : lf-ol-field ( offset -- addr ) lf-ol + ;
@@ -171,19 +171,23 @@ end-structure
 : lf-ol-sentence ( -- ) 46 lf-ol-indent @ - lf-lv-col ;
 : lf-ol-from ( -- c-addr u ) lf-lv-tex? if s"  $\leftarrow$ " else s"  ← " then ;
 : lf-ol-dash ( -- c-addr u ) lf-lv-tex? if s" --" else s" –" then ;
-\ The rule names with a symbol, in LaTeX (a symbol of the plain text is math there).
-: lf-ol-tex-rule ( c-addr u -- c-addr' u' )
-  lf-lv-tex? 0= if exit then
-  2dup s" ∀-introduction" compare 0= if 2drop s" $\forall$-introduction" exit then
-  2dup s" →-introduction" compare 0= if 2drop s" $\to$-introduction" exit then
-  2dup s" →/∀-introduction" compare 0= if 2drop s" $\to$/$\forall$-introduction" exit then
-  2dup s" →-elimination" compare 0= if 2drop s" $\to$-elimination" exit then
-  2dup s" ∀-elimination" compare 0= if 2drop s" $\forall$-elimination" exit then ;
+\ The rules' names, each with its plain and its LaTeX spelling in one word, so
+\ that no rule can reach the LaTeX unspelled.
+: lf-rn-forall-intro ( -- c-addr u )
+  lf-lv-tex? if s" $\forall$-introduction" else s" ∀-introduction" then ;
+: lf-rn-implies-intro ( -- c-addr u )
+  lf-lv-tex? if s" $\to$-introduction" else s" →-introduction" then ;
+: lf-rn-both-intro ( -- c-addr u )
+  lf-lv-tex? if s" $\to$/$\forall$-introduction" else s" →/∀-introduction" then ;
+: lf-rn-implies-elim ( -- c-addr u )
+  lf-lv-tex? if s" $\to$-elimination" else s" →-elimination" then ;
+: lf-rn-forall-elim ( -- c-addr u )
+  lf-lv-tex? if s" $\forall$-elimination" else s" ∀-elimination" then ;
 : lf-ol-uses ( -- )
   0 lf-olr-refs# lf-ol-field @ 0= if exit then lf-ol-from lf-lv-put
   true lf-ol-line# 1+ 1 ?do i lf-ol-ref? if dup 0= if s" , " lf-lv-put then drop false
     i lf-lv-n then loop drop ;
-: lf-ol-rule ( c-addr u -- ) s" [" lf-lv-put lf-ol-tex-rule lf-lv-put lf-ol-uses s" ]" lf-lv-put
+: lf-ol-rule ( c-addr u -- ) s" [" lf-lv-put lf-lv-put lf-ol-uses s" ]" lf-lv-put
   35 lf-lv-col ;
 : lf-ol-run ( s -- s' ) begin 1+ dup lf-ol-step? 0= until 1- ;
 : lf-ol-runs ( -- )
@@ -253,14 +257,14 @@ end-structure
 : lf-ol-group ( r class -- r' )
   lf-ol-number s" Let " lf-lv-put 2dup lf-ol-group# >r tuck r@ lf-ol-names swap
   dup r> lf-ol-group-text lf-ol-sentence lf-class-prop = if lf-tpl-let-props
-  else lf-tpl-let-types then lf-ol-used s" ∀-introduction" lf-ol-rule lf-ol-end ;
+  else lf-tpl-let-types then lf-ol-used lf-rn-forall-intro lf-ol-rule lf-ol-end ;
 \ One binder: "Let x : A." or "Assume h : A."
 : lf-ol-single ( r class -- r' )
   lf-ol-number dup lf-class-assume = if s" Assume " else s" Let " then lf-lv-put
   lf-lv-math-open over lf-ol-name s"  : " lf-lv-put over dup lf-ol-domain swap lf-lv-formula
   lf-lv-math-close s" ." lf-lv-put
   lf-ol-sentence 2dup lf-ol-introduce lf-class-assume =
-  if lf-tpl-assume lf-ol-used s" assumption" else lf-tpl-let lf-ol-used s" ∀-introduction"
+  if lf-tpl-assume lf-ol-used s" assumption" else lf-tpl-let lf-ol-used lf-rn-forall-intro
   then lf-ol-rule lf-ol-end lf-ol-second ;
 : lf-ol-binders ( s -- )
   begin dup lf-ol-lambda? while dup lf-ol-class
@@ -285,8 +289,8 @@ end-structure
     lf-ol-second
   repeat drop ;
 : lf-ol-introduction ( s0 -- c-addr u )
-  lf-ol-kinds 2dup and if 2drop s" →/∀-introduction" exit then
-  drop if s" →-introduction" else s" ∀-introduction" then ;
+  lf-ol-kinds 2dup and if 2drop lf-rn-both-intro exit then
+  drop if lf-rn-implies-intro else lf-rn-forall-intro then ;
 : lf-ol-discharge ( s0 -- )
   dup lf-ol-intros lf-ol-number s" Discharging " lf-lv-put lf-ol-intro-list s"  gives"
   lf-lv-put lf-ol-sentence dup lf-ol-innermost lf-ol-second dup lf-ol-line-of @ lf-ol-ref+
@@ -399,8 +403,8 @@ lf-walk-room context-walk2: lf-ol-scan
   lf-ol-first lf-lv-out-ref dup lf-ol-pi? 0= if drop lf-tpl-apply exit then
   lf-ol-dependent? if lf-tpl-forall-elim else lf-tpl-implies-elim then ;
 : lf-ol-elimination ( template -- c-addr u )
-  case lf-tpl-implies-elim of s" →-elimination" endof
-    lf-tpl-forall-elim of s" ∀-elimination" endof >r s" application" r> endcase ;
+  case lf-tpl-implies-elim of lf-rn-implies-elim endof
+    lf-tpl-forall-elim of lf-rn-forall-elim endof >r s" application" r> endcase ;
 \ The reasons: "because f turns any proof of A into a proof of B.",
 \ "because h holds for every x, in particular for a.", "by applying f."
 : lf-ol-fn-at ( s -- ) dup lf-ol-first lf-lv-a swap lf-lv-formula ;

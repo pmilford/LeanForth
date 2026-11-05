@@ -426,10 +426,14 @@ here feed-steps - 1 cells / constant feed-steps#
 \ The same with hooks, each an xt or 0: binder-hook ( term name kind -- ),
 \ called for every binder after its term is made, and decl-hook
 \ ( d before after -- ), called after each declaration; neither may change a
-\ store of the checker (the presentation's side table is not one).
+\ store of the checker (the presentation's side table is not one; this is
+\ not enforced). A THROW from a hook passes on after the feed's loading aids
+\ are freed; the names stay attached to the stage, as after any THROW in a
+\ feed, so the caller detaches them (lf-name-detach; cli/check-run.fs's
+\ ck-release does).
 : lf-feed-hooked ( stage feed binder-hook decl-hook -- outcome )
   2>r dup /feed erase tuck feed-stage !
   2r> 2 pick feed-decl-hook ! over feed-binder-hook !
   dup feed-stage @ stage-sealed? 0= if drop outcome-invalid exit then
-  dup feed-run swap feed-free ;
+  dup ['] feed-run catch ?dup if >r drop feed-free r> throw then swap feed-free ;
 : lf-feed ( stage feed -- outcome ) 0 0 lf-feed-hooked ;

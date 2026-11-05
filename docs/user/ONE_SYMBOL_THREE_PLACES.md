@@ -55,8 +55,8 @@ Where each comes from:
    authoring example
    [`tests/author/07-add-comm.lf`](../../tests/author/07-add-comm.lf), checked
    against Lean's own term by `make check`. The printer shows the kernel
-   term in Lean's notation as `n + m`
-   ([the term printer](TERM_PRINTER.md)).
+   term as `Eq (HAdd.hAdd n m) (HAdd.hAdd m n)` today; showing it as
+   `n + m` is notation, plan task 4.4.3 ([the term printer](TERM_PRINTER.md)).
 
 ## What happens at the edge
 
@@ -109,9 +109,9 @@ The reasons, in short:
 - *A reader would need the search order to understand a token.* A line
   must mean the same wherever it is read.
 - *It can be added later; it could not be taken back.* A `+` for
-  mathematics in a theorem is a job for notation (the printer shows
-  `n + m`, [plan task 4.4.3](../project/PLAN_DRAFT.md)) and for editors, not
-  for the grammar.
+  mathematics in a theorem is a job for notation (the printer will show
+  `n + m`, [plan task 4.4.3](../project/PLAN_DRAFT.md); today it prints
+  `HAdd.hAdd n m`) and for editors, not for the grammar.
 
 What is *not* done yet: the program track checks Forth programs against
 contracts about their wrapping `+`, but a mathematical statement about a

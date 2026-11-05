@@ -91,6 +91,9 @@ BYTE_MODULES = {
     "src/present/print-forth.fs":
         "Forth-mode printer checks the characters of name parts and keeps its word list as "
         "counted strings",
+    "src/present/latex-text.fs":
+        "a name is written a character at a time, escaping the characters the text rule "
+        "bans and the bytes that start no UTF-8 character",
     "src/present/statement-forms.fs":
         "the statement's text is escaped for LaTeX and indented a byte at a time as the "
         "printers write it",

@@ -11,11 +11,16 @@
 \ rest of the type, `end NAME`, with a line for each universe parameter
 \ first. It is the one form of LeanForth words that states a type with no
 \ proof, and the authoring words (src/author/) run it to the identical type
-\ (tests/author/ checks that for the pinned examples). Running it asserts
-\ nothing: the axiom exists only in the authoring program's stores, and
-\ the checker's verdict for the declaration is the one printed above it.
-\ A declaration with more than 8 universe parameters, or a name or label
-\ the words cannot spell, prints the words' reason instead (print-forth.fs).
+\ (tests/present/check_outline.py checks that for the pinned examples).
+\ Printing it assumes nothing, and the checker's verdict for the
+\ declaration is the one printed above it; running the words would make an
+\ axiom in the authoring program's stores (never in the checker's), which is
+\ why the label says so. It is printed for every declaration, accepted or
+\ not, an axiom or not. A declaration with more than 8 universe parameters
+\ (lf-decl-universe-capacity, print-forth.fs; a limit still to lift), or a
+\ name the words cannot spell (empty, with a dot, a space, a control or
+\ banned character or invalid UTF-8, a syntax word), prints the words'
+\ reason on a line of its own instead.
 \
 \ Every form is printed straight to the outline's output sink, not through
 \ its line buffer, so no statement is cut at the buffer's size. In LaTeX
@@ -40,6 +45,7 @@
 
 require ./log-view.fs
 require ./print-forth.fs
+require ../lib/text-rule.fs
 
 1 constant lf-form-lean
 2 constant lf-form-mathematics
@@ -71,7 +77,16 @@ end-structure
     >r false r> endcase ;
 : lf-sf-tex-byte ( c-addr -- )
   dup c@ lf-sf-tex-form if rot drop lf-lv-out else 1 lf-lv-out then ;
-: lf-sf-tex ( c-addr u -- ) 0 ?do dup i + lf-sf-tex-byte loop drop ;
+\ Text a character at a time: a character the text rule bans and a byte that
+\ starts no UTF-8 character are written as \textbackslash{}u\{X\} and
+\ \textbackslash{}x\{X\}, so that no name can end a line or reorder the text.
+: lf-sf-code ( u c-addr u2 -- ) lf-lv-out lf-lv-hex s" \}" lf-lv-out ;
+: lf-sf-bad ( c-addr -- ) c@ s" \textbackslash{}x\{" lf-sf-code ;
+: lf-sf-step ( c-addr u -- n )
+  2dup utf8-length dup 0= if 2drop lf-sf-bad 1 exit then nip
+  2dup utf8-decode dup tr-banned? if s" \textbackslash{}u\{" lf-sf-code nip exit then
+  drop dup 1 = if drop lf-sf-tex-byte 1 else tuck lf-lv-out then ;
+: lf-sf-tex ( c-addr u -- ) begin dup while 2dup lf-sf-step /string repeat 2drop ;
 : lf-sf-line-sink ( c-addr u -- ) lf-lv-tex? if lf-sf-tex else lf-lv-safe lf-lv-out then ;
 \ The block: indentation is written before the first byte of a line.
 : lf-sf-bol! ( flag -- ) lf-sf lf-sf-bol ! ;
@@ -105,8 +120,8 @@ end-structure
 
 \ The LeanForth block: the declaration as an axiom of its own name.
 : lf-sf-universes ( decl -- )
-  lf-sf lf-sf-decl lf-fdecl-universe swap lf-idecl-params@ dup
-  lf-sf lf-sf-decl lf-fdecl-universes ! 0 ?do
+  lf-sf lf-sf-decl lf-fdecl-universe swap lf-idecl-params@ lf-decl-universe-capacity min
+  dup lf-sf lf-sf-decl lf-fdecl-universes ! 0 ?do
     dup i lf-param@ 2 pick i cells + ! loop 2drop ;
 : lf-sf-fdecl ( decl -- fdecl )
   lf-sf lf-sf-decl /lf-fdecl erase
@@ -115,7 +130,9 @@ end-structure
   dup lf-idecl-type @ lf-sf lf-sf-decl lf-fdecl-type !
   -1 lf-sf lf-sf-decl lf-fdecl-value ! lf-sf-universes lf-sf lf-sf-decl ;
 : lf-sf-fits? ( decl -- flag ) lf-idecl-arity @ lf-decl-universe-capacity > 0= ;
+\ Why the block is not complete, on a line of its own.
 : lf-sf-unspelled ( outcome -- )
+  lf-sf lf-sf-bol @ 0= if s\" \n" lf-sf-block-sink then
   s\" (not complete: " lf-sf-block-sink outcome-text lf-sf-block-sink
   s\" )\n" lf-sf-block-sink ;
 : lf-sf-forth ( decl -- )
@@ -137,7 +154,8 @@ end-structure
 : lf-sf-math-line ( decl kind u -- )
   s"  in mathematics:" lf-sf-label lf-sf-mathematics 0 lf-lv-flush lf-sf-end ;
 : lf-sf-forth-line ( decl kind u -- )
-  s"  in LeanForth (the statement only, written as an axiom; nothing is assumed):" lf-sf-label
+  s"  in LeanForth (as an axiom declaration; the checker did not assume it, running it would):"
+  lf-sf-label
   lf-lv-tex? if s" \\" lf-lv-out lf-lv-cr else lf-lv-cr then lf-sf-forth lf-lv-printer ;
 : lf-sf-copy ( d k u -- d k u d k u ) 2 pick 2 pick 2 pick ;
 : lf-print-forms ( decl kind-c-addr u -- )
