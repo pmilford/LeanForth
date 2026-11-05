@@ -56,7 +56,9 @@ T{ 99 t1 @ lf-pres-declare -> outcome-invalid }T
   lf-pres-declaration-capacity 1- 0 ?do s" c" nm i lf-name-num must t1 @ lf-pres-declare
   drop loop
   s" full" nm t1 @ lf-pres-declare ;
+variable names-room  lf-name-capacity names-room !  100000 lf-name-capacity! must-ok
 T{ fill-declarations -> outcome-full }T
+lf-name-reset names-room @ lf-name-capacity! must-ok
 lf-term-reset lf-ssession-begin drop
 T{ s" c" nm lf-pres-type@ -> false }T
 

@@ -95,7 +95,7 @@ theorem composition {A B C : Prop} (f : A → B) (g : B → C) : A → C :=
 | `check [--no-manifest] [--fuel N] [--resources] [--json] [--fast] [--strict-axioms] EXPORT` | Check every declaration of a Lean export of any size, in file order; with `--resources`, also print the [resource report](#the-resource-report); with `--json`, print [one JSON report](#json-output) instead of text |
 | `check [--no-manifest] [--fuel N] [--fast] [--strict-axioms] --record RECORD EXPORT` | Check a small export (read straight into the checker's stores) and also write its [run record](#run-records-and-replay) |
 | `replay [--no-manifest] [--fuel N] [--fast] EXPORT RECORD` | Check the export again and compare the new run record with RECORD; print the replay report |
-| `print [--no-manifest] [--fuel N] [--fast] [--detail] [--name NAME] [--latex] [--statement FORMS] EXPORT` | Check the export and print each accepted declaration's [readable proof](#printing-a-readable-proof), or with `--detail` every step of the checker's log; `--name` prints one declaration |
+| `print [--no-manifest] [--fuel N] [--fast] [--detail] [--name NAME] [--latex] [--statement FORMS] EXPORT`, or `print --lf [--no-manifest] [--fuel N] [--fast] EXPORT` | Check the export and print each accepted declaration's [readable proof](#printing-a-readable-proof), or with `--detail` every step of the checker's log; `--name` prints one declaration; `--lf` writes the whole export as one [LeanForth text](#writing-an-export-as-leanforth-text) |
 | `count [--no-manifest] EXPORT` | Count the export's records by kind ([the reader's counter](../development/NDJSON_READER.md#using-it)), for exports of any size |
 | `reexport [--no-manifest] EXPORT COPY` | Write the export again into COPY, byte for byte as Lean's exporter writes it ([re-export](../development/NDJSON_READER.md#re-export)); after an error COPY is incomplete and must be discarded |
 | `version` (or `--version`) | Versions of LeanForth, its Forth host, the export format it reads, and the git commit |
@@ -636,6 +636,43 @@ two components `a` and `b` and also the one-component name `«a.b»`, and a
 numeric component matches the same digits as a string component. The name
 is shown escaped in the output (so a name holding a line end or a
 bidirectional control cannot be written as an argument).
+
+### Writing an export as LeanForth text
+
+`print --lf EXPORT` writes every declaration of the export, in file order,
+as one LeanForth text on the standard output: each theorem, definition and
+axiom with its statement and value (the proof), as the
+[authoring words](../programming/LEANFORTH_WORDS.md) read it back to the
+identical terms (checked node for node for the pinned examples, for
+`Nat.add_zero` and for a slice of `Init`; see [the proof of
+`Nat.add_zero` in LeanForth](PROOF_OUTLINE.md#natadd_zero-in-leanforth)).
+The export is not checked and the text is no evidence of anything: it is
+untrusted presentation. `--lf` takes `--no-manifest`, `--fuel` and `--fast`,
+not `--detail`, `--name`, `--latex` or `--statement` (exit 4).
+
+What the words cannot write yet is never dropped silently and never written
+wrongly. Such a declaration becomes a comment line
+`\ not written: NAME (reason)` and, so that later declarations that use the
+constant still read back, an `import-stub` of the same name, universe
+parameters and, when it prints, type (the stub the authoring words use for a
+constant of Lean's library: an assumption, not a proof). Each one is also
+listed on the standard error with its reason, followed by the counts. The
+reasons today (the gaps are follow-ups of plan task 8.6.3):
+
+| Reason | Why |
+|---|---|
+| an inductive type, constructor, recursor, quotient constant, block header | no inductive declarations in the words yet (ADR 0017, section 14); the stub stands in |
+| an opaque constant, an unsafe or partial declaration | the words make safe, regular definitions only |
+| more than 8 universe parameters | `lf-decl-universe-capacity` |
+| a name, literal or term form the words cannot write | a numeric part in the name of a declaration (Lean's `_private.Init.Prelude.0.x`), a part with a dot, a literal beyond one cell, a name the text rule bans |
+| a term the input does not hold | `let`, metadata and string literals, which the checker's input does not store yet (the checker says unsupported) |
+| the printer ran out of fuel or room | try a larger `--fuel` |
+
+A declaration that uses a constant with neither text nor stub (a private
+name) is itself listed as not written. A constant that no declaration of the
+export defines (an invalid export) gets no stub: reading the text back
+reports it. A definition's reducibility hint and safety are not in the text
+(the words make a regular, safe, unprotected definition).
 
 A limit still to lift: the LeanForth block takes at most 8 universe
 parameters (print-forth's `lf-decl-universe-capacity`); a declaration with

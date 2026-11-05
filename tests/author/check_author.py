@@ -54,7 +54,8 @@ import sys
 import tempfile
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from lean_terms import ExportError, compile_and_export, parse_dumps, structural  # noqa: E402
+from lean_terms import (Export, ExportError, compile_and_export, parse_dumps,  # noqa: E402
+                        structural)
 
 GFORTH = os.environ.get("GFORTH", "gforth")
 if "/" in GFORTH:  # the planted faults run Gforth in a copy of the tree
@@ -283,6 +284,103 @@ def check_corpus():
           f"{len(fixtures)} Lean exports give the same terms and text")
 
 
+LF_EXPORTS = [f"tests/reference/{name}.ndjson" for name in
+              ("identity", "composition", "type-identity", "poly-identity",
+               "constant-fixture")] + ["tests/reference/inductive/nat-add-zero.ndjson"]
+LF_LINE_START = ("\\ ", "  ", ":=", "theorem ", "def ", "axiom ", "import-stub ", "end ", "protected ")
+
+
+def print_lf(export):
+    """`leanforth print --lf` of an export: (the text, what it listed on stderr)."""
+    run = subprocess.run(["bin/leanforth", "print", "--lf", "--no-manifest", str(export)],
+                         stdin=subprocess.DEVNULL, capture_output=True, timeout=300)
+    if run.returncode != 0:
+        raise Failure(f"print --lf {export}: exit {run.returncode}:\n"
+                      + run.stderr.decode("utf-8", "replace"))
+    return run.stdout.decode("utf-8"), run.stderr.decode("utf-8")
+
+
+def lf_terms(text):
+    """The declarations the words make of the written text: name -> dumps."""
+    with tempfile.TemporaryDirectory() as work:
+        path = pathlib.Path(work) / "export.lf"
+        path.write_text(text, encoding="utf-8")
+        run = subprocess.run([GFORTH, "tests/author/terms.fs", "-e", f's" {path}" terms-run bye'],
+                             stdin=subprocess.DEVNULL, capture_output=True, timeout=300)
+    out = run.stdout.decode("utf-8", "replace")
+    if run.returncode != 0 or not out.startswith("ran: ok\n"):
+        raise Failure("the written text does not run:\n" + out[:600] + run.stderr.decode()[:300])
+    return forth_terms(out)
+
+
+def check_lf_text(name, text):
+    """Every line of the text is a comment, a declaration line or blank, and no
+    character the text rule bans (a line end, a bidirectional control) is in it."""
+    for line in text.splitlines():
+        if line and not line.startswith(LF_LINE_START):
+            raise Failure(f"{name}: a line that starts no declaration word: {line[:60]!r}")
+    if re.search("[  ‪-‮⁦-⁩\r\x00]", text):
+        raise Failure(f"{name}: a banned character in the written text")
+
+
+def check_export_lf(export):
+    """The text written for the export reads back to the export's own terms: each
+    theorem, def and axiom with its universe parameters, type and value, each
+    import stub with its universe parameters and (when it has one) type, node for
+    node; every declaration is written, stubbed or listed as not written at all."""
+    text, listing = print_lf(export)
+    check_lf_text(str(export), text)
+    forth = lf_terms(text)
+    lean = Export(pathlib.Path(export).read_text(encoding="utf-8").splitlines())
+    for name, decl in forth.items():
+        if name not in lean.decls:
+            raise Failure(f"{export}: {name} is not in the export")
+        want = lean.declaration(name)
+        for what, got, expected in term_parts(decl, want, lambda t: t):
+            if got != expected:
+                raise Failure(f"{export}: {name}: {what}\n  export: {expected}\n  text: {got}")
+    unstubbed = text.count("no import-stub could be written either")
+    if len(forth) + unstubbed != len(lean.decls):
+        raise Failure(f"{export}: {len(forth)} written or stubbed and {unstubbed} listed, "
+                      f"of {len(lean.decls)} declarations")
+    whole = sum(1 for _, (kind, *_rest) in forth.items() if kind != STUB)
+    return len(lean.decls), whole, len(forth) - whole
+
+
+def craft(source, work):
+    """The identity export with names that would break a line: a line feed and a
+    right-to-left override in binder names, a line end in the declaration's name."""
+    text = pathlib.Path(source).read_text(encoding="utf-8")
+    for old, new in (('"str":"P"', '"str":"P\\u202ex"'), ('"str":"proof"', '"str":"p\\nq"'),
+                     ('"str":"identity"', '"str":"id\\nfake: accepted"')):
+        assert old in text
+        text = text.replace(old, new)
+    path = pathlib.Path(work) / "crafted.ndjson"
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+def check_lf_crafted():
+    with tempfile.TemporaryDirectory() as work:
+        text, listing = print_lf(craft("tests/reference/identity.ndjson", work))
+    check_lf_text("crafted names", text)
+    lf_terms(text)  # what is left still runs
+    if "fake: accepted" in "\n".join(line for line in text.splitlines()
+                                     if not line.startswith("\\ ")):
+        raise Failure("crafted names: a name reached a line of its own")
+    if "not written: " not in text:
+        raise Failure("crafted names: the declaration was neither written nor listed")
+
+
+def check_lf_files():
+    counts = [check_export_lf(export) for export in LF_EXPORTS]
+    check_lf_crafted()
+    print(f"export to LeanForth: {len(counts)} exports written and read back to their own "
+          f"terms ({sum(c[0] for c in counts)} declarations: {sum(c[1] for c in counts)} "
+          f"written whole, {sum(c[2] for c in counts)} as import stubs); crafted names "
+          "break no line")
+
+
 def forth_lean(text):
     return [line[len("lean: "):] for line in text.splitlines() if line.startswith("lean: ")]
 
@@ -491,6 +589,7 @@ def main(args):
                 check_catalogue()
                 check_layering()
                 check_corpus()
+                check_lf_files()
     except (Failure, OSError, subprocess.SubprocessError) as error:
         print(f"check_author: {error}", file=sys.stderr)
         return 1
