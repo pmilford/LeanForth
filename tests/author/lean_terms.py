@@ -146,6 +146,12 @@ class Export:
             tag = "lam" if kind == "lam" else "pi"
             binder = self.binder(value, kind == "forallE")
             return f"({tag} {binder} {self.term(value['type'])} {self.term(value['body'])})"
+        if kind == "natVal":  # dump.fs: first cell (the value), then the number of limbs
+            number = int(value)
+            return f"(lit {number} {1 if number else 0})"
+        if kind == "proj":  # the projection leaf applied to the structure
+            leaf = f"(proj {self.name(value['typeName'])} {value['idx']})"
+            return f"(app {leaf} {self.term(value['struct'])})"
         return f"(lean-only {kind})"
 
     def declaration(self, name):

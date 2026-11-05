@@ -26,7 +26,7 @@ require ../core/input.fs
 1 constant lf-binder-implicit   \ {x : A}
 2 constant lf-binder-strict     \ strict implicit, written with double braces
 3 constant lf-binder-instance   \ [x : A], instance implicit
-32 constant lf-pres-declaration-capacity
+1024 constant lf-pres-declaration-capacity
 
 begin-structure /lf-pterm
   field: lf-pterm-identity   \ identity of the term when recorded; 0 when empty

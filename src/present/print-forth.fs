@@ -101,12 +101,29 @@ lf-pf-reserve protected export lit# proj#
   dup 0= if 2drop false exit then 2dup lf-pf-odd? if 2drop false exit then
   2dup tr-rule? 0= if 2drop false exit then
   2dup lf-pf-digits? if 2drop false exit then lf-pf-anonymous compare 0<> ;
+\ A numeric part is writable up to the digits a cell holds exactly, which
+\ the authoring words read (src/author/declarations.fs): 18 on a 64-bit
+\ host, 9 on a 32-bit one. Lean's macro scopes have long ones
+\ (x._@.Init.Prelude.1910291827._hygCtx._hyg.5).
+1 cells 8 < [if] 9 [else] 18 [then] constant lf-name-digits-max
+: lf-pf-part-bound ( -- u ) 1 lf-name-digits-max 0 ?do 10 * loop ;
 : lf-pf-part? ( id -- flag )
-  dup lf-name-tag@ lf-name-tag-str = if lf-name-text lf-pf-plain? else drop true then ;
+  dup lf-name-tag@ lf-name-tag-str = if lf-name-text lf-pf-plain? exit then
+  lf-name-payload lf-pf-part-bound u< ;
 : lf-pf-writable? ( id -- flag )
   dup 0= if drop false exit then
   begin dup while dup lf-pf-part? 0= if drop false exit then lf-name-prefix@ repeat
   drop true ;
+\ A name the authoring words can declare or refer to by a word (the name of
+\ a declaration, a universe parameter, a structure): every part a plain
+\ string part, since a numeric part is number-like and no word is made for
+\ it (src/author/namespaces.fs). A binder's name only needs lf-pf-writable?.
+: lf-pf-declarable? ( id -- flag )
+  dup 0= if drop false exit then
+  begin dup while
+    dup lf-name-tag@ lf-name-tag-str = 0= if drop false exit then
+    dup lf-pf-part? 0= if drop false exit then lf-name-prefix@
+  repeat drop true ;
 : lf-pf-among? ( c-addr u char -- flag )
   false 2swap chars over + swap ?do over i c@ = or loop nip ;
 : lf-pf-number-start? ( char -- flag )
@@ -195,7 +212,7 @@ defer lf-pf-level-step ( level x frames -- ... frames next )
 : lf-pf-level ( level frames cont -- ... frames next )
   rot 0 2swap ['] lf-pf-level-step lf-pp-call ;
 : lf-pf-param ( id -- outcome )
-  dup lf-pf-writable? 0= if drop outcome-unsupported exit then
+  dup lf-pf-declarable? 0= if drop outcome-unsupported exit then
   lf-pf-mark swap lf-pf-put-name dup lf-pp-pending lf-pf-token?
   if lf-pf-unit outcome-ok else lf-pp-used ! outcome-unsupported then ;
 \ Unchecked: level is valid; successors point to earlier levels.
@@ -269,7 +286,7 @@ defer lf-pf-level-step ( level x frames -- ... frames next )
     or
   swap lf-pp-used ! ;
 : lf-pf-const-name ( id -- outcome )
-  dup lf-pf-writable? 0= if drop outcome-unsupported exit then
+  dup lf-pf-declarable? 0= if drop outcome-unsupported exit then
   lf-pf-mark over lf-pf-root? if s" root: " lf-pp-put then swap lf-pf-put-name lf-pf-unit
   outcome-ok ;
 \ Each universe argument from index i on, then ^: the levels (addr), their
@@ -372,9 +389,10 @@ defer lf-pf-term-step ( term x frames -- ... frames next )
   >r dup lf-lit-small? over lf-lit-cell 0< 0= and
   if lf-lit-cell lf-pf-number s" lit#" lf-pf-say else drop outcome-unsupported then r> 0 ;
 : lf-pf-proj-step ( leaf frames -- outcome frames 0 )
-  >r dup lf-proj-name lf-pf-writable? 0= if drop outcome-unsupported r> 0 exit then
-  dup lf-proj-idx lf-pf-number s" proj#" lf-pf-text
-  lf-proj-name lf-pf-mark swap lf-pf-put-name lf-pf-unit outcome-ok r> 0 ;
+  >r dup lf-proj-name lf-pf-declarable? 0= if drop outcome-unsupported r> 0 exit then
+  dup lf-proj-idx lf-pf-number
+  lf-pf-mark s" proj# " lf-pp-put swap lf-proj-name lf-pf-put-name lf-pf-unit
+  outcome-ok r> 0 ;
 : lf-pf-lam ( lam frames -- ... frames next ) true swap lf-pf-binder ;
 : lf-pf-node-by ( tag -- xt )
   case lf-tag-bvar of ['] lf-pf-var-step endof
@@ -402,11 +420,11 @@ defer lf-pf-term-step ( term x frames -- ... frames next )
 : lf-pf-modifier ( decl -- ) lf-fdecl-protected @ if s" protected " lf-pp-put then ;
 : lf-pf-header ( decl -- outcome )
   dup lf-pf-kind? 0= if drop-invalid exit then
-  dup lf-fdecl-name @ dup lf-pf-writable? 0= if 2drop outcome-unsupported exit then
+  dup lf-fdecl-name @ dup lf-pf-declarable? 0= if 2drop outcome-unsupported exit then
   0 lf-pf-open lf-pf-mark rot dup lf-pf-modifier lf-fdecl-kind @ lf-pf-keyword lf-pp-put
   s"  " lf-pp-put swap lf-pf-put-name lf-pf-unit outcome-ok ;
 : lf-pf-universe ( id -- outcome )
-  dup lf-pf-writable? 0= if drop outcome-unsupported exit then
+  dup lf-pf-declarable? 0= if drop outcome-unsupported exit then
   2 lf-pf-open lf-pf-mark s" universe " lf-pp-put swap lf-pf-put-name lf-pf-unit
     outcome-ok ;
 : lf-pf-universes ( -- outcome )

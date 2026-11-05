@@ -55,8 +55,8 @@ wordlist constant lfa-definer
 2 constant lfa-entry-universe    \ value: the universe parameter's level
 3 constant lfa-entry-constant    \ value: the declaration
 
-256 constant lfa-entry-capacity
-4096 constant lfa-spelling-capacity
+1024 constant lfa-entry-capacity
+65536 constant lfa-spelling-capacity
 16 constant lfa-order-capacity
 256 constant lfa-define-capacity
 

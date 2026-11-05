@@ -284,11 +284,11 @@ reachable; on Gforth 1.0, `->x` then threw −21.
 Measured on Gforth 1.0 and 0.7.3, which give byte-identical results.
 Per run: the term store's 64 nodes (equal subterms share a node, except a
 step with a label or note), 64 levels, 64 names in 2,048 bytes, 32
-constant references, 32 declarations, 256 name entries in 4,096 bytes,
+constant references, 1,024 declarations, 1,024 name entries in 65,536 bytes,
 64 open binders, 512 values per declaration, 64 labels and notes in
-4,096 bytes, 16 namespace scopes and open namespaces at once, 32 known
-namespaces in 1,024 bytes, 8 universe parameters per declaration and 8
-universe arguments per constant, numbers of at most 9 digits, lines of
+4,096 bytes, 16 namespace scopes and open namespaces at once, 1,024 known
+namespaces in 32,768 bytes, 8 universe parameters per declaration and 8
+universe arguments per constant, numbers of at most 9 digits (numeric parts of names: 18 on a 64-bit host), lines of
 at most 1,023 characters in a file. A source position is the line times
 65,536 plus the column; on a 32-bit host lines beyond 32,767 wrap. Group
 words leave at least 65,536 address units of dictionary unused (a margin

@@ -162,8 +162,10 @@ text0 s" import-stub c end c " 33 times
 T{ text$ fails drop drop -> 28 }T
 : stubs ( n -- ) 0 ?do s" import-stub c" text+ i 0 <# #s #> text+ s"  end c" text+
   i 0 <# #s #> text+ s"  " text+ loop ;
-text0 33 stubs
+variable saved-names  lf-name-capacity saved-names !  100000 lf-name-capacity! drop
+text0 lfa-decl-capacity 1+ stubs
 T{ text$ fails drop drop -> 66 }T
+lf-author-begin saved-names @ lf-name-capacity! drop
 : binders ( n -- ) 0 ?do s"  Prop explicit: x" text+ i 0 <# #s #> text+ s" .y" text+ loop ;
 text0 s" theorem t" text+ 35 binders
 T{ text$ fails drop drop -> 62 }T

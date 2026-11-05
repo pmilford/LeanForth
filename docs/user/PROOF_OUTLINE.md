@@ -274,6 +274,39 @@ the round trip. A literal of more than one machine cell is not written as
 words (the printer says so). The golden output is `tests/present/outlines.golden`
 (sections `nat-add-zero` and `nat-zero-add`).
 
+### Nat.add_zero in LeanForth
+
+`leanforth print --lf` writes the whole export as one LeanForth text, proof
+included (see [the command line](COMMAND_LINE.md#writing-an-export-as-leanforth-text)).
+In this export the proof of `Nat.add_zero` is `rfl`: `n + 0` and `n` are
+definitionally equal, because `Nat.add` is defined by recursion on its second
+argument. In Lean it is `theorem Nat.add_zero (n : Nat) : n + 0 = n := rfl`;
+in mathematics, `n + 0 = n` by the definition of addition; in LeanForth,
+postfix, with `$` applying a function to an argument and `^` a constant to a
+universe level:
+
+```
+theorem Nat.add_zero
+  Nat explicit: n
+  Eq 1 ^ Nat $ HAdd.hAdd 0 ^ 0 ^ 0 ^ Nat $ Nat $ Nat $ instHAdd 0 ^ Nat $ instAddNat $ $ n
+    $ OfNat.ofNat 0 ^ Nat $ 0 lit# $ instOfNatNat 0 lit# $ $ $ $ n $
+:=
+  rfl 1 ^ Nat $ HAdd.hAdd 0 ^ 0 ^ 0 ^ Nat $ Nat $ Nat $ instHAdd 0 ^ Nat $ instAddNat $ $
+    n $ OfNat.ofNat 0 ^ Nat $ 0 lit# $ instOfNatNat 0 lit# $ $ $ $
+end Nat.add_zero
+```
+
+The text before it defines `rfl`, `instHAdd`, `instAddNat`, `Nat.add` (with
+the recursor `Nat.below`, `Nat.brecOn` and the match it uses) and the
+others it needs, with `import-stub` lines for the inductive types and their
+recursors, which the words cannot declare yet. Of the 44 constants of the
+export, 20 are written whole and 24 stand as stubs or comments; `Nat.zero_add`
+and its helper are not written, because Lean's private name
+`_private.Init.Data.Nat.Basic.0.Nat.zero_add.match_1_1` has a numeric part,
+which the words do not accept in the name of a declaration (a follow-up of
+plan task 8.6.3). `tests/author/check_author.py` reads the text back and
+compares every term with the export's, node for node.
+
 ## LaTeX
 
 `leanforth print --latex FILE` (in Forth, `true lf-outline-latex!` before
