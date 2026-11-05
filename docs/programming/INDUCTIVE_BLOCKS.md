@@ -421,13 +421,14 @@ the default is exactly Lean):
   4.2.2b-e, whnf and unfolding in inference): a use of the generated
   recursor of such a block (above), and in general a binder whose type's
   type is a Sort only after whnf (inference gives *unknown*, diagnostic
-  32, where Lean's `ensure_sort` reduces). Two more uses of a generated
-  recursor stay *unknown* for the same reason, though the block itself is
-  accepted: when the recursor's type applies a field whose binder is
-  annotated (`optParam Nat 0` against `Nat`, which Lean unfolds:
-  diagnostic 30, row `after.annotated-binders-left-out-then-use-rec`), and
-  when a field's type is a function type only after whnf (diagnostic 31,
-  row `after.redex-parameter-left-out-then-use-rec`).
+  32, where Lean's `ensure_sort` reduces). A use of a generated recursor
+  whose type applies a field with an annotated binder stays *unknown*
+  too, though the block itself is accepted: `optParam Nat 0` against
+  `Nat`, which Lean's lazy delta reduction unfolds (diagnostic 30, row
+  `after.annotated-binders-left-out-then-use-rec`; task 4.2.2d). One
+  whose field's type is a function type only after whnf (row
+  `after.redex-parameter-left-out-then-use-rec`, diagnostic 31 before) is
+  decided since task 4.2.2c's whnf is on main.
 - **The P4 guard, *unknown* where Lean rejects; task 5.2.2** (structure eta
   and unit-like comparison).
 - **Positivity and recursive fields through definitions, *unknown*; task
@@ -530,8 +531,8 @@ the default is exactly Lean):
   definition, erased by beta, in a non-recursive block; a block named
   `Nat.pow`; a block named `Nat.add`, and Lean's replay of it with a
   recursor that has a hypothesis). The rows of tasks 5.2.1a, 5.2.1b and
-  5.2.5a: 171, every one Lean's verdict or pending with its task (ok 90,
-  rejected 70, unknown 7, unsupported 4; 11 pending); the 73 rows of
+  5.2.5a: 171, every one Lean's verdict or pending with its task (ok 91,
+  rejected 70, unknown 6, unsupported 4; 10 pending); the 73 rows of
   later tasks: none decided against Lean. Before the fixes LeanForth
   accepted `forged.pow-through-definition` and its variants (Lean
   refuses) and the replay with the forged recursor (Lean's

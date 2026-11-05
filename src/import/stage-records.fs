@@ -133,7 +133,7 @@ end-structure
 : export>level ( i stage -- l ) stage-level-map map> ;
 : export>expr ( i stage -- e ) stage-expr-map map> ;
 
-\ Heap blocks the stage holds (the tier, the maps and the declarations;
+\ Heap blocks the stage holds (the tier, the maps, the declarations and their lines;
 \ not the reader's line buffer and JSON view), and its limit.
 : stage-allocated ( stage -- u )
   dup stage-tier tier-allocated over stage-name-map slab-bytes +
@@ -270,7 +270,8 @@ end-structure
 \ the checker never does).
 : draft-open ( record stage -- outcome )
   1 over stage-decl-records slab-room dup ok? 0= if nip nip exit then drop
-  over record-line @ over stage-lines fields-push dup ok? 0= if nip nip exit then drop
+  over record-line @ dup staged-none u< 0= if drop dup too-wide nip nip nip exit then
+  over stage-lines fields-push dup ok? 0= if nip nip exit then drop
   swap record-kind @ swap draft draft-blank outcome-ok ;
 
 \ Gathering a tuple's items in the stage, then making the tuple: full for

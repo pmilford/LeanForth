@@ -86,7 +86,9 @@ T{ statuses -> outcome-ok outcome-invalid outcome-exhausted outcome-unknown }T
 \ Amendment 1 (structural level equality costs nothing), 166 since free
 \ variables (plan task 4.2.2a: a bound variable's type is its entry's, with
 \ no shift, an application's type is instantiated without an audit, and a
-\ chain of lambdas has its type closed once, at its top).
+\ chain of lambdas has its type closed once, at its top), 121 since
+\ conversion is Lean's is_def_eq (plan task 4.2.2b: terms equal by Lean's
+\ == are decided at once, without beta-reducing each pair first).
 \ The rejections are ADR 0011's, each as Lean's kernel decides: the value
 \ id.{u} (Sort u) applies id to an argument of the wrong universe (D1 in
 \ the value: appTypeMismatch); a function claimed to be a Sort u (D2:
@@ -94,7 +96,7 @@ T{ statuses -> outcome-ok outcome-invalid outcome-exhausted outcome-unknown }T
 : rejected-code? ( code -- flag ) lf-diag-code@ = ;
 : basic-case ( -- )
   setup snapshot 4 9 50000 probe outcome-ok expect-status assert-rollback
-  lf-mdefinition-fuel @ 49834 <> abort" success fuel"
+  lf-mdefinition-fuel @ 49879 <> abort" success fuel"
   lf-term-serial @ term-serial-before @ <= abort" expected allocations"
   snapshot 0 10 50000 probe outcome-rejected expect-status assert-rollback
   lf-mdefinition-fuel @ 0<> abort" rejected fuel"

@@ -52,8 +52,8 @@ constant.needs-unfolding-wrong	declTypeMismatch	unknown	K1
 constant.uses-an-undecided-declaration	accepted	unknown	K5
 constant.theorem-cites-theorem	accepted	accepted	A1
 constant.over-application	funExpected	rejected	F1
-constant.function-type-behind-definition	accepted	unknown	K1
-constant.sort-behind-definition	accepted	unknown	K1
+constant.function-type-behind-definition	accepted	accepted	A1
+constant.sort-behind-definition	accepted	accepted	A1
 scope.metadata	accepted	unsupported	U2
 scope.number-literal	accepted	unsupported	U2
 scope.postulate	accepted	unsupported	U1
@@ -66,5 +66,5 @@ pi-body.lambda	typeExpected	rejected	S4
 pi-body.in-claim	typeExpected	rejected	S4
 pi-body.type	accepted	accepted	A1
 pi-body.proposition	accepted	accepted	A1
-pi-body.needs-unfolding	accepted	unknown	K1
-pi-body.needs-unfolding-wrong	typeExpected	unknown	K1
+pi-body.needs-unfolding	accepted	accepted	A1
+pi-body.needs-unfolding-wrong	typeExpected	rejected	S4

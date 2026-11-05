@@ -636,6 +636,24 @@ T{ s" after.even-odd-left-out-then-use-second-rec" used -> outcome-ok 0 }T
 T{ s" after.indexed-data-left-out-then-use-second-rec" used -> outcome-ok 0 }T
 T{ s" after.three-types-at-concrete" used -> outcome-ok 0 }T
 T{ s" after.three-types-at-renamed" used -> outcome-ok 0 }T
+\ Review rvN1 (M1): the generated recursors of a W type (at its own,
+\ swapped and concrete universes), of indexed recursive blocks and of
+\ reflexive ones. A recursor whose type applies a field with an annotated
+\ binder (optParam Nat 0 against Nat) stays unknown until inference
+\ unfolds (task 4.2.2's whnf in inference); one whose field's type is a
+\ function type only after whnf is decided since that whnf is on main.
+T{ s" after.w-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.w-at-swapped" used -> outcome-ok 0 }T
+T{ s" after.w-at-concrete" used -> outcome-ok 0 }T
+T{ s" after.acc-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.acc-at-concrete" used -> outcome-ok 0 }T
+T{ s" after.vec-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.reflexive-indexed-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.indexed-mixed-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.reflexive-indexed-dependent-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.annotated-binders-left-out-then-use-rec" used
+   -> outcome-unknown lf-diag-undecided }T
+T{ s" after.redex-parameter-left-out-then-use-rec" used -> outcome-ok 0 }T
 \ The marks on the slots: the type and constructors, not the recursor.
 : added? ( d -- flag ) lf-env lf-env-slot lf-slot-added? ;
 : marks ( -- f0 f1 f2 f3 )

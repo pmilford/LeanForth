@@ -567,11 +567,12 @@ create cli-fed-ops
 : cli-print-env ( chosen -- )
   cli-fuel @ lf-check-budget lf-env-pool-max lf-env-new cli-env-made 0= if drop exit then
   swap cli-print-guarded swap cli-print-free throw ;
-\ The log on for the run, and off again after it, also after a THROW.
+\ The outline's style and the names it shows, set before the run.
 : cli-style ( -- )
   cli-state opt-latex @ lf-outline-latex!
   cli-state opt-forms @ ?dup 0= if lf-forms-all then lf-forms!
   ['] nt-name ['] nt-text lf-outline-names! ;
+\ The log on for the run, and off again after it, also after a THROW.
 : cli-printing ( -- )
   cli-chosen 0= if cli-no-such exit then cli-style
   pr-log-on ['] cli-print-env catch lf-log-off lf-log-set throw ;

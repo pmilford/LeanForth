@@ -61,7 +61,7 @@ RUN := timeout $(TEST_TIMEOUT)
 DIFFERENTIAL_TARGETS := \
 	test-doc-examples-lean \
 	reference reference-export reference-first-checker reference-binder-domains \
-	reference-definitional-equality \
+	reference-definitional-equality test-definitional-equality-differential \
 	reference-inductive \
 	test-name-differential \
 	test-level-differential \
@@ -239,6 +239,8 @@ test-core:
 	$(RUN) $(GFORTH) tests/core/mixed-beta.fs
 	$(RUN) $(GFORTH) tests/core/mixed-compare.fs
 	$(RUN) $(GFORTH) tests/core/mixed-convert.fs
+	$(RUN) $(GFORTH) tests/core/defeq.fs
+	$(RUN) $(GFORTH) tests/core/whnf.fs
 	$(RUN) $(GFORTH) tests/core/mixed-level-substitute.fs
 	$(RUN) $(GFORTH) tests/core/mixed-signature-probe.fs
 	$(RUN) $(GFORTH) tests/core/mixed-signature-lifecycle.fs
@@ -335,6 +337,12 @@ test-first-checker-differential:
 
 test-binder-domains-differential:
 	$(LEAN_TABLE) binder-domains
+
+# Lean's definitional-equality procedure (ADR 0014; plan task 4.2.2c):
+# the table's rows end to end; sort.*, pi.* and whnf.* give Lean's answer,
+# no row contradicts Lean.
+test-definitional-equality-differential:
+	$(LEAN_TABLE) definitional-equality
 
 test-universe-scope-differential:
 	$(LEAN_TABLE) universe-scope

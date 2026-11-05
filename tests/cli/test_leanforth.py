@@ -55,6 +55,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import stat
 import subprocess
 import sys
@@ -154,8 +155,8 @@ class ExitCodes(unittest.TestCase):
                      "error: unsupported: an inductive type (not supported yet) (line 51)"])
         self.expect(["check", "tests/cli/unfold.ndjson"], 2,
                     [f"Implies: {LABEL}", "impliesSelf: unknown",
-                     "  undecided: terms or levels differ; diagnostic 30 at mixed-convert "
-                     "lf-mixed-convert: 17 10",
+                     "  undecided: terms or levels differ; diagnostic 30 at defeq "
+                     "lf-defeq: 20 22",
                      "2 declarations: 1 accepted, 1 unknown", accepted(1)])
 
     def test_3_limits(self):
@@ -818,7 +819,7 @@ class JsonReport(unittest.TestCase):
         self.assertEqual((got["fuel"]["total"], got["fuel"]["unknown"]),
                          (sum(d["fuel"] for d in got["declarations"]), 0))
         self.assertEqual([t["name"] for t in got["fuel"]["top"]],
-                         ["Two.cases", "Two.swap", "Two"])
+                         ["Two.cases", "Two", "Two.swap"])
         self.assertEqual((got["input"]["declarations"], got["stopped"]), (6, False))
         # Fuel not known: a check that failed in inference gave its counter
         # up; it is in no total and never among the most fuel used.
@@ -919,6 +920,63 @@ class Names(unittest.TestCase):
             self.assertEqual((status, out.splitlines()[-1], err),
                              (4, "error: no declaration named x\\u{A}y", ""))
 
+    def test_print_crafted_binder_and_constant(self):
+        """A binder name and a referenced constant's name holding LF and U+202E (and
+        an invalid byte) cannot forge an outline line, reorder text or reach the output
+        raw, in every statement form, in --detail and in the LaTeX style (review rvPR B1)."""
+        forged = "q\nTheorem forged\n  accepted (experimental)‮"
+        cases = [("tests/reference/identity.ndjson", '"str":"P"'),
+                 ("tests/reference/constant-fixture.ndjson", '"str":"fixtureId"')]
+        for forged, (source, old) in [(f, c) for f in (forged, "r\u202es") for c in cases]:
+            text = (ROOT / source).read_text(encoding="utf-8")
+            self.assertEqual(text.count(old), 1, source)
+            crafted = text.replace(old, '"str":' + json.dumps(forged, ensure_ascii=False))
+            with tempfile.TemporaryDirectory() as folder:
+                export = Path(folder) / "crafted.ndjson"
+                export.write_text(crafted, encoding="utf-8")
+                for options in ([], ["--detail"], ["--statement", "mathematics"],
+                                ["--statement", "leanforth"], ["--statement", "lean"],
+                                ["--latex"], ["--latex", "--statement", "mathematics"]):
+                    status, out, err = run("print", "--no-manifest", *options, str(export))
+                    where = (source, options)
+                    self.assertEqual((status, err), (0, ""), where)
+                    self.assertNotIn("‮", out, where)
+                    lines = out.splitlines()
+                    self.assertEqual([l for l in lines if l.startswith(("Theorem forged",
+                                                                       "  accepted (experimental)",
+                                                                       "forged"))], [], where)
+                    heads = [l for l in lines if re.match(r"^(\\textbf\{)?(Theorem|Definition)", l)]
+                    self.assertEqual(len(heads), 1 if "identity" in source else 3, where)
+
+    def test_print_latex_odd_names(self):
+        """LaTeX specials and a long binder name keep the fragment well formed: braces and
+        environments balance, and a name of 1,100 bytes is not cut (the line buffer grows)."""
+        text = (ROOT / "tests/reference/identity.ndjson").read_text(encoding="utf-8")
+        for name in ["a_b#c%d&e{f}g$h^i~j\\k", "x" * 1100, "p\n\nq"]:
+            crafted = text.replace('"str":"P"', '"str":' + json.dumps(name))
+            with tempfile.TemporaryDirectory() as folder:
+                export = Path(folder) / "odd.ndjson"
+                export.write_text(crafted, encoding="utf-8")
+                status, out, err = run("print", "--no-manifest", "--latex", str(export))
+                self.assertEqual((status, err), (0, ""), name[:20])
+                plain = re.sub(r"\\[{}$%&#_ ]", "", out)
+                self.assertEqual(plain.count("{"), plain.count("}"), name[:20])
+                self.assertEqual(out.count("\\begin{"), out.count("\\end{"), name[:20])
+                if shutil.which("pdflatex"):
+                    tex = Path(folder) / "odd.tex"
+                    tex.write_text("\\documentclass{article}\n\\usepackage[utf8]{inputenc}\n"
+                                   "\\usepackage{amsmath,amssymb}\n\\begin{document}\n"
+                                   + out.split("\n", 1)[1] + "\n\\end{document}\n")
+                    run_tex = subprocess.run(["pdflatex", "-no-shell-escape", "-halt-on-error",
+                                              "-interaction=nonstopmode", tex.name], cwd=folder,
+                                             capture_output=True, text=True,
+                                             stdin=subprocess.DEVNULL, timeout=120)
+                    self.assertEqual(run_tex.returncode, 0, run_tex.stdout[-800:])
+                if len(name) > 1000:
+                    self.assertIn("x" * 1100, out)
+                    status, plain_out, err = run("print", "--no-manifest", str(export))
+                    self.assertIn("x" * 1100, plain_out)
+
     def test_print_long_names(self):
         """--name picks a declaration by its whole name, however long: no fixed
         buffer (review B-L3: a 256-byte one dropped components, so a long name
@@ -972,11 +1030,11 @@ class Resources(unittest.TestCase):
                                   r"the stage's heap blocks \d+(\.\d)? [kM]B$")
         self.assertEqual(rest[6:], [
             "  input: 6 declarations, 46 term nodes, 3 levels, 5 constant references, 31 names",
-            "  fuel: 1520 steps in all, at most 100000 per declaration",
+            "  fuel: 1187 steps in all, at most 100000 per declaration",
             "  most fuel used:",
-            "       832 Two.cases (accepted)",
-            "       349 Two.swap (accepted)",
-            "       339 Two (accepted)"])
+            "       576 Two.cases (accepted)",
+            "       339 Two (accepted)",
+            "       272 Two.swap (accepted)"])
 
     def test_stable_but_for_time_and_memory(self):
         def steady(out):

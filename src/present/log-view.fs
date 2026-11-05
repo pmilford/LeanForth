@@ -33,12 +33,12 @@
 \ log lacks it or the print fails. A rollback that fails (lf-lv-release)
 \ is counted, and nothing is rebuilt after it.
 \ State: one cell of the checker context, lf-lv-held, pointing to a heap
-\ block (about 37 KB) that exists only while printing (lf-lv-setup to
+\ block (about 36 KB) that exists only while printing (lf-lv-setup to
 \ lf-lv-done; lf-lv-open for a test that rebuilds formulas directly): the
-\ output sink, the line buffer, the formula fuel, the rebuilt copies and
+\ output sink, the style, the formula fuel, the rebuilt copies and
 \ the names of copies; the context's teardown frees a block left by a
 \ THROW. Beside it, growable members of the context: the scope's binder
-\ nodes, a rebuilt reference's levels, and three walk records. Requires
+\ nodes, a rebuilt reference's levels, the line being built, and three walk records. Requires
 \ a check's log in the current context.
 
 require ./term-printer.fs
@@ -46,29 +46,27 @@ require ../lib/bytes.fs
 require ../core/derivation-log.fs
 require ../core/input.fs
 
-1024 constant lf-lv-buffer-size
-
 begin-structure /lf-lv
   field: lf-lv-sink          \ xt ( c-addr u -- ) of the finished text
-  field: lf-lv-used          \ bytes in the line buffer
   field: lf-lv-fuel          \ fuel of each formula
   field: lf-lv-bad           \ formulas that failed to print
   field: lf-lv-lost          \ rollbacks that failed
   field: lf-lv-depth         \ binders in the scope
   field: lf-lv-tex           \ true: LaTeX style (lf-lv-latex!)
   field: lf-lv-mathing       \ open math groups in the line (LaTeX style)
-  field: lf-lv-declname         \ xt ( id -- c-addr u flag ) of a declaration's name, or 0
+  field: lf-lv-decl-namer         \ xt ( id -- c-addr u flag ) of a declaration's name, or 0
   field: lf-lv-escape        \ xt ( c-addr u -- c-addr' u' flag ) escaping any text, or 0
   lf-log-term-capacity cells +field lf-lv-made      \ copy k's rebuilt term + 1, -1, or 0
   lf-log-level-capacity cells +field lf-lv-lmade    \ copy k's rebuilt level + 1, -1, or 0
   lf-log-term-capacity cells +field lf-lv-namer      \ input binder naming copy k, + 1
-  lf-lv-buffer-size +field lf-lv-buffer
 end-structure
 1 cells context-record: lf-lv-held
 \ A rebuilt reference's levels, as many as it has, and the scope's binder
 \ nodes, outermost first, as many as there are (no fixed limit).
 2 cells context-slab: lf-lv-pair-cells
 1 cells context-slab: lf-lv-scope-cells
+\ The line being built: bytes, as many as the line has (no fixed limit).
+1 chars context-slab: lf-lv-line
 : lf-lv ( -- addr ) lf-lv-held @ ;
 \ The block: made zeroed when there is none (false without memory), or
 \ zeroed again when a THROW left one held (no count of failed rollbacks or
@@ -83,15 +81,17 @@ end-structure
 :noname ( -- ) lf-lv-close throw ; context-teardown
 
 \ Text: the buffer, the output, numbers, padding by characters.
-: lf-lv-text ( -- c-addr u ) lf-lv lf-lv-buffer lf-lv lf-lv-used @ ;
-: lf-lv-clear ( -- ) 0 lf-lv lf-lv-used ! ;
-: lf-lv-room ( -- n ) lf-lv-buffer-size lf-lv lf-lv-used @ - ;
+: lf-lv-text ( -- c-addr u ) lf-lv-line slab-base lf-lv-line slab-count ;
+: lf-lv-clear ( -- ) lf-lv-line slab-clear ;
 \ The outline's text goes into the buffer as it is (lf-lv-put-raw) or, in plain
 \ style when the caller gave an escaping word (lf-outline-names!), escaped, so
 \ that a name in a formula cannot start a line of its own; text that cannot
 \ be escaped (no heap) shows as ?.
+\ Text the heap has no room for is left out and counted (a "?" is shown by
+\ the caller's next failure count, never a cut line).
 : lf-lv-put-raw ( c-addr u -- )
-  lf-lv-room min tuck lf-lv-text + swap move lf-lv lf-lv-used +! ;
+  dup lf-lv-line slab-claim ok?
+  if lf-lv-line slab-at swap move else drop 2drop 1 lf-lv lf-lv-bad +! then ;
 : lf-lv-safe ( c-addr u -- c-addr' u' )
   lf-lv lf-lv-escape @ ?dup 0= if exit then lf-lv lf-lv-tex @ if drop exit then
   execute 0= if 2drop s" ?" then ;
@@ -106,6 +106,8 @@ create lf-lv-blanks 64 allot lf-lv-blanks 64 bl fill
 \ LaTeX style (lf-lv-latex!, used by the proof outline): n blanks are n
 \ space widths of the font, a column ends with & and a line with \\.
 : lf-lv-tex? ( -- flag ) lf-lv lf-lv-tex @ 0<> ;
+\ A number in hexadecimal, straight to the output.
+: lf-lv-hex ( u -- ) base @ >r hex 0 <# #s #> r> base ! lf-lv-out ;
 : lf-lv-hspace ( n -- )
   dup 0> 0= if drop exit then s" \hspace*{" lf-lv-out lf-pp-digits lf-lv-out
   s" \fontdimen2\font}" lf-lv-out ;
@@ -392,16 +394,13 @@ lf-walk-room context-walk: lf-lv-term-work
 : lf-lv-scope-set ( -- addr d ) lf-lv-scope-cells slab-base lf-lv lf-lv-depth @ ;
 \ LaTeX style: a formula, a name or a level is math, between $ and $ (once
 \ when groups nest: the sentence "Assume f : A → B." opens one around the
-\ name and the type). The buffer may be full: the closing $ then replaces
-\ its last byte, so that no math is left open.
-: lf-lv-last-dollar ( -- )
-  lf-lv-room 0= if -1 lf-lv lf-lv-used +! then s" $" lf-lv-put ;
+\ name and the type).
 : lf-lv-math-open ( -- )
   lf-lv-tex? 0= if exit then 1 lf-lv lf-lv-mathing +!
   lf-lv lf-lv-mathing @ 1 = if s" $" lf-lv-put then ;
 : lf-lv-math-close ( -- )
   lf-lv-tex? 0= if exit then -1 lf-lv lf-lv-mathing +!
-  lf-lv lf-lv-mathing @ 0= if lf-lv-last-dollar then ;
+  lf-lv lf-lv-mathing @ 0= if s" $" lf-lv-put then ;
 : lf-lv-term-here ( term -- )
   lf-lv-math-open lf-lv-scope-set lf-lv lf-lv-fuel @ lf-print-scoped lf-lv-printed
   lf-lv-math-close ;
@@ -446,12 +445,13 @@ lf-walk-room context-walk: lf-lv-term-work
 \ A name given a namer (plain style) is shown as it shows it, which escapes it
 \ whole and is not escaped again.
 : lf-lv-decl-shown ( id -- )
-  lf-lv lf-lv-declname @ execute
+  lf-lv lf-lv-decl-namer @ execute
   if lf-lv-put-raw else 2drop s" ?" lf-lv-put-raw 1 lf-lv lf-lv-bad +! then ;
 : lf-lv-printed-name ( id -- )
   lf-lv-math-open lf-print-name lf-lv-printed lf-lv-math-close ;
+: lf-lv-decl-namer? ( -- flag ) lf-lv lf-lv-decl-namer @ 0<> lf-lv-tex? 0= and ;
 : lf-lv-name-id ( id -- )
-  lf-lv lf-lv-declname @ lf-lv-tex? 0= and if lf-lv-decl-shown else lf-lv-printed-name then ;
+  lf-lv-decl-namer? if lf-lv-decl-shown else lf-lv-printed-name then ;
 : lf-lv-decl-name ( i -- )
   dup 0 lf-input-count within if lf-input-name lf-lv-name-id else lf-lv-n then ;
 

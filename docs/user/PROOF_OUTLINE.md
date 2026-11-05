@@ -80,7 +80,7 @@ Theorem composition
   accepted (experimental, not independently audited); axioms: none
   Statement in Lean:        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$
-  Statement in LeanForth (the statement only, written as an axiom; nothing is assumed):
+  Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom composition
       Prop implicit: A
       Prop implicit: B
@@ -90,7 +90,7 @@ Theorem composition
       A C ->
     end composition
   Input:     tests/reference/composition.ndjson line 35
-  Checker log: 51 steps, complete. The statement is a proposition: s20 (from s3).
+  Checker log: 48 steps, complete. The statement is a proposition: s20 (from s3).
 
 Proof (reconstructed from the proof term).
   1  Let A, B, C be propositions.                  [∀-introduction]                   s21–s23
@@ -103,7 +103,7 @@ Proof (reconstructed from the proof term).
          because g turns any proof of B into a proof of C.
   7  Discharging 4, 3, 2 and 1 gives               [→/∀-introduction ← 1, 2, 3, 4, 6] s40–s45
        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C.
-  8  This is the statement.                        [definitional equality ← 7]        s49
+  8  This is the statement.                        [definitional equality ← 7]        s46
 ∎
 Rules, formulas and step numbers come from the checker's log; the sentences are
 fixed templates (structured-template), not checked reasoning.
@@ -116,10 +116,12 @@ How to read it:
   Lean's notation, in mathematics (LaTeX between `$` and `$`, for a
   Markdown viewer or a paper) and in LeanForth words. The LeanForth block
   states the type the way an `axiom` of the same name does, the one form
-  of the words that states a type without a proof; it assumes nothing, and
-  running it with the [authoring words](../programming/LEANFORTH_WORDS.md)
-  builds exactly the statement term (`make test` checks this for every
-  example on this page). `leanforth print --statement lean,leanforth`
+  of the words that states a type without a proof. Printing it assumes
+  nothing (the checker's verdict is the line above it, also for an axiom or a
+  rejected declaration); running it with the
+  [authoring words](../programming/LEANFORTH_WORDS.md) makes an axiom there
+  and builds exactly the statement term (`make test` checks this for the
+  five pinned examples; the `Init` outline below was not run back). `leanforth print --statement lean,leanforth`
   chooses which forms to print.
 - Each line has a number, a sentence, the rule in brackets with the
   earlier lines it uses after `←`, and the checker steps it covers
@@ -146,7 +148,7 @@ style, [below](#latex), writes such a table):
 | 5 | Then $f\ \mathit{value} : B$, because $f$ turns any proof of $A$ into a proof of $B$. | →-elimination | 2, 4 | s36 |
 | 6 | Then $g\ (f\ \mathit{value}) : C$, because $g$ turns any proof of $B$ into a proof of $C$. | →-elimination | 3, 5 | s39 |
 | 7 | Discharging 4, 3, 2 and 1 gives $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$. | →/∀-introduction | 1, 2, 3, 4, 6 | s40–s45 |
-| 8 | This is the statement. | definitional equality | 7 | s49 |
+| 8 | This is the statement. | definitional equality | 7 | s46 |
 
 ## Printing an outline
 
@@ -175,7 +177,7 @@ Theorem Eq.symm
   accepted (experimental, not independently audited); axioms: none
   Statement in Lean:        ∀ {α : Sort u} {a b : α} (h : Eq a b), Eq b a
   Statement in mathematics: $\forall \{\alpha : \mathrm{Sort}\ u\}\ \{a\ b : \alpha\}\ (h : \mathsf{Eq}\ a\ b),\ \mathsf{Eq}\ b\ a$
-  Statement in LeanForth (the statement only, written as an axiom; nothing is assumed):
+  Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom Eq.symm
       universe u
       u Sort implicit: α
@@ -195,7 +197,7 @@ step). Each declaration of the file is checked in turn with the log at
 level `terms`, and printed after its check; the exit status is `check`'s
 for a declaration refused, 3 for a log that ran out of room
 ([details](COMMAND_LINE.md#printing-a-readable-proof)). `--detail` lists
-all 51 steps of `composition` instead, for example
+all 48 steps of `composition` instead, for example
 
 ```text
   s35    instantiate         depth 6   (fun x ↦ B) value ⟶ B
