@@ -56,16 +56,18 @@ variable mark-t variable mark-l variable mark-c variable mark-s
 variable step-type variable step-value variable step-name variable step-arity
 variable result-code variable pair-fuel variable step-index
 create stage-fuels 3 cells allot
-create saved-names lf-msp-capacity cells allot
-create saved-roots lf-msp-capacity cells allot
-create saved-ids lf-msp-capacity cells allot
-create saved-arities lf-msp-capacity cells allot
+\ Room for the index's records saved at a mark; a stream with more stops.
+64 constant saved-room
+create saved-names saved-room cells allot
+create saved-roots saved-room cells allot
+create saved-ids saved-room cells allot
+create saved-arities saved-room cells allot
 create saved-formals 4096 cells allot
 : bytes-equal? ( first second count -- flag ) >r r@ swap r> compare 0= ;
 : save-prefix ( source destination -- ) mark-s @ cells move ;
 : marks ( -- )
   lf-term-count @ mark-t ! lf-level-count @ mark-l !
-  lf-cref-count @ mark-c ! lf-msp-count @ mark-s !
+  lf-cref-count @ mark-c ! lf-msp-count @ dup saved-room > if -1 throw then mark-s !
   lf-msp-names saved-names save-prefix lf-msp-roots saved-roots save-prefix
   lf-msp-ids saved-ids save-prefix lf-msp-arities saved-arities save-prefix
   lf-msp-formals saved-formals mark-s @ lf-msp-formal-cells cells move ;

@@ -111,7 +111,7 @@ T{ s\" \"numbers\":[1,4242]" holds? accepted holds? -> true true }T
 rr-release
 
 \ Verdicts only from the run's own environment (review F1). B: rr-check
-\ cannot make its environment (a pool out of range) while the caller's
+\ cannot make its environment (a negative pool room) while the caller's
 \ own environment over the same input is current: the record lists no
 \ declaration, and says why. C: rr-check makes its environment and checks
 \ with the same fuel, then the caller makes another current: no record,
@@ -122,7 +122,7 @@ variable foreign
 : no-env ( -- c-addr u )
   s\" \"run\":\"invalid\",\"mode\":null,\"allowlistVersion\":null},\"declarations\":[]" ;
 T{ constant-fixture rr-start -> outcome-ok }T
-0 lf-env-pool-max 1+ rr-settings!
+0 -1 rr-settings!
 T{ false rr-import -> outcome-ok }T
 foreign-current rr-check
 T{ rr-finish rr-write -> outcome-ok outcome-ok }T

@@ -57,16 +57,18 @@
 \ lf-env-begin clears the diagnostic.
 \
 \ [kernel] code: experimental, not through the review gate, not
-\ independently audited. Phase-2 limits: lf-input-capacity slots,
-\ lf-env-dep-capacity dependencies per check, lf-env-pool-max in a pool.
+\ independently audited. Limits: lf-input-capacity slots; a check's
+\ dependencies and an environment's pool have no fixed limit (plan task
+\ 6.2.0): both grow with the heap, and one the heap cannot grow is full.
 \ State: the shared record lf-envs (the identity serial and the current
 \ environment; changed only while no job runs), each environment's
-\ ALLOCATEd record (shared, outside every context: written only by the
-\ publisher, which keeps its pool mark in the header, read by every
-\ check), and two context records, one per context (ADR 0009): the
-\ candidate lf-env-cand and the worker record lf-env-worker. An
-\ environment must be freed only when no task uses it. The layout is
-\ host-specific and never serialized.
+\ ALLOCATEd record and its pool's blocks (shared, outside every context:
+\ written only by the publisher, which keeps its pool mark in the
+\ header, read by every check), two context records, one per context
+\ (ADR 0009): the candidate lf-env-cand and the worker record
+\ lf-env-worker, and the candidate's list of dependencies, the context
+\ slab lf-cand-deps. An environment must be freed only when no task uses
+\ it. The layout is host-specific and never serialized.
 
 require ../lib/lib.fs
 require ../core/derivation-log.fs
@@ -76,8 +78,7 @@ require ../core/name-equal.fs
 require ../core/terms.fs
 require ../core/input.fs
 
-16 constant lf-env-dep-capacity     \ dependencies one check may record
-65536 constant lf-env-pool-max      \ most dependencies one environment holds
+65536 constant lf-env-pool-start    \ the pool room `check` starts with; it grows
 1 constant lf-state-final           \ the state of a published slot
 0 constant lf-mode-final            \ run modes (E8); phase 2 makes only final
 1 constant lf-mode-development
@@ -95,8 +96,9 @@ end-structure
 create lf-envs /lf-envs allot
 lf-envs /lf-envs erase
 
-\ An environment: this header, the slots, then the dependency pool, a
-\ store of one cell per dependency.
+\ An environment: this header, then the slots. Its dependency pool, a
+\ store of one cell per dependency, is a heap block of its own (see
+\ "The pool" below).
 begin-structure /lf-env
   field: lf-envh-identity   \ never repeats; 0 once freed
   field: lf-envh-input      \ the input's fingerprint when made
@@ -105,6 +107,7 @@ begin-structure /lf-env
                             \ (a test may set one on a synthetic environment)
   field: lf-envh-version    \ allowlist version
   field: lf-envh-mode       \ run mode
+  field: lf-envh-pool       \ the pool's current block
   /store-mark +field lf-envh-pub-mark   \ the publisher's pool mark while it publishes
 end-structure
 
@@ -146,9 +149,11 @@ begin-structure /lf-cand
   field: lf-cand-warnings   \ a block's B4 warning bits, published with it
   field: lf-cand-added      \ a block rejected only by B3 (lf-env-added!)
   field: lf-cand-recipe     \ its generated recursor's recipe (lf-env-recipe!)
-  lf-env-dep-capacity cells +field lf-cand-deps   \ their slots, ascending
 end-structure
 /lf-cand context-record: lf-env-cand
+\ The dependencies' slots, ascending: a growable array, as long as the
+\ check needs (plan task 6.2.0).
+1 cells context-slab: lf-cand-deps
 \ The candidate's span: how many slots, from the declaration checked on,
 \ its outcome and record are for. A block's check sets it to the block's
 \ members (kernel/check-block.fs); every other check leaves it 1.
@@ -192,9 +197,32 @@ end-structure
 : lf-env ( -- env ) lf-envs lf-envs-current @ ;
 : lf-env-length ( env -- n ) lf-envh-length @ ;
 : lf-env-slot ( d env -- slot ) /lf-env + swap /lf-slot * + ;
-: lf-env-pool ( env -- store ) dup lf-env-length swap lf-env-slot ;
-: lf-env-bytes ( slots deps -- u ) 1 cells store-size swap /lf-slot * + /lf-env + ;
+: lf-env-bytes ( slots -- u ) /lf-slot * /lf-env + ;
 : lf-env-in? ( d env -- flag ) lf-env-length 0 swap within ;
+
+\ The pool (E2; plan task 6.2.0): a heap block holding a link cell, then
+\ a store of one-cell records, room of them. Only the publisher writes
+\ it (env-publish.fs). When a publication needs more room than the pool
+\ has, the publisher, before it marks the pool, makes a block with room
+\ for at least twice as many, copies the store into it, links the old
+\ block from the new one and then, in one cell, makes the new one
+\ current; the old blocks are freed with the environment. So a check in a
+\ job that reads the pool's header while the publisher grows it
+\ (lf-env-live?) reads a whole, sealed store: the current one or an
+\ older one, which no longer changes. Unchecked: a live environment.
+: lf-env-pool ( env -- store ) lf-envh-pool @ cell+ ;
+\ Whether a pool of room records is a sound store shape, with a cell to
+\ spare for the link.
+: lf-pool-plan? ( room -- flag ) dup 0< 0= swap 1+ 1 cells 0 store-plan? and ;
+: lf-pool-size ( room -- u ) 1 cells store-size cell+ ;
+\ A new pool block of room records, its link 0: (block ok); (0 invalid)
+\ for an unsound room, (0 full) when the heap has no room.
+: lf-pool-block ( room -- block outcome )
+  dup lf-pool-plan? 0= if drop 0 outcome-invalid exit then
+  dup lf-pool-size allocate if 2drop 0 outcome-full exit then
+  0 over ! tuck cell+ >r 1 cells 0 r> store-init drop outcome-ok ;
+\ Free a block and every older one it links.
+: lf-pool-release ( block -- ) begin ?dup while dup @ swap free drop repeat ;
 
 \ Sanity checks; like context?, they cannot recognise every stale
 \ address. A live environment has an issued identity, a length within the
@@ -203,9 +231,11 @@ end-structure
 : lf-env-sane? ( env -- flag )
   dup lf-envh-identity @ 1 lf-env-serial @ between?
   swap lf-env-length lf-input-capacity upto? and ;
+: lf-env-pooled? ( env -- flag )
+  lf-envh-pool @ ?dup if cell+ store-count-valid? else false then ;
 : lf-env-live? ( env -- flag )
   ?dup 0= if false exit then
-  dup lf-env-sane? if lf-env-pool store-count-valid? else drop false then ;
+  dup lf-env-sane? if lf-env-pooled? else drop false then ;
 : lf-env-input? ( env -- flag )
   lf-envh-input @ lf-input-fingerprint = lf-input-intact? and ;
 : lf-env-valid? ( env -- flag ) dup lf-env-live? if lf-env-input? else drop false then ;
@@ -215,10 +245,11 @@ end-structure
 
 \ Making, freeing and choosing environments, only outside jobs (G-P1).
 \ lf-env-new gives a new environment over this context's intact input,
-\ with room for deps dependencies and the empty allowlist of version 0, in
-\ final mode: (env ok); (0 invalid) inside a job, for an input that is not
-\ intact or deps outside 0..lf-env-pool-max; (0 full) when the identities
-\ are spent or memory cannot be allocated.
+\ its pool starting with room for deps dependencies (it grows), and the
+\ empty allowlist of version 0, in final mode: (env ok); (0 invalid)
+\ inside a job, for an input that is not intact or a negative deps or
+\ one too large for a store (lf-pool-plan?); (0 full) when the
+\ identities are spent or memory cannot be allocated.
 : lf-env-fields ( env -- env )
   lf-env-may-write lf-input-count over lf-envh-length !
   lf-input-fingerprint over lf-envh-input ! lf-mode-final over lf-envh-mode ! ;
@@ -230,33 +261,34 @@ end-structure
 : lf-slot-invalid! ( slot -- ) lf-env-may-write outcome-invalid swap lf-slot-outcome ! ;
 : lf-env-unpublished ( env -- env )
   dup lf-env-length 0 ?do i over lf-env-slot lf-slot-invalid! loop ;
-\ Format the pool as a store of deps one-cell entries: whether store-init
-\ accepts that shape.
-: lf-env-pool-init ( deps env -- flag ) lf-env-pool >r 1 cells 0 r> store-init ;
-\ Format the slots and the pool and give the environment its identity:
-\ (env ok); or (0 invalid), the memory freed, for a pool shape
-\ store-init refuses.
+\ Give the environment a pool of deps records: (env ok); or (0 invalid)
+\ for an unsound deps, (0 full) when the heap has no room, the
+\ environment's memory freed.
+: lf-env-pooled ( deps env -- env outcome )
+  swap lf-pool-block dup ok? if drop over lf-envh-pool ! outcome-ok exit then
+  >r drop free drop 0 r> ;
+\ Format the slots, make the pool and give the environment its
+\ identity: (env ok), or as lf-env-pooled.
 : lf-env-made ( deps env -- env outcome )
-  lf-env-may-write lf-env-fields lf-env-unpublished tuck lf-env-pool-init
-  if lf-env-identity+ outcome-ok else free drop 0 outcome-invalid then ;
-: lf-env-deps? ( deps -- flag ) 0 lf-env-pool-max between? ;
+  lf-env-may-write lf-env-fields lf-env-unpublished lf-env-pooled
+  dup ok? if drop lf-env-identity+ outcome-ok then ;
 : lf-env-new-ok? ( deps -- flag )
-  lf-env-deps? lf-input-intact? and context-in-job? 0= and ;
+  lf-pool-plan? lf-input-intact? and context-in-job? 0= and ;
 : lf-env-new ( deps -- env outcome )
   dup lf-env-new-ok? 0= if drop 0 outcome-invalid exit then
   lf-env-serial @ max-n = if drop 0 outcome-full exit then
-  lf-input-count over lf-env-bytes allocate0 if 2drop 0 outcome-full exit then
+  lf-input-count lf-env-bytes allocate0 if 2drop 0 outcome-full exit then
   lf-env-made ;
-\ Free a live environment: ok, or invalid when it is not live or inside
-\ a job (nothing is freed) or FREE fails. Its identity is cleared first
-\ and it stops being current.
+\ Free a live environment and its pool's blocks: ok, or invalid when it
+\ is not live or inside a job (nothing is freed) or FREE fails on its
+\ record. Its identity is cleared first and it stops being current.
 : lf-env-choosable? ( env -- flag ) lf-env-live? context-in-job? 0= and ;
 : lf-env-forget ( env -- env )
   lf-env-may-write dup lf-env = if 0 lf-envs lf-envs-current ! then
   0 over lf-envh-identity ! ;
 : lf-env-free ( env -- outcome )
   dup lf-env-choosable? 0= if drop outcome-invalid exit then
-  lf-env-forget free 0= flag>outcome ;
+  lf-env-forget dup lf-envh-pool @ lf-pool-release free 0= flag>outcome ;
 \ Make a live environment current: ok, or invalid with nothing changed
 \ when it is not live or inside a job.
 : lf-env-use ( env -- outcome )
@@ -618,17 +650,20 @@ here lf-env-holders - 2 cells / constant lf-env-holders#
   2dup lf-env-ready-args? 0= if 2drop false exit then
   2dup ['] lf-slot-open? lf-env-any? >r lf-env-held-open? r> or 0= ;
 
-\ The candidate's dependencies, kept ascending and distinct. The count is
-\ checked before the list is read.
+\ The candidate's dependencies, kept ascending and distinct, in the
+\ context's slab lf-cand-deps. The count is checked against the slab's
+\ room before the list is read; an address is valid until it grows.
 : lf-cand-count@ ( -- n ) lf-env-cand lf-cand-count @ ;
-: lf-cand-count? ( -- flag ) lf-cand-count@ lf-env-dep-capacity upto? ;
-: lf-cand-dep ( k -- addr ) cells lf-env-cand lf-cand-deps + ;
-: lf-cand-has? ( d -- flag )
-  false lf-cand-count@ 0 ?do over i lf-cand-dep @ = or loop nip ;
-\ Where d goes: the first position holding a larger slot, or the end.
+: lf-cand-count? ( -- flag ) lf-cand-count@ lf-cand-deps slab-capacity upto? ;
+: lf-cand-dep ( k -- addr ) cells lf-cand-deps slab-base + ;
+\ Where d goes: the first position whose slot is not below d, or the
+\ count; by halving the range lo..hi in which it lies.
+: lf-cand-halve ( d lo hi -- d lo' hi' )
+  2dup + 2/ dup >r lf-cand-dep @ 3 pick < if nip r> 1+ swap else drop r> then ;
 : lf-cand-place ( d -- k )
-  lf-cand-count@ 0 ?do dup i lf-cand-dep @ < if drop i unloop exit then loop
-  drop lf-cand-count@ ;
+  0 lf-cand-count@ begin 2dup < while lf-cand-halve repeat drop nip ;
+: lf-cand-has? ( d -- flag )
+  dup lf-cand-place dup lf-cand-count@ < if lf-cand-dep @ = else 2drop false then ;
 : lf-cand-open ( k -- ) dup lf-cand-dep dup cell+ rot lf-cand-count@ swap - cells move ;
 : lf-cand-insert ( d -- )
   dup lf-cand-place dup lf-cand-open lf-cand-dep ! 1 lf-env-cand lf-cand-count +! ;
@@ -636,16 +671,17 @@ here lf-env-holders - 2 cells / constant lf-env-holders#
 : lf-cand-union ( slot -- )
   dup lf-slot-axioms @ lf-env-cand lf-cand-axioms lf-or!
   lf-slot-provenance @ lf-env-cand lf-cand-provenance lf-or! ;
+: lf-cand-room? ( -- flag ) lf-cand-count@ 1+ lf-cand-deps slab-hold ok? ;
 : lf-cand-full ( d slot -- outcome )
-  2drop lf-cand-count@ lf-env-dep-capacity c" environment lf-env-depend"
+  2drop lf-cand-count@ lf-cand-deps slab-capacity c" environment lf-env-depend"
   lf-diag-deps-full lf-diag-note outcome-full ;
 : lf-cand-add ( d slot -- outcome )
   over lf-cand-has? if 2drop outcome-ok exit then
-  lf-cand-count@ lf-env-dep-capacity = if lf-cand-full exit then
+  lf-cand-room? 0= if lf-cand-full exit then
   lf-cand-union lf-cand-insert outcome-ok ;
 \ Record that the check in this context uses slot d (E4, E6): ok, adding
 \ d to its dependencies and the slot's axiom set and provenance to its
-\ own; full when d is new and lf-env-dep-capacity are recorded already;
+\ own; full when d is new and the heap cannot grow the list for it;
 \ invalid when slot d is not readable and accepted in the snapshot or the
 \ candidate is corrupted.
 : lf-env-depend ( d -- outcome )

@@ -1,17 +1,30 @@
 #!/usr/bin/env python3
-"""The block check's constructor capacity (plan task 5.2.1a; review rvI21
-B1): an export with an enumeration E of N constructors (no recursor, which
-Lean's replay accepts, ADR 0015 B4), then the committed Bool block of
+"""The block check's constructors (plan tasks 5.2.1a and 6.2.0; review
+rvI21 B1): an export with an enumeration E of N constructors (no recursor,
+which Lean's replay accepts, ADR 0015 B4), then the committed Bool block of
 tests/core/check-block-cases/replay-bool.original.ndjson with its indices
 renumbered, is checked by LeanForth (tests/core/inductive-table.fs).
 
-  N = 512, the capacity (lf-ind-ctor-capacity): E accepted, Bool accepted;
-  N = 513: E full, every member, before anything is written for its
-    constructors; Bool still accepted;
-  N = 1600: the same, at once (the capacity used not to be enforced: such
-    a block wrote past its state record, the next blocks became invalid,
-    and one run hung).
+A block has no fixed number of constructors since plan task 6.2.0 (it had
+512): their cells grow with the heap.
 
+  N = 512, 513 and 1000: E accepted, Bool accepted (513 and 1000 were full);
+  N = 513 with the constructors' cells limited to 512 (white-box, as a heap
+    that refuses to grow them would): E full, every member, before anything
+    is written for its constructors; Bool still accepted (a block once
+    wrote past its state record here, the next blocks became invalid, and
+    one run hung).
+
+Two other limits remain, outside this task (measured 2026-11-04). From
+1,021 to 1,025 constructors on, E is full at step 12: building its
+recursor takes about N * N term nodes of scratch, more than the 1,048,576
+a check has above the input (plan task 6.2.2; Lean builds it in linear
+space). From 3,621 to 3,640 on, the stage refuses the file: lean4export writes the whole block on one line, and the reader
+takes at most 65,536 JSON tokens per line (a format guard, plan task
+6.2.4).
+
+Lean's verdict on a block of 600 constructors is the inductive table's
+`ind.many-constructors` (tests/reference/inductive-expected.lean).
 The generator follows the reviewer's probe (.claude/work/rvI21/make_enum.py).
 Needs GFORTH. Test-only."""
 import json
@@ -116,11 +129,19 @@ def export(n, path):
             out.write(json.dumps(r, separators=(",", ":"), sort_keys=True) + "\n")
 
 
-def outcomes(gforth, paths, folder):
+# The constructors' cells limited to 512, then back to the slab's own limit.
+LIMIT = "lf-ind-ctor-cells slab-free /lf-ind-ctor 512 lf-ind-ctor-cells slab-init drop\n"
+UNLIMIT = ("lf-ind-ctor-cells slab-free /lf-ind-ctor dup slab-limit-max lf-ind-ctor-cells"
+           " slab-init drop\n")
+
+
+def outcomes(gforth, paths, limited, folder):
     script = os.path.join(folder, "run.fs")
     with open(script, "w", encoding="utf-8") as out:
         out.write(f"include {DRIVER}\n")
-        out.writelines(f's" {p}" table-case\n' for p in paths)
+        for p, limit in zip(paths, limited):
+            out.write((LIMIT if limit else "") + f's" {p}" table-case\n'
+                      + (UNLIMIT if limit else ""))
         out.write("bye\n")
     run = subprocess.run([gforth, script], stdin=subprocess.DEVNULL, capture_output=True,
                          text=True, timeout=300)
@@ -139,18 +160,20 @@ def outcomes(gforth, paths, folder):
 
 def main():
     gforth = os.environ.get("GFORTH", "gforth")
-    want = {512: "ok", 513: "full", 1600: "full"}
+    # (constructors, cells limited to 512, E's outcome)
+    want = [(512, False, "ok"), (513, False, "ok"), (1000, False, "ok"), (513, True, "full")]
     with tempfile.TemporaryDirectory() as folder:
         paths = []
-        for n in want:
-            paths.append(os.path.join(folder, f"enum{n}.ndjson"))
+        for k, (n, _, _) in enumerate(want):
+            paths.append(os.path.join(folder, f"enum{k}-{n}.ndjson"))
             export(n, paths[-1])
-        cases = outcomes(gforth, paths, folder)
+        cases = outcomes(gforth, paths, [limit for _, limit, _ in want], folder)
     failures = 0
-    for (n, e_outcome), case in zip(want.items(), cases):
+    for (n, limit, e_outcome), case in zip(want, cases):
         ok = case.get("E") == {e_outcome} and case.get("IE") == {"ok"}
         failures += not ok
-        print(f"{n} constructors: E {sorted(case.get('E', []))}, then Bool"
+        print(f"{n} constructors{', cells limited to 512' if limit else ''}:"
+              f" E {sorted(case.get('E', []))}, then Bool"
               f" {sorted(case.get('IE', []))}{'' if ok else '  DIFFERENCE'}")
     if len(cases) != len(want):
         failures += 1

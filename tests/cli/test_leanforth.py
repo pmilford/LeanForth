@@ -593,7 +593,7 @@ class Behaviour(unittest.TestCase):
         status, out, _ = run("capabilities")
         self.assertEqual(status, 0)
         self.assertIn("  check --record, replay: 64 names, 64 levels, 64 term nodes,\n"
-                      "    32 declarations per export, 64 dependencies per export\n", out)
+                      "    32 declarations per export\n", out)
         status, out, _ = run("help")
         self.assertEqual((status, run("--help")[1], run("-h")[1]), (0, out, out))
 

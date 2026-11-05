@@ -406,14 +406,29 @@ partial declarations and quotients (5.3.1, 4.2.6, 5.2.4; 252), mutual
 and nested inductive blocks (5.2.5; 8), comparisons that need
 definitions unfolded (4.2.2; 951 *unknown*, codes 30–32), and
 everything that uses one of those (25,616 *unsupported* and 4,105
-*unknown* only for that). *full* means a declaration with more than 16
-dependencies (31, such as `Lean.Grind.CommRing.Expr.toPoly.match_4.congr_eq_1`;
-plan task 6.2.0), and *exhausted* a check that needed more than 100,000
-steps (180; `--fuel N` gives more). No term is too deep any more: since
+*unknown* only for that). *full* meant a declaration with more than 16
+dependencies (31, such as `Lean.Grind.CommRing.Expr.toPoly.match_4.congr_eq_1`),
+a limit gone since plan task 6.2.0 (below), and *exhausted* a check that
+needed more than 100,000 steps (180; `--fuel N` gives more). No term is too deep any more: since
 the depth work of plan task 6.2.0 (part (b)) the 55 declarations that
 ended *full* at a walk's 64 levels in the first run of 2026-11-04 get
 other verdicts. 183 names, most of them notations such as `«term_+_»`,
 are shown with `«»`, as Lean shows them.
+
+Since part (c) of plan task 6.2.0 (2026-11-04) nothing in a check has a
+fixed number any more: a declaration's dependencies, the environment's
+dependency pool and an inductive block's constructors grow with the heap,
+like its terms and its depth. A check is *full* only when the heap
+refuses, or when it needs more than its scratch above the input (1,048,576
+term nodes, 65,536 levels and 262,144 constant references, plan task
+6.2.2), as the note after the summary then says. The same build with
+part (c), checked with `--resources --json` and `gforth-fast`, gave
+2,503 accepted, 5,083 *unknown*, 51,583 *unsupported*, 180 *exhausted*
+and none *full*: of the 31 declarations above that ended *full*, 27 are
+now *unknown* (a comparison that needs a definition unfolded, plan task
+4.2.2) and 4 *unsupported* (a dependency unsupported, such as
+`Sum.isRight_iff`), and every other declaration kept its verdict and
+diagnostic.
 
 The run above used `--fast`, the `gforth-fast` engine
 ([the engine](#the-engine)), on a 10-core WSL2 machine that other agents'
@@ -505,7 +520,7 @@ exit status 2
 | `schema`, `schemaVersion` | `leanforth-check-report`, `0.1` |
 | `export`, `manifest` | the file name given, as escaped display text (the escapes of [names](#what-check-prints)); `checked`, or `not-checked` with `--no-manifest` |
 | `label` | `experimental, not independently audited` |
-| `settings` | the fuel per check, the dependencies the environment holds, and `strictAxioms` (true with `--strict-axioms`) |
+| `settings` | the fuel per check, `dependencyPool`, the room the environment's dependency pool starts with (it grows: not a limit since plan task 6.2.0), and `strictAxioms` (true with `--strict-axioms`) |
 | `read` | the read's outcome and, for a failure, its `phase` (`open`, `stage`, `feed`), `line`, `field`, `reason`, and for the feed the number `at` which it stopped |
 | `run` | the run's outcome: `ok` when every slot ended final and the run did not stop, `invalid` when it stopped, `not-run` when the export was not read |
 | `stopped` | true when the run stopped on an internal fault (a check threw, or publishing failed), as the text's `internal fault: the run stopped` line says; the run is then `invalid` and the status 5 |
@@ -819,11 +834,12 @@ not yet supported (check answers unsupported or unknown, exit 2):
   (4.2.2), so some correct proofs end unknown; check --record and replay
   refuse inductive types while reading
 limits (check answers full or exhausted, exit 3):
-  check: stores and walks that grow with the export (memory, any depth);
-    16 dependencies per declaration, 65536 per export, 512 constructors per
-    inductive block (plan task 6.2.0)
+  check: stores, walks and lists that grow with the export (memory), any
+    depth and number of dependencies or constructors (plan task 6.2.0);
+    each check's scratch above the input: 1048576 term nodes, 65536 levels,
+    262144 constant references (plan task 6.2.2)
   check --record, replay: 64 names, 64 levels, 64 term nodes,
-    32 declarations per export, 64 dependencies per export
+    32 declarations per export
   universe parameters per declaration and universe arguments per constant:
     no fixed limit (memory)
   fuel 100000 steps per declaration (--fuel N, at most 9007199254740991)

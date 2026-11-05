@@ -155,8 +155,9 @@ in the application
   theorems that use data types, numbers or axioms are *unsupported* until
   later phases.
 - Limits today: `bin/leanforth check` holds exports of any size (all of
-  Lean's `Init`; the stores grow), with 16 dependencies per declaration
-  and terms nested at most 64 deep; `check --record`, `replay` and
+  Lean's `Init`; the stores grow), with no fixed limit on how deep a term
+  nests or how many constants a declaration uses (memory only; each
+  check has 1,048,576 term nodes of scratch); `check --record`, `replay` and
   `print` hold 64 term nodes, 64 levels and 64 names per input and 32
   declarations ([the command line](COMMAND_LINE.md)).
 

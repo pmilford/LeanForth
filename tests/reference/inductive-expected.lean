@@ -134,6 +134,9 @@ structure Block where
   leanforth : String
   rule : String
   task : String
+  /-- false: the block's file leaves the recursors Lean generated out, as a
+  file may (ADR 0015 B4; Lean's replay accepts it). -/
+  recursors : Bool := true
 
 def Block.full (b : Block) (short : String) : Name := b.ns ++ short.toName
 
@@ -326,7 +329,15 @@ def accepted : List Block := [
   { id := "ind.redex-with-parameter", nparams := 1, types := [⟨"RBP", "Type → Type",
       [("z", "(α : Type) → RBP α"),
        ("mk", "(α : Type) → (fun (X : Type) => α → X) (RBP α) → RBP α")]⟩],
-    lean := "accepted", leanforth := "accepted", rule := "A1 P1 G1", task := "5.2.1b" }
+    lean := "accepted", leanforth := "accepted", rule := "A1 P1 G1", task := "5.2.1b" },
+  -- A block of 600 constructors `c0 … c599`: LeanForth's 512 per block
+  -- were a fixed limit until plan task 6.2.0 (2026-11-04). Its file leaves
+  -- the recursor out: with it, its 600 rules of 601 binders each make the
+  -- file about 29 MB and Lean's run several minutes longer.
+  { id := "ind.many-constructors", types := [⟨"Many", "Type",
+      (List.range 600).map fun j => (s!"c{j}", "Many")⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1", task := "5.2.1a",
+    recursors := false }
 ]
 
 /-- Declarations Lean rejects, each next to an accepted neighbour. -/
@@ -1306,6 +1317,11 @@ def blockNames (env : Kernel.Environment) (types : List Name) : List Name := Id.
 
 def quotNames : List Name := [`Quot, `Quot.mk, `Quot.lift, `Quot.ind]
 
+/-- The constants a block's file holds: its own, without the recursors when
+it leaves them out (`Block.recursors`). -/
+def Block.kept (b : Block) (env : Kernel.Environment) (own : List Name) : List Name :=
+  if b.recursors then own else own.filter fun n => !(env.find? n matches some (.recInfo _))
+
 /-- The own constants of a declaration in the environment that holds it. -/
 def ownNames (env : Kernel.Environment) : Declaration → List Name
   | d@(.inductDecl ..) => blockNames env (typeNames d)
@@ -1806,7 +1822,7 @@ run_cmd do
   for b in accepted ++ checks do
     let d ← liftTermElabM b.decl
     let e := addOrHold add base base d
-    writeCase base baseRecs b.id e (ownOf base e d) ((typeNames d).take 1)
+    writeCase base baseRecs b.id e (b.kept e (ownOf base e d)) ((typeNames d).take 1)
   for r in reductions do
     let n := `IE ++ r.id.toName
     let d ← liftTermElabM (r.decl n)

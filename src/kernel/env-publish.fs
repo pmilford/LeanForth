@@ -13,14 +13,18 @@
 \ run; its kind is a definition or theorem, safe, with a value and
 \ distinct universe parameters. A failure is a fault in LeanForth and
 \ makes the outcome invalid. Then it appends the dependencies to the pool
-\ (full, with nothing appended or written, when there is no room) and
-\ copies the input declaration into the slot, so the record points at
-\ the very input terms that were checked. Any other outcome is written
+\ (full, with nothing appended or written, when there is no room: the
+\ pool grew before the hand-over marked it, so only when the heap
+\ refused, or the pool's identities are spent) and copies the input
+\ declaration into the slot, so the record points at the very input
+\ terms that were checked. Any other outcome is written
 \ alone. Last, it marks the slot final: the single point at which a
 \ result becomes visible. Only an ok check followed by these steps makes
 \ a slot final with outcome ok, and nothing changes a final slot.
 \
-\ The hand-over marks the pool, then publishes under CATCH: a THROW before
+\ The hand-over grows the pool when the candidate's dependencies need it
+\ (environment.fs, "The pool"; plan task 6.2.0), marks the pool, then
+\ publishes under CATCH: a THROW before
 \ the final mark leaves the slot not final and cleared (outcome invalid)
 \ and the pool rolled back (a slot already final is left as it is, with
 \ its dependencies; undoing one aborts). That, a pool that cannot be
@@ -291,6 +295,36 @@ lf-rechecks# 1+ constant lf-recheck-moved
 : lf-pool-ids ( store -- u ) max-n swap store-serial @ - ;
 : lf-pool-room? ( n store -- flag )
   2dup lf-pool-free upto? -rot lf-pool-ids upto? and ;
+\ Growing the pool (environment.fs, "The pool"), before the hand-over
+\ marks it: a new block with room for the n more, at least twice the
+\ old room and 16, the store copied in (records, identities and
+\ counters), the old block linked from it, and then, last, the new one
+\ current. A heap that refuses leaves the pool as it was, and the
+\ append then finds it full. Only a candidate with a sound count asks,
+\ only of a sound pool whose records are too few and identities enough
+\ (growing would not give it more identities).
+: lf-pool-wanted ( n store -- room )
+  tuck store-count @ + swap store-capacity @ 2* max 16 max ;
+\ Move n cells from old's area to new's, xt ( store -- addr ) finding
+\ the area; copy a header field of old's into new's.
+: lf-pool-area ( old new n xt -- old new )
+  swap >r >r over r@ execute over r> execute r> cells move ;
+: lf-pool-field ( old new xt -- old new ) >r over r@ execute @ over r> execute ! ;
+: lf-pool-copy ( old new -- )
+  over store-count @ dup >r ['] store-identities lf-pool-area r> ['] store-records lf-pool-area
+  ['] store-serial lf-pool-field ['] store-generation lf-pool-field
+  ['] store-count lf-pool-field 2drop ;
+: lf-pool-install ( block -- )
+  lf-env-may-write lf-env lf-envh-pool @ over ! lf-env lf-envh-pool ! ;
+: lf-pool-grow ( n store -- )
+  lf-env-may-write tuck lf-pool-wanted lf-pool-block ok? 0= if 2drop exit then
+  tuck cell+ lf-pool-copy lf-pool-install ;
+: lf-pool-short? ( n store -- flag )
+  2dup lf-pool-free upto? 0= -rot lf-pool-ids upto? and ;
+: lf-pool-sound ( -- store true | false ) lf-env lf-env-pool dup store-count-valid? ?keep ;
+: lf-pool-ready ( -- )
+  lf-cand-count? 0= if exit then lf-pool-sound 0= if exit then
+  lf-cand-count@ swap 2dup lf-pool-short? if lf-pool-grow else 2drop then ;
 : lf-pool-put ( d store -- )
   lf-env-may-write dup store-new 0= abort" lf-env: pool refused" swap store-slot ! ;
 : lf-pool-append ( store -- )
@@ -393,14 +427,14 @@ lf-rechecks# 1+ constant lf-recheck-moved
   lf-env-may-write 0 lf-env-pub-fault lf-env-undo drop outcome-invalid true ;
 : lf-env-ended ( outcome slot -- outcome fault? )
   lf-env-may-write dup lf-span-open? if lf-env-unfinished else drop false then ;
-\ Mark the pool, then write the slot under CATCH: (outcome false) once the
-\ slot is final; (invalid true) when the pool cannot be marked (nothing
-\ written), after a THROW (undone as above), or when the slot is still
-\ not final. CATCH may leave its argument cell undefined, so a copy of
-\ the slot stays below it.
+\ Grow the pool for the candidate when it must, mark it, then write the
+\ slot under CATCH: (outcome false) once the slot is final; (invalid
+\ true) when the pool cannot be marked (nothing written), after a THROW
+\ (undone as above), or when the slot is still not final. CATCH may leave
+\ its argument cell undefined, so a copy of the slot stays below it.
 : lf-env-marked? ( -- flag ) lf-env-may-write lf-env-pub-mark store-mark ok? ;
 : lf-env-guarded ( slot -- outcome fault? )
-  lf-env-may-write lf-env-marked? 0= if drop outcome-invalid true exit then
+  lf-env-may-write lf-pool-ready lf-env-marked? 0= if drop outcome-invalid true exit then
   dup ['] lf-env-write catch ?dup if nip lf-env-unpublish outcome-invalid true exit then
   swap lf-env-ended ;
 \ Publish the candidate in this context (E4): (outcome false) once its

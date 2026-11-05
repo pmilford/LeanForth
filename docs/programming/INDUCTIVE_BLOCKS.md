@@ -400,13 +400,19 @@ Each limit below is a difference from Lean's verdict in the default mode,
 temporary, with the task that closes it (the owner's rule of 2026-11-04:
 the default is exactly Lean):
 
-- **Capacities, *full* where Lean decides; task 6.2.0** (the dynamic
-  limits): at most 512 constructors per block (`lf-ind-ctor-capacity`: a
-  block with more is *full*, every member, found when the block is
-  opened, before anything is written for its constructors, diagnostic 76;
-  review rvI21 B1); parameters plus indices, and the fields of one
-  constructor, at most 64 (inference's binder context); a check records
-  at most 16 dependencies (`lf-env-dep-capacity`, for every declaration).
+- **Capacities: none fixed since task 6.2.0** (2026-11-04). A block's
+  constructors, its parameters and indices, a constructor's fields and a
+  check's dependencies grow with the heap (they were limited to 512, 64,
+  64 and 16). A block whose constructors' cells the heap cannot grow is
+  *full*, every member, found when the block is opened, before anything
+  is written for its constructors (diagnostic 76; review rvI21 B1). Two
+  limits outside the checker's tables remain: from about 1,025
+  constructors a block is *full* at step 12, as building its recursor
+  takes about N² term nodes of scratch, more than the 1,048,576 a check
+  has above the input (task 6.2.2; Lean builds it in linear space); and
+  from about 3,640 the importer refuses the file, as lean4export writes
+  a block on one line and the reader takes at most 65,536 JSON tokens a
+  line (a format guard, task 6.2.4).
 - **A whole file refused, *invalid*, where Lean gives a verdict per
   declaration; task 5.2.6** (a plan row added for it): a file that names a
   constant no declaration has (other than a recursor a block of the file
@@ -651,8 +657,12 @@ the default is exactly Lean):
   that never declares it), the type's visibility after its
   block, the publisher's member re-check, the warnings on the slots; and
   `tests/core/test_block_capacity.py`:
-  512 constructors accepted, 513 and 1,600 *full*, a valid block after
-  each still accepted.
+  512, 513 and 1,000 constructors accepted (513 was *full* before task
+  6.2.0), and 513 *full* when their cells are limited to 512, white-box,
+  as a heap that refuses would leave them; a valid block after each still
+  accepted. The inductive table's `ind.many-constructors`, a block of 600
+  whose file leaves the recursor out (with it the file is about 29 MB),
+  is accepted by Lean and by LeanForth.
 - `tests/core/test_stage.py`: the importer loads `B.rec` and `B.rec_1`
   for a type `B` of the file without their declarations, and still
   refuses `B.recOn`, `B.rec_`, `B.rec_x`, `t.rec` (a theorem) and
