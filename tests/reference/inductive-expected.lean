@@ -1039,6 +1039,96 @@ def chains : List Chain := [
     lean := "quotEqShape", leanforth := "rejected", rule := "Q1", task := "5.2.4" }
 ]
 
+/-! ## Names Lean's kernel matches inside a comparison (K7; review rvU4 B1)
+
+Lean's `is_def_eq` runs lazy delta reduction before it compares two
+applications argument by argument (type_checker.cpp 1166-1192), and that loop
+first asks `is_def_eq_offset` and `reduce_nat` (1043-1066), which match
+`Nat.succ` and fourteen `Nat` operations by name and read the constant
+`Nat.zero` as the literal `0`, whatever the environment says those constants
+are. Here `Nat.zero` is an empty inductive proposition (an inductive type, so
+`whnf` leaves it as it is) and `Nat.add` a definition ignoring its second
+argument: the claim `Nat.add Nat.zero Nat.zero → Nat.add Nat.zero ((fun x =>
+x) Nat.zero)` holds by one beta step, but Lean computes the literal `0 + 0`
+and then needs the type `Nat` (or `Bool` for `Nat.beq`), which is missing or a
+proposition. LeanForth answers unknown there (K7, ADR 0014 Q8) until plan task
+5.2.3 ports literals; it must never accept. The twins under other names, a
+free variable (no `reduce_nat`) and the same declaration with a regular hint
+(Lean's argument test first) are accepted. `k7.whnf-sort` reaches K7 in `whnf`
+instead: `Nat.succ Nat.zero` becomes the literal `1`, no type. From an empty
+environment, as `chains`. -/
+
+namespace K7Rows
+
+def prop : Expr := .sort .zero
+def typ : Expr := .sort (.succ .zero)
+def arr (a b : Expr) : Expr := .forallE `a a b .default
+def pi (t b : Expr) : Expr := .forallE `x t b .default
+def lam (t b : Expr) : Expr := .lam `x t b .default
+def k (n : Name) : Expr := .const n []
+def ap (f : Expr) (as : List Expr) : Expr := mkAppN f as.toArray
+def idProp (e : Expr) : Expr := .app (lam prop (.bvar 0)) e
+def defn (n : Name) (t v : Expr) (h : ReducibilityHints := .regular 1) : Declaration :=
+  .defnDecl { name := n, levelParams := [], type := t, value := v, hints := h, safety := .safe }
+/-- An inductive proposition (or type) with no constructors. -/
+def empty (n : Name) (t : Expr := prop) : Declaration := .inductDecl [] 0 [⟨n, t, []⟩] false
+/-- `def op : Prop → Prop → Prop := fun a b => a`. -/
+def op (n : Name) : Declaration := defn n (arr prop (arr prop prop)) (lam prop (lam prop (.bvar 1)))
+/-- `theorem t : op z z → op z ((fun x : Prop => x) z) := fun h => h`. -/
+def claim (o z : Name) : Declaration :=
+  let d := ap (k o) [k z, k z]
+  .thmDecl { name := `t, levelParams := [], type := pi d (ap (k o) [k z, idProp (k z)]),
+             value := lam d (.bvar 0) }
+/-- The same under a variable `A : Prop`: `op z A → op z ((fun x => x) A)`. -/
+def claimOpen (o z : Name) : Declaration :=
+  let d := ap (k o) [k z, .bvar 0]
+  .thmDecl { name := `t, levelParams := [],
+             type := pi prop (pi d (ap (k o) [k z, idProp (.bvar 1)])),
+             value := lam prop (lam d (.bvar 0)) }
+/-- `def g : Prop → Prop := fun a => Nat.add a a` with the hint given. -/
+def g (h : ReducibilityHints) : Declaration :=
+  defn `g (arr prop prop) (lam prop (ap (k `Nat.add) [.bvar 0, .bvar 0])) h
+/-- `theorem t : g Nat.zero → g ((fun x : Prop => x) Nat.zero) := fun h => h`. -/
+def gClaim : Declaration :=
+  let d := .app (k `g) (k `Nat.zero)
+  .thmDecl { name := `t, levelParams := [], type := pi d (.app (k `g) (idProp (k `Nat.zero))),
+             value := lam d (.bvar 0) }
+/-- `succ : Type → Type := fun _ => Prop`, then `def kk : Π (A : succ zero) (h : A), A`. -/
+def sortUse (zero succ : Name) : List Declaration :=
+  let dom := .app (k succ) (k zero)
+  [empty zero typ, defn succ (arr typ typ) (lam typ prop),
+   defn `kk (pi dom (pi (.bvar 0) (.bvar 1))) (lam dom (lam (.bvar 0) (.bvar 0)))]
+
+end K7Rows
+
+open K7Rows in
+def k7Chains : List Chain := [
+  { id := "k7.unknown-nat", decls := [empty `Nat.zero, op `Nat.add, claim `Nat.add `Nat.zero],
+    lean := "unknownConstant", leanforth := "rejected", rule := "K7", task := "5.2.3" },
+  { id := "k7.nat-is-prop",
+    decls := [empty `Nat, empty `Nat.zero, op `Nat.add, claim `Nat.add `Nat.zero],
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "K7", task := "5.2.3" },
+  { id := "k7.beq-bool", decls := [empty `Nat.zero, op `Nat.beq, claim `Nat.beq `Nat.zero],
+    lean := "unknownConstant", leanforth := "rejected", rule := "K7", task := "5.2.3" },
+  { id := "k7.mul", decls := [empty `Nat.zero, op `Nat.mul, claim `Nat.mul `Nat.zero],
+    lean := "unknownConstant", leanforth := "rejected", rule := "K7", task := "5.2.3" },
+  { id := "k7.abbrev-head", decls := [empty `Nat.zero, op `Nat.add, g .abbrev, gClaim],
+    lean := "unknownConstant", leanforth := "rejected", rule := "K7", task := "5.2.3" },
+  { id := "k7.opaque-hint-head", decls := [empty `Nat.zero, op `Nat.add, g .opaque, gClaim],
+    lean := "unknownConstant", leanforth := "rejected", rule := "K7", task := "5.2.3" },
+  { id := "k7.regular-head", decls := [empty `Nat.zero, op `Nat.add, g (.regular 2), gClaim],
+    lean := "accepted", leanforth := "accepted", rule := "delta", task := "4.2.2d" },
+  { id := "k7.twin", decls := [empty `Zz, op `Zadd, claim `Zadd `Zz],
+    lean := "accepted", leanforth := "accepted", rule := "delta", task := "4.2.2d" },
+  { id := "k7.with-free-variable",
+    decls := [empty `Nat.zero, op `Nat.add, claimOpen `Nat.add `Nat.zero],
+    lean := "accepted", leanforth := "accepted", rule := "delta", task := "4.2.2d" },
+  { id := "k7.whnf-sort", decls := sortUse `Nat.zero `Nat.succ,
+    lean := "typeExpected", leanforth := "rejected", rule := "K7", task := "5.2.3" },
+  { id := "k7.whnf-sort-twin", decls := sortUse `Zz `Zs,
+    lean := "accepted", leanforth := "accepted", rule := "whnf", task := "4.2.2c" }
+]
+
 /-- A constructor that names `_nested.T`, a name only the kernel's nested
 elimination may use; the constant need not exist, since the name is checked
 before any typing. Added to the `import Lean` environment. -/
@@ -1806,7 +1896,7 @@ run_cmd do
   row twice.id got twice.leanforth twice.rule twice.task ""
   -- 5. Primitive names and quotient initialisation, from an empty environment.
   let empty := (← mkEmptyEnvironment).toKernelEnv
-  for c in chains do
+  for c in chains ++ k7Chains do
     let got := verdict (addAll empty c.decls)
     unless got == c.lean do throwError "{c.id}: Lean's verdict is {got}, expected {c.lean}"
     row c.id got c.leanforth c.rule c.task ""
@@ -1840,7 +1930,7 @@ run_cmd do
   for c in onBase do
     writeSegments base baseRecs c.id (chainSegments add base base c.decls)
   writeSegments base baseRecs twice.id (chainSegments add base base [twiceDecl, twiceDecl])
-  for c in chains do
+  for c in chains ++ k7Chains do
     writeSegments empty {} c.id (chainSegments add base empty c.decls)
   writeCase env0 (← recursorsOf env0) forgedId (forgedCs.foldl add env0)
     (forgedCs.map (·.name)) [`Nat.add]

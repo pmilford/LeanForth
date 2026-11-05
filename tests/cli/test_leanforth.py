@@ -160,8 +160,8 @@ class ExitCodes(unittest.TestCase):
                      "error: unsupported: an inductive type (not supported yet) (line 51)"])
         self.expect(["check", "tests/cli/unfold.ndjson"], 2,
                     [f"Implies: {LABEL}", "impliesSelf: unknown",
-                     "  undecided: terms or levels differ; diagnostic 30 at defeq "
-                     "lf-defeq: 20 22",
+                     "  undecided: Lean may unfold a definition here (K1); diagnostic 64 "
+                     "at defeq lf-defeq: 22 0",
                      "2 declarations: 1 accepted, 1 unknown", accepted(1)])
 
     def test_3_limits(self):

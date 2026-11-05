@@ -265,7 +265,7 @@ A file whose declarations end differently counts each verdict:
 $ bin/leanforth check tests/cli/unfold.ndjson; echo "exit status $?"
 Implies: accepted (experimental, not independently audited); axioms: none
 impliesSelf: unknown
-  undecided: terms or levels differ; diagnostic 30 at defeq lf-defeq: 20 22
+  undecided: Lean may unfold a definition here (K1); diagnostic 64 at defeq lf-defeq: 22 0
 2 declarations: 1 accepted, 1 unknown
 accepted: 1 (experimental, not independently audited); axioms: none
 exit status 2
@@ -511,7 +511,7 @@ member is cut off:
 
 ```console
 $ bin/leanforth check --json tests/cli/unfold.ndjson | sed "s/,\"measured\":.*/}/"; echo "exit status ${PIPESTATUS[0]}"
-{"schema":"leanforth-check-report","schemaVersion":"0.1","export":"tests/cli/unfold.ndjson","manifest":"checked","label":"experimental, not independently audited","settings":{"fuel":100000,"dependencyPool":65536,"strictAxioms":false},"read":{"outcome":"ok","phase":null,"line":null,"field":null,"reason":null,"at":null},"run":"ok","stopped":false,"declarations":[{"index":0,"name":"Implies","verdict":"accepted","label":"experimental, not independently audited","axiomBits":0,"notProved":false,"fuel":88},{"index":1,"name":"impliesSelf","verdict":"unknown","diagnostic":{"code":30,"reason":"undecided: terms or levels differ","site":"defeq lf-defeq","numbers":[20,22],"step":8},"fuel":229}],"counts":{"declarations":2,"accepted":1,"rejected":0,"unknown":1,"unsupported":0,"invalid":0,"exhausted":0,"full":0,"notChecked":0,"notProved":0},"fuel":{"perDeclaration":100000,"total":317,"unknown":0,"top":[{"index":1,"name":"impliesSelf","fuel":229,"verdict":"unknown"},{"index":0,"name":"Implies","fuel":88,"verdict":"accepted"}]},"input":{"declarations":2,"terms":14,"levels":1,"references":1,"names":10},"exitStatus":2}
+{"schema":"leanforth-check-report","schemaVersion":"0.1","export":"tests/cli/unfold.ndjson","manifest":"checked","label":"experimental, not independently audited","settings":{"fuel":100000,"dependencyPool":65536,"strictAxioms":false},"read":{"outcome":"ok","phase":null,"line":null,"field":null,"reason":null,"at":null},"run":"ok","stopped":false,"declarations":[{"index":0,"name":"Implies","verdict":"accepted","label":"experimental, not independently audited","axiomBits":0,"notProved":false,"fuel":88},{"index":1,"name":"impliesSelf","verdict":"unknown","diagnostic":{"code":64,"reason":"undecided: Lean may unfold a definition here (K1)","site":"defeq lf-defeq","numbers":[22,0],"step":8},"fuel":228}],"counts":{"declarations":2,"accepted":1,"rejected":0,"unknown":1,"unsupported":0,"invalid":0,"exhausted":0,"full":0,"notChecked":0,"notProved":0},"fuel":{"perDeclaration":100000,"total":316,"unknown":0,"top":[{"index":1,"name":"impliesSelf","fuel":228,"verdict":"unknown"},{"index":0,"name":"Implies","fuel":88,"verdict":"accepted"}]},"input":{"declarations":2,"terms":14,"levels":1,"references":1,"names":10},"exitStatus":2}
 exit status 2
 ```
 

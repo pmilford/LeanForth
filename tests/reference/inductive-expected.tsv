@@ -243,4 +243,15 @@ forged.type-named-nat-pow	accepted	unsupported	L1 L5	5.2.3
 quotinit.with-eq	accepted	accepted	Q1	5.2.4	
 quotinit.without-eq	unknownConstant	rejected	Q1	5.2.4	
 quotinit.eq-wrong-shape	quotEqShape	rejected	Q1	5.2.4	
+k7.unknown-nat	unknownConstant	rejected	K7	5.2.3	
+k7.nat-is-prop	declTypeMismatch	rejected	K7	5.2.3	
+k7.beq-bool	unknownConstant	rejected	K7	5.2.3	
+k7.mul	unknownConstant	rejected	K7	5.2.3	
+k7.abbrev-head	unknownConstant	rejected	K7	5.2.3	
+k7.opaque-hint-head	unknownConstant	rejected	K7	5.2.3	
+k7.regular-head	accepted	accepted	delta	4.2.2d	
+k7.twin	accepted	accepted	delta	4.2.2d	
+k7.with-free-variable	accepted	accepted	delta	4.2.2d	
+k7.whnf-sort	typeExpected	rejected	K7	5.2.3	
+k7.whnf-sort-twin	accepted	accepted	whnf	4.2.2c	
 forged.type-named-nat-add-recursor-with-hypothesis	invalidRecursor	unsupported	L1 L5 B3	5.2.3	

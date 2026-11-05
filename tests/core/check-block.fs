@@ -652,7 +652,7 @@ T{ s" after.reflexive-indexed-left-out-then-use-rec" used -> outcome-ok 0 }T
 T{ s" after.indexed-mixed-left-out-then-use-rec" used -> outcome-ok 0 }T
 T{ s" after.reflexive-indexed-dependent-left-out-then-use-rec" used -> outcome-ok 0 }T
 T{ s" after.annotated-binders-left-out-then-use-rec" used
-   -> outcome-unknown lf-diag-undecided }T
+   -> outcome-unknown lf-diag-needs-unfolding }T
 T{ s" after.redex-parameter-left-out-then-use-rec" used -> outcome-ok 0 }T
 \ The marks on the slots: the type and constructors, not the recursor.
 : added? ( d -- flag ) lf-env lf-env-slot lf-slot-added? ;

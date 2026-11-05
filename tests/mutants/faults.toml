@@ -1129,6 +1129,32 @@ reason = "whnf_core treats a recursor at the head as having no rule, where Lean'
 gap = "no test reaches the hook with a recursor head: the fc driver builds no inductive block, and the checker's inductive rows that would (iota.*) need Nat literals (task 5.2.3); task 5.2.1b's iota rows close it"
 
 [[fault]]
+id = "rv-k7-off"
+file = "src/kernel/whnf.fs"
+old = '''  dup lf-whnf-k7? if lf-whnf-head'''
+new = '''  dup drop false if lf-whnf-head'''
+test = 'test -n "$LEAN" && python3 tests/core/inductive-table.py'
+reason = "K7 never fires in whnf: Nat.succ Nat.zero, which Lean's reduce_nat turns into a literal, unfolds (review rvU4 L5)"
+
+[[fault]]
+id = "dq-k7-guard-off"
+file = "src/kernel/defeq.fs"
+old = '''  over lf-whnf-k7? if drop lf-whnf-head lf-diag-name-matched outcome-ok exit then
+  dup lf-whnf-k7? if nip lf-whnf-head lf-diag-name-matched outcome-ok exit then
+'''
+new = ''''''
+test = 'test -n "$LEAN" && python3 tests/core/inductive-table.py'
+reason = "steps 6 and 10 say yes for two Nat operations, which Lean's reduce_nat computes first (review rvU4 B1)"
+
+[[fault]]
+id = "dq-unfold-guard-off"
+file = "src/kernel/defeq.fs"
+old = '''  drop 0< if nip else drop then lf-diag-needs-unfolding ;'''
+new = '''  2drop 2drop 0 0 ;'''
+test = 'test -n "$LEAN" && python3 tests/core/inductive-table.py'
+reason = "steps 6 and 10 say yes where Lean's lazy delta unfolds an abbreviation first and meets reduce_nat (review rvU4 B1)"
+
+[[fault]]
 id = "whnf-cheap-beta-off"
 file = "src/kernel/whnf.fs"
 old = '''  over lf-whnf-beta-head? 0= if drop outcome-ok exit then'''
