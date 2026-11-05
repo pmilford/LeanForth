@@ -71,6 +71,13 @@ begin-structure /lf-ind
   lf-ind-ctor-capacity cells +field lf-ind-rule-cells     \ per constructor: rule
 end-structure
 /lf-ind context-record: lf-ind-state
+\ The B4 warning bits (check-block.fs step 14; on an accepted block's
+\ slots, environment.fs lf-env-warnings).
+1 constant lf-warn-indices
+2 constant lf-warn-rec
+4 constant lf-warn-reflexive
+8 constant lf-warn-nested
+16 constant lf-warn-no-recursor
 \ Per type of the block (plan task 5.2.5a: a mutual block has several), as
 \ many as it has (no fixed limit); one the heap cannot hold is full.
 begin-structure /lf-ty
@@ -457,7 +464,6 @@ create lf-nat-ops
 : lf-nat-op ( name -- entry | 0 )
   dup lf-name-tag@ lf-name-tag-str = 0= if drop 0 exit then
   dup lf-name-prefix@ lf-nat-root? 0= if drop 0 exit then lf-name-text lf-nat-entry ;
-: lf-nat-op? ( name -- flag ) lf-nat-op 0<> ;
 : lf-nat-counted? ( name -- flag ) lf-nat-op dup if @ then ;
 
 \ The audit, in this order: B0; unsafe members; a member named Nat.pow or

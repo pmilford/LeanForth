@@ -3975,8 +3975,8 @@ reason = "N2 skipped for a block: a type declared twice in one input is accepted
 [[fault]]
 id = "ind-sort-end-unknown"
 file = "src/kernel/check-block.fs"
-old = '''    lf-head-sort of lf-blk-sorted endof  lf-head-constant of lf-blk-constant-end endof'''
-new = '''    lf-head-sort of lf-blk-sorted endof  lf-head-var of lf-blk-unfold endof'''
+old = '''    lf-head-sort of lf-blk-sorted endof'''
+new = '''    lf-head-sort of lf-blk-sorted endof  lf-head-var of drop outcome-unknown endof'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "T2: a telescope ending in a variable is unknown, not Lean's typeExpected"
 
@@ -4458,7 +4458,7 @@ reason = "5.2.1b: P2 skipped; f (Bad f) -> Bad f is accepted"
 [[fault]]
 id = "rec-positivity-without-whnf"
 file = "src/kernel/check-block.fs"
-old = '''  swap lf-minfer-whnf ok-then? 0= if nip false exit then swap'''
+old = '''  swap lf-blk-whnf ok-then? 0= if nip false exit then swap'''
 new = ''''''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "5.2.1b: a field's type is not put in whnf; a negative occurrence behind a beta-redex is unknown, not Lean's nonPositive"
@@ -4466,10 +4466,10 @@ reason = "5.2.1b: a field's type is not put in whnf; a negative occurrence behin
 [[fault]]
 id = "rec-definition-stuck"
 file = "src/kernel/check-block.fs"
-old = '''  over lf-kind-axiom = or swap lf-kind-opaque = or ;'''
-new = '''  over lf-kind-axiom = or over lf-kind-opaque = or swap lf-kind-definition = or ;'''
+old = ''': lf-blk-whnf ( node -- node' outcome ) lf-minfer-whnf-job ;'''
+new = ''': lf-blk-whnf ( node -- node' outcome ) lf-minfer-whnf ;'''
 test = "$GFORTH tests/core/check-block.fs"
-reason = "5.2.1b: a definition counted as a head Lean's whnf leaves; id (Bad -> Nat) is decided without unfolding"
+reason = "5.2.1b: whnfB in place of Lean's whnf in the block check; id (Bad -> Nat) is not unfolded, and Lean's nonPositive is missed"
 
 [[fault]]
 id = "rec-c3-indices-unchecked"
@@ -4875,38 +4875,12 @@ test = "$GFORTH tests/core/check-block.fs"
 reason = "rvN1 B1: Nat.shiftLeft, whose shift Lean's get_count_arg limits too, is checked"
 
 [[fault]]
-id = "rvn1-type-node-stuck-before-name"
-file = "src/kernel/check-block.fs"
-old = '''  lf-ind-spine drop dup lf-ind-const-name lf-nat-op? if drop false exit then
-  dup lf-ind-type-node? if drop true exit then lf-ind-const-name lf-blk-stuck-name? ;'''
-new = '''  lf-ind-spine drop dup lf-ind-type-node? if drop true exit then
-  dup lf-ind-const-name lf-nat-op? if drop false exit then lf-ind-const-name lf-blk-stuck-name? ;'''
-test = "$GFORTH tests/core/check-block.fs"
-reason = "rvN1 B2: a block's own type named Nat.add counts as stuck, so its field Nat.add 0 0 gets a hypothesis Lean's whnf (the literal 0) never gives"
-
-[[fault]]
-id = "rvn1-nat-ops-not-excluded"
-file = "src/kernel/check-block.fs"
-old = '''  lf-ind-spine drop dup lf-ind-const-name lf-nat-op? if drop false exit then'''
-new = '''  lf-ind-spine drop'''
-test = "$GFORTH tests/core/check-block.fs"
-reason = "rvN1 B2: a head named like one of reduce_nat's operations counts as stuck"
-
-[[fault]]
 id = "rv-domain-whnf-before-occurrence"
 file = "src/kernel/check-block.fs"
 old = '''  over lf-term-first@ lf-blk-occurs? ok-then? 0= if nip nip false exit then'''
 new = '''  over lf-term-first@ lf-minfer-whnf drop lf-blk-occurs? ok-then? 0= if nip nip false exit then'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvN1 M1: a Pi's domain reduced before its occurrence test accepts ((fun X => Nat) T -> T) -> T, which Lean rejects (nonPositive)"
-
-[[fault]]
-id = "rv-constant-end-always-rejected"
-file = "src/kernel/check-block.fs"
-old = '''  dup lf-blk-stuck? if lf-blk-not-sort else lf-blk-unfold then ;'''
-new = '''  lf-blk-not-sort ;'''
-test = "$GFORTH tests/core/check-block.fs"
-reason = "rvN1 M1: a telescope ending in a definition equal to Type is rejected (T2) where Lean unfolds it and accepts"
 
 [[fault]]
 id = "rv-x-domain-not-consumed"
@@ -4943,16 +4917,16 @@ reason = "rvN1 M1: no whnf on a recursive field's Pi bodies: (Nat -> (fun X => X
 [[fault]]
 id = "rv-builder-whnf-failure-ignored"
 file = "src/kernel/inductive-recursor.fs"
-old = '''  lf-mbeta-fuel @ lf-ind-fuel ! dup ok? if 2drop else nip nip lf-rcr-failing then ;'''
-new = '''  lf-mbeta-fuel @ lf-ind-fuel ! 2drop ;'''
+old = '''  lf-rcr-frames frame-fuel @ lf-ind-fuel ! dup ok? if drop else nip lf-rcr-failing then ;'''
+new = '''  lf-rcr-frames frame-fuel @ lf-ind-fuel ! drop ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvN1 L2: a refused allocation in the builder's whnf ignored; the refusal test (part 5) finds the block not full"
 
 [[fault]]
 id = "rv-positivity-whnf-failure-ignored"
 file = "src/kernel/check-block.fs"
-old = '''  swap lf-minfer-whnf ok-then? 0= if nip false exit then swap'''
-new = '''  swap lf-minfer-whnf drop swap'''
+old = '''  swap lf-blk-whnf ok-then? 0= if nip false exit then swap'''
+new = '''  swap lf-blk-whnf drop swap'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvN1 L2: a refused allocation in positivity's whnf ignored; the refusal test (part 5) finds the block not full"
 
@@ -4988,3 +4962,37 @@ old = ''': lf-rcr-gap-of ( j extra -- gap ) swap lf-rcr-k + lf-rcr-q@ - ;'''
 new = ''': lf-rcr-gap-of ( j extra -- gap ) nip lf-rcr-q@ negate ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvN1 L4: a hypothesis placed without its constructor's fields after it: every minor premise with a hypothesis wrong"
+
+# --- iota and the switch to whnf.fs (plan task 5.2.1b; src/kernel/iota.fs) ---
+
+[[fault]]
+id = "iota-first-rule"
+file = "src/kernel/iota.fs"
+old = '''    2dup i lf-irc-rule lf-irule-ctor lf-name-same? if i lf-irc-rule nip unloop exit then'''
+new = '''    true if i lf-irc-rule nip unloop exit then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1b: iota takes the recursor's first rule whatever the constructor (Bool.rec on true gives the false case)"
+
+[[fault]]
+id = "iota-fields-not-applied"
+file = "src/kernel/iota.fs"
+old = '''  -rot lf-irule-nfields lf-iota-fields ok-then? 0= if nip nip no-result exit then'''
+new = '''  -rot drop 0 lf-iota-fields ok-then? 0= if nip nip no-result exit then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1b: the constructor's fields not given to the rule; a list's head and its hypothesis go missing"
+
+[[fault]]
+id = "iota-argument-after-major-dropped"
+file = "src/kernel/iota.fs"
+old = '''  dup 0= if 2drop outcome-ok exit then'''
+new = '''  2drop outcome-ok exit'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1b: the arguments after the major premise not applied to the rule's right side"
+
+[[fault]]
+id = "iota-prefix-wrong"
+file = "src/kernel/iota.fs"
+old = '''  2 pick dup lf-iota-n 3 pick lf-iota-prefix lf-iota-head-args ;'''
+new = '''  2 pick dup lf-iota-n 3 pick lf-iota-prefix 1- 0 max lf-iota-head-args ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1b: the rule's right side gets one argument too few of the parameters, motives and minor premises"

@@ -82,6 +82,7 @@ create visibles most cells allot
 : verdict-warned ( c-addr u -- outcome code step bits )
   case-path staged ok? must fuel checked final-decl result final-decl warned finish ;
 \ Declaration d's outcome and code.
+: used ( c-addr u -- outcome code ) verdict drop ;
 : decl-verdict ( c-addr u d -- outcome code )
   >r case-path staged ok? must fuel checked r> result drop finish ;
 15 constant all-steps
@@ -285,14 +286,37 @@ T{ s" replay.indices-changed" verdict-warned -> outcome-ok 0 all-steps lf-warn-i
 T{ s" replay.recursor-left-out" verdict-warned
    -> outcome-ok 0 all-steps lf-warn-no-recursor }T
 
-\ Unknown, unsupported and invalid. Where Lean's whnf would unfold a
-\ definition in positivity (id (Bad -> Nat)), unknown until task 4.2.2.
+\ Lean's whnf with delta (whnf.fs) in positivity and in the telescope:
+\ id (Bad -> Nat) unfolds to a negative occurrence (rejected, as Lean);
+\ a telescope ending in a definition equal to Type is a Sort (accepted,
+\ the recursor equal to Lean's; review rvN1 M1).
+T{ s" pos.through-definition" verdict-field -> outcome-rejected lf-diag-non-positive 9 0 }T
+T{ s" universe.type-a-sort-by-definition" verdict -> outcome-ok 0 all-steps }T
+\ Through iota (iota.fs) too: Bool.rec reduces a field's type to the type
+\ itself (recursive, with its hypothesis in the recursor) or to Nat; and
+\ Function.const unfolds to Nat. All accepted, as Lean.
+T{ s" pos.through-recursor" verdict -> outcome-ok 0 all-steps }T
+T{ s" pos.erased-by-recursor" verdict -> outcome-ok 0 all-steps }T
+T{ s" pos.erased-by-definition" verdict -> outcome-ok 0 all-steps }T
+\ Iota in a declaration's check (Lean's reduce_recursor, behind whnf.fs's
+\ hook): a constructor's rule with its fields, its induction hypothesis
+\ and an argument after the major premise, Nat.zero, Eq.refl (k set). A
+\ comparison Lean refuses after iota, or with a stuck major premise, is
+\ unknown until the port decides rejections (task 4.2.2d); Nat.succ is
+\ K7 (Lean's reduce_nat makes a literal of it: task 5.2.3).
+T{ s" iota.bool-true" used -> outcome-ok 0 }T
+T{ s" iota.list-hypothesis" used -> outcome-ok 0 }T
+T{ s" iota.list-field" used -> outcome-ok 0 }T
+T{ s" iota.argument-after-major" used -> outcome-ok 0 }T
+T{ s" iota.nat-zero" used -> outcome-ok 0 }T
+T{ s" iota.eq-refl" used -> outcome-ok 0 }T
+T{ s" iota.bool-true-wrong" used -> outcome-unknown lf-diag-undecided }T
+T{ s" iota.list-hypothesis-wrong" used -> outcome-unknown lf-diag-undecided }T
+T{ s" iota.bool-stuck" used -> outcome-unknown lf-diag-undecided }T
+T{ s" iota.nat-succ" used -> outcome-unknown lf-diag-name-matched }T
+\ Unknown, unsupported and invalid. C2's comparison of id Type with Type
+\ needs Lean's lazy delta reduction (task 4.2.2d).
 T{ s" params.constructor-binder-defeq" verdict nip -> outcome-unknown 9 }T
-T{ s" pos.through-definition" verdict -> outcome-unknown lf-diag-needs-unfolding 9 }T
-\ A telescope that ends in a definition equal to Type: unknown at step 8,
-\ never rejected (review rvN1 M1).
-T{ s" universe.type-a-sort-by-definition" verdict
-   -> outcome-unknown lf-diag-needs-unfolding 8 }T
 \ Forged arithmetic (review rvN1 B1, B2). A definition, or a block member,
 \ named Nat.pow or Nat.shiftLeft is unsupported until task 5.2.3, and so
 \ is every declaration that uses one (K5): Lean's whnf computes them by
@@ -317,9 +341,9 @@ T{ s" forged.shiftleft-field" 4 decl-verdict -> outcome-unsupported lf-diag-nat-
 T{ s" forged.shiftleft-field" verdict
    -> outcome-unsupported lf-diag-dependency-unsupported 9 }T
 T{ s" forged.type-named-nat-pow" verdict -> outcome-unsupported lf-diag-nat-count-op 1 }T
-T{ s" forged.type-named-nat-add" verdict -> outcome-unknown lf-diag-needs-unfolding 9 }T
+T{ s" forged.type-named-nat-add" verdict -> outcome-unknown lf-diag-name-matched 9 }T
 T{ s" forged.type-named-nat-add-recursor-with-hypothesis" verdict
-   -> outcome-unknown lf-diag-needs-unfolding 9 }T
+   -> outcome-unknown lf-diag-name-matched 9 }T
 \ Nested blocks (task 5.2.5b): List Tree, and List (Bad -> Nat), which Lean
 \ rejects only after making the block mutual.
 T{ s" nested.tree" verdict-field -> outcome-unsupported lf-diag-block-scope 1 3 }T
@@ -584,7 +608,6 @@ T{ ctor-arity -> 0 }T
 \ level 1 in a definition and during another block's check, where the
 \ motive's universe is no level of the file (R4-1). A type that is a
 \ Sort only after whnf leaves no recipe: unknown (task 4.2.2).
-: used ( c-addr u -- outcome code ) verdict drop ;
 T{ s" after.and-left-out-then-use-rec" used -> outcome-ok 0 }T
 T{ s" after.or-left-out-then-use-rec" used -> outcome-ok 0 }T
 T{ s" after.exists-left-out-then-use-rec" used -> outcome-ok 0 }T

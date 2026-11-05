@@ -1000,7 +1000,10 @@ recursor levels; the generated recursor of decision 12 gets them too.
 **Decisions**, none of which adds or widens a rule beyond Lean's:
 
 13. *whnf where Lean reduces.* Lean's positivity, recursive-field test
-    and telescope put terms in `whnf`. Until task 4.2.2's whnf (agent
+    and telescope put terms in `whnf`. *Since the switch of 2026-11-04
+    (below, "Iota and the switch to Lean's whnf"), LeanForth calls task
+    4.2.2c's port of Lean's `whnf` (`whnf.fs`) there; what follows was the
+    stand-in until then.* Until task 4.2.2's whnf (agent
     U4) is on main, LeanForth uses whnfB and goes on only where Lean's
     whnf provably stops: a Sort, Pi, lambda or variable head, or a
     constant head named none of `reduce_nat`'s fifteen operations
@@ -1047,7 +1050,7 @@ recursor levels; the generated recursor of decision 12 gets them too.
     agent U4's port leaves a hook for it. It is not implemented here (a
     second whnf is not to be written): plan task 4.2.2c's hook, then the
     5.2.1b follow-up. Rows `iota.*` stay *unsupported* (they use
-    literals, task 5.2.3).
+    literals, task 5.2.3). *Done 2026-11-04: `iota.fs`, below.*
 17. *A rebuild keeps the interrupted block's domains.* The generated
     recursor (decision 12), built during another block's check, wrote
     over that block's parameter domains; it now copies them aside and
@@ -1112,6 +1115,56 @@ Owner question L1 of the review stays open: whether Lean's refusals that
 name `LEAN_NAT_MAX_SIZE` (a setting) count as resource refusals, like
 `deepRecursion`, or are reproduced as rejections in task 5.2.3 as §7 L1
 plans.
+
+**Iota and the switch to Lean's whnf** (2026-11-04, agent N1, the rest of
+task 5.2.1b; experimental [kernel] code, gate open). Task 4.2.2c's port
+of Lean's `whnf` (`whnf.fs`, agent U4) is on main, so:
+
+- **Iota** (R1): `iota.fs` ports `inductive_reduce_rec` (`inductive.h`
+  77–116; `get_rec_rule_for`, `is_constructor_app`, `inductive.cpp` 53–60,
+  114–122) behind `whnf.fs`'s hook `lf-whnf-iota`. For a recursor that a
+  usable slot holds (B3 made its numbers, `k` and rules Lean's), the
+  major premise is put in Lean's `whnf`; a constructor application gets
+  its rule, at the application's universe arguments, applied to the
+  parameters, motives and minor premises, the constructor's fields and
+  the arguments after the major premise; no rule applies where Lean's
+  `inductive_reduce_rec` returns none. *Unknown* (diagnostic 81), as not
+  ported: a major premise that is no constructor application when `k` is
+  set (`to_cnstr_when_K` needs inference and comparison) or when its
+  type may be a non-recursive structure (`to_cnstr_when_structure`
+  eta-expands with projections, task 5.2.2); and Lean's generated
+  recursor that no slot holds (decision 12). With `k` set, a major
+  premise whose `whnf` is the constructor gets the rule Lean's K path
+  gives (the one constructor, no fields). Literal majors (L2) stay with
+  task 5.2.3; `whnf.fs` answers *unknown* where Lean's `reduce_nat` could
+  make one (K7: `Nat.succ` with one argument, so `Nat.rec` on `Nat.succ n`
+  is *unknown*).
+- **The switch** (decision 13): `check-block.fs` puts the telescope
+  (step 8, every type) and positivity's field types (step 9) in Lean's
+  `whnf` on the step's inference job (`lf-minfer-whnf-job`), and the
+  recursor builder its recursive fields' types on a frames record of its
+  own (`lf-rcr-frames`), so the two agree on which fields are recursive.
+  The stand-in `lf-blk-left?` and its name test are gone; B2's case is
+  now `whnf.fs`'s K7 (diagnostic 82). A rebuild of a generated recursor
+  (decision 12) uses the same `whnf`; it starts no other rebuild, since
+  `whnf` and iota answer *unknown* for a generated recursor. Decision 14
+  stands: a field type without an occurrence is still not put in whnf.
+- **Evidence** (2026-11-04, Gforth 1.0.0, Lean 4.35.0): 12 new table rows
+  (256 cases): iota without literals on `Bool`, `List` and `Nat.zero`
+  (a rule's fields, its induction hypothesis, an argument after the major
+  premise), `Eq.refl` (k), a stuck major premise, `Nat.succ` (K7), and
+  positivity through `Bool.rec` (recursive, and erasing a negative
+  occurrence). Rows that now give Lean's verdict: `pos.through-definition`
+  (rejected), `pos.erased-by-definition`, `universe.type-a-sort-by-definition`
+  (accepted), the six iota rows Lean accepts and the two positivity rows.
+  Pending (each with its task): the three iota rows Lean refuses
+  (*unknown*: the port's "no" decides nothing until task 4.2.2d), the
+  generated recursor of a type that is a Sort only after whnf (the
+  rebuild still reads the raw telescope; a follow-up). Tasks 5.2.1a,
+  5.2.1b and 5.2.5a: 181 rows, ok 100, rejected 71, unknown 6, unsupported
+  4 (10 pending); none of the 256 decided against Lean. Planted faults:
+  four new on iota, five re-targeted, three deleted with the stand-in
+  they broke; all caught.
 
 ## Implementation (plan task 5.2.5a)
 
