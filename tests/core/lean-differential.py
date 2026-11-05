@@ -236,9 +236,14 @@ REJECTION_CODES = {
     52: ("L1", "levelCount"), 53: ("L2", "undefinedLevelParam"),
     54: ("L3", "duplicateLevelParam"), 55: ("S1", "typeExpected"),
     56: ("S2", "typeExpected"), 57: ("S3", "thmTypeIsNotProp"),
-    58: ("F1", "funExpected"), 59: ("D", "appTypeMismatch"), 61: ("S4", "typeExpected"),
-    60: ("D", "declTypeMismatch"),
+    58: ("F1", "funExpected"), 59: ("defeq", "appTypeMismatch"), 61: ("S4", "typeExpected"),
+    60: ("defeq", "declTypeMismatch"),
 }
+# Since plan task 4.2.2d the codes of an argument and of the value whose
+# type is not the expected one (59, 60) are Lean's is_def_eq answering no
+# (ADR 0014 Q1): ADR 0011's rules D1-D5, each a sufficient condition for
+# that no, are subsumed and retired, so a row the table gives a D rule, or
+# the rule defeq (a row ADR 0011 left unknown, K1), is rejected by them.
 OUTCOMES = {"ok": "accepted", "rejected": "rejected", "unknown": "unknown",
             "unsupported": "unsupported", "invalid": "invalid",
             "exhausted": "exhausted", "full": "full"}
@@ -258,7 +263,7 @@ RULE_STEPS = {"A1": {"done"}, "B1": {"done"}, "U1": {"audit"}, "U2": {"audit"},
               "V1": {"audit"}, "N2": {"name"}, "L3": {"params"}, "S1": {"sort"},
               "S3": {"proposition"}, "S4": INSIDE, "N1": INSIDE, "L1": INSIDE, "L2": INSIDE,
               "S2": INSIDE, "F1": INSIDE, "K5": INSIDE | {"name"},
-              "D": INSIDE | {"comparison"}}
+              "D": INSIDE | {"comparison"}, "defeq": INSIDE | {"comparison"}}
 # Rows where today's code gives another failure than the table, with the
 # reason; neither answer is accepted. composition.proof-irrelevance was
 # full before plan task 2.2.3 (the 64-node term store filled while the
@@ -269,6 +274,9 @@ RULE_STEPS = {"A1": {"done"}, "B1": {"done"}, "U1": {"audit"}, "U2": {"audit"},
 # analysis, which looks for a rejection, runs out of room in the 64-node
 # store, which ADR 0008 reports as full (with more room it might have
 # rejected), not unknown; at large capacities, and fed, it is unknown.
+# Since plan task 4.2.2d the comparison's step 4 infers whether the left
+# side is a proof (it is: diagnostic 87, unknown until task 4.2.5), and
+# that inference fills the 64-node store first: full, as before.
 FIRST_CHECKER_KNOWN = {"composition.proof-irrelevance": "full"}
 # In the binder-domain table three rows met the 64-node term store until
 # plan task 4.2.2a (with lf-term-capacity 160 each gave the table's answer,
@@ -418,10 +426,9 @@ def checker_row(case, lean, expected, rule, measured, verdict, known):
         if kind != lean:
             raise Mismatch(f"{case}: {named} stands for {kind}, Lean raised {lean}")
         head = rule.split("+")[0]
-        if named == "D":
-            # first is the set of D rules used: bit k-1 for Dk.
-            if not head.startswith("D") or not (first >> (int(head[1]) - 1)) & 1:
-                raise Mismatch(f"{case}: D rules {first} lack the table's {head}")
+        if named == "defeq":
+            if not (head.startswith("D") or head == "defeq"):
+                raise Mismatch(f"{case}: Lean's is_def_eq said no where the table says {rule}")
             if (code == 60) != (step == "comparison"):
                 raise Mismatch(f"{case}: code {code} at step {step}")
         elif named != head:
@@ -651,14 +658,20 @@ def universe_scope_fed():
 # first part of 4.3.1): definitional-equality-terms.lean prints the rows of
 # definitional-equality.lean that declare something, and its whnf rows, as
 # declarations (a whnf row: the constant, then a probe whose value is it,
-# which tests/support/whnf-probe.fs puts in LeanForth's whnf). The rows of
-# the groups task 4.2.2c decides must give Lean's answer, those of KNOWN
-# the temporary gap given (with the task that closes it); every other row
-# may stay unknown or unsupported but never contradicts Lean: accepted only
-# where Lean accepts, rejected only for the exception Lean raised.
-DQ_DECIDED = ("sort.", "pi.", "whnf.")
-DQ_KNOWN = {"whnf.opaque": ("unsupported", "LeanForth holds no opaque declaration before "
-                                           "plan task 4.2.6 (U1, so K5 at the lookup)")}
+# which tests/support/whnf-probe.fs puts in LeanForth's whnf; a
+# definition carries its reducibility hint). The rows of the groups tasks
+# 4.2.2c and 4.2.2d decide must give the table's ADR 0014 answer (Lean's
+# verdict, or unknown for K7), those of KNOWN the temporary gap given (with
+# the task that closes it); every other row may stay unknown or
+# unsupported but never contradicts Lean: accepted only where Lean
+# accepts, rejected only for the exception Lean raised.
+DQ_DECIDED = ("sort.", "pi.", "whnf.", "delta.", "opaque.", "names.")
+DQ_OPAQUE = ("unsupported", "an opaque declaration: unsupported (U1, so K5 at its lookup) "
+                            "until plan task 4.2.6")
+DQ_KNOWN = {case: DQ_OPAQUE for case in (
+    "whnf.opaque", "delta.same-head-levels-differ-opaque", "opaque.never-unfolds",
+    "opaque.declaration-accepted", "opaque.declaration-wrong-value",
+    "names.nat-zero-becomes-a-literal", "names.ordinary-zero-twin")}
 
 
 def definitional_equality_cases():
@@ -753,7 +766,7 @@ def definitional_equality():
               if not case.startswith(DQ_DECIDED) and answers[case][0] in ("accepted", "rejected")]
     print(f"definitional equality: other rows decided as Lean: {', '.join(beyond) or 'none'}")
     print(f"definitional equality: {len(decided)} rows of {', '.join(DQ_DECIDED)} as Lean "
-          f"(known gaps: {', '.join(f'{c} {o}: {why}' for c, (o, why) in DQ_KNOWN.items())}); "
+          f"(known gaps: {', '.join(sorted(DQ_KNOWN))}: {DQ_OPAQUE[1]}); "
           f"all {len(printed)} rows: {', '.join(f'{n} {o}' for o, n in sorted(mix.items()))}; "
           f"{len(skipped)} rows of Lean's own library not run (phase 5): {', '.join(skipped)}")
     return len(printed)
@@ -807,7 +820,8 @@ TABLES = {
                                            "dependencies, and a pool of 66,066, agree with "
                                            "Lean's kernel, fed as exports"),
     "definitional-equality": (definitional_equality,
-                              "definitional-equality rows: sort.*, pi.* and whnf.* give "
+                              "definitional-equality rows: sort.*, pi.*, whnf.*, delta.*, "
+                              "opaque.* and names.* give "
                               "Lean's answer, no row contradicts Lean"),
 }
 

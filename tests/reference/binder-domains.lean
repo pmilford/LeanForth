@@ -181,13 +181,13 @@ def compareCases : List Case := [
     subject := .compare
       (foralls [(`A, prop)] (arrow (hidden (v `A)) (v `A)))
       (foralls [(`A, prop)] (arrow (v `A) (v `A))),
-    lean := "equal", now := "unknown", amended := "unknown", rule := "K1",
+    lean := "equal", now := "unknown", amended := "equal", rule := "A1",
     what := "domain bdId Prop A against A: equal only by unfolding bdId" },
   { id := "compare.domain-needs-unfolding-different-body",
     subject := .compare
       (foralls [(`A, prop), (`B, prop)] (arrow (hidden (v `A)) (v `B)))
       (foralls [(`A, prop), (`B, prop)] (arrow (v `A) (v `A))),
-    lean := "different", now := "unknown", amended := "unknown", rule := "K1",
+    lean := "different", now := "unknown", amended := "apart", rule := "defeq",
     what := "LeanForth stops at the undecided domain, though the bodies differ" },
   { id := "compare.domain-proof-irrelevance",
     subject := .compare
@@ -254,13 +254,13 @@ def declareCases : List Case := [
     subject := whole `bdUnfold
       (foralls [(`A, prop)] (arrow (hidden (v `A)) (v `A)))
       (funs [(`A, prop), (`h, v `A)] (v `h)),
-    lean := "accepted", now := "unknown", amended := "unknown", rule := "K1",
+    lean := "accepted", now := "unknown", amended := "accepted", rule := "A1",
     what := "claims bdId Prop A → A; equal to A → A only by unfolding bdId" },
   { id := "decl.domain-needs-unfolding-wrong-claim",
     subject := whole `bdUnfoldWrong
       (foralls [(`A, prop), (`B, prop)] (arrow (hidden (v `A)) (arrow (v `B) (v `A))))
       (funs [(`A, prop), (`B, prop), (`h, v `A), (`k, v `B)] (v `k)),
-    lean := "declTypeMismatch", now := "unknown", amended := "unknown", rule := "K1",
+    lean := "declTypeMismatch", now := "unknown", amended := "rejected", rule := "defeq",
     what := "wrong claim behind a domain that needs unfolding" },
   { id := "decl.argument-beta-domain",
     subject := argument `bdArgument

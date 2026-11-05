@@ -587,7 +587,8 @@ defer lf-minfer-args-apart ( left right count frames -- ... frames next )
 : lf-minfer-binders-apart ( left right frames -- ... frames next )
   >r 2dup lf-minfer-firsts lf-minfer-compare
   dup ok? if drop r> lf-minfer-bodies-apart exit then
-  outcome-unknown = if lf-minfer-firsts r> ['] lf-minfer-d4 lf-minfer-apart-call exit then
+  dup outcome-unknown = swap outcome-rejected = or
+  if lf-minfer-firsts r> ['] lf-minfer-d4 lf-minfer-apart-call exit then
   2drop 0 false r> lf-minfer-d4 ;
 \ One level: two Sorts by D1; otherwise P1 (both rigid) and P3 (not
 \ exactly one a lambda) on the shapes, P2 on both sides (no proof

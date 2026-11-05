@@ -64,16 +64,9 @@ PENDING = {
     "iota.stuck-on-variable": ("unsupported",
         "a Nat literal (U2, task 5.2.3); Lean's iota on a variable major is stuck (R1)."
         " Closed by tasks 5.2.1b and 5.2.3"),
-    "params.constructor-binder-defeq": ("unknown",
-        "C2 needs id Type unfolded by Lean's lazy delta reduction in is_def_eq: K1;"
-        " twin params.constructor-binder-beta. Closed by task 4.2.2d"),
     "universe.type-a-sort-by-definition": ("unknown",
         "the type's telescope ends in PSortDef, a Sort only once unfolded: K1; twin"
         " universe.type-not-a-sort. Closed by task 4.2.2 (whnf with delta)"),
-    "after.annotated-binders-left-out-then-use-rec": ("unknown",
-        "the use compares Nat with optParam Nat Nat.zero (diagnostic 64, the rvU4 guard): K1, Lean's lazy"
-        " delta reduction in is_def_eq unfolds optParam; twin"
-        " after.reflexive-indexed-left-out-then-use-rec. Closed by task 4.2.2d"),
     "after.redex-type-left-out-then-use-rec": ("unknown",
         "IE.U2's type is a Sort only after whnf, so its block left no recipe of the"
         " generated recursor (ADR 0015 decision 12): a use of IE.U2.rec is unknown"

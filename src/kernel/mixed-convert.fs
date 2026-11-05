@@ -71,7 +71,8 @@ end-structure
   lf-mconvert-marks 2>r >r lf-mconvert-defeq r> 2r> lf-mconvert-restore ;
 \ An outcome but ok leaves no fuel, unless the comparison keeps it (an
 \ unknown one, lf-mixed-convert-keeping).
-: lf-mconvert-kept? ( outcome -- flag ) outcome-unknown = lf-mconvert-keep @ and ;
+: lf-mconvert-kept? ( outcome -- flag )
+  dup outcome-unknown = swap outcome-rejected = or lf-mconvert-keep @ and ;
 : lf-mconvert-settle ( outcome -- outcome )
   dup ok? over lf-mconvert-kept? or 0= if 0 lf-mconvert-fuel ! then ;
 

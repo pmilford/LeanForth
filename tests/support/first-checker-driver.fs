@@ -33,7 +33,14 @@ fc-fuel lf-check-budget
 : fc-char ( -- char ) fc-token drop c@ ;
 : fc-number ( -- n ) 0 0 fc-token >number nip abort" first-checker driver: number" drop ;
 : fc-expect ( c-addr u -- ) fc-token compare abort" first-checker driver: syntax" ;
-: fc-intern ( c-addr u -- name ) 0 -rot lf-name-str must ;
+\ A name as Lean prints it, its components joined by dots (none of the
+\ tables' names has a dot inside a component): interned component by
+\ component, as Lean's hierarchical name, so that the names Lean's kernel
+\ matches (Nat.succ, Bool.true) are recognised.
+: fc-intern ( c-addr u -- name )
+  0 -rot begin 2dup s" ." search while
+    >r >r drop r@ over - lf-name-str must r> 1+ r> 1-
+  repeat 2drop lf-name-str must ;
 : fc-name ( -- name ) fc-token fc-intern ;
 
 \ ---------------------------------------------------------------------------
@@ -127,6 +134,16 @@ create fc-buf /lf-idecl allot
   fc-buf lf-idecl-kind @ lf-kind-definition =
   if lf-hint-regular 1 else lf-hint-opaque 0 then
   fc-buf lf-idecl-height ! fc-buf lf-idecl-hint ! ;
+\ An optional HINT clause after the value (definitional-equality-
+\ terms.lean): opaque, abbrev or regular with its height.
+: fc-hint-kind ( c-addr u -- hint )
+  2dup s" opaque" compare 0= if 2drop lf-hint-opaque exit then
+  2dup s" abbrev" compare 0= if 2drop lf-hint-abbrev exit then
+  s" regular" compare abort" first-checker driver: hint" lf-hint-regular ;
+: fc-hint-clause ( -- )
+  >in @ parse-name s" HINT" compare if >in ! exit then drop
+  fc-token fc-hint-kind dup fc-buf lf-idecl-hint !
+  lf-hint-regular = if fc-number else 0 then fc-buf lf-idecl-height ! ;
 create fc-param-ids 4096 cells allot   \ a declaration's universe parameters
 : fc-params ( -- )
   fc-param-ids fc-buf lf-idecl-params ! fc-number dup fc-buf lf-idecl-arity !
@@ -139,7 +156,7 @@ create fc-param-ids 4096 cells allot   \ a declaration's universe parameters
   fc-buf lf-idecl-safety ! fc-name fc-buf lf-idecl-name ! fc-params fc-hint ;
 : fc-decl ( "declaration" -- )
   fc-head s" TYPE" fc-expect fc-read-term fc-buf lf-idecl-type !
-  s" VALUE" fc-expect fc-value fc-buf lf-idecl-value !
+  s" VALUE" fc-expect fc-value fc-buf lf-idecl-value ! fc-hint-clause
   fc-buf lf-input-add ok? must drop ;
 
 \ ---------------------------------------------------------------------------

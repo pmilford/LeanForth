@@ -47,9 +47,9 @@ constant.too-few-universes	levelCount	rejected	L1
 constant.too-many-universes	levelCount	rejected	L1
 constant.wrong-universe-argument	appTypeMismatch	rejected	D1
 constant.wrong-argument	appTypeMismatch	rejected	D2
-constant.needs-unfolding	accepted	unknown	K1
-constant.needs-unfolding-wrong	declTypeMismatch	unknown	K1
-constant.uses-an-undecided-declaration	accepted	unknown	K5
+constant.needs-unfolding	accepted	accepted	A1
+constant.needs-unfolding-wrong	declTypeMismatch	rejected	defeq
+constant.uses-an-undecided-declaration	accepted	accepted	A1
 constant.theorem-cites-theorem	accepted	accepted	A1
 constant.over-application	funExpected	rejected	F1
 constant.function-type-behind-definition	accepted	accepted	A1
