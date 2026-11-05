@@ -260,11 +260,16 @@ RULE_STEPS = {"A1": {"done"}, "B1": {"done"}, "U1": {"audit"}, "U2": {"audit"},
               "S2": INSIDE, "F1": INSIDE, "K5": INSIDE | {"name"},
               "D": INSIDE | {"comparison"}}
 # Rows where today's code gives another failure than the table, with the
-# reason; neither answer is accepted. None in the first checker's table:
-# composition.proof-irrelevance, full before plan task 2.2.3 (the 64-node
-# term store filled while the value's type was inferred), is unknown since
-# check-declaration discards the declared type's scratch before the value.
-FIRST_CHECKER_KNOWN = {}
+# reason; neither answer is accepted. composition.proof-irrelevance was
+# full before plan task 2.2.3 (the 64-node term store filled while the
+# value's type was inferred), unknown since check-declaration discards the
+# declared type's scratch before the value; since plan task 4.2.2c it is
+# full again at the default capacities: the final comparison is unknown
+# (Lean accepts by proof irrelevance, plan task 4.2.5), and ADR 0011's
+# analysis, which looks for a rejection, runs out of room in the 64-node
+# store, which ADR 0008 reports as full (with more room it might have
+# rejected), not unknown; at large capacities, and fed, it is unknown.
+FIRST_CHECKER_KNOWN = {"composition.proof-irrelevance": "full"}
 # In the binder-domain table three rows met the 64-node term store until
 # plan task 4.2.2a (with lf-term-capacity 160 each gave the table's answer,
 # measured 2026-11-02); since then inference discards scratch as it goes

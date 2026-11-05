@@ -504,16 +504,16 @@ def constantCases : List Case := [
       (foralls [im `P prop, ex `f (hidden (arrow (v `P) (v `P))), ex `h (v `P)] (v `P))
       (funs [im `P prop, ex `f (hidden (arrow (v `P) (v `P))), ex `h (v `P)]
         (app (v `f) [v `h])),
-    lean := "accepted", leanforth := "unknown", rule := "K1",
-    what := "f's type is fixtureId Prop (P → P); it is a function type only after unfolding" },
+    lean := "accepted", leanforth := "accepted", rule := "A1",
+    what := "f's type is fixtureId Prop (P → P); it is a function type only after unfolding (Lean's whnf in ensure_pi, since plan task 4.2.2c; K1 unknown before)" },
   { id := "constant.sort-behind-definition", before := [fixtureId],
     decl := thm `fixtureHiddenSort
       (foralls [im `Q (app (.const `fixtureId [.succ (.succ .zero)]) [type, prop]),
                 ex `h (v `Q)] (v `Q))
       (funs [im `Q (app (.const `fixtureId [.succ (.succ .zero)]) [type, prop]),
              ex `h (v `Q)] (v `h)),
-    lean := "accepted", leanforth := "unknown", rule := "K1",
-    what := "Q : fixtureId Type Prop; Q is a proposition only after unfolding" }
+    lean := "accepted", leanforth := "accepted", rule := "A1",
+    what := "Q : fixtureId Type Prop; Q is a proposition only after unfolding (Lean's whnf in ensure_sort, since plan task 4.2.2c; K1 unknown before)" }
 ]
 
 /-! ## Outside the first checker's scope (Lean accepts; LeanForth must not) -/
@@ -590,12 +590,12 @@ def piBodyCases : List Case := [
     what := "(x : Prop) → x: the body x is a proposition, a type" },
   { id := "pi-body.needs-unfolding", before := [s1],
     decl := defn `piBodyUnfold sort2 (foralls [ex `y (.const `S1 [])] (v `y)),
-    lean := "accepted", leanforth := "unknown", rule := "K1",
-    what := "(y : S1) → y: y's type S1 unfolds to Type, a Sort" },
+    lean := "accepted", leanforth := "accepted", rule := "A1",
+    what := "(y : S1) → y: y's type S1 unfolds to Type, a Sort (Lean's whnf in ensure_sort, since plan task 4.2.2c; K1 unknown before)" },
   { id := "pi-body.needs-unfolding-wrong", before := [f1],
     decl := defn `piBodyUnfoldWrong sort2 (foralls [ex `y (.const `F1 [])] (v `y)),
-    lean := "typeExpected", leanforth := "unknown", rule := "K1",
-    what := "(y : F1) → y: y's type F1 unfolds to Prop → Prop, not a Sort" }
+    lean := "typeExpected", leanforth := "rejected", rule := "S4",
+    what := "(y : F1) → y: y's type F1 unfolds to Prop → Prop, not a Sort (Lean's whnf in ensure_sort, since plan task 4.2.2c; K1 unknown before)" }
 ]
 
 def cases : List Case :=
