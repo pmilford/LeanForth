@@ -4335,7 +4335,7 @@ quick = true
 [[fault]]
 id = "outline-latex-math-left-open"
 file = "src/present/log-view.fs"
-old = '''  lf-lv lf-lv-mathing @ 0= if lf-lv-last-dollar then ;'''
+old = '''  lf-lv lf-lv-mathing @ 0= if s" $" lf-lv-put then ;'''
 new = ''' ;'''
 test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
 reason = "a LaTeX formula is opened with $ and never closed, so the fragment's math is unbalanced"
@@ -4392,8 +4392,8 @@ quick = true
 [[fault]]
 id = "stage-keeps-no-line"
 file = "src/import/stage-records.fs"
-old = '''  over record-line @ over stage-lines fields-push dup ok? 0= if nip nip exit then drop'''
-new = '''  0 over stage-lines fields-push dup ok? 0= if nip nip exit then drop'''
+old = '''  over stage-lines fields-push dup ok? 0= if nip nip exit then drop'''
+new = '''  drop 0 over stage-lines fields-push dup ok? 0= if nip nip exit then drop'''
 test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
 reason = "the stage forgets the line of each declaration it stages, so every outline reads line 0"
 quick = true
@@ -4409,8 +4409,26 @@ reason = "the printer no longer finds a constant's declared type in the input, s
 [[fault]]
 id = "print-title-name-unescaped"
 file = "src/present/log-view.fs"
-old = '''  lf-lv lf-lv-declname @ lf-lv-tex? 0= and if lf-lv-decl-shown else lf-lv-printed-name then ;'''
+old = '''  lf-lv-decl-namer? if lf-lv-decl-shown else lf-lv-printed-name then ;'''
 new = '''  lf-lv-printed-name ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Names"
 reason = "print shows a declaration's name as the printer spells it, so a name with a newline starts a line of its own in the outline"
+quick = true
+
+[[fault]]
+id = "latex-name-banned-unescaped"
+file = "src/present/latex-text.fs"
+old = '''  2dup utf8-decode dup tr-banned? if s" \backslash{}u\{" lf-tex-code nip exit then'''
+new = '''  2dup utf8-decode dup tr-banned? 0 and if s" \backslash{}u\{" lf-tex-code nip exit then'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Names"
+reason = "a binder or constant name with a line end or a bidirectional control reaches the mathematics line raw and forges outline lines (review rvPR B1)"
+quick = true
+
+[[fault]]
+id = "forth-block-banned-name-written"
+file = "src/present/print-forth.fs"
+old = '''  2dup tr-rule? 0= if 2drop false exit then'''
+new = ''''''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Names"
+reason = "the LeanForth block writes a name holding a banned character raw (review rvPR B1)"
 quick = true

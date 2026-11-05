@@ -93,7 +93,7 @@ theorem composition {A B C : Prop} (f : A → B) (g : B → C) : A → C :=
 | Command | What it does |
 | --- | --- |
 | `check [--no-manifest] [--fuel N] [--resources] [--json] EXPORT` | Check every declaration of a Lean export of any size, in file order; with `--resources`, also print the [resource report](#the-resource-report); with `--json`, print [one JSON report](#json-output) instead of text |
-| `check [--no-manifest] [--fuel N] --record RECORD EXPORT` | Check a small export (as `print` reads it) and also write its [run record](#run-records-and-replay) |
+| `check [--no-manifest] [--fuel N] --record RECORD EXPORT` | Check a small export (read straight into the checker's stores) and also write its [run record](#run-records-and-replay) |
 | `replay [--no-manifest] [--fuel N] EXPORT RECORD` | Check the export again and compare the new run record with RECORD; print the replay report |
 | `print [--no-manifest] [--fuel N] [--detail] [--name NAME] [--latex] [--statement FORMS] EXPORT` | Check the export and print each accepted declaration's [readable proof](#printing-a-readable-proof), or with `--detail` every step of the checker's log; `--name` prints one declaration |
 | `count [--no-manifest] EXPORT` | Count the export's records by kind ([the reader's counter](../development/NDJSON_READER.md#using-it)), for exports of any size |
@@ -511,7 +511,7 @@ Theorem composition
   accepted (experimental, not independently audited); axioms: none
   Statement in Lean:        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$
-  Statement in LeanForth (the statement only, written as an axiom; nothing is assumed):
+  Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom composition
       Prop implicit: A
       Prop implicit: B
@@ -547,11 +547,13 @@ The header shows the statement in three forms (plan task 8.6.2): in
 Lean's notation, in mathematics (LaTeX between `$` and `$`) and in
 LeanForth words. The LeanForth block states the type as the `axiom` of
 the same name does, because that is the one form of the words that states
-a type with no proof; it assumes nothing: nobody checked such an axiom,
-and the verdict printed above it is the checker's. The words run through
+a type with no proof. Printing it assumes nothing, and the verdict printed
+above it is the checker's (also for an `Axiom` declaration and for a
+rejected one, whose block is printed all the same); running the words would
+make an axiom in the authoring program, never in the checker. The words run through
 the [authoring words](../programming/LEANFORTH_WORDS.md) to the identical
-statement (checked by `tests/present/check_outline.py` for every pinned
-example). The statement is printed whether or not the declaration was
+statement (checked by `tests/present/check_outline.py` for the five pinned
+examples; the `Init` example below was not run back). The statement is printed whether or not the declaration was
 accepted. A block can be run only after the declarations it mentions: the
 constants of an earlier declaration are defined by running that
 declaration first (an `import-stub` line stands for one of Lean's).
@@ -561,6 +563,17 @@ declaration first (an `import-stub` line stands for one of Lean's).
 (the default). `--latex` prints the outlines as LaTeX fragments instead
 (see [the proof outline](PROOF_OUTLINE.md#latex)); with `--detail` the
 step list is always plain text.
+
+NAME is matched against the name as the term printer spells it, components
+joined by dots without « »: `a.b` selects a declaration whose name is the
+two components `a` and `b` and also the one-component name `«a.b»`, and a
+numeric component matches the same digits as a string component. The name
+is shown escaped in the output (so a name holding a line end or a
+bidirectional control cannot be written as an argument).
+
+A limit still to lift: the LeanForth block takes at most 8 universe
+parameters (print-forth's `lf-decl-universe-capacity`); a declaration with
+more prints "(not complete: unsupported)" instead of the block.
 
 `--name NAME` prints only the declaration named NAME (the declarations
 before it are checked too, since it may use them; the ones after it are
@@ -577,7 +590,7 @@ Theorem composition
   Diagnostic: rejected: argument type mismatch (D1-D5) (4, 0)
   Statement in Lean:        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$
-  Statement in LeanForth (the statement only, written as an axiom; nothing is assumed):
+  Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom composition
       Prop implicit: A
       Prop implicit: B

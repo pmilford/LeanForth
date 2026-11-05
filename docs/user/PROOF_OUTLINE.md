@@ -80,7 +80,7 @@ Theorem composition
   accepted (experimental, not independently audited); axioms: none
   Statement in Lean:        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$
-  Statement in LeanForth (the statement only, written as an axiom; nothing is assumed):
+  Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom composition
       Prop implicit: A
       Prop implicit: B
@@ -116,10 +116,12 @@ How to read it:
   Lean's notation, in mathematics (LaTeX between `$` and `$`, for a
   Markdown viewer or a paper) and in LeanForth words. The LeanForth block
   states the type the way an `axiom` of the same name does, the one form
-  of the words that states a type without a proof; it assumes nothing, and
-  running it with the [authoring words](../programming/LEANFORTH_WORDS.md)
-  builds exactly the statement term (`make test` checks this for every
-  example on this page). `leanforth print --statement lean,leanforth`
+  of the words that states a type without a proof. Printing it assumes
+  nothing (the checker's verdict is the line above it, also for an axiom or a
+  rejected declaration); running it with the
+  [authoring words](../programming/LEANFORTH_WORDS.md) makes an axiom there
+  and builds exactly the statement term (`make test` checks this for the
+  five pinned examples; the `Init` outline below was not run back). `leanforth print --statement lean,leanforth`
   chooses which forms to print.
 - Each line has a number, a sentence, the rule in brackets with the
   earlier lines it uses after `←`, and the checker steps it covers
@@ -175,7 +177,7 @@ Theorem Eq.symm
   accepted (experimental, not independently audited); axioms: none
   Statement in Lean:        ∀ {α : Sort u} {a b : α} (h : Eq a b), Eq b a
   Statement in mathematics: $\forall \{\alpha : \mathrm{Sort}\ u\}\ \{a\ b : \alpha\}\ (h : \mathsf{Eq}\ a\ b),\ \mathsf{Eq}\ b\ a$
-  Statement in LeanForth (the statement only, written as an axiom; nothing is assumed):
+  Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom Eq.symm
       universe u
       u Sort implicit: α
