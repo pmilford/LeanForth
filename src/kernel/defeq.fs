@@ -1,10 +1,10 @@
-\ Definitional equality as Lean's kernel decides it (ADR 0014 Q1, Q3;
-\ plan task 4.2.2b): ports of quick_is_def_eq (type_checker.cpp
-\ 802-826), is_def_eq_binding (752-779), is_def_eq_app (878-895),
-\ is_def_eq_args (830-838) and the steps of is_def_eq_core (1132-1207)
-\ that LeanForth has, at the referee commit eb6cafb7 (ADR 0014,
-\ Reproduction). [kernel] code: experimental, not through the review
-\ gate, not independently audited.
+\ Definitional equality as Lean's kernel decides it (ADR 0014 Q1, Q3, Q6,
+\ Q8; plan tasks 4.2.2b and 4.2.2d): ports of quick_is_def_eq
+\ (type_checker.cpp 802-826), is_def_eq_binding (752-779), is_def_eq_app
+\ (878-895), is_def_eq_args (830-838), lazy_delta_reduction and its step
+\ (959-1075) and is_def_eq_core (1132-1207), at the referee commit
+\ eb6cafb7 (ADR 0014, Reproduction). [kernel] code: experimental, not
+\ through the review gate, not independently audited.
 \
 \ Answers. A comparison answers yes or no, as Lean's is_def_eq, or fails:
 \ unknown where a step Lean would take is not ported (each named below),
@@ -28,65 +28,96 @@
 \   binder, so the placeholder is never substituted and the free variable
 \   LeanForth always makes gives the same terms (without the loose-
 \   variable data Lean tests, ADR 0014 Q12).
-\ - is_def_eq_core (1132-1207), in Lean's order: (1) quick_is_def_eq
-\   decides yes or no; (2) the Bool.true test is skipped: it only ever
-\   answers yes (K7, plan task 4.2.2d); (3) whnf_core of both sides
-\   (whnf.fs) and, when either changed, quick_is_def_eq again; then,
-\   after the interim guard below, the steps that can only answer yes,
-\   on the reduced terms: (6) the same constant with equivalent universe
-\   arguments, (7) the same free variable, (10) is_def_eq_app. When none
-\   says yes the answer is unknown (diagnostic 30, the two terms): proof
-\   irrelevance (4, plan task 4.2.5), lazy delta reduction (5, task
-\   4.2.2d), eta (11, task 4.2.4), structure eta and unit-like types (12,
-\   14, task 5.2.2) may decide there, and only after them would Lean say
-\   no (15). Skipping steps 4 and 5 is sound for a yes under these
-\   conditions, which the yes needs: (a) steps 6, 7 and 10 answer yes
-\   only for terms equal up to beta and universe equivalence; (b) step 5
-\   could not have gone elsewhere -- no head is a constant Lean matches
-\   by name (K7) and none unfolds, except two applications of the same
-\   declaration with a regular hint, whose arguments Lean compares first
-\   (the guard, review rvU4 B1: without it Lean's reduce_nat may turn a
-\   side into a literal whose type the environment lacks); (c) step 4
-\   may compare the two sides' types instead (a proof), which for terms
-\   equal up to beta and universe equivalence Lean finds equal (ADR
-\   0003, the argument conversion has always rested on). A whnf_core
-\   that is unknown (a recursor at the head, whnf.fs) leaves that side
-\   unreduced for those steps, as the old conversion compared it, and
-\   never lets step 3 say no.
+\ - is_def_eq_core, in Lean's order: (1) quick_is_def_eq decides yes or
+\   no; (2) when s is the constant Bool.true (by name) and t has no free
+\   variable, or in eager mode (lf-dq-eager), yes when whnf(t) is
+\   Bool.true too; (3) whnf_core of both sides (whnf.fs) and, when either
+\   changed, quick_is_def_eq again; (4) proof irrelevance, when t is a
+\   proof: unknown (K2, diagnostic 83; plan task 4.2.5 compares the two
+\   types there); (5) lazy delta reduction (below), which may answer yes
+\   or no and leaves both sides as far unfolded as it got; (6) the same
+\   constant with equivalent universe arguments, yes; (7) the same free
+\   variable, yes; (8) and (9) need projections, an unsupported form
+\   (U2): with none, whnf_core with projections reduced changes nothing;
+\   (10) is_def_eq_app, yes; (11) eta: exactly one side a lambda is
+\   unknown (K3, diagnostic 84, plan task 4.2.4); (12) structure eta:
+\   either side a constructor of a non-recursive structure applied to its
+\   parameters and fields is unknown (diagnostic 85, plan task 5.2.2);
+\   (13) string literals are unsupported (U2); (14) unit-like types:
+\   when the whnf of t's type is headed by a non-recursive structure whose
+\   constructor has no field, unknown (diagnostic 85, plan task 5.2.2);
+\   (15) otherwise no.
+\ - Whether t is a proof (step 4) is Lean's is_prop of its type (383-389):
+\   the type of t's type, put in whnf, is a Sort whose level normalizes to
+\   zero. A Sort or a Pi is a type, never a proof, and so is a free
+\   variable whose type is a Sort; otherwise the types come from the
+\   typer the caller lends, Lean's infer_type in infer-only mode
+\   (lf-dq-typer: mixed-infer.fs, aside). Step 14 asks it for t's type.
+\ - lazy_delta_reduction loops, one unit of fuel a round. K7 first: both
+\   sides Nat.succ applications (is_def_eq_offset), or either one that
+\   reduce_nat would compute while neither has a free variable or in
+\   eager mode, is unknown (diagnostic 82, plan task 5.2.3). Then one step
+\   (lazy_delta_reduction_step): is_delta of each side (whnf.fs); neither,
+\   the loop ends undecided; one, it unfolds; both, compare's hints decide
+\   (declaration.cpp 24-49): the greater regular height first, the
+\   abbreviation first, the side whose hint is not opaque first, else
+\   both -- but first, for two applications of the same declaration with
+\   a regular hint, equivalent universe arguments and is_def_eq_args
+\   answer yes. Each unfolded side goes through whnf_core; then
+\   quick_is_def_eq answers yes, no, or the loop goes on. Lean's failure
+\   cache (failed_before, 1004-1009) only skips an argument test that
+\   failed before, which would fail again: it changes no answer and waits
+\   for plan task 4.2.7 with the success cache. try_unfold_proj_app needs
+\   projections (U2).
 \ - is_def_eq_app: both applications, the functions is_def_eq and the
 \   argument counts equal, then the arguments left to right; the first
 \   pair that is not equal ends it, false. is_def_eq_args: the arguments
-\   last first, then both spines must end together (lazy delta's same-
-\   head test, plan task 4.2.2d; here for its unit tests).
+\   last first, then both spines must end together.
+\ Doubt. Where the port cannot tell whether a step it passes would have
+\ answered yes, it goes on, records the first such step (the doubt
+\ record), and lf-defeq-on reports a final no as unknown with it: outside
+\ a check of the checked environment, a constant at a head of lazy delta
+\ (K1, diagnostic 64: the signature index holds no values), and steps 4
+\ and 14 without a typer (a bare call, as the unit tests make). A yes
+\ stays yes: steps 6, 7 and 10 answer yes only for terms equal up to
+\ beta and universe equivalence, which Lean finds equal whatever route it
+\ takes (ADR 0003's argument, on which conversion has always rested).
 \
 \ Passes. Every comparison is a visit on a frames record that the caller
 \ gives (lib/frame.fs), as in whnf.fs: lf-defeq-call ( t s frames cont
 \ -- ... frames next ), cont getting ( flag outcome frames ), and
 \ lf-defeq-on ( t s frames -- flag outcome ) runs one to its end as a
-\ loop of its own. Each visit costs one unit of the frames' fuel, as does
-\ each binder pair of a telescope and each argument pair beyond a visit's
-\ first; == (one unit per node visited), level comparisons and the
-\ substitutions are paid from it too. Inputs must be closed audited terms
-\ whose free variables are live; the nodes, free variables and local
-\ context entries a comparison makes stay for the caller to discard
-\ (mixed-convert.fs restores the stores and drops them).
+\ loop of its own (a no from lf-defeq-call is final only without doubt,
+\ which lf-defeq-on settles). Each visit costs one unit of the frames'
+\ fuel, as does each binder pair of a telescope, each argument pair
+\ beyond a visit's first and each round of lazy delta; ==, level
+\ comparisons, the substitutions, unfolding and the typer are paid from
+\ it too. Inputs must be closed audited terms whose free variables are
+\ live; the nodes, free variables and local context entries a comparison
+\ makes stay for the caller to discard (mixed-convert.fs restores the
+\ stores and drops them).
 \
 \ State: the free variables of the telescopes being compared, a growable
 \ array used as a stack (each is_def_eq_binding visit pushes its binders'
-\ and pops them when it ends, whatever its outcome), and its depth, in
-\ one record; both members of the checker context (lib/context.fs). A
-\ THROW out of a pass leaves the depth wrong: lf-defeq-reset empties it.
-\ A few steps are deferred only so that words defined before them can
-\ name them; they are set once, while loading.
+\ and pops them when it ends, whatever its outcome), its depth, the
+\ typer, the eager flag and the doubt record, in one record; both members
+\ of the checker context (lib/context.fs). The caller sets the typer and
+\ the eager flag around a comparison. A THROW out of a pass leaves the
+\ record wrong: lf-defeq-reset empties it. A few steps are deferred only
+\ so that words defined before them can name them; they are set once,
+\ while loading.
 
 require ../lib/lib.fs
 require ../lib/slab.fs
 require ../core/diagnostics.fs
+require ../core/input.fs
 require ../core/local-context.fs
 require ../core/names.fs
 require ../core/name-equal.fs
 require ../core/terms.fs
+require ./env-signature.fs
 require ./level-compare.fs
+require ./level-value.fs
 require ./mixed-compare.fs
 require ./mixed-head.fs
 require ./mixed-open.fs
@@ -94,14 +125,22 @@ require ./whnf.fs
 
 begin-structure /lf-dqs
   field: lf-dqs-depth        \ free variables on the stack below
+  field: lf-dqs-typer        \ infer_type ( node frames -- type outcome ), or 0
+  field: lf-dqs-eager        \ true in Lean's eager mode (m_eager_reduce)
+  field: lf-dqs-doubt        \ the doubt record: its diagnostic code, or 0
+  field: lf-dqs-dt           \ and its two terms
+  field: lf-dqs-ds
 end-structure
 /lf-dqs context-record: lf-dq-state
 1 cells context-slab: lf-dq-subst
 
 : lf-dq-site ( -- site ) c" defeq lf-defeq" ;
 : lf-dq-depth ( -- addr ) lf-dq-state lf-dqs-depth ;
-\ Recovery after a THROW out of a pass: an empty stack.
-: lf-defeq-reset ( -- ) 0 lf-dq-depth ! ;
+\ The typer and the eager flag, which the caller sets (see the header).
+: lf-dq-typer ( -- addr ) lf-dq-state lf-dqs-typer ;
+: lf-dq-eager ( -- addr ) lf-dq-state lf-dqs-eager ;
+\ Recovery after a THROW out of a pass: an empty record.
+: lf-defeq-reset ( -- ) lf-dq-state /lf-dqs erase ;
 
 \ Lean's lbool: yes 1, no 0, undecided -1. quick_is_def_eq answers one.
 1 constant lf-dq-yes
@@ -326,87 +365,296 @@ defer lf-ap-arg ( frames -- ... frames next )
   ; is lf-ar-visit
 
 \ ---------------------------------------------------------------------------
-\ is_def_eq_core (1132-1207), steps 1, 3, 6, 7 and 10 (see the header).
-\ The visit keeps t and s, then whnf_core of each (tn, sn), -1 for a side
-\ whose whnf_core was unknown, which those steps then read unreduced.
+\ is_def_eq_core (1132-1207; see the header). The visit keeps t and s,
+\ then, from step 3, tn and sn: whnf_core of each, which lazy delta
+\ updates. A step that ends the visit drops its four cells.
 : lf-dq-cells ( frames -- t s tn sn )
   >r 3 r@ frame-pick 2 r@ frame-pick 1 r@ frame-pick 0 r> frame-pick ;
-: lf-dq-or ( x y -- y|x ) dup 0< if drop else nip then ;
-: lf-dq-sides ( frames -- tn sn ) lf-dq-cells rot swap lf-dq-or >r lf-dq-or r> ;
-: lf-dq-changed? ( t s tn sn -- tn sn flag )
-  2dup 0< swap 0< or if 2swap 2drop false exit then
-  2swap 2over rot <> -rot <> or ;
-: lf-dq-kept ( node outcome -- node' outcome' )
-  dup outcome-unknown = if 2drop -1 outcome-ok then ;
-: lf-dq-undecided ( t s -- ) lf-dq-site lf-diag-undecided lf-diag-note ;
-\ Step 10 has answered; not yes is unknown, the reduced terms recorded.
+: lf-dq-sides ( frames -- tn sn ) dup 1 swap frame-pick swap 0 swap frame-pick ;
+: lf-dq-sides! ( tn sn frames -- ) >r 2 r@ frame-drop swap r@ frame-save r> frame-save ;
+: lf-dq-end ( flag frames -- flag outcome frames 0 ) 4 lf-dq-drop-answer ;
+: lf-dq-end-failed ( outcome frames -- 0 outcome frames 0 ) 4 lf-dq-drop-failed ;
+: lf-dq-unknown ( t s code frames -- 0 outcome frames 0 )
+  >r lf-dq-site swap lf-diag-note outcome-unknown r> lf-dq-end-failed ;
+
+\ The doubt record (see the header): the first step passed that might
+\ have answered yes, with its terms; lf-dq-settle turns a final no into
+\ unknown, recorded with it.
+: lf-dq-doubt ( t s code -- )
+  lf-dq-state lf-dqs-doubt @ if 2drop drop exit then
+  lf-dq-state tuck lf-dqs-doubt ! tuck lf-dqs-ds ! lf-dqs-dt ! ;
+: lf-dq-doubted ( -- )
+  lf-dq-state >r r@ lf-dqs-dt @ r@ lf-dqs-ds @ lf-dq-site r> lf-dqs-doubt @ lf-diag-note ;
+: lf-dq-settle ( flag outcome -- flag outcome )
+  dup ok? 2 pick 0= and lf-dq-state lf-dqs-doubt @ and 0= if exit then
+  2drop lf-dq-doubted 0 outcome-unknown ;
+
+\ The constants Lean matches by name here: Bool.true (step 2, whatever
+\ its universe arguments) and Nat.succ with one argument (K7, whnf.fs).
+: lf-dq-bool-true? ( name -- flag )
+  dup s" true" lf-whnf-part? 0= if drop false exit then
+  lf-name-prefix@ dup s" Bool" lf-whnf-part? if lf-name-prefix@ lf-whnf-anon? else drop false then ;
+: lf-dq-true? ( node -- flag )
+  dup lf-whnf-const? if lf-whnf-cref lf-crec-name @ lf-dq-bool-true? else drop false then ;
+: lf-dq-succ? ( node -- flag ) dup lf-dq-count 1 = if lf-whnf-k7? else drop false then ;
+
+\ ---------------------------------------------------------------------------
+\ Types, for steps 4 and 14 (see the header). A Sort or a Pi is a type,
+\ and so is a free variable whose type is a Sort.
+: lf-dq-sort? ( node -- flag ) lf-dq-tag lf-tag-symbolic-sort = ;
+: lf-dq-typeish? ( node -- flag ) dup lf-dq-sort? swap lf-dq-tag lf-tag-pi = or ;
+: lf-dq-fvar? ( node -- flag ) lf-dq-tag lf-tag-fvar = ;
+: lf-dq-plain-type? ( t -- flag )
+  dup lf-dq-typeish? if drop true exit then
+  dup lf-dq-fvar? if lf-fvar-type lf-dq-sort? else drop false then ;
+: lf-dq-typed ( node frames -- type outcome ) lf-dq-typer @ execute ;
+\ ensure_sort (62-70) of a type's type: its whnf must be a Sort (always,
+\ for the well-typed terms compared); its level.
+: lf-dq-sorted ( type frames -- level outcome )
+  lf-whnf-on ok-then? 0= if no-result exit then
+  dup lf-dq-sort? if lf-term-first@ outcome-ok exit then
+  0 lf-dq-site lf-diag-not-sort lf-diag-note -1 outcome-unknown ;
+: lf-dq-zero? ( level frames -- flag outcome )
+  >r r@ frame-fuel @ lf-level-zero? r> lf-lvalue-fuel lf-dq-repay ;
+\ Whether t is a proof: yes, no, or undecided without a typer.
+: lf-dq-proof? ( t frames -- lbool outcome )
+  over lf-dq-plain-type? if 2drop lf-dq-no outcome-ok exit then
+  lf-dq-typer @ 0= if 2drop lf-dq-undef outcome-ok exit then
+  >r r@ lf-dq-typed ok-then? 0= if r> drop 0 swap exit then
+  dup lf-dq-sort? if r> 2drop lf-dq-no outcome-ok exit then
+  r@ lf-dq-typed ok-then? 0= if r> drop 0 swap exit then
+  r@ lf-dq-sorted ok-then? 0= if r> drop 0 swap exit then
+  r> lf-dq-zero? ok-then? if lf-dq-lbool outcome-ok else 0 swap then ;
+
+\ Inductive types (ADR 0015), for steps 12 and 14: the declaration a name
+\ has in the check's snapshot, or 0 for none that could matter (no such
+\ constant, Lean's generated recursor); unknown for a constant the check
+\ declares itself (an inductive block's own, whose data is not yet
+\ checked) and outside a check, where LeanForth cannot look (plan task
+\ 5.2.2); or the lookup's failure. Accepted inductive data is Lean's: the
+\ block's check compared it (check-block.fs).
+: lf-dq-named ( name -- decl outcome )
+  lf-whnf-env? 0= if drop 0 outcome-unknown exit then
+  dup lf-envsig-local if 2drop 0 outcome-unknown exit then
+  lf-whnf-find ok-then? 0= if 0 swap exit then
+  dup 0< if drop 0 outcome-ok else lf-whnf-decl then ;
+: lf-dq-head-named ( node -- decl outcome )
+  lf-whnf-head dup lf-whnf-const? 0= if drop 0 outcome-ok exit then
+  lf-whnf-cref lf-crec-name @ lf-dq-named ;
+\ is_non_rec_structure (inductive.cpp 28-33): an inductive type with one
+\ constructor, no index and not recursive.
+: lf-dq-structure? ( decl -- flag )
+  dup lf-idecl-kind @ lf-kind-inductive <> if drop false exit then
+  lf-idecl-data ?dup 0= if false exit then
+  dup lf-ity-ctors@ nip 1 = over lf-ity-indices lf-more-field 0= and
+  swap lf-ity-flags lf-more-field lf-ity-rec-bit and 0= and ;
+: lf-dq-ctor? ( decl -- flag )
+  dup if dup lf-idecl-kind @ lf-kind-constructor = swap lf-idecl-data 0<> and then ;
+
+\ Step 12 (1197-1198), try_eta_struct_core(t, s) (855-872): whether it
+\ may apply -- s a constructor of a non-recursive structure applied to
+\ its parameters and fields.
+: lf-dq-full-ctor? ( s decl -- flag )
+  lf-idecl-data >r r@ lf-ict-params lf-more-field r> lf-ict-fields lf-more-field +
+  swap lf-dq-count = ;
+: lf-dq-eta-struct? ( s -- flag outcome )
+  dup lf-dq-head-named ok-then? 0= if nip false swap exit then
+  dup lf-dq-ctor? 0= if 2drop false outcome-ok exit then
+  tuck lf-dq-full-ctor? 0= if drop false outcome-ok exit then
+  lf-idecl-data lf-ict-induct lf-more-field lf-dq-named ok-then? 0= if false swap exit then
+  ?dup if lf-dq-structure? else false then outcome-ok ;
+
+\ Step 14 (1203-1204), is_def_eq_unit_like (1119-1130): whether it may
+\ apply -- the whnf of t's type headed by a non-recursive structure whose
+\ constructor has no field. Undecided without a typer.
+: lf-dq-no-field? ( decl -- flag outcome )
+  dup lf-dq-structure? 0= if drop false outcome-ok exit then
+  lf-idecl-data lf-ity-ctors@ drop @ lf-dq-named ok-then? 0= if false swap exit then
+  dup lf-dq-ctor? if lf-idecl-data lf-ict-fields lf-more-field 0= else drop false then
+  outcome-ok ;
+: lf-dq-type-of ( t frames -- type outcome )
+  over lf-dq-fvar? if drop lf-fvar-type outcome-ok else lf-dq-typed then ;
+: lf-dq-unit-like? ( t frames -- lbool outcome )
+  over lf-dq-typeish? if 2drop lf-dq-no outcome-ok exit then
+  over lf-dq-fvar? 0= lf-dq-typer @ 0= and if 2drop lf-dq-undef outcome-ok exit then
+  >r r@ lf-dq-type-of ok-then? 0= if r> drop 0 swap exit then
+  r> lf-whnf-on ok-then? 0= if 0 swap exit then
+  lf-dq-head-named ok-then? 0= if 0 swap exit then
+  ?dup if lf-dq-no-field? ok-then? if lf-dq-lbool outcome-ok else 0 swap then
+  else lf-dq-no outcome-ok then ;
+
+\ Steps 11 to 15. A step that cannot tell is unknown, recorded with both
+\ terms (diagnostic 85 unless something more specific came first).
+: lf-dq-no-step ( frames -- false outcome frames 0 ) false swap lf-dq-end ;
+: lf-dq-gap ( outcome frames -- 0 outcome frames 0 )
+  >r dup outcome-unknown =
+  if r@ lf-dq-sides lf-dq-site lf-diag-structure-pending lf-diag-note then
+  r> lf-dq-end-failed ;
+: lf-dq-pending ( frames -- 0 outcome frames 0 )
+  >r r@ lf-dq-sides lf-diag-structure-pending r> lf-dq-unknown ;
+: lf-dq-unit-step ( frames -- ... frames next )
+  >r r@ lf-dq-sides drop r@ lf-dq-unit-like? ok-then? 0= if r> lf-dq-gap exit then
+  dup lf-dq-undef = if
+    drop r@ lf-dq-sides lf-diag-structure-pending lf-dq-doubt r> lf-dq-no-step exit then
+  if r> lf-dq-pending else r> lf-dq-no-step then ;
+: lf-dq-struct-step ( frames -- ... frames next )
+  >r r@ lf-dq-sides nip lf-dq-eta-struct? ok-then? 0= if r> lf-dq-gap exit then
+  if r> lf-dq-pending exit then
+  r@ lf-dq-sides drop lf-dq-eta-struct? ok-then? 0= if r> lf-dq-gap exit then
+  if r> lf-dq-pending else r> lf-dq-unit-step then ;
+: lf-dq-eta-step ( frames -- ... frames next )
+  >r r@ lf-dq-sides lf-whnf-lam? swap lf-whnf-lam? xor
+  if r@ lf-dq-sides lf-diag-eta-pending r> lf-dq-unknown else r> lf-dq-struct-step then ;
+
+\ Steps 6, 7 and 10.
 : lf-dq-app-back ( flag outcome frames -- ... frames next )
-  >r ok-then? 0= if r> 4 lf-dq-drop-failed exit then
-  if true r> 4 lf-dq-drop-answer exit then
-  r@ lf-dq-sides lf-dq-undecided outcome-unknown r> 4 lf-dq-drop-failed ;
-\ The interim guard (review rvU4 B1), until lazy delta reduction (step
-\ 5, plan task 4.2.2d) is ported: steps 6, 7 and 10 say yes only where
-\ Lean's step 5 could not have gone elsewhere first. Lean's lazy delta
-\ loop first asks is_def_eq_offset and reduce_nat (1043-1066), which
-\ match Nat.succ and fourteen Nat operations by name and read the
-\ constant Nat.zero as the literal 0 (K7): a K7 head on either side is
-\ unknown (diagnostic 82 with the head). Then it unfolds a side whose
-\ head unfolds (is_delta, whnf.fs), unless both are applications of the
-\ same declaration with a regular hint, where it first compares the
-\ universe arguments and the arguments (998-1009), as step 10 does: a
-\ head that unfolds otherwise is unknown (K1, diagnostic 64 with the
-\ node). Outside a check of the checked environment no constant has a
-\ value LeanForth can see (the signature index's), so only the K7 test
-\ applies there. The guard answers 0 to go on, or the code of the
-\ unknown and its node.
-: lf-dq-delta ( node -- decl outcome )
-  lf-whnf-head dup lf-whnf-const? lf-whnf-env? and if lf-whnf-delta-of else drop -1 outcome-ok then ;
-: lf-dq-same-regular? ( tn sn dt ds -- flag )
-  over <> if drop 2drop false exit then
-  lf-idecl-hint @ lf-hint-regular = -rot lf-dq-apps? and ;
-: lf-dq-unfolds ( tn sn dt ds -- node code )
-  2dup 0< swap 0< and if 2drop 2drop 0 0 exit then
-  2over 2over lf-dq-same-regular? if 2drop 2drop 0 0 exit then
-  drop 0< if nip else drop then lf-diag-needs-unfolding ;
-: lf-dq-guard ( tn sn -- node code outcome )
-  over lf-whnf-k7? if drop lf-whnf-head lf-diag-name-matched outcome-ok exit then
-  dup lf-whnf-k7? if nip lf-whnf-head lf-diag-name-matched outcome-ok exit then
-  2dup swap lf-dq-delta ok-then? 0= if >r 2drop drop 0 0 r> exit then
-  >r lf-dq-delta ok-then? 0= if r> drop >r 2drop 0 0 r> exit then
-  r> swap lf-dq-unfolds outcome-ok ;
-\ Steps 6, 7, then 10, after the guard.
+  >r ok-then? 0= if r> lf-dq-end-failed exit then
+  if true r> lf-dq-end else r> lf-dq-eta-step then ;
 : lf-dq-tail ( frames -- ... frames next )
-  >r r@ lf-dq-sides lf-dq-guard ok-then? 0= if nip r> 4 lf-dq-drop-failed exit then
-  ?dup if 0 lf-dq-site rot lf-diag-note outcome-unknown r> 4 lf-dq-drop-failed exit then
-  drop r@ lf-dq-sides 2dup r@ lf-dq-consts
-  ok-then? 0= if nip nip r> 4 lf-dq-drop-failed exit then
-  if 2drop true r> 4 lf-dq-drop-answer exit then
-  2dup lf-dq-fvars? if 2drop true r> 4 lf-dq-drop-answer exit then
+  >r r@ lf-dq-sides 2dup r@ lf-dq-consts
+  ok-then? 0= if nip nip r> lf-dq-end-failed exit then
+  if 2drop true r> lf-dq-end exit then
+  2dup lf-dq-fvars? if 2drop true r> lf-dq-end exit then
   r> ['] lf-dq-app-back lf-ap-call ;
+
+\ ---------------------------------------------------------------------------
+\ Lazy delta reduction (959-1075; see the header) on the visit's tn and
+\ sn. compare (declaration.cpp 24-49) of two declarations' hints: -1
+\ unfolds t first, 1 s, 0 both.
+: lf-lz-hints ( dt ds -- kt ks ) lf-idecl-hint @ swap lf-idecl-hint @ swap ;
+: lf-lz-heights ( dt ds -- c )
+  lf-idecl-height @ swap lf-idecl-height @ 2dup = if 2drop 0 else < if -1 else 1 then then ;
+: lf-lz-kinds ( kt ks -- c )
+  over lf-hint-opaque = if 2drop 1 exit then
+  dup lf-hint-opaque = if 2drop -1 exit then
+  drop lf-hint-abbrev = if -1 else 1 then ;
+: lf-lz-compare ( dt ds -- c )
+  2dup lf-lz-hints 2dup <> if lf-lz-kinds nip nip exit then
+  drop lf-hint-regular = if lf-lz-heights else 2drop 0 then ;
+
+defer lf-lz-loop ( frames -- ... frames next )
+\ After an unfolding: quick_is_def_eq answers yes or no, or the loop goes
+\ on (1017-1021).
+: lf-lz-quick-back ( lbool outcome frames -- ... frames next )
+  >r ok-then? 0= if r> lf-dq-end-failed exit then
+  dup lf-dq-undef = if drop r> ['] lf-lz-loop exit then
+  lf-dq-flag r> lf-dq-end ;
+: lf-lz-quick ( frames -- ... frames next )
+  >r r@ lf-dq-sides r> ['] lf-lz-quick-back lf-qk-call ;
+: lf-lz-t-back ( tn' outcome frames -- ... frames next )
+  >r ok-then? 0= if r> lf-dq-end-failed exit then
+  r@ lf-dq-sides nip r@ lf-dq-sides! r> lf-lz-quick ;
+: lf-lz-s-back ( sn' outcome frames -- ... frames next )
+  >r ok-then? 0= if r> lf-dq-end-failed exit then
+  r@ lf-dq-sides drop swap r@ lf-dq-sides! r> lf-lz-quick ;
+\ A side unfolded (unfold_definition) and put in whnf_core, a child
+\ visit continuing with cont.
+: lf-lz-unfold ( node frames cont -- ... frames next )
+  >r tuck lf-whnf-unfold ok-then? 0= if r> drop swap lf-dq-end-failed exit then
+  swap r> lf-whnf-core-call ;
+: lf-lz-unfold-t ( frames -- ... frames next )
+  dup lf-dq-sides drop swap ['] lf-lz-t-back lf-lz-unfold ;
+: lf-lz-unfold-s ( frames -- ... frames next )
+  dup lf-dq-sides nip swap ['] lf-lz-s-back lf-lz-unfold ;
+: lf-lz-both-back ( tn' outcome frames -- ... frames next )
+  >r ok-then? 0= if r> lf-dq-end-failed exit then
+  r@ lf-dq-sides nip r@ lf-dq-sides! r> lf-lz-unfold-s ;
+: lf-lz-unfold-both ( frames -- ... frames next )
+  dup lf-dq-sides drop swap ['] lf-lz-both-back lf-lz-unfold ;
+\ The same declaration with a regular hint, both applications (998-1011):
+\ equivalent universe arguments and is_def_eq_args, yes; otherwise both
+\ unfold.
+: lf-lz-args-back ( flag outcome frames -- ... frames next )
+  >r ok-then? 0= if r> lf-dq-end-failed exit then
+  if true r> lf-dq-end else r> lf-lz-unfold-both then ;
+: lf-lz-levels ( tn sn frames -- flag outcome )
+  >r lf-whnf-head swap lf-whnf-head swap r@ lf-lcmp-fuel lf-dq-lend lf-dq-level-lists
+  r> lf-lcmp-fuel lf-dq-repay ;
+: lf-lz-arguments ( frames -- ... frames next )
+  >r r@ lf-dq-sides r@ lf-lz-levels ok-then? 0= if r> lf-dq-end-failed exit then
+  if r@ lf-dq-sides r> ['] lf-lz-args-back lf-ar-call else r> lf-lz-unfold-both then ;
+: lf-lz-same? ( dt ds frames -- flag )
+  >r over = swap lf-idecl-hint @ lf-hint-regular = and r> lf-dq-sides lf-dq-apps? and ;
+\ The step's choice, from is_delta of each side: a declaration or -1.
+: lf-lz-decide ( dt ds frames -- ... frames next )
+  >r over 0< over 0< and if 2drop r> lf-dq-tail exit then
+  over 0< if 2drop r> lf-lz-unfold-s exit then
+  dup 0< if 2drop r> lf-lz-unfold-t exit then
+  2dup lf-lz-compare ?dup if nip nip 0< if r> lf-lz-unfold-t else r> lf-lz-unfold-s then exit then
+  r@ lf-lz-same? if r> lf-lz-arguments else r> lf-lz-unfold-both then ;
+: lf-lz-delta ( node -- decl outcome )
+  lf-whnf-head dup lf-whnf-const? if lf-whnf-delta-of else drop -1 outcome-ok then ;
+\ K7 (1043-1066): whether reduce_nat or is_def_eq_offset would look.
+: lf-lz-closed? ( tn sn frames -- flag outcome )
+  >r swap r@ lf-whnf-free? ok-then? 0= if nip r> drop false swap exit then
+  if drop r> drop false outcome-ok exit then
+  r> lf-whnf-free? ok-then? if 0= outcome-ok else false swap then ;
+: lf-lz-nat? ( tn sn frames -- flag outcome )
+  >r 2dup lf-dq-succ? swap lf-dq-succ? and if 2drop r> drop true outcome-ok exit then
+  2dup lf-whnf-k7? swap lf-whnf-k7? or 0= if 2drop r> drop false outcome-ok exit then
+  lf-dq-eager @ if 2drop r> drop true outcome-ok exit then r> lf-lz-closed? ;
+: lf-lz-name-matched ( frames -- 0 outcome frames 0 )
+  >r r@ lf-dq-sides over lf-whnf-k7? if drop else nip then lf-whnf-head
+  0 lf-dq-site lf-diag-name-matched lf-diag-note outcome-unknown r> lf-dq-end-failed ;
+\ Outside a check (K1, see the header): a constant at either head is a
+\ doubt, and the loop ends undecided.
+: lf-lz-blind ( frames -- ... frames next )
+  >r r@ lf-dq-sides 2dup lf-whnf-head lf-whnf-const? swap lf-whnf-head lf-whnf-const? or
+  if lf-diag-needs-unfolding lf-dq-doubt else 2drop then r> lf-dq-tail ;
+:noname ( frames -- ... frames next )
+  dup lf-dq-spend dup ok? 0= if swap lf-dq-end-failed exit then drop
+  >r r@ lf-dq-sides r@ lf-lz-nat? ok-then? 0= if r> lf-dq-end-failed exit then
+  if r> lf-lz-name-matched exit then
+  lf-whnf-env? 0= if r> lf-lz-blind exit then
+  r@ lf-dq-sides swap lf-lz-delta ok-then? 0= if nip r> lf-dq-end-failed exit then
+  swap lf-lz-delta ok-then? 0= if nip r> lf-dq-end-failed exit then
+  r> lf-lz-decide ; is lf-lz-loop
+
+\ ---------------------------------------------------------------------------
+\ Step 4: t a proof is unknown; undecided (no typer) a doubt.
+: lf-dq-proof-step ( frames -- ... frames next )
+  >r r@ lf-dq-sides drop r@ lf-dq-proof? ok-then? 0= if r> lf-dq-end-failed exit then
+  dup lf-dq-undef = if
+    drop r@ lf-dq-sides lf-diag-proof-pending lf-dq-doubt r> lf-lz-loop exit then
+  if r@ lf-dq-sides lf-diag-proof-pending r> lf-dq-unknown else r> lf-lz-loop then ;
+\ Step 3: whnf_core of t (tn), then of s (sn); quick_is_def_eq again when
+\ either changed.
+: lf-dq-changed? ( t s tn sn -- tn sn flag ) 2swap 2over rot <> -rot <> or ;
 : lf-dq-quick2 ( lbool outcome frames -- ... frames next )
-  >r ok-then? 0= if r> 4 lf-dq-drop-failed exit then
-  dup lf-dq-undef <> if lf-dq-flag r> 4 lf-dq-drop-answer exit then drop
-  r> lf-dq-tail ;
+  >r ok-then? 0= if r> lf-dq-end-failed exit then
+  dup lf-dq-undef <> if lf-dq-flag r> lf-dq-end exit then drop r> lf-dq-proof-step ;
 : lf-dq-sn ( sn outcome frames -- ... frames next )
-  >r lf-dq-kept ok-then? 0= if r> 3 lf-dq-drop-failed exit then
+  >r ok-then? 0= if r> 3 lf-dq-drop-failed exit then
   r@ frame-save r@ lf-dq-cells lf-dq-changed?
-  if r> ['] lf-dq-quick2 lf-qk-call else 2drop r> lf-dq-tail then ;
+  if r> ['] lf-dq-quick2 lf-qk-call else 2drop r> lf-dq-proof-step then ;
 : lf-dq-tn ( tn outcome frames -- ... frames next )
-  >r lf-dq-kept ok-then? 0= if r> 2 lf-dq-drop-failed exit then
+  >r ok-then? 0= if r> 2 lf-dq-drop-failed exit then
   r@ frame-save 1 r@ frame-pick r> ['] lf-dq-sn lf-whnf-core-call ;
+: lf-dq-core ( frames -- ... frames next )
+  dup lf-dq-pick2 drop swap ['] lf-dq-tn lf-whnf-core-call ;
+\ Step 2 (1142-1146), on the visit's t and s.
+: lf-dq-true-back ( t' outcome frames -- ... frames next )
+  >r ok-then? 0= if r> 2 lf-dq-drop-failed exit then
+  lf-dq-true? if true r> 2 lf-dq-drop-answer else r> lf-dq-core then ;
+: lf-dq-bool ( frames -- ... frames next )
+  >r r@ lf-dq-pick2 lf-dq-true? 0= if drop r> lf-dq-core exit then
+  lf-dq-eager @ if r> ['] lf-dq-true-back lf-whnf-call exit then
+  dup r@ lf-whnf-free? ok-then? 0= if nip r> 2 lf-dq-drop-failed exit then
+  if drop r> lf-dq-core else r> ['] lf-dq-true-back lf-whnf-call then ;
+\ Step 1.
 : lf-dq-quick1 ( lbool outcome frames -- ... frames next )
   >r ok-then? 0= if r> 2 lf-dq-drop-failed exit then
-  dup lf-dq-undef <> if lf-dq-flag r> 2 lf-dq-drop-answer exit then drop
-  r@ lf-dq-pick2 drop r> ['] lf-dq-tn lf-whnf-core-call ;
+  dup lf-dq-undef <> if lf-dq-flag r> 2 lf-dq-drop-answer exit then drop r> lf-dq-bool ;
 :noname ( t s frames -- ... frames next )
   lf-dq-save2 ['] lf-dq-quick1 lf-qk-call ; is lf-dq-visit
 
 \ ---------------------------------------------------------------------------
 \ The public words (see the header). Each -on word runs one visit to its
 \ end; lf-quick-on answers Lean's lbool (lf-dq-yes, lf-dq-no,
-\ lf-dq-undef), the others a flag.
+\ lf-dq-undef), the others a flag. lf-defeq-on settles the doubt record.
 : lf-defeq-call ( t s frames cont -- ... frames next ) lf-dq-call ;
-: lf-defeq-on ( t s frames -- flag outcome ) ['] lf-dq-call frame-through drop ;
+: lf-defeq-on ( t s frames -- flag outcome )
+  0 lf-dq-state lf-dqs-doubt ! ['] lf-dq-call frame-through drop lf-dq-settle ;
 : lf-quick-on ( t s frames -- lbool outcome ) ['] lf-qk-call frame-through drop ;
 : lf-defeq-binding-on ( t s frames -- flag outcome ) ['] lf-bd-call frame-through drop ;
 : lf-defeq-app-on ( t s frames -- flag outcome ) ['] lf-ap-call frame-through drop ;

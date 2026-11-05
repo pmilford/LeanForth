@@ -180,10 +180,20 @@ lf-walk-room context-walk2: lf-whnf-scan
 : lf-whnf-scanned ( outcome -- flag outcome )
   dup outcome-unknown = if drop true outcome-ok exit then
   dup ok? 0= if lf-whnf-scan lf-whnf-site lf-diag-walk then false swap ;
-: lf-whnf-loose? ( node frames -- flag outcome )
-  >r r@ frame-fuel @ lf-whnf-scan walk-budget drop
-  0 ['] lf-whnf-scan-visit lf-whnf-scan walk-run-pair lf-whnf-scanned
+: lf-whnf-scan-run ( node frames visit -- flag outcome )
+  swap >r r@ frame-fuel @ lf-whnf-scan walk-budget drop
+  0 swap lf-whnf-scan walk-run-pair lf-whnf-scanned
   lf-whnf-scan walk-fuel @ r> frame-fuel ! ;
+: lf-whnf-loose? ( node frames -- flag outcome ) ['] lf-whnf-scan-visit lf-whnf-scan-run ;
+\ has_fvar, as is_def_eq_core and lazy delta test it (1060, 1142): the
+\ same walk, which also stops at a free variable. A loose bound variable
+\ counts as one: it stands for a binder a caller did not open (ADR 0011's
+\ analysis, check-block.fs), which Lean's kernel would have opened to a
+\ free variable.
+: lf-whnf-free-dispatch ( first second walk tag -- outcome )
+  dup lf-tag-fvar = if drop 2drop drop outcome-unknown exit then lf-whnf-scan-dispatch ;
+: lf-whnf-free-visit ( walk -- outcome ) lf-terms ['] lf-whnf-free-dispatch walk-visit ;
+: lf-whnf-free? ( node frames -- flag outcome ) ['] lf-whnf-free-visit lf-whnf-scan-run ;
 
 \ ---------------------------------------------------------------------------
 \ Beta (515-524): of f's leading lambdas, as many as there are arguments

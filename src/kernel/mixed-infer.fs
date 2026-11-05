@@ -277,9 +277,11 @@ lf-walk-room context-walk2: lf-minfer-scan
 \ graphs with the shared fuel. An undecided comparison keeps the fuel it
 \ left, for the rejection analysis (a failed inference leaves no fuel in
 \ the end anyway).
+defer lf-minfer-typer ( node frames -- type outcome )
 : lf-minfer-convert ( left lid right rid -- status )
+  ['] lf-minfer-typer lf-dq-typer !
   lf-minfer-fuel @ lf-mixed-convert-keeping lf-mconvert-fuel lf-minfer-refuel
-  outcome-sane dup lf-minfer-shortage ;
+  0 lf-dq-typer ! outcome-sane dup lf-minfer-shortage ;
 : lf-minfer-compare ( left right -- status )
   lf-minfer-handles if lf-minfer-convert else outcome-invalid then ;
 \ A Pi body with an argument put for its bound variable, as infer_app
@@ -639,9 +641,22 @@ defer lf-minfer-args-apart ( left right count frames -- ... frames next )
   lf-minfer-deciding? 0= if outcome-unknown exit then
   lf-minfer-short @ dup outcome-exhausted = if drop lf-minfer-ran-out exit then
   ?dup if exit then lf-minfer-fuel @ 0> if outcome-unknown else lf-minfer-ran-out then ;
+\ TEMPORARY, for plan task 4.2.2d's switch (removed with the analysis):
+\ with lf-xc-on set, every comparison inference decides is also given to
+\ ADR 0011's analysis, on fuel of its own, the diagnostic and the fuel
+\ restored after, and each pair the analysis shows apart is printed
+\ with the port's answer: XC <port outcome> <mask>; a pair the port
+\ rejects that the analysis does not show apart prints XC-NEW.
+variable lf-xc-on
+: lf-xc-print ( status mask flag -- )
+  if ." XC " swap outcome-text type space . cr exit then drop
+  outcome-rejected = if ." XC-NEW" cr then ;
+: lf-xc-check ( left right status -- )
+  lf-xc-on @ lf-minfer-deciding? and 0= if drop 2drop exit then
+  >r lf-diag@ 2>r 2>r lf-minfer-fuel @ >r 1000000 lf-minfer-fuel !
+  lf-minfer-mismatch r> lf-minfer-fuel ! 2r> 2r> lf-diag! r> -rot lf-xc-print ;
 : lf-minfer-agree ( left right -- mask status )
-  2dup lf-minfer-compare dup outcome-unknown <> if nip nip 0 swap exit then
-  drop lf-minfer-mismatch if outcome-rejected else lf-minfer-undecided then ;
+  2dup lf-minfer-compare dup >r lf-xc-check 0 r> ;
 
 \ Inference's visits. lf-minfer-call asks for the visit of node,
 \ continuing with cont ( type status frames -- ... ); the visit's first
@@ -669,12 +684,20 @@ defer lf-minfer-args-apart ( left right count frames -- ... frames next )
   swap lf-minfer-discard ;
 : lf-minfer-applied ( body argument status -- type status )
   ok-then? if lf-minfer-instantiate else nip lf-minfer-none then ;
+\ Lean's eager mode (tc 168-183): an argument eagerReduce _ _, its head
+\ matched by name, is compared with the domain in eager mode (defeq.fs).
+: lf-minfer-eager? ( node -- flag )
+  lf-mhead-spine 2 = over lf-term-tag@ lf-tag-constant = and 0= if drop false exit then
+  lf-whnf-cref lf-crec-name @ dup s" eagerReduce" lf-whnf-part?
+  if lf-name-prefix@ lf-whnf-anon? else drop false then ;
 : lf-minfer-app-arg ( A status frames -- type status frames 0 )
-  >r r@ frame-restore r@ frame-restore 2swap lf-minfer-argued
+  >r r@ frame-restore r@ frame-restore 0 r@ frame-pick lf-minfer-eager? lf-dq-eager !
+  2swap lf-minfer-argued false lf-dq-eager !
   r@ frame-restore r@ frame-restore swap rot lf-minfer-applied r> 0 ;
 : lf-minfer-app-fn ( T status frames -- ... frames next )
   >r r@ frame-restore -rot lf-minfer-step? 0= if r> 0 exit then
   lf-minfer-pi-parts 0= if nip lf-minfer-none r> 0 exit then
+  lf-minfer-aside @ if nip swap lf-minfer-instantiate r> 0 exit then
   r@ frame-save swap dup r@ frame-save swap r@ frame-save lf-term-count @ r@ frame-save
   r> ['] lf-minfer-app-arg lf-minfer-call ;
 : lf-minfer-app ( function argument frames -- ... frames next )
@@ -904,6 +927,17 @@ defer lf-minfer-args-apart ( left right count frames -- ... frames next )
   >r rot r> lf-minfer-start over swap lf-minfer-preflight
   dup ok? if drop lf-minfer-run else nip lf-minfer-failed then ;
 
+\ Lean's infer_type in infer-only mode (type_checker.cpp 360-362), the
+\ typer of defeq.fs's steps 4 and 14 (lf-dq-typer, which
+\ lf-minfer-convert lends a comparison): node, closed with the scope's
+\ free variables, inferred aside on the frames' fuel, keeping what it
+\ makes (the comparison's caller discards it).
+: lf-minfer-typed ( node frames -- type outcome )
+  >r r@ frame-fuel @ lf-minfer-fuel ! lf-minfer-aside @ >r true lf-minfer-aside !
+  lf-minfer-close ok-then? if lf-minfer-walk else no-result then
+  r> lf-minfer-aside ! lf-minfer-fuel @ r> frame-fuel ! ;
+' lf-minfer-typed is lf-minfer-typer
+
 \ Host stacks. Inference and the analysis keep every level on the job's
 \ frames (plan task 6.2.0), so their host-stack use does not grow with the
 \ depth: a step holds a few cells while it runs, and the loops that nest
@@ -918,8 +952,8 @@ defer lf-minfer-args-apart ( left right count frames -- ... frames next )
 128 constant lf-minfer-loop-cells
 lf-mbeta-return-cells lf-lnorm-return-cells max constant lf-minfer-rs-nested
 lf-mbeta-data-cells lf-lnorm-data-cells max constant lf-minfer-ds-nested
-3 lf-minfer-loop-cells * lf-minfer-rs-nested + constant lf-minfer-return-cells
-3 lf-minfer-loop-cells * lf-minfer-ds-nested + constant lf-minfer-data-cells
+4 lf-minfer-loop-cells * lf-minfer-rs-nested + constant lf-minfer-return-cells
+4 lf-minfer-loop-cells * lf-minfer-ds-nested + constant lf-minfer-data-cells
 lf-minfer-data-cells lf-minfer-return-cells lf-mbeta-host?
 0= [if] .( mixed-infer.fs: host stacks too small) cr abort [then]
 lf-minfer-data-cells lf-minfer-return-cells context-need
