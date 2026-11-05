@@ -204,8 +204,8 @@ rejection names Lean's reason through a diagnostic
 | 5 | T5 | universe parameters distinct | 869 | rejected |
 | 6 | N2 | the type's name and `T.rec` unused, also as the recursor Lean generated for an earlier type (below) | 258–259 | rejected; unknown or unsupported when an earlier declaration of that name is undecided or unsupported (K5) |
 | 7 | — | the type's type inferred | 261 | inference's outcome |
-| 8 | T2, T3, T4 | its telescope (parameters, indices) and a `Sort` at the end; for a later type of a mutual block, its parameters' domains the first type's (`is_def_eq`), at least `numParams` of them, and its universe equivalent to the first's (`is_equivalent`). Steps 6 to 8 run for each type in order, as `check_inductive_types` does | 254–299 | rejected (typeExpected, also for an end headed by a constant Lean's `whnf` leaves, such as `Nat`; diagnostics 83 parameters differ, 84 too few, 85 another universe); unknown where Lean's `whnf` might unfold a definition |
-| 9 | C4, N2, C2, U1, P1, P2, C3 | each constructor: name unique within its type, unused, its type inferred (every type of the block visible), each parameter's domain the first type's, each field's universe within the result's (Lean's `is_geq`) unless the type is a proposition, then the field's positivity (below, for every type of the block), its result its own type applied as `T As is` with indices that mention no type of the block; then a constructor named as another type's constructor is declared already (`declare_constructors`) | 436–519 | rejected (P1 diagnostic 79, P2 80); unknown where a comparison needs unfolding, or positivity a `whnf` LeanForth cannot follow yet |
+| 8 | T2, T3, T4 | its telescope (parameters, indices) and a `Sort` at the end; for a later type of a mutual block, its parameters' domains the first type's (`is_def_eq`), at least `numParams` of them, and its universe equivalent to the first's (`is_equivalent`). Steps 6 to 8 run for each type in order, as `check_inductive_types` does | 254–299 | rejected (typeExpected, also for an end headed by a constant Lean's `whnf` leaves, such as `Nat`; diagnostics 83 parameters differ, 84 too few, 85 another universe); unknown where Lean's `whnf` (`whnf.fs`) cannot be followed yet (K7, an iota route not ported, K5) |
+| 9 | C4, N2, C2, U1, P1, P2, C3 | each constructor: name unique within its type, unused, its type inferred (every type of the block visible), each parameter's domain the first type's, each field's universe within the result's (Lean's `is_geq`) unless the type is a proposition, then the field's positivity (below, for every type of the block), its result its own type applied as `T As is` with indices that mention no type of the block; then a constructor named as another type's constructor is declared already (`declare_constructors`) | 436–519 | rejected (P1 diagnostic 79, P2 80); unknown where a comparison needs unfolding (task 4.2.2d), or positivity a `whnf` LeanForth cannot follow yet |
 | 10 | E0–E4, K1 | the elimination level (every universe, or `Prop` only: always for a mutual block of propositions, E1) and `k` (never for a mutual block) | 522–616 | — |
 | 11 | N2 | each type's `T.rec`, in order, is no name of the block (its types and constructors) | 813 | rejected |
 | 12 | G1, G2 | each type's recursor's type and rules built: one motive per type, one minor premise per constructor of the block, an induction hypothesis per recursive field (into whichever type of the block it ends in) and the recursive calls in the rules | 632–819 | full when the term store has no room |
@@ -239,22 +239,20 @@ then no whnf LeanForth skips can meet them (ADR 0015 decision 14,
 corrected after review rvN1; rows `forged.*`).
 
 **Where Lean puts a term in whnf** (step 8's telescope, positivity, a
-recursive field's type when the recursor is built), LeanForth reduces
-with whnfB and goes on only where Lean's whnf provably stops there
-(`lf-blk-left?`): a Sort, a Pi, a lambda or a variable head, or a
-constant head named none of the Nat operations Lean's `reduce_nat`
-computes by name (`Nat.succ`, `Nat.add`, …, the table `lf-nat-ops`)
-that is `T` itself or a constant declared as an inductive type, a
-constructor, an axiom or an opaque constant. The name comes first: a
-block whose type is named `Nat.add` is computed on by Lean's whnf, so
-its own type is no stuck head (review rvN1 B2; rows
-`forged.type-named-nat-add*`, *unknown*). Any other head -- a definition
-or theorem Lean would unfold, a recursor or quotient Lean might reduce
--- leaves the block *unknown* (diagnostic 64) until plan task 4.2.2
-(whnf with delta and iota) is on main (rows `pos.through-definition`,
-`pos.erased-by-definition`, `universe.type-a-sort-by-definition`). A
-variable head stops Lean's whnf only while no variable has a value: plan
-task 4.2.3 (`let`) must revisit `lf-blk-left?`.
+recursive field's type when the recursor is built), LeanForth calls the
+port of Lean's `whnf` (`whnf.fs`, plan task 4.2.2c: beta, delta, and
+iota from `iota.fs`), so `id (Bad → Nat)` unfolds to a negative
+occurrence (rejected, row `pos.through-definition`), `Function.const Type
+Nat Ok` and `@Bool.rec (fun _ => Type) (T → Nat) Nat true` to `Nat` (no
+occurrence), `@Bool.rec (fun _ => Type) Nat T true` to `T` (a recursive
+field with its hypothesis), and a telescope ending in a definition equal
+to `Type` is a Sort (rows `pos.*-recursor`, `pos.erased-by-definition`,
+`universe.type-a-sort-by-definition`, accepted). Where that `whnf`
+cannot follow Lean yet it fails, and the block is *unknown*: K7 where
+Lean's `reduce_nat` would compute (`Nat.succ` with one argument, a block
+whose type is named `Nat.add`: rows `forged.type-named-nat-add*`,
+diagnostic 82), an iota route not ported (diagnostic 81, below), an
+undecided dependency (K5).
 
 **Recursive fields and induction hypotheses** (`is_rec_argument`
 426–433, `mk_rec_infos` 690–709, `mk_rec_rules` 770–785). A field is
@@ -437,17 +435,20 @@ the default is exactly Lean):
   decided since task 4.2.2c's whnf is on main.
 - **The P4 guard, *unknown* where Lean rejects; task 5.2.2** (structure eta
   and unit-like comparison).
-- **Positivity and recursive fields through definitions, *unknown*; task
-  4.2.2** (whnf with delta and iota, agent U4's port): a field type whose
-  whnf Lean reaches by unfolding a definition or reducing a recursor
-  (`id (Bad → Nat)`, `Function.const Type Nat Ok`), and a type's
-  telescope ending in such a head. Once 4.2.2's `whnf` is on main, the
-  block check calls it there.
-- **Iota (R1) with literal majors (L2); tasks 4.2.2c and 5.2.3**: Lean
-  reduces a recursor applied to a constructor in `whnf_core`; agent U4's
-  port of whnf leaves a hook for it, and 5.2.1b's iota goes behind that
-  hook once it is on main. Until then a check that needs it is *unknown*
-  (rows `iota.*` are *unsupported* anyway: they use literals, task 5.2.3).
+- **Iota (R1): routes not ported, *unknown*** (diagnostic 81; `iota.fs`
+  ports Lean's `inductive_reduce_rec` for a recursor a slot holds and a
+  major premise that is a constructor application, rows `iota.bool-true`,
+  `iota.list-*`, `iota.argument-after-major`, `iota.nat-zero`,
+  `iota.eq-refl`): a major premise that is no constructor application
+  when the recursor has `k` set (Lean's `to_cnstr_when_K`, task 5.2.1c)
+  or when its type may be a non-recursive structure (Lean's structure
+  eta in iota, projections, task 5.2.2); Lean's generated recursor that
+  no slot holds (decision 12; a follow-up). Literal majors (L2) and
+  `Nat.succ` majors, which Lean's `reduce_nat` turns into literals first
+  (K7, row `iota.nat-succ`), are task 5.2.3's. A comparison Lean refuses
+  after iota, or on a stuck major premise, is *unknown* until the port's
+  "no" decides (task 4.2.2d; rows `iota.bool-true-wrong`,
+  `iota.list-hypothesis-wrong`, `iota.bool-stuck`).
 - **Nested blocks, *unsupported*; task 5.2.5b** (mutual blocks are
   checked since task 5.2.5a). The nested test (step 1) may only find
   more than Lean: when the earlier type is not usable, any argument
