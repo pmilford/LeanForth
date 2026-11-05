@@ -2421,3 +2421,15 @@ over all 59,349 declaration names; all differ in ASCII letters only):
 | 14 | `ShareCommonM` / `shareCommonM` | 30 | `System.Uri.UriEscape.letterA` / `System.Uri.UriEscape.lettera` |
 | 15 | `Std.Iter.Step` / `Std.Iter.step` | 31 | `System.Uri.UriEscape.letterF` / `System.Uri.UriEscape.letterf` |
 | 16 | `Std.IterM.Step` / `Std.IterM.step` | | |
+
+## Progress note (2026-11-05): numeric name parts
+
+The rule "no part of a name may be number-like" of the re-review is
+narrowed to what it protects: no word is made for a number. A declaration,
+universe or namespace name must not be number-like as a whole token; a part
+after the first may be numeric (`Name.num`), such as the 0 in Lean's private
+`_private.Init.Data.Nat.Basic.0.Nat.zero_add.match_1_1`, so `Nat.zero_add`
+and its helper are written whole and read back to the same names. A shorter
+form of a name that is number-like gets no word. A string part of digits is
+written and read between guillemets (`N.«0».f`), distinct from the numeric
+part (`N.0.f`). Untrusted authoring and presentation only; no checker change.

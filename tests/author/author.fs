@@ -114,20 +114,37 @@ T{ s" theorem _root_.t" fails -> 53 1 9 }T
 \ A ( comment must close on its line, as a note must.
 T{ s" theorem t Prop ( no close" fails -> 42 1 16 }T
 T{ s\" theorem t\n  Prop ( the binder\n  explicit: p )\n  p := p end t" fails -> 42 2 8 }T
-\ Names that are numbers: no universe, declaration or namespace name, and
-\ no part of one, is number-like, so no word shadows a number; a binder
-\ may have such a name but gets no word.
+\ Names that are numbers: no universe, declaration or namespace name is
+\ number-like as a whole token, so no word shadows a number; a numeric part
+\ after the first is Name.num (no word is made for a part); a binder may
+\ have a number-like name but gets no word.
 T{ s" def big universe 1 2 Type := 1 Type end big" fails -> 30 1 18 }T
 T{ s" def 0 Prop := Prop end 0" fails -> 30 1 5 }T
-T{ s" def N.1 Prop := Prop end N.1" fails -> 30 1 5 }T
 T{ s" def x.01 Prop := Prop end x.01" fails -> 30 1 5 }T
 T{ s" namespace 1" fails -> 30 1 11 }T
-T{ s" namespace A.-x" fails -> 30 1 11 }T
+T{ s" namespace -x" fails -> 30 1 11 }T
+T{ s" def 1.x Prop := Prop end 1.x" fails -> 30 1 5 }T
 T{ s" def a Prop explicit: 1 Prop := Prop end a def b 2 Type := 1 Type end b" run
    -> outcome-ok }T
 T{ 1 lf-author-decl lf-fdecl-value @ lf-term-first@ -> 0 lfa-succ lfa-succ }T
 T{ s" def c 2 Type := 1 Type end c" run -> outcome-ok }T
 T{ s" def f Prop explicit: 1 1 := Prop end f" fails -> 50 1 26 }T
+\ A numeric part is Name.num, a string part of digits (between guillemets) a
+\ string; both stay distinct, and 0, 1 and -1 are still numbers afterwards.
+: n1 ( -- name ) 0 s" N" lf-name-str drop ;
+: n0 ( -- name ) n1 0 lf-name-num drop ;
+: ns0 ( -- name ) n1 s" 0" lf-name-str drop ;
+T{ s\" def N.0.f Prop := Prop end N.0.f def N.\xC2\xAB0\xC2\xBB.f Prop := Prop end N.\xC2\xAB0\xC2\xBB.f"
+   run -> outcome-ok }T
+T{ 0 lf-author-decl lf-fdecl-name @ lf-name-prefix@ -> n0 }T
+T{ 1 lf-author-decl lf-fdecl-name @ lf-name-prefix@ -> ns0 }T
+T{ n0 ns0 = -> false }T
+T{ s" def a.0 Prop := Prop end a.0 def b 2 Type := 1 Type end b" run -> outcome-ok }T
+T{ 1 lf-author-decl lf-fdecl-value @ lf-term-first@ -> 0 lfa-succ lfa-succ }T
+T{ s" def a.0 Prop := Prop end a.0 def b -1 Type := Prop end b" fails -> 35 1 36 }T
+\ A guillemet part holds only digits.
+T{ s\" def N.\xC2\xAB0x\xC2\xBB.f Prop := Prop end N.\xC2\xAB0x\xC2\xBB.f" fails
+   -> 30 1 5 }T
 \ Numeric name parts have no leading zero (x.01 and x.1 are one Lean name).
 T{ s" def f Prop explicit: x.01 Prop := Prop end f" fails -> 30 1 22 }T
 T{ s" def f Prop explicit: x.10 Prop := Prop end f" run -> outcome-ok }T

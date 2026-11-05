@@ -36,14 +36,11 @@ require ./groups.fs
 
 \ Name texts (the dots in them: source.fs).
 : lfa-last-part ( c-addr u -- c-addr' u' ) 2dup lfa-cut dup if 1+ then nip /string ;
-\ Every part of a name a word is made for: not empty, not number-like.
-: lfa-part-ok? ( c-addr u -- flag ) dup 0<> >r lfa-number-like? 0= r> and ;
-: lfa-parts-ok? ( c-addr u -- flag )
-  begin 2dup lfa-dot >r over r@ lfa-part-ok? 0= if r> drop 2drop false exit then
-    r> 1+ over min /string dup 0= until 2drop true ;
+\ A name a word is made for: no empty part, and the whole dotted token is not
+\ number-like (a part may be a number: no word is made for a part).
 : lfa-word-name ( c-addr u -- c-addr u )
   2dup lfa-empty-part? 0= lfa-e-bad-name lfa-must
-  2dup lfa-parts-ok? lfa-e-bad-name lfa-must ;
+  2dup lfa-number-like? 0= lfa-e-bad-name lfa-must ;
 
 \ Texts of up to 256 characters in a record.
 256 constant lfa-text-capacity

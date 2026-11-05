@@ -108,22 +108,13 @@ lf-pf-reserve protected export lit# proj#
 1 cells 8 < [if] 9 [else] 18 [then] constant lf-name-digits-max
 : lf-pf-part-bound ( -- u ) 1 lf-name-digits-max 0 ?do 10 * loop ;
 : lf-pf-part? ( id -- flag )
-  dup lf-name-tag@ lf-name-tag-str = if lf-name-text lf-pf-plain? exit then
+  dup lf-name-tag@ lf-name-tag-str =
+  if lf-name-text 2dup lf-pf-digits? if 2drop true else lf-pf-plain? then exit then
   lf-name-payload lf-pf-part-bound u< ;
 : lf-pf-writable? ( id -- flag )
   dup 0= if drop false exit then
   begin dup while dup lf-pf-part? 0= if drop false exit then lf-name-prefix@ repeat
   drop true ;
-\ A name the authoring words can declare or refer to by a word (the name of
-\ a declaration, a universe parameter, a structure): every part a plain
-\ string part, since a numeric part is number-like and no word is made for
-\ it (src/author/namespaces.fs). A binder's name only needs lf-pf-writable?.
-: lf-pf-declarable? ( id -- flag )
-  dup 0= if drop false exit then
-  begin dup while
-    dup lf-name-tag@ lf-name-tag-str = 0= if drop false exit then
-    dup lf-pf-part? 0= if drop false exit then lf-name-prefix@
-  repeat drop true ;
 : lf-pf-among? ( c-addr u char -- flag )
   false 2swap chars over + swap ?do over i c@ = or loop nip ;
 : lf-pf-number-start? ( char -- flag )
@@ -131,6 +122,19 @@ lf-pf-reserve protected export lit# proj#
 : lf-pf-token? ( c-addr u -- flag )
   dup 0= if 2drop false exit then
   over c@ lf-pf-number-start? if 2drop false exit then lf-pf-reserved? 0= ;
+
+\ A name the authoring words can declare or refer to by a word (the name of
+\ a declaration, a universe parameter, a structure): every part writable and
+\ the first one a string part that cannot start a Forth number, so the whole
+\ dotted token is no number. A later numeric part is no problem: no word is
+\ made for a part, only for the whole name (src/author/namespaces.fs). A
+\ string part of digits is written between guillemets.
+: lf-pf-root ( id -- id' ) begin dup lf-name-prefix@ ?dup while nip repeat ;
+: lf-pf-root-ok? ( id -- flag )
+  lf-pf-root dup lf-name-tag@ lf-name-tag-str = 0= if drop false exit then
+  lf-name-text drop c@ lf-pf-number-start? 0= ;
+: lf-pf-declarable? ( id -- flag )
+  dup lf-pf-writable? if lf-pf-root-ok? else drop false then ;
 
 \ Output: words separated by one space, a line wrapped before a word that
 \ would pass the width. A unit is text that must stay on one line.
@@ -153,7 +157,22 @@ create lf-pf-eol 10 c,
 \ The next word starts a new line.
 : lf-pf-end-line ( -- ) lf-pf-width lf-pf-column ! ;
 : lf-pf-mark ( -- mark ) lf-pp-used @ ;
-: lf-pf-put-name ( id -- ) ['] lf-pp-put lf-pp-name-to ;
+: lf-pf-open-quote ( -- c-addr u ) s\" \xC2\xAB" ;
+: lf-pf-close-quote ( -- c-addr u ) s\" \xC2\xBB" ;
+\ A part: a string part of digits between guillemets (it stays a string
+\ when read back), a numeric part as its digits.
+: lf-pf-put-part ( id -- )
+  dup lf-name-tag@ lf-name-tag-str <>
+  if lf-name-payload ['] lf-pp-put lf-pp-number-to exit then
+  lf-name-text 2dup lf-pf-digits? 0= if lf-pp-put exit then
+  lf-pf-open-quote lf-pp-put lf-pp-put lf-pf-close-quote lf-pp-put ;
+\ The parts from the root (component 0) on, joined by dots.
+: lf-pf-put-parts ( id n -- )
+  dup 0 ?do i if s" ." lf-pp-put then 2dup i - 1- lf-pp-ancestor lf-pf-put-part loop 2drop ;
+\ A name as text, as lf-pp-name-to: too long a name marks the pool full.
+: lf-pf-put-name ( id -- )
+  dup lf-pp-name-depth dup lf-name-default >
+  if ['] lf-pp-put lf-pp-too-deep else lf-pf-put-parts then ;
 : lf-pf-put-number ( u -- ) ['] lf-pp-put lf-pp-number-to ;
 
 \ Labels and notes after their term. A label reads back as one token, so

@@ -101,11 +101,19 @@ scopes; `end NAME` leaves one per part, each part naming its scope;
 `N`, and `O.N` for each open `O`. A namespace is known once entered or
 once it is a prefix of a declared name.
 
-No name of a declaration, universe or namespace, and no part of one, may
-be number-like (a digit first, or one of `- + # $ % & '` and more after
-it; error 30), so no word ever stands where a number is meant; a binder
-may have such a name but gets no word (`n var#` refers to it). Numeric
-name parts (`x.1`) have no leading zero. Each syntax word is a Lean
+No name of a declaration, universe or namespace may be number-like as a
+whole token (a digit first, or one of `- + # $ % & '` and more after it;
+error 30), so no word ever stands where a number is meant; a binder may
+have such a name but gets no word (`n var#` refers to it). A part after the
+first may be a number: `Nat.zero_add.match_1.0.x` has the numeric part
+(Lean's `Name.num`) 0, read and written as the digits; no word is made for a
+part, only for the whole name and its shorter forms, and a shorter form that
+is number-like (`0.x` of `N.0.x`) gets none. A numeric part has no leading
+zero (`x.01` is refused, `x.1` and `x.10` are numeric parts). A string part
+of digits stays a string by guillemets: `N.«0».f` is `N` `"0"` `f`, distinct
+from `N.0.f` (the printer writes it so; the guillemets hold digits only).
+A name whose first part is numeric cannot be written (the token would be a
+number). Each syntax word is a Lean
 keyword or contains a character no unquoted Lean identifier has (ADR
 0017, rule R1), and must be in the printer's list of the words it writes
 (checked when `words.fs` loads).
