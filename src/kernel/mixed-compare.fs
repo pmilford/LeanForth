@@ -150,6 +150,8 @@ lf-level-walk-room context-walk2: lf-mcompare-level-walker
 \ indices.
 : lf-mcompare-lit ( a b walk -- outcome )
   nip nip lf-mcompare-pair@ lf-lit-same? lf-mcompare-verdict ;
+\ Two let leaves (core/let-terms.fs): the same nonDep flag, which Lean's
+\ == compares (binder names it ignores, and LeanForth drops).
 : lf-mcompare-dispatch ( a b walk tag -- outcome )
   dup lf-term-binary-tag? if drop lf-mcompare-children exit then
   case lf-tag-constant of lf-mcompare-constant endof
@@ -157,7 +159,8 @@ lf-level-walk-room context-walk2: lf-mcompare-level-walker
     lf-tag-fvar of lf-mcompare-same-first endof
     lf-tag-symbolic-sort of lf-mcompare-sort endof
     lf-tag-proj of lf-mcompare-proj endof
-    lf-tag-lit of lf-mcompare-lit endof walk-bad-tag endcase ;
+    lf-tag-lit of lf-mcompare-lit endof
+    lf-tag-let of lf-mcompare-same-first endof walk-bad-tag endcase ;
 : lf-mcompare-visit ( walk -- outcome )
   lf-terms ['] lf-mcompare-dispatch lf-mcompare-visit-pair ;
 : lf-mcompare-run ( left right -- outcome )

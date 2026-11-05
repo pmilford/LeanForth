@@ -20,6 +20,7 @@ require ../lib/store-columns.fs
 require ./constant-references.fs
 require ./diagnostics.fs
 require ./generation-handles.fs
+require ./let-terms.fs
 require ./level-scope.fs
 require ./local-context.fs
 require ./literals.fs
@@ -81,7 +82,7 @@ lf-walk-room context-walk: lf-cterm-walker
     lf-tag-bvar of lf-repr-bvar endof  lf-tag-fvar of lf-cterm-fvar endof
     lf-tag-symbolic-sort of lf-cterm-sort endof
     lf-tag-proj of lf-proj-check endof  lf-tag-lit of lf-lit-check endof
-    walk-bad-tag endcase ;
+    lf-tag-let of lf-let-check endof  walk-bad-tag endcase ;
 : lf-cterm-visit ( walk -- outcome ) lf-terms ['] lf-cterm-dispatch walk-visit ;
 
 \ Validate a live root and its reachable mixed symbolic graph. Each term and

@@ -21,8 +21,9 @@ Format, one item per line:
 
 Expressions are prefix: `S <level>`, `V <index>`, `A <fn> <arg>`,
 `L <domain> <body>` (lambda), `P <domain> <body>` (Pi),
-`C <name> <n> <level>...`, and `Xlet`, `Xlit`, `Xmdata`, `Xproj`, `Xfvar`,
-`Xmvar` for the forms the first checker does not support. Levels: `z`,
+`C <name> <n> <level>...`, `E <nonDep 0|1> <type> <value> <body>` (a `let`,
+plan task 4.2.3), and `Xlit`, `Xmdata`, `Xproj`, `Xfvar`, `Xmvar` for the
+forms the first checker does not support. Levels: `z`,
 `s <level>`, `m <level> <level>`, `i <level> <level>`, `p <name>`. Binder
 names and annotations are dropped: Lean's kernel ignores them.
 -/
@@ -44,7 +45,8 @@ def exprText : Expr → String
   | .app f a => "A " ++ exprText f ++ " " ++ exprText a
   | .lam _ t b _ => "L " ++ exprText t ++ " " ++ exprText b
   | .forallE _ t b _ => "P " ++ exprText t ++ " " ++ exprText b
-  | .letE .. => "Xlet"
+  | .letE _ t v b nd => s!"E {if nd then 1 else 0} " ++ exprText t ++ " " ++ exprText v ++ " " ++
+    exprText b
   | .lit .. => "Xlit"
   | .mdata .. => "Xmdata"
   | .proj .. => "Xproj"

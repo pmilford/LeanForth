@@ -115,6 +115,10 @@ STORES = {
     "lf-tag-proj", "lf-proj-leaf?",
     # Literals (plan task 5.2.3), read only: the leaf's tag, kept by the copier.
     "lf-tag-lit",
+    # Let terms (plan task 4.2.3), read only: the leaf's tag, kept by the
+    # copier, and whether an application's function applies a let leaf, so
+    # that a let term's step has the rule form (lf-log-node-rule).
+    "lf-tag-let", "lf-let-fn?",
 }
 LOG_USES = FORTH | CONTEXT | STORES
 LOAD_TIME = {None, "lf-log-entry,"}

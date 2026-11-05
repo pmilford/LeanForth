@@ -125,12 +125,14 @@ Rules a new kernel module must keep:
   comparison steps there, written at the block step's depth, hold bound
   variables only.
 - `lf-lctx-local` and `lf-lctx-let` (Lean's `mk_local_decl`) serve
-  `is_def_eq_binding` (`defeq.fs`, 4.2.2b), and later eta and
-  `infer_let`; `lf-fvar-value` serves `whnf_fvar`'s zeta and
-  `lf-instantiate` beta (`whnf.fs`, 4.2.2c); `cheap_beta_reduce` of a λ
-  body's type is in place (4.2.2c). Not yet: `mk_pi` of a `let` variable
-  (4.2.3), and the loose-variable range that lets Lean skip closed
-  subterms (Q12): `whnf.fs` scans for loose bound variables instead.
+  `is_def_eq_binding` (`defeq.fs`, 4.2.2b), eta and `infer_let`
+  (`mixed-infer.fs`, 4.2.3, which also closes a `let` chain's type as
+  `mk_pi` with `remove_dead_let` does); `lf-fvar-value` serves
+  `whnf_fvar`'s zeta, and `whnf.fs` reduces a `let` term by zeta
+  (`core/let-terms.fs`, 4.2.3) and beta with `lf-instantiate` (4.2.2c);
+  `cheap_beta_reduce` of a λ body's type is in place (4.2.2c). Not yet:
+  the loose-variable range that lets Lean skip closed subterms (Q12):
+  `whnf.fs` scans for loose bound variables instead.
 
 **Nothing here is verified yet.** The code is in progress, and it becomes
 trusted only when the owner declares it so, after the review gate in

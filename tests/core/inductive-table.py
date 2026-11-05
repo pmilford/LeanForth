@@ -56,10 +56,11 @@ PENDING = {
         " recursor's rules)"),
     "after.list-left-out-then-lookup-during-param-block": ("unknown",
         "as after.recursor-left-out-then-lookup-during-block. Closed by the same follow-up"),
-    "lit.div-by-zero": ("unsupported",
-        "Nat.div's closure has let terms (U2: Nat.not_succ_le_zero, eq_of_heq). Closed by a"
-        " let-term follow-up of task 5.2.3 (not yet planned)"),
-    "lit.gcd": ("unsupported", "as lit.div-by-zero. Closed by the same follow-up"),
+    "lit.div-by-zero": ("unknown",
+        "Nat.div's closure has let terms, checked since task 4.2.3; eq_of_heq then needs"
+        " K-like reduction of Eq.rec on a proof that is no constructor (Lean's"
+        " to_cnstr_when_K, diagnostic 81), not yet ported. Closed by task 5.2.1c (Eq, K)"),
+    "lit.gcd": ("unknown", "as lit.div-by-zero (eq_of_heq). Closed by the same task"),
     "lit.string-expansion": ("unsupported",
         "a string literal (U2): not needed by Nat.add_zero's closure, so left out of task"
         " 5.2.3. Closed by a string-literal follow-up of task 5.2.3 (L4)"),

@@ -49,7 +49,9 @@
 \ rejected with the codes of ADR 0011's rules S1, S2, S4 and F1, which
 \ Lean's ensure_sort_core and ensure_pi_core replace since plan task
 \ 4.2.2c. A comparison is Lean's is_def_eq (defeq.fs): its no is the
-\ step's exception, appTypeMismatch or declTypeMismatch, rejected (since
+\ step's exception, appTypeMismatch, declTypeMismatch or, for a let term's
+\ value (infer_let, plan task 4.2.3; its section below), letTypeMismatch,
+\ rejected (since
 \ plan task 4.2.2d, which retired ADR 0011's rules D1-D5); where the port
 \ cannot decide it is unknown, or exhausted or full. Like every result
 \ here, a rejection holds only if the candidate signatures are the
@@ -99,6 +101,7 @@ require ../core/constant-term-scope.fs
 require ../core/derivation-log.fs
 require ../core/diagnostics.fs
 require ../core/generation-handles.fs
+require ../core/let-terms.fs
 require ../core/levels.fs
 require ../core/local-context.fs
 require ../core/projections.fs
@@ -615,21 +618,116 @@ defer lf-minfer-proj ( leaf e frames -- ... frames next )
   >r lf-minfer-context-depth @ r@ frame-save lf-term-count @ r@ frame-save
   r@ frame-save dup r@ frame-save r> ['] lf-minfer-pi-domain lf-minfer-call ;
 
+\ A let term (core/let-terms.fs; plan task 4.2.3): Lean's infer_let
+\ (type_checker.cpp 208-230). A chain of let terms, each the body of the
+\ last, is entered in one visit, one let after another, as Lean's loop
+\ does (212-226). For each, while deciding (not aside, 215-221): the
+\ declared type T, read under the scope, must be a type (ensure_sort_core:
+\ rejected with S2's code, Lean's typeExpected), its scratch discarded;
+\ the value v's type must be is_def_eq to T closed with the scope's free
+\ variables, else rejected, Lean's letTypeMismatch (219), the scratch of
+\ v's inference and the comparison discarded. Then x gets a let variable
+\ of the local context (lf-lctx-let; 223) whose type and value are T and
+\ v closed, on the scope (0 beside it), and the body is read one binder
+\ deeper. The innermost body's type goes through cheap_beta_reduce (228)
+\ and is closed over the chain's let variables as Lean's mk_pi(fvars, r,
+\ true) closes it (229; local_ctx.cpp 93-125, mk_binding with
+\ remove_dead_let), innermost first: a variable the term so far does not
+\ mention is dropped (its abstract is the term itself, by the update
+\ rule of mixed-open.fs, where Lean finds no loose bound variable 0 and
+\ lower_loose_bvars changes nothing in a term with no other), any other
+\ wraps it, abstracted over x, in let x : T := v (nonDep false, mk_let's
+\ default). The chain's variables leave the scope whatever the outcome. A
+\ let term whose second argument is no lambda is malformed (invalid).
+\ Steps: the scope's depth before the chain (base) waits on the stack
+\ throughout; while deciding, T's inference with v, the lambda and the
+\ term count waiting, then v's with v, the lambda, T closed and the count;
+\ then the body's.
+: lf-minfer-let-fail ( outcome n frames -- -1 outcome frames 0 )
+  tuck frame-drop >r r@ frame-restore lf-minfer-unbind no-result r> 0 ;
+: lf-minfer-bind-let ( type value -- outcome )
+  lf-minfer-scope-room? 0= if 2drop lf-minfer-crowded exit then
+  lf-lctx-let ok-then? if lf-minfer-placed 0 lf-minfer-scope-push outcome-ok then ;
+: lf-minfer-let-bound ( Tc v -- outcome )
+  lf-minfer-close ok-then? if lf-minfer-bind-let else nip then ;
+\ The innermost body's type r closed over the scope's let variable i (x
+\ in cell i): the term itself, or let x : T := v; r' with r' r abstracted.
+: lf-minfer-let-wrap ( r' x -- let status )
+  tuck lf-fvar-type swap lf-term-lam 0= if drop -1 outcome-full exit then
+  swap lf-fvar-value swap 0 lf-let-make if outcome-ok else -1 outcome-full then ;
+: lf-minfer-let-abstract ( r i -- r' status )
+  lf-minfer-fvar-cell 1 lf-minfer-lend lf-abstract lf-minfer-repay outcome-sane ;
+: lf-minfer-let-close1 ( r i -- r' status )
+  2dup lf-minfer-let-abstract ok-then? 0= if nip nip no-result exit then
+  rot 2dup = if drop nip outcome-ok exit then
+  drop swap lf-minfer-fvar-cell @ lf-minfer-let-wrap ;
+: lf-minfer-let-closed ( r base -- r' status )
+  >r lf-minfer-context-depth @ begin dup r@ > while
+    1- tuck lf-minfer-let-close1 ok-then? 0= if nip r> drop no-result exit then swap
+  repeat drop r> drop outcome-ok ;
+: lf-minfer-let-type-of ( R base -- type status )
+  swap lf-minfer-frames lf-cheap-beta ok-then? 0= if nip no-result exit then
+  swap lf-minfer-let-closed ;
+: lf-minfer-let-end ( R status frames -- type status frames 0 )
+  >r r@ frame-restore -rot lf-minfer-good? if over lf-minfer-let-type-of then
+  rot lf-minfer-unbind r> 0 ;
+defer lf-minfer-let-one ( v lam frames -- ... frames next )
+: lf-minfer-let-bind ( Tc v lam frames -- ... frames next )
+  >r -rot lf-minfer-let-bound dup ok? 0= if nip 0 r> lf-minfer-let-fail exit then drop
+  lf-term-second@ dup lf-let? if dup lf-let-value swap lf-let-binder r> lf-minfer-let-one exit then
+  r> ['] lf-minfer-let-end lf-minfer-call ;
+: lf-minfer-let-argued ( mark Tc V status -- status )
+  ok-then? 0= if nip swap lf-minfer-discard exit then
+  swap lf-minfer-agree lf-minfer-site lf-diag-let-value-apart lf-minfer-verdict
+  swap lf-minfer-discard ;
+: lf-minfer-let-value ( V status frames -- ... frames next )
+  >r r@ frame-restore 0 r@ frame-pick 2swap lf-minfer-let-argued
+  dup ok? 0= if 3 r> lf-minfer-let-fail exit then drop
+  r@ frame-restore r@ frame-restore r@ frame-restore swap r> lf-minfer-let-bind ;
+: lf-minfer-let-tc ( level status frames -- Tc status )
+  >r ok-then? if drop 0 r@ frame-pick lf-term-first@ lf-minfer-close else no-result then
+  r> drop ;
+: lf-minfer-let-type ( D status frames -- ... frames next )
+  >r r@ frame-restore -rot lf-minfer-domain-level r@ lf-minfer-let-tc
+  ok-then? 0= if 2 r> lf-minfer-let-fail exit then
+  r@ frame-save lf-term-count @ r@ frame-save
+  3 r@ frame-pick r> ['] lf-minfer-let-value lf-minfer-call ;
+: lf-minfer-let-check ( v lam frames -- ... frames next )
+  >r swap r@ frame-save dup r@ frame-save lf-term-count @ r@ frame-save
+  lf-term-first@ r> ['] lf-minfer-let-type lf-minfer-call ;
+: lf-minfer-let-open ( v lam frames -- ... frames next )
+  >r dup lf-term-first@ lf-minfer-close ok-then? 0= if nip nip 0 r> lf-minfer-let-fail exit then
+  -rot r> lf-minfer-let-bind ;
+: lf-minfer-let-bad ( v lam frames -- -1 outcome frames 0 )
+  >r nip 0 lf-diag-malformed lf-minfer-note outcome-invalid 0 r> lf-minfer-let-fail ;
+:noname ( v lam frames -- ... frames next )
+  over lf-term-tag@ lf-tag-lam <> if lf-minfer-let-bad exit then
+  lf-minfer-deciding? if lf-minfer-let-check else lf-minfer-let-open then ; is lf-minfer-let-one
+: lf-minfer-let ( fn lam frames -- ... frames next )
+  >r lf-minfer-context-depth @ r@ frame-save swap lf-term-second@ swap r> lf-minfer-let-one ;
+\ An application, or a let term: an application of an application of a
+\ let leaf.
+: lf-minfer-application ( function argument frames -- ... frames next )
+  2 pick lf-let-fn? if lf-minfer-let else lf-minfer-app then ;
+
 \ Infer an original source node; nodes made by this inference are output
 \ data, never input. Constructors outside this subset are unknown, and
 \ recorded as unsupported with their tag.
 : lf-minfer-unsupported ( tag -- tag -1 status )
   dup 0 lf-diag-unsupported lf-minfer-note -1 outcome-unknown ;
+\ A let leaf is never a term of its own (core/let-terms.fs): malformed.
+: lf-minfer-stray ( first -- -1 status ) 0 lf-diag-malformed lf-minfer-note -1 outcome-invalid ;
 : lf-minfer-leaf ( first tag -- type status )
   case lf-tag-symbolic-sort of lf-minfer-sort-type endof
     lf-tag-constant of lf-minfer-constant endof
     lf-tag-bvar of lf-minfer-bvar endof
     lf-tag-lit of drop lf-reduce-nat-type endof
+    lf-tag-let of lf-minfer-stray endof
     nip lf-minfer-unsupported rot endcase ;
 : lf-minfer-other ( first second frames tag -- -1 status frames 0 tag )
   >r >r 2drop r> r> lf-minfer-unsupported 2swap 0 swap ;
 : lf-minfer-binary ( first second tag frames -- ... frames next )
-  swap case lf-tag-app of lf-minfer-app endof
+  swap case lf-tag-app of lf-minfer-application endof
     lf-tag-lam of lf-minfer-lam endof
     lf-tag-pi of lf-minfer-pi endof
     lf-minfer-other endcase ;

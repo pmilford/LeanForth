@@ -4,15 +4,18 @@
 \ constant (Lean may unfold it, fact 2). A variable is a bound variable
 \ or a free variable of the local context (core/local-context.fs), the
 \ form the checker's terms have since plan task 4.2.2a; a let variable,
-\ which Lean's whnf replaces by its value, does not occur before plan
-\ task 4.2.3 and must then not count as rigid. The caller reduces the
-\ term first (mixed-beta); this module only reads the reduced node and its
-\ application spine. Untrusted; part of the first checker's [kernel] path,
+\ which Lean's whnf replaces by its value (plan task 4.2.3), is no head
+\ of a reduced term (whnf.fs unfolds it). The caller reduces the term
+\ first; this module only reads the reduced node and its application
+\ spine. A spine ends at a let term (core/let-terms.fs), as Lean's
+\ get_app_fn stops at Expr.letE: the let term is the head, of no kind
+\ here (lf-head-none), never rigid. Untrusted; part of the first checker's [kernel] path,
 \ not yet through the review gate.
 \ State: none. The tag constants are shared and read-only.
 
 require ../lib/lib.fs
 require ../core/constant-term-boundary.fs
+require ../core/let-terms.fs
 require ../core/local-context.fs
 require ../core/tagged-sort-boundary.fs
 require ../core/terms.fs
@@ -31,9 +34,10 @@ require ../core/terms.fs
 \ The head of a node's application spine and the number of arguments.
 \ Unchecked: node is valid. Children come earlier in the store, so the
 \ spine ends within lf-term-capacity steps (the bound only guards a
-\ corrupted store).
+\ corrupted store). A let term is an application that ends the spine.
 : lf-mhead-app? ( node -- flag ) lf-term-tag@ lf-tag-app = ;
-: lf-mhead-more? ( node count -- flag ) lf-term-capacity < swap lf-mhead-app? and ;
+: lf-mhead-step? ( node -- flag ) dup lf-mhead-app? if lf-let? 0= else drop false then ;
+: lf-mhead-more? ( node count -- flag ) lf-term-capacity < swap lf-mhead-step? and ;
 : lf-mhead-spine ( node -- head count )
   0 begin 2dup lf-mhead-more? while 1+ swap lf-term-first@ swap repeat ;
 

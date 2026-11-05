@@ -481,7 +481,24 @@ def letCases : List Case := [
     subject := claim `t36 [(`A, prop), (`B, prop), (`h, v `A)] (v `A)
       (.letE `y (v `B) (v `h) (v `h) false),
     lean := "letTypeMismatch", adr0011 := "unsupported", adr0014 := "rejected", rule := "zeta",
-    what := "let y : B := h where h : A" }
+    what := "let y : B := h where h : A" },
+  { id := "let.dependent-body",
+    subject := claim `t47 [(`A, prop)] (arrow (v `A) (v `A))
+      (.letE `T prop (v `A) (.lam `y (.bvar 0) (.bvar 0) .default) false),
+    lean := "accepted", counts := "-", adr0011 := "unsupported", adr0014 := "accepted",
+    rule := "zeta",
+    what := "let T := A; fun y : T => y has type let T := A; T → T, which mentions T" },
+  { id := "let.chain",
+    subject := claim `t48 [(`A, prop), (`h, v `A)] (v `A)
+      (.letE `T prop (v `A) (.letE `y (.bvar 0) (v `h) (.bvar 0) false) false),
+    lean := "accepted", counts := "-", adr0011 := "unsupported", adr0014 := "accepted",
+    rule := "zeta",
+    what := "let T := A; let y : T := h; y: h's type A against the let variable T" },
+  { id := "let.type-not-a-type",
+    subject := claim `t49 [(`A, prop), (`h, v `A)] (v `A)
+      (.letE `y (v `h) (v `h) (v `h) false),
+    lean := "typeExpected", adr0011 := "unsupported", adr0014 := "rejected", rule := "zeta",
+    what := "let y : h := h, where h is a proof, not a type" }
 ]
 
 /-! ## Constants matched by name

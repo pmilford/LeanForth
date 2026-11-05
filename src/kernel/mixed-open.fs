@@ -46,8 +46,10 @@
 \ node' outcome ) and lf-mk-pi ( body fvars n -- pi outcome ), each
 \ running on the fuel in lf-open-fuel and leaving there what is left;
 \ subst and fvars are the address of n cells. Outcomes: ok, invalid,
-\ exhausted, full, and unsupported from lf-mk-pi for a let variable (no
-\ let terms before plan task 4.2.3).
+\ exhausted, full, and unsupported from lf-mk-pi for a let variable
+\ (inference closes its let variables itself, as infer_let's mk_pi with
+\ remove_dead_let does: mixed-infer.fs, plan task 4.2.3; lf-mk-pi has no
+\ caller in the checker).
 \ Example: with x the free variable of A (lf-lctx-local) in a cell at
 \ addr, 100 lf-open-fuel !  body addr 1 lf-instantiate-rev gives the body
 \ with bound variable 0 replaced by x, and that addr 1 lf-mk-pi gives
@@ -170,7 +172,7 @@ end-structure
 : lf-open-leaf ( node frames tag -- result outcome )
   case lf-tag-bvar of lf-open-bvar endof  lf-tag-fvar of lf-open-free endof
     lf-tag-constant of lf-rebuild-keep endof  lf-tag-proj of lf-rebuild-keep endof
-    lf-tag-lit of lf-rebuild-keep endof
+    lf-tag-lit of lf-rebuild-keep endof  lf-tag-let of lf-rebuild-keep endof
     lf-tag-symbolic-sort of lf-rebuild-keep endof
     >r lf-rebuild-bad r> endcase ;
 \ The visit's first step (lib/frame.fs).
@@ -231,7 +233,8 @@ end-structure
 \ step ends it, leaving what earlier steps made for the caller to discard.
 \ The first abstract checks that every x(i) is live, so the later steps
 \ may read their entries. A let variable would need a let term:
-\ unsupported. A full term store is full.
+\ unsupported here (mixed-infer.fs's infer_let makes it). A full term
+\ store is full.
 : lf-open-at ( fvars i -- fvar ) cells + @ ;
 : lf-close-type ( fvars i -- type' outcome )
   2dup lf-open-at dup lf-fvar-let? if drop 2drop -1 outcome-unsupported exit then

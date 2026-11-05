@@ -126,6 +126,8 @@ require ../lib/lib.fs
 \ Literals (plan task 5.2.3, kernel/reduce-nat.fs).
 92 constant lf-diag-nat-count          \ L1 (rejected): the operation's head, the count's limbs
 93 constant lf-diag-nat-size           \ full: the operation's head, 0
+\ Let terms (plan task 4.2.3, kernel/mixed-infer.fs).
+94 constant lf-diag-let-value-apart    \ rejected (letTypeMismatch): 0, 0
 
 begin-structure /lf-diag
   field: lf-diag-code       \ reason code; lf-diag-none while clear
@@ -302,6 +304,7 @@ create lf-diag-catalogue
     s" rejected: Nat.pow or Nat.shiftLeft by 2^32 or more (L1)" lf-diag-entry,
   lf-diag-nat-size
     s" full: a Nat over the size limit, or no memory to compute it" lf-diag-entry,
+  lf-diag-let-value-apart s" rejected: let value type mismatch" lf-diag-entry,
   lf-diag-none s" unknown code" lf-diag-entry,
 : lf-diag-end? ( code entry -- flag ) lf-diag-entry-code tuck = swap lf-diag-none = or ;
 \ The entry of code, or the last entry.

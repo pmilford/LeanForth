@@ -126,4 +126,55 @@ fc-case pi-not-after-unfolding
 fc-decl before def safe dqProp 0 TYPE S s z VALUE S z
 fc-decl check thm safe t19 0 TYPE P C dqProp 0 P S z P A V 1 V 0 A V 2 V 1 VALUE L C dqProp 0 L S z L A V 1 V 0 V 0
 T{ check-last -> outcome-rejected lf-diag-function-expected }T
+
+\ Let terms (core/let-terms.fs; plan task 4.2.3). Zeta: let x : Sort 1 :=
+\ Sort 0; x is Sort 0; a let at the head of an application is reduced
+\ first, then beta: (let f : Sort 1 -> Sort 1 := fun X => X; f) Sort 0 is
+\ Sort 0.
+fc-case zeta
+fc-decl before def safe expect 0 TYPE S s z VALUE S z
+fc-decl check def safe probe 0 TYPE S s z VALUE E 0 S s z S z V 0
+T{ probe-run expected? -> true outcome-ok }T
+fc-case zeta-head
+fc-decl before def safe expect 0 TYPE S s z VALUE S z
+fc-decl check def safe probe 0 TYPE S s z VALUE A E 0 P S s z S s z L S s z V 0 V 0 S z
+T{ probe-run expected? -> true outcome-ok }T
+\ Malformed let terms are invalid in whnf and in inference: a let leaf
+\ applied to a Sort and a Pi (no lambda), applied to one Sort, and alone;
+\ the audit refuses a leaf whose flag is not 0 or 1.
+: sort0 ( -- node ) 0 fc-sort ;
+: sort1 ( -- node ) lf-level-tag-succ 0 0 fc-level fc-sort ;
+: leaf ( -- node ) 0 fc-let-leaf ;
+: bad-let ( -- node )
+  leaf sort0 lf-tag-app fc-binary sort0 sort0 lf-tag-pi fc-binary lf-tag-app fc-binary ;
+: half-let ( -- node ) leaf sort0 lf-tag-app fc-binary ;
+: whnf-of ( node -- outcome ) 1000 lf-minfer-start-env lf-minfer-frames lf-whnf-on nip ;
+: infer-of ( node -- outcome ) 1000 lf-minfer-start-env lf-minfer-walk nip ;
+: audit-of ( node -- outcome ) dup lf-term-identity must 1000 lf-cterm-check ;
+fc-case malformed-let
+T{ bad-let whnf-of half-let whnf-of leaf whnf-of
+   -> outcome-invalid outcome-invalid outcome-invalid }T
+T{ bad-let infer-of half-let infer-of leaf infer-of
+   -> outcome-invalid outcome-invalid outcome-invalid }T
+T{ leaf audit-of lf-tag-let 2 0 lf-term-add must audit-of -> outcome-ok outcome-invalid }T
+\ Inference (infer_let): the type of let x : Sort 1 := Sort 0; fun y : x
+\ => y is the let term let x := Sort 0; x -> x (mk_pi keeps a variable
+\ the type mentions); of let x : Sort 1 := Sort 0; Sort 0 it is Sort 1
+\ (a dead let dropped). let x : Sort 0 := Sort 0; x is rejected
+\ (letTypeMismatch), but inferred aside (infer-only, no check) as Sort 0.
+\ == compares the nonDep flag.
+: dep-let ( -- node ) 0 sort1 sort0 0 fc-bvar 0 fc-bvar lf-tag-lam fc-binary fc-let ;
+: dead-let ( -- node ) 0 sort1 sort0 sort0 fc-let ;
+: wrong-let ( -- node ) 0 sort0 sort0 0 fc-bvar fc-let ;
+: type-of ( node -- type outcome ) 100000 lf-minfer-start-env lf-minfer-walk ;
+: aside-of ( node -- type outcome )
+  100000 lf-minfer-start-env true lf-minfer-aside ! lf-minfer-walk ;
+: same? ( a b -- flag ) 1000 lf-expr-equal ok? and ;
+fc-case let-inference
+T{ dep-let type-of ok? swap dup lf-let? swap lf-let-type sort1 same? -> true true true }T
+T{ dead-let type-of ok? swap sort1 same? -> true true }T
+T{ wrong-let type-of nip lf-diag-code@ -> outcome-rejected lf-diag-let-value-apart }T
+T{ wrong-let aside-of ok? swap sort0 same? -> true true }T
+T{ 0 sort1 sort0 sort0 fc-let 1 sort1 sort0 sort0 fc-let same? dead-let dead-let same?
+   -> false true }T
 bye
