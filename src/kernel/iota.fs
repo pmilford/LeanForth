@@ -21,20 +21,21 @@
 \ recursor has no rule for the constructor, the constructor has fewer
 \ arguments than the rule's fields, or the universe arguments are not as
 \ many as the recursor's parameters -- each as in Lean.
-\ Not ported, so unknown (diagnostic 81, as whnf.fs's default): a
-\ major premise that is no constructor application when the recursor has
-\ k set (Lean's to_cnstr_when_K may still find the constructor, by
-\ inference and comparison) or when its type may be a non-recursive
-\ structure (Lean's to_cnstr_when_structure eta-expands it with
-\ projections, U2); and Lean's generated recursor that no slot holds (ADR
-\ 0015 decision 12). For k set, a major premise whose whnf is the
-\ constructor gets the same rule Lean's to_cnstr_when_K gives (the one
-\ constructor, no fields). A literal major premise (L2; plan task
+\ For k set, Lean's to_cnstr_when_K (R2, plan task 5.2.1c; section
+\ below) first puts the nullary constructor in the major premise's place
+\ when the types agree. Not ported, so unknown (diagnostic 81, as
+\ whnf.fs's default): a major premise that is no constructor application
+\ when K could not run (outside environment mode, a major premise with
+\ loose bound variables, an inference, whnf or comparison that is
+\ unknown) or when its type may be a non-recursive structure that R3
+\ cannot expand; and Lean's generated recursor that no slot holds (ADR
+\ 0015 decision 12). A literal major premise (L2; plan task
 \ 5.2.3) becomes a constructor first, as nat_lit_to_constructor makes
 \ it: 0 as Nat.zero, n + 1 as Nat.succ n (reduce-nat.fs). Quotients are
 \ unsupported (U1).
 \ State: none of its own; the work arrays and the frames are whnf.fs's,
-\ each array filled and used within one step.
+\ each array filled and used within one step; K lends a comparison
+\ defeq.fs's typer cell, restored when the comparison returns.
 
 require ../lib/lib.fs
 require ../core/constant-references.fs
@@ -44,10 +45,12 @@ require ../core/name-equal.fs
 require ../core/names.fs
 require ../core/projections.fs
 require ../core/terms.fs
+require ./defeq.fs
 require ./environment.fs
 require ./inductive-block.fs
 require ./infer-proj.fs
 require ./mixed-head.fs
+require ./mixed-infer.fs
 require ./reduce-nat.fs
 require ./whnf.fs
 
@@ -72,6 +75,8 @@ require ./whnf.fs
 : lf-iota-peel ( node k -- node' ) 0 ?do lf-term-first@ loop ;
 \ Argument i of app, which has n arguments.
 : lf-iota-arg ( app n i -- arg ) - 1- lf-iota-peel lf-term-second@ ;
+\ The major premise e of app, whose recursor's record is decl.
+: lf-iota-major ( app decl -- e ) lf-iota-major-idx >r dup lf-iota-n r> lf-iota-arg ;
 : lf-iota-head-name ( node -- name ) lf-whnf-head lf-whnf-cref lf-crec-name @ ;
 
 \ The recursor app's head names: its record (decl ok); (-1 ok) when no
@@ -187,10 +192,10 @@ require ./whnf.fs
   -rot lf-iota-expand ok-then? 0= if nip no-result false exit then nip true ;
 
 \ A major premise that is no constructor application (inductive.h 90-99):
-\ k set, unknown (to_cnstr_when_K not ported); a non-recursive structure,
-\ R3 above; any other type, no rule (-1 ok).
-: lf-iota-no-ctor ( app decl major -- app decl major' true | reduct outcome false )
-  over lf-iota-k? if 2drop lf-iota-not-ported false exit then
+\ K undecided (pending, below), unknown; a non-recursive structure, R3
+\ above; any other type, no rule (-1 ok).
+: lf-iota-no-ctor ( app decl major pending -- app decl major' true | reduct outcome false )
+  if 2drop lf-iota-not-ported false exit then
   over lf-iota-induct ?dup 0= if 2drop lf-iota-not-ported false exit then
   lf-whnf-find ok-then? 0= if >r 2drop drop r> no-result false exit then
   dup 0< if drop 2drop lf-iota-not-ported false exit then
@@ -234,26 +239,126 @@ require ./whnf.fs
   if >r 2drop 2drop 2drop r> no-result exit then
   nip nip lf-iota-finish ;
 
-\ After the major premise's whnf (inductive.h 92-115).
-: lf-iota-reduce ( app decl major frames -- reduct outcome )
-  >r dup lf-iota-ctor? ok-then? 0= if >r 2drop drop r> no-result r> drop exit then
-  0= if lf-iota-no-ctor 0= if r> drop exit then then
+\ After the major premise's whnf (inductive.h 92-115); pending: K
+\ undecided.
+: lf-iota-reduce ( app decl major pending frames -- reduct outcome )
+  >r over lf-iota-ctor? ok-then? 0= if >r 2drop 2drop r> no-result r> drop exit then
+  if drop else lf-iota-no-ctor 0= if r> drop exit then then
   2dup lf-iota-head-name lf-iota-rule ?dup 0=
   if 2drop drop -1 outcome-ok r> drop exit then
   2over 2over lf-iota-applies? 0= if 2drop 2drop -1 outcome-ok r> drop exit then
   r> lf-iota-apply ;
 
 \ The hook's step (whnf.fs): the major premise's whnf is a child visit,
-\ the recursor's record and the application saved across it.
+\ the recursor's record, the application and pending (K undecided)
+\ saved across it.
 \ A literal major premise as its constructor (L2).
 : lf-iota-lit ( major -- major' outcome )
   dup lf-lit-leaf? if lf-reduce-nat-constructor else outcome-ok then ;
+: lf-iota-saved ( frames -- app decl pending )
+  dup frame-restore >r dup frame-restore >r frame-restore r> swap r> ;
 : lf-iota-majored ( major outcome frames -- ... frames next )
-  >r r@ frame-restore r@ frame-restore 2swap
-  ok-then? 0= if nip nip r> lf-whnf-failed exit then
-  lf-iota-lit ok-then? 0= if nip nip r> lf-whnf-failed exit then
-  r@ lf-iota-reduce r> 0 ;
+  >r ok-then? 0= if 3 r@ frame-drop r> lf-whnf-failed exit then
+  lf-iota-lit ok-then? 0= if 3 r@ frame-drop r> lf-whnf-failed exit then
+  r@ lf-iota-saved >r rot r> r@ lf-iota-reduce r> 0 ;
+: lf-iota-whnf ( e pending frames -- ... frames next )
+  tuck frame-save ['] lf-iota-majored lf-whnf-call ;
 : lf-iota-none ( app frames decl -- -1 ok frames 0 ) drop nip -1 outcome-ok rot 0 ;
+
+\ ---------------------------------------------------------------------------
+\ K-like reduction (R2; plan task 5.2.1c): to_cnstr_when_K (inductive.h
+\ 31-49), which inductive_reduce_rec runs for a recursor with k set on
+\ the major premise e as the application gives it, before its whnf
+\ (89-91). e's type, inferred aside (Lean's infer, infer-only: the
+\ typer mixed-infer.fs lends comparisons, on the frames' fuel), put in
+\ whnf (a child visit), must apply a constant named as the recursor's
+\ major inductive type (get_major_induct); mk_nullary_cnstr
+\ (inductive.cpp 80-97) then makes that type's first constructor at the
+\ type's universe arguments, applied to its first numParams arguments;
+\ when the constructor's type, inferred aside, is_def_eq e's type
+\ (defeq.fs, a child visit, lent the typer as inference lends it), the
+\ constructor takes e's place. Otherwise e stays ("kept": another head, a
+\ type without constructors, a no). Either way the major premise is then
+\ put in whnf and reduced as above, as in Lean.
+\ K cannot run as Lean (undecided, e stays): outside environment mode,
+\ for an e with loose bound variables (read under binders the check did
+\ not open), where the inference, a whnf or the comparison is unknown, a
+\ lookup cannot follow Lean, or e's type has fewer than numParams
+\ arguments (Lean would shrink its buffer past the end; never for a
+\ well-typed e). A major premise whose whnf is then a constructor
+\ application still reduces -- the rule of a k recursor takes no field,
+\ so the reduct is the one K's constructor would give -- and any other
+\ is unknown (diagnostic 81). Exhausted, full and invalid end the visit.
+\ The comparison runs in environment mode with a typer, so it never
+\ doubts (defeq.fs): its no is Lean's.
+: lf-iota-k-kept ( e frames -- ... frames next ) false swap lf-iota-whnf ;
+: lf-iota-k-undecided ( e frames -- ... frames next ) true swap lf-iota-whnf ;
+\ A failure: unknown leaves K undecided; any other ends the visit, the
+\ saved record and application dropped.
+: lf-iota-k-fail ( e outcome frames -- -1 outcome frames 0 )
+  rot drop 2 over frame-drop lf-whnf-failed ;
+: lf-iota-k-failed ( e outcome frames -- ... frames next )
+  over outcome-unknown = if nip lf-iota-k-undecided else lf-iota-k-fail then ;
+\ After the child visits: e, saved last, back.
+: lf-iota-k-off ( outcome frames -- ... frames next ) dup frame-restore -rot lf-iota-k-failed ;
+: lf-iota-k-keep ( frames -- ... frames next ) dup frame-restore swap lf-iota-k-kept ;
+
+\ Whether K can run on e: environment mode, e closed.
+: lf-iota-k-ready? ( e frames -- flag outcome )
+  lf-minfer-env? 0= if 2drop false outcome-ok exit then
+  lf-whnf-loose? ok-then? if 0= outcome-ok else false swap then ;
+\ The major inductive type's name when Ty's head is a constant of that
+\ name, else 0 (kept); unknown for a recursor type without that binder.
+: lf-iota-k-induct ( Ty decl -- name|0 outcome )
+  lf-iota-induct ?dup 0= if drop 0 outcome-unknown exit then
+  swap lf-whnf-head dup lf-whnf-const? 0= if 2drop 0 outcome-ok exit then
+  lf-whnf-cref lf-crec-name @ over lf-name-same? 0= if drop 0 then outcome-ok ;
+\ get_first_cnstr (inductive.cpp 80-86): the first constructor's name of
+\ the type named name, 0 for no inductive type or none.
+: lf-iota-first-ctor ( name -- ctor|0 outcome )
+  lf-whnf-find ok-then? 0= if 0 swap exit then
+  dup 0< if drop 0 outcome-unknown exit then
+  lf-whnf-decl ok-then? 0= if 0 swap exit then
+  dup lf-idecl-kind @ lf-kind-inductive <> if drop 0 outcome-ok exit then
+  lf-idecl-data lf-ity-ctors@ if @ else drop 0 then outcome-ok ;
+\ mk_nullary_cnstr (88-97): ctor at Ty's universe arguments applied to
+\ Ty's first p arguments.
+: lf-iota-k-make ( ctor Ty p -- N outcome )
+  over lf-iota-n over < if 2drop drop -1 outcome-unknown exit then
+  >r tuck lf-iota-ctor-const ok-then? 0= if nip r> drop no-result exit then
+  swap r> lf-iota-params ;
+\ The nullary constructor for Ty, -1 when K keeps e.
+: lf-iota-k-null ( Ty decl -- N|-1 outcome )
+  2dup lf-iota-k-induct ok-then? 0= if nip nip -1 swap exit then
+  ?dup 0= if 2drop -1 outcome-ok exit then
+  lf-iota-first-ctor ok-then? 0= if nip nip -1 swap exit then
+  ?dup 0= if 2drop -1 outcome-ok exit then
+  swap lf-irc-params lf-iota-field >r swap r> lf-iota-k-make ;
+
+\ The steps. e is saved above the record and the application while its
+\ type is put in whnf (Ty), N and the comparison's typer above it while
+\ Ty and N's type are compared.
+: lf-iota-k-compared ( flag outcome frames -- ... frames next )
+  >r r@ frame-restore lf-dq-typer ! r@ frame-restore r@ frame-restore 2swap
+  ok-then? 0= if rot drop r> lf-iota-k-failed exit then
+  if drop else nip then false r> lf-iota-whnf ;
+: lf-iota-k-compare ( Ty N NT frames -- ... frames next )
+  >r swap r@ frame-save lf-dq-typer @ r@ frame-save
+  lf-dq-typer @ 0= if ['] lf-minfer-typer lf-dq-typer ! then
+  r> ['] lf-iota-k-compared lf-defeq-call ;
+: lf-iota-k-typed ( Ty outcome frames -- ... frames next )
+  >r ok-then? 0= if r> lf-iota-k-off exit then
+  dup 2 r@ frame-pick lf-iota-k-null ok-then? 0= if nip r> lf-iota-k-off exit then
+  dup 0< if 2drop r> lf-iota-k-keep exit then
+  dup r@ lf-minfer-typed ok-then? 0= if nip nip r> lf-iota-k-off exit then
+  r> lf-iota-k-compare ;
+: lf-iota-k ( e frames -- ... frames next )
+  2dup lf-iota-k-ready? ok-then? 0= if swap lf-iota-k-fail exit then
+  0= if lf-iota-k-undecided exit then
+  2dup lf-minfer-typed ok-then? 0= if swap lf-iota-k-failed exit then
+  rot 2 pick frame-save swap ['] lf-iota-k-typed lf-whnf-call ;
+: lf-iota-go ( e k frames -- ... frames next )
+  swap if lf-iota-k else false swap lf-iota-whnf then ;
 
 \ ---------------------------------------------------------------------------
 \ Projection reduction (plan task 5.2.2, ADR 0015 J1; reduce_proj
@@ -288,6 +393,5 @@ require ./whnf.fs
   dup 0< if lf-iota-none exit then
   2 pick lf-iota-n over lf-iota-major-idx > 0= if lf-iota-none exit then
   dup 2 pick frame-save 2 pick 2 pick frame-save
-  lf-iota-major-idx >r swap dup lf-iota-n r> lf-iota-arg swap
-  ['] lf-iota-majored lf-whnf-call ;
+  rot swap tuck lf-iota-major swap lf-iota-k? rot lf-iota-go ;
 ' lf-iota is lf-whnf-iota
