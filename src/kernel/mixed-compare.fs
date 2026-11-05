@@ -142,7 +142,7 @@ lf-level-walk-room context-walk2: lf-mcompare-level-walker
 : lf-mcompare-sort ( a b walk -- outcome ) drop lf-mcompare-firsts lf-mcompare-level ;
 \ Two projection leaves (core/projections.fs): the same field index, then
 \ the same structure name (Lean's proj: idx, then struct name).
-: lf-mcompare-seconds? ( a b -- flag ) lf-term-second@ swap lf-term-second@ = ;
+: lf-mcompare-seconds? ( a b -- flag ) lf-mcompare-seconds = ;
 : lf-mcompare-proj ( a b walk -- outcome )
   >r 2dup lf-mcompare-seconds? 0= if 2drop r> drop outcome-unknown exit then
   lf-mcompare-firsts r> lf-mcompare-names ;

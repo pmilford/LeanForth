@@ -300,26 +300,26 @@ T{ s" pos.erased-by-recursor" verdict -> outcome-ok 0 all-steps }T
 T{ s" pos.erased-by-definition" verdict -> outcome-ok 0 all-steps }T
 \ Iota in a declaration's check (Lean's reduce_recursor, behind whnf.fs's
 \ hook): a constructor's rule with its fields, its induction hypothesis
-\ and an argument after the major premise, Nat.zero, Eq.refl (k set). A
-\ comparison Lean refuses after iota, or with a stuck major premise, is
-\ unknown until the port decides rejections (task 4.2.2d); Nat.succ is
-\ K7 (Lean's reduce_nat makes a literal of it: task 5.2.3).
+\ and an argument after the major premise, Nat.zero, Eq.refl (k set);
+\ Nat.succ is K7 (Lean's reduce_nat makes a literal of it: task 5.2.3).
 T{ s" iota.bool-true" used -> outcome-ok 0 }T
 T{ s" iota.list-hypothesis" used -> outcome-ok 0 }T
 T{ s" iota.list-field" used -> outcome-ok 0 }T
 T{ s" iota.argument-after-major" used -> outcome-ok 0 }T
 T{ s" iota.nat-zero" used -> outcome-ok 0 }T
 T{ s" iota.eq-refl" used -> outcome-ok 0 }T
-T{ s" iota.bool-true-wrong" used -> outcome-unknown lf-diag-undecided }T
-T{ s" iota.list-hypothesis-wrong" used -> outcome-unknown lf-diag-undecided }T
-T{ s" iota.bool-stuck" used -> outcome-unknown lf-diag-undecided }T
+\ Lean's is_def_eq says no after iota (or with iota stuck): rejected since
+\ plan task 4.2.2d (declTypeMismatch).
+T{ s" iota.bool-true-wrong" used -> outcome-rejected lf-diag-value-apart }T
+T{ s" iota.list-hypothesis-wrong" used -> outcome-rejected lf-diag-value-apart }T
+T{ s" iota.bool-stuck" used -> outcome-rejected lf-diag-value-apart }T
 T{ s" iota.nat-succ" used -> outcome-unknown lf-diag-name-matched }T
 \ Review rvN1 round 2 (L1): a reduct that keeps the recursor's universe
 \ arguments in its recursive call; iota on Lean's generated recursor
 \ after B3 refused the block's swapped rules (not ported yet: unknown,
 \ never the file's rules).
 T{ s" iota.levels-in-reduct" used -> outcome-ok 0 }T
-T{ s" iota.levels-in-reduct-wrong" used -> outcome-unknown lf-diag-undecided }T
+T{ s" iota.levels-in-reduct-wrong" used -> outcome-rejected lf-diag-value-apart }T
 T{ s" after.b3-swapped-then-iota-lean-rule" used -> outcome-unknown lf-diag-iota-pending }T
 T{ s" after.b3-swapped-then-iota-forged-rule" used -> outcome-unknown lf-diag-iota-pending }T
 \ Projections (task 5.2.2): typed by infer_proj, a data field of a pair
@@ -331,19 +331,33 @@ T{ s" proj.data-from-proof" used -> outcome-rejected lf-diag-invalid-proj }T
 T{ s" proj.wrong-structure" used -> outcome-rejected lf-diag-invalid-proj }T
 T{ s" proj.index-out-of-range" used -> outcome-rejected lf-diag-invalid-proj }T
 \ A projection of a constructor application reduces to its field
-\ (reduce_proj): (Bool, Nat).1 is Bool; the wrong twin is unknown until
-\ the port decides rejections (task 4.2.2d).
+\ (reduce_proj): (Bool, Nat).1 is Bool; the wrong twin rejected, as by
+\ Lean.
 T{ s" proj.reduces" used -> outcome-ok 0 }T
-T{ s" proj.reduces-wrong" used -> outcome-unknown lf-diag-undecided }T
-\ Structure eta in iota (R3): PUnit's major expanded, accepted; Prod's
-\ unknown while its is_prop test needs a comparison inside one (not
-\ re-entrant); And's, a proposition's, the same (Lean leaves it stuck).
+T{ s" proj.reduces-wrong" used -> outcome-rejected lf-diag-value-apart }T
+\ Structure eta in iota (R3): the major premises of PUnit and Prod
+\ expanded, accepted; And's, a proposition's, left stuck as by Lean, so
+\ rejected; a reduct p.1 compared with Prod.fst p, two projections.
 T{ s" iota.punit-eta" used -> outcome-ok 0 }T
-T{ s" iota.prod-eta" used -> outcome-unknown lf-diag-iota-pending }T
-T{ s" iota.and-prop-stuck-bool" used -> outcome-unknown lf-diag-iota-pending }T
-\ Unknown, unsupported and invalid. C2's comparison of id Type with Type
-\ needs Lean's lazy delta reduction (task 4.2.2d).
-T{ s" params.constructor-binder-defeq" verdict nip -> outcome-unknown 9 }T
+T{ s" iota.prod-eta" used -> outcome-ok 0 }T
+T{ s" iota.and-prop-stuck-bool" used -> outcome-rejected lf-diag-value-apart }T
+T{ s" iota.structure-eta" used -> outcome-ok 0 }T
+\ p.1 = p.2: two projections of p that differ in the field, never equal
+\ by Lean's ==; unknown, where Lean says no, until defeq.fs ports the
+\ comparison's projection steps (task 5.2.2).
+T{ s" proj.index-differs" used -> outcome-unknown lf-diag-undecided }T
+\ Structure eta and unit-like types in is_def_eq: a pair and a structure
+\ of no fields are rejected as by Lean where neither applies; where one
+\ may, unknown (diagnostic 89) until task 5.2.2 ports them in defeq.fs
+\ (R4, R5).
+T{ s" unit.bool-not-unit-like" used -> outcome-rejected lf-diag-value-apart }T
+T{ s" unit.bool-variables" used -> outcome-rejected lf-diag-value-apart }T
+T{ s" unit.pair-of-units" used -> outcome-rejected lf-diag-value-apart }T
+T{ s" eta.structure" used -> outcome-unknown lf-diag-structure-pending }T
+T{ s" unit.punit" used -> outcome-unknown lf-diag-structure-pending }T
+\ C2's comparison of id Type with Type needs Lean's lazy delta reduction
+\ (accepted since plan task 4.2.2d). Unknown, unsupported and invalid:
+T{ s" params.constructor-binder-defeq" verdict nip -> outcome-ok 15 }T
 \ Forged arithmetic (review rvN1 B1, B2). A definition, or a block member,
 \ named Nat.pow or Nat.shiftLeft is unsupported until task 5.2.3, and so
 \ is every declaration that uses one (K5): Lean's whnf computes them by
@@ -701,8 +715,7 @@ T{ s" after.vec-left-out-then-use-rec" used -> outcome-ok 0 }T
 T{ s" after.reflexive-indexed-left-out-then-use-rec" used -> outcome-ok 0 }T
 T{ s" after.indexed-mixed-left-out-then-use-rec" used -> outcome-ok 0 }T
 T{ s" after.reflexive-indexed-dependent-left-out-then-use-rec" used -> outcome-ok 0 }T
-T{ s" after.annotated-binders-left-out-then-use-rec" used
-   -> outcome-unknown lf-diag-needs-unfolding }T
+T{ s" after.annotated-binders-left-out-then-use-rec" used -> outcome-ok 0 }T
 T{ s" after.redex-parameter-left-out-then-use-rec" used -> outcome-ok 0 }T
 \ The marks on the slots: the type and constructors, not the recursor.
 : added? ( d -- flag ) lf-env lf-env-slot lf-slot-added? ;

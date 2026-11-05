@@ -1,27 +1,26 @@
-\ Conversion of mixed terms: Lean's is_def_eq as far as LeanForth ports
-\ it (defeq.fs: quick_is_def_eq, is_def_eq_binding, whnf_core and the
-\ steps that can only say yes; ADR 0014 Q1, plan task 4.2.2b), after a
+\ Conversion of mixed terms: Lean's is_def_eq as LeanForth ports it
+\ (defeq.fs; ADR 0014 Q1, plan tasks 4.2.2b and 4.2.2d), after a
 \ complete audit of both graphs. Untrusted: not a trusted kernel or proof
 \ checker. The audit checks universe parameter scope, not term binder
 \ scope or typing; callers must establish those independently before
 \ using a conversion result.
-\ Answers: ok when Lean's is_def_eq says yes; unknown when the port
-\ cannot decide or when it says Lean's no, which conversion still
-\ reports as unknown -- ADR 0011's rejection analysis (mixed-infer.fs)
-\ decides rejections until plan task 4.2.2d retires it, with the port's
-\ no as its cross-check (lf-mconvert-apart); invalid, exhausted or full
-\ for a failure. No failure ever authorizes equality.
+\ Answers: ok when Lean's is_def_eq says yes; rejected when it says no
+\ (the caller reports Lean's exception for its step: declTypeMismatch,
+\ appTypeMismatch); unknown where the port cannot decide; invalid,
+\ exhausted or full for a failure. No failure ever authorizes equality.
+\ The caller may lend the port a typer (lf-dq-typer, defeq.fs), as
+\ mixed-infer.fs does; without one, a no that steps 4 or 14 could have
+\ turned into a yes is unknown.
 \ Fuel: one budget for the audit and the comparison. lf-mixed-convert
 \ leaves no fuel after any outcome but ok; lf-mixed-convert-keeping, which
-\ mixed-infer uses, keeps what an unknown comparison left, so that the
-\ rejection analysis can go on with it.
+\ mixed-infer uses, keeps what an unknown comparison left.
 \ State: one paired walk record, lf-mconvert-walker (the audit, and the
 \ fuel left), one frames record, lf-mconvert-frames (the comparison), and
 \ one module record, lf-mconvert-state (whether the comparison may keep
-\ its fuel when unknown, and whether the port said no), all members of the
-\ checker context (lib/context.fs). Single-threaded within one context;
-\ no raw or concurrent mutation is safe; a comparison cannot run inside
-\ another (the frames record is busy: invalid).
+\ its fuel when unknown), all members of the checker context
+\ (lib/context.fs). Single-threaded within one context; no raw or
+\ concurrent mutation is safe; a comparison cannot run inside another
+\ (the frames record is busy: invalid).
 
 require ../lib/lib.fs
 require ../core/constant-references.fs
@@ -37,7 +36,6 @@ require ./mixed-compare.fs
 lf-walk-room context-walk2: lf-mconvert-walker
 begin-structure /lf-mcvs
   field: lf-mcvs-keep       \ true: an unknown comparison keeps its fuel
-  field: lf-mcvs-apart      \ true: the last comparison's port said Lean's no
 end-structure
 /lf-mcvs context-record: lf-mconvert-state
 \ The frames' visitor is never run: every visit of the port is opened
@@ -49,15 +47,11 @@ end-structure
 \ Fuel left after a conversion; mixed-infer continues with it.
 : lf-mconvert-fuel ( -- addr ) lf-mconvert-walker walk-fuel ;
 : lf-mconvert-keep ( -- addr ) lf-mconvert-state lf-mcvs-keep ;
-\ Whether the last conversion's port answered Lean's no (it reported
-\ unknown).
-: lf-mconvert-apart ( -- addr ) lf-mconvert-state lf-mcvs-apart ;
-
 \ The port on the walk's fuel left after the audits: yes is ok, no is
-\ unknown with lf-mconvert-apart set, recorded as undecided with both
-\ terms (unless something more specific was recorded first).
+\ rejected, recorded as not definitionally equal with both terms (a
+\ caller that knows the step records its own rule in its place).
 : lf-mconvert-no ( left right -- outcome )
-  lf-dq-undecided true lf-mconvert-apart ! outcome-unknown ;
+  c" mixed-convert lf-mixed-convert" lf-diag-not-defeq lf-diag-note outcome-rejected ;
 : lf-mconvert-answer ( left right flag outcome -- outcome )
   dup ok? if drop if 2drop outcome-ok else lf-mconvert-no then else nip nip nip then ;
 : lf-mconvert-defeq ( left right -- outcome )
@@ -85,7 +79,6 @@ end-structure
 \ Validate both complete graphs, then compare; restore all temporary term
 \ allocations on every result. Failed preflight conservatively leaves zero fuel.
 : lf-mconvert-pass ( left lid right rid fuel -- status )
-  false lf-mconvert-apart !
   lf-mconvert-walker tuck walk-budget 0= if lf-mcompare-refused exit then
   lf-mcompare-roots ok-then? if lf-mconvert-run else nip then lf-mconvert-settle ;
 \ The derivation log (ADR 0013): with it on, a conversion is one defeq

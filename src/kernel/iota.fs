@@ -136,15 +136,12 @@ require ./whnf.fs
 \ another. The inference runs inside an inference job in environment
 \ mode only; elsewhere, for a term with loose bound variables (read
 \ under binders the check did not open), and wherever that inference
-\ fails, unknown -- among them a type whose inference needs a comparison
-\ while one is running (lf-mixed-convert is not re-entrant: Lean's
-\ infer_type here is infer_only, which compares nothing; plan task
-\ 4.2.2d's port may give LeanForth that mode), such as is_prop of
-\ Prod Bool Bool met inside a comparison.
-: lf-iota-type-of ( node -- Ty outcome )
-  lf-minfer-aside @ >r true lf-minfer-aside !
-  lf-minfer-walk ok-then? if lf-minfer-whnf-job else no-result then
-  r> lf-minfer-aside ! ;
+\ fails, unknown. Aside, inference compares nothing (Lean's infer_type
+\ here is infer_only), so it runs inside a comparison too: is_prop of
+\ Prod Bool Bool, met in one (iota.prod-eta).
+: lf-iota-typed ( node -- Ty outcome )
+  lf-minfer-walk ok-then? if lf-minfer-whnf-job else no-result then ;
+: lf-iota-type-of ( node -- Ty outcome ) ['] lf-iota-typed lf-iproj-aside ;
 : lf-iota-closed? ( node -- flag )
   lf-minfer-frames lf-whnf-loose? ok? if 0= else drop false then ;
 : lf-iota-of-struct? ( sdecl Ty -- flag )

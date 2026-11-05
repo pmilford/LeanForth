@@ -19,7 +19,7 @@ still *unsupported*, as is every quotient and literal (ADR 0011 rules
 U1, U2). **Task 5.2.2, projections and structures, is in progress**
 (2026-11-04, experimental: [Implementation](#implementation-plan-task-522-in-progress)):
 projections are staged, typed and reduced; structure eta in comparisons
-and unit-like types wait on plan task 4.2.2d's comparison. It extends ADR 0011 (rejection rules) and ADR 0012
+and unit-like types remain, in plan task 4.2.2d's comparison. It extends ADR 0011 (rejection rules) and ADR 0012
 (the checked environment) and supersedes neither. Each implementation task
 of §12 passes its own review gate (`AGENTS.md`): Lean's published rules,
 agreeing pinned-Lean differential tests reaching every outcome, an
@@ -1282,36 +1282,47 @@ open.
     same terms, and every reduction gives the same result. A leaf met
     anywhere but at a spine's head is malformed.
 23. *Not yet as Lean, cautious*: R3 and `infer_proj`'s `is_prop` test
-    infer types inside an inference job only, and a comparison cannot run
-    inside another (`lf-mixed-convert` is not re-entrant; Lean's
-    `infer_type` here is `infer_only`), so such a route is *unknown* where
-    it needs one (`iota.prod-eta`); `cheap_proj` is not modelled (the hook
+    infer types inside an inference job only, aside (Lean's `infer_only`,
+    which compares nothing, so they also run inside a comparison), and are
+    *unknown* elsewhere; `cheap_proj` is not modelled (the hook
     always puts the term in whnf); a structure that is a type of the block
     being checked is *unknown* in `infer_proj`. The importer used by the
     first checker's command line for plain declarations
     (`import/checker-input.fs`) still stages a projection as unsupported:
     it cannot hold inductive blocks.
 
-**Waiting on plan task 4.2.2d** (agent U4, `defeq.fs`): R4, structure eta
-in `is_def_eq` (`try_eta_struct_core` 856–872), and R5, unit-like types
-(`is_def_eq_unit_like` 1119–1130), belong inside the ported comparison,
-with `lazy_delta_proj_reduction`; the words they need are here
-(`lf-iota-structure`, `lf-iproj-ctor`, `lf-iota-proj-of`), and so do the
-rejections Lean's "no" gives after reduction (rows `*-wrong`, `unit.*`).
+**Remaining, in `defeq.fs`** (agent U4, after plan task 4.2.2d): R4,
+structure eta in `is_def_eq` (`try_eta_struct_core` 856–872), and R5,
+unit-like types (`is_def_eq_unit_like` 1119–1130), belong inside the
+ported comparison, with `lazy_delta_proj_reduction`; the words they need
+are here (`lf-iota-structure`, `lf-iproj-ctor`, `lf-iota-proj-of`). Until
+then a comparison either may decide is *unknown* (diagnostic 89). So
+are the comparison's projection steps: two projections of the same
+field (`is_def_eq` of their terms, 1185), `whnf_core` with projections
+reduced by `whnf` (1188-1191), `try_unfold_proj_app` in lazy delta, and
+`cheap_proj`. Until then `is_def_eq_app` takes a projection for an
+application of its leaf: two leaves that are `==` (same structure and
+field) compare their terms, as Lean's step does; two that differ reach
+`whnf_core` of a leaf alone, *unknown* (diagnostic 30, `whnf.fs`), where
+Lean may answer either way (`proj.index-differs`: Lean says no).
 
-**Evidence** (2026-11-04, Gforth 1.0.0, Lean 4.35.0): the table has 277
-cases. The `proj.*` rows give Lean's verdict: `proj.data`,
-`proj.proof-of-proof`, `proj.reduces` accepted; `proj.data-from-proof`,
-`proj.wrong-structure`, `proj.index-out-of-range` rejected (91);
-`iota.punit-eta` accepted (R3). Still *unknown*: `proj.reduces-wrong`,
-`iota.prod-eta`, `iota.structure-eta`, `iota.and-prop-stuck*`,
-`eta.structure` and the `unit.*` rows (4.2.2d). On the command line's
-`kinds.ndjson`, 67 of 106 declarations are accepted (58 before);
-`Nat.add_zero`'s export: 16 of 29 checks accepted (14 before:
-`Add.add` and `OfNat.ofNat` now). Review rvN1 round 2's rows L1 are
+**Evidence** (2026-11-04, Gforth 1.0.0, Lean 4.35.0; with plan task
+4.2.2d merged): the table has 279 cases. The `proj.*` rows give Lean's
+verdict: `proj.data`, `proj.proof-of-proof`, `proj.reduces` accepted;
+`proj.data-from-proof`, `proj.wrong-structure`, `proj.index-out-of-range`
+rejected (91); `proj.reduces-wrong` rejected (60). R3: `iota.punit-eta`,
+`iota.prod-eta`, `iota.structure-eta` accepted, `iota.and-prop-stuck-bool`
+rejected, as by Lean. `unit.bool-not-unit-like`, `unit.bool-variables`
+and `unit.pair-of-units` rejected, as by Lean; *unknown* (89) until R4
+and R5: `eta.structure`, `unit.punit`, `unit.punit-variables`; and
+`proj.index-differs` (30), until the projection steps. On the
+command line's `kinds.ndjson`, 75 of 106 declarations are accepted (58
+before projections, 62 with 4.2.2d alone, 67 with projections alone);
+`Nat.add_zero`'s export: 25 of 29 checks accepted (14 before); the four
+left need literals (5.2.3). Review rvN1 round 2's rows L1 are
 committed (`iota.levels-in-reduct*`, `iota.punit-eta`, `iota.prod-eta`,
 `iota.and-prop-stuck-bool`, `after.b3-swapped-then-iota-*`), and its
-three surviving faults are caught, as are three new ones on projections.
+three surviving faults are caught, as are five new ones on projections.
 
 ## Plan (task 5.2.5b): nested blocks
 

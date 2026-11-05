@@ -206,15 +206,18 @@ T{ 0 make-sort handle 0 make-sort handle -1 lf-mixed-compare lf-mcompare-fuel @
   -> outcome-invalid 0 }T
 
 \ T5.4 lf-mixed-convert on symbolic Sorts, with counts kept, and a fuel
-\ sweep that gives only equal or exhausted; different head constructors
-\ after weak-head reduction are unknown in both orders.
+\ sweep that gives only equal or exhausted. Since plan task 4.2.2d Lean's
+\ no is rejected: two Sorts of inequivalent levels, and a Sort against a
+\ bound variable; a bound variable on the left is unknown (a bare
+\ conversion has no typer to tell whether it is a proof, step 4), and so
+\ is a lambda against a Sort (eta, step 11).
 fresh-session
 : sort-pair ( left right -- l r ) >r make-sort r> make-sort ;
 T{ level-u level-u 0 lf-level-max must sort-pair save-counts convert-terms counts-kept?
   -> outcome-ok true }T
 T{ level-u 0 lf-level-imax must 0 sort-pair convert-terms -> outcome-ok }T
 T{ level-u level-v sort-pair save-counts convert-terms counts-kept?
-  -> outcome-unknown true }T
+  -> outcome-rejected true }T
 variable convert-left variable convert-right
 : convert-sweep ( -- flag )
   level-u level-u 0 lf-level-max must sort-pair convert-right ! convert-left !
@@ -225,7 +228,7 @@ variable convert-left variable convert-right
   loop false ;
 T{ convert-sweep -> true }T
 fresh-session
-T{ 0 make-sort 0 make-var convert-terms -> outcome-unknown }T
+T{ 0 make-sort 0 make-var convert-terms -> outcome-rejected }T
 T{ 0 make-var 0 make-sort convert-terms -> outcome-unknown }T
 T{ 0 make-sort 0 make-sort 0 make-var make-lam convert-terms -> outcome-unknown }T
 T{ 0 make-sort 0 make-var make-lam 0 make-sort convert-terms -> outcome-unknown }T

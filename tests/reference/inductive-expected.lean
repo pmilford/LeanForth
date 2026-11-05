@@ -661,6 +661,10 @@ def reductions : List Red := [
     type := "∀ p : Nat × Nat, @Prod.rec Nat Nat (fun _ => Nat) (fun a _ => a) p = p.1",
     value := "fun (p : Nat × Nat) => Eq.refl p.1",
     lean := "accepted", leanforth := "accepted", rule := "R1 R3", task := "5.2.2" },
+  -- Two projections of one term that differ only in the field (p.1, p.2 unfolded).
+  { id := "proj.index-differs",
+    type := "∀ p : Nat × Nat, p.1 = p.2", value := "fun (p : Nat × Nat) => Eq.refl p.1",
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "J1", task := "5.2.2" },
   { id := "iota.prop-structure-stuck",
     type := "∀ (a b : Prop) (h : a ∧ b), @And.rec a b (fun _ => Nat) (fun _ _ => 5) h = 5",
     value := "fun (a b : Prop) (h : a ∧ b) => Eq.refl 5",
@@ -1138,8 +1142,9 @@ proposition. LeanForth answers unknown there (K7, ADR 0014 Q8) until plan task
 5.2.3 ports literals; it must never accept. The twins under other names, a
 free variable (no `reduce_nat`) and the same declaration with a regular hint
 (Lean's argument test first) are accepted. `k7.whnf-sort` reaches K7 in `whnf`
-instead: `Nat.succ Nat.zero` becomes the literal `1`, no type. From an empty
-environment, as `chains`. -/
+instead: `Nat.succ Nat.zero` becomes the literal `1`, no type; and
+`k7.rec-on-succ-variable` shows where `reduce_nat` gives nothing (no literal
+argument). From an empty environment, as `chains`. -/
 
 namespace K7Rows
 
@@ -1176,6 +1181,19 @@ def gClaim : Declaration :=
   let d := .app (k `g) (k `Nat.zero)
   .thmDecl { name := `t, levelParams := [], type := pi d (.app (k `g) (idProp (k `Nat.zero))),
              value := lam d (.bvar 0) }
+/-- `inductive Nat | zero | succ (n : Nat)`. -/
+def natInd : Declaration :=
+  .inductDecl [] 0 [⟨`Nat, typ, [⟨`Nat.zero, k `Nat⟩, ⟨`Nat.succ, arr (k `Nat) (k `Nat)⟩]⟩] false
+/-- `@Nat.rec.{1} (fun _ => Prop) A (fun _ ih => ih) m`. -/
+def recProp (A m : Expr) : Expr :=
+  ap (.const `Nat.rec [.succ .zero]) [lam (k `Nat) prop, A, lam (k `Nat) (lam prop (.bvar 0)), m]
+/-- `theorem t (A : Prop) (n : Nat) (h : rec A n) : rec A (Nat.succ n) := h`: iota on
+`Nat.succ n`, a constructor application whose argument is a variable. -/
+def recSuccVariable : Declaration :=
+  .thmDecl { name := `t, levelParams := [],
+             type := pi prop (pi (k `Nat) (pi (recProp (.bvar 1) (.bvar 0))
+               (recProp (.bvar 2) (.app (k `Nat.succ) (.bvar 1))))),
+             value := lam prop (lam (k `Nat) (lam (recProp (.bvar 1) (.bvar 0)) (.bvar 0))) }
 /-- `succ : Type → Type := fun _ => Prop`, then `def kk : Π (A : succ zero) (h : A), A`. -/
 def sortUse (zero succ : Name) : List Declaration :=
   let dom := .app (k succ) (k zero)
@@ -1209,7 +1227,12 @@ def k7Chains : List Chain := [
   { id := "k7.whnf-sort", decls := sortUse `Nat.zero `Nat.succ,
     lean := "typeExpected", leanforth := "rejected", rule := "K7", task := "5.2.3" },
   { id := "k7.whnf-sort-twin", decls := sortUse `Zz `Zs,
-    lean := "accepted", leanforth := "accepted", rule := "whnf", task := "4.2.2c" }
+    lean := "accepted", leanforth := "accepted", rule := "whnf", task := "4.2.2c" },
+  -- reduce_nat needs literals: on Nat.succ n with n a variable it gives
+  -- nothing, and iota takes Nat.succ n as a constructor (K7 only where
+  -- reduce_nat computes; N1's observation).
+  { id := "k7.rec-on-succ-variable", decls := [natInd, recSuccVariable],
+    lean := "accepted", leanforth := "accepted", rule := "R1", task := "5.2.1b" }
 ]
 
 /-- A constructor that names `_nested.T`, a name only the kernel's nested

@@ -18,6 +18,9 @@ table as a differential is plan task 4.3.1).
 * A `whnf` row: the constant's declaration as Lean's elaborator made it,
   then `probe : T := c`, whose value LeanForth puts in whnf (the driver
   `tests/support/whnf-probe.fs`).
+* A definition's line ends with its reducibility hint, `HINT opaque`,
+  `HINT abbrev` or `HINT regular <height>`, which lazy delta reduction
+  reads (the first checker's driver takes `regular 1` without one).
 * A row that re-checks one of Lean's own elaborations (`later.*`, phase 5),
   or whose declaration names a constant of Lean's own library that its base
   does not declare (`And.rec` and the like, phase 5), is printed as
@@ -41,6 +44,17 @@ def constDecl : ConstantInfo → Option Declaration
 def probeDecl (info : ConstantInfo) : Declaration :=
   .defnDecl { name := `probe, levelParams := [], type := info.type,
               value := .const info.name [], hints := .opaque, safety := .safe }
+
+/-- A reducibility hint as the driver reads it. -/
+def hintText : ReducibilityHints → String
+  | .opaque => "opaque"
+  | .abbrev => "abbrev"
+  | .regular h => s!"regular {h}"
+
+/-- A declaration's line, a definition's with its hint. -/
+def dqLine (role : String) : Declaration → String
+  | .defnDecl d => declLine role (.defnDecl d) ++ " HINT " ++ hintText d.hints
+  | d => declLine role d
 
 /-- The terms of a declaration, and the names it declares. -/
 def declExprs : Declaration → List Expr
@@ -71,14 +85,14 @@ run_cmd do
       if closedOver before decl then
         IO.println s!"CASE {c.id}"
         for d in before do
-          IO.println (declLine "before" d)
-        IO.println (declLine "check" decl)
+          IO.println (dqLine "before" d)
+        IO.println (dqLine "check" decl)
       else
         IO.println s!"SKIP {c.id}"
     | .whnf n =>
       let some info := env.find? n | throwError "{c.id}: {n} not found"
       let some d := constDecl info | throwError "{c.id}: {n} is not a declaration"
       IO.println s!"CASE {c.id}"
-      IO.println (declLine "before" d)
-      IO.println (declLine "check" (probeDecl info))
+      IO.println (dqLine "before" d)
+      IO.println (dqLine "check" (probeDecl info))
     | .recheck .. => IO.println s!"SKIP {c.id}"

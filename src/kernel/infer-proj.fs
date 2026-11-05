@@ -55,18 +55,19 @@ require ./whnf.fs
 : lf-iproj-head ( node -- head ) lf-mhead-spine drop ;
 : lf-iproj-pi? ( node -- flag ) lf-term-tag@ lf-tag-pi = ;
 
+\ An inference aside, Lean's infer_only, which compares nothing: xt
+\ ( x -- y status ) run with inference's rejection rules off (and no
+\ step logged, mixed-infer.fs). Also iota.fs's (R3).
+: lf-iproj-aside ( x xt -- y status )
+  lf-minfer-aside @ >r true lf-minfer-aside ! execute r> lf-minfer-aside ! ;
 \ is_prop (383-389), aside: x's type's whnf a Sort whose level is zero.
-\ An inference that fails as invalid -- among them one that needs a
-\ comparison while one runs, lf-mixed-convert not being re-entrant -- is
-\ unknown here.
+\ An inference that fails as invalid is unknown here.
 : lf-iproj-zero ( x -- flag status )
   lf-minfer-walk ok-then? 0= if false swap exit then
   lf-minfer-whnf-job ok-then? 0= if false swap exit then
   lf-minfer-sort? 0= if false outcome-unknown exit then lf-minfer-zero? ;
 : lf-iproj-prop? ( x -- flag status )
-  >r lf-minfer-counts lf-minfer-aside @ r> true lf-minfer-aside !
-  lf-iproj-zero 2>r lf-minfer-aside ! lf-minfer-counts! 2r>
-  dup outcome-invalid = if drop outcome-unknown then ;
+  ['] lf-iproj-zero lf-iproj-aside dup outcome-invalid = if drop outcome-unknown then ;
 
 \ The structure's input declaration: Ty's head a constant named as the
 \ leaf, which a usable slot holds as an inductive type with one

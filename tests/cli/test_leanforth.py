@@ -6,9 +6,11 @@
      inductive.ndjson, an inductive type and a theorem by its recursor);
    1 rejected (composition with the wrong argument);
    2 unsupported (an axiom; a literal; with --record an inductive type,
-     refused while reading) and unknown (tests/cli/unfold.ndjson: a proof
-     that needs a definition unfolded, which the first checker does not do
-     yet); every record kind (tests/core/reexport/kinds.ndjson) counted;
+     refused while reading) and unknown (tests/cli/irrelevance.ndjson: a
+     proof that needs proof irrelevance, which the checker does not port
+     yet; tests/cli/unfold.ndjson, which needs a definition unfolded, is
+     accepted since plan task 4.2.2d); every record kind
+     (tests/core/reexport/kinds.ndjson) counted;
    3 a resource limit (chain with --record ends full while reading; a
      name part of 2^64 is beyond the stage's 32 bits; fuel 0 and 30 end
      exhausted);
@@ -132,7 +134,7 @@ class ExitCodes(unittest.TestCase):
         self.expect(["check", "--no-manifest", f"{CASES}/composition-wrong-argument.ndjson"], 1,
                     [NO_MANIFEST, "composition: rejected",
                      "  rejected: argument type mismatch (D1-D5); diagnostic 59 at mixed-infer "
-                     "lf-mixed-infer: 4 0",
+                     "lf-mixed-infer: 0 0",
                      "1 declaration: 1 rejected"])
         # An empty inductive block, which Lean's kernel rejects (emptyBlock):
         # it has no name, Lean's anonymous one.
@@ -152,17 +154,20 @@ class ExitCodes(unittest.TestCase):
         self.assertEqual((status, out.splitlines()[1]), (2, "composition: unsupported"))
         status, out, _ = run("check", "--no-manifest", "tests/core/reexport/kinds.ndjson")
         self.assertEqual((status, out.splitlines()[-2:]),
-                         (2, ["106 declarations: 67 accepted, 8 unknown, 31 unsupported",
-                              accepted(67)]))
+                         (2, ["106 declarations: 75 accepted, 31 unsupported",
+                              accepted(75)]))
         self.expect(["check", "--no-manifest", "--record", "/dev/null",
                      "tests/core/reexport/kinds.ndjson"], 2,
                     [NO_MANIFEST,
                      "error: unsupported: an inductive type (not supported yet) (line 51)"])
-        self.expect(["check", "tests/cli/unfold.ndjson"], 2,
-                    [f"Implies: {LABEL}", "impliesSelf: unknown",
-                     "  undecided: Lean may unfold a definition here (K1); diagnostic 64 "
-                     "at defeq lf-defeq: 22 0",
-                     "2 declarations: 1 accepted, 1 unknown", accepted(1)])
+        self.expect(["check", "tests/cli/unfold.ndjson"], 0,
+                    [f"Implies: {LABEL}", f"impliesSelf: {LABEL}",
+                     "2 declarations: 2 accepted", accepted(2)])
+        self.expect(["check", "tests/cli/irrelevance.ndjson"], 2,
+                    ["irrelevant: unknown",
+                     "  undecided: proof irrelevance may decide (K2); diagnostic 87 "
+                     "at defeq lf-defeq: 36 37",
+                     "1 declaration: 1 unknown"])
 
     def test_3_limits(self):
         self.expect(["check", "--record", "/dev/null", CHAIN], 3,
@@ -432,16 +437,16 @@ class Print(unittest.TestCase):
     def test_refused(self):
         status, out = self.lines("--no-manifest", f"{CASES}/composition-wrong-argument.ndjson")
         self.assertEqual((status, out), (1, [NO_MANIFEST, *golden("composition-wrong-argument")]))
-        status, out = self.lines("tests/cli/unfold.ndjson")
+        status, out = self.lines("tests/cli/irrelevance.ndjson")
         self.assertEqual(status, 2)
-        self.assertEqual(out[out.index("Theorem impliesSelf"):][1], "  unknown")
+        self.assertEqual(out[out.index("Theorem irrelevant"):][1], "  unknown")
         self.assertEqual(out[-1], REFUSED)
         status, out = self.lines("--fuel", "0", FIXTURE)
         self.assertEqual((status, out.count(REFUSED), out.count("  exhausted")), (3, 3, 3))
         status, out = self.lines("--no-manifest", f"{CASES}/composition-postulate.ndjson")
         self.assertEqual((status, out[1:3], out[-1]),
                          (2, ["Axiom composition", "  unsupported"], REFUSED))
-        for args, code in [((FIXTURE,), 0), (("tests/cli/unfold.ndjson",), 2),
+        for args, code in [((FIXTURE,), 0), (("tests/cli/irrelevance.ndjson",), 2),
                            (("--fuel", "0", FIXTURE), 3),
                            (("--no-manifest", f"{CASES}/composition-wrong-argument.ndjson"), 1)]:
             status, out = self.lines(*args)

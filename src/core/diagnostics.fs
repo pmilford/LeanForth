@@ -112,6 +112,12 @@ require ../lib/lib.fs
 85 constant lf-diag-universe-mismatch  \ T4: the type, 0
 \ Nat.pow and Nat.shiftLeft, until plan task 5.2.3 (review rvN1 B1).
 86 constant lf-diag-nat-count-op       \ unsupported: the declaration, 0
+\ Lean's is_def_eq (ADR 0014; plan task 4.2.2d, kernel/defeq.fs): steps
+\ that could answer yes where LeanForth does not port them yet (unknown).
+87 constant lf-diag-proof-pending      \ K2: the left term (a proof), the right
+88 constant lf-diag-eta-pending        \ K3: the lambda, the other term
+89 constant lf-diag-structure-pending  \ structure eta or unit-like: left, right
+90 constant lf-diag-not-defeq          \ rejected (Lean's no): left, right
 \ Projections (plan task 5.2.2; 87 to 90 are plan task 4.2.2d's).
 91 constant lf-diag-invalid-proj       \ J2 (rejected): the projection's leaf, 0
 
@@ -279,6 +285,12 @@ create lf-diag-catalogue
     s" rejected: mutual types in different universes (T4)" lf-diag-entry,
   lf-diag-nat-count-op
     s" unsupported: a declaration named Nat.pow or Nat.shiftLeft" lf-diag-entry,
+  lf-diag-proof-pending
+    s" undecided: proof irrelevance may decide (K2)" lf-diag-entry,
+  lf-diag-eta-pending s" undecided: eta may decide (K3)" lf-diag-entry,
+  lf-diag-structure-pending
+    s" undecided: structure eta or a unit-like type may decide" lf-diag-entry,
+  lf-diag-not-defeq s" rejected: not definitionally equal" lf-diag-entry,
   lf-diag-invalid-proj s" rejected: invalid projection (J2)" lf-diag-entry,
   lf-diag-none s" unknown code" lf-diag-entry,
 : lf-diag-end? ( code entry -- flag ) lf-diag-entry-code tuck = swap lf-diag-none = or ;

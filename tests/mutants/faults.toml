@@ -613,24 +613,6 @@ reason = "the current task's own context may be claimed for a job"
 # level-value.fs) -----------------------------------------------------------
 
 [[fault]]
-id = "rej-d1-syntactic-levels"
-file = "src/kernel/mixed-infer.fs"
-old = '''  lf-minfer-firsts lf-minfer-fuel @ lf-level-inequivalent? lf-lcmp-fuel lf-minfer-take
-  ok? and lf-rule-d1 lf-minfer-holds ;'''
-new = '''  lf-minfer-firsts <> lf-rule-d1 lf-minfer-holds ;'''
-test = "$GFORTH tests/core/definite-rejection.fs"
-reason = "K1: two Sorts are rejected whenever their levels are written differently (max u v, max v u); re-targeted at Amendment 1's D1"
-quick = true
-
-[[fault]]
-id = "rej-no-proof-test"
-file = "src/kernel/mixed-infer.fs"
-old = '''  swap lf-minfer-proof-free? if lf-minfer-proof-free? else drop false then ;'''
-new = '''  2drop true ;'''
-test = "$GFORTH tests/core/definite-rejection.fs"
-reason = "K1: P2 skipped; two proofs of one statement are rejected though proof irrelevance makes them equal"
-
-[[fault]]
 id = "rej-s3-one-universe"
 file = "src/kernel/level-value.fs"
 old = '''  -1 lf-level-value-witness dup ok? if swap 0= swap else nip false swap then ;'''
@@ -653,56 +635,6 @@ old = '''  lf-minfer-deciding? if lf-minfer-site lf-diag-function-expected lf-mi
 new = '''  false if lf-minfer-site lf-diag-function-expected lf-minfer-reject'''
 test = "$GFORTH tests/core/definite-rejection.fs"
 reason = "F1, since plan task 4.2.2c Lean's ensure_pi_core: a function type whose whnf is no Pi is never rejected"
-
-[[fault]]
-id = "rej-lambda-against-pi"
-file = "src/kernel/mixed-infer.fs"
-old = '''  2dup lf-minfer-one-lam? 0= -rot lf-mhead-shape? swap lf-mhead-shape? and and ;'''
-new = '''  true -rot lf-mhead-shape? swap lf-mhead-shape? and and ;'''
-test = "$GFORTH tests/core/definite-rejection.fs"
-reason = "K1: P3 skipped; a lambda is rejected against another shape though eta may make them equal"
-
-[[fault]]
-id = "rej-d4-domains-ignored"
-file = "src/kernel/mixed-infer.fs"
-old = '''  outcome-unknown = if lf-minfer-firsts r> ['] lf-minfer-d4 lf-minfer-apart-call exit then'''
-new = '''  outcome-unknown = if 2drop 0 false r> lf-minfer-d4 exit then'''
-test = "$GFORTH tests/core/check-declaration.fs"
-reason = "D4 no longer looks at two binders whose domains are apart"
-
-[[fault]]
-id = "rej-d4-left-domain"
-file = "src/kernel/mixed-infer.fs"
-old = '''  >r lf-minfer-context-depth @ -rot dup lf-term-first@ lf-minfer-enter-binder ok?'''
-new = '''  >r lf-minfer-context-depth @ -rot over lf-term-first@ lf-minfer-enter-binder ok?'''
-test = "$GFORTH tests/core/definite-rejection.fs"
-reason = "D4/B2: the bodies are compared with the left (inferred) domain instead of the expected one"
-equivalent = "D4 enters two binders only when conversion found their domains equal, so they are equal up to beta; since plan task 4.2.2c inference puts a domain's type in Lean's whnf, so P2 and the head tests infer the same under either domain (the d4-pair test, which told them apart while only a visible Sort was a type, now finds the pair apart under both, by D3, as Lean rejects it); the analysis is retired by plan task 4.2.2d"
-
-[[fault]]
-id = "rej-d5-rule-unrecorded"
-file = "src/kernel/mixed-infer.fs"
-old = ''': lf-minfer-d5 ( left right mask -- mask' true ) nip nip lf-rule-d5 or true ;'''
-new = ''': lf-minfer-d5 ( left right mask -- mask' true ) nip nip true ;'''
-test = "$GFORTH tests/core/definite-rejection.fs"
-reason = "the diagnostic of a D5 rejection no longer names rule D5"
-
-[[fault]]
-id = "rej-d3-arity-ignored"
-file = "src/kernel/mixed-infer.fs"
-old = '''  lf-minfer-arity? 0= if lf-rule-d3 true r> 0 exit then'''
-new = '''  lf-minfer-arity? 0= if 0 false r> 0 exit then'''
-test = "$GFORTH tests/core/definite-rejection.fs"
-reason = "D3: two variables applied to different numbers of arguments are no longer apart"
-
-[[fault]]
-id = "rej-after-exhaustion"
-file = "src/kernel/mixed-infer.fs"
-old = '''  2dup lf-minfer-compare dup outcome-unknown <> if nip nip 0 swap exit then'''
-new = '''  2dup lf-minfer-compare dup ok? if nip nip 0 swap exit then'''
-test = "$GFORTH tests/core/definite-rejection.fs"
-reason = "a comparison that ran out of fuel or room is analysed and may be rejected instead of exhausted"
-equivalent = "since plan task 4.2.2c a comparison that ran out of fuel leaves none, so the analysis the fault lets run is refused at once and lf-minfer-undecided reports the shortage: exhausted either way (ADR 0008); a comparison out of room with room left for the analysis is not reachable from these cases, and its rejection would be Lean's (each D rule implies Lean's no)"
 
 [[fault]]
 id = "rej-argument-unrecorded"
@@ -901,33 +833,6 @@ test = "$GFORTH tests/core/mixed-infer.fs"
 reason = "4.2.2a, 6.2.0: a binder is opened without room on the scope (past its growable arrays) instead of full"
 
 [[fault]]
-id = "rej-p2-open-term"
-file = "src/kernel/mixed-infer.fs"
-old = '''  lf-minfer-close ok-then? 0= if lf-minfer-unknown exit then'''
-new = ''''''
-test = "$GFORTH tests/core/definite-rejection.fs"
-reason = "4.2.2a: P2 infers a term of the analysis without closing it first"
-equivalent = "inference reads a loose bound variable k under the scope as the scope's free variable k places from the top, and P2 runs with the analysis's D4 binders on the scope, so inferring the open term is inferring its closed copy: the same types, only less scratch (caught under the telescope design of 5053a98, where inference read only closed terms); the closing stays so that what P2 infers is a closed term, the key a future inference cache needs (review rvD2A F2)"
-
-[[fault]]
-id = "rej-d4-domain-open"
-file = "src/kernel/mixed-infer.fs"
-old = '''  lf-minfer-close ok-then? if 0 lf-minfer-bind then dup lf-minfer-shortage ;'''
-new = '''  0 lf-minfer-bind dup lf-minfer-shortage ;'''
-test = "$GFORTH tests/core/definite-rejection.fs"
-reason = "4.2.2a: D4's free variable gets the right domain unclosed, with loose bound variables of the analysis's outer binders, so P2 cannot infer its type"
-
-[[fault]]
-id = "rej-same-head-number-only"
-file = "src/kernel/mixed-infer.fs"
-old = '''  lf-minfer-variable rot lf-minfer-variable rot = >r = r> and ;'''
-new = '''  lf-minfer-variable drop swap lf-minfer-variable drop = ;'''
-test = "$GFORTH tests/core/definite-rejection.fs"
-reason = "4.2.2a: a bound variable of the analysis and a free variable of the same number count as the same head (head-pair test)"
-
-# --- comparison and conversion (src/kernel/mixed-compare.fs, mixed-convert.fs)
-
-[[fault]]
 id = "cmp-arity-unchecked"
 file = "src/kernel/mixed-compare.fs"
 old = '''  >r 2dup lf-mcompare-arity? 0= if 2drop r> drop outcome-unknown false exit then'''
@@ -1120,41 +1025,6 @@ test = "$GFORTH tests/core/whnf.fs"
 reason = "a lookup that finds no constant (no delta, no failure) leaves its unknown-constant note, which would explain a later failure wrongly"
 
 [[fault]]
-id = "whnf-iota-hook-silent"
-file = "src/kernel/whnf.fs"
-old = '''  if lf-whnf-pending else drop -1 outcome-ok then ;'''
-new = '''  drop drop -1 outcome-ok ;'''
-test = "$GFORTH tests/core/whnf.fs"
-reason = "whnf_core treats a recursor at the head as having no rule, where Lean's iota may reduce it"
-gap = "no test reaches the hook with a recursor head: the fc driver builds no inductive block, and the checker's inductive rows that would (iota.*) need Nat literals (task 5.2.3); task 5.2.1b's iota rows close it"
-
-[[fault]]
-id = "rv-k7-off"
-file = "src/kernel/whnf.fs"
-old = '''  dup lf-whnf-k7? if lf-whnf-head'''
-new = '''  dup drop false if lf-whnf-head'''
-test = 'test -n "$LEAN" && python3 tests/core/inductive-table.py'
-reason = "K7 never fires in whnf: Nat.succ Nat.zero, which Lean's reduce_nat turns into a literal, unfolds (review rvU4 L5)"
-
-[[fault]]
-id = "dq-k7-guard-off"
-file = "src/kernel/defeq.fs"
-old = '''  over lf-whnf-k7? if drop lf-whnf-head lf-diag-name-matched outcome-ok exit then
-  dup lf-whnf-k7? if nip lf-whnf-head lf-diag-name-matched outcome-ok exit then
-'''
-new = ''''''
-test = 'test -n "$LEAN" && python3 tests/core/inductive-table.py'
-reason = "steps 6 and 10 say yes for two Nat operations, which Lean's reduce_nat computes first (review rvU4 B1)"
-
-[[fault]]
-id = "dq-unfold-guard-off"
-file = "src/kernel/defeq.fs"
-old = '''  drop 0< if nip else drop then lf-diag-needs-unfolding ;'''
-new = '''  2drop 2drop 0 0 ;'''
-test = 'test -n "$LEAN" && python3 tests/core/inductive-table.py'
-reason = "steps 6 and 10 say yes where Lean's lazy delta unfolds an abbreviation first and meets reduce_nat (review rvU4 B1)"
-
-[[fault]]
 id = "whnf-cheap-beta-off"
 file = "src/kernel/whnf.fs"
 old = '''  over lf-whnf-beta-head? 0= if drop outcome-ok exit then'''
@@ -1214,23 +1084,6 @@ test = "$GFORTH tests/core/defeq.fs"
 reason = "is_def_eq_args answers yes when one spine has more applications than the other (tc 837)"
 
 [[fault]]
-id = "dq-whnf-core-skipped"
-file = "src/kernel/defeq.fs"
-old = '''  r@ lf-dq-pick2 drop r> ['] lf-dq-tn lf-whnf-core-call ;'''
-new = '''  r@ lf-dq-pick2 drop outcome-unknown r> lf-dq-tn ;'''
-test = "$GFORTH tests/core/defeq.fs"
-reason = "is_def_eq_core's step 3 never reduces the left side, so (fun x => x) Prop against Prop stays unknown"
-
-[[fault]]
-id = "dq-unknown-as-no"
-file = "src/kernel/defeq.fs"
-old = '''  r@ lf-dq-sides lf-dq-undecided outcome-unknown r> 4 lf-dq-drop-failed ;'''
-new = '''  false r> 4 lf-dq-drop-answer ;'''
-test = "$GFORTH tests/core/defeq.fs"
-reason = "ADR 0014 Q1: where only unported steps (proof irrelevance, lazy delta, eta) could decide, the port says no instead of unknown"
-quick = true
-
-[[fault]]
 id = "dq-depth-not-popped"
 file = "src/kernel/defeq.fs"
 old = '''  dup lf-bd-base lf-dq-depth ! 2 over frame-drop 0 ;'''
@@ -1264,15 +1117,6 @@ new = '''  true if lf-minfer-site lf-diag-function-expected lf-minfer-reject'''
 test = "$GFORTH tests/core/definite-rejection.fs"
 reason = "inference run aside for test P2 records a rejection (its failures only mean not known)"
 equivalent = "aside, inference is run by the analysis's P2 and P4 tests, which turn every failure into not known and restore nothing but the counts: a rejected status there is read as not ok, as unknown is, so no verdict changes; the record is overwritten or kept as before only when a later rejection replaces it"
-
-[[fault]]
-id = "infer-analysis-shortage-ignored"
-file = "src/kernel/mixed-infer.fs"
-old = '''  drop lf-minfer-mismatch if outcome-rejected else lf-minfer-undecided then ;'''
-new = '''  drop lf-minfer-mismatch if outcome-rejected else outcome-unknown then ;'''
-test = "$GFORTH tests/core/check-declaration.fs"
-reason = "ADR 0008 (CLI2's finding): an analysis that ran out of fuel leaves the step unknown, not exhausted (impliesSelf at fuel 151-229)"
-quick = true
 
 [[fault]]
 id = "infer-cheap-beta-skipped"
@@ -1321,14 +1165,6 @@ old = '''  dup lf-lmk-param? 0= if outcome-ok exit then'''
 new = ''''''
 test = "$GFORTH tests/core/level-substitute.fs"
 reason = "a max or imax without a parameter is simplified, where Lean's replace keeps it"
-
-[[fault]]
-id = "lv-d1-witness"
-file = "src/kernel/mixed-infer.fs"
-old = '''  lf-minfer-firsts lf-minfer-fuel @ lf-level-inequivalent? lf-lcmp-fuel lf-minfer-take'''
-new = '''  lf-minfer-firsts lf-minfer-fuel @ lf-level-apart? lf-lvalue-fuel lf-minfer-take'''
-test = "$GFORTH tests/core/check-declaration.fs"
-reason = "LV fix reverted: D1 by witness values again, so T1, T4, th and d are unknown where Lean rejects"
 
 [[fault]]
 id = "lv-normalize-imax-again"
@@ -4047,18 +3883,6 @@ test = "$GFORTH tests/core/check-block.fs"
 reason = "B5: a block's outcome published for its first member only; the other members are never decided"
 
 [[fault]]
-id = "ind-no-unit-like-guard"
-file = "src/kernel/mixed-infer.fs"
-old = '''  >r over lf-minfer-unit-free? 0= if 2drop 0 false r> 0 exit then'''
-new = '''  >r'''
-test = "$GFORTH tests/core/check-block.fs"
-reason = "P4 dropped: P x and P y for x y : PUnit are called apart, so a theorem Lean accepts by is_def_eq_unit_like is rejected"
-quick = true
-
-# The review rvI21's faults that survived its round (M1), now caught, and
-# the faults of its round-2 fixes (B1, B2, M1, M2, L1, the is_geq depth).
-
-[[fault]]
 id = "ind-consume-off"
 file = "src/kernel/inductive-recursor.fs"
 old = '''  begin dup lf-ind-spine 2dup lf-rcr-gadget? while nip lf-rcr-unwrapped repeat 2drop ;'''
@@ -5065,6 +4889,107 @@ new = '''  2 pick dup lf-iota-n 3 pick lf-iota-prefix 1- 0 max lf-iota-head-args
 test = "$GFORTH tests/core/check-block.fs"
 reason = "5.2.1b: the rule's right side gets one argument too few of the parameters, motives and minor premises"
 
+[[fault]]
+id = "whnf-iota-hook-silent"
+file = "src/kernel/whnf.fs"
+old = '''  if lf-whnf-pending else drop lf-whnf-none outcome-ok then ;'''
+new = '''  drop drop lf-whnf-none outcome-ok ;'''
+test = "$GFORTH tests/core/whnf.fs"
+reason = "whnf_core's default hook treats a recursor at the head as having no rule, where Lean's iota may reduce it"
+gap = "the default hook is replaced by iota.fs (task 5.2.1b) whenever the checker is loaded, so no test runs it with a recursor head"
+
+[[fault]]
+id = "rv-k7-off"
+file = "src/kernel/whnf.fs"
+old = '''  over lf-whnf-k7? if over over frame-save ['] lf-whnf-nat-back lf-whnf-nat-call exit then'''
+new = '''  over drop false if over over frame-save ['] lf-whnf-nat-back lf-whnf-nat-call exit then'''
+test = 'test -n "$LEAN" && python3 tests/core/inductive-table.py'
+reason = "whnf never asks reduce_nat: Nat.succ Nat.zero, which Lean's reduce_nat turns into a literal, unfolds (review rvU4 L5)"
+
+[[fault]]
+id = "dq-whnf-core-skipped"
+file = "src/kernel/defeq.fs"
+old = '''  dup lf-dq-pick2 drop swap ['] lf-dq-tn lf-whnf-core-call ;'''
+new = '''  dup lf-dq-pick2 drop outcome-ok rot lf-dq-tn ;'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "is_def_eq_core's step 3 leaves the left side unreduced: a redex against its reduct is Lean's yes"
+
+[[fault]]
+id = "dq-eta-off"
+file = "src/kernel/defeq.fs"
+old = '''  if r@ lf-dq-sides lf-diag-eta-pending r> lf-dq-unknown else r> lf-dq-struct-step then ;'''
+new = '''  drop drop r> lf-dq-struct-step ;'''
+test = 'test -n "$LEAN" && GFORTH=$GFORTH python3 tests/core/lean-differential.py definitional-equality'
+reason = "step 11 (eta, task 4.2.4) is skipped, so a lambda against its eta-reduced form is a no where Lean says yes"
+
+[[fault]]
+id = "dq-proof-test-off"
+file = "src/kernel/defeq.fs"
+old = '''  if r@ lf-dq-sides lf-diag-proof-pending r> lf-dq-unknown else r> lf-lz-loop then ;'''
+new = '''  drop r> lf-lz-loop ;'''
+test = 'test -n "$LEAN" && GFORTH=$GFORTH python3 tests/core/lean-differential.py definitional-equality'
+reason = "step 4 (proof irrelevance, task 4.2.5) is skipped, so two proofs of one statement are a no where Lean says yes"
+
+[[fault]]
+id = "dq-unit-like-off"
+file = "src/kernel/defeq.fs"
+old = '''  if r> lf-dq-pending else r> lf-dq-no-step then ;
+: lf-dq-struct-step'''
+new = '''  drop r> lf-dq-no-step ;
+: lf-dq-struct-step'''
+test = 'test -n "$LEAN" && python3 tests/core/inductive-table.py'
+reason = "step 14 (unit-like types, task 5.2.2) is skipped, so two values of a structure with one field-less constructor are a no where Lean says yes (replaces ind-no-unit-like-guard, ADR 0011's P4)"
+
+[[fault]]
+id = "dq-lz-abbrev-arguments"
+file = "src/kernel/defeq.fs"
+old = '''  >r over = swap lf-idecl-hint @ lf-hint-regular = and r> lf-dq-sides lf-dq-apps? and ;'''
+new = '''  >r over = nip r> lf-dq-sides lf-dq-apps? and ;'''
+test = 'test -n "$LEAN" && python3 tests/core/inductive-table.py'
+reason = "lazy delta's same-head argument test also for an abbreviation, where Lean unfolds both and meets reduce_nat (k7.abbrev-head)"
+
+[[fault]]
+id = "dq-lz-offset-off"
+file = "src/kernel/defeq.fs"
+old = '''  >r r@ lf-dq-sides 2dup lf-dq-succ? swap lf-dq-succ? and'''
+new = '''  >r r@ lf-dq-sides 2dup lf-dq-succ? swap lf-dq-succ? and drop false'''
+test = 'test -n "$LEAN" && GFORTH=$GFORTH python3 tests/core/lean-differential.py definitional-equality'
+reason = "lazy delta skips is_def_eq_offset, which compares two Nat.succ applications' arguments by name: a user's Nat.succ unfolds where Lean says no (names.nat-succ-matched-by-name)"
+
+[[fault]]
+id = "dq-nat-zero-never"
+file = "src/kernel/whnf.fs"
+old = '''  lf-crec-name @ dup s" zero" lf-whnf-part? if lf-whnf-nat? else drop false then ;'''
+new = '''  drop false ;'''
+test = 'test -n "$LEAN" && python3 tests/core/inductive-table.py'
+reason = "reduce_nat is taken never to compute, so Nat operations on Nat.zero unfold where Lean computes a literal whose type is missing (k7.*)"
+
+[[fault]]
+id = "dq-nat-zero-always"
+file = "src/kernel/whnf.fs"
+old = ''': lf-whnf-zero? ( node -- flag )
+  dup lf-whnf-const? 0= if drop false exit then'''
+new = ''': lf-whnf-zero? ( node -- flag )
+  dup lf-whnf-const? 0= if drop true exit then'''
+test = 'test -n "$LEAN" && python3 tests/core/inductive-table.py'
+reason = "reduce_nat is taken to compute on any argument that is no constant, so iota on Nat.succ of a variable is unknown where Lean reduces it (k7.rec-on-succ-variable)"
+
+[[fault]]
+id = "dq-lz-unfold-wrong-side"
+file = "src/kernel/defeq.fs"
+old = '''  over lf-lz-none? if 2drop r> lf-lz-unfold-s exit then'''
+new = '''  over lf-lz-none? if 2drop r> lf-dq-tail exit then'''
+test = 'test -n "$LEAN" && GFORTH=$GFORTH python3 tests/core/lean-differential.py definitional-equality'
+reason = "lazy delta stops when only the right side unfolds, so a claim true by unfolding it is a no where Lean says yes"
+
+[[fault]]
+id = "conv-no-unrecorded"
+file = "src/kernel/mixed-convert.fs"
+old = '''  c" mixed-convert lf-mixed-convert" lf-diag-not-defeq lf-diag-note outcome-rejected ;'''
+new = '''  2drop outcome-rejected ;'''
+test = "$GFORTH tests/core/diagnostics.fs"
+reason = "Lean's no from a bare conversion is rejected without a diagnostic"
+
 # --- review rvN1 round 2 (L1) and projections (plan task 5.2.2) ----------
 
 [[fault]]
@@ -5114,3 +5039,27 @@ old = '''  lf-idecl-data lf-ict-params lf-more-field rot lf-proj-idx + lf-iota-f
 new = '''  lf-idecl-data lf-ict-params lf-more-field rot lf-proj-idx 1+ + lf-iota-field-of ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "5.2.2 J1: reduce_proj takes the next field; (Bool, Nat).1 is no longer Bool"
+
+[[fault]]
+id = "proj-equal-index-ignored"
+file = "src/kernel/mixed-compare.fs"
+old = ''': lf-mcompare-seconds? ( a b -- flag ) lf-mcompare-seconds = ;'''
+new = ''': lf-mcompare-seconds? ( a b -- flag ) 2drop true ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.2: Lean's == takes two projections of one term that differ in the field for equal; p.1 = p.2 (proj.index-differs) is accepted"
+
+[[fault]]
+id = "proj-leaf-whnf-invalid"
+file = "src/kernel/whnf.fs"
+old = '''  dup lf-tag-proj = if drop lf-wc-proj exit then'''
+new = ''''''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.2: a projection leaf alone, met by is_def_eq_app, is called malformed; proj.index-differs is invalid instead of unknown"
+
+[[fault]]
+id = "log-aside-steps-kept"
+file = "src/kernel/mixed-infer.fs"
+old = ''': lf-minfer-logging? ( -- flag ) lf-log? 0<> lf-minfer-deciding? and ;'''
+new = ''': lf-minfer-logging? ( -- flag ) lf-log? 0<> ;'''
+test = "python3 tests/cli/test_leanforth.py"
+reason = "an inference aside (infer_proj's is_prop, defeq.fs's typer) logs application steps without their comparison; the log fails its structural check and print shows nothing of OfNat.ofNat"

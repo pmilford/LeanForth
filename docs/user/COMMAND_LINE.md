@@ -246,36 +246,33 @@ axiom in an accepted slot.
 
 A broken copy of `composition`, whose proof applies `g` to `value`
 instead of to `f value`, is rejected for the reason Lean's kernel gives
-(rule D3 of [ADR 0011](../adr/0011-definite-rejection.md): the argument
-has type `A`, `g` needs a `B`). The copy has no manifest, so it is read
+(Lean's definitional equality says no: the argument has type `A`, `g`
+needs a `B`). The copy has no manifest, so it is read
 with `--no-manifest`:
 
 ```console
 $ bin/leanforth check --no-manifest tests/core/check-declaration-cases/composition-wrong-argument.ndjson; echo "exit status $?"
 note: the export's manifest is not checked (--no-manifest)
 composition: rejected
-  rejected: argument type mismatch (D1-D5); diagnostic 59 at mixed-infer lf-mixed-infer: 4 0
+  rejected: argument type mismatch (D1-D5); diagnostic 59 at mixed-infer lf-mixed-infer: 0 0
 1 declaration: 1 rejected
 exit status 1
 ```
 
-A file whose declarations end differently counts each verdict:
+A file whose check needs a definition unfolded:
 
 ```console
 $ bin/leanforth check tests/cli/unfold.ndjson; echo "exit status $?"
 Implies: accepted (experimental, not independently audited); axioms: none
-impliesSelf: unknown
-  undecided: Lean may unfold a definition here (K1); diagnostic 64 at defeq lf-defeq: 22 0
-2 declarations: 1 accepted, 1 unknown
-accepted: 1 (experimental, not independently audited); axioms: none
-exit status 2
+impliesSelf: accepted (experimental, not independently audited); axioms: none
+2 declarations: 2 accepted
+accepted: 2 (experimental, not independently audited); axioms: none
+exit status 0
 ```
 
-Here *unknown* is honest, not a rejection, and it is a gap, not a
-difference from Lean: the proof is correct, and Lean accepts it, but
-checking it needs the definition of `Implies` unfolded by Lean's lazy
-delta reduction, which the checker does not do yet (plan task 4.2.2d
-closes it):
+Checking `impliesSelf` needs the definition of `Implies` unfolded by
+Lean's lazy delta reduction, which the checker does since plan task
+4.2.2d (before, it was *unknown*); Lean accepts it too:
 
 ```lean
 def Implies (A B : Prop) : Prop := A → B
@@ -343,13 +340,12 @@ and leaves 0. An export that uses every kind of record Lean writes,
 today: blocks such as `Prod`, `Eq` and `Iff`, recursive types such as
 `Nat` and `List` (plan task 5.2.1b), and projections (plan task 5.2.2)
 are accepted; nested types, literals, axioms, opaque declarations,
-quotients and what uses them are not yet, and a comparison that needs
-unfolding is *unknown*:
+quotients and what uses them are not yet:
 
 ```console
 $ bin/leanforth check --no-manifest tests/core/reexport/kinds.ndjson | tail -n 2; echo "exit status ${PIPESTATUS[0]}"
-106 declarations: 67 accepted, 8 unknown, 31 unsupported
-accepted: 67 (experimental, not independently audited); axioms: none
+106 declarations: 75 accepted, 31 unsupported
+accepted: 75 (experimental, not independently audited); axioms: none
 exit status 2
 ```
 
@@ -512,8 +508,8 @@ member is cut off:
 
 ```console
 $ bin/leanforth check --json tests/cli/unfold.ndjson | sed "s/,\"measured\":.*/}/"; echo "exit status ${PIPESTATUS[0]}"
-{"schema":"leanforth-check-report","schemaVersion":"0.1","export":"tests/cli/unfold.ndjson","manifest":"checked","label":"experimental, not independently audited","settings":{"fuel":100000,"dependencyPool":65536,"strictAxioms":false},"read":{"outcome":"ok","phase":null,"line":null,"field":null,"reason":null,"at":null},"run":"ok","stopped":false,"declarations":[{"index":0,"name":"Implies","verdict":"accepted","label":"experimental, not independently audited","axiomBits":0,"notProved":false,"fuel":88},{"index":1,"name":"impliesSelf","verdict":"unknown","diagnostic":{"code":64,"reason":"undecided: Lean may unfold a definition here (K1)","site":"defeq lf-defeq","numbers":[22,0],"step":8},"fuel":228}],"counts":{"declarations":2,"accepted":1,"rejected":0,"unknown":1,"unsupported":0,"invalid":0,"exhausted":0,"full":0,"notChecked":0,"notProved":0},"fuel":{"perDeclaration":100000,"total":316,"unknown":0,"top":[{"index":1,"name":"impliesSelf","fuel":228,"verdict":"unknown"},{"index":0,"name":"Implies","fuel":88,"verdict":"accepted"}]},"input":{"declarations":2,"terms":14,"levels":1,"references":1,"names":10},"exitStatus":2}
-exit status 2
+{"schema":"leanforth-check-report","schemaVersion":"0.1","export":"tests/cli/unfold.ndjson","manifest":"checked","label":"experimental, not independently audited","settings":{"fuel":100000,"dependencyPool":65536,"strictAxioms":false},"read":{"outcome":"ok","phase":null,"line":null,"field":null,"reason":null,"at":null},"run":"ok","stopped":false,"declarations":[{"index":0,"name":"Implies","verdict":"accepted","label":"experimental, not independently audited","axiomBits":0,"notProved":false,"fuel":88},{"index":1,"name":"impliesSelf","verdict":"accepted","label":"experimental, not independently audited","axiomBits":0,"notProved":false,"fuel":138}],"counts":{"declarations":2,"accepted":2,"rejected":0,"unknown":0,"unsupported":0,"invalid":0,"exhausted":0,"full":0,"notChecked":0,"notProved":0},"fuel":{"perDeclaration":100000,"total":226,"unknown":0,"top":[{"index":1,"name":"impliesSelf","fuel":138,"verdict":"accepted"},{"index":0,"name":"Implies","fuel":88,"verdict":"accepted"}]},"input":{"declarations":2,"terms":14,"levels":1,"references":1,"names":10},"exitStatus":0}
+exit status 0
 ```
 
 | Member | Contents |
@@ -656,7 +652,7 @@ $ bin/leanforth print --no-manifest tests/core/check-declaration-cases/compositi
 note: the export's manifest is not checked (--no-manifest)
 Theorem composition
   rejected
-  Diagnostic: rejected: argument type mismatch (D1-D5) (4, 0)
+  Diagnostic: rejected: argument type mismatch (D1-D5) (0, 0)
   Statement in Lean:        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$
   Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
@@ -669,7 +665,7 @@ Theorem composition
       A C ->
     end composition
   Input:     tests/core/check-declaration-cases/composition-wrong-argument.ndjson line 35
-  Checker log: 51 steps, complete. The statement is a proposition: s20 (from s3).
+  Checker log: 42 steps, complete. The statement is a proposition: s20 (from s3).
 
 No proof outline: the declaration was not accepted.
 
@@ -908,7 +904,7 @@ the replay report, one JSON line:
 $ bin/leanforth check --no-manifest --record /dev/null tests/core/check-declaration-cases/composition-wrong-argument.ndjson; echo "exit status $?"
 note: the export's manifest is not checked (--no-manifest)
 composition: rejected
-  rejected: argument type mismatch (D1-D5); diagnostic 59 at mixed-infer lf-mixed-infer: 4 0
+  rejected: argument type mismatch (D1-D5); diagnostic 59 at mixed-infer lf-mixed-infer: 0 0
 1 declaration: 1 rejected
 exit status 1
 $ bin/leanforth replay tests/reference/composition.ndjson tests/cli/no-such-record.json; echo "exit status $?"

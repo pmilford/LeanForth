@@ -252,7 +252,7 @@ Templates: let-props/v0, assume/v0, apply/v0, recall/v0, discharge/v0, statement
 \begin{flushleft}
 \textbf{Theorem }$\mathsf{composition}$ \\
   rejected \\
-  Diagnostic: rejected: argument type mismatch (D1-D5) (4, 0) \\
+  Diagnostic: rejected: argument type mismatch (D1-D5) (0, 0) \\
 Statement in Lean (ASCII): {\ttfamily forall~\{A~B~C~:~Prop\},~(A~->~B)~->~(B~->~C)~->~A~->~C} \\
 Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$ \\
 Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would): \\
@@ -266,7 +266,7 @@ Statement in LeanForth (as an axiom declaration; the checker did not assume it, 
 \hspace*{2em}end~composition \\
 }
   Input:     \texttt{tests/core/check-declaration-cases/composition-wrong-argument.ndjson} line 35 \\
-  Checker log: 51 steps, complete. The statement is a proposition: s20 (from s3). \\
+  Checker log: 42 steps, complete. The statement is a proposition: s20 (from s3). \\
 \par
 No proof outline: the declaration was not accepted. \\
 \end{flushleft}

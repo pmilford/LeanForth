@@ -110,14 +110,16 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
   4 h 50000 lf-mixed-convert outcome-ok <> abort" poly type" ;
 : invalid-argument-case ( -- )
   \ id.{u} (Sort u): the argument has type Sort (u+1) where id.{u} wants a
-  \ Sort u; with u = 0 the levels are 1 and 0, so rule D1 (ADR 0011)
-  \ rejects, as Lean's kernel does (appTypeMismatch).
+  \ Sort u; with u = 0 the levels are 1 and 0, so Lean's is_def_eq says
+  \ no (quick_is_def_eq on two Sorts) and the argument is rejected, as
+  \ Lean's kernel does (appTypeMismatch; ADR 0011's rule D1 before plan
+  \ task 4.2.2d, which recorded its mask as the first number).
   setup snapshot lf-diag-clear 10 50000 infer
   outcome-rejected expect-status
   0<> abort" failure identity" -1 <> abort" failure root"
   counts-unchanged? 0= abort" invalid argument rollback"
   lf-diag@ lf-diag-argument-apart <> abort" argument rule code" drop
-  0<> abort" second number" 1 <> abort" rule D1" ;
+  0<> abort" second number" 0<> abort" first number" ;
 : missing-case ( -- )
   setup snapshot 11 50000 infer
   outcome-unknown expect-status
