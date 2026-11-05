@@ -74,12 +74,14 @@ T{ 0 make-var telescope 0 make-var 1 redex telescope defeq -> true outcome-ok }T
 T{ 0 make-var 1 redex telescope 0 make-var telescope defeq -> true outcome-ok }T
 \ The free variables of a telescope are popped whatever the outcome.
 T{ lf-dq-depth @ -> 0 }T
-T{ 0 make-var telescope 1 make-sort telescope defeq lf-dq-depth @ -> 0 outcome-unknown 0 }T
+T{ 0 make-var telescope 1 make-sort telescope defeq lf-dq-depth @ -> 0 outcome-ok 0 }T
 
 \ Two different free variables (the bodies of fun x y => x and fun x y =>
-\ y) are not shown equal (step 7 needs the same one): unknown.
+\ y), whose type is a Sort (so no proof, step 4, and no unit-like type,
+\ step 14), nothing unfolds: Lean's no (plan task 4.2.2d). Loose bound
+\ variables (above) have no type a bare call can see: no is unknown.
 : two-lams ( body -- node ) 1 make-sort swap make-lam 1 make-sort swap make-lam ;
-T{ 1 make-var two-lams 0 make-var two-lams defeq -> 0 outcome-unknown }T
+T{ 1 make-var two-lams 0 make-var two-lams defeq -> 0 outcome-ok }T
 T{ 1 make-var two-lams 1 make-var two-lams defeq -> true outcome-ok }T
 
 \ is_def_eq_app: the functions, the counts, then the arguments left to

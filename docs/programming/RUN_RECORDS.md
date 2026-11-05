@@ -91,7 +91,7 @@ written on one line and shown here indented:
   "declarations": [
     {"index": 0, "name": "composition", "verdict": "rejected",
      "diagnostic": {"code": 59, "reason": "rejected: argument type mismatch (D1-D5)",
-                    "site": "mixed-infer lf-mixed-infer", "numbers": [4, 0], "step": 7}}
+                    "site": "mixed-infer lf-mixed-infer", "numbers": [0, 0], "step": 7}}
   ]
 }
 ```

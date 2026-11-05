@@ -50,7 +50,7 @@ create codes 1 , 2 , 3 , 4 , 5 , 6 , 7 , 8 , 9 , 10 , 11 , 12 , 13 , 14 , 15 , 1
   20 , 21 , 22 , 23 , 24 , 25 , 26 , 27 , 28 , 29 , 30 , 31 , 32 , 33 , 34 , 35 , 36 ,
   40 , 41 , 42 , 43 , 50 , 51 , 52 , 53 , 54 , 55 , 56 , 57 , 58 , 59 , 60 , 61 ,
   62 , 63 , 64 , 65 , 66 , 67 , 68 , 69 , 70 , 71 , 72 , 73 , 74 , 75 , 76 , 77 , 78 ,
-  79 , 80 , 81 , 82 , 83 , 84 , 85 , 86 ,
+  79 , 80 , 81 , 82 , 83 , 84 , 85 , 86 , 87 , 88 , 89 , 90 ,
 here codes - 1 cells / constant code-count
 : named? ( code -- flag ) lf-diag-name s" unknown code" compare 0<> ;
 : all-named? ( -- flag ) true code-count 0 ?do i cells codes + @ named? and loop ;
@@ -348,14 +348,18 @@ end-check
 : room-code? ( code -- flag ) lf-diag-terms-full lf-diag-pool-full 1+ within ;
 : input-code? ( code -- flag ) lf-diag-bad-argument lf-diag-publisher-fault 1+ within ;
 \ Since plan task 4.2.2c also Lean's whnf where LeanForth does not reduce
-\ yet: K1 (64), iota (81), K7 (82).
+\ yet: K1 (64), iota (81), K7 (82); since plan task 4.2.2d the steps of
+\ Lean's is_def_eq that LeanForth does not port yet (87-89).
+: defeq-undecided? ( code -- flag ) lf-diag-proof-pending lf-diag-structure-pending 1+ within ;
 : whnf-undecided? ( code -- flag )
-  dup lf-diag-needs-unfolding = over lf-diag-iota-pending = or swap lf-diag-name-matched = or ;
+  dup lf-diag-needs-unfolding = over lf-diag-iota-pending = or
+  over lf-diag-name-matched = or swap defeq-undecided? or ;
 : undecided-code? ( code -- flag )
   dup lf-diag-undecided lf-diag-dependency-undecided 1+ within
   over lf-diag-unsupported = or swap whnf-undecided? or ;
 : or-none ( code flag -- flag ) swap lf-diag-none = or ;
-: rejection-code? ( code -- flag ) lf-diag-unknown-constant lf-diag-value-apart 1+ within ;
+: rejection-code? ( code -- flag )
+  dup lf-diag-unknown-constant lf-diag-value-apart 1+ within swap lf-diag-not-defeq = or ;
 : explained? ( outcome -- flag )
   lf-diag-code@ swap case
     outcome-ok of lf-diag-none = endof
@@ -367,7 +371,7 @@ end-check
     nip false swap endcase ;
 create counts 7 cells allot  counts 7 cells erase
 create recorded 7 cells allot  recorded 7 cells erase
-61 constant code-limit
+91 constant code-limit
 create code-counts code-limit cells allot  code-counts code-limit cells erase
 variable unexplained  0 unexplained !
 : count-code ( -- ) lf-diag-code@ 0 max code-limit 1- min cells code-counts + 1 swap +! ;

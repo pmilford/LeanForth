@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Lean N means unequal; Forth U is inconclusive and is never treated as N.
+# Lean N means unequal; Forth U is inconclusive and is never treated as N;
+# Forth N (rejected: Lean's is_def_eq says no, since plan task 4.2.2d) must
+# be Lean's N.
 set -eu
 lean=${LEAN:-lean}
 gforth=${GFORTH:-gforth}
@@ -21,10 +23,13 @@ if len(lean) != 7 or len(forth) != 7:
 for i, (lrow, frow) in enumerate(zip(lean, forth)):
     if len(lrow) != 2 or len(frow) != 2 or lrow[0] != str(i) or frow[0] != str(i):
         raise SystemExit(f"Malformed conversion row {i}")
-    if lrow[1] not in ("E", "N") or frow[1] not in ("E", "U"):
+    if lrow[1] not in ("E", "N") or frow[1] not in ("E", "U", "N"):
         raise SystemExit(f"Unexpected conversion status at {i}")
     if frow[1] == "E" and lrow[1] != "E":
         raise SystemExit(f"False equality at {i}")
+    if frow[1] == "N" and lrow[1] != "N":
+        raise SystemExit(f"False inequality at {i}")
 print(f"Seven Lean comparisons: {sum(row[1] == 'E' for row in forth)} Forth equal, "
-      f"{sum(row[1] == 'U' for row in forth)} unknown; no false equality.")
+      f"{sum(row[1] == 'N' for row in forth)} unequal, "
+      f"{sum(row[1] == 'U' for row in forth)} unknown; none contradicts Lean.")
 PY

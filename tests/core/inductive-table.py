@@ -54,23 +54,6 @@ PENDING = {
     "iota.stuck-on-variable": ("unsupported",
         "a Nat literal (U2); Lean's iota on a variable major is stuck (R1, iota.fs)."
         " Closed by task 5.2.3"),
-    "iota.bool-true-wrong": ("unknown",
-        "iota gives False (iota.fs), and Lean's is_def_eq says no to True: the port's no"
-        " is no rejection yet (diagnostic 30); twin iota.bool-true. Closed by task 4.2.2d"
-        " (the port decides rejections, retiring ADR 0011's analysis)"),
-    "iota.list-hypothesis-wrong": ("unknown",
-        "as iota.bool-true-wrong, after iota with an induction hypothesis; twin"
-        " iota.list-hypothesis. Closed by task 4.2.2d"),
-    "iota.bool-stuck": ("unknown",
-        "iota is stuck on a variable (no rule, iota.fs) and Lean's is_def_eq says no:"
-        " the port's no is no rejection yet (diagnostic 30). Closed by task 4.2.2d"),
-    "params.constructor-binder-defeq": ("unknown",
-        "C2 needs id Type unfolded by Lean's lazy delta reduction in is_def_eq: K1;"
-        " twin params.constructor-binder-beta. Closed by task 4.2.2d"),
-    "after.annotated-binders-left-out-then-use-rec": ("unknown",
-        "the use compares Nat with optParam Nat Nat.zero (diagnostic 64, the rvU4 guard): K1, Lean's lazy"
-        " delta reduction in is_def_eq unfolds optParam; twin"
-        " after.reflexive-indexed-left-out-then-use-rec. Closed by task 4.2.2d"),
     "after.redex-type-left-out-then-use-rec": ("unknown",
         "IE.U2's type is a Sort only after whnf, so its block left no recipe of the"
         " generated recursor (ADR 0015 decision 12): a use of IE.U2.rec is unknown"

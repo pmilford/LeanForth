@@ -78,11 +78,12 @@ A copy of the export with one number changed, so that the proof applies
 `g` to `value` instead of to `f value`
 (`tests/core/check-declaration-cases/composition-wrong-argument.ndjson`;
 it has no manifest, so `cli-no-manifest` reads it without one). The
-indented line is the diagnostic that explains the verdict: rule D3
-(diagnostic code 59, whose first number is the set of rules used: 4 for
-D3) found the argument's type `A` and the expected `B` to be different
-variables, which Lean's kernel can never equate; the exit code is 1,
-rejected:
+indented line is the diagnostic that explains the verdict: Lean's
+definitional equality, as LeanForth ports it, says the argument's type
+`A` and the expected `B` are not equal -- two different variables that
+Lean's kernel can never equate (diagnostic code 59, an argument's type
+mismatch; until plan task 4.2.2d ADR 0011's rule D3 found it, and the
+first number was the set of rules used); the exit code is 1, rejected:
 
 ```forth
 cli-no-manifest
@@ -92,7 +93,7 @@ s" tests/core/check-declaration-cases/composition-wrong-argument.ndjson" cli-che
 ```text
 note: the export's manifest is not checked (--no-manifest)
 composition: rejected
-  rejected: argument type mismatch (D1-D5); diagnostic 59 at mixed-infer lf-mixed-infer: 4 0
+  rejected: argument type mismatch (D1-D5); diagnostic 59 at mixed-infer lf-mixed-infer: 0 0
 1 declaration: 1 rejected
 1
 ```
@@ -149,10 +150,11 @@ in the application
   `Sort` or a function type, it computes the type's weak head normal form
   as Lean does, unfolding definitions and theorems (never opaque
   declarations) since plan task 4.2.2c: with `def dqProp : Type := Prop`,
-  `theorem t (A : dqProp) (h : A) : A := h` is accepted, as by Lean. It
-  does not yet unfold a definition to compare two terms (Lean's lazy delta
-  reduction, plan task 4.2.2d), so some correct proofs are *unknown*;
-  theorems that use data types, numbers or axioms are *unsupported* until
+  `theorem t (A : dqProp) (h : A) : A := h` is accepted, as by Lean, and
+  it unfolds definitions to compare two terms as Lean's lazy delta
+  reduction does (since plan task 4.2.2d). Proof irrelevance and eta are
+  not ported yet (plan tasks 4.2.5, 4.2.4), so some correct proofs are
+  *unknown*; theorems that use numbers or axioms are *unsupported* until
   later phases.
 - Limits today: `bin/leanforth check` holds exports of any size (all of
   Lean's `Init`; the stores grow), with no fixed limit on how deep a term

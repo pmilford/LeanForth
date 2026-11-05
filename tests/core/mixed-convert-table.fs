@@ -34,6 +34,7 @@ decimal
 : emit-case ( left right index -- )
   . swap handle rot handle 10000 lf-mixed-convert
   case outcome-ok of s" E" type endof
+       outcome-rejected of s" N" type endof
        outcome-unknown of s" U" type endof
        -1 throw endcase cr ;
 setup

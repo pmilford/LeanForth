@@ -1,6 +1,6 @@
 # ADR 0014: Definitional equality as Lean's kernel decides it
 
-Status: task **4.2.2a implemented and approved** [kernel] by the owner on 2026-11-04 ([decisions](../project/OWNER_DECISIONS.md#free-variables-approved-2026-11-04)); **4.2.2b and 4.2.2c implemented** 2026-11-04, their gate pending (see [Progress](#progress)); 4.2.2d–e next. **Accepted** by the owner on 2026-11-03 (G5 and Q-A to Q-D as recommended; Q-E: within twice Lean's one-thread time before phase 6, then close the gap, by algorithms first — [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md#gate-answers-and-working-guidelines-2026-11-03)). Previously: **proposed**, 2026-11-03 (plan task 4.1.1, with the sections task
+Status: task **4.2.2a implemented and approved** [kernel] by the owner on 2026-11-04 ([decisions](../project/OWNER_DECISIONS.md#free-variables-approved-2026-11-04)); **4.2.2b and 4.2.2c implemented** 2026-11-04, their gate pending; **4.2.2d implemented** 2026-11-04, its gate pending (see [Progress](#progress)); 4.2.2e next. **Accepted** by the owner on 2026-11-03 (G5 and Q-A to Q-D as recommended; Q-E: within twice Lean's one-thread time before phase 6, then close the gap, by algorithms first — [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md#gate-answers-and-working-guidelines-2026-11-03)). Previously: **proposed**, 2026-11-03 (plan task 4.1.1, with the sections task
 4.1.3 asks for: eta, proof irrelevance, `let` and metadata). A [kernel]
 design: it passes the review gate in `AGENTS.md` only with the owner's
 approval of the plain-language summary below, and the code that implements
@@ -637,7 +637,12 @@ loop and `try_unfold_proj_app` are deferred routes (Q8).
 | Name-matched constants: `Nat.zero`, `Nat.succ`, the fourteen `Nat` operations, `Bool.true` (step 2), `String.ofList`, `eagerReduce` | 29–52, 1142–1146, 1283–1303 | **K7, new:** a `whnf` or comparison that meets one of these constants at a head where Lean's rule would look at it answers *unknown* (rows `names.*`) |
 
 Rule **K7** keeps LeanForth from reproducing Lean's name-matched rules
-half-way before phase 5 ports them exactly (with literals and `bignum`).
+half-way before phase 5 ports them exactly (with literals and `bignum`). Since plan task 4.2.2d K7 is
+narrowed to where Lean's rules compute or decide: `reduce_nat` answers
+*unknown* only where it computes a literal (its arguments' whnf are
+`Nat.zero`), and `is_def_eq_offset`, which needs no literal for two
+`Nat.succ` applications, is ported (so `names.nat-succ-matched-by-name`
+gives Lean's `declTypeMismatch`).
 In an imported Lean library these names are constructors and recursive
 functions, which are unsupported in phase 4 anyway, so K7 matters only for
 environments that define the names themselves.
@@ -1092,6 +1097,82 @@ re-targeted at the new code, 9 caught and `rej-p2-open-term` equivalent
 as before; the faults of the retired head tests of S1 and F1 deleted
 with them, and `rej-d4-left-domain` and `rej-after-exhaustion` now known
 equivalents (the reasons are in the list).
+
+**4.2.2d, implemented 2026-11-04 (agent U4); its [kernel] gate awaits an
+independent review and the owner's approval.** What changed:
+
+- *The whole of `is_def_eq_core`* (`src/kernel/defeq.fs`), in Lean's
+  order, each step a frame step: (2) `Bool.true` by name, `whnf` of the
+  left side when it has no free variable (or in eager mode); (4) whether
+  the left side is a proof (`is_prop` of its type, through a *typer*
+  that inference lends the comparison: Lean's `infer_type` in infer-only
+  mode, `lf-minfer-typed`), *unknown* when it is one (K2, diagnostic 87,
+  task 4.2.5); (5) lazy delta reduction, below; (6), (7), (10) as
+  before; (8), (9) and (13) need projections or literals (U2) and change
+  nothing; (11) exactly one side a λ, *unknown* (K3, 88, task 4.2.4);
+  (12) a constructor of a non-recursive structure with its parameters
+  and fields, and (14) a left side whose type's whnf is a non-recursive
+  structure whose constructor has no field, *unknown* (89, task 5.2.2);
+  (15) Lean's **no**. Conversion reports the no as *rejected*; the
+  caller records its step's rule (59 `appTypeMismatch`, 60
+  `declTypeMismatch`, check-block's 69), a bare conversion 90.
+- *Lazy delta reduction* (tc 959–1075): each round one unit of fuel;
+  `is_def_eq_offset` ported (two `Nat.succ` applications, by name,
+  compare their arguments — Lean's rule, also for a user's `Nat.succ`,
+  BL-4); `reduce_nat` while neither side has a free variable: *unknown*
+  only where it computes a literal (its arguments' whnf are `Nat.zero`;
+  K7 narrowed, as N1 asked: on `Nat.succ n` with `n` a variable it gives
+  nothing, and iota takes the constructor; the same narrowing in
+  `whnf`); then the step: `is_delta` of each side, hints compared as
+  `declaration.cpp` 24–49, the same declaration with a regular hint and
+  two applications first compares universe arguments and arguments
+  (last first), each unfolded side through `whnf_core`, then
+  `quick_is_def_eq`. Lean's failure cache only skips an argument test
+  that would fail again; it comes with the other caches (4.2.7). The
+  interim guard of review rvU4 B1 is gone: lazy delta does what it
+  approximated, and the same rows (`k7.*`) prove it.
+- *Retired*: ADR 0011's rejection analysis (D1–D5 with P1–P4,
+  `lf-minfer-apart` and the words before it, about 230 lines of
+  `mixed-infer.fs`) and K1 inside a check. Its white-box pairs now pin
+  the port's answers (`tests/core/definite-rejection.fs`). Inference
+  "aside" is Lean's infer-only mode (an application's argument neither
+  inferred nor compared). Outside a check (the signature index, which
+  holds no values) a constant at a head of lazy delta is a *doubt*: the
+  comparison goes on for a yes, and a no is *unknown* (K1, 64).
+- *Cross-check during the switch* (the analysis kept beside the port in
+  one WIP commit, `lf-xc-on`; scratch harnesses in `.claude/work/U4/`):
+  the Lean tables (first checker, binder domains, universe scope and
+  many, depth, dependencies, definitional equality, their fed copies) 78
+  pairs the analysis showed apart, all rejected by the port, and 5 the
+  port alone rejects (`constant.needs-unfolding-wrong`,
+  `depth2000.lam-wrong`, `delta.wrong-after-unfolding`,
+  `delta.argument-wrong-after-unfolding`: Lean rejects each); the
+  inductive table 3 and 3 (`unit.bool-not-unit-like`,
+  `unit.bool-variables`, `unit.pair-of-units`: Lean `declTypeMismatch`);
+  the typed-term trial (seeds 1 and 2, 5,000 cases) 7,090, all rejected
+  by the port; the 2,000 checker trials of the digest 39,931 agreements
+  and 1,362 pairs the port ran out of fuel on (the analysis had fuel of
+  its own). No pair the analysis showed apart was accepted or left
+  unknown by the port.
+- *Evidence* (Gforth 1.0.0, Lean 4.35.0): the definitional-equality
+  differential carries reducibility hints (`HINT` on a definition's
+  line) and hierarchical names, and its `delta.*`, `opaque.*` and
+  `names.*` rows give Lean's verdict, except the five that need an
+  opaque declaration (`opaque.never-unfolds`,
+  `opaque.declaration-accepted`, `opaque.declaration-wrong-value`,
+  `delta.same-head-levels-differ-opaque`,
+  `names.nat-zero-becomes-a-literal`, with its twin): *unsupported*
+  until 4.2.6. The K1 rows of the first checker
+  (`constant.needs-unfolding` accepted, `-wrong` rejected, and
+  `constant.uses-an-undecided-declaration` accepted) and of the binder
+  domains (two accepted, two rejected) give Lean's verdict; so do the
+  inductive rows that waited for 4.2.2d (`params.constructor-binder-defeq`,
+  `after.annotated-binders-left-out-then-use-rec`, `iota.bool-true-wrong`,
+  `iota.list-hypothesis-wrong`, `iota.bool-stuck`), `k7.with-free-variable`
+  and the new `k7.rec-on-succ-variable`. `names.nat-succ-matched-by-name`
+  is now Lean's `declTypeMismatch` (offset ported). Planted faults: see
+  `tests/mutants/faults.toml` (`dq-*`, `rv-k7-off`); the faults of the
+  retired analysis are deleted with it.
 
 ## Test plan
 

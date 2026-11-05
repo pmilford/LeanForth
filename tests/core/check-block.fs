@@ -310,13 +310,15 @@ T{ s" iota.list-field" used -> outcome-ok 0 }T
 T{ s" iota.argument-after-major" used -> outcome-ok 0 }T
 T{ s" iota.nat-zero" used -> outcome-ok 0 }T
 T{ s" iota.eq-refl" used -> outcome-ok 0 }T
-T{ s" iota.bool-true-wrong" used -> outcome-unknown lf-diag-undecided }T
-T{ s" iota.list-hypothesis-wrong" used -> outcome-unknown lf-diag-undecided }T
-T{ s" iota.bool-stuck" used -> outcome-unknown lf-diag-undecided }T
+\ Lean's is_def_eq says no after iota (or with iota stuck): rejected since
+\ plan task 4.2.2d (declTypeMismatch).
+T{ s" iota.bool-true-wrong" used -> outcome-rejected lf-diag-value-apart }T
+T{ s" iota.list-hypothesis-wrong" used -> outcome-rejected lf-diag-value-apart }T
+T{ s" iota.bool-stuck" used -> outcome-rejected lf-diag-value-apart }T
 T{ s" iota.nat-succ" used -> outcome-unknown lf-diag-name-matched }T
-\ Unknown, unsupported and invalid. C2's comparison of id Type with Type
-\ needs Lean's lazy delta reduction (task 4.2.2d).
-T{ s" params.constructor-binder-defeq" verdict nip -> outcome-unknown 9 }T
+\ C2's comparison of id Type with Type needs Lean's lazy delta reduction
+\ (accepted since plan task 4.2.2d). Unknown, unsupported and invalid:
+T{ s" params.constructor-binder-defeq" verdict nip -> outcome-ok 15 }T
 \ Forged arithmetic (review rvN1 B1, B2). A definition, or a block member,
 \ named Nat.pow or Nat.shiftLeft is unsupported until task 5.2.3, and so
 \ is every declaration that uses one (K5): Lean's whnf computes them by
@@ -674,8 +676,7 @@ T{ s" after.vec-left-out-then-use-rec" used -> outcome-ok 0 }T
 T{ s" after.reflexive-indexed-left-out-then-use-rec" used -> outcome-ok 0 }T
 T{ s" after.indexed-mixed-left-out-then-use-rec" used -> outcome-ok 0 }T
 T{ s" after.reflexive-indexed-dependent-left-out-then-use-rec" used -> outcome-ok 0 }T
-T{ s" after.annotated-binders-left-out-then-use-rec" used
-   -> outcome-unknown lf-diag-needs-unfolding }T
+T{ s" after.annotated-binders-left-out-then-use-rec" used -> outcome-ok 0 }T
 T{ s" after.redex-parameter-left-out-then-use-rec" used -> outcome-ok 0 }T
 \ The marks on the slots: the type and constructors, not the recursor.
 : added? ( d -- flag ) lf-env lf-env-slot lf-slot-added? ;

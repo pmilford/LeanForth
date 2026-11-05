@@ -477,18 +477,18 @@ def constantCases : List Case := [
     lean := "appTypeMismatch", leanforth := "rejected", rule := "D2",
     what := "passes P (a proposition) where a proof of P is needed" },
   { id := "constant.needs-unfolding", before := [fixtureId], decl := fixtureUnfold,
-    lean := "accepted", leanforth := "unknown", rule := "K1",
+    lean := "accepted", leanforth := "accepted", rule := "A1",
     what := "claims fixtureId Prop P from a proof of P: true by unfolding fixtureId" },
   { id := "constant.needs-unfolding-wrong", before := [fixtureId],
     decl := thm `fixtureUnfoldWrong
       (foralls [im `P prop, im `Q prop, ex `h (v `P)] (hidden (v `Q)))
       (funs [im `P prop, im `Q prop, ex `h (v `P)] (v `h)),
-    lean := "declTypeMismatch", leanforth := "unknown", rule := "K1",
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "defeq",
     what := "claims fixtureId Prop Q from a proof of P: false, but only unfolding shows it" },
   { id := "constant.uses-an-undecided-declaration", before := [fixtureId, fixtureUnfold],
     decl := thm `fixtureUnfoldUse (foralls [im `P prop, ex `h (v `P)] (hidden (v `P)))
       (implicationProof (app (.const `fixtureUnfold []) [v `P, v `h])),
-    lean := "accepted", leanforth := "unknown", rule := "K5",
+    lean := "accepted", leanforth := "accepted", rule := "A1",
     what := "cites fixtureUnfold, which LeanForth could not decide" },
   { id := "constant.theorem-cites-theorem", before := [fixtureId, fixtureUse],
     decl := fixtureUseWith `fixtureUseAgain (app (.const `fixtureUse []) [v `P, v `h]),

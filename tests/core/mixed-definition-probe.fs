@@ -159,12 +159,14 @@ create two-u-args 4 cells allot
   actuals 2@ two-u-args 2! actuals 2@ two-u-args 2 cells + 2! two-u-args 2 ;
 : ill-arity-case ( -- )
   \ B : Sort u and an ill-formed v : B.{u,u} are assumed. The claim B.{u}
-  \ differs from v's type only in universe arity, so it is never accepted.
+  \ differs from v's type only in universe arity, so it is never accepted:
+  \ since plan task 4.2.2d the comparison asks whether B.{u,u} is a proof
+  \ (step 4), and its inference finds the universe arity wrong: invalid.
   setup s" B" new-name dup 0 assume dup actuals 1 reference \ 14 B.{u}
   two-u reference                                              \ 15 B.{u,u}
   s" v" new-name dup 15 assume actuals 1 reference           \ 16 v
-  snapshot 14 16 50000 probe outcome-unknown expect-status assert-rollback
-  lf-mdefinition-fuel @ 0<> abort" unknown fuel" ;
+  snapshot 14 16 50000 probe outcome-invalid expect-status assert-rollback
+  lf-mdefinition-fuel @ 0<> abort" invalid fuel" ;
 : non-type-case ( -- )
   \ fun (x : fun A => A) => x has a binder domain whose type is not a Sort
   \ (S2: typeExpected); (A : Sort u) -> fun (x : A) => x has such a Pi

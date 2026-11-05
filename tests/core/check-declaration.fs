@@ -422,16 +422,16 @@ fc-case sweep-rejected
 fc-decl check thm safe wrong 0 TYPE P S z P S z P V 1 V 2 VALUE L S z L S z L V 0 V 0
 T{ 700 swept -> outcome-rejected true true }T
 \ CLI2's case (tests/cli/unfold.lean): Implies A A against A → A needs
-\ Implies unfolded by lazy delta reduction (plan task 4.2.2d): unknown
-\ from 229, the fuel the whole check takes (since the interim guard of
-\ review rvU4 B1: Implies unfolds, diagnostic 64), and at every fuel below
-\ exhausted (or unknown for Implies itself out of fuel), never unknown for
-\ want of fuel (it was unknown, code 30, at every fuel from 151 to 280
-\ before: the analysis ran out and left the step unknown).
-fc-case sweep-unknown
+\ Implies unfolded by lazy delta reduction: accepted, as Lean does, from
+\ 138, the fuel the whole check takes since plan task 4.2.2d, and at every
+\ fuel below exhausted (or unknown for Implies itself out of fuel). Before,
+\ it was unknown: K1, then the interim guard of review rvU4 B1 (diagnostic
+\ 64); and at every fuel from 151 to 280 unknown, code 30, before 4.2.2c,
+\ when ADR 0011's analysis ran out of fuel and left the step unknown.
+fc-case sweep-unfolding
 fc-decl before def safe Implies 0 TYPE P S z P S z S z VALUE L S z L S z P V 1 V 1
 fc-decl check thm safe impliesSelf 0 TYPE P S z A A C Implies 0 V 0 V 0 VALUE L S z L V 0 V 0
-T{ 400 sweep -> outcome-unknown 229 true }T
+T{ 400 sweep -> outcome-ok 138 true }T
 
 cases-done
 bye

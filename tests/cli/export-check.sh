@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# The command line's three Lean fixtures with pinned Lean: Lean accepts
+# The command line's four Lean fixtures with pinned Lean: Lean accepts
 # tests/cli/chain.lean (larger than check --record holds), unfold.lean (a
-# proof that needs a definition unfolded) and inductive.lean (an inductive
+# proof that needs a definition unfolded), irrelevance.lean (one that needs proof
+# irrelevance) and inductive.lean (an inductive
 # type, a theorem proved with its recursor and a definition computed with
 # it), each without axioms, and scripts/export.sh reproduces the committed
 # exports and their manifests byte for byte. LEAN names the pinned Lean
@@ -14,8 +15,10 @@ temporary=$(mktemp -d)
 cleanup() {
   local name
   for name in LeanForthChain.olean LeanForthUnfold.olean LeanForthInductive.olean \
+    LeanForthIrrelevance.olean \
     chain.ndjson chain.ndjson.manifest.json unfold.ndjson unfold.ndjson.manifest.json \
-    inductive.ndjson inductive.ndjson.manifest.json; do
+    inductive.ndjson inductive.ndjson.manifest.json \
+    irrelevance.ndjson irrelevance.ndjson.manifest.json; do
     rm -f "$temporary/$name"
   done
   rmdir "$temporary"
@@ -40,5 +43,6 @@ reproduce() {
 reproduce chain LeanForthChain chain chain
 reproduce unfold LeanForthUnfold impliesSelf Implies impliesSelf
 reproduce inductive LeanForthInductive Two.cases Two.cases Two.swap
-printf '%s\n' 'Lean accepts chain, impliesSelf, Two.cases and Two.swap;' \
-  'scripts/export.sh reproduces the three exports and their manifests.'
+reproduce irrelevance LeanForthIrrelevance irrelevant irrelevant
+printf '%s\n' 'Lean accepts chain, impliesSelf, Two.cases, Two.swap and irrelevant;' \
+  'scripts/export.sh reproduces the four exports and their manifests.'
