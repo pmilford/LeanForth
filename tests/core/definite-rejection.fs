@@ -335,20 +335,24 @@ T{ fresh 0 make-sort 1 make-sort tok @ 0 lf-minfer-start port -> outcome-exhaust
 : bind ( type -- fvar ) lf-lctx-local ok? must ;
 variable ctx-a variable ctx-p variable ctx-x variable ctx-y
 variable ctx-a1 variable ctx-b1 variable ctx-g variable ctx-q
-\ Eta, in the context A : Type, P : A -> Prop: P against fun (y : A) => P
-\ y is Lean's yes in both orders (eta, step 11, plan task 4.2.4), while P
-\ against Prop is Lean's no.
+\ Eta, in the context A : Type, P Q : A -> Prop: P against fun (y : A) =>
+\ P y is Lean's yes in both orders (eta, step 11, plan task 4.2.4), Q
+\ against it Lean's no, and so is P against Prop.
 : eta-context ( -- )
   fresh tok @ 1000 lf-minfer-start 1 make-sort bind ctx-a !
-  ctx-a @ 0 make-sort make-pi bind ctx-p ! ;
+  ctx-a @ 0 make-sort make-pi bind ctx-p ! ctx-a @ 0 make-sort make-pi bind ctx-q ! ;
 : eta-of-p ( -- node ) ctx-a @ ctx-p @ 0 make-var make-app make-lam ;
 T{ eta-context ctx-p @ eta-of-p port -> outcome-ok }T
 T{ eta-context eta-of-p ctx-p @ port -> outcome-ok }T
+T{ eta-context ctx-q @ eta-of-p port -> outcome-rejected }T
+T{ eta-context eta-of-p ctx-q @ port -> outcome-rejected }T
 T{ eta-context ctx-p @ 0 make-sort port -> outcome-rejected }T
 \ Proof irrelevance (step 4, plan task 4.2.5): two proofs of one
-\ proposition are Lean's yes, while the same terms as data are Lean's no. Context A : Type, P : Sort s, x : A -> P, y : P, a b : A.
-\ With s = 0, x a, x b and y are proofs; with s = 1, x a and x b differ
-\ by their arguments, and x a and y by their heads.
+\ proposition are Lean's yes, while the same terms as data are Lean's no.
+\ Context A : Type, P : Sort s, x : A -> P, y : P, a b : A. With s = 0,
+\ x a, x b and y are proofs; with s = 1, x a and x b differ by their
+\ arguments, and x a and y by their heads. Proofs of two different
+\ propositions, x : A and y : P with A P : Prop, are Lean's no.
 : proof-context ( s -- )
   fresh tok @ 100000 lf-minfer-start 1 make-sort bind ctx-a ! make-sort bind ctx-p !
   ctx-a @ ctx-p @ make-pi bind ctx-x ! ctx-p @ bind ctx-y !
@@ -360,6 +364,11 @@ T{ 0 proof-context x-a x-b port -> outcome-ok }T
 T{ 0 proof-context x-a y-var port -> outcome-ok }T
 T{ 1 proof-context x-a x-b port -> outcome-rejected }T
 T{ 1 proof-context x-a y-var port -> outcome-rejected }T
+: two-proofs ( -- x y )
+  fresh tok @ 100000 lf-minfer-start 0 make-sort bind 0 make-sort bind
+  swap bind swap bind ;
+T{ two-proofs port -> outcome-rejected }T
+T{ two-proofs swap port -> outcome-rejected }T
 \ is_def_eq_binding gives the bodies the right (expected) side's domain
 \ (ADR 0003 Amendment 1, B2). Left: (x : Sort 1) -> (h j : x -> Prop) ->
 \ (z : x) -> j z; right: the same with x : (fun (X : Sort 2) => X) (Sort
