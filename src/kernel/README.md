@@ -34,9 +34,9 @@ ports of Lean's own functions as frame steps on the caller's frames:
 unfold, opaque declarations never; the **iota hook** `lf-whnf-iota`,
 which `iota.fs` sets) and `defeq.fs` (`is_def_eq_core` in Lean's order,
 with `quick_is_def_eq`, `is_def_eq_binding`, `is_def_eq_app`,
-`is_def_eq_args`, lazy delta reduction and `is_def_eq_offset`; proof
-irrelevance, eta, structure eta and unit-like types answer *unknown*
-where they may decide, tasks 4.2.5, 4.2.4 and 5.2.2; Lean's names
+`is_def_eq_args`, lazy delta reduction, `is_def_eq_offset`, proof
+irrelevance and eta, tasks 4.2.5 and 4.2.4; structure eta and
+unit-like types answer *unknown* where they may decide, task 5.2.2; Lean's names
 matched by name are K7 only where `reduce_nat` computes a literal).
 Lean's `==` is `lf-expr-equal` (`mixed-compare.fs`). Conversion
 (`mixed-convert.fs`) is `defeq.fs` after its audits, its no

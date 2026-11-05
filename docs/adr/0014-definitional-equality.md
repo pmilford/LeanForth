@@ -1,6 +1,6 @@
 # ADR 0014: Definitional equality as Lean's kernel decides it
 
-Status: task **4.2.2a implemented and approved** [kernel] by the owner on 2026-11-04 ([decisions](../project/OWNER_DECISIONS.md#free-variables-approved-2026-11-04)); **4.2.2b and 4.2.2c implemented** 2026-11-04, their gate pending; **4.2.2d implemented** 2026-11-04, its gate pending (see [Progress](#progress)); 4.2.2e next. **Accepted** by the owner on 2026-11-03 (G5 and Q-A to Q-D as recommended; Q-E: within twice Lean's one-thread time before phase 6, then close the gap, by algorithms first — [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md#gate-answers-and-working-guidelines-2026-11-03)). Previously: **proposed**, 2026-11-03 (plan task 4.1.1, with the sections task
+Status: task **4.2.2a implemented and approved** [kernel] by the owner on 2026-11-04 ([decisions](../project/OWNER_DECISIONS.md#free-variables-approved-2026-11-04)); **4.2.2b and 4.2.2c implemented** 2026-11-04, their gate pending; **4.2.2d implemented** 2026-11-04, its gate pending (see [Progress](#progress)); 4.2.2e next; **4.2.4 (eta) and 4.2.5 (proof irrelevance) implemented** 2026-11-05 on a branch, their gate pending. **Accepted** by the owner on 2026-11-03 (G5 and Q-A to Q-D as recommended; Q-E: within twice Lean's one-thread time before phase 6, then close the gap, by algorithms first — [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md#gate-answers-and-working-guidelines-2026-11-03)). Previously: **proposed**, 2026-11-03 (plan task 4.1.1, with the sections task
 4.1.3 asks for: eta, proof irrelevance, `let` and metadata). A [kernel]
 design: it passes the review gate in `AGENTS.md` only with the owner's
 approval of the plain-language summary below, and the code that implements
@@ -837,13 +837,14 @@ every row whose rule is not a deferral (K5, K7, U1, U2).
 | `whnf.*`: definition, `@[irreducible]` definition, theorem, opaque | 4 | unfolds ×3, stays | n/a | Lean's answer |
 | `theorem.*`: a recursor opens a theorem; a variable proof stays stuck | 2 | accepted (`And.rec:1,DefEq.dqAnd:1`), `declTypeMismatch` | unsupported | unsupported (U1, phase 5) |
 | `eta.*`: both orders, after unfolding, twice, a wrong function | 5 | 4 accepted, `declTypeMismatch` | unknown (K3) | Lean's verdict |
-| `proof-irrelevance.*` | 4 | 2 accepted, `declTypeMismatch` ×2 | unknown ×2, rejected ×2 (D3) | Lean's verdict |
+| `proof-irrelevance.*` (two added 2026-11-05, task 4.2.5: proofs of different statements as a definition's arguments) | 6 | 3 accepted, `declTypeMismatch` ×3 | unknown ×4, rejected ×2 (D3) | Lean's verdict |
 | `let.*` | 4 | 3 accepted, `letTypeMismatch` | unsupported (U2) | Lean's verdict |
 | `names.*`: Lean's name-matched `Nat` rules in an environment that defines the names | 4 | `declTypeMismatch`, `unknownConstant Nat`; twins accepted | unknown / unsupported | unknown (K7) for the two; Lean's for the twins |
 | `later.*`: structure eta, unit-like, `Nat` literal, quotient (re-checked Lean elaborations) | 4 | accepted ×4 | unsupported | unsupported (phase 5) |
 
 In all, 50 rows: 32 accepted (each with its counts), 14 failures, 4
-`whnf` answers. Measured 2026-11-03 with the pinned Lean, all as recorded;
+`whnf` answers (52 since 2026-11-05: 33 accepted, 15 failures, 4).
+Measured 2026-11-03 with the pinned Lean, all as recorded;
 `make test` and `make check` (Gforth 1.0.0, Lean 4.35.0) passed with the
 table wired in.
 Planted faults in scratch copies (`.claude/work/DQ/bin/faults.sh`, not in
@@ -1193,6 +1194,45 @@ independent review and the owner's approval.** What changed:
   is now Lean's `declTypeMismatch` (offset ported). Planted faults: see
   `tests/mutants/faults.toml` (`dq-*`, `rv-k7-off`); the faults of the
   retired analysis are deleted with it.
+
+**4.2.4 and 4.2.5, implemented 2026-11-05 (agent PE, branch
+`pe-proof-irrel-eta`); their [kernel] gate awaits an independent review
+and the owner's approval.** K2 and K3 go:
+
+- *Step 4, proof irrelevance* (tc 899–906, called at 1163): when the
+  left side is a proof (Lean's `is_prop` of its type, as before), the
+  typer infers the right side's type (a free variable's type directly,
+  Lean's `infer_fvar`) and `is_def_eq` of the two types, a child visit
+  on the frames, is the answer, yes or no; nothing else is tried.
+- *Step 11, eta* (tc 841–853, `type_checker.h` 94–96, called at 1194):
+  when exactly one side is a λ, the other side's type (typer, or a free
+  variable's type; a Sort's or a Π's type is a Sort) is put in `whnf`;
+  a Π of domain `D` gives the new node `fun x : D => other x` (Lean's
+  binder name and annotation are not stored: `==` ignores them), and
+  `is_def_eq(λ, new)` (λ on the left, as Lean in both orders), a child
+  visit, answers yes; a no, or a type that is no Π, goes on to step 12.
+- Fuel: each child visit one unit (frame-admit), the typer and `whnf`
+  on the frames' fuel as before; a failure (exhausted, full, unknown,
+  invalid) ends the comparison with it, never as an answer. The new
+  nodes stay for the caller to discard, as every comparison's.
+- Without a typer (a bare comparison, only unit tests) steps 4 and 11
+  stay doubts: 87 and 88 now mark only that (DIAGNOSTICS.md); a check
+  always has a typer and never gives them.
+- *Evidence* (Gforth 1.0.0, Lean 4.35.0): the definitional-equality
+  differential's `eta.*` (5) and `proof-irrelevance.*` (6, two new:
+  `.different-statements`, Lean `declTypeMismatch`, where step 4's no
+  decides the argument test and the unfolded statements differ, and
+  `.different-statements-unfold`, accepted, `dqForget:2`) give Lean's
+  verdict and are now required to; 46 rows run. First-checker rows
+  `composition.proof-irrelevance` (still *full* at the 64-node default,
+  accepted at large capacities and fed), `type-identity.proof-irrelevance-twin`,
+  `type-identity.eta-twin`, `poly-identity.proof-irrelevance-imax`,
+  `-max-zero`, and binder-domain rows `compare.domain-proof-irrelevance`,
+  `compare.eta-under-beta-domain`: accepted (Lean accepts); inductive
+  row `k7.nat-is-prop`: rejected (Lean `declTypeMismatch`); CLI
+  `tests/cli/irrelevance.ndjson` accepted. Nothing moved to accepted
+  that Lean rejects. Planted faults `dq-eta-*`, `dq-proof-*` (8), all
+  caught.
 
 ## Test plan
 
