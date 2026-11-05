@@ -59,31 +59,42 @@ require ./mixed-level-substitute.fs
 begin-structure /lf-genrec
   field: lf-genrec-root-cell    \ the recursor's type, built
   field: lf-genrec-args         \ the use's arguments for the block's parameters
-  field: lf-genrec-kept         \ the block's domains copied, how many cells
+  field: lf-genrec-which        \ the type whose recursor is built, in its block
+  field: lf-genrec-kept         \ the block's domains copied, how many
+  field: lf-genrec-kept-ty      \ its type records copied, how many
   /lf-ind +field lf-genrec-saved \ the block record while the build runs
 end-structure
 /lf-genrec context-record: lf-genrec-state
 \ The constructors' types instantiated, one cell each: a growable array.
 1 cells context-slab: lf-genrec-ctor-cells
-\ The binder domains of the block whose check the lookup interrupts.
+\ The binder domains and type records of the block whose check the
+\ lookup interrupts.
 1 cells context-slab: lf-genrec-kept-cells
+/lf-ty context-slab: lf-genrec-kept-types
 
 \ ---------------------------------------------------------------------------
-\ At the block check, after the build (step 12): whether the telescope it
-\ walked, binder by binder after whnf, is the raw one -- each domain the
-\ raw Pi's own node, the end a raw Sort of the result level.
-: lf-genrec-binders ( -- n ) lf-ind-nparams lf-ind-state lf-ind-indices @ + ;
-: lf-genrec-step ( node i -- node' flag )
+\ At the block check, after the build (step 12): whether the telescopes it
+\ walked, binder by binder after whnf, are the raw ones -- for each type,
+\ each recorded domain the raw Pi's own node (the first type's parameters
+\ too; another type's parameters only raw binders), the end a raw Sort.
+: lf-genrec-step ( node at -- node' flag )
   over lf-tag-pi lf-ind-tag? 0= if drop false exit then
   lf-ind-domain @ over lf-term-first@ = swap lf-term-second@ swap ;
+: lf-genrec-skip ( node n -- node' flag )
+  0 ?do dup lf-tag-pi lf-ind-tag? 0= if false unloop exit then lf-term-second@ loop true ;
 : lf-genrec-sorted? ( node -- flag ) lf-mhead-kind lf-head-sort = ;
-: lf-genrec-sort? ( node -- flag )
-  dup lf-genrec-sorted? 0= if drop false exit then
-  lf-term-first@ lf-ind-state lf-ind-level @ = ;
-: lf-genrec-raw? ( -- flag )
-  lf-ind-type lf-idecl-type @ lf-genrec-binders 0 ?do
-    i lf-genrec-step 0= if drop false unloop exit then
-  loop lf-genrec-sort? ;
+: lf-genrec-params? ( node d -- node' flag )
+  if lf-ind-nparams lf-genrec-skip exit then
+  lf-ind-nparams 0 ?do i lf-genrec-step 0= if false unloop exit then loop true ;
+: lf-genrec-indices? ( node d -- node' flag )
+  dup lf-ind-n 0 ?do
+    dup lf-ind-ty lf-ty-domain @ i + rot swap lf-genrec-step
+    0= if nip false unloop exit then swap
+  loop drop true ;
+: lf-genrec-type-raw? ( d -- flag )
+  dup lf-ind-type-at lf-idecl-type @ over lf-genrec-params? 0= if 2drop false exit then
+  swap lf-genrec-indices? 0= if drop false exit then lf-genrec-sorted? ;
+: lf-genrec-raw? ( -- flag ) true lf-ind-types@ 0 ?do i lf-genrec-type-raw? and loop ;
 \ The recipe the block check publishes: lf-recipe-raw, with
 \ lf-recipe-large when the motive has a universe of its own; 0 when the
 \ telescope is not raw.
@@ -92,18 +103,31 @@ end-structure
   lf-recipe-raw lf-ind-state lf-ind-elim-name @ if lf-recipe-large or then ;
 
 \ ---------------------------------------------------------------------------
-\ At a lookup: the facts again, from the raw input. The telescope: each
-\ Pi's domain, then the result Sort's level and the indices; invalid when
-\ it is not what the recipe says (no raw Sort end, too few binders).
-: lf-genrec-bind ( node i -- node' )
+\ At a lookup: the facts again, from the raw input. The telescopes: the
+\ first type's Pis' domains, then its result Sort's level and indices;
+\ another type's Pis after its parameters, its indices; invalid when one
+\ is not what the recipe says (no raw Sort end, too few binders).
+: lf-genrec-bind ( node at -- node' )
   over lf-term-first@ swap lf-ind-domain ! lf-term-second@ ;
-: lf-genrec-tele ( root -- outcome )
+: lf-genrec-used ( -- addr ) lf-ind-state lf-ind-domains-used ;
+: lf-genrec-pis ( node -- end n outcome )
   0 begin over lf-tag-pi lf-ind-tag? while
-    dup 1+ lf-ind-domains slab-hold ok? 0= if 2drop outcome-full exit then
-    tuck lf-genrec-bind swap 1+
-  repeat lf-ind-nparams - dup 0< if 2drop outcome-invalid exit then
-  lf-ind-state lf-ind-indices ! dup lf-genrec-sorted? 0= if drop outcome-invalid exit then
+    lf-genrec-used @ dup 1+ lf-ind-domains slab-hold ok? 0=
+    if drop outcome-full exit then
+    >r swap r> lf-genrec-bind swap 1+ 1 lf-genrec-used +!
+  repeat outcome-ok ;
+: lf-genrec-first ( root -- outcome )
+  0 lf-genrec-used ! lf-ind-nparams 0 lf-ind-ty lf-ty-domain !
+  lf-genrec-pis dup ok? 0= if nip nip exit then drop
+  lf-ind-nparams - dup 0< if 2drop outcome-invalid exit then 0 lf-ind-ty lf-ty-indices !
+  dup lf-genrec-sorted? 0= if drop outcome-invalid exit then
   lf-term-first@ lf-ind-state lf-ind-level ! outcome-ok ;
+: lf-genrec-other ( root d -- outcome )
+  swap lf-ind-nparams lf-genrec-skip 0= if 2drop outcome-invalid exit then
+  lf-genrec-used @ 2 pick lf-ind-ty lf-ty-domain !
+  lf-genrec-pis dup ok? 0= if nip nip nip exit then drop
+  rot lf-ind-ty lf-ty-indices !
+  lf-genrec-sorted? if outcome-ok else outcome-invalid then ;
 \ Each constructor's fields: its raw binders after the parameters.
 : lf-genrec-fields ( -- outcome )
   lf-ind-ctors@ 0 ?do
@@ -137,11 +161,14 @@ end-structure
 : lf-genrec-subst ( root -- root' outcome )
   lf-ind-lparams nip 0= if outcome-ok exit then
   dup lf-term-identity 0= if drop -1 outcome-invalid exit then lf-genrec-subst-run ;
-\ The type's telescope from its instance; each constructor's type
+\ Each type's telescope from its instance; each constructor's type
 \ instantiated into the array.
-: lf-genrec-type ( -- outcome )
-  lf-ind-type lf-idecl-type @ lf-genrec-subst dup ok? 0= if nip exit then drop
-  lf-genrec-tele ;
+: lf-genrec-type ( d -- outcome )
+  dup lf-ind-type-at lf-idecl-type @ lf-genrec-subst dup ok? 0= if nip nip exit then drop
+  swap ?dup if lf-genrec-other else lf-genrec-first then ;
+: lf-genrec-types ( -- outcome )
+  lf-ind-types@ 0 ?do i lf-genrec-type dup ok? 0= if unloop exit then drop loop
+  outcome-ok ;
 : lf-genrec-ctor ( j -- outcome )
   dup lf-ind-ctor-type lf-genrec-subst dup ok? 0= if nip nip exit then drop
   swap lf-genrec-ctor-cells slab-at ! outcome-ok ;
@@ -150,32 +177,45 @@ end-structure
   lf-ind-ctors@ 0 ?do i lf-genrec-ctor dup ok? 0= if unloop exit then drop loop
   outcome-ok ;
 
-\ The build, between the copy of the block record and its return.
+\ The build, between the copy of the block record and its return. The
+\ type slot d opens its block (its header's first member), and is the
+\ block's type d - first.
 : lf-genrec-then ( outcome xt -- outcome ) over ok? if nip execute else drop then ;
-: lf-genrec-facts ( d -- outcome ) lf-ind-open nip ['] lf-genrec-fields lf-genrec-then ;
+: lf-genrec-layout ( -- outcome ) lf-ind-layout if outcome-ok else outcome-invalid then ;
+: lf-genrec-facts ( d -- outcome )
+  dup lf-input-decl lf-idecl-header dup 0= if 2drop outcome-invalid exit then
+  lf-hdr-first lf-more-field tuck - lf-genrec-state lf-genrec-which !
+  lf-ind-open nip ['] lf-genrec-layout lf-genrec-then
+  ['] lf-genrec-fields lf-genrec-then ;
 : lf-genrec-made ( -- outcome )
   0 lf-genrec-ctor-cells slab-at lf-recursor-build-at dup ok? 0= if exit then
-  lf-ind-state lf-ind-rec-type @ lf-genrec-state lf-genrec-root-cell ! ;
+  lf-genrec-state lf-genrec-which @ lf-ind-ty lf-ty-rec-type @
+  lf-genrec-state lf-genrec-root-cell ! ;
 : lf-genrec-run ( d pairs fuel -- fuel' outcome )
   >r over lf-genrec-facts dup ok? 0= if nip nip r> swap exit then drop
   r> lf-ind-fuel ! swap lf-genrec-large? lf-genrec-elim lf-genrec-pairs
-  ['] lf-genrec-type lf-genrec-then ['] lf-genrec-ctors lf-genrec-then
+  ['] lf-genrec-types lf-genrec-then ['] lf-genrec-ctors lf-genrec-then
   ['] lf-genrec-made lf-genrec-then lf-ind-fuel @ swap ;
-\ The block record, and every cell of the domains slab (the record does
-\ not say how many the interrupted check filled): copied aside, full when
-\ the heap cannot hold the copy; given back after the build.
-: lf-genrec-kept@ ( -- n ) lf-genrec-state lf-genrec-kept @ ;
-: lf-genrec-keep ( -- outcome )
-  lf-ind-domains slab-capacity dup lf-genrec-kept-cells slab-hold ok? 0=
-  if drop outcome-full exit then
-  dup lf-genrec-state lf-genrec-kept !
-  lf-ind-domains slab-base lf-genrec-kept-cells slab-base rot cells move outcome-ok ;
+\ The block record, and every unit of the domains and type records slabs
+\ (the record does not say how many the interrupted check filled): copied
+\ aside, full when the heap cannot hold a copy; given back after the
+\ build.
+: lf-genrec-out ( slab save -- n outcome )
+  over slab-capacity dup 2 pick slab-hold ok? 0= if drop 2drop 0 outcome-full exit then
+  >r over slab-bytes >r swap slab-base swap slab-base r> move r> outcome-ok ;
+: lf-genrec-back ( n save slab -- )
+  dup slab-unit >r slab-base swap slab-base swap rot r> * move ;
 : lf-genrec-save ( -- outcome )
-  lf-genrec-keep dup ok? 0= if exit then
-  lf-ind-state lf-genrec-state lf-genrec-saved /lf-ind move ;
+  lf-ind-domains lf-genrec-kept-cells lf-genrec-out ok-then? 0= if exit then
+  lf-genrec-state lf-genrec-kept !
+  lf-ind-type-cells lf-genrec-kept-types lf-genrec-out ok-then? 0= if exit then
+  lf-genrec-state lf-genrec-kept-ty !
+  lf-ind-state lf-genrec-state lf-genrec-saved /lf-ind move outcome-ok ;
 : lf-genrec-restore ( -- )
   lf-genrec-state lf-genrec-saved lf-ind-state /lf-ind move
-  lf-genrec-kept-cells slab-base lf-ind-domains slab-base lf-genrec-kept@ cells move ;
+  lf-genrec-state lf-genrec-kept @ lf-genrec-kept-cells lf-ind-domains lf-genrec-back
+  lf-genrec-state lf-genrec-kept-ty @ lf-genrec-kept-types lf-ind-type-cells
+  lf-genrec-back ;
 
 \ Build the recursor of the block whose type is slot d (readable, with a
 \ recipe: lf-env-rebuildable?) at the universe arguments at pairs, as

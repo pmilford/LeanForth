@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""LeanForth against the inductive table (plan tasks 5.2.1a and 5.2.1b; ADR
+"""LeanForth against the inductive table (plan tasks 5.2.1a, 5.2.1b and 5.2.5a; ADR
 0015 §13, test plan 1).
 
 Runs pinned Lean on tests/reference/inductive-expected.lean, which prints
@@ -36,13 +36,16 @@ import tempfile
 LEAN_FILE = "tests/reference/inductive-expected.lean"
 TSV = "tests/reference/inductive-expected.tsv"
 FIXTURES = "tests/core/check-block-cases"
-DONE_TASKS = {"5.2.1a", "5.2.1b"}
-# Rows of tasks 5.2.1a and 5.2.1b that LeanForth cannot decide yet: id ->
+DONE_TASKS = {"5.2.1a", "5.2.1b", "5.2.5a"}
+# Rows of the tasks done (DONE_TASKS) that LeanForth cannot decide yet: id ->
 # (outcome now, reason, ending with the task that closes it). Each needs
 # something outside those tasks; the same rule reached without the dependency
 # is a row of its own (the twin given), which must give the table's column.
 # Never accepted, never a verdict Lean does not give.
 PENDING = {
+    "mutual.even-odd": ("unsupported",
+        "uses Nat literals (Even 0, n + 1): U2; twin mutual.even-odd-constructors."
+        " Closed by task 5.2.3 (literals)"),
     "pos.through-definition": ("unknown",
         "positivity needs id (Bad -> Nat) unfolded by whnf: K1; twin"
         " pos.negative-through-beta. Closed when check-block.fs puts it in whnf.fs's"
@@ -64,6 +67,13 @@ PENDING = {
     "params.constructor-binder-defeq": ("unknown",
         "C2 needs id Type unfolded by Lean's lazy delta reduction in is_def_eq: K1;"
         " twin params.constructor-binder-beta. Closed by task 4.2.2d"),
+    "universe.type-a-sort-by-definition": ("unknown",
+        "the type's telescope ends in PSortDef, a Sort only once unfolded: K1; twin"
+        " universe.type-not-a-sort. Closed by task 4.2.2 (whnf with delta)"),
+    "after.annotated-binders-left-out-then-use-rec": ("unknown",
+        "the use compares Nat with optParam Nat Nat.zero (diagnostic 30): K1, Lean's lazy"
+        " delta reduction in is_def_eq unfolds optParam; twin"
+        " after.reflexive-indexed-left-out-then-use-rec. Closed by task 4.2.2d"),
     "after.redex-type-left-out-then-use-rec": ("unknown",
         "IE.U2's type is a Sort only after whnf, so its block left no recipe of the"
         " generated recursor (ADR 0015 decision 12): a use of IE.U2.rec is unknown"
@@ -234,7 +244,7 @@ def main():
     failures += stale_fixtures(cases)
     done = sum(n for (d, _), n in tally.items() if d)
     later = sum(n for (d, _), n in tally.items() if not d)
-    print(f"inductive-table: {len(cases)} cases; tasks 5.2.1a-b rows {done}:",
+    print(f"inductive-table: {len(cases)} cases; tasks 5.2.1a-b, 5.2.5a rows {done}:",
           ", ".join(f"{o} {n}" for (d, o), n in sorted(tally.items()) if d),
           f"(pending {len(PENDING)}); later tasks' rows {later}:",
           ", ".join(f"{o} {n}" for (d, o), n in sorted(tally.items()) if not d))
