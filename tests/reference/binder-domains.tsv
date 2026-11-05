@@ -7,8 +7,8 @@ compare.lambda-beta-domain-different-body	different	unknown	apart	D4+B1
 compare.domain-apart	different	apart	apart	D4
 compare.domain-needs-unfolding	equal	unknown	equal	A1
 compare.domain-needs-unfolding-different-body	different	unknown	apart	defeq
-compare.domain-proof-irrelevance	equal	unknown	unknown	K2
-compare.eta-under-beta-domain	equal	unknown	unknown	K3
+compare.domain-proof-irrelevance	equal	unknown	equal	proof-irrelevance
+compare.eta-under-beta-domain	equal	unknown	equal	eta
 decl.beta-domain-in-statement	accepted	unknown	accepted	A1+B1
 decl.beta-domain-in-proof	accepted	unknown	accepted	A1+B1
 decl.beta-domain-used-by-body	accepted	unknown	accepted	A1+B1

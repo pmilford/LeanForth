@@ -1,8 +1,10 @@
 \ Definitional equality as Lean's kernel decides it (ADR 0014 Q1, Q3, Q6,
-\ Q8; plan tasks 4.2.2b and 4.2.2d): ports of quick_is_def_eq
-\ (type_checker.cpp 802-826), is_def_eq_binding (752-779), is_def_eq_app
-\ (878-895), is_def_eq_args (830-838), lazy_delta_reduction and its step
-\ (959-1075) and is_def_eq_core (1132-1207), at the referee commit
+\ Q7, Q8; plan tasks 4.2.2b, 4.2.2d, 4.2.4 and 4.2.5): ports of
+\ quick_is_def_eq (type_checker.cpp 802-826), is_def_eq_binding
+\ (752-779), is_def_eq_app (878-895), is_def_eq_args (830-838),
+\ try_eta_expansion (841-853), is_def_eq_proof_irrel (899-906),
+\ lazy_delta_reduction and its step (959-1075) and is_def_eq_core
+\ (1132-1207), at the referee commit
 \ eb6cafb7 (ADR 0014, Reproduction). [kernel] code: experimental, not
 \ through the review gate, not independently audited.
 \
@@ -32,15 +34,16 @@
 \   no; (2) when s is the constant Bool.true (by name) and t has no free
 \   variable, or in eager mode (lf-dq-eager), yes when whnf(t) is
 \   Bool.true too; (3) whnf_core of both sides (whnf.fs) and, when either
-\   changed, quick_is_def_eq again; (4) proof irrelevance, when t is a
-\   proof: unknown (K2, diagnostic 87; plan task 4.2.5 compares the two
-\   types there); (5) lazy delta reduction (below), which may answer yes
+\   changed, quick_is_def_eq again; (4) proof irrelevance: when t is a
+\   proof, is_def_eq of t's type and s's type is the answer, yes or no;
+\   (5) lazy delta reduction (below), which may answer yes
 \   or no and leaves both sides as far unfolded as it got; (6) the same
 \   constant with equivalent universe arguments, yes; (7) the same free
 \   variable, yes; (8) and (9) need projections, an unsupported form
 \   (U2): with none, whnf_core with projections reduced changes nothing;
-\   (10) is_def_eq_app, yes; (11) eta: exactly one side a lambda is
-\   unknown (K3, diagnostic 88, plan task 4.2.4); (12) structure eta:
+\   (10) is_def_eq_app, yes; (11) eta: when exactly one side is a lambda
+\   and the whnf of the other's type is a Pi of domain D, is_def_eq of
+\   the lambda and fun x : D => other x, yes; (12) structure eta:
 \   either side a constructor of a non-recursive structure applied to its
 \   parameters and fields is unknown (diagnostic 89, plan task 5.2.2);
 \   (13) string literals are unsupported (U2); (14) unit-like types:
@@ -52,7 +55,9 @@
 \   zero. A Sort or a Pi is a type, never a proof, and so is a free
 \   variable whose type is a Sort; otherwise the types come from the
 \   typer the caller lends, Lean's infer_type in infer-only mode
-\   (lf-dq-typer: mixed-infer.fs, aside). Step 14 asks it for t's type.
+\   (lf-dq-typer: mixed-infer.fs, aside). Step 4 asks it for s's type,
+\   step 11 for the other side's and step 14 for t's, each a free
+\   variable's type without it (Lean's infer_fvar).
 \ - lazy_delta_reduction loops, one unit of fuel a round. First
 \   is_def_eq_offset: both sides zero (the literal 0 or Nat.zero) is yes;
 \   both with a predecessor (a literal above 0, or Nat.succ x by name)
@@ -80,18 +85,20 @@
 \ answered yes, it goes on, records the first such step (the doubt
 \ record), and lf-defeq-on reports a final no as unknown with it: outside
 \ a check of the checked environment, a constant at a head of lazy delta
-\ (K1, diagnostic 64: the signature index holds no values), and steps 4
-\ and 14 without a typer (a bare call, as the unit tests make). A check
-\ of the checked environment always has a typer and a snapshot, so it
-\ never doubts. A yes reached with a doubt is Lean's yes under these
-\ conditions, which it needs (review rvU4 B1): (a) steps 6, 7 and 10
-\ answer yes only for terms equal up to beta and universe equivalence;
+\ (K1, diagnostic 64: the signature index holds no values), and steps 4,
+\ 11 and 14 without a typer (diagnostics 87, 88 and 89; a bare call, as
+\ the unit tests make). A check of the checked environment always has a
+\ typer and a snapshot, so it never doubts. A yes reached with a doubt is
+\ Lean's yes under these conditions, which it needs (review rvU4 B1): (a)
+\ without a typer, steps 6, 7, 10 and 11 answer yes only for terms equal
+\ up to beta, eta and universe equivalence (step 4 needs the typer);
 \ (b) lazy delta's by-name rules have run as Lean runs them (K7 and
 \ is_def_eq_offset come before the doubt), and a constant of the
 \ signature index has no value -- the assumption of a comparison outside
 \ a check, which accepts no theorem; (c) where step 4 is skipped, Lean
-\ would compare the two sides' types, equal for terms equal up to beta
-\ and universe equivalence (ADR 0003's argument).
+\ would compare the two sides' types, equal for terms equal up to beta,
+\ eta and universe equivalence (ADR 0003's argument); where step 11 is
+\ skipped, Lean could only have said yes sooner.
 \
 \ Passes. Every comparison is a visit on a frames record that the caller
 \ gives (lib/frame.fs), as in whnf.fs: lf-defeq-call ( t s frames cont
@@ -422,8 +429,8 @@ defer lf-ap-arg ( frames -- ... frames next )
   dup lf-lit-leaf? if lf-reduce-nat-pred else lf-term-second@ outcome-ok then ;
 
 \ ---------------------------------------------------------------------------
-\ Types, for steps 4 and 14 (see the header). A Sort or a Pi is a type,
-\ and so is a free variable whose type is a Sort.
+\ Types, for steps 4, 11 and 14 (see the header). A Sort or a Pi is a
+\ type, and so is a free variable whose type is a Sort.
 : lf-dq-sort? ( node -- flag ) lf-dq-tag lf-tag-symbolic-sort = ;
 : lf-dq-typeish? ( node -- flag ) dup lf-dq-sort? swap lf-dq-tag lf-tag-pi = or ;
 : lf-dq-fvar? ( node -- flag ) lf-dq-tag lf-tag-fvar = ;
@@ -439,15 +446,23 @@ defer lf-ap-arg ( frames -- ... frames next )
   0 lf-dq-site lf-diag-not-sort lf-diag-note -1 outcome-unknown ;
 : lf-dq-zero? ( level frames -- flag outcome )
   >r r@ frame-fuel @ lf-level-zero? r> lf-lvalue-fuel lf-dq-repay ;
-\ Whether t is a proof: yes, no, or undecided without a typer.
-: lf-dq-proof? ( t frames -- lbool outcome )
-  over lf-dq-plain-type? if 2drop lf-dq-no outcome-ok exit then
-  lf-dq-typer @ 0= if 2drop lf-dq-undef outcome-ok exit then
-  >r r@ lf-dq-typed ok-then? 0= if r> drop 0 swap exit then
-  dup lf-dq-sort? if r> 2drop lf-dq-no outcome-ok exit then
-  r@ lf-dq-typed ok-then? 0= if r> drop 0 swap exit then
-  r@ lf-dq-sorted ok-then? 0= if r> drop 0 swap exit then
-  r> lf-dq-zero? ok-then? if lf-dq-lbool outcome-ok else 0 swap then ;
+\ is_prop (383-389) of a type: its type, put in whnf, a Sort whose level
+\ is zero.
+: lf-dq-prop? ( type frames -- flag outcome )
+  >r r@ lf-dq-typed ok-then? 0= if r> drop false swap exit then
+  r@ lf-dq-sorted ok-then? 0= if r> drop false swap exit then
+  r> lf-dq-zero? ;
+\ Whether t is a proof (901-902): yes with t's type, no, or undecided
+\ without a typer; the type is 0 unless yes, both are 0 on a failure.
+: lf-dq-unproved ( outcome -- 0 0 outcome ) 0 0 rot ;
+: lf-dq-proof-of ( type frames -- type lbool outcome )
+  over lf-dq-sort? if 2drop 0 lf-dq-no outcome-ok exit then
+  over swap lf-dq-prop? ok-then? 0= if nip lf-dq-unproved exit then
+  if lf-dq-yes else drop 0 lf-dq-no then outcome-ok ;
+: lf-dq-proof? ( t frames -- type lbool outcome )
+  over lf-dq-plain-type? if 2drop 0 lf-dq-no outcome-ok exit then
+  lf-dq-typer @ 0= if 2drop 0 lf-dq-undef outcome-ok exit then
+  tuck lf-dq-typed ok-then? 0= if nip lf-dq-unproved exit then swap lf-dq-proof-of ;
 
 \ Inductive types (ADR 0015), for steps 12 and 14: the declaration a name
 \ has in the check's snapshot, or 0 for none that could matter (no such
@@ -527,9 +542,42 @@ defer lf-ap-arg ( frames -- ... frames next )
   if r> lf-dq-pending exit then
   r@ lf-dq-sides drop lf-dq-eta-struct? ok-then? 0= if r> lf-dq-gap exit then
   if r> lf-dq-pending else r> lf-dq-unit-step then ;
+
+\ Step 11 (1194-1195), try_eta_expansion (type_checker.h 94-96) and its
+\ core (841-853): when exactly one side is a lambda, the other side's type
+\ put in whnf; a Pi of domain D gives fun x : D => other x (846: Lean's
+\ binder name and annotation are not compared, quick_is_def_eq's ==), and
+\ is_def_eq of the lambda (left) and that; yes ends the visit, no goes on
+\ to step 12. Without a typer, other than a free variable's, the step is
+\ undecided: a doubt.
+: lf-dq-eta-sides ( tn sn -- lambda other true | false )
+  over lf-whnf-lam? over lf-whnf-lam? 2dup = if 2drop 2drop false exit then
+  drop if true else swap true then ;
+\ The other side's type in whnf: yes a Pi, no, or undecided; the Pi is 0
+\ unless yes, both are 0 on a failure. A Sort's or a Pi's type is a Sort.
+: lf-dq-eta-pi ( other frames -- pi lbool outcome )
+  over lf-dq-typeish? if 2drop 0 lf-dq-no outcome-ok exit then
+  over lf-dq-fvar? 0= lf-dq-typer @ 0= and if 2drop 0 lf-dq-undef outcome-ok exit then
+  tuck lf-dq-type-of ok-then? 0= if nip lf-dq-unproved exit then
+  swap lf-whnf-on ok-then? 0= if lf-dq-unproved exit then
+  dup lf-dq-tag lf-tag-pi = if lf-dq-yes else drop 0 lf-dq-no then outcome-ok ;
+\ fun x : D => other x, closed as other is; full without room.
+: lf-dq-eta-expand ( other pi -- lambda outcome )
+  lf-term-first@ swap 0 lf-term-bvar 0= if 2drop lf-rebuild-full exit then
+  lf-term-app 0= if drop lf-rebuild-full exit then lf-term-lam lf-rebuild-allocated ;
+: lf-dq-eta-back ( flag outcome frames -- ... frames next )
+  >r ok-then? 0= if r> lf-dq-end-failed exit then
+  if true r> lf-dq-end else r> lf-dq-struct-step then ;
+: lf-dq-eta-compare ( lambda other pi frames -- ... frames next )
+  >r lf-dq-eta-expand ok-then? 0= if nip r> lf-dq-end-failed exit then
+  r> ['] lf-dq-eta-back lf-dq-call ;
+: lf-dq-eta-try ( lambda other frames -- ... frames next )
+  >r dup r@ lf-dq-eta-pi ok-then? 0= if nip nip nip r> lf-dq-end-failed exit then
+  dup lf-dq-yes = if drop r> lf-dq-eta-compare exit then
+  lf-dq-undef = if r@ lf-dq-sides lf-diag-eta-pending lf-dq-doubt then
+  2drop drop r> lf-dq-struct-step ;
 : lf-dq-eta-step ( frames -- ... frames next )
-  >r r@ lf-dq-sides lf-whnf-lam? swap lf-whnf-lam? xor
-  if r@ lf-dq-sides lf-diag-eta-pending r> lf-dq-unknown else r> lf-dq-struct-step then ;
+  dup lf-dq-sides lf-dq-eta-sides if rot lf-dq-eta-try else lf-dq-struct-step then ;
 
 \ Steps 6, 7 and 10.
 : lf-dq-app-back ( flag outcome frames -- ... frames next )
@@ -630,12 +678,13 @@ defer lf-lz-loop ( frames -- ... frames next )
 \ then on sn (whnf.fs, lf-whnf-nat-call): where it computes v,
 \ is_def_eq_core of v and the other side is the answer (plan task
 \ 5.2.3); otherwise the step.
-: lf-lz-offset-back ( flag outcome frames -- ... frames next )
+\ A child's answer that is the visit's (also step 4's, below).
+: lf-dq-final ( flag outcome frames -- ... frames next )
   >r ok-then? 0= if r> lf-dq-end-failed exit then r> lf-dq-end ;
 : lf-lz-offset ( t s frames -- ... frames next )
   >r lf-dq-pred ok-then? 0= if nip r> lf-dq-end-failed exit then
   swap lf-dq-pred ok-then? 0= if nip r> lf-dq-end-failed exit then
-  swap r> ['] lf-lz-offset-back lf-dq-call ;
+  swap r> ['] lf-dq-final lf-dq-call ;
 : lf-lz-closed? ( tn sn frames -- flag outcome )
   >r swap r@ lf-whnf-free? ok-then? 0= if nip r> drop false swap exit then
   if drop r> drop false outcome-ok exit then
@@ -643,14 +692,14 @@ defer lf-lz-loop ( frames -- ... frames next )
 : lf-lz-nat-s-back ( r outcome frames -- ... frames next )
   >r ok-then? 0= if r> lf-dq-end-failed exit then
   dup lf-whnf-none = if drop r> lf-lz-step exit then
-  r@ lf-dq-sides drop swap r> ['] lf-lz-offset-back lf-dq-call ;
+  r@ lf-dq-sides drop swap r> ['] lf-dq-final lf-dq-call ;
 : lf-lz-nat-s ( frames -- ... frames next )
   dup lf-dq-sides nip dup lf-whnf-k7?
   if swap ['] lf-lz-nat-s-back lf-whnf-nat-call else drop lf-lz-step then ;
 : lf-lz-nat-t-back ( r outcome frames -- ... frames next )
   >r ok-then? 0= if r> lf-dq-end-failed exit then
   dup lf-whnf-none = if drop r> lf-lz-nat-s exit then
-  r@ lf-dq-sides nip r> ['] lf-lz-offset-back lf-dq-call ;
+  r@ lf-dq-sides nip r> ['] lf-dq-final lf-dq-call ;
 : lf-lz-nat-t ( frames -- ... frames next )
   dup lf-dq-sides drop dup lf-whnf-k7?
   if swap ['] lf-lz-nat-t-back lf-whnf-nat-call else drop lf-lz-nat-s then ;
@@ -667,12 +716,17 @@ defer lf-lz-loop ( frames -- ... frames next )
   2drop r> lf-lz-nat ; is lf-lz-loop
 
 \ ---------------------------------------------------------------------------
-\ Step 4: t a proof is unknown; undecided (no typer) a doubt.
+\ Step 4 (1163-1164), is_def_eq_proof_irrel (899-906): when t is a proof,
+\ is_def_eq of its type and s's type is the answer, yes or no; when it is
+\ not, lazy delta; undecided (no typer) a doubt, then lazy delta.
+: lf-dq-irrel ( type frames -- ... frames next )
+  >r r@ lf-dq-sides nip r@ lf-dq-type-of ok-then? 0= if nip r> lf-dq-end-failed exit then
+  r> ['] lf-dq-final lf-dq-call ;
 : lf-dq-proof-step ( frames -- ... frames next )
-  >r r@ lf-dq-sides drop r@ lf-dq-proof? ok-then? 0= if r> lf-dq-end-failed exit then
-  dup lf-dq-undef = if
-    drop r@ lf-dq-sides lf-diag-proof-pending lf-dq-doubt r> lf-lz-loop exit then
-  if r@ lf-dq-sides lf-diag-proof-pending r> lf-dq-unknown else r> lf-lz-loop then ;
+  >r r@ lf-dq-sides drop r@ lf-dq-proof? ok-then? 0= if nip r> lf-dq-end-failed exit then
+  dup lf-dq-yes = if drop r> lf-dq-irrel exit then
+  lf-dq-undef = if r@ lf-dq-sides lf-diag-proof-pending lf-dq-doubt then
+  drop r> lf-lz-loop ;
 \ Step 3: whnf_core of t (tn), then of s (sn); quick_is_def_eq again when
 \ either changed.
 : lf-dq-changed? ( t s tn sn -- tn sn flag ) 2swap 2over rot <> -rot <> or ;

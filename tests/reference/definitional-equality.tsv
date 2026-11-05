@@ -37,6 +37,8 @@ proof-irrelevance.same-statement	accepted	-	unknown	accepted	proof-irrelevance
 proof-irrelevance.statement-after-unfolding	accepted	dqTwice:3	unknown	accepted	proof-irrelevance
 proof-irrelevance.not-proofs	declTypeMismatch	n/a	rejected	rejected	proof-irrelevance
 proof-irrelevance.any-sort	declTypeMismatch	n/a	rejected	rejected	proof-irrelevance
+proof-irrelevance.different-statements	declTypeMismatch	n/a	unknown	rejected	proof-irrelevance
+proof-irrelevance.different-statements-unfold	accepted	dqForget:2	unknown	accepted	proof-irrelevance
 let.in-proof	accepted	-	unsupported	accepted	zeta
 let.in-claim	accepted	-	unsupported	accepted	zeta
 let.variable-unfolds	accepted	-	unsupported	accepted	zeta

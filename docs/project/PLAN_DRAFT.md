@@ -439,8 +439,8 @@ reported; printed proofs say "by definition of f". This is owner decision 3's
 | 4.2.1 | Implement level equality | Gate passed | 4.1.2 | [kernel] | M |
 | 4.2.2 | **Status (2026-11-04 late): in progress** — steps b-c (whnf, delta, quick equality check) merged, gate review running; d-e not started. Implement unfolding (delta) | Gate passed; unfolding steps logged for the printer | 4.1.1 | [kernel] | M |
 | 4.2.3 | `let` expressions in the importer and checker (zeta) | Gate passed | 4.1.3, 3.2.3 | [kernel], [import] | M |
-| 4.2.4 | Function eta | Gate passed | 4.1.3 | [kernel] | S |
-| 4.2.5 | Proof irrelevance | Gate passed | 4.1.3 | [kernel] | M |
+| 4.2.4 | **Status (2026-11-05): implemented** (branch `pe-proof-irrel-eta`), [kernel] gate pending. Function eta | Gate passed | 4.1.3 | [kernel] | S |
+| 4.2.5 | **Status (2026-11-05): implemented** (branch `pe-proof-irrel-eta`), [kernel] gate pending. Proof irrelevance | Gate passed | 4.1.3 | [kernel] | M |
 | 4.2.6 | Opaque declarations (never unfold) | Gate passed | 4.2.2 | [kernel], [import] | S |
 | 4.2.7 | Caches v1 (weak-head normal form, inference, equality) keyed per ADR 0006; never cache unknown or exhausted as success | Verdicts identical with caches on and off on every corpus | 4.2.2 | [kernel] | M |
 | 4.3.1 | Differential cases N11: eta, proof irrelevance, unfolding, universe arity, undeclared universe parameters, with Lean's error reasons | In `make check` | 4.1.* | — | M |

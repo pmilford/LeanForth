@@ -8,7 +8,9 @@
 \ when an argument has loose bound variables, which must be lifted),
 \ is_def_eq_app (functions first, then counts, then arguments left to
 \ right), is_def_eq_args (last argument first), the steps that only say
-\ yes, every outcome (yes, no, unknown, exhausted, full, invalid) and a
+\ yes, eta against a free variable (plan task 4.2.4; proof irrelevance
+\ needs a typer: tests/core/definite-rejection.fs and the table rows),
+\ every outcome (yes, no, unknown, exhausted, full, invalid) and a
 \ fuel sweep; whnf on a constant outside a check (K1), Lean's name-matched
 \ Nat operations (K7) and cheap_beta_reduce. With definitions, in a
 \ check: tests/core/whnf.fs. Test-only; nothing here accepts a theorem.
@@ -83,6 +85,29 @@ T{ 0 make-var telescope 1 make-sort telescope defeq lf-dq-depth @ -> 0 outcome-o
 : two-lams ( body -- node ) 1 make-sort swap make-lam 1 make-sort swap make-lam ;
 T{ 1 make-var two-lams 0 make-var two-lams defeq -> 0 outcome-ok }T
 T{ 1 make-var two-lams 1 make-var two-lams defeq -> true outcome-ok }T
+
+\ Eta (step 11, plan task 4.2.4) where the other side is a free variable,
+\ whose type a bare call knows: fun (f : Sort 1 -> Sort 1) => fun x =>
+\ f x against fun f => f is Lean's yes, in both orders (the lambda on
+\ either side). The wrong function, fun f g => fun x => f x against fun f
+\ g => g, is a no that the skipped step 4 (no typer: is the lambda a
+\ proof?) makes unknown. With less fuel the yes is exhausted, never
+\ another answer.
+: arrow1 ( -- node ) 1 make-sort 1 make-sort make-pi ;
+: eta-of ( var -- node ) 1 make-sort swap 0 make-var make-app make-lam ;
+: over-f ( body -- node ) arrow1 swap make-lam ;
+: eta-pair ( -- t s ) 1 make-var eta-of over-f 0 make-var over-f ;
+T{ eta-pair defeq -> true outcome-ok }T
+T{ eta-pair swap defeq -> true outcome-ok }T
+T{ 2 make-var eta-of over-f over-f 0 make-var over-f over-f defeq -> 0 outcome-unknown }T
+variable eta-t variable eta-s
+: eta-fuel-ok? ( fuel -- flag )
+  fuelled eta-t @ eta-s @ dq lf-defeq-on
+  dup outcome-exhausted = if 2drop true else ok? and then ;
+: eta-sweep ( -- flag ) eta-pair eta-s ! eta-t ! true 60 0 do i eta-fuel-ok? and loop ;
+T{ eta-sweep 60 eta-fuel-ok? 0 eta-fuel-ok? -> true true true }T
+T{ 60 fuelled eta-t @ eta-s @ dq lf-defeq-on -> true outcome-ok }T
+T{ 0 fuelled eta-t @ eta-s @ dq lf-defeq-on -> 0 outcome-exhausted }T
 
 \ is_def_eq_app: the functions, the counts, then the arguments left to
 \ right; is_def_eq_args: the last arguments first, the spines end together.

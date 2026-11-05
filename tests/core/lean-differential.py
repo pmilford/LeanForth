@@ -265,7 +265,8 @@ RULE_STEPS = {"A1": {"done"}, "B1": {"done"}, "U1": {"audit"}, "U2": {"audit"},
               "V1": {"audit"}, "N2": {"name"}, "L3": {"params"}, "S1": {"sort"},
               "S3": {"proposition"}, "S4": INSIDE, "N1": INSIDE, "L1": INSIDE, "L2": INSIDE,
               "S2": INSIDE, "F1": INSIDE, "K5": INSIDE | {"name"},
-              "D": INSIDE | {"comparison"}, "defeq": INSIDE | {"comparison"}}
+              "D": INSIDE | {"comparison"}, "defeq": INSIDE | {"comparison"},
+              "eta": {"done"}, "proof-irrelevance": {"done"}}
 # Rows where today's code gives another failure than the table, with the
 # reason; neither answer is accepted. composition.proof-irrelevance was
 # full before plan task 2.2.3 (the 64-node term store filled while the
@@ -277,16 +278,19 @@ RULE_STEPS = {"A1": {"done"}, "B1": {"done"}, "U1": {"audit"}, "U2": {"audit"},
 # store, which ADR 0008 reports as full (with more room it might have
 # rejected), not unknown; at large capacities, and fed, it is unknown.
 # Since plan task 4.2.2d the comparison's step 4 infers whether the left
-# side is a proof (it is: diagnostic 87, unknown until task 4.2.5), and
-# that inference fills the 64-node store first: full, as before.
+# side is a proof, and that inference fills the 64-node store first: full,
+# as before. Since plan task 4.2.5 step 4 compares the two proofs' types
+# and the row is accepted at large capacities and fed (Lean's verdict); at
+# the default capacities it is still full (a resource limit, ADR 0008).
 FIRST_CHECKER_KNOWN = {"composition.proof-irrelevance": "full"}
 # In the binder-domain table three rows met the 64-node term store until
 # plan task 4.2.2a (with lf-term-capacity 160 each gave the table's answer,
 # measured 2026-11-02); since then inference discards scratch as it goes
 # and types a chain of lambdas once, and each gives the table's answer at
 # 64 nodes too: compare.lambda-beta-domain-different-body (unknown, now
-# rejected), compare.eta-under-beta-domain (full, now unknown) and
-# decl.lambda-in-argument-wrong-body (unknown, now rejected).
+# rejected), compare.eta-under-beta-domain (full, then unknown, accepted
+# since plan task 4.2.4) and decl.lambda-in-argument-wrong-body (unknown,
+# now rejected).
 BINDER_KNOWN = {}
 # Plan task 3.3.1 (ADR 0016 C9 step 3): the store capacities are settings.
 # The *-large tables run the same cases with every store's capacity
@@ -662,12 +666,13 @@ def universe_scope_fed():
 # declarations (a whnf row: the constant, then a probe whose value is it,
 # which tests/support/whnf-probe.fs puts in LeanForth's whnf; a
 # definition carries its reducibility hint). The rows of the groups tasks
-# 4.2.2c and 4.2.2d decide must give the table's ADR 0014 answer (Lean's
+# 4.2.2c, 4.2.2d, 4.2.4 and 4.2.5 decide must give the table's ADR 0014 answer (Lean's
 # verdict, or unknown for K7), those of KNOWN the temporary gap given (with
 # the task that closes it); every other row may stay unknown or
 # unsupported but never contradicts Lean: accepted only where Lean
 # accepts, rejected only for the exception Lean raised.
-DQ_DECIDED = ("sort.", "pi.", "whnf.", "delta.", "opaque.", "names.")
+DQ_DECIDED = ("sort.", "pi.", "whnf.", "delta.", "opaque.", "names.", "eta.",
+              "proof-irrelevance.")
 DQ_OPAQUE = ("unsupported", "an opaque declaration: unsupported (U1, so K5 at its lookup) "
                             "until plan task 4.2.6")
 DQ_KNOWN = {case: DQ_OPAQUE for case in (
@@ -823,7 +828,7 @@ TABLES = {
                                            "Lean's kernel, fed as exports"),
     "definitional-equality": (definitional_equality,
                               "definitional-equality rows: sort.*, pi.*, whnf.*, delta.*, "
-                              "opaque.* and names.* give "
+                              "opaque.*, names.*, eta.* and proof-irrelevance.* give "
                               "Lean's answer, no row contradicts Lean"),
 }
 

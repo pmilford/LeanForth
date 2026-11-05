@@ -65,9 +65,6 @@ PENDING = {
         " 5.2.3. Closed by a string-literal follow-up of task 5.2.3 (L4)"),
     "lit.string-expansion-wrong": ("unsupported",
         "as lit.string-expansion. Closed by the same follow-up"),
-    "k7.nat-is-prop": ("unknown",
-        "after reduce_nat, Lean compares two proofs' types (proof irrelevance, K2,"
-        " diagnostic 87). Closed by task 4.2.5"),
     "after.redex-type-left-out-then-use-rec": ("unknown",
         "IE.U2's type is a Sort only after whnf, so its block left no recipe of the"
         " generated recursor (ADR 0015 decision 12): a use of IE.U2.rec is unknown"

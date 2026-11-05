@@ -131,7 +131,8 @@ structure Case where
   lean : String
   /-- LeanForth's required answer under ADR 0003 and ADR 0011 as approved. -/
   now : String
-  /-- LeanForth's required answer under ADR 0003 Amendment 1. -/
+  /-- LeanForth's required answer under ADR 0003 Amendment 1 (with ADR
+  0014's eta and proof irrelevance since plan tasks 4.2.4 and 4.2.5). -/
   amended : String
   /-- The rule that decides LeanForth's amended answer. -/
   rule : String
@@ -195,14 +196,14 @@ def compareCases : List Case := [
         (arrow (app (v `P) [v `h]) (v `A)))
       (foralls [(`A, prop), (`P, arrow (v `A) prop), (`h, v `A), (`k, v `A)]
         (arrow (app (v `P) [v `k]) (v `A))),
-    lean := "equal", now := "unknown", amended := "unknown", rule := "K2",
+    lean := "equal", now := "unknown", amended := "equal", rule := "proof-irrelevance",
     what := "domain P h against P k, where h and k are proofs of A" },
   { id := "compare.eta-under-beta-domain",
     subject := .compare
       (funs [(`A, type), (`f, betaType (arrow (v `A) (v `A)))] (v `f))
       (funs [(`A, type), (`f, arrow (v `A) (v `A))]
         (funs [(`x, v `A)] (app (v `f) [v `x]))),
-    lean := "equal", now := "unknown", amended := "unknown", rule := "K3",
+    lean := "equal", now := "unknown", amended := "equal", rule := "eta",
     what := "domains equal by beta, then f against fun x => f x (eta)" }
 ]
 
