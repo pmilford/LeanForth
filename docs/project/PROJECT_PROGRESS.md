@@ -437,7 +437,7 @@ tasks, not the plan's.
 | --- | --- |
 | 5.2.1b recursive types (agent N1) | **in progress**: merged, two wrong acceptances found by review being fixed; gate not passed |
 | 4.2.2b-c `whnf`, delta, quick equality check (agent U4) | **in progress**: merged, gate review running (2 of 4 steps b-e merged) |
-| 4.2.2d the full lazy strategy (agent U4); 4.2.4 function eta and 4.2.5 proof irrelevance (agent PE, 2026-11-05); 4.2.3 `let` (agent LT, 2026-11-05) | **merged**, gate review owed [kernel] (4.2.3 also [import]); the command line still refuses `let` (follow-up) |
+| 4.2.2d the full lazy strategy (agent U4); 4.2.4 function eta and 4.2.5 proof irrelevance (agent PE, 2026-11-05); 4.2.3 `let` (agent LT, 2026-11-05) | **merged**, gate review owed [kernel] (4.2.3 also [import]); only the first importer (checker-input.fs) still refuses `let` |
 | 5.2.1c indexed families, 5.2.2 structures and projections, 5.2.3 literals, 5.2.5 mutual and nested blocks, 5.2.6 per-declaration verdict for unclosed files | not started; they close the temporary gaps of 5.2.1a-b and are on the way to `n + 0 = n` |
 | 3.4.3 `--json` report (`check-report-0.1`) | **done**: [format] gate approved 2026-11-04; `--strict-axioms` and `--fast` implemented (`84725e6`) |
 | 6.5.5 work linear in a term's depth | not started (the quadratic cost is the temporary price of 6.2.0 part b) |
