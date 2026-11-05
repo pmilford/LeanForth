@@ -367,6 +367,9 @@ T{ s" unit.pair-of-units" used -> outcome-rejected lf-diag-value-apart }T
 T{ s" eta.structure" used -> outcome-ok 0 }T
 T{ s" eta.structure-left" used -> outcome-ok 0 }T
 T{ s" eta.structure-wrong-field" used -> outcome-rejected lf-diag-value-apart }T
+\ Init's WellFounded.extrinsicFix₂ needs R ⟨a, b⟩ x equal to
+\ R ⟨a, b⟩ ⟨x.1, x.2⟩ (structure eta on PSigma): its shape, accepted.
+T{ s" eta.psigma-extrinsic-fix" used -> outcome-ok 0 }T
 T{ s" unit.punit" used -> outcome-ok 0 }T
 \ C2's comparison of id Type with Type needs Lean's lazy delta reduction
 \ (accepted since plan task 4.2.2d). Unknown, unsupported and invalid:

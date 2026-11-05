@@ -688,6 +688,17 @@ def reductions : List Red := [
   { id := "eta.structure-wrong-field",
     type := "∀ p : Bool × Bool, p = (p.1, true)", value := "fun (p : Bool × Bool) => Eq.refl p",
     lean := "declTypeMismatch", leanforth := "rejected", rule := "R4", task := "5.2.2" },
+  -- The shape of Init's WellFounded.extrinsicFix₂ (its let value F'): G's hypothesis
+  -- R ⟨a, b⟩ x where F wants R ⟨a, b⟩ ⟨x.1, x.2⟩, equal by structure eta on PSigma.
+  { id := "eta.psigma-extrinsic-fix", thm := false,
+    type := "∀ (β : Nat → Type) (C : (a : Nat) → β a → Type) (R : PSigma β → PSigma β → Prop) " ++
+      "(F : (a : Nat) → (b : β a) → ((a' : Nat) → (b' : β a') → R ⟨a', b'⟩ ⟨a, b⟩ → C a' b') → " ++
+      "C a b) (x : PSigma β) (G : (y : PSigma β) → R y x → C y.1 y.2), C x.1 x.2",
+    value := "fun (β : Nat → Type) (C : (a : Nat) → β a → Type) (R : PSigma β → PSigma β → Prop) " ++
+      "(F : (a : Nat) → (b : β a) → ((a' : Nat) → (b' : β a') → R ⟨a', b'⟩ ⟨a, b⟩ → C a' b') → " ++
+      "C a b) (x : PSigma β) (G : (y : PSigma β) → R y x → C y.1 y.2) => " ++
+      "F x.1 x.2 (fun a b => G ⟨a, b⟩)",
+    lean := "accepted", leanforth := "accepted", rule := "R4", task := "5.2.2" },
   { id := "unit.punit",
     type := "∀ x y : PUnit.{1}, x = y", value := "fun (x y : PUnit.{1}) => Eq.refl x",
     lean := "accepted", leanforth := "accepted", rule := "R5", task := "5.2.2" },
