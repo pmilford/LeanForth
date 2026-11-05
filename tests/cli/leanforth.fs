@@ -41,6 +41,9 @@ decimal
 : with-literal ( -- c-addr u )
   s" tests/core/check-declaration-cases/composition-literal.ndjson" ;
 : loose ( -- c-addr u ) s" tests/core/check-declaration-cases/composition-loose.ndjson" ;
+\ A block whose check needs a recursor reduction not ported yet: unknown.
+: undecided ( -- c-addr u )
+  s" tests/core/check-block-cases/after.list-left-out-then-lookup-during-param-block.ndjson" ;
 : kinds ( -- c-addr u ) s" tests/core/reexport/kinds.ndjson" ;
 : inductive ( -- c-addr u ) s" tests/cli/inductive.ndjson" ;
 : chain ( -- c-addr u ) s" tests/cli/chain.ndjson" ;
@@ -268,10 +271,12 @@ T{ s" noSuch" cli-name! fixture cli-print -> 4 }T
 cli-options cli-detail
 T{ composition cli-print -> 0 }T
 cli-options
-\ wrong has no manifest beside it; irrelevance's theorem ends unknown.
-T{ wrong cli-print s" tests/cli/irrelevance.ndjson" cli-print -> 4 2 }T
+\ wrong has no manifest beside it; irrelevance's theorem is accepted
+\ (proof irrelevance, plan task 4.2.5).
+T{ wrong cli-print s" tests/cli/irrelevance.ndjson" cli-print -> 4 0 }T
 cli-no-manifest
 T{ wrong cli-print postulate cli-print loose cli-print -> 1 2 4 }T
+T{ undecided cli-print -> 2 }T
 cli-options 0 cli-fuel!
 T{ fixture cli-print -> 3 }T
 cli-options

@@ -466,7 +466,8 @@ T{ outcome-full 1 ' terms-full s" terms-full" fp-case -> }T
 \ raised, a setting of the context (plan task 3.3.1; ADR 0016 C5): the
 \ store and its columns grow while the types are inferred and compared,
 \ and every growth is an allocation the sweeps refuse or make throw:
-\ full, never accepted. The capacity goes back to the default afterwards.
+\ full, never accepted. Accepted when nothing is refused (eta, plan task
+\ 4.2.4; Lean accepts). The capacity goes back to the default afterwards.
 : eta-compare ( -- )
   s" fc-decl check thm safe bdCompare 0 TYPE P P P S s z P A L S s z V 0 P V 0 V 1 P V 1 V 2 S z P A V 0 L S s z L A L S s z V 0 P V 0 V 1 V 0 A V 1 L S s z L P V 0 V 1 L V 1 A V 1 V 0 VALUE L P P S s z P A L S s z V 0 P V 0 V 1 P V 1 V 2 S z L A V 0 L S s z L A L S s z V 0 P V 0 V 1 V 0 V 0"
   fc-text ;
@@ -486,7 +487,7 @@ T{ outcome-full 1 ' terms-full s" terms-full" fp-case -> }T
   ['] column-grown lf-term-columns columns-each lctx-first ;
 : terms-grown ( -- ) lf-term-reset grown grown-capacity eta-compare ;
 ' grown-block fp-prepare !
-T{ outcome-unknown 1 ' terms-grown s" terms-grown" fp-case -> }T
+T{ outcome-ok 1 ' terms-grown s" terms-grown" fp-case -> }T
 ' noop fp-prepare !
 lf-input-reset lf-term-reset lf-term-default grown-capacity
 
@@ -526,9 +527,10 @@ T{ lied -> outcome-invalid false lf-step-done lf-diag-recheck outcome-invalid ou
 \ while Lean's whnf reduces the type's type: exhausted, since plan task
 \ 4.2.2c; before, in ADR 0011's search for a rejection, unknown); a THROW is
 \ injected only at an allocation, so invalid needs one (or V1 in the
-\ audit, or a failed publication after step 8); and step 8 allocates in
-\ its search for a rejection, where a refusal leaves it unknown, and, in
+\ audit, or a failed publication after step 8); and step 8 allocates, in
 \ terms-grown, while it reduces (a refused growth of the term store: full).
+\ No case ends unknown at step 8 since terms-grown's eta comparison is
+\ decided (plan task 4.2.4).
 : outcome-named ( c-addr u -- outcome )
   7 0 do 2dup i outcome-text compare 0= if 2drop i unloop exit then loop
   true abort" failure-paths: not an outcome" ;
@@ -544,7 +546,7 @@ create expected-reach steps# cells allot  expected-reach steps# cells erase
 5 reaches: exhausted rejected
 6 reaches: exhausted rejected
 7 reaches: invalid exhausted unknown rejected unsupported full
-8 reaches: invalid exhausted unknown rejected full
+8 reaches: invalid exhausted rejected full
 9 reaches: ok invalid
 
 : .outcomes ( set -- )

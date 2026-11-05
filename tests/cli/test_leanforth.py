@@ -6,10 +6,11 @@
      inductive.ndjson, an inductive type and a theorem by its recursor);
    1 rejected (composition with the wrong argument);
    2 unsupported (an axiom; a literal; with --record an inductive type,
-     refused while reading) and unknown (tests/cli/irrelevance.ndjson: a
-     proof that needs proof irrelevance, which the checker does not port
-     yet; tests/cli/unfold.ndjson, which needs a definition unfolded, is
-     accepted since plan task 4.2.2d); every record kind
+     refused while reading) and unknown (UNKNOWN, a block whose check needs
+     a recursor reduction the checker does not port yet; tests/cli/
+     unfold.ndjson, which needs a definition unfolded, is accepted since
+     plan task 4.2.2d, and tests/cli/irrelevance.ndjson, a proof that needs
+     proof irrelevance, since plan task 4.2.5); every record kind
      (tests/core/reexport/kinds.ndjson) counted;
    3 a resource limit (chain with --record ends full while reading; a
      name part of 2^64 is beyond the stage's 32 bits; fuel 0 and 30 end
@@ -82,6 +83,10 @@ LABEL = "accepted (experimental, not independently audited); axioms: none"
 INDUCTIVE = "tests/cli/inductive.ndjson"
 CHAIN = "tests/cli/chain.ndjson"
 EMPTY_BLOCK = "tests/core/check-block-cases/names.empty-block.ndjson"
+# Unknown: a block whose positivity check needs iota on Lean's generated
+# recursor, which LeanForth does not port yet (diagnostic 81; closed by a
+# follow-up of plan task 5.2.1b, tests/core/inductive-table.py).
+UNKNOWN = "tests/core/check-block-cases/after.list-left-out-then-lookup-during-param-block.ndjson"
 
 
 def accepted(n):
@@ -163,11 +168,14 @@ class ExitCodes(unittest.TestCase):
         self.expect(["check", "tests/cli/unfold.ndjson"], 0,
                     [f"Implies: {LABEL}", f"impliesSelf: {LABEL}",
                      "2 declarations: 2 accepted", accepted(2)])
-        self.expect(["check", "tests/cli/irrelevance.ndjson"], 2,
-                    ["irrelevant: unknown",
-                     "  undecided: proof irrelevance may decide (K2); diagnostic 87 "
-                     "at defeq lf-defeq: 36 37",
-                     "1 declaration: 1 unknown"])
+        self.expect(["check", "tests/cli/irrelevance.ndjson"], 0,
+                    [f"irrelevant: {LABEL}", "1 declaration: 1 accepted", accepted(1)])
+        recursor = ("  undecided: a recursor reduction LeanForth does not port yet; "
+                    "diagnostic 81 at whnf lf-whnf: 17 0")
+        self.expect(["check", "--no-manifest", UNKNOWN], 2,
+                    [NO_MANIFEST, f"IE.L: {LABEL}", f"IE.L.nil: {LABEL}", f"IE.L.cons: {LABEL}",
+                     "IE.W: unknown", recursor, "IE.W.mk: unknown", recursor,
+                     "5 declarations: 3 accepted, 2 unknown", accepted(3)])
 
     def test_3_limits(self):
         self.expect(["check", "--record", "/dev/null", CHAIN], 3,
@@ -437,16 +445,16 @@ class Print(unittest.TestCase):
     def test_refused(self):
         status, out = self.lines("--no-manifest", f"{CASES}/composition-wrong-argument.ndjson")
         self.assertEqual((status, out), (1, [NO_MANIFEST, *golden("composition-wrong-argument")]))
-        status, out = self.lines("tests/cli/irrelevance.ndjson")
+        status, out = self.lines("--no-manifest", UNKNOWN)
         self.assertEqual(status, 2)
-        self.assertEqual(out[out.index("Theorem irrelevant"):][1], "  unknown")
+        self.assertEqual(out[out.index("Declaration IE.W"):][1], "  unknown")
         self.assertEqual(out[-1], REFUSED)
         status, out = self.lines("--fuel", "0", FIXTURE)
         self.assertEqual((status, out.count(REFUSED), out.count("  exhausted")), (3, 3, 3))
         status, out = self.lines("--no-manifest", f"{CASES}/composition-postulate.ndjson")
         self.assertEqual((status, out[1:3], out[-1]),
                          (2, ["Axiom composition", "  unsupported"], REFUSED))
-        for args, code in [((FIXTURE,), 0), (("tests/cli/irrelevance.ndjson",), 2),
+        for args, code in [((FIXTURE,), 0), (("--no-manifest", UNKNOWN), 2),
                            (("--fuel", "0", FIXTURE), 3),
                            (("--no-manifest", f"{CASES}/composition-wrong-argument.ndjson"), 1)]:
             status, out = self.lines(*args)

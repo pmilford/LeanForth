@@ -210,7 +210,9 @@ T{ 0 make-sort handle 0 make-sort handle -1 lf-mixed-compare lf-mcompare-fuel @
 \ no is rejected: two Sorts of inequivalent levels, and a Sort against a
 \ bound variable; a bound variable on the left is unknown (a bare
 \ conversion has no typer to tell whether it is a proof, step 4), and so
-\ is a lambda against a Sort (eta, step 11).
+\ is a lambda against a Sort. A Sort against a lambda is Lean's no (plan
+\ task 4.2.4): a Sort is no proof, and its type, a Sort, no Pi to eta-
+\ expand it with (step 11).
 fresh-session
 : sort-pair ( left right -- l r ) >r make-sort r> make-sort ;
 T{ level-u level-u 0 lf-level-max must sort-pair save-counts convert-terms counts-kept?
@@ -230,7 +232,7 @@ T{ convert-sweep -> true }T
 fresh-session
 T{ 0 make-sort 0 make-var convert-terms -> outcome-rejected }T
 T{ 0 make-var 0 make-sort convert-terms -> outcome-unknown }T
-T{ 0 make-sort 0 make-sort 0 make-var make-lam convert-terms -> outcome-unknown }T
+T{ 0 make-sort 0 make-sort 0 make-var make-lam convert-terms -> outcome-rejected }T
 T{ 0 make-sort 0 make-var make-lam 0 make-sort convert-terms -> outcome-unknown }T
 
 \ T1.3 (last, because a spent serial poisons the level store): when the

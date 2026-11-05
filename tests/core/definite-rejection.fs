@@ -230,24 +230,24 @@ T{ d3-term checked -> outcome-rejected lf-diag-argument-apart 0 }T
 T{ d4-term checked -> outcome-rejected lf-diag-argument-apart 0 }T
 \ D5 then D3: fun (A : sort) (P : A -> Prop) (x y : A) (k : P x -> Prop)
 \ (h : P y) => k h. With A : Type, Lean says appTypeMismatch; with
-\ A : Prop, x and y are proofs and Lean equates them (K2): unknown, the
-\ step of proof irrelevance (diagnostic 87, plan task 4.2.5).
+\ A : Prop, x and y are proofs and Lean equates them (formerly K2): ok,
+\ by proof irrelevance (step 4, plan task 4.2.5).
 : d5-term ( sort-level -- node )
   fresh make-sort 0 make-var 0 make-sort make-pi 1 make-var 2 make-var
   2 make-var 1 make-var make-app 0 make-sort make-pi 3 make-var 1 make-var make-app
   1 make-var 0 make-var make-app make-lam make-lam make-lam make-lam make-lam make-lam ;
 T{ 1 d5-term checked -> outcome-rejected lf-diag-argument-apart 0 }T
-T{ 0 d5-term checked drop -> outcome-unknown lf-diag-proof-pending }T
-\ K3: fun (A : Type) (P : A -> Prop) (k : (A -> Prop) -> Prop)
+T{ 0 d5-term checked 2drop -> outcome-ok }T
+\ Formerly K3: fun (A : Type) (P : A -> Prop) (k : (A -> Prop) -> Prop)
 \ (q : k (fun y => P y) -> Prop) (h : k P) => q h: equal only by eta, which
-\ Lean uses (it accepts); unknown (diagnostic 88, plan task 4.2.4).
+\ Lean uses (it accepts), and so does LeanForth since plan task 4.2.4 (ok).
 : k3-term ( -- node )
   fresh 1 make-sort 0 make-var 0 make-sort make-pi
   1 make-var 0 make-sort make-pi 0 make-sort make-pi
   0 make-var 2 make-var 2 make-var 0 make-var make-app make-lam make-app
   0 make-sort make-pi 1 make-var 2 make-var make-app 1 make-var 0 make-var make-app
   make-lam make-lam make-lam make-lam make-lam ;
-T{ k3-term checked drop -> outcome-unknown lf-diag-eta-pending }T
+T{ k3-term checked 2drop -> outcome-ok }T
 \ Formerly K4: fun (A : Sort u) (f : Sort (max u u) -> Prop) => f A:
 \ Lean's level normalisation equates them (it accepts), and so does
 \ LeanForth since ADR 0011 Amendment 1 (ok).
@@ -273,7 +273,7 @@ T{ k1-term checked drop -> outcome-unknown lf-diag-needs-unfolding }T
   lf-minfer-fuel @ 0= and ;
 : tidy-after ( root -- status flag ) >r counts r> checked 2drop >r tidy? r> swap ;
 T{ 1 d5-term tidy-after -> outcome-rejected true }T
-T{ k3-term tidy-after -> outcome-unknown true }T
+T{ k1-term tidy-after -> outcome-unknown true }T
 
 \ Fuel: with too little the check is exhausted, before the comparison or
 \ when the analysis runs out (ADR 0008: with more it might reject; since
@@ -310,13 +310,13 @@ T{ seen @ outcome-full outcome-rejected 2 outcome-set invert and -> 0 }T
 \ whose no is a rejection, and ADR 0011's analysis (D1-D5, P1-P4) is
 \ retired: the pairs that pinned its rules, white-box, now pin the port's
 \ answer through lf-minfer-agree (a job started, so that the comparison
-\ has inference's typer): rejected where the analysis showed them apart,
-\ and unknown, with the step that may decide, where it did not (proof
-\ irrelevance, diagnostic 87; eta, 88). Two Sorts are apart exactly when
+\ has inference's typer): rejected where the analysis showed them apart;
+\ where it did not, since plan tasks 4.2.4 and 4.2.5, Lean's yes by eta
+\ or proof irrelevance (formerly unknown, diagnostics 88 and 87). Two
+\ Sorts are apart exactly when
 \ Lean's is_equivalent is false for their levels, never just because the
 \ levels are written differently.
 : port ( left right -- outcome ) lf-minfer-agree nip ;
-: port-code ( left right -- outcome code ) lf-diag-clear port lf-diag-code@ ;
 : sorts-agree ( a b -- outcome )
   make-sort swap make-sort swap tok @ 1000 lf-minfer-start port ;
 fresh
@@ -336,18 +336,17 @@ T{ fresh 0 make-sort 1 make-sort tok @ 0 lf-minfer-start port -> outcome-exhaust
 variable ctx-a variable ctx-p variable ctx-x variable ctx-y
 variable ctx-a1 variable ctx-b1 variable ctx-g variable ctx-q
 \ Eta, in the context A : Type, P : A -> Prop: P against fun (y : A) => P
-\ y is unknown in both orders (Lean equates them by eta, step 11, plan
-\ task 4.2.4), while P against Prop is Lean's no.
+\ y is Lean's yes in both orders (eta, step 11, plan task 4.2.4), while P
+\ against Prop is Lean's no.
 : eta-context ( -- )
   fresh tok @ 1000 lf-minfer-start 1 make-sort bind ctx-a !
   ctx-a @ 0 make-sort make-pi bind ctx-p ! ;
 : eta-of-p ( -- node ) ctx-a @ ctx-p @ 0 make-var make-app make-lam ;
-T{ eta-context ctx-p @ eta-of-p port-code -> outcome-unknown lf-diag-eta-pending }T
-T{ eta-context eta-of-p ctx-p @ port-code -> outcome-unknown lf-diag-eta-pending }T
+T{ eta-context ctx-p @ eta-of-p port -> outcome-ok }T
+T{ eta-context eta-of-p ctx-p @ port -> outcome-ok }T
 T{ eta-context ctx-p @ 0 make-sort port -> outcome-rejected }T
-\ Proof irrelevance (step 4): two proofs of one proposition are unknown
-\ (Lean equates them; plan task 4.2.5), while the same terms as data are
-\ Lean's no. Context A : Type, P : Sort s, x : A -> P, y : P, a b : A.
+\ Proof irrelevance (step 4, plan task 4.2.5): two proofs of one
+\ proposition are Lean's yes, while the same terms as data are Lean's no. Context A : Type, P : Sort s, x : A -> P, y : P, a b : A.
 \ With s = 0, x a, x b and y are proofs; with s = 1, x a and x b differ
 \ by their arguments, and x a and y by their heads.
 : proof-context ( s -- )
@@ -357,8 +356,8 @@ T{ eta-context ctx-p @ 0 make-sort port -> outcome-rejected }T
 : x-a ( -- node ) ctx-x @ ctx-a1 @ make-app ;
 : x-b ( -- node ) ctx-x @ ctx-b1 @ make-app ;
 : y-var ( -- node ) ctx-y @ ;
-T{ 0 proof-context x-a x-b port-code -> outcome-unknown lf-diag-proof-pending }T
-T{ 0 proof-context x-a y-var port-code -> outcome-unknown lf-diag-proof-pending }T
+T{ 0 proof-context x-a x-b port -> outcome-ok }T
+T{ 0 proof-context x-a y-var port -> outcome-ok }T
 T{ 1 proof-context x-a x-b port -> outcome-rejected }T
 T{ 1 proof-context x-a y-var port -> outcome-rejected }T
 \ is_def_eq_binding gives the bodies the right (expected) side's domain
@@ -376,14 +375,14 @@ T{ 1 proof-context x-a y-var port -> outcome-rejected }T
 T{ d4-pair port -> outcome-rejected }T
 T{ d4-pair swap port -> outcome-rejected }T
 \ Two lambdas, fun (h : X) => h and fun (h : X) => g h, in the context
-\ X : Sort s, g : X -> X: proofs when s = 0 (unknown: Lean accepts one
-\ for the other), Lean's no when s = 1.
+\ X : Sort s, g : X -> X: proofs when s = 0 (Lean's yes: the bodies h and
+\ g h are proofs of X), Lean's no when s = 1.
 : lam-context ( s -- )
   fresh tok @ 100000 lf-minfer-start make-sort bind ctx-a ! ctx-a @ dup make-pi bind ctx-g ! ;
 : lam-pair ( -- left right )
   ctx-a @ 0 make-var make-lam ctx-a @ ctx-g @ 0 make-var make-app make-lam ;
-T{ 0 lam-context lam-pair port-code -> outcome-unknown lf-diag-proof-pending }T
-T{ 0 lam-context lam-pair swap port-code -> outcome-unknown lf-diag-proof-pending }T
+T{ 0 lam-context lam-pair port -> outcome-ok }T
+T{ 0 lam-context lam-pair swap port -> outcome-ok }T
 T{ 1 lam-context lam-pair port -> outcome-rejected }T
 \ Under a binder a head may be a bound variable (the comparison's own
 \ binder) or a free variable (inference's), and the two are different
@@ -398,7 +397,7 @@ T{ head-pair port -> outcome-rejected }T
 \ Whether a term is a proof is Lean's normalizes_to_zero of its type's
 \ type, not the level's spelling. Context P : Sort l, Q : P -> Prop,
 \ p q : P; the pair Q p against Q q. Sort (imax u 0) and Sort (max 0 0)
-\ are Prop, so p and q are proofs (unknown; Lean accepts: the table's
+\ are Prop, so p and q are proofs (Lean's yes: the table's
 \ proof-irrelevance-imax and -max-zero rows); under Sort u or Type they
 \ are not (Lean's no).
 : level-context ( level -- )
@@ -406,9 +405,9 @@ T{ head-pair port -> outcome-rejected }T
   ctx-p @ bind ctx-a1 ! ctx-p @ bind ctx-b1 ! ;
 : q-pair ( -- left right ) ctx-q @ ctx-a1 @ make-app ctx-q @ ctx-b1 @ make-app ;
 : q-port ( level -- outcome ) level-context q-pair port ;
-T{ fresh level-u 0 imax-of q-port -> outcome-unknown }T
-T{ fresh 0 0 max-of q-port -> outcome-unknown }T
-T{ fresh 0 q-port -> outcome-unknown }T
+T{ fresh level-u 0 imax-of q-port -> outcome-ok }T
+T{ fresh 0 0 max-of q-port -> outcome-ok }T
+T{ fresh 0 q-port -> outcome-ok }T
 T{ fresh level-u q-port -> outcome-rejected }T
 T{ fresh 1 q-port -> outcome-rejected }T
 \ The typer (inference aside, Lean's infer-only mode) leaves the aside
