@@ -109,11 +109,13 @@ def beta():
 
 
 def convert():
+    # Lean's is_def_eq true (1) must be equal; false (0) unknown, or since
+    # plan task 4.2.2d rejected (Lean's no, which the port computes).
     def accept(key, lean, forth):
         if lean == ["1"]:
             expected = UNKNOWN if ("convert", key) in KNOWN_UNKNOWN else EQUAL
             return forth == [expected]
-        return lean == ["0"] and forth == [UNKNOWN]
+        return lean == ["0"] and forth in ([UNKNOWN], [REJECTED])
     return mapped("convert", lean_rows("tests/reference/convert-table.lean"),
                   forth_rows("tests/core/mixed-convert-plain-table.fs"), 15, accept)
 
