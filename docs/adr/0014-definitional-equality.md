@@ -1032,10 +1032,23 @@ changed:
   arguments, (7) the same free variable, (10) `is_def_eq_app`. Where none
   says yes the answer is *unknown* (proof irrelevance 4.2.5, lazy delta
   4.2.2d, eta 4.2.4, structure eta and unit-like types 5.2.2 may decide
-  there). Skipping steps 4 and 5 is sound for a yes: steps 6, 7 and 10
-  say yes only for terms equal up to β and universe equivalence, which
-  Lean finds equal whatever route it takes (ADR 0003's argument, on which
-  conversion has always rested). `is_def_eq_binding` gives each binder a
+  there). Skipping steps 4 and 5 is sound for a yes only under
+  conditions: steps 6, 7 and 10 say yes only for terms equal up to β and
+  universe equivalence (ADR 0003's argument, on which conversion has
+  always rested), *and* Lean's step 5 could not have gone elsewhere first.
+  *Interim guard (review rvU4 B1, 2026-11-04):* the second condition was
+  missing, and LeanForth accepted six declarations Lean rejects. Lean's
+  lazy delta loop first asks `is_def_eq_offset` and `reduce_nat`, which
+  read `Nat.zero` as the literal 0 and compute `Nat` operations by name,
+  so Lean may need a type `Nat` the environment lacks. Now a head Lean
+  matches by name (K7) is *unknown* before steps 6 and 10 (diagnostic
+  82), and so is a head that unfolds, unless both sides are applications
+  of the same declaration with a regular hint, whose arguments Lean
+  compares first (diagnostic 64). The six declarations and their twins
+  are rows `k7.*` of the inductive table (`inductive-expected.lean`, from
+  an empty environment), with `k7.whnf-sort` for K7 in `whnf`; three
+  planted faults (`rv-k7-off`, `dq-k7-guard-off`, `dq-unfold-guard-off`)
+  are caught by them. Task 4.2.2d's lazy delta replaces the guard. `is_def_eq_binding` gives each binder a
   free variable of the right side's domain (B2); where Lean uses its
   placeholder `dontcare` (neither body uses the variable) no later term
   mentions it, so the free variable LeanForth always makes gives the same
