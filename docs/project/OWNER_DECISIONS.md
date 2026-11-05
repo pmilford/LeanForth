@@ -788,3 +788,22 @@ ADR 0017 Amendment 1 (agent AU2), the owner's answers:
   LeanForth's own words, binder names, the printer) and test the pairs.
 - **A short word for Lean's `+`: not now** — decide with real examples
   once the elaborator (8.3.1) fills hidden arguments.
+
+## Report format approved; memory checker later; fewer tokens (2026-11-04, late)
+
+- **check-report 0.1 [format] gate: approved** (owner: "go with your
+  recommendation", which was Approve). The `leanforth check --json` report,
+  validated by `schemas/check-report-0.1.schema.json`: deterministic outside
+  its `measured` member; names are escaped display text and `index`
+  identifies a declaration; NOT PROVED exits 0 as Lean does and 6 under
+  `--strict-axioms`; the engine is recorded in `measured.engine`. Two
+  independent review rounds (rvCLI2) found nothing blocking.
+- **A Forth memory checker, later** (owner: "forth memory checker later is
+  good"): a debug allocator wrapping `ALLOCATE`/`RESIZE`/`FREE` with guard
+  words, a table of live blocks, poison on free and move, and a guard sweep
+  after each declaration, plus a checked mode of the store words; chosen
+  over Valgrind (no new dependency). Plan task 6.5.6.
+- **Fewer tokens** (owner: "plan for reduced tokens looks good too"):
+  focused tests and one `make check` per task, no local Gforth 0.7.3 runs
+  unless host-specific, at most one whole-`Init` run, short reports, one
+  soundness-focused review round per gate, no new agents while several run.

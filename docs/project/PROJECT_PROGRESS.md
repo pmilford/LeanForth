@@ -114,7 +114,7 @@ is temporary and has its closing task):
     stages the export and feeds the checker like the `Init` run, with
     `--resources` (time per phase, peak memory, fuel, the ten costliest
     declarations) and `--json` (report schema `check-report-0.1`; its
-    [format] gate is **pending**). Owner choices: a declaration that is
+    [format] gate **approved** 2026-11-04). Owner choices: a declaration that is
     NOT PROVED (it uses an axiom outside the three standard ones) exits **0 as
     Lean does**; `--strict-axioms` makes it exit 6; the default engine is
     Gforth's checking one and `--fast` selects the quicker one. Neither flag
@@ -185,7 +185,7 @@ the 32-bit access words exist in `src/`; building it is plan tasks
 | Data types, ADR 0015 (inductive types) | design | **accepted as a design** 2026-11-03; each implementation task has its own gate |
 | Recursive data types (plan 5.2.1b; agent N1, `13b9a65`) | [kernel], [import] | **not passed**: merged, independent review found two wrong acceptances on hand-made files (Lean rejects them); fixes in progress, then a re-review, then the owner |
 | Unfolding: `whnf`, delta, the quick equality check (plan 4.2.2b-c; agent U4, `998b89d`) | [kernel] | **not passed**: merged; the gate review is running |
-| Report format `check-report-0.1` (`--json`, schema `schemas/check-report-0.1.schema.json`; plan 3.4.3) | [format] | **pending** the owner; review fixes merged (`dd38dee`: inconsistent exit-0 reports refused, `--fuel` bounded, a run that stops is never ok) |
+| Report format `check-report-0.1` (`--json`, schema `schemas/check-report-0.1.schema.json`; plan 3.4.3) | [format] | **approved** 2026-11-04 (owner); review fixes merged (`dd38dee`: inconsistent exit-0 reports refused, `--fuel` bounded, a run that stops is never ok); `--strict-axioms` and `--fast` merged (`84725e6`) |
 | Native and inline LeanForth, ADR 0017 Amendment 1 (plan 8.2.1) | design | **accepted** 2026-11-04 with the owner's answers (OQ-1 revised, `lf[ ]lf` with `param:`, libraries as vocabularies, case rules); each step 8.2.1a-g has its own gate ([parser], [bypass]; 8.2.1g [kernel]) |
 | Printer review fixes (names escaped in every form, growable lines; plan 8.6.2) | untrusted presentation | merged `bba87db` after independent review; no owner gate |
 | Non-recursive data types (plan 5.2.1a) | [kernel], [import] | **approved** 2026-11-04 after three review rounds, the last clean. **Condition (owner):** its temporary differences from Lean close to 100% compatibility, any stricter behaviour only behind an opt-in flag: (1) a file using `T.rec` without declaring it gets LeanForth's own generated recursor, as in Lean; (2) a block rejected at the final comparison (B3) keeps its type and constructors usable afterwards, as in Lean's environment; (3) the guard on unit-like structures closes with task 5.2.2. **Condition met** 2026-11-04 after rounds 4–6: (1) and (2) done, an empty block now rejected as in Lean; every remaining gap temporary with its task ([decisions](OWNER_DECISIONS.md#data-types-first-step-condition-met-2026-11-04-late)) |
@@ -438,7 +438,7 @@ tasks, not the plan's.
 | 4.2.2b-c `whnf`, delta, quick equality check (agent U4) | **in progress**: merged, gate review running (2 of 4 steps b-e merged) |
 | 4.2.2d-e the full lazy strategy, eta, proof irrelevance, `let` | not started |
 | 5.2.1c indexed families, 5.2.2 structures and projections, 5.2.3 literals, 5.2.5 mutual and nested blocks, 5.2.6 per-declaration verdict for unclosed files | not started; they close the temporary gaps of 5.2.1a-b and are on the way to `n + 0 = n` |
-| 3.4.3 `--json` report (`check-report-0.1`) | **in progress**: works, awaits its [format] gate; `--strict-axioms` and `--fast` (owner's choices) not yet implemented |
+| 3.4.3 `--json` report (`check-report-0.1`) | **done**: [format] gate approved 2026-11-04; `--strict-axioms` and `--fast` implemented (`84725e6`) |
 | 6.5.5 work linear in a term's depth | not started (the quadratic cost is the temporary price of 6.2.0 part b) |
 | 8.2.1a-g native and inline LeanForth (design accepted) | not started (0 of 7 steps have code); 8.6.3 not started |
 | SHA-2 helper words (program track) | **in progress**: 4 of 8 words proved (ROTR, Ch, Maj, Σ0); SHR, Σ1, σ0, σ1 remain |
