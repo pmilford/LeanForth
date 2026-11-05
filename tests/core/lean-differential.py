@@ -239,7 +239,7 @@ REJECTION_CODES = {
     54: ("L3", "duplicateLevelParam"), 55: ("S1", "typeExpected"),
     56: ("S2", "typeExpected"), 57: ("S3", "thmTypeIsNotProp"),
     58: ("F1", "funExpected"), 59: ("defeq", "appTypeMismatch"), 61: ("S4", "typeExpected"),
-    60: ("defeq", "declTypeMismatch"),
+    60: ("defeq", "declTypeMismatch"), 94: ("defeq", "letTypeMismatch"),
 }
 # Since plan task 4.2.2d the codes of an argument and of the value whose
 # type is not the expected one (59, 60) are Lean's is_def_eq answering no
@@ -666,13 +666,13 @@ def universe_scope_fed():
 # declarations (a whnf row: the constant, then a probe whose value is it,
 # which tests/support/whnf-probe.fs puts in LeanForth's whnf; a
 # definition carries its reducibility hint). The rows of the groups tasks
-# 4.2.2c, 4.2.2d, 4.2.4 and 4.2.5 decide must give the table's ADR 0014 answer (Lean's
+# 4.2.2c, 4.2.2d, 4.2.3, 4.2.4 and 4.2.5 decide must give the table's ADR 0014 answer (Lean's
 # verdict, or unknown for K7), those of KNOWN the temporary gap given (with
 # the task that closes it); every other row may stay unknown or
 # unsupported but never contradicts Lean: accepted only where Lean
 # accepts, rejected only for the exception Lean raised.
 DQ_DECIDED = ("sort.", "pi.", "whnf.", "delta.", "opaque.", "names.", "eta.",
-              "proof-irrelevance.")
+              "proof-irrelevance.", "let.")
 DQ_OPAQUE = ("unsupported", "an opaque declaration: unsupported (U1, so K5 at its lookup) "
                             "until plan task 4.2.6")
 DQ_KNOWN = {case: DQ_OPAQUE for case in (
@@ -828,7 +828,7 @@ TABLES = {
                                            "Lean's kernel, fed as exports"),
     "definitional-equality": (definitional_equality,
                               "definitional-equality rows: sort.*, pi.*, whnf.*, delta.*, "
-                              "opaque.*, names.*, eta.* and proof-irrelevance.* give "
+                              "opaque.*, names.*, eta.*, proof-irrelevance.* and let.* give "
                               "Lean's answer, no row contradicts Lean"),
 }
 

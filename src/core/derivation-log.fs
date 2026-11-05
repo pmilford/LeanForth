@@ -100,6 +100,7 @@ require ./levels.fs
 require ./constant-references.fs
 require ./tagged-sort-boundary.fs
 require ./constant-term-boundary.fs
+require ./let-terms.fs
 require ./input.fs
 require ./local-context.fs
 
@@ -258,9 +259,13 @@ lf-log-indexed constant lf-log-unknown
 \ step has the rule form, whose premises are not counted (no rule of its
 \ own yet).
 : lf-log-proj-app? ( tag first -- flag ) swap lf-tag-app = if lf-proj-leaf? else drop false then ;
+\ A let term (core/let-terms.fs; plan task 4.2.3), an application whose
+\ function applies a let leaf, is typed by infer_let: the rule form too.
+: lf-log-let-app? ( tag first -- flag ) swap lf-tag-app = if lf-let-fn? else drop false then ;
+: lf-log-special? ( tag first -- flag ) 2dup lf-log-proj-app? >r lf-log-let-app? r> or ;
 : lf-log-node-rule ( node -- rule )
   lf-term-read 0= if lf-rule-form exit then
-  drop 2dup lf-log-proj-app? if 2drop lf-rule-form exit then drop lf-log-tag-rule ;
+  drop 2dup lf-log-special? if 2drop lf-rule-form exit then drop lf-log-tag-rule ;
 
 \ The options (L2), shared and read-only during a run: the level of every
 \ check of the checked environment, the limits (at most the capacities)
@@ -813,7 +818,7 @@ create lf-log-level-copier
   lf-log-cref-copy if 0 true else drop false then ;
 : lf-log-term-leaf ( tag first second -- tag first' second' true | false )
   2 pick case lf-tag-sort of true endof lf-tag-bvar of true endof
-    lf-tag-proj of true endof  lf-tag-lit of true endof
+    lf-tag-proj of true endof  lf-tag-lit of true endof  lf-tag-let of true endof
     lf-tag-symbolic-sort of lf-log-sort-level endof lf-tag-fvar of lf-log-fvar endof
     lf-tag-constant of lf-log-cref endof >r 2drop lf-log-unreadable r> endcase ;
 create lf-log-term-copier

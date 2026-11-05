@@ -99,6 +99,8 @@ create fc-pairs 4096 2* cells allot   \ a constant's levels (no checker limit)
   lf-name-generation @ fc-pairs r> lf-cref-new must lf-cterm-new must drop ;
 \ A form the first checker does not support becomes its leaf; free and
 \ meta variables are invalid input, which no case of the tables holds.
+\ Xlet is the leaf import/checker-input.fs still makes for a let (the
+\ Lean printers write a let as E since plan task 4.2.3).
 : fc-form ( c-addr u -- form )
   2dup s" Xlet" compare 0= if 2drop lf-form-let exit then
   2dup s" Xlit" compare 0= if 2drop lf-form-nat exit then
@@ -107,8 +109,16 @@ create fc-pairs 4096 2* cells allot   \ a constant's levels (no checker limit)
 : fc-unsupported ( c-addr u -- node )
   fc-form lf-tag-unsupported over 0 fc-key! fc-term-find if nip exit then
   lf-hterm-unsupported must drop ;
+\ A let, E flag T v b (plan task 4.2.3): its leaf applied to v, then to
+\ fun x : T => b, as core/let-terms.fs stores it; shared like the rest.
+: fc-let-leaf ( flag -- node )
+  lf-tag-let over 0 fc-key! fc-term-find if nip exit then lf-let-leaf must ;
+: fc-let ( flag T v b -- node )
+  rot swap lf-tag-lam fc-binary >r swap fc-let-leaf swap lf-tag-app fc-binary
+  r> lf-tag-app fc-binary ;
 : fc-read-term ( -- node )
   fc-token over c@ case
+    [char] E of 2drop fc-number recurse recurse recurse fc-let endof
     [char] S of 2drop fc-read-level fc-sort endof
     [char] V of 2drop fc-number fc-bvar endof
     [char] A of 2drop recurse recurse lf-tag-app fc-binary endof

@@ -7,8 +7,10 @@
 \ whnf_core reduces without unfolding (Lean's order). Sorts, Pis,
 \ lambdas, constants, bound variables and free variables that are no let
 \ variables are normal (473-488); a let variable is its value, reduced
-\ (zeta, whnf_fvar 409-417; none occur before plan task 4.2.3). An
-\ application's head is reduced first (514): a lambda head takes as many
+\ (whnf_fvar 409-417), and a let term (core/let-terms.fs) its body with
+\ its value put for the bound variable, reduced (zeta, 542-544; plan task
+\ 4.2.3). An application's head (a let term ends a spine, as in Lean's
+\ get_app_fn) is reduced first (514): a lambda head takes as many
 \ arguments as it has leading lambdas, all at once (Lean's instantiate,
 \ mixed-open.fs), the others are applied again and the result is reduced
 \ (beta, 515-524); a head that did not change and is no lambda goes to
@@ -40,9 +42,9 @@
 \   gives the lookup's outcome.
 \ Not yet as Lean (no verdict depends on them): the caches m_whnf_core,
 \ m_whnf and m_unfold, and the unfold counts of kernel diagnostics (plan
-\ tasks 4.2.7, 4.3.1); literals and let terms are unsupported forms
-\ (U2) that never reach these passes; the derivation log records nothing
-\ new here (plan task 4.2.2e). A projection (core/projections.fs) is an
+\ tasks 4.2.7, 4.3.1); string literals and metadata are unsupported
+\ forms (U2) that never reach these passes; the derivation log records
+\ nothing new here (plan task 4.2.2e). A projection (core/projections.fs) is an
 \ application of a projection leaf, which the iota hook reduces
 \ (iota.fs, reduce_proj); a leaf alone, the function defeq.fs's
 \ is_def_eq_app finds where Lean has Expr.proj, is unknown until the
@@ -112,6 +114,7 @@ require ../core/constant-references.fs
 require ../core/constant-term-boundary.fs
 require ../core/diagnostics.fs
 require ../core/input.fs
+require ../core/let-terms.fs
 require ../core/local-context.fs
 require ../core/names.fs
 require ../core/projections.fs
@@ -163,9 +166,10 @@ require ./mixed-rebuild.fs
 : lf-whnf-fvar? ( node -- flag ) lf-term-tag@ lf-tag-fvar = ;
 : lf-whnf-let? ( node -- flag ) dup lf-fvar-live? if lf-fvar-let? else drop false then ;
 : lf-whnf-const? ( node -- flag ) lf-term-tag@ lf-tag-constant = ;
-\ A head whnf_core need not visit: anything but a free variable, or a
-\ live free variable that is no let variable.
+\ A head whnf_core need not visit: anything but a let term or a free
+\ variable, or a live free variable that is no let variable.
 : lf-whnf-plain-head? ( head -- flag )
+  dup lf-let? if drop false exit then
   dup lf-whnf-fvar? if dup lf-fvar-live? swap lf-whnf-let? 0= and else drop true then ;
 
 \ ---------------------------------------------------------------------------
@@ -438,13 +442,31 @@ defer lf-wc-visit ( node frames -- ... frames next )
 : lf-wc-head ( node f frames -- ... frames next )
   over lf-whnf-lam? if lf-wc-beta exit then
   >r 2dup swap lf-whnf-head = r> swap if lf-wc-iota else lf-wc-rebuild then ;
-\ An application: its head is visited first only when it is a let
-\ variable (or no live variable), node saved across that visit.
+\ An application: its head is visited first only when it is a let term
+\ or a let variable (or no live variable), as Lean's whnf_core reduces
+\ the head first (514), node saved across that visit. A let leaf at the
+\ head of a spine is no let term: malformed (core/let-terms.fs).
+: lf-wc-invalid ( node frames -- -1 outcome frames 0 ) nip outcome-invalid swap lf-whnf-failed ;
 : lf-wc-headed ( f outcome frames -- ... frames next )
   >r r@ frame-restore -rot ok-then? if r> lf-wc-head else nip r> lf-whnf-failed then ;
 : lf-wc-app ( node frames -- ... frames next )
-  over lf-whnf-head dup lf-whnf-plain-head? if swap lf-wc-head exit then
+  over lf-whnf-head dup lf-let-leaf? if drop lf-wc-invalid exit then
+  dup lf-whnf-plain-head? if swap lf-wc-head exit then
   -rot tuck frame-save ['] lf-wc-headed lf-wc-call ;
+\ Zeta (542-544): a let term (core/let-terms.fs) is its body with its
+\ value put for the bound variable, Lean's instantiate on the frames'
+\ fuel (a value with a loose bound variable is lifted, as beta lifts an
+\ argument: lf-whnf-put1), reduced again within the same visit; one whose
+\ second argument is no lambda is malformed.
+: lf-whnf-zeta-closed ( body v frames -- node outcome )
+  >r 1 lf-whnf-args slab-hold dup ok? 0= if nip nip no-result r> drop exit then drop
+  0 lf-whnf-arg ! 1 0 r> lf-whnf-put ;
+: lf-whnf-zeta ( body v frames -- node outcome )
+  2dup lf-whnf-loose? ok-then? 0= if >r drop 2drop r> no-result exit then
+  if lf-whnf-put1 else lf-whnf-zeta-closed then ;
+: lf-wc-zeta ( node frames -- ... frames next )
+  over lf-let-well? 0= if lf-wc-invalid exit then
+  >r dup lf-let-body swap lf-let-value r@ lf-whnf-zeta r> lf-wc-then ;
 \ A free variable: a let variable's value goes on (zeta), any other live
 \ one is normal; one the local context does not name is invalid.
 : lf-wc-fvar ( node frames -- ... frames next )
@@ -460,7 +482,7 @@ defer lf-wc-visit ( node frames -- ... frames next )
   dup lf-tag-proj = if drop lf-wc-proj exit then
   lf-whnf-normal? if lf-whnf-keep else nip outcome-invalid swap lf-whnf-failed then ;
 : lf-wc-tagged ( node frames tag -- ... frames next )
-  dup lf-tag-app = if drop lf-wc-app exit then
+  dup lf-tag-app = if drop over lf-let? if lf-wc-zeta else lf-wc-app then exit then
   dup lf-tag-fvar = if drop lf-wc-fvar exit then lf-wc-leaf ;
 :noname ( node frames -- ... frames next )
   over lf-term-valid? 0= if nip outcome-invalid swap lf-whnf-failed exit then

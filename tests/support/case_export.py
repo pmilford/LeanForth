@@ -12,9 +12,10 @@ order, read the way a real export is read.
 The export is built as the driver builds the stores: a name is one string
 component, the token's text; equal levels and expressions are one record;
 binders are anonymous with default binder information; a definition has
-height 1 (hints {"regular": 1}), other kinds are safe. An unsupported form
-(Xlet, Xlit, Xmdata, Xproj) becomes a small expression of that form, which
-the feed turns into the same leaf as the driver (core/unsupported-forms.fs).
+height 1 (hints {"regular": 1}), other kinds are safe. A let (E) becomes
+a letE record (plan task 4.2.3). An unsupported form (Xlit, Xmdata, Xproj)
+becomes a small expression of that form, which the feed turns into the
+same leaf as the driver (core/unsupported-forms.fs).
 Not an exporter, a reader or a checker; it never accepts anything.
 """
 import json
@@ -128,9 +129,6 @@ class Reader:
 
     def unsupported(self, form):
         zero = self.sort(0)
-        if form == "Xlet":
-            return self.export.expr(("let",), {"letE": {
-                "body": zero, "name": 0, "nondep": False, "type": zero, "value": zero}})
         if form == "Xlit":
             return self.export.expr(("lit",), {"natVal": "0"})
         if form == "Xmdata":
@@ -140,6 +138,11 @@ class Reader:
             return self.export.expr(("proj",), {"proj": {
                 "idx": 0, "struct": zero, "typeName": name}})
         raise CaseError(f"form {form}")
+
+    def made_let(self, nondep, children):
+        kind, value, body = children
+        return self.export.expr(("let", nondep, kind, value, body), {"letE": {
+            "body": body, "name": 0, "nondep": nondep, "type": kind, "value": value}})
 
     def made_term(self, word, children):
         first, second = children
@@ -161,6 +164,9 @@ class Reader:
             elif word in ("A", "L", "P"):
                 pending.append([word, []])
                 continue
+            elif word == "E":
+                pending.append([(word, self.number() != 0), []])
+                continue
             elif word == "C":
                 value = self.constant()
             elif word.startswith("X"):
@@ -172,10 +178,13 @@ class Reader:
                     return value
                 frame = pending[-1]
                 frame[1].append(value)
-                if len(frame[1]) < 2:
+                if len(frame[1]) < (3 if isinstance(frame[0], tuple) else 2):
                     break
                 pending.pop()
-                value = self.made_term(frame[0], frame[1])
+                if isinstance(frame[0], tuple):
+                    value = self.made_let(frame[0][1], frame[1])
+                else:
+                    value = self.made_term(frame[0], frame[1])
 
     def declaration(self):
         self.token()                       # before or check

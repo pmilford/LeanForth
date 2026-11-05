@@ -15,7 +15,7 @@ identity.theorem-over-types	thmTypeIsNotProp	rejected	S3
 identity.definition-over-types	accepted	accepted	A1
 identity.loose-bound-variable	looseBVar	invalid	V1
 identity.unknown-constant	unknownConstant	rejected	N1
-identity.let	accepted	unsupported	U2
+identity.let	accepted	accepted	A1
 identity.binder-annotation-differs	accepted	accepted	A1
 type-identity.original	accepted	accepted	A1
 type-identity.wrong-universe	declTypeMismatch	rejected	D1

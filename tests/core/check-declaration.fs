@@ -193,6 +193,14 @@ T{ check-last -> outcome-unsupported lf-diag-dependency-unsupported value-step }
 fc-case let
 fc-decl check def safe withLet 0 TYPE S s z VALUE Xlet
 T{ check-last -> outcome-unsupported lf-diag-unsupported-form audit }T
+\ A let term (plan task 4.2.3): let x : Sort 1 := Sort 0; x has type Sort 1;
+\ a value of the wrong type is Lean's letTypeMismatch.
+fc-case let-term
+fc-decl check def safe withLetTerm 0 TYPE S s z VALUE E 0 S s z S z V 0
+T{ check-last -> outcome-ok 0 lf-step-done }T
+fc-case let-term-wrong
+fc-decl check def safe withLetWrong 0 TYPE S s z VALUE E 1 S z S z V 0
+T{ check-last -> outcome-rejected lf-diag-let-value-apart value-step }T
 fc-case nat-literal
 fc-decl check def safe withLiteral 0 TYPE S s z VALUE L S z Xlit
 T{ check-last -> outcome-unsupported lf-diag-unsupported-form audit }T

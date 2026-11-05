@@ -98,7 +98,8 @@ lf-walk-room context-walk: lf-mls-walker
     lf-tag-constant of lf-mls-reference endof
     lf-tag-bvar of drop 2drop outcome-ok endof
     lf-tag-proj of drop 2drop outcome-ok endof
-    lf-tag-lit of drop 2drop outcome-ok endof walk-bad-tag endcase ;
+    lf-tag-lit of drop 2drop outcome-ok endof
+    lf-tag-let of drop 2drop outcome-ok endof walk-bad-tag endcase ;
 : lf-mls-visit ( walk -- outcome ) lf-terms ['] lf-mls-dispatch walk-visit ;
 : lf-mls-unseen ( -- ) lf-mls-seen-column column-erase ;
 : lf-mls-site ( -- site ) c" mixed-level-substitute lf-mixed-level-substitute" ;
@@ -177,7 +178,7 @@ lf-walk-room context-walk: lf-mls-walker
   case lf-tag-symbolic-sort of drop lf-mls-sort endof
     lf-tag-constant of lf-mls-constant endof
     lf-tag-bvar of 2drop outcome-ok endof  lf-tag-proj of 2drop outcome-ok endof
-    lf-tag-lit of 2drop outcome-ok endof
+    lf-tag-lit of 2drop outcome-ok endof  lf-tag-let of 2drop outcome-ok endof
     dup >r lf-mls-binary r> endcase ;
 : lf-mls-image ( node -- index outcome )
   dup lf-term-read if rot lf-mls-image-of else drop 0 outcome-invalid then ;

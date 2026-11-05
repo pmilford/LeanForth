@@ -259,8 +259,8 @@ def identityCases : List Case := [
   { id := "identity.let",
     decl := thm `identity_let (identityType prop)
       (funs [im `P prop, ex `proof (v `P)] (.letE `copy (v `P) (v `proof) (.bvar 0) false)),
-    lean := "accepted", leanforth := "unsupported", rule := "U2",
-    what := "the proof is let copy := proof; copy (a let expression)" },
+    lean := "accepted", leanforth := "accepted", rule := "A1",
+    what := "the proof is let copy := proof; copy (a let expression; U2 until plan task 4.2.3)" },
   { id := "identity.binder-annotation-differs",
     decl := thm `identity_explicit (identityType prop)
       (funs [ex `P prop, ex `proof (v `P)] (v `proof)),
