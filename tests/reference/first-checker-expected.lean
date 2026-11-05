@@ -145,7 +145,9 @@ structure Case where
   lean : String
   /-- LeanForth's required outcome (not checked by Lean). -/
   leanforth : String
-  /-- The ADR 0011 rule that decides LeanForth's outcome. -/
+  /-- The ADR 0011 rule that decides LeanForth's outcome; `eta` and
+  `proof-irrelevance` are ADR 0014's (plan tasks 4.2.4 and 4.2.5), which
+  replaced ADR 0011's K3 and K2 (unknown). -/
   rule : String
   /-- What was changed, in a few words. -/
   what : String
@@ -208,7 +210,7 @@ def compositionCases : List Case := [
       (funs [im `A prop, im `B prop, ex `f (arrow (v `A) (v `B)), ex `f' (arrow (v `A) (v `B)),
              ex `Q (arrow (v `B) prop), ex `a (v `A), ex `h (app (v `Q) [app (v `f) [v `a]])]
         (v `h)),
-    lean := "accepted", leanforth := "unknown", rule := "K2",
+    lean := "accepted", leanforth := "accepted", rule := "proof-irrelevance",
     what := "Q (f a) used as Q (f' a): f a and f' a are both proofs of B, so Lean equates them" }
 ]
 
@@ -307,13 +309,13 @@ def typeIdentityCases : List Case := [
     decl := thm `type_identity_proof_irrelevant
       (foralls (twoPointBinders prop) (app (v `P) [v `y]))
       (funs (twoPointBinders prop) (v `proof)),
-    lean := "accepted", leanforth := "unknown", rule := "K2",
+    lean := "accepted", leanforth := "accepted", rule := "proof-irrelevance",
     what := "the same with A : Prop: x and y are proofs, so Lean equates them" },
   { id := "type-identity.eta-twin",
     decl := thm `type_identity_eta
       (foralls etaBinders (app (v `k) [funs [ex `y (v `A)] (app (v `P) [v `y])]))
       (funs etaBinders (v `h)),
-    lean := "accepted", leanforth := "unknown", rule := "K3",
+    lean := "accepted", leanforth := "accepted", rule := "eta",
     what := "k P versus k (fun y => P y): equal only by eta" },
   { id := "type-identity.beta",
     decl := thm `type_identity_beta
@@ -405,11 +407,11 @@ def polyIdentityCases : List Case := [
     what := "the proof writes Sort (max u u); Lean's level normalisation equates it with Sort u (ADR 0011 Amendment 1)" },
   { id := "poly-identity.proof-irrelevance-imax",
     decl := thm `poly_identity_imax (twinType sortImaxU0) (twinValue sortImaxU0) [`u],
-    lean := "accepted", leanforth := "unknown", rule := "K2",
+    lean := "accepted", leanforth := "accepted", rule := "proof-irrelevance",
     what := "P y from a proof of P x, A : Sort (imax u 0), which is Prop for every u: x and y are proofs" },
   { id := "poly-identity.proof-irrelevance-max-zero",
     decl := thm `poly_identity_max_zero (twinType sortMaxZero) (twinValue sortMaxZero),
-    lean := "accepted", leanforth := "unknown", rule := "K2",
+    lean := "accepted", leanforth := "accepted", rule := "proof-irrelevance",
     what := "the same with A : Sort (max 0 0), which is Prop" }
 ]
 
