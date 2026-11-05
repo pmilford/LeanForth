@@ -759,3 +759,32 @@ ADR 0019 Amendment 1 (agent IR2; probes in
   memory fault where it happens; `--fast` selects gforth-fast (2.4 times
   quicker, identical verdicts in every test). Revisit after the outside
   audit.
+
+## Native LeanForth: where theorems run, inline use, library vocabularies (2026-11-04, late)
+
+ADR 0017 Amendment 1 (agent AU2), the owner's answers:
+
+- **OQ-1 revised: yes.** With LeanForth loaded, Gforth's own interpreter
+  runs theorem text — from a file, typed at the prompt, or from a Forth
+  program that passes values in; each word builds part of the term and
+  `end NAME` checks it. A file run by `leanforth check` in a fresh Gforth
+  can use only LeanForth's sealed words and gets the normal label; results
+  in a session where other Forth ran say "checked in this session" until
+  saved and re-checked by `leanforth check`. This replaces the 2026-11-02
+  answer (a separate checker program receiving only data).
+- **Inline shape: yes.** Theorem text between `lf[` and `]lf`, values from
+  Forth by name with `param:` (a statement, a function, a number, a type),
+  the verdict on the stack; prior art: the LCF family's quotation with
+  antiquotation.
+- **Library names: the library as a vocabulary** (owner: "Lets do 1, but
+  carefully document and leave for future consideration 2. Also concerned
+  about the case issues."). A library such as `Init` is one word list in
+  the search order whose search looks names up in the library's hash index;
+  no word is made per name. The alternative (one Forth word per name, made
+  at load time) is documented and kept for future consideration. Case: the
+  owner is concerned — Lean names are case-sensitive (`Init` has 31 pairs
+  such as `id` and `Id`), Forth's usual search is not; the amendment must
+  state exactly how case is handled in every layer (library vocabulary,
+  LeanForth's own words, binder names, the printer) and test the pairs.
+- **A short word for Lean's `+`: not now** — decide with real examples
+  once the elaborator (8.3.1) fills hidden arguments.
