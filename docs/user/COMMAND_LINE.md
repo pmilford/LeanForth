@@ -426,8 +426,7 @@ export-index maps once it is staged gives back 35.7 MB of its 215.1 MB;
 on three runs of the morning's build, the same verdicts, fuel and
 diagnostics for every declaration, the peak was 1,263 MB without it and
 1,218 MB with it (peaks vary by about 20 MB from run to run). The ten
-declarations that used the most fuel all ran out of it; among the
-accepted ones the most was ACCEPTED-MOST steps (ACCEPTED-MOST-NAME). Half the declarations' fuel is not known: their check
+declarations that used the most fuel all ran out of it. Half the declarations' fuel is not known: their check
 failed inside inference, which gives its counter up, so neither the
 total nor the list counts them ([fuel](#the-resource-report)); a later
 step of plan task 6.5.2 can keep it, with a change to the checker.
