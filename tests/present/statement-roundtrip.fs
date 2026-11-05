@@ -10,25 +10,40 @@
 \ the declarations they make are dumped the same way. The two dumps (every
 \ node, index, level, constant, universe argument, binder name and kind)
 \ must be equal. Prints "round trip: same", or DIFFERENT with both dumps.
+\ An optional third line names the declarations to compare, separated by
+\ commas (an export with more declarations than the words state).
 \ Test-only; not a public interface.
 require ../support/print-outline.fs
 require ../author/report.fs
 
 create export-path 256 allot  variable export-len
 create words-path 256 allot  variable words-len
+create names-path 256 allot  variable names-len
 : path-line ( buffer -- u ) 256 stdin read-line throw 0= abort" statement-roundtrip: no line" ;
 
 \ The checker's side: the export read, then each declaration's type dumped
 \ as the statement's axiom.
 : load-export ( -- ) export-path export-len @ po-reload ;
+variable cur-decl
+: listed? ( c-addr u -- flag )
+  begin dup while pr-item cur-decl @ lf-input-name pr-named? if 2drop true exit then
+  repeat 2drop false ;
+: wanted? ( i -- flag )
+  names-len @ 0= if drop true exit then cur-decl ! names-path names-len @ listed? ;
 : dump-statements ( -- )
-  lf-input-count 0 ?do i lf-input-decl dup lf-sf-fits? if lf-sf-fdecl dump-decl else drop then loop ;
+  lf-input-count 0 ?do i wanted?
+    if i lf-input-decl dup lf-sf-fits? if lf-sf-fdecl dump-decl else drop then then loop ;
 
-\ The words' side, in a new context (report.fs's in-new-context).
+\ The words' side, in a new context (report.fs's in-new-context). With
+\ names given, the words also hold import-stubs for the constants the
+\ statements use; those are not compared.
+: dump-stated ( -- )
+  lf-author-count 0 ?do i lf-author-decl dup lf-fdecl-kind @ lf-decl-stub <>
+    names-len @ 0= or if dump-decl else drop then loop ;
 : words-text ( -- c-addr u ) words-path words-len @ slurp-file ;
 : second-dump ( -- outcome )
   lf-author-begin words-text lf-author-text dup ok? 0= if exit then drop
-  dump2 dump2# capture-into dump-all outcome-ok ;
+  dump2 dump2# capture-into dump-stated outcome-ok ;
 
 : report-trip ( outcome -- )
   dup ok? 0= if ." round trip: the words did not run (" outcome-text type ." )" cr
@@ -39,6 +54,9 @@ create words-path 256 allot  variable words-len
 
 export-path path-line export-len !
 words-path path-line words-len !
+: names-line ( -- ) names-path 256 stdin read-line throw
+  if names-len ! else drop 0 names-len ! then ;
+names-line
 load-export
 dump1 dump1# capture-into
 ' capture is dump-out

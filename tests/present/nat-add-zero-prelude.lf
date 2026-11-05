@@ -1,0 +1,10 @@
+\ The constants of Nat.add_zero and Nat.zero_add (tests/reference/inductive/
+\ nat-add-zero.ndjson) that the statements mention, as import-stubs, for the
+\ round trip of their printed LeanForth statements (check_outline.py).
+import-stub Nat end Nat
+import-stub instAddNat end instAddNat
+import-stub instOfNatNat end instOfNatNat
+import-stub Eq universe u_1 end Eq
+import-stub instHAdd universe u_1 end instHAdd
+import-stub OfNat.ofNat universe u end OfNat.ofNat
+import-stub HAdd.hAdd universe u universe v universe w end HAdd.hAdd

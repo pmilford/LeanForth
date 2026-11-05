@@ -37,7 +37,14 @@ LATEX_CASES = pathlib.Path("tests/present/outline-latex-cases.fs")
 LATEX_GOLDEN = pathlib.Path("tests/present/outlines-latex.golden")
 ROUND_TRIP = pathlib.Path("tests/present/statement-roundtrip.fs")
 EXAMPLES = {"identity": "identity", "composition": "composition", "type-identity": "type-identity",
-            "poly-identity": "poly-identity", "constant-fixture": "constant-fixture"}
+            "poly-identity": "poly-identity", "constant-fixture": "constant-fixture",
+            "nat-add-zero": "inductive/nat-add-zero", "nat-zero-add": "inductive/nat-add-zero"}
+# Sections of one declaration of a larger export: the declaration the round trip compares.
+ONLY = {"nat-add-zero": "Nat.add_zero", "nat-zero-add": "Nat.zero_add"}
+PRELUDE = pathlib.Path("tests/present/nat-add-zero-prelude.lf")
+# The first real theorems (plan task 5.4.1): no outline template covers their proofs, so the
+# steps are listed; the log must be complete and every form of the statement printed in full.
+STEP_LIST = {"nat-add-zero", "nat-zero-add"}
 # The macros the LaTeX style writes (the term printer's tokens, latex-text.fs and
 # the outline's layout) and the environments it opens.
 MACROS = {"textbf", "textit", "texttt", "ttfamily", "small", "par", "noindent", "hspace",
@@ -82,6 +89,15 @@ def promises(text):
                 failures.append(f"{name}: an outline where none may be printed")
             continue
         if name.endswith("--detail"):
+            continue
+        if name in STEP_LIST:
+            if "No outline template covers this proof; its steps follow." not in body:
+                failures.append(f"{name}: the step list is missing")
+            for bad in ("not complete", "truncated", "incomplete"):
+                if bad in body:
+                    failures.append(f"{name}: the output says {bad!r}")
+            if "complete. The statement is a proposition" not in body:
+                failures.append(f"{name}: the checker's log is not complete")
             continue
         for outline in body.split("\nTheorem ")[1:] + body.split("\nDefinition ")[1:]:
             lines = [l for l in outline.splitlines() if re.match(r"^\s+\d+\s{2}", l)]
@@ -141,9 +157,10 @@ def round_trips(text):
             if name not in EXAMPLES:
                 continue
             words = pathlib.Path(tmp) / f"{name}.lf"
-            words.write_text("\n\n".join(found) + "\n", encoding="utf-8")
+            prelude = PRELUDE.read_text(encoding="utf-8") if name in ONLY else ""
+            words.write_text(prelude + "\n\n".join(found) + "\n", encoding="utf-8")
             export = f"tests/reference/{EXAMPLES[name]}.ndjson"
-            out = printed(ROUND_TRIP, [export, str(words)])
+            out = printed(ROUND_TRIP, [export, str(words)] + ([ONLY[name]] if name in ONLY else []))
             if "round trip: same" not in out or "DIFFERENT" in out:
                 failures.append(f"{name}: the LeanForth statements do not build the same "
                                 f"terms:\n{out}")

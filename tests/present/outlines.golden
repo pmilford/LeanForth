@@ -199,6 +199,513 @@ Rules, formulas and step numbers come from the checker's log; the sentences are
 fixed templates (structured-template), not checked reasoning.
 Templates: let-props/v0, assume/v0, apply/v0, recall/v0, discharge/v0, statement/v0.
 
+== nat-add-zero
+Theorem Nat.add_zero
+  accepted (experimental, not independently audited); axioms: none
+  Statement in Lean:        ∀ (n : Nat), Eq (HAdd.hAdd n (OfNat.ofNat 0)) n
+  Statement in mathematics: $\forall (n : \mathsf{Nat}),\ \mathsf{Eq}\ (\mathsf{HAdd.hAdd}\ n\ (\mathsf{OfNat.ofNat}\ 0))\ n$
+  Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
+    axiom Nat.add_zero
+      Nat explicit: n
+      Eq 1 ^ Nat $ HAdd.hAdd 0 ^ 0 ^ 0 ^ Nat $ Nat $ Nat $ instHAdd 0 ^ Nat $ instAddNat $ $ n
+        $ OfNat.ofNat 0 ^ Nat $ 0 lit# $ instOfNatNat 0 lit# $ $ $ $ n $
+    end Nat.add_zero
+  Input:     tests/reference/inductive/nat-add-zero.ndjson line 637
+  Checker log: 236 steps, complete. The statement is a proposition: s106 (from s3).
+
+No outline template covers this proof; its steps follow.
+
+Steps.
+  s1     fresh-name          depth 0   declaration Nat.add_zero
+  s2     distinct-parameters depth 0   declaration Nat.add_zero
+  s3     resolve             depth 0   Nat ↦ d0
+  s4     universe-arity      depth 0   0 levels for d0
+  s5     instantiate-levels  depth 0   Type with levels: 0 ⟶ Type
+  s6     constant            depth 0   Nat : Type  ← s3, s4, s5
+  s7     resolve             depth 1   Eq ↦ d4
+  s8     universe-arity      depth 1   1 levels for d4
+  s9     instantiate-levels  depth 1   {α : Sort u_1} → α → α → Prop with levels: 1 ⟶ {α : Type} → α → α → Prop
+  s10    constant            depth 1   @Eq : {α : Type} → α → α → Prop  ← s7, s8, s9
+  s11    resolve             depth 1   Nat ↦ d0
+  s12    universe-arity      depth 1   0 levels for d0
+  s13    instantiate-levels  depth 1   Type with levels: 0 ⟶ Type
+  s14    constant            depth 1   Nat : Type  ← s11, s12, s13
+  s15    defeq               depth 1   Type ≡ Type
+  s16    instantiate         depth 1   (fun x ↦ x → x → Prop) Nat ⟶ Nat → Nat → Prop
+  s17    application         depth 1   Eq : Nat → Nat → Prop  ← s10, s14, s15, s16
+  s18    resolve             depth 1   HAdd.hAdd ↦ d11
+  s19    universe-arity      depth 1   3 levels for d11
+  s20    instantiate-levels  depth 1   {α : Type u} → {β : Type v} → {γ : outParam (Type w)} → [self : HAdd α β γ] → α → β → γ with levels: 3 ⟶ {α β : Type} → {γ : outParam Type} → [self : HAdd α β γ] → α → β → γ
+  s21    constant            depth 1   @HAdd.hAdd : {α β : Type} → {γ : outParam Type} → [self : HAdd α β γ] → α → β → γ  ← s18, s19, s20
+  s22    resolve             depth 1   Nat ↦ d0
+  s23    universe-arity      depth 1   0 levels for d0
+  s24    instantiate-levels  depth 1   Type with levels: 0 ⟶ Type
+  s25    constant            depth 1   Nat : Type  ← s22, s23, s24
+  s26    defeq               depth 1   Type ≡ Type
+  s27    instantiate         depth 1   (fun x ↦ {β : Type} → {γ : outParam Type} → [self : HAdd @x β γ] → @x → β → γ) Nat ⟶ {β : Type} → {γ : outParam Type} → [self : HAdd Nat β γ] → Nat → β → γ
+  s28    application         depth 1   @HAdd.hAdd Nat : {β : Type} → {γ : outParam Type} → [self : HAdd Nat β γ] → Nat → β → γ  ← s21, s25, s26, s27
+  s29    resolve             depth 1   Nat ↦ d0
+  s30    universe-arity      depth 1   0 levels for d0
+  s31    instantiate-levels  depth 1   Type with levels: 0 ⟶ Type
+  s32    constant            depth 1   Nat : Type  ← s29, s30, s31
+  s33    defeq               depth 1   Type ≡ Type
+  s34    instantiate         depth 1   (fun x ↦ {γ : outParam Type} → [self : HAdd Nat @x γ] → Nat → @x → γ) Nat ⟶ {γ : outParam Type} → [self : HAdd Nat Nat γ] → Nat → Nat → γ
+  s35    application         depth 1   @HAdd.hAdd Nat Nat : {γ : outParam Type} → [self : HAdd Nat Nat γ] → Nat → Nat → γ  ← s28, s32, s33, s34
+  s36    resolve             depth 1   Nat ↦ d0
+  s37    universe-arity      depth 1   0 levels for d0
+  s38    instantiate-levels  depth 1   Type with levels: 0 ⟶ Type
+  s39    constant            depth 1   Nat : Type  ← s36, s37, s38
+  s40    instantiate-levels  depth 1   fun α ↦ α with levels: 1 ⟶ fun α ↦ α
+  s41    defeq               depth 1   Type ≡ outParam Type  ← s40
+  s42    instantiate         depth 1   (fun x ↦ [self : HAdd Nat Nat @x] → Nat → Nat → @x) Nat ⟶ [self : HAdd Nat Nat Nat] → Nat → Nat → Nat
+  s43    application         depth 1   @HAdd.hAdd Nat Nat Nat : [self : HAdd Nat Nat Nat] → Nat → Nat → Nat  ← s35, s39, s41, s42
+  s44    resolve             depth 1   instHAdd ↦ d16
+  s45    universe-arity      depth 1   1 levels for d16
+  s46    instantiate-levels  depth 1   {α : Type u_1} → [Add α] → HAdd α α α with levels: 1 ⟶ {α : Type} → [Add α] → HAdd α α α
+  s47    constant            depth 1   @instHAdd : {α : Type} → [Add α] → HAdd α α α  ← s44, s45, s46
+  s48    resolve             depth 1   Nat ↦ d0
+  s49    universe-arity      depth 1   0 levels for d0
+  s50    instantiate-levels  depth 1   Type with levels: 0 ⟶ Type
+  s51    constant            depth 1   Nat : Type  ← s48, s49, s50
+  s52    defeq               depth 1   Type ≡ Type
+  s53    instantiate         depth 1   (fun x ↦ [Add @x] → HAdd @x @x @x) Nat ⟶ [Add Nat] → HAdd Nat Nat Nat
+  s54    application         depth 1   @instHAdd Nat : [Add Nat] → HAdd Nat Nat Nat  ← s47, s51, s52, s53
+  s55    resolve             depth 1   instAddNat ↦ d30
+  s56    universe-arity      depth 1   0 levels for d30
+  s57    instantiate-levels  depth 1   Add Nat with levels: 0 ⟶ Add Nat
+  s58    constant            depth 1   instAddNat : Add Nat  ← s55, s56, s57
+  s59    defeq               depth 1   Add Nat ≡ Add Nat
+  s60    instantiate         depth 1   (fun x ↦ HAdd Nat Nat Nat) instAddNat ⟶ HAdd Nat Nat Nat
+  s61    application         depth 1   instHAdd : HAdd Nat Nat Nat  ← s54, s58, s59, s60
+  s62    defeq               depth 1   HAdd Nat Nat Nat ≡ HAdd Nat Nat Nat
+  s63    instantiate         depth 1   (fun x ↦ Nat → Nat → Nat) instHAdd ⟶ Nat → Nat → Nat
+  s64    application         depth 1   HAdd.hAdd : Nat → Nat → Nat  ← s43, s61, s62, s63
+  s65    variable            depth 1   n : Nat
+  s66    defeq               depth 1   Nat ≡ Nat
+  s67    instantiate         depth 1   (fun x ↦ Nat → Nat) n ⟶ Nat → Nat
+  s68    application         depth 1   HAdd.hAdd n : Nat → Nat  ← s64, s65, s66, s67
+  s69    resolve             depth 1   OfNat.ofNat ↦ d34
+  s70    universe-arity      depth 1   1 levels for d34
+  s71    instantiate-levels  depth 1   {α : Type u} → (x : Nat) → [self : OfNat α x] → α with levels: 1 ⟶ {α : Type} → (x : Nat) → [self : OfNat α x] → α
+  s72    constant            depth 1   @OfNat.ofNat : {α : Type} → (x : Nat) → [self : OfNat α x] → α  ← s69, s70, s71
+  s73    resolve             depth 1   Nat ↦ d0
+  s74    universe-arity      depth 1   0 levels for d0
+  s75    instantiate-levels  depth 1   Type with levels: 0 ⟶ Type
+  s76    constant            depth 1   Nat : Type  ← s73, s74, s75
+  s77    defeq               depth 1   Type ≡ Type
+  s78    instantiate         depth 1   (fun x ↦ (x_1 : Nat) → [self : OfNat x x_1] → x) Nat ⟶ (x : Nat) → [self : OfNat Nat x] → Nat
+  s79    application         depth 1   OfNat.ofNat : (x : Nat) → [self : OfNat Nat x] → Nat  ← s72, s76, s77, s78
+  s80    form                depth 1   0 : Nat
+  s81    defeq               depth 1   Nat ≡ Nat
+  s82    instantiate         depth 1   (fun x ↦ [self : OfNat Nat @x] → Nat) 0 ⟶ [self : OfNat Nat 0] → Nat
+  s83    application         depth 1   @OfNat.ofNat Nat 0 : [self : OfNat Nat 0] → Nat  ← s79, s80, s81, s82
+  s84    resolve             depth 1   instOfNatNat ↦ d35
+  s85    universe-arity      depth 1   0 levels for d35
+  s86    instantiate-levels  depth 1   (n : Nat) → OfNat Nat n with levels: 0 ⟶ (n : Nat) → OfNat Nat n
+  s87    constant            depth 1   instOfNatNat : (n : Nat) → OfNat Nat n  ← s84, s85, s86
+  s88    form                depth 1   0 : Nat
+  s89    defeq               depth 1   Nat ≡ Nat
+  s90    instantiate         depth 1   (fun x ↦ OfNat Nat x) 0 ⟶ OfNat Nat 0
+  s91    application         depth 1   instOfNatNat 0 : OfNat Nat 0  ← s87, s88, s89, s90
+  s92    defeq               depth 1   OfNat Nat 0 ≡ OfNat Nat 0
+  s93    instantiate         depth 1   (fun x ↦ Nat) (instOfNatNat 0) ⟶ Nat
+  s94    application         depth 1   OfNat.ofNat 0 : Nat  ← s83, s91, s92, s93
+  s95    defeq               depth 1   Nat ≡ Nat
+  s96    instantiate         depth 1   (fun x ↦ Nat) (OfNat.ofNat 0) ⟶ Nat
+  s97    application         depth 1   HAdd.hAdd n (OfNat.ofNat 0) : Nat  ← s68, s94, s95, s96
+  s98    defeq               depth 1   Nat ≡ Nat
+  s99    instantiate         depth 1   (fun x ↦ Nat → Prop) (HAdd.hAdd n (OfNat.ofNat 0)) ⟶ Nat → Prop
+  s100   application         depth 1   Eq (HAdd.hAdd n (OfNat.ofNat 0)) : Nat → Prop  ← s17, s97, s98, s99
+  s101   variable            depth 1   n : Nat
+  s102   defeq               depth 1   Nat ≡ Nat
+  s103   instantiate         depth 1   (fun x ↦ Prop) n ⟶ Prop
+  s104   application         depth 1   Eq (HAdd.hAdd n (OfNat.ofNat 0)) n : Prop  ← s100, s101, s102, s103
+  s105   pi                  depth 0   (n : Nat) → Eq (HAdd.hAdd n (OfNat.ofNat 0)) n : Prop  ← s6, s104
+  s106   proposition         depth 0   (n : Nat) → Eq (HAdd.hAdd n (OfNat.ofNat 0)) n : Sort 0  ← s105
+  s107   resolve             depth 0   Nat ↦ d0
+  s108   universe-arity      depth 0   0 levels for d0
+  s109   instantiate-levels  depth 0   Type with levels: 0 ⟶ Type
+  s110   constant            depth 0   Nat : Type  ← s107, s108, s109
+  s111   resolve             depth 1   rfl ↦ d36
+  s112   universe-arity      depth 1   1 levels for d36
+  s113   instantiate-levels  depth 1   {α : Sort u} → {a : α} → Eq a a with levels: 1 ⟶ {α : Type} → {a : α} → Eq a a
+  s114   constant            depth 1   @rfl : {α : Type} → {a : α} → Eq a a  ← s111, s112, s113
+  s115   resolve             depth 1   Nat ↦ d0
+  s116   universe-arity      depth 1   0 levels for d0
+  s117   instantiate-levels  depth 1   Type with levels: 0 ⟶ Type
+  s118   constant            depth 1   Nat : Type  ← s115, s116, s117
+  s119   defeq               depth 1   Type ≡ Type
+  s120   instantiate         depth 1   (fun x ↦ {a : @x} → Eq a a) Nat ⟶ {a : Nat} → Eq a a
+  s121   application         depth 1   @rfl Nat : {a : Nat} → Eq a a  ← s114, s118, s119, s120
+  s122   resolve             depth 1   HAdd.hAdd ↦ d11
+  s123   universe-arity      depth 1   3 levels for d11
+  s124   instantiate-levels  depth 1   {α : Type u} → {β : Type v} → {γ : outParam (Type w)} → [self : HAdd α β γ] → α → β → γ with levels: 3 ⟶ {α β : Type} → {γ : outParam Type} → [self : HAdd α β γ] → α → β → γ
+  s125   constant            depth 1   @HAdd.hAdd : {α β : Type} → {γ : outParam Type} → [self : HAdd α β γ] → α → β → γ  ← s122, s123, s124
+  s126   resolve             depth 1   Nat ↦ d0
+  s127   universe-arity      depth 1   0 levels for d0
+  s128   instantiate-levels  depth 1   Type with levels: 0 ⟶ Type
+  s129   constant            depth 1   Nat : Type  ← s126, s127, s128
+  s130   defeq               depth 1   Type ≡ Type
+  s131   instantiate         depth 1   (fun x ↦ {β : Type} → {γ : outParam Type} → [self : HAdd @x β γ] → @x → β → γ) Nat ⟶ {β : Type} → {γ : outParam Type} → [self : HAdd Nat β γ] → Nat → β → γ
+  s132   application         depth 1   @HAdd.hAdd Nat : {β : Type} → {γ : outParam Type} → [self : HAdd Nat β γ] → Nat → β → γ  ← s125, s129, s130, s131
+  s133   resolve             depth 1   Nat ↦ d0
+  s134   universe-arity      depth 1   0 levels for d0
+  s135   instantiate-levels  depth 1   Type with levels: 0 ⟶ Type
+  s136   constant            depth 1   Nat : Type  ← s133, s134, s135
+  s137   defeq               depth 1   Type ≡ Type
+  s138   instantiate         depth 1   (fun x ↦ {γ : outParam Type} → [self : HAdd Nat @x γ] → Nat → @x → γ) Nat ⟶ {γ : outParam Type} → [self : HAdd Nat Nat γ] → Nat → Nat → γ
+  s139   application         depth 1   @HAdd.hAdd Nat Nat : {γ : outParam Type} → [self : HAdd Nat Nat γ] → Nat → Nat → γ  ← s132, s136, s137, s138
+  s140   resolve             depth 1   Nat ↦ d0
+  s141   universe-arity      depth 1   0 levels for d0
+  s142   instantiate-levels  depth 1   Type with levels: 0 ⟶ Type
+  s143   constant            depth 1   Nat : Type  ← s140, s141, s142
+  s144   instantiate-levels  depth 1   fun α ↦ α with levels: 1 ⟶ fun α ↦ α
+  s145   defeq               depth 1   Type ≡ outParam Type  ← s144
+  s146   instantiate         depth 1   (fun x ↦ [self : HAdd Nat Nat @x] → Nat → Nat → @x) Nat ⟶ [self : HAdd Nat Nat Nat] → Nat → Nat → Nat
+  s147   application         depth 1   @HAdd.hAdd Nat Nat Nat : [self : HAdd Nat Nat Nat] → Nat → Nat → Nat  ← s139, s143, s145, s146
+  s148   resolve             depth 1   instHAdd ↦ d16
+  s149   universe-arity      depth 1   1 levels for d16
+  s150   instantiate-levels  depth 1   {α : Type u_1} → [Add α] → HAdd α α α with levels: 1 ⟶ {α : Type} → [Add α] → HAdd α α α
+  s151   constant            depth 1   @instHAdd : {α : Type} → [Add α] → HAdd α α α  ← s148, s149, s150
+  s152   resolve             depth 1   Nat ↦ d0
+  s153   universe-arity      depth 1   0 levels for d0
+  s154   instantiate-levels  depth 1   Type with levels: 0 ⟶ Type
+  s155   constant            depth 1   Nat : Type  ← s152, s153, s154
+  s156   defeq               depth 1   Type ≡ Type
+  s157   instantiate         depth 1   (fun x ↦ [Add @x] → HAdd @x @x @x) Nat ⟶ [Add Nat] → HAdd Nat Nat Nat
+  s158   application         depth 1   @instHAdd Nat : [Add Nat] → HAdd Nat Nat Nat  ← s151, s155, s156, s157
+  s159   resolve             depth 1   instAddNat ↦ d30
+  s160   universe-arity      depth 1   0 levels for d30
+  s161   instantiate-levels  depth 1   Add Nat with levels: 0 ⟶ Add Nat
+  s162   constant            depth 1   instAddNat : Add Nat  ← s159, s160, s161
+  s163   defeq               depth 1   Add Nat ≡ Add Nat
+  s164   instantiate         depth 1   (fun x ↦ HAdd Nat Nat Nat) instAddNat ⟶ HAdd Nat Nat Nat
+  s165   application         depth 1   instHAdd : HAdd Nat Nat Nat  ← s158, s162, s163, s164
+  s166   defeq               depth 1   HAdd Nat Nat Nat ≡ HAdd Nat Nat Nat
+  s167   instantiate         depth 1   (fun x ↦ Nat → Nat → Nat) instHAdd ⟶ Nat → Nat → Nat
+  s168   application         depth 1   HAdd.hAdd : Nat → Nat → Nat  ← s147, s165, s166, s167
+  s169   variable            depth 1   n : Nat
+  s170   defeq               depth 1   Nat ≡ Nat
+  s171   instantiate         depth 1   (fun x ↦ Nat → Nat) n ⟶ Nat → Nat
+  s172   application         depth 1   HAdd.hAdd n : Nat → Nat  ← s168, s169, s170, s171
+  s173   resolve             depth 1   OfNat.ofNat ↦ d34
+  s174   universe-arity      depth 1   1 levels for d34
+  s175   instantiate-levels  depth 1   {α : Type u} → (x : Nat) → [self : OfNat α x] → α with levels: 1 ⟶ {α : Type} → (x : Nat) → [self : OfNat α x] → α
+  s176   constant            depth 1   @OfNat.ofNat : {α : Type} → (x : Nat) → [self : OfNat α x] → α  ← s173, s174, s175
+  s177   resolve             depth 1   Nat ↦ d0
+  s178   universe-arity      depth 1   0 levels for d0
+  s179   instantiate-levels  depth 1   Type with levels: 0 ⟶ Type
+  s180   constant            depth 1   Nat : Type  ← s177, s178, s179
+  s181   defeq               depth 1   Type ≡ Type
+  s182   instantiate         depth 1   (fun x ↦ (x_1 : Nat) → [self : OfNat x x_1] → x) Nat ⟶ (x : Nat) → [self : OfNat Nat x] → Nat
+  s183   application         depth 1   OfNat.ofNat : (x : Nat) → [self : OfNat Nat x] → Nat  ← s176, s180, s181, s182
+  s184   form                depth 1   0 : Nat
+  s185   defeq               depth 1   Nat ≡ Nat
+  s186   instantiate         depth 1   (fun x ↦ [self : OfNat Nat @x] → Nat) 0 ⟶ [self : OfNat Nat 0] → Nat
+  s187   application         depth 1   @OfNat.ofNat Nat 0 : [self : OfNat Nat 0] → Nat  ← s183, s184, s185, s186
+  s188   resolve             depth 1   instOfNatNat ↦ d35
+  s189   universe-arity      depth 1   0 levels for d35
+  s190   instantiate-levels  depth 1   (n : Nat) → OfNat Nat n with levels: 0 ⟶ (n : Nat) → OfNat Nat n
+  s191   constant            depth 1   instOfNatNat : (n : Nat) → OfNat Nat n  ← s188, s189, s190
+  s192   form                depth 1   0 : Nat
+  s193   defeq               depth 1   Nat ≡ Nat
+  s194   instantiate         depth 1   (fun x ↦ OfNat Nat x) 0 ⟶ OfNat Nat 0
+  s195   application         depth 1   instOfNatNat 0 : OfNat Nat 0  ← s191, s192, s193, s194
+  s196   defeq               depth 1   OfNat Nat 0 ≡ OfNat Nat 0
+  s197   instantiate         depth 1   (fun x ↦ Nat) (instOfNatNat 0) ⟶ Nat
+  s198   application         depth 1   OfNat.ofNat 0 : Nat  ← s187, s195, s196, s197
+  s199   defeq               depth 1   Nat ≡ Nat
+  s200   instantiate         depth 1   (fun x ↦ Nat) (OfNat.ofNat 0) ⟶ Nat
+  s201   application         depth 1   HAdd.hAdd n (OfNat.ofNat 0) : Nat  ← s172, s198, s199, s200
+  s202   defeq               depth 1   Nat ≡ Nat
+  s203   instantiate         depth 1   (fun x ↦ Eq x x) (HAdd.hAdd n (OfNat.ofNat 0)) ⟶ Eq (HAdd.hAdd n (OfNat.ofNat 0)) (HAdd.hAdd n (OfNat.ofNat 0))
+  s204   application         depth 1   rfl : Eq (HAdd.hAdd n (OfNat.ofNat 0)) (HAdd.hAdd n (OfNat.ofNat 0))  ← s121, s201, s202, s203
+  s205   lambda              depth 0   fun n ↦ rfl : (n : Nat) → Eq (HAdd.hAdd n (OfNat.ofNat 0)) (HAdd.hAdd n (OfNat.ofNat 0))  ← s110, s204
+  s206   resolve             depth 1   Eq ↦ d4
+  s207   universe-arity      depth 1   1 levels for d4
+  s208   instantiate-levels  depth 1   ? with levels: 1 ⟶ ?
+  s209   instantiate         depth 1   ? ⟶ ?
+  s210   instantiate         depth 1   ? ⟶ ?
+  s211   instantiate         depth 1   ? ⟶ ?
+  s212   resolve             depth 1   HAdd.hAdd ↦ d11
+  s213   universe-arity      depth 1   3 levels for d11
+  s214   instantiate-levels  depth 1   ? with levels: 3 ⟶ ?
+  s215   instantiate         depth 1   ? ⟶ ?
+  s216   instantiate         depth 1   ? ⟶ ?
+  s217   instantiate         depth 1   ? ⟶ ?
+  s218   instantiate         depth 1   ? ⟶ ?
+  s219   instantiate         depth 1   ? ⟶ ?
+  s220   instantiate         depth 1   ? ⟶ ?
+  s221   resolve             depth 1   Nat ↦ d0
+  s222   universe-arity      depth 1   0 levels for d0
+  s223   instantiate-levels  depth 1   ? with levels: 0 ⟶ ?
+  s224   instantiate-levels  depth 1   ? with levels: 3 ⟶ ?
+  s225   instantiate-levels  depth 1   ? with levels: 1 ⟶ ?
+  s226   instantiate-levels  depth 1   ? with levels: 1 ⟶ ?
+  s227   instantiate-levels  depth 1   ? with levels: 1 ⟶ ?
+  s228   instantiate-levels  depth 1   ? with levels: 1 ⟶ ?
+  s229   instantiate-levels  depth 1   ? with levels: 1 ⟶ ?
+  s230   instantiate-levels  depth 1   ? with levels: 1 ⟶ ?
+  s231   instantiate-levels  depth 1   ? with levels: 1 ⟶ ?
+  s232   instantiate-levels  depth 1   ? with levels: 1 ⟶ ?
+  s233   instantiate-levels  depth 1   ? with levels: 1 ⟶ ?
+  s234   defeq               depth 0   (n : Nat) → Eq (HAdd.hAdd n (OfNat.ofNat 0)) (HAdd.hAdd n (OfNat.ofNat 0)) ≡ (n : Nat) → Eq (HAdd.hAdd n (OfNat.ofNat 0)) n  ← s206, s207, s208, s209, s210, s211, s212, s213, s214, s215, s216, s217, s218, s219, s220, s221, s222, s223, s224, s225, s226, s227, s228, s229, s230, s231, s232, s233
+  s235   declaration         depth 0   (n : Nat) → Eq (HAdd.hAdd n (OfNat.ofNat 0)) n := fun n ↦ rfl  ← s1, s2, s106, s205, s234
+  s236   publish             depth 0   d37, 8 dependencies  ← s235
+
+== nat-zero-add
+Theorem Nat.zero_add
+  accepted (experimental, not independently audited); axioms: none
+  Statement in Lean:        ∀ (n : Nat), Eq (HAdd.hAdd (OfNat.ofNat 0) n) n
+  Statement in mathematics: $\forall (n : \mathsf{Nat}),\ \mathsf{Eq}\ (\mathsf{HAdd.hAdd}\ (\mathsf{OfNat.ofNat}\ 0)\ n)\ n$
+  Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
+    axiom Nat.zero_add
+      Nat explicit: n
+      Eq 1 ^ Nat $ HAdd.hAdd 0 ^ 0 ^ 0 ^ Nat $ Nat $ Nat $ instHAdd 0 ^ Nat $ instAddNat $ $
+        OfNat.ofNat 0 ^ Nat $ 0 lit# $ instOfNatNat 0 lit# $ $ $ n $ $ n $
+    end Nat.zero_add
+  Input:     tests/reference/inductive/nat-add-zero.ndjson line 804
+  Checker log: 235 steps, complete. The statement is a proposition: s106 (from s3).
+
+No outline template covers this proof; its steps follow.
+
+Steps.
+  s1     fresh-name          depth 0   declaration Nat.zero_add
+  s2     distinct-parameters depth 0   declaration Nat.zero_add
+  s3     resolve             depth 0   Nat ↦ d0
+  s4     universe-arity      depth 0   0 levels for d0
+  s5     instantiate-levels  depth 0   Type with levels: 0 ⟶ Type
+  s6     constant            depth 0   Nat : Type  ← s3, s4, s5
+  s7     resolve             depth 1   Eq ↦ d4
+  s8     universe-arity      depth 1   1 levels for d4
+  s9     instantiate-levels  depth 1   {α : Sort u_1} → α → α → Prop with levels: 1 ⟶ {α : Type} → α → α → Prop
+  s10    constant            depth 1   @Eq : {α : Type} → α → α → Prop  ← s7, s8, s9
+  s11    resolve             depth 1   Nat ↦ d0
+  s12    universe-arity      depth 1   0 levels for d0
+  s13    instantiate-levels  depth 1   Type with levels: 0 ⟶ Type
+  s14    constant            depth 1   Nat : Type  ← s11, s12, s13
+  s15    defeq               depth 1   Type ≡ Type
+  s16    instantiate         depth 1   (fun x ↦ x → x → Prop) Nat ⟶ Nat → Nat → Prop
+  s17    application         depth 1   Eq : Nat → Nat → Prop  ← s10, s14, s15, s16
+  s18    resolve             depth 1   HAdd.hAdd ↦ d11
+  s19    universe-arity      depth 1   3 levels for d11
+  s20    instantiate-levels  depth 1   {α : Type u} → {β : Type v} → {γ : outParam (Type w)} → [self : HAdd α β γ] → α → β → γ with levels: 3 ⟶ {α β : Type} → {γ : outParam Type} → [self : HAdd α β γ] → α → β → γ
+  s21    constant            depth 1   @HAdd.hAdd : {α β : Type} → {γ : outParam Type} → [self : HAdd α β γ] → α → β → γ  ← s18, s19, s20
+  s22    resolve             depth 1   Nat ↦ d0
+  s23    universe-arity      depth 1   0 levels for d0
+  s24    instantiate-levels  depth 1   Type with levels: 0 ⟶ Type
+  s25    constant            depth 1   Nat : Type  ← s22, s23, s24
+  s26    defeq               depth 1   Type ≡ Type
+  s27    instantiate         depth 1   (fun x ↦ {β : Type} → {γ : outParam Type} → [self : HAdd @x β γ] → @x → β → γ) Nat ⟶ {β : Type} → {γ : outParam Type} → [self : HAdd Nat β γ] → Nat → β → γ
+  s28    application         depth 1   @HAdd.hAdd Nat : {β : Type} → {γ : outParam Type} → [self : HAdd Nat β γ] → Nat → β → γ  ← s21, s25, s26, s27
+  s29    resolve             depth 1   Nat ↦ d0
+  s30    universe-arity      depth 1   0 levels for d0
+  s31    instantiate-levels  depth 1   Type with levels: 0 ⟶ Type
+  s32    constant            depth 1   Nat : Type  ← s29, s30, s31
+  s33    defeq               depth 1   Type ≡ Type
+  s34    instantiate         depth 1   (fun x ↦ {γ : outParam Type} → [self : HAdd Nat @x γ] → Nat → @x → γ) Nat ⟶ {γ : outParam Type} → [self : HAdd Nat Nat γ] → Nat → Nat → γ
+  s35    application         depth 1   @HAdd.hAdd Nat Nat : {γ : outParam Type} → [self : HAdd Nat Nat γ] → Nat → Nat → γ  ← s28, s32, s33, s34
+  s36    resolve             depth 1   Nat ↦ d0
+  s37    universe-arity      depth 1   0 levels for d0
+  s38    instantiate-levels  depth 1   Type with levels: 0 ⟶ Type
+  s39    constant            depth 1   Nat : Type  ← s36, s37, s38
+  s40    instantiate-levels  depth 1   fun α ↦ α with levels: 1 ⟶ fun α ↦ α
+  s41    defeq               depth 1   Type ≡ outParam Type  ← s40
+  s42    instantiate         depth 1   (fun x ↦ [self : HAdd Nat Nat @x] → Nat → Nat → @x) Nat ⟶ [self : HAdd Nat Nat Nat] → Nat → Nat → Nat
+  s43    application         depth 1   @HAdd.hAdd Nat Nat Nat : [self : HAdd Nat Nat Nat] → Nat → Nat → Nat  ← s35, s39, s41, s42
+  s44    resolve             depth 1   instHAdd ↦ d16
+  s45    universe-arity      depth 1   1 levels for d16
+  s46    instantiate-levels  depth 1   {α : Type u_1} → [Add α] → HAdd α α α with levels: 1 ⟶ {α : Type} → [Add α] → HAdd α α α
+  s47    constant            depth 1   @instHAdd : {α : Type} → [Add α] → HAdd α α α  ← s44, s45, s46
+  s48    resolve             depth 1   Nat ↦ d0
+  s49    universe-arity      depth 1   0 levels for d0
+  s50    instantiate-levels  depth 1   Type with levels: 0 ⟶ Type
+  s51    constant            depth 1   Nat : Type  ← s48, s49, s50
+  s52    defeq               depth 1   Type ≡ Type
+  s53    instantiate         depth 1   (fun x ↦ [Add @x] → HAdd @x @x @x) Nat ⟶ [Add Nat] → HAdd Nat Nat Nat
+  s54    application         depth 1   @instHAdd Nat : [Add Nat] → HAdd Nat Nat Nat  ← s47, s51, s52, s53
+  s55    resolve             depth 1   instAddNat ↦ d30
+  s56    universe-arity      depth 1   0 levels for d30
+  s57    instantiate-levels  depth 1   Add Nat with levels: 0 ⟶ Add Nat
+  s58    constant            depth 1   instAddNat : Add Nat  ← s55, s56, s57
+  s59    defeq               depth 1   Add Nat ≡ Add Nat
+  s60    instantiate         depth 1   (fun x ↦ HAdd Nat Nat Nat) instAddNat ⟶ HAdd Nat Nat Nat
+  s61    application         depth 1   instHAdd : HAdd Nat Nat Nat  ← s54, s58, s59, s60
+  s62    defeq               depth 1   HAdd Nat Nat Nat ≡ HAdd Nat Nat Nat
+  s63    instantiate         depth 1   (fun x ↦ Nat → Nat → Nat) instHAdd ⟶ Nat → Nat → Nat
+  s64    application         depth 1   HAdd.hAdd : Nat → Nat → Nat  ← s43, s61, s62, s63
+  s65    resolve             depth 1   OfNat.ofNat ↦ d34
+  s66    universe-arity      depth 1   1 levels for d34
+  s67    instantiate-levels  depth 1   {α : Type u} → (x : Nat) → [self : OfNat α x] → α with levels: 1 ⟶ {α : Type} → (x : Nat) → [self : OfNat α x] → α
+  s68    constant            depth 1   @OfNat.ofNat : {α : Type} → (x : Nat) → [self : OfNat α x] → α  ← s65, s66, s67
+  s69    resolve             depth 1   Nat ↦ d0
+  s70    universe-arity      depth 1   0 levels for d0
+  s71    instantiate-levels  depth 1   Type with levels: 0 ⟶ Type
+  s72    constant            depth 1   Nat : Type  ← s69, s70, s71
+  s73    defeq               depth 1   Type ≡ Type
+  s74    instantiate         depth 1   (fun x ↦ (x_1 : Nat) → [self : OfNat x x_1] → x) Nat ⟶ (x : Nat) → [self : OfNat Nat x] → Nat
+  s75    application         depth 1   OfNat.ofNat : (x : Nat) → [self : OfNat Nat x] → Nat  ← s68, s72, s73, s74
+  s76    form                depth 1   0 : Nat
+  s77    defeq               depth 1   Nat ≡ Nat
+  s78    instantiate         depth 1   (fun x ↦ [self : OfNat Nat @x] → Nat) 0 ⟶ [self : OfNat Nat 0] → Nat
+  s79    application         depth 1   @OfNat.ofNat Nat 0 : [self : OfNat Nat 0] → Nat  ← s75, s76, s77, s78
+  s80    resolve             depth 1   instOfNatNat ↦ d35
+  s81    universe-arity      depth 1   0 levels for d35
+  s82    instantiate-levels  depth 1   (n : Nat) → OfNat Nat n with levels: 0 ⟶ (n : Nat) → OfNat Nat n
+  s83    constant            depth 1   instOfNatNat : (n : Nat) → OfNat Nat n  ← s80, s81, s82
+  s84    form                depth 1   0 : Nat
+  s85    defeq               depth 1   Nat ≡ Nat
+  s86    instantiate         depth 1   (fun x ↦ OfNat Nat x) 0 ⟶ OfNat Nat 0
+  s87    application         depth 1   instOfNatNat 0 : OfNat Nat 0  ← s83, s84, s85, s86
+  s88    defeq               depth 1   OfNat Nat 0 ≡ OfNat Nat 0
+  s89    instantiate         depth 1   (fun x ↦ Nat) (instOfNatNat 0) ⟶ Nat
+  s90    application         depth 1   OfNat.ofNat 0 : Nat  ← s79, s87, s88, s89
+  s91    defeq               depth 1   Nat ≡ Nat
+  s92    instantiate         depth 1   (fun x ↦ Nat → Nat) (OfNat.ofNat 0) ⟶ Nat → Nat
+  s93    application         depth 1   HAdd.hAdd (OfNat.ofNat 0) : Nat → Nat  ← s64, s90, s91, s92
+  s94    variable            depth 1   n : Nat
+  s95    defeq               depth 1   Nat ≡ Nat
+  s96    instantiate         depth 1   (fun x ↦ Nat) n ⟶ Nat
+  s97    application         depth 1   HAdd.hAdd (OfNat.ofNat 0) n : Nat  ← s93, s94, s95, s96
+  s98    defeq               depth 1   Nat ≡ Nat
+  s99    instantiate         depth 1   (fun x ↦ Nat → Prop) (HAdd.hAdd (OfNat.ofNat 0) n) ⟶ Nat → Prop
+  s100   application         depth 1   Eq (HAdd.hAdd (OfNat.ofNat 0) n) : Nat → Prop  ← s17, s97, s98, s99
+  s101   variable            depth 1   n : Nat
+  s102   defeq               depth 1   Nat ≡ Nat
+  s103   instantiate         depth 1   (fun x ↦ Prop) n ⟶ Prop
+  s104   application         depth 1   Eq (HAdd.hAdd (OfNat.ofNat 0) n) n : Prop  ← s100, s101, s102, s103
+  s105   pi                  depth 0   (n : Nat) → Eq (HAdd.hAdd (OfNat.ofNat 0) n) n : Prop  ← s6, s104
+  s106   proposition         depth 0   (n : Nat) → Eq (HAdd.hAdd (OfNat.ofNat 0) n) n : Sort 0  ← s105
+  s107   resolve             depth 0   Nat ↦ d0
+  s108   universe-arity      depth 0   0 levels for d0
+  s109   instantiate-levels  depth 0   Type with levels: 0 ⟶ Type
+  s110   constant            depth 0   Nat : Type  ← s107, s108, s109
+  s111   resolve             depth 1   Nat.brecOn ↦ d25
+  s112   universe-arity      depth 1   1 levels for d25
+  s113   instantiate-levels  depth 1   {motive : Nat → Sort u} → (t : Nat) → ((t : Nat) → Nat.below t → motive t) → motive t with levels: 1 ⟶ ∀ {motive : Nat → Prop} (t : Nat), (∀ (t : Nat) (f : Nat.below t), motive t) → motive t
+  s114   constant            depth 1   @Nat.brecOn : ∀ {motive : Nat → Prop} (t : Nat), (∀ (t : Nat) (f : Nat.below t), motive t) → motive t  ← s111, s112, s113
+  s115   resolve             depth 1   Nat ↦ d0
+  s116   universe-arity      depth 1   0 levels for d0
+  s117   instantiate-levels  depth 1   Type with levels: 0 ⟶ Type
+  s118   constant            depth 1   Nat : Type  ← s115, s116, s117
+  s119   resolve             depth 2   Eq ↦ d4
+  s120   universe-arity      depth 2   1 levels for d4
+  s121   instantiate-levels  depth 2   {α : Sort u_1} → α → α → Prop with levels: 1 ⟶ {α : Type} → α → α → Prop
+  s122   constant            depth 2   @Eq : {α : Type} → α → α → Prop  ← s119, s120, s121
+  s123   resolve             depth 2   Nat ↦ d0
+  s124   universe-arity      depth 2   0 levels for d0
+  s125   instantiate-levels  depth 2   Type with levels: 0 ⟶ Type
+  s126   constant            depth 2   Nat : Type  ← s123, s124, s125
+  s127   defeq               depth 2   Type ≡ Type
+  s128   instantiate         depth 2   (fun x ↦ x → x → Prop) Nat ⟶ Nat → Nat → Prop
+  s129   application         depth 2   Eq : Nat → Nat → Prop  ← s122, s126, s127, s128
+  s130   resolve             depth 2   HAdd.hAdd ↦ d11
+  s131   universe-arity      depth 2   3 levels for d11
+  s132   instantiate-levels  depth 2   {α : Type u} → {β : Type v} → {γ : outParam (Type w)} → [self : HAdd α β γ] → α → β → γ with levels: 3 ⟶ {α β : Type} → {γ : outParam Type} → [self : HAdd α β γ] → α → β → γ
+  s133   constant            depth 2   @HAdd.hAdd : {α β : Type} → {γ : outParam Type} → [self : HAdd α β γ] → α → β → γ  ← s130, s131, s132
+  s134   resolve             depth 2   Nat ↦ d0
+  s135   universe-arity      depth 2   0 levels for d0
+  s136   instantiate-levels  depth 2   Type with levels: 0 ⟶ Type
+  s137   constant            depth 2   Nat : Type  ← s134, s135, s136
+  s138   defeq               depth 2   Type ≡ Type
+  s139   instantiate         depth 2   (fun x ↦ {β : Type} → {γ : outParam Type} → [self : HAdd @x β γ] → @x → β → γ) Nat ⟶ {β : Type} → {γ : outParam Type} → [self : HAdd Nat β γ] → Nat → β → γ
+  s140   application         depth 2   @HAdd.hAdd Nat : {β : Type} → {γ : outParam Type} → [self : HAdd Nat β γ] → Nat → β → γ  ← s133, s137, s138, s139
+  s141   resolve             depth 2   Nat ↦ d0
+  s142   universe-arity      depth 2   0 levels for d0
+  s143   instantiate-levels  depth 2   Type with levels: 0 ⟶ Type
+  s144   constant            depth 2   Nat : Type  ← s141, s142, s143
+  s145   defeq               depth 2   Type ≡ Type
+  s146   instantiate         depth 2   (fun x ↦ {γ : outParam Type} → [self : HAdd Nat @x γ] → Nat → @x → γ) Nat ⟶ {γ : outParam Type} → [self : HAdd Nat Nat γ] → Nat → Nat → γ
+  s147   application         depth 2   @HAdd.hAdd Nat Nat : {γ : outParam Type} → [self : HAdd Nat Nat γ] → Nat → Nat → γ  ← s140, s144, s145, s146
+  s148   resolve             depth 2   Nat ↦ d0
+  s149   universe-arity      depth 2   0 levels for d0
+  s150   instantiate-levels  depth 2   Type with levels: 0 ⟶ Type
+  s151   constant            depth 2   Nat : Type  ← s148, s149, s150
+  s152   instantiate-levels  depth 2   fun α ↦ α with levels: 1 ⟶ fun α ↦ α
+  s153   defeq               depth 2   Type ≡ outParam Type  ← s152
+  s154   instantiate         depth 2   (fun x ↦ [self : HAdd Nat Nat @x] → Nat → Nat → @x) Nat ⟶ [self : HAdd Nat Nat Nat] → Nat → Nat → Nat
+  s155   application         depth 2   @HAdd.hAdd Nat Nat Nat : [self : HAdd Nat Nat Nat] → Nat → Nat → Nat  ← s147, s151, s153, s154
+  s156   resolve             depth 2   instHAdd ↦ d16
+  s157   universe-arity      depth 2   1 levels for d16
+  s158   instantiate-levels  depth 2   {α : Type u_1} → [Add α] → HAdd α α α with levels: 1 ⟶ {α : Type} → [Add α] → HAdd α α α
+  s159   constant            depth 2   @instHAdd : {α : Type} → [Add α] → HAdd α α α  ← s156, s157, s158
+  s160   resolve             depth 2   Nat ↦ d0
+  s161   universe-arity      depth 2   0 levels for d0
+  s162   instantiate-levels  depth 2   Type with levels: 0 ⟶ Type
+  s163   constant            depth 2   Nat : Type  ← s160, s161, s162
+  s164   defeq               depth 2   Type ≡ Type
+  s165   instantiate         depth 2   (fun x ↦ [Add @x] → HAdd @x @x @x) Nat ⟶ [Add Nat] → HAdd Nat Nat Nat
+  s166   application         depth 2   @instHAdd Nat : [Add Nat] → HAdd Nat Nat Nat  ← s159, s163, s164, s165
+  s167   resolve             depth 2   instAddNat ↦ d30
+  s168   universe-arity      depth 2   0 levels for d30
+  s169   instantiate-levels  depth 2   Add Nat with levels: 0 ⟶ Add Nat
+  s170   constant            depth 2   instAddNat : Add Nat  ← s167, s168, s169
+  s171   defeq               depth 2   Add Nat ≡ Add Nat
+  s172   instantiate         depth 2   (fun x ↦ HAdd Nat Nat Nat) instAddNat ⟶ HAdd Nat Nat Nat
+  s173   application         depth 2   instHAdd : HAdd Nat Nat Nat  ← s166, s170, s171, s172
+  s174   defeq               depth 2   HAdd Nat Nat Nat ≡ HAdd Nat Nat Nat
+  s175   instantiate         depth 2   (fun x ↦ Nat → Nat → Nat) instHAdd ⟶ Nat → Nat → Nat
+  s176   application         depth 2   HAdd.hAdd : Nat → Nat → Nat  ← s155, s173, s174, s175
+  s177   resolve             depth 2   OfNat.ofNat ↦ d34
+  s178   universe-arity      depth 2   1 levels for d34
+  s179   instantiate-levels  depth 2   {α : Type u} → (x : Nat) → [self : OfNat α x] → α with levels: 1 ⟶ {α : Type} → (x : Nat) → [self : OfNat α x] → α
+  s180   constant            depth 2   @OfNat.ofNat : {α : Type} → (x : Nat) → [self : OfNat α x] → α  ← s177, s178, s179
+  s181   resolve             depth 2   Nat ↦ d0
+  s182   universe-arity      depth 2   0 levels for d0
+  s183   instantiate-levels  depth 2   Type with levels: 0 ⟶ Type
+  s184   constant            depth 2   Nat : Type  ← s181, s182, s183
+  s185   defeq               depth 2   Type ≡ Type
+  s186   instantiate         depth 2   (fun x ↦ (x_2 : Nat) → [self : OfNat x x_2] → x) Nat ⟶ (x : Nat) → [self : OfNat Nat x] → Nat
+  s187   application         depth 2   OfNat.ofNat : (x : Nat) → [self : OfNat Nat x] → Nat  ← s180, s184, s185, s186
+  s188   form                depth 2   0 : Nat
+  s189   defeq               depth 2   Nat ≡ Nat
+  s190   instantiate         depth 2   (fun x ↦ [self : OfNat Nat @x] → Nat) 0 ⟶ [self : OfNat Nat 0] → Nat
+  s191   application         depth 2   @OfNat.ofNat Nat 0 : [self : OfNat Nat 0] → Nat  ← s187, s188, s189, s190
+  s192   resolve             depth 2   instOfNatNat ↦ d35
+  s193   universe-arity      depth 2   0 levels for d35
+  s194   instantiate-levels  depth 2   (n : Nat) → OfNat Nat n with levels: 0 ⟶ (n : Nat) → OfNat Nat n
+  s195   constant            depth 2   instOfNatNat : (n : Nat) → OfNat Nat n  ← s192, s193, s194
+  s196   form                depth 2   0 : Nat
+  s197   defeq               depth 2   Nat ≡ Nat
+  s198   instantiate         depth 2   (fun x ↦ OfNat Nat x) 0 ⟶ OfNat Nat 0
+  s199   application         depth 2   instOfNatNat 0 : OfNat Nat 0  ← s195, s196, s197, s198
+  s200   defeq               depth 2   OfNat Nat 0 ≡ OfNat Nat 0
+  s201   instantiate         depth 2   (fun x ↦ Nat) (instOfNatNat 0) ⟶ Nat
+  s202   application         depth 2   OfNat.ofNat 0 : Nat  ← s191, s199, s200, s201
+  s203   defeq               depth 2   Nat ≡ Nat
+  s204   instantiate         depth 2   (fun x ↦ Nat → Nat) (OfNat.ofNat 0) ⟶ Nat → Nat
+  s205   application         depth 2   HAdd.hAdd (OfNat.ofNat 0) : Nat → Nat  ← s176, s202, s203, s204
+  s206   variable            depth 2   x_1 : Nat
+  s207   defeq               depth 2   Nat ≡ Nat
+  s208   instantiate         depth 2   (fun x ↦ Nat) x_1 ⟶ Nat
+  s209   application         depth 2   HAdd.hAdd (OfNat.ofNat 0) x_1 : Nat  ← s205, s206, s207, s208
+  s210   defeq               depth 2   Nat ≡ Nat
+  s211   instantiate         depth 2   (fun x ↦ Nat → Prop) (HAdd.hAdd (OfNat.ofNat 0) x_1) ⟶ Nat → Prop
+  s212   application         depth 2   Eq (HAdd.hAdd (OfNat.ofNat 0) x_1) : Nat → Prop  ← s129, s209, s210, s211
+  s213   variable            depth 2   x_1 : Nat
+  s214   defeq               depth 2   Nat ≡ Nat
+  s215   instantiate         depth 2   (fun x ↦ Prop) x_1 ⟶ Prop
+  s216   application         depth 2   Eq (HAdd.hAdd (OfNat.ofNat 0) x_1) x_1 : Prop  ← s212, s213, s214, s215
+  s217   lambda              depth 1   fun x ↦ Eq (HAdd.hAdd (OfNat.ofNat 0) x) x : Nat → Prop  ← s118, s216
+  s218   defeq               depth 1   Nat → Prop ≡ Nat → Prop
+  s219   instantiate         depth 1   (fun x ↦ (t : Nat) → ((t : Nat) → Nat.below t → x t) → x t) fun x ↦ Eq (HAdd.hAdd (OfNat.ofNat 0) x) x ⟶ (t : Nat) → ((t : Nat) → Nat.below t → (fun x ↦ Eq (HAdd.hAdd (OfNat.ofNat 0) x) x) t) → (fun x ↦ Eq (HAdd.hAdd (OfNat.ofNat 0) x) x) t
+  s220   application         depth 1   Nat.brecOn : (t : Nat) → ((t : Nat) → Nat.below t → (fun x ↦ Eq (HAdd.hAdd (OfNat.ofNat 0) x) x) t) → (fun x ↦ Eq (HAdd.hAdd (OfNat.ofNat 0) x) x) t  ← s114, s217, s218, s219
+  s221   variable            depth 1   x : Nat
+  s222   defeq               depth 1   Nat ≡ Nat
+  s223   instantiate         depth 1   (fun x ↦ ((t : Nat) → Nat.below t → (fun x ↦ Eq (HAdd.hAdd (OfNat.ofNat 0) x) x) t) → (fun x ↦ Eq (HAdd.hAdd (OfNat.ofNat 0) x) x) x) x ⟶ ((t : Nat) → Nat.below t → (fun x ↦ Eq (HAdd.hAdd (OfNat.ofNat 0) x) x) t) → (fun x ↦ Eq (HAdd.hAdd (OfNat.ofNat 0) x) x) x
+  s224   application         depth 1   Nat.brecOn x : ((t : Nat) → Nat.below t → (fun x ↦ Eq (HAdd.hAdd (OfNat.ofNat 0) x) x) t) → (fun x ↦ Eq (HAdd.hAdd (OfNat.ofNat 0) x) x) x  ← s220, s221, s222, s223
+  s225   resolve             depth 1   Nat.zero_add._f ↦ d42
+  s226   universe-arity      depth 1   0 levels for d42
+  s227   instantiate-levels  depth 1   (x : Nat) → Nat.below x → Eq (HAdd.hAdd (OfNat.ofNat 0) x) x with levels: 0 ⟶ (x : Nat) → Nat.below x → Eq (HAdd.hAdd (OfNat.ofNat 0) x) x
+  s228   constant            depth 1   Nat.zero_add._f : (x : Nat) → Nat.below x → Eq (HAdd.hAdd (OfNat.ofNat 0) x) x  ← s225, s226, s227
+  s229   defeq               depth 1   (x : Nat) → Nat.below x → Eq (HAdd.hAdd (OfNat.ofNat 0) x) x ≡ (t : Nat) → Nat.below t → (fun x ↦ Eq (HAdd.hAdd (OfNat.ofNat 0) x) x) t
+  s230   instantiate         depth 1   (fun x_1 ↦ (fun x ↦ Eq (HAdd.hAdd (OfNat.ofNat 0) x) x) x) Nat.zero_add._f ⟶ (fun x ↦ Eq (HAdd.hAdd (OfNat.ofNat 0) x) x) x
+  s231   application         depth 1   Nat.brecOn x Nat.zero_add._f : (fun x ↦ Eq (HAdd.hAdd (OfNat.ofNat 0) x) x) x  ← s224, s228, s229, s230
+  s232   lambda              depth 0   fun x ↦ Nat.brecOn x Nat.zero_add._f : (x : Nat) → (fun x ↦ Eq (HAdd.hAdd (OfNat.ofNat 0) x) x) x  ← s110, s231
+  s233   defeq               depth 0   (x : Nat) → (fun x ↦ Eq (HAdd.hAdd (OfNat.ofNat 0) x) x) x ≡ (n : Nat) → Eq (HAdd.hAdd (OfNat.ofNat 0) n) n
+  s234   declaration         depth 0   (n : Nat) → Eq (HAdd.hAdd (OfNat.ofNat 0) n) n := fun x ↦ Nat.brecOn x Nat.zero_add._f  ← s1, s2, s106, s232, s233
+  s235   publish             depth 0   d43, 9 dependencies  ← s234
+
 == composition --detail
 Theorem composition
   accepted (experimental, not independently audited); axioms: none

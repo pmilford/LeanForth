@@ -1086,7 +1086,7 @@ reason = "is_def_eq_args answers yes when one spine has more applications than t
 [[fault]]
 id = "dq-depth-not-popped"
 file = "src/kernel/defeq.fs"
-old = '''  dup lf-bd-base lf-dq-depth ! 2 over frame-drop 0 ;'''
+old = '''  dup lf-bd-base lf-dq-depth! 2 over frame-drop 0 ;'''
 new = '''  2 over frame-drop 0 ;'''
 test = "$GFORTH tests/core/defeq.fs"
 reason = "a telescope's free variables stay on the stack after its comparison"

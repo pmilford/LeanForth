@@ -17,6 +17,20 @@ s" composition" section s" tests/reference/composition.ndjson" outlines
 s" type-identity" section s" tests/reference/type-identity.ndjson" outlines
 s" poly-identity" section s" tests/reference/poly-identity.ndjson" outlines
 s" constant-fixture" section s" tests/reference/constant-fixture.ndjson" outlines
+\ The first real theorems (plan task 5.4.1): Nat.add_zero and Nat.zero_add,
+\ with number literals; the log is complete and the steps are listed.
+\ Only those two of the export's declarations are printed.
+2variable the-file  2variable the-name
+: only-named ( file u name u -- )
+  the-name 2! the-file 2! pr-log-on the-file 2@ po-load
+  lf-input-count 0 ?do i pr-due? if i pr-step if leave then
+    the-name 2@ i lf-input-name pr-named?
+    if the-file 2@ i false pr-print drop then then loop
+  po-free ;
+s" nat-add-zero" section
+s" tests/reference/inductive/nat-add-zero.ndjson" s" Nat.add_zero" only-named
+s" nat-zero-add" section
+s" tests/reference/inductive/nat-add-zero.ndjson" s" Nat.zero_add" only-named
 s" composition --detail" section s" tests/reference/composition.ndjson" steps
 
 s" composition, log truncated" section

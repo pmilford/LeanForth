@@ -314,6 +314,7 @@ begin-structure /lf-logmark
   field: logmark-a-id      \ a's identity when the rule opened, for a term or level
   field: logmark-b
   field: logmark-b-id
+  field: logmark-extra     \ lf-log-extra when the rule opened
 end-structure
 begin-structure /lf-logrec
   field: logrec-rule       \ the rule's code
@@ -372,6 +373,7 @@ begin-structure /lf-logs
   field: lf-logs-level-work  \ work left in the current level copy
   field: lf-logs-written     \ statistics: records written in this context, in all
   field: lf-logs-restarts    \ statistics: preset logs restarted after truncation
+  field: lf-logs-extra       \ free variables a conversion has open now (kernel/defeq.fs)
 end-structure
 /lf-logs context-record: lf-log-state
 0 lf-logs-args 0 lf-logs-count - 7 cells <>
@@ -528,8 +530,14 @@ end-structure
 \ records, every open rule has its mark.
 : lf-log-opens ( -- addr ) lf-log-state lf-logs-opens ;
 : lf-log-mark ( k -- mark ) /lf-logmark * lf-log-pools lf-logp-marks + ;
+\ The free variables a conversion has open (kernel/defeq.fs sets it) lie
+\ around the rules opened meanwhile, so they count as binders: a rule's
+\ depth is its enclosing rule's, plus the variables opened since.
+: lf-log-extra ( -- addr ) lf-log-state lf-logs-extra ;
+: lf-log-binders! ( n -- ) lf-log-extra ! ;
 : lf-log-depth ( -- depth )
-  lf-log-opens @ dup 0> lf-log-live? and if 1- lf-log-mark logmark-depth @
+  lf-log-opens @ dup 0> lf-log-live? and
+  if 1- lf-log-mark dup logmark-depth @ swap logmark-extra @ lf-log-extra @ swap - +
   else drop 0 then ;
 : lf-log-id ( x kind -- id )
   case lf-ref-term of lf-term-identity 0= if 0 then endof
@@ -538,6 +546,7 @@ end-structure
 \ its identity, the kind its rule gives it.
 : lf-log-next-mark ( -- mark ) lf-log-opens @ lf-log-mark ;
 : lf-log-mark-head! ( rule depth mark -- )
+  lf-log-extra @ over logmark-extra !
   tuck logmark-depth ! tuck logmark-rule ! lf-log-count swap logmark-start ! ;
 : lf-log-input-id ( x kind -- x id ) over swap lf-log-id ;
 : lf-log-set-a ( a mark -- )

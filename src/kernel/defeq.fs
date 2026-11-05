@@ -278,8 +278,11 @@ defer lf-ar-visit ( t s frames -- ... frames next )
 \ and pops its free variables on every way out (lf-bd-done).
 : lf-bd-base ( frames -- base ) 1 swap frame-pick ;
 : lf-bd-kind ( frames -- tag ) 0 swap frame-pick ;
+\ The free variables open, also told to the derivation log, which counts
+\ them as binders around the rules opened meanwhile.
+: lf-dq-depth! ( n -- ) dup lf-dq-depth ! lf-log-binders! ;
 : lf-bd-done ( x outcome frames -- x outcome frames 0 )
-  dup lf-bd-base lf-dq-depth ! 2 over frame-drop 0 ;
+  dup lf-bd-base lf-dq-depth! 2 over frame-drop 0 ;
 : lf-bd-fail ( outcome frames -- 0 outcome frames 0 ) >r 0 swap r> lf-bd-done ;
 : lf-bd-false ( frames -- false outcome frames 0 ) >r false outcome-ok r> lf-bd-done ;
 \ A domain or body with the visit's free variables put for its loose
@@ -294,7 +297,8 @@ defer lf-ar-visit ( t s frames -- ... frames next )
 : lf-bd-push ( type -- outcome )
   lf-dq-depth @ 1+ lf-dq-subst slab-hold ok-then? 0= if exit then
   lf-lctx-local ok-then? 0= if exit then
-  lf-dq-depth @ lf-dq-subst slab-at ! 1 lf-dq-depth +! outcome-ok ;
+  dup lf-log-depth swap lf-fvar-depth!
+  lf-dq-depth @ lf-dq-subst slab-at ! lf-dq-depth @ 1+ lf-dq-depth! outcome-ok ;
 \ The last step: the bodies, opened, compared by is_def_eq (777-778).
 : lf-bd-bodies ( t s frames -- ... frames next )
   >r swap r@ lf-bd-open ok-then? 0= if nip r> lf-bd-fail exit then
