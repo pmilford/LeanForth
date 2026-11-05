@@ -88,8 +88,8 @@ end-structure
   lf-ind-nparams 0 ?do i lf-genrec-step 0= if false unloop exit then loop true ;
 : lf-genrec-indices? ( node d -- node' flag )
   dup lf-ind-n 0 ?do
-    dup lf-ind-ty lf-ty-domain @ i + rot swap lf-genrec-step 0= if nip false unloop exit then
-    swap
+    dup lf-ind-ty lf-ty-domain @ i + rot swap lf-genrec-step
+    0= if nip false unloop exit then swap
   loop drop true ;
 : lf-genrec-type-raw? ( d -- flag )
   dup lf-ind-type-at lf-idecl-type @ over lf-genrec-params? 0= if 2drop false exit then
@@ -126,7 +126,8 @@ end-structure
   swap lf-ind-nparams lf-genrec-skip 0= if 2drop outcome-invalid exit then
   lf-genrec-used @ 2 pick lf-ind-ty lf-ty-domain !
   lf-genrec-pis dup ok? 0= if nip nip nip exit then drop
-  rot lf-ind-ty lf-ty-indices ! lf-genrec-sorted? if outcome-ok else outcome-invalid then ;
+  rot lf-ind-ty lf-ty-indices !
+  lf-genrec-sorted? if outcome-ok else outcome-invalid then ;
 \ Each constructor's fields: its raw binders after the parameters.
 : lf-genrec-fields ( -- outcome )
   lf-ind-ctors@ 0 ?do
@@ -184,7 +185,8 @@ end-structure
 : lf-genrec-facts ( d -- outcome )
   dup lf-input-decl lf-idecl-header dup 0= if 2drop outcome-invalid exit then
   lf-hdr-first lf-more-field tuck - lf-genrec-state lf-genrec-which !
-  lf-ind-open nip ['] lf-genrec-layout lf-genrec-then ['] lf-genrec-fields lf-genrec-then ;
+  lf-ind-open nip ['] lf-genrec-layout lf-genrec-then
+  ['] lf-genrec-fields lf-genrec-then ;
 : lf-genrec-made ( -- outcome )
   0 lf-genrec-ctor-cells slab-at lf-recursor-build-at dup ok? 0= if exit then
   lf-genrec-state lf-genrec-which @ lf-ind-ty lf-ty-rec-type @
@@ -212,7 +214,8 @@ end-structure
 : lf-genrec-restore ( -- )
   lf-genrec-state lf-genrec-saved lf-ind-state /lf-ind move
   lf-genrec-state lf-genrec-kept @ lf-genrec-kept-cells lf-ind-domains lf-genrec-back
-  lf-genrec-state lf-genrec-kept-ty @ lf-genrec-kept-types lf-ind-type-cells lf-genrec-back ;
+  lf-genrec-state lf-genrec-kept-ty @ lf-genrec-kept-types lf-ind-type-cells
+  lf-genrec-back ;
 
 \ Build the recursor of the block whose type is slot d (readable, with a
 \ recipe: lf-env-rebuildable?) at the universe arguments at pairs, as

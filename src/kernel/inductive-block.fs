@@ -145,7 +145,8 @@ lf-walk-room context-walk2: lf-ind-pair-walker
   lf-ind-types@ 0 ?do dup i lf-ind-tname lf-name-same? if drop i unloop exit then loop
   drop -1 ;
 : lf-ind-which ( node -- d )
-  dup lf-tag-constant lf-ind-tag? if lf-ind-const-name lf-ind-which-name else drop -1 then ;
+  dup lf-tag-constant lf-ind-tag? 0= if drop -1 exit then
+  lf-ind-const-name lf-ind-which-name ;
 : lf-ind-type-node? ( node -- flag ) lf-ind-which 0< 0= ;
 \ Whether a spine's head is a type of the block.
 : lf-ind-headed? ( node -- flag ) lf-ind-spine drop lf-ind-type-node? ;

@@ -246,13 +246,15 @@ end-structure
 : lf-blk-param-dom ( i -- node ) lf-ind-domain @ lf-rcr-consume ;
 : lf-blk-param-as ( node i code -- outcome )
   >r 2dup swap lf-term-first@ swap lf-blk-param-dom lf-minfer-agree lf-blk-site r>
-  lf-minfer-verdict dup ok? 0= if nip nip exit then drop nip lf-blk-param-dom lf-blk-push ;
+  lf-minfer-verdict dup ok? 0= if nip nip exit then
+  drop nip lf-blk-param-dom lf-blk-push ;
 : lf-blk-used ( -- addr ) lf-ind-state lf-ind-domains-used ;
 : lf-blk-index! ( node -- outcome )
   lf-blk-used @ dup lf-blk-room? 0= if 2drop outcome-full exit then
   swap lf-term-first@ swap lf-ind-domain ! 1 lf-blk-used +! outcome-ok ;
 : lf-blk-dbinder ( node i -- outcome )
-  dup lf-ind-nparams < if lf-diag-mutual-params lf-blk-param-as else drop lf-blk-index! then ;
+  dup lf-ind-nparams < if lf-diag-mutual-params lf-blk-param-as exit then
+  drop lf-blk-index! ;
 : lf-blk-member-d ( -- k ) lf-blk-type@ ;
 : lf-blk-few-params ( node i -- level outcome )
   nip lf-blk-member-d swap lf-diag-param-count lf-blk-reject no-result ;
@@ -508,7 +510,8 @@ end-structure
   swap lf-blk-rec-id swap lf-diag-already-declared lf-blk-reject ;
 : lf-blk-rec-name-of ( d -- outcome )
   lf-ind-types@ lf-ind-ctors@ + 0 ?do
-    dup lf-blk-rec-id i lf-ind-name-at lf-name-same? if i lf-blk-rec-clash unloop exit then
+    dup lf-blk-rec-id i lf-ind-name-at lf-name-same?
+    if i lf-blk-rec-clash unloop exit then
   loop drop outcome-ok ;
 : lf-blk-rec-name ( -- outcome )
   lf-ind-types@ 0 ?do i lf-blk-rec-name-of dup ok? 0= if unloop exit then drop loop
@@ -593,7 +596,8 @@ here lf-b3-rec - 2 cells / constant lf-b3-rec#
   2dup lf-b3-rule-head? if 2drop true outcome-ok exit then
   swap lf-irule-rhs swap lf-ind-rule @ swap lf-blk-same >r 0= r> ;
 : lf-blk-rules-diff ( data -- field outcome )
-  lf-irc-rules@ dup lf-blk-type@ lf-ind-ty lf-ty-ctors @ <> if 2drop 9 outcome-ok exit then
+  lf-irc-rules@ dup lf-blk-type@ lf-ind-ty lf-ty-ctors @ <>
+  if 2drop 9 outcome-ok exit then
   0 ?do dup i lf-blk-rule-diff ok-then? 0= if nip 0 swap unloop exit then
     if drop 9 outcome-ok unloop exit then
   loop drop 0 outcome-ok ;
@@ -651,7 +655,8 @@ here lf-b4-tests - 2 cells / constant lf-b4-tests#
 : lf-b4-bits ( data -- bits )
   0 swap lf-b4-tests lf-b4-tests# 2* cells bounds
   ?do i lf-b3-test rot or swap 2 cells +loop drop ;
-: lf-b4-type ( bits d -- bits' ) dup lf-blk-type! lf-ind-type-at lf-idecl-data lf-b4-bits or ;
+: lf-b4-type ( bits d -- bits' )
+  dup lf-blk-type! lf-ind-type-at lf-idecl-data lf-b4-bits or ;
 : lf-blk-b4 ( -- outcome )
   0 lf-ind-types@ 0 ?do i lf-b4-type loop dup lf-env-warnings!
   lf-ind-state lf-ind-warned ! outcome-ok ;

@@ -11,9 +11,12 @@ non-recursive inductive type is checked, its recursor generated and
 compared, and the block published. **Task 5.2.1b is implemented**
 (2026-11-04, experimental, its [kernel] gate open:
 [Implementation](#implementation-plan-task-521b)): recursive blocks of
-one type, with positivity and induction hypotheses. Mutual and nested
-blocks, and every quotient, literal and projection, are still
-*unsupported* (ADR 0011 rules U1, U2). It extends ADR 0011 (rejection rules) and ADR 0012
+one type, with positivity and induction hypotheses. **Task 5.2.5a, mutual
+blocks, is implemented** (2026-11-04, experimental, gate open:
+[Implementation](#implementation-plan-task-525a)); nested blocks (task
+5.2.5b) have a [written plan](#plan-task-525b-nested-blocks) and are
+still *unsupported*, as is every quotient, literal and projection (ADR
+0011 rules U1, U2). It extends ADR 0011 (rejection rules) and ADR 0012
 (the checked environment) and supersedes neither. Each implementation task
 of §12 passes its own review gate (`AGENTS.md`): Lean's published rules,
 agreeing pinned-Lean differential tests reaching every outcome, an
@@ -610,7 +613,7 @@ table is read off the terms, not traced from Lean's kernel.
 | 5.2.2 | Structures and projections: `infer_proj`, `reduce_proj`, R3, R4, R5 in Lean's order | J1, J2, R3–R5 | every `5.2.2` row; BL-7 and BL-8 rows rejected as by Lean | 5.2.1a; phase 4 | [kernel], [import] | M |
 | 5.2.3 | Literals: `bignum.fs` in `reduce_nat` with Lean's size exceptions, L2–L4, and the primitive check of Q1 | L1–L5 | every `5.2.3` row; bignum differential (exists) | 5.2.1b; Q1 | [kernel] | M |
 | 5.2.4 | Quotients: Q1 initialisation and comparison, Q2 reduction | Q1, Q2 | every `5.2.4` row | 5.2.1c, 5.3.1 | [kernel], [axiom] | S |
-| 5.2.5 | Mutual and nested blocks: shared motives, auxiliary types, restoration, `T.rec_k` | N1–N3, T3, T4 | every `5.2.5` row; all of `Init`'s blocks, then Std's and Mathlib's 7,013 | 5.2.1c | [kernel] | L (two M) |
+| 5.2.5 | Mutual and nested blocks: shared motives, auxiliary types, restoration, `T.rec_k`. *In two parts: 5.2.5a mutual blocks, implemented 2026-11-04, gate open; 5.2.5b nested blocks, planned (below)*; the table's rows carry `5.2.5a` and `5.2.5b` | N1–N3, T3, T4 | every `5.2.5` row; all of `Init`'s blocks, then Std's and Mathlib's 7,013 | 5.2.1c | [kernel] | L (two M) |
 | 5.3.1 | Allowlist v1 from `axioms.ndjson` | Q3 | altered and unlisted axioms not accepted | Q5 | [axiom], [owner] | S |
 | 5.4.1 | Corpus C-Nat: `nat-add-zero.ndjson` | all above | 44 constants accepted; mutants rejected | 5.2.1a–5.2.3, 4.2.2 | — | M |
 
@@ -1046,6 +1049,131 @@ recursor levels; the generated recursor of decision 12 gets them too.
   stopped by a dependency (K5), one nested (*unsupported*); none rejected
   or invalid. Other declarations accepted 1,015 → 1,609. Details in
   [INDUCTIVE_BLOCKS.md](../programming/INDUCTIVE_BLOCKS.md#evidence).
+
+## Implementation (plan task 5.2.5a)
+
+Written 2026-11-04 by agent N1, the first part of task 5.2.5; experimental
+[kernel] code, **not through its gate**. It extends the block check to
+**mutual blocks** as Lean's `add_inductive` checks them; nested blocks
+(5.2.5b) stay *unsupported*.
+
+**What.** B0 checks each type's `all` list (the block's types, in order),
+universe parameters and `numParams` against the first type's, and the
+constructors as the types' `ctors` lists in order (`inductive-block.fs`).
+Steps 6 to 8 run for each type in order, as `check_inductive_types`
+(`inductive.cpp` 254–299) does: N2 on `T` and `T.rec`, the type's type,
+its telescope; a later type's parameter domains must be the first type's
+(`is_def_eq`, T3: diagnostic 81, D1–D5 reject, else unknown), it must
+have `numParams` of them (T3: 82), and its universe must be
+`is_equivalent` to the first's (T4: 83). Step 9 checks C4 within each
+type (Lean's name set is per type, 459–465), C2 against the first type's
+parameters, C3 against the constructor's own type, positivity and
+recursive fields across the block (`is_valid_ind_app` for any type), and
+then a constructor named as another type's is `alreadyDeclared`
+(`declare_constructors`, 499–519). E1 makes a mutual block of
+propositions eliminate only into `Prop` (529–532); `k` is never set for
+one (599). The builder (`inductive-recursor.fs`) makes one motive per
+type and one minor premise per constructor of the block; a recursive
+field's hypothesis uses the motive of the type its type ends in, and its
+rule calls that type's recursor (`mk_rec_infos` 663–716, `mk_rec_rules`
+770–785). B3 compares each exported recursor with the generated
+recursor of the same name (`all`, `numMotives`, `numMinors`, the rules of
+its own type's constructors); B4 tests each type. The generated recursor
+of a later type (decision 12) is built from the whole block, its records
+kept aside during another block's check.
+
+**Decisions**, none of which adds or widens a rule beyond Lean's:
+
+19. *Steps 6 to 8 per type*, each reporting its own step number, as
+    Lean interleaves them per type; the step table keeps its numbers.
+20. *A later type's parameter domains are bound with the first type's*
+    after the comparison, as Lean instantiates them with `m_params`; its
+    index domains, read under its own parameter binders, stand for the
+    same positions.
+21. *The table's task 5.2.5 is split* into 5.2.5a (mutual rows) and
+    5.2.5b (nested rows), so the mutual rows are held to Lean's verdicts
+    now.
+
+**Evidence** (2026-11-04, Gforth 1.0.0, Lean 4.35.0): the table has 209
+cases (11 new, every verdict Lean's: even and odd with an index, indexed
+data, three types with a parameter and a universe, a function field
+into the other type, a negative occurrence of the other type, one
+constructor in the whole block (E1), and uses of the generated recursor
+of the first and of a later type at their own, concrete and renamed
+universes). Task 5.2.5a's 18 rows: 17 give Lean's verdict (13 accepted,
+4 rejected: T3 twice, T4, P1); `mutual.even-odd` is pending (Nat
+literals, task 5.2.3). `make test-check-block` checks them with their
+diagnostics and steps; 8 new planted faults (`mut-*`) are caught.
+
+## Plan (task 5.2.5b): nested blocks
+
+Lean checks a nested block (`Tree | node : List Tree → Tree`;
+`Lean.Syntax`, with `Array Syntax`) by checking an **auxiliary mutual
+block** and translating its results back (`add_inductive`, 1248–1349).
+LeanForth will port each step, citing `inductive.cpp`:
+
+1. **Auxiliary block** (`elim_nested_inductive_fn`, 985–1180). With the
+   first type's parameters as locals (`get_params`, 1138–1146), walk each
+   constructor's type after its parameters top-down (`replace`): an
+   application `I Ds is` of an earlier inductive type `I` whose first
+   `numParams(I)` arguments `Ds` mention a type of the block (the test
+   the audit runs now, 1023–1055) and have no loose bound variable (else
+   `nestedLocalVariable`, rejected) becomes `Iaux As is`. The first time
+   `I Ds` (its parameters abstracted, compared structurally, 1081–1091)
+   is met, every type `J` of `I`'s block becomes an auxiliary type named
+   `_nested.J_k` (`mk_unique_name`: `k` from 1, the first name no
+   declaration of the environment has, 1001–1007), its type `J`'s at
+   `I`'s universe levels with `Ds` for `J`'s parameters, re-abstracted
+   over the block's parameters, and its constructors `J.c` renamed
+   `_nested.J_k.c` with their types likewise (1098–1127). The queue goes
+   on over the auxiliary types' constructors, so `List (List T)` gives
+   two auxiliary types. LeanForth needs: names made in the name store's
+   scratch tier (`_nested.List_1`); the types and constructor types as
+   scratch terms (level substitution: `lf-mixed-level-substitute`;
+   parameters: instantiate and abstract on frame steps); the block
+   record grown by the auxiliary types (type records are a growable slab
+   already; their constructors count against the 512 of
+   `lf-ind-ctor-capacity`, task 6.2.0).
+2. **Check the auxiliary block** with steps 6 to 12 as a mutual block
+   (task 5.2.5a's code), `numNested` the number of auxiliary types: its
+   types and constructors are terms in scratch rather than input
+   declarations, so the steps read them through the block's records
+   (as `lf-recursor-build-at` reads instances) instead of `lf-input-decl`.
+3. **Restore** (`restore_nested` 927–975 and 1257–1314): in every
+   constructor type, recursor type and rule, an auxiliary type applied to
+   the parameters becomes `I Ds` again, an auxiliary constructor becomes
+   `J.c` at `I`'s levels applied to `Ds`, and an auxiliary recursor
+   `_nested.J_k.rec` becomes `T.rec_1`, `T.rec_2`, ... (named after the
+   block's first type in order, `mk_aux_rec_name_map` 1191–1217); the
+   restored recursors keep the auxiliary block's numbers (motives and
+   minors of all types), with `all` the block's own types. A rewriting
+   pass on frame steps (no host recursion), into scratch.
+4. **Type the nested applications** `I Ds` under the parameters
+   (1319–1324): their parameters never appear in the auxiliary block, so
+   this is where an ill-typed `Ds` is rejected. The re-check of the
+   restored terms (1333–1347) is defensive, as G4 is (decision 7): B3
+   compares them with Lean's instead.
+5. **Compare** (B3): the block's constructors, whose restored types must
+   equal the file's, and every recursor, `T.rec` and each `T.rec_k`, by
+   name; B4 with `numNested`.
+6. **Environment**: an accepted nested block's first type holds the names
+   `T.rec_1`, ... (`environment.fs`, `lf-env-reserving`, which now gives
+   them only to types not accepted); a use of `T.rec_k` that no slot
+   holds gets the generated recursor (decision 12), which rebuilds the
+   auxiliary block.
+7. **Tests**: the rows `nested.*` (5.2.5b); Lean-checked rows for a
+   parameterised tree (`Tree α` with `List (Tree α)`), `List (List T)`,
+   `Array` and `Option` children, nesting inside a mutual block, an
+   earlier declaration named `_nested.List_1` (the next name taken),
+   Lean's replay of a nested block mutated (rules of `T.rec_1`, its name,
+   a restored constructor type), and stripped `T.rec_1` uses; planted
+   faults for each step; `Init`'s `Lean.Syntax`.
+
+Size: comparable to tasks 5.2.1b and 5.2.5a together (two batches):
+the auxiliary block's construction and the restoring pass are new
+term-rewriting passes, and the steps must read types and constructors
+that are not input declarations. Until it is done a nested block, and
+everything that uses it, is *unsupported* (diagnostic 63, reason 3).
 
 ## Reproduction
 

@@ -3,7 +3,8 @@
 Status: implemented 2026-11-04 as plan task 5.2.1a of
 [ADR 0015](../adr/0015-inductive-types.md) (design accepted by the owner
 on 2026-11-03), and extended the same day to recursive types as plan
-task 5.2.1b (its [kernel] gate open). **Experimental [kernel] and
+task 5.2.1b and to mutual blocks as the first part of plan task 5.2.5
+(5.2.5a; their [kernel] gates open). **Experimental [kernel] and
 [import] code, not through its review gate and not independently
 audited.** Every accepted result is *accepted (experimental, not
 independently audited)*. This is one step of an unfinished design: each
@@ -42,10 +43,12 @@ structures such as `Add`. Task 5.2.1b adds **recursive types** such as
 function into the type: Lean's kernel first checks that the type occurs
 in each constructor only *strictly positively* (never to the left of an
 arrow), and the recursor then has an **induction hypothesis** for each
-recursive argument. Mutual blocks (types defined together) and nested
-ones (a type used inside another, as in `List Tree`) are a later task
-(5.2.5) and are answered *unsupported*, and so is everything that uses
-them.
+recursive argument. Task 5.2.5a adds **mutual blocks**, types defined
+together (`Even` and `Odd`, a tree and a forest): each type gets its
+recursor, which takes one motive per type of the block and one minor
+premise per constructor of the block. Nested blocks (a type used inside
+another, as in `List Tree`) are the next task (5.2.5b) and are answered
+*unsupported*, and so is everything that uses them.
 
 ## Example in three forms
 
@@ -133,6 +136,56 @@ the result equal to the file's `N.rec`. A constructor `mk : (N → Nat) → N`
 9 with diagnostic 79, as Lean's kernel rejects it ("non positive
 occurrence"): such a type would let a proof of `False` be written.
 
+## A mutual example in three forms
+
+Even and odd numbers, defined together (the row
+`mutual.even-odd-constructors`).
+
+- **Mathematics.** The least predicates with $\mathrm{Even}\,0$, and
+  $\mathrm{Odd}\,n \Rightarrow \mathrm{Even}\,(n+1)$ and
+  $\mathrm{Even}\,n \Rightarrow \mathrm{Odd}\,(n+1)$. Induction over
+  both at once: for families $P$ on even and $Q$ on odd proofs, from
+  $P$ of the base case and the two steps (each with the hypothesis of
+  the other family) we get $P$ for every proof of $\mathrm{Even}\,n$,
+  and likewise $Q$.
+- **LeanForth words** (ADR 0017 §15 *sketch syntax, not implemented*):
+
+  ```text
+  mutual
+    inductive Ev  Nat Prop ->
+    where
+      Nat.zero Ev $  constructor: zero
+      Nat explicit: n  n Od $  n Nat.succ $ Ev $  constructor: succ
+    end Ev
+    inductive Od  Nat Prop ->
+    where
+      Nat explicit: n  n Ev $  n Nat.succ $ Od $  constructor: succ
+    end Od
+  end mutual
+  ```
+
+- **Lean.** `mutual inductive Ev : Nat → Prop | zero : Ev Nat.zero |
+  succ (n : Nat) : Od n → Ev n.succ; inductive Od : Nat → Prop | succ
+  (n : Nat) : Ev n → Od n.succ end`. The kernel generates
+
+  ```text
+  Ev.rec : ∀ {motive_1 : (a : Nat) → Ev a → Prop} {motive_2 : (a : Nat) → Od a → Prop},
+    motive_1 Nat.zero Ev.zero →
+    (∀ (n : Nat) (a : Od n), motive_2 n a → motive_1 n.succ (Ev.succ n a)) →
+    (∀ (n : Nat) (a : Ev n), motive_1 n a → motive_2 n.succ (Od.succ n a)) →
+    ∀ {a : Nat} (t : Ev a), motive_1 a t
+  ```
+
+  and `Od.rec` with the same motives and minor premises, ending in
+  `motive_2 a t`. A mutual block of propositions eliminates only into
+  `Prop` (rule E1), even where a single type would not.
+
+LeanForth checks both types' telescopes (the same parameters, the same
+universe), both constructors' positivity across the block, finds the
+recursive field `a : Od n` of `Ev.succ` to be one into `Od` (its
+hypothesis uses `motive_2`, and its rule calls `Od.rec`), and compares
+both recursors with the file's.
+
 ## What is checked, and in which order
 
 The check runs when the checked environment reaches a block's first
@@ -144,20 +197,20 @@ rejection names Lean's reason through a diagnostic
 
 | Step | Rule (ADR 0015) | What | Lean (`inductive.cpp`, 4.35.0) | LeanForth's outcome on failure |
 | ---: | --- | --- | --- | --- |
-| 1 | B0, U1 (audit), U2, V1, scope | the block as lean4export writes it, at most 512 constructors (checked when the block is opened, before anything is written for them); no unsafe member; no `let`, literal, projection or metadata; no loose variable; one type, with no nested occurrence (an earlier inductive type applied to arguments that mention the type, after a constructor's parameters: Lean's `elim_nested_inductive`); on the way Lean's `is_rec` and `is_reflexive` | replay's reading; 1237–1247; 1023–1055, 308–352 | invalid (shape, V1); full (more than 512 constructors, the whole block); unsupported (unsafe, U2, mutual or nested: task 5.2.5) |
+| 1 | B0, U1 (audit), U2, V1, scope | the block as lean4export writes it (each type's `all` list the block's types, with the first's universe parameters and `numParams`; the constructors the types' `ctors` lists in order), at most 512 constructors (checked when the block is opened, before anything is written for them); no unsafe member; no `let`, literal, projection or metadata; no loose variable; no nested occurrence (an earlier inductive type applied to arguments that mention a type of the block, after a constructor's parameters: Lean's `elim_nested_inductive`); on the way Lean's `is_rec` and `is_reflexive` | replay's reading; 1237–1247; 1023–1055, 308–352 | invalid (shape, V1); full (more than 512 constructors, the whole block); unsupported (unsafe, U2, nested: task 5.2.5b) |
 | 2 | T0 | no constant named under `_nested` | 1222–1233 | rejected |
 | 3 | C1 | each occurrence of the type applied to the block's universe parameters and parameters | 134–164 | rejected |
 | 4 | T1 | a type at all (an empty block, staged as one declaration without a name: Lean's `emptyBlock`, 1153), then at least `numParams` binders in the type, then in each constructor's type (`get_params`, called by `elim_nested_inductive_fn` 1151–1166 for both) | 1138–1166 | rejected |
 | 5 | T5 | universe parameters distinct | 869 | rejected |
 | 6 | N2 | the type's name and `T.rec` unused, also as the recursor Lean generated for an earlier type (below) | 258–259 | rejected; unknown or unsupported when an earlier declaration of that name is undecided or unsupported (K5) |
 | 7 | — | the type's type inferred | 261 | inference's outcome |
-| 8 | T2 | its telescope (parameters, indices) and a `Sort` at the end | 263–287 | rejected (typeExpected, also for an end headed by a constant Lean's `whnf` leaves, such as `Nat`); unknown where Lean's `whnf` might unfold a definition |
-| 9 | C4, N2, C2, U1, P1, P2, C3 | each constructor: name unique, unused, its type inferred, each parameter's domain the type's, each field's universe within the result's (Lean's `is_geq`) unless the type is a proposition, then the field's positivity (below), its result `T As is` with indices that do not mention `T` | 436–497 | rejected (P1 diagnostic 79, P2 80); unknown where a comparison needs unfolding, or positivity a `whnf` LeanForth cannot follow yet |
-| 10 | E0–E4, K1 | the elimination level (every universe, or `Prop` only) and `k` | 522–616 | — |
-| 11 | N2 | `T.rec` is no constructor's name | 813 | rejected |
-| 12 | G1, G2 | the recursor's type and rules built, with an induction hypothesis per recursive field and the recursive calls in the rules | 632–819 | full when the term store has no room |
+| 8 | T2, T3, T4 | its telescope (parameters, indices) and a `Sort` at the end; for a later type of a mutual block, its parameters' domains the first type's (`is_def_eq`), at least `numParams` of them, and its universe equivalent to the first's (`is_equivalent`). Steps 6 to 8 run for each type in order, as `check_inductive_types` does | 254–299 | rejected (typeExpected, also for an end headed by a constant Lean's `whnf` leaves, such as `Nat`; diagnostics 81 parameters differ, 82 too few, 83 another universe); unknown where Lean's `whnf` might unfold a definition |
+| 9 | C4, N2, C2, U1, P1, P2, C3 | each constructor: name unique within its type, unused, its type inferred (every type of the block visible), each parameter's domain the first type's, each field's universe within the result's (Lean's `is_geq`) unless the type is a proposition, then the field's positivity (below, for every type of the block), its result its own type applied as `T As is` with indices that mention no type of the block; then a constructor named as another type's constructor is declared already (`declare_constructors`) | 436–519 | rejected (P1 diagnostic 79, P2 80); unknown where a comparison needs unfolding, or positivity a `whnf` LeanForth cannot follow yet |
+| 10 | E0–E4, K1 | the elimination level (every universe, or `Prop` only: always for a mutual block of propositions, E1) and `k` (never for a mutual block) | 522–616 | — |
+| 11 | N2 | each type's `T.rec`, in order, is no name of the block (its types and constructors) | 813 | rejected |
+| 12 | G1, G2 | each type's recursor's type and rules built: one motive per type, one minor premise per constructor of the block, an induction hypothesis per recursive field (into whichever type of the block it ends in) and the recursive calls in the rules | 632–819 | full when the term store has no room |
 | 13 | B3 | every constructor and every exported recursor equal to the one built, by Lean's `==` | `Lean/Replay.lean` 148–164 | rejected (Invalid constructor, Invalid recursor, No such recursor); the type's, constructors' and `T.rec`'s names stay taken (below) |
-| 14 | B4 | the type's `numIndices`, `isRec`, `isReflexive`, `numNested` against LeanForth's values, and a recursor missing from the block: never used, never failing | replay ignores them | accepted, with a warning bit (`lf-block-warnings`; on the accepted block's slots, `lf-env-warnings`) |
+| 14 | B4 | each type's `numIndices`, `isRec`, `isReflexive`, `numNested` against LeanForth's values, and a type whose `T.rec` the block does not hold: never used, never failing | replay ignores them | accepted, with a warning bit (`lf-block-warnings`; on the accepted block's slots, `lf-env-warnings`) |
 
 Not run: G4, Lean's defensive check of its own recursors (829–866), is
 replaced by the comparison with Lean's recursor (B3): each rule's result
@@ -370,9 +423,15 @@ the default is exactly Lean):
   port of whnf leaves a hook for it, and 5.2.1b's iota goes behind that
   hook once it is on main. Until then a check that needs it is *unknown*
   (rows `iota.*` are *unsupported* anyway: they use literals, task 5.2.3).
-- **Mutual and nested blocks, *unsupported*; task 5.2.5.** The nested
-  test (step 1) may only find more than Lean: when the earlier type is
-  not usable, any argument mentioning `T` counts.
+- **Nested blocks, *unsupported*; task 5.2.5b** (mutual blocks are
+  checked since task 5.2.5a). The nested test (step 1) may only find
+  more than Lean: when the earlier type is not usable, any argument
+  mentioning a type of the block counts. ADR 0015 holds the plan for
+  checking nested blocks (Implementation, plan task 5.2.5b).
+- **Two constructors of different types with one name** are rejected
+  as Lean's `declare_constructors` rejects them (`alreadyDeclared`); no
+  table row covers it, since the table's exporter writes one record per
+  name (only a hand-made file can hold two).
 - **A field type without an occurrence of `T` is not put in whnf**
   (positivity, step 9). Lean's `check_positivity` reduces it and drops the
   result; the two can differ only if that reduction fails with a resource

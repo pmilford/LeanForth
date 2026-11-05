@@ -201,7 +201,8 @@ end-structure
 : lf-rcr-scratch ( k -- addr ) cells lf-rcr-scratch-cells slab-base + ;
 : lf-rcr-scratch# ( -- n ) lf-rcr-state lf-rcr-scratch-count @ ;
 : lf-rcr-room ( n -- flag )
-  dup lf-rcr-scratch-cells slab-hold ok? 0= if drop outcome-full lf-rcr-failing drop false exit then
+  dup lf-rcr-scratch-cells slab-hold ok? 0=
+  if drop outcome-full lf-rcr-failing drop false exit then
   lf-rcr-state lf-rcr-scratch-count ! true ;
 : lf-rcr-wrap ( body tag domain -- node tag ) swap >r swap r@ lf-rcr-bind r> ;
 : lf-rcr-over-scratch ( body tag -- node tag )
@@ -394,7 +395,8 @@ end-structure
 \ #(b-M) .., then ks and u xs.
 : lf-rcr-rec-call ( -- node )
   lf-rcr-e@ lf-rcr-rec-const lf-rcr-base lf-rcr-p + lf-rcr-p lf-rcr-apply-vars
-  lf-rcr-base lf-rcr-mm lf-rcr-apply-vars lf-rcr-base lf-rcr-mm - lf-rcr-m lf-rcr-apply-vars
+  lf-rcr-base lf-rcr-mm lf-rcr-apply-vars
+  lf-rcr-base lf-rcr-mm - lf-rcr-m lf-rcr-apply-vars
   lf-rcr-ks lf-rcr-u-xs lf-rcr-app ;
 : lf-rcr-v ( j i -- node )
   over swap lf-rcr-ih-of lf-rcr-take lf-rcr-mm lf-rcr-m + swap lf-rcr-k lf-rcr-q@ -
@@ -411,7 +413,8 @@ end-structure
 \ facts check-block.fs computed (indices, domains, field counts,
 \ elimination level): ok, or the first failure (full, exhausted,
 \ invalid), the terms then unusable.
-: lf-rcr-motives ( -- ) lf-rcr-mm 0 ?do i lf-rcr-motive-type i lf-ind-ty lf-ty-motive ! loop ;
+: lf-rcr-motives ( -- )
+  lf-rcr-mm 0 ?do i lf-rcr-motive-type i lf-ind-ty lf-ty-motive ! loop ;
 : lf-rcr-minors ( -- ) lf-rcr-m 0 ?do i lf-rcr-minor i lf-ind-minor-type ! loop ;
 : lf-rcr-types ( -- ) lf-rcr-mm 0 ?do i lf-rcr-type i lf-ind-ty lf-ty-rec-type ! loop ;
 : lf-rcr-rules ( -- ) lf-rcr-m 0 ?do i lf-rcr-rule i lf-ind-rule ! loop ;

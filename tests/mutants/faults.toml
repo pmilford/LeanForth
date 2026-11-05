@@ -4419,8 +4419,8 @@ quick = true
 [[fault]]
 id = "mut-params-not-compared"
 file = "src/kernel/check-block.fs"
-old = '''  dup lf-ind-nparams < if lf-diag-mutual-params lf-blk-param-as else drop lf-blk-index! then ;'''
-new = '''  dup lf-ind-nparams < if nip lf-blk-param-dom lf-blk-push else drop lf-blk-index! then ;'''
+old = '''  dup lf-ind-nparams < if lf-diag-mutual-params lf-blk-param-as exit then'''
+new = '''  dup lf-ind-nparams < if nip lf-blk-param-dom lf-blk-push exit then'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "5.2.5a: a later type's parameters are not compared with the first's; A : Type -> Type, B : Prop -> Type is accepted"
 
