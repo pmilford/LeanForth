@@ -1,9 +1,10 @@
 \ Definitional equality as Lean's kernel decides it (ADR 0014 Q1, Q3, Q6,
-\ Q7, Q8; plan tasks 4.2.2b, 4.2.2d, 4.2.4 and 4.2.5): ports of
-\ quick_is_def_eq (type_checker.cpp 802-826), is_def_eq_binding
-\ (752-779), is_def_eq_app (878-895), is_def_eq_args (830-838),
-\ try_eta_expansion (841-853), is_def_eq_proof_irrel (899-906),
-\ lazy_delta_reduction and its step (959-1075) and is_def_eq_core
+\ Q7, Q8; ADR 0015 R4, R5; plan tasks 4.2.2b, 4.2.2d, 4.2.4, 4.2.5 and
+\ 5.2.2): ports of quick_is_def_eq (type_checker.cpp 802-826),
+\ is_def_eq_binding (752-779), is_def_eq_app (878-895), is_def_eq_args
+\ (830-838), try_eta_expansion (841-853), try_eta_struct_core (856-872),
+\ is_def_eq_proof_irrel (899-906), lazy_delta_reduction and its step
+\ (959-1075), is_def_eq_unit_like (1119-1130) and is_def_eq_core
 \ (1132-1207), at the referee commit
 \ eb6cafb7 (ADR 0014, Reproduction). [kernel] code: experimental, not
 \ through the review gate, not independently audited.
@@ -39,16 +40,22 @@
 \   (5) lazy delta reduction (below), which may answer yes
 \   or no and leaves both sides as far unfolded as it got; (6) the same
 \   constant with equivalent universe arguments, yes; (7) the same free
-\   variable, yes; (8) and (9) need projections, an unsupported form
-\   (U2): with none, whnf_core with projections reduced changes nothing;
-\   (10) is_def_eq_app, yes; (11) eta: when exactly one side is a lambda
-\   and the whnf of the other's type is a Pi of domain D, is_def_eq of
-\   the lambda and fun x : D => other x, yes; (12) structure eta:
-\   either side a constructor of a non-recursive structure applied to its
-\   parameters and fields is unknown (diagnostic 89, plan task 5.2.2);
-\   (13) string literals are unsupported (U2); (14) unit-like types:
-\   when the whnf of t's type is headed by a non-recursive structure whose
-\   constructor has no field, unknown (diagnostic 89, plan task 5.2.2);
+\   variable, yes; (8) and (9), Lean's projection steps
+\   (lazy_delta_proj_reduction, and whnf_core with projections reduced by
+\   whnf), are not ported (plan task 5.2.2): is_def_eq_app takes a
+\   projection for an application of its leaf (core/projections.fs), and
+\   two leaves that differ are unknown (whnf.fs); (10) is_def_eq_app,
+\   yes; (11) eta: when exactly one side is a lambda and the whnf of the
+\   other's type is a Pi of domain D, is_def_eq of the lambda and
+\   fun x : D => other x, yes; (12) structure eta, tn against sn, then sn
+\   against tn: when the second is a constructor of a non-recursive
+\   structure I applied to its parameters and fields, the two types
+\   is_def_eq and then each field is_def_eq to the first's projection
+\   onto it (Lean's Expr.proj), yes (BL-7, Lean's own limitation, stays:
+\   two variables are never equated field by field); (13) string
+\   literals are unsupported (U2); (14) unit-like types: when the whnf of
+\   t's type is headed by a non-recursive structure whose constructor has
+\   no field, is_def_eq_core of that type and s's type is the answer;
 \   (15) otherwise no.
 \ - Whether t is a proof (step 4) is Lean's is_prop of its type (383-389):
 \   the type of t's type, put in whnf, is a Sort whose level normalizes to
@@ -56,8 +63,8 @@
 \   variable whose type is a Sort; otherwise the types come from the
 \   typer the caller lends, Lean's infer_type in infer-only mode
 \   (lf-dq-typer: mixed-infer.fs, aside). Step 4 asks it for s's type,
-\   step 11 for the other side's and step 14 for t's, each a free
-\   variable's type without it (Lean's infer_fvar).
+\   step 11 for the other side's and steps 12 and 14 for both sides',
+\   each a free variable's type without it (Lean's infer_fvar).
 \ - lazy_delta_reduction loops, one unit of fuel a round. First
 \   is_def_eq_offset: both sides zero (the literal 0 or Nat.zero) is yes;
 \   both with a predecessor (a literal above 0, or Nat.succ x by name)
@@ -86,9 +93,12 @@
 \ record), and lf-defeq-on reports a final no as unknown with it: outside
 \ a check of the checked environment, a constant at a head of lazy delta
 \ (K1, diagnostic 64: the signature index holds no values), and steps 4,
-\ 11 and 14 without a typer (diagnostics 87, 88 and 89; a bare call, as
-\ the unit tests make). A check of the checked environment always has a
-\ typer and a snapshot, so it never doubts. A yes reached with a doubt is
+\ 11, 12 and 14 without a typer (diagnostics 87, 88, 89 and 89; a bare
+\ call, as the unit tests make). A check of the checked environment
+\ always has a typer and a snapshot, so it never doubts. Where steps 12
+\ and 14 cannot look a constant up (outside a check, or an inductive
+\ block's own while it is checked), they are unknown (diagnostic 89, or
+\ the doubt when there is one). A yes reached with a doubt is
 \ Lean's yes under these conditions, which it needs (review rvU4 B1): (a)
 \ without a typer, steps 6, 7, 10 and 11 answer yes only for terms equal
 \ up to beta, eta and universe equivalence (step 4 needs the typer);
@@ -97,8 +107,8 @@
 \ signature index has no value -- the assumption of a comparison outside
 \ a check, which accepts no theorem; (c) where step 4 is skipped, Lean
 \ would compare the two sides' types, equal for terms equal up to beta,
-\ eta and universe equivalence (ADR 0003's argument); where step 11 is
-\ skipped, Lean could only have said yes sooner.
+\ eta and universe equivalence (ADR 0003's argument); where step 11, 12
+\ or 14 is skipped, Lean could only have said yes sooner.
 \
 \ Passes. Every comparison is a visit on a frames record that the caller
 \ gives (lib/frame.fs), as in whnf.fs: lf-defeq-call ( t s frames cont
@@ -131,6 +141,7 @@ require ../core/input.fs
 require ../core/local-context.fs
 require ../core/names.fs
 require ../core/name-equal.fs
+require ../core/projections.fs
 require ../core/terms.fs
 require ./env-signature.fs
 require ./level-compare.fs
@@ -254,11 +265,13 @@ defer lf-qk-visit ( t s frames -- ... frames next )
 defer lf-bd-visit ( t s frames -- ... frames next )
 defer lf-ap-visit ( t s frames -- ... frames next )
 defer lf-ar-visit ( t s frames -- ... frames next )
+defer lf-es-visit ( t s frames -- ... frames next )
 : lf-dq-call ( t s frames cont -- ... frames next ) ['] lf-dq-visit lf-dq-open ;
 : lf-qk-call ( t s frames cont -- ... frames next ) ['] lf-qk-visit lf-dq-open ;
 : lf-bd-call ( t s frames cont -- ... frames next ) ['] lf-bd-visit lf-dq-open ;
 : lf-ap-call ( t s frames cont -- ... frames next ) ['] lf-ap-visit lf-dq-open ;
 : lf-ar-call ( t s frames cont -- ... frames next ) ['] lf-ar-visit lf-dq-open ;
+: lf-es-call ( t s frames cont -- ... frames next ) ['] lf-es-visit lf-dq-open ;
 
 \ ---------------------------------------------------------------------------
 \ quick_is_def_eq (802-826): ( lbool outcome ).
@@ -397,8 +410,6 @@ defer lf-ap-arg ( frames -- ... frames next )
 : lf-dq-sides! ( tn sn frames -- ) >r 2 r@ frame-drop swap r@ frame-save r> frame-save ;
 : lf-dq-end ( flag frames -- flag outcome frames 0 ) 4 lf-dq-drop-answer ;
 : lf-dq-end-failed ( outcome frames -- 0 outcome frames 0 ) 4 lf-dq-drop-failed ;
-: lf-dq-unknown ( t s code frames -- 0 outcome frames 0 )
-  >r lf-dq-site swap lf-diag-note outcome-unknown r> lf-dq-end-failed ;
 
 \ The doubt record (see the header): the first step passed that might
 \ have answered yes, with its terms; lf-dq-settle turns a final no into
@@ -480,8 +491,9 @@ defer lf-ap-arg ( frames -- ... frames next )
   lf-whnf-head dup lf-whnf-const? 0= if drop 0 outcome-ok exit then
   lf-whnf-cref lf-crec-name @ lf-dq-named ;
 \ is_non_rec_structure (inductive.cpp 28-33): an inductive type with one
-\ constructor, no index and not recursive.
-: lf-dq-structure? ( decl -- flag )
+\ constructor, no index and not recursive; 0 (no declaration) is none.
+: lf-dq-structure? ( decl|0 -- flag )
+  dup 0= if exit then
   dup lf-idecl-kind @ lf-kind-inductive <> if drop false exit then
   lf-idecl-data ?dup 0= if false exit then
   dup lf-ity-ctors@ nip 1 = over lf-ity-indices lf-more-field 0= and
@@ -489,59 +501,143 @@ defer lf-ap-arg ( frames -- ... frames next )
 : lf-dq-ctor? ( decl -- flag )
   dup if dup lf-idecl-kind @ lf-kind-constructor = swap lf-idecl-data 0<> and then ;
 
-\ Step 12 (1197-1198), try_eta_struct_core(t, s) (855-872): whether it
-\ may apply -- s a constructor of a non-recursive structure applied to
-\ its parameters and fields.
+\ A constructor's inductive type and its number of parameters.
+: lf-dq-induct ( decl -- name ) lf-idecl-data lf-ict-induct lf-more-field ;
+: lf-dq-params ( decl -- n ) lf-idecl-data lf-ict-params lf-more-field ;
+: lf-dq-type-of ( t frames -- type outcome )
+  over lf-dq-fvar? if drop lf-fvar-type outcome-ok else lf-dq-typed then ;
+\ Whether a term's type can be had: a free variable's always, any other
+\ term's only from a typer.
+: lf-dq-typable? ( t -- flag ) lf-dq-fvar? lf-dq-typer @ 0<> or ;
+\ For steps 11 and 14: the whnf of t's type, with yes; 0 and no for a
+\ Sort or a Pi, whose type is a Sort; 0 and undecided when the type
+\ cannot be had; 0 0 on a failure.
+: lf-dq-whnf-type ( t frames -- type lbool outcome )
+  over lf-dq-typeish? if 2drop 0 lf-dq-no outcome-ok exit then
+  over lf-dq-typable? 0= if 2drop 0 lf-dq-undef outcome-ok exit then
+  tuck lf-dq-type-of ok-then? 0= if nip lf-dq-unproved exit then
+  swap lf-whnf-on ok-then? 0= if lf-dq-unproved exit then lf-dq-yes outcome-ok ;
+\ A type that passed a test kept with yes, else 0 and no.
+: lf-dq-kept ( type flag -- type yes | 0 no ) if lf-dq-yes else drop 0 lf-dq-no then ;
+\ A lookup that cannot tell (an inductive block's own constant, or
+\ outside a check) is recorded with the doubt when there is one, else
+\ with both terms (diagnostic 89); any other failure has its own.
+: lf-dq-gap-note ( t s outcome -- outcome )
+  dup outcome-unknown <> if nip nip exit then
+  lf-dq-state lf-dqs-doubt @ if nip nip lf-dq-doubted exit then
+  >r lf-dq-site lf-diag-structure-pending lf-diag-note r> ;
+
+\ Step 12 (1197-1198): try_eta_struct (type_checker.h 97-99) tries its
+\ core with s = sn, then with s = tn; no from both goes on to step 14.
+\ try_eta_struct_core(t, s) (856-872) applies when s is a constructor of
+\ a non-recursive structure I applied to its parameters and fields: then
+\ infer_type(t) and infer_type(s) must be is_def_eq, and each field s_i,
+\ left to right, is_def_eq to t's projection mk_proj(I, i - nparams, t)
+\ (core/projections.fs); the first no answers no, all yes answer yes.
+\ Lean's own limitation BL-7 stays: two variables of a structure are
+\ never equated field by field. Without a typer the types cannot be had:
+\ a doubt (diagnostic 89), and no.
 : lf-dq-full-ctor? ( s decl -- flag )
   lf-idecl-data >r r@ lf-ict-params lf-more-field r> lf-ict-fields lf-more-field +
   swap lf-dq-count = ;
-: lf-dq-eta-struct? ( s -- flag outcome )
-  dup lf-dq-head-named ok-then? 0= if nip false swap exit then
-  dup lf-dq-ctor? 0= if 2drop false outcome-ok exit then
-  tuck lf-dq-full-ctor? 0= if drop false outcome-ok exit then
-  lf-idecl-data lf-ict-induct lf-more-field lf-dq-named ok-then? 0= if false swap exit then
-  ?dup if lf-dq-structure? else false then outcome-ok ;
+\ s's constructor when the step applies, else 0.
+: lf-dq-struct-ctor ( s -- decl|0 outcome )
+  dup lf-dq-head-named ok-then? 0= if nip 0 swap exit then
+  dup lf-dq-ctor? 0= if 2drop 0 outcome-ok exit then
+  tuck lf-dq-full-ctor? 0= if drop 0 outcome-ok exit then
+  dup lf-dq-induct lf-dq-named ok-then? 0= if nip 0 swap exit then
+  lf-dq-structure? 0= if drop 0 then outcome-ok ;
+\ try_eta_struct_core(t, s) is a visit of its own, ( flag outcome ). It
+\ keeps t, s, I's name, nparams and the next argument i (pick 4 to 0).
+: lf-es-fail ( outcome frames -- 0 outcome frames 0 ) 5 lf-dq-drop-failed ;
+: lf-es-answer ( flag frames -- flag outcome frames 0 ) 5 lf-dq-drop-answer ;
+: lf-es-keep ( t s decl frames -- t s frames )
+  >r dup lf-dq-induct swap lf-dq-params 2over swap r@ frame-save r@ frame-save
+  swap r@ frame-save dup r@ frame-save r@ frame-save r> ;
+\ Argument i of an application, 0 the leftmost.
+: lf-es-arg ( s i -- arg )
+  over lf-dq-count swap - 1- 0 ?do lf-term-first@ loop lf-term-second@ ;
+\ mk_proj(I, i - nparams, t) (core/projections.fs): full without room.
+: lf-es-proj ( frames -- node outcome )
+  >r 4 r@ frame-pick 2 r@ frame-pick 0 r@ frame-pick 1 r> frame-pick - lf-proj-of ;
+defer lf-es-field ( frames -- ... frames next )
+: lf-es-next ( flag outcome frames -- ... frames next )
+  >r ok-then? 0= if r> lf-es-fail exit then
+  0= if false r> lf-es-answer exit then
+  r@ frame-restore 1+ r@ frame-save r> lf-es-field ;
+:noname ( frames -- ... frames next )
+  >r 0 r@ frame-pick 3 r@ frame-pick lf-dq-count = if true r> lf-es-answer exit then
+  r@ lf-es-proj ok-then? 0= if r> lf-es-fail exit then
+  3 r@ frame-pick 0 r@ frame-pick lf-es-arg r> ['] lf-es-next lf-dq-call
+  ; is lf-es-field
+: lf-es-types-back ( flag outcome frames -- ... frames next )
+  >r ok-then? 0= if r> lf-es-fail exit then
+  if r> lf-es-field else false r> lf-es-answer then ;
+\ infer_type(t), then infer_type(s); both 0 on a failure.
+: lf-es-types ( t s frames -- tt ts outcome )
+  >r swap r@ lf-dq-type-of ok-then? 0= if nip r> drop lf-dq-unproved exit then
+  swap r> lf-dq-typed ok-then? 0= if nip lf-dq-unproved exit then outcome-ok ;
+: lf-es-typed ( t s frames -- ... frames next )
+  >r r@ lf-es-types ok-then? 0= if nip r> lf-es-fail exit then
+  r> ['] lf-es-types-back lf-dq-call ;
+: lf-es-doubt ( t s frames -- false outcome frames 0 )
+  >r lf-diag-structure-pending lf-dq-doubt false r> lf-dq-answer ;
+:noname ( t s frames -- ... frames next )
+  >r dup lf-dq-struct-ctor ok-then? 0= if lf-dq-gap-note r> lf-dq-failed exit then
+  ?dup 0= if 2drop false r> lf-dq-answer exit then
+  lf-dq-typer @ 0= if drop r> lf-es-doubt exit then
+  r> lf-es-keep lf-es-typed ; is lf-es-visit
 
-\ Step 14 (1203-1204), is_def_eq_unit_like (1119-1130): whether it may
-\ apply -- the whnf of t's type headed by a non-recursive structure whose
-\ constructor has no field. Undecided without a typer.
-: lf-dq-no-field? ( decl -- flag outcome )
+\ Step 14 (1203-1204), is_def_eq_unit_like (1119-1130): when the whnf of
+\ t's type is headed by a non-recursive structure whose constructor has
+\ no field, is_def_eq_core of that type and s's type is the answer, yes
+\ or no; otherwise no. A type that cannot be had without a typer: a doubt
+\ (diagnostic 89), and no.
+: lf-dq-no-field? ( decl|0 -- flag outcome )
   dup lf-dq-structure? 0= if drop false outcome-ok exit then
   lf-idecl-data lf-ity-ctors@ drop @ lf-dq-named ok-then? 0= if false swap exit then
   dup lf-dq-ctor? if lf-idecl-data lf-ict-fields lf-more-field 0= else drop false then
   outcome-ok ;
-: lf-dq-type-of ( t frames -- type outcome )
-  over lf-dq-fvar? if drop lf-fvar-type outcome-ok else lf-dq-typed then ;
-: lf-dq-unit-like? ( t frames -- lbool outcome )
-  over lf-dq-typeish? if 2drop lf-dq-no outcome-ok exit then
-  over lf-dq-fvar? 0= lf-dq-typer @ 0= and if 2drop lf-dq-undef outcome-ok exit then
-  >r r@ lf-dq-type-of ok-then? 0= if r> drop 0 swap exit then
-  r> lf-whnf-on ok-then? 0= if 0 swap exit then
-  lf-dq-head-named ok-then? 0= if 0 swap exit then
-  ?dup if lf-dq-no-field? ok-then? if lf-dq-lbool outcome-ok else 0 swap then
-  else lf-dq-no outcome-ok then ;
+\ The whnf of t's type when it is such a structure, with yes; else 0 and
+\ no, or undecided without a typer; 0 0 on a failure.
+: lf-dq-unit-type ( t frames -- type lbool outcome )
+  lf-dq-whnf-type dup ok? 0= if exit then drop
+  dup lf-dq-yes <> if outcome-ok exit then drop
+  dup lf-dq-head-named ok-then? 0= if nip lf-dq-unproved exit then
+  lf-dq-no-field? ok-then? 0= if nip lf-dq-unproved exit then lf-dq-kept outcome-ok ;
 
-\ Steps 11 to 15. A step that cannot tell is unknown, recorded with the
-\ doubt when there is one, else with both terms (diagnostic 89 unless
-\ something more specific came first).
+\ Steps 12 to 15. A lookup that cannot tell is unknown, recorded as
+\ lf-dq-gap-note does.
 : lf-dq-no-step ( frames -- false outcome frames 0 ) false swap lf-dq-end ;
 : lf-dq-gap ( outcome frames -- 0 outcome frames 0 )
-  >r dup outcome-unknown = if
-    lf-dq-state lf-dqs-doubt @
-    if lf-dq-doubted else r@ lf-dq-sides lf-dq-site lf-diag-structure-pending lf-diag-note then
-  then r> lf-dq-end-failed ;
-: lf-dq-pending ( frames -- 0 outcome frames 0 )
-  >r r@ lf-dq-sides lf-diag-structure-pending r> lf-dq-unknown ;
+  >r r@ lf-dq-sides rot lf-dq-gap-note r> lf-dq-end-failed ;
+: lf-dq-unit-doubt ( frames -- false outcome frames 0 )
+  >r r@ lf-dq-sides lf-diag-structure-pending lf-dq-doubt r> lf-dq-no-step ;
+: lf-dq-unit-back ( flag outcome frames -- ... frames next )
+  >r ok-then? 0= if r> lf-dq-end-failed else r> lf-dq-end then ;
+: lf-dq-unit-compare ( type frames -- ... frames next )
+  >r r@ lf-dq-sides nip dup lf-dq-typable? 0= if 2drop r> lf-dq-unit-doubt exit then
+  r@ lf-dq-type-of ok-then? 0= if nip r> lf-dq-end-failed exit then
+  r> ['] lf-dq-unit-back lf-dq-call ;
 : lf-dq-unit-step ( frames -- ... frames next )
-  >r r@ lf-dq-sides drop r@ lf-dq-unit-like? ok-then? 0= if r> lf-dq-gap exit then
-  dup lf-dq-undef = if
-    drop r@ lf-dq-sides lf-diag-structure-pending lf-dq-doubt r> lf-dq-no-step exit then
-  if r> lf-dq-pending else r> lf-dq-no-step then ;
+  >r r@ lf-dq-sides drop r@ lf-dq-unit-type ok-then? 0= if nip r> lf-dq-gap exit then
+  dup lf-dq-yes = if drop r> lf-dq-unit-compare exit then
+  nip lf-dq-undef = if r> lf-dq-unit-doubt else r> lf-dq-no-step then ;
+: lf-dq-struct-other ( flag outcome frames -- ... frames next )
+  >r ok-then? 0= if r> lf-dq-end-failed exit then
+  if true r> lf-dq-end else r> lf-dq-unit-step then ;
+\ try_eta_struct_core(t, s): its visit when it applies, else no at once
+\ (s's constructor looked up here, so that a step that does not apply
+\ opens no visit and spends no fuel).
+: lf-dq-struct-call ( t s frames cont -- ... frames next )
+  2>r dup lf-dq-struct-ctor ok-then? 0= if lf-dq-gap-note 0 swap 2r> exit then
+  if 2r> lf-es-call else 2drop false outcome-ok 2r> then ;
+: lf-dq-struct-back ( flag outcome frames -- ... frames next )
+  >r ok-then? 0= if r> lf-dq-end-failed exit then
+  if true r> lf-dq-end exit then
+  r@ lf-dq-sides swap r> ['] lf-dq-struct-other lf-dq-struct-call ;
 : lf-dq-struct-step ( frames -- ... frames next )
-  >r r@ lf-dq-sides nip lf-dq-eta-struct? ok-then? 0= if r> lf-dq-gap exit then
-  if r> lf-dq-pending exit then
-  r@ lf-dq-sides drop lf-dq-eta-struct? ok-then? 0= if r> lf-dq-gap exit then
-  if r> lf-dq-pending else r> lf-dq-unit-step then ;
+  dup lf-dq-sides rot ['] lf-dq-struct-back lf-dq-struct-call ;
 
 \ Step 11 (1194-1195), try_eta_expansion (type_checker.h 94-96) and its
 \ core (841-853): when exactly one side is a lambda, the other side's type
@@ -556,11 +652,9 @@ defer lf-ap-arg ( frames -- ... frames next )
 \ The other side's type in whnf: yes a Pi, no, or undecided; the Pi is 0
 \ unless yes, both are 0 on a failure. A Sort's or a Pi's type is a Sort.
 : lf-dq-eta-pi ( other frames -- pi lbool outcome )
-  over lf-dq-typeish? if 2drop 0 lf-dq-no outcome-ok exit then
-  over lf-dq-fvar? 0= lf-dq-typer @ 0= and if 2drop 0 lf-dq-undef outcome-ok exit then
-  tuck lf-dq-type-of ok-then? 0= if nip lf-dq-unproved exit then
-  swap lf-whnf-on ok-then? 0= if lf-dq-unproved exit then
-  dup lf-dq-tag lf-tag-pi = if lf-dq-yes else drop 0 lf-dq-no then outcome-ok ;
+  lf-dq-whnf-type dup ok? 0= if exit then drop
+  dup lf-dq-yes <> if outcome-ok exit then
+  drop dup lf-dq-tag lf-tag-pi = lf-dq-kept outcome-ok ;
 \ fun x : D => other x, closed as other is; full without room.
 : lf-dq-eta-expand ( other pi -- lambda outcome )
   lf-term-first@ swap 0 lf-term-bvar 0= if 2drop lf-rebuild-full exit then

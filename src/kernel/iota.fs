@@ -165,12 +165,9 @@ require ./whnf.fs
   0 ?do dup dup lf-iota-n i lf-iota-arg rot swap lf-term-app
     0= if drop -1 outcome-full unloop exit then swap
   loop drop outcome-ok ;
-: lf-iota-proj-of ( major name i -- node outcome )
-  lf-hterm-proj 0= if drop -1 outcome-full exit then
-  drop swap lf-term-app if outcome-ok else -1 outcome-full then ;
 : lf-iota-fields-of ( node major name nf -- node' outcome )
   0 ?do
-    2dup i lf-iota-proj-of ok-then? 0= if >r 2drop drop r> no-result unloop exit then
+    2dup i lf-proj-of ok-then? 0= if >r 2drop drop r> no-result unloop exit then
     >r rot r> lf-term-app 0= if 2drop -1 outcome-full unloop exit then -rot
   loop 2drop outcome-ok ;
 : lf-iota-expand ( Ty major sdecl -- node outcome )

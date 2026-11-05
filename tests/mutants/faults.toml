@@ -4960,12 +4960,66 @@ reason = "step 4 compares t's type with itself, not with s's: proofs of A and of
 [[fault]]
 id = "dq-unit-like-off"
 file = "src/kernel/defeq.fs"
-old = '''  if r> lf-dq-pending else r> lf-dq-no-step then ;
-: lf-dq-struct-step'''
-new = '''  drop r> lf-dq-no-step ;
-: lf-dq-struct-step'''
-test = 'test -n "$LEAN" && python3 tests/core/inductive-table.py'
-reason = "step 14 (unit-like types, task 5.2.2) is skipped, so two values of a structure with one field-less constructor are a no where Lean says yes (replaces ind-no-unit-like-guard, ADR 0011's P4)"
+old = '''  dup lf-dq-yes = if drop r> lf-dq-unit-compare exit then'''
+new = '''  dup lf-dq-yes = if 2drop r> lf-dq-no-step exit then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "step 14 (unit-like types, task 5.2.2) is skipped, so two values of a structure with one field-less constructor are a no where Lean says yes (unit.punit; replaces ind-no-unit-like-guard, ADR 0011's P4)"
+
+[[fault]]
+id = "dq-unit-like-with-fields"
+file = "src/kernel/defeq.fs"
+old = '''  dup lf-dq-ctor? if lf-idecl-data lf-ict-fields lf-more-field 0= else drop false then'''
+new = '''  dup lf-dq-ctor? if drop true else drop false then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "step 14 takes any structure for unit-like, whatever its fields: two pairs of units are equal where Lean says no (unit.pair-of-units, BL-7)"
+
+[[fault]]
+id = "dq-eta-struct-off"
+file = "src/kernel/defeq.fs"
+old = '''  r> lf-es-keep lf-es-typed ; is lf-es-visit'''
+new = '''  drop 2drop false r> lf-dq-answer ; is lf-es-visit'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "step 12 (structure eta, task 5.2.2) always answers no: p and (p.1, p.2) differ where Lean says yes (eta.structure)"
+
+[[fault]]
+id = "dq-eta-struct-one-way"
+file = "src/kernel/defeq.fs"
+old = '''  r@ lf-dq-sides swap r> ['] lf-dq-struct-other lf-dq-struct-call ;'''
+new = '''  r> lf-dq-unit-step ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "step 12 tries only the constructor on the right: (p.1, p.2) against p is a no where Lean says yes (eta.structure-left)"
+
+[[fault]]
+id = "dq-eta-struct-no-fields"
+file = "src/kernel/defeq.fs"
+old = '''  if r> lf-es-field else false r> lf-es-answer then ;'''
+new = '''  if true r> lf-es-answer else false r> lf-es-answer then ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "step 12 answers yes once the types are equal, comparing no field: p and (p.1, true) are equal where Lean says no (eta.structure-wrong-field)"
+
+[[fault]]
+id = "dq-eta-struct-first-field"
+file = "src/kernel/defeq.fs"
+old = '''  r@ frame-restore 1+ r@ frame-save r> lf-es-field ;'''
+new = '''  true r> lf-es-answer ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "step 12 stops after the first field: p and (p.1, true) are equal where Lean says no (eta.structure-wrong-field)"
+
+[[fault]]
+id = "dq-eta-struct-field-index"
+file = "src/kernel/defeq.fs"
+old = '''0 r@ frame-pick 1 r> frame-pick -'''
+new = '''0 r@ frame-pick 1 r> frame-pick drop'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "step 12 projects field i of the arguments, not i - nparams: Prod's fields 2 and 3, so p and (p.1, p.2) are not equal where Lean says yes (eta.structure)"
+
+[[fault]]
+id = "dq-eta-struct-any-inductive"
+file = "src/kernel/defeq.fs"
+old = '''  lf-dq-structure? 0= if drop 0 then outcome-ok ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "step 12 takes a constructor of any inductive type: p's second projection against true, both of type Bool, is a yes where Lean says no (eta.structure-wrong-field)"
 
 [[fault]]
 id = "dq-lz-abbrev-arguments"

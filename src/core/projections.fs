@@ -28,6 +28,11 @@ require ./terms.fs
 : lf-hterm-proj ( name idx -- index identity true | false )
   2dup or 0< if 2drop false exit then
   lf-tag-proj -rot lf-term-add lf-hterm-result ;
+\ Lean's mk_proj(S, i, e): the leaf of field i of the structure named
+\ name applied to e, a new node; full without room.
+: lf-proj-of ( e name i -- node outcome )
+  lf-hterm-proj 0= if drop -1 outcome-full exit then
+  drop swap lf-term-app if outcome-ok else -1 outcome-full then ;
 \ Whether node is a projection leaf; its structure's name and its index.
 : lf-proj-leaf? ( node -- flag ) lf-term-tag@ lf-tag-proj = ;
 : lf-proj-name ( leaf -- name ) lf-term-first@ ;

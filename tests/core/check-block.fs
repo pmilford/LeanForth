@@ -367,15 +367,21 @@ T{ s" iota.structure-eta" used -> outcome-ok 0 }T
 \ by Lean's ==; unknown, where Lean says no, until defeq.fs ports the
 \ comparison's projection steps (task 5.2.2).
 T{ s" proj.index-differs" used -> outcome-unknown lf-diag-undecided }T
-\ Structure eta and unit-like types in is_def_eq: a pair and a structure
-\ of no fields are rejected as by Lean where neither applies; where one
-\ may, unknown (diagnostic 89) until task 5.2.2 ports them in defeq.fs
-\ (R4, R5).
+\ Structure eta and unit-like types in is_def_eq (R4, R5; task 5.2.2,
+\ defeq.fs steps 12 and 14): p and (p.1, p.2) equal either way round,
+\ two values of PUnit equal, as by Lean; a pair whose second field is not
+\ p.2, Bool (no structure) and a pair of units (Lean's own limitation
+\ BL-7) rejected, as by Lean.
 T{ s" unit.bool-not-unit-like" used -> outcome-rejected lf-diag-value-apart }T
 T{ s" unit.bool-variables" used -> outcome-rejected lf-diag-value-apart }T
 T{ s" unit.pair-of-units" used -> outcome-rejected lf-diag-value-apart }T
-T{ s" eta.structure" used -> outcome-unknown lf-diag-structure-pending }T
-T{ s" unit.punit" used -> outcome-unknown lf-diag-structure-pending }T
+T{ s" eta.structure" used -> outcome-ok 0 }T
+T{ s" eta.structure-left" used -> outcome-ok 0 }T
+T{ s" eta.structure-wrong-field" used -> outcome-rejected lf-diag-value-apart }T
+\ Init's WellFounded.extrinsicFix₂ needs R ⟨a, b⟩ x equal to
+\ R ⟨a, b⟩ ⟨x.1, x.2⟩ (structure eta on PSigma): its shape, accepted.
+T{ s" eta.psigma-extrinsic-fix" used -> outcome-ok 0 }T
+T{ s" unit.punit" used -> outcome-ok 0 }T
 \ C2's comparison of id Type with Type needs Lean's lazy delta reduction
 \ (accepted since plan task 4.2.2d). Unknown, unsupported and invalid:
 T{ s" params.constructor-binder-defeq" verdict nip -> outcome-ok 15 }T
@@ -408,8 +414,8 @@ T{ s" nested.non-positive" verdict-field -> outcome-unsupported lf-diag-block-sc
 \ (emptyBlock).
 T{ s" names.empty-block" verdict -> outcome-rejected lf-diag-empty-block 4 }T
 \ Two variables of a unit-like structure: Lean's is_def_eq_unit_like
-\ equates them, so D3/D5 must not call P x and P y apart (P4).
-T{ s" unit.punit-variables" verdict nip -> outcome-unknown 8 }T
+\ equates them, so D3/D5 must not call P x and P y apart (P4): accepted.
+T{ s" unit.punit-variables" used -> outcome-ok 0 }T
 
 \ ---------------------------------------------------------------------------
 \ 2. blocks.ndjson: N, Both, Same, Either, Nat, the mutual Even/Odd, List
