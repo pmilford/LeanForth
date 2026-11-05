@@ -1153,7 +1153,7 @@ of Lean's `whnf` (`whnf.fs`, agent U4) is on main, so:
   `whnf` and iota answer *unknown* for a generated recursor. Decision 14
   stands: a field type without an occurrence is still not put in whnf.
 - **Evidence** (2026-11-04, Gforth 1.0.0, Lean 4.35.0): 12 new table rows
-  (256 cases): iota without literals on `Bool`, `List` and `Nat.zero`
+  (268 cases with main's): iota without literals on `Bool`, `List` and `Nat.zero`
   (a rule's fields, its induction hypothesis, an argument after the major
   premise), `Eq.refl` (k), a stuck major premise, `Nat.succ` (K7), and
   positivity through `Bool.rec` (recursive, and erasing a negative
@@ -1164,8 +1164,8 @@ of Lean's `whnf` (`whnf.fs`, agent U4) is on main, so:
   (*unknown*: the port's "no" decides nothing until task 4.2.2d), the
   generated recursor of a type that is a Sort only after whnf (the
   rebuild still reads the raw telescope; a follow-up). Tasks 5.2.1a,
-  5.2.1b and 5.2.5a: 181 rows, ok 100, rejected 71, unknown 6, unsupported
-  4 (10 pending); none of the 256 decided against Lean. Planted faults:
+  5.2.1b and 5.2.5a: 182 rows, ok 101, rejected 71, unknown 6, unsupported
+  4 (10 pending); none of the 268 decided against Lean. Planted faults:
   four new on iota, five re-targeted, three deleted with the stand-in
   they broke; all caught.
 
