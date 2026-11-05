@@ -480,7 +480,7 @@ Declaration kinds, for orientation:
 | 5.1.3 | ADR: elimination from `Prop`, K-like reduction (`Eq`), structures, projections, structure eta | as above | 5.1.2 | [kernel] | M |
 | 5.1.4 | ADR: literals — `Nat` literals and the `Nat` operations Lean's kernel computes directly (list to confirm against 4.35.0 source), `String` literals | as above | 5.1.2 | [kernel] | M |
 | 5.1.5 | ADR: quotients (`Quot`, `Quot.mk`, `Quot.lift`, `Quot.ind`) | as above | 5.1.2 | [kernel] | M |
-| 5.2.1 | **Status (2026-11-04 late): in progress** — 5.2.1a done and approved; 5.2.1b merged, gate not passed (two wrong acceptances being fixed); 5.2.1c not started. Implement non-recursive inductives (`Bool`, `And`), then recursive (`Nat`, `List`), then indexed (`Eq`) — one gate each | Each gate passed with Lean-rejected mutants | 5.1.1–5.1.3 | [kernel], [import] | L (three M) |
+| 5.2.1 | **Status (2026-11-04 late): in progress** — 5.2.1a done and approved; 5.2.1b merged, gate not passed (two wrong acceptances being fixed); 5.2.1c in progress: K-like reduction (R2, Lean's `to_cnstr_when_K`) ported on branch `kl-k-like` (2026-11-05), gate open. Implement non-recursive inductives (`Bool`, `And`), then recursive (`Nat`, `List`), then indexed (`Eq`) — one gate each | Each gate passed with Lean-rejected mutants | 5.1.1–5.1.3 | [kernel], [import] | L (three M) |
 | 5.2.2 | Structures and projections | Gate passed | 5.2.1 | [kernel], [import] | M |
 | 5.2.3 | `lib/bignum.fs` and literal support (§6.12) | Bignum differential against Lean and Python integers; gate passed | 5.1.4 | [kernel] | M |
 | 5.2.4 | Quotients | Gate passed | 5.1.5, 5.3.1 | [kernel] | M |
