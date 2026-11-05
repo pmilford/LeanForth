@@ -41,28 +41,25 @@
 \ (which checks each leaf's shape, liveness and child order), and every
 \ comparison that can lead to acceptance audits both of its graphs
 \ (lf-minfer-compare, through lf-mixed-convert-keeping).
-\ The rejection analysis below keeps its own binders as bound variables
-\ too (see lf-minfer-close), and scratch a step no longer needs is
-\ discarded (lf-minfer-discard). As Lean, the innermost body's type of a
+\ Scratch a step no longer needs is discarded (lf-minfer-discard). As Lean, the innermost body's type of a
 \ chain of lambdas goes through cheap_beta_reduce (instantiate.cpp
 \ 211-230, type_checker.cpp 140; whnf.fs), since plan task 4.2.2c.
 \ Rejection ([kernel] code, not yet through the review gate): a type
 \ whose whnf is no Sort or Pi is Lean's typeExpected or funExpected,
 \ rejected with the codes of ADR 0011's rules S1, S2, S4 and F1, which
 \ Lean's ensure_sort_core and ensure_pi_core replace since plan task
-\ 4.2.2c. Where a comparison is undecided, rules D1-D5 (ADR 0011, ADR
-\ 0008 step 3: an argument's type and the function's domain are apart)
-\ may show that Lean's kernel certainly fails the same step, and the
-\ outcome is then rejected, recorded with the rule; otherwise it stays
-\ unknown, or exhausted or full when the analysis ran out of fuel or room
-\ (ADR 0008; since plan task 4.2.2c). Like every result here, a
-\ rejection holds only if the candidate signatures are the constants'
-\ true types: they are unchecked assumptions at this interface. The
-\ analysis only ever turns an unknown into rejected, exhausted or full,
-\ and is retired by plan task 4.2.2d. The proof test P2
-\ runs inference "aside": with no rule, on any live node (whnf results and
-\ inferred types, which the checker's own passes made from the audited
-\ input), discarding what it allocates.
+\ 4.2.2c. A comparison is Lean's is_def_eq (defeq.fs): its no is the
+\ step's exception, appTypeMismatch or declTypeMismatch, rejected (since
+\ plan task 4.2.2d, which retired ADR 0011's rules D1-D5); where the port
+\ cannot decide it is unknown, or exhausted or full. Like every result
+\ here, a rejection holds only if the candidate signatures are the
+\ constants' true types: they are unchecked assumptions at this
+\ interface. Inference "aside" is Lean's infer-only mode (infer_type,
+\ type_checker.cpp 360-362), for the comparison's typer (lf-minfer-typed:
+\ whether a term is a proof, its type for unit-like types): no rule, an
+\ application's argument neither inferred nor compared, any live node
+\ read (whnf results and inferred types, which the checker's own passes
+\ made from the audited input).
 \ Environment mode (plan task 2.2.3; [kernel] code, not yet through the
 \ review gate): a job started with lf-minfer-start-env, by
 \ check-declaration.fs, takes a constant's type from the checked
@@ -75,12 +72,11 @@
 \ depth, index token, the arena counts before the call, the scope (the
 \ opened binders' free variables and a Pi telescope's levels), whether
 \ inference runs aside, whether it runs in environment mode, a copy of a
-\ reference's levels, and the first shortage of fuel or room the
-\ rejection analysis met; a member of the checker context
+\ reference's levels; a member of the checker context
 \ (lib/context.fs). Lean's whnf (whnf.fs) runs on the job's frames.
 \ The local context is local-context.fs's: emptied when a job starts;
 \ discarding scratch (a binder domain's or an argument's inference, a
-\ Pi's, test P2, a level of the rejection analysis, a failure) drops the
+\ Pi's, a failure) drops the
 \ entries of the free variables it discards with them (lf-lctx-drop), so
 \ their numbers may be taken again and the entries never outnumber the
 \ live nodes. A node's intermediate results wait on the job's frames, an
@@ -127,11 +123,10 @@ begin-structure /lf-ijob
   field: lf-ijob-levels    \ level count before the call
   field: lf-ijob-crefs     \ reference count before the call
   field: lf-ijob-binders   \ free variables on the scope
-  field: lf-ijob-aside     \ true while inference runs aside, for test P2
+  field: lf-ijob-aside     \ true while inference runs aside (infer-only)
   field: lf-ijob-env       \ true in environment mode (lf-minfer-start-env)
   field: lf-ijob-argument  \ the argument an application's type is instantiated with
   field: lf-ijob-chain     \ for a lambda's lambda body, where the chain began, else -1
-  field: lf-ijob-short     \ the first exhausted or full the rejection analysis met, or 0
 end-structure
 0 lf-ijob-frames 0<> [if] .( mixed-infer.fs: frames must come first) cr abort [then]
 /lf-ijob context-record: lf-minfer-job
@@ -156,15 +151,9 @@ end-structure
 \ Rejection rules run only when inference does not run aside.
 : lf-minfer-deciding? ( -- flag ) lf-minfer-aside @ 0= ;
 : lf-minfer-env? ( -- flag ) lf-minfer-job lf-ijob-env @ ;
-\ The first time the rejection analysis runs out of fuel or room, which
-\ lf-minfer-agree reports (ADR 0008): the outcome, or 0.
-: lf-minfer-short ( -- addr ) lf-minfer-job lf-ijob-short ;
-: lf-minfer-shortage ( status -- )
-  dup outcome-exhausted = over outcome-full = or lf-minfer-short @ 0= and
-  if lf-minfer-short ! else drop then ;
 \ Mode flags are registers of the checker context, never shared between
 \ contexts: the aside flag here, set around one nested inference and
-\ restored (lf-minfer-proof-free?); the environment flag, set for a whole
+\ restored (lf-minfer-typed); the environment flag, set for a whole
 \ job by lf-minfer-start-env and cleared by lf-minfer-start; and the keep
 \ flags of the comparisons (mixed-convert's walk-arg, level-compare's
 \ lf-lcrec-keep), which each call sets afresh (lf-mixed-convert-keeping,
@@ -273,15 +262,15 @@ lf-walk-room context-walk2: lf-minfer-scan
   lf-minfer-handle 0= if drop false exit then 2>r
   lf-minfer-handle if 2r> true else 2r> 2drop false then ;
 
-\ Compare two types by conservative beta conversion, which validates both
-\ graphs with the shared fuel. An undecided comparison keeps the fuel it
-\ left, for the rejection analysis (a failed inference leaves no fuel in
-\ the end anyway).
+\ Compare two types by Lean's is_def_eq (conversion, which validates both
+\ graphs first), with the shared fuel, lending the comparison the typer
+\ (lf-minfer-typed, below). An undecided comparison keeps the fuel it
+\ left (a failed inference leaves no fuel in the end anyway).
 defer lf-minfer-typer ( node frames -- type outcome )
 : lf-minfer-convert ( left lid right rid -- status )
   ['] lf-minfer-typer lf-dq-typer !
   lf-minfer-fuel @ lf-mixed-convert-keeping lf-mconvert-fuel lf-minfer-refuel
-  0 lf-dq-typer ! outcome-sane dup lf-minfer-shortage ;
+  0 lf-dq-typer ! outcome-sane ;
 : lf-minfer-compare ( left right -- status )
   lf-minfer-handles if lf-minfer-convert else outcome-invalid then ;
 \ A Pi body with an argument put for its bound variable, as infer_app
@@ -366,14 +355,13 @@ defer lf-minfer-typer ( node frames -- type outcome )
   lf-minfer-context-depth @ 2dup < 0= if lf-minfer-unbound exit then
   swap - 1- lf-minfer-fvar-cell @ lf-minfer-fvar ;
 
-\ Inference and the rejection analysis run on the job's frames, an
-\ explicit stack that grows with the depth (lib/frame.fs; plan task
-\ 6.2.0): a node's visit is a chain of steps ( ... frames -- ... frames
-\ next ) that keep on the stack what they need across a child's visit.
-\ lf-minfer-walk ( node -- type status ) and lf-minfer-apart ( left right
-\ -- mask flag ) run one visit to its end, as a loop of its own from what
-\ the stack then holds, so that the analysis, test P2 and the callers
-\ outside can use them from inside a step.
+\ Inference runs on the job's frames, an explicit stack that grows with
+\ the depth (lib/frame.fs; plan task 6.2.0): a node's visit is a chain of
+\ steps ( ... frames -- ... frames next ) that keep on the stack what they
+\ need across a child's visit. lf-minfer-walk ( node -- type status ) runs
+\ one visit to its end, as a loop of its own from what the stack then
+\ holds, so that the typer and the callers outside can use it from inside
+\ a step.
 defer lf-minfer-walk ( node -- type status )
 
 \ After a step that succeeded, keep x and the step's result; otherwise drop
@@ -381,30 +369,26 @@ defer lf-minfer-walk ( node -- type status )
 : lf-minfer-step? ( x result status -- x result true | result status false )
   dup ok? if drop true else rot drop false then ;
 
-\ Definite rejection (ADR 0011). A rule runs only once the step it decides
-\ is undecided and has recorded why (not a Pi, not a Sort, terms differ):
-\ a rejection replaces that record with the rule's (lf-minfer-reject); an
-\ analysis that cannot decide leaves it, as the record keeps the first
-\ failure. The helpers report ok or a failure, and a failure leaves no
-\ fuel, so an analysis that goes on after one does nothing more.
+\ Rejection (ADR 0011, ADR 0014): a rejection replaces whatever was
+\ recorded with its own record (lf-minfer-reject). The helpers report ok
+\ or a failure, and a failure leaves no fuel.
 : lf-minfer-reject ( n1 site code -- outcome ) 0 -rot lf-diag! outcome-rejected ;
 \ The rejection of a comparison: (mask rejected) is recorded at site
-\ with code and the mask of rules; any other outcome passes.
+\ with code and the mask (0 since plan task 4.2.2d); any other outcome
+\ passes.
 : lf-minfer-verdict ( mask status site code -- status )
   2swap dup outcome-rejected = if drop -rot lf-minfer-reject else nip nip nip then ;
 : lf-minfer-take ( status addr -- status )
-  over ok? if lf-minfer-refuel else drop dup lf-minfer-shortage 0 lf-minfer-fuel ! then ;
-\ whnfB (ADR 0003 step 1) of a live node, with the job's fuel.
+  over ok? if lf-minfer-refuel else drop 0 lf-minfer-fuel ! then ;
+\ whnfB (ADR 0003 step 1) of a live node, with the job's fuel (for
+\ check-block.fs's stand-in, until plan task 5.2.1b moves it to whnf.fs).
 : lf-minfer-reduce ( node identity -- node' status )
   lf-minfer-fuel @ lf-mixed-beta nip outcome-sane lf-mbeta-fuel lf-minfer-take ;
 : lf-minfer-whnf ( node -- node' status )
   dup lf-term-identity if lf-minfer-reduce else drop -1 outcome-invalid then ;
-\ Lean's normalizes_to_zero on a level, with the job's fuel (S3, P2).
+\ Lean's normalizes_to_zero on a level, with the job's fuel (S3).
 : lf-minfer-zero? ( level -- flag status )
   lf-minfer-fuel @ lf-level-zero? lf-lvalue-fuel lf-minfer-take ;
-\ Both fields of two nodes, left first. Unchecked: both are valid.
-: lf-minfer-firsts ( left right -- l1 r1 ) lf-term-first@ swap lf-term-first@ swap ;
-: lf-minfer-seconds ( left right -- l2 r2 ) lf-term-second@ swap lf-term-second@ swap ;
 
 \ Lean's ensure_sort_core and ensure_pi_core (type_checker.cpp 62-83;
 \ ADR 0014 Q1, plan task 4.2.2c), which replace ADR 0011's rules S1, S2,
@@ -413,7 +397,7 @@ defer lf-minfer-walk ( node -- type status )
 \ the job's frames and fuel, must be one. A whnf that is neither is
 \ Lean's typeExpected (funExpected): rejected at site with code and the
 \ reduced type while deciding, as ADR 0011's rules recorded it; aside
-\ (test P2), where a failure only means "not known", unknown, recorded as
+\ (the typer), where a failure only means "not known", unknown, recorded as
 \ not a Sort (not a Pi) with the type. A whnf that fails passes its
 \ outcome on (unknown where Lean may reduce further than LeanForth yet,
 \ whnf.fs; exhausted, full, invalid).
@@ -430,234 +414,27 @@ defer lf-minfer-walk ( node -- type status )
   lf-minfer-deciding? if lf-minfer-site lf-diag-function-expected lf-minfer-reject
   else 0 lf-diag-not-pi lf-minfer-note outcome-unknown then ;
 
-\ The rejection analysis below compares terms under the binders it enters
-\ itself (D4), as before plan task 4.2.2a: a binder it enters gets a free
-\ variable on the scope, and the bodies keep their loose bound variables
-\ for those binders, innermost the scope's top, as inference reads a term
-\ under the scope. A term of the analysis is closed with the scope's free
-\ variables (lf-minfer-close), as D4's domains need and P2 does; terms
-\ read under binders that a caller opened itself (check-block.fs) close
-\ the same way. Comparing and reducing such terms needs no closing.
-
-\ P2, "known not to be a proof": node's type T and T's type infer, and the
-\ latter's whnfB is Sort l with l not zero under every assignment, so
-\ Lean's is_prop of T is false (fact 6). Inference runs aside on the
-\ closed node, its free variables those of the local context; every
-\ failure means "not known". The arena counts and the aside flag are
-\ restored afterwards.
-: lf-minfer-type2 ( node -- type status )
-  lf-minfer-walk dup ok? if drop lf-minfer-walk then ;
-: lf-minfer-nonzero? ( level -- flag ) lf-minfer-zero? ok? if 0= else drop false then ;
-\ A failure means "not known"; one for want of fuel or room is kept for
-\ lf-minfer-agree (lf-minfer-shortage).
-: lf-minfer-unknown ( status -- false ) lf-minfer-shortage false ;
-: lf-minfer-sorted-free? ( type -- flag )
-  lf-minfer-whnf ok-then? 0= if lf-minfer-unknown exit then
-  lf-minfer-sort? if lf-minfer-nonzero? else false then ;
-: lf-minfer-free? ( node -- flag )
-  lf-minfer-close ok-then? 0= if lf-minfer-unknown exit then
-  lf-minfer-type2 ok-then? if lf-minfer-sorted-free? else lf-minfer-unknown then ;
-\ The arena counts, kept on the data stack around work whose allocations
-\ are discarded (the return stack has less room for recursion).
-: lf-minfer-counts ( -- terms levels crefs )
-  lf-term-count @ lf-level-count @ lf-cref-count @ ;
-: lf-minfer-counts! ( terms levels crefs -- )
-  lf-cref-count ! lf-level-count ! dup lf-term-count ! lf-lctx-drop ;
-: lf-minfer-proof-free? ( node -- flag )
-  >r lf-minfer-counts lf-minfer-aside @ r> true lf-minfer-aside !
-  lf-minfer-free? swap lf-minfer-aside ! >r lf-minfer-counts! r> ;
-: lf-minfer-free2? ( left right -- flag )
-  swap lf-minfer-proof-free? if lf-minfer-proof-free? else drop false then ;
-
-\ D1-D5: whether an inferred type (left) and an expected type (right),
-\ both well typed in the local context, are apart, so that Lean's
-\ is_def_eq is certainly false: (mask true), mask being the rules used
-\ from the pair down to the pair that decided, or (0 false). The pair is
-\ closed at the start; below a D4 level it is open for the analysis's own
-\ binders (see lf-minfer-close). Each level reduces both sides; see
-\ lf-minfer-apart-call for its cost.
-1 constant lf-rule-d1
-2 constant lf-rule-d2
-4 constant lf-rule-d3
-8 constant lf-rule-d4
-16 constant lf-rule-d5
-defer lf-minfer-apart ( left right -- mask flag )
-: lf-minfer-holds ( flag bit -- mask flag ) over and swap ;
-: lf-minfer-via ( mask flag bit -- mask' flag ) over if rot or swap else drop then ;
-: lf-minfer-whnf2 ( left right -- left' right' true | false )
-  swap lf-minfer-whnf ok-then? 0= if 2drop false exit then
-  swap lf-minfer-whnf ok-then? if true else 2drop false then ;
-: lf-minfer-kinds ( left right -- left right kl kr )
-  2dup swap lf-mhead-kind swap lf-mhead-kind ;
-\ D1: two Sorts whose levels Lean's is_equivalent calls different (fact 5,
-\ ADR 0011 Amendment 1); no precondition, as quick_is_def_eq decides two
-\ Sorts at once.
-: lf-minfer-sorts-apart ( left right -- mask flag )
-  lf-minfer-firsts lf-minfer-fuel @ lf-level-inequivalent? lf-lcmp-fuel lf-minfer-take
-  ok? and lf-rule-d1 lf-minfer-holds ;
-\ Each level of the analysis is a visit on the job's frames: a frame and
-\ a unit of fuel, as an inference visit takes; with neither left (no fuel,
-\ or a stack the heap cannot grow), the pair is not shown apart. A level's
-\ steps ( ... frames -- ... frames next ) end with ( mask flag frames 0 );
-\ lf-minfer-apart-call asks for a level's visit of a pair, continuing with
-\ cont ( mask flag frames -- ... ). The diagnostics of the refusals are
-\ inference's (lf-minfer-room).
+\ Comparing an inferred type (left) with an expected type (right): Lean's
+\ is_def_eq through conversion (defeq.fs, mixed-convert.fs), (0 ok) when
+\ equal, (0 rejected) when Lean says no, which the caller reports as its
+\ step's exception with lf-minfer-verdict (appTypeMismatch,
+\ declTypeMismatch, check-block's constructor parameter); otherwise (0
+\ outcome), the comparison's own. The 0 is where ADR 0011's rejection
+\ analysis kept the mask of its rules D1-D5, each a sufficient condition
+\ for Lean's no, which the port computes itself: plan task 4.2.2d retired
+\ the analysis (ADR 0014 Q1), after a cross-check in which it never showed
+\ apart a pair the port did not reject (or run out of fuel on).
+: lf-minfer-agree ( left right -- mask status ) lf-minfer-compare 0 swap ;
+\ A frame and a unit of fuel for each visit; the diagnostics of the
+\ refusals are inference's.
 : lf-minfer-frames-full ( -- ) lf-minfer-frames frame-room@ lf-diag-frame-limit lf-minfer-note ;
 : lf-minfer-refused ( outcome -- outcome )
   dup outcome-full = if lf-minfer-frames-full exit then
   dup outcome-exhausted = if lf-minfer-fuel @ lf-minfer-site lf-diag-exhausted then ;
 : lf-minfer-room ( frames -- outcome ) frame-admit dup ok? 0= if lf-minfer-refused then ;
-defer lf-minfer-apart-step ( left right frames -- ... frames next )
-: lf-minfer-apart-call ( left right frames cont -- ... frames next )
-  over lf-minfer-room dup ok? 0= if lf-minfer-shortage 2>r 2drop 0 false 2r> exit then
-  drop ['] lf-minfer-apart-step frame-open ;
-\ D3 and D5, two variables with arguments (is_def_eq_app, 878-895, needs
-\ the same head and number): a different number of arguments, or
-\ different variables known not to be proofs, are apart (D3); the same
-\ variable and number are apart when some argument pair is (D5), the
-\ pairs compared last argument first, each a level of its own. A head is
-\ a free variable (of inference's binders) or a bound one (of the
-\ analysis's): the same variable when both tag and number are.
-: lf-minfer-count ( node -- count ) lf-mhead-spine nip ;
-: lf-minfer-head ( node -- head ) lf-mhead-spine drop ;
-: lf-minfer-variable ( node -- index tag )
-  lf-minfer-head dup lf-term-first@ swap lf-term-tag@ ;
-: lf-minfer-same-head? ( left right -- flag )
-  lf-minfer-variable rot lf-minfer-variable rot = >r = r> and ;
-: lf-minfer-d5 ( left right mask -- mask' true ) nip nip lf-rule-d5 or true ;
-\ count argument pairs left, from left right down their functions; left,
-\ right and count wait on the stack while the last pair is compared.
-defer lf-minfer-args-apart ( left right count frames -- ... frames next )
-: lf-minfer-args-back ( mask flag frames -- ... frames next )
-  >r r@ frame-restore r@ frame-restore r@ frame-restore   ( mask flag left right count )
-  >r 2swap r> swap if drop lf-minfer-d5 r> 0 exit then
-  nip >r lf-minfer-firsts r> 1- r> ['] lf-minfer-args-apart ;
-: lf-minfer-args-step ( left right count frames -- ... frames next )
-  over 0= if >r drop 2drop 0 false r> 0 exit then
-  >r r@ frame-save 2dup r@ frame-save r@ frame-save
-  lf-minfer-seconds r> ['] lf-minfer-args-back lf-minfer-apart-call ;
-' lf-minfer-args-step is lf-minfer-args-apart
-: lf-minfer-heads ( left right -- head head' ) lf-minfer-head swap lf-minfer-head swap ;
-: lf-minfer-heads-apart ( left right -- mask flag )
-  lf-minfer-heads lf-minfer-free2? lf-rule-d3 lf-minfer-holds ;
-: lf-minfer-arity? ( left right -- left right count true | false )
-  2dup lf-minfer-count swap lf-minfer-count over = if true else drop 2drop false then ;
-\ P4 (plan task 5.2.1a): once inductive types can be in the environment,
-\ Lean's last route, is_def_eq_unit_like (type_checker.cpp 1119-1130,
-\ called at 1203), makes two terms equal when the left one's type, after
-\ whnf, is a structure whose one constructor has no field (PUnit) and
-\ their types are equal -- also after is_def_eq_app has failed. So two
-\ variable-headed terms are shown apart (D3, D5) only when the left one's
-\ type, inferred aside, has after whnfB a head that is no constant: Lean's
-\ whnf leaves such a type as it is (ADR 0011 fact 3), so it is no
-\ structure. A type headed by a constant, or one that cannot be inferred,
-\ leaves the pair undecided.
-: lf-minfer-type-kind ( node -- kind )
-  lf-minfer-walk ok-then? 0= if lf-minfer-shortage lf-head-none exit then
-  lf-minfer-whnf ok-then? if lf-mhead-kind else lf-minfer-shortage lf-head-none then ;
-: lf-minfer-kind-aside ( node -- kind )
-  >r lf-minfer-counts lf-minfer-aside @ r> true lf-minfer-aside !
-  lf-minfer-type-kind swap lf-minfer-aside ! >r lf-minfer-counts! r> ;
-: lf-minfer-unit-free? ( node -- flag )
-  lf-minfer-kind-aside dup lf-head-constant <> swap lf-head-none <> and ;
-: lf-minfer-vars-apart ( left right frames -- ... frames next )
-  >r over lf-minfer-unit-free? 0= if 2drop 0 false r> 0 exit then
-  lf-minfer-arity? 0= if lf-rule-d3 true r> 0 exit then
-  >r 2dup lf-minfer-same-head?
-  if r> r> lf-minfer-args-apart else r> drop lf-minfer-heads-apart r> 0 then ;
-\ D4, two Pis or two lambdas (is_def_eq_binding, 752-779; ADR 0003
-\ Amendment 1, owner answers G6 and G7): when the domains are equal by the
-\ cautious comparison, the pair is apart when the bodies are, the variable
-\ having the right (expected) side's domain (B2): a new free variable of
-\ that domain, closed, on the scope (Lean's is_def_eq_binding, 766-772),
-\ which the bodies' loose bound variable 0 now stands for; otherwise when
-\ the domains are apart. A binder that cannot be entered (no room or fuel)
-\ is not apart.
-: lf-minfer-enter-binder ( domain -- status )
-  lf-minfer-close ok-then? if 0 lf-minfer-bind then dup lf-minfer-shortage ;
-\ The result of D4's comparison, of the bodies with the scope's depth
-\ before their binder (base) waiting on the stack, or of the domains.
-: lf-minfer-d4 ( mask flag frames -- mask' flag frames 0 ) >r lf-rule-d4 lf-minfer-via r> 0 ;
-: lf-minfer-bodies-back ( mask flag frames -- mask' flag frames 0 )
-  >r r@ frame-restore lf-minfer-unbind r> lf-minfer-d4 ;
-: lf-minfer-bodies-apart ( left right frames -- ... frames next )
-  >r lf-minfer-context-depth @ -rot dup lf-term-first@ lf-minfer-enter-binder ok?
-  if rot r@ frame-save lf-minfer-seconds r> ['] lf-minfer-bodies-back lf-minfer-apart-call
-  else 2drop lf-minfer-unbind 0 false r> lf-minfer-d4 then ;
-: lf-minfer-binders-apart ( left right frames -- ... frames next )
-  >r 2dup lf-minfer-firsts lf-minfer-compare
-  dup ok? if drop r> lf-minfer-bodies-apart exit then
-  dup outcome-unknown = swap outcome-rejected = or
-  if lf-minfer-firsts r> ['] lf-minfer-d4 lf-minfer-apart-call exit then
-  2drop 0 false r> lf-minfer-d4 ;
-\ One level: two Sorts by D1; otherwise P1 (both rigid) and P3 (not
-\ exactly one a lambda) on the shapes, P2 on both sides (no proof
-\ irrelevance), then D2 for different shapes among Sort, Pi and bound
-\ variable, D3/D5 for two bound variables, D4 for two binders. Kinds
-\ that are no shape (a constant: K1; lf-head-applied, lf-head-none) are
-\ never apart.
-: lf-minfer-one-lam? ( kl kr -- flag ) lf-head-lam = swap lf-head-lam = xor ;
-: lf-minfer-shapes? ( kl kr -- flag )
-  2dup lf-minfer-one-lam? 0= -rot lf-mhead-shape? swap lf-mhead-shape? and and ;
-: lf-minfer-shapes-apart ( left right kl kr frames -- ... frames next )
-  >r 2dup <> if 2drop 2drop lf-rule-d2 true r> 0 exit then
-  drop lf-head-var = if r> lf-minfer-vars-apart else r> lf-minfer-binders-apart then ;
-: lf-minfer-rigid-apart ( left right kl kr frames -- ... frames next )
-  >r 2dup lf-minfer-shapes? 0= if 2drop 2drop 0 false r> 0 exit then
-  2over lf-minfer-free2? if r> lf-minfer-shapes-apart else 2drop 2drop 0 false r> 0 then ;
-: lf-minfer-sorts? ( kl kr -- flag ) lf-head-sort = swap lf-head-sort = and ;
-: lf-minfer-apart-visit ( left right frames -- ... frames next )
-  >r lf-minfer-whnf2 0= if 0 false r> 0 exit then lf-minfer-kinds
-  2dup lf-minfer-sorts? if 2drop lf-minfer-sorts-apart r> 0 else r> lf-minfer-rigid-apart then ;
-\ A level's first step: it keeps the arena counts (terms on top) and the
-\ step that restores them when the level returns, discarding the nodes,
-\ levels and references it made.
-: lf-minfer-counts-save ( frames -- )
-  >r lf-minfer-counts r@ frame-save r@ frame-save r> frame-save ;
-: lf-minfer-restored ( mask flag frames -- mask flag frames 0 )
-  >r r@ frame-restore r@ frame-restore r@ frame-restore lf-minfer-counts! r> 0 ;
-: lf-minfer-apart-begin ( left right frames -- ... frames next )
-  dup lf-minfer-counts-save ['] lf-minfer-restored over frame-save lf-minfer-apart-visit ;
-' lf-minfer-apart-begin is lf-minfer-apart-step
-: lf-minfer-apart-run ( left right -- mask flag )
-  lf-minfer-frames ['] lf-minfer-apart-call frame-through drop ;
-' lf-minfer-apart-run is lf-minfer-apart
-
-\ Compare an inferred type (left) with an expected type (right), in
-\ Lean's order: (0 ok) when equal; (mask rejected) when the comparison is
-\ undecided and D1-D5 show the pair apart; else (0 outcome), the
-\ comparison's own. The analysis begins at the scope's current depth.
-: lf-minfer-mismatch ( left right -- mask flag )
-  lf-minfer-deciding? 0= if 2drop 0 false exit then
-  0 lf-minfer-short ! lf-minfer-apart ;
-\ A pair the analysis did not show apart is unknown -- or exhausted (full)
-\ when the analysis ran out of fuel (room) first, or had none to begin
-\ with: with more it might have shown the pair apart, so by ADR 0008's
-\ order the limit decides (an exhaustion recorded as such, replacing the
-\ comparison's note). CLI2's finding of 2026-11-04: before, such a check
-\ was unknown.
-: lf-minfer-ran-out ( -- status )
-  lf-minfer-fuel @ lf-minfer-site lf-diag-fuel 0 -rot lf-diag! outcome-exhausted ;
-: lf-minfer-undecided ( -- status )
-  lf-minfer-deciding? 0= if outcome-unknown exit then
-  lf-minfer-short @ dup outcome-exhausted = if drop lf-minfer-ran-out exit then
-  ?dup if exit then lf-minfer-fuel @ 0> if outcome-unknown else lf-minfer-ran-out then ;
-\ TEMPORARY, for plan task 4.2.2d's switch (removed with the analysis):
-\ with lf-xc-on set, every comparison inference decides is also given to
-\ ADR 0011's analysis, on fuel of its own, the diagnostic and the fuel
-\ restored after, and each pair the analysis shows apart is printed
-\ with the port's answer: XC <port outcome> <mask>; a pair the port
-\ rejects that the analysis does not show apart prints XC-NEW.
-variable lf-xc-on
-: lf-xc-print ( status mask flag -- )
-  if ." XC " swap outcome-text type space . cr exit then drop
-  outcome-rejected = if ." XC-NEW" cr then ;
-: lf-xc-check ( left right status -- )
-  lf-xc-on @ lf-minfer-deciding? and 0= if drop 2drop exit then
-  >r lf-diag@ 2>r 2>r lf-minfer-fuel @ >r 1000000 lf-minfer-fuel !
-  lf-minfer-mismatch r> lf-minfer-fuel ! 2r> 2r> lf-diag! r> -rot lf-xc-print ;
-: lf-minfer-agree ( left right -- mask status )
-  2dup lf-minfer-compare dup >r lf-xc-check 0 r> ;
+\ A binder a caller enters itself (check-block.fs): its domain, a term
+\ read under the scope, closed, as the scope's next free variable.
+: lf-minfer-enter-binder ( domain -- status ) lf-minfer-close ok-then? if 0 lf-minfer-bind then ;
 
 \ Inference's visits. lf-minfer-call asks for the visit of node,
 \ continuing with cont ( type status frames -- ... ); the visit's first
@@ -669,7 +446,7 @@ variable lf-xc-on
 \ function's type must be a Pi, after whnf when it is no visible one
 \ (ensure_pi_core: otherwise rejected, funExpected, or the whnf's
 \ failure), the argument's type must convert to its domain (otherwise
-\ unknown, or rejected by D1-D5: appTypeMismatch), and the type is the Pi
+\ unknown, or rejected when Lean says no: appTypeMismatch), and the type is the Pi
 \ body instantiated with the argument. The argument waits on the stack
 \ while the function's type is inferred; the body, the argument, the
 \ domain and the term count before the argument's inference (its scratch
@@ -705,8 +482,8 @@ variable lf-xc-on
   tuck frame-save ['] lf-minfer-app-fn lf-minfer-call ;
 
 \ Source nodes lie below the term count at the start; inference that runs
-\ aside (test P2) reads every live node, among them the closed copies P2
-\ infers, whose free variables are read through their entries.
+\ aside (the typer) reads every live node, among them the closed copies
+\ it infers, whose free variables are read through their entries.
 : lf-minfer-source? ( node -- flag )
   dup 0< 0= swap lf-minfer-job lf-ijob-terms @ < and lf-minfer-aside @ or ;
 : lf-minfer-read ( node -- first second tag true | false )
@@ -735,7 +512,7 @@ variable lf-xc-on
 \ binder (level 0 beside it). Two such terms compare with lf-minfer-agree
 \ as their closed copies would (Lean compares closed terms,
 \ inductive.cpp 456-497): the comparison is structural on equal depths,
-\ and the analysis closes what it infers with the whole scope.
+\ and the typer closes what it infers with the whole scope.
 : lf-minfer-domain ( domain -- level status )
   lf-minfer-walk dup ok? if drop lf-minfer-domain-sort then ;
 : lf-minfer-push ( domain -- outcome ) lf-minfer-enter-binder ;
@@ -939,13 +716,14 @@ variable lf-xc-on
   r> lf-minfer-aside ! lf-minfer-fuel @ r> frame-fuel ! ;
 ' lf-minfer-typed is lf-minfer-typer
 
-\ Host stacks. Inference and the analysis keep every level on the job's
-\ frames (plan task 6.2.0), so their host-stack use does not grow with the
+\ Host stacks. Inference and conversion keep every level on their frames
+\ (plan task 6.2.0), so their host-stack use does not grow with the
 \ depth: a step holds a few cells while it runs, and the loops that nest
-\ are few -- inference's; within its step, the analysis's (lf-minfer-agree);
-\ within an analysis step, an inference aside (test P2, the unit check),
-\ which never runs the analysis again (it has no rule); and within any of
-\ them conversion, whose beta reductions nest instantiate and shift
+\ are few -- inference's; within its step, a comparison's (lf-minfer-agree,
+\ defeq.fs); within a comparison step, the typer's inference aside, which
+\ never compares (infer-only), or a whnf of its own; within the typer's
+\ step, a whnf on the job's frames; and within any of them a substitution
+\ pass, beta reductions that nest instantiate and shift
 \ passes (lf-mbeta-*-cells), or a level comparison's normalize
 \ (lf-lnorm-*-cells, level-normalize.fs), never both. lf-minfer-loop-cells
 \ bounds a loop with its step's words, generously (the deepest painted

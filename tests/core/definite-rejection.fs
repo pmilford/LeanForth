@@ -125,7 +125,10 @@ T{ model-checks @ 5000 > -> true }T
 \ ---------------------------------------------------------------------------
 \ Keeping comparisons: the outcome is the same; only an undecided level
 \ comparison (Lean's is_equivalent false, ADR 0011 Amendment 1) keeps its
-\ fuel instead of none, concrete levels such as 1 and 2 too.
+\ fuel instead of none, concrete levels such as 1 and 2 too. A conversion
+\ of two Sorts of inequivalent levels is Lean's no, rejected since plan
+\ task 4.2.2d, which leaves no fuel, keeping or not (only an unknown
+\ comparison keeps it).
 fresh-session
 T{ level-u level-v 1000 lf-level-compare lf-lcmp-fuel @ -> outcome-unknown 0 }T
 T{ level-u level-v 1000 lf-level-compare-keeping lf-lcmp-fuel @ 0>
@@ -138,10 +141,10 @@ T{ level-u level-u 1000 both-modes -> outcome-ok outcome-ok true }T
 T{ level-u level-v 3 both-modes -> outcome-exhausted outcome-exhausted true }T
 T{ level-u level-v -1 lf-level-compare-keeping lf-lcmp-fuel @ -> outcome-invalid 0 }T
 : sorts ( -- su sid sv vid ) level-u make-sort handle level-v make-sort handle ;
-T{ sorts 1000 lf-mixed-convert lf-mconvert-fuel @ -> outcome-unknown 0 }T
-T{ sorts 1000 lf-mixed-convert-keeping lf-mconvert-fuel @ 0> -> outcome-unknown true }T
+T{ sorts 1000 lf-mixed-convert lf-mconvert-fuel @ -> outcome-rejected 0 }T
+T{ sorts 1000 lf-mixed-convert-keeping lf-mconvert-fuel @ 0> -> outcome-rejected false }T
 \ The flag is per call: a keeping call does not leak into the next one.
-T{ sorts 1000 lf-mixed-convert lf-mconvert-fuel @ -> outcome-unknown 0 }T
+T{ sorts 1000 lf-mixed-convert lf-mconvert-fuel @ -> outcome-rejected 0 }T
 
 \ ---------------------------------------------------------------------------
 \ Head kinds of reduced terms.
@@ -168,7 +171,10 @@ T{ lf-head-lam lf-mhead-shape? lf-head-applied lf-mhead-shape? -> true false }T
 
 \ ---------------------------------------------------------------------------
 \ Inference. Each term is built in a fresh session; the outcome, the code
-\ and first number recorded, and Lean's verdict on the same term.
+\ and first number recorded, and Lean's verdict on the same term. The
+\ rejections named after ADR 0011's rules D1-D5 are Lean's is_def_eq
+\ answering no since plan task 4.2.2d (the first number, once the mask of
+\ the rules used, is 0).
 variable tok
 : infer ( root -- type identity status ) >r tok @ r> handle 50000 lf-mixed-infer ;
 : checked ( root -- status code n1 )
@@ -205,42 +211,43 @@ T{ s2-beta checked drop -> outcome-ok lf-diag-none }T
 \ D1: fun (f : Prop -> Prop) => f Prop (appTypeMismatch).
 : d1-term ( -- node )
   fresh 0 make-sort 0 make-sort make-pi 0 make-var 0 make-sort make-app make-lam ;
-T{ d1-term checked -> outcome-rejected lf-diag-argument-apart 1 }T
+T{ d1-term checked -> outcome-rejected lf-diag-argument-apart 0 }T
 \ D2: fun (A : Prop) (f : A -> Prop) => f A (appTypeMismatch).
 : d2-term ( -- node )
   fresh 0 make-sort 0 make-var 0 make-sort make-pi 0 make-var 1 make-var make-app
   make-lam make-lam ;
-T{ d2-term checked -> outcome-rejected lf-diag-argument-apart 2 }T
+T{ d2-term checked -> outcome-rejected lf-diag-argument-apart 0 }T
 \ D3: fun (A B : Prop) (f : A -> Prop) (b : B) => f b (appTypeMismatch).
 : d3-term ( -- node )
   fresh 0 make-sort 0 make-sort 1 make-var 0 make-sort make-pi 1 make-var
   1 make-var 0 make-var make-app make-lam make-lam make-lam make-lam ;
-T{ d3-term checked -> outcome-rejected lf-diag-argument-apart 4 }T
+T{ d3-term checked -> outcome-rejected lf-diag-argument-apart 0 }T
 \ D4 then D2: fun (A : Prop) (f : (A -> A) -> Prop) (g : A -> Prop) => f g.
 : d4-term ( -- node )
   fresh 0 make-sort 0 make-var 1 make-var make-pi 0 make-sort make-pi
   1 make-var 0 make-sort make-pi 1 make-var 0 make-var make-app
   make-lam make-lam make-lam ;
-T{ d4-term checked -> outcome-rejected lf-diag-argument-apart 10 }T
+T{ d4-term checked -> outcome-rejected lf-diag-argument-apart 0 }T
 \ D5 then D3: fun (A : sort) (P : A -> Prop) (x y : A) (k : P x -> Prop)
 \ (h : P y) => k h. With A : Type, Lean says appTypeMismatch; with
-\ A : Prop, x and y are proofs and Lean equates them (K2): unknown.
+\ A : Prop, x and y are proofs and Lean equates them (K2): unknown, the
+\ step of proof irrelevance (diagnostic 87, plan task 4.2.5).
 : d5-term ( sort-level -- node )
   fresh make-sort 0 make-var 0 make-sort make-pi 1 make-var 2 make-var
   2 make-var 1 make-var make-app 0 make-sort make-pi 3 make-var 1 make-var make-app
   1 make-var 0 make-var make-app make-lam make-lam make-lam make-lam make-lam make-lam ;
-T{ 1 d5-term checked -> outcome-rejected lf-diag-argument-apart 20 }T
-T{ 0 d5-term checked drop -> outcome-unknown lf-diag-undecided }T
+T{ 1 d5-term checked -> outcome-rejected lf-diag-argument-apart 0 }T
+T{ 0 d5-term checked drop -> outcome-unknown lf-diag-proof-pending }T
 \ K3: fun (A : Type) (P : A -> Prop) (k : (A -> Prop) -> Prop)
 \ (q : k (fun y => P y) -> Prop) (h : k P) => q h: equal only by eta, which
-\ Lean uses (it accepts); unknown.
+\ Lean uses (it accepts); unknown (diagnostic 88, plan task 4.2.4).
 : k3-term ( -- node )
   fresh 1 make-sort 0 make-var 0 make-sort make-pi
   1 make-var 0 make-sort make-pi 0 make-sort make-pi
   0 make-var 2 make-var 2 make-var 0 make-var make-app make-lam make-app
   0 make-sort make-pi 1 make-var 2 make-var make-app 1 make-var 0 make-var make-app
   make-lam make-lam make-lam make-lam make-lam ;
-T{ k3-term checked drop -> outcome-unknown lf-diag-undecided }T
+T{ k3-term checked drop -> outcome-unknown lf-diag-eta-pending }T
 \ Formerly K4: fun (A : Sort u) (f : Sort (max u u) -> Prop) => f A:
 \ Lean's level normalisation equates them (it accepts), and so does
 \ LeanForth since ADR 0011 Amendment 1 (ok).
@@ -249,11 +256,12 @@ T{ k3-term checked drop -> outcome-unknown lf-diag-undecided }T
   0 make-var 1 make-var make-app make-lam make-lam ;
 T{ k4-term checked 2drop -> outcome-ok }T
 \ K1: fun (A : Type) (f : k -> Prop) (x : A) => f x: A against the
-\ constant k, which might unfold; unknown.
+\ constant k, a signature candidate that does not say whether it unfolds
+\ (K1, diagnostic 64): unknown.
 : k1-term ( -- node )
   with-k 1 make-sort k-node 0 make-sort make-pi 1 make-var
   1 make-var 0 make-var make-app make-lam make-lam make-lam ;
-T{ k1-term checked drop -> outcome-unknown lf-diag-undecided }T
+T{ k1-term checked drop -> outcome-unknown lf-diag-needs-unfolding }T
 
 \ Bookkeeping after a rejection and after an undecided analysis: the arena
 \ counts are back, no binder is left, rules are on, no fuel is left.
@@ -298,50 +306,50 @@ T{ outcome-full outcome-rejected 2 outcome-set seen-all? -> true }T
 T{ seen @ outcome-full outcome-rejected 2 outcome-set invert and -> 0 }T
 .( room sweep outcomes seen, as bits: ) seen @ . cr
 
-\ D1 itself (ADR 0011, Amendment 1), white-box: two Sorts are apart
-\ exactly when Lean's is_equivalent is false for their levels, never just
-\ because the levels are written differently.
-: sorts-apart ( a b -- mask flag )
-  make-sort swap make-sort swap tok @ 1000 lf-minfer-start lf-minfer-sorts-apart ;
+\ Since plan task 4.2.2d the comparisons are Lean's is_def_eq (defeq.fs),
+\ whose no is a rejection, and ADR 0011's analysis (D1-D5, P1-P4) is
+\ retired: the pairs that pinned its rules, white-box, now pin the port's
+\ answer through lf-minfer-agree (a job started, so that the comparison
+\ has inference's typer): rejected where the analysis showed them apart,
+\ and unknown, with the step that may decide, where it did not (proof
+\ irrelevance, diagnostic 87; eta, 88). Two Sorts are apart exactly when
+\ Lean's is_equivalent is false for their levels, never just because the
+\ levels are written differently.
+: port ( left right -- outcome ) lf-minfer-agree nip ;
+: port-code ( left right -- outcome code ) lf-diag-clear port lf-diag-code@ ;
+: sorts-agree ( a b -- outcome )
+  make-sort swap make-sort swap tok @ 1000 lf-minfer-start port ;
 fresh
-T{ level-u level-u level-u max-of sorts-apart -> 0 false }T
-T{ level-u level-v max-of level-v level-u max-of sorts-apart -> 0 false }T
-T{ level-u level-v sorts-apart -> lf-rule-d1 true }T
-T{ 1 level-u next-level imax-of 1 level-u next-level max-of sorts-apart -> lf-rule-d1 true }T
-\ White-box: no frame left (a stack the heap cannot grow), or rules off
-\ (inference aside), is never apart.
+T{ level-u level-u level-u max-of sorts-agree -> outcome-ok }T
+T{ level-u level-v max-of level-v level-u max-of sorts-agree -> outcome-ok }T
+T{ level-u level-v sorts-agree -> outcome-rejected }T
+T{ 1 level-u next-level imax-of 1 level-u next-level max-of sorts-agree -> outcome-rejected }T
 : two-sorts ( -- s0 s1 ) fresh 0 make-sort 1 make-sort tok @ 1000 lf-minfer-start ;
-T{ two-sorts lf-minfer-apart -> lf-rule-d1 true }T
-T{ two-sorts lf-minfer-frames frame-free 1 heap-refusals ! lf-minfer-apart -> 0 false }T
-0 heap-refusals !
-T{ two-sorts true lf-minfer-aside ! lf-minfer-mismatch -> 0 false }T
-T{ fresh 0 make-sort 1 make-sort tok @ 0 lf-minfer-start lf-minfer-apart -> 0 false }T
-\ A context for the white-box tests below: each variable a free variable
-\ of the local context (core/local-context.fs) of the given type, made in
-\ a job started with lf-minfer-start (which empties the local context);
-\ the terms over them are closed, as every term inference compares is
-\ since plan task 4.2.2a (before it, they were bound variables of a
-\ binder context pushed by hand).
+T{ two-sorts port -> outcome-rejected }T
+\ No fuel at all: exhausted, never a verdict.
+T{ fresh 0 make-sort 1 make-sort tok @ 0 lf-minfer-start port -> outcome-exhausted }T
+\ A context for the tests below: each variable a free variable of the
+\ local context (core/local-context.fs) of the given type, made in a job
+\ started with lf-minfer-start (which empties the local context); the
+\ terms over them are closed, as every term inference compares is.
 : bind ( type -- fvar ) lf-lctx-local ok? must ;
 variable ctx-a variable ctx-p variable ctx-x variable ctx-y
 variable ctx-a1 variable ctx-b1 variable ctx-g variable ctx-q
-\ P3 directly, in the context A : Type, P : A -> Prop: P against fun (y :
-\ A) => P y is never apart (Lean equates them by eta), while P against
-\ Prop is (D2). The table's K3 cases fill the store before this pair.
+\ Eta, in the context A : Type, P : A -> Prop: P against fun (y : A) => P
+\ y is unknown in both orders (Lean equates them by eta, step 11, plan
+\ task 4.2.4), while P against Prop is Lean's no.
 : eta-context ( -- )
   fresh tok @ 1000 lf-minfer-start 1 make-sort bind ctx-a !
   ctx-a @ 0 make-sort make-pi bind ctx-p ! ;
 : eta-of-p ( -- node ) ctx-a @ ctx-p @ 0 make-var make-app make-lam ;
-T{ eta-context ctx-p @ eta-of-p lf-minfer-apart -> 0 false }T
-T{ eta-context eta-of-p ctx-p @ lf-minfer-apart -> 0 false }T
-T{ eta-context ctx-p @ 0 make-sort lf-minfer-apart -> lf-rule-d2 true }T
-\ P2 directly, on pairs where it alone keeps the analysis from D3 and D5
-\ (review M1): two proofs of one proposition are never apart, as Lean
-\ equates them (K2), while the same terms as data are. Context A : Type,
-\ P : Sort s, x : A -> P, y : P, a b : A. With s = 0, x a, x b and y are
-\ proofs, and Lean accepts a w : R (x a) as an R (x b) and as an R y; with
-\ s = 1, x a and x b are apart by their arguments (D5, D3), and x a and y
-\ by their counts (D3). Through the table such pairs fill the store first.
+T{ eta-context ctx-p @ eta-of-p port-code -> outcome-unknown lf-diag-eta-pending }T
+T{ eta-context eta-of-p ctx-p @ port-code -> outcome-unknown lf-diag-eta-pending }T
+T{ eta-context ctx-p @ 0 make-sort port -> outcome-rejected }T
+\ Proof irrelevance (step 4): two proofs of one proposition are unknown
+\ (Lean equates them; plan task 4.2.5), while the same terms as data are
+\ Lean's no. Context A : Type, P : Sort s, x : A -> P, y : P, a b : A.
+\ With s = 0, x a, x b and y are proofs; with s = 1, x a and x b differ
+\ by their arguments, and x a and y by their heads.
 : proof-context ( s -- )
   fresh tok @ 100000 lf-minfer-start 1 make-sort bind ctx-a ! make-sort bind ctx-p !
   ctx-a @ ctx-p @ make-pi bind ctx-x ! ctx-p @ bind ctx-y !
@@ -349,21 +357,14 @@ T{ eta-context ctx-p @ 0 make-sort lf-minfer-apart -> lf-rule-d2 true }T
 : x-a ( -- node ) ctx-x @ ctx-a1 @ make-app ;
 : x-b ( -- node ) ctx-x @ ctx-b1 @ make-app ;
 : y-var ( -- node ) ctx-y @ ;
-T{ 0 proof-context x-a x-b lf-minfer-apart -> 0 false }T
-T{ 0 proof-context x-a y-var lf-minfer-apart -> 0 false }T
-T{ 1 proof-context x-a x-b lf-minfer-apart -> lf-rule-d3 lf-rule-d5 or true }T
-T{ 1 proof-context x-a y-var lf-minfer-apart -> lf-rule-d3 true }T
-\ D4 enters the bodies under the right (expected) side's domain (ADR 0003
-\ Amendment 1, B2), and P2 then infers with it. Left:
-\ (x : Sort 1) -> (h j : x -> Prop) -> (z : x) -> j z; right: the same
-\ with x : (fun (X : Sort 2) => X) (Sort 1), a redex equal to Sort 1, and
-\ h z. Until plan task 4.2.2c, under the right domain x was no visible
-\ Sort, so h's type could not be inferred, P2 could not show h and j are
-\ not proofs, and the pair was not apart (Lean rejects, LeanForth stayed
-\ unknown). Since then inference puts x's type in whnf, as Lean's
-\ ensure_sort_core does: P2 infers h's type under either domain and the
-\ pair is apart, by D3 under D4, as Lean's kernel decides. This white-box
-\ test of lf-minfer-binders-apart pins the rule itself.
+T{ 0 proof-context x-a x-b port-code -> outcome-unknown lf-diag-proof-pending }T
+T{ 0 proof-context x-a y-var port-code -> outcome-unknown lf-diag-proof-pending }T
+T{ 1 proof-context x-a x-b port -> outcome-rejected }T
+T{ 1 proof-context x-a y-var port -> outcome-rejected }T
+\ is_def_eq_binding gives the bodies the right (expected) side's domain
+\ (ADR 0003 Amendment 1, B2). Left: (x : Sort 1) -> (h j : x -> Prop) ->
+\ (z : x) -> j z; right: the same with x : (fun (X : Sort 2) => X) (Sort
+\ 1), a redex equal to Sort 1, and h z: Lean's no, in both orders.
 : x-to-prop ( k -- node ) make-var 0 make-sort make-pi ;
 : d4-pair ( -- left right )
   fresh tok @ 100000 lf-minfer-start
@@ -372,62 +373,58 @@ T{ 1 proof-context x-a y-var lf-minfer-apart -> lf-rule-d3 true }T
   2 make-sort 0 make-var make-lam 1 make-sort make-app
   0 x-to-prop 1 x-to-prop 2 make-var 2 make-var 0 make-var make-app
   make-pi make-pi make-pi make-pi ;
-T{ d4-pair lf-minfer-apart -> lf-rule-d3 lf-rule-d4 or true }T
-\ lf-minfer-binders-apart is a step of the analysis (lib/frame.fs), run
-\ here on the job's frames from an empty stack.
-: binders-apart ( left right -- mask flag )
-  frame-need lf-minfer-frames frame-room? drop
-  lf-minfer-frames ['] lf-minfer-binders-apart frame-steps drop ;
-T{ d4-pair binders-apart -> lf-rule-d3 lf-rule-d4 or true }T
-T{ d4-pair swap binders-apart -> lf-rule-d3 lf-rule-d4 or true }T
+T{ d4-pair port -> outcome-rejected }T
+T{ d4-pair swap port -> outcome-rejected }T
 \ Two lambdas, fun (h : X) => h and fun (h : X) => g h, in the context
-\ X : Sort s, g : X -> X: proofs when s = 0 (Lean accepts one for the
-\ other), apart by their bodies' counts when s = 1 (D4, D3).
+\ X : Sort s, g : X -> X: proofs when s = 0 (unknown: Lean accepts one
+\ for the other), Lean's no when s = 1.
 : lam-context ( s -- )
   fresh tok @ 100000 lf-minfer-start make-sort bind ctx-a ! ctx-a @ dup make-pi bind ctx-g ! ;
 : lam-pair ( -- left right )
   ctx-a @ 0 make-var make-lam ctx-a @ ctx-g @ 0 make-var make-app make-lam ;
-T{ 0 lam-context lam-pair lf-minfer-apart -> 0 false }T
-T{ 0 lam-context lam-pair swap lf-minfer-apart -> 0 false }T
-T{ 1 lam-context lam-pair lf-minfer-apart -> lf-rule-d3 lf-rule-d4 or true }T
-\ Below a D4 level a head may be a bound variable (the analysis's own
+T{ 0 lam-context lam-pair port-code -> outcome-unknown lf-diag-proof-pending }T
+T{ 0 lam-context lam-pair swap port-code -> outcome-unknown lf-diag-proof-pending }T
+T{ 1 lam-context lam-pair port -> outcome-rejected }T
+\ Under a binder a head may be a bound variable (the comparison's own
 \ binder) or a free variable (inference's), and the two are different
 \ variables even when their numbers agree: in the context x : Type (the
 \ local context's entry 0), (y : Type) -> y against (y : Type) -> x is
-\ apart by D3 under D4, the heads #0 and x being different variables
-\ known not to be proofs.
+\ Lean's no.
 : head-pair ( -- left right )
   fresh tok @ 100000 lf-minfer-start 1 make-sort bind ctx-x !
   1 make-sort 0 make-var make-pi 1 make-sort ctx-x @ make-pi ;
 T{ head-pair 2drop ctx-x @ lf-fvar-number -> 0 }T
-T{ head-pair lf-minfer-apart -> lf-rule-d3 lf-rule-d4 or true }T
-\ P2 decides "not a proof" by Lean's normalizes_to_zero, not the level's
-\ spelling. Context P : Sort l, Q : P -> Prop, p q : P; the pair Q p
-\ against Q q. Sort (imax u 0) and Sort (max 0 0) are Prop, so p and q
-\ are proofs (Lean accepts; the table's proof-irrelevance-imax and
-\ -max-zero rows); under Sort u or Type they are not (D5, D3).
+T{ head-pair port -> outcome-rejected }T
+\ Whether a term is a proof is Lean's normalizes_to_zero of its type's
+\ type, not the level's spelling. Context P : Sort l, Q : P -> Prop,
+\ p q : P; the pair Q p against Q q. Sort (imax u 0) and Sort (max 0 0)
+\ are Prop, so p and q are proofs (unknown; Lean accepts: the table's
+\ proof-irrelevance-imax and -max-zero rows); under Sort u or Type they
+\ are not (Lean's no).
 : level-context ( level -- )
   tok @ 100000 lf-minfer-start make-sort bind ctx-p ! ctx-p @ 0 make-sort make-pi bind ctx-q !
   ctx-p @ bind ctx-a1 ! ctx-p @ bind ctx-b1 ! ;
 : q-pair ( -- left right ) ctx-q @ ctx-a1 @ make-app ctx-q @ ctx-b1 @ make-app ;
-: q-apart ( level -- mask flag ) level-context q-pair lf-minfer-apart ;
-T{ fresh level-u 0 imax-of q-apart -> 0 false }T
-T{ fresh 0 0 max-of q-apart -> 0 false }T
-T{ fresh 0 q-apart -> 0 false }T
-T{ fresh level-u q-apart -> lf-rule-d3 lf-rule-d5 or true }T
-T{ fresh 1 q-apart -> lf-rule-d3 lf-rule-d5 or true }T
-\ P2 leaves the aside flag as it found it, off or on (review L2).
-: aside-after ( node -- flag aside ) lf-minfer-proof-free? lf-minfer-aside @ ;
-T{ 0 proof-context y-var aside-after -> false false }T
-T{ 1 proof-context true lf-minfer-aside ! x-a aside-after -> true true }T
-\ Each level gives back what it allocated: (fun X : Type => X -> X) Prop
-\ reduces to a new Pi, apart from Type (D2); the counts are as before.
+: q-port ( level -- outcome ) level-context q-pair port ;
+T{ fresh level-u 0 imax-of q-port -> outcome-unknown }T
+T{ fresh 0 0 max-of q-port -> outcome-unknown }T
+T{ fresh 0 q-port -> outcome-unknown }T
+T{ fresh level-u q-port -> outcome-rejected }T
+T{ fresh 1 q-port -> outcome-rejected }T
+\ The typer (inference aside, Lean's infer-only mode) leaves the aside
+\ flag as it found it, off or on.
+: aside-after ( node -- aside ) lf-minfer-frames lf-minfer-typed 2drop lf-minfer-aside @ ;
+T{ 0 proof-context y-var aside-after -> false }T
+T{ 1 proof-context true lf-minfer-aside ! x-a aside-after -> true }T
+\ A comparison gives back what it allocated: (fun X : Type => X -> X)
+\ Prop reduces to a new Pi, Lean's no against Type; the counts are as
+\ before.
 : redex-pair ( -- left right )
   fresh 1 make-sort 0 make-var 1 make-var make-pi make-lam 0 make-sort make-app
   1 make-sort tok @ 1000 lf-minfer-start ;
-: apart-tidy ( left right -- mask flag same-counts? )
-  counts 2>r >r lf-minfer-apart r> 2r> same-counts? ;
-T{ redex-pair apart-tidy -> lf-rule-d2 true true }T
+: port-tidy ( left right -- outcome same-counts? )
+  counts 2>r >r port r> 2r> same-counts? ;
+T{ redex-pair port-tidy -> outcome-rejected true }T
 
 \ ---------------------------------------------------------------------------
 \ The probes. identity: forall (P : Prop) (x : P), P; and over Type.
@@ -453,9 +450,9 @@ T{ u-pair 50000 true probe drop -> outcome-rejected lf-diag-not-proposition }T
 T{ s1-pair 50000 true probe drop -> outcome-rejected lf-diag-type-expected }T
 T{ s1-pair 50000 false probe drop -> outcome-rejected lf-diag-type-expected }T
 \ D at the declaration: the value returns P, a proposition, where a proof
-\ of P is claimed (declTypeMismatch; D2 under D4).
+\ of P is claimed (declTypeMismatch; D2 under D4 before plan task 4.2.2d).
 T{ fresh 0 id-claim 0 bad-value 50000 true probe
-  -> outcome-rejected lf-diag-value-apart 10 }T
+  -> outcome-rejected lf-diag-value-apart 0 }T
 \ A claim whose binder domain's type is a redex: unknown until plan task
 \ 4.2.2c (no rule), accepted since, as by Lean (its whnf is a Sort).
 : beta-claim ( -- claim value )

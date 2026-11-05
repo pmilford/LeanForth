@@ -483,13 +483,15 @@ defer lf-ap-arg ( frames -- ... frames next )
   ?dup if lf-dq-no-field? ok-then? if lf-dq-lbool outcome-ok else 0 swap then
   else lf-dq-no outcome-ok then ;
 
-\ Steps 11 to 15. A step that cannot tell is unknown, recorded with both
-\ terms (diagnostic 85 unless something more specific came first).
+\ Steps 11 to 15. A step that cannot tell is unknown, recorded with the
+\ doubt when there is one, else with both terms (diagnostic 89 unless
+\ something more specific came first).
 : lf-dq-no-step ( frames -- false outcome frames 0 ) false swap lf-dq-end ;
 : lf-dq-gap ( outcome frames -- 0 outcome frames 0 )
-  >r dup outcome-unknown =
-  if r@ lf-dq-sides lf-dq-site lf-diag-structure-pending lf-diag-note then
-  r> lf-dq-end-failed ;
+  >r dup outcome-unknown = if
+    lf-dq-state lf-dqs-doubt @
+    if lf-dq-doubted else r@ lf-dq-sides lf-dq-site lf-diag-structure-pending lf-diag-note then
+  then r> lf-dq-end-failed ;
 : lf-dq-pending ( frames -- 0 outcome frames 0 )
   >r r@ lf-dq-sides lf-diag-structure-pending r> lf-dq-unknown ;
 : lf-dq-unit-step ( frames -- ... frames next )
