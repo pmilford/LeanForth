@@ -110,7 +110,8 @@ require ../lib/lib.fs
 83 constant lf-diag-mutual-params      \ T3: the D rules used, 0
 84 constant lf-diag-param-count        \ T3: the type, the parameter binders found
 85 constant lf-diag-universe-mismatch  \ T4: the type, 0
-\ Nat.pow and Nat.shiftLeft, until plan task 5.2.3 (review rvN1 B1).
+\ Nat.pow and Nat.shiftLeft, until plan task 5.2.3 (review rvN1 B1;
+\ retired: no check gives it since).
 86 constant lf-diag-nat-count-op       \ unsupported: the declaration, 0
 \ Lean's is_def_eq (ADR 0014; plan task 4.2.2d, kernel/defeq.fs): steps
 \ that could answer yes where LeanForth does not port them yet (unknown).
@@ -120,6 +121,9 @@ require ../lib/lib.fs
 90 constant lf-diag-not-defeq          \ rejected (Lean's no): left, right
 \ Projections (plan task 5.2.2; 87 to 90 are plan task 4.2.2d's).
 91 constant lf-diag-invalid-proj       \ J2 (rejected): the projection's leaf, 0
+\ Literals (plan task 5.2.3, kernel/reduce-nat.fs).
+92 constant lf-diag-nat-count          \ L1 (rejected): the operation's head, the count's limbs
+93 constant lf-diag-nat-size           \ full: the operation's head, 0
 
 begin-structure /lf-diag
   field: lf-diag-code       \ reason code; lf-diag-none while clear
@@ -292,6 +296,10 @@ create lf-diag-catalogue
     s" undecided: structure eta or a unit-like type may decide" lf-diag-entry,
   lf-diag-not-defeq s" rejected: not definitionally equal" lf-diag-entry,
   lf-diag-invalid-proj s" rejected: invalid projection (J2)" lf-diag-entry,
+  lf-diag-nat-count
+    s" rejected: Nat.pow or Nat.shiftLeft by 2^32 or more (L1)" lf-diag-entry,
+  lf-diag-nat-size
+    s" full: a Nat over the size limit, or no memory to compute it" lf-diag-entry,
   lf-diag-none s" unknown code" lf-diag-entry,
 : lf-diag-end? ( code entry -- flag ) lf-diag-entry-code tuck = swap lf-diag-none = or ;
 \ The entry of code, or the last entry.

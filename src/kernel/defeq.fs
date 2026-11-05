@@ -54,11 +54,12 @@
 \   typer the caller lends, Lean's infer_type in infer-only mode
 \   (lf-dq-typer: mixed-infer.fs, aside). Step 14 asks it for t's type.
 \ - lazy_delta_reduction loops, one unit of fuel a round. First
-\   is_def_eq_offset: both sides Nat.succ applications (by name) answer
-\   as their arguments compare; then, while neither side has a free
-\   variable or in eager mode, a side reduce_nat computes (its arguments'
-\   whnf are Nat.zero: a literal LeanForth lacks) is unknown (K7,
-\   diagnostic 82, plan task 5.2.3). Then one step
+\   is_def_eq_offset: both sides zero (the literal 0 or Nat.zero) is yes;
+\   both with a predecessor (a literal above 0, or Nat.succ x by name)
+\   answer as the predecessors compare; then, while neither side has a
+\   free variable or in eager mode, a side reduce_nat computes (K7,
+\   reduce-nat.fs; plan task 5.2.3) is replaced by its value, compared
+\   with the other side, and that is the answer. Then one step
 \   (lazy_delta_reduction_step): is_delta of each side (whnf.fs); neither,
 \   the loop ends undecided; one, it unfolds; both, compare's hints decide
 \   (declaration.cpp 24-49): the greater regular height first, the
@@ -261,8 +262,10 @@ defer lf-ar-visit ( t s frames -- ... frames next )
   ok-then? if lf-dq-lbool outcome-ok else lf-dq-undef swap then r> 0 ;
 : lf-qk-undecided ( t s frames -- lbool outcome frames 0 )
   >r 2drop lf-dq-undef outcome-ok r> 0 ;
+\ Two literals that are not == are not equal (quick_is_def_eq, Lit).
 : lf-qk-kinds ( t s frames -- ... frames next )
   >r 2dup lf-dq-tags? 0= if r> lf-qk-undecided exit then
+  over lf-dq-tag lf-tag-lit = if 2drop lf-dq-no outcome-ok r> 0 exit then
   over lf-dq-binder? if r> ['] lf-qk-bound lf-bd-call exit then
   over lf-dq-tag lf-tag-symbolic-sort = if r> lf-qk-sorts else r> lf-qk-undecided then ;
 :noname ( t s frames -- ... frames next )
@@ -406,6 +409,13 @@ defer lf-ap-arg ( frames -- ... frames next )
 : lf-dq-true? ( node -- flag )
   dup lf-whnf-const? if lf-whnf-cref lf-crec-name @ lf-dq-bool-true? else drop false then ;
 : lf-dq-succ? ( node -- flag ) dup lf-dq-count 1 = if lf-whnf-k7? else drop false then ;
+\ is_def_eq_offset's is_nat_zero and is_nat_succ: the literal 0 or
+\ Nat.zero; a literal above 0 or Nat.succ x, and its predecessor (x, or
+\ the literal one less: reduce-nat.fs).
+: lf-dq-nat-zero? ( node -- flag ) dup lf-lit-leaf? if lf-term-second@ 0= else lf-whnf-zero? then ;
+: lf-dq-pred? ( node -- flag ) dup lf-lit-leaf? if lf-term-second@ 0<> else lf-dq-succ? then ;
+: lf-dq-pred ( node -- pred outcome )
+  dup lf-lit-leaf? if lf-reduce-nat-pred else lf-term-second@ outcome-ok then ;
 
 \ ---------------------------------------------------------------------------
 \ Types, for steps 4 and 14 (see the header). A Sort or a Pi is a type,
@@ -610,30 +620,33 @@ defer lf-lz-loop ( frames -- ... frames next )
   swap lf-lz-delta ok-then? 0= if nip r> lf-dq-end-failed exit then
   r> lf-lz-decide ;
 \ The loop's first tests (1043-1066). is_def_eq_offset: both sides
-\ Nat.succ applications (by name, lf-dq-succ?) compare their arguments by
-\ is_def_eq_core, and that is the answer (two Nat.zero constants are ==
-\ and answered before; LeanForth has no literals). Then, when neither
-\ side has a free variable or in eager mode, reduce_nat on tn, then on
-\ sn: where it computes (whnf.fs, lf-whnf-nat-call), unknown (K7,
-\ diagnostic 82, plan task 5.2.3); otherwise the step.
+\ zero is yes; both with a predecessor (lf-dq-pred, by name for Nat.succ)
+\ compare those by is_def_eq_core, and that is the answer. Then, when
+\ neither side has a free variable or in eager mode, reduce_nat on tn,
+\ then on sn (whnf.fs, lf-whnf-nat-call): where it computes v,
+\ is_def_eq_core of v and the other side is the answer (plan task
+\ 5.2.3); otherwise the step.
 : lf-lz-offset-back ( flag outcome frames -- ... frames next )
   >r ok-then? 0= if r> lf-dq-end-failed exit then r> lf-dq-end ;
-: lf-lz-name-matched ( node frames -- 0 outcome frames 0 )
-  >r lf-whnf-head 0 lf-dq-site lf-diag-name-matched lf-diag-note outcome-unknown
-  r> lf-dq-end-failed ;
+: lf-lz-offset ( t s frames -- ... frames next )
+  >r lf-dq-pred ok-then? 0= if nip r> lf-dq-end-failed exit then
+  swap lf-dq-pred ok-then? 0= if nip r> lf-dq-end-failed exit then
+  swap r> ['] lf-lz-offset-back lf-dq-call ;
 : lf-lz-closed? ( tn sn frames -- flag outcome )
   >r swap r@ lf-whnf-free? ok-then? 0= if nip r> drop false swap exit then
   if drop r> drop false outcome-ok exit then
   r> lf-whnf-free? ok-then? if 0= outcome-ok else false swap then ;
-: lf-lz-nat-s-back ( flag outcome frames -- ... frames next )
+: lf-lz-nat-s-back ( r outcome frames -- ... frames next )
   >r ok-then? 0= if r> lf-dq-end-failed exit then
-  if r@ lf-dq-sides nip r> lf-lz-name-matched else r> lf-lz-step then ;
+  dup lf-whnf-none = if drop r> lf-lz-step exit then
+  r@ lf-dq-sides drop swap r> ['] lf-lz-offset-back lf-dq-call ;
 : lf-lz-nat-s ( frames -- ... frames next )
   dup lf-dq-sides nip dup lf-whnf-k7?
   if swap ['] lf-lz-nat-s-back lf-whnf-nat-call else drop lf-lz-step then ;
-: lf-lz-nat-t-back ( flag outcome frames -- ... frames next )
+: lf-lz-nat-t-back ( r outcome frames -- ... frames next )
   >r ok-then? 0= if r> lf-dq-end-failed exit then
-  if r@ lf-dq-sides drop r> lf-lz-name-matched else r> lf-lz-nat-s then ;
+  dup lf-whnf-none = if drop r> lf-lz-nat-s exit then
+  r@ lf-dq-sides nip r> ['] lf-lz-offset-back lf-dq-call ;
 : lf-lz-nat-t ( frames -- ... frames next )
   dup lf-dq-sides drop dup lf-whnf-k7?
   if swap ['] lf-lz-nat-t-back lf-whnf-nat-call else drop lf-lz-nat-s then ;
@@ -644,8 +657,9 @@ defer lf-lz-loop ( frames -- ... frames next )
   if r> lf-lz-nat-t else r> lf-lz-step then ;
 :noname ( frames -- ... frames next )
   dup lf-dq-spend dup ok? 0= if swap lf-dq-end-failed exit then drop
-  >r r@ lf-dq-sides 2dup lf-dq-succ? swap lf-dq-succ? and
-  if lf-term-second@ swap lf-term-second@ swap r> ['] lf-lz-offset-back lf-dq-call exit then
+  >r r@ lf-dq-sides 2dup lf-dq-nat-zero? swap lf-dq-nat-zero? and
+  if 2drop true r> lf-dq-end exit then
+  2dup lf-dq-pred? swap lf-dq-pred? and if r> lf-lz-offset exit then
   2drop r> lf-lz-nat ; is lf-lz-loop
 
 \ ---------------------------------------------------------------------------

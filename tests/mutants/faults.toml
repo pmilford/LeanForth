@@ -4315,8 +4315,8 @@ reason = "R2-L2: the slot-count guard accepts a count that is not a power of two
 [[fault]]
 id = "rec-skip-positivity"
 file = "src/kernel/check-block.fs"
-old = '''  lf-ind-recursive? 0= if 2drop outcome-ok exit then'''
-new = '''  2drop outcome-ok exit'''
+old = ''': lf-blk-positivity ( node i -- outcome ) dup lf-blk-state lf-blkrec-field ! lf-blk-positive ;'''
+new = ''': lf-blk-positivity ( node i -- outcome ) 2drop outcome-ok ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "5.2.1b: positivity skipped; (Bad -> Nat) -> Bad is accepted"
 quick = true
@@ -4743,30 +4743,6 @@ reason = "5.2.5a: a use of a later type's generated recursor gets the first type
 # fixes' own.
 
 [[fault]]
-id = "rvn1-count-op-definition-checked"
-file = "src/kernel/check-declaration.fs"
-old = '''  dup lf-idecl-name @ lf-nat-counted? if drop lf-check-count-op exit then'''
-new = ''''''
-test = "$GFORTH tests/core/check-block.fs"
-reason = "rvN1 B1: a definition named Nat.pow is checked, so a block whose field Lean's whnf computes Nat.pow 1 (2^65536) on is accepted where Lean refuses"
-
-[[fault]]
-id = "rvn1-count-op-member-checked"
-file = "src/kernel/inductive-block.fs"
-old = '''  lf-ind-counted if lf-ind-count-op exit then'''
-new = ''''''
-test = "$GFORTH tests/core/check-block.fs"
-reason = "rvN1 B1: a block member named Nat.pow is checked as any other"
-
-[[fault]]
-id = "rvn1-count-op-pow-only"
-file = "src/kernel/inductive-block.fs"
-old = '''  false s" xor" lf-nat-op,  true s" shiftLeft" lf-nat-op,'''
-new = '''  false s" xor" lf-nat-op,  false s" shiftLeft" lf-nat-op,'''
-test = "$GFORTH tests/core/check-block.fs"
-reason = "rvN1 B1: Nat.shiftLeft, whose shift Lean's get_count_arg limits too, is checked"
-
-[[fault]]
 id = "rv-domain-whnf-before-occurrence"
 file = "src/kernel/check-block.fs"
 old = '''  over lf-term-first@ lf-blk-occurs? ok-then? 0= if nip nip false exit then'''
@@ -4901,8 +4877,8 @@ gap = "the default hook is replaced by iota.fs (task 5.2.1b) whenever the checke
 [[fault]]
 id = "rv-k7-off"
 file = "src/kernel/whnf.fs"
-old = '''  over lf-whnf-k7? if over over frame-save ['] lf-whnf-nat-back lf-whnf-nat-call exit then'''
-new = '''  over drop false if over over frame-save ['] lf-whnf-nat-back lf-whnf-nat-call exit then'''
+old = '''  if over over frame-save ['] lf-whnf-nat-back lf-whnf-nat-call exit then'''
+new = '''  drop'''
 test = 'test -n "$LEAN" && python3 tests/core/inductive-table.py'
 reason = "whnf never asks reduce_nat: Nat.succ Nat.zero, which Lean's reduce_nat turns into a literal, unfolds (review rvU4 L5)"
 
@@ -4951,8 +4927,8 @@ reason = "lazy delta's same-head argument test also for an abbreviation, where L
 [[fault]]
 id = "dq-lz-offset-off"
 file = "src/kernel/defeq.fs"
-old = '''  >r r@ lf-dq-sides 2dup lf-dq-succ? swap lf-dq-succ? and'''
-new = '''  >r r@ lf-dq-sides 2dup lf-dq-succ? swap lf-dq-succ? and drop false'''
+old = '''  2dup lf-dq-pred? swap lf-dq-pred? and if r> lf-lz-offset exit then'''
+new = '''  2dup lf-dq-pred? swap lf-dq-pred? and drop false if r> lf-lz-offset exit then'''
 test = 'test -n "$LEAN" && GFORTH=$GFORTH python3 tests/core/lean-differential.py definitional-equality'
 reason = "lazy delta skips is_def_eq_offset, which compares two Nat.succ applications' arguments by name: a user's Nat.succ unfolds where Lean says no (names.nat-succ-matched-by-name)"
 
@@ -5063,3 +5039,30 @@ old = ''': lf-minfer-logging? ( -- flag ) lf-log? 0<> lf-minfer-deciding? and ;'
 new = ''': lf-minfer-logging? ( -- flag ) lf-log? 0<> ;'''
 test = "python3 tests/cli/test_leanforth.py"
 reason = "an inference aside (infer_proj's is_prop, defeq.fs's typer) logs application steps without their comparison; the log fails its structural check and print shows nothing of OfNat.ofNat"
+
+# --- literals (plan task 5.2.3) ---------------------------------------------
+
+[[fault]]
+id = "lit-count-unchecked"
+file = "src/kernel/reduce-nat.fs"
+old = '''  dup lf-rn-count? 0= if 2drop lf-rn-refuse exit then
+  over lf-rn-unit?'''
+new = '''  over lf-rn-unit?'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.3 L1: Nat.pow by 2^32 is computed (and is too large) instead of Lean's refusal; lit.pow-count-too-big is no longer rejected"
+
+[[fault]]
+id = "lit-equal-always"
+file = "src/kernel/mixed-compare.fs"
+old = '''  nip nip lf-mcompare-pair@ lf-lit-same? lf-mcompare-verdict ;'''
+new = '''  drop 2drop outcome-ok ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.3: Lean's == takes two literals for equal whatever their values; 2^64 = 2^64 + 1 (lit.pow-direct-wrong) is accepted"
+
+[[fault]]
+id = "lit-major-not-constructor"
+file = "src/kernel/iota.fs"
+old = '''  dup lf-lit-leaf? if lf-reduce-nat-constructor else outcome-ok then ;'''
+new = '''  outcome-ok ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.3 L2: iota leaves a literal major premise stuck; Nat.rec on 3 (iota.nat-literal-major) is no longer accepted"

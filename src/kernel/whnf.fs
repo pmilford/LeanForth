@@ -119,6 +119,7 @@ require ../core/terms.fs
 require ./environment.fs
 require ./env-signature.fs
 require ./mixed-head.fs
+require ./reduce-nat.fs
 require ./mixed-instantiate.fs
 require ./mixed-level-substitute.fs
 require ./mixed-open.fs
@@ -328,11 +329,12 @@ lf-walk-room context-walk2: lf-whnf-scan
 \ argument, or one of the fourteen binary operations with two
 \ (lf-whnf-k7?), and computes a literal when the whnf of each argument is
 \ a literal or the constant Nat.zero (is_nat_lit_ext, 607; the first
-\ argument first, the second only then). LeanForth has no literals (U2),
-\ so where the arguments' whnf are Nat.zero (lf-whnf-zero?) the answer is
-\ unknown (diagnostic 82 with the head, plan task 5.2.3); otherwise
-\ reduce_nat gives nothing and Lean goes on, as LeanForth does (a
-\ Nat.succ of a variable, say, which iota then takes as a constructor).
+\ argument first, the second only then), and node has no free variable
+\ (672). Since plan task 5.2.3 it computes as Lean does (reduce-nat.fs:
+\ the literal, or Bool.true or Bool.false for Nat.beq and Nat.ble, with
+\ Lean's refusals); otherwise reduce_nat gives nothing and Lean goes on,
+\ as LeanForth does (a Nat.succ of a variable, say, which iota then takes
+\ as a constructor).
 \ The arguments are put in whnf by a visit of their own (lf-whnf-nat-call,
 \ below). Names are compared by their components (Lean's name equality),
 \ from the last.
@@ -354,10 +356,14 @@ create lf-whnf-nat-binary
 : lf-whnf-nat? ( name -- flag )
   lf-name-prefix@ dup s" Nat" lf-whnf-part?
   if lf-name-prefix@ lf-whnf-anon? else drop false then ;
-: lf-whnf-binary? ( name -- flag )
-  lf-whnf-nat-binary begin dup @ while
-    2dup lf-whnf-text lf-whnf-part? if 2drop true exit then lf-whnf-text + aligned
-  repeat 2drop false ;
+\ The index of name's operation in the table, or -1.
+: lf-whnf-binary ( name -- i )
+  0 lf-whnf-nat-binary begin dup @ while
+    2 pick over lf-whnf-text lf-whnf-part? if drop nip exit then
+    swap 1+ swap lf-whnf-text + aligned
+  repeat 2drop drop -1 ;
+: lf-whnf-binary? ( name -- flag ) lf-whnf-binary 0< 0= ;
+: lf-whnf-op ( node -- i ) lf-whnf-head lf-whnf-cref lf-crec-name @ lf-whnf-binary ;
 : lf-whnf-matched? ( name n -- flag )
   over lf-whnf-nat? 0= if 2drop false exit then
   case 1 of s" succ" lf-whnf-part? endof  2 of lf-whnf-binary? endof
@@ -446,7 +452,7 @@ defer lf-wc-visit ( node frames -- ... frames next )
   over lf-fvar-let? if swap lf-fvar-value swap lf-wc-again else lf-whnf-keep then ;
 : lf-whnf-normal? ( tag -- flag )
   dup lf-tag-lam = over lf-tag-pi = or over lf-tag-constant = or
-  over lf-tag-bvar = or swap lf-tag-symbolic-sort = or ;
+  over lf-tag-bvar = or over lf-tag-lit = or swap lf-tag-symbolic-sort = or ;
 \ A projection leaf alone (see the header): unknown, never invalid.
 : lf-wc-proj ( node frames -- -1 outcome frames 0 )
   >r 0 lf-diag-undecided lf-whnf-note outcome-unknown r> lf-whnf-failed ;
@@ -472,37 +478,53 @@ defer lf-whnf-cored ( t1 outcome frames -- ... frames next )
   dup lf-whnf-none = if drop outcome-ok swap 0 exit then
   rot drop swap ['] lf-whnf-cored lf-wc-call ;
 : lf-whnf-delta-step ( t1 frames -- ... frames next ) 2dup lf-whnf-unfold lf-whnf-next ;
-\ reduce_nat's answer on t1, saved across its visit: computes (K7), or not.
-: lf-whnf-nat-back ( flag outcome frames -- ... frames next )
+\ reduce_nat's answer on t1, saved across its visit: the literal (or
+\ Bool constant) it computes, whnf's answer, or none, then delta.
+: lf-whnf-nat-back ( r outcome frames -- ... frames next )
   >r r@ frame-restore -rot ok-then? 0= if nip r> lf-whnf-failed exit then
-  if lf-whnf-head 0 lf-diag-name-matched lf-whnf-note outcome-unknown r> lf-whnf-failed
-  else r> lf-whnf-delta-step then ;
+  dup lf-whnf-none = if drop r> lf-whnf-delta-step else nip outcome-ok r> 0 then ;
+\ reduce_nat applies to t1: the head and arity (lf-whnf-k7?), and no free
+\ variable (has_fvar, 672).
+: lf-whnf-nat-applies? ( t1 frames -- flag outcome )
+  over lf-whnf-k7? 0= if 2drop false outcome-ok exit then
+  lf-whnf-free? ok-then? if 0= outcome-ok else false swap then ;
 :noname ( t1 outcome frames -- ... frames next )
   over ok? 0= if 0 exit then nip
-  over lf-whnf-k7? if over over frame-save ['] lf-whnf-nat-back lf-whnf-nat-call exit then
+  2dup lf-whnf-nat-applies? ok-then? 0= if rot drop swap lf-whnf-failed exit then
+  if over over frame-save ['] lf-whnf-nat-back lf-whnf-nat-call exit then
   lf-whnf-delta-step ; is lf-whnf-cored
 : lf-whnf-easy? ( node -- flag )
-  dup lf-term-tag@ dup lf-tag-bvar = over lf-tag-pi = or swap lf-tag-symbolic-sort = or
-  if drop true exit then
+  dup lf-term-tag@ dup lf-tag-bvar = over lf-tag-pi = or over lf-tag-lit = or
+  swap lf-tag-symbolic-sort = or if drop true exit then
   dup lf-whnf-fvar? if lf-whnf-let? 0= else drop false then ;
 : lf-whnf-visit ( node frames -- ... frames next )
   over lf-term-valid? 0= if nip outcome-invalid swap lf-whnf-failed exit then
   over lf-whnf-easy? if lf-whnf-keep exit then
   ['] lf-whnf-cored lf-wc-call ;
 
-\ Whether reduce_nat computes node, for which lf-whnf-k7? holds: its
-\ first argument's whnf, then a binary operation's second one's, must be
-\ Nat.zero (reduce_bin_nat_op 612-619 puts the second in whnf only when
-\ the first is a literal). The visit keeps node and ends with ( flag
-\ outcome frames 0 ).
-: lf-nat-end ( flag outcome frames -- flag outcome frames 0 ) 1 over frame-drop 0 ;
+\ reduce_nat on node, for which lf-whnf-k7? holds: its first argument's
+\ whnf, then a binary operation's second one's, must be a literal or
+\ Nat.zero (is_nat_lit_ext; reduce_bin_nat_op 612-619 puts the second in
+\ whnf only when the first is one); then reduce-nat.fs computes. The
+\ visit keeps node (and the first literal across the second visit) and
+\ ends with ( r outcome frames 0 ): the result, lf-whnf-none, or a
+\ failure.
+: lf-nat-end ( r outcome frames -- r outcome frames 0 ) 1 over frame-drop 0 ;
+: lf-nat-end2 ( r outcome frames -- r outcome frames 0 ) 2 over frame-drop 0 ;
+: lf-nat-ext ( w -- lit outcome )
+  dup lf-lit-leaf? if outcome-ok exit then
+  lf-whnf-zero? if 0 lf-reduce-nat-literal else lf-whnf-none outcome-ok then ;
+: lf-nat-literal ( w outcome -- lit outcome ) ok-then? if lf-nat-ext else no-result then ;
 : lf-nat-second ( w outcome frames -- ... frames next )
-  >r ok-then? if lf-whnf-zero? outcome-ok else 0 swap then r> lf-nat-end ;
+  >r lf-nat-literal ok-then? 0= if no-result r> lf-nat-end2 exit then
+  dup lf-whnf-none = if outcome-ok r> lf-nat-end2 exit then
+  0 r@ frame-pick swap 1 r@ frame-pick lf-whnf-op lf-reduce-nat-binary r> lf-nat-end2 ;
 : lf-nat-first ( w outcome frames -- ... frames next )
-  >r ok-then? 0= if 0 swap r> lf-nat-end exit then
-  lf-whnf-zero? 0= if false outcome-ok r> lf-nat-end exit then
-  0 r@ frame-pick dup lf-mhead-spine nip 1 = if drop true outcome-ok r> lf-nat-end exit then
-  lf-term-second@ r> ['] lf-nat-second ['] lf-whnf-visit lf-whnf-open ;
+  >r lf-nat-literal ok-then? 0= if no-result r> lf-nat-end exit then
+  dup lf-whnf-none = if outcome-ok r> lf-nat-end exit then
+  0 r@ frame-pick lf-mhead-spine nip 1 = if lf-reduce-nat-succ r> lf-nat-end exit then
+  r@ frame-save 1 r@ frame-pick lf-term-second@
+  r> ['] lf-nat-second ['] lf-whnf-visit lf-whnf-open ;
 :noname ( node frames -- ... frames next )
   2dup frame-save >r dup lf-mhead-spine nip 1 =
   if lf-term-second@ else lf-term-first@ lf-term-second@ then

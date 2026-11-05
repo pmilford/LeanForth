@@ -20,7 +20,8 @@
 \ ndjson-input.fs (tests/support) stages a file: a Sort as a symbolic
 \ Sort, a constant through its reference, a projection as its leaf
 \ applied to its structure term (core/projections.fs; plan task 5.2.2),
-\ a let, literal or mdata expression as the leaf of its form
+\ a natural-number literal as a literal leaf (core/literals.fs; plan task
+\ 5.2.3), a let, string literal or mdata expression as the leaf of its form
 \ (core/unsupported-forms.fs, refused by the audit, U2); binder names and binder information are not
 \ copied, as Lean's kernel ignores them. An inductive block, a record
 \ with no name, gives no declaration but a header in the input's
@@ -53,6 +54,7 @@ require ../core/compact.fs
 require ../core/input.fs
 require ../core/unsupported-forms.fs
 require ../core/constant-term-boundary.fs
+require ../core/literals.fs
 require ../core/projections.fs
 require ./stage.fs
 
@@ -214,7 +216,6 @@ tag-mdata 1+ constant feed-tags#
 create feed-forms feed-tags# cells allot  feed-forms feed-tags# cells erase
 : feed-form! ( form tag -- ) cells feed-forms + ! ;
 lf-form-let tag-let feed-form!  lf-form-let tag-let-nondep feed-form!
-lf-form-nat tag-nat feed-form!
 lf-form-string tag-str feed-form!  lf-form-mdata tag-mdata feed-form!
 : feed-form@ ( tag -- form )
   dup 0 feed-tags# within if cells feed-forms + @ else drop 0 then ;
@@ -224,6 +225,9 @@ lf-form-string tag-str feed-form!  lf-form-mdata tag-mdata feed-form!
   2dup feed-tier expr-payload@ >r 2dup feed-tier expr-b@ r> swap lf-hterm-proj
   0= if 2drop false exit then
   2swap feed-a-term lf-hterm-app ;
+\ A natural-number literal (plan task 5.2.3): its decimal text, read.
+: feed-nat ( e feed -- index identity true | false )
+  feed-tier tuck expr-a@ swap tier-texts text@ lf-hterm-decimal ;
 : feed-binder ( e feed tag -- index identity true | false )
   >r feed-children r> tag-pi < if lf-hterm-lam else lf-hterm-pi then ;
 : feed-sort ( e feed -- index identity true | false )
@@ -234,6 +238,7 @@ lf-form-string tag-str feed-form!  lf-form-mdata tag-mdata feed-form!
     tag-const of feed-const feed-built endof
     tag-app of feed-children lf-hterm-app feed-built endof
     tag-proj of feed-proj feed-built endof
+    tag-nat of feed-nat feed-built endof
     >r 2drop 0 0 outcome-invalid r> endcase ;
 : feed-term-made ( e feed tag -- index identity outcome )
   dup binder-tag? if feed-binder feed-built exit then

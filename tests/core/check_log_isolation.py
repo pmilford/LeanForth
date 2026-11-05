@@ -109,6 +109,8 @@ STORES = {
     # that the copier keeps the leaf and a projection's step has the rule
     # form (lf-log-node-rule).
     "lf-tag-proj", "lf-proj-leaf?",
+    # Literals (plan task 5.2.3), read only: the leaf's tag, kept by the copier.
+    "lf-tag-lit",
 }
 LOG_USES = FORTH | CONTEXT | STORES
 LOAD_TIME = {None, "lf-log-entry,"}

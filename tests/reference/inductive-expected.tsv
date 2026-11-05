@@ -140,6 +140,11 @@ lit.sub-truncated	accepted	accepted	L1	5.2.3
 lit.div-by-zero	accepted	accepted	L1	5.2.3	
 lit.gcd	accepted	accepted	L1	5.2.3	
 lit.ble	accepted	accepted	L1	5.2.3	
+lit.mul-wrong	declTypeMismatch	rejected	L1	5.2.3	
+lit.pow-direct	accepted	accepted	L1	5.2.3	
+lit.pow-direct-wrong	declTypeMismatch	rejected	L1	5.2.3	
+lit.pow-count-too-big	natCountTooBig	rejected	L1	5.2.3	
+lit.pow-count-limit	accepted	accepted	L1	5.2.3	
 lit.string-expansion	accepted	accepted	L4	5.2.3	
 lit.string-expansion-wrong	declTypeMismatch	rejected	L4	5.2.3	
 replay.original	accepted	accepted	A1 B3	5.2.1b	
@@ -250,18 +255,18 @@ names.constructor-already-declared	alreadyDeclared	rejected	N2	5.2.1a
 proj.reduces	accepted	accepted	J1	5.2.2	
 proj.reduces-wrong	declTypeMismatch	rejected	J1	5.2.2	
 names.already-declared-earlier	alreadyDeclared	rejected	T5	5.2.1a	
-primitive.forged-add-computes	accepted	unsupported	L5	5.2.3	
-primitive.forged-add-unfolds	accepted	unsupported	L5	5.2.3	
-primitive.five-is-two	accepted	unsupported	L5	5.2.3	
-forged.pow-field	natCountTooBig	unsupported	L1 L5	5.2.3	
-forged.pow-field-recursive	natCountTooBig	unsupported	L1 L5	5.2.3	
-forged.pow-field-small	accepted	unsupported	L1 L5	5.2.3	
-forged.pow-through-definition	natCountTooBig	unsupported	L1 L5	5.2.3	
-forged.pow-through-definition-nonrecursive	natCountTooBig	unsupported	L1 L5	5.2.3	
-forged.pow-erased-by-beta	natCountTooBig	unsupported	L1 L5 P1	5.2.3	
-forged.shiftleft-field	natCountTooBig	unsupported	L1 L5	5.2.3	
-forged.type-named-nat-add	accepted	unsupported	L1 L5 P1 G1	5.2.3	
-forged.type-named-nat-pow	accepted	unsupported	L1 L5	5.2.3	
+primitive.forged-add-computes	accepted	accepted	L5	5.2.3	
+primitive.forged-add-unfolds	accepted	accepted	L5	5.2.3	
+primitive.five-is-two	accepted	accepted	L5	5.2.3	
+forged.pow-field	natCountTooBig	rejected	L1 L5	5.2.3	
+forged.pow-field-recursive	natCountTooBig	rejected	L1 L5	5.2.3	
+forged.pow-field-small	accepted	accepted	L1 L5	5.2.3	
+forged.pow-through-definition	natCountTooBig	rejected	L1 L5	5.2.3	
+forged.pow-through-definition-nonrecursive	natCountTooBig	rejected	L1 L5	5.2.3	
+forged.pow-erased-by-beta	natCountTooBig	rejected	L1 L5 P1	5.2.3	
+forged.shiftleft-field	natCountTooBig	rejected	L1 L5	5.2.3	
+forged.type-named-nat-add	accepted	accepted	L1 L5 P1 G1	5.2.3	
+forged.type-named-nat-pow	accepted	accepted	L1 L5	5.2.3	
 quotinit.with-eq	accepted	accepted	Q1	5.2.4	
 quotinit.without-eq	unknownConstant	rejected	Q1	5.2.4	
 quotinit.eq-wrong-shape	quotEqShape	rejected	Q1	5.2.4	
@@ -277,4 +282,4 @@ k7.with-free-variable	accepted	accepted	delta	4.2.2d
 k7.whnf-sort	typeExpected	rejected	K7	5.2.3	
 k7.whnf-sort-twin	accepted	accepted	whnf	4.2.2c	
 k7.rec-on-succ-variable	accepted	accepted	R1	5.2.1b	
-forged.type-named-nat-add-recursor-with-hypothesis	invalidRecursor	unsupported	L1 L5 B3	5.2.3	
+forged.type-named-nat-add-recursor-with-hypothesis	invalidRecursor	rejected	L1 L5 B3	5.2.3	

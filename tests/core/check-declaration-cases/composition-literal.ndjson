@@ -32,5 +32,5 @@
 {"ie":18,"lam":{"binderInfo":"implicit","body":17,"name":4,"type":0}}
 {"ie":19,"lam":{"binderInfo":"implicit","body":18,"name":3,"type":0}}
 {"ie":20,"lam":{"binderInfo":"implicit","body":19,"name":2,"type":0}}
-{"ie":21,"natVal":"3"}
+{"ie":21,"strVal":"3"}
 {"def":{"all":[1],"hints":{"regular":1},"levelParams":[],"name":1,"safety":"safe","type":10,"value":21}}
