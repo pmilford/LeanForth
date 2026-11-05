@@ -68,7 +68,7 @@ PENDING = {
         "C2 needs id Type unfolded by Lean's lazy delta reduction in is_def_eq: K1;"
         " twin params.constructor-binder-beta. Closed by task 4.2.2d"),
     "after.annotated-binders-left-out-then-use-rec": ("unknown",
-        "the use compares Nat with optParam Nat Nat.zero (diagnostic 30): K1, Lean's lazy"
+        "the use compares Nat with optParam Nat Nat.zero (diagnostic 64, the rvU4 guard): K1, Lean's lazy"
         " delta reduction in is_def_eq unfolds optParam; twin"
         " after.reflexive-indexed-left-out-then-use-rec. Closed by task 4.2.2d"),
     "after.redex-type-left-out-then-use-rec": ("unknown",

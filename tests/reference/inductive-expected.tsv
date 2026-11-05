@@ -36,6 +36,7 @@ ind.indexed-predicate-one-constructor	accepted	accepted	A1 E3 G1	5.2.1c	LeOne: i
 ind.reflexive-annotated-binders	accepted	accepted	A1 G1	5.2.1b	AX: idx=0 rec=1 refl=1 nested=0 elim=any k=0 motives=1 minors=2 fields=[0, 1]
 ind.reflexive-body-redex	accepted	accepted	A1 P1 G1	5.2.1b	BR: idx=0 rec=1 refl=1 nested=0 elim=any k=0 motives=1 minors=2 fields=[0, 1]
 ind.redex-with-parameter	accepted	accepted	A1 P1 G1	5.2.1b	RBP: idx=0 rec=1 refl=0 nested=0 elim=any k=0 motives=1 minors=2 fields=[0, 1]
+ind.many-constructors	accepted	accepted	A1	5.2.1a	Many: idx=0 rec=0 refl=0 nested=0 elim=any k=0 motives=1 minors=600 fields=[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 pos.negative	nonPositive	rejected	P1	5.2.1b	
 pos.double-negative	nonPositive	rejected	P1	5.2.1b	
 pos.through-definition	nonPositive	rejected	P1	5.2.1b	
@@ -254,4 +255,15 @@ forged.type-named-nat-pow	accepted	unsupported	L1 L5	5.2.3
 quotinit.with-eq	accepted	accepted	Q1	5.2.4	
 quotinit.without-eq	unknownConstant	rejected	Q1	5.2.4	
 quotinit.eq-wrong-shape	quotEqShape	rejected	Q1	5.2.4	
+k7.unknown-nat	unknownConstant	rejected	K7	5.2.3	
+k7.nat-is-prop	declTypeMismatch	rejected	K7	5.2.3	
+k7.beq-bool	unknownConstant	rejected	K7	5.2.3	
+k7.mul	unknownConstant	rejected	K7	5.2.3	
+k7.abbrev-head	unknownConstant	rejected	K7	5.2.3	
+k7.opaque-hint-head	unknownConstant	rejected	K7	5.2.3	
+k7.regular-head	accepted	accepted	delta	4.2.2d	
+k7.twin	accepted	accepted	delta	4.2.2d	
+k7.with-free-variable	accepted	accepted	delta	4.2.2d	
+k7.whnf-sort	typeExpected	rejected	K7	5.2.3	
+k7.whnf-sort-twin	accepted	accepted	whnf	4.2.2c	
 forged.type-named-nat-add-recursor-with-hypothesis	invalidRecursor	unsupported	L1 L5 B3	5.2.3	

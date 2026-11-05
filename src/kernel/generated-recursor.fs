@@ -44,7 +44,9 @@
 \ and a copy of the block record lf-ind-state, which the build overwrites
 \ and gives back (a lookup can happen during another block's check, whose
 \ record must survive it), with a copy of that block's binder domains
-\ (lf-ind-domains) in lf-genrec-kept-cells; the build's own state and
+\ (lf-ind-domains) in lf-genrec-kept-cells, of its type records
+\ (lf-ind-type-cells) in lf-genrec-kept-types and of its constructors'
+\ records (lf-ind-ctor-cells) in lf-genrec-kept-ctors; the build's own state and
 \ level pairs are inductive-recursor.fs's (lf-rcr-state and its slabs),
 \ unused while a block's inference steps run.
 
@@ -64,15 +66,17 @@ begin-structure /lf-genrec
   field: lf-genrec-which        \ the type whose recursor is built, in its block
   field: lf-genrec-kept         \ the block's domains copied, how many
   field: lf-genrec-kept-ty      \ its type records copied, how many
+  field: lf-genrec-kept-ctor    \ its constructors' records copied, how many
   /lf-ind +field lf-genrec-saved \ the block record while the build runs
 end-structure
 /lf-genrec context-record: lf-genrec-state
 \ The constructors' types instantiated, one cell each: a growable array.
 1 cells context-slab: lf-genrec-ctor-cells
-\ The binder domains and type records of the block whose check the
-\ lookup interrupts.
+\ The binder domains, type records and constructors' records of the
+\ block whose check the lookup interrupts.
 1 cells context-slab: lf-genrec-kept-cells
 /lf-ty context-slab: lf-genrec-kept-types
+/lf-ind-ctor context-slab: lf-genrec-kept-ctors
 
 \ ---------------------------------------------------------------------------
 \ At the block check, after the build (step 12): whether the telescopes it
@@ -198,10 +202,11 @@ end-structure
   r> lf-ind-fuel ! swap lf-genrec-large? lf-genrec-elim lf-genrec-pairs
   ['] lf-genrec-types lf-genrec-then ['] lf-genrec-ctors lf-genrec-then
   ['] lf-genrec-made lf-genrec-then lf-ind-fuel @ swap ;
-\ The block record, and every unit of the domains and type records slabs
-\ (the record does not say how many the interrupted check filled): copied
-\ aside, full when the heap cannot hold a copy; given back after the
-\ build.
+\ The block record, and every unit of the domains, type records and
+\ constructors' records slabs (the record does not say how many the
+\ interrupted check filled): copied aside, full when the heap cannot hold
+\ a copy; given back after the build. A slab only grows, so it still holds
+\ every unit copied.
 : lf-genrec-out ( slab save -- n outcome )
   over slab-capacity dup 2 pick slab-hold ok? 0= if drop 2drop 0 outcome-full exit then
   >r over slab-bytes >r swap slab-base swap slab-base r> move r> outcome-ok ;
@@ -212,11 +217,15 @@ end-structure
   lf-genrec-state lf-genrec-kept !
   lf-ind-type-cells lf-genrec-kept-types lf-genrec-out ok-then? 0= if exit then
   lf-genrec-state lf-genrec-kept-ty !
+  lf-ind-ctor-cells lf-genrec-kept-ctors lf-genrec-out ok-then? 0= if exit then
+  lf-genrec-state lf-genrec-kept-ctor !
   lf-ind-state lf-genrec-state lf-genrec-saved /lf-ind move outcome-ok ;
 : lf-genrec-restore ( -- )
   lf-genrec-state lf-genrec-saved lf-ind-state /lf-ind move
   lf-genrec-state lf-genrec-kept @ lf-genrec-kept-cells lf-ind-domains lf-genrec-back
   lf-genrec-state lf-genrec-kept-ty @ lf-genrec-kept-types lf-ind-type-cells
+  lf-genrec-back
+  lf-genrec-state lf-genrec-kept-ctor @ lf-genrec-kept-ctors lf-ind-ctor-cells
   lf-genrec-back ;
 
 \ Build the recursor of the block whose type is slot d (readable, with a

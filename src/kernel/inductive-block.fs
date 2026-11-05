@@ -25,9 +25,10 @@
 \ independently audited. The exported numbers and flags are read here
 \ only for the shape; check-block.fs compares the rest (B3, B4).
 \ State: one record, lf-ind-state (the block, the facts computed so far,
-\ per constructor its field count, minor premise and rule, the step
-\ reached, the fuel, the warnings), the slab of the type's binder
-\ domains lf-ind-domains, and three walk records, lf-ind-walker (U2, T0,
+\ the step reached, the fuel, the warnings), three slabs, lf-ind-ctor-cells
+\ (per constructor its field count, minor premise and rule),
+\ lf-ind-type-cells (per type its facts) and the types' binder domains
+\ lf-ind-domains, and the walk records lf-ind-walker (U2, T0,
 \ occurrences, nested occurrences), lf-ind-inner-walker (occurrences
 \ within an argument, during a walk of lf-ind-walker) and
 \ lf-ind-pair-walker (C1, with binder depths), all members of the
@@ -45,8 +46,6 @@ require ../core/names.fs
 require ../core/terms.fs
 require ../core/unsupported-forms.fs
 require ./environment.fs
-
-512 constant lf-ind-ctor-capacity      \ constructors one block may have
 
 begin-structure /lf-ind
   field: lf-ind-first        \ input index of the block's first member
@@ -66,11 +65,17 @@ begin-structure /lf-ind
   field: lf-ind-is-rec       \ computed: Lean's is_rec (a field mentions the type)
   field: lf-ind-is-refl      \ computed: Lean's is_reflexive
   field: lf-ind-large        \ the recursor has a motive universe of its own
-  lf-ind-ctor-capacity cells +field lf-ind-field-cells    \ per constructor: fields
-  lf-ind-ctor-capacity cells +field lf-ind-minor-cells    \ per constructor: minor
-  lf-ind-ctor-capacity cells +field lf-ind-rule-cells     \ per constructor: rule
 end-structure
 /lf-ind context-record: lf-ind-state
+\ Per constructor of the block, numbered across all its types, three
+\ cells: its fields, its minor premise and its rule; as many as the block
+\ has constructors (plan task 6.2.0).
+begin-structure /lf-ind-ctor
+  field: lf-ictor-fields
+  field: lf-ictor-minor
+  field: lf-ictor-rule
+end-structure
+/lf-ind-ctor context-slab: lf-ind-ctor-cells
 \ The B4 warning bits (check-block.fs step 14; on an accepted block's
 \ slots, environment.fs lf-env-warnings).
 1 constant lf-warn-indices
@@ -118,9 +123,11 @@ lf-walk-room context-walk2: lf-ind-pair-walker
 : lf-ind-lparam ( i -- name ) cells lf-ind-lparams drop + @ ;
 : lf-ind-ctor-type ( j -- root ) lf-ind-ctor lf-idecl-type @ ;
 : lf-ind-domain ( i -- addr ) cells lf-ind-domains slab-base + ;
-: lf-ind-nfields ( j -- addr ) cells lf-ind-state lf-ind-field-cells + ;
-: lf-ind-minor-type ( j -- addr ) cells lf-ind-state lf-ind-minor-cells + ;
-: lf-ind-rule ( j -- addr ) cells lf-ind-state lf-ind-rule-cells + ;
+\ Constructor j's cells; an address is valid until the slab next grows
+\ (lf-ind-open).
+: lf-ind-nfields ( j -- addr ) lf-ind-ctor-cells slab-at lf-ictor-fields ;
+: lf-ind-minor-type ( j -- addr ) lf-ind-ctor-cells slab-at lf-ictor-minor ;
+: lf-ind-rule ( j -- addr ) lf-ind-ctor-cells slab-at lf-ictor-rule ;
 \ Type d of the block (from 0): its declaration, name, type, record, its
 \ number of indices and the domain of its index i.
 : lf-ind-type-at ( d -- decl ) lf-ind-member ;
@@ -160,12 +167,13 @@ lf-walk-room context-walk2: lf-ind-pair-walker
 
 \ ---------------------------------------------------------------------------
 \ Opening the block of declaration i, the check's: (span ok), its
-\ members recorded and span their number; (1 invalid) when i is not a
-\ block's first member or its members do not fit in the input; (span
-\ full) when it has more constructors than the per-constructor arrays
-\ hold (lf-ind-ctor-capacity), checked before anything is written to
-\ them (review rvI21, B1). Each count is first checked to lie within the
-\ input, so their sum cannot wrap.
+\ members recorded and span their number, and every constructor's cells
+\ zero; (1 invalid) when i is not a block's first member or its members
+\ do not fit in the input; (span full) when the heap cannot grow the
+\ constructors' cells for them all (no fixed limit since plan task
+\ 6.2.0), found before anything is written to them (review rvI21, B1).
+\ Each count is first checked to lie within the input, so their sum
+\ cannot wrap.
 : lf-ind-take ( header -- )
   lf-ind-state /lf-ind erase
   dup lf-hdr-first lf-more-field lf-ind-state lf-ind-first !
@@ -181,11 +189,13 @@ lf-walk-room context-walk2: lf-ind-pair-walker
   dup lf-ind-first@ = lf-ind-members 0> and lf-ind-types@ 0> and
   swap lf-ind-members + lf-input-count upto? and ;
 : lf-ind-crowded ( -- span outcome )
-  lf-ind-ctors@ lf-ind-ctor-capacity lf-ind-site lf-diag-ctors-full lf-diag-note
-  lf-ind-members outcome-full ;
+  lf-ind-ctors@ lf-ind-ctor-cells slab-capacity lf-ind-site lf-diag-ctors-full
+  lf-diag-note lf-ind-members outcome-full ;
+: lf-ind-zeroed ( -- )
+  0 lf-ind-ctor-cells slab-at lf-ind-ctors@ /lf-ind-ctor * erase ;
 : lf-ind-sized ( -- span outcome )
-  lf-ind-ctors@ lf-ind-ctor-capacity > if lf-ind-crowded exit then
-  lf-ind-members lf-ind-types@ lf-ind-type-cells slab-hold ;
+  lf-ind-ctors@ lf-ind-ctor-cells slab-hold ok? 0= if lf-ind-crowded exit then
+  lf-ind-zeroed lf-ind-members lf-ind-types@ lf-ind-type-cells slab-hold ;
 \ An empty block (ADR 0016 amendment 1): no member but the one declaration
 \ the importer added for it (lf-kind-block), which is the header's first;
 \ (1 ok), and check-block.fs rejects it (lf-ind-empty?).

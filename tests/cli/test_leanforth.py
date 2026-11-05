@@ -160,8 +160,8 @@ class ExitCodes(unittest.TestCase):
                      "error: unsupported: an inductive type (not supported yet) (line 51)"])
         self.expect(["check", "tests/cli/unfold.ndjson"], 2,
                     [f"Implies: {LABEL}", "impliesSelf: unknown",
-                     "  undecided: terms or levels differ; diagnostic 30 at defeq "
-                     "lf-defeq: 20 22",
+                     "  undecided: Lean may unfold a definition here (K1); diagnostic 64 "
+                     "at defeq lf-defeq: 22 0",
                      "2 declarations: 1 accepted, 1 unknown", accepted(1)])
 
     def test_3_limits(self):
@@ -593,7 +593,7 @@ class Behaviour(unittest.TestCase):
         status, out, _ = run("capabilities")
         self.assertEqual(status, 0)
         self.assertIn("  check --record, replay: 64 names, 64 levels, 64 term nodes,\n"
-                      "    32 declarations per export, 64 dependencies per export\n", out)
+                      "    32 declarations per export\n", out)
         status, out, _ = run("help")
         self.assertEqual((status, run("--help")[1], run("-h")[1]), (0, out, out))
 
@@ -1062,10 +1062,10 @@ class Resources(unittest.TestCase):
         self.assertEqual(rest[6], "  engine: " + os.path.basename(GFORTH))
         self.assertEqual(rest[7:], [
             "  input: 6 declarations, 46 term nodes, 3 levels, 5 constant references, 31 names",
-            "  fuel: 1187 steps in all, at most 100000 per declaration",
+            "  fuel: 1184 steps in all, at most 100000 per declaration",
             "  most fuel used:",
             "       576 Two.cases (accepted)",
-            "       339 Two (accepted)",
+            "       336 Two (accepted)",
             "       272 Two.swap (accepted)"])
 
     def test_stable_but_for_time_and_memory(self):

@@ -197,8 +197,9 @@ cli-options
 \ A second run in the same process gives the same verdicts and fuel.
 : run-facts ( c-addr u -- code ok# fuel )
   cli-check outcome-ok tally ck-fuel-total drop ;
-\ (1187 since conversion is Lean's is_def_eq, plan task 4.2.2b; 1520 before.)
-T{ inductive run-facts inductive run-facts -> 0 6 1187 0 6 1187 }T
+\ (1184 since the block check uses Lean's whnf, plan task 5.2.1b; 1187
+\ since conversion is Lean's is_def_eq, plan task 4.2.2b; 1520 before.)
+T{ inductive run-facts inductive run-facts -> 0 6 1184 0 6 1184 }T
 cli-no-manifest
 kinds run-facts constant kinds-fuel drop drop
 T{ kinds run-facts -> 2 58 kinds-fuel }T
@@ -285,7 +286,7 @@ T{ s" fixture" pr-find s" fixtureUse" pr-find -> false 2 true }T
 \ stores (the stage's own blocks are not counted): a THROW at the first is
 \ one while feeding; at n + 1, one in the check. Either way the stage is
 \ freed and the names detached.
-: fed-env ( -- env ) cli-default-fuel lf-check-budget lf-env-pool-max lf-env-new drop ;
+: fed-env ( -- env ) cli-default-fuel lf-check-budget lf-env-pool-start lf-env-new drop ;
 : fed-allocations ( -- n )
   context-new throw dup >r context-use cli-default-fuel ck-start 0 af-arm
   composition true ck-load drop fed-env af-seen@ af-off swap lf-env-free drop ck-release

@@ -427,7 +427,8 @@ tasks, not the plan's.
 | 2.4.1 derivation log, 2.4.4 proof-outline printer, `leanforth print` (agent RB) | **done, approved** (gate D5) |
 | 4.2.2a free variables and local context (agent D2A) | **done, approved** [kernel] |
 | 5.2.1a non-recursive inductive blocks (agent I21) | **done, approved** [kernel][import]; the owner's 100%-Lean condition **met** 2026-11-04 (review rvI21 rounds 4–6): 94 Lean-checked rows, 88 with Lean's verdict, 6 pending on 5.2.1b and 4.2.2 |
-| 6.2.0 parts (a) and (b) no fixed limit on universe lists or depth (agent KC) | **done, approved** [kernel] 2026-11-04 late (2 of 2 parts); the rest of 6.2.0 (other fixed capacities) stays **in progress** |
+| 6.2.0 parts (a) and (b) no fixed limit on universe lists or depth (agent KC) | **done, approved** [kernel] 2026-11-04 late (2 of 2 parts); the rest of 6.2.0 is part (c), next row |
+| 6.2.0 part (c) the other fixed capacities: a check's dependencies, the dependency pool, a block's constructors, the signature index (agent KC) | **done on the branch**, review pending [kernel]; Lean's verdict at 41 and 1,001 dependencies, a pool of 66,066 and 600 constructors; on `Init` 0 *full* (31 before) |
 | `leanforth check` on whole libraries and `--resources` (plan 3.4.1; the command-line part of 6.5.2; agent CLI2) | **done, merged**; report format at the [format] gate |
 | 8.6.1 LaTeX printer mode, 8.6.2 statement in three forms; print part of 3.4.1 (agent PR) | **done** (untrusted presentation) |
 | Program words (ADR 0019), run-record format 0.1, import-read change, IR 0.2 design and implementation | **approved** 2026-11-04 (see the gates table) |

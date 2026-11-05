@@ -183,8 +183,8 @@ reason = "CD/L2: a constant's universe arguments may name universes that are no 
 [[fault]]
 id = "env-slots-start-ok"
 file = "src/kernel/environment.fs"
-old = '''lf-env-fields lf-env-unpublished tuck'''
-new = '''lf-env-fields tuck'''
+old = '''lf-env-fields lf-env-unpublished lf-env-pooled'''
+new = '''lf-env-fields lf-env-pooled'''
 test = "$GFORTH tests/core/environment.fs"
 reason = "X5 L4: a new environment's slots start with outcome 0, which reads as ok"
 quick = true
@@ -230,20 +230,20 @@ test = "$GFORTH tests/core/environment.fs"
 reason = "E3: a handle of another environment is accepted"
 
 [[fault]]
-id = "env-dep-capacity-off-by-one"
+id = "env-deps-room-off-by-one"
 file = "src/kernel/environment.fs"
-old = '''  lf-cand-count@ lf-env-dep-capacity = if lf-cand-full exit then'''
-new = '''  lf-cand-count@ lf-env-dep-capacity 1+ = if lf-cand-full exit then'''
+old = ''': lf-cand-room? ( -- flag ) lf-cand-count@ 1+ lf-cand-deps slab-hold ok? ;'''
+new = ''': lf-cand-room? ( -- flag ) lf-cand-count@ lf-cand-deps slab-hold ok? ;'''
 test = "$GFORTH tests/core/environment.fs"
-reason = "a 17th dependency is written past the candidate's list instead of full"
+reason = "the list is held one short: a dependency past its room is written past the block instead of growing it or full (plan task 6.2.0)"
 
 [[fault]]
 id = "env-deps-unsorted"
 file = "src/kernel/environment.fs"
-old = '''  lf-cand-count@ 0 ?do dup i lf-cand-dep @ < if drop i unloop exit then loop'''
-new = '''  lf-cand-count@ 0 ?do dup i lf-cand-dep @ > if drop i unloop exit then loop'''
+old = '''  2dup + 2/ dup >r lf-cand-dep @ 3 pick < if nip r> 1+ swap else drop r> then ;'''
+new = '''  2dup + 2/ dup >r lf-cand-dep @ 3 pick > if nip r> 1+ swap else drop r> then ;'''
 test = "$GFORTH tests/core/environment.fs"
-reason = "dependencies are kept descending, which the publisher's re-check refuses"
+reason = "the halving searches the wrong half: dependencies out of order, which the publisher's re-check refuses"
 
 [[fault]]
 id = "env-deps-repeated"
@@ -320,8 +320,8 @@ reason = "G-P6: a context in which a check threw serves another check"
 [[fault]]
 id = "env-new-inside-job"
 file = "src/kernel/environment.fs"
-old = '''  lf-env-deps? lf-input-intact? and context-in-job? 0= and ;'''
-new = '''  lf-env-deps? lf-input-intact? and ;'''
+old = '''  lf-pool-plan? lf-input-intact? and context-in-job? 0= and ;'''
+new = '''  lf-pool-plan? lf-input-intact? and ;'''
 test = "$GFORTH tests/core/environment.fs"
 reason = "G-P1: lf-env-new inside a check throws instead of answering invalid"
 
@@ -342,12 +342,20 @@ test = "$GFORTH tests/core/environment.fs"
 reason = "E3: a freed environment (identity 0) still counts as live: the test gives lf-env-use and lf-env-free a copy of a live environment with identity 0"
 
 [[fault]]
-id = "env-pool-max-off-by-one"
+id = "env-pool-room-negative"
 file = "src/kernel/environment.fs"
-old = ''': lf-env-deps? ( deps -- flag ) 0 lf-env-pool-max between? ;'''
-new = ''': lf-env-deps? ( deps -- flag ) 0 lf-env-pool-max 1+ between? ;'''
+old = ''': lf-pool-plan? ( room -- flag ) dup 0< 0= swap 1+ 1 cells 0 store-plan? and ;'''
+new = ''': lf-pool-plan? ( room -- flag ) 1+ 1 cells 0 store-plan? ;'''
 test = "$GFORTH tests/core/environment.fs"
-reason = "a pool larger than lf-env-pool-max is allowed"
+reason = "a negative pool room is allowed (plan task 6.2.0: the pool has no most, only a sound room)"
+
+[[fault]]
+id = "env-pool-blocks-leak"
+file = "src/kernel/environment.fs"
+old = '''  lf-env-forget dup lf-envh-pool @ lf-pool-release free 0= flag>outcome ;'''
+new = '''  lf-env-forget free 0= flag>outcome ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "freeing an environment leaves its pool's blocks allocated (plan task 6.2.0)"
 
 # --- the publisher (src/kernel/env-publish.fs) ----------------------------
 
@@ -441,6 +449,30 @@ old = '''  if lf-pool-take else lf-pool-full then ;'''
 new = '''  drop lf-pool-take ;'''
 test = "$GFORTH tests/core/environment.fs"
 reason = "a pool without room aborts in the publisher (invalid) instead of answering full"
+
+[[fault]]
+id = "pub-pool-not-grown"
+file = "src/kernel/env-publish.fs"
+old = '''  lf-env-may-write lf-pool-ready lf-env-marked? 0= if drop outcome-invalid true exit then'''
+new = '''  lf-env-may-write lf-env-marked? 0= if drop outcome-invalid true exit then'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "the pool never grows: a publication past its first room is full (plan task 6.2.0)"
+
+[[fault]]
+id = "pub-pool-records-lost"
+file = "src/kernel/env-publish.fs"
+old = '''  over store-count @ dup >r ['] store-identities lf-pool-area r> ['] store-records lf-pool-area'''
+new = '''  over store-count @ dup >r ['] store-identities lf-pool-area r> drop'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "a grown pool loses the dependencies published before it grew"
+
+[[fault]]
+id = "pub-pool-grows-corrupted"
+file = "src/kernel/env-publish.fs"
+old = ''': lf-pool-sound ( -- store true | false ) lf-env lf-env-pool dup store-count-valid? ?keep ;'''
+new = ''': lf-pool-sound ( -- store true ) lf-env lf-env-pool true ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "a pool with a corrupted count is grown, and the copy repairs it, instead of the hand-over failing when it marks the pool"
 
 [[fault]]
 id = "pub-final-before-outcome"
@@ -1095,6 +1127,32 @@ new = '''  drop drop -1 outcome-ok ;'''
 test = "$GFORTH tests/core/whnf.fs"
 reason = "whnf_core treats a recursor at the head as having no rule, where Lean's iota may reduce it"
 gap = "no test reaches the hook with a recursor head: the fc driver builds no inductive block, and the checker's inductive rows that would (iota.*) need Nat literals (task 5.2.3); task 5.2.1b's iota rows close it"
+
+[[fault]]
+id = "rv-k7-off"
+file = "src/kernel/whnf.fs"
+old = '''  dup lf-whnf-k7? if lf-whnf-head'''
+new = '''  dup drop false if lf-whnf-head'''
+test = 'test -n "$LEAN" && python3 tests/core/inductive-table.py'
+reason = "K7 never fires in whnf: Nat.succ Nat.zero, which Lean's reduce_nat turns into a literal, unfolds (review rvU4 L5)"
+
+[[fault]]
+id = "dq-k7-guard-off"
+file = "src/kernel/defeq.fs"
+old = '''  over lf-whnf-k7? if drop lf-whnf-head lf-diag-name-matched outcome-ok exit then
+  dup lf-whnf-k7? if nip lf-whnf-head lf-diag-name-matched outcome-ok exit then
+'''
+new = ''''''
+test = 'test -n "$LEAN" && python3 tests/core/inductive-table.py'
+reason = "steps 6 and 10 say yes for two Nat operations, which Lean's reduce_nat computes first (review rvU4 B1)"
+
+[[fault]]
+id = "dq-unfold-guard-off"
+file = "src/kernel/defeq.fs"
+old = '''  drop 0< if nip else drop then lf-diag-needs-unfolding ;'''
+new = '''  2drop 2drop 0 0 ;'''
+test = 'test -n "$LEAN" && python3 tests/core/inductive-table.py'
+reason = "steps 6 and 10 say yes where Lean's lazy delta unfolds an abbreviation first and meets reduce_nat (review rvU4 B1)"
 
 [[fault]]
 id = "whnf-cheap-beta-off"
@@ -4096,10 +4154,10 @@ reason = "rvI21 M1: with the flag left set, a later definition using a rejected 
 [[fault]]
 id = "ind-capacity-unchecked"
 file = "src/kernel/inductive-block.fs"
-old = '''  lf-ind-ctors@ lf-ind-ctor-capacity > if lf-ind-crowded exit then'''
+old = '''  lf-ind-ctors@ lf-ind-ctor-cells slab-hold ok? 0= if lf-ind-crowded exit then'''
 new = ''''''
 test = "python3 tests/core/test_block_capacity.py"
-reason = "rvI21 B1: a block of more than 512 constructors is checked, writing past its state record"
+reason = "rvI21 B1: the constructors' cells are not grown for the block, which writes past them"
 
 [[fault]]
 id = "ind-t1-ctors-unchecked"
@@ -4553,6 +4611,16 @@ old = '''  lf-genrec-state lf-genrec-kept @ lf-genrec-kept-cells lf-ind-domains 
 new = ''''''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "5.2.1b: a rebuild during a block's check leaves that block's parameter domains overwritten"
+
+[[fault]]
+id = "genrec-ctors-not-restored"
+file = "src/kernel/generated-recursor.fs"
+old = '''  lf-genrec-back
+  lf-genrec-state lf-genrec-kept-ctor @ lf-genrec-kept-ctors lf-ind-ctor-cells
+  lf-genrec-back ;'''
+new = '''  lf-genrec-back ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "6.2.0: a rebuild during a block's check leaves that block's constructors' cells (fields, minor premises, rules) overwritten"
 
 # --- the LaTeX outline style and the statement in three forms (plan tasks 8.6.1, 8.6.2) ---
 # tests/present/check_outline.py compares the golden outlines (plain and LaTeX), checks

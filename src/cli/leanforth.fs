@@ -193,7 +193,8 @@ manifest: cli-manifest
 \ read after the run, each from its published slot, with the diagnostic
 \ its check left: first counted (cli/tally.fs), then printed. The run
 \ made is a table of its words (/cli-ops), chosen when the check starts.
-\ Dependencies the --record run's environment holds, as make run-record's.
+\ The room the --record run's dependency pool starts with, as make
+\ run-record's; the pool grows (plan task 6.2.0).
 64 constant cli-pool
 begin-structure /cli-ops
   field: ops-stepped      \ ( -- n ) declarations whose check began
@@ -281,14 +282,17 @@ end-structure
   ."  names, " lf-level-capacity .decimal ."  levels," cr ." note: "
   lf-term-capacity .decimal ."  term nodes and " lf-input-capacity .decimal
   ."  declarations per export; check without --record holds any size" cr ;
-\ The checker's fixed capacities that end a check full (plan task 6.2.0).
-: cli-capacities. ( -- )
-  lf-env-dep-capacity .decimal ."  dependencies per declaration, "
-  lf-env-pool-max .decimal ."  per export, " lf-ind-ctor-capacity .decimal
-  ."  constructors per" cr ;
+\ What can end a check full besides memory: the scratch each check has
+\ above the input (import/feed.fs; plan task 6.2.2). A check's
+\ dependencies, the pool and a block's constructors grow (plan task
+\ 6.2.0). The second line begins with the text prefix.
+: cli-scratch. ( prefix-addr prefix-u -- )
+  ." each check's scratch above the input: " feed-term-room .decimal ."  term nodes, "
+  feed-level-room .decimal ."  levels," cr
+  type feed-cref-room .decimal ."  constant references (plan task 6.2.2)" cr ;
 : cli-room-note ( -- )
   ." note: a check ran out of room; its diagnostic names the limit: memory, or" cr
-  ." note: " cli-capacities. ." note: inductive block (plan task 6.2.0)" cr ;
+  ." note: " s" note: " cli-scratch. ;
 : cli-fuel-note ( -- )
   ." note: a check ran out of fuel (" cli-fuel @ .decimal
   ."  steps each); --fuel N gives each more" cr ;
@@ -589,7 +593,7 @@ create cli-fed-ops
   over lf-env-use ok? 0= if drop c" the checked environment could not be used" cli-fault
   0 exit then ['] cli-print-run catch dup if nip then ;
 : cli-print-env ( chosen -- )
-  cli-fuel @ lf-check-budget lf-env-pool-max lf-env-new cli-env-made 0= if drop exit then
+  cli-fuel @ lf-check-budget lf-env-pool-start lf-env-new cli-env-made 0= if drop exit then
   swap cli-print-guarded swap cli-print-free throw ;
 \ The outline's style and the names it shows, set before the run.
 : cli-style ( -- )
@@ -689,13 +693,13 @@ create cli-fed-ops
   ."   (4.2.2), so some correct proofs end unknown; check --record and replay" cr
   ."   refuse inductive types while reading" cr ;
 : cli-check-limits. ( -- )
-  ."   check: stores and walks that grow with the export (memory, any depth);" cr
-  ."     " cli-capacities. ."     inductive block (plan task 6.2.0)" cr ;
+  ."   check: stores, walks and lists that grow with the export (memory), any" cr
+  ."     depth and number of dependencies or constructors (plan task 6.2.0);" cr
+  ."     " s"     " cli-scratch. ;
 : cli-small-limits. ( -- )
   ."   check --record, replay: " lf-name-capacity .decimal ."  names, "
   lf-level-capacity .decimal ."  levels, " lf-term-capacity .decimal ."  term nodes," cr
-  ."     " lf-input-capacity .decimal ."  declarations per export, "
-  cli-pool .decimal ."  dependencies per export" cr ;
+  ."     " lf-input-capacity .decimal ."  declarations per export" cr ;
 : cli-limits. ( -- )
   ." limits (check answers full or exhausted, exit 3):" cr cli-check-limits.
   cli-small-limits.

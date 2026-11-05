@@ -29,7 +29,7 @@
       "required": ["fuel", "dependencyPool", "strictAxioms"],
       "properties": {
         "fuel": {"description": "Fuel each declaration's check starts with (--fuel).", "$ref": "#/$defs/count"},
-        "dependencyPool": {"description": "Dependencies the run's environment holds.", "$ref": "#/$defs/count"},
+        "dependencyPool": {"description": "The room the run's dependency pool starts with; it grows (not a limit since plan task 6.2.0).", "$ref": "#/$defs/count"},
         "strictAxioms": {"description": "true with --strict-axioms: a NOT PROVED declaration makes the exit status 6; false by default, when NOT PROVED keeps Lean's exit status (owner, 2026-11-04).", "type": "boolean"}
       }
     },

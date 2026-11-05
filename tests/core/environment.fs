@@ -145,7 +145,10 @@ T{ try-add -> -1 outcome-full }T
 lf-input-reset
 T{ 8 lf-env-new -> 0 outcome-invalid }T
 main-input
-T{ -1 lf-env-new 1 lf-env-pool-max + lf-env-new -> 0 outcome-invalid 0 outcome-invalid }T
+T{ -1 lf-env-new max-n lf-env-new -> 0 outcome-invalid 0 outcome-invalid }T
+\ No fixed limit on the pool (plan task 6.2.0): room for more than the
+\ old most, 65,536.
+T{ 65537 lf-env-new swap lf-env-free -> outcome-ok outcome-ok }T
 lf-env-serial @ constant serial-before
 T{ 8 ' lf-env-new rs-checked swap constant env-a -> outcome-ok }T
 lf-env-serial @ constant id-a
@@ -165,9 +168,12 @@ T{ env-a ' lf-env-use rs-checked lf-env env-a = -> outcome-ok true }T
 \ use and free refuse it and change nothing. A test cannot read freed
 \ memory, so it copies env-a and clears the copy's identity; with env-a's
 \ identity the same copy is live, so only the identity decides.
-main-count 8 lf-env-bytes constant env-a-size
+main-count lf-env-bytes constant env-a-size
+\ The copy gets a pool block of its own, so that freeing it frees none of
+\ env-a's.
+: own-pool ( env -- env ) 8 lf-pool-block ok? 0= abort" pool" over lf-envh-pool ! ;
 : env-copy ( identity -- env )
-  env-a-size allocate throw env-a over env-a-size move tuck lf-envh-identity ! ;
+  env-a-size allocate throw env-a over env-a-size move tuck lf-envh-identity ! own-pool ;
 \ Free env: by lf-env-free when it accepts, else here.
 : copy-free ( env -- outcome ) dup lf-env-free dup ok? if nip else swap free throw then ;
 T{ 0 env-copy dup lf-env-use swap free throw lf-env env-a = -> outcome-invalid true }T
@@ -312,18 +318,16 @@ env-free
 T{ fuel-trials step-failures @ -> true 0 }T
 T{ 5 fuel-trial step-failures @ -> outcome-ok 0 }T
 1000 23 fuel
-\ No room in the pool: with room for one dependency, 1 is accepted and the
-\ others that use any are full; with none, 1 is full and its users are
-\ unknown (K5).
+\ A pool that starts small grows (plan task 6.2.0): with room for one
+\ dependency, or none, every declaration gets the verdict it gets with
+\ room for eight, and the pool holds all seven dependencies.
 1 fresh-env
-T{ ' syn-check main-count checked-run step-failures @ lf-env-view -> 0 outcome-ok }T
-T{ 1 lf-env-outcome 8 lf-env-outcome 23 lf-env-outcome 26 lf-env-outcome -> outcome-ok outcome-full outcome-full outcome-full }T
-T{ pool-count -> 1 }T
+T{ ' syn-check main-count checked-run step-failures @ main-count verdicts-match? -> 0 true }T
+T{ pool-count -> 7 }T
 env-free
 0 fresh-env
-T{ ' syn-check main-count checked-run step-failures @ -> 0 }T
-T{ 0 lf-env-outcome 1 lf-env-outcome 8 lf-env-outcome 21 lf-env-outcome -> outcome-ok outcome-full outcome-unknown outcome-ok }T
-T{ pool-count -> 0 }T
+T{ ' syn-check main-count checked-run step-failures @ main-count verdicts-match? -> 0 true }T
+T{ pool-count -> 7 }T
 env-free
 \ A THROW in the publisher before the final mark: the step is a fault, the
 \ slot is not final and cleared (outcome invalid, every other field zero),
@@ -362,8 +366,8 @@ T{ 1 slot@ lf-env-guarded 1 slot@ lf-slot-final? -> outcome-invalid true false }
 pool-then pool store-count !
 T{ lf-env-hand-over 1 slot@ lf-slot-final? lf-input-rollback -> outcome-ok false true outcome-ok }T
 env-free
-\ A pool shape store-init refuses: the memory is freed, nothing is made.
-T{ main-count 0 lf-env-bytes allocate throw -1 swap lf-env-made -> 0 outcome-invalid }T
+\ A pool room lf-pool-plan? refuses: the memory is freed, nothing is made.
+T{ main-count lf-env-bytes allocate throw -1 swap lf-env-made -> 0 outcome-invalid }T
 \ Inside a job (lf-owner set, as job-run sets it) nothing makes, chooses,
 \ frees or publishes an environment (G-P1); environment-tasks.fs does the
 \ same in real jobs.
@@ -785,8 +789,9 @@ env-free twice-loaded unspare
 T{ ' silent-check main-count checked-run step-failures @ -> 0 }T
 T{ 0 lf-env-outcome 1 lf-env-outcome -> outcome-invalid outcome-invalid }T
 env-free
-\ The candidate's own limit: lf-env-dep-capacity dependencies; one more
-\ is full. Input: 16 definitions, one using four, then one more.
+\ No fixed limit on a check's dependencies (plan task 6.2.0): 17, more
+\ than the old 16, are recorded, kept ascending, and the pool grows for
+\ them. Input: 16 definitions, one using four, then one more.
 : wide-input-1 ( -- )
   n.A def add n.B def add n.C def add n.D def add n.E def add n.F def add
   n.G def add n.H def add n.I def add n.J def add n.K def add n.L def add ;
@@ -797,11 +802,33 @@ wide-input
 8 fresh-env
 ' syn-check 17 checked-run
 : depend-all ( n -- outcome ) outcome-ok swap 0 ?do drop i lf-env-depend loop ;
-T{ 17 lf-env-begin lf-env-dep-capacity depend-all lf-cand-count@ -> outcome-ok outcome-ok lf-env-dep-capacity }T
-T{ 16 lf-env-depend lf-cand-count@ 3 lf-env-depend -> outcome-full lf-env-dep-capacity outcome-ok }T
-\ Sixteen dependencies need room for sixteen in the pool: four are left.
+T{ 17 lf-env-begin 16 depend-all lf-cand-count@ -> outcome-ok outcome-ok 16 }T
+T{ 16 lf-env-depend lf-cand-count@ 3 lf-env-depend lf-cand-count@ -> outcome-ok 17 outcome-ok 17 }T
+: ascending? ( -- flag ) true lf-cand-count@ 0 ?do i lf-cand-dep @ i = and loop ;
+T{ ascending? -> true }T
+\ Seventeen dependencies need room for seventeen in the pool, which holds
+\ eight, four of them used: before it marks the pool, the publisher
+\ replaces it by a block with room for 21, the four copied, the old block
+\ linked from it.
 outcome-ok lf-env-finish
-T{ lf-env-hand-over lf-env-view 17 lf-env-outcome pool-count -> outcome-full false outcome-ok outcome-full 4 }T
+lf-env lf-envh-pool @ constant first-block
+T{ lf-env-hand-over lf-env-view 17 lf-env-outcome pool-count -> outcome-ok false outcome-ok outcome-ok 21 }T
+T{ pool store-capacity @ lf-env lf-envh-pool @ @ first-block = -> 21 true }T
+: deps-from ( first n -- flag ) true swap 0 ?do over i + dep i = and loop nip ;
+T{ 17 slot@ lf-slot-deps @ 17 slot@ lf-slot-count @ 4 17 deps-from -> 4 17 true }T
+T{ 0 dep 1 dep 2 dep 3 dep -> 0 1 2 3 }T
+env-free
+\ The list grows, and so does the place found by halving: in any order,
+\ each dependency is recorded once, the list ascending.
+wide-input
+8 fresh-env
+' syn-check 17 checked-run
+: depend-down ( n -- outcome ) outcome-ok swap 0 ?do drop 16 i - lf-env-depend loop ;
+: depend-odd ( -- outcome ) outcome-ok 17 1 ?do drop i lf-env-depend 2 +loop ;
+T{ 17 lf-env-begin depend-odd 17 depend-down lf-cand-count@ ascending? -> outcome-ok outcome-ok outcome-ok 17 true }T
+T{ 5 lf-env-depend 16 lf-env-depend 0 lf-env-depend lf-cand-count@ -> outcome-ok outcome-ok outcome-ok 17 }T
+outcome-ok lf-env-finish
+T{ lf-env-hand-over lf-env-view 17 lf-env-outcome -> outcome-ok false outcome-ok outcome-ok }T
 env-free
 
 \ ---------------------------------------------------------------------------
@@ -865,12 +892,13 @@ T{ lf-env-hand-over lf-env-view 3 lf-env-outcome 3 lf-env-handle -> outcome-unkn
 7 lf-env-begin drop outcome-ok lf-env-finish
 T{ lf-recheck lf-env-hand-over lf-env-view 7 lf-env-outcome -> 4 true outcome-invalid false outcome-ok outcome-invalid }T
 \ A dependency that is not accepted, or out of order, or a corrupted count.
-8 lf-env-begin drop 1 lf-env-depend drop 3 lf-env-cand lf-cand-deps ! outcome-ok lf-env-finish
+8 lf-env-begin drop 1 lf-env-depend drop 3 0 lf-cand-dep ! outcome-ok lf-env-finish
 T{ lf-env-hand-over -> outcome-invalid false }T
 9 lf-env-begin drop 0 lf-env-depend drop 1 lf-env-depend drop
-1 lf-env-cand lf-cand-deps ! 0 lf-env-cand lf-cand-deps cell+ ! outcome-ok lf-env-finish
+1 0 lf-cand-dep ! 0 1 lf-cand-dep ! outcome-ok lf-env-finish
 T{ lf-env-hand-over -> outcome-invalid false }T
-10 lf-env-begin drop lf-env-dep-capacity 1+ lf-env-cand lf-cand-count ! outcome-ok lf-env-finish
+10 lf-env-begin drop lf-cand-deps slab-capacity 1+ lf-env-cand lf-cand-count !
+outcome-ok lf-env-finish
 T{ 0 lf-env-depend lf-env-hand-over -> outcome-invalid outcome-invalid false }T
 \ An axiom set that differs from the union of the dependencies'.
 11 lf-env-begin drop 1 lf-env-cand lf-cand-axioms ! outcome-ok lf-env-finish
@@ -1010,10 +1038,33 @@ outcome-rejected 0 slot@ lf-slot-outcome !
 7 lf-env-begin drop outcome-ok lf-env-finish
 T{ lf-env-hand-over drop diag 0 slot@ lf-slot-final? -> outcome-invalid 7 4 lf-diag-recheck false }T
 env-free
-\ No room in the pool: dependencies needed and capacity.
+\ A pool with room for one grows when a publication needs more (plan task
+\ 6.2.0): declaration 1's dependency fills it, and declaration 8's two
+\ are published in a block with room for 16. Freeing the environment
+\ frees both blocks.
+live-blocks @ constant blocks-before-pool
 1 fresh-env
 ' syn-check 8 checked-run
+lf-env lf-envh-pool @ constant small-block
+T{ pool-count pool store-capacity @ -> 1 1 }T
+T{ ' syn-check 8 lf-env-step lf-env-view 8 lf-env-outcome -> outcome-ok false outcome-ok outcome-ok }T
+T{ pool-count pool store-capacity @ lf-env lf-envh-pool @ @ small-block = -> 3 16 true }T
+env-free
+T{ live-blocks @ blocks-before-pool - -> 0 }T
+\ No room in the pool: only when the heap refuses a larger block
+\ (heap-watch.fs), or the pool's identities are spent (white-box):
+\ dependencies needed and capacity, nothing grown or appended.
+1 fresh-env
+' syn-check 8 checked-run
+1 heap-refusals !
 T{ ' syn-check 8 lf-env-step drop diag -> outcome-full 3 1 lf-diag-pool-full }T
+T{ heap-refusals @ pool-count lf-env lf-envh-pool @ @ -> 0 1 0 }T
+env-free
+1 fresh-env
+' syn-check 8 checked-run
+max-n 1- pool store-serial !
+T{ ' syn-check 8 lf-env-step drop diag -> outcome-full 3 1 lf-diag-pool-full }T
+T{ pool-count lf-env lf-envh-pool @ @ -> 1 0 }T
 env-free
 \ A THROW in the publisher (in a check: above, with G-P6).
 8 fresh-env
@@ -1027,11 +1078,18 @@ lf-input-reset n.A def n.u param n.u param add ends
 8 fresh-env
 T{ 0 lf-env-begin lf-env-own-params diag -> outcome-ok outcome-rejected 0 0 lf-diag-duplicate-param }T
 env-free
+\ A list the heap cannot grow is full: the list made empty again, then
+\ sixteen recorded, its first room, and the heap refuses the next
+\ (heap-watch.fs): sixteen recorded, room for sixteen.
 wide-input
 8 fresh-env
 ' syn-check 17 checked-run
-17 lf-env-begin drop lf-env-dep-capacity depend-all drop
-T{ 16 lf-env-depend diag -> outcome-full lf-env-dep-capacity lf-env-dep-capacity lf-diag-deps-full }T
+: deps-reset ( -- )
+  lf-cand-deps slab-free 1 cells dup slab-limit-max lf-cand-deps slab-init drop ;
+deps-reset
+17 lf-env-begin drop 16 depend-all drop 1 heap-refusals !
+T{ 16 lf-env-depend diag -> outcome-full 16 16 lf-diag-deps-full }T
+T{ heap-refusals @ 2 lf-env-depend lf-cand-count@ -> 0 outcome-ok 16 }T
 env-free
 
 \ ---------------------------------------------------------------------------

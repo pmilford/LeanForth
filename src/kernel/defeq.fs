@@ -30,22 +30,29 @@
 \   variable data Lean tests, ADR 0014 Q12).
 \ - is_def_eq_core (1132-1207), in Lean's order: (1) quick_is_def_eq
 \   decides yes or no; (2) the Bool.true test is skipped: it only ever
-\   answers yes, after unfolding (K7, plan task 4.2.2d); (3) whnf_core of
-\   both sides (whnf.fs) and, when either changed, quick_is_def_eq again;
-\   then the steps that can only answer yes, on the reduced terms: (6)
-\   the same constant with equivalent universe arguments, (7) the same
-\   free variable, (10) is_def_eq_app. When none says yes the answer is
-\   unknown (diagnostic 30, the two terms): proof irrelevance (4, plan
-\   task 4.2.5), lazy delta reduction (5, task 4.2.2d), eta (11, task
-\   4.2.4), structure eta and unit-like types (12, 14, task 5.2.2) may
-\   decide there, and only after them would Lean say no (15). Skipping
-\   steps 4 and 5 here is sound for a yes: steps 6, 7 and 10 answer yes
-\   only for terms equal up to beta and universe equivalence, which Lean
-\   finds equal whatever route it takes (ADR 0003, the argument
-\   conversion has always rested on). A whnf_core that is unknown (a
-\   recursor at the head, whnf.fs) leaves that side unreduced for those
-\   steps, as the old conversion compared it, and never lets step 3 say
-\   no.
+\   answers yes (K7, plan task 4.2.2d); (3) whnf_core of both sides
+\   (whnf.fs) and, when either changed, quick_is_def_eq again; then,
+\   after the interim guard below, the steps that can only answer yes,
+\   on the reduced terms: (6) the same constant with equivalent universe
+\   arguments, (7) the same free variable, (10) is_def_eq_app. When none
+\   says yes the answer is unknown (diagnostic 30, the two terms): proof
+\   irrelevance (4, plan task 4.2.5), lazy delta reduction (5, task
+\   4.2.2d), eta (11, task 4.2.4), structure eta and unit-like types (12,
+\   14, task 5.2.2) may decide there, and only after them would Lean say
+\   no (15). Skipping steps 4 and 5 is sound for a yes under these
+\   conditions, which the yes needs: (a) steps 6, 7 and 10 answer yes
+\   only for terms equal up to beta and universe equivalence; (b) step 5
+\   could not have gone elsewhere -- no head is a constant Lean matches
+\   by name (K7) and none unfolds, except two applications of the same
+\   declaration with a regular hint, whose arguments Lean compares first
+\   (the guard, review rvU4 B1: without it Lean's reduce_nat may turn a
+\   side into a literal whose type the environment lacks); (c) step 4
+\   may compare the two sides' types instead (a proof), which for terms
+\   equal up to beta and universe equivalence Lean finds equal (ADR
+\   0003, the argument conversion has always rested on). A whnf_core
+\   that is unknown (a recursor at the head, whnf.fs) leaves that side
+\   unreduced for those steps, as the old conversion compared it, and
+\   never lets step 3 say no.
 \ - is_def_eq_app: both applications, the functions is_def_eq and the
 \   argument counts equal, then the arguments left to right; the first
 \   pair that is not equal ends it, false. is_def_eq_args: the arguments
@@ -337,9 +344,41 @@ defer lf-ap-arg ( frames -- ... frames next )
   >r ok-then? 0= if r> 4 lf-dq-drop-failed exit then
   if true r> 4 lf-dq-drop-answer exit then
   r@ lf-dq-sides lf-dq-undecided outcome-unknown r> 4 lf-dq-drop-failed ;
-\ Steps 6, 7, then 10.
+\ The interim guard (review rvU4 B1), until lazy delta reduction (step
+\ 5, plan task 4.2.2d) is ported: steps 6, 7 and 10 say yes only where
+\ Lean's step 5 could not have gone elsewhere first. Lean's lazy delta
+\ loop first asks is_def_eq_offset and reduce_nat (1043-1066), which
+\ match Nat.succ and fourteen Nat operations by name and read the
+\ constant Nat.zero as the literal 0 (K7): a K7 head on either side is
+\ unknown (diagnostic 82 with the head). Then it unfolds a side whose
+\ head unfolds (is_delta, whnf.fs), unless both are applications of the
+\ same declaration with a regular hint, where it first compares the
+\ universe arguments and the arguments (998-1009), as step 10 does: a
+\ head that unfolds otherwise is unknown (K1, diagnostic 64 with the
+\ node). Outside a check of the checked environment no constant has a
+\ value LeanForth can see (the signature index's), so only the K7 test
+\ applies there. The guard answers 0 to go on, or the code of the
+\ unknown and its node.
+: lf-dq-delta ( node -- decl outcome )
+  lf-whnf-head dup lf-whnf-const? lf-whnf-env? and if lf-whnf-delta-of else drop -1 outcome-ok then ;
+: lf-dq-same-regular? ( tn sn dt ds -- flag )
+  over <> if drop 2drop false exit then
+  lf-idecl-hint @ lf-hint-regular = -rot lf-dq-apps? and ;
+: lf-dq-unfolds ( tn sn dt ds -- node code )
+  2dup 0< swap 0< and if 2drop 2drop 0 0 exit then
+  2over 2over lf-dq-same-regular? if 2drop 2drop 0 0 exit then
+  drop 0< if nip else drop then lf-diag-needs-unfolding ;
+: lf-dq-guard ( tn sn -- node code outcome )
+  over lf-whnf-k7? if drop lf-whnf-head lf-diag-name-matched outcome-ok exit then
+  dup lf-whnf-k7? if nip lf-whnf-head lf-diag-name-matched outcome-ok exit then
+  2dup swap lf-dq-delta ok-then? 0= if >r 2drop drop 0 0 r> exit then
+  >r lf-dq-delta ok-then? 0= if r> drop >r 2drop 0 0 r> exit then
+  r> swap lf-dq-unfolds outcome-ok ;
+\ Steps 6, 7, then 10, after the guard.
 : lf-dq-tail ( frames -- ... frames next )
-  >r r@ lf-dq-sides 2dup r@ lf-dq-consts
+  >r r@ lf-dq-sides lf-dq-guard ok-then? 0= if nip r> 4 lf-dq-drop-failed exit then
+  ?dup if 0 lf-dq-site rot lf-diag-note outcome-unknown r> 4 lf-dq-drop-failed exit then
+  drop r@ lf-dq-sides 2dup r@ lf-dq-consts
   ok-then? 0= if nip nip r> 4 lf-dq-drop-failed exit then
   if 2drop true r> 4 lf-dq-drop-answer exit then
   2dup lf-dq-fvars? if 2drop true r> 4 lf-dq-drop-answer exit then
