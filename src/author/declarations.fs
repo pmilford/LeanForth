@@ -20,13 +20,14 @@
 \ being made).
 
 require ../lib/lib.fs
+require ../present/print-forth.fs
 require ./namespaces.fs
 
 \ Names from tokens.
 : lfa-leading-zero? ( c-addr u -- flag ) 1 > swap c@ [char] 0 = and ;
 : lfa-numeric ( prefix c-addr u -- name )
   2dup lfa-leading-zero? 0= lfa-e-bad-name lfa-must
-  dup 10 < lfa-e-bad-name lfa-must 0 0 2swap >number 2drop drop lf-name-num
+  dup lf-name-digits-max 1+ < lfa-e-bad-name lfa-must 0 0 2swap >number 2drop drop lf-name-num
   lfa-e-names-full lfa-must ;
 : lfa-intern-part ( prefix c-addr u -- name )
   dup 0<> lfa-e-bad-name lfa-must 2dup lfa-digits?

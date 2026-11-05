@@ -33,6 +33,8 @@
 \       derivation log on, and print each one's proof outline right after
 \       its check (cli/print.fs, present/proof-outline.fs), or with
 \       --detail every step of its log; with --name only that declaration;
+\       with --lf instead write the whole export, unchecked, as one
+\       LeanForth text (cli/print-lf.fs);
 \   count [--no-manifest] EXPORT          the record counts (ndjson-count.fs);
 \   reexport [--no-manifest] EXPORT COPY  the byte-exact copy (ndjson-emit.fs);
 \   version, capabilities, help (also --version, --help and -h).
@@ -111,6 +113,7 @@ require ../import/run-replay.fs
 require ../import/ndjson-count.fs
 require ../import/ndjson-emit.fs
 require ./print.fs
+require ./print-lf.fs
 require ./tally.fs
 require ./name-text.fs
 require ./check-run.fs
@@ -132,6 +135,7 @@ begin-structure /cli-run
   field: opt-json               \ true: the report as JSON (--json)
   field: opt-latex              \ true: print's outlines as LaTeX (--latex)
   field: opt-forms              \ print's statement forms (--statement), 0: all
+  field: opt-lf                 \ true: print writes the export as LeanForth text (--lf)
   field: opt-strict             \ true: NOT PROVED gives exit 6 (--strict-axioms)
   4 cells +field arg-files      \ the file names given, in order (two c-addr u)
   field: arg-count              \ how many were given
@@ -606,13 +610,29 @@ create cli-fed-ops
   pr-log-on ['] cli-print-env catch lf-log-off lf-log-set throw ;
 \ A read that failed, as check's is reported (cli-fed-unread), and its code.
 : cli-print-unread ( outcome -- ) cli-fed-unread ck-read-outcome outcome>code cli-code! ;
+\ --lf (cli/print-lf.fs): the whole export as one LeanForth text on the
+\ standard output, unchecked, so nothing but the text goes there; options
+\ that shape outlines do not go with it (a mistake, code 4).
+: cli-lf? ( -- flag ) cli-state opt-lf @ 0<> ;
+: cli-lf-misused? ( -- flag )
+  cli-detail? cli-named nip 0<> or cli-state opt-latex @ 0<> or cli-state opt-forms @ 0<> or ;
+: cli-lf-misuse ( -- )
+  ." error: --lf does not go with --detail, --name, --latex or --statement" cr
+  exit-malformed cli-code! ;
+: cli-lf-note ( -- )
+  cli-unchecked @ if s" \ note: the export's manifest was not checked (--no-manifest)" type cr then ;
+: cli-lf-run ( -- )
+  cli-lf-misused? if cli-lf-misuse exit then
+  s" \ LeanForth text written by leanforth print --lf; untrusted presentation, not a proof" type cr
+  cli-lf-note
+  cli-fuel @ lf-file-write drop ;
 : cli-print-library ( -- )
-  0 cli-file cli-checked? pr-load dup ok? if drop cli-printing exit then
-  cli-print-unread ;
+  0 cli-file cli-checked? pr-load dup ok? 0= if cli-print-unread exit then drop
+  cli-lf? if cli-lf-run else cli-printing then ;
 \ The run, then everything it holds freed, after a THROW too (passed on).
 : print-command ( -- code )
   cli-start cli-opens? 0= if cli-unopened exit then
-  cli-unchecked-note ['] cli-print-library cli-fed-run ;
+  cli-lf? 0= if cli-unchecked-note then ['] cli-print-library cli-fed-run ;
 
 \ ---------------------------------------------------------------------------
 \ count: the report of ndjson-count.fs, or its error line.
@@ -735,6 +755,9 @@ create cli-fed-ops
   ."         [--latex] [--statement FORMS] EXPORT" cr
   ."       check the export and print each accepted declaration's proof outline;" cr
   ."       FORMS: lean, mathematics, leanforth, all (default), joined by commas" cr
+  ."   print --lf [--no-manifest] [--fuel N] [--fast] EXPORT" cr
+  ."       write every declaration as one LeanForth text, unchecked; what the" cr
+  ."       words cannot write is listed on stderr and stubbed" cr
   ."   count [--no-manifest] EXPORT     count the export's records by kind" cr
   ."   reexport [--no-manifest] EXPORT COPY" cr
   ."       write the export again, byte for byte as Lean's exporter writes it" cr ;
@@ -818,6 +841,7 @@ end-structure
 256 constant takes-statement
 512 constant takes-strict
 1024 constant takes-fast
+2048 constant takes-lf
 : cli-value ( c-addr u -- c-addr' u' true | false )
   cli-arg if 2swap 2drop true else c" an option without its value" cli-wrong false then ;
 \ A decimal number from 0 to max-n with nothing else: (n true) or false.
@@ -847,6 +871,7 @@ end-structure
 : cli-strict-option ( c-addr u -- ) 2drop cli-strict ;
 \ --fast: bin/leanforth chose the engine before Forth ran; nothing to do.
 : cli-fast-option ( c-addr u -- ) 2drop ;
+: cli-lf-option ( c-addr u -- ) 2drop true cli-state opt-lf ! ;
 create cli-option-table
   ' cli-manifest-option takes-no-manifest 0 cli-entry, --no-manifest
   ' cli-fuel-option takes-fuel 0 cli-entry, --fuel
@@ -859,6 +884,7 @@ create cli-option-table
   ' cli-statement-option takes-statement 0 cli-entry, --statement
   ' cli-strict-option takes-strict 0 cli-entry, --strict-axioms
   ' cli-fast-option takes-fast 0 cli-entry, --fast
+  ' cli-lf-option takes-lf 0 cli-entry, --lf
   0 ,
 : cli-takes? ( entry -- flag ) cli-entry-first @ cli-state arg-set @ and 0<> ;
 : cli-taken ( c-addr u entry -- )
@@ -883,7 +909,7 @@ checking-set takes-record or takes-resources or takes-json or takes-strict or
 constant check-set
 checking-set constant replay-set
 checking-set takes-detail or takes-name or takes-latex or takes-statement or
-constant print-set
+takes-lf or constant print-set
 create cli-commands
   ' check-command 1 check-set cli-entry, check
   ' replay-command 2 replay-set cli-entry, replay

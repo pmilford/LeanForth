@@ -60,8 +60,8 @@ end-structure
   dup lfa-text-length @ if s" ." 2 pick lfa-text+ then lfa-text+ ;
 
 \ Namespaces known: their full names.
-32 constant lfa-known-capacity
-1024 constant lfa-known-bytes
+1024 constant lfa-known-capacity
+32768 constant lfa-known-bytes
 begin-structure /lfa-known
   field: lfa-known-offset
   field: lfa-known-length
