@@ -83,7 +83,8 @@ declared parameters; bound variables (de Bruijn indices); application; `λ`
 and `Π` with any binder name and annotation (both ignored, as Lean ignores
 them); constants with universe arguments that name declarations accepted
 earlier in the same run. *Unsupported* (rule U2): `let`, number and string
-literals, projections and metadata nodes. Free variables, metavariables and
+literals, projections and metadata nodes (projections are checked since plan
+task 5.2.2, ADR 0015 J1 and J2, when an export is staged and fed). Free variables, metavariables and
 level metavariables cannot appear in an export and are *invalid* input.
 
 **Environment.** It starts empty and grows only by declarations this run

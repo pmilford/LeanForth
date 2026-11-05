@@ -67,7 +67,7 @@ end-structure
   over lf-minst-children? if lf-rebuild-binary else lf-rebuild-refuse then ;
 : lf-minst-leaf ( node frames tag -- result outcome )
   case lf-tag-bvar of lf-minst-bvar endof  lf-tag-fvar of lf-rebuild-keep endof
-    lf-tag-constant of lf-rebuild-keep endof
+    lf-tag-constant of lf-rebuild-keep endof  lf-tag-proj of lf-rebuild-keep endof
     lf-tag-symbolic-sort of lf-rebuild-keep endof
     >r lf-rebuild-bad r> endcase ;
 \ The visit's first step (lib/frame.fs).

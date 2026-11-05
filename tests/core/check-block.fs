@@ -300,10 +300,8 @@ T{ s" pos.erased-by-recursor" verdict -> outcome-ok 0 all-steps }T
 T{ s" pos.erased-by-definition" verdict -> outcome-ok 0 all-steps }T
 \ Iota in a declaration's check (Lean's reduce_recursor, behind whnf.fs's
 \ hook): a constructor's rule with its fields, its induction hypothesis
-\ and an argument after the major premise, Nat.zero, Eq.refl (k set). A
-\ comparison Lean refuses after iota, or with a stuck major premise, is
-\ unknown until the port decides rejections (task 4.2.2d); Nat.succ is
-\ K7 (Lean's reduce_nat makes a literal of it: task 5.2.3).
+\ and an argument after the major premise, Nat.zero, Eq.refl (k set);
+\ Nat.succ is K7 (Lean's reduce_nat makes a literal of it: task 5.2.3).
 T{ s" iota.bool-true" used -> outcome-ok 0 }T
 T{ s" iota.list-hypothesis" used -> outcome-ok 0 }T
 T{ s" iota.list-field" used -> outcome-ok 0 }T
@@ -316,6 +314,47 @@ T{ s" iota.bool-true-wrong" used -> outcome-rejected lf-diag-value-apart }T
 T{ s" iota.list-hypothesis-wrong" used -> outcome-rejected lf-diag-value-apart }T
 T{ s" iota.bool-stuck" used -> outcome-rejected lf-diag-value-apart }T
 T{ s" iota.nat-succ" used -> outcome-unknown lf-diag-name-matched }T
+\ Review rvN1 round 2 (L1): a reduct that keeps the recursor's universe
+\ arguments in its recursive call; iota on Lean's generated recursor
+\ after B3 refused the block's swapped rules (not ported yet: unknown,
+\ never the file's rules).
+T{ s" iota.levels-in-reduct" used -> outcome-ok 0 }T
+T{ s" iota.levels-in-reduct-wrong" used -> outcome-rejected lf-diag-value-apart }T
+T{ s" after.b3-swapped-then-iota-lean-rule" used -> outcome-unknown lf-diag-iota-pending }T
+T{ s" after.b3-swapped-then-iota-forged-rule" used -> outcome-unknown lf-diag-iota-pending }T
+\ Projections (task 5.2.2): typed by infer_proj, a data field of a pair
+\ and a proof's field of a conjunction; invalidProj rejected: a data
+\ field out of a proof, the wrong structure, an index past the fields.
+T{ s" proj.data" used -> outcome-ok 0 }T
+T{ s" proj.proof-of-proof" used -> outcome-ok 0 }T
+T{ s" proj.data-from-proof" used -> outcome-rejected lf-diag-invalid-proj }T
+T{ s" proj.wrong-structure" used -> outcome-rejected lf-diag-invalid-proj }T
+T{ s" proj.index-out-of-range" used -> outcome-rejected lf-diag-invalid-proj }T
+\ A projection of a constructor application reduces to its field
+\ (reduce_proj): (Bool, Nat).1 is Bool; the wrong twin rejected, as by
+\ Lean.
+T{ s" proj.reduces" used -> outcome-ok 0 }T
+T{ s" proj.reduces-wrong" used -> outcome-rejected lf-diag-value-apart }T
+\ Structure eta in iota (R3): the major premises of PUnit and Prod
+\ expanded, accepted; And's, a proposition's, left stuck as by Lean, so
+\ rejected; a reduct p.1 compared with Prod.fst p, two projections.
+T{ s" iota.punit-eta" used -> outcome-ok 0 }T
+T{ s" iota.prod-eta" used -> outcome-ok 0 }T
+T{ s" iota.and-prop-stuck-bool" used -> outcome-rejected lf-diag-value-apart }T
+T{ s" iota.structure-eta" used -> outcome-ok 0 }T
+\ p.1 = p.2: two projections of p that differ in the field, never equal
+\ by Lean's ==; unknown, where Lean says no, until defeq.fs ports the
+\ comparison's projection steps (task 5.2.2).
+T{ s" proj.index-differs" used -> outcome-unknown lf-diag-undecided }T
+\ Structure eta and unit-like types in is_def_eq: a pair and a structure
+\ of no fields are rejected as by Lean where neither applies; where one
+\ may, unknown (diagnostic 89) until task 5.2.2 ports them in defeq.fs
+\ (R4, R5).
+T{ s" unit.bool-not-unit-like" used -> outcome-rejected lf-diag-value-apart }T
+T{ s" unit.bool-variables" used -> outcome-rejected lf-diag-value-apart }T
+T{ s" unit.pair-of-units" used -> outcome-rejected lf-diag-value-apart }T
+T{ s" eta.structure" used -> outcome-unknown lf-diag-structure-pending }T
+T{ s" unit.punit" used -> outcome-unknown lf-diag-structure-pending }T
 \ C2's comparison of id Type with Type needs Lean's lazy delta reduction
 \ (accepted since plan task 4.2.2d). Unknown, unsupported and invalid:
 T{ s" params.constructor-binder-defeq" verdict nip -> outcome-ok 15 }T
@@ -361,8 +400,8 @@ T{ s" unit.punit-variables" verdict nip -> outcome-unknown 8 }T
 \ ---------------------------------------------------------------------------
 \ 2. blocks.ndjson: N, Both, Same, Either, Nat, the mutual Even/Odd, List
 \ and Point accepted, every member's slot final and accepted, with a
-\ handle and no axioms; the nested Tree unsupported (task 5.2.5b), and
-\ Point.x (a projection, task 5.2.2).
+\ handle and no axioms; the nested Tree unsupported (task 5.2.5b); and
+\ Point.x, a projection, accepted (task 5.2.2).
 : blocks ( -- c-addr u ) s" tests/reference/inductive/blocks.ndjson" ;
 : member-ok? ( d -- flag )
   dup lf-env-outcome ok? over lf-env-handle ok? nip nip and
@@ -372,7 +411,7 @@ T{ s" unit.punit-variables" verdict nip -> outcome-unknown 8 }T
   true -rot swap ?do i lf-env-outcome outcome-unsupported = and loop ;
 T{ blocks staged fuel checked -> outcome-ok }T
 T{ 0 18 all-ok? 18 25 all-ok? 25 29 all-ok? -> true true true }T
-T{ 29 33 all-unsupported? 33 36 all-ok? 36 37 all-unsupported? -> true true true }T
+T{ 29 33 all-unsupported? 33 36 all-ok? 36 37 all-ok? -> true true true }T
 finish
 
 \ ---------------------------------------------------------------------------
@@ -432,12 +471,12 @@ T{ ' n-not-rec 0 block-warned -> outcome-ok lf-warn-rec }T
 \ The shape (B0): a constructor naming another type is invalid.
 : induct ( -- ) 7 lf-input-name 5 lf-ict-induct cell! ;
 T{ ' induct 4 block-verdict drop -> outcome-invalid lf-diag-block-shape }T
-\ The audit: an unsafe member, a projection in a rule (U2), a loose
-\ variable (V1).
+\ The audit: an unsafe member, a literal in a constructor type (U2; a
+\ projection planted in a rule was the case until task 5.2.2 supported
+\ projections), a loose variable (V1).
 : unsafe ( -- ) lf-safety-unsafe 5 lf-input-decl lf-idecl-safety ! ;
 T{ ' unsafe 4 block-verdict drop -> outcome-unsupported lf-diag-unsupported-kind }T
-: projected ( -- ) 36 lf-input-decl lf-idecl-value @ 6 0 rhs ! ;
-T{ ' projected 4 block-verdict drop -> outcome-unsupported lf-diag-unsupported-form }T
+T{ s" mutual.even-odd" verdict -> outcome-unsupported lf-diag-unsupported-form 1 }T
 : a-variable ( -- node ) 0 begin dup lf-term-tag@ lf-tag-bvar <> while 1+ repeat ;
 : loose ( -- ) a-variable 6 0 rhs ! ;
 T{ ' loose 4 block-verdict drop -> outcome-invalid lf-diag-out-of-scope }T

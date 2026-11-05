@@ -40,9 +40,13 @@
 \   gives the lookup's outcome.
 \ Not yet as Lean (no verdict depends on them): the caches m_whnf_core,
 \ m_whnf and m_unfold, and the unfold counts of kernel diagnostics (plan
-\ tasks 4.2.7, 4.3.1); projections, literals and let terms are
-\ unsupported forms (U2) that never reach these passes; the derivation
-\ log records nothing new here (plan task 4.2.2e).
+\ tasks 4.2.7, 4.3.1); literals and let terms are unsupported forms
+\ (U2) that never reach these passes; the derivation log records nothing
+\ new here (plan task 4.2.2e). A projection (core/projections.fs) is an
+\ application of a projection leaf, which the iota hook reduces
+\ (iota.fs, reduce_proj); a leaf alone, the function defeq.fs's
+\ is_def_eq_app finds where Lean has Expr.proj, is unknown until the
+\ comparison's projection steps are ported (plan task 5.2.2).
 \
 \ Passes. Every visit is a chain of steps on a frames record that the
 \ caller gives (lib/frame.fs), so the passes have no depth limit (plan
@@ -110,6 +114,7 @@ require ../core/diagnostics.fs
 require ../core/input.fs
 require ../core/local-context.fs
 require ../core/names.fs
+require ../core/projections.fs
 require ../core/terms.fs
 require ./environment.fs
 require ./env-signature.fs
@@ -442,7 +447,11 @@ defer lf-wc-visit ( node frames -- ... frames next )
 : lf-whnf-normal? ( tag -- flag )
   dup lf-tag-lam = over lf-tag-pi = or over lf-tag-constant = or
   over lf-tag-bvar = or swap lf-tag-symbolic-sort = or ;
+\ A projection leaf alone (see the header): unknown, never invalid.
+: lf-wc-proj ( node frames -- -1 outcome frames 0 )
+  >r 0 lf-diag-undecided lf-whnf-note outcome-unknown r> lf-whnf-failed ;
 : lf-wc-leaf ( node frames tag -- ... frames next )
+  dup lf-tag-proj = if drop lf-wc-proj exit then
   lf-whnf-normal? if lf-whnf-keep else nip outcome-invalid swap lf-whnf-failed then ;
 : lf-wc-tagged ( node frames tag -- ... frames next )
   dup lf-tag-app = if drop lf-wc-app exit then

@@ -154,8 +154,8 @@ class ExitCodes(unittest.TestCase):
         self.assertEqual((status, out.splitlines()[1]), (2, "composition: unsupported"))
         status, out, _ = run("check", "--no-manifest", "tests/core/reexport/kinds.ndjson")
         self.assertEqual((status, out.splitlines()[-2:]),
-                         (2, ["106 declarations: 62 accepted, 44 unsupported",
-                              accepted(62)]))
+                         (2, ["106 declarations: 75 accepted, 31 unsupported",
+                              accepted(75)]))
         self.expect(["check", "--no-manifest", "--record", "/dev/null",
                      "tests/core/reexport/kinds.ndjson"], 2,
                     [NO_MANIFEST,

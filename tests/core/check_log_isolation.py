@@ -105,6 +105,10 @@ STORES = {
     # binder, so that the copier writes it as the bound variable it stands
     # for (lf-log-fvar).
     "lf-tag-fvar", "lf-fvar-live?", "lf-fvar-depth",
+    # Projections (plan task 5.2.2), read only: a projection leaf's tag, so
+    # that the copier keeps the leaf and a projection's step has the rule
+    # form (lf-log-node-rule).
+    "lf-tag-proj", "lf-proj-leaf?",
 }
 LOG_USES = FORTH | CONTEXT | STORES
 LOAD_TIME = {None, "lf-log-entry,"}

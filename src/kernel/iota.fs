@@ -36,12 +36,16 @@
 \ each array filled and used within one step.
 
 require ../lib/lib.fs
+require ../core/constant-references.fs
+require ../core/constant-term-boundary.fs
 require ../core/input.fs
 require ../core/name-equal.fs
 require ../core/names.fs
+require ../core/projections.fs
 require ../core/terms.fs
 require ./environment.fs
 require ./inductive-block.fs
+require ./infer-proj.fs
 require ./mixed-head.fs
 require ./whnf.fs
 
@@ -82,13 +86,16 @@ require ./whnf.fs
   dup lf-whnf-lookup ok-then? 0= if nip no-result exit then lf-iota-of-slot ;
 
 \ Whether node is a constructor application (is_constructor_app): its
-\ head a constant that a usable slot holds as a constructor.
+\ head a constant that a usable slot holds as a constructor, whose
+\ declaration is given (0 for none).
+: lf-iota-ctor ( node -- decl|0 outcome )
+  lf-whnf-head dup lf-whnf-const? 0= if drop 0 outcome-ok exit then
+  lf-whnf-lookup ok-then? 0= if 0 swap exit then
+  dup 0< if drop 0 outcome-ok exit then
+  lf-whnf-decl ok-then? 0= if 0 swap exit then
+  dup lf-idecl-kind @ lf-kind-constructor = 0= if drop 0 then outcome-ok ;
 : lf-iota-ctor? ( node -- flag outcome )
-  lf-whnf-head dup lf-whnf-const? 0= if drop false outcome-ok exit then
-  lf-whnf-lookup ok-then? 0= if false swap exit then
-  dup 0< if drop false outcome-ok exit then
-  lf-whnf-decl ok-then? 0= if false swap exit then
-  lf-idecl-kind @ lf-kind-constructor = outcome-ok ;
+  lf-iota-ctor ok-then? if 0<> outcome-ok else false swap then ;
 
 \ A major premise that is no constructor application. Its type's name is
 \ the head of the recursor type's binder major_idx (get_major_induct,
@@ -109,17 +116,85 @@ require ./whnf.fs
   dup lf-idecl-kind @ lf-kind-inductive <> if drop true exit then
   lf-idecl-data dup lf-ity-ctors@ nip 1 <> over lf-ity-indices lf-more-field 0<> or
   swap lf-ity-flags lf-more-field lf-ity-rec-bit and 0<> or ;
-: lf-iota-plain? ( d -- flag )
-  dup lf-env-warnings ok? 0= if 2drop false exit then
-  lf-warn-indices lf-warn-rec or and if drop false exit then
-  lf-whnf-decl ok? if lf-iota-shape? else drop false then ;
+\ is_non_rec_structure with Lean's fields (B4 found the indices and isRec
+\ Lean's): the structure's declaration, or 0 when it is none.
+: lf-iota-structure ( d -- sdecl|0 outcome )
+  dup lf-env-warnings ok? 0= if 2drop 0 outcome-unknown exit then
+  lf-warn-indices lf-warn-rec or and if drop 0 outcome-unknown exit then
+  lf-whnf-decl ok-then? 0= if 0 swap exit then
+  dup lf-iota-shape? if drop 0 then outcome-ok ;
 : lf-iota-not-ported ( app -- -1 outcome ) lf-whnf-head lf-whnf-pending ;
-: lf-iota-no-ctor ( app decl -- reduct outcome )
-  dup lf-iota-k? if drop lf-iota-not-ported exit then
-  lf-iota-induct ?dup 0= if lf-iota-not-ported exit then
-  lf-whnf-find ok-then? 0= if nip no-result exit then
-  dup 0< if drop lf-iota-not-ported exit then
-  lf-iota-plain? if drop -1 outcome-ok else lf-iota-not-ported then ;
+
+\ Structure eta in iota (R3; plan task 5.2.2; to_cnstr_when_structure,
+\ inductive.h 63-75, expand_eta_struct, inductive.cpp 99-112): a closed
+\ major premise of a non-recursive structure, whose type -- inferred
+\ aside, as Lean's infer_type, then put in whnf -- applies that structure
+\ and is no proposition, becomes the structure's constructor at the
+\ type's universe arguments, applied to the type's first numParams
+\ arguments and to the projections e.0 .. e.(n-1) (core/projections.fs);
+\ a proposition's stays as it is (BL-8), as does one whose type is
+\ another. The inference runs inside an inference job in environment
+\ mode only; elsewhere, for a term with loose bound variables (read
+\ under binders the check did not open), and wherever that inference
+\ fails, unknown. Aside, inference compares nothing (Lean's infer_type
+\ here is infer_only), so it runs inside a comparison too: is_prop of
+\ Prod Bool Bool, met in one (iota.prod-eta).
+: lf-iota-typed ( node -- Ty outcome )
+  lf-minfer-walk ok-then? if lf-minfer-whnf-job else no-result then ;
+: lf-iota-type-of ( node -- Ty outcome ) ['] lf-iota-typed lf-iproj-aside ;
+: lf-iota-closed? ( node -- flag )
+  lf-minfer-frames lf-whnf-loose? ok? if 0= else drop false then ;
+: lf-iota-of-struct? ( sdecl Ty -- flag )
+  lf-whnf-head dup lf-whnf-const? 0= if 2drop false exit then
+  lf-whnf-cref lf-crec-name @ swap lf-idecl-name @ lf-name-same? ;
+\ The constructor named name at Ty's head's universe arguments, a new
+\ constant node (its pairs copied first, as a reference needs).
+: lf-iota-ctor-const ( name Ty -- node outcome )
+  lf-whnf-head lf-whnf-cref lf-cref-pairs lf-whnf-pairs!
+  ok-then? 0= if nip nip no-result exit then
+  >r >r lf-name-generation @ r> r> lf-cref-new 0= if -1 outcome-full exit then
+  lf-cterm-new if drop outcome-ok else -1 outcome-full then ;
+: lf-iota-params ( node Ty p -- node' outcome )
+  0 ?do dup dup lf-iota-n i lf-iota-arg rot swap lf-term-app
+    0= if drop -1 outcome-full unloop exit then swap
+  loop drop outcome-ok ;
+: lf-iota-proj-of ( major name i -- node outcome )
+  lf-hterm-proj 0= if drop -1 outcome-full exit then
+  drop swap lf-term-app if outcome-ok else -1 outcome-full then ;
+: lf-iota-fields-of ( node major name nf -- node' outcome )
+  0 ?do
+    2dup i lf-iota-proj-of ok-then? 0= if >r 2drop drop r> no-result unloop exit then
+    >r rot r> lf-term-app 0= if 2drop -1 outcome-full unloop exit then -rot
+  loop 2drop outcome-ok ;
+: lf-iota-expand ( Ty major sdecl -- node outcome )
+  dup lf-idecl-name @ >r lf-iproj-ctor ok-then? 0= if r> drop nip nip no-result exit then
+  dup lf-idecl-name @ 3 pick lf-iota-ctor-const ok-then?
+  0= if r> drop >r 2drop drop r> no-result exit then
+  over lf-idecl-data lf-ict-params lf-more-field 4 pick 2dup lf-iota-n >
+  if r> drop 2drop 2drop 2drop -1 outcome-unknown exit then
+  swap lf-iota-params ok-then? 0= if r> drop >r 2drop drop r> no-result exit then
+  swap lf-idecl-data lf-ict-fields lf-more-field rot swap r> swap lf-iota-fields-of
+  rot drop ;
+: lf-iota-eta ( app major sdecl -- major' true | reduct outcome false )
+  lf-minfer-env? 0= if 2drop lf-iota-not-ported false exit then
+  over lf-iota-closed? 0= if 2drop lf-iota-not-ported false exit then
+  over lf-iota-type-of ok-then? 0= if drop 2drop lf-iota-not-ported false exit then
+  2dup lf-iota-of-struct? 0= if 2drop 2drop -1 outcome-ok false exit then
+  dup lf-iproj-prop? ok-then? 0= if drop 2drop drop lf-iota-not-ported false exit then
+  if 2drop 2drop -1 outcome-ok false exit then
+  -rot lf-iota-expand ok-then? 0= if nip no-result false exit then nip true ;
+
+\ A major premise that is no constructor application (inductive.h 90-99):
+\ k set, unknown (to_cnstr_when_K not ported); a non-recursive structure,
+\ R3 above; any other type, no rule (-1 ok).
+: lf-iota-no-ctor ( app decl major -- app decl major' true | reduct outcome false )
+  over lf-iota-k? if 2drop lf-iota-not-ported false exit then
+  over lf-iota-induct ?dup 0= if 2drop lf-iota-not-ported false exit then
+  lf-whnf-find ok-then? 0= if >r 2drop drop r> no-result false exit then
+  dup 0< if drop 2drop lf-iota-not-ported false exit then
+  lf-iota-structure ok-then? 0= if >r 2drop drop r> no-result false exit then
+  ?dup 0= if 2drop drop -1 outcome-ok false exit then
+  >r 2 pick swap r> lf-iota-eta 0= if >r >r 2drop r> r> false exit then true ;
 
 \ The rule applies when the constructor has its fields and the recursor
 \ as many universe arguments as parameters (inductive.h 104-105).
@@ -160,7 +235,7 @@ require ./whnf.fs
 \ After the major premise's whnf (inductive.h 92-115).
 : lf-iota-reduce ( app decl major frames -- reduct outcome )
   >r dup lf-iota-ctor? ok-then? 0= if >r 2drop drop r> no-result r> drop exit then
-  0= if drop lf-iota-no-ctor r> drop exit then
+  0= if lf-iota-no-ctor 0= if r> drop exit then then
   2dup lf-iota-head-name lf-iota-rule ?dup 0=
   if 2drop drop -1 outcome-ok r> drop exit then
   2over 2over lf-iota-applies? 0= if 2drop 2drop -1 outcome-ok r> drop exit then
@@ -173,7 +248,36 @@ require ./whnf.fs
   ok-then? 0= if nip nip r> lf-whnf-failed exit then
   r@ lf-iota-reduce r> 0 ;
 : lf-iota-none ( app frames decl -- -1 ok frames 0 ) drop nip -1 outcome-ok rot 0 ;
+
+\ ---------------------------------------------------------------------------
+\ Projection reduction (plan task 5.2.2, ADR 0015 J1; reduce_proj
+\ 444-454, reduce_proj_core 420-441, from whnf_core 504-510): a spine
+\ whose head is a projection leaf (core/projections.fs) has its first
+\ argument e put in Lean's whnf; a constructor application of the leaf's
+\ structure with more than numParams + i arguments gives argument
+\ numParams + i, the field, applied to the spine's arguments after e, and
+\ whnf_core goes on with that; anything else leaves the spine as it is.
+\ Lean's whnf_core with cheap_proj puts e in whnf_core only; this hook
+\ has no such flag and always uses whnf.
+: lf-iota-field-of ( c k -- field|-1 )
+  over lf-iota-n 2dup < if swap lf-iota-arg else 2drop drop -1 then ;
+: lf-iota-projected-to ( leaf c decl -- field|-1 )
+  dup lf-idecl-data lf-ict-induct lf-more-field 3 pick lf-proj-name lf-name-same?
+  0= if 2drop drop -1 exit then
+  lf-idecl-data lf-ict-params lf-more-field rot lf-proj-idx + lf-iota-field-of ;
+: lf-iota-proj-back ( c outcome frames -- ... frames next )
+  >r r@ frame-restore -rot ok-then? 0= if nip r> lf-whnf-failed exit then
+  dup lf-iota-ctor ok-then? 0= if nip nip r> lf-whnf-failed exit then
+  ?dup 0= if 2drop -1 outcome-ok r> 0 exit then
+  >r over lf-whnf-head swap r> lf-iota-projected-to
+  dup 0< if 2drop -1 outcome-ok r> 0 exit then
+  swap dup lf-iota-n 1- lf-iota-extra r> 0 ;
+: lf-iota-proj ( app frames -- ... frames next )
+  over over frame-save swap dup lf-iota-n 0 lf-iota-arg swap
+  ['] lf-iota-proj-back lf-whnf-call ;
+
 : lf-iota ( app frames -- ... frames next )
+  over lf-whnf-head lf-proj-leaf? if lf-iota-proj exit then
   over lf-iota-recursor ok-then? 0= if rot drop swap lf-whnf-failed exit then
   dup 0< if lf-iota-none exit then
   2 pick lf-iota-n over lf-iota-major-idx > 0= if lf-iota-none exit then

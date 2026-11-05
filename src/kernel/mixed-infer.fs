@@ -101,6 +101,7 @@ require ../core/diagnostics.fs
 require ../core/generation-handles.fs
 require ../core/levels.fs
 require ../core/local-context.fs
+require ../core/projections.fs
 require ../core/tagged-sort-boundary.fs
 require ../core/terms.fs
 require ./env-signature.fs
@@ -478,7 +479,15 @@ defer lf-minfer-walk ( node -- type status )
   lf-minfer-aside @ if nip swap lf-minfer-instantiate r> 0 exit then
   r@ frame-save swap dup r@ frame-save swap r@ frame-save lf-term-count @ r@ frame-save
   r> ['] lf-minfer-app-arg lf-minfer-call ;
+\ A projection (plan task 5.2.2): the application of a projection leaf
+\ to its structure term (core/projections.fs), typed by Lean's infer_proj
+\ in infer-proj.fs, which sets this hook while loading; unknown before.
+: lf-minfer-proj-unset ( leaf e frames -- -1 status frames 0 )
+  nip nip outcome-unknown no-result rot 0 ;
+defer lf-minfer-proj ( leaf e frames -- ... frames next )
+' lf-minfer-proj-unset is lf-minfer-proj
 : lf-minfer-app ( function argument frames -- ... frames next )
+  2 pick lf-proj-leaf? if lf-minfer-proj exit then
   tuck frame-save ['] lf-minfer-app-fn lf-minfer-call ;
 
 \ Source nodes lie below the term count at the start; inference that runs
@@ -632,11 +641,14 @@ defer lf-minfer-walk ( node -- type status )
 \ 0013): with it on, the visit is one inference step (sort, variable,
 \ constant, application, lambda or Pi) at the binder context's depth,
 \ closed by the step it keeps for the visit's end; both paths run the
-\ same visit.
+\ same visit. A visit aside records no step: Lean's infer_only is no
+\ derivation, and its applications lack the comparison the log's
+\ structural check requires of an application step.
 : lf-minfer-logged ( node -- node ) lf-minfer-context-depth @ lf-log-infer ;
 : lf-minfer-closing ( type status frames -- type status frames 0 ) >r lf-log-close r> 0 ;
+: lf-minfer-logging? ( -- flag ) lf-log? 0<> lf-minfer-deciding? and ;
 : lf-minfer-visit-step ( node frames -- ... frames next )
-  lf-log? if ['] lf-minfer-closing over frame-save swap lf-minfer-logged swap then
+  lf-minfer-logging? if ['] lf-minfer-closing over frame-save swap lf-minfer-logged swap then
   lf-minfer-visit ;
 : lf-minfer-walk-run ( node -- type status )
   lf-minfer-frames ['] lf-minfer-call frame-through drop ;

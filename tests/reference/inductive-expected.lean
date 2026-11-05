@@ -624,10 +624,47 @@ def reductions : List Red := [
     type := "@Eq.rec Bool Bool.true (fun _ _ => Prop) True Bool.true (Eq.refl Bool.true)",
     value := "True.intro",
     lean := "accepted", leanforth := "accepted", rule := "R1 R2", task := "5.2.1c" },
+  -- Review rvN1 round 2 (L1; its io.* probes): a reduct whose recursive call keeps the
+  -- recursor's universe arguments, and structure eta in iota (R3) on PUnit and Prod, not
+  -- on And (a proposition, BL-8).
+  { id := "iota.levels-in-reduct",
+    type := "∀ (b : Bool) (l : List Bool), @Eq.{2} Type (@List.rec.{2, 0} Bool " ++
+      "(fun (_ : List Bool) => Type) Bool (fun (_ : Bool) (_ : List Bool) (ih : Type) => ih → Bool) " ++
+      "(List.cons b l)) (@List.rec.{2, 0} Bool (fun (_ : List Bool) => Type) Bool " ++
+      "(fun (_ : Bool) (_ : List Bool) (ih : Type) => ih → Bool) l → Bool)",
+    value := "fun (b : Bool) (l : List Bool) => @Eq.refl.{2} Type (@List.rec.{2, 0} Bool " ++
+      "(fun (_ : List Bool) => Type) Bool (fun (_ : Bool) (_ : List Bool) (ih : Type) => ih → Bool) l → Bool)",
+    lean := "accepted", leanforth := "accepted", rule := "R1", task := "5.2.1b" },
+  { id := "iota.levels-in-reduct-wrong",
+    type := "∀ (b : Bool) (l : List Bool), @Eq.{2} Type (@List.rec.{2, 0} Bool " ++
+      "(fun (_ : List Bool) => Type) Bool (fun (_ : Bool) (_ : List Bool) (ih : Type) => ih → Bool) " ++
+      "(List.cons b l)) (@List.rec.{2, 0} Bool (fun (_ : List Bool) => Type) Bool " ++
+      "(fun (_ : Bool) (_ : List Bool) (ih : Type) => ih → Bool) l → @List.rec.{2, 0} Bool " ++
+      "(fun (_ : List Bool) => Type) Bool (fun (_ : Bool) (_ : List Bool) (ih : Type) => ih → Bool) l)",
+    value := "fun (b : Bool) (l : List Bool) => @Eq.refl.{2} Type (@List.rec.{2, 0} Bool " ++
+      "(fun (_ : List Bool) => Type) Bool (fun (_ : Bool) (_ : List Bool) (ih : Type) => ih → Bool) " ++
+      "l → @List.rec.{2, 0} Bool (fun (_ : List Bool) => Type) Bool " ++
+      "(fun (_ : Bool) (_ : List Bool) (ih : Type) => ih → Bool) l)",
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "R1", task := "5.2.1b" },
+  { id := "iota.punit-eta", type := "∀ p : PUnit.{1}, @PUnit.rec.{1, 1} (fun _ => Bool) true p = true",
+    value := "fun (p : PUnit.{1}) => Eq.refl true",
+    lean := "accepted", leanforth := "accepted", rule := "R1 R3", task := "5.2.2" },
+  { id := "iota.prod-eta",
+    type := "∀ p : Bool × Bool, @Prod.rec Bool Bool (fun _ => Bool) (fun _ _ => true) p = true",
+    value := "fun (p : Bool × Bool) => Eq.refl true",
+    lean := "accepted", leanforth := "accepted", rule := "R1 R3", task := "5.2.2" },
+  { id := "iota.and-prop-stuck-bool",
+    type := "∀ (h : True ∧ True), @And.rec True True (fun _ => Bool) (fun _ _ => true) h = true",
+    value := "fun (h : True ∧ True) => Eq.refl true",
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "R1 R3", task := "5.2.2" },
   { id := "iota.structure-eta",
     type := "∀ p : Nat × Nat, @Prod.rec Nat Nat (fun _ => Nat) (fun a _ => a) p = p.1",
     value := "fun (p : Nat × Nat) => Eq.refl p.1",
     lean := "accepted", leanforth := "accepted", rule := "R1 R3", task := "5.2.2" },
+  -- Two projections of one term that differ only in the field (p.1, p.2 unfolded).
+  { id := "proj.index-differs",
+    type := "∀ p : Nat × Nat, p.1 = p.2", value := "fun (p : Nat × Nat) => Eq.refl p.1",
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "J1", task := "5.2.2" },
   { id := "iota.prop-structure-stuck",
     type := "∀ (a b : Prop) (h : a ∧ b), @And.rec a b (fun _ => Nat) (fun _ _ => 5) h = 5",
     value := "fun (a b : Prop) (h : a ∧ b) => Eq.refl 5",
@@ -1222,13 +1259,24 @@ def takenName : Declaration :=
 def takenBlock : Declaration :=
   .inductDecl [] 0 [⟨`IE.C, .sort 1, [⟨`IE.C.mk, mkConst `IE.C⟩]⟩] false
 
+/-- `def n : (Bool, Nat).1 := value`, the type an `Expr.proj` of a constructor application
+(task 5.2.2): `reduce_proj` makes it `Bool`. -/
+def projDef (n : Name) (value : Expr) : Declaration :=
+  let pair := mkAppN (mkConst `Prod.mk [1, 1]) #[.sort 1, .sort 1, mkConst `Bool, mkConst `Nat]
+  .defnDecl { name := n, levelParams := [], type := .proj `Prod 0 pair, value,
+              hints := .regular 1, safety := .safe }
+
 def onBase : List Chain := [
   { id := "names.reserved-nested-prefix", decls := [reservedPrefix],
     lean := "reservedNestedPrefix", leanforth := "rejected", rule := "T0", task := "5.2.5b" },
   { id := "names.reserved-nested-prefix-declared", decls := [nestedAux, usesNestedAux],
     lean := "reservedNestedPrefix", leanforth := "rejected", rule := "T0", task := "5.2.1a" },
   { id := "names.constructor-already-declared", decls := [takenName, takenBlock],
-    lean := "alreadyDeclared", leanforth := "rejected", rule := "N2", task := "5.2.1a" }
+    lean := "alreadyDeclared", leanforth := "rejected", rule := "N2", task := "5.2.1a" },
+  { id := "proj.reduces", decls := [projDef `IE.projReduces (mkConst `Bool.true)],
+    lean := "accepted", leanforth := "accepted", rule := "J1", task := "5.2.2" },
+  { id := "proj.reduces-wrong", decls := [projDef `IE.projReducesWrong (mkConst `Nat.zero)],
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "J1", task := "5.2.2" }
 ]
 
 /-! ## A declaration after a block
@@ -1298,6 +1346,16 @@ def useRenamed : Declaration :=
   .defnDecl { name := `IE.useRenamed, levelParams := [], type := .sort 1,
               value := mkConst `IE.B.recursor, hints := .regular 1, safety := .safe }
 
+/-- `IE.B.rec (fun _ => Bool) true false IE.B.false = rhs`, proved by `Eq.refl rhs`: Lean's
+rule for `false` gives `true`, the swapped one `false` (review rvN1 round 2). -/
+def bRecApp (major : Expr) : Expr :=
+  mkAppN (mkConst `IE.B.rec [1])
+    #[.lam `x (mkConst `IE.B) (mkConst `Bool) .default, mkConst `Bool.true, mkConst `Bool.false, major]
+def bIota (n : Name) (rhs : Expr) : Declaration :=
+  .thmDecl { name := n, levelParams := [],
+             type := mkAppN (mkConst `Eq [1]) #[mkConst `Bool, bRecApp (mkConst `IE.B.false), rhs],
+             value := mkAppN (mkConst `Eq.refl [1]) #[mkConst `Bool, rhs] }
+
 def sequels (recType : Expr) : List Sequel := [
   { id := "after.recursor-left-out-then-def-rec", bool := some false, decls := [defBRec],
     lean := "alreadyDeclared", leanforth := "rejected", rule := "B4 N2" },
@@ -1338,7 +1396,15 @@ def sequels (recType : Expr) : List Sequel := [
     rule := "B3 N1" },
   { id := "after.recursor-left-out-then-use-rec-no-level", bool := some false,
     decls := [useRecNoLevel], lean := "universeArity", leanforth := "rejected",
-    rule := "B4 L1" }
+    rule := "B4 L1" },
+  -- Review rvN1 round 2 (L1): after B3 refused the block's swapped rules, Lean's
+  -- generated recursor reduces, with its own rules; the file's are never used.
+  { id := "after.b3-swapped-then-iota-lean-rule", bool := some true, change := onRec swapRules,
+    decls := [bIota `IE.iotaLean (mkConst `Bool.true)], lean := "accepted",
+    leanforth := "accepted", rule := "B3 R1", task := "5.2.1b" },
+  { id := "after.b3-swapped-then-iota-forged-rule", bool := some true, change := onRec swapRules,
+    decls := [bIota `IE.iotaForged (mkConst `Bool.false)], lean := "declTypeMismatch",
+    leanforth := "rejected", rule := "B3 R1", task := "5.2.1b" }
 ]
 
 /-- What replay's `addDecl` adds for a block: the declaration rebuilt from the

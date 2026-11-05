@@ -54,6 +54,12 @@ PENDING = {
     "iota.stuck-on-variable": ("unsupported",
         "a Nat literal (U2); Lean's iota on a variable major is stuck (R1, iota.fs)."
         " Closed by task 5.2.3"),
+    "after.b3-swapped-then-iota-lean-rule": ("unknown",
+        "iota on Lean's generated recursor, which no slot holds (the block was refused by"
+        " B3), is not ported (diagnostic 81; iota.fs reduces a slot's recursor). Closed by"
+        " a follow-up of task 5.2.1b (iota with the generated recursor's rules)"),
+    "after.b3-swapped-then-iota-forged-rule": ("unknown",
+        "as after.b3-swapped-then-iota-lean-rule. Closed by the same follow-up"),
     "after.redex-type-left-out-then-use-rec": ("unknown",
         "IE.U2's type is a Sort only after whnf, so its block left no recipe of the"
         " generated recursor (ADR 0015 decision 12): a use of IE.U2.rec is unknown"

@@ -86,7 +86,8 @@ lf-walk-room context-walk2: lf-pp-scan-walk
   over walk-context @ swap lf-pp-inner if swap walk-children-at else drop 2drop
   outcome-full then ;
 : lf-pp-leaf-tag? ( tag -- flag )
-  dup lf-tag-sort = over lf-tag-symbolic-sort = or swap lf-tag-constant = or ;
+  dup lf-tag-sort = over lf-tag-symbolic-sort = or over lf-tag-constant = or
+  swap lf-tag-proj = or ;
 : lf-pp-scan-other ( first second walk tag -- outcome )
   dup lf-term-binary-tag? if lf-pp-scan-binary exit then
   lf-pp-leaf-tag? if drop 2drop outcome-ok else drop 2drop outcome-invalid then ;

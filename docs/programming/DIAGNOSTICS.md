@@ -147,6 +147,7 @@ what was used and the limit.
 | 88 | undecided: eta may decide (K3) | unknown | the left term | the right term | `defeq lf-defeq`: step 11, exactly one side a lambda (plan task 4.2.4) |
 | 89 | undecided: structure eta or a unit-like type may decide | unknown | the left term | the right term | `defeq lf-defeq`: steps 12 and 14, a constructor of a non-recursive structure, or a type headed by a structure whose one constructor has no field; also where LeanForth cannot look the constants up (an inductive block's own, or outside a check) (plan task 5.2.2) |
 | 90 | rejected: not definitionally equal | rejected | the left term | the right term | `mixed-convert lf-mixed-convert`: Lean's `is_def_eq` says no (a caller that knows the step records its own rule in its place: 59, 60, 69) |
+| 91 | rejected: invalid projection (J2) | rejected | the projection's leaf | 0 | `infer-proj lf-infer-proj` (plan task 5.2.2; Lean's `infer_proj`, `type_checker.cpp` 247–292: the projected term's type in whnf is no application of the projection's structure, an inductive type with one constructor and as many arguments as parameters and indices; the constructor's type gives no Pi for a parameter or field; or a data field is projected out of a proof, or stands for one: `invalidProj`). Aside (test P2) it is unknown |
 
 Codes 1–16 explain *exhausted* (more fuel would help) and *full* (more
 memory or a larger limit would help); 20–29 explain *invalid* input or
