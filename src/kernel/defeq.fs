@@ -498,6 +498,16 @@ defer lf-ap-arg ( frames -- ... frames next )
 \ Whether a term's type can be had: a free variable's always, any other
 \ term's only from a typer.
 : lf-dq-typable? ( t -- flag ) lf-dq-fvar? lf-dq-typer @ 0<> or ;
+\ For steps 11 and 14: the whnf of t's type, with yes; 0 and no for a
+\ Sort or a Pi, whose type is a Sort; 0 and undecided when the type
+\ cannot be had; 0 0 on a failure.
+: lf-dq-whnf-type ( t frames -- type lbool outcome )
+  over lf-dq-typeish? if 2drop 0 lf-dq-no outcome-ok exit then
+  over lf-dq-typable? 0= if 2drop 0 lf-dq-undef outcome-ok exit then
+  tuck lf-dq-type-of ok-then? 0= if nip lf-dq-unproved exit then
+  swap lf-whnf-on ok-then? 0= if lf-dq-unproved exit then lf-dq-yes outcome-ok ;
+\ A type that passed a test kept with yes, else 0 and no.
+: lf-dq-kept ( type flag -- type yes | 0 no ) if lf-dq-yes else drop 0 lf-dq-no then ;
 \ A lookup that cannot tell (an inductive block's own constant, or
 \ outside a check) is recorded with the doubt when there is one, else
 \ with both terms (diagnostic 89); any other failure has its own.
@@ -582,13 +592,10 @@ defer lf-es-field ( frames -- ... frames next )
 \ The whnf of t's type when it is such a structure, with yes; else 0 and
 \ no, or undecided without a typer; 0 0 on a failure.
 : lf-dq-unit-type ( t frames -- type lbool outcome )
-  over lf-dq-typeish? if 2drop 0 lf-dq-no outcome-ok exit then
-  over lf-dq-typable? 0= if 2drop 0 lf-dq-undef outcome-ok exit then
-  >r r@ lf-dq-type-of ok-then? 0= if r> drop lf-dq-unproved exit then
-  r> lf-whnf-on ok-then? 0= if lf-dq-unproved exit then
+  lf-dq-whnf-type dup ok? 0= if exit then drop
+  dup lf-dq-yes <> if outcome-ok exit then drop
   dup lf-dq-head-named ok-then? 0= if nip lf-dq-unproved exit then
-  lf-dq-no-field? ok-then? 0= if nip lf-dq-unproved exit then
-  if lf-dq-yes else drop 0 lf-dq-no then outcome-ok ;
+  lf-dq-no-field? ok-then? 0= if nip lf-dq-unproved exit then lf-dq-kept outcome-ok ;
 
 \ Steps 12 to 15. A lookup that cannot tell is unknown, recorded as
 \ lf-dq-gap-note does.
@@ -630,11 +637,9 @@ defer lf-es-field ( frames -- ... frames next )
 \ The other side's type in whnf: yes a Pi, no, or undecided; the Pi is 0
 \ unless yes, both are 0 on a failure. A Sort's or a Pi's type is a Sort.
 : lf-dq-eta-pi ( other frames -- pi lbool outcome )
-  over lf-dq-typeish? if 2drop 0 lf-dq-no outcome-ok exit then
-  over lf-dq-fvar? 0= lf-dq-typer @ 0= and if 2drop 0 lf-dq-undef outcome-ok exit then
-  tuck lf-dq-type-of ok-then? 0= if nip lf-dq-unproved exit then
-  swap lf-whnf-on ok-then? 0= if lf-dq-unproved exit then
-  dup lf-dq-tag lf-tag-pi = if lf-dq-yes else drop 0 lf-dq-no then outcome-ok ;
+  lf-dq-whnf-type dup ok? 0= if exit then drop
+  dup lf-dq-yes <> if outcome-ok exit then
+  drop dup lf-dq-tag lf-tag-pi = lf-dq-kept outcome-ok ;
 \ fun x : D => other x, closed as other is; full without room.
 : lf-dq-eta-expand ( other pi -- lambda outcome )
   lf-term-first@ swap 0 lf-term-bvar 0= if 2drop lf-rebuild-full exit then
