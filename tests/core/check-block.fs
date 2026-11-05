@@ -314,6 +314,33 @@ T{ s" iota.bool-true-wrong" used -> outcome-unknown lf-diag-undecided }T
 T{ s" iota.list-hypothesis-wrong" used -> outcome-unknown lf-diag-undecided }T
 T{ s" iota.bool-stuck" used -> outcome-unknown lf-diag-undecided }T
 T{ s" iota.nat-succ" used -> outcome-unknown lf-diag-name-matched }T
+\ Review rvN1 round 2 (L1): a reduct that keeps the recursor's universe
+\ arguments in its recursive call; iota on Lean's generated recursor
+\ after B3 refused the block's swapped rules (not ported yet: unknown,
+\ never the file's rules).
+T{ s" iota.levels-in-reduct" used -> outcome-ok 0 }T
+T{ s" iota.levels-in-reduct-wrong" used -> outcome-unknown lf-diag-undecided }T
+T{ s" after.b3-swapped-then-iota-lean-rule" used -> outcome-unknown lf-diag-iota-pending }T
+T{ s" after.b3-swapped-then-iota-forged-rule" used -> outcome-unknown lf-diag-iota-pending }T
+\ Projections (task 5.2.2): typed by infer_proj, a data field of a pair
+\ and a proof's field of a conjunction; invalidProj rejected: a data
+\ field out of a proof, the wrong structure, an index past the fields.
+T{ s" proj.data" used -> outcome-ok 0 }T
+T{ s" proj.proof-of-proof" used -> outcome-ok 0 }T
+T{ s" proj.data-from-proof" used -> outcome-rejected lf-diag-invalid-proj }T
+T{ s" proj.wrong-structure" used -> outcome-rejected lf-diag-invalid-proj }T
+T{ s" proj.index-out-of-range" used -> outcome-rejected lf-diag-invalid-proj }T
+\ A projection of a constructor application reduces to its field
+\ (reduce_proj): (Bool, Nat).1 is Bool; the wrong twin is unknown until
+\ the port decides rejections (task 4.2.2d).
+T{ s" proj.reduces" used -> outcome-ok 0 }T
+T{ s" proj.reduces-wrong" used -> outcome-unknown lf-diag-undecided }T
+\ Structure eta in iota (R3): PUnit's major expanded, accepted; Prod's
+\ unknown while its is_prop test needs a comparison inside one (not
+\ re-entrant); And's, a proposition's, the same (Lean leaves it stuck).
+T{ s" iota.punit-eta" used -> outcome-ok 0 }T
+T{ s" iota.prod-eta" used -> outcome-unknown lf-diag-iota-pending }T
+T{ s" iota.and-prop-stuck-bool" used -> outcome-unknown lf-diag-iota-pending }T
 \ Unknown, unsupported and invalid. C2's comparison of id Type with Type
 \ needs Lean's lazy delta reduction (task 4.2.2d).
 T{ s" params.constructor-binder-defeq" verdict nip -> outcome-unknown 9 }T

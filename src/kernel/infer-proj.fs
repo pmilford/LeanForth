@@ -44,7 +44,8 @@ require ./whnf.fs
 : lf-iproj-site ( -- site ) c" infer-proj lf-infer-proj" ;
 \ invalidProj: rejected while deciding, unknown aside.
 : lf-iproj-bad ( leaf -- -1 status )
-  lf-minfer-deciding? if lf-iproj-site lf-diag-invalid-proj lf-minfer-reject no-result exit then
+  lf-minfer-deciding?
+  if lf-iproj-site lf-diag-invalid-proj lf-minfer-reject no-result exit then
   0 lf-diag-invalid-proj lf-minfer-note -1 outcome-unknown ;
 : lf-iproj-unknown ( -- -1 status ) -1 outcome-unknown ;
 
@@ -55,13 +56,17 @@ require ./whnf.fs
 : lf-iproj-pi? ( node -- flag ) lf-term-tag@ lf-tag-pi = ;
 
 \ is_prop (383-389), aside: x's type's whnf a Sort whose level is zero.
+\ An inference that fails as invalid -- among them one that needs a
+\ comparison while one runs, lf-mixed-convert not being re-entrant -- is
+\ unknown here.
 : lf-iproj-zero ( x -- flag status )
   lf-minfer-walk ok-then? 0= if false swap exit then
   lf-minfer-whnf-job ok-then? 0= if false swap exit then
   lf-minfer-sort? 0= if false outcome-unknown exit then lf-minfer-zero? ;
 : lf-iproj-prop? ( x -- flag status )
   >r lf-minfer-counts lf-minfer-aside @ r> true lf-minfer-aside !
-  lf-iproj-zero 2>r lf-minfer-aside ! lf-minfer-counts! 2r> ;
+  lf-iproj-zero 2>r lf-minfer-aside ! lf-minfer-counts! 2r>
+  dup outcome-invalid = if drop outcome-unknown then ;
 
 \ The structure's input declaration: Ty's head a constant named as the
 \ leaf, which a usable slot holds as an inductive type with one
@@ -86,7 +91,8 @@ require ./whnf.fs
   lf-whnf-lookup ok-then? 0= if nip no-result exit then lf-iproj-slot ;
 : lf-iproj-checked ( leaf Ty -- decl outcome )
   2dup lf-iproj-struct ok-then? 0= if nip nip no-result exit then
-  dup 2 pick lf-iproj-n lf-iproj-shape? if nip nip outcome-ok else drop nip lf-iproj-bad then ;
+  dup 2 pick lf-iproj-n lf-iproj-shape? 0= if drop nip lf-iproj-bad exit then
+  nip nip outcome-ok ;
 
 \ The constructor, and its type at Ty's universe arguments
 \ (instantiate_type_lparams: the stored type itself without any).
@@ -148,7 +154,8 @@ require ./whnf.fs
   drop r> outcome-ok ;
 
 \ The whole computation, from e's type T.
-: lf-iproj-then ( frame outcome xt -- frame' outcome ) over ok? if nip execute else drop then ;
+: lf-iproj-then ( frame outcome xt -- frame' outcome )
+  over ok? if nip execute else drop then ;
 : lf-iproj-result ( L E Ty P r outcome -- type status ) 2>r 2drop 2drop 2r> ;
 : lf-iproj-compute ( L E T -- type status )
   lf-minfer-whnf-job ok-then? 0= if nip nip no-result exit then

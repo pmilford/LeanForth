@@ -15,8 +15,11 @@ one type, with positivity and induction hypotheses. **Task 5.2.5a, mutual
 blocks, is implemented** (2026-11-04, experimental, gate open:
 [Implementation](#implementation-plan-task-525a)); nested blocks (task
 5.2.5b) have a [written plan](#plan-task-525b-nested-blocks) and are
-still *unsupported*, as is every quotient, literal and projection (ADR
-0011 rules U1, U2). It extends ADR 0011 (rejection rules) and ADR 0012
+still *unsupported*, as is every quotient and literal (ADR 0011 rules
+U1, U2). **Task 5.2.2, projections and structures, is in progress**
+(2026-11-04, experimental: [Implementation](#implementation-plan-task-522-in-progress)):
+projections are staged, typed and reduced; structure eta in comparisons
+and unit-like types wait on plan task 4.2.2d's comparison. It extends ADR 0011 (rejection rules) and ADR 0012
 (the checked environment) and supersedes neither. Each implementation task
 of §12 passes its own review gate (`AGENTS.md`): Lean's published rules,
 agreeing pinned-Lean differential tests reaching every outcome, an
@@ -1235,6 +1238,80 @@ literals, task 5.2.3). `make test-check-block` checks them with their
 diagnostics and steps; 8 new planted faults (`mut-*`) are caught.
 Lean's `Init` has no mutual block, so its numbers stay 261 of 604 blocks
 accepted, none rejected or invalid (whole-`Init` probe).
+
+## Implementation (plan task 5.2.2, in progress)
+
+Written 2026-11-04 by agent N1; experimental [kernel][import] code, gate
+open.
+
+**What.**
+- *Representation* (decision 22 below): a projection `e.i` of structure
+  `S` (Lean's `Expr.proj S i e`) is the application of a **projection
+  leaf**, a node of its own tag holding `S`'s name and `i`
+  (`core/projections.fs`), to `e`. The feed stages a projection so
+  (`import/feed.fs`; until then it was an unsupported form, U2); the
+  leaf passes the graph and scope checks, the rebuilding passes keep it,
+  structural comparison compares its name and index, and a spine headed
+  by it is flexible, as a constant (`mixed-head.fs`).
+- *J1, J2 typing*: `kernel/infer-proj.fs` ports `infer_proj`
+  (`type_checker.cpp` 247–292) behind a hook in `mixed-infer.fs`, in
+  Lean's order; each of its `invalidProj` exits is a rejection,
+  diagnostic 91 (unknown aside, in test P2).
+- *J1 reduction*: `reduce_proj` (420–454, from `whnf_core` 504–510) in
+  `iota.fs`, behind `whnf.fs`'s hook: a spine headed by a projection leaf
+  has its term put in whnf, and a constructor application of the leaf's
+  structure gives its field, applied to the spine's further arguments.
+- *R3, structure eta in iota* (`to_cnstr_when_structure`,
+  `expand_eta_struct`): a closed major premise of a non-recursive
+  structure, its type inferred aside and in whnf the structure applied
+  and no proposition, becomes the constructor applied to the type's
+  parameters and the projections `e.0 .. e.(n-1)`; a proposition's stays
+  stuck (BL-8).
+- *Presentation*: the term printer shows a projection as `S.n e` (`n`
+  from 1; Lean writes `e.n`), and the derivation log gives its step the
+  rule `form` (its premises are not counted; no rule of its own yet).
+
+**Decisions**, none of which adds or widens a rule beyond Lean's:
+
+22. *A projection is a leaf applied to its term*, not a node kind of its
+    own: every pass that does not look at projections then treats it as
+    an application of an opaque head, as Lean's own passes treat
+    `Expr.proj` (one child, no binder, no level), so only the places
+    where Lean treats projections specially change. The spine of `(e.i) a`
+    is the leaf with `e`, then `a`; Lean's is `Expr.proj` with `a`: the
+    same terms, and every reduction gives the same result. A leaf met
+    anywhere but at a spine's head is malformed.
+23. *Not yet as Lean, cautious*: R3 and `infer_proj`'s `is_prop` test
+    infer types inside an inference job only, and a comparison cannot run
+    inside another (`lf-mixed-convert` is not re-entrant; Lean's
+    `infer_type` here is `infer_only`), so such a route is *unknown* where
+    it needs one (`iota.prod-eta`); `cheap_proj` is not modelled (the hook
+    always puts the term in whnf); a structure that is a type of the block
+    being checked is *unknown* in `infer_proj`. The importer used by the
+    first checker's command line for plain declarations
+    (`import/checker-input.fs`) still stages a projection as unsupported:
+    it cannot hold inductive blocks.
+
+**Waiting on plan task 4.2.2d** (agent U4, `defeq.fs`): R4, structure eta
+in `is_def_eq` (`try_eta_struct_core` 856–872), and R5, unit-like types
+(`is_def_eq_unit_like` 1119–1130), belong inside the ported comparison,
+with `lazy_delta_proj_reduction`; the words they need are here
+(`lf-iota-structure`, `lf-iproj-ctor`, `lf-iota-proj-of`), and so do the
+rejections Lean's "no" gives after reduction (rows `*-wrong`, `unit.*`).
+
+**Evidence** (2026-11-04, Gforth 1.0.0, Lean 4.35.0): the table has 277
+cases. The `proj.*` rows give Lean's verdict: `proj.data`,
+`proj.proof-of-proof`, `proj.reduces` accepted; `proj.data-from-proof`,
+`proj.wrong-structure`, `proj.index-out-of-range` rejected (91);
+`iota.punit-eta` accepted (R3). Still *unknown*: `proj.reduces-wrong`,
+`iota.prod-eta`, `iota.structure-eta`, `iota.and-prop-stuck*`,
+`eta.structure` and the `unit.*` rows (4.2.2d). On the command line's
+`kinds.ndjson`, 67 of 106 declarations are accepted (58 before);
+`Nat.add_zero`'s export: 16 of 29 checks accepted (14 before:
+`Add.add` and `OfNat.ofNat` now). Review rvN1 round 2's rows L1 are
+committed (`iota.levels-in-reduct*`, `iota.punit-eta`, `iota.prod-eta`,
+`iota.and-prop-stuck-bool`, `after.b3-swapped-then-iota-*`), and its
+three surviving faults are caught, as are three new ones on projections.
 
 ## Plan (task 5.2.5b): nested blocks
 

@@ -64,6 +64,15 @@ PENDING = {
     "iota.bool-stuck": ("unknown",
         "iota is stuck on a variable (no rule, iota.fs) and Lean's is_def_eq says no:"
         " the port's no is no rejection yet (diagnostic 30). Closed by task 4.2.2d"),
+    "iota.levels-in-reduct-wrong": ("unknown",
+        "as iota.bool-true-wrong, after iota whose reduct keeps the recursor's universe"
+        " arguments (review rvN1 round 2); twin iota.levels-in-reduct. Closed by task 4.2.2d"),
+    "after.b3-swapped-then-iota-lean-rule": ("unknown",
+        "iota on Lean's generated recursor, which no slot holds (the block was refused by"
+        " B3), is not ported (diagnostic 81; iota.fs reduces a slot's recursor). Closed by"
+        " a follow-up of task 5.2.1b (iota with the generated recursor's rules)"),
+    "after.b3-swapped-then-iota-forged-rule": ("unknown",
+        "as after.b3-swapped-then-iota-lean-rule. Closed by the same follow-up"),
     "params.constructor-binder-defeq": ("unknown",
         "C2 needs id Type unfolded by Lean's lazy delta reduction in is_def_eq: K1;"
         " twin params.constructor-binder-beta. Closed by task 4.2.2d"),

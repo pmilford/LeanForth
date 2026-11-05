@@ -106,6 +106,11 @@ iota.bool-stuck	declTypeMismatch	rejected	R1	5.2.1b
 iota.nat-zero	accepted	accepted	R1	5.2.1b	
 iota.nat-succ	accepted	accepted	R1 L1	5.2.3	
 iota.eq-refl	accepted	accepted	R1 R2	5.2.1c	
+iota.levels-in-reduct	accepted	accepted	R1	5.2.1b	
+iota.levels-in-reduct-wrong	declTypeMismatch	rejected	R1	5.2.1b	
+iota.punit-eta	accepted	accepted	R1 R3	5.2.2	
+iota.prod-eta	accepted	accepted	R1 R3	5.2.2	
+iota.and-prop-stuck-bool	declTypeMismatch	rejected	R1 R3	5.2.2	
 iota.structure-eta	accepted	accepted	R1 R3	5.2.2	
 iota.prop-structure-stuck	declTypeMismatch	rejected	R1 R3	5.2.2	
 k.eq-variable-proof	accepted	accepted	R2	5.2.1c	
@@ -185,6 +190,8 @@ after.b3-ctor-then-use-rec	accepted	accepted	B3 G1	5.2.1a
 after.b3-renamed-then-use-rec	accepted	accepted	B3 G1	5.2.1a	
 after.b3-renamed-then-use-renamed	unknownConstant	rejected	B3 N1	5.2.1a	
 after.recursor-left-out-then-use-rec-no-level	universeArity	rejected	B4 L1	5.2.1a	
+after.b3-swapped-then-iota-lean-rule	accepted	accepted	B3 R1	5.2.1b	
+after.b3-swapped-then-iota-forged-rule	declTypeMismatch	rejected	B3 R1	5.2.1b	
 after.and-left-out-then-use-rec	accepted	accepted	B4 G1	5.2.1a	
 after.or-left-out-then-use-rec	accepted	accepted	B4 G1 E1	5.2.1a	
 after.exists-left-out-then-use-rec	accepted	accepted	B4 G1 E4	5.2.1a	
@@ -239,6 +246,8 @@ after.redex-parameter-left-out-then-use-rec	accepted	accepted	B4 G1	5.2.1b
 names.reserved-nested-prefix	reservedNestedPrefix	rejected	T0	5.2.5b	
 names.reserved-nested-prefix-declared	reservedNestedPrefix	rejected	T0	5.2.1a	
 names.constructor-already-declared	alreadyDeclared	rejected	N2	5.2.1a	
+proj.reduces	accepted	accepted	J1	5.2.2	
+proj.reduces-wrong	declTypeMismatch	rejected	J1	5.2.2	
 names.already-declared-earlier	alreadyDeclared	rejected	T5	5.2.1a	
 primitive.forged-add-computes	accepted	unsupported	L5	5.2.3	
 primitive.forged-add-unfolds	accepted	unsupported	L5	5.2.3	

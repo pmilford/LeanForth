@@ -5064,3 +5064,53 @@ old = '''  2 pick dup lf-iota-n 3 pick lf-iota-prefix lf-iota-head-args ;'''
 new = '''  2 pick dup lf-iota-n 3 pick lf-iota-prefix 1- 0 max lf-iota-head-args ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "5.2.1b: the rule's right side gets one argument too few of the parameters, motives and minor premises"
+
+# --- review rvN1 round 2 (L1) and projections (plan task 5.2.2) ----------
+
+[[fault]]
+id = "rvn1r2-rule-levels-not-substituted"
+file = "src/kernel/iota.fs"
+old = '''  dup 0= if 2drop drop r> drop outcome-ok exit then'''
+new = '''  2drop drop r> drop outcome-ok exit'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvN1 round 2: a rule's right side kept at the recursor's own universe parameters; iota.levels-in-reduct, whose recursive call needs them instantiated, is no longer decided"
+
+[[fault]]
+id = "rvn1r2-generated-recursor-stuck"
+file = "src/kernel/iota.fs"
+old = '''  dup -1 = if drop lf-whnf-pending exit then'''
+new = '''  dup -1 = if 2drop -1 outcome-ok exit then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvN1 round 2: Lean's generated recursor (no slot) treated as stuck where Lean reduces it; after.b3-swapped-then-iota-* lose diagnostic 81"
+
+[[fault]]
+id = "rvn1r2-structure-major-stuck"
+file = "src/kernel/iota.fs"
+old = '''  ?dup 0= if 2drop drop -1 outcome-ok false exit then'''
+new = '''  ?dup if drop then 2drop drop -1 outcome-ok false exit'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvN1 round 2 / R3: a structure's major premise that is no constructor application treated as stuck; iota.punit-eta is no longer accepted"
+
+[[fault]]
+id = "proj-structure-name-unchecked"
+file = "src/kernel/infer-proj.fs"
+old = '''  2dup lf-iproj-named? 0= if drop lf-iproj-bad exit then'''
+new = ''''''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.2 J2: a projection of the wrong structure is typed by the term's own structure; proj.wrong-structure is no longer invalidProj"
+
+[[fault]]
+id = "proj-data-from-proof"
+file = "src/kernel/infer-proj.fs"
+old = '''  over 0= if drop outcome-ok exit then'''
+new = '''  drop outcome-ok exit'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.2 J2: a data field projected out of a proof; proj.data-from-proof is accepted where Lean refuses"
+
+[[fault]]
+id = "proj-reduce-field-off-by-one"
+file = "src/kernel/iota.fs"
+old = '''  lf-idecl-data lf-ict-params lf-more-field rot lf-proj-idx + lf-iota-field-of ;'''
+new = '''  lf-idecl-data lf-ict-params lf-more-field rot lf-proj-idx 1+ + lf-iota-field-of ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.2 J1: reduce_proj takes the next field; (Bool, Nat).1 is no longer Bool"

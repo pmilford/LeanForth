@@ -1,6 +1,8 @@
 \ Term forms the first checker does not support (ADR 0011, rule U2): a
-\ let, a natural-number or string literal, a metadata node and a
-\ projection. An importer that meets one in a declaration stages it as a
+\ let, a natural-number or string literal, a metadata node and, for the
+\ first checker's own importer (import/checker-input.fs) only, a
+\ projection; the feed stages a projection as such since plan task 5.2.2
+\ (core/projections.fs). An importer that meets one in a declaration stages it as a
 \ leaf of its own tag that records only which form it was, so that the
 \ declaration audit (kernel/check-declaration.fs) finds it and answers
 \ unsupported before any typing. The leaf keeps nothing of the form's
