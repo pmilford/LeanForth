@@ -29,9 +29,19 @@ require ./namespaces.fs
   2dup lfa-leading-zero? 0= lfa-e-bad-name lfa-must
   dup lf-name-digits-max 1+ < lfa-e-bad-name lfa-must 0 0 2swap >number 2drop drop lf-name-num
   lfa-e-names-full lfa-must ;
+: lfa-open-quote ( -- c-addr u ) s\" \xC2\xAB" ;
+: lfa-close-quote ( -- c-addr u ) s\" \xC2\xBB" ;
+\ «digits»: a string part of digits (bare digits are a numeric part).
+: lfa-quoted? ( c-addr u -- flag )
+  dup 4 > 0= if 2drop false exit then
+  2dup 2 min lfa-open-quote compare 0= -rot + 2 - 2 lfa-close-quote compare 0= and ;
+: lfa-unquote ( c-addr u -- c-addr' u' ) 4 - swap 2 + swap ;
+: lfa-quoted-part ( prefix c-addr u -- name )
+  lfa-unquote 2dup lfa-digits? lfa-e-bad-name lfa-must lf-name-str
+  lfa-e-names-full lfa-must ;
 : lfa-intern-part ( prefix c-addr u -- name )
-  dup 0<> lfa-e-bad-name lfa-must 2dup lfa-digits?
-  if lfa-numeric else lf-name-str lfa-e-names-full lfa-must then ;
+  dup 0<> lfa-e-bad-name lfa-must 2dup lfa-quoted? if lfa-quoted-part exit then
+  2dup lfa-digits? if lfa-numeric else lf-name-str lfa-e-names-full lfa-must then ;
 : lfa-intern-step ( prefix c-addr u -- prefix' c-addr' u' )
   2dup lfa-dot >r rot 2 pick r@ lfa-intern-part -rot r> 1+ over min /string ;
 \ The name a token spells: no part may be empty.
@@ -176,7 +186,9 @@ end-structure
 \ for each shorter name it can be written by; its prefixes are namespaces.
 : lfa-constant! ( c-addr u wid -- )
   lfa-entry-new lfa-entry-constant lfa-current lfa-current-decl @ rot lfa-entry-set ;
-: lfa-short-word ( c-addr u i -- ) 1+ /string lf-consts lfa-group drop ;
+\ A shorter name that is number-like (N.0.f as 0.f) gets no word.
+: lfa-short-word ( c-addr u i -- )
+  1+ /string 2dup lfa-number-like? if 2drop else lf-consts lfa-group drop then ;
 : lfa-register ( -- )
   lfa-full 2dup lf-consts lfa-constant! 2dup lfa-prefixes-known
   dup 0 ?do over i lfa-dot-at? if 2dup i lfa-short-word then loop 2drop ;

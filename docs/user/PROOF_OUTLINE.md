@@ -300,11 +300,11 @@ The text before it defines `rfl`, `instHAdd`, `instAddNat`, `Nat.add` (with
 the recursor `Nat.below`, `Nat.brecOn` and the match it uses) and the
 others it needs, with `import-stub` lines for the inductive types and their
 recursors, which the words cannot declare yet. Of the 44 constants of the
-export, 20 are written whole and 24 stand as stubs or comments; `Nat.zero_add`
-and its helper are not written, because Lean's private name
-`_private.Init.Data.Nat.Basic.0.Nat.zero_add.match_1_1` has a numeric part,
-which the words do not accept in the name of a declaration (a follow-up of
-plan task 8.6.3). `tests/author/check_author.py` reads the text back and
+export, 22 are written whole and 22 stand as stubs or comments; `Nat.zero_add`
+and its helper, whose private name
+`_private.Init.Data.Nat.Basic.0.Nat.zero_add.match_1_1` has the numeric part 0,
+are written whole too (a numeric name part after the first is read as Lean's
+`Name.num`; plan task 8.6.3). `tests/author/check_author.py` reads the text back and
 compares every term with the export's, node for node.
 
 ## LaTeX
