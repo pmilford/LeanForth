@@ -627,12 +627,18 @@ defer lf-es-field ( frames -- ... frames next )
 : lf-dq-struct-other ( flag outcome frames -- ... frames next )
   >r ok-then? 0= if r> lf-dq-end-failed exit then
   if true r> lf-dq-end else r> lf-dq-unit-step then ;
+\ try_eta_struct_core(t, s): its visit when it applies, else no at once
+\ (s's constructor looked up here, so that a step that does not apply
+\ opens no visit and spends no fuel).
+: lf-dq-struct-call ( t s frames cont -- ... frames next )
+  2>r dup lf-dq-struct-ctor ok-then? 0= if lf-dq-gap-note 0 swap 2r> exit then
+  if 2r> lf-es-call else 2drop false outcome-ok 2r> then ;
 : lf-dq-struct-back ( flag outcome frames -- ... frames next )
   >r ok-then? 0= if r> lf-dq-end-failed exit then
   if true r> lf-dq-end exit then
-  r@ lf-dq-sides swap r> ['] lf-dq-struct-other lf-es-call ;
+  r@ lf-dq-sides swap r> ['] lf-dq-struct-other lf-dq-struct-call ;
 : lf-dq-struct-step ( frames -- ... frames next )
-  dup lf-dq-sides rot ['] lf-dq-struct-back lf-es-call ;
+  dup lf-dq-sides rot ['] lf-dq-struct-back lf-dq-struct-call ;
 
 \ Step 11 (1194-1195), try_eta_expansion (type_checker.h 94-96) and its
 \ core (841-853): when exactly one side is a lambda, the other side's type

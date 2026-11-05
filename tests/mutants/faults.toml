@@ -4984,7 +4984,7 @@ reason = "step 12 (structure eta, task 5.2.2) always answers no: p and (p.1, p.2
 [[fault]]
 id = "dq-eta-struct-one-way"
 file = "src/kernel/defeq.fs"
-old = '''  r@ lf-dq-sides swap r> ['] lf-dq-struct-other lf-es-call ;'''
+old = '''  r@ lf-dq-sides swap r> ['] lf-dq-struct-other lf-dq-struct-call ;'''
 new = '''  r> lf-dq-unit-step ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "step 12 tries only the constructor on the right: (p.1, p.2) against p is a no where Lean says yes (eta.structure-left)"
