@@ -114,7 +114,10 @@ A de Bruijn index says *which* binder a variable refers to, not its name.
 The printer takes each binder's name from the presentation side table and
 chooses the displayed name as Lean's delaborator does: it keeps the recorded
 name unless that would make a variable refer to the wrong binder, and then
-appends `_1`, `_2`, … (LaTeX shows them as subscripts).
+appends `_1`, `_2`, … (LaTeX shows them as subscripts). A known limit of
+the mathematical form: a name `x_1`, a name `x₁` and the display name the
+printer gives a second `x` all print as $x_{1}$, so two distinct variables
+can look alike in LaTeX (the Unicode and ASCII forms keep them apart).
 
 | Term (binders named in the side table) | Printed | LaTeX |
 | --- | --- | --- |

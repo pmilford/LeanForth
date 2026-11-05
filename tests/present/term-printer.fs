@@ -246,7 +246,8 @@ T{ s" \mathit{proof}_{12}" expect-text -> }T
 
 \ LaTeX spelling takes a Greek letter or a subscript digit only as a whole
 \ UTF-8 character: the bytes B1 CE (the end of α and the start of β) and
-\ x 80 E2 82 (a stray byte, then the start of ₀) stay as they are.
+\ x 80 E2 82 (a stray byte, then the start of ₀) start no character, so they
+\ are written as \backslash{}x\{HH\}: no name can end a line or reorder text.
 create odd 4 allot
 : odd2 ( -- c-addr u ) $B1 odd c! $CE odd 1+ c! odd 2 ;
 : odd4 ( -- c-addr u ) [char] x odd c! $80 odd 1+ c! $E2 odd 2 + c! $82 odd 3 + c! odd 4 ;
@@ -254,8 +255,13 @@ create want 16 allot   variable want#
 : want+ ( c-addr u -- ) tuck want want# @ + swap move want# +! ;
 : mathit ( c-addr u -- c-addr' u' )
   0 want# ! s" \mathit{" want+ want+ s" }" want+ want want# @ ;
-T{ cap-reset odd2 lf-tex-ident odd2 mathit expect-text -> }T
-T{ cap-reset odd4 lf-tex-ident odd4 mathit expect-text -> }T
+T{ cap-reset odd2 lf-tex-ident
+   s" \mathit{\backslash{}x\{B1\}\backslash{}x\{CE\}}" expect-text -> }T
+T{ cap-reset odd4 lf-tex-ident
+   s" \mathit{x\backslash{}x\{80\}\backslash{}x\{E2\}\backslash{}x\{82\}}" expect-text -> }T
+\ A line end and a bidirectional control are written out too.
+T{ cap-reset s\" a\nb\xe2\x80\xaeC" lf-tex-ident
+   s" \mathit{a\backslash{}u\{A\}b\backslash{}u\{202E\}C}" expect-text -> }T
 T{ cap-reset s" α" lf-tex-ident s" \alpha" expect-text -> }T
 T{ cap-reset s" x₀" lf-tex-ident s" x_{0}" expect-text -> }T
 

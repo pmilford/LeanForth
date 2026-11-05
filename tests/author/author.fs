@@ -1,7 +1,7 @@
 \ Unit tests of the LeanForth authoring words (plan task 8.1.2): every
 \ error code that a proof can reach, with its line and column (and the
 \ second position where there is one); names that differ only in case;
-\ Forth's own words invisible in proof text; numbers only as plain
+\ Forth's own words forth-word-in-proof in proof text; numbers only as plain
 \ decimals, the same tokens refused on every host; values used once;
 \ names never number-like; namespaces, open and which constant a name
 \ means, as Lean resolves it; var# and root:; source positions on nodes;
@@ -30,7 +30,7 @@ T{ s" theorem t Prop explicit: p p := p end t" run -> outcome-ok }T
 T{ lf-author-count -> 1 }T
 T{ lf-author-code -> 0 }T
 
-\ Forth's own words are invisible: each is an unknown name at its column.
+\ Forth's own words are forth-word-in-proof: each is an unknown name at its column.
 T{ s" theorem t Prop explicit: p p dup := p end t" fails -> 1 1 30 }T
 T{ s" theorem t Prop explicit: p p := p p + end t" fails -> 1 1 37 }T
 T{ s" theorem t Prop explicit: p p := swap p end t" fails -> 1 1 33 }T
@@ -348,6 +348,119 @@ decimal
 : same-order? ( -- f1 f2 ) order-pair s" Prop" run drop order-pair rot = >r = r> ;
 T{ same-order? -> true true }T
 T{ get-current s" theorem t" run drop get-current = -> true }T
+[defined] rec-forth [if]
+\ On Gforth 1.0 the interpreter's recognizer is restored too.
+T{ action-of rec-forth s" Prop" run drop action-of rec-forth = -> true }T
+T{ action-of rec-forth s" theorem t valeu" run drop action-of rec-forth = -> true }T
+[then]
+
+\ ---- The rules for running in the checker's own Gforth (plan task
+\ 8.2.1a; ADR 0017 Amendment 1, A5), from probes p01, p03, p04, p05, p07.
+\ Forth's own words are unknown names, wherever they stand (p01).
+: forth-word-in-proof ( c-addr u -- code line col )
+  text0 s" theorem t Prop explicit: p p := " text+ text+ s"  p end t" text+ text$ fails ;
+T{ s" bye" forth-word-in-proof -> 1 1 33 }T
+T{ s" evaluate" forth-word-in-proof -> 1 1 33 }T
+T{ s" included" forth-word-in-proof -> 1 1 33 }T
+T{ s" immediate" forth-word-in-proof -> 1 1 33 }T
+T{ s" postpone" forth-word-in-proof -> 1 1 33 }T
+T{ s" ]" forth-word-in-proof -> 1 1 33 }T
+T{ s" [" forth-word-in-proof -> 1 1 33 }T
+T{ s" state" forth-word-in-proof -> 1 1 33 }T
+T{ s" here" forth-word-in-proof -> 1 1 33 }T
+T{ s" !" forth-word-in-proof -> 1 1 33 }T
+T{ s" execute" forth-word-in-proof -> 1 1 33 }T
+T{ s" quit" forth-word-in-proof -> 1 1 33 }T
+T{ s" set-order" forth-word-in-proof -> 1 1 33 }T
+T{ s" forth-wordlist" forth-word-in-proof -> 1 1 33 }T
+T{ s" forth:bye" forth-word-in-proof -> 1 1 33 }T
+\ More of the number forms one host or the other reads (p01).
+T{ s" theorem t -3 Type" fails -> 35 1 11 }T
+T{ s" theorem t &10 Type" fails -> 35 1 11 }T
+T{ s" theorem t .5 Type" fails -> 1 1 11 }T
+T{ s" theorem t 1_000 Type" fails -> 35 1 11 }T
+T{ s" theorem t '' Type" fails -> 35 1 11 }T
+T{ s" theorem t 1e3 Type" fails -> 35 1 11 }T
+T{ s" theorem t `Prop Type" fails -> 1 1 11 }T
+T{ s" theorem t <Prop> Type" fails -> 1 1 11 }T
+
+\ STATE (p03): a run started while Forth compiles is refused before
+\ anything runs (error 45), so nothing is compiled into the caller; and a
+\ line that ends with Forth compiling is refused too.
+variable during
+: run-now ( -- ) s" theorem tc Prop explicit: q q := q end tc" run during ! ; immediate
+: victim ( -- ) run-now ;
+T{ during @ lf-author-code lf-author-count -> outcome-invalid 45 0 }T
+T{ victim -> }T
+: compiling-line-end ( -- code )
+  lfa-error-reset s" x" lfa-line! -1 state ! ['] lfa-line-end catch 0 state ! drop
+  lf-author-code ;
+T{ compiling-line-end -> 45 }T
+
+\ Characters a line may not hold (p07): refused at their column before
+\ anything of the line runs (error 46); TAB separates tokens; letters
+\ beyond ASCII are fine; a CR before the line end is the line end.
+T{ s\" theorem t\x01" fails lf-author-count -> 46 1 10 0 }T
+T{ s\" theorem t\vProp" fails -> 46 1 10 }T
+T{ s\" theorem t\fProp" fails -> 46 1 10 }T
+T{ s\" theorem t\rProp" fails -> 46 1 10 }T
+T{ s\" theorem t\x7f" fails -> 46 1 10 }T
+T{ s\" theorem t\x00" fails -> 46 1 10 }T
+T{ s\" theorem t \xff" fails -> 46 1 11 }T
+T{ s\" theorem t \xe2\x80\xae" fails -> 46 1 11 }T
+T{ s\" theorem t \xe2\x80\x8b" fails -> 46 1 11 }T
+T{ s\" def f\n  Prop\x1b := Prop end f" fails -> 46 2 7 }T
+T{ s\" theorem\tt Prop explicit:\tp p := p end t" run -> outcome-ok }T
+T{ s\" def \xce\xb1 Prop := Prop end \xce\xb1" run -> outcome-ok }T
+T{ s\" def f Prop := Prop end f\r\n" run -> outcome-ok }T
+
+\ A Forth exception on a line where no word has read a token yet names
+\ the line's first token (p04): here the data stack overflows on line 2.
+text0 s\" theorem t\n" text+ s"  1" 40000 times
+T{ text$ fails -> 41 2 2 }T
+T{ lfa-error lfa-err-token lfa-error lfa-err-length @ s" 1" compare -> 0 }T
+
+\ Each text's lines count from 1, also when a second text runs in the
+\ same run (the second text's PROP is on its line 1).
+T{ lf-author-begin s\" def a\n Prop := Prop end a" lf-author-text
+   s" def b PROP := Prop end b" lf-author-text err -> outcome-ok outcome-invalid 1 1 7 }T
+
+\ Names that are Forth words become harmless group words (p04), and the
+\ EVALUATE that makes a group sees only lfa-group:, so a word of that name
+\ defined later, here in this file's word list, is never run.
+variable hijacked  false hijacked !
+: lfa-group: ( -- ) true hijacked ! ;
+T{ s" axiom bye Prop end bye" run -> outcome-ok }T
+T{ s" axiom ] Prop end ]" run -> outcome-ok }T
+T{ s" axiom postpone Prop end postpone" run -> outcome-ok }T
+T{ s" axiom lfa-group: Prop end lfa-group:" run -> outcome-ok }T
+T{ s" theorem t Prop explicit: evaluate evaluate := evaluate end t" run -> outcome-ok }T
+T{ s" axiom aNewNameForTheDefiner Prop end aNewNameForTheDefiner" run hijacked @
+   -> outcome-ok false }T
+
+[defined] rec-to [defined] traverse-wordlist and [if]
+\ Gforth 1.0's -> recognizer writes a VALUE or DEFER it finds in the
+\ search order (p01): the sealed lists must hold only CREATE ... DOES>
+\ words, for which 0 ->NAME throws -21. Every word of the three lists,
+\ the group words made by the runs above included, with Gforth's own
+\ recognizers and that list alone in the search order.
+create to-text 300 allot  variable to-wid  variable to-bad  variable to-count
+create to-order 40 cells allot  variable to-order#
+: to-save ( -- ) get-order dup to-order# ! 0 ?do to-order i cells + ! loop ;
+: to-back ( -- ) to-order# @ 0 ?do to-order to-order# @ 1- i - cells + @ loop
+  to-order# @ set-order ;
+: to-line ( nt -- c-addr u )
+  name>string 290 min >r s" 0 ->" to-text swap move to-text 4 + r@ move to-text r> 4 + ;
+: to-try ( nt -- flag )
+  to-line depth >r to-save to-wid @ 1 set-order ['] evaluate catch to-back
+  depth r> - 1+ 0 max 0 ?do nip loop
+  -21 <> if 1 to-bad +! then 1 to-count +! true ;
+: to-list ( wid -- bad count )
+  dup to-wid ! 0 to-bad ! 0 to-count ! ['] to-try swap traverse-wordlist
+  to-bad @ to-count @ ;
+T{ lf-words to-list nip 30 > -> true }T
+T{ lf-words to-list drop lf-locals to-list drop lf-consts to-list drop -> 0 0 0 }T
+[then]
 
 \ The note table on its own.
 lf-author-begin
@@ -388,6 +501,15 @@ T{ s" " lf-note-label noted -> outcome-unsupported }T
 T{ s" fine, (really)" lf-note-person noted -> outcome-ok }T
 T{ s" a-b" lf-note-label noted -> outcome-ok }T
 ' type lf-print-unicode lf-print-setup
+
+\ The dictionary reserve (p05): with fewer than lfa-dictionary-reserve
+\ address units unused, no group word is made (error 66, full), while
+\ names that have one still work. Last in this file: the space taken here
+\ is not given back.
+unused lfa-dictionary-reserve - 1+ allot
+T{ s" axiom aNameAfterTheReserve Prop end aNameAfterTheReserve" fails drop drop -> 66 }T
+T{ lf-author-code lf-author-outcome -> outcome-full }T
+T{ s" theorem t Prop explicit: p p := p end t" run -> outcome-ok }T
 
 cr .( author.fs: all tests passed) cr
 bye

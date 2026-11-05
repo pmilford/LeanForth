@@ -10,7 +10,7 @@ approves the checker, Lean's own kernel is the referee. `check` takes
 exports of any size: it stages the export with the importer stage and
 feeds it to the checker, whose stores grow to fit, so a whole library is
 checked from the command line — all of Lean's `Init`, 59,349
-declarations, in [about ten minutes, four to five with `gforth-fast`](#a-whole-library-leans-init). Most
+declarations, in [about twelve minutes with `--fast`](#a-whole-library-leans-init). Most
 of a real library still ends *unsupported* or *unknown*, because
 unfolding definitions (plan task 4.2.2), recursive data types and
 literals (phase 5) are not built yet. Two commands keep the first,
@@ -92,10 +92,10 @@ theorem composition {A B C : Prop} (f : A → B) (g : B → C) : A → C :=
 
 | Command | What it does |
 | --- | --- |
-| `check [--no-manifest] [--fuel N] [--resources] [--json] EXPORT` | Check every declaration of a Lean export of any size, in file order; with `--resources`, also print the [resource report](#the-resource-report); with `--json`, print [one JSON report](#json-output) instead of text |
-| `check [--no-manifest] [--fuel N] --record RECORD EXPORT` | Check a small export (as `print` reads it) and also write its [run record](#run-records-and-replay) |
-| `replay [--no-manifest] [--fuel N] EXPORT RECORD` | Check the export again and compare the new run record with RECORD; print the replay report |
-| `print [--no-manifest] [--fuel N] [--detail] [--name NAME] [--latex] [--statement FORMS] EXPORT` | Check the export and print each accepted declaration's [readable proof](#printing-a-readable-proof), or with `--detail` every step of the checker's log; `--name` prints one declaration |
+| `check [--no-manifest] [--fuel N] [--resources] [--json] [--fast] [--strict-axioms] EXPORT` | Check every declaration of a Lean export of any size, in file order; with `--resources`, also print the [resource report](#the-resource-report); with `--json`, print [one JSON report](#json-output) instead of text |
+| `check [--no-manifest] [--fuel N] [--fast] [--strict-axioms] --record RECORD EXPORT` | Check a small export (read straight into the checker's stores) and also write its [run record](#run-records-and-replay) |
+| `replay [--no-manifest] [--fuel N] [--fast] EXPORT RECORD` | Check the export again and compare the new run record with RECORD; print the replay report |
+| `print [--no-manifest] [--fuel N] [--fast] [--detail] [--name NAME] [--latex] [--statement FORMS] EXPORT` | Check the export and print each accepted declaration's [readable proof](#printing-a-readable-proof), or with `--detail` every step of the checker's log; `--name` prints one declaration |
 | `count [--no-manifest] EXPORT` | Count the export's records by kind ([the reader's counter](../development/NDJSON_READER.md#using-it)), for exports of any size |
 | `reexport [--no-manifest] EXPORT COPY` | Write the export again into COPY, byte for byte as Lean's exporter writes it ([re-export](../development/NDJSON_READER.md#re-export)); after an error COPY is incomplete and must be discarded |
 | `version` (or `--version`) | Versions of LeanForth, its Forth host, the export format it reads, and the git commit |
@@ -122,9 +122,39 @@ Options:
 - `--json` (`check` only) prints the whole result as one
   [JSON report](#json-output) instead of text. Neither goes with
   `--record` (status 4).
+- `--strict-axioms` (`check` only) makes a run whose declarations are all
+  accepted, some of them NOT PROVED, exit with status 6 instead of Lean's
+  0 ([axioms and NOT PROVED](#what-check-prints)).
+- `--fast` (`check`, `replay`, `print`) runs on `gforth-fast` instead of
+  Gforth's checking engine ([the engine](#the-engine)).
 - `--detail` (`print` only) prints every step of the checker's log
   instead of the outline; `--name NAME` (`print` only) prints only the
   declaration named NAME.
+
+### The engine
+
+`check`, `replay` and `print` run on Gforth's checking engine, `gforth`,
+by default (owner's decision of 2026-11-04): it stops at a stack or
+memory fault where it happens, so a fault in LeanForth's own Forth is
+reported as an internal fault at its source. `--fast` runs them on
+`gforth-fast`, which leaves out those checks and is about 2.4 times
+quicker: all of Lean's `Init` in 4 minutes 5 seconds instead of 9
+minutes 59 seconds, for one build of 2026-11-04
+([below](#a-whole-library-leans-init)). Both engines give the same
+verdicts in every test (`make test` compares the text and the JSON
+reports of the command-line fixtures on both), and the JSON report is
+the same but for `measured`, which names the engine. `count` and
+`reexport`, which check no proof, use `gforth-fast` (about 3.3 times
+faster on large exports). The engine is the one `GFORTH` names when it
+is set — with `--fast`, the `gforth-fast` in the same folder (on `PATH`
+when `GFORTH` names no folder) — else the pinned one in `.tools/gforth`,
+else one on `PATH`. When `--fast` finds no
+`gforth-fast`, the run uses the checking engine and says so on standard
+error:
+
+```text
+leanforth: note: --fast: no /opt/forth/gforth-fast found; checking with /opt/forth/myforth
+```
 
 `EXPORT` and `COPY` are file names relative to the current folder; the
 tool works from any folder, and gives the same bytes on every run:
@@ -156,22 +186,37 @@ explain a limit that was reached.
 it (`src/cli/name-text.fs`): its components joined by dots, numeric ones
 in decimal, a component that is not an identifier between `«` and `»`
 (`ReexportKinds.«with space»`; an empty component is `«»`), and the
-anonymous name as `[anonymous]`; names of any depth. Two changes make the
-line show exactly what the name holds, so that no name, however crafted,
-can start a line of its own, move the cursor or reorder the text after
-it: inside a component that is not an identifier, a backslash is shown
-as `\\`, and every character the [text rule of run
-records](../programming/RUN_RECORDS.md) bans — control characters (C0
-and C1, line feed and carriage return among them), format characters
-such as the bidirectional controls, and the line and paragraph separators
-— as `\u{X}`, its code point in hexadecimal; a byte that does not start
-UTF-8 as `\x{X}`. A theorem named `composition: rejected` + line feed +
-`forged: accepted …` is one line,
-`«composition: rejected\u{A}forged: accepted …»: accepted …`. As in Lean,
-no `«»` is added to a component that holds `»`, or to a name with macro
-scopes (`x._@._hyg`), an inaccessible name or pseudo-syntax; the escapes
-are made all the same. The JSON report holds the same text, and its
-`export` member shows the export's file name with the same escapes.
+anonymous name as `[anonymous]`; names of any depth. Three differences
+from Lean's text make the line show exactly what the name holds, so that
+no name, however crafted, can start a line of its own, look like the
+start of another declaration's line, move the cursor or reorder the
+text after it:
+
+1. A component that is not an identifier is always between `«` and `»`.
+   Lean leaves them out for a component that holds `»`, and for a whole
+   name with macro scopes (`x._@._hyg`), an inaccessible name (one holding
+   `✝`) or pseudo-syntax (`_`, or a root that starts with `#` or `?`); its
+   spaces and colons would then pass through, and a line could begin
+   `fake: accepted (…)`. Here `x._@._hyg` is `x.«_@»._hyg`.
+2. Inside `«»`, every character the [text rule of run
+   records](../programming/RUN_RECORDS.md) bans — control characters (C0
+   and C1, line feed and carriage return among them), format characters
+   such as the bidirectional controls, and the line and paragraph
+   separators — and `»` itself are shown as `\u{X}`, the code point in
+   hexadecimal, so a component ends at its first `»`; a byte that does
+   not start UTF-8 is shown as `\x{X}`.
+3. A backslash is shown as `\\`, so that the text of an escape in a name
+   is never read as an escape.
+
+A theorem named `composition: rejected` + line feed + `forged: accepted …`
+is one line, `«composition: rejected\u{A}forged: accepted …»: accepted …`,
+and one named `fake: accepted …✝` is `«fake: accepted …✝»: …`. Identifiers
+are as Lean's `isIdFirst` and `isIdRest` have them, subscript digits and
+letters (`x₁`, `xₐ`) included and subscript signs not (`«x₊»`). The JSON
+report's `name` holds the same text, and its `export` member the export's
+file name with the escapes of 2 and 3; both are display text, not the
+name's bytes, and a declaration is identified by its `index`, its place
+in the export.
 
 **Axioms and NOT PROVED.** The axioms are read from each accepted
 declaration's slot: the axiom set the checker joined from everything the
@@ -183,9 +228,21 @@ an accepted declaration that depends on an axiom other than `propext`,
 `NOT PROVED` on its line and counted apart in the summary (`axioms: N NOT
 PROVED`), never as proved; until axioms are supported (plan tasks 5.3.1
 and 5.3.2, which also bring the axioms' names) any axiom counts, and none
-can appear yet. When every declaration is accepted but some are NOT
-PROVED, the exit status is 6, not 0 ([exit status](#exit-status); proposed,
-pending the owner's confirmation).
+can appear yet. The mark is presentation, never a different verdict:
+LeanForth gives Lean's verdict on a declaration that uses any axiom Lean
+accepts (plan task 5.3.1). So, by the owner's decision of 2026-11-04, a
+run whose declarations are all accepted, some of them NOT PROVED, keeps
+Lean's exit status, 0, and says so in a note after the summary:
+
+```text
+note: NOT PROVED declarations keep Lean's exit status; --strict-axioms
+note: makes it 6
+```
+
+With `--strict-axioms` the same run exits with status 6, below every real
+failure ([exit status](#exit-status)), and the JSON report's
+`settings.strictAxioms` is true. `make test` reaches both by planting an
+axiom in an accepted slot.
 
 A broken copy of `composition`, whose proof applies `g` to `value`
 instead of to `f value`, is rejected for the reason Lean's kernel gives
@@ -208,7 +265,7 @@ A file whose declarations end differently counts each verdict:
 $ bin/leanforth check tests/cli/unfold.ndjson; echo "exit status $?"
 Implies: accepted (experimental, not independently audited); axioms: none
 impliesSelf: unknown
-  undecided: terms or levels differ; diagnostic 30 at mixed-convert lf-mixed-convert: 17 10
+  undecided: terms or levels differ; diagnostic 30 at defeq lf-defeq: 20 22
 2 declarations: 1 accepted, 1 unknown
 accepted: 1 (experimental, not independently audited); axioms: none
 exit status 2
@@ -216,8 +273,9 @@ exit status 2
 
 Here *unknown* is honest, not a rejection, and it is a gap, not a
 difference from Lean: the proof is correct, and Lean accepts it, but
-checking it needs the definition of `Implies` unfolded, which the first
-checker does not do yet (plan task 4.2.2 closes it):
+checking it needs the definition of `Implies` unfolded by Lean's lazy
+delta reduction, which the checker does not do yet (plan task 4.2.2d
+closes it):
 
 ```lean
 def Implies (A B : Prop) : Prop := A → B
@@ -303,60 +361,59 @@ take the staged declarations. Lean's own `Init` library, exported with
 2026-11-04 with the default fuel:
 
 ```text
-$ GFORTH=.tools/gforth/bin/gforth-fast bin/leanforth check --resources init.ndjson | tail -n 28
-59349 declarations: 1618 accepted, 3748 unknown, 53800 unsupported, 179 exhausted, 4 full
-accepted: 1618 (experimental, not independently audited); axioms: none
+$ bin/leanforth check --fast --resources init.ndjson | tail -n 29
+59349 declarations: 2503 accepted, 5056 unknown, 51579 unsupported, 180 exhausted, 31 full
+accepted: 2503 (experimental, not independently audited); axioms: none
 note: a check ran out of room; its diagnostic names the limit: memory, or
 note: 16 dependencies per declaration, 65536 per export, 512 constructors per
 note: inductive block (plan task 6.2.0)
 note: a check ran out of fuel (100000 steps each); --fuel N gives each more
 resources:
   time (s)     wall      cpu
-  stage      18.869   18.869
-  feed       18.717   18.426
-  check     220.083  220.045
-  total     258.063  257.733
-  memory: peak resident 1218.1 MB; the stage's heap blocks 179.4 MB
+  stage      30.902   29.019
+  feed       17.062   17.062
+  check     676.073  658.932
+  total     724.465  705.442
+  memory: peak resident 1237.9 MB; the stage's heap blocks 179.7 MB
+  engine: gforth-fast
   input: 59349 declarations, 6099054 term nodes, 578 levels, 56957 constant references, 295432 names
-  fuel: 26769240 steps in all, at most 100000 per declaration
-  fuel not known for 30023 declarations: a failed inference gives its
+  fuel: 31876309 steps in all, at most 100000 per declaration
+  fuel not known for 29203 declarations: a failed inference gives its
     counter up (their checks are not in the fuel above)
   most fuel used:
     100000 Lean.Omega.Constraint.add_sat (exhausted)
     100000 ByteArray.utf8Decode?.go._unary.eq_def (exhausted)
     100000 String.Slice.Pos.copy_eq_append_get (exhausted)
+    100000 _private.Init.Grind.Config.0.Lean.Grind.instBEqConfig.beq.match_1 (exhausted)
     100000 Array.map_attach_eq_pmap (exhausted)
     100000 Std.IterM.step_filterMapM (exhausted)
     100000 Std.IterM.toList_filterMapM_map (exhausted)
     100000 Std.Iter.forIn'_eq_match_step (exhausted)
     100000 Std.IterM.step_filterMap (exhausted)
     100000 Std.IterM.toList_filterMap (exhausted)
-    100000 Std.IterM.forIn_filterMapWithPostcondition (exhausted)
 ```
 
-Nothing was rejected and nothing was invalid. The 1,618 accepted
-declarations include `id`, `Function.comp` and whole inductive blocks
-such as `Bool`, `Option`, `Prod`, `Sum`, `And`, `Or`, `Exists`, `Eq`,
-`HEq` and `Decidable`. Almost everything else is *unsupported* or
-*unknown* because it needs features not built yet — each a gap to close,
-not an answer that differs from Lean's, which accepts all of `Init`:
-recursive and indexed inductive types such as `Nat` and `List` (plan
-tasks 5.2.1b, 5.2.1c; 266 declarations), literals, projections and other
-term forms (5.2.3, 5.2.2, 4.2.3; 25,703 declarations), axioms, opaque,
-unsafe and partial declarations and quotients (5.3.1, 4.2.6, 5.2.4; 252),
-comparisons that need definitions unfolded (4.2.2; 749 *unknown*, codes
-30–32), and everything that uses
-one of those (27,579 *unsupported* and 2,999 *unknown* only for that).
-*full* meant a declaration with more than 16 dependencies (4 here, such
-as `Sum.isRight_iff`), a limit gone since plan task 6.2.0 (below), and
-*exhausted* a check that needed more than 100,000 steps (179; `--fuel N`
-gives more). No term is too
-deep any more: since the depth work of plan task 6.2.0 (part (b)) the
-55 declarations that ended *full* at a walk's 64 levels in the first run
-of 2026-11-04 get other verdicts (33 *unsupported*, 17 *exhausted*, 4
-*unknown*, 1 accepted), and two that use one of them moved from
-*unknown* to *unsupported*. 183 names, most of them notations such as
-`«term_+_»`, are shown with `«»`, as Lean shows them.
+Nothing was rejected and nothing was invalid. The 2,503 accepted
+declarations include `id`, `Function.comp`, whole inductive blocks such
+as `Bool`, `Option`, `Prod`, `Sum`, `And`, `Or`, `Exists`, `Eq`, `HEq`
+and `Decidable`, and since task 5.2.1b the recursive types `Nat`, `List`
+and `Array` with their recursors. Almost everything else is
+*unsupported* or *unknown* because it needs features not built yet —
+each a gap to close, not an answer that differs from Lean's, which
+accepts all of `Init`: literals, projections and other term forms
+(5.2.3, 5.2.2, 4.2.3; 25,703 declarations), axioms, opaque, unsafe and
+partial declarations and quotients (5.3.1, 4.2.6, 5.2.4; 252), mutual
+and nested inductive blocks (5.2.5; 8), comparisons that need
+definitions unfolded (4.2.2; 951 *unknown*, codes 30–32), and
+everything that uses one of those (25,616 *unsupported* and 4,105
+*unknown* only for that). *full* meant a declaration with more than 16
+dependencies (31, such as `Lean.Grind.CommRing.Expr.toPoly.match_4.congr_eq_1`),
+a limit gone since plan task 6.2.0 (below), and *exhausted* a check that
+needed more than 100,000 steps (180; `--fuel N` gives more). No term is too deep any more: since
+the depth work of plan task 6.2.0 (part (b)) the 55 declarations that
+ended *full* at a walk's 64 levels in the first run of 2026-11-04 get
+other verdicts. 183 names, most of them notations such as `«term_+_»`,
+are shown with `«»`, as Lean shows them.
 
 Since part (c) of plan task 6.2.0 (2026-11-04) nothing in a check has a
 fixed number any more: a declaration's dependencies, the environment's
@@ -364,28 +421,28 @@ dependency pool and an inductive block's constructors grow with the heap,
 like its terms and its depth. A check is *full* only when the heap
 refuses, or when it needs more than its scratch above the input (1,048,576
 term nodes, 65,536 levels and 262,144 constant references, plan task
-6.2.2), as the note after the summary says. On a build of that day with
-recursive data types (plan task 5.2.1b), checked with `--resources --json`,
-`Init` gave 2,503 accepted, 5,083 *unknown*, 51,583 *unsupported*, 180
-*exhausted* and none *full*: the 31 declarations that ended *full* at 16
-dependencies just before this change (such as `Sum.isRight_iff` and the
-`congr_eq` lemmas of `Lean.Grind.CommRing.Expr.toPoly`'s match) are now
-*unknown* (27, a comparison that needs a definition unfolded, plan task
-4.2.2) or *unsupported* (4, a dependency unsupported), and every other
-declaration kept its verdict and diagnostic.
+6.2.2), as the note after the summary then says. The same build with
+part (c), checked with `--resources --json` and `gforth-fast`, gave
+2,503 accepted, 5,083 *unknown*, 51,583 *unsupported*, 180 *exhausted*
+and none *full*: of the 31 declarations above that ended *full*, 27 are
+now *unknown* (a comparison that needs a definition unfolded, plan task
+4.2.2) and 4 *unsupported* (a dependency unsupported, such as
+`Sum.isRight_iff`), and every other declaration kept its verdict and
+diagnostic.
 
-The run above used the `gforth-fast` engine
-(`GFORTH=.tools/gforth/bin/gforth-fast`) on a 10-core WSL2 machine that
-other agents' test runs shared. The default `gforth` engine gives the
-same output, byte for byte but for the times, in about two and a half
-times as long (9 min 59 s for an earlier build on 2026-11-04). Freeing
-the stage's export-index maps once it is staged gives back 35.7 MB of
-its 215.1 MB; on three runs of this build, the same verdicts, fuel and
+The run above used `--fast`, the `gforth-fast` engine
+([the engine](#the-engine)), on a 10-core WSL2 machine that other agents'
+test runs shared; its checks took 11 minutes, against under 4 for the
+build of the morning, which accepted 1,618 declarations and checked
+fewer that far. The default engine, Gforth's checking engine, gives the
+same output, byte for byte but for the times, memory and engine lines,
+in about 2.4 times as long (9 min 59 s against 4 min 5 s for the
+morning's build; not yet measured on this one). Freeing the stage's
+export-index maps once it is staged gives back 35.7 MB of its 215.1 MB;
+on three runs of the morning's build, the same verdicts, fuel and
 diagnostics for every declaration, the peak was 1,263 MB without it and
 1,218 MB with it (peaks vary by about 20 MB from run to run). The ten
-declarations that used the most fuel all ran out of it; among the
-accepted ones the most was 48,291 steps (a `match` auxiliary of
-`Sum.exists`). Half the declarations' fuel is not known: their check
+declarations that used the most fuel all ran out of it. Half the declarations' fuel is not known: their check
 failed inside inference, which gives its counter up, so neither the
 total nor the list counts them ([fuel](#the-resource-report)); a later
 step of plan task 6.5.2 can keep it, with a change to the checker.
@@ -398,15 +455,19 @@ feeding, checking — and of the whole run so far, in seconds; the
 process's peak resident memory (`VmHWM` in `/proc/self/status`; on a host
 without it, `not measured on this host`) and the bytes of heap blocks the
 stage holds while the checks run (its export-index maps, which only
-loading needs, are freed once it is staged: `stage-unmap`); the size of the input as fed (declarations, term nodes,
-levels, constant references, names); the fuel all checks used; and the
-ten declarations that used the most, most first, those of equal fuel in
-file order. Times and memory differ from run to run; everything else is
-the same on every run, as in this example, where the time and memory
-lines are left out:
+loading needs, are freed once it is staged: `stage-unmap`); the engine
+that ran ([the engine](#the-engine): the file name of the Gforth
+program, such as `gforth` or `gforth-fast`, or `not known` outside
+`bin/leanforth`); the size of the input as fed (declarations, term
+nodes, levels, constant references, names); the fuel all checks used;
+and the ten declarations that used the most, most first, those of equal
+fuel in file order. Times and memory differ from run to run, and the
+engine with how the tool is run; everything else is the same on every
+run, as in this example, where the time, memory and engine lines are
+left out:
 
 ```console
-$ bin/leanforth check --resources tests/cli/inductive.ndjson | grep -v -E "^  (stage|feed|check|total) |^  memory: "
+$ bin/leanforth check --resources tests/cli/inductive.ndjson | grep -v -E "^  (stage|feed|check|total) |^  (memory|engine): "
 Two: accepted (experimental, not independently audited); axioms: none
 Two.first: accepted (experimental, not independently audited); axioms: none
 Two.second: accepted (experimental, not independently audited); axioms: none
@@ -418,11 +479,11 @@ accepted: 6 (experimental, not independently audited); axioms: none
 resources:
   time (s)     wall      cpu
   input: 6 declarations, 46 term nodes, 3 levels, 5 constant references, 31 names
-  fuel: 1520 steps in all, at most 100000 per declaration
+  fuel: 1187 steps in all, at most 100000 per declaration
   most fuel used:
-       832 Two.cases (accepted)
-       349 Two.swap (accepted)
+       576 Two.cases (accepted)
        339 Two (accepted)
+       272 Two.swap (accepted)
 ```
 
 **Fuel**, a check's unit of work, is read from the checker's own counters
@@ -450,32 +511,37 @@ member is cut off:
 
 ```console
 $ bin/leanforth check --json tests/cli/unfold.ndjson | sed "s/,\"measured\":.*/}/"; echo "exit status ${PIPESTATUS[0]}"
-{"schema":"leanforth-check-report","schemaVersion":"0.1","export":"tests/cli/unfold.ndjson","manifest":"checked","label":"experimental, not independently audited","settings":{"fuel":100000,"dependencyPool":65536},"read":{"outcome":"ok","phase":null,"line":null,"field":null,"reason":null,"at":null},"run":"ok","stopped":false,"declarations":[{"index":0,"name":"Implies","verdict":"accepted","label":"experimental, not independently audited","axiomBits":0,"notProved":false,"fuel":137},{"index":1,"name":"impliesSelf","verdict":"unknown","diagnostic":{"code":30,"reason":"undecided: terms or levels differ","site":"mixed-convert lf-mixed-convert","numbers":[17,10],"step":8},"fuel":281}],"counts":{"declarations":2,"accepted":1,"rejected":0,"unknown":1,"unsupported":0,"invalid":0,"exhausted":0,"full":0,"notChecked":0,"notProved":0},"fuel":{"perDeclaration":100000,"total":418,"unknown":0,"top":[{"index":1,"name":"impliesSelf","fuel":281,"verdict":"unknown"},{"index":0,"name":"Implies","fuel":137,"verdict":"accepted"}]},"input":{"declarations":2,"terms":14,"levels":1,"references":1,"names":10},"exitStatus":2}
+{"schema":"leanforth-check-report","schemaVersion":"0.1","export":"tests/cli/unfold.ndjson","manifest":"checked","label":"experimental, not independently audited","settings":{"fuel":100000,"dependencyPool":65536,"strictAxioms":false},"read":{"outcome":"ok","phase":null,"line":null,"field":null,"reason":null,"at":null},"run":"ok","stopped":false,"declarations":[{"index":0,"name":"Implies","verdict":"accepted","label":"experimental, not independently audited","axiomBits":0,"notProved":false,"fuel":88},{"index":1,"name":"impliesSelf","verdict":"unknown","diagnostic":{"code":30,"reason":"undecided: terms or levels differ","site":"defeq lf-defeq","numbers":[20,22],"step":8},"fuel":229}],"counts":{"declarations":2,"accepted":1,"rejected":0,"unknown":1,"unsupported":0,"invalid":0,"exhausted":0,"full":0,"notChecked":0,"notProved":0},"fuel":{"perDeclaration":100000,"total":317,"unknown":0,"top":[{"index":1,"name":"impliesSelf","fuel":229,"verdict":"unknown"},{"index":0,"name":"Implies","fuel":88,"verdict":"accepted"}]},"input":{"declarations":2,"terms":14,"levels":1,"references":1,"names":10},"exitStatus":2}
 exit status 2
 ```
 
 | Member | Contents |
 | --- | --- |
 | `schema`, `schemaVersion` | `leanforth-check-report`, `0.1` |
-| `export`, `manifest` | the file name given, with the escapes of [names](#what-check-prints); `checked`, or `not-checked` with `--no-manifest` |
+| `export`, `manifest` | the file name given, as escaped display text (the escapes of [names](#what-check-prints)); `checked`, or `not-checked` with `--no-manifest` |
 | `label` | `experimental, not independently audited` |
-| `settings` | the fuel per check and `dependencyPool`, the room the environment's dependency pool starts with (it grows: not a limit since plan task 6.2.0) |
+| `settings` | the fuel per check, `dependencyPool`, the room the environment's dependency pool starts with (it grows: not a limit since plan task 6.2.0), and `strictAxioms` (true with `--strict-axioms`) |
 | `read` | the read's outcome and, for a failure, its `phase` (`open`, `stage`, `feed`), `line`, `field`, `reason`, and for the feed the number `at` which it stopped |
 | `run` | the run's outcome: `ok` when every slot ended final and the run did not stop, `invalid` when it stopped, `not-run` when the export was not read |
 | `stopped` | true when the run stopped on an internal fault (a check threw, or publishing failed), as the text's `internal fault: the run stopped` line says; the run is then `invalid` and the status 5 |
-| `declarations` | each declaration in file order: `index`, `name` (as the text shows it), `verdict` (`accepted`, an outcome, or `not-checked`), `fuel` (null when not known); an accepted one's `label`, `axiomBits` (0: none) and `notProved`; any other's `diagnostic` (code, reason, site, two numbers, step) |
+| `declarations` | each declaration in file order: `index` (its place in the export, which identifies it), `name` (escaped display text, as the text shows it), `verdict` (`accepted`, an outcome, or `not-checked`), `fuel` (null when not known); an accepted one's `label`, `axiomBits` (0: none) and `notProved`; any other's `diagnostic` (code, reason, site, two numbers, step) |
 | `counts` | the declarations by verdict, `notChecked` and `notProved`; null when no verdict could be read |
 | `fuel` | `perDeclaration`, `total` (of the known), `unknown` (how many are not known) and `top` (the ten that used the most) |
 | `input` | declarations, term nodes, levels and constant references fed, and the stage's names; null when nothing was fed |
 | `exitStatus` | the command's [exit status](#exit-status), 0 to 6 |
-| `measured` | `microseconds` (wall and CPU of `stage`, `feed`, `check` and `total`; null on a host without clocks), `peakResidentBytes` and `stageBytes` (null when not known) |
+| `measured` | `microseconds` (wall and CPU of `stage`, `feed`, `check` and `total`; null on a host without clocks), `peakResidentBytes` and `stageBytes` (null when not known), and `engine`, the file name of the Gforth program that ran ([the engine](#the-engine); null outside `bin/leanforth`) |
+
+The engine is in `measured`, not in `settings`: it says how the run was
+made, not what it found, and keeping it apart makes the report of a
+check on either engine the same but for `measured`.
 
 The parts of a report agree, and the schema states what its keywords
 can: status 0 only for a run that ended `ok`, did not stop and listed at
-least one declaration, every one accepted and proved, with every other
-count 0 and every fuel known; status 6 only when every declaration was
-accepted and at least one is NOT PROVED; a rejected or invalid
-declaration, or one not checked, never leaves the status 0. What it
+least one declaration, every one accepted, with every other count 0 and
+every fuel known, and under `--strict-axioms` none NOT PROVED; status 6
+only under `--strict-axioms`, when every declaration was accepted and at
+least one is NOT PROVED; a rejected or invalid declaration, or one not
+checked, never leaves the status 0. What it
 cannot state, `make test` checks on every report it makes (the schema's
 `$comment` lists it): `counts.declarations` is the number of
 `declarations` and the sum of the eight verdict counts, each count the
@@ -513,7 +579,7 @@ Theorem composition
   accepted (experimental, not independently audited); axioms: none
   Statement in Lean:        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$
-  Statement in LeanForth (the statement only, written as an axiom; nothing is assumed):
+  Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom composition
       Prop implicit: A
       Prop implicit: B
@@ -523,7 +589,7 @@ Theorem composition
       A C ->
     end composition
   Input:     tests/reference/composition.ndjson line 35
-  Checker log: 51 steps, complete. The statement is a proposition: s20 (from s3).
+  Checker log: 48 steps, complete. The statement is a proposition: s20 (from s3).
 
 Proof (reconstructed from the proof term).
   1  Let A, B, C be propositions.                  [∀-introduction]                   s21–s23
@@ -536,7 +602,7 @@ Proof (reconstructed from the proof term).
          because g turns any proof of B into a proof of C.
   7  Discharging 4, 3, 2 and 1 gives               [→/∀-introduction ← 1, 2, 3, 4, 6] s40–s45
        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C.
-  8  This is the statement.                        [definitional equality ← 7]        s49
+  8  This is the statement.                        [definitional equality ← 7]        s46
 ∎
 Rules, formulas and step numbers come from the checker's log; the sentences are
 fixed templates (structured-template), not checked reasoning.
@@ -549,11 +615,13 @@ The header shows the statement in three forms (plan task 8.6.2): in
 Lean's notation, in mathematics (LaTeX between `$` and `$`) and in
 LeanForth words. The LeanForth block states the type as the `axiom` of
 the same name does, because that is the one form of the words that states
-a type with no proof; it assumes nothing: nobody checked such an axiom,
-and the verdict printed above it is the checker's. The words run through
+a type with no proof. Printing it assumes nothing, and the verdict printed
+above it is the checker's (also for an `Axiom` declaration and for a
+rejected one, whose block is printed all the same); running the words would
+make an axiom in the authoring program, never in the checker. The words run through
 the [authoring words](../programming/LEANFORTH_WORDS.md) to the identical
-statement (checked by `tests/present/check_outline.py` for every pinned
-example). The statement is printed whether or not the declaration was
+statement (checked by `tests/present/check_outline.py` for the five pinned
+examples; the `Init` example below was not run back). The statement is printed whether or not the declaration was
 accepted. A block can be run only after the declarations it mentions: the
 constants of an earlier declaration are defined by running that
 declaration first (an `import-stub` line stands for one of Lean's).
@@ -563,6 +631,17 @@ declaration first (an `import-stub` line stands for one of Lean's).
 (the default). `--latex` prints the outlines as LaTeX fragments instead
 (see [the proof outline](PROOF_OUTLINE.md#latex)); with `--detail` the
 step list is always plain text.
+
+NAME is matched against the name as the term printer spells it, components
+joined by dots without « »: `a.b` selects a declaration whose name is the
+two components `a` and `b` and also the one-component name `«a.b»`, and a
+numeric component matches the same digits as a string component. The name
+is shown escaped in the output (so a name holding a line end or a
+bidirectional control cannot be written as an argument).
+
+A limit still to lift: the LeanForth block takes at most 8 universe
+parameters (print-forth's `lf-decl-universe-capacity`); a declaration with
+more prints "(not complete: unsupported)" instead of the block.
 
 `--name NAME` prints only the declaration named NAME (the declarations
 before it are checked too, since it may use them; the ones after it are
@@ -579,7 +658,7 @@ Theorem composition
   Diagnostic: rejected: argument type mismatch (D1-D5) (4, 0)
   Statement in Lean:        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$
-  Statement in LeanForth (the statement only, written as an axiom; nothing is assumed):
+  Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom composition
       Prop implicit: A
       Prop implicit: B
@@ -629,27 +708,27 @@ both reads check it.
 
 | Status | Meaning | Comes from |
 | --- | --- | --- |
-| 0 | Every declaration accepted (or, for the other commands, done) | every verdict *ok* |
+| 0 | Every declaration accepted (or, for the other commands, done); NOT PROVED ones too, as Lean, unless `--strict-axioms` | every verdict *ok* |
 | 1 | Something rejected: Lean's kernel rejects it too | *rejected* |
 | 2 | Unsupported or unknown: LeanForth cannot decide it yet | *unsupported*, *unknown* |
 | 3 | A resource limit: out of fuel or out of room | *exhausted*, *full* |
 | 4 | Malformed input: a broken export, a missing or wrong manifest, a file that cannot be opened or created, or a malformed command line | *invalid* |
 | 5 | An internal fault: a Forth exception, a check that threw, a failed publication, or Gforth ending in an unexpected way | — |
-| 6 | Every declaration accepted, but some NOT PROVED: they depend on an axiom (proposed; see below) | *ok* with an axiom |
+| 6 | Only with `--strict-axioms`: every declaration accepted, but some NOT PROVED (they depend on an axiom) | *ok* with an axiom |
 
 When the declarations end differently, the most severe status wins, in
 the order 5, 4, 1, 3, 2, 6, 0: an internal fault or a malformed export puts
 every verdict in doubt; a rejection is Lean's definite "no"; a limit or a
 missing feature leaves a declaration undecided; a NOT PROVED declaration
-is Lean's "yes" resting on an axiom. Only status 0 means every
-declaration was accepted and proved. Status 6 follows the owner's rule
-that NOT PROVED "has its own exit code and never counts as proved"
-([owner decisions](../project/OWNER_DECISIONS.md)); its number and its
-place in the order are proposed, pending the owner's confirmation at the
-check report's [format] gate. No declaration can be NOT PROVED yet (the
-first checker accepts no axiom), so `make test` reaches status 6 by
-planting an axiom in an accepted slot. One example of each status other
-than 0 and 6:
+is Lean's "yes" resting on an axiom. By the owner's decision of
+2026-11-04 ([owner decisions](../project/OWNER_DECISIONS.md), "0 like
+Lean, flag for 6"), a NOT PROVED declaration keeps Lean's status — 0
+when everything is accepted — and is marked on its line, in the summary,
+in a note and in the JSON report; `--strict-axioms` gives such a run
+status 6, so that a script can refuse anything resting on an axiom. No
+declaration can be NOT PROVED yet (the first checker accepts no axiom),
+so `make test` reaches both by planting an axiom in an accepted slot.
+One example of each status other than 0 and 6:
 
 ```console
 $ bin/leanforth check --no-manifest tests/core/check-declaration-cases/composition-postulate.ndjson; echo "exit status $?"
@@ -735,22 +814,25 @@ leanforth 0.1.0-dev: what this build can do
 supported:
   check: Lean 4.35.0 exports (lean4export 3.1.0 NDJSON) of any size, such as
     all of Lean's Init, staged and fed in Forth; the manifest checked unless
-    --no-manifest; a summary, --resources (time, memory, fuel), --json
+    --no-manifest; a summary, --resources (time, memory, fuel), --json;
+    Gforth's checking engine, or gforth-fast with --fast
   check: definitions and theorems built from Sort, variables, application, fun,
     forall and earlier accepted declarations (the first checker, ADR 0011),
-    and inductive blocks that are not recursive, indexed or mutual (5.2.1a);
-    an accepted one is labelled experimental, not independently audited
+    and inductive blocks that are not mutual or nested: non-recursive ones
+    (5.2.1a) and recursive ones such as Nat and List (5.2.1b, its review
+    gate open); an accepted one is labelled experimental, not independently
+    audited
   check --record, replay: run records 0.1 and their replay (plan task 2.2.5)
   print: a readable proof outline of each accepted declaration, from the
     checker's derivation log (plan tasks 2.4.1, 2.4.4; untrusted presentation)
   count, reexport: exports of any size, up to all of Mathlib
 not yet supported (check answers unsupported or unknown, exit 2):
   axioms (5.3.1), opaque declarations (4.2.6), unsafe and partial definitions;
-  let (4.2.3), literals (5.2.3), projections (5.2.2) and metadata (4.1.3) in a term;
-  recursive and indexed inductive types (5.2.1b, 5.2.1c), quotients (5.2.4),
-  mutual and nested blocks (5.2.5); unfolding definitions (4.2.2), so some
-  correct proofs end unknown; check --record and replay refuse
-  inductive types while reading
+  let (4.2.3), literals (5.2.3), projections (5.2.2) and metadata (4.1.3)
+  in a term; the rest of indexed families (5.2.1c), quotients (5.2.4),
+  mutual and nested blocks (5.2.5); unfolding definitions
+  (4.2.2), so some correct proofs end unknown; check --record and replay
+  refuse inductive types while reading
 limits (check answers full or exhausted, exit 3):
   check: stores, walks and lists that grow with the export (memory), any
     depth and number of dependencies or constructors (plan task 6.2.0);
@@ -872,10 +954,10 @@ records without the manifest check, so replay those with `--no-manifest`.
 variable; otherwise the pinned one in `.tools/gforth` of its checkout
 (`scripts/install-gforth.sh`), otherwise `gforth` on the `PATH`. `count`
 and `reexport` prefer `gforth-fast`, about 3.3 times faster on large
-exports; `check` uses the `gforth` engine, whose stack and memory checks
-turn a fault in the checker into an internal fault where it happens.
-`GFORTH=.tools/gforth/bin/gforth-fast` checks `Init` more than twice as
-fast, with the same verdicts byte for byte. Standard input is closed.
+exports; `check`, `replay` and `print` use Gforth's checking engine,
+whose stack and memory checks turn a fault in the checker into an
+internal fault where it happens, and `--fast` runs them on `gforth-fast`
+([the engine](#the-engine)). Standard input is closed.
 `bin/leanforth version` adds the checkout's git commit to the versions:
 
 ```console
@@ -896,7 +978,8 @@ and JSON forms of `print`'s outline (task 2.4.4).
 ## Tests
 
 `make test-cli` runs `tests/cli/leanforth.fs` (the Forth side: every
-outcome's code, the order of severity, NOT PROVED, the record hook, the
+outcome's code, the order of severity, NOT PROVED with Lean's status and
+with `--strict-axioms`, the record hook, the
 fuel each check used, the stage freed and the stores' sizes given back
 after every check, two injected internal faults, `print`'s codes, and a
 THROW at each of `print`'s store allocations, after which the log is off
@@ -904,8 +987,9 @@ and no environment is left) and `tests/cli/test_leanforth.py` (the tool
 itself: every exit status with its exact output, from other folders,
 tampered and cut exports, every JSON report against its schema and
 against the text, the resource report, exact fuel, against the counter and
-the re-exporter, with a broken Gforth, and `print`'s outlines against the
-outline printer's golden file). `make reference-cli`, part of `make
+the re-exporter, with a broken Gforth, the same text and reports on both
+engines (`--fast`), and `print`'s outlines against the outline printer's
+golden file). `make reference-cli`, part of `make
 check`, has pinned Lean accept `tests/cli/chain.lean`, `unfold.lean` and
 `inductive.lean` and has `scripts/export.sh` reproduce their committed
 exports and manifests byte for byte. The examples on this page run in

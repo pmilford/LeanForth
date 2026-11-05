@@ -21,9 +21,10 @@
    5 an internal fault (a Gforth that ends with a status of its own, and
      the real Gforth with an allocation made to throw, while feeding and
      inside a check, or with the publisher made to throw mid-run);
-   6 (proposed) all accepted but some NOT PROVED: no check can make one
-     yet, so tests/cli/leanforth.fs plants an axiom in a slot, and the
-     schema is tested here with planted reports.
+   6 all accepted but some NOT PROVED, only with --strict-axioms (by
+     default NOT PROVED keeps Lean's 0): no check can make one yet, so
+     tests/cli/leanforth.fs plants an axiom in a slot, and the schema is
+     tested here with planted reports.
 2. "accepted" is printed only on a declaration's line, each with the
    experimental label and its axioms, and only when the code is 0 or that
    line's declaration is accepted while another is not.
@@ -48,6 +49,10 @@
 8. Names are shown as Lean's Name.toString shows them, with escapes for
    control, format and separator characters, so that no name can forge a
    line; of any depth; the export's file name with the same escapes.
+9. The engine: Gforth's checking engine by default; --fast runs the
+   gforth-fast beside it, with the same text and the same JSON report but
+   for "measured", which names the engine; with no gforth-fast the run
+   says so on standard error and uses the default.
 
 Run with GFORTH set to the Forth binary (the Makefile does this).
 """
@@ -55,6 +60,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import stat
 import subprocess
 import sys
@@ -154,8 +160,8 @@ class ExitCodes(unittest.TestCase):
                      "error: unsupported: an inductive type (not supported yet) (line 51)"])
         self.expect(["check", "tests/cli/unfold.ndjson"], 2,
                     [f"Implies: {LABEL}", "impliesSelf: unknown",
-                     "  undecided: terms or levels differ; diagnostic 30 at mixed-convert "
-                     "lf-mixed-convert: 17 10",
+                     "  undecided: terms or levels differ; diagnostic 30 at defeq "
+                     "lf-defeq: 20 22",
                      "2 declarations: 1 accepted, 1 unknown", accepted(1)])
 
     def test_3_limits(self):
@@ -211,6 +217,8 @@ class ExitCodes(unittest.TestCase):
              "error: --json and --resources do not go with --record"),
             (["print", "--json", COMPOSITION],
              "error: an option this command does not take: --json"),
+            (["print", "--strict-axioms", COMPOSITION],
+             "error: an option this command does not take: --strict-axioms"),
             (["count", "--fuel", "3", COMPOSITION],
              "error: an option this command does not take: --fuel"),
             (["frobnicate"], "error: an unknown command: frobnicate"),
@@ -749,11 +757,13 @@ class JsonReport(unittest.TestCase):
             edit(copy)
             return self.schema.errors(copy)
 
-        def not_proved(r):
-            """Declaration 0 NOT PROVED, counted, and the status 6."""
+        def not_proved(r, strict=True):
+            """Declaration 0 NOT PROVED and counted; under --strict-axioms
+            the status 6, else Lean's 0."""
             r["declarations"][0].update(axiomBits=4, notProved=True)
             r["counts"].update(notProved=1)
-            r.update(exitStatus=6)
+            r["settings"].update(strictAxioms=strict)
+            r.update(exitStatus=6 if strict else 0)
 
         def rejected(r, status):
             """Declaration 5 rejected, counted, and the status given."""
@@ -780,27 +790,35 @@ class JsonReport(unittest.TestCase):
             # declaration, every fuel known, and a run that did not stop.
             (good, lambda r: r["counts"].update(rejected=1)),
             (good, lambda r: r["counts"].update(notChecked=1)),
-            (good, lambda r: r["counts"].update(notProved=1)),
             (good, lambda r: r["fuel"].update(unknown=1)),
             (good, lambda r: r.update(declarations=[])),
             (good, lambda r: r["counts"].update(declarations=0, accepted=0)),
             (good, lambda r: r.update(counts=None)),
-            # A run that stopped did not end ok; status 6 needs a NOT PROVED
-            # declaration, all accepted; there is no status 7.
+            # A run that stopped did not end ok; status 6 needs
+            # --strict-axioms and a NOT PROVED declaration, all accepted;
+            # under --strict-axioms a NOT PROVED one never leaves status 0;
+            # there is no status 7; settings say whether it is strict.
             (good, lambda r: r.update(stopped=True, exitStatus=5)),
             (good, lambda r: r.update(exitStatus=6)),
             (good, lambda r: r.update(exitStatus=7)),
             (good, lambda r: not_proved(r) or r.update(exitStatus=0)),
+            (good, lambda r: not_proved(r, strict=False) or r.update(exitStatus=6)),
             (good, lambda r: not_proved(r) or rejected(r, 6)),
+            (good, lambda r: r["settings"].pop("strictAxioms")),
+            (good, lambda r: r["measured"].pop("engine")),
+            (good, lambda r: r["measured"].update(engine="")),
         ]
         for base, edit in cases:
             self.assertNotEqual(changed(base, edit), [], cases.index((base, edit)))
         self.assertEqual(changed(good, lambda r: None), [])
-        # Reports of exit status 6 and of a rejected declaration beside a
-        # NOT PROVED one (1 outranks 6), planted, since no check can make a
-        # NOT PROVED declaration yet: accepted.
+        # Planted reports, since no check can make a NOT PROVED declaration
+        # yet: status 6 under --strict-axioms, Lean's 0 without it, and a
+        # rejected declaration beside a NOT PROVED one (1 outranks 6), all
+        # accepted; so is a report whose engine is not known.
         self.assertEqual(changed(good, not_proved), [])
+        self.assertEqual(changed(good, lambda r: not_proved(r, strict=False)), [])
         self.assertEqual(changed(good, lambda r: not_proved(r) or rejected(r, 1)), [])
+        self.assertEqual(changed(good, lambda r: r["measured"].update(engine=None)), [])
 
     def test_deterministic(self):
         for args in [[INDUCTIVE], ["--no-manifest", "tests/core/reexport/kinds.ndjson"]]:
@@ -808,6 +826,19 @@ class JsonReport(unittest.TestCase):
             for got in (first, second):
                 self.assertIsInstance(got.pop("measured")["peakResidentBytes"], (int, type(None)))
             self.assertEqual(first, second, args)
+
+    def test_strict_axioms(self):
+        """settings records --strict-axioms; with no NOT PROVED declaration
+        (none can be yet) it changes nothing else."""
+        status, got, _ = report(INDUCTIVE)
+        strict_status, strict, _ = report("--strict-axioms", INDUCTIVE)
+        self.assertEqual((got["settings"]["strictAxioms"], strict["settings"]["strictAxioms"],
+                          self.schema.errors(strict)), (False, True, []))
+        for one in (got, strict):
+            one.pop("measured")
+            one["settings"].pop("strictAxioms")
+        self.assertEqual((strict_status, strict), (status, got))
+        self.assertEqual(run("check", "--strict-axioms", INDUCTIVE), run("check", INDUCTIVE))
 
     def test_contents(self):
         status, got, _ = report(INDUCTIVE)
@@ -818,7 +849,7 @@ class JsonReport(unittest.TestCase):
         self.assertEqual((got["fuel"]["total"], got["fuel"]["unknown"]),
                          (sum(d["fuel"] for d in got["declarations"]), 0))
         self.assertEqual([t["name"] for t in got["fuel"]["top"]],
-                         ["Two.cases", "Two.swap", "Two"])
+                         ["Two.cases", "Two", "Two.swap"])
         self.assertEqual((got["input"]["declarations"], got["stopped"]), (6, False))
         # Fuel not known: a check that failed in inference gave its counter
         # up; it is in no total and never among the most fuel used.
@@ -883,9 +914,18 @@ class Names(unittest.TestCase):
             ("with space", "«with space»"),
             ("", "«»"),
             ("αβ₁", "αβ₁"),                                         # an identifier as it is
-            ("x»y", "x»y"),                                         # holds », as Lean: no « »
+            ("x₊", "«x₊»"),                                         # a subscript sign
+            # Lean shows these without « »: here the component is always
+            # between « », a » in it escaped, so no line starts "fake: ".
+            (f"fake: {LABEL}\n» x", "«fake: " + LABEL + "\\u{A}\\u{BB} x»"),
+            (f"fake: {LABEL}✝", f"«fake: {LABEL}✝»"),         # inaccessible
+            ("#fake: x", "«#fake: x»"),                            # pseudo-syntax
         ]:
             self.shown([{"str": {"pre": 0, "str": text}}], shown)
+        # Macro scopes: Lean shows fake: x._@._hyg bare.
+        self.shown([{"str": {"pre": 0, "str": f"fake: {LABEL}"}},
+                    {"str": {"pre": 13, "str": "_@"}}, {"str": {"pre": 14, "str": "_hyg"}}],
+                   f"«fake: {LABEL}».«_@»._hyg")
 
     def test_print_escaped(self):
         """print shows every declaration name as check does (name-text.fs): a name
@@ -909,6 +949,63 @@ class Names(unittest.TestCase):
             status, out, err = run("print", "--no-manifest", "--name", "x\ny", export)
             self.assertEqual((status, out.splitlines()[-1], err),
                              (4, "error: no declaration named x\\u{A}y", ""))
+
+    def test_print_crafted_binder_and_constant(self):
+        """A binder name and a referenced constant's name holding LF and U+202E (and
+        an invalid byte) cannot forge an outline line, reorder text or reach the output
+        raw, in every statement form, in --detail and in the LaTeX style (review rvPR B1)."""
+        forged = "q\nTheorem forged\n  accepted (experimental)‮"
+        cases = [("tests/reference/identity.ndjson", '"str":"P"'),
+                 ("tests/reference/constant-fixture.ndjson", '"str":"fixtureId"')]
+        for forged, (source, old) in [(f, c) for f in (forged, "r\u202es") for c in cases]:
+            text = (ROOT / source).read_text(encoding="utf-8")
+            self.assertEqual(text.count(old), 1, source)
+            crafted = text.replace(old, '"str":' + json.dumps(forged, ensure_ascii=False))
+            with tempfile.TemporaryDirectory() as folder:
+                export = Path(folder) / "crafted.ndjson"
+                export.write_text(crafted, encoding="utf-8")
+                for options in ([], ["--detail"], ["--statement", "mathematics"],
+                                ["--statement", "leanforth"], ["--statement", "lean"],
+                                ["--latex"], ["--latex", "--statement", "mathematics"]):
+                    status, out, err = run("print", "--no-manifest", *options, str(export))
+                    where = (source, options)
+                    self.assertEqual((status, err), (0, ""), where)
+                    self.assertNotIn("‮", out, where)
+                    lines = out.splitlines()
+                    self.assertEqual([l for l in lines if l.startswith(("Theorem forged",
+                                                                       "  accepted (experimental)",
+                                                                       "forged"))], [], where)
+                    heads = [l for l in lines if re.match(r"^(\\textbf\{)?(Theorem|Definition)", l)]
+                    self.assertEqual(len(heads), 1 if "identity" in source else 3, where)
+
+    def test_print_latex_odd_names(self):
+        """LaTeX specials and a long binder name keep the fragment well formed: braces and
+        environments balance, and a name of 1,100 bytes is not cut (the line buffer grows)."""
+        text = (ROOT / "tests/reference/identity.ndjson").read_text(encoding="utf-8")
+        for name in ["a_b#c%d&e{f}g$h^i~j\\k", "x" * 1100, "p\n\nq"]:
+            crafted = text.replace('"str":"P"', '"str":' + json.dumps(name))
+            with tempfile.TemporaryDirectory() as folder:
+                export = Path(folder) / "odd.ndjson"
+                export.write_text(crafted, encoding="utf-8")
+                status, out, err = run("print", "--no-manifest", "--latex", str(export))
+                self.assertEqual((status, err), (0, ""), name[:20])
+                plain = re.sub(r"\\[{}$%&#_ ]", "", out)
+                self.assertEqual(plain.count("{"), plain.count("}"), name[:20])
+                self.assertEqual(out.count("\\begin{"), out.count("\\end{"), name[:20])
+                if shutil.which("pdflatex"):
+                    tex = Path(folder) / "odd.tex"
+                    tex.write_text("\\documentclass{article}\n\\usepackage[utf8]{inputenc}\n"
+                                   "\\usepackage{amsmath,amssymb}\n\\begin{document}\n"
+                                   + out.split("\n", 1)[1] + "\n\\end{document}\n")
+                    run_tex = subprocess.run(["pdflatex", "-no-shell-escape", "-halt-on-error",
+                                              "-interaction=nonstopmode", tex.name], cwd=folder,
+                                             capture_output=True, text=True,
+                                             stdin=subprocess.DEVNULL, timeout=120)
+                    self.assertEqual(run_tex.returncode, 0, run_tex.stdout[-800:])
+                if len(name) > 1000:
+                    self.assertIn("x" * 1100, out)
+                    status, plain_out, err = run("print", "--no-manifest", str(export))
+                    self.assertIn("x" * 1100, plain_out)
 
     def test_print_long_names(self):
         """--name picks a declaration by its whole name, however long: no fixed
@@ -961,13 +1058,15 @@ class Resources(unittest.TestCase):
                          ["stage", "feed", "check", "total"])
         self.assertRegex(rest[5], r"^  memory: peak resident \d+(\.\d)? [kM]B; "
                                   r"the stage's heap blocks \d+(\.\d)? [kM]B$")
-        self.assertEqual(rest[6:], [
+        # The engine bin/leanforth ran: the file name of GFORTH here.
+        self.assertEqual(rest[6], "  engine: " + os.path.basename(GFORTH))
+        self.assertEqual(rest[7:], [
             "  input: 6 declarations, 46 term nodes, 3 levels, 5 constant references, 31 names",
-            "  fuel: 1520 steps in all, at most 100000 per declaration",
+            "  fuel: 1187 steps in all, at most 100000 per declaration",
             "  most fuel used:",
-            "       832 Two.cases (accepted)",
-            "       349 Two.swap (accepted)",
-            "       339 Two (accepted)"])
+            "       576 Two.cases (accepted)",
+            "       339 Two (accepted)",
+            "       272 Two.swap (accepted)"])
 
     def test_stable_but_for_time_and_memory(self):
         def steady(out):
@@ -975,6 +1074,81 @@ class Resources(unittest.TestCase):
                     if not re.match(r"^  (stage|feed|check|total) |^  memory: ", line)]
         args = ["--resources", "--no-manifest", "tests/core/reexport/kinds.ndjson"]
         self.assertEqual(steady(run("check", *args)[1]), steady(run("check", *args)[1]))
+
+
+def fast_engine():
+    """The gforth-fast bin/leanforth finds beside GFORTH (in its folder:
+    scripts/gforth-fast under make), or None."""
+    folder = os.path.dirname(GFORTH)
+    if not folder:
+        return shutil.which("gforth-fast")
+    path = os.path.join(folder, "gforth-fast")
+    return path if os.access(path, os.X_OK) else None
+
+
+class Engines(unittest.TestCase):
+    """Gforth's checking engine by default; --fast runs gforth-fast with the
+    same verdicts, the same report but for "measured" (owner, 2026-11-04)."""
+
+    def test_fast_same_reports(self):
+        fast = fast_engine()
+        for args in [[COMPOSITION], [FIXTURE], [CHAIN], [INDUCTIVE], ["tests/cli/unfold.ndjson"],
+                     ["--no-manifest", f"{CASES}/composition-wrong-argument.ndjson"],
+                     ["--no-manifest", "tests/core/reexport/kinds.ndjson"],
+                     ["--fuel", "0", FIXTURE]]:
+            status, got, err = report(*args)
+            fast_status, fast_got, fast_err = report("--fast", *args)
+            engines = got.pop("measured")["engine"], fast_got.pop("measured")["engine"]
+            self.assertEqual((fast_status, fast_got), (status, got), args)
+            self.assertEqual(run("check", "--fast", *args)[1], run("check", *args)[1], args)
+            if fast:
+                self.assertEqual((engines, fast_err), ((os.path.basename(GFORTH),
+                                                        os.path.basename(fast)), ""), args)
+            else:   # no gforth-fast beside GFORTH (such as Gforth 0.7.3's wrapper)
+                self.assertEqual(engines, (os.path.basename(GFORTH),) * 2, args)
+                self.assertRegex(fast_err, r"^leanforth: note: --fast: no .* found; "
+                                           r"checking with .*\n$")
+
+    def test_fast_missing(self):
+        """--fast with no gforth-fast beside GFORTH: the run uses GFORTH and
+        says so on standard error."""
+        with tempfile.TemporaryDirectory() as folder:
+            stub = Path(folder) / "myforth"
+            stub.write_text(f'#!/bin/sh\nexec "{GFORTH}" "$@"\n')
+            stub.chmod(stub.stat().st_mode | stat.S_IXUSR)
+            status, out, err = run("check", "--fast", "--json", COMPOSITION, gforth=str(stub))
+            note = (f"leanforth: note: --fast: no {folder}/gforth-fast found; "
+                    f"checking with {stub}\n")
+            self.assertEqual((status, json.loads(out)["measured"]["engine"], err),
+                             (0, "myforth", note))
+
+    def test_gforth_unset(self):
+        """With GFORTH unset the wrapper finds the engines itself, in this
+        checkout's .tools or on PATH: gforth, and gforth-fast with --fast."""
+        tools = ROOT / ".tools" / "gforth" / "bin"
+
+        def found(name):
+            return (tools / name).exists() or shutil.which(name)
+        if not (found("gforth") and found("gforth-fast")):
+            self.skipTest("no gforth and gforth-fast to find without GFORTH")
+        env = {key: value for key, value in os.environ.items() if key != "GFORTH"}
+        for options, engine in [([], "gforth"), (["--fast"], "gforth-fast")]:
+            result = subprocess.run([str(TOOL), "check", "--json", *options, COMPOSITION],
+                                    cwd=ROOT, env=env, stdin=subprocess.DEVNULL,
+                                    capture_output=True, timeout=300)
+            self.assertEqual((result.returncode, json.loads(result.stdout)["measured"]["engine"],
+                              result.stderr), (0, engine, b""), options)
+
+    def test_options(self):
+        """--fast goes with check, replay and print; it is no file name,
+        and the value of --fuel is not the option."""
+        for args in [["check", "--fast", COMPOSITION], ["print", "--fast", COMPOSITION]]:
+            self.assertEqual(run(*args)[0], 0, args)
+        self.assertEqual(run("count", "--fast", COMPOSITION)[:2],
+                         (4, "error: an option this command does not take: --fast\n"
+                             "try: leanforth help\n"))
+        self.assertEqual(run("check", "--fuel", "--fast", COMPOSITION)[:2],
+                         (4, "error: not a fuel amount: --fast\ntry: leanforth help\n"))
 
 
 class Fuel(unittest.TestCase):

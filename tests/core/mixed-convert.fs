@@ -46,20 +46,22 @@ name-x @ 0 ref-term
 1 h 9 h lf-hterm-pi save ;
 setup
 
-\ Fuel left, pinned against the previous implementation; conversion charges
-\ its own walk and never changes the comparison's fuel. Since ADR 0011
-\ Amendment 1 a level comparison charges its scope checks and Lean's
-\ normalize, and structural equality nothing: three units less per pair of
-\ equal levels here (982, 973, 944 and 901 before).
+\ Fuel left, pinned. Since plan task 4.2.2b conversion is Lean's
+\ is_def_eq (src/kernel/defeq.fs): the audits, then Lean's == first (one
+\ unit per node, on mixed-compare's walk, whose fuel it leaves in
+\ lf-mcompare-fuel), each visit one unit; the keeping variant keeps what an
+\ unknown comparison left (lf-mixed-convert leaves none). Before, the
+\ walk of beta-reduced pairs left 985, 979, 993, 991 and 993 here.
 : convert-fuel ( a aid b bid -- status fuel )
-  1000 ['] lf-mixed-convert rs-checked lf-mconvert-fuel @ ;
+  1000 ['] lf-mixed-convert-keeping rs-checked lf-mconvert-fuel @ ;
 T{ 0 h 1 h 1000 lf-mixed-compare -> outcome-ok }T
-T{ 0 h 1 h convert-fuel -> outcome-ok 985 }T
-T{ 4 h 5 h convert-fuel -> outcome-ok 979 }T
-T{ 8 h 8 h convert-fuel -> outcome-ok 993 }T
+T{ 0 h 1 h convert-fuel -> outcome-ok 990 }T
+T{ 4 h 5 h convert-fuel -> outcome-ok 987 }T
+T{ 8 h 8 h convert-fuel -> outcome-ok 996 }T
 T{ 0 h 3 h convert-fuel -> outcome-unknown 991 }T
-T{ 8 h 9 h convert-fuel -> outcome-unknown 993 }T
-T{ lf-mcompare-fuel @ -> 992 }T
+T{ 8 h 9 h convert-fuel -> outcome-unknown 992 }T
+T{ lf-mcompare-fuel @ -> 995 }T
+T{ 0 h 3 h 1000 lf-mixed-convert lf-mconvert-fuel @ -> outcome-unknown 0 }T
 
 T{ 0 h 1 h 10000 lf-mixed-convert -> outcome-ok }T
 T{ 0 h 2 h 10000 lf-mixed-convert -> outcome-unknown }T
@@ -81,8 +83,8 @@ T{ 3 h 0 h 10000 ' lf-mixed-convert rs-checked -> outcome-unknown }T
 more
 T{ 18 h 0 h 10000 lf-mixed-convert -> outcome-ok }T
 T{ 19 h 20 h 10000 lf-mixed-convert -> outcome-ok }T
-T{ 18 h 0 h convert-fuel -> outcome-ok 947 }T
-T{ 19 h 20 h convert-fuel -> outcome-ok 907 }T
+T{ 18 h 0 h convert-fuel -> outcome-ok 972 }T
+T{ 19 h 20 h convert-fuel -> outcome-ok 939 }T
 variable term-start variable level-start variable serial-start variable saw-allocated
 : sweep ( -- )
   lf-term-count @ term-start ! lf-level-count @ level-start !
@@ -126,6 +128,12 @@ name-x @ 1 ref-term
 name-x @ 1 ref-term ;
 universe-fixtures
 T{ 28 h 29 h 20000 lf-mixed-convert -> outcome-ok }T
+\ Lean's no (Sort 0 against Sort 1, quick_is_def_eq on their levels) is
+\ reported unknown, with lf-mconvert-apart set, until plan task 4.2.2d
+\ lets it reject (ADR 0011's analysis decides rejections meanwhile).
+: sort-zero ( -- node identity ) 0 dup lf-level-identity 0= abort" zero" lf-hterm-sort 0= abort" sort" ;
+T{ sort-zero 6 h 20000 lf-mixed-convert lf-mconvert-apart @ -> outcome-unknown true }T
+T{ 6 h 7 h 20000 lf-mixed-convert lf-mconvert-apart @ -> outcome-ok false }T
 \ A bad discarded argument is audited even below a redex on either side.
  : malformed-fixture ( -- )
 0 lf-term-symbolic-sort 0= abort" malformed sort" drop
@@ -139,7 +147,9 @@ T{ lf-term-serial @ -> serial-start @ }T
 \ shared by both sides: the first children differ (unknown), so a
 \ pre-order walk stops before the shared second children. Both conversion
 \ and comparison pin the fuel this leaves (values from the code before the
-\ paired-walk refactor; visiting second children first gives 643 and 925).
+\ paired-walk refactor; visiting second children first gives 643 and 925;
+\ conversion left 890 before Lean's is_def_eq, plan task 4.2.2b, whose
+\ is_def_eq_app compares the functions first and stops there).
 : order-setup ( -- )
   lf-name-reset lf-level-reset lf-term-reset lf-lscope-context-reset lf-cref-reset
   42 lf-lscope-context-add 0= abort" ctx" 42 lf-level-param 0= abort" level" drop
@@ -149,6 +159,6 @@ T{ lf-term-serial @ -> serial-start @ }T
   0 h 0 h lf-hterm-pi save 3 h 3 h lf-hterm-pi save 4 h 4 h lf-hterm-pi save
   1 h 5 h lf-hterm-app save 2 h 5 h lf-hterm-app save ;
 order-setup
-T{ 6 h 7 h 1000 lf-mixed-convert lf-mconvert-fuel @ -> outcome-unknown 890 }T
+T{ 6 h 7 h 1000 lf-mixed-convert-keeping lf-mconvert-fuel @ -> outcome-unknown 935 }T
 T{ 6 h 7 h 1000 lf-mixed-compare lf-mcompare-fuel @ -> outcome-unknown 948 }T
 bye

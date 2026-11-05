@@ -3,7 +3,7 @@
   "$id": "https://github.com/pmilford/LeanForth/schemas/check-report-0.1.schema.json",
   "title": "LeanForth check report, schema version 0.1",
   "description": "What `leanforth check --json EXPORT` prints: one JSON text, then a line feed. The export staged and fed to the checker, every declaration's verdict in input order, read after the run from the slots of the checked environment the run made, the counts, the exit status, the fuel used, the input's size and, apart in `measured`, the times and memory. Written by src/cli/check-json.fs; documented in docs/user/COMMAND_LINE.md, section JSON output. A report, not a record: it names no commit and no SHA-256 (run records do, docs/programming/RUN_RECORDS.md), and nothing ever reads it back into a check.",
-  "$comment": "Uses only the keywords that tests/support/schema_subset.py implements; it refuses any other keyword. Every member but `measured` is deterministic: the same on every run of the same export with the same options and the same build. Numbers are integers within I-JSON's exact range. Version 0.1 is untrusted and has not passed the [format] gate. Rules no keyword of the subset can state, which tests/cli/test_leanforth.py checks on every report it makes: when `counts` is an object, `counts.declarations` equals the number of items of `declarations` and the sum of the eight verdict counts (accepted to notChecked), each verdict count equals the number of declarations with that verdict, and `counts.notProved` the number with `notProved` true; `fuel.unknown` equals the number of declarations whose fuel is null and `fuel.total` the sum of the others' fuel; `fuel.top` is in order of fuel, most first, each entry's fuel and verdict those of the declaration at its index; `input.declarations` equals `counts.declarations`.",
+  "$comment": "Uses only the keywords that tests/support/schema_subset.py implements; it refuses any other keyword. Every member but `measured` is deterministic: the same on every run of the same export with the same options and the same build, on either engine (--fast changes only `measured`). Numbers are integers within I-JSON's exact range. Version 0.1 is untrusted and has not passed the [format] gate. Rules no keyword of the subset can state, which tests/cli/test_leanforth.py checks on every report it makes: when `counts` is an object, `counts.declarations` equals the number of items of `declarations` and the sum of the eight verdict counts (accepted to notChecked), each verdict count equals the number of declarations with that verdict, and `counts.notProved` the number with `notProved` true; `fuel.unknown` equals the number of declarations whose fuel is null and `fuel.total` the sum of the others' fuel; `fuel.top` is in order of fuel, most first, each entry's fuel and verdict those of the declaration at its index; `input.declarations` equals `counts.declarations`.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -14,7 +14,7 @@
     "schema": {"const": "leanforth-check-report"},
     "schemaVersion": {"const": "0.1"},
     "export": {
-      "description": "The export's file name as the command line gave it, with the escapes of names (src/cli/name-text.fs): a backslash as \\\\, a character the text rule bans as \\u{X}, a byte that is not UTF-8 as \\x{X}.",
+      "description": "Escaped display text, not the file name's bytes: the export's file name as the command line gave it, with the escapes of names (src/cli/name-text.fs): a backslash as \\\\, a character the text rule bans and » as \\u{X}, a byte that is not UTF-8 as \\x{X}.",
       "type": "string",
       "minLength": 1
     },
@@ -26,10 +26,11 @@
     "settings": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["fuel", "dependencyPool"],
+      "required": ["fuel", "dependencyPool", "strictAxioms"],
       "properties": {
         "fuel": {"description": "Fuel each declaration's check starts with (--fuel).", "$ref": "#/$defs/count"},
-        "dependencyPool": {"description": "The room the run's dependency pool starts with; it grows (not a limit since plan task 6.2.0).", "$ref": "#/$defs/count"}
+        "dependencyPool": {"description": "The room the run's dependency pool starts with; it grows (not a limit since plan task 6.2.0).", "$ref": "#/$defs/count"},
+        "strictAxioms": {"description": "true with --strict-axioms: a NOT PROVED declaration makes the exit status 6; false by default, when NOT PROVED keeps Lean's exit status (owner, 2026-11-04).", "type": "boolean"}
       }
     },
     "read": {"$ref": "#/$defs/read"},
@@ -56,7 +57,7 @@
       "anyOf": [{"type": "null"}, {"$ref": "#/$defs/input"}]
     },
     "exitStatus": {
-      "description": "The command's exit status: 0 all accepted, 1 something rejected, 2 unsupported or unknown, 3 a resource limit, 4 malformed input, 5 an internal fault, 6 all accepted but some NOT PROVED (proposed, pending the owner's confirmation at this format's gate); the most severe of 5, 4, 1, 3, 2, 6, 0 wins.",
+      "description": "The command's exit status: 0 all accepted (NOT PROVED ones too, as Lean, unless settings.strictAxioms), 1 something rejected, 2 unsupported or unknown, 3 a resource limit, 4 malformed input, 5 an internal fault, 6 all accepted but some NOT PROVED (only with settings.strictAxioms); the most severe of 5, 4, 1, 3, 2, 6, 0 wins.",
       "type": "integer",
       "minimum": 0,
       "maximum": 6
@@ -88,26 +89,37 @@
       "then": {"properties": {"declarations": {"items": {"properties": {"verdict": {"not": {"const": "not-checked"}}}}}}}
     },
     {
-      "description": "Exit status 0 only when the run ended ok, did not stop, listed at least one declaration and every declaration was accepted and proved: every other count is 0, and every fuel is known.",
+      "description": "Exit status 0 only when the run ended ok, did not stop, listed at least one declaration and every declaration was accepted: every other count is 0, and every fuel is known. NOT PROVED ones keep Lean's status 0 by default.",
       "if": {"properties": {"exitStatus": {"const": 0}}},
       "then": {
         "properties": {
           "run": {"const": "ok"},
           "stopped": {"const": false},
-          "counts": {"allOf": [{"$ref": "#/$defs/allAccepted"}, {"properties": {"notProved": {"const": 0}}}]},
+          "counts": {"$ref": "#/$defs/allAccepted"},
           "declarations": {
             "minItems": 1,
-            "items": {"properties": {"verdict": {"const": "accepted"}, "notProved": {"const": false}}}
+            "items": {"properties": {"verdict": {"const": "accepted"}}}
           },
           "fuel": {"properties": {"unknown": {"const": 0}}}
         }
       }
     },
     {
-      "description": "Exit status 6 only when every declaration was accepted and at least one is NOT PROVED.",
+      "description": "Under --strict-axioms, exit status 0 only when no declaration is NOT PROVED.",
+      "if": {"properties": {"exitStatus": {"const": 0}, "settings": {"properties": {"strictAxioms": {"const": true}}}}},
+      "then": {
+        "properties": {
+          "counts": {"properties": {"notProved": {"const": 0}}},
+          "declarations": {"items": {"properties": {"notProved": {"const": false}}}}
+        }
+      }
+    },
+    {
+      "description": "Exit status 6 only under --strict-axioms, when every declaration was accepted and at least one is NOT PROVED.",
       "if": {"properties": {"exitStatus": {"const": 6}}},
       "then": {
         "properties": {
+          "settings": {"properties": {"strictAxioms": {"const": true}}},
           "run": {"const": "ok"},
           "stopped": {"const": false},
           "counts": {"allOf": [{"$ref": "#/$defs/allAccepted"}, {"properties": {"notProved": {"minimum": 1}}}]},
@@ -118,11 +130,6 @@
           }
         }
       }
-    },
-    {
-      "description": "A NOT PROVED declaration never leaves the status 0.",
-      "if": {"properties": {"declarations": {"contains": {"properties": {"notProved": {"const": true}}}}}},
-      "then": {"properties": {"exitStatus": {"not": {"const": 0}}}}
     },
     {
       "description": "A rejected declaration makes the status 1 unless a worse one (4, 5) wins.",
@@ -166,7 +173,7 @@
       "enum": ["accepted", "rejected", "unknown", "unsupported", "invalid", "exhausted", "full", "not-checked"]
     },
     "name": {
-      "description": "A declaration's name as the term printer writes it.",
+      "description": "Escaped display text, not the name's bytes: a declaration's name as the text output shows it (src/cli/name-text.fs; docs/user/COMMAND_LINE.md, Names): Lean's Name.toString, with every component that is not an identifier between « and », and inside it what the text rule bans and » as \\u{X}, a byte that is not UTF-8 as \\x{X}, a backslash as \\\\. Two declarations can show the same text; index identifies a declaration.",
       "type": "string",
       "minLength": 1
     },
@@ -221,7 +228,7 @@
       "additionalProperties": false,
       "required": ["index", "name", "verdict", "fuel"],
       "properties": {
-        "index": {"description": "The declaration's position in the input, from 0.", "$ref": "#/$defs/count"},
+        "index": {"description": "The declaration's position in the input, from 0: what identifies it (its name is display text).", "$ref": "#/$defs/count"},
         "name": {"$ref": "#/$defs/name"},
         "verdict": {"$ref": "#/$defs/verdict"},
         "label": {"const": "experimental, not independently audited"},
@@ -298,7 +305,7 @@
             "additionalProperties": false,
             "required": ["index", "name", "fuel", "verdict"],
             "properties": {
-              "index": {"$ref": "#/$defs/count"},
+              "index": {"description": "The declaration's index in declarations.", "$ref": "#/$defs/count"},
               "name": {"$ref": "#/$defs/name"},
               "fuel": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
               "verdict": {"$ref": "#/$defs/verdict"}
@@ -330,10 +337,10 @@
       }
     },
     "measured": {
-      "description": "Not deterministic: wall and CPU time of each phase and of the whole run so far, in microseconds (null on a host without clocks; 0 for a phase that did not run), the peak resident memory of the process in bytes (VmHWM of /proc/self/status; null where the host does not give it) and the bytes of heap blocks the stage held (null when nothing was staged).",
+      "description": "Not deterministic, or how the run was made rather than what it found: wall and CPU time of each phase and of the whole run so far, in microseconds (null on a host without clocks; 0 for a phase that did not run), the peak resident memory of the process in bytes (VmHWM of /proc/self/status; null where the host does not give it), the bytes of heap blocks the stage held (null when nothing was staged) and the engine bin/leanforth ran. The engine is here, not in settings, so that the same check on either engine gives the same report but for this member.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["microseconds", "peakResidentBytes", "stageBytes"],
+      "required": ["microseconds", "peakResidentBytes", "stageBytes", "engine"],
       "properties": {
         "microseconds": {
           "anyOf": [
@@ -352,7 +359,11 @@
           ]
         },
         "peakResidentBytes": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/count"}]},
-        "stageBytes": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/count"}]}
+        "stageBytes": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/count"}]},
+        "engine": {
+          "description": "The last part of the file name of the Forth engine bin/leanforth ran (LEANFORTH_ENGINE), as escaped display text: gforth, Gforth's checking engine, by default; gforth-fast with --fast. null when not known (not run by bin/leanforth).",
+          "anyOf": [{"type": "null"}, {"type": "string", "minLength": 1}]
+        }
       }
     }
   }

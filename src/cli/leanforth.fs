@@ -1,7 +1,8 @@
 \ The command line (plan tasks 3.4.1-3.4.3, v0): the Forth entry point that
 \ bin/leanforth runs as `gforth src/main.fs -e cli-main COMMAND ...`.
 \ Commands, documented in docs/user/COMMAND_LINE.md:
-\   check [--no-manifest] [--fuel N] [--resources] [--json] EXPORT
+\   check [--no-manifest] [--fuel N] [--resources] [--json] [--fast]
+\         [--strict-axioms] EXPORT
 \       stage the Lean export with the importer stage (its manifest
 \       checked unless --no-manifest says not to) and feed it to the
 \       checker, whose stores grow to fit (cli/check-run.fs: any size, all
@@ -12,20 +13,22 @@
 \       and axioms; with --resources also the resource report (time and
 \       CPU of each phase, peak memory, the input's size, fuel in all and
 \       the ten declarations that used the most); with --json all of it
-\       as one JSON text instead (cli/check-json.fs);
-\   check [--no-manifest] [--fuel N] --record RECORD EXPORT
+\       as one JSON text instead (cli/check-json.fs); with
+\       --strict-axioms a NOT PROVED declaration gives exit 6;
+\   check [--no-manifest] [--fuel N] [--fast] [--strict-axioms]
+\         --record RECORD EXPORT
 \       the check of small exports that writes a run record (plan 2.2.5):
 \       the export read into the checker's input at its default sizes
 \       (import/checker-input.fs, which refuses inductive types), checked
 \       by import/run-record.fs's run (rr-check), and printed as above;
 \       run records 0.1 hold at most 32 declarations, so --record keeps
 \       this path (docs/programming/RUN_RECORDS.md, "Version 0.2");
-\   replay [--no-manifest] [--fuel N] EXPORT RECORD
+\   replay [--no-manifest] [--fuel N] [--fast] EXPORT RECORD
 \       check the export again and compare the new run record with RECORD
 \       (import/run-replay.fs): the replay report, exit 0 confirmed, 1
 \       refused (a difference), 4 when it cannot be compared;
-\   print [--no-manifest] [--fuel N] [--detail] [--name NAME] [--latex]
-\         [--statement FORMS] EXPORT
+\   print [--no-manifest] [--fuel N] [--fast] [--detail] [--name NAME]
+\         [--latex] [--statement FORMS] EXPORT
 \       check the export as check does, one declaration at a time with the
 \       derivation log on, and print each one's proof outline right after
 \       its check (cli/print.fs, present/proof-outline.fs), or with
@@ -33,12 +36,15 @@
 \   count [--no-manifest] EXPORT          the record counts (ndjson-count.fs);
 \   reexport [--no-manifest] EXPORT COPY  the byte-exact copy (ndjson-emit.fs);
 \   version, capabilities, help (also --version, --help and -h).
-\ Exit codes (cli/tally.fs): 0 all accepted (or the command done), 1
+\ --fast is bin/leanforth's: it runs gforth-fast instead of Gforth's
+\ checking engine, gforth (owner, 2026-11-04); the Forth side only takes
+\ it. Exit codes (cli/tally.fs): 0 all accepted (or the command done), 1
 \ something rejected, 2 unsupported or unknown, 3 a resource limit (out of
 \ fuel or room), 4 malformed input (also a malformed command line, or a
 \ file that cannot be opened or created), 5 an internal fault (a Forth
 \ exception, a check that threw, a publisher fault), 6 all accepted but
-\ some NOT PROVED (proposed; owner's confirmation pending). When codes
+\ some NOT PROVED, only with --strict-axioms: by default NOT PROVED keeps
+\ Lean's code (owner, 2026-11-04). When codes
 \ differ, the most severe wins, in the order 5, 4, 1, 3, 2, 6, 0. cli-main
 \ leaves the host with status 100 + code, so that bin/leanforth tells
 \ LeanForth's codes from the host's own failures (Gforth ends with 0 or 1
@@ -51,11 +57,11 @@
 \ claim or misreport a failure, never make a declaration accepted. Names
 \ are printed as cli/name-text.fs shows them, escaped, so a crafted name
 \ cannot forge a line. An accepted declaration whose axiom set is not
-\ empty is marked NOT PROVED (the owner's rule; the first checker accepts
-\ no axiom, so none is yet). check --record and replay hold small
-\ exports only (64 names, levels and term nodes, 32 declarations):
-\ anything larger ends full, exit 3, and the output says so. Untrusted,
-\ like everything in src/ until the review gate.
+\ empty is marked NOT PROVED on its line and counted apart (the owner's
+\ rule; the first checker accepts no axiom, so none is yet). check
+\ --record and replay hold small exports only (64 names, levels and term
+\ nodes, 32 declarations): anything larger ends full, exit 3, and the
+\ output says so. Untrusted, like everything in src/ until the review gate.
 \
 \ The Forth interface, for a Forth session or a test, each ( -- code )
 \ after its arguments, printing what the command prints: cli-check
@@ -64,9 +70,10 @@
 \ in-u out-addr out-u ), cli-version, cli-capabilities, cli-help. They use
 \ the options in force: cli-options restores the defaults (manifest
 \ checked, fuel cli-default-fuel, no record, text without the resource
-\ report), cli-no-manifest, cli-fuel!, cli-record!, cli-resources and
-\ cli-json change them. A THROW inside a command is caught and reported:
-\ code 5. A check that threw spends its context (ADR 0012, G-P6): every
+\ report, NOT PROVED with Lean's code), cli-no-manifest, cli-fuel!,
+\ cli-record!, cli-resources, cli-json and cli-strict change them. A
+\ THROW inside a command is caught and reported: code 5. A check that
+\ threw spends its context (ADR 0012, G-P6): every
 \ later check in that context ends invalid, with diagnostic 29, so a
 \ session runs the next command in a new context (context-new).
 \
@@ -75,7 +82,8 @@
 \ host without it ends with an uncaught THROW, which the wrapper reports
 \ as an internal fault; version-string names the host when it exists;
 \ getenv reads the commit bin/leanforth found for the run record
-\ (LEANFORTH_COMMIT, LEANFORTH_MODIFIED), where a host without it records
+\ (LEANFORTH_COMMIT, LEANFORTH_MODIFIED) and the engine it ran
+\ (LEANFORTH_ENGINE, cli/check-run.fs), where a host without it records
 \ none.
 \ State: one record in the checker context, cli-state (the options, the
 \ command line's file names and first mistake, and which run a check
@@ -124,6 +132,7 @@ begin-structure /cli-run
   field: opt-json               \ true: the report as JSON (--json)
   field: opt-latex              \ true: print's outlines as LaTeX (--latex)
   field: opt-forms              \ print's statement forms (--statement), 0: all
+  field: opt-strict             \ true: NOT PROVED gives exit 6 (--strict-axioms)
   4 cells +field arg-files      \ the file names given, in order (two c-addr u)
   field: arg-count              \ how many were given
   field: arg-set                \ the options the command takes, as bits
@@ -154,6 +163,9 @@ manifest: cli-manifest
 : cli-json ( -- ) true cli-state opt-json ! ;
 : cli-resources? ( -- flag ) cli-state opt-resources @ ;
 : cli-json? ( -- flag ) cli-state opt-json @ ;
+\ check's exit code: NOT PROVED gives 6 (--strict-axioms), not Lean's code.
+: cli-strict ( -- ) true cli-state opt-strict ! ;
+: cli-strict? ( -- flag ) cli-state opt-strict @ ;
 : cli-checked? ( -- flag ) cli-unchecked @ 0= ;
 
 \ Numbers in decimal, whatever BASE is: xt runs with BASE decimal.
@@ -167,7 +179,8 @@ manifest: cli-manifest
 : cli-note ( c-addr -- ) ." note: " count type cr ;
 \ A declaration's name as cli/name-text.fs shows it; one the heap cannot
 \ hold is not shown, and is an internal fault.
-: cli-unshown ( c-addr u -- ) 2drop ." [a name with no room to show]" exit-fault cli-code! ;
+: cli-unshown ( c-addr u -- )
+  2drop ." [a name with no room to show]" exit-fault cli-code! ;
 : cli-name. ( d -- ) lf-input-name nt-name if type else cli-unshown then ;
 
 \ ---------------------------------------------------------------------------
@@ -241,7 +254,8 @@ end-structure
 
 \ The summary: "N declarations: a accepted, r rejected, ...", in
 \ cli/tally.fs's verdict order.
-: cli-kind. ( verdict -- ) dup not-checked = if drop ." not checked" else verdict-name type then ;
+: cli-kind. ( verdict -- )
+  dup not-checked = if drop ." not checked" else verdict-name type then ;
 : cli-item ( first? verdict -- first? )
   dup cli-count-of @ ?dup 0= if drop exit then
   rot 0= if ." , " then .decimal space cli-kind. false ;
@@ -282,9 +296,14 @@ end-structure
 : cli-fuel-note ( -- )
   ." note: a check ran out of fuel (" cli-fuel @ .decimal
   ."  steps each); --fuel N gives each more" cr ;
+\ NOT PROVED keeps Lean's exit status unless --strict-axioms asks for 6.
+: cli-not-proved-note ( -- )
+  ." note: NOT PROVED declarations keep Lean's exit status; --strict-axioms"
+  cr ." note: makes it 6" cr ;
 : cli-notes ( -- )
   outcome-full cli-count-of @ if cli-ops ops-room. @ execute then
-  outcome-exhausted cli-count-of @ if cli-fuel-note then ;
+  outcome-exhausted cli-count-of @ if cli-fuel-note then
+  cli-not-proved @ cli-strict-axioms? 0= and if cli-not-proved-note then ;
 
 \ After the run, counted: the verdicts, the summary and the notes; or why
 \ there was no run, when no environment could be made or used.
@@ -307,13 +326,13 @@ create cli-recorded-ops
   ' rr-stepped@ , ' rr-run@ , ' rr-ours? , ' rr-step-of , ' rr-stopped? , ' rr-no-env. ,
   ' cli-limits ,
 \ The feed's run (cli/check-run.fs); its facts may have found no room
-\ before the environment was made.
-: ck-run-stopped? ( -- flag ) ck-stopped? ck-outcome ok? 0= or ;
+\ before the environment was made. Whether it stopped is ck-stopped?, the
+\ word the JSON report reads too.
 : ck-no-env. ( -- )
   ck-facts-made? if ck-outcome cli-no-env. exit then
   ." error: no room for the run's facts (a record of each declaration)" cr ;
 create cli-fed-ops
-  ' ck-steps-begun , ' ck-outcome , ' ck-ours? , ' ck-kept , ' ck-run-stopped? ,
+  ' ck-steps-begun , ' ck-outcome , ' ck-ours? , ' ck-kept , ' ck-stopped? ,
   ' ck-no-env. , ' cli-room-note ,
 : cli-fed? ( -- flag ) cli-ops cli-fed-ops = ;
 
@@ -403,6 +422,10 @@ create cli-fed-ops
   ck-staged? if ." ; the stage's heap blocks " ck-staged-bytes cli-size. then ;
 : cli-peak. ( -- ) ck-peak if cli-size. else ." not measured on this host" then ;
 : cli-memory. ( -- ) ."   memory: peak resident " cli-peak. cli-stage-bytes. cr ;
+\ The engine bin/leanforth ran: gforth, or gforth-fast with --fast.
+: cli-engine-name. ( c-addr u -- ) nt-text if type else cli-unshown then ;
+: cli-engine. ( -- )
+  ."   engine: " ck-engine dup if cli-engine-name. else 2drop ." not known" then cr ;
 : cli-input. ( -- )
   ck-loaded? 0= if exit then
   ."   input: " ck-input-declarations .decimal ."  declarations, "
@@ -424,7 +447,7 @@ create cli-fed-ops
 : cli-tops. ( -- )
   ck-tops 0= if exit then ."   most fuel used:" cr ck-tops 0 ?do i cli-top. loop ;
 : cli-resources. ( -- )
-  ." resources:" cr cli-times. cli-memory. cli-input. cli-fuel. cli-tops. ;
+  ." resources:" cr cli-times. cli-memory. cli-engine. cli-input. cli-fuel. cli-tops. ;
 
 \ The report: counted first, then printed, as text or as JSON
 \ (cli/check-json.fs); a JSON text the writer refuses is an internal
@@ -502,7 +525,7 @@ create cli-fed-ops
   ." error: --json and --resources do not go with --record" cr
   ." try: leanforth help" cr exit-malformed ;
 : check-command ( -- code )
-  cli-start cli-misused? if cli-misuse-record exit then
+  cli-start cli-strict? cli-strict-axioms! cli-misused? if cli-misuse-record exit then
   cli-opens? 0= if cli-not-opened exit then
   cli-over-export? if ." error: RECORD must not be EXPORT" cr exit-malformed exit then
   cli-record? if cli-checks else cli-library then ;
@@ -572,18 +595,20 @@ create cli-fed-ops
 : cli-print-env ( chosen -- )
   cli-fuel @ lf-check-budget lf-env-pool-start lf-env-new cli-env-made 0= if drop exit then
   swap cli-print-guarded swap cli-print-free throw ;
-\ The log on for the run, and off again after it, also after a THROW.
+\ The outline's style and the names it shows, set before the run.
 : cli-style ( -- )
   cli-state opt-latex @ lf-outline-latex!
   cli-state opt-forms @ ?dup 0= if lf-forms-all then lf-forms!
   ['] nt-name ['] nt-text lf-outline-names! ;
+\ The log on for the run, and off again after it, also after a THROW.
 : cli-printing ( -- )
   cli-chosen 0= if cli-no-such exit then cli-style
   pr-log-on ['] cli-print-env catch lf-log-off lf-log-set throw ;
 \ A read that failed, as check's is reported (cli-fed-unread), and its code.
 : cli-print-unread ( outcome -- ) cli-fed-unread ck-read-outcome outcome>code cli-code! ;
 : cli-print-library ( -- )
-  0 cli-file cli-checked? pr-load dup ok? if drop cli-printing else cli-print-unread then ;
+  0 cli-file cli-checked? pr-load dup ok? if drop cli-printing exit then
+  cli-print-unread ;
 \ The run, then everything it holds freed, after a THROW too (passed on).
 : print-command ( -- code )
   cli-start cli-opens? 0= if cli-unopened exit then
@@ -643,26 +668,30 @@ create cli-fed-ops
 : cli-check-input. ( -- )
   ."   check: Lean 4.35.0 exports (lean4export 3.1.0 NDJSON) of any size, such as" cr
   ."     all of Lean's Init, staged and fed in Forth; the manifest checked unless" cr
-  ."     --no-manifest; a summary, --resources (time, memory, fuel), --json" cr ;
+  ."     --no-manifest; a summary, --resources (time, memory, fuel), --json;" cr
+  ."     Gforth's checking engine, or gforth-fast with --fast" cr ;
 : cli-check-rules. ( -- )
   ."   check: definitions and theorems built from Sort, variables, application, fun," cr
   ."     forall and earlier accepted declarations (the first checker, ADR 0011)," cr
-  ."     and inductive blocks that are not recursive, indexed or mutual (5.2.1a);" cr
-  ."     an accepted one is labelled experimental, not independently audited" cr ;
+  ."     and inductive blocks that are not mutual or nested: non-recursive ones" cr
+  ."     (5.2.1a) and recursive ones such as Nat and List (5.2.1b, its review" cr
+  ."     gate open); an accepted one is labelled experimental, not independently" cr
+  ."     audited" cr ;
 : cli-other-commands. ( -- )
   ."   check --record, replay: run records 0.1 and their replay (plan task 2.2.5)" cr
   ."   print: a readable proof outline of each accepted declaration, from the" cr
   ."     checker's derivation log (plan tasks 2.4.1, 2.4.4; untrusted presentation)" cr
   ."   count, reexport: exports of any size, up to all of Mathlib" cr ;
-: cli-checks. ( -- ) ." supported:" cr cli-check-input. cli-check-rules. cli-other-commands. ;
+: cli-checks. ( -- )
+  ." supported:" cr cli-check-input. cli-check-rules. cli-other-commands. ;
 : cli-lacks. ( -- )
   ." not yet supported (check answers unsupported or unknown, exit 2):" cr
   ."   axioms (5.3.1), opaque declarations (4.2.6), unsafe and partial definitions;" cr
-  ."   let (4.2.3), literals (5.2.3), projections (5.2.2) and metadata (4.1.3) in a term;" cr
-  ."   recursive and indexed inductive types (5.2.1b, 5.2.1c), quotients (5.2.4)," cr
-  ."   mutual and nested blocks (5.2.5); unfolding definitions (4.2.2), so some" cr
-  ."   correct proofs end unknown; check --record and replay refuse" cr
-  ."   inductive types while reading" cr ;
+  ."   let (4.2.3), literals (5.2.3), projections (5.2.2) and metadata (4.1.3)" cr
+  ."   in a term; the rest of indexed families (5.2.1c), quotients (5.2.4)," cr
+  ."   mutual and nested blocks (5.2.5); unfolding definitions" cr
+  ."   (4.2.2), so some correct proofs end unknown; check --record and replay" cr
+  ."   refuse inductive types while reading" cr ;
 : cli-check-limits. ( -- )
   ."   check: stores, walks and lists that grow with the export (memory), any" cr
   ."     depth and number of dependencies or constructors (plan task 6.2.0);" cr
@@ -688,16 +717,22 @@ create cli-fed-ops
 \ ---------------------------------------------------------------------------
 \ help, one part per kind of command.
 : cli-check-usage. ( -- )
-  ."   check [--no-manifest] [--fuel N] [--resources] [--json] EXPORT" cr
+  ."   check [--no-manifest] [--fuel N] [--resources] [--json] [--fast]" cr
+  ."         [--strict-axioms] EXPORT" cr
   ."       check every declaration of a Lean export, in file order, any size;" cr
-  ."       --resources adds time, memory and fuel, --json prints it all as JSON" cr
-  ."   check [--no-manifest] [--fuel N] --record RECORD EXPORT" cr
+  ."       --resources adds time, memory and fuel, --json prints it all as JSON;" cr
+  ."       --strict-axioms makes a NOT PROVED declaration exit 6" cr
+  ."   check [--no-manifest] [--fuel N] [--fast] [--strict-axioms]" cr
+  ."         --record RECORD EXPORT" cr
   ."       the same for a small export, and write its run record to RECORD" cr ;
+: cli-engine-usage. ( -- )
+  ."   --fast (check, replay, print) runs gforth-fast, about 2.4 times quicker" cr
+  ."       than Gforth's checking engine, the default, with the same verdicts" cr ;
 : cli-other-usage. ( -- )
-  ."   replay [--no-manifest] [--fuel N] EXPORT RECORD" cr
+  ."   replay [--no-manifest] [--fuel N] [--fast] EXPORT RECORD" cr
   ."       check the export again and compare the run record with RECORD" cr
-  ."   print [--no-manifest] [--fuel N] [--detail] [--name NAME] [--latex]" cr
-  ."         [--statement FORMS] EXPORT" cr
+  ."   print [--no-manifest] [--fuel N] [--fast] [--detail] [--name NAME]" cr
+  ."         [--latex] [--statement FORMS] EXPORT" cr
   ."       check the export and print each accepted declaration's proof outline;" cr
   ."       FORMS: lean, mathematics, leanforth, all (default), joined by commas" cr
   ."   count [--no-manifest] EXPORT     count the export's records by kind" cr
@@ -709,12 +744,13 @@ create cli-fed-ops
   ."   help           this text" cr ;
 : cli-usage. ( -- )
   ." usage: leanforth COMMAND [OPTION]... [FILE]..." cr
-  cli-check-usage. cli-other-usage. cli-info-usage. ;
+  cli-check-usage. cli-other-usage. cli-info-usage. cli-engine-usage. ;
 : cli-codes. ( -- )
   ." exit status: 0 all accepted (or done), 1 something rejected," cr
   ."   2 unsupported or unknown, 3 a resource limit, 4 malformed input or" cr
   ."   command line, 5 an internal fault, 6 all accepted but some NOT PROVED" cr
-  ."   (proposed); the most severe of 5, 4, 1, 3, 2, 6 wins" cr ;
+  ."   (with --strict-axioms; else 0, as Lean); the most severe of" cr
+  ."   5, 4, 1, 3, 2, 6 wins" cr ;
 : help-command ( -- code ) cli-usage. cli-codes. exit-accepted ;
 
 \ ---------------------------------------------------------------------------
@@ -780,6 +816,8 @@ end-structure
 64 constant takes-json
 128 constant takes-latex
 256 constant takes-statement
+512 constant takes-strict
+1024 constant takes-fast
 : cli-value ( c-addr u -- c-addr' u' true | false )
   cli-arg if 2swap 2drop true else c" an option without its value" cli-wrong false then ;
 \ A decimal number from 0 to max-n with nothing else: (n true) or false.
@@ -806,6 +844,9 @@ end-structure
 : cli-statement-option ( c-addr u -- )
   cli-value 0= if exit then 2dup pr-forms
   if cli-state opt-forms ! 2drop else c" not a list of statement forms" cli-wrong then ;
+: cli-strict-option ( c-addr u -- ) 2drop cli-strict ;
+\ --fast: bin/leanforth chose the engine before Forth ran; nothing to do.
+: cli-fast-option ( c-addr u -- ) 2drop ;
 create cli-option-table
   ' cli-manifest-option takes-no-manifest 0 cli-entry, --no-manifest
   ' cli-fuel-option takes-fuel 0 cli-entry, --fuel
@@ -816,6 +857,8 @@ create cli-option-table
   ' cli-json-option takes-json 0 cli-entry, --json
   ' cli-latex-option takes-latex 0 cli-entry, --latex
   ' cli-statement-option takes-statement 0 cli-entry, --statement
+  ' cli-strict-option takes-strict 0 cli-entry, --strict-axioms
+  ' cli-fast-option takes-fast 0 cli-entry, --fast
   0 ,
 : cli-takes? ( entry -- flag ) cli-entry-first @ cli-state arg-set @ and 0<> ;
 : cli-taken ( c-addr u entry -- )
@@ -835,11 +878,12 @@ create cli-option-table
 
 \ The commands: each one's word ( -- code ), the number of file names it
 \ needs and the options it takes.
-takes-no-manifest takes-fuel or takes-record or takes-resources or takes-json or
+takes-no-manifest takes-fuel or takes-fast or constant checking-set
+checking-set takes-record or takes-resources or takes-json or takes-strict or
 constant check-set
-takes-no-manifest takes-fuel or constant replay-set
-takes-no-manifest takes-fuel or takes-detail or takes-name or takes-latex or
-takes-statement or constant print-set
+checking-set constant replay-set
+checking-set takes-detail or takes-name or takes-latex or takes-statement or
+constant print-set
 create cli-commands
   ' check-command 1 check-set cli-entry, check
   ' replay-command 2 replay-set cli-entry, replay

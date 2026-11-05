@@ -9,7 +9,8 @@
 \ counts and the exit status are cli/tally.fs's, which the command line
 \ fills before it writes the report. Every member but "measured" is
 \ deterministic: the same for every run of the same export with the same
-\ options and build; "measured" holds the times and memory.
+\ options and build, on either engine; "measured" holds the times, the
+\ memory and the engine.
 \ LeanForth-specific and untrusted: a report, never a source of verdicts.
 \
 \ cj-report ( c-addr u checked? -- outcome ) writes the report of the run
@@ -154,7 +155,7 @@ require ./check-run.fs
 \ ---- Measured: each phase's times in microseconds, the run's total so
 \ far the last (null on a host without clocks), the peak resident memory
 \ in bytes (null where the host does not say) and the stage's heap bytes
-\ (null when nothing was staged).
+\ (null when nothing was staged); then the engine (null when not known).
 : cj-phase ( k -- )
   dup ck-phase-name cj-key cj-object dup ck-phase-wall s" wall" cj-key cj-ud
   ck-phase-cpu s" cpu" cj-key cj-ud cj-end-object ;
@@ -164,8 +165,12 @@ require ./check-run.fs
 : cj-peak ( -- ) s" peakResidentBytes" cj-key ck-peak if cj-n else cj-null then ;
 : cj-stage-bytes ( -- )
   s" stageBytes" cj-key ck-staged? if ck-staged-bytes cj-n else cj-null then ;
+\ The engine bin/leanforth ran (gforth, or gforth-fast with --fast), as
+\ display text; null when not known.
+: cj-engine ( -- )
+  s" engine" cj-key ck-engine dup if nt-text cj-shown cj-string else 2drop cj-null then ;
 : cj-measured ( -- )
-  s" measured" cj-key cj-object cj-times cj-peak cj-stage-bytes cj-end-object ;
+  s" measured" cj-key cj-object cj-times cj-peak cj-stage-bytes cj-engine cj-end-object ;
 
 \ ---- The report.
 : cj-export ( c-addr u -- ) nt-text cj-shown s" export" cj-text ;
@@ -175,7 +180,8 @@ require ./check-run.fs
   cj-label s" label" cj-text ;
 : cj-settings ( -- )
   s" settings" cj-key cj-object ck-fuel-budget s" fuel" cj-number
-  lf-env-pool-start s" dependencyPool" cj-number cj-end-object ;
+  lf-env-pool-start s" dependencyPool" cj-number
+  cli-strict-axioms? s" strictAxioms" cj-flag cj-end-object ;
 : cj-status ( -- ) cli-worst @ s" exitStatus" cj-number ;
 : cj-body ( c-addr u checked? -- )
   cj-object cj-head cj-settings cj-read cj-run cj-stopped cj-decls cj-counts cj-fuel

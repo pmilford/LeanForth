@@ -11,8 +11,9 @@
 \ export or does not open, a copy over its export, --json with --record),
 \ 5 an internal fault (a THROW while staging, and one inside a check,
 \ each injected at an allocation with tests/support/alloc-fail.fs; the
-\ publisher made to throw mid-run), 6 NOT PROVED (an axiom planted in an
-\ accepted slot); the declarations counted by verdict; the fuel each
+\ publisher made to throw mid-run), NOT PROVED (an axiom planted in an
+\ accepted slot: Lean's 0 by default, 6 under --strict-axioms); the
+\ declarations counted by verdict; the fuel each
 \ check used (a budget of exactly that much accepts, one less is
 \ exhausted); a second run the same as the first; the stage freed, the
 \ names detached and every store's capacity given back after every check;
@@ -64,14 +65,19 @@ create stated  0 , 6 , 2 , 3 , 1 , 4 , 5 ,
 T{ all-pairs? -> true }T
 
 \ NOT PROVED: an accepted declaration with an axiom, and only that; it is
-\ counted apart and has its own code, 6 (proposed), which every other
-\ failure outranks.
+\ counted apart and keeps Lean's code (0) by default; under
+\ --strict-axioms it has code 6, which every other failure outranks.
 T{ outcome-ok 0 not-proved? outcome-ok 4 not-proved? -> false true }T
 T{ outcome-rejected 4 not-proved? outcome-unknown 0 not-proved? -> false false }T
 cli-start
-T{ outcome-ok 4 cli-tally-proved outcome-ok 0 cli-tally-proved cli-not-proved @ -> 1 }T
-T{ outcome-rejected 1 cli-tally-proved cli-not-proved @ cli-worst @ -> 1 6 }T
+T{ outcome-ok 4 cli-tally-proved outcome-ok 0 cli-tally-proved cli-not-proved @ cli-worst @
+  -> 1 0 }T
+T{ outcome-rejected 1 cli-tally-proved cli-not-proved @ cli-worst @ -> 1 0 }T
+cli-start true cli-strict-axioms!
+T{ outcome-ok 4 cli-tally-proved cli-not-proved @ cli-worst @ -> 1 6 }T
 T{ outcome-unknown cli-tally cli-worst @ -> 2 }T
+cli-start
+T{ cli-strict-axioms? -> false }T
 \ The summary's line of the accepted, from planted counts (no check can
 \ make one NOT PROVED yet); where the host can capture output (Gforth 1.0).
 [defined] >string-execute [if]
@@ -101,8 +107,8 @@ T{ cli-fuel-most 1+ 1 53 lshift = -> true }T
 [then]
 
 \ Names as cli/name-text.fs shows them: Lean's Name.toString, with « »
-\ around a component that is not an identifier and escapes for what the
-\ text rule bans; names of any depth.
+\ always around a component that is not an identifier and escapes for
+\ what the text rule bans, for » and for a backslash; names of any depth.
 : shows ( c-addr u -- c-addr' u' ) 0 -rot lf-name-str drop nt-name drop ;
 : num-shows ( n -- c-addr u ) 0 swap lf-name-num drop nt-name drop ;
 T{ s" fixtureUse" shows s" fixtureUse" compare -> 0 }T
@@ -112,9 +118,15 @@ T{ s\" a\nb" shows s" «a\u{A}b»" compare -> 0 }T
 T{ s\" a\rb\x1b[2K" shows s" «a\u{D}b\u{1B}[2K»" compare -> 0 }T
 T{ s\" a\xe2\x80\xaeb" shows s" «a\u{202E}b»" compare -> 0 }T
 T{ s\" a\\b" shows s" «a\\b»" compare -> 0 }T
-T{ s\" a\xc2\xbbb" shows s\" a\xc2\xbbb" compare -> 0 }T      \ holds », as Lean: no « »
+\ A component holding »: between « and », the » escaped (Lean shows it
+\ bare, so its spaces and colons would pass through).
+T{ s\" fake: accepted\xc2\xbb" shows s" «fake: accepted\u{BB}»" compare -> 0 }T
 T{ s\" \xce\xb1\xce\xb2\xce\xb3" shows s\" \xce\xb1\xce\xb2\xce\xb3" compare -> 0 }T
 T{ s" x'" shows s" x'" compare s" 1x" shows s" «1x»" compare -> 0 0 }T
+\ Subscripts as Lean's isSubScriptAlnum: digits and letters, not signs.
+T{ s\" x\xe2\x82\x81" shows s\" x\xe2\x82\x81" compare -> 0 }T      \ x₁
+T{ s\" x\xe2\x82\x90" shows s\" x\xe2\x82\x90" compare -> 0 }T      \ xₐ
+T{ s\" x\xe2\x82\x8a" shows s\" \xc2\xabx\xe2\x82\x8a\xc2\xbb" compare -> 0 }T  \ «x₊»
 T{ 7 num-shows s" 7" compare 0 nt-name drop s" [anonymous]" compare -> 0 0 }T
 \ Deeper than the term printer's 64 components: every component shown
 \ (the name store made larger for it, then given back its default).
@@ -123,9 +135,13 @@ T{ 7 num-shows s" 7" compare 0 nt-name drop s" [anonymous]" compare -> 0 0 }T
 lf-name-reset 200 lf-name-capacity! drop
 T{ 100 deep nt-name -rot nip 100 dots = -> true true }T
 lf-name-reset lf-name-default lf-name-capacity! drop
-\ A name with macro scopes is shown without « », as Lean shows it.
+\ Names Lean shows without « » (macro scopes, an inaccessible name,
+\ pseudo-syntax): each component that is not an identifier between « ».
 : hygienic ( -- id ) 0 s" x" lf-name-str drop s" _@" lf-name-str drop s" _hyg" lf-name-str drop ;
-T{ hygienic nt-name drop s" x._@._hyg" compare -> 0 }T
+T{ hygienic nt-name drop s" x.«_@»._hyg" compare -> 0 }T
+T{ s\" fake: accepted\xe2\x9c\x9d" shows s\" \xc2\xabfake: accepted\xe2\x9c\x9d\xc2\xbb" compare
+  -> 0 }T
+T{ s" _" shows s" _" compare s" #x y" shows s" «#x y»" compare -> 0 0 }T
 \ An export's file name: the same escapes, no « ».
 T{ s\" a b\x01\xff" nt-text drop s" a b\u{1}\x{FF}" compare -> 0 }T
 
@@ -181,7 +197,8 @@ cli-options
 \ A second run in the same process gives the same verdicts and fuel.
 : run-facts ( c-addr u -- code ok# fuel )
   cli-check outcome-ok tally ck-fuel-total drop ;
-T{ inductive run-facts inductive run-facts -> 0 6 1520 0 6 1520 }T
+\ (1187 since conversion is Lean's is_def_eq, plan task 4.2.2b; 1520 before.)
+T{ inductive run-facts inductive run-facts -> 0 6 1187 0 6 1187 }T
 cli-no-manifest
 kinds run-facts constant kinds-fuel drop drop
 T{ kinds run-facts -> 2 58 kinds-fuel }T
@@ -308,22 +325,28 @@ T{ stopped -> 5 outcome-invalid 1 1 1 }T
 
 \ NOT PROVED from a slot: composition checked as check --record checks
 \ it, then its accepted slot given an axiom bit before the verdicts are
-\ read (no check can make one yet): code 6, counted, and said in its line
-\ and the summary.
-: planted-run ( -- )
-  cli-options composition 0 cli-file! cli-start cli-recorded-ops cli-state run-ops !
-  cli-settings cli-record-start drop cli-import drop rr-check
-  4 0 lf-env lf-env-slot lf-slot-axioms ! ;
-: planted ( -- code not-proved# ) planted-run cli-results rr-release cli-worst @ cli-not-proved @ ;
-T{ planted -> 6 1 }T
+\ read (no check can make one yet): counted, and said in its line and the
+\ summary; code 0, Lean's, with a note, or 6 under --strict-axioms.
+: planted-run ( strict? -- )
+  cli-options composition 0 cli-file! cli-start cli-strict-axioms!
+  cli-recorded-ops cli-state run-ops ! cli-settings cli-record-start drop cli-import drop
+  rr-check 4 0 lf-env lf-env-slot lf-slot-axioms ! ;
+: planted ( strict? -- code not-proved# )
+  planted-run cli-results rr-release cli-worst @ cli-not-proved @ ;
+T{ false planted true planted -> 0 1 6 1 }T
 [defined] >string-execute [if]
-: planted-text ( -- c-addr u ) planted-run ['] cli-results >string-execute rr-release ;
+: planted-text ( strict? -- c-addr u )
+  planted-run ['] cli-results >string-execute rr-release ;
 : says? ( c-addr u c-addr2 u2 -- c-addr u flag ) 2over 2swap search nip nip ;
 : planted-line ( -- c-addr u )
-  s" composition: accepted (experimental, not independently audited); axioms: bits 4; NOT PROVED (it depends on an axiom)" ;
-: planted-says ( -- line? summary? )
-  planted-text planted-line says? >r s" axioms: 1 NOT PROVED" says? nip nip r> swap ;
-T{ planted-says -> true true }T
+  s" composition: accepted (experimental, not independently audited); axioms: bits 4; "
+  s" NOT PROVED (it depends on an axiom)" s+ ;
+: noted? ( c-addr u -- c-addr u flag )
+  s" note: NOT PROVED declarations keep Lean's exit status; --strict-axioms" says? ;
+: planted-says ( strict? -- line? summary? note? )
+  planted-text planted-line says? >r s" axioms: 1 NOT PROVED" says? >r noted? nip nip
+  r> r> swap rot ;
+T{ false planted-says true planted-says -> true true true true true false }T
 [then]
 cli-options
 

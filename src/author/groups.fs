@@ -43,9 +43,10 @@ require ./values.fs
 wordlist constant lf-words
 wordlist constant lf-locals
 wordlist constant lf-consts
-\ The wordlist these modules are compiled into; it finds the defining
-\ word of a group.
-get-current constant lfa-home
+\ A private wordlist that holds only lfa-group:, the one word the EVALUATE
+\ that defines a group runs (ADR 0017 Amendment 1, A5 row 8): no word
+\ defined later under that name, by a program around a run, is found.
+wordlist constant lfa-definer
 \ The search order while a proof runs.
 : lfa-order! ( -- ) lf-consts lf-locals lf-words 3 set-order ;
 
@@ -186,18 +187,28 @@ defer lfa-const-run ( body -- )
   dup dup lfa-group-wid lfa-invoked-by
   dup lfa-group-wid lf-locals = if lfa-local-run else lfa-const-run then ;
 \ Define a group word, in wid, by EVALUATE of: lfa-group: NAME.
+get-current lfa-definer set-current
 : lfa-group: ( wid "name" -- ) create , does> lfa-run-group ;
+set-current
 : lfa-define-prefix ( -- c-addr u ) s" lfa-group: " ;
 : lfa-define-text ( c-addr u -- c-addr' u' )
   dup lfa-define-capacity 16 - > 0= lfa-e-names-full lfa-must
   lfa-define-prefix lfa-groups lfa-groups-define swap move
   tuck lfa-groups lfa-groups-define lfa-define-prefix nip + swap move
   lfa-groups lfa-groups-define swap lfa-define-prefix nip + ;
+\ The dictionary a run leaves free: no group word is made with less than
+\ this many address units unused, so a text never drives the dictionary
+\ to its end, where Gforth 1.0 lets HERE pass the end by a few bytes
+\ (ADR 0017 Amendment 1, A5 row 11). A margin, not a capacity: the
+\ dictionary's size is the host's.
+65536 constant lfa-dictionary-reserve
+: lfa-dictionary-room ( -- )
+  unused lfa-dictionary-reserve < 0= lfa-e-entries-full lfa-must ;
 \ Define the group word for c-addr u in wid; a number-like spelling never
 \ gets one. The proof's search order is set again afterwards.
 : lfa-group-define ( c-addr u wid -- )
-  get-current >r dup set-current -rot lfa-define-text
-  lfa-home 1 set-order evaluate lfa-order! r> set-current ;
+  lfa-dictionary-room get-current >r dup set-current -rot lfa-define-text
+  lfa-definer 1 set-order evaluate lfa-order! r> set-current ;
 \ The group of c-addr u in wid, made when there is none.
 : lfa-found ( xt n | 0 -- body ) dup 0<> lfa-e-entries-full lfa-must drop >body ;
 : lfa-group ( c-addr u wid -- body )

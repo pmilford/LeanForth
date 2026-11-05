@@ -41,6 +41,7 @@
 
 require ./term-printer.fs
 require ./note-table.fs
+require ../lib/text-rule.fs
 
 \ Declarations, as the authoring program records them.
 0 constant lf-decl-theorem
@@ -98,6 +99,7 @@ lf-pf-reserve protected export
 : lf-pf-anonymous ( -- c-addr u ) s" [anonymous]" ;
 : lf-pf-plain? ( c-addr u -- flag )
   dup 0= if 2drop false exit then 2dup lf-pf-odd? if 2drop false exit then
+  2dup tr-rule? 0= if 2drop false exit then
   2dup lf-pf-digits? if 2drop false exit then lf-pf-anonymous compare 0<> ;
 : lf-pf-part? ( id -- flag )
   dup lf-name-tag@ lf-name-tag-str = if lf-name-text lf-pf-plain? else drop true then ;

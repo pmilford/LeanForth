@@ -32,11 +32,9 @@ EQUAL, INVALID, UNKNOWN = "0", "1", "3"
 KNOWN_UNKNOWN = {
     # (Until ADR 0011 Amendment 1, max u v against max v u, convert case
     # 2/6, was here: lf-level-compare now decides it as Lean's normalize.)
-    # The claim's binder domain is the redex (fun X : Sort 1 => X) Sort 0;
-    # lf-mixed-infer needs the inferred type of a domain to be a Sort
-    # without weak-head reduction (src/kernel/mixed-infer.fs, the word
-    # lf-minfer-sort-level), so it answers unknown.
-    ("definition", ("0", "4")),
+    # (Until plan task 4.2.2c, definition case 0/4 was here: the claim's
+    # binder domain is the redex (fun X : Sort 1 => X) Sort 0, whose type
+    # lf-mixed-infer now puts in whnf, as Lean's ensure_sort_core does.)
 }
 
 
@@ -262,11 +260,16 @@ RULE_STEPS = {"A1": {"done"}, "B1": {"done"}, "U1": {"audit"}, "U2": {"audit"},
               "S2": INSIDE, "F1": INSIDE, "K5": INSIDE | {"name"},
               "D": INSIDE | {"comparison"}}
 # Rows where today's code gives another failure than the table, with the
-# reason; neither answer is accepted. None in the first checker's table:
-# composition.proof-irrelevance, full before plan task 2.2.3 (the 64-node
-# term store filled while the value's type was inferred), is unknown since
-# check-declaration discards the declared type's scratch before the value.
-FIRST_CHECKER_KNOWN = {}
+# reason; neither answer is accepted. composition.proof-irrelevance was
+# full before plan task 2.2.3 (the 64-node term store filled while the
+# value's type was inferred), unknown since check-declaration discards the
+# declared type's scratch before the value; since plan task 4.2.2c it is
+# full again at the default capacities: the final comparison is unknown
+# (Lean accepts by proof irrelevance, plan task 4.2.5), and ADR 0011's
+# analysis, which looks for a rejection, runs out of room in the 64-node
+# store, which ADR 0008 reports as full (with more room it might have
+# rejected), not unknown; at large capacities, and fed, it is unknown.
+FIRST_CHECKER_KNOWN = {"composition.proof-irrelevance": "full"}
 # In the binder-domain table three rows met the 64-node term store until
 # plan task 4.2.2a (with lf-term-capacity 160 each gave the table's answer,
 # measured 2026-11-02); since then inference discards scratch as it goes
@@ -644,6 +647,118 @@ def universe_scope_fed():
     return universe_scope((), "universe scope, fed", fed=True)
 
 
+# Lean's definitional-equality procedure (ADR 0014; plan task 4.2.2c, a
+# first part of 4.3.1): definitional-equality-terms.lean prints the rows of
+# definitional-equality.lean that declare something, and its whnf rows, as
+# declarations (a whnf row: the constant, then a probe whose value is it,
+# which tests/support/whnf-probe.fs puts in LeanForth's whnf). The rows of
+# the groups task 4.2.2c decides must give Lean's answer, those of KNOWN
+# the temporary gap given (with the task that closes it); every other row
+# may stay unknown or unsupported but never contradicts Lean: accepted only
+# where Lean accepts, rejected only for the exception Lean raised.
+DQ_DECIDED = ("sort.", "pi.", "whnf.")
+DQ_KNOWN = {"whnf.opaque": ("unsupported", "LeanForth holds no opaque declaration before "
+                                           "plan task 4.2.6 (U1, so K5 at the lookup)")}
+
+
+def definitional_equality_cases():
+    """The table, Lean's rows confirmed, and the cases as text."""
+    with tempfile.TemporaryDirectory() as temporary:
+        first_checker_modules(temporary)
+        compiled = compile_module("tests/reference/definitional-equality.lean",
+                                  "LeanForthDefinitionalEquality", temporary)
+        if compiled != Path("tests/reference/definitional-equality.tsv").read_text():
+            raise Mismatch("definitional equality: Lean's rows differ from the table")
+        text = subprocess.run([LEAN, "-DwarningAsError=true",
+                               "tests/reference/definitional-equality-terms.lean"],
+                              check=True, capture_output=True, text=True,
+                              env=dict(os.environ, LEAN_PATH=temporary)).stdout
+    table = [line.split("\t") for line in compiled.splitlines()[1:]]
+    return {row[0]: row[1:] for row in table}, text
+
+
+def dq_script(text):
+    """Every case built by first-checker-driver.fs, at large capacities (the
+    library alone fills the default stores); a whnf row probed."""
+    probe = Path("tests/support/whnf-probe.fs").resolve()
+    script = [f"require {probe}", ": must-ok ( outcome -- ) ok? 0= abort\" setting\" ;",
+              *LARGE_CAPACITIES]
+    params, case = dict(case_params(text)), None
+    for line in text.splitlines() + ["CASE"]:
+        word, _, rest = line.partition(" ")
+        if word == "CASE" and case:
+            script.append("fc-whnf-run" if case.startswith("whnf.") else "fc-run")
+        if word == "CASE" and rest:
+            case = rest
+            script += [f"fc-case {rest}"] + [f"fc-context {name}" for name in params[rest]]
+        elif word == "DECL":
+            script.append(f"fc-decl {rest}")
+    return script + ["bye"]
+
+
+def dq_answers(text):
+    """LeanForth's answer per row: its outcome (and rejection code), or the
+    whnf probe's unfolds, stays or failure."""
+    with tempfile.TemporaryDirectory() as temporary:
+        path = Path(temporary) / "dq-cases.fs"
+        path.write_text("\n".join(dq_script(text)) + "\n")
+        result = subprocess.run([GFORTH, str(path)], capture_output=True, text=True,
+                                stdin=subprocess.DEVNULL)
+    if result.returncode != 0:
+        raise Mismatch(f"definitional equality: Forth failed: {result.stderr}")
+    answers = {}
+    for words in map(str.split, result.stdout.splitlines()):
+        if words and words[0] == "ROW":
+            answers[words[1]] = (OUTCOMES[words[2]], int(words[3]))
+        elif words and words[0] == "WHNF":
+            answers[words[1]] = (words[2], 0)
+    return answers
+
+
+def dq_row(case, lean, adr0014, answer):
+    """Check one row; give its outcome for the summary."""
+    outcome, code = answer
+    if outcome == "accepted" and lean != "accepted":
+        raise Mismatch(f"{case}: accepted where Lean says {lean}")
+    if outcome == "rejected" and REJECTION_CODES.get(code, ("", ""))[1] != lean:
+        raise Mismatch(f"{case}: rejected (code {code}) where Lean says {lean}")
+    if outcome in ("unfolds", "stays") and outcome != lean:
+        raise Mismatch(f"{case}: whnf {outcome} where Lean's {lean}")
+    if case.startswith(DQ_DECIDED):
+        wanted = DQ_KNOWN.get(case, (adr0014, ""))[0]
+        if outcome != wanted:
+            raise Mismatch(f"{case}: LeanForth gives {outcome}, not {wanted}")
+    return outcome
+
+
+def definitional_equality():
+    table, text = definitional_equality_cases()
+    skipped = [line.split()[1] for line in text.splitlines() if line.startswith("SKIP ")]
+    text = "\n".join(line for line in text.splitlines() if not line.startswith("SKIP "))
+    answers = dq_answers(text)
+    printed = [line.split()[1] for line in text.splitlines() if line.startswith("CASE ")]
+    if sorted(answers) != sorted(printed):
+        raise Mismatch("definitional equality: a printed case without its answer")
+    if sorted(printed + skipped) != sorted(table):
+        raise Mismatch("definitional equality: the cases are not the table's rows")
+    if any(case.startswith(DQ_DECIDED) for case in skipped):
+        raise Mismatch("definitional equality: a row of the decided groups was skipped")
+    mix = {}
+    for case in printed:
+        lean, _, _, adr0014, _ = table[case]
+        outcome = dq_row(case, lean, adr0014, answers[case])
+        mix[outcome] = mix.get(outcome, 0) + 1
+    decided = [case for case in printed if case.startswith(DQ_DECIDED)]
+    beyond = [f"{case} {answers[case][0]}" for case in printed
+              if not case.startswith(DQ_DECIDED) and answers[case][0] in ("accepted", "rejected")]
+    print(f"definitional equality: other rows decided as Lean: {', '.join(beyond) or 'none'}")
+    print(f"definitional equality: {len(decided)} rows of {', '.join(DQ_DECIDED)} as Lean "
+          f"(known gaps: {', '.join(f'{c} {o}: {why}' for c, (o, why) in DQ_KNOWN.items())}); "
+          f"all {len(printed)} rows: {', '.join(f'{n} {o}' for o, n in sorted(mix.items()))}; "
+          f"{len(skipped)} rows of Lean's own library not run (phase 5): {', '.join(skipped)}")
+    return len(printed)
+
+
 TABLES = {
     "scope": (scope, "constant-term scope cases agree with Lean's hasLooseBVars"),
     "shift": (shift, "plain shift cases agree with Lean's liftLooseBVars"),
@@ -651,8 +766,7 @@ TABLES = {
     "beta": (beta, "closed weak-head beta cases agree with Lean's Kernel.whnf"),
     "convert": (convert, "conversion cases agree with Lean's isDefEq"),
     "infer": (infer, "inference cases agree with Lean's Kernel.check"),
-    "definition": (definition, "definition-probe cases agree with Lean's kernel "
-                               "(one known conservative unknown)"),
+    "definition": (definition, "definition-probe cases agree with Lean's kernel"),
     "level-substitute": (level_substitute, "universe substitution observations agree with Lean"),
     "constant": (constant, "constant specialization and inference observations agree with Lean"),
     "signature-fixture": (signature_fixture, "specialized poly_identity signatures agree "
@@ -692,6 +806,9 @@ TABLES = {
     "dependencies-fed": (dependencies_fed, "rows of declarations with 41 and 1,001 "
                                            "dependencies, and a pool of 66,066, agree with "
                                            "Lean's kernel, fed as exports"),
+    "definitional-equality": (definitional_equality,
+                              "definitional-equality rows: sort.*, pi.* and whnf.* give "
+                              "Lean's answer, no row contradicts Lean"),
 }
 
 

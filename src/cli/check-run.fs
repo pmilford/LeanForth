@@ -32,15 +32,18 @@
 \   did not stop, else the first failure: full when the facts
 \   (ck-facts-made? false) or the environment (ck-made? false) found no
 \   room, invalid when the environment could not be used or the run
-\   stopped on a fault (ck-stopped?: a check threw, which spends the
+\   stopped on a fault (ck-faulted?: a check threw, which spends the
 \   context, or publishing failed; ck-steps-begun tells how far it came);
+\   ck-stopped?, which the text and JSON reports both read, is true when
+\   the run's verdicts can be read and it stopped or did not end ok;
 \ - ck-finish ( -- ) takes the run's total time so far (phase ck-total);
 \ - then, before ck-release, the verdicts are read in a snapshot of the
 \   run's own environment (ck-verdicts?, then lf-env-outcome), and the
 \   facts with ck-kept (a run-record.fs /rr-step: outcome, diagnostic,
 \   step; then the fuel), ck-fuel-of, ck-fuel-total, ck-fuel-unknowns,
 \   ck-top@ (ck-tops of them), the times (ck-phase-wall, ck-phase-cpu,
-\   ck-phase-name), ck-peak, ck-staged-bytes and the input's sizes;
+\   ck-phase-name), ck-peak, ck-engine, ck-staged-bytes and the input's
+\   sizes;
 \ - ck-release ( -- ) frees the environment (only while it is the
 \   current one with the run's identity, as run-record.fs's rr-release
 \   does), detaches the names from the stage and frees it, empties the
@@ -68,7 +71,9 @@
 \ Host words: utime and cputime (Gforth 0.7.3 and 1.0) give wall and CPU
 \ time in microseconds, where a host without them reports none
 \ (ck-timed? false); the peak resident memory is the VmHWM line of
-\ /proc/self/status (Linux), where a host without that file reports none.
+\ /proc/self/status (Linux), where a host without that file reports none;
+\ getenv reads the engine bin/leanforth ran, where a host without it
+\ reports none.
 \ State: three shared globals, ck-stage (/stage), ck-feeding-record
 \ (/feed) and ck-state (the run's facts and settings), not context
 \ records, because they own heap blocks, as checker-input.fs's records
@@ -168,7 +173,7 @@ create ck-feeding-record /feed allot  ck-feeding-record /feed erase
 : ck-steps-begun ( -- n ) ck-state ck-stepped @ ;
 : ck-facts-made? ( -- flag ) ck-state ck-facts-made @ ;
 : ck-made? ( -- flag ) ck-state ck-checked @ ;
-: ck-stopped? ( -- flag ) ck-state ck-faulted @ ;
+: ck-faulted? ( -- flag ) ck-state ck-faulted @ ;
 : ck-restored ( -- outcome ) ck-state ck-restored-outcome @ ;
 : ck-fuel-total ( -- ud ) ck-state ck-fuel-sum 2@ ;
 : ck-fuel-unknowns ( -- n ) ck-state ck-unknowns @ ;
@@ -234,6 +239,17 @@ create ck-line ck-line-room 2 + allot
 : ck-peak ( -- u true | false )
   ck-status r/o open-file if drop false exit then
   dup >r ck-hwm-scan r> close-file drop dup if swap 1024 * swap then ;
+
+\ ---- The engine: the program bin/leanforth ran (LEANFORTH_ENGINE, the
+\ last part of its file name: gforth, or gforth-fast with --fast), empty
+\ when it is not known (not run by bin/leanforth, or a host without
+\ getenv). How the run was made, not what it found: reports keep it with
+\ the times.
+[defined] getenv [if]
+: ck-engine ( -- c-addr u ) s" LEANFORTH_ENGINE" getenv ;
+[else]
+: ck-engine ( -- c-addr u ) 0 0 ;
+[then]
 
 \ ---- The kept steps: one record per declaration of the input, each
 \ invalid until its step publishes.
@@ -331,7 +347,7 @@ create ck-line ck-line-room 2 + allot
   ck-kept dup ck-diag! kept-outcome ! ;
 \ Check declaration d: whether the run must stop, after a fault of the
 \ publisher or a THROW in the check (the context is then spent); a stop
-\ is kept (ck-stopped?).
+\ is kept (ck-faulted?).
 : ck-stop! ( stop? -- stop? ) dup if true ck-state ck-faulted ! then ;
 : ck-step ( d -- stop? )
   dup >r ['] lf-check-declaration swap lf-env-step swap r> ck-keep lf-env-spent? or
@@ -356,10 +372,16 @@ create ck-line ck-line-room 2 + allot
 : ck-all-final? ( -- flag ) true lf-input-count 0 ?do i ck-final? and loop ;
 \ Ok when every slot is final and the run did not stop on a fault.
 : ck-confirm ( -- outcome )
-  ck-viewed? if ck-all-final? ck-stopped? 0= and flag>outcome else outcome-invalid then ;
+  ck-viewed? if ck-all-final? ck-faulted? 0= and flag>outcome else outcome-invalid then ;
 \ After the run: whether its verdicts can be read, in a new snapshot of
 \ the run's own environment.
 : ck-verdicts? ( -- flag ) ck-ours? if lf-env-view ok? else false then ;
+\ Whether a run whose verdicts can be read stopped short: a fault stopped
+\ it (a check threw, or publishing failed), or it did not end ok (a slot
+\ left open). The one word both reports read; false when no verdict can
+\ be read.
+: ck-stopped? ( -- flag )
+  ck-verdicts? if ck-faulted? ck-outcome ok? 0= or else false then ;
 \ A new environment for the run, current: ok, or why not; one that
 \ cannot be made current is freed at once.
 : ck-own ( env -- ) lf-envh-identity @ ck-state ck-env-id ! true ck-state ck-checked ! ;

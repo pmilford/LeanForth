@@ -151,6 +151,38 @@ number-like, otherwise error 1. Gforth's −13 (a token no word has and no
 number) is reported the same way, at the first such token after the last
 one a word read.
 
+The runner's rules for running in the checker's own Gforth (plan task
+8.2.1a; [ADR 0017 Amendment 1](../adr/0017-leanforth-syntax.md#amendment-1-accepted-leanforth-text-run-by-forth-itself-at-the-prompt-from-files-and-inline),
+A5):
+
+- **Forth must be interpreting.** A run started while Forth compiles (by
+  an immediate word, say) is refused before anything runs, error 45 at
+  line:col 0:0; otherwise the words would be compiled into the caller's
+  definition. Every line must also end with Forth interpreting.
+- **Characters.** A line may hold no control or format character (Unicode
+  Cc and Cf: NUL, VT, FF, a CR inside a line, DEL, bidirectional controls,
+  zero-width characters …), no line or paragraph separator and no bytes
+  that are not UTF-8 (`src/lib/text-rule.fs`'s rule); TAB separates tokens
+  as a space does. Such a line stops with error 46 at the character's
+  column, before anything of the line runs; the token is left empty,
+  since the character may be invisible or reorder the text around it.
+  Forth splits tokens at TAB, LF, VT, FF, CR and space only, so with these
+  characters refused a token is what an editor shows as one.
+- **Lines.** Each text a run is given (`lf-author-text`, `lf-author-file`)
+  counts its lines from 1.
+- **Forth exceptions** (error 41) name the last token a word read, or,
+  when no word has read one on that line, the line's first token.
+- **Group words** are made only while at least `lfa-dictionary-reserve`
+  (65,536) address units of dictionary stay unused (else error 66, full),
+  so a text never drives the dictionary to its end (Gforth 1.0 lets `HERE`
+  pass the end by a few bytes there); and by an `EVALUATE` whose search
+  order holds only a private word list with `lfa-group:`, so a word of
+  that name defined later elsewhere is never run.
+- **The three sealed word lists hold only `CREATE … DOES>` words**, never
+  a `VALUE`, `DEFER` or `VARIABLE`: Gforth 1.0's `->` recognizer writes
+  any of those it finds in the search order. A test checks every word of
+  the three lists on Gforth 1.0.
+
 The printer's Forth mode returns ok; invalid for a malformed term or a
 variable bound by an arrow; unsupported for a name it cannot spell (a
 part with a dot, a space or only digits, or a universe parameter named
@@ -219,6 +251,8 @@ below it).
 | 42 | invalid | a ( comment must end with ) on the same line |
 | 43 | invalid | protected comes right before theorem, def, axiom or import-stub |
 | 44 | invalid | protected declarations must be in a namespace |
+| 45 | invalid | LeanForth text runs only while Forth interprets, never while it compiles |
+| 46 | invalid | a character no line may hold (a control or format character, or no UTF-8) |
 | 50 | unsupported | not supported yet: natural-number literals need literal nodes (ADR 0017 section 14) |
 | 51 | unsupported | not supported yet: designed in ADR 0017 but not built yet |
 | 52 | unsupported | not supported yet: holes are filled by the elaborator (plan task 8.3.1) |
@@ -254,7 +288,9 @@ constant references, 32 declarations, 256 name entries in 4,096 bytes,
 namespaces in 1,024 bytes, 8 universe parameters per declaration and 8
 universe arguments per constant, numbers of at most 9 digits, lines of
 at most 1,023 characters in a file. A source position is the line times
-65,536 plus the column; on a 32-bit host lines beyond 32,767 wrap.
+65,536 plus the column; on a 32-bit host lines beyond 32,767 wrap. Group
+words leave at least 65,536 address units of dictionary unused (a margin
+before the host's end, not a capacity).
 
 ## Tests
 
@@ -263,7 +299,14 @@ reachable error code with its line and column, case sensitivity, Forth's
 words invisible, numbers in every host form, values used once, names
 that are numbers, namespaces and which constant a name means, `var#`,
 `root:`, positions, labels and notes, the runner's restoring, the note
-table, the Forth mode on its own and the labels and notes it refuses) and
+table, the Forth mode on its own and the labels and notes it refuses; and
+the rules of task 8.2.1a above, from probes p01, p03, p04, p05 and p07 of
+ADR 0017 Amendment 1: Forth's own words and more number forms refused,
+a run while Forth compiles refused with nothing compiled, characters a
+line may not hold, a Forth exception's token, lines counted per text,
+Forth-word names as harmless groups, a later `lfa-group:` never run, the
+dictionary reserve and, on Gforth 1.0, `0 ->NAME` throwing −21 for every
+word of the sealed lists) and
 `tests/author/check_author.py` (22 example files against
 `fixtures.golden`, which records each declaration's terms as a tree dump,
 with a round trip each; this table; the layering check; round trips over
