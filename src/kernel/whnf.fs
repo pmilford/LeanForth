@@ -252,6 +252,9 @@ lf-walk-room context-walk2: lf-whnf-scan
 \ the check declares itself, or none at all (N1, here no failure: the
 \ diagnostic the lookup recorded is put back as it was).
 -2 constant lf-whnf-absent
+\ The answer "none" of is_delta, unfold_definition and the iota hook, in
+\ the place of a declaration or a node (review rvU4, style point 2).
+-1 constant lf-whnf-none
 : lf-whnf-cref ( const -- slot ) lf-term-first@ lf-cref-slot ;
 : lf-whnf-find ( name -- d outcome )
   >r lf-diag@ r> lf-env-lookup-pass dup outcome-rejected =
@@ -273,10 +276,10 @@ lf-walk-room context-walk2: lf-whnf-scan
 : lf-whnf-k1 ( const -- -1 outcome )
   0 lf-diag-needs-unfolding lf-whnf-note -1 outcome-unknown ;
 : lf-whnf-slot-delta ( const d -- decl outcome )
-  dup 0< if 2drop -1 outcome-ok exit then
+  dup 0< if 2drop lf-whnf-none outcome-ok exit then
   lf-whnf-decl ok-then? 0= if nip no-result exit then
   swap lf-whnf-cref lf-crec-arity @ over swap lf-whnf-valued?
-  if outcome-ok else drop -1 outcome-ok then ;
+  if outcome-ok else drop lf-whnf-none outcome-ok then ;
 : lf-whnf-delta-of ( const -- decl outcome )
   lf-whnf-env? 0= if lf-whnf-k1 exit then
   dup lf-whnf-lookup ok-then? if lf-whnf-slot-delta else nip no-result then ;
@@ -310,9 +313,9 @@ lf-walk-room context-walk2: lf-whnf-scan
 : lf-whnf-unfold-head ( node frames const decl -- node' outcome )
   swap rot lf-whnf-value ok-then? if swap lf-whnf-reapply else nip no-result then ;
 : lf-whnf-unfold ( node frames -- node' outcome )
-  over lf-whnf-head dup lf-whnf-const? 0= if drop 2drop -1 outcome-ok exit then
+  over lf-whnf-head dup lf-whnf-const? 0= if drop 2drop lf-whnf-none outcome-ok exit then
   dup lf-whnf-delta-of ok-then? 0= if nip nip nip no-result exit then
-  dup 0< if 2drop 2drop -1 outcome-ok else lf-whnf-unfold-head then ;
+  dup lf-whnf-none = if 2drop 2drop lf-whnf-none outcome-ok else lf-whnf-unfold-head then ;
 
 \ ---------------------------------------------------------------------------
 \ K7 (ADR 0014 Q8). Lean's reduce_nat (672-703) looks at node when its
@@ -375,9 +378,9 @@ defer lf-whnf-iota ( app frames -- ... frames next )
 : lf-whnf-iota-const ( const -- reduct outcome )
   dup lf-whnf-lookup ok-then? 0= if nip no-result exit then
   lf-whnf-recursor? ok-then? 0= if nip no-result exit then
-  if lf-whnf-pending else drop -1 outcome-ok then ;
+  if lf-whnf-pending else drop lf-whnf-none outcome-ok then ;
 : lf-whnf-iota-head ( head -- reduct outcome )
-  dup lf-whnf-const? lf-whnf-env? and if lf-whnf-iota-const else drop -1 outcome-ok then ;
+  dup lf-whnf-const? lf-whnf-env? and if lf-whnf-iota-const else drop lf-whnf-none outcome-ok then ;
 : lf-whnf-iota-default ( app frames -- reduct outcome frames 0 )
   >r lf-whnf-head lf-whnf-iota-head r> 0 ;
 ' lf-whnf-iota-default is lf-whnf-iota
@@ -417,7 +420,7 @@ defer lf-wc-visit ( node frames -- ... frames next )
   lf-whnf-apply r> lf-wc-then ;
 : lf-wc-iota-back ( reduct outcome frames -- ... frames next )
   >r r@ frame-restore -rot ok-then? 0= if nip r> lf-whnf-failed exit then
-  dup 0< if drop outcome-ok r> 0 else nip r> lf-wc-again then ;
+  dup lf-whnf-none = if drop outcome-ok r> 0 else nip r> lf-wc-again then ;
 : lf-whnf-iota-step ( app frames -- ... frames next ) lf-whnf-iota ;
 : lf-wc-iota ( node f frames -- ... frames next )
   nip 2dup frame-save ['] lf-wc-iota-back ['] lf-whnf-iota-step lf-whnf-open ;
@@ -457,7 +460,7 @@ defer lf-nat-visit ( node frames -- ... frames next )
 defer lf-whnf-cored ( t1 outcome frames -- ... frames next )
 : lf-whnf-next ( t1 frames t' outcome -- ... frames next )
   dup ok? 0= if >r drop nip r> swap lf-whnf-failed exit then drop
-  dup 0< if drop outcome-ok swap 0 exit then
+  dup lf-whnf-none = if drop outcome-ok swap 0 exit then
   rot drop swap ['] lf-whnf-cored lf-wc-call ;
 : lf-whnf-delta-step ( t1 frames -- ... frames next ) 2dup lf-whnf-unfold lf-whnf-next ;
 \ reduce_nat's answer on t1, saved across its visit: computes (K7), or not.

@@ -33,19 +33,19 @@
 \   variable, or in eager mode (lf-dq-eager), yes when whnf(t) is
 \   Bool.true too; (3) whnf_core of both sides (whnf.fs) and, when either
 \   changed, quick_is_def_eq again; (4) proof irrelevance, when t is a
-\   proof: unknown (K2, diagnostic 83; plan task 4.2.5 compares the two
+\   proof: unknown (K2, diagnostic 87; plan task 4.2.5 compares the two
 \   types there); (5) lazy delta reduction (below), which may answer yes
 \   or no and leaves both sides as far unfolded as it got; (6) the same
 \   constant with equivalent universe arguments, yes; (7) the same free
 \   variable, yes; (8) and (9) need projections, an unsupported form
 \   (U2): with none, whnf_core with projections reduced changes nothing;
 \   (10) is_def_eq_app, yes; (11) eta: exactly one side a lambda is
-\   unknown (K3, diagnostic 84, plan task 4.2.4); (12) structure eta:
+\   unknown (K3, diagnostic 88, plan task 4.2.4); (12) structure eta:
 \   either side a constructor of a non-recursive structure applied to its
-\   parameters and fields is unknown (diagnostic 85, plan task 5.2.2);
+\   parameters and fields is unknown (diagnostic 89, plan task 5.2.2);
 \   (13) string literals are unsupported (U2); (14) unit-like types:
 \   when the whnf of t's type is headed by a non-recursive structure whose
-\   constructor has no field, unknown (diagnostic 85, plan task 5.2.2);
+\   constructor has no field, unknown (diagnostic 89, plan task 5.2.2);
 \   (15) otherwise no.
 \ - Whether t is a proof (step 4) is Lean's is_prop of its type (383-389):
 \   the type of t's type, put in whnf, is a Sort whose level normalizes to
@@ -80,10 +80,17 @@
 \ record), and lf-defeq-on reports a final no as unknown with it: outside
 \ a check of the checked environment, a constant at a head of lazy delta
 \ (K1, diagnostic 64: the signature index holds no values), and steps 4
-\ and 14 without a typer (a bare call, as the unit tests make). A yes
-\ stays yes: steps 6, 7 and 10 answer yes only for terms equal up to
-\ beta and universe equivalence, which Lean finds equal whatever route it
-\ takes (ADR 0003's argument, on which conversion has always rested).
+\ and 14 without a typer (a bare call, as the unit tests make). A check
+\ of the checked environment always has a typer and a snapshot, so it
+\ never doubts. A yes reached with a doubt is Lean's yes under these
+\ conditions, which it needs (review rvU4 B1): (a) steps 6, 7 and 10
+\ answer yes only for terms equal up to beta and universe equivalence;
+\ (b) lazy delta's by-name rules have run as Lean runs them (K7 and
+\ is_def_eq_offset come before the doubt), and a constant of the
+\ signature index has no value -- the assumption of a comparison outside
+\ a check, which accepts no theorem; (c) where step 4 is skipped, Lean
+\ would compare the two sides' types, equal for terms equal up to beta
+\ and universe equivalence (ADR 0003's argument).
 \
 \ Passes. Every comparison is a visit on a frames record that the caller
 \ gives (lib/frame.fs), as in whnf.fs: lf-defeq-call ( t s frames cont
@@ -579,15 +586,17 @@ defer lf-lz-loop ( frames -- ... frames next )
   if r@ lf-dq-sides r> ['] lf-lz-args-back lf-ar-call else r> lf-lz-unfold-both then ;
 : lf-lz-same? ( dt ds frames -- flag )
   >r over = swap lf-idecl-hint @ lf-hint-regular = and r> lf-dq-sides lf-dq-apps? and ;
-\ The step's choice, from is_delta of each side: a declaration or -1.
+\ The step's choice, from is_delta of each side: a declaration or
+\ lf-whnf-none.
+: lf-lz-none? ( d -- flag ) lf-whnf-none = ;
 : lf-lz-decide ( dt ds frames -- ... frames next )
-  >r over 0< over 0< and if 2drop r> lf-dq-tail exit then
-  over 0< if 2drop r> lf-lz-unfold-s exit then
-  dup 0< if 2drop r> lf-lz-unfold-t exit then
+  >r over lf-lz-none? over lf-lz-none? and if 2drop r> lf-dq-tail exit then
+  over lf-lz-none? if 2drop r> lf-lz-unfold-s exit then
+  dup lf-lz-none? if 2drop r> lf-lz-unfold-t exit then
   2dup lf-lz-compare ?dup if nip nip 0< if r> lf-lz-unfold-t else r> lf-lz-unfold-s then exit then
   r@ lf-lz-same? if r> lf-lz-arguments else r> lf-lz-unfold-both then ;
 : lf-lz-delta ( node -- decl outcome )
-  lf-whnf-head dup lf-whnf-const? if lf-whnf-delta-of else drop -1 outcome-ok then ;
+  lf-whnf-head dup lf-whnf-const? if lf-whnf-delta-of else drop lf-whnf-none outcome-ok then ;
 \ Outside a check (K1, see the header): a constant at either head is a
 \ doubt, and the loop ends undecided.
 : lf-lz-blind ( frames -- ... frames next )
