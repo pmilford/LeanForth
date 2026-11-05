@@ -670,15 +670,6 @@ Theorem composition
 No proof outline: the declaration was not accepted.
 
 exit status 1
-Theorem fixtureUse
-  accepted (experimental, not independently audited); axioms: none
-  Statement in Lean:        ∀ {P : Prop}, P → P
-error: no declaration named noSuch
-exit status 4
-
-No proof outline: the declaration was not accepted.
-
-exit status 1
 $ bin/leanforth print --name fixtureUse tests/reference/constant-fixture.ndjson | head -3
 Theorem fixtureUse
   accepted (experimental, not independently audited); axioms: none

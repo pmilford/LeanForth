@@ -684,17 +684,18 @@ cr lf-diag. cr
 
 ```text
 0 4
-rejected: declared type mismatch (D1-D5) at mixed-definition-probe lf-mixed-definition-probe: 10 0 
+rejected: declared type mismatch (D1-D5) at mixed-definition-probe lf-mixed-definition-probe: 0 0 
 ```
 
-The wrong value is *rejected* by the first checker's rules, which the
-owner approved on 2026-11-02 ([ADR 0011](../adr/0011-definite-rejection.md))
-and which the probe now applies (plan task 2.2.1; [kernel] code, not yet
-through the review gate): its type ends in `Sort u` where the claim ends
-in `A`, a Sort against a variable that is not a proof, so rule D2 shows
-them different inside D4 — like the `returns-the-proposition` row of the
-[expected results](../reviews/FIRST_CHECKER_EXPECTED.md). The diagnostic
-names the rules used, as a set of bits (2 for D2, 8 for D4: 10). The full
+The wrong value is *rejected*, as by Lean's kernel ([kernel] code, not
+yet through the review gate): its type ends in `Sort u` where the claim
+ends in `A`, a Sort against a variable, and Lean's definitional equality,
+which the checker ports ([ADR 0014](../adr/0014-definitional-equality.md),
+plan task 4.2.2d), says they differ — like the `returns-the-proposition`
+row of the [expected results](../reviews/FIRST_CHECKER_EXPECTED.md).
+(Until plan task 4.2.2d the rules D2 and D4 of
+[ADR 0011](../adr/0011-definite-rejection.md) found it, and the
+diagnostic's first number named them, as a set of bits.) The full
 check of a declaration, `check-declaration` (plan task 2.2.3; also
 experimental and not yet through its gate), adds the name, the universe
 parameters, the lookups of constants in the checked environment and, for
