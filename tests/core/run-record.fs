@@ -65,7 +65,7 @@ T{ composition run-ok run-holds? -> outcome-ok true }T
 \ diagnostic and step its check left; no manifest beside them.
 : rejected-59 ( -- c-addr u )
   s\" \"verdict\":\"rejected\",\"diagnostic\":{\"code\":59," ;
-: numbers-step ( -- c-addr u ) s\" \"numbers\":[4,0],\"step\":7}" ;
+: numbers-step ( -- c-addr u ) s\" \"numbers\":[0,0],\"step\":7}" ;
 : no-manifest ( -- c-addr u ) s" manifest missing, unreadable or too large" ;
 : unsupported-42 ( -- c-addr u )
   s\" \"verdict\":\"unsupported\",\"diagnostic\":{\"code\":42," ;
