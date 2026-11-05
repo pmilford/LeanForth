@@ -1351,6 +1351,43 @@ declarations) only `WellFounded.extrinsicFix₂` changed: from *unknown*
 which uses `Classical.choice`, an axiom the command line does not take
 yet (U1, diagnostic 42); its own comparison is now Lean's.
 
+## Implementation (plan task 5.2.1c, K part: R2)
+
+Written 2026-11-05 by agent KL; experimental [kernel] code, gate open.
+
+- `kernel/iota.fs` ports `to_cnstr_when_K` (`inductive.h` 31–49) and
+  `mk_nullary_cnstr` (`inductive.cpp` 80–97) where Lean calls them
+  (`inductive.h` 89–91): for a recursor with `k`, before the major
+  premise's `whnf`, its type is inferred aside (Lean's `infer`,
+  infer-only: the typer `mixed-infer.fs` lends comparisons, on the
+  frames' fuel), put in `whnf`, must apply a constant named as the
+  recursor's major inductive, and the first constructor at the type's
+  universe arguments and first `numParams` arguments takes the major's
+  place when its inferred type `is_def_eq` the major's (`defeq.fs`,
+  `lf-defeq-call`). The `whnf` and the comparison are child visits of the
+  iota visit (frame steps); the inferences are the typer's own loop, as
+  in `defeq.fs`'s steps 4 and 14. Then the major premise is put in `whnf`
+  and reduced as before; after a K that kept the major premise, a non-
+  constructor goes on as for any recursor (no rule, or R3).
+- Where K cannot run as Lean (outside environment mode, loose bound
+  variables, an *unknown* inference, `whnf` or comparison, a lookup that
+  cannot follow Lean, a type with fewer than `numParams` arguments) the
+  major premise is kept and K stays undecided: a constructor after `whnf`
+  still reduces (a `k` recursor's rule takes no field), anything else is
+  *unknown* (diagnostic 81). Exhausted, full and invalid end the visit.
+- Evidence: rows `k.eq-variable-proof`, `k.eq-different-ends` and four
+  new ones (`k.eq-ends-defeq`, `k.type-through-definition`,
+  `k.true-variable-proof`, `k.eq-different-ends-wrong`) give Lean's
+  verdict and are required (`inductive-table.py`, REQUIRED);
+  `lit.div-by-zero` and `lit.gcd` (through Init's `eq_of_heq`) are no
+  longer pending; no other row changed. Init's first 50 000 export lines:
+  `eq_of_heq` accepted, 822 → 860 accepted (unknown 255 → 207; nine
+  dependency-unknown now dependency-unsupported; one declaration now
+  exhausted at the default fuel, accepted with more). Six planted faults
+  on the new words are caught. Gap: the nested inferences run a loop of
+  their own on the host stacks (as R3's), so K inside K inside K nests
+  loops (plan task 6.2.0 follow-up).
+
 ## Plan (task 5.2.5b): nested blocks
 
 Lean checks a nested block (`Tree | node : List Tree → Tree`;

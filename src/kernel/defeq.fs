@@ -141,6 +141,7 @@ require ../core/input.fs
 require ../core/local-context.fs
 require ../core/names.fs
 require ../core/name-equal.fs
+require ../core/projections.fs
 require ../core/terms.fs
 require ./env-signature.fs
 require ./level-compare.fs
@@ -556,11 +557,9 @@ defer lf-ap-arg ( frames -- ... frames next )
 \ Argument i of an application, 0 the leftmost.
 : lf-es-arg ( s i -- arg )
   over lf-dq-count swap - 1- 0 ?do lf-term-first@ loop lf-term-second@ ;
-\ mk_proj(I, i - nparams, t): full without room.
+\ mk_proj(I, i - nparams, t) (core/projections.fs): full without room.
 : lf-es-proj ( frames -- node outcome )
-  >r 4 r@ frame-pick 2 r@ frame-pick 0 r@ frame-pick 1 r> frame-pick -
-  lf-hterm-proj 0= if drop lf-rebuild-full exit then
-  drop swap lf-term-app lf-rebuild-allocated ;
+  >r 4 r@ frame-pick 2 r@ frame-pick 0 r@ frame-pick 1 r> frame-pick - lf-proj-of ;
 defer lf-es-field ( frames -- ... frames next )
 : lf-es-next ( flag outcome frames -- ... frames next )
   >r ok-then? 0= if r> lf-es-fail exit then

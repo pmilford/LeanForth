@@ -314,6 +314,17 @@ T{ s" iota.bool-true-wrong" used -> outcome-rejected lf-diag-value-apart }T
 T{ s" iota.list-hypothesis-wrong" used -> outcome-rejected lf-diag-value-apart }T
 T{ s" iota.bool-stuck" used -> outcome-rejected lf-diag-value-apart }T
 T{ s" iota.nat-succ" used -> outcome-ok 0 }T
+\ K-like reduction (R2, Lean's to_cnstr_when_K; task 5.2.1c): Eq.rec and
+\ True.rec on a variable proof reduce when its type is is_def_eq the
+\ nullary constructor's -- equal, equal after unfolding id, or the
+\ inductive type only after whnf; with different ends they stay stuck and
+\ the declaration is rejected, as by Lean.
+T{ s" k.eq-variable-proof" used -> outcome-ok 0 }T
+T{ s" k.eq-ends-defeq" used -> outcome-ok 0 }T
+T{ s" k.type-through-definition" used -> outcome-ok 0 }T
+T{ s" k.true-variable-proof" used -> outcome-ok 0 }T
+T{ s" k.eq-different-ends" used -> outcome-rejected lf-diag-value-apart }T
+T{ s" k.eq-different-ends-wrong" used -> outcome-rejected lf-diag-value-apart }T
 \ Literals (task 5.2.3): Nat.rec on a literal major (L2), as its
 \ constructor; 2^64 by Nat.pow, two limbs, right and wrong; Nat.pow by
 \ 2^32, Lean's refusal (rejected; the declaration's mismatch records it),

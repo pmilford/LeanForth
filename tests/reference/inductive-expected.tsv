@@ -116,6 +116,10 @@ proj.index-differs	declTypeMismatch	rejected	J1	5.2.2
 iota.prop-structure-stuck	declTypeMismatch	rejected	R1 R3	5.2.2	
 k.eq-variable-proof	accepted	accepted	R2	5.2.1c	
 k.eq-different-ends	declTypeMismatch	rejected	R2	5.2.1c	
+k.eq-ends-defeq	accepted	accepted	R2	5.2.1c	
+k.type-through-definition	accepted	accepted	R2	5.2.1c	
+k.true-variable-proof	accepted	accepted	R2	5.2.1c	
+k.eq-different-ends-wrong	declTypeMismatch	rejected	R2	5.2.1c	
 eta.structure	accepted	accepted	R4	5.2.2	
 eta.structure-left	accepted	accepted	R4	5.2.2	
 eta.structure-wrong-field	declTypeMismatch	rejected	R4	5.2.2	

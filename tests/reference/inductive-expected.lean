@@ -677,6 +677,26 @@ def reductions : List Red := [
     type := "∀ (a b : Nat) (h : a = b), @Eq.rec Nat a (fun _ _ => Nat) 5 b h = 5",
     value := "fun (a b : Nat) (h : a = b) => Eq.refl 5",
     lean := "declTypeMismatch", leanforth := "rejected", rule := "R2", task := "5.2.1c" },
+  -- K whose types agree only up to unfolding (`id b` is `b`), whose major premise's
+  -- type is the inductive type only after whnf (`id (a = a)`), and on `True`, a type
+  -- without indices.
+  { id := "k.eq-ends-defeq",
+    type := "∀ (b : Nat) (h : b = id b), @Eq.rec Nat b (fun _ _ => Nat) 5 (id b) h = 5",
+    value := "fun (b : Nat) (h : b = id b) => Eq.refl 5",
+    lean := "accepted", leanforth := "accepted", rule := "R2", task := "5.2.1c" },
+  { id := "k.type-through-definition",
+    type := "∀ (a : Nat) (h : id (a = a)), @Eq.rec Nat a (fun _ _ => Nat) 5 a h = 5",
+    value := "fun (a : Nat) (h : id (a = a)) => Eq.refl 5",
+    lean := "accepted", leanforth := "accepted", rule := "R2", task := "5.2.1c" },
+  { id := "k.true-variable-proof",
+    type := "∀ (h : True), @True.rec (fun _ => Nat) 5 h = 5",
+    value := "fun (h : True) => Eq.refl 5",
+    lean := "accepted", leanforth := "accepted", rule := "R2", task := "5.2.1c" },
+  -- K's types differ by a wrong right side: Eq.rec stays stuck on h.
+  { id := "k.eq-different-ends-wrong",
+    type := "∀ (a : Nat) (h : a = a + 1), @Eq.rec Nat a (fun _ _ => Nat) 5 (a + 1) h = 5",
+    value := "fun (a : Nat) (h : a = a + 1) => Eq.refl 5",
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "R2", task := "5.2.1c" },
   { id := "eta.structure",
     type := "∀ p : Nat × Nat, p = (p.1, p.2)", value := "fun (p : Nat × Nat) => Eq.refl p",
     lean := "accepted", leanforth := "accepted", rule := "R4", task := "5.2.2" },
