@@ -43,12 +43,19 @@ T{ lone-tail tr-rule? lone-tail tr-shown? cut-short tr-shown? -> 0 0 0 }T
 
 \ The helpers on bytes that are not UTF-8: tr-next takes all that is left
 \ as the code -1, which is banned and not seen; tr-some? ends at the text's
-\ end. tr-decode of a valid character.
+\ end. tr-next decodes a valid character (bytes.fs's utf8-decode).
 T{ lone-tail tr-next rot drop -> 0 -1 }T
 T{ -1 tr-banned? -1 tr-seen? -> true false }T
 T{ lone-tail ' tr-seen? tr-some? lone-tail ' tr-banned? tr-some? -> false true }T
-T{ accented 1 /string drop 2 tr-decode -> $301 }T
-T{ overridden 1 /string drop 3 tr-decode -> $202e }T
+T{ accented 1 /string tr-next nip nip overridden 1 /string tr-next nip nip -> $301 $202e }T
+
+\ tr-banned?, public: a code point no text may hold, at the ends of the
+\ ranges; what it bans is exactly what tr-rule? refuses in a text.
+T{ $0 tr-banned? $1f tr-banned? $20 tr-banned? $85 tr-banned? $a0 tr-banned? -> -1 -1 0 -1 0 }T
+T{ $200f tr-banned? $2010 tr-banned? $2028 tr-banned? $202e tr-banned? -> -1 0 -1 -1 }T
+T{ $bb tr-banned? $e007f tr-banned? $e0080 tr-banned? -> 0 -1 0 }T
+: agrees? ( code -- flag ) dup tr-banned? 0= swap rule? = ;
+T{ $85 agrees? $2066 agrees? $41 agrees? $feff agrees? $bb agrees? -> -1 -1 -1 -1 -1 }T
 
 cases-done
 bye

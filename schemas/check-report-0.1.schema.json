@@ -14,7 +14,7 @@
     "schema": {"const": "leanforth-check-report"},
     "schemaVersion": {"const": "0.1"},
     "export": {
-      "description": "The export's file name as the command line gave it, with the escapes of names (src/cli/name-text.fs): a backslash as \\\\, a character the text rule bans as \\u{X}, a byte that is not UTF-8 as \\x{X}.",
+      "description": "Escaped display text, not the file name's bytes: the export's file name as the command line gave it, with the escapes of names (src/cli/name-text.fs): a backslash as \\\\, a character the text rule bans and » as \\u{X}, a byte that is not UTF-8 as \\x{X}.",
       "type": "string",
       "minLength": 1
     },
@@ -166,7 +166,7 @@
       "enum": ["accepted", "rejected", "unknown", "unsupported", "invalid", "exhausted", "full", "not-checked"]
     },
     "name": {
-      "description": "A declaration's name as the term printer writes it.",
+      "description": "Escaped display text, not the name's bytes: a declaration's name as the text output shows it (src/cli/name-text.fs; docs/user/COMMAND_LINE.md, Names): Lean's Name.toString, with every component that is not an identifier between « and », and inside it what the text rule bans and » as \\u{X}, a byte that is not UTF-8 as \\x{X}, a backslash as \\\\. Two declarations can show the same text; index identifies a declaration.",
       "type": "string",
       "minLength": 1
     },
@@ -221,7 +221,7 @@
       "additionalProperties": false,
       "required": ["index", "name", "verdict", "fuel"],
       "properties": {
-        "index": {"description": "The declaration's position in the input, from 0.", "$ref": "#/$defs/count"},
+        "index": {"description": "The declaration's position in the input, from 0: what identifies it (its name is display text).", "$ref": "#/$defs/count"},
         "name": {"$ref": "#/$defs/name"},
         "verdict": {"$ref": "#/$defs/verdict"},
         "label": {"const": "experimental, not independently audited"},
@@ -298,7 +298,7 @@
             "additionalProperties": false,
             "required": ["index", "name", "fuel", "verdict"],
             "properties": {
-              "index": {"$ref": "#/$defs/count"},
+              "index": {"description": "The declaration's index in declarations.", "$ref": "#/$defs/count"},
               "name": {"$ref": "#/$defs/name"},
               "fuel": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
               "verdict": {"$ref": "#/$defs/verdict"}

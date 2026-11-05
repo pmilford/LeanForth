@@ -205,6 +205,17 @@ $f0 $f0 6 utf8-class!  $f1 $f3 7 utf8-class!  $f4 $f4 8 utf8-class!
     2dup utf8-length ?dup 0= if 2drop false exit then /string
   repeat 2drop true ;
 
+\ Decoding the valid sequence of n bytes at addr (n as utf8-length gave
+\ it, 1 to 4) into its code point: the lead byte's low bits, then six
+\ bits of each byte after it.
+\   s\" \xe2\x80\xae" drop 3 utf8-decode   \ $202E
+: utf8-mask ( n -- mask )
+  case 1 of $7f endof 2 of $1f endof 3 of $0f endof $07 swap endcase ;
+: utf8-lead ( addr n -- bits ) swap c@ swap utf8-mask and ;
+: utf8-tail-bits ( u addr -- u' ) c@ $3f and swap 6 lshift or ;
+: utf8-decode ( addr n -- u )
+  2dup utf8-lead -rot chars over + swap char+ ?do i utf8-tail-bits loop ;
+
 \ Encoding a code point u (at most $10FFFF and not a surrogate; the caller
 \ checks) as 1 to 4 bytes at addr.
 : utf8-size ( u -- n )
