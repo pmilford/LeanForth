@@ -20,6 +20,8 @@ Required of each row:
   - a row of a task done (DONE_TASKS): the table's `leanforth` column, except
     the rows of PENDING, which must give exactly the outcome recorded there
     (each with the reason and the task that will give the table's column);
+  - a row of REQUIRED (a later task's row that a part done decides): exactly
+    the table's column;
   - any other row: unsupported or unknown, or exactly the table's column;
     never another decided outcome, never accepted where the table does not
     say accepted.
@@ -56,11 +58,6 @@ PENDING = {
         " recursor's rules)"),
     "after.list-left-out-then-lookup-during-param-block": ("unknown",
         "as after.recursor-left-out-then-lookup-during-block. Closed by the same follow-up"),
-    "lit.div-by-zero": ("unknown",
-        "Nat.div's closure has let terms, checked since task 4.2.3; eq_of_heq then needs"
-        " K-like reduction of Eq.rec on a proof that is no constructor (Lean's"
-        " to_cnstr_when_K, diagnostic 81), not yet ported. Closed by task 5.2.1c (Eq, K)"),
-    "lit.gcd": ("unknown", "as lit.div-by-zero (eq_of_heq). Closed by the same task"),
     "lit.string-expansion": ("unsupported",
         "a string literal (U2): not needed by Nat.add_zero's closure, so left out of task"
         " 5.2.3. Closed by a string-literal follow-up of task 5.2.3 (L4)"),
@@ -83,6 +80,11 @@ UNCLOSED = {
     "quotinit.without-eq": "the quotient records' types name Eq, absent from the file."
         " Closed by task 5.2.6 (verdicts per declaration for a file not closed)",
 }
+# Rows of a later task that a part of it already done decides: each must give
+# exactly the table's column (id -> the part that decides it).
+REQUIRED = {row: "task 5.2.1c's K part (Lean's to_cnstr_when_K, iota.fs)" for row in (
+    "iota.eq-refl", "k.eq-variable-proof", "k.eq-different-ends", "k.eq-ends-defeq",
+    "k.type-through-definition", "k.true-variable-proof", "k.eq-different-ends-wrong")}
 OUTCOME = {"accepted": "ok"}
 
 
@@ -221,6 +223,8 @@ def main():
             ok = got == expected
             if case_id in PENDING and ok:
                 print(f"pending {case_id}: {got} ({PENDING[case_id][1]})")
+        elif case_id in REQUIRED:
+            ok = got == want
         elif case_id in UNCLOSED:
             ok = got in ("invalid", "unsupported", "unknown", want)
             print(f"unclosed {case_id}: {got} ({UNCLOSED[case_id]})")
