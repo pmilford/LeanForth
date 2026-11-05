@@ -359,8 +359,8 @@ T{ s" unit.punit-variables" verdict nip -> outcome-unknown 8 }T
 \ ---------------------------------------------------------------------------
 \ 2. blocks.ndjson: N, Both, Same, Either, Nat, the mutual Even/Odd, List
 \ and Point accepted, every member's slot final and accepted, with a
-\ handle and no axioms; the nested Tree unsupported (task 5.2.5b), and
-\ Point.x (a projection, task 5.2.2).
+\ handle and no axioms; the nested Tree unsupported (task 5.2.5b); and
+\ Point.x, a projection, accepted (task 5.2.2).
 : blocks ( -- c-addr u ) s" tests/reference/inductive/blocks.ndjson" ;
 : member-ok? ( d -- flag )
   dup lf-env-outcome ok? over lf-env-handle ok? nip nip and
@@ -370,7 +370,7 @@ T{ s" unit.punit-variables" verdict nip -> outcome-unknown 8 }T
   true -rot swap ?do i lf-env-outcome outcome-unsupported = and loop ;
 T{ blocks staged fuel checked -> outcome-ok }T
 T{ 0 18 all-ok? 18 25 all-ok? 25 29 all-ok? -> true true true }T
-T{ 29 33 all-unsupported? 33 36 all-ok? 36 37 all-unsupported? -> true true true }T
+T{ 29 33 all-unsupported? 33 36 all-ok? 36 37 all-ok? -> true true true }T
 finish
 
 \ ---------------------------------------------------------------------------
@@ -430,12 +430,12 @@ T{ ' n-not-rec 0 block-warned -> outcome-ok lf-warn-rec }T
 \ The shape (B0): a constructor naming another type is invalid.
 : induct ( -- ) 7 lf-input-name 5 lf-ict-induct cell! ;
 T{ ' induct 4 block-verdict drop -> outcome-invalid lf-diag-block-shape }T
-\ The audit: an unsafe member, a projection in a rule (U2), a loose
-\ variable (V1).
+\ The audit: an unsafe member, a literal in a constructor type (U2; a
+\ projection planted in a rule was the case until task 5.2.2 supported
+\ projections), a loose variable (V1).
 : unsafe ( -- ) lf-safety-unsafe 5 lf-input-decl lf-idecl-safety ! ;
 T{ ' unsafe 4 block-verdict drop -> outcome-unsupported lf-diag-unsupported-kind }T
-: projected ( -- ) 36 lf-input-decl lf-idecl-value @ 6 0 rhs ! ;
-T{ ' projected 4 block-verdict drop -> outcome-unsupported lf-diag-unsupported-form }T
+T{ s" mutual.even-odd" verdict -> outcome-unsupported lf-diag-unsupported-form 1 }T
 : a-variable ( -- node ) 0 begin dup lf-term-tag@ lf-tag-bvar <> while 1+ repeat ;
 : loose ( -- ) a-variable 6 0 rhs ! ;
 T{ ' loose 4 block-verdict drop -> outcome-invalid lf-diag-out-of-scope }T

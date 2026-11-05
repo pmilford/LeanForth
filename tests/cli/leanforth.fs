@@ -160,11 +160,12 @@ cli-no-manifest
 T{ wrong cli-check outcome-rejected tally outcome-ok tally -> 1 1 0 }T
 T{ postulate cli-check outcome-unsupported tally -> 2 1 }T
 T{ with-literal cli-check outcome-unsupported tally -> 2 1 }T
-\ Every record kind (tests/core/reexport/kinds.lean): 58 accepted, among
-\ them inductive blocks, Nat and List (plan task 5.2.1b) and what uses
-\ them; the rest unknown or unsupported (plan phases 4, 5).
+\ Every record kind (tests/core/reexport/kinds.lean): 67 accepted, among
+\ them inductive blocks, Nat and List (plan task 5.2.1b), projections
+\ (plan task 5.2.2) and what uses them; the rest unknown or unsupported
+\ (plan phases 4, 5).
 T{ kinds cli-check outcome-ok tally outcome-unknown tally outcome-unsupported tally
-  -> 2 58 5 43 }T
+  -> 2 67 8 31 }T
 T{ loose cli-check outcome-invalid tally -> 4 1 }T
 T{ s" tests/cli/leanforth.fs" cli-check -> 4 }T
 0 cli-fuel!
@@ -202,7 +203,7 @@ cli-options
 T{ inductive run-facts inductive run-facts -> 0 6 1184 0 6 1184 }T
 cli-no-manifest
 kinds run-facts constant kinds-fuel drop drop
-T{ kinds run-facts -> 2 58 kinds-fuel }T
+T{ kinds run-facts -> 2 67 kinds-fuel }T
 cli-options
 
 \ --record keeps the small path: an inductive type is refused while

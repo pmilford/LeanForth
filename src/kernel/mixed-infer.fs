@@ -105,6 +105,7 @@ require ../core/diagnostics.fs
 require ../core/generation-handles.fs
 require ../core/levels.fs
 require ../core/local-context.fs
+require ../core/projections.fs
 require ../core/tagged-sort-boundary.fs
 require ../core/terms.fs
 require ./env-signature.fs
@@ -677,7 +678,15 @@ defer lf-minfer-args-apart ( left right count frames -- ... frames next )
   lf-minfer-pi-parts 0= if nip lf-minfer-none r> 0 exit then
   r@ frame-save swap dup r@ frame-save swap r@ frame-save lf-term-count @ r@ frame-save
   r> ['] lf-minfer-app-arg lf-minfer-call ;
+\ A projection (plan task 5.2.2): the application of a projection leaf
+\ to its structure term (core/projections.fs), typed by Lean's infer_proj
+\ in infer-proj.fs, which sets this hook while loading; unknown before.
+: lf-minfer-proj-unset ( leaf e frames -- -1 status frames 0 )
+  nip nip outcome-unknown no-result rot 0 ;
+defer lf-minfer-proj ( leaf e frames -- ... frames next )
+' lf-minfer-proj-unset is lf-minfer-proj
 : lf-minfer-app ( function argument frames -- ... frames next )
+  2 pick lf-proj-leaf? if lf-minfer-proj exit then
   tuck frame-save ['] lf-minfer-app-fn lf-minfer-call ;
 
 \ Source nodes lie below the term count at the start; inference that runs

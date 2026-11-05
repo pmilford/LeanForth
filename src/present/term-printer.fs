@@ -368,12 +368,20 @@ defer lf-pp-lam-groups ( node frames -- ... frames next )
 \ arm for each other tag (read as a table) gives the visit's first step.
 : lf-pp-applied-tag? ( tag -- flag )
   dup lf-tag-app = over lf-tag-bvar = or swap lf-tag-constant = or ;
+\ A projection leaf (core/projections.fs; plan task 5.2.2) prints as its
+\ structure's name and Lean's field number from 1, the head of an
+\ application to the projected term: Prod.1 p for Lean's p.1. Not Lean's
+\ syntax yet; the printer is untrusted presentation.
+: lf-pp-proj-step ( term pos frames -- outcome frames 0 )
+  >r drop dup lf-proj-name lf-pp-constant s" ." lf-pp-emit lf-proj-idx 1+ lf-pp-number
+  outcome-ok r> 0 ;
 : lf-pp-tag-step ( tag -- xt )
   dup lf-pp-applied-tag? if drop ['] lf-pp-app exit then
   case lf-tag-sort of ['] lf-pp-concrete-step endof
     lf-tag-symbolic-sort of ['] lf-pp-symbolic endof
     lf-tag-lam of ['] lf-pp-lam endof
     lf-tag-pi of ['] lf-pp-pi endof
+    lf-tag-proj of ['] lf-pp-proj-step endof
     ['] lf-pp-invalid-step swap endcase ;
 : lf-pp-term ( term pos frames -- ... frames next )
   2 pick lf-pp-tag if lf-pp-tag-step else ['] lf-pp-invalid-step then execute ;

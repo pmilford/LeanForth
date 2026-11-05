@@ -22,6 +22,7 @@ require ./diagnostics.fs
 require ./generation-handles.fs
 require ./level-scope.fs
 require ./local-context.fs
+require ./projections.fs
 require ./symbolic-session.fs
 require ./tagged-sort-boundary.fs
 require ./terms.fs
@@ -77,7 +78,8 @@ lf-walk-room context-walk: lf-cterm-walker
   dup lf-term-binary-tag? if drop walk-children exit then
   case lf-tag-constant of lf-cterm-reference endof
     lf-tag-bvar of lf-repr-bvar endof  lf-tag-fvar of lf-cterm-fvar endof
-    lf-tag-symbolic-sort of lf-cterm-sort endof walk-bad-tag endcase ;
+    lf-tag-symbolic-sort of lf-cterm-sort endof
+    lf-tag-proj of lf-proj-check endof walk-bad-tag endcase ;
 : lf-cterm-visit ( walk -- outcome ) lf-terms ['] lf-cterm-dispatch walk-visit ;
 
 \ Validate a live root and its reachable mixed symbolic graph. Each term and

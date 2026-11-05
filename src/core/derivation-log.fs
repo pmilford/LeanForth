@@ -253,8 +253,14 @@ lf-log-indexed constant lf-log-unknown
     lf-tag-constant of lf-rule-constant endof
     lf-tag-app of lf-rule-application endof lf-tag-lam of lf-rule-lambda endof
     lf-tag-pi of lf-rule-pi endof lf-rule-form swap endcase ;
+\ A projection (core/projections.fs; plan task 5.2.2), the application of
+\ a projection leaf, is typed by infer_proj, not as an application: its
+\ step has the rule form, whose premises are not counted (no rule of its
+\ own yet).
+: lf-log-proj-app? ( tag first -- flag ) swap lf-tag-app = if lf-proj-leaf? else drop false then ;
 : lf-log-node-rule ( node -- rule )
-  lf-term-read if 2drop lf-log-tag-rule else lf-rule-form then ;
+  lf-term-read 0= if lf-rule-form exit then
+  drop 2dup lf-log-proj-app? if 2drop lf-rule-form exit then drop lf-log-tag-rule ;
 
 \ The options (L2), shared and read-only during a run: the level of every
 \ check of the checked environment, the limits (at most the capacities)
@@ -798,6 +804,7 @@ create lf-log-level-copier
   lf-log-cref-copy if 0 true else drop false then ;
 : lf-log-term-leaf ( tag first second -- tag first' second' true | false )
   2 pick case lf-tag-sort of true endof lf-tag-bvar of true endof
+    lf-tag-proj of true endof
     lf-tag-symbolic-sort of lf-log-sort-level endof lf-tag-fvar of lf-log-fvar endof
     lf-tag-constant of lf-log-cref endof >r 2drop lf-log-unreadable r> endcase ;
 create lf-log-term-copier

@@ -140,12 +140,19 @@ lf-level-walk-room context-walk2: lf-mcompare-level-walker
 \ when their numbers are (one node per entry of the local context). Each
 \ visit costs one unit of fuel.
 : lf-mcompare-sort ( a b walk -- outcome ) drop lf-mcompare-firsts lf-mcompare-level ;
+\ Two projection leaves (core/projections.fs): the same field index, then
+\ the same structure name (Lean's proj: idx, then struct name).
+: lf-mcompare-seconds? ( a b -- flag ) lf-term-second@ swap lf-term-second@ = ;
+: lf-mcompare-proj ( a b walk -- outcome )
+  >r 2dup lf-mcompare-seconds? 0= if 2drop r> drop outcome-unknown exit then
+  lf-mcompare-firsts r> lf-mcompare-names ;
 : lf-mcompare-dispatch ( a b walk tag -- outcome )
   dup lf-term-binary-tag? if drop lf-mcompare-children exit then
   case lf-tag-constant of lf-mcompare-constant endof
     lf-tag-bvar of lf-mcompare-same-first endof
     lf-tag-fvar of lf-mcompare-same-first endof
-    lf-tag-symbolic-sort of lf-mcompare-sort endof walk-bad-tag endcase ;
+    lf-tag-symbolic-sort of lf-mcompare-sort endof
+    lf-tag-proj of lf-mcompare-proj endof walk-bad-tag endcase ;
 : lf-mcompare-visit ( walk -- outcome )
   lf-terms ['] lf-mcompare-dispatch lf-mcompare-visit-pair ;
 : lf-mcompare-run ( left right -- outcome )

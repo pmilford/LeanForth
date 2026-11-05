@@ -42,7 +42,8 @@ require ../core/terms.fs
   lf-term-tag@ case lf-tag-symbolic-sort of lf-head-sort endof
     lf-tag-pi of lf-head-pi endof  lf-tag-lam of lf-head-lam endof
     lf-tag-bvar of lf-head-var endof  lf-tag-fvar of lf-head-var endof
-    lf-tag-constant of lf-head-constant endof  lf-head-none swap endcase ;
+    lf-tag-constant of lf-head-constant endof
+    lf-tag-proj of lf-head-constant endof  lf-head-none swap endcase ;
 : lf-mhead-applied ( kind -- kind' )
   case lf-head-sort of lf-head-applied endof
     lf-head-pi of lf-head-applied endof

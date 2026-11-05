@@ -40,7 +40,8 @@ lf-walk-room context-walk2: lf-cts-walker
   dup lf-term-binary-tag? if lf-cts-binary exit then
   case lf-tag-bvar of lf-cts-bvar endof
     lf-tag-symbolic-sort of lf-cts-leaf endof
-    lf-tag-constant of lf-cts-leaf endof walk-bad-tag endcase ;
+    lf-tag-constant of lf-cts-leaf endof
+    lf-tag-proj of lf-cts-leaf endof walk-bad-tag endcase ;
 : lf-cts-visit ( walk -- outcome ) lf-terms ['] lf-cts-dispatch walk-visit ;
 : lf-cts-run ( root depth -- outcome )
   ['] lf-cts-visit lf-cts-walker walk-run-pair lf-cts-walker lf-cts-site lf-diag-walk ;

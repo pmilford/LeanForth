@@ -340,15 +340,16 @@ the same check is
 `s" tests/cli/inductive.ndjson" cli-check`, which prints the lines above
 and leaves 0. An export that uses every kind of record Lean writes,
 `tests/core/reexport/kinds.ndjson`, shows the mix a real library gives
-today: blocks such as `Prod`, `Eq` and `Iff`, and recursive types such
-as `Nat` and `List` (plan task 5.2.1b), are accepted; mutual and nested
-types, literals, projections, axioms, opaque declarations, quotients and
-what uses them are not yet:
+today: blocks such as `Prod`, `Eq` and `Iff`, recursive types such as
+`Nat` and `List` (plan task 5.2.1b), and projections (plan task 5.2.2)
+are accepted; nested types, literals, axioms, opaque declarations,
+quotients and what uses them are not yet, and a comparison that needs
+unfolding is *unknown*:
 
 ```console
 $ bin/leanforth check --no-manifest tests/core/reexport/kinds.ndjson | tail -n 2; echo "exit status ${PIPESTATUS[0]}"
-106 declarations: 58 accepted, 5 unknown, 43 unsupported
-accepted: 58 (experimental, not independently audited); axioms: none
+106 declarations: 67 accepted, 8 unknown, 31 unsupported
+accepted: 67 (experimental, not independently audited); axioms: none
 exit status 2
 ```
 

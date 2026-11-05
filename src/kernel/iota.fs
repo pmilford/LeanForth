@@ -39,6 +39,7 @@ require ../lib/lib.fs
 require ../core/input.fs
 require ../core/name-equal.fs
 require ../core/names.fs
+require ../core/projections.fs
 require ../core/terms.fs
 require ./environment.fs
 require ./inductive-block.fs
@@ -82,13 +83,16 @@ require ./whnf.fs
   dup lf-whnf-lookup ok-then? 0= if nip no-result exit then lf-iota-of-slot ;
 
 \ Whether node is a constructor application (is_constructor_app): its
-\ head a constant that a usable slot holds as a constructor.
+\ head a constant that a usable slot holds as a constructor, whose
+\ declaration is given (0 for none).
+: lf-iota-ctor ( node -- decl|0 outcome )
+  lf-whnf-head dup lf-whnf-const? 0= if drop 0 outcome-ok exit then
+  lf-whnf-lookup ok-then? 0= if 0 swap exit then
+  dup 0< if drop 0 outcome-ok exit then
+  lf-whnf-decl ok-then? 0= if 0 swap exit then
+  dup lf-idecl-kind @ lf-kind-constructor = 0= if drop 0 then outcome-ok ;
 : lf-iota-ctor? ( node -- flag outcome )
-  lf-whnf-head dup lf-whnf-const? 0= if drop false outcome-ok exit then
-  lf-whnf-lookup ok-then? 0= if false swap exit then
-  dup 0< if drop false outcome-ok exit then
-  lf-whnf-decl ok-then? 0= if false swap exit then
-  lf-idecl-kind @ lf-kind-constructor = outcome-ok ;
+  lf-iota-ctor ok-then? if 0<> outcome-ok else false swap then ;
 
 \ A major premise that is no constructor application. Its type's name is
 \ the head of the recursor type's binder major_idx (get_major_induct,
@@ -173,7 +177,36 @@ require ./whnf.fs
   ok-then? 0= if nip nip r> lf-whnf-failed exit then
   r@ lf-iota-reduce r> 0 ;
 : lf-iota-none ( app frames decl -- -1 ok frames 0 ) drop nip -1 outcome-ok rot 0 ;
+
+\ ---------------------------------------------------------------------------
+\ Projection reduction (plan task 5.2.2, ADR 0015 J1; reduce_proj
+\ 444-454, reduce_proj_core 420-441, from whnf_core 504-510): a spine
+\ whose head is a projection leaf (core/projections.fs) has its first
+\ argument e put in Lean's whnf; a constructor application of the leaf's
+\ structure with more than numParams + i arguments gives argument
+\ numParams + i, the field, applied to the spine's arguments after e, and
+\ whnf_core goes on with that; anything else leaves the spine as it is.
+\ Lean's whnf_core with cheap_proj puts e in whnf_core only; this hook
+\ has no such flag and always uses whnf.
+: lf-iota-field-of ( c k -- field|-1 )
+  over lf-iota-n 2dup < if swap lf-iota-arg else 2drop drop -1 then ;
+: lf-iota-projected-to ( leaf c decl -- field|-1 )
+  dup lf-idecl-data lf-ict-induct lf-more-field 3 pick lf-proj-name lf-name-same?
+  0= if 2drop drop -1 exit then
+  lf-idecl-data lf-ict-params lf-more-field rot lf-proj-idx + lf-iota-field-of ;
+: lf-iota-proj-back ( c outcome frames -- ... frames next )
+  >r r@ frame-restore -rot ok-then? 0= if nip r> lf-whnf-failed exit then
+  dup lf-iota-ctor ok-then? 0= if nip nip r> lf-whnf-failed exit then
+  ?dup 0= if 2drop -1 outcome-ok r> 0 exit then
+  >r over lf-whnf-head swap r> lf-iota-projected-to
+  dup 0< if 2drop -1 outcome-ok r> 0 exit then
+  swap dup lf-iota-n 1- lf-iota-extra r> 0 ;
+: lf-iota-proj ( app frames -- ... frames next )
+  over over frame-save swap dup lf-iota-n 0 lf-iota-arg swap
+  ['] lf-iota-proj-back lf-whnf-call ;
+
 : lf-iota ( app frames -- ... frames next )
+  over lf-whnf-head lf-proj-leaf? if lf-iota-proj exit then
   over lf-iota-recursor ok-then? 0= if rot drop swap lf-whnf-failed exit then
   dup 0< if lf-iota-none exit then
   2 pick lf-iota-n over lf-iota-major-idx > 0= if lf-iota-none exit then

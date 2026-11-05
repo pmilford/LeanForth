@@ -78,6 +78,7 @@ require ./env-signature.fs
 require ./generated-recursor.fs
 require ./inductive-block.fs
 require ./inductive-recursor.fs
+require ./infer-proj.fs
 require ./iota.fs
 require ./level-geq.fs
 require ./level-make.fs
