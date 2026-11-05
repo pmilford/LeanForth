@@ -45,27 +45,31 @@ DONE_TASKS = {"5.2.1a", "5.2.1b"}
 PENDING = {
     "pos.through-definition": ("unknown",
         "positivity needs id (Bad -> Nat) unfolded by whnf: K1; twin"
-        " pos.negative-through-beta. Closed by task 4.2.2 (whnf with delta)"),
+        " pos.negative-through-beta. Closed when check-block.fs puts it in whnf.fs's"
+        " whnf (task 4.2.2c's port, on main; check-block still uses its beta-only"
+        " stand-in lf-blk-left?, which task 5.2.1b replaces)"),
     "pos.erased-by-definition": ("unknown",
         "positivity needs Function.const Type Nat Ok unfolded by whnf: K1; twin"
-        " ind.erased-by-beta. Closed by task 4.2.2 (whnf with delta)"),
+        " ind.erased-by-beta. Closed when check-block.fs puts it in whnf.fs's whnf"
+        " (task 4.2.2c's port; the stand-in lf-blk-left? goes with task 5.2.1b)"),
     "iota.nat-literal-major": ("unsupported",
         "a theorem with Nat literals (U2, task 5.2.3) whose check needs iota on Nat.rec"
-        " (R1 with L2, in whnf_core: task 4.2.2c's hook, then 5.2.1b's iota)."
-        " Closed by tasks 4.2.2c and 5.2.3"),
+        " (R1 with L2, in whnf_core behind whnf.fs's hook lf-whnf-iota, task 4.2.2c)."
+        " Closed by tasks 5.2.1b (iota behind the hook) and 5.2.3"),
     "iota.nat-literal-major-wrong": ("unsupported",
-        "as iota.nat-literal-major. Closed by tasks 4.2.2c and 5.2.3"),
+        "as iota.nat-literal-major. Closed by tasks 5.2.1b and 5.2.3"),
     "iota.stuck-on-variable": ("unsupported",
         "a Nat literal (U2, task 5.2.3); Lean's iota on a variable major is stuck (R1)."
-        " Closed by tasks 4.2.2c and 5.2.3"),
+        " Closed by tasks 5.2.1b and 5.2.3"),
     "params.constructor-binder-defeq": ("unknown",
-        "C2 needs id Type unfolded: K1; twin params.constructor-binder-beta."
-        " Closed by task 4.2.2 (unfolding, delta)"),
+        "C2 needs id Type unfolded by Lean's lazy delta reduction in is_def_eq: K1;"
+        " twin params.constructor-binder-beta. Closed by task 4.2.2d"),
     "after.redex-type-left-out-then-use-rec": ("unknown",
         "IE.U2's type is a Sort only after whnf, so its block left no recipe of the"
         " generated recursor (ADR 0015 decision 12): a use of IE.U2.rec is unknown"
-        " (diagnostic 77); twin after.unit-left-out-then-use-rec. Closed by task 4.2.2"
-        " (whnf and unfolding at a lookup, steps 4.2.2b-e)"),
+        " (diagnostic 77); twin after.unit-left-out-then-use-rec. Closed when the"
+        " block's telescope is put in whnf.fs's whnf (task 4.2.2c's port; check-block"
+        " and generated-recursor.fs, task 5.2.1b's switch from lf-blk-left?)"),
 }
 # Rows of later tasks whose file refers to a constant it does not declare,
 # which the importer refuses (invalid) before any check, where Lean rejects

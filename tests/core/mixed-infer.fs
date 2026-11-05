@@ -92,7 +92,8 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
 \ since ADR 0011 Amendment 1 (structural level equality costs nothing), 94
 \ since free variables (plan task 4.2.2a: no shift for a variable's type,
 \ no audit when an application's type is instantiated, a chain of lambdas
-\ closed once).
+\ closed once), 84 since conversion is Lean's is_def_eq (plan task
+\ 4.2.2b: equal arguments are decided by Lean's == at once).
 \ fun (A : Sort u) => id (A -> A) (fun (x : A) => x): the inner lambda,
 \ an argument, begins a chain of lambdas under A's binder, so its type is
 \ closed there (A's bound variable becomes A's free variable; plan task
@@ -105,7 +106,7 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
   4 h 50000 lf-mixed-convert outcome-ok <> abort" chain argument type" ;
 : poly-case ( -- )
   setup 9 50000 infer outcome-ok expect-status
-  lf-minfer-fuel @ 49906 <> abort" poly fuel"
+  lf-minfer-fuel @ 49916 <> abort" poly fuel"
   4 h 50000 lf-mixed-convert outcome-ok <> abort" poly type" ;
 : invalid-argument-case ( -- )
   \ id.{u} (Sort u): the argument has type Sort (u+1) where id.{u} wants a

@@ -1,101 +1,93 @@
-\ Untrusted conservative beta conversion for mixed terms. This is not a
-\ trusted kernel or proof checker. Both inputs are audited; beta
-\ normalization and comparison share fuel. Sorts use a conservative symbolic
-\ level comparator. Other differences are unknown. The audit checks universe
-\ parameter scope, not term binder scope or typing; callers must establish
-\ those independently before using a conversion result.
-\ State: one paired walk record, lf-mconvert-walker, whose items are a left
-\ and a right term and whose argument cell says whether level comparisons
-\ keep their fuel when undecided, a member of the checker context
-\ (lib/context.fs); reduction and level comparison run in mixed-beta and
-\ level-compare with this walk's fuel. Single-threaded within one context;
-\ no raw or concurrent mutation is safe.
+\ Conversion of mixed terms: Lean's is_def_eq as far as LeanForth ports
+\ it (defeq.fs: quick_is_def_eq, is_def_eq_binding, whnf_core and the
+\ steps that can only say yes; ADR 0014 Q1, plan task 4.2.2b), after a
+\ complete audit of both graphs. Untrusted: not a trusted kernel or proof
+\ checker. The audit checks universe parameter scope, not term binder
+\ scope or typing; callers must establish those independently before
+\ using a conversion result.
+\ Answers: ok when Lean's is_def_eq says yes; unknown when the port
+\ cannot decide or when it says Lean's no, which conversion still
+\ reports as unknown -- ADR 0011's rejection analysis (mixed-infer.fs)
+\ decides rejections until plan task 4.2.2d retires it, with the port's
+\ no as its cross-check (lf-mconvert-apart); invalid, exhausted or full
+\ for a failure. No failure ever authorizes equality.
+\ Fuel: one budget for the audit and the comparison. lf-mixed-convert
+\ leaves no fuel after any outcome but ok; lf-mixed-convert-keeping, which
+\ mixed-infer uses, keeps what an unknown comparison left, so that the
+\ rejection analysis can go on with it.
+\ State: one paired walk record, lf-mconvert-walker (the audit, and the
+\ fuel left), one frames record, lf-mconvert-frames (the comparison), and
+\ one module record, lf-mconvert-state (whether the comparison may keep
+\ its fuel when unknown, and whether the port said no), all members of the
+\ checker context (lib/context.fs). Single-threaded within one context;
+\ no raw or concurrent mutation is safe; a comparison cannot run inside
+\ another (the frames record is busy: invalid).
 
 require ../lib/lib.fs
+require ../core/constant-references.fs
 require ../core/constant-term-boundary.fs
 require ../core/derivation-log.fs
 require ../core/diagnostics.fs
 require ../core/levels.fs
 require ../core/local-context.fs
-require ../core/tagged-sort-boundary.fs
 require ../core/terms.fs
-require ./level-compare.fs
-require ./mixed-beta.fs
+require ./defeq.fs
 require ./mixed-compare.fs
 
 lf-walk-room context-walk2: lf-mconvert-walker
+begin-structure /lf-mcvs
+  field: lf-mcvs-keep       \ true: an unknown comparison keeps its fuel
+  field: lf-mcvs-apart      \ true: the last comparison's port said Lean's no
+end-structure
+/lf-mcvs context-record: lf-mconvert-state
+\ The frames' visitor is never run: every visit of the port is opened
+\ with frame-open, each with its own first step (defeq.fs, whnf.fs).
+: lf-mconvert-no-visit ( x frames -- -1 outcome frames 0 )
+  nip outcome-invalid no-result rot 0 ;
+' lf-mconvert-no-visit context-frames: lf-mconvert-frames
 
-\ Fuel left after a conversion; mixed-infer continues with it. Negative
-\ fuel and a failed audit leave zero.
+\ Fuel left after a conversion; mixed-infer continues with it.
 : lf-mconvert-fuel ( -- addr ) lf-mconvert-walker walk-fuel ;
+: lf-mconvert-keep ( -- addr ) lf-mconvert-state lf-mcvs-keep ;
+\ Whether the last conversion's port answered Lean's no (it reported
+\ unknown).
+: lf-mconvert-apart ( -- addr ) lf-mconvert-state lf-mcvs-apart ;
 
-\ Reduce one node to weak head normal form, or compare two levels, with the
-\ walk's fuel, continuing with the fuel each leaves. A node's identity is
-\ checked first; no failure can authorize equality.
-: lf-mconvert-beta ( node identity -- node' outcome )
-  lf-mconvert-fuel @ lf-mixed-beta lf-mbeta-fuel @ lf-mconvert-fuel ! nip outcome-sane ;
-: lf-mconvert-whnf ( node -- node' outcome )
-  dup lf-term-identity if lf-mconvert-beta else drop -1 outcome-invalid then ;
-: lf-mconvert-keep ( -- addr ) lf-mconvert-walker walk-arg ;
-: lf-mconvert-levels ( left right -- outcome )
-  lf-mconvert-fuel @ lf-mconvert-keep @ lf-level-compare-run
-  lf-lcmp-fuel @ lf-mconvert-fuel ! outcome-sane ;
+\ The port on the walk's fuel left after the audits: yes is ok, no is
+\ unknown with lf-mconvert-apart set, recorded as undecided with both
+\ terms (unless something more specific was recorded first).
+: lf-mconvert-no ( left right -- outcome )
+  lf-dq-undecided true lf-mconvert-apart ! outcome-unknown ;
+: lf-mconvert-answer ( left right flag outcome -- outcome )
+  dup ok? if drop if 2drop outcome-ok else lf-mconvert-no then else nip nip nip then ;
+: lf-mconvert-defeq ( left right -- outcome )
+  lf-mconvert-fuel @ lf-mconvert-frames frame-budget 0= if 2drop outcome-invalid exit then
+  2dup lf-mconvert-frames lf-defeq-on lf-mconvert-answer
+  lf-mconvert-frames frame-fuel @ lf-mconvert-fuel ! ;
 
-\ Reduce the pair being visited in place, left first.
-: lf-mconvert-reduce ( addr -- outcome ) dup @ lf-mconvert-whnf >r swap ! r> ;
-: lf-mconvert-reduce-pair ( walk -- outcome )
-  dup walk-node lf-mconvert-reduce ok-then? if walk-context lf-mconvert-reduce then ;
-
-\ Compare reduced heads. Symbolic Sorts need equal second fields and levels
-\ that compare equal; bound variables, and free variables (by number, one
-\ node per local-context entry), must match exactly; constants need equal
-\ arity, names and levels; binary nodes compare both children pairs, each
-\ reduced when visited. Other constructors are invalid; distinct valid
-\ syntax is unknown, not a proof of inequality.
-: lf-mconvert-sort ( a b walk -- outcome )
-  drop 2dup lf-mcompare-seconds = if lf-mcompare-firsts lf-mconvert-levels
-  else 2drop outcome-invalid then ;
-: lf-mconvert-bvar ( a b walk -- outcome )
-  drop 2dup lf-mcompare-seconds = >r lf-mcompare-firsts = r> and lf-mcompare-verdict ;
-: lf-mconvert-args ( slot slot -- outcome )
-  lf-mcompare-arrays 0 ?do 2dup i lf-mcompare-arg lf-mconvert-levels
-    dup ok? 0= if nip nip unloop exit then drop loop 2drop outcome-ok ;
-: lf-mconvert-constant ( a b walk -- outcome )
-  >r lf-mcompare-crefs r> lf-mcompare-heads if lf-mconvert-args then ;
-: lf-mconvert-dispatch ( a b walk tag -- outcome )
-  dup lf-term-binary-tag? if drop lf-mcompare-children exit then
-  case lf-tag-symbolic-sort of lf-mconvert-sort endof
-    lf-tag-constant of lf-mconvert-constant endof  lf-tag-bvar of lf-mconvert-bvar endof
-    lf-tag-fvar of lf-mconvert-bvar endof walk-bad-tag endcase ;
-\ Each visit costs one unit of fuel before its reductions. The reduced
-\ heads along one path are distinct term nodes (a reduct holds only nodes
-\ below the redex or new ones), so the work stack, with at most one pending
-\ pair per node on the path, outgrows its room only when the term capacity
-\ is raised above it; a full stack is full, as the former frame bound was.
-: lf-mconvert-visit ( walk -- outcome )
-  dup lf-mconvert-reduce-pair ok-then?
-  if lf-terms ['] lf-mconvert-dispatch lf-mcompare-visit-pair then ;
-
-\ Compare after both audits; the term and level counts are restored on every
-\ result, discarding all temporary allocations (serials never rewind).
-: lf-mconvert-marks ( -- terms levels ) lf-term-count @ lf-level-count @ ;
-: lf-mconvert-restore ( terms levels -- ) lf-level-count ! lf-term-count ! ;
-: lf-mconvert-site ( -- site ) c" mixed-convert lf-mixed-convert" ;
-: lf-mconvert-walk ( left right -- outcome )
-  ['] lf-mconvert-visit lf-mconvert-walker walk-run-pair
-  lf-mconvert-walker lf-mconvert-site lf-diag-walk ;
+\ Compare after both audits; the term, level and reference counts are
+\ restored on every result, and the local context entries of the free
+\ variables the comparison made dropped, discarding all temporary
+\ allocations (serials never rewind).
+: lf-mconvert-marks ( -- terms levels crefs )
+  lf-term-count @ lf-level-count @ lf-cref-count @ ;
+: lf-mconvert-restore ( terms levels crefs -- )
+  lf-cref-count ! lf-level-count ! dup lf-term-count ! lf-lctx-drop ;
 : lf-mconvert-run ( left right -- outcome )
-  lf-mconvert-marks 2>r lf-mconvert-walk 2r> lf-mconvert-restore ;
+  lf-mconvert-marks 2>r >r lf-mconvert-defeq r> 2r> lf-mconvert-restore ;
+\ An outcome but ok leaves no fuel, unless the comparison keeps it (an
+\ unknown one, lf-mixed-convert-keeping).
+: lf-mconvert-kept? ( outcome -- flag ) outcome-unknown = lf-mconvert-keep @ and ;
+: lf-mconvert-settle ( outcome -- outcome )
+  dup ok? over lf-mconvert-kept? or 0= if 0 lf-mconvert-fuel ! then ;
 
 \ ( left left-id right right-id fuel -- status )
 \ Validate both complete graphs, then compare; restore all temporary term
 \ allocations on every result. Failed preflight conservatively leaves zero fuel.
-\ lf-mixed-convert-keeping differs only in the fuel left after an undecided
-\ level comparison (lf-level-compare-keeping): mixed-infer uses it, so that
-\ its rejection analysis (ADR 0011) can go on after an undecided step.
 : lf-mconvert-pass ( left lid right rid fuel -- status )
+  false lf-mconvert-apart !
   lf-mconvert-walker tuck walk-budget 0= if lf-mcompare-refused exit then
-  lf-mcompare-roots ok-then? if lf-mconvert-run else nip then ;
+  lf-mcompare-roots ok-then? if lf-mconvert-run else nip then lf-mconvert-settle ;
 \ The derivation log (ADR 0013): with it on, a conversion is one defeq
 \ step of left and right; both paths run the same pass.
 : lf-mconvert-logged ( left lid right rid fuel -- status )
@@ -106,3 +98,8 @@ lf-walk-room context-walk2: lf-mconvert-walker
   false lf-mconvert-keep ! lf-mconvert-checked ;
 : lf-mixed-convert-keeping ( left lid right rid fuel -- status )
   true lf-mconvert-keep ! lf-mconvert-checked ;
+
+\ Recovery after a THROW out of a conversion: its records idle again
+\ (the caller discards what it made, as for mixed-beta.fs's passes).
+: lf-mixed-convert-reset ( -- )
+  lf-mconvert-frames frame-reset lf-open-reset lf-defeq-reset ;
