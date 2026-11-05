@@ -117,6 +117,7 @@ require ../lib/lib.fs
 87 constant lf-diag-proof-pending      \ K2: the left term (a proof), the right
 88 constant lf-diag-eta-pending        \ K3: the lambda, the other term
 89 constant lf-diag-structure-pending  \ structure eta or unit-like: left, right
+90 constant lf-diag-not-defeq          \ rejected (Lean's no): left, right
 
 begin-structure /lf-diag
   field: lf-diag-code       \ reason code; lf-diag-none while clear
@@ -287,6 +288,7 @@ create lf-diag-catalogue
   lf-diag-eta-pending s" undecided: eta may decide (K3)" lf-diag-entry,
   lf-diag-structure-pending
     s" undecided: structure eta or a unit-like type may decide" lf-diag-entry,
+  lf-diag-not-defeq s" rejected: not definitionally equal" lf-diag-entry,
   lf-diag-none s" unknown code" lf-diag-entry,
 : lf-diag-end? ( code entry -- flag ) lf-diag-entry-code tuck = swap lf-diag-none = or ;
 \ The entry of code, or the last entry.

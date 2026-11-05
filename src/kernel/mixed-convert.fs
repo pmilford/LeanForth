@@ -48,12 +48,15 @@ end-structure
 : lf-mconvert-fuel ( -- addr ) lf-mconvert-walker walk-fuel ;
 : lf-mconvert-keep ( -- addr ) lf-mconvert-state lf-mcvs-keep ;
 \ The port on the walk's fuel left after the audits: yes is ok, no is
-\ rejected (recorded by the caller, which knows the step).
-: lf-mconvert-answer ( flag outcome -- outcome )
-  dup ok? if drop if outcome-ok else outcome-rejected then else nip then ;
+\ rejected, recorded as not definitionally equal with both terms (a
+\ caller that knows the step records its own rule in its place).
+: lf-mconvert-no ( left right -- outcome )
+  c" mixed-convert lf-mixed-convert" lf-diag-not-defeq lf-diag-note outcome-rejected ;
+: lf-mconvert-answer ( left right flag outcome -- outcome )
+  dup ok? if drop if 2drop outcome-ok else lf-mconvert-no then else nip nip nip then ;
 : lf-mconvert-defeq ( left right -- outcome )
   lf-mconvert-fuel @ lf-mconvert-frames frame-budget 0= if 2drop outcome-invalid exit then
-  lf-mconvert-frames lf-defeq-on lf-mconvert-answer
+  2dup lf-mconvert-frames lf-defeq-on lf-mconvert-answer
   lf-mconvert-frames frame-fuel @ lf-mconvert-fuel ! ;
 
 \ Compare after both audits; the term, level and reference counts are

@@ -58,8 +58,8 @@ T{ 0 h 1 h 1000 lf-mixed-compare -> outcome-ok }T
 T{ 0 h 1 h convert-fuel -> outcome-ok 990 }T
 T{ 4 h 5 h convert-fuel -> outcome-ok 987 }T
 T{ 8 h 8 h convert-fuel -> outcome-ok 996 }T
-T{ 0 h 3 h convert-fuel -> outcome-unknown 991 }T
-T{ 8 h 9 h convert-fuel -> outcome-unknown 992 }T
+T{ 0 h 3 h convert-fuel -> outcome-unknown 990 }T
+T{ 8 h 9 h convert-fuel -> outcome-unknown 991 }T
 T{ lf-mcompare-fuel @ -> 995 }T
 T{ 0 h 3 h 1000 lf-mixed-convert lf-mconvert-fuel @ -> outcome-unknown 0 }T
 
@@ -129,11 +129,10 @@ name-x @ 1 ref-term ;
 universe-fixtures
 T{ 28 h 29 h 20000 lf-mixed-convert -> outcome-ok }T
 \ Lean's no (Sort 0 against Sort 1, quick_is_def_eq on their levels) is
-\ reported unknown, with lf-mconvert-apart set, until plan task 4.2.2d
-\ lets it reject (ADR 0011's analysis decides rejections meanwhile).
+\ rejected since plan task 4.2.2d; the caller records its step.
 : sort-zero ( -- node identity ) 0 dup lf-level-identity 0= abort" zero" lf-hterm-sort 0= abort" sort" ;
-T{ sort-zero 6 h 20000 lf-mixed-convert lf-mconvert-apart @ -> outcome-unknown true }T
-T{ 6 h 7 h 20000 lf-mixed-convert lf-mconvert-apart @ -> outcome-ok false }T
+T{ sort-zero 6 h 20000 lf-mixed-convert -> outcome-rejected }T
+T{ 6 h 7 h 20000 lf-mixed-convert -> outcome-ok }T
 \ A bad discarded argument is audited even below a redex on either side.
  : malformed-fixture ( -- )
 0 lf-term-symbolic-sort 0= abort" malformed sort" drop
@@ -159,6 +158,6 @@ T{ lf-term-serial @ -> serial-start @ }T
   0 h 0 h lf-hterm-pi save 3 h 3 h lf-hterm-pi save 4 h 4 h lf-hterm-pi save
   1 h 5 h lf-hterm-app save 2 h 5 h lf-hterm-app save ;
 order-setup
-T{ 6 h 7 h 1000 lf-mixed-convert-keeping lf-mconvert-fuel @ -> outcome-unknown 935 }T
+T{ 6 h 7 h 1000 lf-mixed-convert-keeping lf-mconvert-fuel @ -> outcome-unknown 933 }T
 T{ 6 h 7 h 1000 lf-mixed-compare lf-mcompare-fuel @ -> outcome-unknown 948 }T
 bye

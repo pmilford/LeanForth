@@ -469,7 +469,8 @@ defer lf-whnf-cored ( t1 outcome frames -- ... frames next )
 \ loose bound variable; when body is bound variable k, a(i-k) applied to
 \ them; else e unchanged. A plain function of e, no reduction step: it
 \ visits nothing but body's loose bound variables (lf-whnf-loose?);
-\ e must be closed.
+\ e must be closed: a body bound variable beyond the stripped lambdas
+\ (an open e) is invalid (review rvU4 L2).
 : lf-whnf-stripped ( fn n -- body i )
   0 begin 2 pick lf-whnf-lam? over 3 pick < and
   while 1+ rot lf-term-second@ -rot repeat nip ;
@@ -480,6 +481,7 @@ defer lf-whnf-cored ( t1 outcome frames -- ... frames next )
   >r 3 pick r> lf-whnf-loose? ok-then? 0= if >r 2drop 2drop r> no-result exit then
   0= if drop - lf-whnf-apply exit then
   3 pick lf-term-tag@ lf-tag-bvar <> if >r 2drop drop r> outcome-ok exit then
+  3 pick lf-term-first@ 2 pick < 0= if 2drop 2drop -1 outcome-invalid exit then
   drop lf-whnf-named - lf-whnf-apply ;
 : lf-whnf-beta-head? ( e -- flag )
   dup lf-term-tag@ lf-tag-app = if lf-whnf-head lf-whnf-lam? else drop false then ;
