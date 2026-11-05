@@ -41,7 +41,7 @@ let.in-proof	accepted	-	unsupported	accepted	zeta
 let.in-claim	accepted	-	unsupported	accepted	zeta
 let.variable-unfolds	accepted	-	unsupported	accepted	zeta
 let.wrong-value	letTypeMismatch	n/a	unsupported	rejected	zeta
-names.nat-succ-matched-by-name	declTypeMismatch	n/a	unknown	unknown	K7
+names.nat-succ-matched-by-name	declTypeMismatch	n/a	unknown	rejected	offset
 names.ordinary-name-twin	accepted	dqSucc:2	unknown	accepted	delta-args
 names.nat-zero-becomes-a-literal	unknownConstant Nat	n/a	unsupported	unknown	K7
 names.ordinary-zero-twin	accepted	dqSucc:1	unsupported	accepted	delta

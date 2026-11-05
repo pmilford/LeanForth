@@ -315,11 +315,19 @@ lf-walk-room context-walk2: lf-whnf-scan
   dup 0< if 2drop 2drop -1 outcome-ok else lf-whnf-unfold-head then ;
 
 \ ---------------------------------------------------------------------------
-\ K7 (ADR 0014 Q8): where reduce_nat (672-703) would look at node -- a
-\ constant without universe arguments named Nat.succ with one argument,
-\ or one of the fourteen binary operations with two -- unknown,
-\ diagnostic 82 with the head; else ok. Names are compared by their
-\ components (Lean's name equality), from the last.
+\ K7 (ADR 0014 Q8). Lean's reduce_nat (672-703) looks at node when its
+\ head is a constant without universe arguments named Nat.succ with one
+\ argument, or one of the fourteen binary operations with two
+\ (lf-whnf-k7?), and computes a literal when the whnf of each argument is
+\ a literal or the constant Nat.zero (is_nat_lit_ext, 607; the first
+\ argument first, the second only then). LeanForth has no literals (U2),
+\ so where the arguments' whnf are Nat.zero (lf-whnf-zero?) the answer is
+\ unknown (diagnostic 82 with the head, plan task 5.2.3); otherwise
+\ reduce_nat gives nothing and Lean goes on, as LeanForth does (a
+\ Nat.succ of a variable, say, which iota then takes as a constructor).
+\ The arguments are put in whnf by a visit of their own (lf-whnf-nat-call,
+\ below). Names are compared by their components (Lean's name equality),
+\ from the last.
 \ A table of texts: each entry its length in a cell and its characters,
 \ aligned; a length of 0 ends it. Shared and read-only.
 : lf-whnf-text, ( c-addr u -- ) dup , here swap dup allot move align ;
@@ -350,9 +358,10 @@ create lf-whnf-nat-binary
   lf-mhead-spine over lf-whnf-const? 0= if 2drop false exit then
   swap lf-whnf-cref dup lf-crec-arity @ if 2drop false exit then
   lf-crec-name @ swap lf-whnf-matched? ;
-: lf-whnf-k7 ( node -- outcome )
-  dup lf-whnf-k7? if lf-whnf-head 0 lf-diag-name-matched lf-whnf-note outcome-unknown
-  else drop outcome-ok then ;
+: lf-whnf-zero? ( node -- flag )
+  dup lf-whnf-const? 0= if drop false exit then
+  lf-whnf-cref dup lf-crec-arity @ if drop false exit then
+  lf-crec-name @ dup s" zero" lf-whnf-part? if lf-whnf-nat? else drop false then ;
 
 \ ---------------------------------------------------------------------------
 \ The iota hook and its default (see the header).
@@ -440,18 +449,26 @@ defer lf-wc-visit ( node frames -- ... frames next )
   over lf-term-tag@ lf-wc-tagged ; is lf-wc-visit
 
 \ whnf's visit: the easy cases at once (708-722); otherwise whnf_core,
-\ then K7, then one delta step, which goes on with whnf_core of the
-\ unfolded term within the same visit; the first result that does not
-\ unfold is the answer.
+\ then reduce_nat (K7, above), then one delta step, which goes on with
+\ whnf_core of the unfolded term within the same visit; the first result
+\ that does not unfold is the answer.
+defer lf-nat-visit ( node frames -- ... frames next )
+: lf-whnf-nat-call ( node frames cont -- ... frames next ) ['] lf-nat-visit lf-whnf-open ;
 defer lf-whnf-cored ( t1 outcome frames -- ... frames next )
 : lf-whnf-next ( t1 frames t' outcome -- ... frames next )
   dup ok? 0= if >r drop nip r> swap lf-whnf-failed exit then drop
   dup 0< if drop outcome-ok swap 0 exit then
   rot drop swap ['] lf-whnf-cored lf-wc-call ;
+: lf-whnf-delta-step ( t1 frames -- ... frames next ) 2dup lf-whnf-unfold lf-whnf-next ;
+\ reduce_nat's answer on t1, saved across its visit: computes (K7), or not.
+: lf-whnf-nat-back ( flag outcome frames -- ... frames next )
+  >r r@ frame-restore -rot ok-then? 0= if nip r> lf-whnf-failed exit then
+  if lf-whnf-head 0 lf-diag-name-matched lf-whnf-note outcome-unknown r> lf-whnf-failed
+  else r> lf-whnf-delta-step then ;
 :noname ( t1 outcome frames -- ... frames next )
   over ok? 0= if 0 exit then nip
-  over lf-whnf-k7 dup ok? 0= if rot drop swap lf-whnf-failed exit then drop
-  2dup lf-whnf-unfold lf-whnf-next ; is lf-whnf-cored
+  over lf-whnf-k7? if over over frame-save ['] lf-whnf-nat-back lf-whnf-nat-call exit then
+  lf-whnf-delta-step ; is lf-whnf-cored
 : lf-whnf-easy? ( node -- flag )
   dup lf-term-tag@ dup lf-tag-bvar = over lf-tag-pi = or swap lf-tag-symbolic-sort = or
   if drop true exit then
@@ -460,6 +477,24 @@ defer lf-whnf-cored ( t1 outcome frames -- ... frames next )
   over lf-term-valid? 0= if nip outcome-invalid swap lf-whnf-failed exit then
   over lf-whnf-easy? if lf-whnf-keep exit then
   ['] lf-whnf-cored lf-wc-call ;
+
+\ Whether reduce_nat computes node, for which lf-whnf-k7? holds: its
+\ first argument's whnf, then a binary operation's second one's, must be
+\ Nat.zero (reduce_bin_nat_op 612-619 puts the second in whnf only when
+\ the first is a literal). The visit keeps node and ends with ( flag
+\ outcome frames 0 ).
+: lf-nat-end ( flag outcome frames -- flag outcome frames 0 ) 1 over frame-drop 0 ;
+: lf-nat-second ( w outcome frames -- ... frames next )
+  >r ok-then? if lf-whnf-zero? outcome-ok else 0 swap then r> lf-nat-end ;
+: lf-nat-first ( w outcome frames -- ... frames next )
+  >r ok-then? 0= if 0 swap r> lf-nat-end exit then
+  lf-whnf-zero? 0= if false outcome-ok r> lf-nat-end exit then
+  0 r@ frame-pick dup lf-mhead-spine nip 1 = if drop true outcome-ok r> lf-nat-end exit then
+  lf-term-second@ r> ['] lf-nat-second ['] lf-whnf-visit lf-whnf-open ;
+:noname ( node frames -- ... frames next )
+  2dup frame-save >r dup lf-mhead-spine nip 1 =
+  if lf-term-second@ else lf-term-first@ lf-term-second@ then
+  r> ['] lf-nat-first ['] lf-whnf-visit lf-whnf-open ; is lf-nat-visit
 
 \ ---------------------------------------------------------------------------
 \ cheap_beta_reduce (instantiate.cpp 211-230), which infer_lambda applies

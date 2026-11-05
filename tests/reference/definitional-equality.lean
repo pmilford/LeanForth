@@ -484,7 +484,7 @@ def zeroClaim (n z s : Name) : Declaration :=
 def nameCases : List Case := [
   { id := "names.nat-succ-matched-by-name",
     subject := .declare (.fresh [natSuccLike `Nat.succ]) (succClaim `t37 `Nat.succ),
-    lean := "declTypeMismatch", adr0011 := "unknown", adr0014 := "unknown", rule := "K7",
+    lean := "declTypeMismatch", adr0011 := "unknown", adr0014 := "rejected", rule := "offset",
     what := "Nat.succ A against Nat.succ B for a user Nat.succ ignoring its argument: Lean compares A with B" },
   { id := "names.ordinary-name-twin",
     subject := .declare (.fresh [natSuccLike `dqSucc]) (succClaim `t38 `dqSucc),

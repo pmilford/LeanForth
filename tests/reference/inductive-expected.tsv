@@ -266,4 +266,5 @@ k7.twin	accepted	accepted	delta	4.2.2d
 k7.with-free-variable	accepted	accepted	delta	4.2.2d	
 k7.whnf-sort	typeExpected	rejected	K7	5.2.3	
 k7.whnf-sort-twin	accepted	accepted	whnf	4.2.2c	
+k7.rec-on-succ-variable	accepted	accepted	R1	5.2.1b	
 forged.type-named-nat-add-recursor-with-hypothesis	invalidRecursor	unsupported	L1 L5 B3	5.2.3	
