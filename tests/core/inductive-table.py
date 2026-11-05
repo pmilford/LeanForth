@@ -36,30 +36,38 @@ import tempfile
 LEAN_FILE = "tests/reference/inductive-expected.lean"
 TSV = "tests/reference/inductive-expected.tsv"
 FIXTURES = "tests/core/check-block-cases"
-DONE_TASKS = {"5.2.1a", "5.2.1b", "5.2.5a"}
+DONE_TASKS = {"5.2.1a", "5.2.1b", "5.2.3", "5.2.5a"}
 # Rows of the tasks done (DONE_TASKS) that LeanForth cannot decide yet: id ->
 # (outcome now, reason, ending with the task that closes it). Each needs
 # something outside those tasks; the same rule reached without the dependency
 # is a row of its own (the twin given), which must give the table's column.
 # Never accepted, never a verdict Lean does not give.
 PENDING = {
-    "mutual.even-odd": ("unsupported",
-        "uses Nat literals (Even 0, n + 1): U2; twin mutual.even-odd-constructors."
-        " Closed by task 5.2.3 (literals)"),
-    "iota.nat-literal-major": ("unsupported",
-        "a theorem with Nat literals (U2) whose check needs iota on Nat.rec with a literal"
-        " major (R1 with L2; iota itself is iota.fs's). Closed by task 5.2.3 (literals)"),
-    "iota.nat-literal-major-wrong": ("unsupported",
-        "as iota.nat-literal-major. Closed by task 5.2.3"),
-    "iota.stuck-on-variable": ("unsupported",
-        "a Nat literal (U2); Lean's iota on a variable major is stuck (R1, iota.fs)."
-        " Closed by task 5.2.3"),
     "after.b3-swapped-then-iota-lean-rule": ("unknown",
         "iota on Lean's generated recursor, which no slot holds (the block was refused by"
         " B3), is not ported (diagnostic 81; iota.fs reduces a slot's recursor). Closed by"
         " a follow-up of task 5.2.1b (iota with the generated recursor's rules)"),
     "after.b3-swapped-then-iota-forged-rule": ("unknown",
         "as after.b3-swapped-then-iota-lean-rule. Closed by the same follow-up"),
+    "after.recursor-left-out-then-lookup-during-block": ("unknown",
+        "positivity puts every field in whnf, as Lean does (task 5.2.3: whnf may refuse);"
+        " this field's whnf needs iota on Lean's generated recursor, which no slot holds"
+        " (diagnostic 81). Closed by the follow-up of task 5.2.1b (iota with the generated"
+        " recursor's rules)"),
+    "after.list-left-out-then-lookup-during-param-block": ("unknown",
+        "as after.recursor-left-out-then-lookup-during-block. Closed by the same follow-up"),
+    "lit.div-by-zero": ("unsupported",
+        "Nat.div's closure has let terms (U2: Nat.not_succ_le_zero, eq_of_heq). Closed by a"
+        " let-term follow-up of task 5.2.3 (not yet planned)"),
+    "lit.gcd": ("unsupported", "as lit.div-by-zero. Closed by the same follow-up"),
+    "lit.string-expansion": ("unsupported",
+        "a string literal (U2): not needed by Nat.add_zero's closure, so left out of task"
+        " 5.2.3. Closed by a string-literal follow-up of task 5.2.3 (L4)"),
+    "lit.string-expansion-wrong": ("unsupported",
+        "as lit.string-expansion. Closed by the same follow-up"),
+    "k7.nat-is-prop": ("unknown",
+        "after reduce_nat, Lean compares two proofs' types (proof irrelevance, K2,"
+        " diagnostic 87). Closed by task 4.2.5"),
     "after.redex-type-left-out-then-use-rec": ("unknown",
         "IE.U2's type is a Sort only after whnf, so its block left no recipe of the"
         " generated recursor (ADR 0015 decision 12): a use of IE.U2.rec is unknown"
@@ -230,7 +238,7 @@ def main():
     failures += stale_fixtures(cases)
     done = sum(n for (d, _), n in tally.items() if d)
     later = sum(n for (d, _), n in tally.items() if not d)
-    print(f"inductive-table: {len(cases)} cases; tasks 5.2.1a-b, 5.2.5a rows {done}:",
+    print(f"inductive-table: {len(cases)} cases; tasks 5.2.1a-b, 5.2.3, 5.2.5a rows {done}:",
           ", ".join(f"{o} {n}" for (d, o), n in sorted(tally.items()) if d),
           f"(pending {len(PENDING)}); later tasks' rows {later}:",
           ", ".join(f"{o} {n}" for (d, o), n in sorted(tally.items()) if not d))

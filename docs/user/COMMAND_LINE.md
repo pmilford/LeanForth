@@ -338,14 +338,15 @@ the same check is
 and leaves 0. An export that uses every kind of record Lean writes,
 `tests/core/reexport/kinds.ndjson`, shows the mix a real library gives
 today: blocks such as `Prod`, `Eq` and `Iff`, recursive types such as
-`Nat` and `List` (plan task 5.2.1b), and projections (plan task 5.2.2)
-are accepted; nested types, literals, axioms, opaque declarations,
-quotients and what uses them are not yet:
+`Nat` and `List` (plan task 5.2.1b), projections (plan task 5.2.2) and
+natural-number literals (plan task 5.2.3) are accepted; nested types,
+string literals, let terms, axioms, opaque declarations, quotients and
+what uses them are not yet:
 
 ```console
 $ bin/leanforth check --no-manifest tests/core/reexport/kinds.ndjson | tail -n 2; echo "exit status ${PIPESTATUS[0]}"
-106 declarations: 75 accepted, 31 unsupported
-accepted: 75 (experimental, not independently audited); axioms: none
+106 declarations: 80 accepted, 26 unsupported
+accepted: 80 (experimental, not independently audited); axioms: none
 exit status 2
 ```
 

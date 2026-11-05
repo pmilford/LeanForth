@@ -311,11 +311,11 @@ end-structure
 
 \ Positivity (P1, P2; check_positivity 436-452), in step 9's inference
 \ job, of field i, whose type node is read under the constructor's i
-\ binders: a block's field that mentions its type (no other: reduction
-\ never makes an occurrence, the type being in no environment a definition
-\ unfolds into, so Lean's test passes on it whatever whnf gives). The type
-\ is put in Lean's whnf (lf-blk-whnf, failing where it cannot follow
-\ Lean); with no occurrence left it is a non-recursive field;
+\ binders: every field, as Lean's check_constructors calls it, since
+\ Lean's whnf may refuse the type (get_count_arg, plan task 5.2.3) even
+\ where it does not mention the block's types. The type is put in Lean's
+\ whnf (lf-blk-whnf, failing where it cannot follow Lean); with no
+\ occurrence left it is a non-recursive field;
 \ a Pi whose domain mentions the type is nonPositive, else its body is
 \ checked one binder deeper; anything else must be a valid application
 \ of the type (a recursive field), else nonValidOccurrence. Occurrences
@@ -339,11 +339,7 @@ end-structure
   0= if 2drop outcome-ok false exit then
   over lf-blk-pi? if lf-pos-pi exit then lf-pos-end false ;
 : lf-blk-positive ( node depth -- outcome ) begin lf-pos-step 0= until ;
-: lf-blk-positivity ( node i -- outcome )
-  lf-ind-recursive? 0= if 2drop outcome-ok exit then
-  dup lf-blk-state lf-blkrec-field !
-  over lf-blk-occurs? ok-then? 0= if nip nip exit then
-  if lf-blk-positive else 2drop outcome-ok then ;
+: lf-blk-positivity ( node i -- outcome ) dup lf-blk-state lf-blkrec-field ! lf-blk-positive ;
 : lf-blk-field ( node i -- outcome )
   swap lf-term-first@ dup lf-minfer-domain ok-then? 0= if nip nip exit then
   lf-blk-fits ok-then? 0= if nip exit then

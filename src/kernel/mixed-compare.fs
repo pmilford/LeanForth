@@ -146,13 +146,18 @@ lf-level-walk-room context-walk2: lf-mcompare-level-walker
 : lf-mcompare-proj ( a b walk -- outcome )
   >r 2dup lf-mcompare-seconds? 0= if 2drop r> drop outcome-unknown exit then
   lf-mcompare-firsts r> lf-mcompare-names ;
+\ Two literals (core/literals.fs): the same value, read from the nodes'
+\ indices.
+: lf-mcompare-lit ( a b walk -- outcome )
+  nip nip lf-mcompare-pair@ lf-lit-same? lf-mcompare-verdict ;
 : lf-mcompare-dispatch ( a b walk tag -- outcome )
   dup lf-term-binary-tag? if drop lf-mcompare-children exit then
   case lf-tag-constant of lf-mcompare-constant endof
     lf-tag-bvar of lf-mcompare-same-first endof
     lf-tag-fvar of lf-mcompare-same-first endof
     lf-tag-symbolic-sort of lf-mcompare-sort endof
-    lf-tag-proj of lf-mcompare-proj endof walk-bad-tag endcase ;
+    lf-tag-proj of lf-mcompare-proj endof
+    lf-tag-lit of lf-mcompare-lit endof walk-bad-tag endcase ;
 : lf-mcompare-visit ( walk -- outcome )
   lf-terms ['] lf-mcompare-dispatch lf-mcompare-visit-pair ;
 : lf-mcompare-run ( left right -- outcome )

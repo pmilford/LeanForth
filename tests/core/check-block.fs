@@ -301,7 +301,7 @@ T{ s" pos.erased-by-definition" verdict -> outcome-ok 0 all-steps }T
 \ Iota in a declaration's check (Lean's reduce_recursor, behind whnf.fs's
 \ hook): a constructor's rule with its fields, its induction hypothesis
 \ and an argument after the major premise, Nat.zero, Eq.refl (k set);
-\ Nat.succ is K7 (Lean's reduce_nat makes a literal of it: task 5.2.3).
+\ Nat.succ is a literal first (Lean's reduce_nat, K7: task 5.2.3).
 T{ s" iota.bool-true" used -> outcome-ok 0 }T
 T{ s" iota.list-hypothesis" used -> outcome-ok 0 }T
 T{ s" iota.list-field" used -> outcome-ok 0 }T
@@ -313,7 +313,17 @@ T{ s" iota.eq-refl" used -> outcome-ok 0 }T
 T{ s" iota.bool-true-wrong" used -> outcome-rejected lf-diag-value-apart }T
 T{ s" iota.list-hypothesis-wrong" used -> outcome-rejected lf-diag-value-apart }T
 T{ s" iota.bool-stuck" used -> outcome-rejected lf-diag-value-apart }T
-T{ s" iota.nat-succ" used -> outcome-unknown lf-diag-name-matched }T
+T{ s" iota.nat-succ" used -> outcome-ok 0 }T
+\ Literals (task 5.2.3): Nat.rec on a literal major (L2), as its
+\ constructor; 2^64 by Nat.pow, two limbs, right and wrong; Nat.pow by
+\ 2^32, Lean's refusal (rejected; the declaration's mismatch records it),
+\ and by 2^32 - 1 of 1.
+T{ s" iota.nat-literal-major" used -> outcome-ok 0 }T
+T{ s" iota.nat-literal-major-wrong" used -> outcome-rejected lf-diag-value-apart }T
+T{ s" lit.pow-direct" used -> outcome-ok 0 }T
+T{ s" lit.pow-direct-wrong" used -> outcome-rejected lf-diag-value-apart }T
+T{ s" lit.pow-count-too-big" used drop -> outcome-rejected }T
+T{ s" lit.pow-count-limit" used -> outcome-ok 0 }T
 \ Review rvN1 round 2 (L1): a reduct that keeps the recursor's universe
 \ arguments in its recursive call; iota on Lean's generated recursor
 \ after B3 refused the block's swapped rules (not ported yet: unknown,
@@ -358,33 +368,26 @@ T{ s" unit.punit" used -> outcome-unknown lf-diag-structure-pending }T
 \ C2's comparison of id Type with Type needs Lean's lazy delta reduction
 \ (accepted since plan task 4.2.2d). Unknown, unsupported and invalid:
 T{ s" params.constructor-binder-defeq" verdict nip -> outcome-ok 15 }T
-\ Forged arithmetic (review rvN1 B1, B2). A definition, or a block member,
-\ named Nat.pow or Nat.shiftLeft is unsupported until task 5.2.3, and so
-\ is every declaration that uses one (K5): Lean's whnf computes them by
-\ name and refuses a second argument of 2^32 or more, on a field whose
-\ type mentions no type of the block too. A block named Nat.add: Lean's
-\ whnf computes Nat.add 0 0 to 0, so its field is no recursive one;
-\ unknown here, never rejected (B3) or accepted with a hypothesis.
-T{ s" forged.pow-field" 4 decl-verdict -> outcome-unsupported lf-diag-nat-count-op }T
-T{ s" forged.pow-field" verdict
-   -> outcome-unsupported lf-diag-dependency-unsupported 9 }T
-T{ s" forged.pow-field-recursive" verdict
-   -> outcome-unsupported lf-diag-dependency-unsupported 9 }T
-T{ s" forged.pow-field-small" verdict
-   -> outcome-unsupported lf-diag-dependency-unsupported 9 }T
-T{ s" forged.pow-through-definition" verdict
-   -> outcome-unsupported lf-diag-dependency-unsupported 9 }T
+\ Forged arithmetic (review rvN1 B1, B2). Lean's whnf computes the Nat
+\ operations by name (task 5.2.3, reduce-nat.fs) and refuses Nat.pow or
+\ Nat.shiftLeft by 2^32 or more (get_count_arg), on a field whose type
+\ mentions no type of the block too (positivity puts every field in
+\ whnf): rejected at step 9 (92), Lean's natCountTooBig; below the limit
+\ accepted. A block named Nat.add: Lean's whnf computes Nat.add 0 0 to 0,
+\ so its field is no recursive one: accepted, and the recursor with a
+\ hypothesis rejected (B3), as by Lean.
+T{ s" forged.pow-field" verdict -> outcome-rejected lf-diag-nat-count 9 }T
+T{ s" forged.pow-field-recursive" verdict -> outcome-rejected lf-diag-nat-count 9 }T
+T{ s" forged.pow-field-small" used -> outcome-ok 0 }T
+T{ s" forged.pow-through-definition" verdict -> outcome-rejected lf-diag-nat-count 9 }T
 T{ s" forged.pow-through-definition-nonrecursive" verdict
-   -> outcome-unsupported lf-diag-dependency-unsupported 9 }T
-T{ s" forged.pow-erased-by-beta" verdict
-   -> outcome-unsupported lf-diag-dependency-unsupported 9 }T
-T{ s" forged.shiftleft-field" 4 decl-verdict -> outcome-unsupported lf-diag-nat-count-op }T
-T{ s" forged.shiftleft-field" verdict
-   -> outcome-unsupported lf-diag-dependency-unsupported 9 }T
-T{ s" forged.type-named-nat-pow" verdict -> outcome-unsupported lf-diag-nat-count-op 1 }T
-T{ s" forged.type-named-nat-add" verdict -> outcome-unknown lf-diag-name-matched 9 }T
+   -> outcome-rejected lf-diag-nat-count 9 }T
+T{ s" forged.pow-erased-by-beta" verdict -> outcome-rejected lf-diag-nat-count 9 }T
+T{ s" forged.shiftleft-field" verdict -> outcome-rejected lf-diag-nat-count 9 }T
+T{ s" forged.type-named-nat-pow" used -> outcome-ok 0 }T
+T{ s" forged.type-named-nat-add" used -> outcome-ok 0 }T
 T{ s" forged.type-named-nat-add-recursor-with-hypothesis" verdict
-   -> outcome-unknown lf-diag-name-matched 9 }T
+   -> outcome-rejected lf-diag-invalid-recursor 13 }T
 \ Nested blocks (task 5.2.5b): List Tree, and List (Bad -> Nat), which Lean
 \ rejects only after making the block mutual.
 T{ s" nested.tree" verdict-field -> outcome-unsupported lf-diag-block-scope 1 3 }T
@@ -476,7 +479,7 @@ T{ ' induct 4 block-verdict drop -> outcome-invalid lf-diag-block-shape }T
 \ projections), a loose variable (V1).
 : unsafe ( -- ) lf-safety-unsafe 5 lf-input-decl lf-idecl-safety ! ;
 T{ ' unsafe 4 block-verdict drop -> outcome-unsupported lf-diag-unsupported-kind }T
-T{ s" mutual.even-odd" verdict -> outcome-unsupported lf-diag-unsupported-form 1 }T
+T{ s" mutual.even-odd" used -> outcome-ok 0 }T
 : a-variable ( -- node ) 0 begin dup lf-term-tag@ lf-tag-bvar <> while 1+ repeat ;
 : loose ( -- ) a-variable 6 0 rhs ! ;
 T{ ' loose 4 block-verdict drop -> outcome-invalid lf-diag-out-of-scope }T
@@ -490,10 +493,10 @@ T{ ' loose 4 block-verdict drop -> outcome-invalid lf-diag-out-of-scope }T
   fuel-case 2@ case-path staged ok? must checked 0 lf-env-outcome finish ;
 : ok-or-exhausted? ( outcome -- flag ) dup ok? swap outcome-exhausted = or ;
 : doubling? ( -- flag ) true 21 0 do 1 i lshift 1- bool-at ok-or-exhausted? and loop ;
-: middle ( lo hi -- lo hi mid ) 2dup + 2/ ;
+: halfway ( lo hi -- lo hi mid ) 2dup + 2/ ;
 : least-ok ( -- budget )
   0 1 20 lshift begin 2dup - -1 < while
-    middle dup bool-at ok? if nip else rot drop swap then
+    halfway dup bool-at ok? if nip else rot drop swap then
   repeat nip ;
 s" ind.bool" fuel-case 2!
 T{ doubling? -> true }T
@@ -661,7 +664,7 @@ T{ s" after.eq-left-out-then-use-rec" used -> outcome-ok 0 }T
 T{ s" after.index-left-out-then-use-rec" used -> outcome-ok 0 }T
 T{ s" after.many-universes-left-out-then-use-rec" used -> outcome-ok 0 }T
 T{ s" after.recursor-left-out-then-lookup-in-def" used -> outcome-ok 0 }T
-T{ s" after.recursor-left-out-then-lookup-during-block" used -> outcome-ok 0 }T
+T{ s" after.recursor-left-out-then-lookup-during-block" used -> outcome-unknown lf-diag-iota-pending }T
 \ The generated recursor at universes other than its own names (review
 \ rvI21 R5-1): renamed, concrete, swapped and applied (eta) uses of Eq's,
 \ Exists' and Pr's, whose domains mention the block's universes.
@@ -691,7 +694,10 @@ T{ s" after.list-sort-max-at-concrete" used -> outcome-ok 0 }T
 T{ s" after.reflexive-parameter-at-renamed" used -> outcome-ok 0 }T
 \ The list's recursor built again while a block with a parameter checks
 \ its constructor: that block's parameter domains survive the rebuild.
-T{ s" after.list-left-out-then-lookup-during-param-block" used -> outcome-ok 0 }T
+\ Since task 5.2.3 positivity puts every field in whnf, as Lean does, and
+\ this field's whnf needs iota on a recursor no slot holds: unknown (81)
+\ until that follow-up of task 5.2.1b, as is the row before.
+T{ s" after.list-left-out-then-lookup-during-param-block" used -> outcome-unknown lf-diag-iota-pending }T
 \ Mutual blocks (task 5.2.5a): the generated recursor of the first type and
 \ of a later one, with indices, and at concrete and renamed universes.
 T{ s" after.mutual-left-out-then-use-rec" used -> outcome-ok 0 }T

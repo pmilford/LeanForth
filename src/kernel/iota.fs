@@ -29,9 +29,10 @@
 \ projections, U2); and Lean's generated recursor that no slot holds (ADR
 \ 0015 decision 12). For k set, a major premise whose whnf is the
 \ constructor gets the same rule Lean's to_cnstr_when_K gives (the one
-\ constructor, no fields). Literal majors (L2) never occur: literals are
-\ unsupported (U2; plan task 5.2.3), and whnf.fs answers unknown where
-\ Lean's reduce_nat could make one (K7). Quotients are unsupported (U1).
+\ constructor, no fields). A literal major premise (L2; plan task
+\ 5.2.3) becomes a constructor first, as nat_lit_to_constructor makes
+\ it: 0 as Nat.zero, n + 1 as Nat.succ n (reduce-nat.fs). Quotients are
+\ unsupported (U1).
 \ State: none of its own; the work arrays and the frames are whnf.fs's,
 \ each array filled and used within one step.
 
@@ -47,6 +48,7 @@ require ./environment.fs
 require ./inductive-block.fs
 require ./infer-proj.fs
 require ./mixed-head.fs
+require ./reduce-nat.fs
 require ./whnf.fs
 
 \ ---------------------------------------------------------------------------
@@ -243,9 +245,13 @@ require ./whnf.fs
 
 \ The hook's step (whnf.fs): the major premise's whnf is a child visit,
 \ the recursor's record and the application saved across it.
+\ A literal major premise as its constructor (L2).
+: lf-iota-lit ( major -- major' outcome )
+  dup lf-lit-leaf? if lf-reduce-nat-constructor else outcome-ok then ;
 : lf-iota-majored ( major outcome frames -- ... frames next )
   >r r@ frame-restore r@ frame-restore 2swap
   ok-then? 0= if nip nip r> lf-whnf-failed exit then
+  lf-iota-lit ok-then? 0= if nip nip r> lf-whnf-failed exit then
   r@ lf-iota-reduce r> 0 ;
 : lf-iota-none ( app frames decl -- -1 ok frames 0 ) drop nip -1 outcome-ok rot 0 ;
 

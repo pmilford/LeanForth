@@ -375,6 +375,12 @@ defer lf-pp-lam-groups ( node frames -- ... frames next )
 : lf-pp-proj-step ( term pos frames -- outcome frames 0 )
   >r drop dup lf-proj-name lf-pp-constant s" ." lf-pp-emit lf-proj-idx 1+ lf-pp-number
   outcome-ok r> 0 ;
+\ A literal (core/literals.fs; plan task 5.2.3): its value when it fits
+\ one cell, else the number of its limbs.
+: lf-pp-lit-step ( term pos frames -- outcome frames 0 )
+  >r drop dup lf-lit-small? if lf-lit-cell lf-pp-number
+  else s" (literal of " lf-pp-emit lf-term-second@ lf-pp-number s"  limbs)" lf-pp-emit then
+  outcome-ok r> 0 ;
 : lf-pp-tag-step ( tag -- xt )
   dup lf-pp-applied-tag? if drop ['] lf-pp-app exit then
   case lf-tag-sort of ['] lf-pp-concrete-step endof
@@ -382,6 +388,7 @@ defer lf-pp-lam-groups ( node frames -- ... frames next )
     lf-tag-lam of ['] lf-pp-lam endof
     lf-tag-pi of ['] lf-pp-pi endof
     lf-tag-proj of ['] lf-pp-proj-step endof
+    lf-tag-lit of ['] lf-pp-lit-step endof
     ['] lf-pp-invalid-step swap endcase ;
 : lf-pp-term ( term pos frames -- ... frames next )
   2 pick lf-pp-tag if lf-pp-tag-step else ['] lf-pp-invalid-step then execute ;

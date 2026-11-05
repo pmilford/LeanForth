@@ -647,6 +647,26 @@ In an imported Lean library these names are constructors and recursive
 functions, which are unsupported in phase 4 anyway, so K7 matters only for
 environments that define the names themselves.
 
+**Since plan task 5.2.3 (2026-11-05, experimental) K7 computes.**
+Natural-number literals are leaves (`core/literals.fs`: one cell, or the
+limbs of `lib/bignum.fs` in the context's slab); a literal's type is the
+constant `Nat`; `whnf_core` leaves it; `reduce_nat` computes Lean's
+fifteen operations by name on literals and `Nat.zero`, when the term has
+no free variable (`kernel/reduce-nat.fs`); iota turns a literal major
+premise into `Nat.zero` or `Nat.succ n`; `quick_is_def_eq` answers no for
+two different literals; `is_def_eq_offset` takes the literal 0 and
+`Nat.zero` as zero and a literal above 0 as a successor; lazy delta
+replaces a side `reduce_nat` computes by its value. Lean's fixed refusal
+(`get_count_arg`: `Nat.pow`, and `Nat.shiftLeft` of a nonzero number, by
+2^32 or more) rejects (diagnostic 92) and lifted diagnostic 86;
+`LEAN_NAT_MAX_SIZE` (2^30 bits, a setting) is a resource (full,
+diagnostic 93). Because whnf may refuse, block positivity puts every
+field's type in whnf, as `check_positivity` does. String literals and
+let terms stay unsupported (U2). Evidence: the table's 5.2.3 rows give
+Lean's verdict or a pending mark (strings, let terms, K2), among them
+`lit.pow-count-too-big` (rejected) and `lit.pow-direct` (two limbs);
+`Nat.add_zero`'s export: 29 of 29 checks accepted.
+
 ### Q9 Fuel
 
 One budget per declaration check (`lf-check-budget`, ADR 0011 *Fuel*)
