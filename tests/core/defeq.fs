@@ -171,6 +171,14 @@ T{ level-u level-v max-of c-at level-v level-u max-of c-at defeq -> true outcome
 T{ empty-token wrapped-id handle 100000 lf-mixed-infer nip swap wrapped-type same?
    -> outcome-ok true }T
 
+\ No depth limit (plan task 6.2.0): two telescopes of 5,000 binders with
+\ equal domains, whose bodies differ (Sort 1, Sort 2): Lean's no, the
+\ binders walked as steps of the frames' loop, the host's stacks flat.
+65536 lf-term-capacity! ok? must
+: pis ( body n -- node ) 0 ?do 0 make-sort swap make-pi loop ;
+T{ fresh-session 1 make-sort 5000 pis 2 make-sort 5000 pis 1000000 fuelled dq lf-defeq-on
+   -> false outcome-ok }T
+
 \ ---------------------------------------------------------------------------
 \ Every failure outcome, and a fuel sweep: with less fuel a comparison is
 \ exhausted until it gives its answer, never another one.

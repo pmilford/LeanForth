@@ -243,10 +243,12 @@ defer lf-ar-visit ( t s frames -- ... frames next )
   swap r@ lf-bd-open ok-then? 0= if nip r> lf-bd-fail exit then
   r> ['] lf-bd-done lf-dq-call ;
 \ After a binder pair: the next pair while both bodies are binders of the
-\ telescope's kind (776), else the bodies.
+\ telescope's kind (776), else the bodies. The next pair is the step the
+\ frames' loop runs next, never a call: a telescope of any length keeps
+\ the host's stacks flat.
 defer lf-bd-pair ( t s frames -- ... frames next )
 : lf-bd-next ( t s frames -- ... frames next )
-  dup lf-dq-spend dup ok? if drop lf-bd-pair exit then
+  dup lf-dq-spend dup ok? if drop ['] lf-bd-pair exit then
   rot drop rot drop swap lf-bd-fail ;
 : lf-bd-advance ( t s frames -- ... frames next )
   >r lf-term-second@ swap lf-term-second@ swap 2dup r@ lf-bd-kind lf-dq-both?

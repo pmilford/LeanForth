@@ -1072,11 +1072,13 @@ its arguments) gives 53 differences; the typed-term trial of inference
 (seeds 11 and 12, 20,575 runs at ample fuel) identical, and at low fuel
 or little room the only differences are *exhausted* or *full* against
 *ok*, or the analysis's *unknown* now *exhausted*, *full* or *rejected*.
-26 new planted faults (`tests/mutants/faults.toml`): 23 caught, 2 known
+27 new planted faults (`tests/mutants/faults.toml`): 24 caught, 2 known
 equivalents (`dq-binding-left-domain`, `infer-not-pi-aside-rejects`)
 and 1 gap (`whnf-iota-hook-silent`, closed by 5.2.1b's iota rows); 10
 re-targeted at the new code, 9 caught and `rej-p2-open-term` equivalent
-as before.
+as before; the faults of the retired head tests of S1 and F1 deleted
+with them, and `rej-d4-left-domain` and `rej-after-exhaustion` now known
+equivalents (the reasons are in the list).
 
 ## Test plan
 

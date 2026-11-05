@@ -1131,6 +1131,14 @@ reason = "B2: the bound variable gets the left side's domain where the domains a
 equivalent = "where the domains are == (this case), the two opened domains are equal terms, so the free variable's type is the same; and no step of tasks 4.2.2b-c reads a free variable's type (proof irrelevance and eta, which do, are tasks 4.2.5 and 4.2.4)"
 
 [[fault]]
+id = "dq-binding-pairs-recursive"
+file = "src/kernel/defeq.fs"
+old = '''  dup lf-dq-spend dup ok? if drop ['] lf-bd-pair exit then'''
+new = '''  dup lf-dq-spend dup ok? if drop lf-bd-pair exit then'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "plan task 6.2.0: is_def_eq_binding walks a telescope by calling itself, one host-stack level per binder pair, so 5,000 binders overflow the return stack"
+
+[[fault]]
 id = "dq-app-arguments-skipped"
 file = "src/kernel/defeq.fs"
 old = '''  r@ frame-save 0 r@ frame-save r> lf-ap-arg ;'''
