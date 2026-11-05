@@ -4642,3 +4642,83 @@ new = ''''''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Names"
 reason = "the LeanForth block writes a name holding a banned character raw (review rvPR B1)"
 quick = true
+
+# --- the authoring runner's rules for the checker's Gforth (plan 8.2.1a;
+# ADR 0017 Amendment 1, A5): src/author/runner.fs, groups.fs, source.fs,
+# words.fs; each caught by tests/author/author.fs.
+
+[[fault]]
+id = "author-run-while-compiling"
+file = "src/author/runner.fs"
+old = '''  lfa-error-reset lfa-interpreting? 0= if lfa-compiling exit then'''
+new = '''  lfa-error-reset'''
+test = "$GFORTH tests/author/author.fs"
+reason = "a run started by an immediate word while Forth compiles compiles the LeanForth words into the caller's definition (A5 row 5)"
+quick = true
+
+[[fault]]
+id = "author-line-end-compiling"
+file = "src/author/runner.fs"
+old = '''  lfa-interpreting? lfa-e-compiling lfa-must lfa-the-line nip lfa-read-to ;'''
+new = '''  lfa-the-line nip lfa-read-to ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "a line that ends with Forth compiling goes on unnoticed (A5 row 5)"
+
+[[fault]]
+id = "author-line-characters-unchecked"
+file = "src/author/runner.fs"
+old = '''  2dup lfa-line! lfa-line-chars lfa-order! lfa-floats! evaluate lfa-line-end ;'''
+new = '''  2dup lfa-line! lfa-order! lfa-floats! evaluate lfa-line-end ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "control and format characters and bytes that are not UTF-8 reach Forth's interpreter, which splits tokens differently from an editor (A5 row 7)"
+quick = true
+
+[[fault]]
+id = "author-tab-refused"
+file = "src/author/source.fs"
+old = ''': lfa-allowed? ( code -- flag ) dup lfa-tab = if drop true else tr-banned? 0= then ;'''
+new = ''': lfa-allowed? ( code -- flag ) tr-banned? 0= ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "TAB, which separates tokens as a space does, is refused as a control character"
+
+[[fault]]
+id = "author-lines-cumulative"
+file = "src/author/runner.fs"
+old = '''  lfa-lines-restart lfa-save decimal depth lfa-floor! ['] lfa-lines catch'''
+new = '''  lfa-save decimal depth lfa-floor! ['] lfa-lines catch'''
+test = "$GFORTH tests/author/author.fs"
+reason = "a second text in one run counts its lines on from the first, so its errors point at the wrong line (p12)"
+
+[[fault]]
+id = "author-exception-empty-token"
+file = "src/author/runner.fs"
+old = '''  lfa-first-token lfa-number! lfa-token lfa-here lfa-e-forth lfa-record ;'''
+new = '''  lfa-number! lfa-token lfa-here lfa-e-forth lfa-record ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "a Forth exception on a line no word has read yet shows an empty token (p04)"
+
+[[fault]]
+id = "author-no-dictionary-reserve"
+file = "src/author/groups.fs"
+old = '''  lfa-dictionary-room get-current >r dup set-current -rot lfa-define-text'''
+new = '''  get-current >r dup set-current -rot lfa-define-text'''
+test = "$GFORTH tests/author/author.fs"
+reason = "group words are made down to the dictionary's end, where Gforth 1.0 lets HERE pass it (A5 row 11, p05b)"
+quick = true
+
+[[fault]]
+id = "author-definer-forth-wordlist"
+file = "src/author/groups.fs"
+old = '''  lfa-definer 1 set-order evaluate lfa-order! r> set-current ;'''
+new = '''  forth-wordlist 1 set-order evaluate lfa-order! r> set-current ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "the EVALUATE that makes a group word searches FORTH, where a later word named lfa-group: is found and run (A5 row 8)"
+
+[[fault]]
+id = "author-value-in-sealed-list"
+file = "src/author/words.fs"
+old = '''' lfa-w-sketch lfa-word import'''
+new = '''' lfa-w-sketch lfa-word import
+get-current lf-words set-current 0 value lfa-trap set-current'''
+test = "$GFORTH tests/author/author.fs"
+reason = "a VALUE in LF-WORDS, which Gforth 1.0's ->x recognizer writes from proof text (A5 row 2; caught on Gforth 1.0, where the test runs)"

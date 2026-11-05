@@ -64,6 +64,8 @@ require ./source.fs
 42 constant lfa-e-comment-end    \ a ( comment without its closing ) on the line
 43 constant lfa-e-protected-here \ protected not right before a declaration word
 44 constant lfa-e-protected-root \ a protected declaration outside every namespace
+45 constant lfa-e-compiling      \ a run started, or a line ended, while Forth compiles
+46 constant lfa-e-character      \ a character no line may hold
 50 constant lfa-e-literal        \ unsupported: natural-number literals
 51 constant lfa-e-sketch
   \ unsupported: let, have, projections, strings, by, import
@@ -150,6 +152,12 @@ create lfa-catalogue
   lfa-e-protected-here
   s" protected comes right before theorem, def, axiom or import-stub" lfa-invalid,
   lfa-e-protected-root s" protected declarations must be in a namespace" lfa-invalid,
+  lfa-e-compiling
+  s" LeanForth text runs only while Forth interprets, never while it compiles"
+  lfa-invalid,
+  lfa-e-character
+  s" a character no line may hold (a control or format character, or no UTF-8)"
+  lfa-invalid,
   lfa-e-literal
   s" not supported yet: natural-number literals need literal nodes (ADR 0017 section 14)"
   lfa-unsupported,
@@ -207,6 +215,8 @@ end-structure
 \ Stop the run with an error at the current token: lfa-fail; with a second
 \ position: lfa-fail-see; lfa-must stops unless the flag is true.
 : lfa-fail ( code -- ) >r lfa-token lfa-here r> lfa-record lf-author-throw throw ;
+\ The same with a token and position of the caller's.
+: lfa-fail-at ( c-addr u pos code -- ) lfa-record lf-author-throw throw ;
 : lfa-fail-see ( pos code -- ) swap lfa-see! lfa-fail ;
 : lfa-must ( flag code -- ) swap if drop else lfa-fail then ;
 
