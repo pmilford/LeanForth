@@ -2176,6 +2176,15 @@ with steps 8.2.1a–g and the new task 8.6.3):
 | 8.2.1f | Saving and re-checking: `lf-write`, `lf-save`; `leanforth check` on the file | [format] once a receipt carries it | p06b as a test: same verdicts, statements identical; shared with 8.6.2's round trip |
 | 8.2.1g | The input grows one declaration at a time after the environment exists (ADR 0012 amendment), so `end NAME` checks and publishes exactly one declaration (A3) | [kernel] | the environment's tests and the failure-path suite with declarations added one by one; verdicts identical to a whole-input run |
 
+**Progress.** 8.2.1a is implemented (2026-11-04, before its [parser]
+gate): the rules are in `src/author/runner.fs`, `groups.fs`, `source.fs`
+and `errors.fs` (codes 45 and 46), described in
+[LeanForth words](../programming/LEANFORTH_WORDS.md#forth-interface),
+tested by `tests/author/author.fs` on Gforth 1.0 and 0.7.3, with nine
+planted faults in `tests/mutants/faults.toml`, all caught. It also makes
+each text's lines count from 1 (the p12 finding, first recorded for
+8.2.1e).
+
 **Where 8.6.2 fits.** The statement in three forms is printed with every
 verdict of 8.2.1c and by `lf-verdict.`, from the same printer (merged
 2026-11-04); its round-trip acceptance is 8.2.1f's test.

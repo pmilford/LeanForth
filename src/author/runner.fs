@@ -17,11 +17,20 @@
 \ refuses the same tokens with the same error at the same place. After an
 \ error the run is over: begin a new one.
 \
-\ Untrusted: the words run in the authoring program, which is meant to be
-\ a separate process from the checker (plan 8.2.1, not built yet); they
-\ build terms, which only the checker can accept. The checker never loads
-\ this module (tests/author/check_author.py checks that src/core and
-\ src/kernel never require src/author).
+\ The rules for running in the checker's own Gforth (ADR 0017 Amendment 1,
+\ A5; plan task 8.2.1a): a run starts only while Forth interprets, and
+\ every line must end with Forth still interpreting (error 45); a line may
+\ hold no control or format character, separator or bytes that are not
+\ UTF-8, TAB aside (error 46, at the character's column, before anything
+\ of the line runs); a Forth exception names the last token a word read,
+\ or the line's first token; each text's lines count from 1. groups.fs
+\ adds two: group words are made only with a dictionary reserve left, and
+\ by an EVALUATE that sees only lfa-group:.
+\
+\ Untrusted: the words build terms, which only the checker can accept.
+\ The checker does not load this module yet (tests/author/check_author.py
+\ checks that src/core and src/kernel never require src/author); plan
+\ 8.2.1c joins them in one Gforth.
 \ State: one context record, lfa-run; the modules below have their own.
 \
 \ Public words:
@@ -115,11 +124,24 @@ end-structure
 : lfa-next-line? ( -- c-addr u true | false )
   lfa-run lfa-run-file @ if lfa-file-line else lfa-text-line then ;
 
+\ Forth must be interpreting (ADR 0017 Amendment 1, A5 row 5): a run
+\ started while it compiles, from an immediate word, would compile the
+\ LeanForth words into the caller's definition instead of running them.
+\ No LeanForth word changes STATE; it is checked after every line too.
+: lfa-interpreting? ( -- flag ) state @ 0= ;
+\ A line holds no character a line may not hold (source.fs); the error
+\ points at the character's column, with no token shown, since the
+\ character itself may be invisible or reorder the text around it.
+: lfa-line-chars ( -- )
+  lfa-the-line lfa-bad-offset dup 0< if drop exit then
+  0 0 rot lfa-line swap 1+ lfa-pos lfa-e-character lfa-fail-at ;
+
 \ Running: each line with LeanForth's order, its last numbers checked; at
 \ the end, no declaration may be open and no value left.
-: lfa-line-end ( -- ) lfa-the-line nip lfa-read-to ;
-: lfa-eval-line ( c-addr u -- ) 2dup lfa-line! lfa-order! lfa-floats! evaluate
-  lfa-line-end ;
+: lfa-line-end ( -- )
+  lfa-interpreting? lfa-e-compiling lfa-must lfa-the-line nip lfa-read-to ;
+: lfa-eval-line ( c-addr u -- )
+  2dup lfa-line! lfa-line-chars lfa-order! lfa-floats! evaluate lfa-line-end ;
 : lfa-ended ( -- ) depth lfa-floor = lfa-inside? 0= and lfa-e-unfinished lfa-must ;
 : lfa-lines ( -- ) begin lfa-next-line? while lfa-eval-line repeat lfa-ended ;
 
@@ -129,15 +151,25 @@ end-structure
 : lfa-undefined ( -- )
   lfa-the-line nip lfa-unread-to lfa-stray 2dup lfa-token! 2dup lfa-stray-code >r
   lfa-here r> lfa-record ;
+\ Another exception names the last token a word read, or, when no word
+\ read one on this line yet, the line's first token.
+: lfa-first-token ( -- )
+  lfa-token nip if exit then lfa-the-line lfa-next-token dup 0= if 2drop 2drop exit then
+  lfa-token! 2drop ;
 : lfa-foreign ( code -- )
   dup -13 = if drop lfa-undefined exit then
-  lfa-number! lfa-token lfa-here lfa-e-forth lfa-record ;
+  lfa-first-token lfa-number! lfa-token lfa-here lfa-e-forth lfa-record ;
 : lfa-caught ( code -- outcome )
   ?dup 0= if outcome-ok exit then
   dup lf-author-throw = if drop else lfa-foreign then
   lfa-floats-clear lfa-scope-close lf-author-code lf-author-outcome ;
+\ Refused before anything runs: Forth is compiling.
+: lfa-compiling ( -- outcome )
+  0 0 0 lfa-e-compiling lfa-record lfa-e-compiling lf-author-outcome ;
+\ A run: the lines of a new text, counted from 1.
 : lfa-go ( -- outcome )
-  lfa-error-reset lfa-save decimal depth lfa-floor! ['] lfa-lines catch
+  lfa-error-reset lfa-interpreting? 0= if lfa-compiling exit then
+  lfa-lines-restart lfa-save decimal depth lfa-floor! ['] lfa-lines catch
     lfa-restore lfa-caught ;
 
 \ Public words; see the header.

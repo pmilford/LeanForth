@@ -10,10 +10,20 @@
 \ column, both counted from 1; a column beyond 65535 is recorded as 65535,
 \ and on a 32-bit host lines beyond 32767 wrap. It also reads token text:
 \ the tokens of a line, the dots of a name, and which tokens are numbers
-\ (only plain decimals) or look like one. Untrusted authoring code.
+\ (only plain decimals) or look like one. Lines count from 1 in each text
+\ a run is given (lfa-lines-restart), so an error points at the line of
+\ that text. And it finds the first character a line may not hold
+\ (ADR 0017 Amendment 1, A5 row 7): one that text-rule.fs bans, a control
+\ or format character, a line or paragraph separator, or bytes that are
+\ not UTF-8; TAB aside, which separates tokens as a space does. Forth
+\ splits tokens at TAB, LF, VT, FF, CR and space only, so with such
+\ characters refused, a token is what an editor shows as one.
+\ Untrusted authoring code.
 \ State: one context record, lfa-source (ADR 0009).
 
 require ../lib/lib.fs
+require ../lib/bytes.fs
+require ../lib/text-rule.fs
 
 65536 constant lfa-line-unit
 
@@ -28,6 +38,8 @@ end-structure
 /lfa-source context-record: lfa-source
 
 : lfa-source-reset ( -- ) lfa-source /lfa-source erase ;
+\ A new text starts: its first line will be line 1.
+: lfa-lines-restart ( -- ) 0 lfa-source lfa-source-line ! ;
 \ The line c-addr u starts: nothing of it has been read.
 : lfa-line! ( c-addr u -- )
   lfa-source tuck lfa-source-text# ! tuck lfa-source-text ! 1 over lfa-source-line +!
@@ -117,3 +129,17 @@ end-structure
 : lfa-number-like? ( c-addr u -- flag )
   dup 0= if 2drop false exit then over c@ lfa-digit? if 2drop true exit then
   1 > swap c@ lfa-prefix-char? and ;
+
+\ Characters a line may hold (see the header). The first character of
+\ c-addr u and the rest; bytes that begin no valid UTF-8 character count
+\ as one character, -1, which text-rule.fs bans.
+9 constant lfa-tab
+: lfa-char ( c-addr u -- c-addr' u' code )
+  2dup utf8-length ?dup 0= if 1 /string -1 exit then
+  >r over r@ utf8-decode -rot r> /string rot ;
+: lfa-allowed? ( code -- flag ) dup lfa-tab = if drop true else tr-banned? 0= then ;
+\ The offset in c-addr u of its first character a line may not hold, or -1.
+: lfa-bad-offset ( c-addr u -- n|-1 )
+  over >r begin dup while
+    over >r lfa-char lfa-allowed? 0= if 2drop r> r> - exit then r> drop
+  repeat 2drop r> drop -1 ;
