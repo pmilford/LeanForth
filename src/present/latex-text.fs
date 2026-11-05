@@ -4,12 +4,18 @@
 \ becomes the subscript _{2}, trailing primes stay primes. A constant
 \ prints upright as \mathsf{...}. The characters _ # % & { } $ ^ ~ \
 \ are escaped. A Greek letter or a subscript digit counts only as a whole
-\ UTF-8 character; other bytes, valid UTF-8 or not, are written as they
-\ are. Text is examined as one-byte slices with COMPARE and SEARCH, never
-\ byte by byte. Untrusted presentation code. Requires print-job.fs. No
-\ state.
+\ UTF-8 character; other valid characters are written as they are. A
+\ character that lib/text-rule.fs bans (controls, format characters such as
+\ bidirectional ones, line and paragraph separators) is written as
+\ \backslash{}u\{X\} (its code point in hexadecimal) and a byte that starts no
+\ UTF-8 character as \backslash{}x\{X\}, so that a name can never put a line end
+\ or a reordering into the LaTeX (or into the plain text it is part of). Text
+\ is examined a character at a time, with COMPARE and SEARCH for the symbol
+\ tables. Untrusted presentation code. Requires print-job.fs. No state.
 
 require ./print-job.fs
+require ../lib/bytes.fs
+require ../lib/text-rule.fs
 
 \ Escaping, one byte at a time.
 : lf-tex-in? ( c-addr hay u -- c-addr flag ) 2>r dup 1 2r> 2swap search nip nip ;
@@ -19,7 +25,16 @@ require ./print-job.fs
   s" ^" lf-tex-is? if drop s" \hat{}" lf-pp-emit exit then
   s" ~" lf-tex-is? if drop s" \sim{}" lf-pp-emit exit then
   s" \" lf-tex-is? if drop s" \backslash{}" lf-pp-emit exit then 1 lf-pp-emit ;
-: lf-tex-escaped ( c-addr u -- ) 0 ?do dup i + lf-tex-byte loop drop ;
+\ An escape: its prefix, then the number in hexadecimal and \}.
+: lf-tex-hex ( u -- ) base @ >r hex 0 <# #s #> r> base ! lf-pp-emit ;
+: lf-tex-code ( u c-addr u2 -- ) lf-pp-emit lf-tex-hex s" \}" lf-pp-emit ;
+: lf-tex-bad ( c-addr -- ) c@ s" \backslash{}x\{" lf-tex-code ;
+\ The character at c-addr, u bytes left: written; the bytes it took.
+: lf-tex-step ( c-addr u -- n )
+  2dup utf8-length dup 0= if 2drop lf-tex-bad 1 exit then nip
+  2dup utf8-decode dup tr-banned? if s" \backslash{}u\{" lf-tex-code nip exit then
+  drop dup 1 = if drop lf-tex-byte 1 else tuck lf-pp-emit then ;
+: lf-tex-escaped ( c-addr u -- ) begin dup while 2dup lf-tex-step /string repeat 2drop ;
 
 \ Greek letters: a name that is exactly one of them prints as its command.
 : lf-tex-greek-letters ( -- c-addr u ) s" αβγδεζηθικλμνξπρστυφχψω" ;

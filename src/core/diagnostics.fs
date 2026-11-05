@@ -102,6 +102,10 @@ require ../lib/lib.fs
 78 constant lf-diag-empty-block        \ rejected: the block's declaration, 0
 79 constant lf-diag-non-positive       \ P1: the constructor, the field's binder
 80 constant lf-diag-non-valid          \ P2: the constructor, the field's binder
+\ Lean's weak head normal form (ADR 0014; plan task 4.2.2c,
+\ kernel/whnf.fs): routes LeanForth does not port yet (unknown).
+81 constant lf-diag-iota-pending       \ unknown: the recursor at the head, 0
+82 constant lf-diag-name-matched       \ K7 (unknown): the constant at the head, 0
 
 begin-structure /lf-diag
   field: lf-diag-code       \ reason code; lf-diag-none while clear
@@ -254,6 +258,10 @@ create lf-diag-catalogue
   lf-diag-non-positive
     s" rejected: non-positive occurrence of the type (P1)" lf-diag-entry,
   lf-diag-non-valid s" rejected: non-valid occurrence of the type (P2)" lf-diag-entry,
+  lf-diag-iota-pending
+    s" undecided: a recursor reduction LeanForth does not port yet" lf-diag-entry,
+  lf-diag-name-matched
+    s" undecided: a constant Lean's kernel matches by name (K7)" lf-diag-entry,
   lf-diag-none s" unknown code" lf-diag-entry,
 : lf-diag-end? ( code entry -- flag ) lf-diag-entry-code tuck = swap lf-diag-none = or ;
 \ The entry of code, or the last entry.

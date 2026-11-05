@@ -22,7 +22,7 @@ create words-path 256 allot  variable words-len
 \ as the statement's axiom.
 : load-export ( -- ) export-path export-len @ po-reload ;
 : dump-statements ( -- )
-  lf-input-count 0 ?do i lf-input-decl lf-sf-fdecl dump-decl loop ;
+  lf-input-count 0 ?do i lf-input-decl dup lf-sf-fits? if lf-sf-fdecl dump-decl else drop then loop ;
 
 \ The words' side, in a new context (report.fs's in-new-context).
 : words-text ( -- c-addr u ) words-path words-len @ slurp-file ;

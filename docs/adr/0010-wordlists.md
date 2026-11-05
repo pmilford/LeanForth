@@ -21,8 +21,11 @@ the words other parts and the documentation use; the private list holds
 the helpers, which other parts cannot name by accident. Tests that need a
 helper say so in one line. This tidies the code and catches mistakes; it
 is not a security wall, because Forth code in the same program can still
-read and write any memory. Untrusted code therefore keeps running in a
-separate program (open question OQ-1).
+read and write any memory. So a LeanForth file is run with only
+LeanForth's sealed word lists visible, and a result from a session where
+other Forth code ran is labelled "checked in this session" until a fresh
+`leanforth check` re-checks it (OQ-1 as revised on 2026-11-04,
+[ADR 0017 Amendment 1](0017-leanforth-syntax.md)).
 
 ## Facts measured (2026-11-02, Gforth 0.7.3 and 1.0.0)
 
@@ -193,9 +196,14 @@ separate program (open question OQ-1).
    program can push any wordlist (its constant is in FORTH-WORDLIST),
    traverse every wordlist, run an execution token it has kept, or store
    into any address, such as a context member's (`lf-context @` plus an
-   offset). So untrusted code — tactics, LLM output, user Forth programs —
-   must not run in the checker's program (OQ-1); wordlists are a
-   code-quality and review tool, not a trust boundary.
+   offset). So wordlists are a code-quality and review tool, not a trust
+   boundary: where untrusted code — tactics, LLM output, user Forth
+   programs — runs in the checker's program, its results cannot be
+   trusted. (This sentence first said such code must not run there, the
+   owner's OQ-1 answer of 2026-11-02. Since ADR 0017 Amendment 1, accepted
+   2026-11-04, it may: such results are labelled *checked in this session*
+   and become claims only when re-checked by `leanforth check` in a fresh
+   process, where only LeanForth's code and sealed text run.)
 
 10. **Worked example: the publisher.** `src/kernel/env-publish.fs` defines
     63 names. Its interface is four words, `lf-env-hand-over`,

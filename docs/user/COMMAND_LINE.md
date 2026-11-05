@@ -93,7 +93,7 @@ theorem composition {A B C : Prop} (f : A → B) (g : B → C) : A → C :=
 | Command | What it does |
 | --- | --- |
 | `check [--no-manifest] [--fuel N] [--resources] [--json] [--fast] [--strict-axioms] EXPORT` | Check every declaration of a Lean export of any size, in file order; with `--resources`, also print the [resource report](#the-resource-report); with `--json`, print [one JSON report](#json-output) instead of text |
-| `check [--no-manifest] [--fuel N] [--fast] [--strict-axioms] --record RECORD EXPORT` | Check a small export (as `print` reads it) and also write its [run record](#run-records-and-replay) |
+| `check [--no-manifest] [--fuel N] [--fast] [--strict-axioms] --record RECORD EXPORT` | Check a small export (read straight into the checker's stores) and also write its [run record](#run-records-and-replay) |
 | `replay [--no-manifest] [--fuel N] [--fast] EXPORT RECORD` | Check the export again and compare the new run record with RECORD; print the replay report |
 | `print [--no-manifest] [--fuel N] [--fast] [--detail] [--name NAME] [--latex] [--statement FORMS] EXPORT` | Check the export and print each accepted declaration's [readable proof](#printing-a-readable-proof), or with `--detail` every step of the checker's log; `--name` prints one declaration |
 | `count [--no-manifest] EXPORT` | Count the export's records by kind ([the reader's counter](../development/NDJSON_READER.md#using-it)), for exports of any size |
@@ -265,7 +265,7 @@ A file whose declarations end differently counts each verdict:
 $ bin/leanforth check tests/cli/unfold.ndjson; echo "exit status $?"
 Implies: accepted (experimental, not independently audited); axioms: none
 impliesSelf: unknown
-  undecided: terms or levels differ; diagnostic 30 at mixed-convert lf-mixed-convert: 17 10
+  undecided: terms or levels differ; diagnostic 30 at defeq lf-defeq: 20 22
 2 declarations: 1 accepted, 1 unknown
 accepted: 1 (experimental, not independently audited); axioms: none
 exit status 2
@@ -273,8 +273,9 @@ exit status 2
 
 Here *unknown* is honest, not a rejection, and it is a gap, not a
 difference from Lean: the proof is correct, and Lean accepts it, but
-checking it needs the definition of `Implies` unfolded, which the first
-checker does not do yet (plan task 4.2.2 closes it):
+checking it needs the definition of `Implies` unfolded by Lean's lazy
+delta reduction, which the checker does not do yet (plan task 4.2.2d
+closes it):
 
 ```lean
 def Implies (A B : Prop) : Prop := A → B
@@ -463,11 +464,11 @@ accepted: 6 (experimental, not independently audited); axioms: none
 resources:
   time (s)     wall      cpu
   input: 6 declarations, 46 term nodes, 3 levels, 5 constant references, 31 names
-  fuel: 1520 steps in all, at most 100000 per declaration
+  fuel: 1187 steps in all, at most 100000 per declaration
   most fuel used:
-       832 Two.cases (accepted)
-       349 Two.swap (accepted)
+       576 Two.cases (accepted)
        339 Two (accepted)
+       272 Two.swap (accepted)
 ```
 
 **Fuel**, a check's unit of work, is read from the checker's own counters
@@ -495,7 +496,7 @@ member is cut off:
 
 ```console
 $ bin/leanforth check --json tests/cli/unfold.ndjson | sed "s/,\"measured\":.*/}/"; echo "exit status ${PIPESTATUS[0]}"
-{"schema":"leanforth-check-report","schemaVersion":"0.1","export":"tests/cli/unfold.ndjson","manifest":"checked","label":"experimental, not independently audited","settings":{"fuel":100000,"dependencyPool":65536,"strictAxioms":false},"read":{"outcome":"ok","phase":null,"line":null,"field":null,"reason":null,"at":null},"run":"ok","stopped":false,"declarations":[{"index":0,"name":"Implies","verdict":"accepted","label":"experimental, not independently audited","axiomBits":0,"notProved":false,"fuel":137},{"index":1,"name":"impliesSelf","verdict":"unknown","diagnostic":{"code":30,"reason":"undecided: terms or levels differ","site":"mixed-convert lf-mixed-convert","numbers":[17,10],"step":8},"fuel":281}],"counts":{"declarations":2,"accepted":1,"rejected":0,"unknown":1,"unsupported":0,"invalid":0,"exhausted":0,"full":0,"notChecked":0,"notProved":0},"fuel":{"perDeclaration":100000,"total":418,"unknown":0,"top":[{"index":1,"name":"impliesSelf","fuel":281,"verdict":"unknown"},{"index":0,"name":"Implies","fuel":137,"verdict":"accepted"}]},"input":{"declarations":2,"terms":14,"levels":1,"references":1,"names":10},"exitStatus":2}
+{"schema":"leanforth-check-report","schemaVersion":"0.1","export":"tests/cli/unfold.ndjson","manifest":"checked","label":"experimental, not independently audited","settings":{"fuel":100000,"dependencyPool":65536,"strictAxioms":false},"read":{"outcome":"ok","phase":null,"line":null,"field":null,"reason":null,"at":null},"run":"ok","stopped":false,"declarations":[{"index":0,"name":"Implies","verdict":"accepted","label":"experimental, not independently audited","axiomBits":0,"notProved":false,"fuel":88},{"index":1,"name":"impliesSelf","verdict":"unknown","diagnostic":{"code":30,"reason":"undecided: terms or levels differ","site":"defeq lf-defeq","numbers":[20,22],"step":8},"fuel":229}],"counts":{"declarations":2,"accepted":1,"rejected":0,"unknown":1,"unsupported":0,"invalid":0,"exhausted":0,"full":0,"notChecked":0,"notProved":0},"fuel":{"perDeclaration":100000,"total":317,"unknown":0,"top":[{"index":1,"name":"impliesSelf","fuel":229,"verdict":"unknown"},{"index":0,"name":"Implies","fuel":88,"verdict":"accepted"}]},"input":{"declarations":2,"terms":14,"levels":1,"references":1,"names":10},"exitStatus":2}
 exit status 2
 ```
 
@@ -563,7 +564,7 @@ Theorem composition
   accepted (experimental, not independently audited); axioms: none
   Statement in Lean:        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$
-  Statement in LeanForth (the statement only, written as an axiom; nothing is assumed):
+  Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom composition
       Prop implicit: A
       Prop implicit: B
@@ -573,7 +574,7 @@ Theorem composition
       A C ->
     end composition
   Input:     tests/reference/composition.ndjson line 35
-  Checker log: 51 steps, complete. The statement is a proposition: s20 (from s3).
+  Checker log: 48 steps, complete. The statement is a proposition: s20 (from s3).
 
 Proof (reconstructed from the proof term).
   1  Let A, B, C be propositions.                  [∀-introduction]                   s21–s23
@@ -586,7 +587,7 @@ Proof (reconstructed from the proof term).
          because g turns any proof of B into a proof of C.
   7  Discharging 4, 3, 2 and 1 gives               [→/∀-introduction ← 1, 2, 3, 4, 6] s40–s45
        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C.
-  8  This is the statement.                        [definitional equality ← 7]        s49
+  8  This is the statement.                        [definitional equality ← 7]        s46
 ∎
 Rules, formulas and step numbers come from the checker's log; the sentences are
 fixed templates (structured-template), not checked reasoning.
@@ -599,11 +600,13 @@ The header shows the statement in three forms (plan task 8.6.2): in
 Lean's notation, in mathematics (LaTeX between `$` and `$`) and in
 LeanForth words. The LeanForth block states the type as the `axiom` of
 the same name does, because that is the one form of the words that states
-a type with no proof; it assumes nothing: nobody checked such an axiom,
-and the verdict printed above it is the checker's. The words run through
+a type with no proof. Printing it assumes nothing, and the verdict printed
+above it is the checker's (also for an `Axiom` declaration and for a
+rejected one, whose block is printed all the same); running the words would
+make an axiom in the authoring program, never in the checker. The words run through
 the [authoring words](../programming/LEANFORTH_WORDS.md) to the identical
-statement (checked by `tests/present/check_outline.py` for every pinned
-example). The statement is printed whether or not the declaration was
+statement (checked by `tests/present/check_outline.py` for the five pinned
+examples; the `Init` example below was not run back). The statement is printed whether or not the declaration was
 accepted. A block can be run only after the declarations it mentions: the
 constants of an earlier declaration are defined by running that
 declaration first (an `import-stub` line stands for one of Lean's).
@@ -613,6 +616,17 @@ declaration first (an `import-stub` line stands for one of Lean's).
 (the default). `--latex` prints the outlines as LaTeX fragments instead
 (see [the proof outline](PROOF_OUTLINE.md#latex)); with `--detail` the
 step list is always plain text.
+
+NAME is matched against the name as the term printer spells it, components
+joined by dots without « »: `a.b` selects a declaration whose name is the
+two components `a` and `b` and also the one-component name `«a.b»`, and a
+numeric component matches the same digits as a string component. The name
+is shown escaped in the output (so a name holding a line end or a
+bidirectional control cannot be written as an argument).
+
+A limit still to lift: the LeanForth block takes at most 8 universe
+parameters (print-forth's `lf-decl-universe-capacity`); a declaration with
+more prints "(not complete: unsupported)" instead of the block.
 
 `--name NAME` prints only the declaration named NAME (the declarations
 before it are checked too, since it may use them; the ones after it are
@@ -629,7 +643,7 @@ Theorem composition
   Diagnostic: rejected: argument type mismatch (D1-D5) (4, 0)
   Statement in Lean:        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$
-  Statement in LeanForth (the statement only, written as an axiom; nothing is assumed):
+  Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom composition
       Prop implicit: A
       Prop implicit: B

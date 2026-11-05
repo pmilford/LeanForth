@@ -11,8 +11,9 @@ its publisher; and the first checker, `check-declaration.fs` (plan task
 V1), then the name, the universe parameters, inference in environment mode
 (constants and universe arguments looked up in the environment in Lean's
 order, `env-signature.fs`) and the final comparison. Inference and the
-probe answer *rejected* by the rules of
-[ADR 0011](../../docs/adr/0011-definite-rejection.md) (S1–S3, F1, D1–D5;
+probe answer *rejected* where Lean's `whnf` shows a type is no Sort or
+no Π (`ensure_sort`, `ensure_pi`, below) and by the rules of
+[ADR 0011](../../docs/adr/0011-definite-rejection.md) (S3, D1–D5;
 the head kinds those rules read are in `mixed-head.fs`, the level tests in
 `level-value.fs`), the environment by N1, N2 and L1–L3, the declaration
 audit *unsupported* by U1 and U2; every other failure stays *unknown*,
@@ -24,6 +25,20 @@ which `level-compare.fs` (conversion, rule D1) uses; `mixed-infer.fs`
 types a Π with `mk_imax`, and `level-substitute.fs` specializes a
 constant's type as Lean's `instantiate` does. A new place that builds a
 level where Lean's kernel builds one must use the same ports.
+
+Definitional unfolding (plan tasks 4.2.2b and 4.2.2c, [ADR 0014](../../docs/adr/0014-definitional-equality.md)),
+ports of Lean's own functions as frame steps on the caller's frames:
+`whnf.fs` (`whnf_core`, `whnf`, `is_delta`, `unfold_definition`,
+`cheap_beta_reduce`; definitions and theorems unfold, opaque declarations
+never; the **iota hook** `lf-whnf-iota` for plan task 5.2.1b, its stack
+effect in the module header) and `defeq.fs` (`quick_is_def_eq`,
+`is_def_eq_binding`, `is_def_eq_app`, `is_def_eq_args` and the steps of
+`is_def_eq_core` that do not need lazy delta reduction, proof irrelevance
+or eta: those answer *unknown*, tasks 4.2.2d, 4.2.5 and 4.2.4). Lean's
+`==` is `lf-expr-equal` (`mixed-compare.fs`). Conversion
+(`mixed-convert.fs`) is `defeq.fs` after its audits; inference's
+`ensure_sort` and `ensure_pi` put a type in Lean's `whnf`, replacing
+rules S1, S2, S4 and F1, whose diagnostic codes they keep.
 
 Inductive blocks (plan tasks 5.2.1a and 5.2.1b, [ADR 0015](../../docs/adr/0015-inductive-types.md);
 [developer notes](../../docs/programming/INDUCTIVE_BLOCKS.md)):
@@ -103,12 +118,13 @@ Rules a new kernel module must keep:
   closes what it infers with the whole scope. So the derivation log's
   comparison steps there, written at the block step's depth, hold bound
   variables only.
-- What 4.2.2b–e need is in place: `lf-lctx-local` and `lf-lctx-let`
-  (Lean's `mk_local_decl`, for `is_def_eq_binding`, eta and `infer_let`),
-  `lf-fvar-value` (for `whnf_fvar`'s zeta), `lf-instantiate` (for beta) and
-  the scope. Not yet: `cheap_beta_reduce` of a λ body's type (with
-  `whnf_core`, 4.2.2c), `mk_pi` of a `let` variable (4.2.3), and the
-  loose-variable range that lets Lean skip closed subterms (Q12).
+- `lf-lctx-local` and `lf-lctx-let` (Lean's `mk_local_decl`) serve
+  `is_def_eq_binding` (`defeq.fs`, 4.2.2b), and later eta and
+  `infer_let`; `lf-fvar-value` serves `whnf_fvar`'s zeta and
+  `lf-instantiate` beta (`whnf.fs`, 4.2.2c); `cheap_beta_reduce` of a λ
+  body's type is in place (4.2.2c). Not yet: `mk_pi` of a `let` variable
+  (4.2.3), and the loose-variable range that lets Lean skip closed
+  subterms (Q12): `whnf.fs` scans for loose bound variables instead.
 
 **Nothing here is verified yet.** The code is in progress, and it becomes
 trusted only when the owner declares it so, after the review gate in

@@ -145,9 +145,15 @@ in the application
   person to compare yet (plan task 2.4.4); the 69 table cases are built
   from the very terms Lean checks.
 - The first checker covers `Sort`s, variables, application, `fun`, `∀` and
-  earlier accepted declarations. It does not unfold definitions, so some
-  correct proofs are *unknown*; theorems that use data types, numbers or
-  axioms are *unsupported* until later phases.
+  earlier accepted declarations. Where Lean's kernel needs a type to be a
+  `Sort` or a function type, it computes the type's weak head normal form
+  as Lean does, unfolding definitions and theorems (never opaque
+  declarations) since plan task 4.2.2c: with `def dqProp : Type := Prop`,
+  `theorem t (A : dqProp) (h : A) : A := h` is accepted, as by Lean. It
+  does not yet unfold a definition to compare two terms (Lean's lazy delta
+  reduction, plan task 4.2.2d), so some correct proofs are *unknown*;
+  theorems that use data types, numbers or axioms are *unsupported* until
+  later phases.
 - Limits today: `bin/leanforth check` holds exports of any size (all of
   Lean's `Init`; the stores grow), with 16 dependencies per declaration
   and terms nested at most 64 deep; `check --record`, `replay` and

@@ -44,14 +44,14 @@ T{ 0 make-sort 0 make-var make-pi universe -> 0 }T
 fresh-session
 T{ 1 make-sort 0 make-var make-lam 0 make-sort make-app universe nat-of -> 1 }T
 T{ build-composition inferred 10 convert-terms -> outcome-ok }T
-\ A binder domain that is a redex whose type is a Sort is accepted. A domain
-\ whose type is itself an unreduced redex is unknown: lf-mixed-infer does not
-\ reduce an inferred type to a Sort, while Lean does and accepts (a known
-\ conservative case, also listed in tests/core/lean-differential.py).
+\ A binder domain that is a redex whose type is a Sort is accepted. So,
+\ since plan task 4.2.2c, is a domain whose type is itself an unreduced
+\ redex: its type is put in whnf, as Lean's ensure_sort_core does (until
+\ then this was unknown, a known gap of tests/core/lean-differential.py).
 : beta-prop ( -- node ) 1 make-sort 0 make-var make-lam 0 make-sort make-app ;
 fresh-session
 T{ beta-prop 0 make-sort make-pi universe nat-of -> 1 }T
-T{ beta-prop 0 make-var 0 make-var make-lam make-lam status-of -> outcome-unknown }T
+T{ beta-prop 0 make-var 0 make-var make-lam make-lam status-of -> outcome-ok }T
 \ A fuel sweep over fun A : Sort 1 => (fun B : Sort 1 => B) A in one session,
 \ retrying after each exhaustion without a reset: every failure keeps the
 \ counts, and the call finally succeeds with type Pi (A : Sort 1), Sort 1.

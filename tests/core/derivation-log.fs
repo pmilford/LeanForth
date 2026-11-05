@@ -74,27 +74,30 @@ T{ new-context-off -> true true }T
 : baselines ( -- ) files# 0 ?do i file run i cells baseline + ! loop ;
 baselines
 
-\ composition with the log at level terms: 51 steps (the ADR's golden
+\ composition with the log at level terms: 48 steps (the ADR's golden
 \ table without its 14 shift steps: since free variables, plan task
 \ 4.2.2a, a variable's type is its local-context entry's, as in Lean's
-\ infer_fvar), complete, valid, nothing changed.
+\ infer_fvar; and without the final comparison's three level-eq steps:
+\ since plan task 4.2.2b it is Lean's is_def_eq, whose quick_is_def_eq
+\ finds the two types equal by Lean's == at once), complete, valid,
+\ nothing changed.
 lf-log-terms level!
-T{ 0 file run 0 baseline@ = logs-valid @ lf-log-count lf-log-complete? -> true true 51 true }T
+T{ 0 file run 0 baseline@ = logs-valid @ lf-log-count lf-log-complete? -> true true 48 true }T
 : rule@ ( s -- rule ) lf-log-record logrec-rule @ ;
 : depth@ ( s -- depth ) lf-log-record logrec-depth @ ;
 T{ 1 rule@ 2 rule@ 3 rule@ 6 rule@ 8 rule@ -> lf-rule-fresh-name
   lf-rule-distinct-parameters lf-rule-sort lf-rule-variable lf-rule-pi }T
-T{ 20 rule@ 34 rule@ 35 rule@ 36 rule@ 45 rule@ 46 rule@ -> lf-rule-proposition
-  lf-rule-defeq lf-rule-instantiate lf-rule-application lf-rule-lambda lf-rule-level-eq }T
-T{ 49 rule@ 50 rule@ 51 rule@ 36 depth@ 40 depth@ 50 depth@ -> lf-rule-defeq
+T{ 20 rule@ 34 rule@ 35 rule@ 36 rule@ 45 rule@ -> lf-rule-proposition
+  lf-rule-defeq lf-rule-instantiate lf-rule-application lf-rule-lambda }T
+T{ 46 rule@ 47 rule@ 48 rule@ 36 depth@ 40 depth@ 47 depth@ -> lf-rule-defeq
   lf-rule-declaration lf-rule-publish 6 5 0 }T
 \ Premises from start alone: application s36 used s32, s33, s34, s35;
-\ the declaration s50 used s1, s2, s20, s45, s49; publish s51 used s50.
+\ the declaration s47 used s1, s2, s20, s45, s46; publish s48 used s47.
 : premises ( s -- p1 .. pn ) dup lf-log-record logrec-start @ swap 1-
   begin 2dup < while dup >r lf-log-premise r> -rot repeat 2drop ;
 T{ 36 premises -> 35 34 33 32 }T
-T{ 50 premises -> 49 45 20 2 1 }T
-T{ 51 premises -> 50 }T
+T{ 47 premises -> 46 45 20 2 1 }T
+T{ 48 premises -> 47 }T
 \ References: s36's subject is the input node f value, its type a copy;
 \ s6's subject (A) and type (Prop) are input nodes. The instantiate s35's
 \ body, B as a free variable in the type of f, is copied as the bound
@@ -110,7 +113,7 @@ T{ 20 lf-log-record logrec-out @ 0< -> false }T
 
 \ Level steps: the same records, no copies, scratch results unkept.
 lf-log-steps level!
-T{ 0 file run 0 baseline@ = logs-valid @ lf-log-count lf-log-term-copies -> true true 51 0 }T
+T{ 0 file run 0 baseline@ = logs-valid @ lf-log-count lf-log-term-copies -> true true 48 0 }T
 T{ 36 lf-log-record logrec-out @ lf-log-unkept = 36 rule@ -> true lf-rule-application }T
 
 \ Every file at both levels: nothing changed, every log valid.
