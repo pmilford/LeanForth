@@ -1167,7 +1167,17 @@ of Lean's `whnf` (`whnf.fs`, agent U4) is on main, so:
   5.2.1b and 5.2.5a: 182 rows, ok 101, rejected 71, unknown 6, unsupported
   4 (10 pending); none of the 268 decided against Lean. Planted faults:
   four new on iota, five re-targeted, three deleted with the stand-in
-  they broke; all caught.
+  they broke; all caught. Lean's `Init` (whole-file probe, `gforth-fast`):
+  261 of 604 blocks accepted, unchanged; its 61 *unknown* blocks at steps
+  7 and 9 now wait on lazy delta in comparisons (diagnostic 64, task
+  4.2.2d); none rejected or invalid. `Nat.add_zero`'s export
+  (`tests/reference/inductive/nat-add-zero.ndjson`): 14 of its 29 checks
+  accepted (`Nat`, `Eq`, `PProd`, `Nat.below`, `Nat.casesOn`,
+  `Nat.add.match_1`, `OfNat`, `rfl`, `congrArg`, …); the rest wait on
+  projections (`HAdd.hAdd`, `Add.add`, `OfNat.ofNat`, `Nat.brecOn`,
+  `Nat.add._f`, so `Nat.add`: task 5.2.2), literals (`Nat.add_zero`,
+  `Nat.zero_add`: 5.2.3, with L2 for iota on a literal major) and lazy
+  delta (`HAdd`, `Nat.brecOn.go`, `Unit.unit`: 4.2.2d).
 
 ## Implementation (plan task 5.2.5a)
 
