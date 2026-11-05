@@ -399,6 +399,19 @@ def etaCases : List Case := [
     what := "Q k used as Q (fun x y => k x y): eta twice" }
 ]
 
+/-- `def n (X : Prop) (x : X) : Prop := body`, a definition that takes a proof. -/
+def ofProof (n : Name) (body : Expr) : Declaration :=
+  defn n (foralls [(`X, prop)] (arrow (v `X) prop)) (funs [(`X, prop), (`x, v `X)] body)
+    (.regular 1)
+
+/-- Under `A B : Prop`, `h : A`, `k : B`: claim `d B k` from `q : d A h`. Lean
+compares `d A h` with `d B k`, the same definition: its arguments first, the
+last first, so `h` against `k`, proofs of different statements. -/
+def ofProofClaim (n d : Name) : Declaration :=
+  let context : List Binder := [(`A, prop), (`B, prop), (`h, v `A), (`k, v `B),
+    (`q, app (c d) [v `A, v `h])]
+  thm n (foralls context (app (c d) [v `B, v `k])) (funs context (v `q))
+
 def irrelevanceCases : List Case := [
   { id := "proof-irrelevance.same-statement",
     subject := claim `t29
@@ -430,7 +443,18 @@ def irrelevanceCases : List Case := [
       (app (v `Q) [v `k]) (v `q) [`u],
     lean := "declTypeMismatch", adr0011 := "rejected", adr0014 := "rejected",
     rule := "proof-irrelevance",
-    what := "A : Sort u is a proposition only when u = 0, so h and k are not known to be proofs" }
+    what := "A : Sort u is a proposition only when u = 0, so h and k are not known to be proofs" },
+  { id := "proof-irrelevance.different-statements",
+    subject := .declare (.fresh [ofProof `dqStmt (v `X)]) (ofProofClaim `t45 `dqStmt),
+    lean := "declTypeMismatch", adr0011 := "unknown", adr0014 := "rejected",
+    rule := "proof-irrelevance",
+    what := "dqStmt A h against dqStmt B k: h, k prove A, B, which differ; both unfold: A against B, no" },
+  { id := "proof-irrelevance.different-statements-unfold",
+    subject := .declare (.fresh [ofProof `dqForget (foralls [(`Y, prop)] (v `Y))])
+      (ofProofClaim `t46 `dqForget),
+    lean := "accepted", counts := "dqForget:2", adr0011 := "unknown", adr0014 := "accepted",
+    rule := "proof-irrelevance",
+    what := "the same where the definition forgets its proof: the arguments differ, both unfold alike" }
 ]
 
 def letCases : List Case := [

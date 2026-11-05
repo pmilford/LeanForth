@@ -114,9 +114,11 @@ require ../lib/lib.fs
 \ retired: no check gives it since).
 86 constant lf-diag-nat-count-op       \ unsupported: the declaration, 0
 \ Lean's is_def_eq (ADR 0014; plan task 4.2.2d, kernel/defeq.fs): steps
-\ that could answer yes where LeanForth does not port them yet (unknown).
-87 constant lf-diag-proof-pending      \ K2: the left term (a proof), the right
-88 constant lf-diag-eta-pending        \ K3: the lambda, the other term
+\ that could answer yes where LeanForth does not port them yet, or that a
+\ bare comparison, which has no typer, cannot run (87 and 88: ported by
+\ plan tasks 4.2.5 and 4.2.4; a check always has a typer) (unknown).
+87 constant lf-diag-proof-pending      \ no typer: the left term, the right
+88 constant lf-diag-eta-pending        \ no typer: the left term, the right
 89 constant lf-diag-structure-pending  \ structure eta or unit-like: left, right
 90 constant lf-diag-not-defeq          \ rejected (Lean's no): left, right
 \ Projections (plan task 5.2.2; 87 to 90 are plan task 4.2.2d's).
@@ -290,8 +292,8 @@ create lf-diag-catalogue
   lf-diag-nat-count-op
     s" unsupported: a declaration named Nat.pow or Nat.shiftLeft" lf-diag-entry,
   lf-diag-proof-pending
-    s" undecided: proof irrelevance may decide (K2)" lf-diag-entry,
-  lf-diag-eta-pending s" undecided: eta may decide (K3)" lf-diag-entry,
+    s" undecided: proof irrelevance may decide (no typer)" lf-diag-entry,
+  lf-diag-eta-pending s" undecided: eta may decide (no typer)" lf-diag-entry,
   lf-diag-structure-pending
     s" undecided: structure eta or a unit-like type may decide" lf-diag-entry,
   lf-diag-not-defeq s" rejected: not definitionally equal" lf-diag-entry,

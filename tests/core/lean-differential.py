@@ -662,12 +662,13 @@ def universe_scope_fed():
 # declarations (a whnf row: the constant, then a probe whose value is it,
 # which tests/support/whnf-probe.fs puts in LeanForth's whnf; a
 # definition carries its reducibility hint). The rows of the groups tasks
-# 4.2.2c and 4.2.2d decide must give the table's ADR 0014 answer (Lean's
+# 4.2.2c, 4.2.2d, 4.2.4 and 4.2.5 decide must give the table's ADR 0014 answer (Lean's
 # verdict, or unknown for K7), those of KNOWN the temporary gap given (with
 # the task that closes it); every other row may stay unknown or
 # unsupported but never contradicts Lean: accepted only where Lean
 # accepts, rejected only for the exception Lean raised.
-DQ_DECIDED = ("sort.", "pi.", "whnf.", "delta.", "opaque.", "names.")
+DQ_DECIDED = ("sort.", "pi.", "whnf.", "delta.", "opaque.", "names.", "eta.",
+              "proof-irrelevance.")
 DQ_OPAQUE = ("unsupported", "an opaque declaration: unsupported (U1, so K5 at its lookup) "
                             "until plan task 4.2.6")
 DQ_KNOWN = {case: DQ_OPAQUE for case in (
@@ -823,7 +824,7 @@ TABLES = {
                                            "Lean's kernel, fed as exports"),
     "definitional-equality": (definitional_equality,
                               "definitional-equality rows: sort.*, pi.*, whnf.*, delta.*, "
-                              "opaque.* and names.* give "
+                              "opaque.*, names.*, eta.* and proof-irrelevance.* give "
                               "Lean's answer, no row contradicts Lean"),
 }
 
