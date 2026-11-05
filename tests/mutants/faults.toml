@@ -5270,3 +5270,53 @@ old = '''    tag-let-nondep of true feed-let feed-built endof'''
 new = '''    tag-let-nondep of false feed-let feed-built endof'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "4.2.3: the feed drops a letE's nonDep flag, which Lean's == compares"
+
+# --- K-like reduction (plan task 5.2.1c, R2; src/kernel/iota.fs) -----------
+
+[[fault]]
+id = "k-types-not-compared"
+file = "src/kernel/iota.fs"
+old = '''  if drop else nip then false r> lf-iota-whnf ;'''
+new = '''  2drop false r> lf-iota-whnf ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1c: K takes the nullary constructor whatever is_def_eq says; Eq.rec on h : a = b reduces and k.eq-different-ends is accepted where Lean rejects"
+
+[[fault]]
+id = "k-params-short"
+file = "src/kernel/iota.fs"
+old = '''  swap r> lf-iota-params ;'''
+new = '''  swap r> 1- 0 max lf-iota-params ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1c: mk_nullary_cnstr applies the constructor to one parameter too few (Eq.refl Nat); its type is no Eq, so K never reduces (k.eq-variable-proof)"
+
+[[fault]]
+id = "k-type-whnf-core-only"
+file = "src/kernel/iota.fs"
+old = '''  rot 2 pick frame-save swap ['] lf-iota-k-typed lf-whnf-call ;'''
+new = '''  rot 2 pick frame-save swap ['] lf-iota-k-typed lf-whnf-core-call ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1c: the major premise's type put in whnf_core, not whnf; id (a = a) does not unfold to Eq and K keeps h (k.type-through-definition)"
+
+[[fault]]
+id = "k-kept-as-undecided"
+file = "src/kernel/iota.fs"
+old = '''  if drop else nip then false r> lf-iota-whnf ;'''
+new = '''  if drop else nip then true r> lf-iota-whnf ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1c: a K that Lean decided (types differ) is taken as undecided; Eq.rec stuck on h is unknown where Lean rejects (k.eq-different-ends)"
+
+[[fault]]
+id = "k-no-first-constructor"
+file = "src/kernel/iota.fs"
+old = '''  lf-idecl-data lf-ity-ctors@ if @ else drop 0 then outcome-ok ;'''
+new = '''  lf-idecl-data lf-ity-ctors@ 2drop 0 outcome-ok ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1c: get_first_cnstr finds no constructor, so K always keeps the major premise (k.eq-variable-proof)"
+
+[[fault]]
+id = "k-non-k-pending"
+file = "src/kernel/iota.fs"
+old = '''  swap if lf-iota-k else false swap lf-iota-whnf then ;'''
+new = '''  swap if lf-iota-k else true swap lf-iota-whnf then ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.1c: a recursor without k is taken as K-undecided; Bool.rec stuck on a variable is unknown where Lean rejects (iota.bool-stuck)"

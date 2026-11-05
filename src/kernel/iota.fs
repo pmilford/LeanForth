@@ -194,7 +194,7 @@ require ./whnf.fs
 \ A major premise that is no constructor application (inductive.h 90-99):
 \ K undecided (pending, below), unknown; a non-recursive structure, R3
 \ above; any other type, no rule (-1 ok).
-: lf-iota-no-ctor ( app decl major pending -- app decl major' true | reduct outcome false )
+: lf-iota-no-ctor ( app decl m pending -- app decl m' true | reduct outcome false )
   if 2drop lf-iota-not-ported false exit then
   over lf-iota-induct ?dup 0= if 2drop lf-iota-not-ported false exit then
   lf-whnf-find ok-then? 0= if >r 2drop drop r> no-result false exit then
@@ -300,7 +300,8 @@ require ./whnf.fs
 : lf-iota-k-failed ( e outcome frames -- ... frames next )
   over outcome-unknown = if nip lf-iota-k-undecided else lf-iota-k-fail then ;
 \ After the child visits: e, saved last, back.
-: lf-iota-k-off ( outcome frames -- ... frames next ) dup frame-restore -rot lf-iota-k-failed ;
+: lf-iota-k-off ( outcome frames -- ... frames next )
+  dup frame-restore -rot lf-iota-k-failed ;
 : lf-iota-k-keep ( frames -- ... frames next ) dup frame-restore swap lf-iota-k-kept ;
 
 \ Whether K can run on e: environment mode, e closed.
