@@ -29,7 +29,7 @@
       "required": ["fuel", "dependencyPool"],
       "properties": {
         "fuel": {"description": "Fuel each declaration's check starts with (--fuel).", "$ref": "#/$defs/count"},
-        "dependencyPool": {"description": "Dependencies the run's environment holds.", "$ref": "#/$defs/count"}
+        "dependencyPool": {"description": "The room the run's dependency pool starts with; it grows (not a limit since plan task 6.2.0).", "$ref": "#/$defs/count"}
       }
     },
     "read": {"$ref": "#/$defs/read"},

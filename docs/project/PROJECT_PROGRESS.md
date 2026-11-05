@@ -362,12 +362,13 @@ tasks, not the plan's.
 | 2.4.1 derivation log, 2.4.4 proof-outline printer, `leanforth print` (agent RB) | **done, approved** (gate D5) |
 | 4.2.2a free variables and local context (agent D2A) | **done, approved** [kernel] |
 | 5.2.1a non-recursive inductive blocks (agent I21) | **done, approved** [kernel][import]; the owner's 100%-Lean condition **met** 2026-11-04 (review rvI21 rounds 4–6): 94 Lean-checked rows, 88 with Lean's verdict, 6 pending on 5.2.1b and 4.2.2 |
-| 6.2.0 part (a) universe lists without a fixed limit (agent KC) | **done, merged**; covered by the held [kernel] gate |
+| 6.2.0 part (a) universe lists without a fixed limit (agent KC) | **done, approved** 2026-11-04 with the [kernel] gate of the large store |
+| 6.2.0 part (c) the other fixed capacities: a check's dependencies, the dependency pool, a block's constructors, the signature index (agent KC) | **done on the branch**, review pending [kernel]; Lean's verdict at 41 and 1,001 dependencies, a pool of 66,066 and 600 constructors; on `Init` 0 *full* (31 before) |
 | Program words (ADR 0019), run-record format 0.1, import-read change, IR 0.2 design | **approved** 2026-11-04 (see the gates table) |
 
 | Plan task | State |
 | --- | --- |
-| 6.2.0 part (b) depth limits (walk, frame, binder depths up to 1,221) | **in progress**; the held [kernel] gate waits for it |
+| 6.2.0 part (b) depth limits (walk, frame, binder depths up to 1,221) | **done, approved** 2026-11-04 (owner, [kernel] gate of the large store) |
 | 4.2.2b-e unfolding, the lazy strategy, eta, proof irrelevance, `let` | not started; next after the free variables |
 | 5.2.1b recursive types, 5.2.1c indexed families, 5.2.2 structures and projections, 5.2.3 literals | not started; they close the temporary gaps of 5.2.1a and are on the way to `n + 0 = n` |
 | 5.3.3 review of the axiom rule (owner, 2026-11-04) | planned; options to be brought in plain words |

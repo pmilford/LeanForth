@@ -514,8 +514,9 @@ def expect_table(source, count, prelude=(), name="universe scope", fed=False, pr
                  known=None):
     """A table whose Lean file checks Lean's verdicts and prints EXPECT lines,
     then the cases (universe-scope-terms.lean, universe-many-terms.lean);
-    only the cases whose id starts with prefix; known: the rows allowed
-    another outcome, as checker_row takes them."""
+    only the cases whose id starts with prefix (a text, or a tuple of
+    texts); known: the rows allowed another outcome, as checker_row takes
+    them."""
     known = known or {}
     with tempfile.TemporaryDirectory() as temporary:
         first_checker_modules(temporary)
@@ -587,6 +588,29 @@ def depth_fed():
 def depth_deep_fed():
     return expect_table("tests/reference/depth-terms.lean", 6, DEPTH_SETTINGS,
                         "depth 10000, fed", True, "depth10000.")
+
+
+# Plan task 6.2.0: no fixed limit on a check's dependencies (16 before) or
+# the environment's dependency pool (65,536 before; the drivers start it with
+# room for 64). A declaration using 41 and 1,001 earlier ones, accepted, or
+# claimed in Prop and rejected only after every dependency is recorded, and
+# a 66th declaration of 1,001 dependencies, which brings the pool to 66,066
+# (dependencies-terms.lean). By checker input the first four; fed, all five
+# (the checker input's lookups scan every earlier declaration, the feed's
+# follow an index: ADR 0016 C4).
+DEPS_CAPACITIES = ["65536 lf-term-capacity! must-ok", "4096 lf-level-capacity! must-ok",
+                   "4096 lf-name-capacity! must-ok", "8192 lf-cref-capacity! must-ok",
+                   "4096 lf-input-capacity! must-ok"]
+
+
+def dependencies():
+    return expect_table("tests/reference/dependencies-terms.lean", 4, DEPS_CAPACITIES,
+                        "dependencies", False, ("deps40.", "deps1000."))
+
+
+def dependencies_fed():
+    return expect_table("tests/reference/dependencies-terms.lean", 5, (),
+                        "dependencies, fed", True)
 
 
 def first_checker_large():
@@ -663,6 +687,11 @@ TABLES = {
     "depth-fed": (depth_fed, "rows of terms 2,000 deep agree with Lean's kernel, fed as exports"),
     "depth-deep-fed": (depth_deep_fed, "rows of terms 10,000 deep agree with Lean's kernel, "
                                        "fed as exports"),
+    "dependencies": (dependencies, "rows of declarations with 41 and 1,001 dependencies "
+                                   "agree with Lean's kernel"),
+    "dependencies-fed": (dependencies_fed, "rows of declarations with 41 and 1,001 "
+                                           "dependencies, and a pool of 66,066, agree with "
+                                           "Lean's kernel, fed as exports"),
 }
 
 

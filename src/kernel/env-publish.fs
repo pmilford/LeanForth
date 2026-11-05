@@ -305,12 +305,15 @@ lf-rechecks# 1+ constant lf-recheck-moved
 \ (growing would not give it more identities).
 : lf-pool-wanted ( n store -- room )
   tuck store-count @ + swap store-capacity @ 2* max 16 max ;
+\ Move n cells from old's area to new's, xt ( store -- addr ) finding
+\ the area; copy a header field of old's into new's.
+: lf-pool-area ( old new n xt -- old new )
+  swap >r >r over r@ execute over r> execute r> cells move ;
+: lf-pool-field ( old new xt -- old new ) >r over r@ execute @ over r> execute ! ;
 : lf-pool-copy ( old new -- )
-  over store-count @ >r
-  over store-identities over store-identities r@ cells move
-  over store-records over store-records r@ cells move
-  over store-serial @ over store-serial !
-  over store-generation @ over store-generation ! r> swap store-count ! drop ;
+  over store-count @ dup >r ['] store-identities lf-pool-area r> ['] store-records lf-pool-area
+  ['] store-serial lf-pool-field ['] store-generation lf-pool-field
+  ['] store-count lf-pool-field 2drop ;
 : lf-pool-install ( block -- )
   lf-env-may-write lf-env lf-envh-pool @ over ! lf-env lf-envh-pool ! ;
 : lf-pool-grow ( n store -- )

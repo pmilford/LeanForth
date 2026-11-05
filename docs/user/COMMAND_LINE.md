@@ -347,15 +347,32 @@ unsafe and partial declarations and quotients (5.3.1, 4.2.6, 5.2.4; 252),
 comparisons that need definitions unfolded (4.2.2; 749 *unknown*, codes
 30–32), and everything that uses
 one of those (27,579 *unsupported* and 2,999 *unknown* only for that).
-*full* means a declaration with more than 16 dependencies (4, such as
-`Sum.isRight_iff`; plan task 6.2.0), and *exhausted* a check that needed
-more than 100,000 steps (179; `--fuel N` gives more). No term is too
+*full* meant a declaration with more than 16 dependencies (4 here, such
+as `Sum.isRight_iff`), a limit gone since plan task 6.2.0 (below), and
+*exhausted* a check that needed more than 100,000 steps (179; `--fuel N`
+gives more). No term is too
 deep any more: since the depth work of plan task 6.2.0 (part (b)) the
 55 declarations that ended *full* at a walk's 64 levels in the first run
 of 2026-11-04 get other verdicts (33 *unsupported*, 17 *exhausted*, 4
 *unknown*, 1 accepted), and two that use one of them moved from
 *unknown* to *unsupported*. 183 names, most of them notations such as
 `«term_+_»`, are shown with `«»`, as Lean shows them.
+
+Since part (c) of plan task 6.2.0 (2026-11-04) nothing in a check has a
+fixed number any more: a declaration's dependencies, the environment's
+dependency pool and an inductive block's constructors grow with the heap,
+like its terms and its depth. A check is *full* only when the heap
+refuses, or when it needs more than its scratch above the input (1,048,576
+term nodes, 65,536 levels and 262,144 constant references, plan task
+6.2.2), as the note after the summary says. On a build of that day with
+recursive data types (plan task 5.2.1b), checked with `--resources --json`,
+`Init` gave 2,503 accepted, 5,083 *unknown*, 51,583 *unsupported*, 180
+*exhausted* and none *full*: the 31 declarations that ended *full* at 16
+dependencies just before this change (such as `Sum.isRight_iff` and the
+`congr_eq` lemmas of `Lean.Grind.CommRing.Expr.toPoly`'s match) are now
+*unknown* (27, a comparison that needs a definition unfolded, plan task
+4.2.2) or *unsupported* (4, a dependency unsupported), and every other
+declaration kept its verdict and diagnostic.
 
 The run above used the `gforth-fast` engine
 (`GFORTH=.tools/gforth/bin/gforth-fast`) on a 10-core WSL2 machine that

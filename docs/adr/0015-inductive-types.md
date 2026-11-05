@@ -833,7 +833,9 @@ and its members' exported data into the input (`core/input.fs`,
    or recursors, is refused by the importer (*invalid*) before any check.
 10. *Capacity.* A block of more than 512 constructors is *full*, found
     when it is opened, before anything is written for its constructors
-    (review rvI21 B1). T1 also counts each constructor's binders, as
+    (review rvI21 B1). Since plan task 6.2.0 (2026-11-04) there is no
+    fixed number: a block is *full* there only when the heap cannot grow
+    its constructors' cells. T1 also counts each constructor's binders, as
     Lean's `get_params` does (L1). is_geq's recursion is counted on
     normalize's frame counter, so a deep one is *full* (review of the heap
     stores).
@@ -890,7 +892,8 @@ and its members' exported data into the input (`core/input.fs`,
     unit-like comparison): it can only turn *rejected* into *unknown*.
     The other temporary gaps of the default mode, each with its task:
     the capacities (512 constructors, 64 parameters plus indices or
-    fields, 16 dependencies: *full*; task 6.2.0); a file that names an
+    fields, 16 dependencies: *full*; task 6.2.0, closed on 2026-11-04);
+    a file that names an
     undeclared constant or holds a block with constructors or recursors
     but no type (*invalid* as a whole, where Lean rejects the declaration
     concerned; task 5.2.6); a binder whose type's type is a Sort only

@@ -83,6 +83,7 @@ DIFFERENTIAL_TARGETS := \
 	test-binder-domains-fed-differential test-universe-scope-fed-differential \
 	test-universe-many-differential test-universe-many-fed-differential \
 	test-depth-differential test-depth-fed-differential reference-deep-recursion \
+	test-dependencies-differential test-dependencies-fed-differential \
 	test-program-differential test-program-stack-differential \
 	test-program-values-differential test-program-depth-differential \
 	test-example-reference-differential test-add-reference-differential \
@@ -395,6 +396,16 @@ reference-deep-recursion:
 .PHONY: test-depth-deep-differential
 test-depth-deep-differential:
 	$(LEAN_TABLE) depth-deep-fed
+
+# No fixed limit on a check's dependencies or the dependency pool (plan
+# task 6.2.0): a declaration using 41 and 1,001 earlier ones, accepted or
+# refused for Lean's reason, by checker input and fed, and, fed, a pool
+# brought to 66,066, past the old 65,536.
+test-dependencies-differential:
+	$(LEAN_TABLE) dependencies
+
+test-dependencies-fed-differential:
+	$(LEAN_TABLE) dependencies-fed
 
 test-composition-fixture:
 	$(RUN) python3 tests/core/test_preview_contract.py

@@ -75,7 +75,7 @@ what was used and the limit.
 | 4 | name store full | full | count | capacity | `names lf-name-intern` |
 | 5 | name bytes full | full | bytes needed | byte capacity | `names lf-name-intern` (a string component) |
 | 6 | reference store full | full | count | capacity | `constant-references lf-cref-new` |
-| 7 | signature index full | full | count | capacity | `mixed-signature-probe lf-msp` (in `lf-msp-put`) |
+| 7 | signature index full | full | count | the room every array holds | `mixed-signature-probe lf-msp` (in `lf-msp-put`): the heap would not grow the index's arrays (no fixed number since plan task 6.2.0; it held 32) |
 | 8 | identity serial spent | full | the store's serial | identities needed | the term, level, name and reference stores (1 needed); `level-substitute lf-lsubst` (1, before it adds a node) |
 | 9 | work stack full | full | cells pending | capacity | every walk; `level-normalize` (the arguments of a `max` being normalized) |
 | 10 | frame limit | full | the frames' stack cells in use | its capacity | a pass whose explicit stack the heap would not grow (plan task 6.2.0): `mixed-shift`, `mixed-instantiate`, `mixed-beta`, `mixed-open`, `mixed-infer`, `level-value`, `level-normalize` (also for is_geq) |
@@ -83,8 +83,8 @@ what was used and the limit.
 | 12 | binder context full | full | binders | limit | `constant-term-scope` and `mixed-rebuild lf-rebuild-binary` (a binder depth at the largest cell, `max-n` twice); `mixed-infer` (the binders opened on its scope, the scope's capacity); `local-context lf-lctx-local` (the local context's entries, its capacity: plan task 4.2.2a) |
 | 13 | value at cell maximum | full | the value | the amount to add | `level-value` (a successor of `max-n`: value, 1); `mixed-shift` (variable index, shift amount) |
 | 14 | heap allocation failed | full | bytes | the `ALLOCATE` ior | reserved: no site in `core/` or `kernel/` allocates; see *Not yet covered* |
-| 15 | dependency list full | full | dependencies recorded | `lf-env-dep-capacity` | `environment lf-env-depend` (the check's candidate) |
-| 16 | dependency pool full | full | dependencies needed (in the pool plus the candidate's) | the pool's capacity | `env-publish lf-env-append` |
+| 15 | dependency list full | full | dependencies recorded | the list's room | `environment lf-env-depend` (the check's candidate): the heap would not grow the list (no fixed limit since plan task 6.2.0; it held 16) |
+| 16 | dependency pool full | full | dependencies needed (in the pool plus the candidate's) | the pool's capacity | `env-publish lf-env-append`: the heap refused a larger pool, or the pool's identities are spent (the pool grows since plan task 6.2.0; it held at most 65,536) |
 | 20 | invalid input: bad argument | invalid | the value | 0 | negative fuel: `mixed-infer`, `level-compare`, `mixed-signature-audit` |
 | 21 | invalid input: stale handle | invalid | index | identity | `constant-term-boundary lf-cterm-check`, through which every kernel pass audits its roots |
 | 22 | invalid input: malformed graph | invalid | the node being visited (-1 when the walk ended before its first visit) | 0 | every walk, when nothing more specific was recorded; `mixed-infer` (a free variable that the local context does not name) |
@@ -132,7 +132,7 @@ what was used and the limit.
 | 73 | rejected: constructor differs from Lean's (B3) | rejected | the constructor's member | the field that differs (1 levelParams, 2 induct, 3 cidx, 4 numParams, 5 numFields) | `check-block lf-block-check` (Lean's replay: "Invalid constructor") |
 | 74 | rejected: recursor differs from Lean's (B3) | rejected | the recursor's member | the field that differs (1 name, 2 levelParams, 3 type, 4 all, 5 numParams, 6 numIndices, 7 numMotives, 8 numMinors, 9 rules, 10 k) | `check-block lf-block-check` (Lean's replay: "Invalid recursor") |
 | 75 | rejected: recursor Lean does not generate (B3) | rejected | the recursor's member | 0 | `check-block lf-block-check` (Lean's replay: "No such recursor") |
-| 76 | inductive block: too many constructors | full | the block's constructors | the capacity, `lf-ind-ctor-capacity` (512) | `inductive-block lf-ind-audit` (review rvI21 B1: the whole block is *full*, before anything is written for its constructors) |
+| 76 | inductive block: too many constructors | full | the block's constructors | the room held for them | `inductive-block lf-ind-audit`: the heap would not grow the constructors' cells (no fixed limit since plan task 6.2.0; it held 512); review rvI21 B1: the whole block is *full*, before anything is written for its constructors |
 | 77 | undecided: a constant Lean's kernel holds, no slot accepted | unknown | the name | the slot that holds it | `environment lf-env-lookup`: a reference to `T.rec` that no slot holds, of a type `T` (accepted, or rejected only by B3) that left no recipe to build it again (ADR 0015 decision 12: a telescope only whnf shows). Lean's kernel holds the constant |
 | 78 | rejected: an inductive block without types | rejected | the block's declaration | 0 | `check-block lf-block-check`: an empty inductive record, which the importer stages as one declaration (ADR 0016 amendment 1); Lean's emptyBlock (inductive.cpp, elim_nested_inductive_fn) |
 | 79 | rejected: non-positive occurrence of the type (P1) | rejected | the constructor's member | the field's binder (from 0) | `check-block lf-block-check` (plan task 5.2.1b; Lean's `check_positivity`: the type in the domain of a Pi of a field's type, after whnf: "non positive occurrence") |
