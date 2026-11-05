@@ -1324,6 +1324,33 @@ committed (`iota.levels-in-reduct*`, `iota.punit-eta`, `iota.prod-eta`,
 `iota.and-prop-stuck-bool`, `after.b3-swapped-then-iota-*`), and its
 three surviving faults are caught, as are five new ones on projections.
 
+**R4 and R5 in `defeq.fs`** (agent SE, 2026-11-05; [kernel], review
+owed). Steps 12 and 14 of `is_def_eq_core` are Lean's, in its order:
+`try_eta_struct` (`type_checker.h` 97–99) runs `try_eta_struct_core`
+(856–872) on (t, s), then on (s, t) — the second a constructor of a
+non-recursive structure applied to its parameters and fields, the two
+types `is_def_eq`, then each field `is_def_eq` to `mk_proj(I, i, t)`
+(a projection leaf applied to t, `core/projections.fs`), left to right,
+on `frame.fs` steps (a visit of its own; fuel charged per visit);
+`is_def_eq_unit_like` (1119–1130) answers with `is_def_eq_core` of the
+whnf of t's type and s's type. BL-7 stays as Lean has it
+(`unit.pair-of-units` rejected). *Unknown* (89) remains only where the
+constants cannot be looked up (an inductive block's own, or outside a
+check) or, in a bare comparison, without a typer (a doubt). Rows: the
+table has 287 cases; `eta.structure`, `eta.structure-left`,
+`eta.psigma-extrinsic-fix` (the shape of `Init`'s
+`WellFounded.extrinsicFix₂`), `unit.punit` and `unit.punit-variables`
+accepted, `eta.structure-wrong-field` rejected, as by Lean. Still
+*unknown*, not ported: the comparison's projection steps 8 and 9
+(`lazy_delta_proj_reduction` 1077–1100, `whnf_core` with projections
+reduced by `whnf`, 1188–1191), `try_unfold_proj_app` (950–957) in lazy
+delta and `cheap_proj` (row `proj.index-differs`, diagnostic 30; plan
+task 5.2.2). On `Init`'s first 50,000 export lines (1,230
+declarations) only `WellFounded.extrinsicFix₂` changed: from *unknown*
+(89) to *unsupported* through its dependency `WellFounded.extrinsicFix`,
+which uses `Classical.choice`, an axiom the command line does not take
+yet (U1, diagnostic 42); its own comparison is now Lean's.
+
 ## Plan (task 5.2.5b): nested blocks
 
 Lean checks a nested block (`Tree | node : List Tree → Tree`;

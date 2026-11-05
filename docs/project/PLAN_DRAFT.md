@@ -481,7 +481,7 @@ Declaration kinds, for orientation:
 | 5.1.4 | ADR: literals — `Nat` literals and the `Nat` operations Lean's kernel computes directly (list to confirm against 4.35.0 source), `String` literals | as above | 5.1.2 | [kernel] | M |
 | 5.1.5 | ADR: quotients (`Quot`, `Quot.mk`, `Quot.lift`, `Quot.ind`) | as above | 5.1.2 | [kernel] | M |
 | 5.2.1 | **Status (2026-11-04 late): in progress** — 5.2.1a done and approved; 5.2.1b merged, gate not passed (two wrong acceptances being fixed); 5.2.1c not started. Implement non-recursive inductives (`Bool`, `And`), then recursive (`Nat`, `List`), then indexed (`Eq`) — one gate each | Each gate passed with Lean-rejected mutants | 5.1.1–5.1.3 | [kernel], [import] | L (three M) |
-| 5.2.2 | Structures and projections | Gate passed | 5.2.1 | [kernel], [import] | M |
+| 5.2.2 | **Status (2026-11-05): in progress** — projections (J1, J2) and R3 merged; R4 structure eta and R5 unit-like types in `defeq.fs` done (agent SE), [kernel] review owed; the comparison's projection steps (8, 9, `try_unfold_proj_app`, `cheap_proj`) still *unknown*. Structures and projections | Gate passed | 5.2.1 | [kernel], [import] | M |
 | 5.2.3 | `lib/bignum.fs` and literal support (§6.12) | Bignum differential against Lean and Python integers; gate passed | 5.1.4 | [kernel] | M |
 | 5.2.4 | Quotients | Gate passed | 5.1.5, 5.3.1 | [kernel] | M |
 | 5.2.5 | Mutual and nested inductive types | Gate passed | 5.2.1 | [kernel] | L |
