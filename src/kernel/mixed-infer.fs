@@ -49,7 +49,9 @@
 \ rejected with the codes of ADR 0011's rules S1, S2, S4 and F1, which
 \ Lean's ensure_sort_core and ensure_pi_core replace since plan task
 \ 4.2.2c. A comparison is Lean's is_def_eq (defeq.fs): its no is the
-\ step's exception, appTypeMismatch or declTypeMismatch, rejected (since
+\ step's exception, appTypeMismatch, declTypeMismatch or, for a let term's
+\ value (infer_let, plan task 4.2.3; its section below), letTypeMismatch,
+\ rejected (since
 \ plan task 4.2.2d, which retired ADR 0011's rules D1-D5); where the port
 \ cannot decide it is unknown, or exhausted or full. Like every result
 \ here, a rejection holds only if the candidate signatures are the

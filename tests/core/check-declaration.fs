@@ -201,6 +201,19 @@ T{ check-last -> outcome-ok 0 lf-step-done }T
 fc-case let-term-wrong
 fc-decl check def safe withLetWrong 0 TYPE S s z VALUE E 1 S z S z V 0
 T{ check-last -> outcome-rejected lf-diag-let-value-apart value-step }T
+\ Under A : Prop and h : A: let y : h := h; h has no type for y (Lean's
+\ typeExpected, S2's code); fun A => let T : Prop := A; fun y : T => y
+\ proves A -> A (its type, a let term, mentions T); let T : Prop := A;
+\ let y : T := h; y proves A (h's type A against the let variable T).
+fc-case let-type-not-a-type
+fc-decl check thm safe withLetProof 0 TYPE P S z P V 0 V 1 VALUE L S z L V 0 E 0 V 0 V 0 V 1
+T{ check-last -> outcome-rejected lf-diag-domain-type value-step }T
+fc-case let-dependent-body
+fc-decl check thm safe withLetBody 0 TYPE P S z P V 0 V 1 VALUE L S z E 0 S z V 0 L V 0 V 0
+T{ check-last -> outcome-ok 0 lf-step-done }T
+fc-case let-chain
+fc-decl check thm safe withLetChain 0 TYPE P S z P V 0 V 1 VALUE L S z L V 0 E 0 S z V 1 E 0 V 0 V 1 V 0
+T{ check-last -> outcome-ok 0 lf-step-done }T
 fc-case nat-literal
 fc-decl check def safe withLiteral 0 TYPE S s z VALUE L S z Xlit
 T{ check-last -> outcome-unsupported lf-diag-unsupported-form audit }T

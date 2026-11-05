@@ -827,8 +827,9 @@ reason = "4.2.2a: the copier's memo ignores the context, so a node copied under 
 [[fault]]
 id = "infer-scope-unchecked"
 file = "src/kernel/mixed-infer.fs"
-old = '''  lf-minfer-scope-room? 0= if 2drop lf-minfer-crowded exit then'''
-new = ''''''
+old = '''  lf-minfer-scope-room? 0= if 2drop lf-minfer-crowded exit then
+  swap lf-lctx-local'''
+new = '''  swap lf-lctx-local'''
 test = "$GFORTH tests/core/mixed-infer.fs"
 reason = "4.2.2a, 6.2.0: a binder is opened without room on the scope (past its growable arrays) instead of full"
 
@@ -5116,3 +5117,156 @@ old = '''  dup lf-lit-leaf? if lf-reduce-nat-constructor else outcome-ok then ;'
 new = '''  outcome-ok ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "5.2.3 L2: iota leaves a literal major premise stuck; Nat.rec on 3 (iota.nat-literal-major) is no longer accepted"
+
+# --- let terms (plan task 4.2.3) -------------------------------------------
+
+[[fault]]
+id = "let-audit-any-flag"
+file = "src/core/let-terms.fs"
+old = ''': lf-let-check ( first second walk -- outcome ) drop 0= swap 0 2 within and flag>outcome ;'''
+new = ''': lf-let-check ( first second walk -- outcome ) drop 2drop outcome-ok ;'''
+test = "$GFORTH tests/core/whnf.fs"
+reason = "4.2.3: the audit takes a let leaf whose nonDep flag is 2, a field no export can hold"
+
+[[fault]]
+id = "let-audit-refused"
+file = "src/core/constant-term-boundary.fs"
+old = '''    lf-tag-let of lf-let-check endof  walk-bad-tag endcase ;'''
+new = '''    walk-bad-tag endcase ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "4.2.3: the audit refuses every let leaf; a declaration with a let is invalid, not accepted"
+
+[[fault]]
+id = "let-compare-ignores-flag"
+file = "src/kernel/mixed-compare.fs"
+old = '''    lf-tag-let of lf-mcompare-same-first endof walk-bad-tag endcase ;'''
+new = '''    lf-tag-let of drop 2drop outcome-ok endof walk-bad-tag endcase ;'''
+test = "$GFORTH tests/core/whnf.fs"
+reason = "4.2.3: == takes two lets that differ in their nonDep flag for equal, where Lean's Expr.eqv does not"
+
+[[fault]]
+id = "let-spine-through"
+file = "src/kernel/mixed-head.fs"
+old = ''': lf-mhead-step? ( node -- flag ) dup lf-mhead-app? if lf-let? 0= else drop false then ;'''
+new = ''': lf-mhead-step? ( node -- flag ) lf-mhead-app? ;'''
+test = "$GFORTH tests/core/whnf.fs"
+reason = "4.2.3: a spine runs through a let term to its leaf (Lean's get_app_fn stops at the let); whnf of (let f := fun X => X; f) Sort 0 is invalid"
+
+[[fault]]
+id = "let-no-zeta"
+file = "src/kernel/whnf.fs"
+old = '''  dup lf-tag-app = if drop over lf-let? if lf-wc-zeta else lf-wc-app then exit then'''
+new = '''  dup lf-tag-app = if drop lf-wc-app exit then'''
+test = "$GFORTH tests/core/whnf.fs"
+reason = "4.2.3: whnf_core never applies zeta to a let term; let x := Sort 0; x is not reduced to Sort 0"
+
+[[fault]]
+id = "let-zeta-keeps-body"
+file = "src/kernel/whnf.fs"
+old = '''  0 lf-whnf-arg ! 1 0 r> lf-whnf-put ;'''
+new = '''  0 lf-whnf-arg ! r> drop outcome-ok ;'''
+test = "$GFORTH tests/core/whnf.fs"
+reason = "4.2.3: zeta gives the body without the value put for its variable"
+
+[[fault]]
+id = "let-head-plain"
+file = "src/kernel/whnf.fs"
+old = '''  dup lf-let? if drop false exit then
+  dup lf-whnf-fvar?'''
+new = '''  dup lf-whnf-fvar?'''
+test = "$GFORTH tests/core/whnf.fs"
+reason = "4.2.3: a let at the head of an application is not reduced first (whnf_core 514); the application stays"
+
+[[fault]]
+id = "let-leaf-head-normal"
+file = "src/kernel/whnf.fs"
+old = '''  over lf-whnf-head dup lf-let-leaf? if drop lf-wc-invalid exit then
+  dup lf-whnf-plain-head?'''
+new = '''  over lf-whnf-head
+  dup lf-whnf-plain-head?'''
+test = "$GFORTH tests/core/whnf.fs"
+reason = "4.2.3: a let leaf applied to one argument, malformed, is taken as a normal form instead of invalid"
+
+[[fault]]
+id = "let-zeta-malformed"
+file = "src/kernel/whnf.fs"
+old = '''  over lf-let-well? 0= if lf-wc-invalid exit then
+  >r dup lf-let-body'''
+new = '''  >r dup lf-let-body'''
+test = "$GFORTH tests/core/whnf.fs"
+reason = "4.2.3: zeta reads the body of a let term whose second argument is no lambda"
+
+[[fault]]
+id = "let-inferred-as-app"
+file = "src/kernel/mixed-infer.fs"
+old = '''  2 pick lf-let-fn? if lf-minfer-let else lf-minfer-app then ;'''
+new = '''  lf-minfer-app ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "4.2.3: a let term is inferred as an application of its leaf; the let declarations are not accepted"
+
+[[fault]]
+id = "let-value-unchecked"
+file = "src/kernel/mixed-infer.fs"
+old = '''  swap lf-minfer-agree lf-minfer-site lf-diag-let-value-apart lf-minfer-verdict'''
+new = '''  2drop outcome-ok'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "4.2.3: infer_let's comparison of the value's type with the declared one is skipped; letTypeMismatch is accepted"
+
+[[fault]]
+id = "let-type-unchecked"
+file = "src/kernel/mixed-infer.fs"
+old = '''  >r r@ frame-restore -rot lf-minfer-domain-level r@ lf-minfer-let-tc'''
+new = '''  >r r@ frame-restore -rot rot lf-minfer-discard r@ lf-minfer-let-tc'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "4.2.3: a let's declared type is not checked to be a type (ensure_sort_core); let y : h := h is no longer typeExpected"
+
+[[fault]]
+id = "let-never-wrap"
+file = "src/kernel/mixed-infer.fs"
+old = '''  rot 2dup = if drop nip outcome-ok exit then
+  drop swap lf-minfer-fvar-cell @ lf-minfer-let-wrap ;'''
+new = '''  rot drop nip outcome-ok ;'''
+test = "$GFORTH tests/core/whnf.fs"
+reason = "4.2.3: mk_pi drops every let variable, also one the type mentions, leaving its bound variable loose"
+
+[[fault]]
+id = "let-always-wrap"
+file = "src/kernel/mixed-infer.fs"
+old = '''  rot 2dup = if drop nip outcome-ok exit then
+  drop swap'''
+new = '''  rot drop swap'''
+test = "$GFORTH tests/core/whnf.fs"
+reason = "4.2.3: mk_pi keeps a dead let variable (remove_dead_let ignored); the type of let x := Sort 0; Sort 0 is a let term, not Sort 1"
+
+[[fault]]
+id = "let-wrap-type-is-value"
+file = "src/kernel/mixed-infer.fs"
+old = '''  tuck lf-fvar-type swap lf-term-lam 0= if drop -1 outcome-full exit then'''
+new = '''  tuck lf-fvar-value swap lf-term-lam 0= if drop -1 outcome-full exit then'''
+test = "$GFORTH tests/core/whnf.fs"
+reason = "4.2.3: mk_pi writes the let variable's value as its type in the let term it makes"
+
+[[fault]]
+id = "let-stray-leaf-unknown"
+file = "src/kernel/mixed-infer.fs"
+old = '''    lf-tag-lit of drop lf-reduce-nat-type endof
+    lf-tag-let of lf-minfer-stray endof'''
+new = '''    lf-tag-lit of drop lf-reduce-nat-type endof'''
+test = "$GFORTH tests/core/whnf.fs"
+reason = "4.2.3: a let leaf alone, malformed, is inferred as unknown (unsupported construct) instead of invalid"
+
+[[fault]]
+id = "let-open-refuses-leaf"
+file = "src/kernel/mixed-open.fs"
+old = '''    lf-tag-lit of lf-rebuild-keep endof  lf-tag-let of lf-rebuild-keep endof'''
+new = '''    lf-tag-lit of lf-rebuild-keep endof'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "4.2.3: abstract refuses a let leaf; a lambda whose body's type is a let term (let-dependent-body) is invalid"
+
+[[fault]]
+id = "let-feed-flag-lost"
+file = "src/import/feed.fs"
+old = '''    tag-let-nondep of true feed-let feed-built endof'''
+new = '''    tag-let-nondep of false feed-let feed-built endof'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "4.2.3: the feed drops a letE's nonDep flag, which Lean's == compares"

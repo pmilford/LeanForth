@@ -125,6 +125,13 @@ T{ s" tests/core/check-declaration-cases/composition-literal.ndjson" fed-case
   -> outcome-unsupported lf-diag-unsupported-form 1 }T
 T{ s" tests/core/check-declaration-cases/composition-loose.ndjson" fed-case
   -> outcome-invalid lf-diag-out-of-scope 1 }T
+\ A let (plan task 4.2.3), def withLet : Sort 1 := let x : Sort 1 :=
+\ Sort 0; x with its nonDep flag set: fed as a let term whose leaf keeps
+\ the flag, and accepted.
+: let-file ( -- c-addr u ) s" tests/core/check-declaration-cases/let-nondep.ndjson" ;
+T{ let-file fed 0 lf-input-decl lf-idecl-value @ dup lf-let? swap lf-let-nondep unstage
+  -> outcome-ok true true }T
+T{ let-file fed-case -> outcome-ok 0 lf-step-done }T
 \ Ordering two universe parameters by name (Lean's is_norm_lt, under
 \ level normalisation) reads the names of the input tier under the view:
 \ def T.{u,v} : Sort (max v u + 2) := Sort (max u v + 1), which pinned

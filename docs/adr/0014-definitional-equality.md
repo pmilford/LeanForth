@@ -838,12 +838,13 @@ every row whose rule is not a deferral (K5, K7, U1, U2).
 | `theorem.*`: a recursor opens a theorem; a variable proof stays stuck | 2 | accepted (`And.rec:1,DefEq.dqAnd:1`), `declTypeMismatch` | unsupported | unsupported (U1, phase 5) |
 | `eta.*`: both orders, after unfolding, twice, a wrong function | 5 | 4 accepted, `declTypeMismatch` | unknown (K3) | Lean's verdict |
 | `proof-irrelevance.*` (two added 2026-11-05, task 4.2.5: proofs of different statements as a definition's arguments) | 6 | 3 accepted, `declTypeMismatch` ×3 | unknown ×4, rejected ×2 (D3) | Lean's verdict |
-| `let.*` | 4 | 3 accepted, `letTypeMismatch` | unsupported (U2) | Lean's verdict |
+| `let.*` (three added 2026-11-05, task 4.2.3: a type that is a let term, a chain, a type that is no type) | 7 | 5 accepted, `letTypeMismatch`, `typeExpected` | unsupported (U2) | Lean's verdict |
 | `names.*`: Lean's name-matched `Nat` rules in an environment that defines the names | 4 | `declTypeMismatch`, `unknownConstant Nat`; twins accepted | unknown / unsupported | unknown (K7) for the two; Lean's for the twins |
 | `later.*`: structure eta, unit-like, `Nat` literal, quotient (re-checked Lean elaborations) | 4 | accepted ×4 | unsupported | unsupported (phase 5) |
 
 In all, 50 rows: 32 accepted (each with its counts), 14 failures, 4
-`whnf` answers (52 since 2026-11-05: 33 accepted, 15 failures, 4).
+`whnf` answers (52 since 2026-11-05: 33 accepted, 15 failures, 4; 55
+with task 4.2.3's three `let.*` rows: 35 accepted, 16 failures, 4).
 Measured 2026-11-03 with the pinned Lean, all as recorded;
 `make test` and `make check` (Gforth 1.0.0, Lean 4.35.0) passed with the
 table wired in.
@@ -1233,6 +1234,51 @@ and the owner's approval.** K2 and K3 go:
   `tests/cli/irrelevance.ndjson` accepted. Nothing moved to accepted
   that Lean rejects. Planted faults `dq-eta-*`, `dq-proof-*` (8), all
   caught.
+
+**4.2.3, implemented 2026-11-05 (agent LT, branch `lt-let-zeta`); its
+[kernel][import] gate awaits an independent review and the owner's
+approval.** `let` terms (Q7) leave U2:
+
+- *Representation* (`src/core/let-terms.fs`): Lean's `letE x T v b` is a
+  let leaf (its `nonDep` flag, which Lean's `==` compares; binder names,
+  which it ignores, are dropped) applied to `v`, then to `fun x : T => b`.
+  So every structural pass (instantiate, abstract, shift, level
+  substitution, scope, audit) treats `T` and `v` at the let's depth and
+  `b` one binder deeper, as Lean's do, with no new binary tag; the passes
+  that treat `letE` specially recognise the outer application. The audit
+  checks the leaf's fields; a leaf elsewhere, or a let whose second
+  argument is no λ, is invalid where a pass interprets it. The feed
+  stages `letE` records so (`import/feed.fs`); the first importer
+  (`checker-input.fs`) still makes the U2 leaf, as for projections.
+- *Spine*: `get_app_fn` stops at a let (`mixed-head.fs`), so a let at
+  the head of an application is the head.
+- *`infer_let`* (tc 208–230; `mixed-infer.fs`): a chain of lets in one
+  visit, as Lean's loop; while deciding, `T`'s Sort (`typeExpected`, S2's
+  code 56) and `is_def_eq(type of v, T)` (`letTypeMismatch`, new code
+  94); then a let variable of the local context (type and value closed),
+  the body one binder deeper, its type through `cheap_beta_reduce` and
+  closed as `mk_pi(fvars, r, true)` (`local_ctx.cpp` 93–125,
+  `mk_binding` with `remove_dead_let`): innermost first, a variable the
+  type does not mention dropped, any other wrapping it in a let
+  (`nonDep` false, `mk_let`'s default). Infer-only mode skips both
+  checks, as Lean.
+- *Zeta* (tc 542–544; `whnf.fs`): a let is its body instantiated with
+  its value, reduced again; a let at an application's head is reduced
+  first (514), then beta or the arguments applied again. `whnf_fvar`
+  (409–417) was in place since 4.2.2a. `is_def_eq` needs nothing else:
+  `quick_is_def_eq` leaves `Let` undecided and `whnf_core` (step 3)
+  removes it.
+- *Evidence* (Gforth 1.0.0, Lean 4.35.0): the definitional-equality
+  table's `let.*` rows, now required to give Lean's verdict (7: the four
+  of the table, accepted ×3 and `letTypeMismatch`, and three added and
+  Lean-checked: `let.dependent-body`, whose type is a let term,
+  `let.chain`, `let.type-not-a-type`, `typeExpected`); first-checker row
+  `identity.let` accepted (was *unsupported*; Lean accepts) at all three
+  capacities and fed. The inductive rows `lit.div-by-zero` and `lit.gcd`
+  get past their lets but stay pending, now *unknown*: `eq_of_heq`
+  needs K-like reduction of `Eq.rec` on a proof that is no constructor
+  (`to_cnstr_when_K`, diagnostic 81), plan task 5.2.1c. Planted faults
+  `let-*` (18), all caught.
 
 ## Test plan
 
