@@ -668,8 +668,10 @@ create cli-fed-ops
 : cli-check-rules. ( -- )
   ."   check: definitions and theorems built from Sort, variables, application, fun," cr
   ."     forall and earlier accepted declarations (the first checker, ADR 0011)," cr
-  ."     and inductive blocks that are not recursive, indexed or mutual (5.2.1a);" cr
-  ."     an accepted one is labelled experimental, not independently audited" cr ;
+  ."     and inductive blocks that are not mutual or nested: non-recursive ones" cr
+  ."     (5.2.1a) and recursive ones such as Nat and List (5.2.1b, its review" cr
+  ."     gate open); an accepted one is labelled experimental, not independently" cr
+  ."     audited" cr ;
 : cli-other-commands. ( -- )
   ."   check --record, replay: run records 0.1 and their replay (plan task 2.2.5)" cr
   ."   print: a readable proof outline of each accepted declaration, from the" cr
@@ -681,8 +683,8 @@ create cli-fed-ops
   ." not yet supported (check answers unsupported or unknown, exit 2):" cr
   ."   axioms (5.3.1), opaque declarations (4.2.6), unsafe and partial definitions;" cr
   ."   let (4.2.3), literals (5.2.3), projections (5.2.2) and metadata (4.1.3)" cr
-  ."   in a term; recursive and indexed inductive types (5.2.1b, 5.2.1c)," cr
-  ."   quotients (5.2.4), mutual and nested blocks (5.2.5); unfolding definitions" cr
+  ."   in a term; the rest of indexed families (5.2.1c), quotients (5.2.4)," cr
+  ."   mutual and nested blocks (5.2.5); unfolding definitions" cr
   ."   (4.2.2), so some correct proofs end unknown; check --record and replay" cr
   ."   refuse inductive types while reading" cr ;
 : cli-check-limits. ( -- )

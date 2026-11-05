@@ -10,7 +10,7 @@ approves the checker, Lean's own kernel is the referee. `check` takes
 exports of any size: it stages the export with the importer stage and
 feeds it to the checker, whose stores grow to fit, so a whole library is
 checked from the command line — all of Lean's `Init`, 59,349
-declarations, in [about ten minutes, four with `--fast`](#a-whole-library-leans-init). Most
+declarations, in [about twelve minutes with `--fast`](#a-whole-library-leans-init). Most
 of a real library still ends *unsupported* or *unknown*, because
 unfolding definitions (plan task 4.2.2), recursive data types and
 literals (phase 5) are not built yet. Two commands keep the first,
@@ -138,21 +138,22 @@ by default (owner's decision of 2026-11-04): it stops at a stack or
 memory fault where it happens, so a fault in LeanForth's own Forth is
 reported as an internal fault at its source. `--fast` runs them on
 `gforth-fast`, which leaves out those checks and is about 2.4 times
-quicker: all of Lean's `Init` in about 4 minutes 15 seconds instead of
-10 ([below](#a-whole-library-leans-init)). Both engines give the same
+quicker: all of Lean's `Init` in 4 minutes 5 seconds instead of 9
+minutes 59 seconds, for one build of 2026-11-04
+([below](#a-whole-library-leans-init)). Both engines give the same
 verdicts in every test (`make test` compares the text and the JSON
 reports of the command-line fixtures on both), and the JSON report is
 the same but for `measured`, which names the engine. `count` and
 `reexport`, which check no proof, use `gforth-fast` (about 3.3 times
 faster on large exports). The engine is the one `GFORTH` names when it
-is set — with `--fast`, the `gforth-fast` beside it (the
-`gforth-fast-1.0.0-amd64` beside `gforth-1.0.0-amd64`) — else the pinned
-one in `.tools/gforth`, else one on `PATH`. When `--fast` finds no
+is set — with `--fast`, the `gforth-fast` in the same folder (on `PATH`
+when `GFORTH` names no folder) — else the pinned one in `.tools/gforth`,
+else one on `PATH`. When `--fast` finds no
 `gforth-fast`, the run uses the checking engine and says so on standard
 error:
 
 ```text
-leanforth: note: --fast: no /opt/forth/myforth-fast found; checking with /opt/forth/myforth
+leanforth: note: --fast: no /opt/forth/gforth-fast found; checking with /opt/forth/myforth
 ```
 
 `EXPORT` and `COPY` are file names relative to the current folder; the
@@ -359,73 +360,74 @@ take the staged declarations. Lean's own `Init` library, exported with
 2026-11-04 with the default fuel:
 
 ```text
-$ GFORTH=.tools/gforth/bin/gforth-fast bin/leanforth check --resources init.ndjson | tail -n 28
-59349 declarations: 1618 accepted, 3748 unknown, 53800 unsupported, 179 exhausted, 4 full
-accepted: 1618 (experimental, not independently audited); axioms: none
+$ bin/leanforth check --fast --resources init.ndjson | tail -n 29
+59349 declarations: 2503 accepted, 5056 unknown, 51579 unsupported, 180 exhausted, 31 full
+accepted: 2503 (experimental, not independently audited); axioms: none
 note: a check ran out of room; its diagnostic names the limit: memory, or
 note: 16 dependencies per declaration, 65536 per export, 512 constructors per
 note: inductive block (plan task 6.2.0)
 note: a check ran out of fuel (100000 steps each); --fuel N gives each more
 resources:
   time (s)     wall      cpu
-  stage      18.869   18.869
-  feed       18.717   18.426
-  check     220.083  220.045
-  total     258.063  257.733
-  memory: peak resident 1218.1 MB; the stage's heap blocks 179.4 MB
+  stage      30.902   29.019
+  feed       17.062   17.062
+  check     676.073  658.932
+  total     724.465  705.442
+  memory: peak resident 1237.9 MB; the stage's heap blocks 179.7 MB
+  engine: gforth-fast
   input: 59349 declarations, 6099054 term nodes, 578 levels, 56957 constant references, 295432 names
-  fuel: 26769240 steps in all, at most 100000 per declaration
-  fuel not known for 30023 declarations: a failed inference gives its
+  fuel: 31876309 steps in all, at most 100000 per declaration
+  fuel not known for 29203 declarations: a failed inference gives its
     counter up (their checks are not in the fuel above)
   most fuel used:
     100000 Lean.Omega.Constraint.add_sat (exhausted)
     100000 ByteArray.utf8Decode?.go._unary.eq_def (exhausted)
     100000 String.Slice.Pos.copy_eq_append_get (exhausted)
+    100000 _private.Init.Grind.Config.0.Lean.Grind.instBEqConfig.beq.match_1 (exhausted)
     100000 Array.map_attach_eq_pmap (exhausted)
     100000 Std.IterM.step_filterMapM (exhausted)
     100000 Std.IterM.toList_filterMapM_map (exhausted)
     100000 Std.Iter.forIn'_eq_match_step (exhausted)
     100000 Std.IterM.step_filterMap (exhausted)
     100000 Std.IterM.toList_filterMap (exhausted)
-    100000 Std.IterM.forIn_filterMapWithPostcondition (exhausted)
 ```
 
-Nothing was rejected and nothing was invalid. The 1,618 accepted
-declarations include `id`, `Function.comp` and whole inductive blocks
-such as `Bool`, `Option`, `Prod`, `Sum`, `And`, `Or`, `Exists`, `Eq`,
-`HEq` and `Decidable`. Almost everything else is *unsupported* or
-*unknown* because it needs features not built yet — each a gap to close,
-not an answer that differs from Lean's, which accepts all of `Init`:
-recursive and indexed inductive types such as `Nat` and `List` (plan
-tasks 5.2.1b, 5.2.1c; 266 declarations), literals, projections and other
-term forms (5.2.3, 5.2.2, 4.2.3; 25,703 declarations), axioms, opaque,
-unsafe and partial declarations and quotients (5.3.1, 4.2.6, 5.2.4; 252),
-comparisons that need definitions unfolded (4.2.2; 749 *unknown*, codes
-30–32), and everything that uses
-one of those (27,579 *unsupported* and 2,999 *unknown* only for that).
-*full* means a declaration with more than 16 dependencies (4, such as
-`Sum.isRight_iff`; plan task 6.2.0), and *exhausted* a check that needed
-more than 100,000 steps (179; `--fuel N` gives more). No term is too
-deep any more: since the depth work of plan task 6.2.0 (part (b)) the
-55 declarations that ended *full* at a walk's 64 levels in the first run
-of 2026-11-04 get other verdicts (33 *unsupported*, 17 *exhausted*, 4
-*unknown*, 1 accepted), and two that use one of them moved from
-*unknown* to *unsupported*. 183 names, most of them notations such as
-`«term_+_»`, are shown with `«»`, as Lean shows them.
+Nothing was rejected and nothing was invalid. The 2,503 accepted
+declarations include `id`, `Function.comp`, whole inductive blocks such
+as `Bool`, `Option`, `Prod`, `Sum`, `And`, `Or`, `Exists`, `Eq`, `HEq`
+and `Decidable`, and since task 5.2.1b the recursive types `Nat`, `List`
+and `Array` with their recursors. Almost everything else is
+*unsupported* or *unknown* because it needs features not built yet —
+each a gap to close, not an answer that differs from Lean's, which
+accepts all of `Init`: literals, projections and other term forms
+(5.2.3, 5.2.2, 4.2.3; 25,703 declarations), axioms, opaque, unsafe and
+partial declarations and quotients (5.3.1, 4.2.6, 5.2.4; 252), mutual
+and nested inductive blocks (5.2.5; 8), comparisons that need
+definitions unfolded (4.2.2; 951 *unknown*, codes 30–32), and
+everything that uses one of those (25,616 *unsupported* and 4,105
+*unknown* only for that). *full* means a declaration with more than 16
+dependencies (31, such as `Lean.Grind.CommRing.Expr.toPoly.match_4.congr_eq_1`;
+plan task 6.2.0), and *exhausted* a check that needed more than 100,000
+steps (180; `--fuel N` gives more). No term is too deep any more: since
+the depth work of plan task 6.2.0 (part (b)) the 55 declarations that
+ended *full* at a walk's 64 levels in the first run of 2026-11-04 get
+other verdicts. 183 names, most of them notations such as `«term_+_»`,
+are shown with `«»`, as Lean shows them.
 
 The run above used `--fast`, the `gforth-fast` engine
 ([the engine](#the-engine)), on a 10-core WSL2 machine that other agents'
-test runs shared. The default engine, Gforth's checking engine, gives the
+test runs shared; its checks took 11 minutes, against under 4 for the
+build of the morning, which accepted 1,618 declarations and checked
+fewer that far. The default engine, Gforth's checking engine, gives the
 same output, byte for byte but for the times, memory and engine lines,
-in about 2.4 times as long (9 min 59 s against 4 min 5 s for one build
-on 2026-11-04). Freeing
-the stage's export-index maps once it is staged gives back 35.7 MB of
-its 215.1 MB; on three runs of this build, the same verdicts, fuel and
+in about 2.4 times as long (9 min 59 s against 4 min 5 s for the
+morning's build; not yet measured on this one). Freeing the stage's
+export-index maps once it is staged gives back 35.7 MB of its 215.1 MB;
+on three runs of the morning's build, the same verdicts, fuel and
 diagnostics for every declaration, the peak was 1,263 MB without it and
 1,218 MB with it (peaks vary by about 20 MB from run to run). The ten
 declarations that used the most fuel all ran out of it; among the
-accepted ones the most was 48,291 steps (a `match` auxiliary of
-`Sum.exists`). Half the declarations' fuel is not known: their check
+accepted ones the most was ACCEPTED-MOST steps (ACCEPTED-MOST-NAME). Half the declarations' fuel is not known: their check
 failed inside inference, which gives its counter up, so neither the
 total nor the list counts them ([fuel](#the-resource-report)); a later
 step of plan task 6.5.2 can keep it, with a change to the checker.
@@ -788,8 +790,10 @@ supported:
     Gforth's checking engine, or gforth-fast with --fast
   check: definitions and theorems built from Sort, variables, application, fun,
     forall and earlier accepted declarations (the first checker, ADR 0011),
-    and inductive blocks that are not recursive, indexed or mutual (5.2.1a);
-    an accepted one is labelled experimental, not independently audited
+    and inductive blocks that are not mutual or nested: non-recursive ones
+    (5.2.1a) and recursive ones such as Nat and List (5.2.1b, its review
+    gate open); an accepted one is labelled experimental, not independently
+    audited
   check --record, replay: run records 0.1 and their replay (plan task 2.2.5)
   print: a readable proof outline of each accepted declaration, from the
     checker's derivation log (plan tasks 2.4.1, 2.4.4; untrusted presentation)
@@ -797,8 +801,8 @@ supported:
 not yet supported (check answers unsupported or unknown, exit 2):
   axioms (5.3.1), opaque declarations (4.2.6), unsafe and partial definitions;
   let (4.2.3), literals (5.2.3), projections (5.2.2) and metadata (4.1.3)
-  in a term; recursive and indexed inductive types (5.2.1b, 5.2.1c),
-  quotients (5.2.4), mutual and nested blocks (5.2.5); unfolding definitions
+  in a term; the rest of indexed families (5.2.1c), quotients (5.2.4),
+  mutual and nested blocks (5.2.5); unfolding definitions
   (4.2.2), so some correct proofs end unknown; check --record and replay
   refuse inductive types while reading
 limits (check answers full or exhausted, exit 3):

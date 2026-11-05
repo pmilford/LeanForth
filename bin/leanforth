@@ -12,7 +12,7 @@
 # with the same verdicts in every test. count and reexport, which check no
 # proof, use gforth-fast (about 3.3 times faster on large exports,
 # docs/development/NDJSON_READER.md). The engine is $GFORTH when set (with
-# --fast, the gforth-fast beside it when that exists), else the pinned one in
+# --fast, the gforth-fast in its folder when that exists), else the pinned one in
 # .tools/gforth of this checkout (scripts/install-gforth.sh), else one on
 # PATH. When --fast finds no gforth-fast, the run uses gforth and says so
 # on standard error. The engine's file name is passed on in
@@ -65,15 +65,16 @@ find_engine() {
 no_fast() {
   printf 'leanforth: note: --fast: no %s found; checking with %s\n' "$1" "$2" >&2
 }
-# The fast engine beside GFORTH: gforth-fast for gforth, and so for the
-# versioned names (gforth-1.0.0-amd64: gforth-fast-1.0.0-amd64).
+# The fast engine beside GFORTH: the gforth-fast in its folder (for the
+# Makefile's scripts/gforth-strict.sh, scripts/gforth-fast), or on PATH
+# for a GFORTH without a folder; GFORTH itself when it is a gforth-fast.
 beside_fast() {
-  local base=${GFORTH##*/} folder=
-  case $GFORTH in */*) folder=${GFORTH%/*}/ ;; esac
-  case $base in
+  case ${GFORTH##*/} in
     gforth-fast*) printf '%s' "$GFORTH" ;;
-    gforth*) printf '%s' "${folder}gforth-fast${base#gforth}" ;;
-    *) printf '%s' "$GFORTH-fast" ;;
+    *) case $GFORTH in
+         */*) printf '%s' "${GFORTH%/*}/gforth-fast" ;;
+         *) printf '%s' gforth-fast ;;
+       esac ;;
   esac
 }
 if [ -n "${GFORTH:-}" ]; then

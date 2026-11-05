@@ -1020,10 +1020,12 @@ class Resources(unittest.TestCase):
 
 
 def fast_engine():
-    """The gforth-fast bin/leanforth finds beside GFORTH, or None."""
-    folder, base = os.path.split(GFORTH)
-    name = "gforth-fast" + base[len("gforth"):] if base.startswith("gforth") else base + "-fast"
-    path = os.path.join(folder, name)
+    """The gforth-fast bin/leanforth finds beside GFORTH (in its folder:
+    scripts/gforth-fast under make), or None."""
+    folder = os.path.dirname(GFORTH)
+    if not folder:
+        return shutil.which("gforth-fast")
+    path = os.path.join(folder, "gforth-fast")
     return path if os.access(path, os.X_OK) else None
 
 
@@ -1058,9 +1060,10 @@ class Engines(unittest.TestCase):
             stub.write_text(f'#!/bin/sh\nexec "{GFORTH}" "$@"\n')
             stub.chmod(stub.stat().st_mode | stat.S_IXUSR)
             status, out, err = run("check", "--fast", "--json", COMPOSITION, gforth=str(stub))
+            note = (f"leanforth: note: --fast: no {folder}/gforth-fast found; "
+                    f"checking with {stub}\n")
             self.assertEqual((status, json.loads(out)["measured"]["engine"], err),
-                             (0, "myforth", f"leanforth: note: --fast: no {stub}-fast found; "
-                                            f"checking with {stub}\n"))
+                             (0, "myforth", note))
 
     def test_gforth_unset(self):
         """With GFORTH unset the wrapper finds the engines itself, in this
