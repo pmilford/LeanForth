@@ -35,7 +35,9 @@ another pass:
   constructors and recursors with the exported ones.
 * `primitive.*`: an empty environment in which `Nat` and `Nat.add` are
   declared by hand. The kernel computes on `Nat` literals by the names
-  `Nat.add` and so on, whatever their definitions say.
+  `Nat.add` and so on, whatever their definitions say. `forged.*`: the same
+  with `Nat.pow`, `Nat.shiftLeft` or a block named `Nat.add`, met while a
+  block is checked (review rvN1 B1, B2).
 * `quotinit.*`: initialising quotients (`Declaration.quotDecl`) needs `Eq`
   with exactly Lean's shape.
 
@@ -48,6 +50,10 @@ answers *unsupported* for the row, never *accepted*.
 open Lean Elab Command Term Meta
 
 universe u v
+
+/-- `Type`, as a definition: a type whose telescope ends in it is a `Sort` only after
+unfolding (row `universe.type-a-sort-by-definition`). -/
+def PSortDef : Type 1 := Type
 
 namespace InductiveExpected
 
@@ -77,6 +83,7 @@ def otherCodes : List (String × String) := [
   ("duplicate universe level parameter", "duplicateLevelParam"),
   ("it uses the reserved prefix", "reservedNestedPrefix"),
   ("failed to initialize quot module", "quotEqShape"),
+  ("because its second argument does not fit in a 32-bit unsigned integer", "natCountTooBig"),
   ("incorrect number of universe levels", "universeArity")]
 
 def otherCode (msg : String) : String :=
@@ -282,6 +289,47 @@ def accepted : List Block := [
   { id := "ind.erased-by-beta", types := [⟨"Eb", "Type",
       [("mk", "(fun (X : Type) => Nat) Eb → Eb")]⟩],
     lean := "accepted", leanforth := "accepted", rule := "A1 P1 G1", task := "5.2.1b" },
+  -- Review rvN1 (M1): a W type; recursive blocks with indices (task 5.2.1c's, decided
+  -- already: the hypothesis's indices read under its own binders, the minor premise's
+  -- past the hypotheses), an `Acc` among them; reflexive fields whose binders are
+  -- annotated or whose Pi body is a redex.
+  { id := "ind.w-type", lparams := [`u, `v], nparams := 2,
+    types := [⟨"W", "(α : Type u) → (α → Type v) → Type (max u v)",
+      [("sup", "(α : Type u) → (β : α → Type v) → (a : α) → (β a → W α β) → W α β")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 U1 G1", task := "5.2.1b" },
+  { id := "ind.acc", lparams := [`u], nparams := 2,
+    types := [⟨"MAcc", "(α : Sort u) → (α → α → Prop) → α → Prop",
+      [("intro", "(α : Sort u) → (r : α → α → Prop) → (x : α) → " ++
+        "((y : α) → r y x → MAcc α r y) → MAcc α r x")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 E3 G1", task := "5.2.1c" },
+  { id := "ind.vec", nparams := 1, types := [⟨"Vec", "Type → Nat → Type",
+      [("nil", "(α : Type) → Vec α Nat.zero"),
+       ("cons", "(α : Type) → (n : Nat) → α → Vec α n → Vec α (Nat.succ n)")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 G1", task := "5.2.1c" },
+  { id := "ind.reflexive-indexed", types := [⟨"RI", "Nat → Type",
+      [("z", "RI Nat.zero"), ("lim", "((n : Nat) → RI n) → RI Nat.zero")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 G1", task := "5.2.1c" },
+  { id := "ind.indexed-mixed", types := [⟨"DT", "Nat → Type",
+      [("leaf", "DT Nat.zero"),
+       ("node", "(n : Nat) → DT n → (m : Nat) → (Nat → DT m) → DT (Nat.succ n)")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 G1", task := "5.2.1c" },
+  { id := "ind.reflexive-indexed-dependent", types := [⟨"IR", "Nat → Type",
+      [("z", "IR Nat.zero"),
+       ("mk", "(n : Nat) → (f : (k : Nat) → IR (Nat.succ k)) → IR (Nat.succ n) → IR n")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 G1", task := "5.2.1c" },
+  { id := "ind.indexed-predicate-one-constructor", types := [⟨"LeOne", "Nat → Prop",
+      [("mk", "(n : Nat) → LeOne n → LeOne n")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 E3 G1", task := "5.2.1c" },
+  { id := "ind.reflexive-annotated-binders", types := [⟨"AX", "Type",
+      [("z", "AX"), ("mk", "((n : optParam Nat Nat.zero) → (m : outParam Nat) → AX) → AX")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 G1", task := "5.2.1b" },
+  { id := "ind.reflexive-body-redex", types := [⟨"BR", "Type",
+      [("z", "BR"), ("mk", "(Nat → (fun (X : Type) => X) BR) → BR")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 P1 G1", task := "5.2.1b" },
+  { id := "ind.redex-with-parameter", nparams := 1, types := [⟨"RBP", "Type → Type",
+      [("z", "(α : Type) → RBP α"),
+       ("mk", "(α : Type) → (fun (X : Type) => α → X) (RBP α) → RBP α")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 P1 G1", task := "5.2.1b" },
   -- A block of 600 constructors `c0 … c599`: LeanForth's 512 per block
   -- were a fixed limit until plan task 6.2.0 (2026-11-04). Its file leaves
   -- the recursor out: with it, its 600 rules of 601 binders each make the
@@ -325,6 +373,19 @@ def checks : List Block := [
     types := [⟨"Bad", "(Type → Type) → Type",
       [("mk", "(f : Type → Type) → (Nat → f (Bad f)) → Bad f")]⟩],
     lean := "nonValidOccurrence", leanforth := "rejected", rule := "P2", task := "5.2.1b" },
+  -- A redex in a Pi's domain that drops the type: Lean tests the domain for an
+  -- occurrence before any reduction (review rvN1 M1). And the type as an index of
+  -- another inductive type: no nesting, a non-valid occurrence.
+  { id := "pos.negative-redex-domain",
+    types := [⟨"Bad", "Type", [("mk", "((fun (X : Type) => Nat) Bad → Bad) → Bad")]⟩],
+    lean := "nonPositive", leanforth := "rejected", rule := "P1", task := "5.2.1b" },
+  { id := "pos.negative-redex-domain-later",
+    types := [⟨"Bad", "Type",
+      [("z", "Bad"), ("mk", "(Nat → (fun (X : Type) => Nat) Bad → Bad) → Bad")]⟩],
+    lean := "nonPositive", leanforth := "rejected", rule := "P1", task := "5.2.1b" },
+  { id := "pos.non-valid-index-of-other",
+    types := [⟨"Bad", "Type", [("z", "Bad"), ("mk", "@HEq Type Nat Type Bad → Bad")]⟩],
+    lean := "nonValidOccurrence", leanforth := "rejected", rule := "P2", task := "5.2.1b" },
   -- Occurrences applied to the parameters (check_uniform_ind_occs).
   { id := "uniform.other-argument", nparams := 1,
     types := [⟨"T", "Type → Type", [("mk", "(α : Type) → T Nat → T α")]⟩],
@@ -353,6 +414,10 @@ def checks : List Block := [
   { id := "universe.type-not-a-sort-param", nparams := 1,
     types := [⟨"T", "(P : Prop) → P", []⟩],
     lean := "typeExpected", leanforth := "rejected", rule := "T2", task := "5.2.1a" },
+  -- A telescope that ends in a definition equal to `Type` (review rvN1 M1).
+  { id := "universe.type-a-sort-by-definition",
+    types := [⟨"TD", "PSortDef", [("z", "TD"), ("mk", "TD → TD")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 T2", task := "5.2.1b" },
   -- Constructor result types (is_valid_ind_app).
   { id := "result.other-type", types := [⟨"T", "Type", [("mk", "Nat")]⟩],
     lean := "invalidReturnType", leanforth := "rejected", rule := "C3", task := "5.2.1a" },
@@ -390,32 +455,64 @@ def checks : List Block := [
   { id := "mutual.even-odd",
     types := [⟨"Even", "Nat → Prop", [("zero", "Even 0"), ("succ", "(n : Nat) → Odd n → Even (n + 1)")]⟩,
               ⟨"Odd", "Nat → Prop", [("succ", "(n : Nat) → Even n → Odd (n + 1)")]⟩],
-    lean := "accepted", leanforth := "accepted", rule := "A1 E1", task := "5.2.5" },
+    lean := "accepted", leanforth := "accepted", rule := "A1 E1", task := "5.2.5a" },
   { id := "mutual.tree-forest",
     types := [⟨"Tree", "Type", [("node", "Nat → Forest → Tree")]⟩,
               ⟨"Forest", "Type", [("nil", "Forest"), ("cons", "Tree → Forest → Forest")]⟩],
-    lean := "accepted", leanforth := "accepted", rule := "A1", task := "5.2.5" },
+    lean := "accepted", leanforth := "accepted", rule := "A1", task := "5.2.5a" },
   { id := "mutual.single-ctor-props",
     types := [⟨"A", "Prop", [("a", "A")]⟩, ⟨"B", "Prop", [("b", "B")]⟩],
-    lean := "accepted", leanforth := "accepted", rule := "A1 E1", task := "5.2.5" },
+    lean := "accepted", leanforth := "accepted", rule := "A1 E1", task := "5.2.5a" },
   { id := "mutual.universe-mismatch",
     types := [⟨"A", "Type", [("a", "B → A")]⟩, ⟨"B", "Prop", [("b", "B")]⟩],
-    lean := "mutualUniverseMismatch", leanforth := "rejected", rule := "T4", task := "5.2.5" },
+    lean := "mutualUniverseMismatch", leanforth := "rejected", rule := "T4", task := "5.2.5a" },
   { id := "mutual.parameter-mismatch", nparams := 1,
     types := [⟨"A", "Type → Type", []⟩, ⟨"B", "Prop → Type", []⟩],
-    lean := "mutualParamMismatch", leanforth := "rejected", rule := "T3", task := "5.2.5" },
+    lean := "mutualParamMismatch", leanforth := "rejected", rule := "T3", task := "5.2.5a" },
   { id := "mutual.parameter-count", nparams := 1,
     types := [⟨"A", "Type → Type", []⟩, ⟨"B", "Type", []⟩],
-    lean := "paramCountMismatch", leanforth := "rejected", rule := "T3", task := "5.2.5" },
+    lean := "paramCountMismatch", leanforth := "rejected", rule := "T3", task := "5.2.5a" },
+  -- Mutual blocks without literals (plan task 5.2.5): predicates and data with indices,
+  -- three types with a parameter and a universe, a function field into the other type,
+  -- and a negative occurrence of the other type.
+  { id := "mutual.even-odd-constructors",
+    types := [⟨"Ev", "Nat → Prop", [("zero", "Ev Nat.zero"),
+                                     ("succ", "(n : Nat) → Od n → Ev (Nat.succ n)")]⟩,
+              ⟨"Od", "Nat → Prop", [("succ", "(n : Nat) → Ev n → Od (Nat.succ n)")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 E1 G1", task := "5.2.5a" },
+  { id := "mutual.indexed-data",
+    types := [⟨"MA", "Nat → Type", [("a0", "MA Nat.zero"),
+                                     ("a1", "(n : Nat) → MB n → MA (Nat.succ n)")]⟩,
+              ⟨"MB", "Nat → Type", [("b", "(n : Nat) → MA n → MB n")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 G1", task := "5.2.5a" },
+  { id := "mutual.three-types", lparams := [`u], nparams := 1,
+    types := [⟨"X", "Type u → Type u", [("x", "(α : Type u) → α → Y α → X α"),
+                                         ("xe", "(α : Type u) → X α")]⟩,
+              ⟨"Y", "Type u → Type u", [("y", "(α : Type u) → Z α → Y α")]⟩,
+              ⟨"Z", "Type u → Type u", [("z", "(α : Type u) → X α → Z α"),
+                                         ("ze", "(α : Type u) → Z α")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 G1", task := "5.2.5a" },
+  { id := "mutual.reflexive",
+    types := [⟨"MR", "Type", [("r", "(Nat → MS) → MR")]⟩,
+              ⟨"MS", "Type", [("s", "MR → MS"), ("s0", "MS")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 P1 G1", task := "5.2.5a" },
+  { id := "mutual.non-positive",
+    types := [⟨"MA", "Type", [("a", "(MB → Nat) → MA")]⟩, ⟨"MB", "Type", [("b", "MA → MB")]⟩],
+    lean := "nonPositive", leanforth := "rejected", rule := "P1", task := "5.2.5a" },
+  -- One constructor in the whole block, whose field is a proof: a single type would
+  -- eliminate into every universe (E3), a mutual block only into Prop (E1).
+  { id := "mutual.one-constructor",
+    types := [⟨"OA", "Prop", [("a", "OB → OA")]⟩, ⟨"OB", "Prop", []⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 E1", task := "5.2.5a" },
   -- Nested blocks.
   { id := "nested.tree", types := [⟨"Tree", "Type", [("node", "List Tree → Tree")]⟩],
-    lean := "accepted", leanforth := "accepted", rule := "A1 N1", task := "5.2.5" },
+    lean := "accepted", leanforth := "accepted", rule := "A1 N1", task := "5.2.5b" },
   { id := "nested.non-positive",
     types := [⟨"Bad", "Type", [("mk", "List (Bad → Nat) → Bad")]⟩],
-    lean := "nonPositive", leanforth := "rejected", rule := "N1 P1", task := "5.2.5" },
+    lean := "nonPositive", leanforth := "rejected", rule := "N1 P1", task := "5.2.5b" },
   { id := "nested.local-variable",
     types := [⟨"Bad", "Type", [("mk", "(α : Type) → List (Prod α Bad) → Bad")]⟩],
-    lean := "nestedLocalVariable", leanforth := "rejected", rule := "N2", task := "5.2.5" },
+    lean := "nestedLocalVariable", leanforth := "rejected", rule := "N2", task := "5.2.5b" },
   -- Names and the block itself.
   { id := "names.already-declared", ns := .anonymous,
     types := [⟨"Nat", "Type", [("zero", "Nat")]⟩],
@@ -803,6 +900,97 @@ def fiveIsTwo : Declaration :=
              value := mkAppN (mkConst `Eq.rec [0, 1])
                #[nat, add (lit 2) (lit 3), motive, .app (mkConst `twoAny) (lit 3), lit 5, mkConst `five] }
 
+/-! ### Forged arithmetic in a block's check (review rvN1 B1, B2)
+
+Lean's `whnf` computes the `Nat` operations by name (rules L1, L5), also where it puts
+a constructor's field in whnf for positivity and for the recursor (`check_positivity`,
+`is_rec_argument`), on fields that mention no type of the block too. It refuses
+`Nat.pow` and `Nat.shiftLeft` with a second argument of 2^32 or more (`get_count_arg`,
+`type_checker.cpp` 308-313), whatever their declarations say: a fixed rule, not a
+setting. And it computes on a block's own type named `Nat.add`. The numbers are written
+with `Nat.zero`, `Nat.succ` and the operations only, no literal. -/
+
+def nzero : Expr := mkConst `Nat.zero
+def nsucc (e : Expr) : Expr := .app (mkConst `Nat.succ) e
+def none1 : Expr := nsucc nzero
+def ntwo : Expr := nsucc none1
+def npow (a b : Expr) : Expr := mkAppN (mkConst `Nat.pow) #[a, b]
+def nshl (a b : Expr) : Expr := mkAppN (mkConst `Nat.shiftLeft) #[a, b]
+/-- `2 ^ 65536`. -/
+def nbig : Expr := npow ntwo (npow ntwo (npow ntwo (npow ntwo ntwo)))
+/-- `Nat.pow 1 (2 ^ 65536)`: the second argument does not fit in 32 bits. -/
+def nhuge : Expr := npow none1 nbig
+/-- `1 <<< (1 <<< (1 <<< 5))`: the outer shift is 2^32. -/
+def nshlHuge : Expr := nshl none1 (nshl none1 (nshl none1 (nsucc (nsucc (nsucc ntwo)))))
+
+/-- `def n (a b : Nat) : Nat := b`, named like one of Lean's operations. -/
+def binaryDef (n : Name) : Declaration :=
+  .defnDecl { name := n, levelParams := [], type := .forallE `a nat (.forallE `b nat nat .default) .default,
+              value := .lam `a nat (.lam `b nat (.bvar 0) .default) .default, hints := .regular 1,
+              safety := .safe }
+
+/-- `@Nat.rec.{2} (fun _ => Type) Nat (fun _ _ => Nat) major`: `Nat` once `major` is a numeral. -/
+def recType (major : Expr) : Expr :=
+  mkAppN (mkConst `Nat.rec [2])
+    #[.lam `x nat (.sort 1) .default, nat, .lam `n nat (.lam `ih (.sort 1) nat .default) .default, major]
+
+/-- `def IE.D (n : Nat) : Type := recType n`. -/
+def dDef : Declaration :=
+  .defnDecl { name := `IE.D, levelParams := [], type := .forallE `n nat (.sort 1) .default,
+              value := .lam `n nat (recType (.bvar 0)) .default, hints := .regular 1, safety := .safe }
+def dOf (major : Expr) : Expr := .app (mkConst `IE.D) major
+
+/-- `n : Type` with constructors `z : n` and `mk : field → n`, or `mk : field → n → n`
+when `recursive`. -/
+def fieldBlock (n : Name) (field : Expr) (recursive : Bool := false) : Declaration :=
+  let t : Expr := mkConst n
+  let mk : Expr := .forallE `h field (if recursive then .forallE `t t t .default else t) .default
+  .inductDecl [] 0 [⟨n, .sort 1, [⟨n ++ `z, t⟩, ⟨n ++ `mk, mk⟩]⟩] false
+
+/-- A field that mentions the type only in a redex that drops it:
+`(fun (X : Type) => IE.D major) n`. -/
+def erasedField (n : Name) (major : Expr) : Expr :=
+  .app (.lam `X (.sort 1) (dOf major) .default) (mkConst n)
+
+/-- `inductive n : Nat → Nat → Type | base : n 0 0 | step : n 0 0 → n 1 0`. -/
+def addLike (n : Name) : Declaration :=
+  let app (a b : Expr) : Expr := mkAppN (mkConst n) #[a, b]
+  .inductDecl [] 0 [⟨n, .forallE `a nat (.forallE `b nat (.sort 1) .default) .default,
+    [⟨n ++ `base, app nzero nzero⟩,
+     ⟨n ++ `step, .forallE `x (app nzero nzero) (app none1 nzero) .default⟩]⟩] false
+
+def renameConsts (m : List (Name × Name)) (e : Expr) : Expr :=
+  e.replace fun x => match x with
+    | .const c ls => (m.lookup c).map fun c' => Expr.const c' ls
+    | _ => none
+
+/-- `IE.Q` named `Nat.add`. -/
+def addMap : List (Name × Name) :=
+  [(`IE.Q, `Nat.add), (`IE.Q.base, `Nat.add.base), (`IE.Q.step, `Nat.add.step),
+   (`IE.Q.rec, `Nat.add.rec)]
+
+/-- The recursor of `addLike IE.Q` (whose `step` field is recursive: a hypothesis)
+renamed to `Nat.add.rec`: the recursor `Nat.add`'s block would have if `whnf` left
+`Nat.add 0 0` as it is. -/
+def forgedAddRec (q : RecursorVal) : RecursorVal :=
+  let renamed : RecursorVal := { q with name := `Nat.add.rec }
+  let typed : RecursorVal := { renamed with type := renameConsts addMap q.type }
+  { typed with all := [`Nat.add], rules := q.rules.map fun ru =>
+      { ru with ctor := (addMap.lookup ru.ctor).getD ru.ctor, rhs := renameConsts addMap ru.rhs } }
+
+/-- `Nat` and the block `addLike Nat.add` as Lean's kernel makes them, with that
+recursor in place of Lean's. -/
+def forgedAddConstants (empty : Kernel.Environment) :
+    CommandElabM (Kernel.Environment × List ConstantInfo) := do
+  let .ok env0 := empty.addDeclCore 0 0 natDecl none | throwError "no Nat"
+  let .ok envA := env0.addDeclCore 0 0 (addLike `Nat.add) none | throwError "Nat.add refused"
+  let .ok envQ := env0.addDeclCore 0 0 (addLike `IE.Q) none | throwError "IE.Q refused"
+  let some (.recInfo q) := envQ.find? `IE.Q.rec | throwError "no IE.Q.rec"
+  let own ← [`Nat.add, `Nat.add.base, `Nat.add.step].mapM fun n => match envA.find? n with
+    | some c => pure c
+    | none => throwError "missing {n}"
+  pure (env0, own ++ [.recInfo (forgedAddRec q)])
+
 structure Chain where
   id : String
   decls : List Declaration
@@ -818,6 +1006,31 @@ def chains : List Chain := [
     lean := "accepted", leanforth := "unsupported", rule := "L5", task := "5.2.3" },
   { id := "primitive.five-is-two", decls := [natDecl, eqDecl, forgedAdd, five, twoAny, fiveIsTwo],
     lean := "accepted", leanforth := "unsupported", rule := "L5", task := "5.2.3" },
+  { id := "forged.pow-field", decls := [natDecl, binaryDef `Nat.pow, fieldBlock `IE.PowF (recType nhuge)],
+    lean := "natCountTooBig", leanforth := "unsupported", rule := "L1 L5", task := "5.2.3" },
+  { id := "forged.pow-field-recursive",
+    decls := [natDecl, binaryDef `Nat.pow, fieldBlock `IE.PowR (recType nhuge) true],
+    lean := "natCountTooBig", leanforth := "unsupported", rule := "L1 L5", task := "5.2.3" },
+  { id := "forged.pow-field-small",
+    decls := [natDecl, binaryDef `Nat.pow, fieldBlock `IE.PowS (recType (npow ntwo ntwo)) true],
+    lean := "accepted", leanforth := "unsupported", rule := "L1 L5", task := "5.2.3" },
+  { id := "forged.pow-through-definition",
+    decls := [natDecl, binaryDef `Nat.pow, dDef, fieldBlock `IE.PowD (dOf nhuge) true],
+    lean := "natCountTooBig", leanforth := "unsupported", rule := "L1 L5", task := "5.2.3" },
+  { id := "forged.pow-through-definition-nonrecursive",
+    decls := [natDecl, binaryDef `Nat.pow, dDef, fieldBlock `IE.PowN (dOf nhuge)],
+    lean := "natCountTooBig", leanforth := "unsupported", rule := "L1 L5", task := "5.2.3" },
+  { id := "forged.pow-erased-by-beta",
+    decls := [natDecl, binaryDef `Nat.pow, dDef, fieldBlock `IE.PowE (erasedField `IE.PowE nhuge)],
+    lean := "natCountTooBig", leanforth := "unsupported", rule := "L1 L5 P1", task := "5.2.3" },
+  { id := "forged.shiftleft-field",
+    decls := [natDecl, binaryDef `Nat.shiftLeft, fieldBlock `IE.ShlF (recType nshlHuge) true],
+    lean := "natCountTooBig", leanforth := "unsupported", rule := "L1 L5", task := "5.2.3" },
+  { id := "forged.type-named-nat-add", decls := [natDecl, addLike `Nat.add],
+    lean := "accepted", leanforth := "unsupported", rule := "L1 L5 P1 G1", task := "5.2.3" },
+  { id := "forged.type-named-nat-pow",
+    decls := [natDecl, .inductDecl [] 0 [⟨`Nat.pow, .sort 1, [⟨`Nat.pow.mk, mkConst `Nat.pow⟩]⟩] false],
+    lean := "accepted", leanforth := "unsupported", rule := "L1 L5", task := "5.2.3" },
   { id := "quotinit.with-eq", decls := [eqDecl, .quotDecl],
     lean := "accepted", leanforth := "accepted", rule := "Q1", task := "5.2.4" },
   { id := "quotinit.without-eq", decls := [.quotDecl],
@@ -852,7 +1065,7 @@ def takenBlock : Declaration :=
 
 def onBase : List Chain := [
   { id := "names.reserved-nested-prefix", decls := [reservedPrefix],
-    lean := "reservedNestedPrefix", leanforth := "rejected", rule := "T0", task := "5.2.5" },
+    lean := "reservedNestedPrefix", leanforth := "rejected", rule := "T0", task := "5.2.5b" },
   { id := "names.reserved-nested-prefix-declared", decls := [nestedAux, usesNestedAux],
     lean := "reservedNestedPrefix", leanforth := "rejected", rule := "T0", task := "5.2.1a" },
   { id := "names.constructor-already-declared", decls := [takenName, takenBlock],
@@ -1247,6 +1460,8 @@ structure Stripped where
   leanforth : String
   rule : String
   task : String := "5.2.1a"
+  /-- Which type's recursor the uses meet (0: the first type's). -/
+  which : Nat := 0
 
 /-- `def T.useRec.{us} : <type of T.rec> := @T.rec.{us}`. -/
 def useRecOf (r : RecursorVal) : Declaration :=
@@ -1354,7 +1569,7 @@ def stripped : List Stripped := [
     rule := "B4 G1", task := "5.2.1c" },
   { id := "after.mutual-left-out-then-use-rec", block := blockDecl "mutual.single-ctor-props",
     uses := fun r => [useRecOf r], lean := "accepted", leanforth := "accepted",
-    rule := "B4 G1", task := "5.2.5" },
+    rule := "B4 G1", task := "5.2.5a" },
   { id := "after.recursor-left-out-then-lookup-in-def", block := blockDecl "ind.bool",
     uses := fun _ => [lookupInDef], lean := "accepted", leanforth := "accepted",
     rule := "B4 G1" },
@@ -1428,7 +1643,61 @@ def stripped : List Stripped := [
     lean := "accepted", leanforth := "accepted", rule := "B4 G1", task := "5.2.1b" },
   { id := "after.list-left-out-then-lookup-during-param-block", block := blockDecl "ind.list",
     uses := fun _ => [lookupDuringParamBlock], lean := "accepted", leanforth := "accepted",
-    rule := "B4 G1 C2", task := "5.2.1b" }
+    rule := "B4 G1 C2", task := "5.2.1b" },
+  -- Mutual blocks (plan task 5.2.5): the generated recursors of the first and of a later
+  -- type, with indices, and at other universes.
+  { id := "after.even-odd-left-out-then-use-rec", block := blockDecl "mutual.even-odd-constructors",
+    uses := fun r => [useRecOf r], lean := "accepted", leanforth := "accepted",
+    rule := "B4 G1", task := "5.2.5a" },
+  { id := "after.even-odd-left-out-then-use-second-rec",
+    block := blockDecl "mutual.even-odd-constructors", which := 1,
+    uses := fun r => [useRecOf r], lean := "accepted", leanforth := "accepted",
+    rule := "B4 G1", task := "5.2.5a" },
+  { id := "after.indexed-data-left-out-then-use-second-rec", block := blockDecl "mutual.indexed-data",
+    which := 1, uses := fun r => [useRecOf r], lean := "accepted", leanforth := "accepted",
+    rule := "B4 G1", task := "5.2.5a" },
+  { id := "after.three-types-at-concrete", block := blockDecl "mutual.three-types", which := 2,
+    uses := fun r => [useRecAt "Concrete" [] [lv 0, lv 1] 0 r],
+    lean := "accepted", leanforth := "accepted", rule := "B4 G1", task := "5.2.5a" },
+  { id := "after.three-types-at-renamed", block := blockDecl "mutual.three-types", which := 1,
+    uses := fun r => [useRecAt "Renamed" [`a, `b] [lp `a, lp `b] 0 r],
+    lean := "accepted", leanforth := "accepted", rule := "B4 G1", task := "5.2.5a" },
+  -- Review rvN1 (M1): the generated recursors of indexed and reflexive blocks.
+  { id := "after.w-left-out-then-use-rec", block := blockDecl "ind.w-type",
+    uses := fun r => [useRecOf r], lean := "accepted", leanforth := "accepted",
+    rule := "B4 G1", task := "5.2.1b" },
+  { id := "after.w-at-swapped", block := blockDecl "ind.w-type",
+    uses := fun r => [useRecAt "Swapped" [`a, `b, `c] [lp `a, lp `c, lp `b] 0 r],
+    lean := "accepted", leanforth := "accepted", rule := "B4 G1", task := "5.2.1b" },
+  { id := "after.w-at-concrete", block := blockDecl "ind.w-type",
+    uses := fun r => [useRecAt "Concrete" [] [lv 3, lv 0, lv 1] 0 r],
+    lean := "accepted", leanforth := "accepted", rule := "B4 G1", task := "5.2.1b" },
+  { id := "after.acc-left-out-then-use-rec", block := blockDecl "ind.acc",
+    uses := fun r => [useRecOf r], lean := "accepted", leanforth := "accepted",
+    rule := "B4 G1", task := "5.2.1c" },
+  { id := "after.acc-at-concrete", block := blockDecl "ind.acc",
+    uses := fun r => [useRecAt "Concrete" [] [lv 1, lv 2] 0 r],
+    lean := "accepted", leanforth := "accepted", rule := "B4 G1", task := "5.2.1c" },
+  { id := "after.vec-left-out-then-use-rec", block := blockDecl "ind.vec",
+    uses := fun r => [useRecOf r], lean := "accepted", leanforth := "accepted",
+    rule := "B4 G1", task := "5.2.1c" },
+  { id := "after.reflexive-indexed-left-out-then-use-rec", block := blockDecl "ind.reflexive-indexed",
+    uses := fun r => [useRecOf r], lean := "accepted", leanforth := "accepted",
+    rule := "B4 G1", task := "5.2.1c" },
+  { id := "after.indexed-mixed-left-out-then-use-rec", block := blockDecl "ind.indexed-mixed",
+    uses := fun r => [useRecOf r], lean := "accepted", leanforth := "accepted",
+    rule := "B4 G1", task := "5.2.1c" },
+  { id := "after.reflexive-indexed-dependent-left-out-then-use-rec",
+    block := blockDecl "ind.reflexive-indexed-dependent",
+    uses := fun r => [useRecOf r], lean := "accepted", leanforth := "accepted",
+    rule := "B4 G1", task := "5.2.1c" },
+  { id := "after.annotated-binders-left-out-then-use-rec",
+    block := blockDecl "ind.reflexive-annotated-binders",
+    uses := fun r => [useRecOf r], lean := "accepted", leanforth := "accepted",
+    rule := "B4 G1", task := "5.2.1b" },
+  { id := "after.redex-parameter-left-out-then-use-rec", block := blockDecl "ind.redex-with-parameter",
+    uses := fun r => [useRecOf r], lean := "accepted", leanforth := "accepted",
+    rule := "B4 G1", task := "5.2.1b" }
 ]
 
 /-- A stripped case's block constants without recursors, the environment Lean's
@@ -1438,7 +1707,8 @@ def strippedStart (base : Kernel.Environment) (s : Stripped) :
   let d ← s.block
   let cs ← ownConstants base d
   let kept := cs.filter fun c => !(c matches .recInfo _)
-  let some (.inductInfo t) := cs.find? (fun c => c matches .inductInfo _) | throwError "no type"
+  let some (.inductInfo t) := (cs.filter (fun c => c matches .inductInfo _))[s.which]?
+    | throwError "no type"
   let some (.recInfo r) := cs.find? (·.name == t.name ++ `rec) | throwError "no recursor"
   let map := kept.foldl (fun (m : Std.HashMap Name ConstantInfo) c => m.insert c.name c) {}
   match ← (base.replay map).toBaseIO with
@@ -1540,6 +1810,12 @@ run_cmd do
     let got := verdict (addAll empty c.decls)
     unless got == c.lean do throwError "{c.id}: Lean's verdict is {got}, expected {c.lean}"
     row c.id got c.leanforth c.rule c.task ""
+  -- 5b. The block named `Nat.add` replayed with a recursor that has a hypothesis.
+  let (env0, forgedCs) ← forgedAddConstants empty
+  let forgedId := "forged.type-named-nat-add-recursor-with-hypothesis"
+  let got ← replayVerdict env0 forgedCs
+  unless got == "invalidRecursor" do throwError "{forgedId}: Lean's verdict is {got}"
+  row forgedId got "unsupported" "L1 L5 B3" "5.2.3" ""
   -- 6. Every case as a file, after the rows (see `writeCase`).
   let .ok add := kernelAddFn env | throwError "no Kernel.Environment.add"
   let baseRecs ← recursorsOf base
@@ -1566,3 +1842,5 @@ run_cmd do
   writeSegments base baseRecs twice.id (chainSegments add base base [twiceDecl, twiceDecl])
   for c in chains do
     writeSegments empty {} c.id (chainSegments add base empty c.decls)
+  writeCase env0 (← recursorsOf env0) forgedId (forgedCs.foldl add env0)
+    (forgedCs.map (·.name)) [`Nat.add]

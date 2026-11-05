@@ -16,13 +16,16 @@
 \    malformed block invalid; unsafe members and unsupported forms
 \    unsupported; a loose variable invalid.
 \ 4. Fuel: every budget gives ok or exhausted, ok from the least on.
-\ 5. Room: a term store with no room left gives full, never ok.
+\ 5. Room: a term store with no room left gives full, never ok; and each
+\    allocation of a block's check refused in turn gives full (review
+\    rvN1 L2).
 \ 6. After a block (review rvI21 B2, M1): Lean's generated recursor
 \    T.rec held when the file leaves it out; the type visible only within
 \    its own check; the publisher's re-check of members and of T.rec.
 \ Test-only; nothing here accepts a theorem outside the code under test.
 include ../support/tester.fs
 include ../support/checks.fs
+require ../support/alloc-fail.fs
 require ../../src/import/feed.fs
 require ../../src/kernel/check-declaration.fs
 
@@ -78,6 +81,9 @@ create visibles most cells allot
   case-path staged ok? must fuel checked final-decl result final-decl n2-of finish ;
 : verdict-warned ( c-addr u -- outcome code step bits )
   case-path staged ok? must fuel checked final-decl result final-decl warned finish ;
+\ Declaration d's outcome and code.
+: decl-verdict ( c-addr u d -- outcome code )
+  >r case-path staged ok? must fuel checked r> result drop finish ;
 15 constant all-steps
 
 \ ---------------------------------------------------------------------------
@@ -118,6 +124,44 @@ T{ s" ind.recursive-predicate-one-constructor" verdict -> outcome-ok 0 all-steps
 T{ s" ind.list-sort-max" verdict -> outcome-ok 0 all-steps }T
 T{ s" ind.recursive-through-beta" verdict -> outcome-ok 0 all-steps }T
 T{ s" ind.erased-by-beta" verdict -> outcome-ok 0 all-steps }T
+\ Review rvN1 (M1): a W type; indexed recursive blocks, whose hypotheses'
+\ indices are read under the hypothesis's own binders and whose minor
+\ premises' result indices are shifted past the hypotheses (an Acc, a
+\ vector, reflexive fields into other indices, a predicate); a reflexive
+\ field with annotated binders (the hypothesis's binders consume them);
+\ a Pi body that is a redex (the hypothesis needs whnf there); a redex
+\ under a parameter.
+T{ s" ind.w-type" verdict -> outcome-ok 0 all-steps }T
+T{ s" ind.acc" verdict -> outcome-ok 0 all-steps }T
+T{ s" ind.vec" verdict -> outcome-ok 0 all-steps }T
+T{ s" ind.reflexive-indexed" verdict -> outcome-ok 0 all-steps }T
+T{ s" ind.indexed-mixed" verdict -> outcome-ok 0 all-steps }T
+T{ s" ind.reflexive-indexed-dependent" verdict -> outcome-ok 0 all-steps }T
+T{ s" ind.indexed-predicate-one-constructor" verdict -> outcome-ok 0 all-steps }T
+T{ s" ind.reflexive-annotated-binders" verdict -> outcome-ok 0 all-steps }T
+T{ s" ind.reflexive-body-redex" verdict -> outcome-ok 0 all-steps }T
+T{ s" ind.redex-with-parameter" verdict -> outcome-ok 0 all-steps }T
+\ Mutual blocks (task 5.2.5a): each type's recursor with one motive per
+\ type and the minor premises of every constructor, equal to Lean's: two
+\ propositions (Prop only), tree and forest, even and odd with an index,
+\ indexed data, three types with a parameter and a universe, a function
+\ field into the other type.
+T{ s" mutual.single-ctor-props" verdict -> outcome-ok 0 all-steps }T
+T{ s" mutual.tree-forest" verdict -> outcome-ok 0 all-steps }T
+T{ s" mutual.even-odd-constructors" verdict -> outcome-ok 0 all-steps }T
+T{ s" mutual.indexed-data" verdict -> outcome-ok 0 all-steps }T
+T{ s" mutual.three-types" verdict -> outcome-ok 0 all-steps }T
+T{ s" mutual.reflexive" verdict -> outcome-ok 0 all-steps }T
+\ One constructor in the whole block: E1 (Prop only), where one type would
+\ have E3's large eliminator.
+T{ s" mutual.one-constructor" verdict -> outcome-ok 0 all-steps }T
+\ Rejected as Lean's check_inductive_types rejects them, at step 8 of the
+\ second type: parameters that differ, too few of them, another universe;
+\ and a negative occurrence of the other type (step 9, P1).
+T{ s" mutual.parameter-mismatch" verdict -> outcome-rejected lf-diag-mutual-params 8 }T
+T{ s" mutual.parameter-count" verdict-field -> outcome-rejected lf-diag-param-count 8 0 }T
+T{ s" mutual.universe-mismatch" verdict -> outcome-rejected lf-diag-universe-mismatch 8 }T
+T{ s" mutual.non-positive" verdict-field -> outcome-rejected lf-diag-non-positive 9 0 }T
 
 \ Rejected, each with its rule's diagnostic, at its step.
 T{ s" uniform.result-other-argument" verdict -> outcome-rejected lf-diag-nonuniform 3 }T
@@ -165,6 +209,13 @@ T{ s" pos.negative-second-binder" verdict-field -> outcome-rejected lf-diag-non-
 T{ s" pos.negative-later-field" verdict-field -> outcome-rejected lf-diag-non-positive 9 1 }T
 T{ s" pos.non-valid-occurrence" verdict-field -> outcome-rejected lf-diag-non-valid 9 1 }T
 T{ s" pos.non-valid-after-pi" verdict-field -> outcome-rejected lf-diag-non-valid 9 1 }T
+\ A Pi's domain tested for an occurrence before any reduction, though a
+\ redex there drops it (review rvN1 M1); the type as an index of another
+\ inductive type, no nesting.
+T{ s" pos.negative-redex-domain" verdict-field -> outcome-rejected lf-diag-non-positive 9 0 }T
+T{ s" pos.negative-redex-domain-later" verdict-field
+   -> outcome-rejected lf-diag-non-positive 9 0 }T
+T{ s" pos.non-valid-index-of-other" verdict-field -> outcome-rejected lf-diag-non-valid 9 0 }T
 T{ s" pos.universe-checked-first" verdict -> outcome-rejected lf-diag-universe-too-big 9 }T
 T{ s" uniform.other-argument" verdict -> outcome-rejected lf-diag-nonuniform 3 }T
 T{ s" uniform.definitionally-equal-argument" verdict -> outcome-rejected lf-diag-nonuniform 3 }T
@@ -238,8 +289,38 @@ T{ s" replay.recursor-left-out" verdict-warned
 \ definition in positivity (id (Bad -> Nat)), unknown until task 4.2.2.
 T{ s" params.constructor-binder-defeq" verdict nip -> outcome-unknown 9 }T
 T{ s" pos.through-definition" verdict -> outcome-unknown lf-diag-needs-unfolding 9 }T
-T{ s" mutual.single-ctor-props" verdict -> outcome-unsupported lf-diag-block-scope 1 }T
-\ Nested blocks (task 5.2.5): List Tree, and List (Bad -> Nat), which Lean
+\ A telescope that ends in a definition equal to Type: unknown at step 8,
+\ never rejected (review rvN1 M1).
+T{ s" universe.type-a-sort-by-definition" verdict
+   -> outcome-unknown lf-diag-needs-unfolding 8 }T
+\ Forged arithmetic (review rvN1 B1, B2). A definition, or a block member,
+\ named Nat.pow or Nat.shiftLeft is unsupported until task 5.2.3, and so
+\ is every declaration that uses one (K5): Lean's whnf computes them by
+\ name and refuses a second argument of 2^32 or more, on a field whose
+\ type mentions no type of the block too. A block named Nat.add: Lean's
+\ whnf computes Nat.add 0 0 to 0, so its field is no recursive one;
+\ unknown here, never rejected (B3) or accepted with a hypothesis.
+T{ s" forged.pow-field" 4 decl-verdict -> outcome-unsupported lf-diag-nat-count-op }T
+T{ s" forged.pow-field" verdict
+   -> outcome-unsupported lf-diag-dependency-unsupported 9 }T
+T{ s" forged.pow-field-recursive" verdict
+   -> outcome-unsupported lf-diag-dependency-unsupported 9 }T
+T{ s" forged.pow-field-small" verdict
+   -> outcome-unsupported lf-diag-dependency-unsupported 9 }T
+T{ s" forged.pow-through-definition" verdict
+   -> outcome-unsupported lf-diag-dependency-unsupported 9 }T
+T{ s" forged.pow-through-definition-nonrecursive" verdict
+   -> outcome-unsupported lf-diag-dependency-unsupported 9 }T
+T{ s" forged.pow-erased-by-beta" verdict
+   -> outcome-unsupported lf-diag-dependency-unsupported 9 }T
+T{ s" forged.shiftleft-field" 4 decl-verdict -> outcome-unsupported lf-diag-nat-count-op }T
+T{ s" forged.shiftleft-field" verdict
+   -> outcome-unsupported lf-diag-dependency-unsupported 9 }T
+T{ s" forged.type-named-nat-pow" verdict -> outcome-unsupported lf-diag-nat-count-op 1 }T
+T{ s" forged.type-named-nat-add" verdict -> outcome-unknown lf-diag-needs-unfolding 9 }T
+T{ s" forged.type-named-nat-add-recursor-with-hypothesis" verdict
+   -> outcome-unknown lf-diag-needs-unfolding 9 }T
+\ Nested blocks (task 5.2.5b): List Tree, and List (Bad -> Nat), which Lean
 \ rejects only after making the block mutual.
 T{ s" nested.tree" verdict-field -> outcome-unsupported lf-diag-block-scope 1 3 }T
 T{ s" nested.non-positive" verdict-field -> outcome-unsupported lf-diag-block-scope 1 3 }T
@@ -252,9 +333,9 @@ T{ s" names.empty-block" verdict -> outcome-rejected lf-diag-empty-block 4 }T
 T{ s" unit.punit-variables" verdict nip -> outcome-unknown 8 }T
 
 \ ---------------------------------------------------------------------------
-\ 2. blocks.ndjson: N, Both, Same, Either, Nat, List and Point accepted,
-\ every member's slot final and accepted, with a handle and no axioms;
-\ the mutual Even/Odd and the nested Tree unsupported (task 5.2.5), and
+\ 2. blocks.ndjson: N, Both, Same, Either, Nat, the mutual Even/Odd, List
+\ and Point accepted, every member's slot final and accepted, with a
+\ handle and no axioms; the nested Tree unsupported (task 5.2.5b), and
 \ Point.x (a projection, task 5.2.2).
 : blocks ( -- c-addr u ) s" tests/reference/inductive/blocks.ndjson" ;
 : member-ok? ( d -- flag )
@@ -264,7 +345,7 @@ T{ s" unit.punit-variables" verdict nip -> outcome-unknown 8 }T
 : all-unsupported? ( from to -- flag )
   true -rot swap ?do i lf-env-outcome outcome-unsupported = and loop ;
 T{ blocks staged fuel checked -> outcome-ok }T
-T{ 0 18 all-ok? 18 25 all-unsupported? 25 29 all-ok? -> true true true }T
+T{ 0 18 all-ok? 18 25 all-ok? 25 29 all-ok? -> true true true }T
 T{ 29 33 all-unsupported? 33 36 all-ok? 36 37 all-unsupported? -> true true true }T
 finish
 
@@ -363,6 +444,33 @@ T{ s" ind.bool" case-path staged ok? must crowded fuel checked 0 lf-env-outcome 
    -> outcome-full }T
 T{ s" ind.list" case-path staged ok? must crowded fuel checked 0 lf-env-outcome finish
    -> outcome-full }T
+\ Refusals (tests/support/alloc-fail.fs; review rvN1 L2): each allocation
+\ the block's check makes, the k-th after the run starts, refused in turn
+\ as if its store were full while the others go ahead: the block ends
+\ full, never another outcome. Its positivity and its recursor put a
+\ field's type in whnf by beta, which allocates, so a failure there that
+\ were dropped would show (ind.recursive-through-beta).
+create starts most cells allot
+create ends most cells allot
+\ Record, with the allocations seen when each check starts and ends.
+: allocs-counted ( -- )
+  af-seen@ record lf-env-limit dup most <
+  if tuck starts at ! af-seen@ swap ends at ! else 2drop then ;
+: refused-run ( c-addr u k -- )
+  >r case-path staged ok? must fuel fresh r> af-arm
+  ['] allocs-counted ['] lf-check-no-maker lf-env-run drop lf-env-view ok? must ;
+2variable refused-case
+: block-slot ( -- d ) final-decl owner ;
+\ The allocations of the block's check, from the run without a refusal.
+: window ( -- end start )
+  refused-case 2@ 0 refused-run af-off block-slot dup ends at @ swap starts at @ finish ;
+\ The block's outcome with allocation k refused, and whether k was reached.
+: refused ( k -- outcome hit )
+  refused-case 2@ rot refused-run block-slot lf-env-outcome af-hit 0<> af-off finish ;
+: all-full? ( -- flag )
+  true window ?do i 1+ refused swap outcome-full = and and loop ;
+s" ind.recursive-through-beta" refused-case 2!
+T{ window - 0> all-full? -> true true }T
 
 \ ---------------------------------------------------------------------------
 \ 6. After a block. Lean's replay generates IE.B.rec whether or not the
@@ -380,8 +488,6 @@ T{ s" after.recursor-left-out-then-use-and-def-rec" verdict drop
 \ 0015 decision 12); so is a use in a file that declares IE.B.rec nowhere
 \ (ADR 0016 amendment 1), and one without its universe argument is
 \ rejected (L1), as Lean's universeArity.
-: decl-verdict ( c-addr u d -- outcome code )
-  >r case-path staged ok? must fuel checked r> result drop finish ;
 T{ s" after.recursor-left-out-then-use-and-def-rec" 3 decl-verdict -> outcome-ok 0 }T
 T{ s" after.recursor-left-out-then-use-rec" verdict drop -> outcome-ok 0 }T
 T{ s" after.recursor-left-out-then-use-rec-no-level" verdict drop
@@ -426,13 +532,16 @@ T{ ready-around -> false true }T
 \ Which types hold a name (lf-env-reserving's class): T.rec by T accepted
 \ or not; T.rec_<digits>, the auxiliary recursors of a nested block, only
 \ by a T not accepted (no accepted block is nested yet); no other name.
-: held-as ( part-addr part-u c-addr u -- class )
-  case-path staged ok? must fuel checked
-  0 lf-input-name -rot lf-name-str must lf-env lf-env-length lf-env-reserving nip finish ;
+\ The type is the file's declaration d (held-at) or its first (held-as).
+: held-at ( part-addr part-u c-addr u d -- class )
+  >r case-path staged ok? must fuel checked
+  r> lf-input-name -rot lf-name-str must lf-env lf-env-length lf-env-reserving nip finish ;
+: held-as ( part-addr part-u c-addr u -- class ) 0 held-at ;
 T{ s" rec" s" ind.bool" held-as -> outcome-ok }T
 T{ s" rec" s" ind.nat" held-as -> outcome-ok }T
-T{ s" rec" s" mutual.single-ctor-props" held-as -> outcome-unsupported }T
-T{ s" rec_1" s" mutual.single-ctor-props" held-as -> outcome-unsupported }T
+T{ s" rec" s" mutual.single-ctor-props" held-as -> outcome-ok }T
+T{ s" rec" s" nested.tree" 4 held-at -> outcome-unsupported }T
+T{ s" rec_1" s" nested.tree" 4 held-at -> outcome-unsupported }T
 T{ s" rec_1" s" ind.nat" held-as -> outcome-rejected }T
 T{ s" rec_1" s" ind.bool" held-as -> outcome-rejected }T
 T{ s" recOn" s" ind.bool" held-as -> outcome-rejected }T
@@ -519,6 +628,32 @@ T{ s" after.reflexive-parameter-at-renamed" used -> outcome-ok 0 }T
 \ The list's recursor built again while a block with a parameter checks
 \ its constructor: that block's parameter domains survive the rebuild.
 T{ s" after.list-left-out-then-lookup-during-param-block" used -> outcome-ok 0 }T
+\ Mutual blocks (task 5.2.5a): the generated recursor of the first type and
+\ of a later one, with indices, and at concrete and renamed universes.
+T{ s" after.mutual-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.even-odd-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.even-odd-left-out-then-use-second-rec" used -> outcome-ok 0 }T
+T{ s" after.indexed-data-left-out-then-use-second-rec" used -> outcome-ok 0 }T
+T{ s" after.three-types-at-concrete" used -> outcome-ok 0 }T
+T{ s" after.three-types-at-renamed" used -> outcome-ok 0 }T
+\ Review rvN1 (M1): the generated recursors of a W type (at its own,
+\ swapped and concrete universes), of indexed recursive blocks and of
+\ reflexive ones. A recursor whose type applies a field with an annotated
+\ binder (optParam Nat 0 against Nat) stays unknown until inference
+\ unfolds (task 4.2.2's whnf in inference); one whose field's type is a
+\ function type only after whnf is decided since that whnf is on main.
+T{ s" after.w-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.w-at-swapped" used -> outcome-ok 0 }T
+T{ s" after.w-at-concrete" used -> outcome-ok 0 }T
+T{ s" after.acc-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.acc-at-concrete" used -> outcome-ok 0 }T
+T{ s" after.vec-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.reflexive-indexed-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.indexed-mixed-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.reflexive-indexed-dependent-left-out-then-use-rec" used -> outcome-ok 0 }T
+T{ s" after.annotated-binders-left-out-then-use-rec" used
+   -> outcome-unknown lf-diag-undecided }T
+T{ s" after.redex-parameter-left-out-then-use-rec" used -> outcome-ok 0 }T
 \ The marks on the slots: the type and constructors, not the recursor.
 : added? ( d -- flag ) lf-env lf-env-slot lf-slot-added? ;
 : marks ( -- f0 f1 f2 f3 )
