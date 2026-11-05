@@ -307,7 +307,7 @@ Proof outline not available: the log was kept without formulas (level steps).
 == composition-wrong-argument
 Theorem composition
   rejected
-  Diagnostic: rejected: argument type mismatch (D1-D5) (4, 0)
+  Diagnostic: rejected: argument type mismatch (D1-D5) (0, 0)
   Statement in Lean:        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$
   Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
@@ -320,14 +320,14 @@ Theorem composition
       A C ->
     end composition
   Input:     tests/core/check-declaration-cases/composition-wrong-argument.ndjson line 35
-  Checker log: 51 steps, complete. The statement is a proposition: s20 (from s3).
+  Checker log: 42 steps, complete. The statement is a proposition: s20 (from s3).
 
 No proof outline: the declaration was not accepted.
 
 == composition-wrong-argument --detail
 Theorem composition
   rejected
-  Diagnostic: rejected: argument type mismatch (D1-D5) (4, 0)
+  Diagnostic: rejected: argument type mismatch (D1-D5) (0, 0)
   Statement in Lean:        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$
   Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
@@ -340,7 +340,7 @@ Theorem composition
       A C ->
     end composition
   Input:     tests/core/check-declaration-cases/composition-wrong-argument.ndjson line 35
-  Checker log: 51 steps, complete. The statement is a proposition: s20 (from s3).
+  Checker log: 42 steps, complete. The statement is a proposition: s20 (from s3).
 
 Steps.
   s1     fresh-name          depth 0   declaration composition
@@ -375,25 +375,16 @@ Steps.
   s30    variable            depth 5   A : Prop
   s31    variable            depth 6   g : B → C
   s32    variable            depth 6   value : A
-  s33    defeq               depth 6   A ≡ B  [unknown]
-  s34    variable            depth 6   A : Prop
-  s35    sort                depth 6   Prop : Type
-  s36    variable            depth 6   B : Prop
-  s37    sort                depth 6   Prop : Type
-  s38    variable            depth 6   A : Prop
-  s39    variable            depth 6   A : Prop
-  s40    sort                depth 6   Prop : Type
-  s41    variable            depth 6   B : Prop
-  s42    sort                depth 6   Prop : Type
-  s43    application         depth 6   g value  ← s31, s32, s33, s34, s35, s36, s37, s38, s39, s40, s41, s42  [rejected]
-  s44    lambda              depth 5   fun value ↦ g value  ← s30, s43  [rejected]
-  s45    lambda              depth 4   fun g value ↦ g value  ← s29, s44  [rejected]
-  s46    lambda              depth 3   fun f g value ↦ g value  ← s26, s45  [rejected]
-  s47    lambda              depth 2   fun {C} f g value ↦ g value  ← s23, s46  [rejected]
-  s48    lambda              depth 1   fun {B C} f g value ↦ g value  ← s22, s47  [rejected]
-  s49    lambda              depth 0   fun {A B C} f g value ↦ g value  ← s21, s48  [rejected]
-  s50    declaration         depth 0   ∀ {A B C : Prop}, (A → B) → (B → C) → A → C := fun {A B C} f g value ↦ g value  ← s1, s2, s20, s49  [rejected]
-  s51    publish             depth 0   d0, 0 dependencies  ← s50  [rejected]
+  s33    defeq               depth 6   A ≡ B  [rejected]
+  s34    application         depth 6   g value  ← s31, s32, s33  [rejected]
+  s35    lambda              depth 5   fun value ↦ g value  ← s30, s34  [rejected]
+  s36    lambda              depth 4   fun g value ↦ g value  ← s29, s35  [rejected]
+  s37    lambda              depth 3   fun f g value ↦ g value  ← s26, s36  [rejected]
+  s38    lambda              depth 2   fun {C} f g value ↦ g value  ← s23, s37  [rejected]
+  s39    lambda              depth 1   fun {B C} f g value ↦ g value  ← s22, s38  [rejected]
+  s40    lambda              depth 0   fun {A B C} f g value ↦ g value  ← s21, s39  [rejected]
+  s41    declaration         depth 0   ∀ {A B C : Prop}, (A → B) → (B → C) → A → C := fun {A B C} f g value ↦ g value  ← s1, s2, s20, s40  [rejected]
+  s42    publish             depth 0   d0, 0 dependencies  ← s41  [rejected]
 
 == a rejected declaration's log, given as accepted
 No outline: the checker's log does not belong to this declaration's published verdict, or the input changed since the check.
