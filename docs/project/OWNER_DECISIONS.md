@@ -819,3 +819,17 @@ ADR 0017 Amendment 1 (agent AU2), the owner's answers:
   Temporary gaps, each with its task: nested blocks 5.2.5b; structures and
   projections 5.2.2 (in progress); literals 5.2.3; proof irrelevance and
   eta 4.2.5, 4.2.4.
+
+## Numbers as parts of names (2026-11-05)
+
+Question (from agent LF's `print --lf` work): Lean names can have parts that are numbers, such as the `0` in
+the private helper `_private.Init.Data.Nat.Basic.0.Nat.zero_add.match_1_1`; LeanForth's words refused such
+parts in declaration names, so these declarations could not be written as LeanForth text.
+
+Owner: "We must be 100% compatible with lean, if lean has numbers as parts of names, so does leanforth."
+
+Done by agent NN (merged 2026-11-05): any part after the first may be a number, read and written as plain
+digits; a text part made of digits is written `«0»`, so the two stay distinct as in Lean; no Forth word is
+ever made whose name is a number, so `0`, `1`, `-1` keep reading as numbers. A name whose first part is a
+number stays unsupported (the whole token would read as a number); no export seen so far has one. The reader
+change is a [parser] item: an independent review is owed.
