@@ -301,6 +301,11 @@ end-structure
 : lf-rcr-s@ ( -- s ) lf-rcr-state lf-rcr-s @ ;
 : lf-rcr-e@ ( -- e ) lf-rcr-state lf-rcr-e @ ;
 : lf-rcr-place! ( past gap -- ) lf-rcr-state lf-rcr-gap ! lf-rcr-state lf-rcr-past ! ;
+\ Take hypothesis i of minor j and place it past past binders, extra more
+\ than its constructor's k fields after it: the gap is k + extra - q.
+: lf-rcr-gap-of ( j extra -- gap ) swap lf-rcr-k + lf-rcr-q@ - ;
+: lf-rcr-place ( j i past extra -- )
+  >r >r over swap lf-rcr-ih-of lf-rcr-take r> swap r> lf-rcr-gap-of lf-rcr-place! ;
 : lf-rcr-relocate ( node s' -- node' )
   tuck lf-rcr-q@ + lf-rcr-state lf-rcr-past @ lf-rcr-shift
   swap lf-rcr-state lf-rcr-gap @ lf-rcr-shift ;
@@ -363,8 +368,7 @@ end-structure
 \ Hypothesis i of minor j, into type e, at depth p+M+j+k+i (past M+j, gap
 \ k+i-q): (xs) -> motive_e ks (u xs).
 : lf-rcr-ih-type ( j i -- node )
-  2dup lf-rcr-ih-of lf-rcr-take over lf-rcr-mm + >r swap lf-rcr-k + lf-rcr-q@ - r> swap
-  lf-rcr-place!
+  over lf-rcr-mm + over lf-rcr-place
   lf-rcr-base lf-rcr-e@ - lf-rcr-bvar lf-rcr-ks lf-rcr-u-xs lf-rcr-app
   lf-tag-pi lf-rcr-over-xs ;
 : lf-rcr-over-ihs ( body tag j -- node tag )
@@ -399,8 +403,7 @@ end-structure
   lf-rcr-base lf-rcr-mm - lf-rcr-m lf-rcr-apply-vars
   lf-rcr-ks lf-rcr-u-xs lf-rcr-app ;
 : lf-rcr-v ( j i -- node )
-  over swap lf-rcr-ih-of lf-rcr-take lf-rcr-mm lf-rcr-m + swap lf-rcr-k lf-rcr-q@ -
-  lf-rcr-place! lf-rcr-rec-call lf-tag-lam lf-rcr-over-xs ;
+  lf-rcr-mm lf-rcr-m + 0 lf-rcr-place lf-rcr-rec-call lf-tag-lam lf-rcr-over-xs ;
 : lf-rcr-rule-body ( j -- node )
   dup lf-rcr-k lf-rcr-m 1- 2 pick - over + lf-rcr-bvar swap dup 1- swap lf-rcr-apply-vars
   over lf-rcr-r 0 ?do over i lf-rcr-v lf-rcr-app loop nip ;

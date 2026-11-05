@@ -165,34 +165,22 @@ end-structure
 \ stops at once when the head is the block's own type, or a constant
 \ declared as an inductive type, a constructor, an axiom or an opaque
 \ constant, named none of those operations; for any other head LeanForth
-\ cannot follow Lean yet (unknown, K1). A Sort, a Pi, a lambda or a
-\ variable head stops it too (fact 3).
-: lf-blk-op-names ( -- c-addr u )
-  s"  succ add sub mul pow gcd mod div beq ble land lor xor shiftLeft shiftRight " ;
-\ Whether text is a word of that list: found with a space on each side.
-: lf-blk-space? ( c-addr -- flag ) 1 s"  " compare 0= ;
-: lf-blk-op-text? ( c-addr u -- flag )
-  dup >r lf-blk-op-names 2swap search 0= if r> drop 2drop false exit then
-  dup r@ > 0= if r> drop 2drop false exit then
-  over lf-blk-op-names drop = if r> drop 2drop false exit then
-  drop dup 1- lf-blk-space? swap r> + lf-blk-space? and ;
-: lf-blk-nat? ( name -- flag )
-  dup lf-name-tag@ lf-name-tag-str = 0= if drop false exit then
-  dup lf-name-prefix@ if drop false exit then lf-name-text s" Nat" compare 0= ;
-: lf-blk-nat-op? ( name -- flag )
-  dup lf-name-tag@ lf-name-tag-str = 0= if drop false exit then
-  dup lf-name-prefix@ ?dup 0= if drop false exit then
-  lf-blk-nat? if lf-name-text lf-blk-op-text? else drop false then ;
+\ cannot follow Lean yet (unknown, K1). The name test comes first, for
+\ the block's own types too: reduce_nat matches by name only, so a type
+\ of the block named Nat.add is computed on like Lean's Nat.add (review
+\ rvN1 B2; the table's names: inductive-block.fs, lf-nat-op?). A Sort, a
+\ Pi, a lambda or a variable head stops it too (fact 3); a variable has
+\ no value while there is no let (U2; plan task 4.2.3 must revisit this,
+\ as mixed-head.fs says for its own rules).
 : lf-blk-stuck-kind? ( kind -- flag )
   dup lf-kind-inductive = over lf-kind-constructor = or
   over lf-kind-axiom = or swap lf-kind-opaque = or ;
 : lf-blk-stuck-name? ( name -- flag )
-  dup lf-blk-nat-op? if drop false exit then
   lf-env-lookup-pass ok? 0= if drop false exit then
   dup 0< if drop false exit then lf-input-decl lf-idecl-kind @ lf-blk-stuck-kind? ;
 : lf-blk-stuck? ( node -- flag )
-  lf-ind-spine drop dup lf-ind-type-node? if drop true exit then
-  lf-ind-const-name lf-blk-stuck-name? ;
+  lf-ind-spine drop dup lf-ind-const-name lf-nat-op? if drop false exit then
+  dup lf-ind-type-node? if drop true exit then lf-ind-const-name lf-blk-stuck-name? ;
 \ Whether Lean's whnf leaves node, a term in whnfB, as it is.
 : lf-blk-left? ( node -- flag )
   dup lf-mhead-kind case

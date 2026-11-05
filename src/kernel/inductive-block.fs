@@ -317,11 +317,13 @@ lf-walk-room context-walk2: lf-ind-pair-walker
   lf-ind-state lf-ind-count @ swap ;
 \ The same within a walk of lf-ind-walker, on its fuel: a walk of its own
 \ (lf-ind-inner-walker), whose fuel goes back to the outer walk; whether
-\ root mentions the type.
+\ root mentions the type. A budget the walk refuses (negative, which the
+\ outer walk's fuel never is) is invalid, as for lf-ind-run.
 : lf-ind-inner-visit ( walk -- outcome ) lf-terms ['] lf-ind-dispatch walk-visit ;
 : lf-ind-inner-run ( root -- outcome )
   ['] lf-ind-occurrence lf-ind-inner-walker walk-arg !
-  lf-ind-walker walk-fuel @ lf-ind-inner-walker walk-budget drop
+  lf-ind-walker walk-fuel @ lf-ind-inner-walker walk-budget 0=
+  if drop outcome-invalid exit then
   ['] lf-ind-inner-visit lf-ind-inner-walker walk-run
   lf-ind-inner-walker walk-fuel @ lf-ind-walker walk-fuel !
   lf-ind-inner-walker lf-ind-site lf-diag-walk ;
@@ -424,16 +426,64 @@ lf-walk-room context-walk2: lf-ind-pair-walker
 \ Whether some field of the block mentions its type (after the audit).
 : lf-ind-recursive? ( -- flag ) lf-ind-state lf-ind-is-rec @ ;
 
-\ The audit, in this order: B0; unsafe members; U2, then V1, on every term;
-\ the scope.
+\ ---------------------------------------------------------------------------
+\ The Nat operations Lean's whnf computes by name, whatever their
+\ declarations say (reduce_nat, type_checker.cpp 672-703): Nat.succ with
+\ one argument, the fourteen others with two. A table: each entry a flag,
+\ the text after Nat. in a cell of its length and its characters, aligned;
+\ a length of 0 ends it. The flag marks Nat.pow and Nat.shiftLeft, whose
+\ second argument Lean refuses when it is 2^32 or more (get_count_arg,
+\ 308-313): a fixed rule, not a setting. Shared and read-only.
+: lf-nat-op, ( counted c-addr u -- ) rot , dup , here swap dup allot move align ;
+create lf-nat-ops
+  false s" succ" lf-nat-op,  false s" add" lf-nat-op,  false s" sub" lf-nat-op,
+  false s" mul" lf-nat-op,  true s" pow" lf-nat-op,  false s" gcd" lf-nat-op,
+  false s" mod" lf-nat-op,  false s" div" lf-nat-op,  false s" beq" lf-nat-op,
+  false s" ble" lf-nat-op,  false s" land" lf-nat-op,  false s" lor" lf-nat-op,
+  false s" xor" lf-nat-op,  true s" shiftLeft" lf-nat-op,
+  false s" shiftRight" lf-nat-op,  0 , 0 ,
+: lf-nat-text ( entry -- c-addr u ) cell+ dup cell+ swap @ ;
+: lf-nat-next ( entry -- entry' ) lf-nat-text + aligned ;
+\ The entry whose text is c-addr u, or 0.
+: lf-nat-entry ( c-addr u -- entry | 0 )
+  lf-nat-ops begin dup lf-nat-text nip while
+    >r 2dup r@ lf-nat-text compare 0= if 2drop r> exit then r> lf-nat-next
+  repeat drop 2drop 0 ;
+\ Whether name is the string component text under the anonymous name.
+: lf-nat-root? ( name -- flag )
+  dup lf-name-tag@ lf-name-tag-str = 0= if drop false exit then
+  dup lf-name-prefix@ if drop false exit then lf-name-text s" Nat" compare 0= ;
+\ The entry of a name Nat.<text> of the table, or 0.
+: lf-nat-op ( name -- entry | 0 )
+  dup lf-name-tag@ lf-name-tag-str = 0= if drop 0 exit then
+  dup lf-name-prefix@ lf-nat-root? 0= if drop 0 exit then lf-name-text lf-nat-entry ;
+: lf-nat-op? ( name -- flag ) lf-nat-op 0<> ;
+: lf-nat-counted? ( name -- flag ) lf-nat-op dup if @ then ;
+
+\ The audit, in this order: B0; unsafe members; a member named Nat.pow or
+\ Nat.shiftLeft (below); U2, then V1, on every term; the scope.
 : lf-ind-safe? ( -- flag )
   true lf-ind-members 0 ?do i lf-ind-member lf-idecl-safety @ lf-safety-safe = and loop ;
 : lf-ind-unsafe ( -- outcome )
   lf-kind-inductive lf-safety-unsafe lf-ind-site lf-diag-unsupported-kind lf-diag-note
   outcome-unsupported ;
+\ Until plan task 5.2.3 brings Lean's arithmetic on literals, a member
+\ named Nat.pow or Nat.shiftLeft is unsupported, as check-declaration's
+\ audit makes a definition or theorem of either name (review rvN1 B1):
+\ then no checked term can reach either by Lean's whnf (K5 on every use,
+\ and on every definition whose value uses one), so the only refusal
+\ Lean's whnf can make on a type-correct term that LeanForth does not
+\ follow is a resource refusal (ADR 0015 decision 14).
+: lf-ind-counted ( -- k true | false )
+  lf-ind-members 0 ?do
+    i lf-ind-member lf-idecl-name @ lf-nat-counted? if i true unloop exit then
+  loop false ;
+: lf-ind-count-op ( k -- outcome )
+  lf-ind-first@ + 0 lf-ind-site lf-diag-nat-count-op lf-diag-note outcome-unsupported ;
 : lf-ind-audit ( -- outcome )
   lf-ind-b0 dup ok? 0= if exit then drop
   lf-ind-safe? 0= if lf-ind-unsafe exit then
+  lf-ind-counted if lf-ind-count-op exit then
   ['] lf-ind-forms lf-ind-each dup ok? 0= if exit then drop
   ['] lf-ind-closed lf-ind-each dup ok? 0= if exit then drop
   lf-ind-scoped ;

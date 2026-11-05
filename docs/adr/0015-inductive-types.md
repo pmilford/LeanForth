@@ -998,19 +998,43 @@ recursor levels; the generated recursor of decision 12 gets them too.
 13. *whnf where Lean reduces.* Lean's positivity, recursive-field test
     and telescope put terms in `whnf`. Until task 4.2.2's whnf (agent
     U4) is on main, LeanForth uses whnfB and goes on only where Lean's
-    whnf provably stops (a Sort, Pi, lambda or variable head, the type
-    itself, or a constant declared as an inductive type, constructor,
-    axiom or opaque constant, named none of `reduce_nat`'s operations);
-    elsewhere the block is *unknown* (diagnostic 64). The same test lets
-    step 8 reject a telescope ending in such a constant (`T : Nat`,
-    Lean's `typeExpected`), where 5.2.1a said *unknown*.
+    whnf provably stops: a Sort, Pi, lambda or variable head, or a
+    constant head named none of `reduce_nat`'s fifteen operations
+    (`Nat.succ`, `Nat.add`, …; matched by name only, `type_checker.cpp`
+    672–703) that is the type itself or a constant declared as an
+    inductive type, constructor, axiom or opaque constant; elsewhere the
+    block is *unknown* (diagnostic 64). The name test comes first, for the
+    type itself too: Lean's `whnf` computes on a block's own type named
+    `Nat.add` as on Lean's `Nat.add` (review rvN1 B2, corrected
+    2026-11-04; rows `forged.type-named-nat-add*`). A variable head stops
+    Lean's `whnf` only while no variable has a value: task 4.2.3 (`let`)
+    must revisit this test, as `mixed-head.fs` says for its own rules.
+    The same test lets step 8 reject a telescope ending in such a
+    constant (`T : Nat`, Lean's `typeExpected`), where 5.2.1a said
+    *unknown*.
 14. *Fields without an occurrence* are not put in whnf: reduction never
     makes an occurrence of a type being declared (Lean's own comment,
     `inductive.cpp` 129–133), so positivity passes and the field is not
-    recursive whatever whnf gives. Lean computes that whnf and drops it;
-    only a resource exception during it (`deepRecursion`, the literal
-    size limit) could make Lean reject where LeanForth goes on: an open
-    question for the owner, closed by calling 4.2.2's whnf there.
+    recursive whatever whnf gives. Lean computes that whnf and drops it,
+    so LeanForth may skip it only if Lean's `whnf` of a type-correct term
+    cannot refuse it. *Corrected 2026-11-04 (review rvN1 B1):* the first
+    version said only a resource exception could, which is false. Lean's
+    `whnf` computes `Nat.pow` and `Nat.shiftLeft` by name and refuses a
+    second argument of 2³² or more (`get_count_arg`, `type_checker.cpp`
+    308–313), a fixed rule, not a setting; a forged file reaches it
+    (rows `forged.pow-*`, `forged.shiftleft-field`: Lean refuses, the
+    first version accepted). So, until task 5.2.3 brings Lean's
+    arithmetic on literals, a definition, theorem or block member named
+    `Nat.pow` or `Nat.shiftLeft` is *unsupported* (diagnostic 86), and by
+    K5 so is every declaration whose check meets one: a term reaches
+    them in Lean's `whnf` only by naming them or through a definition
+    whose value does (delta), every recursor rule being built from
+    constructor types that cannot name them. The other refusals of
+    `type_checker.cpp` met in `whnf` of a type-correct term are resource
+    refusals (`deepRecursion`, heartbeats) or settings (`LEAN_NAT_MAX_SIZE`,
+    the owner's question L1 of review rvN1). Lean-produced exports are not
+    affected: `Init`'s `Nat.pow` and `Nat.shiftLeft` are *unsupported*
+    already (their closures hold literals and projections).
 15. *The nested test may find more* than Lean's: an earlier type that is
     not usable (undecided, unsupported) has every argument tested, its
     exported `numParams` not being known to be Lean's. Only
@@ -1050,6 +1074,41 @@ recursor levels; the generated recursor of decision 12 gets them too.
   or invalid. Other declarations accepted 1,015 → 1,609. Details in
   [INDUCTIVE_BLOCKS.md](../programming/INDUCTIVE_BLOCKS.md#evidence).
 
+**Review rvN1 and its corrections** (2026-11-04). The independent review
+of the change (`.claude/work/rvN1/REVIEW.md` in the main checkout; 98
+probes against pinned Lean) found two cases where the first version
+accepted what Lean refuses, both reachable only from a hand-written file
+that declares its own `Nat` operations; they are fixed:
+
+- **B1**: decision 14's premise was false (above): a definition or
+  block member named `Nat.pow` or `Nat.shiftLeft` is now *unsupported*
+  (diagnostic 86, `lf-nat-counted?` in `inductive-block.fs`, used by both
+  audits).
+- **B2**: `lf-blk-stuck?` tested for the block's own type before the
+  names of `reduce_nat`'s operations; the name test now comes first
+  (decision 13), and those names are one table (`lf-nat-ops`).
+- **M1**: the review's probes are table rows now, Lean-checked, with
+  committed files: a W type, an `Acc`, indexed recursive blocks (task
+  5.2.1c's rows, decided already), reflexive fields with annotated
+  binders or a redex in a Pi body, a redex in a Pi's domain, the type as
+  another type's index, a telescope ending in a definition, uses of
+  their generated recursors, and the forged cases of B1 and B2 (rows
+  `forged.*`, task 5.2.3). The review's six surviving planted faults are
+  caught.
+- **L2**: `make test-check-block` refuses each allocation of a block's
+  check in turn (`tests/support/alloc-fail.fs`): the block must end
+  *full*. This catches a dropped failure of positivity's or the
+  builder's whnf; a dropped failure of the occurrence walk stays a
+  recorded gap (`faults.toml`: its stack grows on the heap, which no test
+  hook refuses, and its fuel failures leave none for the next step).
+- **L3, L4**: the documentation below and in `INDUCTIVE_BLOCKS.md`;
+  `lf-ind-inner-run` refuses a negative budget as `lf-ind-run` does.
+
+Owner question L1 of the review stays open: whether Lean's refusals that
+name `LEAN_NAT_MAX_SIZE` (a setting) count as resource refusals, like
+`deepRecursion`, or are reproduced as rejections in task 5.2.3 as §7 L1
+plans.
+
 ## Implementation (plan task 5.2.5a)
 
 Written 2026-11-04 by agent N1, the first part of task 5.2.5; experimental
@@ -1063,9 +1122,9 @@ constructors as the types' `ctors` lists in order (`inductive-block.fs`).
 Steps 6 to 8 run for each type in order, as `check_inductive_types`
 (`inductive.cpp` 254–299) does: N2 on `T` and `T.rec`, the type's type,
 its telescope; a later type's parameter domains must be the first type's
-(`is_def_eq`, T3: diagnostic 81, D1–D5 reject, else unknown), it must
-have `numParams` of them (T3: 82), and its universe must be
-`is_equivalent` to the first's (T4: 83). Step 9 checks C4 within each
+(`is_def_eq`, T3: diagnostic 83, D1–D5 reject, else unknown), it must
+have `numParams` of them (T3: 84), and its universe must be
+`is_equivalent` to the first's (T4: 85). Step 9 checks C4 within each
 type (Lean's name set is per type, 459–465), C2 against the first type's
 parameters, C3 against the constructor's own type, positivity and
 recursive fields across the block (`is_valid_ind_app` for any type), and

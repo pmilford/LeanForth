@@ -197,14 +197,14 @@ rejection names Lean's reason through a diagnostic
 
 | Step | Rule (ADR 0015) | What | Lean (`inductive.cpp`, 4.35.0) | LeanForth's outcome on failure |
 | ---: | --- | --- | --- | --- |
-| 1 | B0, U1 (audit), U2, V1, scope | the block as lean4export writes it (each type's `all` list the block's types, with the first's universe parameters and `numParams`; the constructors the types' `ctors` lists in order), at most 512 constructors (checked when the block is opened, before anything is written for them); no unsafe member; no `let`, literal, projection or metadata; no loose variable; no nested occurrence (an earlier inductive type applied to arguments that mention a type of the block, after a constructor's parameters: Lean's `elim_nested_inductive`); on the way Lean's `is_rec` and `is_reflexive` | replay's reading; 1237–1247; 1023–1055, 308–352 | invalid (shape, V1); full (more than 512 constructors, the whole block); unsupported (unsafe, U2, nested: task 5.2.5b) |
+| 1 | B0, U1 (audit), U2, V1, scope | the block as lean4export writes it (each type's `all` list the block's types, with the first's universe parameters and `numParams`; the constructors the types' `ctors` lists in order), at most 512 constructors (checked when the block is opened, before anything is written for them); no unsafe member; no member named `Nat.pow` or `Nat.shiftLeft` (until task 5.2.3); no `let`, literal, projection or metadata; no loose variable; no nested occurrence (an earlier inductive type applied to arguments that mention a type of the block, after a constructor's parameters: Lean's `elim_nested_inductive`); on the way Lean's `is_rec` and `is_reflexive` | replay's reading; 1237–1247; 1023–1055, 308–352 | invalid (shape, V1); full (more than 512 constructors, the whole block); unsupported (unsafe, U2, nested: task 5.2.5b; `Nat.pow`, `Nat.shiftLeft`: diagnostic 86, task 5.2.3) |
 | 2 | T0 | no constant named under `_nested` | 1222–1233 | rejected |
 | 3 | C1 | each occurrence of the type applied to the block's universe parameters and parameters | 134–164 | rejected |
 | 4 | T1 | a type at all (an empty block, staged as one declaration without a name: Lean's `emptyBlock`, 1153), then at least `numParams` binders in the type, then in each constructor's type (`get_params`, called by `elim_nested_inductive_fn` 1151–1166 for both) | 1138–1166 | rejected |
 | 5 | T5 | universe parameters distinct | 869 | rejected |
 | 6 | N2 | the type's name and `T.rec` unused, also as the recursor Lean generated for an earlier type (below) | 258–259 | rejected; unknown or unsupported when an earlier declaration of that name is undecided or unsupported (K5) |
 | 7 | — | the type's type inferred | 261 | inference's outcome |
-| 8 | T2, T3, T4 | its telescope (parameters, indices) and a `Sort` at the end; for a later type of a mutual block, its parameters' domains the first type's (`is_def_eq`), at least `numParams` of them, and its universe equivalent to the first's (`is_equivalent`). Steps 6 to 8 run for each type in order, as `check_inductive_types` does | 254–299 | rejected (typeExpected, also for an end headed by a constant Lean's `whnf` leaves, such as `Nat`; diagnostics 81 parameters differ, 82 too few, 83 another universe); unknown where Lean's `whnf` might unfold a definition |
+| 8 | T2, T3, T4 | its telescope (parameters, indices) and a `Sort` at the end; for a later type of a mutual block, its parameters' domains the first type's (`is_def_eq`), at least `numParams` of them, and its universe equivalent to the first's (`is_equivalent`). Steps 6 to 8 run for each type in order, as `check_inductive_types` does | 254–299 | rejected (typeExpected, also for an end headed by a constant Lean's `whnf` leaves, such as `Nat`; diagnostics 83 parameters differ, 84 too few, 85 another universe); unknown where Lean's `whnf` might unfold a definition |
 | 9 | C4, N2, C2, U1, P1, P2, C3 | each constructor: name unique within its type, unused, its type inferred (every type of the block visible), each parameter's domain the first type's, each field's universe within the result's (Lean's `is_geq`) unless the type is a proposition, then the field's positivity (below, for every type of the block), its result its own type applied as `T As is` with indices that mention no type of the block; then a constructor named as another type's constructor is declared already (`declare_constructors`) | 436–519 | rejected (P1 diagnostic 79, P2 80); unknown where a comparison needs unfolding, or positivity a `whnf` LeanForth cannot follow yet |
 | 10 | E0–E4, K1 | the elimination level (every universe, or `Prop` only: always for a mutual block of propositions, E1) and `k` (never for a mutual block) | 522–616 | — |
 | 11 | N2 | each type's `T.rec`, in order, is no name of the block (its types and constructors) | 813 | rejected |
@@ -230,19 +230,31 @@ parameters as its first arguments, indices that do not mention `T`), a
 recursive field, or it is *nonValidOccurrence* (diagnostic 80). A field
 whose type does not mention `T` is not tested: reduction never makes an
 occurrence (`T` is in no environment a definition unfolds into), so
-Lean's test passes on it whatever whnf gives.
+Lean's test passes on it whatever whnf gives. Lean still computes that
+whnf, and it could refuse it: `Nat.pow` and `Nat.shiftLeft` with a
+second argument of 2³² or more (`get_count_arg`, a fixed rule). So a
+declaration named `Nat.pow` or `Nat.shiftLeft` is *unsupported*
+(diagnostic 86) until task 5.2.3, and with it everything that uses one;
+then no whnf LeanForth skips can meet them (ADR 0015 decision 14,
+corrected after review rvN1; rows `forged.*`).
 
 **Where Lean puts a term in whnf** (step 8's telescope, positivity, a
 recursive field's type when the recursor is built), LeanForth reduces
 with whnfB and goes on only where Lean's whnf provably stops there
-(`lf-blk-left?`): a Sort, a Pi, a lambda or a variable head, `T` itself,
-or a constant declared as an inductive type, a constructor, an axiom or
-an opaque constant and named none of the Nat operations Lean's
-`reduce_nat` computes by name. Any other head -- a definition or theorem
-Lean would unfold, a recursor or quotient Lean might reduce -- leaves
-the block *unknown* (diagnostic 64) until plan task 4.2.2 (whnf with
-delta and iota) is on main (rows `pos.through-definition`,
-`pos.erased-by-definition`).
+(`lf-blk-left?`): a Sort, a Pi, a lambda or a variable head, or a
+constant head named none of the Nat operations Lean's `reduce_nat`
+computes by name (`Nat.succ`, `Nat.add`, …, the table `lf-nat-ops`)
+that is `T` itself or a constant declared as an inductive type, a
+constructor, an axiom or an opaque constant. The name comes first: a
+block whose type is named `Nat.add` is computed on by Lean's whnf, so
+its own type is no stuck head (review rvN1 B2; rows
+`forged.type-named-nat-add*`, *unknown*). Any other head -- a definition
+or theorem Lean would unfold, a recursor or quotient Lean might reduce
+-- leaves the block *unknown* (diagnostic 64) until plan task 4.2.2
+(whnf with delta and iota) is on main (rows `pos.through-definition`,
+`pos.erased-by-definition`, `universe.type-a-sort-by-definition`). A
+variable head stops Lean's whnf only while no variable has a value: plan
+task 4.2.3 (`let`) must revisit `lf-blk-left?`.
 
 **Recursive fields and induction hypotheses** (`is_rec_argument`
 426–433, `mk_rec_infos` 690–709, `mk_rec_rules` 770–785). A field is
@@ -409,7 +421,13 @@ the default is exactly Lean):
   4.2.2b-e, whnf and unfolding in inference): a use of the generated
   recursor of such a block (above), and in general a binder whose type's
   type is a Sort only after whnf (inference gives *unknown*, diagnostic
-  32, where Lean's `ensure_sort` reduces).
+  32, where Lean's `ensure_sort` reduces). Two more uses of a generated
+  recursor stay *unknown* for the same reason, though the block itself is
+  accepted: when the recursor's type applies a field whose binder is
+  annotated (`optParam Nat 0` against `Nat`, which Lean unfolds:
+  diagnostic 30, row `after.annotated-binders-left-out-then-use-rec`), and
+  when a field's type is a function type only after whnf (diagnostic 31,
+  row `after.redex-parameter-left-out-then-use-rec`).
 - **The P4 guard, *unknown* where Lean rejects; task 5.2.2** (structure eta
   and unit-like comparison).
 - **Positivity and recursive fields through definitions, *unknown*; task
@@ -434,10 +452,17 @@ the default is exactly Lean):
   name (only a hand-made file can hold two).
 - **A field type without an occurrence of `T` is not put in whnf**
   (positivity, step 9). Lean's `check_positivity` reduces it and drops the
-  result; the two can differ only if that reduction fails with a resource
-  exception (`deepRecursion`, the Nat literal size limit), which Lean
-  turns into a rejection. An open question for the owner (report of task
-  5.2.1b); task 4.2.2's whnf can close it.
+  result. Its only refusal that is a rule, `Nat.pow` or `Nat.shiftLeft`
+  with a second argument of 2³² or more, cannot be met: declarations of
+  those names are *unsupported* until task 5.2.3 (diagnostic 86, review
+  rvN1 B1). The others are resource refusals (`deepRecursion`) or a
+  setting, the Nat literal size limit `LEAN_NAT_MAX_SIZE`, which is open
+  for the owner (review rvN1 L1: a resource refusal, or reproduced in
+  task 5.2.3 as ADR 0015 §7 plans); task 4.2.2's whnf can close it.
+- **Declarations named `Nat.pow` or `Nat.shiftLeft`, *unsupported*;
+  task 5.2.3** (Lean's arithmetic on literals, by name): above. Lean's
+  own `Init` declares both with literals and projections, *unsupported*
+  anyway (U2).
 - A block rejected only by B3 still takes its names. Lean's replay runs
   its comparison after its kernel added the block (`addDecl` first, the
   postponed checks of constructors and recursors last), so the type, its
@@ -493,6 +518,31 @@ the default is exactly Lean):
 
 ## Evidence
 
+- Review rvN1 of task 5.2.1b, its findings fixed (2026-11-04, Gforth
+  1.0.0, Lean 4.35.0). The table has 244 cases (35 added, every verdict
+  Lean's): the review's probes (a W type, an `Acc`, five indexed
+  recursive blocks, reflexive fields with annotated binders or a redex in
+  a Pi body, a redex under a parameter, a redex in a Pi's domain that
+  drops the type, the type as `HEq`'s index, a telescope ending in a
+  definition, and eleven uses of their generated recursors) and the
+  forged cases of B1 and B2 (`forged.*`: a definition named `Nat.pow` or
+  `Nat.shiftLeft` and a field Lean's whnf refuses, directly, through a
+  definition, erased by beta, in a non-recursive block; a block named
+  `Nat.pow`; a block named `Nat.add`, and Lean's replay of it with a
+  recursor that has a hypothesis). The rows of tasks 5.2.1a, 5.2.1b and
+  5.2.5a: 171, every one Lean's verdict or pending with its task (ok 90,
+  rejected 70, unknown 7, unsupported 4; 11 pending); the 73 rows of
+  later tasks: none decided against Lean. Before the fixes LeanForth
+  accepted `forged.pow-through-definition` and its variants (Lean
+  refuses) and the replay with the forged recursor (Lean's
+  `invalidRecursor`), and rejected `forged.type-named-nat-add` (Lean
+  accepts); now *unsupported* and *unknown*. `make test-check-block`:
+  196 committed files; each allocation of `ind.recursive-through-beta`'s
+  check (94) refused in turn gives *full*. Planted faults caught: the
+  review's eight survivors that a test can reach (six of M1, two of L2),
+  four more of its faults (two it caught, two on B2 that only a forged
+  file reaches) and three new ones on B1; one is a recorded gap
+  (`rv-occurrence-walk-failure-ignored`).
 - Task 5.2.1b (2026-11-04, Gforth 1.0.0, Lean 4.35.0). The table now has
   198 cases (22 added, every verdict Lean's, checked by
   `inductive-expected.lean`): recursive blocks (a binary tree, functions

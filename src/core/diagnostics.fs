@@ -102,9 +102,12 @@ require ../lib/lib.fs
 78 constant lf-diag-empty-block        \ rejected: the block's declaration, 0
 79 constant lf-diag-non-positive       \ P1: the constructor, the field's binder
 80 constant lf-diag-non-valid          \ P2: the constructor, the field's binder
-81 constant lf-diag-mutual-params      \ T3: the D rules used, 0
-82 constant lf-diag-param-count        \ T3: the type, the parameter binders found
-83 constant lf-diag-universe-mismatch  \ T4: the type, 0
+\ Mutual blocks (plan task 5.2.5a; 81 and 82 are plan task 4.2.2c's).
+83 constant lf-diag-mutual-params      \ T3: the D rules used, 0
+84 constant lf-diag-param-count        \ T3: the type, the parameter binders found
+85 constant lf-diag-universe-mismatch  \ T4: the type, 0
+\ Nat.pow and Nat.shiftLeft, until plan task 5.2.3 (review rvN1 B1).
+86 constant lf-diag-nat-count-op       \ unsupported: the declaration, 0
 
 begin-structure /lf-diag
   field: lf-diag-code       \ reason code; lf-diag-none while clear
@@ -264,6 +267,8 @@ create lf-diag-catalogue
     s" rejected: a mutual type has too few parameters (T3)" lf-diag-entry,
   lf-diag-universe-mismatch
     s" rejected: mutual types in different universes (T4)" lf-diag-entry,
+  lf-diag-nat-count-op
+    s" unsupported: a declaration named Nat.pow or Nat.shiftLeft" lf-diag-entry,
   lf-diag-none s" unknown code" lf-diag-entry,
 : lf-diag-end? ( code entry -- flag ) lf-diag-entry-code tuck = swap lf-diag-none = or ;
 \ The entry of code, or the last entry.

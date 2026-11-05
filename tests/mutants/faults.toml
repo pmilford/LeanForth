@@ -4487,3 +4487,146 @@ old = '''  lf-hdr-first lf-more-field tuck - lf-genrec-state lf-genrec-which !''
 new = '''  lf-hdr-first lf-more-field tuck - drop 0 lf-genrec-state lf-genrec-which !'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "5.2.5a: a use of a later type's generated recursor gets the first type's"
+
+# --- review rvN1 of plan task 5.2.1b (B1, B2, M1, L2) ---------------------
+# The reviewer's faults, re-targeted at the code after its fixes, and the
+# fixes' own.
+
+[[fault]]
+id = "rvn1-count-op-definition-checked"
+file = "src/kernel/check-declaration.fs"
+old = '''  dup lf-idecl-name @ lf-nat-counted? if drop lf-check-count-op exit then'''
+new = ''''''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvN1 B1: a definition named Nat.pow is checked, so a block whose field Lean's whnf computes Nat.pow 1 (2^65536) on is accepted where Lean refuses"
+
+[[fault]]
+id = "rvn1-count-op-member-checked"
+file = "src/kernel/inductive-block.fs"
+old = '''  lf-ind-counted if lf-ind-count-op exit then'''
+new = ''''''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvN1 B1: a block member named Nat.pow is checked as any other"
+
+[[fault]]
+id = "rvn1-count-op-pow-only"
+file = "src/kernel/inductive-block.fs"
+old = '''  false s" xor" lf-nat-op,  true s" shiftLeft" lf-nat-op,'''
+new = '''  false s" xor" lf-nat-op,  false s" shiftLeft" lf-nat-op,'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvN1 B1: Nat.shiftLeft, whose shift Lean's get_count_arg limits too, is checked"
+
+[[fault]]
+id = "rvn1-type-node-stuck-before-name"
+file = "src/kernel/check-block.fs"
+old = '''  lf-ind-spine drop dup lf-ind-const-name lf-nat-op? if drop false exit then
+  dup lf-ind-type-node? if drop true exit then lf-ind-const-name lf-blk-stuck-name? ;'''
+new = '''  lf-ind-spine drop dup lf-ind-type-node? if drop true exit then
+  dup lf-ind-const-name lf-nat-op? if drop false exit then lf-ind-const-name lf-blk-stuck-name? ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvN1 B2: a block's own type named Nat.add counts as stuck, so its field Nat.add 0 0 gets a hypothesis Lean's whnf (the literal 0) never gives"
+
+[[fault]]
+id = "rvn1-nat-ops-not-excluded"
+file = "src/kernel/check-block.fs"
+old = '''  lf-ind-spine drop dup lf-ind-const-name lf-nat-op? if drop false exit then'''
+new = '''  lf-ind-spine drop'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvN1 B2: a head named like one of reduce_nat's operations counts as stuck"
+
+[[fault]]
+id = "rv-domain-whnf-before-occurrence"
+file = "src/kernel/check-block.fs"
+old = '''  over lf-term-first@ lf-blk-occurs? ok-then? 0= if nip nip false exit then'''
+new = '''  over lf-term-first@ lf-minfer-whnf drop lf-blk-occurs? ok-then? 0= if nip nip false exit then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvN1 M1: a Pi's domain reduced before its occurrence test accepts ((fun X => Nat) T -> T) -> T, which Lean rejects (nonPositive)"
+
+[[fault]]
+id = "rv-constant-end-always-rejected"
+file = "src/kernel/check-block.fs"
+old = '''  dup lf-blk-stuck? if lf-blk-not-sort else lf-blk-unfold then ;'''
+new = '''  lf-blk-not-sort ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvN1 M1: a telescope ending in a definition equal to Type is rejected (T2) where Lean unfolds it and accepts"
+
+[[fault]]
+id = "rv-x-domain-not-consumed"
+file = "src/kernel/inductive-recursor.fs"
+old = '''  dup lf-rcr-state lf-rcr-xs @ + lf-rcr-x @ swap lf-rcr-relocate lf-rcr-consume ;'''
+new = '''  dup lf-rcr-state lf-rcr-xs @ + lf-rcr-x @ swap lf-rcr-relocate ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvN1 M1: optParam and outParam kept on a hypothesis's binders, which Lean's recursor consumes"
+
+[[fault]]
+id = "rv-ih-index-relocated-without-xs"
+file = "src/kernel/inductive-recursor.fs"
+old = '''  lf-rcr-s@ lf-rcr-relocate ;'''
+new = '''  0 lf-rcr-relocate ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvN1 M1: a hypothesis's indices not shifted past its own binders: a wrong recursor for Acc and indexed reflexive types"
+
+[[fault]]
+id = "rv-minor-result-index-not-past-ihs"
+file = "src/kernel/inductive-recursor.fs"
+old = '''  over lf-rcr-k 2 pick lf-rcr-mm + lf-rcr-shift 0 rot lf-rcr-r lf-rcr-shift ;'''
+new = '''  over lf-rcr-k 2 pick lf-rcr-mm + lf-rcr-shift nip ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvN1 M1: a minor premise's result indices not shifted past the hypotheses: a wrong recursor for every indexed recursive block"
+
+[[fault]]
+id = "rv-telescope-body-not-reduced"
+file = "src/kernel/inductive-recursor.fs"
+old = '''    dup lf-term-first@ lf-rcr-x! lf-term-second@ lf-rcr-whnf'''
+new = '''    dup lf-term-first@ lf-rcr-x! lf-term-second@'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvN1 M1: no whnf on a recursive field's Pi bodies: (Nat -> (fun X => X) T) -> T gets no hypothesis, unlike Lean's recursor"
+
+[[fault]]
+id = "rv-builder-whnf-failure-ignored"
+file = "src/kernel/inductive-recursor.fs"
+old = '''  lf-mbeta-fuel @ lf-ind-fuel ! dup ok? if 2drop else nip nip lf-rcr-failing then ;'''
+new = '''  lf-mbeta-fuel @ lf-ind-fuel ! 2drop ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvN1 L2: a refused allocation in the builder's whnf ignored; the refusal test (part 5) finds the block not full"
+
+[[fault]]
+id = "rv-positivity-whnf-failure-ignored"
+file = "src/kernel/check-block.fs"
+old = '''  swap lf-minfer-whnf ok-then? 0= if nip false exit then swap'''
+new = '''  swap lf-minfer-whnf drop swap'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvN1 L2: a refused allocation in positivity's whnf ignored; the refusal test (part 5) finds the block not full"
+
+[[fault]]
+id = "rv-occurrence-walk-failure-ignored"
+file = "src/kernel/check-block.fs"
+old = '''  lf-blk-occurs ok-then? if 0<> outcome-ok else false swap then ;'''
+new = '''  lf-blk-occurs drop 0<> outcome-ok ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvN1 L2: the occurrence walk's failure ignored"
+gap = "the walk fails only by fuel, which leaves none for the next step (exhausted either way), or when the heap refuses to grow its stack (src/lib/walk.fs ALLOCATE), which no test hook can refuse: tests/support/alloc-fail.fs refuses store allocations only"
+
+[[fault]]
+id = "rv-genrec-record-not-restored"
+file = "src/kernel/generated-recursor.fs"
+old = '''  lf-genrec-state lf-genrec-saved lf-ind-state /lf-ind move'''
+new = ''''''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvN1 Q3: the interrupted block's record not given back after a generated recursor's rebuild"
+
+[[fault]]
+id = "rv-ih-skipped-for-reflexive"
+file = "src/kernel/inductive-recursor.fs"
+old = '''  dup lf-rcr-headed? if >r lf-rcr-since r> lf-rcr-ih! exit then'''
+new = '''  dup lf-rcr-headed? lf-rcr-xs@ 3 pick = and if >r lf-rcr-since r> lf-rcr-ih! exit then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvN1: a reflexive field (a function into the type) gets no induction hypothesis"
+
+[[fault]]
+id = "rvn1-placement-gap-without-extra"
+file = "src/kernel/inductive-recursor.fs"
+old = ''': lf-rcr-gap-of ( j extra -- gap ) swap lf-rcr-k + lf-rcr-q@ - ;'''
+new = ''': lf-rcr-gap-of ( j extra -- gap ) nip lf-rcr-q@ negate ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvN1 L4: a hypothesis placed without its constructor's fields after it: every minor premise with a hypothesis wrong"

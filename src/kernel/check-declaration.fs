@@ -5,7 +5,8 @@
 \ and ends with lf-env-finish, in ADR 0011's order ("Order"), step by step:
 \   1 the audit, before any typing: a definition or theorem, safe, with a
 \     value (U1: every other kind is unsupported, axioms too, owner gate
-\     answer G3; a definition or theorem without a value is invalid); no
+\     answer G3; a definition or theorem without a value is invalid; one
+\     named Nat.pow or Nat.shiftLeft unsupported until plan task 5.2.3); no
 \     unsupported term form in its type or value (U2, the leaves of
 \     core/unsupported-forms.fs); both terms closed and well formed (V1,
 \     lf-constant-term-scope: invalid);
@@ -102,8 +103,16 @@ lf-walk-room context-walk: lf-check-walker
 : lf-check-no-value ( decl -- outcome )
   lf-idecl-value @ lf-env-limit lf-check-site lf-diag-bad-argument lf-diag-note
   outcome-invalid ;
+\ Until plan task 5.2.3 brings Lean's arithmetic on literals, a declaration
+\ named Nat.pow or Nat.shiftLeft is unsupported too, as is a block member
+\ of either name (inductive-block.fs, lf-ind-counted, which says why):
+\ Lean's whnf computes both by name and refuses a second argument of 2^32
+\ or more (get_count_arg), a rule LeanForth does not follow yet.
+: lf-check-count-op ( -- outcome )
+  lf-env-limit 0 lf-check-site lf-diag-nat-count-op lf-diag-note outcome-unsupported ;
 : lf-check-u1 ( -- outcome )
   lf-check-decl dup lf-check-in-scope? 0= if lf-check-out-of-scope exit then
+  dup lf-idecl-name @ lf-nat-counted? if drop lf-check-count-op exit then
   dup lf-idecl-value @ 0< if lf-check-no-value else drop outcome-ok then ;
 
 \ U2: no leaf of an unsupported form reachable from a root, each visit one

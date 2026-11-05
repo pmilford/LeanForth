@@ -26,6 +26,16 @@ ind.recursive-predicate-one-constructor	accepted	accepted	A1 E3 G1	5.2.1b	Inf: i
 ind.list-sort-max	accepted	accepted	A1 U1 G1	5.2.1b	LS: idx=0 rec=1 refl=0 nested=0 elim=any k=0 motives=1 minors=2 fields=[0, 2]
 ind.recursive-through-beta	accepted	accepted	A1 P1 G1	5.2.1b	Bt: idx=0 rec=1 refl=0 nested=0 elim=any k=0 motives=1 minors=2 fields=[0, 1]
 ind.erased-by-beta	accepted	accepted	A1 P1 G1	5.2.1b	Eb: idx=0 rec=1 refl=0 nested=0 elim=any k=0 motives=1 minors=1 fields=[1]
+ind.w-type	accepted	accepted	A1 U1 G1	5.2.1b	W: idx=0 rec=1 refl=1 nested=0 elim=any k=0 motives=1 minors=1 fields=[2]
+ind.acc	accepted	accepted	A1 E3 G1	5.2.1c	MAcc: idx=1 rec=1 refl=1 nested=0 elim=any k=0 motives=1 minors=1 fields=[2]
+ind.vec	accepted	accepted	A1 G1	5.2.1c	Vec: idx=1 rec=1 refl=0 nested=0 elim=any k=0 motives=1 minors=2 fields=[0, 3]
+ind.reflexive-indexed	accepted	accepted	A1 G1	5.2.1c	RI: idx=1 rec=1 refl=1 nested=0 elim=any k=0 motives=1 minors=2 fields=[0, 1]
+ind.indexed-mixed	accepted	accepted	A1 G1	5.2.1c	DT: idx=1 rec=1 refl=1 nested=0 elim=any k=0 motives=1 minors=2 fields=[0, 4]
+ind.reflexive-indexed-dependent	accepted	accepted	A1 G1	5.2.1c	IR: idx=1 rec=1 refl=1 nested=0 elim=any k=0 motives=1 minors=2 fields=[0, 3]
+ind.indexed-predicate-one-constructor	accepted	accepted	A1 E3 G1	5.2.1c	LeOne: idx=1 rec=1 refl=0 nested=0 elim=any k=0 motives=1 minors=1 fields=[2]
+ind.reflexive-annotated-binders	accepted	accepted	A1 G1	5.2.1b	AX: idx=0 rec=1 refl=1 nested=0 elim=any k=0 motives=1 minors=2 fields=[0, 1]
+ind.reflexive-body-redex	accepted	accepted	A1 P1 G1	5.2.1b	BR: idx=0 rec=1 refl=1 nested=0 elim=any k=0 motives=1 minors=2 fields=[0, 1]
+ind.redex-with-parameter	accepted	accepted	A1 P1 G1	5.2.1b	RBP: idx=0 rec=1 refl=0 nested=0 elim=any k=0 motives=1 minors=2 fields=[0, 1]
 pos.negative	nonPositive	rejected	P1	5.2.1b	
 pos.double-negative	nonPositive	rejected	P1	5.2.1b	
 pos.through-definition	nonPositive	rejected	P1	5.2.1b	
@@ -36,6 +46,9 @@ pos.negative-through-beta	nonPositive	rejected	P1	5.2.1b
 pos.negative-second-binder	nonPositive	rejected	P1	5.2.1b	
 pos.negative-later-field	nonPositive	rejected	P1	5.2.1b	
 pos.non-valid-after-pi	nonValidOccurrence	rejected	P2	5.2.1b	
+pos.negative-redex-domain	nonPositive	rejected	P1	5.2.1b	
+pos.negative-redex-domain-later	nonPositive	rejected	P1	5.2.1b	
+pos.non-valid-index-of-other	nonValidOccurrence	rejected	P2	5.2.1b	
 uniform.other-argument	nonUniformOccurrence	rejected	C1	5.2.1b	
 uniform.definitionally-equal-argument	nonUniformOccurrence	rejected	C1	5.2.1b	
 uniform.result-other-argument	nonUniformOccurrence	rejected	C1	5.2.1a	
@@ -45,6 +58,7 @@ universe.field-fits	accepted	accepted	A1 U1	5.2.1a	Fits: idx=0 rec=0 refl=0 nest
 universe.predicate-any-field	accepted	accepted	A1 U1 E4	5.2.1a	BigP: idx=0 rec=0 refl=0 nested=0 elim=Prop k=0 motives=1 minors=1 fields=[1]
 universe.type-not-a-sort	typeExpected	rejected	T2	5.2.1a	
 universe.type-not-a-sort-param	typeExpected	rejected	T2	5.2.1a	
+universe.type-a-sort-by-definition	accepted	accepted	A1 T2	5.2.1b	TD: idx=0 rec=1 refl=0 nested=0 elim=any k=0 motives=1 minors=2 fields=[0, 1]
 result.other-type	invalidReturnType	rejected	C3	5.2.1a	
 result.other-type-sort	invalidReturnType	rejected	C3	5.2.1a	
 result.index-mentions-type	invalidReturnType	rejected	C3	5.2.1c	
@@ -198,6 +212,17 @@ after.even-odd-left-out-then-use-second-rec	accepted	accepted	B4 G1	5.2.5a
 after.indexed-data-left-out-then-use-second-rec	accepted	accepted	B4 G1	5.2.5a	
 after.three-types-at-concrete	accepted	accepted	B4 G1	5.2.5a	
 after.three-types-at-renamed	accepted	accepted	B4 G1	5.2.5a	
+after.w-left-out-then-use-rec	accepted	accepted	B4 G1	5.2.1b	
+after.w-at-swapped	accepted	accepted	B4 G1	5.2.1b	
+after.w-at-concrete	accepted	accepted	B4 G1	5.2.1b	
+after.acc-left-out-then-use-rec	accepted	accepted	B4 G1	5.2.1c	
+after.acc-at-concrete	accepted	accepted	B4 G1	5.2.1c	
+after.vec-left-out-then-use-rec	accepted	accepted	B4 G1	5.2.1c	
+after.reflexive-indexed-left-out-then-use-rec	accepted	accepted	B4 G1	5.2.1c	
+after.indexed-mixed-left-out-then-use-rec	accepted	accepted	B4 G1	5.2.1c	
+after.reflexive-indexed-dependent-left-out-then-use-rec	accepted	accepted	B4 G1	5.2.1c	
+after.annotated-binders-left-out-then-use-rec	accepted	accepted	B4 G1	5.2.1b	
+after.redex-parameter-left-out-then-use-rec	accepted	accepted	B4 G1	5.2.1b	
 names.reserved-nested-prefix	reservedNestedPrefix	rejected	T0	5.2.5b	
 names.reserved-nested-prefix-declared	reservedNestedPrefix	rejected	T0	5.2.1a	
 names.constructor-already-declared	alreadyDeclared	rejected	N2	5.2.1a	
@@ -205,6 +230,16 @@ names.already-declared-earlier	alreadyDeclared	rejected	T5	5.2.1a
 primitive.forged-add-computes	accepted	unsupported	L5	5.2.3	
 primitive.forged-add-unfolds	accepted	unsupported	L5	5.2.3	
 primitive.five-is-two	accepted	unsupported	L5	5.2.3	
+forged.pow-field	natCountTooBig	unsupported	L1 L5	5.2.3	
+forged.pow-field-recursive	natCountTooBig	unsupported	L1 L5	5.2.3	
+forged.pow-field-small	accepted	unsupported	L1 L5	5.2.3	
+forged.pow-through-definition	natCountTooBig	unsupported	L1 L5	5.2.3	
+forged.pow-through-definition-nonrecursive	natCountTooBig	unsupported	L1 L5	5.2.3	
+forged.pow-erased-by-beta	natCountTooBig	unsupported	L1 L5 P1	5.2.3	
+forged.shiftleft-field	natCountTooBig	unsupported	L1 L5	5.2.3	
+forged.type-named-nat-add	accepted	unsupported	L1 L5 P1 G1	5.2.3	
+forged.type-named-nat-pow	accepted	unsupported	L1 L5	5.2.3	
 quotinit.with-eq	accepted	accepted	Q1	5.2.4	
 quotinit.without-eq	unknownConstant	rejected	Q1	5.2.4	
 quotinit.eq-wrong-shape	quotEqShape	rejected	Q1	5.2.4	
+forged.type-named-nat-add-recursor-with-hypothesis	invalidRecursor	unsupported	L1 L5 B3	5.2.3	
