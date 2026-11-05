@@ -56,11 +56,9 @@
 \ motive js (c_j As b), the type the recursor gives the left side; the
 \ generated recursor is compared with Lean's own (B3).
 \ Where Lean's add_inductive puts a term in whnf (steps 8, 9's
-\ positivity, the recursor's recursive fields), LeanForth reduces with
-\ whnfB and goes on only where Lean's whnf provably stops there
-\ (lf-blk-left?): a head that Lean's whnf could unfold or reduce leaves
-\ the block unknown until plan task 4.2.2 (whnf with delta and iota) is
-\ on main.
+\ positivity, the recursor's recursive fields), LeanForth uses Lean's
+\ whnf (whnf.fs, plan task 4.2.2c, with iota from iota.fs); where that
+\ cannot follow Lean yet it fails unknown, and so does the block.
 \ [kernel] code: experimental, not through the review gate; not
 \ independently audited.
 \ State: one record, lf-blk-state (the T.rec name, the constructor and
@@ -80,6 +78,7 @@ require ./env-signature.fs
 require ./generated-recursor.fs
 require ./inductive-block.fs
 require ./inductive-recursor.fs
+require ./iota.fs
 require ./level-geq.fs
 require ./level-make.fs
 require ./mixed-compare.fs
@@ -97,11 +96,6 @@ end-structure
 \ Their binders' positions, as many as there are (plan task 6.2.0).
 1 cells context-slab: lf-blk-positions
 
-1 constant lf-warn-indices       \ B4 warning bits
-2 constant lf-warn-rec
-4 constant lf-warn-reflexive
-8 constant lf-warn-nested
-16 constant lf-warn-no-recursor
 
 : lf-blk-site ( -- site ) c" check-block lf-block-check" ;
 : lf-blk-type@ ( -- d ) lf-blk-state lf-blkrec-type @ ;
@@ -157,50 +151,23 @@ end-structure
 : lf-blk-type ( d -- outcome ) lf-ind-type-at lf-idecl-type @ lf-blk-infer ;
 
 \ ---------------------------------------------------------------------------
-\ Where Lean's whnf stops. On a term in whnfB whose head is a constant,
-\ Lean's whnf (type_checker.cpp 706-743) goes on when whnf_core reduces a
-\ recursor or quotient application (reduce_recursor, 393-407), when
-\ reduce_nat computes a Nat operation it knows by name (672-703), or when
-\ the head is a definition or theorem it unfolds (is_delta 555-563). So it
-\ stops at once when the head is the block's own type, or a constant
-\ declared as an inductive type, a constructor, an axiom or an opaque
-\ constant, named none of those operations; for any other head LeanForth
-\ cannot follow Lean yet (unknown, K1). The name test comes first, for
-\ the block's own types too: reduce_nat matches by name only, so a type
-\ of the block named Nat.add is computed on like Lean's Nat.add (review
-\ rvN1 B2; the table's names: inductive-block.fs, lf-nat-op?). A Sort, a
-\ Pi, a lambda or a variable head stops it too (fact 3); a variable has
-\ no value while there is no let (U2; plan task 4.2.3 must revisit this,
-\ as mixed-head.fs says for its own rules).
-: lf-blk-stuck-kind? ( kind -- flag )
-  dup lf-kind-inductive = over lf-kind-constructor = or
-  over lf-kind-axiom = or swap lf-kind-opaque = or ;
-: lf-blk-stuck-name? ( name -- flag )
-  lf-env-lookup-pass ok? 0= if drop false exit then
-  dup 0< if drop false exit then lf-input-decl lf-idecl-kind @ lf-blk-stuck-kind? ;
-: lf-blk-stuck? ( node -- flag )
-  lf-ind-spine drop dup lf-ind-const-name lf-nat-op? if drop false exit then
-  dup lf-ind-type-node? if drop true exit then lf-ind-const-name lf-blk-stuck-name? ;
-\ Whether Lean's whnf leaves node, a term in whnfB, as it is.
-: lf-blk-left? ( node -- flag )
-  dup lf-mhead-kind case
-    lf-head-constant of lf-blk-stuck? endof
-    lf-head-none of drop false endof
-    nip true swap endcase ;
-: lf-blk-unfold ( node -- outcome )
-  0 lf-blk-site lf-diag-needs-unfolding lf-diag-note outcome-unknown ;
+\ Lean's whnf (whnf.fs, with delta, and iota from iota.fs) of a term read
+\ under binders the check did not open, on the step's inference job:
+\ where it cannot follow Lean yet it fails (unknown: K7, a recursor
+\ reduction not ported, K5), never a guess.
+: lf-blk-whnf ( node -- node' outcome ) lf-minfer-whnf-job ;
+\ The recursor builder's whnf, the same (inductive-recursor.fs).
+' lf-whnf-on is lf-rcr-reduce
 
-\ Step 8: the telescope. Each node is put in whnf (whnfB here; a constant
-\ head Lean might unfold is K1); a Pi's domain is binder i's; anything
-\ else ends it, and must be a Sort (else Lean's typeExpected, rule T2).
+\ Step 8: the telescope. Each node is put in whnf; a Pi's domain is
+\ binder i's; anything else ends it, and must be a Sort (else Lean's
+\ typeExpected, rule T2).
 : lf-blk-not-sort ( node -- outcome ) 0 lf-diag-block-not-sort lf-blk-reject ;
 : lf-blk-sorted ( node -- outcome )
   lf-term-first@ lf-ind-state lf-ind-level ! outcome-ok ;
-: lf-blk-constant-end ( node -- outcome )
-  dup lf-blk-stuck? if lf-blk-not-sort else lf-blk-unfold then ;
 : lf-blk-end ( node -- outcome )
   dup lf-mhead-kind case
-    lf-head-sort of lf-blk-sorted endof  lf-head-constant of lf-blk-constant-end endof
+    lf-head-sort of lf-blk-sorted endof
     lf-head-none of drop outcome-invalid endof  >r lf-blk-not-sort r> endcase ;
 \ The indices: the binders after the parameters, from domain p on. T1
 \ (step 4) leaves at least numParams; fewer, were T1 bypassed, is invalid
@@ -216,7 +183,7 @@ end-structure
 : lf-blk-bind ( pi i -- body i+1 )
   2dup swap lf-term-first@ swap lf-ind-domain ! 1+ swap lf-term-second@ swap ;
 : lf-blk-tele ( node i -- outcome )
-  begin swap lf-minfer-whnf ok-then? 0= if nip exit then dup lf-blk-pi? while
+  begin swap lf-blk-whnf ok-then? 0= if nip exit then dup lf-blk-pi? while
     over lf-blk-room? 0= if 2drop outcome-full exit then swap lf-blk-bind
   repeat lf-blk-end swap lf-blk-count ;
 \ The first type's telescope gives the parameters and its indices.
@@ -248,14 +215,13 @@ end-structure
   nip lf-blk-member-d swap lf-diag-param-count lf-blk-reject no-result ;
 : lf-blk-dsort ( node -- level outcome )
   dup lf-mhead-kind lf-head-sort = if lf-term-first@ outcome-ok exit then
-  dup lf-mhead-kind lf-head-constant = if lf-blk-constant-end no-result exit then
   dup lf-mhead-kind lf-head-none = if drop -1 outcome-invalid exit then
   lf-blk-not-sort no-result ;
 : lf-blk-dend ( node i -- level outcome )
   dup lf-ind-nparams < if lf-blk-few-params exit then
   lf-ind-nparams - lf-blk-type@ lf-blk-indices! lf-blk-dsort ;
 : lf-blk-dtele ( node i -- level outcome )
-  begin swap lf-minfer-whnf ok-then? 0= if nip no-result exit then dup lf-blk-pi? while
+  begin swap lf-blk-whnf ok-then? 0= if nip no-result exit then dup lf-blk-pi? while
     swap 2dup lf-blk-dbinder dup ok? 0= if nip nip no-result exit then drop
     swap lf-term-second@ swap 1+
   repeat swap lf-blk-dend ;
@@ -347,8 +313,8 @@ end-structure
 \ binders: a block's field that mentions its type (no other: reduction
 \ never makes an occurrence, the type being in no environment a definition
 \ unfolds into, so Lean's test passes on it whatever whnf gives). The type
-\ is put in whnf (whnfB, and Lean's whnf stops there: lf-blk-left?,
-\ else unknown); with no occurrence left it is a non-recursive field;
+\ is put in Lean's whnf (lf-blk-whnf, failing where it cannot follow
+\ Lean); with no occurrence left it is a non-recursive field;
 \ a Pi whose domain mentions the type is nonPositive, else its body is
 \ checked one binder deeper; anything else must be a valid application
 \ of the type (a recursive field), else nonValidOccurrence. Occurrences
@@ -367,10 +333,9 @@ end-structure
   if 2drop lf-diag-non-positive lf-pos-fail false exit then
   1+ swap lf-term-second@ swap true ;
 : lf-pos-step ( node depth -- node' depth' true | outcome false )
-  swap lf-minfer-whnf ok-then? 0= if nip false exit then swap
+  swap lf-blk-whnf ok-then? 0= if nip false exit then swap
   over lf-blk-occurs? ok-then? 0= if nip nip false exit then
   0= if 2drop outcome-ok false exit then
-  over lf-blk-left? 0= if drop lf-blk-unfold false exit then
   over lf-blk-pi? if lf-pos-pi exit then lf-pos-end false ;
 : lf-blk-positive ( node depth -- outcome ) begin lf-pos-step 0= until ;
 : lf-blk-positivity ( node i -- outcome )

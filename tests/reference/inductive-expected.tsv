@@ -49,6 +49,8 @@ pos.negative-later-field	nonPositive	rejected	P1	5.2.1b
 pos.non-valid-after-pi	nonValidOccurrence	rejected	P2	5.2.1b	
 pos.negative-redex-domain	nonPositive	rejected	P1	5.2.1b	
 pos.negative-redex-domain-later	nonPositive	rejected	P1	5.2.1b	
+pos.through-recursor	accepted	accepted	A1 P1 R1 G1	5.2.1b	T: idx=0 rec=1 refl=0 nested=0 elim=any k=0 motives=1 minors=2 fields=[0, 1]
+pos.erased-by-recursor	accepted	accepted	A1 P1 R1	5.2.1b	T: idx=0 rec=1 refl=0 nested=0 elim=any k=0 motives=1 minors=2 fields=[0, 1]
 pos.non-valid-index-of-other	nonValidOccurrence	rejected	P2	5.2.1b	
 uniform.other-argument	nonUniformOccurrence	rejected	C1	5.2.1b	
 uniform.definitionally-equal-argument	nonUniformOccurrence	rejected	C1	5.2.1b	
@@ -94,6 +96,16 @@ names.empty-block	emptyBlock	rejected	T1	5.2.1a
 iota.nat-literal-major	accepted	accepted	R1 L2	5.2.1b	
 iota.nat-literal-major-wrong	declTypeMismatch	rejected	R1 L2	5.2.1b	
 iota.stuck-on-variable	declTypeMismatch	rejected	R1	5.2.1b	
+iota.bool-true	accepted	accepted	R1	5.2.1b	
+iota.bool-true-wrong	declTypeMismatch	rejected	R1	5.2.1b	
+iota.list-hypothesis	accepted	accepted	R1	5.2.1b	
+iota.list-hypothesis-wrong	declTypeMismatch	rejected	R1	5.2.1b	
+iota.list-field	accepted	accepted	R1	5.2.1b	
+iota.argument-after-major	accepted	accepted	R1	5.2.1b	
+iota.bool-stuck	declTypeMismatch	rejected	R1	5.2.1b	
+iota.nat-zero	accepted	accepted	R1	5.2.1b	
+iota.nat-succ	accepted	accepted	R1 L1	5.2.3	
+iota.eq-refl	accepted	accepted	R1 R2	5.2.1c	
 iota.structure-eta	accepted	accepted	R1 R3	5.2.2	
 iota.prop-structure-stuck	declTypeMismatch	rejected	R1 R3	5.2.2	
 k.eq-variable-proof	accepted	accepted	R2	5.2.1c	

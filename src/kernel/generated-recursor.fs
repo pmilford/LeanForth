@@ -31,8 +31,10 @@
 \ not be a name or a level of the file; R4-1), and the number of universe
 \ parameters has no limit of its own (R4-3). A block whose
 \ telescope only whnf shows has no recipe: a use of its T.rec is then
-\ unknown (diagnostic 77) until unfolding and whnf at a lookup (plan task
-\ 4.2.2, its steps 4.2.2b-e). Nothing is trusted from the file beyond
+\ unknown (diagnostic 77) until the rebuild walks the telescope with
+\ whnf.fs's whnf too (a follow-up of plan task 5.2.1b; the builder finds
+\ the recursive fields with that whnf already). Nothing is trusted from
+\ the file beyond
 \ what the block check itself read.
 \ [kernel] code: experimental, not through the review gate.
 \ A recursive block's recursor has its induction hypotheses: the builder

@@ -46,30 +46,27 @@ PENDING = {
     "mutual.even-odd": ("unsupported",
         "uses Nat literals (Even 0, n + 1): U2; twin mutual.even-odd-constructors."
         " Closed by task 5.2.3 (literals)"),
-    "pos.through-definition": ("unknown",
-        "positivity needs id (Bad -> Nat) unfolded by whnf: K1; twin"
-        " pos.negative-through-beta. Closed when check-block.fs puts it in whnf.fs's"
-        " whnf (task 4.2.2c's port, on main; check-block still uses its beta-only"
-        " stand-in lf-blk-left?, which task 5.2.1b replaces)"),
-    "pos.erased-by-definition": ("unknown",
-        "positivity needs Function.const Type Nat Ok unfolded by whnf: K1; twin"
-        " ind.erased-by-beta. Closed when check-block.fs puts it in whnf.fs's whnf"
-        " (task 4.2.2c's port; the stand-in lf-blk-left? goes with task 5.2.1b)"),
     "iota.nat-literal-major": ("unsupported",
-        "a theorem with Nat literals (U2, task 5.2.3) whose check needs iota on Nat.rec"
-        " (R1 with L2, in whnf_core behind whnf.fs's hook lf-whnf-iota, task 4.2.2c)."
-        " Closed by tasks 5.2.1b (iota behind the hook) and 5.2.3"),
+        "a theorem with Nat literals (U2) whose check needs iota on Nat.rec with a literal"
+        " major (R1 with L2; iota itself is iota.fs's). Closed by task 5.2.3 (literals)"),
     "iota.nat-literal-major-wrong": ("unsupported",
-        "as iota.nat-literal-major. Closed by tasks 5.2.1b and 5.2.3"),
+        "as iota.nat-literal-major. Closed by task 5.2.3"),
     "iota.stuck-on-variable": ("unsupported",
-        "a Nat literal (U2, task 5.2.3); Lean's iota on a variable major is stuck (R1)."
-        " Closed by tasks 5.2.1b and 5.2.3"),
+        "a Nat literal (U2); Lean's iota on a variable major is stuck (R1, iota.fs)."
+        " Closed by task 5.2.3"),
+    "iota.bool-true-wrong": ("unknown",
+        "iota gives False (iota.fs), and Lean's is_def_eq says no to True: the port's no"
+        " is no rejection yet (diagnostic 30); twin iota.bool-true. Closed by task 4.2.2d"
+        " (the port decides rejections, retiring ADR 0011's analysis)"),
+    "iota.list-hypothesis-wrong": ("unknown",
+        "as iota.bool-true-wrong, after iota with an induction hypothesis; twin"
+        " iota.list-hypothesis. Closed by task 4.2.2d"),
+    "iota.bool-stuck": ("unknown",
+        "iota is stuck on a variable (no rule, iota.fs) and Lean's is_def_eq says no:"
+        " the port's no is no rejection yet (diagnostic 30). Closed by task 4.2.2d"),
     "params.constructor-binder-defeq": ("unknown",
         "C2 needs id Type unfolded by Lean's lazy delta reduction in is_def_eq: K1;"
         " twin params.constructor-binder-beta. Closed by task 4.2.2d"),
-    "universe.type-a-sort-by-definition": ("unknown",
-        "the type's telescope ends in PSortDef, a Sort only once unfolded: K1; twin"
-        " universe.type-not-a-sort. Closed by task 4.2.2 (whnf with delta)"),
     "after.annotated-binders-left-out-then-use-rec": ("unknown",
         "the use compares Nat with optParam Nat Nat.zero (diagnostic 64, the rvU4 guard): K1, Lean's lazy"
         " delta reduction in is_def_eq unfolds optParam; twin"
@@ -78,8 +75,8 @@ PENDING = {
         "IE.U2's type is a Sort only after whnf, so its block left no recipe of the"
         " generated recursor (ADR 0015 decision 12): a use of IE.U2.rec is unknown"
         " (diagnostic 77); twin after.unit-left-out-then-use-rec. Closed when the"
-        " block's telescope is put in whnf.fs's whnf (task 4.2.2c's port; check-block"
-        " and generated-recursor.fs, task 5.2.1b's switch from lf-blk-left?)"),
+        " rebuild (generated-recursor.fs) walks the telescope with whnf.fs's whnf, as"
+        " the block check does since task 5.2.1b's switch (a follow-up)"),
 }
 # Rows of later tasks whose file refers to a constant it does not declare,
 # which the importer refuses (invalid) before any check, where Lean rejects

@@ -479,10 +479,10 @@ accepted: 6 (experimental, not independently audited); axioms: none
 resources:
   time (s)     wall      cpu
   input: 6 declarations, 46 term nodes, 3 levels, 5 constant references, 31 names
-  fuel: 1187 steps in all, at most 100000 per declaration
+  fuel: 1184 steps in all, at most 100000 per declaration
   most fuel used:
        576 Two.cases (accepted)
-       339 Two (accepted)
+       336 Two (accepted)
        272 Two.swap (accepted)
 ```
 

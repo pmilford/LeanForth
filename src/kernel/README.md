@@ -43,14 +43,16 @@ rules S1, S2, S4 and F1, whose diagnostic codes they keep.
 Inductive blocks (plan tasks 5.2.1a and 5.2.1b, [ADR 0015](../../docs/adr/0015-inductive-types.md);
 [developer notes](../../docs/programming/INDUCTIVE_BLOCKS.md)):
 check-declaration sends a block's first member to `check-block.fs`, which
-runs Lean's `add_inductive` for a block of one type, recursive or not, in
-Lean's order -- the audit and the checks that need no typing in
-`inductive-block.fs`, the typed steps itself with positivity, Lean's
-`is_geq` in `level-geq.fs` -- builds the recursor with its induction
-hypotheses (`inductive-recursor.fs`), compares
-the constructors and the file's recursors with what it built (B3), and
-the publisher (`env-publish.fs`) makes every member's slot final
-together. A mutual or nested block is *unsupported*. When no slot holds `T.rec`
+runs Lean's `add_inductive` for a block of one type or a mutual block,
+recursive or not, in Lean's order -- the audit and the checks that need
+no typing in `inductive-block.fs`, the typed steps itself with
+positivity (in Lean's `whnf`, `whnf.fs`), Lean's `is_geq` in
+`level-geq.fs` -- builds the recursors with their induction hypotheses
+(`inductive-recursor.fs`), compares the constructors and the file's
+recursors with what it built (B3), and the publisher (`env-publish.fs`)
+makes every member's slot final together. A nested block is
+*unsupported*. `iota.fs` ports Lean's iota reduction (`inductive_reduce_rec`)
+behind `whnf.fs`'s hook. When no slot holds `T.rec`
 (the file left it out, or the block was rejected by B3), a later
 declaration's inference builds Lean's generated recursor again from the
 recipe the block check left (`generated-recursor.fs`, called by

@@ -24,8 +24,14 @@
 \ binder (is_rec_argument 426-433, mk_rec_infos 690-709, mk_rec_rules
 \ 770-785). A field is recursive when that whnf ends in an application of
 \ T; a field type that does not mention T is not, without reduction
-\ (reduction never makes an occurrence). The block check found that whnf
-\ there is whnfB (P1, P2), so this builder reduces with whnfB.
+\ (reduction never makes an occurrence). The builder reduces with Lean's
+\ whnf (whnf.fs, with iota.fs's iota), the whnf the block check's
+\ positivity used (P1, P2), on a frames record of its own and the
+\ block's fuel; a whnf that cannot follow Lean fails the build (unknown).
+\ It needs no inference, so a rebuild during another check's lookup (ADR
+\ 0015 decision 12) leaves that check's inference job as it was; the
+\ iota there answers unknown for a generated recursor, so a rebuild never
+\ starts another.
 \ Every binder type of a local -- each D_i, F_q and X_t -- is first
 \ stripped of outer type annotations, as Lean's mk_local_decl_for does
 \ with consume_type_annotations (inductive.cpp 221-228; Lean/Expr.lean
@@ -57,7 +63,6 @@ require ../core/levels.fs
 require ../core/names.fs
 require ../core/terms.fs
 require ./inductive-block.fs
-require ./mixed-beta.fs
 require ./mixed-shift.fs
 
 begin-structure /lf-rcr
@@ -228,13 +233,25 @@ end-structure
   over lf-rcr-k 0 ?do 2dup i swap lf-rcr-field i lf-rcr-scratch ! loop 2drop ;
 
 \ ---------------------------------------------------------------------------
-\ Recursive fields (see the header): whnfB on the block's fuel; whether a
-\ node mentions T; a Pi; an application of T.
-: lf-rcr-reduced ( index identity status -- node )
-  lf-mbeta-fuel @ lf-ind-fuel ! dup ok? if 2drop else nip nip lf-rcr-failing then ;
+\ Recursive fields (see the header): Lean's whnf on the block's fuel;
+\ whether a node mentions T; a Pi; an application of T. The frames'
+\ visitor is never run: whnf.fs opens each visit with its own first step.
+\ The whnf is whnf.fs's lf-whnf-on, set by check-block.fs: whnf.fs needs
+\ env-signature.fs, which needs this module (for the generated recursor).
+\ Until it is set, every whnf is unknown, never a guess.
+: lf-rcr-no-visit ( x frames -- -1 outcome frames 0 )
+  nip outcome-invalid no-result rot 0 ;
+' lf-rcr-no-visit context-frames: lf-rcr-frames
+: lf-rcr-unset ( node frames -- -1 outcome ) 2drop -1 outcome-unknown ;
+defer lf-rcr-reduce ( node frames -- node' outcome )
+' lf-rcr-unset is lf-rcr-reduce
+: lf-rcr-reduced ( node outcome -- node )
+  lf-rcr-frames frame-fuel @ lf-ind-fuel ! dup ok? if drop else nip lf-rcr-failing then ;
 : lf-rcr-whnf ( node -- node' )
   lf-rcr-ok? 0= if drop -1 exit then
-  lf-rcr-handle lf-ind-fuel @ lf-mixed-beta lf-rcr-reduced ;
+  lf-ind-fuel @ lf-rcr-frames frame-budget 0=
+  if drop outcome-invalid lf-rcr-failing exit then
+  lf-rcr-frames lf-rcr-reduce lf-rcr-reduced ;
 : lf-rcr-mentions? ( node -- flag )
   lf-rcr-ok? 0= if drop false exit then
   lf-ind-occurrences dup ok? if drop 0<> else lf-rcr-failing 2drop false then ;
