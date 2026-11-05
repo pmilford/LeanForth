@@ -117,6 +117,8 @@ iota.prop-structure-stuck	declTypeMismatch	rejected	R1 R3	5.2.2
 k.eq-variable-proof	accepted	accepted	R2	5.2.1c	
 k.eq-different-ends	declTypeMismatch	rejected	R2	5.2.1c	
 eta.structure	accepted	accepted	R4	5.2.2	
+eta.structure-left	accepted	accepted	R4	5.2.2	
+eta.structure-wrong-field	declTypeMismatch	rejected	R4	5.2.2	
 unit.punit	accepted	accepted	R5	5.2.2	
 unit.bool-not-unit-like	declTypeMismatch	rejected	R5	5.2.2	
 unit.punit-variables	accepted	accepted	R5	5.2.2	

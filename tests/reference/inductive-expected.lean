@@ -680,6 +680,14 @@ def reductions : List Red := [
   { id := "eta.structure",
     type := "∀ p : Nat × Nat, p = (p.1, p.2)", value := "fun (p : Nat × Nat) => Eq.refl p",
     lean := "accepted", leanforth := "accepted", rule := "R4", task := "5.2.2" },
+  -- Structure eta the other way round (the constructor on the left: try_eta_struct's
+  -- second core), and with a field that is not the projection.
+  { id := "eta.structure-left",
+    type := "∀ p : Nat × Nat, (p.1, p.2) = p", value := "fun (p : Nat × Nat) => Eq.refl (p.1, p.2)",
+    lean := "accepted", leanforth := "accepted", rule := "R4", task := "5.2.2" },
+  { id := "eta.structure-wrong-field",
+    type := "∀ p : Bool × Bool, p = (p.1, true)", value := "fun (p : Bool × Bool) => Eq.refl p",
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "R4", task := "5.2.2" },
   { id := "unit.punit",
     type := "∀ x y : PUnit.{1}, x = y", value := "fun (x y : PUnit.{1}) => Eq.refl x",
     lean := "accepted", leanforth := "accepted", rule := "R5", task := "5.2.2" },
