@@ -170,7 +170,7 @@ reference-first-checker:
 reference-binder-domains:
 	LEAN=$(LEAN) $(RUN) bash tests/reference/binder-domains-check.sh
 
-# Lean's definitional-equality procedure (ADR 0014): 50 cases with Lean's
+# Lean's definitional-equality procedure (ADR 0014): 52 cases with Lean's
 # verdict and, when accepted, how often each constant was unfolded.
 reference-definitional-equality:
 	LEAN=$(LEAN) $(RUN) bash tests/reference/definitional-equality-check.sh
