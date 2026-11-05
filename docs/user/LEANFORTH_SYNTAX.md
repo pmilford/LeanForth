@@ -6,18 +6,26 @@ approved as the design, exist in `src/author/` (plan task 8.1.2): you can
 write a theorem, a definition and its proof as Forth words, run them,
 get your mistakes back with line and column, and print the result back
 as words or in Lean's notation. They still pass the [parser] review gate
-of `AGENTS.md` before anything relies on them. What is not built yet: the
-separate authoring program that hands the checker finished terms (plan
-task 8.2.1), so today these words build terms and print them but do not
-send them to the checker; and helpers that fill in implicit arguments or
-run tactics (8.3). Today theorems reach the checker from Lean exports
-([workflows](WORKFLOWS.md#checking-a-theorem)).
+of `AGENTS.md` before anything relies on them. What is not built yet
+(designed in [ADR 0017 Amendment 1](../adr/0017-leanforth-syntax.md#amendment-1-accepted-leanforth-text-run-by-forth-itself-at-the-prompt-from-files-and-inline),
+accepted by the owner on 2026-11-04; plan task 8.2.1): with LeanForth
+loaded, Gforth's own interpreter will run this text — from a file with
+`leanforth check proof.lf`, typed at the prompt, or from a Forth program
+that passes values in — and each `end NAME` will hand the declaration to
+the checker; library names such as `Init`'s will be found through a
+vocabulary, exactly as spelt. Today these words build terms and print
+them but do not yet send them to the checker; helpers that fill in
+implicit arguments or run tactics are plan 8.3. Today theorems reach the
+checker from Lean exports ([workflows](WORKFLOWS.md#checking-a-theorem)).
 
 **Trust.** The words decide nothing. They only build terms; only the
 checker can accept a theorem, and the checked statement can always be
 printed back for you to read. The checker never loads `src/author/`
-(a test checks it). Words such as *term*, *binder* and *universe level*
-are explained in [terms for new readers](TERMS_FOR_NEW_READERS.md) and
+today (a test checks it); under Amendment 1 they will share one Gforth,
+with only LeanForth's words visible to the text, and results where other
+Forth code ran in the same Gforth will read "checked in this session"
+until re-checked by `leanforth check`. Words such as *term*, *binder*
+and *universe level* are explained in [terms for new readers](TERMS_FOR_NEW_READERS.md) and
 [concepts in three forms](CONCEPTS.md). Every word, its stack effect and
 every error code are in the
 [programming reference](../programming/LEANFORTH_WORDS.md).
