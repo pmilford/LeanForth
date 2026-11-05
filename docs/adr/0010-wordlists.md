@@ -193,9 +193,14 @@ separate program (open question OQ-1).
    program can push any wordlist (its constant is in FORTH-WORDLIST),
    traverse every wordlist, run an execution token it has kept, or store
    into any address, such as a context member's (`lf-context @` plus an
-   offset). So untrusted code — tactics, LLM output, user Forth programs —
-   must not run in the checker's program (OQ-1); wordlists are a
-   code-quality and review tool, not a trust boundary.
+   offset). So wordlists are a code-quality and review tool, not a trust
+   boundary: where untrusted code — tactics, LLM output, user Forth
+   programs — runs in the checker's program, its results cannot be
+   trusted. (This sentence first said such code must not run there, the
+   owner's OQ-1 answer of 2026-11-02. Since ADR 0017 Amendment 1, accepted
+   2026-11-04, it may: such results are labelled *checked in this session*
+   and become claims only when re-checked by `leanforth check` in a fresh
+   process, where only LeanForth's code and sealed text run.)
 
 10. **Worked example: the publisher.** `src/kernel/env-publish.fs` defines
     63 names. Its interface is four words, `lf-env-hand-over`,
