@@ -253,7 +253,7 @@ end-structure
 : cli-not-proved. ( d -- )
   dup lf-env-outcome over cli-bits not-proved? 0= if drop exit then
   ." ; NOT PROVED: depends on " 0 cli-axioms-named !
-  ['] cli-axiom-named lf-env-axiom-deps ok? 0= if ." an axiom" then ;
+  ['] cli-axiom-named lf-env-axiom-deps drop cli-axioms-named @ 0= if ." an axiom" then ;
 \ Declaration d's line: its name and the verdict its slot holds.
 : cli-verdict ( d -- )
   dup cli-name. ." : " dup lf-check-verdict. dup cli-not-proved. cr

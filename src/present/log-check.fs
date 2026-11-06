@@ -117,7 +117,15 @@ require ../core/input.fs
 : lf-lc-application? ( s -- flag )
   dup ['] lf-lc-infer? lf-lc-count 2 >= over ['] lf-lc-defeq? lf-lc-count 1 = and
   swap ['] lf-lc-instantiate? lf-lc-count 1 = and ;
+\ A declaration step: its name's freshness, then its type's formation and
+\ the comparison of its value's type with it; one without a value (an
+\ axiom: a formation, no comparison; a quotient record: neither, plan
+\ tasks 5.3.1, 5.2.4) only the freshness and no comparison.
+: lf-lc-valued? ( s -- flag ) lf-log-b@ lf-log-none <> ;
 : lf-lc-declaration? ( s -- flag )
+  dup lf-lc-valued? 0= if
+    dup ['] lf-lc-fresh? lf-lc-count 1 = swap ['] lf-lc-defeq? lf-lc-count 0= and exit
+  then
   dup ['] lf-lc-fresh? lf-lc-count 1 = over ['] lf-lc-formation? lf-lc-count 1 = and
   swap ['] lf-lc-defeq? lf-lc-count 1 = and ;
 : lf-lc-inferences ( s -- n ) ['] lf-lc-infer? lf-lc-count ;

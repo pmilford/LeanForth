@@ -220,17 +220,19 @@ in the export.
 
 **Axioms and NOT PROVED.** The axioms are read from each accepted
 declaration's slot: the axiom set the checker joined from everything the
-declaration uses. The first checker refuses every axiom (*unsupported*,
-rule U1), and with it everything that uses one, so today the set is
-always empty and the summary says `axioms: none`. Under the owner's rule,
-an accepted declaration that depends on an axiom other than `propext`,
-`Classical.choice` and `Quot.sound` gets Lean's verdict and is marked
-`NOT PROVED` on its line and counted apart in the summary (`axioms: N NOT
-PROVED`), never as proved; until axioms are supported (plan tasks 5.3.1
-and 5.3.2, which also bring the axioms' names) any axiom counts, and none
-can appear yet. The mark is presentation, never a different verdict:
-LeanForth gives Lean's verdict on a declaration that uses any axiom Lean
-accepts (plan task 5.3.1). So, by the owner's decision of 2026-11-04, a
+declaration uses (plan task 5.3.1). An axiom gets Lean's verdict: Lean's
+kernel accepts any axiom whose type is well formed, and so does
+LeanForth. Only `propext`, `Classical.choice` and `Quot.sound`, each with
+exactly Lean 4.35.0's statement (the versioned allowlist,
+`src/kernel/axiom-allowlist.fs`, version 1), count as proved; their
+names follow `axioms:` on the line, in the order `#print axioms` sorts
+them, and `unlisted` stands for any other axiom. Under the owner's rule,
+an accepted declaration that depends on an unlisted axiom -- `sorryAx`,
+an axiom the file declares, or `propext` with another statement -- is
+marked `NOT PROVED: depends on` with those axioms named (in file order)
+and counted apart in the summary (`axioms: N NOT PROVED`), never as
+proved. The mark is presentation, never a different verdict. So, by the
+owner's decision of 2026-11-04, a
 run whose declarations are all accepted, some of them NOT PROVED, keeps
 Lean's exit status, 0, and says so in a note after the summary:
 
@@ -339,14 +341,15 @@ and leaves 0. An export that uses every kind of record Lean writes,
 `tests/core/reexport/kinds.ndjson`, shows the mix a real library gives
 today: blocks such as `Prod`, `Eq` and `Iff`, recursive types such as
 `Nat` and `List` (plan task 5.2.1b), projections (plan task 5.2.2) and
-natural-number literals (plan task 5.2.3) are accepted; nested types,
-string literals, let terms, axioms, opaque declarations, quotients and
-what uses them are not yet:
+natural-number literals (plan task 5.2.3), axioms (5.3.1), opaque
+declarations (4.2.6) and quotients (5.2.4) are accepted; nested types,
+string literals, unsafe and partial declarations and what uses them are
+not yet:
 
 ```console
 $ bin/leanforth check --no-manifest tests/core/reexport/kinds.ndjson | tail -n 2; echo "exit status ${PIPESTATUS[0]}"
-106 declarations: 80 accepted, 26 unsupported
-accepted: 80 (experimental, not independently audited); axioms: none
+106 declarations: 89 accepted, 17 unsupported
+accepted: 89 (experimental, not independently audited); axioms: none
 exit status 2
 ```
 
@@ -760,16 +763,21 @@ is Lean's "yes" resting on an axiom. By the owner's decision of
 Lean, flag for 6"), a NOT PROVED declaration keeps Lean's status — 0
 when everything is accepted — and is marked on its line, in the summary,
 in a note and in the JSON report; `--strict-axioms` gives such a run
-status 6, so that a script can refuse anything resting on an axiom. No
-declaration can be NOT PROVED yet (the first checker accepts no axiom),
-so `make test` reaches both by planting an axiom in an accepted slot.
-One example of each status other than 0 and 6:
+status 6, so that a script can refuse anything resting on an axiom. Here
+`composition` is declared as an axiom, so it rests on itself; then one
+example of each other status:
 
 ```console
-$ bin/leanforth check --no-manifest tests/core/check-declaration-cases/composition-postulate.ndjson; echo "exit status $?"
+$ bin/leanforth check --no-manifest --strict-axioms tests/core/check-declaration-cases/composition-postulate.ndjson; echo "exit status $?"
+note: the export's manifest is not checked (--no-manifest)
+composition: accepted (experimental, not independently audited); axioms: unlisted; NOT PROVED: depends on composition
+1 declaration: 1 accepted
+accepted: 1 (experimental, not independently audited); axioms: 1 NOT PROVED (they depend on an axiom)
+exit status 6
+$ bin/leanforth check --no-manifest tests/core/check-declaration-cases/composition-literal.ndjson; echo "exit status $?"
 note: the export's manifest is not checked (--no-manifest)
 composition: unsupported
-  unsupported: declaration kind (U1); diagnostic 42 at check-declaration lf-check-declaration: 3 0
+  unsupported: term form (U2); diagnostic 43 at check-declaration lf-check-declaration: 3 21
 1 declaration: 1 unsupported
 exit status 2
 $ bin/leanforth check --fuel 30 tests/reference/composition.ndjson; echo "exit status $?"
@@ -862,9 +870,9 @@ supported:
     checker's derivation log (plan tasks 2.4.1, 2.4.4; untrusted presentation)
   count, reexport: exports of any size, up to all of Mathlib
 not yet supported (check answers unsupported or unknown, exit 2):
-  axioms (5.3.1), opaque declarations (4.2.6), unsafe and partial definitions;
+  unsafe and partial declarations;
   let (4.2.3), literals (5.2.3), projections (5.2.2) and metadata (4.1.3)
-  in a term; the rest of indexed families (5.2.1c), quotients (5.2.4),
+  in a term; the rest of indexed families (5.2.1c),
   mutual and nested blocks (5.2.5); unfolding definitions
   (4.2.2), so some correct proofs end unknown; check --record and replay
   refuse inductive types while reading
@@ -879,7 +887,8 @@ limits (check answers full or exhausted, exit 3):
     no fixed limit (memory)
   fuel 100000 steps per declaration (--fuel N, at most 9007199254740991)
 planned, not built: program, serve and --record on any size,
-  the axiom names of each accepted declaration (plan task 5.3.2)
+  every axiom name of each accepted declaration, as #print axioms
+    (plan task 5.3.2; today: the allowlist's names and NOT PROVED's)
 ```
 
 ## Manifests
@@ -976,8 +985,8 @@ records without the manifest check, so replay those with `--no-manifest`.
 - A declaration that uses one that was not accepted is never accepted:
   it ends *unknown* or *unsupported*.
 - An accepted declaration that depends on an axiom outside `propext`,
-  `Classical.choice` and `Quot.sound` would be marked NOT PROVED; none can
-  be yet ([axioms](#what-check-prints)).
+  `Classical.choice` and `Quot.sound` with Lean's statements is marked
+  NOT PROVED ([axioms](#what-check-prints)).
 - The results are experimental, not independently audited, as long as
   the first checker has not passed its review gate.
 - The resource report and the JSON report are untrusted output, like the
