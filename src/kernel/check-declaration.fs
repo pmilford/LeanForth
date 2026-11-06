@@ -241,7 +241,8 @@ lf-check-steps# 1+ constant lf-step-done
 \ step of the claim and the value (none for an axiom or a quotient),
 \ closed with the check's outcome (and any rule left open by a step that
 \ failed with it).
-: lf-check-logged-value ( -- term ) lf-check-valued? if lf-check-value-root else lf-log-none then ;
+: lf-check-logged-value ( -- term )
+  lf-check-valued? if lf-check-value-root else lf-log-none then ;
 : lf-check-logged ( -- outcome )
   lf-check-claim lf-check-logged-value lf-rule-declaration lf-log-open
   lf-check-steps-run lf-log-close-all ;

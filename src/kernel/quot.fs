@@ -98,7 +98,8 @@ create lf-quot-entries lf-quot-type , lf-quot-mk , lf-quot-lift , lf-quot-ind ,
   lf-env-resolve ok-then? 0= if -1 swap exit then
   dup 0< if drop -1 lf-quot-not-eq exit then
   lf-env-usable ok-then? if lf-slot-decl outcome-ok else -1 swap then ;
-: lf-quot-ctors ( decl -- items n ) lf-idecl-data lf-ity-all cells + lf-more-next lf-more-list ;
+: lf-quot-ctors ( decl -- items n )
+  lf-idecl-data lf-ity-all cells + lf-more-next lf-more-list ;
 : lf-quot-eq-form? ( decl -- flag )
   dup lf-idecl-kind @ lf-kind-inductive = 0= if drop false exit then
   dup lf-idecl-arity @ 1 = swap lf-quot-ctors nip 1 = and ;
@@ -112,7 +113,8 @@ create lf-quot-entries lf-quot-type , lf-quot-mk , lf-quot-lift , lf-quot-ind ,
   lf-quot-refl-text lf-quot-typed lf-quot-matched ;
 : lf-quot-eq-shape ( decl -- outcome )
   dup lf-quot-eq-form? 0= if drop lf-quot-not-eq exit then
-  dup lf-quot-eq-text lf-quot-typed lf-quot-matched dup ok? if drop lf-quot-refl else nip then ;
+  dup lf-quot-eq-text lf-quot-typed lf-quot-matched
+  dup ok? if drop lf-quot-refl else nip then ;
 : lf-quot-eq-name ( -- name outcome )
   0 s" Eq" lf-name-str if outcome-ok else -1 outcome-full then ;
 : lf-quot-eq ( -- outcome )

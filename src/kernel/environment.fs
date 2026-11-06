@@ -805,9 +805,12 @@ here lf-env-holders - 2 cells / constant lf-env-holders#
 : lf-mark-down ( marks d -- )
   0 swap do dup i lf-marked? if dup i lf-env lf-env-slot lf-marks-of then -1 +loop drop ;
 : lf-axiom-slot? ( d -- flag )
-  lf-env lf-env-slot dup lf-slot-accepted? swap lf-slot-decl lf-idecl-kind @ lf-kind-axiom = and ;
+  lf-env lf-env-slot dup lf-slot-accepted?
+  swap lf-slot-decl lf-idecl-kind @ lf-kind-axiom = and ;
 : lf-marks-give ( marks d xt -- )
-  swap 1+ 0 ?do over i lf-marked? if i lf-axiom-slot? if i over execute then then loop 2drop ;
+  swap 1+ 0 ?do
+    over i lf-marked? if i lf-axiom-slot? if i over execute then then
+  loop 2drop ;
 : lf-marks-new ( d -- marks outcome )
   1+ cells dup allocate if 2drop 0 outcome-full exit then tuck swap erase outcome-ok ;
 : lf-marks-run ( d xt marks -- )

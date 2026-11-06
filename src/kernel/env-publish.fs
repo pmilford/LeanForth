@@ -202,7 +202,8 @@ defer lf-env-before-final
 \ set: an axiom outside the allowlist is accepted as Lean accepts it and
 \ marked NOT PROVED where results are reported (owner decision 4 as
 \ amended).
-: lf-recheck-own ( -- bits ) lf-env-limit lf-input-decl lf-own-axiom ok? 0= if drop -1 then ;
+: lf-recheck-own ( -- bits )
+  lf-env-limit lf-input-decl lf-own-axiom ok? 0= if drop -1 then ;
 : lf-recheck-axioms? ( -- flag )
   ['] lf-slot-axioms lf-deps-union lf-recheck-own or lf-env-cand lf-cand-axioms @ = ;
 : lf-final-run? ( -- flag ) lf-env lf-envh-mode @ lf-mode-final = ;

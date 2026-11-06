@@ -109,7 +109,8 @@ end-structure
 : lf-stmt-push ( x kind -- flag )
   lf-stmt-depth@ dup lf-stmt-room < 0= if drop 2drop false exit then
   dup 1+ lf-stmt-state lf-stmt-depth ! lf-stmt-item 2! true ;
-: lf-stmt-pop ( -- x kind ) -1 lf-stmt-state lf-stmt-depth +! lf-stmt-depth@ lf-stmt-item 2@ ;
+: lf-stmt-pop ( -- x kind )
+  -1 lf-stmt-state lf-stmt-depth +! lf-stmt-depth@ lf-stmt-item 2@ ;
 : lf-stmt-lpush ( level -- flag ) lf-stmt-level lf-stmt-push ;
 
 \ A term token for node: whether they agree, the node's children pushed.
@@ -122,7 +123,8 @@ end-structure
 : lf-stmt-bvar? ( node n -- flag )
   over lf-tag-bvar lf-stmt-tag? if swap lf-term-first@ = else 2drop false then ;
 : lf-stmt-sort ( node -- flag )
-  dup lf-tag-symbolic-sort lf-stmt-tag? if lf-term-first@ lf-stmt-lpush else drop false then ;
+  dup lf-tag-symbolic-sort lf-stmt-tag? 0= if drop false exit then
+  lf-term-first@ lf-stmt-lpush ;
 \ A constant: its name, then its number of universe arguments, each then
 \ pushed, the first matched first.
 : lf-stmt-arg ( addr k -- flag ) lf-cref-pair@ drop lf-stmt-lpush ;
@@ -159,7 +161,8 @@ end-structure
 : lf-stmt-lbinary ( level tag -- flag )
   over swap lf-stmt-ltag? if lf-stmt-lchildren else drop false then ;
 : lf-stmt-succ ( level -- flag )
-  dup lf-level-tag-succ lf-stmt-ltag? if lf-level-first@ lf-stmt-lpush else drop false then ;
+  dup lf-level-tag-succ lf-stmt-ltag? 0= if drop false exit then
+  lf-level-first@ lf-stmt-lpush ;
 \ uN: the declaration's parameter number N, compared by name.
 : lf-stmt-param ( level n -- flag )
   over lf-level-tag-param lf-stmt-ltag? 0= if 2drop false exit then
@@ -191,7 +194,8 @@ end-structure
   lf-stmt-text! lf-stmt-state tuck lf-stmt-decl ! 0 swap lf-stmt-depth !
   lf-stmt-term lf-stmt-push drop ;
 : lf-stmt-match ( term decl c-addr u -- flag outcome )
-  lf-stmt-start lf-stmt-loop lf-stmt-spent? if drop false outcome-exhausted else outcome-ok then ;
+  lf-stmt-start lf-stmt-loop
+  lf-stmt-spent? if drop false outcome-exhausted else outcome-ok then ;
 
 \ Entries: the code (an axiom's bit, a quotient constant's number), the
 \ number of universe parameters, then two kept texts, the constant's name
