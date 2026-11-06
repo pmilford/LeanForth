@@ -28,9 +28,10 @@
 \ free variables (checked). n = 0 gives the term itself, unvisited, as
 \ in Lean. Lean skips the subterms whose cached loose-bound-variable range
 \ or free-variable flag shows them unchanged (instantiate.cpp 103,
-\ abstract.cpp 19); this store keeps no such data, so the passes visit
-\ them, keep them and pay fuel for them (ADR 0014 Q12 plans the data and
-\ a memo). A new bound variable reuses the live leaf of its index that a
+\ abstract.cpp 19); the term store keeps no such data, but the caches do
+\ while they are on (kernel/caches.fs, ADR 0014 Q12, through the hook
+\ lf-open-unchanged?), and the passes then skip such a node as Lean does;
+\ otherwise they visit it, keep it and pay fuel for it. A new bound variable reuses the live leaf of its index that a
 \ pass made before, if any: leaves never change, so this shares an equal
 \ term (it saves room in a small term store).
 \ Each visit costs one unit of fuel and one frame, on a stack that grows
@@ -175,10 +176,18 @@ end-structure
     lf-tag-lit of lf-rebuild-keep endof  lf-tag-let of lf-rebuild-keep endof
     lf-tag-symbolic-sort of lf-rebuild-keep endof
     >r lf-rebuild-bad r> endcase ;
+\ Whether the cached data of a node shows the pass would give it back
+\ unchanged, as Lean's replace skips it (instantiate.cpp 103, abstract.cpp
+\ 19): by default never known; the caches set the hook
+\ (kernel/caches.fs), and then the node is kept without a visit below it.
+defer lf-open-unchanged? ( node frames -- flag )
+:noname ( node frames -- flag ) 2drop false ; is lf-open-unchanged?
+: lf-open-pair ( node frames -- ... frames next )
+  2dup lf-open-unchanged? if dup >r lf-rebuild-keep r> 0 else lf-open-binary then ;
 \ The visit's first step (lib/frame.fs).
 : lf-open-visit ( node frames -- ... frames next )
   2dup lf-open-readable? lf-rebuild-tag
-  dup lf-term-binary-tag? if drop lf-open-binary else over >r lf-open-leaf r> 0 then ;
+  dup lf-term-binary-tag? if drop lf-open-pair else over >r lf-open-leaf r> 0 then ;
 \ The frames and their visitor, set up once in every context; their stack
 \ is freed with the context.
 : lf-open-setup ( -- ) ['] lf-open-visit lf-open-frames frame-init ;

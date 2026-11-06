@@ -206,9 +206,14 @@ end-structure
 
 \ ---------------------------------------------------------------------------
 \ Leaves of the comparison, each paid from the frames' fuel.
-\ Lean's ==, recording nothing when the terms differ.
+\ Lean's ==, recording nothing when the terms differ. Two terms the
+\ caches know equal (one skeleton, kernel/caches.fs, which sets the hook)
+\ are equal at no cost; otherwise the walk decides.
+defer lf-dq-known-same? ( t s -- flag )
+:noname ( t s -- flag ) 2drop false ; is lf-dq-known-same?
 : lf-dq-same ( t s frames -- flag outcome )
-  >r r@ frame-fuel @ lf-expr-equal r> lf-mcompare-fuel lf-dq-repay ;
+  >r 2dup lf-dq-known-same? if 2drop r> drop true outcome-ok exit then
+  r@ frame-fuel @ lf-expr-equal r> lf-mcompare-fuel lf-dq-repay ;
 \ is_def_eq(level, level), Lean's is_equivalent (781-787) on level-
 \ compare's fuel: yes, no (an undecided comparison that level-compare.fs
 \ found apart), or a failure; names it cannot order are unknown.

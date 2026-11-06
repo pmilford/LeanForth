@@ -190,7 +190,13 @@ lf-walk-room context-walk2: lf-whnf-scan
 : lf-whnf-scanned ( outcome -- flag outcome )
   dup outcome-unknown = if drop true outcome-ok exit then
   dup ok? 0= if lf-whnf-scan lf-whnf-site lf-diag-walk then false swap ;
+\ The answer Lean reads from a node's cached data, when known (the caches
+\ keep it, kernel/caches.fs, which sets the hook): the walk is then not
+\ run and costs nothing, as Lean's flag.
+defer lf-whnf-known ( node visit -- flag true | false )
+:noname ( node visit -- false ) 2drop false ; is lf-whnf-known
 : lf-whnf-scan-run ( node frames visit -- flag outcome )
+  2 pick over lf-whnf-known if >r 2drop drop r> outcome-ok exit then
   swap >r r@ frame-fuel @ lf-whnf-scan walk-budget drop
   0 swap lf-whnf-scan walk-run-pair lf-whnf-scanned
   lf-whnf-scan walk-fuel @ r> frame-fuel ! ;

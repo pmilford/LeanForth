@@ -136,7 +136,6 @@ begin-structure /lf-cache
   field: lf-cache-misses
 end-structure
 9 constant lf-caches#
-7 constant lf-results#            \ the first seven: emptied for each job
 begin-structure /lf-caches
   field: lf-caches-off            \ true when a test turned the caches off
   field: lf-caches-next           \ the last skeleton given
@@ -195,10 +194,9 @@ create lf-cache-hooks /htab-hooks allot
   dup lf-cache-entries dup slab-clear lf-cache-trim
   dup lf-cache-small? if lf-cache-table htab-clear exit then
   dup lf-cache-table htab-free lf-cache-table-init ;
-\ Empty the result tables (an inference job starts), or every table and
-\ the skeletons (a check begins).
-: lf-caches-clear ( -- ) ['] lf-cache-empty lf-results# lf-caches-some ;
-: lf-caches-reset ( -- ) ['] lf-cache-empty lf-caches-each 0 lf-caches lf-caches-next ! ;
+\ Empty every table and start the skeletons again (a check begins, an
+\ inference job starts).
+: lf-caches-clear ( -- ) ['] lf-cache-empty lf-caches-each 0 lf-caches lf-caches-next ! ;
 
 \ The switch, and whether the caches are on now (see the header).
 : lf-caches-enable ( flag -- ) 0= lf-caches lf-caches-off ! ;
@@ -296,13 +294,19 @@ lf-tag-let lf-skel-level < lf-tag-lit lf-skel-level < and lf-tag-proj lf-skel-le
   r> repeat drop nip true ;
 
 \ Terms: kept per node with its identity (kind 1 of the memo), with the
-\ node's loose bound variables.
+\ data Lean caches in each node (expr.h): bits, twice its loose bound
+\ variables (loose_bvar_range: 1 + the largest index beyond its own
+\ binders, or 0), plus 1 when it has a free variable (has_fvar). Only a
+\ node every pass takes has facts: a leaf of a known tag, a well-formed
+\ bound variable, a free variable live in this job's local context (the
+\ tables are emptied when a job starts); any other node, and every node
+\ above it, has none, and the passes then meet it as without the caches.
 : lf-tmemo-key ( node -- flag )
   dup lf-term-identity if >r 1 swap r> 0 lf-key! true else drop false then ;
-: lf-term-facts@ ( node -- id loose true | false )
+: lf-term-facts@ ( node -- id bits true | false )
   lf-tmemo-key 0= if false exit then
   lf-cache-memo lf-cache-entry ?dup if lf-cent-values true else false then ;
-: lf-term-facts! ( node id loose -- flag )
+: lf-term-facts! ( node id bits -- flag )
   rot lf-tmemo-key if lf-cache-memo lf-cache-put else 2drop false then ;
 : lf-ts-sp ( -- addr ) lf-caches lf-caches-sp ;
 : lf-ts-push ( node -- flag ) lf-ts-sp lf-caches-stack lf-sk-push ;
@@ -311,7 +315,11 @@ lf-tag-let lf-skel-level < lf-tag-lit lf-skel-level < and lf-tag-proj lf-skel-le
 : lf-tk-first ( node tag -- kind a b true ) swap lf-term-first@ 0 true ;
 : lf-tk-own ( node tag -- kind a b true | false )
   drop lf-skel-node swap lf-term-identity if 0 true else drop false then ;
+: lf-tk-bvar ( node tag -- kind a b true | false )
+  over dup lf-term-first@ swap lf-term-second@ lf-repr-leaf?
+  if lf-tk-first else 2drop false then ;
 : lf-tk-fvar ( node tag -- kind a b true | false )
+  over lf-fvar-live? 0= if 2drop false exit then
   swap lf-term-identity if 0 true else drop false then ;
 : lf-tk-sort ( node tag -- kind a b true | false )
   swap lf-term-first@ lf-level-id if 0 true else drop false then ;
@@ -323,44 +331,69 @@ lf-tag-let lf-skel-level < lf-tag-lit lf-skel-level < and lf-tag-proj lf-skel-le
   over lf-term-second@ 2 < if lf-tk-pair else lf-tk-own then ;
 : lf-tk-leaf ( node tag -- kind a b true | false )
   dup case
-    lf-tag-bvar of lf-tk-first endof
+    lf-tag-bvar of lf-tk-bvar endof
     lf-tag-let of lf-tk-first endof
-    lf-tag-sort of lf-tk-first endof
     lf-tag-fvar of lf-tk-fvar endof
     lf-tag-symbolic-sort of lf-tk-sort endof
     lf-tag-constant of lf-tk-const endof
     lf-tag-lit of lf-tk-lit endof
     lf-tag-proj of lf-tk-pair endof
-    drop lf-tk-own 0 endcase ;
-\ A node's skeleton and loose bound variables from its key: kept, and the
-\ node off the stack.
-: lf-tf-done ( node kind a b loose -- flag )
+    drop 2drop false 0 endcase ;
+\ A node's skeleton and bits from its key: kept, and the node off the
+\ stack.
+: lf-tf-done ( node kind a b bits -- flag )
   >r lf-skel if r> lf-term-facts! else r> 2drop false then lf-ts-pop ;
-: lf-leaf-loose ( node kind -- loose ) lf-tag-bvar = if lf-term-first@ 1+ else drop 0 then ;
+: lf-leaf-bits ( node kind -- bits )
+  dup lf-tag-bvar = if drop lf-term-first@ 1+ 2* exit then
+  nip lf-tag-fvar = if 1 else 0 then ;
 : lf-tf-leaf ( node tag -- flag )
-  over swap lf-tk-leaf 0= if drop false exit then 2over lf-leaf-loose lf-tf-done ;
+  over swap lf-tk-leaf 0= if drop false exit then 2over lf-leaf-bits lf-tf-done ;
 \ A child's facts, or the child pushed (false, with the push's flag).
-: lf-tf-child ( child -- id loose true | flag false )
+: lf-tf-child ( child -- id bits true | flag false )
   dup lf-term-facts@ if rot drop true else lf-ts-push false then ;
 \ An application's loose bound variables are its children's largest, a
-\ binder's body counts one less.
+\ binder's body counts one less; a free variable in either is one in it.
 : lf-tf-loose ( tag l1 l2 -- loose ) rot lf-tag-app <> if 1- 0 max then max ;
+: lf-tf-bits ( tag b1 b2 -- bits ) 2dup or 1 and >r 2/ swap 2/ swap lf-tf-loose 2* r> or ;
 : lf-tf-binary ( node tag -- flag )
   over lf-term-first@ lf-tf-child 0= if nip nip exit then
   3 pick lf-term-second@ lf-tf-child 0= if >r 2drop 2drop r> exit then
-  rot swap 4 pick -rot lf-tf-loose lf-tf-done ;
+  rot swap 4 pick -rot lf-tf-bits lf-tf-done ;
 : lf-ts-step ( -- flag )
   lf-ts-sp lf-caches-stack lf-sk-top dup lf-term-facts@ if 2drop drop true lf-ts-pop exit then
   dup lf-term-tag@ dup lf-term-binary-tag? if lf-tf-binary else lf-tf-leaf then ;
 : lf-ts-run ( -- flag )
   begin lf-ts-sp @ while lf-ts-step 0= if 0 lf-ts-sp ! false exit then repeat true ;
-\ node's skeleton and loose bound variables, or false when they cannot
-\ be kept (no heap, or no live node).
-: lf-term-facts ( node -- id loose true | false )
+\ node's skeleton and bits, or false when it has none (see above) or
+\ they cannot be kept (no heap).
+: lf-term-facts ( node -- id bits true | false )
   dup lf-term-facts@ if rot drop true exit then
   dup lf-term-valid? 0= if drop false exit then
   0 lf-ts-sp ! dup lf-ts-push 0= if drop false exit then
   lf-ts-run if lf-term-facts@ else drop false then ;
+
+\ Lean's cached node data where Lean reads it. whnf.fs's scans:
+\ has_loose_bvars (lf-whnf-scan-visit), and has_fvar where a loose bound
+\ variable counts too (lf-whnf-free-visit). mixed-open.fs's passes keep a
+\ node unchanged without visiting it as Lean's replace does
+\ (instantiate.cpp 103: no loose bound variable at or beyond the offset;
+\ abstract.cpp 19: no free variable). defeq.fs's ==: one skeleton.
+: lf-cs-known ( node visit -- flag true | false )
+  lf-caches-on? 0= if 2drop false exit then
+  swap lf-term-facts 0= if drop false exit then nip
+  swap ['] lf-whnf-scan-visit = if 2/ then 0<> true ;
+' lf-cs-known is lf-whnf-known
+: lf-co-unchanged? ( node frames -- flag )
+  lf-caches-on? 0= if 2drop false exit then
+  swap lf-term-facts 0= if drop false exit then nip
+  over lf-open-abstract? if nip 1 and 0= exit then
+  2/ swap frame-context @ > 0= ;
+' lf-co-unchanged? is lf-open-unchanged?
+: lf-cs-same? ( t s -- flag )
+  lf-caches-on? 0= if 2drop false exit then
+  lf-term-facts 0= if drop false exit then drop
+  swap lf-term-facts 0= if drop false exit then drop = ;
+' lf-cs-same? is lf-dq-known-same?
 
 \ ---------------------------------------------------------------------------
 \ Nodes as keys (by skeleton) and values (a live node and its identity).
@@ -429,7 +462,7 @@ lf-tag-let lf-skel-level < lf-tag-lit lf-skel-level < and lf-tag-proj lf-skel-le
 \ pair's key: the two skeletons, the smaller first, both closed.
 : lf-cp-on? ( -- flag ) lf-caches-on? if lf-dq-typer @ 0<> else false then ;
 : lf-closed-id ( node -- id true | false )
-  lf-term-facts if if drop false else true then else false then ;
+  lf-term-facts if 2/ if drop false else true then else false then ;
 : lf-pair-key ( t s -- flag )
   lf-closed-id 0= if drop false exit then
   swap lf-closed-id 0= if drop false exit then
@@ -475,7 +508,7 @@ lf-tag-let lf-skel-level < lf-tag-lit lf-skel-level < and lf-tag-proj lf-skel-le
 : lf-ci-ready? ( node -- id scope true | false )
   lf-caches-on? 0= if drop false exit then
   lf-minfer-chain @ 0< 0= if drop false exit then
-  lf-term-facts 0= if false exit then lf-ci-scope dup 0= if nip then ;
+  lf-term-facts 0= if false exit then 2/ lf-ci-scope dup 0= if nip then ;
 : lf-ci-table ( -- cache ) lf-minfer-aside @ if lf-cache-infer-only else lf-cache-infer then ;
 : lf-ci-key ( id scope -- ) 0 0 lf-key! ;
 \ The visit keeps the scope and the skeleton.
