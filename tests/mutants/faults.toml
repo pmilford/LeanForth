@@ -121,8 +121,8 @@ reason = "CD: the step loop stops one short and never compares the value's type"
 [[fault]]
 id = "cd-unlimited-budget"
 file = "src/kernel/check-declaration.fs"
-old = '''  0 lf-check-step! lf-check-state lf-chk-budget @ lf-check-left !'''
-new = '''  0 lf-check-step! 1000000 lf-check-left !'''
+old = '''  lf-caches-clear 0 lf-check-step! lf-check-state lf-chk-budget @ lf-check-left !'''
+new = '''  lf-caches-clear 0 lf-check-step! 1000000 lf-check-left !'''
 test = "$GFORTH tests/core/check-declaration.fs"
 reason = "CD: the budget is ignored; a check without fuel can be accepted, and fuel sweeps change"
 
@@ -922,10 +922,70 @@ reason = "4.2.2b: step 6 calls the same constant at any universe arguments equal
 [[fault]]
 id = "conv-scratch-kept"
 file = "src/kernel/mixed-convert.fs"
-old = '''  lf-mconvert-marks 2>r >r lf-mconvert-defeq r> 2r> lf-mconvert-restore ;'''
+old = '''  lf-mconvert-marks 2>r >r lf-mconvert-defeq r> 2r> lf-mconvert-done ;'''
 new = '''  lf-mconvert-defeq ;'''
 test = "$GFORTH tests/core/mixed-convert.fs"
 reason = "the terms, levels and local-context entries a conversion made are not discarded"
+
+# --- Lean's caches (src/kernel/caches.fs; plan task 4.2.7, review CA) ----
+
+[[fault]]
+id = "cache-mode-ignored"
+file = "src/kernel/caches.fs"
+old = '''  lf-minfer-aside @ if lf-cache-infer-only else lf-cache-infer then ;'''
+new = '''  lf-cache-infer ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "an infer-only type answers a checking inference, which then skips its checks"
+
+[[fault]]
+id = "cache-never-emptied"
+file = "src/kernel/caches.fs"
+old = ''': lf-caches-clear ( -- ) ['] lf-cache-empty'''
+new = ''': lf-caches-clear ( -- ) lf-cache-memo lf-cache-table htab-live? if exit then
+  ['] lf-cache-empty'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "entries outlive their check and their job's local context"
+
+[[fault]]
+id = "cache-sort-level-ignored"
+file = "src/kernel/caches.fs"
+old = '''  swap lf-term-first@ lf-level-id if 0 true else drop false then ;'''
+new = '''  nip 0 0 true ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "Sorts of different levels share a skeleton: a false =="
+
+[[fault]]
+id = "cache-skip-early"
+file = "src/kernel/caches.fs"
+old = '''  2/ swap frame-context @ > 0= ;'''
+new = '''  2/ swap frame-context @ 1+ > 0= ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "instantiate keeps a node whose loose bound variable it should replace"
+
+[[fault]]
+id = "cache-scope-ignored"
+file = "src/kernel/caches.fs"
+old = '''  ?dup 0= if 0 true exit then lf-minfer-context-depth @ > if false else lf-ci-top then ;'''
+new = '''  drop 0 true ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "an open source node's type is reused under another scope"
+
+[[fault]]
+id = "cache-identity-unchecked"
+file = "src/kernel/caches.fs"
+old = '''  lf-cent-values over lf-term-identity if = else drop false then dup 0= if nip then ;'''
+new = '''  lf-cent-values drop true ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "a cached value whose node was discarded is used"
+
+[[fault]]
+id = "cache-dead-fvar"
+file = "src/kernel/caches.fs"
+old = '''  over lf-fvar-live? 0= if 2drop false exit then
+'''
+new = ''''''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "a free variable of an emptied local context gets a skeleton"
 
 [[fault]]
 id = "conv-no-as-equal"
