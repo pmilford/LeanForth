@@ -6,8 +6,12 @@
 \ using a conversion result.
 \ Answers: ok when Lean's is_def_eq says yes; rejected when it says no
 \ (the caller reports Lean's exception for its step: declTypeMismatch,
-\ appTypeMismatch); unknown where the port cannot decide; invalid,
-\ exhausted or full for a failure. No failure ever authorizes equality.
+\ appTypeMismatch) and when Lean's is_def_eq throws (an unknown constant
+\ the typer or steps 12 and 14 look up, a numeral reduce_nat refuses:
+\ the exception's own diagnostic, which the caller keeps);
+\ lf-mixed-convert-no? ( -- flag ) tells the two apart after a
+\ comparison. Unknown where the port cannot decide; invalid, exhausted or
+\ full for a failure. No failure ever authorizes equality.
 \ The caller may lend the port a typer (lf-dq-typer, defeq.fs), as
 \ mixed-infer.fs does; without one, a no that steps 4 or 14 could have
 \ turned into a yes is unknown.
@@ -17,7 +21,7 @@
 \ State: one paired walk record, lf-mconvert-walker (the audit, and the
 \ fuel left), one frames record, lf-mconvert-frames (the comparison), and
 \ one module record, lf-mconvert-state (whether the comparison may keep
-\ its fuel when unknown), all members of the checker context
+\ its fuel when unknown; whether it answered Lean's no), all members of the checker context
 \ (lib/context.fs). Single-threaded within one context; no raw or
 \ concurrent mutation is safe; a comparison cannot run inside another
 \ (the frames record is busy: invalid).
@@ -36,6 +40,7 @@ require ./mixed-compare.fs
 lf-walk-room context-walk2: lf-mconvert-walker
 begin-structure /lf-mcvs
   field: lf-mcvs-keep       \ true: an unknown comparison keeps its fuel
+  field: lf-mcvs-no         \ true: the last comparison answered Lean's no
 end-structure
 /lf-mcvs context-record: lf-mconvert-state
 \ The frames' visitor is never run: every visit of the port is opened
@@ -47,11 +52,14 @@ end-structure
 \ Fuel left after a conversion; mixed-infer continues with it.
 : lf-mconvert-fuel ( -- addr ) lf-mconvert-walker walk-fuel ;
 : lf-mconvert-keep ( -- addr ) lf-mconvert-state lf-mcvs-keep ;
+: lf-mconvert-said ( flag -- ) lf-mconvert-state lf-mcvs-no ! ;
+\ Whether the last comparison's rejection was Lean's no, not an exception.
+: lf-mixed-convert-no? ( -- flag ) lf-mconvert-state lf-mcvs-no @ ;
 \ The port on the walk's fuel left after the audits: yes is ok, no is
 \ rejected, recorded as not definitionally equal with both terms (a
 \ caller that knows the step records its own rule in its place).
 : lf-mconvert-no ( left right -- outcome )
-  c" mixed-convert lf-mixed-convert" lf-diag-not-defeq lf-diag-note outcome-rejected ;
+  true lf-mconvert-said c" mixed-convert lf-mixed-convert" lf-diag-not-defeq lf-diag-note outcome-rejected ;
 : lf-mconvert-answer ( left right flag outcome -- outcome )
   dup ok? if drop if 2drop outcome-ok else lf-mconvert-no then else nip nip nip then ;
 : lf-mconvert-defeq ( left right -- outcome )
@@ -86,7 +94,7 @@ end-structure
 : lf-mconvert-logged ( left lid right rid fuel -- status )
   4 pick 3 pick lf-rule-defeq lf-log-open lf-mconvert-pass lf-log-decided ;
 : lf-mconvert-checked ( left lid right rid fuel -- status )
-  lf-log? if lf-mconvert-logged else lf-mconvert-pass then ;
+  false lf-mconvert-said lf-log? if lf-mconvert-logged else lf-mconvert-pass then ;
 : lf-mixed-convert ( left lid right rid fuel -- status )
   false lf-mconvert-keep ! lf-mconvert-checked ;
 : lf-mixed-convert-keeping ( left lid right rid fuel -- status )
