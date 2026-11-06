@@ -315,13 +315,17 @@ lf-walk-room context-walk2: lf-whnf-scan
   dup 0= if 2drop lf-idecl-value @ r> drop outcome-ok exit then
   lf-whnf-pairs! ok-then? 0= if nip nip r> drop no-result exit then
   rot dup lf-idecl-value @ swap 2swap r> lf-whnf-substitute ;
+\ The hook of Lean's m_unfold cache (kernel/caches.fs sets it): the value
+\ of decl for const, as lf-whnf-value gives it.
+defer lf-whnf-valued ( decl const frames -- value outcome )
+' lf-whnf-value is lf-whnf-valued
 
 \ unfold_definition (589-602) of node, whose head is a constant: (node'
 \ ok) unfolded, (-1 ok) when the head does not unfold, or the failure.
 : lf-whnf-reapply ( value node -- node' outcome )
   lf-whnf-spine-args ok-then? if lf-whnf-apply else nip no-result then ;
 : lf-whnf-unfold-head ( node frames const decl -- node' outcome )
-  swap rot lf-whnf-value ok-then? if swap lf-whnf-reapply else nip no-result then ;
+  swap rot lf-whnf-valued ok-then? if swap lf-whnf-reapply else nip no-result then ;
 : lf-whnf-unfold ( node frames -- node' outcome )
   over lf-whnf-head dup lf-whnf-const? 0= if drop 2drop lf-whnf-none outcome-ok exit then
   dup lf-whnf-delta-of ok-then? 0= if nip nip nip no-result exit then
@@ -416,12 +420,17 @@ defer lf-whnf-iota ( app frames -- ... frames next )
 \ whnf_core's visit. Going on with a new node within the same visit (a
 \ tail call in Lean: 523, 533, 538, 543) costs one unit of fuel.
 defer lf-wc-visit ( node frames -- ... frames next )
+\ The first step of a whnf_core visit, and of each step that goes on with
+\ a new node within one (Lean's recursive whnf_core calls): lf-wc-visit,
+\ or the m_whnf_core cache's step around it (kernel/caches.fs sets it).
+defer lf-wc-entry ( node frames -- ... frames next )
+' lf-wc-visit is lf-wc-entry
 : lf-wc-again ( node frames -- node frames next | -1 outcome frames 0 )
-  dup frame-fuel @ 0> if -1 over frame-fuel +! ['] lf-wc-visit exit then
+  dup frame-fuel @ 0> if -1 over frame-fuel +! ['] lf-wc-entry exit then
   dup lf-whnf-site lf-diag-frames-fuel nip outcome-exhausted swap lf-whnf-failed ;
 : lf-wc-then ( node outcome frames -- ... frames next )
   over ok? if nip lf-wc-again else >r nip no-result r> 0 then ;
-: lf-wc-call ( node frames cont -- ... frames next ) ['] lf-wc-visit lf-whnf-open ;
+: lf-wc-call ( node frames cont -- ... frames next ) ['] lf-wc-entry lf-whnf-open ;
 
 \ The head f of node's spine, whnf_core'd: a lambda contracts (beta); f
 \ the head itself goes to the iota hook, node saved across its visit; any
@@ -523,6 +532,10 @@ defer lf-whnf-cored ( t1 outcome frames -- ... frames next )
   over lf-term-valid? 0= if nip outcome-invalid swap lf-whnf-failed exit then
   over lf-whnf-easy? if lf-whnf-keep exit then
   ['] lf-whnf-cored lf-wc-call ;
+\ The first step of a whnf visit: lf-whnf-visit, or the m_whnf cache's
+\ step around it (kernel/caches.fs sets it).
+defer lf-whnf-entry ( node frames -- ... frames next )
+' lf-whnf-visit is lf-whnf-entry
 
 \ reduce_nat on node, for which lf-whnf-k7? holds: its first argument's
 \ whnf, then a binary operation's second one's, must be a literal or
@@ -546,11 +559,11 @@ defer lf-whnf-cored ( t1 outcome frames -- ... frames next )
   dup lf-whnf-none = if outcome-ok r> lf-nat-end exit then
   0 r@ frame-pick lf-mhead-spine nip 1 = if lf-reduce-nat-succ r> lf-nat-end exit then
   r@ frame-save 1 r@ frame-pick lf-term-second@
-  r> ['] lf-nat-second ['] lf-whnf-visit lf-whnf-open ;
+  r> ['] lf-nat-second ['] lf-whnf-entry lf-whnf-open ;
 :noname ( node frames -- ... frames next )
   2dup frame-save >r dup lf-mhead-spine nip 1 =
   if lf-term-second@ else lf-term-first@ lf-term-second@ then
-  r> ['] lf-nat-first ['] lf-whnf-visit lf-whnf-open ; is lf-nat-visit
+  r> ['] lf-nat-first ['] lf-whnf-entry lf-whnf-open ; is lf-nat-visit
 
 \ ---------------------------------------------------------------------------
 \ cheap_beta_reduce (instantiate.cpp 211-230), which infer_lambda applies
@@ -584,7 +597,7 @@ defer lf-whnf-cored ( t1 outcome frames -- ... frames next )
 \ ---------------------------------------------------------------------------
 \ The public words (see the header).
 : lf-whnf-core-call ( node frames cont -- ... frames next ) lf-wc-call ;
-: lf-whnf-call ( node frames cont -- ... frames next ) ['] lf-whnf-visit lf-whnf-open ;
+: lf-whnf-call ( node frames cont -- ... frames next ) ['] lf-whnf-entry lf-whnf-open ;
 : lf-whnf-core-on ( node frames -- node' outcome )
   ['] lf-whnf-core-call frame-through drop ;
 : lf-whnf-on ( node frames -- node' outcome ) ['] lf-whnf-call frame-through drop ;

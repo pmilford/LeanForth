@@ -67,8 +67,14 @@ end-structure
   lf-term-count @ lf-level-count @ lf-cref-count @ ;
 : lf-mconvert-restore ( terms levels crefs -- )
   lf-cref-count ! lf-level-count ! dup lf-term-count ! lf-lctx-drop ;
+\ While the caches keep scratch until the job ends (kernel/caches.fs sets
+\ the hook), nothing is restored.
+defer lf-mconvert-keeps? ( -- flag )
+:noname ( -- flag ) false ; is lf-mconvert-keeps?
+: lf-mconvert-done ( terms levels crefs -- )
+  lf-mconvert-keeps? if 2drop drop else lf-mconvert-restore then ;
 : lf-mconvert-run ( left right -- outcome )
-  lf-mconvert-marks 2>r >r lf-mconvert-defeq r> 2r> lf-mconvert-restore ;
+  lf-mconvert-marks 2>r >r lf-mconvert-defeq r> 2r> lf-mconvert-done ;
 \ An outcome but ok leaves no fuel, unless the comparison keeps it (an
 \ unknown one, lf-mixed-convert-keeping).
 : lf-mconvert-kept? ( outcome -- flag ) outcome-unknown = lf-mconvert-keep @ and ;

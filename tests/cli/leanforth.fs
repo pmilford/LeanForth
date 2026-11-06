@@ -205,9 +205,10 @@ cli-options
 \ A second run in the same process gives the same verdicts and fuel.
 : run-facts ( c-addr u -- code ok# fuel )
   cli-check outcome-ok tally ck-fuel-total drop ;
-\ (1184 since the block check uses Lean's whnf, plan task 5.2.1b; 1187
-\ since conversion is Lean's is_def_eq, plan task 4.2.2b; 1520 before.)
-T{ inductive run-facts inductive run-facts -> 0 6 1184 0 6 1184 }T
+\ (1136 with Lean's caches, plan task 4.2.7; 1184 since the block check
+\ uses Lean's whnf, plan task 5.2.1b; 1187 since conversion is Lean's
+\ is_def_eq, plan task 4.2.2b; 1520 before.)
+T{ inductive run-facts inductive run-facts -> 0 6 1136 0 6 1136 }T
 cli-no-manifest
 kinds run-facts constant kinds-fuel drop drop
 T{ kinds run-facts -> 2 89 kinds-fuel }T
