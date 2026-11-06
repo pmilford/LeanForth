@@ -251,6 +251,9 @@ OUTCOMES = {"ok": "accepted", "rejected": "rejected", "unknown": "unknown",
             "exhausted": "exhausted", "full": "full"}
 # What an accepted declaration prints (src/kernel/check-declaration.fs).
 ACCEPTED_LABEL = "accepted (experimental, not independently audited); axioms: none"
+# Rows that rest on an axiom outside the allowlist (plan task 5.3.1): NOT PROVED.
+UNLISTED_ROWS = {"scope.postulate", "scope.uses-postulate"}
+UNLISTED_LABEL = "accepted (experimental, not independently audited); axioms: unlisted"
 # The steps of check-declaration (lf-check-step@), and the steps at which
 # each rule may end a check, in Lean's order (ADR 0011, "Order"): the audit
 # before any typing; then the name, the universe parameters, the declared
@@ -261,7 +264,7 @@ STEPS = {0: "begin", 1: "audit", 2: "name", 3: "params", 4: "type", 5: "sort",
          6: "proposition", 7: "value", 8: "comparison", 9: "done"}
 INSIDE = {"type", "value"}
 TYPING = {"type", "sort", "proposition", "value", "comparison"}
-RULE_STEPS = {"A1": {"done"}, "B1": {"done"}, "U1": {"audit"}, "U2": {"audit"},
+RULE_STEPS = {"A1": {"done"}, "B1": {"done"}, "O1": {"done"}, "U1": {"audit"}, "U2": {"audit"},
               "V1": {"audit"}, "N2": {"name"}, "L3": {"params"}, "S1": {"sort"},
               "S3": {"proposition"}, "S4": INSIDE, "N1": INSIDE, "L1": INSIDE, "L2": INSIDE,
               "S2": INSIDE, "F1": INSIDE, "K5": INSIDE | {"name"},
@@ -445,7 +448,8 @@ def checker_row(case, lean, expected, rule, measured, verdict, known):
         raise Mismatch(f"{case}: LeanForth gave {outcome}, the table says {expected}")
     if outcome == expected and step not in rule_steps(rule):
         raise Mismatch(f"{case}: ended at step {step}, where rule {rule} cannot")
-    label = ACCEPTED_LABEL if outcome == "accepted" else [o for o, n in OUTCOMES.items()
+    accepted = UNLISTED_LABEL if case in UNLISTED_ROWS else ACCEPTED_LABEL
+    label = accepted if outcome == "accepted" else [o for o, n in OUTCOMES.items()
                                                           if n == outcome][0]
     if verdict != label:
         raise Mismatch(f"{case}: printed {verdict!r}, not {label!r}")

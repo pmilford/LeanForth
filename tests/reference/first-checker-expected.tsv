@@ -56,9 +56,9 @@ constant.function-type-behind-definition	accepted	accepted	A1
 constant.sort-behind-definition	accepted	accepted	A1
 scope.metadata	accepted	unsupported	U2
 scope.number-literal	accepted	unsupported	U2
-scope.postulate	accepted	unsupported	U1
-scope.uses-postulate	accepted	unsupported	K5
-scope.opaque	accepted	unsupported	U1
+scope.postulate	accepted	accepted	A1
+scope.uses-postulate	accepted	accepted	A1
+scope.opaque	accepted	accepted	O1
 scope.unsafe-definition	accepted	unsupported	U1
 scope.partial-definition	accepted	unsupported	U1
 pi-body.variable	typeExpected	rejected	S4
