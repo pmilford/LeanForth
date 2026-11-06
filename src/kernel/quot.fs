@@ -22,7 +22,7 @@
 \   one the lookup's outcome (K5).
 \ - lf-quot-builtin ( decl -- outcome ): the record is one of the four,
 \   by name, with exactly Lean's universe parameters and type
-\   (statement-match.fs, the entries below); anything else is rejected
+\   (core/statement-match.fs, the entries below); anything else is rejected
 \   (diagnostic 96). Not yet as Lean (a gap of plan task 5.2.4): replay
 \   ignores a quotient record's type and name and adds Lean's own
 \   constants, so a forged record is accepted there and later
@@ -43,7 +43,7 @@
 \ exactly three arguments, argument 3 of app, the function, applied to
 \ the third, then to app's arguments after mk, is the reduct; otherwise
 \ no rule applies (-1 ok).
-\ State: none of its own; the matcher's record is statement-match.fs's,
+\ State: none of its own; the matcher's record is core/statement-match.fs's,
 \ the frames whnf.fs's.
 
 require ../lib/lib.fs
@@ -54,10 +54,10 @@ require ../core/names.fs
 require ../core/terms.fs
 require ./environment.fs
 require ./mixed-head.fs
-require ./statement-match.fs
+require ../core/statement-match.fs
 require ./whnf.fs
 
-\ Lean's four constants (quot.cpp 54-97), entries of statement-match.fs.
+\ Lean's four constants (quot.cpp 54-97), entries of core/statement-match.fs.
 \ Quot.{u} : {alpha : Sort u} -> (alpha -> alpha -> Prop) -> Sort u
 0 1 lf-stmt: lf-quot-type  s" Quot" lf-text,
   lf-statement: P S u0 P P #0 P #1 S z S u0 end-statement

@@ -63,7 +63,7 @@ require ./environment.fs
 require ./env-publish.fs
 require ./mixed-infer.fs
 require ./check-block.fs
-require ./axiom-allowlist.fs
+require ../core/axiom-allowlist.fs
 require ./quot.fs
 
 begin-structure /lf-chk
@@ -190,13 +190,13 @@ lf-walk-room context-walk: lf-check-walker
   lf-check-found @ lf-check-claim lf-minfer-agree
   lf-check-site lf-diag-value-apart lf-minfer-verdict ;
 
-\ Steps that compare with a statement Lean fixes (statement-match.fs), on
+\ Steps that compare with a statement Lean fixes (core/statement-match.fs), on
 \ the audit's fuel.
 : lf-check-matched ( xt -- outcome )
   lf-check-left @ lf-stmt-fuel ! execute lf-stmt-fuel @ 0 max lf-check-left ! ;
 \ An axiom (add_axiom, environment.cpp 152-158: steps 1-6 as for a
 \ definition), then step 7: its own bit joins the candidate's axiom set
-\ (axiom-allowlist.fs): a listed one when it is the allowlist's
+\ (core/axiom-allowlist.fs): a listed one when it is the allowlist's
 \ statement, else unlisted, which reports mark NOT PROVED.
 : lf-check-own-axiom ( -- outcome )
   lf-check-decl lf-axiom-bit ok-then? if lf-env-axiom! outcome-ok then ;

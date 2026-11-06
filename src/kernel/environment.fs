@@ -77,7 +77,7 @@ require ../core/names.fs
 require ../core/name-equal.fs
 require ../core/terms.fs
 require ../core/input.fs
-require ./axiom-allowlist.fs
+require ../core/axiom-allowlist.fs
 
 65536 constant lf-env-pool-start    \ the pool room `check` starts with; it grows
 1 constant lf-state-final           \ the state of a published slot
@@ -104,7 +104,7 @@ begin-structure /lf-env
   field: lf-envh-identity   \ never repeats; 0 once freed
   field: lf-envh-input      \ the input's fingerprint when made
   field: lf-envh-length     \ number of slots: the input's declarations
-  field: lf-envh-allowed    \ axiom bits that count as proved (axiom-allowlist.fs;
+  field: lf-envh-allowed    \ axiom bits that count as proved (core/axiom-allowlist.fs;
                             \ a test may set others on a synthetic environment)
   field: lf-envh-version    \ allowlist version
   field: lf-envh-mode       \ run mode
@@ -273,7 +273,7 @@ end-structure
 : lf-env-pooled ( deps env -- env outcome )
   swap lf-pool-block dup ok? if drop over lf-envh-pool ! outcome-ok exit then
   >r drop free drop 0 r> ;
-\ The axiom allowlist (axiom-allowlist.fs): its version, and the bits
+\ The axiom allowlist (core/axiom-allowlist.fs): its version, and the bits
 \ that count as proved.
 : lf-env-allowlist ( env -- env )
   lf-allowlist-bits over lf-envh-allowed ! lf-allowlist-version over lf-envh-version ! ;
@@ -678,7 +678,7 @@ here lf-env-holders - 2 cells / constant lf-env-holders#
 : lf-cand-insert ( d -- )
   dup lf-cand-place dup lf-cand-open lf-cand-dep ! 1 lf-env-cand lf-cand-count +! ;
 : lf-or! ( bits addr -- ) tuck @ or swap ! ;
-\ An axiom's own bit (axiom-allowlist.fs), joined to the candidate's set
+\ An axiom's own bit (core/axiom-allowlist.fs), joined to the candidate's set
 \ by its check (check-declaration.fs).
 : lf-env-axiom! ( bits -- ) lf-env-cand lf-cand-axioms lf-or! ;
 : lf-cand-union ( slot -- )
@@ -783,7 +783,7 @@ here lf-env-holders - 2 cells / constant lf-env-holders#
 \ axiom set that do not count as proved: an accepted declaration with any
 \ is NOT PROVED (Lean's verdict, marked).
 : lf-env-unproved ( bits -- bits' ) lf-env lf-envh-allowed @ invert and ;
-\ A declaration's own axiom bit: an axiom's (axiom-allowlist.fs, whose
+\ A declaration's own axiom bit: an axiom's (core/axiom-allowlist.fs, whose
 \ comparison is bounded by its texts, so its fuel is not limited here), 0
 \ for any other kind; ok, or the comparison's failure.
 : lf-own-axiom ( decl -- bit outcome )

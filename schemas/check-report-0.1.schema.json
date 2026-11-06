@@ -233,12 +233,17 @@
         "verdict": {"$ref": "#/$defs/verdict"},
         "label": {"const": "experimental, not independently audited"},
         "axiomBits": {
-          "description": "The axiom set read from the accepted slot, as bits; 0 for none. The first checker accepts no axiom, so it is always 0 today.",
+          "description": "The axiom set read from the accepted slot, as bits (src/core/axiom-allowlist.fs, version 1): 1 propext, 2 Classical.choice, 4 Quot.sound, each with Lean's statement, and 8 any other axiom; 0 for none.",
           "$ref": "#/$defs/count"
         },
         "notProved": {
-          "description": "true for an accepted declaration that depends on an axiom: Lean's verdict, labelled NOT PROVED and never counted as proved (owner, 2026-11-04).",
+          "description": "true for an accepted declaration that depends on an axiom outside the allowlist (bit 8): Lean's verdict, labelled NOT PROVED and never counted as proved (owner, 2026-11-04).",
           "type": "boolean"
+        },
+        "notProvedBy": {
+          "description": "With notProved true only: the axioms outside the allowlist the declaration depends on, in file order (none named when no axiom declaration carries the bit).",
+          "type": "array",
+          "items": {"$ref": "#/$defs/name"}
         },
         "diagnostic": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/diagnostic"}]},
         "fuel": {
@@ -258,9 +263,14 @@
           "else": {"required": ["diagnostic"]}
         },
         {
-          "if": {"required": ["axiomBits"], "properties": {"axiomBits": {"const": 0}}},
+          "if": {"required": ["axiomBits"], "properties": {"axiomBits": {"maximum": 7}}},
           "then": {"properties": {"notProved": {"const": false}}},
           "else": {"properties": {"notProved": {"const": true}}}
+        },
+        {
+          "if": {"required": ["notProved"], "properties": {"notProved": {"const": true}}},
+          "then": {"required": ["notProvedBy"]},
+          "else": {"not": {"required": ["notProvedBy"]}}
         },
         {
           "if": {"properties": {"verdict": {"const": "not-checked"}}},

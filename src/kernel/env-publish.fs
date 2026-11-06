@@ -9,7 +9,7 @@
 \ every slot below it with the same name is final and rejected (N2, K5,
 \ G-P5); its dependencies are ascending, distinct, below it, final and
 \ accepted; its axiom set is the union of theirs with, for an axiom, its
-\ own bit (axiom-allowlist.fs), its provenance the union of theirs and
+\ own bit (core/axiom-allowlist.fs), its provenance the union of theirs and
 \ "checked" in a final run; its kind is a definition, theorem or opaque
 \ declaration with a value, or an axiom or quotient record without one,
 \ safe, with distinct universe parameters. A failure is a fault in LeanForth and

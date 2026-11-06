@@ -224,7 +224,7 @@ declaration uses (plan task 5.3.1). An axiom gets Lean's verdict: Lean's
 kernel accepts any axiom whose type is well formed, and so does
 LeanForth. Only `propext`, `Classical.choice` and `Quot.sound`, each with
 exactly Lean 4.35.0's statement (the versioned allowlist,
-`src/kernel/axiom-allowlist.fs`, version 1), count as proved; their
+`src/core/axiom-allowlist.fs`, version 1), count as proved; their
 names follow `axioms:` on the line, in the order `#print axioms` sorts
 them, and `unlisted` stands for any other axiom. Under the owner's rule,
 an accepted declaration that depends on an unlisted axiom -- `sorryAx`,

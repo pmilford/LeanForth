@@ -149,18 +149,26 @@ class ExitCodes(unittest.TestCase):
                      "lf-block-check: 0 0",
                      "1 declaration: 1 rejected"])
 
+    def test_0_not_proved(self):
+        """An axiom (plan task 5.3.1): Lean's verdict, accepted, marked NOT
+        PROVED with the axiom named; status 0 as Lean, 6 under
+        --strict-axioms."""
+        postulate = f"{CASES}/composition-postulate.ndjson"
+        line = (f"composition: accepted (experimental, not independently audited); axioms: unlisted; NOT PROVED: depends on composition")
+        lines = [NO_MANIFEST, line, "1 declaration: 1 accepted",
+                 "accepted: 1 (experimental, not independently audited); axioms: 1 NOT PROVED (they depend on an axiom)"]
+        note = ["note: NOT PROVED declarations keep Lean's exit status; --strict-axioms",
+                "note: makes it 6"]
+        self.expect(["check", "--no-manifest", postulate], 0, lines + note)
+        self.expect(["check", "--no-manifest", "--strict-axioms", postulate], 6, lines)
+
     def test_2_unsupported_and_unknown(self):
-        self.expect(["check", "--no-manifest", f"{CASES}/composition-postulate.ndjson"], 2,
-                    [NO_MANIFEST, "composition: unsupported",
-                     "  unsupported: declaration kind (U1); diagnostic 42 at check-declaration "
-                     "lf-check-declaration: 3 0",
-                     "1 declaration: 1 unsupported"])
         status, out, _ = run("check", "--no-manifest", f"{CASES}/composition-literal.ndjson")
         self.assertEqual((status, out.splitlines()[1]), (2, "composition: unsupported"))
         status, out, _ = run("check", "--no-manifest", "tests/core/reexport/kinds.ndjson")
         self.assertEqual((status, out.splitlines()[-2:]),
-                         (2, ["106 declarations: 80 accepted, 26 unsupported",
-                              accepted(80)]))
+                         (2, ["106 declarations: 89 accepted, 17 unsupported",
+                              accepted(89)]))
         self.expect(["check", "--no-manifest", "--record", "/dev/null",
                      "tests/core/reexport/kinds.ndjson"], 2,
                     [NO_MANIFEST,
@@ -453,7 +461,9 @@ class Print(unittest.TestCase):
         self.assertEqual((status, out.count(REFUSED), out.count("  exhausted")), (3, 3, 3))
         status, out = self.lines("--no-manifest", f"{CASES}/composition-postulate.ndjson")
         self.assertEqual((status, out[1:3], out[-1]),
-                         (2, ["Axiom composition", "  unsupported"], REFUSED))
+                         (0, ["Axiom composition", f"  accepted (experimental, not independently audited); axioms: unlisted"],
+                          "No proof outline: an axiom or a quotient constant has no proof;"
+                          " Lean's kernel takes it as given."))
         for args, code in [((FIXTURE,), 0), (("--no-manifest", UNKNOWN), 2),
                            (("--fuel", "0", FIXTURE), 3),
                            (("--no-manifest", f"{CASES}/composition-wrong-argument.ndjson"), 1)]:
@@ -741,13 +751,21 @@ class JsonReport(unittest.TestCase):
             self.assertEqual((status, got["exitStatus"]), (text_status, text_status), args)
             self.assertEqual(got["stopped"], "internal fault: the run stopped" in text, args)
             # Each declaration's line, in order, says the report's verdict.
-            words = {"accepted": LABEL, "not-checked": "not checked"}
+            # An accepted one's line names its axioms and, when NOT PROVED,
+            # says so (plan task 5.3.1).
+            words = {"accepted": "accepted (experimental, not independently audited); axioms: ",
+                     "not-checked": "not checked"}
             lines = text.splitlines()
             at = 0
             for d in got["declarations"]:
                 line = f"{d['name']}: {words.get(d['verdict'], d['verdict'])}"
-                self.assertIn(line, lines[at:], args)
-                at = lines.index(line, at) + 1
+                accepted_one = d["verdict"] == "accepted"
+                found = [k for k in range(at, len(lines))
+                         if lines[k] == line or (accepted_one and lines[k].startswith(line))]
+                self.assertTrue(found, (line, args))
+                at = found[0] + 1
+                self.assertEqual("; NOT PROVED: depends on " in lines[at - 1],
+                                 bool(d.get("notProved")), args)
             shown = [line for line in lines if re.match(r"^\d+ declarations?: ", line)]
             counts = got["counts"]
             self.assertEqual(len(shown), int(counts is not None), args)
@@ -773,7 +791,7 @@ class JsonReport(unittest.TestCase):
         def not_proved(r, strict=True):
             """Declaration 0 NOT PROVED and counted; under --strict-axioms
             the status 6, else Lean's 0."""
-            r["declarations"][0].update(axiomBits=4, notProved=True)
+            r["declarations"][0].update(axiomBits=8, notProved=True, notProvedBy=["sorryAx"])
             r["counts"].update(notProved=1)
             r["settings"].update(strictAxioms=strict)
             r.update(exitStatus=6 if strict else 0)
@@ -781,14 +799,14 @@ class JsonReport(unittest.TestCase):
         def rejected(r, status):
             """Declaration 5 rejected, counted, and the status given."""
             d = r["declarations"][5]
-            for key in ("label", "axiomBits", "notProved"):
-                d.pop(key)
+            for key in ("label", "axiomBits", "notProved", "notProvedBy"):
+                d.pop(key, None)
             d.update(verdict="rejected", diagnostic=None)
             r["counts"].update(accepted=5, rejected=1)
             r.update(exitStatus=status)
         cases = [
             (good, lambda r: r["declarations"][4].update(verdict="rejected")),   # status 0
-            (good, lambda r: r["declarations"][0].update(axiomBits=4)),          # notProved false
+            (good, lambda r: r["declarations"][0].update(axiomBits=8)),          # notProved false
             (good, lambda r: r["declarations"][0].pop("label")),
             (good, lambda r: r["declarations"][1].update(diagnostic=None)),      # accepted
             (good, lambda r: r.update(run="not-run")),                           # read ok

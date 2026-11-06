@@ -61,7 +61,7 @@
 require ./log-view.fs
 require ./log-check.fs
 require ./statement-forms.fs
-require ../kernel/axiom-allowlist.fs
+require ../core/axiom-allowlist.fs
 require ../core/diagnostics.fs
 
 32 constant lf-ol-set-capacity
@@ -628,13 +628,15 @@ lf-walk-room context-walk: lf-ol-premises
 : lf-ol-no-formulas ( -- )
   s" Proof outline not available: the log was kept without formulas (level steps)."
   lf-ol-none ;
+: lf-ol-postulate? ( -- flag )
+  lf-ol-decl lf-idecl-kind @ dup lf-kind-axiom = swap lf-kind-quotient = or ;
 : lf-ol-unproved ( -- )
   s" No proof outline: an axiom or a quotient constant has no proof; Lean's kernel takes it as given."
   lf-ol-none ;
 \ Why no outline can be printed, said: true; or false when one can.
 : lf-ol-refused? ( -- flag )
   lf-ol-accepted? 0= if lf-ol-not-accepted true exit then
-  lf-ol-decl lf-idecl-value @ 0< if lf-ol-unproved true exit then
+  lf-ol-postulate? if lf-ol-unproved true exit then
   lf-log-level lf-log-terms <> if lf-ol-no-formulas true exit then
   lf-log-complete? 0= if lf-ol-truncated true exit then false ;
 : lf-ol-body ( detail -- )

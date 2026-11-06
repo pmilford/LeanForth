@@ -230,7 +230,7 @@
         },
         "label": {"const": "experimental, not independently audited"},
         "axioms": {
-          "description": "The axioms the accepted declaration depends on, read from the slots, in file order: each name as the term printer writes it. Allowlist version 0 had none; version 1 (src/kernel/axiom-allowlist.fs) lists propext, Classical.choice and Quot.sound with Lean's statements as proved, and any other axiom makes the declaration NOT PROVED.",
+          "description": "The axioms the accepted declaration depends on, read from the slots, in file order: each name as the term printer writes it. Allowlist version 0 had none; version 1 (src/core/axiom-allowlist.fs) lists propext, Classical.choice and Quot.sound with Lean's statements as proved, and any other axiom makes the declaration NOT PROVED.",
           "type": "array",
           "items": {"allOf": [{"$ref": "#/$defs/shown"}, {"pattern": "^.{1,1024}$"}]}
         },

@@ -248,7 +248,7 @@ variable wanted#
 \ An axiom bit planted in an accepted slot must show in its verdict.
 : axiom-shows? ( d -- flag )
   dup fp-slot@ lf-slot-axioms 1 over ! swap captured rot 0 swap !
-  s" accepted (experimental, not independently audited); axioms: bits 1" compare 0= ;
+  s" accepted (experimental, not independently audited); axioms: propext" compare 0= ;
 : axioms-ok ( d -- )
   dup lf-env-outcome ok? if axiom-shows? s" stale axioms" fp-must else drop then ;
 : reports ( -- )

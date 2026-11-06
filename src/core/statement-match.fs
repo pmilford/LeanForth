@@ -42,14 +42,14 @@
 
 require ../lib/lib.fs
 require ../lib/bytes.fs
-require ../core/constant-references.fs
-require ../core/constant-term-boundary.fs
-require ../core/input.fs
-require ../core/levels.fs
-require ../core/name-equal.fs
-require ../core/names.fs
-require ../core/tagged-sort-boundary.fs
-require ../core/terms.fs
+require ./constant-references.fs
+require ./constant-term-boundary.fs
+require ./input.fs
+require ./levels.fs
+require ./name-equal.fs
+require ./names.fs
+require ./tagged-sort-boundary.fs
+require ./terms.fs
 
 96 constant lf-stmt-room   \ pending nodes, at least any text's tokens
 0 constant lf-stmt-term    \ the kinds of a pending node

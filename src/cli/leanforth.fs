@@ -59,7 +59,7 @@
 \ claim or misreport a failure, never make a declaration accepted. Names
 \ are printed as cli/name-text.fs shows them, escaped, so a crafted name
 \ cannot forge a line. An accepted declaration that depends on an axiom
-\ outside the allowlist (kernel/axiom-allowlist.fs) is marked NOT PROVED
+\ outside the allowlist (core/axiom-allowlist.fs) is marked NOT PROVED
 \ on its line, with those axioms named, and counted apart (the owner's
 \ rule). check
 \ --record and replay hold small exports only (64 names, levels and term
